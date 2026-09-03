@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 35 | 1484 | 1650 | 259 | 65 | 0 | 1 |
+| 36 | 1484 | 1654 | 265 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -37,19 +37,20 @@
 | 19 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
 | 20 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
 | 21 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
-| 22 | `08-agent-runs.js` | orchestration | 87 | 79 | 15 |
+| 22 | `08-agent-runs.js` | orchestration | 87 | 79 | 16 |
 | 23 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
-| 24 | `09-workflow.js` | orchestration | 20 | 190 | 20 |
-| 25 | `10-context-governance.js` | orchestration | 125 | 62 | 12 |
-| 26 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 27 | `12-tool-dispatch.js` | tools | 30 | 75 | 13 |
-| 28 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 29 | `13-http-router.js` | transport | 33 | 199 | 22 |
-| 30 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 31 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 32 | `13d-core-domain-routes.js` | transport | 17 | 80 | 11 |
-| 33 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 34 | `14-main.js` | entrypoint | 1 | 400 | 25 |
+| 24 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 25 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
+| 26 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
+| 27 | `11-native-tools.js` | tools | 85 | 22 | 5 |
+| 28 | `12-tool-dispatch.js` | tools | 30 | 75 | 13 |
+| 29 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 30 | `13-http-router.js` | transport | 33 | 199 | 22 |
+| 31 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 32 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 33 | `13d-core-domain-routes.js` | transport | 17 | 80 | 11 |
+| 34 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 35 | `14-main.js` | entrypoint | 1 | 400 | 26 |
 
 ## 模块边
 
@@ -170,7 +171,7 @@
 | `07-autonomy.js` | `05-claude-engine.js` | backward | `providerBaseWithV1` |
 | `07-autonomy.js` | `06-provider-engine.js` | backward | `appendResponseLanguagePolicy`, `toolRequirementsMet` |
 | `07-autonomy.js` | `08-agent-runs.js` | forward | `saveAgentRun` |
-| `07-autonomy.js` | `09-workflow.js` | forward | `estimateTextTokens` |
+| `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokens` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
 | `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
 | `08-agent-runs.js` | `00-boot.js` | backward | `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
@@ -183,7 +184,8 @@
 | `08-agent-runs.js` | `06-provider-engine.js` | backward | `TOOL_ITERATION_BUDGETS`, `appendResponseLanguagePolicy`, `buildProviderSystemPrompt`, `getCapabilities`, `readProjectMemory`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget` |
 | `08-agent-runs.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease` |
 | `08-agent-runs.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `classifyToolPacks`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `runClaudeSubAgentOnce`, `toResponsesTools`, `toolPackForName` |
-| `08-agent-runs.js` | `09-workflow.js` | forward | `estimateContentTokens`, `estimateHistoryTokens`, `launchPersistedAgentRun`, `setEstimateBucketsV1` |
+| `08-agent-runs.js` | `09-workflow.js` | forward | `launchPersistedAgentRun` |
+| `08-agent-runs.js` | `09d-token-estimation.js` | forward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `CompactionPlan`, `evaporateHistory`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult` |
 | `08-agent-runs.js` | `11-native-tools.js` | forward | `httpGetGuarded`, `ssrfCheck` |
 | `08-agent-runs.js` | `13-http-router.js` | forward | `resolveNodeModel` |
@@ -206,9 +208,12 @@
 | `09-workflow.js` | `07-autonomy.js` | backward | `ACTION_VIEW_MIN_CHARS`, `ACTION_VIEW_TOOLS`, `MAIL_GLOBAL_MAX`, `MAIL_PER_SENDER_MAX`, `MAIL_QUEUE_MAX`, `MAIL_TEXT_MAX`, `POOL_CHAIN_MAX`, `POOL_GRACE_MS`, `POOL_MAX_TOTAL`, `actionTargetMeta`, `activeAgentRuns`, `agentRunFile`, `bridgedToolTier`, `buildOpenAiTools`, `classifyRuntimeToolFailure`, `cleanupAgentWorktree`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `drainSteerQueue`, `estimateToolSchemaTokens`, `failoverStickyBase`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `looksLikePlan`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `openAiStreamOnce`, `projectActionModelView`, `requestNativePermission`, `requestPlanApproval`, `resumeInFlight`, `toResponsesTools` |
 | `09-workflow.js` | `08-agent-runs.js` | backward | `accumulateRunUsage`, `agentRunSaveFailures`, `aggregateAgentVote`, `aggregateCoverage`, `appendAgentRunEvent`, `buildOrchestrateHint`, `buildUpstreamContext`, `bumpRunIntervention`, `classifyNodeErrorText`, `computeSchedulerStep`, `dedupeAgentFindings`, `deriveNodeOutputs`, `evalWaitCondition`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `materializePoolItem`, `nodeDeliveryEligibility`, `normalizeAgentGate`, `normalizeWaitSpec`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `poolChainDepth`, `propagateAssignments`, `purgeNodeEvidence`, `recordAgentNodeProgress`, `resolveAgentTeamRoute`, `resolveOrchestrateNodes`, `runSubAgent`, `sanitizeAgentOutputSchema`, `saveAgentRun`, `summarizeAgentWorkflowRun`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verdictPasses`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `09-workflow.js` | `09b-replan-ledger.js` | backward | `proposeReplanPatch`, `recordNodeContinuation`, `validateReplanPatch` |
-| `09-workflow.js` | `10-context-governance.js` | forward | `CompactionPlan`, `ESTIMATION_RULES`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `contextWindowFromTable`, `evaporateHistory`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `maybeAutoCompact`, `measureObservationReductionShadow`, `noteEstimateSample`, `noteWindowOvershoot`, `providerContextWindow`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult`, `upsertCompactMarker`, `writeHistorySnapshot` |
+| `09-workflow.js` | `09d-token-estimation.js` | backward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
+| `09-workflow.js` | `10-context-governance.js` | forward | `CompactionPlan`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `contextWindowFromTable`, `evaporateHistory`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `maybeAutoCompact`, `measureObservationReductionShadow`, `noteEstimateSample`, `noteWindowOvershoot`, `providerContextWindow`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult`, `upsertCompactMarker`, `writeHistorySnapshot` |
 | `09-workflow.js` | `13-http-router.js` | forward | `buildModelHint`, `resolveNodeModel` |
 | `09b-replan-ledger.js` | `00-boot.js` | backward | `crypto`, `makeId`, `nowIso` |
+| `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
+| `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
 | `10-context-governance.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `PERMISSION_MODES`, `readConfig`, `readJsonBody` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `observationRecallEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
@@ -220,7 +225,8 @@
 | `10-context-governance.js` | `06e-mission-domain.js` | backward | `runMissionDriver` |
 | `10-context-governance.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `bindDriverRun`, `revokeGrantsForRun` |
 | `10-context-governance.js` | `07-autonomy.js` | backward | `buildResponsesInputItems`, `fetchOpenAiModels` |
-| `10-context-governance.js` | `09-workflow.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `EVAPORATED_PREFIX`, `estimateContentTokens`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer`, `runOpenAiTurn` |
+| `10-context-governance.js` | `09-workflow.js` | backward | `runOpenAiTurn` |
+| `10-context-governance.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `EVAPORATED_PREFIX`, `estimateContentTokens`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer` |
 | `11-native-tools.js` | `00-boot.js` | backward | `URL`, `appRoot`, `cp`, `crypto`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
 | `11-native-tools.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig` |
 | `11-native-tools.js` | `03-bridge-guard.js` | backward | `ensureDataRootReal`, `existsExecutable`, `isSensitiveDataPath` |
@@ -308,8 +314,9 @@
 | `14-main.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `agentResourcesConflict`, `inferToolResources`, `normalizeAgentResource`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources`, `resourceBlockers` |
 | `14-main.js` | `07-autonomy.js` | backward | `NATIVE_TOOL_PACKS`, `NATIVE_TOOL_TIER`, `adaptiveMetaToolSchemas`, `applyAgentWorktree`, `bridgedToolTier`, `buildClaudeAgentDefinitions`, `buildOpenAiTools`, `buildResponsesInputItems`, `buildToolCatalog`, `classifyClaudeSubagentFailure`, `classifyRuntimeToolFailure`, `classifyToolPacks`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `estimateToolSchemaTokens`, `fetchOpenAiModels`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `responsesHistoryWithCompleteToolPairs`, `saveProjectAgentRoles`, `searchToolCatalog`, `toolPackForName` |
 | `14-main.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `QUALITY_GATE_OUTPUT_SCHEMA`, `aggregateAgentVote`, `aggregateCoverage`, `autoResumeInterruptedRuns`, `buildNodeEvidenceCatalog`, `dedupeAgentFindings`, `deleteAgentWorkflow`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `mapPool`, `markInterruptedAgentRuns`, `normalizeAgentGate`, `normalizeAgentWorkflow`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunEvents`, `repairJson`, `resolveAgentTeamRoute`, `runWorkspaceHash`, `sanitizeAgentOutputSchema`, `saveAgentWorkflow`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verifyNodeClaims`, `workflowProgressFingerprint` |
-| `14-main.js` | `09-workflow.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `fmtTokensServer`, `planDiscoveryToolBatchAllowed`, `setEstimateBucketsV1` |
+| `14-main.js` | `09-workflow.js` | backward | `planDiscoveryToolBatchAllowed` |
 | `14-main.js` | `09b-replan-ledger.js` | backward | `applyReplanPatch`, `proposeReplanPatch`, `rollbackReplanPatch`, `validateReplanPatch` |
+| `14-main.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `fmtTokensServer`, `setEstimateBucketsV1` |
 | `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `MODEL_CONTEXT_TABLE`, `agentConversationContextMeta`, `appendPromptToLastUserMessage`, `applySummaryCallPolicy`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `compactHistoryFromSession`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `estimateFactor`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `summaryMaxConcurrent`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
 | `14-main.js` | `11-native-tools.js` | backward | `builtinSearch`, `classifyFetchError`, `crc32`, `embeddedIpv4FromV6`, `extractMainText`, `httpGetGuarded`, `isPrivateIpv4`, `parseBaiduHtml`, `parseBingHtml`, `readWebCache`, `ssrfCheck`, `webCachePath`, `webFetch`, `webFetchFailMessage`, `webSearch`, `writeWebCache`, `zipCollectEntries` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
@@ -317,7 +324,7 @@
 
 ## 强连通分量
 
-1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `09b-replan-ledger.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
+1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `09b-replan-ledger.js` ↔ `09d-token-estimation.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
 
 ## 维护规则
 

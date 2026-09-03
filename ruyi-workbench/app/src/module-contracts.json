@@ -4443,7 +4443,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateTextTokens",
           "kinds": [
             "call"
@@ -5022,27 +5022,27 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "estimateContentTokens",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "estimateHistoryTokens",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
           "symbol": "launchPersistedAgentRun",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateContentTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "setEstimateBucketsV1",
           "kinds": [
             "call"
@@ -5172,27 +5172,49 @@
       ]
     },
     {
-      "file": "09-workflow.js",
+      "file": "09d-token-estimation.js",
       "layer": "orchestration",
       "provides": [
         "CJK_RE",
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
-        "PLAN_DISCOVERY_BLOCKED_TOOLS",
-        "appendDisplayMessagesToProviderHistory",
         "classifyTextForEstimate",
-        "commonPrefixChars",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
         "estimateTextTokens",
         "fmtTokensServer",
+        "setEstimateBucketsV1"
+      ],
+      "requires": [
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "estimateToolSchemaTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "ESTIMATION_RULES",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "09-workflow.js",
+      "layer": "orchestration",
+      "provides": [
+        "PLAN_DISCOVERY_BLOCKED_TOOLS",
+        "appendDisplayMessagesToProviderHistory",
+        "commonPrefixChars",
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "planDiscoveryToolBatchAllowed",
         "runAgentWorkflow",
         "runOpenAiTurn",
-        "setEstimateBucketsV1",
         "syncProviderHistoryFromDisplay",
         "waitForAgentRunResults"
       ],
@@ -6382,6 +6404,27 @@
           ]
         },
         {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateContentTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "setEstimateBucketsV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "10-context-governance.js",
           "symbol": "appendPromptToLastUserMessage",
           "kinds": [
@@ -6414,13 +6457,6 @@
           "symbol": "contextWindowFromTable",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "ESTIMATION_RULES",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -7049,49 +7085,49 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "runOpenAiTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "CONTEXT_WINDOW_FALLBACK",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateContentTokens",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateHistoryTokens",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateTextTokens",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "EVAPORATED_PREFIX",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "fmtTokensServer",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "runOpenAiTurn",
           "kinds": [
             "call"
           ]
@@ -12735,42 +12771,7 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "classifyTextForEstimate",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "CONTEXT_WINDOW_FALLBACK",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "estimateHistoryTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "fmtTokensServer",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
           "symbol": "planDiscoveryToolBatchAllowed",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "setEstimateBucketsV1",
           "kinds": [
             "read"
           ]
@@ -12799,6 +12800,41 @@
         {
           "provider": "09b-replan-ledger.js",
           "symbol": "validateReplanPatch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "classifyTextForEstimate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "CONTEXT_WINDOW_FALLBACK",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "fmtTokensServer",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "setEstimateBucketsV1",
           "kinds": [
             "read"
           ]

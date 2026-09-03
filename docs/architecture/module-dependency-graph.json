@@ -3,11 +3,11 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 35,
+    "modules": 36,
     "providedSymbols": 1484,
-    "requiredSymbols": 1650,
-    "edges": 259,
-    "forwardEdges": 65,
+    "requiredSymbols": 1654,
+    "edges": 265,
+    "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
   },
@@ -7221,7 +7221,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateTextTokens",
           "kinds": [
             "call"
@@ -8107,6 +8107,16 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "launchPersistedAgentRun",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            352
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateContentTokens",
           "kinds": [
             "call"
@@ -8121,7 +8131,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateHistoryTokens",
           "kinds": [
             "call"
@@ -8132,17 +8142,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
-          "symbol": "launchPersistedAgentRun",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            352
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "setEstimateBucketsV1",
           "kinds": [
             "call"
@@ -8328,29 +8328,62 @@
       ]
     },
     {
-      "file": "09-workflow.js",
+      "file": "09d-token-estimation.js",
       "order": 24,
       "layer": "orchestration",
-      "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
+      "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
         "CJK_RE",
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
-        "PLAN_DISCOVERY_BLOCKED_TOOLS",
-        "appendDisplayMessagesToProviderHistory",
         "classifyTextForEstimate",
-        "commonPrefixChars",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
         "estimateTextTokens",
         "fmtTokensServer",
+        "setEstimateBucketsV1"
+      ],
+      "requires": [
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "estimateToolSchemaTokens",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            121
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "ESTIMATION_RULES",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            44,
+            53,
+            63,
+            75
+          ]
+        }
+      ]
+    },
+    {
+      "file": "09-workflow.js",
+      "order": 25,
+      "layer": "orchestration",
+      "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
+      "provides": [
+        "PLAN_DISCOVERY_BLOCKED_TOOLS",
+        "appendDisplayMessagesToProviderHistory",
+        "commonPrefixChars",
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "planDiscoveryToolBatchAllowed",
         "runAgentWorkflow",
         "runOpenAiTurn",
-        "setEstimateBucketsV1",
         "syncProviderHistoryFromDisplay",
         "waitForAgentRunResults"
       ],
@@ -9561,8 +9594,7 @@
           "lines": [
             1552,
             1554,
-            2528,
-            3194
+            2528
           ]
         },
         {
@@ -10273,6 +10305,40 @@
           ]
         },
         {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateContentTokens",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1203,
+            2931
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            2002,
+            2134,
+            2146,
+            2928
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "setEstimateBucketsV1",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1191
+          ]
+        },
+        {
           "provider": "10-context-governance.js",
           "symbol": "appendPromptToLastUserMessage",
           "kinds": [
@@ -10323,19 +10389,6 @@
           ],
           "lines": [
             630
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "ESTIMATION_RULES",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            3117,
-            3126,
-            3136,
-            3148
           ]
         },
         {
@@ -10504,7 +10557,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 25,
+      "order": 26,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -11268,6 +11321,16 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "runOpenAiTurn",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            2225
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "CONTEXT_WINDOW_FALLBACK",
           "kinds": [
             "read"
@@ -11277,7 +11340,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateContentTokens",
           "kinds": [
             "call"
@@ -11289,7 +11352,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateHistoryTokens",
           "kinds": [
             "call"
@@ -11313,7 +11376,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateTextTokens",
           "kinds": [
             "call"
@@ -11323,7 +11386,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "EVAPORATED_PREFIX",
           "kinds": [
             "read"
@@ -11335,7 +11398,7 @@
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09d-token-estimation.js",
           "symbol": "fmtTokensServer",
           "kinds": [
             "call"
@@ -11343,22 +11406,12 @@
           "lines": [
             1867
           ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "runOpenAiTurn",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2225
-          ]
         }
       ]
     },
     {
       "file": "11-native-tools.js",
-      "order": 26,
+      "order": 27,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -11739,7 +11792,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 27,
+      "order": 28,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -12728,7 +12781,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 28,
+      "order": 29,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -12738,7 +12791,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 29,
+      "order": 30,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -15492,7 +15545,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 30,
+      "order": 31,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -16038,7 +16091,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 31,
+      "order": 32,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -16253,7 +16306,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 32,
+      "order": 33,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17452,7 +17505,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 33,
+      "order": 34,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -17764,7 +17817,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 34,
+      "order": 35,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -20929,62 +20982,12 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "classifyTextForEstimate",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            63
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "CONTEXT_WINDOW_FALLBACK",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            150
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "estimateHistoryTokens",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            30
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "fmtTokensServer",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            154
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
           "symbol": "planDiscoveryToolBatchAllowed",
           "kinds": [
             "read"
           ],
           "lines": [
             283
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "setEstimateBucketsV1",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            62
           ]
         },
         {
@@ -21025,6 +21028,56 @@
           ],
           "lines": [
             479
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "classifyTextForEstimate",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            63
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "CONTEXT_WINDOW_FALLBACK",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            150
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "estimateHistoryTokens",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            30
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "fmtTokensServer",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            154
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "setEstimateBucketsV1",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            62
           ]
         },
         {
@@ -23049,7 +23102,7 @@
     },
     {
       "from": "07-autonomy.js",
-      "to": "09-workflow.js",
+      "to": "09d-token-estimation.js",
       "symbols": [
         "estimateTextTokens"
       ],
@@ -23211,9 +23264,16 @@
       "from": "08-agent-runs.js",
       "to": "09-workflow.js",
       "symbols": [
+        "launchPersistedAgentRun"
+      ],
+      "direction": "forward"
+    },
+    {
+      "from": "08-agent-runs.js",
+      "to": "09d-token-estimation.js",
+      "symbols": [
         "estimateContentTokens",
         "estimateHistoryTokens",
-        "launchPersistedAgentRun",
         "setEstimateBucketsV1"
       ],
       "direction": "forward"
@@ -23555,10 +23615,19 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "09d-token-estimation.js",
+      "symbols": [
+        "estimateContentTokens",
+        "estimateHistoryTokens",
+        "setEstimateBucketsV1"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "10-context-governance.js",
       "symbols": [
         "CompactionPlan",
-        "ESTIMATION_RULES",
         "appendPromptToLastUserMessage",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
@@ -23597,6 +23666,22 @@
         "nowIso"
       ],
       "direction": "backward"
+    },
+    {
+      "from": "09d-token-estimation.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "estimateToolSchemaTokens"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09d-token-estimation.js",
+      "to": "10-context-governance.js",
+      "symbols": [
+        "ESTIMATION_RULES"
+      ],
+      "direction": "forward"
     },
     {
       "from": "10-context-governance.js",
@@ -23734,13 +23819,20 @@
       "from": "10-context-governance.js",
       "to": "09-workflow.js",
       "symbols": [
+        "runOpenAiTurn"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
+      "to": "09d-token-estimation.js",
+      "symbols": [
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
         "estimateContentTokens",
         "estimateHistoryTokens",
         "estimateTextTokens",
-        "fmtTokensServer",
-        "runOpenAiTurn"
+        "fmtTokensServer"
       ],
       "direction": "backward"
     },
@@ -25121,12 +25213,7 @@
       "from": "14-main.js",
       "to": "09-workflow.js",
       "symbols": [
-        "CONTEXT_WINDOW_FALLBACK",
-        "classifyTextForEstimate",
-        "estimateHistoryTokens",
-        "fmtTokensServer",
-        "planDiscoveryToolBatchAllowed",
-        "setEstimateBucketsV1"
+        "planDiscoveryToolBatchAllowed"
       ],
       "direction": "backward"
     },
@@ -25138,6 +25225,18 @@
         "proposeReplanPatch",
         "rollbackReplanPatch",
         "validateReplanPatch"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "09d-token-estimation.js",
+      "symbols": [
+        "CONTEXT_WINDOW_FALLBACK",
+        "classifyTextForEstimate",
+        "estimateHistoryTokens",
+        "fmtTokensServer",
+        "setEstimateBucketsV1"
       ],
       "direction": "backward"
     },
@@ -25270,6 +25369,7 @@
       "08-agent-runs.js",
       "09-workflow.js",
       "09b-replan-ledger.js",
+      "09d-token-estimation.js",
       "10-context-governance.js",
       "11-native-tools.js",
       "13-http-router.js",
@@ -25391,7 +25491,7 @@
     "07-autonomy.js->05-claude-engine.js",
     "07-autonomy.js->06-provider-engine.js",
     "07-autonomy.js->08-agent-runs.js",
-    "07-autonomy.js->09-workflow.js",
+    "07-autonomy.js->09d-token-estimation.js",
     "07-autonomy.js->10-context-governance.js",
     "08-agent-runs.js->00-boot.js",
     "08-agent-runs.js->01-config.js",
@@ -25403,6 +25503,7 @@
     "08-agent-runs.js->06g-resource-leases.js",
     "08-agent-runs.js->07-autonomy.js",
     "08-agent-runs.js->09-workflow.js",
+    "08-agent-runs.js->09d-token-estimation.js",
     "08-agent-runs.js->10-context-governance.js",
     "08-agent-runs.js->11-native-tools.js",
     "08-agent-runs.js->13-http-router.js",
@@ -25423,9 +25524,12 @@
     "09-workflow.js->07-autonomy.js",
     "09-workflow.js->08-agent-runs.js",
     "09-workflow.js->09b-replan-ledger.js",
+    "09-workflow.js->09d-token-estimation.js",
     "09-workflow.js->10-context-governance.js",
     "09-workflow.js->13-http-router.js",
     "09b-replan-ledger.js->00-boot.js",
+    "09d-token-estimation.js->07-autonomy.js",
+    "09d-token-estimation.js->10-context-governance.js",
     "10-context-governance.js->00-boot.js",
     "10-context-governance.js->01-config.js",
     "10-context-governance.js->02-session-store.js",
@@ -25437,6 +25541,7 @@
     "10-context-governance.js->06f-autonomy-grants.js",
     "10-context-governance.js->07-autonomy.js",
     "10-context-governance.js->09-workflow.js",
+    "10-context-governance.js->09d-token-estimation.js",
     "11-native-tools.js->00-boot.js",
     "11-native-tools.js->01-config.js",
     "11-native-tools.js->03-bridge-guard.js",
@@ -25542,16 +25647,18 @@
     "06f-autonomy-grants.js->07-autonomy.js",
     "06f-autonomy-grants.js->11-native-tools.js",
     "07-autonomy.js->08-agent-runs.js",
-    "07-autonomy.js->09-workflow.js",
+    "07-autonomy.js->09d-token-estimation.js",
     "07-autonomy.js->10-context-governance.js",
     "07-autonomy.js->13f-native-tool-schemas.js",
     "08-agent-runs.js->09-workflow.js",
+    "08-agent-runs.js->09d-token-estimation.js",
     "08-agent-runs.js->10-context-governance.js",
     "08-agent-runs.js->11-native-tools.js",
     "08-agent-runs.js->13-http-router.js",
     "08-agent-runs.js->13e-pretender-index.js",
     "09-workflow.js->10-context-governance.js",
     "09-workflow.js->13-http-router.js",
+    "09d-token-estimation.js->10-context-governance.js",
     "13-http-router.js->13b-api-domain-routes.js",
     "13-http-router.js->13c-overlay-routes.js",
     "13-http-router.js->13d-core-domain-routes.js",
