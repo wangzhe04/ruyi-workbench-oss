@@ -59,6 +59,23 @@
 ### 3.4 红线
 不引入运行时 npm 依赖；不绕过 `nativeToolGate`；管家不得替用户签发授权书（有界档）；全部行动经命令核心与审计；开关关闭时零轮询、零持久化写入、提示词与路由清册零变化。
 
+### 3.5 管家工具面设计（用户 2026-09-03 决定：管家须能完全操控如意；评估是否与会话工具集分离）
+
+**裁决：分离。管家「动如意」，线程「动世界」。** 管家拥有对如意自身的完整操控面，但**不持有**作用于外部世界的工具（文件读写、shell／PowerShell、桌面控制 ACC、浏览器、Office、联网抓取、git 写操作）。需要动手时，管家把任务委派给线程（新开或续办），由线程在其权限模式与授权书约束下执行。理由：① 管家常在用户不在场时自主运行（有界／全自动档），把「能改电脑」的能力留在有人审批链路的线程里，是最小权限；② 管家提示词不含技能／playbook 索引与项目记忆，缺少执行真实任务的上下文，直接动手质量差；③ 工具面小，管家的工具 schema 稳定，前缀缓存友好，路由回合便宜。
+
+管家工具族（全部走第 49 波入库门；名称前缀 `steward_`；tier 与档位见下）：
+
+| 族 | 工具 | tier | 说明 |
+|---|---|---|---|
+| **观察（只读）** | `steward_self_status`（复用 `workbench_self_status` 装配并加管家段）、`steward_threads_search`／`steward_thread_status`／`steward_runs_status`／`steward_inbox_read`、`steward_usage`（用量与费用，按会话／日）、`steward_health`（doctor 项）、`steward_audit_tail`（最近审计） | read | 任何档位可用 |
+| **线程** | `steward_thread_new`、`steward_thread_open`（只返回候选，切换由 UI 完成）、`steward_thread_continue`（在目标线程发起回合；可附「委派说明」与临时 permissionMode 收紧，不可放宽）、`steward_thread_rename`／`pin`／`archive` | edit | 只提议档需批准；有界档白名单内自动；全自动直接 |
+| **决策** | `steward_decide`（question／plan／pool 经命令核心；permission 类见档位表）、`steward_run_action`（pause／resume／stop／retry_node／steer_node） | exec | 有界档：question／plan 只在用户预设默认选项时自动；permission 类 read 可放行、edit／exec 永不自动；全自动：全部 |
+| **如意设置** | `steward_config_get`（掩码）、`steward_config_set` | exec | 按键分级：**自由**（`locale`、`outputStyle`、主题、壳模式、管家自身设置除档位外）；**须确认**（主端点／模型选择、`subagentPreferred*`、MCP 连接器启停与浏览器目标（经 `mcp_configure` 同款审批）、自治档位、通知设置）；**禁止经管家**（任何 `apiKey`／token 值、`RUYI_HOME`／数据目录、`localCommand`、线程 `permissionMode` 放宽到 `bypass`、授权书签发） |
+| **内容管理** | `steward_playbook_draft`（起草用户 playbook，走既有 draft→保存 UI）、`steward_skill_toggle`（启停会话技能，须确认）、`steward_workbench_memory_propose`（只提议）、`steward_memory_*`（管家自身记忆：写／改／否决／检索，见 §4） | edit | 管家记忆自由；其余按档位 |
+| **委派** | `steward_delegate`（把一段自然语言任务＋上下文摘要交给指定线程或新线程，内部即 `steward_thread_continue`；可指定 playbook） | exec | 这是管家唯一的「动世界」出口 |
+
+约束：管家工具的 `paths:null`（不触任何文件路径，`guardNote` 写明）；所有写工具返回 `undoRef`（会话 rewind／checkpoint 或配置快照 id），决策日志记录；`steward_config_set` 的禁止键在 handler 内硬编码黑名单并有 e2e 矩阵；管家会话的 `nativeToolGate` 用独立模式 `steward`（映射表：read→allow，edit／exec 按档位），不复用线程的 permissionMode。
+
 ## 4. 管家记忆层（116d，独立于工作台记忆）
 
 - **目的**：记住用户是谁、偏好什么、习惯怎样，并在路由、默认选项、语气、主动建议中使用；不是项目知识库（那是工作台记忆）。
@@ -83,5 +100,5 @@
 - 112a（诊断）与 112b（事件消费补齐）**保留并前置**：管家的「三问」数据就是这些事件；112c 状态机是 avatar 的数据源；112d（长命令输出直播）与 112f（编排全貌）并入 117d 线程抽屉。
 - 不做：ETA；在线学习／自动训练；管家自签授权书；把管家记忆混入普通会话提示词；三维或视频形象；在开关关时留下任何后台活动。
 
-## 7. 排期建议（待拍板）
-110（结构）→ 112a/112b/112c（事件管线＋状态机）→ 113a/113b（记忆向量与会话索引）→ **115 → 116 → 117** → 114（ASR，可与 116/117 交错）→ 111（压缩 v2）→ 107 批准点。理由：管家是 Pretender 3.0 的产品形态，应先于发布批准点闭环；压缩 v2 是引擎证据，可后置但不能缺席 107 的 Release Brief。
+## 7. 排期（用户 2026-09-03 拍板）
+110（结构，剩余刀数见 24 号 §3.3 修订）→ 112a/112b/112c（事件管线＋状态机）→ 113a/113b（记忆向量与会话索引）→ **115 → 116 → 117** → 114（ASR）→ 111（压缩 v2）→ 107 批准点（并行回归偶发治理为 107 前置项）。理由：管家是 Pretender 3.0 的产品形态，应先于发布批准点闭环；压缩 v2 是引擎证据，可后置但不能缺席 107 的 Release Brief。
