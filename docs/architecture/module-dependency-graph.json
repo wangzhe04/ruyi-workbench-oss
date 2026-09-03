@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 30,
+    "modules": 31,
     "providedSymbols": 1484,
-    "requiredSymbols": 1642,
-    "edges": 242,
+    "requiredSymbols": 1643,
+    "edges": 243,
     "forwardEdges": 65,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2407,16 +2407,6 @@
           ]
         },
         {
-          "provider": "13-http-router.js",
-          "symbol": "MCP_TOOLS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1604
-          ]
-        },
-        {
           "provider": "13d-core-domain-routes.js",
           "symbol": "decideIntervention",
           "kinds": [
@@ -2424,6 +2414,16 @@
           ],
           "lines": [
             164
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            1604
           ]
         }
       ]
@@ -7241,7 +7241,7 @@
           ]
         },
         {
-          "provider": "13-http-router.js",
+          "provider": "13f-native-tool-schemas.js",
           "symbol": "MCP_TOOLS",
           "kinds": [
             "read"
@@ -12631,13 +12631,22 @@
       ]
     },
     {
-      "file": "13-http-router.js",
+      "file": "13f-native-tool-schemas.js",
       "order": 24,
+      "layer": "transport",
+      "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
+      "provides": [
+        "MCP_TOOLS"
+      ],
+      "requires": []
+    },
+    {
+      "file": "13-http-router.js",
+      "order": 25,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
         "CLAUDE_ALIAS_IDS",
-        "MCP_TOOLS",
         "MODEL_PRESETS",
         "MODEL_TIER_LABEL",
         "MODEL_TIER_USE",
@@ -12713,8 +12722,8 @@
             35,
             1254,
             1396,
-            2553,
-            2580
+            1799,
+            1826
           ]
         },
         {
@@ -12790,9 +12799,9 @@
           ],
           "lines": [
             1324,
-            2452,
-            2549,
-            2576
+            1698,
+            1795,
+            1822
           ]
         },
         {
@@ -12803,7 +12812,7 @@
           ],
           "lines": [
             41,
-            2586
+            1832
           ]
         },
         {
@@ -12814,8 +12823,8 @@
           ],
           "lines": [
             43,
-            2552,
-            2593
+            1798,
+            1839
           ]
         },
         {
@@ -12827,7 +12836,7 @@
           "lines": [
             43,
             1448,
-            2557
+            1803
           ]
         },
         {
@@ -12849,8 +12858,8 @@
             1157,
             1160,
             1257,
-            2537,
-            2562
+            1783,
+            1808
           ]
         },
         {
@@ -12873,7 +12882,7 @@
           "lines": [
             44,
             1340,
-            2585
+            1831
           ]
         },
         {
@@ -13066,8 +13075,8 @@
           "lines": [
             208,
             1348,
-            2563,
-            2570
+            1809,
+            1816
           ]
         },
         {
@@ -13121,10 +13130,10 @@
             1276,
             1394,
             1442,
-            2535,
-            2536,
-            2552,
-            2593
+            1781,
+            1782,
+            1798,
+            1839
           ]
         },
         {
@@ -13143,11 +13152,11 @@
             1394,
             1398,
             1442,
-            2521,
-            2536,
-            2554,
-            2587,
-            2588
+            1767,
+            1782,
+            1800,
+            1833,
+            1834
           ]
         },
         {
@@ -13157,7 +13166,7 @@
             "read"
           ],
           "lines": [
-            2457
+            1703
           ]
         },
         {
@@ -13170,7 +13179,7 @@
             1241,
             1257,
             1540,
-            2461
+            1707
           ]
         },
         {
@@ -13190,8 +13199,8 @@
             "read"
           ],
           "lines": [
-            2508,
-            2510
+            1754,
+            1756
           ]
         },
         {
@@ -13237,8 +13246,8 @@
             1395,
             1396,
             1401,
-            2468,
-            2581
+            1714,
+            1827
           ]
         },
         {
@@ -13332,7 +13341,7 @@
           "lines": [
             65,
             840,
-            2591
+            1837
           ]
         },
         {
@@ -13384,8 +13393,8 @@
           "lines": [
             68,
             1400,
-            2551,
-            2578
+            1797,
+            1824
           ]
         },
         {
@@ -13428,7 +13437,7 @@
           ],
           "lines": [
             89,
-            2481
+            1727
           ]
         },
         {
@@ -13499,9 +13508,9 @@
             1123,
             1180,
             1341,
-            2480,
-            2550,
-            2577
+            1726,
+            1796,
+            1823
           ]
         },
         {
@@ -13560,7 +13569,7 @@
             666,
             823,
             1393,
-            2456
+            1702
           ]
         },
         {
@@ -13817,7 +13826,7 @@
           "lines": [
             208,
             1348,
-            2570
+            1816
           ]
         },
         {
@@ -13829,7 +13838,7 @@
           "lines": [
             205,
             1347,
-            2569
+            1815
           ]
         },
         {
@@ -13841,7 +13850,7 @@
           "lines": [
             211,
             1352,
-            2571
+            1817
           ]
         },
         {
@@ -14138,8 +14147,8 @@
           ],
           "lines": [
             841,
-            2560,
-            2592
+            1806,
+            1838
           ]
         },
         {
@@ -14321,7 +14330,7 @@
             147,
             152,
             1078,
-            2562
+            1808
           ]
         },
         {
@@ -15068,7 +15077,7 @@
             "call"
           ],
           "lines": [
-            2487
+            1733
           ]
         },
         {
@@ -15259,7 +15268,7 @@
             "call"
           ],
           "lines": [
-            2508
+            1754
           ]
         },
         {
@@ -15371,12 +15380,23 @@
           "lines": [
             1330
           ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            89,
+            1728
+          ]
         }
       ]
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 25,
+      "order": 26,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -15922,7 +15942,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 26,
+      "order": 27,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -16137,7 +16157,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 27,
+      "order": 28,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17336,7 +17356,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 28,
+      "order": 29,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -17648,7 +17668,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 29,
+      "order": 30,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -22051,17 +22071,17 @@
     },
     {
       "from": "04-permission-runtime.js",
-      "to": "13-http-router.js",
+      "to": "13d-core-domain-routes.js",
       "symbols": [
-        "MCP_TOOLS"
+        "decideIntervention"
       ],
       "direction": "forward"
     },
     {
       "from": "04-permission-runtime.js",
-      "to": "13d-core-domain-routes.js",
+      "to": "13f-native-tool-schemas.js",
       "symbols": [
-        "decideIntervention"
+        "MCP_TOOLS"
       ],
       "direction": "forward"
     },
@@ -22930,7 +22950,7 @@
     },
     {
       "from": "07-autonomy.js",
-      "to": "13-http-router.js",
+      "to": "13f-native-tool-schemas.js",
       "symbols": [
         "MCP_TOOLS"
       ],
@@ -24113,6 +24133,14 @@
       "direction": "forward"
     },
     {
+      "from": "13-http-router.js",
+      "to": "13f-native-tool-schemas.js",
+      "symbols": [
+        "MCP_TOOLS"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13b-api-domain-routes.js",
       "to": "00-boot.js",
       "symbols": [
@@ -25072,7 +25100,6 @@
     "04-permission-runtime.js->02-session-store.js",
     "04-permission-runtime.js->05-claude-engine.js",
     "04-permission-runtime.js->06d-memory-domain.js",
-    "04-permission-runtime.js->13-http-router.js",
     "04-permission-runtime.js->13d-core-domain-routes.js",
     "04-visual-pipeline.js->00-boot.js",
     "05-claude-engine.js->00-boot.js",
@@ -25150,7 +25177,6 @@
     "07-autonomy.js->08-agent-runs.js",
     "07-autonomy.js->09-workflow.js",
     "07-autonomy.js->10-context-governance.js",
-    "07-autonomy.js->13-http-router.js",
     "08-agent-runs.js->00-boot.js",
     "08-agent-runs.js->01-config.js",
     "08-agent-runs.js->02-session-store.js",
@@ -25271,8 +25297,8 @@
     "03-bridge-guard.js->05-claude-engine.js",
     "04-permission-runtime.js->05-claude-engine.js",
     "04-permission-runtime.js->06d-memory-domain.js",
-    "04-permission-runtime.js->13-http-router.js",
     "04-permission-runtime.js->13d-core-domain-routes.js",
+    "04-permission-runtime.js->13f-native-tool-schemas.js",
     "05-claude-engine.js->05b-kimi-bridge.js",
     "05-claude-engine.js->06-provider-engine.js",
     "05-claude-engine.js->06b-prompt-registry.js",
@@ -25299,7 +25325,7 @@
     "07-autonomy.js->08-agent-runs.js",
     "07-autonomy.js->09-workflow.js",
     "07-autonomy.js->10-context-governance.js",
-    "07-autonomy.js->13-http-router.js",
+    "07-autonomy.js->13f-native-tool-schemas.js",
     "08-agent-runs.js->09-workflow.js",
     "08-agent-runs.js->10-context-governance.js",
     "08-agent-runs.js->11-native-tools.js",

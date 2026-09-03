@@ -1439,17 +1439,17 @@
           ]
         },
         {
-          "provider": "13-http-router.js",
-          "symbol": "MCP_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13d-core-domain-routes.js",
           "symbol": "decideIntervention",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
           ]
         }
       ]
@@ -4450,7 +4450,7 @@
           ]
         },
         {
-          "provider": "13-http-router.js",
+          "provider": "13f-native-tool-schemas.js",
           "symbol": "MCP_TOOLS",
           "kinds": [
             "read"
@@ -7831,11 +7831,18 @@
       ]
     },
     {
+      "file": "13f-native-tool-schemas.js",
+      "layer": "transport",
+      "provides": [
+        "MCP_TOOLS"
+      ],
+      "requires": []
+    },
+    {
       "file": "13-http-router.js",
       "layer": "transport",
       "provides": [
         "CLAUDE_ALIAS_IDS",
-        "MCP_TOOLS",
         "MODEL_PRESETS",
         "MODEL_TIER_LABEL",
         "MODEL_TIER_USE",
@@ -9254,6 +9261,13 @@
           "symbol": "warmPretenderProjectionIndex",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
           ]
         }
       ]

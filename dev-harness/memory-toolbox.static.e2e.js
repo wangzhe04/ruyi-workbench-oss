@@ -10,7 +10,8 @@ const html = read('ruyi-workbench/app/public/index.html');
 const js = read('ruyi-workbench/app/public/js/skills-memory.js');
 const nav = read('ruyi-workbench/app/public/js/navigation-controls.js');
 const css = read('ruyi-workbench/app/public/css/components/tool-pane.css');
-const router = read('ruyi-workbench/app/src/13-http-router.js');
+// 110-1: MCP_TOOLS(含 workbench_memory_* schema)已搬至 13f-native-tool-schemas.js,改拼接读取,断言原样保留。
+const router = read('ruyi-workbench/app/src/13-http-router.js') + read('ruyi-workbench/app/src/13f-native-tool-schemas.js');
 const autonomy = read('ruyi-workbench/app/src/06d-memory-domain.js');
 const zh = JSON.parse(read('ruyi-workbench/app/public/locales/zh-CN.json'));
 const en = JSON.parse(read('ruyi-workbench/app/public/locales/en-US.json'));

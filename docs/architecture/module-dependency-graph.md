@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 30 | 1484 | 1642 | 242 | 65 | 0 | 1 |
+| 31 | 1484 | 1643 | 243 | 65 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -39,12 +39,13 @@
 | 21 | `10-context-governance.js` | orchestration | 125 | 62 | 11 |
 | 22 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 23 | `12-tool-dispatch.js` | tools | 30 | 75 | 12 |
-| 24 | `13-http-router.js` | transport | 34 | 198 | 20 |
-| 25 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 26 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 27 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
-| 28 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 29 | `14-main.js` | entrypoint | 1 | 400 | 21 |
+| 24 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 25 | `13-http-router.js` | transport | 33 | 199 | 21 |
+| 26 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 27 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 28 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
+| 29 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 30 | `14-main.js` | entrypoint | 1 | 400 | 21 |
 
 ## 模块边
 
@@ -86,8 +87,8 @@
 | `04-permission-runtime.js` | `02-session-store.js` | backward | `registerIntervention`, `settleIntervention` |
 | `04-permission-runtime.js` | `05-claude-engine.js` | forward | `maskKey`, `sanitizeExternalMcpServer` |
 | `04-permission-runtime.js` | `06d-memory-domain.js` | forward | `legacyAccMemoryMigrationComplete` |
-| `04-permission-runtime.js` | `13-http-router.js` | forward | `MCP_TOOLS` |
 | `04-permission-runtime.js` | `13d-core-domain-routes.js` | forward | `decideIntervention` |
+| `04-permission-runtime.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
 | `04-visual-pipeline.js` | `00-boot.js` | backward | `fsp`, `path` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `safeJsonParse` |
 | `05-claude-engine.js` | `01-config.js` | backward | `CLAUDE_PERMISSION_MODE_MAP`, `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `RUNTIME`, `buildUserEnvelope`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `isBatchLauncher`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi`, `writeToChild` |
@@ -164,7 +165,7 @@
 | `07-autonomy.js` | `08-agent-runs.js` | forward | `saveAgentRun` |
 | `07-autonomy.js` | `09-workflow.js` | forward | `estimateTextTokens` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
-| `07-autonomy.js` | `13-http-router.js` | forward | `MCP_TOOLS` |
+| `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
 | `08-agent-runs.js` | `00-boot.js` | backward | `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `estimateBucketsEnabled`, `readConfig`, `safeSessionId` |
 | `08-agent-runs.js` | `02-session-store.js` | backward | `bridgedWriteRelativePathArg`, `loadSession`, `readInterventions`, `registerIntervention`, `saveSession`, `settleIntervention` |
@@ -244,6 +245,7 @@
 | `13-http-router.js` | `13c-overlay-routes.js` | forward | `handleOverlayApiRoutes` |
 | `13-http-router.js` | `13d-core-domain-routes.js` | forward | `handleAgentRunApiRoutes`, `handleInterventionApiRoutes`, `handleMissionsApiRoutes`, `handleSessionApiRoutes` |
 | `13-http-router.js` | `13e-pretender-index.js` | forward | `warmPretenderProjectionIndex` |
+| `13-http-router.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeConfig`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `rewindSession`, `saveSession` |
