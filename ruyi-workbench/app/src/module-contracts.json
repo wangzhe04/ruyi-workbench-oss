@@ -479,6 +479,22 @@
       ]
     },
     {
+      "file": "02c-turn-segments.js",
+      "layer": "foundation",
+      "provides": [
+        "createTurnSegmentBuilder"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02-session-store.js",
       "layer": "foundation",
       "provides": [
@@ -539,7 +555,6 @@
         "compactInterventionJournal",
         "configForSessionEngineRoute",
         "createSession",
-        "createTurnSegmentBuilder",
         "deleteSession",
         "detectDanglingTurn",
         "dirSize",
@@ -1804,13 +1819,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "finalizeMissionAfterTurn",
           "kinds": [
             "call"
@@ -1847,6 +1855,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
           "kinds": [
             "call"
           ]
@@ -5359,13 +5374,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "finalizeMissionAfterTurn",
           "kinds": [
             "call"
@@ -5437,6 +5445,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
           "kinds": [
             "call"
           ]
@@ -10907,13 +10922,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "deleteSession",
           "kinds": [
             "read"
@@ -11104,6 +11112,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
           "kinds": [
             "read"
           ]

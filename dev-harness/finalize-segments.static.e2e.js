@@ -9,7 +9,8 @@
 //   2) healStalePendingSegments 在 loadSession 时把存量 running tool/subagent/workflow 段标 'cancelled'
 //      (修复前落盘的旧会话);
 //   3) 桥接超时表给 ACC `wait`(cap 300s) 310s,不再用默认 120s 杀掉合法 wait(300)。
-// 纯静态:vm 加载 02-session-store.js 的 builder 片段 + 04-permission-runtime.js 的超时表,不启服务器。
+// 纯静态:vm 加载 02c-turn-segments.js 的 builder 片段 + 02-session-store.js 的 heal 片段
+// + 04-permission-runtime.js 的超时表,不启服务器。
 
 const fs = require('fs');
 const path = require('path');
@@ -26,9 +27,13 @@ const ok = (condition, label) => {
 };
 
 // --- load createTurnSegmentBuilder + healStalePendingSegments from source -------------------
+// 110-3b: createTurnSegmentBuilder 已搬至 02c-turn-segments.js。builder 片段改从 02c 取(02c 只含
+// 该构建器,故终点即文件末尾,切出的字节与旧哨兵 '\n// v0.8-S3/S4a:' 截出的完全相同);
+// healStalePendingSegments 仍取自 02。只改读取来源,断言与期望值一字未改。
 const store = read(path.join(SRC, '02-session-store.js'));
-const builderStart = store.indexOf('function createTurnSegmentBuilder()');
-const builderEnd = store.indexOf('\n// v0.8-S3/S4a:', builderStart);
+const builderSrc = read(path.join(SRC, '02c-turn-segments.js'));
+const builderStart = builderSrc.indexOf('function createTurnSegmentBuilder()');
+const builderEnd = builderSrc.length;
 ok(builderStart >= 0 && builderEnd > builderStart, 'F1 createTurnSegmentBuilder 在 session store 源码');
 
 const healStart = store.indexOf('function healStalePendingSegments(session)');
@@ -42,7 +47,7 @@ const pendingQuestions = new Map();
 const ctx = { pendingPermissions, pendingPlans, pendingQuestions };
 // Load the builder + healStalePendingSegments together (healStalePendingSegments is standalone,
 // references the module-level Maps which we inject via context).
-const slice = store.slice(builderStart, builderEnd) + '\n' + store.slice(healStart, healEnd) +
+const slice = builderSrc.slice(builderStart, builderEnd) + '\n' + store.slice(healStart, healEnd) +
   '\nthis.createTurnSegmentBuilder = createTurnSegmentBuilder; this.healStalePendingSegments = healStalePendingSegments;';
 vm.runInNewContext(slice, ctx);
 

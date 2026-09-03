@@ -56,8 +56,10 @@ ok(/data-message-key/.test(frontend)
   && /activeRow.*isConnected/.test(frontend),
 'E4 消息重绘使用 keyed reconciliation，并保留滚动锚点与活动回合');
 
-ok(/function createTurnSegmentBuilder\(/.test(read(path.join(SRC, '02-session-store.js')))
-  && /const batchId = String\(evt\.batchId/.test(read(path.join(SRC, '02-session-store.js')))
+// 110-3b: createTurnSegmentBuilder 已搬至 02c-turn-segments.js,改为源+目标拼接读取(正则原样保留)。
+const sessionStoreDomain = read(path.join(SRC, '02-session-store.js')) + read(path.join(SRC, '02c-turn-segments.js'));
+ok(/function createTurnSegmentBuilder\(/.test(sessionStoreDomain)
+  && /const batchId = String\(evt\.batchId/.test(sessionStoreDomain)
   && /createTurnSegmentBuilder\(\)/.test(read(path.join(SRC, '05-claude-engine.js')))
   && /activeProviderBatchId/.test(read(path.join(SRC, '09-workflow.js'))),
 'E5 双引擎统一有序 segments，并保留并行工具 batchId');

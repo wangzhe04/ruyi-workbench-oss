@@ -6,7 +6,9 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
-const store = read('ruyi-workbench/app/src/02-session-store.js');
+// 110-3b: createTurnSegmentBuilder 已搬至 02c-turn-segments.js,vm 片段来源随之改为该文件
+// (02c 只含该构建器,故终点即文件末尾)。只改读取来源,断言与期望值一字未改。
+const store = read('ruyi-workbench/app/src/02c-turn-segments.js');
 const claude = read('ruyi-workbench/app/src/05-claude-engine.js');
 const provider = read('ruyi-workbench/app/src/09-workflow.js');
 const app = [
@@ -29,7 +31,7 @@ function ok(condition, label) {
 }
 
 const start = store.indexOf('function createTurnSegmentBuilder()');
-const end = store.indexOf('\n// v0.8-S3/S4a:', start);
+const end = store.length;
 ok(start >= 0 && end > start, 'N1 TurnSegmentBuilder 在 session store');
 const context = {};
 vm.runInNewContext(store.slice(start, end) + '\nthis.createTurnSegmentBuilder = createTurnSegmentBuilder;', context);

@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 33,
+    "modules": 34,
     "providedSymbols": 1484,
-    "requiredSymbols": 1644,
-    "edges": 252,
+    "requiredSymbols": 1645,
+    "edges": 256,
     "forwardEdges": 65,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -780,8 +780,30 @@
       ]
     },
     {
-      "file": "02-session-store.js",
+      "file": "02c-turn-segments.js",
       "order": 4,
+      "layer": "foundation",
+      "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)",
+      "provides": [
+        "createTurnSegmentBuilder"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            23,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02-session-store.js",
+      "order": 5,
       "layer": "foundation",
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志",
       "provides": [
@@ -842,7 +864,6 @@
         "compactInterventionJournal",
         "configForSessionEngineRoute",
         "createSession",
-        "createTurnSegmentBuilder",
         "deleteSession",
         "detectDanglingTurn",
         "dirSize",
@@ -981,7 +1002,7 @@
           ],
           "lines": [
             755,
-            2230
+            1997
           ]
         },
         {
@@ -995,9 +1016,9 @@
             746,
             747,
             748,
-            2270,
-            2291,
-            2292
+            2037,
+            2058,
+            2059
           ]
         },
         {
@@ -1045,52 +1066,52 @@
             833,
             834,
             1524,
-            2114,
-            2122,
-            2142,
-            2143,
-            2146,
-            2147,
-            2158,
-            2159,
-            2166,
-            2174,
-            2175,
-            2176,
-            2213,
-            2270,
-            2279,
-            2280,
-            2291,
-            2292,
-            2298,
-            2299,
-            2309,
-            2310,
-            2443,
-            2455,
-            2467,
-            2487,
-            2504,
-            2578,
-            2584,
-            2654,
-            2680,
-            2805,
-            2806,
-            2837,
-            2838,
-            2867,
-            2872,
-            2882,
-            2902,
-            2906,
-            2935,
-            2938,
-            2940,
-            2946,
-            2947,
-            2948
+            1881,
+            1889,
+            1909,
+            1910,
+            1913,
+            1914,
+            1925,
+            1926,
+            1933,
+            1941,
+            1942,
+            1943,
+            1980,
+            2037,
+            2046,
+            2047,
+            2058,
+            2059,
+            2065,
+            2066,
+            2076,
+            2077,
+            2210,
+            2222,
+            2234,
+            2254,
+            2271,
+            2345,
+            2351,
+            2421,
+            2447,
+            2572,
+            2573,
+            2604,
+            2605,
+            2634,
+            2639,
+            2649,
+            2669,
+            2673,
+            2702,
+            2705,
+            2707,
+            2713,
+            2714,
+            2715
           ]
         },
         {
@@ -1101,7 +1122,7 @@
           ],
           "lines": [
             1472,
-            2344
+            2111
           ]
         },
         {
@@ -1126,13 +1147,13 @@
             1268,
             1424,
             1496,
-            2231,
-            2355,
-            2356,
-            2508,
-            2561,
-            2643,
-            2671
+            1998,
+            2122,
+            2123,
+            2275,
+            2328,
+            2410,
+            2438
           ]
         },
         {
@@ -1142,8 +1163,8 @@
             "read"
           ],
           "lines": [
-            2354,
-            2688
+            2121,
+            2455
           ]
         },
         {
@@ -1165,33 +1186,33 @@
             1519,
             1522,
             1523,
-            1793,
-            1936,
-            1952,
-            1965,
-            2437,
-            2438,
-            2504,
-            2565,
-            2570,
-            2572,
-            2595,
-            2624,
-            2658,
-            2679,
-            2688,
-            2689,
-            2698,
-            2699,
-            2804,
-            2836,
-            2871,
-            2904,
-            2938,
-            2940,
-            2948,
-            3152,
-            3167
+            1560,
+            1703,
+            1719,
+            1732,
+            2204,
+            2205,
+            2271,
+            2332,
+            2337,
+            2339,
+            2362,
+            2391,
+            2425,
+            2446,
+            2455,
+            2456,
+            2465,
+            2466,
+            2571,
+            2603,
+            2638,
+            2671,
+            2705,
+            2707,
+            2715,
+            2919,
+            2934
           ]
         },
         {
@@ -1213,15 +1234,15 @@
             756,
             777,
             827,
-            2437,
-            2600,
-            2607,
-            2612,
-            2785,
-            2786,
-            2789,
-            2795,
-            2866
+            2204,
+            2367,
+            2374,
+            2379,
+            2552,
+            2553,
+            2556,
+            2562,
+            2633
           ]
         },
         {
@@ -1233,9 +1254,9 @@
           "lines": [
             675,
             737,
-            2215,
-            2444,
-            2468
+            1982,
+            2211,
+            2235
           ]
         },
         {
@@ -1246,7 +1267,7 @@
           ],
           "lines": [
             926,
-            2349
+            2116
           ]
         },
         {
@@ -1270,10 +1291,8 @@
           "lines": [
             1018,
             1020,
-            1561,
-            1562,
-            1898,
-            1899
+            1665,
+            1666
           ]
         },
         {
@@ -1283,8 +1302,8 @@
             "read"
           ],
           "lines": [
-            2503,
-            2939
+            2270,
+            2706
           ]
         },
         {
@@ -1298,10 +1317,10 @@
             205,
             356,
             682,
-            2294,
-            2295,
-            2306,
-            2456
+            2061,
+            2062,
+            2073,
+            2223
           ]
         },
         {
@@ -1311,7 +1330,7 @@
             "call"
           ],
           "lines": [
-            2345
+            2112
           ]
         },
         {
@@ -1338,13 +1357,13 @@
             812,
             819,
             820,
-            2114,
-            2122,
-            2159,
-            2174,
-            2213,
-            2237,
-            2467
+            1881,
+            1889,
+            1926,
+            1941,
+            1980,
+            2004,
+            2234
           ]
         },
         {
@@ -1357,9 +1376,9 @@
             196,
             219,
             220,
-            2264,
-            2313,
-            2322
+            2031,
+            2080,
+            2089
           ]
         },
         {
@@ -1369,8 +1388,8 @@
             "call"
           ],
           "lines": [
-            2596,
-            2625
+            2363,
+            2392
           ]
         },
         {
@@ -1380,7 +1399,7 @@
             "call"
           ],
           "lines": [
-            2621
+            2388
           ]
         },
         {
@@ -1406,8 +1425,8 @@
             1417,
             1421,
             1504,
-            2188,
-            2991
+            1955,
+            2758
           ]
         },
         {
@@ -1418,10 +1437,10 @@
           ],
           "lines": [
             1428,
-            2719,
-            2771,
-            2993,
-            2998
+            2486,
+            2538,
+            2760,
+            2765
           ]
         },
         {
@@ -1431,7 +1450,7 @@
             "read"
           ],
           "lines": [
-            2091
+            1858
           ]
         },
         {
@@ -1441,7 +1460,7 @@
             "read"
           ],
           "lines": [
-            2094
+            1861
           ]
         },
         {
@@ -1451,7 +1470,7 @@
             "read"
           ],
           "lines": [
-            2097
+            1864
           ]
         },
         {
@@ -1463,7 +1482,7 @@
           "lines": [
             810,
             1426,
-            2992
+            2759
           ]
         },
         {
@@ -1474,8 +1493,8 @@
           ],
           "lines": [
             1349,
-            2188,
-            2995
+            1955,
+            2762
           ]
         },
         {
@@ -1485,7 +1504,7 @@
             "call"
           ],
           "lines": [
-            2331
+            2098
           ]
         },
         {
@@ -1580,10 +1599,10 @@
             "call"
           ],
           "lines": [
-            2605,
-            2622,
-            2628,
-            2700
+            2372,
+            2389,
+            2395,
+            2467
           ]
         },
         {
@@ -1597,14 +1616,14 @@
             256,
             357,
             838,
-            2326
+            2093
           ]
         }
       ]
     },
     {
       "file": "03-bridge-guard.js",
-      "order": 5,
+      "order": 6,
       "layer": "foundation",
       "note": "桥接写族覆盖审计/工作区护栏",
       "provides": [
@@ -1982,7 +2001,7 @@
     },
     {
       "file": "04-visual-pipeline.js",
-      "order": 6,
+      "order": 7,
       "layer": "foundation",
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）",
       "provides": [
@@ -2019,7 +2038,7 @@
     },
     {
       "file": "04-permission-runtime.js",
-      "order": 7,
+      "order": 8,
       "layer": "foundation",
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
@@ -2458,7 +2477,7 @@
     },
     {
       "file": "04-desktop-shell.js",
-      "order": 8,
+      "order": 9,
       "layer": "foundation",
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）",
       "provides": [
@@ -2569,7 +2588,7 @@
     },
     {
       "file": "05-claude-engine.js",
-      "order": 9,
+      "order": 10,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
@@ -2957,16 +2976,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            6
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "finalizeMissionAfterTurn",
           "kinds": [
             "call"
@@ -3026,6 +3035,16 @@
             112,
             846,
             929
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            6
           ]
         },
         {
@@ -3619,7 +3638,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 10,
+      "order": 11,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -4554,7 +4573,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 11,
+      "order": 12,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -4769,7 +4788,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 12,
+      "order": 13,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -4841,7 +4860,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 13,
+      "order": 14,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -5592,7 +5611,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 14,
+      "order": 15,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -5621,7 +5640,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 15,
+      "order": 16,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -5662,7 +5681,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 16,
+      "order": 17,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -6147,7 +6166,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 17,
+      "order": 18,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -6284,7 +6303,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 18,
+      "order": 19,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -6444,7 +6463,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 19,
+      "order": 20,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -6525,7 +6544,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 20,
+      "order": 21,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -7282,7 +7301,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 21,
+      "order": 22,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -8277,7 +8296,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 22,
+      "order": 23,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -8654,16 +8673,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1365
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "finalizeMissionAfterTurn",
           "kinds": [
             "call"
@@ -8781,6 +8790,16 @@
           ],
           "lines": [
             1160
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1365
           ]
         },
         {
@@ -10435,7 +10454,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 23,
+      "order": 24,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -11289,7 +11308,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 24,
+      "order": 25,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -11671,7 +11690,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 25,
+      "order": 26,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -12660,7 +12679,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 26,
+      "order": 27,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -12670,7 +12689,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 27,
+      "order": 28,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -15424,7 +15443,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 28,
+      "order": 29,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -15970,7 +15989,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 29,
+      "order": 30,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -16185,7 +16204,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 30,
+      "order": 31,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17384,7 +17403,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 31,
+      "order": 32,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -17696,7 +17715,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 32,
+      "order": 33,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -18325,16 +18344,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "createTurnSegmentBuilder",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            120
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "deleteSession",
           "kinds": [
             "read"
@@ -18611,6 +18620,16 @@
           ],
           "lines": [
             45
+          ]
+        },
+        {
+          "provider": "02c-turn-segments.js",
+          "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            120
           ]
         },
         {
@@ -21962,6 +21981,14 @@
       "direction": "forward"
     },
     {
+      "from": "02c-turn-segments.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "03-bridge-guard.js",
       "to": "00-boot.js",
       "symbols": [
@@ -22182,13 +22209,20 @@
         "buildTurnSummary",
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
-        "createTurnSegmentBuilder",
         "finalizeMissionAfterTurn",
         "isUntitledSessionTitle",
         "journalReadIndex",
         "loadSession",
         "reconcileWorkspaceTurnBaseline",
         "saveSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "02c-turn-segments.js",
+      "symbols": [
+        "createTurnSegmentBuilder"
       ],
       "direction": "backward"
     },
@@ -23236,7 +23270,6 @@
         "buildTurnSummary",
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
-        "createTurnSegmentBuilder",
         "finalizeMissionAfterTurn",
         "isUntitledSessionTitle",
         "journalReadIndex",
@@ -23248,6 +23281,14 @@
         "repairProviderHistoryPairing",
         "saveSession",
         "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
+      "to": "02c-turn-segments.js",
+      "symbols": [
+        "createTurnSegmentBuilder"
       ],
       "direction": "backward"
     },
@@ -24654,7 +24695,6 @@
         "compactInterventionJournal",
         "configForSessionEngineRoute",
         "createSession",
-        "createTurnSegmentBuilder",
         "deleteSession",
         "detectDanglingTurn",
         "foldMissionChangeJournalText",
@@ -24683,6 +24723,14 @@
         "updateSessionMeta",
         "workspaceBaselineIsCodePath",
         "writeSessionNotes"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "02c-turn-segments.js",
+      "symbols": [
+        "createTurnSegmentBuilder"
       ],
       "direction": "backward"
     },
@@ -25128,6 +25176,7 @@
       "00-boot.js",
       "01-config.js",
       "02-session-store.js",
+      "02c-turn-segments.js",
       "03-bridge-guard.js",
       "04-desktop-shell.js",
       "04-permission-runtime.js",
@@ -25179,6 +25228,7 @@
     "02-session-store.js->08-agent-runs.js",
     "02-session-store.js->11-native-tools.js",
     "02-session-store.js->13e-pretender-index.js",
+    "02c-turn-segments.js->00-boot.js",
     "03-bridge-guard.js->00-boot.js",
     "03-bridge-guard.js->01-config.js",
     "03-bridge-guard.js->02-session-store.js",
@@ -25197,6 +25247,7 @@
     "05-claude-engine.js->00-boot.js",
     "05-claude-engine.js->01-config.js",
     "05-claude-engine.js->02-session-store.js",
+    "05-claude-engine.js->02c-turn-segments.js",
     "05-claude-engine.js->03-bridge-guard.js",
     "05-claude-engine.js->04-permission-runtime.js",
     "05-claude-engine.js->05b-kimi-bridge.js",
@@ -25286,6 +25337,7 @@
     "09-workflow.js->00-boot.js",
     "09-workflow.js->01-config.js",
     "09-workflow.js->02-session-store.js",
+    "09-workflow.js->02c-turn-segments.js",
     "09-workflow.js->03-bridge-guard.js",
     "09-workflow.js->04-permission-runtime.js",
     "09-workflow.js->04-visual-pipeline.js",

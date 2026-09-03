@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 33 | 1484 | 1644 | 252 | 65 | 0 | 1 |
+| 34 | 1484 | 1645 | 256 | 65 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -19,35 +19,36 @@
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 23 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 92 | 35 | 8 |
-| 4 | `02-session-store.js` | foundation | 175 | 40 | 12 |
-| 5 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
-| 6 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 7 | `04-permission-runtime.js` | foundation | 88 | 28 | 7 |
-| 8 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 9 | `05-claude-engine.js` | engine | 23 | 97 | 14 |
-| 10 | `05b-kimi-bridge.js` | engine | 119 | 62 | 12 |
-| 11 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 12 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 13 | `06-provider-engine.js` | engine | 97 | 47 | 11 |
-| 14 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
-| 15 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 16 | `06d-memory-domain.js` | engine | 93 | 23 | 8 |
-| 17 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
-| 18 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
-| 19 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 20 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
-| 21 | `08-agent-runs.js` | orchestration | 87 | 79 | 15 |
-| 22 | `09-workflow.js` | orchestration | 28 | 187 | 18 |
-| 23 | `10-context-governance.js` | orchestration | 125 | 62 | 12 |
-| 24 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 25 | `12-tool-dispatch.js` | tools | 30 | 75 | 13 |
-| 26 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 27 | `13-http-router.js` | transport | 33 | 199 | 22 |
-| 28 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 29 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 30 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
-| 31 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 32 | `14-main.js` | entrypoint | 1 | 400 | 23 |
+| 4 | `02c-turn-segments.js` | foundation | 1 | 1 | 1 |
+| 5 | `02-session-store.js` | foundation | 174 | 40 | 12 |
+| 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
+| 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
+| 8 | `04-permission-runtime.js` | foundation | 88 | 28 | 7 |
+| 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
+| 10 | `05-claude-engine.js` | engine | 23 | 97 | 15 |
+| 11 | `05b-kimi-bridge.js` | engine | 119 | 62 | 12 |
+| 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 14 | `06-provider-engine.js` | engine | 97 | 47 | 11 |
+| 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
+| 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 17 | `06d-memory-domain.js` | engine | 93 | 23 | 8 |
+| 18 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
+| 19 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
+| 20 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 21 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
+| 22 | `08-agent-runs.js` | orchestration | 87 | 79 | 15 |
+| 23 | `09-workflow.js` | orchestration | 28 | 187 | 19 |
+| 24 | `10-context-governance.js` | orchestration | 125 | 62 | 12 |
+| 25 | `11-native-tools.js` | tools | 85 | 22 | 5 |
+| 26 | `12-tool-dispatch.js` | tools | 30 | 75 | 13 |
+| 27 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 28 | `13-http-router.js` | transport | 33 | 199 | 22 |
+| 29 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 30 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 31 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
+| 32 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 33 | `14-main.js` | entrypoint | 1 | 400 | 24 |
 
 ## 模块边
 
@@ -77,6 +78,7 @@
 | `02-session-store.js` | `08-agent-runs.js` | forward | `appendAgentRunEvent`, `bumpRunIntervention`, `listAgentRuns`, `saveAgentRun` |
 | `02-session-store.js` | `11-native-tools.js` | forward | `runGit` |
 | `02-session-store.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
+| `02c-turn-segments.js` | `00-boot.js` | backward | `text` |
 | `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `cp`, `crypto`, `dataRoot`, `fs`, `fsp`, `os`, `path`, `zlib` |
 | `03-bridge-guard.js` | `01-config.js` | backward | `batchSafeSpawn`, `readConfig` |
 | `03-bridge-guard.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `collectBridgedWriteTargets`, `journalDir`, `journalRecord`, `journalSessionCtx`, `kindForPath`, `unprefixedBridgedName` |
@@ -95,7 +97,8 @@
 | `04-visual-pipeline.js` | `00-boot.js` | backward | `fsp`, `path` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `safeJsonParse` |
 | `05-claude-engine.js` | `01-config.js` | backward | `CLAUDE_PERMISSION_MODE_MAP`, `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `RUNTIME`, `buildUserEnvelope`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `isBatchLauncher`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi`, `writeToChild` |
-| `05-claude-engine.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `createTurnSegmentBuilder`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
+| `05-claude-engine.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
+| `05-claude-engine.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `05-claude-engine.js` | `03-bridge-guard.js` | backward | `buildAttachmentPrompt`, `cwdWarning`, `normalizeCwd` |
 | `05-claude-engine.js` | `04-permission-runtime.js` | backward | `activeChildren`, `buildClaudeRecoveryHistory`, `claudeProviderTailSince`, `claudeResumeRouteKey`, `clearPendingPermissions`, `clearPendingQuestions`, `formatQuestionGuidance`, `hasPendingQuestionForSession`, `isClaudeResumeMissingError`, `killChildTree`, `lastAssistantEngine`, `lastSuccessfulClaudeModel`, `logEvent`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `redact`, `registerUserQuestion`, `sameClaudeResumeCwd`, `stopSession` |
 | `05-claude-engine.js` | `05b-kimi-bridge.js` | forward | `maybeAutoCompactAgentSession`, `runKimiAcpTurnPrepared`, `syncKimiSessionUsage`, `syncKimiTurnPreferences`, `watchKimiWire` |
@@ -188,7 +191,8 @@
 | `09-workflow.js` | `00-boot.js` | backward | `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `safeJsonParse`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
-| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `createTurnSegmentBuilder`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `normalizeTodoItems`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `registerIntervention`, `repairProviderHistoryPairing`, `saveSession`, `settleIntervention` |
+| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `normalizeTodoItems`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `registerIntervention`, `repairProviderHistoryPairing`, `saveSession`, `settleIntervention` |
+| `09-workflow.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `buildAttachmentPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd` |
 | `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `lastAssistantEngine`, `logEvent`, `redact`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
 | `09-workflow.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
@@ -286,7 +290,8 @@
 | `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectKimiPath`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `resolveClaudeLauncher`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi` |
 | `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `14-main.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
-| `14-main.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `collectBridgedWriteTarget`, `collectBridgedWriteTargets`, `compactInterventionJournal`, `configForSessionEngineRoute`, `createSession`, `createTurnSegmentBuilder`, `deleteSession`, `detectDanglingTurn`, `foldMissionChangeJournalText`, `inferSessionEngineRoute`, `isBridgedWriteTool`, `isUntitledSessionTitle`, `journalGc`, `journalGcProbe`, `journalRecord`, `kindForPath`, `listSessions`, `loadSession`, `missionChangeFilePath`, `normalizeSession`, `normalizeSessionEngineRoute`, `readInterventionsWithMeta`, `readMissionChangesWithMeta`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `repairProviderHistoryPairing`, `saveSession`, `sessionBodyPaths`, `sessionEngineRouteFromConfig`, `sessionNotesPath`, `unprefixedBridgedName`, `updateSessionMeta`, `workspaceBaselineIsCodePath`, `writeSessionNotes` |
+| `14-main.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `collectBridgedWriteTarget`, `collectBridgedWriteTargets`, `compactInterventionJournal`, `configForSessionEngineRoute`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldMissionChangeJournalText`, `inferSessionEngineRoute`, `isBridgedWriteTool`, `isUntitledSessionTitle`, `journalGc`, `journalGcProbe`, `journalRecord`, `kindForPath`, `listSessions`, `loadSession`, `missionChangeFilePath`, `normalizeSession`, `normalizeSessionEngineRoute`, `readInterventionsWithMeta`, `readMissionChangesWithMeta`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `repairProviderHistoryPairing`, `saveSession`, `sessionBodyPaths`, `sessionEngineRouteFromConfig`, `sessionNotesPath`, `unprefixedBridgedName`, `updateSessionMeta`, `workspaceBaselineIsCodePath`, `writeSessionNotes` |
+| `14-main.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `14-main.js` | `03-bridge-guard.js` | backward | `AUTOEXEC_DENYLIST`, `BRIDGED_WRITE_AUDIT_EXEMPT`, `auditBridgedWriteCoverage`, `bridgedOfficeScriptGate`, `buildBrowserOpenSpawn`, `buildCodeEditorSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `classifyCodeEditorExecutable`, `cwdWarning`, `executableFromAssociationCommand`, `fileAllowedRoots`, `guardFileToolPath`, `guardWorkspaceExecute`, `guardWorkspacePath`, `normalizeAutoexecPath`, `pathWithinAnyRoot`, `pathWithinRoot`, `providerIsLocal`, `readFilePreview`, `resolvePreferredCodeEditor`, `resolveWorkspace`, `workspaceWriteRoots` |
 | `14-main.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `14-main.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `McpHttpClient`, `McpStdioClient`, `buildMcpConnectorInventory`, `classifyMcpError`, `collectBridgedTools`, `configureMcpFromTool`, `invalidateMcpDropInCache`, `killAllMcpClients`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `parseClaudeTaskNotification`, `parseMcpConfigFile`, `probeMcpConnector`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory`, `safeUrlForDisplay`, `scanMcpDropIns`, `scanMcpSources` |
@@ -308,7 +313,7 @@
 
 ## 强连通分量
 
-1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
+1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `02c-turn-segments.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
 
 ## 维护规则
 
