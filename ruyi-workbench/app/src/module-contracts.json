@@ -5135,6 +5135,43 @@
       ]
     },
     {
+      "file": "09b-replan-ledger.js",
+      "layer": "orchestration",
+      "provides": [
+        "REPLAN_CHANGE_OPS",
+        "REPLAN_PATCH_MAX",
+        "REPLAN_TRIGGER_TYPES",
+        "applyReplanPatch",
+        "proposeReplanPatch",
+        "recordNodeContinuation",
+        "rollbackReplanPatch",
+        "validateReplanPatch"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "09-workflow.js",
       "layer": "orchestration",
       "provides": [
@@ -5142,11 +5179,7 @@
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
-        "REPLAN_CHANGE_OPS",
-        "REPLAN_PATCH_MAX",
-        "REPLAN_TRIGGER_TYPES",
         "appendDisplayMessagesToProviderHistory",
-        "applyReplanPatch",
         "classifyTextForEstimate",
         "commonPrefixChars",
         "estimateBucketsV1On",
@@ -5157,14 +5190,10 @@
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "planDiscoveryToolBatchAllowed",
-        "proposeReplanPatch",
-        "recordNodeContinuation",
-        "rollbackReplanPatch",
         "runAgentWorkflow",
         "runOpenAiTurn",
         "setEstimateBucketsV1",
         "syncProviderHistoryFromDisplay",
-        "validateReplanPatch",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -6327,6 +6356,27 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "workflowProgressFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
+          "symbol": "proposeReplanPatch",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
+          "symbol": "recordNodeContinuation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
+          "symbol": "validateReplanPatch",
           "kinds": [
             "call"
           ]
@@ -10175,14 +10225,14 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "applyReplanPatch",
+          "symbol": "launchPersistedAgentRun",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "09-workflow.js",
-          "symbol": "launchPersistedAgentRun",
+          "provider": "09b-replan-ledger.js",
+          "symbol": "applyReplanPatch",
           "kinds": [
             "call"
           ]
@@ -12685,13 +12735,6 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "applyReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
           "symbol": "classifyTextForEstimate",
           "kinds": [
             "read"
@@ -12727,27 +12770,34 @@
         },
         {
           "provider": "09-workflow.js",
-          "symbol": "proposeReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "rollbackReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
           "symbol": "setEstimateBucketsV1",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "09-workflow.js",
+          "provider": "09b-replan-ledger.js",
+          "symbol": "applyReplanPatch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
+          "symbol": "proposeReplanPatch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
+          "symbol": "rollbackReplanPatch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09b-replan-ledger.js",
           "symbol": "validateReplanPatch",
           "kinds": [
             "read"

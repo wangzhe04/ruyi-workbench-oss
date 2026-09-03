@@ -22722,6 +22722,7 @@ function computeWaveSeq(nodes, opts) {
   return wave;
 }
 
+// 09b-replan-ledger.js - 110-4a: 从 09-workflow.js 搬出的节点续点与重规划补丁账本(纯搬家,零行为变更)。
 // ============================================================================
 // 第25波 25.4(AUTONOMY-PLAN §4 Node Runtime):节点续点 —— 把本次 attempt 已完成的工具步骤折叠为轻量
 // continuation(name+参数摘要 → 结果摘要),挂在 node 上随既有 1.5s 节流 flush 落盘。进程崩溃后,恢复重跑
@@ -22896,6 +22897,8 @@ function rollbackReplanPatch(run, patchId) {
     return { ok: true, patchId: patch.id };
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
+
+// 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle }) {
   let run, nodes, runId;
