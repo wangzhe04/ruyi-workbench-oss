@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 31 | 1484 | 1643 | 243 | 65 | 0 | 1 |
+| 32 | 1484 | 1644 | 245 | 65 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -16,36 +16,37 @@
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
 | 0 | `00-boot.js` | bootstrap | 49 | 5 | 4 |
-| 1 | `01-config.js` | foundation | 116 | 34 | 7 |
-| 2 | `02-session-store.js` | foundation | 175 | 40 | 12 |
-| 3 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
-| 4 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 5 | `04-permission-runtime.js` | foundation | 88 | 28 | 7 |
-| 6 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 7 | `05-claude-engine.js` | engine | 23 | 97 | 14 |
-| 8 | `05b-kimi-bridge.js` | engine | 119 | 62 | 12 |
-| 9 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 10 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 11 | `06-provider-engine.js` | engine | 97 | 47 | 11 |
-| 12 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
-| 13 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 14 | `06d-memory-domain.js` | engine | 93 | 23 | 8 |
-| 15 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
-| 16 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
-| 17 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 18 | `07-autonomy.js` | orchestration | 87 | 55 | 11 |
-| 19 | `08-agent-runs.js` | orchestration | 87 | 79 | 14 |
-| 20 | `09-workflow.js` | orchestration | 28 | 187 | 17 |
-| 21 | `10-context-governance.js` | orchestration | 125 | 62 | 11 |
-| 22 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 23 | `12-tool-dispatch.js` | tools | 30 | 75 | 12 |
-| 24 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 25 | `13-http-router.js` | transport | 33 | 199 | 21 |
-| 26 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 27 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 28 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
-| 29 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 30 | `14-main.js` | entrypoint | 1 | 400 | 21 |
+| 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
+| 2 | `01-config.js` | foundation | 115 | 35 | 8 |
+| 3 | `02-session-store.js` | foundation | 175 | 40 | 12 |
+| 4 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
+| 5 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
+| 6 | `04-permission-runtime.js` | foundation | 88 | 28 | 7 |
+| 7 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
+| 8 | `05-claude-engine.js` | engine | 23 | 97 | 14 |
+| 9 | `05b-kimi-bridge.js` | engine | 119 | 62 | 12 |
+| 10 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 11 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 12 | `06-provider-engine.js` | engine | 97 | 47 | 11 |
+| 13 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
+| 14 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 15 | `06d-memory-domain.js` | engine | 93 | 23 | 8 |
+| 16 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
+| 17 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
+| 18 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 19 | `07-autonomy.js` | orchestration | 87 | 55 | 11 |
+| 20 | `08-agent-runs.js` | orchestration | 87 | 79 | 14 |
+| 21 | `09-workflow.js` | orchestration | 28 | 187 | 17 |
+| 22 | `10-context-governance.js` | orchestration | 125 | 62 | 11 |
+| 23 | `11-native-tools.js` | tools | 85 | 22 | 5 |
+| 24 | `12-tool-dispatch.js` | tools | 30 | 75 | 12 |
+| 25 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 26 | `13-http-router.js` | transport | 33 | 199 | 21 |
+| 27 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 28 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 29 | `13d-core-domain-routes.js` | transport | 17 | 80 | 10 |
+| 30 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 31 | `14-main.js` | entrypoint | 1 | 400 | 22 |
 
 ## 模块边
 
@@ -56,6 +57,7 @@
 | `00-boot.js` | `05-claude-engine.js` | forward | `CLAUDE_ENDPOINT_PRESETS` |
 | `00-boot.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
 | `01-config.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `DEFAULT_PORT`, `MAX_BODY_BYTES`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `cp`, `crypto`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `isPkg`, `normalizePricing`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `01-config.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `01-config.js` | `03-bridge-guard.js` | forward | `existsExecutable`, `pathWithinRoot` |
 | `01-config.js` | `04-desktop-shell.js` | forward | `DesktopShell` |
 | `01-config.js` | `04-permission-runtime.js` | forward | `activeChildren`, `logEvent`, `resolveExternalMcpServers`, `scanMcpSources` |
@@ -274,7 +276,8 @@
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
 | `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA` |
-| `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `ROUTE_AUTH`, `appendOnlyToolSchemasEnabled`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectKimiPath`, `estimateBucketsEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `resolveClaudeLauncher`, `selectedAgentCli`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `spawnCmdLineLength`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `syncMcpServersToKimi`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
+| `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `appendOnlyToolSchemasEnabled`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectKimiPath`, `estimateBucketsEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `resolveClaudeLauncher`, `selectedAgentCli`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `spawnCmdLineLength`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `syncMcpServersToKimi`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
+| `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `14-main.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `collectBridgedWriteTarget`, `collectBridgedWriteTargets`, `compactInterventionJournal`, `configForSessionEngineRoute`, `createSession`, `createTurnSegmentBuilder`, `deleteSession`, `detectDanglingTurn`, `foldMissionChangeJournalText`, `inferSessionEngineRoute`, `isBridgedWriteTool`, `isUntitledSessionTitle`, `journalGc`, `journalGcProbe`, `journalRecord`, `kindForPath`, `listSessions`, `loadSession`, `missionChangeFilePath`, `normalizeSession`, `normalizeSessionEngineRoute`, `readInterventionsWithMeta`, `readMissionChangesWithMeta`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `repairProviderHistoryPairing`, `saveSession`, `sessionBodyPaths`, `sessionEngineRouteFromConfig`, `sessionNotesPath`, `unprefixedBridgedName`, `updateSessionMeta`, `workspaceBaselineIsCodePath`, `writeSessionNotes` |
 | `14-main.js` | `03-bridge-guard.js` | backward | `AUTOEXEC_DENYLIST`, `BRIDGED_WRITE_AUDIT_EXEMPT`, `auditBridgedWriteCoverage`, `bridgedOfficeScriptGate`, `buildBrowserOpenSpawn`, `buildCodeEditorSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `classifyCodeEditorExecutable`, `cwdWarning`, `executableFromAssociationCommand`, `fileAllowedRoots`, `guardFileToolPath`, `guardWorkspaceExecute`, `guardWorkspacePath`, `normalizeAutoexecPath`, `pathWithinAnyRoot`, `pathWithinRoot`, `providerIsLocal`, `readFilePreview`, `resolvePreferredCodeEditor`, `resolveWorkspace`, `workspaceWriteRoots` |
 | `14-main.js` | `04-desktop-shell.js` | backward | `DesktopShell` |

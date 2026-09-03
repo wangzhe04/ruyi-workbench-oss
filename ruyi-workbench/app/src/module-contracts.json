@@ -95,6 +95,14 @@
       ]
     },
     {
+      "file": "01b-route-auth.js",
+      "layer": "foundation",
+      "provides": [
+        "ROUTE_AUTH"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -116,7 +124,6 @@
         "DurableJsonStore",
         "PERMISSION_MODES",
         "PERMISSION_MODE_ALIASES",
-        "ROUTE_AUTH",
         "RUNTIME",
         "_agentCliPathProbe",
         "_claudePathProbe",
@@ -353,6 +360,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01b-route-auth.js",
+          "symbol": "ROUTE_AUTH",
           "kinds": [
             "read"
           ]
@@ -10697,13 +10711,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "ROUTE_AUTH",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "selectedAgentCli",
           "kinds": [
             "read"
@@ -10817,6 +10824,13 @@
         {
           "provider": "01-config.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01b-route-auth.js",
+          "symbol": "ROUTE_AUTH",
           "kinds": [
             "read"
           ]

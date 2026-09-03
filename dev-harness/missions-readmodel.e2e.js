@@ -175,7 +175,9 @@ function spawnFake(seq, extraEnv) {
 
     // ============ (e) 静态锁 ============
     const srcRouter = fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8');
-    const srcConfig = fs.readFileSync(path.join(WB, 'app', 'src', '01-config.js'), 'utf8');
+    // 110-2a: ROUTE_AUTH 已搬至 01b-route-auth.js,改为源+目标拼接读取(断言原样保留)。
+    const srcConfig = fs.readFileSync(path.join(WB, 'app', 'src', '01-config.js'), 'utf8')
+      + fs.readFileSync(path.join(WB, 'app', 'src', '01b-route-auth.js'), 'utf8');
     const src13d = fs.readFileSync(path.join(WB, 'app', 'src', '13d-core-domain-routes.js'), 'utf8');
     const src02 = fs.readFileSync(path.join(WB, 'app', 'src', '02-session-store.js'), 'utf8');
     ok(/\{ m: 'GET', p: '\/api\/missions', auth: 'token-browser' \}/.test(srcConfig), '(e) ROUTE_AUTH /api/missions 标 token-browser');
