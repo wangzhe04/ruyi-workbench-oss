@@ -15,183 +15,189 @@
       "note": "110-2a: 从 01-config.js 搬出 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)"
     },
     {
-      "file": "01-config.js",
+      "file": "01c-runtime-flags.js",
       "startLine": 598,
-      "endLine": 2904,
+      "endLine": 731,
+      "note": "110-2b: 从 01-config.js 搬出运行时开关判定函数(纯搬家,零行为变更)"
+    },
+    {
+      "file": "01-config.js",
+      "startLine": 732,
+      "endLine": 2907,
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH"
     },
     {
       "file": "02-session-store.js",
-      "startLine": 2905,
-      "endLine": 6081,
+      "startLine": 2908,
+      "endLine": 6084,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 6082,
-      "endLine": 7064,
+      "startLine": 6085,
+      "endLine": 7067,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "04-visual-pipeline.js",
-      "startLine": 7065,
-      "endLine": 7166,
+      "startLine": 7068,
+      "endLine": 7169,
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 7167,
-      "endLine": 9152,
+      "startLine": 7170,
+      "endLine": 9155,
       "note": "pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "04-desktop-shell.js",
-      "startLine": 9153,
-      "endLine": 9419,
+      "startLine": 9156,
+      "endLine": 9422,
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 9420,
-      "endLine": 10820,
+      "startLine": 9423,
+      "endLine": 10823,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "05b-kimi-bridge.js",
-      "startLine": 10821,
-      "endLine": 13573,
+      "startLine": 10824,
+      "endLine": 13576,
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强"
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "startLine": 13574,
-      "endLine": 14211,
+      "startLine": 13577,
+      "endLine": 14214,
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器"
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "startLine": 14212,
-      "endLine": 14416,
+      "startLine": 14215,
+      "endLine": 14419,
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 14417,
-      "endLine": 16085,
+      "startLine": 14420,
+      "endLine": 16088,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 16086,
-      "endLine": 16347,
+      "startLine": 16089,
+      "endLine": 16350,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 16348,
-      "endLine": 16507,
+      "startLine": 16351,
+      "endLine": 16510,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "06d-memory-domain.js",
-      "startLine": 16508,
-      "endLine": 17957,
+      "startLine": 16511,
+      "endLine": 17960,
       "note": "第104波：跨会话记忆、提议、关系图与检索"
     },
     {
       "file": "06e-mission-domain.js",
-      "startLine": 17958,
-      "endLine": 18057,
+      "startLine": 17961,
+      "endLine": 18060,
       "note": "第104波：Mission 提示摘要与 until-done 驱动"
     },
     {
       "file": "06f-autonomy-grants.js",
-      "startLine": 18058,
-      "endLine": 18347,
+      "startLine": 18061,
+      "endLine": 18350,
       "note": "第104波：自治授权签发、消费、撤销与预检"
     },
     {
       "file": "06g-resource-leases.js",
-      "startLine": 18348,
-      "endLine": 18549,
+      "startLine": 18351,
+      "endLine": 18552,
       "note": "第104波：Agent 资源归一化、冲突检测与租约"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 18550,
-      "endLine": 20498,
+      "startLine": 18553,
+      "endLine": 20501,
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 20499,
-      "endLine": 22718,
+      "startLine": 20502,
+      "endLine": 22721,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 22719,
-      "endLine": 26094,
+      "startLine": 22722,
+      "endLine": 26097,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 26095,
-      "endLine": 28344,
+      "startLine": 26098,
+      "endLine": 28347,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 28345,
-      "endLine": 30402,
+      "startLine": 28348,
+      "endLine": 30405,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 30403,
-      "endLine": 31989,
+      "startLine": 30406,
+      "endLine": 31992,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "startLine": 31990,
-      "endLine": 32746,
+      "startLine": 31993,
+      "endLine": 32749,
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 32747,
-      "endLine": 34608,
+      "startLine": 32750,
+      "endLine": 34611,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 34609,
-      "endLine": 34943,
+      "startLine": 34612,
+      "endLine": 34946,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 34944,
-      "endLine": 35132,
+      "startLine": 34947,
+      "endLine": 35135,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 35133,
-      "endLine": 36441,
+      "startLine": 35136,
+      "endLine": 36444,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 36442,
-      "endLine": 36848,
+      "startLine": 36445,
+      "endLine": 36851,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 36849,
-      "endLine": 37335,
+      "startLine": 36852,
+      "endLine": 37338,
       "note": "main()/module.exports"
     }
   ]

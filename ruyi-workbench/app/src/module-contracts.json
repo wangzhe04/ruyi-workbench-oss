@@ -103,6 +103,36 @@
       "requires": []
     },
     {
+      "file": "01c-runtime-flags.js",
+      "layer": "foundation",
+      "provides": [
+        "appendOnlyToolSchemasEnabled",
+        "budgetGuardDecision",
+        "budgetGuardEnabled",
+        "budgetGuardTurnTokens",
+        "budgetGuardWarnRatio",
+        "estimateBucketsEnabled",
+        "execResultCacheEnabled",
+        "execResultCacheMaxEntries",
+        "observationRecallEnabled",
+        "sessionNotesEnabled",
+        "sessionNotesInjectEnabled",
+        "sessionNotesMergeEnabled",
+        "summaryEntityCheckEnabled",
+        "summaryFactTableCap",
+        "summaryFactTableEnabled",
+        "summaryRefineEnabled",
+        "summarySingleShotEnabled",
+        "toolByteBudgetShadowBytes",
+        "toolTimeBudgetEnabled",
+        "toolTimeBudgetHardMs",
+        "toolTimeBudgetShadowEnabled",
+        "toolTimeBudgetWarnMs",
+        "volatileTailLayoutEnabled"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -130,15 +160,10 @@
         "_launcherResolveCache",
         "addExternalMcpServersToMap",
         "agentCliInstallCandidates",
-        "appendOnlyToolSchemasEnabled",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "batchSafeSpawn",
-        "budgetGuardDecision",
-        "budgetGuardEnabled",
-        "budgetGuardTurnTokens",
-        "budgetGuardWarnRatio",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -160,9 +185,6 @@
         "detectDesktopMcp",
         "detectKimiPath",
         "effectiveAnthropicEnv",
-        "estimateBucketsEnabled",
-        "execResultCacheEnabled",
-        "execResultCacheMaxEntries",
         "externalServerJs",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
@@ -178,7 +200,6 @@
         "normalizeAgentRole",
         "normalizeConfig",
         "normalizeWorkspacePathString",
-        "observationRecallEnabled",
         "originOk",
         "pickPython",
         "prepareAgentCliSpawn",
@@ -195,29 +216,15 @@
         "send",
         "sendError",
         "serveStatic",
-        "sessionNotesEnabled",
-        "sessionNotesInjectEnabled",
-        "sessionNotesMergeEnabled",
         "sessionPath",
         "sessionWriteChains",
         "spawnCmdLineLength",
         "staticBase",
-        "summaryEntityCheckEnabled",
-        "summaryFactTableCap",
-        "summaryFactTableEnabled",
-        "summaryRefineEnabled",
-        "summarySingleShotEnabled",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
         "syncMcpServersToKimi",
         "tokenOk",
-        "toolByteBudgetShadowBytes",
-        "toolTimeBudgetEnabled",
-        "toolTimeBudgetHardMs",
-        "toolTimeBudgetShadowEnabled",
-        "toolTimeBudgetWarnMs",
-        "volatileTailLayoutEnabled",
         "writeConfig",
         "writeConfigAtomic",
         "writeToChild"
@@ -4171,13 +4178,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "appendOnlyToolSchemasEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
@@ -4262,13 +4262,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "observationRecallEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -4277,6 +4270,20 @@
         {
           "provider": "01-config.js",
           "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "appendOnlyToolSchemasEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]
@@ -4658,13 +4665,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "estimateBucketsEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4673,6 +4673,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "estimateBucketsEnabled",
           "kinds": [
             "call"
           ]
@@ -5219,41 +5226,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "budgetGuardDecision",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardTurnTokens",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardWarnRatio",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "estimateBucketsEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -5267,49 +5239,84 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardTurnTokens",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardWarnRatio",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesInjectEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolByteBudgetShadowBytes",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetHardMs",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetShadowEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetWarnMs",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
           "kinds": [
             "call"
@@ -6698,13 +6705,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "observationRecallEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
@@ -6725,56 +6725,63 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesInjectEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesMergeEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "summaryEntityCheckEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "summaryFactTableCap",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "summaryFactTableEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "summaryRefineEnabled",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "summarySingleShotEnabled",
           "kinds": [
             "call"
@@ -7417,28 +7424,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "execResultCacheEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "execResultCacheMaxEntries",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "externalServerJs",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]
@@ -7474,6 +7460,27 @@
         {
           "provider": "01-config.js",
           "symbol": "staticBase",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "execResultCacheEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "execResultCacheMaxEntries",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]
@@ -8208,13 +8215,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "observationRecallEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
@@ -8321,6 +8321,13 @@
         {
           "provider": "01-config.js",
           "symbol": "writeConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
           ]
@@ -10487,13 +10494,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "appendOnlyToolSchemasEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "autoImportClaudeCodeMcp",
           "kinds": [
             "read"
@@ -10502,34 +10502,6 @@
         {
           "provider": "01-config.js",
           "symbol": "batchSafeSpawn",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardDecision",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardTurnTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "budgetGuardWarnRatio",
           "kinds": [
             "read"
           ]
@@ -10600,27 +10572,6 @@
         {
           "provider": "01-config.js",
           "symbol": "DurableJsonStore",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "estimateBucketsEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "execResultCacheEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "execResultCacheMaxEntries",
           "kinds": [
             "read"
           ]
@@ -10718,63 +10669,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "sessionNotesEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "sessionNotesInjectEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "sessionNotesMergeEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "spawnCmdLineLength",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "summaryEntityCheckEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "summaryFactTableCap",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "summaryFactTableEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "summaryRefineEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "summarySingleShotEnabled",
           "kinds": [
             "read"
           ]
@@ -10787,50 +10682,162 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01b-route-auth.js",
+          "symbol": "ROUTE_AUTH",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "appendOnlyToolSchemasEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardDecision",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardTurnTokens",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "budgetGuardWarnRatio",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "execResultCacheEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "execResultCacheMaxEntries",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "sessionNotesEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "sessionNotesInjectEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "sessionNotesMergeEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summaryEntityCheckEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summaryFactTableCap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summaryFactTableEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summaryRefineEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summarySingleShotEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolByteBudgetShadowBytes",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetEnabled",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetHardMs",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetShadowEnabled",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "toolTimeBudgetWarnMs",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01b-route-auth.js",
-          "symbol": "ROUTE_AUTH",
           "kinds": [
             "read"
           ]
