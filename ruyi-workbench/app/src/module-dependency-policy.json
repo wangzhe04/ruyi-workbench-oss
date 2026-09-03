@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "104 reviewed rebase of the 103b debt ceiling after zero-behavior physical ownership splits. Module edges 197→239 reflect one former 07/10 owner becoming six explicit domains; forward edges 59→65, duplicate exports remain 0, SCC count remains 1. Future additions still require explicit architecture review. 110-1 搬家重归属: MCP_TOOLS 的 provider 由 13-http-router.js 迁至新模块 13f-native-tool-schemas.js(纯搬家,零行为变更),故 04-permission-runtime.js/07-autonomy.js 两条已登记边的 provider 端点同步改名,消费者与符号均未变,不构成新依赖。 110-3b 搬家重归属: createTurnSegmentBuilder 由 02-session-store.js 迁至 02c-turn-segments.js；其中 02c->00-boot(text) 为扫描器箭头函数形参假阳性,非真依赖,待 module-dependency-graph.js 修复形参绑定后应移除。",
+  "note": "104 reviewed rebase of the 103b debt ceiling after zero-behavior physical ownership splits. Module edges 197→239 reflect one former 07/10 owner becoming six explicit domains; forward edges 59→65, duplicate exports remain 0, SCC count remains 1. Future additions still require explicit architecture review. 110-1 搬家重归属: MCP_TOOLS 的 provider 由 13-http-router.js 迁至新模块 13f-native-tool-schemas.js(纯搬家,零行为变更),故 04-permission-runtime.js/07-autonomy.js 两条已登记边的 provider 端点同步改名,消费者与符号均未变,不构成新依赖。 110-3b 搬家重归属: createTurnSegmentBuilder 由 02-session-store.js 迁至 02c-turn-segments.js；110-h1 已修复扫描器箭头函数形参绑定并移除该假阳性条目(02c->00-boot(text)):扫描器现将箭头函数形参(单标识符/括号列表/async/默认值/rest/单层解构)识别为局部绑定,不再与其他模块的顶层 provides 误配。该条目移除后 02c-turn-segments.js 退出原唯一 SCC 主环,连带 05-claude-engine.js->02c-turn-segments.js 与 09-workflow.js->02c-turn-segments.js 两条边不再被判定为循环边,但边本身仍存在(createTurnSegmentBuilder 调用未变),故这两条白名单项暂留待后续裁决;04-permission-runtime.js->13f-native-tool-schemas.js 与 07-autonomy.js->13f-native-tool-schemas.js 两条早于本波已不对应任何当前边,同样暂留待裁决。",
   "allowedCycleEdges": [
     "00-boot.js->01-config.js",
     "00-boot.js->02-session-store.js",
@@ -25,7 +25,6 @@
     "02-session-store.js->08-agent-runs.js",
     "02-session-store.js->11-native-tools.js",
     "02-session-store.js->13e-pretender-index.js",
-    "02c-turn-segments.js->00-boot.js",
     "03-bridge-guard.js->00-boot.js",
     "03-bridge-guard.js->01-config.js",
     "03-bridge-guard.js->02-session-store.js",

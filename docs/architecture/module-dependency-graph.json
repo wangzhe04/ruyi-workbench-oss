@@ -5,8 +5,8 @@
   "summary": {
     "modules": 34,
     "providedSymbols": 1484,
-    "requiredSymbols": 1645,
-    "edges": 256,
+    "requiredSymbols": 1644,
+    "edges": 255,
     "forwardEdges": 65,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -787,19 +787,7 @@
       "provides": [
         "createTurnSegmentBuilder"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            23,
-            24
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "02-session-store.js",
@@ -5251,7 +5239,6 @@
             "read"
           ],
           "lines": [
-            1003,
             1078,
             1079,
             1168,
@@ -5628,12 +5615,8 @@
             "read"
           ],
           "lines": [
-            88,
             89,
-            131,
-            207,
-            208,
-            247
+            208
           ]
         }
       ]
@@ -11560,7 +11543,6 @@
             486,
             487,
             489,
-            807,
             1095,
             1100,
             1101,
@@ -21981,14 +21963,6 @@
       "direction": "forward"
     },
     {
-      "from": "02c-turn-segments.js",
-      "to": "00-boot.js",
-      "symbols": [
-        "text"
-      ],
-      "direction": "backward"
-    },
-    {
       "from": "03-bridge-guard.js",
       "to": "00-boot.js",
       "symbols": [
@@ -25176,7 +25150,6 @@
       "00-boot.js",
       "01-config.js",
       "02-session-store.js",
-      "02c-turn-segments.js",
       "03-bridge-guard.js",
       "04-desktop-shell.js",
       "04-permission-runtime.js",
@@ -25228,7 +25201,6 @@
     "02-session-store.js->08-agent-runs.js",
     "02-session-store.js->11-native-tools.js",
     "02-session-store.js->13e-pretender-index.js",
-    "02c-turn-segments.js->00-boot.js",
     "03-bridge-guard.js->00-boot.js",
     "03-bridge-guard.js->01-config.js",
     "03-bridge-guard.js->02-session-store.js",
@@ -25247,7 +25219,6 @@
     "05-claude-engine.js->00-boot.js",
     "05-claude-engine.js->01-config.js",
     "05-claude-engine.js->02-session-store.js",
-    "05-claude-engine.js->02c-turn-segments.js",
     "05-claude-engine.js->03-bridge-guard.js",
     "05-claude-engine.js->04-permission-runtime.js",
     "05-claude-engine.js->05b-kimi-bridge.js",
@@ -25337,7 +25308,6 @@
     "09-workflow.js->00-boot.js",
     "09-workflow.js->01-config.js",
     "09-workflow.js->02-session-store.js",
-    "09-workflow.js->02c-turn-segments.js",
     "09-workflow.js->03-bridge-guard.js",
     "09-workflow.js->04-permission-runtime.js",
     "09-workflow.js->04-visual-pipeline.js",

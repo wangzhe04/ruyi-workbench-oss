@@ -484,15 +484,7 @@
       "provides": [
         "createTurnSegmentBuilder"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "02-session-store.js",

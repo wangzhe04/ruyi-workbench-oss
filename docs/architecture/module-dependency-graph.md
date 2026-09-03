@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 34 | 1484 | 1645 | 256 | 65 | 0 | 1 |
+| 34 | 1484 | 1644 | 255 | 65 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -19,7 +19,7 @@
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 23 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 92 | 35 | 8 |
-| 4 | `02c-turn-segments.js` | foundation | 1 | 1 | 1 |
+| 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 5 | `02-session-store.js` | foundation | 174 | 40 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
@@ -78,7 +78,6 @@
 | `02-session-store.js` | `08-agent-runs.js` | forward | `appendAgentRunEvent`, `bumpRunIntervention`, `listAgentRuns`, `saveAgentRun` |
 | `02-session-store.js` | `11-native-tools.js` | forward | `runGit` |
 | `02-session-store.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `02c-turn-segments.js` | `00-boot.js` | backward | `text` |
 | `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `cp`, `crypto`, `dataRoot`, `fs`, `fsp`, `os`, `path`, `zlib` |
 | `03-bridge-guard.js` | `01-config.js` | backward | `batchSafeSpawn`, `readConfig` |
 | `03-bridge-guard.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `collectBridgedWriteTargets`, `journalDir`, `journalRecord`, `journalSessionCtx`, `kindForPath`, `unprefixedBridgedName` |
@@ -313,7 +312,7 @@
 
 ## 强连通分量
 
-1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `02c-turn-segments.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
+1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js`
 
 ## 维护规则
 

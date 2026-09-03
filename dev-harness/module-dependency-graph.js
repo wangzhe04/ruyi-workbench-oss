@@ -190,7 +190,136 @@ function declarationInfo(tokens) {
     if (token.value === '{') braces++;
     else if (token.value === '}') braces = Math.max(0, braces - 1);
   }
+  collectArrowParamLocals(tokens, declarationTokenIndexes);
   return { provides, declarationTokenIndexes };
+}
+
+// 110-h1: arrow-function parameters are local bindings and must not be resolved against another module's
+// top-level provides. The block above only ever records TOP-LEVEL (brace depth 0) function/class names and
+// const/let/var binders, so a nested `const appendText = (type, text) => String(text)` left both the
+// parameter `text` and its in-body reads free for the cross-module scan in buildGraph() to match against
+// any other module that happens to provide a top-level `text`. Fix: scan every `=>` in the token stream
+// (arrows can appear at any depth, so this intentionally ignores `braces`), recover the arrow's parameter
+// list and body span, and add every occurrence of a bound parameter name inside that span to the same
+// declarationTokenIndexes set the top-level scan already uses to mark tokens as local. This does not touch
+// `provides` (arrow params are never module-level symbols) and does not change edge/layer classification.
+function collectArrowParamLocals(tokens, declarationTokenIndexes) {
+  for (let k = 0; k < tokens.length; k++) {
+    if (tokens[k].value !== '=>') continue;
+    let paramsStart = k - 1;
+    if (paramsStart < 0) continue;
+    if (tokens[paramsStart].value === ')') {
+      let depth = 0, j = paramsStart;
+      for (; j >= 0; j--) {
+        if (tokens[j].value === ')') depth++;
+        else if (tokens[j].value === '(') { depth--; if (depth === 0) break; }
+      }
+      if (j < 0) continue; // unbalanced / not a real param list - skip defensively, no worse than before
+      paramsStart = j;
+    } else if (!(tokens[paramsStart].type === 'id' && !KEYWORDS.has(tokens[paramsStart].value))) {
+      continue; // whatever precedes `=>` is not a paren list or a bare identifier param - not our arrow
+    }
+    const names = collectParamNames(tokens, paramsStart, k - 1);
+    if (!names.size) continue;
+    const bodyEnd = findArrowBodyEnd(tokens, k + 1);
+    for (let t = paramsStart; t <= bodyEnd; t++) {
+      const tok = tokens[t];
+      if (tok.type !== 'id' || KEYWORDS.has(tok.value) || !names.has(tok.value)) continue;
+      const previous = tokens[t - 1] && tokens[t - 1].value;
+      const next = tokens[t + 1] && tokens[t + 1].value;
+      // A single preceding '.' means member access (skip); three preceding '.' tokens are this tokenizer's
+      // rendering of the rest/spread marker '...' (see tokenize() above) and are not member access - a
+      // rest-bound name's own declaration site (`...text`) must still be marked local.
+      const isRestDots = previous === '.' && tokens[t - 2] && tokens[t - 2].value === '.' && tokens[t - 3] && tokens[t - 3].value === '.';
+      if ((previous === '.' && !isRestDots) || previous === '?.' || next === ':') continue;
+      declarationTokenIndexes.add(t);
+    }
+  }
+}
+
+// Parses a param-list token range: either the interior of `(...)` for a multi-param arrow, or the single
+// token of a bare `x => ...` param. Recognizes plain identifiers, defaults (`a = expr`), rest (`...a`, which
+// this tokenizer emits as three separate '.' punct tokens - see tokenize() above), and one or more levels of
+// object/array destructuring (`{a, b: c, d = 1, ...e}`, `[a, , b]`), recursing into nested patterns. This is
+// a strict superset of the one-level-only `{...}` destructuring declarationInfo() gives top-level
+// const/let/var above; array destructuring in particular is handled properly here (the top-level const/let/
+// var path above has a pre-existing, untouched quirk where it only captures the first array element - not
+// fixed by this change, out of scope for the arrow-parameter gap this function closes).
+function collectParamNames(tokens, start, end) {
+  const names = new Set();
+  let i = start;
+  const isRestDots = idx => tokens[idx] && tokens[idx].value === '.' && tokens[idx + 1] && tokens[idx + 1].value === '.' && tokens[idx + 2] && tokens[idx + 2].value === '.';
+  const skipDefaultExpr = () => {
+    let depth = 0;
+    while (i <= end) {
+      const v = tokens[i].value;
+      if (v === '(' || v === '[' || v === '{') depth++;
+      else if (v === ')' || v === ']' || v === '}') { if (depth === 0) return; depth--; }
+      else if (v === ',' && depth === 0) return;
+      i++;
+    }
+  };
+  const parseTarget = () => {
+    if (i > end) return;
+    if (isRestDots(i)) { i += 3; parseTarget(); return; }
+    if (tokens[i].value === '{') {
+      i++;
+      while (i <= end && tokens[i].value !== '}') {
+        if (isRestDots(i)) { i += 3; if (i <= end && tokens[i].type === 'id') { names.add(tokens[i].value); i++; } }
+        else if (tokens[i].type === 'id' && !KEYWORDS.has(tokens[i].value)) {
+          const next = tokens[i + 1] && tokens[i + 1].value;
+          if (next === ':') { i += 2; parseTarget(); }
+          else { names.add(tokens[i].value); i++; if (i <= end && tokens[i].value === '=') { i++; skipDefaultExpr(); } }
+        } else { i++; } // defensive: computed keys / stray punctuation
+        if (i <= end && tokens[i].value === ',') i++;
+      }
+      if (i <= end && tokens[i].value === '}') i++;
+      return;
+    }
+    if (tokens[i].value === '[') {
+      i++;
+      while (i <= end && tokens[i].value !== ']') {
+        if (tokens[i].value === ',') { i++; continue; } // hole
+        parseTarget();
+        if (i <= end && tokens[i].value === '=') { i++; skipDefaultExpr(); }
+        if (i <= end && tokens[i].value === ',') i++;
+      }
+      if (i <= end && tokens[i].value === ']') i++;
+      return;
+    }
+    if (tokens[i].type === 'id' && !KEYWORDS.has(tokens[i].value)) { names.add(tokens[i].value); i++; return; }
+    i++; // defensive: unrecognized token in binding position, do not loop forever
+  };
+  while (i <= end) {
+    parseTarget();
+    if (i <= end && tokens[i].value === '=') { i++; skipDefaultExpr(); }
+    if (i <= end && tokens[i].value === ',') i++;
+  }
+  return names;
+}
+
+// Finds the last token index of an arrow function's body starting at bodyStart (the token right after
+// `=>`). A `{` body is a block: walk to its matching `}`. Otherwise it is an expression body, which ends at
+// the first depth-0 `,`/`;` or at an unmatched depth-0 closing bracket that belongs to the enclosing
+// context (e.g. the arrow is the last argument in `foo(x => x + 1)`).
+function findArrowBodyEnd(tokens, bodyStart) {
+  if (bodyStart >= tokens.length) return tokens.length - 1;
+  if (tokens[bodyStart].value === '{') {
+    let depth = 0;
+    for (let i = bodyStart; i < tokens.length; i++) {
+      if (tokens[i].value === '{') depth++;
+      else if (tokens[i].value === '}') { depth--; if (depth === 0) return i; }
+    }
+    return tokens.length - 1;
+  }
+  let depth = 0;
+  for (let i = bodyStart; i < tokens.length; i++) {
+    const v = tokens[i].value;
+    if (v === '(' || v === '[' || v === '{') depth++;
+    else if (v === ')' || v === ']' || v === '}') { if (depth === 0) return i - 1; depth--; }
+    else if (depth === 0 && (v === ',' || v === ';')) return i - 1;
+  }
+  return tokens.length - 1;
 }
 
 function stronglyConnectedComponents(moduleNames, edges) {
