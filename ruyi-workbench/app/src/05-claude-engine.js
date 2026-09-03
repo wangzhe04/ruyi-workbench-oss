@@ -251,7 +251,7 @@ async function runClaudeTurn({
     if (config.desktopMcp && config.desktopMcp.enabled) {
       appendSys += `${appendSys ? '\n\n' : ''}${buildBrowserAutomationHint(config)}`;
     }
-    if (config.includeWorkbenchMcp) appendSys += `${appendSys ? '\n\n' : ''}${buildToolCustomizationHint()}`;
+    if (config.includeWorkbenchMcp) appendSys += `${appendSys ? '\n\n' : ''}${buildToolCustomizationHint(config)}`;
     // cmd8191 配套: 先为末尾政策段(语言政策+团队提示)预留房间,append 内剩余内容(用户 append + 账本 digest)只在
     // sectionLimit 内竞争。预留后 appendSys ≤ sectionLimit ⇒ 末尾政策追加时绝不再切内容段。
     // (第35波 P2 起技能/记忆/编排索引已改道 stdin,不再参与此处的预算竞争。)
@@ -270,6 +270,21 @@ async function runClaudeTurn({
         if (skillSec) indexSecs.push(skillSec);
       } catch { /* 技能注入绝不可阻断回合 */ }
     }
+    // 108b 两引擎对称: Playbook 精简索引与技能索引同信道(stdin indexSecs)、同一段位置注入。与技能索引不同,
+    // 它不受 session.skills 选择门控: playbook 是工作台级预置流程,始终列出可用项。空列表 -> 零注入。
+    try {
+      // 108b-fix2: 这里绝不能用 getCapabilities(config):冷缓存时它会做网络锚点 + 桌面 MCP 探测
+      // (最长 CAP_PROBE_TIMEOUT_MS=3000),把 CLI spawn 与回合注册推后数秒,客户端在此之前发的
+      // /api/steer 会拿到「当前没有进行中的回合」(steering-claude A 段 全红)。改用非阻塞的
+      // peekCapabilities():缓存热则标注可用性,缓存冷则能力未知 -> fail-open 不标「当前不可用」
+      // (与 evalPlaybookAvailability 对 network===null 的 fail-open 同口径,宁可多列不误灰)。
+      const capsForPlaybooks = peekCapabilities();
+      const playbookEntries = (await loadAllPlaybooks().catch(() => []))
+        .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '',
+          ...(capsForPlaybooks ? evalPlaybookAvailability(pb, capsForPlaybooks) : { available: true, unavailableReason: '' }) }));
+      const pbSec = buildPlaybookIndexSection(playbookEntries, config);
+      if (pbSec) indexSecs.push(pbSec);
+    } catch { /* Playbook 索引注入绝不可阻断回合 */ }
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
     try {

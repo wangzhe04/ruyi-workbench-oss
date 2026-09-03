@@ -2341,6 +2341,18 @@ const MCP_TOOLS = [
       },
     },
   },
+  // 108c: 只读原生工具 —— 自身运行时详情。数据装配复用 /api/status 的同一组函数(computeHealth/
+  // getCapabilities/loadSkillRegistry/getAgentWorkflows 等),不新造事实源;config 段只回显白名单标量字段。
+  {
+    name: 'workbench_self_status',
+    description: '只读查询本工作台自身的运行时状态:版本号、启动模式(exe/源码)、安装位置、数据目录、服务地址与实例标识、健康检查项、原生/ACC 工具数与技能/命令/Playbook/工作流数量,以及当前设置(引擎/端点/模型/权限模式/输出风格/界面语言,已做密钥掩码,绝不含 apiKey/token)。何时用:用户问「你是哪个版本/装在哪/端口是多少/数据目录在哪/当前用哪个模型和权限模式/有多少工具、技能、Playbook」,或你需要核对自身运行环境再回答时,调用本工具而不是凭记忆回答或猜测。何时别用:查询用户项目文件、工作区结构或桌面/浏览器状态时——那应改用 project_snapshot/file_list/ACC diagnostics 等工具;本工具不接受也不触碰任何用户文件路径。section 可选,缩小返回范围以节省上下文,默认 all(全部)。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);all=全部(默认)。' },
+      },
+    },
+  },
   // v0.9-S6 (子代理, L): spawn a self-contained SUB-TURN to carry out a delegated task, with its OWN
   // isolated history + tool subset (toolTier) + iteration budget, returning only the final conclusion text.
   // PROVIDER-ENGINE ONLY: it needs the live provider/session/journal/onEvent closure, so it is special-cased

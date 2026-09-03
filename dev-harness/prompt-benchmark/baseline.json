@@ -69,6 +69,25 @@
       "file_read"
     ],
     "checks": {
+      "tool_count": true,
+      "not_budget_exhausted": true,
+      "loop_warning_at": true,
+      "no_loop_abort": true
+    },
+    "skipped": []
+  },
+  {
+    "id": "lsr-02",
+    "category": "loop-self-rescue",
+    "pass": true,
+    "tools": [
+      "file_edit",
+      "file_edit",
+      "file_edit",
+      "file_edit",
+      "file_edit"
+    ],
+    "checks": {
       "loop_guard_aborts": true,
       "abort_reason_contains": true,
       "not_budget_exhausted": true

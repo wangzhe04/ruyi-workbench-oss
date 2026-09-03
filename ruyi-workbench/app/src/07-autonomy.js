@@ -205,6 +205,7 @@ const NATIVE_TOOL_TIER = {
   mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
+  workbench_self_status: 'read', // 108c: 只读自状态(版本/位置/端口/健康/计数/设置掩码),不触文件路径 → auto-allow
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
@@ -276,7 +277,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
   workbench_memory_relation_propose: 'core', workbench_memory_revise: 'core', workbench_memory_relation_revoke: 'core',
-  observation_recall: 'core',
+  observation_recall: 'core', workbench_self_status: 'core', // 108c: core 常驻,不依赖 classifyToolPacks 意图分类
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',

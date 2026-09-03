@@ -321,6 +321,57 @@ const CORE_TOOL_HANDLERS = {
       }
       return { ok: true, note: '账本更新需在工作台会话上下文中生效(独立调用仅校验)' };
   } },
+  // 108c: 只读原生工具 —— 自身运行时详情(第 49 波「新工具入库全部门」纪律)。复用 108a
+  // buildRuntimeIdentityFacts() 与 /api/status 同源装配(computeHealth/getCapabilities/loadSkillRegistry/
+  // getAgentWorkflows),不新造事实源。config 段只回显白名单标量字段,绝不回显 provider/apiKey/token 等
+  // 密钥材料(e2e 断言:序列化结果不含 apiKey/token/sk- 子串)。section 参数控制输出体量。
+  workbench_self_status: { paths: null, guardNote: '只读自状态(版本/位置/端口/健康/计数/设置掩码),不触任何文件路径', handler: async (args, ctx) => {
+      const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'all']);
+      const section = SECTIONS.has(args && args.section) ? args.section : 'all';
+      const identity = buildRuntimeIdentityFacts();
+      const out = {
+        ok: true, app: identity.appName, version: identity.version, launchMode: identity.launchMode,
+        installDir: identity.installDir, dataDir: identity.dataDir, address: identity.address, instanceId: identity.instanceId,
+      };
+      if (section === 'identity') return out;
+
+      const config = await readConfig();
+
+      if (section === 'all' || section === 'health') {
+        const { health } = await computeHealth(config);
+        out.health = health.map(h => ({ id: h.id, ok: h.ok, detail: h.detail }));
+      }
+      if (section === 'all' || section === 'counts') {
+        const cwd = (ctx && ctx.workingDir) || (ctx && ctx.session && ctx.session.cwd) || process.cwd();
+        const [caps, entries, workflows] = await Promise.all([
+          getCapabilities(config).catch(() => null),
+          loadSkillRegistry(cwd, config).catch(() => []),
+          getAgentWorkflows(cwd).catch(() => null),
+        ]);
+        const kindCount = k => entries.filter(e => e.kind === k).length;
+        out.counts = {
+          nativeTools: Object.keys(TOOL_HANDLERS).length,
+          accTools: (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0,
+          skills: kindCount('skill'), commands: kindCount('command'), playbooks: kindCount('playbook'),
+          // getAgentWorkflows 失败(如 dataRoot 不可读)时退化为仅内置模板计数,不让整段 counts 落空。
+          workflows: Array.isArray(workflows) ? workflows.length : BUILTIN_AGENT_WORKFLOWS.length,
+        };
+      }
+      if (section === 'all' || section === 'config') {
+        const p = activeOpenAiProvider(config);
+        const cli = selectedAgentCli(config);
+        out.config = {
+          engine: p ? 'openai' : cli.id,
+          providerId: p ? p.id : '',
+          providerLabel: p ? (p.label || p.id) : cli.label,
+          model: p ? String(p.model || (p.models && p.models[0] && p.models[0].id) || '') : String(config.model || ''),
+          permissionMode: String(config.permissionMode || ''),
+          outputStyle: String(config.outputStyle || ''),
+          locale: String(config.locale || ''),
+        };
+      }
+      return out;
+  } },
 };
 
 // ── 106 #2a: 受限执行结果缓存(22 号文 §6.1)─────────────────────────────────
@@ -1345,7 +1396,11 @@ async function computeHealth(config) {
   const mcpCmd = commandForSelfMcp(config.mcpCommandMode || 'auto');
   push('mcp-target', true, `${mcpCmd.via}: ${path.basename(mcpCmd.command)} ${mcpCmd.args.join(' ')}`);
   const vendorOk = fs.existsSync(path.join(staticBase(), 'vendor', 'marked.min.js'));
-  push('vendor-libs', vendorOk, vendorOk ? 'marked + highlight.js present' : 'vendor/ missing (markdown will fall back to plain text)');
+  // 109a: mermaid is an optional lazy-loaded vendor lib. Missing file only degrades diagrams to code
+  // blocks, so it is reported in the detail line and never lowers the vendor-libs health verdict.
+  const mermaidPresent = fs.existsSync(path.join(staticBase(), 'vendor', 'mermaid.min.js'));
+  const vendorDetail = vendorOk ? 'marked + highlight.js present' : 'vendor/ missing (markdown will fall back to plain text)';
+  push('vendor-libs', vendorOk, `${vendorDetail}; mermaid: ${mermaidPresent ? 'present' : 'absent (optional)'}`);
 
   const mani = await verifyManifest();
   if (mani.present) push('overlay-integrity', Boolean(mani.ok), mani.ok ? `v${mani.version || '?'} verified` : `mismatches: ${(mani.mismatches || []).map(m => m.path).join(', ') || mani.error}`);

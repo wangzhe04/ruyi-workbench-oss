@@ -267,10 +267,13 @@ module.exports = {
   // v0.8-S6: capability matrix + layered prompt + error枚举 (exposed for e2e + UI).
   getCapabilities,
   invalidateCapabilityCache,
+  peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)
   buildStableSystemPrompt, // 51d C1a:稳定层(prefix-cache 友好)
+  buildRuntimeIdentityFacts, // 108a:运行时身份事实(进程内恒定量,e2e 直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
+  buildPlaybookIndexSection, // 108b:Playbook 精简索引段(e2e 直测围栏/上限/尾行)
   buildResponseLanguagePolicy,
   buildAgentTeamHint,
   buildClaudeNativeAgentPolicy,

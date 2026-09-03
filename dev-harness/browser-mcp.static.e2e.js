@@ -48,9 +48,14 @@ ok(srv.classifyToolPacks('请把浏览器目标改成我的默认浏览器').inc
 const systemHint = srv.buildBrowserAutomationHint({ browserAutomation: { mode: 'system' } });
 ok(/Chrome for Testing/.test(systemHint) && /accessibilityLimited/.test(systemHint),
   'system prompt forbids bundled test Chrome and explains the Direct3D UIA fallback');
-const customizationHint = srv.buildToolCustomizationHint();
+// 108b: 文案迁入 06b registry 并双语化; 本断言锁的是英文包原文,故显式选 en-US(断言语义/文字未改)。
+const customizationHint = srv.buildToolCustomizationHint({ locale: 'en-US' });
 ok(/explicitly asks/.test(customizationHint) && /mcp_list/.test(customizationHint) && /permission/.test(customizationHint),
   'AI receives an explicit-request, inspect-first, permission-gated MCP modification policy');
+// 108b 新增(只加):默认(中文包)也必须给出同一套安全句 + 设置边界,避免中文用户拿到英文段或缺边界。
+const customizationHintZh = srv.buildToolCustomizationHint();
+ok(/mcp_list/.test(customizationHintZh) && /exec/.test(customizationHintZh) && /设置面板/.test(customizationHintZh),
+  '108b default (zh) MCP policy keeps inspect-first + exec-tier gating and names the settings panel boundary');
 
 console.log('\nBROWSER/MCP STATIC: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exitCode = failures ? 1 : 0;

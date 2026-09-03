@@ -133,6 +133,20 @@ function judge(seed, events, capDir) {
   if (pc.not_budget_exhausted) {
     checks.not_budget_exhausted = !result || result.errorClass !== 'budget_exhausted';
   }
+  // 108d(99f3a9a loop guard 分层): read-tier 工具同签名连击不 abort,只在第 LOOP_WARN_AT(=3)次 tool_result
+  // 上标 loopWarning(09-workflow.js:2918-2919)。fake 模式一轮一个工具、按 fake_script 顺序回放(FAKE_TOOL_SEQUENCE
+  // 逐条出),tool_result 事件到达顺序即调用顺序、确定性成立,故优先用「第 N 个 tool_result」精确定位;
+  // 万一顺序假设不成立(比如未来改并行),用「任意一条 tool_result 带 loopWarning」兜底,避免误判为 fail。
+  if (pc.loop_warning_at) {
+    const toolResults = events.filter(e => e.type === 'tool_result');
+    const nth = toolResults[pc.loop_warning_at - 1];
+    const nthHasWarning = !!(nth && nth.content && typeof nth.content === 'object' && nth.content.loopWarning);
+    const anyHasWarning = toolResults.some(e => e.content && typeof e.content === 'object' && !!e.content.loopWarning);
+    checks.loop_warning_at = nthHasWarning || anyHasWarning;
+  }
+  if (pc.no_loop_abort) {
+    checks.no_loop_abort = !events.some(e => e.type === 'tool_result' && e.content && e.content.loopAborted === true);
+  }
   if (pc.enters_plan_mode) {
     checks.enters_plan_mode = events.some(e => e.type === 'plan');
     if (!checks.enters_plan_mode) skipped.push('enters_plan_mode(fake bypass 不触发)');

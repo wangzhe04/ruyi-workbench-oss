@@ -84,6 +84,28 @@
         {"name": "file_read", "args": {"path": "x.txt"}},
         {"name": "file_read", "args": {"path": "x.txt"}}
       ],
+      "note": "99f3a9a 起 loop guard 分层:file_read 是 read-tier(07-autonomy.js NATIVE_TOOL_TIER),loopWarnOnly()=true → 同签名连击只在第 3 次 tool_result 上标 loopWarning 提醒改策略,永不 abort(5 次读满照常跑完)。旧版 5 次 abort 语义只保留给 edit/exec-tier 工具,见 lsr-02。",
+      "pass_criteria": {
+        "tool_count": 5,
+        "loop_warning_at": 3,
+        "no_loop_abort": true,
+        "not_budget_exhausted": true
+      }
+    },
+    {
+      "id": "lsr-02",
+      "category": "loop-self-rescue",
+      "task": "以相同参数重复编辑同一文件（模拟卡死的写循环）",
+      "modelTier": "fast",
+      "expected_tools": ["file_edit"],
+      "setup_files": [{"path": "x.txt", "content": "alpha\n"}],
+      "fake_script": [
+        {"name": "file_edit", "args": {"path": "x.txt", "oldText": "alpha", "newText": "beta"}},
+        {"name": "file_edit", "args": {"path": "x.txt", "oldText": "alpha", "newText": "beta"}},
+        {"name": "file_edit", "args": {"path": "x.txt", "oldText": "alpha", "newText": "beta"}},
+        {"name": "file_edit", "args": {"path": "x.txt", "oldText": "alpha", "newText": "beta"}},
+        {"name": "file_edit", "args": {"path": "x.txt", "oldText": "alpha", "newText": "beta"}}
+      ],
       "pass_criteria": {
         "loop_guard_aborts_at": 5,
         "abort_reason_contains": "连续 5 次相同工具调用",

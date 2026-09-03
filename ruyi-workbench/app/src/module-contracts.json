@@ -2042,6 +2042,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildPlaybookIndexSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "buildPromptTaskContext",
           "kinds": [
             "call"
@@ -2070,6 +2077,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "evalPlaybookAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "fenceSafeSlice",
           "kinds": [
             "call"
@@ -2078,6 +2092,20 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "getCapabilities",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "peekCapabilities",
           "kinds": [
             "call"
           ]
@@ -2980,9 +3008,11 @@
         "buildClaudeNativeAgentPolicy",
         "buildMetricsPayload",
         "buildOpsMetrics",
+        "buildPlaybookIndexSection",
         "buildPromptTaskContext",
         "buildProviderSystemPrompt",
         "buildResponseLanguagePolicy",
+        "buildRuntimeIdentityFacts",
         "buildSkillsPromptSection",
         "buildSoftwareEngineeringPolicy",
         "buildStableSystemPrompt",
@@ -3021,6 +3051,7 @@
         "normalizePlaybook",
         "normalizeStoragePolicy",
         "parsePlaybookDraft",
+        "peekCapabilities",
         "probeAny",
         "probeDesktopMcp",
         "probeNetwork",
@@ -3048,6 +3079,13 @@
         "toolRequirementsMet"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "APP_NAME",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
@@ -3085,6 +3123,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DEFAULT_PORT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -3106,6 +3158,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "isPkg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -3114,6 +3173,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
           "kinds": [
             "read"
           ]
@@ -3148,6 +3214,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -3165,6 +3238,13 @@
           "symbol": "readConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5552,6 +5632,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "readProjectMemory",
           "kinds": [
             "call"
@@ -7511,6 +7598,20 @@
           ]
         },
         {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildRuntimeIdentityFacts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06-provider-engine.js",
           "symbol": "evalPlaybookAvailability",
           "kinds": [
@@ -7604,6 +7705,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "searchToolCatalog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "BUILTIN_AGENT_WORKFLOWS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "getAgentWorkflows",
           "kinds": [
             "call"
           ]
@@ -11548,6 +11663,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildPlaybookIndexSection",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "buildPromptTaskContext",
           "kinds": [
             "read"
@@ -11563,6 +11685,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildResponseLanguagePolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildRuntimeIdentityFacts",
           "kinds": [
             "read"
           ]
@@ -11724,6 +11853,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "parsePlaybookDraft",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "peekCapabilities",
           "kinds": [
             "read"
           ]

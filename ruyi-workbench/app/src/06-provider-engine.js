@@ -232,6 +232,11 @@ async function getCapabilities(config, force) {
 }
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
 function invalidateCapabilityCache() { _capCache = null; }
+// 108b-fix2 非阻塞读取:只看能力缓存,绝不触发探测。冷缓存时返回 null(能力未知),
+// 由调用方 fail-open。供对延迟敏感的热路径(如 Claude CLI 启动前的提示词装配)使用:
+// getCapabilities 冷调用会做网络锚点探测(CAP_PROBE_TIMEOUT_MS=3000)+桌面 MCP 探测,
+// 把 CLI 进程的 spawn 推后数秒,会让回合注册晚于客户端的插话请求(steering-claude A 段)。
+function peekCapabilities() { return _capCache ? _capCache.value : null; }
 
 // ============================================================================
 // v0.9-S8 — 审计中心 (§0.9-S8 / §4 B4). Read-only aggregation of two audit sources into ONE timeline:
@@ -1122,8 +1127,11 @@ function buildBrowserAutomationHint(config) {
   return 'Browser target: bundled Playwright browser (isolated Chrome for Testing). This is an explicit compatibility/testing choice and may open a separate window; never describe it as the user\'s signed-in browser.';
 }
 
-function buildToolCustomizationHint() {
-  return 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification.';
+// 108b: 文案迁入 06b registry(中英双包),并补齐设置边界: mcp_configure 只写 MCP 连接器与浏览器目标,
+// 模型端点/模型/权限模式/输出风格/界面语言必须引导用户去设置面板改。调用方传 config 以选 locale;
+// 不传时按 getPromptPack 的既有默认(中文包)取。
+function buildToolCustomizationHint(config) {
+  return getPromptPack(config && config.locale).toolCustomization.hint;
 }
 
 function buildAgentTeamHint() {
@@ -1340,6 +1348,23 @@ async function readProjectMemory(cwd) {
 // 向后兼容包装(stable+volatile),行为零漂移(prompt-snapshot 绿)。C1b(后续):09 启用分层(sys=stable,
 // volatile 动态注入 messages[1],避开 09:854 参数未初始化 + 持久化问题)。
 // 稳定层:身份 + 工具协议 + provider append(会话内逐字节稳定,prefix-cache 友好)。
+// 108a:身份层之后、工具协议层之前加「运行时身份层」(产品名/版本/启动模式/安装位置/数据目录/服务地址/实例标识),
+// 只在 !identityOnly 时注入(压缩摘要调用保持廉价);字段全部为进程内恒定量,不破坏前缀缓存。
+// 108a 运行时事实装配:只读 00-boot / 01-config 的进程内恒定量(不读 LAUNCH_MODE,那是前向边),
+// 由 isPkg() 自行推导 exe/node;无时间戳、无会话 id,保证同进程两次构建逐字节相同。
+function buildRuntimeIdentityFacts() {
+  const host = (typeof RUNTIME !== 'undefined' && RUNTIME && RUNTIME.host) || '127.0.0.1';
+  const port = (typeof RUNTIME !== 'undefined' && RUNTIME && RUNTIME.port) || DEFAULT_PORT;
+  return {
+    appName: APP_NAME,
+    version: VERSION,
+    launchMode: isPkg() ? 'exe' : 'node',
+    installDir: externalRoot(),
+    dataDir: dataRoot(),
+    address: 'http://' + host + ':' + port,
+    instanceId: OVERLAY_ID,
+  };
+}
 function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
@@ -1347,6 +1372,8 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
   const lines = [];
   // [身份层]
   lines.push(getPromptPack(config && config.locale).identity({ label, modelName, cwd }));
+  // [运行时身份层] - 108a
+  if (!identityOnly) lines.push(getPromptPack(config && config.locale).runtimeIdentity(buildRuntimeIdentityFacts()));
   if (hasTools) {
     // [工具协议层]
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
@@ -1369,7 +1396,9 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 }
 // 易变层:能力/桌面规程/搜索/风格/项目/技能/记忆/账本(每回合可能变化,自破 prefix cache)。
 // C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck) {
+// 108b: 末尾新增可选参数 playbookEntries(不动任何既有位置参数,旧调用点与快照夹具原样可用)。
+// 只有主回合调用方传它;子代理(08-agent-runs)不与用户对话,不传 -> 天然无 playbook 索引。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1397,7 +1426,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
       if (spProvObj) lines.push(getPromptPack(config && config.locale).capability.subagentPreferred({ provider: spProvObj.label || spProv, model: (config.subagentPreferredModel || '').trim() }));
     }
   }
-  if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint());
+  if (offeredNames.has('mcp_list') || offeredNames.has('mcp_configure')) lines.push(buildToolCustomizationHint(config));
+  // 108c: 提示模型有 workbench_self_status 可查自身版本/位置/端口/设置,别凭记忆回答。
+  if (offeredNames.has('workbench_self_status')) lines.push(getPromptPack(config && config.locale).capability.selfStatus);
   const unavailable = [];
   for (const [name, spec] of Object.entries(TOOL_REQUIRES)) {
     if (spec.testOnly && !toolRequiresEnabled) continue;
@@ -1444,6 +1475,11 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     const skillSec = buildSkillsPromptSection(skillEntries, 'openai', config);
     if (skillSec) lines.push(skillSec);
   }
+  // [Playbook 索引层] - 108b · 紧跟技能层之后、记忆层之前
+  if (Array.isArray(playbookEntries) && playbookEntries.length) {
+    const pbSec = buildPlaybookIndexSection(playbookEntries, config);
+    if (pbSec) lines.push(pbSec);
+  }
   // [记忆层]
   if (memoryCheck) {
     const checkSec = buildMemoryCheckPrompt(memoryCheck, config);
@@ -1476,10 +1512,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
   const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
-  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck);
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries);
   return volatile ? stable + '\n' + volatile : stable;
 }
 
@@ -1509,6 +1545,51 @@ function buildSkillsPromptSection(enabledSkills, engine, config) {
   const budget = 3000 - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
   return header + OPEN + text + CLOSE;
+}
+
+// 108b Playbook 精简索引: agent 没有运行 playbook 的工具(用户在「技能库」面板点运行),所以这里只给
+// 「有哪些、叫什么、干什么、去哪儿运行」,不给执行承诺。数据来自内置 resources/playbooks 与用户可写的
+// dataRoot/playbooks/*.json, 标题与描述都是不可信文本,故沿用技能索引的不可信带纪律:整段包进
+// <playbook-index> 围栏,条目里的尖括号一律中和成方括号(伪造围栏/伪造标签一并失效),描述裁到 160 字。
+// 规模控制: 最多 12 条(available 优先,不可用项只在还有余量时补位并标注),整段硬顶 600 字符,按整行装箱,
+// 装不下的行丢弃并补一行省略标记(不做裸 slice,避免半截条目)。空列表返回 '' -> 零注入。
+// 入参条目形状容错: { id | 'pb:id', title|name, description|desc, available, unavailableReason }。
+function buildPlaybookIndexSection(playbooks, config) {
+  const list = (Array.isArray(playbooks) ? playbooks : []).filter(p => p && (p.id || p.title || p.name));
+  if (!list.length) return '';
+  const pack = getPromptPack(config && config.locale).playbookIndex;
+  // 不可信带中和: 所有尖括号 -> 方括号(比技能索引只中和 <skill-index> 更严,因为 playbook 描述常带示例文本)。
+  const fence = t => String(t).replace(/[<>]/g, ch => (ch === '<' ? '[' : ']'));
+  const MAX_ENTRIES = 12, CAP = 600;
+  // available 优先: 不可用条目只在 12 条名额有余时补位(排序稳定,同组保持原顺序)。
+  const ordered = [...list.filter(p => p.available !== false), ...list.filter(p => p.available === false)].slice(0, MAX_ENTRIES);
+  const body = [];
+  for (const p of ordered) {
+    const id = fence(String(p.id || '').replace(/^pb:/, ''));
+    const name = fence(String(p.title || p.name || p.id || ''));
+    const desc = fence(String(p.description || p.desc || '').replace(/\s+/g, ' ').trim().slice(0, 160));
+    const mark = p.available === false ? pack.unavailable : '';
+    body.push(`- ${name}${id ? ` [${id}]` : ''}：${desc}${mark}`);
+  }
+  const OPEN = '\n<playbook-index>\n', CLOSE = '\n</playbook-index>\n';
+  const shellRoom = CAP - (pack.header.length + OPEN.length + CLOSE.length + pack.trailer.length);
+  // 整行装箱(不做裸 slice,避免半截条目)。装不下时给省略行预留位置后重装; 否则"被裁掉了"这件事会静默丢失。
+  const pack1 = room => {
+    const kept = [];
+    for (const line of body) {
+      const need = (kept.length ? 1 : 0) + line.length;
+      if (need > room) break;
+      room -= need; kept.push(line);
+    }
+    return kept;
+  };
+  let kept = pack1(shellRoom);
+  if (kept.length < list.length) {
+    const withMark = pack1(shellRoom - (pack.truncated.length + 1));
+    if (withMark.length) kept = withMark.concat(pack.truncated);
+  }
+  if (!kept.length) return ''; // 连一行都放不下 -> 整段丢(不留空围栏)
+  return pack.header + OPEN + kept.join('\n') + CLOSE + pack.trailer;
 }
 
 // 围栏感知截断(cmd8191 防线配套): 硬切可能切穿 <skill-index>/<workbench-memory>/<response-language-policy>

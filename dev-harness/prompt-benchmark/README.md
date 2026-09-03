@@ -22,12 +22,22 @@ node dev-harness/prompt-benchmark/run.js --after    # 改后跑，与 baseline �
 
 `seeds.json` 的 `pass_criteria` 是机械可判的（工具名集合 ⊆ / 关键词出现），不依赖主观打分；主观质量留 51 波的质量门节点。
 
-## seeds.json 类别（04 §Phase A 点名 5 类）
+## seeds.json 类别（04 §Phase A 点名 5 类 + tool-batching）
 
-- `tool-protocol`：工具使用规范（先读后改、最小改动、todo 计划）
-- `read-before-write`：先读后改（编辑前必须先读）
-- `office-ban`：Office 禁令（终端命令内联手写 Office 被软闸拦）
-- `loop-self-rescue`：loop 自救（连击 5 次同工具被 guard 中止，非预算烧穿）
-- `plan-trigger`：plan 触发（高风险操作进 plan 模式待批）
+现有 7 个 seed：
+
+- `tp-01`（tool-protocol）：找齐 .js 文件用现成工具（file_search/glob），不先掉终端
+- `rbw-01`（read-before-write）：编辑 config.json 前必须先 file_read
+- `tb-01`（tool-batching）：两个互不依赖的 file_read 合批发出（同 batchId）
+- `ob-01`（office-ban）：终端脚本手写 Excel 被软闸拦并提示改用 write_excel
+- `lsr-01`（loop-self-rescue）：file_read 连击 5 次——只读 read-tier 工具
+- `lsr-02`（loop-self-rescue）：file_edit 以相同参数连击 5 次——有副作用 edit-tier 工具
+- `pt-01`（plan-trigger）：批量删除 .log 高风险操作须进 plan 模式待批
+
+### loop-guard 分层语义（99f3a9a 起，lsr-01/lsr-02 分别覆盖两侧）
+
+`07-autonomy.js` 的 `NATIVE_TOOL_TIER` 把原生工具分 `read`/`edit`/`exec` 三档；loop guard（`09-workflow.js`）按档位区别对待同一签名（工具名+参数）连续调用：
+- **read 档**（如 `file_read`）：`loopWarnOnly()` 为真，同签名连击只在第 3 次 `tool_result` 上追加 `loopWarning` 字段提醒模型换策略，**永不中止**——`lsr-01` 断言 5 次全部执行完、第 3 次带 `loopWarning`、且没有任何 `tool_result.loopAborted === true`。
+- **edit/exec 档**（如 `file_edit`）：同签名连击到第 5 次时该次调用**不执行**，直接返回 `tool_result` 且 `content.loopAborted === true`，错误文案含「连续 5 次相同工具调用」——`lsr-02` 覆盖这条旧语义仍然成立的一侧。
 
 51 波可扩到 10-20 个（04 §Phase A 建议量）。每加一个 seed = 多一道行为漂移防线。

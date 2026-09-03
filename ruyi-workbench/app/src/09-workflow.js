@@ -1588,7 +1588,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the language of an English (or otherwise non-Chinese) user conversation.
   volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam, 0, false, promptTaskContext);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
-  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status) + (volatileExtras ? '\n\n' + volatileExtras : '');
+  // 108b: Playbook 精简索引只在主回合注入(子代理不与用户对话,08 走 buildProviderSystemPrompt 不传该参数)。
+  // 直接调 06 的 loadAllPlaybooks(后向边)而不是再跑一次 loadSkillRegistry: 后者为了拿 pb: 条目会连技能四源
+  // 和命令目录一起重扫一遍,多出一次全量磁盘扫描;可用性用本回合已探测的 caps 现算,不再触发第二次能力探测。
+  const playbookEntries = (await loadAllPlaybooks().catch(() => []))
+    .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
+  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
