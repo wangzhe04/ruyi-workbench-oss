@@ -35,14 +35,15 @@ function rel(file) { return file.replace(/\\/g, '/'); }
 function stableJson(value) { return JSON.stringify(value, null, 2) + '\n'; }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 
+// 110-2-pre: 所有层允许单字母后缀(见 ENGINEERING-SPEC §1)
 function moduleLayer(file) {
-  if (/^00-/.test(file)) return 'bootstrap';
-  if (/^0[1-4]-/.test(file)) return 'foundation';
+  if (/^00[a-z]?-/.test(file)) return 'bootstrap';
+  if (/^0[1-4][a-z]?-/.test(file)) return 'foundation';
   if (/^0[56][a-z]?-/.test(file)) return 'engine';
-  if (/^(07|08|09|10)-/.test(file)) return 'orchestration';
-  if (/^(11|12)-/.test(file)) return 'tools';
+  if (/^(07|08|09|10)[a-z]?-/.test(file)) return 'orchestration';
+  if (/^(11|12)[a-z]?-/.test(file)) return 'tools';
   if (/^13[a-z]?-/.test(file)) return 'transport';
-  if (/^14-/.test(file)) return 'entrypoint';
+  if (/^14[a-z]?-/.test(file)) return 'entrypoint';
   return 'unclassified';
 }
 
