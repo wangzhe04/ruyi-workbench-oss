@@ -190,6 +190,14 @@
 
 顺序理由：1／2 触碰最少的 static 锁且收益立竿见影；4 排在 108 之后（108 改动 06/09 的提示词装配，先完成行为切片再搬家，避免搬家与行为改动交叉）；7／8 独立于后端，可与后端拆分交替进行但不并行提交。
 
+#### 交付记录
+
+- **110-0 SPEC（2026-09-03）**：`docs/ENGINEERING-SPEC.md` 由 sonnet 起草、主会话定稿（含 §3 搬家端点重归属特例），随 `0c4831e` 入库；起草基线含 108 在途改动，行数表在各拆分步骤 1 重测。
+- **110-1（2026-09-03，opus 实现／主会话亲核／`commit` 单独成批）**：`MCP_TOOLS`（`13-http-router.js:1685-2439`，755 行）逐字节搬入 `13f-native-tool-schemas.js`（manifest 插在 13 之前，13→13f 后向边）；13 号 2615→1861 行；`server.js` 多重集差分新增 3 行注释／空行、删除 0 行；依赖图 30/242/65 → 31/243/65，符号集合增删为空；policy 按 SPEC §3 特例把 `04→13`、`07→13` 两条边的 provider 改为 13f（消费者与符号不变，两数组长度不变）；预警的 `11→13f` 与 `13f→07` 均未出现（扫描器对顶层 const 初始化表达式与 `11:2050` 的既有缺口，前后一致，未夹带修复）。锁：只有 `memory-toolbox.static` 的三个 memory 工具 schema 随之搬走，改为拼接读取；其余三把锁与 `missions-readmodel`／`interventions-persist` 断言均不在区间。门：`--fast` 48/48；`tool-dispatch`／`capabilities`／`meta-guard`／`workbench-self-status`／`missions-readmodel`／`interventions-persist`／`tools-v2` 全绿；全量 `--parallel 4` 257/1/2，唯一 FAIL `pretender-needs-drawer` 为临时 HOME `runtime.json` 启动竞态超时，串行复跑与两件 flaky（`interventions-c4`／`session-index`）串行复跑均 ALL PASS。`facts.json` 重算只漂 `generatedAt`，已还原不入库。提交 `b689a37`。
+- **110-2 摸底裁决（2026-09-03）**：`ROUTE_AUTH`（`01-config.js:2272-2389`，118 行纯字面量）与 23 个运行时开关判定函数（`:893-1024`，连续自足）可纯搬家；**默认值块嵌在 `defaultConfig()` 返回对象内、sanitize 表是 `normalizeConfig()` 循环里的内联数组字面量，都不是顶层声明，不能纯搬**（需引入展开／引用语法＝行为中性重构而非搬家），划出 110-2 范围、登记待办。新模块放在 `01-config.js` **之前**以避免 `01→01b` 真正的新前向边（放后面会因 `authorizeRoute` 引用产生，不在搬家特例内）。拆成三批：110-2-pre 扩 `moduleLayer()` 正则（dev-harness）→ 110-2a `01b-route-auth.js` → 110-2b `01c-runtime-flags.js`。
+- **110-2-pre（2026-09-03，opus）**：六层正则统一允许 `NN[a-z]?-`，生成物零变化，`--check` PASS，静态锁 13 条全过。
+- **110-2a（2026-09-03，opus 实现／主会话亲核）**：`01-config.js` 2423→2306，新建 `01b-route-auth.js` 119 行；`Buffer.compare` 逐字节相等（8304 字节）；`server.js` 差分新增 3／删除 0；依赖图 31/243/65 → 32/245/65，新增 `01→01b`、`14→01b` 均为后向，policy 未改；`route-inventory.js` `ROUTE_AUTH_FILE` 指向 01b 且清册 `sources.routeAuth` 改为随常量（原硬编码，顺带修正）；101 判定点／92 鉴权行不变；`missions-readmodel.e2e` 拼接读取。门：`--fast` 48/48、七件定向 e2e 全绿、全量 `--parallel 4` 257/1/10（唯一 FAIL `budget-guard` E30 为并发墙钟抖动，串行全过；该件补入并行易抖名单）。
+
 ### 3.4 单次拆分 SOP（每个 commit 必走）
 1. 记录 `wc -l` 与 `node app/build.js --check` 新鲜。
 2. 新建目标模块（首行顶格、全 LF），剪切代码块**逐字节**搬入，不改任何标识符、注释与顺序；源文件留下一行注释指向新模块。
