@@ -154,6 +154,7 @@
 - 两阶段硬序：① **SPEC 先行**——新建编码/结构规范（模块职责、文件规模上限、注释与命名、测试断言纪律），须尊重 CONTRIBUTING 五条红线（纯离线、server.js 零 npm 运行时依赖、e2e 断言只加不改）与 23 号文既有裁决（如不得一次性强推全树 IIFE）；② **按 SPEC 逐文件拆分**——每文件独立 commit、纯搬家零行为变更（第 100 波先例），每步过生成器链（module-graph／route-inventory／facts／architecture-contract-snapshots／manifest-ranges `--write` + 对应 static e2e 独立重算）+ build --check + 全量 e2e。
 - 明确不做：不改任何运行时行为、不设开关；dev-harness 测试瘦身须先破例评审「断言只加不改」红线，单列决策不夹带；realhist-fixtures 环境缺口（23 号文已记录）不夹带修复。
 - 风险标注：拆分波及 46 件 static e2e 的 grep 锁与 facts 门面数字，工作量主要在校验链同步而非搬家本身。
+- **交付记录（2026-09-03，已分批提交）**：SPEC `docs/ENGINEERING-SPEC.md`（`0c4831e` 起，含搬家端点重归属双向特例与自由标识符扫描前置）；纯搬家六刀——110-1 `13→13f`（`b689a37`，755 行）、110-2a `01→01b`（`4437abf`）、110-2b `01→01c`（`feb078c`）、110-3b `02→02c`（`e762a82`）、110-4a `09→09b`（`a91448f`）、110-4b `09→09d`（`bb2b48e`）；harness 两件——2-pre 层级正则（`30dab47`）、h1 扫描器箭头形参（`e67f8fa`）。模块 30→36、前向边 65→67（均为拆分登记）、SCC 1；`09-workflow` 3375→3075、`02-session-store` 3176→2943、`01-config` 2423→2175、`13-http-router` 2603→1861。每刀逐字节等价＋`server.js` 差分只多注释行＋生成器链＋快通道＋全量回归；出门串行全量 258/258。**取消**交办台前端两刀（随 27 号管家立项）；**待办**：110-r1 巨型函数行为中性闭包提炼、110-h2 扫描器普通形参与嵌套声明、110-3c′ 02 内部 helper 前置搬家、110-4c 可选两小块、05b 延后。逐刀证据与裁决见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §3.3。
 
 ### 第 111–113 波 · 压缩策略 v2／过程可见性／记忆与会话搜索向量化（2026-09-03 候选立项，待拍板执行序）
 

@@ -87,14 +87,14 @@
 
 | 文件 | 行数 |
 |---|---:|
-| `09-workflow.js` | 3375 |
-| `02-session-store.js` | 3176 |
+| `09-workflow.js` | 3075（110-4a/4b 后；起草时 3375） |
+| `02-session-store.js` | 2943（110-3b 后；起草时 3176） |
 | `05b-kimi-bridge.js` | 2752 |
-| `13-http-router.js` | 2603 |
-| `01-config.js` | 2423 |
 | `10-context-governance.js` | 2249 |
 | `08-agent-runs.js` | 2219 |
+| `01-config.js` | 2175（110-2a/2b 后；起草时 2423） |
 | `11-native-tools.js` | 2057 |
+| `13-http-router.js` | 1861（110-1 后已低于目标上限；起草时 2603） |
 
 > 说明：`24-waves-108-110-implementation.md` §3.1「摸底修正」记为 7 件超限，未列 `11-native-tools.js`。
 > 本文起草时对同一 HEAD 重新逐文件计数，`11-native-tools.js` 实测 2057 行，已越过 2000 行目标上限，
