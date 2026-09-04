@@ -174,6 +174,7 @@ export function createPreviewShellDomain({
   // 112b: 交办台侧的回合活动状态机。只跟【当前选中的会话】的流,换任务即清零。
   const turnActivity = createTurnActivity();
   let turnActivityPhase = 'idle';
+  const PREVIEW_PHASE_NEUTRAL_EVENTS = new Set(['assistant_delta', 'thinking_delta', 'context_estimate', 'usage', 'raw_line', 'raw_stdout']);
   let narrativeRenderedSession = '';
   let narrativeRenderedLocale = '';
   const narrativeFeeds = new Map();
@@ -3476,11 +3477,15 @@ export function createPreviewShellDomain({
     // 112b: 全部事件先进状态机(含二十种此前两壳都丢弃的),再走既有的镜头/刷新分支。
     // 只有阶段真的变了才重画头部 —— delta 洪峰下逐条重画会把任务单刷成幻灯片。
     turnActivity.consume(event);
-    const nextPhase = turnActivity.snapshot().phase;
-    if (nextPhase !== turnActivityPhase) {
-      turnActivityPhase = nextPhase;
-      const article = byId('previewMain')?.querySelector('.preview-task-sheet');
-      if (article && selectedSnapshot) renderTaskHeader(article, selectedCard(), selectedSnapshot);
+    // 高频且不改变阶段的事件（正文/思维增量、上下文估算）不取快照：一次 delta 洪峰里
+    // 它们占绝大多数，而 snapshot() 每次都要从 Map 建一批临时数组。阶段变化只会由其它事件带来。
+    if (!PREVIEW_PHASE_NEUTRAL_EVENTS.has(event.type)) {
+      const nextPhase = turnActivity.snapshot().phase;
+      if (nextPhase !== turnActivityPhase) {
+        turnActivityPhase = nextPhase;
+        const article = byId('previewMain')?.querySelector('.preview-task-sheet');
+        if (article && selectedSnapshot) renderTaskHeader(article, selectedCard(), selectedSnapshot);
+      }
     }
     if (event.type === 'assistant_delta') { if (selectedLens === 'raw') appendPreviewLiveText(event.text || ''); }
     else if (event.type === 'tool_use' && !event.subagentId) {
