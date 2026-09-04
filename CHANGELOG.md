@@ -7,6 +7,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+- **记忆容量大幅放宽（第 113 波后续）**：常驻在提示词里的【核心记忆】席位从 24 条提到 200 条、字数预算从 4200 提到 16000；每轮自动检索注入从 3 条提到 8 条，会话里手动固定的记忆从 12 条提到 64 条，相关记忆索引段从 2600 字提到 6000 字。五项全部变成可在配置里调的旋钮，不再是写死的数字。成本说明：核心记忆每一回合都会随提示词发出去，按实际字数计费；但它只装你主动标为核心的条目，没标就不花钱，所以抬上限本身不会凭空变贵。
+- **记忆向量匹配默认开启（第 113 波后续）**：上一版默认关闭的离线向量检索现在默认生效，同义改写与拼写漂移的记忆也能被找出来（合成门 Recall@3 90%→95%）。仍可在配置里显式关闭回到纯词法排序。
 - **不再是黑盒：输入框上方的活动状态条（第 112 波）**：模型干活时，输入框上方常驻一行话回答三个问题——现在在干什么（正在思考／正在调用哪个工具／正在重建上下文／班组在跑）、干到哪了（已运行多久、本回合第几次工具调用、沉默了多久）、在等什么（等你拍板／卡在等资源且说明被谁占着）。交办台的“现场速报”改用同一套状态，两个界面对同一回合说同一句话。不承诺剩余时间估计。
 - **一直在发、一直没人接的二十种进度事件（第 112 波）**：长命令心跳（带服务端权威计时与时间预算软／硬告警）、等资源与阻塞者、回合 token 预算预警与拦截、工具打转纠偏、子代理“连续多轮没有新动作”与工具预算调整——这些服务端本来就在发、两个界面却静默丢弃的事件，现在都能看到了；交办台首次有了上下文电量。
 - **会话搜索能搜正文了（第 113 波）**：侧栏搜索此前只比对标题、摘要与工作目录，现在会搜会话正文，命中时每行带一句原文摘录；拼错一两个字母也能找到（“powersell” 能找到 powershell 那次对话）。全本机进行，不联网；摘录出服务端前会过脱敏，粘在对话里的密钥不会因为搜一下就露出来。
@@ -25,6 +27,8 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### English
 
+- **Much larger memory capacity (wave 113 follow-up)**: the always-resident **core memory** capsule goes from 24 entries to 200 and from a 4200- to a 16000-character budget; per-turn automatic retrieval goes from 3 to 8 entries, per-session pinned memories from 12 to 64, and the related-memory index from 2600 to 6000 characters. All five are now configuration knobs rather than hard-coded numbers. Cost note: core memories ride along with every turn's prompt and are billed by actual characters — but the capsule only holds what you explicitly mark as core, so raising the ceiling costs nothing by itself.
+- **Memory vector matching is on by default (wave 113 follow-up)**: the offline vector retrieval layer that shipped off now defaults to on, so paraphrased and misspelled lookups find the right memory (synthetic gate: Recall@3 90% → 95%). It can still be switched off in config to return to purely lexical ranking.
 - **No longer a black box: an activity line above the composer (wave 112)**: while the model works, one line above the input answers three questions — what it is doing (thinking / which tool / rebuilding context / crew running), how far along (elapsed, which tool call of this turn, how long since the last output), and what it is waiting for (you, or a resource — naming who holds it). The dispatch desk's live brief now reads from the same state machine, so both surfaces say the same sentence about the same turn. No ETA is promised.
 - **Twenty progress events that were being sent and silently dropped (wave 112)**: long-command heartbeats (with server-authoritative elapsed time and soft/hard time-budget warnings), resource waits and their blockers, turn token-budget warnings and trips, tool-loop corrections, and sub-agent stalls and budget changes are all visible now; the dispatch desk gains a context meter for the first time.
 - **Session search now searches message bodies (wave 113)**: the sidebar used to match only title, summary and working folder. It now searches conversation content and shows a one-line excerpt per hit, and tolerates a typo or two ("powersell" finds the powershell conversation). Entirely local, no network; excerpts are redacted before leaving the server so a key pasted into a chat is not exposed by a search.
