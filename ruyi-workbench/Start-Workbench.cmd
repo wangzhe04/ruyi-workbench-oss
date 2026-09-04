@@ -23,21 +23,30 @@ if not exist "%RUYI_ROOT%runtime\node\node.exe" (
   goto :package_incomplete
 )
 
-REM 独立桌面外壳优先：自有窗口 + 三键 + 关闭即收进程树（无 terminal 黑窗）。
-REM 缺 exe/dll 时（如仅源码环境未构建）回落到 node + 浏览器路径。
+REM Prefer the standalone desktop shell: own window, own tray, closing it reaps the process tree.
+REM Fall back to node + default browser when the exe/dll is absent (e.g. an unbuilt source checkout).
+REM 118c: kept ASCII-only so cmd.exe parses this launcher identically under any console code page.
 if exist "%RUYI_ROOT%RuyiDesktop.exe" if exist "%RUYI_ROOT%WebView2Loader.dll" (
   start "" "%RUYI_ROOT%RuyiDesktop.exe"
   exit /b 0
 )
 
-"%RUYI_ROOT%runtime\node\node.exe" "%RUYI_ROOT%app\server.js" serve --open
-set "RUYI_EXIT=%ERRORLEVEL%"
-if not "%RUYI_EXIT%"=="0" (
-  echo.
-  echo [Ruyi] Workbench stopped with exit code %RUYI_EXIT%.
-  pause
-)
-exit /b %RUYI_EXIT%
+REM 118c: no black console window on the node fallback path any more. PowerShell starts node.exe
+REM hidden and detached, then this launcher exits immediately, so the transient cmd window closes
+REM at once instead of staying open for the whole session (and no pause on failure).
+REM Paths travel through environment variables, never inline quoting, so a folder name with spaces,
+REM single quotes or ampersands cannot break the command line.
+REM Startup failures are not printed here: the server writes a plain-language last-start-error.json
+REM into its data folder and the next successful launch shows it in the in-app notice bar.
+set "RUYI_NODE=%RUYI_ROOT%runtime\node\node.exe"
+set "RUYI_SERVER=%RUYI_ROOT%app\server.js"
+powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath $env:RUYI_NODE -ArgumentList @($env:RUYI_SERVER,'serve','--open') -WindowStyle Hidden"
+if not errorlevel 1 exit /b 0
+
+REM PowerShell unavailable (removed, or blocked by policy): start node directly so the workbench still
+REM runs. This degraded path keeps one console window, which is better than not starting at all.
+"%RUYI_NODE%" "%RUYI_SERVER%" serve --open
+exit /b %ERRORLEVEL%
 
 :package_incomplete
 echo.

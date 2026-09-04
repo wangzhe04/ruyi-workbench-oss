@@ -267,6 +267,24 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   ok(mod.validateBaseUrlShape('http://127.0.0.1:11434 /v1').code === 'urlSpace', 'C13 含空格 -> urlSpace');
   ok(mod.validateBaseUrlShape('http://127.0.0.1:11434/v1').ok === true && mod.validateBaseUrlShape('https://api.deepseek.com').ok === true,
     'C14 合法 http/https 地址通过');
+  // 118e 本地零配置预设(只加断言,不改既有口径)。
+  ok(mod.KEY_OPTIONAL_PRESET_IDS.join(',') === 'ollama,lmstudio', 'C15 免 Key 预设 = ollama + lmstudio');
+  ok(mod.presetAllowsEmptyKey('ollama') === true && mod.presetAllowsEmptyKey('lmstudio') === true
+    && mod.presetAllowsEmptyKey('local') === true && mod.presetAllowsEmptyKey('deepseek') === false,
+    'C16 presetAllowsEmptyKey 只对本地端点与两个本机预设放行');
+  ok(mod.validateApiKeyShape('ollama', '').ok === true && mod.validateApiKeyShape('lmstudio', '').ok === true
+    && mod.validateApiKeyShape('deepseek', '').ok === false,
+    'C17 两个本机预设允许空 Key,云端预设照旧要求填');
+  ok(mod.localEndpointDownKey('ollama') === 'onboarding.wizard.provider.localDown.ollama'
+    && mod.localEndpointDownKey('lmstudio') === 'onboarding.wizard.provider.localDown.lmstudio'
+    && mod.localEndpointDownKey('deepseek') === '' && mod.localEndpointDownKey('local') === '',
+    'C18 只有本机预设有「没在跑」的人话,云端端点仍用服务端那句');
+  ok(mod.isLocalEndpointUrl('http://127.0.0.1:11434/v1') === true && mod.isLocalEndpointUrl('http://localhost:1234/v1') === true
+    && mod.isLocalEndpointUrl('https://api.deepseek.com') === false && mod.isLocalEndpointUrl('') === false,
+    'C19 isLocalEndpointUrl 认回环地址,不认云端域名');
+  ok(mod.providerKeyOptional({ id: 'ollama-2', baseUrl: 'http://127.0.0.1:11434/v1' }) === true
+    && mod.providerKeyOptional({ id: 'deepseek', baseUrl: 'https://api.deepseek.com' }) === false,
+    'C20 设置页判定认 <id>-2 去重副本,也认手搭的本机端点');
 
   /* ④ DOM 桩行为 */
   const helpOpens = [];

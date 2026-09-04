@@ -164,6 +164,15 @@
           </div>
         </header>
 
+        <!-- 118c: 启动提示条。两类一次性提示共用同一条:①上次启动【失败】的人话(服务端写在
+             last-start-error.json,下次成功启动读出即删) ②本次因原端口被占而【自动改用】的端口。
+             默认隐藏,由 renderStartNotice() 按 GET /api/status 的 startNotice 字段填。 -->
+        <div id="startNoticeBar" class="start-notice hidden" role="status" aria-live="polite" data-testid="startNoticeBar">
+          <span class="start-notice-icon" aria-hidden="true" data-icon="bell" data-icon-size="15"></span>
+          <div id="startNoticeBody" class="start-notice-body"></div>
+          <button id="startNoticeDismiss" class="start-notice-dismiss" type="button" title="知道了" aria-label="知道了" data-i18n-attr="title:common.close;aria-label:common.close">×</button>
+        </div>
+
         <!-- UI v3 P3a: 中栏主视图 Tab(对话 | 工作台)。data-main-view 状态机切中栏内容;工作台在有活动 run
              时亮点标(.has-activity 显 .wb-mv-dot)。tab 点击 wire 到 switchMainView(见 app.js P3a 模块)。 -->
         <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图">

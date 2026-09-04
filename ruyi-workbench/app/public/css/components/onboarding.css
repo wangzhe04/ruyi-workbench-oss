@@ -210,3 +210,46 @@
   .help-logs-pre { max-height: 40vh; white-space: pre-wrap; word-break: break-all; }
   .settings-tab-help { margin-left: 0; }
 }
+
+/* 118e: 本地零配置预设。状态行现在可以带一个【应用内】动作(打开手册的「用本机模型」小节),
+   所以它从纯文本变成 flex 行;设置页的 Provider 卡上同样有一个「免 Key」小字与同款按钮。
+   两处都不新开样式表 -- 继续用第 118 波自己的这一层。 */
+.onboard-wiz-status { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.onboard-wiz-status-text { flex: 1 1 auto; min-width: 0; }
+.onboard-wiz-status-action, .prov-local-manual {
+  flex: 0 0 auto;
+  padding: 3px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  background: transparent; color: var(--ink); font-size: var(--fs-xs); line-height: 1.5; cursor: pointer;
+}
+.onboard-wiz-status-action:hover, .prov-local-manual:hover { border-color: var(--accent); color: var(--accent); }
+.onboard-wiz-status-action:focus-visible, .prov-local-manual:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.prov-local-manual { margin-left: var(--sp-2); }
+.prov-key-optional { margin: 4px 0 0; }
+
+/* 118c: 启动提示条。上次启动失败的人话 + 本次自动改用的端口。中栏顶部整条,可关闭;
+   不抢焦点(role=status/aria-live=polite),不阻塞任何操作。 */
+.start-notice {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  margin: var(--sp-2) var(--sp-3) 0; padding: var(--sp-2) var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line-2));
+  border-left: 3px solid var(--warn);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  font-size: var(--fs-sm); color: var(--ink);
+}
+.start-notice-icon { flex: 0 0 auto; margin-top: 2px; color: var(--warn); }
+.start-notice-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.start-notice-row { display: flex; flex-direction: column; gap: 2px; }
+.start-notice-text { line-height: 1.6; overflow-wrap: anywhere; }
+.start-notice-next { font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
+.start-notice-dismiss {
+  flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted);
+  font-size: var(--fs-lg); line-height: 1; cursor: pointer;
+}
+.start-notice-dismiss:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.start-notice-dismiss:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@media (max-width: 520px) {
+  .start-notice { margin: var(--sp-2) var(--sp-2) 0; padding: var(--sp-2); }
+}

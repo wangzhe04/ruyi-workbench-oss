@@ -10515,6 +10515,22 @@ const PROVIDER_PRESETS = [
       { id: 'glm-4-flash', label: 'GLM-4-Flash (免费)' },
     ],
   },
+  // 118e 本地零配置预设。两条都指向本机回环端口,【不需要 API Key】:装好 Ollama / LM Studio 并把服务
+  // 跑起来,选中预设点「测试连接」就能探到 /v1/models 并回填模型列表。
+  // keyOptional 是【模板级 UI 提示位】(与 CLAUDE_ENDPOINT_PRESETS 的 authKeyHint/defaultModelHint 同类):
+  // 只影响前端「这一条要不要逼用户填 Key」,不进 providers[] 条目(sanitizeProvider 不认它),
+  // 服务端本来就允许空 apiKey,所以这里没有任何鉴权语义变化。
+  // defaultModel/models 刻意留空:本机装了哪些模型只有探测才知道,预填一个不存在的名字反而误导。
+  {
+    id: 'ollama', label: 'Ollama (本机模型,免 Key)', type: 'openai-compat',
+    baseUrl: 'http://127.0.0.1:11434/v1', reasoning: false, defaultModel: '', models: [],
+    keyOptional: true,
+  },
+  {
+    id: 'lmstudio', label: 'LM Studio (本机模型,免 Key)', type: 'openai-compat',
+    baseUrl: 'http://127.0.0.1:1234/v1', reasoning: false, defaultModel: '', models: [],
+    keyOptional: true,
+  },
   {
     id: 'openai-compatible', label: '自定义 (OpenAI 兼容 / 内网自建)', type: 'openai-compat',
     baseUrl: '', reasoning: false, defaultModel: '', models: [],
@@ -32918,6 +32934,60 @@ function tailLinesFromBuffer(buf, startedMidFile, wanted) {
   return { lines, more: all.length > lines.length };
 }
 
+// 118c: 启动体验。两件用户看得见的事,都通过 GET /api/status 的【一个】只读字段 startNotice 上线:
+//   ① 上一次启动【失败】过 -- 失败时把人话写进 <data>/last-start-error.json,下一次成功启动读出来、
+//      交给前端顶部条,读完立刻删文件(所以它天然是一次性的,不会反复骚扰)。
+//   ② 本次启动【改用了别的端口】 -- 原端口被非工作台进程占着,自动往后找到第一个能用的。
+// 选 /api/status 而不是新开一条路由:前端 boot 本来就必调 status,零新增路由、零新增鉴权判定点,
+// route-inventory 不动;两个字段都是进程内常量派生,不读盘、不做任何探测。
+const LAST_START_ERROR_FILE = 'last-start-error.json';
+// 端口自动改用的搜索宽度:原端口 +1 .. +9。够覆盖「本机同时开了几个自建服务」的现实场景,
+// 又不会在真的全被占满时无限试下去(九个都不行时报错并留下 last-start-error.json)。
+const PORT_FALLBACK_SPAN = 9;
+// 只认这三类:端口拿不到 / 数据目录写不进 / 其它启动异常。文件里出现别的 kind 一律当作损坏丢弃。
+const START_ERROR_KINDS = Object.freeze(['port-unavailable', 'data-dir-unwritable', 'startup-failed']);
+const START_NOTICE = { lastError: null, portFallback: null };
+
+// 「怎么办」一句话。刻意不给命令行、不给要用户自己去开的路径:能在如意里做的事就指向如意里的入口。
+function startErrorNextText(kind) {
+  if (kind === 'port-unavailable') return '先关掉占着这些端口的那个程序(常见是另一个本机服务),再启动一次如意。';
+  if (kind === 'data-dir-unwritable') return '磁盘可能满了,或者数据文件夹被安全软件锁住了。腾出一些空间后再启动一次如意。';
+  return '再启动一次通常就好。如果一直起不来,在「帮助 → 查看日志」里把最后几行发给支持人员。';
+}
+
+// 失败落盘。best-effort:数据目录本身写不进时这一步当然也会失败,那就只剩 console 输出 --
+// 这正是「数据目录不可写」这一类的诚实下限,绝不假装记下了。
+async function writeStartError(kind, message) {
+  const safeKind = START_ERROR_KINDS.includes(kind) ? kind : 'startup-failed';
+  try {
+    await fsp.mkdir(paths.data, { recursive: true });
+    await atomicWriteJson(path.join(paths.data, LAST_START_ERROR_FILE), {
+      at: nowIso(),
+      kind: safeKind,
+      message: String(message || '').slice(0, 800),
+      next: startErrorNextText(safeKind),
+    });
+  } catch { /* 记不下就算了:失败信息此刻已经在 console 上 */ }
+}
+
+// 读出并删除。返回归一化后的记录(或 null)。删除放在读之后、判定之前:即使内容坏了也要清掉,
+// 否则一份损坏的文件会永远赖在数据目录里。
+async function consumeStartError() {
+  const file = path.join(paths.data, LAST_START_ERROR_FILE);
+  let raw = null;
+  try { raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null); } catch { raw = null; }
+  try { await fsp.unlink(file); } catch { /* 没有这份文件是最常见的情况 */ }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const kind = String(raw.kind || '');
+  if (!START_ERROR_KINDS.includes(kind)) return null;
+  return {
+    at: String(raw.at || ''),
+    kind,
+    message: String(raw.message || '').slice(0, 800),
+    next: String(raw.next || '').slice(0, 800) || startErrorNextText(kind),
+  };
+}
+
 async function handleApi(req, res, pathname) {
   // --- auth gate ---
   // The MCP child authenticates /api/permission/request with its own body token (checked there).
@@ -33000,6 +33070,9 @@ async function handleApi(req, res, pathname) {
       })(),
       health,
       manifest,
+      // 118c: 一次性启动提示(上次启动失败的人话 / 本次改用了哪个端口)。纯进程内常量,恒定形状,
+      // 两个位都可能为 null。前端顶部条消费,详见 START_NOTICE 处的口径说明。
+      startNotice: START_NOTICE,
       // v0.8-S1: vendored-binary capability probe (additive). S6's capability matrix will formally own
       // this; the `rg` field is established here so file_search's fast-path status is observable now.
       binaries: { rg: hasRg() },
@@ -34299,41 +34372,101 @@ async function freeStalePort(port, host) {
   }
   return { ok: true, killed };
 }
-// Listen; on EADDRINUSE, free a stale workbench (if allowed + safe) and retry a few times.
-async function listenWithFallback(server, port, host, config) {
-  const attempt = () => new Promise((resolve, reject) => {
+// One listen attempt on an explicit port. Extracted from listenWithFallback so the 118c fallback scan can
+// reuse it. A failed listen leaves the server unbound, so calling it again on another port is legal.
+function listenOnce(server, port, host) {
+  return new Promise((resolve, reject) => {
     const onErr = e => { server.removeListener('listening', onOk); reject(e); };
     const onOk = () => { server.removeListener('error', onErr); resolve(); };
     server.once('error', onErr);
     server.once('listening', onOk);
     server.listen(port, host);
   });
-  try { return await attempt(); }
+}
+
+// 118c: 原端口拿不到时,顺序试 port+1 .. port+PORT_FALLBACK_SPAN,第一个能监听的就用它,并把
+// 「原端口 -> 实际端口」登记进 START_NOTICE 让前端顶部条说清楚(「已改用 8766(原 8765 被占用)」)。
+// 全部不可用才抛错,错误带上 ruyiStartErrorKind 供 startServer 写 last-start-error.json。
+// 返回值是【实际】端口:runtime.json、控制台 URL、--open 一律用它,不存在「文件写 8765 实际在 8766」的分裂。
+async function listenOnNextFreePort(server, port, host, why) {
+  for (let step = 1; step <= PORT_FALLBACK_SPAN; step++) {
+    const candidate = port + step;
+    if (candidate > 65535) break;
+    try {
+      await listenOnce(server, candidate, host);
+      START_NOTICE.portFallback = { requested: port, actual: candidate };
+      console.log(`[port] :${port} unavailable (${why}) -- listening on :${candidate} instead.`);
+      return candidate;
+    } catch (e) {
+      if (e.code !== 'EADDRINUSE' && e.code !== 'EACCES') throw e;
+    }
+  }
+  const error = new Error(`${why} 随后自动改用的 ${port + 1}-${port + PORT_FALLBACK_SPAN} 端口也全部不可用。`);
+  error.ruyiStartErrorKind = 'port-unavailable';
+  throw error;
+}
+
+// Listen; on EADDRINUSE, free a stale workbench (if allowed + safe) and retry a few times.
+// 118c: 每一条「拿不到原端口」的岔路都不再是死路 -- 统一交给 listenOnNextFreePort 往后找。
+// 自动接管被禁用时同样往后找:那个开关的语义是「不许杀别人的进程」,不是「必须占住这个端口不放」。
+async function listenWithFallback(server, port, host, config) {
+  const attempt = () => listenOnce(server, port, host);
+  try { await attempt(); return port; }
   catch (e) {
     if (e.code !== 'EADDRINUSE') throw e;
     const envDisabled = /^(0|false|off|no)$/i.test(String(process.env.WCW_KILL_PORT || ''));
     if (envDisabled || config.killPortOnStart === false) {
-      throw new Error(`端口 ${port} 已被占用，且已禁用自动接管（killPortOnStart=false / WCW_KILL_PORT=0）。请换端口：--port <其它端口>。`);
+      return await listenOnNextFreePort(server, port, host,
+        `端口 ${port} 已被占用,且已禁用自动接管(killPortOnStart=false / WCW_KILL_PORT=0)。`);
     }
-    console.log(`[port] :${port} in use — checking whether it's a stale workbench…`);
+    console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
     const res = await freeStalePort(port, host);
     if (!res.ok) {
-      throw new Error(`端口 ${port} 被非工作台进程占用（PID ${res.blocked.pid} / ${res.blocked.image}），已避免误杀。请换端口（--port）或手动结束该进程。`);
+      return await listenOnNextFreePort(server, port, host,
+        `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
     }
     for (let i = 0; i < 25; i++) {
       await sleep(160);
       try {
         await attempt();
         if (res.killed.length) console.log(`[port] reclaimed :${port} (freed ${res.killed.length} stale process(es)).`);
-        return;
+        return port;
       } catch (e2) { if (e2.code !== 'EADDRINUSE') throw e2; }
     }
-    throw new Error(`端口 ${port} 结束占用进程后仍无法监听（已结束 ${res.killed.length} 个）。`);
+    return await listenOnNextFreePort(server, port, host,
+      `端口 ${port} 在结束 ${res.killed.length} 个陈旧进程后仍然无法监听。`);
   }
 }
 
+// 118c: 启动失败必须在【应用里】看得见,而不是只打在一个用户根本没打开的终端上。
+// 这层薄包装把三类致命失败落成 <data>/last-start-error.json(人话 + 下一步),
+// 下一次成功启动由 startServerInner 读出来交给前端顶部条;console 输出与退出码一字未改。
 async function startServer(opts) {
-  await ensureDirs();
+  try {
+    return await startServerInner(opts);
+  } catch (error) {
+    const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
+    const message = String((error && error.message) || error || '').slice(0, 800)
+      || '如意启动时出错了,没能开起来。';
+    await writeStartError(kind, message);
+    throw error;
+  }
+}
+
+async function startServerInner(opts) {
+  try {
+    await ensureDirs();
+  } catch (error) {
+    // 数据目录建不出来/写不进去(磁盘满、权限、被安全软件锁)。标类型后原样上抛,由 startServer 落盘。
+    if (error && !error.ruyiStartErrorKind) error.ruyiStartErrorKind = 'data-dir-unwritable';
+    throw error;
+  }
+  // 118c: 上一次启动失败的人话记录 -- 读出来挂进 START_NOTICE 并把文件删掉(一次性提示,不反复骚扰)。
+  // 【必须在 listen 之前做】:listen 之后到 RUNTIME.port/host/token 赋值之间【不许有任何 await】。
+  // 服务一旦开始监听,健康探针立刻就能通,而握手常量还没写好 -- 那段窗口里进来的请求会看到空 token,
+  // 桥接子进程的回调、能力探测因此偶发失败。这是本刀第一版真实踩到的坑(capabilities e2e 稳定复现)。
+  START_NOTICE.lastError = await consumeStartError();
+  if (START_NOTICE.lastError) console.log(`[start] previous launch failed (${START_NOTICE.lastError.kind}): ${START_NOTICE.lastError.message}`);
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
@@ -34376,7 +34509,7 @@ async function startServer(opts) {
   // G1: 预热能力矩阵(网络探测/桌面 MCP 探测/二进制探测,首次可达 10s+)。fire-and-forget —— 探测慢/失败绝不
   // 阻塞 listen;首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
   void getCapabilities(config).catch(() => {});
-  const port = Number(opts.port || process.env.PORT || DEFAULT_PORT);
+  const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
@@ -34398,7 +34531,9 @@ async function startServer(opts) {
       return sendError(res, err);
     }
   });
-  await listenWithFallback(server, port, host, config);
+  // 118c: 实际监听端口可能不是请求的那个(原端口被别的程序占着时自动往后找)。下面的 runtime.json、
+  // 控制台 URL 与 --open 全部用【实际】端口,前端顶部条另有 START_NOTICE.portFallback 说明改用了谁。
+  const port = await listenWithFallback(server, requestedPort, host, config);
   const url = `http://${host}:${port}/`;
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
   const runtimeToken = crypto.randomBytes(16).toString('hex');

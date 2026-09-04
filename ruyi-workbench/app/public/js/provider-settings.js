@@ -9,6 +9,9 @@ import { getLocale, setLocale, t, tCount } from './i18n.js';
 import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS } from './health-i18n.js';
 // 118b: 「怎么办」跳手册时复用经典壳登记的那一个阅读器实例(见 help-viewer.js 的登记处说明)。
 import { openSharedHelpDoc } from './help-viewer.js';
+// 118e: 本机零配置预设(Ollama / LM Studio)的三条纯判定 -- 免 Key、探测失败的人话、手册小节锚点。
+// 事实源在 onboarding-wizard.js(零 import 的纯函数层),设置页与向导共用同一口径,不各写一份。
+import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONBOARDING_MANUAL_DOC_ID } from './onboarding-wizard.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -70,6 +73,7 @@ async function refreshStatus() {
   updateEngineDependentUI();
   fillSettings();
   renderStatusLine();
+  renderStartNotice(); // 118c: 启动提示条(上次启动失败 / 本次改用端口)
   renderDoctor();
   refreshModels(); // background: enrich the model list from the proxy without blocking status
   fetchCapabilities(false); // v0.8-S6: refresh the capability badge (cached; one-shot on status refresh)
@@ -235,6 +239,46 @@ async function refreshModels(announce) {
 }
 // Keep the compact sidebar status line language-aware as well as engine-aware. It is invoked after
 // status refreshes and on locale changes, rather than leaving a startup-language string behind.
+// 118c: 启动提示条。事实源是 GET /api/status 的 startNotice(进程内一次性数据 -- 服务端读出
+// last-start-error.json 后立刻把文件删了,所以整台机器上同一条失败只会说一次)。
+// kind -> 文案键走查表:kind 是带连字符的机器码,文案键保持点号 + 驼峰的目录习惯。
+const START_NOTICE_ERROR_KEYS = Object.freeze({
+  'port-unavailable': 'startNotice.error.portUnavailable',
+  'data-dir-unwritable': 'startNotice.error.dataDirUnwritable',
+  'startup-failed': 'startNotice.error.startupFailed',
+});
+let startNoticeDismissed = false;
+function startNoticeEntries() {
+  const notice = state.status && state.status.startNotice;
+  const out = [];
+  if (!notice || typeof notice !== 'object') return out;
+  const fallback = notice.portFallback;
+  if (fallback && Number.isFinite(Number(fallback.actual)) && Number.isFinite(Number(fallback.requested))) {
+    out.push({ text: t('startNotice.portFallback', { actual: String(fallback.actual), requested: String(fallback.requested) }), next: '' });
+  }
+  const failure = notice.lastError;
+  if (failure && typeof failure === 'object' && failure.kind) {
+    const key = START_NOTICE_ERROR_KEYS[failure.kind];
+    // 未知 kind(旧版本写的文件/手工改过)时退回服务端写在文件里的那句话 -- 它本来就是给用户看的人话。
+    out.push({ text: key ? t(key) : String(failure.message || ''), next: String(failure.next || '') });
+  }
+  return out.filter(entry => entry.text);
+}
+function renderStartNotice() {
+  const bar = $('startNoticeBar');
+  const body = $('startNoticeBody');
+  if (!bar || !body) return;
+  const entries = startNoticeDismissed ? [] : startNoticeEntries();
+  bar.classList.toggle('hidden', entries.length === 0);
+  body.replaceChildren(...entries.map(entry => {
+    const row = el('div', 'start-notice-row');
+    row.append(el('span', 'start-notice-text', entry.text));
+    if (entry.next) row.append(el('span', 'start-notice-next muted', entry.next));
+    return row;
+  }));
+  const dismiss = $('startNoticeDismiss');
+  if (dismiss) dismiss.onclick = () => { startNoticeDismissed = true; renderStartNotice(); };
+}
 function renderStatusLine() {
   if (isProviderMode()) {
     const p = activeProviderObj();
@@ -770,10 +814,17 @@ function providerCard(p, idx) {
   const grid = el('div', 'field-grid');
   const kb = el('div', 'field-block'); kb.append(el('label', '', t('provider.apiKey')));
   const keyWrap = el('div', 'prov-key-wrap');
-  const ki = el('input'); ki.type = 'password'; ki.autocomplete = 'off'; ki.value = p.apiKey || ''; ki.placeholder = 'sk-...'; ki.oninput = () => { p.apiKey = ki.value; };
+  // 118e: 本机模型端点(Ollama / LM Studio / 回环自建)不需要 API Key。这里只改【提示】,不加任何拦截:
+  // 服务端 sanitizeProvider 本来就接受空 apiKey,保存路径一行未动,所以 sk-... 的占位符是唯一会
+  // 让新手以为「必须填」的东西。
+  const keyOptional = providerKeyOptional(p);
+  const ki = el('input'); ki.type = 'password'; ki.autocomplete = 'off'; ki.value = p.apiKey || '';
+  ki.placeholder = keyOptional ? t('provider.apiKeyOptionalPlaceholder') : 'sk-...';
+  ki.oninput = () => { p.apiKey = ki.value; };
   const eye = el('button', 'prov-key-eye', '👁'); eye.type = 'button'; eye.title = t('provider.toggleApiKeyVisibility');
   eye.onclick = () => { const show = ki.type === 'password'; ki.type = show ? 'text' : 'password'; eye.classList.toggle('on', show); };
   keyWrap.append(ki, eye); kb.append(keyWrap);
+  if (keyOptional) kb.append(el('p', 'field-help muted prov-key-optional', t('provider.apiKeyOptionalHint')));
   const mb = el('div', 'field-block'); mb.append(el('label', '', t('provider.model')));
   const mi = el('input'); mi.type = 'text'; mi.value = p.model || ''; mi.placeholder = 'deepseek-chat'; mi.setAttribute('list', `provModels_${idx}`); mi.oninput = () => { p.model = mi.value.trim(); };
   const dl = el('datalist'); dl.id = `provModels_${idx}`; for (const m of (p.models || [])) { const o = el('option'); o.value = m.id; o.textContent = m.label || m.id; dl.appendChild(o); }
@@ -933,6 +984,30 @@ function contextResolvedHint(p) {
   }
   return hint;
 }
+// 118e: 测试连接失败态的渲染。两件事:
+//  ① 原写法 `${r.error}` 直接插值 -- 服务端的 {ok:false,error:'<人话>'} 被 00-boot 的 normalizeApiErrorPayload
+//     统一改写成 {code:'api.request_failed',message:'<人话>'} 之后,这里恒印 [object Object](与 118d 在
+//     MCP 导入路径上修掉的是同一条信封坑)。先按 message/字符串两种形状取词。
+//  ② 本机预设(Ollama / LM Studio)连不上时,「连不上端点(fetch failed)」对小白毫无意义:真实含义只有一个 --
+//     本机没在跑那个服务。换成人话,并在旁边给一个【应用内】手册按钮(不给命令行、不给下载链接)。
+function providerTestErrorText(payload) {
+  const raw = payload && payload.error;
+  if (typeof raw === 'string' && raw) return raw;
+  if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
+  return t('provider.testFailure');
+}
+function paintProviderTestFailure(status, provider, payload) {
+  status.classList.remove('good');
+  status.classList.add('bad');
+  const downKey = localEndpointDownKey(String((provider && provider.id) || '').replace(/-\d+$/, ''));
+  const local = downKey && payload && payload.errorClass === 'network_down';
+  const line = el('span', '', '✗ ' + (local ? t(downKey) : providerTestErrorText(payload)));
+  if (!downKey) { status.replaceChildren(line); return; }
+  const readBtn = el('button', 'btn-sm prov-local-manual', t('onboarding.wizard.provider.localDown.readManual'));
+  readBtn.type = 'button';
+  readBtn.onclick = () => { openSharedHelpDoc({ docId: ONBOARDING_MANUAL_DOC_ID, anchor: t(LOCAL_MODELS_ANCHOR_KEY) }); };
+  status.replaceChildren(line, readBtn);
+}
 async function testProvider(idx, btn) {
   const p = state.providersDraft[idx]; if (!p) return;
   const status = $(`provStatus_${idx}`);
@@ -951,7 +1026,7 @@ async function testProvider(idx, btn) {
       }
       if (status) { status.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); status.classList.remove('bad'); status.classList.add('good'); }
       renderProviders();
-    } else if (status) { status.textContent = `✗ ${(r && r.error) || t('provider.testFailure')}`; status.classList.remove('good'); status.classList.add('bad'); }
+    } else if (status) { paintProviderTestFailure(status, p, r); }
   } catch (e) { if (status) { status.textContent = `✗ ${apiErrText(e)}`; status.classList.add('bad'); } }
   finally { if (btn) { btn.disabled = false; btn.textContent = t('provider.testConnection'); } }
 }

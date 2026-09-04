@@ -244,3 +244,31 @@ Only online search needs a configured network service.
 
 **The conversation is long.** Open the context meter and use Compact now; Ruyi summarizes earlier context so the
 chat can continue.
+
+## 8. Local models (Ollama / LM Studio)
+
+Ruyi can talk to a model running on your own computer. This route needs **no API key and no internet access**.
+
+### Three steps
+
+1. Install Ollama or LM Studio on this computer and leave its local server running.
+2. In Ruyi, open step 3 of the welcome wizard (Help in the sidebar reopens it any time) and pick the
+   **Ollama (local model, no key)** or **LM Studio (local model, no key)** preset card.
+3. Leave the API key blank and press Test connection. Ruyi asks the local server which models it has and fills
+   the model list under Advanced; choose one, press Save and continue, and the top bar switches to it.
+
+Settings, Providers behaves the same way: neither preset requires a key, and the key field says so.
+
+### Test connection says it cannot connect
+
+Almost always the local server is not running right now. Start Ollama or LM Studio (LM Studio also needs its
+built-in local server enabled), then press Test connection again.
+
+The default addresses are `http://127.0.0.1:11434/v1` (Ollama) and `http://127.0.0.1:1234/v1` (LM Studio). If you
+changed the port, edit the address under Advanced.
+
+### Is it worth it
+
+Local models cost nothing, never leave the machine, and work offline, which suits tidying files, rewriting text,
+and translation. They are usually weaker than hosted models on long multi-step work, coding, and long-document
+analysis. Configuring both and switching in the top bar is the least painful setup.

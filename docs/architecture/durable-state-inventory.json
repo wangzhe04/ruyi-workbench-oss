@@ -2,11 +2,11 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 39,
+  "count": 40,
   "lifecycleCounts": {
     "dedicated-exemption": 12,
     "external-exemption": 8,
-    "regenerable-exemption": 5,
+    "regenerable-exemption": 6,
     "shared-lifecycle": 14
   },
   "entries": [
@@ -37,6 +37,20 @@
       "recovery": "restart server",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "boot handshake is intentionally ephemeral"
+    },
+    {
+      "id": "last-start-error",
+      "pattern": "<data>/last-start-error.json",
+      "owner": "13-http-router.js",
+      "anchor": "'last-start-error.json'",
+      "schema": "object / implicit v1",
+      "writePrimitive": "atomicWriteJson",
+      "corruption": "unknown kind or unparsable is dropped (no notice shown)",
+      "capacity": "one record",
+      "cache": "START_NOTICE holds the consumed copy for this process",
+      "recovery": "the next failed start rewrites it",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "118c one-shot boot notice: written only when a start fails, read once on the next successful start and deleted immediately"
     },
     {
       "id": "usage-ledger",

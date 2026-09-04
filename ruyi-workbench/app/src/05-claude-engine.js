@@ -1056,6 +1056,22 @@ const PROVIDER_PRESETS = [
       { id: 'glm-4-flash', label: 'GLM-4-Flash (免费)' },
     ],
   },
+  // 118e 本地零配置预设。两条都指向本机回环端口,【不需要 API Key】:装好 Ollama / LM Studio 并把服务
+  // 跑起来,选中预设点「测试连接」就能探到 /v1/models 并回填模型列表。
+  // keyOptional 是【模板级 UI 提示位】(与 CLAUDE_ENDPOINT_PRESETS 的 authKeyHint/defaultModelHint 同类):
+  // 只影响前端「这一条要不要逼用户填 Key」,不进 providers[] 条目(sanitizeProvider 不认它),
+  // 服务端本来就允许空 apiKey,所以这里没有任何鉴权语义变化。
+  // defaultModel/models 刻意留空:本机装了哪些模型只有探测才知道,预填一个不存在的名字反而误导。
+  {
+    id: 'ollama', label: 'Ollama (本机模型,免 Key)', type: 'openai-compat',
+    baseUrl: 'http://127.0.0.1:11434/v1', reasoning: false, defaultModel: '', models: [],
+    keyOptional: true,
+  },
+  {
+    id: 'lmstudio', label: 'LM Studio (本机模型,免 Key)', type: 'openai-compat',
+    baseUrl: 'http://127.0.0.1:1234/v1', reasoning: false, defaultModel: '', models: [],
+    keyOptional: true,
+  },
   {
     id: 'openai-compatible', label: '自定义 (OpenAI 兼容 / 内网自建)', type: 'openai-compat',
     baseUrl: '', reasoning: false, defaultModel: '', models: [],

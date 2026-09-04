@@ -109,7 +109,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 118d/118g: 常驻帮助菜单(.help-menu*)、设置页签排尾的「?」(.settings-tab-help)与应用内日志面板
 // (.help-logs-*)的规则同样追加到【已注册的】css/components/onboarding.css 层(118 波自己的层),
 // 不新开样式表。纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'c0da82c6108ad8969107d2e3ae0deaa48b4141ebc2c767bcd554d9609be915bc';
+// 118e/118c: 又一批规则追加进【已注册的】css/components/onboarding.css 层(本波自己的层),不新开样式表 ——
+// 向导状态行从纯文本变成可带一个应用内动作按钮(.onboard-wiz-status-action)、设置页 Provider 卡的
+// 「免 Key」小字与同款按钮(.prov-key-optional / .prov-local-manual)、以及 118c 的启动提示条
+// (.start-notice*,含 520px 收敛)。纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。
+// 重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '1d2dcf79e1869df0c69b540862ecb38ea2447ae24a01a68b0b1c9fc2c20a6595';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

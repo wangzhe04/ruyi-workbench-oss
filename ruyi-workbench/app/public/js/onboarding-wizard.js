@@ -31,6 +31,49 @@ export const LOCAL_ENDPOINT_EXAMPLE = 'http://127.0.0.1:11434/v1';
 // the product owner ruled that out. The button now calls the injected openHelpViewer(), which fetches
 // GET /api/help/doc and renders the markdown in-app. Only this document id crosses the wire.
 export const ONBOARDING_MANUAL_DOC_ID = 'user-guide';
+// 118e: the built-in LOCAL provider presets. These ids must stay in lockstep with the entries carrying
+// `keyOptional: true` in PROVIDER_PRESETS (05-claude-engine.js); a static gate asserts both lists match.
+// They are the ONLY place the wizard knows "this preset does not need an API key" without a live /api/status
+// payload, so the pure validators below stay callable offline (and by the 117 steward).
+export const KEY_OPTIONAL_PRESET_IDS = Object.freeze(['ollama', 'lmstudio']);
+// The manual section the "read the local-models chapter" button jumps to. The value is an i18n key whose
+// text must equal a `##` heading in both manuals verbatim (same discipline as the settings tab anchors).
+export const LOCAL_MODELS_ANCHOR_KEY = 'help.anchor.localModels';
+
+// True when a blank API key is normal for this preset: any local endpoint (the free-form 'local' choice)
+// plus the two zero-config local presets. Pure, so both shells and the steward can ask the same question.
+export function presetAllowsEmptyKey(presetId) {
+  const id = String(presetId || '');
+  return id === 'local' || KEY_OPTIONAL_PRESET_IDS.includes(id);
+}
+
+// True for a loopback / link-local endpoint address. Mirrors the server's providerIsLocal() intent for the
+// ONE thing the UI needs it for: deciding whether a blank API key deserves a nudge. Never a security gate.
+export function isLocalEndpointUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    return host === 'localhost' || host === '::1' || host.endsWith('.localhost') || /^127\./.test(host);
+  } catch { return false; }
+}
+
+// Whether the SETTINGS page should treat this saved provider entry as "no API key required". Preset id
+// first (survives an edited base URL), address second (covers a hand-built local endpoint and the
+// `<id>-2` de-duplicated copies the settings page can create).
+export function providerKeyOptional(provider) {
+  const p = asObject(provider);
+  return presetAllowsEmptyKey(String(p.id || '').replace(/-\d+$/, '')) || isLocalEndpointUrl(p.baseUrl);
+}
+
+// The human sentence key for "your local model server is not running". Empty for anything that is not one
+// of the local presets, because for a hosted endpoint the server's own error sentence is the right answer.
+// Deliberately NO command line and NO download link: the product rule is that Ruyi never hands the user a
+// command to run. The wizard pairs this sentence with an in-app manual button instead.
+export function localEndpointDownKey(presetId) {
+  const id = String(presetId || '');
+  return KEY_OPTIONAL_PRESET_IDS.includes(id) ? 'onboarding.wizard.provider.localDown.' + id : '';
+}
 
 // 118d: 全应用共用的向导实例登记处(与 help-viewer.js 的 registerHelpViewer 完全同一口径)。
 // 帮助菜单住在 navigation-controls(popover 原语在那里),但向导实例由经典壳持有:经典壳建好后登记
@@ -101,7 +144,8 @@ export function onboardingStepsFor(config) {
 export function validateApiKeyShape(presetId, key) {
   const preset = String(presetId || '');
   const raw = key == null ? '' : String(key);
-  const allowsEmpty = preset === 'local';
+  // 118e: 'local' (free-form endpoint) plus the ollama/lmstudio presets all run without a key.
+  const allowsEmpty = presetAllowsEmptyKey(preset);
   if (!raw.trim()) return allowsEmpty ? { ok: true, code: '', warn: '' } : { ok: false, code: 'keyEmpty', warn: '' };
   if (/[\s]/.test(raw)) return { ok: false, code: 'keyWhitespace', warn: '' };
   if (raw.startsWith('•')) return { ok: false, code: 'keyMasked', warn: '' };
@@ -279,6 +323,7 @@ export function createOnboardingWizardDomain({
       saving: false,
       message: '',
       messageKind: '',
+      messageAction: null, // 118e: {label, onClick} for the in-app manual jump on a local-endpoint failure
       permissionMode: ONBOARDING_SAFETY_MODES.includes(config.permissionMode) ? config.permissionMode : 'default',
     };
     const presets = asArray(state.status && state.status.providerPresets);
@@ -295,10 +340,26 @@ export function createOnboardingWizardDomain({
     const frame = buildFrame(async () => { await markOnboarding({ skipped: true }); toast(t('onboarding.wizard.skipped'), ''); });
     openBackdrop = frame.backdrop;
 
-    const setMessage = (text, kind) => { wiz.message = String(text || ''); wiz.messageKind = kind || ''; paintStatus(); };
+    // 118e: a status line may now carry ONE in-app action button (today: 「read the manual's local-models
+    // section」). It is always a real in-app destination, never a path, a command or an external link.
+    const setMessage = (text, kind, action) => {
+      wiz.message = String(text || '');
+      wiz.messageKind = kind || '';
+      wiz.messageAction = action && action.label && typeof action.onClick === 'function' ? action : null;
+      paintStatus();
+    };
     function paintStatus() {
       frame.status.className = 'onboard-wiz-status' + (wiz.messageKind ? ' ' + wiz.messageKind : '');
-      frame.status.textContent = wiz.message;
+      // Keep the empty state literally empty so the `:not(:empty)` padding rule still works.
+      if (!wiz.message && !wiz.messageAction) { frame.status.replaceChildren(); return; }
+      const nodes = [el('span', 'onboard-wiz-status-text', wiz.message)];
+      if (wiz.messageAction) {
+        const action = el('button', 'file-label onboard-wiz-status-action', wiz.messageAction.label);
+        action.type = 'button';
+        action.onclick = wiz.messageAction.onClick;
+        nodes.push(action);
+      }
+      frame.status.replaceChildren(...nodes);
     }
 
     // Runtime step order: choosing an installed CLI skips the API-key step (the definition still has six).
@@ -314,6 +375,7 @@ export function createOnboardingWizardDomain({
       wiz.step = Math.max(0, Math.min(wiz.step + delta, ids.length - 1));
       wiz.message = '';
       wiz.messageKind = '';
+      wiz.messageAction = null;
       render();
     }
 
@@ -488,25 +550,30 @@ export function createOnboardingWizardDomain({
         ? t('onboarding.wizard.provider.localHint')
         : t('onboarding.wizard.provider.hint')));
 
-      if (wiz.engineChoice !== 'local') {
+      // 118e: the 「本地端点」 engine choice used to hide every preset card, so the zero-config Ollama /
+      // LM Studio templates were reachable only through the cloud branch. Both routes now show them:
+      // the local branch narrows the list to the key-optional ones, the cloud branch shows everything.
+      const visiblePresets = wiz.engineChoice === 'local' ? presets.filter(p => p && p.keyOptional) : presets;
+      if (visiblePresets.length || wiz.engineChoice !== 'local') {
         const cards = el('div', 'onboard-wiz-presets');
-        for (const preset of presets) {
+        for (const preset of visiblePresets) {
           cards.append(choiceCard({
             selected: wiz.presetId === preset.id,
             title: preset.label || preset.id,
             description: preset.baseUrl || t('onboarding.wizard.provider.noBaseUrl'),
-            extra: preset.defaultModel || '',
+            extra: preset.keyOptional ? t('onboarding.wizard.provider.noKeyNeeded') : (preset.defaultModel || ''),
             onSelect: () => {
               wiz.presetId = preset.id;
               wiz.baseUrl = preset.baseUrl || '';
               wiz.model = preset.defaultModel || '';
               wiz.models = [];
               wiz.tested = false;
+              wiz.messageAction = null;
               render();
             },
           }));
         }
-        if (!presets.length) cards.append(el('div', 'muted', t('onboarding.wizard.provider.noPresets')));
+        if (!visiblePresets.length) cards.append(el('div', 'muted', t('onboarding.wizard.provider.noPresets')));
         wrap.append(cards);
       }
 
@@ -517,7 +584,11 @@ export function createOnboardingWizardDomain({
       keyInput.autocomplete = 'off';
       keyInput.spellcheck = false;
       keyInput.value = wiz.apiKey;
-      keyInput.placeholder = t('onboarding.wizard.provider.apiKeyPlaceholder');
+      // 118e: the two local presets need no key at all, so the placeholder must not imply one is required.
+      const keyOptional = presetAllowsEmptyKey(currentPresetKey());
+      keyInput.placeholder = keyOptional
+        ? t('onboarding.wizard.provider.apiKeyOptionalPlaceholder')
+        : t('onboarding.wizard.provider.apiKeyPlaceholder');
       keyInput.oninput = () => { wiz.apiKey = keyInput.value; wiz.tested = false; };
       const eye = el('button', 'prov-key-eye onboard-wiz-key-eye', '\u{1F441}');
       eye.type = 'button';
@@ -529,11 +600,14 @@ export function createOnboardingWizardDomain({
       };
       keyWrap.append(keyInput, eye);
       wrap.append(fieldBlock(t('onboarding.wizard.provider.apiKey'), keyWrap));
-      wrap.append(el('p', 'onboard-wiz-note muted', t('onboarding.wizard.provider.keyPrivacy')));
+      wrap.append(el('p', 'onboard-wiz-note muted', keyOptional
+        ? t('onboarding.wizard.provider.keyOptionalNote')
+        : t('onboarding.wizard.provider.keyPrivacy')));
 
-      // Advanced: base URL + model. Auto-open for the local choice, where the address IS the decision.
+      // Advanced: base URL + model. Auto-open for the local choice, where the address IS the decision, and
+      // after a successful probe (118e), when the freshly discovered model list is what the user must pick from.
       const advanced = el('details', 'onboard-wiz-details onboard-wiz-advanced');
-      advanced.open = wiz.engineChoice === 'local';
+      advanced.open = wiz.engineChoice === 'local' || wiz.models.length > 0;
       advanced.append(el('summary', '', t('onboarding.wizard.provider.advanced')));
       const urlInput = el('input', 'onboard-wiz-baseurl');
       urlInput.type = 'text';
@@ -577,11 +651,19 @@ export function createOnboardingWizardDomain({
       return input;
     }
 
+    // 118e: a named preset wins in BOTH engine branches (the local branch can now select ollama/lmstudio).
+    // Only when nothing is selected does the local branch fall back to the free-form 'local' template.
     function currentPreset() {
+      const chosen = presets.find(p => p.id === wiz.presetId);
+      if (chosen) return chosen;
       if (wiz.engineChoice === 'local') {
         return { id: 'local', label: t('onboarding.wizard.engine.local.title'), baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
       }
-      return presets.find(p => p.id === wiz.presetId) || presets[0] || { id: 'openai-compatible', label: 'OpenAI', baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
+      return presets[0] || { id: 'openai-compatible', label: 'OpenAI', baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
+    }
+    // The id the pure validators reason about: a selected preset id, else the free-form local marker.
+    function currentPresetKey() {
+      return presets.some(p => p.id === wiz.presetId) ? wiz.presetId : (wiz.engineChoice === 'local' ? 'local' : wiz.presetId);
     }
 
     // Build the provider entry with the SAME serializer the settings page uses, then overlay the three
@@ -604,7 +686,7 @@ export function createOnboardingWizardDomain({
     }
 
     function validateForm() {
-      const presetKey = wiz.engineChoice === 'local' ? 'local' : wiz.presetId;
+      const presetKey = currentPresetKey();
       const url = validateBaseUrlShape(wiz.baseUrl);
       if (!url.ok) { setMessage(t('onboarding.wizard.validate.' + url.code), 'err'); return null; }
       const key = validateApiKeyShape(presetKey, wiz.apiKey);
@@ -638,17 +720,42 @@ export function createOnboardingWizardDomain({
         const detail = errorMessageOf(result) || t('provider.testFailure');
         const nextKey = result && result.errorClass === 'network_down' ? 'error.networkDown.next'
           : result && result.errorClass === 'provider_misconfigured' ? 'error.providerMisconfigured.next' : '';
-        setMessage(nextKey ? detail + ' ' + t('onboarding.wizard.provider.whatNow', { next: t(nextKey) }) : detail, 'err');
+        // 118e: for a LOCAL preset an unreachable endpoint has exactly one plain-language meaning -- the
+        // model server is not running on this machine. Say that instead of a transport-level sentence, and
+        // offer the in-app manual chapter (no command line, no download link, no leaving Ruyi).
+        const downKey = localEndpointDownKey(currentPresetKey());
+        if (downKey && result && result.errorClass === 'network_down') {
+          setMessage(t(downKey), 'err', manualAction());
+          return;
+        }
+        setMessage(nextKey ? detail + ' ' + t('onboarding.wizard.provider.whatNow', { next: t(nextKey) }) : detail, 'err',
+          downKey ? manualAction() : null);
       } catch (error) {
         wiz.testing = false;
         render();
-        setMessage(apiErrText(error), 'err');
+        setMessage(apiErrText(error), 'err', localEndpointDownKey(currentPresetKey()) ? manualAction() : null);
       }
+    }
+
+    // 118e: the one in-app destination a local-endpoint failure offers. It opens the manual reader on the
+    // 「用本机模型」 section; the reader owns Esc, so closing it returns to the wizard.
+    function manualAction() {
+      return {
+        label: t('onboarding.wizard.provider.localDown.readManual'),
+        onClick: () => { openHelpViewer({ docId: ONBOARDING_MANUAL_DOC_ID, anchor: t(LOCAL_MODELS_ANCHOR_KEY) }); },
+      };
     }
 
     async function saveProvider() {
       const draft = validateForm();
       if (!draft) return;
+      // 118e: 本机预设的 defaultModel 是空的(本机装了哪些模型只有探测才知道)。不拦一下的话,用户可以
+      // 存下一个【没有模型】的端点,然后在第一条消息上撞一个看不懂的错误 -- 那正是本波要消灭的体验。
+      // 真机走查亲眼看到:选 Ollama 直接「保存并继续」-> providers[0].model === ''。
+      if (presetAllowsEmptyKey(currentPresetKey()) && !String(wiz.model || '').trim()) {
+        setMessage(t('onboarding.wizard.provider.localNeedModel'), 'warn');
+        return;
+      }
       wiz.saving = true;
       render();
       const providers = asArray(asObject(state.config).providers).filter(p => p && p.id !== draft.id);

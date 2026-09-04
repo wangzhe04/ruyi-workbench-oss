@@ -719,7 +719,7 @@ namespace RuyiDesktop
             {
                 hr = unchecked((int)0x8007007E); // 找不到 WebView2Loader.dll → 按运行时缺失降级
             }
-            if (hr < 0) EnterBrowserFallback("WebView2 初始化失败 (0x" + hr.ToString("X8") + ")");
+            if (hr < 0) EnterBrowserFallback(hr, "env-create");
         }
 
         internal void OnEnvironmentReady(int errorCode, ICoreWebView2Environment env)
@@ -727,12 +727,12 @@ namespace RuyiDesktop
             if (IsDisposed) return;
             if (errorCode < 0 || env == null)
             {
-                EnterBrowserFallback("未检测到 WebView2 运行时 (0x" + errorCode.ToString("X8") + ")");
+                EnterBrowserFallback(errorCode, "env-ready");
                 return;
             }
             ctrlHandler = new CtrlHandler(this);
             int hr = env.CreateCoreWebView2Controller(webPanel.Handle, ctrlHandler);
-            if (hr < 0) EnterBrowserFallback("创建 WebView 控制器失败 (0x" + hr.ToString("X8") + ")");
+            if (hr < 0) EnterBrowserFallback(hr, "controller-create");
         }
 
         internal void OnControllerReady(int errorCode, ICoreWebView2Controller ctrl)
@@ -740,14 +740,14 @@ namespace RuyiDesktop
             if (IsDisposed) return;
             if (errorCode < 0 || ctrl == null)
             {
-                EnterBrowserFallback("WebView 控制器不可用 (0x" + errorCode.ToString("X8") + ")");
+                EnterBrowserFallback(errorCode, "controller-ready");
                 return;
             }
             controller = ctrl;
             ICoreWebView2 core;
             if (ctrl.get_CoreWebView2(out core) < 0 || core == null)
             {
-                EnterBrowserFallback("WebView 核心对象不可用");
+                EnterBrowserFallback(0, "core-object");
                 return;
             }
             webView = core;
@@ -796,15 +796,56 @@ namespace RuyiDesktop
             MaybeNavigate();
         }
 
-        private void EnterBrowserFallback(string reason)
+        /* 118c: WebView2 失败原因的人话映射。
+           改之前这里把 HRESULT 直接拼进提示（「WebView2 初始化失败 (0x80070005)」），对不写代码的用户
+           等于没说。现在先把错误码归成三类，每类给一句能读懂的话；原始 0x 码只留在末尾的技术详情行，
+           供支持排查。三类分别是：组件缺失 / 被策略禁用 / 其它未知失败。
+           说明：本仓库的 e2e 不跑 C#，所以三条分支与两个映射函数由 dev-harness/start-experience.static.e2e.js
+           钉住；编译由 desktop/build-desktop.ps1（release-dryrun 的 ①.5 步）验证。真正的弹窗文案只有在
+           一台没装、或被策略禁用 WebView2 的机器上才会出现，那部分仍需人工走查。 */
+        internal const string WebViewFallbackRuntimeMissing = "runtime-missing";
+        internal const string WebViewFallbackPolicyBlocked = "policy-blocked";
+        internal const string WebViewFallbackUnknown = "unknown";
+
+        internal static string WebViewFallbackKind(int hr)
+        {
+            // 组件根本不在：找不到 WebView2Loader.dll / 找不到文件 / COM 类未注册（未装 Runtime）。
+            if (hr == unchecked((int)0x8007007E) || hr == unchecked((int)0x80070002)
+                || hr == unchecked((int)0x8007007F) || hr == unchecked((int)0x80040154)) return WebViewFallbackRuntimeMissing;
+            // 组件在，但被拦住：访问被拒 / 被组策略禁用 / 需要管理员。
+            if (hr == unchecked((int)0x80070005) || hr == unchecked((int)0x800704EC)
+                || hr == unchecked((int)0x80070522)) return WebViewFallbackPolicyBlocked;
+            return WebViewFallbackUnknown;
+        }
+
+        internal static string WebViewFallbackMessage(int hr, string stage)
+        {
+            string kind = WebViewFallbackKind(hr);
+            string head;
+            if (kind == WebViewFallbackRuntimeMissing)
+            {
+                head = "系统缺少 WebView2 组件，已改用默认浏览器打开，功能不受影响。";
+            }
+            else if (kind == WebViewFallbackPolicyBlocked)
+            {
+                head = "这台电脑的安全策略禁用了 WebView2 组件，已改用默认浏览器打开，功能不受影响。\n"
+                    + "如果需要独立窗口，请把这句话转给 IT：需要允许 Microsoft Edge WebView2 Runtime 运行。";
+            }
+            else
+            {
+                head = "WebView2 组件这次没能启动，已改用默认浏览器打开，功能不受影响。";
+            }
+            return head + "\n\n"
+                + "本窗口会收进托盘，右键托盘图标可以退出（退出会一并关闭后台服务）。\n"
+                + "技术详情（支持排查用）：" + stage + " 0x" + hr.ToString("X8");
+        }
+
+        private void EnterBrowserFallback(int hr, string stage)
         {
             if (browserFallback || IsDisposed) return;
             browserFallback = true;
             Show(); // 确保有可见窗口承载提示
-            var msg = "本机缺少 WebView2 运行时（" + reason + "）。\n"
-                + "服务仍会正常启动，界面将改用系统默认浏览器打开；\n"
-                + "本窗口将收进托盘，右键托盘图标可退出（退出会一并关闭后台服务）。\n\n"
-                + "如需独立窗口体验，请安装 Microsoft Edge WebView2 Runtime。";
+            var msg = WebViewFallbackMessage(hr, stage);
             MessageBox.Show(this, msg, "如意工作台", MessageBoxButtons.OK, MessageBoxIcon.Information);
             Visible = false;
             ShowInTaskbar = false;

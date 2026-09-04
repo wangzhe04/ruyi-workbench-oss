@@ -1,22 +1,10 @@
-如意 Ruyi · 开始之前
-=====================
+如意 Ruyi · 开始之前 / Before you start
+1. 先把 ZIP 完整解压出来，不要在压缩包预览窗口里直接双击 Start-Workbench.cmd。
+2. 建议解压到 C:\Ruyi 这样的短路径；解压提示路径过长时不要选「跳过」。
+3. 双击 Start-Workbench.cmd，跟着欢迎向导一步步做完即可。
+4. 遇到问题：点界面左下角的「帮助」，手册、运行日志、重新引导都在那里。
 
-1. 必须先完整解压 ZIP，不能直接在压缩包预览窗口中双击 Start-Workbench.cmd。
-2. 建议解压到短路径，例如 C:\Ruyi。请避免很深的桌面、下载或 OneDrive 子目录。
-3. Windows 解压时如果提示路径过长，不要选择“跳过”；请改用 C:\Ruyi 重新完整解压。
-4. 解压完成后，双击 Start-Workbench.cmd。
-5. Full 包首次启动会校验并准备桌面控制组件，可能需要一些时间。即使该组件准备失败，
-   如意工作台本体仍会继续启动；按窗口中的具体提示修复后再重新运行即可。
-
-Ruyi · Before you start
-=======================
-
-1. Extract the entire ZIP first. Do not run Start-Workbench.cmd from the ZIP preview.
-2. Use a short destination such as C:\Ruyi. Avoid deeply nested Desktop, Downloads,
-   or OneDrive folders.
-3. Never choose "Skip" if Windows reports a long extraction path. Extract again to
-   C:\Ruyi instead.
-4. Double-click Start-Workbench.cmd from the extracted folder.
-5. The Full package verifies and prepares desktop control on first launch. This can
-   take a little while. If desktop-control setup fails, the base Workbench still starts
-   and the console shows a specific recovery hint.
+1. Extract the whole ZIP first; never run Start-Workbench.cmd from the ZIP preview.
+2. Use a short path such as C:\Ruyi, and never choose "Skip" during extraction.
+3. Double-click Start-Workbench.cmd and follow the welcome wizard.
+4. Stuck? Open Help in the sidebar: the manual, the logs, and the wizard again.
