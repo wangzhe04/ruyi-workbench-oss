@@ -6,6 +6,11 @@ import { api } from './net.js';
 import { $, el, fmtTokens, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
+// 118d: 常驻帮助菜单。菜单本体是壳无关工厂,住在这里只因为 popover 原语在本域;手册阅读器与新手向导
+// 都走各自模块的「共用实例登记处」(help-viewer / onboarding-wizard),所以组合根不必再多注入两条依赖。
+import { createHelpMenuDomain } from './help-menu.js';
+import { openSharedHelpDoc } from './help-viewer.js';
+import { openSharedOnboarding } from './onboarding-wizard.js';
 
 export function createNavigationControlsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -61,7 +66,28 @@ export function createNavigationControlsDomain({
   loadAgentRuns = async () => {},
   renderRawEventSnapshot = () => {},
   updateAgentRunsPolling = () => {},
+  // 118d: 日志面板用的动态模态构建器(interaction-prompts 那一份,组合根透进来)。
+  buildModal = () => null,
 } = {}) {
+// 118d: 帮助菜单实例。手册与向导都取各自模块的共用实例,拿不到时(理论上只有预览壳单跑)静默不动作。
+const helpMenu = createHelpMenuDomain({
+  api, el, t, toast, apiErrText, buildModal,
+  popover: (...args) => popover(...args),
+  openHelpDoc: options => openSharedHelpDoc(options),
+  openOnboarding: () => openSharedOnboarding(),
+  currentSessionId: () => String((state.currentSession && state.currentSession.id) || ''),
+});
+function openHelpMenu() { return helpMenu.openHelpMenu($('helpMenuBtn')); }
+// 上下文帮助:按当前设置页签打开手册对应小节(state._settingsTab 由 switchSettingsTab 维护)。
+function openSettingsTabHelp() { return helpMenu.openSettingsTabHelp(state._settingsTab || 'basic'); }
+// 帮助入口的接线,合并成一次调用,组合根只加一行。
+// 118g 顺带治理:高级页的「打开数据目录」原来把 state.status.dataRoot 这个【客户端持有的路径串】
+// 交给 runTool('browser_open') 去开;改走 /api/open-path 的枚举通道后,前端一个路径都不再经手。
+function initHelpEntries() {
+  const menuBtn = $('helpMenuBtn'); if (menuBtn) menuBtn.onclick = () => openHelpMenu();
+  const tabBtn = $('settingsHelpBtn'); if (tabBtn) tabBtn.onclick = () => openSettingsTabHelp();
+  const dataBtn = $('openDataDirBtn'); if (dataBtn) dataBtn.onclick = () => helpMenu.openWorkbenchFolder('data');
+}
 function paletteActions() {
   const acts = [
     { label: t('palette.newSession'), hint: 'Ctrl+N', run: newSession },
@@ -69,7 +95,7 @@ function paletteActions() {
     { label: t('palette.compactContext'), hint: '', run: compactContext },
     { label: t('palette.openSettings'), hint: '', run: () => openModal('settingsModal') },
     { label: t('palette.openProviders'), hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('providers'); } },
-    { label: t('palette.openDataDirectory'), hint: '', run: () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); else toast(t('palette.dataDirectoryUnknown'), 'err'); } },
+    { label: t('palette.openDataDirectory'), hint: '', run: () => helpMenu.openWorkbenchFolder('data') }, // 118g: 走 /api/open-path 枚举,前端不再经手路径串
     { label: t('palette.refreshDiagnostics'), hint: '', run: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); refreshStatus(); } },
     { label: t('palette.stopCurrentTurn'), hint: 'Esc', run: stopTurn },
     { label: t('palette.exportMarkdown'), hint: 'export', run: () => exportSession('md') },
@@ -791,7 +817,7 @@ const SETTINGS_SIMPLE_TABS = new Set(['basic', 'providers', 'network', 'doctor']
 function switchSettingsTab(name, force) {
   if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
-  document.querySelectorAll('#settingsTabs button').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
+  document.querySelectorAll('#settingsTabs button[data-stab]').forEach(b => b.classList.toggle('active', b.dataset.stab === name)); // 118d: 排尾的「?」不是页签
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();
   if (name === 'doctor') {
@@ -999,6 +1025,7 @@ function initRightResize() {
     closeToolDrawer,
     exitRightFullscreen,
     fetchCapabilities,
+    initHelpEntries,
     initRightResize,
     normalizeTabsForUiMode,
     noteToolTabOpened,

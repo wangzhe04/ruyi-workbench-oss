@@ -165,3 +165,48 @@
   font: inherit; color: var(--accent); text-decoration: underline;
 }
 .help-viewer-deadlink { color: var(--ink-2); }
+
+/* 118d: 常驻帮助菜单(侧栏「帮助」按钮的弹层)。复用 .more-menu 的排版,只加一个分组抬头。 */
+.help-menu { min-width: 208px; }
+.help-menu-title {
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  font-size: var(--fs-xs); letter-spacing: .04em; text-transform: none;
+}
+.help-menu-item { text-align: left; }
+
+/* 118d: 设置页签排尾的「?」。不是页签,所以不吃 .settings-tabs button 的选中态。 */
+.settings-tab-help {
+  margin-left: auto; align-self: center;
+  min-width: 24px; height: 24px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--muted);
+  font-size: var(--fs-sm); line-height: 1; cursor: pointer;
+}
+.settings-tab-help:hover, .settings-tab-help:focus-visible { color: var(--ink); border-color: var(--accent); }
+
+/* 118d: 应用内日志面板。等宽只读,内容可复制(复制的是日志正文,不是路径)。
+   与 .modal.help-viewer 同一判断:密排等宽长文必须是实底 -- 浮层族的玻璃档会把背后的首跑卡文字
+   透上来,日志根本读不下去(真机走查当场看到)。只改本层,不动全站浮层口径。 */
+.modal.help-logs-modal {
+  width: min(920px, 100%);
+  background: var(--panel);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.help-logs-body { display: flex; flex-direction: column; gap: var(--sp-2); }
+.help-logs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.help-logs-file { font-size: var(--fs-xs); }
+.help-logs-lines-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--muted); }
+.help-logs-hint { margin: 0; font-size: var(--fs-xs); line-height: 1.6; }
+.help-logs-pre {
+  margin: 0; padding: var(--sp-2);
+  max-height: 46vh; overflow: auto;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2, var(--panel));
+  font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.55;
+  white-space: pre; tab-size: 2;
+}
+.help-logs-foot { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 520px) {
+  .help-logs-pre { max-height: 40vh; white-space: pre-wrap; word-break: break-all; }
+  .settings-tab-help { margin-left: 0; }
+}

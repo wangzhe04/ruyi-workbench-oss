@@ -106,7 +106,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 进 chat-primitives.css(空态/首跑卡所有权层),侧栏「设置」按钮上的 .health-entry-dot 进 layout.css
 // (.sidebar-foot 所有权层)。三处均为纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。
 // 重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '74a763a32556b086ebaaddfe53d5c827e89ed88a9bafd57baf5c21f5d2a84e1e';
+// 118d/118g: 常驻帮助菜单(.help-menu*)、设置页签排尾的「?」(.settings-tab-help)与应用内日志面板
+// (.help-logs-*)的规则同样追加到【已注册的】css/components/onboarding.css 层(118 波自己的层),
+// 不新开样式表。纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'c0da82c6108ad8969107d2e3ae0deaa48b4141ebc2c767bcd554d9609be915bc';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

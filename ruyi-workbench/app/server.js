@@ -582,6 +582,12 @@ const ROUTE_AUTH = [
   // 118a-fix: 应用内手册阅读器的取文端点。只服务源码里写死的白名单文档(docs/manuals/*),
   // 客户端只能传 id/lang 两个受控枚举,永不把用户输入拼进文件路径;token 级同 /api/file/preview。
   { m: 'GET', p: '/api/help/doc', auth: 'token' },
+  // 118d: 帮助菜单的两条真动作通道。
+  //   open-path:只接受 data/logs/workspace/manuals 四个源码枚举,绝不接受客户端传路径,
+  //             服务端映射到绝对目录后用 /api/file/reveal 同款方式打开资源管理器;token 级同 file/reveal。
+  //   logs/tail:只读工作台自己的当天日志尾部(行数上限 2000),路径来自服务端常量;token 级同 /api/audit。
+  { m: 'POST', p: '/api/open-path', auth: 'token' },
+  { m: 'GET', p: '/api/logs/tail', auth: 'token' },
   { m: 'GET', p: '/api/audit', auth: 'token' },
   { m: 'GET', p: '/api/storage/summary', auth: 'token' },
   { m: 'POST', p: '/api/storage/policy', auth: 'token' },
@@ -32866,6 +32872,52 @@ function helpDocTitle(markdown, fallback) {
   return line ? line.replace(/^#\s+/, '').trim() : String(fallback || '');
 }
 
+// 118d: 「如意替你打开」的真动作通道。产品红线是不给路径让用户自己去文件管理器里找,
+// 所以「打开数据目录 / 日志目录 / 工作文件夹 / 手册目录」由服务端直接把资源管理器开出来。
+// 安全口径:请求只能传下面这张【源码写死】的枚举 key。绝对路径全部由服务端常量(paths.*)、
+// 手册目录解析或当前会话的 cwd 推导,客户端字符串永不参与拼路径、也永不进 spawn 的 argv;
+// 执行沿用 /api/file/reveal 的 DesktopShell.revealInExplorer(路径经环境变量交给 PowerShell 助手,
+// 零 shell 拼接,且能把窗口提到前台 : 后台服务直接 spawn explorer 会开在浏览器后面)。
+const OPEN_PATH_TARGETS = Object.freeze(['data', 'logs', 'workspace', 'manuals']);
+
+// 118d: 应用内看日志。不是所有环境都有图形外壳(远程桌面/受控终端/精简部署),「打开日志目录」不能是
+// 唯一出路,所以再给一条只读的尾部读取通道。日志文件名由服务端按当天日期自己生成,请求只能给行数。
+const LOG_TAIL_MAX_LINES = 2000;
+const LOG_TAIL_DEFAULT_LINES = 200;
+// 只读文件尾部这么多字节再切行:日志按天滚动,单份也可能到几十 MB,整份读进内存没有必要。
+const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
+
+// 枚举 -> 绝对目录。data/logs 是 00-boot 的 paths 常量,manuals 复用手册阅读器的同一份目录解析,
+// workspace 取当前会话 cwd;取不到就让调用方报 400,绝不去猜一个目录打开。
+function openPathTargetDir(target, session) {
+  if (target === 'data') return paths.data;
+  if (target === 'logs') return paths.logs;
+  if (target === 'manuals') return helpDocsDir();
+  if (target === 'workspace') return String((session && session.cwd) || '');
+  return '';
+}
+
+// 最近一份工作台日志(04-permission-runtime 的 logEvent 按天写 workbench-YYYY-MM-DD.ndjson)。
+// 只在【服务端已知目录】里按【固定正则】筛文件名,不接受任何外部路径入参。
+function latestLogFile() {
+  let names = [];
+  try { names = fs.readdirSync(paths.logs); } catch { return ''; }
+  const hits = names.filter(n => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(n)).sort();
+  return hits.length ? path.join(paths.logs, hits[hits.length - 1]) : '';
+}
+
+// 尾部若干行。startedMidFile 时首行大概率被切断(字节偏移不是行/字符边界),直接丢掉半行。
+function tailLinesFromBuffer(buf, startedMidFile, wanted) {
+  let text = buf.toString('utf8');
+  if (startedMidFile) {
+    const nl = text.indexOf('\n');
+    text = nl >= 0 ? text.slice(nl + 1) : '';
+  }
+  const all = text.split(/\r?\n/).filter(line => line.length > 0);
+  const lines = all.slice(Math.max(0, all.length - wanted));
+  return { lines, more: all.length > lines.length };
+}
+
 async function handleApi(req, res, pathname) {
   // --- auth gate ---
   // The MCP child authenticates /api/permission/request with its own body token (checked there).
@@ -33916,6 +33968,65 @@ async function handleApi(req, res, pathname) {
     const available = HELP_DOC_LANGS.filter(l => variants[l]);
     return send(res, json({ ok: true, id, lang, available, title: helpDocTitle(markdown, fileName),
       markdown, bytes: raw.length, truncated }));
+  }
+  // 118d: POST /api/open-path {target}. 帮助菜单的「打开数据目录 / 日志目录 / 工作文件夹 / 手册目录」。
+  // 鉴权:ROUTE_AUTH 记 token 级(同 /api/file/reveal),这里再自查一遍作纵深。
+  // 校验:target 必须命中 OPEN_PATH_TARGETS 这张源码枚举 -- 客户端【不能传路径】,所以既没有穿越面,
+  // 也没有「target:'data;calc'」这类注入面(枚举外的值在拼路径之前就 400 掉了)。
+  if (req.method === 'POST' && pathname === '/api/open-path') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const body = await readJsonBody(req).catch(() => ({}));
+    const target = typeof (body && body.target) === 'string' ? body.target : '';
+    if (!OPEN_PATH_TARGETS.includes(target)) {
+      return send(res, apiFailure('openPath.target_unknown', {}, '只能打开如意自己的几个固定位置,不接受任意路径', 400));
+    }
+    if (process.platform !== 'win32') return send(res, json({ ok: false, error: '仅支持 Windows' }));
+    const sessionId = safeSessionId(body && body.sessionId);
+    const session = sessionId ? await loadSession(sessionId) : null;
+    const dir = openPathTargetDir(target, session);
+    if (!dir) {
+      // 只可能是 workspace:当前会话还没有工作文件夹。给人话,不给路径。
+      return send(res, apiFailure('openPath.workspace_missing', {}, '这个会话还没有选工作文件夹,先在上方选一个再打开', 400));
+    }
+    let exists = false;
+    try { exists = fs.existsSync(dir); } catch { exists = false; }
+    if (!exists) return send(res, apiFailure('openPath.missing', { target }, '这个位置暂时还不存在,等如意用一会儿再试', 404));
+    const started = DesktopShell.revealInExplorer(dir, 'open');
+    if (!started) return send(res, json({ ok: false, error: '无法打开资源管理器(系统未提供 PowerShell/Explorer)' }));
+    logEvent({ kind: 'open_path', target, pathLen: dir.length });
+    return send(res, json({ ok: true, target }));
+  }
+  // 118d: GET /api/logs/tail?lines=N. 应用内看日志(等宽只读面板 + 「复制全部」发给支持人员)。
+  // 鉴权:ROUTE_AUTH 记 token 级;GET 不过变更类鉴权块,这里必须自查(与 /api/audit 同一纪律)。
+  // 只读服务端自己的日志:文件名由 latestLogFile() 在已知目录里按固定正则挑,请求里只有一个数字 lines,
+  // 上限 LOG_TAIL_MAX_LINES;没有日志文件时 200 降级(前端在应用内解释),不 500 也不回退成给路径。
+  if (req.method === 'GET' && pathname === '/api/logs/tail') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const q = new URL(req.url, 'http://x').searchParams;
+    const asked = Number.parseInt(q.get('lines') || '', 10);
+    const wanted = Number.isFinite(asked) ? Math.min(Math.max(asked, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
+    const file = latestLogFile();
+    if (!file) return send(res, json({ ok: false, error: 'logs.none', maxLines: LOG_TAIL_MAX_LINES }));
+    let handle = null;
+    try {
+      const st = await fsp.stat(file);
+      const size = Math.min(st.size, LOG_TAIL_MAX_BYTES);
+      const start = Math.max(0, st.size - size);
+      const buf = Buffer.alloc(size);
+      handle = await fsp.open(file, 'r');
+      if (size > 0) await handle.read(buf, 0, size, start);
+      const { lines, more } = tailLinesFromBuffer(buf, start > 0, wanted);
+      // 只回文件名不回目录:面板抬头要能说清这是哪一天的日志,但界面上不出现任何可以「照着去找」的路径。
+      return send(res, json({ ok: true, file: path.basename(file), lines, count: lines.length,
+        requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more }));
+    } catch (e) {
+      // 只回一个机器码,【不回 e.message】:Node 的 ENOENT/EPERM 文本里带着日志文件的绝对路径,
+      // 回给前端就等于又把路径印到界面上了(本波要消灭的正是这类出口)。原因进结构化日志。
+      logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
+      return send(res, json({ ok: false, error: 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
+    } finally {
+      if (handle) await handle.close().catch(() => {});
+    }
   }
   // v0.9-S4 (C4): local file PREVIEW. GET /api/file/preview?path=&sessionId= — returns file content for the
   // 「产物」gallery + file tree. Token-gated (needsToken whitelist above) AND re-checked here (GETs never run

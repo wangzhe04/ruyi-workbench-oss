@@ -7,7 +7,8 @@ import { $, el, autoGrow, fileBasename, toast } from './util.js';
 import { icon } from './icons.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
-import { createOnboardingWizardDomain, shouldShowOnboarding } from './onboarding-wizard.js';
+// 118d: registerOnboardingWizard 把本壳持有的唯一实例登记给帮助菜单复用(同 registerHelpViewer 口径)。
+import { createOnboardingWizardDomain, registerOnboardingWizard, shouldShowOnboarding } from './onboarding-wizard.js';
 // 118a-fix: 应用内手册阅读器。与向导同一口径:模块壳无关,由本壳注入环境依赖后持有唯一实例。
 import { createHelpViewerDomain, registerHelpViewer } from './help-viewer.js';
 // 118b: 体检项的人话映射(纯函数)。首跑卡的「体检摘要」与设置页的体检行读同一张表。
@@ -69,7 +70,7 @@ export function createSessionExperienceDomain({
 // 不再多造一个阅读器,也不用往组合根加接线。
 const helpViewer = registerHelpViewer(createHelpViewerDomain({ api, el, t, toast, apiErrText, getLocale, renderMarkdownInto, highlightIn }));
 function openHelpViewer(options) { return helpViewer.openHelpViewer(options); }
-const onboardingWizard = createOnboardingWizardDomain({
+const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   state,
   api,
   el,
@@ -84,7 +85,7 @@ const onboardingWizard = createOnboardingWizardDomain({
   openPlaybook: playbook => openPlaybookModal(playbook),
   openHelpViewer: (...args) => openHelpViewer(...args), // 118a-fix: 完成页「打开手册」走应用内阅读器
   onConfigChanged: () => { updateEngineDependentUI(); renderWorkspacePicker(); },
-});
+}));
 // 「开始引导」/「重新打开引导」共用的入口。设置页按钮由组合根注入本函数。
 function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }
 function groupKey(iso) {

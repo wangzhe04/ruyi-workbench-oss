@@ -68,6 +68,17 @@ export function isCrossOriginHref(href, base) {
 
 function asArray(value) { return Array.isArray(value) ? value : []; }
 
+// 118d 修补(118a-fix 的漏网):00-boot 的 normalizeApiErrorPayload 会把任何 {ok:false,error:'<串>'}
+// 改写成结构化信封 {error:{code:'api.request_failed',params:{},message:'<串>'}} 再上线。也就是说
+// 服务端写的 `error:'help.doc_missing'` 到了浏览器已经不是字符串了 -- 原来的 `res.error === 'help.doc_missing'`
+// 恒为 false,缺手册时不走应用内降级,反而把 [object Object] 印进「手册没能打开」。两种形状都要认。
+export function helpErrorTag(res) {
+  const raw = res && res.error;
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw;
+  return String(raw.message || raw.code || '');
+}
+
 // 118b: 全应用共用的阅读器实例登记处。
 //
 // 体检行的「怎么办」也要能打开手册,但设置域(provider-settings.js)不是组合根,拿不到 markdown 渲染
@@ -283,9 +294,9 @@ export function createHelpViewerDomain({
       return;
     }
     if (!res || res.ok !== true) {
-      if (res && res.error === 'help.doc_missing') { renderMissing(frame); return; }
+      if (helpErrorTag(res) === 'help.doc_missing') { renderMissing(frame); return; }
       frame.article.replaceChildren();
-      setStatus(frame, t('help.doc.loadFailed', { reason: String((res && res.error) || '') }), 'err');
+      setStatus(frame, t('help.doc.loadFailed', { reason: helpErrorTag(res) }), 'err');
       return;
     }
     frame.title.textContent = String(res.title || t('help.doc.title'));

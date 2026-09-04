@@ -401,6 +401,7 @@ const {
   closeToolDrawer,
   exitRightFullscreen,
   fetchCapabilities,
+  initHelpEntries, // 118d: 侧栏「帮助」菜单 + 设置页「?」的接线
   initRightResize,
   normalizeTabsForUiMode,
   noteToolTabOpened,
@@ -429,6 +430,7 @@ const {
 } = createNavigationControlsDomain({
   apiErrText,
   fillSettings: () => fillSettings(), // 118b: 补上 openModal('settingsModal') 里一直缺的注入(原为自由标识符,每次开设置都抛错)
+  buildModal: (...args) => buildModal(...args), // 118d: 帮助菜单的应用内日志面板
   newSession: () => newSession(),
   runTool: (...args) => runTool(...args),
   stopTurn: () => stopTurn(),
@@ -980,6 +982,7 @@ function bindEvents() {
   $('bulkCleanupBtn').onclick = () => openBulkCleanupModal();
   $('openSettingsBtn').onclick = () => openModal('settingsModal');
   $('helpBtn').onclick = () => openModal('helpModal');
+  initHelpEntries(); // 118d: 侧栏「帮助」菜单(手册/管理员手册/重开引导/看日志/打开数据目录)与设置页「?」
   // v1.0.2 (F2): 折叠/展开侧栏走同一函数,状态持久化到 localStorage('wcw.sidebarCollapsed'),boot 时恢复。
   $('collapseSidebarBtn').onclick = () => setSidebarCollapsed(true);
   $('showSidebarBtn').onclick = () => setSidebarCollapsed(false);
@@ -1083,9 +1086,9 @@ function bindEvents() {
   { const im = $('importMcpFolderBtn'); if (im) im.onclick = () => importMcpFromFolder(im); } // v1.0.2 (G5c)
   bindSettingsOperations(); // 第58波:更新中心 + MCP 运维的按钮接线由领域模块自持
   bindAgentRoles(); // 第61波：角色编辑与子代理偏好按钮由角色领域自持
-  document.querySelectorAll('#settingsTabs button').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); });
+  document.querySelectorAll('#settingsTabs button[data-stab]').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); }); // 118d: 同排还有一个「?」按钮,只给真页签接线
   { const st = $('cfgSearchType'); if (st) st.onchange = updateSearchBackendVisibility; } // v1.0-S3 (B1)
-  { const od = $('openDataDirBtn'); if (od) od.onclick = () => { const dr = (state.status && state.status.dataRoot) || ''; if (dr) runTool('browser_open', { url: dr }); }; }
+  // 118g: 「打开数据目录」的接线搬进 initHelpEntries(),改走 /api/open-path 枚举通道(前端不再经手路径串)。
   // Route static-modal closes through closeModal(id) so focus returns to the trigger (§4.9). Dynamic
   // buildModal backdrops have no id / no [data-close-modal] and manage their own focus restore.
   document.querySelectorAll('[data-close-modal]').forEach(b => { b.onclick = () => { const bd = b.closest('.modal-backdrop'); if (bd && bd.id) closeModal(bd.id); else if (bd) bd.classList.add('hidden'); }; });

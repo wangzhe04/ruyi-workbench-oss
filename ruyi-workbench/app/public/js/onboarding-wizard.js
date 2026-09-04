@@ -32,6 +32,19 @@ export const LOCAL_ENDPOINT_EXAMPLE = 'http://127.0.0.1:11434/v1';
 // GET /api/help/doc and renders the markdown in-app. Only this document id crosses the wire.
 export const ONBOARDING_MANUAL_DOC_ID = 'user-guide';
 
+// 118d: 全应用共用的向导实例登记处(与 help-viewer.js 的 registerHelpViewer 完全同一口径)。
+// 帮助菜单住在 navigation-controls(popover 原语在那里),但向导实例由经典壳持有:经典壳建好后登记
+// 在这里,菜单只调 openSharedOnboarding(),于是仍然只有一个向导实例,组合根一行不加。
+// 没有登记(例如预览壳单独跑)时返回 null,调用方按「没有这个入口」处理。
+let sharedOnboardingWizard = null;
+export function registerOnboardingWizard(instance) { sharedOnboardingWizard = instance || null; return instance; }
+export function openSharedOnboarding(options) {
+  return sharedOnboardingWizard && typeof sharedOnboardingWizard.openOnboardingWizard === 'function'
+    ? sharedOnboardingWizard.openOnboardingWizard(options)
+    : null;
+}
+export function hasSharedOnboarding() { return Boolean(sharedOnboardingWizard); }
+
 const STEP_META = Object.freeze({
   language: { titleKey: 'onboarding.wizard.language.title', shortKey: 'onboarding.wizard.step.language' },
   engine: { titleKey: 'onboarding.wizard.engine.title', shortKey: 'onboarding.wizard.step.engine' },

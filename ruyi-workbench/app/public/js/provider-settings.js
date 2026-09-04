@@ -956,6 +956,15 @@ async function testProvider(idx, btn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = t('provider.testConnection'); } }
 }
 
+// 118d: MCP 导入路径的错误取词。服务端写给用户看的人话(「该文件夹缺少有效的 ruyi-mcp.json 清单」)
+// 经 00-boot 的 normalizeApiErrorPayload 会变成 {code:'api.request_failed', message:'<原句>'} :
+// 直接插值印 [object Object],交给注入的 apiErrText 又会把这个兜底 code 翻成泛泛的「请求失败。」,
+// 把原句丢掉。所以:兜底 code 优先用 message(那才是写给用户的那句),真 code 才交给 apiErrText 本地化。
+function mcpErrText(error) {
+  if (error && typeof error === 'object' && error.code === 'api.request_failed' && error.message) return String(error.message);
+  if (typeof error === 'string' && error) return error;
+  return apiErrText(error);
+}
 // v1.0.2 (G5c): 从文件夹导入外部 MCP。POST /api/pick-folder(原生选择器)→ 取 path → POST /api/mcp/import-folder。
 // 成功 toast「已添加/已更新 <label|id>」+ 刷新状态(refreshStatus 会重拉 config → fillSettings)。失败且响应
 // 带 template 时弹说明 modal(可复制的模板 JSON,textContent 渲染)。
@@ -975,36 +984,111 @@ async function importMcpFromFolder(btn) {
       await refreshStatus(); // re-pull config → fillSettings re-seeds the integrations view
     } else {
       // 缺少/无效清单 → 弹模板说明 modal(若响应带 template);否则纯 toast。
-      if (r && r.template) showMcpTemplateModal(r.error || t('mcp.missingManifest'), r.template);
-      else toast(t('toast.importFail', { err: (r && r.error) || t('common.unknownError') }), 'err');
+      // 118d: r.error 已被服务端的 normalizeApiErrorPayload 改写成结构化信封,直接插值会印 [object Object]。
+      if (r && r.template) showMcpTemplateModal(r.error ? mcpErrText(r.error) : t('mcp.missingManifest'), r.template, pf.path);
+      else toast(t('toast.importFail', { err: r && r.error ? mcpErrText(r.error) : t('common.unknownError') }), 'err');
     }
   } catch (e) {
     toast(t('toast.importFail', { err: apiErrText(e) }), 'err');
   } finally { if (btn) btn.disabled = false; }
 }
-// v1.0.2 (G5c): 缺清单说明 modal。展示可复制的 ruyi-mcp.json 模板(textContent — 绝不 innerHTML 拼接)。
-function showMcpTemplateModal(reason, template) {
+// v1.0.2 (G5c) / 118g: 缺清单说明 modal。
+//
+// 118g 治理:原来这里只印一段 ruyi-mcp.json 模板 + 一个「复制」按钮 -- 用户拿到一段文本,还得自己去
+// 那个文件夹里新建文件、粘进去、再回来重导一次。这是 §2 UX 红线里典型的「复制走、去别处粘」交接。
+// 改成【一键应用到配置】:直接在这张卡里确认几项,走 /api/mcp/import-config/apply(与配置导入器同一条
+// 写入路径)把连接器登记进配置;写入前原位说明「将新增 / 将覆盖哪个连接器」,成功 toast + 刷新列表,
+// 失败给人话。「复制 JSON(排错用)」保留为次要动作 -- 复制内容供排错是正常功能,复制完让用户自己去
+// 别处粘才是反模式。DOM 仍全部 textContent 构建,绝不 innerHTML 拼接。
+function showMcpTemplateModal(reason, template, folder) {
+  const tpl = (template && typeof template === 'object') ? template : {};
   const body = el('div', 'mcp-tpl-body');
   body.append(el('p', 'mcp-tpl-reason', reason));
   body.append(el('p', 'muted', t('mcp.createManifestHint')));
-  const preWrap = el('div', 'mcp-tpl-pre-wrap');
-  const pre = el('pre', 'mcp-tpl-pre');
+
+  const field = (labelKey, value, cls) => {
+    const wrap = el('div', 'field-block mcp-tpl-field');
+    wrap.append(el('label', '', t(labelKey)));
+    const input = el('input', cls || '');
+    input.type = 'text';
+    input.value = String(value == null ? '' : value);
+    wrap.append(input);
+    body.append(wrap);
+    return input;
+  };
+  const idInput = field('mcp.apply.id', tpl.id || '');
+  const labelInput = field('mcp.apply.label', tpl.label || '');
+  const commandInput = field('mcp.apply.command', tpl.command || '');
+  const argsInput = field('mcp.apply.args', Array.isArray(tpl.args) ? tpl.args.join(' ') : '');
+  const cwd = String(folder || tpl.cwd || '');
+  const cwdRow = el('p', 'muted mcp-tpl-cwd', t('mcp.apply.cwd') + ' ' + cwd);
+  body.append(cwdRow);
+
+  // 写入前的变更摘要:这一次到底是新增还是覆盖,哪个连接器。跟着 id 输入实时更新。
+  const summary = el('p', 'mcp-tpl-summary', '');
+  const existingIds = () => (Array.isArray(state.config && state.config.externalMcpServers) ? state.config.externalMcpServers : [])
+    .map(s => String((s && s.id) || ''));
+  const syncSummary = () => {
+    const id = idInput.value.trim();
+    summary.textContent = !id ? t('mcp.apply.needFields')
+      : existingIds().includes(id) ? t('mcp.apply.willOverwrite', { id })
+        : t('mcp.apply.willAdd', { id });
+  };
+  idInput.oninput = syncSummary;
+  syncSummary();
+  body.append(summary);
+
   let tplText = '';
   try { tplText = JSON.stringify(template, null, 2); } catch { tplText = String(template); }
+  const preWrap = el('div', 'mcp-tpl-pre-wrap');
+  const pre = el('pre', 'mcp-tpl-pre');
   pre.textContent = tplText; // XSS: textContent, never innerHTML
-  const copyBtn = el('button', 'mini mcp-tpl-copy', t('common.copy'));
+  preWrap.append(pre);
+  body.append(preWrap);
+
+  const foot = el('div', 'confirm-foot');
+  // 不复用 .mcp-tpl-copy: 那条既有规则是 position:absolute(原来贴在 <pre> 右上角),放进页脚会飘到弹层右上。
+  const copyBtn = el('button', 'btn btn-sm', t('mcp.apply.copyJson'));
   copyBtn.type = 'button';
   copyBtn.onclick = async () => {
-    try { await navigator.clipboard.writeText(tplText); copyBtn.textContent = t('common.copied'); setTimeout(() => { copyBtn.textContent = '复制'; }, 1500); }
+    try { await navigator.clipboard.writeText(tplText); copyBtn.textContent = t('common.copied'); setTimeout(() => { copyBtn.textContent = t('mcp.apply.copyJson'); }, 1500); }
     catch { toast(t("toast.copyFail"), 'err'); }
   };
-  preWrap.append(copyBtn, pre);
-  body.append(preWrap);
-  const foot = el('div', 'confirm-foot');
-  const ok = el('button', 'primary', t('common.gotIt'));
-  foot.append(ok);
+  const applyBtn = el('button', 'primary mcp-tpl-apply', t('mcp.apply.apply'));
+  applyBtn.type = 'button';
+  const ok = el('button', 'btn btn-sm', t('common.gotIt'));
+  ok.type = 'button';
+  foot.append(copyBtn, applyBtn, ok);
+
   const m = buildModal(t('mcp.missingManifestTitle'), body, foot);
   ok.onclick = () => m.close();
+  applyBtn.onclick = async () => {
+    const id = idInput.value.trim();
+    const command = commandInput.value.trim();
+    if (!id || !command) { summary.textContent = t('mcp.apply.needFields'); toast(t('mcp.apply.needFields'), 'err'); return; }
+    const server = {
+      id, label: labelInput.value.trim() || id, command,
+      args: argsInput.value.trim() ? argsInput.value.trim().split(/\s+/) : [],
+      env: {}, cwd,
+    };
+    applyBtn.disabled = true;
+    try {
+      const r = await api('/api/mcp/import-config/apply', { method: 'POST', body: JSON.stringify({ servers: [server] }) });
+      if (r && r.ok) {
+        toast(t('mcp.apply.done', { id }), 'ok');
+        m.close();
+        await refreshStatus(); // 重拉 config -> fillSettings 重新渲染集成 / MCP 列表
+      } else {
+        // skipped[0].reason 才是「为什么没写进去」的那句(例如「外部 MCP 数量已达上限(10)」);
+        // r.error 在这条路径上只是笼统的「没有可导入的条目」,优先级更低。
+        const skipReason = r && Array.isArray(r.skipped) && r.skipped[0] && r.skipped[0].reason;
+        const why = skipReason || (r && r.error ? mcpErrText(r.error) : t('common.unknownError'));
+        toast(t('mcp.apply.failed', { reason: why }), 'err');
+      }
+    } catch (e) {
+      toast(t('mcp.apply.failed', { reason: apiErrText(e) }), 'err');
+    } finally { applyBtn.disabled = false; }
+  };
 }
 
 /* ---------------- doctor ---------------- */
