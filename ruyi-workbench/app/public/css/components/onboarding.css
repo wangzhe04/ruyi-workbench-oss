@@ -3,7 +3,14 @@
    Owns only .onboard-wiz-* plus the two first-run entry buttons. Every color comes from the shared
    token set, so both themes and both shells inherit without a second palette. All motion sits behind
    the global prefers-reduced-motion guard in base.css; nothing here declares an infinite animation. */
-.modal.onboard-wizard { width: min(640px, 100%); max-height: min(88vh, 780px); }
+/* 118f: 向导面板实底。与 .modal.help-viewer / .modal.help-logs-modal 同一判断 -- 浮层族的玻璃档
+   只有 8.6% 不透明度,背后首跑卡的大号标题会整段透上来(118a 与 118f 两次真机走查都看到)。
+   本层的读者是刚打开如意的新手,可读性优先于材质;只改本层,不动全站浮层口径。 */
+.modal.onboard-wizard {
+  width: min(640px, 100%); max-height: min(88vh, 780px);
+  background: var(--panel);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
 .onboard-wiz-heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .onboard-wiz-counter { font-size: var(--fs-xs); color: var(--muted); }
 .onboard-wiz-close { flex: none; }

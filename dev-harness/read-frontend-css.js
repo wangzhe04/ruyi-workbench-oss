@@ -114,7 +114,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 「免 Key」小字与同款按钮(.prov-key-optional / .prov-local-manual)、以及 118c 的启动提示条
 // (.start-notice*,含 520px 收敛)。纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。
 // 重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '1d2dcf79e1869df0c69b540862ecb38ea2447ae24a01a68b0b1c9fc2c20a6595';
+// 118f: 向导面板 .modal.onboard-wizard 由玻璃档改实底(background: var(--panel) + backdrop-filter: none),
+// 与本层已有的 .modal.help-viewer / .modal.help-logs-modal 同一判断 —— 玻璃档只有 8.6% 不透明度,背后
+// 首跑卡的大号标题会整段透上来(118a 与 118f 两次真机走查都看到,计算样式实测确认非动画残留)。
+// 只改本层这一条规则,不动全站浮层口径;link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'eea10e6bec9d9f730d0981f4e6dd89b5b12474b47d08578ca0438f2b502d3c70';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
