@@ -226,6 +226,7 @@
 
 ## 7. 前端
 
+- **产品 UX 红线（2026-09-03 用户拍板）**：**不得实现「给用户一个路径或命令，让他自己去别处打开」的交互**。用户不应为完成一件事而离开如意——手册在应用内阅读、文件夹与日志由应用内的动作打开、设置在应用内改。只能给出路径的地方，先补一个真正可点的动作再谈文案。（canonical 表述见 `docs/optimization-plan/28-wave-118-onboarding.md` §2，管家侧展开见 27 号 §8.1。）
 - **原生 ES Modules，无 bundler**：`app/public/js/*.js` 直接以脚本模块方式被 `index.html` 引用，构建期
   不经过任何打包器；这是既有前端交付方式，本波不引入 bundler。
 - **CSS 载荷分组变更必须同 commit 重钉 `LEGACY_STYLES_SHA256`**（`dev-harness/read-frontend-css.js:90`），步骤：
