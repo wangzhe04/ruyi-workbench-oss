@@ -192,7 +192,11 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
         touchOutput(at);
         if (evt.subagentId) break; // 班组内部的工具调用不计主线步数,由 orchestrating 概括
         state.toolCalls += 1;
-        state.tools.set(String(evt.id || `t${state.toolCalls}`), {
+        // 没有 id 就只计步数、不登记活动工具:tool_result 同样没 id，登了就注销不掉，
+        // 阶段会一直卡在「正在调用工具」直到回合结束。两个引擎实际都带 id，这只是不给自己埋雷。
+        const toolKey = String(evt.id || '');
+        if (!toolKey) break;
+        state.tools.set(toolKey, {
           name: String(evt.name || ''),
           startedAt: at,
           elapsedMs: 0,

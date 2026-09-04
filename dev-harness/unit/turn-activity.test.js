@@ -169,6 +169,17 @@ describe('turn-activity: 112b 补齐的六族事件', () => {
     assert.equal(activity.snapshot().tool.budget, 'hard');
   });
 
+  it('tool_use 缺 id 时只计步数,不登记活动工具(否则阶段会卡死到回合结束)', async () => {
+    const { createTurnActivity } = await loadModule();
+    const activity = createTurnActivity({ now: clock().now });
+    activity.consume({ type: 'meta' });
+    activity.consume({ type: 'tool_use', name: 'file_read' }); // 无 id
+    const snapshot = activity.snapshot();
+    assert.equal(snapshot.toolCalls, 1);
+    assert.equal(snapshot.tool, null);
+    assert.equal(snapshot.phase, 'thinking');
+  });
+
   it('tool_progress 认不出的 id 不会凭空造出一个工具卡', async () => {
     const { createTurnActivity } = await loadModule();
     const activity = createTurnActivity({ now: clock().now });
