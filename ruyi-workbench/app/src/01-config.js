@@ -190,6 +190,14 @@ function defaultConfig() {
     // #2a: 每会话缓存条数上限(LRU 淘汰),钳位 [0,2000];0 = 不缓存(开关双门的第二道)。
     execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
+    // 113a: 记忆召回的离线向量层（特征哈希 + TF-IDF + 余弦）与词法层的 RRF 融合。
+    // 默认关：要先过 memory-recall-quality 的 Recall@3 门（融合 ≥ 词法 +10pp）才翻默认。
+    // 显式 false / 缺省 = 走今天的纯词法 Top-3，结果集逐字节不变。
+    runtimeMemoryVectorRecallV1: false,
+    // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
+    // 搜不到正文——“我上周让它改过那个文件”这类回忆式查找完全无法完成。
+    // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
+    sessionSearchIndexV1: true,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
@@ -573,7 +581,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }

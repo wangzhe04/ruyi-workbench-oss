@@ -168,7 +168,8 @@ async function runClaudeTurn({
   if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
-    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
+    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
+    config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。

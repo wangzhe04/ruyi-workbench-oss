@@ -131,3 +131,16 @@ function execResultCacheMaxEntries(config) {
 function execResultCacheEnabled(config) {
   return !!(config && config.runtimeExecResultCacheV1 === true) && execResultCacheMaxEntries(config) > 0;
 }
+
+// 113a: 记忆召回的离线向量层唯一判定（resolveMemoryPreflight 共用）。
+// 关时 rankRelevantMemories 原样走，开时才做词法×向量的 RRF 融合。
+function memoryVectorRecallEnabled(config) {
+  return !!(config && config.runtimeMemoryVectorRecallV1 === true);
+}
+
+// 113b: 会话内容搜索的唯一判定。默认开；显式 false 时端点直接给回“已关闭”，
+// 前端回退到旧的子串过滤（不报错，只是搜不到正文）。
+function sessionSearchIndexEnabled(config) {
+  return config ? config.sessionSearchIndexV1 !== false : true;
+}
+

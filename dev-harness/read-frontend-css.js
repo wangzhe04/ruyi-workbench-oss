@@ -122,7 +122,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 状态条(.turn-activity*),chat-live 层给工具卡片状态与子代理状态行补上此前缺失的 warn 档(只有 ok/err
 // 两色时,时间预算软警告只能借用错误红,语义不对),preview-shell 层给任务单指标条的「上下文」电量按水位改色。
 // 三处均未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'b475faecc946023e72a6f5f1b5eefbc891e5e94ed5aba70bf9b3f6e7f94bfd7d';
+// 113b: layout.css 的 .sidebar 所有权层追加一条纯新增规则 —— 侧栏搜索命中的正文摘录行
+// (.session-item .s-snippet)。未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '4cd447e889cc62f2b78a98523f8320f4aca587a0104ef66ef2f24094d44fc412';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

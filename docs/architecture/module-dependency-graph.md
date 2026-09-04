@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 36 | 1513 | 1656 | 265 | 67 | 0 | 1 |
+| 37 | 1556 | 1669 | 269 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -17,7 +17,7 @@
 |---:|---|---|---:|---:|---:|
 | 0 | `00-boot.js` | bootstrap | 49 | 5 | 4 |
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
-| 2 | `01c-runtime-flags.js` | foundation | 23 | 0 | 0 |
+| 2 | `01c-runtime-flags.js` | foundation | 25 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 92 | 35 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 5 | `02-session-store.js` | foundation | 174 | 40 | 12 |
@@ -32,25 +32,26 @@
 | 14 | `06-provider-engine.js` | engine | 97 | 47 | 11 |
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 17 | `06d-memory-domain.js` | engine | 93 | 23 | 8 |
-| 18 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
-| 19 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
-| 20 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 21 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
-| 22 | `08-agent-runs.js` | orchestration | 87 | 79 | 16 |
-| 23 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
-| 24 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
-| 25 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
-| 26 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
-| 27 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 28 | `12-tool-dispatch.js` | tools | 30 | 77 | 13 |
-| 29 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 30 | `13-http-router.js` | transport | 62 | 199 | 22 |
-| 31 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 32 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 33 | `13d-core-domain-routes.js` | transport | 17 | 80 | 11 |
-| 34 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 35 | `14-main.js` | entrypoint | 1 | 400 | 26 |
+| 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
+| 18 | `06d-memory-domain.js` | engine | 102 | 27 | 10 |
+| 19 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
+| 20 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
+| 21 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 22 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
+| 23 | `08-agent-runs.js` | orchestration | 87 | 79 | 16 |
+| 24 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
+| 25 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 26 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
+| 27 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
+| 28 | `11-native-tools.js` | tools | 85 | 22 | 5 |
+| 29 | `12-tool-dispatch.js` | tools | 30 | 77 | 13 |
+| 30 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 31 | `13-http-router.js` | transport | 62 | 199 | 22 |
+| 32 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 33 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 34 | `13d-core-domain-routes.js` | transport | 35 | 89 | 13 |
+| 35 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 36 | `14-main.js` | entrypoint | 1 | 400 | 26 |
 
 ## 模块边
 
@@ -143,12 +144,14 @@
 | `06c-agent-loop-hooks.js` | `04-permission-runtime.js` | backward | `logEvent`, `redact` |
 | `06d-memory-domain.js` | `00-boot.js` | backward | `SKILL_ID_RE`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `06d-memory-domain.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `memoryVectorRecallEnabled` |
 | `06d-memory-domain.js` | `02-session-store.js` | backward | `loadSession` |
 | `06d-memory-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `06d-memory-domain.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `06d-memory-domain.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider` |
 | `06d-memory-domain.js` | `06-provider-engine.js` | backward | `providerRawCompletion` |
 | `06d-memory-domain.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
+| `06d-memory-domain.js` | `06h-retrieval-index.js` | backward | `buildRetrievalCorpus`, `rankRetrievalCorpus`, `reciprocalRankFusion` |
 | `06e-mission-domain.js` | `00-boot.js` | backward | `nowIso`, `text` |
 | `06e-mission-domain.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `MISSION_STALL_LIMIT`, `evaluateMissionCheck`, `maybeFinalizeMission`, `missionProgressDigest`, `saveSession` |
 | `06e-mission-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
@@ -277,12 +280,14 @@
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `json`, `path` |
 | `13c-overlay-routes.js` | `01-config.js` | backward | `readJsonBody`, `send`, `tokenOk` |
 | `13c-overlay-routes.js` | `04-permission-runtime.js` | backward | `logEvent` |
-| `13d-core-domain-routes.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `safeJsonParse`, `text` |
-| `13d-core-domain-routes.js` | `01-config.js` | backward | `RUNTIME`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
-| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listSessions`, `loadSession`, `missionControlCommand`, `missionControlView`, `readInterventions`, `readMissionChangesWithMeta`, `registerIntervention`, `saveSession`, `sessionKind`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
+| `13d-core-domain-routes.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13d-core-domain-routes.js` | `01-config.js` | backward | `RUNTIME`, `atomicWriteJson`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
+| `13d-core-domain-routes.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
+| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listSessions`, `loadSession`, `missionControlCommand`, `missionControlView`, `readInterventions`, `readMissionChangesWithMeta`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionKind`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
 | `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
-| `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `requestUserQuestion`, `runAutomaticInterventionDecision` |
+| `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `consumeGrant` |
+| `13d-core-domain-routes.js` | `06h-retrieval-index.js` | backward | `buildRetrievalCorpus`, `rankRetrievalCorpus`, `reciprocalRankFusion`, `retrievalTerms` |
 | `13d-core-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns`, `agentRunFile`, `applyAgentWorktree`, `cleanupAgentWorktree`, `getAgentRoleLibrary`, `nativeToolGate`, `nativeToolTier`, `toolIsRevertible` |
 | `13d-core-domain-routes.js` | `08-agent-runs.js` | backward | `agentRunEventsFile`, `appendAgentRunEvent`, `bumpRunIntervention`, `computeWaveSeq`, `listAgentRuns`, `materializePoolItem`, `nodeDeliveryEligibility`, `readAgentRunEvents`, `saveAgentRun` |
 | `13d-core-domain-routes.js` | `09-workflow.js` | backward | `launchPersistedAgentRun` |

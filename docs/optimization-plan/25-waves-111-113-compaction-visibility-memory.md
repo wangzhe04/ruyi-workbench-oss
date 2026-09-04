@@ -266,6 +266,45 @@
 
 顺序：113a → 113b → 113c → 113d。
 
+### 3.5 交付记录（113a／113b，2026-09-04）
+
+> 本批只做 113a 与 113b（执行序拍板的范围）。113c（provider embedding，与 114a ASR 共用 `caps` 字段形状）与 113d（维护面）不在本批。
+
+#### 113a · 记忆离线向量层＋融合（开关默认关）
+
+| 项 | 落点 |
+|---|---|
+| 检索原语 | 新模块 `06h-retrieval-index.js`（特征哈希 512 维带符号桶＋TF-IDF＋余弦＋RRF；全自足，零跨模块引用） |
+| 融合排序 | `rankMemoriesFused` / `rankMemoriesForRecall`（`06d-memory-domain.js`） |
+| 开关 | `runtimeMemoryVectorRecallV1=false` → `memoryVectorRecallEnabled()`（`01c-runtime-flags.js`） |
+| 注册表缓存 | 头部解析结果按 `size+mtime` 缓存（沿用 106 #2a 的失效键）；`readdir` 每轮照做，结果集逐字节不变 |
+| 门 | 新增 `memory-recall-quality.e2e.js`（50 条合成记忆 × 20 条查询，四类：原词／同义／拼写漂移／跨语言） |
+| 持久化清册 | 补登记 `memory-body`（`<data>/memory/{global,project/<key>}/<id>.md`）——103c 的真实缺口：五个 sidecar 都在表里，真正存用户内容的正文一直没登记 |
+
+**实测结果（Recall@3）**：词法 18/20 = 90.0%，融合 19/20 = 95.0%，**+5.0pp**。25 号 §3.3 定的翻默认门槛是 +10pp，**未达到，开关保持默认关**。唯一剩下的未命中是纯英文查询对纯中文记忆（`how long are local logs kept` → `log-retention`）：离线层靠字符 gram 共现，中英之间没有共享特征，这类只有 113c 的 provider embedding 能解。
+
+**过程中修掉一个自己引入的融合缺陷（值得记）**：第一版把词法层的完整名次表直接喂进 RRF，而 `convention`/`preference` 即使零命中也会进候选（今天的语义）。满库的零命中规则条目于是占满词法前几名，把向量层排第二的真命中挤出 Top-3 —— 实测例 `canry deployment` → `deploy-canary`：向量名次 2，融合后掉出 Top-3。改为两层：**命中层参与融合排名，零命中的规则类只在没填满时补位**。修完 90%→95%。诊断能力已固化进门里（未命中时逐条打印正解在词法／向量各自的名次，"向量根本没找到"与"融合把它挤出去了"是两回事）。
+
+**与方案的一处偏离（已量化）**：§3.2 提出把记忆向量索引落盘到 `_index-v1.json`。**没有做**，理由是实测口径下它是负收益：记忆的检索单元就是注册表已经读进内存的头部字段（id/name/description/coreSummary/type），百到千级语料重算全部向量是微秒级；而读＋解一个几百 KB 的 JSON 索引更贵，还要多养一套损坏／过期处理。会话搜索那边正文提取才是真花钱的地方，索引落盘放在那边（见 113b）。
+
+#### 113b · 会话搜索索引＋API＋前端（默认开）
+
+| 项 | 落点 |
+|---|---|
+| 索引与检索 | `13d-core-domain-routes.js`（`buildSessionSearchUnit` / `refreshSessionSearchIndex` / `searchSessionsByContent`），复用 `06h` 原语 |
+| 端点 | `GET /api/sessions/search?q=&limit=`，`ROUTE_AUTH` 记 `auth:'token'`（比 `/api/sessions` 的 `token-browser` 严一档：它返回的是正文摘录，不只是列表元数据）；须排在 `/api/sessions/` 前缀条之前 |
+| 开关 | `sessionSearchIndexV1=true` → `sessionSearchIndexEnabled()`；显式 false 时端点回 `session_search.disabled`，前端回退旧子串过滤 |
+| 索引单元 | 标题＋摘要＋工作目录＋首条 user 消息＋末尾 6 条消息摘录，去重后 ≤ 4KB；正文只读文件头 24KB 与尾 96KB 两段，不整体读入 |
+| 失效键 | `updatedAt + messageCount`（两者都在 `listSessions` 的元数据里，判断失效零额外 IO）；损坏或版本不符即全量重建 |
+| 脱敏 | 摘录出服务端前过 `redact()`（`04-permission-runtime.js:40`），与 `/api/audit` 同一条路径 |
+| 前端 | 侧栏 q ≥ 2 字符时走 API（去抖 200ms、序号防乱序），命中时列表改为「搜到 N 条」＋每行一句正文摘录；请求失败／端点关闭／还没回来时自动回退到旧的子串过滤 |
+| 门 | 新增 `session-search.e2e.js`（此前**这条路径一件测试都没有**）：鉴权、入参下限、正文命中、拼写漂移命中、脱敏、索引落盘／增量／损坏重建、limit、字段形状、开关关闭 |
+| 持久化清册 | 新增 `session-search-index`（regenerable：每一字节都可从会话 NDJSON 正文重算） |
+
+**踩到并修掉的一个老坑**：端点最初用 `json({ ok:false, error:'session_search.disabled' })`，被 `normalizeApiErrorPayload` 归结成 `api.request_failed`，真正的 code 降级成 message——调用方分不出「关了」和「坏了」。这与 118 波 `help.doc_missing` 是同一个坑，已改走 `apiFailure(code, {}, message, 200)`（状态码 200：它不是错误，只是能力关着）。
+
+**真机走查**：`乱码`（只在消息正文里出现，标题/摘要/目录都没有）→ 搜到 1 条并带摘录；`powersell`（拼写漂移，旧子串过滤必然落空）→ 命中正确会话；清空搜索框 → 恢复按日期分组的完整列表。
+
 ### 3.4 红线与不做
 - 纯离线：L1 必须在断网、无 provider 时给出与今天不差的结果；L2 只增强。
 - 隐私：索引与向量缓存与会话／记忆同目录、同权属；不出数据目录；snippet 走导出同款脱敏。

@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 40,
+  "count": 42,
   "lifecycleCounts": {
     "dedicated-exemption": 12,
     "external-exemption": 8,
-    "regenerable-exemption": 6,
-    "shared-lifecycle": 14
+    "regenerable-exemption": 7,
+    "shared-lifecycle": 15
   },
   "entries": [
     {
@@ -235,6 +235,20 @@
       "exemptionReason": "exit-time synchronous flush is an explicit exemption"
     },
     {
+      "id": "session-search-index",
+      "pattern": "<data>/sessions/_search-index-v1.json",
+      "owner": "13d-core-domain-routes.js",
+      "anchor": "SESSION_SEARCH_INDEX_FILE",
+      "schema": "object / version 1",
+      "writePrimitive": "atomicWriteJson",
+      "corruption": "missing or wrong version rebuilds from scratch",
+      "capacity": "one 4KB unit per session",
+      "cache": "entries kept in memory for the current request only",
+      "recovery": "rebuild by re-extracting units from session bodies",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "fully derived search cache: every byte is recomputable from session NDJSON bodies"
+    },
+    {
       "id": "session-v1-backup",
       "pattern": "<data>/sessions/<id>.json.v1bak",
       "owner": "02-session-store.js",
@@ -359,6 +373,20 @@
       "recovery": "user edits or delete",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "shared atomic write; domain validator owns schema"
+    },
+    {
+      "id": "memory-body",
+      "pattern": "<data>/memory/{global,project/<key>}/<id>.md",
+      "owner": "06d-memory-domain.js",
+      "anchor": "'.md'",
+      "schema": "markdown + frontmatter",
+      "writePrimitive": "atomicWriteJson (markdown string passthrough)",
+      "corruption": "unparsable head yields defaults; oversized (>260KB) file is skipped by the registry",
+      "capacity": "one file per memory; 260KB write-side cap",
+      "cache": "in-process head cache keyed by size+mtime (113a)",
+      "recovery": "user rewrite or re-propose; sidecars are rebuilt from bodies",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "memory bodies are user-authored content, not derived state: the workbench never regenerates them"
     },
     {
       "id": "memory-usage",

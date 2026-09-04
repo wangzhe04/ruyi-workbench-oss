@@ -812,6 +812,7 @@ const {
   renderMissionBar,
   renderResumeBanner,
   renderSessions,
+  scheduleSessionSearch,
   renderStepBar,
   revokeAllAutonomyGrants,
   rollbackTurn,
@@ -981,7 +982,9 @@ function bindEvents() {
   bindPreviewShell(); // 第76波：默认关闭的新任务台壳层与本机持久切换
   // sidebar
   $('newSessionBtn').onclick = () => newSession();
-  $('sessionSearch').oninput = renderSessions;
+  // 113b: 侧栏搜索改走去抖的内容搜索（q ≥ 2 字符）；它内部会再调 renderSessions，
+  // 失败/关闭/还没回来时自动回退到旧的子串过滤。
+  $('sessionSearch').oninput = scheduleSessionSearch;
   $('bulkCleanupBtn').onclick = () => openBulkCleanupModal();
   $('openSettingsBtn').onclick = () => openModal('settingsModal');
   $('helpBtn').onclick = () => openModal('helpModal');

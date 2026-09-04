@@ -26,6 +26,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
   // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
   { m: 'GET', p: '/api/sessions', auth: 'token-browser' },
+  // 113b: 会话内容搜索。比 /api/sessions 严一档（token 而非 token-browser）：它返回的是会话正文摘录，
+  // 不只是列表元数据。须排在下面 '/api/sessions/' 前缀条之前，否则会被它先匹配。
+  { m: 'GET', p: '/api/sessions/search', auth: 'token' },
   { m: 'GET', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'GET', p: '/api/skills', auth: 'token-browser' },
   { m: 'GET', p: '/api/agent-roles', auth: 'token-browser' },

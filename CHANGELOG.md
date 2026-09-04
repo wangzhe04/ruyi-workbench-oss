@@ -7,6 +7,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+- **不再是黑盒：输入框上方的活动状态条（第 112 波）**：模型干活时，输入框上方常驻一行话回答三个问题——现在在干什么（正在思考／正在调用哪个工具／正在重建上下文／班组在跑）、干到哪了（已运行多久、本回合第几次工具调用、沉默了多久）、在等什么（等你拍板／卡在等资源且说明被谁占着）。交办台的“现场速报”改用同一套状态，两个界面对同一回合说同一句话。不承诺剩余时间估计。
+- **一直在发、一直没人接的二十种进度事件（第 112 波）**：长命令心跳（带服务端权威计时与时间预算软／硬告警）、等资源与阻塞者、回合 token 预算预警与拦截、工具打转纠偏、子代理“连续多轮没有新动作”与工具预算调整——这些服务端本来就在发、两个界面却静默丢弃的事件，现在都能看到了；交办台首次有了上下文电量。
+- **会话搜索能搜正文了（第 113 波）**：侧栏搜索此前只比对标题、摘要与工作目录，现在会搜会话正文，命中时每行带一句原文摘录；拼错一两个字母也能找到（“powersell” 能找到 powershell 那次对话）。全本机进行，不联网；摘录出服务端前会过脱敏，粘在对话里的密钥不会因为搜一下就露出来。
+- **长期记忆的向量匹配（第 113 波，默认关）**：新增一层纯本机、零依赖的向量检索，与现有词法检索融合排序。合成门实测 Recall@3 从 90% 升到 95%，未达到预设的 +10pp 翻默认门槛，**所以默认保持关闭**，需要的人可在配置里打开。
 - **新手上手全面改造（第 118 波）**：首次打开如意会有一个六步欢迎向导——选语言、选引擎、填一个 API Key（接口地址与默认模型由预设带出，密钥格式先在本地校验，测试连接成功后自动列出可用模型）、选工作文件夹、选安全档（四档人话说明，默认每步都问）、给三张可直接点的示例任务。向导可跳过、可从帮助菜单随时重开。
 - **本机模型免配置（第 118 波）**：新增 Ollama 与 LM Studio 两个预设，不需要 API Key；点测试连接会直接探测本机服务并列出你已装的模型，没启动时给的是「本机现在没在跑 Ollama」这样的人话提示。
 - **体检看得懂（第 118 波）**：运行环境体检从英文技术项改为人话，每项一句话说明现状，有问题的给「怎么办」按钮直接跳到应用内该去的地方，原始技术信息收进折叠区；新增「桌面控制」一项，直接告诉你 AI 现在能不能操作电脑。命令行 `doctor` 新增 `--human` 人话输出。
@@ -21,6 +25,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### English
 
+- **No longer a black box: an activity line above the composer (wave 112)**: while the model works, one line above the input answers three questions — what it is doing (thinking / which tool / rebuilding context / crew running), how far along (elapsed, which tool call of this turn, how long since the last output), and what it is waiting for (you, or a resource — naming who holds it). The dispatch desk's live brief now reads from the same state machine, so both surfaces say the same sentence about the same turn. No ETA is promised.
+- **Twenty progress events that were being sent and silently dropped (wave 112)**: long-command heartbeats (with server-authoritative elapsed time and soft/hard time-budget warnings), resource waits and their blockers, turn token-budget warnings and trips, tool-loop corrections, and sub-agent stalls and budget changes are all visible now; the dispatch desk gains a context meter for the first time.
+- **Session search now searches message bodies (wave 113)**: the sidebar used to match only title, summary and working folder. It now searches conversation content and shows a one-line excerpt per hit, and tolerates a typo or two ("powersell" finds the powershell conversation). Entirely local, no network; excerpts are redacted before leaving the server so a key pasted into a chat is not exposed by a search.
+- **Vector matching for long-term memory (wave 113, off by default)**: a pure-local, zero-dependency vector retrieval layer fused with the existing lexical ranking. The synthetic gate measured Recall@3 rising from 90% to 95% — short of the pre-agreed +10pp bar to flip the default, **so it ships off** and can be enabled in config.
 - **First-run overhaul (wave 118)**: a six-step welcome wizard on first launch covers language, engine choice, a single API key (base URL and default model come from the preset; key shape is validated locally and a successful connection test lists the available models), working folder, safety tier (four plain-language levels, "ask every time" by default) and three ready-to-click sample tasks. It can be skipped and reopened any time from the help menu.
 - **Zero-config local models (wave 118)**: new Ollama and LM Studio presets need no API key; the connection test probes the local service and lists the models you already have, and when nothing is running you get a plain sentence rather than a raw network error.
 - **Health checks you can read (wave 118)**: the environment check now shows plain-language names with a one-line status, a "what to do" button that jumps to the right place inside Ruyi, and the raw technical detail folded away; a new "desktop control" item answers whether the AI can drive your computer right now. The `doctor` command gains a `--human` output.

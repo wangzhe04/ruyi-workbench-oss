@@ -503,6 +503,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
   // token-browser: 敏感内容型 GET + UI 变更型(浏览器须 token;loopback 非浏览器须同源,无需 token)
   { m: 'GET', p: '/api/sessions', auth: 'token-browser' },
+  // 113b: 会话内容搜索。比 /api/sessions 严一档（token 而非 token-browser）：它返回的是会话正文摘录，
+  // 不只是列表元数据。须排在下面 '/api/sessions/' 前缀条之前，否则会被它先匹配。
+  { m: 'GET', p: '/api/sessions/search', auth: 'token' },
   { m: 'GET', p: '/api/sessions/', auth: 'token-browser', prefix: true },
   { m: 'GET', p: '/api/skills', auth: 'token-browser' },
   { m: 'GET', p: '/api/agent-roles', auth: 'token-browser' },
@@ -738,6 +741,19 @@ function execResultCacheEnabled(config) {
   return !!(config && config.runtimeExecResultCacheV1 === true) && execResultCacheMaxEntries(config) > 0;
 }
 
+// 113a: 记忆召回的离线向量层唯一判定（resolveMemoryPreflight 共用）。
+// 关时 rankRelevantMemories 原样走，开时才做词法×向量的 RRF 融合。
+function memoryVectorRecallEnabled(config) {
+  return !!(config && config.runtimeMemoryVectorRecallV1 === true);
+}
+
+// 113b: 会话内容搜索的唯一判定。默认开；显式 false 时端点直接给回“已关闭”，
+// 前端回退到旧的子串过滤（不报错，只是搜不到正文）。
+function sessionSearchIndexEnabled(config) {
+  return config ? config.sessionSearchIndexV1 !== false : true;
+}
+
+
 function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
@@ -930,6 +946,14 @@ function defaultConfig() {
     // #2a: 每会话缓存条数上限(LRU 淘汰),钳位 [0,2000];0 = 不缓存(开关双门的第二道)。
     execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
+    // 113a: 记忆召回的离线向量层（特征哈希 + TF-IDF + 余弦）与词法层的 RRF 融合。
+    // 默认关：要先过 memory-recall-quality 的 Recall@3 门（融合 ≥ 词法 +10pp）才翻默认。
+    // 显式 false / 缺省 = 走今天的纯词法 Top-3，结果集逐字节不变。
+    runtimeMemoryVectorRecallV1: false,
+    // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
+    // 搜不到正文——“我上周让它改过那个文件”这类回忆式查找完全无法完成。
+    // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
+    sessionSearchIndexV1: true,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
@@ -1313,7 +1337,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -9627,7 +9651,8 @@ async function runClaudeTurn({
   if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
-    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
+    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
+    config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
@@ -16562,6 +16587,173 @@ return Object.freeze({
 })(makeId, logEvent, redact);
 
 // ============================================================================
+// 113a: 离线检索原语(特征哈希向量 + TF-IDF + 余弦 + RRF 融合)。零依赖、零网络、零模型。
+//
+// 为什么不是 embedding:如意的红线是「断网、无 provider 时结果不比今天差」。本层是永远可用的那一层
+// —— 纯 Node 内建实现,把「中文 2-gram + ASCII 词 + ASCII 3-gram」哈希进 512 维带符号桶,TF-IDF 加权、
+// L2 归一化,余弦比相似度。它补的是词法层最明显的两个洞:同义改写(词不同但共现的 gram 重合)与
+// 拼写/分词差(3-gram 容忍一两个字符的偏移)。
+//
+// 为什么不是 ANN:语料是百到千级,暴力余弦是微秒级;引 HNSW 只会多一个索引要维护。
+//
+// 向量一律【稀疏】表示({桶下标: 权重} 的普通对象):一篇记忆约 50 个词,512 维里最多 50 个非零桶,
+// 稀疏表示既省内存也让余弦退化成两个小对象的交集遍历。
+// ============================================================================
+
+const RETRIEVAL_DIMS = 512;
+const RETRIEVAL_RRF_K = 60;
+// 单条文本进索引前的硬上限。会话正文可以很长,而检索只需要「这条讲的是什么」——
+// 截断在这里做,调用方不必各自记得。
+const RETRIEVAL_TEXT_CAP = 8192;
+
+// FNV-1a 32 位。选它不是为了密码学强度(这里不需要),而是为了「同一段文本在任何机器上、
+// 任何 Node 版本上都落进同一个桶」——索引可以跨进程复用的前提。
+function fnv1a32(input) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i) & 0xff;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash ^= (input.charCodeAt(i) >>> 8) & 0xff;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+// 分词:与 06d 的 memorySearchTerms 同一套 NFKC+小写口径,但多产 ASCII 3-gram。
+// 3-gram 是这一层相对词法层的主要增量 —— 「powershel」与「powershell」共享 8 个 3-gram,
+// 词法层的 includes 判定则直接落空。
+function retrievalTerms(input) {
+  const source = String(input || '').slice(0, RETRIEVAL_TEXT_CAP).normalize('NFKC').toLowerCase();
+  const terms = [];
+  for (const match of source.matchAll(/[a-z0-9][a-z0-9_.-]{1,63}/g)) {
+    const word = match[0].replace(/^[_.-]+|[_.-]+$/g, '');
+    if (word.length < 2) continue;
+    terms.push(word);
+    // 拆分只在真的含分隔符时补：否则 split 会把整词再吐一遍，把每个普通词的 tf 白白抬成 2。
+    for (const part of word.split(/[_.-]+/)) if (part.length >= 2 && part !== word) terms.push(part);
+    if (word.length >= 4) {
+      for (let i = 0; i + 3 <= word.length; i++) terms.push('#' + word.slice(i, i + 3));
+    }
+  }
+  for (const match of source.matchAll(/[㐀-鿿]{2,64}/g)) {
+    const run = match[0];
+    for (let i = 0; i + 2 <= run.length; i++) terms.push(run.slice(i, i + 2));
+  }
+  return terms;
+}
+
+function retrievalTermCounts(input) {
+  const counts = new Map();
+  for (const term of retrievalTerms(input)) counts.set(term, (counts.get(term) || 0) + 1);
+  return counts;
+}
+
+// 语料的文档频次。IDF 用平滑对数式,单文档语料也不会除零。
+function buildRetrievalDf(termCountsList) {
+  const df = new Map();
+  for (const counts of termCountsList) {
+    for (const term of counts.keys()) df.set(term, (df.get(term) || 0) + 1);
+  }
+  return { df, docCount: termCountsList.length };
+}
+
+function retrievalIdf(df, docCount, term) {
+  const seen = df.get(term) || 0;
+  return Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
+}
+
+// 带符号特征哈希:桶下标取低位,符号取另一位。符号位是特征哈希的标准做法 ——
+// 没有它,不同词撞进同一桶时权重只会同向累加,相似度被系统性抬高。
+function retrievalVector(termCounts, df, docCount) {
+  const raw = new Map();
+  for (const [term, count] of termCounts) {
+    const hash = fnv1a32(term);
+    const dim = hash % RETRIEVAL_DIMS;
+    const sign = (hash >>> 16) & 1 ? -1 : 1;
+    const weight = (1 + Math.log(count)) * retrievalIdf(df, docCount, term);
+    raw.set(dim, (raw.get(dim) || 0) + sign * weight);
+  }
+  let norm = 0;
+  for (const value of raw.values()) norm += value * value;
+  norm = Math.sqrt(norm);
+  const vector = {};
+  if (!(norm > 0)) return vector;
+  for (const [dim, value] of raw) {
+    const scaled = value / norm;
+    if (scaled !== 0) vector[dim] = scaled;
+  }
+  return vector;
+}
+
+// 两个已 L2 归一化的稀疏向量的余弦 = 点积。遍历较短的一侧。
+function retrievalCosine(a, b) {
+  if (!a || !b) return 0;
+  let left = a, right = b;
+  const leftKeys = Object.keys(left);
+  if (leftKeys.length > Object.keys(right).length) { const swap = left; left = right; right = swap; }
+  let dot = 0;
+  for (const dim of Object.keys(left)) {
+    const other = right[dim];
+    if (other !== undefined) dot += left[dim] * other;
+  }
+  return dot;
+}
+
+// Reciprocal Rank Fusion:每个排名表贡献 1/(k+名次)。选它而不是分数加权,是因为词法分数
+// (命中长度 ×10)与余弦(0..1)不同量纲,归一化怎么调都是拍脑袋;RRF 只看名次,天然免标定。
+// rankings = [[id, id, ...], [id, ...]],可带每表权重。
+function reciprocalRankFusion(rankings, { k = RETRIEVAL_RRF_K, weights = null } = {}) {
+  const scores = new Map();
+  rankings.forEach((ranking, index) => {
+    const weight = weights && Number.isFinite(weights[index]) ? weights[index] : 1;
+    (Array.isArray(ranking) ? ranking : []).forEach((id, rank) => {
+      const key = String(id);
+      scores.set(key, (scores.get(key) || 0) + weight / (k + rank + 1));
+    });
+  });
+  return scores;
+}
+
+// 内容指纹:索引条目的失效键之一(另一个是 mtime+size)。截断成 16 位十六进制够用,
+// 这里比对的是「同一条记忆有没有被改过」,不是防篡改。
+function retrievalContentHash(input) {
+  const source = String(input || '');
+  const a = fnv1a32(source);
+  const b = fnv1a32(source.length + '|' + source.slice(-256));
+  return (a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0'));
+}
+
+// 一次性把一批文档变成 {ids, vectors, df, docCount}。语料小(百到千级),每次重算是微秒级,
+// 所以这里不做磁盘索引 —— 会话搜索那边正文提取才是真花钱的地方,索引落盘在那边做。
+function buildRetrievalCorpus(documents) {
+  const ids = [];
+  const countsList = [];
+  for (const doc of documents || []) {
+    if (!doc || !doc.id) continue;
+    ids.push(String(doc.id));
+    countsList.push(retrievalTermCounts(doc.text));
+  }
+  const { df, docCount } = buildRetrievalDf(countsList);
+  const vectors = countsList.map(counts => retrievalVector(counts, df, docCount));
+  return { ids, vectors, df, docCount };
+}
+
+// 用 query 在语料上打分,返回按余弦降序的 [{id, score}]。低于 minScore 的直接丢
+// (稀疏哈希在完全不相干的文本之间也会有零点几的噪声分)。
+function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {}) {
+  if (!corpus || !corpus.ids.length) return [];
+  const queryVector = retrievalVector(retrievalTermCounts(query), corpus.df, corpus.docCount);
+  if (!Object.keys(queryVector).length) return [];
+  const scored = [];
+  for (let i = 0; i < corpus.ids.length; i++) {
+    const score = retrievalCosine(queryVector, corpus.vectors[i]);
+    if (score >= minScore) scored.push({ id: corpus.ids[i], score });
+  }
+  scored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
+  return limit > 0 ? scored.slice(0, limit) : scored;
+}
+
+// ============================================================================
 // v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C0-C5)。文件型记忆库 + 起草-确认写入 + 围栏式渐进注入。
 // 与 <project-memory>(CLAUDE.md,作者=仓库)分工(C0):本库作者=用户+AI 经确认,随工作台走。注入标签
 // <workbench-memory>、UI 一律称「工作台记忆」。存储:dataRoot()/memory/{global,project/<projectKey>}/<id>.md。
@@ -16683,6 +16875,13 @@ async function writeMemoryMeta(dir, cwd) {
 
 // 读一个 memory 目录下所有 <id>.md → Map<id, entry>。id 须过 SKILL_ID_RE(防穿越);frontmatter 复用
 // parseFrontmatter(键已小写:createdAt→createdat 等)。description 回退首个正文段(firstParaDesc)。
+// 113a: 注册表头部缓存。每一轮对话都要 loadMemoryRegistry 一次,原实现对每个 .md 做一次 open+read 16KB
+// +frontmatter 解析,记忆库涨到几百条后这是回合起步阶段最贵的一段纯 IO。失效键沿用 106 #2a 那套
+// 「mtime+size」——文件被改过就一定变,不改就一定不变;readdir 每轮照做(新增/删除必须立刻可见),
+// 省掉的只是「内容没变的文件重新读一遍」。结果集与未加缓存时逐字节相同。
+const MEMORY_HEAD_CACHE = new Map(); // file -> { key, entry }
+const MEMORY_HEAD_CACHE_MAX = 2000;
+
 async function readMemoryDir(dir, scope) {
   const out = new Map();
   let files = [];
@@ -16695,9 +16894,13 @@ async function readMemoryDir(dir, scope) {
     let raw = '';
     // 260KB 是与写侧一致的文件准入上限，避免“保存后从列表消失”；注册表检索本身只读前 16KB，
     // 足够覆盖工作台生成的受限 frontmatter + 首段说明，完整正文留到命中后按需读取。
+    let cacheKey = '';
     try {
       const st = await fsp.stat(file);
       if (!st.isFile() || st.size > 260 * 1024) continue;
+      cacheKey = `${st.size}:${st.mtimeMs}`;
+      const cached = MEMORY_HEAD_CACHE.get(file);
+      if (cached && cached.key === cacheKey && cached.entry.scope === scope) { out.set(id, cached.entry); continue; }
       const fh = await fsp.open(file, 'r');
       try {
         const buf = Buffer.allocUnsafe(Math.min(st.size, MEMORY_METADATA_READ_CAP));
@@ -16708,7 +16911,7 @@ async function readMemoryDir(dir, scope) {
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
     const core = fmBool(fm.core, false); // 旧记忆不静默升格；由用户/新建表单明确加入核心
-    out.set(id, {
+    const entry = {
       id, scope,
       name: (fm.name || id).slice(0, 120),
       description: (fm.description || firstParaDesc(raw)).slice(0, 400),
@@ -16722,7 +16925,16 @@ async function readMemoryDir(dir, scope) {
       expiresAt: cleanMemoryDate(fm.expiresat),
       sourceSessionId: fm.sourcesessionid || '',
       sourceRunId: fm.sourcerunid || '',
-    });
+    };
+    out.set(id, entry);
+    if (cacheKey) {
+      // 简单 FIFO 上限:记忆库不会大到需要 LRU,但无界 Map 在长跑进程里迟早是个泄漏。
+      if (MEMORY_HEAD_CACHE.size >= MEMORY_HEAD_CACHE_MAX) {
+        const oldest = MEMORY_HEAD_CACHE.keys().next();
+        if (!oldest.done) MEMORY_HEAD_CACHE.delete(oldest.value);
+      }
+      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, entry });
+    }
   }
   return out;
 }
@@ -17894,7 +18106,9 @@ function memorySearchTerms(text) {
   return [...out].slice(0, 96);
 }
 
-function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+// 113a: 词法层的打分与排序从 rankRelevantMemories 里提出来，融合层要拿完整名次表而不只是 Top-N。
+// 评分公式、候选准入规则与三级排序比较子逐字不变 —— 这是一次行为中性提炼，不是重写。
+function rankRelevantMemoriesScored(registry, query) {
   const queryTerms = memorySearchTerms(query);
   const ranked = [];
   for (const entry of (Array.isArray(registry) ? registry : [])) {
@@ -17905,12 +18119,92 @@ function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
     // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
     if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
     const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);
-    ranked.push({ entry, score });
+    ranked.push({ entry, score, shared });
   }
   ranked.sort((a, b) => b.score - a.score
     || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
     || String(a.entry.id).localeCompare(String(b.entry.id)));
+  return ranked;
+}
+
+function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const ranked = rankRelevantMemoriesScored(registry, query);
   return ranked.slice(0, Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX)).map(x => x.entry);
+}
+
+// ── 113a: 词法 × 向量的 RRF 融合召回（默认关）───────────────────────────────
+// 词法层的两个真实缺口：同义改写（“提交信息” vs “commit 文案”）与拼写/分词差
+// （“powershel” vs “powershell”）—— includes 子串判定对这两类直接落空。向量层用共现 gram 补上。
+// 不用分数加权而用 RRF：词法分（命中长度×10）与余弦（0..1）不同量纲，归一化怎么调都是拍脑袋。
+// 不读正文：向量化的是注册表已有的头部字段（id/name/description/coreSummary/type），
+// 与词法层同一片 haystack，每轮成本仍与文件大小无关。
+// 不落盘索引：语料是百到千级，重算向量是微秒级，而读+解一个几百 KB 的 JSON 索引反而更贵；
+// 多一个持久化面就多一套损坏/过期处理。会话搜索那边正文提取真花钱，索引落盘在那边做。
+function memoryRetrievalText(entry) {
+  return [entry.id, entry.name, entry.description, entry.coreSummary, entry.type].filter(Boolean).join(' ');
+}
+function memoryRetrievalKey(entry) {
+  return `${entry.scope}:${entry.id}`;
+}
+
+// 类型/作用域加分在融合后以 RRF 同量纲叠加。取值按“大约抬两个名次”标定：
+// 首位相邻两名的 RRF 差约为 1/61-1/62 ≈ 0.00026，所以 0.0006/0.0004 分别约当于两名与一名半。
+// 目的是保住今天“project 优于 global、convention/preference 优于其它”的语义，而不是让它压过相关性。
+const MEMORY_FUSION_SCOPE_BONUS = 0.0006;
+const MEMORY_FUSION_TYPE_BONUS = 0.0004;
+
+function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
+  if (!entries.length) return [];
+  const byKey = new Map(entries.map(entry => [memoryRetrievalKey(entry), entry]));
+
+  // 词法名次表里只放真正命中的条目。convention/preference 即使零命中也会进候选
+  // （今天的语义，保留），但它们不能占着词法第一名进 RRF —— 实测过：满库的零命中规则
+  // 会把向量层排第二的真命中挤出 Top-3（典型例：“canry deployment” → deploy-canary）。
+  // 所以分两层：命中层参与融合排名，零命中的规则类只在没填满时补位。
+  const lexicalScored = rankRelevantMemoriesScored(entries, query);
+  const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
+  const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
+  const corpus = buildRetrievalCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
+  const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
+
+  // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。
+  if (!lexicalRanking.length && !vectorRanking.length) {
+    return rankRelevantMemories(entries, query, limit);
+  }
+  const fused = reciprocalRankFusion([lexicalRanking, vectorRanking]);
+
+  const ranked = [];
+  for (const [key, base] of fused) {
+    const entry = byKey.get(key);
+    if (!entry) continue;
+    const bonus = (entry.scope === 'project' ? MEMORY_FUSION_SCOPE_BONUS : 0)
+      + ((entry.type === 'convention' || entry.type === 'preference') ? MEMORY_FUSION_TYPE_BONUS : 0);
+    ranked.push({ entry, score: base + bonus });
+  }
+  // 同分时的三级比较子与词法层一致，避免两条路径在平局上给出不同顺序。
+  ranked.sort((a, b) => b.score - a.score
+    || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
+    || String(a.entry.id).localeCompare(String(b.entry.id)));
+  const cap = Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX);
+  const out = ranked.slice(0, cap).map(x => x.entry);
+  // 补位：零命中的 convention/preference 按词法层原序填到上限为止。
+  if (out.length < cap) {
+    const taken = new Set(out.map(memoryRetrievalKey));
+    for (const key of lexicalFallback) {
+      if (out.length >= cap) break;
+      if (taken.has(key)) continue;
+      const entry = byKey.get(key);
+      if (entry) { out.push(entry); taken.add(key); }
+    }
+  }
+  return out;
+}
+
+// 召回的唯一入口：开关关时与今天逐字节相同（直接转 rankRelevantMemories）。
+function rankMemoriesForRecall(registry, query, limit, config) {
+  if (!memoryVectorRecallEnabled(config)) return rankRelevantMemories(registry, query, limit);
+  return rankMemoriesFused(registry, query, limit);
 }
 
 function memoryExclusionSet(session, cwd) {
@@ -17951,7 +18245,10 @@ function effectiveMemorySelection(session, registry, cwd) {
 // 显式模式沿用固定选择，显式空数组表示本会话关闭。无匹配也返回 checked=true 的状态供提示/UI 展示。
 // {id,scope} 锁定:scope 不匹配(启用时 project、现只剩 global 同 id)→ 跳过;文件消失(幽灵)→ 跳过。P3-3:project
 // 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。
-async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
+// 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
+// config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
+// 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null) {
   let registry = [];
   try { registry = await loadMemoryRegistry(cwd); } catch {
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
@@ -17985,7 +18282,13 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
   const coreState = await resolveCoreMemoryState(cwd, eligible);
   const coreEntries = coreState.active;
   const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
-  const ranked = explicit ? eligible : rankRelevantMemories(eligible, query, MEMORY_RELEVANCE_MAX);
+  // 固定选择（explicit）不走排序，也就不读配置 —— 开关对它本来就不适用。
+  let ranked;
+  if (explicit) ranked = eligible;
+  else {
+    const recallConfig = config || await readConfig().catch(() => null);
+    ranked = rankMemoriesForRecall(eligible, query, MEMORY_RELEVANCE_MAX, recallConfig);
+  }
   const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
@@ -23746,7 +24049,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery).catch(() => ({
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config).catch(() => ({
         entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
       const nodeMemoryEntries = [...(nodeMemory.coreEntries || []), ...(nodeMemory.entries || [])];
@@ -24458,7 +24761,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 工作台记忆:每条消息用 name/description/id 做轻量元数据检索；默认扫描当前项目 + 全局并只注入 Top-3。
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
-    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
+    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
+    config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
@@ -35614,9 +35918,221 @@ async function handleOverlayApiRoutes(req, res, pathname) {
   }
 }
 
+// ── 113b: 会话内容搜索 ────────────────────────────────────────────────────────────────────────
+// 摸底口径:侧栏搜索此前是纯前端子串过滤,只看 title/summary/cwd 三个字段(session-experience.js),
+// 会话正文一个字都不查;`sessions/index.json` 也只是元数据缓存。用户「我上周让它改过那个文件」这类
+// 回忆式查找完全做不到,而这恰恰是本地工作台最该会的事 —— 历史全在本机。
+//
+// 为什么这里要落盘索引,而记忆召回那边不落:记忆的检索单元就是注册表已经读进来的头部字段,重算是
+// 微秒级;会话的检索单元要从可能几 MB 的 NDJSON 正文里抽,不缓存就是每次搜索把整个历史读一遍。
+//
+// 索引单元 = 标题 + 摘要 + 首条 user 消息 + 末尾若干条消息摘录,每会话 ≤ 4KB。失效键 =
+// updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
+// 正文读取只取文件头尾两段,不整体读入 —— 一条几 MB 的会话不会因为被搜索而把内存顶起来。
+const SESSION_SEARCH_INDEX_FILE = '_search-index-v1.json';
+const SESSION_SEARCH_INDEX_VERSION = 1;
+const SESSION_SEARCH_UNIT_CAP = 4096;      // 每会话进索引的字符上限
+const SESSION_SEARCH_TAIL_MESSAGES = 6;    // 末尾取几条
+const SESSION_SEARCH_HEAD_BYTES = 24 * 1024;
+const SESSION_SEARCH_TAIL_BYTES = 96 * 1024;
+const SESSION_SEARCH_SNIPPET_RADIUS = 60;
+const SESSION_SEARCH_MAX_LIMIT = 50;
+const SESSION_SEARCH_MIN_QUERY = 2;
+
+function sessionSearchIndexPath() { return path.join(paths.sessions, SESSION_SEARCH_INDEX_FILE); }
+
+// 只读文件的头尾两段,中间跳过。NDJSON 一行一条,所以头段丢尾巴、尾段丢头都只损失一条不完整的行。
+async function readNdjsonEdges(file, headBytes, tailBytes) {
+  let fh = null;
+  try {
+    const st = await fsp.stat(file);
+    if (!st.isFile() || st.size === 0) return { head: '', tail: '' };
+    fh = await fsp.open(file, 'r');
+    const headLen = Math.min(st.size, headBytes);
+    const headBuf = Buffer.allocUnsafe(headLen);
+    await fh.read(headBuf, 0, headLen, 0);
+    let tail = '';
+    if (st.size > headLen) {
+      const tailLen = Math.min(st.size - headLen, tailBytes);
+      const tailBuf = Buffer.allocUnsafe(tailLen);
+      await fh.read(tailBuf, 0, tailLen, st.size - tailLen);
+      tail = tailBuf.toString('utf8');
+    }
+    return { head: headBuf.toString('utf8'), tail };
+  } catch {
+    return { head: '', tail: '' };
+  } finally {
+    if (fh) await fh.close().catch(() => {});
+  }
+}
+
+function parseNdjsonRows(text, { dropFirstPartial = false } = {}) {
+  const lines = String(text || '').split('\n');
+  if (dropFirstPartial) lines.shift();
+  const rows = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try { rows.push(JSON.parse(trimmed)); } catch { /* 半条/坏行跳过,与会话读取侧同口径 */ }
+  }
+  return rows;
+}
+
+function sessionMessageText(row) {
+  if (!row || typeof row !== 'object') return '';
+  const content = typeof row.content === 'string' ? row.content : '';
+  if (content) return content;
+  // segments 型 assistant 消息:只取文本段与工具名,不展开工具结果(那是噪声,而且可能很大)。
+  const segments = Array.isArray(row.segments) ? row.segments : [];
+  const parts = [];
+  for (const segment of segments) {
+    if (!segment) continue;
+    if (typeof segment.text === 'string' && segment.text) parts.push(segment.text);
+    else if (segment.type === 'tool' && segment.name) parts.push(String(segment.name));
+  }
+  return parts.join(' ');
+}
+
+// 检索单元:标题/摘要/工作目录 + 首条 user 消息 + 末尾若干条消息。首条 user 消息是「这轮会话
+// 到底要干什么」的最强信号,末尾几条是「最后落到哪」——中间的过程留给全文,不进索引。
+async function buildSessionSearchUnit(meta) {
+  const body = sessionBodyPaths(meta.id);
+  const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
+  const headRows = parseNdjsonRows(head);
+  const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
+  const firstUser = headRows.find(row => row && row.role === 'user');
+  const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
+  const parts = [meta.title || '', meta.summary || '', meta.cwd || ''];
+  const seen = new Set();
+  const push = value => {
+    const trimmed = String(value || '').trim();
+    // 短会话里“首条 user”往往也在尾部那几条里，不去重的话它会在检索单元里出现两遍，
+    // 既白白抬高 tf，也让摘录看上去像复制错了。
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    parts.push(trimmed);
+  };
+  if (firstUser) push(sessionMessageText(firstUser));
+  for (const row of lastRows) push(sessionMessageText(row));
+  return parts.filter(Boolean).join('\n').replace(/\s+/g, ' ').slice(0, SESSION_SEARCH_UNIT_CAP);
+}
+
+async function readSessionSearchIndex() {
+  try {
+    const raw = JSON.parse(await fsp.readFile(sessionSearchIndexPath(), 'utf8'));
+    if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') return null;
+    return raw;
+  } catch {
+    return null; // 缺失/损坏 = 全量重建。索引是纯派生物,没有需要抢救的权威数据。
+  }
+}
+
+// 增量刷新:只为「新会话」或「updatedAt/messageCount 变了的会话」重抽单元;删掉的会话顺带清出去。
+async function refreshSessionSearchIndex(metas) {
+  const existing = (await readSessionSearchIndex()) || { version: SESSION_SEARCH_INDEX_VERSION, entries: {} };
+  const entries = {};
+  let changed = false;
+  for (const meta of metas) {
+    const prior = existing.entries[meta.id];
+    const stamp = `${meta.updatedAt || ''}|${Number(meta.messageCount) || 0}`;
+    if (prior && prior.stamp === stamp && typeof prior.unit === 'string') { entries[meta.id] = prior; continue; }
+    entries[meta.id] = { stamp, unit: await buildSessionSearchUnit(meta) };
+    changed = true;
+  }
+  if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
+  const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
+  // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
+  await atomicWriteJson(sessionSearchIndexPath(), payload).catch(() => {});
+  return entries;
+}
+
+// 摘录:定位第一个命中的查询词,取前后各若干字符。出服务端前过 redact() —— 与 /api/audit 同一条
+// 脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
+function sessionSearchSnippet(unit, terms) {
+  const source = String(unit || '');
+  const lower = source.toLowerCase();
+  let at = -1;
+  for (const term of terms) {
+    const found = lower.indexOf(term);
+    if (found >= 0 && (at < 0 || found < at)) at = found;
+  }
+  const start = at < 0 ? 0 : Math.max(0, at - SESSION_SEARCH_SNIPPET_RADIUS);
+  const end = Math.min(source.length, start + SESSION_SEARCH_SNIPPET_RADIUS * 3);
+  const slice = source.slice(start, end);
+  return redact((start > 0 ? '…' : '') + slice + (end < source.length ? '…' : ''));
+}
+
+async function searchSessionsByContent(query, limit) {
+  const q = String(query || '').trim();
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  const metas = await listSessions();
+  const entries = await refreshSessionSearchIndex(metas);
+  const byId = new Map(metas.map(meta => [meta.id, meta]));
+
+  const documents = metas
+    .filter(meta => entries[meta.id])
+    .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
+  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
+
+  // L0 词法:子串命中(保住今天的直觉 —— 打出完整词就该排最前);L1 向量:同义/拼写漂移兜底。
+  const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
+  const lexical = [];
+  for (const doc of documents) {
+    const hay = doc.text.toLowerCase();
+    let hits = 0;
+    for (const term of terms) if (hay.includes(term)) hits += Math.min(12, Math.max(2, term.length));
+    if (hits > 0) lexical.push({ id: doc.id, hits });
+  }
+  lexical.sort((a, b) => b.hits - a.hits || String(a.id).localeCompare(String(b.id)));
+
+  const corpus = buildRetrievalCorpus(documents);
+  const vector = rankRetrievalCorpus(corpus, q);
+
+  const fused = reciprocalRankFusion([lexical.map(row => row.id), vector.map(row => row.id)]);
+  const ranked = [...fused.entries()]
+    .map(([id, score]) => ({ id, score, meta: byId.get(id) }))
+    .filter(row => row.meta)
+    // 同分时按最近更新排前:搜索历史时「最近的那次」几乎总是想要的那次。
+    .sort((a, b) => b.score - a.score
+      || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''))
+      || String(a.id).localeCompare(String(b.id)));
+
+  const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
+  return {
+    ok: true,
+    query: q,
+    indexed: documents.length,
+    results: ranked.slice(0, cap).map(row => ({
+      id: row.id,
+      title: row.meta.title || '',
+      cwd: row.meta.cwd || '',
+      updatedAt: row.meta.updatedAt || '',
+      pinned: Boolean(row.meta.pinned),
+      messageCount: Number(row.meta.messageCount) || 0,
+      score: Number(row.score.toFixed(6)),
+      snippet: sessionSearchSnippet(entries[row.id].unit, terms),
+    })),
+  };
+}
+
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
+  }
+  // 113b: 会话内容搜索。GET /api/sessions/search?q=&limit=
+  // 必须排在下面那条 pathname.startsWith('/api/sessions/') 的通配分支【之前】，
+  // 否则 'search' 会被当成会话 id 拿去查。
+  if (req.method === 'GET' && pathname === '/api/sessions/search') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (!sessionSearchIndexEnabled(config)) {
+      // 走 apiFailure 而不是裸字符串 error：后者会被 normalizeApiErrorPayload 归结成
+      // api.request_failed，真正的 code 降级成 message，调用方就分不出“关了”和“坏了”。
+      // 118 波在 help.doc_missing 上栓过同一个坑。状态码给 200：它不是错误，只是能力关着。
+      return send(res, apiFailure('session_search.disabled', {}, 'session search index is disabled', 200));
+    }
+    const params = new URL(req.url, 'http://x').searchParams;
+    return send(res, json(await searchSessionsByContent(params.get('q') || '', params.get('limit'))));
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);

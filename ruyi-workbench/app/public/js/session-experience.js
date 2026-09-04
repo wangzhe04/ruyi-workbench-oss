@@ -96,10 +96,73 @@ function groupKey(iso) {
   if (days <= 7) return 'session.thisWeek';
   return 'session.earlier';
 }
+// 113b: 内容搜索的客户端状态。旧的子串过滤一字未改，作为回退路径一直在：
+// 端点关闭、请求失败、还没返回时，侧栏看上去就是今天的样子，不会变成空白或报错。
+let sessionSearchState = { query: '', results: null, loading: false, failed: false };
+let sessionSearchTimer = 0;
+let sessionSearchSeq = 0;
+const SESSION_SEARCH_MIN_QUERY = 2;
+const SESSION_SEARCH_DEBOUNCE_MS = 200;
+
+function sessionSearchQuery() {
+  return String($('sessionSearch')?.value || '').trim();
+}
+
+// 去抖 200ms；每次发请求带一个递增序号，只采信最新一次的结果（快打字时先发后到会把
+// 旧结果盖到新查询上）。不取消已发的请求：本机调用代价比 AbortController 的复杂度低。
+function scheduleSessionSearch() {
+  const q = sessionSearchQuery();
+  if (sessionSearchTimer) { clearTimeout(sessionSearchTimer); sessionSearchTimer = 0; }
+  if (q.length < SESSION_SEARCH_MIN_QUERY) {
+    sessionSearchState = { query: q, results: null, loading: false, failed: false };
+    renderSessions();
+    return;
+  }
+  sessionSearchState = { ...sessionSearchState, query: q, loading: true };
+  renderSessions();
+  sessionSearchTimer = setTimeout(async () => {
+    sessionSearchTimer = 0;
+    const seq = ++sessionSearchSeq;
+    try {
+      const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30`);
+      if (seq !== sessionSearchSeq) return;
+      if (res && res.ok && Array.isArray(res.results)) {
+        sessionSearchState = { query: q, results: res.results, loading: false, failed: false };
+      } else {
+        sessionSearchState = { query: q, results: null, loading: false, failed: true };
+      }
+    } catch {
+      if (seq !== sessionSearchSeq) return;
+      sessionSearchState = { query: q, results: null, loading: false, failed: true };
+    }
+    renderSessions();
+  }, SESSION_SEARCH_DEBOUNCE_MS);
+}
+
 function renderSessions() {
   const list = $('sessionList');
   const q = $('sessionSearch').value.trim().toLowerCase();
   list.innerHTML = '';
+  // 113b: 后端搜索命中时改用它的名次（带正文摘录）；否则走旧的子串过滤。
+  const searchHit = sessionSearchState.results
+    && sessionSearchState.query.toLowerCase() === q
+    && q.length >= SESSION_SEARCH_MIN_QUERY;
+  if (searchHit) {
+    const byId = new Map(state.sessions.map(s => [s.id, s]));
+    const rows = sessionSearchState.results.map(row => ({ row, session: byId.get(row.id) })).filter(x => x.session);
+    list.appendChild(el('div', 'session-group-label', t('session.searchResults', { p1: rows.length })));
+    for (const { row, session } of rows) {
+      const item = sessionItem(session);
+      if (row.snippet) {
+        const snippet = el('span', 's-snippet', row.snippet);
+        snippet.title = row.snippet;
+        item.appendChild(snippet);
+      }
+      list.appendChild(item);
+    }
+    if (!rows.length) list.appendChild(el('div', 'muted', t('session.noMatch')));
+    return;
+  }
   const filtered = state.sessions.filter(s => !q || (s.title || '').toLowerCase().includes(q) || (s.summary || '').toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
   const pinned = filtered.filter(s => s.pinned);
   const rest = filtered.filter(s => !s.pinned);
@@ -113,7 +176,13 @@ function renderSessions() {
     list.appendChild(el('div', 'session-group-label', label));
     for (const s of items) list.appendChild(sessionItem(s));
   }
-  if (!filtered.length) list.appendChild(el('div', 'muted', q ? t('session.noMatch') : t('session.empty')));
+  if (!filtered.length) {
+    // 正在搜的时候先说“搜索中”，别让用户以为真的一条都没有。
+    const empty = sessionSearchState.loading && q.length >= SESSION_SEARCH_MIN_QUERY
+      ? t('session.searching')
+      : (q ? t('session.noMatch') : t('session.empty'));
+    list.appendChild(el('div', 'muted', empty));
+  }
 }
 function sessionItem(s) {
   const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
@@ -1123,6 +1192,7 @@ function buildEmptyCTA() {
     renderResumeBanner,
     renderSessions,
     renderStepBar,
+    scheduleSessionSearch, // 113b
     revokeAllAutonomyGrants,
     rollbackTurn,
     stopMission,

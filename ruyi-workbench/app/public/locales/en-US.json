@@ -2622,4 +2622,7 @@
   ,"turnActivity.subagent.budget": "tool steps {{p1}} → {{p2}}"
   ,"previewShell.contextMeter": "Context"
   ,"previewShell.contextMeterTitle": "{{p1}} of {{p2}} used"
+
+  ,"session.searchResults": "{{p1}} found"
+  ,"session.searching": "Searching…"
 }

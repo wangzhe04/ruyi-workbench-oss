@@ -2621,4 +2621,7 @@
   ,"turnActivity.subagent.budget": "工具步数 {{p1}} → {{p2}}"
   ,"previewShell.contextMeter": "上下文"
   ,"previewShell.contextMeterTitle": "已用 {{p1}} / {{p2}}"
+
+  ,"session.searchResults": "搜到 {{p1}} 条"
+  ,"session.searching": "搜索中…"
 }

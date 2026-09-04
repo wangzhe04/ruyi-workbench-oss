@@ -1,6 +1,218 @@
+// ── 113b: 会话内容搜索 ────────────────────────────────────────────────────────────────────────
+// 摸底口径:侧栏搜索此前是纯前端子串过滤,只看 title/summary/cwd 三个字段(session-experience.js),
+// 会话正文一个字都不查;`sessions/index.json` 也只是元数据缓存。用户「我上周让它改过那个文件」这类
+// 回忆式查找完全做不到,而这恰恰是本地工作台最该会的事 —— 历史全在本机。
+//
+// 为什么这里要落盘索引,而记忆召回那边不落:记忆的检索单元就是注册表已经读进来的头部字段,重算是
+// 微秒级;会话的检索单元要从可能几 MB 的 NDJSON 正文里抽,不缓存就是每次搜索把整个历史读一遍。
+//
+// 索引单元 = 标题 + 摘要 + 首条 user 消息 + 末尾若干条消息摘录,每会话 ≤ 4KB。失效键 =
+// updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
+// 正文读取只取文件头尾两段,不整体读入 —— 一条几 MB 的会话不会因为被搜索而把内存顶起来。
+const SESSION_SEARCH_INDEX_FILE = '_search-index-v1.json';
+const SESSION_SEARCH_INDEX_VERSION = 1;
+const SESSION_SEARCH_UNIT_CAP = 4096;      // 每会话进索引的字符上限
+const SESSION_SEARCH_TAIL_MESSAGES = 6;    // 末尾取几条
+const SESSION_SEARCH_HEAD_BYTES = 24 * 1024;
+const SESSION_SEARCH_TAIL_BYTES = 96 * 1024;
+const SESSION_SEARCH_SNIPPET_RADIUS = 60;
+const SESSION_SEARCH_MAX_LIMIT = 50;
+const SESSION_SEARCH_MIN_QUERY = 2;
+
+function sessionSearchIndexPath() { return path.join(paths.sessions, SESSION_SEARCH_INDEX_FILE); }
+
+// 只读文件的头尾两段,中间跳过。NDJSON 一行一条,所以头段丢尾巴、尾段丢头都只损失一条不完整的行。
+async function readNdjsonEdges(file, headBytes, tailBytes) {
+  let fh = null;
+  try {
+    const st = await fsp.stat(file);
+    if (!st.isFile() || st.size === 0) return { head: '', tail: '' };
+    fh = await fsp.open(file, 'r');
+    const headLen = Math.min(st.size, headBytes);
+    const headBuf = Buffer.allocUnsafe(headLen);
+    await fh.read(headBuf, 0, headLen, 0);
+    let tail = '';
+    if (st.size > headLen) {
+      const tailLen = Math.min(st.size - headLen, tailBytes);
+      const tailBuf = Buffer.allocUnsafe(tailLen);
+      await fh.read(tailBuf, 0, tailLen, st.size - tailLen);
+      tail = tailBuf.toString('utf8');
+    }
+    return { head: headBuf.toString('utf8'), tail };
+  } catch {
+    return { head: '', tail: '' };
+  } finally {
+    if (fh) await fh.close().catch(() => {});
+  }
+}
+
+function parseNdjsonRows(text, { dropFirstPartial = false } = {}) {
+  const lines = String(text || '').split('\n');
+  if (dropFirstPartial) lines.shift();
+  const rows = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try { rows.push(JSON.parse(trimmed)); } catch { /* 半条/坏行跳过,与会话读取侧同口径 */ }
+  }
+  return rows;
+}
+
+function sessionMessageText(row) {
+  if (!row || typeof row !== 'object') return '';
+  const content = typeof row.content === 'string' ? row.content : '';
+  if (content) return content;
+  // segments 型 assistant 消息:只取文本段与工具名,不展开工具结果(那是噪声,而且可能很大)。
+  const segments = Array.isArray(row.segments) ? row.segments : [];
+  const parts = [];
+  for (const segment of segments) {
+    if (!segment) continue;
+    if (typeof segment.text === 'string' && segment.text) parts.push(segment.text);
+    else if (segment.type === 'tool' && segment.name) parts.push(String(segment.name));
+  }
+  return parts.join(' ');
+}
+
+// 检索单元:标题/摘要/工作目录 + 首条 user 消息 + 末尾若干条消息。首条 user 消息是「这轮会话
+// 到底要干什么」的最强信号,末尾几条是「最后落到哪」——中间的过程留给全文,不进索引。
+async function buildSessionSearchUnit(meta) {
+  const body = sessionBodyPaths(meta.id);
+  const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
+  const headRows = parseNdjsonRows(head);
+  const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
+  const firstUser = headRows.find(row => row && row.role === 'user');
+  const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
+  const parts = [meta.title || '', meta.summary || '', meta.cwd || ''];
+  const seen = new Set();
+  const push = value => {
+    const trimmed = String(value || '').trim();
+    // 短会话里“首条 user”往往也在尾部那几条里，不去重的话它会在检索单元里出现两遍，
+    // 既白白抬高 tf，也让摘录看上去像复制错了。
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    parts.push(trimmed);
+  };
+  if (firstUser) push(sessionMessageText(firstUser));
+  for (const row of lastRows) push(sessionMessageText(row));
+  return parts.filter(Boolean).join('\n').replace(/\s+/g, ' ').slice(0, SESSION_SEARCH_UNIT_CAP);
+}
+
+async function readSessionSearchIndex() {
+  try {
+    const raw = JSON.parse(await fsp.readFile(sessionSearchIndexPath(), 'utf8'));
+    if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') return null;
+    return raw;
+  } catch {
+    return null; // 缺失/损坏 = 全量重建。索引是纯派生物,没有需要抢救的权威数据。
+  }
+}
+
+// 增量刷新:只为「新会话」或「updatedAt/messageCount 变了的会话」重抽单元;删掉的会话顺带清出去。
+async function refreshSessionSearchIndex(metas) {
+  const existing = (await readSessionSearchIndex()) || { version: SESSION_SEARCH_INDEX_VERSION, entries: {} };
+  const entries = {};
+  let changed = false;
+  for (const meta of metas) {
+    const prior = existing.entries[meta.id];
+    const stamp = `${meta.updatedAt || ''}|${Number(meta.messageCount) || 0}`;
+    if (prior && prior.stamp === stamp && typeof prior.unit === 'string') { entries[meta.id] = prior; continue; }
+    entries[meta.id] = { stamp, unit: await buildSessionSearchUnit(meta) };
+    changed = true;
+  }
+  if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
+  const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
+  // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
+  await atomicWriteJson(sessionSearchIndexPath(), payload).catch(() => {});
+  return entries;
+}
+
+// 摘录:定位第一个命中的查询词,取前后各若干字符。出服务端前过 redact() —— 与 /api/audit 同一条
+// 脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
+function sessionSearchSnippet(unit, terms) {
+  const source = String(unit || '');
+  const lower = source.toLowerCase();
+  let at = -1;
+  for (const term of terms) {
+    const found = lower.indexOf(term);
+    if (found >= 0 && (at < 0 || found < at)) at = found;
+  }
+  const start = at < 0 ? 0 : Math.max(0, at - SESSION_SEARCH_SNIPPET_RADIUS);
+  const end = Math.min(source.length, start + SESSION_SEARCH_SNIPPET_RADIUS * 3);
+  const slice = source.slice(start, end);
+  return redact((start > 0 ? '…' : '') + slice + (end < source.length ? '…' : ''));
+}
+
+async function searchSessionsByContent(query, limit) {
+  const q = String(query || '').trim();
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  const metas = await listSessions();
+  const entries = await refreshSessionSearchIndex(metas);
+  const byId = new Map(metas.map(meta => [meta.id, meta]));
+
+  const documents = metas
+    .filter(meta => entries[meta.id])
+    .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
+  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
+
+  // L0 词法:子串命中(保住今天的直觉 —— 打出完整词就该排最前);L1 向量:同义/拼写漂移兜底。
+  const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
+  const lexical = [];
+  for (const doc of documents) {
+    const hay = doc.text.toLowerCase();
+    let hits = 0;
+    for (const term of terms) if (hay.includes(term)) hits += Math.min(12, Math.max(2, term.length));
+    if (hits > 0) lexical.push({ id: doc.id, hits });
+  }
+  lexical.sort((a, b) => b.hits - a.hits || String(a.id).localeCompare(String(b.id)));
+
+  const corpus = buildRetrievalCorpus(documents);
+  const vector = rankRetrievalCorpus(corpus, q);
+
+  const fused = reciprocalRankFusion([lexical.map(row => row.id), vector.map(row => row.id)]);
+  const ranked = [...fused.entries()]
+    .map(([id, score]) => ({ id, score, meta: byId.get(id) }))
+    .filter(row => row.meta)
+    // 同分时按最近更新排前:搜索历史时「最近的那次」几乎总是想要的那次。
+    .sort((a, b) => b.score - a.score
+      || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''))
+      || String(a.id).localeCompare(String(b.id)));
+
+  const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
+  return {
+    ok: true,
+    query: q,
+    indexed: documents.length,
+    results: ranked.slice(0, cap).map(row => ({
+      id: row.id,
+      title: row.meta.title || '',
+      cwd: row.meta.cwd || '',
+      updatedAt: row.meta.updatedAt || '',
+      pinned: Boolean(row.meta.pinned),
+      messageCount: Number(row.meta.messageCount) || 0,
+      score: Number(row.score.toFixed(6)),
+      snippet: sessionSearchSnippet(entries[row.id].unit, terms),
+    })),
+  };
+}
+
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
+  }
+  // 113b: 会话内容搜索。GET /api/sessions/search?q=&limit=
+  // 必须排在下面那条 pathname.startsWith('/api/sessions/') 的通配分支【之前】，
+  // 否则 'search' 会被当成会话 id 拿去查。
+  if (req.method === 'GET' && pathname === '/api/sessions/search') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (!sessionSearchIndexEnabled(config)) {
+      // 走 apiFailure 而不是裸字符串 error：后者会被 normalizeApiErrorPayload 归结成
+      // api.request_failed，真正的 code 降级成 message，调用方就分不出“关了”和“坏了”。
+      // 118 波在 help.doc_missing 上栓过同一个坑。状态码给 200：它不是错误，只是能力关着。
+      return send(res, apiFailure('session_search.disabled', {}, 'session search index is disabled', 200));
+    }
+    const params = new URL(req.url, 'http://x').searchParams;
+    return send(res, json(await searchSessionsByContent(params.get('q') || '', params.get('limit'))));
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);

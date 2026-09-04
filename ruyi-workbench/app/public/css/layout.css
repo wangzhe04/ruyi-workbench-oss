@@ -131,3 +131,7 @@
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1;
   color: var(--panel); background: var(--warn); }
 .health-entry-dot.tone-error { background: var(--danger); }
+/* 113b: 侧栏搜索命中的正文摘录。一行、可省略、比标题弱一档 —— 它是佐证不是主角。
+   会话项是两列网格（正文列 + 悬停操作列），所以摘录显式占第一列，不去挤操作区。 */
+.session-item .s-snippet { grid-column: 1; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }

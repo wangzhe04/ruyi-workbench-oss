@@ -114,10 +114,12 @@
         "estimateBucketsEnabled",
         "execResultCacheEnabled",
         "execResultCacheMaxEntries",
+        "memoryVectorRecallEnabled",
         "observationRecallEnabled",
         "sessionNotesEnabled",
         "sessionNotesInjectEnabled",
         "sessionNotesMergeEnabled",
+        "sessionSearchIndexEnabled",
         "summaryEntityCheckEnabled",
         "summaryFactTableCap",
         "summaryFactTableEnabled",
@@ -3488,6 +3490,27 @@
       ]
     },
     {
+      "file": "06h-retrieval-index.js",
+      "layer": "engine",
+      "provides": [
+        "RETRIEVAL_DIMS",
+        "RETRIEVAL_RRF_K",
+        "RETRIEVAL_TEXT_CAP",
+        "buildRetrievalCorpus",
+        "buildRetrievalDf",
+        "fnv1a32",
+        "rankRetrievalCorpus",
+        "reciprocalRankFusion",
+        "retrievalContentHash",
+        "retrievalCosine",
+        "retrievalIdf",
+        "retrievalTermCounts",
+        "retrievalTerms",
+        "retrievalVector"
+      ],
+      "requires": []
+    },
+    {
       "file": "06d-memory-domain.js",
       "layer": "engine",
       "provides": [
@@ -3496,6 +3519,10 @@
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
         "MEMORY_EXCLUSION_MAX",
+        "MEMORY_FUSION_SCOPE_BONUS",
+        "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_HEAD_CACHE",
+        "MEMORY_HEAD_CACHE_MAX",
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
@@ -3547,6 +3574,8 @@
         "memoryProposalSimilarity",
         "memoryProposalStateFile",
         "memoryRelationsFile",
+        "memoryRetrievalKey",
+        "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
         "memoryUsageFile",
@@ -3565,7 +3594,10 @@
         "proposeMemoryRelationTool",
         "proposeMemoryRevision",
         "proposeWorkbenchMemory",
+        "rankMemoriesForRecall",
+        "rankMemoriesFused",
         "rankRelevantMemories",
+        "rankRelevantMemoriesScored",
         "readMemoryDir",
         "readMemoryItem",
         "readMemoryProposalState",
@@ -3699,6 +3731,13 @@
           ]
         },
         {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryVectorRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
@@ -3743,6 +3782,27 @@
         {
           "provider": "06b-prompt-registry.js",
           "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "buildRetrievalCorpus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "rankRetrievalCorpus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "reciprocalRankFusion",
           "kinds": [
             "call"
           ]
@@ -9807,7 +9867,17 @@
       "file": "13d-core-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "SESSION_SEARCH_HEAD_BYTES",
+        "SESSION_SEARCH_INDEX_FILE",
+        "SESSION_SEARCH_INDEX_VERSION",
+        "SESSION_SEARCH_MAX_LIMIT",
+        "SESSION_SEARCH_MIN_QUERY",
+        "SESSION_SEARCH_SNIPPET_RADIUS",
+        "SESSION_SEARCH_TAIL_BYTES",
+        "SESSION_SEARCH_TAIL_MESSAGES",
+        "SESSION_SEARCH_UNIT_CAP",
         "buildMissionCard",
+        "buildSessionSearchUnit",
         "canonicalDecisionValue",
         "clipMissionRunText",
         "decideIntervention",
@@ -9823,7 +9893,15 @@
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
-        "normalizeContractQuestionDecision"
+        "normalizeContractQuestionDecision",
+        "parseNdjsonRows",
+        "readNdjsonEdges",
+        "readSessionSearchIndex",
+        "refreshSessionSearchIndex",
+        "searchSessionsByContent",
+        "sessionMessageText",
+        "sessionSearchIndexPath",
+        "sessionSearchSnippet"
       ],
       "requires": [
         {
@@ -9877,6 +9955,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -9892,6 +9977,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
           "kinds": [
             "call"
           ]
@@ -9941,6 +10033,13 @@
         {
           "provider": "01-config.js",
           "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "sessionSearchIndexEnabled",
           "kinds": [
             "call"
           ]
@@ -10059,6 +10158,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionBodyPaths",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionKind",
           "kinds": [
             "call"
@@ -10157,6 +10263,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "requestUserQuestion",
           "kinds": [
             "call"
@@ -10172,6 +10285,34 @@
         {
           "provider": "06f-autonomy-grants.js",
           "symbol": "consumeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "buildRetrievalCorpus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "rankRetrievalCorpus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "reciprocalRankFusion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "retrievalTerms",
           "kinds": [
             "call"
           ]

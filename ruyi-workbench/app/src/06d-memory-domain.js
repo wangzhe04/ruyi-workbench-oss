@@ -120,6 +120,13 @@ async function writeMemoryMeta(dir, cwd) {
 
 // 读一个 memory 目录下所有 <id>.md → Map<id, entry>。id 须过 SKILL_ID_RE(防穿越);frontmatter 复用
 // parseFrontmatter(键已小写:createdAt→createdat 等)。description 回退首个正文段(firstParaDesc)。
+// 113a: 注册表头部缓存。每一轮对话都要 loadMemoryRegistry 一次,原实现对每个 .md 做一次 open+read 16KB
+// +frontmatter 解析,记忆库涨到几百条后这是回合起步阶段最贵的一段纯 IO。失效键沿用 106 #2a 那套
+// 「mtime+size」——文件被改过就一定变,不改就一定不变;readdir 每轮照做(新增/删除必须立刻可见),
+// 省掉的只是「内容没变的文件重新读一遍」。结果集与未加缓存时逐字节相同。
+const MEMORY_HEAD_CACHE = new Map(); // file -> { key, entry }
+const MEMORY_HEAD_CACHE_MAX = 2000;
+
 async function readMemoryDir(dir, scope) {
   const out = new Map();
   let files = [];
@@ -132,9 +139,13 @@ async function readMemoryDir(dir, scope) {
     let raw = '';
     // 260KB 是与写侧一致的文件准入上限，避免“保存后从列表消失”；注册表检索本身只读前 16KB，
     // 足够覆盖工作台生成的受限 frontmatter + 首段说明，完整正文留到命中后按需读取。
+    let cacheKey = '';
     try {
       const st = await fsp.stat(file);
       if (!st.isFile() || st.size > 260 * 1024) continue;
+      cacheKey = `${st.size}:${st.mtimeMs}`;
+      const cached = MEMORY_HEAD_CACHE.get(file);
+      if (cached && cached.key === cacheKey && cached.entry.scope === scope) { out.set(id, cached.entry); continue; }
       const fh = await fsp.open(file, 'r');
       try {
         const buf = Buffer.allocUnsafe(Math.min(st.size, MEMORY_METADATA_READ_CAP));
@@ -145,7 +156,7 @@ async function readMemoryDir(dir, scope) {
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
     const core = fmBool(fm.core, false); // 旧记忆不静默升格；由用户/新建表单明确加入核心
-    out.set(id, {
+    const entry = {
       id, scope,
       name: (fm.name || id).slice(0, 120),
       description: (fm.description || firstParaDesc(raw)).slice(0, 400),
@@ -159,7 +170,16 @@ async function readMemoryDir(dir, scope) {
       expiresAt: cleanMemoryDate(fm.expiresat),
       sourceSessionId: fm.sourcesessionid || '',
       sourceRunId: fm.sourcerunid || '',
-    });
+    };
+    out.set(id, entry);
+    if (cacheKey) {
+      // 简单 FIFO 上限:记忆库不会大到需要 LRU,但无界 Map 在长跑进程里迟早是个泄漏。
+      if (MEMORY_HEAD_CACHE.size >= MEMORY_HEAD_CACHE_MAX) {
+        const oldest = MEMORY_HEAD_CACHE.keys().next();
+        if (!oldest.done) MEMORY_HEAD_CACHE.delete(oldest.value);
+      }
+      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, entry });
+    }
   }
   return out;
 }
@@ -1331,7 +1351,9 @@ function memorySearchTerms(text) {
   return [...out].slice(0, 96);
 }
 
-function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+// 113a: 词法层的打分与排序从 rankRelevantMemories 里提出来，融合层要拿完整名次表而不只是 Top-N。
+// 评分公式、候选准入规则与三级排序比较子逐字不变 —— 这是一次行为中性提炼，不是重写。
+function rankRelevantMemoriesScored(registry, query) {
   const queryTerms = memorySearchTerms(query);
   const ranked = [];
   for (const entry of (Array.isArray(registry) ? registry : [])) {
@@ -1342,12 +1364,92 @@ function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
     // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
     if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
     const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);
-    ranked.push({ entry, score });
+    ranked.push({ entry, score, shared });
   }
   ranked.sort((a, b) => b.score - a.score
     || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
     || String(a.entry.id).localeCompare(String(b.entry.id)));
+  return ranked;
+}
+
+function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const ranked = rankRelevantMemoriesScored(registry, query);
   return ranked.slice(0, Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX)).map(x => x.entry);
+}
+
+// ── 113a: 词法 × 向量的 RRF 融合召回（默认关）───────────────────────────────
+// 词法层的两个真实缺口：同义改写（“提交信息” vs “commit 文案”）与拼写/分词差
+// （“powershel” vs “powershell”）—— includes 子串判定对这两类直接落空。向量层用共现 gram 补上。
+// 不用分数加权而用 RRF：词法分（命中长度×10）与余弦（0..1）不同量纲，归一化怎么调都是拍脑袋。
+// 不读正文：向量化的是注册表已有的头部字段（id/name/description/coreSummary/type），
+// 与词法层同一片 haystack，每轮成本仍与文件大小无关。
+// 不落盘索引：语料是百到千级，重算向量是微秒级，而读+解一个几百 KB 的 JSON 索引反而更贵；
+// 多一个持久化面就多一套损坏/过期处理。会话搜索那边正文提取真花钱，索引落盘在那边做。
+function memoryRetrievalText(entry) {
+  return [entry.id, entry.name, entry.description, entry.coreSummary, entry.type].filter(Boolean).join(' ');
+}
+function memoryRetrievalKey(entry) {
+  return `${entry.scope}:${entry.id}`;
+}
+
+// 类型/作用域加分在融合后以 RRF 同量纲叠加。取值按“大约抬两个名次”标定：
+// 首位相邻两名的 RRF 差约为 1/61-1/62 ≈ 0.00026，所以 0.0006/0.0004 分别约当于两名与一名半。
+// 目的是保住今天“project 优于 global、convention/preference 优于其它”的语义，而不是让它压过相关性。
+const MEMORY_FUSION_SCOPE_BONUS = 0.0006;
+const MEMORY_FUSION_TYPE_BONUS = 0.0004;
+
+function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
+  if (!entries.length) return [];
+  const byKey = new Map(entries.map(entry => [memoryRetrievalKey(entry), entry]));
+
+  // 词法名次表里只放真正命中的条目。convention/preference 即使零命中也会进候选
+  // （今天的语义，保留），但它们不能占着词法第一名进 RRF —— 实测过：满库的零命中规则
+  // 会把向量层排第二的真命中挤出 Top-3（典型例：“canry deployment” → deploy-canary）。
+  // 所以分两层：命中层参与融合排名，零命中的规则类只在没填满时补位。
+  const lexicalScored = rankRelevantMemoriesScored(entries, query);
+  const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
+  const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
+  const corpus = buildRetrievalCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
+  const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
+
+  // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。
+  if (!lexicalRanking.length && !vectorRanking.length) {
+    return rankRelevantMemories(entries, query, limit);
+  }
+  const fused = reciprocalRankFusion([lexicalRanking, vectorRanking]);
+
+  const ranked = [];
+  for (const [key, base] of fused) {
+    const entry = byKey.get(key);
+    if (!entry) continue;
+    const bonus = (entry.scope === 'project' ? MEMORY_FUSION_SCOPE_BONUS : 0)
+      + ((entry.type === 'convention' || entry.type === 'preference') ? MEMORY_FUSION_TYPE_BONUS : 0);
+    ranked.push({ entry, score: base + bonus });
+  }
+  // 同分时的三级比较子与词法层一致，避免两条路径在平局上给出不同顺序。
+  ranked.sort((a, b) => b.score - a.score
+    || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
+    || String(a.entry.id).localeCompare(String(b.entry.id)));
+  const cap = Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX);
+  const out = ranked.slice(0, cap).map(x => x.entry);
+  // 补位：零命中的 convention/preference 按词法层原序填到上限为止。
+  if (out.length < cap) {
+    const taken = new Set(out.map(memoryRetrievalKey));
+    for (const key of lexicalFallback) {
+      if (out.length >= cap) break;
+      if (taken.has(key)) continue;
+      const entry = byKey.get(key);
+      if (entry) { out.push(entry); taken.add(key); }
+    }
+  }
+  return out;
+}
+
+// 召回的唯一入口：开关关时与今天逐字节相同（直接转 rankRelevantMemories）。
+function rankMemoriesForRecall(registry, query, limit, config) {
+  if (!memoryVectorRecallEnabled(config)) return rankRelevantMemories(registry, query, limit);
+  return rankMemoriesFused(registry, query, limit);
 }
 
 function memoryExclusionSet(session, cwd) {
@@ -1388,7 +1490,10 @@ function effectiveMemorySelection(session, registry, cwd) {
 // 显式模式沿用固定选择，显式空数组表示本会话关闭。无匹配也返回 checked=true 的状态供提示/UI 展示。
 // {id,scope} 锁定:scope 不匹配(启用时 project、现只剩 global 同 id)→ 跳过;文件消失(幽灵)→ 跳过。P3-3:project
 // 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。
-async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
+// 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
+// config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
+// 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null) {
   let registry = [];
   try { registry = await loadMemoryRegistry(cwd); } catch {
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
@@ -1422,7 +1527,13 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch) {
   const coreState = await resolveCoreMemoryState(cwd, eligible);
   const coreEntries = coreState.active;
   const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
-  const ranked = explicit ? eligible : rankRelevantMemories(eligible, query, MEMORY_RELEVANCE_MAX);
+  // 固定选择（explicit）不走排序，也就不读配置 —— 开关对它本来就不适用。
+  let ranked;
+  if (explicit) ranked = eligible;
+  else {
+    const recallConfig = config || await readConfig().catch(() => null);
+    ranked = rankMemoriesForRecall(eligible, query, MEMORY_RELEVANCE_MAX, recallConfig);
+  }
   const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
