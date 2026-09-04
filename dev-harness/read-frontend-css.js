@@ -118,7 +118,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 与本层已有的 .modal.help-viewer / .modal.help-logs-modal 同一判断 —— 玻璃档只有 8.6% 不透明度,背后
 // 首跑卡的大号标题会整段透上来(118a 与 118f 两次真机走查都看到,计算样式实测确认非动画残留)。
 // 只改本层这一条规则,不动全站浮层口径;link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'eea10e6bec9d9f730d0981f4e6dd89b5b12474b47d08578ca0438f2b502d3c70';
+// 112b/112c: 三个【已注册的所有权层】各加了一小段纯新增规则,不新开样式表 —— composer 层拿到统一活动
+// 状态条(.turn-activity*),chat-live 层给工具卡片状态与子代理状态行补上此前缺失的 warn 档(只有 ok/err
+// 两色时,时间预算软警告只能借用错误红,语义不对),preview-shell 层给任务单指标条的「上下文」电量按水位改色。
+// 三处均未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'b475faecc946023e72a6f5f1b5eefbc891e5e94ed5aba70bf9b3f6e7f94bfd7d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

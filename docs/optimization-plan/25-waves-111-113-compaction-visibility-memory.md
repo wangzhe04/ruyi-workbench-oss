@@ -77,8 +77,166 @@
 ### 2.5 与 27 号管家线的衔接（2026-09-03）
 用户拍板壳层线重新立项为工作台管家（[27 号](27-waves-115-117-steward.md)）后，本波收缩：112a／112b／112c 保留并前置（事件消费补齐与 `turnActivity` 状态机是管家 avatar 与「三问」的数据源）；112d 长命令输出直播与 112f 编排全貌并入 117d 线程抽屉；112e 独立拍板不变。交办台侧的新增 UI（112b 中的交办台电量表等）改为在管家线程抽屉内交付。
 
-### 2.4 走查表与映射表
-（112a 交付时填写）
+### 2.4 走查表与映射表（112a 交付，2026-09-04）
+
+> 本节是 112a 的全部交付物：**零交互变更**，只把「服务端在说什么、两壳听见了什么、还差什么」冻结成可机械对账的三张表。
+> 表里的每一格都由 `dev-harness/lib/stream-event-scan.js` 从源码扫出来，不是人肉抄的；`dev-harness/progress-events.static.e2e.js` 每次跑都重扫一遍，服务端新增事件而没人登记即红。
+
+#### 2.4.1 事件全表（54 种，2026-09-04 扫描）
+
+摸底时 25 号 §2.1 写的是「约十种事件被静默丢弃」——**实际是 20 种**。服务端下行事件共 **54 种**（含 `downstreamEvent` 直发的 `context_estimate` 与 `10-context-governance.js` 里 `emit` 发的 `session`／`error` 三种非 `onEvent` 形状），经典壳的 `switch` 有 34 个 case、`default: break` 静默丢弃，Preview 壳只认 5 种。
+
+「状态机」列 = 112c 的 `turn-activity.js` 是否消费；「经典壳」「Preview」两列 = 该壳源码里是否存在对应的 `case`／`.type ===`／`.includes(.type)` 判定。三列全空的 11 种在 `progress-events.static.e2e.js` 的豁免表里逐条写明理由。
+
+| 事件 | 发出点数 | 代表落点 | 状态机 | 经典壳 | Preview |
+|---|---|---|---|---|---|
+| `adaptive_tool_budget` | 1 | 08-agent-runs.js:940 | ✅ | ✅ | — |
+| `agent_resource` | 9 | 08-agent-runs.js:883 | ✅ | — | — |
+| `agent_workflow` | 17 | 09-workflow.js:195 | ✅ | ✅ | ✅ |
+| `ask_user` | 1 | 04-permission-runtime.js:341 | ✅ | ✅ | — |
+| `assistant_delta` | 16 | 05-claude-engine.js:113 | ✅ | ✅ | ✅ |
+| `autonomy_grant` | 2 | 13-http-router.js:932 | — | ✅ | — |
+| `autonomy_grant_consumed` | 1 | 09-workflow.js:2633 | — | ✅ | — |
+| `budget_guard` | 2 | 09-workflow.js:2016 | ✅ | — | — |
+| `compact` | 15 | 05b-kimi-bridge.js:242 | ✅ | ✅ | — |
+| `context_estimate` | 1 | 09-workflow.js:1207 | ✅ | ✅ | — |
+| `error` | 1 | 10-context-governance.js:2237 | ✅ | ✅ | ✅ |
+| `failover` | 1 | 09-workflow.js:1945 | ✅ | ✅ | — |
+| `kimi_plan_decision` | 1 | 05b-kimi-bridge.js:986 | ✅ | — | — |
+| `kimi_plan_snapshot` | 1 | 05b-kimi-bridge.js:2350 | ✅ | ✅ | — |
+| `loop_recovery` | 2 | 08-agent-runs.js:810 | ✅ | — | — |
+| `meta` | 3 | 05-claude-engine.js:455 | ✅ | ✅ | — |
+| `mission` | 12 | 02-session-store.js:1506 | — | ✅ | ✅ |
+| `observation_reduced` | 2 | 09-workflow.js:2116 | — | — | — |
+| `observation_reduction_shadow` | 2 | 09-workflow.js:2108 | — | — | — |
+| `permission_decision` | 2 | 07-autonomy.js:768 | ✅ | ✅ | — |
+| `permission_paused` | 2 | 07-autonomy.js:776 | ✅ | ✅ | — |
+| `permission_request` | 2 | 07-autonomy.js:752 | ✅ | ✅ | — |
+| `plan` | 1 | 07-autonomy.js:820 | ✅ | ✅ | ✅ |
+| `plan_decision` | 1 | 07-autonomy.js:829 | ✅ | ✅ | — |
+| `plan_note` | 1 | 09-workflow.js:2195 | — | ✅ | — |
+| `process` | 6 | 05-claude-engine.js:474 | ✅ | ✅ | — |
+| `question_answer` | 1 | 04-permission-runtime.js:316 | ✅ | ✅ | — |
+| `raw_line` | 3 | 05-claude-engine.js:776 | — | ✅ | — |
+| `raw_stdout` | 1 | 05-claude-engine.js:781 | — | — | — |
+| `result` | 5 | 05-claude-engine.js:123 | ✅ | ✅ | ✅ |
+| `resume_recovery` | 3 | 05-claude-engine.js:50 | ✅ | — | — |
+| `self_check` | 1 | 09-workflow.js:2891 | — | — | — |
+| `session` | 1 | 10-context-governance.js:2211 | — | ✅ | ✅ |
+| `stderr` | 35 | 05-claude-engine.js:171 | — | ✅ | — |
+| `steered` | 3 | 05b-kimi-bridge.js:2661 | — | ✅ | — |
+| `subagent` | 11 | 05-claude-engine.js:552 | ✅ | ✅ | — |
+| `subagent_mail_in` | 1 | 08-agent-runs.js:656 | — | — | — |
+| `subagent_mail_out` | 1 | 08-agent-runs.js:830 | — | — | — |
+| `subagent_no_progress` | 1 | 08-agent-runs.js:921 | ✅ | ✅ | — |
+| `subagent_pool_proposed` | 1 | 08-agent-runs.js:826 | — | — | — |
+| `subagent_progress` | 5 | 05-claude-engine.js:522 | ✅ | ✅ | — |
+| `subagent_steered` | 2 | 07-autonomy.js:1787 | — | — | — |
+| `subagent_usage` | 2 | 07-autonomy.js:1933 | — | — | — |
+| `thinking_delta` | 7 | 05-claude-engine.js:658 | ✅ | ✅ | — |
+| `todo` | 5 | 05b-kimi-bridge.js:1800 | — | ✅ | — |
+| `tool_budget` | 1 | 09-workflow.js:1986 | ✅ | — | — |
+| `tool_catalog` | 1 | 09-workflow.js:2528 | — | — | — |
+| `tool_image` | 1 | 09-workflow.js:2844 | — | — | — |
+| `tool_progress` | 3 | 09-workflow.js:1736 | ✅ | ✅ | — |
+| `tool_result` | 17 | 05-claude-engine.js:721 | ✅ | ✅ | ✅ |
+| `tool_use` | 14 | 05-claude-engine.js:677 | ✅ | ✅ | ✅ |
+| `tool_use_update` | 1 | 05b-kimi-bridge.js:2269 | ✅ | ✅ | — |
+| `turn_summary` | 3 | 05-claude-engine.js:978 | — | ✅ | — |
+| `usage` | 6 | 05-claude-engine.js:763 | ✅ | ✅ | ✅ |
+
+**传输面三点补充**（口径来自主树复核，写下来免得后续波再摸一遍）：
+- 传输是 **NDJSON over HTTP**，不是 SSE 帧（`10-context-governance.js:2147`）；根 `emit`（`:2187`）把 `assistant_delta`／`thinking_delta` 按 50ms 窗口合批，其余事件先冲刷再写。
+- 两个引擎入口各自**再包一层 `onEvent`**：Claude 侧（`05-claude-engine.js:1-13`）补 `traceId` 并喂 `turnSegments.consume`；Provider 侧（`09-workflow.js:1215-1228`）另补 `batchId` 与节流的 `context_estimate`。Kimi 不再包第三层，沿用 Claude 那层。
+- **Preview 壳没有自己的读流器**：经典壳读到的每一行都经 `emitSessionStream`（`app.js:312` → `previewStreamSink`，`app.js:975`）转发给 `handlePreviewStreamEvent`。所以两壳看到的是同一份字节流，112b 才可能让它们共用一个状态机。
+
+#### 2.4.2 `turnActivity` 状态机与事件→状态映射表
+
+真身：`ruyi-workbench/app/public/js/turn-activity.js`（纯模块，零 import、零 DOM、零 `t()`）。单元门：`dev-harness/unit/turn-activity.test.js`。
+
+**阶段（按优先级从高到低）**——同一时刻多个事实成立时，取用户最需要知道的那一个：
+
+| 阶段 | 何时成立 | 为什么排这个位置 |
+|---|---|---|
+| `waiting_you` | 有未答复的 `ask_user`／`permission_request`／`plan`／`kimi_plan_snapshot` | 只有这一档需要用户动手，压过一切 |
+| `compacting` | `compact` 处于 `started`／`running`／`applied` | 上下文在重建，此刻的「工具在跑」不是主线 |
+| `waiting_resource` | `agent_resource:waiting` 未被 `acquired`／`released` 解除 | 卡住且有明确原因，比「在跑工具」信息量大 |
+| `orchestrating` | 有活动的 `agent_workflow` 运行 | 班组视角概括，不逐个成员刷屏 |
+| `calling_tool` | 有未回结果的主线 `tool_use` | 子代理自己的 `tool_use` 不计（由上一档概括） |
+| `thinking` | 回合活着但以上都不成立 | 模型在产出（推理或正文） |
+| `idle` | 回合未开始或已收尾 | 状态条整条隐藏 |
+
+**事件→状态映射表**（33 种消费事件，与 `TURN_ACTIVITY_CONSUMED` 逐项对应）：
+
+| 事件 | 对状态的作用 |
+|---|---|
+| `meta`／`process` | 开回合（`startedAt` 起表） |
+| `assistant_delta`／`thinking_delta` | 开回合 + 刷新「上次输出时间」 |
+| `tool_use` | 主线：步数 +1、登记活动工具；带 `subagentId` 则不计步 |
+| `tool_use_update` | 改活动工具的名字 |
+| `tool_progress` | 用服务端 `elapsedMs` 纠正计时；`budget_soft`／`budget_hard` 标预算档 |
+| `tool_result` | 主线：注销活动工具、刷新「上次输出时间」 |
+| `agent_resource` | `waiting` 进等资源态（带 `resources`／`blockers`）；`acquired`／`released` 解除 |
+| `budget_guard` | 通知：`warning`→warn，`tripped`→attention |
+| `tool_budget` | 通知：工具步数上限扩容 |
+| `loop_recovery` | 通知：某工具在原地打转，第几次纠偏 |
+| `failover` | 通知：主线路失败已切备 |
+| `resume_recovery` | 通知：引擎会话失效、正在自动重开 |
+| `subagent` | 登记成员与其 `start`／`end`／`retry`／`background` |
+| `subagent_progress` | 成员进展文案 + 把「原地不动」计数清零 |
+| `subagent_no_progress` | 成员停滞计数 + 通知 |
+| `adaptive_tool_budget` | 成员工具预算变化 + 通知 |
+| `agent_workflow` | 进／出编排态（`end` 解除） |
+| `compact` | 进／出压缩态（`completed`／`failed` 都解除，否则会永远挂住） |
+| `ask_user` → `question_answer` | 置／清待决（提问） |
+| `permission_request`／`permission_paused` → `permission_decision` | 置／清待决（授权） |
+| `plan`／`kimi_plan_snapshot` → `plan_decision`／`kimi_plan_decision` | 置／清待决（计划） |
+| `usage`／`context_estimate` | 上下文电量（两壳共用同一份事实） |
+| `result` | 收回合（成功／失败），**保留待决**——停在「等你拍板」是有效终态 |
+| `error` | 收回合（失败） |
+
+**故意不消费的 21 种**（`TURN_ACTIVITY_IGNORED`）：`autonomy_grant`、`autonomy_grant_consumed`、`mission`、`observation_reduced`、`observation_reduction_shadow`、`plan_note`、`raw_line`、`raw_stdout`、`self_check`、`session`、`steered`、`stderr`、`subagent_mail_in`、`subagent_mail_out`、`subagent_pool_proposed`、`subagent_steered`、`subagent_usage`、`todo`、`tool_catalog`、`tool_image`、`turn_summary`。它们是**内容**不是**过程状态**，多数已由两壳既有渲染路径处理；剩下 11 种确实没人管的，在静态门的豁免表里逐条写明理由与去向（班组内部往来那一组归 117d 线程抽屉）。
+
+#### 2.4.3 三问 × 两壳 × 四场景走查表
+
+「后」= 112b／112c 落地后的行为。四个场景取自 §2.1 的八条缺口。
+
+**场景 A · 一条跑十分钟的长命令（`powershell_run`）**
+
+| | 在干什么 | 干到哪 | 在等什么 |
+|---|---|---|---|
+| 经典壳 · 前 | 工具卡片写「运行中」 | 卡片本地秒表（标签页后台被节流后**停在原处不动**） | 无。时间预算的软警告／硬终态事件全被丢弃 |
+| 经典壳 · 后 | 状态条：`正在调用工具 · powershell_run` | 服务端心跳纠正的权威计时 + `本回合第 k 次工具调用` | 超软预算→卡片与状态条同时转 warn；到硬上限→转 attention 并写明已中止 |
+| Preview · 前 | 速报「正在运行命令」 | 回合起点粗算的时长 | 无 |
+| Preview · 后 | 速报吃状态机，与经典壳同一句 | 同上 | 同上 |
+
+**场景 B · 工具循环（同一个工具反复调用 / 回合预算逼近）**
+
+| | 在干什么 | 干到哪 | 在等什么 |
+|---|---|---|---|
+| 经典壳 · 前 | 一张张工具卡片堆积 | 只能自己数卡片 | 无。`loop_recovery`／`budget_guard`／`tool_budget` 三族全丢 |
+| 经典壳 · 后 | 状态条主句 + 右侧通知位 | `第 k 次工具调用`，且「已 X 没有新输出」在沉默 ≥10s 时才出现 | 打转纠偏第几次／回合 token 逼近或触到预算／工具步数上限被扩容，各一条有界通知 |
+| Preview · 前后 | 通知位不进速报（速报是一句话）；打转与预算仍由经典壳承担 | — | — |
+
+**场景 C · 多子代理编排**
+
+| | 在干什么 | 干到哪 | 在等什么 |
+|---|---|---|---|
+| 经典壳 · 前 | 子代理卡片「执行中…」，停滞时无任何变化 | 无总览 | 无。`subagent_no_progress`／`adaptive_tool_budget`／`agent_resource` 全丢 |
+| 经典壳 · 后 | 状态条 `班组在跑 · n/m 个成员在跑`；卡片状态行写「连续 N 轮没有新动作」（warn 档）与「工具步数 A→B」 | 成员数与在跑数 | 等资源时状态条升到 `卡在等资源`，并写出资源名与阻塞者 |
+| Preview · 前 | 班组镜头挑一个当前节点 | 节点状态 | 无 |
+| Preview · 后 | 等资源／压缩／跑工具三档由状态机接管（这三类轮询快照看不到），编排细节仍让给班组镜头 | 同上 | 同上 |
+
+**场景 D · 待决（授权／提问／计划）**
+
+| | 在干什么 | 干到哪 | 在等什么 |
+|---|---|---|---|
+| 经典壳 · 前 | 弹窗／卡片本身 | — | 弹窗关掉后回合看起来像卡死 |
+| 经典壳 · 后 | 状态条置顶为 `等你拍板`（attention 档），回合收尾也不清 | — | 写明是「要不要允许 X」「计划等你批准」还是「有问题等你回答」 |
+| Preview · 前 | 速报「等你拍板 · 待决 N 项」，可点开抽屉 | — | 只有件数 |
+| Preview · 后 | **不变**（待决优先级最高，保持原样），状态机排在其后 | — | 同上 |
+
+**两条不做**：仍不承诺 ETA（25 号 §2.3）；`112d` 长命令 stdout 直播与 `112f` Preview 编排全貌按 §2.5 并入 117d 线程抽屉，本波不做。
 
 ---
 

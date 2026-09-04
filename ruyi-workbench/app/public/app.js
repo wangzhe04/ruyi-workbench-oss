@@ -34,6 +34,7 @@ import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
 import { renderMermaidBlocks } from './js/mermaid-runtime.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
+import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
 import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
 // Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
@@ -304,6 +305,8 @@ const {
   autoGrow,
   cliMissingCard: (...args) => cliMissingCard(...args),
   compactNarrativeProcessRuns: (...args) => compactNarrativeProcessRuns(...args),
+  createTurnActivity, // 112c: 回合活动状态机(chat-stream-runtime 全篇零 import,按既有纪律由这里注入)
+  describeTurnActivity,
   currentEngineMeta: () => currentEngineMeta(),
   currentWorkspace: () => currentWorkspace(),
   el,

@@ -52,6 +52,9 @@ export function createChatStreamRuntime(deps = {}) {
     autoGrow,
     cliMissingCard,
     compactNarrativeProcessRuns,
+    // 112c: 回合活动状态机。本文件全篇零 import(vm 直跑的 unit 会编译失败),故与其它协作者一样走 deps 注入。
+    createTurnActivity = null,
+    describeTurnActivity = null,
     currentEngineMeta,
     currentWorkspace,
     el,
@@ -293,6 +296,8 @@ export function createChatStreamRuntime(deps = {}) {
     const persistedUser = activeTurnUserIsPersisted(state.currentSession?.messages, turn);
     if (turn.optimisticUserRow && !turn.optimisticUserRow.isConnected && !persistedUser) box.appendChild(turn.optimisticUserRow);
     const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
+    // 112c: 回到一个仍在跑的后台会话 —— 事件全量重放,状态机也从零重建,否则状态条会显示切走之前的旧阶段。
+    if (turnActivity) { turnActivity.reset(); turnActivity.start(turn.startedAt); activityBoundSession = sessionId; }
     // Coalesce tiny deltas while preserving tool/workflow boundaries. Keep this shell live: finalizing it here
     // detaches its text node, so subsequent deltas otherwise remain invisible until the terminal full reload.
     let textParts = [], thinkingParts = [];
@@ -370,6 +375,13 @@ export function createChatStreamRuntime(deps = {}) {
   function syncStreamingUi() {
     const sid = state.currentSession?.id || '';
     const on = !!sid && activeTurns.has(sid);
+    // 112c: 换会话即清状态条 —— 上一条会话的「正在调用 file_read」绝不能挂在新会话头上。
+    // 同会话内不清:回合结束后停在「等你拍板」是有效状态,settle() 已经保留了待决。
+    if (turnActivity && sid !== activityBoundSession) {
+      activityBoundSession = sid;
+      turnActivity.reset();
+      renderTurnActivityBar();
+    }
     setStreaming(on);
     setProc(on ? 'running' : 'idle');
   }
@@ -404,6 +416,81 @@ export function createChatStreamRuntime(deps = {}) {
     if (btn) { btn.disabled = false; if (btn.dataset.label) { btn.textContent = btn.dataset.label; delete btn.dataset.label; } }
     const bar = $('compactIndicator');
     if (bar) bar.classList.add('hidden');
+  }
+
+  // ── 112b/112c: 统一活动状态条 ────────────────────────────────────────────────────────────────
+  // 一句话回答三问:【在干什么】阶段+当前动作、【干到哪】已运行多久+本回合第几次工具调用、
+  // 【在等什么】等你拍板 / 等资源(谁占着)。数据来自 turn-activity.js 状态机,本处只负责画。
+  // 只画【当前打开的会话】:后台会话的流照常收,切回来时 mountActiveTurn 会重放全部事件重建状态。
+  // 注入缺失(老 composition root / vm 直跑)时整条降级为不存在,不影响任何既有渲染。
+  const turnActivity = typeof createTurnActivity === 'function' ? createTurnActivity() : null;
+  let activityBarTimer = 0;
+  let activityBarFrame = 0;
+  let activityBoundSession = '';
+
+  function ensureActivityBar() {
+    let bar = $('turnActivityBar');
+    if (bar) return bar;
+    const composer = document.querySelector('.composer');
+    if (!composer) return null;
+    bar = el('div', 'turn-activity hidden'); bar.id = 'turnActivityBar';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    const dot = el('span', 'ta-dot'); dot.setAttribute('aria-hidden', 'true');
+    // head 与 parts 分开成元素:窄屏靠 CSS 丢掉尾部细节,而不是让省略号从句子中间切断
+    // (390px 实测:整句会被截成「正在调用工具 · powershell_run · 本次已跑 8s · 本回合已…」)。
+    bar.append(dot, el('span', 'ta-text'), el('span', 'ta-parts'), el('span', 'ta-notices'));
+    composer.insertBefore(bar, composer.querySelector('.composer-box') || composer.firstChild);
+    return bar;
+  }
+
+  function renderTurnActivityBar() {
+    if (!turnActivity || typeof describeTurnActivity !== 'function') return;
+    const snapshot = turnActivity.snapshot();
+    const bar = ensureActivityBar();
+    if (!bar) return;
+    const view = describeTurnActivity(snapshot, t);
+    const visible = snapshot.phase !== 'idle' && Boolean(view.text);
+    bar.classList.toggle('hidden', !visible);
+    if (!visible) {
+      // 收起时把文本清掉:留着上一回合的「正在调用 powershell_run」既没意义,也可能被读屏器读到。
+      bar.querySelector('.ta-text').textContent = '';
+      bar.querySelector('.ta-parts').replaceChildren();
+      activityClock(false);
+      return;
+    }
+    bar.dataset.phase = snapshot.phase;
+    bar.dataset.severity = view.severity;
+    const textEl = bar.querySelector('.ta-text');
+    if (textEl && textEl.textContent !== view.head) textEl.textContent = view.head;
+    const partsEl = bar.querySelector('.ta-parts');
+    if (partsEl && partsEl.dataset.signature !== view.parts.join('|')) {
+      partsEl.dataset.signature = view.parts.join('|');
+      partsEl.replaceChildren(...view.parts.map(part => el('span', 'ta-part', part)));
+    }
+    const noticeEl = bar.querySelector('.ta-notices');
+    if (noticeEl) {
+      const notices = view.notices.slice(-2);
+      const signature = notices.map(n => `${n.severity}:${n.text}`).join('|');
+      if (noticeEl.dataset.signature !== signature) {
+        noticeEl.dataset.signature = signature;
+        noticeEl.replaceChildren(...notices.map(n => el('span', `ta-notice ${n.severity}`, n.text)));
+      }
+    }
+    // 只在真的有活动回合时开秒表(每秒重画一行文本,零请求);等你拍板/空闲态不空转。
+    activityClock(snapshot.turnActive);
+  }
+
+  function activityClock(on) {
+    if (!on) { if (activityBarTimer) clearInterval(activityBarTimer); activityBarTimer = 0; return; }
+    if (activityBarTimer) return;
+    activityBarTimer = setInterval(() => renderTurnActivityBar(), 1000);
+  }
+
+  // delta 洪峰下每条事件都重画会浪费一整帧;合到下一帧画一次。
+  function scheduleActivityBar() {
+    if (!turnActivity || activityBarFrame) return;
+    activityBarFrame = requestAnimationFrame(() => { activityBarFrame = 0; renderTurnActivityBar(); });
   }
 
   // One-click context compaction, engine-aware (§5.2). Claude mode: send the CLI's built-in /compact (a
@@ -497,6 +584,10 @@ export function createChatStreamRuntime(deps = {}) {
       engine: turnEngine, agentCliType: turnMeta.agentCliType || 'claude',
       claudeInteractive: turnEngine !== 'claude' || turnMeta.agentCliType === 'kimi' || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
+    // 112c: 新回合 = 状态机清零重开(状态条只反映当前打开的会话)。
+    if (turnActivity && state.currentSession?.id === turnSessionId) {
+      turnActivity.reset(); turnActivity.start(turnState.startedAt); renderTurnActivityBar();
+    }
     notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });
     syncStreamingUi();
     renderSessions();
@@ -569,6 +660,7 @@ export function createChatStreamRuntime(deps = {}) {
       api(`/api/sessions/${turnSessionId}`).then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
     } finally {
       activeTurns.delete(turnSessionId);
+      if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
       notifySessionStream({ type: 'settled', sessionId: turnSessionId });
       syncStreamingUi();
       renderSessions();
@@ -887,6 +979,9 @@ export function createChatStreamRuntime(deps = {}) {
     if (!line.trim()) return;
     let evt;
     try { evt = JSON.parse(line); } catch { return; }
+    // 112b: 状态机吃【全部】事件(含二十种此前落进 default 被静默丢弃的),再由状态条统一呈现。
+    // 放在 switch 之前:即使某个事件在下面没有 DOM 分支,它对「在干什么」的贡献也不会丢。
+    if (turnActivity) { turnActivity.consume(evt); scheduleActivityBar(); }
     // Only a new narrative item closes the active reasoning phase. In particular, context_estimate is emitted
     // every ~800ms by provider turns and only updates the meter; treating it as a boundary split one reasoning
     // chain into several panels even though the persisted turn segment remained continuous.
@@ -969,6 +1064,12 @@ export function createChatStreamRuntime(deps = {}) {
         // live chat view shows "生成中 · N 字" instead of a silent stall until the ✓/✗ (routed by subagentId).
         handleSubagentEvent(evt, live, streamSessionId);
         break;
+      case 'subagent_no_progress':
+      case 'adaptive_tool_budget':
+        // 112b: 子代理「连续几轮没动静」与「工具预算被自适应改了」。两族此前都落进 default 被丢弃 ——
+        // 用户看到的是一张卡片长时间不动,却没有任何解释。都走同一条子代理卡片状态行。
+        handleSubagentEvent(evt, live, streamSessionId);
+        break;
       case 'agent_workflow':
         if (evt.state === 'start' || evt.state === 'running') { live.thinkingActive = false; sealLiveTextSegment(live); }
         handleAgentWorkflowEvent(evt, live);
@@ -997,6 +1098,23 @@ export function createChatStreamRuntime(deps = {}) {
       case 'tool_use_update': {
         const card = live.toolCards.get(evt.id);
         applyToolUseUpdate(card, evt, { humanizeToolName, safeStringify, toolArgSummary });
+        break;
+      }
+      case 'tool_progress': {
+        // 112b: 长工具心跳。此前整族落进 default 被丢弃 —— 一条十分钟的命令在卡片上只有一个本地秒表
+        // 在走,时间预算的软警告/硬终态用户完全看不到。这里把服务端的权威计时与预算状态画上去。
+        const card = live.toolCards.get(evt.id);
+        if (!card) break;
+        const seconds = Number(evt.elapsedMs) / 1000;
+        // 服务端计时是权威的:标签页被后台节流时本地 setInterval 会停,心跳到达即纠正。
+        if (card.dur && Number.isFinite(seconds)) card.dur.textContent = `· ${seconds.toFixed(0)}s`;
+        if (evt.state === 'budget_soft' && card.status) {
+          card.status.textContent = t('turnActivity.tool.budgetSoft', { p1: Math.round(Number(evt.warnMs) / 1000) || 0 });
+          card.status.classList.remove('ok', 'err'); card.status.classList.add('warn');
+        } else if (evt.state === 'budget_hard' && card.status) {
+          card.status.textContent = t('turnActivity.tool.budgetHard', { p1: Math.round(Number(evt.deadlineMs) / 1000) || 0 });
+          card.status.classList.remove('ok', 'warn'); card.status.classList.add('err');
+        }
         break;
       }
       case 'tool_result': {
@@ -1248,6 +1366,19 @@ export function createChatStreamRuntime(deps = {}) {
       // so a long tool-less Claude sub-turn shows "生成中 · N 字" instead of a silent stall until the ✓/✗.
       const host = live.subCards.get(evt.subagentId);
       if (host && host.status) host.status.textContent = `${evt.note || `生成中 · ${Number(evt.chars) || 0} 字`}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      return;
+    }
+    if (evt.type === 'subagent_no_progress' || evt.type === 'adaptive_tool_budget') {
+      // 112b: 与 subagent_progress 同一条状态行,同样按 subagentId 定位(不是 id)。
+      const host = live.subCards.get(String(evt.subagentId || ''));
+      if (!host || !host.status) return;
+      const tags = `${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      if (evt.type === 'subagent_no_progress') {
+        host.status.textContent = t('turnActivity.subagent.stalled', { p1: Number(evt.count) || 0 }) + tags;
+        host.status.classList.remove('ok', 'err'); host.status.classList.add('warn');
+      } else {
+        host.status.textContent = t('turnActivity.subagent.budget', { p1: Number(evt.previousLimit) || 0, p2: Number(evt.nextLimit) || 0 }) + tags;
+      }
       return;
     }
     if (evt.state === 'start') {

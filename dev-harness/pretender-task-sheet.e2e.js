@@ -332,6 +332,7 @@ try {
       turnActions: raw.querySelectorAll('.turn-summary,.artifact-chips').length,
       cursor: document.querySelector('.preview-cursor')?.textContent || '',
       metrics: [...document.querySelectorAll('.preview-task-metric-value')].map(node => node.textContent),
+      contextMetric: document.querySelector('.preview-task-metric-value[data-slot="context"]')?.textContent ?? null,
       panels: panels.map(node => ({ kind: node.dataset.kind, value: node.querySelector('strong')?.textContent || '', copy: node.textContent })),
       dockIds: [...document.querySelectorAll('.preview-seal')].map(node => node.dataset.sessionId),
       duplicateIds: [...document.querySelectorAll('[id]')].map(node => node.id).filter((id, index, all) => all.indexOf(id) !== index),
@@ -349,6 +350,10 @@ try {
   ok(sheet && sheet.rows <= 120 && sheet.rows >= 12 && sheet.hasEarlier, 'B4 170-message journey opens inside the weighted tail window with reachable history');
   ok(sheet && sheet.cursor.includes('85') && sheet.metrics.some(value => value.includes('USD 1.25')) && sheet.metrics.includes('1'),
     'B5 long-task cursor, usage cost/token facts, and one team run reach the header');
+  // 112b: 交办台此前没有上下文电量,用户看不出离下一次压缩还有多远。指标条第 5 格常驻;
+  // 本夹具没有活动回合,状态机没有 usage/context_estimate 可吃,所以此处的正确答案是占位符「—」。
+  ok(sheet && sheet.metrics.length === 5 && sheet.contextMetric === '—',
+    'B5b 112b 上下文电量入指标条(无活动回合时为占位符,不编造数字)');
   ok(sheet && sheet.panels.length === 3 && sheet.panels.some(panel => panel.kind === 'needs' && panel.value === '1')
     && sheet.panels.some(panel => panel.kind === 'results' && /停工|Stop/.test(panel.value))
     && sheet.panels.some(panel => panel.kind === 'ledger' && panel.copy.includes('77')),

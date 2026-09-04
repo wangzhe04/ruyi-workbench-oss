@@ -74,3 +74,30 @@
 .composer-more-pop .cm-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; background: transparent; border-radius: var(--radius-sm); font-size: var(--fs-md); color: var(--ink); }
 .composer-more-pop .cm-item:hover { background: var(--panel-2); }
 .composer-more-pop .cm-item input { display: none; }
+/* 112c: 统一活动状态条 —— composer 顶部(在 .composer-box 之上)、每回合一行,回答「在干什么/干到哪/在等什么」。
+   与 .compact-indicator 同一位置族但语义不同:那条只在压缩期出现,这条覆盖整个回合。默认低调(muted 文字、
+   无边框底色),只有 warn/attention 才上色 —— 状态条常驻,不能每秒都在抢注意力。 */
+.turn-activity { display: flex; align-items: center; gap: 8px; min-height: 22px; margin-bottom: 6px; padding: 3px 10px;
+  border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ink) 4%, transparent);
+  font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
+.turn-activity .ta-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.turn-activity .ta-text { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turn-activity .ta-parts { display: flex; min-width: 0; gap: 6px; overflow: hidden; }
+.turn-activity .ta-part { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turn-activity .ta-part::before { content: "·"; margin-right: 6px; opacity: .5; }
+.turn-activity .ta-notices { display: flex; flex: none; gap: 6px; margin-left: auto; min-width: 0; }
+.turn-activity .ta-notice { padding: 0 6px; border-radius: var(--r-pill); font-size: var(--fs-xs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
+.turn-activity .ta-notice.info { color: var(--muted); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.turn-activity .ta-notice.warn { color: var(--warn-fg); background: var(--warn-bg); }
+.turn-activity .ta-notice.attention { color: var(--danger-fg); background: var(--danger-bg); }
+.turn-activity[data-severity="info"] .ta-dot { background: var(--accent); animation: breathe 1.4s ease-in-out infinite; }
+.turn-activity[data-severity="warn"] { color: var(--warn-fg); background: var(--warn-bg); }
+.turn-activity[data-severity="warn"] .ta-dot { background: var(--warn); }
+.turn-activity[data-severity="attention"] { color: var(--danger-fg); background: var(--danger-bg); }
+.turn-activity[data-severity="attention"] .ta-dot { background: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .turn-activity .ta-dot { animation: none; } }
+/* 窄屏(≤560px):通知先让位;≤430px 再把「本回合已运行/第几次工具调用」这些尾部细节也丢掉,
+   只保留「在干什么」与本次工具计时 —— 390px 实测整句会被省略号从中间切断,而句首才是要看的。 */
+@media (max-width: 560px) { .turn-activity .ta-notices { display: none; } }
+@media (max-width: 430px) { .turn-activity .ta-text { max-width: none; } .turn-activity .ta-part:nth-child(n+2) { display: none; } }

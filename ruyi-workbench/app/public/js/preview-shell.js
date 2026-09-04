@@ -33,6 +33,8 @@ import {
   writePreviewMissionUiState,
 } from './preview-store.js';
 import { acceptanceItems, activeAcceptanceIndex, elapsedLabel, pendingCount, taskProgress } from './preview-task-sheet.js';
+// 112b/112c: 与经典壳共用同一个回合活动状态机 —— 速报不再自己从零散事件里猜,两壳对同一回合说同一句话。
+import { createTurnActivity, describeTurnActivity } from './turn-activity.js';
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
 export const SHELL_MODES = Object.freeze(['classic', 'preview']);
@@ -169,6 +171,9 @@ export function createPreviewShellDomain({
   let selectedLens = 'scene';
   let liveActivity = null;
   let activityClockTimer = 0;
+  // 112b: 交办台侧的回合活动状态机。只跟【当前选中的会话】的流,换任务即清零。
+  const turnActivity = createTurnActivity();
+  let turnActivityPhase = 'idle';
   let narrativeRenderedSession = '';
   let narrativeRenderedLocale = '';
   const narrativeFeeds = new Map();
@@ -871,6 +876,8 @@ export function createPreviewShellDomain({
     crewRenderSignature = '';
     selectedLens = 'scene';
     liveActivity = null;
+    // 112c: 切任务同样清状态机 —— 上一单的「正在调用 powershell_run」绝不能挂到新任务的速报上。
+    turnActivity.reset(); turnActivityPhase = 'idle';
     if (activityClockTimer) { clearInterval(activityClockTimer); activityClockTimer = 0; }
     narrativeRenderedSession = '';
     narrativeRenderedLocale = '';
@@ -2332,7 +2339,10 @@ export function createPreviewShellDomain({
     progress.append(progressSummary, progressList);
     const metrics = text('div', 'preview-task-metrics', '');
     metrics.append(makeMetric('turns', t('previewShell.turns')), makeMetric('tokens', t('previewShell.tokens')),
-      makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')));
+      makeMetric('cost', t('previewShell.cost')), makeMetric('runs', t('previewShell.runs')),
+      // 112b: 交办台此前完全没有上下文电量,用户看不出「离下一次压缩还有多远」。数据来自同一个状态机
+      // (usage / context_estimate 两族事件),没有活动回合时显示「—」。
+      makeMetric('context', t('previewShell.contextMeter')));
     const identity = text('div', 'preview-task-identity', '');
     identity.append(kicker, heading, goal);
     const nowPanel = text('aside', 'preview-task-now', '');
@@ -2477,6 +2487,13 @@ export function createPreviewShellDomain({
   function activityBrief(snapshot, derived) {
     const pending = pendingTotal(snapshot && snapshot.pending);
     if (pending > 0) return t('previewShell.activity.needsYou', { p1: pending });
+    // 112c 速报 v2:待决优先保持不变;紧接着让状态机回答那三类【两秒轮询的快照根本看不到】的事实 ——
+    // 卡在等资源(谁占着)、正在重建上下文、正在跑哪个工具跑了多久。班组镜头(下方)对编排更细,让给它。
+    const activity = turnActivity.snapshot();
+    if (['waiting_you', 'compacting', 'waiting_resource', 'calling_tool'].includes(activity.phase)) {
+      const view = describeTurnActivity(activity, t);
+      if (view.text) return view.text;
+    }
     const runs = Array.isArray(snapshot && snapshot.runs) ? snapshot.runs : [];
     const nodes = runs.flatMap(run => (Array.isArray(run && run.nodes) ? run.nodes : []).filter(node => node && node.id));
     const current = nodes.find(node => node.status === 'running')
@@ -2488,6 +2505,11 @@ export function createPreviewShellDomain({
         : t('previewShell.activity.crewIdle', { p1: crewRole(current, nodes.indexOf(current)) });
     }
     if (snapshot && snapshot.controls && snapshot.controls.activeTurn) {
+      // 112c: 回合确实在跑时优先说状态机的那句(带已运行时长与第几次工具调用);状态机没话说才退回旧文案。
+      if (activity.turnActive) {
+        const view = describeTurnActivity(activity, t);
+        if (view.text) return view.text;
+      }
       const action = liveActivity && liveActivity.action ? liveActivity.action : t('previewShell.activity.workingAction');
       const startedAt = liveActivity && liveActivity.startedAt ? liveActivity.startedAt : activeTurnStartedAt(snapshot);
       const elapsed = elapsedLabel(startedAt, now());
@@ -2594,6 +2616,19 @@ export function createPreviewShellDomain({
     setSlot(article, 'tokens', compactNumber((Number(usage.inTok) || 0) + (Number(usage.outTok) || 0)));
     setSlot(article, 'cost', usageCost(usage));
     setSlot(article, 'runs', compactNumber(Array.isArray(snapshot.runs) ? snapshot.runs.length : 0));
+    // 112b: 上下文电量 —— 有窗口就报百分比,只有 token 数就报 token 数,都没有就留「—」。
+    const contextState = turnActivity.snapshot().context;
+    const contextPill = article.querySelector('[data-slot="context"]');
+    if (contextPill) {
+      const ratio = contextState && contextState.window > 0 ? contextState.tokens / contextState.window : 0;
+      contextPill.textContent = !contextState
+        ? '—'
+        : (contextState.window > 0 ? `${Math.min(999, Math.round(ratio * 100))}%` : compactNumber(contextState.tokens));
+      contextPill.dataset.level = ratio >= 0.9 ? 'critical' : ratio >= 0.7 ? 'warn' : 'ok';
+      contextPill.title = contextState && contextState.window > 0
+        ? t('previewShell.contextMeterTitle', { p1: compactNumber(contextState.tokens), p2: compactNumber(contextState.window) })
+        : '';
+    }
     const turnSeq = Math.max(0, Number(snapshot.cursor?.turnSeq) || 0);
     setSlot(article, 'cursor', t('previewShell.cursor', { p1: turnSeq }));
     ensureActivityClock(Boolean(snapshot.controls?.activeTurn));
@@ -3421,13 +3456,15 @@ export function createPreviewShellDomain({
     if (!envelope || !isPreviewMode() || String(envelope.sessionId || '') !== selectedSessionId()) return;
     if (envelope.type === 'start') {
       liveActivity = { action: t('previewShell.activity.workingAction'), startedAt: now().toISOString() };
+      turnActivity.reset(); turnActivity.start(); turnActivityPhase = 'thinking';
       ensureActivityClock(true);
       if (selectedLens === 'raw') ensurePreviewLiveRow();
       return;
     }
     if (envelope.type === 'settled') {
       liveActivity = null;
-      ensureActivityClock(false);
+      turnActivity.settle();
+      turnActivityPhase = turnActivity.snapshot().phase;
       if (previewLive?.rafId) cancelAnimationFrame(previewLive.rafId);
       if (previewLive?.pending.length) previewLive.node.appendData(previewLive.pending.join(''));
       if (previewLive) { previewLive.pending.length = 0; previewLive.rafId = 0; previewLive.bubble.classList.remove('stream-cursor'); }
@@ -3436,6 +3473,15 @@ export function createPreviewShellDomain({
     }
     if (envelope.type !== 'event' || !envelope.line) return;
     let event; try { event = JSON.parse(envelope.line); } catch { return; }
+    // 112b: 全部事件先进状态机(含二十种此前两壳都丢弃的),再走既有的镜头/刷新分支。
+    // 只有阶段真的变了才重画头部 —— delta 洪峰下逐条重画会把任务单刷成幻灯片。
+    turnActivity.consume(event);
+    const nextPhase = turnActivity.snapshot().phase;
+    if (nextPhase !== turnActivityPhase) {
+      turnActivityPhase = nextPhase;
+      const article = byId('previewMain')?.querySelector('.preview-task-sheet');
+      if (article && selectedSnapshot) renderTaskHeader(article, selectedCard(), selectedSnapshot);
+    }
     if (event.type === 'assistant_delta') { if (selectedLens === 'raw') appendPreviewLiveText(event.text || ''); }
     else if (event.type === 'tool_use' && !event.subagentId) {
       liveActivity = { action: toolActivityLabel(event.name), startedAt: liveActivity?.startedAt || now().toISOString() };

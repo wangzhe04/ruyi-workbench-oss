@@ -1980,3 +1980,6 @@ button.preview-first-run-step:hover { border-color: var(--preview-accent); backg
   .preview-activity[data-state="dispatching"]::after,
   .preview-activity[data-state="needs_you"]::after { background-position: 50% 0; }
 }
+/* 112b: 任务单指标条新增「上下文」电量。沿用同族 .preview-task-metric-value 排版,只按水位改色。 */
+.preview-task-metric-value[data-slot="context"][data-level="warn"] { color: var(--warn-fg); }
+.preview-task-metric-value[data-slot="context"][data-level="critical"] { color: var(--danger-fg); }

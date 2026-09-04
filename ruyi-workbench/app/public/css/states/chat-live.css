@@ -243,3 +243,7 @@
 
 /* v0.8-S4b: rewind confirm modal preview of the removed message. */
 .rewind-preview { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 4px; font-size: var(--fs-md); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 120px; overflow: auto; }
+/* 112b: tool_progress 的时间预算软/硬警告与 subagent 的「原地不动」状态行,补 warn 档
+   (此前两处只有 ok/err 两色,警告态只能借用错误红,语义不对)。 */
+.tool-card .tc-status.warn { color: var(--warn-fg); }
+.subagent-head .sa-status.warn { color: var(--warn-fg); }
