@@ -6,7 +6,7 @@
 //
 // Covers C5's five acceptance criteria (each with e2e assertions) + review extras:
 //   (1) 起草-确认-落盘全链 + aux 台账 (note:'memory-draft').
-//   (2) 双引擎索引注入(<workbench-memory> 围栏 + 「不得覆盖」声明 + 文件绝对路径)且整段 ≤ 2600;--add-dir 含记忆目录.
+//   (2) 双引擎索引注入(<workbench-memory> 围栏 + 「不得覆盖」声明 + 文件绝对路径)且整段 ≤ memoryIndexCharCapV1;--add-dir 含记忆目录.
 //   (3) {id,scope} 来源锁定(scope=global 启用,同 id 的 project 记忆不顶替);文件消失 → 幽灵项可清.
 //   (4) 项目记忆随 cwd 切换正确换组(两个临时项目各自 projectKey 隔离).
 //   (5) 默认项目+全局轻量检索、零命中回执、会话排除/关闭/恢复默认。
@@ -20,6 +20,8 @@ const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE = path.join(HERE, 'fake-openai.js');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
+// 纯函数断言用(P3-4b 截断契约):只 require 模块取导出,不启服务 —— 与 workbench-memory-core.e2e.js 同法。
+const SRV = require(path.join(WB, 'app', 'server.js'));
 const HOME = path.join(os.tmpdir(), 'wcw-memory-e2e');       // dataRoot AND ~/.claude
 const PROJ_A = path.join(HOME, 'projectA');
 const PROJ_B = path.join(HOME, 'projectB');
@@ -203,7 +205,7 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     ok(/用 file_read 工具/.test(sysA), '(2) provider index tells the model to use file_read on the path');
     ok(/核心能力：工作台记忆/.test(sysA) && /workbench_memory_propose/.test(sysA) && !/ACC 跨会话记忆库指引/.test(sysA), '(2) provider built-in prompt exposes Workbench Memory as the sole user-confirmed memory capability');
     const secA = memorySection(sysA);
-    ok(secA && secA.length <= 2600, '(2) memory section length ≤ 2600 (got ' + secA.length + ')');
+    ok(secA && secA.length <= 6000, '(2) memory section length ≤ 6000 = memoryIndexCharCapV1 default (got ' + secA.length + ')');
 
     // ---------- (5) 默认项目+全局检索：零命中仍有回执，相关全局记忆自动命中 ----------
     const S_C = await mkSession(PROJ_C);
@@ -240,7 +242,12 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     ok(/\[\/workbench-memory/.test(sysD), 'fence: a literal </workbench-memory> in a description is neutralized to [/workbench-memory');
     ok((sysD.split('</workbench-memory>').length - 1) === 1, 'fence: exactly ONE real closing fence survives (spoofed one neutralized)');
 
-    // ---------- P3-4(b): 12 条长描述记忆(索引 >2600)→ 截断后仍以 </workbench-memory> 收尾 + 含省略行 ----------
+    // ---------- P3-4(b): 索引段字数上限与截断契约 ----------
+    // 2026-09-04: 上限从硬常量 2600 改为可配(memoryIndexCharCapV1,默认 6000)。本夹具的 12 条
+    // 在新默认下不再溢出(这正是抬上限的目的 —— 以前它们会被砍掉一半),所以这里只留
+    // 「不超上限 + 围栏完整」两条;「超了就截且带省略标记」改用窄上限直接验函数(见下方),
+    // 不再依赖“夹具息好能溢出”这个脆弱前提。
+    const INDEX_CAP = 6000; // = defaultConfig().memoryIndexCharCapV1
     const longDesc = 'D'.repeat(160);
     const truncMems = [];
     for (let i = 1; i <= 12; i++) truncMems.push(await saveMem('trunc-note-' + i, 'project', 'Truncation Note ' + i, longDesc + ' #' + i, 'trunc body ' + i, PROJ_TRUNC));
@@ -250,9 +257,13 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     await postStream(WB_PORT, { sessionId: S_trunc.id, message: 'hello trunc', cwd: PROJ_TRUNC });
     const sysT = sysOfLastStreamBody();
     const secT = memorySection(sysT);
-    ok(secT && secT.length <= 2600, 'P3-4(b): oversized memory index is clamped to ≤ 2600 (got ' + secT.length + ')');
+    ok(secT && secT.length <= INDEX_CAP, 'P3-4(b): oversized memory index is clamped to ≤ ' + INDEX_CAP + ' (got ' + (secT ? secT.length : -1) + ')');
     ok(secT && secT.endsWith('</workbench-memory>'), 'P3-4(b): truncated index still closes with </workbench-memory> (no dangling open fence)');
-    ok(secT && secT.includes('…（记忆索引已截断）'), 'P3-4(b): truncated index carries the ellipsis marker');
+    // 截断契约直接验:给一个窄上限,同一批条目必须被截、带省略标记、且仍以闭围栏收尾。
+    const narrowSec = SRV.buildMemoryPromptSection(
+      truncMems.map(m => ({ ...m, coreStatus: 'library' })), 'openai', { locale: 'zh-CN', memoryIndexCharCapV1: 2600 }, null);
+    ok(narrowSec.length <= 2600 && narrowSec.includes('…（记忆索引已截断）') && narrowSec.endsWith('</workbench-memory>'),
+      'P3-4(b): a narrow index cap still truncates with the ellipsis marker and a closed fence (got ' + narrowSec.length + ')');
 
     // ---------- P3-1: 正文超 256KB → 拒绝保存(杜绝"保存成功却从列表消失"的幽灵)----------
     const bigBody = 'X'.repeat(256 * 1024 + 16);

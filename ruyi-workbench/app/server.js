@@ -753,6 +753,22 @@ function sessionSearchIndexEnabled(config) {
   return config ? config.sessionSearchIndexV1 !== false : true;
 }
 
+// 113a-后续(2026-09-04 用户拍板): 记忆容量五旋钮的唯一判定。
+// 旧常量（core 24 条 / 4200 字、每轮 3 条、固定选择 12 条、索引段 2600 字）全部变成可配；
+// 调用方不传 config 时回落新默认值，不回落旧常量——否则同一库在不同入口会给出不同的席位数。
+function memoryLimit(config, key, lo, hi, fallback) {
+  // 先取原值再转数字。写成 Number(config && config[key]) 会在 config 为 null 时得到 Number(null)=0,
+  // 而 0 是合法钳位值 —— 于是「没传配置」被静默解读成「上限为 0」,整个胶囊消失。夹具当场抓到过。
+  const raw = config ? config[key] : undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fallback;
+}
+function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
+function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
+function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 64, 8); }
+function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFixedSelectionMaxV1', 1, 1024, 64); }
+function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
+
 
 function defaultConfig() {
   return {
@@ -947,9 +963,19 @@ function defaultConfig() {
     execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
     // 113a: 记忆召回的离线向量层（特征哈希 + TF-IDF + 余弦）与词法层的 RRF 融合。
-    // 默认关：要先过 memory-recall-quality 的 Recall@3 门（融合 ≥ 词法 +10pp）才翻默认。
-    // 显式 false / 缺省 = 走今天的纯词法 Top-3，结果集逐字节不变。
-    runtimeMemoryVectorRecallV1: false,
+    // 合成门实测 Recall@3 90% -> 95%（+5pp），未达 25 号预设的 +10pp 自动翻默认条件；
+    // 2026-09-04 用户明确拍板默认打开（证据是正收益且无回归，门槛是自动翻牌线、不是否决线）。
+    // 显式 false = 回到纯词法排序，结果集与开关引入前逐字节相同。
+    runtimeMemoryVectorRecallV1: true,
+    // 以下四条是记忆容量的真正治理旋钮（2026-09-04 用户：「记忆数量上限才 24…拓展到尽可能大」）。
+    // 原本全是模块常量，现在可配且默认大幅抬高。成本实话：核心胶囊走【易变层】，不进前缀缓存，
+    // 每一回合都按实际字数付输入 token——但它只装用户【主动标为 core】的条目，没标就不花钱，
+    // 所以把天花板抬高本身是安全的，真正的闸门是字符预算。
+    coreMemoryMaxItemsV1: 200,      // 核心胶囊席位数（旧常量 24）;钳位 [0, 2000]
+    coreMemoryCharBudgetV1: 16000,  // 核心胶囊字符预算（旧常量 4200）;钳位 [0, 200000]
+    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 64]
+    memoryFixedSelectionMaxV1: 64,  // 会话固定选择上限（旧常量 12）;钳位 [1, 1024]
+    memoryIndexCharCapV1: 6000,     // 相关记忆索引整段字符上限（旧常量 2600）;钳位 [500, 100000]
     // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
     // 搜不到正文——“我上周让它改过那个文件”这类回忆式查找完全无法完成。
     // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
@@ -1381,6 +1407,22 @@ function normalizeConfig(raw) {
     const b = Number(config.toolByteBudgetShadowBytesV1);
     const bc = Number.isFinite(b) ? (b <= 0 ? 0 : Math.min(104857600, Math.round(b))) : 0;
     if (bc !== config.toolByteBudgetShadowBytesV1) { config.toolByteBudgetShadowBytesV1 = bc; changed = true; }
+  }
+  { // 113a-后续(2026-09-04 用户拍板): 记忆容量五旋钮统一钳位。坏值/非数字一律落回默认。
+    const clampInt = (value, lo, hi, fallback) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fallback;
+    };
+    for (const [key, lo, hi, fallback] of [
+      ['coreMemoryMaxItemsV1', 0, 2000, 200],
+      ['coreMemoryCharBudgetV1', 0, 200000, 16000],
+      ['memoryRelevanceMaxV1', 0, 64, 8],
+      ['memoryFixedSelectionMaxV1', 1, 1024, 64],
+      ['memoryIndexCharCapV1', 500, 100000, 6000],
+    ]) {
+      const next = clampInt(config[key], lo, hi, fallback);
+      if (next !== config[key]) { config[key] = next; changed = true; }
+    }
   }
   { // 106 #2a: 执行结果缓存每会话条数上限 —— 0 = 不缓存;钳位 [0, 2000],坏值落回默认 200。
     const n = Number(config.execResultCacheMaxEntriesV1);
@@ -16759,13 +16801,18 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 // <workbench-memory>、UI 一律称「工作台记忆」。存储:dataRoot()/memory/{global,project/<projectKey>}/<id>.md。
 // ============================================================================
 const MEMORY_TYPES = new Set(['preference', 'convention', 'lesson', 'reference']);
-const MEMORY_INDEX_CAP = 2600; // 相关记忆索引整段字符上限；只含元数据，正文仍按需读取
-const MEMORY_MAX = 12;         // 会话固定选择上限；默认检索不受此数量限制
-const MEMORY_RELEVANCE_MAX = 3; // 默认检索每轮最多注入 3 条，避免记忆库增长后线性抬高输入 token
+// 2026-09-04(用户拍板「上限才 24…拓展到尽可能大」):下面四个常量不再是硬上限,而是
+// 【调用方没传 config 时的兜底】。真正生效的是 01c 里的五个判定函数(读配置 + 钳位)。
+// 兜底值就是新默认值,不是旧常量 —— 否则同一个库在不同入口会给出不同的席位数。
+const MEMORY_INDEX_CAP = 6000; // 相关记忆索引整段字符上限；只含元数据，正文仍按需读取
+const MEMORY_MAX = 64;         // 会话固定选择上限；默认检索不受此数量限制
+const MEMORY_RELEVANCE_MAX = 8; // 默认检索每轮注入条数；整段另受 MEMORY_INDEX_CAP 字数封顶
 const MEMORY_EXCLUSION_MAX = 256; // 默认检索模式下的会话级排除项上限
 const MEMORY_METADATA_READ_CAP = 16 * 1024; // 注册表只读文件头；命中后才由模型按需读取完整正文
-const CORE_MEMORY_MAX = 24;    // 核心提示词席位上限；超出只进入候补，不删除原记忆
-const CORE_MEMORY_CHAR_CAP = 4200; // 核心摘要正文字符预算（约千余 token），比旧索引预算稍宽
+const CORE_MEMORY_MAX = 200;    // 核心提示词席位上限；超出只进入候补，不删除原记忆
+// 核心摘要字符预算。胶囊走【易变层】、不进前缀缓存,每回合按实际字数付输入 token;
+// 但它只装用户主动标为 core 的条目,没标就不花钱 —— 所以把天花板抬高本身是安全的,真闸门是这个预算。
+const CORE_MEMORY_CHAR_CAP = 16000;
 const CORE_MEMORY_SUMMARY_CAP = 520;
 const MEMORY_USAGE_TOUCH_MS = 60 * 60 * 1000; // 主动检索/读取最多每小时记一次 use
 const MEMORY_RULE_TOUCH_MS = 24 * 60 * 60 * 1000; // 核心偏好/惯例被基础提示词采用时每天记一次隐式 use
@@ -17118,11 +17165,11 @@ async function resolveWorkbenchMemoryToolContext(ctx) {
 }
 
 async function listWorkbenchMemories(args, ctx) {
-  const { cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  const { cwd, config } = await resolveWorkbenchMemoryToolContext(ctx);
   const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
   const query = String(args && args.query || '').trim();
   const limit = Math.min(50, Math.max(1, Math.floor(Number(args && args.limit) || 20)));
-  const coreState = await resolveCoreMemoryState(cwd, await loadMemoryRegistry(cwd));
+  const coreState = await resolveCoreMemoryState(cwd, await loadMemoryRegistry(cwd), config);
   let registry = coreState.all;
   if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
   if (query) registry = rankRelevantMemories(registry, query, limit);
@@ -17732,7 +17779,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   }
   const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + getPromptPack(config && config.locale).memoryTruncated;
   let text = body.join('\n');
-  const budget = MEMORY_INDEX_CAP - header.length - OPEN.length - CLOSE.length;
+  const budget = memoryIndexCharCap(config) - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
   const relatedSection = header + OPEN + text + CLOSE;
   return [coreSection, relatedSection].filter(Boolean).join('\n');
@@ -17759,7 +17806,9 @@ function memoryCoreScore(entry) {
   return score;
 }
 
-async function resolveCoreMemoryState(cwd, registry) {
+async function resolveCoreMemoryState(cwd, registry, config = null) {
+  const itemLimit = coreMemoryMaxItems(config);
+  const charLimit = coreMemoryCharBudget(config);
   const memories = Array.isArray(registry) ? registry : await loadMemoryRegistry(cwd);
   const usage = await readMemoryUsageState();
   const nowMs = Date.now();
@@ -17775,7 +17824,7 @@ async function resolveCoreMemoryState(cwd, registry) {
   let charsUsed = 0;
   for (const entry of candidates) {
     const chars = memoryCoreLine(entry).length + (active.length ? 1 : 0);
-    if (active.length < CORE_MEMORY_MAX && charsUsed + chars <= CORE_MEMORY_CHAR_CAP) {
+    if (active.length < itemLimit && charsUsed + chars <= charLimit) {
       active.push(entry); charsUsed += chars;
     } else standby.push(entry);
   }
@@ -17792,18 +17841,18 @@ async function resolveCoreMemoryState(cwd, registry) {
     stats: {
       total: all.length, coreRequested: all.filter(entry => entry.core).length, active: active.length, standby: standby.length,
       expired: all.filter(entry => entry.expired).length, reviewDue: all.filter(entry => entry.reviewDue).length,
-      charsUsed, charLimit: CORE_MEMORY_CHAR_CAP, itemLimit: CORE_MEMORY_MAX,
+      charsUsed, charLimit, itemLimit,
     },
   };
 }
 
 // 核心胶囊是每轮直接加载的基础记忆摘要，不要求模型先调用 read；需要细节、证据或核对旧事实时仍按 id 读全文。
 function buildCoreMemoryPromptSection(entries, config) {
-  const items = (Array.isArray(entries) ? entries : []).filter(entry => entry && entry.id).slice(0, CORE_MEMORY_MAX);
+  const items = (Array.isArray(entries) ? entries : []).filter(entry => entry && entry.id).slice(0, coreMemoryMaxItems(config));
   if (!items.length) return '';
   const lines = items.map(memoryCoreLine);
   const pack = getPromptPack(config && config.locale);
-  return pack.memoryCoreHeader({ used: lines.join('\n').length, limit: CORE_MEMORY_CHAR_CAP, count: items.length })
+  return pack.memoryCoreHeader({ used: lines.join('\n').length, limit: coreMemoryCharBudget(config), count: items.length })
     + '\n<workbench-memory-core>\n' + lines.join('\n') + '\n</workbench-memory-core>';
 }
 
@@ -18253,6 +18302,9 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   try { registry = await loadMemoryRegistry(cwd); } catch {
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
   }
+  // 容量五旋钮都要读配置，所以在函数头就解一次（调用方传了就不重复读盘）。
+  const effectiveConfig = config || await readConfig().catch(() => null);
+  const fixedSelectionMax = memoryFixedSelectionMax(effectiveConfig);
   const explicit = !!(session && session.memoriesExplicit === true);
   const exclusions = explicit ? new Set() : memoryExclusionSet(session, cwd);
   const sel = effectiveMemorySelection(session, registry, cwd);
@@ -18277,18 +18329,14 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     if (!e) continue; // 幽灵 / scope 不匹配 → 跳过注入
     seen.add(key);
     if (!memoryIsExpired(e)) eligible.push(e);
-    if (explicit && eligible.length >= MEMORY_MAX) break;
+    if (explicit && eligible.length >= fixedSelectionMax) break;
   }
-  const coreState = await resolveCoreMemoryState(cwd, eligible);
+  const coreState = await resolveCoreMemoryState(cwd, eligible, effectiveConfig);
   const coreEntries = coreState.active;
   const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
-  // 固定选择（explicit）不走排序，也就不读配置 —— 开关对它本来就不适用。
-  let ranked;
-  if (explicit) ranked = eligible;
-  else {
-    const recallConfig = config || await readConfig().catch(() => null);
-    ranked = rankMemoriesForRecall(eligible, query, MEMORY_RELEVANCE_MAX, recallConfig);
-  }
+  const ranked = explicit
+    ? eligible // 固定选择不走排序，向量开关对它本来就不适用
+    : rankMemoriesForRecall(eligible, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
   const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
@@ -33701,7 +33749,7 @@ async function handleApi(req, res, pathname) {
       seen.add(key);
       // P3-3: project 条目落盘 projectKey(锁定「启用当时的项目组」);global 无此概念。前端如传 projectKey 一律以服务端权威值覆盖。
       cleaned.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
-      if (cleaned.length >= MEMORY_MAX) break;
+      if (cleaned.length >= memoryFixedSelectionMax(config)) break;
     }
     session.memories = cleaned;
     session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
@@ -33720,7 +33768,7 @@ async function handleApi(req, res, pathname) {
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
-    const coreState = await resolveCoreMemoryState(cwd, registry).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: CORE_MEMORY_CHAR_CAP, itemLimit: CORE_MEMORY_MAX } }));
+    const coreState = await resolveCoreMemoryState(cwd, registry, config).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: coreMemoryCharBudget(config), itemLimit: coreMemoryMaxItems(config) } }));
     const projectKey = projectKeyForCwd(cwd);
     const otherProjects = await listMemoryProjectGroups(projectKey).catch(() => []);
     return send(res, json({ ok: true, memories: coreState.all, core: coreState.stats, projectKey, cwd, otherProjects }));

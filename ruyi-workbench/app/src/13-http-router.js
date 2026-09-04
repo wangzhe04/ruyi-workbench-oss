@@ -535,7 +535,7 @@ async function handleApi(req, res, pathname) {
       seen.add(key);
       // P3-3: project 条目落盘 projectKey(锁定「启用当时的项目组」);global 无此概念。前端如传 projectKey 一律以服务端权威值覆盖。
       cleaned.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
-      if (cleaned.length >= MEMORY_MAX) break;
+      if (cleaned.length >= memoryFixedSelectionMax(config)) break;
     }
     session.memories = cleaned;
     session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
@@ -554,7 +554,7 @@ async function handleApi(req, res, pathname) {
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
-    const coreState = await resolveCoreMemoryState(cwd, registry).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: CORE_MEMORY_CHAR_CAP, itemLimit: CORE_MEMORY_MAX } }));
+    const coreState = await resolveCoreMemoryState(cwd, registry, config).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: coreMemoryCharBudget(config), itemLimit: coreMemoryMaxItems(config) } }));
     const projectKey = projectKeyForCwd(cwd);
     const otherProjects = await listMemoryProjectGroups(projectKey).catch(() => []);
     return send(res, json({ ok: true, memories: coreState.all, core: coreState.stats, projectKey, cwd, otherProjects }));

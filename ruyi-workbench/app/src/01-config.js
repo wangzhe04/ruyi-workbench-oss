@@ -191,9 +191,19 @@ function defaultConfig() {
     execResultCacheMaxEntriesV1: 200,
     runtimeFailureTelemetryV1: false,
     // 113a: 记忆召回的离线向量层（特征哈希 + TF-IDF + 余弦）与词法层的 RRF 融合。
-    // 默认关：要先过 memory-recall-quality 的 Recall@3 门（融合 ≥ 词法 +10pp）才翻默认。
-    // 显式 false / 缺省 = 走今天的纯词法 Top-3，结果集逐字节不变。
-    runtimeMemoryVectorRecallV1: false,
+    // 合成门实测 Recall@3 90% -> 95%（+5pp），未达 25 号预设的 +10pp 自动翻默认条件；
+    // 2026-09-04 用户明确拍板默认打开（证据是正收益且无回归，门槛是自动翻牌线、不是否决线）。
+    // 显式 false = 回到纯词法排序，结果集与开关引入前逐字节相同。
+    runtimeMemoryVectorRecallV1: true,
+    // 以下四条是记忆容量的真正治理旋钮（2026-09-04 用户：「记忆数量上限才 24…拓展到尽可能大」）。
+    // 原本全是模块常量，现在可配且默认大幅抬高。成本实话：核心胶囊走【易变层】，不进前缀缓存，
+    // 每一回合都按实际字数付输入 token——但它只装用户【主动标为 core】的条目，没标就不花钱，
+    // 所以把天花板抬高本身是安全的，真正的闸门是字符预算。
+    coreMemoryMaxItemsV1: 200,      // 核心胶囊席位数（旧常量 24）;钳位 [0, 2000]
+    coreMemoryCharBudgetV1: 16000,  // 核心胶囊字符预算（旧常量 4200）;钳位 [0, 200000]
+    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 64]
+    memoryFixedSelectionMaxV1: 64,  // 会话固定选择上限（旧常量 12）;钳位 [1, 1024]
+    memoryIndexCharCapV1: 6000,     // 相关记忆索引整段字符上限（旧常量 2600）;钳位 [500, 100000]
     // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
     // 搜不到正文——“我上周让它改过那个文件”这类回忆式查找完全无法完成。
     // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
@@ -625,6 +635,22 @@ function normalizeConfig(raw) {
     const b = Number(config.toolByteBudgetShadowBytesV1);
     const bc = Number.isFinite(b) ? (b <= 0 ? 0 : Math.min(104857600, Math.round(b))) : 0;
     if (bc !== config.toolByteBudgetShadowBytesV1) { config.toolByteBudgetShadowBytesV1 = bc; changed = true; }
+  }
+  { // 113a-后续(2026-09-04 用户拍板): 记忆容量五旋钮统一钳位。坏值/非数字一律落回默认。
+    const clampInt = (value, lo, hi, fallback) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fallback;
+    };
+    for (const [key, lo, hi, fallback] of [
+      ['coreMemoryMaxItemsV1', 0, 2000, 200],
+      ['coreMemoryCharBudgetV1', 0, 200000, 16000],
+      ['memoryRelevanceMaxV1', 0, 64, 8],
+      ['memoryFixedSelectionMaxV1', 1, 1024, 64],
+      ['memoryIndexCharCapV1', 500, 100000, 6000],
+    ]) {
+      const next = clampInt(config[key], lo, hi, fallback);
+      if (next !== config[key]) { config[key] = next; changed = true; }
+    }
   }
   { // 106 #2a: 执行结果缓存每会话条数上限 —— 0 = 不缓存;钳位 [0, 2000],坏值落回默认 200。
     const n = Number(config.execResultCacheMaxEntriesV1);

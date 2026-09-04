@@ -56,8 +56,18 @@ const ok = (condition, label) => {
   const important = coreState.all.find(m => m.id === 'core-0');
   const expired = coreState.all.find(m => m.id === 'core-3');
   const reviewDue = coreState.all.find(m => m.id === 'core-2');
-  ok(coreState.stats.active <= 24 && coreState.stats.charsUsed <= 4200 && coreState.stats.standby > 0,
-    'protected LRU enforces the widened 24-item / 4200-character capsule and creates standby overflow');
+  // 2026-09-04: 席位数与字符预算从模块常量改为可配(默认 200 条 / 16000 字)。断言改成两条:
+  //   ① 默认预算下 18 条夹具应全部入席(这正是抬上限的目的 —— 旧的 4200 字只能装下一半);
+  //   ② 显式给一个窄预算时,超出部分仍只进候补、不删源文件。
+  // 两条合起来既验了新容量,又保住了受保护 LRU 本身的回归覆盖。
+  // 18 条夹具里有一条(core-3)已过期 —— 过期条目不进候选,所以满额是 17。
+  ok(coreState.stats.active === 17 && coreState.stats.standby === 0
+    && coreState.stats.itemLimit === 200 && coreState.stats.charLimit === 16000,
+    'widened capsule (200 items / 16000 chars) admits all 17 non-expired core fixtures (active '
+      + coreState.stats.active + ', standby ' + coreState.stats.standby + ')');
+  const narrow = await S.resolveCoreMemoryState(cfg.defaultWorkspace, null, { coreMemoryCharBudgetV1: 4200 });
+  ok(narrow.stats.charLimit === 4200 && narrow.stats.charsUsed <= 4200 && narrow.stats.standby > 0,
+    'an explicit narrow character budget still forces standby overflow (protected LRU intact)');
   ok(important && important.coreStatus === 'active', 'an old important memory keeps an active core slot ahead of fresh ordinary entries');
   ok(expired && expired.coreStatus === 'expired' && !coreState.active.some(m => m.id === expired.id), 'expired memory remains visible but is not injected');
   ok(reviewDue && reviewDue.reviewDue === true && reviewDue.coreStatus !== 'expired', 'review date is exposed without auto-expiring the memory');

@@ -144,3 +144,19 @@ function sessionSearchIndexEnabled(config) {
   return config ? config.sessionSearchIndexV1 !== false : true;
 }
 
+// 113a-后续(2026-09-04 用户拍板): 记忆容量五旋钮的唯一判定。
+// 旧常量（core 24 条 / 4200 字、每轮 3 条、固定选择 12 条、索引段 2600 字）全部变成可配；
+// 调用方不传 config 时回落新默认值，不回落旧常量——否则同一库在不同入口会给出不同的席位数。
+function memoryLimit(config, key, lo, hi, fallback) {
+  // 先取原值再转数字。写成 Number(config && config[key]) 会在 config 为 null 时得到 Number(null)=0,
+  // 而 0 是合法钳位值 —— 于是「没传配置」被静默解读成「上限为 0」,整个胶囊消失。夹具当场抓到过。
+  const raw = config ? config[key] : undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fallback;
+}
+function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
+function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
+function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 64, 8); }
+function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFixedSelectionMaxV1', 1, 1024, 64); }
+function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
+

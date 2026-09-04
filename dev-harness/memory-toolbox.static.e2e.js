@@ -21,7 +21,13 @@ ok(/memoryToolboxOverview/.test(html) && /memoryToolboxSearch/.test(html) && /da
 ok(/openMemoryToolbox\(\)/.test(nav) && /tab === 'memory'/.test(nav), 'Memory tab lazy-loads its own data');
 ok(/buildMemoryToolboxCard/.test(js) && /openMemoryEditModal/.test(js) && /deleteMemoryRow/.test(js), 'toolbox supports viewing, editing, and deleting entries');
 ok(/\/api\/memory\/metadata/.test(js) && /memory-core-toggle/.test(js) && /memory-important-toggle/.test(js), 'toolbox supports core membership and importance protection controls');
-ok(/CORE_MEMORY_MAX = 24/.test(autonomy) && /CORE_MEMORY_CHAR_CAP = 4200/.test(autonomy), 'core capsule uses widened count and character limits');
+// 2026-09-04: 胶囊容量从硬常量改为可配。锁两件事 —— 兵底常量已抬高，且真正生效的是
+// 01c 里读配置的判定函数(而不是直接用常量)，否则用户改了配置也不会生效。
+ok(/CORE_MEMORY_MAX = 200/.test(autonomy) && /CORE_MEMORY_CHAR_CAP = 16000/.test(autonomy),
+  'core capsule fallbacks track the widened defaults (200 items / 16000 chars)');
+ok(/coreMemoryMaxItems\(config\)/.test(autonomy) && /coreMemoryCharBudget\(config\)/.test(autonomy)
+  && /memoryRelevanceMax\(effectiveConfig\)/.test(autonomy) && /memoryIndexCharCap\(config\)/.test(autonomy),
+  'capsule/retrieval/index limits are resolved through the config-reading predicates, not the raw constants');
 ok(/memoryCoreScore/.test(autonomy) && /important/.test(autonomy) && /core-rule/.test(autonomy), 'protected LRU accounts for importance and implicit rule use');
 ok(/pathname === '\/api\/memory\/metadata'/.test(router), 'metadata quick actions preserve the full memory through a dedicated backend route');
 ok(/memory-card\.status-active/.test(css) && /memory-budget-track/.test(css) && /@media \(max-width: 420px\)/.test(css), 'toolbox has distinct active states, budget feedback, and narrow-screen polish');

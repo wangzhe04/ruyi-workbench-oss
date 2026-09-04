@@ -111,9 +111,15 @@
         "budgetGuardEnabled",
         "budgetGuardTurnTokens",
         "budgetGuardWarnRatio",
+        "coreMemoryCharBudget",
+        "coreMemoryMaxItems",
         "estimateBucketsEnabled",
         "execResultCacheEnabled",
         "execResultCacheMaxEntries",
+        "memoryFixedSelectionMax",
+        "memoryIndexCharCap",
+        "memoryLimit",
+        "memoryRelevanceMax",
         "memoryVectorRecallEnabled",
         "observationRecallEnabled",
         "sessionNotesEnabled",
@@ -3726,6 +3732,41 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "coreMemoryCharBudget",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "coreMemoryMaxItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryFixedSelectionMax",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryIndexCharCap",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryRelevanceMax",
           "kinds": [
             "call"
           ]
@@ -8523,6 +8564,27 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "coreMemoryCharBudget",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "coreMemoryMaxItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryFixedSelectionMax",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
@@ -9020,20 +9082,6 @@
         },
         {
           "provider": "06d-memory-domain.js",
-          "symbol": "CORE_MEMORY_CHAR_CAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
-          "symbol": "CORE_MEMORY_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
           "symbol": "decideMemoryProposal",
           "kinds": [
             "call"
@@ -9084,13 +9132,6 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "MEMORY_EXCLUSION_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
-          "symbol": "MEMORY_MAX",
           "kinds": [
             "read"
           ]
