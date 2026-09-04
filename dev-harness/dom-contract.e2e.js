@@ -38,6 +38,8 @@ ok(htmlIds.size >= 100, `index.html 抽出 id 数量合理(${htmlIds.size} ≥ 1
 const DYNAMIC_ID_ALLOW = new Set([
   // 以下 id 由 JS 动态创建(非静态 index.html),再被 $()/getElementById() 取用 —— 合法模式,豁免反向检查:
   'compactIndicator',  // app.js:updateCompactIndicator 里 el('div','compact-indicator') 后 bar.id='compactIndicator'
+  'turnActivityBar',   // 112c: chat-stream-runtime.js:ensureActivityBar 里 el('div','turn-activity hidden') 后 bar.id='turnActivityBar';
+                       // 与 compactIndicator 同一模式(插在 .composer 内),故不进静态 index.html
   'mm-theme-label',    // app.js:openMoreMenu 里 item(...,'mm-theme-label',...) 动态建;syncMoreMenuLabels 用 getElementById 且 if(t) 守护
   'mm-uimode-label',   // app.js:openMoreMenu 里 item(...,'mm-uimode-label',...) 动态建;同上 if(u) 守护
   'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)

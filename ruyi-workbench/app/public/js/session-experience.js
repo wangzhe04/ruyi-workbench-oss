@@ -114,6 +114,9 @@ function scheduleSessionSearch() {
   const q = sessionSearchQuery();
   if (sessionSearchTimer) { clearTimeout(sessionSearchTimer); sessionSearchTimer = 0; }
   if (q.length < SESSION_SEARCH_MIN_QUERY) {
+    // 序号同样要推进:清空搜索框时可能还有一次请求在飞,不推序号的话它回来后会把
+    // 已经清掉的搜索态又写回去(渲染时虽有 query 比对兑底,但状态本身不该脏)。
+    sessionSearchSeq += 1;
     sessionSearchState = { query: q, results: null, loading: false, failed: false };
     renderSessions();
     return;
