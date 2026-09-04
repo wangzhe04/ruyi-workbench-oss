@@ -173,49 +173,49 @@
     {
       "file": "12-tool-dispatch.js",
       "startLine": 30443,
-      "endLine": 32029,
+      "endLine": 32083,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "startLine": 32030,
-      "endLine": 32786,
+      "startLine": 32084,
+      "endLine": 32840,
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 32787,
-      "endLine": 34709,
+      "startLine": 32841,
+      "endLine": 34846,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 34710,
-      "endLine": 35044,
+      "startLine": 34847,
+      "endLine": 35181,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 35045,
-      "endLine": 35233,
+      "startLine": 35182,
+      "endLine": 35370,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 35234,
-      "endLine": 36542,
+      "startLine": 35371,
+      "endLine": 36679,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 36543,
-      "endLine": 36949,
+      "startLine": 36680,
+      "endLine": 37086,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "14-main.js",
-      "startLine": 36950,
-      "endLine": 37436,
+      "startLine": 37087,
+      "endLine": 37573,
       "note": "main()/module.exports"
     }
   ]

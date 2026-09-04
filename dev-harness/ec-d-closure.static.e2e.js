@@ -88,10 +88,13 @@ ok(['02-session-store.js', '04-permission-runtime.js', '08-agent-runs.js', '13b-
 
 // v2.7.x (109b905): 组合根新增附件缩略图/图片查看器接线(净增约 30 行,达 1229),护栏放宽到 1240;
 // 组合根物理瘦身由 103b/104 模块隔离批次承接,不在此处抢跑前端拆分。
-ok(read(path.join(PUBLIC, 'app.js')).trimEnd().split(/\r?\n/).length <= 1240
+// 118b(SPEC §6 重钉): 组合根补上 navigation-controls 漏注入的 fillSettings(1 行,原为自由标识符,
+// 每次程序化打开设置都抛 ReferenceError)。1239/1240 已无余量,按纪律上调到整数余量 1280,断言其余不变;
+// 组合根物理瘦身仍由 103b/104 模块隔离批次承接。
+ok(read(path.join(PUBLIC, 'app.js')).trimEnd().split(/\r?\n/).length <= 1280
   && ['session-experience.js', 'interaction-prompts.js', 'agent-workflows.js']
     .every(file => fs.existsSync(path.join(PUBLIC, 'js', file))),
-'E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立');
+'E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）');
 
 console.log(`\nEC-D CLOSURE STATIC E2E: ${failures ? `FAIL (${failures})` : 'ALL PASS'}`);
 process.exit(failures ? 1 : 0);

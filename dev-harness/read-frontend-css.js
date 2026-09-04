@@ -101,7 +101,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // layer (css/components/onboarding.css) rather than opening a new sheet, and two now-dead rules for the
 // retired path/copy affordance (.onboard-wiz-manual-path) were removed. Additive plus that deletion: no
 // other layer's rules were touched and the link/@import/overlay order is unchanged. Re-pin the payload.
-const LEGACY_STYLES_SHA256 = '7da66508aec892c6eedf64f8c7ca6e740e53b8b1cc5980fec74bef314cb9fcd8';
+// 118b: 人话体检的样式全部落进【已注册的所有权层】,不新开样式层 -- 体检行(.h-head/.h-pill/.h-next/
+// .h-tech/.health-summary-line)进 tool-pane.css(体检面板本来就归它),首跑卡的 .health-summary-chip
+// 进 chat-primitives.css(空态/首跑卡所有权层),侧栏「设置」按钮上的 .health-entry-dot 进 layout.css
+// (.sidebar-foot 所有权层)。三处均为纯新增规则,未改动任何既有选择器;link/@import/overlay 顺序不变。
+// 重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '74a763a32556b086ebaaddfe53d5c827e89ed88a9bafd57baf5c21f5d2a84e1e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

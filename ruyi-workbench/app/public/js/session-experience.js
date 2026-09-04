@@ -9,7 +9,9 @@ import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
 import { createOnboardingWizardDomain, shouldShowOnboarding } from './onboarding-wizard.js';
 // 118a-fix: 应用内手册阅读器。与向导同一口径:模块壳无关,由本壳注入环境依赖后持有唯一实例。
-import { createHelpViewerDomain } from './help-viewer.js';
+import { createHelpViewerDomain, registerHelpViewer } from './help-viewer.js';
+// 118b: 体检项的人话映射(纯函数)。首跑卡的「体检摘要」与设置页的体检行读同一张表。
+import { healthSummaryText } from './health-i18n.js';
 import { providerDraftFromPreset } from './provider-settings.js';
 import {
   activeTurnUserIsPersisted,
@@ -63,7 +65,9 @@ export function createSessionExperienceDomain({
 // 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
 // 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
 // 用上面这条既有管线渲染在应用内,不再给用户一行路径让他自己去开文件。
-const helpViewer = createHelpViewerDomain({ api, el, t, toast, apiErrText, getLocale, renderMarkdownInto, highlightIn });
+// 118b: 建好后立刻登记为全应用共用实例,设置域的体检行「怎么办」经 openSharedHelpDoc() 复用同一个,
+// 不再多造一个阅读器,也不用往组合根加接线。
+const helpViewer = registerHelpViewer(createHelpViewerDomain({ api, el, t, toast, apiErrText, getLocale, renderMarkdownInto, highlightIn }));
 function openHelpViewer(options) { return helpViewer.openHelpViewer(options); }
 const onboardingWizard = createOnboardingWizardDomain({
   state,
@@ -883,6 +887,18 @@ function buildOnboardEngine() {
   card.appendChild(adv);
   return card;
 }
+// 118b: 体检摘要红点。没有任何待办时返回 null -- 一个恒亮的「一切正常」徽标只会变成噪音,用户很快
+// 就不再看它;只有真有事时才出现,出现就是可点的真动作(直接打开体检页,不是提示用户「去设置里找找」)。
+function buildHealthSummaryChip() {
+  const summary = healthSummaryText((state.status && state.status.health) || [], t);
+  if (!summary) return null;
+  const chip = el('button', `health-summary-chip tone-${summary.tone}`);
+  chip.type = 'button';
+  chip.append(el('span', 'health-summary-dot', '●'), el('span', 'health-summary-text', summary.text));
+  chip.append(el('span', 'health-summary-go', t('health.summary.open')));
+  chip.onclick = () => { openModal('settingsModal'); switchSettingsTab('doctor', true); };
+  return chip;
+}
 // v1.0-S1 收官补:如意标(SVG)——JS 重建空状态时与 index.html 静态版完全同参(路径/填色/viewBox),
 // 不再回退到旧 Claude 字母 "C"。theme.e2e.js 守着此模式不得回潮。
 function buildRuyiLogo() {
@@ -942,6 +958,10 @@ function buildFirstRunState() {
   guideBtn.onclick = () => openOnboardingWizard();
   wrap.appendChild(guideBtn);
   if (shouldShowOnboarding(state.config, state.sessions)) wrap.appendChild(el('p', 'onboard-start-hint muted', t('onboarding.wizard.startHint')));
+  // 118b: 体检摘要红点。首跑用户根本不知道设置里藏着一页体检,所以把「有几项要处理」直接摆在首屏,
+  // 一点就打开体检页(force=true:体检本来就在简易模式白名单里,这里只是不让页签收敛把人弹回基础页)。
+  const healthSummary = buildHealthSummaryChip();
+  if (healthSummary) wrap.appendChild(healthSummary);
   wrap.appendChild(buildOnboardDropZone());
   wrap.appendChild(buildOnboardEngine());
   // 任务卡（既有 playbook 首页渲染，不动其逻辑）。

@@ -79,6 +79,7 @@ const PAYLOAD_FILES = [
   'app/public/js/preview-finish.js',
   'app/public/js/onboarding-wizard.js', // 118a
   'app/public/js/help-viewer.js', // 118a-fix
+  'app/public/js/health-i18n.js', // 118b
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

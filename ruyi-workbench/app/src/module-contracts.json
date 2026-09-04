@@ -7706,6 +7706,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "resolveExternalMcpServers",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "safeMcpInventory",
           "kinds": [
             "call"
@@ -7742,6 +7749,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "peekCapabilities",
           "kinds": [
             "call"
           ]
@@ -7957,6 +7971,8 @@
       "layer": "transport",
       "provides": [
         "CLAUDE_ALIAS_IDS",
+        "DOCTOR_HEALTH_SEVERITY",
+        "DOCTOR_HUMAN_LANGS",
         "HELP_DOC_FILES",
         "HELP_DOC_LANGS",
         "HELP_DOC_MAX_BYTES",
@@ -7968,6 +7984,11 @@
         "discoverKimiModels",
         "discoverModels",
         "doctor",
+        "doctorFill",
+        "doctorHealthSeverity",
+        "doctorHealthVariant",
+        "doctorHumanLines",
+        "doctorLocaleCatalog",
         "fetchProxyModels",
         "freeStalePort",
         "getProxyModelsCache",

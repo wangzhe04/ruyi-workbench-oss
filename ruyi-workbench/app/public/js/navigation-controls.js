@@ -39,6 +39,9 @@ export function createNavigationControlsDomain({
   toggleTheme = () => {},
   compactContext = async () => {},
   refreshStatus = async () => {},
+  // 118b: openModal('settingsModal') 一直在调一个从未注入的 fillSettings -- 领域拆分时漏掉的自由标识符,
+  // 每次程序化打开设置都抛 ReferenceError,并把调用点后面的语句(例如「切到某个页签」)一起吃掉。
+  fillSettings = () => {},
   openSkillPanel = async () => {},
   patchSession = async () => {},
   toggleUiMode = () => {},

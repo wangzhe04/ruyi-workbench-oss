@@ -62,6 +62,35 @@
 .health-row .h-body { min-width: 0; }
 .health-row .h-id { font-weight: 600; font-size: var(--fs-md); }
 .health-row .h-detail { color: var(--muted); font-size: var(--fs-sm); word-break: break-word; }
+/* 118b: 人话体检。三档语义色(ok/warn/error) + 状态药丸 + 「怎么办」行 + 折叠的技术详情。
+   .bad 旧类保留(既有 .h-dot 红点样式仍然生效),sev-* 只补差异,不改任何既有选择器语义。 */
+.health-row .h-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.health-row .h-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.health-row.sev-warn .h-dot { color: var(--warn-fg); }
+.health-row.sev-error .h-dot { color: var(--danger-fg); }
+.health-row.sev-warn { border-color: color-mix(in srgb, var(--warn) 38%, var(--line)); }
+.health-row.sev-error { border-color: color-mix(in srgb, var(--danger) 38%, var(--line)); }
+.health-row .h-pill { flex: none; font-size: var(--fs-xs); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.health-row .h-pill.sev-ok { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.health-row .h-pill.sev-warn { color: var(--warn-fg); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.health-row .h-pill.sev-error { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.health-row .h-next { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ink-2); }
+.health-row .h-next-text { min-width: 0; }
+.health-row .h-howto { flex: none; }
+.health-row .h-tech { font-size: var(--fs-xs); color: var(--muted); }
+.health-row .h-tech-summary { cursor: pointer; list-style: none; color: var(--muted); }
+.health-row .h-tech-summary::-webkit-details-marker { display: none; }
+.health-row .h-tech-summary:hover { color: var(--ink-2); }
+.health-row .h-tech-body { margin-top: 4px; font-family: var(--mono); word-break: break-all; color: var(--muted); }
+.health-summary-line { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); font-size: var(--fs-md); font-weight: 600; }
+.health-summary-line.tone-warn { color: var(--warn-fg); border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ }
+.health-summary-line.tone-error { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ }
+@media (max-width: 520px) {
+  .health-row .h-next { align-items: flex-start; flex-direction: column; }
+}
 .diagnostic-details { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 72%, transparent); overflow: clip; }
 .diagnostic-details > summary { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; color: var(--ink); font-size: var(--fs-md); font-weight: 650; cursor: pointer; }
 .diagnostic-details > summary::-webkit-details-marker { display: none; }

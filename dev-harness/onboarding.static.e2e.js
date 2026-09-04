@@ -93,6 +93,15 @@ ok(providerSrc.includes('export function providerDraftFromPreset(')
   && providerSrc.includes('providerDraftFromPreset(preset, state.providersDraft.map(p => p.id))')
   && sessionSrc.includes("import { providerDraftFromPreset } from './provider-settings.js'"),
   'F8 provider 序列化只有一份实现,设置页与向导共用');
+// 118b: 首跑卡的体检摘要红点。新手不会自己想到「设置里有一页体检」,所以待办数直接摆在首屏,
+// 且必须是可点的真动作(直达体检页),不是一句「去设置里看看」。
+ok(sessionSrc.includes("import { healthSummaryText } from './health-i18n.js'")
+  && sessionSrc.includes('function buildHealthSummaryChip()')
+  && /const healthSummary = buildHealthSummaryChip\(\);\s*\n\s*if \(healthSummary\) wrap\.appendChild\(healthSummary\);/.test(sessionSrc),
+  'F9 首跑卡渲染体检摘要红点(无待办时 buildHealthSummaryChip 返回 null,不渲染)');
+ok(/chip\.onclick = \(\) => \{ openModal\('settingsModal'\); switchSettingsTab\('doctor', true\); \};/.test(sessionSrc)
+  && sessionSrc.includes("t('health.summary.open')"),
+  'F10 红点可点且直达体检页签(force=true,不被简易模式收敛弹回基础页)');
 
 /* ═══════════ ⑦ CSS 注册与 reduced-motion ═══════════ */
 ok(indexHtml.includes('<link rel="stylesheet" href="/css/components/onboarding.css" />'), 'G1 index.html 已加载新样式层');

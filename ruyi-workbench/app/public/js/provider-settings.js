@@ -5,6 +5,10 @@ import { state } from './state.js';
 import { api } from './net.js';
 import { $, el, escapeHtml, autoGrow, setStatus, toast } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
+// 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
+import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS } from './health-i18n.js';
+// 118b: 「怎么办」跳手册时复用经典壳登记的那一个阅读器实例(见 help-viewer.js 的登记处说明)。
+import { openSharedHelpDoc } from './help-viewer.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -47,6 +51,10 @@ export function createProviderSettingsDomain({
   refreshSessions = async () => {},
   openSession = async () => {},
   switchTab = () => {},
+  // 118b: 体检行「怎么办」要能切到设置里的目标页签。走注入而不是在 DOM 里点那个按钮,是因为需要 force:
+  // 简易模式会把非白名单页签(集成 / MCP、更新中心)收敛回「基础」,而体检页的「怎么办」正是 SPEC 说的
+  // 「明确的排障逃生门」,必须直达。
+  switchSettingsTab = () => {},
   openToolPane = () => {},
   runTool = async () => {},
   updateContextMeter = () => {},
@@ -1000,12 +1008,82 @@ function showMcpTemplateModal(reason, template) {
 }
 
 /* ---------------- doctor ---------------- */
+// 118b: 体检页说人话。每行 = 状态灯 + 名称 + 一句话现状(+「怎么办」真动作 + 折叠的「技术详情」)。
+// 原始 id 与英文 detail 只活在折叠区里(方便把问题原样转给支持人员),正文里一个英文标识都不出现。
 function renderDoctor() {
   const panel = $('doctorPanel'); if (!panel) return;
-  panel.innerHTML = '';
-  const s = state.status;
+  panel.replaceChildren();
+  const s = state.status || {};
+  const items = (s.health || []).filter(h => h && !HEALTH_ALIAS_IDS.includes(h.id));
+  const summary = healthSummaryText(items, t);
+  if (summary) {
+    const line = el('div', `health-summary-line tone-${summary.tone}`);
+    line.append(el('span', 'health-summary-dot', '●'), el('span', 'health-summary-text', summary.text));
+    panel.appendChild(line);
+  }
   panel.appendChild(healthRow(true, t('common.version'), `v${s.version} · 启动=${s.launchMode} · overlay=${s.overlayId}`));
-  for (const h of (s.health || [])) panel.appendChild(healthRow(h.ok, h.id, h.detail));
+  for (const h of items) panel.appendChild(healthItemRow(h));
+  renderHealthEntryBadge();
+}
+// 单个体检项。severity 决定灯色与状态药丸;next 有内容时才给「怎么办」按钮 -- 一个点了没反应的按钮
+// 比没有按钮更伤信任。
+function healthItemRow(item) {
+  const info = describeHealthItem(item, t);
+  const row = el('div', `health-row sev-${info.severity} ${info.severity === 'ok' ? 'ok' : 'bad'}`);
+  row.append(el('span', 'h-dot', '●'));
+  const body = el('div', 'h-body');
+  const head = el('div', 'h-head');
+  head.append(el('div', 'h-id', info.label), el('span', `h-pill sev-${info.severity}`, t(`health.status.${info.severity}`)));
+  body.appendChild(head);
+  body.appendChild(el('div', 'h-detail', info.hint));
+  const action = HEALTH_ACTIONS[item.id];
+  if (info.severity !== 'ok' && info.next) {
+    const next = el('div', 'h-next');
+    next.appendChild(el('span', 'h-next-text', info.next));
+    if (action) {
+      const btn = el('button', 'mini h-howto', t('health.action.howto'));
+      btn.type = 'button';
+      btn.onclick = () => runHealthAction(action);
+      next.appendChild(btn);
+    }
+    body.appendChild(next);
+  }
+  const tech = document.createElement('details');
+  tech.className = 'h-tech';
+  const summary = document.createElement('summary');
+  summary.className = 'h-tech-summary';
+  summary.textContent = t('health.tech.toggle');
+  tech.append(summary, el('div', 'h-tech-body', `${item.id} · ${item.detail || ''}`));
+  body.appendChild(tech);
+  row.appendChild(body);
+  return row;
+}
+// 「怎么办」= 真动作,不是文案。两种落点:
+//   settings 切设置页签(force=true:体检页的「怎么办」是明确的排障逃生门,简易模式的页签收敛不该把
+//            用户弹回「基础」)。体检行只在设置弹层里出现,所以不需要再开一次弹层。
+//   manual   打开应用内手册阅读器并滚到对应小节(经典壳登记的同一个实例)。锚点走文案键,中英各自
+//            对应本语言的小节标题;标题对不上时阅读器就停在开头,仍然停留在如意内部。
+function runHealthAction(action) {
+  if (!action) return;
+  if (action.kind === 'settings') { switchSettingsTab(action.tab, true); return; }
+  if (action.kind === 'manual') {
+    const anchor = action.anchorKey ? String(t(action.anchorKey) || '') : '';
+    const opened = openSharedHelpDoc({ docId: action.docId, anchor: /^\[.*\]$/.test(anchor) ? '' : anchor });
+    if (!opened) toast(t('help.doc.unknown'), 'err');
+  }
+}
+// 118b: 侧栏「设置」按钮上的摘要红点 -- 用户还没进设置就能看见有几项要处理。没有待办时移除,
+// 一个恒亮徽标会很快变成噪音。按钮里的文字节点自己带 data-i18n,徽标是它的兄弟节点,切语言不会被抹掉。
+function renderHealthEntryBadge() {
+  const host = $('openSettingsBtn'); if (!host) return;
+  const items = ((state.status && state.status.health) || []).filter(h => h && !HEALTH_ALIAS_IDS.includes(h.id));
+  const summary = healthSummaryText(items, t);
+  let dot = host.querySelector('.health-entry-dot');
+  if (!summary) { if (dot) dot.remove(); return; }
+  if (!dot) { dot = el('span', 'health-entry-dot'); host.appendChild(dot); }
+  dot.className = `health-entry-dot tone-${summary.tone}`;
+  dot.textContent = String(summary.count);
+  dot.title = summary.text;
 }
 function healthRow(ok, id, detail) {
   const row = el('div', `health-row ${ok ? 'ok' : 'bad'}`);

@@ -126,3 +126,8 @@
 
 .sidebar-foot { display: flex; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
 .sidebar-foot button { flex: 1; font-size: var(--fs-sm); }
+/* 118b: 「设置」按钮上的体检摘要计数。只在真有待办时挂上去,没事就整个移除(恒亮徽标很快变噪音)。 */
+.health-entry-dot { display: inline-flex; align-items: center; justify-content: center; margin-left: 5px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1;
+  color: var(--panel); background: var(--warn); }
+.health-entry-dot.tone-error { background: var(--danger); }

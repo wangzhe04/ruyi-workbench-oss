@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 36,
-    "providedSymbols": 1489,
-    "requiredSymbols": 1654,
+    "providedSymbols": 1496,
+    "requiredSymbols": 1656,
     "edges": 265,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -11879,7 +11879,8 @@
           "lines": [
             1343,
             1347,
-            1493
+            1381,
+            1547
           ]
         },
         {
@@ -11890,8 +11891,9 @@
           ],
           "lines": [
             1344,
-            1398,
-            1401
+            1385,
+            1446,
+            1449
           ]
         },
         {
@@ -11938,12 +11940,12 @@
             1346,
             1356,
             1360,
-            1391,
-            1462,
-            1470,
-            1498,
-            1528,
-            1530
+            1439,
+            1516,
+            1524,
+            1552,
+            1582,
+            1584
           ]
         },
         {
@@ -11953,8 +11955,8 @@
             "read"
           ],
           "lines": [
-            1515,
-            1529
+            1569,
+            1583
           ]
         },
         {
@@ -11964,7 +11966,7 @@
             "read"
           ],
           "lines": [
-            1390
+            1438
           ]
         },
         {
@@ -12010,22 +12012,25 @@
             1343,
             1347,
             1353,
-            1390,
-            1397,
-            1398,
-            1401,
-            1467,
-            1468,
-            1493,
-            1497,
-            1500,
-            1501,
-            1515,
-            1517,
-            1527,
-            1528,
-            1529,
-            1530
+            1381,
+            1382,
+            1385,
+            1438,
+            1445,
+            1446,
+            1449,
+            1521,
+            1522,
+            1547,
+            1551,
+            1554,
+            1555,
+            1569,
+            1571,
+            1581,
+            1582,
+            1583,
+            1584
           ]
         },
         {
@@ -12035,9 +12040,9 @@
             "read"
           ],
           "lines": [
-            1388,
-            1390,
-            1516
+            1436,
+            1438,
+            1570
           ]
         },
         {
@@ -12061,8 +12066,8 @@
             "read"
           ],
           "lines": [
-            1466,
-            1499
+            1520,
+            1553
           ]
         },
         {
@@ -12092,7 +12097,7 @@
             "call"
           ],
           "lines": [
-            1396
+            1444
           ]
         },
         {
@@ -12112,7 +12117,7 @@
             "call"
           ],
           "lines": [
-            1395
+            1443
           ]
         },
         {
@@ -12122,7 +12127,7 @@
             "call"
           ],
           "lines": [
-            1381
+            1429
           ]
         },
         {
@@ -12164,7 +12169,7 @@
           ],
           "lines": [
             362,
-            1380
+            1428
           ]
         },
         {
@@ -12174,8 +12179,8 @@
             "call"
           ],
           "lines": [
-            1398,
-            1401
+            1446,
+            1449
           ]
         },
         {
@@ -12426,6 +12431,16 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "resolveExternalMcpServers",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1407
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "safeMcpInventory",
           "kinds": [
             "call"
@@ -12461,9 +12476,9 @@
             "call"
           ],
           "lines": [
-            1473,
-            1504,
-            1534
+            1527,
+            1558,
+            1588
           ]
         },
         {
@@ -12474,7 +12489,7 @@
           ],
           "lines": [
             347,
-            1491
+            1545
           ]
         },
         {
@@ -12484,7 +12499,17 @@
             "call"
           ],
           "lines": [
-            1533
+            1587
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "peekCapabilities",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1402
           ]
         },
         {
@@ -12494,7 +12519,7 @@
             "read"
           ],
           "lines": [
-            1453
+            1507
           ]
         },
         {
@@ -12689,9 +12714,9 @@
             "call"
           ],
           "lines": [
-            1501,
-            1528,
-            1530
+            1555,
+            1582,
+            1584
           ]
         },
         {
@@ -12796,6 +12821,8 @@
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
         "CLAUDE_ALIAS_IDS",
+        "DOCTOR_HEALTH_SEVERITY",
+        "DOCTOR_HUMAN_LANGS",
         "HELP_DOC_FILES",
         "HELP_DOC_LANGS",
         "HELP_DOC_MAX_BYTES",
@@ -12807,6 +12834,11 @@
         "discoverKimiModels",
         "discoverModels",
         "doctor",
+        "doctorFill",
+        "doctorHealthSeverity",
+        "doctorHealthVariant",
+        "doctorHumanLines",
+        "doctorLocaleCatalog",
         "fetchProxyModels",
         "freeStalePort",
         "getProxyModelsCache",
@@ -12879,7 +12911,7 @@
             1315,
             1457,
             1860,
-            1887
+            1961
           ]
         },
         {
@@ -12957,7 +12989,7 @@
             1385,
             1759,
             1856,
-            1883
+            1957
           ]
         },
         {
@@ -12968,7 +13000,7 @@
           ],
           "lines": [
             69,
-            1893
+            1967
           ]
         },
         {
@@ -12981,7 +13013,8 @@
             18,
             71,
             1859,
-            1900
+            1908,
+            1974
           ]
         },
         {
@@ -12994,7 +13027,8 @@
             19,
             71,
             1509,
-            1864
+            1864,
+            1912
           ]
         },
         {
@@ -13041,7 +13075,7 @@
           "lines": [
             72,
             1401,
-            1892
+            1966
           ]
         },
         {
@@ -13297,7 +13331,9 @@
             1842,
             1843,
             1859,
-            1900
+            1908,
+            1909,
+            1974
           ]
         },
         {
@@ -13319,8 +13355,8 @@
             1828,
             1843,
             1861,
-            1894,
-            1895
+            1968,
+            1969
           ]
         },
         {
@@ -13364,7 +13400,9 @@
           ],
           "lines": [
             1815,
-            1817
+            1817,
+            1929,
+            1930
           ]
         },
         {
@@ -13412,7 +13450,7 @@
             1457,
             1462,
             1775,
-            1888
+            1962
           ]
         },
         {
@@ -13506,7 +13544,7 @@
           "lines": [
             93,
             868,
-            1898
+            1972
           ]
         },
         {
@@ -13559,7 +13597,7 @@
             96,
             1461,
             1858,
-            1885
+            1959
           ]
         },
         {
@@ -13665,7 +13703,7 @@
             1402,
             1787,
             1857,
-            1884
+            1958
           ]
         },
         {
@@ -14319,7 +14357,7 @@
           "lines": [
             869,
             1867,
-            1899
+            1973
           ]
         },
         {
@@ -23995,6 +24033,7 @@
         "getBridgedClient",
         "logEvent",
         "resolveBridge",
+        "resolveExternalMcpServers",
         "safeMcpInventory"
       ],
       "direction": "backward"
@@ -24015,7 +24054,8 @@
         "buildRuntimeIdentityFacts",
         "evalPlaybookAvailability",
         "getCapabilities",
-        "loadAllPlaybooks"
+        "loadAllPlaybooks",
+        "peekCapabilities"
       ],
       "direction": "backward"
     },

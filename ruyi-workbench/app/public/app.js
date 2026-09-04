@@ -209,6 +209,7 @@ const {
   refreshSessions: () => refreshSessions(),
   openSession: id => openSession(id),
   switchTab: tab => switchTab(tab),
+  switchSettingsTab: (name, force) => switchSettingsTab(name, force), // 118b: 体检行「怎么办」直达目标设置页签
   openToolPane: () => openToolPane(),
   runTool: (...args) => runTool(...args),
   updateContextMeter: () => updateContextMeter(),
@@ -427,6 +428,7 @@ const {
   toggleToolPane,
 } = createNavigationControlsDomain({
   apiErrText,
+  fillSettings: () => fillSettings(), // 118b: 补上 openModal('settingsModal') 里一直缺的注入(原为自由标识符,每次开设置都抛错)
   newSession: () => newSession(),
   runTool: (...args) => runTool(...args),
   stopTurn: () => stopTurn(),

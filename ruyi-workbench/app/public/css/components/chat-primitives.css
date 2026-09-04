@@ -87,6 +87,17 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 .onboard-eng-adv summary::-webkit-details-marker { display: none; }
 .onboard-eng-adv summary:hover { color: var(--ink-2); }
 .onboard-eng-adv-btn { margin-top: 8px; font-size: var(--fs-sm); }
+/* 118b: 首跑卡的体检摘要红点。只在真有待办时出现,点开就是体检页 -- 不给「去设置里找找」这种指路。 */
+.health-summary-chip { display: inline-flex; align-items: center; gap: 8px; margin: 10px 0 2px; cursor: pointer;
+  padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2);
+  font: inherit; font-size: var(--fs-md); color: var(--ink-2); }
+.health-summary-chip.tone-warn { color: var(--warn-fg); border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ }
+.health-summary-chip.tone-error { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel-2)); /* -bg 豁免:base=panel-2 面 */ }
+.health-summary-chip:hover { border-color: var(--accent); }
+.health-summary-chip .health-summary-dot { flex: none; line-height: 1; }
+.health-summary-chip .health-summary-go { color: var(--accent); font-size: var(--fs-sm); }
 
 /* v1.5 (§1.3): 首次连接失败故障卡。占满对话区,令牌驱动,深浅双主题;danger 语义色描边 + panel 底 + elev 浮起。 */
 .boot-failure { max-width: 560px; margin: 8vh auto 0; text-align: center;

@@ -31815,6 +31815,54 @@ async function verifyManifest() {
   }
 }
 
+// 118b: 桌面控制(ACC)组件是否躺在盘上。只看文件,绝不 spawn python -- computeHealth 挂在 /api/status
+// 轮询路径上。与 detectDesktopMcp 的前两个候选同址:发布件把 mcp/ 放在 Ruyi.exe 同级(externalRoot),
+// 源码运行时在仓库根(<repo>/mcp/ai-computer-control)。
+function desktopControlComponentOnDisk() {
+  const roots = [
+    path.join(externalRoot(), 'mcp', 'ai-computer-control'),
+    path.join(__dirname, '..', '..', 'mcp', 'ai-computer-control'),
+  ];
+  for (const root of roots) {
+    try { if (fs.existsSync(path.join(root, 'src', 'ai_computer_control', 'server.py'))) return true; }
+    catch { /* 探测失败按不存在处理 */ }
+  }
+  return false;
+}
+
+// 118b: desktop-control 健康项的状态推导。数据只取工作台已经握在手里的三样东西:
+//   1) config.desktopMcp.enabled -- 用户是否关掉了桌面控制;
+//   2) peekCapabilities() -- 只读能力缓存,冷缓存返回 null,永不触发探测(不给状态轮询加 3s 网络锚点);
+//   3) resolveExternalMcpServers(config) -- 桥接层自己用的同一份解析,判「配没配上」。
+// 安装器日志 acc-install-latest.log 不在此处读取:工作台源码里没有任何地方知道这个路径
+// (只在 mcp/ai-computer-control/installer/install.py 与两份离线部署文档里出现),为它新造一条
+// 路径常量属于跨组件耦合,超出本刀范围。
+// 返回 { state, count }。state 是稳定小写标识,会作为 detail 的前缀下发给前端映射表与 CLI --human。
+function desktopControlState(config) {
+  const dm = (config && config.desktopMcp) || {};
+  if (dm.enabled === false) return { state: 'disabled', count: 0 };
+  const caps = peekCapabilities();
+  const desk = caps && caps.desktopMcp;
+  const bridged = desk && desk.present === true ? Number(desk.toolCount) || 0 : 0;
+  if (bridged > 0) return { state: 'ready', count: bridged };
+  let entry = null;
+  try { entry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null; }
+  catch { entry = null; }
+  // 解析不出启动命令 = 桥根本没配上。组件文件在盘上却解析失败,几乎只有一个原因:没有可用的 python 运行环境。
+  if (!entry) return { state: desktopControlComponentOnDisk() ? 'python-missing' : 'not-installed', count: 0 };
+  // 配上了但还没有桥接结果:能力缓存是冷的就是「正在准备中」,已经探过一轮才算「连不上」。
+  return { state: caps ? 'unreachable' : 'preparing', count: 0 };
+}
+
+const DESKTOP_CONTROL_DETAILS = Object.freeze({
+  ready: 'ready: desktop tools bridged',
+  disabled: 'disabled: desktopMcp is switched off in config',
+  'not-installed': 'not-installed: ai-computer-control component not found',
+  'python-missing': 'python-missing: component present but no usable python runtime',
+  preparing: 'preparing: bridge configured, capability probe has not run yet',
+  unreachable: 'unreachable: bridge configured but no tool was bridged',
+});
+
 async function computeHealth(config) {
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
@@ -31843,6 +31891,12 @@ async function computeHealth(config) {
   const mermaidPresent = fs.existsSync(path.join(staticBase(), 'vendor', 'mermaid.min.js'));
   const vendorDetail = vendorOk ? 'marked + highlight.js present' : 'vendor/ missing (markdown will fall back to plain text)';
   push('vendor-libs', vendorOk, `${vendorDetail}; mermaid: ${mermaidPresent ? 'present' : 'absent (optional)'}`);
+
+  // 118b: 桌面控制(ACC)可用性。沿用既有条目形状 {id, ok, detail};detail 以稳定状态标识开头,
+  // 前端 health-i18n.js 与 CLI `doctor --human` 都靠它挑人话文案。
+  const desktop = desktopControlState(config);
+  const desktopDetail = DESKTOP_CONTROL_DETAILS[desktop.state] || DESKTOP_CONTROL_DETAILS['not-installed'];
+  push('desktop-control', desktop.state === 'ready', desktop.state === 'ready' ? `ready: ${desktop.count} desktop tools bridged` : desktopDetail);
 
   const mani = await verifyManifest();
   if (mani.present) push('overlay-integrity', Boolean(mani.ok), mani.ok ? `v${mani.version || '?'} verified` : `mismatches: ${(mani.mismatches || []).map(m => m.path).join(', ') || mani.error}`);
@@ -34665,7 +34719,81 @@ async function installIntegration() {
   console.log('Claude CLI synced: settings+agents+mcp (permissionMode=' + config.permissionMode + ')');
 }
 
-async function doctor() {
+// ── 118b: `doctor --human` ─────────────────────────────────────────────────────────────────────────
+// 默认输出仍是逐字节不变的 JSON(脚本依赖它);加 --human 才多打一段人话体检,让支持人员可以直接让用户
+// 跑一条命令、念出结果,而不必读 JSON。
+//
+// 文案不在这里重抄一遍:直接读前端 i18n 目录里同一批 health.* 键。之所以不抽公共模块,是因为两端的模
+// 块制式本就不通 -- 前端 health-i18n.js 是浏览器原生 ES Module,服务端是 src/*.js 拼接出来的单文件
+// CommonJS,任何「共享模块」都得在 public/ 与 src/ 之间新开一条跨制式引用。真正会重复的只剩下面这张
+// 严重度小表(纯机器判定,没有文案),人话一个字都不重复。
+const DOCTOR_HUMAN_LANGS = Object.freeze(['zh-CN', 'en-US']);
+const DOCTOR_HEALTH_SEVERITY = Object.freeze({
+  'agent-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
+  'claude-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
+  'data-writable': Object.freeze({ ok: 'ok', bad: 'error' }),
+  'server-source': Object.freeze({ ok: 'ok', bad: 'ok' }),
+  'mcp-target': Object.freeze({ ok: 'ok', bad: 'warn' }),
+  'vendor-libs': Object.freeze({ ok: 'ok', bad: 'warn' }),
+  'overlay-integrity': Object.freeze({ ok: 'ok', bad: 'error' }),
+  'desktop-control': Object.freeze({
+    ready: 'ok', disabled: 'warn', 'not-installed': 'warn',
+    'python-missing': 'warn', preparing: 'warn', unreachable: 'error',
+  }),
+});
+// 文案目录。与 helpDocsDir()/staticBase() 同一口径:先看发布件外部目录,再回落打包内相对路径。
+function doctorLocaleCatalog(lang) {
+  const file = DOCTOR_HUMAN_LANGS.includes(lang) ? lang : 'zh-CN';
+  const candidates = [
+    path.join(externalRoot(), 'app', 'public', 'locales', `${file}.json`),
+    path.join(__dirname, 'public', 'locales', `${file}.json`),
+  ];
+  for (const full of candidates) {
+    try { if (fs.existsSync(full)) return JSON.parse(fs.readFileSync(full, 'utf8')); }
+    catch { /* 这一份读不通就试下一个候选 */ }
+  }
+  return {};
+}
+// health 条目 -> 变体键。desktop-control 的变体写在 detail 的状态前缀里;其余项只有 ok/bad 两态。
+function doctorHealthVariant(item) {
+  if (!item) return 'bad';
+  if (item.id === 'desktop-control') return String(item.detail || '').split(':')[0].trim() || 'not-installed';
+  return item.ok ? 'ok' : 'bad';
+}
+function doctorHealthSeverity(item) {
+  const table = DOCTOR_HEALTH_SEVERITY[item && item.id];
+  if (!table) return item && item.ok ? 'ok' : 'warn';
+  return table[doctorHealthVariant(item)] || (item && item.ok ? 'ok' : 'warn');
+}
+// 只做 {{name}} 占位替换 -- 与前端 i18n interpolate 同一约定,不引入任何模板引擎。
+function doctorFill(text, params) {
+  return String(text || '').replace(/{{\s*([\w.-]+)\s*}}/g, (_m, key) => (params && key in params ? String(params[key]) : ''));
+}
+// 把 health[] 渲染成人话行。返回字符串数组(便于测试逐行断言),不直接 console.log。
+function doctorHumanLines(health, catalog) {
+  const pick = (key, fallback) => (typeof catalog[key] === 'string' && catalog[key] ? catalog[key] : fallback);
+  const lines = [pick('health.cli.title', 'Ruyi health check')];
+  for (const item of Array.isArray(health) ? health : []) {
+    if (!item || item.id === 'claude-cli') continue; // claude-cli 与 agent-cli 是同一件事的旧别名,人话输出只列一次
+    const id = String(item.id || '');
+    const known = typeof catalog[`health.item.${id}.label`] === 'string';
+    const variant = doctorHealthVariant(item);
+    const severity = doctorHealthSeverity(item);
+    const label = known ? catalog[`health.item.${id}.label`] : pick('health.item.unknown.label', 'Other check');
+    const count = Number((String(item.detail || '').match(/(\d+)/) || [])[1] || 0);
+    const hint = known
+      ? doctorFill(catalog[`health.item.${id}.hint.${variant}`] || catalog[`health.item.${id}.hint.bad`] || '', { count })
+      : pick(`health.item.unknown.hint.${item.ok ? 'ok' : 'bad'}`, '');
+    const next = known ? String(catalog[`health.item.${id}.next.${variant}`] || '') : '';
+    lines.push(`[${pick('health.status.' + severity, severity)}] ${label}`);
+    if (hint) lines.push('    ' + hint);
+    if (severity !== 'ok' && next) lines.push('    ' + pick('health.action.howto', 'What to do') + ': ' + next);
+    lines.push('    ' + pick('health.tech.toggle', 'Technical details') + ': ' + id + ' · ' + String(item.detail || ''));
+  }
+  return lines;
+}
+
+async function doctor(argv) {
   await ensureDirs();
   const config = await readConfig();
   const mcpConfigPath = await generateMcpConfig();
@@ -34686,6 +34814,15 @@ async function doctor() {
     resourcesRoot: path.join(externalRoot(), 'resources'),
   };
   console.log(JSON.stringify(info, null, 2));
+  // 118b: 加法开关。没有 --human 时上面的 JSON 就是全部输出,与历史逐字节一致。
+  if (!(argv && (argv.human === true || argv.human === '1' || argv.human === 'true'))) return;
+  // 刻意不在这里预热能力缓存:getCapabilities(force) 会真去把桌面 MCP 桥起来,子进程会把一次性 CLI
+  // 的事件循环吊住(实测不退出)。所以 CLI 的桌面控制在冷缓存下如实报「正在准备中」,不为一行文案
+  // 换一个会挂住的命令。
+  const { health } = await computeHealth(config).catch(() => ({ health: [] }));
+  const catalog = doctorLocaleCatalog(String(config.locale || ''));
+  console.log('');
+  for (const line of doctorHumanLines(health, catalog)) console.log(line);
 }
 
 function parseArgs(argv) {
@@ -36953,7 +37090,7 @@ async function main() {
   if (command === 'serve') return startServer(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return installIntegration();
-  if (command === 'doctor') return doctor();
+  if (command === 'doctor') return doctor(argv); // 118b: --human 走人话体检,默认仍只打 JSON
   if (command === 'mcp-config') {
     console.log(await generateMcpConfig());
     return;

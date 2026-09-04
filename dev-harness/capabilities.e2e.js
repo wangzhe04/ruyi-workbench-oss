@@ -152,6 +152,15 @@ function systemOf(body) {
     // /api/status still carries the legacy binaries field (backward compat).
     const status = await getJson(WB_PORT, '/api/status');
     ok(status && status.binaries && typeof status.binaries.rg === 'boolean', '/api/status still carries legacy binaries.rg');
+    // 118b: computeHealth gained a desktop-control item. Shape stays {id, ok, detail}; the detail carries a
+    // stable state token so the UI map + `doctor --human` can turn it into one plain sentence.
+    const deskHealth = (status.health || []).find(x => x && x.id === 'desktop-control');
+    ok(deskHealth && typeof deskHealth.ok === 'boolean' && typeof deskHealth.detail === 'string'
+      && Object.keys(deskHealth).sort().join(',') === 'detail,id,ok',
+      '118b (A) health[] carries desktop-control with the unchanged {id, ok, detail} shape (' + JSON.stringify(deskHealth) + ')');
+    ok(deskHealth && deskHealth.ok === true && /^ready: \d+ desktop tools bridged$/.test(deskHealth.detail)
+      && Number(deskHealth.detail.match(/(\d+)/)[1]) === fakeToolCount,
+      '118b (A) ACC bridged and probed → state ready with the ACC-only tool count (' + (deskHealth && deskHealth.detail) + ')');
 
     // (c) IDENTITY PINNING + (d) PROJECT LAYER — run a turn, then inspect the captured request body.
     const events = await postStream(WB_PORT, { message: '你好', cwd: WS });
@@ -310,6 +319,53 @@ function systemOf(body) {
       ok(hadTools && hadNoTools, '(F) captured bodies go from tools→no-tools (retry dropped tools)');
     } catch (e) { console.log('ERROR(F) ' + (e && e.stack || e)); fail++; }
     finally { for (const c of [wbF, fakeF]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } } await sleep(300); fs.rmSync(HOME_F, { recursive: true, force: true }); }
+  }
+
+  // 118b PART G - desktop-control health states. Part A already pinned `ready`; here are the two states a
+  // user can actually land in without ACC working: switched off in config, and configured-but-not-answering.
+  // Each fixture warms the capability cache with ?force=1 first, because computeHealth reads that cache
+  // read-only (peekCapabilities) and must never kick off a probe of its own on the status polling path.
+  {
+    const cases = [
+      {
+        tag: 'disabled', dir: 'wcw-capabilities-e2e-g1',
+        desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
+        expectOk: false, expectState: 'disabled',
+      },
+      {
+        tag: 'unreachable', dir: 'wcw-capabilities-e2e-g2',
+        // A resolvable launch command that cannot possibly hand back tools: node exits immediately on a
+        // missing entry file, so the bridge is configured but nothing gets bridged.
+        desktopMcp: { enabled: true, command: process.execPath, args: [path.join(HERE, 'no-such-desktop-mcp.js')], cwd: '', autodetect: false },
+        expectOk: false, expectState: 'unreachable',
+      },
+    ];
+    for (const item of cases) {
+      const WB_PORT_G = await getFreePort();
+      const HOME_G = path.join(os.tmpdir(), item.dir);
+      fs.rmSync(HOME_G, { recursive: true, force: true });
+      fs.mkdirSync(HOME_G, { recursive: true });
+      fs.writeFileSync(path.join(HOME_G, 'config.json'), JSON.stringify({
+        configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
+        desktopMcp: item.desktopMcp,
+      }, null, 2));
+      const wbG = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT_G)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME_G, WCW_TEST_NO_NET_ANCHORS: '1' }, windowsHide: true });
+      wbG.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wbG!] ' + l.trim())));
+      try {
+        let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT_G); }
+        ok(!!h, '118b (G/' + item.tag + ') workbench listening');
+        await getJson(WB_PORT_G, '/api/capabilities?force=1').catch(() => null); // warm the read-only cache
+        const st = await getJson(WB_PORT_G, '/api/status');
+        const desk = ((st && st.health) || []).find(x => x && x.id === 'desktop-control');
+        ok(desk && desk.ok === item.expectOk && String(desk.detail || '').split(':')[0] === item.expectState,
+          '118b (G/' + item.tag + ') desktop-control → ok:' + item.expectOk + ' state:' + item.expectState
+          + ' (' + JSON.stringify(desk) + ')');
+      } catch (e) { console.log('ERROR(G/' + item.tag + ') ' + (e && e.stack || e)); fail++; }
+      finally {
+        if (wbG && wbG.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wbG.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+        await sleep(300); fs.rmSync(HOME_G, { recursive: true, force: true });
+      }
+    }
   }
 
   // cleanup part-A home

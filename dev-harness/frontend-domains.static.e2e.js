@@ -288,12 +288,14 @@ ok(/return\s*\{[\s\S]*\bsyncStreamingUi,/.test(chatStreamRuntime)
   && /createSessionExperienceDomain\(\{[\s\S]*syncStreamingUi:\s*\(\)\s*=>\s*syncStreamingUi\(\)/.test(app),
   'D44 实时流 UI 同步入口已显式导出并注入会话领域');
 ok(!/function (messageShell|thinkingPanel|toolCard|renderContextMeter|renderStaticMessage|renderStaticTurnNarrative|sendPrompt|handleStreamLine|createLiveAssistantShell|renderSteeredMessage|handleSubagentEvent)\(/.test(app)
-  && app.split(/\r?\n/).length <= 1240,
+  && app.split(/\r?\n/).length <= 1280,
   // v2.7.2 (自动刷新工具面板): 组合根新增 refreshToolPane/noteToolTabOpened 接线与 loadUsage/loadAgentRuns 注入,
   // 行数护栏放宽到 1210。聊天函数正则(防领域实现回灌)保持不变。
   // 109b905: 组合根新增附件缩略图/图片查看器/倒计时接线(净增约 30 行,达 1229),护栏随 E9 放宽到 1240;
   // 物理瘦身留给 103b/104 模块隔离批次。
-  'D45 聊天实现离开 app.js 且组合根低于 1240 行');
+  // 118b(SPEC §6 重钉): 组合根补上 navigation-controls 漏注入的 fillSettings(1 行修复,详见 E9 处说明)。
+  // 1239/1240 已无余量,按纪律上调到整数余量 1280,断言其余不变(聊天函数正则依旧防实现回灌)。
+  'D45 聊天实现离开 app.js 且组合根低于 1240 行（118b 重钉护栏 1240→1280）');
 ok(overlayBuilder.includes("'app/public/js/chat-render-primitives.js'")
   && overlayBuilder.includes("'app/public/js/chat-static-renderer.js'")
   && overlayBuilder.includes("'app/public/js/chat-stream-runtime.js'"),

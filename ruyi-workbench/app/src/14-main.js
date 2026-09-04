@@ -4,7 +4,7 @@ async function main() {
   if (command === 'serve') return startServer(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return installIntegration();
-  if (command === 'doctor') return doctor();
+  if (command === 'doctor') return doctor(argv); // 118b: --human 走人话体检,默认仍只打 JSON
   if (command === 'mcp-config') {
     console.log(await generateMcpConfig());
     return;

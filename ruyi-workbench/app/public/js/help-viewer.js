@@ -68,6 +68,21 @@ export function isCrossOriginHref(href, base) {
 
 function asArray(value) { return Array.isArray(value) ? value : []; }
 
+// 118b: 全应用共用的阅读器实例登记处。
+//
+// 体检行的「怎么办」也要能打开手册,但设置域(provider-settings.js)不是组合根,拿不到 markdown 渲染
+// 原语(那两个函数由 app.js 注入给经典壳)。与其把新依赖塞进组合根(app.js 的 D45 行数护栏只剩 1 行余量),
+// 经典壳建好唯一实例后把它登记在这里,其余领域只调 openSharedHelpDoc() -- 仍然只有一个实例、一条渲染
+// 管线,组合根一行不加。没有登记(例如预览壳单独跑)时返回 null,调用方按「没有这个入口」处理。
+let sharedHelpViewer = null;
+export function registerHelpViewer(instance) { sharedHelpViewer = instance || null; return instance; }
+export function openSharedHelpDoc(options) {
+  return sharedHelpViewer && typeof sharedHelpViewer.openHelpViewer === 'function'
+    ? sharedHelpViewer.openHelpViewer(options)
+    : null;
+}
+export function hasSharedHelpViewer() { return Boolean(sharedHelpViewer); }
+
 export function createHelpViewerDomain({
   api = async () => ({}),
   el = tag => ({ tag }),
