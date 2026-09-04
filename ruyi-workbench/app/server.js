@@ -579,6 +579,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/checkpoints', auth: 'token' },
   { m: 'GET', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/file/preview', auth: 'token' },
+  // 118a-fix: 应用内手册阅读器的取文端点。只服务源码里写死的白名单文档(docs/manuals/*),
+  // 客户端只能传 id/lang 两个受控枚举,永不把用户输入拼进文件路径;token 级同 /api/file/preview。
+  { m: 'GET', p: '/api/help/doc', auth: 'token' },
   { m: 'GET', p: '/api/audit', auth: 'token' },
   { m: 'GET', p: '/api/storage/summary', auth: 'token' },
   { m: 'POST', p: '/api/storage/policy', auth: 'token' },
@@ -980,6 +983,11 @@ function defaultConfig() {
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
+    // 118a: welcome-wizard completion record. null = never finished and never skipped (the wizard may
+    // still be offered). Shape once written: { completedAt: ISO|null, version: <int>, skipped: bool }.
+    // Purely additive: normalizeConfig sanitizes the shape and CONFIG_SCHEMA is deliberately NOT bumped,
+    // so an older config simply reads back null and the wizard stays available.
+    onboarding: null,
     // v2.7 (workspace permissions): trusted workspaces with per-workspace read/write/execute flags.
     // Priority = array order (index 0 = primary/current default). Each entry { path, read, write, execute },
     // all defaulting to true. Seeded from defaultWorkspace + recentWorkspaces on first load so existing
@@ -1478,6 +1486,26 @@ function normalizeConfig(raw) {
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
     else config.recentWorkspaces = clean;
+  }
+  // 118a: onboarding, the welcome-wizard completion record. Additive default null; any non-object (or array)
+  // collapses back to null. A written record is cleansed to exactly three fields so a hand-edited config
+  // cannot smuggle extra keys into the UI. Fields: completedAt (trimmed ISO-ish string or null), version (integer
+  // 0..1000) and skipped (strict boolean). Nothing here widens behavior: the record only decides whether
+  // the wizard offers itself again.
+  {
+    const rawOnboarding = config.onboarding;
+    let clean = null;
+    if (rawOnboarding && typeof rawOnboarding === 'object' && !Array.isArray(rawOnboarding)) {
+      const completedAtRaw = typeof rawOnboarding.completedAt === 'string' ? rawOnboarding.completedAt.trim() : '';
+      const versionNumber = Number(rawOnboarding.version);
+      clean = {
+        completedAt: completedAtRaw ? completedAtRaw.slice(0, 64) : null,
+        version: Number.isFinite(versionNumber) ? Math.max(0, Math.min(1000, Math.round(versionNumber))) : 0,
+        skipped: rawOnboarding.skipped === true,
+      };
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.onboarding)) { config.onboarding = clean; changed = true; }
+    else config.onboarding = clean;
   }
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
@@ -32756,6 +32784,34 @@ const MCP_TOOLS = [
   },
 ];
 
+// 118a-fix: 应用内手册阅读器的服务端事实源。
+// 反模式治理:118a 的完成页只给了一行相对路径 + 「复制路径」,等于把用户推到文件管理器里自己找手册。
+// 产品口径是「每件事都能在如意里做完」,所以手册改为应用内直接读:本端点只吐 markdown 原文,
+// 前端用既有 marked + sanitizeNode 白名单管线渲染,不新增第二套解析器。
+// 安全口径:docId 与 lang 都只在下面这张【源码写死】的白名单里查表,客户端字符串永不参与路径拼接,
+// 因此不存在目录穿越面(id=../../.. 只会查不到表 -> 404)。
+const HELP_DOC_FILES = Object.freeze({
+  'user-guide': Object.freeze({ 'zh-CN': 'USER-GUIDE_CN.md', 'en-US': 'USER-GUIDE_EN.md' }),
+  'admin-guide': Object.freeze({ 'zh-CN': 'ADMIN-GUIDE_CN.md', 'en-US': 'ADMIN-GUIDE_EN.md' }),
+});
+const HELP_DOC_LANGS = Object.freeze(['zh-CN', 'en-US']);
+// 手册体量在 30~60KB 量级;512KB 上限只是防止有人把巨型文件放进 docs/manuals 后一次性灌进浏览器。
+const HELP_DOC_MAX_BYTES = 512 * 1024;
+
+// 手册目录。发布件把 docs/ 放在 Ruyi.exe 同级(externalRoot),源码运行时是 <repo>/ruyi-workbench/docs。
+// 与 staticBase() 同一口径:先看外部目录,不存在则回落打包内相对路径。
+function helpDocsDir() {
+  const ext = path.join(externalRoot(), 'docs', 'manuals');
+  try { if (fs.existsSync(ext)) return ext; } catch { /* 探测失败按不存在处理 */ }
+  return path.join(__dirname, '..', 'docs', 'manuals');
+}
+
+// 标题取正文第一个一级标题;取不到就用文件名兜底(阅读器抬头永远有字)。
+function helpDocTitle(markdown, fallback) {
+  const line = String(markdown || '').split(/\r?\n/).find(l => /^#\s+\S/.test(l));
+  return line ? line.replace(/^#\s+/, '').trim() : String(fallback || '');
+}
+
 async function handleApi(req, res, pathname) {
   // --- auth gate ---
   // The MCP child authenticates /api/permission/request with its own body token (checked there).
@@ -33773,6 +33829,39 @@ async function handleApi(req, res, pathname) {
       out.isText = false; out.binary = true;
     }
     return send(res, json(out));
+  }
+  // 118a-fix: 应用内手册阅读器的取文端点。GET /api/help/doc?id=<docId>&lang=<zh-CN|en-US>
+  // 只吐 markdown 原文,渲染在前端走既有 marked + sanitizeNode 白名单管线(help-viewer.js)。
+  // 鉴权:ROUTE_AUTH 记 token 级(同 /api/file/preview),这里再自查一遍(GET 不过上面的变更类鉴权块)。
+  // 第二道闸不是路径包含校验而是【查表】:id 与 lang 都只能命中 HELP_DOC_FILES 里写死的键,命不中即 404;
+  // 真正拼进 path.join 的只有常量文件名,请求里的任何字符串都到不了文件系统,穿越面为零。
+  // 降级:Slim 包可能不带 docs/ -> 200 {ok:false,error:'help.doc_missing'},前端在应用内解释,
+  // 绝不回退成「自己去某个路径打开文件」。
+  if (req.method === 'GET' && pathname === '/api/help/doc') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const q = new URL(req.url, 'http://x').searchParams;
+    const id = String(q.get('id') || '');
+    const variants = Object.prototype.hasOwnProperty.call(HELP_DOC_FILES, id) ? HELP_DOC_FILES[id] : null;
+    if (!variants) return send(res, apiFailure('help.doc_unknown', {}, 'unknown help document id', 404));
+    let lang = String(q.get('lang') || '');
+    if (!HELP_DOC_LANGS.includes(lang)) {
+      // 没显式指定语言就跟随配置;config.locale 可能是 'auto' 或非法值,一律回落中文。
+      const config = await readConfig().catch(() => null);
+      const configured = config ? String(config.locale || '') : '';
+      lang = HELP_DOC_LANGS.includes(configured) ? configured : 'zh-CN';
+    }
+    const fileName = variants[lang];
+    const target = path.join(helpDocsDir(), fileName); // fileName 来自白名单常量,不是请求数据
+    let raw = null;
+    try { raw = await fsp.readFile(target); } catch { raw = null; }
+    if (!raw) return send(res, json({ ok: false, error: 'help.doc_missing', id, lang }));
+    const truncated = raw.length > HELP_DOC_MAX_BYTES;
+    let markdown = (truncated ? raw.subarray(0, HELP_DOC_MAX_BYTES) : raw).toString('utf8');
+    // 截断按整行收口:按字节切可能把一个多字节字符劈开,丢掉尾行比留半个字符干净。
+    if (truncated) markdown = markdown.slice(0, Math.max(0, markdown.lastIndexOf('\n')));
+    const available = HELP_DOC_LANGS.filter(l => variants[l]);
+    return send(res, json({ ok: true, id, lang, available, title: helpDocTitle(markdown, fileName),
+      markdown, bytes: raw.length, truncated }));
   }
   // v0.9-S4 (C4): local file PREVIEW. GET /api/file/preview?path=&sessionId= — returns file content for the
   // 「产物」gallery + file tree. Token-gated (needsToken whitelist above) AND re-checked here (GETs never run

@@ -77,6 +77,8 @@ const PAYLOAD_FILES = [
   'app/public/js/preview-task-sheet.js',
   'app/public/js/preview-lenses.js',
   'app/public/js/preview-finish.js',
+  'app/public/js/onboarding-wizard.js', // 118a
+  'app/public/js/help-viewer.js', // 118a-fix
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -95,6 +97,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/usage.css',
   'app/public/css/views/workbench.css',
   'app/public/css/views/preview-shell.css',
+  'app/public/css/components/onboarding.css', // 118a
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

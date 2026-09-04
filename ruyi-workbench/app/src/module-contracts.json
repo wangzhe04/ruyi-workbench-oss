@@ -7957,6 +7957,9 @@
       "layer": "transport",
       "provides": [
         "CLAUDE_ALIAS_IDS",
+        "HELP_DOC_FILES",
+        "HELP_DOC_LANGS",
+        "HELP_DOC_MAX_BYTES",
         "MODEL_PRESETS",
         "MODEL_TIER_LABEL",
         "MODEL_TIER_USE",
@@ -7969,6 +7972,8 @@
         "freeStalePort",
         "getProxyModelsCache",
         "handleApi",
+        "helpDocTitle",
+        "helpDocsDir",
         "installIntegration",
         "killPid",
         "kimiModelList",

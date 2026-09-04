@@ -102,6 +102,9 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/checkpoints', auth: 'token' },
   { m: 'GET', p: '/api/checkpoints/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/file/preview', auth: 'token' },
+  // 118a-fix: 应用内手册阅读器的取文端点。只服务源码里写死的白名单文档(docs/manuals/*),
+  // 客户端只能传 id/lang 两个受控枚举,永不把用户输入拼进文件路径;token 级同 /api/file/preview。
+  { m: 'GET', p: '/api/help/doc', auth: 'token' },
   { m: 'GET', p: '/api/audit', auth: 'token' },
   { m: 'GET', p: '/api/storage/summary', auth: 'token' },
   { m: 'POST', p: '/api/storage/policy', auth: 'token' },

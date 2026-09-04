@@ -23,6 +23,8 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   'css/views/usage.css',
   'css/views/workbench.css',
   'css/views/preview-shell.css',
+  // 118a: onboarding wizard layer (own component sheet, appended last so it can lean on every token above).
+  'css/components/onboarding.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -92,7 +94,14 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 109b: chat-live.css 追加工具结果图内联缩略图样式(.tool-image/.tool-image img/.tool-image.expanded/
 // .tool-image-toggle/.tool-image-openbtn)。全部为该所有权层的新增规则,未改动任何既有选择器;
 // token 化配色,亮暗双主题共用。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '14bebe5974b8166270d71387950738dc97c3fcb77f011b8769be1fe038584411';
+// 118a: new owned layer css/components/onboarding.css (welcome wizard dialog, step rail, choice cards,
+// live status line, 390px + reduced-motion containment). Additive only: no existing layer's rules were
+// touched, the link/@import/overlay order gained exactly one trailing entry. Re-pin the intentional payload.
+// 118a-fix: the in-app manual reader's .help-viewer-* rules were appended to the SAME already-registered
+// layer (css/components/onboarding.css) rather than opening a new sheet, and two now-dead rules for the
+// retired path/copy affordance (.onboard-wiz-manual-path) were removed. Additive plus that deletion: no
+// other layer's rules were touched and the link/@import/overlay order is unchanged. Re-pin the payload.
+const LEGACY_STYLES_SHA256 = '7da66508aec892c6eedf64f8c7ca6e740e53b8b1cc5980fec74bef314cb9fcd8';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

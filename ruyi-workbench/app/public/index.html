@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="/css/views/usage.css" />
     <link rel="stylesheet" href="/css/views/workbench.css" />
     <link rel="stylesheet" href="/css/views/preview-shell.css" />
+    <link rel="stylesheet" href="/css/components/onboarding.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -555,6 +556,12 @@
                 <label class="check"><input type="checkbox" id="cfgAllowOutsideWorkspace" /> <span data-i18n="settings.workspacePerm.allowOutside">允许工作区外读写</span></label>
               </div>
               <p class="field-help muted" data-i18n="settings.workspacePerm.hint">工作区按优先级排序（首项为默认工作区）；每个工作区可单独开关读/写/执行权限。</p>
+            </div>
+            <!-- 118a: 新手引导可跳过，所以必须有一个永久可见的重开入口。 -->
+            <div class="field-block">
+              <label data-i18n="onboarding.wizard.settingsLabel">新手引导</label>
+              <button type="button" id="reopenOnboardingBtn" class="btn btn-sm" data-i18n="onboarding.wizard.reopen">重新打开引导</button>
+              <p class="field-help muted" data-i18n="onboarding.wizard.reopenHint">忘了怎么配？随时可以再走一遍新手引导。</p>
             </div>
             <div class="field-block">
               <label for="cfgLocale" data-i18n="settings.language">语言</label>

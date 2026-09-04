@@ -1,0 +1,167 @@
+/* Welcome wizard (118a): shell-agnostic onboarding dialog, its step rail, cards and status line. */
+/* ============================ 118a welcome wizard ============================
+   Owns only .onboard-wiz-* plus the two first-run entry buttons. Every color comes from the shared
+   token set, so both themes and both shells inherit without a second palette. All motion sits behind
+   the global prefers-reduced-motion guard in base.css; nothing here declares an infinite animation. */
+.modal.onboard-wizard { width: min(640px, 100%); max-height: min(88vh, 780px); }
+.onboard-wiz-heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.onboard-wiz-counter { font-size: var(--fs-xs); color: var(--muted); }
+.onboard-wiz-close { flex: none; }
+
+/* Step rail: a compact breadcrumb of the six steps. aria-hidden, the counter carries the same fact. */
+.onboard-wiz-rail { display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) 18px 0; }
+.onboard-wiz-rail-item {
+  font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line);
+  border-radius: var(--r-pill); padding: 1px var(--sp-2); white-space: nowrap;
+}
+.onboard-wiz-rail-item.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.onboard-wiz-rail-item.current { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+.onboard-wiz-body { display: block; }
+.onboard-wiz-step { display: flex; flex-direction: column; gap: var(--sp-3); }
+.onboard-wiz-step-title { margin: 0; font-size: var(--fs-lg); }
+.onboard-wiz-step-hint { margin: 0; font-size: var(--fs-sm); line-height: 1.6; }
+.onboard-wiz-note { margin: 0; font-size: var(--fs-xs); line-height: 1.6; word-break: break-all; }
+.onboard-wiz-field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.onboard-wiz-field > label { font-size: var(--fs-sm); color: var(--ink-2); }
+
+/* Choice cards (engine / preset / safety / playbook). Real <button>s, so keyboard reach is free. */
+.onboard-wiz-cards, .onboard-wiz-presets, .onboard-wiz-playbooks {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-2);
+}
+.onboard-wiz-card {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; cursor: pointer;
+  /* Buttons do not wrap by default in this shell, so long vendor blurbs would run past the card edge. */
+  white-space: normal; overflow-wrap: anywhere; min-width: 0;
+  padding: var(--sp-3); min-height: var(--tap-min);
+  background: var(--glass-bg-1); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.onboard-wiz-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.onboard-wiz-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+.onboard-wiz-card-title { font-size: var(--fs-sm); font-weight: 600; }
+.onboard-wiz-card-desc { font-size: var(--fs-xs); color: var(--muted); line-height: 1.55; }
+.onboard-wiz-card-extra { font-size: var(--fs-xs); color: var(--muted); font-family: var(--mono); word-break: break-all; }
+
+.onboard-wiz-details { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); }
+.onboard-wiz-details > summary { cursor: pointer; font-size: var(--fs-sm); }
+.onboard-wiz-details > p { margin: var(--sp-2) 0; font-size: var(--fs-xs); line-height: 1.6; }
+.onboard-wiz-keywrap { display: flex; gap: var(--sp-1); }
+.onboard-wiz-keywrap > input { flex: 1; min-width: 0; }
+.onboard-wiz-model-host { display: block; }
+.onboard-wiz-model-host > input, .onboard-wiz-model-host > select { width: 100%; }
+.onboard-wiz-drop {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); cursor: pointer;
+  padding: var(--sp-5); border: 1px dashed var(--line); border-radius: var(--radius);
+  background: transparent; color: var(--ink);
+}
+.onboard-wiz-drop.dragging { border-color: var(--accent); background: var(--accent-soft); }
+.onboard-wiz-manual { display: flex; flex-direction: column; gap: var(--sp-1); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.onboard-wiz-manual-title { font-size: var(--fs-sm); font-weight: 600; }
+.onboard-wiz-manual > p { margin: 0; font-size: var(--fs-xs); }
+
+/* Live region for validation / test / save feedback. Empty by default so it never reserves space. */
+.onboard-wiz-status { padding: 0 18px; font-size: var(--fs-xs); line-height: 1.6; color: var(--muted); }
+.onboard-wiz-status:not(:empty) { padding: var(--sp-2) 18px; }
+.onboard-wiz-status.ok { color: var(--ok); }
+.onboard-wiz-status.warn { color: var(--warn); }
+.onboard-wiz-status.err { color: var(--danger); }
+.onboard-wiz-foot { flex-wrap: wrap; }
+.onboard-wiz-foot-spacer { flex: 1; }
+
+/* First-run entry buttons in both shells. */
+.onboard-start-guide { align-self: center; }
+.onboard-start-hint { margin: 0; font-size: var(--fs-xs); text-align: center; }
+.preview-first-run-guide-btn { margin-top: var(--sp-3); }
+
+@media (max-width: 520px) {
+  .modal.onboard-wizard { width: 100%; max-height: calc(100vh - 16px); }
+  .onboard-wiz-rail { padding: var(--sp-2) 12px 0; }
+  .onboard-wiz-status { padding-left: 12px; padding-right: 12px; }
+  .onboard-wiz-cards, .onboard-wiz-presets, .onboard-wiz-playbooks { grid-template-columns: 1fr; }
+  .onboard-wiz-foot { gap: var(--sp-1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Belt and braces next to the global guard in base.css: this layer declares no motion of its own. */
+  .onboard-wiz-card { transition: none; }
+}
+
+/* ============================ 118a-fix in-app manual reader ============================
+   Owns .help-viewer-*. Lives in this sheet on purpose: the reader is the completion page's
+   replacement for the old copy-a-path affordance, so it ships in the same already-registered
+   layer (no new stylesheet = no read-frontend-css re-pin). Colors are the shared tokens only. */
+.modal.help-viewer {
+  width: min(1040px, 100%); max-height: min(90vh, 900px);
+  /* 长文阅读面必须是实底。浮层族的玻璃档(--glass-bg-2 + backdrop-filter)在阅读器叠到向导之上时
+     会把下层文字透上来,长段落读不下去;这里只对本层改成 --panel 实底,不动全站浮层口径。 */
+  background: var(--panel);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* 叠层时把下面那层压暗一档,视觉上「手册在最上面」一眼可辨。 */
+.help-viewer-backdrop { background: rgba(0, 0, 0, .62); }
+.help-viewer-head { gap: var(--sp-2); }
+.help-viewer-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.help-viewer-langs { display: flex; gap: var(--sp-1); flex: none; }
+.help-viewer-lang.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+/* Two columns: a sticky jump list on the left, the document on the right. One scroll container
+   (.modal-body) so the jump targets scroll into view without a nested scrollbar fight. */
+.help-viewer-body {
+  display: grid; grid-template-columns: minmax(180px, 250px) minmax(0, 1fr);
+  gap: var(--sp-4); align-items: start;
+}
+.help-viewer-toc { position: sticky; top: 0; align-self: start; min-width: 0; }
+.help-viewer-toc-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); padding-bottom: var(--sp-1); }
+.help-viewer-toc-empty { margin: 0; font-size: var(--fs-xs); }
+.help-viewer-toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.help-viewer-toc-link {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  white-space: normal; overflow-wrap: anywhere;
+  padding: 4px var(--sp-2); border: 0; border-left: 2px solid transparent; border-radius: var(--radius-sm);
+  background: transparent; color: var(--ink-2); font-size: var(--fs-xs); line-height: 1.5;
+}
+.help-viewer-toc-link:hover { background: var(--glass-bg-1); color: var(--ink); border-left-color: var(--accent); }
+
+.help-viewer-doc { min-width: 0; font-size: var(--fs-md); line-height: 1.8; color: var(--ink); overflow-wrap: anywhere; }
+.help-viewer-doc:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.help-viewer-doc h1 { font-size: var(--fs-xl); margin: 0 0 var(--sp-3); }
+.help-viewer-doc h2 { font-size: var(--fs-lg); margin: var(--sp-5) 0 var(--sp-2); padding-top: var(--sp-1); border-top: 1px solid var(--line); scroll-margin-top: var(--sp-2); }
+.help-viewer-doc h3 { font-size: var(--fs-md); margin: var(--sp-4) 0 var(--sp-1); }
+.help-viewer-doc p, .help-viewer-doc ul, .help-viewer-doc ol { margin: 0 0 var(--sp-3); }
+.help-viewer-doc li { margin-bottom: 4px; }
+.help-viewer-doc code { font-family: var(--mono); font-size: .92em; }
+.help-viewer-doc pre { overflow-x: auto; }
+.help-viewer-doc table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
+.help-viewer-doc th, .help-viewer-doc td { border: 1px solid var(--line); padding: 4px var(--sp-2); font-size: var(--fs-xs); }
+.help-viewer-doc blockquote { margin: 0 0 var(--sp-3); padding-left: var(--sp-3); border-left: 2px solid var(--line); color: var(--muted); }
+.help-viewer-missing { display: flex; flex-direction: column; gap: var(--sp-2); }
+.help-viewer-missing-title { margin: 0; font-size: var(--fs-md); }
+.help-viewer-missing-body { margin: 0; font-size: var(--fs-sm); line-height: 1.7; color: var(--ink-2); }
+
+.help-viewer-status { padding: 0 18px; font-size: var(--fs-xs); line-height: 1.6; color: var(--muted); }
+.help-viewer-status:not(:empty) { padding: var(--sp-2) 18px; border-top: 1px solid var(--line); }
+.help-viewer-status.warn { color: var(--warn); }
+.help-viewer-status.err { color: var(--danger); }
+
+/* The completion page's manual block: a plain in-app action, no path text, no copy button. */
+.onboard-wiz-manual > button { align-self: flex-start; }
+
+@media (max-width: 720px) {
+  /* One column. Plain block flow rather than a 1fr grid: the jump list caps its own height and scrolls,
+     and a capped + scrollable grid item does not contribute that height back to its row (the row collapses
+     and the two blocks overlap). Block layout stacks them unconditionally. */
+  .help-viewer-body { display: block; }
+  .help-viewer-toc {
+    position: static; max-height: 30vh; overflow-y: auto;
+    margin-bottom: var(--sp-3); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line);
+  }
+  .modal.help-viewer { width: 100%; max-height: calc(100vh - 16px); }
+  .help-viewer-status { padding-left: 12px; padding-right: 12px; }
+}
+/* 118a-fix: 正文里被收口的链接。手册互引变成应用内切换按钮;其余相对链接降级为普通文字(不留死链)。 */
+.help-viewer-doclink {
+  display: inline; padding: 0; border: 0; background: transparent; cursor: pointer;
+  font: inherit; color: var(--accent); text-decoration: underline;
+}
+.help-viewer-deadlink { color: var(--ink-2); }

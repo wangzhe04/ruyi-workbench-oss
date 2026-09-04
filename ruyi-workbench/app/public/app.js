@@ -87,6 +87,7 @@ const {
 } = createSettingsOperationsDomain({
   apiErrText,
   importMcpFromFolder: button => importMcpFromFolder(button),
+  openOnboarding: () => openOnboardingWizard(), // 118a
 });
 
 const {
@@ -792,6 +793,7 @@ const {
   loadAutonomyGrants,
   newSession,
   openBulkCleanupModal,
+  openOnboardingWizard,
   openPlaybookModal,
   openSession,
   patchSession,
@@ -813,6 +815,7 @@ const {
   turnSummaryCard,
 } = createSessionExperienceDomain({
   apiErrText,
+  renderMarkdownInto: (...args) => renderMarkdownInto(...args), highlightIn: (...args) => highlightIn(...args), // 118a-fix: 手册阅读器复用同一条已消毒 markdown 管线
   openModal: id => openModal(id),
   switchSettingsTab: (name, force) => switchSettingsTab(name, force),
   activeTurns,
@@ -929,6 +932,7 @@ const {
   },
   closeSettings: () => closeModal('settingsModal'),
   openWorkspaceControl: anchor => pickWorkspace(anchor),
+  openOnboardingWizard: () => openOnboardingWizard(), // 118a
   openSafetyControl: anchor => openPermPopover(anchor),
   openEngineControl: anchor => openModelChipPopover(anchor),
   dispatchCommand: request => startPreviewDispatchCommand(request),

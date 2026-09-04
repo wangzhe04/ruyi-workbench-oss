@@ -12,6 +12,8 @@ import { t } from './i18n.js';
 export function createSettingsOperationsDomain({
   apiErrText = fallbackApiErrText,
   importMcpFromFolder = async () => {},
+  // 118a: 「重新打开引导」。组合根注入与两壳同一个 onboarding-wizard.js 实例。
+  openOnboarding = () => {},
 } = {}) {
   let overlayZipPath = '';
   let mcpConnectorCache = [];
@@ -360,6 +362,8 @@ export function createSettingsOperationsDomain({
     const applyOverlay = $('ovApplyBtn'); if (applyOverlay) applyOverlay.onclick = overlayApply;
     const rollbackOverlay = $('ovRollbackBtn'); if (rollbackOverlay) rollbackOverlay.onclick = overlayRollback;
     const refreshOverlay = $('ovRefreshBtn'); if (refreshOverlay) refreshOverlay.onclick = refreshOverlayStatus;
+    // 118a: 设置 → 基础 里的「重新打开引导」。向导可跳过，也必须可重开。
+    const reopenOnboarding = $('reopenOnboardingBtn'); if (reopenOnboarding) reopenOnboarding.onclick = () => openOnboarding();
   }
 
   return Object.freeze({

@@ -58,6 +58,8 @@ export function createPreviewShellDomain({
   openSettings = () => {},
   closeSettings = () => {},
   openWorkspaceControl = () => {},
+  // 118a: 壳无关欢迎向导入口。组合根注入与经典壳同一个 onboarding-wizard.js 实例，预览壳不另建一套引导。
+  openOnboardingWizard = () => {},
   openSafetyControl = () => {},
   openEngineControl = () => {},
   dispatchCommand = async () => ({}),
@@ -1062,6 +1064,8 @@ export function createPreviewShellDomain({
       : t('previewShell.firstRunEngine')));
     steps.append(workspaceStep, safety, engine);
     guide.appendChild(steps);
+    // 118a: 三步进度条上方多一个主行动: 走一遍与经典壳完全相同的欢迎向导。
+    guide.appendChild(actionButton(t('onboarding.wizard.start'), 'preview-first-run-guide-btn', () => openOnboardingWizard()));
     return guide;
   }
 

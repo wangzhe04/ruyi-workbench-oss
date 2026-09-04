@@ -249,6 +249,11 @@ function defaultConfig() {
     // resolve candidate roots so a folder the user has worked in before is found even if it lives off the
     // drive-root/home fingerprint set. normalizeConfig cleanses to a de-duped string array truncated to 10.
     recentWorkspaces: [],
+    // 118a: welcome-wizard completion record. null = never finished and never skipped (the wizard may
+    // still be offered). Shape once written: { completedAt: ISO|null, version: <int>, skipped: bool }.
+    // Purely additive: normalizeConfig sanitizes the shape and CONFIG_SCHEMA is deliberately NOT bumped,
+    // so an older config simply reads back null and the wizard stays available.
+    onboarding: null,
     // v2.7 (workspace permissions): trusted workspaces with per-workspace read/write/execute flags.
     // Priority = array order (index 0 = primary/current default). Each entry { path, read, write, execute },
     // all defaulting to true. Seeded from defaultWorkspace + recentWorkspaces on first load so existing
@@ -747,6 +752,26 @@ function normalizeConfig(raw) {
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.recentWorkspaces)) { config.recentWorkspaces = clean; changed = true; }
     else config.recentWorkspaces = clean;
+  }
+  // 118a: onboarding, the welcome-wizard completion record. Additive default null; any non-object (or array)
+  // collapses back to null. A written record is cleansed to exactly three fields so a hand-edited config
+  // cannot smuggle extra keys into the UI. Fields: completedAt (trimmed ISO-ish string or null), version (integer
+  // 0..1000) and skipped (strict boolean). Nothing here widens behavior: the record only decides whether
+  // the wizard offers itself again.
+  {
+    const rawOnboarding = config.onboarding;
+    let clean = null;
+    if (rawOnboarding && typeof rawOnboarding === 'object' && !Array.isArray(rawOnboarding)) {
+      const completedAtRaw = typeof rawOnboarding.completedAt === 'string' ? rawOnboarding.completedAt.trim() : '';
+      const versionNumber = Number(rawOnboarding.version);
+      clean = {
+        completedAt: completedAtRaw ? completedAtRaw.slice(0, 64) : null,
+        version: Number.isFinite(versionNumber) ? Math.max(0, Math.min(1000, Math.round(versionNumber))) : 0,
+        skipped: rawOnboarding.skipped === true,
+      };
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(config.onboarding)) { config.onboarding = clean; changed = true; }
+    else config.onboarding = clean;
   }
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)

@@ -5,7 +5,12 @@ import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from '.
 import { api } from './net.js';
 import { $, el, autoGrow, fileBasename, toast } from './util.js';
 import { icon } from './icons.js';
-import { getLocale, t, tCount } from './i18n.js';
+import { getLocale, setLocale, t, tCount } from './i18n.js';
+// 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
+import { createOnboardingWizardDomain, shouldShowOnboarding } from './onboarding-wizard.js';
+// 118a-fix: 应用内手册阅读器。与向导同一口径:模块壳无关,由本壳注入环境依赖后持有唯一实例。
+import { createHelpViewerDomain } from './help-viewer.js';
+import { providerDraftFromPreset } from './provider-settings.js';
 import {
   activeTurnUserIsPersisted,
   captureScrollAnchor,
@@ -19,6 +24,10 @@ import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
 
 export function createSessionExperienceDomain({
   apiErrText = error => String(error && error.message || error || ''),
+  // 118a-fix: 手册正文的落 DOM 与高亮。组合根透进来的就是 chat-render-primitives 那一份已消毒管线,
+  // 阅读器不另造解析器,也不自己拼 HTML。
+  renderMarkdownInto = container => container,
+  highlightIn = () => {},
   openModal = () => {},
   switchSettingsTab = () => {},
   activeTurns = new Map(),
@@ -51,6 +60,29 @@ export function createSessionExperienceDomain({
   playbookDisplayUnavailableReason = () => '',
   playbookInputLabel = (_playbook, input) => String(input && input.label || ''),
 } = {}) {
+// 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
+// 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
+// 用上面这条既有管线渲染在应用内,不再给用户一行路径让他自己去开文件。
+const helpViewer = createHelpViewerDomain({ api, el, t, toast, apiErrText, getLocale, renderMarkdownInto, highlightIn });
+function openHelpViewer(options) { return helpViewer.openHelpViewer(options); }
+const onboardingWizard = createOnboardingWizardDomain({
+  state,
+  api,
+  el,
+  t,
+  toast,
+  apiErrText,
+  getLocale,
+  setLocale,
+  providerDraftFromPreset,
+  pickWorkspace: () => pickWorkspaceNative(),
+  openSettings: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'basic', true); },
+  openPlaybook: playbook => openPlaybookModal(playbook),
+  openHelpViewer: (...args) => openHelpViewer(...args), // 118a-fix: 完成页「打开手册」走应用内阅读器
+  onConfigChanged: () => { updateEngineDependentUI(); renderWorkspacePicker(); },
+});
+// 「开始引导」/「重新打开引导」共用的入口。设置页按钮由组合根注入本函数。
+function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }
 function groupKey(iso) {
   const d = new Date(iso); const now = new Date();
   const days = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000);
@@ -904,6 +936,12 @@ function buildFirstRunState() {
   wrap.appendChild(buildRuyiLogo());
   wrap.appendChild(el('h2', '', t('onboarding.title')));
   wrap.appendChild(el('p', '', t('onboarding.description')));
+  // 118a: 首跑卡的主行动是走一遍向导(语言/引擎/密钥/文件夹/安全档/试跑),拖放区与引擎卡留作老手直达路径。
+  const guideBtn = el('button', 'primary onboard-start-guide', t('onboarding.wizard.start'));
+  guideBtn.type = 'button';
+  guideBtn.onclick = () => openOnboardingWizard();
+  wrap.appendChild(guideBtn);
+  if (shouldShowOnboarding(state.config, state.sessions)) wrap.appendChild(el('p', 'onboard-start-hint muted', t('onboarding.wizard.startHint')));
   wrap.appendChild(buildOnboardDropZone());
   wrap.appendChild(buildOnboardEngine());
   // 任务卡（既有 playbook 首页渲染，不动其逻辑）。
@@ -1049,7 +1087,9 @@ function buildEmptyCTA() {
     isUntitledTitle,
     loadAutonomyGrants,
     newSession,
+    onboardingStepsFor: onboardingWizard.onboardingStepsFor,
     openBulkCleanupModal,
+    openOnboardingWizard,
     openPlaybookModal,
     openSession,
     patchSession,

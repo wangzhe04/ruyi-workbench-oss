@@ -6,6 +6,31 @@ import { api } from './net.js';
 import { $, el, escapeHtml, autoGrow, setStatus, toast } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 
+// 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
+// addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
+// provider entries instead of growing a second serializer. `existingIds` is the list of ids already in
+// the draft/config; a collision gets the historical `<id>-2`, `<id>-3` suffix.
+export function providerDraftFromPreset(preset, existingIds = []) {
+  if (!preset) return null;
+  const taken = new Set((Array.isArray(existingIds) ? existingIds : []).map(value => String(value || '')));
+  let id = preset.id;
+  let n = 2;
+  while (taken.has(id)) { id = `${preset.id}-${n++}`; }
+  return {
+    id, label: preset.label || id, type: 'openai-compat',
+    baseUrl: preset.baseUrl || '', apiKey: '',
+    model: preset.defaultModel || (preset.models && preset.models[0] && preset.models[0].id) || '',
+    models: (preset.models || []).map(m => ({ id: m.id, label: m.label || m.id })),
+    reasoning: !!preset.reasoning, systemPrompt: '', temperature: '',
+    // v1.7: DeepSeek 预设模板带 apiStyle:'responses'(走官方新增的 Responses API, Codex/agent 工具循环)。
+    // 其它预设不带 → providerCard 里默认 chat, 行为与旧版完全一致。
+    ...(preset.apiStyle ? { apiStyle: preset.apiStyle } : {}),
+    // v1.8.2: DeepSeek 预设声明 serverWebSearch:true(Responses 服务端 web_search)。
+    // 透传进草稿,否则从 UI 添加的 DeepSeek 会静默退化为本地搜索保底(后端 sanitize 兜底默认 false)。
+    ...(preset.serverWebSearch ? { serverWebSearch: true } : {}),
+  };
+}
+
 export function createProviderSettingsDomain({
   apiErrText = error => String(error && error.message || error || ''),
   renderModelChip = () => {},
@@ -651,21 +676,10 @@ function addProviderFromPreset() {
   const preset = presets.find(p => p.id === sel.value) || presets[0];
   if (!preset) return;
   state.providersDraft = state.providersDraft || [];
-  const existing = new Set(state.providersDraft.map(p => p.id));
-  let id = preset.id, n = 2; while (existing.has(id)) { id = `${preset.id}-${n++}`; }
-  state.providersDraft.push({
-    id, label: preset.label || id, type: 'openai-compat',
-    baseUrl: preset.baseUrl || '', apiKey: '',
-    model: preset.defaultModel || (preset.models && preset.models[0] && preset.models[0].id) || '',
-    models: (preset.models || []).map(m => ({ id: m.id, label: m.label || m.id })),
-    reasoning: !!preset.reasoning, systemPrompt: '', temperature: '',
-    // v1.7: DeepSeek 预设模板带 apiStyle:'responses'(走官方新增的 Responses API, Codex/agent 工具循环)。
-    // 其它预设不带 → providerCard 里默认 chat, 行为与旧版完全一致。
-    ...(preset.apiStyle ? { apiStyle: preset.apiStyle } : {}),
-    // v1.8.2: DeepSeek 预设声明 serverWebSearch:true(Responses 服务端 web_search)。
-    // 透传进草稿,否则从 UI 添加的 DeepSeek 会静默退化为本地搜索保底(后端 sanitize 兜底默认 false)。
-    ...(preset.serverWebSearch ? { serverWebSearch: true } : {}),
-  });
+  // 118a: 序列化下沉到模块级 providerDraftFromPreset()(与欢迎向导共用同一实现,零行为变化)。
+  const draft = providerDraftFromPreset(preset, state.providersDraft.map(p => p.id));
+  if (!draft) return;
+  state.providersDraft.push(draft);
   renderProviders();
 }
 // Provider 单价编辑器的受控币种清单；属于设置写模型，不随只读用量看板迁移。
