@@ -30,6 +30,9 @@ const src06b = read('06b-prompt-registry.js');
 const src06i = read('06i-steward-core.js');
 const src09 = read('09-workflow.js');
 const src10 = read('10-context-governance.js');
+const src12 = read('12-tool-dispatch.js');
+const src13 = read('13-http-router.js');
+const src13d = read('13d-core-domain-routes.js');
 const src13g = read('13g-steward.js');
 const src13h = read('13h-steward-runner.js');
 const src01b = read('01b-route-auth.js');
@@ -52,7 +55,11 @@ const src01b = read('01b-route-auth.js');
   const runnerSymbols = [...new Set((src13h.match(/^(?:async )?function ([A-Za-z0-9_]+)/gm) || [])
     .map(m => m.replace(/^(?:async )?function /, '')))];
   ok(runnerSymbols.length >= 15, `② 13h 顶层函数抽取到 ${runnerSymbols.length} 个(锁的样本足够大)`);
-  const consumers = [['06-provider-engine.js', src06], ['09-workflow.js', src09], ['10-context-governance.js', src10], ['13g-steward.js', src13g]];
+  // 116h 重钉:消费者面从 06/09/10/13g 扩到 06/09/10/12/13/13d/13g —— 仲裁的钩子多了三个新消费者
+  // (12 的工具 handler、13 的 /api/stop、13d 的事项聚合行)。加入样本让「零前向边」的判据【更严】
+  // (这三个文件同样不许出现 13h 的符号),同时让下面反向的 unused 判据仍然覆盖全部消费者。
+  const consumers = [['06-provider-engine.js', src06], ['09-workflow.js', src09], ['10-context-governance.js', src10],
+    ['12-tool-dispatch.js', src12], ['13-http-router.js', src13], ['13d-core-domain-routes.js', src13d], ['13g-steward.js', src13g]];
   const leaks = [];
   for (const [name, text] of consumers) {
     for (const symbol of runnerSymbols) {
@@ -74,17 +81,19 @@ const src01b = read('01b-route-auth.js');
   const filled = [...new Set((src13h.match(/^\s{2}([a-zA-Z]+): /gm) || []).map(m => m.trim().replace(':', '')))];
   const assignBlock = src13h.slice(src13h.indexOf('Object.assign(StewardHooks, {'));
   const hookKeys = [...new Set((assignBlock.match(/^\s{2}([a-zA-Z]+): /gm) || []).map(m => m.trim().replace(':', '')))];
-  // 9 = 116f 的 8 个 + 116-pre(27号文§8.12/§11.3)追加的 preroute(消费方是 13g,见下面的
-  // unused 判据——13g 的 GET /api/steward/preroute 分支经 StewardHooks.preroute 转交)。
-  ok(hookKeys.length === 9, `② 13h 填充 9 个实现键(116f 的 8 个 + 116-pre 的 preroute;got ${hookKeys.length}: ${hookKeys.join(',')})`);
-  const consumedText = src09 + src10 + src13g;
+  // 14 = 116f 的 8 个 + 116-pre 的 preroute + 116h 的 4 个仲裁键(acquireTurnSlot / arbiterWait /
+  // cancelQueuedTurn / arbiterRefresh)+ 116h 的第 21 个工具键 threadPrioritize(它的实现要直接调 13h 的
+  // 仲裁器原语,故与其余 20 个工具不同、由 13h 填充)。插队原语与仲裁器快照【不】上命名空间——它们的
+  // 消费者全在 13h 内部,挂上去会被下面的 unused 判据判成死代码。重钉来源:27 号文 §3.1 116h 行。
+  ok(hookKeys.length === 14, `② 13h 填充 14 个实现键(116f 8 + 116-pre 1 + 116h 5;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
-  ok(unused.length === 0, '② 每个钩子键(116f 的 8 个 + 116-pre 的 preroute)都被 09/10/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
+  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));
   const undocumented = hookKeys.filter(k => !contract.includes(k + '('));
-  ok(undocumented.length === 0, '② 8 个键全部登记在 06i 的契约注释里' + (undocumented.length ? ' → 漏登: ' + undocumented.join(',') : ''));
+  ok(undocumented.length === 0, '② 14 个键全部登记在 06i 的契约注释里' + (undocumented.length ? ' → 漏登: ' + undocumented.join(',') : ''));
 }
 
 /* ═════════════ ③ 06b steward 段与分层预算 ═════════════ */

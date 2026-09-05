@@ -1251,6 +1251,13 @@ async function stewardImplThreadStatus(args, ctx, config) {
     lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
     pending: interventions,
     pendingCounts: (card && card.pending) || await missionPendingCounts(sessionId, [], null).catch(() => null),
+    // 116h(§3.1 116h 行 / §8.10「排队可解释」):等待原因【单一】,由 06i 的 waitReasonFor 单点判定
+    // (等你 > 等锁 > 等预算 > 等并发位)。pending 用五态判据已经算好的那一份,不再数第二遍;
+    // 仲裁器一侧是同步只读(开关关时 arbiterWait 恒返回 null,wait 只可能是「等你」或 null)。
+    wait: waitReasonFor(
+      { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
+      typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(sessionId) : null,
+    ),
     // permissionMode 保持既有语义 =【生效】档(既有断言与提示词都读它;断言只加不改)。
     permissionMode: stewardThreadPermissionMode(head, config),
     permissionLabel: stewardPermissionLabel(stewardThreadPermissionMode(head, config)),
@@ -1942,6 +1949,7 @@ async function stewardImplMissions(args, ctx, config) {
         stateLabel: thread.stateLabel,
         permissionMode: thread.permissionMode,
         lastAssistantText: thread.lastAssistantText,   // 13d 已按 §11.2 截到 120 字
+        wait: thread.wait || null,                     // 116h:等待原因原样透传(13d 已经过 waitReasonFor)
       })),
     };
     if (row.archivedAt) mission.archivedAt = row.archivedAt;

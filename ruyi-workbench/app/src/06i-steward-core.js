@@ -318,6 +318,62 @@ function aggregateMissionState(threadStates) {
   return 'stopped';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「排队可解释」):等待原因的【唯一】判定点。
+//
+// 铁律:每条等待中的线程有且只有一个原因,优先级从高到低取第一个成立的 ——
+//   ① needs_you 等你   :这条线程有待决(它不是被仲裁器挡住的,是在等人;这种回合不占并发位);
+//   ② lock     等锁    :同一个工作文件夹已有别的线程在跑写回合(回合级写互斥);
+//   ③ budget   等预算  :全局小时回合数或当日费用触顶(排队而不是拒绝);
+//   ④ slot     等并发位:并发已满,前面还有 ahead 条。
+// 判定顺序不是「哪个更严重」而是「哪个更能让用户知道该干什么」:等你 → 你去按一下;等锁 → 等那条
+// 线程;等预算 → 去调上限;等并发位 → 要么等要么插队。
+//
+// 这是纯函数:入参是两个普通对象,不读配置、不碰磁盘、不认识仲裁器的内部结构。
+//   thread: { pending }      —— 该线程的待决条数(缺省 0)。
+//   ctx:    { lock?, budget?, slot? } —— 仲裁器对这条线程的当前判定(13h stewardArbiterWait 的返回值);
+//           lock:  { sessionId, title }  谁占着这个工作文件夹;
+//           budget:{ axis, spent, limit } 哪条闸触顶;
+//           slot:  { ahead }             队列里排在它前面还有几条。
+// 返回 null(不在等)或 { reason, label, blockedBy?, ahead? } —— 四个调用面(steward_thread_status /
+// 总览行 / GET /api/missions 的线程行 / steward_missions 的 threads)输出同一形状。
+const STEWARD_WAIT_REASONS = Object.freeze(['needs_you', 'lock', 'budget', 'slot']);
+const STEWARD_WAIT_LABELS = Object.freeze({ needs_you: '等你', lock: '等锁', budget: '等预算', slot: '等并发位' });
+function waitReasonFor(thread, ctx) {
+  const t = (thread && typeof thread === 'object') ? thread : {};
+  const c = (ctx && typeof ctx === 'object') ? ctx : {};
+  const pending = Math.max(0, Number(t.pending) || 0);
+  if (pending > 0) return { reason: 'needs_you', label: `等你(${pending} 条待决)` };
+  const lock = (c.lock && typeof c.lock === 'object') ? c.lock : null;
+  if (lock) {
+    // blockedBy 只说事实(title 缺就是空,不拿 id 冒充标题);人话另算一个 who,标题缺了退回 id。
+    const title = stewardSanitizeText(lock.title || '');
+    const sessionId = stewardSanitizeText(lock.sessionId || '');
+    const who = title || sessionId;
+    return {
+      reason: 'lock',
+      label: who ? `等锁：同一个文件夹被「${who}」占着` : '等锁：同一个文件夹被别的线程占着',
+      blockedBy: { sessionId, title },
+    };
+  }
+  const budget = (c.budget && typeof c.budget === 'object') ? c.budget : null;
+  if (budget) {
+    const axis = String(budget.axis || '');
+    const limit = Number(budget.limit);
+    const spent = Number(budget.spent);
+    const detail = axis === 'cost_per_day'
+      ? `今天全部线程已花 ${Number.isFinite(spent) ? spent : '?'}，到了上限 ${Number.isFinite(limit) ? limit : '?'}`
+      : `本小时全部线程已开 ${Number.isFinite(spent) ? spent : '?'} 个回合，到了上限 ${Number.isFinite(limit) ? limit : '?'}`;
+    return { reason: 'budget', label: `等预算：${stewardSanitizeText(detail)}` };
+  }
+  const slot = (c.slot && typeof c.slot === 'object') ? c.slot : null;
+  if (slot) {
+    const ahead = Math.max(0, Number(slot.ahead) || 0);
+    return { reason: 'slot', label: ahead > 0 ? `等并发位：前面还有 ${ahead} 条` : '等并发位：下一个就是它', ahead };
+  }
+  return null;
+}
+
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
@@ -558,6 +614,7 @@ function prerouteText(q, index, memory, opts) {
 //           的门控壳,内部委托上面那个原始 inboxRead)、usage(args,ctx)、health(args,ctx)、auditTail(args,ctx)、
 //           missions(args,ctx)(116g:事项级只读视图 —— 聚合态、验收进度、费用/预算、子线程清单)
 //   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)、
+//           threadPrioritize(args,ctx)(116h:把一条排队中的线程提到队首,下一个并发位归它)、
 //           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)、
 //           threadNote(args,ctx)(116-2b:给【已在跑】的线程以插话补一句上下文,走 /api/steer 同一通道)
 //   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
@@ -572,6 +629,15 @@ function prerouteText(q, index, memory, opts) {
 //           runnerState(config) -> object(并进 GET /api/steward/state 的响应)
 //           handleRunnerApiRoutes(req,res,pathname)(/api/steward/{visit,message,act})
 //           stopRunner()/resumeRunner()(一键停机同时停回合队列;start 恢复)
+//   116h 线程间仲裁(由 13h-steward-runner.js 填充;消费者是 10 的回合入口、13 的 /api/stop、
+//   13d 的事项聚合行与 13g 的 thread_status/路由 —— 同样只看 StewardHooks,不认识 13h):
+//           acquireTurnSlot({sessionId,title,cwd,config,signal,onEvent}) -> {granted, release}
+//             (回合开始处申请;开关关或管家会话根本不调它)
+//           arbiterWait(sessionId) -> {lock?}|{budget?}|{slot?}|null(喂给 06i 的 waitReasonFor,同步只读)
+//           cancelQueuedTurn(sessionId) -> boolean(/api/stop 把【还在排队】的回合也停掉)
+//           arbiterRefresh() -> boolean(POST /api/config 落盘后唤醒队列,让改上限即时生效)
+//           (插队与仲裁器快照【不】进命名空间:它们的消费者全在 13h 内部 —— 两条
+//            /api/steward/arbiter* 路由、steward_thread_prioritize 实现、并进 state 的 runnerState)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           零模型、缓存命中不重装配)

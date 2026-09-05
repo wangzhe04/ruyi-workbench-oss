@@ -330,6 +330,10 @@ async function handleApi(req, res, pathname) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
     }
     const next = await writeConfig(merged);
+    // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
+    // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
+    // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
+    if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
     if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
       invalidateAgentCliPathCaches();
     }
@@ -730,7 +734,13 @@ async function handleApi(req, res, pathname) {
     // 第27波:显式停止 = 用户介入夺回控制 → 撤销该会话【全部】授权书(含 scope:'session')。断连触发的 stopSession 不
     // 走此处,仅由 streamChat finally 蒸发 scope:'run'(保留 session 授权供重连续用)—— intent-aware 精确撤销。
     if (sid) { try { revokeAllGrants(sid, 'ui-stop'); } catch { /* best-effort */ } }
-    return send(res, json({ ok: true, stopped }));
+    // 116h(27 号文 §3.1 116h 行):被停的会话可能还【在排队】—— stopSession 只认活回合(activeChildren),
+    // 排队中的回合它看不见。经 06i 的延迟绑定问一下仲裁器(开关关时该键的实现直接返回 false)。
+    let queuedStopped = false;
+    if (sid && typeof StewardHooks.cancelQueuedTurn === 'function') {
+      try { queuedStopped = StewardHooks.cancelQueuedTurn(sid) === true; } catch { queuedStopped = false; }
+    }
+    return send(res, json({ ok: true, stopped: stopped || queuedStopped }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/compact') {
     // §5.2: native-provider context compaction. Same-origin protected (mutating) like /api/stop and

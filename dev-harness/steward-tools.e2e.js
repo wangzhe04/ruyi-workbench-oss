@@ -498,9 +498,10 @@ try {
     const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
     const plainTools = srv.buildOpenAiTools(cfg, null, {}).map(t => t.function.name);
     ok(!plainTools.some(n => n.startsWith('steward_')), 'K1 面 1 buildOpenAiTools(普通会话)零 steward_*');
-    // 116-2b 重钉:18 → 19(新增 steward_thread_note);116g 再钉:19 → 20(新增 steward_missions)。
-    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 20,
-      'K1b 面 1 管家会话拿到全部 20 个');
+    // 116-2b 重钉:18 → 19(新增 steward_thread_note);116g 再钉:19 → 20(新增 steward_missions);
+    // 116h 再钉:20 → 21(新增 steward_thread_prioritize,27 号文 §3.1 116h 行 / §8.10「提升优先级」)。
+    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 21,
+      'K1b 面 1 管家会话拿到全部 21 个');
     const cat = await srv.adaptiveCatalogForMcp(cfg);
     const catNames = (cat.catalog.tools || cat.catalog || []).map(t => t.name || (t.function && t.function.name));
     ok(!catNames.some(n => String(n).startsWith('steward_')), 'K2 面 3 adaptive 目录(普通会话)零 steward_*');

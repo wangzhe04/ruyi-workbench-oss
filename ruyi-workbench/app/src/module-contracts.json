@@ -3605,6 +3605,8 @@
         "STEWARD_STATE_LABELS",
         "STEWARD_THREAD_STATES",
         "STEWARD_TOOL_PREFIX",
+        "STEWARD_WAIT_LABELS",
+        "STEWARD_WAIT_REASONS",
         "StewardHooks",
         "aggregateMissionState",
         "buildStewardBrief",
@@ -3633,7 +3635,8 @@
         "stewardStateLabel",
         "stewardTermJaccard",
         "stewardThreadStateFromCard",
-        "stewardToolPermanentlyExempt"
+        "stewardToolPermanentlyExempt",
+        "waitReasonFor"
       ],
       "requires": []
     },
@@ -10692,6 +10695,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
@@ -10700,6 +10710,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
           "kinds": [
             "call"
           ]
@@ -11664,6 +11681,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -11771,6 +11795,12 @@
         "STEWARD_ACTION_HOOKS",
         "STEWARD_ACTS_MAX",
         "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_ARBITER_COST_CACHE_MS",
+        "STEWARD_ARBITER_DURATION_SAMPLES",
+        "STEWARD_ARBITER_QUEUE_MAX",
+        "STEWARD_ARBITER_STARVE_FACTOR",
+        "STEWARD_ARBITER_STARVE_MIN_MS",
+        "STEWARD_ARBITER_STARVE_OVERRIDE_MS",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
         "STEWARD_DIGEST_KIND_TEXT",
@@ -11799,14 +11829,42 @@
         "handleStewardRunnerApiRoutes",
         "runStewardTurn",
         "stewardAbortInflight",
+        "stewardAcquireTurnSlot",
         "stewardActLabel",
+        "stewardArbiter",
+        "stewardArbiterAhead",
+        "stewardArbiterBlocked",
+        "stewardArbiterBudget",
+        "stewardArbiterCancel",
+        "stewardArbiterCwdKey",
+        "stewardArbiterDayCost",
+        "stewardArbiterDetach",
+        "stewardArbiterDrain",
+        "stewardArbiterEmit",
+        "stewardArbiterGrant",
+        "stewardArbiterHasPending",
+        "stewardArbiterMaxParallel",
+        "stewardArbiterPrioritize",
+        "stewardArbiterRecordBudget",
+        "stewardArbiterRefresh",
+        "stewardArbiterResourceOf",
+        "stewardArbiterScheduleDrain",
+        "stewardArbiterSetWait",
+        "stewardArbiterStarvationBump",
+        "stewardArbiterStarveThresholdMs",
+        "stewardArbiterStarvedHead",
+        "stewardArbiterState",
+        "stewardArbiterWait",
+        "stewardArbiterWaitSignature",
         "stewardArchiveConversation",
+        "stewardCancelQueuedTurn",
         "stewardCircuitCheck",
         "stewardContextBudget",
         "stewardDayCost",
         "stewardDowngradeActions",
         "stewardEventLine",
         "stewardExecuteActions",
+        "stewardImplThreadPrioritize",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
         "stewardMemoryBlock",
@@ -11848,6 +11906,13 @@
           "symbol": "apiFailure",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11978,7 +12043,21 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readInterventions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionBudgetTrippedChange",
           "kinds": [
             "call"
           ]
@@ -12145,6 +12224,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
           "kinds": [
@@ -12191,6 +12277,13 @@
           "symbol": "_stewardReadBudget",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12245,6 +12338,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardToolHandler",
           "kinds": [
             "call"
           ]
@@ -14297,6 +14397,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_WAIT_LABELS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_WAIT_REASONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -14354,6 +14468,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardToolPermanentlyExempt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
           "kinds": [
             "read"
           ]

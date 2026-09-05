@@ -839,6 +839,16 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_thread_prioritize',
+    description: '把一条【正在排队等并发位】的线程提到队首——下一个空出来的并发位就归它。何时用:用户说「先把 XX 那条跑起来」,或你从总览里看到一条等你的事被一堆不急的线程堵在后面。何时别用:目标线程没在排队时(它在跑、已收工、或压根没开回合)本工具不是错误但也什么都不做,返回 {ok:true,prioritized:false,reason:"not_queued"},此时【不要重试】,如实告诉用户它没在排队;要让并发上限整体变大用设置里的「同时最多 N 条」(stewardMaxParallelThreads),不要靠反复插队。插队【不打断】已经在跑的回合——那会把它做到一半的活扔掉。等锁(同一个工作文件夹被别的线程占着)与等预算的线程即使插到队首也仍要等那两件事解除,返回里的 wait 会如实说明它还在等什么。返回 {ok,sessionId,prioritized,wait}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId'],
+      properties: {
+        sessionId: { type: 'string', description: '要插队的线程 id(不能是管家自己的会话)。' },
+      },
+    },
+  },
+  {
     name: 'steward_decide',
     description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)在任何权限档都返回 propose_required。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {

@@ -312,6 +312,17 @@ function defaultConfig() {
     stewardVisitIdleMinutes: 60,
     // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
     stewardConversationRetention: 'visit',
+    // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「并发上限就地可调」;用户 2026-09-03 拍板默认 5):
+    // 线程间仲裁的三个全局闸。**只在 stewardEnabledV1 开时生效**(关时 runSessionTurn 根本不问仲裁器),
+    // 所以这三个键对存量用户是纯粹的形状扩张,不改任何行为。
+    //   stewardMaxParallelThreads —— 同时最多几条线程在跑回合,clamp [1,32];
+    //   stewardGlobalMaxTurnsPerHour —— 全部线程合计每小时可开始的回合数,clamp [1,2000];
+    //   stewardGlobalMaxCostPerDay —— 全部线程合计当日花费上限(USD),clamp [0,10000],0 = 不限。
+    // 与 stewardMaxTurnsPerHour / stewardMaxCostPerDay 的区别:那两个只管【管家自己】的回合与开销
+    // (熔断,见 13h stewardCircuitCheck),这两个管【全部线程】(排队,不拒绝)。
+    stewardMaxParallelThreads: 5,
+    stewardGlobalMaxTurnsPerHour: 120,
+    stewardGlobalMaxCostPerDay: 20,
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -984,6 +995,23 @@ function normalizeConfig(raw) {
   {
     const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'visit';
     if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
+  }
+  // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10):线程间仲裁的三个全局闸。夹取口径与上面 116a 的
+  // 各键一致(非有限数回该键自身默认;整数键取整,金额键保留小数)。
+  {
+    const n = Number(config.stewardMaxParallelThreads);
+    const clamped = Number.isFinite(n) ? Math.min(32, Math.max(1, Math.round(n))) : 5;
+    if (clamped !== config.stewardMaxParallelThreads) { config.stewardMaxParallelThreads = clamped; changed = true; }
+  }
+  {
+    const n = Number(config.stewardGlobalMaxTurnsPerHour);
+    const clamped = Number.isFinite(n) ? Math.min(2000, Math.max(1, Math.round(n))) : 120;
+    if (clamped !== config.stewardGlobalMaxTurnsPerHour) { config.stewardGlobalMaxTurnsPerHour = clamped; changed = true; }
+  }
+  {
+    const n = Number(config.stewardGlobalMaxCostPerDay);
+    const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 20;
+    if (clamped !== config.stewardGlobalMaxCostPerDay) { config.stewardGlobalMaxCostPerDay = clamped; changed = true; }
   }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {

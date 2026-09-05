@@ -74,6 +74,7 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_new: 'threadNew',
   steward_thread_continue: 'threadContinue',
   steward_thread_rename: 'threadRename',
+  steward_thread_prioritize: 'threadPrioritize',   // 116h:§8.10 看板每行的「提升优先级」按钮
   steward_decide: 'decide',
   steward_run_action: 'runAction',
   steward_memory_write: 'memoryWrite',
@@ -86,6 +87,7 @@ const STEWARD_RUN_ACTION_LABELS = Object.freeze({ pause: '暂停', resume: '继�
 const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_new: '新开线程', steward_thread_continue: '接着办', steward_thread_rename: '改标题',
   steward_memory_write: '记下', steward_memory_veto: '别记',
+  steward_thread_prioritize: '插到最前',
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -282,6 +284,9 @@ async function stewardThreadDigestRows(config) {
       : 0;
     const usage = slice.usage || null;
     const costs = usage && usage.costsByCurrency ? Object.values(usage.costsByCurrency) : [];
+    // 116h(§8.10「排队可解释」):总览行的等待原因也走 06i 的 waitReasonFor 单点 —— 管家在提示词里
+    // 读到的那句话,与 steward_thread_status / 看板 / steward_missions 逐字相同。
+    const wait = waitReasonFor({ pending: pendingCount }, stewardArbiterWait(sid));
     rows.push({
       sessionId: sid,
       // 116-pre(§8.12/§11.3):递话预判的 index 行要 missionId——3.0 里等于 sessionId(见下方注释),
@@ -290,6 +295,7 @@ async function stewardThreadDigestRows(config) {
       missionId: sessionMissionId(head) || sid,
       updatedAt: String(head.updatedAt || ''),
       state: derived.state,
+      wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
       digest: {
         id: sid,
         // 事项标题:116g 起,归入了【真事项】(有事项文件)的线程在总览行里带上事项自己的标题,
@@ -300,7 +306,9 @@ async function stewardThreadDigestRows(config) {
         state: derived.state,
         action: activeChildren.has(sid) ? '回合进行中' : (lastRun ? `班组 ${lastRun.status || ''}` : ''),
         lastSay: head.summary || '',
-        waitReason: pendingCount > 0 ? `等你(${pendingCount} 条待决)` : '',
+        // 116h:人话取 waitReasonFor 的 label(pendingCount > 0 时逐字仍是「等你(N 条待决)」,
+        // 与 116f 的原措辞一致;新增的是等锁/等预算/等并发位三种)。
+        waitReason: wait ? wait.label : '',
         permissionMode: stewardThreadPermissionMode(head, config),
         cost: costs.length ? costs.reduce((a, b) => a + (Number(b) || 0), 0) : null,
       },
@@ -1177,10 +1185,521 @@ async function stewardRunAct(act, config) {
   return { ok: true, kind: 'tool', tool, executed: !!(result && result.ok !== false), result };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「多线程看板与注意力预算」;用户 2026-09-03 拍板
+// 「同时最多 5 条、设置可调」):线程间仲裁。
+//
+// 要解决的是三件事,不是一件:
+//   ① 并发上限 —— 六条线程同时开跑会把端点打爆、把钱烧光,也让用户根本看不过来;
+//   ② 同一个工作文件夹的写互斥 —— 两条线程同时改同一棵目录树,后果是谁也说不清的乱改;
+//   ③ 可解释的排队 —— 排队本身不是问题,「不知道在等什么」才是。每条等待线程只给一个原因
+//      (等你 > 等锁 > 等预算 > 等并发位),UI 与管家原话引用同一句。
+//
+// 为什么不新建一套系统:06g-resource-leases.js 已经有「租约 + 冲突 + 等待者 + 阻塞者」这套语义,
+// 只是它的粒度是【子代理节点与工具调用】。本切片把同一套语义搬到【回合】这一粒度,并且【复用它的
+// 事件形状】—— 等待/放行/释放一律走既有的 `agent_resource`(state: waiting|acquired|released,
+// resources: [...], blockers: [...]),资源名取 `steward:slot` / `cwd-write:<hash>` / `steward:budget`。
+// 于是 112c 的状态条「等待资源：X,被 Y 占着」原样可用,progress-events 的事件枚举一个都不用加。
+//
+// 边界(§3.4 红线):
+//   · 仲裁只在 stewardEnabledV1 === true 时生效。关时 10 的回合入口根本不调 acquireTurnSlot,
+//     runSessionTurn 的路径逐字节走原路(session-turn-core / budget-guard / multi-session-parallel
+//     等既有件即为证明);
+//   · 管家会话自己不受并发上限约束 —— 它不是线程,是那个替你看着线程的人;
+//   · 仲裁只管【回合级】的写锁与并发位,不碰 nativeToolGate,也不改子代理内部 06g 租约的任何语义;
+//   · 有待决的会话回合不占并发位、不入队,直接放行 —— 那种回合本来就是用户在答复,把它排队等于
+//     让「等你」的线程再等一次别人。
+//
+// 状态全在内存(进程重启即空):running/queue 是「此刻谁在跑、谁在等」的运行时事实,不是可重建的
+// 持久面,故 durable-state-inventory 无新面。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 饥饿避免的等待阈值 = max(60s, 最近若干回合平均时长 × 3)。WCW_STEWARD_ARBITER_STARVE_MS 是测试
+// 接缝(照 06g 的 WCW_RESOURCE_LEASE_TIMEOUT_MS 一手法):设了就【整个覆盖】这个阈值(连平均时长那一项
+// 一起),因为 e2e 里的回合本来就慢,只压低下限根本压不动 max();显式给 0 也认(0 = 立即提首)。
+const STEWARD_ARBITER_STARVE_MIN_MS = 60000;
+const STEWARD_ARBITER_STARVE_OVERRIDE_MS = (() => {
+  const raw = process.env.WCW_STEWARD_ARBITER_STARVE_MS;
+  if (raw == null || String(raw).trim() === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+})();
+const STEWARD_ARBITER_STARVE_FACTOR = 3;
+const STEWARD_ARBITER_DURATION_SAMPLES = 20;   // 平均回合时长的样本数
+const STEWARD_ARBITER_COST_CACHE_MS = 2000;    // 当日费用记账缓存(配置【不缓存】,费用台账缓存 2 秒)
+const STEWARD_ARBITER_QUEUE_MAX = 500;         // 队列硬顶:超出宁可放行也不无限堆积(排队不是背压手段)
+
+const stewardArbiter = {
+  running: new Map(),      // token -> { token, sessionId, title, cwdKey, startedAt }
+  queue: [],               // 先到先得;插队与饥饿提升 = 摘出来 unshift 到队首(不排序,不打分)
+  turns: [],               // 每次放行的时刻(ms),只留 24 小时 —— hour 口径从这一份数据算
+  durations: [],           // 最近若干个回合的实际时长(ms),只喂饥饿阈值
+  seq: 0,
+  draining: false,
+  drainAgain: false,
+  costCache: { at: 0, value: 0 },
+  budgetNotified: new Map(), // sessionId -> 上次落 budget 通知的小时桶(同一条线程一小时最多提醒一次)
+};
+
+// 工作文件夹的锁键:规范化成绝对路径,Windows 折大小写,再取 sha1 前 12 位。用哈希而不是原路径是
+// 因为这个字符串会作为 `cwd-write:<hash>` 进事件流与看板 —— 路径可能很长也可能含用户名。
+function stewardArbiterCwdKey(cwd) {
+  const raw = String(cwd == null ? '' : cwd).trim();
+  if (!raw) return 'nocwd';
+  let abs = raw;
+  try { abs = path.resolve(raw); } catch { abs = raw; }
+  const folded = process.platform === 'win32' ? abs.toLowerCase() : abs;
+  return crypto.createHash('sha1').update(folded).digest('hex').slice(0, 12);
+}
+
+function stewardArbiterMaxParallel(config) {
+  const n = Number(config && config.stewardMaxParallelThreads);
+  return Number.isFinite(n) ? Math.min(32, Math.max(1, Math.round(n))) : 5;
+}
+
+// 资源名(既有 agent_resource 事件的 resources 字段)。三种等待各有自己的资源名,让 112c 状态条
+// 的「等待资源：X」直接可读。needs_you 不走这里 —— 那种回合根本不排队。
+function stewardArbiterResourceOf(wait) {
+  if (wait && wait.lock) return `cwd-write:${wait.lock.cwdKey}`;
+  if (wait && wait.budget) return 'steward:budget';
+  return 'steward:slot';
+}
+// 等待原因的「有没有变」签名:变了才重发一条 waiting 事件(ahead 递减也算变 —— 用户要看见队伍在动)。
+function stewardArbiterWaitSignature(wait) {
+  if (wait && wait.lock) return `lock:${wait.lock.sessionId}`;
+  if (wait && wait.budget) return `budget:${wait.budget.axis}`;
+  if (wait && wait.slot) return `slot:${Math.max(0, Number(wait.slot.ahead) || 0)}`;
+  return '';
+}
+
+function stewardArbiterEmit(entry, state, resource, blockers) {
+  if (!entry || typeof entry.onEvent !== 'function') return;
+  const payload = { type: 'agent_resource', state, resources: [String(resource || '')] };
+  if (Array.isArray(blockers) && blockers.length) payload.blockers = blockers.map(String);
+  try { entry.onEvent(payload); } catch { /* sink 已断,等待照常 */ }
+}
+
+// 队列里排在 entry 前面还有几条(cancelled 的不算)。entry 不在队列里(刚来的新条目)时 = 全队长度。
+function stewardArbiterAhead(entry) {
+  let ahead = 0;
+  for (const row of stewardArbiter.queue) {
+    if (row === entry) return ahead;
+    if (!row.cancelled) ahead += 1;
+  }
+  return ahead;
+}
+
+// 当日全部线程的花费(USD)。取 usage 台账当日合计 —— 与 13e/13g/13h 同一条「套餐制名义金额不进真实
+// 费用」的口径。台账可能很长,故 2 秒记账缓存;配置【不在这里缓存】(上限改动要即时生效)。
+async function stewardArbiterDayCost() {
+  const now = Date.now();
+  if (now - stewardArbiter.costCache.at < STEWARD_ARBITER_COST_CACHE_MS) return stewardArbiter.costCache.value;
+  const today = usageDayKey(now);
+  let cost = 0;
+  for (const row of await readUsageRows(0).catch(() => [])) {
+    if (!row || usageDayKey(Date.parse(row.ts)) !== today) continue;
+    if (row.costTrusted === false) continue;
+    const value = Number(row.cost);
+    if (Number.isFinite(value)) cost += value;
+  }
+  const rounded = Math.round(cost * 1e6) / 1e6;
+  stewardArbiter.costCache = { at: now, value: rounded };
+  return rounded;
+}
+
+// 全局预算闸:小时回合数(滑动窗口,计【全部线程】的回合;管家自己的回合走 13h 另一套熔断,不进这里)
+// 与当日费用。触顶不是拒绝,是排队 —— 用户把上限调高,下一次唤醒就放行。
+async function stewardArbiterBudget(config) {
+  const now = Date.now();
+  stewardArbiter.turns = stewardArbiter.turns.filter(ts => ts > now - STEWARD_TURN_DAY_MS);
+  const maxTurns = Math.max(0, Math.round(Number(config && config.stewardGlobalMaxTurnsPerHour) || 0));
+  if (maxTurns > 0) {
+    const spent = stewardArbiter.turns.filter(ts => ts > now - STEWARD_TURN_WINDOW_MS).length;
+    if (spent >= maxTurns) return { axis: 'turns_per_hour', spent, limit: maxTurns };
+  }
+  const maxCost = Number(config && config.stewardGlobalMaxCostPerDay);
+  if (Number.isFinite(maxCost) && maxCost > 0) {
+    const spent = await stewardArbiterDayCost();
+    if (spent >= maxCost) return { axis: 'cost_per_day', spent, limit: maxCost };
+  }
+  return null;
+}
+
+// 这条线程现在被什么挡着 —— 返回 06i waitReasonFor 认的 ctx 形状,或 null(可以跑了)。
+// 判定顺序即优先级(§3.1 116h「原因单一性」):锁 > 预算 > 并发位。needs_you 在更上游就短路了。
+async function stewardArbiterBlocked(entry, config) {
+  // ② 同一个工作文件夹的写互斥。**本切片一律按「写」处理**:一个回合会不会写文件在开始时无法预知
+  // (模型还没说话),按只读乐观放行的代价是两条线程真的一起改同一棵树。只读回合的识别与放宽留后续波。
+  for (const run of stewardArbiter.running.values()) {
+    if (run.sessionId === entry.sessionId) continue;   // 同一条线程的两个回合由既有 supersede 语义管
+    if (run.cwdKey !== entry.cwdKey) continue;
+    return { lock: { sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey } };
+  }
+  // 队列里排在它【前面】的同 cwd 条目也算锁:否则后来者会在先到者之前抢到那把锁(FIFO 公平性)。
+  for (const row of stewardArbiter.queue) {
+    if (row === entry) break;
+    if (row.cancelled || row.sessionId === entry.sessionId) continue;
+    if (row.cwdKey === entry.cwdKey) return { lock: { sessionId: row.sessionId, title: row.title, cwdKey: row.cwdKey } };
+  }
+  // ③ 全局预算。
+  const budget = await stewardArbiterBudget(config);
+  if (budget) return { budget };
+  // ④ 并发位。
+  if (stewardArbiter.running.size >= stewardArbiterMaxParallel(config)) return { slot: { ahead: stewardArbiterAhead(entry) } };
+  return null;
+}
+
+// 触顶时给收件箱一条 budget 事件。有 mission 的会话走 116-2b 已有的写入端(Mission Change Ledger 的
+// budget_tripped,116b 的 budget 类就认它);bumpMissionChangeSeq 对【无 mission】的会话是静默 no-op
+// (116-2b 已登记为待办),那种线程只留下面这条审计 + 上面那条 agent_resource 事件 —— 本切片不为它
+// 新造第三条通路。turnSeq 传负的小时桶:既有 budget_guard 的去重表按真实 turnSeq(≥0)记,负数不会
+// 与它撞车,又能让「同一条线程隔一小时再触顶」重新落一条。
+function stewardArbiterRecordBudget(entry) {
+  const budget = entry && entry.wait && entry.wait.budget;
+  if (!budget) return;
+  const bucket = Math.floor(Date.now() / (60 * 60 * 1000));
+  if (stewardArbiter.budgetNotified.get(entry.sessionId) === bucket) return;
+  stewardArbiter.budgetNotified.set(entry.sessionId, bucket);
+  if (stewardArbiter.budgetNotified.size > 500) {
+    for (const [key] of stewardArbiter.budgetNotified) { stewardArbiter.budgetNotified.delete(key); if (stewardArbiter.budgetNotified.size <= 400) break; }
+  }
+  try {
+    recordMissionBudgetTrippedChange(entry.sessionId, {
+      axis: 'steward_' + budget.axis, spent: budget.spent, budget: budget.limit, turnSeq: -bucket,
+    });
+  } catch { /* 账本不可写不该拖住排队 */ }
+  try { logEvent({ kind: 'steward_arbiter_budget', sessionId: entry.sessionId, axis: budget.axis, spent: budget.spent, limit: budget.limit }); } catch { /* ignore */ }
+}
+
+// 把新的等待原因写进条目并(变了才)发一条 waiting 事件。
+function stewardArbiterSetWait(entry, wait) {
+  entry.wait = wait;
+  const signature = stewardArbiterWaitSignature(wait);
+  if (signature === entry.waitSignature) return;
+  entry.waitSignature = signature;
+  const resource = stewardArbiterResourceOf(wait);
+  entry.lastResource = resource;
+  const blockers = wait && wait.lock ? [wait.lock.title || wait.lock.sessionId] : [];
+  stewardArbiterEmit(entry, 'waiting', resource, blockers);
+  if (wait && wait.budget) stewardArbiterRecordBudget(entry);
+}
+
+// 放行:登记并发位、记一笔回合时刻,返回带 release 的凭据。release 幂等,回合的 finally 无条件调它。
+function stewardArbiterGrant(entry) {
+  const token = `slot_${++stewardArbiter.seq}`;
+  const startedAt = Date.now();
+  stewardArbiter.running.set(token, { token, sessionId: entry.sessionId, title: entry.title, cwdKey: entry.cwdKey, startedAt });
+  stewardArbiter.turns.push(startedAt);
+  // 只有【真的等过】的条目才发 acquired/released:没等过的回合在事件流里凭空多两帧,对用户是噪音,
+  // 对既有壳是白白多一次重渲染。等过的条目必须发 —— 状态条要靠它把「等待资源」那一行清掉。
+  if (entry.waited) stewardArbiterEmit(entry, 'acquired', entry.lastResource || 'steward:slot');
+  let released = false;
+  return {
+    granted: true,
+    release: () => {
+      if (released) return;
+      released = true;
+      if (stewardArbiter.running.delete(token)) {
+        stewardArbiter.durations.push(Math.max(0, Date.now() - startedAt));
+        while (stewardArbiter.durations.length > STEWARD_ARBITER_DURATION_SAMPLES) stewardArbiter.durations.shift();
+      }
+      if (entry.waited) stewardArbiterEmit(entry, 'released', entry.lastResource || 'steward:slot');
+      stewardArbiterScheduleDrain();
+    },
+  };
+}
+
+function stewardArbiterDetach(entry) {
+  if (entry && entry.signal && entry.onAbort) {
+    try { entry.signal.removeEventListener('abort', entry.onAbort); } catch { /* 无 EventTarget */ }
+    entry.onAbort = null;
+  }
+}
+
+// 出队并把等待中的回合判为「没跑成」。调用方(10 的回合入口)据此走停止收尾,不是错误收尾。
+function stewardArbiterCancel(entry, reason) {
+  if (!entry || entry.cancelled) return false;
+  entry.cancelled = true;
+  const i = stewardArbiter.queue.indexOf(entry);
+  if (i >= 0) stewardArbiter.queue.splice(i, 1);
+  stewardArbiterDetach(entry);
+  if (entry.waited) stewardArbiterEmit(entry, 'released', entry.lastResource || 'steward:slot');
+  if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve({ granted: false, reason: String(reason || 'cancelled') }); }
+  stewardArbiterScheduleDrain();
+  return true;
+}
+
+// /api/stop 的接线:被停的会话若还在排队,把它出队(既有 stopSession 只认活回合,排队中的回合它看不见)。
+function stewardCancelQueuedTurn(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return false;
+  let hit = false;
+  for (const entry of [...stewardArbiter.queue]) {
+    if (entry.sessionId !== sid) continue;
+    if (stewardArbiterCancel(entry, 'stopped')) hit = true;
+  }
+  return hit;
+}
+
+function stewardArbiterScheduleDrain() {
+  if (stewardArbiter.draining) { stewardArbiter.drainAgain = true; return; }
+  stewardArbiter.draining = true;
+  Promise.resolve()
+    .then(() => stewardArbiterDrain())
+    .catch(() => { /* 唤醒失败不该让队列永久卡死:下一次释放会再唤醒 */ })
+    .then(() => {
+      stewardArbiter.draining = false;
+      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); }
+    });
+}
+
+function stewardArbiterStarveThresholdMs() {
+  if (STEWARD_ARBITER_STARVE_OVERRIDE_MS != null) return STEWARD_ARBITER_STARVE_OVERRIDE_MS;
+  const samples = stewardArbiter.durations;
+  const avg = samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : 0;
+  return Math.max(STEWARD_ARBITER_STARVE_MIN_MS, Math.round(avg * STEWARD_ARBITER_STARVE_FACTOR));
+}
+
+// 队首那一段「已经被饥饿保护提上来」的条目有多长。插队只能插到这一段【之后】——否则「提一次」
+// 等于没提:被提上来的条目会被下一个插队者立刻反超,然后因为 starvationBumped 已经是 true 而再也
+// 得不到第二次保护,饿死得比没有饥饿避免时还彻底。
+function stewardArbiterStarvedHead() {
+  let i = 0;
+  while (i < stewardArbiter.queue.length && stewardArbiter.queue[i].starvationBumped === true) i += 1;
+  return i;
+}
+
+// 饥饿避免:等太久的条目提到队首【一次】。只提一次是关键 —— 「饿了就提」会退化成又一轮插队循环,
+// 让后来的条目永远排在被反复提升的那几条后面。多条同时超时按它们原来的先后顺序依次上去。
+function stewardArbiterStarvationBump(now) {
+  const threshold = stewardArbiterStarveThresholdMs();
+  for (const entry of [...stewardArbiter.queue]) {
+    if (entry.cancelled || entry.starvationBumped) continue;
+    if (now - entry.enqueuedAt < threshold) continue;
+    entry.starvationBumped = true;
+    const i = stewardArbiter.queue.indexOf(entry);
+    const head = stewardArbiterStarvedHead();
+    if (i > head) { stewardArbiter.queue.splice(i, 1); stewardArbiter.queue.splice(head, 0, entry); }
+  }
+}
+
+async function stewardArbiterDrain() {
+  if (!stewardArbiter.queue.length) return;
+  // 上限改动即时生效(§8.10「点开即改,改完立即生效,不需重启」):每次唤醒【重新读配置】,绝不缓存。
+  const config = await readConfig().catch(() => null);
+  // 开关在排队期间被关掉:全部放行(仲裁不生效时不该有人还被它挡着)。
+  if (!config || config.stewardEnabledV1 !== true) {
+    for (const entry of [...stewardArbiter.queue]) {
+      const i = stewardArbiter.queue.indexOf(entry);
+      if (i >= 0) stewardArbiter.queue.splice(i, 1);
+      stewardArbiterDetach(entry);
+      if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }
+    }
+    return;
+  }
+  stewardArbiterStarvationBump(Date.now());
+  for (const entry of [...stewardArbiter.queue]) {
+    if (entry.cancelled || stewardArbiter.queue.indexOf(entry) < 0) continue;
+    const blocked = await stewardArbiterBlocked(entry, config);
+    const at = stewardArbiter.queue.indexOf(entry);   // await 期间队列可能被别的路径改过,重新定位
+    if (entry.cancelled || at < 0) continue;
+    if (blocked) { stewardArbiterSetWait(entry, blocked); continue; }
+    stewardArbiter.queue.splice(at, 1);
+    stewardArbiterDetach(entry);
+    if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }
+  }
+  // 队伍动过之后,还在等的每条都要拿到当下正确的 ahead(「前面还有几条」必须是真的)。
+  for (const entry of stewardArbiter.queue) {
+    if (entry.cancelled || !entry.wait || !entry.wait.slot) continue;
+    stewardArbiterSetWait(entry, { slot: { ahead: stewardArbiterAhead(entry) } });
+  }
+}
+
+// 待决判据:有待决的线程回合不入队、不占并发位 —— 用户正在答复它,让它再排一次队是最没道理的等待。
+async function stewardArbiterHasPending(sessionId) {
+  try {
+    const rows = await readInterventions(sessionId);
+    return (Array.isArray(rows) ? rows : []).some(iv => iv && iv.status === 'pending');
+  } catch { return false; }
+}
+
+// ── 回合入口(10-context-governance 的 runSessionTurn 开头经 StewardHooks 调它)────────────────
+// 返回 { granted:true, release } 或 { granted:false, reason }。开关关、管家会话、有待决三种情况
+// 一律【立即】返回一个 release 为空操作的放行凭据 —— 调用方无分支,永远一句 await + finally release。
+async function stewardAcquireTurnSlot(input) {
+  const opts = (input && typeof input === 'object') ? input : {};
+  const passthrough = { granted: true, release: () => {} };
+  const config = opts.config || await readConfig().catch(() => null);
+  if (!config || config.stewardEnabledV1 !== true) return passthrough;
+  const sessionId = safeSessionId(opts.sessionId);
+  if (!sessionId || sessionId === STEWARD_SESSION_ID) return passthrough;   // 管家不是线程,不占并发位
+  if (await stewardArbiterHasPending(sessionId)) return passthrough;        // ① 等你 -> 直接放行
+  const entry = {
+    sessionId,
+    title: stewardSanitizeText(opts.title || ''),
+    cwdKey: stewardArbiterCwdKey(opts.cwd),
+    enqueuedAt: Date.now(),
+    priorityBump: false,
+    starvationBumped: false,
+    waited: false,
+    cancelled: false,
+    wait: null,
+    waitSignature: '',
+    lastResource: '',
+    resolve: null,
+    onAbort: null,
+    onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null,
+    signal: opts.signal || null,
+  };
+  const blocked = await stewardArbiterBlocked(entry, config);
+  if (!blocked) return stewardArbiterGrant(entry);
+  if (entry.signal && entry.signal.aborted) return { granted: false, reason: 'aborted' };
+  // 队列硬顶:排队是为了让用户看得懂,不是背压手段。堆到 500 条说明别处已经出问题了,放行比挂死诚实。
+  if (stewardArbiter.queue.length >= STEWARD_ARBITER_QUEUE_MAX) return stewardArbiterGrant(entry);
+  entry.waited = true;
+  stewardArbiter.queue.push(entry);
+  stewardArbiterSetWait(entry, blocked);
+  return new Promise(resolve => {
+    entry.resolve = resolve;
+    if (entry.signal) {
+      entry.onAbort = () => { stewardArbiterCancel(entry, 'aborted'); };
+      try { entry.signal.addEventListener('abort', entry.onAbort, { once: true }); } catch { /* 无 EventTarget 的 signal:忽略 */ }
+    }
+    stewardArbiterScheduleDrain();
+  });
+}
+
+// 这条线程此刻在等什么(同步只读)。返回值直接喂 06i 的 waitReasonFor —— 四个展示面(thread_status /
+// 总览行 / GET /api/missions / steward_missions)因此永远说同一句话。
+function stewardArbiterWait(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return null;
+  for (const entry of stewardArbiter.queue) {
+    if (!entry.cancelled && entry.sessionId === sid) return entry.wait || null;
+  }
+  return null;
+}
+
+// 插队:把排队中的这一条提到队首,下一个释放出来的并发位就归它(§8.10「提升优先级」)。
+// 不预留、不抢占 —— 已经在跑的回合不会因为别人插队被打断。
+function stewardArbiterPrioritize(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return { ok: false, error: 'invalid_session', message: 'invalid sessionId' };
+  const entry = stewardArbiter.queue.find(row => !row.cancelled && row.sessionId === sid);
+  if (!entry) return { ok: true, sessionId: sid, prioritized: false, reason: 'not_queued' };
+  entry.priorityBump = true;
+  const i = stewardArbiter.queue.indexOf(entry);
+  // 插到队首,但排在「已被饥饿保护提上来」的那一段之后 —— 见 stewardArbiterStarvedHead 的头注。
+  const head = stewardArbiterStarvedHead();
+  if (i > head) { stewardArbiter.queue.splice(i, 1); stewardArbiter.queue.splice(head, 0, entry); }
+  stewardArbiterScheduleDrain();
+  return { ok: true, sessionId: sid, prioritized: true };
+}
+
+// 配置写完之后立刻按新上限唤醒一次队列(§8.10「点开即改,改完立即生效,不需重启」)。不这么接的话,
+// 「同时最多 N 条」调大之后要等下一次回合释放才生效 —— 用户看到的就是「改了没反应」。
+// 唤醒本身只会放行【按新配置本来就该放行】的条目,所以对非 steward 的配置写入是纯粹的无操作。
+function stewardArbiterRefresh() {
+  if (!stewardArbiter.queue.length) return false;
+  stewardArbiterScheduleDrain();
+  return true;
+}
+
+// 看板与 GET /api/steward/arbiter 的读模型。running/queue 都是运行时事实,不落盘。
+async function stewardArbiterState(config) {
+  const cfg = config || await readConfig().catch(() => null) || {};
+  const now = Date.now();
+  stewardArbiter.turns = stewardArbiter.turns.filter(ts => ts > now - STEWARD_TURN_DAY_MS);
+  const maxCost = Number(cfg.stewardGlobalMaxCostPerDay);
+  return {
+    enabled: cfg.stewardEnabledV1 === true,
+    maxParallel: stewardArbiterMaxParallel(cfg),
+    running: [...stewardArbiter.running.values()].map(run => ({
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+    })),
+    queue: stewardArbiter.queue.filter(entry => !entry.cancelled).map(entry => ({
+      sessionId: entry.sessionId,
+      title: entry.title,
+      cwdKey: entry.cwdKey,
+      enqueuedAt: entry.enqueuedAt,
+      priorityBump: entry.priorityBump === true,
+      wait: waitReasonFor({ pending: 0 }, entry.wait),
+    })),
+    hour: {
+      turns: stewardArbiter.turns.filter(ts => ts > now - STEWARD_TURN_WINDOW_MS).length,
+      limit: Math.max(0, Math.round(Number(cfg.stewardGlobalMaxTurnsPerHour) || 0)),
+    },
+    day: {
+      cost: await stewardArbiterDayCost().catch(() => 0),
+      limit: Number.isFinite(maxCost) ? maxCost : 0,
+    },
+    starveThresholdMs: stewardArbiterStarveThresholdMs(),
+  };
+}
+
+// ── steward_thread_prioritize(116h,§8.10「每行可提升优先级＝插队占下一个并发位」)──────────────
+// 落在 13h 而不是 13g:实现要直接调本文件的仲裁器原语,而 13g 在拼接顺序上更早(引用本文件 = 前向边);
+// 13g 也已顶到 SPEC §2 的 2000 行目标,再往里塞就要为它另起一次拆分。门控壳仍用 13g 的
+// stewardToolHandler(13h -> 13g 是后向边),开关/身份两道 fail-closed 与其余 20 个工具逐字一致。
+//
+// 语义刻意做窄:只把【还在排队】的那一条提到队首,下一个释放出来的并发位归它。不预留、不抢占 ——
+// 已经在跑的回合不会因为别人插队被打断(那会把一条线程做到一半的活扔掉,代价远大于早跑几秒的收益)。
+// 目标不在队列里(在跑 / 已收工 / 根本没开回合)不是错误:返回 prioritized:false + reason,
+// 让模型如实告诉用户「它没在排队,不用插」,而不是重试或编一个成功。
+async function stewardImplThreadPrioritize(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session is not a thread');
+  const result = stewardArbiterPrioritize(sessionId);
+  if (!result || result.ok !== true) {
+    return stewardFail(String((result && result.error) || 'steward.failed'), String((result && result.message) || 'prioritize failed'), { sessionId });
+  }
+  if (result.prioritized !== true) {
+    return { ok: true, sessionId, prioritized: false, reason: String(result.reason || 'not_queued'), wait: null };
+  }
+  stewardAppendDecision({
+    tool: 'steward_thread_prioritize',
+    args: { sessionId },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'auto',
+    undoRef: { kind: 'prioritize', sessionId },
+    basis: {},
+  });
+  return { ok: true, sessionId, prioritized: true, wait: waitReasonFor({ pending: 0 }, stewardArbiterWait(sessionId)) };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 路由(token 级,ROUTE_AUTH 在 01b 登记)。经 13g 的 handleStewardApiRoutes 末尾转交(见那里的注释)。
 // ────────────────────────────────────────────────────────────────────────────
 async function handleStewardRunnerApiRoutes(req, res, pathname) {
+  // 116h(27 号文 §3.1 116h 行 / §8.10 多线程看板):线程间仲裁的只读状态与插队。
+  // 状态是纯内存读模型(running/queue/hour/day),不写盘;prioritize 只动队列顺序,不打断在跑的回合。
+  if (req.method === 'GET' && pathname === '/api/steward/arbiter') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (config.stewardEnabledV1 !== true) {
+      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
+    }
+    return send(res, json({ ok: true, ...await stewardArbiterState(config) }));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/arbiter/prioritize') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (config.stewardEnabledV1 !== true) {
+      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
+    }
+    const body = await readJsonBody(req).catch(() => ({}));
+    const result = stewardArbiterPrioritize(body && body.sessionId);
+    // 116g 硬教训:域层的 {ok:false,error} 直接送进 json() 会被 normalizeApiErrorPayload 归一成
+    // api.request_failed,稳定信封必须在【路由层】转成 apiFailure。
+    if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));
+    return send(res, json(result));
+  }
+
   if (req.method === 'POST' && pathname === '/api/steward/visit') {
     if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const config = await readConfig();
@@ -1285,6 +1804,9 @@ async function stewardRunnerState(config) {
     inflight: stewardRunnerRuntime.inflight ? stewardRunnerRuntime.inflight.kind : '',
     queued: stewardRunnerRuntime.queue.length,
     noProgress: stewardRunnerRuntime.noProgress,
+    // 116h:线程仲裁器的快照并进同一条状态路由 —— 看板顶部的「同时最多 N 条」与每行的等待原因
+    // 读的是同一份事实,不必再多请求一次(独立的 GET /api/steward/arbiter 仍在,供只关心仲裁的调用方)。
+    arbiter: await stewardArbiterState(config).catch(() => null),
   };
 }
 
@@ -1302,4 +1824,16 @@ Object.assign(StewardHooks, {
   resumeRunner: stewardResumeRunner,
   // 116-pre(§11.3):117 壳层与其它旁路消费者经这个键调,不必知道 13h 的存在。
   preroute: stewardPreroute,
+  // 116h(§3.1/§8.10)线程间仲裁。消费者:10 的回合入口(acquireTurnSlot)、13 的 /api/stop
+  // (cancelQueuedTurn)、13d 的事项聚合行与 13g 的 thread_status(arbiterWait)、13 的 POST /api/config
+  // (arbiterRefresh)。一律经 06i,零前向边。
+  // stewardArbiterPrioritize 与 stewardArbiterState 【不】进命名空间:它们的消费者全在本文件内
+  // (两条 /api/steward/arbiter* 路由、steward_thread_prioritize 实现、并进 state 的 stewardRunnerState),
+  // 挂上去就是没人用的钩子(= 死代码)。
+  acquireTurnSlot: stewardAcquireTurnSlot,
+  arbiterWait: stewardArbiterWait,
+  cancelQueuedTurn: stewardCancelQueuedTurn,
+  arbiterRefresh: stewardArbiterRefresh,
+  // 116h 的第 21 个管家工具:实现住本文件(要直接调仲裁器原语),门控壳仍是 13g 的 stewardToolHandler。
+  threadPrioritize: stewardToolHandler('steward_thread_prioritize', stewardImplThreadPrioritize),
 });

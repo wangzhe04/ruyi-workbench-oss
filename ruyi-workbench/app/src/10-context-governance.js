@@ -2261,8 +2261,24 @@ async function runSessionTurn(input) {
   const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
   turnSettlers.set(session.id, settleEntry);
   let turnError = '';
+  // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
+  // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。
+  let stewardSlot = null;
   try {
     emit({ type: 'session', session });
+    // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
+    // 排队期间的 agent_resource 事件才有归属)、引擎分派【之前】(等的是「能不能开始跑」)。
+    // 判据读【原始】 session.kind:管家会话自己不是线程,不受并发上限约束(与 09/10 既有分叉同口径)。
+    if (config.stewardEnabledV1 === true && session.kind !== 'steward' && typeof StewardHooks.acquireTurnSlot === 'function') {
+      stewardSlot = await StewardHooks.acquireTurnSlot({
+        sessionId: session.id, title: session.title, cwd: body.cwd || session.cwd, config, signal, onEvent: emit,
+      });
+      // 排队中被 /api/stop 或断线取消:这不是错误,是「没跑成」。抛一个带 code 的哨兵,由下面的 catch
+      // 翻成一条 process/stopped(而不是 error 事件)—— 返回值里 stopped:true、ok:true,与被停的回合同形。
+      if (stewardSlot && stewardSlot.granted === false) {
+        throw Object.assign(new Error('回合在排队时被取消'), { code: 'STEWARD_TURN_CANCELLED' });
+      }
+    }
     const provider = activeOpenAiProvider(config);
     const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
@@ -2291,11 +2307,17 @@ async function runSessionTurn(input) {
       await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
     }
   } catch (err) {
-    turnError = err.message || String(err);
-    emit({ type: 'error', error: turnError });
+    // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。
+    if (err && err.code === 'STEWARD_TURN_CANCELLED') emit({ type: 'process', state: 'stopped' });
+    else {
+      turnError = err.message || String(err);
+      emit({ type: 'error', error: turnError });
+    }
   } finally {
     onFlush();  // D1:回合收尾 flush 残留 delta,防最后一批丢(HTTP 壳的合批缓冲;进程内调用方通常是空实现)
     finished = true;
+    // 116h:并发位无条件释放(settle / abort / 异常三条路都经这里),释放即唤醒队列。release 幂等。
+    if (stewardSlot && typeof stewardSlot.release === 'function') { try { stewardSlot.release(); } catch { /* best-effort */ } }
     // 第27波:run 结束 → scope:'run' 授权蒸发(遍历删 runId 匹配项),登记表清理。scope:'session' 授权跨回合保留,直到
     // TTL/次数耗尽或显式撤销/切模式。
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }

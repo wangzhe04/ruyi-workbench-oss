@@ -320,6 +320,11 @@ module.exports = {
   // 第116波116-pre(27号文§8.12/§11.3): 递话预判纯函数 — exposed for 单测(steward-preroute.test.js)。
   STEWARD_PREROUTE_DEFAULTS,
   prerouteText,
+  // 第116波116h(27号文§3.1 116h 行/§8.10): 等待原因的唯一判定点(等你>等锁>等预算>等并发位)
+  //   与它的两张常量表 — exposed for 单测(steward-wait-reason.test.js)与 e2e 直测形状对账。
+  STEWARD_WAIT_REASONS,
+  STEWARD_WAIT_LABELS,
+  waitReasonFor,
   // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
   //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
   runSessionTurn,

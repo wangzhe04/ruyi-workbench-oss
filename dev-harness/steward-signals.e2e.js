@@ -379,7 +379,12 @@ try {
 
     // 有在途回合:换上的 fake 有 60 步 file_read(路径各不相同,不会被死循环护栏提前拦下)+ 慢流,
     // 迭代边界足够多,插话必然赶得上在下一次边界被 drain。
-    const turn = srv.runSessionTurn({ sessionId: SID_RUN, message: '跑一段给插话用', cwd: HOME, source: 'test', onEvent: () => {} });
+    // 116h(27 号文 §3.1 116h 行):管家开着时,同一个工作文件夹的回合是【写互斥】的 —— (D) 相位
+    // 自理重试给 SID_LOOP 起的那个回合还占着 HOME 这把锁,本相位要测的是插话通道而不是仲裁,
+    // 所以给这一个回合单独一个工作文件夹(file_read 的目标是绝对路径,不受 cwd 影响)。
+    const NOTE_CWD = path.join(HOME, 'note-ws');
+    fs.mkdirSync(NOTE_CWD, { recursive: true });
+    const turn = srv.runSessionTurn({ sessionId: SID_RUN, message: '跑一段给插话用', cwd: NOTE_CWD, source: 'test', onEvent: () => {} });
     let noted = null;
     for (let i = 0; i < 150; i++) {
       noted = await srv.toolCall('steward_thread_note', { sessionId: SID_RUN, text: '相关文件在 <docs> 目录' }, stewardCtx());

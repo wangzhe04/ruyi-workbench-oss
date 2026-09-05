@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 'use strict';
-// 静态锁:第 116 波 116c(27 号文 §3.5 工具面 / §11.3 第 49 波入库门)—— 管家 20 个工具的
+// 静态锁:第 116 波 116c(27 号文 §3.5 工具面 / §11.3 第 49 波入库门)—— 管家 21 个工具的
 // 「四处登记一致」与模块落点纪律。判定行:`STEWARD TOOLS STATIC E2E: ALL PASS`。
 //
 // 断言六个方向:
 //   ① 四处登记一致:13f schema / 12 handler 注册表 / 07 NATIVE_TOOL_TIER / 07 NATIVE_TOOL_PACKS
-//      四个表的 steward_* 键集必须【完全相同】且恰好是这 20 个名字(任何一处漏登 = 锁红)。
+//      四个表的 steward_* 键集必须【完全相同】且恰好是这 21 个名字(任何一处漏登 = 锁红)。
+//      重钉来源:116h 增 steward_thread_prioritize(27 号文 §3.1 116h 行 / §8.10「提升优先级」),20 -> 21。
 //   ② handler 纪律:每个 steward_* handler 的 paths 必须是 null 且带非空 guardNote;handler 源码
 //      必须只调 StewardHooks.*、不含 require(、不含任何 13g 的内部符号(禁止前向边的机器判据)。
 //   ③ 13g 填充的 StewardHooks 键集 ⊇ 06i 契约注释里列出的键(契约注释不是装饰品)。
@@ -30,7 +31,7 @@ const STEWARD_TOOLS = [
   'steward_runs_status', 'steward_inbox_read', 'steward_usage', 'steward_health', 'steward_audit_tail',
   'steward_missions',
   'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_permission',
-  'steward_thread_note',
+  'steward_thread_note', 'steward_thread_prioritize',
   'steward_decide', 'steward_run_action',
   'steward_memory_write', 'steward_memory_veto', 'steward_memory_search',
 ];
@@ -42,6 +43,7 @@ const EXPECTED_TIER = {
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
   steward_thread_permission: 'edit', // 116-2a: 线程权限只降不升,归线程族 edit
   steward_thread_note: 'edit',       // 116-2b: 给在跑的线程补一句上下文,归线程族 edit
+  steward_thread_prioritize: 'edit', // 116h: 插队只动仲裁器队列顺序,不改文件不动世界,归线程族 edit
   steward_decide: 'exec', steward_run_action: 'exec',
   steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
 };
@@ -54,6 +56,7 @@ const HOOK_KEY = {
   steward_missions: 'missions',
   steward_thread_new: 'threadNew', steward_thread_continue: 'threadContinue', steward_thread_rename: 'threadRename',
   steward_thread_permission: 'threadPermission', steward_thread_note: 'threadNote',
+  steward_thread_prioritize: 'threadPrioritize',
   steward_decide: 'decide', steward_run_action: 'runAction',
   steward_memory_write: 'memoryWrite', steward_memory_veto: 'memoryVeto', steward_memory_search: 'memorySearch',
 };
@@ -81,11 +84,11 @@ const packNames = Object.keys(srv.NATIVE_TOOL_PACKS).filter(n => n.startsWith('s
 const schemaNames = [...new Set((src13f.match(/name: '(steward_[a-z_]+)'/g) || []).map(m => m.slice(7, -1)))].sort();
 const expected = [...STEWARD_TOOLS].sort();
 
-ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 20 个 steward_*(got ${schemaNames.length})`);
-ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 20 个 steward_*(got ${regNames.length})`);
-ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 20 个 steward_*(got ${tierNames.length})`);
-ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 20 个 steward_*(got ${packNames.length})`);
-ok(Object.keys(srv.TOOL_HANDLERS).length === 83, `① 注册表总数 83(63 + 20;116g 增 steward_missions;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
+ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 21 个 steward_*(got ${schemaNames.length})`);
+ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 21 个 steward_*(got ${regNames.length})`);
+ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 21 个 steward_*(got ${tierNames.length})`);
+ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 21 个 steward_*(got ${packNames.length})`);
+ok(Object.keys(srv.TOOL_HANDLERS).length === 84, `① 注册表总数 84(63 + 21;116h 增 steward_thread_prioritize;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
 
 /* ═════════════ ② handler 纪律:paths:null + guardNote + 只调 StewardHooks ═════════════ */
 
@@ -113,10 +116,10 @@ const contractKeys = [...new Set((contractBlock.match(/(?:^|[\s、])([a-z][A-Za-
   .filter(k => typeof srv.StewardHooks[k] === 'function' || /^(handleApiRoutes|stopInbox|inboxState|inboxRead|selfStatus|threadsSearch|threadStatus|threadRead|runsStatus|inboxReadTool|usage|health|auditTail|threadNew|threadContinue|threadRename|threadPermission|threadNote|missions|decide|runAction|memoryWrite|memoryVeto|memorySearch)$/.test(k));
 const filled = Object.keys(srv.StewardHooks);
 const missingFill = contractKeys.filter(k => typeof srv.StewardHooks[k] !== 'function');
-ok(contractKeys.length >= 24, `③ 06i 契约注释列出 ≥24 个预留键(116g 增 missions;got ${contractKeys.length})`);
+ok(contractKeys.length >= 30, `③ 06i 契约注释列出 ≥30 个预留键(116h 增 threadPrioritize 与 5 个仲裁键;got ${contractKeys.length})`);
 ok(missingFill.length === 0, '③ 13g 填充键集 ⊇ 06i 契约注释列出的键' + (missingFill.length ? ' → 未填充: ' + missingFill.join(',') : ''));
-ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 20 个工具的实现键全部落在 StewardHooks 上');
-ok(filled.length >= 24, `③ StewardHooks 至少 24 个实现键(4 个 116b 基础设施 + 20 个工具;got ${filled.length})`);
+ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 21 个工具的实现键全部落在 StewardHooks 上');
+ok(filled.length >= 30, `③ StewardHooks 至少 30 个实现键(4 个 116b 基础设施 + 21 个工具 + 116f/116-pre/116h 的运行器与仲裁键;got ${filled.length})`);
 ok(/Object\.assign\(StewardHooks, \{/.test(src13g), '③ 13g 经 Object.assign(StewardHooks, {...}) 单向填充(06i 从不引用 13g)');
 
 /* ═════════════ ④ tier / pack 分档 ═════════════ */
@@ -144,7 +147,7 @@ const cfg = srv.normalizeConfig({}).config;
 const offeredPlain = srv.buildOpenAiTools(cfg, null, {}).map(t => t.function.name).filter(n => n.startsWith('steward_'));
 const offeredSteward = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_'));
 ok(offeredPlain.length === 0, `⑤ 回环:普通会话 buildOpenAiTools 零 steward_*(got ${offeredPlain.length})`);
-ok(offeredSteward.length === 20, `⑤ 回环:管家会话 buildOpenAiTools 拿到 20 个 steward_*(got ${offeredSteward.length})`);
+ok(offeredSteward.length === 21, `⑤ 回环:管家会话 buildOpenAiTools 拿到 21 个 steward_*(got ${offeredSteward.length})`);
 ok(/steward\.forbidden/.test(src13g) && /steward\.disabled/.test(src13g), '⑤ 13g 门控壳含 steward.forbidden / steward.disabled 两个稳定信封');
 ok(/session\.kind === 'steward'/.test(src13g), "⑤ 13g 身份判定读【显式】session.kind === 'steward'(不经 sessionKind 归一)");
 

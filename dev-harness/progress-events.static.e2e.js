@@ -103,6 +103,25 @@ okList(WAVE_112B.filter(type => !consumed.has(type)),
 okList(WAVE_112B.filter(type => !serverEvents.has(type)),
   'D4b 这六族确实是服务端在发的(不是照着文档臆造的名字)');
 
+// ── 116h(27 号文 §3.1 116h 行):线程间仲裁【零新增事件枚举】────────────────────────────────
+// 排队/放行/释放一律复用既有 agent_resource(与 06g 的资源租约同形),排队中被取消复用既有
+// process/stopped。两者都必须已被状态机消费 —— 不是新枚举,也不是被 default 丢掉的。
+const WAVE_116H = ['agent_resource', 'process'];
+okList(WAVE_116H.filter(type => !serverEvents.has(type)), 'D10 116h 复用的两种事件确实是服务端在发的');
+okList(WAVE_116H.filter(type => !consumed.has(type)), 'D10b 116h 复用的两种事件都已被状态机消费(零新增枚举)');
+{
+  const src13h = read('ruyi-workbench/app/src/13h-steward-runner.js');
+  // 只截仲裁器这一段(从它的段头到 steward_thread_prioritize 实现之前)—— 再往后是 116f 的 SSE 壳,
+  // 那里的 steward_reply 是【通道载荷】不是回合事件(见 13h 头注),不该被本判据当成新枚举。
+  const marker = '第 116 波 116h(27 号文 §3.1 116h 行';
+  const from = src13h.indexOf(marker);
+  const to = src13h.indexOf('// ── steward_thread_prioritize');
+  const arbiter = from >= 0 && to > from ? src13h.slice(from, to) : '';
+  const arbiterTypes = [...new Set((arbiter.match(/type: '([a-z_]+)'/g) || []).map(m => m.slice(7, -1)))].sort();
+  ok(arbiter.length > 0 && arbiterTypes.length > 0, `D10c 扫到仲裁器发出的事件类型 ${arbiterTypes.join(',') || '(无)'}`);
+  okList(arbiterTypes.filter(type => !declared.has(type)), 'D10d 仲裁器发出的事件类型全部是既有登记项(零新增)');
+}
+
 // 有 DOM 侧效的三族要真的落到卡片上,不能只进状态机
 const classic = read('ruyi-workbench/app/public/js/chat-stream-runtime.js');
 ok(/case 'tool_progress':/.test(classic) && classic.includes('turnActivity.tool.budgetSoft') && classic.includes('turnActivity.tool.budgetHard'),

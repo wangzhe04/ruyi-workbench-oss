@@ -69,6 +69,9 @@ function postStream(port, payload) {
     ok(resultText.includes(MARK_A) && resultText.includes(MARK_B), 'tool results contain both files\' distinct content');
     const result = events.find(e => e.type === 'result');
     ok(result && result.ok === true, 'result ok=true');
+    // 116h(27 号文 §3.1 116h 行):管家开关默认关 -> runSessionTurn 根本不问线程仲裁器,
+    // 事件流里不该出现任何 agent_resource(等并发位/等锁/等预算)帧。
+    ok(events.every(e => e.type !== 'agent_resource'), '116h: steward 关时并行回合路径零仲裁事件');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }

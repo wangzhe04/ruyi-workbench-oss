@@ -522,6 +522,13 @@ async function buildMissionAggregateRows(options = {}) {
       permissionMode: meta.permissionMode || null,
       lastAssistantText: stewardSanitizeText(meta.summary || '').slice(0, 120),
       updatedAt: String(meta.updatedAt || ''),
+      // 116h(§8.10「排队可解释」):等待原因由 06i 的 waitReasonFor 单点判定,与 steward_thread_status /
+      // 总览行 / steward_missions 同一函数同一形状。pending 用上面五态判据已经算好的那一份(少喂一次
+      // 就会出现 116g 那种「看板与 thread_status 各说各话」);仲裁器一侧同步只读,开关关时恒为 null。
+      wait: waitReasonFor(
+        { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
+        typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(meta.id) : null,
+      ),
     });
     addMissionCostBucket(group.cost, slice && slice.usage);
   }
@@ -570,10 +577,19 @@ function overlayMissionAggregateFields(card, row) {
   // row 缺失 = 这张卡片的会话在 listSessions 的元数据里没有对应行(索引与投影之间的瞬时偏斜)。
   // 退化成「只有它自己一条线程的未归类事项」,聚合态仍然只经 aggregateMissionState —— 绝不在这里
   // 按 card.status 另编一套判据(那就是第二个状态机)。
+  // 116h(§8.10「排队可解释」):看板每一行都要能说出「它在等什么」。这一行就是那条线程自己的行,
+  // 所以取聚合行里【它自己】那条线程的 wait(与 steward_missions / steward_thread_status 同源同形);
+  // row 缺失的退化分支里现算一次,仍然只经 06i 的 waitReasonFor(不另编第二套判据)。
+  const threadWait = row ? ((row.threads || []).find(thread => thread.sessionId === card.sessionId) || {}).wait || null : null;
   if (!row) {
+    const derived = stewardThreadStateFromCard(card);
     return Object.assign(card, {
-      aggregateState: aggregateMissionState([stewardThreadStateFromCard(card).state]),
+      aggregateState: aggregateMissionState([derived.state]),
       threadCount: 1, acceptance: { done: 0, total: 0 }, budget: {}, cost: emptyMissionCostBucket(), derived: true,
+      wait: waitReasonFor(
+        { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
+        typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(card.sessionId) : null,
+      ),
     });
   }
   return Object.assign(card, {
@@ -583,6 +599,7 @@ function overlayMissionAggregateFields(card, row) {
     budget: row.budget,
     cost: row.cost,
     derived: row.derived,
+    wait: threadWait,
   });
 }
 

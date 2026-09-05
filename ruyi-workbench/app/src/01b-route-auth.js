@@ -143,6 +143,9 @@ const ROUTE_AUTH = [
   // 第116波116-pre(27号文§8.12/§11.1第3项/§11.3): 递话预判 — 只读、零模型、不写盘,内容敏感度同上
   // (透出线程标题/最后一句原话),一律 token 级(不给 token-browser)。
   { m: 'GET', p: '/api/steward/preroute', auth: 'token' },
+  // 116h(27 号文 §3.1 116h 行 / §8.10):线程间仲裁的只读状态与插队。
+  { m: 'GET', p: '/api/steward/arbiter', auth: 'token' },
+  { m: 'POST', p: '/api/steward/arbiter/prioritize', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
