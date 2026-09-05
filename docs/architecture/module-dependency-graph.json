@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 40,
+    "modules": 41,
     "providedSymbols": 1918,
-    "requiredSymbols": 1910,
-    "edges": 306,
+    "requiredSymbols": 1929,
+    "edges": 315,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -18750,21 +18750,17 @@
       ]
     },
     {
-      "file": "13g-steward.js",
+      "file": "13i-steward-inbox.js",
       "order": 37,
       "layer": "transport",
-      "note": "第116波116b:管家收件箱轮询器/三源增量归一化/游标与 /api/steward/* 路由(经 StewardHooks 延迟绑定挂接)",
+      "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
         "STEWARD_ACTIVE_WINDOW_MS",
-        "STEWARD_AUDIT_LIMIT_DEFAULT",
-        "STEWARD_AUDIT_LIMIT_MAX",
-        "STEWARD_CONFIG_KEYS",
         "STEWARD_CURSOR_FILE",
         "STEWARD_CURSOR_MAX_PENDING",
         "STEWARD_CURSOR_MAX_RUNS",
         "STEWARD_CURSOR_MAX_SESSIONS",
         "STEWARD_CURSOR_SCHEMA",
-        "STEWARD_DECISIONS_FILE",
         "STEWARD_DEDUPE_TAIL_ROWS",
         "STEWARD_DIR_NAME",
         "STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ",
@@ -18775,11 +18771,279 @@
         "STEWARD_INBOX_LIMIT_MAX",
         "STEWARD_INBOX_TAIL_BYTES",
         "STEWARD_KIND_RESOLVERS",
+        "STEWARD_MERGED_SEQS_MAX",
+        "STEWARD_MERGE_WINDOW_MS",
+        "STEWARD_RUN_EVENT_PAGE",
+        "STEWARD_SEEN_MAX_KEYS",
+        "STEWARD_SOURCE_EVENT_MAP",
+        "STEWARD_SUMMARY_CHARS",
+        "STEWARD_TICK_MAX_EVENTS",
+        "startStewardInbox",
+        "stewardAppendChain",
+        "stewardAppendInboxRows",
+        "stewardClipSummary",
+        "stewardCollectEvents",
+        "stewardCursorPath",
+        "stewardDir",
+        "stewardEventDedupeKey",
+        "stewardInboxPath",
+        "stewardInboxRead",
+        "stewardInboxRowDedupeKeys",
+        "stewardInboxState",
+        "stewardIsoAt",
+        "stewardKindFor",
+        "stewardLoadState",
+        "stewardMergeInboxEvents",
+        "stewardNormalizeBudgetExhausted",
+        "stewardNormalizeMissionChange",
+        "stewardNormalizePendingIntervention",
+        "stewardNormalizeRunEvent",
+        "stewardParseInboxText",
+        "stewardReadInboxRows",
+        "stewardReadInboxText",
+        "stewardResetRuntimeState",
+        "stewardResolveMissionResultKind",
+        "stewardResolveNodeSettledKind",
+        "stewardResolveRunEndKind",
+        "stewardRunTick",
+        "stewardRuntime",
+        "stewardSaveCursor",
+        "stewardTickOnce",
+        "stopStewardInbox"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            432,
+            434,
+            438,
+            477,
+            505,
+            507,
+            529
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            533,
+            689
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            397,
+            398,
+            399
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            397
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            453,
+            477
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            189,
+            190,
+            194,
+            195,
+            447,
+            448,
+            462,
+            463
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            530
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            766
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            484,
+            488,
+            557,
+            623
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            601,
+            610
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            506
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            708
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EVENT_KINDS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            181,
+            341,
+            455,
+            769
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            564
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            693,
+            694,
+            724,
+            738
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            189
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "listAgentRuns",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            621
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "readAgentRunEvents",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            639
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            548
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13g-steward.js",
+      "order": 38,
+      "layer": "transport",
+      "note": "第116波116c:/api/steward/* 域路由、决策日志、管家记忆存储与全部管家工具实现(经 StewardHooks 延迟绑定挂接)",
+      "provides": [
+        "STEWARD_AUDIT_LIMIT_DEFAULT",
+        "STEWARD_AUDIT_LIMIT_MAX",
+        "STEWARD_CONFIG_KEYS",
+        "STEWARD_DECISIONS_FILE",
         "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_FILE",
         "STEWARD_MEMORY_SCHEMA",
-        "STEWARD_MERGED_SEQS_MAX",
-        "STEWARD_MERGE_WINDOW_MS",
         "STEWARD_NOTE_PREFIX",
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
@@ -18792,38 +19056,25 @@
         "STEWARD_RUNS_MAX",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
-        "STEWARD_RUN_EVENT_PAGE",
         "STEWARD_RUN_TIGHTENING",
         "STEWARD_SEARCH_LIMIT_DEFAULT",
         "STEWARD_SEARCH_LIMIT_MAX",
-        "STEWARD_SEEN_MAX_KEYS",
-        "STEWARD_SOURCE_EVENT_MAP",
         "STEWARD_STEER_TEXT_MAX",
-        "STEWARD_SUMMARY_CHARS",
-        "STEWARD_TICK_MAX_EVENTS",
         "STEWARD_TITLE_MAX",
         "_stewardReadBudget",
         "handleStewardApiRoutes",
-        "startStewardInbox",
         "stewardAddUsageRow",
-        "stewardAppendChain",
         "stewardAppendDecision",
-        "stewardAppendInboxRows",
         "stewardBasisOf",
         "stewardClampInt",
         "stewardClipSay",
-        "stewardClipSummary",
-        "stewardCollectEvents",
         "stewardCtxIsSteward",
-        "stewardCursorPath",
         "stewardDecisionChain",
         "stewardDecisionSeq",
         "stewardDecisionsPath",
-        "stewardDir",
         "stewardEmptyMemoryStore",
         "stewardEmptyUsageBucket",
         "stewardEngineOf",
-        "stewardEventDedupeKey",
         "stewardFail",
         "stewardImplAuditTail",
         "stewardImplDecide",
@@ -18845,46 +19096,22 @@
         "stewardImplThreadStatus",
         "stewardImplThreadsSearch",
         "stewardImplUsage",
-        "stewardInboxPath",
-        "stewardInboxRead",
-        "stewardInboxRowDedupeKeys",
-        "stewardInboxState",
-        "stewardIsoAt",
-        "stewardKindFor",
         "stewardLastAssistantText",
         "stewardLaunchTurn",
-        "stewardLoadState",
         "stewardMemoryChain",
         "stewardMemoryPath",
-        "stewardMergeInboxEvents",
         "stewardMutateMemory",
-        "stewardNormalizeBudgetExhausted",
         "stewardNormalizeMemoryEntry",
-        "stewardNormalizeMissionChange",
-        "stewardNormalizePendingIntervention",
-        "stewardNormalizeRunEvent",
-        "stewardParseInboxText",
         "stewardPendingOneLine",
         "stewardRawKind",
         "stewardReadBucket",
-        "stewardReadInboxRows",
-        "stewardReadInboxText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
-        "stewardResetRuntimeState",
-        "stewardResolveMissionResultKind",
-        "stewardResolveNodeSettledKind",
-        "stewardResolveRunEndKind",
-        "stewardRunTick",
-        "stewardRuntime",
-        "stewardSaveCursor",
         "stewardSourceIsUserMessage",
         "stewardThreadPermissionMode",
-        "stewardTickOnce",
         "stewardToolCallLine",
         "stewardToolHandler",
-        "stewardTurnKeyOf",
-        "stopStewardInbox"
+        "stewardTurnKeyOf"
       ],
       "requires": [
         {
@@ -18894,13 +19121,13 @@
             "call"
           ],
           "lines": [
-            788,
-            791,
-            798,
-            804,
-            816,
-            827,
-            830
+            28,
+            31,
+            38,
+            44,
+            56,
+            67,
+            70
           ]
         },
         {
@@ -18910,18 +19137,11 @@
             "read"
           ],
           "lines": [
-            426,
-            428,
-            432,
-            471,
-            499,
-            501,
-            523,
-            941,
-            1010,
-            1013,
-            1045,
-            1063
+            181,
+            250,
+            253,
+            285,
+            303
           ]
         },
         {
@@ -18931,11 +19151,11 @@
             "call"
           ],
           "lines": [
-            794,
-            800,
-            812,
-            819,
-            839
+            34,
+            40,
+            52,
+            59,
+            79
           ]
         },
         {
@@ -18945,8 +19165,8 @@
             "call"
           ],
           "lines": [
-            1672,
-            1867
+            912,
+            1107
           ]
         },
         {
@@ -18956,13 +19176,11 @@
             "call"
           ],
           "lines": [
-            527,
-            683,
-            999,
-            1062,
-            1493,
-            1851,
-            1895
+            239,
+            302,
+            733,
+            1091,
+            1135
           ]
         },
         {
@@ -18972,21 +19190,8 @@
             "read"
           ],
           "lines": [
-            391,
-            392,
-            393,
-            979,
-            1019
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "paths",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            391
+            219,
+            259
           ]
         },
         {
@@ -18996,7 +19201,7 @@
             "call"
           ],
           "lines": [
-            1417
+            657
           ]
         },
         {
@@ -19006,10 +19211,8 @@
             "call"
           ],
           "lines": [
-            447,
-            471,
-            941,
-            1045
+            181,
+            285
           ]
         },
         {
@@ -19019,31 +19222,23 @@
             "read"
           ],
           "lines": [
-            183,
-            184,
-            188,
-            189,
-            441,
-            442,
-            456,
-            457,
-            1026,
-            1027,
-            1032,
-            1772,
-            1773,
-            1778,
-            1788,
-            1791,
-            1828,
-            1829,
-            1830,
-            1839,
-            1843,
-            1853,
-            1859,
-            1869,
-            1881
+            266,
+            267,
+            272,
+            1012,
+            1013,
+            1018,
+            1028,
+            1031,
+            1068,
+            1069,
+            1070,
+            1079,
+            1083,
+            1093,
+            1099,
+            1109,
+            1121
           ]
         },
         {
@@ -19053,8 +19248,8 @@
             "call"
           ],
           "lines": [
-            817,
-            832
+            57,
+            72
           ]
         },
         {
@@ -19064,7 +19259,7 @@
             "call"
           ],
           "lines": [
-            1425
+            665
           ]
         },
         {
@@ -19074,8 +19269,7 @@
             "call"
           ],
           "lines": [
-            524,
-            1064
+            304
           ]
         },
         {
@@ -19085,8 +19279,8 @@
             "read"
           ],
           "lines": [
-            1600,
-            1601
+            840,
+            841
           ]
         },
         {
@@ -19096,11 +19290,10 @@
             "call"
           ],
           "lines": [
-            760,
-            789,
-            805,
-            828,
-            909
+            29,
+            45,
+            68,
+            149
           ]
         },
         {
@@ -19110,7 +19303,7 @@
             "call"
           ],
           "lines": [
-            956
+            196
           ]
         },
         {
@@ -19120,24 +19313,20 @@
             "call"
           ],
           "lines": [
-            478,
-            482,
-            551,
-            617,
-            938,
-            1197,
-            1294,
-            1357,
-            1414,
-            1480,
-            1528,
-            1562,
-            1597,
-            1637,
-            1716,
-            1717,
-            1770,
-            1808
+            178,
+            437,
+            534,
+            597,
+            654,
+            720,
+            768,
+            802,
+            837,
+            877,
+            956,
+            957,
+            1010,
+            1048
           ]
         },
         {
@@ -19147,18 +19336,18 @@
             "call"
           ],
           "lines": [
-            788,
-            791,
-            794,
-            798,
-            800,
-            804,
-            812,
-            816,
-            819,
-            827,
-            830,
-            839
+            28,
+            31,
+            34,
+            38,
+            40,
+            44,
+            52,
+            56,
+            59,
+            67,
+            70,
+            79
           ]
         },
         {
@@ -19168,7 +19357,7 @@
             "call"
           ],
           "lines": [
-            941
+            181
           ]
         },
         {
@@ -19178,11 +19367,11 @@
             "call"
           ],
           "lines": [
-            788,
-            798,
-            804,
-            816,
-            827
+            28,
+            38,
+            44,
+            56,
+            67
           ]
         },
         {
@@ -19192,7 +19381,7 @@
             "call"
           ],
           "lines": [
-            1125
+            365
           ]
         },
         {
@@ -19202,7 +19391,7 @@
             "call"
           ],
           "lines": [
-            944
+            184
           ]
         },
         {
@@ -19212,7 +19401,7 @@
             "call"
           ],
           "lines": [
-            1483
+            723
           ]
         },
         {
@@ -19222,7 +19411,7 @@
             "call"
           ],
           "lines": [
-            1119
+            359
           ]
         },
         {
@@ -19232,9 +19421,9 @@
             "call"
           ],
           "lines": [
-            1224,
-            1310,
-            1812
+            464,
+            550,
+            1052
           ]
         },
         {
@@ -19244,7 +19433,7 @@
             "call"
           ],
           "lines": [
-            1503
+            743
           ]
         },
         {
@@ -19254,19 +19443,8 @@
             "call"
           ],
           "lines": [
-            1219,
-            1643
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readMissionChangesWithMeta",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            595,
-            604
+            459,
+            883
           ]
         },
         {
@@ -19276,7 +19454,7 @@
             "call"
           ],
           "lines": [
-            1149
+            389
           ]
         },
         {
@@ -19286,8 +19464,7 @@
             "call"
           ],
           "lines": [
-            500,
-            1012
+            252
           ]
         },
         {
@@ -19297,7 +19474,7 @@
             "call"
           ],
           "lines": [
-            1500
+            740
           ]
         },
         {
@@ -19307,10 +19484,10 @@
             "call"
           ],
           "lines": [
-            1164,
-            1230,
-            1236,
-            1523
+            404,
+            470,
+            476,
+            763
           ]
         },
         {
@@ -19320,8 +19497,8 @@
             "call"
           ],
           "lines": [
-            1268,
-            1613
+            508,
+            853
           ]
         },
         {
@@ -19331,8 +19508,8 @@
             "call"
           ],
           "lines": [
-            1575,
-            1614
+            815,
+            854
           ]
         },
         {
@@ -19342,11 +19519,11 @@
             "read"
           ],
           "lines": [
-            1214,
-            1249,
-            1250,
-            1536,
-            1572
+            454,
+            489,
+            490,
+            776,
+            812
           ]
         },
         {
@@ -19356,10 +19533,9 @@
             "call"
           ],
           "lines": [
-            702,
-            920,
-            1466,
-            1468
+            160,
+            706,
+            708
           ]
         },
         {
@@ -19369,7 +19545,7 @@
             "call"
           ],
           "lines": [
-            1453
+            693
           ]
         },
         {
@@ -19379,7 +19555,7 @@
             "call"
           ],
           "lines": [
-            1839
+            1079
           ]
         },
         {
@@ -19389,7 +19565,7 @@
             "call"
           ],
           "lines": [
-            1479
+            719
           ]
         },
         {
@@ -19399,8 +19575,8 @@
             "call"
           ],
           "lines": [
-            1163,
-            1209
+            403,
+            449
           ]
         },
         {
@@ -19410,20 +19586,7 @@
             "read"
           ],
           "lines": [
-            875
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_EVENT_KINDS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            175,
-            335,
-            449,
-            763
+            115
           ]
         },
         {
@@ -19433,9 +19596,9 @@
             "read"
           ],
           "lines": [
-            1027,
-            1827,
-            1905
+            267,
+            1067,
+            1145
           ]
         },
         {
@@ -19445,15 +19608,15 @@
             "read"
           ],
           "lines": [
-            1032,
-            1052,
-            1830,
-            1831,
-            1846,
-            1850,
-            1863,
-            1864,
-            1906
+            272,
+            292,
+            1070,
+            1071,
+            1086,
+            1090,
+            1103,
+            1104,
+            1146
           ]
         },
         {
@@ -19463,17 +19626,7 @@
             "read"
           ],
           "lines": [
-            833
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_SESSION_ID",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            558
+            73
           ]
         },
         {
@@ -19483,18 +19636,14 @@
             "read"
           ],
           "lines": [
-            687,
-            688,
-            718,
-            732,
-            809,
-            810,
-            835,
-            836,
-            845,
-            846,
-            1259,
-            1964
+            49,
+            50,
+            75,
+            76,
+            85,
+            86,
+            499,
+            1204
           ]
         },
         {
@@ -19504,8 +19653,8 @@
             "call"
           ],
           "lines": [
-            1657,
-            1727
+            897,
+            967
           ]
         },
         {
@@ -19515,7 +19664,7 @@
             "call"
           ],
           "lines": [
-            1608
+            848
           ]
         },
         {
@@ -19525,8 +19674,8 @@
             "call"
           ],
           "lines": [
-            1843,
-            1909
+            1083,
+            1149
           ]
         },
         {
@@ -19536,10 +19685,10 @@
             "call"
           ],
           "lines": [
-            1263,
-            1610,
-            1659,
-            1729
+            503,
+            850,
+            899,
+            969
           ]
         },
         {
@@ -19549,8 +19698,8 @@
             "call"
           ],
           "lines": [
-            1325,
-            1327
+            565,
+            567
           ]
         },
         {
@@ -19560,28 +19709,27 @@
             "call"
           ],
           "lines": [
-            183,
-            933,
-            1150,
-            1170,
-            1186,
-            1239,
-            1244,
-            1250,
-            1251,
-            1282,
-            1286,
-            1291,
-            1653,
-            1721,
-            1729,
-            1738,
-            1772,
-            1828,
-            1892,
-            1933,
-            1934,
-            1940
+            173,
+            390,
+            410,
+            426,
+            479,
+            484,
+            490,
+            491,
+            522,
+            526,
+            531,
+            893,
+            961,
+            969,
+            978,
+            1012,
+            1068,
+            1132,
+            1173,
+            1174,
+            1180
           ]
         },
         {
@@ -19591,7 +19739,7 @@
             "call"
           ],
           "lines": [
-            1936
+            1176
           ]
         },
         {
@@ -19601,9 +19749,9 @@
             "call"
           ],
           "lines": [
-            1846,
-            1850,
-            1915
+            1086,
+            1090,
+            1155
           ]
         },
         {
@@ -19613,8 +19761,8 @@
             "call"
           ],
           "lines": [
-            1163,
-            1208
+            403,
+            448
           ]
         },
         {
@@ -19624,7 +19772,7 @@
             "call"
           ],
           "lines": [
-            1652
+            892
           ]
         },
         {
@@ -19634,7 +19782,7 @@
             "call"
           ],
           "lines": [
-            1257
+            497
           ]
         },
         {
@@ -19644,7 +19792,7 @@
             "read"
           ],
           "lines": [
-            1372
+            612
           ]
         },
         {
@@ -19654,18 +19802,7 @@
             "call"
           ],
           "lines": [
-            615,
-            1370
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "readAgentRunEvents",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            633
+            610
           ]
         },
         {
@@ -19675,7 +19812,7 @@
             "call"
           ],
           "lines": [
-            1464
+            704
           ]
         },
         {
@@ -19685,7 +19822,7 @@
             "call"
           ],
           "lines": [
-            1106
+            346
           ]
         },
         {
@@ -19695,7 +19832,7 @@
             "call"
           ],
           "lines": [
-            1778
+            1018
           ]
         },
         {
@@ -19705,7 +19842,7 @@
             "call"
           ],
           "lines": [
-            1733
+            973
           ]
         },
         {
@@ -19715,8 +19852,8 @@
             "call"
           ],
           "lines": [
-            1231,
-            1929
+            471,
+            1169
           ]
         },
         {
@@ -19726,7 +19863,7 @@
             "call"
           ],
           "lines": [
-            1667
+            907
           ]
         },
         {
@@ -19736,8 +19873,8 @@
             "call"
           ],
           "lines": [
-            1213,
-            1253
+            453,
+            493
           ]
         },
         {
@@ -19747,7 +19884,7 @@
             "call"
           ],
           "lines": [
-            1387
+            627
           ]
         },
         {
@@ -19757,7 +19894,7 @@
             "call"
           ],
           "lines": [
-            1127
+            367
           ]
         },
         {
@@ -19767,10 +19904,9 @@
             "call"
           ],
           "lines": [
-            542,
-            1143,
-            1204,
-            1362
+            383,
+            444,
+            602
           ]
         },
         {
@@ -19780,7 +19916,68 @@
             "call"
           ],
           "lines": [
-            1162,
+            402,
+            446
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "startStewardInbox",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            33
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardDir",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            219,
+            250,
+            259,
+            303
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxRead",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            58,
+            636,
+            1207
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxState",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            52,
+            351,
+            1208
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stopStewardInbox",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            39,
             1206
           ]
         }
@@ -19788,7 +19985,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 38,
+      "order": 39,
       "layer": "transport",
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)",
       "provides": [
@@ -20596,16 +20793,6 @@
         },
         {
           "provider": "13g-steward.js",
-          "symbol": "stewardDir",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1015
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
           "symbol": "stewardFail",
           "kinds": [
             "call"
@@ -20631,16 +20818,6 @@
             1653,
             1654,
             1657
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardInboxRead",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1077
           ]
         },
         {
@@ -20707,12 +20884,32 @@
           "lines": [
             1838
           ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardDir",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1015
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxRead",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1077
+          ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 39,
+      "order": 40,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -25206,108 +25403,6 @@
           ]
         },
         {
-          "provider": "13g-steward.js",
-          "symbol": "startStewardInbox",
-          "kinds": [
-            "call",
-            "read"
-          ],
-          "lines": [
-            9,
-            332
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "STEWARD_SOURCE_EVENT_MAP",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            334
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardEventDedupeKey",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            340
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardInboxRowDedupeKeys",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            341
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardMergeInboxEvents",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            339
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardNormalizeBudgetExhausted",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            338
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardNormalizeMissionChange",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            335
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardNormalizePendingIntervention",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            337
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardNormalizeRunEvent",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            336
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stopStewardInbox",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            333
-          ]
-        },
-        {
           "provider": "13h-steward-runner.js",
           "symbol": "buildStewardSystemPrompt",
           "kinds": [
@@ -25385,6 +25480,108 @@
           ],
           "lines": [
             376
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "startStewardInbox",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            9,
+            332
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "STEWARD_SOURCE_EVENT_MAP",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            334
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardEventDedupeKey",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            340
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxRowDedupeKeys",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            341
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardMergeInboxEvents",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            339
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardNormalizeBudgetExhausted",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            338
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardNormalizeMissionChange",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            335
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardNormalizePendingIntervention",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            337
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardNormalizeRunEvent",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            336
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stopStewardInbox",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            333
           ]
         }
       ]
@@ -28453,7 +28650,6 @@
         "makeId",
         "nowIso",
         "path",
-        "paths",
         "readUsageRows",
         "safeJsonParse",
         "text",
@@ -28494,7 +28690,6 @@
         "loadSession",
         "missionIndexAdd",
         "readInterventions",
-        "readMissionChangesWithMeta",
         "readMissionContainer",
         "repairMissionChangeTornTail",
         "saveSession",
@@ -28534,11 +28729,9 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "STEWARD_DIGEST_LIMITS",
-        "STEWARD_EVENT_KINDS",
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_PREROUTE_QUERY_MAX",
-        "STEWARD_SESSION_ID",
         "StewardHooks",
         "buildStewardBrief",
         "deriveStewardThreadState",
@@ -28568,8 +28761,7 @@
       "from": "13g-steward.js",
       "to": "08-agent-runs.js",
       "symbols": [
-        "listAgentRuns",
-        "readAgentRunEvents"
+        "listAgentRuns"
       ],
       "direction": "backward"
     },
@@ -28616,6 +28808,18 @@
       "symbols": [
         "getPretenderProjectionIndex",
         "overlayMissionCard"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13g-steward.js",
+      "to": "13i-steward-inbox.js",
+      "symbols": [
+        "startStewardInbox",
+        "stewardDir",
+        "stewardInboxRead",
+        "stewardInboxState",
+        "stopStewardInbox"
       ],
       "direction": "backward"
     },
@@ -28748,15 +28952,90 @@
       "symbols": [
         "_stewardReadBudget",
         "stewardAppendDecision",
-        "stewardDir",
         "stewardFail",
-        "stewardInboxRead",
         "stewardPendingOneLine",
         "stewardRawKind",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
         "stewardThreadPermissionMode",
         "stewardToolHandler"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13h-steward-runner.js",
+      "to": "13i-steward-inbox.js",
+      "symbols": [
+        "stewardDir",
+        "stewardInboxRead"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "fsp",
+        "nowIso",
+        "path",
+        "paths",
+        "safeJsonParse",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "01-config.js",
+      "symbols": [
+        "atomicWriteJson",
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "readMissionChangesWithMeta",
+        "repairMissionChangeTornTail"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "logEvent"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_EVENT_KINDS",
+        "STEWARD_SESSION_ID",
+        "StewardHooks",
+        "stewardSanitizeText"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "08-agent-runs.js",
+      "symbols": [
+        "listAgentRuns",
+        "readAgentRunEvents"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "13e-pretender-index.js",
+      "symbols": [
+        "getPretenderProjectionIndex"
       ],
       "direction": "backward"
     },
@@ -29413,7 +29692,22 @@
     },
     {
       "from": "14-main.js",
-      "to": "13g-steward.js",
+      "to": "13h-steward-runner.js",
+      "symbols": [
+        "buildStewardSystemPrompt",
+        "ensureStewardSession",
+        "runStewardTurn",
+        "stewardContextBudget",
+        "stewardParseReply",
+        "stewardPreroute",
+        "stewardResolveRoute",
+        "stewardVisit"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13i-steward-inbox.js",
       "symbols": [
         "STEWARD_SOURCE_EVENT_MAP",
         "startStewardInbox",
@@ -29425,21 +29719,6 @@
         "stewardNormalizePendingIntervention",
         "stewardNormalizeRunEvent",
         "stopStewardInbox"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "13h-steward-runner.js",
-      "symbols": [
-        "buildStewardSystemPrompt",
-        "ensureStewardSession",
-        "runStewardTurn",
-        "stewardContextBudget",
-        "stewardParseReply",
-        "stewardPreroute",
-        "stewardResolveRoute",
-        "stewardVisit"
       ],
       "direction": "backward"
     }

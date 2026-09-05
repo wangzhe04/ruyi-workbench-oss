@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 40 | 1918 | 1910 | 306 | 67 | 0 | 1 |
+| 41 | 1918 | 1929 | 315 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -52,9 +52,10 @@
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 107 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 37 | `13g-steward.js` | transport | 130 | 72 | 15 |
-| 38 | `13h-steward-runner.js` | transport | 108 | 64 | 11 |
-| 39 | `14-main.js` | entrypoint | 1 | 466 | 31 |
+| 37 | `13i-steward-inbox.js` | transport | 55 | 19 | 7 |
+| 38 | `13g-steward.js` | transport | 75 | 72 | 16 |
+| 39 | `13h-steward-runner.js` | transport | 108 | 64 | 12 |
+| 40 | `14-main.js` | entrypoint | 1 | 466 | 31 |
 
 ## 模块边
 
@@ -309,21 +310,22 @@
 | `13e-pretender-index.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunDir` |
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
-| `13g-steward.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
+| `13g-steward.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
 | `13g-steward.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `readConfig`, `resolvePermissionMode`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
 | `13g-steward.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
-| `13g-steward.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionContainer`, `repairMissionChangeTornTail`, `saveSession`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
+| `13g-steward.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `repairMissionChangeTornTail`, `saveSession`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
 | `13g-steward.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13g-steward.js` | `06-provider-engine.js` | backward | `collectAudit` |
 | `13g-steward.js` | `06d-memory-domain.js` | backward | `memoryProposalLooksSensitive` |
-| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `STEWARD_SESSION_ID`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
+| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
 | `13g-steward.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
-| `13g-steward.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
+| `13g-steward.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13g-steward.js` | `10-context-governance.js` | backward | `runSessionTurn` |
 | `13g-steward.js` | `12-tool-dispatch.js` | backward | `buildWorkbenchSelfStatus` |
 | `13g-steward.js` | `13b-api-domain-routes.js` | backward | `steerSessionCore` |
 | `13g-steward.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand`, `buildMissionAggregateRows`, `decideIntervention`, `missionPendingCounts`, `missionRunDigest`, `searchSessionsByContent` |
 | `13g-steward.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
+| `13g-steward.js` | `13i-steward-inbox.js` | backward | `startStewardInbox`, `stewardDir`, `stewardInboxRead`, `stewardInboxState`, `stopStewardInbox` |
 | `13h-steward-runner.js` | `00-boot.js` | backward | `SESSION_SCHEMA`, `apiFailure`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
 | `13h-steward-runner.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `tokenOk` |
 | `13h-steward-runner.js` | `02-session-store.js` | backward | `loadSession`, `normalizeSessionEngineRoute`, `readInterventions`, `readMissionContainer`, `recordMissionBudgetTrippedChange`, `saveSession`, `sessionEngineRouteFromConfig`, `sessionMissionId` |
@@ -334,7 +336,15 @@
 | `13h-steward-runner.js` | `08-agent-runs.js` | backward | `classifyRunResumeTier`, `parseStructuredAgentOutput` |
 | `13h-steward-runner.js` | `10-context-governance.js` | backward | `runSessionTurn` |
 | `13h-steward-runner.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
-| `13h-steward-runner.js` | `13g-steward.js` | backward | `_stewardReadBudget`, `stewardAppendDecision`, `stewardDir`, `stewardFail`, `stewardInboxRead`, `stewardPendingOneLine`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardToolHandler` |
+| `13h-steward-runner.js` | `13g-steward.js` | backward | `_stewardReadBudget`, `stewardAppendDecision`, `stewardFail`, `stewardPendingOneLine`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardToolHandler` |
+| `13h-steward-runner.js` | `13i-steward-inbox.js` | backward | `stewardDir`, `stewardInboxRead` |
+| `13i-steward-inbox.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `repairMissionChangeTornTail` |
+| `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `logEvent` |
+| `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText` |
+| `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
+| `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
 | `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA` |
 | `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectKimiPath`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `resolveClaudeLauncher`, `resolvePermissionMode`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi` |
 | `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
@@ -364,8 +374,8 @@
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
 | `14-main.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand` |
 | `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `pretenderIndexPath`, `warmPretenderProjectionIndex` |
-| `14-main.js` | `13g-steward.js` | backward | `STEWARD_SOURCE_EVENT_MAP`, `startStewardInbox`, `stewardEventDedupeKey`, `stewardInboxRowDedupeKeys`, `stewardMergeInboxEvents`, `stewardNormalizeBudgetExhausted`, `stewardNormalizeMissionChange`, `stewardNormalizePendingIntervention`, `stewardNormalizeRunEvent`, `stopStewardInbox` |
 | `14-main.js` | `13h-steward-runner.js` | backward | `buildStewardSystemPrompt`, `ensureStewardSession`, `runStewardTurn`, `stewardContextBudget`, `stewardParseReply`, `stewardPreroute`, `stewardResolveRoute`, `stewardVisit` |
+| `14-main.js` | `13i-steward-inbox.js` | backward | `STEWARD_SOURCE_EVENT_MAP`, `startStewardInbox`, `stewardEventDedupeKey`, `stewardInboxRowDedupeKeys`, `stewardMergeInboxEvents`, `stewardNormalizeBudgetExhausted`, `stewardNormalizeMissionChange`, `stewardNormalizePendingIntervention`, `stewardNormalizeRunEvent`, `stopStewardInbox` |
 
 ## 强连通分量
 

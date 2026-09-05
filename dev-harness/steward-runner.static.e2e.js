@@ -34,6 +34,8 @@ const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
 const src13d = read('13d-core-domain-routes.js');
 const src13g = read('13g-steward.js');
+// 116-2e:收件箱轮询与游标前移到 13i-steward-inbox.js(零行为搬家),⑤ 的收件箱断言随之改读 13i。
+const src13i = read('13i-steward-inbox.js');
 const src13h = read('13h-steward-runner.js');
 const src01b = read('01b-route-auth.js');
 
@@ -59,7 +61,8 @@ const src01b = read('01b-route-auth.js');
   // (12 的工具 handler、13 的 /api/stop、13d 的事项聚合行)。加入样本让「零前向边」的判据【更严】
   // (这三个文件同样不许出现 13h 的符号),同时让下面反向的 unused 判据仍然覆盖全部消费者。
   const consumers = [['06-provider-engine.js', src06], ['09-workflow.js', src09], ['10-context-governance.js', src10],
-    ['12-tool-dispatch.js', src12], ['13-http-router.js', src13], ['13d-core-domain-routes.js', src13d], ['13g-steward.js', src13g]];
+    ['12-tool-dispatch.js', src12], ['13-http-router.js', src13], ['13d-core-domain-routes.js', src13d], ['13g-steward.js', src13g],
+    ['13i-steward-inbox.js', src13i]];
   const leaks = [];
   for (const [name, text] of consumers) {
     for (const symbol of runnerSymbols) {
@@ -86,7 +89,8 @@ const src01b = read('01b-route-auth.js');
   // 仲裁器原语,故与其余 20 个工具不同、由 13h 填充)。插队原语与仲裁器快照【不】上命名空间——它们的
   // 消费者全在 13h 内部,挂上去会被下面的 unused 判据判成死代码。重钉来源:27 号文 §3.1 116h 行。
   ok(hookKeys.length === 14, `② 13h 填充 14 个实现键(116f 8 + 116-pre 1 + 116h 5;got ${hookKeys.length}: ${hookKeys.join(',')})`);
-  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g;
+  // 116-2e:onInboxBatch / stopRunner / resumeRunner 的消费者在收件箱侧,随拆分搬进了 13i。
+  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13i;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
   ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
@@ -153,7 +157,7 @@ const srv = require(path.join(APP, 'server.js'));
   ok(rows.some(r => (r.id || r.name) === 'steward-visits'), '⑤ 到访归档面已登记进 durable-state-inventory');
   ok(/stewardEnabledV1 !== true/.test(src13h), '⑤ 13h 有开关 fail-closed 判据(开关关时三条路由 409、零写入)');
   ok(/STEWARD_SESSION_ID = 'steward'/.test(src06i), '⑤ 管家会话固定 id 定在 06i(13g 与 13h 共用同一常量)');
-  ok(/if \(sid === STEWARD_SESSION_ID\) continue;/.test(src13g), '⑤ 收件箱轮询排除管家会话自己(防回合自激励成环)');
+  ok(/if \(sid === STEWARD_SESSION_ID\) continue;/.test(src13i), '⑤ 收件箱轮询排除管家会话自己(防回合自激励成环)');
 }
 
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

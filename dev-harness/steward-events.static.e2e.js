@@ -127,7 +127,12 @@ function typeExpressionLiterals(text) {
   const files = manifest.modules.map(m => (typeof m === 'string' ? m : m.file));
   const i = files.indexOf('13g-steward.js');
   ok(i > 0, 'D4 manifest 含 13g-steward.js');
-  ok(files[i - 1] === '13e-pretender-index.js', 'D4 13g 紧跟 13e-pretender-index.js 之后');
+  // 116-2e 重钉:13g 与 13e 之间插入了 13i-steward-inbox.js(收件箱轮询与游标的零行为搬家落点;
+  // 只能前置 —— steward-runner.static ① 同时锁着「13h 紧跟 13g」与「13h 紧邻 14-main」)。判据的用意
+  // 不变 —— 管家这一族仍连续地待在 transport 层末尾、组合根 14-main 之前。
+  ok(files[i - 1] === '13i-steward-inbox.js', 'D4 13g 紧跟 13i-steward-inbox.js 之后(116-2e 重钉)');
+  ok(files[i - 2] === '13e-pretender-index.js', 'D4 13i 紧跟 13e-pretender-index.js 之后');
+  ok(fs.existsSync(path.join(SRC, '13i-steward-inbox.js')), 'D4 13i-steward-inbox.js 文件存在');
   // 116f 重钉:13g 与 14-main 之间插入了 13h-steward-runner.js(管家回合运行器,同为 transport 层;
   // 理由见 116c 交付记录「13g 已 1710 行,116f 另起 13h」)。判据的用意不变 —— 13g 仍在 transport 层
   // 末尾、组合根 14-main 之前,故改钉「13g 之后是 13h」+「14-main 仍是最后一个模块」。
@@ -146,15 +151,18 @@ function typeExpressionLiterals(text) {
   ok(!/\bstartStewardInbox\b/.test(router), 'D5 13-http-router 不直接引用 startStewardInbox');
 
   const steward = read('13g-steward.js');
+  // 116-2e 重钉(只改读哪个文件,断言语义与文本不变):收件箱轮询与游标整体前移到 13i-steward-inbox.js,
+  // 13g 只留路由/决策日志/记忆/工具管道。故下面四条读的是 13i,Object.assign 那条仍读 13g。
+  const inbox = read('13i-steward-inbox.js');
   ok(/Object\.assign\(StewardHooks, \{/.test(steward), 'D5 13g 用 Object.assign(StewardHooks, {...}) 延迟绑定填充');
-  ok(/function startStewardInbox\(config\)[\s\S]{0,400}stewardEnabledV1 !== true\) return \{ ok: false, running: false/.test(steward),
+  ok(/function startStewardInbox\(config\)[\s\S]{0,400}stewardEnabledV1 !== true\) return \{ ok: false, running: false/.test(inbox),
     'D5 开关关(stewardEnabledV1 !== true)时 startStewardInbox 立即返回:零 interval、零目录、零写入');
-  ok(!/setInterval/.test(steward.slice(0, steward.indexOf('async function startStewardInbox'))),
+  ok(!/setInterval/.test(inbox.slice(0, inbox.indexOf('async function startStewardInbox'))),
     'D5 模块加载期不起任何 interval(轮询只能由 startStewardInbox 起)');
-  ok(steward.includes("path.join(paths.data, STEWARD_DIR_NAME)") && !steward.includes("paths.steward"),
+  ok(inbox.includes("path.join(paths.data, STEWARD_DIR_NAME)") && !inbox.includes("paths.steward"),
     'D5 <data>/steward 不进 paths 常量表(否则 ensureDirs 会在开关关时也建目录)');
-  ok(steward.includes('repairMissionChangeTornTail'), 'D5 inbox 追加复用 session-changes 同款 NDJSON 原语(不新造)');
-  ok(steward.includes('atomicWriteJson(stewardCursorPath()'), 'D5 游标经 atomicWriteJson 落盘');
+  ok(inbox.includes('repairMissionChangeTornTail'), 'D5 inbox 追加复用 session-changes 同款 NDJSON 原语(不新造)');
+  ok(inbox.includes('atomicWriteJson(stewardCursorPath()'), 'D5 游标经 atomicWriteJson 落盘');
 
   const main = read('14-main.js');
   ok(/startStewardInbox\(await readConfig\(\)\)/.test(main), 'D5 14-main 在 startServer 返回后调用 startStewardInbox(config)');

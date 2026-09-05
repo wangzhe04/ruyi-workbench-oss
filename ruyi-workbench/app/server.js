@@ -40359,11 +40359,18 @@ function overlayMissionCard(slice) {
 }
 
 // ============================================================================
-// 第 116 波 116b(27 号文 §11.3「116b 收件箱与游标」):管家(Steward)收件箱轮询器、游标与只读路由。
+// 第 116 波 116b(27 号文 §11.3「116b 收件箱与游标」)/ 116-2e 拆分:管家(Steward)收件箱轮询器与游标。
 //
-// 定位(transport 层,manifest 中位于 13e-pretender-index.js 之后、14-main.js 之前):
-//   本文件把【三条现成的 seq 日志】增量读成【五类白名单事件】,落进管家自己的两个文件,并开出四条
-//   token 级只读/控制路由。它不改任何执行语义 —— 只读别人的账,只写自己的箱。
+// 拆分来源(116-2e):本文件的全部内容原本是 `13g-steward.js` 的前半(第 1 行到 handleStewardApiRoutes
+//   之前),零行为搬家 —— 函数体一行未改,只改了本文件头注释。拆分理由:13g 已 1993 行触到 SPEC §2 的
+//   2000 行目标上限,116-2e 还要往它的 handleStewardApiRoutes 与工具管道里加东西。
+// 落点(transport 层,manifest 中位于 13e-pretender-index.js 之后、13g-steward.js 之前):
+//   只能【前置】—— `steward-runner.static` 同时锁着「13h 紧跟 13g」与「13h 紧邻 14-main」,
+//   13g 与 13h 之间没有位置;前置模块只能承载 13g 的【上游】部分(收件箱),否则出前向边。
+//
+// 本文件把【三条现成的 seq 日志】增量读成【五类白名单事件】,落进管家自己的两个文件。
+// 它不改任何执行语义 —— 只读别人的账,只写自己的箱。路由、决策日志、记忆存储与 21 个管家工具
+// 仍住 13g(它拼接在本文件之后,引用本文件的符号全部是后向边)。
 //
 // 三个源(全部是既有权威源,本波不新增任何写入端):
 //   ① Mission Change Ledger  `readMissionChangesWithMeta(sessionId, currentRevision)`(02-session-store.js)
@@ -40374,17 +40381,16 @@ function overlayMissionCard(slice) {
 //      —— 可重建物化索引,给出每个会话的 pending Intervention 列表与 mission card(含预算耗尽标记)。
 //
 // 依赖纪律(§11.3「不得新增前向边」):
-//   · 13g 只引用拼接顺序在它之前的模块符号(00/01/01b/02/08/13e/06i …),全部后向边;
+//   · 13i 只引用拼接顺序在它之前的模块符号(00/01/01b/02/08/13e/06i …),全部后向边;
 //   · 13-http-router.js 【不得】直接引用本文件的任何符号 —— 那会是前向边。挂接改走延迟绑定:
-//     本文件在加载时 `Object.assign(StewardHooks, { handleApiRoutes, stopInbox, inboxRead, inboxState })`,
-//     13 只写 `StewardHooks.handleApiRoutes`(13 → 06i 是后向边);
-//   · 14-main.js 在 startServer 返回(服务已监听)后调用 `startStewardInbox(config)`(14 → 13g 后向边)。
+//     13g 在加载时 `Object.assign(StewardHooks, { handleApiRoutes, stopInbox, inboxRead, inboxState })`,
+//     其中后三个键的实现就在本文件里(13g → 13i 是后向边),13 只写 `StewardHooks.handleApiRoutes`;
+//   · 14-main.js 在 startServer 返回(服务已监听)后调用 `startStewardInbox(config)`(14 → 13i 后向边)。
 //
 // 开关(§3.4 红线):`stewardEnabledV1 !== true` 时本文件【零副作用】—— 不起 interval、不建
-// `<data>/steward/` 目录、不写任何文件;四条路由仍在(路由清册不因开关变化),start 返回 409
+// `<data>/steward/` 目录、不写任何文件;四条路由(住 13g)仍在(路由清册不因开关变化),start 返回 409
 // `steward.disabled`,state 返回 enabled:false,inbox 读一个不存在的文件得空数组(不 mkdir)。
 // ============================================================================
-
 // ── 落盘常量 ────────────────────────────────────────────────────────────────
 const STEWARD_DIR_NAME = 'steward';
 const STEWARD_INBOX_FILE = 'inbox-v1.ndjson';
@@ -41136,6 +41142,25 @@ async function stewardInboxState(config) {
     counts: { byKind },
   };
 }
+
+// ============================================================================
+// 第 116 波 116c(27 号文 §3.5「管家工具面设计」/ §4「管家记忆层」):管家(Steward)域路由、
+// 决策日志、记忆存储与全部管家工具的实现。
+//
+// 落点(transport 层,manifest 中位于 13i-steward-inbox.js 之后、13h-steward-runner.js 之前)。
+// 116-2e 拆分:收件箱轮询与游标(原本是本文件的前半)整体前移到 `13i-steward-inbox.js`,零行为搬家;
+//   本文件引用它的符号(stewardDir / stewardInboxRead / stewardInboxState / startStewardInbox …)
+//   全部是后向边。理由见 13i 的文件头。
+//
+// 依赖纪律(§11.3「不得新增前向边」):
+//   · 13g 只引用拼接顺序在它之前的模块符号(00/01/01b/02/06i/08/13e/13i …),全部后向边;
+//   · 13-http-router.js 【不得】直接引用本文件的任何符号 —— 那会是前向边。挂接走延迟绑定:
+//     本文件在加载时 `Object.assign(StewardHooks, { handleApiRoutes, stopInbox, inboxRead, ... })`,
+//     13 只写 `StewardHooks.handleApiRoutes`(13 → 06i 是后向边);
+//   · 12-tool-dispatch.js 的管家工具 handler 同理,只写 `StewardHooks.<键>(args, ctx)`。
+//
+// 开关(§3.4 红线):`stewardEnabledV1 !== true` 时路由 409 `steward.disabled`、工具门控壳零写入。
+// ============================================================================
 
 // ────────────────────────────────────────────────────────────────────────────
 // 路由(全部 token 级,ROUTE_AUTH 在 01b-route-auth.js 登记;handler 内另做 tokenOk 纵深自查)。

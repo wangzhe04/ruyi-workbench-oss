@@ -587,7 +587,7 @@
     {
       "id": "steward-inbox",
       "pattern": "<data>/steward/inbox-v1.ndjson",
-      "owner": "13g-steward.js",
+      "owner": "13i-steward-inbox.js",
       "anchor": "STEWARD_INBOX_FILE",
       "schema": "NDJSON inbox rows / inbox-v1",
       "writePrimitive": "repairMissionChangeTornTail + appendFile through a per-process serialized chain (the session-changes primitive)",
@@ -601,7 +601,7 @@
     {
       "id": "steward-cursor",
       "pattern": "<data>/steward/cursor-v1.json",
-      "owner": "13g-steward.js",
+      "owner": "13i-steward-inbox.js",
       "anchor": "STEWARD_CURSOR_FILE",
       "schema": "object / schema 1",
       "writePrimitive": "atomicWriteJson",
