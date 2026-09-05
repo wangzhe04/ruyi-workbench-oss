@@ -820,6 +820,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_thread_note',
+    description: '给一条【正在跑】的线程补一句上下文——以插话的形式追加到它的下一步(和用户手动插话走同一条通道)。text 会被加上「（管家补充）」前缀后注入,用户在线程里一眼能看出这句是你加的。何时用:你刚把用户的原话递给了这条线程(steward_thread_continue),但从记忆或总览里知道一件线程还不知道、会影响它下一步做法的事实(相关文件在哪、用户偏好、上次这么做失败过)。何时别用:**只用于给已在跑的线程补上下文;不要用它改写用户意图**——要交代新任务用 steward_thread_continue(它会起一个新回合),要收紧权限用 steward_thread_permission。目标线程没有在途回合、或当前回合不接受插话(Claude legacy/print 模式、有待答提问、插话队列已满)时返回 {ok:false,error:"steward.no_active_turn"},此时【不要重试】,改用 steward_thread_continue 或如实告诉用户。返回 {ok,sessionId,queued,injected,undoRef};undoRef 带注入的整句(撤回按文本匹配)。text ≤600 字,尖括号会被中和。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'text'],
+      properties: {
+        sessionId: { type: 'string', description: '目标线程 id(必须有在途回合;不能是管家自己的会话)。' },
+        text: { type: 'string', description: '要补充的一句话(≤600 字)。只补上下文,不要改写用户的意图。' },
+      },
+    },
+  },
+  {
     name: 'steward_decide',
     description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)在任何权限档都返回 propose_required。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {

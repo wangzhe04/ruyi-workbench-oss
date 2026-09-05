@@ -54,6 +54,10 @@ const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上�
 const STEWARD_TURN_WINDOW_MS = 60 * 60 * 1000; // 每小时回合上限的滑动窗口
 const STEWARD_TURN_DAY_MS = 24 * 60 * 60 * 1000; // 回合时间戳表只保留 24 小时(state 的 day 口径同源)
 const STEWARD_PREEMPT_WAIT_MS = 15000;        // 抢占后等在途回合收尾的上限
+// ── 116-2b 自理动作(§3.3 自理清单的【真实执行】)──────────────────────────────────────────
+const STEWARD_SELF_SERVE_ATTEMPT_MAX = 2;    // 同一目标连续 2 次自理动作后仍失败 -> 停自动、只提议
+const STEWARD_SELF_SERVE_RETRY_WINDOW_MS = 60 * 60 * 1000; // 同一目标本小时只自动重试一次
+const STEWARD_SELF_SERVE_PER_TURN_MAX = 3;   // 一个收件箱回合最多自理 3 个目标(其余进回合层)
 
 // ── 到访摘要的五类人话(确定性归纳,不调模型;§8.9「每次打开只汇报」)──────────────────────────
 const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
@@ -98,6 +102,9 @@ const stewardRunnerRuntime = {
   lastReply: null,      // 最近一次 steward_reply 的精简副本(供 /api/steward/state)
   circuit: null,        // 最近一次触发的熔断 { kind, at, detail }
   stopped: false,       // 一键停机:停轮询的同时停回合队列
+  // 116-2b:自理动作的每目标账。targetKey = sessionId|runId。只在内存(进程重启 = 重新开始数;
+  // 与 §11.1 第 7 项「重启即新到访」同一立场:重启后第一次仍值得试一次,连着失败才该停手)。
+  selfServe: new Map(),  // targetKey -> { attempts, lastRetryAt, lastActionAt }
 };
 
 function stewardStopRunner() {
@@ -552,13 +559,181 @@ function stewardDowngradeActions(executed, acts) {
     const result = row && row.result;
     if (!result || result.ok !== false || result.error !== 'propose_required') continue;
     if (next.some(act => act.kind === 'tool' && act.tool === row.tool && JSON.stringify(act.args || {}) === JSON.stringify(row.args || {}))) continue;
-    const act = { label: stewardActLabel(row.tool, row.args), kind: 'tool', tool: row.tool, args: row.args || {} };
+    // 116-2b:自理动作降级时用它自己的人话标签(「重试」/「续跑」)——它是按【意图】提的,
+    // 不是按工具名提的:回合类重试走的是 thread_continue,按工具名会说成「接着办」,那不是用户
+    // 要按的那件事。没有显式标签时仍按工具与 args 派生(既有行为逐字不变)。
+    const act = { label: String(row.label || '').slice(0, STEWARD_ACT_LABEL_MAX) || stewardActLabel(row.tool, row.args), kind: 'tool', tool: row.tool, args: row.args || {} };
     const sid = row.args && (row.args.sessionId || row.args.missionId) ? safeSessionId(row.args.sessionId || row.args.missionId) : '';
     if (sid) act.sessionId = sid;
     if (!next.some(a => a.primary)) act.primary = true;
     next.push(act);
   }
   return next.slice(0, STEWARD_ACTS_MAX);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 116-2b · 自理动作的确定性处置(§3.3「管家可以自己做的事」清单的真实执行)
+//
+// 为什么先于模型、且不经模型:失败重试与重启续跑是【确定性】的处置 —— 该不该做由三样东西唯一
+// 决定(自理清单勾选 / 目标线程权限 / 该目标最近有没有被管家动过),没有一样需要「理解」。让模型
+// 每次都重新推一遍,既慢又不稳定,还会把「能不能做」的判据散到提示词里去。所以:工作台先按规则
+// 把该做的做掉,把【结果】当成收件箱事件的补充信息带进回合层,模型只需要「说」——把发生的事讲给
+// 用户听、必要时补一个按钮。
+//
+// 闸门顺序(任一不过就降级成一条提议,不是失败):
+//   ① 停机 / 熔断      —— 由 runStewardTurn 的 stewardCircuitCheck 在更外层挡掉(停机时根本不到这里);
+//   ② 小时窗           —— 自理动作与管家回合【计入同一个】 stewardMaxTurnsPerHour 窗口;
+//   ③ 无进展熔断       —— 同一目标连续 2 次自理动作后仍在报问题 -> 停自动,只提议;
+//   ④ 自理清单勾选     —— retry / resume(resume 为 null 时跟随既有 autonomyAutoResume);
+//   ⑤ 目标线程权限     —— stewardMayAct(mode,'failed','exec'),续跑按 failed 档口径(§3.3);
+//   ⑥ 续跑另加一道     —— classifyRunResumeTier 必须判 auto_resumable(权限面不可证明就不自动);
+//   ⑦ 13g 工具内部     —— 永久豁免与 stewardMayAct 的【权威】判据在那里,拿到 propose_required
+//                          就照既有路径降级成按钮。本文件不复制那套判据。
+//
+// relay(事项内交接)本切片仍【只提议】(默认 false,§11.1 第 6 项);newThread 只在 relay 或定时
+// 触发时才允许,而本切片没有引入任何定时触发源 —— 故这里【不存在】自动新开线程的路径:自理侧
+// 根本不产生这两种 plan,模型若把它们写进 actions 仍由 stewardSelfServeAllows 那两道闸拦下。
+// ════════════════════════════════════════════════════════════════════════════
+
+function stewardSelfServeKey(sessionId, runId) {
+  return String(sessionId || '') + '|' + String(runId || '');
+}
+function stewardSelfServeEntry(key) {
+  let row = stewardRunnerRuntime.selfServe.get(key);
+  if (!row) { row = { attempts: 0, lastRetryAt: 0, lastActionAt: 0 }; stewardRunnerRuntime.selfServe.set(key, row); }
+  return row;
+}
+
+// 收件箱事件 -> 处置意图。返回 null = 只进回合层(让模型说,不自动动手)。
+//   failed  : run 类(事件带 runId 与 nodeId)-> retry_node;回合类 -> thread_continue「继续」
+//   stalled : 只有【重启续跑类】(run_interrupted / run_resume_deferred)才自动 resume;
+//             node_idle_aborted / node_no_progress_aborted / run_stalled 是「跑不动」而不是「被打断」,
+//             盲目续跑只会再撞一次同一堵墙 -> 一律只进回合层。
+function stewardSelfServePlan(evt) {
+  const e = (evt && typeof evt === 'object') ? evt : {};
+  const sessionId = safeSessionId(e.sessionId);
+  if (!sessionId) return null;
+  const runId = safeSessionId(e.runId);
+  const payload = (e.payload && typeof e.payload === 'object') ? e.payload : {};
+  if (e.kind === 'failed') {
+    if (runId && payload.nodeId) {
+      return { intent: 'retry', label: '重试', tool: 'steward_run_action', sessionId, runId,
+        args: { sessionId, runId, action: 'retry_node', nodeId: String(payload.nodeId) } };
+    }
+    // 原话固定为「继续」(不由模型编);origin 标进决策日志的 basis,事后能分清哪一句是自理重试。
+    return { intent: 'retry', label: '重试', tool: 'steward_thread_continue', sessionId, runId: '',
+      args: { sessionId, message: '继续' }, origin: 'steward-retry' };
+  }
+  if (e.kind === 'stalled') {
+    const type = String(payload.eventType || '');
+    if (runId && (type === 'run_interrupted' || type === 'run_resume_deferred')) {
+      return { intent: 'resume', label: '续跑', tool: 'steward_run_action', sessionId, runId,
+        args: { sessionId, runId, action: 'resume' }, origin: 'steward-resume' };
+    }
+  }
+  return null;
+}
+
+// 续跑的第六道闸:重启后这条班组敢不敢自动跑,由既有 classifyRunResumeTier 说了算(权限面不可
+// 证明 / 有非纯读节点停在半路 -> manual_resume_required)。读不到快照一律按不安全处理。
+async function stewardRunResumeTier(sessionId, runId, config) {
+  try {
+    const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
+    if (!run) return 'unknown';
+    return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
+  } catch { return 'unknown'; }
+}
+
+async function stewardSelfServeGate(plan, config) {
+  const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
+  const key = stewardSelfServeKey(plan.sessionId, plan.runId);
+  const entry = stewardSelfServeEntry(key);
+  const now = Date.now();
+
+  // ② 小时窗:自理动作与管家回合共用 stewardMaxTurnsPerHour(§11.3「自理动作计入同一窗口」)。
+  const maxTurns = Math.max(0, Math.round(Number(config.stewardMaxTurnsPerHour) || 0));
+  if (maxTurns > 0 && stewardTurnsInWindow(now, STEWARD_TURN_WINDOW_MS) >= maxTurns) {
+    return { allowed: false, reason: `本小时管家的动作已经到上限(${maxTurns}),这件事只能提议` };
+  }
+  // ③ 无进展熔断:同一目标连着自理两次还在报问题,说明自动重试解决不了,交回给人。
+  if (entry.attempts >= STEWARD_SELF_SERVE_ATTEMPT_MAX) {
+    return { allowed: false, reason: `这条线程已经自动处置过 ${entry.attempts} 次仍未好转,不再自动动手,只提议` };
+  }
+  const mode = await stewardTargetPermission(plan.args, config);
+  if (plan.intent === 'retry') {
+    if (auto.retry !== true) return { allowed: false, reason: '「失败自动重试」没有勾选,只能提议' };
+    // ④' 同一目标本小时只自动重试一次 —— 失败往往连着来,一小时内重复重试就是刷钱。
+    if (entry.lastRetryAt && now - entry.lastRetryAt < STEWARD_SELF_SERVE_RETRY_WINDOW_MS) {
+      return { allowed: false, reason: '这条线程本小时已经自动重试过一次了,再失败只提议' };
+    }
+    if (stewardMayAct(mode, 'failed', 'exec') !== 'auto') {
+      return { allowed: false, reason: `目标线程权限为「${stewardPermissionLabel(mode)}」,失败重试只能提议` };
+    }
+    return { allowed: true, mode };
+  }
+  if (plan.intent === 'resume') {
+    const resume = auto.resume === null || auto.resume === undefined ? (config && config.autonomyAutoResume === true) : auto.resume === true;
+    if (!resume) return { allowed: false, reason: '「重启后自动续跑」没有开,只能提议' };
+    if (stewardMayAct(mode, 'failed', 'exec') !== 'auto') {
+      return { allowed: false, reason: `目标线程权限为「${stewardPermissionLabel(mode)}」,自动续跑只能提议` };
+    }
+    const tier = await stewardRunResumeTier(plan.sessionId, plan.runId, config);
+    if (tier !== 'auto_resumable') {
+      return { allowed: false, reason: `这条班组重启后被判为「${tier || '未知'}」,自动续跑不安全,只能提议` };
+    }
+    return { allowed: true, mode };
+  }
+  return { allowed: false, reason: '这类事件没有确定性处置,交给你判断' };
+}
+
+// 一批收件箱事件 -> 自理结果行。每个目标最多处置一次(同一线程同一批里连报三条失败不该重试三遍)。
+// 返回的行与模型 actions 的执行结果【同形】({tool,args,result}),额外带 auto:true 与 label ——
+// 于是「propose_required 自动降级成一条按钮」这条既有路径原样复用,不必另写一套降级。
+async function stewardSelfServeInbox(events, session, config) {
+  const executed = [];
+  const notes = [];
+  const seen = new Set();
+  for (const evt of (Array.isArray(events) ? events : [])) {
+    if (executed.length >= STEWARD_SELF_SERVE_PER_TURN_MAX) break;
+    const plan = stewardSelfServePlan(evt);
+    if (!plan) continue;
+    const key = stewardSelfServeKey(plan.sessionId, plan.runId);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const inboxSeq = Number(evt && evt.inboxSeq) || 0;
+    const gate = await stewardSelfServeGate(plan, config);
+    const row = { tool: plan.tool, args: plan.args, auto: true, label: plan.label, intent: plan.intent, sessionId: plan.sessionId, inboxSeq };
+    if (!gate.allowed) {
+      row.result = stewardFail('propose_required', gate.reason, { reason: 'self_serve_gate', sessionId: plan.sessionId });
+      executed.push(row);
+      notes.push(`- [${inboxSeq}] 线程 ${plan.sessionId}:管家没有自动${plan.label}(${gate.reason}),已作为提议留给用户。`);
+      continue;
+    }
+    const hookKey = STEWARD_ACTION_HOOKS[plan.tool];
+    const entry = stewardSelfServeEntry(key);
+    // 计账在【发起前】:动作发出去了就算用过一次配额,哪怕它失败 —— 否则失败会变成免费重试。
+    stewardRunnerRuntime.turns.push(Date.now());
+    entry.attempts += 1;
+    entry.lastActionAt = Date.now();
+    if (plan.intent === 'retry') entry.lastRetryAt = Date.now();
+    try {
+      row.result = await StewardHooks[hookKey]({
+        ...plan.args,
+        // 决策日志的 basis:哪条收件箱事件触发的、是不是自理、什么来源。13g 的两个实现把它并进
+        // basis 落盘(args 本身照旧只记摘要字段,不落这一坨)。
+        stewardBasis: { inboxSeq, auto: true, origin: plan.origin || ('steward-' + plan.intent) },
+      }, { session, sessionId: session.id, config });
+    } catch (error) {
+      row.result = stewardFail('steward.failed', String((error && error.message) || error));
+    }
+    const okDone = !!(row.result && row.result.ok);
+    executed.push(row);
+    notes.push(okDone
+      ? `- [${inboxSeq}] 线程 ${plan.sessionId}:管家已经自动${plan.label}了(${plan.tool}),把这件事讲给用户听即可,不要再重复动手。`
+      : `- [${inboxSeq}] 线程 ${plan.sessionId}:管家试了自动${plan.label}但没成(${stewardSanitizeText(row.result && (row.result.message || row.result.error))}),已作为提议留给用户。`);
+    logEvent({ kind: 'steward_self_serve', intent: plan.intent, tool: plan.tool, sessionId: plan.sessionId, runId: plan.runId, ok: okDone, inboxSeq });
+  }
+  return { executed, notes };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -615,10 +790,17 @@ function stewardEventLine(row) {
   return line.slice(0, STEWARD_INBOX_EVENT_CHARS);
 }
 
-function stewardInboxMessage(events, config) {
+function stewardInboxMessage(events, config, selfServeNotes) {
   const pack = getPromptPack(config && config.locale);
   const rows = events.slice(-STEWARD_INBOX_EVENTS_PER_TURN);
-  return [pack.steward.inboxHeader({ count: rows.length }), ...rows.map(stewardEventLine), pack.steward.inboxTrailer].join('\n');
+  // 116-2b:自理动作的结果作为事件的【补充信息】进回合层 —— 模型于是只需要「说」,不必再决定
+  // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
+  // 收件箱回合的消息与 116f 逐字节相同。
+  const notes = (Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX);
+  const lines = [pack.steward.inboxHeader({ count: rows.length }), ...rows.map(stewardEventLine)];
+  if (notes.length) lines.push('[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes);
+  lines.push(pack.steward.inboxTrailer);
+  return lines.join('\n');
 }
 
 // 把结构化结果落到管家会话最新一条助手消息的 meta 上(§11.3:「结构化结果落在 …助手消息的 meta」)。
@@ -693,7 +875,13 @@ async function runStewardTurn(input) {
     return stewardFail(ensured.error, ensured.message || 'steward engine is unsupported', { engine: ensured.engine });
   }
   const session = ensured.session;
-  const message = trigger === 'inbox' ? stewardInboxMessage(events, config) : String(opts.message == null ? '' : opts.message);
+  // 116-2b:自理动作【先于模型】跑。它是确定性处置(见 stewardSelfServeInbox 的头注),结果作为
+  // 收件箱事件的补充信息进回合层 —— 模型只需要说,不必再决定。用户回合不走这里:用户就在跟前,
+  // 他这一句话本身就是指令,轮不到管家替他主动做什么(§3.3「没在说话时才叫主动」)。
+  const selfServe = trigger === 'inbox' && events.length
+    ? await stewardSelfServeInbox(events, session, config)
+    : { executed: [], notes: [] };
+  const message = trigger === 'inbox' ? stewardInboxMessage(events, config, selfServe.notes) : String(opts.message == null ? '' : opts.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
 
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
@@ -742,13 +930,17 @@ async function runStewardTurn(input) {
   if (turn && turn.ok === false) {
     const detail = String(turn.error || '').slice(0, 300);
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped });
+    // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed });
   }
   const finalText = await stewardLastAssistantContent();
   const parsedReply = stewardParseReply(finalText);
-  const executed = parsedReply.actions.length
+  // 自理动作排在模型 actions 【前面】:它们先发生,steward_reply.actions 的顺序就该是事情发生的
+  // 顺序。两者同形,故 stewardDowngradeActions 一视同仁 —— 自理侧被闸门拦下的行(propose_required)
+  // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
+  const executed = selfServe.executed.concat(parsedReply.actions.length
     ? await stewardExecuteActions(parsedReply.actions, session, config, trigger)
-    : [];
+    : []);
   const acts = stewardDowngradeActions(executed, parsedReply.acts);
   const reply = {
     trigger,

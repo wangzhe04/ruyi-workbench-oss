@@ -92,7 +92,10 @@ async function getToken(port) {
   ok(app.includes('r.injected') && app.includes("t('toast.steerInjected')") && app.includes("t('toast.steerQueued')"), 'S7 前端 toast 区分即时/下步生效(50c i18n:toast.steerInjected/Queued)');
   ok(!app.includes("isClaudeNode ? t('workflow.steerDeferred')"), 'S8 工作台 Claude 节点不再显示延迟插话');
   ok(zh.includes('"workflow.steer"') && en.includes('"workflow.steer"'), 'S9 i18n 双语通用 steer 键同交');
-  const steerRouteSrc = src.slice(src.indexOf('async function handleSteerApiRoute'), src.indexOf('async function handleSteerApiRoute') + 12000);
+  // 116-2b 重钉锚点:插话判定整段零行为抽出成 steerSessionCore(13b,路由体只剩 body 解析与两种应答
+  // 形态的翻译),故顺序锁改从核心函数开头切片。判据本意一字未改 —— 仍是「kimi-acp → claude →
+  // 通用 fallthrough」这条分派顺序,只是它现在住在核心里。
+  const steerRouteSrc = src.slice(src.indexOf('async function steerSessionCore'), src.indexOf('async function steerSessionCore') + 12000);
   ok(steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") > 0
     && steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") < steerRouteSrc.indexOf("reg.kind === 'claude'")
     && steerRouteSrc.indexOf("reg.kind === 'claude'") < steerRouteSrc.indexOf('当前引擎不支持插话'),

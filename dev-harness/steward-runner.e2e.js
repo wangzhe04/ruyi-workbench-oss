@@ -202,8 +202,8 @@ try {
     const bodies = files.map(f => { try { return JSON.parse(fs.readFileSync(path.join(CAPTURE, f), 'utf8')); } catch { return null; } }).filter(Boolean);
     const stewardBody = bodies.find(b => Array.isArray(b.tools) && b.tools.length && b.tools.every(t => String(t.function && t.function.name).startsWith('steward_')));
     ok(!!stewardBody, 'B7 工具面:管家回合的请求体里只有 steward_* 工具(零文件/shell/桌面/联网/元工具)');
-    // 116-2a 重钉:17 → 18(新增 steward_thread_permission)。
-    ok(stewardBody && stewardBody.tools.length === 18, `B7b 管家回合拿到全部 18 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
+    // 116-2a 重钉:17 → 18(新增 steward_thread_permission);116-2b 重钉:18 → 19(新增 steward_thread_note)。
+    ok(stewardBody && stewardBody.tools.length === 19, `B7b 管家回合拿到全部 19 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
     const sys = stewardBody ? String((stewardBody.messages.find(m => m.role === 'system') || {}).content || '') : '';
     ok(/我是如意/.test(sys) && /永久豁免/.test(sys) && /输出契约/.test(sys), 'B8 稳定层:身份/永久豁免/输出契约都在系统提示里');
     ok(!/先读后改/.test(sys) && !/当前能力/.test(sys), 'B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)');
@@ -384,9 +384,16 @@ try {
   {
     const events = [{ inboxSeq: 20, kind: 'failed', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 20, at: new Date().toISOString(), payload: { summary: '又失败了' }, count: 1 }];
     const r = await srv.runStewardTurn({ trigger: 'inbox', events });
-    const executed = (r.actions || [])[0];
+    // 116-2b 重钉:自理动作(确定性处置)排在【模型 actions 之前】,故不能再按下标 0 取模型那条。
+    // 断言本意一字未改 —— 找的仍是「模型提的 thread_continue 被自理清单 relay 那道闸挡下」这一条。
+    const executed = (r.actions || []).find(a => a && a.result && a.result.reason === 'self_serve_off');
     ok(executed && executed.tool === 'steward_thread_continue' && executed.result && executed.result.error === 'propose_required' && executed.result.reason === 'self_serve_off',
       `D11 自理清单里 relay 默认关 -> 无人值守回合的递话只提议(got ${executed && executed.result && executed.result.error})`);
+    // 116-2b 追加:同一批里工作台自己那条确定性重试,被【目标线程权限】那道闸挡下(全局档 default)。
+    const selfServed = (r.actions || []).find(a => a && a.auto === true);
+    ok(selfServed && selfServed.tool === 'steward_thread_continue' && selfServed.args.message === '继续'
+      && selfServed.result && selfServed.result.reason === 'self_serve_gate',
+      `D11b 自理重试在 default 档线程上只提议(got ${selfServed && selfServed.result && selfServed.result.reason})`);
     ok(r.acts.some(a => a.tool === 'steward_thread_continue' && a.label === '接着办'), 'D12 自理清单挡下的 action 同样降级成一条按钮');
   }
 

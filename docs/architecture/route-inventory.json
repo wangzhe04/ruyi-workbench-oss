@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-05T09:58:34.041Z",
+  "generatedAt": "2026-09-05T11:02:11.920Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -721,6 +721,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\start-error-surface.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-tools.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
@@ -1518,7 +1519,8 @@
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
-        "dev-harness\\steward-runner.e2e.js"
+        "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-signals.e2e.js"
       ]
     },
     {
@@ -2015,6 +2017,7 @@
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -2282,7 +2285,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 262,
+      "line": 328,
       "handler": "handleSteerApiRoute",
       "methods": [
         "POST"
@@ -2304,7 +2307,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 316,
+      "line": 337,
       "handler": "handleSteerApiRoute",
       "methods": [
         "DELETE"
@@ -2510,6 +2513,7 @@
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -2660,6 +2664,7 @@
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -3252,7 +3257,7 @@
       "kind": "exact",
       "path": "/api/steward/start",
       "file": "13g-steward.js",
-      "line": 755,
+      "line": 784,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3263,14 +3268,15 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\steward-events.static.e2e.js",
-        "dev-harness\\steward-inbox.e2e.js"
+        "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-signals.e2e.js"
       ]
     },
     {
       "kind": "exact",
       "path": "/api/steward/stop",
       "file": "13g-steward.js",
-      "line": 765,
+      "line": 794,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3289,7 +3295,7 @@
       "kind": "exact",
       "path": "/api/steward/state",
       "file": "13g-steward.js",
-      "line": 771,
+      "line": 800,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3308,7 +3314,7 @@
       "kind": "exact",
       "path": "/api/steward/inbox",
       "file": "13g-steward.js",
-      "line": 783,
+      "line": 812,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3326,7 +3332,7 @@
       "kind": "exact",
       "path": "/api/steward/preroute",
       "file": "13g-steward.js",
-      "line": 794,
+      "line": 823,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3344,7 +3350,7 @@
       "kind": "exact",
       "path": "/api/steward/visit",
       "file": "13h-steward-runner.js",
-      "line": 980,
+      "line": 1172,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3362,7 +3368,7 @@
       "kind": "exact",
       "path": "/api/steward/act",
       "file": "13h-steward-runner.js",
-      "line": 992,
+      "line": 1184,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3380,7 +3386,7 @@
       "kind": "exact",
       "path": "/api/steward/message",
       "file": "13h-steward-runner.js",
-      "line": 1004,
+      "line": 1196,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"

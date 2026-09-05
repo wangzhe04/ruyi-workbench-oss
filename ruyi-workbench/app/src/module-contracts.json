@@ -523,6 +523,7 @@
         "MISSION_MAX_TEXT",
         "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
+        "MISSION_STALL_SIGNAL_WINDOW_MS",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
         "SESSION_META_DEFER_TIMEOUT_MS",
@@ -611,6 +612,7 @@
         "markInterruptedInterventions",
         "maybeFinalizeMission",
         "missionBudgetRemaining",
+        "missionBudgetTripTurns",
         "missionChangeFilePath",
         "missionChangeSeqHighWater",
         "missionChangeWriteChains",
@@ -619,6 +621,8 @@
         "missionControlView",
         "missionProgressDigest",
         "missionRollbackTarget",
+        "missionSignalThrottleAllow",
+        "missionSignalThrottleAt",
         "normalizeMission",
         "normalizeMissionChangePayload",
         "normalizeMissionCheck",
@@ -635,6 +639,8 @@
         "readSessionIndex",
         "readSessionNotes",
         "reconcileWorkspaceTurnBaseline",
+        "recordMissionBudgetTrippedChange",
+        "recordMissionStalledChange",
         "registerIntervention",
         "repairInterventionTornTail",
         "repairMissionChangeTornTail",
@@ -4749,6 +4755,8 @@
         "readPersonalAgentWorkflows",
         "readProjectAgentWorkflows",
         "recordAgentNodeProgress",
+        "recordRunBudgetTrippedEvent",
+        "recordRunStalledEvent",
         "repairJson",
         "resolveAgentTeamRoute",
         "resolveOrchestrateNodes",
@@ -4892,6 +4900,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionSignalThrottleAllow",
           "kinds": [
             "call"
           ]
@@ -5651,6 +5673,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionBudgetTrippedChange",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionStalledChange",
           "kinds": [
             "call"
           ]
@@ -6506,6 +6542,20 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "recordAgentNodeProgress",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "recordRunBudgetTrippedEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "recordRunStalledEvent",
           "kinds": [
             "call"
           ]
@@ -9680,7 +9730,8 @@
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
-        "mcpConnectorMutateError"
+        "mcpConnectorMutateError",
+        "steerSessionCore"
       ],
       "requires": [
         {
@@ -10983,6 +11034,8 @@
         "STEWARD_MEMORY_SCHEMA",
         "STEWARD_MERGED_SEQS_MAX",
         "STEWARD_MERGE_WINDOW_MS",
+        "STEWARD_NOTE_PREFIX",
+        "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
         "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_READ_CHARS_DEFAULT",
@@ -11009,6 +11062,7 @@
         "stewardAppendChain",
         "stewardAppendDecision",
         "stewardAppendInboxRows",
+        "stewardBasisOf",
         "stewardClampInt",
         "stewardClipSay",
         "stewardClipSummary",
@@ -11036,6 +11090,7 @@
         "stewardImplSelfStatus",
         "stewardImplThreadContinue",
         "stewardImplThreadNew",
+        "stewardImplThreadNote",
         "stewardImplThreadPermission",
         "stewardImplThreadRead",
         "stewardImplThreadRename",
@@ -11498,6 +11553,13 @@
           ]
         },
         {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "steerSessionCore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13d-core-domain-routes.js",
           "symbol": "agentRunActionCommand",
           "kinds": [
@@ -11567,6 +11629,9 @@
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_RUN_ACTION_LABELS",
         "STEWARD_SAY_MAX",
+        "STEWARD_SELF_SERVE_ATTEMPT_MAX",
+        "STEWARD_SELF_SERVE_PER_TURN_MAX",
+        "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
         "STEWARD_TOOL_LABELS",
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
@@ -11603,9 +11668,15 @@
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunAct",
+        "stewardRunResumeTier",
         "stewardRunnerRuntime",
         "stewardRunnerState",
         "stewardSelfServeAllows",
+        "stewardSelfServeEntry",
+        "stewardSelfServeGate",
+        "stewardSelfServeInbox",
+        "stewardSelfServeKey",
+        "stewardSelfServePlan",
         "stewardStampReply",
         "stewardStopRunner",
         "stewardTargetPermission",
@@ -11664,6 +11735,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "readUsageRows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
           "kinds": [
             "call"
           ]
@@ -11902,6 +11980,20 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "classifyRunResumeTier",
           "kinds": [
             "call"
           ]

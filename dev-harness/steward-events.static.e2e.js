@@ -165,5 +165,39 @@ function typeExpressionLiterals(text) {
   }
 }
 
+/* ═══════════════ D6 116-2b 停滞/预算信号的新 type 登记 ═══════════════ */
+
+// D1/D2 的双向等集已经保证「源码有的表里都有」;D6 另钉【归类是否正确】—— 等集只管有没有登记,
+// 不管登记成什么。四个新 type 各自该落哪一类是 116-2b 的设计判断,值得单独一条断言看住。
+{
+  const mc = STEWARD_SOURCE_EVENT_MAP.missionChange;
+  const ar = STEWARD_SOURCE_EVENT_MAP.agentRun;
+  ok(mc.stalled === 'stalled', "D6 change type 'stalled' → 五类的 stalled");
+  ok(mc.budget_tripped === 'budget', "D6 change type 'budget_tripped' → 五类的 budget");
+  ok(mc.budget === null, "D6 既有 change type 'budget' 仍是心跳(丢弃)——新 type 不改既有语义");
+  ok(ar.run_stalled === 'stalled', "D6 run 事件 'run_stalled' → 五类的 stalled");
+  ok(ar.run_budget_tripped === 'budget', "D6 run 事件 'run_budget_tripped' → 五类的 budget");
+  // 只走 SSE 的进度信号:登记为 null(有人来过、判过),且不在三个持久写入端的等集判定里。
+  const sse = STEWARD_SOURCE_EVENT_MAP.sseOnly || {};
+  ok(Object.prototype.hasOwnProperty.call(sse, 'adaptive_tool_budget') && sse.adaptive_tool_budget === null,
+    "D6 adaptive_tool_budget 登记在 sseOnly 且为 null(进度,不入箱)");
+  ok(!Object.prototype.hasOwnProperty.call(ar, 'adaptive_tool_budget'),
+    'D6 adaptive_tool_budget 不在 agentRun 子表(它没有 appendAgentRunEvent 写入端,放进去会变僵尸条目)');
+  // 写入端存在性:两个新 run 事件必须真有人写,两个新 change type 也必须真有人写。
+  const src08 = read('08-agent-runs.js');
+  const src09 = read('09-workflow.js');
+  const src02 = read('02-session-store.js');
+  ok(/type: 'run_stalled'/.test(src08) && /type: 'run_budget_tripped'/.test(src08),
+    'D6 08 有 run_stalled / run_budget_tripped 的写入端');
+  ok(/recordRunStalledEvent\(run,/.test(src09) && /recordRunBudgetTrippedEvent\(run,/.test(src09),
+    'D6 09 的节点事件壳与节点跑者调用了两个写入端');
+  ok(/type: 'stalled'/.test(src02) && /type: 'budget_tripped'/.test(src02),
+    'D6 02 有 stalled / budget_tripped 的账本写入端');
+  ok(/missionSignalThrottleAllow\(/.test(src02) && /MISSION_STALL_SIGNAL_WINDOW_MS = 5 \* 60 \* 1000/.test(src02),
+    'D6 频控在写入端(同 run/会话 5 分钟一条),不是读取端去重');
+  ok(/missionBudgetTripTurns\.get\(sid\) === turnSeq/.test(src02),
+    'D6 budget_tripped 每回合最多一条(按 turnSeq 去重)');
+}
+
 console.log(fail === 0 ? 'STEWARD EVENTS STATIC E2E: ALL PASS' : `STEWARD EVENTS STATIC E2E: ${fail} FAILED`);
 process.exit(fail ? 1 : 0);

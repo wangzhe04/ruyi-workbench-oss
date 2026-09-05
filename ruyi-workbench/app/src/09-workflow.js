@@ -726,6 +726,15 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             runtime.lastActivityAt = Date.now();
             node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟 —— 子代理任何事件(含工具心跳 subagent_progress)都算该节点活跃
             if (evt && evt.type === 'subagent_no_progress') node.noProgressCount = Math.max(Number(node.noProgressCount) || 0, Number(evt.count) || 0); // G2: 语义死循环计数上报 → 节点级 watchdog 兜底 abort
+            // 116-2b:两个"还在跑但没往前走"的子代理信号在这里【落持久 run 事件】。放在节点事件壳里
+            // 而不是 08 的 emit 点,是因为 run 对象是 09 的东西(08 拿不到它);频控在 08 的写入端做。
+            if (evt && (evt.type === 'subagent_no_progress' || evt.type === 'loop_recovery')) {
+              recordRunStalledEvent(run, {
+                reason: evt.type, nodeId: node.id,
+                tool: String(evt.tool || ''),
+                count: Number(evt.type === 'loop_recovery' ? evt.attempt : evt.count) || 0,
+              });
+            }
             if (evt && evt.type === 'subagent' && evt.state === 'start' && !node.modelStartedAt) node.modelStartedAt = nowIso();
             try { onEvent(evt); } finally { if (evt && evt.type === 'subagent_usage') accumulateRunUsage(run, evt); recordAgentNodeProgress(run, node, evt); recordNodeContinuation(node, evt); throttledSaveRun(); }
           };
@@ -750,6 +759,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               displayTask: node.task, agentKey: node.id,
               dependsOn: (Array.isArray(node.reportedDependsOn) && node.reportedDependsOn.length) ? node.reportedDependsOn : node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
               onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride,
+              // 116-2b:节点的工具迭代预算耗尽 → run_budget_tripped(收件箱的 budget 类)。
+              onBudgetTripped: info => recordRunBudgetTrippedEvent(run, { ...info, nodeId: node.id }),
               getSteer: () => drainNodeSteers(node.id),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
@@ -1386,14 +1397,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
   // fenced as untrusted reference). provider.systemPrompt is APPENDED as the provider层 (was: it replaced the
   // whole default — now it is one layer among four, so the identity pin + capability block always ship).
-  const projectMemory = await readProjectMemory(workingDir).catch(() => null);
+  // 116-2b(§11.6「116f 登记」):管家回合装配短路 —— 管家的提示词整段由 StewardHooks.buildSystemPrompt
+  // 换掉(见下方 turnVolatile 的分叉),项目记忆 / 工作台记忆预检 / playbook 索引这三份东西装配完
+  // 【一个字都不会进管家的 prompt】,却各自要跑一遍全量磁盘扫描。按 session.kind 分叉在这里短路,
+  // 普通会话的三行调用逐字节不变(prompt-snapshot.static / session-turn-core 证明)。
+  const projectMemory = isStewardTurn ? null : await readProjectMemory(workingDir).catch(() => null);
   // v1 技能体系: 主回合传入 identityOnly=false + 已启用技能条目 → 技能层注入(能力层与操控规程层之间)。
   // 工作台记忆:每条消息用 name/description/id 做轻量元数据检索；默认扫描当前项目 + 全局并只注入 Top-3。
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
-  const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
-    (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
-    config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-  ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
+  // 短路时给出与 catch 回落【同形】的空结果:memoryPreflight.status 下游还要进 meta 事件与
+  // turn_start 审计行(mode:'unavailable' 如实表示"这一回合没有跑记忆检索"),不能给 undefined。
+  const memoryPreflight = isStewardTurn
+    ? { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }
+    : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
+      (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
+      config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
+    ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -1432,7 +1451,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 108b: Playbook 精简索引只在主回合注入(子代理不与用户对话,08 走 buildProviderSystemPrompt 不传该参数)。
   // 直接调 06 的 loadAllPlaybooks(后向边)而不是再跑一次 loadSkillRegistry: 后者为了拿 pb: 条目会连技能四源
   // 和命令目录一起重扫一遍,多出一次全量磁盘扫描;可用性用本回合已探测的 caps 现算,不再触发第二次能力探测。
-  const playbookEntries = (await loadAllPlaybooks().catch(() => []))
+  const playbookEntries = isStewardTurn ? [] : (await loadAllPlaybooks().catch(() => []))
     .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
   // 116f: 管家会话【整段】换掉普通提示词包(稳定层=06b steward.stable;易变层=记忆块+线程总览,
   // 与普通会话的 turnVolatile 同一投放位置)。经 06i 的 StewardHooks 延迟绑定拿(09 → 06i 是后向边;
@@ -2046,6 +2065,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           assistantText += note; onEvent({ type: 'assistant_delta', text: note });
           onEvent({ type: 'budget_guard', state: 'tripped', axis: 'turn_tokens', spent: bgSpent, reserveEstimate: estBeforeCall, budget: budgetGuardBudget });
           try { logEvent({ kind: 'budget_guard_trip', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, spent: bgSpent, reserveEstimate: estBeforeCall, budget: budgetGuardBudget }); } catch { /* */ }
+          // 116-2b:触顶【同时】落一条带 seq 的账本记录(change type 'budget_tripped')。SSE 事件与
+          // 审计行都是"当下看得见、事后查不回",收件箱只认三条 seq 日志 —— 不落这一条,管家永远
+          // 不知道有线程撞了预算墙。每回合最多一条由 02 的写入端保证。
+          if (session.mission) {
+            recordMissionBudgetTrippedChange(session.id, {
+              turnSeq: session.turnSeq, engine: 'openai', axis: 'turn_tokens',
+              spent: bgSpent, budget: budgetGuardBudget, reserveEstimate: estBeforeCall,
+            });
+          }
           // 暂停/恢复(§6.3 复用 Mission 控制面):until-done 驱动器与回合共用同一 HTTP 流,不降档会
           // 立刻续跑撞同一堵墙 —— 镜像 06e budget_exhausted 范式:autoMode→supervised(保留进度、非
           // 报错),用户经 mission action:'update' 重设 until-done 即恢复;非账本会话下一条用户消息
@@ -2534,6 +2562,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               session.providerHistory.push({ role: 'user', content: recoveryMsg });
               loopSig = null; loopCount = 0; // 重置签名连击,给模型一个干净的恢复窗口(下一次同签名从 1 重新计)
               onEvent({ type: 'loop_recovery', state: 'injected', attempt: loopRecoveryAttempts, max: LOOP_RECOVERY_MAX, tool: loopBare, remaining });
+              // 116-2b:主回合的死循环纠偏 = 停滞信号,落账本(change type 'stalled')。同一会话
+              // 五分钟一条的频控在 02 的写入端 —— 一次卡死能连续纠偏多轮,不控会把账本刷成噪声。
+              if (session.mission) {
+                recordMissionStalledChange(session.id, {
+                  turnSeq: session.turnSeq, engine: 'openai', reason: 'loop_recovery',
+                  tool: loopBare, count: loopRecoveryAttempts, remaining,
+                });
+              }
               const note = `\n\n[已注入恢复指令并重置重复计数,剩余 ${remaining} 次恢复机会]`;
               assistantText += note; onEvent({ type: 'assistant_delta', text: note });
               break; // 仅 break 内层 for;不设 loopAborted -> 外层 continue 带恢复指令续跑

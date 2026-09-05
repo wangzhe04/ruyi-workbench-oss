@@ -2,7 +2,8 @@
 // 覆盖:
 //   ① STEWARD_SOURCE_EVENT_MAP 四张子表的形状:值只能是五类之一 / null / '@resolver';
 //      五类白名单以外的 kind 一个都不许出现。
-//   ② 三个源的归一化穷举:mission change 9 种 type、agent run 22 种 type、intervention 5 种 type,
+//   ② 三个源的归一化穷举:mission change 11 种 type、agent run 24 种 type、intervention 5 种 type,
+//      (116-2b 各加两条停滞/预算 type:stalled/budget_tripped 与 run_stalled/run_budget_tripped),
 //      逐个断言映射结果(期望值是照 116b 设计逐条抄写的字面量表,不是对生产实现分支的镜像重写)。
 //   ③ 条件解析器:result(complete/stopped±错误)、run_end(succeeded/stopped/failed/partial)、
 //      node_settled(failed/rejected/succeeded/skipped)。
@@ -45,9 +46,10 @@ const KINDS = new Set(STEWARD_EVENT_KINDS);
 /* ═══════════════ ① 映射表形状 ═══════════════ */
 
 ok(Object.isFrozen(STEWARD_SOURCE_EVENT_MAP), '映射表冻结');
-const SUB_TABLES = ['missionChange', 'agentRun', 'intervention', 'projection'];
+// 116-2b 增第五张 sseOnly(只走 SSE、故意不落持久日志的进度信号;登记为 null 只为留痕)。
+const SUB_TABLES = ['missionChange', 'agentRun', 'intervention', 'projection', 'sseOnly'];
 ok(SUB_TABLES.every(k => STEWARD_SOURCE_EVENT_MAP[k] && Object.isFrozen(STEWARD_SOURCE_EVENT_MAP[k])),
-  '四张子表齐全且冻结: ' + SUB_TABLES.join('/'));
+  '五张子表齐全且冻结: ' + SUB_TABLES.join('/'));
 {
   const bad = [];
   for (const table of SUB_TABLES) {
@@ -61,7 +63,7 @@ ok(SUB_TABLES.every(k => STEWARD_SOURCE_EVENT_MAP[k] && Object.isFrozen(STEWARD_
   ok(bad.length === 0, '表值只允许 五类/null/@resolver' + (bad.length ? ' :: ' + bad.join(', ') : ''));
 }
 
-/* ═══════════════ ② Mission Change Ledger 9 种 type 穷举 ═══════════════ */
+/* ═══════════════ ② Mission Change Ledger 11 种 type 穷举 ═══════════════ */
 
 const AT = '2026-09-05T10:00:00.000Z';
 const mc = (type, detail, cursor) => stewardNormalizeMissionChange({
@@ -80,6 +82,10 @@ const MISSION_CHANGE_EXPECT = [
   ['result', { status: 'complete' }, 'done'],
   ['rewind', {}, null],
   ['run_deleted', {}, null],
+  // 116-2b:两个新 type。'budget'(上面那条)仍是心跳,'budget_tripped' 才是真触顶 —— 一起断言
+  // 才能看住「新 type 没有把既有 type 的语义顺手改掉」。
+  ['stalled', { reason: 'loop_recovery', tool: 'file_read', count: 2 }, 'stalled'],
+  ['budget_tripped', { axis: 'turn_tokens', spent: 9000, budget: 8000 }, 'budget'],
 ];
 for (const [type, detail, expected] of MISSION_CHANGE_EXPECT) {
   const evt = mc(type, detail);
@@ -135,6 +141,9 @@ const AGENT_RUN_EXPECT = [
   ['node_no_progress_aborted', {}, 'stalled'],
   ['persistence_degraded', { consecutiveFailures: 3 }, 'failed'],
   ['persistence_recovered', {}, null],
+  // 116-2b:两个新 run 事件 type。
+  ['run_stalled', { reason: 'subagent_no_progress', count: 3 }, 'stalled'],
+  ['run_budget_tripped', { reason: 'tool_iteration_budget', limit: 40 }, 'budget'],
 ];
 for (const [type, data, expected] of AGENT_RUN_EXPECT) {
   const evt = ar(type, data);

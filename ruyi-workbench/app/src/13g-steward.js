@@ -77,6 +77,9 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
     result: '@missionResult',     // 结果章:complete → done;stopped 带错误 → failed;stopped 无错误 → done
     rewind: null,                 // 回退检查点是用户自己的动作
     run_deleted: null,            // 删运行记录是用户自己的动作
+    // 116-2b 新增(补 116b 登记的缺口):普通回合的两类信号,由 02 的写入端落账(带频控)。
+    stalled: 'stalled',           // 主回合死循环纠偏等"还在跑但没往前走"(同会话 5 分钟一条)
+    budget_tripped: 'budget',     // 回合 token 预算保护触顶(每回合最多一条;与心跳 'budget' 分开)
   }),
   // ② agent run 事件日志(全 src 扫 appendAgentRunEvent 的 type 字面量,22 种)
   agentRun: Object.freeze({
@@ -103,6 +106,9 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
     node_no_progress_aborted: 'stalled', // 语义死循环被中止 = 停滞
     persistence_degraded: 'failed',    // 快照连续写失败 = 硬故障
     persistence_recovered: null,
+    // 116-2b 新增(补 116b 登记的缺口):班组内的两类信号,由 09 的节点事件壳落账(频控在 08 写入端)。
+    run_stalled: 'stalled',            // subagent_no_progress / loop_recovery(同 run 5 分钟一条)
+    run_budget_tripped: 'budget',      // 节点工具迭代预算耗尽(按节点天然去重)
   }),
   // ③ 待决投影里的 Intervention 类型(全 src 扫 registerIntervention 的 type 字面量,5 种)
   intervention: Object.freeze({
@@ -115,6 +121,13 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
   // ④ 投影派生(没有对应的源事件 type,由 mission card 的持久标记推出)
   projection: Object.freeze({
     budget_exhausted: 'budget',   // m.budgetExhaustedAt 是一次性持久标记 → 每个事项只入箱一次
+  }),
+  // ⑤ 只走 SSE、【故意】不落任何持久日志的进度信号(116-2b 登记)。收件箱只读三条带 seq 的持久
+  //    日志,故这里的东西不可能入箱 —— 登记为 null 是为了让"新信号必须有人登记一次"这条纪律不被
+  //    沉默绕过:下一个人加进度事件时,至少要来这张表里写一行"它是进度,不是信号"。
+  //    这一组【不参与】116b 静态锁的三条双向等集判定(它扫的是三个持久写入端,这里没有写入端)。
+  sseOnly: Object.freeze({
+    adaptive_tool_budget: null,   // 子代理工具迭代预算自适应扩容 = 进度(还在往前走),不是触顶
   }),
 });
 
@@ -194,10 +207,21 @@ function stewardNormalizeMissionChange(record) {
   if (detail.status) payload.resultStatus = stewardClipSummary(detail.status);
   if (cursor.turnSeq != null) payload.turnSeq = Number(cursor.turnSeq) || 0;
   if (cursor.engine) payload.engine = stewardClipSummary(cursor.engine);
+  // 116-2b:两个新 type 的摘要只取 detail 里的计数与原因(reason/tool/count/spent/budget),
+  // 与 failure 同纪律 —— 永不带工具输出正文。
+  if (detail.reason) payload.reason = stewardClipSummary(detail.reason);
+  if (detail.tool) payload.tool = stewardClipSummary(detail.tool);
+  if (detail.count != null) payload.count = Number(detail.count) || 0;
+  if (detail.spent != null) payload.spent = Number(detail.spent) || 0;
+  if (detail.budget != null) payload.budget = Number(detail.budget) || 0;
   payload.summary = stewardClipSummary(
-    kind === 'failed'
-      ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
-      : `事项结果章:${payload.resultStatus || ''}`);
+    r.type === 'stalled'
+      ? `线程停住了(${payload.reason || '无进展'}${payload.tool ? ' · ' + payload.tool : ''}${payload.count ? ' · 第 ' + payload.count + ' 次' : ''})`
+      : r.type === 'budget_tripped'
+        ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
+        : kind === 'failed'
+          ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+          : `事项结果章:${payload.resultStatus || ''}`);
   return {
     kind,
     sessionId: String(r.sessionId || ''),
@@ -223,10 +247,15 @@ function stewardNormalizeRunEvent(sessionId, missionId, runId, evt) {
   if (data.errorClass) payload.errorClass = stewardClipSummary(data.errorClass);
   if (data.reason) payload.reason = stewardClipSummary(data.reason);
   // 刻意不带 data.text / data.nodes 等正文:payload 只放摘要与引用 id,永不带工具输出全文。
+  // 116-2b:run_stalled / run_budget_tripped 的 data 带 reason/tool/count/limit,补进 payload 摘要。
+  if (data.tool) payload.tool = stewardClipSummary(data.tool);
+  if (data.count != null) payload.count = Number(data.count) || 0;
+  if (data.limit != null) payload.limit = Number(data.limit) || 0;
   payload.summary = stewardClipSummary(
     kind === 'done' ? `班组 ${runId} 收工(${payload.runStatus || ''})`
       : kind === 'failed' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
-        : `班组 ${runId} 停滞(${payload.eventType})`);
+        : kind === 'budget' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}用完了工具迭代预算(${payload.limit} 轮)`
+          : `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}停滞(${payload.eventType}${payload.reason ? ' · ' + payload.reason : ''}${payload.tool ? ' · ' + payload.tool : ''})`);
   return {
     kind,
     sessionId: String(sessionId || ''),
@@ -847,6 +876,11 @@ const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
 const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
 const STEWARD_TITLE_MAX = 80;
 const STEWARD_STEER_TEXT_MAX = 2000;
+// 116-2b steward_thread_note:管家给【已在跑】的线程补一句上下文。600 字上限比 steer_node 的 2000
+// 紧得多 —— 它是"补一句",不是"改任务";前缀由服务端加,与 [用户插话] 的前缀纪律同精神(用户一眼
+// 就能分清哪句是自己说的、哪句是管家加的)。
+const STEWARD_NOTE_TEXT_MAX = 600;
+const STEWARD_NOTE_PREFIX = '（管家补充）';
 const STEWARD_PENDING_SUMMARY_MAX = 12;     // thread_status 里最多列几条待决摘要
 const STEWARD_RUNS_MAX = 20;                // runs_status 单次最多返回几个 run digest
 
@@ -942,6 +976,20 @@ function stewardEngineOf(head) {
 const stewardDecisionsPath = () => path.join(stewardDir(), STEWARD_DECISIONS_FILE);
 let stewardDecisionChain = Promise.resolve();
 let stewardDecisionSeq = 0;
+// 116-2b:自理动作的溯源基底。13h 在【工具入参】上挂一个内部字段 stewardBasis({inboxSeq,auto,origin}),
+// 由下面两个实现并进决策日志的 basis —— 事后能分清「这一次重试是管家自理做的、由第 N 条收件箱
+// 事件触发」。它不在工具 schema 里(additionalProperties:false),模型即使编造出来也只影响日志注解,
+// 不影响任何判定;args 照旧只记摘要字段,这一坨不进 args。
+function stewardBasisOf(args, extra) {
+  const raw = (args && typeof args.stewardBasis === 'object' && args.stewardBasis) ? args.stewardBasis : null;
+  const base = (extra && typeof extra === 'object') ? { ...extra } : {};
+  if (!raw) return base;
+  if (raw.inboxSeq != null) base.inboxSeq = Number(raw.inboxSeq) || 0;
+  if (raw.auto != null) base.auto = raw.auto === true;
+  if (raw.origin) base.origin = String(raw.origin).slice(0, 40);
+  return base;
+}
+
 function stewardAppendDecision(row) {
   const record = {
     seq: ++stewardDecisionSeq,
@@ -1452,11 +1500,12 @@ async function stewardImplThreadContinue(args, ctx, config) {
 
   // 递话【前】的 turnSeq:检查点与 rewindSession 都以它为锚(rewindSession(sessionId, targetTurnSeq, true))。
   const undoRef = { kind: 'turn', sessionId, turnSeq: Math.max(0, Number(head.turnSeq) || 0) };
+  const basis = stewardBasisOf(args);
   stewardLaunchTurn({
     sessionId,
     message,
     source: 'steward',
-    requestMeta: { tool: 'steward_thread_continue' },
+    requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) },
   }, 'steward_thread_continue');
 
   stewardAppendDecision({
@@ -1466,7 +1515,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
     permissionMode: stewardThreadPermissionMode(head, config),
     mayAct: 'auto',
     undoRef,
-    basis: {},
+    basis,
   });
   return { ok: true, sessionId, undoRef };
 }
@@ -1659,9 +1708,53 @@ async function stewardImplRunAction(args, ctx, config) {
     permissionMode,
     mayAct,
     undoRef,
-    basis: { runId },
+    basis: stewardBasisOf(args, { runId }),
   });
   return { ...body, sessionId, runId, action, undoRef };
+}
+
+// 15b) steward_thread_note —— 既有线程的【插话补充】(116-2b,§3.5 委派行末句)。
+//
+// 为什么是插话而不是递话:§8.12 定的是「既有线程的递话走原话直递,管家如有补充以插话追加,不阻塞
+// 线程启动」。递话(thread_continue)会【起一个新回合】,补充却必须落在【正在跑的那个回合】里 ——
+// 它是给线程补上下文,不是给它派新活。所以走的是 /api/steer 背后的同一条注入通道(116-2b 把它零行为
+// 抽成了 13b 的 steerSessionCore),而不是第二条注入路径:引擎分流(openai 队列 / Claude stdin /
+// Kimi ACP 跟随)、队列上限、提问挂起时拒绝、持久呈现进会话正文,一条纪律都不用重写。
+//
+// 三条自己的收紧:①≤600 字;②尖括号中和(stewardSanitizeText,与总览行同一函数);③服务端加
+// 「（管家补充）」前缀 —— 用户在 2.0 视窗里看到的插话必须能一眼分清是谁说的。
+// 没有在途回合(或该回合不接受插话)时一律 steward.no_active_turn:模型看到这个信封就该改用
+// steward_thread_continue,而不是轮询重试。
+async function stewardImplThreadNote(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const text = stewardSanitizeText(args.text).trim().slice(0, STEWARD_NOTE_TEXT_MAX);
+  if (!text) return stewardFail('invalid_request', 'text is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot receive a steward note');
+
+  const outcome = await steerSessionCore({ sessionId, text: STEWARD_NOTE_PREFIX + text });
+  // 核心的两种"没成"(apiFailure 形态的 400/409 与裸 json 的 {ok:false,error}) 归一成同一个稳定信封:
+  // 对模型来说它们是同一件事 —— 现在没法把这句话插进去,别重试。
+  if (outcome.kind === 'failure' || !(outcome.body && outcome.body.ok === true)) {
+    const detail = String((outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)) || '').slice(0, 300);
+    return stewardFail('steward.no_active_turn', `thread ${sessionId} cannot take a note right now: ${detail} —— do not retry; use steward_thread_continue to start a new turn instead`, { sessionId });
+  }
+  const body = outcome.body;
+  // 撤回原语是 DELETE /api/steer,它按【文本】在队列里找那一条 —— 所以 undoRef 的真正把手是 text
+  // 而不是某个 id(既有插话通道就没有 id 这个东西,编一个出来只会骗人)。
+  const undoRef = { kind: 'note', sessionId, text: STEWARD_NOTE_PREFIX + text, queued: Number(body.queued) || 0, injected: body.injected === true };
+  stewardAppendDecision({
+    tool: 'steward_thread_note',
+    args: { textChars: text.length },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: {},
+  });
+  return { ok: true, sessionId, queued: Number(body.queued) || 0, injected: body.injected === true, undoRef };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1795,7 +1888,7 @@ Object.assign(StewardHooks, {
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,
   inboxState: stewardInboxState,
-  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission)。每个都经 stewardToolHandler
+  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission;116-2b 增第 19 个 threadNote)。每个都经 stewardToolHandler
   // 包一层门控壳(开关 -> 身份 -> 实现),
   // 12-tool-dispatch 的 handler 只写一行 `StewardHooks.<键>(args, ctx)`。键名与 06i 的契约注释逐条对应。
   selfStatus: stewardToolHandler('steward_self_status', stewardImplSelfStatus),
@@ -1811,6 +1904,7 @@ Object.assign(StewardHooks, {
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
   threadPermission: stewardToolHandler('steward_thread_permission', stewardImplThreadPermission), // 116-2a
+  threadNote: stewardToolHandler('steward_thread_note', stewardImplThreadNote), // 116-2b
   decide: stewardToolHandler('steward_decide', stewardImplDecide),
   runAction: stewardToolHandler('steward_run_action', stewardImplRunAction),
   memoryWrite: stewardToolHandler('steward_memory_write', stewardImplMemoryWrite),

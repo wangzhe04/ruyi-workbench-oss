@@ -120,6 +120,11 @@ const missionChangeSeqHighWater = new Map();
 const MISSION_CHANGE_TYPES = new Set([
   'mission_started', 'progress', 'failure', 'budget', 'intervention_pending',
   'intervention_resolved', 'result', 'rewind', 'run_deleted',
+  // 116-2b(27 号文 §11.6「116b 登记的缺口」):停滞与预算触顶此前只走 SSE 与审计日志,没有任何
+  // 带 seq 的持久记录 —— 收件箱(它只读三条 seq 日志)因此永远拿不到这两类信号。这里【只加不改】
+  // 两个新 type:'stalled'(语义死循环纠偏/节点无进展等"还在跑但没往前走")与 'budget_tripped'
+  // (回合 token 预算保护触顶)。既有九种的形状、顺序、语义一律不动。
+  'stalled', 'budget_tripped',
 ]);
 const missionChangeWriteChains = new Map();
 function missionChangeFilePath(sessionId) {
@@ -244,6 +249,75 @@ function bumpMissionChangeSeq(sessionId, payload = {}) {
   sessionWriteChains.set(sid, w);
   w.then(() => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); }, () => { if (sessionWriteChains.get(sid) === w) sessionWriteChains.delete(sid); });
   return w;
+}
+
+// ── 116-2b:停滞/预算信号的【写入端频控】────────────────────────────────────────────────────
+// 为什么频控放在写入端而不是读取端(收件箱):loop_recovery 每纠偏一次就是一条信号,一个卡住的
+// 回合几分钟内能刷十几条 —— 让它们全都落进 append-only 账本,等于用噪声把账本本身撑坏,读取端
+// 再怎么去重也救不回已经写进去的字节。故:同一 run/会话的 stalled 五分钟内只落一条;
+// budget_tripped 每回合最多一条(触顶后回合就 break 了,同一 turnSeq 不该有第二条)。
+//
+// 表只在内存(进程重启 = 窗口重开)。这是刻意的:重启后第一条信号值得记 —— 崩溃续跑本身就是
+// 用户该知道的事,宁可多一条也不要把"重启后仍然卡住"这条静音掉。
+const MISSION_STALL_SIGNAL_WINDOW_MS = 5 * 60 * 1000;
+const missionSignalThrottleAt = new Map();     // key -> 上次落账时间(ms)
+const missionBudgetTripTurns = new Map();      // sessionId -> 已落过 budget_tripped 的 turnSeq
+// 窗口内已经落过就返回 false(并保留旧时间戳);允许就记下本次时间并返回 true。表超过 500 条时
+// 顺带清一遍过期项(信号稀疏,清理成本可忽略;不设 timer 以免开关关时也有后台活动)。
+function missionSignalThrottleAllow(key, windowMs) {
+  const k = String(key || '');
+  if (!k) return false;
+  const now = Date.now();
+  const window = Number(windowMs) || MISSION_STALL_SIGNAL_WINDOW_MS;
+  const last = missionSignalThrottleAt.get(k);
+  if (Number.isFinite(last) && now - last < window) return false;
+  if (missionSignalThrottleAt.size > 500) {
+    for (const [key2, at] of missionSignalThrottleAt) if (now - at >= window) missionSignalThrottleAt.delete(key2);
+  }
+  missionSignalThrottleAt.set(k, now);
+  return true;
+}
+// 普通回合的停滞信号 → change type 'stalled'。detail 只带摘要与计数(reason/tool/count),永不带
+// 工具输出正文 —— 与 'failure' 的 detail 纪律同口径。无 mission 的会话由 bumpMissionChangeSeq
+// 自己 no-op(它读会话头,没有 head.mission 就直接返回 null),这里不重复判断。
+function recordMissionStalledChange(sessionId, detail) {
+  const sid = String(sessionId || '');
+  if (!sid) return Promise.resolve(null);
+  if (!missionSignalThrottleAllow('mission:' + sid, MISSION_STALL_SIGNAL_WINDOW_MS)) return Promise.resolve(null);
+  const d = (detail && typeof detail === 'object') ? detail : {};
+  return bumpMissionChangeSeq(sid, {
+    type: 'stalled',
+    cursor: { turnSeq: Number(d.turnSeq) || 0, engine: String(d.engine || '') },
+    detail: {
+      reason: String(d.reason || ''),
+      tool: String(d.tool || ''),
+      count: Number(d.count) || 0,
+      remaining: Number(d.remaining) || 0,
+    },
+  });
+}
+// 回合 token 预算保护触顶 → change type 'budget_tripped'(注意与既有 'budget' 区别:后者是每回合
+// 用量入账的心跳,116b 已判定为心跳丢弃;真正的"触顶"从本波起有自己的 type)。
+function recordMissionBudgetTrippedChange(sessionId, detail) {
+  const sid = String(sessionId || '');
+  if (!sid) return Promise.resolve(null);
+  const d = (detail && typeof detail === 'object') ? detail : {};
+  const turnSeq = Number(d.turnSeq) || 0;
+  if (missionBudgetTripTurns.get(sid) === turnSeq) return Promise.resolve(null); // 每回合最多一条
+  missionBudgetTripTurns.set(sid, turnSeq);
+  if (missionBudgetTripTurns.size > 500) {
+    for (const [key2] of missionBudgetTripTurns) { missionBudgetTripTurns.delete(key2); if (missionBudgetTripTurns.size <= 400) break; }
+  }
+  return bumpMissionChangeSeq(sid, {
+    type: 'budget_tripped',
+    cursor: { turnSeq, engine: String(d.engine || '') },
+    detail: {
+      axis: String(d.axis || ''),
+      spent: Number(d.spent) || 0,
+      budget: Number(d.budget) || 0,
+      reserveEstimate: Number(d.reserveEstimate) || 0,
+    },
+  });
 }
 // 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial

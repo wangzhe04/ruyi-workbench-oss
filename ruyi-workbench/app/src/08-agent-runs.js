@@ -58,6 +58,47 @@ function appendAgentRunEvent(run, evt) {
     cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
   } catch { /* 取证辅助,不阻断执行 */ }
 }
+
+// ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
+// 背景(27 号文 §11.6「116b 登记的缺口」):subagent_no_progress / loop_recovery / 节点级工具迭代
+// 预算耗尽此前只有 SSE 事件与审计日志,没有落进 <run>.events.ndjson —— 收件箱只读那三条带 seq 的
+// 持久日志,所以"班组还在跑但没往前走"这件事管家永远看不见。这里只【追加】两个 type,既有 22 种的
+// 形状与顺序一律不动。
+//   run_stalled       : 语义死循环纠偏、子代理无进展计数上报等"还在跑但没往前走"
+//   run_budget_tripped: 节点的工具迭代预算(含自适应扩容后的硬顶)耗尽
+// data 只放 reason / nodeId / count 一类摘要与引用 id,永不带工具输出正文(与收件箱 payload 同纪律)。
+//
+// 频控与 02 的 stalled 同口径且共用同一张表:同一 run 五分钟内只落一条 —— 一次纠偏刷一条会把
+// 事件文件(增量客户端每 ~2s 轮询一次尾部)撑成噪声源。
+function recordRunStalledEvent(run, detail) {
+  if (!run || !run.id) return;
+  if (!missionSignalThrottleAllow('run:' + String(run.id), MISSION_STALL_SIGNAL_WINDOW_MS)) return;
+  const d = (detail && typeof detail === 'object') ? detail : {};
+  appendAgentRunEvent(run, {
+    type: 'run_stalled',
+    ...(d.nodeId ? { nodeId: String(d.nodeId) } : {}),
+    data: {
+      reason: String(d.reason || ''),
+      tool: String(d.tool || ''),
+      count: Number(d.count) || 0,
+    },
+  });
+}
+// 预算触顶不做时间频控:它是节点级终态(一个节点只可能耗尽一次预算),按节点天然去重。
+function recordRunBudgetTrippedEvent(run, detail) {
+  if (!run || !run.id) return;
+  const d = (detail && typeof detail === 'object') ? detail : {};
+  appendAgentRunEvent(run, {
+    type: 'run_budget_tripped',
+    ...(d.nodeId ? { nodeId: String(d.nodeId) } : {}),
+    data: {
+      reason: String(d.reason || ''),
+      limit: Number(d.limit) || 0,
+      hardLimit: Number(d.hardLimit) || 0,
+      toolCalls: Number(d.toolCalls) || 0,
+    },
+  });
+}
 // 第29波(§29a 增量监控):事件日志读取 —— GET /api/agent-runs/:id/events?afterSeq= 的数据面。事件文件
 // append-only 且允许尾行半写(appendFile 非 atomic),读取方逐行 safeJsonParse 跳坏行(readWorkbenchAudit
 // 同款纪律);先收集 seq>afterSeq 的行再排序分页 —— 与 syncRunEventSeq 的"取 max 非尾行"同一乱序容错
@@ -425,7 +466,7 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail }) {
+async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped }) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -957,6 +998,12 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     }
     // 预算耗尽(循环正常退出,非 break 跳出)
     if (iter >= budget && subOk) {
+      // 116-2b:把"这个节点的工具迭代预算用光了"报给调用方(工作流节点跑者据此落 run_budget_tripped)。
+      // 用回调而不是新 SSE 事件、也不改返回值形状 —— 前者要动 112b 的双向登记表,后者会改 spawn_agent
+      // 的工具结果 JSON;回调对两者都零影响,且 08 拿不到 run 对象(它是 09 的东西),本就该由 09 落事件。
+      if (typeof onBudgetTripped === 'function') {
+        try { onBudgetTripped({ reason: 'tool_iteration_budget', limit: budget, hardLimit: adaptiveBudgetLimit, toolCalls: toolCallCount }); } catch { /* 记账绝不反噬子代理 */ }
+      }
       subErr = `子代理已达迭代上限 ${budget} 轮`;
       if (!resultText.trim() && toolCallCount > 0) await runFinalizerWithoutTools();
       if (!resultText.trim()) subOk = false;
