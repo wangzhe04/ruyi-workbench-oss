@@ -381,8 +381,18 @@ try {
   {
     writeConfig({ permissionMode: 'acceptEdits' });
     const advance = await call('steward_run_action', { sessionId: threadId, runId: 'run_nope', action: 'resume' }, stewardCtx());
-    ok(advance && advance.error === 'propose_required' && advance.reason === 'permission_mode',
-      'H1 非全自动档:resume(推进类)-> propose_required');
+    // 116-2b 验收对齐(Fable):resume/retry_node 按 §3.3 'failed' 档口径,「改文件不问」即可由管家直接做
+    // (与 13h 自理侧预闸同口径);同一 commit 内改口径与断言。run_nope 不存在 -> 过档位门后由核心报 run_action_failed。
+    ok(advance && advance.error === 'run_action_failed',
+      `H1 改文件不问档:resume(失败处置类)过档位门,由核心判定(got ${advance && advance.error})`);
+    writeConfig({ permissionMode: 'default' });
+    const advanceDefault = await call('steward_run_action', { sessionId: threadId, runId: 'run_nope', action: 'resume' }, stewardCtx());
+    ok(advanceDefault && advanceDefault.error === 'propose_required' && advanceDefault.reason === 'permission_mode',
+      'H1b 每步都问档:resume -> propose_required');
+    writeConfig({ permissionMode: 'acceptEdits' });
+    const steer = await call('steward_run_action', { sessionId: threadId, runId: 'run_nope', action: 'steer_node', nodeId: 'n1', message: 'x' }, stewardCtx());
+    ok(steer && steer.error === 'propose_required' && steer.reason === 'permission_mode',
+      'H1c 改文件不问档:steer_node(改指令类)仍需全自动 -> propose_required');
     const tighten = await call('steward_run_action', { sessionId: threadId, runId: 'run_nope', action: 'pause' }, stewardCtx());
     ok(tighten && tighten.error === 'run_action_failed', 'H2 pause(收紧类)任何档都放行到核心(run 不存在 -> run_action_failed)');
     writeConfig({ permissionMode: 'auto' });

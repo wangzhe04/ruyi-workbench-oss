@@ -227,19 +227,19 @@
     {
       "file": "13g-steward.js",
       "startLine": 39517,
-      "endLine": 41430,
+      "endLine": 41434,
       "note": "第116波116b:管家收件箱轮询器/三源增量归一化/游标与 /api/steward/* 路由(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 41431,
-      "endLine": 42724,
+      "startLine": 41435,
+      "endLine": 42728,
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "14-main.js",
-      "startLine": 42725,
-      "endLine": 43282,
+      "startLine": 42729,
+      "endLine": 43286,
       "note": "main()/module.exports"
     }
   ]

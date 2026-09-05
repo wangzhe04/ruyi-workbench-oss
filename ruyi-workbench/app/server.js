@@ -41183,10 +41183,14 @@ async function stewardImplDecide(args, ctx, config) {
 
 // 14) steward_run_action。口径(§11.3 116c 行):
 //     pause / stop —— 收紧类,任何权限档都可做(把事情停下来永远比让它跑下去保守);
-//     resume / retry_node / steer_node —— 推进类,只有「全自动」可做。判据借 stewardMayAct(mode,'plan',…):
-//     真值表里只有 auto/bypass 档对 'plan' 返回 'auto',正好就是「需要全自动」这条口径,不另立第二套。
+//     resume / retry_node —— 失败处置类,按 §3.3 真值表的 'failed' 档口径:「改文件不问」以上可由管家直接做
+//     (续跑/重试只是让线程接着走,线程自己的权限门仍会对 exec 逐条问);「每步都问」「只做计划」只提议。
+//     116-2b 验收对齐(Fable):原先借 'plan' 档判定把它们限定为「只有全自动」,与 §3.3 自理清单
+//     (失败重试/重启续跑对改文件不问生效)及 13h 自理侧预闸口径不一致,两道闸统一为 'failed'。
+//     steer_node —— 改变线程要做的事,按 'plan' 档口径只有「全自动」可做。
 const STEWARD_RUN_TIGHTENING = Object.freeze(['pause', 'stop']);
 const STEWARD_RUN_ADVANCING = Object.freeze(['resume', 'retry_node', 'steer_node']);
+const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'failed', steer_node: 'plan' });
 async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
@@ -41199,9 +41203,9 @@ async function stewardImplRunAction(args, ctx, config) {
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no agent runs');
   const permissionMode = stewardThreadPermissionMode(head, config);
-  const mayAct = STEWARD_RUN_TIGHTENING.includes(action) ? 'auto' : stewardMayAct(permissionMode, 'plan', 'exec');
+  const mayAct = STEWARD_RUN_TIGHTENING.includes(action) ? 'auto' : stewardMayAct(permissionMode, STEWARD_RUN_ACTION_KIND[action], 'exec');
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,只有权限档为「全自动」的线程才能由管家直接执行;当前为「${stewardPermissionLabel(permissionMode)}」——把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「全自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
   }
