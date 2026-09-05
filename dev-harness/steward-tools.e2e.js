@@ -1,6 +1,7 @@
 (async () => {
 'use strict';
-// E2E(第 116 波 116c · 27 号文 §3.3/§3.5/§4/§11.2):管家 17 个工具的行为直测。
+// E2E(第 116 波 116c · 27 号文 §3.3/§3.5/§4/§11.2):管家工具的行为直测。
+// 116-2a 重钉:工具数 17 → 18(新增 steward_thread_permission,线程权限只降不升)。
 //
 // 结构:主体在【进程内】直调 TOOL_HANDLERS(合成管家 ctx `{session:{id,kind:'steward'}}`)——116f 才会
 // 真正创建管家会话,本切片按交办单用合成 ctx;回合本身走真实 runSessionTurn + fake-openai(真实 HTTP),
@@ -37,7 +38,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
 const STEWARD_TOOLS = [
   'steward_self_status', 'steward_threads_search', 'steward_thread_status', 'steward_thread_read',
   'steward_runs_status', 'steward_inbox_read', 'steward_usage', 'steward_health', 'steward_audit_tail',
-  'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename',
+  'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_permission',
   'steward_decide', 'steward_run_action',
   'steward_memory_write', 'steward_memory_veto', 'steward_memory_search',
 ];
@@ -49,6 +50,7 @@ const MIN_ARGS = {
   steward_thread_new: { brief: { userText: 'x' } },
   steward_thread_continue: { sessionId: 'sess_nope', message: 'x' },
   steward_thread_rename: { sessionId: 'sess_nope', title: 'x' },
+  steward_thread_permission: { sessionId: 'sess_nope', permissionMode: 'plan' },
   steward_decide: { missionId: 'sess_nope', interventionId: 'iv_nope', action: 'allow' },
   steward_run_action: { sessionId: 'sess_nope', runId: 'run_nope', action: 'pause' },
   steward_memory_write: { kind: 'preference', text: 'x', sourceRef: { sessionId: 'sess_nope', turnSeq: 0 } },
@@ -130,7 +132,7 @@ try {
       const r = await call(name, null, stewardCtx());
       if (!r || r.ok !== false || r.error !== 'steward.disabled') bad.push(`${name}:${r && r.error}`);
     }
-    ok(bad.length === 0, 'A1 开关关时 17 个工具全部返回 steward.disabled' + (bad.length ? ' → ' + bad.join(',') : ''));
+    ok(bad.length === 0, 'A1 开关关时 18 个工具全部返回 steward.disabled' + (bad.length ? ' → ' + bad.join(',') : ''));
     ok(!fs.existsSync(stewardDir), 'A2 开关关时 <data>/steward 目录不存在(零写入)');
   }
 
@@ -143,7 +145,7 @@ try {
       const r = await call(name, null, plainCtx);
       if (!r || r.ok !== false || r.error !== 'steward.forbidden') bad.push(`${name}:${r && r.error}`);
     }
-    ok(bad.length === 0, 'B1 普通会话 ctx 下 17 个工具全部返回 steward.forbidden' + (bad.length ? ' → ' + bad.join(',') : ''));
+    ok(bad.length === 0, 'B1 普通会话 ctx 下 18 个工具全部返回 steward.forbidden' + (bad.length ? ' → ' + bad.join(',') : ''));
     const noCtx = await call('steward_health', {}, null);
     ok(noCtx && noCtx.error === 'steward.forbidden', 'B2 无 ctx(桥接/子进程路径)同样 fail-closed forbidden');
     ok(!fs.existsSync(decisionsFile), 'B3 越权调用不写决策日志');
@@ -470,8 +472,8 @@ try {
     const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
     const plainTools = srv.buildOpenAiTools(cfg, null, {}).map(t => t.function.name);
     ok(!plainTools.some(n => n.startsWith('steward_')), 'K1 面 1 buildOpenAiTools(普通会话)零 steward_*');
-    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 17,
-      'K1b 面 1 管家会话拿到全部 17 个');
+    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 18,
+      'K1b 面 1 管家会话拿到全部 18 个');
     const cat = await srv.adaptiveCatalogForMcp(cfg);
     const catNames = (cat.catalog.tools || cat.catalog || []).map(t => t.name || (t.function && t.function.name));
     ok(!catNames.some(n => String(n).startsWith('steward_')), 'K2 面 3 adaptive 目录(普通会话)零 steward_*');

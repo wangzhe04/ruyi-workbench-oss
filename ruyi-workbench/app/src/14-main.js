@@ -223,6 +223,7 @@ module.exports = {
   loadSession,
   createSession,
   updateSessionMeta,
+  sessionMeta, // 116-2a: 侧栏/索引同源的元数据读形(含会话级 permissionMode 与派生 effectivePermissionMode)
   normalizeSessionEngineRoute,
   sessionEngineRouteFromConfig,
   inferSessionEngineRoute,
@@ -309,6 +310,13 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
+  // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
+  resolvePermissionMode,
+  PERMISSION_MODES_REQUIRING_CONFIRM,
+  STEWARD_PERMISSION_RANK,
+  stewardPermissionRank,
+  stewardMayTightenTo,
   // 第116波116-pre(27号文§8.12/§11.3): 递话预判纯函数 — exposed for 单测(steward-preroute.test.js)。
   STEWARD_PREROUTE_DEFAULTS,
   prerouteText,

@@ -674,7 +674,7 @@ const MCP_TOOLS = [
   // 管家「动如意」,线程「动世界」:本族只操作如意自身(看线程、开线程、递话、答复待决、控制班组、
   // 记管家自己的记忆),【不含】任何作用于外部世界的能力(文件读写/shell/桌面/浏览器/联网/git 写)。
   // 需要动手时管家把任务委派给线程,由线程在其权限模式与授权书约束下执行。
-  // 四个 offer 面全部按 isStewardToolName 门控:只有 kind==='steward' 的管家会话拿得到这 17 个工具;
+  // 四个 offer 面全部按 isStewardToolName 门控:只有 kind==='steward' 的管家会话拿得到这 18 个工具;
   // handler 内还有 fail-closed 二次校验(非管家会话 -> steward.forbidden;开关关 -> steward.disabled)。
   {
     name: 'steward_self_status',
@@ -805,6 +805,17 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', description: '线程 id。' },
         title: { type: 'string', description: '新标题(≤80 字)。' },
+      },
+    },
+  },
+  {
+    name: 'steward_thread_permission',
+    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto)。**只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;也不要拿它当撤销键 —— 撤销用返回的 undoRef。返回 {ok,sessionId,permissionMode,previousEffective,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'permissionMode'],
+      properties: {
+        sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
+        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
       },
     },
   },

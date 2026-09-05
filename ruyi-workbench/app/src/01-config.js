@@ -364,6 +364,37 @@ const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'defa
 // Accept these CLI-native names as aliases when loading config (so users / external tools that write
 // 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
 const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
+// 116-2a(27 号文 §8.6「任何地方切到全自动都要二次确认」):需要二次确认才能【切到】的档。
+// 这是「服务端的那一半」——UI 弹窗是另一半,但服务端不能只信 UI:任何调用方(含脚本/管家/117 壳)
+// 想把某条线程放到全自动,都必须显式带 confirm:true。收紧与清除不在此列(二次确认防的是「不知不觉
+// 被放开」,不是防止用户收紧)。含 CLI 原生内部名 bypassPermissions,即使它不在 PERMISSION_MODES 里
+// (白名单会先把它挡成 400)——名单按语义列全,不依赖另一张表的取值范围。
+const PERMISSION_MODES_REQUIRING_CONFIRM = Object.freeze(['auto', 'bypass', 'bypassPermissions']);
+
+// 116-2a(27 号文 §3.3「线程权限即管家边界」):权限档的三层解析。纯函数,零副作用,零 I/O。
+// 优先级【固定】,高 → 低:
+//   ① 请求级临时覆盖(第 78 波:交办确认卡为「这一单当前执行链」收紧,绝不回写任何持久化);
+//   ② 会话级 session.permissionMode(116-2a 新增的会话头可选字段;不写 = 跟随全局,故没有「显式
+//      等于全局」与「未设」之分的歧义 —— UI 的权限 chip 靠这个区分「这条线程自己定了档」与「跟着走」);
+//   ③ 全局 config.permissionMode(§3.3「新线程用全局默认权限」)。
+// 每一层都【只认 PERMISSION_MODES 白名单】,非法/缺失一律【静默】回落到下一层(与第 78 波的原语义
+// 逐字一致:不报错、不回写、不影响其余层)。三层全空 → 'default'(normalizeConfig 已保证全局档合法,
+// 这个兜底只在传了个裸对象/半截 config 的调用方身上生效)。
+// 入参三项都既接受「对象」(读它的 .permissionMode)也接受「字符串」(就是档本身),这样测试可以直接
+// 喂三个字符串,而 runSessionTurn 可以直接喂 body.permissionMode / session / config。
+function permissionModeFrom(value) {
+  if (value == null) return '';
+  const raw = (typeof value === 'object') ? value.permissionMode : value;
+  const mode = raw == null ? '' : String(raw);
+  return PERMISSION_MODES.includes(mode) ? mode : '';
+}
+function resolvePermissionMode(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  return permissionModeFrom(src.request)
+    || permissionModeFrom(src.session)
+    || permissionModeFrom(src.config)
+    || 'default';
+}
 const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },

@@ -15,6 +15,31 @@
 // 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
 const SESSION_STORAGE_VERSION = 2;
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
+// 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
+// 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
+// 为什么需要它:活回合手里那份会话内存副本是回合开始时的快照,不带用户刚切的权限档;它的收尾 save
+// 会把整个会话头写回「没有该字段」的样子。loadSession / saveSession 两侧都应用这张表,任何顺序下
+// 快切都不会被回合的陈旧副本吞掉,也让「点开即换、立即生效」对所有读者(含还没落盘的那一刻)成立。
+// 表为空时全部应用点都是零操作 —— 没有设过会话级权限的会话(含全部存量会话)行为逐字节不变。
+const sessionPermissionModeOverrides = new Map();
+// 会话头 permissionMode 的白名单归一:''/null/非法值一律归成 ''(= 清除会话级设置,回落全局默认)。
+function normalizeSessionPermissionMode(value) {
+  const mode = value == null ? '' : String(value);
+  return PERMISSION_MODES.includes(mode) ? mode : '';
+}
+// 会话级权限档的读形:合法则返回档名,否则 null(【不】在这里填全局值 —— 见 sessionMeta 的注释)。
+function sessionPermissionModeOf(o) {
+  const mode = normalizeSessionPermissionMode(o && o.permissionMode);
+  return mode || null;
+}
+// 把内存覆盖表盖到一个会话对象/会话头上(装载时与落盘前各一次)。没有条目就原样返回。
+function applySessionPermissionModeOverride(session) {
+  const id = session && session.id;
+  if (!id || !sessionPermissionModeOverrides.has(id)) return session;
+  const mode = sessionPermissionModeOverrides.get(id);
+  if (mode) session.permissionMode = mode; else delete session.permissionMode;
+  return session;
+}
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
@@ -650,7 +675,11 @@ function sessionMissionId(o) {
 
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
-function sessionMeta(o) {
+// 116-2a: 可选第二参 config —— 给了(且是对象)就额外带出派生的 effectivePermissionMode。索引条目
+// 【不】传(listSessions 建索引时保持精简;它那条 `.map(sessionMeta)` 还会把数组下标当第二参喂进来,
+// 故这里必须严格判 typeof === 'object',否则下标 1、2… 会被当成 config 而算出一个假的生效档)。
+function sessionMeta(o, config) {
+  const cfg = (config && typeof config === 'object') ? config : null;
   return {
     id: o.id,
     missionId: sessionMissionId(o), // 75a: stable Mission identity (== sessionId in 3.0; read-only derive for legacy)
@@ -669,6 +698,13 @@ function sessionMeta(o) {
     // /api/sessions 的载荷逐字节不变。两个入参形态都要认:会话头(o.kind)与【已归一过的索引条目】
     // (o.rawKind)—— 快路径会把索引条目再喂一次 sessionMeta,只认 o.kind 的话这个字段在那一趟就丢了。
     ...(o && (o.kind === 'steward' || o.rawKind === 'steward') ? { rawKind: 'steward' } : {}),
+    // 116-2a(§3.3/§8.6「每条线程一个权限 chip」):会话级权限档。缺省是 **null**,不是全局值 ——
+    // chip 要能分清「这条线程自己定了档」(显示实底)与「跟着全局默认走」(显示浅底),填全局值就分不清了。
+    // 存量会话读到没有该字段 → null,零迁移。
+    permissionMode: sessionPermissionModeOf(o),
+    // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
+    // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
+    ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
   };
 }
 // 116f: 管家会话不是「一个会话」,它是工作台本身的那张脸 —— 会话列表、内容搜索、投影、收件箱四个面
@@ -798,21 +834,78 @@ async function listSessions() {
   return sortSessionMetas(sessions.filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
-async function updateSessionMeta(id, patch) {
-  const session = await loadSession(id);
-  if (!session) return null; // missing/corrupt — caller maps to 404
+// 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
+// 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
+function applySessionMetaPatch(session, patch) {
+  const id = session.id;
   if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
     if (route) { session.engineRoute = route; sessionEngineRouteOverrides.set(id, route); }
   }
+  // 116-2a(§3.3/§8.6):线程级权限档,形状与 engineRoute 这个既有的会话级先例对齐(同端点、同覆盖表
+  // 纪律)。null/''/非法值 = 清除会话级设置回落全局(白名单校验在 API 层已经把非法值挡成 400,这里
+  // 是第二道:任何内部调用方写进来的垃圾都只会退化成「跟随全局」,绝不会写出一个野档)。
+  if (Object.prototype.hasOwnProperty.call(patch, 'permissionMode')) {
+    const mode = normalizeSessionPermissionMode(patch.permissionMode);
+    sessionPermissionModeOverrides.set(id, mode);
+    if (mode) session.permissionMode = mode; else delete session.permissionMode;
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
   // next turn. No existence check — a stale/moved folder simply resolves at run time like any manual entry.
   if (typeof patch.cwd === 'string' && patch.cwd.trim()) session.cwd = path.resolve(patch.cwd.trim());
-  await saveSession(session);
+  return session;
+}
+
+// 116-2a(116c 登记的既有根因:「updateSessionMeta 读改写与活回合收尾 save 的竞态」)。
+// 症状:活回合期间 loadSession 拿到的是【磁盘上那一刻】的副本;回合把新消息写进它自己的内存副本、
+// 在收尾时整份落盘。两份副本互相覆盖 —— 元数据改动被回合盖回,或更糟:元数据这份陈旧正文把回合刚
+// 写的消息盖没(会话正文缩水 = 头计数与正文行数错位)。
+// 策略【延后落盘】,不是拒绝。理由:
+//   ① §8.6 要求权限 chip「点开即换、立即生效」,而一个回合可以跑几分钟 —— 在最该收紧权限的那几分钟
+//      里让 chip 失效是本末倒置;拒绝(session.busy)把这个竞态从「会丢数据」变成「用不了」,不是修。
+//   ② 延后并不牺牲「立即生效」:permissionMode 先进内存覆盖表,loadSession/saveSession 两侧都应用它,
+//      对所有读者(含下一个回合的档位解析)立刻是新值;而且活回合自己的下一次 saveSession 就会把它
+//      带上磁盘 —— 那份副本拿的是最新正文,不会盖消息。
+//   ③ 重做时【重新 loadSession】再应用同一个 patch,任何时刻都不会拿陈旧正文覆盖。
+// 保留 steward_thread_rename 自己的 steward.busy 忙锁(116c):那是【自动】改名,对管家来说立刻失败比
+// 静默延后更诚实(「不要重试,等它停」写在 schema 里),且其断言已冻结。
+const sessionMetaDeferChains = new Map(); // id -> Promise(每会话一条串行链,落盘后自清)
+const SESSION_META_DEFER_TIMEOUT_MS = 180000; // 回合真楔死时的兜底:超时后照样按【重新装载】的副本写一次
+async function updateSessionMeta(id, patch) {
+  const session = await loadSession(id);
+  if (!session) return null; // missing/corrupt — caller maps to 404
+  const p = (patch && typeof patch === 'object') ? patch : {};
+  applySessionMetaPatch(session, p);
+  // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
+  if (!activeChildren.has(id) && !turnSettlers.has(id)) {
+    await saveSession(session);
+    return session;
+  }
+  logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
+  const previous = sessionMetaDeferChains.get(id) || Promise.resolve();
+  const chain = previous.catch(() => {}).then(async () => {
+    const settler = turnSettlers.get(id);
+    if (settler && settler.promise) {
+      const settled = await Promise.race([
+        settler.promise.then(() => true, () => true),
+        new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
+      ]);
+      if (!settled) logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+    }
+    const fresh = await loadSession(id).catch(() => null);
+    if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
+    applySessionMetaPatch(fresh, p);
+    await saveSession(fresh).catch(() => {});
+  });
+  // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
+  const wrapped = chain.then(() => {}, () => {});
+  sessionMetaDeferChains.set(id, wrapped);
+  wrapped.then(() => { if (sessionMetaDeferChains.get(id) === wrapped) sessionMetaDeferChains.delete(id); });
+  // 返回值是「投影」:磁盘上的会话 + 本次 patch,与落盘后的结果一致(调用方据此回 200)。
   return session;
 }
 
@@ -841,6 +934,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   ]);
   sessionBodyState.delete(id);
   sessionEngineRouteOverrides.delete(id);
+  sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -955,6 +1049,12 @@ function normalizeSession(raw) {
     if (route && JSON.stringify(route) !== JSON.stringify(session.engineRoute)) { session.engineRoute = route; changed = true; }
     else if (!route && session.engineRoute !== undefined) { delete session.engineRoute; changed = true; }
   }
+  // 116-2a: 会话级权限档(session.permissionMode)是【可选】字段,这里【刻意不做任何归一】——
+  //   ① 缺省不写就是「跟随全局」,回填默认值 = 给全部存量会话做一次破坏性批量重写(与 `kind` 同纪律),
+  //      而且从此分不清「这条线程自己定了档」与「跟着全局走」;
+  //   ② 也不删非白名单值:管家会话的头上正是一个不在 PERMISSION_MODES 里的独立值 'steward'(116f),
+  //      在这里做白名单清洗会把它抹掉。野值本身无害 —— 读侧(sessionPermissionModeOf/
+  //      resolvePermissionMode)一律只认白名单,不合法就当没设、回落下一层。
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
   // 第26波b: 任务账本(MissionSpec)。默认 null(无任务)。旧会话无此键 → 保持 null。
@@ -1961,6 +2061,9 @@ async function loadSession(id) {
   }
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
+  // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
+  // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
+  applySessionPermissionModeOverride(session);
   // 71b: 惰性清理残留 pending 叙事段(见 healStalePendingSegments 头注)。竞态防护:活回合(activeChildren)
   // 或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)内跳过 —— 此时磁盘 pending 可能是活段,
   // 且本会话的收尾 save 会整份重写正文,清理既多余又有互相覆盖风险;下次数 truly idle 的装载再清。
@@ -2014,6 +2117,9 @@ async function saveSession(session) {
   // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
   const routeOverride = sessionEngineRouteOverrides.get(id);
   if (routeOverride) session.engineRoute = { ...routeOverride };
+  // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
+  // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
+  applySessionPermissionModeOverride(session);
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];

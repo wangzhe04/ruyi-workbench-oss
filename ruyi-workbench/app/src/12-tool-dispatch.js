@@ -401,6 +401,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_new: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadNew(args, ctx) },
   steward_thread_continue: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadContinue(args, ctx) },
   steward_thread_rename: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRename(args, ctx) },
+  steward_thread_permission: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPermission(args, ctx) },
   steward_decide: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.decide(args, ctx) },
   steward_run_action: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runAction(args, ctx) },
   steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },

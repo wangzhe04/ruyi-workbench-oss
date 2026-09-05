@@ -249,9 +249,39 @@ async function handleSessionApiRoutes(req, res, pathname) {
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
+      // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
+      // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
+      //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,
+      //      是第 78 波注释里点名的那类事故);null/'' 是【合法】的,意思是「清除会话级设置,回落全局」。
+      //   ② 二次确认 —— 切到全自动必须显式 confirm:true,否则 409。这是 §8.6 那条弹窗要求的服务端一半:
+      //      服务端不能只信 UI 弹过窗,任何调用方(脚本/117 壳/未来的管家 UI)都得过这道门。
+      //      收紧与清除不需要确认。
+      if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+        const requested = body.permissionMode == null ? '' : String(body.permissionMode);
+        if (requested !== '' && !PERMISSION_MODES.includes(requested)) {
+          return send(res, apiFailure('session.invalid_permission_mode', { permissionMode: requested, allowed: PERMISSION_MODES },
+            `permissionMode must be one of ${PERMISSION_MODES.join('/')}, or null/"" to follow the global default`, 400));
+        }
+        if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && body.confirm !== true) {
+          return send(res, apiFailure('permission.confirm_required', { permissionMode: requested },
+            'switching a thread to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)', 409));
+        }
+      }
       const session = await updateSessionMeta(id, body);
       if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-      return send(res, json({ ok: true, session }));
+      const patchedConfig = await readConfig();
+      // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
+      if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+        logEvent({
+          kind: 'session', source: 'permission_mode', sessionId: id,
+          permissionMode: sessionMeta(session).permissionMode,
+          effectivePermissionMode: resolvePermissionMode({ session, config: patchedConfig }),
+          confirmed: body.confirm === true,
+        });
+      }
+      // 既有形状只加不改:`session` 原样保留(既有断言与前端都读它),额外带一份 sessionMeta —— 它是
+      // 权限 chip 要的两个字段(会话级 permissionMode / 派生 effectivePermissionMode)的唯一读形。
+      return send(res, json({ ok: true, session, sessionMeta: sessionMeta(session, patchedConfig) }));
     }
     if (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE')) {
       return send(res, json(await deleteSession(id)));

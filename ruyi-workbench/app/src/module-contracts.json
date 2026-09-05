@@ -161,6 +161,7 @@
         "DIRECT_SPAWN_LINE_BUDGET",
         "DurableJsonStore",
         "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
         "RUNTIME",
         "_agentCliPathProbe",
@@ -209,6 +210,7 @@
         "normalizeConfig",
         "normalizeWorkspacePathString",
         "originOk",
+        "permissionModeFrom",
         "pickPython",
         "prepareAgentCliSpawn",
         "probeAgentCliLauncher",
@@ -219,6 +221,7 @@
         "readJsonBody",
         "resolveClaudeLauncher",
         "resolveKimiNpmEntry",
+        "resolvePermissionMode",
         "safeSessionId",
         "selectedAgentCli",
         "send",
@@ -522,6 +525,7 @@
         "MISSION_STALL_LIMIT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_NOTES_MAX_CHARS",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
@@ -539,6 +543,8 @@
         "appendIntervention",
         "appendMissionChangeRecord",
         "applyMissionUpdate",
+        "applySessionMetaPatch",
+        "applySessionPermissionModeOverride",
         "archiveMissionResult",
         "asResultObject",
         "boundedChangeText",
@@ -618,6 +624,7 @@
         "normalizeMissionCheck",
         "normalizeSession",
         "normalizeSessionEngineRoute",
+        "normalizeSessionPermissionMode",
         "normalizeTodoItems",
         "pendingSessionIndex",
         "planSessionBodyAppend",
@@ -647,10 +654,13 @@
         "sessionKind",
         "sessionLineHash",
         "sessionMeta",
+        "sessionMetaDeferChains",
         "sessionMetaIsSteward",
         "sessionMissionId",
         "sessionNotesPath",
         "sessionNotesWriteChains",
+        "sessionPermissionModeOf",
+        "sessionPermissionModeOverrides",
         "settleIntervention",
         "sortSessionMetas",
         "stopMissionAgentRuns",
@@ -782,7 +792,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -3532,6 +3556,7 @@
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_PERMISSION_LABELS",
         "STEWARD_PERMISSION_MODE",
+        "STEWARD_PERMISSION_RANK",
         "STEWARD_PHRASE_RE",
         "STEWARD_PREROUTE_DEFAULTS",
         "STEWARD_PREROUTE_QUERY_MAX",
@@ -3551,9 +3576,11 @@
         "prerouteText",
         "stewardHasText",
         "stewardMayAct",
+        "stewardMayTightenTo",
         "stewardMemoryTerms",
         "stewardPendingTotal",
         "stewardPermissionLabel",
+        "stewardPermissionRank",
         "stewardPrerouteContainsPhrase",
         "stewardPrerouteExtractPhrases",
         "stewardPrerouteFieldMatch",
@@ -6977,13 +7004,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -6992,6 +7012,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -10148,6 +10175,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -10156,6 +10197,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -10324,6 +10372,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMeta",
           "kinds": [
             "call"
           ]
@@ -10981,6 +11036,7 @@
         "stewardImplSelfStatus",
         "stewardImplThreadContinue",
         "stewardImplThreadNew",
+        "stewardImplThreadPermission",
         "stewardImplThreadRead",
         "stewardImplThreadRename",
         "stewardImplThreadStatus",
@@ -11135,6 +11191,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -11164,6 +11227,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "sessionSearchIndexEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -11220,6 +11290,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionPermissionModeOf",
           "kinds": [
             "call"
           ]
@@ -11325,6 +11402,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMayAct",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardMayTightenTo",
           "kinds": [
             "call"
           ]
@@ -12078,6 +12162,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "pickPython",
           "kinds": [
             "read"
@@ -12114,6 +12205,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "read"
           ]
@@ -12520,6 +12618,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMeta",
           "kinds": [
             "read"
           ]
@@ -13828,6 +13933,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PERMISSION_RANK",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PREROUTE_DEFAULTS",
           "kinds": [
             "read"
@@ -13870,7 +13982,21 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardMayTightenTo",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardMemoryTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPermissionRank",
           "kinds": [
             "read"
           ]

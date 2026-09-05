@@ -2154,7 +2154,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
 // 这是纯搬家:下面的代码就是原 streamChat 的代码,只是从 HTTP 处理函数里搬出来并加参数,行为不变。
 //
 // 进核心(与传输无关、任何发起方都必须走的语义):
-//   · 权限档临时覆盖(第78波:PERMISSION_MODES 白名单,非法/缺失静默回落持久配置,绝不回写全局配置);
+//   · 权限档三层解析(第78波的请求级临时覆盖 + 116-2a 的会话级字段 + 全局配置,见 resolvePermissionMode:
+//     请求级 > 会话级 > 全局,每层只认 PERMISSION_MODES 白名单,非法/缺失静默回落,绝不回写全局配置);
 //   · 会话装载/新建(缺 id 或 loadSession 返回空 → createSession)与 configForSessionEngineRoute 路由派生;
 //   · pinnedRoute 校验(会话绑定 openai 但 provider 不可用 → 抛错,由下面的 catch 转成 error 事件);
 //   · 引擎分派:activeOpenAiProvider 有值走 runOpenAiTurn,否则走 runClaudeTurn(Claude/Kimi 桥同签名);
@@ -2195,13 +2196,18 @@ async function runSessionTurn(input) {
   // 第78波：交办确认卡可为【这一单当前执行链】收紧/调整安全档，但绝不回写全局配置。
   // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
-  const requestedPermissionMode = String(body.permissionMode || '');
-  const permissionConfig = PERMISSION_MODES.includes(requestedPermissionMode)
-    ? { ...storedConfig, permissionMode: requestedPermissionMode }
-    : storedConfig;
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 116-2a(§3.3):档位解析挪到会话装载【之后】,因为多了中间一层「会话级」。优先级固定
+  // 请求级 > 会话级 > 全局,解析器是 01-config 的纯函数 resolvePermissionMode(三层各自只认
+  // PERMISSION_MODES 白名单,非法/缺失静默回落下一层)。没有设过会话级档的会话(含全部存量会话)
+  // 解析结果 === storedConfig.permissionMode,下面那行的恒等判定让 permissionConfig 仍是 storedConfig
+  // 【同一个对象】—— 行为与搬家前逐字节一致。
+  const resolvedPermissionMode = resolvePermissionMode({ request: body.permissionMode, session, config: storedConfig });
+  const permissionConfig = resolvedPermissionMode === storedConfig.permissionMode
+    ? storedConfig
+    : { ...storedConfig, permissionMode: resolvedPermissionMode };
   const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
   const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
   const config = configForSessionEngineRoute(permissionConfig, routeSource);

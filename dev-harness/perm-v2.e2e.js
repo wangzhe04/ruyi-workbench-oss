@@ -9,6 +9,9 @@
 //     permission_request and the file is written (rule short-circuits the 'ask').
 //  ③ config pre-seeds toolAllowRules:{powershell_run:'allow'} (ILLEGAL — exec tier) → normalizeConfig
 //     strips it → GET /api/status shows config.toolAllowRules without that entry.
+//  ④ 116-2a: PATCH /api/sessions/:id {permissionMode:'plan'} on ONE session, with the GLOBAL mode still
+//     'default' → that session's edit-tier call is BLOCKED outright (no permission_request, no 6s wait,
+//     no file). Proves the session level beats the global default in the real gate, not just in a getter.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -122,6 +125,31 @@ async function withWb(allowRules, fn) {
       ok(!('powershell_run' in rules), '③ powershell_run stripped from toolAllowRules by normalizeConfig');
       ok(Object.keys(rules).length === 0, '③ toolAllowRules is now empty (illegal entry dropped)');
     });
+
+    // ============ ④ 116-2a: a SESSION-LEVEL permissionMode:'plan' hard-blocks the same edit-tier call ============
+    // Global mode stays 'default' (which would ASK and then auto-deny after ~6s). Setting the mode on the
+    // SESSION alone must change the gate to 'block': no permission_request is emitted at all, the turn
+    // returns immediately, and the file is never written. Priority is session > global (request-level
+    // override sits above both; that layer is covered by session-permission-mode.e2e.js).
+    const target4 = path.join(HOME, 'perm-session-level.txt');
+    const f4 = spawnFake('file_write', { path: target4, content: 'blocked-by-session-level-plan' }); fakes.push(f4);
+    ok(await waitFakeUp(), '④ fake up');
+    await withWb(null, async up => {
+      ok(up, '④ workbench up (global mode still default)');
+      const created = await postJson(WB_PORT, '/api/sessions', { title: 'perm t4', cwd: HOME });
+      const sid = created.body.session.id;
+      const patched = await postJson(WB_PORT, '/api/sessions/' + sid, { permissionMode: 'plan' }, { 'x-http-method': 'PATCH' });
+      ok(patched.status === 200 && patched.body.sessionMeta && patched.body.sessionMeta.permissionMode === 'plan',
+        '④ PATCH session permissionMode=plan accepted (sessionMeta echoes the session-level mode)');
+      ok(patched.body.sessionMeta.effectivePermissionMode === 'plan', "④ sessionMeta.effectivePermissionMode === 'plan' (session level beats global 'default')");
+      const t0 = Date.now();
+      const ev = await postStream(WB_PORT, { sessionId: sid, message: 'write the file', cwd: HOME });
+      const elapsed = Date.now() - t0;
+      ok(!ev.find(e => e.type === 'permission_request'), '④ session-level plan → gate is block, NOT ask (no permission_request at all)');
+      ok(elapsed < 5000, '④ turn did NOT wait out the ~6s permission timeout (elapsed ' + elapsed + 'ms) — it was blocked, not prompted');
+      ok(!fs.existsSync(target4), '④ file NOT written under session-level plan');
+    });
+    killp(f4); await waitFakeDown();
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of fakes) killp(c);

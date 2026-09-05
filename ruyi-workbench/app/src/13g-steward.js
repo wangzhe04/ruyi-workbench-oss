@@ -900,17 +900,23 @@ function stewardClipSay(value) {
 async function stewardReadSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
-  try { return safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null); } catch { return null; }
+  try {
+    const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null);
+    // 116-2a: 这条读路径绕过 loadSession(只要头,不装正文),所以要自己盖一次会话级权限档的内存
+    // 覆盖表 —— 否则用户刚在活回合期间切了档、还没落盘,管家读到的就是旧档(见 02 的覆盖表头注)。
+    return head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head;
+  } catch { return null; }
 }
 function stewardRawKind(head) {
   const k = head && head.kind;
   return (typeof k === 'string' && k) ? k : (head && head.mission ? 'mission' : 'quick_ask');
 }
-// 线程权限档:会话头显式覆盖优先,否则跟随全局默认(§3.3「新线程用全局默认权限」)。
+// 线程的【生效】权限档 = resolvePermissionMode 的会话级 > 全局两层(§3.3「新线程用全局默认权限」)。
+// 116-2a:改为直调 01-config 的解析器,与回合执行侧(runSessionTurn)用的是同一个函数、同一张白名单 ——
+// 管家判「我能不能替它答」与线程实际按哪档执行,从此不可能各算各的。请求级那一层是回合内临时值,
+// 不在会话头上,管家看不到也不该看到(它只对那一单当前执行链有效)。
 function stewardThreadPermissionMode(head, config) {
-  const explicit = String((head && head.permissionMode) || '');
-  if (PERMISSION_MODES.includes(explicit)) return explicit;
-  return String((config && config.permissionMode) || 'default');
+  return resolvePermissionMode({ session: head, config });
 }
 function stewardLastAssistantText(session) {
   const messages = Array.isArray(session && session.messages) ? session.messages : [];
@@ -1170,8 +1176,14 @@ async function stewardImplThreadStatus(args, ctx, config) {
     lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
     pending: interventions,
     pendingCounts: (card && card.pending) || await missionPendingCounts(sessionId, [], null).catch(() => null),
+    // permissionMode 保持既有语义 =【生效】档(既有断言与提示词都读它;断言只加不改)。
     permissionMode: stewardThreadPermissionMode(head, config),
     permissionLabel: stewardPermissionLabel(stewardThreadPermissionMode(head, config)),
+    // 116-2a 只加两个字段,把「生效档」与「这条线程自己定的档」显式分开:
+    //   effectivePermissionMode —— 与 permissionMode 同值,名字自解释,给 117 的 chip 与管家提示词读;
+    //   sessionPermissionMode —— 会话级设置,null = 没定、跟着全局走(chip 的实底/浅底就看它)。
+    effectivePermissionMode: stewardThreadPermissionMode(head, config),
+    sessionPermissionMode: sessionPermissionModeOf(head),
     engine: engine.engine,
     model: engine.model,
     providerId: engine.providerId || '',
@@ -1489,6 +1501,45 @@ async function stewardImplThreadRename(args, ctx, config) {
   return { ok: true, sessionId, title, undoRef };
 }
 
+// 12b) steward_thread_permission —— 线程权限【只降不升】(116-2a)。
+// 这是永久豁免清单第 2 条(「管家不得自我扩权:放宽任一线程的 permissionMode」)的机器实现:
+// 目标档必须严格比【当前生效档】更紧(STEWARD_PERMISSION_RANK 的单调性判定),否则一律
+// steward.widen_forbidden —— 放宽只能由用户在界面上改,那条路上还有一道「切到全自动须二次确认」。
+// 不加忙锁:116-2a 把 updateSessionMeta 的读改写竞态改成了「活回合期间延后落盘 + 内存覆盖表立刻生效」,
+// 收紧对下一回合立即有效且不会盖掉在途回合刚写的消息 —— 这正是收紧最该起效的时刻,拒绝反而危险。
+async function stewardImplThreadPermission(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const target = String(args.permissionMode == null ? '' : args.permissionMode);
+  if (!PERMISSION_MODES.includes(target)) {
+    return stewardFail('invalid_request', `permissionMode must be one of ${PERMISSION_MODES.join('/')}`);
+  }
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
+
+  const current = stewardThreadPermissionMode(head, config);
+  if (!stewardMayTightenTo(current, target)) {
+    return stewardFail('steward.widen_forbidden',
+      `线程 ${sessionId} 当前权限是「${stewardPermissionLabel(current)}」,管家只能收紧、不能放宽或平移到「${stewardPermissionLabel(target)}」;要放宽请让用户在界面上改`,
+      { sessionId, permissionMode: current, requested: target });
+  }
+  const previous = sessionPermissionModeOf(head); // 会话级旧值(null = 之前跟着全局走)
+  const session = await updateSessionMeta(sessionId, { permissionMode: target });
+  if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
+  const undoRef = { kind: 'permission', sessionId, previous };
+  stewardAppendDecision({
+    tool: 'steward_thread_permission',
+    args: { permissionMode: target, previous },
+    targetSessionId: sessionId,
+    permissionMode: target,
+    mayAct: 'auto',
+    undoRef,
+    basis: { previousEffective: current },
+  });
+  return { ok: true, sessionId, permissionMode: target, effectivePermissionMode: target, previousEffective: current, previous, undoRef };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // 决策族(tier exec)—— 替用户答复待决 / 控制班组。放行范围一律经 stewardMayAct + 永久豁免。
 // ════════════════════════════════════════════════════════════════════════════
@@ -1744,7 +1795,8 @@ Object.assign(StewardHooks, {
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,
   inboxState: stewardInboxState,
-  // 116c: 17 个管家工具的实现键。每个都经 stewardToolHandler 包一层门控壳(开关 -> 身份 -> 实现),
+  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission)。每个都经 stewardToolHandler
+  // 包一层门控壳(开关 -> 身份 -> 实现),
   // 12-tool-dispatch 的 handler 只写一行 `StewardHooks.<键>(args, ctx)`。键名与 06i 的契约注释逐条对应。
   selfStatus: stewardToolHandler('steward_self_status', stewardImplSelfStatus),
   threadsSearch: stewardToolHandler('steward_threads_search', stewardImplThreadsSearch),
@@ -1758,6 +1810,7 @@ Object.assign(StewardHooks, {
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
+  threadPermission: stewardToolHandler('steward_thread_permission', stewardImplThreadPermission), // 116-2a
   decide: stewardToolHandler('steward_decide', stewardImplDecide),
   runAction: stewardToolHandler('steward_run_action', stewardImplRunAction),
   memoryWrite: stewardToolHandler('steward_memory_write', stewardImplMemoryWrite),

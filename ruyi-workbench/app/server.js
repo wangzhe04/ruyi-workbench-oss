@@ -1150,6 +1150,37 @@ const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'defa
 // Accept these CLI-native names as aliases when loading config (so users / external tools that write
 // 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
 const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
+// 116-2a(27 号文 §8.6「任何地方切到全自动都要二次确认」):需要二次确认才能【切到】的档。
+// 这是「服务端的那一半」——UI 弹窗是另一半,但服务端不能只信 UI:任何调用方(含脚本/管家/117 壳)
+// 想把某条线程放到全自动,都必须显式带 confirm:true。收紧与清除不在此列(二次确认防的是「不知不觉
+// 被放开」,不是防止用户收紧)。含 CLI 原生内部名 bypassPermissions,即使它不在 PERMISSION_MODES 里
+// (白名单会先把它挡成 400)——名单按语义列全,不依赖另一张表的取值范围。
+const PERMISSION_MODES_REQUIRING_CONFIRM = Object.freeze(['auto', 'bypass', 'bypassPermissions']);
+
+// 116-2a(27 号文 §3.3「线程权限即管家边界」):权限档的三层解析。纯函数,零副作用,零 I/O。
+// 优先级【固定】,高 → 低:
+//   ① 请求级临时覆盖(第 78 波:交办确认卡为「这一单当前执行链」收紧,绝不回写任何持久化);
+//   ② 会话级 session.permissionMode(116-2a 新增的会话头可选字段;不写 = 跟随全局,故没有「显式
+//      等于全局」与「未设」之分的歧义 —— UI 的权限 chip 靠这个区分「这条线程自己定了档」与「跟着走」);
+//   ③ 全局 config.permissionMode(§3.3「新线程用全局默认权限」)。
+// 每一层都【只认 PERMISSION_MODES 白名单】,非法/缺失一律【静默】回落到下一层(与第 78 波的原语义
+// 逐字一致:不报错、不回写、不影响其余层)。三层全空 → 'default'(normalizeConfig 已保证全局档合法,
+// 这个兜底只在传了个裸对象/半截 config 的调用方身上生效)。
+// 入参三项都既接受「对象」(读它的 .permissionMode)也接受「字符串」(就是档本身),这样测试可以直接
+// 喂三个字符串,而 runSessionTurn 可以直接喂 body.permissionMode / session / config。
+function permissionModeFrom(value) {
+  if (value == null) return '';
+  const raw = (typeof value === 'object') ? value.permissionMode : value;
+  const mode = raw == null ? '' : String(raw);
+  return PERMISSION_MODES.includes(mode) ? mode : '';
+}
+function resolvePermissionMode(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  return permissionModeFrom(src.request)
+    || permissionModeFrom(src.session)
+    || permissionModeFrom(src.config)
+    || 'default';
+}
 const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
   { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
@@ -3363,6 +3394,31 @@ function createTurnSegmentBuilder() {
 // 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
 const SESSION_STORAGE_VERSION = 2;
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
+// 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
+// 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
+// 为什么需要它:活回合手里那份会话内存副本是回合开始时的快照,不带用户刚切的权限档;它的收尾 save
+// 会把整个会话头写回「没有该字段」的样子。loadSession / saveSession 两侧都应用这张表,任何顺序下
+// 快切都不会被回合的陈旧副本吞掉,也让「点开即换、立即生效」对所有读者(含还没落盘的那一刻)成立。
+// 表为空时全部应用点都是零操作 —— 没有设过会话级权限的会话(含全部存量会话)行为逐字节不变。
+const sessionPermissionModeOverrides = new Map();
+// 会话头 permissionMode 的白名单归一:''/null/非法值一律归成 ''(= 清除会话级设置,回落全局默认)。
+function normalizeSessionPermissionMode(value) {
+  const mode = value == null ? '' : String(value);
+  return PERMISSION_MODES.includes(mode) ? mode : '';
+}
+// 会话级权限档的读形:合法则返回档名,否则 null(【不】在这里填全局值 —— 见 sessionMeta 的注释)。
+function sessionPermissionModeOf(o) {
+  const mode = normalizeSessionPermissionMode(o && o.permissionMode);
+  return mode || null;
+}
+// 把内存覆盖表盖到一个会话对象/会话头上(装载时与落盘前各一次)。没有条目就原样返回。
+function applySessionPermissionModeOverride(session) {
+  const id = session && session.id;
+  if (!id || !sessionPermissionModeOverrides.has(id)) return session;
+  const mode = sessionPermissionModeOverrides.get(id);
+  if (mode) session.permissionMode = mode; else delete session.permissionMode;
+  return session;
+}
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
@@ -3998,7 +4054,11 @@ function sessionMissionId(o) {
 
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
-function sessionMeta(o) {
+// 116-2a: 可选第二参 config —— 给了(且是对象)就额外带出派生的 effectivePermissionMode。索引条目
+// 【不】传(listSessions 建索引时保持精简;它那条 `.map(sessionMeta)` 还会把数组下标当第二参喂进来,
+// 故这里必须严格判 typeof === 'object',否则下标 1、2… 会被当成 config 而算出一个假的生效档)。
+function sessionMeta(o, config) {
+  const cfg = (config && typeof config === 'object') ? config : null;
   return {
     id: o.id,
     missionId: sessionMissionId(o), // 75a: stable Mission identity (== sessionId in 3.0; read-only derive for legacy)
@@ -4017,6 +4077,13 @@ function sessionMeta(o) {
     // /api/sessions 的载荷逐字节不变。两个入参形态都要认:会话头(o.kind)与【已归一过的索引条目】
     // (o.rawKind)—— 快路径会把索引条目再喂一次 sessionMeta,只认 o.kind 的话这个字段在那一趟就丢了。
     ...(o && (o.kind === 'steward' || o.rawKind === 'steward') ? { rawKind: 'steward' } : {}),
+    // 116-2a(§3.3/§8.6「每条线程一个权限 chip」):会话级权限档。缺省是 **null**,不是全局值 ——
+    // chip 要能分清「这条线程自己定了档」(显示实底)与「跟着全局默认走」(显示浅底),填全局值就分不清了。
+    // 存量会话读到没有该字段 → null,零迁移。
+    permissionMode: sessionPermissionModeOf(o),
+    // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
+    // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
+    ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
   };
 }
 // 116f: 管家会话不是「一个会话」,它是工作台本身的那张脸 —— 会话列表、内容搜索、投影、收件箱四个面
@@ -4146,21 +4213,78 @@ async function listSessions() {
   return sortSessionMetas(sessions.filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
-async function updateSessionMeta(id, patch) {
-  const session = await loadSession(id);
-  if (!session) return null; // missing/corrupt — caller maps to 404
+// 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
+// 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
+function applySessionMetaPatch(session, patch) {
+  const id = session.id;
   if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
     if (route) { session.engineRoute = route; sessionEngineRouteOverrides.set(id, route); }
   }
+  // 116-2a(§3.3/§8.6):线程级权限档,形状与 engineRoute 这个既有的会话级先例对齐(同端点、同覆盖表
+  // 纪律)。null/''/非法值 = 清除会话级设置回落全局(白名单校验在 API 层已经把非法值挡成 400,这里
+  // 是第二道:任何内部调用方写进来的垃圾都只会退化成「跟随全局」,绝不会写出一个野档)。
+  if (Object.prototype.hasOwnProperty.call(patch, 'permissionMode')) {
+    const mode = normalizeSessionPermissionMode(patch.permissionMode);
+    sessionPermissionModeOverrides.set(id, mode);
+    if (mode) session.permissionMode = mode; else delete session.permissionMode;
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
   // next turn. No existence check — a stale/moved folder simply resolves at run time like any manual entry.
   if (typeof patch.cwd === 'string' && patch.cwd.trim()) session.cwd = path.resolve(patch.cwd.trim());
-  await saveSession(session);
+  return session;
+}
+
+// 116-2a(116c 登记的既有根因:「updateSessionMeta 读改写与活回合收尾 save 的竞态」)。
+// 症状:活回合期间 loadSession 拿到的是【磁盘上那一刻】的副本;回合把新消息写进它自己的内存副本、
+// 在收尾时整份落盘。两份副本互相覆盖 —— 元数据改动被回合盖回,或更糟:元数据这份陈旧正文把回合刚
+// 写的消息盖没(会话正文缩水 = 头计数与正文行数错位)。
+// 策略【延后落盘】,不是拒绝。理由:
+//   ① §8.6 要求权限 chip「点开即换、立即生效」,而一个回合可以跑几分钟 —— 在最该收紧权限的那几分钟
+//      里让 chip 失效是本末倒置;拒绝(session.busy)把这个竞态从「会丢数据」变成「用不了」,不是修。
+//   ② 延后并不牺牲「立即生效」:permissionMode 先进内存覆盖表,loadSession/saveSession 两侧都应用它,
+//      对所有读者(含下一个回合的档位解析)立刻是新值;而且活回合自己的下一次 saveSession 就会把它
+//      带上磁盘 —— 那份副本拿的是最新正文,不会盖消息。
+//   ③ 重做时【重新 loadSession】再应用同一个 patch,任何时刻都不会拿陈旧正文覆盖。
+// 保留 steward_thread_rename 自己的 steward.busy 忙锁(116c):那是【自动】改名,对管家来说立刻失败比
+// 静默延后更诚实(「不要重试,等它停」写在 schema 里),且其断言已冻结。
+const sessionMetaDeferChains = new Map(); // id -> Promise(每会话一条串行链,落盘后自清)
+const SESSION_META_DEFER_TIMEOUT_MS = 180000; // 回合真楔死时的兜底:超时后照样按【重新装载】的副本写一次
+async function updateSessionMeta(id, patch) {
+  const session = await loadSession(id);
+  if (!session) return null; // missing/corrupt — caller maps to 404
+  const p = (patch && typeof patch === 'object') ? patch : {};
+  applySessionMetaPatch(session, p);
+  // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
+  if (!activeChildren.has(id) && !turnSettlers.has(id)) {
+    await saveSession(session);
+    return session;
+  }
+  logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
+  const previous = sessionMetaDeferChains.get(id) || Promise.resolve();
+  const chain = previous.catch(() => {}).then(async () => {
+    const settler = turnSettlers.get(id);
+    if (settler && settler.promise) {
+      const settled = await Promise.race([
+        settler.promise.then(() => true, () => true),
+        new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
+      ]);
+      if (!settled) logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+    }
+    const fresh = await loadSession(id).catch(() => null);
+    if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
+    applySessionMetaPatch(fresh, p);
+    await saveSession(fresh).catch(() => {});
+  });
+  // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
+  const wrapped = chain.then(() => {}, () => {});
+  sessionMetaDeferChains.set(id, wrapped);
+  wrapped.then(() => { if (sessionMetaDeferChains.get(id) === wrapped) sessionMetaDeferChains.delete(id); });
+  // 返回值是「投影」:磁盘上的会话 + 本次 patch,与落盘后的结果一致(调用方据此回 200)。
   return session;
 }
 
@@ -4189,6 +4313,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   ]);
   sessionBodyState.delete(id);
   sessionEngineRouteOverrides.delete(id);
+  sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -4303,6 +4428,12 @@ function normalizeSession(raw) {
     if (route && JSON.stringify(route) !== JSON.stringify(session.engineRoute)) { session.engineRoute = route; changed = true; }
     else if (!route && session.engineRoute !== undefined) { delete session.engineRoute; changed = true; }
   }
+  // 116-2a: 会话级权限档(session.permissionMode)是【可选】字段,这里【刻意不做任何归一】——
+  //   ① 缺省不写就是「跟随全局」,回填默认值 = 给全部存量会话做一次破坏性批量重写(与 `kind` 同纪律),
+  //      而且从此分不清「这条线程自己定了档」与「跟着全局走」;
+  //   ② 也不删非白名单值:管家会话的头上正是一个不在 PERMISSION_MODES 里的独立值 'steward'(116f),
+  //      在这里做白名单清洗会把它抹掉。野值本身无害 —— 读侧(sessionPermissionModeOf/
+  //      resolvePermissionMode)一律只认白名单,不合法就当没设、回落下一层。
   // v0.8-S3: todo list (TodoWrite). Old sessions predate it → backfill empty array.
   if (!Array.isArray(session.todos)) { session.todos = []; changed = true; }
   // 第26波b: 任务账本(MissionSpec)。默认 null(无任务)。旧会话无此键 → 保持 null。
@@ -5309,6 +5440,9 @@ async function loadSession(id) {
   }
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
+  // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
+  // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
+  applySessionPermissionModeOverride(session);
   // 71b: 惰性清理残留 pending 叙事段(见 healStalePendingSegments 头注)。竞态防护:活回合(activeChildren)
   // 或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)内跳过 —— 此时磁盘 pending 可能是活段,
   // 且本会话的收尾 save 会整份重写正文,清理既多余又有互相覆盖风险;下次数 truly idle 的装载再清。
@@ -5362,6 +5496,9 @@ async function saveSession(session) {
   // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
   const routeOverride = sessionEngineRouteOverrides.get(id);
   if (routeOverride) session.engineRoute = { ...routeOverride };
+  // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
+  // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
+  applySessionPermissionModeOverride(session);
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
@@ -17038,6 +17175,24 @@ const STEWARD_PERMISSION_LABELS = Object.freeze({
   bypassPermissions: '全自动',
 });
 
+// 116-2a(§3.3「管家只能收紧线程权限,不能放宽」/ 永久豁免第 2 条「管家不得自我扩权」):
+// 收紧比较用的序。**这张表只用来做「目标档是不是比当前档更紧」这一个比较,不代表安全度线性可加**——
+// plan 与 default 谁「更安全」在别的语境下可以争论(plan 不动手但也不问;default 每步都问),这里按
+// §3.3 表格从上到下「线程自己能做的事」由少到多排定一个全序,仅供管家工具做单调性判定。
+// bypass 与 bypassPermissions 是同一档的两个名字(CLI 原生内部名),同 rank。
+const STEWARD_PERMISSION_RANK = Object.freeze({ plan: 0, default: 1, acceptEdits: 2, auto: 3, bypass: 4, bypassPermissions: 4 });
+// 未知/空档 -> -1(比较方一律要求两边都 >= 0 才判定,未知档既不算「可收紧」也不算「已放宽」)。
+function stewardPermissionRank(mode) {
+  const m = mode == null ? '' : String(mode);
+  return Object.prototype.hasOwnProperty.call(STEWARD_PERMISSION_RANK, m) ? STEWARD_PERMISSION_RANK[m] : -1;
+}
+// 「管家能否把 current 改成 target」= 两边都是已知档 且 target 严格更紧。相等也不行(改成同一档是空操作,
+// 却会写一条决策日志与一次落盘,没有意义)。
+function stewardMayTightenTo(current, target) {
+  const a = stewardPermissionRank(current), b = stewardPermissionRank(target);
+  return a >= 0 && b >= 0 && b < a;
+}
+
 // 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成方括号(总览最终会经既有
 // UI 渲染管线,提前中和比信任下游转义更省心——先例见 03-bridge-guard.js 的同类中和纪律)。
 function stewardSanitizeText(value) {
@@ -17502,7 +17657,8 @@ function prerouteText(q, index, memory, opts) {
 //   观察族(tier read): selfStatus(args,ctx)、threadsSearch(args,ctx)、threadStatus(args,ctx)、
 //           threadRead(args,ctx)、runsStatus(args,ctx)、inboxReadTool(args,ctx)(它是 steward_inbox_read
 //           的门控壳,内部委托上面那个原始 inboxRead)、usage(args,ctx)、health(args,ctx)、auditTail(args,ctx)
-//   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)
+//   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)、
+//           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)
 //   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
 //   记忆族(tier edit): memoryWrite(args,ctx)、memoryVeto(args,ctx)、memorySearch(args,ctx)
 // 全部工具实现键的签名统一为 (args, ctx) 并返回稳定信封(见 13g 的 stewardToolHandler)。
@@ -19907,6 +20063,9 @@ const NATIVE_TOOL_TIER = {
   steward_thread_read: 'read', steward_runs_status: 'read', steward_inbox_read: 'read',
   steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
+  // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
+  steward_thread_permission: 'edit',
   steward_decide: 'exec', steward_run_action: 'exec',
   // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
   // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
@@ -20001,6 +20160,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_read: 'steward', steward_runs_status: 'steward', steward_inbox_read: 'steward',
   steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
+  steward_thread_permission: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
 });
@@ -29458,7 +29618,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
 // 这是纯搬家:下面的代码就是原 streamChat 的代码,只是从 HTTP 处理函数里搬出来并加参数,行为不变。
 //
 // 进核心(与传输无关、任何发起方都必须走的语义):
-//   · 权限档临时覆盖(第78波:PERMISSION_MODES 白名单,非法/缺失静默回落持久配置,绝不回写全局配置);
+//   · 权限档三层解析(第78波的请求级临时覆盖 + 116-2a 的会话级字段 + 全局配置,见 resolvePermissionMode:
+//     请求级 > 会话级 > 全局,每层只认 PERMISSION_MODES 白名单,非法/缺失静默回落,绝不回写全局配置);
 //   · 会话装载/新建(缺 id 或 loadSession 返回空 → createSession)与 configForSessionEngineRoute 路由派生;
 //   · pinnedRoute 校验(会话绑定 openai 但 provider 不可用 → 抛错,由下面的 catch 转成 error 事件);
 //   · 引擎分派:activeOpenAiProvider 有值走 runOpenAiTurn,否则走 runClaudeTurn(Claude/Kimi 桥同签名);
@@ -29499,13 +29660,18 @@ async function runSessionTurn(input) {
   // 第78波：交办确认卡可为【这一单当前执行链】收紧/调整安全档，但绝不回写全局配置。
   // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
-  const requestedPermissionMode = String(body.permissionMode || '');
-  const permissionConfig = PERMISSION_MODES.includes(requestedPermissionMode)
-    ? { ...storedConfig, permissionMode: requestedPermissionMode }
-    : storedConfig;
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 116-2a(§3.3):档位解析挪到会话装载【之后】,因为多了中间一层「会话级」。优先级固定
+  // 请求级 > 会话级 > 全局,解析器是 01-config 的纯函数 resolvePermissionMode(三层各自只认
+  // PERMISSION_MODES 白名单,非法/缺失静默回落下一层)。没有设过会话级档的会话(含全部存量会话)
+  // 解析结果 === storedConfig.permissionMode,下面那行的恒等判定让 permissionConfig 仍是 storedConfig
+  // 【同一个对象】—— 行为与搬家前逐字节一致。
+  const resolvedPermissionMode = resolvePermissionMode({ request: body.permissionMode, session, config: storedConfig });
+  const permissionConfig = resolvedPermissionMode === storedConfig.permissionMode
+    ? storedConfig
+    : { ...storedConfig, permissionMode: resolvedPermissionMode };
   const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
   const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
   const config = configForSessionEngineRoute(permissionConfig, routeSource);
@@ -32150,6 +32316,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_new: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadNew(args, ctx) },
   steward_thread_continue: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadContinue(args, ctx) },
   steward_thread_rename: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRename(args, ctx) },
+  steward_thread_permission: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPermission(args, ctx) },
   steward_decide: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.decide(args, ctx) },
   steward_run_action: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runAction(args, ctx) },
   steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },
@@ -34099,7 +34266,7 @@ const MCP_TOOLS = [
   // 管家「动如意」,线程「动世界」:本族只操作如意自身(看线程、开线程、递话、答复待决、控制班组、
   // 记管家自己的记忆),【不含】任何作用于外部世界的能力(文件读写/shell/桌面/浏览器/联网/git 写)。
   // 需要动手时管家把任务委派给线程,由线程在其权限模式与授权书约束下执行。
-  // 四个 offer 面全部按 isStewardToolName 门控:只有 kind==='steward' 的管家会话拿得到这 17 个工具;
+  // 四个 offer 面全部按 isStewardToolName 门控:只有 kind==='steward' 的管家会话拿得到这 18 个工具;
   // handler 内还有 fail-closed 二次校验(非管家会话 -> steward.forbidden;开关关 -> steward.disabled)。
   {
     name: 'steward_self_status',
@@ -34230,6 +34397,17 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', description: '线程 id。' },
         title: { type: 'string', description: '新标题(≤80 字)。' },
+      },
+    },
+  },
+  {
+    name: 'steward_thread_permission',
+    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto)。**只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;也不要拿它当撤销键 —— 撤销用返回的 undoRef。返回 {ok,sessionId,permissionMode,previousEffective,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'permissionMode'],
+      properties: {
+        sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
+        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
       },
     },
   },
@@ -37404,9 +37582,39 @@ async function handleSessionApiRoutes(req, res, pathname) {
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
+      // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
+      // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
+      //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,
+      //      是第 78 波注释里点名的那类事故);null/'' 是【合法】的,意思是「清除会话级设置,回落全局」。
+      //   ② 二次确认 —— 切到全自动必须显式 confirm:true,否则 409。这是 §8.6 那条弹窗要求的服务端一半:
+      //      服务端不能只信 UI 弹过窗,任何调用方(脚本/117 壳/未来的管家 UI)都得过这道门。
+      //      收紧与清除不需要确认。
+      if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+        const requested = body.permissionMode == null ? '' : String(body.permissionMode);
+        if (requested !== '' && !PERMISSION_MODES.includes(requested)) {
+          return send(res, apiFailure('session.invalid_permission_mode', { permissionMode: requested, allowed: PERMISSION_MODES },
+            `permissionMode must be one of ${PERMISSION_MODES.join('/')}, or null/"" to follow the global default`, 400));
+        }
+        if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && body.confirm !== true) {
+          return send(res, apiFailure('permission.confirm_required', { permissionMode: requested },
+            'switching a thread to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)', 409));
+        }
+      }
       const session = await updateSessionMeta(id, body);
       if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-      return send(res, json({ ok: true, session }));
+      const patchedConfig = await readConfig();
+      // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
+      if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+        logEvent({
+          kind: 'session', source: 'permission_mode', sessionId: id,
+          permissionMode: sessionMeta(session).permissionMode,
+          effectivePermissionMode: resolvePermissionMode({ session, config: patchedConfig }),
+          confirmed: body.confirm === true,
+        });
+      }
+      // 既有形状只加不改:`session` 原样保留(既有断言与前端都读它),额外带一份 sessionMeta —— 它是
+      // 权限 chip 要的两个字段(会话级 permissionMode / 派生 effectivePermissionMode)的唯一读形。
+      return send(res, json({ ok: true, session, sessionMeta: sessionMeta(session, patchedConfig) }));
     }
     if (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE')) {
       return send(res, json(await deleteSession(id)));
@@ -40014,17 +40222,23 @@ function stewardClipSay(value) {
 async function stewardReadSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
-  try { return safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null); } catch { return null; }
+  try {
+    const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null);
+    // 116-2a: 这条读路径绕过 loadSession(只要头,不装正文),所以要自己盖一次会话级权限档的内存
+    // 覆盖表 —— 否则用户刚在活回合期间切了档、还没落盘,管家读到的就是旧档(见 02 的覆盖表头注)。
+    return head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head;
+  } catch { return null; }
 }
 function stewardRawKind(head) {
   const k = head && head.kind;
   return (typeof k === 'string' && k) ? k : (head && head.mission ? 'mission' : 'quick_ask');
 }
-// 线程权限档:会话头显式覆盖优先,否则跟随全局默认(§3.3「新线程用全局默认权限」)。
+// 线程的【生效】权限档 = resolvePermissionMode 的会话级 > 全局两层(§3.3「新线程用全局默认权限」)。
+// 116-2a:改为直调 01-config 的解析器,与回合执行侧(runSessionTurn)用的是同一个函数、同一张白名单 ——
+// 管家判「我能不能替它答」与线程实际按哪档执行,从此不可能各算各的。请求级那一层是回合内临时值,
+// 不在会话头上,管家看不到也不该看到(它只对那一单当前执行链有效)。
 function stewardThreadPermissionMode(head, config) {
-  const explicit = String((head && head.permissionMode) || '');
-  if (PERMISSION_MODES.includes(explicit)) return explicit;
-  return String((config && config.permissionMode) || 'default');
+  return resolvePermissionMode({ session: head, config });
 }
 function stewardLastAssistantText(session) {
   const messages = Array.isArray(session && session.messages) ? session.messages : [];
@@ -40284,8 +40498,14 @@ async function stewardImplThreadStatus(args, ctx, config) {
     lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
     pending: interventions,
     pendingCounts: (card && card.pending) || await missionPendingCounts(sessionId, [], null).catch(() => null),
+    // permissionMode 保持既有语义 =【生效】档(既有断言与提示词都读它;断言只加不改)。
     permissionMode: stewardThreadPermissionMode(head, config),
     permissionLabel: stewardPermissionLabel(stewardThreadPermissionMode(head, config)),
+    // 116-2a 只加两个字段,把「生效档」与「这条线程自己定的档」显式分开:
+    //   effectivePermissionMode —— 与 permissionMode 同值,名字自解释,给 117 的 chip 与管家提示词读;
+    //   sessionPermissionMode —— 会话级设置,null = 没定、跟着全局走(chip 的实底/浅底就看它)。
+    effectivePermissionMode: stewardThreadPermissionMode(head, config),
+    sessionPermissionMode: sessionPermissionModeOf(head),
     engine: engine.engine,
     model: engine.model,
     providerId: engine.providerId || '',
@@ -40603,6 +40823,45 @@ async function stewardImplThreadRename(args, ctx, config) {
   return { ok: true, sessionId, title, undoRef };
 }
 
+// 12b) steward_thread_permission —— 线程权限【只降不升】(116-2a)。
+// 这是永久豁免清单第 2 条(「管家不得自我扩权:放宽任一线程的 permissionMode」)的机器实现:
+// 目标档必须严格比【当前生效档】更紧(STEWARD_PERMISSION_RANK 的单调性判定),否则一律
+// steward.widen_forbidden —— 放宽只能由用户在界面上改,那条路上还有一道「切到全自动须二次确认」。
+// 不加忙锁:116-2a 把 updateSessionMeta 的读改写竞态改成了「活回合期间延后落盘 + 内存覆盖表立刻生效」,
+// 收紧对下一回合立即有效且不会盖掉在途回合刚写的消息 —— 这正是收紧最该起效的时刻,拒绝反而危险。
+async function stewardImplThreadPermission(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const target = String(args.permissionMode == null ? '' : args.permissionMode);
+  if (!PERMISSION_MODES.includes(target)) {
+    return stewardFail('invalid_request', `permissionMode must be one of ${PERMISSION_MODES.join('/')}`);
+  }
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
+
+  const current = stewardThreadPermissionMode(head, config);
+  if (!stewardMayTightenTo(current, target)) {
+    return stewardFail('steward.widen_forbidden',
+      `线程 ${sessionId} 当前权限是「${stewardPermissionLabel(current)}」,管家只能收紧、不能放宽或平移到「${stewardPermissionLabel(target)}」;要放宽请让用户在界面上改`,
+      { sessionId, permissionMode: current, requested: target });
+  }
+  const previous = sessionPermissionModeOf(head); // 会话级旧值(null = 之前跟着全局走)
+  const session = await updateSessionMeta(sessionId, { permissionMode: target });
+  if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
+  const undoRef = { kind: 'permission', sessionId, previous };
+  stewardAppendDecision({
+    tool: 'steward_thread_permission',
+    args: { permissionMode: target, previous },
+    targetSessionId: sessionId,
+    permissionMode: target,
+    mayAct: 'auto',
+    undoRef,
+    basis: { previousEffective: current },
+  });
+  return { ok: true, sessionId, permissionMode: target, effectivePermissionMode: target, previousEffective: current, previous, undoRef };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // 决策族(tier exec)—— 替用户答复待决 / 控制班组。放行范围一律经 stewardMayAct + 永久豁免。
 // ════════════════════════════════════════════════════════════════════════════
@@ -40858,7 +41117,8 @@ Object.assign(StewardHooks, {
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,
   inboxState: stewardInboxState,
-  // 116c: 17 个管家工具的实现键。每个都经 stewardToolHandler 包一层门控壳(开关 -> 身份 -> 实现),
+  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission)。每个都经 stewardToolHandler
+  // 包一层门控壳(开关 -> 身份 -> 实现),
   // 12-tool-dispatch 的 handler 只写一行 `StewardHooks.<键>(args, ctx)`。键名与 06i 的契约注释逐条对应。
   selfStatus: stewardToolHandler('steward_self_status', stewardImplSelfStatus),
   threadsSearch: stewardToolHandler('steward_threads_search', stewardImplThreadsSearch),
@@ -40872,6 +41132,7 @@ Object.assign(StewardHooks, {
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
+  threadPermission: stewardToolHandler('steward_thread_permission', stewardImplThreadPermission), // 116-2a
   decide: stewardToolHandler('steward_decide', stewardImplDecide),
   runAction: stewardToolHandler('steward_run_action', stewardImplRunAction),
   memoryWrite: stewardToolHandler('steward_memory_write', stewardImplMemoryWrite),
@@ -42206,6 +42467,7 @@ module.exports = {
   loadSession,
   createSession,
   updateSessionMeta,
+  sessionMeta, // 116-2a: 侧栏/索引同源的元数据读形(含会话级 permissionMode 与派生 effectivePermissionMode)
   normalizeSessionEngineRoute,
   sessionEngineRouteFromConfig,
   inferSessionEngineRoute,
@@ -42292,6 +42554,13 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
+  // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
+  resolvePermissionMode,
+  PERMISSION_MODES_REQUIRING_CONFIRM,
+  STEWARD_PERMISSION_RANK,
+  stewardPermissionRank,
+  stewardMayTightenTo,
   // 第116波116-pre(27号文§8.12/§11.3): 递话预判纯函数 — exposed for 单测(steward-preroute.test.js)。
   STEWARD_PREROUTE_DEFAULTS,
   prerouteText,

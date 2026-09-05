@@ -3,7 +3,8 @@
 // 覆盖:
 //   (a) 身份字段与 108a buildRuntimeIdentityFacts 同源:version 与 package.json 一致、instanceId 与
 //       /api/status 的 overlayId 一致、dataDir 与临时 HOME 一致、address 以 http://127.0.0.1: 开头。
-//   (b) counts.nativeTools === 80(注册表工具数;第 116 波 116c 起 63→80,新增 17 个 steward_* 管家工具)。
+//   (b) counts.nativeTools === 81(注册表工具数;第 116 波 116c 起 63→80,新增 17 个 steward_* 管家工具;
+//       116-2a 再 +1 = 81,新增 steward_thread_permission)。
 //   (c) config 段只回显白名单标量字段 —— fixture provider 带假密钥 sk-test-SECRETVALUE,整段序列化结果
 //       不得出现该密钥子串或 apiKey 字段名(F2 纪律:绝不回显密钥材料)。
 //   (d) section:'identity' 只返回身份字段,不含 health/counts/config。
@@ -95,7 +96,7 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
       ok(r && Array.isArray(r.health) && r.health.length > 0, `health[] 非空(${r && r.health && r.health.length} 项)`);
       ok(r && r.health.every(x => typeof x.id === 'string' && typeof x.ok === 'boolean'), 'health[] 每项含 id/ok');
 
-      ok(r && r.counts && r.counts.nativeTools === 80, `counts.nativeTools === 80(got ${r && r.counts && r.counts.nativeTools})`);
+      ok(r && r.counts && r.counts.nativeTools === 81, `counts.nativeTools === 81(got ${r && r.counts && r.counts.nativeTools})`);
       ok(r && r.counts && Number.isInteger(r.counts.accTools) && r.counts.accTools >= 0, 'counts.accTools 为非负整数');
       ok(r && r.counts && Number.isInteger(r.counts.skills) && r.counts.skills >= 0, 'counts.skills 为非负整数');
       ok(r && r.counts && Number.isInteger(r.counts.commands) && r.counts.commands >= 0, 'counts.commands 为非负整数');
@@ -135,7 +136,7 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
       ok(!('counts' in rh) && !('config' in rh), `section:'health' 不含 counts/config`);
 
       const rc = await selfStatus(WB_PORT, token, sid, { section: 'counts' });
-      ok(rc && rc.counts && rc.counts.nativeTools === 80, `section:'counts' 含 counts.nativeTools=80`);
+      ok(rc && rc.counts && rc.counts.nativeTools === 81, `section:'counts' 含 counts.nativeTools=81`);
       ok(!('health' in rc) && !('config' in rc), `section:'counts' 不含 health/config`);
 
       const rcfg = await selfStatus(WB_PORT, token, sid, { section: 'config' });

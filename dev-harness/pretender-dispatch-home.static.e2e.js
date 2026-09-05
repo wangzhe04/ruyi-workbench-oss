@@ -69,8 +69,15 @@ ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')
 ok(session.includes('async function newSession(options = {})') && session.includes('return res.session;'), 'C6 经典 newSession 只扩为可组合返回值，默认调用保持兼容');
 
 ok(stream.includes("...(options.permissionMode ? { permissionMode: options.permissionMode } : {})"), 'D1 chat request 显式携带可选 turn-local 安全档');
-ok(context.includes('PERMISSION_MODES.includes(requestedPermissionMode)')
-  && context.includes('{ ...storedConfig, permissionMode: requestedPermissionMode }'), 'D2 后端按唯一枚举校验并只创建局部配置副本');
+// 116-2a 重钉(来源:第 116 波 116-2a 线程级权限):唯一枚举校验从 runSessionTurn 里内联的
+// PERMISSION_MODES.includes 收进 01-config 的纯函数 resolvePermissionMode —— 请求级 > 会话级 > 全局
+// 三层【共用同一张 PERMISSION_MODES 白名单】,非法/缺失静默回落下一层。判据同时更严了一格:
+// 除了「局部副本仍是 storedConfig 的浅拷贝」,还锁住枚举校验只有 01-config 那一处。
+const config01 = read(path.join(SRC, '01-config.js'));
+ok(context.includes('resolvePermissionMode({ request: body.permissionMode, session, config: storedConfig })')
+  && context.includes('{ ...storedConfig, permissionMode: resolvedPermissionMode }')
+  && config01.includes('function resolvePermissionMode(input)')
+  && config01.includes("return PERMISSION_MODES.includes(mode) ? mode : '';"), 'D2 后端按唯一枚举校验并只创建局部配置副本');
 ok(context.includes('runOpenAiTurn({ session') && context.includes('provider, config, driverAuto')
   && context.includes('runClaudeTurn({ session') && context.includes('onEvent: emit, config, driverAuto'), 'D3 Provider/Claude 首回合消费同一局部安全档');
 ok(mission.includes('runMissionDriver({ session, config, provider') && claude.includes('config: turnConfig')

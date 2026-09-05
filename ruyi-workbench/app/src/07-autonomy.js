@@ -226,6 +226,9 @@ const NATIVE_TOOL_TIER = {
   steward_thread_read: 'read', steward_runs_status: 'read', steward_inbox_read: 'read',
   steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
+  // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
+  steward_thread_permission: 'edit',
   steward_decide: 'exec', steward_run_action: 'exec',
   // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
   // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
@@ -320,6 +323,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_read: 'steward', steward_runs_status: 'steward', steward_inbox_read: 'steward',
   steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
+  steward_thread_permission: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
 });

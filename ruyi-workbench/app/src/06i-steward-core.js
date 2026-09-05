@@ -57,6 +57,24 @@ const STEWARD_PERMISSION_LABELS = Object.freeze({
   bypassPermissions: '全自动',
 });
 
+// 116-2a(§3.3「管家只能收紧线程权限,不能放宽」/ 永久豁免第 2 条「管家不得自我扩权」):
+// 收紧比较用的序。**这张表只用来做「目标档是不是比当前档更紧」这一个比较,不代表安全度线性可加**——
+// plan 与 default 谁「更安全」在别的语境下可以争论(plan 不动手但也不问;default 每步都问),这里按
+// §3.3 表格从上到下「线程自己能做的事」由少到多排定一个全序,仅供管家工具做单调性判定。
+// bypass 与 bypassPermissions 是同一档的两个名字(CLI 原生内部名),同 rank。
+const STEWARD_PERMISSION_RANK = Object.freeze({ plan: 0, default: 1, acceptEdits: 2, auto: 3, bypass: 4, bypassPermissions: 4 });
+// 未知/空档 -> -1(比较方一律要求两边都 >= 0 才判定,未知档既不算「可收紧」也不算「已放宽」)。
+function stewardPermissionRank(mode) {
+  const m = mode == null ? '' : String(mode);
+  return Object.prototype.hasOwnProperty.call(STEWARD_PERMISSION_RANK, m) ? STEWARD_PERMISSION_RANK[m] : -1;
+}
+// 「管家能否把 current 改成 target」= 两边都是已知档 且 target 严格更紧。相等也不行(改成同一档是空操作,
+// 却会写一条决策日志与一次落盘,没有意义)。
+function stewardMayTightenTo(current, target) {
+  const a = stewardPermissionRank(current), b = stewardPermissionRank(target);
+  return a >= 0 && b >= 0 && b < a;
+}
+
 // 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成方括号(总览最终会经既有
 // UI 渲染管线,提前中和比信任下游转义更省心——先例见 03-bridge-guard.js 的同类中和纪律)。
 function stewardSanitizeText(value) {
@@ -521,7 +539,8 @@ function prerouteText(q, index, memory, opts) {
 //   观察族(tier read): selfStatus(args,ctx)、threadsSearch(args,ctx)、threadStatus(args,ctx)、
 //           threadRead(args,ctx)、runsStatus(args,ctx)、inboxReadTool(args,ctx)(它是 steward_inbox_read
 //           的门控壳,内部委托上面那个原始 inboxRead)、usage(args,ctx)、health(args,ctx)、auditTail(args,ctx)
-//   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)
+//   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)、
+//           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)
 //   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
 //   记忆族(tier edit): memoryWrite(args,ctx)、memoryVeto(args,ctx)、memorySearch(args,ctx)
 // 全部工具实现键的签名统一为 (args, ctx) 并返回稳定信封(见 13g 的 stewardToolHandler)。
