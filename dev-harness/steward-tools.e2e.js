@@ -8,8 +8,8 @@
 // 所以「委托书真的跑起来了」是可验证的。最后再起一个真服务与一个 MCP 子进程,验四个 offer 面里剩下的两个。
 //
 // 覆盖:
-//  (A) 开关关:17 个工具全部 steward.disabled,且 <data>/steward 目录一个字节都不写。
-//  (B) 开关开 + 普通会话 ctx:17 个工具全部 steward.forbidden(fail-closed 二次校验)。
+//  (A) 开关关:全部工具 steward.disabled,且 <data>/steward 目录一个字节都不写。
+//  (B) 开关开 + 普通会话 ctx:全部工具 steward.forbidden(fail-closed 二次校验)。
 //  (C) 观察族九个工具的正向返回形状。
 //  (D) 委托书:原话逐字在最前、补充在 <steward-brief added-by="steward"> 围栏内且尖括号被中和、
 //      sessionMeta.brief 分开落盘、fake-openai 真的收到了请求(回合跑起来了)。
@@ -38,6 +38,7 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
 const STEWARD_TOOLS = [
   'steward_self_status', 'steward_threads_search', 'steward_thread_status', 'steward_thread_read',
   'steward_runs_status', 'steward_inbox_read', 'steward_usage', 'steward_health', 'steward_audit_tail',
+  'steward_missions', // 116g
   'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_permission',
   'steward_decide', 'steward_run_action',
   'steward_memory_write', 'steward_memory_veto', 'steward_memory_search',
@@ -132,7 +133,7 @@ try {
       const r = await call(name, null, stewardCtx());
       if (!r || r.ok !== false || r.error !== 'steward.disabled') bad.push(`${name}:${r && r.error}`);
     }
-    ok(bad.length === 0, 'A1 开关关时 18 个工具全部返回 steward.disabled' + (bad.length ? ' → ' + bad.join(',') : ''));
+    ok(bad.length === 0, 'A1 开关关时 19 个工具全部返回 steward.disabled' + (bad.length ? ' → ' + bad.join(',') : ''));
     ok(!fs.existsSync(stewardDir), 'A2 开关关时 <data>/steward 目录不存在(零写入)');
   }
 
@@ -145,7 +146,7 @@ try {
       const r = await call(name, null, plainCtx);
       if (!r || r.ok !== false || r.error !== 'steward.forbidden') bad.push(`${name}:${r && r.error}`);
     }
-    ok(bad.length === 0, 'B1 普通会话 ctx 下 18 个工具全部返回 steward.forbidden' + (bad.length ? ' → ' + bad.join(',') : ''));
+    ok(bad.length === 0, 'B1 普通会话 ctx 下 19 个工具全部返回 steward.forbidden' + (bad.length ? ' → ' + bad.join(',') : ''));
     const noCtx = await call('steward_health', {}, null);
     ok(noCtx && noCtx.error === 'steward.forbidden', 'B2 无 ctx(桥接/子进程路径)同样 fail-closed forbidden');
     ok(!fs.existsSync(decisionsFile), 'B3 越权调用不写决策日志');
@@ -186,6 +187,16 @@ try {
     ok(missing && missing.ok === false && missing.error === 'not_found', 'C8 steward_thread_status 目标不存在 -> not_found');
     const missingRead = await call('steward_thread_read', { sessionId: 'sess_nope' }, stewardCtx());
     ok(missingRead && missingRead.ok === false && missingRead.error === 'not_found', 'C9 steward_thread_read 目标不存在 -> not_found');
+
+    // 116g: 事项级只读视图。此刻还没有任何事项文件 -> 每条线程各自是一个「未归类」事项(derived:true)。
+    const missions = await call('steward_missions', {}, stewardCtx());
+    ok(missions && missions.ok === true && Array.isArray(missions.missions), 'C12 steward_missions 返回事项数组');
+    ok(missions && missions.missions.every(m => m.missionId && typeof m.aggregateState === 'string' && m.acceptance && Array.isArray(m.threads)),
+      'C12b 每个事项行带 missionId/aggregateState/acceptance/threads');
+    ok(missions && missions.missions.every(m => m.derived === true),
+      'C12c 没有事项文件时全部是「未归类」派生视图(存量零迁移)');
+    ok(missions && missions.missions.every(m => m.threads.every(t => t.sessionId && typeof t.state === 'string' && String(t.lastAssistantText || '').length <= 120)),
+      'C12d 子线程带 sessionId/五态,最后一句 ≤120 字');
   }
 
   /* ═════════ (D) 委托书 ═════════ */
@@ -297,6 +308,11 @@ try {
       && typeof st.lastAssistantText === 'string' && st.lastAssistantText.length <= 201,
       'C10 steward_thread_status 返回五态/权限档/待决摘要/最后一句(≤200 字)');
     ok(st && ['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask'].includes(st.state), 'C10b 五态取值落在真值表内');
+    // 116g: thread_status 带出它所属【事项】的身份与聚合态(未归类线程 = 只有它自己一条)。
+    ok(st && st.mission && st.mission.missionId === st.missionId && typeof st.mission.title === 'string',
+      'C10c thread_status 带 mission:{missionId,title,aggregateState}');
+    ok(st && st.mission && st.mission.aggregateState === st.state && st.mission.threadCount === 1 && st.mission.derived === true,
+      'C10d 未归类事项的聚合态 === 该线程五态,threadCount=1');
     const found = await call('steward_threads_search', { q: '季度报告' }, stewardCtx());
     ok(found && found.ok === true && found.results.some(r => r.sessionId === threadId), 'C11 steward_threads_search 能按标题/内容找到线程');
     ok(found && found.results.every(r => r.kind !== 'steward'), 'C11b 搜索结果永不包含管家自己的会话');
@@ -482,9 +498,9 @@ try {
     const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
     const plainTools = srv.buildOpenAiTools(cfg, null, {}).map(t => t.function.name);
     ok(!plainTools.some(n => n.startsWith('steward_')), 'K1 面 1 buildOpenAiTools(普通会话)零 steward_*');
-    // 116-2b 重钉:18 → 19(新增 steward_thread_note)。
-    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 19,
-      'K1b 面 1 管家会话拿到全部 19 个');
+    // 116-2b 重钉:18 → 19(新增 steward_thread_note);116g 再钉:19 → 20(新增 steward_missions)。
+    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 20,
+      'K1b 面 1 管家会话拿到全部 20 个');
     const cat = await srv.adaptiveCatalogForMcp(cfg);
     const catNames = (cat.catalog.tools || cat.catalog || []).map(t => t.name || (t.function && t.function.name));
     ok(!catNames.some(n => String(n).startsWith('steward_')), 'K2 面 3 adaptive 目录(普通会话)零 steward_*');

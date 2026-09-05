@@ -125,6 +125,10 @@ const MISSION_CHANGE_TYPES = new Set([
   // 两个新 type:'stalled'(语义死循环纠偏/节点无进展等"还在跑但没往前走")与 'budget_tripped'
   // (回合 token 预算保护触顶)。既有九种的形状、顺序、语义一律不动。
   'stalled', 'budget_tripped',
+  // 116g(27 号文 §3.1「事项跨会话升格」):线程加入/移出事项、事项合并/拆分。只加不改 —— 既有
+  // 十一种的形状、顺序、语义一律不动。它【不】属于收件箱五类(它是归属变更,不是"需要你/失败/收工/
+  // 停滞/预算"),故 13g 的 STEWARD_SOURCE_EVENT_MAP 把它登记为 null(显式丢弃,不是漏登)。
+  'mission_membership',
 ]);
 const missionChangeWriteChains = new Map();
 function missionChangeFilePath(sessionId) {
@@ -926,6 +930,15 @@ function applySessionMetaPatch(session, patch) {
     sessionPermissionModeOverrides.set(id, mode);
     if (mode) session.permissionMode = mode; else delete session.permissionMode;
   }
+  // 116g(§3.1 事项跨会话升格):线程归属。**只认合法 id,且只由 06e 的 missionAttachThread /
+  // missionDetachThread 写** —— 它们成对维护「会话头 missionId」与「事项文件 sessionIds」两侧。
+  // 走这条 patch 通道(而不是直接 loadSession+saveSession)是为了白拿 116-2a 的活回合竞态防护:
+  // 活回合期间延后到回合 settle 之后、在【重新装载的副本】上重放同一个 patch,绝不用陈旧正文
+  // 盖掉回合刚写的消息。非法值一律忽略(绝不写出一个野 missionId,那会让线程从投影里凭空消失)。
+  if (Object.prototype.hasOwnProperty.call(patch, 'missionId')) {
+    const missionId = safeSessionId(patch.missionId);
+    if (missionId) session.missionId = missionId;
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -989,6 +1002,14 @@ async function updateSessionMeta(id, patch) {
 async function deleteSession(id, { purgeAssociated = false } = {}) {
   stopSession(id, 'deleted');
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
+  // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
+  // 漏掉这一步不会让读模型说错话(读侧一律与会话头对账,死 id 天然不进任何视图),但会让事项文件里
+  // 留一条永远对不上的 id —— 索引是权威,权威里不该有垃圾。尽力而为,任何失败都不阻断删除。
+  try {
+    const head = await readMissionSessionHead(id);
+    const owner = head && sessionMissionId(head);
+    if (owner && owner !== id) await missionIndexRemove(owner, id);
+  } catch { /* best-effort: 读侧对账兜底 */ }
   await fsp.unlink(sessionPath(id)).catch(() => {}); // idempotent
   // v1.9 存储 v2:正文/迁移备份/损坏隔离副本一并清(用户删会话 = 删除其全部数据载体)。
   const bp = sessionBodyPaths(id);
@@ -3133,4 +3154,413 @@ function bridgedWriteRelativePathArg(bridgedName, args) {
 function collectBridgedWriteTarget(bridgedName, args) {
   const targets = collectBridgedWriteTargets(bridgedName, args);
   return targets.length ? targets[0] : null;
+}
+
+// ============================================================================
+// 第 116 波 116g(27 号文 §3.1「事项跨会话升格」):事项(Mission)容器。
+//
+// 为什么要有这一层:`sessionMeta.missionId` 从 75a 起就在会话头里了,但它一直只是「= sessionId」的
+// 稳定主键 —— 一个事项永远只有一条线程。116g 把 mission 升格成【跨会话容器】:一个事项可以有多条
+// 线程(会话),线程可以加入/移出事项,事项可以合并与拆分。
+//
+// 三条边界(改这段前先读):
+//   ① **事项级字段的唯一归属在事项文件**。`goal` / `acceptance` / `budget` 只存在 `<data>/missions/
+//      <missionId>.json` 里。会话头里那个 `head.mission`(第26波b 的【会话内任务账本】:目标、里程碑、
+//      until-done 预算、停滞标记、结果章)**一个字节都不动**,它仍然是「这条线程自己的里程碑」,
+//      不再是事项级权威。两者同名不同物,不要互相回写。
+//   ② **零迁移**。没有事项文件的 missionId 一律视为「未归类」,按需从会话头【只读派生】一个不落盘的
+//      视图(`derived:true`,标题取会话标题)。存量会话不批量重写、不补建文件。
+//   ③ **反向索引的权威是事项文件的 `sessionIds`**,但读侧一律与会话头 `missionId` 对账 —— 文件丢了
+//      或损坏了,索引就从会话头重建,不需要任何修复流程。
+//
+// 落点为什么在 02 而不是 06e(事项域):这一节是【持久化面】—— 文件读写、原子写、损坏隔离、写链、
+// 反向索引与会话头两侧同写。02 已经是会话头、正文、变更流水、待决流水的唯一持有者,事项容器与它们
+// 共用 atomicWriteJson / safeSessionId / updateSessionMeta / bumpMissionChangeSeq 这几件同样的东西;
+// 放在 06e 会让引擎层凭空多出一条到 01-config 的边(见 module-dependency-policy.json 的债务上限)。
+// 06e 仍然是【会话内任务账本】的域(buildMissionPromptSection / runMissionDriver),两者同名不同物。
+//
+// 聚合状态的唯一定义在 06i 的 `aggregateMissionState` —— 它与五态判据 `deriveStewardThreadState` /
+// `stewardThreadStateFromCard`(mission-state.js 的服务端抄写件)同住一屋,入参是子线程五态数组。
+// 13d / 13g / 13h 一律调它,禁止另写一份判据。
+// ============================================================================
+
+const MISSIONS_DIR_NAME = 'missions';
+const MISSION_CONTAINER_SCHEMA = 1;
+// 容量:事项文件数硬上限。超出后拒绝【新建】(合并/拆分里的新建同样受限),既有事项照常读写。
+// 2000 个事项 ≈ 每天新建一个连续跑五年半,真到了这个量级该做的是归档而不是继续堆文件。
+const MISSION_CONTAINER_MAX_FILES = 2000;
+const MISSION_CONTAINER_LIMITS = Object.freeze({
+  titleChars: 120, goalChars: 2000, acceptanceItems: 50, acceptanceItemChars: 300,
+  sessionIds: 500, currencyChars: 12,
+});
+
+function missionsDir() { return path.join(paths.data, MISSIONS_DIR_NAME); }
+function missionContainerPath(missionId) { return path.join(missionsDir(), missionId + '.json'); }
+// 事项 id 与会话 id 同一字符集(safeSessionId 是全仓唯一那道消毒),新建时取 `mission_<hex>` 前缀 ——
+// 与 `sess_` 分开,好在日志里一眼认出;13e 的投影扫描只认 `sess_*.json`,故事项文件天然不进投影。
+function safeMissionId(raw) { return safeSessionId(raw); }
+
+function missionClipText(value, max) {
+  return String(value == null ? '' : value).replace(/[\r\n]+/g, ' ').trim().slice(0, max);
+}
+
+// 验收项 id 稳定:调用方给了就沿用(PATCH 按 id 定位),没给才生成。
+function normalizeMissionAcceptance(raw) {
+  const rows = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of rows) {
+    if (out.length >= MISSION_CONTAINER_LIMITS.acceptanceItems) break;
+    const source = (item && typeof item === 'object') ? item : { text: item };
+    const acceptanceText = missionClipText(source.text, MISSION_CONTAINER_LIMITS.acceptanceItemChars);
+    if (!acceptanceText) continue;
+    let id = missionClipText(source.id, 64).replace(/[^A-Za-z0-9_-]/g, '');
+    if (!id || seen.has(id)) id = makeId('acc');
+    seen.add(id);
+    const done = source.done === true;
+    const row = { id, text: acceptanceText, done };
+    if (done) row.doneAt = source.doneAt ? String(source.doneAt).slice(0, 40) : nowIso();
+    out.push(row);
+  }
+  return out;
+}
+
+function normalizeMissionBudget(raw) {
+  const src = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  const budget = {};
+  const maxCost = Number(src.maxCost);
+  if (Number.isFinite(maxCost) && maxCost >= 0) budget.maxCost = Math.round(maxCost * 1e6) / 1e6;
+  const currency = missionClipText(src.currency, MISSION_CONTAINER_LIMITS.currencyChars).toUpperCase();
+  if (currency) budget.currency = currency;
+  return budget;
+}
+
+function normalizeMissionContainer(raw, fallbackId) {
+  const src = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  const missionId = safeMissionId(src.missionId) || safeMissionId(fallbackId);
+  if (!missionId) return null;
+  const sessionIds = [];
+  for (const value of (Array.isArray(src.sessionIds) ? src.sessionIds : [])) {
+    if (sessionIds.length >= MISSION_CONTAINER_LIMITS.sessionIds) break;
+    const sid = safeSessionId(value);
+    if (sid && !sessionIds.includes(sid)) sessionIds.push(sid);
+  }
+  const record = {
+    schema: MISSION_CONTAINER_SCHEMA,
+    missionId,
+    title: missionClipText(src.title, MISSION_CONTAINER_LIMITS.titleChars),
+    goal: String(src.goal == null ? '' : src.goal).slice(0, MISSION_CONTAINER_LIMITS.goalChars),
+    acceptance: normalizeMissionAcceptance(src.acceptance),
+    budget: normalizeMissionBudget(src.budget),
+    cwd: String(src.cwd == null ? '' : src.cwd).slice(0, 400),
+    createdAt: String(src.createdAt || nowIso()).slice(0, 40),
+    updatedAt: String(src.updatedAt || nowIso()).slice(0, 40),
+    sessionIds,
+  };
+  if (src.archivedAt) record.archivedAt = String(src.archivedAt).slice(0, 40);
+  return record;
+}
+
+// 损坏隔离:整份 rename 成 `<id>.json.corrupt`(不是 copy —— 留在原地会让下一次读再隔离一次,而且
+// 会一直把这个事项报成「存在但读不出」)。隔离之后该 missionId 立刻退化成「未归类派生视图」,反向
+// 索引从会话头 `missionId` 重建,不需要任何修复流程。
+async function readMissionContainer(missionId) {
+  const id = safeMissionId(missionId);
+  if (!id) return null;
+  const file = missionContainerPath(id);
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); } catch { return null; }
+  let parsed = null;
+  try { parsed = JSON.parse(raw); } catch { parsed = null; }
+  const schemaOk = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    && (parsed.schema === undefined || parsed.schema === MISSION_CONTAINER_SCHEMA);
+  const normalized = schemaOk ? normalizeMissionContainer(parsed, id) : null;
+  if (!normalized || !normalized.title) {
+    await fsp.rename(file, file + '.corrupt').catch(() => {});
+    logEvent({ kind: 'mission_container_quarantined', missionId: id });
+    return null;
+  }
+  return normalized;
+}
+
+// 每事项一条写链(先例:02 的 sessionWriteChains)。读-改-写全部在链内做,防两个路由并发把 sessionIds 写丢。
+const missionContainerChains = new Map();
+function withMissionContainerLock(missionId, work) {
+  const id = String(missionId || '');
+  const previous = missionContainerChains.get(id) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  missionContainerChains.set(id, current);
+  current.then(() => {}, () => {}).then(() => { if (missionContainerChains.get(id) === current) missionContainerChains.delete(id); });
+  return current;
+}
+
+async function writeMissionContainer(record) {
+  const normalized = normalizeMissionContainer(record, record && record.missionId);
+  if (!normalized) throw new Error('invalid mission container');
+  normalized.updatedAt = nowIso();
+  await fsp.mkdir(missionsDir(), { recursive: true });
+  await atomicWriteJson(missionContainerPath(normalized.missionId), JSON.stringify(normalized, null, 2));
+  return normalized;
+}
+
+async function listMissionContainerIds() {
+  const files = await fsp.readdir(missionsDir()).catch(() => []);
+  return files.filter(name => name.endsWith('.json')).map(name => name.slice(0, -5)).filter(id => safeMissionId(id));
+}
+
+async function listMissionContainers() {
+  const ids = await listMissionContainerIds();
+  const out = [];
+  for (const id of ids) {
+    const record = await readMissionContainer(id);
+    if (record) out.push(record);
+  }
+  out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  return out;
+}
+
+// 稳定信封:所有事项写操作统一返回 { ok:true, mission } 或 { ok:false, error, message }。
+function missionContainerFail(error, message, extra) {
+  const envelope = { ok: false, error: error, message: String(message || error) };
+  return extra ? Object.assign(envelope, extra) : envelope;
+}
+
+async function createMissionContainer(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const existing = await listMissionContainerIds();
+  if (existing.length >= MISSION_CONTAINER_MAX_FILES) {
+    return missionContainerFail('capacity_exceeded',
+      'mission store is full (' + existing.length + '/' + MISSION_CONTAINER_MAX_FILES + '); archive or merge existing missions before creating another',
+      { limit: MISSION_CONTAINER_MAX_FILES, count: existing.length });
+  }
+  const title = missionClipText(src.title, MISSION_CONTAINER_LIMITS.titleChars);
+  if (!title) return missionContainerFail('invalid_request', 'title is required');
+  const mission = await writeMissionContainer({
+    missionId: makeId('mission'),
+    title,
+    goal: src.goal,
+    acceptance: src.acceptance,
+    budget: src.budget,
+    cwd: src.cwd,
+    createdAt: nowIso(),
+    sessionIds: Array.isArray(src.sessionIds) ? src.sessionIds : [],
+  });
+  logEvent({ kind: 'mission_container_created', missionId: mission.missionId, title: mission.title });
+  return { ok: true, mission };
+}
+
+// PATCH 只认四个事项级字段。acceptance 的 id 稳定:传回来的项带 id 就按 id 更新(勾选 done 就是这么
+// 用的),不带 id 的是新项;传 acceptance 即整表替换(客户端拿到的就是整表,回传整表最不歧义)。
+async function patchMissionContainer(missionId, patch) {
+  const id = safeMissionId(missionId);
+  if (!id) return missionContainerFail('invalid_request', 'invalid missionId');
+  const p = (patch && typeof patch === 'object') ? patch : {};
+  return withMissionContainerLock(id, async () => {
+    const current = await readMissionContainer(id);
+    if (!current) return missionContainerFail('not_found', 'mission ' + id + ' not found');
+    const next = Object.assign({}, current);
+    if (Object.prototype.hasOwnProperty.call(p, 'title')) {
+      const title = missionClipText(p.title, MISSION_CONTAINER_LIMITS.titleChars);
+      if (!title) return missionContainerFail('invalid_request', 'title must not be empty');
+      next.title = title;
+    }
+    if (Object.prototype.hasOwnProperty.call(p, 'goal')) next.goal = p.goal;
+    if (Object.prototype.hasOwnProperty.call(p, 'budget')) next.budget = p.budget;
+    if (Object.prototype.hasOwnProperty.call(p, 'acceptance')) {
+      const byId = new Map(current.acceptance.map(row => [row.id, row]));
+      next.acceptance = normalizeMissionAcceptance(p.acceptance).map(row => {
+        // doneAt 只在【由未完成变完成】的那一刻盖章;已完成项保留原时间戳(勾选时间是事实,不是刷新时间)。
+        const prev = byId.get(row.id);
+        if (row.done && prev && prev.done && prev.doneAt) return Object.assign({}, row, { doneAt: prev.doneAt });
+        return row;
+      });
+    }
+    return { ok: true, mission: await writeMissionContainer(next) };
+  });
+}
+
+// 反向索引维护:只动事项文件的 sessionIds。会话头那侧由调用方经 updateSessionMeta 写(享受 116-2a 的
+// 活回合竞态防护);没有事项文件时是 no-op —— 「未归类」按定义就没有索引可维护。两个方向都幂等。
+async function missionIndexAdd(missionId, sessionId) {
+  const id = safeMissionId(missionId), sid = safeSessionId(sessionId);
+  if (!id || !sid) return null;
+  return withMissionContainerLock(id, async () => {
+    const current = await readMissionContainer(id);
+    if (!current) return null;
+    if (current.sessionIds.includes(sid)) return current;
+    if (current.sessionIds.length >= MISSION_CONTAINER_LIMITS.sessionIds) return current;
+    return writeMissionContainer(Object.assign({}, current, { sessionIds: current.sessionIds.concat([sid]) }));
+  });
+}
+async function missionIndexRemove(missionId, sessionId) {
+  const id = safeMissionId(missionId), sid = safeSessionId(sessionId);
+  if (!id || !sid) return null;
+  return withMissionContainerLock(id, async () => {
+    const current = await readMissionContainer(id);
+    if (!current) return null;
+    if (!current.sessionIds.includes(sid)) return current;
+    return writeMissionContainer(Object.assign({}, current, { sessionIds: current.sessionIds.filter(x => x !== sid) }));
+  });
+}
+
+async function archiveMissionContainer(missionId) {
+  const id = safeMissionId(missionId);
+  if (!id) return null;
+  return withMissionContainerLock(id, async () => {
+    const current = await readMissionContainer(id);
+    if (!current) return null;
+    if (current.archivedAt) return current;                               // 幂等
+    return writeMissionContainer(Object.assign({}, current, { archivedAt: nowIso() }));
+  });
+}
+
+// 合并验收项:按【文本】去重(id 是各自文件里的局部主键,跨文件没有可比性;用户看到的是文本)。
+function mergeMissionAcceptance(targetRows, sourceRows) {
+  const seen = new Set((targetRows || []).map(row => row.text));
+  const merged = (targetRows || []).slice();
+  for (const row of (sourceRows || [])) {
+    if (merged.length >= MISSION_CONTAINER_LIMITS.acceptanceItems) break;
+    if (seen.has(row.text)) continue;
+    seen.add(row.text);
+    merged.push(row);
+  }
+  return merged;
+}
+
+
+// ── 116g:线程归属操作(加入 / 移出 / 合并 / 拆分)──────────────────────────────
+// 会话头那侧一律经 `updateSessionMeta`(享受 116-2a 的活回合竞态防护:活回合期间延后到回合 settle
+// 之后在【重新装载的副本】上重放,绝不用陈旧正文盖掉回合刚写的消息);事项文件那侧走 missionIndex*。
+// 两侧都幂等,所以「重放一次」永远等于「没重放」。
+
+// 只读会话【头】(不碰 NDJSON 正文):归属操作只需要 id/kind/missionId 三个字段,
+// 没必要为此把整条会话的消息装进内存。
+async function readMissionSessionHead(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return null;
+  try { return safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null); } catch { return null; }
+}
+
+// 归属变更落一条 Mission Change(收件箱能看见事项级动作)。无 mission 账本的会话由
+// bumpMissionChangeSeq 自身 no-op —— 这正是 §11.6 登记过的既有语义,这里不另开旁路。
+function noteMissionMembership(sessionId, action, detail) {
+  return bumpMissionChangeSeq(sessionId, {
+    type: 'mission_membership',
+    detail: Object.assign({ action: String(action || '') }, detail || {}),
+  }).catch(() => null);
+}
+
+// 与会话头对账后的线程集合:事项文件的 sessionIds 是权威索引,但只有会话头 `missionId` 指回来的
+// 才算数(文件损坏/回滚/手工删会话之后自愈的唯一入口)。
+async function reconcileMissionThreads(missionId, metas) {
+  const id = safeMissionId(missionId);
+  if (!id) return [];
+  const rows = Array.isArray(metas) ? metas : await listSessions().catch(() => []);
+  return rows.filter(meta => meta && (meta.missionId || meta.id) === id).map(meta => meta.id);
+}
+
+async function missionAttachThread(missionId, sessionId) {
+  const id = safeMissionId(missionId), sid = safeSessionId(sessionId);
+  if (!id || !sid) return missionContainerFail('invalid_request', 'invalid missionId or sessionId');
+  const container = await readMissionContainer(id);
+  if (!container) return missionContainerFail('not_found', 'mission ' + id + ' not found');
+  const head = await readMissionSessionHead(sid);
+  if (!head || !head.id) return missionContainerFail('session_not_found', 'thread ' + sid + ' not found');
+  if (head.kind === 'steward') return missionContainerFail('invalid_target', 'the steward session is not a thread and cannot join a mission');
+  const previousMissionId = sessionMissionId(head) || sid;
+  if (previousMissionId !== id) {
+    await updateSessionMeta(sid, { missionId: id });
+    if (previousMissionId !== sid) await missionIndexRemove(previousMissionId, sid);   // 旧事项的反向索引同步摘除
+    await noteMissionMembership(sid, 'attach', { missionId: id, previousMissionId });
+  }
+  await missionIndexAdd(id, sid);                                                       // 幂等
+  return { ok: true, missionId: id, sessionId: sid, changed: previousMissionId !== id, mission: await readMissionContainer(id) };
+}
+
+// 移出 = 回到「未归类」(missionId === sessionId)。目标事项必须存在(404),这样「移出一个不存在的
+// 事项」不会被静默当成成功。
+async function missionDetachThread(missionId, sessionId) {
+  const id = safeMissionId(missionId), sid = safeSessionId(sessionId);
+  if (!id || !sid) return missionContainerFail('invalid_request', 'invalid missionId or sessionId');
+  const container = await readMissionContainer(id);
+  if (!container) return missionContainerFail('not_found', 'mission ' + id + ' not found');
+  const head = await readMissionSessionHead(sid);
+  if (!head || !head.id) return missionContainerFail('session_not_found', 'thread ' + sid + ' not found');
+  if (head.kind === 'steward') return missionContainerFail('invalid_target', 'the steward session is not a thread');
+  const previousMissionId = sessionMissionId(head) || sid;
+  const changed = previousMissionId === id;
+  if (changed) {
+    await updateSessionMeta(sid, { missionId: sid });
+    await noteMissionMembership(sid, 'detach', { missionId: id, previousMissionId });
+  }
+  await missionIndexRemove(id, sid);                                                    // 幂等
+  return { ok: true, missionId: id, sessionId: sid, changed, mission: await readMissionContainer(id) };
+}
+
+// 合并:from 的全部线程 attach 到 target、验收项按文本去重并入、from 标 archivedAt。
+// 幂等的来源不是标记位,而是三个子操作各自幂等:attach 幂等、验收去重幂等、archive 幂等 ——
+// 所以「再合一次」天然零变化,不需要判断「是否已合过」。
+async function missionMergeInto(targetMissionId, fromMissionId) {
+  const targetId = safeMissionId(targetMissionId), fromId = safeMissionId(fromMissionId);
+  if (!targetId || !fromId) return missionContainerFail('invalid_request', 'invalid missionId');
+  if (targetId === fromId) return missionContainerFail('invalid_request', 'cannot merge a mission into itself');
+  const target = await readMissionContainer(targetId);
+  if (!target) return missionContainerFail('not_found', 'mission ' + targetId + ' not found');
+  const from = await readMissionContainer(fromId);
+  if (!from) return missionContainerFail('not_found', 'mission ' + fromId + ' not found');
+
+  const metas = await listSessions().catch(() => []);
+  const threads = new Set(await reconcileMissionThreads(fromId, metas));
+  for (const sid of from.sessionIds) threads.add(sid);
+  const moved = [];
+  for (const sid of threads) {
+    const result = await missionAttachThread(targetId, sid);
+    if (result && result.ok) moved.push(sid);
+  }
+  const merged = await patchMissionContainer(targetId, {
+    acceptance: mergeMissionAcceptance((await readMissionContainer(targetId) || target).acceptance, from.acceptance),
+  });
+  await archiveMissionContainer(fromId);
+  logEvent({ kind: 'mission_container_merged', missionId: targetId, fromMissionId: fromId, threads: moved.length });
+  return {
+    ok: true, missionId: targetId, fromMissionId: fromId, movedSessionIds: moved,
+    mission: (merged && merged.ok ? merged.mission : await readMissionContainer(targetId)),
+    archived: await readMissionContainer(fromId),
+  };
+}
+
+// 拆分:把源事项的一部分线程拆到一个新事项。幂等键 = 「同一组 sessionIds 已经完整落在一个同名
+// 未归档事项里」—— 重复调用返回那个事项而不是再建一个同名空壳。
+async function missionSplitThreads(sourceMissionId, sessionIds, title) {
+  const sourceId = safeMissionId(sourceMissionId);
+  if (!sourceId) return missionContainerFail('invalid_request', 'invalid missionId');
+  const source = await readMissionContainer(sourceId);
+  if (!source) return missionContainerFail('not_found', 'mission ' + sourceId + ' not found');
+  const wantedTitle = missionClipText(title, MISSION_CONTAINER_LIMITS.titleChars);
+  if (!wantedTitle) return missionContainerFail('invalid_request', 'title is required');
+  const wanted = [];
+  for (const value of (Array.isArray(sessionIds) ? sessionIds : [])) {
+    const sid = safeSessionId(value);
+    if (sid && !wanted.includes(sid)) wanted.push(sid);
+  }
+  if (!wanted.length) return missionContainerFail('invalid_request', 'sessionIds must contain at least one thread');
+
+  const metas = await listSessions().catch(() => []);
+  const sameSet = (a, b) => a.length === b.length && a.slice().sort().join(',') === b.slice().sort().join(',');
+  for (const candidate of await listMissionContainers()) {
+    if (candidate.archivedAt || candidate.title !== wantedTitle || candidate.missionId === sourceId) continue;
+    if (sameSet(await reconcileMissionThreads(candidate.missionId, metas), wanted)) {
+      return { ok: true, missionId: candidate.missionId, mission: candidate, created: false, movedSessionIds: [] };
+    }
+  }
+
+  const created = await createMissionContainer({ title: wantedTitle, cwd: source.cwd, budget: source.budget });
+  if (!created.ok) return created;
+  const moved = [];
+  for (const sid of wanted) {
+    const result = await missionAttachThread(created.mission.missionId, sid);
+    if (result && result.ok) moved.push(sid);
+  }
+  logEvent({ kind: 'mission_container_split', missionId: created.mission.missionId, fromMissionId: sourceId, threads: moved.length });
+  return { ok: true, missionId: created.mission.missionId, mission: await readMissionContainer(created.mission.missionId), created: true, movedSessionIds: moved };
 }

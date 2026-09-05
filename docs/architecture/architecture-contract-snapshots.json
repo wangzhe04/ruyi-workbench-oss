@@ -334,13 +334,13 @@
       "auto",
       "bypass"
     ],
-    "nativeToolCount": 84,
+    "nativeToolCount": 85,
     "tierCounts": {
       "edit": 17,
       "exec": 19,
-      "read": 48
+      "read": 49
     },
-    "tierMapSha256": "26a9481ee2ab33a3e68a7742d32b25b9c5105d3bda17b0ed634e02faa62c786c"
+    "tierMapSha256": "419b23e86a151958693fecad4c666047642c50cd1852d0ddc40e4473d3904a99"
   },
   "persistence": {
     "durableJsonStoreApi": [
@@ -356,11 +356,11 @@
     ]
   },
   "routing": {
-    "decisionPoints": 113,
+    "decisionPoints": 118,
     "problems": 0,
-    "routeAuthEntries": 104,
-    "routeAuthSha256": "8e22762af4a52b816dcadc8b5f9cea9c53e0705281b36354cf7604e4743beb6c",
-    "runtimeRouteAuthSha256": "788f508781edc3168d1dc184034fc7f504d4d070ba197966c0525d51c651b11f",
+    "routeAuthEntries": 106,
+    "routeAuthSha256": "d835eb7aa129102bcaeae6e42040e4abcee02b85f4f18cbfabd695c69502536b",
+    "runtimeRouteAuthSha256": "a7a623fe5d68686021bd13c9fd6fd57a5056d10243ea61fb394bfc4a149d7923",
     "warnings": 0
   },
   "schema": 1

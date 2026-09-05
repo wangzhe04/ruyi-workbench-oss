@@ -80,6 +80,9 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
     // 116-2b 新增(补 116b 登记的缺口):普通回合的两类信号,由 02 的写入端落账(带频控)。
     stalled: 'stalled',           // 主回合死循环纠偏等"还在跑但没往前走"(同会话 5 分钟一条)
     budget_tripped: 'budget',     // 回合 token 预算保护触顶(每回合最多一条;与心跳 'budget' 分开)
+    // 116g:线程加入/移出事项、事项合并/拆分。它是【归属变更】,不是五类信号中的任何一个 ——
+    // 用户自己(或管家替他)刚做完这个动作,不需要再被"通知"一次。登记为 null = 显式丢弃。
+    mission_membership: null,
   }),
   // ② agent run 事件日志(全 src 扫 appendAgentRunEvent 的 type 字面量,22 种)
   agentRun: Object.freeze({
@@ -1139,6 +1142,15 @@ async function stewardImplThreadsSearch(args, ctx, config) {
 
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
+  // 116g:同一事项被多条命中线程共用时只读一次事项文件(结果上限 50,不做无界扫描)。
+  const missionTitles = new Map();
+  const missionTitleOf = async missionId => {
+    if (!missionTitles.has(missionId)) {
+      const container = await readMissionContainer(missionId).catch(() => null);
+      missionTitles.set(missionId, container ? stewardSanitizeText(container.title) : '');
+    }
+    return missionTitles.get(missionId);
+  };
   const results = [];
   for (const row of ranked) {
     if (results.length >= limit) break;
@@ -1149,9 +1161,12 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
     const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: rawKind === 'mission' ? 'mission' : 'quick_ask' });
+    const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     results.push({
       sessionId: row.id,
-      missionId: (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id,
+      missionId,
+      // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
+      missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
       kind: rawKind,
       state: derived.state,
@@ -1210,10 +1225,22 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const usage = (slice && slice.usage) || null;
   const engine = stewardEngineOf(head);
   const lastRun = card && card.lastRun ? card.lastRun : null;
+  // 116g:这条线程属于哪个【事项】,以及那个事项整体是什么状态(由 06i 的 aggregateMissionState 单点
+  // 纯函数按全部子线程五态算出;未归类事项 = 只有它自己一条线程,聚合态就等于自己的五态)。
+  const missionOfThread = sessionMissionId(head) || sessionId;
+  const missionRow = (await buildMissionAggregateRows({ includeArchived: true }).catch(() => null) || { rows: [] })
+    .rows.find(row => row.missionId === missionOfThread) || null;
   return {
     ok: true,
     sessionId,
     missionId: sessionMissionId(head),
+    mission: {
+      missionId: missionOfThread,
+      title: stewardSanitizeText(missionRow ? missionRow.title : (head.title || '')),
+      aggregateState: missionRow ? missionRow.aggregateState : derived.state,
+      threadCount: missionRow ? missionRow.threadCount : 1,
+      derived: missionRow ? missionRow.derived : true,
+    },
     title: stewardSanitizeText(head.title || ''),
     kind: rawKind,
     state: derived.state,
@@ -1464,6 +1491,9 @@ async function stewardImplThreadNew(args, ctx, config) {
     playbookId: String(brief.playbookId || ''),
   };
   await saveSession(session);
+  // 116g:显式指定了事项就写反向索引(事项文件不存在 = 「未归类」,missionIndexAdd 自身 no-op ——
+  // 新会话的 missionId === sessionId 那条常规路径永远不会凭空建出一个事项文件)。
+  if (requestedMissionId) await missionIndexAdd(requestedMissionId, session.id);
 
   stewardLaunchTurn({
     sessionId: session.id,
@@ -1884,6 +1914,42 @@ async function stewardImplMemorySearch(args) {
   return { ok: true, query: q, kind: kind || '', total: store.entries.length, entries: rows };
 }
 
+// 20) steward_missions —— 事项级只读视图(116g / §3.1 / §8.10)。
+// 纪律:装配全部委托 13d 的 buildMissionAggregateRows(与看板 GET /api/missions 逐字节同源),
+// 事项级状态只经 06i 的 aggregateMissionState 纯函数 —— 本文件【不】自己判定任何状态。
+async function stewardImplMissions(args, ctx, config) {
+  const includeArchived = !!(args && args.includeArchived === true);
+  const aggregate = await buildMissionAggregateRows({ includeArchived }).catch(() => ({ rows: [] }));
+  const missions = aggregate.rows.map(row => {
+    const mission = {
+      missionId: row.missionId,
+      title: stewardSanitizeText(row.title),
+      goal: stewardSanitizeText(row.goal).slice(0, 400),
+      aggregateState: row.aggregateState,
+      aggregateStateLabel: stewardStateLabel(row.aggregateState),
+      acceptance: {
+        done: row.acceptance.done,
+        total: row.acceptance.total,
+        items: row.acceptance.items.map(item => ({ id: item.id, text: stewardSanitizeText(item.text), done: item.done === true })),
+      },
+      budget: row.budget,
+      cost: row.cost,
+      derived: row.derived,
+      threads: row.threads.map(thread => ({
+        sessionId: thread.sessionId,
+        title: thread.title,
+        state: thread.state,
+        stateLabel: thread.stateLabel,
+        permissionMode: thread.permissionMode,
+        lastAssistantText: thread.lastAssistantText,   // 13d 已按 §11.2 截到 120 字
+      })),
+    };
+    if (row.archivedAt) mission.archivedAt = row.archivedAt;
+    return mission;
+  });
+  return { ok: true, missions, count: missions.length };
+}
+
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。
 // 消费者(13-http-router 的路由链、13-http-router 的关服收尾、116c 的管家工具 handler)全程只看
 // StewardHooks.*,从不直接依赖 13g —— 这就是「不新增前向边」的落地方式。
@@ -1892,7 +1958,8 @@ Object.assign(StewardHooks, {
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,
   inboxState: stewardInboxState,
-  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission;116-2b 增第 19 个 threadNote)。每个都经 stewardToolHandler
+  // 116c: 17 个管家工具的实现键(116-2a 增第 18 个 threadPermission;116-2b 增第 19 个 threadNote;
+  // 116g 增第 20 个 missions)。每个都经 stewardToolHandler
   // 包一层门控壳(开关 -> 身份 -> 实现),
   // 12-tool-dispatch 的 handler 只写一行 `StewardHooks.<键>(args, ctx)`。键名与 06i 的契约注释逐条对应。
   selfStatus: stewardToolHandler('steward_self_status', stewardImplSelfStatus),
@@ -1904,6 +1971,7 @@ Object.assign(StewardHooks, {
   usage: stewardToolHandler('steward_usage', stewardImplUsage),
   health: stewardToolHandler('steward_health', stewardImplHealth),
   auditTail: stewardToolHandler('steward_audit_tail', stewardImplAuditTail),
+  missions: stewardToolHandler('steward_missions', stewardImplMissions), // 116g
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),

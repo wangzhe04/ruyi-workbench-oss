@@ -86,6 +86,9 @@ const MISSION_CHANGE_EXPECT = [
   // 才能看住「新 type 没有把既有 type 的语义顺手改掉」。
   ['stalled', { reason: 'loop_recovery', tool: 'file_read', count: 2 }, 'stalled'],
   ['budget_tripped', { axis: 'turn_tokens', spent: 9000, budget: 8000 }, 'budget'],
+  // 116g:线程加入/移出事项、事项合并/拆分。归属变更不是五类信号(用户自己刚做完这个动作),
+  // 登记为 null = 显式丢弃,不是漏登。
+  ['mission_membership', { action: 'attach', missionId: 'mission_x' }, null],
 ];
 for (const [type, detail, expected] of MISSION_CHANGE_EXPECT) {
   const evt = mc(type, detail);

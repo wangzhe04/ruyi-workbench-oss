@@ -301,6 +301,23 @@ function stewardThreadStateFromCard(card) {
   });
 }
 
+// 事项级聚合状态(§3.1)。**这是全仓唯一的事项状态定义** —— 入参是子线程五态字符串数组,规则:
+//   任一 needs_you → needs_you;否则全部 done → done;否则任一 running → running;
+//   否则任一 dispatching → dispatching;否则 stopped;空数组 → dispatching。
+// 五态本身由 06i 的 deriveStewardThreadState / stewardThreadStateFromCard 产出(mission-state.js 的
+// 服务端抄写件)。这里【不】认识 card、不读磁盘、不看配置:纯函数,可穷举。
+// 注:'quick_ask'(五态之外的第六个取值)既不是 done 也不是 running/dispatching,按规则落到 stopped ——
+// 这是刻意的:速问线程不构成事项的推进,一个只剩速问的事项对用户就是「没有在动」。
+function aggregateMissionState(threadStates) {
+  const states = (Array.isArray(threadStates) ? threadStates : []).map(s => String(s == null ? '' : s));
+  if (!states.length) return 'dispatching';
+  if (states.includes('needs_you')) return 'needs_you';
+  if (states.every(s => s === 'done')) return 'done';
+  if (states.includes('running')) return 'running';
+  if (states.includes('dispatching')) return 'dispatching';
+  return 'stopped';
+}
+
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
@@ -538,7 +555,8 @@ function prerouteText(q, index, memory, opts) {
 //           inboxRead(opts) —— 【原始读取器】,签名与门控都与工具层不同,116b 契约原样保留
 //   观察族(tier read): selfStatus(args,ctx)、threadsSearch(args,ctx)、threadStatus(args,ctx)、
 //           threadRead(args,ctx)、runsStatus(args,ctx)、inboxReadTool(args,ctx)(它是 steward_inbox_read
-//           的门控壳,内部委托上面那个原始 inboxRead)、usage(args,ctx)、health(args,ctx)、auditTail(args,ctx)
+//           的门控壳,内部委托上面那个原始 inboxRead)、usage(args,ctx)、health(args,ctx)、auditTail(args,ctx)、
+//           missions(args,ctx)(116g:事项级只读视图 —— 聚合态、验收进度、费用/预算、子线程清单)
 //   线程族(tier edit): threadNew(args,ctx)、threadContinue(args,ctx)、threadRename(args,ctx)、
 //           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)、
 //           threadNote(args,ctx)(116-2b:给【已在跑】的线程以插话补一句上下文,走 /api/steer 同一通道)

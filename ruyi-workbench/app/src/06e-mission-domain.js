@@ -1,6 +1,13 @@
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
 // 让模型每回合都知道「整体目标是什么、还差哪几步」。fits-or-drop 语义(≤1200,超则整段丢,防截断毁闭合围栏);
 // 伪造围栏中和(同 memory/skill fence);内容为「当前任务状态」参考,不得覆盖守则。两引擎共用(对称)。
+//
+// 116g 边界(27 号文 §3.1「事项跨会话升格」):本文件里的 `session.mission` 是【会话内任务账本】——
+// 它记的是**这一条线程自己的里程碑**(goal / milestones / until-done 预算 / 停滞标记 / 结果章),
+// 由模型经 mission_update 推进,由 runMissionDriver 消费。它**不再是事项级权威**:事项(跨会话容器)
+// 的目标、验收项、预算唯一归属在 `<data>/missions/<missionId>.json`(见 02-session-store.js 的
+// 「事项容器」一节),事项级聚合状态唯一定义在 06i 的 aggregateMissionState。两者同名不同物,
+// 谁都不回写谁 —— 116g 对本文件是零改动,这段注释是给下一个人的路标。
 const MISSION_DIGEST_CAP = 1200;
 function buildMissionPromptSection(mission, engine, config) {
   if (!mission || !mission.goal || !Array.isArray(mission.milestones) || !mission.milestones.length) return '';

@@ -202,8 +202,9 @@ try {
     const bodies = files.map(f => { try { return JSON.parse(fs.readFileSync(path.join(CAPTURE, f), 'utf8')); } catch { return null; } }).filter(Boolean);
     const stewardBody = bodies.find(b => Array.isArray(b.tools) && b.tools.length && b.tools.every(t => String(t.function && t.function.name).startsWith('steward_')));
     ok(!!stewardBody, 'B7 工具面:管家回合的请求体里只有 steward_* 工具(零文件/shell/桌面/联网/元工具)');
-    // 116-2a 重钉:17 → 18(新增 steward_thread_permission);116-2b 重钉:18 → 19(新增 steward_thread_note)。
-    ok(stewardBody && stewardBody.tools.length === 19, `B7b 管家回合拿到全部 19 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
+    // 116-2a 重钉:17 → 18(新增 steward_thread_permission);116-2b 重钉:18 → 19(新增 steward_thread_note);
+    // 116g 重钉:19 → 20(新增 steward_missions)。
+    ok(stewardBody && stewardBody.tools.length === 20, `B7b 管家回合拿到全部 20 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
     const sys = stewardBody ? String((stewardBody.messages.find(m => m.role === 'system') || {}).content || '') : '';
     ok(/我是如意/.test(sys) && /永久豁免/.test(sys) && /输出契约/.test(sys), 'B8 稳定层:身份/永久豁免/输出契约都在系统提示里');
     ok(!/先读后改/.test(sys) && !/当前能力/.test(sys), 'B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)');

@@ -516,7 +516,11 @@
         "JOURNAL_GLOBAL_MAX_BYTES",
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "MISSIONS_DIR_NAME",
         "MISSION_CHANGE_TYPES",
+        "MISSION_CONTAINER_LIMITS",
+        "MISSION_CONTAINER_MAX_FILES",
+        "MISSION_CONTAINER_SCHEMA",
         "MISSION_DEFAULT_MAX_TURNS",
         "MISSION_MAX_CONSTRAINTS",
         "MISSION_MAX_MILESTONES",
@@ -546,6 +550,7 @@
         "applyMissionUpdate",
         "applySessionMetaPatch",
         "applySessionPermissionModeOverride",
+        "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
         "boundedChangeText",
@@ -561,6 +566,7 @@
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
         "configForSessionEngineRoute",
+        "createMissionContainer",
         "createSession",
         "deleteSession",
         "detectDanglingTurn",
@@ -606,38 +612,60 @@
         "journalWriteChains",
         "journalWriteIndex",
         "kindForPath",
+        "listMissionContainerIds",
+        "listMissionContainers",
         "listSessions",
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
         "maybeFinalizeMission",
+        "mergeMissionAcceptance",
+        "missionAttachThread",
         "missionBudgetRemaining",
         "missionBudgetTripTurns",
         "missionChangeFilePath",
         "missionChangeSeqHighWater",
         "missionChangeWriteChains",
+        "missionClipText",
+        "missionContainerChains",
+        "missionContainerFail",
+        "missionContainerPath",
         "missionControlCommand",
         "missionControlFailure",
         "missionControlView",
+        "missionDetachThread",
+        "missionIndexAdd",
+        "missionIndexRemove",
+        "missionMergeInto",
         "missionProgressDigest",
         "missionRollbackTarget",
         "missionSignalThrottleAllow",
         "missionSignalThrottleAt",
+        "missionSplitThreads",
+        "missionsDir",
         "normalizeMission",
+        "normalizeMissionAcceptance",
+        "normalizeMissionBudget",
         "normalizeMissionChangePayload",
         "normalizeMissionCheck",
+        "normalizeMissionContainer",
         "normalizeSession",
         "normalizeSessionEngineRoute",
         "normalizeSessionPermissionMode",
         "normalizeTodoItems",
+        "noteMissionMembership",
+        "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
         "readInterventions",
         "readInterventionsWithMeta",
         "readMissionChangesWithMeta",
+        "readMissionContainer",
+        "readMissionSessionHead",
         "readSessionBodyFile",
         "readSessionIndex",
         "readSessionNotes",
+        "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
         "recordMissionStalledChange",
@@ -646,6 +674,7 @@
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
         "rewindSession",
+        "safeMissionId",
         "saveSession",
         "scheduleSessionIndexUpdate",
         "serializeSessionBody",
@@ -675,6 +704,7 @@
         "updateSessionMeta",
         "waitMissionTurnSettled",
         "withJournalWriteLock",
+        "withMissionContainerLock",
         "withSessionIndexLock",
         "workspaceBaselineBudgetMs",
         "workspaceBaselineBudgetOnly",
@@ -687,6 +717,7 @@
         "workspaceBaselinePathKey",
         "workspaceBaselineRemainingMs",
         "workspaceBaselineSnapshotsEqual",
+        "writeMissionContainer",
         "writeSessionIndex",
         "writeSessionNotes"
       ],
@@ -3575,6 +3606,7 @@
         "STEWARD_THREAD_STATES",
         "STEWARD_TOOL_PREFIX",
         "StewardHooks",
+        "aggregateMissionState",
         "buildStewardBrief",
         "buildStewardDigestLine",
         "deriveStewardThreadState",
@@ -10102,6 +10134,7 @@
       "file": "13d-core-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "MISSION_FAILURE_PARAM_KEYS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
         "SESSION_SEARCH_INDEX_VERSION",
@@ -10111,12 +10144,15 @@
         "SESSION_SEARCH_TAIL_BYTES",
         "SESSION_SEARCH_TAIL_MESSAGES",
         "SESSION_SEARCH_UNIT_CAP",
+        "addMissionCostBucket",
         "agentRunActionCommand",
+        "buildMissionAggregateRows",
         "buildMissionCard",
         "buildSessionSearchUnit",
         "canonicalDecisionValue",
         "clipMissionRunText",
         "decideIntervention",
+        "emptyMissionCostBucket",
         "handleAgentRunApiRoutes",
         "handleInterventionApiRoutes",
         "handleMissionsApiRoutes",
@@ -10126,10 +10162,13 @@
         "lastMissionRunProgress",
         "mapInterventionTransitionFailure",
         "missionCardStatus",
+        "missionContainerFailure",
+        "missionContainerHttpStatus",
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
         "normalizeContractQuestionDecision",
+        "overlayMissionAggregateFields",
         "parseNdjsonRows",
         "readNdjsonEdges",
         "readSessionSearchIndex",
@@ -10324,6 +10363,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "createMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "createSession",
           "kinds": [
             "call"
@@ -10359,6 +10405,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "listMissionContainers",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "listSessions",
           "kinds": [
             "call"
@@ -10367,6 +10420,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionAttachThread",
           "kinds": [
             "call"
           ]
@@ -10387,6 +10447,34 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "missionDetachThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionMergeInto",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionSplitThreads",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "patchMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readInterventions",
           "kinds": [
             "call"
@@ -10395,6 +10483,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionSessionHead",
           "kinds": [
             "call"
           ]
@@ -10582,6 +10677,34 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "aggregateMissionState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "deriveStewardThreadState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -10739,7 +10862,7 @@
           "provider": "13e-pretender-index.js",
           "symbol": "overlayMissionCard",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -11086,6 +11209,7 @@
         "stewardImplMemorySearch",
         "stewardImplMemoryVeto",
         "stewardImplMemoryWrite",
+        "stewardImplMissions",
         "stewardImplRunAction",
         "stewardImplRunsStatus",
         "stewardImplSelfStatus",
@@ -11317,6 +11441,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "missionIndexAdd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readInterventions",
           "kinds": [
             "call"
@@ -11325,6 +11456,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
           "kinds": [
             "call"
           ]
@@ -11499,6 +11637,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardStateLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
           "kinds": [
             "call"
@@ -11563,6 +11708,13 @@
         {
           "provider": "13d-core-domain-routes.js",
           "symbol": "agentRunActionCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "buildMissionAggregateRows",
           "kinds": [
             "call"
           ]
@@ -11820,6 +11972,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
           "kinds": [
             "call"
           ]
@@ -12549,6 +12708,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "createMissionContainer",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "createSession",
           "kinds": [
             "read"
@@ -12626,6 +12792,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "listMissionContainers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "listSessions",
           "kinds": [
             "read"
@@ -12640,7 +12813,49 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "MISSION_CONTAINER_MAX_FILES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_CONTAINER_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionAttachThread",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "missionChangeFilePath",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionDetachThread",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionMergeInto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionSplitThreads",
           "kinds": [
             "read"
           ]
@@ -12661,6 +12876,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "patchMissionContainer",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readInterventionsWithMeta",
           "kinds": [
             "read"
@@ -12669,6 +12891,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
           "kinds": [
             "read"
           ]
@@ -13936,6 +14165,13 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "resourceBlockers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "aggregateMissionState",
           "kinds": [
             "read"
           ]

@@ -241,6 +241,18 @@ async function stewardMemoryBlock(session, config, pack) {
 //   · 只列「未收工」或「24 小时内收工」的线程,管家会话自己永远不列。
 async function stewardThreadDigestRows(config) {
   const index = await getPretenderProjectionIndex().catch(() => null);
+  // 116g:事项标题只在【真有事项文件】时填。「未归类」事项(missionId === sessionId、无事项文件)的
+  // 标题就是线程标题,填了等于把同一句话在总览行里重复一次(见下方 missionTitle 处的原注释)。
+  // 按需读、按 missionId 记忆:总览一次最多读【出现过的事项】那么多个文件,不扫整个 missions 目录
+  // (事项数上限 2000,全扫会让每次到访多出上千次文件读)。
+  const missionTitles = new Map();
+  const missionTitleOf = async missionId => {
+    if (!missionTitles.has(missionId)) {
+      const container = await readMissionContainer(missionId).catch(() => null);
+      missionTitles.set(missionId, container ? container.title : '');
+    }
+    return missionTitles.get(missionId);
+  };
   const rows = [];
   const now = Date.now();
   for (const slice of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
@@ -280,10 +292,10 @@ async function stewardThreadDigestRows(config) {
       state: derived.state,
       digest: {
         id: sid,
-        // 事项标题本波恒为空:3.0 里 missionId === sessionId,事项标题就是线程标题,写两遍等于把同一
-        // 句话在总览里重复一次(buildStewardDigestLine 对空段整段跳过)。116g 事项跨会话升格之后
-        // 一个事项才会有多条线程,那时这里填事项自己的标题。
-        missionTitle: '',
+        // 事项标题:116g 起,归入了【真事项】(有事项文件)的线程在总览行里带上事项自己的标题,
+        // 「未归类」线程仍恒为空 —— 那种情况下事项标题就是线程标题,写两遍等于把同一句话在总览里
+        // 重复一次(buildStewardDigestLine 对空段整段跳过)。
+        missionTitle: (await missionTitleOf(sessionMissionId(head) || sid)) || '',
         title: head.title || '',
         state: derived.state,
         action: activeChildren.has(sid) ? '回合进行中' : (lastRun ? `班组 ${lastRun.status || ''}` : ''),

@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 47,
+  "count": 48,
   "lifecycleCounts": {
     "dedicated-exemption": 14,
     "external-exemption": 8,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 18
+    "shared-lifecycle": 19
   },
   "entries": [
     {
@@ -651,6 +651,20 @@
       "capacity": "one file per visit, oldest files pruned beyond 200",
       "cache": "none: written once at visit start and never read back by the runtime",
       "recovery": "nothing rebuilds it - the archived turns are gone from the live session by design (the decision ledger keeps what the steward actually did)",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "mission-container",
+      "pattern": "<data>/missions/<missionId>.json",
+      "owner": "02-session-store.js",
+      "anchor": "MISSIONS_DIR_NAME",
+      "schema": "object / schema 1",
+      "writePrimitive": "atomicWriteJson inside a per-mission serialized read-modify-write chain",
+      "corruption": "the whole file is renamed to <id>.json.corrupt on unparsable/wrong-schema/shape-invalid content (rename, not copy: leaving it in place would re-quarantine on every read and keep reporting the mission as \"exists but unreadable\"); the missionId then degrades to the derived \"unclassified\" view",
+      "capacity": "2000 mission files (a new mission is refused with a stable capacity_exceeded envelope beyond it); 500 sessionIds, 50 acceptance items per mission",
+      "cache": "no process cache: every read re-reads the file, and every mutation re-reads it inside the write chain",
+      "recovery": "rebuild the reverse index from the session heads that still point at this missionId (the read side reconciles file sessionIds against head missionId on every read, so a lost or quarantined file self-heals into an unclassified mission with the same threads)",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
     },

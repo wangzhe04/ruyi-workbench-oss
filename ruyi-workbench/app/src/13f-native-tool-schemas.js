@@ -718,6 +718,14 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_missions',
+    description: '读【事项】清单:一个事项是跨会话的容器(一件事可以有好几条线程)。每条返回事项标题与目标、事项级聚合状态(任一线程需要你则事项就是需要你;全部收工才算收工)、验收项进度(已勾选/总数)、累计费用与预算、以及它下面每条线程的 id/标题/五态/权限档/最后一句。何时用:用户问「XX 那件事进展怎么样/还差什么/花了多少」,或你要在开新线程前决定它该并进哪个事项。何时别用:要看某一条线程自己在干嘛用 steward_thread_status;要看班组节点用 steward_runs_status。没有事项文件的线程会以「未归类」事项出现(derived:true),标题取线程标题——这不是错误,是存量会话的正常形态。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' } },
+    },
+  },
+  {
     name: 'steward_runs_status',
     description: '读 Agent 班组运行(工作流 DAG)的概览:每个 run 的状态、节点完成进度、是否暂停/在等什么、累计费用。何时用:线程状态显示在跑班组,而用户问「跑到第几步了/卡住了吗」,或你要在 steward_run_action 之前确认 runId 与节点 id。何时别用:普通对话线程(没有班组)用 steward_thread_status 就够。省略 sessionId 时返回全部线程的班组概览(有界)。',
     inputSchema: {

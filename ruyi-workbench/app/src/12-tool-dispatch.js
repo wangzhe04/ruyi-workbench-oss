@@ -393,6 +393,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_threads_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadsSearch(args, ctx) },
   steward_thread_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStatus(args, ctx) },
   steward_thread_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRead(args, ctx) },
+  steward_missions: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.missions(args, ctx) },
   steward_runs_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runsStatus(args, ctx) },
   steward_inbox_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.inboxReadTool(args, ctx) },
   steward_usage: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.usage(args, ctx) },

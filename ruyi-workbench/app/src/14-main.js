@@ -345,10 +345,23 @@ module.exports = {
   STEWARD_THREAD_STATES,
   deriveStewardThreadState,
   stewardThreadStateFromCard,
+  // 第116波116g(§3.1 事项跨会话升格): 事项级聚合状态的唯一定义(纯函数,unit 穷举真值表)。
+  aggregateMissionState,
   STEWARD_MEMORY_KINDS,
   STEWARD_MEMORY_LIMITS,
   stewardMemoryTerms,
   stewardTermJaccard,
+  // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
+  readMissionContainer,
+  listMissionContainers,
+  createMissionContainer,
+  patchMissionContainer,
+  missionAttachThread,
+  missionDetachThread,
+  missionMergeInto,
+  missionSplitThreads,
+  MISSION_CONTAINER_MAX_FILES,
+  MISSION_CONTAINER_SCHEMA,
   // 第116波116f(27号文§11.3): 管家回合运行器与到访 — 会话单例常量、回合入口、到访、输出契约解析器
   // 与两个分叉入口(提示词/预算)。exposed for e2e 直测;09/10/13g 侧一律经 StewardHooks 触达。
   STEWARD_SESSION_ID,

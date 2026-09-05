@@ -48,6 +48,11 @@ const ROUTE_AUTH_FILE = '01b-route-auth.js';
 // 新增正则路由而不登记样例 -> 生成器直接报错,指路此处。
 const REGEX_ROUTE_SAMPLES = {
   '^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$': '/api/missions/:missionId/interventions/:interventionId/decision',
+  // 第 116 波 116g:事项容器写面(§3.1 事项跨会话升格)。
+  '^\\/api\\/missions\\/([^/]+)$': '/api/missions/:missionId',
+  '^\\/api\\/missions\\/([^/]+)\\/threads$': '/api/missions/:missionId/threads',
+  '^\\/api\\/missions\\/([^/]+)\\/merge$': '/api/missions/:missionId/merge',
+  '^\\/api\\/missions\\/([^/]+)\\/split$': '/api/missions/:missionId/split',
 };
 
 // 域归属:按 handler 所在函数名归域(与 23 号方案 103a「按域分批」的批次单位一致)。

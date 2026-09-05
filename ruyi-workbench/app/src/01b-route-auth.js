@@ -15,6 +15,11 @@ const ROUTE_AUTH = [
   // 第70波(EC-E):/api/missions 聚合只读投影 —— 内容型 GET,与 /api/sessions 同门(token-browser)。
   { m: 'GET', p: '/api/missions', auth: 'token-browser' },
   { m: 'GET', p: '/api/missions/', auth: 'token-browser', prefix: true },
+  // 第 116 波 116g(§3.1 事项跨会话升格):事项容器的写面。新建事项是裸路径 POST(上面那条 GET 是
+  // 精确匹配、下面那条 POST 是带尾斜杠的前缀,两条都盖不到它),PATCH 走既有的方法改写双通道 ——
+  // 原生 PATCH 由这条前缀条兜,POST + x-http-method:PATCH 由下面那条 POST 前缀条兜。写面一律 token 级。
+  { m: 'POST', p: '/api/missions', auth: 'token' },
+  { m: 'PATCH', p: '/api/missions/', auth: 'token', prefix: true },
   // 第75b波:统一跨会话决策契约。批准/物化可触发高风险动作,始终要求 header token;
   // handler 再校验 missionId/interventionId 归属与 expectedVersion CAS。
   { m: 'POST', p: '/api/missions/', auth: 'token', prefix: true },

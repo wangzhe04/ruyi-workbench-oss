@@ -225,6 +225,8 @@ const NATIVE_TOOL_TIER = {
   steward_self_status: 'read', steward_threads_search: 'read', steward_thread_status: 'read',
   steward_thread_read: 'read', steward_runs_status: 'read', steward_inbox_read: 'read',
   steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
+  // 116g: 事项级只读视图归观察族 read —— 它只读事项文件与既有投影,零副作用。
+  steward_missions: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
   // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
   // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
@@ -325,6 +327,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_self_status: 'steward', steward_threads_search: 'steward', steward_thread_status: 'steward',
   steward_thread_read: 'steward', steward_runs_status: 'steward', steward_inbox_read: 'steward',
   steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
+  steward_missions: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
