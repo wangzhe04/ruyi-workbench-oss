@@ -79,6 +79,11 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_run_action: 'runAction',
   steward_memory_write: 'memoryWrite',
   steward_memory_veto: 'memoryVeto',
+  // 116-2e:两个「须确认」的写工具。它们在模型回合里一定回 propose_required(ctx 里没有
+  // userPressed),被 stewardDowngradeActions 降级成一个按钮;用户按下那个按钮走
+  // POST /api/steward/act,那条路径才置 ctx.userPressed = true。
+  steward_config_set: 'configSet',
+  steward_skill_toggle: 'skillToggle',
 });
 
 // 降级成按钮时的人话标签(§8.4「话＋一行按钮」:按钮上写用户要做的那件事,不写工具名)。
@@ -88,6 +93,7 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_new: '新开线程', steward_thread_continue: '接着办', steward_thread_rename: '改标题',
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
+  steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -264,6 +270,9 @@ async function stewardThreadDigestRows(config) {
     if (!head || !head.id) continue;
     const rawKind = stewardRawKind(head);
     if (rawKind === 'steward') continue;   // 排除面:按会话头【原始】 kind 判,不经 sessionKind()
+    // 116-2e(§11.1 第 2 项):已收工的速查线程不占总览的注意力预算(判据单点在 13g 的
+    // stewardQuickClosed,与 steward_threads_search 逐字同源;经 StewardHooks 调,同一条延迟绑定纪律)。
+    if (typeof StewardHooks.quickClosed === 'function' && StewardHooks.quickClosed(head)) continue;
     const card = slice.card ? overlayMissionCard(slice) : null;
     const derived = card
       ? stewardThreadStateFromCard(card)
@@ -982,6 +991,16 @@ async function runStewardTurn(input) {
   } else {
     stewardRunnerRuntime.noProgress = 0;
   }
+  // 116-2e(§11.1 第 2 项「速查线程自动收工」):速查线程的 done 事件【已经进过这一回合】之后才
+  // 收工 —— 顺序不能反。先收工的话总览与搜索里就没这条了,管家转述答案时会发现自己刚读到的那条
+  // 线程凭空消失。收工只写会话头上的 stewardQuick.closedAt,不动正文、不进事项、不改执行语义。
+  if (trigger === 'inbox' && typeof StewardHooks.quickClose === 'function') {
+    for (const evt of events) {
+      if (!evt || evt.kind !== 'done') continue;
+      if (!(evt.payload && evt.payload.quick === true)) continue;
+      try { await StewardHooks.quickClose(evt.sessionId); } catch { /* 旁路:收工失败不影响这一回合 */ }
+    }
+  }
   stewardRunnerRuntime.lastReply = { ...reply, at: nowIso() };
   return { ok: true, ...reply };
 }
@@ -1178,7 +1197,10 @@ async function stewardRunAct(act, config) {
   const args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
   // 用户【亲自】按下的按钮:自理清单不适用(那是「管家该不该主动做」的清单),但目标线程权限与
   // 永久豁免清单照旧由 13g 内部裁决 —— 管家不会因为用户点了一下就获得放宽权限的能力。
-  const result = await StewardHooks[hookKey](args, { session: ensured.session, sessionId: ensured.session.id, config });
+  // 116-2e:`userPressed` 的【唯一】来源就是这一行 —— 用户在界面上亲手按下了这个按钮。
+  // 只有 steward_config_set 与 steward_skill_toggle 的「须确认」判定读它;stewardMayAct、
+  // 永久豁免清单与线程权限判定一概不读(06i 契约注释与 steward-tools.static ⑦ 机械看住)。
+  const result = await StewardHooks[hookKey](args, { session: ensured.session, sessionId: ensured.session.id, config, userPressed: true });
   // 按钮【被执行了】就是 ok:true —— 工具自己的稳定信封(propose_required / not_found / version_conflict …)
   // 原样放在 result 里交给界面去说人话。只有 act 本身不合法(未知 kind、非管家工具、开关关)才是 4xx:
   // 把「工具说不行」翻译成 HTTP 错误会让前端分不清「按钮坏了」和「这件事不该这么做」。

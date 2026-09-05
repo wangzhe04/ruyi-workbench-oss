@@ -939,6 +939,20 @@ function applySessionMetaPatch(session, patch) {
     const missionId = safeSessionId(patch.missionId);
     if (missionId) session.missionId = missionId;
   }
+  // 116-2e(27 号文 §11.1 第 2 项「速查线程自动收工」):速查会话头上的 stewardQuick 标。走这条 patch
+  // 通道与 missionId 同理 —— 收工恰好发生在回合刚结束的窗口里,白拿 116-2a 的活回合竞态防护(延后到
+  // settle 之后在【重新装载的副本】上重放,绝不用陈旧正文盖掉回合刚写的答案)。
+  // 严格归一成固定五个字段:这条通道也接 PATCH /api/sessions/:id 的请求体,不能让任意形状写进会话头。
+  if (patch.stewardQuick && typeof patch.stewardQuick === 'object' && !Array.isArray(patch.stewardQuick)) {
+    const q = patch.stewardQuick;
+    session.stewardQuick = {
+      schema: 1,
+      askedAt: String(q.askedAt || ''),
+      question: String(q.question || '').slice(0, 1000),
+      stewardTurnKey: String(q.stewardTurnKey || ''),
+      closedAt: q.closedAt ? String(q.closedAt) : null,
+    };
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the

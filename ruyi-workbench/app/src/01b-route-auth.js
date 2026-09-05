@@ -146,6 +146,14 @@ const ROUTE_AUTH = [
   // 116h(27 号文 §3.1 116h 行 / §8.10):线程间仲裁的只读状态与插队。
   { m: 'GET', p: '/api/steward/arbiter', auth: 'token' },
   { m: 'POST', p: '/api/steward/arbiter/prioritize', auth: 'token' },
+  // 第116波116-2e(27号文§4「面板」): 管家记忆面板。读面透出的是「管家记得的关于你」的全部原文
+  // (身份/偏好/习惯),写面能改能清 —— 敏感度同上,六条一律 token 级(不给 token-browser)。
+  { m: 'GET', p: '/api/steward/memory', auth: 'token' },
+  { m: 'GET', p: '/api/steward/memory/export', auth: 'token' },
+  { m: 'POST', p: '/api/steward/memory/edit', auth: 'token' },
+  { m: 'POST', p: '/api/steward/memory/veto', auth: 'token' },
+  { m: 'POST', p: '/api/steward/memory/restore', auth: 'token' },
+  { m: 'POST', p: '/api/steward/memory/clear', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },

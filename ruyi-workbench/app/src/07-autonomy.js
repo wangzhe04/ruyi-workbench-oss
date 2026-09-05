@@ -239,6 +239,11 @@ const NATIVE_TOOL_TIER = {
   // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
   // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
   steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
+  // 116-2e(§3.5 工具面表「如意设置」/「内容管理」两行):config_get 只读掩码后的配置、零副作用,归
+  // read(与观察族同档);config_set 真的改工作台的行为,exec。内容管理:playbook 起草只出草稿不落盘,
+  // 归 edit;技能启停改的是那条线程下一回合的工具面与提示词、速查开的是一条真会动世界的线程,两者 exec。
+  steward_config_get: 'read', steward_config_set: 'exec',
+  steward_playbook_draft: 'edit', steward_skill_toggle: 'exec', steward_quick_ask: 'exec',
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
@@ -333,6 +338,8 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
+  steward_config_get: 'steward', steward_config_set: 'steward',              // 116-2e
+  steward_playbook_draft: 'steward', steward_skill_toggle: 'steward', steward_quick_ask: 'steward',
 });
 
 function toolPackForName(name, bridgedRoute) {

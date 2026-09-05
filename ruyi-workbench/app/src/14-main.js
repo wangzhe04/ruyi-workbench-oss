@@ -356,6 +356,13 @@ module.exports = {
   STEWARD_MEMORY_LIMITS,
   stewardMemoryTerms,
   stewardTermJaccard,
+  // 第116波116-2e(27号文§3.5「如意设置」行): steward_config_* 的三级分级(allowlist + fail-closed)。
+  //   exposed for 单测 unit/steward-config-tier.test.js —— 它拿 Object.keys(normalizeConfig({}).config)
+  //   遍历默认表的每一个键,要求逐个落到 free/confirm/forbidden 三级之一,不许漏。
+  STEWARD_CONFIG_TIERS,
+  stewardConfigTierFor,
+  STEWARD_QUICK_KIND,
+  STEWARD_QUICK_ANSWER_CHARS,
   // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
   readMissionContainer,
   listMissionContainers,

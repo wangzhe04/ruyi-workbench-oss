@@ -126,6 +126,85 @@ async function consumeStartError() {
   };
 }
 
+// 第 116 波 116-2e:POST /api/session/skills 的核心,零行为抽出为 setSessionSkillsCore。
+// 为什么抽:`steward_skill_toggle`(§3.5「内容管理」行)必须与路由【共用同一段判据】—— 校验 id 在
+// 注册表里存在且 kind==='skill'、去重、截 8、来源锁定(P2-2 防调包)、活动回合同步(P2-3 防被回合
+// 收尾覆盖)。管家另写一份等于第二套语义,迟早两边打架。
+// 返回 { ok:true, skills } 或 { ok:false, error:'session not found' }(路由把它翻成 404;
+// 管家工具把它翻成 not_found 稳定信封)。
+async function setSessionSkillsCore(sessionId, skills) {
+  const session = await loadSession(String(sessionId || '')).catch(() => null);
+  if (!session) return { ok: false, error: 'session not found' };
+  const config = await readConfig();
+  const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
+  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+  const byIdReg = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
+  const cleaned = [];
+  const seen = new Set();
+  for (const raw of (Array.isArray(skills) ? skills : [])) {
+    const id = String((raw && typeof raw === 'object') ? (raw.id || '') : (raw || '')).trim(); // 兼容前端传 id 或 {id,source}
+    const e = byIdReg.get(id);
+    if (!e || seen.has(id)) continue; // 只收注册表里存在的技能 id;去重
+    seen.add(id);
+    cleaned.push({ id, source: e.source || '' }); // P2-2: 从注册表带上 source 落盘 —— 锁定「启用当时的来源」,解析时据此防调包
+    if (cleaned.length >= 8) break; // 上限 8
+  }
+  session.skills = cleaned;
+  await saveSession(session);
+  // P2-3: 若该会话正有活动回合(内存另持一份 session 快照),同步把新启用集写进该活动 session,避免回合收尾整体
+  // saveSession 覆盖本次变更(与两个 turn 函数收尾前的磁盘合并互为兜底)。
+  { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
+  return { ok: true, skills: cleaned };
+}
+
+// 第 116 波 116-2e:POST /api/config 的落盘与全部副作用,零行为抽出为 applyConfigPatch(body)。
+// 为什么抽:`steward_config_set`(§3.5「如意设置」行)必须经【同一个落盘函数】写入 —— 116h 的
+// arbiterRefresh、Claude CLI settings 同步、agent roles 同步、MCP 同步都挂在这条路径上,管家走
+// 另一条路就会静默漏掉它们(「改了上限要等下一条线程跑完才生效」正是这种漏的样子)。
+// 入参 body = 用户/管家提交的 patch(未 normalize);返回 writeConfig 之后已 normalize 的 next。
+// 路由层只剩 body 解析与掩码回包;13g 的 steward_config_set 调它(13g 在 13 之后,是后向边)。
+async function applyConfigPatch(body) {
+  const current = await readConfig();
+  const merged = { ...current, ...body };
+  // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
+  // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
+  // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
+  // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
+  if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
+    const restored = unmaskSecrets(body, current);
+    if (Array.isArray(body.providers)) merged.providers = restored.providers;
+    if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
+  }
+  // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
+  if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
+    merged.knownModels = [...(merged.knownModels || []), body.model];
+  }
+  const next = await writeConfig(merged);
+  // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
+  // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
+  // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
+  if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
+  if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
+    invalidateAgentCliPathCaches();
+  }
+  // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
+    await syncClaudeCliSettings(next);
+  }
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentRoleOverrides') || Object.prototype.hasOwnProperty.call(body, 'permissionMode'))) {
+    await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
+  }
+  if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
+    await syncMcpServersToClaude(next);
+    if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
+  }
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
+    if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
+    else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
+  }
+  return next;
+}
+
 async function handleApi(req, res, pathname) {
   // --- auth gate ---
   // The MCP child authenticates /api/permission/request with its own body token (checked there).
@@ -314,44 +393,7 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
-    const current = await readConfig();
-    const merged = { ...current, ...body };
-    // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
-    // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
-    // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
-    // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
-    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
-      const restored = unmaskSecrets(body, current);
-      if (Array.isArray(body.providers)) merged.providers = restored.providers;
-      if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
-    }
-    // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
-    if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
-      merged.knownModels = [...(merged.knownModels || []), body.model];
-    }
-    const next = await writeConfig(merged);
-    // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
-    // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
-    // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
-    if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
-    if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
-      invalidateAgentCliPathCaches();
-    }
-    // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
-    if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
-      await syncClaudeCliSettings(next);
-    }
-    if (body && (Object.prototype.hasOwnProperty.call(body, 'agentRoleOverrides') || Object.prototype.hasOwnProperty.call(body, 'permissionMode'))) {
-      await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
-    }
-    if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
-      await syncMcpServersToClaude(next);
-      if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
-    }
-    if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
-      if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
-      else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
-    }
+    const next = await applyConfigPatch(body);
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
   if (req.method === 'GET' && pathname === '/api/agent-roles') {
@@ -455,28 +497,9 @@ async function handleApi(req, res, pathname) {
   // token 门(P3-7,与 /api/sessions 同级);非浏览器 loopback(e2e)仍只走 same-origin。
   if (req.method === 'POST' && pathname === '/api/session/skills') {
     const body = await readJsonBody(req);
-    const session = await loadSession(String(body && body.sessionId || '')).catch(() => null);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-    const config = await readConfig();
-    const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
-    const registry = await loadSkillRegistry(cwd, config).catch(() => []);
-    const byIdReg = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
-    const cleaned = [];
-    const seen = new Set();
-    for (const raw of (Array.isArray(body && body.skills) ? body.skills : [])) {
-      const id = String((raw && typeof raw === 'object') ? (raw.id || '') : (raw || '')).trim(); // 兼容前端传 id 或 {id,source}
-      const e = byIdReg.get(id);
-      if (!e || seen.has(id)) continue; // 只收注册表里存在的技能 id;去重
-      seen.add(id);
-      cleaned.push({ id, source: e.source || '' }); // P2-2: 从注册表带上 source 落盘 —— 锁定「启用当时的来源」,解析时据此防调包
-      if (cleaned.length >= 8) break; // 上限 8
-    }
-    session.skills = cleaned;
-    await saveSession(session);
-    // P2-3: 若该会话正有活动回合(内存另持一份 session 快照),同步把新启用集写进该活动 session,避免回合收尾整体
-    // saveSession 覆盖本次变更(与两个 turn 函数收尾前的磁盘合并互为兜底)。
-    { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
-    return send(res, json({ ok: true, skills: cleaned }));
+    const result = await setSessionSkillsCore(String(body && body.sessionId || ''), body && body.skills);
+    if (!result.ok) return send(res, json({ ok: false, error: result.error }, 404));
+    return send(res, json({ ok: true, skills: result.skills }));
   }
   // v2.5: 删除用户技能。DELETE /api/skills {id, confirm}。「不要太简单」的摩擦:confirm 必须等于 id
   // (前端弹确认窗要求输入 id 才解锁确认键)。仅 source==='user' 可删(对应 paths.skills/<id>/ 目录);

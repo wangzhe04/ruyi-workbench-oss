@@ -410,6 +410,13 @@ const STEWARD_TOOL_HANDLERS = {
   steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },
   steward_memory_veto: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryVeto(args, ctx) },
   steward_memory_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memorySearch(args, ctx) },
+  // 116-2e:设置族两个 + 内容管理三个。与上面 21 个同一纪律 —— 只写一行 StewardHooks.<键>(args, ctx),
+  // handler 体里零 require、零 13g 内部符号(steward-tools.static ② 的机器判据)。
+  steward_config_get: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configGet(args, ctx) },
+  steward_config_set: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configSet(args, ctx) },
+  steward_playbook_draft: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbookDraft(args, ctx) },
+  steward_skill_toggle: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skillToggle(args, ctx) },
+  steward_quick_ask: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.quickAsk(args, ctx) },
 };
 
 // ── 106 #2a: 受限执行结果缓存(22 号文 §6.1)─────────────────────────────────

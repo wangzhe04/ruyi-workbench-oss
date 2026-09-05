@@ -917,6 +917,59 @@ const MCP_TOOLS = [
       },
     },
   },
+  // ── 116-2e:设置族两个 + 内容管理三个(§3.5「如意设置」/「内容管理」行、§11.1 第 2 项速查线程)──
+  {
+    name: 'steward_config_get',
+    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,omitted 里的键是 forbidden。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        keys: { type: 'array', items: { type: 'string' }, description: '可选。只读这几个键(最多 64 个);省略则返回全部可读键。' },
+      },
+    },
+  },
+  {
+    name: 'steward_config_set',
+    description: '改如意的设置。三级分级:free 级(语言 locale、输出风格 outputStyle、主题 theme、专家界面 uiMode、管家自己的轮询与预算参数)直接生效;confirm 级(主端点与模型、subagentPreferred*、MCP 连接器与浏览器目标、新线程默认权限 permissionMode、管家总开关 stewardEnabledV1、自理清单 stewardAutoActions)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、授权书相关)整份拒绝 steward.forbidden,一个键都不写。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['patch'],
+      properties: {
+        patch: { type: 'object', description: '要改的键值对(最多 32 个键)。整份一起判、一起写。' },
+        basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
+      },
+    },
+  },
+  {
+    name: 'steward_playbook_draft',
+    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId'],
+      properties: { sessionId: { type: 'string', description: '要起草的线程 id。' } },
+    },
+  },
+  {
+    name: 'steward_skill_toggle',
+    description: '设置某条线程启用哪些技能(整份替换,不是增删)。何时用:用户说「这条线程给我开上写文档的技能」。何时别用:① 这是【须确认】的动作——你调它一定先回 propose_required,界面会变成一个按钮,用户按下才真的改,不要重试也不要换别的工具绕;② 管家会话自己没有技能面(steward.forbidden);③ 只收注册表里真实存在的技能 id,不存在的会被静默丢掉,最多 8 个。返回 {ok,sessionId,skills}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'skills'],
+      properties: {
+        sessionId: { type: 'string', description: '目标线程 id。' },
+        skills: { type: 'array', items: { type: 'string' }, description: '要启用的技能 id 全集(整份替换;传空数组 = 全关)。最多 8 个。' },
+      },
+    },
+  },
+  {
+    name: 'steward_quick_ask',
+    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['question'],
+      properties: {
+        question: { type: 'string', description: '要查的问题(用户原话优先,最多 1000 字符)。' },
+        cwd: { type: 'string', description: '可选。在哪个工作文件夹里查;省略用默认工作区。' },
+        basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
+      },
+    },
+  },
   // v0.9-S6 (子代理, L): spawn a self-contained SUB-TURN to carry out a delegated task, with its OWN
   // isolated history + tool subset (toolTier) + iteration budget, returning only the final conclusion text.
   // PROVIDER-ENGINE ONLY: it needs the live provider/session/journal/onEvent closure, so it is special-cased

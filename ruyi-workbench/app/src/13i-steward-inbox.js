@@ -673,6 +673,12 @@ async function stewardTickOnce() {
       count: row.count,
     });
   }
+  // 116-2e(§11.1 第 2 项「速查线程」):落盘【前】给速查会话的 done 行补 quick:true 与 answer
+  // (最后一句助手原话)。实现住 13g(它要装载会话正文),经 06i 的延迟绑定命名空间调 —— 直接写
+  // 13g 的函数名会是前向边。旁路纪律:钩子未填充或抛错都不影响这一轮已经归一好的行。
+  if (rows.length && typeof StewardHooks.enrichInboxRows === 'function') {
+    try { await StewardHooks.enrichInboxRows(rows); } catch { /* 增强失败只是少两个字段,不反噬轮询器 */ }
+  }
   if (rows.length) await stewardAppendInboxRows(rows);
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经

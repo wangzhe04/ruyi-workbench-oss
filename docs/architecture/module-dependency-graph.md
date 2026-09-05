@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 1918 | 1929 | 315 | 67 | 0 | 1 |
+| 41 | 1951 | 1944 | 317 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,7 +33,7 @@
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 18 | `06i-steward-core.js` | engine | 55 | 0 | 0 |
+| 18 | `06i-steward-core.js` | engine | 64 | 0 | 0 |
 | 19 | `06d-memory-domain.js` | engine | 102 | 32 | 10 |
 | 20 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
 | 21 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
@@ -47,15 +47,15 @@
 | 29 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 30 | `12-tool-dispatch.js` | tools | 33 | 78 | 14 |
 | 31 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 32 | `13-http-router.js` | transport | 62 | 201 | 23 |
+| 32 | `13-http-router.js` | transport | 64 | 201 | 23 |
 | 33 | `13b-api-domain-routes.js` | transport | 5 | 37 | 7 |
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 107 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
 | 37 | `13i-steward-inbox.js` | transport | 55 | 19 | 7 |
-| 38 | `13g-steward.js` | transport | 75 | 72 | 16 |
+| 38 | `13g-steward.js` | transport | 97 | 83 | 18 |
 | 39 | `13h-steward-runner.js` | transport | 108 | 64 | 12 |
-| 40 | `14-main.js` | entrypoint | 1 | 466 | 31 |
+| 40 | `14-main.js` | entrypoint | 1 | 470 | 31 |
 
 ## 模块边
 
@@ -311,17 +311,19 @@
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
 | `13g-steward.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
-| `13g-steward.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `readConfig`, `resolvePermissionMode`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
+| `13g-steward.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `normalizeConfig`, `readConfig`, `readJsonBody`, `resolvePermissionMode`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
 | `13g-steward.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13g-steward.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `repairMissionChangeTornTail`, `saveSession`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
 | `13g-steward.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
-| `13g-steward.js` | `06-provider-engine.js` | backward | `collectAudit` |
+| `13g-steward.js` | `05-claude-engine.js` | backward | `maskProviders` |
+| `13g-steward.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession` |
 | `13g-steward.js` | `06d-memory-domain.js` | backward | `memoryProposalLooksSensitive` |
-| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
+| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_QUICK_QUESTION_CHARS`, `STEWARD_SESSION_ID`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardConfigTierFor`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
 | `13g-steward.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13g-steward.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13g-steward.js` | `10-context-governance.js` | backward | `runSessionTurn` |
 | `13g-steward.js` | `12-tool-dispatch.js` | backward | `buildWorkbenchSelfStatus` |
+| `13g-steward.js` | `13-http-router.js` | backward | `applyConfigPatch`, `setSessionSkillsCore` |
 | `13g-steward.js` | `13b-api-domain-routes.js` | backward | `steerSessionCore` |
 | `13g-steward.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand`, `buildMissionAggregateRows`, `decideIntervention`, `missionPendingCounts`, `missionRunDigest`, `searchSessionsByContent` |
 | `13g-steward.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
@@ -362,7 +364,7 @@
 | `14-main.js` | `06c-agent-loop-hooks.js` | backward | `AgentLoopHooks` |
 | `14-main.js` | `06d-memory-domain.js` | backward | `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `buildCoreMemoryPromptSection`, `buildMemoryCheckPrompt`, `buildMemoryConflictMap`, `buildMemoryPromptSection`, `confirmMemoryRelation`, `deleteMemoryRelation`, `effectiveMemorySelection`, `extractMemoryRelationProposals`, `legacyAccMemoryMigrationComplete`, `listMemoryRelations`, `listWorkbenchMemories`, `loadMemoryRegistry`, `memoryProposalIsDuplicate`, `memoryProposalPrefilter`, `memoryProposalSimilarity`, `memorySearchTerms`, `migrateLegacyAccMemory`, `parseMemoryProposalDecision`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `rankRelevantMemories`, `readWorkbenchMemory`, `resolveCoreMemoryState`, `resolveMemoryPreflight`, `saveMemory` |
 | `14-main.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `agentResourcesConflict`, `inferToolResources`, `normalizeAgentResource`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources`, `resourceBlockers` |
-| `14-main.js` | `06i-steward-core.js` | backward | `STEWARD_BRIEF_LIMITS`, `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_EXEMPT_TOOL_PATTERNS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PERMISSION_MODE`, `STEWARD_PERMISSION_RANK`, `STEWARD_PREROUTE_DEFAULTS`, `STEWARD_SESSION_ID`, `STEWARD_SESSION_TITLE`, `STEWARD_THREAD_STATES`, `STEWARD_WAIT_LABELS`, `STEWARD_WAIT_REASONS`, `StewardHooks`, `aggregateMissionState`, `buildStewardBrief`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionRank`, `stewardSanitizeBlock`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
+| `14-main.js` | `06i-steward-core.js` | backward | `STEWARD_BRIEF_LIMITS`, `STEWARD_CONFIG_TIERS`, `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_EXEMPT_TOOL_PATTERNS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PERMISSION_MODE`, `STEWARD_PERMISSION_RANK`, `STEWARD_PREROUTE_DEFAULTS`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_SESSION_ID`, `STEWARD_SESSION_TITLE`, `STEWARD_THREAD_STATES`, `STEWARD_WAIT_LABELS`, `STEWARD_WAIT_REASONS`, `StewardHooks`, `aggregateMissionState`, `buildStewardBrief`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardConfigTierFor`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionRank`, `stewardSanitizeBlock`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
 | `14-main.js` | `07-autonomy.js` | backward | `NATIVE_TOOL_PACKS`, `NATIVE_TOOL_TIER`, `adaptiveMetaToolSchemas`, `applyAgentWorktree`, `bridgedToolTier`, `buildClaudeAgentDefinitions`, `buildOpenAiTools`, `buildResponsesInputItems`, `buildToolCatalog`, `classifyClaudeSubagentFailure`, `classifyRuntimeToolFailure`, `classifyToolPacks`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `estimateToolSchemaTokens`, `fetchOpenAiModels`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `responsesHistoryWithCompleteToolPairs`, `saveProjectAgentRoles`, `searchToolCatalog`, `toolPackForName` |
 | `14-main.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `QUALITY_GATE_OUTPUT_SCHEMA`, `aggregateAgentVote`, `aggregateCoverage`, `autoResumeInterruptedRuns`, `buildNodeEvidenceCatalog`, `dedupeAgentFindings`, `deleteAgentWorkflow`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `mapPool`, `markInterruptedAgentRuns`, `normalizeAgentGate`, `normalizeAgentWorkflow`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunEvents`, `repairJson`, `resolveAgentTeamRoute`, `runWorkspaceHash`, `sanitizeAgentOutputSchema`, `saveAgentWorkflow`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `14-main.js` | `09-workflow.js` | backward | `planDiscoveryToolBatchAllowed` |

@@ -3586,6 +3586,11 @@
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
         "STEWARD_BRIEF_TRUNCATED",
+        "STEWARD_CONFIG_SECRET_PATTERN",
+        "STEWARD_CONFIG_TIERS",
+        "STEWARD_CONFIG_TIER_CONFIRM",
+        "STEWARD_CONFIG_TIER_FORBIDDEN_NOTE",
+        "STEWARD_CONFIG_TIER_FREE",
         "STEWARD_DIGEST_LIMITS",
         "STEWARD_EVENT_KINDS",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
@@ -3599,6 +3604,9 @@
         "STEWARD_PREROUTE_QUERY_MAX",
         "STEWARD_QUESTION_LEAD_RE",
         "STEWARD_QUESTION_TAIL_RE",
+        "STEWARD_QUICK_ANSWER_CHARS",
+        "STEWARD_QUICK_KIND",
+        "STEWARD_QUICK_QUESTION_CHARS",
         "STEWARD_SCHEDULE_RE",
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
@@ -3614,6 +3622,7 @@
         "deriveStewardThreadState",
         "isStewardToolName",
         "prerouteText",
+        "stewardConfigTierFor",
         "stewardHasText",
         "stewardMayAct",
         "stewardMayTightenTo",
@@ -8303,6 +8312,7 @@
         "PROXY_MODELS_CACHE_PATH",
         "START_ERROR_KINDS",
         "START_NOTICE",
+        "applyConfigPatch",
         "buildModelHint",
         "consumeStartError",
         "discoverKimiModels",
@@ -8339,6 +8349,7 @@
         "sendMcp",
         "sendMcpNotification",
         "setProxyModelsCache",
+        "setSessionSkillsCore",
         "sleep",
         "startErrorNextText",
         "startMcp",
@@ -11351,10 +11362,14 @@
         "STEWARD_DECISIONS_FILE",
         "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_FILE",
+        "STEWARD_MEMORY_MERGED_FROM_MAX",
+        "STEWARD_MEMORY_NEW_WINDOW_MS",
         "STEWARD_MEMORY_SCHEMA",
         "STEWARD_NOTE_PREFIX",
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
+        "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
+        "STEWARD_QUICK_ASKS_PER_TURN",
         "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_READ_CHARS_DEFAULT",
         "STEWARD_READ_CHARS_MAX",
@@ -11370,6 +11385,7 @@
         "STEWARD_STEER_TEXT_MAX",
         "STEWARD_TITLE_MAX",
         "_stewardReadBudget",
+        "_stewardTurnQuota",
         "handleStewardApiRoutes",
         "stewardAddUsageRow",
         "stewardAppendDecision",
@@ -11383,8 +11399,11 @@
         "stewardEmptyMemoryStore",
         "stewardEmptyUsageBucket",
         "stewardEngineOf",
+        "stewardEnrichInboxRows",
         "stewardFail",
         "stewardImplAuditTail",
+        "stewardImplConfigGet",
+        "stewardImplConfigSet",
         "stewardImplDecide",
         "stewardImplHealth",
         "stewardImplInboxRead",
@@ -11392,9 +11411,12 @@
         "stewardImplMemoryVeto",
         "stewardImplMemoryWrite",
         "stewardImplMissions",
+        "stewardImplPlaybookDraft",
+        "stewardImplQuickAsk",
         "stewardImplRunAction",
         "stewardImplRunsStatus",
         "stewardImplSelfStatus",
+        "stewardImplSkillToggle",
         "stewardImplThreadContinue",
         "stewardImplThreadNew",
         "stewardImplThreadNote",
@@ -11407,10 +11429,20 @@
         "stewardLastAssistantText",
         "stewardLaunchTurn",
         "stewardMemoryChain",
+        "stewardMemoryPanelClear",
+        "stewardMemoryPanelEdit",
+        "stewardMemoryPanelExport",
+        "stewardMemoryPanelList",
+        "stewardMemoryPanelRestore",
+        "stewardMemoryPanelRow",
         "stewardMemoryPath",
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
+        "stewardPanelFailure",
+        "stewardPanelGate",
         "stewardPendingOneLine",
+        "stewardQuickClose",
+        "stewardQuickClosed",
         "stewardRawKind",
         "stewardReadBucket",
         "stewardReadMemoryStore",
@@ -11419,7 +11451,8 @@
         "stewardThreadPermissionMode",
         "stewardToolCallLine",
         "stewardToolHandler",
-        "stewardTurnKeyOf"
+        "stewardTurnKeyOf",
+        "stewardTurnQuotaTake"
       ],
       "requires": [
         {
@@ -11508,6 +11541,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "normalizeConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
@@ -11516,6 +11556,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
           "kinds": [
             "call"
           ]
@@ -11661,8 +11708,22 @@
           ]
         },
         {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskProviders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06-provider-engine.js",
           "symbol": "collectAudit",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "draftPlaybookFromSession",
           "kinds": [
             "call"
           ]
@@ -11714,6 +11775,41 @@
           "symbol": "STEWARD_PREROUTE_QUERY_MAX",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_QUICK_ANSWER_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_QUICK_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_QUICK_QUESTION_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardConfigTierFor",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11824,6 +11920,20 @@
         {
           "provider": "12-tool-dispatch.js",
           "symbol": "buildWorkbenchSelfStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "applyConfigPatch",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "setSessionSkillsCore",
           "kinds": [
             "call"
           ]
@@ -14464,6 +14574,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_CONFIG_TIERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_DIGEST_LIMITS",
           "kinds": [
             "read"
@@ -14520,6 +14637,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_QUICK_ANSWER_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_QUICK_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
@@ -14549,6 +14680,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_WAIT_REASONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardConfigTierFor",
           "kinds": [
             "read"
           ]

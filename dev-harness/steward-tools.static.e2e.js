@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 // 静态锁:第 116 波 116c(27 号文 §3.5 工具面 / §11.3 第 49 波入库门)—— 管家 21 个工具的
-// 「四处登记一致」与模块落点纪律。判定行:`STEWARD TOOLS STATIC E2E: ALL PASS`。
+// 「四处登记一致」与模块落点纪律(116-2e 重钉:21 -> 26)。判定行:`STEWARD TOOLS STATIC E2E: ALL PASS`。
 //
 // 断言六个方向:
 //   ① 四处登记一致:13f schema / 12 handler 注册表 / 07 NATIVE_TOOL_TIER / 07 NATIVE_TOOL_PACKS
-//      四个表的 steward_* 键集必须【完全相同】且恰好是这 21 个名字(任何一处漏登 = 锁红)。
-//      重钉来源:116h 增 steward_thread_prioritize(27 号文 §3.1 116h 行 / §8.10「提升优先级」),20 -> 21。
+//      四个表的 steward_* 键集必须【完全相同】且恰好是这 26 个名字(任何一处漏登 = 锁红)。
+//      重钉来源:116h 增 steward_thread_prioritize,20 -> 21;116-2e 增 config_get/config_set/
+//      playbook_draft/skill_toggle/quick_ask(27 号文 §3.5「如意设置」/「内容管理」行、§11.1 第 2 项),21 -> 26。
 //   ② handler 纪律:每个 steward_* handler 的 paths 必须是 null 且带非空 guardNote;handler 源码
 //      必须只调 StewardHooks.*、不含 require(、不含任何 13g 的内部符号(禁止前向边的机器判据)。
 //   ③ 13g 填充的 StewardHooks 键集 ⊇ 06i 契约注释里列出的键(契约注释不是装饰品)。
@@ -34,6 +35,10 @@ const STEWARD_TOOLS = [
   'steward_thread_note', 'steward_thread_prioritize',
   'steward_decide', 'steward_run_action',
   'steward_memory_write', 'steward_memory_veto', 'steward_memory_search',
+  // 116-2e:设置族两个(§3.5「如意设置」行的三级分级)+ 内容管理三个(playbook 起草 / 技能启停 /
+  // 速查线程)。21 -> 26。
+  'steward_config_get', 'steward_config_set',
+  'steward_playbook_draft', 'steward_skill_toggle', 'steward_quick_ask',
 ];
 const EXPECTED_TIER = {
   steward_self_status: 'read', steward_threads_search: 'read', steward_thread_status: 'read',
@@ -46,6 +51,10 @@ const EXPECTED_TIER = {
   steward_thread_prioritize: 'edit', // 116h: 插队只动仲裁器队列顺序,不改文件不动世界,归线程族 edit
   steward_decide: 'exec', steward_run_action: 'exec',
   steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
+  steward_config_get: 'read',                               // 116-2e: 只读掩码后的配置、零副作用
+  steward_config_set: 'exec',                               // 116-2e: §3.5「如意设置」行
+  steward_playbook_draft: 'edit',                           // 116-2e: 只出草稿不落盘,归内容管理 edit
+  steward_skill_toggle: 'exec', steward_quick_ask: 'exec',  // 116-2e: 改线程工具面 / 开一条真会动世界的线程
 };
 // StewardHooks 上的实现键 <- 工具名。inbox 的门控壳叫 inboxReadTool:116b 已经把 inboxRead 用作
 // 【原始读取器】(签名 (opts),无门控),契约不能被 116c 改语义,故工具壳另起一个键。
@@ -58,10 +67,13 @@ const HOOK_KEY = {
   steward_thread_permission: 'threadPermission', steward_thread_note: 'threadNote',
   steward_thread_prioritize: 'threadPrioritize',
   steward_decide: 'decide', steward_run_action: 'runAction',
+  steward_config_get: 'configGet', steward_config_set: 'configSet',
+  steward_playbook_draft: 'playbookDraft', steward_skill_toggle: 'skillToggle', steward_quick_ask: 'quickAsk',
   steward_memory_write: 'memoryWrite', steward_memory_veto: 'memoryVeto', steward_memory_search: 'memorySearch',
 };
 
 const read = f => fs.readFileSync(path.join(SRC, f), 'utf8');
+const srcFiles = fs.readdirSync(SRC).filter(f => f.endsWith('.js')).sort();   // 116-2e ⑦ 全仓扫描用
 const src06i = read('06i-steward-core.js');
 const src07 = read('07-autonomy.js');
 const src11 = read('11-native-tools.js');
@@ -84,11 +96,11 @@ const packNames = Object.keys(srv.NATIVE_TOOL_PACKS).filter(n => n.startsWith('s
 const schemaNames = [...new Set((src13f.match(/name: '(steward_[a-z_]+)'/g) || []).map(m => m.slice(7, -1)))].sort();
 const expected = [...STEWARD_TOOLS].sort();
 
-ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 21 个 steward_*(got ${schemaNames.length})`);
-ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 21 个 steward_*(got ${regNames.length})`);
-ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 21 个 steward_*(got ${tierNames.length})`);
-ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 21 个 steward_*(got ${packNames.length})`);
-ok(Object.keys(srv.TOOL_HANDLERS).length === 84, `① 注册表总数 84(63 + 21;116h 增 steward_thread_prioritize;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
+ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 26 个 steward_*(got ${schemaNames.length})`);
+ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 26 个 steward_*(got ${regNames.length})`);
+ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 26 个 steward_*(got ${tierNames.length})`);
+ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 26 个 steward_*(got ${packNames.length})`);
+ok(Object.keys(srv.TOOL_HANDLERS).length === 89, `① 注册表总数 89(63 + 26;116-2e 增 config_get/config_set/playbook_draft/skill_toggle/quick_ask;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
 
 /* ═════════════ ② handler 纪律:paths:null + guardNote + 只调 StewardHooks ═════════════ */
 
@@ -113,13 +125,13 @@ ok(badHook.length === 0, '② 每个 handler 只调它自己的 StewardHooks.<�
 const contractBlock = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));
 const contractKeys = [...new Set((contractBlock.match(/(?:^|[\s、])([a-z][A-Za-z]+)\(/gm) || [])
   .map(m => m.replace(/[^A-Za-z]/g, '')))]
-  .filter(k => typeof srv.StewardHooks[k] === 'function' || /^(handleApiRoutes|stopInbox|inboxState|inboxRead|selfStatus|threadsSearch|threadStatus|threadRead|runsStatus|inboxReadTool|usage|health|auditTail|threadNew|threadContinue|threadRename|threadPermission|threadNote|missions|decide|runAction|memoryWrite|memoryVeto|memorySearch)$/.test(k));
+  .filter(k => typeof srv.StewardHooks[k] === 'function' || /^(handleApiRoutes|stopInbox|inboxState|inboxRead|selfStatus|threadsSearch|threadStatus|threadRead|runsStatus|inboxReadTool|usage|health|auditTail|threadNew|threadContinue|threadRename|threadPermission|threadNote|missions|decide|runAction|memoryWrite|memoryVeto|memorySearch|configGet|configSet|playbookDraft|skillToggle|quickAsk|enrichInboxRows|quickClose|quickClosed)$/.test(k));
 const filled = Object.keys(srv.StewardHooks);
 const missingFill = contractKeys.filter(k => typeof srv.StewardHooks[k] !== 'function');
 ok(contractKeys.length >= 30, `③ 06i 契约注释列出 ≥30 个预留键(116h 增 threadPrioritize 与 5 个仲裁键;got ${contractKeys.length})`);
 ok(missingFill.length === 0, '③ 13g 填充键集 ⊇ 06i 契约注释列出的键' + (missingFill.length ? ' → 未填充: ' + missingFill.join(',') : ''));
-ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 21 个工具的实现键全部落在 StewardHooks 上');
-ok(filled.length >= 30, `③ StewardHooks 至少 30 个实现键(4 个 116b 基础设施 + 21 个工具 + 116f/116-pre/116h 的运行器与仲裁键;got ${filled.length})`);
+ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 26 个工具的实现键全部落在 StewardHooks 上');
+ok(filled.length >= 30, `③ StewardHooks 至少 30 个实现键(4 个 116b 基础设施 + 26 个工具 + 116f/116-pre/116h 的运行器与仲裁键 + 116-2e 的三个基础设施键;got ${filled.length})`);
 ok(/Object\.assign\(StewardHooks, \{/.test(src13g), '③ 13g 经 Object.assign(StewardHooks, {...}) 单向填充(06i 从不引用 13g)');
 
 /* ═════════════ ④ tier / pack 分档 ═════════════ */
@@ -147,7 +159,7 @@ const cfg = srv.normalizeConfig({}).config;
 const offeredPlain = srv.buildOpenAiTools(cfg, null, {}).map(t => t.function.name).filter(n => n.startsWith('steward_'));
 const offeredSteward = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_'));
 ok(offeredPlain.length === 0, `⑤ 回环:普通会话 buildOpenAiTools 零 steward_*(got ${offeredPlain.length})`);
-ok(offeredSteward.length === 21, `⑤ 回环:管家会话 buildOpenAiTools 拿到 21 个 steward_*(got ${offeredSteward.length})`);
+ok(offeredSteward.length === 26, `⑤ 回环:管家会话 buildOpenAiTools 拿到 26 个 steward_*(got ${offeredSteward.length})`);
 ok(/steward\.forbidden/.test(src13g) && /steward\.disabled/.test(src13g), '⑤ 13g 门控壳含 steward.forbidden / steward.disabled 两个稳定信封');
 ok(/session\.kind === 'steward'/.test(src13g), "⑤ 13g 身份判定读【显式】session.kind === 'steward'(不经 sessionKind 归一)");
 
@@ -195,6 +207,43 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 {
   ok(srv.stewardTermJaccard('用户偏好中文输出', '用户偏好中文输出') === 1, '附 记忆去重:同句 Jaccard === 1');
   ok(srv.stewardTermJaccard('用户偏好中文输出', '今天天气不错') < 0.8, '附 记忆去重:无关句 Jaccard < 0.8');
+}
+
+/* ═════════════ ⑦ 116-2e:ctx.userPressed 的出现处白名单(全仓机械锁) ═════════════ */
+
+// 「用户亲手按下了按钮」这件事只有一个来源:13h 的 POST /api/steward/act 执行路径。它一旦泄漏到
+// 别处(比如被 stewardMayAct 或永久豁免判定读到),「用户点了一下」就会变成「管家从此可以放宽权限」
+// —— 27 号文 §3.3 永久豁免第 2 条正是禁止这个。故这里把全仓每一处 userPressed 的出现点钉死:
+//   · 06i-steward-core.js —— 只在契约注释里(纯函数层不读它);
+//   · 13g-steward.js      —— 门控壳剥字段 + config_set / skill_toggle 两处「须确认」判定;
+//   · 13h-steward-runner.js —— 唯一置 true 的那一行(act 执行路径)。
+// 任何第四个文件出现它 = 锁红。
+{
+  const NEWLINE_RE = /\r?\n/;
+  const COMMENT_RE = /^\s*(\/\/|\*|\/\*)/;
+  const ALLOWED = new Set(['06i-steward-core.js', '13g-steward.js', '13h-steward-runner.js']);
+  const hits = [];
+  for (const file of srcFiles) {
+    const text = read(file);
+    const count = (text.match(/userPressed/g) || []).length;
+    if (count) hits.push([file, count, text]);
+  }
+  const outside = hits.filter(([file]) => !ALLOWED.has(file)).map(([file]) => file);
+  ok(outside.length === 0, '⑦ userPressed 只出现在 06i / 13g / 13h 三个文件里' + (outside.length ? ' → ' + outside.join(',') : ''));
+  const src13h2 = read('13h-steward-runner.js');
+  const setters = (src13h2.match(/userPressed: true/g) || []).length;
+  ok(setters === 1, `⑦ 全仓只有一处把 userPressed 置 true(13h 的 act 执行路径;got ${setters})`);
+  ok(/pathname === '\/api\/steward\/act'/.test(src13h2), "⑦ 那一处所在的路由就是 POST /api/steward/act");
+  // 读它的地方只有 config_set 与 skill_toggle 的「须确认」判定(加上门控壳剥字段那一处)。
+  // 只数【代码行】:注释里指路的那一句不算读。
+  const readers = src13g.split(NEWLINE_RE)
+    .filter(line => line.includes('ctx.userPressed') && !COMMENT_RE.test(line)).length;
+  ok(readers === 2, `⑦ 13g 里只有两处读 ctx.userPressed(config_set / skill_toggle 的须确认判定;got ${readers})`);
+  ok(!/userPressed/.test(read('07-autonomy.js')) && !/userPressed/.test(read('06f-autonomy-grants.js')),
+    '⑦ 权限门(07 nativeToolGate)与授权书(06f)源码里零 userPressed —— 按钮不等于扩权');
+  const src06i2 = read('06i-steward-core.js');
+  const codeLines = src06i2.split(NEWLINE_RE).filter(line => line.includes('userPressed') && !COMMENT_RE.test(line));
+  ok(codeLines.length === 0, '⑦ 06i 里 userPressed 只出现在契约注释,不出现在任何一行代码');
 }
 
 console.log('');

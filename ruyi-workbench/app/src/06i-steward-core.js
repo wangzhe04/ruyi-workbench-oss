@@ -404,6 +404,87 @@ function stewardTermJaccard(a, b) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 第 116 波 116-2e(27 号文 §3.5「如意设置」行):`steward_config_get` / `steward_config_set` 的
+// 三级分级。allowlist 语义、fail-closed —— 没有明确列进 free/confirm 的键一律 forbidden。
+//
+// 为什么是白名单而不是黑名单:黑名单的失败方向是「新加的配置键默认可写」。管家是常在用户不在场时
+// 自主运行的角色,它的设置面必须让【新增键默认最保守】。于是:
+//   free      —— 管家可以直接改(改错了用户一眼看得见、一键改回:语言、输出风格、主题、专家界面开关、
+//                 管家自己的节流与预算参数);
+//   confirm   —— 必须用户【亲手按下】才生效(ctx.userPressed === true):换主端点/模型、子代理端点、
+//                 MCP 连接器与浏览器目标、新线程默认权限、管家开关与「管家可以自己做的事」清单;
+//   forbidden —— 任何权限都不经管家改:密钥/token、数据根与工作目录围栏、命令与桌面工具放行、
+//                 授权书与提示词注入面。§3.3 永久豁免第 2 条「管家不得自我扩权」的配置侧落地。
+//
+// 兜底正则在【最前】判:哪怕将来有人把某个含 apiKey/token/secret/password 的键错列进 free/confirm,
+// 它仍然是 forbidden(两道闸,不是一道)。
+const STEWARD_CONFIG_SECRET_PATTERN = /apiKey|token|secret|password/i;
+
+// free:改错了代价 = 用户看一眼就发现、一键改回;不影响钱、不影响权限、不影响能动世界的范围。
+const STEWARD_CONFIG_TIER_FREE = Object.freeze([
+  'locale', 'outputStyle', 'theme', 'uiMode',
+  // 管家自身设置(§3.5「管家自身设置除默认权限与自理清单外」)。stewardEnabledV1 与
+  // stewardAutoActions 【不在这里】—— 前者是管家的总开关、后者是「管家可以自己做的事」清单,
+  // 两个都属于「管家扩自己的权」,一律 confirm。
+  'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour', 'stewardMaxCostPerDay',
+  'stewardReadBudgetChars', 'stewardVisitIdleMinutes',
+  'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour',
+  'stewardGlobalMaxCostPerDay',
+  // 【不在这里】的还有 `stewardContextBudgetTokens`:它按设计本该是 free(管家自己的上下文预算),
+  // 但键名含 "Tokens",被上面的密钥兜底正则命中 -> forbidden。不为它开正则的例外口子:一个「除了
+  // 这一个键」的例外,就是下一次真有密钥键从例外里溜出去的入口。代价是管家改不了自己的上下文预算
+  // (用户在设置页照常能改),这个代价比削弱兜底小得多。单测 unit/steward-config-tier.test.js 把
+  // 这条判定钉成期望值,不是漏判。
+]);
+
+// confirm:改动会花钱、换执行主体、或改变「谁能不问就做什么」的边界 —— 用户亲手按一下才算数。
+const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
+  // 主端点与模型选择
+  'agentCliType', 'engineMode', 'activeProvider', 'model', 'compactProviderId', 'compactModel', 'modelsApiBase',
+  // 子代理端点(§3.5 逐字列出的 subagentPreferred*)
+  'subagentPreferredProvider', 'subagentPreferredModel',
+  // MCP 连接器启停与浏览器目标(§3.5:经 mcp_configure 同款审批)
+  'externalMcpServers', 'enableMcpDropIn', 'includeWorkbenchMcp', 'browserAutomation',
+  // 新线程默认权限、管家总开关与自理清单
+  'permissionMode', 'stewardEnabledV1', 'stewardAutoActions',
+]);
+
+// forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把
+// §3.5 逐字点名的那几类在源码里留一份可读的账,免得日后有人以为漏判了。
+const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
+  'providers', 'searchBackend', 'modelsApiKey', 'claudeAuthMode',      // 密钥/token 值(另有正则兜底)
+  'defaultWorkspace', 'workspaces', 'recentWorkspaces', 'additionalDirectories', 'allowOutsideWorkspace',
+  'claudePath', 'kimiPath', 'extraClaudeArgs', 'appendSystemPrompt',   // 数据根/围栏/命令行与提示词注入
+  'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers',
+  'mcpCommandMode', 'permissionBridge', 'autonomyAutoResume', 'agentRoleOverrides', 'usageBudget',
+]);
+
+const STEWARD_CONFIG_TIERS = Object.freeze({
+  free: STEWARD_CONFIG_TIER_FREE,
+  confirm: STEWARD_CONFIG_TIER_CONFIRM,
+  forbiddenNote: STEWARD_CONFIG_TIER_FORBIDDEN_NOTE,
+  secretPattern: STEWARD_CONFIG_SECRET_PATTERN.source,
+});
+
+// 纯函数、零副作用:键名 -> 'free' | 'confirm' | 'forbidden'。非字符串/空串一律 forbidden。
+function stewardConfigTierFor(key) {
+  const name = typeof key === 'string' ? key.trim() : '';
+  if (!name) return 'forbidden';
+  if (STEWARD_CONFIG_SECRET_PATTERN.test(name)) return 'forbidden';   // 第一道闸,压过下面两张表
+  if (STEWARD_CONFIG_TIER_FREE.includes(name)) return 'free';
+  if (STEWARD_CONFIG_TIER_CONFIRM.includes(name)) return 'confirm';
+  return 'forbidden';                                                  // fail-closed:未登记 = 禁止
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 第 116 波 116-2e(§11.1 第 2 项「速查线程」):速查会话的头字段形状与答案硬顶。
+// 速查线程 = 管家为了回答一个「要读文件/联网/动手才能答」的问题临时开的线程:不进事项、答完即收工,
+// 收工后从总览与线程搜索里消失(数据还在,经典壳照常能看见 —— 它只是不再占管家的注意力预算)。
+const STEWARD_QUICK_KIND = 'quick_ask';
+const STEWARD_QUICK_ANSWER_CHARS = 1200;
+const STEWARD_QUICK_QUESTION_CHARS = 1000;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 第 116 波 116-pre(27 号文 §8.12「递话：交给线程的交互」/ §11.1 第 3 项/ §11.3):
 // 递话预判纯函数。零模型、零磁盘、零网络——入参之外零副作用,与本文件上方两段同一条纪律。
 //
@@ -618,8 +699,23 @@ function prerouteText(q, index, memory, opts) {
 //           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)、
 //           threadNote(args,ctx)(116-2b:给【已在跑】的线程以插话补一句上下文,走 /api/steer 同一通道)
 //   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
+//   设置族(tier exec,116-2e): configGet(args,ctx)、configSet(args,ctx)
+//           —— 按 stewardConfigTierFor 三级分档:free 直写、confirm 须 ctx.userPressed === true、
+//           forbidden 整份拒绝(零写入)。落盘走与 POST /api/config 同一个核心。
+//   内容族(116-2e): playbookDraft(args,ctx)(tier edit,只起草不保存,每回合 1 次)、
+//           skillToggle(args,ctx)(tier exec,与 POST /api/session/skills 共用 setSessionSkillsCore,须确认)、
+//           quickAsk(args,ctx)(tier exec,开一条 kind:'quick_ask' 速查线程,每回合 2 次)、
+//           enrichInboxRows(rows)(基础设施:13i 每轮落盘前调,给速查会话的 done 行补 quick/answer)
 //   记忆族(tier edit): memoryWrite(args,ctx)、memoryVeto(args,ctx)、memorySearch(args,ctx)
 // 全部工具实现键的签名统一为 (args, ctx) 并返回稳定信封(见 13g 的 stewardToolHandler)。
+//
+// ── ctx.userPressed 的规矩(116-2e,静态锁 steward-tools.static ⑦ 机械看住)──────────────
+// `ctx.userPressed === true` 的唯一来源是 13h 的 `POST /api/steward/act` 执行路径 —— 用户在界面上
+// 【亲手按下】了那个按钮,13h 在构造 ctx 时置 true。模型回合里的工具调用 ctx 【永远】没有它,
+// 13g 的 stewardToolHandler 在进实现前把 args 里任何同名字段剥掉(模型自称「用户按了」不算数)。
+// 读它的地方只有两处:steward_config_set 与 steward_skill_toggle 的「须确认」判定。
+// `stewardMayAct`、永久豁免清单、线程权限判定一概【不读】它 ——
+// 用户按下一个按钮 ≠ 管家从此获得放宽权限的能力(§3.3 永久豁免第 2 条)。
 //   回合运行器(116f,由 13h-steward-runner.js 填充;消费者是 06/09/10 的提示词与预算分叉、13g 的
 //   轮询器出口与 state 路由 —— 它们全都只看 StewardHooks,不认识 13h,故 13h 无任何入边):
 //           buildSystemPrompt(session,config,ctx) -> {stable, volatile}(管家会话整段换掉普通提示词包)
