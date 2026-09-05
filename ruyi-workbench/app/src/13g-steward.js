@@ -177,7 +177,7 @@ function stewardIsoAt(value) {
 // 位就是 interventionId,budget 的 seq 位是常量 'exhausted' —— 二者都是各自源的稳定游标)。
 function stewardEventDedupeKey(evt) {
   const e = (evt && typeof evt === 'object') ? evt : {};
-  return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join(' ');
+  return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join('\u0000');
 }
 
 // ① Mission Change Ledger 的一条 change record → 归一化事件 | null
@@ -308,7 +308,7 @@ function stewardMergeInboxEvents(events, windowMs) {
   const open = new Map(); // sessionId\0kind -> group
   const out = [];
   for (const evt of rows) {
-    const groupKey = String(evt.sessionId || '') + ' ' + String(evt.kind || '');
+    const groupKey = String(evt.sessionId || '') + '\u0000' + String(evt.kind || '');
     const at = Date.parse(evt.at);
     const atMs = Number.isFinite(at) ? at : 0;
     const group = open.get(groupKey);
@@ -530,7 +530,7 @@ async function stewardCollectEvents() {
       hasPending = true;
       const id = String(iv.id || '');
       if (!id) continue;
-      const pendingKey = sid + ' ' + id;
+      const pendingKey = sid + '\u0000' + id;
       nextPending.add(pendingKey);
       if (stewardRuntime.cursor.pendingIds.has(pendingKey)) continue;
       const evt = stewardNormalizePendingIntervention(sid, missionId, iv);
