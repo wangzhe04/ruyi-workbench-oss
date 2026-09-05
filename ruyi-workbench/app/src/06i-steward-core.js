@@ -312,6 +312,202 @@ function stewardTermJaccard(a, b) {
   return union > 0 ? inter / union : 0;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 第 116 波 116-pre(27 号文 §8.12「递话：交给线程的交互」/ §11.1 第 3 项/ §11.3):
+// 递话预判纯函数。零模型、零磁盘、零网络——入参之外零副作用,与本文件上方两段同一条纪律。
+//
+// prerouteText(q, index, memory, opts) -> { kind, hits }
+//   q:       用户正在输入的原文(未提交)。
+//   index:   活跃线程行数组(调用方已排除 done 与 steward),每行
+//            { sessionId, missionId, missionTitle, title, summary, state, updatedAt }。
+//   memory:  活跃管家记忆条目 [{ kind, text }](本函数只认 kind ∈ {focus, habit},其余整条忽略——
+//            调用方即便传未过滤的全量记忆也不会误加权,双重保险比信任调用方过滤更省心)。
+//   opts:    { now, minScore, unsureRatio }均可选,不传则用 STEWARD_PREROUTE_DEFAULTS。
+//
+// 五种 kind 的判定顺序(§8.12 第 1 条「输入即预判」逐条落实):
+//   ① q 去空白后为空 -> 'steward'(默认收件人「如意」本身,不用词法判定)。
+//   ② 命中定时意图(isSchedule)-> 'schedule',优先于线程词法命中(「明天 9 点提醒我交周报」不能
+//      因为「周报」命中一条线程就被当成递话——用户是要建提醒,不是要跟那条线程说话)。
+//   ③ 词法打分:见 stewardPrerouteScoreThread;候选按分降序、同分按 sessionId 升序(确定性)取前 3。
+//   ④ 最高分 < minScore(默认 2):isQuestion(q) -> 'question',否则 -> 'new'。
+//   ⑤ 最高分 ≥ minScore 且次高分 ≥ 最高分 × unsureRatio(默认 0.85)-> 'unsure'(hits 给前两名,
+//      §8.12 第 5 条「只在真分不出时才问」)。
+//   ⑥ 否则 -> 'thread'(hits 只给第一名)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STEWARD_PREROUTE_DEFAULTS = Object.freeze({
+  minScore: 2,
+  unsureRatio: 0.85,
+  recentMs: 24 * 60 * 60 * 1000,
+  weights: Object.freeze({ title: 3, missionTitle: 2, summary: 1 }),
+  phraseBonus: 3,
+  memoryBonus: 2,
+  recentBonus: 0.5,
+  stateBonus: 0.5,
+  maxHits: 3,
+});
+// q 的硬顶(§11.3 116-pre 行「不写盘,p50 ≤50ms」——端点侧也夹一遍,这里是纯函数自己的防线,
+// 免得调用方漏夹时词法层要在一条超长字符串上跑分词)。
+const STEWARD_PREROUTE_QUERY_MAX = 500;
+
+// 定时意图(§8.12「命中定时意图显示『→ 如意 · 定时』」)。宁可误判成 schedule(用户随手改口说
+// 「算了，还是接着聊」)也不可漏判成线程命中——递错线程比多问一句「这是要定时吗」代价更大。
+const STEWARD_SCHEDULE_RE = /提醒|每天|每周|每月|定时|(明天|后天|大后天|今天|周[一二三四五六日天]|星期[一二三四五六日天])[^\n]{0,8}[点时]|[0-9１-９]{1,2}\s*[点时]/;
+// 形参故意不叫 text(同上「记忆加权」处的避让理由——00-boot.js 顶层 text() 响应助手同名撞车,
+// 依赖图扫描器不做真实作用域分析,任何叫这个名字的局部绑定——包括形参——都会被误判成引用它)。
+function stewardPrerouteIsSchedule(input) {
+  return STEWARD_SCHEDULE_RE.test(String(input || ''));
+}
+
+// 问句(§8.12「管家自己判断问句并直接作答」/本切片 opts 的 question 分支)。问号 || 含疑问词 ||
+// 「吗/呢」收尾,三选一即算问句。疑问词不锚定串首——中文疑问句常见「现在哪条最烧钱」这类主语在前、
+// 疑问代词居中的结构(交付物给的原例),锚 ^ 会漏判它,故按「词出现在句中」判定(§11.3 116-pre 行的
+// 单测穷举以这条原例为准)。
+const STEWARD_QUESTION_LEAD_RE = /(哪|谁|什么|多少|几|为什么|怎么|有没有|是不是|能不能)/;
+const STEWARD_QUESTION_TAIL_RE = /(吗|呢)$/;
+function stewardPrerouteIsQuestion(input) {
+  const s = String(input || '').trim();
+  if (!s) return false;
+  if (/[?？]/.test(s)) return true;
+  if (STEWARD_QUESTION_LEAD_RE.test(s)) return true;
+  if (STEWARD_QUESTION_TAIL_RE.test(s)) return true;
+  return false;
+}
+
+// 引号/书名号内的整段短语(§8.12 词法打分「短语整段命中额外 +3」)。「」直角引号与四种常见直/弯引号
+// 都认,段内 1–120 字;同一个 q 里可以有多段。
+const STEWARD_PHRASE_RE = /「([^」]{1,120})」|"([^"]{1,120})"|"([^"]{1,120})"|'([^']{1,120})'|'([^']{1,120})'/g;
+function stewardPrerouteExtractPhrases(input) {
+  const source = String(input || '');
+  const phrases = [];
+  let m;
+  STEWARD_PHRASE_RE.lastIndex = 0;
+  while ((m = STEWARD_PHRASE_RE.exec(source))) {
+    const value = (m[1] || m[2] || m[3] || m[4] || m[5] || '').trim();
+    if (value) phrases.push(value);
+  }
+  return phrases;
+}
+function stewardPrerouteContainsPhrase(fieldText, phrase) {
+  if (!fieldText || !phrase) return false;
+  const haystack = String(fieldText).normalize('NFKC').toLowerCase();
+  const needle = String(phrase).normalize('NFKC').toLowerCase();
+  return needle.length > 0 && haystack.includes(needle);
+}
+
+// 词项打分:与 stewardMemoryTerms 同一套分词口径(ASCII \w+ 小写 + CJK 二元组)——116 波已有的
+// 记忆去重与本切片的递话预判没有理由用两套不同的分词规则,复用即省心又省一份要对账的口径。
+function stewardPrerouteFieldMatch(fieldText, queryTerms) {
+  const matched = new Set();
+  if (!fieldText || !queryTerms || !queryTerms.size) return matched;
+  const fieldTerms = stewardMemoryTerms(fieldText);
+  for (const term of queryTerms) if (fieldTerms.has(term)) matched.add(term);
+  return matched;
+}
+
+// 记忆加权(§8.12/116-pre 交付物「focus／habit 条目里出现的线程标题或事项标题,对应线程 +2」)。
+// 方向是「线程标题出现在记忆条目文本里」(记忆是长文本、标题是短针,包含关系只有这一个方向成立)。
+// 局部名故意不叫 text:00-boot.js 顶层有一个 text() 响应助手,同名局部绑定会被依赖图扫描器判成
+// 「06i 引用了 00-boot 的 text」(先例见 buildStewardBrief 的 composedText 同款避让)。
+function stewardPrerouteMemoryHit(row, memoryEntries) {
+  if (!memoryEntries || !memoryEntries.length) return false;
+  const needles = [row && row.title, row && row.missionTitle]
+    .map(v => (v == null ? '' : String(v)).normalize('NFKC').toLowerCase().trim())
+    .filter(v => v.length >= 2);
+  if (!needles.length) return false;
+  for (const entry of memoryEntries) {
+    const entryText = String((entry && entry.text) || '').normalize('NFKC').toLowerCase();
+    if (!entryText) continue;
+    for (const needle of needles) if (entryText.includes(needle)) return true;
+  }
+  return false;
+}
+
+// 单条线程的分数与命中细节(供排序与 reason 拼装共用,避免算两遍)。
+function stewardPrerouteScoreThread(row, terms, phrases, memoryEntries, now, defaults) {
+  const titleHits = stewardPrerouteFieldMatch(row && row.title, terms);
+  const missionHits = stewardPrerouteFieldMatch(row && row.missionTitle, terms);
+  const summaryHits = stewardPrerouteFieldMatch(row && row.summary, terms);
+  const phraseHit = phrases.some(p =>
+    stewardPrerouteContainsPhrase(row && row.title, p) ||
+    stewardPrerouteContainsPhrase(row && row.missionTitle, p) ||
+    stewardPrerouteContainsPhrase(row && row.summary, p));
+  const memoryHit = stewardPrerouteMemoryHit(row, memoryEntries);
+  const updatedMs = Date.parse(String((row && row.updatedAt) || ''));
+  const recent = Number.isFinite(updatedMs) && Math.abs(now - updatedMs) <= defaults.recentMs;
+  const state = String((row && row.state) || '');
+  const stateWeighted = state === 'needs_you' || state === 'stopped';
+
+  let score = 0;
+  score += titleHits.size * defaults.weights.title;
+  score += missionHits.size * defaults.weights.missionTitle;
+  score += summaryHits.size * defaults.weights.summary;
+  if (phraseHit) score += defaults.phraseBonus;
+  if (memoryHit) score += defaults.memoryBonus;
+  if (recent) score += defaults.recentBonus;
+  if (stateWeighted) score += defaults.stateBonus;
+
+  return { row, score, titleHits, missionHits, summaryHits, phraseHit, memoryHit, recent, stateWeighted };
+}
+
+// reason:一句话说清楚「命中了哪些词、是否记忆加权、是否短语命中」(交付物原句)。尖括号中和同
+// stewardSanitizeText。命中词最多列 6 个,防一条长 q 把 reason 撑爆。
+function stewardPrerouteReason(candidate) {
+  const parts = [];
+  const words = new Set([...candidate.titleHits, ...candidate.missionHits, ...candidate.summaryHits]);
+  if (words.size) parts.push('命中词：' + Array.from(words).slice(0, 6).join('、'));
+  if (candidate.phraseHit) parts.push('短语命中');
+  if (candidate.memoryHit) parts.push('记忆加权');
+  if (candidate.recent) parts.push('近期更新');
+  if (candidate.stateWeighted) parts.push('它在等你或已停');
+  if (!parts.length) parts.push('弱匹配');
+  return stewardSanitizeText(parts.join('；'));
+}
+function stewardPrerouteHit(candidate) {
+  return {
+    sessionId: stewardSanitizeText((candidate.row && candidate.row.sessionId) || ''),
+    missionId: stewardSanitizeText((candidate.row && candidate.row.missionId) || ''),
+    title: stewardSanitizeText((candidate.row && candidate.row.title) || ''),
+    score: Math.round(candidate.score * 100) / 100,
+    reason: stewardPrerouteReason(candidate),
+  };
+}
+
+function prerouteText(q, index, memory, opts) {
+  const options = (opts && typeof opts === 'object') ? opts : {};
+  const defaults = STEWARD_PREROUTE_DEFAULTS;
+  const minScore = Number.isFinite(options.minScore) ? options.minScore : defaults.minScore;
+  const unsureRatio = Number.isFinite(options.unsureRatio) ? options.unsureRatio : defaults.unsureRatio;
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+
+  const raw = q == null ? '' : String(q);
+  // 局部名不叫 text(同上「记忆加权」注释里的避让理由——00-boot.js 的 text() 响应助手同名撞车)。
+  const clipped = raw.slice(0, STEWARD_PREROUTE_QUERY_MAX);
+  const trimmed = clipped.trim();
+  if (!trimmed) return { kind: 'steward', hits: [] };
+  if (stewardPrerouteIsSchedule(trimmed)) return { kind: 'schedule', hits: [] };
+
+  const terms = stewardMemoryTerms(trimmed);
+  const phrases = stewardPrerouteExtractPhrases(trimmed);
+  const memoryEntries = (Array.isArray(memory) ? memory : [])
+    .filter(e => e && (e.kind === 'focus' || e.kind === 'habit') && e.text);
+
+  const rows = Array.isArray(index) ? index : [];
+  const candidates = rows
+    .filter(row => row && row.sessionId)
+    .map(row => stewardPrerouteScoreThread(row, terms, phrases, memoryEntries, now, defaults))
+    .sort((a, b) => b.score - a.score || String(a.row.sessionId).localeCompare(String(b.row.sessionId)));
+
+  const top = candidates.slice(0, defaults.maxHits);
+  if (!top.length || top[0].score < minScore) {
+    return { kind: stewardPrerouteIsQuestion(trimmed) ? 'question' : 'new', hits: [] };
+  }
+  if (top.length >= 2 && top[1].score >= top[0].score * unsureRatio) {
+    return { kind: 'unsure', hits: [stewardPrerouteHit(top[0]), stewardPrerouteHit(top[1])] };
+  }
+  return { kind: 'thread', hits: [stewardPrerouteHit(top[0])] };
+}
+
 // 延迟绑定命名空间(先例:06c-agent-loop-hooks.js 的 AgentLoopHooks)。本切片(116a)只声明空对象与
 // 契约注释,不实现——填充者是后续切片的 13g-steward.js(transport 层,加载时 Object.assign(StewardHooks,
 // {...})),消费者是 12-tool-dispatch.js 里 session.kind==='steward' 才 offer 的管家工具 handler。
@@ -338,4 +534,7 @@ function stewardTermJaccard(a, b) {
 //           runnerState(config) -> object(并进 GET /api/steward/state 的响应)
 //           handleRunnerApiRoutes(req,res,pathname)(/api/steward/{visit,message,act})
 //           stopRunner()/resumeRunner()(一键停机同时停回合队列;start 恢复)
+//   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
+//           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
+//           零模型、缓存命中不重装配)
 const StewardHooks = {};

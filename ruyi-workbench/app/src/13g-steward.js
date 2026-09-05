@@ -787,6 +787,26 @@ async function handleStewardApiRoutes(req, res, pathname) {
     return send(res, json({ ok: true, ...result }));
   }
 
+  // 116-pre(27号文§8.12/§11.1第3项/§11.3):递话预判——只读、零模型、不写盘。装配(读投影+会话头+
+  // 记忆存储、缓存)在 13h-steward-runner.js(拼接顺序在本文件之后),故经 StewardHooks 转交(同
+  // handleRunnerApiRoutes 一手法);q 长度在这里再夹一遍(纯函数自己也夹,双重防线)。tookMs 只计
+  // StewardHooks.preroute 这一段(排除 token 校验与 HTTP 层开销),与「p50 ≤50ms」的度量口径对齐。
+  if (req.method === 'GET' && pathname === '/api/steward/preroute') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (config.stewardEnabledV1 !== true) {
+      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
+    }
+    const query = new URL(req.url, 'http://x').searchParams;
+    const q = String(query.get('q') || '').slice(0, STEWARD_PREROUTE_QUERY_MAX);
+    const startedAt = Date.now();
+    const result = typeof StewardHooks.preroute === 'function'
+      ? await StewardHooks.preroute(q, config)
+      : { kind: 'new', hits: [] }; // 理论上不可能(13h 恒填充);兜底而不是抛异常
+    const tookMs = Date.now() - startedAt;
+    return send(res, json({ ok: true, kind: result.kind, hits: result.hits, tookMs }));
+  }
+
   // 116f: /api/steward/{visit,message,act} 住 13h-steward-runner.js(拼接顺序在本文件【之后】)。
   // 与 13 挂 13g 同一手法:直接写函数名会是前向边,故经 06i 的延迟绑定命名空间转交;未填充时本行
   // 是无操作,路由链继续往下走(最终 404)。命中与否仍以 res.writableEnded 为准。

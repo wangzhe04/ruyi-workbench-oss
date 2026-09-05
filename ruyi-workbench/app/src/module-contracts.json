@@ -3532,6 +3532,12 @@
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_PERMISSION_LABELS",
         "STEWARD_PERMISSION_MODE",
+        "STEWARD_PHRASE_RE",
+        "STEWARD_PREROUTE_DEFAULTS",
+        "STEWARD_PREROUTE_QUERY_MAX",
+        "STEWARD_QUESTION_LEAD_RE",
+        "STEWARD_QUESTION_TAIL_RE",
+        "STEWARD_SCHEDULE_RE",
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
         "STEWARD_STATE_LABELS",
@@ -3542,11 +3548,21 @@
         "buildStewardDigestLine",
         "deriveStewardThreadState",
         "isStewardToolName",
+        "prerouteText",
         "stewardHasText",
         "stewardMayAct",
         "stewardMemoryTerms",
         "stewardPendingTotal",
         "stewardPermissionLabel",
+        "stewardPrerouteContainsPhrase",
+        "stewardPrerouteExtractPhrases",
+        "stewardPrerouteFieldMatch",
+        "stewardPrerouteHit",
+        "stewardPrerouteIsQuestion",
+        "stewardPrerouteIsSchedule",
+        "stewardPrerouteMemoryHit",
+        "stewardPrerouteReason",
+        "stewardPrerouteScoreThread",
         "stewardSanitizeBlock",
         "stewardSanitizeText",
         "stewardStateLabel",
@@ -11287,6 +11303,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PREROUTE_QUERY_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
@@ -11468,6 +11491,7 @@
         "STEWARD_VISIT_DIGEST_MAX",
         "STEWARD_VISIT_SCHEMA",
         "STEWARD_WHY_MAX",
+        "_stewardPrerouteCache",
         "buildStewardSystemPrompt",
         "ensureStewardSession",
         "handleStewardRunnerApiRoutes",
@@ -11490,6 +11514,8 @@
         "stewardOverviewBlock",
         "stewardParseReply",
         "stewardPendingList",
+        "stewardPreroute",
+        "stewardPrerouteIndexRows",
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunAct",
@@ -11650,6 +11676,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -11694,6 +11727,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "prerouteText",
           "kinds": [
             "call"
           ]
@@ -11848,6 +11888,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardReadMemoryStore",
           "kinds": [
             "call"
           ]
@@ -13725,6 +13772,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "prerouteText",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_BRIEF_LIMITS",
           "kinds": [
             "read"
@@ -13768,6 +13822,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PERMISSION_MODE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PREROUTE_DEFAULTS",
           "kinds": [
             "read"
           ]
@@ -14959,6 +15020,13 @@
         {
           "provider": "13h-steward-runner.js",
           "symbol": "stewardParseReply",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardPreroute",
           "kinds": [
             "read"
           ]

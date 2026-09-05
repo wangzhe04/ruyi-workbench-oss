@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-05T07:50:21.099Z",
+  "generatedAt": "2026-09-05T08:29:09.566Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -15,10 +15,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 103,
-    "decisionPoints": 112,
+    "routeAuthEntries": 104,
+    "decisionPoints": 113,
     "byKind": {
-      "exact": 99,
+      "exact": 100,
       "prefix": 12,
       "regex": 1
     },
@@ -637,6 +637,12 @@
     {
       "m": "POST",
       "p": "/api/steward/act",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/steward/preroute",
       "auth": "token",
       "prefix": false
     },
@@ -1511,6 +1517,7 @@
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js"
       ]
     },
@@ -2005,6 +2012,7 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -2498,6 +2506,7 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -2646,6 +2655,7 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -3266,7 +3276,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\steward-events.static.e2e.js",
-        "dev-harness\\steward-inbox.e2e.js"
+        "dev-harness\\steward-inbox.e2e.js",
+        "dev-harness\\steward-preroute.e2e.js"
       ]
     },
     {
@@ -3308,9 +3319,27 @@
     },
     {
       "kind": "exact",
+      "path": "/api/steward/preroute",
+      "file": "13g-steward.js",
+      "line": 794,
+      "handler": "handleStewardApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "steward",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\steward-preroute.e2e.js",
+        "dev-harness\\steward-runner.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/steward/visit",
       "file": "13h-steward-runner.js",
-      "line": 927,
+      "line": 980,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3328,7 +3357,7 @@
       "kind": "exact",
       "path": "/api/steward/act",
       "file": "13h-steward-runner.js",
-      "line": 939,
+      "line": 992,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3346,7 +3375,7 @@
       "kind": "exact",
       "path": "/api/steward/message",
       "file": "13h-steward-runner.js",
-      "line": 951,
+      "line": 1004,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"

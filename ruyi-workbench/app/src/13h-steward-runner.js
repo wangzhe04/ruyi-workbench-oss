@@ -265,6 +265,10 @@ async function stewardThreadDigestRows(config) {
     const costs = usage && usage.costsByCurrency ? Object.values(usage.costsByCurrency) : [];
     rows.push({
       sessionId: sid,
+      // 116-pre(§8.12/§11.3):递话预判的 index 行要 missionId——3.0 里等于 sessionId(见下方注释),
+      // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
+      // 多一个 missionId 键对总览行的拼装零影响(新增只加不改)。
+      missionId: sessionMissionId(head) || sid,
       updatedAt: String(head.updatedAt || ''),
       state: derived.state,
       digest: {
@@ -287,6 +291,55 @@ async function stewardThreadDigestRows(config) {
   const rank = state => (state === 'needs_you' ? 0 : state === 'running' ? 1 : state === 'dispatching' ? 2 : 3);
   rows.sort((a, b) => rank(a.state) - rank(b.state) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
   return rows;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 第 116 波 116-pre(27 号文 §8.12「递话：交给线程的交互」/ §11.1 第 3 项/ §11.3):递话预判端点。
+//
+// 装配纪律:index 的事实源与上面 stewardThreadDigestRows 完全相同(13e 投影 + 会话头 + 06i 五态判据),
+// 本节【复用同一个函数】而不是另起一份 —— 116c 交付记录已经写明「13g 不能复用 13h 的函数(前向边)」,
+// 但 preroute 端点本来就住在 13h 里,同文件内调用零边可言,是最省心的复用方式。
+//
+// 缓存(§11.3 交付物「按 13e 投影的 changeSeq 总和或最近会话 updatedAt 作为缓存键,命中则不重装配」):
+// getPretenderProjectionIndex() 内部已经是增量维护的运行时缓存(source stamp 没变就不重扫会话),
+// 它的整体 revision 已经是「本次投影所有 changeSeq 与卡片状态」的一个哈希摘要 —— 直接拿它当缓存键,
+// 比自己重新求和一遍 changeSeq 更省一次遍历,语义完全等价(revision 本身就由 changeSeq 参与算出)。
+// 命中时跳过的是【每会话一次 stewardReadSessionHead 文件读】那一段(§11.3 的目标 p50 ≤50ms 主要靠它)。
+// 只在内存,不写盘;开关关时这段代码根本不会被调到(见路由分支)。
+const _stewardPrerouteCache = { revision: '', rows: [] };
+async function stewardPrerouteIndexRows(config) {
+  const index = await getPretenderProjectionIndex().catch(() => null);
+  const revision = String((index && index.revision) || '');
+  if (revision && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
+  const digestRows = await stewardThreadDigestRows(config);
+  const rows = digestRows.map(row => ({
+    sessionId: row.sessionId,
+    missionId: row.missionId || row.sessionId,
+    missionTitle: (row.digest && row.digest.missionTitle) || '',
+    title: (row.digest && row.digest.title) || '',
+    // 116-pre 交付物口径:「summary(lastAssistantText 或摘要,≤400 字)」——digest.lastSay 就是
+    // head.summary(诚实纪律:原话,不经模型改写),这里只做 400 字截断,不重新中和(stewardSanitizeText
+    // 在 prerouteText 内部拼 reason/title 时才需要,summary 只参与打分不进返回值)。
+    summary: String((row.digest && row.digest.lastSay) || '').slice(0, 400),
+    state: row.state,
+    updatedAt: row.updatedAt,
+  }));
+  if (revision) { _stewardPrerouteCache.revision = revision; _stewardPrerouteCache.rows = rows; }
+  return rows;
+}
+
+// StewardHooks.preroute 的实现(§11.3「把 preroute(q) 挂到 StewardHooks,117 与 116f 都可能用」)。
+// config 可选:路由处已经 readConfig() 过,直接传进来省一次重读;其余调用方(117 壳层)不传时自己读一遍。
+async function stewardPreroute(q, configArg) {
+  const config = (configArg && typeof configArg === 'object') ? configArg : await readConfig();
+  const [index, memoryStore] = await Promise.all([
+    stewardPrerouteIndexRows(config).catch(() => []),
+    stewardReadMemoryStore().catch(() => ({ entries: [] })),
+  ]);
+  const memory = (memoryStore.entries || [])
+    .filter(e => e && e.state !== 'vetoed' && (e.kind === 'focus' || e.kind === 'habit'))
+    .map(e => ({ kind: e.kind, text: e.text }));
+  return prerouteText(q, index, memory, {});
 }
 
 function stewardOverviewBlock(rows, pack) {
@@ -1043,4 +1096,6 @@ Object.assign(StewardHooks, {
   handleRunnerApiRoutes: handleStewardRunnerApiRoutes,
   stopRunner: stewardStopRunner,
   resumeRunner: stewardResumeRunner,
+  // 116-pre(§11.3):117 壳层与其它旁路消费者经这个键调,不必知道 13h 的存在。
+  preroute: stewardPreroute,
 });

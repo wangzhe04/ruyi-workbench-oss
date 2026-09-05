@@ -74,10 +74,12 @@ const src01b = read('01b-route-auth.js');
   const filled = [...new Set((src13h.match(/^\s{2}([a-zA-Z]+): /gm) || []).map(m => m.trim().replace(':', '')))];
   const assignBlock = src13h.slice(src13h.indexOf('Object.assign(StewardHooks, {'));
   const hookKeys = [...new Set((assignBlock.match(/^\s{2}([a-zA-Z]+): /gm) || []).map(m => m.trim().replace(':', '')))];
-  ok(hookKeys.length === 8, `② 13h 填充 8 个 116f 实现键(got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  // 9 = 116f 的 8 个 + 116-pre(27号文§8.12/§11.3)追加的 preroute(消费方是 13g,见下面的
+  // unused 判据——13g 的 GET /api/steward/preroute 分支经 StewardHooks.preroute 转交)。
+  ok(hookKeys.length === 9, `② 13h 填充 9 个实现键(116f 的 8 个 + 116-pre 的 preroute;got ${hookKeys.length}: ${hookKeys.join(',')})`);
   const consumedText = src09 + src10 + src13g;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
-  ok(unused.length === 0, '② 每个 116f 钩子键都被 09/10/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
+  ok(unused.length === 0, '② 每个钩子键(116f 的 8 个 + 116-pre 的 preroute)都被 09/10/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));
