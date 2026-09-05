@@ -130,6 +130,11 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/steward/stop', auth: 'token' },
   { m: 'GET', p: '/api/steward/state', auth: 'token' },
   { m: 'GET', p: '/api/steward/inbox', auth: 'token' },
+  // 第116波116f(27号文§11.3): 管家回合与到访。visit 会归档并清空管家对话、message 直接起一个管家回合、
+  // act 替用户执行一条按钮 —— 三条都是写面,内容敏感度同上,一律 token 级(不给 token-browser)。
+  { m: 'POST', p: '/api/steward/visit', auth: 'token' },
+  { m: 'POST', p: '/api/steward/message', auth: 'token' },
+  { m: 'POST', p: '/api/steward/act', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },

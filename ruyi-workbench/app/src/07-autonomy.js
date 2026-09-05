@@ -93,6 +93,8 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
 }
 
 function buildOpenAiTools(config, caps, opts) {
+  // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
+  const stewardSession = !!(opts && opts.stewardSession === true);
   const allowCmd = config.allowCommandTools !== false;
   const allowDesk = config.allowDesktopTools !== false;
   const out = [];
@@ -191,6 +193,13 @@ function buildOpenAiTools(config, caps, opts) {
     // 代理路径无工具可用。原 false 仅注入 list/search/load,OpenAI 引擎主回合缺 tool_invoke_*。
     for (const t of adaptiveMetaToolSchemas(true)) out.push({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } });
   }
+  // 116f(27 号文 §3.5 硬边界「管家动如意,线程动世界」):管家会话的工具面【只有】steward_*。
+  // 116c 的 isStewardToolName 门只解决了「普通会话拿不到管家工具」这半边;另半边同样是红线 ——
+  // 管家会话【不得】拿到文件/shell/桌面/联网/编排/技能/元工具中的任何一个(tool_invoke_* 尤其危险:
+  // 它是桥接工具的代理入口,漏一个就等于把整台电脑交给一个常在用户不在场时自主运行的回合)。
+  // 收口放在唯一出口做一次,而不是给上面每一段(wait_agents/skill_read/propose_task/send_to_agent/
+  // adaptive 元工具)各加一个门 —— 那样将来任何一段新增都可能漏门,这里漏的可能性为零。
+  if (stewardSession) return out.filter(t => isStewardToolName(t && t.function && t.function.name));
   return out;
 }
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
@@ -667,6 +676,10 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
+  // 116f: 目录里出现 steward 包 = 这是管家会话(四个 offer 面已经保证普通会话的目录里永远没有它们)。
+  // 管家的工具面就是固定的 17 个,意图分类对它没有意义,而 classifyToolPacks 永远不会路由到 steward 包
+  // —— 不置活跃的话管家在多数回合会一个工具都拿不到。auto 模式下这条就是管家的「按需装载豁免」。
+  if (catalog.some(x => x && x.pack === 'steward')) activePacks.add('steward');
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
   // 106 #1 G2: 冻结仅在有会话权属的主循环启用(freezeKey = session.id);子代理/一次性调用不传,

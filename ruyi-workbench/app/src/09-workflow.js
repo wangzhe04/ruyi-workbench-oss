@@ -1186,7 +1186,7 @@ function commonPrefixChars(a, b) {
   return i;
 }
 
-async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam }) {
+async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta }) {
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
   const turnSegments = createTurnSegmentBuilder();
@@ -1277,7 +1277,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.turnSeq = plannedTurnSeq;
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
-  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, traceId: activeTraceId, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}) });
+  // 116f: messageMeta 是可选的「这条用户消息从哪来」元数据(目前唯一来源:管家收件箱回合的
+  // {origin:'inbox'})。不传时这条 push 与搬家前逐字节等价。它必须【落盘】而不是只留内存 ——
+  // steward_memory_write 的来源校验靠它确定性地拒绝「把系统事件当成用户本人说的话记下来」,
+  // 重启后那条校验仍要成立。
+  session.messages.push({ role: 'user', content: message, attachments: attachments || [], turnSeq: session.turnSeq, traceId: activeTraceId, createdAt: nowIso(), ...(driverAuto ? { source: 'mission-driver' } : {}), ...(messageMeta && typeof messageMeta === 'object' ? { meta: messageMeta } : {}) });
   session.providerHistoryCursor = session.messages.length;
   // v0.9-S7 视觉回路: when THIS provider has vision开 AND the turn carries an image attachment, the user
   // message's providerHistory content is a PARTS array [{text},{image_url}…] (the estimator is parts-aware
@@ -1358,14 +1362,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledSkillEntries = await resolveEnabledSkillEntries(session, config, workingDir, caps,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(() => []);
-  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0 });
+  // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
+  // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
+  const isStewardTurn = session.kind === 'steward';
+  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, ...(isStewardTurn ? { stewardSession: true } : {}) });
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };
-  try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  // 116f: 管家不持有任何桥接工具(ACC 桌面/Office/浏览器/外部 MCP 都是「动世界」)。这里【不采集】而不是
+  // 采集后过滤:采集会为此拉起 MCP 子进程,而管家回合可能每 15 秒被收件箱唤醒一次。
+  if (!isStewardTurn) {
+    try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  }
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
+  // 116f: 管家会话的目录里只有 17 个 steward_*,按需装载的意图分类对它没有意义 —— 收口在
+  // createToolLoadingState 内部(目录里有 steward 包就把它置为活跃),本调用点逐字节不变。
   const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id);
   const initialTools = toolLoading.current();
   const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
@@ -1421,7 +1434,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 和命令目录一起重扫一遍,多出一次全量磁盘扫描;可用性用本回合已探测的 caps 现算,不再触发第二次能力探测。
   const playbookEntries = (await loadAllPlaybooks().catch(() => []))
     .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
-  const turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries) + (volatileExtras ? '\n\n' + volatileExtras : '');
+  // 116f: 管家会话【整段】换掉普通提示词包(稳定层=06b steward.stable;易变层=记忆块+线程总览,
+  // 与普通会话的 turnVolatile 同一投放位置)。经 06i 的 StewardHooks 延迟绑定拿(09 → 06i 是后向边;
+  // 直接写 13h 的函数名会是前向边)。钩子未填充或抛错时回落普通装配,管家最差退化成一个没有总览的
+  // 普通回合,而不是回合直接失败。
+  let stewardPrompt = null;
+  if (isStewardTurn && typeof StewardHooks.buildSystemPrompt === 'function') {
+    try { stewardPrompt = await StewardHooks.buildSystemPrompt(session, config, { tools: initialTools }); } catch { stewardPrompt = null; }
+  }
+  if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
+  const turnVolatile = (stewardPrompt && typeof stewardPrompt.volatile === 'string')
+    ? stewardPrompt.volatile
+    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
@@ -2607,7 +2631,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
           const bridge = resolveBridge(bridgedRoute, tc.name);
           const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
-          let gate = nativeToolGate(config.permissionMode, tier);
+          // 116f(§3.5 末段):管家会话用独立权限模式 'steward'(不进 PERMISSION_MODES)—— steward_* 一律
+          // allow(read/edit/exec 都不弹权限窗:真正的边界由 13g 工具内部的 stewardMayAct、永久豁免清单与
+          // 自理清单执行,那是按【目标线程】权限判的,不是按管家自己的档);非管家工具在管家会话里根本
+          // 不会被 offer(07 的 stewardSession 分支),真被调到只可能是伪造/回放,直接 block(防御纵深)。
+          let gate = isStewardTurn
+            ? (isStewardToolName(tc.name) ? 'allow' : 'block')
+            : nativeToolGate(config.permissionMode, tier);
           // v0.9-S5 (真流程 plan mode): once the user APPROVED this turn's plan, plan mode's blanket block on
           // mutating tools is lifted for THIS turn only (planApproved is a turn-local closure flag — it does
           // NOT change config.permissionMode, so the next turn re-blocks until a fresh plan is approved). We
@@ -3004,6 +3034,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     appendUsageLedger({
       sessionId: session.id, engine: 'openai', provider: provider.id, model,
       inTok, outTok, cachedInTok, cost, currency, estimated: usageObj.estimated === true, turnSeq: session.turnSeq,
+      // 116f: 管家回合不是用户的聊天回合 —— 按 aux 记账并打 note:'steward'。日费用熔断
+      // (stewardMaxCostPerDay)按这条口径累计;记在这唯一一处,运行器不再补第二条,避免双记。
+      ...(isStewardTurn ? { kind: 'aux', note: 'steward' } : {}),
     });
   }
   onEvent({ type: 'turn_summary', ...turnSummary });

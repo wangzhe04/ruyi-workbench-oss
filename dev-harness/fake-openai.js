@@ -224,6 +224,16 @@ try {
   const v = process.env.FAKE_SUMMARY_SEQUENCE;
   if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) SUMMARY_SEQUENCE = a.map(String); }
 } catch { SUMMARY_SEQUENCE = null; }
+// 116f: FAKE_REPLY_SEQUENCE - JSON 数组;第 N 个【流式】/chat/completions 请求返回第 N 条作为最终
+// 助手文本(超出钳到末条),finish_reason 'stop',不发任何 tool_call。条目可以是字符串,也可以是
+// {text, delayMs}(delayMs 只对这一条生效,用来做「慢回合被抢占」这类时序用例)。
+// 与 FAKE_SUMMARY_SEQUENCE 同款语义,只是那条管非流式摘要请求、这条管流式回合请求;不设置时
+// 本文件行为逐字节不变(所有既有分支照旧)。
+let REPLY_SEQUENCE = null, replySeqIdx = 0;
+try {
+  const v = process.env.FAKE_REPLY_SEQUENCE;
+  if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) REPLY_SEQUENCE = a; }
+} catch { REPLY_SEQUENCE = null; }
 let chatRequestCount = 0; // increments on every /chat/completions request served by this process
 // v0.8-S6 FAKE_CAPTURE_DIR: write each request body to <dir>/req-<n>.json (n = 1-based, zero-padded). The
 // capabilities e2e reads these to assert the injected `system` message content (identity pin / project
@@ -425,6 +435,23 @@ const server = http.createServer((req, res) => {
         return;
       }
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+
+      // 116f FAKE_REPLY_SEQUENCE: 按流式请求序返回指定的最终文本(管家回合的输出契约测试用)。
+      // 放在所有工具分支之前:剧本说什么就回什么,不受 tools 在场与否影响。
+      if (REPLY_SEQUENCE) {
+        const step = REPLY_SEQUENCE[Math.min(replySeqIdx++, REPLY_SEQUENCE.length - 1)];
+        const out = String((step && typeof step === 'object') ? (step.text || '') : step);
+        const stepDelay = Math.max(0, Number(step && typeof step === 'object' ? step.delayMs : 0) || 0);
+        (async () => {
+          sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
+          if (stepDelay) await sleep(stepDelay);
+          for (const piece of out.match(/[\s\S]{1,40}/g) || [out]) { if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS); sse(res, { id, choices: [{ index: 0, delta: { content: piece }, finish_reason: null }] }); }
+          sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+          usageFrame(res, id);
+          res.write('data: [DONE]\n\n'); res.end();
+        })();
+        return;
+      }
 
       // v0.9-S5 FAKE_PLAN_FIRST: on the FIRST request of a turn (no assistant message in history yet) stream a
       // PLAN: text answer with NO tool_call (finish_reason 'stop'). This makes runOpenAiTurn emit a `plan`

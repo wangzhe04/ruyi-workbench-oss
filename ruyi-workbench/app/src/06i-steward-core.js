@@ -19,6 +19,19 @@
 // 预算(budget)。心跳与其余事件一律不入箱。本切片只声明常量,轮询器实现在 116b。
 const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget']);
 
+// 116f:管家会话的固定 id 与标题。定在这里(engine 层最早)而不是 13h,是因为 13g(收件箱轮询器)也要
+// 用它把管家会话排除在事件源之外 —— 13g 引用 13h 会是前向边,引用 06i 是后向边。
+// 为什么不叫 sess_*:13e 的投影扫描器只认 /^sess_[A-Za-z0-9_-]+\.json$/,取名 'steward' 就天然不进
+// 投影(进而不进 /api/missions、不进收件箱三源);safeSessionId 的字符集允许它,会话存储照常收编。
+// 排除面一律按会话头【原始】 kind === 'steward' 判定(sessionKind() 会把它归一成 quick_ask,不能用),
+// 只有拿不到会话头的地方(收件箱轮询的投影行)才按这个固定 id 判定。
+const STEWARD_SESSION_ID = 'steward';
+const STEWARD_SESSION_TITLE = '如意管家';
+// 管家会话的权限模式:独立值,【不】进 PERMISSION_MODES(那张表是线程权限四档,管家自身不设档)。
+// nativeToolGate 对管家会话不适用 —— steward_* 一律 allow,真正的边界由 13g 工具内部的 stewardMayAct /
+// 永久豁免 / 自理清单执行;非管家工具在管家会话里根本不会被 offer(07 的 stewardSession 分支)。
+const STEWARD_PERMISSION_MODE = 'steward';
+
 // 到访总览摘要行的硬性上限(§11.2 到访层预算的一部分)。lastSayChars/lineChars 由
 // buildStewardDigestLine 自身强制执行;maxThreads/totalChars 是 116f 组装整块总览时的上限,
 // 本切片只声明常量供后续切片复用同一份数字,不在这里做多线程拼装。
@@ -316,4 +329,13 @@ function stewardTermJaccard(a, b) {
 //   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
 //   记忆族(tier edit): memoryWrite(args,ctx)、memoryVeto(args,ctx)、memorySearch(args,ctx)
 // 全部工具实现键的签名统一为 (args, ctx) 并返回稳定信封(见 13g 的 stewardToolHandler)。
+//   回合运行器(116f,由 13h-steward-runner.js 填充;消费者是 06/09/10 的提示词与预算分叉、13g 的
+//   轮询器出口与 state 路由 —— 它们全都只看 StewardHooks,不认识 13h,故 13h 无任何入边):
+//           buildSystemPrompt(session,config,ctx) -> {stable, volatile}(管家会话整段换掉普通提示词包)
+//           contextBudget(session,config,window) -> number(§11.2 预算 = min(配置, 模型窗口) 的触发线)
+//           visitNotesPrompt(config) -> string(到访内 L2 压缩用的摘要 prompt)
+//           onInboxBatch(rows)(116b 每轮写完箱子后调,13h 去抖后起一个收件箱回合)
+//           runnerState(config) -> object(并进 GET /api/steward/state 的响应)
+//           handleRunnerApiRoutes(req,res,pathname)(/api/steward/{visit,message,act})
+//           stopRunner()/resumeRunner()(一键停机同时停回合队列;start 恢复)
 const StewardHooks = {};

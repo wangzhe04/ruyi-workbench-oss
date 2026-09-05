@@ -277,6 +277,7 @@ module.exports = {
   peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)
+  getPromptPack, // 116f: 提示词包选择器(locale 感知) — exposed for 静态锁直读 steward 段的分层预算
   buildStableSystemPrompt, // 51d C1a:稳定层(prefix-cache 友好)
   buildRuntimeIdentityFacts, // 108a:运行时身份事实(进程内恒定量,e2e 直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
@@ -337,6 +338,18 @@ module.exports = {
   STEWARD_MEMORY_LIMITS,
   stewardMemoryTerms,
   stewardTermJaccard,
+  // 第116波116f(27号文§11.3): 管家回合运行器与到访 — 会话单例常量、回合入口、到访、输出契约解析器
+  // 与两个分叉入口(提示词/预算)。exposed for e2e 直测;09/10/13g 侧一律经 StewardHooks 触达。
+  STEWARD_SESSION_ID,
+  STEWARD_SESSION_TITLE,
+  STEWARD_PERMISSION_MODE,
+  runStewardTurn,
+  stewardVisit,
+  stewardParseReply,
+  stewardResolveRoute,
+  ensureStewardSession,
+  buildStewardSystemPrompt,
+  stewardContextBudget,
   // 116c: 班组动作核心(从 POST /api/agent-runs/:id 路由零行为抽出)与 108c 自状态装配 — e2e 直测等价性。
   agentRunActionCommand,
   buildWorkbenchSelfStatus,

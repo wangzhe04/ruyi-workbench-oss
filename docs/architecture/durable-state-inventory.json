@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 46,
+  "count": 47,
   "lifecycleCounts": {
     "dedicated-exemption": 14,
     "external-exemption": 8,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 17
+    "shared-lifecycle": 18
   },
   "entries": [
     {
@@ -637,6 +637,20 @@
       "capacity": "at most 200 active entries; each entry text is capped at 300 characters",
       "cache": "no process cache: every read re-reads the file inside the write chain",
       "recovery": "the user re-states the fact and the steward writes it again; nothing else depends on it",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "steward-visits",
+      "pattern": "<data>/steward/visits/<ISO>.json",
+      "owner": "13h-steward-runner.js",
+      "anchor": "STEWARD_VISITS_DIR",
+      "schema": "object / schema 1",
+      "writePrimitive": "atomicWriteJson",
+      "corruption": "an unreadable archive is a lost transcript copy, never a wedged steward: the live conversation was already truncated inside the same write chain and nothing reads archives back",
+      "capacity": "one file per visit, oldest files pruned beyond 200",
+      "cache": "none: written once at visit start and never read back by the runtime",
+      "recovery": "nothing rebuilds it - the archived turns are gone from the live session by design (the decision ledger keeps what the steward actually did)",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
     },

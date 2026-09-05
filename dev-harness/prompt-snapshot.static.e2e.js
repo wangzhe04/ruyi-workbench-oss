@@ -150,5 +150,19 @@ console.log('── E 段: 子代理任务漏斗上下文节流注入(2.2,唯一
 ok(/【上下文节流守则】/.test(src), 'E1 子代理任务漏斗含上下文节流守则(09 effectiveTask 注入,spawn/orchestrate 全路径)');
 ok(/reliabilityInstruction \+ throttlingInstruction \+ toolEvidenceInstruction/.test(src), 'E2 拼接顺序:可靠性约束 → 节流守则 → 工具证据(指令层级正确,节流紧随可靠性)');
 
+console.log('── S 段: 116f 管家包(只加) ──');
+// 116f: steward 段是【第二个包】,与普通包并存;它整段替换管家会话的提示词,绝不进普通会话。
+// 本段只加断言:上面 L/B/$/D/E 段的普通包快照一条未改,即「新增 steward 段不算改普通包」。
+const stewardPack = srv.getPromptPack('zh-CN').steward;
+ok(stewardPack && typeof stewardPack.stable === 'string' && stewardPack.stable.length <= 2500,
+  'S1 116f 06b 新增 steward 段,稳定层 ≤2500 字符(got ' + (stewardPack && stewardPack.stable.length) + ')');
+ok(/say/.test(stewardPack.stable) && /acts/.test(stewardPack.stable) && /actions/.test(stewardPack.stable) && /why/.test(stewardPack.stable),
+  'S2 116f 稳定层写明 {say, acts, actions, why} 输出契约');
+const stewardMark = stewardPack.stable.slice(0, 8);
+ok(!full.includes(stewardMark) && !stable.includes(stewardMark) && !volatile.includes(stewardMark),
+  'S3 116f 管家包绝不泄漏进普通会话的任何一层(身份/稳定层/易变层)');
+ok(typeof stewardPack.visitNotes === 'string' && stewardPack.visitNotes.length > 40,
+  'S4 116f 管家包带 visitNotes 摘要 prompt(到访内 L2 压缩换用它,不动普通会话的 SUMMARY_PROMPT)');
+
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

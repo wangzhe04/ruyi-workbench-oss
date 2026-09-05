@@ -39,6 +39,8 @@ const ROUTER_FILES = [
   '13e-pretender-index.js',
   // 第 116 波 116b:管家 /api/steward/* 域路由(13g 拼接顺序在 13 之后,经 StewardHooks 延迟绑定挂接)。
   '13g-steward.js',
+  // 第 116 波 116f：管家回合与到访路由（13h 拼接顺序在 13g 之后，经 13g 的处理器末尾转交）。
+  '13h-steward-runner.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -59,6 +61,7 @@ const DOMAIN_BY_HANDLER = [
   ['handleInterventionApiRoutes', 'intervention'],
   ['handleAgentRunApiRoutes', 'agent-run'],
   ['handleStewardApiRoutes', 'steward'],
+  ['handleStewardRunnerApiRoutes', 'steward'],
 ];
 const DOMAIN_BY_FILE = {
   '13-http-router.js': 'core-inline',
@@ -67,6 +70,7 @@ const DOMAIN_BY_FILE = {
   '13d-core-domain-routes.js': 'core-domain',
   '13e-pretender-index.js': 'pretender-index',
   '13g-steward.js': 'steward',
+  '13h-steward-runner.js': 'steward',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

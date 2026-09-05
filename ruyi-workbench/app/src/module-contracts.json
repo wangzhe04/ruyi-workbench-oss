@@ -647,6 +647,7 @@
         "sessionKind",
         "sessionLineHash",
         "sessionMeta",
+        "sessionMetaIsSteward",
         "sessionMissionId",
         "sessionNotesPath",
         "sessionNotesWriteChains",
@@ -3530,6 +3531,9 @@
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_PERMISSION_LABELS",
+        "STEWARD_PERMISSION_MODE",
+        "STEWARD_SESSION_ID",
+        "STEWARD_SESSION_TITLE",
         "STEWARD_STATE_LABELS",
         "STEWARD_THREAD_STATES",
         "STEWARD_TOOL_PREFIX",
@@ -6001,6 +6005,20 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "ACTION_VIEW_MIN_CHARS",
           "kinds": [
@@ -7219,6 +7237,13 @@
           "symbol": "revokeGrantsForRun",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11262,6 +11287,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -11403,6 +11435,433 @@
         {
           "provider": "13e-pretender-index.js",
           "symbol": "overlayMissionCard",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13h-steward-runner.js",
+      "layer": "transport",
+      "provides": [
+        "STEWARD_ACTIONS_MAX",
+        "STEWARD_ACTION_HOOKS",
+        "STEWARD_ACTS_MAX",
+        "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_DEBOUNCE_MS",
+        "STEWARD_DECIDE_LABELS",
+        "STEWARD_DIGEST_KIND_TEXT",
+        "STEWARD_INBOX_EVENTS_PER_TURN",
+        "STEWARD_INBOX_EVENT_CHARS",
+        "STEWARD_MEMORY_BLOCK_CHARS",
+        "STEWARD_NO_PROGRESS_MAX",
+        "STEWARD_PENDING_LIST_MAX",
+        "STEWARD_PREEMPT_WAIT_MS",
+        "STEWARD_RUN_ACTION_LABELS",
+        "STEWARD_SAY_MAX",
+        "STEWARD_TOOL_LABELS",
+        "STEWARD_TURN_DAY_MS",
+        "STEWARD_TURN_WINDOW_MS",
+        "STEWARD_VISITS_DIR",
+        "STEWARD_VISITS_KEEP",
+        "STEWARD_VISIT_DIGEST_MAX",
+        "STEWARD_VISIT_SCHEMA",
+        "STEWARD_WHY_MAX",
+        "buildStewardSystemPrompt",
+        "ensureStewardSession",
+        "handleStewardRunnerApiRoutes",
+        "runStewardTurn",
+        "stewardAbortInflight",
+        "stewardActLabel",
+        "stewardArchiveConversation",
+        "stewardCircuitCheck",
+        "stewardContextBudget",
+        "stewardDayCost",
+        "stewardDowngradeActions",
+        "stewardEventLine",
+        "stewardExecuteActions",
+        "stewardInboxMessage",
+        "stewardLastAssistantContent",
+        "stewardMemoryBlock",
+        "stewardNormalizeAct",
+        "stewardNormalizeActs",
+        "stewardOnInboxBatch",
+        "stewardOverviewBlock",
+        "stewardParseReply",
+        "stewardPendingList",
+        "stewardResolveRoute",
+        "stewardResumeRunner",
+        "stewardRunAct",
+        "stewardRunnerRuntime",
+        "stewardRunnerState",
+        "stewardSelfServeAllows",
+        "stewardStampReply",
+        "stewardStopRunner",
+        "stewardTargetPermission",
+        "stewardThreadDigestRows",
+        "stewardTrimVisits",
+        "stewardTurnsInWindow",
+        "stewardVisit",
+        "stewardVisitDigest",
+        "stewardVisitFileName",
+        "stewardVisitNotesPrompt",
+        "stewardVisitsDir"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "readUsageRows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SESSION_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "buildStewardDigestLine",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "deriveStewardThreadState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DIGEST_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EVENT_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_MEMORY_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_MEMORY_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PERMISSION_MODE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_TITLE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardMayAct",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPermissionLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "parseStructuredAgentOutput",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "runSessionTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "overlayMissionCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "_stewardReadBudget",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardInboxRead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardPendingOneLine",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardReadSessionHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardThreadPermissionMode",
           "kinds": [
             "call"
           ]
@@ -12944,6 +13403,13 @@
         },
         {
           "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
           "symbol": "PROMPT_PACK_VERSION",
           "kinds": [
             "read"
@@ -13295,6 +13761,27 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PERMISSION_MODE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_TITLE",
           "kinds": [
             "read"
           ]
@@ -14437,6 +14924,55 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stopStewardInbox",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "buildStewardSystemPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "ensureStewardSession",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "runStewardTurn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardContextBudget",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardParseReply",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardResolveRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardVisit",
           "kinds": [
             "read"
           ]

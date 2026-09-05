@@ -1500,15 +1500,20 @@ async function providerSummaryCallCore(provider, history, opts) {
       trigger: String(opts.auxCtx.trigger || 'summary'),
     } : { trigger: 'summary' }),
   };
+  // 116f: opts.promptOverride —— 调用方指定的摘要 prompt(唯一使用者:管家会话的 steward.visitNotes)。
+  // singleSummaryCall 早有这个形参(105c 的定向修补在用),这里只是把它开到内核入参上。
+  // 覆盖时【跳过】validateStructuredSummary:那道校验钉的是 SUMMARY_PROMPT 的中文三节标题,
+  // 换了 prompt 再拿它判就是必然误判。不传时下面两处与本切片之前逐字节一致。
+  const promptOverride = (opts && typeof opts.promptOverride === 'string' && opts.promptOverride) ? opts.promptOverride : '';
   const singleEstimate = estimateHistoryTokens(Array.isArray(fitted.messages) ? fitted.messages : []);
   // 105f:开关开时上限走可配置档位(默认 32K≈旧常量),关时保持 22-S0 常量 32000 逐字节不变。
   const singleCap = singleOn ? summarySingleShotCap(opts && opts.config, provider, model) : SUMMARY_SINGLE_SHOT_MAX_EST;
   const forceChunks = !fitted.needsMapReduce && singleEstimate > singleCap; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
   let degradedFromSingle = false;
   if (!fitted.needsMapReduce && !forceChunks) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
-    if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
+    if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     // 105f:仅【可识别的上下文超窗 400】(isContextOverflowError 共现语义,宁可漏判不误判)自动降级
     // map-reduce;其余失败(超时/5xx/非超窗 400/校验失败)原样上浮,调用方保留 L1 降级。失败调用
     // 已由 singleSummaryCall 的 econ 账目计入成本(105 总门「额外失败调用计入成本」)。
@@ -1520,8 +1525,8 @@ async function providerSummaryCallCore(provider, history, opts) {
     ? Math.min(budget, Math.max(4000, Math.floor(singleCap * 0.75))) // 22-S0:肥单发分块时压低每组目标;105f 400 降级同目标(单发已证明该量级越窗)
     : budget);
   if (chunks.length <= 1) {
-    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase);
-    if (sc.ok && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
+    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined);
+    if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
   // 105g: 开关开且真实分块时构建全局事实表注入消息(确定性抽取,零新增 LLM 调用);
@@ -1902,7 +1907,10 @@ const CompactionPlan = (() => {
     const window = options.conversationWindow
       ? providerConversationContextWindow(options.config || {}, provider, model)
       : providerContextWindow(provider, model);
-    const budget = threshold * window;
+    // 116f: budgetOverride 是可选的预算覆盖(唯一使用者:管家会话的 §11.2 预算)。不传时
+    // budget === threshold * window,与本切片之前逐字节一致 —— 尾预算/边界/reseed 全部随之不变。
+    const overrideBudget = Number(options.budgetOverride);
+    const budget = Number.isFinite(overrideBudget) && overrideBudget > 0 ? overrideBudget : threshold * window;
     const tailBudget = Math.max(defaults.minimumTailTokens, Math.min(
       COMPACT_RESEED_TAIL_MAX_TOKENS,
       Math.floor(budget * defaults.tailBudgetRatio)
@@ -2053,7 +2061,14 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     if (!Array.isArray(history) || !history.length) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
     const window = budgetPlan.window;
-    const budget = budgetPlan.budget;
+    // 116f(27 号文 §11.2 预算):管家会话的预算 = min(stewardContextBudgetTokens, 该模型 conversationWindow)
+    // 的 60%,与普通会话的 autoCompactThreshold×窗口 是两套口径。经 06i 的 StewardHooks 延迟绑定拿
+    // (10 → 06i 是后向边);钩子未填充/返回非正数时回落普通预算,压缩行为与本切片之前逐字节一致。
+    let stewardBudget = 0;
+    if (session && session.kind === 'steward' && typeof StewardHooks.contextBudget === 'function') {
+      try { stewardBudget = Number(StewardHooks.contextBudget(session, config, window)) || 0; } catch { stewardBudget = 0; }
+    }
+    const budget = stewardBudget > 0 ? stewardBudget : budgetPlan.budget;
     // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
     // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
     // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
@@ -2101,6 +2116,11 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       model: compactTarget.model,
       config,
       auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
+      // 116f(§11.2):管家会话的 L2 摘要 prompt 换成 06b 的 steward.visitNotes(只留「已做的决定 /
+      // 递出去的话 / 未完成事项」三节)。普通会话不传该键,摘要内核逐字节走原路径。
+      ...(stewardBudget > 0 && typeof StewardHooks.visitNotesPrompt === 'function'
+        ? { promptOverride: String(StewardHooks.visitNotesPrompt(config) || '') }
+        : {}),
     });
     if (!sc.ok) {
       // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
@@ -2110,7 +2130,9 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     }
     recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
     maybeWriteSessionNotes(session, sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
-    const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true });
+    // 116f: 重播种计划与判预算用同一个预算口径(管家的尾预算不能按普通会话那份大预算算,否则
+    // 压完仍旧超管家自己的线)。stewardBudget === 0 时这个键不传,与本切片之前逐字节一致。
+    const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) });
     session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
     onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
@@ -2248,7 +2270,10 @@ async function runSessionTurn(input) {
       if (driverAuto) driverAutoSessions.add(session.id);
       try {
         const turnAgentTeam = !driverAuto && body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam });
+        // 116f: messageMeta 透传给 Provider 引擎(唯一使用者:管家收件箱回合的 {origin:'inbox'})。
+        // driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。CLI 引擎路径不接这个
+        // 参数 —— 116f 只支持 OpenAI 兼容 provider,管家解析到 CLI 引擎时在 13h 就返回 unsupported_engine。
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: driverAuto ? null : (body.messageMeta || null) });
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };

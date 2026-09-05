@@ -663,7 +663,18 @@ function sessionMeta(o) {
     messageCount: Number.isFinite(o.messageCount) ? o.messageCount : (o.messages?.length || 0),
     promptPack: PROMPT_PACK_VERSION, // 51c-b(04 Phase B):提示词包版本,为 A/B 实验与问题回溯奠基
     kind: sessionKind(o), // 第70波:Quick Ask / Mission 显式标识(旧索引条目只读派生,见 sessionKind)
+    // 116f: 会话头的【原始】 kind 只在它是管家会话时随条目带出。sessionKind() 只归一为 mission/quick_ask,
+    // 索引条目一旦生成就再也认不出管家会话 —— 而 listSessions 的快路径读的正是索引,没有这个字段就没法
+    // 把管家排除在会话列表(以及走同一份 metas 的 113b 内容搜索)之外。普通会话【零新增字段】,
+    // /api/sessions 的载荷逐字节不变。两个入参形态都要认:会话头(o.kind)与【已归一过的索引条目】
+    // (o.rawKind)—— 快路径会把索引条目再喂一次 sessionMeta,只认 o.kind 的话这个字段在那一趟就丢了。
+    ...(o && (o.kind === 'steward' || o.rawKind === 'steward') ? { rawKind: 'steward' } : {}),
   };
+}
+// 116f: 管家会话不是「一个会话」,它是工作台本身的那张脸 —— 会话列表、内容搜索、投影、收件箱四个面
+// 都必须看不见它。判定读【原始】 kind,不经 sessionKind()(那会把它说成 quick_ask)。
+function sessionMetaIsSteward(meta) {
+  return !!(meta && (meta.rawKind === 'steward' || meta.kind === 'steward'));
 }
 function sortSessionMetas(arr) {
   return arr.slice().sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -767,7 +778,9 @@ async function listSessions() {
     for (const [id, val] of pendingSessionIndex) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
     const indexIds = new Set(map.keys());
     if (indexIds.size === diskIds.size && [...diskIds].every(id => indexIds.has(id))) {
-      return sortSessionMetas([...map.values()].map(sessionMeta)); // trust cache+pending: id-set matches disk exactly
+      // 116f: 管家会话【只】在返回值里被滤掉,索引本身仍然收录它 —— 否则上面这个「索引 id 集 == 磁盘
+      // id 集」的漂移判据永远不成立,每次 listSessions 都会退化成全量扫盘重建。
+      return sortSessionMetas([...map.values()].map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // trust cache+pending: id-set matches disk exactly
     }
   }
   // Index missing / corrupt / drifted from disk → authoritative scan of the real files, then rebuild the index.
@@ -782,7 +795,7 @@ async function listSessions() {
     }
   }
   await withSessionIndexLock(() => writeSessionIndex(sessions)).catch(() => {}); // best-effort rebuild
-  return sortSessionMetas(sessions);
+  return sortSessionMetas(sessions.filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
 async function updateSessionMeta(id, patch) {

@@ -128,7 +128,11 @@ function typeExpressionLiterals(text) {
   const i = files.indexOf('13g-steward.js');
   ok(i > 0, 'D4 manifest 含 13g-steward.js');
   ok(files[i - 1] === '13e-pretender-index.js', 'D4 13g 紧跟 13e-pretender-index.js 之后');
-  ok(files[i + 1] === '14-main.js', 'D4 13g 紧接在 14-main.js 之前');
+  // 116f 重钉:13g 与 14-main 之间插入了 13h-steward-runner.js(管家回合运行器,同为 transport 层;
+  // 理由见 116c 交付记录「13g 已 1710 行,116f 另起 13h」)。判据的用意不变 —— 13g 仍在 transport 层
+  // 末尾、组合根 14-main 之前,故改钉「13g 之后是 13h」+「14-main 仍是最后一个模块」。
+  ok(files[i + 1] === '13h-steward-runner.js', 'D4 13g 之后是 13h-steward-runner.js(116f 重钉)');
+  ok(files[files.length - 1] === '14-main.js', 'D4 14-main.js 仍是组合根(最后一个模块)');
   ok(fs.existsSync(path.join(SRC, '13g-steward.js')), 'D4 13g-steward.js 文件存在');
 }
 

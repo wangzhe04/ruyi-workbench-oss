@@ -518,6 +518,12 @@ async function stewardCollectEvents() {
   for (const row of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
     const sid = row && safeSessionId(row.sessionId);
     if (!sid) continue;
+    // 116f 排除面之一:管家会话自己【绝不】进收件箱(否则管家的每个回合都会变成下一个回合的输入,
+    // 一条自激励循环)。这里按固定 id 判(06i 的 STEWARD_SESSION_ID)而不是按会话头原始 kind:投影行
+    // 里的 kind 是 sessionKind() 归一后的值(会把 steward 说成 quick_ask),拿到原始 kind 要为每行多读
+    // 一次会话头 —— 每 15 秒一轮的轮询器不该为一个恒等判断付这个代价。双保险:13e 的扫描器只认
+    // /^sess_/ 前缀的会话文件,取名 'steward' 的管家会话本来就到不了这个循环。
+    if (sid === STEWARD_SESSION_ID) continue;
     const missionId = String(row.missionId || sid);
     const card = row.card || null;
     const updatedMs = Date.parse(String((card && card.updatedAt) || ''));
@@ -643,6 +649,12 @@ async function stewardTickOnce() {
   await stewardSaveCursor(activeSessionIds, activeRunIds);
   stewardRuntime.cold = false;
   stewardRuntime.lastTickAt = nowIso();
+  // 116f: 本轮真的写进箱子的行交给回合运行器(13h 去抖 5 秒后起一个收件箱回合)。经 06i 的延迟绑定
+  // 命名空间调(13g → 06i 是后向边;直接写 13h 的函数名会是前向边)。它是【旁路】:钩子未填充、
+  // 抛错或运行器熔断,都不影响这一轮已经落盘的收件箱与游标。
+  if (rows.length && typeof StewardHooks.onInboxBatch === 'function') {
+    try { StewardHooks.onInboxBatch(rows); } catch { /* 运行器故障绝不反噬轮询器 */ }
+  }
   return { written: rows.length, aborted: false };
 }
 
@@ -670,6 +682,8 @@ async function startStewardInbox(config) {
   if (cfg.stewardEnabledV1 !== true) return { ok: false, running: false, enabled: false };
   const pollMs = Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000)));
   stewardRuntime.pollMs = pollMs;
+  // 116f: start 同时解除回合队列的停机(stop 把轮询与回合一起停,start 把两者一起放开)。
+  if (typeof StewardHooks.resumeRunner === 'function') { try { StewardHooks.resumeRunner(); } catch { /* 旁路 */ } }
   if (stewardRuntime.running) { await stewardRunTick(); return { ok: true, running: true, enabled: true }; } // 幂等:重复 start 只补一轮
   stewardRuntime.running = true;
   stewardRuntime.generation += 1;
@@ -681,6 +695,9 @@ async function startStewardInbox(config) {
 }
 
 function stopStewardInbox() {
+  // 116f(§8.6「一键停机常驻且永远可点」):停机停的是【轮询 + 在途管家回合 + 回合队列】三样。
+  // 放在最前:即使下面清 timer 抛错,回合队列也已经停了。线程自己的回合不受影响(那由线程的权限门管)。
+  if (typeof StewardHooks.stopRunner === 'function') { try { StewardHooks.stopRunner(); } catch { /* 旁路 */ } }
   if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
   stewardRuntime.running = false;
   stewardRuntime.generation += 1; // 在途 tick 看到代际变化即放弃写入
@@ -754,7 +771,13 @@ async function handleStewardApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/steward/state') {
     if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const config = await readConfig();
-    return send(res, json({ ok: true, ...await stewardInboxState(config) }));
+    // 116f: 收件箱状态之上并进回合运行器状态(visit/turns/cost/circuit/lastReply)。运行器故障时
+    // 这条只读路由仍然返回收件箱那一半 —— 状态面不该因为旁路组件出错而整条不可用。
+    let runner = {};
+    if (typeof StewardHooks.runnerState === 'function') {
+      try { runner = (await StewardHooks.runnerState(config)) || {}; } catch { runner = {}; }
+    }
+    return send(res, json({ ok: true, ...await stewardInboxState(config), ...runner }));
   }
 
   if (req.method === 'GET' && pathname === '/api/steward/inbox') {
@@ -762,6 +785,13 @@ async function handleStewardApiRoutes(req, res, pathname) {
     const query = new URL(req.url, 'http://x').searchParams;
     const result = await stewardInboxRead({ since: query.get('since'), limit: query.get('limit') });
     return send(res, json({ ok: true, ...result }));
+  }
+
+  // 116f: /api/steward/{visit,message,act} 住 13h-steward-runner.js(拼接顺序在本文件【之后】)。
+  // 与 13 挂 13g 同一手法:直接写函数名会是前向边,故经 06i 的延迟绑定命名空间转交;未填充时本行
+  // 是无操作,路由链继续往下走(最终 404)。命中与否仍以 res.writableEnded 为准。
+  if (typeof StewardHooks.handleRunnerApiRoutes === 'function') {
+    await StewardHooks.handleRunnerApiRoutes(req, res, pathname);
   }
 }
 
@@ -1577,7 +1607,13 @@ async function stewardSourceIsUserMessage(sourceRef) {
   const session = await loadSession(sessionId).catch(() => null);
   if (!session) return false;
   const messages = Array.isArray(session.messages) ? session.messages : [];
-  return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq);
+  // 116f 第二道:role:'user' 还不够 —— 管家的【收件箱回合】也是以一条 user 消息注入的(工作台把
+  // 几十条系统事件归成一段文本发给模型),但那不是用户本人说的话。13h 在那条消息上落了
+  // meta.origin === 'inbox'(随会话正文持久化,重启后仍在),这里确定性拒绝它。同理拒绝
+  // 驱动器自动续跑的消息(source:'mission-driver')—— 也不是人说的。
+  return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
+    && !(m.meta && typeof m.meta === 'object' && m.meta.origin === 'inbox')
+    && m.source !== 'mission-driver');
 }
 
 // 15) steward_memory_write
