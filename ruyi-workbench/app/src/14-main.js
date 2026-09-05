@@ -308,6 +308,9 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
+  //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
+  runSessionTurn,
   // 第116波116b(27号文§11.3): 管家收件箱 — 生命周期 + 归一化/合并/去重纯函数(exposed for 单测/e2e)。
   startStewardInbox,
   stopStewardInbox,

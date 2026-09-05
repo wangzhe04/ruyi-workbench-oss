@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 109(精确 96 / 前缀 12 / 正则 1),ROUTE_AUTH 100 条,生成于 2026-09-05T04:14:39.828Z。
+> 判定点 109(精确 96 / 前缀 12 / 正则 1),ROUTE_AUTH 100 条,生成于 2026-09-05T04:51:14.621Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -90,7 +90,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1344 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1363 | pretender-dispatch-home.static.e2e.js, vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1371 | — |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1391 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 99 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1391 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 100 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1394 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1666 | — |
 

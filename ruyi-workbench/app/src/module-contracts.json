@@ -6793,6 +6793,7 @@
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
         "runProviderCompact",
+        "runSessionTurn",
         "singleSummaryCall",
         "streamChat",
         "summaryCallPolicyKey",
@@ -7044,6 +7045,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -13660,6 +13668,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "resolveSummaryCallPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "runSessionTurn",
           "kinds": [
             "read"
           ]

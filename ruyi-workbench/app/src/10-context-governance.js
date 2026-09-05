@@ -2126,8 +2126,49 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
   }
 }
 
-async function streamChat(req, res) {
-  const body = await readJsonBody(req);
+// 116c-0(27 号文 §1 摸底表第一行、§3.5 线程族):会话回合核心 —— 从 HTTP 壳里搬出来的「一个完整回合」。
+// 背景:streamChat 既是 HTTP 处理器又是回合执行器,onEvent 是单一回调。管家(116c)与定时任务(119)要在
+// 【不经 HTTP】的前提下、自带 sink 地在任意会话上发起一个完整回合,所以先把与传输无关的核心原样搬出。
+// 这是纯搬家:下面的代码就是原 streamChat 的代码,只是从 HTTP 处理函数里搬出来并加参数,行为不变。
+//
+// 进核心(与传输无关、任何发起方都必须走的语义):
+//   · 权限档临时覆盖(第78波:PERMISSION_MODES 白名单,非法/缺失静默回落持久配置,绝不回写全局配置);
+//   · 会话装载/新建(缺 id 或 loadSession 返回空 → createSession)与 configForSessionEngineRoute 路由派生;
+//   · pinnedRoute 校验(会话绑定 openai 但 provider 不可用 → 抛错,由下面的 catch 转成 error 事件);
+//   · 引擎分派:activeOpenAiProvider 有值走 runOpenAiTurn,否则走 runClaudeTurn(Claude/Kimi 桥同签名);
+//     含 agentTeam 门(仅首回合且 subagentMaxPerTurn>0)、附件(仅首回合)、driverAuto 续跑回合;
+//   · driverAutoSessions 进出(第27f波:CLI 桥权限超时 → 存档暂停的判定依据);
+//   · 回合用量取样 lastTurnTokens(含 cache_read/cache_creation,对抗轮 P3)与 turnStopped 观测(对抗轮 P2);
+//   · driverRunId 登记 + scope:'run' 授权绑定与回合末蒸发(bindDriverRun / revokeGrantsForRun,第27波);
+//   · turnSettlers 登记与 settle(第69波:rewind 的截断必须排在这个回合的收尾 save 之后);
+//   · until-done 任务驱动器(runMissionDriver)及其 isAlive 判据(断连 / 已收尾 / 被 /api/stop 停);
+//   · 断线语义:killOnDisconnect → stopSession(id,'disconnected')。原来挂在 req/res 事件上,现在由调用方
+//     给的 AbortSignal 触发,核心内部的 finished/disconnectHandled 双闸判定一字未改;
+//   · 错误兜底:catch → onEvent({type:'error'}) 后正常收尾,不把错误抛给调用方(与原 HTTP 语义一致);
+//   · 持久化、审计、用量记账、自动压缩、权限桥接、插话、forced-400 重试等都在 runOpenAiTurn /
+//     runClaudeTurn 内部,本函数只透传,搬家不触碰它们。
+//
+// 留在 HTTP 壳(streamChat):
+//   · readJsonBody 解析请求体并取字段;req.socket.setNoDelay;writeHead/flushHeaders;收尾 res.end;
+//   · NDJSON 写出与 ts 戳;assistant_delta/thinking_delta 的 50ms 合批(纯传输层优化,故随壳走);
+//   · req 'aborted' / res 'close' 监听 —— 翻译成 AbortController.abort() 交给核心的 signal。
+//   鉴权不在这里:/api/chat/stream 的 token 门在 13-http-router 的 ROUTE_AUTH 上游,搬家前后都不变。
+//
+// 两个壳钩子的位置是行为等价的关键:
+//   · onStart 是「壳的起跑枪」,核心在【会话装载之后、第一个事件之前】同步调用它,与原 streamChat 里
+//     writeHead/flushHeaders/挂监听 的位置逐行对应 —— 这样装载会话时抛错仍然是「响应头未发出」,
+//     路由的 sendError 能照原样写回错误信封;
+//   · onFlush 在 finally 的第一行调用,对应原来的 flushDeltas():合批残留必须先落盘到流,再做授权蒸发与
+//     settle,否则 rewind 会在尾部 delta 写出之前拿到 settle 信号。
+// source/requestMeta 只作为回合元信息记在 settle 条目上并原样回传,不参与任何判定(管家怎么用是 116c 的事)。
+// engineRoute 是可选的显式路由覆盖:不传时 routeSource === session,与搬家前逐字节等价;HTTP 壳不传。
+async function runSessionTurn(input) {
+  // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
+  // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
+  const body = input || {};
+  const onEvent = typeof body.onEvent === 'function' ? body.onEvent : () => {};
+  const onFlush = typeof body.onFlush === 'function' ? body.onFlush : () => {};
+  const source = String(body.source || 'http') || 'http';
   const storedConfig = await readConfig();
   // 第78波：交办确认卡可为【这一单当前执行链】收紧/调整安全档，但绝不回写全局配置。
   // 值域复用唯一 PERMISSION_MODES；非法/缺失值静默回落持久配置。该局部副本同时传给首回合、
@@ -2139,18 +2180,10 @@ async function streamChat(req, res) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
-  const config = configForSessionEngineRoute(permissionConfig, session);
+  const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
+  const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
+  const config = configForSessionEngineRoute(permissionConfig, routeSource);
   const attachments = body.attachments || [];
-
-  // Lowest-latency streaming on loopback: no Nagle batching, flush headers immediately.
-  try { req.socket.setNoDelay(true); } catch { /* ignore */ }
-  res.writeHead(200, {
-    'content-type': 'application/x-ndjson; charset=utf-8',
-    'cache-control': 'no-cache',
-    connection: 'keep-alive',
-    'x-accel-buffering': 'no',
-  });
-  try { res.flushHeaders(); } catch { /* ignore */ }
 
   let finished = false;
   // Kill only when the streaming RESPONSE is actually disconnected. IncomingMessage's `close`
@@ -2162,55 +2195,48 @@ async function streamChat(req, res) {
     disconnectHandled = true;
     readConfig().then(cfg => { if (cfg.killOnDisconnect) stopSession(session.id, 'disconnected'); }).catch(() => {});
   };
-  req.on('aborted', handleDisconnect);
-  res.on('close', () => { if (!finished && !res.writableEnded) handleDisconnect(); });
+  if (typeof body.onStart === 'function') body.onStart({ session, config });
+  const signal = body.signal || null;
+  if (signal) {
+    if (signal.aborted) handleDisconnect();
+    else { try { signal.addEventListener('abort', handleDisconnect, { once: true }); } catch { /* 无 EventTarget 的 signal:忽略 */ } }
+  }
 
   // 第26波b: 捕获每回合的 token 用量(账本预算计量)+ 停止信号。usage 事件透传不变,仅旁路记录。
   let lastTurnTokens = 0;
   let turnStopped = false;   // 对抗轮 P2: 回合被停止(/api/stop → stopSession → abort → 'process' state:'stopped')
-  // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
-  let deltaBuffer = []; let flushTimer = null;
-  const flushDeltas = () => {
-    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-    if (!deltaBuffer.length) return;
-    const merged = [];
-    for (const d of deltaBuffer) {
-      const last = merged[merged.length - 1];
-      if (last && last.type === d.type) last.text = (last.text || '') + (d.text || '');
-      else merged.push({ ...d });
-    }
-    deltaBuffer = [];
-    for (const evt of merged) {
-      try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
-    }
-  };
+  // 116c-0: 进程内调用方拿不到 SSE 流,只能靠返回值。下面三个都是只读取样(累加 usage 帧、记住最后一个
+  // result 事件),不参与任何判定,也不改变事件流。
+  const usageTotals = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, frames: 0 };
+  let lastResult = null;
   const emit = evt => {
     if (evt && evt.type === 'usage' && evt.usage) {
       const u = evt.usage;
       // 对抗轮 P3: 计入缓存 token —— Claude 引擎 cache_read/cache_creation 常占大头,漏计则 maxTokens 预算欠执行。
       lastTurnTokens = (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+      usageTotals.input_tokens += Number(u.input_tokens) || 0;
+      usageTotals.output_tokens += Number(u.output_tokens) || 0;
+      usageTotals.cache_read_input_tokens += Number(u.cache_read_input_tokens) || 0;
+      usageTotals.cache_creation_input_tokens += Number(u.cache_creation_input_tokens) || 0;
+      usageTotals.frames += 1;
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
-    if (evt && (evt.type === 'assistant_delta' || evt.type === 'thinking_delta')) {
-      deltaBuffer.push(evt);
-      if (!flushTimer) flushTimer = setTimeout(flushDeltas, 50);
-      return;
-    }
-    flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
-    try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+    if (evt && evt.type === 'result') lastResult = evt;
+    onEvent(evt);
   };
-  // 第27波:本次 HTTP 回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
+  // 第27波:本次回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
   const driverRunId = makeId('drun');
   bindDriverRun(session.id, driverRunId);
   // 第69波:登记 settle 信号 —— rewind 截断前等它( dying turn 的收尾 saveSession 落盘先于 driver finally,
   // 由此保证 rewind 的截断写在最后,不被收尾 save 整份盖回)。
   let settleResolve = null;
-  const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now() };
+  const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
   turnSettlers.set(session.id, settleEntry);
+  let turnError = '';
   try {
     emit({ type: 'session', session });
     const provider = activeOpenAiProvider(config);
-    const pinnedRoute = inferSessionEngineRoute(session);
+    const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
       throw new Error(`会话绑定的 Provider 不可用：${pinnedRoute.providerId}`);
     }
@@ -2234,9 +2260,10 @@ async function streamChat(req, res) {
       await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
     }
   } catch (err) {
-    emit({ type: 'error', error: err.message || String(err) });
+    turnError = err.message || String(err);
+    emit({ type: 'error', error: turnError });
   } finally {
-    flushDeltas();  // D1:回合收尾 flush 残留 delta,防最后一批丢
+    onFlush();  // D1:回合收尾 flush 残留 delta,防最后一批丢(HTTP 壳的合批缓冲;进程内调用方通常是空实现)
     finished = true;
     // 第27波:run 结束 → scope:'run' 授权蒸发(遍历删 runId 匹配项),登记表清理。scope:'session' 授权跨回合保留,直到
     // TTL/次数耗尽或显式撤销/切模式。
@@ -2244,6 +2271,87 @@ async function streamChat(req, res) {
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
-    res.end();
+  }
+  return {
+    ok: !turnError,
+    sessionId: session.id,
+    turnSeq: Number(session.turnSeq) || 0,
+    result: lastResult,
+    usage: { ...usageTotals, lastTurnTokens },
+    stopped: turnStopped,
+    disconnected: disconnectHandled,
+    source,
+    error: turnError || undefined,
+  };
+}
+
+// HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
+async function streamChat(req, res) {
+  const body = await readJsonBody(req);
+  // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
+  let deltaBuffer = []; let flushTimer = null;
+  const flushDeltas = () => {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    if (!deltaBuffer.length) return;
+    const merged = [];
+    for (const d of deltaBuffer) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === d.type) last.text = (last.text || '') + (d.text || '');
+      else merged.push({ ...d });
+    }
+    deltaBuffer = [];
+    for (const evt of merged) {
+      try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+    }
+  };
+  const writeEvent = evt => {
+    if (evt && (evt.type === 'assistant_delta' || evt.type === 'thinking_delta')) {
+      deltaBuffer.push(evt);
+      if (!flushTimer) flushTimer = setTimeout(flushDeltas, 50);
+      return;
+    }
+    flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
+    try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
+  };
+  // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
+  const disconnectController = new AbortController();
+  let shellFinished = false;
+  const handleDisconnect = () => { try { disconnectController.abort(); } catch { /* ignore */ } };
+  // onStart 的位置 = 原 streamChat 里 writeHead 的位置(会话已装载、第一个事件未发)。started 记住流是否
+  // 已起:核心在 onStart 之前抛错(readConfig/loadSession/createSession 级故障)时响应头还没发,错误要照原样
+  // 抛回路由由 sendError 写标准信封,这里不能抢先 res.end() 把它变成一个空的 200。
+  let started = false;
+  const onStart = () => {
+    started = true;
+    // Lowest-latency streaming on loopback: no Nagle batching, flush headers immediately.
+    try { req.socket.setNoDelay(true); } catch { /* ignore */ }
+    res.writeHead(200, {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    try { res.flushHeaders(); } catch { /* ignore */ }
+    req.on('aborted', handleDisconnect);
+    res.on('close', () => { if (!shellFinished && !res.writableEnded) handleDisconnect(); });
+  };
+  try {
+    await runSessionTurn({
+      sessionId: body.sessionId,
+      title: body.title,
+      message: body.message,
+      attachments: body.attachments || [],
+      cwd: body.cwd,
+      agentTeam: body.agentTeam,
+      permissionMode: body.permissionMode,
+      source: 'http',
+      onEvent: writeEvent,
+      onFlush: flushDeltas,
+      onStart,
+      signal: disconnectController.signal,
+    });
+  } finally {
+    shellFinished = true;
+    if (started) res.end();
   }
 }

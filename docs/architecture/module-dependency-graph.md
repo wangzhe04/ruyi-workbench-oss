@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 39 | 1629 | 1714 | 279 | 67 | 0 | 1 |
+| 39 | 1630 | 1716 | 279 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -43,7 +43,7 @@
 | 25 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
 | 26 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
 | 27 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
-| 28 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
+| 28 | `10-context-governance.js` | orchestration | 126 | 63 | 13 |
 | 29 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 30 | `12-tool-dispatch.js` | tools | 30 | 77 | 13 |
 | 31 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
@@ -53,7 +53,7 @@
 | 35 | `13d-core-domain-routes.js` | transport | 35 | 89 | 13 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
 | 37 | `13g-steward.js` | transport | 56 | 23 | 7 |
-| 38 | `14-main.js` | entrypoint | 1 | 416 | 28 |
+| 38 | `14-main.js` | entrypoint | 1 | 417 | 28 |
 
 ## 模块边
 
@@ -222,7 +222,7 @@
 | `10-context-governance.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `PERMISSION_MODES`, `readConfig`, `readJsonBody` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `observationRecallEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
-| `10-context-governance.js` | `02-session-store.js` | backward | `configForSessionEngineRoute`, `createSession`, `inferSessionEngineRoute`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `readSessionNotes`, `saveSession`, `withJournalWriteLock`, `writeSessionNotes` |
+| `10-context-governance.js` | `02-session-store.js` | backward | `configForSessionEngineRoute`, `createSession`, `inferSessionEngineRoute`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `normalizeSessionEngineRoute`, `readSessionNotes`, `saveSession`, `withJournalWriteLock`, `writeSessionNotes` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnSettlers` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `applyProviderReasoningEffort`, `providerBaseWithV1`, `providerResponsesBase`, `runClaudeTurn` |
 | `10-context-governance.js` | `05b-kimi-bridge.js` | backward | `kimiContextWindow` |
@@ -333,7 +333,7 @@
 | `14-main.js` | `09-workflow.js` | backward | `planDiscoveryToolBatchAllowed` |
 | `14-main.js` | `09b-replan-ledger.js` | backward | `applyReplanPatch`, `proposeReplanPatch`, `rollbackReplanPatch`, `validateReplanPatch` |
 | `14-main.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `fmtTokensServer`, `setEstimateBucketsV1` |
-| `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `MODEL_CONTEXT_TABLE`, `agentConversationContextMeta`, `appendPromptToLastUserMessage`, `applySummaryCallPolicy`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `compactHistoryFromSession`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `estimateFactor`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `summaryMaxConcurrent`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
+| `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `MODEL_CONTEXT_TABLE`, `agentConversationContextMeta`, `appendPromptToLastUserMessage`, `applySummaryCallPolicy`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `compactHistoryFromSession`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `estimateFactor`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `runSessionTurn`, `summaryMaxConcurrent`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
 | `14-main.js` | `11-native-tools.js` | backward | `builtinSearch`, `classifyFetchError`, `crc32`, `embeddedIpv4FromV6`, `extractMainText`, `httpGetGuarded`, `isPrivateIpv4`, `parseBaiduHtml`, `parseBingHtml`, `readWebCache`, `ssrfCheck`, `webCachePath`, `webFetch`, `webFetchFailMessage`, `webSearch`, `writeWebCache`, `zipCollectEntries` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
 | `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `pretenderIndexPath`, `warmPretenderProjectionIndex` |
