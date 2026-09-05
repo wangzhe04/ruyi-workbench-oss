@@ -118,6 +118,10 @@ function buildOpenAiTools(config, caps, opts) {
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
     // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
     if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
+    // 116c(27 号文 §3.5「分离」):管家工具族只对 kind==='steward' 的管家会话 offer —— 这是四个 offer
+    // 面之一(其余三面:MCP tools/list 桥、adaptive 目录、/api/status 工具清单)。fail-closed:调用方
+    // 不显式传 opts.stewardSession 就一律不 offer,普通会话与子代理回合永远看不到 steward_*。
+    if (isStewardToolName(t.name) && !(opts && opts.stewardSession === true)) continue;
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. spawn_agent (exec)
     // is already suppressed for sub-turns via noSpawnAgent, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
@@ -206,6 +210,17 @@ const NATIVE_TOOL_TIER = {
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
   workbench_self_status: 'read', // 108c: 只读自状态(版本/位置/端口/健康/计数/设置掩码),不触文件路径 → auto-allow
+  // 116c(27 号文 §3.5 tier 分档):管家工具族。观察族 read(只读如意自身账面,零副作用);线程族 edit
+  // (建线程/递话/改名,全部返回 undoRef 可撤销);决策族 exec(替用户答复待决、控制班组运行,最高危)。
+  // 记忆族按「管家记忆自由」定 edit —— 写的是管家自己的记忆文件,不触外部世界。
+  steward_self_status: 'read', steward_threads_search: 'read', steward_thread_status: 'read',
+  steward_thread_read: 'read', steward_runs_status: 'read', steward_inbox_read: 'read',
+  steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
+  steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  steward_decide: 'exec', steward_run_action: 'exec',
+  // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
+  // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
+  steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
@@ -272,6 +287,8 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   integrations: 'inspect and configure MCP connectors and browser targets',
   memory: 'cross-session memory read/write/search (memory_save/read/list/delete)',
   thinking: 'step-by-step reasoning chains and sequential thinking',
+  // 116c: 管家专属包。只对 kind==='steward' 的会话 offer(四个 offer 面各自门控),普通会话永不进入。
+  steward: 'workbench steward: observe threads, delegate work, decide pending items and keep steward memory',
 });
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
@@ -288,6 +305,14 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', skill_read: 'skills',
   mcp_list: 'integrations', mcp_configure: 'integrations',
+  // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
+  // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
+  steward_self_status: 'steward', steward_threads_search: 'steward', steward_thread_status: 'steward',
+  steward_thread_read: 'steward', steward_runs_status: 'steward', steward_inbox_read: 'steward',
+  steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
+  steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
+  steward_decide: 'steward', steward_run_action: 'steward',
+  steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
 });
 
 function toolPackForName(name, bridgedRoute) {

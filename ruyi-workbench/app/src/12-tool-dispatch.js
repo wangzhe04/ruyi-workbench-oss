@@ -326,6 +326,14 @@ const CORE_TOOL_HANDLERS = {
   // getAgentWorkflows),不新造事实源。config 段只回显白名单标量字段,绝不回显 provider/apiKey/token 等
   // 密钥材料(e2e 断言:序列化结果不含 apiKey/token/sk- 子串)。section 参数控制输出体量。
   workbench_self_status: { paths: null, guardNote: '只读自状态(版本/位置/端口/健康/计数/设置掩码),不触任何文件路径', handler: async (args, ctx) => {
+      return buildWorkbenchSelfStatus(args, ctx);
+  } },
+};
+
+// 116c: 108c 的自状态装配从 handler 里零行为抽成同模块函数,让 13g 的 steward_self_status 复用同一份
+// 事实源(§3.5「复用 workbench_self_status 装配并加管家段」——不新造第二个事实源)。逻辑逐行未变;
+// 唯一新增是「未知 section 回落 all」的既有行为对 'steward' 也成立(该段由 13g 自己追加,本函数不认识它)。
+async function buildWorkbenchSelfStatus(args, ctx) {
       const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'all']);
       const section = SECTIONS.has(args && args.section) ? args.section : 'all';
       const identity = buildRuntimeIdentityFacts();
@@ -371,7 +379,33 @@ const CORE_TOOL_HANDLERS = {
         };
       }
       return out;
-  } },
+}
+
+// ── 116c(27 号文 §3.5/§11.3):管家工具族的 handler 登记 ────────────────────────────────────────
+// 纪律(交办单硬约束):这 17 个 handler 在本文件里【只调 StewardHooks.*】,真实实现全部住在
+// 13g-steward.js(transport 层,加载时 Object.assign(StewardHooks, {...}) 填充)。12 → 06i 是后向边;
+// 12 【不得】直接引用 13g 的任何符号(那会是前向边)。开关关 / 非管家会话的 fail-closed 二次校验
+// 在 13g 的 stewardToolHandler 统一做,本文件不重复判断(单一判定点)。
+// paths 全部为 null:管家工具面不接受也不解析任何文件路径 —— 它「动如意」,不「动世界」。
+const STEWARD_GUARD_NOTE = '116c: 管家工具只操作如意自身账面(线程/待决/班组/用量/审计/管家记忆),不接受也不触碰任何文件路径;实现在 13g,开关(stewardEnabledV1)与会话身份(kind==="steward")双重 fail-closed';
+const STEWARD_TOOL_HANDLERS = {
+  steward_self_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.selfStatus(args, ctx) },
+  steward_threads_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadsSearch(args, ctx) },
+  steward_thread_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStatus(args, ctx) },
+  steward_thread_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRead(args, ctx) },
+  steward_runs_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runsStatus(args, ctx) },
+  steward_inbox_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.inboxReadTool(args, ctx) },
+  steward_usage: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.usage(args, ctx) },
+  steward_health: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.health(args, ctx) },
+  steward_audit_tail: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.auditTail(args, ctx) },
+  steward_thread_new: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadNew(args, ctx) },
+  steward_thread_continue: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadContinue(args, ctx) },
+  steward_thread_rename: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRename(args, ctx) },
+  steward_decide: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.decide(args, ctx) },
+  steward_run_action: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runAction(args, ctx) },
+  steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },
+  steward_memory_veto: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryVeto(args, ctx) },
+  steward_memory_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memorySearch(args, ctx) },
 };
 
 // ── 106 #2a: 受限执行结果缓存(22 号文 §6.1)─────────────────────────────────
@@ -1317,11 +1351,12 @@ const INTEGRATION_TOOL_HANDLERS = {
 const TOOL_HANDLERS = Object.freeze(Object.assign({},
   CORE_TOOL_HANDLERS, FILE_TOOL_HANDLERS, ARCHIVE_TOOL_HANDLERS, SHELL_TOOL_HANDLERS,
   DESKTOP_TOOL_HANDLERS, NETWORK_TOOL_HANDLERS, CODE_TOOL_HANDLERS, AGENT_TOOL_HANDLERS,
-  INTEGRATION_TOOL_HANDLERS));
+  INTEGRATION_TOOL_HANDLERS, STEWARD_TOOL_HANDLERS));
 // 装时机断言:组间重名会被 Object.assign 静默覆盖 —— 启动即炸,不允许带病运行(行为锁另有 e2e)。
 {
   const declared = [CORE_TOOL_HANDLERS, FILE_TOOL_HANDLERS, ARCHIVE_TOOL_HANDLERS, SHELL_TOOL_HANDLERS,
-    DESKTOP_TOOL_HANDLERS, NETWORK_TOOL_HANDLERS, CODE_TOOL_HANDLERS, AGENT_TOOL_HANDLERS, INTEGRATION_TOOL_HANDLERS]
+    DESKTOP_TOOL_HANDLERS, NETWORK_TOOL_HANDLERS, CODE_TOOL_HANDLERS, AGENT_TOOL_HANDLERS, INTEGRATION_TOOL_HANDLERS,
+    STEWARD_TOOL_HANDLERS]
     .reduce((n, g) => n + Object.keys(g).length, 0);
   if (declared !== Object.keys(TOOL_HANDLERS).length) throw new Error('TOOL_HANDLERS: 组间存在重名工具,注册表被静默覆盖');
 }

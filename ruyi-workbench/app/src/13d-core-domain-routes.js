@@ -959,7 +959,10 @@ async function decideIntervention(command = {}) {
             : source === 'legacy_permission' ? 'permission_decision'
               : source === 'legacy_plan' ? 'plan_decision'
                 : source === 'legacy_pool' ? `pool_${action}`
-                  : 'intervention_decision';
+                  // 116c(27 号文 §11.3):管家代答的决定在审计流里必须一眼可辨,不能混进通用标签 ——
+                  // 「谁按的这个批准」是事后解释与撤销的第一现场。
+                  : source === 'steward' ? 'steward_decision'
+                    : 'intervention_decision';
           logEvent({ kind: 'intervention', source: auditSource, sessionId: missionId, interventionId, type, action, interventionVersion: terminal.interventionVersion });
         },
         afterTerminal: () => {
@@ -1296,8 +1299,10 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     let result;
     try {
+      // 116c: source 可由请求指定(默认仍是 'test',既有用例逐字节不变)——让 CAS 矩阵能直接验证
+      // source:'steward' 的成功/版本冲突/越权三条路径在命令核心里走的是同一套判定与同一条落盘格式。
       result = await transitionInterventionState(body.sessionId, body.ivId, body.expectedVersion, body.toStatus || 'allowed', {
-        crashAt: body.crashAt, decidedBy: body.decidedBy, source: 'test',
+        crashAt: body.crashAt, decidedBy: body.decidedBy, source: String(body.source || 'test').slice(0, 64),
         action: body.actionMs ? () => new Promise(r => setTimeout(r, Number(body.actionMs) || 0)) : undefined,
       });
     } catch (e) {
@@ -1308,6 +1313,90 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     return send(res, json(result));
   }
   return false;
+}
+
+// ── 116c(27 号文 §11.3「116c ... steward_run_action ... 如果动作逻辑内联在路由里,先把它零行为抽成
+// 可调用函数(同模块),路由改为调用它」)────────────────────────────────────────────────────────
+// 五个班组动作(pause/resume/stop/retry_node/steer_node)的实现从 POST /api/agent-runs/:runId 路由体里
+// 零行为搬出:每个分支原来的 `send(res, json(BODY, STATUS))` 逐个换成 `return { status, body }`,判定
+// 顺序、措辞、计数(bumpRunIntervention)、事件(appendAgentRunEvent)与落盘时机一字未改。
+// 不在本函数内处理的动作(apply_isolation / pool_approve / pool_reject / 未知动作)返回 null,由路由
+// 沿用原有分支继续处理 —— 这样搬家对 HTTP 面是逐字节等价的。
+// 归属校验(live.run.sessionId !== sessionId -> 404)在函数内【再做一次】:进程内调用方(管家)不经过
+// 路由体那道闸,fail-closed 的重复判定比信任调用方便宜得多。
+async function agentRunActionCommand(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  const sessionId = safeSessionId(o.sessionId);
+  const runId = safeSessionId(o.runId);
+  const action = String(o.action || '');
+  if (!sessionId || !runId) return { status: 400, body: { ok: false, error: 'sessionId/runId required' } };
+  const live = activeAgentRuns.get(runId);
+  if (live && live.run && live.run.sessionId && live.run.sessionId !== sessionId) return { status: 404, body: { ok: false, error: 'agent run not found' } };
+  if (action === 'pause') {
+    if (!live) return { status: 409, body: { ok: false, error: '工作流当前未运行' } };
+    // 对抗轮 P3(#8): 计数按【状态迁移】幂等 —— 对已暂停 run 重复 POST(UI 按钮态滞后期双击/双面板)端点行为
+    // 无害但计数器会被 UI 时延系统性抬高。只在真正 running→paused 时计一次干预(与本文件 pool_approve 先查
+    // status!=='proposed' 的"无效重复不计干预"模式一致)。
+    const wasPaused = live.paused === true;
+    live.paused = true; live.run.pauseRequestedAt = nowIso();
+    if (!wasPaused) bumpRunIntervention(live.run, 'pause'); // 29c(状态迁移才计)
+    appendAgentRunEvent(live.run, { type: 'run_paused', data: { reason: 'user' } }); // 25.3
+    await saveAgentRun(live.run);
+    return { status: 200, body: { ok: true, state: 'pausing' } };
+  }
+  if (action === 'resume') {
+    if (live) {
+      // Reset the idle clock ATOMICALLY with clearing paused: the watchdog reads live.lastActivityAt, so by the
+      // time it observes paused=false the clock is already fresh -> no false idle-abort right after a long pause.
+      const wasPaused = live.paused === true; // 对抗轮 P3(#8): 仅 paused→running 计一次(对运行中 run resume 是 no-op,不计)
+      live.paused = false; live.lastActivityAt = Date.now(); const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+      if (wasPaused) bumpRunIntervention(live.run, 'resume'); // 29c
+      appendAgentRunEvent(live.run, { type: 'run_resume_requested', data: { mode: 'warm' } }); // 25.3
+      saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 追写快照,让 eventSeq 尽快落盘(缩小崩溃重号窗口)
+      return { status: 200, body: { ok: true, state: 'running' } };
+    }
+    return { status: 200, body: await launchPersistedAgentRun({ sessionId, runId, interventionKind: 'resume' }) };
+  }
+  if (action === 'stop') {
+    if (!live) return { status: 409, body: { ok: false, error: '工作流当前未运行' } };
+    const wasStopping = live.stopRequested === true; // 对抗轮 P3(#8): 重复 stop 不重复计
+    live.stopRequested = true; live.paused = false; try { if (live.ctrl) live.ctrl.abort(); } catch {}
+    const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
+    if (!wasStopping) bumpRunIntervention(live.run, 'stop'); // 29c
+    appendAgentRunEvent(live.run, { type: 'run_stop_requested' }); // 25.3
+    saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 同 resume —— 追写快照缩小 eventSeq 崩溃重号窗口
+    return { status: 200, body: { ok: true, state: 'stopping' } };
+  }
+  if (action === 'retry_node') {
+    if (live) return { status: 409, body: { ok: false, error: '请先等待或停止当前运行' } };
+    const nodeId = String(o.nodeId || '').trim();
+    return { status: 200, body: await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: o.cascade === true, interventionKind: 'retry_node' }) };
+  }
+  // Directional node steering. Provider nodes consume at their next iteration boundary; Claude nodes consume
+  // through the live stream-json stdin channel. Queued nodes keep the message until their model starts.
+  if (action === 'steer_node') {
+    if (!live) return { status: 409, body: { ok: false, error: '工作流当前未运行，无法插话' } };
+    // 停止收尾窗口：stop 已经请求（或 ctrl 已中止）之后，节点即将被标记 cancelled，不会再有下一次迭代边界来
+    // 消费插话队列；此时接受插话只会让用户误以为它会生效，直接拒绝更诚实。
+    if (live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted)) return { status: 409, body: { ok: false, error: '工作流正在停止，无法插话' } };
+    const nodeId = String(o.nodeId || '').trim();
+    if (!nodeId) return { status: 400, body: { ok: false, error: 'nodeId required' } };
+    // 团队模式 v2 (B1): 投递资格判定与 send_to_agent 共用同一小函数(不复制两份),reason 各自映射为本处既有措辞。
+    const elig = nodeDeliveryEligibility(live.run, nodeId, { allowClaude: true });
+    if (elig.reason === 'not_found') return { status: 404, body: { ok: false, error: '节点不存在' } };
+    if (elig.reason === 'deterministic_gate') return { status: 409, body: { ok: false, error: '确定性质量门节点不经过模型，无法插话' } };
+    if (elig.reason === 'terminal') return { status: 409, body: { ok: false, error: '节点已结束，无法插话' } };
+    const text = String(o.text || '').trim().slice(0, 2000);
+    if (!text) return { status: 400, body: { ok: false, error: '插话内容不能为空' } };
+    if (!live.steerQueues) live.steerQueues = new Map();
+    let q = live.steerQueues.get(nodeId);
+    if (!q) { q = []; live.steerQueues.set(nodeId, q); }
+    if (q.length >= STEER_QUEUE_MAX) return { status: 409, body: { ok: false, error: '该节点插话队列已满' } };
+    q.push(text);
+    bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
+    return { status: 200, body: { ok: true, queued: q.length, live: elig.node.status === 'running' } };
+  }
+  return null; // 本函数不认识的动作(apply_isolation / pool_* / 未知)——由路由沿用原分支
 }
 
 async function handleAgentRunApiRoutes(req, res, pathname) {
@@ -1375,45 +1464,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // 对 pause/resume/stop/steer_node 全部生效；resume 的冷启动分支（live 为空）走 launchPersistedAgentRun，
     // 本来就按 sessionId 找持久化文件，不受影响。
     if (live && live.run && live.run.sessionId && live.run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
-    if (action === 'pause') {
-      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
-      // 对抗轮 P3(#8): 计数按【状态迁移】幂等 —— 对已暂停 run 重复 POST(UI 按钮态滞后期双击/双面板)端点行为
-      // 无害但计数器会被 UI 时延系统性抬高。只在真正 running→paused 时计一次干预(与本文件 pool_approve 先查
-      // status!=='proposed' 的"无效重复不计干预"模式一致)。
-      const wasPaused = live.paused === true;
-      live.paused = true; live.run.pauseRequestedAt = nowIso();
-      if (!wasPaused) bumpRunIntervention(live.run, 'pause'); // 29c(状态迁移才计)
-      appendAgentRunEvent(live.run, { type: 'run_paused', data: { reason: 'user' } }); // 25.3
-      await saveAgentRun(live.run);
-      return send(res, json({ ok: true, state: 'pausing' }));
-    }
-    if (action === 'resume') {
-      if (live) {
-        // Reset the idle clock ATOMICALLY with clearing paused: the watchdog reads live.lastActivityAt, so by the
-        // time it observes paused=false the clock is already fresh -> no false idle-abort right after a long pause.
-        const wasPaused = live.paused === true; // 对抗轮 P3(#8): 仅 paused→running 计一次(对运行中 run resume 是 no-op,不计)
-        live.paused = false; live.lastActivityAt = Date.now(); const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
-        if (wasPaused) bumpRunIntervention(live.run, 'resume'); // 29c
-        appendAgentRunEvent(live.run, { type: 'run_resume_requested', data: { mode: 'warm' } }); // 25.3
-        saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 追写快照,让 eventSeq 尽快落盘(缩小崩溃重号窗口)
-        return send(res, json({ ok: true, state: 'running' }));
-      }
-      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, interventionKind: 'resume' })));
-    }
-    if (action === 'stop') {
-      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行' }, 409));
-      const wasStopping = live.stopRequested === true; // 对抗轮 P3(#8): 重复 stop 不重复计
-      live.stopRequested = true; live.paused = false; try { if (live.ctrl) live.ctrl.abort(); } catch {}
-      const waiters = live.resumeWaiters.splice(0); for (const wake of waiters) wake();
-      if (!wasStopping) bumpRunIntervention(live.run, 'stop'); // 29c
-      appendAgentRunEvent(live.run, { type: 'run_stop_requested' }); // 25.3
-      saveAgentRun(live.run).catch(() => {}); // 对抗轮修: 同 resume —— 追写快照缩小 eventSeq 崩溃重号窗口
-      return send(res, json({ ok: true, state: 'stopping' }));
-    }
-    if (action === 'retry_node') {
-      if (live) return send(res, json({ ok: false, error: '请先等待或停止当前运行' }, 409));
-      const nodeId = String(body.nodeId || '').trim();
-      return send(res, json(await launchPersistedAgentRun({ sessionId, runId, retryNodeId: nodeId, retryCascade: body.cascade === true, interventionKind: 'retry_node' })));
+    // 116c: pause/resume/stop/retry_node/steer_node 五个动作的实现搬到 agentRunActionCommand(同模块,
+    // 零行为);本路由只做 HTTP 适配。其余动作(apply_isolation / pool_*)返回 null,继续走下面的原分支。
+    {
+      const cmd = await agentRunActionCommand({ sessionId, runId, action, nodeId: body.nodeId, text: body.text, cascade: body.cascade === true });
+      if (cmd) return send(res, json(cmd.body, cmd.status));
     }
     if (action === 'apply_isolation') {
       if (live) return send(res, json({ ok: false, error: '请先等待当前运行结束' }, 409));
@@ -1422,30 +1477,6 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
-    }
-    // Directional node steering. Provider nodes consume at their next iteration boundary; Claude nodes consume
-    // through the live stream-json stdin channel. Queued nodes keep the message until their model starts.
-    if (action === 'steer_node') {
-      if (!live) return send(res, json({ ok: false, error: '工作流当前未运行，无法插话' }, 409));
-      // 停止收尾窗口：stop 已经请求（或 ctrl 已中止）之后，节点即将被标记 cancelled，不会再有下一次迭代边界来
-      // 消费插话队列；此时接受插话只会让用户误以为它会生效，直接拒绝更诚实。
-      if (live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted)) return send(res, json({ ok: false, error: '工作流正在停止，无法插话' }, 409));
-      const nodeId = String(body.nodeId || '').trim();
-      if (!nodeId) return send(res, json({ ok: false, error: 'nodeId required' }, 400));
-      // 团队模式 v2 (B1): 投递资格判定与 send_to_agent 共用同一小函数(不复制两份),reason 各自映射为本处既有措辞。
-      const elig = nodeDeliveryEligibility(live.run, nodeId, { allowClaude: true });
-      if (elig.reason === 'not_found') return send(res, json({ ok: false, error: '节点不存在' }, 404));
-      if (elig.reason === 'deterministic_gate') return send(res, json({ ok: false, error: '确定性质量门节点不经过模型，无法插话' }, 409));
-      if (elig.reason === 'terminal') return send(res, json({ ok: false, error: '节点已结束，无法插话' }, 409));
-      const text = String(body.text || '').trim().slice(0, 2000);
-      if (!text) return send(res, json({ ok: false, error: '插话内容不能为空' }, 400));
-      if (!live.steerQueues) live.steerQueues = new Map();
-      let q = live.steerQueues.get(nodeId);
-      if (!q) { q = []; live.steerQueues.set(nodeId, q); }
-      if (q.length >= STEER_QUEUE_MAX) return send(res, json({ ok: false, error: '该节点插话队列已满' }, 409));
-      q.push(text);
-      bumpRunIntervention(live.run, 'steer_node'); // 29c(队列在内存,计数随下一次快照落盘即可,不额外写盘)
-      return send(res, json({ ok: true, queued: q.length, live: elig.node.status === 'running' }));
     }
     // 75b compatibility adapter: pool approval/rejection shares decideIntervention with the Mission contract.
     if (action === 'pool_approve' || action === 'pool_reject') {

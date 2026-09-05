@@ -71,9 +71,10 @@ function seedPending(sid, ivId) {
 function spawnWb() {
   return cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1' }, windowsHide: true });
 }
-async function cas(token, sid, ivId, expectedVersion, toStatus, crashAt) {
+async function cas(token, sid, ivId, expectedVersion, toStatus, crashAt, source) {
   const body = { sessionId: sid, ivId, expectedVersion, toStatus };
   if (crashAt) body.crashAt = crashAt;
+  if (source) body.source = source; // 116c: 省略即沿用默认 'test'(既有用例逐字节不变)
   return requestJson(WB_PORT, '/api/_test/intervention-cas', body, token);
 }
 
@@ -136,6 +137,32 @@ async function cas(token, sid, ivId, expectedVersion, toStatus, crashAt) {
       ok(!!recovered && recovered.status === recoveryStatus, `(d) ${at}:重启恢复 -> ${recoveryStatus}(实际 ${recovered && recovered.status})`);
     }
 
+    // ============ (f) 116c: source:'steward'(管家代答)三条路径 ============
+    // 管家的决定与用户的决定共用同一套 CAS 与同一条落盘格式,唯一区别是 source 标签 —— 这三条用例
+    // 证明「管家来源」既不走捷径(版本冲突照样冲突)、也不被特殊对待(成功路径与 'test' 同形)。
+    console.log('\n── [f] source:steward ──');
+    resetIv(sid); seedPending(sid, 'stew_ok');
+    r = await cas(token, sid, 'stew_ok', 0, 'allowed', null, 'steward');
+    ok(r.status === 200 && r.json?.ok === true && r.json?.status === 'allowed' && r.json?.interventionVersion === 2,
+      "(f1) 成功:source:'steward' 的 pending->allowed 与用户来源同形(v0->v2)");
+    iv = readIv(sid).get('stew_ok');
+    ok(!!iv && iv.status === 'allowed' && iv.source === 'steward', "(f1) 磁盘终态行带 source:'steward'(事后可追责到管家)");
+
+    resetIv(sid); seedPending(sid, 'stew_vc');
+    r = await cas(token, sid, 'stew_vc', 7, 'allowed', null, 'steward');
+    ok(r.status === 200 && r.json?.ok === false && r.json?.reason === 'version_conflict',
+      "(f2) 版本冲突:管家来源不绕过 CAS -> version_conflict");
+    iv = readIv(sid).get('stew_vc');
+    ok(!!iv && iv.status === 'pending' && !iv.source, '(f2) 版本冲突不转换、不留 source 痕迹(仍 pending)');
+
+    r = await cas(token, sid, 'stew_vc', 0, 'allowed', null, 'steward');
+    ok(r.status === 200 && r.json?.ok === true, '(f3) 越权前置:同一条待决先由管家决掉');
+    r = await cas(token, sid, 'stew_vc', 2, 'denied', null, 'steward');
+    ok(r.status === 200 && r.json?.ok === false && r.json?.reason === 'already_terminal',
+      '(f3) 越权:已终态的待决管家再决一次 -> already_terminal(不得改写用户已定的事)');
+    const noToken = await requestJson(WB_PORT, '/api/_test/intervention-cas', { sessionId: sid, ivId: 'stew_vc', expectedVersion: 0, toStatus: 'allowed', source: 'steward' }, '');
+    ok(noToken.status === 403, '(f3) 越权:无 token 的 steward 决策请求 -> 403(鉴权在管家之前)');
+
     // ============ (e) 静态锁 ============
     console.log('\n── [e] 静态锁 ──');
     ok(/async function transitionInterventionState\(sessionId, ivId, expectedVersion, toStatus, opts = \{\}\)/.test(src), 'e 02 有 transitionInterventionState(CAS 原语)');
@@ -145,6 +172,10 @@ async function cas(token, sid, ivId, expectedVersion, toStatus, crashAt) {
     ok(/api\/_test\/intervention-cas/.test(src) && /RUYI_TEST_HOOKS/.test(src), 'e 13d 测试端点 + RUYI_TEST_HOOKS env 门控');
     ok(/\{ m: 'POST', p: '\/api\/_test\/intervention-cas', auth: 'token' \}/.test(src), 'e 01-config ROUTE_AUTH 测试端点 token 级');
     ok(/status: 'indeterminate'/.test(src), 'e 02 markInterruptedInterventions applying->indeterminate 恢复');
+    // 116c: 管家来源的审计标签必须自成一档 —— 「谁按的这个批准」是事后解释与撤销的第一现场。
+    ok(/source === 'steward' \? 'steward_decision'/.test(src), "e 13d 审计标签 switch 有 source==='steward' -> 'steward_decision' 分支");
+    ok(/source: String\(opts\.source \|\| 'contract'\)/.test(src), "e 02 transitionInterventionState 把 source 原样写进 applying/terminal 行");
+    ok(/function stewardMayAct\(permissionMode, eventKind, toolTier\)/.test(src), 'e 06i 管家放行范围经 stewardMayAct 真值表(管家自身无档位)');
 
   } finally {
     kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });

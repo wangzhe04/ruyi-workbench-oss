@@ -765,6 +765,921 @@ async function handleStewardApiRoutes(req, res, pathname) {
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// 第 116 波 116c(27 号文 §3.5 工具面 / §4 记忆层 / §11.2 读预算):管家工具集实现。
+//
+// 定位:12-tool-dispatch.js 里的 17 个 steward_* handler 只写一行 `StewardHooks.xxx(args, ctx)`,
+// 真实实现全在这里。这样 12(工具层)→ 06i(引擎层命名空间)是后向边,13g(传输层)单向往 06i 挂方法,
+// 全程零新增前向边。
+//
+// 铁律(§3.4 红线 + §3.3):
+//   ① 管家「动如意」,不「动世界」—— 本文件不提供任何文件读写/shell/桌面/浏览器/联网/git 写能力;
+//      要动手就 steward_thread_new / steward_thread_continue 委派给线程,由线程按自己的权限档执行。
+//   ② 双重 fail-closed:stewardEnabledV1 !== true -> steward.disabled(零写入);
+//      ctx.session.kind !== 'steward' -> steward.forbidden(普通会话即使拿到工具名也调不动)。
+//   ③ 管家只能收紧,不能放宽:放行范围一律经 06i 的 stewardMayAct(目标线程 permissionMode, ...);
+//      永久豁免清单(stewardToolPermanentlyExempt)在任何权限档都返回 propose_required。
+//   ④ 每个写动作追加一行决策日志 `<data>/steward/decisions-v1.ndjson`,带 undoRef 与依据。
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── 落盘常量(两个新面,已登记进 durable-state-inventory)────────────────────────────────────
+const STEWARD_DECISIONS_FILE = 'decisions-v1.ndjson';
+const STEWARD_MEMORY_FILE = 'memory-v1.json';
+const STEWARD_MEMORY_SCHEMA = 1;
+
+// ── 工具面数值口径 ──────────────────────────────────────────────────────────────────────
+const STEWARD_SEARCH_LIMIT_DEFAULT = 10, STEWARD_SEARCH_LIMIT_MAX = 50;
+const STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS.lastSayChars;   // 200,与总览行同一口径
+const STEWARD_READ_TAIL_DEFAULT = 6, STEWARD_READ_TAIL_MAX = 20;
+const STEWARD_READ_CHARS_DEFAULT = 12000, STEWARD_READ_CHARS_MIN = 1000, STEWARD_READ_CHARS_MAX = 12000;
+const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
+const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
+const STEWARD_TITLE_MAX = 80;
+const STEWARD_STEER_TEXT_MAX = 2000;
+const STEWARD_PENDING_SUMMARY_MAX = 12;     // thread_status 里最多列几条待决摘要
+const STEWARD_RUNS_MAX = 20;                // runs_status 单次最多返回几个 run digest
+
+// ── 稳定信封 ────────────────────────────────────────────────────────────────────────────
+// 形状与 105a observation_recall 同源:{ ok:false, error:<稳定码>, message:<人话> }。error 是模型要
+// 分支的机器码,message 只给人看;调用方(模型)对 propose_required / quota_exceeded / steward.busy
+// 一律不重试 —— schema description 里写明了。
+function stewardFail(code, message, extra) {
+  return { ok: false, error: String(code), message: String(message || code), ...(extra && typeof extra === 'object' ? extra : {}) };
+}
+
+// 管家会话身份:只认会话头上【显式】的 kind === 'steward'。有意不用 sessionKind()——那个归一化函数
+// 只回 'mission'|'quick_ask',把管家会话也算成普通会话,拿它做身份判定等于把门拆了。
+function stewardCtxIsSteward(ctx) {
+  const session = ctx && ctx.session;
+  return !!(session && typeof session === 'object' && session.kind === 'steward');
+}
+
+// 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
+function stewardToolHandler(toolName, impl) {
+  return async (args, ctx) => {
+    let config = null;
+    try { config = await readConfig(); } catch { config = null; }
+    if (!config || config.stewardEnabledV1 !== true) {
+      return stewardFail('steward.disabled', `${toolName} is unavailable: the workbench steward is disabled (stewardEnabledV1=false)`);
+    }
+    if (!stewardCtxIsSteward(ctx)) {
+      return stewardFail('steward.forbidden', `${toolName} is only available to the workbench steward session (session.kind must be 'steward')`);
+    }
+    try {
+      return await impl((args && typeof args === 'object') ? args : {}, ctx || {}, config);
+    } catch (error) {
+      const message = String((error && error.message) || error);
+      logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
+      return stewardFail('steward.failed', `${toolName} failed: ${message}`);
+    }
+  };
+}
+
+// ── 小工具 ──────────────────────────────────────────────────────────────────────────────
+function stewardClampInt(value, min, max, dflt) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+function stewardClipSay(value) {
+  const raw = stewardSanitizeText(value);
+  return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
+}
+// 会话头的原始 kind(未经 sessionKind 归一)。管家会话过滤与目标合法性判定都靠它。
+async function stewardReadSessionHead(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return null;
+  try { return safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null); } catch { return null; }
+}
+function stewardRawKind(head) {
+  const k = head && head.kind;
+  return (typeof k === 'string' && k) ? k : (head && head.mission ? 'mission' : 'quick_ask');
+}
+// 线程权限档:会话头显式覆盖优先,否则跟随全局默认(§3.3「新线程用全局默认权限」)。
+function stewardThreadPermissionMode(head, config) {
+  const explicit = String((head && head.permissionMode) || '');
+  if (PERMISSION_MODES.includes(explicit)) return explicit;
+  return String((config && config.permissionMode) || 'default');
+}
+function stewardLastAssistantText(session) {
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === 'assistant' && String(m.content || '').trim()) return String(m.content);
+  }
+  return String((session && session.summary) || '');
+}
+function stewardEngineOf(head) {
+  const route = (head && head.engineRoute && typeof head.engineRoute === 'object') ? head.engineRoute : null;
+  if (!route) return { engine: '', model: '' };
+  return {
+    engine: route.engine === 'openai' ? 'openai' : (route.agentCliType || 'claude'),
+    model: String(route.model || ''),
+    providerId: String(route.providerId || ''),
+  };
+}
+
+// ── 决策日志(§3.5「所有写工具返回 undoRef,决策日志记录」)───────────────────────────────
+// 与 inbox 同款 append-only 纪律:先 repairMissionChangeTornTail 把尾部半行截干净,再整行 appendFile,
+// 全部经一条 per-process 串行链。开关关时根本走不到这里(门控壳先返回 steward.disabled)。
+const stewardDecisionsPath = () => path.join(stewardDir(), STEWARD_DECISIONS_FILE);
+let stewardDecisionChain = Promise.resolve();
+let stewardDecisionSeq = 0;
+function stewardAppendDecision(row) {
+  const record = {
+    seq: ++stewardDecisionSeq,
+    at: nowIso(),
+    tool: String((row && row.tool) || ''),
+    args: (row && row.args && typeof row.args === 'object') ? row.args : {},
+    targetSessionId: String((row && row.targetSessionId) || ''),
+    permissionMode: String((row && row.permissionMode) || ''),
+    mayAct: String((row && row.mayAct) || ''),
+    undoRef: (row && row.undoRef) || null,
+    basis: (row && row.basis && typeof row.basis === 'object') ? row.basis : {},
+  };
+  const line = JSON.stringify(record) + '\n';
+  stewardDecisionChain = stewardDecisionChain.then(async () => {
+    await fsp.mkdir(stewardDir(), { recursive: true });
+    const file = stewardDecisionsPath();
+    await repairMissionChangeTornTail(file);
+    await fsp.appendFile(file, line, 'utf8');
+  }).catch(() => {}); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
+  return record;
+}
+
+// ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
+const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
+let stewardMemoryChain = Promise.resolve();
+function stewardEmptyMemoryStore() { return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: '', entries: [] }; }
+function stewardNormalizeMemoryEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = String(raw.id || '');
+  const kind = String(raw.kind || '');
+  const text = String(raw.text || '');
+  if (!id || !STEWARD_MEMORY_KINDS.includes(kind) || !text) return null;
+  const confidence = Number(raw.confidence);
+  return {
+    id,
+    kind,
+    text: text.slice(0, STEWARD_MEMORY_LIMITS.textChars),
+    confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0.6,
+    sourceSessionId: String(raw.sourceSessionId || ''),
+    sourceSeq: Math.max(0, Number(raw.sourceSeq) || 0),
+    createdAt: String(raw.createdAt || ''),
+    updatedAt: String(raw.updatedAt || ''),
+    lastUsedAt: String(raw.lastUsedAt || ''),
+    useCount: Math.max(0, Number(raw.useCount) || 0),
+    state: raw.state === 'vetoed' ? 'vetoed' : 'active',
+  };
+}
+async function stewardReadMemoryStore() {
+  let raw = null;
+  try { raw = safeJsonParse(await fsp.readFile(stewardMemoryPath(), 'utf8'), null); } catch { raw = null; }
+  // 损坏/缺失/错 schema = 空库(不抢救、不 mkdir):记忆是旁路增强,坏了不该拖住任何回合。
+  if (!raw || raw.schema !== STEWARD_MEMORY_SCHEMA || !Array.isArray(raw.entries)) return stewardEmptyMemoryStore();
+  const entries = [];
+  for (const item of raw.entries) {
+    const entry = stewardNormalizeMemoryEntry(item);
+    if (entry) entries.push(entry);
+    if (entries.length >= STEWARD_MEMORY_LIMITS.maxEntries) break;
+  }
+  return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: String(raw.updatedAt || ''), entries };
+}
+// 读-改-写全程串在一条 per-process 链上(同 usage/inbox 纪律),两次并发写不会互相盖掉。
+function stewardMutateMemory(mutator) {
+  const next = stewardMemoryChain.then(async () => {
+    const store = await stewardReadMemoryStore();
+    const outcome = await mutator(store);
+    if (outcome && outcome.persist) {
+      store.updatedAt = nowIso();
+      await fsp.mkdir(stewardDir(), { recursive: true });
+      await atomicWriteJson(stewardMemoryPath(), store);
+    }
+    return outcome ? outcome.result : null;
+  });
+  stewardMemoryChain = next.catch(() => {});
+  return next;
+}
+
+// ── §11.2 深读预算:每回合 ≤6 次、累计字符 ≤ stewardReadBudgetChars ─────────────────────────
+// 桶键与 105a observation_recall 同款:会话 id + 回合序号(= providerHistory 里 user 消息条数,回合内
+// 稳定、下回合自增,不需要新管线)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
+const _stewardReadBudget = new Map(); // sessionId -> Map(turnKey -> { calls, chars })
+function stewardReadBucket(sessionId, turnKey) {
+  let buckets = _stewardReadBudget.get(sessionId);
+  if (!buckets) { buckets = new Map(); _stewardReadBudget.set(sessionId, buckets); }
+  while (_stewardReadBudget.size > 64) _stewardReadBudget.delete(_stewardReadBudget.keys().next().value);
+  if (!buckets.has(turnKey)) {
+    buckets.set(turnKey, { calls: 0, chars: 0 });
+    while (buckets.size > 4) buckets.delete(buckets.keys().next().value);
+  }
+  return buckets.get(turnKey);
+}
+function stewardTurnKeyOf(ctx) {
+  const session = ctx && ctx.session;
+  const history = Array.isArray(session && session.providerHistory) ? session.providerHistory : [];
+  return history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 观察族(tier read)—— 只读如意自身账面,零副作用,不写任何持久化。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 1) steward_self_status —— 复用 108c 的装配函数(12-tool-dispatch 的 buildWorkbenchSelfStatus),
+//    再追加一个 steward 段(管家设置掩码 + 收件箱状态)。不新造任何事实源。
+const STEWARD_CONFIG_KEYS = Object.freeze([
+  'stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
+  'stewardMaxCostPerDay', 'stewardAutoActions', 'stewardContextBudgetTokens', 'stewardReadBudgetChars',
+  'stewardVisitIdleMinutes', 'stewardConversationRetention',
+]);
+async function stewardImplSelfStatus(args, ctx, config) {
+  const wantSteward = !args.section || args.section === 'all' || args.section === 'steward';
+  // section:'steward' 只要身份 + 管家段(省上下文);其余 section 原样透传给 108c 的装配函数。
+  const base = await buildWorkbenchSelfStatus({ section: args.section === 'steward' ? 'identity' : args.section }, ctx);
+  if (!wantSteward) return base;
+  const stewardConfig = {};
+  // 全部是标量/小对象开关,天生不含 apiKey/token;仍按白名单逐键回显,防将来新增敏感键被顺带带出。
+  for (const key of STEWARD_CONFIG_KEYS) stewardConfig[key] = config[key];
+  return { ...base, steward: { config: stewardConfig, inbox: await stewardInboxState(config) } };
+}
+
+// 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
+async function stewardImplThreadsSearch(args, ctx, config) {
+  const q = String(args.q || '').trim();
+  const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
+  if (!q) return { ok: true, query: '', results: [], indexed: 0, reason: 'query_empty' };
+  const metas = await listSessions().catch(() => []);
+  const byId = new Map(metas.map(meta => [meta.id, meta]));
+
+  let ranked = [];        // [{ id, score }]
+  let indexed = 0;
+  let degraded = '';
+  if (sessionSearchIndexEnabled(config)) {
+    // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
+    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10)).catch(() => null);
+    if (found && Array.isArray(found.results)) {
+      indexed = Number(found.indexed) || 0;
+      ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
+    } else degraded = 'search_failed';
+  } else degraded = 'index_disabled';
+  if (!ranked.length) {
+    // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
+    const needle = q.toLowerCase();
+    ranked = metas
+      .filter(meta => (String(meta.title || '') + ' ' + String(meta.summary || '')).toLowerCase().includes(needle))
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+      .map(meta => ({ id: meta.id, score: 0 }));
+    if (!degraded) degraded = 'lexical_fallback';
+  }
+
+  const index = await getPretenderProjectionIndex().catch(() => null);
+  const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
+  const results = [];
+  for (const row of ranked) {
+    if (results.length >= limit) break;
+    const head = await stewardReadSessionHead(row.id);
+    const rawKind = stewardRawKind(head);
+    if (rawKind === 'steward') continue;                       // §11.3:管家自己的会话永不出现在结果里
+    const meta = byId.get(row.id) || {};
+    const slice = slices.get(row.id) || null;
+    const card = slice ? overlayMissionCard(slice) : null;
+    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: rawKind === 'mission' ? 'mission' : 'quick_ask' });
+    results.push({
+      sessionId: row.id,
+      missionId: (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id,
+      title: stewardSanitizeText(meta.title || (head && head.title) || ''),
+      kind: rawKind,
+      state: derived.state,
+      stateLabel: derived.label,
+      // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
+      lastAssistantText: stewardClipSay(meta.summary || (head && head.summary) || ''),
+      updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
+      score: Number(row.score) || 0,
+    });
+  }
+  return { ok: true, query: q, results, indexed, ...(degraded ? { degraded } : {}) };
+}
+
+// 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
+function stewardPendingOneLine(iv) {
+  const type = String((iv && iv.type) || '');
+  if (type === 'permission') return `工具 ${stewardSanitizeText(iv.toolName || '?')}(${stewardSanitizeText(iv.tier || 'exec')} 级)等待放行`;
+  if (type === 'question') {
+    const first = (Array.isArray(iv && iv.questions) ? iv.questions : [])[0];
+    return stewardClipSay((first && (first.question || first.title)) || '等待你回答');
+  }
+  if (type === 'plan') return stewardClipSay(iv.planSummary || '计划等待批准');
+  if (type === 'pool') return stewardClipSay(iv.task || '任务池提案等待批准');
+  if (type === 'replan') return stewardClipSay(iv.summary || '重规划提案等待批准');
+  return stewardClipSay(type || '未知待决');
+}
+async function stewardImplThreadStatus(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  const rawKind = stewardRawKind(head);
+  if (rawKind === 'steward') return stewardFail('not_found', 'the steward session is not a thread');
+
+  const index = await getPretenderProjectionIndex().catch(() => null);
+  const slice = ((index && index.sessions) || []).find(row => row.sessionId === sessionId) || null;
+  const card = slice ? overlayMissionCard(slice) : null;
+  const derived = card
+    ? stewardThreadStateFromCard(card)
+    : deriveStewardThreadState({
+      kind: rawKind === 'mission' ? 'mission' : 'quick_ask',
+      autoMode: head.mission && head.mission.autoMode,
+      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
+      pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
+      activeTurn: activeChildren.has(sessionId),
+      runCount: 0,
+      turnSeq: head.turnSeq,
+    });
+
+  const interventions = (await readInterventions(sessionId).catch(() => []))
+    .filter(iv => iv && iv.status === 'pending')
+    .slice(0, STEWARD_PENDING_SUMMARY_MAX)
+    .map(iv => ({ id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0 }));
+
+  const session = await loadSession(sessionId).catch(() => null);
+  const usage = (slice && slice.usage) || null;
+  const engine = stewardEngineOf(head);
+  const lastRun = card && card.lastRun ? card.lastRun : null;
+  return {
+    ok: true,
+    sessionId,
+    missionId: sessionMissionId(head),
+    title: stewardSanitizeText(head.title || ''),
+    kind: rawKind,
+    state: derived.state,
+    stateLabel: derived.label,
+    stateSources: derived.sources,
+    activeTurn: activeChildren.has(sessionId),
+    currentAction: lastRun ? stewardSanitizeText(`班组运行 ${lastRun.id || ''} · ${lastRun.status || ''}`) : (activeChildren.has(sessionId) ? '回合进行中' : ''),
+    lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
+    pending: interventions,
+    pendingCounts: (card && card.pending) || await missionPendingCounts(sessionId, [], null).catch(() => null),
+    permissionMode: stewardThreadPermissionMode(head, config),
+    permissionLabel: stewardPermissionLabel(stewardThreadPermissionMode(head, config)),
+    engine: engine.engine,
+    model: engine.model,
+    providerId: engine.providerId || '',
+    usage: usage ? { inTok: usage.inTok, outTok: usage.outTok, cachedInTok: usage.cachedInTok, turns: usage.turns, costsByCurrency: usage.costsByCurrency } : null,
+    turnSeq: Math.max(0, Number(head.turnSeq) || 0),
+    updatedAt: String(head.updatedAt || ''),
+    lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
+  };
+}
+
+// 4) steward_thread_read —— §11.2 按需层。配额与预算在写任何东西之前先扣;读到的内容【不写入任何
+//    持久化】(记忆只记用户本人陈述,深读结果不进记忆,也不落决策日志)。
+function stewardToolCallLine(call) {
+  const name = stewardSanitizeText((call && call.name) || 'tool');
+  let inputHint = '';
+  try {
+    const raw = JSON.stringify((call && call.input) || {});
+    inputHint = stewardSanitizeText(raw).slice(0, 160);
+  } catch { inputHint = '{…}'; }
+  let resultChars = 0;
+  try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
+  // 工具输出只给长度(与既有 observation reducer 的缩减视图同一诚实口径:不给全文,给可回读的把手)。
+  return `[工具] ${name} ${inputHint} → ${resultChars >= 0 ? resultChars + ' 字符' : '不可序列化'}${call && call.id ? ' (id=' + stewardSanitizeText(call.id) + ')' : ''}`;
+}
+async function stewardImplThreadRead(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const tail = stewardClampInt(args.tail, 1, STEWARD_READ_TAIL_MAX, STEWARD_READ_TAIL_DEFAULT);
+  const maxChars = stewardClampInt(args.maxChars, STEWARD_READ_CHARS_MIN, STEWARD_READ_CHARS_MAX, STEWARD_READ_CHARS_DEFAULT);
+  const budgetChars = stewardClampInt(config.stewardReadBudgetChars, 4000, 400000, 48000);
+  const stewardSessionId = String((ctx.session && ctx.session.id) || 'steward');
+  const bucket = stewardReadBucket(stewardSessionId, stewardTurnKeyOf(ctx));
+  if (bucket.calls >= STEWARD_READ_CALLS_PER_TURN) {
+    return stewardFail('quota_exceeded', `steward_thread_read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer from the overview instead of retrying`);
+  }
+  if (bucket.chars >= budgetChars) {
+    return stewardFail('budget_exceeded', `steward read budget exhausted for this visit (${budgetChars} chars, stewardReadBudgetChars); answer from the overview instead of retrying`);
+  }
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('not_found', 'the steward session is not a thread');
+  const session = await loadSession(sessionId).catch(() => null);
+  if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
+
+  // 消耗一次配额:一旦真的开读就计数(不论最终返回多少字符),否则「读了但没算」就是预算漏洞。
+  bucket.calls += 1;
+
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  const turnSeqs = [...new Set(messages.map(m => Number(m && m.turnSeq)).filter(Number.isFinite))].sort((a, b) => a - b);
+  const wanted = new Set(turnSeqs.slice(-tail));
+  const rows = [];
+  for (const m of messages) {
+    if (!m) continue;
+    const seq = Number(m.turnSeq);
+    if (Number.isFinite(seq) && !wanted.has(seq)) continue;
+    if (!Number.isFinite(seq) && turnSeqs.length) continue; // 无 turnSeq 的历史消息在有回合号时跳过
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(m.content || '') });
+    else if (m.role === 'assistant') {
+      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(m.content || '') });
+      for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {
+        rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', text: stewardToolCallLine(call) });
+      }
+    }
+  }
+  // 超出 maxChars 时从【最早】的行开始丢(最近的对话最有用),并如实标 truncated。
+  let used = 0, cut = rows.length;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    used += rows[i].text.length + 16;
+    if (used > maxChars) { cut = i + 1; break; }
+    cut = i;
+  }
+  const kept = rows.slice(cut);
+  const chars = kept.reduce((n, r) => n + r.text.length, 0);
+  bucket.chars += chars;
+  return {
+    ok: true,
+    sessionId,
+    tail,
+    turnSeqs: [...wanted].sort((a, b) => a - b),
+    truncated: cut > 0,
+    chars,
+    quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars },
+    rows: kept,
+  };
+}
+
+// 5) steward_runs_status —— 复用 08 的 listAgentRuns + 13d 的 missionRunDigest(不另造 digest)。
+async function stewardImplRunsStatus(args, ctx, config) {
+  const explicit = args.sessionId ? safeSessionId(args.sessionId) : '';
+  if (args.sessionId && !explicit) return stewardFail('not_found', 'invalid sessionId');
+  let sessionIds = [];
+  if (explicit) sessionIds = [explicit];
+  else {
+    const index = await getPretenderProjectionIndex().catch(() => null);
+    sessionIds = ((index && index.sessions) || []).filter(row => row.card).map(row => row.sessionId);
+  }
+  const runs = [];
+  for (const sid of sessionIds) {
+    if (runs.length >= STEWARD_RUNS_MAX) break;
+    const head = await stewardReadSessionHead(sid);
+    if (stewardRawKind(head) === 'steward') continue;
+    for (const run of await listAgentRuns(sid).catch(() => [])) {
+      if (runs.length >= STEWARD_RUNS_MAX) break;
+      const live = activeAgentRuns.get(run.id);
+      const mem = live && live.run ? live.run : run;
+      const nodes = Array.isArray(mem.nodes) ? mem.nodes : [];
+      runs.push({
+        sessionId: sid,
+        runId: String(run.id || ''),
+        status: String(mem.status || ''),
+        live: !!live,
+        paused: !!(live && live.paused),
+        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
+        // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
+        waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
+          : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'
+            : (live && live.paused) ? '已暂停' : '',
+        resumeTier: String(mem.resumeTier || ''),
+        digest: missionRunDigest(mem, !!live),
+      });
+    }
+  }
+  return { ok: true, runs, truncated: runs.length >= STEWARD_RUNS_MAX };
+}
+
+// 6) steward_inbox_read —— 直接委托 116b 的原始读取器(同一实现,不复制第二份)。
+async function stewardImplInboxRead(args) {
+  return { ok: true, ...await stewardInboxRead({ since: args.since, limit: args.limit }) };
+}
+
+// 7) steward_usage —— 用量台账按会话/按日汇总;管家自身开销(kind:'aux', note:'steward')单列。
+function stewardEmptyUsageBucket() { return { turns: 0, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} }; }
+function stewardAddUsageRow(bucket, row) {
+  bucket.turns += 1;
+  bucket.inTok += Number(row.inTok) || 0;
+  bucket.outTok += Number(row.outTok) || 0;
+  bucket.cachedInTok += Number(row.cachedInTok) || 0;
+  const cost = Number(row.cost);
+  const currency = typeof row.currency === 'string' ? row.currency : '';
+  // costTrusted === false 的行(套餐制的名义金额)不进真实费用合计 —— 与 13e 的 addMissionUsageRow 同口径。
+  if (row.costTrusted !== false && currency && Number.isFinite(cost)) {
+    bucket.costsByCurrency[currency] = Math.round(((bucket.costsByCurrency[currency] || 0) + cost) * 1e6) / 1e6;
+  }
+}
+async function stewardImplUsage(args) {
+  const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
+  if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
+  const rows = await readUsageRows(0).catch(() => []);
+  const total = stewardEmptyUsageBucket();
+  const steward = stewardEmptyUsageBucket();
+  const bySession = new Map();
+  const byDay = new Map();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    if (sessionId && String(row.sessionId || '') !== sessionId) continue;
+    const rowDay = usageDayKey(Date.parse(row.ts));
+    if (day && rowDay !== day) continue;
+    stewardAddUsageRow(total, row);
+    if (row.kind === 'aux' && row.note === 'steward') stewardAddUsageRow(steward, row);
+    const sid = String(row.sessionId || '');
+    if (!bySession.has(sid)) bySession.set(sid, stewardEmptyUsageBucket());
+    stewardAddUsageRow(bySession.get(sid), row);
+    if (!byDay.has(rowDay)) byDay.set(rowDay, stewardEmptyUsageBucket());
+    stewardAddUsageRow(byDay.get(rowDay), row);
+  }
+  const topSessions = [...bySession.entries()]
+    .sort((a, b) => (b[1].inTok + b[1].outTok) - (a[1].inTok + a[1].outTok))
+    .slice(0, 20)
+    .map(([sid, bucket]) => ({ sessionId: sid, ...bucket }));
+  const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-31).map(([d, bucket]) => ({ day: d, ...bucket }));
+  return { ok: true, scope: { sessionId: sessionId || '', day: day || '' }, total, steward, bySession: topSessions, byDay: days };
+}
+
+// 8) steward_health —— computeHealth 的原始项(人话映射留给前端/管家自己说)。
+async function stewardImplHealth(args, ctx, config) {
+  const { health } = await computeHealth(config);
+  return { ok: true, health: (Array.isArray(health) ? health : []).map(h => ({ id: h.id, ok: h.ok, detail: h.detail })) };
+}
+
+// 9) steward_audit_tail —— 既有 collectAudit(内部已过 redact 脱敏),只取 workbench 源(桌面 MCP 审计
+//    要起桥,管家的「刚才发生了什么」不该为此拉起一个子进程)。
+async function stewardImplAuditTail(args, ctx, config) {
+  const limit = stewardClampInt(args.limit, 1, STEWARD_AUDIT_LIMIT_MAX, STEWARD_AUDIT_LIMIT_DEFAULT);
+  const audit = await collectAudit(config, { limit, sourceFilter: 'workbench', typeFilter: null });
+  return { ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated) };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 线程族(tier edit)—— 建线程/递话/改名。全部返回 undoRef 并落决策日志。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 后台回合:fire-and-forget(不 await)。管家回合不能被线程回合的时长绑住 —— 它要立刻回一句
+// 「已经交给线程 X 去做了」。异常只写 logEvent,绝不冒泡到工具返回值(那会让模型以为没交出去)。
+function stewardLaunchTurn(input, tool) {
+  const promise = runSessionTurn({ ...input, onEvent: () => {} });
+  promise.then(result => {
+    logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
+  }).catch(error => {
+    logEvent({ kind: 'steward_turn_error', tool, sessionId: String(input.sessionId || ''), message: String((error && error.message) || error).slice(0, 400) });
+  });
+  return promise;
+}
+
+// 10) steward_thread_new —— 委托书。原话逐字在最前,管家补充经中和后进围栏(见 06i buildStewardBrief)。
+async function stewardImplThreadNew(args, ctx, config) {
+  const brief = (args.brief && typeof args.brief === 'object') ? args.brief : null;
+  if (!brief || !String(brief.userText || '').trim()) {
+    return stewardFail('invalid_request', 'brief.userText is required and must contain the user\'s own words verbatim');
+  }
+  const composed = buildStewardBrief(brief);
+  const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
+  if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
+
+  const session = await createSession({
+    title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
+    cwd: args.cwd ? String(args.cwd) : undefined,
+  });
+  session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
+  if (requestedMissionId) session.missionId = requestedMissionId; // 归入既有事项;否则 createSession 已置 missionId = 自身 id
+  // 委托书落盘:原话与管家补充【分开存】,供 117 显示与用户「改一下」;不把拼好的整段存成一坨。
+  session.brief = {
+    schema: 1,
+    by: 'steward',
+    createdAt: nowIso(),
+    userText: composed.userText,
+    supplement: composed.supplement,
+    truncated: composed.truncated,
+    memoryIds: composed.memoryIds,
+    playbookId: String(brief.playbookId || ''),
+  };
+  await saveSession(session);
+
+  stewardLaunchTurn({
+    sessionId: session.id,
+    message: composed.text,
+    cwd: session.cwd,
+    source: 'steward',
+    requestMeta: { tool: 'steward_thread_new' },
+  }, 'steward_thread_new');
+
+  const undoRef = { kind: 'thread_new', sessionId: session.id };
+  stewardAppendDecision({
+    tool: 'steward_thread_new',
+    args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated },
+    targetSessionId: session.id,
+    permissionMode: stewardThreadPermissionMode(session, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: { memoryIds: composed.memoryIds },
+  });
+  return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, undoRef };
+}
+
+// 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
+async function stewardImplThreadContinue(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const message = String(args.message == null ? '' : args.message);
+  if (!message.trim()) return stewardFail('invalid_request', 'message is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
+  // 忙锁复用既有活回合判定(activeChildren —— 与 mission 五态的 activeTurn 同一权威信号),不新造锁。
+  if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} already has a turn in flight; do not retry — tell the user or wait for it to settle`);
+
+  // 递话【前】的 turnSeq:检查点与 rewindSession 都以它为锚(rewindSession(sessionId, targetTurnSeq, true))。
+  const undoRef = { kind: 'turn', sessionId, turnSeq: Math.max(0, Number(head.turnSeq) || 0) };
+  stewardLaunchTurn({
+    sessionId,
+    message,
+    source: 'steward',
+    requestMeta: { tool: 'steward_thread_continue' },
+  }, 'steward_thread_continue');
+
+  stewardAppendDecision({
+    tool: 'steward_thread_continue',
+    args: { messageChars: message.length },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: {},
+  });
+  return { ok: true, sessionId, undoRef };
+}
+
+// 12) steward_thread_rename —— undoRef 带旧标题(一键改回)。
+async function stewardImplThreadRename(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const title = String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim().slice(0, STEWARD_TITLE_MAX);
+  if (!title) return stewardFail('invalid_request', 'title is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be renamed by a tool');
+  // 与 thread_continue 同一条忙锁:改名走 loadSession -> saveSession 的读改写,活回合期间那份内存副本会
+  // 在回合的收尾 save 之后落盘,把回合刚写进去的消息用陈旧副本盖掉(会话正文缩水 = 头计数与正文行数错位)。
+  // 经典壳的重命名由用户手动触发、撞上的概率低;管家是自动的,必须显式挡住。
+  if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} has a turn in flight; rename it after the turn settles`);
+  const previousTitle = String(head.title || '');
+  // 复用既有的会话元数据更新原语(PUT /api/sessions/:id 背后那一个),不另开第二条改名写路径。
+  const session = await updateSessionMeta(sessionId, { title });
+  if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
+  const undoRef = { kind: 'title', sessionId, previousTitle };
+  stewardAppendDecision({
+    tool: 'steward_thread_rename',
+    args: { title, previousTitle },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(session, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: {},
+  });
+  return { ok: true, sessionId, title, undoRef };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 决策族(tier exec)—— 替用户答复待决 / 控制班组。放行范围一律经 stewardMayAct + 永久豁免。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 13) steward_decide。判定顺序(顺序即安全):
+//     读待决 -> 永久豁免正则 -> stewardMayAct(目标线程权限) -> 才真正 decideIntervention。
+//     前两道拦下的一律【不落决策日志】—— 没做决定就没有决定可记(只记「做过什么」,不记「想做什么」)。
+async function stewardImplDecide(args, ctx, config) {
+  const missionId = safeSessionId(args.missionId);
+  const interventionId = String(args.interventionId || '');
+  const action = String(args.action || '');
+  if (!missionId || !interventionId || !action) return stewardFail('invalid_request', 'missionId, interventionId and action are required');
+  const head = await stewardReadSessionHead(missionId);
+  if (!head || !head.id) return stewardFail('not_found', 'mission or intervention not found');
+  const current = (await readInterventions(missionId).catch(() => [])).find(iv => iv && String(iv.id) === interventionId);
+  if (!current) return stewardFail('not_found', 'mission or intervention not found');
+
+  const type = String(current.type || '');
+  const toolName = String(current.toolName || '');
+  const tier = String(current.tier || '');
+  const permissionMode = stewardThreadPermissionMode(head, config);
+
+  // §3.3 永久豁免:命中即降级为提议,任何权限档都不放行 —— 这类动作没有 checkpoint 可回滚。
+  if (type === 'permission' && stewardToolPermanentlyExempt(toolName)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
+      reason: 'permanently_exempt', missionId, interventionId, type, toolName, permissionMode,
+    });
+  }
+  const mayAct = stewardMayAct(permissionMode, type === 'permission' ? 'permission' : type, tier);
+  if (mayAct !== 'auto') {
+    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
+      reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
+    });
+  }
+
+  const expectedVersion = Number.isInteger(args.expectedVersion) && args.expectedVersion >= 0
+    ? args.expectedVersion
+    : Math.max(0, Number(current.interventionVersion) || 0);
+  const result = await decideIntervention({
+    missionId,
+    interventionId,
+    payload: { action, ...(args.payload && typeof args.payload === 'object' && !Array.isArray(args.payload) ? args.payload : {}) },
+    expectedVersion,
+    idempotencyKey: makeId('stew'),
+    source: 'steward',
+    decidedBy: 'steward',
+    contractRequest: true,
+  });
+  const body = (result && result.body) || {};
+  // permission 放行后不可撤销(工具已经开跑);其余三类锚回会话 turnSeq(可回退检查点)。
+  const undoRef = body.ok === true
+    ? (type === 'permission' && action === 'allow'
+      ? { kind: 'none', note: '不可撤销' }
+      : { kind: 'turn', sessionId: missionId, turnSeq: Math.max(0, Number(head.turnSeq) || 0) })
+    : null;
+  if (body.ok === true) {
+    stewardAppendDecision({
+      tool: 'steward_decide',
+      args: { type, action, toolName, tier, interventionId, expectedVersion },
+      targetSessionId: missionId,
+      permissionMode,
+      mayAct,
+      undoRef,
+      basis: { interventionId, interventionVersion: Number(body.interventionVersion) || 0 },
+    });
+    return { ...body, undoRef };
+  }
+  // 失败按 decideIntervention 的稳定 reason 原样回传(version_conflict / not_found / already_terminal /
+  // delivery_unavailable …)。用 body.reason 而不是 error.code:reason 是命令核心的机器码,
+  // error.code 只是它加了 'intervention.' 前缀的 HTTP 变体,工具面统一暴露前者更好分支。
+  const failure = (body.error && typeof body.error === 'object') ? body.error : {};
+  return stewardFail(String(body.reason || failure.code || 'decision_failed'), String(failure.message || body.message || 'decision could not be delivered'), {
+    missionId, interventionId, type, params: failure.params || {}, status: result && result.status,
+  });
+}
+
+// 14) steward_run_action。口径(§11.3 116c 行):
+//     pause / stop —— 收紧类,任何权限档都可做(把事情停下来永远比让它跑下去保守);
+//     resume / retry_node / steer_node —— 推进类,只有「全自动」可做。判据借 stewardMayAct(mode,'plan',…):
+//     真值表里只有 auto/bypass 档对 'plan' 返回 'auto',正好就是「需要全自动」这条口径,不另立第二套。
+const STEWARD_RUN_TIGHTENING = Object.freeze(['pause', 'stop']);
+const STEWARD_RUN_ADVANCING = Object.freeze(['resume', 'retry_node', 'steer_node']);
+async function stewardImplRunAction(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  const runId = safeSessionId(args.runId);
+  const action = String(args.action || '');
+  if (!sessionId || !runId) return stewardFail('invalid_request', 'sessionId and runId are required');
+  if (!STEWARD_RUN_TIGHTENING.includes(action) && !STEWARD_RUN_ADVANCING.includes(action)) {
+    return stewardFail('invalid_request', `unknown action: ${stewardSanitizeText(action)}`);
+  }
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no agent runs');
+  const permissionMode = stewardThreadPermissionMode(head, config);
+  const mayAct = STEWARD_RUN_TIGHTENING.includes(action) ? 'auto' : stewardMayAct(permissionMode, 'plan', 'exec');
+  if (mayAct !== 'auto') {
+    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,只有权限档为「全自动」的线程才能由管家直接执行;当前为「${stewardPermissionLabel(permissionMode)}」——把它作为提议交给用户,不要重试`, {
+      reason: 'permission_mode', sessionId, runId, action, permissionMode,
+    });
+  }
+  const cmd = await agentRunActionCommand({
+    sessionId, runId, action,
+    nodeId: args.nodeId,
+    text: args.message == null ? '' : String(args.message).slice(0, STEWARD_STEER_TEXT_MAX),
+  });
+  if (!cmd) return stewardFail('invalid_request', `unsupported action: ${stewardSanitizeText(action)}`);
+  const body = cmd.body || {};
+  if (body.ok !== true) return stewardFail('run_action_failed', String(body.error || 'agent run action failed'), { sessionId, runId, action, status: cmd.status });
+  // pause/stop 可由 resume 撤销;推进类动作没有对称撤销原语,如实标注不可撤销。
+  const undoRef = action === 'pause' || action === 'stop'
+    ? { kind: 'run_action', sessionId, runId, action: 'resume' }
+    : { kind: 'none', note: '不可撤销' };
+  stewardAppendDecision({
+    tool: 'steward_run_action',
+    args: { action, runId, nodeId: String(args.nodeId || '') },
+    targetSessionId: sessionId,
+    permissionMode,
+    mayAct,
+    undoRef,
+    basis: { runId },
+  });
+  return { ...body, sessionId, runId, action, undoRef };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 记忆族(§4)—— 只记「用户本人陈述」。四道闸:来源必须是用户消息 -> 敏感过滤 -> 容量 -> 同义去重。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 来源校验:sourceRef 指向的那个回合里必须真有一条【用户】消息。工具输出/助手消息来源确定性拒绝
+// (§11.3「工具输出来源确定性拒绝」)—— 否则管家会把自己或工具说的话当成用户的偏好记下来。
+async function stewardSourceIsUserMessage(sourceRef) {
+  const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
+  if (!sessionId) return false;
+  const turnSeq = Number(sourceRef && sourceRef.turnSeq);
+  if (!Number.isFinite(turnSeq)) return false;
+  const session = await loadSession(sessionId).catch(() => null);
+  if (!session) return false;
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq);
+}
+
+// 15) steward_memory_write
+async function stewardImplMemoryWrite(args, ctx, config) {
+  const kind = String(args.kind || '');
+  if (!STEWARD_MEMORY_KINDS.includes(kind)) return stewardFail('invalid_request', `kind must be one of ${STEWARD_MEMORY_KINDS.join('/')}`);
+  const text = stewardSanitizeText(args.text).trim();
+  if (!text) return stewardFail('invalid_request', 'text is required');
+  if (text.length > STEWARD_MEMORY_LIMITS.textChars) {
+    return stewardFail('invalid_request', `text must be at most ${STEWARD_MEMORY_LIMITS.textChars} characters`);
+  }
+  const sourceRef = (args.sourceRef && typeof args.sourceRef === 'object') ? args.sourceRef : null;
+  if (!sourceRef) return stewardFail('invalid_request', 'sourceRef {sessionId, turnSeq} is required');
+  if (!await stewardSourceIsUserMessage(sourceRef)) {
+    return stewardFail('source_not_user', 'sourceRef must point at a turn that contains the user\'s own message; tool output and assistant text are not valid memory sources');
+  }
+  // 敏感过滤复用工作台记忆的同一条正则(密钥/口令/JWT/连接串),不另写第二套判据。
+  if (memoryProposalLooksSensitive({ body: text })) {
+    return stewardFail('sensitive_rejected', 'the text looks like a credential/secret and will never be stored in steward memory');
+  }
+
+  const terms = stewardMemoryTerms(text);
+  return stewardMutateMemory(async store => {
+    // 被否决过的同义内容拒绝写回(§4 第 ⑤ 条:vetoed 之后同义不再自动写回)。
+    const vetoed = store.entries.find(e => e.state === 'vetoed' && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
+    if (vetoed) {
+      return { persist: false, result: stewardFail('vetoed_duplicate', `a synonymous memory was vetoed by the user (${vetoed.id}); do not write it back`, { id: vetoed.id }) };
+    }
+    const existing = store.entries.find(e => e.state === 'active' && e.kind === kind && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
+    const at = nowIso();
+    if (existing) {
+      existing.text = text;
+      existing.confidence = Number.isFinite(Number(args.confidence)) ? Math.min(1, Math.max(0, Number(args.confidence))) : existing.confidence;
+      existing.sourceSessionId = String(sourceRef.sessionId || '');
+      existing.sourceSeq = Math.max(0, Number(sourceRef.turnSeq) || 0);
+      existing.updatedAt = at;
+      const undoRef = { kind: 'memory', id: existing.id, prev: null };
+      stewardAppendDecision({ tool: 'steward_memory_write', args: { kind, chars: text.length, merged: true }, targetSessionId: String(sourceRef.sessionId || ''), permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [existing.id] } });
+      return { persist: true, result: { ok: true, id: existing.id, merged: true, undoRef } };
+    }
+    const activeCount = store.entries.filter(e => e.state === 'active').length;
+    if (activeCount >= STEWARD_MEMORY_LIMITS.maxEntries) {
+      return { persist: false, result: stewardFail('capacity_exceeded', `steward memory is full (${STEWARD_MEMORY_LIMITS.maxEntries} active entries); veto something before writing more`) };
+    }
+    const entry = {
+      id: makeId('smem'),
+      kind,
+      text,
+      confidence: Number.isFinite(Number(args.confidence)) ? Math.min(1, Math.max(0, Number(args.confidence))) : 0.6,
+      sourceSessionId: String(sourceRef.sessionId || ''),
+      sourceSeq: Math.max(0, Number(sourceRef.turnSeq) || 0),
+      createdAt: at,
+      updatedAt: at,
+      lastUsedAt: '',
+      useCount: 0,
+      state: 'active',
+    };
+    store.entries.push(entry);
+    const undoRef = { kind: 'memory', id: entry.id, prev: null };
+    stewardAppendDecision({ tool: 'steward_memory_write', args: { kind, chars: text.length, merged: false }, targetSessionId: entry.sourceSessionId, permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [entry.id] } });
+    return { persist: true, result: { ok: true, id: entry.id, merged: false, undoRef } };
+  });
+}
+
+// 16) steward_memory_veto
+async function stewardImplMemoryVeto(args) {
+  const id = String(args.id || '');
+  if (!id) return stewardFail('invalid_request', 'id is required');
+  return stewardMutateMemory(async store => {
+    const entry = store.entries.find(e => e.id === id);
+    if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
+    const prev = entry.state;
+    entry.state = 'vetoed';
+    entry.updatedAt = nowIso();
+    const undoRef = { kind: 'memory', id, prev };
+    stewardAppendDecision({ tool: 'steward_memory_veto', args: { id }, targetSessionId: entry.sourceSessionId, permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [id] } });
+    return { persist: true, result: { ok: true, id, state: 'vetoed', undoRef } };
+  });
+}
+
+// 17) steward_memory_search —— 词法匹配(词项 Jaccard + 子串命中),默认排除 vetoed。
+async function stewardImplMemorySearch(args) {
+  const q = String(args.q || '').trim();
+  const kind = STEWARD_MEMORY_KINDS.includes(String(args.kind || '')) ? String(args.kind) : '';
+  const limit = stewardClampInt(args.limit, 1, STEWARD_MEMORY_LIMITS.searchLimit, 20);
+  const includeVetoed = args.includeVetoed === true;
+  const store = await stewardReadMemoryStore();
+  const terms = q ? stewardMemoryTerms(q) : null;
+  const needle = q.toLowerCase();
+  const rows = store.entries
+    .filter(e => (includeVetoed || e.state === 'active') && (!kind || e.kind === kind))
+    .map(e => ({
+      entry: e,
+      score: terms ? Math.max(stewardTermJaccard(terms, e.text), e.text.toLowerCase().includes(needle) ? 0.9 : 0) : 0,
+    }))
+    .filter(row => !terms || row.score > 0)
+    .sort((a, b) => b.score - a.score || String(b.entry.updatedAt).localeCompare(String(a.entry.updatedAt)))
+    .slice(0, limit)
+    .map(row => ({ ...row.entry, score: Number(row.score.toFixed(4)) }));
+  return { ok: true, query: q, kind: kind || '', total: store.entries.length, entries: rows };
+}
+
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。
 // 消费者(13-http-router 的路由链、13-http-router 的关服收尾、116c 的管家工具 handler)全程只看
 // StewardHooks.*,从不直接依赖 13g —— 这就是「不新增前向边」的落地方式。
@@ -773,4 +1688,23 @@ Object.assign(StewardHooks, {
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,
   inboxState: stewardInboxState,
+  // 116c: 17 个管家工具的实现键。每个都经 stewardToolHandler 包一层门控壳(开关 -> 身份 -> 实现),
+  // 12-tool-dispatch 的 handler 只写一行 `StewardHooks.<键>(args, ctx)`。键名与 06i 的契约注释逐条对应。
+  selfStatus: stewardToolHandler('steward_self_status', stewardImplSelfStatus),
+  threadsSearch: stewardToolHandler('steward_threads_search', stewardImplThreadsSearch),
+  threadStatus: stewardToolHandler('steward_thread_status', stewardImplThreadStatus),
+  threadRead: stewardToolHandler('steward_thread_read', stewardImplThreadRead),
+  runsStatus: stewardToolHandler('steward_runs_status', stewardImplRunsStatus),
+  inboxReadTool: stewardToolHandler('steward_inbox_read', stewardImplInboxRead),
+  usage: stewardToolHandler('steward_usage', stewardImplUsage),
+  health: stewardToolHandler('steward_health', stewardImplHealth),
+  auditTail: stewardToolHandler('steward_audit_tail', stewardImplAuditTail),
+  threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
+  threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
+  threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
+  decide: stewardToolHandler('steward_decide', stewardImplDecide),
+  runAction: stewardToolHandler('steward_run_action', stewardImplRunAction),
+  memoryWrite: stewardToolHandler('steward_memory_write', stewardImplMemoryWrite),
+  memoryVeto: stewardToolHandler('steward_memory_veto', stewardImplMemoryVeto),
+  memorySearch: stewardToolHandler('steward_memory_search', stewardImplMemorySearch),
 });

@@ -2045,11 +2045,15 @@ async function guardDownloadDest(rawDest, ctx) {
 // passes its live session.id/turnSeq; the MCP child passes nothing (journalSessionCtx resolves both from
 // the injected WCW_SESSION_ID env + the session file). File-mutating tools (file_write/file_edit/
 // file_delete) record a `before` checkpoint immediately before executing.
-async function adaptiveCatalogForMcp(config) {
+// 116c: opts.stewardSession === true 时才把 steward_* 放进目录(四个 offer 面之一);缺省 fail-closed
+// 隐藏 —— list_tools/tool_search/tool_invoke_* 三条控制面都走本目录,普通会话既检索不到也代理不到管家工具。
+async function adaptiveCatalogForMcp(config, opts) {
   const recallEnabled = observationRecallEnabled(config);
+  const stewardSession = !!(opts && opts.stewardSession === true);
   const native = MCP_TOOLS
     .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load')
     .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
+    .filter(t => !isStewardToolName(t.name) || stewardSession) // 116c: 管家工具只进管家会话的目录
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }

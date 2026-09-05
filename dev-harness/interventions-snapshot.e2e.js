@@ -257,6 +257,20 @@ try {
   }
   ok(src.includes("auth: 'body-token'") && src.includes("auth: 'token-browser'"), '(S) ROUTE_AUTH 等级字面量仍在');
 
+  // ─────────── S2(116c). 管家来源(source:'steward')共用同一套响应形状,不新开决策端点 ───────────
+  // 27 号文 §3.5:管家的决定必须经命令核心(decideIntervention),不得旁路成第二条 HTTP 决策路径。
+  // 本波【没有】新增任何管家决策路由,所以这里只锁「同一个核心 + 管家来源自成审计标签 + 放行范围受
+  // stewardMayAct 与永久豁免约束」这三件事;管家侧的成功/版本冲突/越权行为快照在 steward-tools.e2e.js,
+  // CAS 层的 source:'steward' 三条路径在 interventions-cas.e2e.js (f)。
+  ok(!/pathname === '\/api\/steward\/decision'/.test(src) && !/steward\/interventions/.test(src),
+    "(S2) 116c 未新增任何管家决策路由(管家决定只经 decideIntervention 命令核心)");
+  ok(/source === 'steward' \? 'steward_decision'/.test(src),
+    "(S2) 13d 审计标签 switch 有 source==='steward' -> 'steward_decision' 分支(管家代答一眼可辨)");
+  ok(/decidedBy: 'steward'/.test(src) && /source: 'steward'/.test(src) && /contractRequest: true/.test(src),
+    "(S2) 管家决策以 {source:'steward', decidedBy:'steward', contractRequest:true} 进核心(与 UI 同一条契约路径)");
+  ok(/stewardToolPermanentlyExempt\(toolName\)/.test(src) && /reason: 'permanently_exempt'/.test(src),
+    '(S2) 永久豁免清单在真正下决定【之前】拦截,任何权限档都降级为提议');
+
   console.log(fail ? `\nINTERVENTIONS SNAPSHOT E2E: FAIL (${fail})` : '\nINTERVENTIONS SNAPSHOT E2E: ALL PASS');
   process.exitCode = fail ? 1 : 0;
 } catch (e) {

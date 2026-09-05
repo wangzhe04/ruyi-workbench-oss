@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 44,
+  "count": 46,
   "lifecycleCounts": {
-    "dedicated-exemption": 13,
+    "dedicated-exemption": 14,
     "external-exemption": 8,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 16
+    "shared-lifecycle": 17
   },
   "entries": [
     {
@@ -609,6 +609,34 @@
       "capacity": "active sessions and runs only, capped at 500 sessions / 500 runs / 2000 pending ids per save",
       "cache": "stewardRuntime holds the live cursor for this process",
       "recovery": "rebuild from the inbox tail plus a fresh source baseline",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "steward-decisions",
+      "pattern": "<data>/steward/decisions-v1.ndjson",
+      "owner": "13g-steward.js",
+      "anchor": "STEWARD_DECISIONS_FILE",
+      "schema": "NDJSON decision rows / decisions-v1",
+      "writePrimitive": "repairMissionChangeTornTail + appendFile through a per-process serialized chain (the session-changes primitive)",
+      "corruption": "torn tail truncated before append; unparsable rows are skipped by readers",
+      "capacity": "append-only; one row per steward write action (thread_new/continue/rename, decide, run_action, memory_write/veto)",
+      "cache": "the per-process seq counter only labels rows within one process lifetime",
+      "recovery": "the ledger is the record itself: a lost append means one action has no explanation row, never a wrong one",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "append-only ledger cannot use whole-file JSON replacement"
+    },
+    {
+      "id": "steward-memory",
+      "pattern": "<data>/steward/memory-v1.json",
+      "owner": "13g-steward.js",
+      "anchor": "STEWARD_MEMORY_FILE",
+      "schema": "object / schema 1",
+      "writePrimitive": "atomicWriteJson through a per-process read-modify-write chain",
+      "corruption": "unreadable or wrong-schema file reads as an empty store (never salvaged, never partially trusted): steward memory is a bypass enhancement, a corrupt one must not wedge a turn",
+      "capacity": "at most 200 active entries; each entry text is capped at 300 characters",
+      "cache": "no process cache: every read re-reads the file inside the write chain",
+      "recovery": "the user re-states the fact and the steward writes it again; nothing else depends on it",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
     },

@@ -322,6 +322,24 @@ module.exports = {
   stewardMergeInboxEvents,
   stewardEventDedupeKey,
   stewardInboxRowDedupeKeys,
+  // 第116波116c(27号文§3.3/§3.5/§4): 管家工具集 — 06i 纯函数(委托书/五态判据/豁免正则/记忆去重)
+  // exposed for 单测与 e2e 直测;工具实现本身经 StewardHooks 与 TOOL_HANDLERS 触达,不另开导出面。
+  STEWARD_EXEMPT_TOOL_PATTERNS,
+  stewardToolPermanentlyExempt,
+  isStewardToolName,
+  stewardSanitizeBlock,
+  buildStewardBrief,
+  STEWARD_BRIEF_LIMITS,
+  STEWARD_THREAD_STATES,
+  deriveStewardThreadState,
+  stewardThreadStateFromCard,
+  STEWARD_MEMORY_KINDS,
+  STEWARD_MEMORY_LIMITS,
+  stewardMemoryTerms,
+  stewardTermJaccard,
+  // 116c: 班组动作核心(从 POST /api/agent-runs/:id 路由零行为抽出)与 108c 自状态装配 — e2e 直测等价性。
+  agentRunActionCommand,
+  buildWorkbenchSelfStatus,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
