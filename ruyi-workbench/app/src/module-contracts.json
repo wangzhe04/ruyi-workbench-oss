@@ -3517,6 +3517,24 @@
       "requires": []
     },
     {
+      "file": "06i-steward-core.js",
+      "layer": "engine",
+      "provides": [
+        "STEWARD_DIGEST_LIMITS",
+        "STEWARD_EVENT_KINDS",
+        "STEWARD_PERMISSION_LABELS",
+        "STEWARD_STATE_LABELS",
+        "StewardHooks",
+        "buildStewardDigestLine",
+        "stewardHasText",
+        "stewardMayAct",
+        "stewardPermissionLabel",
+        "stewardSanitizeText",
+        "stewardStateLabel"
+      ],
+      "requires": []
+    },
+    {
       "file": "06d-memory-domain.js",
       "layer": "engine",
       "provides": [
@@ -12591,6 +12609,41 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "resourceBlockers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "buildStewardDigestLine",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DIGEST_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EVENT_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardMayAct",
           "kinds": [
             "read"
           ]

@@ -291,6 +291,27 @@ function defaultConfig() {
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
     subagentPreferredModel: '',
+    // 第 116 波 116a(27 号文 §11.3):管家总开关,默认关——开之前工作台行为零变化。
+    stewardEnabledV1: false,
+    // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,空值="跟随主端点"(照抄 subagentPreferredProvider/Model)。
+    stewardProviderId: '',
+    stewardModel: '',
+    // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
+    stewardPollMs: 15000,
+    // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
+    stewardMaxTurnsPerHour: 12,
+    // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
+    stewardMaxCostPerDay: 1,
+    // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
+    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true },
+    // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
+    stewardContextBudgetTokens: 200000,
+    // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
+    stewardReadBudgetChars: 48000,
+    // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
+    stewardVisitIdleMinutes: 60,
+    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
+    stewardConversationRetention: 'visit',
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -862,6 +883,76 @@ function normalizeConfig(raw) {
     if (sp !== config.subagentPreferredProvider) { config.subagentPreferredProvider = sp; changed = true; }
     const sm = String(config.subagentPreferredModel || '').trim().slice(0, 160);
     if (sm !== config.subagentPreferredModel) { config.subagentPreferredModel = sm; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家总开关,严格布尔(=== true),防手改配置文件误开自主管家。
+  {
+    const b = config.stewardEnabledV1 === true;
+    if (b !== config.stewardEnabledV1) { config.stewardEnabledV1 = b; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,规范化口径与 subagentPreferredProvider/Model 一致
+  // (trim + 截断),空值="跟随主端点"。
+  {
+    const sp = String(config.stewardProviderId || '').trim().slice(0, 120);
+    if (sp !== config.stewardProviderId) { config.stewardProviderId = sp; changed = true; }
+    const sm = String(config.stewardModel || '').trim().slice(0, 160);
+    if (sm !== config.stewardModel) { config.stewardModel = sm; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
+  {
+    const n = Number(config.stewardPollMs);
+    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
+    if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 12。
+  {
+    const n = Number(config.stewardMaxTurnsPerHour);
+    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 12;
+    if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
+  {
+    const n = Number(config.stewardMaxCostPerDay);
+    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
+    if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread 严格布尔(非布尔值
+  // 回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);未知键丢弃;
+  // 整体非对象回全部默认。
+  {
+    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true };
+    const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
+    const aa = raw0 ? {
+      retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
+      resume: (raw0.resume === true || raw0.resume === false || raw0.resume === null) ? raw0.resume : DEF_AA.resume,
+      relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
+      newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
+    } : { ...DEF_AA };
+    if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
+    else config.stewardAutoActions = aa;
+  }
+  // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000],非法回默认 200000。
+  {
+    const n = Number(config.stewardContextBudgetTokens);
+    const clamped = Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 200000;
+    if (clamped !== config.stewardContextBudgetTokens) { config.stewardContextBudgetTokens = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家按需深读(steward_thread_read 等)单次到访合计字符预算,clamp [4000,400000],
+  // 非法回默认 48000。
+  {
+    const n = Number(config.stewardReadBudgetChars);
+    const clamped = Number.isFinite(n) ? Math.min(400000, Math.max(4000, Math.round(n))) : 48000;
+    if (clamped !== config.stewardReadBudgetChars) { config.stewardReadBudgetChars = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440],非法回默认 60。
+  {
+    const n = Number(config.stewardVisitIdleMinutes);
+    const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(5, Math.round(n))) : 60;
+    if (clamped !== config.stewardVisitIdleMinutes) { config.stewardVisitIdleMinutes = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit(默认,到访重置即清)|24h|forever,非法回默认。
+  {
+    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'visit';
+    if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
   }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {

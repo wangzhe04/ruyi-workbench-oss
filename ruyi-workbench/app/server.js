@@ -1063,6 +1063,27 @@ function defaultConfig() {
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
     subagentPreferredModel: '',
+    // 第 116 波 116a(27 号文 §11.3):管家总开关,默认关——开之前工作台行为零变化。
+    stewardEnabledV1: false,
+    // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,空值="跟随主端点"(照抄 subagentPreferredProvider/Model)。
+    stewardProviderId: '',
+    stewardModel: '',
+    // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
+    stewardPollMs: 15000,
+    // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
+    stewardMaxTurnsPerHour: 12,
+    // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
+    stewardMaxCostPerDay: 1,
+    // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
+    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true },
+    // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
+    stewardContextBudgetTokens: 200000,
+    // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
+    stewardReadBudgetChars: 48000,
+    // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
+    stewardVisitIdleMinutes: 60,
+    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
+    stewardConversationRetention: 'visit',
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -1634,6 +1655,76 @@ function normalizeConfig(raw) {
     if (sp !== config.subagentPreferredProvider) { config.subagentPreferredProvider = sp; changed = true; }
     const sm = String(config.subagentPreferredModel || '').trim().slice(0, 160);
     if (sm !== config.subagentPreferredModel) { config.subagentPreferredModel = sm; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家总开关,严格布尔(=== true),防手改配置文件误开自主管家。
+  {
+    const b = config.stewardEnabledV1 === true;
+    if (b !== config.stewardEnabledV1) { config.stewardEnabledV1 = b; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,规范化口径与 subagentPreferredProvider/Model 一致
+  // (trim + 截断),空值="跟随主端点"。
+  {
+    const sp = String(config.stewardProviderId || '').trim().slice(0, 120);
+    if (sp !== config.stewardProviderId) { config.stewardProviderId = sp; changed = true; }
+    const sm = String(config.stewardModel || '').trim().slice(0, 160);
+    if (sm !== config.stewardModel) { config.stewardModel = sm; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
+  {
+    const n = Number(config.stewardPollMs);
+    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
+    if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 12。
+  {
+    const n = Number(config.stewardMaxTurnsPerHour);
+    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 12;
+    if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
+  {
+    const n = Number(config.stewardMaxCostPerDay);
+    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
+    if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread 严格布尔(非布尔值
+  // 回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);未知键丢弃;
+  // 整体非对象回全部默认。
+  {
+    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true };
+    const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
+    const aa = raw0 ? {
+      retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
+      resume: (raw0.resume === true || raw0.resume === false || raw0.resume === null) ? raw0.resume : DEF_AA.resume,
+      relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
+      newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
+    } : { ...DEF_AA };
+    if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
+    else config.stewardAutoActions = aa;
+  }
+  // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000],非法回默认 200000。
+  {
+    const n = Number(config.stewardContextBudgetTokens);
+    const clamped = Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 200000;
+    if (clamped !== config.stewardContextBudgetTokens) { config.stewardContextBudgetTokens = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家按需深读(steward_thread_read 等)单次到访合计字符预算,clamp [4000,400000],
+  // 非法回默认 48000。
+  {
+    const n = Number(config.stewardReadBudgetChars);
+    const clamped = Number.isFinite(n) ? Math.min(400000, Math.max(4000, Math.round(n))) : 48000;
+    if (clamped !== config.stewardReadBudgetChars) { config.stewardReadBudgetChars = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440],非法回默认 60。
+  {
+    const n = Number(config.stewardVisitIdleMinutes);
+    const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(5, Math.round(n))) : 60;
+    if (clamped !== config.stewardVisitIdleMinutes) { config.stewardVisitIdleMinutes = clamped; changed = true; }
+  }
+  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit(默认,到访重置即清)|24h|forever,非法回默认。
+  {
+    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'visit';
+    if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
   }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {
@@ -16794,6 +16885,157 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
   scored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
   return limit > 0 ? scored.slice(0, limit) : scored;
 }
+
+// ============================================================================
+// 第 116 波 116a(27 号文 §11.3):工作台管家(Steward)引擎侧核心——纯函数与延迟绑定命名空间。
+//
+// 本文件只装两类东西:
+//   ① 纯函数(stewardMayAct/buildStewardDigestLine)与冻结常量——不读配置、不碰磁盘、不发网络,
+//      入参之外零副作用,方便单测穷举真值表;
+//   ② StewardHooks——延迟绑定命名空间(先例 06c-agent-loop-hooks.js 的 AgentLoopHooks):本切片只声明
+//      空对象与契约注释,后续 116c/116f 切片的 13g-steward.js 用 Object.assign(StewardHooks, {...}) 填充
+//      真实实现;12-tool-dispatch 的管家工具 handler 全程只调用 StewardHooks.*,从不直接依赖 13g,
+//      从而让 06i(engine 层)与 13g(transport 层)之间不产生编译期循环引用。
+//
+// 依赖纪律:本文件只允许引用 00-boot/01-config 的顶层符号(拼接顺序在它们之后,属于后向边);绝不引用
+// 07 及之后的编排/工具/传输层模块。当前实现零外部符号引用(见下方各函数),保持这条纪律最简单的满足方式。
+// 放置位置:manifest 中紧跟 06h-retrieval-index.js 之后、06d-memory-domain.js 之前(engine 层内部顺序,
+// 不隐含新依赖方向)。
+// ============================================================================
+
+// 管家收件箱事件五类白名单(116b 起启用):等你(needs_you)/失败(failed)/收工(done)/停滞(stalled)/
+// 预算(budget)。心跳与其余事件一律不入箱。本切片只声明常量,轮询器实现在 116b。
+const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget']);
+
+// 到访总览摘要行的硬性上限(§11.2 到访层预算的一部分)。lastSayChars/lineChars 由
+// buildStewardDigestLine 自身强制执行;maxThreads/totalChars 是 116f 组装整块总览时的上限,
+// 本切片只声明常量供后续切片复用同一份数字,不在这里做多线程拼装。
+const STEWARD_DIGEST_LIMITS = Object.freeze({ lastSayChars: 200, lineChars: 320, maxThreads: 40, totalChars: 12000 });
+
+// 线程权限档位 -> 五态/权限的人话映射(§11.2「诚实」与看板行人话展示共用同一套措辞)。
+const STEWARD_STATE_LABELS = Object.freeze({
+  dispatching: '交办中',
+  running: '进行中',
+  needs_you: '需要你',
+  done: '已收工',
+  stopped: '已停工',
+});
+const STEWARD_PERMISSION_LABELS = Object.freeze({
+  default: '每步都问',
+  acceptEdits: '改文件不问',
+  plan: '只做计划',
+  auto: '全自动',
+  bypass: '全自动',
+  bypassPermissions: '全自动',
+});
+
+// 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成方括号(总览最终会经既有
+// UI 渲染管线,提前中和比信任下游转义更省心——先例见 03-bridge-guard.js 的同类中和纪律)。
+function stewardSanitizeText(value) {
+  if (value == null) return '';
+  return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, '[').replace(/>/g, ']');
+}
+
+function stewardHasText(value) {
+  return value != null && String(value).trim() !== '';
+}
+
+function stewardStateLabel(state) {
+  const s = stewardSanitizeText(state);
+  return Object.prototype.hasOwnProperty.call(STEWARD_STATE_LABELS, s) ? STEWARD_STATE_LABELS[s] : s;
+}
+
+function stewardPermissionLabel(mode) {
+  const m = stewardSanitizeText(mode);
+  return Object.prototype.hasOwnProperty.call(STEWARD_PERMISSION_LABELS, m) ? STEWARD_PERMISSION_LABELS[m] : m;
+}
+
+// 116e/§3.3 线程权限真值表的纯函数化:回答「按目标线程的权限档位,管家能否不问用户直接处置这类事件」。
+// 只看 permissionMode + eventKind + toolTier 三个入参,不看 stewardAutoActions(自理清单开关由调用方
+// 在拿到 'auto' 之后另行叠加判断,见 §3.3「管家的主动行为不再是档位」)。
+//
+// 真值表(2026-09-05 用户拍板,§3.3):
+//   auto / bypass / bypassPermissions(全自动):
+//     permission(任意 tier)、question、plan、pool、failed、relay -> 'auto';其它(done/stalled/budget/
+//     未知)-> 'propose'。
+//   acceptEdits(改文件不问):
+//     permission 且 tier ∈ {read, edit} -> 'auto';permission 且 tier 为 exec 或缺失 -> 'propose';
+//     question/plan/pool -> 'propose';failed/relay -> 'auto';其它 -> 'propose'。
+//   default / plan / dontAsk / 空 / 未知 -> 一律 'propose'。
+//
+// 入参一律 String() 归一,大小写按原样保留(PERMISSION_MODES 用小驼峰,如 'acceptEdits')。
+function stewardMayAct(permissionMode, eventKind, toolTier) {
+  const mode = permissionMode == null ? '' : String(permissionMode);
+  const kind = eventKind == null ? '' : String(eventKind);
+  const tier = toolTier == null ? '' : String(toolTier);
+  const isPermission = kind === 'permission';
+
+  if (mode === 'auto' || mode === 'bypass' || mode === 'bypassPermissions') {
+    if (isPermission) return 'auto';
+    if (kind === 'question' || kind === 'plan' || kind === 'pool' || kind === 'failed' || kind === 'relay') return 'auto';
+    return 'propose';
+  }
+  if (mode === 'acceptEdits') {
+    if (isPermission) return (tier === 'read' || tier === 'edit') ? 'auto' : 'propose';
+    if (kind === 'question' || kind === 'plan' || kind === 'pool') return 'propose';
+    if (kind === 'failed' || kind === 'relay') return 'auto';
+    return 'propose';
+  }
+  // default / plan / dontAsk / 空 / 未知模式:一律只提议。
+  return 'propose';
+}
+
+// 到访总览一行摘要(§11.2 到访层):纯文本拼装,不做模型改写(「诚实」纪律要求 lastSay 是原话)。
+// 入参 thread: { id, missionTitle, title, state, action, lastSay, waitReason, permissionMode, cost }。
+// 缺字段的段整段跳过,不留孤立分隔符;lastSay 截到 STEWARD_DIGEST_LIMITS.lastSayChars(超出加「…」);
+// 整行硬顶 STEWARD_DIGEST_LIMITS.lineChars(纯截断,不加省略号——「硬顶」与 lastSay 的「截断加省略号」
+// 是两条不同的纪律)。
+function buildStewardDigestLine(thread) {
+  const t = (thread && typeof thread === 'object') ? thread : {};
+  const clip = (value, limit) => {
+    const raw = stewardSanitizeText(value);
+    return raw.length > limit ? raw.slice(0, limit) + '…' : raw;
+  };
+
+  const segments = [];
+
+  // 前导段:「[id] 事项标题 / 线程标题」——id 与标题合成一块,内部用空格/斜杠连接,不用外层的 ' · ' 分隔。
+  {
+    const idText = stewardHasText(t.id) ? `[${stewardSanitizeText(t.id)}]` : '';
+    const titleBits = [];
+    if (stewardHasText(t.missionTitle)) titleBits.push(stewardSanitizeText(t.missionTitle));
+    if (stewardHasText(t.title)) titleBits.push(stewardSanitizeText(t.title));
+    const lead = [idText, titleBits.join(' / ')].filter(Boolean).join(' ');
+    if (lead) segments.push(lead);
+  }
+  if (stewardHasText(t.state)) segments.push(stewardStateLabel(t.state));
+  if (stewardHasText(t.action)) segments.push(stewardSanitizeText(t.action));
+  if (stewardHasText(t.waitReason)) segments.push(stewardSanitizeText(t.waitReason));
+  if (stewardHasText(t.permissionMode)) segments.push(stewardPermissionLabel(t.permissionMode));
+  {
+    const cost = Number(t.cost);
+    if (Number.isFinite(cost)) segments.push('$' + cost.toFixed(2));
+  }
+  if (stewardHasText(t.lastSay)) segments.push('它最后说：' + clip(t.lastSay, STEWARD_DIGEST_LIMITS.lastSayChars));
+
+  let line = segments.join(' · ');
+  if (line.length > STEWARD_DIGEST_LIMITS.lineChars) line = line.slice(0, STEWARD_DIGEST_LIMITS.lineChars);
+  return line;
+}
+
+// 延迟绑定命名空间(先例:06c-agent-loop-hooks.js 的 AgentLoopHooks)。本切片(116a)只声明空对象与
+// 契约注释,不实现——填充者是后续切片的 13g-steward.js(transport 层,加载时 Object.assign(StewardHooks,
+// {...})),消费者是 12-tool-dispatch.js 里 session.kind==='steward' 才 offer 的管家工具 handler。
+// 这样 06i(engine,拼接顺序更早)与 13g(transport,拼接顺序更晚)之间不产生编译期循环引用——06i 从不
+// import/require 13g,13g 单向往 06i 已声明的对象上挂方法。
+//
+// 预留键名契约(按族分组,签名与返回形状由填充它们的切片各自文档化):
+//   观察族: threadStatus(threadId)、threadRead(threadId, {tail, maxChars})、
+//           threadsSearch(query)、runsStatus()、inboxRead({since, limit})
+//   线程族: threadNew(brief)、threadContinue(threadId, message)
+//   决策族: decide(threadId, decision)、runAction(threadId, action)
+//   记忆族: memoryWrite(entry)、memoryVeto(id)、memorySearch(query)
+const StewardHooks = {};
 
 // ============================================================================
 // v2 跨会话记忆(团队模式 v2 Phase 3, 设计稿 C0-C5)。文件型记忆库 + 起草-确认写入 + 围栏式渐进注入。
@@ -38191,6 +38433,12 @@ module.exports = {
   dispatchAgentLoopHooks: AgentLoopHooks.dispatchAgentLoopHooks,
   makeAgentLoopTraceId: AgentLoopHooks.makeAgentLoopTraceId,
   summarizeAgentLoopToolResult: AgentLoopHooks.summarizeAgentLoopToolResult,
+  // 第116波116a(27号文§11.3): 管家(Steward)引擎侧纯函数与延迟绑定命名空间 — exposed for e2e/单测。
+  StewardHooks,
+  STEWARD_EVENT_KINDS,
+  STEWARD_DIGEST_LIMITS,
+  stewardMayAct,
+  buildStewardDigestLine,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,

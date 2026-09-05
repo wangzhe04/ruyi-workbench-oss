@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 37 | 1562 | 1674 | 269 | 67 | 0 | 1 |
+| 38 | 1573 | 1679 | 270 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,25 +33,26 @@
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 18 | `06d-memory-domain.js` | engine | 102 | 32 | 10 |
-| 19 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
-| 20 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
-| 21 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 22 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
-| 23 | `08-agent-runs.js` | orchestration | 87 | 79 | 16 |
-| 24 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
-| 25 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
-| 26 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
-| 27 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
-| 28 | `11-native-tools.js` | tools | 85 | 22 | 5 |
-| 29 | `12-tool-dispatch.js` | tools | 30 | 77 | 13 |
-| 30 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
-| 31 | `13-http-router.js` | transport | 62 | 199 | 22 |
-| 32 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
-| 33 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 34 | `13d-core-domain-routes.js` | transport | 35 | 89 | 13 |
-| 35 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 36 | `14-main.js` | entrypoint | 1 | 400 | 26 |
+| 18 | `06i-steward-core.js` | engine | 11 | 0 | 0 |
+| 19 | `06d-memory-domain.js` | engine | 102 | 32 | 10 |
+| 20 | `06e-mission-domain.js` | engine | 3 | 11 | 5 |
+| 21 | `06f-autonomy-grants.js` | engine | 25 | 11 | 5 |
+| 22 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 23 | `07-autonomy.js` | orchestration | 87 | 55 | 12 |
+| 24 | `08-agent-runs.js` | orchestration | 87 | 79 | 16 |
+| 25 | `09b-replan-ledger.js` | orchestration | 8 | 3 | 1 |
+| 26 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 27 | `09-workflow.js` | orchestration | 10 | 192 | 21 |
+| 28 | `10-context-governance.js` | orchestration | 125 | 62 | 13 |
+| 29 | `11-native-tools.js` | tools | 85 | 22 | 5 |
+| 30 | `12-tool-dispatch.js` | tools | 30 | 77 | 13 |
+| 31 | `13f-native-tool-schemas.js` | transport | 1 | 0 | 0 |
+| 32 | `13-http-router.js` | transport | 62 | 199 | 22 |
+| 33 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 35 | `13d-core-domain-routes.js` | transport | 35 | 89 | 13 |
+| 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
+| 37 | `14-main.js` | entrypoint | 1 | 405 | 27 |
 
 ## 模块边
 
@@ -317,6 +318,7 @@
 | `14-main.js` | `06c-agent-loop-hooks.js` | backward | `AgentLoopHooks` |
 | `14-main.js` | `06d-memory-domain.js` | backward | `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `buildCoreMemoryPromptSection`, `buildMemoryCheckPrompt`, `buildMemoryConflictMap`, `buildMemoryPromptSection`, `confirmMemoryRelation`, `deleteMemoryRelation`, `effectiveMemorySelection`, `extractMemoryRelationProposals`, `legacyAccMemoryMigrationComplete`, `listMemoryRelations`, `listWorkbenchMemories`, `loadMemoryRegistry`, `memoryProposalIsDuplicate`, `memoryProposalPrefilter`, `memoryProposalSimilarity`, `memorySearchTerms`, `migrateLegacyAccMemory`, `parseMemoryProposalDecision`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `rankRelevantMemories`, `readWorkbenchMemory`, `resolveCoreMemoryState`, `resolveMemoryPreflight`, `saveMemory` |
 | `14-main.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `agentResourcesConflict`, `inferToolResources`, `normalizeAgentResource`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources`, `resourceBlockers` |
+| `14-main.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `StewardHooks`, `buildStewardDigestLine`, `stewardMayAct` |
 | `14-main.js` | `07-autonomy.js` | backward | `NATIVE_TOOL_PACKS`, `NATIVE_TOOL_TIER`, `adaptiveMetaToolSchemas`, `applyAgentWorktree`, `bridgedToolTier`, `buildClaudeAgentDefinitions`, `buildOpenAiTools`, `buildResponsesInputItems`, `buildToolCatalog`, `classifyClaudeSubagentFailure`, `classifyRuntimeToolFailure`, `classifyToolPacks`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `estimateToolSchemaTokens`, `fetchOpenAiModels`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `responsesHistoryWithCompleteToolPairs`, `saveProjectAgentRoles`, `searchToolCatalog`, `toolPackForName` |
 | `14-main.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `QUALITY_GATE_OUTPUT_SCHEMA`, `aggregateAgentVote`, `aggregateCoverage`, `autoResumeInterruptedRuns`, `buildNodeEvidenceCatalog`, `dedupeAgentFindings`, `deleteAgentWorkflow`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `mapPool`, `markInterruptedAgentRuns`, `normalizeAgentGate`, `normalizeAgentWorkflow`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunEvents`, `repairJson`, `resolveAgentTeamRoute`, `runWorkspaceHash`, `sanitizeAgentOutputSchema`, `saveAgentWorkflow`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `14-main.js` | `09-workflow.js` | backward | `planDiscoveryToolBatchAllowed` |

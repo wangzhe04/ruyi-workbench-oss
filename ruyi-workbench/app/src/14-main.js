@@ -295,6 +295,12 @@ module.exports = {
   dispatchAgentLoopHooks: AgentLoopHooks.dispatchAgentLoopHooks,
   makeAgentLoopTraceId: AgentLoopHooks.makeAgentLoopTraceId,
   summarizeAgentLoopToolResult: AgentLoopHooks.summarizeAgentLoopToolResult,
+  // 第116波116a(27号文§11.3): 管家(Steward)引擎侧纯函数与延迟绑定命名空间 — exposed for e2e/单测。
+  StewardHooks,
+  STEWARD_EVENT_KINDS,
+  STEWARD_DIGEST_LIMITS,
+  stewardMayAct,
+  buildStewardDigestLine,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
