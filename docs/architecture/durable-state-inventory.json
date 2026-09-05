@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 42,
+  "count": 44,
   "lifecycleCounts": {
-    "dedicated-exemption": 12,
+    "dedicated-exemption": 13,
     "external-exemption": 8,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 15
+    "shared-lifecycle": 16
   },
   "entries": [
     {
@@ -583,6 +583,34 @@
       "recovery": "overlay rollback",
       "lifecycle": "external-exemption",
       "exemptionReason": "owned by separately tested overlay applicator"
+    },
+    {
+      "id": "steward-inbox",
+      "pattern": "<data>/steward/inbox-v1.ndjson",
+      "owner": "13g-steward.js",
+      "anchor": "STEWARD_INBOX_FILE",
+      "schema": "NDJSON inbox rows / inbox-v1",
+      "writePrimitive": "repairMissionChangeTornTail + appendFile through a per-process serialized chain (the session-changes primitive)",
+      "corruption": "torn tail truncated before append; unparsable rows and rows outside the five-kind whitelist are skipped by readers",
+      "capacity": "append-only; a tick writes at most 200 merged rows and only whitelisted kinds",
+      "cache": "in-process dedupe set rebuilt from the last 2000 rows at load",
+      "recovery": "cursor replay plus the rebuilt dedupe set; already-written keys are never re-appended",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "append-only ledger cannot use whole-file JSON replacement"
+    },
+    {
+      "id": "steward-cursor",
+      "pattern": "<data>/steward/cursor-v1.json",
+      "owner": "13g-steward.js",
+      "anchor": "STEWARD_CURSOR_FILE",
+      "schema": "object / schema 1",
+      "writePrimitive": "atomicWriteJson",
+      "corruption": "unreadable or wrong-schema cursor restarts from a cold baseline: sources are re-baselined instead of replayed, and the inbox-tail dedupe set prevents duplicates",
+      "capacity": "active sessions and runs only, capped at 500 sessions / 500 runs / 2000 pending ids per save",
+      "cache": "stewardRuntime holds the live cursor for this process",
+      "recovery": "rebuild from the inbox tail plus a fresh source baseline",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
     },
     {
       "id": "pretender-index",

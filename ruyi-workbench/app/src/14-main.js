@@ -1,7 +1,14 @@
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
-  if (command === 'serve') return startServer(argv);
+  if (command === 'serve') {
+    const served = await startServer(argv);
+    // 第116波116b(27号文§11.3): 服务就绪(已 listen、runtime.json 已落)之后才起管家收件箱轮询。
+    // stewardEnabledV1 !== true 时 startStewardInbox 立即返回,不建目录、不起 interval、零写入。
+    // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
+    await startStewardInbox(await readConfig()).catch(() => {});
+    return served;
+  }
   if (command === 'mcp') return startMcp();
   if (command === 'install') return installIntegration();
   if (command === 'doctor') return doctor(argv); // 118b: --human 走人话体检,默认仍只打 JSON
@@ -301,6 +308,17 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第116波116b(27号文§11.3): 管家收件箱 — 生命周期 + 归一化/合并/去重纯函数(exposed for 单测/e2e)。
+  startStewardInbox,
+  stopStewardInbox,
+  STEWARD_SOURCE_EVENT_MAP,
+  stewardNormalizeMissionChange,
+  stewardNormalizeRunEvent,
+  stewardNormalizePendingIntervention,
+  stewardNormalizeBudgetExhausted,
+  stewardMergeInboxEvents,
+  stewardEventDedupeKey,
+  stewardInboxRowDedupeKeys,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,

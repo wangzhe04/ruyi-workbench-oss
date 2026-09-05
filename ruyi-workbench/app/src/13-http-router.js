@@ -1356,6 +1356,10 @@ async function handleApi(req, res, pathname) {
   await handleSteerApiRoute(req, res, pathname); if (res.writableEnded) return;
   // 第53波 EC-B(53b): overlay 离线更新域路由抽至 13c-overlay-routes.js(precheck/apply/rollback/status,编排 Manage-Overlay.ps1)。
   await handleOverlayApiRoutes(req, res, pathname); if (res.writableEnded) return;
+  // 第116波116b(27号文§11.3): 管家 /api/steward/* 域路由住 13g-steward.js(拼接顺序在本文件【之后】)。
+  // 直接写函数名会成为新的前向边,故经 06i 的延迟绑定命名空间挂接(13 → 06i 是后向边);13g 加载时
+  // Object.assign(StewardHooks, {...}) 填充实现,未填充(理论上不可能)时本行是无操作。
+  if (typeof StewardHooks.handleApiRoutes === 'function') { await StewardHooks.handleApiRoutes(req, res, pathname); if (res.writableEnded) return; }
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
@@ -1686,7 +1690,9 @@ async function startServerInner(opts) {
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
+  // 第116波116b: 关服收尾一并停掉管家收件箱轮询(clearInterval + 代际自增,在途 tick 尽快退出)。
+  // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.

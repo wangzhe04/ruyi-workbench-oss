@@ -9267,6 +9267,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -10801,6 +10808,231 @@
       ]
     },
     {
+      "file": "13g-steward.js",
+      "layer": "transport",
+      "provides": [
+        "STEWARD_ACTIVE_WINDOW_MS",
+        "STEWARD_CURSOR_FILE",
+        "STEWARD_CURSOR_MAX_PENDING",
+        "STEWARD_CURSOR_MAX_RUNS",
+        "STEWARD_CURSOR_MAX_SESSIONS",
+        "STEWARD_CURSOR_SCHEMA",
+        "STEWARD_DEDUPE_TAIL_ROWS",
+        "STEWARD_DIR_NAME",
+        "STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ",
+        "STEWARD_FIRST_SIGHT_MAX_REVISION",
+        "STEWARD_INBOX_FILE",
+        "STEWARD_INBOX_FULL_READ_BYTES",
+        "STEWARD_INBOX_LIMIT_DEFAULT",
+        "STEWARD_INBOX_LIMIT_MAX",
+        "STEWARD_INBOX_TAIL_BYTES",
+        "STEWARD_KIND_RESOLVERS",
+        "STEWARD_MERGED_SEQS_MAX",
+        "STEWARD_MERGE_WINDOW_MS",
+        "STEWARD_RUN_EVENT_PAGE",
+        "STEWARD_SEEN_MAX_KEYS",
+        "STEWARD_SOURCE_EVENT_MAP",
+        "STEWARD_SUMMARY_CHARS",
+        "STEWARD_TICK_MAX_EVENTS",
+        "handleStewardApiRoutes",
+        "startStewardInbox",
+        "stewardAppendChain",
+        "stewardAppendInboxRows",
+        "stewardClipSummary",
+        "stewardCollectEvents",
+        "stewardCursorPath",
+        "stewardDir",
+        "stewardEventDedupeKey",
+        "stewardInboxPath",
+        "stewardInboxRead",
+        "stewardInboxRowDedupeKeys",
+        "stewardInboxState",
+        "stewardIsoAt",
+        "stewardKindFor",
+        "stewardLoadState",
+        "stewardMergeInboxEvents",
+        "stewardNormalizeBudgetExhausted",
+        "stewardNormalizeMissionChange",
+        "stewardNormalizePendingIntervention",
+        "stewardNormalizeRunEvent",
+        "stewardParseInboxText",
+        "stewardReadInboxRows",
+        "stewardReadInboxText",
+        "stewardResetRuntimeState",
+        "stewardResolveMissionResultKind",
+        "stewardResolveNodeSettledKind",
+        "stewardResolveRunEndKind",
+        "stewardRunTick",
+        "stewardRuntime",
+        "stewardSaveCursor",
+        "stewardTickOnce",
+        "stopStewardInbox"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EVENT_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "listAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "readAgentRunEvents",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
@@ -10987,6 +11219,13 @@
           "symbol": "quoteWinArg",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13638,6 +13877,77 @@
         {
           "provider": "13e-pretender-index.js",
           "symbol": "warmPretenderProjectionIndex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "startStewardInbox",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "STEWARD_SOURCE_EVENT_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardEventDedupeKey",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardInboxRowDedupeKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardMergeInboxEvents",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardNormalizeBudgetExhausted",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardNormalizeMissionChange",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardNormalizePendingIntervention",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardNormalizeRunEvent",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stopStewardInbox",
           "kinds": [
             "read"
           ]

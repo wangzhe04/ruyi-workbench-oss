@@ -124,6 +124,12 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/overlay/apply', auth: 'token' },
   { m: 'GET', p: '/api/overlay/status', auth: 'token' },
   { m: 'POST', p: '/api/overlay/rollback', auth: 'token' },
+  // 第116波116b(27号文§11.3): 管家收件箱。start/stop 是控制面(起停后台轮询),state/inbox 返回跨会话
+  // 的待决与失败摘要 —— 内容敏感度同 /api/audit 与 /api/missions 的写面,一律 token 级(不给 token-browser)。
+  { m: 'POST', p: '/api/steward/start', auth: 'token' },
+  { m: 'POST', p: '/api/steward/stop', auth: 'token' },
+  { m: 'GET', p: '/api/steward/state', auth: 'token' },
+  { m: 'GET', p: '/api/steward/inbox', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },

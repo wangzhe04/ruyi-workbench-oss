@@ -37,6 +37,8 @@ const ROUTER_FILES = [
   '13c-overlay-routes.js',
   '13d-core-domain-routes.js',
   '13e-pretender-index.js',
+  // 第 116 波 116b:管家 /api/steward/* 域路由(13g 拼接顺序在 13 之后,经 StewardHooks 延迟绑定挂接)。
+  '13g-steward.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -56,6 +58,7 @@ const DOMAIN_BY_HANDLER = [
   ['handleMissionsApiRoutes', 'mission'],
   ['handleInterventionApiRoutes', 'intervention'],
   ['handleAgentRunApiRoutes', 'agent-run'],
+  ['handleStewardApiRoutes', 'steward'],
 ];
 const DOMAIN_BY_FILE = {
   '13-http-router.js': 'core-inline',
@@ -63,6 +66,7 @@ const DOMAIN_BY_FILE = {
   '13c-overlay-routes.js': 'overlay',
   '13d-core-domain-routes.js': 'core-domain',
   '13e-pretender-index.js': 'pretender-index',
+  '13g-steward.js': 'steward',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
