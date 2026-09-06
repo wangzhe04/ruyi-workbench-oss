@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 1951 | 1944 | 317 | 67 | 0 | 1 |
+| 41 | 1959 | 1945 | 317 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -53,7 +53,7 @@
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 107 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
 | 37 | `13i-steward-inbox.js` | transport | 55 | 19 | 7 |
-| 38 | `13g-steward.js` | transport | 97 | 83 | 18 |
+| 38 | `13g-steward.js` | transport | 105 | 84 | 18 |
 | 39 | `13h-steward-runner.js` | transport | 108 | 64 | 12 |
 | 40 | `14-main.js` | entrypoint | 1 | 470 | 31 |
 
@@ -318,7 +318,7 @@
 | `13g-steward.js` | `05-claude-engine.js` | backward | `maskProviders` |
 | `13g-steward.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession` |
 | `13g-steward.js` | `06d-memory-domain.js` | backward | `memoryProposalLooksSensitive` |
-| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_QUICK_QUESTION_CHARS`, `STEWARD_SESSION_ID`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardConfigTierFor`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
+| `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_CONFIG_SECRET_PATTERN`, `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_QUICK_QUESTION_CHARS`, `STEWARD_SESSION_ID`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardConfigTierFor`, `stewardMayAct`, `stewardMayTightenTo`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardTermJaccard`, `stewardThreadStateFromCard`, `stewardToolPermanentlyExempt`, `waitReasonFor` |
 | `13g-steward.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13g-steward.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13g-steward.js` | `10-context-governance.js` | backward | `runSessionTurn` |

@@ -154,6 +154,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/steward/memory/veto', auth: 'token' },
   { m: 'POST', p: '/api/steward/memory/restore', auth: 'token' },
   { m: 'POST', p: '/api/steward/memory/clear', auth: 'token' },
+  // 第117波117e第0步(27号文§8.6「行动流水」): 管家决策日志的只读面。透出的是「管家替你做过什么」
+  // 的全部依据(目标线程、线程权限、undoRef、费用) —— 敏感度同记忆面板,token 级(不给 token-browser)。
+  { m: 'GET', p: '/api/steward/decisions', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },

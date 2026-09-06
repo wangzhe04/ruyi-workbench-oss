@@ -631,6 +631,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/steward/memory/veto', auth: 'token' },
   { m: 'POST', p: '/api/steward/memory/restore', auth: 'token' },
   { m: 'POST', p: '/api/steward/memory/clear', auth: 'token' },
+  // 第117波117e第0步(27号文§8.6「行动流水」): 管家决策日志的只读面。透出的是「管家替你做过什么」
+  // 的全部依据(目标线程、线程权限、undoRef、费用) —— 敏感度同记忆面板,token 级(不给 token-browser)。
+  { m: 'GET', p: '/api/steward/decisions', auth: 'token' },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
@@ -39315,7 +39318,18 @@ async function decideIntervention(command = {}) {
   }
   let head = null;
   try { head = safeJsonParse(await fsp.readFile(sessionPath(missionId), 'utf8'), null); } catch { /* 404 below */ }
-  if (!head || sessionMissionId(head) !== missionId) {
+  // 117e 第 0 步(116g 引入的真 bug):这道门在 116g 之前是恒等式 —— 会话没挂进显式事项容器时
+  // sessionMissionId(head) 就回落成 head.id,而 head 正是按 `sessionPath(missionId)` 读出来的。
+  // 116g 的 missionAttachThread 把 session.missionId 改写成【容器 id】之后,同一条会话再按自己的
+  // id 来答待决就恒判 not_found —— /api/chat/answer、/api/permission/decision、/api/plan/decision
+  // 三条兼容适配器与 steward_decide 传的都是 sessionId,于是「凡是进了多线程事项的线程,问题/权限/
+  // 计划都答不进去」(经典壳同样受影响)。
+  // 修法:把「missionId 等于该会话自身 id」显式认作合法别名(容器 id 仍照旧受理,只是那个 id 上
+  // 没有会话文件,读不出 head 就仍然 404)。**不放宽**「跨会话答别人的待决」:待决本体在下面按
+  // `readInterventions(missionId)` 从这条会话自己的旁路账里取,并再核一次 `current.sessionId ===
+  // missionId`;拿会话 A 的 id 去答会话 B 的待决,那两道判定照旧拦下。
+  const headSelfId = String((head && head.id) || '');
+  if (!head || (sessionMissionId(head) !== missionId && headSelfId !== missionId)) {
     return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
   }
 
@@ -41507,6 +41521,17 @@ async function handleStewardApiRoutes(req, res, pathname) {
     return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
   }
 
+  // ── 117e 第 0 步:行动流水的只读面(§8.6 末条)────────────────────────────────────────
+  // 与记忆面板同族(exact 路由、token 级、共用 stewardPanelGate 的两道闸)。纯只读:不建目录、
+  // 不写盘、不启轮询。每行的 args 与 basis 过一遍 116-2e 的密钥判据再出门。
+  if (req.method === 'GET' && pathname === '/api/steward/decisions') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const query = new URL(req.url, 'http://x').searchParams;
+    return send(res, json(await stewardDecisionsRead({
+      limit: query.get('limit'), sessionId: query.get('sessionId'), since: query.get('since'),
+    })));
+  }
+
   // 116f: /api/steward/{visit,message,act} 住 13h-steward-runner.js(拼接顺序在本文件【之后】)。
   // 与 13 挂 13g 同一手法:直接写函数名会是前向边,故经 06i 的延迟绑定命名空间转交;未填充时本行
   // 是无操作,路由链继续往下走(最终 404)。命中与否仍以 res.writableEnded 为准。
@@ -41692,6 +41717,93 @@ function stewardAppendDecision(row) {
     await fsp.appendFile(file, line, 'utf8');
   }).catch(() => {}); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
   return record;
+}
+
+// ── 决策日志的只读面(117e 第 0 步 · §8.6「行动流水」)────────────────────────────────────
+// 在 117e 之前决策日志【只有】工具 `steward_audit_tail` 能读 —— 也就是说,只有模型看得见管家做过
+// 什么,用户看不见。§8.6 明写「行动流水页按时间列出管家做过的每件事(依据、线程权限、undoRef、
+// 费用),支持按线程与按日期过滤」,那需要一条 HTTP 只读面。
+//
+// 纪律与 inbox 尾窗读取同源(13i stewardReadInboxText/ParseInboxText 的形状):小文件整读、大文件只读
+// 尾窗并丢首个半行、坏行整行跳过、文件不存在 = 空(绝不 mkdir —— 开关关时零持久化写入的红线)。
+const STEWARD_DECISIONS_LIMIT_DEFAULT = 50;
+const STEWARD_DECISIONS_LIMIT_MAX = 200;
+const STEWARD_DECISIONS_FULL_READ_BYTES = 8 * 1024 * 1024;
+const STEWARD_DECISIONS_TAIL_BYTES = 1024 * 1024;
+const STEWARD_DECISIONS_MASK = '••••';
+
+// args 里像密钥的值一律掩码。**判据复用 116-2e 的那一条**(06i 的 STEWARD_CONFIG_SECRET_PATTERN,
+// `/apiKey|token|secret|password/i`)—— 不另写第二份正则:两份正则迟早会漂移,而漂移的方向永远是
+// 「新面漏掉了旧面拦住的东西」。按【键名】判定(值本身可能是任意串,按值猜是猜不准的),对象递归,
+// 深度与宽度都有硬顶(决策日志的 args 本就只记摘要字段,超了说明写日志的地方出了别的问题)。
+function stewardMaskDecisionArgs(value, depth = 0) {
+  if (depth > 4 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.slice(0, 50).map(item => stewardMaskDecisionArgs(item, depth + 1));
+  const out = {};
+  for (const [key, item] of Object.entries(value).slice(0, 50)) {
+    if (STEWARD_CONFIG_SECRET_PATTERN.test(key)) { out[key] = STEWARD_DECISIONS_MASK; continue; }
+    out[key] = stewardMaskDecisionArgs(item, depth + 1);
+  }
+  return out;
+}
+
+async function stewardReadDecisionsText() {
+  const file = stewardDecisionsPath();
+  let size = -1;
+  try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
+  if (size <= STEWARD_DECISIONS_FULL_READ_BYTES) {
+    try { return { text: await fsp.readFile(file, 'utf8'), droppedHead: false }; } catch { return { text: '', droppedHead: false }; }
+  }
+  let fh = null;
+  try {
+    fh = await fsp.open(file, 'r');
+    const buf = Buffer.alloc(STEWARD_DECISIONS_TAIL_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, STEWARD_DECISIONS_TAIL_BYTES, size - STEWARD_DECISIONS_TAIL_BYTES);
+    return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
+  } catch { return { text: '', droppedHead: false }; }
+  finally { if (fh) await fh.close().catch(() => {}); }
+}
+
+// { limit, sessionId, since } -> { ok, rows, total, limit }
+//   · rows 按时间【倒序】(最近的在最前),这是行动流水页的自然阅读序;
+//   · since 认 ISO 时间串(比 seq 稳:seq 是 per-process 计数器,重启即从 1 重来),给了就只回
+//     `at > since` 的行;非法值当没给(不是报错 —— 只读面对坏参数一律降级为「不过滤」);
+//   · total = 尾窗内命中过滤的总行数(不是全量文件行数,尾窗外的行本来就读不到)。
+async function stewardDecisionsRead(opts) {
+  const o = (opts && typeof opts === 'object') ? opts : {};
+  const rawLimit = Number(o.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0
+    ? Math.min(STEWARD_DECISIONS_LIMIT_MAX, Math.max(1, Math.round(rawLimit)))
+    : STEWARD_DECISIONS_LIMIT_DEFAULT;
+  const sessionId = safeSessionId(String(o.sessionId || ''));
+  const sinceRaw = String(o.since || '').trim().slice(0, 40);
+  const since = sinceRaw && !Number.isNaN(Date.parse(sinceRaw)) ? sinceRaw : '';
+  const { text, droppedHead } = await stewardReadDecisionsText();
+  const lines = String(text || '').split('\n');
+  const matched = [];
+  for (let i = droppedHead ? 1 : 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const row = safeJsonParse(line, null);
+    if (!row || typeof row !== 'object' || Array.isArray(row) || !row.tool) continue;  // 坏行整行跳过
+    const at = String(row.at || '');
+    if (sessionId && String(row.targetSessionId || '') !== sessionId) continue;
+    if (since && !(at > since)) continue;
+    matched.push({
+      seq: Number(row.seq) || 0,
+      at,
+      tool: String(row.tool || ''),
+      args: stewardMaskDecisionArgs((row.args && typeof row.args === 'object') ? row.args : {}),
+      targetSessionId: String(row.targetSessionId || ''),
+      permissionMode: String(row.permissionMode || ''),
+      mayAct: String(row.mayAct || ''),
+      undoRef: (row.undoRef && typeof row.undoRef === 'object') ? row.undoRef : null,
+      basis: (row.basis && typeof row.basis === 'object') ? stewardMaskDecisionArgs(row.basis) : {},
+      ...(row.cost != null ? { cost: Number(row.cost) || 0 } : {}),
+    });
+  }
+  matched.reverse();
+  return { ok: true, rows: matched.slice(0, limit), total: matched.length, limit };
 }
 
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
@@ -42961,7 +43073,11 @@ async function stewardImplQuickAsk(args, ctx, config) {
     requestMeta: { tool: 'steward_quick_ask' },
   }, 'steward_quick_ask');
 
-  const undoRef = { kind: 'thread_new', sessionId: session.id };
+  // 117e 第 0 步:与 117d-0 的 thread_new / thread_continue 同口径 —— 撤回锚点显式化。
+  // rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的 plannedTurnSeq = turnSeq + 1),
+  // 按 `turnSeq` 字面传会得 target turn not found。新建会话的 turnSeq 恒为 0,这里仍按字段读,
+  // 与上面那两处逐字同形(将来 createSession 若带出非零 seq 也不会错)。
+  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_quick_ask',
     args: { chars: question.length },

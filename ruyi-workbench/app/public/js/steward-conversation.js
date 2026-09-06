@@ -41,8 +41,34 @@ const STEWARD_ACT_ERROR_KEYS = Object.freeze({
   version_conflict: 'stewardShell.chat.errConflict',
 });
 
+// 117e 第 0 步（117d 登记项 ②）：后端的失败信封有两种形状 —— 域层的裸串 `error:'not_found'`，
+// 和路由层 normalizeApiErrorPayload 归一出来的结构化对象 `error:{code,message,params}`（net.js 抛出的
+// Error 也是第三种）。原来这两个函数一律 `String(error)`，结构化那一支于是在界面上显示成
+// 「[object Object]」。现在分两条：
+//   · stewardErrorCode(error) —— 取【机器码】去查人话表（对象走 code / error，不走 message）；
+//   · stewardErrorText(error) —— 取【给人看的那一段】：message ‖ error ‖ code，一层对象再递归一次
+//     （`{error:{code,message}}` 这种套娃形状同样能落到 message 上），到底也拿不出字符串就回空串。
+// 铁律：任何 error 值进 i18n 之前都必须过这两个之一，全模块零 `String(<error 值>)`（静态锁看住）。
+export function stewardErrorCode(error) {
+  if (error == null) return '';
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object') return String(error.code || (typeof error.error === 'string' ? error.error : '') || '');
+  return String(error);
+}
+
+export function stewardErrorText(error) {
+  if (error == null) return '';
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object') {
+    const raw = error.message || error.error || error.code;
+    if (raw && typeof raw === 'object') return stewardErrorText(raw);
+    return raw ? String(raw) : '';
+  }
+  return String(error);
+}
+
 export function stewardActErrorKey(error) {
-  return STEWARD_ACT_ERROR_KEYS[String(error || '')] || '';
+  return STEWARD_ACT_ERROR_KEYS[stewardErrorCode(error)] || '';
 }
 
 // 流事件里算「在动手」的那几类（presence 的 phase 由它切到 calling_tool，§8.3 working 态）。
@@ -184,7 +210,7 @@ export function createStewardConversation({
       const result = response && response.result;
       if (result && result.ok === false) {
         const key = stewardActErrorKey(result.error);
-        const message = key ? t(key) : t('stewardShell.chat.errGeneric', { error: String(result.error || '') });
+        const message = key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) btn.disabled = false;   // 按钮行保留可重试
         return;
@@ -193,7 +219,7 @@ export function createStewardConversation({
       if (act.kind === 'open_thread' && act.sessionId) openThread(act.sessionId);
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
-      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: String((error && error.message) || error) }));
+      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
       if (btn) btn.disabled = false;
     }
   }
@@ -345,7 +371,7 @@ export function createStewardConversation({
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
     if (reply.circuit || reply.error) {
-      setPresence({ lastError: String(reply.error || (reply.circuit && reply.circuit.kind) || 'circuit') });
+      setPresence({ lastError: stewardErrorText(reply.error) || String((reply.circuit && reply.circuit.kind) || 'circuit') });
       return;
     }
     setPresence({ lastError: '' });
@@ -361,7 +387,7 @@ export function createStewardConversation({
       const okFlag = !(result && result.ok === false);
       out.push(t('stewardShell.chat.actionLine', {
         tool: String(row.tool),
-        state: okFlag ? t('stewardShell.chat.actionDone') : String((result && result.error) || ''),
+        state: okFlag ? t('stewardShell.chat.actionDone') : stewardErrorText(result && result.error),
       }));
     }
     return out;
@@ -403,13 +429,13 @@ export function createStewardConversation({
     try {
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
     } catch (error) {
-      appendSteward(t('stewardShell.chat.errGeneric', { error: String((error && error.message) || error) }), '');
+      appendSteward(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }), '');
       return null;
     }
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: String(result.error || '') }), '');
+      appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
       return null;
     }
     const label = String(title || sid);
@@ -456,12 +482,12 @@ export function createStewardConversation({
       });
       // 回退没成真就不许说「已撤回」（§8.1 原则 2 诚实优先）：按钮行留着，用户可以再点一次。
       if (!rewound || rewound.ok === false) {
-        showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: String((rewound && rewound.error) || 'rewind_failed') }));
+        showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText((rewound && rewound.error) || 'rewind_failed') }));
         return false;
       }
       filesReverted = Array.isArray(rewound.filesReverted) ? rewound.filesReverted.length : 0;
     } catch (error) {
-      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: String((error && error.message) || error) }));
+      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
       return false;
     }
     // 引擎没有检查点时 rewind 只回消息不回文件——如实标注，不假装全撤了（§8.1 原则 2「诚实优先」）。

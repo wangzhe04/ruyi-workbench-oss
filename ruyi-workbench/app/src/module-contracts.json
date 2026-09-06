@@ -11360,6 +11360,11 @@
         "STEWARD_AUDIT_LIMIT_MAX",
         "STEWARD_CONFIG_KEYS",
         "STEWARD_DECISIONS_FILE",
+        "STEWARD_DECISIONS_FULL_READ_BYTES",
+        "STEWARD_DECISIONS_LIMIT_DEFAULT",
+        "STEWARD_DECISIONS_LIMIT_MAX",
+        "STEWARD_DECISIONS_MASK",
+        "STEWARD_DECISIONS_TAIL_BYTES",
         "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_FILE",
         "STEWARD_MEMORY_MERGED_FROM_MAX",
@@ -11396,6 +11401,7 @@
         "stewardDecisionChain",
         "stewardDecisionSeq",
         "stewardDecisionsPath",
+        "stewardDecisionsRead",
         "stewardEmptyMemoryStore",
         "stewardEmptyUsageBucket",
         "stewardEngineOf",
@@ -11428,6 +11434,7 @@
         "stewardImplUsage",
         "stewardLastAssistantText",
         "stewardLaunchTurn",
+        "stewardMaskDecisionArgs",
         "stewardMemoryChain",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
@@ -11445,6 +11452,7 @@
         "stewardQuickClosed",
         "stewardRawKind",
         "stewardReadBucket",
+        "stewardReadDecisionsText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
         "stewardSourceIsUserMessage",
@@ -11747,6 +11755,13 @@
           "symbol": "deriveStewardThreadState",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_CONFIG_SECRET_PATTERN",
+          "kinds": [
+            "read"
           ]
         },
         {

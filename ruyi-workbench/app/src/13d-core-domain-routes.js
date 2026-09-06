@@ -957,7 +957,18 @@ async function decideIntervention(command = {}) {
   }
   let head = null;
   try { head = safeJsonParse(await fsp.readFile(sessionPath(missionId), 'utf8'), null); } catch { /* 404 below */ }
-  if (!head || sessionMissionId(head) !== missionId) {
+  // 117e 第 0 步(116g 引入的真 bug):这道门在 116g 之前是恒等式 —— 会话没挂进显式事项容器时
+  // sessionMissionId(head) 就回落成 head.id,而 head 正是按 `sessionPath(missionId)` 读出来的。
+  // 116g 的 missionAttachThread 把 session.missionId 改写成【容器 id】之后,同一条会话再按自己的
+  // id 来答待决就恒判 not_found —— /api/chat/answer、/api/permission/decision、/api/plan/decision
+  // 三条兼容适配器与 steward_decide 传的都是 sessionId,于是「凡是进了多线程事项的线程,问题/权限/
+  // 计划都答不进去」(经典壳同样受影响)。
+  // 修法:把「missionId 等于该会话自身 id」显式认作合法别名(容器 id 仍照旧受理,只是那个 id 上
+  // 没有会话文件,读不出 head 就仍然 404)。**不放宽**「跨会话答别人的待决」:待决本体在下面按
+  // `readInterventions(missionId)` 从这条会话自己的旁路账里取,并再核一次 `current.sessionId ===
+  // missionId`;拿会话 A 的 id 去答会话 B 的待决,那两道判定照旧拦下。
+  const headSelfId = String((head && head.id) || '');
+  if (!head || (sessionMissionId(head) !== missionId && headSelfId !== missionId)) {
     return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
   }
 

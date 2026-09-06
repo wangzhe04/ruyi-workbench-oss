@@ -201,6 +201,33 @@ ok(/import \{ authHeaders \} from '\.\/net\.js';/.test(conversation)
 ok(/const reader = res\.body\.getReader\(\);/.test(conversation) && /new TextDecoder\(\)/.test(conversation),
   'J3 读流部分照 chat-stream-runtime.js 的 reader 循环（同形 NDJSON）');
 
+// ─── K 错误文案：结构化 error 对象绝不 String() 直落（117e 第 0 步，117d 登记项 ②）─────────
+// 后端的失败信封有两种形状：域层裸串 `error:'not_found'` 与路由层 normalizeApiErrorPayload 归一出来的
+// `error:{code,message,params}`。原来一律 `String(error)`，结构化那一支在界面上就是「[object Object]」。
+// 两个导出的纯函数各司其职：stewardErrorCode 取机器码查人话表，stewardErrorText 取 message‖error‖code。
+ok(typeof mod.stewardErrorText === 'function' && typeof mod.stewardErrorCode === 'function',
+  'K1 stewardErrorText / stewardErrorCode 是导出的纯函数');
+ok(mod.stewardErrorText({ code: 'x.y', message: '端点连不上' }) === '端点连不上'
+  && mod.stewardErrorText({ error: 'not_found' }) === 'not_found'
+  && mod.stewardErrorText({ code: 'only_code' }) === 'only_code'
+  && mod.stewardErrorText({ error: { code: 'a', message: '里层的话' } }) === '里层的话'
+  && mod.stewardErrorText('裸串') === '裸串'
+  && mod.stewardErrorText(null) === '',
+  'K2 stewardErrorText 取 message ‖ error ‖ code（对象套娃再递归一次），永不吐 [object Object]');
+ok(mod.stewardErrorCode({ code: 'steward.busy' }) === 'steward.busy'
+  && mod.stewardErrorCode({ error: 'version_conflict' }) === 'version_conflict'
+  && mod.stewardActErrorKey({ code: 'version_conflict', message: '版本冲突' }) === 'stewardShell.chat.errConflict',
+  'K3 结构化 error 也能查到人话键（stewardActErrorKey 走 stewardErrorCode，不走 String）');
+// 源码锚：errGeneric 的每一处调用都必须把 error 值交给 stewardErrorText。
+const errGenericArgs = [...conversationCode.matchAll(/t\('stewardShell\.chat\.errGeneric', \{ error: ([^}]+)\}\)/g)]
+  .map(match => match[1].trim());
+ok(errGenericArgs.length >= 5 && errGenericArgs.every(arg => arg.startsWith('stewardErrorText(')),
+  `K4 errGeneric 的每一处调用都过 stewardErrorText（实测 ${JSON.stringify(errGenericArgs)}）`);
+// 两个纯函数之外（它们内部本来就要 String 兜底非对象值），全模块零 `String(<含 error 的表达式>)`。
+const afterHelpers = conversationCode.slice(conversationCode.indexOf('export function stewardActErrorKey'));
+ok(!/String\([^)]*\berror\b/.test(afterHelpers),
+  'K5 两个纯函数之外零 String(<error 值>)（结构化对象绝不直落文案）');
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

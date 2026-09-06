@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-06T05:11:56.089Z",
+  "generatedAt": "2026-09-06T06:41:00.238Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -15,10 +15,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 114,
-    "decisionPoints": 126,
+    "routeAuthEntries": 115,
+    "decisionPoints": 127,
     "byKind": {
-      "exact": 109,
+      "exact": 110,
       "prefix": 12,
       "regex": 5
     },
@@ -703,6 +703,12 @@
     {
       "m": "POST",
       "p": "/api/steward/memory/clear",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/steward/decisions",
       "auth": "token",
       "prefix": false
     },
@@ -1564,6 +1570,7 @@
         "dev-harness\\autonomy-benchmark.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
         "dev-harness\\budget-guard.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
@@ -2039,6 +2046,7 @@
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
@@ -2538,6 +2546,7 @@
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-cas.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -2695,6 +2704,7 @@
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-cas.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -2820,6 +2830,7 @@
         "dev-harness\\e3-engine-switch-continuity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
@@ -2880,6 +2891,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -2921,6 +2933,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -2964,6 +2977,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3002,6 +3016,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3040,6 +3055,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3078,6 +3094,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3115,6 +3132,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3139,7 +3157,7 @@
       "kind": "exact",
       "path": "/api/_test/pretender-maintenance",
       "file": "13d-core-domain-routes.js",
-      "line": 1258,
+      "line": 1269,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3157,7 +3175,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$",
       "path": "/api/missions/:missionId/interventions/:interventionId/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1272,
+      "line": 1283,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3170,6 +3188,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -3194,7 +3213,7 @@
       "kind": "exact",
       "path": "/api/interventions",
       "file": "13d-core-domain-routes.js",
-      "line": 1297,
+      "line": 1308,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3220,7 +3239,7 @@
       "kind": "prefix",
       "path": "/api/interventions/",
       "file": "13d-core-domain-routes.js",
-      "line": 1350,
+      "line": 1361,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3239,7 +3258,7 @@
       "kind": "exact",
       "path": "/api/chat/answer",
       "file": "13d-core-domain-routes.js",
-      "line": 1386,
+      "line": 1397,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3250,6 +3269,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
@@ -3266,7 +3286,7 @@
       "kind": "exact",
       "path": "/api/question/heartbeat",
       "file": "13d-core-domain-routes.js",
-      "line": 1406,
+      "line": 1417,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3281,7 +3301,7 @@
       "kind": "exact",
       "path": "/api/question/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1416,
+      "line": 1427,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3296,7 +3316,7 @@
       "kind": "exact",
       "path": "/api/permission/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1431,
+      "line": 1442,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3311,7 +3331,7 @@
       "kind": "exact",
       "path": "/api/permission/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1517,
+      "line": 1528,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3323,6 +3343,7 @@
       "coveredBy": [
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
@@ -3334,7 +3355,7 @@
       "kind": "exact",
       "path": "/api/plan/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1536,
+      "line": 1547,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3344,6 +3365,7 @@
       "domain": "intervention",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
@@ -3354,7 +3376,7 @@
       "kind": "exact",
       "path": "/api/_test/intervention-cas",
       "file": "13d-core-domain-routes.js",
-      "line": 1557,
+      "line": 1568,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3372,7 +3394,7 @@
       "kind": "exact",
       "path": "/api/agent-runs",
       "file": "13d-core-domain-routes.js",
-      "line": 1664,
+      "line": 1675,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3421,7 +3443,7 @@
       "path": "/api/agent-runs/",
       "suffix": "/events",
       "file": "13d-core-domain-routes.js",
-      "line": 1703,
+      "line": 1714,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3458,7 +3480,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1714,
+      "line": 1725,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "POST"
@@ -3495,7 +3517,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1772,
+      "line": 1783,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "DELETE"
@@ -3532,7 +3554,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1792,
+      "line": 1803,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3759,6 +3781,23 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\steward-memory.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/steward/decisions",
+      "file": "13g-steward.js",
+      "line": 144,
+      "handler": "handleStewardApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "steward",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\steward-decisions.e2e.js"
       ]
     },
     {

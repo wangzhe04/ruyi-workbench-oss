@@ -91,6 +91,11 @@ try {
   const quickId = created.sessionId;
   ok(created.kind === 'quick_ask', "A2 返回 kind:'quick_ask'");
   ok(created.undoRef && created.undoRef.kind === 'thread_new' && created.undoRef.sessionId === quickId, 'A3 undoRef 指向新建的线程');
+  // 117e 第 0 步(117d 登记项 ③):撤回锚点显式化,与 117d-0 给 thread_new / thread_continue 补的
+  // 那个字段同口径 —— rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的
+  // plannedTurnSeq = turnSeq + 1),按 turnSeq 字面传会得 target turn not found。
+  ok(created.undoRef && created.undoRef.rewindTargetTurnSeq === 1,
+    `A3b undoRef 带显式撤回锚点 rewindTargetTurnSeq(新建会话 turnSeq=0 -> 1;got ${created.undoRef && created.undoRef.rewindTargetTurnSeq})`);
   {
     const head = headOf(quickId);
     ok(head.kind === 'quick_ask', "A4 会话头 kind === 'quick_ask'");
