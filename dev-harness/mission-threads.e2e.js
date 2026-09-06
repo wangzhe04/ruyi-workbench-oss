@@ -133,6 +133,11 @@ try {
   ok(row1 && row1.threadCount === 1, '(A) 未归类事项只有它自己一条线程(threadCount=1;实 ' + (row1 && row1.threadCount) + ')');
   ok(row1 && row1.missionId === s1, '(A) 未归类事项的 missionId === sessionId(75a 语义不变)');
   ok(row1 && row1.acceptance && row1.acceptance.total === 0 && row1.acceptance.done === 0, '(A) 未归类事项无事项级验收项');
+  // 117h 第 0 步(只加三个字段):无容器时事项标题就是这条线程自己的标题,目标与验收项如实为空。
+  ok(row1 && row1.missionTitle === row1.title,
+    '(A) 117h-0:无容器 -> missionTitle === 本行标题(实 ' + JSON.stringify(row1 && row1.missionTitle) + ')');
+  ok(row1 && row1.goal === '' && Array.isArray(row1.acceptanceItems) && row1.acceptanceItems.length === 0,
+    '(A) 117h-0:无容器 -> goal 空串、acceptanceItems 空数组(不猜、不拿线程摘要冒充)');
   {
     // 独立对账:aggregateState 必须 === aggregateMissionState([该行卡片的五态])。
     const expected = aggregateMissionState([stewardThreadStateFromCard(row1).state]);
@@ -178,6 +183,15 @@ try {
     ok(r1 && r1.missionId === m1 && r1.threadCount === 2 && r1.derived === false, '(B) 列表行 threadCount=2 / derived=false');
     ok(r2 && r2.threadCount === 2 && r2.missionId === m1, '(B) 同事项的另一条线程看到同一份聚合');
     ok(r1 && r1.acceptance.total === 2 && r1.acceptance.done === 0, '(B) 列表行带事项级验收进度 0/2');
+    // 117h 第 0 步:有容器时三个新字段直出容器的 title / goal / acceptance 整表(看板按事项分组要它们;
+    // 117d 抽屉此前只能按确定性顺序回落到线程标题,见 27 号文 §11.6 117d 拍板①)。
+    ok(r1 && r1.missionTitle === '跨会话事项' && r2 && r2.missionTitle === '跨会话事项',
+      '(B) 117h-0:同事项的两条线程 missionTitle 都是容器标题(实 ' + JSON.stringify(r1 && r1.missionTitle) + ')');
+    ok(r1 && r1.goal === '把两条线合成一件事', '(B) 117h-0:goal 直出容器目标');
+    ok(r1 && Array.isArray(r1.acceptanceItems) && r1.acceptanceItems.length === 2
+      && r1.acceptanceItems.map(item => item.text).join(',') === '验收项甲,验收项乙'
+      && r1.acceptanceItems.every(item => item.id && item.done === false),
+      '(B) 117h-0:acceptanceItems 是容器验收项整表(带 id 与 done;实 ' + JSON.stringify(r1 && r1.acceptanceItems) + ')');
     ok(r1 && r1.budget && r1.budget.maxCost === 5, '(B) 列表行带事项级预算');
     ok(r1 && r1.cost && typeof r1.cost.costsByCurrency === 'object', '(B) 列表行带按 sessionIds 汇总的费用桶');
     ok(r1 && r1.aggregateState === aggregateMissionState([stewardThreadStateFromCard(r1).state, stewardThreadStateFromCard(r2).state]),
@@ -276,6 +290,10 @@ try {
     const rows = (await missionRows(token)).rows;
     ok(rowOf(rows, s1) && rowOf(rows, s1).acceptance.done === 1 && rowOf(rows, s1).acceptance.total === 3,
       '(F) 列表行 acceptance.done 随之变化(1/3;实 ' + JSON.stringify(rowOf(rows, s1) && rowOf(rows, s1).acceptance) + ')');
+    // 117h 第 0 步:整表也跟着变(ETag 指纹已把容器 title/goal 纳入,勾完不会拿到 304 + 陈旧的整表)。
+    const items = rowOf(rows, s1) && rowOf(rows, s1).acceptanceItems;
+    ok(Array.isArray(items) && items.length === 3 && items[0].done === true && items[0].doneAt,
+      '(F) 117h-0:acceptanceItems 随 PATCH 更新且带 doneAt(实 ' + JSON.stringify(items) + ')');
   }
   const renamed = await request('PATCH', `/api/missions/${m1}`, { title: '改过名的事项' }, token);
   ok(renamed.status === 200 && renamed.json.mission.title === '改过名的事项', '(F) 原生 PATCH 通道同样可用');

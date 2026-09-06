@@ -198,6 +198,17 @@ try {
   ok(invalid.status === 400 && invalid.json?.reason === 'action_invalid', 'unknown Mission action is rejected deterministically');
   ok(unauth.status === 403, 'Mission control is token-gated');
 
+  // 117h 第 0 步(只加断言):GET /api/missions 的线程行新增 missionTitle / goal / acceptanceItems。
+  // 本件的会话从没进过事项容器,走的是「无容器」那条确定性回落 —— 事项名就是它自己,目标与验收项如实为空。
+  const listed = await request('/api/missions?limit=200', null, token);
+  const listedRow = (listed.json?.missions || []).find(row => row.sessionId === sessionId) || null;
+  ok(Boolean(listedRow) && listedRow.missionTitle === listedRow.title && listedRow.goal === ''
+    && Array.isArray(listedRow.acceptanceItems) && listedRow.acceptanceItems.length === 0,
+    'mission rows carry missionTitle/goal/acceptanceItems, degrading truthfully without a container');
+  ok(Boolean(listedRow) && typeof listedRow.aggregateState === 'string' && typeof listedRow.threadCount === 'number'
+    && listedRow.acceptance && typeof listedRow.acceptance.total === 'number',
+    '116g aggregate fields survive the 117h-0 addition unchanged');
+
   const preview = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'preview-shell.js'), 'utf8');
   const css = fs.readFileSync(path.join(WB, 'app', 'public', 'css', 'views', 'preview-shell.css'), 'utf8');
   ok(preview.includes("runMissionControlTurn") && preview.includes("/api/checkpoints/rollback") && preview.includes("controlScope"), 'Preview reuses classic stream and real rollback endpoints with visible scopes');

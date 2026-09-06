@@ -38927,7 +38927,11 @@ async function buildMissionAggregateRows(options = {}) {
   rows.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   // 事项文件不在 75c 物化索引的 sourceStamp 覆盖面内(它们不是会话文件),所以 ETag 必须自己带上
   // 它们的指纹 —— 否则 PATCH 完验收项、再带 If-None-Match 来读会拿到 304 + 陈旧的 acceptance。
-  const stamp = pretenderHash(containers.map(row => [row.missionId, row.updatedAt, row.archivedAt || '']));
+  // 117h 第 0 步:行上新增的 missionTitle / goal / acceptanceItems 都由容器字段直出,所以指纹要把
+  // 它们一并纳入 —— 光靠 updatedAt 依赖「每次改都会动 updatedAt」这条隐含约定,写进指纹才是自证的。
+  const stamp = pretenderHash(containers.map(row => [
+    row.missionId, row.updatedAt, row.archivedAt || '', row.title || '', row.goal || '',
+  ]));
   return { rows, rowBySessionId, stamp };
 }
 
@@ -38947,6 +38951,8 @@ function overlayMissionAggregateFields(card, row) {
     return Object.assign(card, {
       aggregateState: aggregateMissionState([derived.state]),
       threadCount: 1, acceptance: { done: 0, total: 0 }, budget: {}, cost: emptyMissionCostBucket(), derived: true,
+      // 117h 第 0 步:没有聚合行 = 没有容器,事项标题就是这条线程自己的标题,目标与验收项如实为空。
+      missionTitle: String(card.title || ''), goal: '', acceptanceItems: [],
       wait: waitReasonFor(
         { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
         typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(card.sessionId) : null,
@@ -38960,6 +38966,15 @@ function overlayMissionAggregateFields(card, row) {
     budget: row.budget,
     cost: row.cost,
     derived: row.derived,
+    // ── 117h 第 0 步(27 号文 §5 117h 行 / 117d 拍板①):看板要按【事项】分组显示,而事项容器的
+    // 标题 / 目标 / 验收项此前只有 steward_missions 工具面拿得到 —— 117d 抽屉只能按确定性顺序
+    // 回落到线程标题。这里【只加三个字段】,不加新路由、不动既有字段与顺序:
+    //   · missionTitle:有容器就是容器标题;没有容器(derived 行,`未归类事项`)就是本行自己的标题;
+    //   · goal        :容器目标,无容器为空串(不猜、不拿线程摘要冒充);
+    //   · acceptanceItems:容器验收项整表(既有 acceptance 只有 done/total 两个数,画不出条目)。
+    missionTitle: row.derived ? String(card.title || '') : String(row.title || ''),
+    goal: String(row.goal || ''),
+    acceptanceItems: Array.isArray(row.acceptance.items) ? row.acceptance.items : [],
     wait: threadWait,
   });
 }
