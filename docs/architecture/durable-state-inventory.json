@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 48,
+  "count": 49,
   "lifecycleCounts": {
-    "dedicated-exemption": 14,
+    "dedicated-exemption": 15,
     "external-exemption": 8,
     "regenerable-exemption": 7,
     "shared-lifecycle": 19
@@ -16,13 +16,27 @@
       "owner": "01-config.js",
       "anchor": "paths.config",
       "schema": "object / configSchema 7",
-      "writePrimitive": "atomicWriteJson + serialized chain",
-      "corruption": "normalize; parse failure falls back (legacy behavior)",
+      "writePrimitive": "atomicWriteJson + serialized chain (copies the previous file to config.json.prev first)",
+      "corruption": "normalize; ENOENT with no .prev = fresh install; parse failure or any other read error recovers from config.json.prev, else degraded read (defaults for this request only, writeConfig refuses until a good read) — 2026-09-06",
       "capacity": "bounded fields in normalizeConfig",
       "cache": "uncached by contract",
       "recovery": "defaults + migration rewrite",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "shared atomic write; read lifecycle retained until direct-test writes gain mtime invalidation"
+    },
+    {
+      "id": "config-backups",
+      "pattern": "<data>/config.json.prev + <data>/config.json.bak-providers-<ts>",
+      "owner": "01-config.js",
+      "anchor": "paths.config",
+      "schema": "object (verbatim copies of config.json)",
+      "writePrimitive": "copyFile before overwrite (prev) / before a providers wipe (bak-providers)",
+      "corruption": "used by readConfig as the first recovery source; bak-providers is a one-off human-recoverable snapshot",
+      "capacity": "one .prev (overwritten each write); bak-providers only when providers go non-empty→empty",
+      "cache": "n/a",
+      "recovery": "never rewritten by migration; .prev is regenerable from the next write",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "2026-09-06 incident: five providers with keys were wiped by a full settings save; these are the insurance"
     },
     {
       "id": "runtime-handshake",

@@ -1266,10 +1266,28 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
 async function writeConfigAtomic(data) {
-  const thisWrite = configWriteChain.catch(() => {}).then(() => atomicWriteJson(paths.config, data));
+  const thisWrite = configWriteChain.catch(() => {}).then(async () => {
+    // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
+    // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
+    try { await fsp.copyFile(paths.config, `${paths.config}.prev`); } catch { /* 首次写入或不可读 */ }
+    return atomicWriteJson(paths.config, data);
+  });
   configWriteChain = thisWrite;
   await thisWrite;
 }
+async function readConfigPrev() {
+  try {
+    const parsed = safeJsonParse(await fsp.readFile(`${paths.config}.prev`, 'utf8'), null);
+    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : null;
+  } catch { return null; }
+}
+// 2026-09-06 对抗审查 P0-2：此前 readConfig 把「任何读失败」都当「全新安装」并立刻把默认配置写回磁盘——
+// 杀毒/备份软件短暂锁文件、瞬时 I/O 错误、外部写坏 JSON，任何一次背景 GET /api/status 都能把用户的密钥/
+// 服务商/工作区静默冲成默认值。现在：只有 ENOENT（文件确实不存在）且没有 .prev 可恢复时才算全新安装；
+// 其它读失败与 JSON 损坏一律不写盘，先用上一次读成功的内存副本，没有就进入【降级】：读到默认值只用于
+// 本次请求，writeConfig 在降级期间拒绝落盘（config.read_degraded），直到某次读成功为止。
+let configDegraded = false;
+let lastGoodConfig = null;
 // 48b(P1) readConfig 内存缓存 -- 经对抗验证【回退】。根因:5 件 e2e(usage-ledger/skills-registry/
 // workbench-memory/vision-loop/subagent)直接 fs 写 config.json 切换 provider/配置,依赖 readConfig 每次
 // 读盘拾取(usage-ledger:137 注释明述"readConfig is uncached -> picked up");缓存让这些直接写不可见。
@@ -1278,20 +1296,46 @@ async function writeConfigAtomic(data) {
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
 async function readConfig() {
   await ensureDirs();
-  let raw = null;
-  try {
-    raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
-  } catch {
-    raw = null;
+  let text = null; let readError = null;
+  try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
+  let raw = null; let recoveredFrom = '';
+  const degrade = code => {
+    try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
+    if (lastGoodConfig) return lastGoodConfig;
+    configDegraded = true;
+    return normalizeConfig(null).config;   // 只供本次请求使用，绝不落盘
+  };
+  if (readError) {
+    if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
+    // 文件确实不存在：有上一版就恢复它，没有才是全新安装。
+    const prev = await readConfigPrev();
+    if (prev) { raw = prev; recoveredFrom = 'prev'; }
+  } else {
+    raw = safeJsonParse(text, null);
+    if (raw === null && String(text).trim()) {
+      // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
+      const prev = await readConfigPrev();
+      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+      else return degrade('EJSON');
+    }
   }
   const { config, changed } = normalizeConfig(raw);
-  // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read).
-  if (changed) await writeConfigAtomic(JSON.stringify(config, null, 2)).catch(() => {});
+  configDegraded = false;
+  lastGoodConfig = config;
+  if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
+  // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
+  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(config, null, 2)).catch(() => {});
   return config;
 }
 
 async function writeConfig(next) {
   await ensureDirs();
+  if (configDegraded) {
+    // 读失败/JSON 损坏期间拿到的「当前配置」是默认值：在它上面合并再落盘 = 把用户配置冲成默认。拒绝。
+    const err = new Error('config.read_degraded: config.json 当前读不出来，拒绝在默认值之上落盘');
+    err.code = 'config.read_degraded';
+    throw err;
+  }
   const { config } = normalizeConfig(next);
   await writeConfigAtomic(JSON.stringify(config, null, 2));
   return config;

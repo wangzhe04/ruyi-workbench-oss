@@ -467,7 +467,10 @@ function fillSettings() {
   // A8: a background refreshStatus() calls fillSettings on a timer. If the settings modal is OPEN the
   // user may be mid-edit on a provider draft — re-seeding it here would silently discard their edits.
   // Skip the draft replay + re-render while open; everything else (read-only-ish fields) is fine to set.
-  if ($('settingsModal').classList.contains('hidden')) {
+  // 2026-09-06 事故根因（对抗审查 P0-1）：navigation-controls 的 openModal 先摘 hidden 再调 fillSettings，
+  // 「弹窗隐藏才播种」这条守卫在用户点开设置那一刻恒为假 —— 草稿只有被后台定时刷新碰巧播种过才有值。
+  // 从未播种时无论弹窗开合都播种（此时不可能有用户未保存的编辑可丢）；已播种且弹窗开着才跳过。
+  if (state.providersDraftSeeded !== true || $('settingsModal').classList.contains('hidden')) {
     state.providersDraft = JSON.parse(JSON.stringify(c.providers || []));
     // 2026-09-06 事故：草稿从未由 config 播种（initial []）时被整份保存写成 providers: []，用户的五个
     // Provider 连同密钥被清空。此后 saveSettings 只在「草稿确实来自 config 或用户手动改过」时才上传
