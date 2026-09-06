@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-06T03:50:19.067Z",
+  "generatedAt": "2026-09-06T05:11:56.089Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1471,6 +1471,7 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
@@ -1586,6 +1587,8 @@
         "dev-harness\\pretender-shell.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2084,6 +2087,8 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2351,7 +2356,8 @@
       "coveredBy": [
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
-        "dev-harness\\steward-conversation.static.e2e.js"
+        "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -2373,7 +2379,8 @@
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
-        "dev-harness\\steering.e2e.js"
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -2395,7 +2402,8 @@
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
-        "dev-harness\\steering.e2e.js"
+        "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -2586,6 +2594,8 @@
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2741,6 +2751,8 @@
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2839,6 +2851,8 @@
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
@@ -2884,6 +2898,8 @@
         "dev-harness\\pretender-shell.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
@@ -2923,6 +2939,8 @@
         "dev-harness\\pretender-shell.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
@@ -2961,7 +2979,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -2997,7 +3017,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3033,7 +3055,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3069,7 +3093,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3104,7 +3130,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3157,7 +3185,9 @@
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
         "dev-harness\\pretender-return-archive.e2e.js",
         "dev-harness\\pretender-shell.static.e2e.js",
-        "dev-harness\\pretender-task-sheet.static.e2e.js"
+        "dev-harness\\pretender-task-sheet.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3181,7 +3211,9 @@
         "dev-harness\\pretender-index-scale.e2e.js",
         "dev-harness\\pretender-needs-drawer.e2e.js",
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
-        "dev-harness\\pretender-shell.static.e2e.js"
+        "dev-harness\\pretender-shell.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3225,7 +3257,9 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\pretender-gate.e2e.js",
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
-        "dev-harness\\steering-claude.e2e.js"
+        "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js"
       ]
     },
     {
@@ -3292,6 +3326,7 @@
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\pretender-needs-drawer.static.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js"
       ]
     },
@@ -3374,6 +3409,7 @@
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\spawn-background-dag.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -3412,6 +3448,7 @@
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
@@ -3448,6 +3485,7 @@
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
@@ -3484,6 +3522,7 @@
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
@@ -3520,6 +3559,7 @@
         "dev-harness\\pretender-shell.static.e2e.js",
         "dev-harness\\pretender-task-sheet.static.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"

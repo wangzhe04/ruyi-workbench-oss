@@ -26,6 +26,9 @@ const STEWARD_TARGET_KEYS = Object.freeze({
   schedule: 'stewardShell.compose.targetSchedule',
   unsure: 'stewardShell.compose.targetUnsure',
   new: 'stewardShell.compose.targetNew',
+  // 117d：抽屉「＋ 线程」按下后的形态 —— 目标仍是如意（创建经管家、委托书表单归 117e），
+  // 但下一句话默认落在【当前事项】下，而不是另起一件。
+  missionNew: 'stewardShell.compose.targetMissionNew',
   question: 'stewardShell.compose.targetSteward',
   steward: 'stewardShell.compose.targetSteward',
 });
@@ -289,6 +292,18 @@ export function createStewardComposer({
     // 117c：撤回／换一条之后由对话流回调，把候选列表就地打开 ——「那递给谁？」问完就得让用户
     // 能立刻挑，而不是让他自己再去点 chip（§8.12 第 3 条「改递时同样先回退再递」）。
     openPicker: () => { openPicker(); const input = byId('stewardComposerInput'); if (input) input.focus(); },
+    // 117d：抽屉的「＋ 线程」把输入区 chip 置为「→ 如意 · 在事项下新开」并记住目标事项。
+    // 只改 chip 形态，不发请求 —— 真正的创建仍要用户说一句话、由管家的委托书完成。
+    markNewInMission: missionId => {
+      picked = null;
+      routeKind = 'missionNew';
+      routeHits = [];
+      routeReason = String(missionId || '');
+      renderChip();
+      const input = byId('stewardComposerInput');
+      if (input && typeof input.focus === 'function') input.focus();
+      return routeReason;
+    },
     routeState: () => ({ kind: routeKind, hits: routeHits.slice(), picked: picked ? { ...picked } : null }),
   });
 }

@@ -33,6 +33,10 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 117c: steward conversation + composer layer (bubbles, the one-row action buttons, the ※ popover,
   // the "···" placeholder, the hand-off target chip and its listbox). Appended last for the same reason.
   'css/views/steward-conversation.css',
+  // 117d: steward thread-drawer layer (the right-hand 390px drawer, the quick-switch chips shared with
+  // 117g/117h, the block stack from the item row down to the direct composer). Appended last for the
+  // same reason: it leans on every token above and owns no classic selector.
+  'css/views/steward-drawer.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -145,7 +149,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // bubbles / one-row action buttons / ※ popover / "···" placeholder, plus the composer's hand-off target
 // chip and candidate listbox). Additive only: no existing layer's rules were touched, and the
 // link/@import/overlay order gained exactly one trailing entry. Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'd476b60db952b16847be6e67f93040220c72caebe8abc0c38b1192182c5cffc8';
+// 117d: one more new owned layer, css/views/steward-drawer.css (the thread drawer's container and the
+// eleven-block stack, plus the quick-switch chips shared by 117d/117g/117h). Additive only: no existing
+// layer's rules were touched, and the link/@import/overlay order gained exactly one trailing entry.
+// Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'f1cf5958dfd0851dfbaf4ac5542d9b9522f4c0aa6eb5c5a352c3b7722a615cb8';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

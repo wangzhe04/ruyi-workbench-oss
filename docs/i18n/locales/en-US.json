@@ -7,7 +7,6 @@
   "ask.cancelled": "(Cancelled by user, no answer)",
   "ask.chooseMany": "Choose any",
   "ask.chooseOne": "Choose one",
-  "ask.countdown": "{{time}} left to answer",
   "ask.introDetail": "Asked by {{engine}}; your response goes directly back to the current task",
   "ask.introTitle": "Your input is needed",
   "ask.other": "Other — write my own answer",
@@ -130,8 +129,6 @@
   "changes.turnLabel": "entire turn",
   "changes.viewDiff": "View changes",
   "chat.attachRemoveAria": "Remove attachment",
-  "chat.attachmentView": "View image: {{name}}",
-  "chat.attachmentViewerAria": "Image preview",
   "chat.codeCopied": "Code copied",
   "chat.copyCode": "Copy",
   "chat.diffExpand": "Expand all ({{total}} lines)",
@@ -217,8 +214,6 @@
   "composer.agentTeam.unavailableTitle": "Agent team is unavailable: enable sub-agents in Advanced settings first",
   "composer.attachFile": "Attach file",
   "composer.compactContext": "Compact context",
-  "ctx.noUsage": "Not started",
-  "ctx.noUsageHint": "This conversation has no context usage yet. Click to choose its context limit in advance.",
   "ctx.pop.hint": "This endpoint did not report a real context limit. The numbers below are guessed by model name and may be inaccurate. Click a limit value to lock it (only affects the current model).",
   "ctx.pop.model": "Current model: {{model}} · Limit source: {{src}}",
   "ctx.pop.placeholder": "Custom limit (Enter to apply)",
@@ -881,15 +876,15 @@
   "settings.advanced.subagentPreferredProvider": "Subagent preferred provider",
   "settings.advanced.subagentPreferredProvider.followPrimary": "Follow the current main provider",
   "settings.advanced.subagentPreferredProvider.hint": "Default Provider id for spawn_agent / workflow nodes (cross-provider); empty = main provider. For hard tasks the model may pick another model under the same provider (e.g. Pro) via spawn_agent.model.",
+  "settings.advanced.toolLoadingAuto": "Adaptive (recommended)",
+  "settings.advanced.toolLoadingFull": "Always load all (compatibility)",
+  "settings.advanced.toolLoadingMode": "Tool prompt loading",
+  "settings.advanced.toolLoadingMode.hint": "Adaptive mode predicts the task and loads only relevant tools; AI can search and load more when needed. It applies to both Claude CLI and OpenAI-compatible engines.",
   "settings.advanced.summarySingleShot16": "16K (conservative)",
   "settings.advanced.summarySingleShot32": "32K (recommended)",
   "settings.advanced.summarySingleShot64": "64K (aggressive)",
   "settings.advanced.summarySingleShotMax": "Summary single-shot input cap",
   "settings.advanced.summarySingleShotMax.hint": "Summaries whose estimate stays under this cap go in one call; larger ones are chunked automatically. A 32K single shot measured 40–51s (22-S0 baseline) against a 180s remote summary timeout — the 64K tier hugs that line and risks wasted calls on slow models. Applies only while the experimental summary single-shot preference switch is on.",
-  "settings.advanced.toolLoadingAuto": "Adaptive (recommended)",
-  "settings.advanced.toolLoadingFull": "Always load all (compatibility)",
-  "settings.advanced.toolLoadingMode": "Tool prompt loading",
-  "settings.advanced.toolLoadingMode.hint": "Adaptive mode predicts the task and loads only relevant tools; AI can search and load more when needed. It applies to both Claude CLI and OpenAI-compatible engines.",
   "settings.advanced.version": "Version",
   "settings.advanced.workflowMaxNodes": "Maximum Agent workflow nodes",
   "settings.advanced.workflowMaxNodes.hint": "Maximum nodes in one persistent DAG workflow run (graph editor/templates). Range: 1–64; default: 48. This is separate from the per-turn subagent budget.",
@@ -1879,6 +1874,8 @@
   "status.failed": "✗ Failed",
   "ctx.auto": "Auto",
   "ctx.customLimit": "Custom limit (Enter to apply)",
+  "ctx.noUsage": "Not started",
+  "ctx.noUsageHint": "This conversation has no context usage yet. Click to choose its context limit in advance.",
   "session.name": "Session Name",
   "chat.resultTooLong": "Result too long, showing first 100,000 characters only.",
   "chat.first200Lines": "(Showing first 200 lines)",
@@ -2585,6 +2582,10 @@
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 
+  ,"ask.countdown": "{{time}} left to answer"
+  ,"chat.attachmentView": "View image: {{name}}"
+  ,"chat.attachmentViewerAria": "Image preview"
+
   ,"turnActivity.phase.idle": "Idle"
   ,"turnActivity.phase.thinking": "Thinking"
   ,"turnActivity.phase.calling_tool": "Running a tool"
@@ -2693,4 +2694,89 @@
   ,"stewardShell.acts.change": "Change it"
   ,"stewardShell.acts.dismiss": "Got it"
   ,"stewardShell.acts.open": "Open"
+  ,"stewardShell.drawer.label": "Thread drawer"
+  ,"stewardShell.drawer.close": "Close"
+  ,"stewardShell.drawer.handBack": "Hand back to Ruyi"
+  ,"stewardShell.drawer.missionSection": "Item"
+  ,"stewardShell.drawer.missionUnfiled": "Unfiled item"
+  ,"stewardShell.drawer.acceptanceCount": "Acceptance {{done}}/{{total}}"
+  ,"stewardShell.drawer.acceptanceNone": "No acceptance criteria"
+  ,"stewardShell.drawer.cost": "Spent {{cost}}"
+  ,"stewardShell.drawer.costBudget": "Spent {{cost}} / budget {{budget}}"
+  ,"stewardShell.drawer.costNone": "No spend recorded yet"
+  ,"stewardShell.drawer.tabsLabel": "Threads in this item"
+  ,"stewardShell.drawer.newThread": "+ Thread"
+  ,"stewardShell.drawer.newThreadHint": "Start another thread under this item"
+  ,"stewardShell.drawer.classicView": "2.0 window"
+  ,"stewardShell.drawer.headSection": "This thread"
+  ,"stewardShell.drawer.chipsSection": "Quick switch"
+  ,"stewardShell.drawer.lastSay": "It just said"
+  ,"stewardShell.drawer.lastSayEmpty": "It has not said anything yet."
+  ,"stewardShell.drawer.fullText": "Read it all"
+  ,"stewardShell.drawer.quickReplies": "You can say"
+  ,"stewardShell.drawer.relay": "Related threads"
+  ,"stewardShell.drawer.activity": "Three questions"
+  ,"stewardShell.drawer.activityDoing": "Doing what"
+  ,"stewardShell.drawer.activityProgress": "How far"
+  ,"stewardShell.drawer.activityWaiting": "Waiting on what"
+  ,"stewardShell.drawer.none": "Nothing yet"
+  ,"stewardShell.drawer.acceptanceSection": "Acceptance"
+  ,"stewardShell.drawer.acceptanceEmpty": "No acceptance criteria yet."
+  ,"stewardShell.drawer.acceptanceActive": "Working on this one"
+  ,"stewardShell.drawer.scene": "Worksite"
+  ,"stewardShell.drawer.viewChanges": "See the changes"
+  ,"stewardShell.drawer.footSection": "Talk to it directly"
+  ,"stewardShell.drawer.composerLabel": "Say it straight to this thread"
+  ,"stewardShell.drawer.composerPlaceholder": "This goes straight to the thread, not through Ruyi…"
+  ,"stewardShell.drawer.send": "Send to it"
+  ,"stewardShell.drawer.pause": "Pause"
+  ,"stewardShell.drawer.resume": "Resume"
+  ,"stewardShell.drawer.stop": "Stop"
+  ,"stewardShell.drawer.rewindAll": "Rewind the whole thread"
+  ,"stewardShell.drawer.rewindConfirm": "Rewinding takes this thread back to before its first message and undoes the files it changed since. Go ahead?"
+  ,"stewardShell.drawer.rewindDone": "Rewound the whole thread."
+  ,"stewardShell.drawer.rewindNoTarget": "This thread has no turn to rewind yet."
+  ,"stewardShell.drawer.noPausableRun": "This thread has no orchestration run to pause."
+  ,"stewardShell.drawer.sent": "Sent to it."
+  ,"stewardShell.drawer.steered": "Slipped it in mid-turn."
+  ,"stewardShell.drawer.answered": "Answered for you."
+  ,"stewardShell.drawer.failed": "Did not go through: {{error}}"
+  ,"stewardShell.drawer.state.dispatching": "Dispatching"
+  ,"stewardShell.drawer.state.running": "Running"
+  ,"stewardShell.drawer.state.needs_you": "Needs you"
+  ,"stewardShell.drawer.state.done": "Wrapped up"
+  ,"stewardShell.drawer.state.stopped": "Stopped"
+  ,"stewardShell.drawer.state.quick_ask": "Lookup"
+  ,"stewardShell.drawer.reply.allow": "Allow"
+  ,"stewardShell.drawer.reply.deny": "Deny"
+  ,"stewardShell.drawer.reply.yes": "Yes, go with that"
+  ,"stewardShell.drawer.reply.no": "Not for now"
+  ,"stewardShell.drawer.reply.continue": "Carry on"
+  ,"stewardShell.drawer.reply.otherWay": "Try another way"
+  ,"stewardShell.drawer.reply.holdOn": "Hold on a second"
+  ,"stewardShell.chips.permission": "Permission"
+  ,"stewardShell.chips.model": "Model"
+  ,"stewardShell.chips.engine": "Engine"
+  ,"stewardShell.chips.followGlobal": "Follow the global default"
+  ,"stewardShell.chips.modelDefault": "Default"
+  ,"stewardShell.chips.noModels": "This engine has no models to choose from yet."
+  ,"stewardShell.chips.changed": "Changed."
+  ,"stewardShell.chips.changeFailed": "Could not change it: {{error}}"
+  ,"stewardShell.permission.default.label": "Ask me every step"
+  ,"stewardShell.permission.default.hint": "Reading, editing files and running commands all ask you first; Ruyi only proposes and waits for your click."
+  ,"stewardShell.permission.acceptEdits.label": "Edit files without asking"
+  ,"stewardShell.permission.acceptEdits.hint": "Reading and editing files stop asking; commands and anything reaching outside still ask you."
+  ,"stewardShell.permission.plan.label": "Plan only"
+  ,"stewardShell.permission.plan.hint": "It only writes a plan and touches nothing; Ruyi only proposes too."
+  ,"stewardShell.permission.auto.label": "Fully automatic"
+  ,"stewardShell.permission.auto.hint": "It stops asking and reports back when done; the permanently exempt actions still stop and wait for you."
+  ,"stewardShell.permission.confirmTitle": "Switch this thread to fully automatic?"
+  ,"stewardShell.permission.confirm1": "It can change files and run commands while you are away."
+  ,"stewardShell.permission.confirm2": "Ruyi will answer its questions on your behalf."
+  ,"stewardShell.permission.confirm3": "The permanently exempt actions stay off limits: sending things out, payments, installing or removing software, changing system settings."
+  ,"stewardShell.permission.confirm4": "Every action is booked and can be undone."
+  ,"stewardShell.permission.confirm5": "The stop switch stays there, always one click away."
+  ,"stewardShell.permission.confirmCancel": "Not for now"
+  ,"stewardShell.permission.confirmOk": "Use fully automatic"
+  ,"stewardShell.compose.targetMissionNew": "→ Ruyi · new thread in this item"
 }

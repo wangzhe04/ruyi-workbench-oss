@@ -7,7 +7,6 @@
   "ask.cancelled": "(用户取消，未选择)",
   "ask.chooseMany": "可多选",
   "ask.chooseOne": "选一项",
-  "ask.countdown": "剩余作答时间 {{time}}",
   "ask.introDetail": "由 {{engine}} 发起；你的回答会直接交还当前任务",
   "ask.introTitle": "需要你的选择",
   "ask.other": "其他，我想自己填写",
@@ -130,8 +129,6 @@
   "changes.turnLabel": "整轮",
   "changes.viewDiff": "查看改动",
   "chat.attachRemoveAria": "移除附件",
-  "chat.attachmentView": "查看图片：{{name}}",
-  "chat.attachmentViewerAria": "图片预览",
   "chat.codeCopied": "已复制代码",
   "chat.copyCode": "复制",
   "chat.diffExpand": "展开全部（共 {{total}} 行）",
@@ -217,8 +214,6 @@
   "composer.agentTeam.unavailableTitle": "Agent 团队不可用：请先在高级设置中启用子代理",
   "composer.attachFile": "添加文件",
   "composer.compactContext": "压缩上下文",
-  "ctx.noUsage": "未开始",
-  "ctx.noUsageHint": "当前会话尚无上下文用量；点击可提前选择上下文上限。",
   "ctx.pop.hint": "该端点未报告真实上限，下面数字为按模型名推测、可能不准。点选实际上限即锁定（仅对当前模型生效）。",
   "ctx.pop.model": "当前模型：{{model}} · 上限来源：{{src}}",
   "ctx.pop.placeholder": "自定义上限（Enter 生效）",
@@ -881,15 +876,15 @@
   "settings.advanced.subagentPreferredProvider": "子代理优先端点",
   "settings.advanced.subagentPreferredProvider.followPrimary": "跟随当前主端点",
   "settings.advanced.subagentPreferredProvider.hint": "spawn_agent / 工作流节点的默认 Provider id（可跨端点）；留空则用当前主端点。复杂任务模型可经 spawn_agent.model 选同端点下别的模型（如 Pro 版）。",
+  "settings.advanced.toolLoadingAuto": "智能按需（推荐）",
+  "settings.advanced.toolLoadingFull": "全部常驻（兼容模式）",
+  "settings.advanced.toolLoadingMode": "工具提示词装载",
+  "settings.advanced.toolLoadingMode.hint": "智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。",
   "settings.advanced.summarySingleShot16": "16K（保守）",
   "settings.advanced.summarySingleShot32": "32K（推荐）",
   "settings.advanced.summarySingleShot64": "64K（激进）",
   "settings.advanced.summarySingleShotMax": "摘要单发输入上限",
   "settings.advanced.summarySingleShotMax.hint": "估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。",
-  "settings.advanced.toolLoadingAuto": "智能按需（推荐）",
-  "settings.advanced.toolLoadingFull": "全部常驻（兼容模式）",
-  "settings.advanced.toolLoadingMode": "工具提示词装载",
-  "settings.advanced.toolLoadingMode.hint": "智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。",
   "settings.advanced.version": "版本",
   "settings.advanced.workflowMaxNodes": "Agent 工作流节点数上限",
   "settings.advanced.workflowMaxNodes.hint": "持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–64（默认 48）。与上面的“每回合总数”是两个独立预算。",
@@ -1879,6 +1874,8 @@
   "status.failed": "✗ 失败",
   "ctx.auto": "自动",
   "ctx.customLimit": "自定义上限（Enter 生效）",
+  "ctx.noUsage": "未开始",
+  "ctx.noUsageHint": "当前会话尚无上下文用量；点击可提前选择上下文上限。",
   "session.name": "会话名称",
   "chat.resultTooLong": "结果过长，仅显示前 100,000 个字符。",
   "chat.first200Lines": "（仅显示前 200 行）",
@@ -2585,6 +2582,10 @@
   ,"provider.serverWebSearch": "服务端搜索 (仅 DeepSeek Responses)"
   ,"provider.serverWebSearch.hint": "开启后 web_search 由 DeepSeek 服务端执行(免一轮往返);关闭或端点不支持时回退内置本地搜索(builtin/searxng/bing…)。仅 apiStyle=responses 时可用。"
 
+  ,"ask.countdown": "剩余作答时间 {{time}}"
+  ,"chat.attachmentView": "查看图片：{{name}}"
+  ,"chat.attachmentViewerAria": "图片预览"
+
   ,"turnActivity.phase.idle": "空闲"
   ,"turnActivity.phase.thinking": "正在思考"
   ,"turnActivity.phase.calling_tool": "正在调用工具"
@@ -2693,4 +2694,89 @@
   ,"stewardShell.acts.change": "改一下"
   ,"stewardShell.acts.dismiss": "知道了"
   ,"stewardShell.acts.open": "打开"
+  ,"stewardShell.drawer.label": "线程抽屉"
+  ,"stewardShell.drawer.close": "关闭"
+  ,"stewardShell.drawer.handBack": "交回管家"
+  ,"stewardShell.drawer.missionSection": "事项"
+  ,"stewardShell.drawer.missionUnfiled": "未归事项"
+  ,"stewardShell.drawer.acceptanceCount": "验收 {{done}}/{{total}}"
+  ,"stewardShell.drawer.acceptanceNone": "没有验收项"
+  ,"stewardShell.drawer.cost": "已花 {{cost}}"
+  ,"stewardShell.drawer.costBudget": "已花 {{cost}} / 预算 {{budget}}"
+  ,"stewardShell.drawer.costNone": "还没有花费记录"
+  ,"stewardShell.drawer.tabsLabel": "同事项的线程"
+  ,"stewardShell.drawer.newThread": "＋ 线程"
+  ,"stewardShell.drawer.newThreadHint": "在这个事项下再开一条线程"
+  ,"stewardShell.drawer.classicView": "2.0 视窗"
+  ,"stewardShell.drawer.headSection": "这条线程"
+  ,"stewardShell.drawer.chipsSection": "快切"
+  ,"stewardShell.drawer.lastSay": "它刚说"
+  ,"stewardShell.drawer.lastSayEmpty": "它还没说过话。"
+  ,"stewardShell.drawer.fullText": "看全文"
+  ,"stewardShell.drawer.quickReplies": "你可以说"
+  ,"stewardShell.drawer.relay": "接力关系"
+  ,"stewardShell.drawer.activity": "三问"
+  ,"stewardShell.drawer.activityDoing": "在干什么"
+  ,"stewardShell.drawer.activityProgress": "干到哪"
+  ,"stewardShell.drawer.activityWaiting": "在等什么"
+  ,"stewardShell.drawer.none": "暂无"
+  ,"stewardShell.drawer.acceptanceSection": "验收项"
+  ,"stewardShell.drawer.acceptanceEmpty": "还没有验收项。"
+  ,"stewardShell.drawer.acceptanceActive": "正在做这一条"
+  ,"stewardShell.drawer.scene": "现场"
+  ,"stewardShell.drawer.viewChanges": "看改动"
+  ,"stewardShell.drawer.footSection": "直接对它说"
+  ,"stewardShell.drawer.composerLabel": "直接对这条线程说"
+  ,"stewardShell.drawer.composerPlaceholder": "这句话直接发给它，不经如意…"
+  ,"stewardShell.drawer.send": "发给它"
+  ,"stewardShell.drawer.pause": "暂停"
+  ,"stewardShell.drawer.resume": "继续"
+  ,"stewardShell.drawer.stop": "停止"
+  ,"stewardShell.drawer.rewindAll": "整单回退"
+  ,"stewardShell.drawer.rewindConfirm": "整单回退会把这条线程退回到第一句话之前，并撤销这期间改过的文件。要退吗？"
+  ,"stewardShell.drawer.rewindDone": "已整单回退。"
+  ,"stewardShell.drawer.rewindNoTarget": "这条线程还没有可回退的回合。"
+  ,"stewardShell.drawer.noPausableRun": "这条线程没有可暂停的编排运行。"
+  ,"stewardShell.drawer.sent": "已发给它。"
+  ,"stewardShell.drawer.steered": "已插话给它。"
+  ,"stewardShell.drawer.answered": "已替你回复。"
+  ,"stewardShell.drawer.failed": "没成：{{error}}"
+  ,"stewardShell.drawer.state.dispatching": "交办中"
+  ,"stewardShell.drawer.state.running": "进行中"
+  ,"stewardShell.drawer.state.needs_you": "需要你"
+  ,"stewardShell.drawer.state.done": "已收工"
+  ,"stewardShell.drawer.state.stopped": "已停工"
+  ,"stewardShell.drawer.state.quick_ask": "速查"
+  ,"stewardShell.drawer.reply.allow": "允许"
+  ,"stewardShell.drawer.reply.deny": "拒绝"
+  ,"stewardShell.drawer.reply.yes": "好，就这样"
+  ,"stewardShell.drawer.reply.no": "先不要"
+  ,"stewardShell.drawer.reply.continue": "继续"
+  ,"stewardShell.drawer.reply.otherWay": "换个法子"
+  ,"stewardShell.drawer.reply.holdOn": "先停一下"
+  ,"stewardShell.chips.permission": "权限"
+  ,"stewardShell.chips.model": "模型"
+  ,"stewardShell.chips.engine": "引擎"
+  ,"stewardShell.chips.followGlobal": "跟随全局"
+  ,"stewardShell.chips.modelDefault": "默认"
+  ,"stewardShell.chips.noModels": "这个引擎还没有可选模型。"
+  ,"stewardShell.chips.changed": "改好了。"
+  ,"stewardShell.chips.changeFailed": "没改成：{{error}}"
+  ,"stewardShell.permission.default.label": "每步都问"
+  ,"stewardShell.permission.default.hint": "读、改文件、跑命令都先问过你；如意只提议，一律等你点。"
+  ,"stewardShell.permission.acceptEdits.label": "改文件不问"
+  ,"stewardShell.permission.acceptEdits.hint": "读和改文件不再问；跑命令与对外动作仍然问你。"
+  ,"stewardShell.permission.plan.label": "只做计划"
+  ,"stewardShell.permission.plan.hint": "只出计划不动手；如意也只提议。"
+  ,"stewardShell.permission.auto.label": "全自动"
+  ,"stewardShell.permission.auto.hint": "不再问你，做完给回执；永久豁免的动作仍然会停下来等你。"
+  ,"stewardShell.permission.confirmTitle": "要把它切成全自动吗？"
+  ,"stewardShell.permission.confirm1": "它可以在你不在的时候改文件、跑命令。"
+  ,"stewardShell.permission.confirm2": "如意会替你答复它的提问。"
+  ,"stewardShell.permission.confirm3": "永久豁免的动作仍然不做：对外发送、支付、装卸软件、改系统设置。"
+  ,"stewardShell.permission.confirm4": "每个动作都记账，可以撤销。"
+  ,"stewardShell.permission.confirm5": "停机键一直在，随时能按。"
+  ,"stewardShell.permission.confirmCancel": "先不要"
+  ,"stewardShell.permission.confirmOk": "就用全自动"
+  ,"stewardShell.compose.targetMissionNew": "→ 如意 · 在事项下新开"
 }

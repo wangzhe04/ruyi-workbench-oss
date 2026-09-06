@@ -32,6 +32,7 @@
     <link rel="stylesheet" href="/css/views/steward-shell.css" />
     <link rel="stylesheet" href="/css/views/steward-avatar.css" />
     <link rel="stylesheet" href="/css/views/steward-conversation.css" />
+    <link rel="stylesheet" href="/css/views/steward-drawer.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -569,6 +570,105 @@
         <button type="button" id="stewardClassicBtn" class="steward-classic-btn" data-i18n="stewardShell.openClassic" data-i18n-attr="title:stewardShell.openClassic;aria-label:stewardShell.openClassic">经典模式</button>
       </div>
       <div id="stewardStatus" class="steward-status" role="status" aria-live="polite"></div>
+
+      <!-- 117d 线程抽屉（27 号文 §8.2 L2 / §8.13）。区块顺序【就是】契约：事项行 → 线程页签 →
+           线程头 → 快切 chip → 它刚说 → 你可以说 → 接力 → 三问 → 验收项 → 现场 → 底部。
+           骨架静态写死在这里（零 innerHTML：js/steward-drawer.js 只 createElement + textContent 填内容）；
+           ≥1000px 时它占右侧 390px 栏（对话区靠 padding-right 收窄），窄屏全屏覆盖并补 aria-modal。 -->
+      <aside id="stewardDrawer" class="steward-drawer" role="dialog" aria-labelledby="stewardDrawerTitle"
+             aria-label="线程抽屉" data-i18n-attr="aria-label:stewardShell.drawer.label" hidden>
+        <div class="steward-drawer-bar">
+          <button type="button" id="stewardDrawerCloseBtn" class="steward-drawer-close"
+                  aria-label="关闭" data-i18n-attr="aria-label:stewardShell.drawer.close;title:stewardShell.drawer.close">×</button>
+        </div>
+        <div class="steward-drawer-body">
+          <!-- ① 事项行：标题、验收 a/b、费用／预算 -->
+          <section id="stewardDrawerMission" class="steward-drawer-mission"
+                   aria-label="事项" data-i18n-attr="aria-label:stewardShell.drawer.missionSection">
+            <strong id="stewardDrawerMissionTitle" class="steward-drawer-mission-title"></strong>
+            <span id="stewardDrawerMissionAcceptance" class="steward-drawer-pill"></span>
+            <span id="stewardDrawerMissionCost" class="steward-drawer-pill"></span>
+          </section>
+          <!-- ② 线程页签：同事项兄弟线程 ＋「＋ 线程」 -->
+          <div id="stewardDrawerTabs" class="steward-drawer-tabs" role="tablist"
+               aria-label="同事项的线程" data-i18n-attr="aria-label:stewardShell.drawer.tabsLabel"></div>
+          <!-- ③ 线程头：标题、五态、等待原因一句、2.0 视窗 -->
+          <header id="stewardDrawerHead" class="steward-drawer-head">
+            <h2 id="stewardDrawerTitle" class="steward-drawer-title"></h2>
+            <span id="stewardDrawerState" class="steward-drawer-state"></span>
+            <p id="stewardDrawerWait" class="steward-drawer-wait" hidden></p>
+            <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.classicView"
+                    data-i18n-attr="title:stewardShell.drawer.classicView">2.0 视窗</button>
+          </header>
+          <!-- ④ 快切 chip：权限／模型／引擎（同一组控件在看板行与 2.0 顶栏复用，见 js/steward-chips.js） -->
+          <div id="stewardDrawerChips" class="steward-drawer-chips"
+               aria-label="快切" data-i18n-attr="aria-label:stewardShell.drawer.chipsSection"></div>
+          <!-- ⑤ 它刚说：最后一条助手消息的原话（≤3 句），不是摘要 -->
+          <section id="stewardDrawerLastSay" class="steward-drawer-block">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.lastSay">它刚说</h3>
+            <blockquote id="stewardDrawerLastSayText" class="steward-drawer-quote"></blockquote>
+            <button type="button" id="stewardDrawerFullTextBtn" class="steward-drawer-link"
+                    data-i18n="stewardShell.drawer.fullText">看全文</button>
+          </section>
+          <!-- ⑥ 你可以说：≤3 条快捷回复，来源是确定性优先级（quickRepliesFor 纯函数） -->
+          <section id="stewardDrawerQuickReplies" class="steward-drawer-block">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.quickReplies">你可以说</h3>
+            <div id="stewardDrawerQuickRepliesRow" class="steward-drawer-chiprow"></div>
+          </section>
+          <!-- ⑦ 接力关系：本波只列同事项其它线程与它们的五态（真正的接力图归 120） -->
+          <section id="stewardDrawerRelay" class="steward-drawer-block" hidden>
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.relay">接力关系</h3>
+            <ul id="stewardDrawerRelayList" class="steward-drawer-list"></ul>
+          </section>
+          <!-- ⑧ 三问：在干什么／干到哪／在等什么（describeTurnActivity，拿不到就说「暂无」） -->
+          <section id="stewardDrawerActivity" class="steward-drawer-block">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.activity">三问</h3>
+            <dl class="steward-drawer-dl">
+              <dt data-i18n="stewardShell.drawer.activityDoing">在干什么</dt>
+              <dd id="stewardDrawerActivityDoing"></dd>
+              <dt data-i18n="stewardShell.drawer.activityProgress">干到哪</dt>
+              <dd id="stewardDrawerActivityProgress"></dd>
+              <dt data-i18n="stewardShell.drawer.activityWaiting">在等什么</dt>
+              <dd id="stewardDrawerActivityWaiting"></dd>
+            </dl>
+          </section>
+          <!-- ⑨ 验收项：acceptanceItems ＋ activeAcceptanceIndex（复用 preview-task-sheet.js） -->
+          <section id="stewardDrawerAcceptance" class="steward-drawer-block">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.acceptanceSection">验收项</h3>
+            <ol id="stewardDrawerAcceptanceList" class="steward-drawer-list"></ol>
+          </section>
+          <!-- ⑩ 现场：本波只放「看改动」→ 2.0 视窗（changes 面板归经典壳） -->
+          <section id="stewardDrawerScene" class="steward-drawer-block">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.scene">现场</h3>
+            <button type="button" id="stewardDrawerChangesBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.viewChanges">看改动</button>
+          </section>
+        </div>
+        <!-- ⑪ 底部：直连输入框（不经管家）＋ 暂停／继续 ＋ 停止 ＋ 整单回退 ＋ 交回管家 -->
+        <div id="stewardDrawerFoot" class="steward-drawer-foot">
+          <label class="steward-drawer-foot-label" for="stewardDrawerInput"
+                 data-i18n="stewardShell.drawer.composerLabel">直接对这条线程说</label>
+          <textarea id="stewardDrawerInput" class="steward-drawer-input" rows="2"
+                    placeholder="这句话直接发给它，不经如意…"
+                    data-i18n-attr="placeholder:stewardShell.drawer.composerPlaceholder"></textarea>
+          <div class="steward-drawer-foot-actions">
+            <button type="button" id="stewardDrawerSendBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.send">发给它</button>
+            <button type="button" id="stewardDrawerPauseBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.pause" hidden>暂停</button>
+            <button type="button" id="stewardDrawerResumeBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.resume" hidden>继续</button>
+            <button type="button" id="stewardDrawerStopBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.stop">停止</button>
+            <button type="button" id="stewardDrawerRewindBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.rewindAll">整单回退</button>
+            <button type="button" id="stewardDrawerHandBackBtn" class="steward-drawer-btn"
+                    data-i18n="stewardShell.drawer.handBack">交回管家</button>
+          </div>
+          <p id="stewardDrawerNote" class="steward-drawer-note" role="status" aria-live="polite"></p>
+        </div>
+      </aside>
     </section>
 
     <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it

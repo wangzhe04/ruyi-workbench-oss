@@ -37,8 +37,13 @@ ok(shell.includes("statusSection.dataset.section = 'status'") && shell.includes(
 ok(shell.includes("{ id: 'scene'") && shell.includes("{ id: 'raw'")
   && !shell.includes("{ id: 'crew', label") && shell.includes('sceneLens.append(narrativeLens, crewLens)'),
   'W100-2 现场纪要与班组工序合并，原始记录保持专家入口');
-ok(shell.includes('renderProgressItems(article, snapshot)') && taskSheetModule.includes('snapshot.acceptance.items')
-  && taskSheetModule.includes('activeAcceptanceIndex') && taskSheetModule.includes('dispatchAcceptanceMilestones')
+// 117d 门（27 号文 §5 117d 行「pretender-task-sheet 静态锁改拼接读取」）：验收项这组组件已经不只
+// 服务预览壳 —— 管家壳的线程抽屉（js/steward-drawer.js）也 import 同一份 preview-task-sheet.js。
+// 于是这三条从「按单文件读」改为按 taskSheetDomain（shell + task-sheet + lenses + finish 的拼接，
+// 本文件既有的读法）读：断的还是同一件事（这些事实存在于任务单域里），但不再把它们钉死在某一个
+// 文件里，组件被【复用】而不是被复制到第二处时这条锁仍然成立。其余断言一律不动。
+ok(shell.includes('renderProgressItems(article, snapshot)') && taskSheetDomain.includes('snapshot.acceptance.items')
+  && taskSheetDomain.includes('activeAcceptanceIndex') && taskSheetDomain.includes('dispatchAcceptanceMilestones')
   && shell.includes("t('previewShell.progressEvidence'"), 'W100-3 x/y 进度展开为独立验收标准，并将验收证据分行标注');
 ok(shell.includes("event.type === 'tool_use'") && shell.includes('toolActivityLabel(event.name)')
   && shell.includes('elapsedLabel(startedAt, now())'), 'W100-4 单 Agent 速报使用工具事件与回合耗时，不猜正文');

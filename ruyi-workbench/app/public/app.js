@@ -997,6 +997,7 @@ const stewardShellDomain = createStewardShellDomain({
   applyShellMode,
   closeSettings: () => closeModal('settingsModal'),
   now: () => new Date(),
+  openSession, // 117d：抽屉的「2.0 视窗」＝切经典壳 + 选中该会话
 });
 stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;

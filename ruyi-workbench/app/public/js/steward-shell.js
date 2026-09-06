@@ -3,6 +3,7 @@
 import { derivePresence, presenceLabelKey } from './steward-presence.js';
 import { createStewardConversation } from './steward-conversation.js';
 import { createStewardComposer } from './steward-composer.js';
+import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';
 
 // 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -68,6 +69,9 @@ export function createStewardShellDomain({
   applyShellMode = null,
   closeSettings = () => {},
   now = () => new Date(),
+  // 117d：抽屉的「2.0 视窗」要「切到经典壳并选中该会话」，openSession 是经典壳既有的那一个
+  // （session-experience.js 导出，preview-shell 的 openSelectedInClassic 用的也是它）。
+  openSession = async () => {},
 } = {}) {
   const byId = id => (globalThis.document ? globalThis.document.getElementById(id) : null);
   const setStatusText = key => {
@@ -112,6 +116,9 @@ export function createStewardShellDomain({
       // 依赖缺失时壳整体 fail-closed 到经典，avatar 无处可画；derive 仍是纯函数原样导出
       // （§8.1 原则5「可退化」：调用方拿到的形状不变，只是永远读到 sleeping）。
       presence: Object.freeze({ derive: derivePresence, set: () => 'sleeping', current: () => 'sleeping' }),
+      // 依赖缺失时抽屉也开不出来（它要 applyShellMode 才能切 2.0 视窗）：给一个同形的空壳，
+      // 调用方（117h）拿到的键集不变，只是永远打不开。
+      drawer: Object.freeze({ openThread: () => {}, closeDrawer: () => {}, isOpen: () => false }),
     });
   }
 
@@ -253,6 +260,9 @@ export function createStewardShellDomain({
   const presenceApi = Object.freeze({ derive: derivePresence, set: setPresenceInputs, current: () => presenceState });
   const conversation = createStewardConversation({ api, state, t, presence: presenceApi, isStewardMode });
   const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
+  // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
+  // 抽屉那一处住在 steward-drawer.js 里，与 avatar 轮询各自独立门控）。
+  const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
@@ -271,6 +281,13 @@ export function createStewardShellDomain({
     syncSettingOption();
     bindPresence(); // 117b：avatar 的输入监听 + 模式/可见性观察者，见函数头注
     composer.bindStewardComposer();      // 117c：递送目标 chip / 候选列表 /「+」占位 / Enter 直接递
+    drawer.bindStewardDrawer();          // 117d：线程抽屉（接 steward:open-thread / steward:focus-thread）
+    // 117d 抽屉的「＋ 线程」→ 输入区 chip 变「→ 如意 · 在事项下新开」。抽屉不 import composer，
+    // 靠这一条事件把两个子域接起来（与 setPickTargetHandler 的迟绑定同一纪律）。
+    if (globalThis.document) {
+      globalThis.document.addEventListener(STEWARD_NEW_THREAD_EVENT,
+        event => composer.markNewInMission(event && event.detail && event.detail.missionId));
+    }
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
       new MutationObserver(syncConversation)
@@ -290,5 +307,7 @@ export function createStewardShellDomain({
     presence: presenceApi,
     conversation,
     composer,
+    // 117d：117h「现在这一件」直接调 drawer.openThread(sessionId)，不再另起一份抽屉。
+    drawer,
   });
 }

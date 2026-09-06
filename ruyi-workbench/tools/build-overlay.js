@@ -91,6 +91,9 @@ const PAYLOAD_FILES = [
   // 管家壳连骨架都绑不上 —— 离线包必须收全这两件。
   'app/public/js/steward-conversation.js',
   'app/public/js/steward-composer.js',
+  // 117d:线程抽屉与三处复用的快切 chip(steward-shell.js 静态 import 它们,缺任一都会整条挂掉)。
+  'app/public/js/steward-drawer.js',
+  'app/public/js/steward-chips.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -113,6 +116,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/steward-shell.css', // 117a
   'app/public/css/views/steward-avatar.css', // 117b
   'app/public/css/views/steward-conversation.css', // 117c
+  'app/public/css/views/steward-drawer.css', // 117d
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',
