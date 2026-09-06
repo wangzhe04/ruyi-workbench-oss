@@ -434,6 +434,15 @@ export function createStewardConversation({
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
     if (reply.circuit || reply.error) {
       setPresence({ lastError: stewardErrorText(reply.error) || String((reply.circuit && reply.circuit.kind) || 'circuit') });
+      // 117 走查（用户 2026-09-06）：回合层的失败也走这条 200 流（say 为空、error 带稳定码），此前只画出
+      // 一个空行和 ※。引擎不支持 → 换成人话＋「改用某端点／去设置」并可自动重发；其它错误至少把后端
+      // 给的人话（message）放进 say，绝不留空行。
+      if (stewardErrorCode(reply.error) === 'steward.unsupported_engine') {
+        if (row.parentNode) row.parentNode.removeChild(row);
+        showEngineProblem(() => sendToSteward(sourceMessage));
+        return;
+      }
+      if (!say && node) node.textContent = stewardErrorText(reply.message || reply.error) || t('stewardShell.chat.streamFailed');
       return;
     }
     setPresence({ lastError: '' });
