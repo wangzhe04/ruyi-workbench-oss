@@ -83,7 +83,11 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 117e：设置页「管家」页签 + 头部盾牌与常驻停机键。白名单加第五条（只加，形态不变：仍是
   // 本域内的相对路径、零第三方库、零裸包名）。
   "import { createStewardSettingsDomain } from './steward-settings.js';",
-]), `D2 steward-shell.js 的 import 只有本域内五条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
+  // 117g／117h（重钉来源：本波交付，27 号文 §5 117g／117h 行）：白名单加第六、七条 —— 一行状态与
+  // 看板与「现在这一件」、2.0 视窗与返回带。形态仍然不变：本域内相对路径、零第三方库、零裸包名。
+  "import { createStewardBoard } from './steward-board.js';",
+  "import { createStewardClassicWindow } from './steward-classic-window.js';",
+]), `D2 steward-shell.js 的 import 只有本域内七条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');
 

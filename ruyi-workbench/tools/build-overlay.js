@@ -95,6 +95,9 @@ const PAYLOAD_FILES = [
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
   'app/public/js/steward-chips.js',
+  // 117g/117h:2.0 视窗与返回带、一行状态与看板与「现在这一件」(steward-shell.js 静态 import 它们)。
+  'app/public/js/steward-classic-window.js',
+  'app/public/js/steward-board.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -119,6 +122,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/steward-conversation.css', // 117c
   'app/public/css/views/steward-drawer.css', // 117d
   'app/public/css/views/steward-settings.css', // 117e
+  'app/public/css/views/steward-board.css', // 117g/117h
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

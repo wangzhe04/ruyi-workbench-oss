@@ -145,5 +145,41 @@ ok(!/--preview-accent: #63cbbd/.test(schemes) && !/--preview-hot: #ef8d72/.test(
   && /--preview-accent: #2050c8/.test(schemes) && /--preview-hot: #82631b/.test(schemes),
   'W86-6 preview 配色统一为青花蓝+鎏金,旧青绿(#63cbbd/#217397)与橙红(#ef8d72/#b24736)外挂色退役');
 
+// ─── 第117波 117g（只加）：「2.0 视窗」零第二套状态 ──────────────────────────────
+// 「2.0 视窗」＝经典壳按会话打开 ＋ 一条返回带。经典壳因此不能多出任何自己的数据面：
+// 那个模块不发请求（零 api() 调用、零 fetch），只读注入的 state 与 chips 控件；返回带的 DOM 静态
+// 写在 main.chat-pane 的第一位且默认 hidden；三处「2.0」入口共用同一个 openClassicWindow。
+const classicWindow = read('js/steward-classic-window.js');
+const stewardDrawer = read('js/steward-drawer.js');
+const classicWindowCode = classicWindow.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+ok(!/\bapi\(/.test(classicWindowCode) && !/\bfetch\(/.test(classicWindowCode),
+  'W117g-1 2.0 视窗模块零请求（无 api() 调用、无 fetch）—— 经典壳零新增数据面');
+ok(!/\blet\s+(?:session|mission|rows)\b/.test(classicWindowCode)
+  && /state && state\.currentSession/.test(classicWindow)
+  && /missionTitleOf\(session\.id\)/.test(classicWindow),
+  'W117g-2 不缓存 session／mission：会话名读注入的 state.currentSession，事项名向看板要它已有的那一行');
+const bandAt = html.indexOf('id="stewardReturnBand"');
+const chatPaneAt = html.indexOf('<main class="chat-pane"');
+const topbarAt = html.indexOf('<header class="topbar">');
+ok(bandAt > chatPaneAt && bandAt < topbarAt
+  && /<div id="stewardReturnBand" class="steward-return-band" hidden>/.test(html),
+  'W117g-3 返回带是 main.chat-pane 的第一个子元素，默认 hidden');
+ok(html.includes('id="stewardReturnBtn"') && html.includes('id="stewardReturnSession"')
+  && html.includes('id="stewardReturnMission"') && html.includes('id="stewardReturnChips"'),
+  'W117g-4 返回带四件事：回到管家 / 会话名 / 事项名 / 同一组快切 chip');
+ok(/import \{ createQuickSwitchChips \} from '\.\/steward-chips\.js';/.test(classicWindow)
+  && !/method: 'PATCH'/.test(classicWindowCode),
+  'W117g-5 带上的 chip 是 steward-chips.js 的同一个工厂，它自己不写第二条 PATCH');
+ok(/export const STEWARD_RETURN_STORAGE_KEY = 'wcw\.stewardReturn';/.test(classicWindow)
+  && /sessionStorage\.setItem\(STEWARD_RETURN_STORAGE_KEY/.test(classicWindow)
+  && /sessionStorage\.removeItem\(STEWARD_RETURN_STORAGE_KEY\)/.test(classicWindow),
+  'W117g-6 返回标记存 sessionStorage（刷新仍在 2.0 视窗里；整体切壳不设标记）');
+ok(/getAttribute\('data-shell-mode'\) === 'steward'\) clearMark\(\);/.test(classicWindow)
+  && !/setAttribute\('data-shell-mode'/.test(classicWindow),
+  'W117g-7 回到管家即结束这趟视窗；本模块只读 data-shell-mode，写它仍然只有 applyShellMode 那一处');
+ok(/if \(typeof openClassicWindow === 'function'\) \{ try \{ await openClassicWindow\(id\); \}/.test(stewardDrawer)
+  && (stewardDrawer.match(/openClassicView\(\)/g) || []).length >= 3,
+  'W117g-8 抽屉的「2.0 视窗」「看全文」「看改动」三处走同一个 openClassicWindow');
+
 console.log(`\nPRETENDER SHELL STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

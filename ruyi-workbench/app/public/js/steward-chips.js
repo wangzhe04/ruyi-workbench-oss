@@ -60,6 +60,13 @@ export function createQuickSwitchChips({
   t = key => key,
   state = null,
   onChanged = () => {},
+  // 117h：看板行的紧凑模式 —— 只出【权限】与【模型】两个 chip，引擎收进模型菜单的第一段
+  // （§8.10 线程行寸土寸金；抽屉与 2.0 顶栏仍是三个 chip 的完整模式）。
+  compact = false,
+  // 117h：看板行手里只有 GET /api/missions 的【卡片】（它没有 permissionMode / engineRoute），
+  // 会话级档位与引擎路由要按需补齐。给了 hydrate 就在【打开菜单前】补一次（每个会话只补一次），
+  // 没给就按宿主喂进来的那份渲染 —— 抽屉与 2.0 顶栏本来拿的就是完整会话，不需要这一步。
+  hydrate = null,
 } = {}) {
   const doc = () => globalThis.document || null;
   let sessionId = '';
@@ -220,6 +227,12 @@ export function createQuickSwitchChips({
 
   function buildModelMenu(menu) {
     const route = resolveEngineRoute(session, config());
+    // 紧凑模式：引擎收进模型菜单的第一段（同一份 engineOptions，不写第二套判据）。
+    if (compact) {
+      menu.appendChild(el('p', 'steward-chip-group', t('stewardShell.chips.engine')));
+      buildEngineMenu(menu);
+      menu.appendChild(el('p', 'steward-chip-group', t('stewardShell.chips.model')));
+    }
     const options = modelOptions(route);
     if (!options.length) {
       menu.appendChild(el('p', 'steward-chip-option-hint', t('stewardShell.chips.noModels')));
@@ -239,12 +252,21 @@ export function createQuickSwitchChips({
 
   const BUILDERS = { permission: buildPermissionMenu, model: buildModelMenu, engine: buildEngineMenu };
 
-  function toggleMenu(kind) {
+  const hydrated = new Set();
+  async function toggleMenu(kind) {
     const chip = chips.get(kind);
     if (!chip) return;
     const wasOpen = openMenu === chip.menu;
     closeMenu();
     if (wasOpen || !sessionId) return;
+    // 补齐会话级事实再开菜单：不补的话紧凑模式下「跟随全局」与「真的定了档」会长得一模一样。
+    if (typeof hydrate === 'function' && !hydrated.has(sessionId)) {
+      const id = sessionId;
+      hydrated.add(id);
+      const full = await Promise.resolve(hydrate(id)).catch(() => null);
+      if (id !== sessionId) return;                 // 期间宿主换了会话，这一趟作废
+      if (full && typeof full === 'object') { session = full; render(); }
+    }
     BUILDERS[kind](chip.menu);
     chip.menu.hidden = false;
     chip.button.setAttribute('aria-expanded', 'true');
@@ -302,11 +324,8 @@ export function createQuickSwitchChips({
     host = container;
     chips.clear();
     while (host.firstChild) host.removeChild(host.firstChild);
-    host.append(
-      buildChip('permission', 'stewardShell.chips.permission'),
-      buildChip('model', 'stewardShell.chips.model'),
-      buildChip('engine', 'stewardShell.chips.engine'),
-    );
+    host.append(buildChip('permission', 'stewardShell.chips.permission'), buildChip('model', 'stewardShell.chips.model'));
+    if (!compact) host.appendChild(buildChip('engine', 'stewardShell.chips.engine'));
     render();
     return host;
   }

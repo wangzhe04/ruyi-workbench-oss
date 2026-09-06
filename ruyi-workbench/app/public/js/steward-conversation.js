@@ -89,6 +89,9 @@ export function createStewardConversation({
   // 117e：头像菜单的「设置／记忆／行动流水」三项。本模块只负责【调用】——切页签、滚动、取数
   // 全在 steward-settings.js 里（对话区不认识设置页的任何 id，也不多一条 /api 路由）。
   openStewardPanel = null,
+  // 117g：菜单末项「整体切到 2.0」——把整个界面切到经典壳（不是「按会话开一扇 2.0 视窗」，
+  // 所以【不】留返回带）。同样只负责调用，切壳与返回标记住 steward-classic-window.js。
+  switchWholeShell = null,
 } = {}) {
   const doc = () => globalThis.document || null;
   const byId = id => (doc() ? doc().getElementById(id) : null);
@@ -670,6 +673,15 @@ export function createStewardConversation({
             openStewardPanel(section);
           }));
         }
+      }
+      // 117g：菜单末项「整体切到 2.0」（§5 117g 行「整体切壳走设置或头像菜单」）。它排在
+      // STEWARD_MENU_SECTIONS 之后、不进那张表 —— 那三项是「打开设置的某一段」，这一项是切壳。
+      if (typeof switchWholeShell === 'function') {
+        menu.appendChild(button('steward-menu-item', t('stewardShell.classicWindow.switchWhole'), () => {
+          menu.hidden = true;
+          avatar.setAttribute('aria-expanded', 'false');
+          switchWholeShell();
+        }));
       }
       const header = byId('stewardHeader');
       if (header) header.appendChild(menu);

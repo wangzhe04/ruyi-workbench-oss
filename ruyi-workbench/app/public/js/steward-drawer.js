@@ -31,6 +31,11 @@ export const STEWARD_DRAWER_POLL_MS_MIN = 5000;
 export const STEWARD_DRAWER_POLL_MS_DEFAULT = 15000;
 export const STEWARD_LAST_SAY_SENTENCES = 3;
 export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
+// 117h：抽屉的两种挂法（一份实现，不存在第二份抽屉区块渲染）。
+//   overlay —— 用户主动打开的那一份：<1000px 全屏覆盖并补 aria-modal，≥1000px 右侧 390px 栏；
+//   docked  —— 117h 的「现在这一件」：同一个 #stewardDrawer 节点被挪进 #stewardNowBody 常驻右栏。
+// 挂法只影响「它挂在哪个父节点、要不要 aria-modal」，区块渲染与取数逐字节共用。
+export const STEWARD_DRAWER_MOUNTS = Object.freeze(['overlay', 'docked']);
 // 区块顺序即锁：静态件按这个数组在 index.html 里的出现顺序核对（改顺序＝改契约）。
 export const STEWARD_DRAWER_BLOCK_IDS = Object.freeze([
   'stewardDrawerMission',
@@ -97,6 +102,37 @@ export function quickRepliesFor({ pending = null, lastAssistantText = '', state 
   return [say('stewardShell.drawer.reply.continue')];
 }
 
+// ── 线程动作原语（117d 抽屉与 117h 看板行【共用同一段】，不复制）────────────────────
+// 暂停／继续只对「还活着的那一条 run」有意义：快照里最后一条 live run 就是它（与抽屉底部按钮
+// 二选一的判据同源）。看板行拿到的是 GET /api/missions/:id 的同一份快照，所以判据也是同一个。
+export function pausableRunOf(snapshot) {
+  const runs = (snapshot && Array.isArray(snapshot.runs)) ? snapshot.runs : [];
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const run = runs[i];
+    if (run && run.live === true) return run;
+  }
+  return null;
+}
+// 统一 Run 控制端点（pause／resume／retry_node…）。返回稳定信封，调用方自己说人话。
+export async function stewardThreadRunAction({ api, sessionId, runId, action }) {
+  if (typeof api !== 'function' || !sessionId || !runId) return { ok: false, error: 'not_found' };
+  try {
+    const result = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, {
+      method: 'POST', body: JSON.stringify({ sessionId, action }),
+    });
+    return (result && result.ok === true) ? result : { ok: false, error: (result && result.error) || 'run_action_failed' };
+  } catch (error) { return { ok: false, error }; }
+}
+// 停任何回合（含仲裁器队列里还没轮到的那一条：116h 的 cancelQueuedTurn 就挂在这条路由上）。
+// 117h 的「停掉占用者」用的也是它 —— 等锁那一行点一下，停的就是 blockedBy 指的那条线程。
+export async function stewardThreadStop({ api, sessionId }) {
+  if (typeof api !== 'function' || !sessionId) return { ok: false, error: 'not_found' };
+  try {
+    const stopped = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
+    return (stopped && stopped.ok === false) ? { ok: false, error: stopped.error || 'stop_failed' } : { ok: true };
+  } catch (error) { return { ok: false, error }; }
+}
+
 export function createStewardDrawer({
   api = async () => null,
   state = null,
@@ -115,6 +151,11 @@ export function createStewardDrawer({
   let missionRow = null;          // 其中本线程自己那一行
   let snapshot = null;            // GET /api/missions/:id 的 snapshot（验收项与控制面）
   let pendingForThread = null;    // GET /api/interventions 里本线程最早的一条未决
+  // 117g/117h 的三条迟绑定接线（与 117c 的 setPickTargetHandler 同一纪律：不让抽屉 import 那两个
+  // 模块，也不动 steward-shell.js 里被静态锁逐字钉住的那一行构造调用）。
+  let mountMode = 'overlay';      // 'overlay' | 'docked'（见 STEWARD_DRAWER_MOUNTS）
+  let onClosed = () => {};        // 117h：关抽屉时告诉「现在这一件」它被关掉了
+  let openClassicWindow = null;   // 117g：统一的「2.0 视窗」入口（切经典壳＋选中会话＋顶部返回带）
 
   const chips = createQuickSwitchChips({
     api, t, state,
@@ -388,14 +429,8 @@ export function createStewardDrawer({
   }
 
   // ── ⑪ 底部按钮态：暂停／继续按五态二选一显示 ────────────────────────────────
-  function pausableRun() {
-    const runs = (snapshot && Array.isArray(snapshot.runs)) ? snapshot.runs : [];
-    for (let i = runs.length - 1; i >= 0; i--) {
-      const run = runs[i];
-      if (run && run.live === true) return run;
-    }
-    return null;
-  }
+  // 判据住在模块顶层的 pausableRunOf（117h 看板行复用同一段），这里只喂本抽屉的快照。
+  function pausableRun() { return pausableRunOf(snapshot); }
 
   function renderFoot() {
     const pause = byId('stewardDrawerPauseBtn');
@@ -472,9 +507,12 @@ export function createStewardDrawer({
   }
 
   // ── ③/⑩ 2.0 视窗：切到经典壳并选中该会话（顶部返回带归 117g） ────────────────
+  // 117g 起，「2.0 视窗」「看全文」「看改动」三处统一调 openClassicWindow(sessionId)：切经典壳 +
+  // 选中该会话 + 显示顶部返回带。注入缺席时退回 117d 的两步做法（切壳 + 选中，只是没有返回带）。
   async function openClassicView() {
     const id = sessionId;
     closeDrawer();
+    if (typeof openClassicWindow === 'function') { try { await openClassicWindow(id); } catch (error) { failNote(error); } return; }
     if (typeof applyShellMode === 'function') applyShellMode('classic');
     if (id) { try { await openSession(id); } catch (error) { failNote(error); } }
   }
@@ -512,21 +550,14 @@ export function createStewardDrawer({
   async function runAction(action) {
     const run = pausableRun();
     if (!run) { note(t('stewardShell.drawer.noPausableRun')); return; }
-    try {
-      const result = await api(`/api/agent-runs/${encodeURIComponent(run.id)}`, {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, action }),
-      });
-      if (!result || result.ok !== true) { failNote((result && result.error) || 'run_action_failed'); return; }
-    } catch (error) { failNote(error); return; }
+    const result = await stewardThreadRunAction({ api, sessionId, runId: run.id, action });
+    if (!result || result.ok !== true) { failNote(result && result.error); return; }
     await refreshOnce();
   }
 
   async function stopThread() {
-    try {
-      const stopped = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
-      if (!stopped || stopped.ok === false) { failNote((stopped && stopped.error) || 'stop_failed'); return; }
-    } catch (error) { failNote(error); return; }
+    const stopped = await stewardThreadStop({ api, sessionId });
+    if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return; }
     await refreshOnce();
   }
 
@@ -575,8 +606,23 @@ export function createStewardDrawer({
     const drawer = byId('stewardDrawer');
     if (!drawer) return;
     const narrow = Boolean(globalThis.matchMedia) && !globalThis.matchMedia('(min-width: 1000px)').matches;
-    if (narrow) drawer.setAttribute('aria-modal', 'true');
+    // docked（「现在这一件」）永远是常驻栏，不是模态 —— 它只在 ≥1000px 存在，窄屏一律回 overlay。
+    if (narrow && mountMode !== 'docked') drawer.setAttribute('aria-modal', 'true');
     else drawer.removeAttribute('aria-modal');
+  }
+
+  // 117h：换挂法 = 把【同一个】 #stewardDrawer 节点搬到另一个父节点下，并打上 data-mount 供样式层
+  // 改定位（docked 交给 #stewardNow 那条常驻右栏，overlay 回到管家壳自己）。区块渲染一个字节不改。
+  function setMount(mode) {
+    const next = mode === 'docked' ? 'docked' : 'overlay';
+    const drawer = byId('stewardDrawer');
+    if (!drawer) return mountMode;
+    mountMode = next;
+    drawer.dataset.mount = next;
+    const host = next === 'docked' ? byId('stewardNowBody') : byId('stewardShell');
+    if (host && drawer.parentNode !== host) host.appendChild(drawer);
+    applyModal();
+    return mountMode;
   }
 
   async function openThread(nextId) {
@@ -603,11 +649,15 @@ export function createStewardDrawer({
   function closeDrawer({ focusComposer = false } = {}) {
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
+    const wasOpen = isOpen();
     if (drawer) { drawer.hidden = true; drawer.removeAttribute('aria-modal'); }
     if (shell) delete shell.dataset.drawer;
     chips.closeMenu();
     sessionId = '';
     stopPolling();
+    // 117h：docked 那一份被关掉 = 用户「关掉」了「现在这一件」（Esc 与 × 也算），本机偏好由
+    // steward-board.js 记；抽屉自己不认识 localStorage。
+    if (wasOpen) { try { onClosed(mountMode); } catch { /* 宿主收摊失败不该把抽屉留在半开 */ } }
     if (!focusComposer) return;
     const input = byId('stewardComposerInput');
     if (input && typeof input.focus === 'function') input.focus();
@@ -675,6 +725,13 @@ export function createStewardDrawer({
     isOpen,
     // 117h「现在这一件」与 117g 顶栏复用：当前线程与 chip 控件本体（同一份数据，不复制状态）。
     currentSessionId: () => sessionId,
+    // 117g/117h：三条迟绑定接线 + 挂法开关（构造调用那一行被 steward-drawer.static I3 逐字钉住，
+    // 新依赖一律走 setter，不加构造参数）。
+    setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
+    setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
+    setMount,
+    mountMode: () => mountMode,
+    refreshOnce,
     chips,
   });
 }

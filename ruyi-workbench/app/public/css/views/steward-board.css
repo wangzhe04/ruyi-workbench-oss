@@ -1,0 +1,270 @@
+/* 第117波 117h + 117g：一行状态 / 看板 / 「现在这一件」，以及 2.0 视窗的顶部返回带。
+   本层只拥有这四组选择器，既不碰壳模式属性（那是 117a applyShellMode 的单一写入点），
+   也不覆盖抽屉自己的区块样式 —— 「现在这一件」里那份抽屉就是【同一个】 #stewardDrawer 节点，
+   本层只改它 docked 挂法下的定位（.steward-drawer[data-mount="docked"]）。
+   返回带的 DOM 在经典壳的 main.chat-pane 里，样式归本层：它是管家壳的产物，不该混进经典层。
+   断点：≥1000px 才有「现在这一件」这条常驻右栏；<1000px 一律回单列（抽屉走覆盖式）。 */
+
+/* ── ① 一行状态：点开即看板 ─────────────────────────────────────────────────── */
+.steward-status-line {
+  align-self: flex-start;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-status-line:hover { color: var(--ink); border-color: var(--line-2); }
+.steward-status-line:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-status-line[aria-expanded="true"] { color: var(--ink); border-color: var(--line-2); }
+
+/* ── ② 看板：从状态行下拉的面板 ──────────────────────────────────────────────── */
+.steward-board {
+  position: absolute;
+  z-index: 20;
+  top: calc(var(--sp-5) + 76px);
+  left: var(--sp-4);
+  right: var(--sp-4);
+  max-height: 66vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-2);
+}
+.steward-board[hidden] { display: none; }
+
+.steward-board-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+.steward-board-max { font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-max-input {
+  width: 4.5em;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+}
+.steward-board-max-input:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.steward-board-pill {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
+}
+.steward-board-btn {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.steward-board-btn:hover { background: var(--panel-3); }
+.steward-board-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.steward-board-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.steward-board-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-note { margin: 0; min-height: 1.2em; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-note:empty { display: none; }
+
+/* 事项分组：一行事实（聚合态点、标题、线程数、验收 a/b、费用/预算、＋线程）＋ 它的线程们 */
+.steward-board-mission {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.steward-board-mission-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.steward-board-mission-title { flex: 1 1 auto; min-width: 0; color: var(--ink); }
+
+/* 五态点：颜色只经 data-tone（dockToneForMissionState 的三档表现），data-state 留给测试与调试。 */
+.steward-board-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.steward-board-dot[data-tone="attention"] { background: var(--warn); }
+.steward-board-dot[data-tone="active"] { background: var(--accent); }
+.steward-board-dot[data-tone="quiet"] { background: var(--muted); }
+
+.steward-board-threads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.steward-board-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.steward-board-thread-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.steward-board-thread-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-board-thread-title:hover { text-decoration: underline; }
+.steward-board-thread-title:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-board-meta { flex: 0 0 auto; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.steward-board-wait { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-wait:empty { display: none; }
+/* 悬停/聚焦才亮起来的一行操作：默认安静（§8.4「主动作只有一个，其余安静」的同一条纪律）。 */
+.steward-board-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  opacity: 0.55;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.steward-board-thread:hover .steward-board-actions,
+.steward-board-thread:focus-within .steward-board-actions { opacity: 1; }
+/* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
+.steward-board-chips .steward-chip-menu { left: 0; right: auto; }
+
+/* ── ③ 「现在这一件」：≥1000px 的常驻右栏 ───────────────────────────────────── */
+.steward-now { display: none; }
+.steward-now[hidden] { display: none; }
+.steward-now-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+.steward-now-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
+.steward-now-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+@media (min-width: 1000px) {
+  .steward-now:not([hidden]) {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: 390px;
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--elev-2);
+  }
+  /* docked 挂法：同一个 #stewardDrawer 节点被搬进 #stewardNowBody，这里只把它从 fixed 收回流内。 */
+  .steward-drawer[data-mount="docked"] {
+    position: static;
+    inset: auto;
+    width: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    border-left: none;
+    box-shadow: none;
+  }
+}
+
+/* ── ④ 2.0 视窗的返回带（117g）：经典壳 main.chat-pane 的第一个子元素 ─────────── */
+.steward-return-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--ink);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.steward-return-band[hidden] { display: none; }
+.steward-return-btn {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.steward-return-btn:hover { background: var(--panel-3); }
+.steward-return-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-return-session { font-size: var(--fs-sm); color: var(--ink); }
+.steward-return-mission { font-size: var(--fs-sm); color: var(--muted); }
+.steward-return-mission[hidden] { display: none; }
+.steward-return-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; }
+
+/* 窄屏：看板铺满、返回带换行、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
+@media (max-width: 390px) {
+  .steward-board { left: var(--sp-2); right: var(--sp-2); padding: var(--sp-3) var(--sp-2); }
+  .steward-board-top { gap: var(--sp-1); }
+  .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
+  .steward-return-chips { margin-left: 0; }
+}
+
+/* 动效可以没有，信息不能少（§8.1 原则 5）。 */
+@media (prefers-reduced-motion: reduce) {
+  .steward-status-line,
+  .steward-board-btn,
+  .steward-board-actions,
+  .steward-return-btn { transition: none; }
+}

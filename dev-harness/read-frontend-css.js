@@ -40,6 +40,10 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 117e: steward settings layer (the settings modal's 管家 tab — six groups, memory panel, action-log
   // table — plus the shell header's shield and always-on stop button). Appended last for the same reason.
   'css/views/steward-settings.css',
+  // 117g/117h: steward board layer (the one-line status, the drop-down board with its per-mission groups,
+  // the docked "current one" rail, and the 2.0-window return band that lives in the classic pane).
+  // Appended last for the same reason.
+  'css/views/steward-board.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -160,7 +164,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // six groups, the memory panel, the action-log table; plus the shell header's shield and always-on stop
 // button). Additive only: no existing layer's rules were touched, and the link/@import/overlay order
 // gained exactly one trailing entry. Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'ffbe8397d2093d75c9f7f9c6688559cf704f39984a1826e95321b4ef0d3339a1';
+// Waves 117g/117h append the steward board layer (one-line status, the drop-down board, the docked
+// "current one" rail and the 2.0-window return band). Additive only: no existing layer's rules were
+// touched, and the link/@import/overlay order gained exactly one trailing entry. Re-pin the payload.
+const LEGACY_STYLES_SHA256 = '2ba41c0037471ea1003fef36aed6d0f084f52d510beaa42a22131ff42f37882c';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

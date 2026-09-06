@@ -5,6 +5,8 @@ import { createStewardConversation } from './steward-conversation.js';
 import { createStewardComposer } from './steward-composer.js';
 import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';
 import { createStewardSettingsDomain } from './steward-settings.js';
+import { createStewardBoard } from './steward-board.js';
+import { createStewardClassicWindow } from './steward-classic-window.js';
 
 // 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -128,6 +130,9 @@ export function createStewardShellDomain({
       fillStewardSettings: () => false,
       openStewardPanel: () => '',
       settings: Object.freeze({ fillStewardSettings: () => false, openPanel: () => '', setStopped: () => false, isStopped: () => true }),
+      // 117g/117h：同理给同形空壳 —— 依赖缺失时壳整体钉在经典，看板与 2.0 视窗都无处可去。
+      board: Object.freeze({ setBoardOpen: () => false, isBoardOpen: () => false, refreshBoard: async () => 0, closeNow: () => false }),
+      classicWindow: Object.freeze({ openClassicWindow: async () => '', switchWholeShell: () => 'classic', isReturning: () => false }),
     });
   }
 
@@ -274,6 +279,8 @@ export function createStewardShellDomain({
     // 117e：头像菜单的「设置／记忆／行动流水」三项（117c 那里只有「细节」）。菜单只负责调用，
     // 页签切换、滚动与取数全在 steward-settings.js 里。
     openStewardPanel: section => settings.openPanel(section),
+    // 117g：菜单末项「整体切到 2.0」——【不】设返回标记，所以经典壳里不出返回带（§5 117g 行）。
+    switchWholeShell: () => classicWindow.switchWholeShell(),
   });
   const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
@@ -282,6 +289,24 @@ export function createStewardShellDomain({
   // 117e：设置页「管家」页签 + 头部的盾牌与停机键。它是【唯一】写全局 permissionMode 与管家配置的
   // 地方；四档表与全自动确认文案由它从 steward-chips.js import 复用，本文件不碰。
   const settings = createStewardSettingsDomain({ api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi });
+  // 117g：2.0 视窗与顶部返回带。它不发请求，只读 state 与 chips（返回带的 DOM 在经典壳里，逻辑住这边）。
+  // 事项名向 117h 看板要它已经取回来的那一行 —— 迟绑定句柄（board 在它之后才构造）。
+  let boardHandle = null;
+  const classicWindow = createStewardClassicWindow({
+    api, state, t, applyShellMode, openSession,
+    missionTitleOf: sessionId => (boardHandle ? boardHandle.missionTitleFor(sessionId) : ''),
+  });
+  // 117h：一行状态 → 看板 → 「现在这一件」。「现在这一件」不另起抽屉，直接把 117d 那一份换成
+  // docked 挂法（drawer.setMount），所以这里把 drawer 子域整个交给它。
+  const board = createStewardBoard({
+    api, state, t, isStewardMode, drawer, saveConfigPartial,
+    openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
+    switchWholeShell: () => classicWindow.switchWholeShell(),
+  });
+  boardHandle = board;
+  // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
+  // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
+  drawer.setClassicWindow(sessionId => classicWindow.openClassicWindow(sessionId));
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
@@ -308,6 +333,8 @@ export function createStewardShellDomain({
         event => composer.markNewInMission(event && event.detail && event.detail.missionId));
     }
     settings.bindStewardSettings();       // 117e：设置页控件 + 头部盾牌与常驻停机键
+    classicWindow.bindStewardClassicWindow(); // 117g：返回带（回到管家 / 会话名 / 事项名 / 同一组 chip）
+    board.bindStewardBoard();             // 117h：一行状态 / 看板 / 「现在这一件」
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
       new MutationObserver(syncConversation)
@@ -333,6 +360,9 @@ export function createStewardShellDomain({
     settings,
     fillStewardSettings: () => settings.fillStewardSettings(),
     openStewardPanel: section => settings.openPanel(section),
+    // 117g/117h：看板与 2.0 视窗子域（组合根一行不加；它们的依赖全在本文件内注入）。
+    board,
+    classicWindow,
     // 117d：117h「现在这一件」直接调 drawer.openThread(sessionId)，不再另起一份抽屉。
     drawer,
   });
