@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="/css/views/workbench.css" />
     <link rel="stylesheet" href="/css/views/preview-shell.css" />
     <link rel="stylesheet" href="/css/components/onboarding.css" />
+    <link rel="stylesheet" href="/css/views/steward-shell.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -60,9 +61,13 @@
         }
       })();
       // 第76波：新任务台 Preview 默认关闭；只恢复本机壳层偏好，不触碰 Session/Mission 事实。
+      // 第117波 117a：壳模式升为三态（classic / preview / steward），预绘只认显式白名单，
+      // 未知值一律回 classic —— 与 preview-shell.js 的 normalizeShellMode 同构。管家壳的准入
+      // （开关 stewardEnabledV1 + 骨架齐备）在 config 到达后再判，判不过由 recoverStewardShell 回经典。
       (function () {
         try {
-          var shellMode = localStorage.getItem('wcw.shellMode') === 'preview' ? 'preview' : 'classic';
+          var stored = localStorage.getItem('wcw.shellMode');
+          var shellMode = (stored === 'preview' || stored === 'steward') ? stored : 'classic';
           document.documentElement.setAttribute('data-shell-mode', shellMode);
         } catch (e) { document.documentElement.setAttribute('data-shell-mode', 'classic'); }
       })();
@@ -529,6 +534,28 @@
       <div id="previewShellStatus" class="preview-shell-status" role="status" aria-live="polite"></div>
     </section>
 
+    <!-- 第117波 117a：管家壳是 .app-shell 与 #previewShell 的【同级】容器（body 直系子元素）。
+         三壳长期并存，显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode
+         一处写这个属性。117a 只立骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区），avatar、对话、递话、
+         抽屉与看板归 117b–h；此处不放任何轮询、不做任何数据读取。 -->
+    <section id="stewardShell" class="steward-shell" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
+      <header id="stewardHeader" class="steward-header">
+        <span id="stewardAvatarSlot" class="steward-avatar-slot" aria-hidden="true"></span>
+        <div class="steward-header-text">
+          <strong class="steward-name" data-i18n="stewardShell.name">管家</strong>
+          <span class="steward-tagline" data-i18n="stewardShell.previewNotice">管家壳（预览）—— 功能随 117 后续切片到位。</span>
+        </div>
+      </header>
+      <div id="stewardFeed" class="steward-feed" role="log" aria-live="polite" aria-label="管家对话" data-i18n-attr="aria-label:stewardShell.feedLabel"></div>
+      <div id="stewardComposer" class="steward-composer">
+        <label class="steward-composer-label" for="stewardComposerInput" data-i18n="stewardShell.composerLabel">对管家说</label>
+        <textarea id="stewardComposerInput" class="steward-composer-input" rows="2" disabled
+                  placeholder="输入框将在 117 后续切片启用" data-i18n-attr="placeholder:stewardShell.composerPlaceholder"></textarea>
+        <button type="button" id="stewardClassicBtn" class="steward-classic-btn" data-i18n="stewardShell.openClassic" data-i18n-attr="title:stewardShell.openClassic;aria-label:stewardShell.openClassic">经典模式</button>
+      </div>
+      <div id="stewardStatus" class="steward-status" role="status" aria-live="polite"></div>
+    </section>
+
     <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it
          on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none). -->
     <div id="drawerBackdrop" class="drawer-backdrop"></div>
@@ -607,8 +634,11 @@
               <select id="cfgShellMode">
                 <option value="classic" data-i18n="previewShell.settingClassic">经典布局（默认）</option>
                 <option value="preview" data-i18n="previewShell.settingPreview">新任务台预览</option>
+                <!-- 117a：第三种壳。管家开关关时由 steward-shell.js 置 disabled 并显示下面那句提示。 -->
+                <option value="steward" data-i18n="stewardShell.settingOption">管家（预览）</option>
               </select>
               <p class="field-help muted" data-i18n="previewShell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
+              <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
             </div>
             <section class="preview-notification-settings" aria-labelledby="previewNotificationHeading">
               <div class="preview-notification-setting-head">

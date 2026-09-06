@@ -2625,4 +2625,17 @@
 
   ,"session.searchResults": "{{p1}} found"
   ,"session.searching": "Searching…"
+
+  ,"stewardShell.label": "Steward"
+  ,"stewardShell.name": "Steward"
+  ,"stewardShell.previewNotice": "Steward shell (preview) — features arrive with the later 117 slices."
+  ,"stewardShell.feedLabel": "Steward conversation"
+  ,"stewardShell.composerLabel": "Say something to the steward"
+  ,"stewardShell.composerPlaceholder": "This input turns on in a later 117 slice"
+  ,"stewardShell.openClassic": "Classic mode"
+  ,"stewardShell.settingOption": "Steward (preview)"
+  ,"stewardShell.settingDisabledHint": "Turn the steward on in settings before choosing the steward shell."
+  ,"stewardShell.recovery.disabled": "The steward is off, so the classic layout is back. Turn the steward on in settings to pick it again."
+  ,"stewardShell.recovery.missingShell": "The steward interface skeleton is incomplete, so the classic layout is back."
+  ,"stewardShell.recovery.dependency": "The steward shell module did not load, so the classic layout is back."
 }

@@ -25,6 +25,8 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   'css/views/preview-shell.css',
   // 118a: onboarding wizard layer (own component sheet, appended last so it can lean on every token above).
   'css/components/onboarding.css',
+  // 117a: steward shell layer (third shell mode; own sheet, appended last for the same reason).
+  'css/views/steward-shell.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -124,7 +126,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 三处均未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
 // 113b: layout.css 的 .sidebar 所有权层追加一条纯新增规则 —— 侧栏搜索命中的正文摘录行
 // (.session-item .s-snippet)。未改动任何既有选择器;link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '4cd447e889cc62f2b78a98523f8320f4aca587a0104ef66ef2f24094d44fc412';
+// 117a: new owned layer css/views/steward-shell.css (the third shell mode's mode/container skeleton:
+// three-shell mutual exclusion by :root[data-shell-mode], header/feed/composer/status slots, 390px and
+// reduced-motion containment). Additive only: no existing layer's rules were touched, and the
+// link/@import/overlay order gained exactly one trailing entry. Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = '9a5e6e96e60d3aee64bf23a71db0785ca74829193f4cea74726bb94d84a5dd95';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

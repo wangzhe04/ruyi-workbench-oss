@@ -36,10 +36,16 @@ import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
+import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
 // Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
 // runtime can mirror read-only deltas without importing the second shell or creating a second stream.
 let previewStreamSink = null;
+// 117a: the steward and Preview shells are each other's injected dependency (Preview owns the single
+// applyShellMode; the steward owns admission + fail-closed recovery). One late-bound handle opens that
+// cycle. Null handle = the steward domain never composed -> admission stays false and applyShellMode
+// falls back to the classic shell.
+let stewardShellGuard = null;
 const chatScrollController = createChatScrollController({
   getMessages: () => $('messages'),
   getJumpLatest: () => $('jumpLatest'),
@@ -214,6 +220,8 @@ const {
   openToolPane: () => openToolPane(),
   runTool: (...args) => runTool(...args),
   updateContextMeter: () => updateContextMeter(),
+  // 117a: every config refresh re-decides whether the steward shell may be entered (switch + skeleton).
+  syncStewardShellAvailability: () => stewardShellGuard?.syncStewardShellAvailability(),
 });
 
 const {
@@ -924,11 +932,14 @@ async function runPreviewMissionControlTurn({ sessionId = '', prompt = '' } = {}
 }
 
 const {
+  applyShellMode,
   bindPreviewShell,
   handlePreviewStreamEvent,
   refreshPreviewShell,
   refreshPreviewShellLabels,
 } = createPreviewShellDomain({
+  canEnterSteward: () => Boolean(stewardShellGuard && stewardShellGuard.canEnterSteward()),
+  recoverStewardShell: options => (stewardShellGuard ? stewardShellGuard.recoverStewardShell(options) : ''),
   api,
   state,
   t,
@@ -978,8 +989,21 @@ const {
 });
 previewStreamSink = handlePreviewStreamEvent;
 
+// 117a：管家壳（第三种壳模式，默认关）。只组合模式与容器骨架；avatar/对话/递话/抽屉/看板归 117b–h。
+const stewardShellDomain = createStewardShellDomain({
+  api,
+  state,
+  t,
+  applyShellMode,
+  closeSettings: () => closeModal('settingsModal'),
+  now: () => new Date(),
+});
+stewardShellGuard = stewardShellDomain;
+const { bindStewardShell } = stewardShellDomain;
+
 function bindEvents() {
   bindPreviewShell(); // 第76波：默认关闭的新任务台壳层与本机持久切换
+  bindStewardShell(); // 117a：管家壳骨架与「回到经典」
   // sidebar
   $('newSessionBtn').onclick = () => newSession();
   // 113b: 侧栏搜索改走去抖的内容搜索（q ≥ 2 字符）；它内部会再调 renderSessions，

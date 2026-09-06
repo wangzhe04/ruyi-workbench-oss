@@ -61,6 +61,9 @@ export function createProviderSettingsDomain({
   openToolPane = () => {},
   runTool = async () => {},
   updateContextMeter = () => {},
+  // 117a: 管家壳是第三种壳模式，它的可选性由 config.stewardEnabledV1 决定。config 只在这里刷新，
+  // 所以「第三项能不能选」的同步点也只有这里一处（判据住 steward-shell.js，本文件不复制门）。
+  syncStewardShellAvailability = () => {},
 } = {}) {
 async function refreshStatus() {
   state.status = await api('/api/status');
@@ -457,6 +460,7 @@ function fillSettings() {
   { const b = c.usageBudget || {}; const m = $('cfgUsageBudgetMonthly'); if (m) m.value = (b.monthly === 0 || b.monthly) ? String(b.monthly) : ''; const cur = $('cfgUsageBudgetCurrency'); if (cur) cur.value = b.currency || 'CNY'; }
   { const cpr = c.claudePricing || {}; const pi = $('cfgClaudePriceIn'); if (pi) pi.value = (cpr.inputPerM === 0 || cpr.inputPerM) ? String(cpr.inputPerM) : ''; const po = $('cfgClaudePriceOut'); if (po) po.value = (cpr.outputPerM === 0 || cpr.outputPerM) ? String(cpr.outputPerM) : ''; const pc = $('cfgClaudePriceCurrency'); if (pc) pc.value = cpr.currency || 'CNY'; }
   populateProviderPresets();
+  syncStewardShellAvailability(); // 117a: 壳模式第三项（管家）随 stewardEnabledV1 置灰/放开
   // A8: a background refreshStatus() calls fillSettings on a timer. If the settings modal is OPEN the
   // user may be mid-edit on a provider draft — re-seeding it here would silently discard their edits.
   // Skip the draft replay + re-render while open; everything else (read-only-ish fields) is fine to set.

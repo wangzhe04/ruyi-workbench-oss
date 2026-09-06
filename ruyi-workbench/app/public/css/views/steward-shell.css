@@ -1,0 +1,132 @@
+/* 第117波 117a：管家壳（第三种壳模式）。与 .app-shell / .preview-shell 同级，显隐只由 :root[data-shell-mode] 决定。 */
+
+/* 三壳互斥：管家模式下经典壳与预览壳都收起；管家壳默认不显示，只有管家模式才铺开。
+   这三条是本层唯一的显隐权威，JS 不写 display，只写 data-shell-mode（applyShellMode 一处）。 */
+:root[data-shell-mode="steward"] body > .app-shell { display: none !important; }
+:root[data-shell-mode="steward"] body > .preview-shell { display: none !important; }
+
+.steward-shell {
+  display: none;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+:root[data-shell-mode="steward"] body > .steward-shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4);
+  overflow: hidden;
+}
+
+/* 顶栏：avatar 占位固定在顶部（§8.2 L1「头像固定顶部」），117b 才填真形象。 */
+.steward-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+.steward-avatar-slot {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+}
+.steward-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.steward-name {
+  font-size: var(--fs-lg);
+  color: var(--ink);
+}
+.steward-tagline {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* 对话流：117c 才有内容；117a 留空且不做任何请求。 */
+.steward-feed {
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: var(--sp-4);
+}
+
+/* 输入区：117a 只有禁用占位与「回到经典」，真正的递话/预判归 117c。 */
+.steward-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.steward-composer-label {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  padding-bottom: var(--sp-2);
+}
+.steward-composer-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.steward-composer-input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.steward-classic-btn {
+  flex: 0 0 auto;
+  min-height: var(--tap-min);
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-classic-btn:hover { background: var(--panel-3); }
+.steward-classic-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* 状态区：fail-closed 回经典时把原因说清楚（role="status"，读屏可听见）。 */
+.steward-status {
+  min-height: 1.2em;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-status:empty { display: none; }
+
+@media (max-width: 390px) {
+  :root[data-shell-mode="steward"] body > .steward-shell { padding: var(--sp-3) var(--sp-2); gap: var(--sp-2); }
+  .steward-avatar-slot { width: 36px; height: 36px; }
+  .steward-composer { flex-wrap: wrap; }
+  .steward-composer-label { flex-basis: 100%; padding-bottom: 0; }
+  .steward-classic-btn { width: 100%; }
+}
+
+/* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉：动效可以没有，信息不能少。 */
+@media (prefers-reduced-motion: reduce) {
+  .steward-composer-input,
+  .steward-classic-btn { transition: none; }
+}

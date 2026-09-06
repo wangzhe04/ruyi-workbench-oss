@@ -2624,4 +2624,17 @@
 
   ,"session.searchResults": "搜到 {{p1}} 条"
   ,"session.searching": "搜索中…"
+
+  ,"stewardShell.label": "管家"
+  ,"stewardShell.name": "管家"
+  ,"stewardShell.previewNotice": "管家壳（预览）—— 功能随 117 后续切片到位。"
+  ,"stewardShell.feedLabel": "管家对话"
+  ,"stewardShell.composerLabel": "对管家说"
+  ,"stewardShell.composerPlaceholder": "输入框将在 117 后续切片启用"
+  ,"stewardShell.openClassic": "经典模式"
+  ,"stewardShell.settingOption": "管家（预览）"
+  ,"stewardShell.settingDisabledHint": "要用管家壳，先在设置里打开管家。"
+  ,"stewardShell.recovery.disabled": "管家还没打开，已回到经典布局；在设置里打开管家后可以再选。"
+  ,"stewardShell.recovery.missingShell": "管家界面骨架不完整，已回到经典布局。"
+  ,"stewardShell.recovery.dependency": "管家壳模块没有载入，已回到经典布局。"
 }

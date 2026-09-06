@@ -31,7 +31,10 @@ const appShellEndMarker = html.indexOf('id="rightResizeHandle"', appShellStart);
 const previewStart = html.indexOf('<section id="previewShell"');
 ok(appShellStart >= 0 && appShellEndMarker > appShellStart && previewStart > appShellEndMarker,
   'A1 Preview 是经典 app-shell 的同级后置容器，经典骨架未被包入新壳');
-ok(/localStorage\.getItem\('wcw\.shellMode'\) === 'preview' \? 'preview' : 'classic'/.test(html)
+// 117a 重钉（来源：本波把壳模式升为三态 classic/preview/steward）：预绘表达式由二值三目改为显式
+// 白名单，语义不变（严格归一化 + 未知回 classic），只把「认得的值」从一个扩到两个。
+ok(/\(stored === 'preview' \|\| stored === 'steward'\) \? stored : 'classic'/.test(html)
+  && /localStorage\.getItem\('wcw\.shellMode'\)/.test(html)
   && /data-shell-mode', 'classic'/.test(html),
   'A2 预绘偏好严格归一化且默认 classic');
 ok(/:root\[data-shell-mode="preview"\] body > \.app-shell \{ display: none !important; \}/.test(css)
@@ -63,7 +66,9 @@ ok(shell.includes('/interventions/${encodeURIComponent(id)}/decision')
   'C4 Preview 写动作只走统一 Intervention、Mission 控制、checkpoint 与 Run 权威命令');
 ok(shell.includes("export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode'")
   && shell.includes("localStorage.setItem(SHELL_MODE_STORAGE_KEY, mode)"), 'C5 新/经典切换持久化为本机 UI 偏好');
-ok(shell.includes("value === 'preview' ? 'preview' : 'classic'")
+// 117a 重钉（来源同 A2）：normalizeShellMode 由二值三目改为 SHELL_MODES 白名单成员判定，
+// 语义不变（非法/未知偏好一律回 classic），断言其余部分未改。
+ok(shell.includes("SHELL_MODES.includes(value) ? value : 'classic'")
   && !/state\.(?:currentSession|sessions)\s*=/.test(shell), 'C6 非法偏好回 classic 且不写经典会话状态');
 ok(/value === 'needs_you'\) return 'attention'/.test(shell)
   && /value === 'running' \|\| value === 'dispatching'/.test(shell)

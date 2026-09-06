@@ -37,12 +37,14 @@ import { acceptanceItems, activeAcceptanceIndex, elapsedLabel, pendingCount, tas
 import { createTurnActivity, describeTurnActivity } from './turn-activity.js';
 
 export const SHELL_MODE_STORAGE_KEY = 'wcw.shellMode';
-export const SHELL_MODES = Object.freeze(['classic', 'preview']);
+// 117a：壳模式升为三态并长期并存（经典 / 第76波交办台预览 / 管家）。顺序即语义顺序，别重排。
+export const SHELL_MODES = Object.freeze(['classic', 'preview', 'steward']);
 export { PREVIEW_UI_STATE_STORAGE_KEY, normalizePreviewUiState, readPreviewUiState, writePreviewMissionUiState };
 export const PREVIEW_DOCK_INITIAL_RENDER = 40;
 
+// 117a：二值三目改显式白名单 —— 未知/损坏偏好一律回 classic，与 index.html 预绘脚本同构。
 export function normalizeShellMode(value) {
-  return value === 'preview' ? 'preview' : 'classic';
+  return SHELL_MODES.includes(value) ? value : 'classic';
 }
 
 export function dockToneForMissionState(value) {
@@ -85,6 +87,11 @@ export function createPreviewShellDomain({
   renderStaticMessage = () => null,
   getActiveTurnLines = () => [],
   notificationApi = globalThis.Notification,
+  // 117a：管家壳的准入与 fail-closed 回退由 steward-shell.js 持有，这里只注入两个判据 ——
+  // applyShellMode 仍是全仓写 data-shell-mode 的唯一正常入口，不另起第二个切壳函数。
+  // 缺省值即 fail-closed：没接线就永远进不去管家壳。
+  canEnterSteward = () => false,
+  recoverStewardShell = () => '',
   now = () => new Date(),
 } = {}) {
   const missionState = globalThis.MissionState;
@@ -365,6 +372,10 @@ export function createPreviewShellDomain({
 
   function applyShellMode(value, { persist = true, focus = true } = {}) {
     const mode = normalizeShellMode(value);
+    // 117a：进管家壳前先过准入（开关 stewardEnabledV1 + 骨架齐备）。不允许就交给 steward 领域
+    // fail-closed 回经典（它会写属性、按需落盘、同步选择器并在 #stewardStatus 说明原因）；
+    // 连那个模块都没接上时退回本文件既有的 recoverClassicShell —— 两条路都不新增写入点。
+    if (mode === 'steward' && !canEnterSteward()) return recoverStewardShell({ persist }) || recoverClassicShell();
     document.documentElement.setAttribute('data-shell-mode', mode);
     syncModeControl(mode);
     if (persist) setStoredShellMode(mode);
@@ -373,10 +384,12 @@ export function createPreviewShellDomain({
       void refreshPreviewShell();
       if (focus) requestAnimationFrame(() => byId('previewMain')?.focus());
     } else {
+      // 经典与管家共用这一支：syncPolling() 里 isPreviewMode() 已为 false，交办台轮询自然停摆
+      // （管家壳 117a 不引入任何自己的轮询）。焦点落到各自壳的容器锚点上。
       syncPolling();
       if (notificationSettings.enabled) void refreshNotificationInbox();
       if (needsDrawerOpen) setNeedsDrawer(false, { focus: false });
-      if (focus) requestAnimationFrame(() => byId('sessionTitle')?.focus?.());
+      if (focus) requestAnimationFrame(() => byId(mode === 'steward' ? 'stewardShell' : 'sessionTitle')?.focus?.());
     }
     return mode;
   }
@@ -3505,7 +3518,9 @@ export function createPreviewShellDomain({
   }
 
   function refreshPreviewShellLabels() {
-    syncModeControl(isPreviewMode() ? 'preview' : 'classic');
+    // 117a：选择器跟随唯一状态源（三态），不能再由 isPreviewMode() 二选一 —— 否则语言切换会把
+    // 停在管家壳的选择器悄悄写回 classic，画面与控件当场脱钩。
+    syncModeControl(normalizeShellMode(document.documentElement.getAttribute('data-shell-mode')));
     renderedLocale = '';
     narrativeRenderedLocale = '';
     syncNotificationControls();
@@ -3519,7 +3534,9 @@ export function createPreviewShellDomain({
     if (selector) selector.onchange = event => {
       const mode = applyShellMode(event.target.value, { focus: false });
       closeSettings();
-      requestAnimationFrame(() => (mode === 'preview' ? byId('previewMain') : byId('promptInput'))?.focus());
+      // 117a：三态各有自己的落焦锚点（预览=主视图 / 管家=同级容器 / 经典=输入框）。
+      const anchorId = mode === 'preview' ? 'previewMain' : mode === 'steward' ? 'stewardShell' : 'promptInput';
+      requestAnimationFrame(() => byId(anchorId)?.focus());
     };
     syncNotificationControls();
     const notificationToggle = byId('cfgPreviewNotifications');
