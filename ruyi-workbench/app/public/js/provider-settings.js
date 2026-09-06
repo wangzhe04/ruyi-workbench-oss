@@ -469,6 +469,10 @@ function fillSettings() {
   // Skip the draft replay + re-render while open; everything else (read-only-ish fields) is fine to set.
   if ($('settingsModal').classList.contains('hidden')) {
     state.providersDraft = JSON.parse(JSON.stringify(c.providers || []));
+    // 2026-09-06 事故：草稿从未由 config 播种（initial []）时被整份保存写成 providers: []，用户的五个
+    // Provider 连同密钥被清空。此后 saveSettings 只在「草稿确实来自 config 或用户手动改过」时才上传
+    // providers（见 providersDraftSeeded），否则省略该键让服务端保留现值。
+    state.providersDraftSeeded = true;
     renderProviders();
   }
 }
@@ -638,7 +642,10 @@ async function saveSettings() {
       const n = Math.round(Number(el0 ? el0.value : (Number(state.config.agentNodeWrapUpMs) || 0) / 60000));
       return Number.isFinite(n) ? Math.max(0, Math.min(120, n)) * 60000 : 480000;
     })(),
-    providers: state.providersDraft || [],
+    // 2026-09-06 事故后的守门：草稿没被 config 播种过（页面加载时设置弹窗开着、或 fillSettings 半途
+    // 中断）就不上传 providers —— JSON.stringify 会省略 undefined，服务端 {...current, ...body} 保留现值。
+    // 用户在服务商页手动增删（renderProviders 只在播种后才画卡片）都会经过播种，不受影响。
+    providers: state.providersDraftSeeded === true ? (state.providersDraft || []) : undefined,
     // v0.7d: desktop MCP + bridge switch. autodetect stays on so a blank command keeps auto-discovering.
     desktopMcp: {
       enabled: $('cfgDesktopMcpEnabled') ? $('cfgDesktopMcpEnabled').checked : true,
@@ -735,6 +742,7 @@ function addProviderFromPreset() {
   const preset = presets.find(p => p.id === sel.value) || presets[0];
   if (!preset) return;
   state.providersDraft = state.providersDraft || [];
+  state.providersDraftSeeded = true;   // 用户亲手添加 Provider：草稿从此是用户意图，保存时照常上传
   // 118a: 序列化下沉到模块级 providerDraftFromPreset()(与欢迎向导共用同一实现,零行为变化)。
   const draft = providerDraftFromPreset(preset, state.providersDraft.map(p => p.id));
   if (!draft) return;

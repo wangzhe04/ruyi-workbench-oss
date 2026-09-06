@@ -179,6 +179,17 @@ async function applyConfigPatch(body) {
   if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
     merged.knownModels = [...(merged.knownModels || []), body.model];
   }
+  // 2026-09-06 事故(用户的五个 Provider 连同密钥被一次整份保存写成 providers: [])后的服务端保险:
+  // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
+  // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
+  // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
+  if (Array.isArray(current.providers) && current.providers.length > 0
+      && Array.isArray(merged.providers) && merged.providers.length === 0) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupName = `config.json.bak-providers-${stamp}`;
+    try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+    logEvent({ kind: 'config_providers_cleared', before: current.providers.length, backup: backupName });
+  }
   const next = await writeConfig(merged);
   // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
   // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
