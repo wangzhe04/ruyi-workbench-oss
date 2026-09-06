@@ -156,7 +156,9 @@ async function waitForTarget(debugPort, appUrl) {
   return null;
 }
 
-async function waitForEval(cdp, expression, attempts = 400) {
+// 等待预算 800 × 40ms = 32s：并行全量下四个无头浏览器抢 CPU，取数与渲染都会被拉长
+// （117g 那件在 --parallel 4 里实测单趟就要一分钟量级）。单跑时用不到这么多，只是留够头寸。
+async function waitForEval(cdp, expression, attempts = 800) {
   for (let i = 0; i < attempts; i++) {
     try {
       const value = await cdp.evaluate(expression);
@@ -304,11 +306,13 @@ try {
     `B1b 抽屉的权限 chip 初始是「跟随全局」（实测「${drawerPermissionBefore}」）`);
 
   await cdp.evaluate(`document.getElementById('stewardDrawerClassicBtn').click(), true`);
-  // 切壳是同步的，选中会话是异步的（openSession 要先取会话）—— 等带子真的填好再取快照。
+  // 切壳是同步的，选中会话与看板取行都是异步的（openSession 要先取会话；事项名要等看板那批行到手后
+  // onRowsChanged 把带子重画一遍）—— 等带子真的填满再取快照。
   const inClassic = await waitForEval(cdp, `(() => {
     const view = ${VIEW};
     return view.mode === 'classic' && view.bandHidden === false
-      && view.bandSession === ${JSON.stringify('周报-W36')} ? view : null;
+      && view.bandSession === ${JSON.stringify(THREAD_A)}
+      && view.bandMission === ${JSON.stringify(MISSION_TITLE)} ? view : null;
   })()`) || await cdp.evaluate(VIEW);
   ok(Boolean(inClassic), 'C1 「2.0 视窗」把经典壳按该会话打开，返回带显出来');
   if (!inClassic) throw new Error('classic window did not open');

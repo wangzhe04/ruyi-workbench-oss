@@ -302,6 +302,8 @@ export function createStewardShellDomain({
     api, state, t, isStewardMode, drawer, saveConfigPartial,
     openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
     switchWholeShell: () => classicWindow.switchWholeShell(),
+    // 117g：看板拿到新的一批行就让返回带重画（事项名的唯一来源就是那批行）。
+    onRowsChanged: () => classicWindow.renderBand(),
   });
   boardHandle = board;
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3

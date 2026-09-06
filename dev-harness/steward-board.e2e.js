@@ -186,7 +186,9 @@ async function waitForTarget(debugPort, appUrl) {
   return null;
 }
 
-async function waitForEval(cdp, expression, attempts = 400) {
+// 等待预算 800 × 40ms = 32s：并行全量下四个无头浏览器抢 CPU，取数与渲染都会被拉长
+// （117g 那件在 --parallel 4 里实测单趟就要一分钟量级）。单跑时用不到这么多，只是留够头寸。
+async function waitForEval(cdp, expression, attempts = 800) {
   for (let i = 0; i < attempts; i++) {
     try {
       const value = await cdp.evaluate(expression);

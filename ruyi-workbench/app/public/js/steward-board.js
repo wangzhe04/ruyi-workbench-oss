@@ -67,6 +67,9 @@ export function createStewardBoard({
   // 117g：「整体切到 2.0」与看板每行的「2.0」都走它（切经典壳＋选中会话＋顶部返回带）。
   openClassicWindow = async () => {},
   switchWholeShell = () => {},
+  // 117g：行数据到手就通知返回带重画一次 —— 带上的「事项名」读的正是本模块取回来的这批行
+  // （missionTitleOf）。不通知的话，进壳后立刻开 2.0 视窗会赶在第一趟取数之前，事项名那段空着。
+  onRowsChanged = () => {},
 } = {}) {
   const doc = () => globalThis.document || null;
   const byId = id => (doc() ? doc().getElementById(id) : null);
@@ -516,6 +519,7 @@ export function createStewardBoard({
     if (changed) renderBoard();
     else { renderStatusLine(); renderArbiterFacts(); }
     syncNow();
+    if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
     return rows.length;
   }
 
