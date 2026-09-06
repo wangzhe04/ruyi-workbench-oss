@@ -35,7 +35,7 @@ language. They are engineering records rather than normative user or deployment 
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
 | [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **概念稿（Pretender 3.0 依据，3.0 已搁置）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓；2026-08-10 用户决定跳过人因验证、3.0 收口线整体搁置，第87–91波成果已随 2.4.1/2.5.0 交付）；2026-09-03 壳层线由管家壳继任，双壳退出时钟 2026-09-05 作废 |
-| [optimization-plan/27-waves-115-117-steward.md](optimization-plan/27-waves-115-117-steward.md) §8 | **定稿（管家壳 3.0，2026-09-05）** | 管家壳 UX/UI 详细设计：话＋一行按钮、递话「输入即预判」、线程单一权限四档、事项/线程抽屉「它刚说／你可以说」、2.0 视窗与两壳长期并存；mockup: `mockups/steward-shell.html`（可交互，零依赖） |
+| [optimization-plan/27-waves-115-117-steward.md](optimization-plan/27-waves-115-117-steward.md) §8 | **定稿（管家壳 3.0，2026-09-05）；第 117 波已实现（2026-09-06，默认仍是经典布局，见 §11.6）** | 管家壳 UX/UI 详细设计：话＋一行按钮、递话「输入即预判」、线程单一权限四档、事项/线程抽屉「它刚说／你可以说」、2.0 视窗与两壳长期并存；mockup: `mockups/steward-shell.html`（可交互，零依赖） |
 
 ## 归档区(`archive/`)
 
