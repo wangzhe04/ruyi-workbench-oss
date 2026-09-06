@@ -2628,7 +2628,6 @@
 
   ,"stewardShell.label": "Steward"
   ,"stewardShell.name": "Ruyi"
-  ,"stewardShell.previewNotice": "Steward shell (preview) — features arrive with the later 117 slices."
   ,"stewardShell.feedLabel": "Steward conversation"
   ,"stewardShell.composerLabel": "Say something to the steward"
   ,"stewardShell.openClassic": "Classic mode"
@@ -2681,6 +2680,10 @@
   ,"stewardShell.chat.errBusy": "I'm still on the last one; try again in a moment."
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
+  ,"stewardShell.chat.engineUnsupported": "The steward can only run on an OpenAI-compatible endpoint, and your main endpoint is a CLI engine. Pick an endpoint for the steward and it can talk."
+  ,"stewardShell.chat.useProvider": "Use “{provider}”"
+  ,"stewardShell.chat.providerSwitched": "Now using “{provider}”"
+  ,"stewardShell.chat.openSettings": "Open settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi…"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change…"
   ,"stewardShell.compose.targetLabel": "Hand to"

@@ -1,7 +1,9 @@
 /* 第117波 117b：管家 avatar（圆＋环＋一对眼睛，27 号文 §8.3）。独立所有权层——七态各一小段规则，
    超过顺手加进 steward-shell.css 的量，故新开一层，随其后一并 @import / 直链 / 进离线包。
    状态即语义：data-state 由纯投影 steward-presence.js#derivePresence() 决定，本层只画每个状态的样子。
-   全部用主题 token（无硬编码色值），动效只用 --dur-*/--ease-out，reduced-motion 下全部关掉动画。 */
+   全部用主题 token（无硬编码色值），动效只用 --dur-x 与 --ease-out，reduced-motion 下全部关掉动画。
+   （注意：注释里绝不能出现星号紧跟斜杠——117 走查时正是这样一段把注释提前关掉，吞掉了下面的
+   .steward-avatar 基础尺寸规则，头像被撑到 300 多像素。） */
 
 .steward-avatar {
   flex: 0 0 auto;

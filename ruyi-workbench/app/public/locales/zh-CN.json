@@ -2628,7 +2628,6 @@
 
   ,"stewardShell.label": "管家"
   ,"stewardShell.name": "如意"
-  ,"stewardShell.previewNotice": "管家壳（预览）—— 功能随 117 后续切片到位。"
   ,"stewardShell.feedLabel": "管家对话"
   ,"stewardShell.composerLabel": "对管家说"
   ,"stewardShell.openClassic": "经典模式"
@@ -2681,6 +2680,10 @@
   ,"stewardShell.chat.errBusy": "我正忙着上一件，稍等一下再点。"
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
+  ,"stewardShell.chat.engineUnsupported": "管家现在只能走 OpenAI 兼容端点，而你的主端点是命令行引擎。给管家单独选一个端点，就能聊了。"
+  ,"stewardShell.chat.useProvider": "改用『{provider}』"
+  ,"stewardShell.chat.providerSwitched": "已改用『{provider}』"
+  ,"stewardShell.chat.openSettings": "去设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么…"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改…"
   ,"stewardShell.compose.targetLabel": "递给谁"

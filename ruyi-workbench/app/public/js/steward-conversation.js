@@ -1,6 +1,7 @@
 'use strict';
 
 import { authHeaders } from './net.js';
+import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出的 JSON 信封（单独一行，J2 锁钉住上一行原样）
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -58,6 +59,9 @@ const STEWARD_ACT_ERROR_KEYS = Object.freeze({
 export function stewardErrorCode(error) {
   if (error == null) return '';
   if (typeof error === 'string') return error;
+  // 117 走查（用户 2026-09-06）：api() 抛出的 Error 把整个 JSON 信封放在 message 里，此前直接落到
+  // 对话流成了「没做成：{ "ok": false, … }」。Error 实例一律先经 net.js 的 apiErrorInfo 解开。
+  if (error instanceof Error) return String(apiErrorInfo(error).code || '');
   if (typeof error === 'object') return String(error.code || (typeof error.error === 'string' ? error.error : '') || '');
   return String(error);
 }
@@ -65,6 +69,7 @@ export function stewardErrorCode(error) {
 export function stewardErrorText(error) {
   if (error == null) return '';
   if (typeof error === 'string') return error;
+  if (error instanceof Error) return String(apiErrorInfo(error).message || error.message || '');
   if (typeof error === 'object') {
     const raw = error.message || error.error || error.code;
     if (raw && typeof raw === 'object') return stewardErrorText(raw);
@@ -85,6 +90,9 @@ export function createStewardConversation({
   state = null,
   t = key => key,
   presence = null,
+  // 117 走查：「改用『某端点』」按钮写 stewardProviderId 走这条注入回调（设置域的 saveConfigPartial），
+  // 本模块因此不碰 /api/config（J1 锁：只调 116 已有路由）。缺席时按钮照样出现但会如实报「去设置」。
+  setStewardProvider = null,
   isStewardMode = () => false,
   // 117e：头像菜单的「设置／记忆／行动流水」三项。本模块只负责【调用】——切页签、滚动、取数
   // 全在 steward-settings.js 里（对话区不认识设置页的任何 id，也不多一条 /api 路由）。
@@ -236,6 +244,44 @@ export function createStewardConversation({
     }
   }
 
+  // 117 走查（用户 2026-09-06）：管家「跟随主端点」而主端点是命令行引擎时，每一句都被 409 挡回；
+  // 之前把 JSON 信封原样打进对话流，用户以为管家坏了。现在识别这一个稳定码，给一句人话和两个按钮：
+  // 「改用『某端点』」（取第一个 OpenAI 兼容 Provider，写 stewardProviderId 后重试）与「去设置」。
+  function engineProblemInfo(error) {
+    const info = apiErrorInfo(error);
+    return (info && info.code === 'steward.unsupported_engine') ? info : null;
+  }
+  function firstOpenAiProvider() {
+    const providers = (state && state.config && Array.isArray(state.config.providers)) ? state.config.providers : [];
+    return providers.find(p => p && p.id && (!p.type || String(p.type).startsWith('openai'))) || null;
+  }
+  function showEngineProblem(retry) {
+    const row = appendSteward(t('stewardShell.chat.engineUnsupported'), '');
+    if (!row) return;
+    const actsRow = el('div', 'steward-acts');
+    const candidate = firstOpenAiProvider();
+    if (candidate) {
+      const use = button('steward-act', t('stewardShell.chat.useProvider', { provider: candidate.id }), async () => {
+        use.disabled = true;
+        try {
+          // 写配置走注入的回调（设置域的 saveConfigPartial），本模块不新增任何后端面（J1 锁）。
+          const saved = typeof setStewardProvider === 'function' ? await setStewardProvider(candidate.id) : false;
+          if (saved === false) throw new Error(t('stewardShell.chat.openSettings'));
+          settleRow(actsRow, t('stewardShell.chat.providerSwitched', { provider: candidate.id }));
+          if (typeof retry === 'function') await retry();
+        } catch (error) {
+          showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
+          use.disabled = false;
+        }
+      });
+      actsRow.appendChild(use);
+    }
+    if (typeof openStewardPanel === 'function') {
+      actsRow.appendChild(button('steward-act', t('stewardShell.chat.openSettings'), () => openStewardPanel('')));
+    }
+    row.appendChild(actsRow);
+  }
+
   function showActProblem(actsRow, message) {
     if (!actsRow) return;
     let note = actsRow.parentNode && actsRow.parentNode.querySelector('.steward-act-problem');
@@ -346,8 +392,12 @@ export function createStewardConversation({
       finishReply(row, sayNode, reply, tools, message);
       return reply;
     } catch (error) {
-      void error;
       if (row && row.parentNode) row.parentNode.removeChild(row);
+      // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
+      if (engineProblemInfo(error)) {
+        showEngineProblem(() => sendToSteward(message));
+        return null;
+      }
       const failRow = appendSteward(t('stewardShell.chat.streamFailed'), '');
       // 「重试」是【纯前端】的重发，不是一个 act —— 所以这一行按钮手工搭，不走 renderActs（那条路
       // 会把它当 act 送去 POST /api/steward/act，白白记一条 dismiss 日志）。
@@ -628,7 +678,11 @@ export function createStewardConversation({
         if (!rendered) { renderDigest(visit); rendered = 1; }
       }
       return visit;
-    } catch {
+    } catch (error) {
+      // 引擎不支持是唯一要当场说清楚的失败（否则用户以为管家坏了）；其它失败保持沉默，下次进壳再试。
+      if (engineProblemInfo(error)) {
+        showEngineProblem(async () => { visitBusy = false; await enterVisit(); });
+      }
       return null;   // 到访失败不该让管家壳白屏：状态区已有 117a 的兜底，下次进壳再试
     } finally {
       visitBusy = false;

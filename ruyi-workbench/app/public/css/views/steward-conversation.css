@@ -229,3 +229,7 @@
   .steward-act,
   .steward-target { transition: none; }
 }
+
+/* 117 走查（用户 2026-09-06）：线程标题常常是一整句话，按钮与候选项按一行截断。 */
+.steward-act { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steward-target-option { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -279,6 +279,9 @@ export function createStewardShellDomain({
     // 117e：头像菜单的「设置／记忆／行动流水」三项（117c 那里只有「细节」）。菜单只负责调用，
     // 页签切换、滚动与取数全在 steward-settings.js 里。
     openStewardPanel: section => settings.openPanel(section),
+    // 117 走查（用户 2026-09-06）：主端点是命令行引擎时，对话区的「改用『某端点』」按钮经这里写
+    // stewardProviderId（走设置域同一个 saveConfigPartial，对话区不碰 /api/config）。
+    setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
     // 117g：菜单末项「整体切到 2.0」——【不】设返回标记，所以经典壳里不出返回带（§5 117g 行）。
     switchWholeShell: () => classicWindow.switchWholeShell(),
   });

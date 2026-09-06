@@ -167,7 +167,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Waves 117g/117h append the steward board layer (one-line status, the drop-down board, the docked
 // "current one" rail and the 2.0-window return band). Additive only: no existing layer's rules were
 // touched, and the link/@import/overlay order gained exactly one trailing entry. Re-pin the payload.
-const LEGACY_STYLES_SHA256 = '2ba41c0037471ea1003fef36aed6d0f084f52d510beaa42a22131ff42f37882c';
+// 117 走查修正（用户 2026-09-06）重钉：steward-avatar.css / steward-settings.css 头注释里的
+// 「--dur-*/--ease-out」把注释提前关掉、吞掉了各自后面的第一条规则（头像被撑到 300 多像素），改写注释；
+// steward-conversation.css 末尾追加按钮与候选项的一行截断。既有层规则零改动。
+const LEGACY_STYLES_SHA256 = '203eda0609ce108ce861c4802cebd6b02681aa44ca12790da22f80c077f50584';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

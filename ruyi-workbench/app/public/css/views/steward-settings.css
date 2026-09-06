@@ -4,7 +4,8 @@
         它不在管家壳里，所以【不能】挂 :root[data-shell-mode="steward"] 前缀（经典壳里也要能看）；
      ② 管家壳头部右上角的盾牌与停机键（.steward-header-actions）—— 那两个只在管家壳里出现，
         显隐随 #stewardShell 本身走，本层不碰壳模式属性（那是 117a 的单一写入点）。
-   全部颜色走主题 token，零硬编码色值；动效只用 --dur-*/--ease-out 并在 reduced-motion 下全关。 */
+   全部颜色走主题 token，零硬编码色值；动效只用 --dur-x 与 --ease-out 并在 reduced-motion 下全关。
+   （注释里绝不能出现星号紧跟斜杠，会把注释提前关掉并吞掉后面的第一条规则。） */
 
 /* ── ① 设置页签：六组 ────────────────────────────────────────────────────────────── */
 .steward-settings-group {
