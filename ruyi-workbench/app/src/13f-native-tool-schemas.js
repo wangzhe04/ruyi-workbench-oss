@@ -770,7 +770,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_new',
-    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,undoRef};回合是后台异步跑的,返回时通常还没有结果。',
+    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,undoRef};undoRef.rewindTargetTurnSeq 是委托书那一回合的 seq(整单回退的锚点);回合是后台异步跑的,返回时通常还没有结果。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['brief'],
       properties: {
@@ -796,7 +796,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程并让它继续跑。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。何时用:用户的话明确属于某条已有线程(接着上次的事继续说)。何时别用:目标线程正忙(在途回合)时会返回 {ok:false,error:"steward.busy"},不要轮询重试,先向用户说明或等它停;新的一件事用 steward_thread_new;管家自己的会话不能作为目标。返回 {ok,sessionId,undoRef},undoRef 锚在递话前的 turnSeq(可用于回退检查点)。',
+    description: '把一句话递给一条已有线程并让它继续跑。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。何时用:用户的话明确属于某条已有线程(接着上次的事继续说)。何时别用:目标线程正忙(在途回合)时会返回 {ok:false,error:"steward.busy"},不要轮询重试,先向用户说明或等它停;新的一件事用 steward_thread_new;管家自己的会话不能作为目标。返回 {ok,sessionId,undoRef};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {

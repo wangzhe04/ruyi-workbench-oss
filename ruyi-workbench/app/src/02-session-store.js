@@ -2974,8 +2974,16 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
 // turn is live or the target can't be located).
 async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
-  let session = await loadSession(sessionId);
-  if (!session) return { ok: false, error: 'session not found' };
+  // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
+  // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
+  // 把 activeChildren 删了,dying turn 的收尾 save 才刚开始写。于是首读回 null,rewind 直接吐
+  // 「session not found」,而这条线程明明在。修法:【不在首读就下 not found 的结论】—— 先照常走
+  // 停回合与等 settle(收尾 save 完成后 settler 才 resolve),再以 settle 后那次重读为准。
+  // 真正不存在的会话在这条路径上没有活回合也没有 settler,两处 await 都是 no-op,仍然如实回 404。
+  // 活回合注册表持有同一权威 session,顺带兜住「stop 还没跑」的那一瞬(与 1628 行
+  // missionControlCommand 同一处置)。复现:117c 递话后立刻点撤回,约五成命中。
+  const registered = activeChildren.get(sessionId);
+  let session = await loadSession(sessionId) || (registered && registered.session) || null;
   // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
   // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
   // 对非 UI 持有的回合是死锁:页面重载/后台调度回合下前端无停止按钮,用户永远「回不去」。
@@ -2994,6 +3002,8 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   }
   const live = await loadSession(sessionId); // settle 后重读: dying turn 的收尾(含 aborted assistant)已落盘
   if (live) session = live;
+  // not found 的结论挪到这里下(见函数开头注):首读撞上换名窗口不算「不存在」。
+  if (!session) return { ok: false, error: 'session not found' };
   const target = Number(targetTurnSeq);
   if (!Number.isFinite(target)) return { ok: false, error: 'targetTurnSeq is required' };
   const messages = Array.isArray(session.messages) ? session.messages : [];

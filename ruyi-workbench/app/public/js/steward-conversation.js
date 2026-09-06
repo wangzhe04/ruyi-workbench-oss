@@ -443,15 +443,16 @@ export function createStewardConversation({
     let filesReverted = 0;
     try {
       await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      // undoRef.turnSeq 是递话【前】的 turnSeq；被递的那一回合是它 +1（09-workflow 的
-      // plannedTurnSeq = turnSeq + 1，用户消息按 plannedTurnSeq 打戳）。rewindSession 按「要删掉的
-      // 那一回合的第一条用户消息」定位，所以这里必须 +1 —— 直接传 undoRef.turnSeq 会落到上一回合，
-      // 在刚建的线程上就是 'target turn not found in this session'（27 号文 §8.12 第 3 条与 13g
-      // 那句注释的字面口径与 rewindSession 的实际语义差一格，已在交付记录里登记）。
-      const anchor = undoRef && Number.isFinite(Number(undoRef.turnSeq)) ? Number(undoRef.turnSeq) : 0;
+      // 回退锚点：优先用后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的
+      // seq，与 09-workflow 的 plannedTurnSeq 同口径）。缺省才回落到「undoRef.turnSeq + 1」：turnSeq
+      // 语义是递话【前】，而 rewindSession 按「要删掉的那一回合的第一条用户消息」定位，差一格直接传
+      // 会得 'target turn not found in this session'（117c 交付记录登记项①）。
+      const explicit = undoRef && Number(undoRef.rewindTargetTurnSeq);
+      const before = undoRef && Number.isFinite(Number(undoRef.turnSeq)) ? Number(undoRef.turnSeq) : 0;
+      const target = Number.isFinite(explicit) && explicit > 0 ? explicit : before + 1;
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: sid, targetTurnSeq: anchor + 1, rollbackFiles: true }),
+        body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true }),
       });
       // 回退没成真就不许说「已撤回」（§8.1 原则 2 诚实优先）：按钮行留着，用户可以再点一次。
       if (!rewound || rewound.ok === false) {

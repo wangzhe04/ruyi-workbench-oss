@@ -832,7 +832,10 @@ async function stewardImplThreadNew(args, ctx, config) {
     requestMeta: { tool: 'steward_thread_new' },
   }, 'steward_thread_new');
 
-  const undoRef = { kind: 'thread_new', sessionId: session.id };
+  // 117d 第 0 步:回退锚点。undoRef.sessionId 是「删掉这条线程」的把手,但整单回退要的是
+  // 【被递那一回合将拥有的 seq】—— 与 09-workflow 的 plannedTurnSeq 同口径(session.turnSeq + 1);
+  // 新建会话 turnSeq 恒为 0,故委托书是第 1 回合。rewindSession 按这个 seq 定位首条用户消息。
+  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_thread_new',
     args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated },
@@ -857,8 +860,11 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 忙锁复用既有活回合判定(activeChildren —— 与 mission 五态的 activeTurn 同一权威信号),不新造锁。
   if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} already has a turn in flight; do not retry — tell the user or wait for it to settle`);
 
-  // 递话【前】的 turnSeq:检查点与 rewindSession 都以它为锚(rewindSession(sessionId, targetTurnSeq, true))。
-  const undoRef = { kind: 'turn', sessionId, turnSeq: Math.max(0, Number(head.turnSeq) || 0) };
+  // 递话【前】的 turnSeq:检查点以它为锚。但 rewindSession 的主键【不是】它 —— 它按「要删的那一回合的
+  // 第一条用户消息」定位,即 plannedTurnSeq = 递话前 turnSeq + 1(与 09-workflow 同口径)。117d 第 0 步
+  // 补出显式字段 rewindTargetTurnSeq;turnSeq 语义保持「递话前」不变(既有消费者逐字节不受影响)。
+  const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
   const basis = stewardBasisOf(args);
   stewardLaunchTurn({
     sessionId,

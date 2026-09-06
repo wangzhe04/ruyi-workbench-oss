@@ -220,6 +220,8 @@ try {
     }, stewardCtx());
     ok(res && res.ok === true && res.sessionId && res.undoRef && res.undoRef.kind === 'thread_new',
       'D1 steward_thread_new 返回 {ok,sessionId,missionId,undoRef}');
+    // 117d 第 0 步:回退锚点显式化 —— 新线程 turnSeq 从 0 起,委托书那一回合是第 1 回合。
+    ok(res.undoRef.rewindTargetTurnSeq === 1, 'D1b thread_new 的 undoRef 带 rewindTargetTurnSeq === 1(委托书那一回合)');
     threadId = res.sessionId;
     const head = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', threadId + '.json'), 'utf8'));
     ok(head.kind === 'mission' && head.missionId === threadId, 'D2 新线程落盘为 kind:mission,missionId 自成事项');
@@ -270,6 +272,9 @@ try {
     const r1 = await call('steward_thread_continue', { sessionId: threadId, message: relay }, stewardCtx());
     ok(r1 && r1.ok === true && r1.undoRef && r1.undoRef.kind === 'turn' && r1.undoRef.turnSeq === beforeTurnSeq,
       `E1 thread_continue 返回 undoRef 锚在递话前 turnSeq(${beforeTurnSeq})`);
+    // 117d 第 0 步:rewindSession 的主键是【被递那一回合】的 seq,不是递话前的 seq。
+    ok(r1.undoRef.rewindTargetTurnSeq === r1.undoRef.turnSeq + 1,
+      `E1b thread_continue 的 undoRef.rewindTargetTurnSeq === turnSeq + 1(${beforeTurnSeq + 1},整单回退的锚点)`);
     // 在途 -> busy。先等回合真的挂上活标志(fire-and-forget 有一个 loadSession 的异步窗口),再【只发一次】
     // 探针 —— 循环重发会真的开出更多回合并把前一个顶掉(superseded),那测的就不是 busy 了。
     for (let i = 0; i < 100; i++) {

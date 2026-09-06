@@ -6397,8 +6397,16 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
 // turn is live or the target can't be located).
 async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
-  let session = await loadSession(sessionId);
-  if (!session) return { ok: false, error: 'session not found' };
+  // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
+  // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
+  // 把 activeChildren 删了,dying turn 的收尾 save 才刚开始写。于是首读回 null,rewind 直接吐
+  // 「session not found」,而这条线程明明在。修法:【不在首读就下 not found 的结论】—— 先照常走
+  // 停回合与等 settle(收尾 save 完成后 settler 才 resolve),再以 settle 后那次重读为准。
+  // 真正不存在的会话在这条路径上没有活回合也没有 settler,两处 await 都是 no-op,仍然如实回 404。
+  // 活回合注册表持有同一权威 session,顺带兜住「stop 还没跑」的那一瞬(与 1628 行
+  // missionControlCommand 同一处置)。复现:117c 递话后立刻点撤回,约五成命中。
+  const registered = activeChildren.get(sessionId);
+  let session = await loadSession(sessionId) || (registered && registered.session) || null;
   // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
   // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
   // 对非 UI 持有的回合是死锁:页面重载/后台调度回合下前端无停止按钮,用户永远「回不去」。
@@ -6417,6 +6425,8 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   }
   const live = await loadSession(sessionId); // settle 后重读: dying turn 的收尾(含 aborted assistant)已落盘
   if (live) session = live;
+  // not found 的结论挪到这里下(见函数开头注):首读撞上换名窗口不算「不存在」。
+  if (!session) return { ok: false, error: 'session not found' };
   const target = Number(targetTurnSeq);
   if (!Number.isFinite(target)) return { ok: false, error: 'targetTurnSeq is required' };
   const messages = Array.isArray(session.messages) ? session.messages : [];
@@ -35241,7 +35251,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_new',
-    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,undoRef};回合是后台异步跑的,返回时通常还没有结果。',
+    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,undoRef};undoRef.rewindTargetTurnSeq 是委托书那一回合的 seq(整单回退的锚点);回合是后台异步跑的,返回时通常还没有结果。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['brief'],
       properties: {
@@ -35267,7 +35277,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程并让它继续跑。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。何时用:用户的话明确属于某条已有线程(接着上次的事继续说)。何时别用:目标线程正忙(在途回合)时会返回 {ok:false,error:"steward.busy"},不要轮询重试,先向用户说明或等它停;新的一件事用 steward_thread_new;管家自己的会话不能作为目标。返回 {ok,sessionId,undoRef},undoRef 锚在递话前的 turnSeq(可用于回退检查点)。',
+    description: '把一句话递给一条已有线程并让它继续跑。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。何时用:用户的话明确属于某条已有线程(接着上次的事继续说)。何时别用:目标线程正忙(在途回合)时会返回 {ok:false,error:"steward.busy"},不要轮询重试,先向用户说明或等它停;新的一件事用 steward_thread_new;管家自己的会话不能作为目标。返回 {ok,sessionId,undoRef};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
@@ -42191,7 +42201,10 @@ async function stewardImplThreadNew(args, ctx, config) {
     requestMeta: { tool: 'steward_thread_new' },
   }, 'steward_thread_new');
 
-  const undoRef = { kind: 'thread_new', sessionId: session.id };
+  // 117d 第 0 步:回退锚点。undoRef.sessionId 是「删掉这条线程」的把手,但整单回退要的是
+  // 【被递那一回合将拥有的 seq】—— 与 09-workflow 的 plannedTurnSeq 同口径(session.turnSeq + 1);
+  // 新建会话 turnSeq 恒为 0,故委托书是第 1 回合。rewindSession 按这个 seq 定位首条用户消息。
+  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_thread_new',
     args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated },
@@ -42216,8 +42229,11 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 忙锁复用既有活回合判定(activeChildren —— 与 mission 五态的 activeTurn 同一权威信号),不新造锁。
   if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} already has a turn in flight; do not retry — tell the user or wait for it to settle`);
 
-  // 递话【前】的 turnSeq:检查点与 rewindSession 都以它为锚(rewindSession(sessionId, targetTurnSeq, true))。
-  const undoRef = { kind: 'turn', sessionId, turnSeq: Math.max(0, Number(head.turnSeq) || 0) };
+  // 递话【前】的 turnSeq:检查点以它为锚。但 rewindSession 的主键【不是】它 —— 它按「要删的那一回合的
+  // 第一条用户消息」定位,即 plannedTurnSeq = 递话前 turnSeq + 1(与 09-workflow 同口径)。117d 第 0 步
+  // 补出显式字段 rewindTargetTurnSeq;turnSeq 语义保持「递话前」不变(既有消费者逐字节不受影响)。
+  const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
   const basis = stewardBasisOf(args);
   stewardLaunchTurn({
     sessionId,
