@@ -38,6 +38,14 @@ export const STEWARD_MENU_SECTIONS = Object.freeze([
 // 主动作的视觉档只有这一个类名，且只有一处字面量 —— §8.4「主动作只有一个（金色或主色），其余安静」
 // 的机械保证：想再造一个「重点按钮」就必须先改这一行，静态锁看得见。
 export const STEWARD_PRIMARY_CLASS = 'is-primary';
+// 117 走查（用户 2026-09-06）：线程标题常常是用户说的一整句话。CSS 的一行省略号只救了按钮的
+// 宽度，读屏念的 aria-label 与灰字回执还是整段。这里在【文案层】就截短，界面与读屏一个口径。
+export const STEWARD_TITLE_MAX = 24;
+export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
+  const text = String(title == null ? '' : title).trim();
+  const limit = Number(max) > 0 ? Number(max) : STEWARD_TITLE_MAX;
+  return [...text].length > limit ? [...text].slice(0, limit).join('') + '…' : text;
+}
 
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
@@ -295,9 +303,9 @@ export function createStewardConversation({
   function receiptFor(act) {
     if (!act) return t('stewardShell.chat.acked');
     if (act.kind === 'dismiss') return t('stewardShell.chat.acked');
-    if (act.kind === 'open_thread') return t('stewardShell.chat.opened', { title: String(act.label || act.sessionId || '') });
+    if (act.kind === 'open_thread') return t('stewardShell.chat.opened', { title: stewardShortTitle(act.label || act.sessionId) });
     if (act.kind === 'tool' && act.tool === 'steward_thread_continue') {
-      return t('stewardShell.chat.handedOff', { title: String((act.args && act.args.sessionId) || act.sessionId || '') });
+      return t('stewardShell.chat.handedOff', { title: stewardShortTitle((act.args && act.args.sessionId) || act.sessionId) });
     }
     return t('stewardShell.chat.actDone', { label: String(act.label || '') });
   }
@@ -509,9 +517,9 @@ export function createStewardConversation({
       appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
       return null;
     }
-    const label = String(title || sid);
+    const label = stewardShortTitle(title || sid);
     const others = (Array.isArray(hits) ? hits : []).filter(hit => hit && hit.sessionId !== sid)
-      .map(hit => String(hit.title || hit.sessionId || ''));
+      .map(hit => stewardShortTitle(hit.title || hit.sessionId));
     const row = appendSteward(t('stewardShell.chat.handedOff', { title: label }), String(reason || ''),
       others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join('、') })] : []);
     focusThread(sid);
@@ -598,7 +606,7 @@ export function createStewardConversation({
     if (visit.focus && visit.focus.sessionId) {
       acts.push({
         kind: 'open_thread', sessionId: String(visit.focus.sessionId), primary: true,
-        label: t('stewardShell.chat.openFocus', { title: String(visit.focus.title || visit.focus.sessionId) }),
+        label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(visit.focus.title || visit.focus.sessionId) }),
       });
     }
     acts.push({ kind: 'dismiss', label: t('stewardShell.chat.gotIt') });

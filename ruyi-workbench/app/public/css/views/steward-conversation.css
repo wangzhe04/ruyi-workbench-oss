@@ -1,4 +1,7 @@
-/* 第117波 117c：管家对话区与输入区（27 号文 §8.4「话＋一行按钮」／§8.12「递话」）。 */
+/* 第117波 117c：管家对话区与输入区（27 号文 §8.4「话＋一行按钮」／§8.12「递话」）。
+   117i：按 115 波定稿原型 docs/mockups/steward-shell.html 对齐观感 —— 管家的话是纯文本（无气泡），
+   用户的话是右对齐的浅色气泡（16/16/4/16、最宽 520px），按钮行药丸化、主动作实底，
+   递送 chip 收进输入框内的左侧，右侧是「+」与圆形发送键。功能与类名一个没改，只改样式。 */
 
 /* 对话流：只有两种气泡，没有卡片盒子。用户的话靠右、管家的话靠左，两者都不画边框——
    §8.1「极简」的落地就是「少一个盒子」，不是「换一种盒子」。 */
@@ -11,13 +14,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  max-width: 46rem;
+  max-width: 680px;
   min-width: 0;
 }
 .steward-msg-user {
   align-self: flex-end;
   align-items: flex-end;
-  text-align: right;
+  max-width: 520px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
+  background: var(--accent-soft);
 }
 .steward-msg-ruyi { align-self: flex-start; }
 .steward-say {
@@ -27,63 +33,86 @@
   line-height: 1.65;
   color: var(--ink);
 }
-.steward-msg-user .steward-say { color: var(--muted); }
+.steward-msg-user .steward-say { color: var(--ink); }
 
-/* 句尾的「※」：依据、影响范围、来源的唯一入口（不占正文位置，点开才是浮层）。 */
+/* 句尾的「※」：依据、影响范围、来源的唯一入口（不占正文位置，点开才是浮层）。
+   原型 .mark 是一枚 15px 的小圆圈，正文里几乎不占地方。 */
 .steward-why-btn {
-  margin-inline-start: var(--sp-1);
-  padding: 0 var(--sp-1);
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin-inline: 3px;
+  padding: 0;
   font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  overflow: hidden;
+  vertical-align: baseline;
   color: var(--muted);
   background: none;
-  border: none;
-  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.steward-why-btn:hover { color: var(--ink); }
+.steward-why-btn:hover { color: var(--accent); border-color: var(--accent); }
 .steward-why-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-why-pop {
-  border: 1px solid var(--line);
+  max-width: 320px;
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--r-md);
-  background: var(--panel-2);
-  padding: var(--sp-3);
-  font-size: var(--fs-sm);
-  color: var(--muted);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow-soft);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 .steward-why-line { margin: 0 0 var(--sp-1); }
 .steward-why-line:last-child { margin-bottom: 0; }
 
-/* 一行按钮：≤3 个，主动作只有一个（.is-primary），其余安静。 */
+/* 一行按钮：≤3 个，主动作只有一个（.is-primary），其余安静。原型 .b 是 32px 高的药丸。 */
 .steward-acts {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-2);
 }
 .steward-act {
-  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 32px;
+  min-height: 32px;
   font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--ink);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  padding: var(--sp-2) var(--sp-3);
+  background: var(--glass-bg-2);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--r-pill);
+  padding: 0 var(--sp-4);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
-.steward-act:hover { background: var(--panel-3); }
+.steward-act:hover { border-color: var(--accent); transform: translateY(-1px); }
 .steward-act:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-act:disabled { color: var(--muted); cursor: progress; }
+.steward-act:disabled { color: var(--muted); cursor: progress; transform: none; }
 .steward-act.is-primary {
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-color: var(--accent);
+  color: var(--gold-ink);
+  background: var(--gold);
+  border-color: transparent;
 }
+.steward-act.is-primary:hover { border-color: var(--gold-line); }
 
 /* 按钮落定后的灰字回执，与失败时的人话提示（提示在按钮行【上方】，按钮行留着可重试）。 */
 .steward-receipt,
 .steward-act-problem {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -93,6 +122,7 @@
   gap: var(--sp-1);
   color: var(--muted);
   font-size: var(--fs-lg);
+  letter-spacing: 2px;
   line-height: 1;
 }
 .steward-typing-dot { animation: steward-typing-blink 1.2s var(--ease-out) infinite; }
@@ -105,41 +135,64 @@
 
 /* 「细节」开着时才显示的本回合工具轨迹（默认 hidden，由 JS 按本机偏好切换）。 */
 .steward-tools {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  font-family: var(--mono);
   color: var(--muted);
+  border-inline-start: 2px solid var(--line-2);
+  padding: var(--sp-1) var(--sp-3);
 }
 .steward-tools-summary { cursor: pointer; }
 .steward-tools-list { margin: var(--sp-2) 0 0; padding-inline-start: var(--sp-5); }
 
-/* 「你不在的时候」要点列表与首次进入的三个例子。 */
-.steward-digest { margin: 0; padding-inline-start: var(--sp-5); color: var(--muted); font-size: var(--fs-sm); }
-.steward-digest-item { margin-bottom: var(--sp-1); }
+/* 「你不在的时候」要点列表与首次进入的三个例子（原型：圆点列表一行一件；例子是安静药丸）。 */
+.steward-digest {
+  margin: 0;
+  padding-inline-start: var(--sp-5);
+  display: grid;
+  gap: 2px;
+  color: var(--ink-2);
+}
+.steward-digest-item { overflow-wrap: anywhere; }
 .steward-examples { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .steward-example {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  min-height: 32px;
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: 500;
   color: var(--muted);
-  background: var(--panel-2);
-  border: 1px dashed var(--line-2);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--r-pill);
-  padding: var(--sp-1) var(--sp-3);
+  padding: 0 var(--sp-3);
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.steward-example:hover { color: var(--ink); }
+.steward-example:hover { color: var(--ink); border-color: var(--glass-border-strong); }
 .steward-example:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 头像菜单（本波只有「细节」一项；设置／记忆／行动流水归 117e）。 */
+/* 头像菜单（原型 .menu：一张实底小纸，项是左对齐的一行）。 */
 .steward-menu {
   position: absolute;
-  z-index: 2;
+  z-index: 34;
   margin-top: var(--sp-6);
-  border: 1px solid var(--line);
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--r-md);
-  background: var(--panel-2);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow);
   padding: var(--sp-1);
 }
 .steward-menu-item {
+  min-height: 0;
   font: inherit;
+  font-size: var(--fs-sm);
+  text-align: start;
+  white-space: nowrap;
   color: var(--ink);
   background: none;
   border: none;
@@ -147,49 +200,56 @@
   padding: var(--sp-2) var(--sp-3);
   cursor: pointer;
 }
-.steward-menu-item[aria-pressed="true"] { background: var(--panel-3); }
+.steward-menu-item:hover { background: var(--panel-3); }
+.steward-menu-item[aria-pressed="true"] { background: var(--accent-soft); }
 .steward-menu-item:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 递送目标 chip：默认「→ 如意」，命中线程时着重色，手选后实底带 ×（§8.12 第 1、4 条）。 */
+/* 递送目标 chip（原型 .cbox .to）：住在输入框【里面】的左侧，默认「→ 如意」，
+   命中线程时着重色，手选后实底带 ×（§8.12 第 1、4 条）。 */
 .steward-composer { position: relative; }
 .steward-target {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  min-height: var(--tap-min);
+  height: 26px;
+  min-height: 26px;
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
   color: var(--muted);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
+  background: transparent;
+  border: 1px solid var(--glass-border);
   border-radius: var(--r-pill);
-  padding: var(--sp-1) var(--sp-3);
+  padding: 0 9px;
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.steward-target.is-thread { color: var(--accent); border-color: var(--accent); }
-.steward-target.is-picked { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.steward-target:hover { color: var(--ink); border-color: var(--glass-border-strong); }
+.steward-target.is-thread { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.steward-target.is-picked { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .steward-target:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-target-clear { font-size: var(--fs-sm); }
+.steward-target-clear { opacity: 0.6; }
 
 .steward-target-picker {
   position: absolute;
   bottom: 100%;
   inset-inline-start: 0;
-  z-index: 2;
+  z-index: 34;
   display: flex;
   flex-direction: column;
   min-width: 12rem;
   max-height: 15rem;
   overflow: auto;
   margin-bottom: var(--sp-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--r-md);
-  background: var(--panel-2);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow);
   padding: var(--sp-1);
 }
 .steward-target-option {
+  min-height: 0;
   font: inherit;
   font-size: var(--fs-sm);
   text-align: start;
@@ -203,23 +263,49 @@
 .steward-target-option:hover { background: var(--panel-3); }
 .steward-target-option:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 右侧「+」：附件／语音归后续波，本波只占位并禁用。 */
-.steward-plus {
+/* 输入框右侧的两枚圆键：「+」（附件／语音归后续波，本波仍是禁用占位）与发送键。 */
+.steward-plus,
+.steward-send {
   flex: 0 0 auto;
-  min-height: var(--tap-min);
-  min-width: var(--tap-min);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   font: inherit;
+  border-radius: 50%;
+  padding: 0;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.steward-plus {
   color: var(--muted);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
+  background: transparent;
+  border: 1px solid transparent;
   cursor: not-allowed;
+}
+.steward-send {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+.steward-send:hover { background: var(--accent-hover); }
+.steward-send:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-icon {
+  width: 1em;
+  height: 1em;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 @media (max-width: 390px) {
   .steward-msg { max-width: 100%; }
-  .steward-acts { flex-direction: column; align-items: stretch; }
-  .steward-target { order: -1; flex-basis: 100%; }
+  .steward-act { max-width: 100%; }
+  .steward-target { max-width: 45vw; overflow: hidden; }
   .steward-target-picker { min-width: 0; inset-inline: 0; }
 }
 
@@ -227,7 +313,12 @@
 @media (prefers-reduced-motion: reduce) {
   .steward-typing-dot { animation: none; opacity: 1; }
   .steward-act,
+  .steward-example,
+  .steward-why-btn,
+  .steward-plus,
+  .steward-send,
   .steward-target { transition: none; }
+  .steward-act:hover { transform: none; }
 }
 
 /* 117 走查（用户 2026-09-06）：线程标题常常是一整句话，按钮与候选项按一行截断。 */

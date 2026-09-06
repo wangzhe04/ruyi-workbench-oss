@@ -559,10 +559,25 @@
          aria-live 状态文字，对话、递话、抽屉与看板仍归 117c–h；此处不放任何轮询之外的数据读取
          （117b 的状态轮询只在管家模式下才起 —— 见 steward-shell.js 头注）。 -->
     <section id="stewardShell" class="steward-shell" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
+      <!-- 117i（管家壳视觉对齐原型 docs/mockups/steward-shell.html）：唯一新增的包裹元素。原型是
+           「场景背景（.wrap）＋ 居中玻璃卡片（#app）」两层，而 #stewardShell 只有一层，所以这里在
+           既有节点【外层】加一个舞台 div：#stewardShell 变成铺满视口的场景，.steward-stage 变成
+           居中的那张卡片（头部／对话／输入／状态／看板都住在卡片里）。既有 id 与它们的先后顺序
+           一个没动；「现在这一件」与线程抽屉仍是 #stewardShell 的直系子元素（两者都是定位层，
+           且 js/steward-drawer.js 的 setMount('floating') 把抽屉挂回 #stewardShell）。 -->
+      <div id="stewardStage" class="steward-stage">
       <header id="stewardHeader" class="steward-header">
         <button type="button" id="stewardAvatar" class="steward-avatar" data-state="idle"
                 data-i18n-attr="aria-label:stewardShell.avatarLabel" aria-label="如意的头像">
           <svg viewBox="0 0 100 100" aria-hidden="true">
+            <!-- 117i：主体渐变（原型 #avg）。两端的 stop-color 由 css/views/steward-avatar.css
+                 用 --accent / --accent-2 上色，所以这里不写任何色值。 -->
+            <defs>
+              <linearGradient id="stewardAvatarGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop class="sa-stop-a" offset="0"></stop>
+                <stop class="sa-stop-b" offset="1"></stop>
+              </linearGradient>
+            </defs>
             <circle class="sa-ring" cx="50" cy="50" r="44"></circle>
             <circle class="sa-body" cx="50" cy="50" r="31"></circle>
             <g class="sa-eyes">
@@ -594,7 +609,7 @@
       <div id="stewardFeed" class="steward-feed" role="log" aria-live="polite" aria-label="管家对话" data-i18n-attr="aria-label:stewardShell.feedLabel"></div>
       <div id="stewardComposer" class="steward-composer">
         <label class="steward-composer-label" for="stewardComposerInput" data-i18n="stewardShell.composerLabel">对管家说</label>
-        <textarea id="stewardComposerInput" class="steward-composer-input" rows="2" disabled
+        <textarea id="stewardComposerInput" class="steward-composer-input" rows="1" disabled
                   placeholder="跟如意说点什么…" data-i18n-attr="placeholder:stewardShell.compose.placeholder"></textarea>
         <button type="button" id="stewardClassicBtn" class="steward-classic-btn" data-i18n="stewardShell.openClassic" data-i18n-attr="title:stewardShell.openClassic;aria-label:stewardShell.openClassic">经典模式</button>
       </div>
@@ -620,6 +635,7 @@
         <div id="stewardBoardList" class="steward-board-list"></div>
         <p id="stewardBoardNote" class="steward-board-note" role="status" aria-live="polite"></p>
       </div>
+      </div><!-- /#stewardStage（117i 舞台卡片到此为止；下面两块是定位层，留在 #stewardShell 直系） -->
 
       <!-- 117h「现在这一件」：≥1000px 的常驻右栏。它【不渲染任何抽屉区块】—— #stewardNowBody 只是
            一个挂点，js/steward-drawer.js 的 setMount('docked') 把【同一个】 #stewardDrawer 节点搬进来。

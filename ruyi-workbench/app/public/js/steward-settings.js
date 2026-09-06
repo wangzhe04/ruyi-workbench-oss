@@ -88,6 +88,27 @@ export function createStewardSettingsDomain({
     if (text != null) node.textContent = String(text);
     return node;
   }
+
+  // 117i：管家壳头部右上角那两枚常驻小图标（原型 .head 的 .ib：34px 圆、只有线条，没有底）。
+  // 零 innerHTML —— SVG 必须 createElementNS；文字留在一个只给读屏的 span 里，所以按钮的
+  // textContent 仍然逐字是那句人话（既有断言读的就是它），眼睛看到的只有图标。
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const ICON_SHIELD = 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z';
+  const ICON_STOP = 'M12 3a9 9 0 100 18 9 9 0 000-18zM9 9h6v6H9z';
+  function paintIconButton(node, path, label) {
+    const document_ = doc();
+    if (!document_) return;
+    while (node.firstChild) node.removeChild(node.firstChild);
+    const svg = document_.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'steward-icon');
+    svg.setAttribute('aria-hidden', 'true');
+    const line = document_.createElementNS(SVG_NS, 'path');
+    line.setAttribute('d', path);
+    svg.appendChild(line);
+    node.appendChild(svg);
+    node.appendChild(el('span', 'steward-icon-label', label));
+  }
   function button(className, text, onClick) {
     const node = el('button', className, text);
     node.type = 'button';
@@ -205,7 +226,10 @@ export function createStewardSettingsDomain({
     for (const id of ['cfgStewardStopBtn', 'stewardStopBtn']) {
       const node = byId(id);
       if (!node) continue;
-      node.textContent = label;
+      // 设置页那一枚是普通文字按钮；管家壳头部那一枚按原型 .head 是个 34px 的图标圆键 ——
+      // 图标 ＋ 只给读屏看的同一句话（textContent 仍然逐字等于 label，界面上不再是一颗大按钮）。
+      if (id === 'stewardStopBtn') paintIconButton(node, ICON_STOP, label);
+      else node.textContent = label;
       node.dataset.stopped = stopped ? 'true' : 'false';
       node.title = label;
       node.setAttribute('aria-label', label);
@@ -318,7 +342,7 @@ export function createStewardSettingsDomain({
     const btn = byId('stewardShieldBtn');
     if (!btn) return;
     const mode = currentPermission();
-    btn.textContent = t(permissionLabelKey(mode));
+    paintIconButton(btn, ICON_SHIELD, t(permissionLabelKey(mode)));
     btn.dataset.permission = mode;
     btn.title = t('settings.steward.shieldTitle', { mode: t(permissionLabelKey(mode)) });
     btn.setAttribute('aria-label', btn.title);

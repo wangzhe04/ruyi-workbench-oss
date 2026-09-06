@@ -43,6 +43,11 @@ const WHITE = ['.sidebar, .tool-pane', '.topbar', '.composer', '.modal', '.palet
   '.wb-layer-tag', '.wb-cvtools', // 工作台画布轻层(仅 blur-1,画布视图内,不入框架/浮层预算轴)
   '.preview-deskbar', '.preview-dock', '.preview-error-card', // Wave 76: 与经典框架互斥的 Preview 壳层; 主区三态只会出现一张卡
   '.preview-needs-scrim', '.preview-needs-drawer', // Wave 81: 一个全局、互斥的待决浮层；内部卡片不叠 blur
+  // 117i: 管家壳（第三种壳模式）与经典壳／Preview 壳【互斥】——:root[data-shell-mode] 同一时刻只让
+  // 一套壳上屏，所以这三面与上面的经典框架四面不会同时存在，模糊预算轴不变（与 Wave 76 给
+  // Preview 壳开口子同一条理由）。管家壳里最多两面：居中卡片 + 右侧那一栏（抽屉与「现在这一件」
+  // 本身也互斥：同一个 #stewardDrawer 节点在 docked 挂法下不叠自己的玻璃）。
+  '.steward-stage', '.steward-drawer', '.steward-now',
   '@supports', '@media', ':root'];
 for (let i = 0; i < lines.length; i++) {
   const ln = lines[i];
@@ -54,7 +59,7 @@ for (let i = 0; i < lines.length; i++) {
   }
   if (!WHITE.some(w => sel.startsWith(w))) offenders.push((sel || '(?)') + ' | ' + ln.trim().slice(0, 60));
 }
-ok(offenders.length === 0, 'G2 backdrop-filter 使用点全在白名单(经典框架4+浮层4+Preview 互斥壳+降级块)' + (offenders.length ? ' → 越界: ' + offenders.join(' ;; ') : ''));
+ok(offenders.length === 0, 'G2 backdrop-filter 使用点全在白名单(经典框架4+浮层4+Preview 互斥壳+管家互斥壳+降级块)' + (offenders.length ? ' → 越界: ' + offenders.join(' ;; ') : ''));
 
 // ── G3 禁散写 blur 字面量(@supports/@media 查询行豁免,它们不是声明) ──
 const literals = lines.filter(ln => /backdrop-filter:\s*blur\(/.test(ln) && !/^\s*--/.test(ln.trim()) && !/^\s*@(supports|media)/.test(ln.trim()));

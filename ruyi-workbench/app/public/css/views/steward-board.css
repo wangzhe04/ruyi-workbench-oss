@@ -5,42 +5,54 @@
    返回带的 DOM 在经典壳的 main.chat-pane 里，样式归本层：它是管家壳的产物，不该混进经典层。
    断点：≥1000px 才有「现在这一件」这条常驻右栏；<1000px 一律回单列（抽屉走覆盖式）。 */
 
-/* ── ① 一行状态：点开即看板 ─────────────────────────────────────────────────── */
+/* ── ① 一行状态：点开即看板（原型 .status）──────────────────────────────────────── */
 .steward-status-line {
-  align-self: flex-start;
+  /* inline-block（不是 inline-flex）：text-overflow 只作用于块容器里的行内内容，
+     flex 容器里的匿名 flex 项目不会出省略号 —— 117i 走查在 390px 实测：一行状态被硬切没有「…」。 */
+  display: inline-block;
+  vertical-align: middle;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
   font: inherit;
   font-size: var(--fs-sm);
   color: var(--muted);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 2px 0;
   cursor: pointer;
   text-align: left;
-  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
 }
-.steward-status-line:hover { color: var(--ink); border-color: var(--line-2); }
+.steward-status-line::before { content: "·"; color: var(--line-2); margin-inline-end: var(--sp-1); }
+.steward-status-line:hover { color: var(--ink-2); }
 .steward-status-line:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-status-line[aria-expanded="true"] { color: var(--ink); border-color: var(--line-2); }
+.steward-status-line[aria-expanded="true"] { color: var(--ink); }
+.steward-status-line:empty { display: none; }
 
 /* ── ② 看板：从状态行下拉的面板 ──────────────────────────────────────────────── */
 .steward-board {
   position: absolute;
-  z-index: 20;
-  top: calc(var(--sp-5) + 76px);
-  left: var(--sp-4);
-  right: var(--sp-4);
-  max-height: 66vh;
+  z-index: 28;
+  top: 84px;
+  left: var(--sp-6);
+  right: var(--sp-6);
+  max-height: 66%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-1) var(--sp-3);
   color: var(--ink);
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--r-md);
-  box-shadow: var(--elev-2);
+  box-shadow: var(--glass-shadow);
 }
 .steward-board[hidden] { display: none; }
 
@@ -49,8 +61,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  padding-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--line);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .steward-board-max { font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-max-input {
@@ -67,51 +80,55 @@
 
 .steward-board-pill {
   flex: 0 0 auto;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   color: var(--muted);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  padding: 0 var(--sp-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 0;
 }
 .steward-board-btn {
   flex: 0 0 auto;
+  min-height: 0;
   font: inherit;
-  font-size: var(--fs-sm);
-  color: var(--ink);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  padding: 2px var(--sp-2);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.steward-board-btn:hover { background: var(--panel-3); }
+.steward-board-btn:hover { color: var(--ink); background: var(--panel-3); }
 .steward-board-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 
-.steward-board-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.steward-board-list { display: flex; flex-direction: column; }
 .steward-board-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-note { margin: 0; min-height: 1.2em; font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-note:empty { display: none; }
 
-/* 事项分组：一行事实（聚合态点、标题、线程数、验收 a/b、费用/预算、＋线程）＋ 它的线程们 */
+/* 事项分组：原型 .mh 是一条细分隔线上的一行小字（不是一张卡），线程行直接挂在它下面。 */
 .steward-board-mission {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  gap: var(--sp-1);
+  padding: var(--sp-2) 0 var(--sp-1);
+  border-top: 1px solid var(--glass-border);
 }
+.steward-board-mission:first-child { border-top: 0; }
 .steward-board-mission-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
-.steward-board-mission-title { flex: 1 1 auto; min-width: 0; color: var(--ink); }
+.steward-board-mission-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
 
 /* 五态点：颜色只经 data-tone（dockToneForMissionState 的三档表现），data-state 留给测试与调试。 */
 .steward-board-dot {
@@ -131,17 +148,19 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
 }
 .steward-board-thread {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  padding: var(--sp-2);
-  background: var(--panel);
-  border: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-2);
+  row-gap: 2px;
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);
   border-radius: var(--r-sm);
+  transition: background var(--dur-fast) var(--ease-out);
 }
+.steward-board-thread > * { grid-column: 1; }
+.steward-board-thread:hover { background: var(--panel-2); }
 .steward-board-thread-head {
   display: flex;
   align-items: center;
@@ -151,8 +170,11 @@
 .steward-board-thread-title {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   text-align: left;
   font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--ink);
   background: transparent;
   border: none;
@@ -164,20 +186,23 @@
 }
 .steward-board-thread-title:hover { text-decoration: underline; }
 .steward-board-thread-title:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-board-meta { flex: 0 0 auto; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.steward-board-wait { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.steward-board-wait { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-wait:empty { display: none; }
 /* 悬停/聚焦才亮起来的一行操作：默认安静（§8.4「主动作只有一个，其余安静」的同一条纪律）。 */
 .steward-board-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-2);
-  opacity: 0.55;
+  gap: var(--sp-1);
+  grid-column: 2;
+  grid-row: 1 / -1;
+  opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .steward-board-thread:hover .steward-board-actions,
 .steward-board-thread:focus-within .steward-board-actions { opacity: 1; }
+@media (hover: none) { .steward-board-actions { opacity: 1; } }
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
 .steward-board-chips .steward-chip-menu { left: 0; right: auto; }
 
@@ -198,17 +223,21 @@
 @media (min-width: 1000px) {
   .steward-now:not([hidden]) {
     position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    top: var(--sp-3);
+    right: var(--sp-3);
+    bottom: var(--sp-3);
     z-index: 30;
     width: 390px;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     color: var(--ink);
-    background: var(--panel);
-    border-left: 1px solid var(--line);
-    box-shadow: var(--elev-2);
+    background: var(--glass-bg-1);
+    -webkit-backdrop-filter: var(--glass-blur-2);
+    backdrop-filter: var(--glass-blur-2);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
   }
   /* docked 挂法：同一个 #stewardDrawer 节点被搬进 #stewardNowBody，这里只把它从 fixed 收回流内。 */
   .steward-drawer[data-mount="docked"] {
@@ -218,6 +247,8 @@
     flex: 1 1 auto;
     min-height: 0;
     border-left: none;
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
   }
 }
@@ -255,7 +286,7 @@
 
 /* 窄屏：看板铺满、返回带换行、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
 @media (max-width: 390px) {
-  .steward-board { left: var(--sp-2); right: var(--sp-2); padding: var(--sp-3) var(--sp-2); }
+  .steward-board { top: 72px; left: var(--sp-2); right: var(--sp-2); padding: var(--sp-1) 0 var(--sp-2); }
   .steward-board-top { gap: var(--sp-1); }
   .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
   .steward-return-chips { margin-left: 0; }

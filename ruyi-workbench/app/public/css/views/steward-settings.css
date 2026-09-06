@@ -187,31 +187,49 @@
 .steward-header-actions {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   margin-left: auto;
 }
 .steward-shield-wrap { position: relative; }
+/* 117i：按原型 .head 右侧的 .ib —— 34px 的图标圆键，安静时只有线条，没有底也没有描边。
+   人话标签仍在按钮里（.steward-icon-label 只给读屏），所以 textContent 不变。 */
 .steward-shield,
 .steward-stop-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-lg);
   color: var(--muted);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-pill);
-  padding: var(--sp-1) var(--sp-3);
-  min-height: var(--tap-min);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  padding: 0;
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.steward-icon-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .steward-shield:hover,
-.steward-stop-btn:hover { color: var(--ink); border-color: var(--accent); }
+.steward-stop-btn:hover { color: var(--ink); background: var(--glass-bg-2); border-color: var(--glass-border-strong); }
+.steward-stop-btn:hover { color: var(--danger); }
 .steward-shield:focus-visible,
 .steward-stop-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 /* §8.6：每步都问（安静）／改文件不问（青花蓝）／全自动（金底）；只做计划不改盾牌色。 */
-.steward-shield[data-permission="acceptEdits"] { color: var(--brand-qh); border-color: var(--brand-qh); }
-.steward-shield[data-permission="auto"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
-.steward-stop-btn[data-stopped="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.steward-shield[data-permission="acceptEdits"] { color: var(--accent); }
+.steward-shield[data-permission="auto"] { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.steward-stop-btn[data-stopped="true"] { color: var(--ok); }
 
 .steward-shield-menu {
   position: absolute;
@@ -251,7 +269,7 @@
 
 /* 窄屏：头部两个常驻控件换行不挤头像；设置页的确认区与流水表各自收一档。 */
 @media (max-width: 390px) {
-  .steward-header-actions { gap: var(--sp-1); }
+  .steward-header-actions { gap: 0; }
   .steward-shield, .steward-stop-btn { padding: var(--sp-1) var(--sp-2); }
   .steward-shield-menu { min-width: 0; left: 0; right: 0; }
   .steward-settings-confirm-actions .btn { flex: 1 1 auto; }

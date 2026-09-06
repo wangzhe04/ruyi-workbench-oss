@@ -7,8 +7,8 @@
 
 .steward-avatar {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -31,11 +31,14 @@
   transition: stroke var(--dur-fast) var(--ease-out), opacity var(--dur-base) var(--ease-out),
     transform var(--dur-base) var(--ease-out);
 }
+.sa-stop-a { stop-color: var(--accent); }
+.sa-stop-b { stop-color: var(--accent-2); }
 .sa-body {
-  fill: var(--accent);
+  fill: url("#stewardAvatarGrad") var(--accent);
   transition: fill var(--dur-base) var(--ease-out);
 }
-.sa-eye { fill: var(--panel); }
+/* 117i：原型里眼睛恒为白（不随主题走），--accent-ink 两主题都是纯白，且不是硬编码色值。 */
+.sa-eye { fill: var(--accent-ink); }
 
 /* idle（§8.3）：常态色，环静止；呼吸 4s 循环，幅度极小。 */
 .steward-avatar[data-state="idle"] .sa-body { animation: sa-breathe 4s ease-in-out infinite; }
@@ -94,14 +97,38 @@
   75% { transform: translateX(3px); }
 }
 
-/* 顶栏名字旁的一行状态文字（aria-live="polite" 与 avatar 的视觉状态同源，退化时唯一还在的信号，§8.1 原则 5）。 */
+/* 顶栏名字旁的一行状态文字（aria-live="polite" 与 avatar 的视觉状态同源，退化时唯一还在的信号，§8.1 原则 5）。
+   117i：按原型 .status 加一枚 6px 的状态点，颜色跟着 avatar 的 data-state 走（同一个真值，
+   不另起判据）；它与右边的一行状态按钮并排，合起来就是原型那一行「点 · 在干什么 · 有几件事」。 */
 .steward-presence-text {
-  font-size: var(--fs-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
   color: var(--muted);
+}
+.steward-presence-text::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.steward-avatar[data-state="working"] ~ .steward-header-text .steward-presence-text::before,
+.steward-avatar[data-state="thinking"] ~ .steward-header-text .steward-presence-text::before,
+.steward-avatar[data-state="listening"] ~ .steward-header-text .steward-presence-text::before {
+  background: var(--accent);
+}
+.steward-avatar[data-state="waiting_you"] ~ .steward-header-text .steward-presence-text::before {
+  background: var(--gold);
+}
+.steward-avatar[data-state="error"] ~ .steward-header-text .steward-presence-text::before {
+  background: var(--danger);
 }
 
 @media (max-width: 390px) {
-  .steward-avatar { width: 36px; height: 36px; }
+  .steward-avatar { width: 44px; height: 44px; }
 }
 
 /* 全局 reduced-motion 熔断（base.css）之外，本层自己也把动效关掉：动效可以没有，信息不能少

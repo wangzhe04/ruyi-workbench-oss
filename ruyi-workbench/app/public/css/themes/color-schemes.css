@@ -21,6 +21,14 @@
   --link: #8fadf7;
   /* 第50波:鎏金改香槟(mockup 第2轮);--gold-soft 零引用清障删除(键集对称,light 同删)。 */
   --gold: #dcba75;
+  /* 117i：语义「极淡底」三枚（金/绿/红）—— 115 波管家壳原型（docs/mockups/steward-shell.html）
+     的状态胶囊与金色主动作要一层比 --gold 更淡的底色。第50波清障删过 --gold-soft（当时零引用），
+     117i 重新引入并补齐 ok/danger 两枚，两主题对称定义（theme.e2e 键集锁）。 */
+  --gold-soft: #2c2413;
+  /* 117i：金底上的字。墨夜的香槟金与月白的赭金都足够亮，白字反而不达标，两主题同取深褐。 */
+  --gold-ink: #1a1404;
+  --ok-soft: #173327;
+  --danger-soft: #3a1f22;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。暗色版。 */
   --brand-qh: #6b8ff2; --brand-au: #f2c14e;
   /* Preview 任务台:青花墨夜族(与 --bg/--panel 同宗的藏蓝墨底),青花蓝=正在干活,
@@ -114,6 +122,11 @@
   --accent-soft: #e7edfa;
   --link: #2050c8;
   --gold: #a8822f;
+  /* 117i：语义「极淡底」三枚的月白值（与墨夜对称，见上）。 */
+  --gold-soft: #f6edd8;
+  --gold-ink: #1a1404;
+  --ok-soft: #e0f3e8;
+  --danger-soft: #fbe4e1;
   /* v0.8-S8 品牌标(如意 Ruyi)——青花 + 鎏金,随主题切换。亮色版。 */
   --brand-qh: #2350a8; --brand-au: #d9a441;
   /* 第100波:浅色任务台回到现有青花体系的清透白。纯白卡面 + 极浅蓝白只负责分层，

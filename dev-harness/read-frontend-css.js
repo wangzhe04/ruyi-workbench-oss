@@ -167,10 +167,15 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Waves 117g/117h append the steward board layer (one-line status, the drop-down board, the docked
 // "current one" rail and the 2.0-window return band). Additive only: no existing layer's rules were
 // touched, and the link/@import/overlay order gained exactly one trailing entry. Re-pin the payload.
+// 117i（管家壳视觉对齐 115 波定稿原型 docs/mockups/steward-shell.html）重钉：改动全部落在管家壳
+// 自己的五个所有权层（steward-shell / steward-avatar / steward-conversation / steward-drawer /
+// steward-settings / steward-board），外加 tokens 层的两套主题各补三枚语义「极淡底」
+// （--gold-soft / --ok-soft / --danger-soft，theme.e2e 的键集对称锁照旧）。
+// 无新样式层、link/@import/overlay 顺序不变，经典与 Preview 层规则零漂移。重钉有意载荷。
 // 117 走查修正（用户 2026-09-06）重钉：steward-avatar.css / steward-settings.css 头注释里的
 // 「--dur-*/--ease-out」把注释提前关掉、吞掉了各自后面的第一条规则（头像被撑到 300 多像素），改写注释；
 // steward-conversation.css 末尾追加按钮与候选项的一行截断。既有层规则零改动。
-const LEGACY_STYLES_SHA256 = '203eda0609ce108ce861c4802cebd6b02681aa44ca12790da22f80c077f50584';
+const LEGACY_STYLES_SHA256 = '6db4f137da16b399470c559242cd3c986220a508d35aff686c5b9c01328f7a7a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -54,6 +54,20 @@ export function createStewardComposer({
     return node;
   }
 
+  // 117i：输入框右侧两枚圆键的线条图标（原型 .ic）。零 innerHTML —— SVG 也要 createElementNS，
+  // 用 createElement('svg') 会造出一个 HTML 未知元素，画不出东西。
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function icon(path) {
+    const svg = doc().createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'steward-icon');
+    svg.setAttribute('aria-hidden', 'true');
+    const line = doc().createElementNS(SVG_NS, 'path');
+    line.setAttribute('d', path);
+    svg.appendChild(line);
+    return svg;
+  }
+
   // 预判实况：kind ＋ 候选（hits）。手选（picked）优先于预判，直到本次发送完成。
   let routeKind = 'steward';
   let routeHits = [];
@@ -241,16 +255,28 @@ export function createStewardComposer({
     picker.setAttribute('aria-label', t('stewardShell.compose.pick'));
     picker.hidden = true;
 
-    const plus = el('button', 'steward-plus', '+');
+    const plus = el('button', 'steward-plus');
     plus.type = 'button';
     plus.id = 'stewardComposerPlus';
     plus.disabled = true;                                     // 附件／语音归后续波，本波只占位
     plus.title = t('stewardShell.compose.plus');
     plus.setAttribute('aria-label', t('stewardShell.compose.plus'));
+    plus.appendChild(icon('M12 5v14M5 12h14'));
+
+    // 117i：圆形发送键（原型 .send）。Enter 一直是主路径，这枚键只是把同一个 submit() 摆到
+    // 手指够得着的地方 —— 触屏与「不知道按什么」的第一次都需要一个看得见的出口。
+    const send = el('button', 'steward-send');
+    send.type = 'button';
+    send.id = 'stewardComposerSend';
+    send.title = t('stewardShell.compose.send');
+    send.setAttribute('aria-label', t('stewardShell.compose.send'));
+    send.appendChild(icon('M5 12h14M13 6l6 6-6 6'));
+    send.addEventListener('click', () => { submit(); });
 
     composer.insertBefore(chip, input);
     composer.insertBefore(picker, input);
     composer.insertBefore(plus, input.nextSibling);
+    composer.insertBefore(send, plus.nextSibling);
 
     input.disabled = false;
     input.placeholder = t('stewardShell.compose.placeholder');

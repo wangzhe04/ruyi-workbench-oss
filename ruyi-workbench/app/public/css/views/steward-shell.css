@@ -1,4 +1,8 @@
-/* 第117波 117a：管家壳（第三种壳模式）。与 .app-shell / .preview-shell 同级，显隐只由 :root[data-shell-mode] 决定。 */
+/* 第117波 117a：管家壳（第三种壳模式）。与 .app-shell / .preview-shell 同级，显隐只由 :root[data-shell-mode] 决定。
+   117i（视觉对齐 115 波定稿原型 docs/mockups/steward-shell.html）：骨架从「铺满视口的四行网格」改成
+   原型的两层 —— #stewardShell 是场景（--scene-bg 铺底），#stewardStage 是居中的那张玻璃卡片
+   （min(1280px,100%)、--r-lg 圆角、--glass-* 材质），卡片里再按原型 .col 把头部／对话／输入
+   收进 800px 的中栏。功能、DOM id 与先后顺序一律未动，只改包裹与样式。 */
 
 /* 三壳互斥：管家模式下经典壳与预览壳都收起；管家壳默认不显示，只有管家模式才铺开。
    这三条是本层唯一的显隐权威，JS 不写 display，只写 data-shell-mode（applyShellMode 一处）。 */
@@ -11,6 +15,8 @@
   background: var(--bg);
 }
 
+/* 场景层（原型 .wrap）：一整块 --scene-bg 的远景，卡片在它中间。仍然是 grid —— 单列单行，
+   卡片是唯一的在流子元素（看板绝对定位、「现在这一件」与抽屉是定位层）。 */
 :root[data-shell-mode="steward"] body > .steward-shell {
   position: relative;
   z-index: 1;
@@ -18,30 +24,66 @@
   height: 100vh;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: var(--sp-3);
-  padding: var(--sp-5) var(--sp-4);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  justify-items: center;
+  padding: var(--sp-3);
   overflow: hidden;
+  background: var(--scene-bg);
+  background-attachment: fixed;
+}
+
+/* 卡片层（原型 #app）：玻璃面 + 远投影，四行网格＝头部／对话／输入／状态。 */
+.steward-stage {
+  position: relative;
+  width: min(1280px, 100%);
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  padding: 0 var(--sp-6);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+/* 中栏（原型 .col）：头部、对话、输入、状态共用一条 800px 的量尺，宽屏下不摊成一整排。 */
+.steward-header,
+.steward-feed,
+.steward-composer,
+.steward-status {
+  width: 100%;
+  max-width: 800px;
+  margin-inline: auto;
 }
 
 /* 顶栏：avatar 固定在顶部（§8.2 L1「头像固定顶部」）。真形象与七态动效在 css/views/steward-avatar.css
-   （117b 独立所有权层，avatar 规则数超过顺手加进本层的量，故新开一层）。 */
+   （117b 独立所有权层，avatar 规则数超过顺手加进本层的量，故新开一层）。
+   117i：按原型 .head 去掉底边框，改成留白；名字与状态行是紧挨着的两行。 */
 .steward-header {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
-  padding-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--line);
+  padding: var(--sp-5) 0 var(--sp-2);
 }
 .steward-header-text {
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--sp-2);
+  flex: 1 1 auto;
   min-width: 0;
 }
 .steward-name {
+  flex-basis: 100%;
   font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.2;
   color: var(--ink);
 }
 .steward-tagline {
@@ -49,76 +91,88 @@
   color: var(--muted);
 }
 
-/* 对话流：117c 才有内容；117a 留空且不做任何请求。 */
+/* 对话流：原型 .chat 是一片留白，不是一个描边盒子（§8.1「少一个盒子」）。 */
 .steward-feed {
   min-height: 0;
   overflow: auto;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--panel);
-  padding: var(--sp-4);
+  padding: var(--sp-1) 0 var(--sp-4);
+  scrollbar-gutter: stable;
 }
 
-/* 输入区：117a 只有禁用占位与「回到经典」，真正的递话/预判归 117c。 */
+/* 输入区：原型 .cbox 的胶囊 —— 递送 chip 在框内左侧，「+」与圆形发送键在右侧。
+   「对管家说」这行文字标签与「经典模式」大按钮都从版面上撤掉：前者只留给读屏
+   （label[for] 仍在 DOM 里），后者的动作已经在头像菜单末项「整体切到 2.0」里。 */
 .steward-composer {
   display: flex;
-  align-items: flex-end;
-  gap: var(--sp-2);
+  align-items: center;
+  gap: var(--sp-1);
   min-width: 0;
+  margin-bottom: var(--sp-4);
+  padding: 6px 6px 6px var(--sp-3);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: 18px;
+  background: var(--panel);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
+.steward-composer:focus-within { border-color: var(--accent); }
 .steward-composer-label {
-  flex: 0 0 auto;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-  padding-bottom: var(--sp-2);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .steward-composer-input {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 32px;
+  max-height: 120px;
   resize: none;
   font: inherit;
+  line-height: 1.5;
   color: var(--ink);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  padding: var(--sp-2) var(--sp-3);
-  transition: border-color var(--dur-fast) var(--ease-out);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: var(--sp-1) 0;
 }
+.steward-composer-input:focus-visible { outline: none; box-shadow: none; }
 .steward-composer-input:disabled {
   color: var(--muted);
   cursor: not-allowed;
 }
-.steward-classic-btn {
-  flex: 0 0 auto;
-  min-height: var(--tap-min);
-  color: var(--ink);
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  padding: var(--sp-2) var(--sp-3);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
-}
-.steward-classic-btn:hover { background: var(--panel-3); }
-.steward-classic-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 「回到经典」不再是输入区旁边的大按钮（117i 走查：它抢走了发送键的位置）。节点与它的
+   onclick 一个没动，只是从版面上收起来 —— 同一件事在头像菜单里有唯一一项。 */
+.steward-classic-btn { display: none; }
 
 /* 状态区：fail-closed 回经典时把原因说清楚（role="status"，读屏可听见）。 */
 .steward-status {
   min-height: 1.2em;
+  padding-bottom: var(--sp-2);
   font-size: var(--fs-sm);
   color: var(--muted);
 }
 .steward-status:empty { display: none; }
 
 @media (max-width: 390px) {
-  :root[data-shell-mode="steward"] body > .steward-shell { padding: var(--sp-3) var(--sp-2); gap: var(--sp-2); }
-  .steward-composer { flex-wrap: wrap; }
-  .steward-composer-label { flex-basis: 100%; padding-bottom: 0; }
-  .steward-classic-btn { width: 100%; }
+  :root[data-shell-mode="steward"] body > .steward-shell { padding: 0; }
+  .steward-stage {
+    padding: 0 var(--sp-4);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .steward-header { padding: var(--sp-4) 0 var(--sp-2); }
+  .steward-feed { padding: var(--sp-1) 0 var(--sp-3); }
+  .steward-composer { margin-bottom: var(--sp-3); }
 }
 
 /* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉：动效可以没有，信息不能少。 */
 @media (prefers-reduced-motion: reduce) {
+  .steward-composer,
   .steward-composer-input,
   .steward-classic-btn { transition: none; }
 }
