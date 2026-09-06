@@ -30,6 +30,9 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 117b: steward avatar layer (the seven-state 2D avatar; its own sheet since the rule count exceeds
   // what fits comfortably in steward-shell.css). Appended last for the same reason.
   'css/views/steward-avatar.css',
+  // 117c: steward conversation + composer layer (bubbles, the one-row action buttons, the ※ popover,
+  // the "···" placeholder, the hand-off target chip and its listbox). Appended last for the same reason.
+  'css/views/steward-conversation.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -138,7 +141,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // per-state animation, reduced-motion containment) lands in a new owned layer css/views/steward-avatar.css
 // appended last for the same reason as every other owned layer. Net: one deletion + one new layer.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'db4cf7350fb6526a0180cef827d55fd0c3deb2cc99ea9667a46feb8522766505';
+// 117c: one more new owned layer, css/views/steward-conversation.css (the steward conversation feed's
+// bubbles / one-row action buttons / ※ popover / "···" placeholder, plus the composer's hand-off target
+// chip and candidate listbox). Additive only: no existing layer's rules were touched, and the
+// link/@import/overlay order gained exactly one trailing entry. Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'd476b60db952b16847be6e67f93040220c72caebe8abc0c38b1192182c5cffc8';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

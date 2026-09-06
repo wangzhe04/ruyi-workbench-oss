@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 126(精确 109 / 前缀 12 / 正则 5),ROUTE_AUTH 114 条,生成于 2026-09-06T03:07:15.360Z。
+> 判定点 126(精确 109 / 前缀 12 / 正则 5),ROUTE_AUTH 114 条,生成于 2026-09-06T03:50:19.067Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -22,7 +22,7 @@
 | POST | `/api/storage/policy` | exact | token | 13b-api-domain-routes.js:189 | frontend-domains.static.e2e.js, session-storage-v2.e2e.js, storage-steward.e2e.js |
 | POST | `/api/storage/clean` | exact | token | 13b-api-domain-routes.js:199 | frontend-domains.static.e2e.js, session-storage-v2.e2e.js, storage-steward.e2e.js |
 | POST | `/api/checkpoints/rollback` | exact | token | 13b-api-domain-routes.js:214 | artifacts.e2e.js, checkpoint-coverage.e2e.js, checkpoint.e2e.js 等 10 件 |
-| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js:245 | rewind.e2e.js |
+| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js:245 | rewind.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js |
 
 ## core-inline(65)
 
@@ -65,7 +65,7 @@
 | POST | `/api/memory/relations/confirm` | exact | token-browser | 13-http-router.js:726 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js:734 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js:743 | agent-quality-workflow.e2e.js, auth-deny-default.e2e.js, memory-auto-proposal-api.e2e.js 等 4 件 |
-| POST | `/api/stop` | exact | token-browser | 13-http-router.js:753 | kimi-agent-cli.e2e.js, steward-runner.static.e2e.js, thread-arbiter.e2e.js |
+| POST | `/api/stop` | exact | token-browser | 13-http-router.js:753 | kimi-agent-cli.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 5 件 |
 | POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js:768 | context-compact-v2.e2e.js, provider-compact.e2e.js, summary-entity-check.e2e.js 等 4 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js:777 | — |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js:794 | — |
@@ -147,11 +147,11 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:199 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 119 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:199 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 121 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:205 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:217 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 119 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:217 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 121 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:223 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:230 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 49 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:230 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 51 件 |
 
 ## steer(2)
 
@@ -168,7 +168,7 @@
 | POST | `/api/steward/stop` | exact | token self | 13g-steward.js:52 | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-preroute.e2e.js |
 | GET | `/api/steward/state` | exact | token self | 13g-steward.js:58 | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-runner.e2e.js 等 4 件 |
 | GET | `/api/steward/inbox` | exact | token self | 13g-steward.js:70 | steward-events.static.e2e.js, steward-inbox.e2e.js |
-| GET | `/api/steward/preroute` | exact | token self | 13g-steward.js:81 | steward-preroute.e2e.js |
+| GET | `/api/steward/preroute` | exact | token self | 13g-steward.js:81 | steward-conversation.static.e2e.js, steward-preroute.e2e.js |
 | GET | `/api/steward/memory` | exact | token | 13g-steward.js:103 | steward-memory.e2e.js |
 | GET | `/api/steward/memory/export` | exact | token | 13g-steward.js:109 | steward-memory.e2e.js |
 | POST | `/api/steward/memory/edit` | exact | token | 13g-steward.js:114 | steward-memory.e2e.js |
@@ -177,9 +177,9 @@
 | POST | `/api/steward/memory/clear` | exact | token | 13g-steward.js:134 | steward-memory.e2e.js |
 | GET | `/api/steward/arbiter` | exact | token self | 13h-steward-runner.js:1702 | steward-config-tools.e2e.js, thread-arbiter.e2e.js |
 | POST | `/api/steward/arbiter/prioritize` | exact | token self | 13h-steward-runner.js:1711 | thread-arbiter.e2e.js |
-| POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js:1725 | steward-runner.e2e.js, steward-runner.static.e2e.js |
-| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js:1737 | steward-runner.e2e.js, steward-runner.static.e2e.js, steward-tools.static.e2e.js 等 4 件 |
-| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js:1749 | steward-runner.e2e.js, steward-runner.static.e2e.js |
+| POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js:1725 | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-runner.e2e.js 等 4 件 |
+| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js:1737 | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-runner.e2e.js 等 6 件 |
+| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js:1749 | steward-conversation.static.e2e.js, steward-runner.e2e.js, steward-runner.static.e2e.js |
 
 ## 域路由委派(handleApi → 域 handler)
 

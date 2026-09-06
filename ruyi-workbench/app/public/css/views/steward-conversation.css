@@ -1,0 +1,231 @@
+/* 第117波 117c：管家对话区与输入区（27 号文 §8.4「话＋一行按钮」／§8.12「递话」）。 */
+
+/* 对话流：只有两种气泡，没有卡片盒子。用户的话靠右、管家的话靠左，两者都不画边框——
+   §8.1「极简」的落地就是「少一个盒子」，不是「换一种盒子」。 */
+.steward-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.steward-msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-width: 46rem;
+  min-width: 0;
+}
+.steward-msg-user {
+  align-self: flex-end;
+  align-items: flex-end;
+  text-align: right;
+}
+.steward-msg-ruyi { align-self: flex-start; }
+.steward-say {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.steward-msg-user .steward-say { color: var(--muted); }
+
+/* 句尾的「※」：依据、影响范围、来源的唯一入口（不占正文位置，点开才是浮层）。 */
+.steward-why-btn {
+  margin-inline-start: var(--sp-1);
+  padding: 0 var(--sp-1);
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.steward-why-btn:hover { color: var(--ink); }
+.steward-why-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-why-pop {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  padding: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-why-line { margin: 0 0 var(--sp-1); }
+.steward-why-line:last-child { margin-bottom: 0; }
+
+/* 一行按钮：≤3 个，主动作只有一个（.is-primary），其余安静。 */
+.steward-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.steward-act {
+  min-height: var(--tap-min);
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-act:hover { background: var(--panel-3); }
+.steward-act:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-act:disabled { color: var(--muted); cursor: progress; }
+.steward-act.is-primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 按钮落定后的灰字回执，与失败时的人话提示（提示在按钮行【上方】，按钮行留着可重试）。 */
+.steward-receipt,
+.steward-act-problem {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* 管家思考时的「···」占位（不是转圈）：首个 delta 到达即被流式文字替换。 */
+.steward-typing {
+  display: flex;
+  gap: var(--sp-1);
+  color: var(--muted);
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+.steward-typing-dot { animation: steward-typing-blink 1.2s var(--ease-out) infinite; }
+.steward-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.steward-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes steward-typing-blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* 「细节」开着时才显示的本回合工具轨迹（默认 hidden，由 JS 按本机偏好切换）。 */
+.steward-tools {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-tools-summary { cursor: pointer; }
+.steward-tools-list { margin: var(--sp-2) 0 0; padding-inline-start: var(--sp-5); }
+
+/* 「你不在的时候」要点列表与首次进入的三个例子。 */
+.steward-digest { margin: 0; padding-inline-start: var(--sp-5); color: var(--muted); font-size: var(--fs-sm); }
+.steward-digest-item { margin-bottom: var(--sp-1); }
+.steward-examples { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.steward-example {
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-pill);
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+}
+.steward-example:hover { color: var(--ink); }
+.steward-example:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* 头像菜单（本波只有「细节」一项；设置／记忆／行动流水归 117e）。 */
+.steward-menu {
+  position: absolute;
+  z-index: 2;
+  margin-top: var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  padding: var(--sp-1);
+}
+.steward-menu-item {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+}
+.steward-menu-item[aria-pressed="true"] { background: var(--panel-3); }
+.steward-menu-item:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* 递送目标 chip：默认「→ 如意」，命中线程时着重色，手选后实底带 ×（§8.12 第 1、4 条）。 */
+.steward-composer { position: relative; }
+.steward-target {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--tap-min);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-target.is-thread { color: var(--accent); border-color: var(--accent); }
+.steward-target.is-picked { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.steward-target:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-target-clear { font-size: var(--fs-sm); }
+
+.steward-target-picker {
+  position: absolute;
+  bottom: 100%;
+  inset-inline-start: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  max-height: 15rem;
+  overflow: auto;
+  margin-bottom: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  padding: var(--sp-1);
+}
+.steward-target-option {
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: start;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+}
+.steward-target-option:hover { background: var(--panel-3); }
+.steward-target-option:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* 右侧「+」：附件／语音归后续波，本波只占位并禁用。 */
+.steward-plus {
+  flex: 0 0 auto;
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  font: inherit;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: not-allowed;
+}
+
+@media (max-width: 390px) {
+  .steward-msg { max-width: 100%; }
+  .steward-acts { flex-direction: column; align-items: stretch; }
+  .steward-target { order: -1; flex-basis: 100%; }
+  .steward-target-picker { min-width: 0; inset-inline: 0; }
+}
+
+/* reduced-motion：「···」占位退化为静态（信息不减，动效全关）。 */
+@media (prefers-reduced-motion: reduce) {
+  .steward-typing-dot { animation: none; opacity: 1; }
+  .steward-act,
+  .steward-target { transition: none; }
+}

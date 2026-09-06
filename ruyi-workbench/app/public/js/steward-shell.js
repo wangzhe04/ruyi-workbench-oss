@@ -1,8 +1,12 @@
 'use strict';
 
 import { derivePresence, presenceLabelKey } from './steward-presence.js';
+import { createStewardConversation } from './steward-conversation.js';
+import { createStewardComposer } from './steward-composer.js';
 
-// 第117波 117a/117b：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生。
+// 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
+// + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
+// 依赖注入 —— 组合根 app.js 因此净增 0 行，D45 余量未动）。
 //
 // 范式与 preview-shell.js 一致：一个注入依赖的工厂、一份冻结导出、零 innerHTML。
 // 边界（117a 定的，117b 仍然遵守）：
@@ -153,9 +157,11 @@ export function createStewardShellDomain({
     return renderPresence();
   }
 
-  // GET /api/steward/state 目前没有独立的 pending 字段(13h-steward-runner.js stewardRunnerState 只有
-  // stopped/inflight/circuit/lastReply/queued/noProgress/arbiter)：117b 借 lastReply.acts 非空近似
-  // 「有提议待批」，117c 接上真正的待决计数后把这一行换掉即可(setPresenceInputs 的形状不必再改)。
+  // GET /api/steward/state 没有独立的 pending 字段(13h-steward-runner.js stewardRunnerState 只有
+  // stopped/inflight/circuit/lastReply/queued/noProgress/arbiter)。117b 曾借 lastReply.acts 非空近似
+  // 「有提议待批」；117c 改接真值 —— POST /api/steward/visit 回的 `pending[]` 就是仍待决的提议清单，
+  // 由 steward-conversation.js 的 enterVisit() 直接写进 presence.pendingCount(每次进壳刷新一次)。
+  // 轮询这一路因此【不再】碰 pendingCount，只管 stopped/inflight/lastError 三个真有的字段。
   function pollStewardState() {
     if (typeof api !== 'function') return;
     Promise.resolve(api('/api/steward/state')).then(response => {
@@ -165,7 +171,6 @@ export function createStewardShellDomain({
         stopped: response.stopped === true,
         inflight: typeof response.inflight === 'string' ? response.inflight : '',
         lastError: (lastReply && lastReply.error) ? String(lastReply.error) : '',
-        pendingCount: (lastReply && Array.isArray(lastReply.acts) && lastReply.acts.length > 0) ? 1 : 0,
       });
     }).catch(() => { /* 状态面不因单次轮询失败整条消失，下一轮再试 */ });
   }
@@ -229,6 +234,10 @@ export function createStewardShellDomain({
     syncSettingOption();
     // 117b：avatar 的 enabled 输入跟 config refresh 同一节拍——config 到达前一律 sleeping(fail-closed)。
     setPresenceInputs({ enabled: stewardEnabledInConfig(state && state.config) });
+    // 117c：config 到达后补一次到访判定。页面【直接以 data-shell-mode=steward 启动】时属性从没变过，
+    // MutationObserver 观察不到；而 bind 期 state.config 还是空的，enterVisit 必然早退。ensureVisit
+    // 的一次性门（每次进壳只到访一次）保证这里的补调不会把正在进行的对话清屏重画。
+    syncConversation();
     if (canEnterSteward()) {
       if (storedMode() === 'steward' && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
@@ -237,11 +246,36 @@ export function createStewardShellDomain({
     return 'classic';
   }
 
+  // ── 117c：对话区与递话 ────────────────────────────────────────────────────────
+  // 两个子域在本文件内组装并注入依赖(api/t/state/presence/isStewardMode)，组合根 app.js 一行不加。
+  // 计时器分工(与 C2a「本文件恰好一处 setInterval」互不干扰)：撤回倒计时住 steward-conversation.js，
+  // 预判去抖住 steward-composer.js，本文件仍然只有 avatar 状态轮询这一个 setInterval。
+  const presenceApi = Object.freeze({ derive: derivePresence, set: setPresenceInputs, current: () => presenceState });
+  const conversation = createStewardConversation({ api, state, t, presence: presenceApi, isStewardMode });
+  const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
+  // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
+  // previewStreamSink），不让 conversation import composer。
+  conversation.setPickTargetHandler(() => composer.openPicker());
+
+  // 进壳即到访(§8.9「每次打开只汇报本次」)，出壳即收摊(清倒计时与去抖，零后台活动)。触发点与
+  // syncPolling 同一路信号(data-shell-mode 的属性变化)，但各自独立观察 —— 轮询门控那一条的形状
+  // 被静态锁逐字钉住，不能把两件事塞进同一个回调里。
+  function syncConversation() {
+    if (isStewardMode()) conversation.ensureVisit();
+    else { conversation.resetConversation(); composer.resetComposer(); }
+  }
+
   function bindStewardShell() {
     const classic = byId('stewardClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
     syncSettingOption();
     bindPresence(); // 117b：avatar 的输入监听 + 模式/可见性观察者，见函数头注
+    composer.bindStewardComposer();      // 117c：递送目标 chip / 候选列表 /「+」占位 / Enter 直接递
+    conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
+    if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
+      new MutationObserver(syncConversation)
+        .observe(globalThis.document.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
+    }
     return isStewardMode() ? 'steward' : 'classic';
   }
 
@@ -253,6 +287,8 @@ export function createStewardShellDomain({
     syncStewardShellAvailability,
     // 117c/117h 复用：derive 是纯函数(可脱离本实例单独跑真值表)，set 驱动本实例的 DOM 渲染，
     // current 读当前已渲染的态(不重新派生，跟屏幕上看到的一致)。
-    presence: Object.freeze({ derive: derivePresence, set: setPresenceInputs, current: () => presenceState }),
+    presence: presenceApi,
+    conversation,
+    composer,
   });
 }

@@ -87,6 +87,10 @@ const PAYLOAD_FILES = [
   // 117b:管家 avatar 的纯投影 derivePresence()/presenceLabelKey();缺文件会让离线包的管家壳头像永远
   // 停在初始 data-state,状态文字也读不到 i18n 键。
   'app/public/js/steward-presence.js',
+  // 117c:管家对话区与递话。缺任一文件都会让 steward-shell.js 的 import 整条挂掉(ESM 静态依赖),
+  // 管家壳连骨架都绑不上 —— 离线包必须收全这两件。
+  'app/public/js/steward-conversation.js',
+  'app/public/js/steward-composer.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -108,6 +112,7 @@ const PAYLOAD_FILES = [
   'app/public/css/components/onboarding.css', // 118a
   'app/public/css/views/steward-shell.css', // 117a
   'app/public/css/views/steward-avatar.css', // 117b
+  'app/public/css/views/steward-conversation.css', // 117c
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-06T03:07:15.360Z",
+  "generatedAt": "2026-09-06T03:50:19.067Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1469,6 +1469,8 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
@@ -2347,7 +2349,9 @@
       "domain": "checkpoint-storage",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\rewind.e2e.js"
+        "dev-harness\\rewind.e2e.js",
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js"
       ]
     },
     {
@@ -2580,6 +2584,8 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2733,6 +2739,8 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -2829,6 +2837,8 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
@@ -3605,6 +3615,7 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-preroute.e2e.js"
       ]
     },
@@ -3759,6 +3770,8 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js"
       ]
@@ -3777,6 +3790,8 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\steward-conversation.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
@@ -3797,6 +3812,7 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js"
       ]

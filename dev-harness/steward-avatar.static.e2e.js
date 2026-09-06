@@ -70,9 +70,15 @@ ok(/data-i18n-attr="aria-label:stewardShell\.avatarLabel"/.test(header), 'C7 ava
 // ─── D 零 innerHTML、模块内零第三方 import ────────────────────────────────────────
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(stewardShell),
   'D1 steward-shell.js 零 innerHTML/insertAdjacentHTML/document.write');
-const importLines = [...stewardShell.matchAll(/^import .*$/gm)];
-ok(importLines.length === 1 && importLines[0][0] === "import { derivePresence, presenceLabelKey } from './steward-presence.js';",
-  'D2 steward-shell.js 只有一条 import，且只从本域内的 steward-presence.js 取值，零第三方库');
+// 117c 重钉（语义不变，只是本域内多了两个子模块）：steward-shell.js 组装 117c 的对话区与输入区，
+// import 由 1 条变 3 条。断言仍是「只从【本域内】的相对路径取值、零第三方库、零裸包名」——
+// 三条 import 的来源必须逐字落在这份白名单里（来源：117c 交付，27 号文 §5 117c 行）。
+const importLines = [...stewardShell.matchAll(/^import .*$/gm)].map(match => match[0]);
+ok(JSON.stringify(importLines) === JSON.stringify([
+  "import { derivePresence, presenceLabelKey } from './steward-presence.js';",
+  "import { createStewardConversation } from './steward-conversation.js';",
+  "import { createStewardComposer } from './steward-composer.js';",
+]), `D2 steward-shell.js 的 import 只有本域内三条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');
 
