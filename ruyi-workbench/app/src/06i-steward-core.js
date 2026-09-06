@@ -187,9 +187,70 @@ function isStewardToolName(name) {
 // (install/uninstall)、系统设置与注册表(registry/system_setting)、关机与格式化(shutdown/format)。
 // 宁可误判成「要人按」,不可漏判成「自动执行」—— 这条清单的失守没有 checkpoint 可回滚。
 const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format/i;
-function stewardToolPermanentlyExempt(toolName) {
+
+// 116-3 P0-1(对抗审查):只匹配 toolName 字面量的判据在【通用执行工具】面前形同虚设 ——
+// `Bash`/`PowerShell`/`run_command`/`delete_file`/`kill_process`/`git_push` 一个都不命中上面那条正则,
+// 于是「全自动」线程里一条 `rm -rf <工作夹外路径>` / `winget uninstall X` / `curl -X POST` / `git push`
+// 都会被 steward_decide 自动放行。修法:对【不是 read/edit 档】的待决,除了工具名之外还要看命令文本
+// (调用方按 tier 决定传不传 input,见 13g stewardImplDecide),命中任一条即降级为提议。
+// 纪律与上面那条正则同源:宁可误判成「要人按」,不可漏判成「自动执行」—— 这五类动作没有 checkpoint 可回滚。
+const STEWARD_EXEMPT_CONTENT_PATTERNS = Object.freeze([
+  // ① 删除数据 / 格式化(不判「在不在工作夹里」:开始跑之前判不准,一律按最坏情况算)
+  /\brm\s+-[a-z]*r/i, /\brmdir\b/i, /\bdel\s+\/[sq]/i,
+  /\bremove-item\b[^\n]{0,200}?-(recurse|force)/i,
+  /\bformat\s+[a-z]:/i, /\bdiskpart\b/i, /\bmkfs\b/i,
+  // ② 修改系统设置 / 注册表 / 关机
+  /\breg\s+(add|delete)\b/i, /\bregedit\b/i,
+  /\b(set|new|remove)-itemproperty\b[^\n]{0,200}?hk(lm|cu)/i,
+  /\bnetsh\b/i, /\bshutdown\b/i, /\bbcdedit\b/i,
+  /\b(restart|stop)-computer\b/i,
+  // ③ 安装卸载软件
+  /\b(apt|apt-get|yum|dnf|pacman|brew|choco|winget|scoop)\s+(install|remove|uninstall|purge)\b/i,
+  /\bpacman\s+-[SR]/,                       // pacman 用短选项装/卸,不写 install/remove(大小写敏感:-S/-R 是它自己的语法)
+  /\bpip3?\s+(install|uninstall)\b/i,
+  /\bnpm\s+(install|uninstall|i)\b[^\n]{0,200}?(-g\b|--global\b)/i,
+  /\bmsiexec\b/i, /\b(install|uninstall)-(package|module)\b/i,
+  // ④ 对外发送(带请求体的外联写、邮件)
+  /\bcurl\b[^\n]{0,300}?(-x\s*(post|put|patch|delete)\b|--data\b|\s-d\s)/i,
+  /\bwget\b[^\n]{0,300}?--post/i,
+  /\binvoke-(webrequest|restmethod)\b[^\n]{0,300}?(-method\s*(post|put|patch|delete)\b|-body\b)/i,
+  /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i,
+  // ⑤ 把改动推出去(git push 不可撤销地外溢到远端)
+  /\bgit\s+push\b/i,
+]);
+const STEWARD_EXEMPT_INPUT_CHARS = 4000;   // 命令文本扫描的硬顶(超长 input 不该让判据变慢)
+const STEWARD_EXEMPT_INPUT_DEPTH = 4;
+// 把待决 input 里的【全部字符串值】摊平成一段文本。不按键名白名单取:命令可能藏在 command/script/args/
+// argv/input 任何一个键下(不同 MCP 服务器命名不一),漏一个键就是漏一整类绕过。
+function stewardExemptInputText(input, depth = 0) {
+  if (input == null || depth > STEWARD_EXEMPT_INPUT_DEPTH) return '';
+  if (typeof input === 'string') return input;
+  if (typeof input === 'number' || typeof input === 'boolean') return '';
+  if (Array.isArray(input)) {
+    const parts = [];
+    for (const item of input) {
+      parts.push(stewardExemptInputText(item, depth + 1));
+      if (parts.join(' ').length > STEWARD_EXEMPT_INPUT_CHARS) break;
+    }
+    return parts.join(' ');
+  }
+  if (typeof input === 'object') {
+    const parts = [];
+    for (const value of Object.values(input)) {
+      parts.push(stewardExemptInputText(value, depth + 1));
+      if (parts.join(' ').length > STEWARD_EXEMPT_INPUT_CHARS) break;
+    }
+    return parts.join(' ');
+  }
+  return '';
+}
+function stewardToolPermanentlyExempt(toolName, input) {
   const name = String(toolName == null ? '' : toolName);
-  return name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name);
+  if (name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name)) return true;
+  if (input == null) return false;
+  const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+  if (!composed) return false;
+  return STEWARD_EXEMPT_CONTENT_PATTERNS.some(pattern => pattern.test(composed));
 }
 
 // 委托书(§3.5「委派」/§11.1 第 9 项)。中和与 stewardSanitizeText 同源,区别只有一条:保留换行

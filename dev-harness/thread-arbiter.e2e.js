@@ -498,6 +498,36 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       ok(stillQueued.body.queue.length === 0 && stillQueued.body.running.length === 0, '⑥ 收场时队列与并发位都清空');
     }
 
+    /* ═════════ ⑫(116-3 P0-5:同 cwd 写互斥的 TOCTOU)═════════ */
+    // ③ 那一节两条回合之间隔了 150ms,先到的早就写进 running 了 —— 它测的是「排队看得懂」,不是竞态。
+    // 这一节把 4 条【同 cwd】的回合真正同时发出去(零间隔):修前 stewardAcquireTurnSlot 对全新条目走的是
+    // 「查一次 blocked -> 不阻塞就立刻 grant」的未同步快路径,中间隔着 readConfig / hasPending /
+    // arbiterBudget 三次真实 await,四条会一起判定「没人占着」然后各自 grant,写互斥形同虚设。
+    // 修后:全新条目也先入队,准入判定与写进 running 由 drain 在同一同步段里做。
+    {
+      // 并发位撑开:唯一还能挡住它们的只剩 cwd 写锁。
+      // stewardGlobalMaxCostPerDay 必须【大于 0】—— 它决定 stewardArbiterBlocked 里的预算闸要不要真去读
+      // 用量台账(一次真实磁盘读)。上限是 0 时那一步不 await 任何真东西,四条申请会被微任务顺序意外
+      // 串起来,竞态根本不出现;上限 >0 才是用户的常态配置,也才是这条 TOCTOU 的真实触发条件。
+      await setConfig({ stewardMaxParallelThreads: 8, stewardGlobalMaxCostPerDay: 100 });
+      const ids = [];
+      for (let i = 0; i < 4; i++) ids.push(await newSession('toctou-' + i, cwds.shared));
+      const s = sampler(WP, hdr);
+      const runs = await Promise.all(ids.map((id, i) => stream(WP, { sessionId: id, message: '同时冲 ' + i, cwd: cwds.shared }, hdr)));
+      await s.stop();
+      ok(runs.every(r => r.events.some(e => e.type === 'result' && e.ok === true)), '⑫ 4 条同 cwd 的并发回合最终都跑完');
+      const peakRunning = s.frames.reduce((max, f) => Math.max(max, f.running.length), 0);
+      ok(peakRunning <= 1, `⑫ 同时申请时 running 峰值仍是 1(修前会同时放行多条;实测 ${peakRunning})`);
+      // 墙钟下界:真串行的话总耗时至少是 4 个回合。并发放行的话 ~1 个回合就跑完了。
+      // (不能用 peakOverlap:`session` 帧在申请并发位【之前】就发了,四条流的第一帧本来就重叠。)
+      const elapsed = Math.max(...runs.map(r => r.endedAt)) - Math.min(...runs.map(r => r.startedAt));
+      ok(elapsed >= TURN_MS * 3, `⑫ 总耗时 ${elapsed}ms ≥ 串行下界 ${TURN_MS * 3}ms(并发放行的话一个回合就跑完了)`);
+      const waited = runs.filter(r => r.events.some(e => e.type === 'agent_resource' && e.state === 'waiting')).length;
+      ok(waited === 3, `⑫ 4 条里有 3 条真的等过锁(第 1 条不等;实测 ${waited})`);
+      const after = await req(WP, 'GET', '/api/steward/arbiter', undefined, hdr);
+      ok(after.body && after.body.running.length === 0 && after.body.queue.length === 0, '⑫ 收场时并发位与队列都清空(结转的入队路径不漏条目)');
+    }
+
     /* ═════════ 源码单点锁:四个展示面都走 06i 的 waitReasonFor ═════════ */
     {
       const SRC = path.join(WB, 'app', 'src');

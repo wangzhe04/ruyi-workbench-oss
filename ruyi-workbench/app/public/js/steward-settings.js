@@ -25,9 +25,10 @@ import {
 //   · 配置写口只有注入的 saveConfigPartial（= POST /api/config），本模块不自己拼那条请求；
 //   · `<a download>` 只用于记忆导出这一处（浏览器把 blob 存到本地，不经服务端）。
 //
-// 一条产品纪律（§8.6）：`POST /api/config` 的 applyConfigPatch 对全局 permissionMode 【不要求】
-// confirm（那道服务端门只在 13d 的 PATCH /api/sessions/:id 上，管的是线程级快切）。所以切到
-// 「全自动」的二次确认必须由界面自己出——用的还是 chips 那五条文案，不写第二份。
+// 一条产品纪律（§8.6）：切到「全自动」要二次确认。116-3 B1 之后这是【两半】——界面这一半出弹窗
+// （用的还是 chips 那五条文案，不写第二份），服务端那一半由 `POST /api/config` 的 applyConfigPatch
+// 守着（缺 confirm:true 就 409 permission.confirm_required，与 13d 的线程级 PATCH 同一个错误码）。
+// 所以本模块的写口在弹窗点过之后必须把 confirm:true 一起带上。
 
 export const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 export const STEWARD_DECISIONS_PAGE = 50;          // 一屏多少条（后端缺省也是 50）
@@ -304,11 +305,14 @@ export function createStewardSettingsDomain({
     if (accept) accept.focus();
   }
 
-  // 全局 permissionMode 的唯一写口。切「全自动」先出确认（服务端的 applyConfigPatch 不要求
-  // confirm，那道门只在线程级 PATCH 上，所以这一半必须由界面守住）。
+  // 全局 permissionMode 的唯一写口。切「全自动」先出确认（界面这一半），服务端的 applyConfigPatch
+  // 另有一道同码的 409 门（116-3 B1）——两半都在，脚本与界面走同一条纪律。
   async function setDefaultPermission(mode) {
     if (!STEWARD_PERMISSION_MODES.includes(mode)) return false;
-    if (!await saveConfig({ permissionMode: mode })) return false;
+    // 116-3 B1:服务端 applyConfigPatch 现在也有这道门(切「全自动」缺 confirm:true → 409
+    // permission.confirm_required)。走到这里时确认弹窗已经点过「知道了」——两处写口
+    //(设置页的选择器与管家盾牌菜单)都经 showPermissionConfirm 才调本函数,所以带上这个事实。
+    if (!await saveConfig({ permissionMode: mode, confirm: true })) return false;
     // 经典壳顶栏的安全 chip 与隐藏的 permSelect 读的是同一份 config：把值同步过去，
     // 免得在下一次 refreshStatus 之前两处显示不一致（真正的重绘仍归 provider-settings）。
     const legacy = byId('permSelect');

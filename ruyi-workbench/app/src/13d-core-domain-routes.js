@@ -249,6 +249,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
+      // 116-3 A2:管家会话不是线程 —— 它没有权限档、没有标题重命名语义,元数据一律不许经这条通用
+      // 路由改(GET 保留:117c 的历史渲染要读它)。与 10 的回合入口那道门同一条纪律:管家会话的写面
+      // 只有管家运行器自己。
+      if (id === STEWARD_SESSION_ID) {
+        return send(res, apiFailure('steward.forbidden', {}, 'the steward session cannot be patched through /api/sessions', 403));
+      }
       // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
       // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
       //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,

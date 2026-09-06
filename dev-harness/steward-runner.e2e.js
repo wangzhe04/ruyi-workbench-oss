@@ -465,6 +465,40 @@ try {
     writeConfig({ stewardMaxTurnsPerHour: 100 });
   }
 
+  /* ═════════ (G-3) 116-3 P0-6:到访归档与在途回合的互斥 ═════════ */
+  // 修前:stewardVisit 全文不读 stewardRunnerRuntime.inflight,所以 POST /api/steward/visit 可以和一个
+  // 在途 runStewardTurn 并发跑。两边各自 loadSession 拿到【不同的一份内存快照】,saveSession 的串行链
+  // 只保证落盘不交错、不合并快照 —— 谁排在后面谁整份覆盖。后果是归档件与活会话里同一条回复双双消失,
+  // 或者已归档的旧消息被复活。修后:归档前等在途回合收尾,等不到就 steward.busy(不归档、不重置到访)。
+  {
+    writeConfig({ stewardMaxTurnsPerHour: 100, stewardConversationRetention: 'visit' });
+    const liveText = () => { try { return fs.readFileSync(path.join(HOME, 'sessions', 'steward.messages.ndjson'), 'utf8'); } catch { return ''; } };
+    const archivedText = () => (fs.existsSync(visitsDir) ? fs.readdirSync(visitsDir) : [])
+      .map(f => { try { return fs.readFileSync(path.join(visitsDir, f), 'utf8'); } catch { return ''; } }).join('\n');
+    const countIn = (text, needle) => text.split(needle).length - 1;
+
+    // 先落一个锚点回合,再 force 一次到访把它归档掉 —— 之后活会话里【不该】再有这句话。
+    await srv.runStewardTurn({ trigger: 'user', message: '锚点消息-P06' });
+    await srv.stewardVisit({ force: true });
+    ok(!liveText().includes('锚点消息-P06'), 'G12 前置:锚点回合已经被归档,活会话里没有它了');
+
+    // 并发:一个在途回合 + 一次强制到访。sleep 让回合先把 inflight 挂上(它要先过熔断与会话装载)。
+    const turn = srv.runStewardTurn({ trigger: 'user', message: '并发消息-P06' });
+    await sleep(120);
+    const visit = await srv.stewardVisit({ force: true });
+    const turnResult = await turn;
+    ok(turnResult && turnResult.ok === true, `G13 并发的用户回合照常跑完(got ${turnResult && (turnResult.error || 'ok')})`);
+    ok(visit && (visit.ok === true || visit.error === 'steward.busy'),
+      `G14 到访要么等到回合收尾再归档、要么如实回 steward.busy(got ${visit && (visit.error || 'ok')})`);
+
+    const inLive = countIn(liveText(), '并发消息-P06');
+    const inArchive = countIn(archivedText(), '并发消息-P06');
+    ok(inLive + inArchive >= 1, `G15 并发写的那条消息没丢(活会话 ${inLive} 处 / 归档 ${inArchive} 处)`);
+    ok(inLive + inArchive === 1, `G16 也没有被写进两个地方(总共 ${inLive + inArchive} 处)`);
+    ok(!liveText().includes('锚点消息-P06'),
+      'G17 已归档的旧消息没有被在途回合的陈旧快照复活(修前这里会把整段历史盖回活会话)');
+  }
+
   /* ═════════ (A-2) 开关关时回合入口零副作用 ═════════ */
   {
     writeConfig({ stewardEnabledV1: false, stewardMaxTurnsPerHour: 100 });

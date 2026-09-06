@@ -163,7 +163,24 @@ async function setSessionSkillsCore(sessionId, skills) {
 // 另一条路就会静默漏掉它们(「改了上限要等下一条线程跑完才生效」正是这种漏的样子)。
 // 入参 body = 用户/管家提交的 patch(未 normalize);返回 writeConfig 之后已 normalize 的 next。
 // 路由层只剩 body 解析与掩码回包;13g 的 steward_config_set 调它(13g 在 13 之后,是后向边)。
-async function applyConfigPatch(body) {
+async function applyConfigPatch(rawBody) {
+  // 116-3 B1(会话/权限口径子审查):把全局默认权限切到「全自动」此前【没有服务端门】——
+  // §8.6 那条二次确认只由界面出,任何别的调用方(脚本、117 壳、管家自己)一个 POST 就能把全局
+  // 默认档改成 auto/bypass。13d 的 PATCH /api/sessions/:id 早就有这道门(同一张
+  // PERMISSION_MODES_REQUIRING_CONFIRM、同一个 permission.confirm_required 错误码),这里补齐另一半。
+  // `confirm` 是请求级信号不是配置键,判完就从 patch 里剥掉,绝不能跟着 merged 落进 config.json。
+  const raw = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
+  const confirmed = raw.confirm === true;
+  const body = { ...raw };
+  delete body.confirm;
+  if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+    const requested = body.permissionMode == null ? '' : String(body.permissionMode);
+    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && !confirmed) {
+      throw Object.assign(new Error('switching the global default to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)'), {
+        code: 'permission.confirm_required', statusCode: 409, permissionMode: requested,
+      });
+    }
+  }
   const current = await readConfig();
   const merged = { ...current, ...body };
   // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
@@ -409,7 +426,17 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
-    const next = await applyConfigPatch(body);
+    let next = null;
+    try {
+      next = await applyConfigPatch(body);
+    } catch (error) {
+      // 116-3 B1:切全局默认权限到「全自动」缺 confirm:true -> 409,错误码与 13d 的线程级 PATCH 同一个。
+      if (error && error.code === 'permission.confirm_required') {
+        return send(res, apiFailure('permission.confirm_required', { permissionMode: String(error.permissionMode || '') },
+          String(error.message || ''), 409));
+      }
+      throw error;
+    }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
   if (req.method === 'GET' && pathname === '/api/agent-roles') {
@@ -1440,7 +1467,16 @@ async function handleApi(req, res, pathname) {
     return send(res, { status: 200, headers: { 'content-type': contentTypeFor(name), 'cache-control': 'private, max-age=86400' }, body: buffer });
   }
   if (req.method === 'POST' && pathname === '/api/chat/stream') {
-    return streamChat(req, res);
+    // 116-3 A2:管家会话不接受普通聊天入口发起的回合(判据与抛点在 10 的 runSessionTurn 顶部;
+    // 那里抛得比 onStart 早,响应头还没发出,所以这里能给一条正经的 403 稳定信封)。
+    try {
+      return await streamChat(req, res);
+    } catch (error) {
+      if (error && error.code === 'STEWARD_SESSION_FORBIDDEN') {
+        return send(res, apiFailure('steward.forbidden', {}, String(error.message || 'forbidden'), 403));
+      }
+      throw error;
+    }
   }
   if (req.method === 'POST' && pathname.startsWith('/api/tools/')) {
     const body = await readJsonBody(req);

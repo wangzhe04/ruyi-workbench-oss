@@ -2199,6 +2199,18 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 116-3 A2(会话/权限口径子审查):管家会话【只能】由管家运行器发起回合。任何别的调用面
+  // (直连 POST /api/chat/stream 打 sessionId=steward 是最直接的一条)都会拿到 core/shell/steward
+  // 三个工具包整份offer,并且完全绕开 13h 的编排、熔断、预算、抢占与决策日志 —— 那等于用普通会话
+  // 的身份跑一个管家回合。判据读【原始】 session.kind(sessionKind() 会把它归一成 quick_ask),
+  // 与 09/10 既有的两处管家分叉同口径;放行条件是 source === 'steward'(13h 的 runStewardTurn 与
+  // 13g 的 stewardLaunchTurn 都用这个来源)。抛而不是返回信封:HTTP 壳的响应头此刻还没发出去,
+  // 抛回路由层才能给一条 4xx 稳定信封(返回值会让流壳既不写头也不 end,请求直接挂死)。
+  if (session && session.kind === 'steward' && source !== 'steward') {
+    throw Object.assign(new Error('the steward session only accepts turns started by the steward runner'), {
+      code: 'STEWARD_SESSION_FORBIDDEN', statusCode: 403,
+    });
+  }
   // 116-2a(§3.3):档位解析挪到会话装载【之后】,因为多了中间一层「会话级」。优先级固定
   // 请求级 > 会话级 > 全局,解析器是 01-config 的纯函数 resolvePermissionMode(三层各自只认
   // PERMISSION_MODES 白名单,非法/缺失静默回落下一层)。没有设过会话级档的会话(含全部存量会话)

@@ -42,6 +42,7 @@ const STEWARD_MERGE_WINDOW_MS = 5000;      // §11.3:同 sessionId 同 kind 5 �
 const STEWARD_SUMMARY_CHARS = 200;         // payload 摘要硬顶(与 STEWARD_DIGEST_LIMITS.lastSayChars 同数)
 const STEWARD_MERGED_SEQS_MAX = 20;        // 合并行里回填的源 seq 上限(供重启重建去重集合)
 const STEWARD_TICK_MAX_EVENTS = 200;       // 单轮入箱上限(防某次大补账把箱子灌爆)
+const STEWARD_CARRY_MAX_EVENTS = 5000;     // 116-3 P0-3:跨轮结转队列硬顶(超出才真的丢,并落一条日志)
 
 // ── 轮询成本常量 ────────────────────────────────────────────────────────────
 const STEWARD_ACTIVE_WINDOW_MS = 24 * 60 * 60 * 1000; // 「活跃」= 有待决 / 未终态 / 24 小时内有变更
@@ -411,6 +412,10 @@ const stewardRuntime = {
   lastError: '',
   seen: new Set(),      // 去重集合(启动时从 inbox 尾部重建,上限 STEWARD_DEDUPE_TAIL_ROWS 行)
   cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set() },
+  // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
+  // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
+  // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
+  carry: [],
 };
 let stewardAppendChain = Promise.resolve();
 
@@ -422,6 +427,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set() };
+  stewardRuntime.carry = [];
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -656,8 +662,22 @@ async function stewardTickOnce() {
   await stewardLoadState();
   const { events, activeSessionIds, activeRunIds } = await stewardCollectEvents();
   if (generation !== stewardRuntime.generation) return { written: 0, aborted: true };
-  const fresh = events.filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)));
-  const merged = stewardMergeInboxEvents(fresh, STEWARD_MERGE_WINDOW_MS).slice(0, STEWARD_TICK_MAX_EVENTS);
+  // 116-3 P0-3:上一轮结转下来的事件排在最前(它们更早发生,游标也早已越过它们)。
+  const carried = stewardRuntime.carry;
+  stewardRuntime.carry = [];
+  const fresh = carried.concat(events)
+    .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  // 截断改在【合并之前】、对原始事件做,超出的部分原样结转到下一轮 —— 旧写法是「合并后 slice(0,200)」,
+  // 被切掉的那些事件的游标已经前移,下一轮再也读不到它们(P0-3 的根因)。
+  const head = fresh.slice(0, STEWARD_TICK_MAX_EVENTS);
+  const rest = fresh.slice(STEWARD_TICK_MAX_EVENTS);
+  if (rest.length) {
+    const kept = rest.slice(0, STEWARD_CARRY_MAX_EVENTS);
+    stewardRuntime.carry = kept;
+    logEvent({ kind: 'steward_inbox_deferred', deferred: kept.length, dropped: rest.length - kept.length });
+  }
+  const merged = stewardMergeInboxEvents(head, STEWARD_MERGE_WINDOW_MS);
   const rows = [];
   for (const row of merged) {
     stewardRuntime.inboxSeq += 1;

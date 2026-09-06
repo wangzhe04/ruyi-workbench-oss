@@ -890,11 +890,49 @@ function stewardLaunchTurn(input, tool) {
   return promise;
 }
 
+// ── 116-3 P0-2(对抗审查:线程族三工具在三条路径上都没有接入权限门)────────────────────────
+// 触发面判定。`ctx.trigger` 由回合运行器的三个执行点显式给:
+//   · 模型在结构化回复里声明的 actions —— 透传本回合的 'user' | 'inbox';
+//   · 确定性自理(七道闸那条路)—— 恒 'inbox',并另带 ctx.selfServe = true;
+//   · 用户在界面上亲手按下按钮的 act 执行路径 —— 恒 'user'。
+// 这里用的是 trigger 而【不是】 userPressed:后者的读者按 06i 契约与静态锁只有 config_set /
+// skill_toggle 两处(「按钮 ≠ 扩权」),线程族的在不在场判定不该去挤那个字段。
+// 其余调用面(工具循环里模型直接调、进程内直调)没有 trigger —— 保持既有直递语义。
+function stewardTriggerOf(ctx) {
+  const raw = String((ctx && ctx.trigger) || '');
+  return raw === 'inbox' || raw === 'user' ? raw : '';
+}
+// 这一次调用是不是「模型自己在无人值守回合里决定要动别的线程」。
+// 三者都不是它:① 用户就在跟前(trigger==='user',含亲手按按钮那条路);② 13h 的【确定性自理】(七道闸,
+// ctx.selfServe === true —— 它按事件类别走的是 §3.3 真值表的 'failed' 档,不是 'relay' 档,已经在
+// stewardSelfServeGate 里逐条判过了,这里再按 relay 判一次会把「失败自动重试」也一起挡掉);
+// ③ 没有 trigger 的调用面(进程内直调/工具循环)—— 保持既有直递语义。
+// ctx 由 13h 构造,模型碰不到它;args 里同名字段一概不作数(与 userPressed 同一条纪律)。
+function stewardUnattendedByModel(ctx) {
+  if (!ctx || ctx.selfServe === true) return false;
+  return stewardTriggerOf(ctx) === 'inbox';
+}
+// 无人值守(inbox)触发时线程族的自理清单闸:relay 没勾选就只提议。
+function stewardRelayAutoAllowed(config) {
+  const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
+  return auto.relay === true;
+}
+
 // 10) steward_thread_new —— 委托书。原话逐字在最前,管家补充经中和后进围栏(见 06i buildStewardBrief)。
 async function stewardImplThreadNew(args, ctx, config) {
   const brief = (args.brief && typeof args.brief === 'object') ? args.brief : null;
   if (!brief || !String(brief.userText || '').trim()) {
     return stewardFail('invalid_request', 'brief.userText is required and must contain the user\'s own words verbatim');
+  }
+  // 116-3 P0-2:收件箱触发的「自己新开线程」要用户先在自理清单里留着这一项(§11.1 第 6 项)。
+  // 新线程还没有目标线程可判权限,所以这里只有清单这一道闸;新线程自己的权限由全局默认档决定。
+  if (stewardUnattendedByModel(ctx)) {
+    const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
+    if (auto.newThread === false) {
+      return stewardFail('propose_required', '「自己新开线程」已经关掉,无人值守时只能把它作为提议交给用户,不要重试', {
+        reason: 'self_serve_off', tool: 'steward_thread_new',
+      });
+    }
   }
   const composed = buildStewardBrief(brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
@@ -958,6 +996,25 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 忙锁复用既有活回合判定(activeChildren —— 与 mission 五态的 activeTurn 同一权威信号),不新造锁。
   if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} already has a turn in flight; do not retry — tell the user or wait for it to settle`);
 
+  // 116-3 P0-2:无人值守(收件箱)触发的递话要过两道闸 —— 自理清单勾选 + 目标线程权限档
+  // (§3.5 工具面表格:线程族按目标线程权限,「每步都问」「只做计划」一律提议)。判据与
+  // stewardImplDecide / stewardImplRunAction 同一写法:先算 mayAct,不是 'auto' 就 propose_required。
+  const permissionMode = stewardThreadPermissionMode(head, config);
+  let mayAct = 'auto';
+  if (stewardUnattendedByModel(ctx)) {
+    if (!stewardRelayAutoAllowed(config)) {
+      return stewardFail('propose_required', '「事项内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
+        reason: 'self_serve_off', sessionId, permissionMode,
+      });
+    }
+    mayAct = stewardMayAct(permissionMode, 'relay', 'edit');
+    if (mayAct !== 'auto') {
+      return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,管家不能在你不在场时直接往它里面递话;把它作为提议交给用户,不要重试`, {
+        reason: 'target_permission', sessionId, permissionMode,
+      });
+    }
+  }
+
   // 递话【前】的 turnSeq:检查点以它为锚。但 rewindSession 的主键【不是】它 —— 它按「要删的那一回合的
   // 第一条用户消息」定位,即 plannedTurnSeq = 递话前 turnSeq + 1(与 09-workflow 同口径)。117d 第 0 步
   // 补出显式字段 rewindTargetTurnSeq;turnSeq 语义保持「递话前」不变(既有消费者逐字节不受影响)。
@@ -975,8 +1032,10 @@ async function stewardImplThreadContinue(args, ctx, config) {
     tool: 'steward_thread_continue',
     args: { messageChars: message.length },
     targetSessionId: sessionId,
-    permissionMode: stewardThreadPermissionMode(head, config),
-    mayAct: 'auto',
+    permissionMode,
+    // 116-3 P0-2:写【真实】判定值,不再是硬编码 'auto' —— 决策日志要能事后对账
+    // 「这个动作到底是不是该提议而没提议」。
+    mayAct,
     undoRef,
     basis,
   });
@@ -996,6 +1055,19 @@ async function stewardImplThreadRename(args, ctx, config) {
   // 在回合的收尾 save 之后落盘,把回合刚写进去的消息用陈旧副本盖掉(会话正文缩水 = 头计数与正文行数错位)。
   // 经典壳的重命名由用户手动触发、撞上的概率低;管家是自动的,必须显式挡住。
   if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} has a turn in flight; rename it after the turn settles`);
+  // 116-3 P0-2:改名同样按目标线程权限档判(§3.5 线程族整行都是「按目标线程权限」)。
+  // 13h 的 stewardSelfServeAllows 末尾原有的注释说「rename 由 13g 内部的 stewardMayAct 裁决」——
+  // 那句话此前是错的(内部根本没有这个裁决),这一行把它补成真的。
+  const currentMode = stewardThreadPermissionMode(head, config);
+  let renameMayAct = 'auto';
+  if (stewardUnattendedByModel(ctx)) {
+    renameMayAct = stewardMayAct(currentMode, 'relay', 'edit');
+    if (renameMayAct !== 'auto') {
+      return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(currentMode)}」,管家不能在你不在场时改它的标题;把它作为提议交给用户,不要重试`, {
+        reason: 'target_permission', sessionId, permissionMode: currentMode,
+      });
+    }
+  }
   const previousTitle = String(head.title || '');
   // 复用既有的会话元数据更新原语(PUT /api/sessions/:id 背后那一个),不另开第二条改名写路径。
   const session = await updateSessionMeta(sessionId, { title });
@@ -1006,7 +1078,7 @@ async function stewardImplThreadRename(args, ctx, config) {
     args: { title, previousTitle },
     targetSessionId: sessionId,
     permissionMode: stewardThreadPermissionMode(session, config),
-    mayAct: 'auto',
+    mayAct: renameMayAct,   // 116-3 P0-2:真实判定值,不再是常量
     undoRef,
     basis: {},
   });
@@ -1075,7 +1147,11 @@ async function stewardImplDecide(args, ctx, config) {
   const permissionMode = stewardThreadPermissionMode(head, config);
 
   // §3.3 永久豁免:命中即降级为提议,任何权限档都不放行 —— 这类动作没有 checkpoint 可回滚。
-  if (type === 'permission' && stewardToolPermanentlyExempt(toolName)) {
+  // 116-3 P0-1:read/edit 档只看工具名(那两档本来就不碰系统面);其余(exec 与档位缺失)连
+  // 命令文本一起看 —— `Bash`/`PowerShell`/`run_command` 这类通用执行工具的名字什么关键词都不含,
+  // 只看名字等于对 `rm -rf` / `winget uninstall` / `curl -X POST` / `git push` 完全不设防。
+  const exemptInput = (tier === 'read' || tier === 'edit') ? null : current.input;
+  if (type === 'permission' && stewardToolPermanentlyExempt(toolName, exemptInput)) {
     return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
       reason: 'permanently_exempt', missionId, interventionId, type, toolName, permissionMode,
     });
@@ -1138,6 +1214,25 @@ async function stewardImplDecide(args, ctx, config) {
 const STEWARD_RUN_TIGHTENING = Object.freeze(['pause', 'stop']);
 const STEWARD_RUN_ADVANCING = Object.freeze(['resume', 'retry_node', 'steer_node']);
 const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'failed', steer_node: 'plan' });
+// 116-3 P0-4(对抗审查):续跑的第六道闸(§11.3 116-2b 行「权限面不可证明就不自动」)此前【只】长在
+// 13h 的确定性自理路径上 —— 模型在结构化回复里声明 {tool:'steward_run_action', args:{action:'resume'}}
+// 的那条路完全绕开它,一个被判为 manual_resume_required(有非纯读节点停在半路 / 权限面变过)的班组
+// 会被自动续跑。判据的【唯一权威点】按 §3.3 的既定纪律在 13g 工具内部,故函数搬到这里;13h 的自理
+// 预闸仍调它(13h -> 13g 是后向边),两处共用同一份判定,不再各写一份。
+// 读不到快照一律按不安全处理('unknown' ≠ 'auto_resumable')。
+async function stewardRunResumeTier(sessionId, runId, config) {
+  let raw = null;
+  try {
+    raw = await fsp.readFile(agentRunFile(sessionId, runId), 'utf8');
+  } catch (error) {
+    // 快照【根本不存在】≠「不敢续跑」:那是「没有这条班组可续」,核心自己会回 run_action_failed,
+    // 拿它当危险来挡会把一个 not-found 说成安全问题。其余读失败(权限/IO)一律按不安全处理。
+    return (error && error.code === 'ENOENT') ? 'missing' : 'unknown';
+  }
+  const run = safeJsonParse(raw, null);
+  if (!run) return 'unknown';
+  return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
+}
 async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
@@ -1155,6 +1250,16 @@ async function stewardImplRunAction(args, ctx, config) {
     return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「全自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
+  }
+  // 116-3 P0-4:第六道闸。放在 mayAct 之后、真正下发命令之前 —— 权限档允许不代表这条班组
+  // 「重启后自动跑起来」是安全的(那是 run 快照自己的分级,与线程权限档正交)。
+  if (action === 'resume') {
+    const resumeTier = await stewardRunResumeTier(sessionId, runId, config);
+    if (resumeTier !== 'auto_resumable' && resumeTier !== 'missing') {
+      return stewardFail('propose_required', `这条班组重启后被判为「${stewardSanitizeText(resumeTier || '未知')}」,自动续跑不安全;把它作为提议交给用户按,不要重试`, {
+        reason: 'resume_tier', sessionId, runId, action, permissionMode, resumeTier,
+      });
+    }
   }
   const cmd = await agentRunActionCommand({
     sessionId, runId, action,
@@ -1533,8 +1638,9 @@ async function stewardImplConfigGet(args, ctx, config) {
 //     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
 //     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
 async function stewardImplConfigSet(args, ctx, config) {
-  const patch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
-  if (!patch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
+  const rawPatch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
+  if (!rawPatch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
+  const patch = { ...rawPatch };   // 本地副本:下面要往里塞一个请求级信号(confirm),不该改模型给的对象
   const keys = Object.keys(patch);
   if (!keys.length) return stewardFail('invalid_request', 'patch is empty');
   if (keys.length > 32) return stewardFail('invalid_request', 'patch carries too many keys (max 32)');
@@ -1563,6 +1669,12 @@ async function stewardImplConfigSet(args, ctx, config) {
   for (const key of keys) before[key] = config[key];
   // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
   // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
+  // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
+  // 走到这一行时 confirm 档的判定已经过了(permissionMode 本来就在 STEWARD_CONFIG_TIER_CONFIRM 里,
+  // 所以想改它必须 ctx.userPressed === true = 用户在界面上亲手按下了那个按钮),这个事实如实带过去。
+  // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
+  // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
+  patch.confirm = true;
   const next = await applyConfigPatch(patch);
   const applied = {};
   for (const key of keys) applied[key] = next[key];

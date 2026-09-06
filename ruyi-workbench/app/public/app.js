@@ -1033,7 +1033,7 @@ function bindEvents() {
         e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
       }
     }
-    saveConfigPartial({ permissionMode: e.target.value }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast(t('permission.mode.bypass.activated'), 'err'); else if (e.target.value === 'auto') toast(t('permission.mode.auto.activated'), 'ok');
+    saveConfigPartial({ permissionMode: e.target.value, confirm: true }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast(t('permission.mode.bypass.activated'), 'err'); else if (e.target.value === 'auto') toast(t('permission.mode.auto.activated'), 'ok'); // 116-3 B1: confirm:true = 用户亲手切的(applyConfigPatch 的 409 门)
   };
   $('themeToggle').onclick = toggleTheme;
   { const um = $('uiModeToggle'); if (um) um.onclick = toggleUiMode; } // v0.9-S1 (C1)

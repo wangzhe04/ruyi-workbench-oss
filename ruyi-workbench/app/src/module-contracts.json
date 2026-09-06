@@ -3596,6 +3596,9 @@
         "STEWARD_CONFIG_TIER_FREE",
         "STEWARD_DIGEST_LIMITS",
         "STEWARD_EVENT_KINDS",
+        "STEWARD_EXEMPT_CONTENT_PATTERNS",
+        "STEWARD_EXEMPT_INPUT_CHARS",
+        "STEWARD_EXEMPT_INPUT_DEPTH",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
@@ -3626,6 +3629,7 @@
         "isStewardToolName",
         "prerouteText",
         "stewardConfigTierFor",
+        "stewardExemptInputText",
         "stewardHasText",
         "stewardMayAct",
         "stewardMayTightenTo",
@@ -8687,6 +8691,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
           "kinds": [
             "call"
@@ -10709,6 +10720,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -11164,6 +11182,7 @@
       "layer": "transport",
       "provides": [
         "STEWARD_ACTIVE_WINDOW_MS",
+        "STEWARD_CARRY_MAX_EVENTS",
         "STEWARD_CURSOR_FILE",
         "STEWARD_CURSOR_MAX_PENDING",
         "STEWARD_CURSOR_MAX_RUNS",
@@ -11458,12 +11477,16 @@
         "stewardReadDecisionsText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
+        "stewardRelayAutoAllowed",
+        "stewardRunResumeTier",
         "stewardSourceIsUserMessage",
         "stewardThreadPermissionMode",
         "stewardToolCallLine",
         "stewardToolHandler",
+        "stewardTriggerOf",
         "stewardTurnKeyOf",
-        "stewardTurnQuotaTake"
+        "stewardTurnQuotaTake",
+        "stewardUnattendedByModel"
       ],
       "requires": [
         {
@@ -11922,6 +11945,20 @@
           ]
         },
         {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "classifyRunResumeTier",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "08-agent-runs.js",
           "symbol": "listAgentRuns",
           "kinds": [
@@ -12151,7 +12188,6 @@
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunAct",
-        "stewardRunResumeTier",
         "stewardRunnerRuntime",
         "stewardRunnerState",
         "stewardSelfServeAllows",
@@ -12225,13 +12261,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "readUsageRows",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "safeJsonParse",
           "kinds": [
             "call"
           ]
@@ -12503,20 +12532,6 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
-          "symbol": "agentRunFile",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "classifyRunResumeTier",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "08-agent-runs.js",
           "symbol": "parseStructuredAgentOutput",
           "kinds": [
@@ -12589,6 +12604,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardReadSessionHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardRunResumeTier",
           "kinds": [
             "call"
           ]

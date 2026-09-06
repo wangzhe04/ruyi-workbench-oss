@@ -571,7 +571,9 @@ async function stewardExecuteActions(actions, session, config, trigger) {
     }
     let result;
     try {
-      result = await StewardHooks[hookKey](args, { session, sessionId: session.id, config });
+      // 116-3 P0-2:trigger 进 ctx —— 13g 的线程族三工具据它区分「用户就在跟前」(直递)与
+      // 「无人值守的收件箱回合」(要过自理清单 + 目标线程权限两道闸)。本文件不复制那套判据。
+      result = await StewardHooks[hookKey](args, { session, sessionId: session.id, config, trigger });
     } catch (error) {
       result = stewardFail('steward.failed', String((error && error.message) || error));
     }
@@ -665,13 +667,8 @@ function stewardSelfServePlan(evt) {
 
 // 续跑的第六道闸:重启后这条班组敢不敢自动跑,由既有 classifyRunResumeTier 说了算(权限面不可
 // 证明 / 有非纯读节点停在半路 -> manual_resume_required)。读不到快照一律按不安全处理。
-async function stewardRunResumeTier(sessionId, runId, config) {
-  try {
-    const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
-    if (!run) return 'unknown';
-    return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
-  } catch { return 'unknown'; }
-}
+// 116-3 P0-4:判定本体搬去 13g 的 stewardRunResumeTier(与 steward_run_action 工具内部共用同一份
+// ——「唯一权威判据」要真的唯一);本文件的自理预闸只是调它,不再另写一份。13h -> 13g 是后向边。
 
 async function stewardSelfServeGate(plan, config) {
   const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
@@ -751,7 +748,10 @@ async function stewardSelfServeInbox(events, session, config) {
         // 决策日志的 basis:哪条收件箱事件触发的、是不是自理、什么来源。13g 的两个实现把它并进
         // basis 落盘(args 本身照旧只记摘要字段,不落这一坨)。
         stewardBasis: { inboxSeq, auto: true, origin: plan.origin || ('steward-' + plan.intent) },
-      }, { session, sessionId: session.id, config });
+        // 116-3 P0-2:确定性自理【只】发生在收件箱回合(runStewardTurn 里 trigger==='inbox' 才调本函数),
+        // 故 ctx.trigger 恒为 'inbox';同时置 selfServe:true —— 这一条已经过了上面 stewardSelfServeGate
+        // 的七道闸(含按事件类别的 stewardMayAct(mode,'failed','exec')),13g 不该再按 'relay' 档判第二遍。
+      }, { session, sessionId: session.id, config, trigger: 'inbox', selfServe: true });
     } catch (error) {
       row.result = stewardFail('steward.failed', String((error && error.message) || error));
     }
@@ -1140,6 +1140,27 @@ async function stewardVisit(opts) {
   const previousStartedAt = stewardRunnerRuntime.visit.startedAt;
   const sinceSeq = Math.max(0, Number(stewardRunnerRuntime.visit.inboxSeq) || 0);
 
+  // 116-3 P0-6(对抗审查):到访归档与在途管家回合会【并发】读-改-写同一份管家会话文件。
+  // saveSession 的 sessionWriteChains 只序列化「落盘」这个动作本身,不合并两个调用方各自持有的
+  // 内存快照 —— 谁的 save 排在后面,谁那份快照就整份覆盖文件。后果是回合刚写的回复在归档件与活
+  // 会话里【双双消失】,或者已归档的旧消息被复活,两种都不报错。
+  // 修法:归档前等在途回合收尾(上限与用户抢占同一个 STEWARD_PREEMPT_WAIT_MS);等不到就
+  // steward.busy —— 不归档、不重置到访,下一次打开再来(到访是可重试的,数据不是)。
+  if (newVisit) {
+    const inflight = stewardRunnerRuntime.inflight;
+    if (inflight && inflight.promise) {
+      await Promise.race([
+        inflight.promise.catch(() => {}),
+        new Promise(resolve => { const t = setTimeout(resolve, STEWARD_PREEMPT_WAIT_MS); if (t && t.unref) t.unref(); }),
+      ]);
+    }
+    if (stewardRunnerRuntime.inflight) {
+      return stewardFail('steward.busy', '管家正在跑一个回合,归档要等它收尾才安全;稍后再打开一次', {
+        inflight: String(stewardRunnerRuntime.inflight.kind || ''),
+      });
+    }
+  }
+
   let archive = { archived: 0, file: '', kept: -1 };
   if (newVisit) {
     archive = await stewardArchiveConversation(config, previousStartedAt || nowIso()).catch(() => ({ archived: 0, file: '', kept: -1 }));
@@ -1200,7 +1221,10 @@ async function stewardRunAct(act, config) {
   // 116-2e:`userPressed` 的【唯一】来源就是这一行 —— 用户在界面上亲手按下了这个按钮。
   // 只有 steward_config_set 与 steward_skill_toggle 的「须确认」判定读它;stewardMayAct、
   // 永久豁免清单与线程权限判定一概不读(06i 契约注释与 steward-tools.static ⑦ 机械看住)。
-  const result = await StewardHooks[hookKey](args, { session: ensured.session, sessionId: ensured.session.id, config, userPressed: true });
+  // 116-3 P0-2:trigger:'user' —— 用户就站在这个按钮前面,线程族的「无人值守」闸门不适用。
+  // 它与 userPressed 是两件不同的事:trigger 说的是「用户在不在场」,userPressed 说的是
+  // 「这一次配置改动是不是用户亲手按的」,后者的读者只有 config_set / skill_toggle 两处(06i 契约)。
+  const result = await StewardHooks[hookKey](args, { session: ensured.session, sessionId: ensured.session.id, config, trigger: 'user', userPressed: true });
   // 按钮【被执行了】就是 ok:true —— 工具自己的稳定信封(propose_required / not_found / version_conflict …)
   // 原样放在 result 里交给界面去说人话。只有 act 本身不合法(未知 kind、非管家工具、开关关)才是 4xx:
   // 把「工具说不行」翻译成 HTTP 错误会让前端分不清「按钮坏了」和「这件事不该这么做」。
@@ -1525,7 +1549,9 @@ async function stewardArbiterDrain() {
     const blocked = await stewardArbiterBlocked(entry, config);
     const at = stewardArbiter.queue.indexOf(entry);   // await 期间队列可能被别的路径改过,重新定位
     if (entry.cancelled || at < 0) continue;
-    if (blocked) { stewardArbiterSetWait(entry, blocked); continue; }
+    // 116-3 P0-5:waited 在这里置(而不是入队时)—— 全新条目现在也先入队,只有【真的被挡住】的那些
+    // 才该在事件流里出现 waiting/acquired/released 三帧。
+    if (blocked) { entry.waited = true; stewardArbiterSetWait(entry, blocked); continue; }
     stewardArbiter.queue.splice(at, 1);
     stewardArbiterDetach(entry);
     if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }
@@ -1573,22 +1599,27 @@ async function stewardAcquireTurnSlot(input) {
     onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null,
     signal: opts.signal || null,
   };
-  const blocked = await stewardArbiterBlocked(entry, config);
-  if (!blocked) return stewardArbiterGrant(entry);
   if (entry.signal && entry.signal.aborted) return { granted: false, reason: 'aborted' };
   // 队列硬顶:排队是为了让用户看得懂,不是背压手段。堆到 500 条说明别处已经出问题了,放行比挂死诚实。
+  // (这一判定是同步的,可以留在入队之前;真正的准入判定见下。)
   if (stewardArbiter.queue.length >= STEWARD_ARBITER_QUEUE_MAX) return stewardArbiterGrant(entry);
-  entry.waited = true;
+  // 116-3 P0-5(对抗审查:同 cwd 写互斥的 TOCTOU):全新条目【也】一律先入队,准入判定与「写进
+  // running」由 stewardArbiterDrain 在【同一个同步段】里完成(drain 自己有 draining 单飞标志)。
+  // 旧写法在这里单独跑一次 stewardArbiterBlocked 再 grant —— 中间隔着 readConfig / hasPending /
+  // arbiterBudget 三次真实 await(都会让出事件循环),两条 cwd 相同的全新回合几乎同时到达时会
+  // 双双判定「没人占着」然后各自 grant,116h 的核心保证在真实并发下根本不成立。
+  // 代价:没被挡住的回合也多走一次 drain 的 readConfig(不缓存,§8.10 要求上限改动即时生效)。
+  // waited 保持 false —— 只有真的被挡住时 drain 才置 true,没等过的回合在事件流里不多两帧。
   stewardArbiter.queue.push(entry);
-  stewardArbiterSetWait(entry, blocked);
-  return new Promise(resolve => {
+  const admitted = new Promise(resolve => {
     entry.resolve = resolve;
     if (entry.signal) {
       entry.onAbort = () => { stewardArbiterCancel(entry, 'aborted'); };
       try { entry.signal.addEventListener('abort', entry.onAbort, { once: true }); } catch { /* 无 EventTarget 的 signal:忽略 */ }
     }
-    stewardArbiterScheduleDrain();
   });
+  stewardArbiterScheduleDrain();
+  return admitted;
 }
 
 // 这条线程此刻在等什么(同步只读)。返回值直接喂 06i 的 waitReasonFor —— 四个展示面(thread_status /
