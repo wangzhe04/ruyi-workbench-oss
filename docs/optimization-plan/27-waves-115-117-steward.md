@@ -379,3 +379,67 @@
     ⑤ **数据事故**：19:36:49 一次整份 `POST /api/config` 把五个 Provider 连密钥写成 `[]`。根因链（对抗审查 P0-1 实测）：`navigation-controls.openModal` 先摘 hidden 再调 `fillSettings`，「弹窗隐藏才播种」守卫在用户点开设置那一刻恒假，`providersDraft` 停在初始 `[]`，`saveSettings` 无条件上传。恢复：从 `config.json.bak-20260809` 找回 deepseek／openai-compatible 含密钥，重建本机 Ollama 条目，glm／dashscope 只能重建条目（密钥无副本，用户重填）；被清空版本另存 `config.json.bak-20260906-wiped`。修复 `ed2dd19`（前端 `providersDraftSeeded` 守门；服务端清空前备份 `config.json.bak-providers-<ts>`＋审计）、`c214f3f`（从未播种时无论弹窗开合都播种；**P0-2** `readConfig` 把任何读失败当全新安装并写回默认→只 ENOENT 且无 `.prev` 才落默认，损坏／读失败先从每次覆盖前留的 `config.json.prev` 恢复，否则用本进程上一次好副本自愈，没有就降级拒写 `config.read_degraded`；清册 48→49 config-backups）、`0ad3a32`（**`.prev` 含明文密钥而 `isSensitiveDataPath` 只认精确名，audit-w23 P1#2 实测 file_search 能搜出**→ dataRoot 直系 `config.json*` 一律敏感；providers 任何缩水都备份并记 `config_providers_shrunk`；`addProviderFromPreset` 未播种先播种；补 c214f3f 漏跑的 manifest／module-contracts）。e2e：`config-providers-guard`、`config-read-safety`。
     ⑥ 管家把普通会话的 `kind:'quick_ask'` 说成「速查线程在跑」（提示词口径，116-3 P1-5）。
   - **对抗审查波（用户 2026-09-06 要求，五个 Sonnet 只读，报告 scratchpad/review-*.md）**：数据安全 2 P0（已修）＋3 P1；管家后端 6 P0＋9 P1＋5 P2（线程族工具回合内直调无目标权限门且 ctx 无 trigger、收件箱 slice(0,200) 后游标照推、resume 绕过安全档、cwd 互斥 TOCTOU、到访归档与在途回合并发写、永久豁免只认工具名不看命令内容；会话/权限子审查另加：管家会话可被 `/api/chat/stream` 当普通会话跑回合绕开 13h、`POST /api/config` 切 auto 无服务端门）；管家壳 UX 走查 0 P0／2 P1（关总开关后壳仍在却谎称已回经典、引擎问题文案写死原因）／3 P2（Esc 层级、※ 浮层 Esc、回执套娃）；经典壳回归 2 P1（顶栏权限 chip 切 auto 无确认、`fillStewardSettings` 无 try/catch 挡在播种前）＋返回带残留、进壳必打 404、经典壳首屏加载全部管家资源（治理）；文案可达性 1 P1（※ 里工具 id 泄漏）＋读屏刷屏／aria-controls／Esc。**派单**：116-3（后端，Opus，三 commit：P0 安全／P1／P2，派单稿 brief-116-3.md）→ 117j（前端，派单稿 brief-117j.md，等 116-3 入库后串行）。**治理登记**：经典壳首屏动态 import 管家模块另立切片；帮助手册滚动定位竞态；`USER-GUIDE_CN.md` §5 补管家页签；`run-all --parallel` 在同时跑无头 Edge 截图时 fail 数飙到 38（全为并行争抢）。
+
+### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
+
+**现状**：116-3（后端对抗修复，Opus）已入库两批——`e520428`（P0 六条越权／数据损坏＋管家会话回合入口 A2＋全局权限确认门 B1）、`013d274`（P1 九条＋会话数据安全两条＋※ 脚注人话）；第三批 P2 在工作区未 commit，最后一轮全量回归跑到一半。**明日第一件事**：看 116-3 第三批是否已自行 commit（`git log`／`git status`），否则按 116-3 派单稿的 P2 条目验收工作区改动后补 commit；再 `cp ruyi-workbench/app/server.js ruyi-workbench/dist/Ruyi-full/app/server.js` 并提醒用户重启桌面端（服务端守卫只有重启后生效）；写 116-3 交付记录进 §11.6。
+
+**用户第二轮走查（2026-09-06 晚，两张截图）五条定案**：① 管家开了线程不直接展示（前端 W2-1）；② 候选列表关不掉（前端 W2-2）；③ 头像应跟着话走、在管家的话前面（前端 W2-3，**推翻 2026-09-05 §8.x「固定顶部」拍板**）；④ 抽屉里线程跑完显示不及时（前端 W2-5）；⑤ **线程跑完管家没被唤醒——引擎侧真缺口**（116-4）：收件箱三源＝事项账本／班组 run 事件／待决投影，速查线程与 `steward_thread_new` 开的普通会话跑完不产生任何入箱事件；用户机器证据：`<data>/steward/` 只有游标且各会话 missionChanges 全 0、`inbox-v1.ndjson` 从未写过、管家会话只有两次用户触发回合、速查 `sess_06466e02a6d0f5e8` 的 `stewardQuick.closedAt` 仍为 null。116-2e 的「速查 done 行补 answer」建立在永远不会来的 done 行上。
+
+**用户第三条新需求（2026-09-06 夜，截图：搜索结果整段是用户原话「帮我分析一下AMD——按美股超威半导体…」）→ 116-5 线程自动摘要**：每开一个线程（任何来源：经典壳新会话、管家 `steward_thread_new`／`steward_quick_ask`／递话新开、事项内线程、班组子线程）在第一条用户消息落盘后**自动调一次 LLM**生成两样东西写进会话头 `meta.brief = {title ≤ 24 字, gist ≤ 80 字, at, model}`：`title` 是任务的名（「AMD 收盘分析」），`gist` 是一句人话概括（「拉 AMD 最新行情与新闻，给博物影业格式的结论」）。用途：线程搜索结果（`steward_thread_search`／`06h` 检索、经典壳会话列表搜索）显示 title＋gist 而不是原话整段；抽屉／看板／递送 chip 候选／「现在这一件」标题全部改用 `brief.title`，原话保留在 `meta.title`（不改写，作为回退与 hover 全文）。实现要点（派 Opus，先设计再派）：走管家端点（`stewardProviderId`，OpenAI 兼容）而非主引擎，避免占用 Kimi CLI 与工具循环；单次 1 短提示词、`max_tokens` ≤ 120、失败静默留空并 2 次退避重试后放弃（不阻塞回合）；在回合收工时若 `brief` 仍空再补一次（此时有助手回复，概括更准）；线程改名（用户手改 `meta.title`）后不再覆盖 `brief.title`；配置键 `stewardThreadBriefV1`（默认开、随 `stewardEnabledV1`）；清册 durable-state 加 `session.meta.brief` 行；e2e：假 OpenAI 端点回固定 JSON → 新会话首轮后 `brief` 落盘、搜索结果用 brief、失败不阻塞。与 117i 已做的「文案层截 24 字」并存（brief 缺席时仍截原话）。
+
+**派单顺序（明日）**：116-3 收尾 → 116-4（引擎侧第四源＋唤醒链，派单稿全文见下）→ 116-5（线程自动摘要，需先出一页设计再派）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
+
+#### 116-4 派单稿（引擎侧收件箱第四源与唤醒链）
+##### 修法
+1. **第四源 sessionTurns**（13i）：对 `sessions/index.json` 里每条**非管家**会话，用 `turnSeq`＋`updatedAt`＋`activeTurn`（activeChildren）做游标 `cursor.sources.sessionTurns[sid] = {turnSeq, settledAt}`；当某会话 `turnSeq` 比游标大且当前无活回合 → 入箱一条 `done`（payload：`turnSeq`、`lastAssistantText`≤200、`quick:true/answer`（有 `stewardQuick` 时）、`launchedBy:'steward'|'user'`），回合以错误结束（会话头 `lastError`／`resumable.dangling`）→ `failed`。只对「管家关心的会话」入箱以免噪音：`stewardQuick`、`requestMeta.tool` 为 steward_thread_*（记在会话头 `launchedBy`，13g `stewardLaunchTurn` 顺手写）、或事项内线程；**用户自己在经典壳里聊的普通会话不入箱**（除非它被递话过）。首见基线＝当前 turnSeq（不补账历史）。
+2. **速查闭环**：done 行带 `quick:true`＋`answer` 时 13h 立即（不等 5s 合并窗口）起一次 inbox 回合，提示词包让管家用自己的话转述答案；回合结束写 `stewardQuick.closedAt`（既有逻辑）。用户在 2.0 视窗继续对话 → 清 `closedAt`（116-3 P1-6）。
+3. **唤醒链诚实**：`GET /api/steward/state` 增 `lastInboxAt`／`inboxSeq`／`sourcesSeen`（sessionTurns 计数）供前端判断收件箱活着；`GET /api/sessions/steward?since=<ISO>` 只回该时刻之后的消息（13d 只加 query 处理，旧调用零变化），前端 117j W2-4 用它追加收件箱触发的回复。
+4. **清册**：cursor 文件字段新增不改 schema 号（向后兼容：缺字段＝首见）；durable-state 行文案补一句。
+5. **测试**：`steward-inbox.e2e` 只加（速查线程跑完 → 一轮 tick 后箱里有 `done{quick:true, answer}` → 管家 inbox 回合 → 管家会话多一条 `trigger:'inbox'` 助手消息 → `closedAt` 已写；普通经典壳会话跑完不入箱；被递话过的普通会话跑完入箱一条）；`steward-quick-ask.e2e` 只加闭环断言；`steward-events.static` 登记第四源。
+6. 纪律同 116-3：先复现（用 dist 副本＋临时 HOME 跑一条真速查），断言只加不改，前向边 67，路由零新增（`since` 是既有路由的 query），跑完全量自己 commit 回传数字，cp server.js 进 dist。
+
+#### 117j 派单稿（管家壳前端走查修复，含 W2-1～W2-5）
+输入：review-steward-ux.md（F1–F6）、review-copy-a11y.md（P1-1、P2-1～P2-7、P3-1～P3-4）、review-classic-regressions.md（待回）。
+纪律：断言只加不改；零 innerHTML；app.js 不增行；每条修完有静态锁或浏览器 e2e 断言。
+
+##### P1
+- UX-F1 总开关关掉时若当前在管家壳：立即 `recoverStewardShell()` 回经典（persist 真值），状态行不得说「已回到经典」却仍显示管家壳；settings 的开关 handler 与 `syncStewardShellAvailability` 同一节拍。
+- UX-F2 引擎问题文案不写死：`showEngineProblem` 用后端 `info.message`（有则原文）＋按 `info.params.engine`/`stewardProviderId` 是否存在分两种人话：「主端点是命令行引擎」vs「管家端点『X』不在 Provider 列表里」；按钮按情形给（改用第一个可用 Provider／去设置）。i18n 两键。
+- copy-P1-1 ※ 里的 `actionWhyLines` 用工具人话表（与 13h `STEWARD_TOOL_LABELS` 同表，前端 i18n `stewardShell.tools.<name>`），不再出现 `steward_thread_continue` 之类 id。
+- UX-F5 `receiptFor()`：open_thread 回执用 `stewardShortTitle(act.sessionTitle||…)` 而不是按钮全文，杜绝「打开了「打开「X」」」。
+
+##### P2
+- UX-F3 Esc 逐层：抽屉／看板／浮层／菜单统一走一个栈式 `stewardEscapeStack`（steward-shell.js 一处 keydown 监听，栈顶先关），各模块只注册/注销自己的关闭器；去掉各自的 document keydown。
+- UX-F4 ※ 浮层 Esc：监听挂在触发按钮与浮层的共同祖先（或走上面的栈）。
+- copy-P2-2 撤回倒计时不在 aria-live 区刷屏：倒计时数字放在 `aria-hidden` 的 span，按钮 `aria-label` 固定「撤回」。
+- copy-P2-3 presence 文案未变不重写 `#stewardPresenceText`。
+- copy-P2-4/5 chips 菜单、盾牌菜单、头像菜单加 Esc 与 `aria-controls`/焦点返回。
+- copy-P2-7 输入区加可聚焦的发送键（117i 原型本就有圆形发送键，若已加则只补 aria-label）。
+- copy-P2-1 `quick_ask` 不进五态槽位：抽屉/看板对普通会话显示「对话」而非五态。
+- UX-F6 待复核：抽屉挂 permission 待决时「你可以说」应给「允许/拒绝」——按真实 `GET /api/interventions` 形状写 e2e 复核，若确为 bug 则修 `quickRepliesFor` 的 pending 判读。
+
+##### P3
+- copy-P3-1 `others.join('、')` 分隔符走 i18n。
+- copy-P3-3 引擎问题两个按钮：主动作（改用端点）用 `STEWARD_PRIMARY_CLASS`（仍只一处字面量，用常量）。
+- copy-P3-4 抽屉页签方向键。
+
+##### 来自经典壳回归审查（review-classic-regressions.md）
+- P1 classic-1 顶栏权限 chip（app.js ~1027-1036，专家模式）切 `auto` 无二次确认：复用 `steward-chips.js` 导出的确认文案与流程（同 §8.6），确认后再 `saveConfigPartial({permissionMode:'auto'})`；服务端不设门是 117e 有意决定（steward-settings.js 第 28 行注释），不改后端。
+- P1 classic-2 `fillSettings()` 里 `syncStewardShellAvailability()`／`fillStewardSettings()` 各自 try/catch 包住并 console.warn，任何抛错不得阻断其后的草稿播种与 `renderProviders()`；静态锁一条。
+- P2 classic-3 返回带残留：`steward-classic-window.js` 在离开经典壳的任何路径（切到 preview、整体切壳、刷新非从管家进入）都清 `sessionStorage['wcw.stewardReturn']` 并隐藏 `#stewardReturnBand`；只有 `openClassicWindow` 才置标。
+- P3 classic-4 进管家壳必打 `GET /api/sessions/steward` 404（管家会话尚未落盘）：前端在 `visit.newVisit===true` 或 visit 返回无历史标记时不再请求；若后端 visit 结果里能带 `hasSession`（13h 一行只加字段）则用它。
+- 治理登记（不在本片做）classic-5 经典壳首屏无条件加载 9 个管家 JS 与 6 个 CSS：改为进入管家模式时动态 `import()`，需重钉 `steward-avatar.static` D2 白名单形态与 `read-frontend-css` 载荷组，另立切片。
+
+##### 追加（会话/权限口径子审查）
+- （B1 的四处前端 `confirm:true` 由 116-3 一并落地，117j 不碰那四行；117j 只负责确认弹窗与文案统一复用 `steward-chips.js` 导出——classic-1。）
+- P1 B2 权限口径同步：`setDefaultPermission` 写完补调 `renderPermChip()`；预览壳 30s 轮询顺带刷新 `state.config.permissionMode`（或独立轻端点）；删除过期注释「A8 background refreshStatus on a timer」。
+- P2 classic-6（设置子审查发现 5）帮助手册 `scrollToNode` 定位不稳定（同锚点三次三种落点，`help-viewer.js:198-230` 与弹窗布局时序竞态）——单独排查，不在本片。
+- P3 手册 `docs/manuals/USER-GUIDE_CN.md` §5 补「管家」页签说明。
+
+##### 用户第二轮走查（2026-09-06 晚，截图两张）— 前端部分，Fable 拍板
+- P1 W2-1 **管家开了线程就直接展示**：`steward_reply.actions[]` 里 executed 的 `steward_thread_new`／`steward_quick_ask`／`steward_thread_continue`（`result.sessionId`）→ 回合结束即派发 `steward:focus-thread`（宽屏「现在这一件」立刻切到它；窄屏打开抽屉），不用用户再说「帮我打开」也不用再点按钮；管家的话后仍可保留「打开」按钮但默认已展示。
+- P1 W2-2 **候选列表开合**：点递送 chip 再点一次必须收起（现有 toggle 在 `chip.click`，但实测关不掉——复现并修，怀疑是 `conversation.setPickTargetHandler`／`openPicker` 在 focus/click 链路里被二次触发）；点列表外任意处、Esc、发送后都关；列表条目按标题去重（同标题多会话合并显示最近一条）；不得在进壳时自动弹出。
+- P1 W2-3 **头像跟着话走（用户改口，推翻 2026-09-05「固定顶部」）**：默认 follow 模式——头部只留名字＋状态行（带 6px 状态点）与右侧两枚图标键；`#stewardAvatar` 节点（同一 SVG、同一 presence 状态）移到**最新一条管家的话**左侧的 `.steward-avslot`（36px），思考占位「···」出现时先移到占位旁；历史管家消息左侧留一个 36px 的静态小圆点（不复制 SVG，`::before` 圆点即可）；390px 下同。`steward-avatar.static` 只加断言（follow 模式源码锚、头部无 SVG 时状态点仍在）。设置项不做开关（用户已拍板）。
+- P1 W2-4 **收件箱触发的回复要实时进对话流**：117b 的 15s 轮询已拿 `GET /api/steward/state.lastReply.at`；变化且 `trigger==='inbox'` 时拉 `GET /api/sessions/steward`（或 116-4 新加的 `?since=`）把新回合追加到 feed（去重按 `at`）；管家壳可见时轮询降到 5s（`stewardPollMs` 下限仍由后端定，前端取 min(配置, 5000)？——不改后端下限，前端只在壳可见且有在跑线程时用 5s）。
+- P1 W2-5 **抽屉／现在这一件刷新不及时**：有在跑线程（`activeTurn`）时抽屉轮询 5s，回合结束（`activeTurn` 由真变假）当轮立即重拉 `GET /api/sessions/<id>` 与 missions 行；「三问」对普通会话至少显示「已收工 · 用时 X」而不是三个「暂无」。
