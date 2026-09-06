@@ -11592,6 +11592,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -12155,6 +12162,7 @@
         "stewardArbiterDrain",
         "stewardArbiterEmit",
         "stewardArbiterGrant",
+        "stewardArbiterGrantPending",
         "stewardArbiterHasPending",
         "stewardArbiterMaxParallel",
         "stewardArbiterPrioritize",

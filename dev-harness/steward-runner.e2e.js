@@ -502,6 +502,31 @@ try {
       'G17 已归档的旧消息没有被在途回合的陈旧快照复活(修前这里会把整段历史盖回活会话)');
   }
 
+  /* ═════════ (G-4) 116-3 P2-14:归档失败不推进到访时间戳 ═════════ */
+  // 修前 `archive = await stewardArchiveConversation(...).catch(() => ({...}))` 把写文件失败吞成
+  // 「归档成功的新到访」:紧接着的时间戳重置照常执行,于是基于 stewardVisitIdleMinutes(默认 60 分钟)
+  // 的下一次自动到访要再等一整个静默窗口才重试,期间没有任何错误呈现给用户。
+  // 故障注入:把 <data>/steward/visits 这个【目录】换成一个同名文件 —— 归档时的 mkdir 直接抛。
+  {
+    writeConfig({ stewardMaxTurnsPerHour: 100, stewardConversationRetention: 'visit' });
+    await srv.runStewardTurn({ trigger: 'user', message: '归档失败演练的锚点' });
+    const before = await srv.stewardVisit({});           // 不强制:只读当前到访状态
+    fs.rmSync(visitsDir, { recursive: true, force: true });
+    fs.writeFileSync(visitsDir, 'not a directory', 'utf8');   // 同名文件 -> mkdir 必抛
+    const failed = await srv.stewardVisit({ force: true });
+    ok(failed && failed.ok === true && failed.archive && typeof failed.archive.error === 'string' && failed.archive.error,
+      `G18 归档失败如实回 archive.error(修前静默吞掉;got ${failed && failed.archive && JSON.stringify(failed.archive.error)})`);
+    ok(failed && failed.newVisit === false,
+      `G19 归档没成 -> 这次到访不算真的开始(newVisit:false;got ${failed && failed.newVisit})`);
+    ok(failed && failed.visit && failed.visit.startedAt === before.visit.startedAt,
+      `G20 到访时间戳没被推进(下一次调用可以立刻重试,不必再等一个静默窗口;got ${failed && failed.visit && failed.visit.startedAt})`);
+
+    fs.rmSync(visitsDir, { force: true });               // 拿掉故障,证明它只是被推迟不是被丢掉
+    const retried = await srv.stewardVisit({ force: true });
+    ok(retried && retried.newVisit === true && retried.archive && !retried.archive.error && retried.archive.archived > 0,
+      `G21 故障排除后立刻重试成功(归档 ${retried && retried.archive && retried.archive.archived} 条)`);
+  }
+
   /* ═════════ (A-2) 开关关时回合入口零副作用 ═════════ */
   {
     writeConfig({ stewardEnabledV1: false, stewardMaxTurnsPerHour: 100 });

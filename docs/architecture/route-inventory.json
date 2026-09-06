@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-06T13:54:04.774Z",
+  "generatedAt": "2026-09-06T15:27:54.636Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -3861,7 +3861,7 @@
       "kind": "exact",
       "path": "/api/steward/arbiter",
       "file": "13h-steward-runner.js",
-      "line": 1774,
+      "line": 1864,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "GET"
@@ -3882,7 +3882,7 @@
       "kind": "exact",
       "path": "/api/steward/arbiter/prioritize",
       "file": "13h-steward-runner.js",
-      "line": 1783,
+      "line": 1873,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3900,7 +3900,7 @@
       "kind": "exact",
       "path": "/api/steward/visit",
       "file": "13h-steward-runner.js",
-      "line": 1805,
+      "line": 1895,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3920,7 +3920,7 @@
       "kind": "exact",
       "path": "/api/steward/act",
       "file": "13h-steward-runner.js",
-      "line": 1817,
+      "line": 1907,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"
@@ -3942,7 +3942,7 @@
       "kind": "exact",
       "path": "/api/steward/message",
       "file": "13h-steward-runner.js",
-      "line": 1829,
+      "line": 1919,
       "handler": "handleStewardRunnerApiRoutes",
       "methods": [
         "POST"

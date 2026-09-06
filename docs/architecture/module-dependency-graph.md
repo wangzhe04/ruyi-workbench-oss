@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 1975 | 1949 | 316 | 67 | 0 | 1 |
+| 41 | 1976 | 1950 | 316 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -53,8 +53,8 @@
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 108 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
 | 37 | `13i-steward-inbox.js` | transport | 58 | 19 | 7 |
-| 38 | `13g-steward.js` | transport | 110 | 86 | 18 |
-| 39 | `13h-steward-runner.js` | transport | 109 | 64 | 11 |
+| 38 | `13g-steward.js` | transport | 110 | 87 | 18 |
+| 39 | `13h-steward-runner.js` | transport | 110 | 64 | 11 |
 | 40 | `14-main.js` | entrypoint | 1 | 470 | 31 |
 
 ## 模块边
@@ -311,7 +311,7 @@
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
 | `13g-steward.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
-| `13g-steward.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `normalizeConfig`, `readConfig`, `readJsonBody`, `resolvePermissionMode`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
+| `13g-steward.js` | `01-config.js` | backward | `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `atomicWriteJson`, `normalizeConfig`, `readConfig`, `readJsonBody`, `resolvePermissionMode`, `safeSessionId`, `send`, `sessionPath`, `tokenOk` |
 | `13g-steward.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13g-steward.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `repairMissionChangeTornTail`, `saveSession`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
 | `13g-steward.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |

@@ -593,6 +593,39 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
         `⑭ 编造的 sessionId 被目标存在性校验拦下(修前静默 not_queued;got ${ghost.status} ${ghost.body && ghost.body.error && ghost.body.error.code})`);
     }
 
+    /* ═════════ ⑮(116-3 P2-15:待决豁免的两个写者至少彼此可见)═════════ */
+    // §11.6 116h 记录的口子原话是「同 cwd 可能与排队条目并发(刻意)」,听起来只影响排队顺序;
+    // 但那个 bypass 判定发生在 stewardArbiterBlocked(内含同 cwd 锁检查)【之前】,所以一条有待决的
+    // 线程可以和【正在写同一个目录、持锁运行中】的另一条正面撞上。语义不改(它不该等 —— 用户正在
+    // 答复它),但两个写者要彼此可见:pendingWriters + 一条 agent_resource 提示。
+    {
+      await setConfig({ stewardMaxParallelThreads: 4, stewardGlobalMaxCostPerDay: 0 });
+      const writer = await newSession('p215-writer', cwds.shared);
+      const pending = await newSession('p215-pending', cwds.shared);   // 与写者【同一个】工作文件夹
+      fs.writeFileSync(path.join(HOME, 'sessions', `${pending}.interventions.ndjson`),
+        JSON.stringify({ id: 'iv_p215', type: 'question', status: 'pending', requestedAt: new Date().toISOString(), interventionVersion: 1, questions: [{ question: '选哪个?' }] }) + '\n');
+      const pw = stream(WP, { sessionId: writer, message: '我在写这个目录', cwd: cwds.shared }, hdr);
+      await sleep(200);
+      const pp = stream(WP, { sessionId: pending, message: '我有待决', cwd: cwds.shared }, hdr);
+      await sleep(250);
+      const mid = await req(WP, 'GET', '/api/steward/arbiter', undefined, hdr);
+      const [rw2, rp] = await Promise.all([pw, pp]);
+      ok(rw2.events.some(e => e.type === 'result' && e.ok === true) && rp.events.some(e => e.type === 'result' && e.ok === true),
+        '⑮ 两条都跑完(待决豁免的语义不变:它不等锁)');
+      const midBody = mid.body || {};
+      ok(Array.isArray(midBody.pendingWriters) && midBody.pendingWriters.some(r => r.sessionId === pending),
+        `⑮ 读模型多出 pendingWriters,能看见这条待决豁免的写者(修前它在任何面上都不可见;got ${JSON.stringify((midBody.pendingWriters || []).map(r => r.sessionId))})`);
+      ok(Array.isArray(midBody.running) && !midBody.running.some(r => r.sessionId === pending),
+        '⑮ 它仍然【不】进 running(不占并发位、不挡别人 —— 116h 的刻意设计一字不动)');
+      const signal = rp.events.find(e => e.type === 'agent_resource' && Array.isArray(e.resources) && String(e.resources[0] || '').startsWith('cwd-write:'));
+      ok(signal && signal.state === 'acquired' && Array.isArray(signal.blockers) && signal.blockers.length > 0,
+        `⑮ 撞上同 cwd 的活跃写者时发一条 acquired(不是 waiting —— 它没在等谁,只是同时在写;got ${signal && signal.state})`);
+      const after = await req(WP, 'GET', '/api/steward/arbiter', undefined, hdr);
+      ok(after.body && Array.isArray(after.body.pendingWriters) && after.body.pendingWriters.length === 0,
+        '⑮ 回合收尾后从 pendingWriters 里摘掉(release 幂等,不留幽灵)');
+      fs.rmSync(path.join(HOME, 'sessions', `${pending}.interventions.ndjson`), { force: true });
+    }
+
     /* ═════════ 源码单点锁:四个展示面都走 06i 的 waitReasonFor ═════════ */
     {
       const SRC = path.join(WB, 'app', 'src');

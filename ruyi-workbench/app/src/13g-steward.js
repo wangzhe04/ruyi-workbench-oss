@@ -1153,10 +1153,18 @@ async function stewardImplDecide(args, ctx, config) {
   // 116-3 P0-1:read/edit 档只看工具名(那两档本来就不碰系统面);其余(exec 与档位缺失)连
   // 命令文本一起看 —— `Bash`/`PowerShell`/`run_command` 这类通用执行工具的名字什么关键词都不含,
   // 只看名字等于对 `rm -rf` / `winget uninstall` / `curl -X POST` / `git push` 完全不设防。
+  // 两问分开写(而不是一次带 input 的调用):① 工具名本身就在清单里;② 名字看不出来,但命令文本
+  // 命中了那五类动作。分开的好处是信封能说清楚「因为哪一条被降级」,审计与人话都更实在。
   const exemptInput = (tier === 'read' || tier === 'edit') ? null : current.input;
-  if (type === 'permission' && stewardToolPermanentlyExempt(toolName, exemptInput)) {
-    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
-      reason: 'permanently_exempt', missionId, interventionId, type, toolName, permissionMode,
+  const exemptByName = stewardToolPermanentlyExempt(toolName);
+  const exemptByCommand = !exemptByName && stewardToolPermanentlyExempt(toolName, exemptInput);
+  if (type === 'permission' && (exemptByName || exemptByCommand)) {
+    const because = exemptByName
+      ? `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单`
+      : `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令命中了永久豁免清单`;
+    return stewardFail('propose_required', `${because}(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
+      reason: 'permanently_exempt', exemptBy: exemptByName ? 'tool_name' : 'command_text',
+      missionId, interventionId, type, toolName, permissionMode,
     });
   }
   const mayAct = stewardMayAct(permissionMode, type === 'permission' ? 'permission' : type, tier);
@@ -1652,8 +1660,24 @@ async function stewardImplConfigSet(args, ctx, config) {
   if (forbidden.length) {
     return stewardFail('steward.forbidden', `these keys can never be changed through the steward: ${forbidden.join(', ')}`, { keys: forbidden });
   }
+  // 116-3 P2-12(§8.6):把全局默认权限切到「全自动」是一条【专门】要求二次确认的动作,不是任意
+  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、13 的 applyConfigPatch 共用
+  // 同一张 PERMISSION_MODES_REQUIRING_CONFIRM 与同一个 `permission.confirm_required` 码。
+  // 外层信封仍是 propose_required —— 13h 只对这个码做「降级成一个按钮」,换成别的码用户就再也
+  // 按不到那个按钮了;专门口径放在 reason 与人话里(界面按 reason 取 §8.6 那五条文案)。
+  // 只读一次 ctx.userPressed:06i 的契约与 steward-tools.static ⑦ 把「13g 里读它的地方」钉成两处
+  //(config_set / skill_toggle 各一处),下面两道门共用这一个局部量。
+  const pressed = ctx.userPressed === true;
+  if (Object.prototype.hasOwnProperty.call(patch, 'permissionMode') && !pressed) {
+    const requested = patch.permissionMode == null ? '' : String(patch.permissionMode);
+    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested)) {
+      return stewardFail('propose_required',
+        `把【新线程的默认权限】切到「${stewardPermissionLabel(requested)}」要你亲手确认:那之后线程可以在你不在的时候改文件、跑命令、装东西、联网发东西。把它作为提议交给用户按,不要重试`,
+        { reason: 'permission.confirm_required', keys: ['permissionMode'], permissionMode: requested });
+    }
+  }
   const confirmKeys = keys.filter(k => stewardConfigTierFor(k) === 'confirm');
-  if (confirmKeys.length && ctx.userPressed !== true) {
+  if (confirmKeys.length && !pressed) {
     // 13h 既有的降级路径会把 propose_required 变成一个按钮;用户按下那个按钮走 POST /api/steward/act,
     // 只有那条路径会置 ctx.userPressed = true(06i 的契约注释里写死了唯一来源)。
     return stewardFail('propose_required', `changing ${confirmKeys.join(', ')} needs the user to press the button`, { reason: 'confirm_required', keys: confirmKeys });

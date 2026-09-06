@@ -40,6 +40,7 @@ const configFile = path.join(HOME, 'config.json');
 
 // ── 最小 fake provider(只要能把一个回合跑完;providerDelayMs 让某一段做成「慢回合」) ─────────
 let providerDelayMs = 0;
+let providerReply = JSON.stringify({ say: '看过了。', why: '总览', acts: [] });
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
   req.on('data', c => { raw += c; });
@@ -50,7 +51,7 @@ const providerServer = http.createServer(async (req, res) => {
   }
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   const frame = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
-  frame({ choices: [{ index: 0, delta: { content: JSON.stringify({ say: '看过了。', why: '总览', acts: [] }) } }] });
+  frame({ choices: [{ index: 0, delta: { content: providerReply } }] });
   frame({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
   frame({ choices: [], usage: { prompt_tokens: 8, completion_tokens: 4 } });
   res.write('data: [DONE]\n\n');
@@ -493,6 +494,57 @@ try {
     ok(reclosed && reclosed.changed === true && Number(reclosed.closedTurnSeq) === 2,
       `H9 重开之后还能再次收工(锚点跟着往前走;got ${JSON.stringify(reclosed)})`);
     ok(srv.StewardHooks.quickClosed(headOf(SID_QUICK)) === true, 'H10 再次收工后又从总览里消失');
+  }
+
+  /* ═════════ (J) P2-11 / P2-12 / A4 ═════════ */
+  console.log('── (J) P2-11 每回合目标上限 / P2-12 §8.6 口径 / A4 主页签名 ──');
+  {
+    // P2-11:「每回合 ≤3 个自理目标」修前不是唯一硬上限 —— 确定性自理那条路数 3
+    // (STEWARD_SELF_SERVE_PER_TURN_MAX),模型声明的 actions 另数 5(STEWARD_ACTIONS_MAX),
+    // 两边不去重 sessionId,一个回合合规地触达 8 条不同线程。修后两边合起来数同一个 3。
+    const targets = [];
+    for (let i = 1; i <= 5; i++) { const sid = 'sess_cap_' + i; craftThread(sid, { permissionMode: 'auto', title: '上限线程 ' + i }); targets.push(sid); }
+    writeConfig({ permissionMode: 'auto', stewardMaxTurnsPerHour: 500, stewardAutoActions: { relay: true, newThread: true, retry: true, resume: true } });
+    providerReply = JSON.stringify({
+      say: '我把这几条都改了名。', why: '演示每回合目标上限', acts: [],
+      actions: targets.map((sid, i) => ({ tool: 'steward_thread_rename', args: { sessionId: sid, title: '被管家改的名 ' + (i + 1) } })),
+    });
+    const capped = await srv.runStewardTurn({ trigger: 'user', message: '把这五条都改个名' });
+    providerReply = JSON.stringify({ say: '看过了。', why: '总览', acts: [] });
+    const rows = (capped && capped.actions) || [];
+    const done = rows.filter(r => r && r.result && r.result.ok === true);
+    const overflow = rows.filter(r => r && r.result && r.result.reason === 'per_turn_target_max');
+    ok(rows.length === 5, `J1 五条 actions 都被处理(STEWARD_ACTIONS_MAX=5;got ${rows.length})`);
+    ok(done.length === 3, `J2 只有前 3 个目标真的执行(每回合目标上限 3;修前 5 个全执行;got ${done.length})`);
+    ok(overflow.length === 2, `J3 超出的两条降级成提议(propose_required / per_turn_target_max;got ${overflow.length})`);
+    ok((capped.acts || []).length > 0, 'J4 被拦下的照既有路径降级成按钮(不算失败)');
+
+    // P2-12:切【新线程默认权限】到「全自动」是 §8.6 点名的专门二次确认,不是任意 confirm 键的通用语义。
+    const autoSet = await call('steward_config_set', { patch: { permissionMode: 'auto' } }, stewardCtx());
+    ok(autoSet && autoSet.error === 'propose_required' && autoSet.reason === 'permission.confirm_required',
+      `J5 config_set 切全自动 -> 专门口径 permission.confirm_required(got ${autoSet && (autoSet.reason || autoSet.error)})`);
+    ok(autoSet && /改文件|跑命令/.test(String(autoSet.message || '')),
+      `J6 人话写明「它可以在你不在时改文件、跑命令」(§8.6 那段话;got ${autoSet && autoSet.message})`);
+    ok(autoSet && autoSet.permissionMode === 'auto', 'J6b 信封带上被拒的档位(界面据此说人话)');
+    const otherConfirm = await call('steward_config_set', { patch: { agentCliType: 'kimi' } }, stewardCtx());
+    ok(otherConfirm && otherConfirm.error === 'propose_required' && otherConfirm.reason === 'confirm_required',
+      `J7 其它 confirm 档键仍走通用口径(两条口径不混;got ${otherConfirm && (otherConfirm.reason || otherConfirm.error)})`);
+    // 收紧不需要专门确认(与 13d/13 那两道门同口径)。
+    const tighten = await call('steward_config_set', { patch: { permissionMode: 'plan' } }, stewardCtx());
+    ok(tighten && tighten.error === 'propose_required' && tighten.reason === 'confirm_required',
+      `J8 收紧到 plan 走通用 confirm(不套 §8.6 那段吓人的话;got ${tighten && (tighten.reason || tighten.error)})`);
+
+    // A4:主页卡片签名要覆盖它真的画出来的每一样事实。117h 给行加了 missionTitle/goal,
+    // acceptance.done/total 早就在画了 —— 修前一个都不在签名里,改事项标题/目标/勾验收项都不重绘。
+    const dock = await import(require('url').pathToFileURL(path.join(WB, 'app', 'public', 'js', 'preview-dock-home.js')).href);
+    const base = { missionId: 'm1', updatedAt: 'T', runCount: 1, activeTurn: false, mission: { done: 1 }, pending: {}, missionTitle: '事项甲', goal: '把周报写完', acceptance: { done: 1, total: 3 } };
+    const sig = card => dock.missionCardSignature(card, {});
+    ok(sig(base) === sig({ ...base }), 'A4-0 同一张卡片签名稳定');
+    ok(sig(base) !== sig({ ...base, missionTitle: '事项乙' }), 'A4-1 改事项标题 -> 签名变(修前不变,主页不重绘)');
+    ok(sig(base) !== sig({ ...base, goal: '把周报写完并发给老板' }), 'A4-2 改目标 -> 签名变');
+    ok(sig(base) !== sig({ ...base, acceptance: { done: 2, total: 3 } }), 'A4-3 勾掉一条验收项 -> 签名变');
+    ok(sig(base) !== sig({ ...base, acceptance: { done: 1, total: 4 } }), 'A4-4 加一条验收项 -> 签名变');
+    ok(sig({ missionId: 'm1' }) === sig({ missionId: 'm1' }), 'A4-5 字段缺失时不炸(缺省当空)');
   }
 
   /* ═════════ (I) 源码单点锁:两处只能靠读源码钉住的口径 ═════════ */

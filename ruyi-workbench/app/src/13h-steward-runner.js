@@ -557,8 +557,13 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
   return { allowed: true }; // decide / rename:由 13g 内部的 stewardMayAct 与永久豁免清单裁决
 }
 
-async function stewardExecuteActions(actions, session, config, trigger) {
+// 116-3 P2-11:「每回合最多自理 3 个目标」是【一个】上限,不是两个。修前
+// STEWARD_SELF_SERVE_PER_TURN_MAX(3,只管确定性自理)与 STEWARD_ACTIONS_MAX(5,只管模型声明的
+// actions)彼此独立、不去重 sessionId,于是一个回合合规地触达 3+5=8 条不同线程 —— 与 §11.3 写的
+// 「≤3 个自理目标」对不上。priorTargets 把自理侧【真的动过】的目标带进来,两边合起来数。
+async function stewardExecuteActions(actions, session, config, trigger, priorTargets) {
   const out = [];
+  const touched = new Set((Array.isArray(priorTargets) ? priorTargets : []).filter(Boolean));
   for (const action of actions) {
     const tool = String(action.tool || '');
     const args = action.args || {};
@@ -575,11 +580,22 @@ async function stewardExecuteActions(actions, session, config, trigger) {
       out.push({ tool, label, args, result: stewardFail('not_allowed', `${tool} 不能作为 action 执行(只有写类管家工具可以;只读工具请在回合里直接调用)`) });
       continue;
     }
+    // 116-3 P2-11:同一回合触达的【不同目标线程】总数硬顶 3(与确定性自理共用同一个数)。
+    // 超出的照既有路径降级成一条按钮(propose_required 不算失败)。对同一条线程的第二个动作不再计数
+    // ——「3 个目标」数的是目标,不是动作次数。
+    const target = args && (args.sessionId || args.missionId) ? safeSessionId(args.sessionId || args.missionId) : '';
+    if (target && !touched.has(target) && touched.size >= STEWARD_SELF_SERVE_PER_TURN_MAX) {
+      out.push({ tool, label, args, result: stewardFail('propose_required',
+        `这一回合已经动过 ${touched.size} 条线程(每回合最多 ${STEWARD_SELF_SERVE_PER_TURN_MAX} 条),这一条只能作为提议交给用户`,
+        { reason: 'per_turn_target_max', sessionId: target }) });
+      continue;
+    }
     const gate = await stewardSelfServeAllows(tool, args, config, trigger);
     if (!gate.allowed) {
       out.push({ tool, label, args, result: stewardFail('propose_required', gate.reason, { reason: 'self_serve_off' }) });
       continue;
     }
+    if (target) touched.add(target);
     let result;
     try {
       // 116-3 P0-2:trigger 进 ctx —— 13g 的线程族三工具据它区分「用户就在跟前」(直递)与
@@ -748,6 +764,7 @@ async function stewardSelfServeInbox(events, session, config) {
     }
     const hookKey = STEWARD_ACTION_HOOKS[plan.tool];
     const entry = stewardSelfServeEntry(key);
+    row.acted = true;   // 116-3 P2-11:闸门放行、真的发出去了 —— 这条目标要计进「每回合 ≤3 个目标」
     // 计账在【发起前】:动作发出去了就算用过一次配额,哪怕它失败 —— 否则失败会变成免费重试。
     stewardRunnerRuntime.turns.push(Date.now());
     entry.attempts += 1;
@@ -978,8 +995,10 @@ async function runStewardTurn(input) {
   // 自理动作排在模型 actions 【前面】:它们先发生,steward_reply.actions 的顺序就该是事情发生的
   // 顺序。两者同形,故 stewardDowngradeActions 一视同仁 —— 自理侧被闸门拦下的行(propose_required)
   // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
+  // 116-3 P2-11:自理侧【真的动过】的目标带进 actions 侧,两边合起来数同一个 3 —— 不是各数各的。
+  const selfServeTargets = selfServe.executed.filter(row => row && row.acted === true).map(row => row.sessionId);
   const executed = selfServe.executed.concat(parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, session, config, trigger)
+    ? await stewardExecuteActions(parsedReply.actions, session, config, trigger, selfServeTargets)
     : []);
   const acts = stewardDowngradeActions(executed, parsedReply.acts);
   const reply = {
@@ -1035,9 +1054,13 @@ function stewardScheduleInboxDrain() {
     if (stewardRunnerRuntime.stopped) return;
     const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
     if (!batch.length) return;
-    void runStewardTurn({ trigger: 'inbox', events: batch })
-      .catch(() => {})
-      .then(() => { stewardScheduleInboxDrain(); });
+    void runStewardTurn({ trigger: 'inbox', events: batch }).then(
+      // 熔断(停机 / 小时窗触顶 / 日费用触顶 / 无进展退避)时【不】自排下一轮:那一路会把这批事件
+      // 原样退回队列,再排就是一个 5 秒一次的空转循环,而解除熔断的条件(用户说话)本来就会在
+      // 用户回合收尾时踢一次排空。其余情况(含 steward.busy 与引擎不可用)照常接着排。
+      result => { if (!(result && result.circuit)) stewardScheduleInboxDrain(); },
+      () => { /* 抛错不自排:等下一批新事件或下一次用户回合 */ },
+    );
   }, STEWARD_DEBOUNCE_MS);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;
@@ -1187,28 +1210,40 @@ async function stewardVisit(opts) {
   }
 
   let archive = { archived: 0, file: '', kept: -1 };
+  // 116-3 P2-14:归档写文件失败(磁盘满、visits 目录被占用……)此前被 .catch 吞成「归档成功的新到访」——
+  // 时间戳照常重置,于是基于 stewardVisitIdleMinutes(默认 60 分钟)的下一次自动到访要再等一整个
+  // 静默窗口才重试,期间没有任何错误呈现给用户。修法:失败就【不推进到访状态】(下一次调用仍视为
+  // 「到访还没真正开始」,可以立刻重试),并把 archive.error 带进响应体供上层如实说人话。
+  let visitOpened = newVisit;
   if (newVisit) {
-    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso()).catch(() => ({ archived: 0, file: '', kept: -1 }));
-    // 到访重置:读预算桶(§11.2 每回合 6 次 / 每到访 stewardReadBudgetChars)与无进展计数一起归零。
-    try { _stewardReadBudget.delete(STEWARD_SESSION_ID); } catch { /* 桶是纯内存加速,清不掉也不影响正确性 */ }
-    stewardRunnerRuntime.noProgress = 0;
-    stewardRunnerRuntime.circuit = null;
-    stewardRunnerRuntime.visit = {
-      startedAt: nowIso(),
-      lastActivityAt: nowIso(),
-      inboxSeq: sinceSeq,
-      previousStartedAt: previousStartedAt || '',
-    };
+    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso())
+      .catch(error => ({ archived: 0, file: '', kept: -1, error: String((error && error.message) || error).slice(0, 300) }));
+    if (archive.error) {
+      visitOpened = false;
+      try { logEvent({ kind: 'steward_visit_archive_failed', error: archive.error }); } catch { /* 观测绝不反噬 */ }
+    } else {
+      // 到访重置:读预算桶(§11.2 每回合 6 次 / 每到访 stewardReadBudgetChars)与无进展计数一起归零。
+      try { _stewardReadBudget.delete(STEWARD_SESSION_ID); } catch { /* 桶是纯内存加速,清不掉也不影响正确性 */ }
+      stewardRunnerRuntime.noProgress = 0;
+      stewardRunnerRuntime.circuit = null;
+      stewardRunnerRuntime.visit = {
+        startedAt: nowIso(),
+        lastActivityAt: nowIso(),
+        inboxSeq: sinceSeq,
+        previousStartedAt: previousStartedAt || '',
+      };
+    }
   }
   const digest = await stewardVisitDigest(sinceSeq);
-  if (newVisit) stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
+  if (visitOpened) stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
   const pending = await stewardPendingList();
   // 焦点线程:等你 > 在跑 > 失败(§8.10「现在这一件」的同一口径),没有线程时为空。
   const rows = await stewardThreadDigestRows(config).catch(() => []);
   const focusRow = rows.find(r => r.state === 'needs_you') || rows.find(r => r.state === 'running') || rows[0] || null;
   return {
     ok: true,
-    newVisit,
+    // 116-3 P2-14:归档失败时如实说「这次到访没真正开始」—— 时间戳没推进,下一次调用会立刻再试一次。
+    newVisit: visitOpened,
     since: previousStartedAt || '',
     visit: { startedAt: stewardRunnerRuntime.visit.startedAt, lastActivityAt: stewardRunnerRuntime.visit.lastActivityAt },
     archive,
@@ -1302,6 +1337,13 @@ const STEWARD_ARBITER_QUEUE_MAX = 500;         // 队列硬顶:超出宁可放�
 
 const stewardArbiter = {
   running: new Map(),      // token -> { token, sessionId, title, cwdKey, startedAt }
+  // 116-3 P2-15:「有待决的回合不占并发位、不入 running」这条刻意设计的口子,实际影响比 §11.6 的
+  // 措辞更宽 —— 那个 bypass 判定发生在 stewardArbiterBlocked(内含同 cwd 锁检查)【之前】,所以一条
+  // 有待决的线程可以和【正在写同一个目录、持锁运行中】的另一条线程正面撞上,不只是排队顺序上的不讲究。
+  // 语义不改(它确实不该等 —— 用户正在答复它),但两个写者至少要【彼此可见】:登记在这张单独的表里,
+  // 并进仲裁器读模型的 pendingWriters,撞上时给回合的事件流发一条 agent_resource 提示。
+  // 刻意【不】进 running:那会让它开始占并发位、开始挡别人,与 116h 的设计相反(e2e ④ 也钉着这条)。
+  pendingRuns: new Map(),  // token -> { token, sessionId, title, cwdKey, startedAt }
   queue: [],               // 先到先得;插队与饥饿提升 = 摘出来 unshift 到队首(不排序,不打分)
   turns: [],               // 每次放行的时刻(ms),只留 24 小时 —— hour 口径从这一份数据算
   durations: [],           // 最近若干个回合的实际时长(ms),只喂饥饿阈值
@@ -1491,6 +1533,33 @@ function stewardArbiterGrant(entry) {
   };
 }
 
+// 116-3 P2-15:待决豁免的「放行凭据」。与 stewardArbiterGrant 的区别只有两条:登记进 pendingRuns
+// 而不是 running(不占并发位、不挡别人),以及只在真的与同 cwd 的活跃写者撞上时才发一条事件。
+function stewardArbiterGrantPending(info) {
+  const token = `pend_${++stewardArbiter.seq}`;
+  const row = { token, sessionId: info.sessionId, title: info.title, cwdKey: info.cwdKey, startedAt: Date.now() };
+  stewardArbiter.pendingRuns.set(token, row);
+  const rivals = [];
+  for (const run of stewardArbiter.running.values()) {
+    if (run.sessionId === row.sessionId || run.cwdKey !== row.cwdKey) continue;
+    rivals.push(run.title || run.sessionId);
+  }
+  if (rivals.length && typeof info.onEvent === 'function') {
+    // state:'acquired' 而不是 'waiting':它没有在等谁,只是与别人同时在写同一个文件夹 —— 事件流里
+    // 说错状态比不说更糟(用户会以为它卡住了)。
+    stewardArbiterEmit({ onEvent: info.onEvent }, 'acquired', `cwd-write:${row.cwdKey}`, rivals);
+  }
+  let released = false;
+  return {
+    granted: true,
+    release: () => {
+      if (released) return;
+      released = true;
+      stewardArbiter.pendingRuns.delete(token);
+    },
+  };
+}
+
 function stewardArbiterDetach(entry) {
   if (entry && entry.signal && entry.onAbort) {
     try { entry.signal.removeEventListener('abort', entry.onAbort); } catch { /* 无 EventTarget */ }
@@ -1617,7 +1686,17 @@ async function stewardAcquireTurnSlot(input) {
   if (!config || config.stewardEnabledV1 !== true) return passthrough;
   const sessionId = safeSessionId(opts.sessionId);
   if (!sessionId || sessionId === STEWARD_SESSION_ID) return passthrough;   // 管家不是线程,不占并发位
-  if (await stewardArbiterHasPending(sessionId)) return passthrough;        // ① 等你 -> 直接放行
+  // ① 等你 -> 直接放行。116-3 P2-15:放行照旧(它不该等),但把 cwd 登记进 pendingRuns 让两个写者
+  // 彼此可见;真撞上同 cwd 的活跃写者时给这一路的事件流发一条 agent_resource(state:'acquired' —— 它
+  // 没在等,只是同时在写),112c 状态条与看板据此能显示「同一个文件夹还有别的写者」。
+  if (await stewardArbiterHasPending(sessionId)) {
+    return stewardArbiterGrantPending({
+      sessionId,
+      title: stewardSanitizeText(opts.title || ''),
+      cwdKey: stewardArbiterCwdKey(opts.cwd),
+      onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null,
+    });
+  }
   const entry = {
     sessionId,
     title: stewardSanitizeText(opts.title || ''),
@@ -1651,6 +1730,12 @@ async function stewardAcquireTurnSlot(input) {
   // 双双判定「没人占着」然后各自 grant,116h 的核心保证在真实并发下根本不成立。
   // 代价:没被挡住的回合也多走一次 drain 的 readConfig(不缓存,§8.10 要求上限改动即时生效)。
   // waited 保持 false —— 只有真的被挡住时 drain 才置 true,没等过的回合在事件流里不多两帧。
+  // 入队到 drain 真正判定之间有一个【真实的时间窗】(drain 要 await readConfig)。§8.10「排队可解释」
+  // 不允许读模型在这个窗口里出现「在排队、但说不出在等什么」的条目,所以先给一个同步就能算出来的
+  // 临时原因:同 cwd 有锁就是等锁,否则按等并发位。drain 一跑就用真实判定覆盖它;不阻塞的条目直接
+  // 放行,连一帧 waiting 事件都不会发(entry.waited 仍然是 false)。
+  const provisionalLock = stewardArbiterCwdLock(entry);
+  entry.wait = provisionalLock ? { lock: provisionalLock } : { slot: { ahead: stewardArbiterAhead(entry) } };
   stewardArbiter.queue.push(entry);
   const admitted = new Promise(resolve => {
     entry.resolve = resolve;
@@ -1709,6 +1794,11 @@ async function stewardArbiterState(config) {
     enabled: cfg.stewardEnabledV1 === true,
     maxParallel: stewardArbiterMaxParallel(cfg),
     running: [...stewardArbiter.running.values()].map(run => ({
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+    })),
+    // 116-3 P2-15:待决豁免的写者。【不】并进 running —— 它不占并发位、不挡别人(116h 的刻意设计),
+    // 但看板与状态条要看得见「同一个文件夹这会儿还有谁在写」。只加字段,不改既有形状。
+    pendingWriters: [...stewardArbiter.pendingRuns.values()].map(run => ({
       sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
     })),
     queue: stewardArbiter.queue.filter(entry => !entry.cancelled).map(entry => ({
