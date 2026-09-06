@@ -1,0 +1,114 @@
+/* 第117波 117b：管家 avatar（圆＋环＋一对眼睛，27 号文 §8.3）。独立所有权层——七态各一小段规则，
+   超过顺手加进 steward-shell.css 的量，故新开一层，随其后一并 @import / 直链 / 进离线包。
+   状态即语义：data-state 由纯投影 steward-presence.js#derivePresence() 决定，本层只画每个状态的样子。
+   全部用主题 token（无硬编码色值），动效只用 --dur-*/--ease-out，reduced-motion 下全部关掉动画。 */
+
+.steward-avatar {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  cursor: default;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.steward-avatar:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-avatar svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.sa-ring, .sa-body, .sa-eye, .sa-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.sa-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  opacity: .85;
+  transition: stroke var(--dur-fast) var(--ease-out), opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.sa-body {
+  fill: var(--accent);
+  transition: fill var(--dur-base) var(--ease-out);
+}
+.sa-eye { fill: var(--panel); }
+
+/* idle（§8.3）：常态色，环静止；呼吸 4s 循环，幅度极小。 */
+.steward-avatar[data-state="idle"] .sa-body { animation: sa-breathe 4s ease-in-out infinite; }
+
+/* listening：环随输入轻微扩张，200ms 缓入。 */
+.steward-avatar[data-state="listening"] .sa-ring {
+  transform: scale(1.08);
+  opacity: 1;
+  transition-duration: var(--dur-base);
+}
+
+/* thinking：环点状流动，1.2s 循环。 */
+.steward-avatar[data-state="thinking"] .sa-ring {
+  stroke-dasharray: 4 7;
+  animation: sa-flow 1.2s linear infinite;
+}
+
+/* working：环转动 900ms + 主体轻微起伏。 */
+.steward-avatar[data-state="working"] .sa-ring {
+  stroke-dasharray: 70 206;
+  animation: sa-spin .9s linear infinite;
+}
+.steward-avatar[data-state="working"] .sa-body { animation: sa-bob .9s ease-in-out infinite; }
+
+/* waiting_you：主体偏暖色，环停在缺口位，停止循环；一次性 300ms 提示脉冲（进入态才播一次，见 .pulse）。 */
+.steward-avatar[data-state="waiting_you"] .sa-ring {
+  stroke: var(--gold);
+  stroke-dasharray: 232 44;
+  stroke-dashoffset: -22;
+  transform: rotate(-90deg);
+  opacity: 1;
+}
+.steward-avatar[data-state="waiting_you"] .sa-body { fill: var(--gold); }
+.steward-avatar[data-state="waiting_you"].pulse .sa-ring { animation: sa-pulse .3s var(--ease-out) 1; }
+
+/* error：主体偏警示色；一次性摆动 400ms（进入态才播一次，见 .shake）。 */
+.steward-avatar[data-state="error"] .sa-body { fill: var(--danger); }
+.steward-avatar[data-state="error"] .sa-ring { stroke: var(--danger); }
+.steward-avatar[data-state="error"].shake .sa-body { animation: sa-shake .4s var(--ease-out) 1; }
+
+/* sleeping：去饱和，环消失，无动效。 */
+.steward-avatar[data-state="sleeping"] { filter: saturate(.2); opacity: .55; }
+.steward-avatar[data-state="sleeping"] .sa-ring { opacity: 0; }
+
+@keyframes sa-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes sa-flow { to { stroke-dashoffset: -22; } }
+@keyframes sa-spin { to { transform: rotate(360deg); } }
+@keyframes sa-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes sa-pulse {
+  0%, 100% { transform: rotate(-90deg) scale(1); }
+  50% { transform: rotate(-90deg) scale(1.12); }
+}
+@keyframes sa-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+/* 顶栏名字旁的一行状态文字（aria-live="polite" 与 avatar 的视觉状态同源，退化时唯一还在的信号，§8.1 原则 5）。 */
+.steward-presence-text {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+@media (max-width: 390px) {
+  .steward-avatar { width: 36px; height: 36px; }
+}
+
+/* 全局 reduced-motion 熔断（base.css）之外，本层自己也把动效关掉：动效可以没有，信息不能少
+   （状态仍靠 data-state 的静态配色与 #stewardPresenceText 的文字表达）。 */
+@media (prefers-reduced-motion: reduce) {
+  .steward-avatar,
+  .sa-ring,
+  .sa-body {
+    animation: none !important;
+    transition: none !important;
+  }
+}

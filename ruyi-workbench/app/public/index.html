@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="/css/views/preview-shell.css" />
     <link rel="stylesheet" href="/css/components/onboarding.css" />
     <link rel="stylesheet" href="/css/views/steward-shell.css" />
+    <link rel="stylesheet" href="/css/views/steward-avatar.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -536,14 +537,27 @@
 
     <!-- 第117波 117a：管家壳是 .app-shell 与 #previewShell 的【同级】容器（body 直系子元素）。
          三壳长期并存，显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode
-         一处写这个属性。117a 只立骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区），avatar、对话、递话、
-         抽屉与看板归 117b–h；此处不放任何轮询、不做任何数据读取。 -->
+         一处写这个属性。117a 立骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区）；117b 在顶栏里填入真
+         avatar（圆＋环＋一对眼睛，data-state 由 steward-presence.js 的纯投影 derivePresence() 决定）与
+         aria-live 状态文字，对话、递话、抽屉与看板仍归 117c–h；此处不放任何轮询之外的数据读取
+         （117b 的状态轮询只在管家模式下才起 —— 见 steward-shell.js 头注）。 -->
     <section id="stewardShell" class="steward-shell" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
       <header id="stewardHeader" class="steward-header">
-        <span id="stewardAvatarSlot" class="steward-avatar-slot" aria-hidden="true"></span>
+        <button type="button" id="stewardAvatar" class="steward-avatar" data-state="idle"
+                data-i18n-attr="aria-label:stewardShell.avatarLabel" aria-label="如意的头像">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="sa-ring" cx="50" cy="50" r="44"></circle>
+            <circle class="sa-body" cx="50" cy="50" r="31"></circle>
+            <g class="sa-eyes">
+              <ellipse class="sa-eye" cx="41.5" cy="49" rx="3.1" ry="5.2"></ellipse>
+              <ellipse class="sa-eye" cx="58.5" cy="49" rx="3.1" ry="5.2"></ellipse>
+            </g>
+          </svg>
+        </button>
         <div class="steward-header-text">
-          <strong class="steward-name" data-i18n="stewardShell.name">管家</strong>
+          <strong class="steward-name" data-i18n="stewardShell.name">如意</strong>
           <span class="steward-tagline" data-i18n="stewardShell.previewNotice">管家壳（预览）—— 功能随 117 后续切片到位。</span>
+          <span id="stewardPresenceText" class="steward-presence-text" aria-live="polite"></span>
         </div>
       </header>
       <div id="stewardFeed" class="steward-feed" role="log" aria-live="polite" aria-label="管家对话" data-i18n-attr="aria-label:stewardShell.feedLabel"></div>

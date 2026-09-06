@@ -1,12 +1,13 @@
 'use strict';
 
-// 第117波 117a：管家壳（第三种壳模式 steward）的模式与容器骨架。
+import { derivePresence, presenceLabelKey } from './steward-presence.js';
+
+// 第117波 117a/117b：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生。
 //
-// 范式与 preview-shell.js 一致：一个注入依赖的工厂、一份冻结导出、零 innerHTML、零默认后台税。
-// 边界（117a 只做这些）：
-//   · 只负责「能不能进管家壳」与「进不去时怎么体面地回经典」，不做 avatar／对话／递话／抽屉／看板（117b–h）。
-//   · 不发任何请求（注入的 `api` 在 117a 全程未被调用，留作 117c 起的接线口），不起任何 timer
-//     （本文件零轮询、零延时回调，静态锁按源码里不出现那两个计时 API 来判）——「开关关时零后台活动」是 27 号文 §3.4 的红线。
+// 范式与 preview-shell.js 一致：一个注入依赖的工厂、一份冻结导出、零 innerHTML。
+// 边界（117a 定的，117b 仍然遵守）：
+//   · 只负责「能不能进管家壳」「进不去时怎么体面地回经典」「avatar 现在是什么态」，不做对话／递话／
+//     抽屉／看板（117c–h）。
 //   · `data-shell-mode` 是唯一状态源；本文件写它的地方只有 recoverStewardShell 这一处 fail-closed 回退，
 //     正常进入由 preview-shell.js 的 applyShellMode 单点写入。
 //
@@ -15,6 +16,19 @@
 //   ② 容器或四个空位缺失（骨架没上线／被裁剪的离线包）；
 //   ③ 模块依赖缺失（组合根没把 applyShellMode／t 注进来）。
 // `canEnterSteward()` 只看 ①②（③ 在依赖缺失时根本走不到准入判断，见工厂开头的早退）。
+//
+// 117b 新增的唯一后台活动——avatar 的 GET /api/steward/state 轮询——受严格的模式门控（27 号文 §3.4
+// 红线「开关关时零后台活动」的延伸：这里收紧成「非管家模式时零后台活动」）：
+//   · 本文件只有一处 setInterval（startPolling）与一处 clearInterval（stopPolling），两者只经
+//     syncPolling() 调用，而 syncPolling() 的第一件事永远是 isStewardMode() 判定 —— 判定为否就
+//     stopPolling()，不会有任何计时器存活。
+//   · syncPolling() 的触发点：①MutationObserver 盯着 documentElement 的 data-shell-mode 属性
+//     （谁改的都算——select、「回到经典」按钮、fail-closed 回退、未来任何新入口，零遗漏）；
+//     ②document 的 visibilitychange（标签页隐藏即暂停，见回来即恢复，若仍在管家模式）；
+//     ③bindStewardShell() 绑定完的那一刻（覆盖「页面直接以 data-shell-mode=steward 启动」这个
+//     MutationObserver 观察不到的初始态）。
+//   · MutationObserver 本身不是 setInterval/setTimeout，不在「零 timer」的字面禁令内，且哪怕它在非
+//     管家模式下常驻，callback 触发时的第一动作也是关计时器，不产生任何轮询或请求。
 
 export const STEWARD_SHELL_SLOT_IDS = Object.freeze([
   'stewardHeader',
@@ -22,6 +36,11 @@ export const STEWARD_SHELL_SLOT_IDS = Object.freeze([
   'stewardComposer',
   'stewardStatus',
 ]);
+
+// 管家状态轮询周期：跟 01-config.js 的 stewardPollMs 校验同一 clamp 下限(5000)，上限交给后端
+// (config 已经 clamp 过一次，这里只防「配置还没到达/被清空」时退回 15000 默认值)。
+const STEWARD_POLL_MS_DEFAULT = 15000;
+const STEWARD_POLL_MS_MIN = 5000;
 
 // 骨架齐备 = 同级容器在，且四个空位都在。纯 DOM 判定，无副作用，测试与 UI 共用同一口径。
 export function stewardShellDomReady(doc = globalThis.document) {
@@ -86,6 +105,9 @@ export function createStewardShellDomain({
       isStewardMode: () => false,
       recoverStewardShell,
       syncStewardShellAvailability: () => 'classic',
+      // 依赖缺失时壳整体 fail-closed 到经典，avatar 无处可画；derive 仍是纯函数原样导出
+      // （§8.1 原则5「可退化」：调用方拿到的形状不变，只是永远读到 sleeping）。
+      presence: Object.freeze({ derive: derivePresence, set: () => 'sleeping', current: () => 'sleeping' }),
     });
   }
 
@@ -96,6 +118,99 @@ export function createStewardShellDomain({
   // 准入只看 ①②（27 号文 117a 设计）：开关开着、骨架齐备，才允许进管家壳。
   function canEnterSteward() {
     return stewardEnabledInConfig(state && state.config) && stewardShellDomReady();
+  }
+
+  // ── 117b：avatar 状态派生（§8.3）与状态轮询 ────────────────────────────────────
+  const presenceInputs = {
+    enabled: false, stopped: false, inflight: '', phase: 'idle', streaming: false,
+    lastError: '', pendingCount: 0, needsYouCount: 0, typing: false,
+  };
+  let presenceState = derivePresence(presenceInputs);
+
+  // data-state + 一次性类(.pulse/.shake) + aria-live 文字，三处一次写完。一次性类只在真正
+  // 「切换到」那个状态的那一刻补上(entering 判定)，同一状态内的后续 setPresenceInputs(例如轮询
+  // 又拿到一次 lastReply.error 相同的响应)不会打断正在播的动效。
+  function renderPresence() {
+    const next = derivePresence(presenceInputs);
+    const entering = next !== presenceState;
+    presenceState = next;
+    const avatar = byId('stewardAvatar');
+    if (avatar) {
+      avatar.dataset.state = next;
+      if (entering) {
+        avatar.classList.remove('pulse', 'shake');
+        if (next === 'waiting_you') { void avatar.offsetWidth; avatar.classList.add('pulse'); }
+        else if (next === 'error') { void avatar.offsetWidth; avatar.classList.add('shake'); }
+      }
+    }
+    const text = byId('stewardPresenceText');
+    if (text) text.textContent = t(presenceLabelKey(next), { detail: '' });
+    return next;
+  }
+
+  function setPresenceInputs(patch) {
+    if (patch && typeof patch === 'object') Object.assign(presenceInputs, patch);
+    return renderPresence();
+  }
+
+  // GET /api/steward/state 目前没有独立的 pending 字段(13h-steward-runner.js stewardRunnerState 只有
+  // stopped/inflight/circuit/lastReply/queued/noProgress/arbiter)：117b 借 lastReply.acts 非空近似
+  // 「有提议待批」，117c 接上真正的待决计数后把这一行换掉即可(setPresenceInputs 的形状不必再改)。
+  function pollStewardState() {
+    if (typeof api !== 'function') return;
+    Promise.resolve(api('/api/steward/state')).then(response => {
+      if (!response || typeof response !== 'object') return;
+      const lastReply = (response.lastReply && typeof response.lastReply === 'object') ? response.lastReply : null;
+      setPresenceInputs({
+        stopped: response.stopped === true,
+        inflight: typeof response.inflight === 'string' ? response.inflight : '',
+        lastError: (lastReply && lastReply.error) ? String(lastReply.error) : '',
+        pendingCount: (lastReply && Array.isArray(lastReply.acts) && lastReply.acts.length > 0) ? 1 : 0,
+      });
+    }).catch(() => { /* 状态面不因单次轮询失败整条消失，下一轮再试 */ });
+  }
+
+  function pollIntervalMs() {
+    const raw = Number(state && state.config && state.config.stewardPollMs);
+    return Number.isFinite(raw) && raw > 0 ? Math.max(STEWARD_POLL_MS_MIN, raw) : STEWARD_POLL_MS_DEFAULT;
+  }
+
+  let pollTimer = 0;
+  function stopPolling() {
+    if (!pollTimer) return;
+    clearInterval(pollTimer);
+    pollTimer = 0;
+  }
+  function startPolling() {
+    if (pollTimer) return;
+    pollStewardState();
+    pollTimer = setInterval(pollStewardState, pollIntervalMs());
+  }
+  // 唯一入口：轮询该开该关只由这一个判定决定——管家模式 且 页面可见。本文件别处一律不直接调
+  // startPolling/stopPolling，只调 syncPolling（源码正则锚，见 dev-harness/steward-avatar.static.e2e.js）。
+  function syncPolling() {
+    if (isStewardMode() && !(globalThis.document && globalThis.document.hidden)) startPolling();
+    else stopPolling();
+  }
+
+  // typing 由输入框驱动 + 轮询/属性变化的两个触发点各接一次，绑定完立刻按当前实况刷一次
+  // （覆盖「页面直接以 data-shell-mode=steward 启动」这个 MutationObserver 观察不到的初始态）。
+  function bindPresence() {
+    const input = byId('stewardComposerInput');
+    if (input) {
+      input.disabled = false; // 117b：可聚焦但仍不发送(发送归 117c)，仅用来测 listening 态
+      const setTyping = () => setPresenceInputs({ typing: input.value.trim().length > 0 });
+      input.addEventListener('input', setTyping);
+      input.addEventListener('focus', setTyping);
+      input.addEventListener('blur', () => setPresenceInputs({ typing: false }));
+    }
+    if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
+      new MutationObserver(syncPolling)
+        .observe(globalThis.document.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
+    }
+    if (globalThis.document) globalThis.document.addEventListener('visibilitychange', syncPolling);
+    renderPresence();
+    syncPolling();
   }
 
   // 设置页第三项的可选性随管家开关走：关时置灰并把「先打开管家」那句提示显出来。
@@ -112,6 +227,8 @@ export function createStewardShellDomain({
   // 准入判断一律不落盘（persist:false，只把画面钉在经典）；真正把本机偏好改回 classic 的是这里。
   function syncStewardShellAvailability() {
     syncSettingOption();
+    // 117b：avatar 的 enabled 输入跟 config refresh 同一节拍——config 到达前一律 sleeping(fail-closed)。
+    setPresenceInputs({ enabled: stewardEnabledInConfig(state && state.config) });
     if (canEnterSteward()) {
       if (storedMode() === 'steward' && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
@@ -124,7 +241,7 @@ export function createStewardShellDomain({
     const classic = byId('stewardClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
     syncSettingOption();
-    // 117a 无状态、无订阅、无 timer：绑定完就结束。
+    bindPresence(); // 117b：avatar 的输入监听 + 模式/可见性观察者，见函数头注
     return isStewardMode() ? 'steward' : 'classic';
   }
 
@@ -134,5 +251,8 @@ export function createStewardShellDomain({
     isStewardMode,
     recoverStewardShell,
     syncStewardShellAvailability,
+    // 117c/117h 复用：derive 是纯函数(可脱离本实例单独跑真值表)，set 驱动本实例的 DOM 渲染，
+    // current 读当前已渲染的态(不重新派生，跟屏幕上看到的一致)。
+    presence: Object.freeze({ derive: derivePresence, set: setPresenceInputs, current: () => presenceState }),
   });
 }

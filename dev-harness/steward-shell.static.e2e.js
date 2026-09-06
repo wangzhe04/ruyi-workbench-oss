@@ -3,7 +3,10 @@
 
 // 第117波 117a 静态契约：壳模式三态（classic / preview / steward）长期并存、未知偏好回经典、
 // 管家壳是 .app-shell 与 #previewShell 的同级容器、显隐只由 data-shell-mode 这一个状态源驱动、
-// 管家壳模块零 innerHTML / 零轮询 / 三分支 fail-closed，且新资源进入离线 overlay 与样式清单。
+// 管家壳模块零 innerHTML / 三分支 fail-closed，且新资源进入离线 overlay 与样式清单。
+// 117b 重钉 C2/C3（语义收紧,不是放宽）：avatar 状态轮询给本文件加了一个 timer 与一次请求，
+// 「零轮询」改判「轮询只能活在 isStewardMode() 门控里」——七态 avatar 与轮询门控的完整静态契约见
+// dev-harness/steward-avatar.static.e2e.js。
 const fs = require('fs');
 const path = require('path');
 
@@ -98,10 +101,27 @@ ok(/<option value="steward" data-i18n="stewardShell\.settingOption">/.test(html)
 // ─── C 管家壳模块：零 innerHTML、零轮询、三分支 fail-closed ─────────────────────
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(stewardShell),
   'C1 管家壳模块零 innerHTML/insertAdjacentHTML/document.write');
-ok(!/setInterval|setTimeout/.test(stewardShell),
-  'C2 管家壳模块零 timer —— 开关关时不产生任何后台活动');
-ok(!/\bapi\(|\bfetch\(/.test(stewardShell),
-  'C3 117a 的管家壳不发任何请求（api 只是留给 117c 的注入口）');
+// 117b 重钉(语义收紧,不是放宽):avatar 的状态轮询需要一个 timer 与一次请求，「零 timer／零请求」
+// 改判「timer／请求只能活在模式门控里」——setInterval/clearInterval/api() 各自全文件恰好一处，
+// 分别锁死在 startPolling/stopPolling/pollStewardState 里，且唯一入口 syncPolling 先判
+// isStewardMode()（非管家模式恒 stopPolling，不产生任何后台活动，跟 117a 的红线同一句意思）。
+const setIntervalSites = (stewardShell.match(/setInterval\(/g) || []).length;
+const clearIntervalSites = (stewardShell.match(/clearInterval\(/g) || []).length;
+const apiCallSites = (stewardShell.match(/\bapi\(/g) || []).length;
+ok(setIntervalSites === 1 && clearIntervalSites === 1,
+  'C2a 全文件恰好一处 setInterval、一处 clearInterval(不会散落出第二套计时)');
+ok(/function startPolling\(\) \{\s*if \(pollTimer\) return;\s*pollStewardState\(\);\s*pollTimer = setInterval\(pollStewardState, pollIntervalMs\(\)\);\s*\}/.test(stewardShell),
+  'C2b setInterval 只住在 startPolling 里');
+ok(/function stopPolling\(\) \{\s*if \(!pollTimer\) return;\s*clearInterval\(pollTimer\);\s*pollTimer = 0;\s*\}/.test(stewardShell),
+  'C2c clearInterval 只住在 stopPolling 里');
+ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);\s*\}/.test(stewardShell),
+  'C2d 唯一入口 syncPolling 先判 isStewardMode()(与页面可见性)才决定启停，非管家模式恒 stopPolling');
+ok(apiCallSites === 1 && !/\bfetch\(/.test(stewardShell),
+  'C3a 全文件恰好一处 api() 调用、零直调 fetch(轮询之外零请求，一律经注入的 api())');
+ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),
+  'C3b 唯一的 api() 调用住在 pollStewardState 里，目标就是状态轮询端点');
+ok(/function startPolling\(\) \{[\s\S]{0,80}pollStewardState\(\);/.test(stewardShell),
+  'C3c pollStewardState 只被 startPolling 调用(不会绕开门控单独发请求)');
 ok(/if \(!dependenciesReady\) setStatusText\('stewardShell\.recovery\.dependency'\);/.test(stewardShell)
   && /else if \(!stewardShellDomReady\(\)\) setStatusText\('stewardShell\.recovery\.missingShell'\);/.test(stewardShell)
   && /else setStatusText\('stewardShell\.recovery\.disabled'\);/.test(stewardShell),

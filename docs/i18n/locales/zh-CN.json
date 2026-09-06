@@ -2626,7 +2626,7 @@
   ,"session.searching": "搜索中…"
 
   ,"stewardShell.label": "管家"
-  ,"stewardShell.name": "管家"
+  ,"stewardShell.name": "如意"
   ,"stewardShell.previewNotice": "管家壳（预览）—— 功能随 117 后续切片到位。"
   ,"stewardShell.feedLabel": "管家对话"
   ,"stewardShell.composerLabel": "对管家说"
@@ -2637,4 +2637,12 @@
   ,"stewardShell.recovery.disabled": "管家还没打开，已回到经典布局；在设置里打开管家后可以再选。"
   ,"stewardShell.recovery.missingShell": "管家界面骨架不完整，已回到经典布局。"
   ,"stewardShell.recovery.dependency": "管家壳模块没有载入，已回到经典布局。"
+  ,"stewardShell.avatarLabel": "如意的头像"
+  ,"stewardShell.presence.idle": "空闲"
+  ,"stewardShell.presence.listening": "在听"
+  ,"stewardShell.presence.thinking": "正在思考"
+  ,"stewardShell.presence.working": "正在查看线程{{detail}}"
+  ,"stewardShell.presence.waiting_you": "等你确认{{detail}}"
+  ,"stewardShell.presence.error": "上一步失败{{detail}}"
+  ,"stewardShell.presence.sleeping": "管家已停机"
 }

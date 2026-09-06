@@ -2626,7 +2626,7 @@
   ,"session.searching": "Searching…"
 
   ,"stewardShell.label": "Steward"
-  ,"stewardShell.name": "Steward"
+  ,"stewardShell.name": "Ruyi"
   ,"stewardShell.previewNotice": "Steward shell (preview) — features arrive with the later 117 slices."
   ,"stewardShell.feedLabel": "Steward conversation"
   ,"stewardShell.composerLabel": "Say something to the steward"
@@ -2637,4 +2637,12 @@
   ,"stewardShell.recovery.disabled": "The steward is off, so the classic layout is back. Turn the steward on in settings to pick it again."
   ,"stewardShell.recovery.missingShell": "The steward interface skeleton is incomplete, so the classic layout is back."
   ,"stewardShell.recovery.dependency": "The steward shell module did not load, so the classic layout is back."
+  ,"stewardShell.avatarLabel": "Ruyi's avatar"
+  ,"stewardShell.presence.idle": "Idle"
+  ,"stewardShell.presence.listening": "Listening"
+  ,"stewardShell.presence.thinking": "Thinking"
+  ,"stewardShell.presence.working": "Checking a thread{{detail}}"
+  ,"stewardShell.presence.waiting_you": "Waiting on you{{detail}}"
+  ,"stewardShell.presence.error": "Last step failed{{detail}}"
+  ,"stewardShell.presence.sleeping": "The steward is stopped"
 }

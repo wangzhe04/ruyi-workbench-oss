@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 
-// 第117波 117a 真实浏览器 E2E：壳模式三态并存的准入与 fail-closed。
+// 第117波 117a/117b 真实浏览器 E2E：壳模式三态并存的准入与 fail-closed + avatar 状态。
 //   ① 管家开关关 + 本机偏好写 steward → 加载后回经典、偏好被改回 classic、设置页第三项置灰并给原因；
 //   ② 管家开关开 → 选中管家 → 三个同级容器显隐互斥、容器获焦、交办台 30s 轮询计时器被停掉；
 //   ③ 管家 → 经典 → 交办台预览全链路，data-shell-mode 与 localStorage 始终一致（刷新后仍恢复管家）；
-//   ④ 本机偏好被写成未知值 → 回经典。
+//   ④ 本机偏好被写成未知值 → 回经典；
+//   ⑤（117b）进入管家壳时头像态为 idle 且自己的 15s 状态轮询在跑，回经典/切预览后计时器被清；
+//   ⑥（117b）输入框聚焦并输入 → listening，清空并失焦 → idle。
 // 与 pretender-shell.e2e.js 同一套 CDP 无头驱动；轮询断言用 addScriptToEvaluateOnNewDocument
-// 包住 setInterval/clearInterval，直接看「30000ms 的活计时器还在不在」。
+// 包住 setInterval/clearInterval，直接看「30000ms／15000ms 的活计时器还在不在」。
 (async () => {
 const cp = require('child_process');
 const fs = require('fs');
@@ -158,6 +160,9 @@ const SHELL_SNAPSHOT = `(() => {
     status: document.getElementById('stewardStatus').textContent,
     focused: document.activeElement ? document.activeElement.id : '',
     previewPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 30000).length,
+    // 117b：管家自己的状态轮询周期跟 config.stewardPollMs 一致，测试固定端配置为默认值 15000。
+    stewardPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 15000).length,
+    avatarState: document.getElementById('stewardAvatar')?.dataset.state || '',
   };
 })()`;
 
@@ -298,6 +303,15 @@ try {
   ok(stewardOn && stewardOn.focused === 'stewardShell', 'D5 进入管家壳后焦点落在同级容器上');
   ok(stewardOn && stewardOn.previewPollTimers === 0,
     'D6 管家壳不继承交办台的 30s 轮询，也不引入自己的后台税');
+  // 117b：avatar 态 + 自己的状态轮询（仅在管家模式下才起，与 D6 的「不继承交办台轮询」互补）。
+  ok(stewardOn && stewardOn.avatarState === 'idle',
+    'D7 进入管家壳时头像态为 idle(开关开、未停机、无待决、无错误——GET /api/steward/state 的默认实况)');
+  const stewardPolling = await waitForEval(cdp, `(() => {
+    const snapshot = ${SHELL_SNAPSHOT};
+    return snapshot.stewardPollTimers > 0 ? snapshot : null;
+  })()`);
+  ok(stewardPolling && stewardPolling.stewardPollTimers > 0,
+    'D8 管家壳自己对 /api/steward/state 的状态轮询在跑(默认 15s 周期,只在管家模式下才起)');
 
   // ─── ③ 刷新恢复 + 管家 → 经典 → 预览全链路一致 ────────────────────────────────
   await cdp.evaluate('location.reload(); true');
@@ -319,6 +333,8 @@ try {
     && backToClassic.classicDisplay !== 'none' && backToClassic.stewardDisplay === 'none'
     && backToClassic.previewPollTimers === 0,
     'E2 管家壳内「回到经典」落盘一致且不留轮询');
+  ok(backToClassic && backToClassic.stewardPollTimers === 0,
+    'E2a 回到经典后管家自己的状态轮询计时器也被清(MutationObserver 盯 data-shell-mode，立即 stopPolling)');
 
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgShellMode');
@@ -333,6 +349,46 @@ try {
   ok(finalPreview && finalPreview.stored === 'preview' && finalPreview.select === 'preview'
     && finalPreview.previewDisplay !== 'none' && finalPreview.stewardDisplay === 'none' && finalPreview.classicDisplay === 'none',
     'E3 管家 → 经典 → 预览全链路：三态与本机偏好始终一致');
+  ok(finalPreview && finalPreview.stewardPollTimers === 0,
+    'E3a 预览壳独占画面时管家自己的状态轮询也不在跑(三态互斥，后台税不重叠)');
+
+  // ─── F 117b：输入框聚焦/输入 → listening，清空/失焦 → idle ──────────────────────
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgShellMode');
+    select.value = 'steward';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  // applyShellMode('steward') 排了一次 requestAnimationFrame 把焦点落到 #stewardShell 容器（同 D5）；
+  // 先等这一拍尘埃落定，再把焦点抢到输入框——否则输入框的 focus 有概率被随后才触发的容器 rAF
+  // 焦点抢走，一 blur 就把 typing 冲回 false，是测试脚本的时序竞争，不是被测代码的缺陷。
+  await waitForEval(cdp, `(() => { const s = ${SHELL_SNAPSHOT}; return s.mode === 'steward' && s.focused === 'stewardShell' ? s : null; })()`);
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = '你好';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  const listening = await waitForEval(cdp, `(() => {
+    const snapshot = ${SHELL_SNAPSHOT};
+    return snapshot.avatarState === 'listening' && snapshot.focused === 'stewardComposerInput' ? snapshot : null;
+  })()`);
+  ok(listening && listening.avatarState === 'listening',
+    'F1 输入框聚焦并输入非空文本后，头像态变为 listening(117a 的禁用占位在 117b 改为可聚焦，仅测这一态)');
+
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.blur();
+    return true;
+  })()`);
+  const backIdle = await waitForEval(cdp, `(() => {
+    const snapshot = ${SHELL_SNAPSHOT};
+    return snapshot.avatarState === 'idle' ? snapshot : null;
+  })()`);
+  ok(backIdle && backIdle.avatarState === 'idle', 'F2 清空文本并失焦后，头像态回到 idle');
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

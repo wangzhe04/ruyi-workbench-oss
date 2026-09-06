@@ -27,6 +27,9 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   'css/components/onboarding.css',
   // 117a: steward shell layer (third shell mode; own sheet, appended last for the same reason).
   'css/views/steward-shell.css',
+  // 117b: steward avatar layer (the seven-state 2D avatar; its own sheet since the rule count exceeds
+  // what fits comfortably in steward-shell.css). Appended last for the same reason.
+  'css/views/steward-avatar.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -130,7 +133,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // three-shell mutual exclusion by :root[data-shell-mode], header/feed/composer/status slots, 390px and
 // reduced-motion containment). Additive only: no existing layer's rules were touched, and the
 // link/@import/overlay order gained exactly one trailing entry. Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = '9a5e6e96e60d3aee64bf23a71db0785ca74829193f4cea74726bb94d84a5dd95';
+// 117b: the header's avatar placeholder (.steward-avatar-slot) is retired from steward-shell.css (its
+// two rules removed) and replaced by a real avatar; the seven-state 2D avatar itself (ring/body/eyes,
+// per-state animation, reduced-motion containment) lands in a new owned layer css/views/steward-avatar.css
+// appended last for the same reason as every other owned layer. Net: one deletion + one new layer.
+// Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'db4cf7350fb6526a0180cef827d55fd0c3deb2cc99ea9667a46feb8522766505';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

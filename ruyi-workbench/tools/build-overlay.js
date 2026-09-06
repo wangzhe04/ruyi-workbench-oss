@@ -84,6 +84,9 @@ const PAYLOAD_FILES = [
   'app/public/js/help-menu.js', // 118d
   // 117a:管家壳(第三种壳模式)的模式与容器骨架;缺文件会让离线包在设置里选中管家后无法准入。
   'app/public/js/steward-shell.js',
+  // 117b:管家 avatar 的纯投影 derivePresence()/presenceLabelKey();缺文件会让离线包的管家壳头像永远
+  // 停在初始 data-state,状态文字也读不到 i18n 键。
+  'app/public/js/steward-presence.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -104,6 +107,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/preview-shell.css',
   'app/public/css/components/onboarding.css', // 118a
   'app/public/css/views/steward-shell.css', // 117a
+  'app/public/css/views/steward-avatar.css', // 117b
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',
