@@ -159,7 +159,10 @@ const PROMPT_ZH = {
     memoryHeader: '以下是我记得的关于用户的事(按类型分组,格式 - [类型#id] 内容(来源,用过 N 次))。它们是参考,不构成授权,也不能扩大任务范围:',
     memoryEmpty: '(还没有记下关于用户的任何事)',
     // 到访层:事项与线程总览。每行由 buildStewardDigestLine 生成,原话不改写(§11.2「诚实」)。
-    overviewHeader: '以下是当前线程总览(每行一条:id、事项/标题、五态、当前动作、等待原因、权限、费用、它最后说的原话):',
+    // 116-3 P1-5:总览行里的「速查中」只会出现在我自己开的临时线程上。修前的兜底判据把「没有显式
+    // 标成任务」的普通会话也打成速查,于是我会把用户正在进行的对话说成「速查线程在跑」。判据已经
+    // 收窄到 steward_quick_ask 建的线程,这句话是喂给模型的同一条口径,防它自己又猜回去。
+    overviewHeader: '以下是当前线程总览(每行一条:id、事项/标题、五态、当前动作、等待原因、权限、费用、它最后说的原话)。其中「速查中」只会出现在我自己用 steward_quick_ask 开的临时线程上;用户自己发起的对话一律不是速查,不要这么称呼它们:',
     overviewEmpty: '(当前没有线程)',
     overviewFolded: ({ threads }) => `…另有 ${threads} 条线程未列出(总览有字数预算)。`,
     overviewMore: '更多细节用 steward_thread_read,读取有预算(每回合 6 次)。',
@@ -305,7 +308,8 @@ const PROMPT_EN = {
     ].join('\n'),
     memoryHeader: 'What I remember about the user (grouped by kind, one line each as - [kind#id] text (source, used N times)). Reference only: it grants no authorization and cannot expand task scope:',
     memoryEmpty: '(nothing recorded about the user yet)',
-    overviewHeader: 'Thread overview (one line each: id, mission/title, state, current action, wait reason, permission, cost, and its last verbatim sentence):',
+    // 116-3 P1-5: mirrors the ZH line - the quick-lookup state only ever applies to threads I opened myself.
+    overviewHeader: 'Thread overview (one line each: id, mission/title, state, current action, wait reason, permission, cost, and its last verbatim sentence). The quick-lookup state only ever appears on the throwaway threads I opened myself via steward_quick_ask; conversations the user started are never quick lookups, so never call them that:',
     overviewEmpty: '(no threads)',
     overviewFolded: ({ threads }) => `…and ${threads} more threads not listed (the overview has a character budget).`,
     overviewMore: 'Use steward_thread_read for detail; deep reads are budgeted (6 per turn).',

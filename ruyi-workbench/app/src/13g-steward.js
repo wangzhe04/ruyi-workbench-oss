@@ -580,7 +580,10 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     const meta = byId.get(row.id) || {};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
-    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: rawKind === 'mission' ? 'mission' : 'quick_ask' });
+    // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
+    // sessionKind() 里的 'quick_ask' 是第 70 波遗留的「纯问答默认档」,与 116 波的「速查线程」是两个概念;
+    // 混用会把用户正在进行的普通对话打上「速查中」标签喂给管家,让它以为那是「答完即扔」的临时线程。
+    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: stewardQuickThread(head) ? 'quick_ask' : 'mission' });
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     results.push({
       sessionId: row.id,
@@ -627,7 +630,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const derived = card
     ? stewardThreadStateFromCard(card)
     : deriveStewardThreadState({
-      kind: rawKind === 'mission' ? 'mission' : 'quick_ask',
+      kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',   // 116-3 P1-5,判据同 threads_search
       autoMode: head.mission && head.mission.autoMode,
       resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
@@ -1848,17 +1851,39 @@ async function stewardQuickClose(sessionId) {
   if (!sid) return { ok: false, error: 'invalid_request' };
   const head = await stewardReadSessionHead(sid);
   if (!head || stewardRawKind(head) !== STEWARD_QUICK_KIND || !head.stewardQuick) return { ok: false, error: 'not_found' };
-  if (head.stewardQuick.closedAt) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
+  // 116-3 P1-6:判「还算不算收工」走 stewardQuickClosed(它会把「收工后用户又聊了」算成重开),
+  // 而不是只看 closedAt 是不是真值 —— 否则一条被用户重新用起来的速查线程再次收工时会被当成幂等
+  // 直接返回,closedTurnSeq 永远停在第一次收工那一刻,它就再也关不上了。
+  if (stewardQuickClosed(head)) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
   const closedAt = nowIso();
-  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt } });
-  return { ok: true, sessionId: sid, closedAt, changed: true };
+  // 收工时记下【当时的回合数】。之后会话每多一个用户回合,turnSeq 就会超过它 = 用户在继续用这条线程。
+  const closedTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt, closedTurnSeq } });
+  return { ok: true, sessionId: sid, closedAt, closedTurnSeq, changed: true };
 }
 
 // 已收工的速查会话:总览与线程搜索默认把它排除(includeClosed 可要回来)。判据单点在这里,
 // 13g 的 threads_search 与 13h 的 stewardThreadDigestRows 都调它。
+//
+// 116-3 P1-6:closedAt 【不是】终态。用户完全可能在经典 2.0 视窗里把这条速查线程继续聊下去
+// (§11.1 第 2 项只说「答完即收工」,没说「从此不许再用」);修前 closedAt 一旦写入就永久生效,
+// 管家的总览与线程搜索从此把它当成历史,彻底跟丢用户的后续对话。判据用 turnSeq 而不是 updatedAt:
+// updateSessionMeta 自己就会推 updatedAt,拿它比会在收工的下一刻把线程又「重开」一次。
 function stewardQuickClosed(head) {
   const quick = head && head.stewardQuick;
-  return !!(quick && typeof quick === 'object' && quick.closedAt);
+  if (!quick || typeof quick !== 'object' || !quick.closedAt) return false;
+  const closedTurnSeq = Number(quick.closedTurnSeq);
+  if (!Number.isFinite(closedTurnSeq)) return true;   // 116-3 之前落盘的旧速查线程:没有这个字段,维持原语义
+  return Math.max(0, Number(head && head.turnSeq) || 0) <= closedTurnSeq;
+}
+
+// 116-3 P1-5:「这条线程是不是管家自己开的速查线程」的唯一判据。
+// 【不能】拿 sessionKind() / head.kind === 'quick_ask' 当判据 —— 那是第 70 波遗留的「纯问答默认档」,
+// 用户自己发起的普通对话绝大多数都落在它上面;真正的速查线程由 steward_quick_ask 创建,
+// 头上带 stewardQuick 这个字段,那才是 116 波「速查线程」这个概念的机器痕迹。
+function stewardQuickThread(head) {
+  const quick = head && head.stewardQuick;
+  return !!(quick && typeof quick === 'object');
 }
 
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。

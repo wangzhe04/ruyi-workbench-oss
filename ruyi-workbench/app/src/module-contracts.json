@@ -11199,6 +11199,7 @@
         "STEWARD_INBOX_TAIL_BYTES",
         "STEWARD_KIND_RESOLVERS",
         "STEWARD_MERGED_SEQS_MAX",
+        "STEWARD_MERGE_ACCUMULATE_KEYS",
         "STEWARD_MERGE_WINDOW_MS",
         "STEWARD_RUN_EVENT_PAGE",
         "STEWARD_SEEN_MAX_KEYS",
@@ -11220,6 +11221,7 @@
         "stewardIsoAt",
         "stewardKindFor",
         "stewardLoadState",
+        "stewardMergeAccumulate",
         "stewardMergeInboxEvents",
         "stewardNormalizeBudgetExhausted",
         "stewardNormalizeMissionChange",
@@ -11472,6 +11474,7 @@
         "stewardPendingOneLine",
         "stewardQuickClose",
         "stewardQuickClosed",
+        "stewardQuickThread",
         "stewardRawKind",
         "stewardReadBucket",
         "stewardReadDecisionsText",
@@ -12146,6 +12149,7 @@
         "stewardArbiterBudget",
         "stewardArbiterCancel",
         "stewardArbiterCwdKey",
+        "stewardArbiterCwdLock",
         "stewardArbiterDayCost",
         "stewardArbiterDetach",
         "stewardArbiterDrain",
@@ -12190,6 +12194,7 @@
         "stewardRunAct",
         "stewardRunnerRuntime",
         "stewardRunnerState",
+        "stewardScheduleInboxDrain",
         "stewardSelfServeAllows",
         "stewardSelfServeEntry",
         "stewardSelfServeGate",
@@ -12219,6 +12224,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
           "kinds": [
             "read"
           ]
@@ -12583,6 +12595,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardPendingOneLine",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardQuickThread",
           "kinds": [
             "call"
           ]

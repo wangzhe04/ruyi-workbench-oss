@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 1970 | 1947 | 316 | 67 | 0 | 1 |
+| 41 | 1975 | 1949 | 316 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -52,9 +52,9 @@
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 108 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 37 | `13i-steward-inbox.js` | transport | 56 | 19 | 7 |
-| 38 | `13g-steward.js` | transport | 109 | 86 | 18 |
-| 39 | `13h-steward-runner.js` | transport | 107 | 62 | 11 |
+| 37 | `13i-steward-inbox.js` | transport | 58 | 19 | 7 |
+| 38 | `13g-steward.js` | transport | 110 | 86 | 18 |
+| 39 | `13h-steward-runner.js` | transport | 109 | 64 | 11 |
 | 40 | `14-main.js` | entrypoint | 1 | 470 | 31 |
 
 ## 模块边
@@ -328,7 +328,7 @@
 | `13g-steward.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand`, `buildMissionAggregateRows`, `decideIntervention`, `missionPendingCounts`, `missionRunDigest`, `searchSessionsByContent` |
 | `13g-steward.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
 | `13g-steward.js` | `13i-steward-inbox.js` | backward | `startStewardInbox`, `stewardDir`, `stewardInboxRead`, `stewardInboxState`, `stopStewardInbox` |
-| `13h-steward-runner.js` | `00-boot.js` | backward | `SESSION_SCHEMA`, `apiFailure`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths`, `readUsageRows`, `text`, `usageDayKey` |
+| `13h-steward-runner.js` | `00-boot.js` | backward | `SESSION_SCHEMA`, `apiFailure`, `crypto`, `fs`, `fsp`, `json`, `nowIso`, `path`, `paths`, `readUsageRows`, `text`, `usageDayKey` |
 | `13h-steward-runner.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `tokenOk` |
 | `13h-steward-runner.js` | `02-session-store.js` | backward | `loadSession`, `normalizeSessionEngineRoute`, `readInterventions`, `readMissionContainer`, `recordMissionBudgetTrippedChange`, `saveSession`, `sessionEngineRouteFromConfig`, `sessionMissionId` |
 | `13h-steward-runner.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `stopSession` |
@@ -337,7 +337,7 @@
 | `13h-steward-runner.js` | `08-agent-runs.js` | backward | `parseStructuredAgentOutput` |
 | `13h-steward-runner.js` | `10-context-governance.js` | backward | `runSessionTurn` |
 | `13h-steward-runner.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
-| `13h-steward-runner.js` | `13g-steward.js` | backward | `_stewardReadBudget`, `stewardAppendDecision`, `stewardFail`, `stewardPendingOneLine`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardRunResumeTier`, `stewardThreadPermissionMode`, `stewardToolHandler` |
+| `13h-steward-runner.js` | `13g-steward.js` | backward | `_stewardReadBudget`, `stewardAppendDecision`, `stewardFail`, `stewardPendingOneLine`, `stewardQuickThread`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardRunResumeTier`, `stewardThreadPermissionMode`, `stewardToolHandler` |
 | `13h-steward-runner.js` | `13i-steward-inbox.js` | backward | `stewardDir`, `stewardInboxRead` |
 | `13i-steward-inbox.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |

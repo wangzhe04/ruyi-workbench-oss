@@ -333,6 +333,9 @@ try {
     const renamed = (r.actions || [])[1];
     ok(renamed && renamed.tool === 'steward_thread_rename' && renamed.result && renamed.result.ok === true,
       'D10 同一回合里的写动作真的执行了(thread_rename 成功)');
+    // 116-3 copy P1-1(§8.1 原则 7):actions 行带人话标签,前端的 ※ 脚注不再吐 `steward_thread_rename`
+    // 这种内部标识符(它优先读 label,读不到才回落工具名)。
+    ok(renamed && renamed.label === '改标题', `D10b actions 行带人话标签(got ${renamed && renamed.label})`);
     const rows = readDecisions();
     ok(rows.length > before && rows.some(r2 => r2.tool === 'steward_thread_rename' && r2.targetSessionId === FIXED_THREAD && typeof r2.permissionMode === 'string' && r2.undoRef),
       'D10b 执行后落一行决策日志(含目标线程、权限档与 undoRef)');

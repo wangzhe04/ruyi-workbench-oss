@@ -119,8 +119,198 @@ try {
     ok(seqs[0] === 1 && monotonic && seqs[seqs.length - 1] === TOTAL,
       `A9 inboxSeq 从 1 连续到 ${TOTAL}(结转不留序号洞;got ${seqs[0]}..${seqs[seqs.length - 1]})`);
   }
+  /* ═════════ (B) P1-7 5 秒合并窗口不再吞掉不同事件 ═════════ */
+  console.log('── (B) P1-7 合并窗口 ──');
+  {
+    const ev = (runId, seq, atMs, payload) => ({
+      kind: 'failed', sessionId: 'sess_merge', missionId: 'sess_merge', runId, seq,
+      at: new Date(Date.parse('2026-09-05T10:00:00.000Z') + atMs).toISOString(), payload,
+    });
+    // 修前:分组键只有 sessionId+kind,两个不同 run 的 failed 合成一条,run_1 的 nodeId/errorClass/
+    // summary 全部被 run_2 覆盖掉 —— 管家永远看不到「节点 X 因超时失败」。
+    const twoRuns = srv.stewardMergeInboxEvents([
+      ev('run_1', 1, 0, { nodeId: 'nodeX', errorClass: 'timeout', summary: '节点 X 超时' }),
+      ev('run_2', 2, 2000, { nodeId: 'nodeY', errorClass: 'oom', summary: '节点 Y OOM' }),
+    ], 5000);
+    ok(twoRuns.length === 2, `B1 两个不同 run 的 failed 不再被合成一条(got ${twoRuns.length} 行)`);
+    const text = JSON.stringify(twoRuns);
+    ok(text.includes('节点 X 超时') && text.includes('节点 Y OOM'), 'B2 两条摘要都还在(修前只剩后到的那条)');
+
+    // 同一个 run 里先后两个节点失败:仍然合成一条(它就是「重复事件收敛」的本意),
+    // 但 nodeId / errorClass 累加成列表,不再是「后到的把先到的盖掉」。
+    const sameRun = srv.stewardMergeInboxEvents([
+      ev('run_9', 1, 0, { nodeId: 'nodeA', errorClass: 'timeout', summary: 'A 超时' }),
+      ev('run_9', 2, 1500, { nodeId: 'nodeB', errorClass: 'oom', summary: 'B OOM' }),
+    ], 5000);
+    ok(sameRun.length === 1 && sameRun[0].count === 2, `B3 同一个 run 的两条 failed 照常合并(got ${sameRun.length} 行 / count ${sameRun[0] && sameRun[0].count})`);
+    const acc = sameRun[0].payload || {};
+    ok(Array.isArray(acc.nodeIds) && acc.nodeIds.join(',') === 'nodeA,nodeB',
+      `B4 nodeId 累加成列表(got ${JSON.stringify(acc.nodeIds)})`);
+    ok(Array.isArray(acc.errorClasses) && acc.errorClasses.join(',') === 'timeout,oom',
+      `B5 errorClass 累加成列表(got ${JSON.stringify(acc.errorClasses)})`);
+    ok(Array.isArray(acc.mergedSeqs) && acc.mergedSeqs.length === 2, 'B6 mergedSeqs 仍回填(重启重建去重集合的既有口径不变)');
+  }
 } finally {
   try { srv.stopStewardInbox(); } catch { /* ignore */ }
+}
+
+/* ═════════ (C) P1-8 游标损坏 = 从零开始(不是「从现在开始」) ═════════ */
+// 必须开子进程:游标只在【本进程首次装载】时读一次(stewardRuntime.loaded),同一个进程里改不动它。
+// A/B 两个 HOME 只差一件事 —— 一个有坏掉的 cursor-v1.json,一个压根没有游标文件(真冷启动)。
+console.log('── (C) P1-8 游标损坏 ──');
+{
+  const cp = require('child_process');
+  const childScript = path.join(HOME, 'inbox-child.js');
+  fs.writeFileSync(childScript, [
+    "const fs = require('fs'), path = require('path');",
+    'const [, , server, home] = process.argv;',
+    'const srv = require(server);',
+    '(async () => {',
+    "  const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8'))).config;",
+    '  await srv.startStewardInbox(cfg);',
+    '  srv.stopStewardInbox();',
+    '  let rows = [];',
+    "  try { rows = fs.readFileSync(path.join(home, 'steward', 'inbox-v1.ndjson'), 'utf8').split('\\n').filter(Boolean).map(l => JSON.parse(l)); } catch { rows = []; }",
+    "  let audit = '';",
+    '  await new Promise(r => setTimeout(r, 400));   // logEvent 走 createWriteStream,exit 前先给它时间刷盘',
+    "  try { for (const f of fs.readdirSync(path.join(home, 'logs'))) audit += fs.readFileSync(path.join(home, 'logs', f), 'utf8'); } catch { audit = ''; }",
+    "  console.log('RESULT ' + JSON.stringify({ rows: rows.length, corruptLogged: audit.includes('steward_cursor_corrupt') }));",
+    '  process.exit(0);',
+    '})();',
+  ].join('\n'), 'utf8');
+
+  // 一个带 5 条 failure 历史的会话。kind 留 quick_ask(不建投影卡片),但 mission.changeSeq 照常被
+  // 投影读走 —— 那正是「这条会话有没有新变化」的免费信号。
+  const seedHome = (home, withCorruptCursor) => {
+    fs.mkdirSync(path.join(home, 'sessions'), { recursive: true });
+    // logEvent 只在 <data>/logs 已经存在时才建得起写流(建目录是 serve 启动时做的事,子进程只 require)。
+    fs.mkdirSync(path.join(home, 'logs'), { recursive: true });
+    fs.writeFileSync(path.join(home, 'config.json'), fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const sid = 'sess_cursor_case';
+    const now = new Date().toISOString();
+    fs.writeFileSync(path.join(home, 'sessions', sid + '.json'), JSON.stringify({
+      id: sid, schemaVersion: 3, storageVersion: 2, turnSeq: 5, title: '有历史的线程', summary: '',
+      pinned: false, cwd: home, createdAt: now, updatedAt: now, claudeSessionId: null, attachments: [],
+      messageCount: 0, providerHistoryCount: 0, mission: { changeSeq: 5 }, missionId: sid, kind: 'quick_ask',
+    }, null, 2), 'utf8');
+    fs.writeFileSync(path.join(home, 'sessions', sid + '.messages.ndjson'), '', 'utf8');
+    fs.writeFileSync(path.join(home, 'sessions', sid + '.provider.ndjson'), '', 'utf8');
+    const journal = [];
+    for (let i = 1; i <= 5; i++) {
+      journal.push(JSON.stringify({
+        // occurredAt 是归一化器认的时间字段(不是 at)——不给它,5 条会全部落到 epoch 0、被 5 秒窗口并成一条。
+        seq: i, type: 'failure', occurredAt: new Date(BASE_MS + i * 60000).toISOString(),
+        detail: { errorClass: 'timeout', summary: '第 ' + i + ' 次回合失败' },
+      }));
+    }
+    fs.writeFileSync(path.join(home, 'sessions', sid + '.changes.ndjson'), journal.join('\n') + '\n', 'utf8');
+    if (withCorruptCursor) {
+      fs.mkdirSync(path.join(home, 'steward'), { recursive: true });
+      fs.writeFileSync(path.join(home, 'steward', 'cursor-v1.json'), '{ 这不是合法 JSON', 'utf8');
+    }
+  };
+  const runChild = home => {
+    const out = cp.spawnSync(process.execPath, [childScript, SERVER, home], {
+      encoding: 'utf8', windowsHide: true,
+      env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: home, RUYI_HOME: home },
+    });
+    const line = String(out.stdout || '').split('\n').find(l => l.startsWith('RESULT '));
+    try { return JSON.parse(line.slice(7)); } catch { return { rows: -1, corruptLogged: false, raw: String(out.stdout) + String(out.stderr) }; }
+  };
+
+  const coldHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-inbox-cold-'));
+  const corruptHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-inbox-corrupt-'));
+  seedHome(coldHome, false);
+  seedHome(corruptHome, true);
+
+  const cold = runChild(coldHome);
+  ok(cold.rows === 0, `C1 真冷启动(压根没有游标文件)只建基线、不把历史灌进箱子(got ${cold.rows} 行)`);
+  const corrupt = runChild(corruptHome);
+  ok(corrupt.rows === 5, `C2 游标损坏 -> 真的「从零开始」,5 条历史 failure 补进箱子(修前是 0 —— 基线被悄悄拉到现在;got ${corrupt.rows})`);
+  ok(corrupt.corruptLogged === true, 'C3 损坏留下痕迹(审计里有 steward_cursor_corrupt;修前连 lastError 都不置)');
+  fs.rmSync(coldHome, { recursive: true, force: true });
+  fs.rmSync(corruptHome, { recursive: true, force: true });
+
+  /* ═════════ (D) P1-9 budget_exhausted 的持久去重键 ═════════ */
+  // 修前 budget 类事件唯一的去重保护是内存 seen 集合,而它无论启动重建还是运行时收缩都【只回看
+  // inbox 尾部 2000 行】;card 上的 budgetExhausted 却是一次性【持久】标记。于是只要箱子在那条记录
+  // 之后又多了 2000 行,它就滑出重建窗口,下一轮 tick 会把同一件事重新写进箱子。
+  // 这里就按这个形状复现:先跑一轮拿到 1 条 budget,再往箱子里灌 2100 行让它滑出窗口,再跑一轮。
+  console.log('── (D) P1-9 预算触顶的持久去重 ──');
+  const budgetHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-inbox-budget-'));
+  {
+    const sid = 'sess_budget_case';
+    const now = new Date().toISOString();
+    fs.mkdirSync(path.join(budgetHome, 'sessions'), { recursive: true });
+    fs.mkdirSync(path.join(budgetHome, 'logs'), { recursive: true });
+    fs.writeFileSync(path.join(budgetHome, 'config.json'), fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    fs.writeFileSync(path.join(budgetHome, 'sessions', sid + '.json'), JSON.stringify({
+      id: sid, schemaVersion: 3, storageVersion: 2, turnSeq: 3, title: '预算用尽的事项', summary: '',
+      pinned: false, cwd: budgetHome, createdAt: now, updatedAt: now, claudeSessionId: null, attachments: [],
+      messageCount: 0, providerHistoryCount: 0, missionId: sid, kind: 'mission',
+      mission: {
+        goal: '把周报写完', createdAt: now, updatedAt: now, autoMode: 'off', milestones: [], changeSeq: 0,
+        budget: { maxAutoTurns: 5, maxTokens: 1000 }, spent: { autoTurns: 5, tokens: 1000 },
+        budgetExhaustedAt: now,
+      },
+    }, null, 2), 'utf8');
+    fs.writeFileSync(path.join(budgetHome, 'sessions', sid + '.messages.ndjson'), '', 'utf8');
+    fs.writeFileSync(path.join(budgetHome, 'sessions', sid + '.provider.ndjson'), '', 'utf8');
+
+    const budgetRows = () => {
+      try {
+        return fs.readFileSync(path.join(budgetHome, 'steward', 'inbox-v1.ndjson'), 'utf8').split('\n').filter(Boolean)
+          .map(l => { try { return JSON.parse(l); } catch { return null; } })
+          .filter(r => r && r.kind === 'budget' && r.sessionId === sid).length;
+      } catch { return 0; }
+    };
+    runChild(budgetHome);
+    ok(budgetRows() === 1, `D1 第一轮:预算触顶入箱一次(got ${budgetRows()})`);
+    const cursor = JSON.parse(fs.readFileSync(path.join(budgetHome, 'steward', 'cursor-v1.json'), 'utf8'));
+    ok(Array.isArray(cursor.sources.budgetSeen) && cursor.sources.budgetSeen.includes(sid),
+      `D2 去重键落进游标 sources.budgetSeen(修前这个字段根本不存在;got ${JSON.stringify(cursor.sources.budgetSeen)})`);
+
+    // 把那条记录挤出 2000 行的重建窗口 —— 内存去重集合从此看不见它。
+    const filler = [];
+    for (let i = 1; i <= 2100; i++) {
+      filler.push(JSON.stringify({
+        inboxSeq: 10000 + i, kind: 'done', sessionId: 'sess_filler', missionId: 'sess_filler', runId: '',
+        seq: i, at: new Date(BASE_MS + i * 1000).toISOString(), payload: { summary: '填充 ' + i }, count: 1,
+      }));
+    }
+    fs.appendFileSync(path.join(budgetHome, 'steward', 'inbox-v1.ndjson'), filler.join('\n') + '\n', 'utf8');
+    runChild(budgetHome);
+    ok(budgetRows() === 1, `D3 滑出 2000 行尾窗后再跑一轮:仍然只有 1 条(修前会重复入箱;got ${budgetRows()})`);
+  }
+  fs.rmSync(budgetHome, { recursive: true, force: true });
+}
+
+/* ═════════ (E) P1-10 收件箱内存队列自持排空 ═════════ */
+// 修前 stewardOnInboxBatch 只在「轮询器又写了新的一批」时排一次去抖定时器,一批只切走队首 30 条,
+// 处理完不给剩下的重排 —— 只要活动很快安静下来,余下的条目会一直躺在纯内存队列里没人处理,
+// 进程重启整份丢失。修后:一批处理完队列还有就接着排。
+console.log('── (E) P1-10 队列自持排空 ──');
+{
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const waitUntil = async (fn, ms) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (await fn()) return true; await sleep(400); }
+    return false;
+  };
+  try { srv.StewardHooks.resumeRunner(); } catch { /* 前面 stopStewardInbox 顺带停了回合队列,这里放开 */ }
+  const events = [];
+  for (let i = 1; i <= 45; i++) {
+    events.push({
+      inboxSeq: 900 + i, kind: 'done', sessionId: 'sess_inbox_a', missionId: 'sess_inbox_a', runId: '',
+      seq: 900 + i, at: new Date().toISOString(), payload: { summary: '收工 ' + i }, count: 1,
+    });
+  }
+  srv.StewardHooks.onInboxBatch(events);
+  const queued = async () => Number((await srv.StewardHooks.runnerState(config).catch(() => ({}))).queued) || 0;
+  ok(await queued() === 45, `E1 45 条事件先全部进内存队列(一个回合最多带 30 条;got ${await queued()})`);
+  // 一轮去抖 5 秒切走 30 条,修前剩下的 15 条就永远躺在这里了(没有新事件 = 没人再排定时器)。
+  const drained = await waitUntil(async () => (await queued()) === 0, 45000);
+  ok(drained, `E2 不再有任何新事件进来,队列仍然自己排空(修前会永久停在 15 条;got ${await queued()})`);
 }
 
 console.log('');

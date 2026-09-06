@@ -942,15 +942,20 @@ function applySessionMetaPatch(session, patch) {
   // 116-2e(27 号文 §11.1 第 2 项「速查线程自动收工」):速查会话头上的 stewardQuick 标。走这条 patch
   // 通道与 missionId 同理 —— 收工恰好发生在回合刚结束的窗口里,白拿 116-2a 的活回合竞态防护(延后到
   // settle 之后在【重新装载的副本】上重放,绝不用陈旧正文盖掉回合刚写的答案)。
-  // 严格归一成固定五个字段:这条通道也接 PATCH /api/sessions/:id 的请求体,不能让任意形状写进会话头。
+  // 严格归一成固定六个字段:这条通道也接 PATCH /api/sessions/:id 的请求体,不能让任意形状写进会话头。
+  // 116-3 P1-6 加第六个 closedTurnSeq:收工那一刻的回合数。之后会话每多一个用户回合 turnSeq 就会
+  // 超过它 = 用户在经典 2.0 视窗里把这条速查线程继续用起来了,收工标记应当自动失效(判据单点在 13g 的
+  // stewardQuickClosed)。不写进白名单的话它会被这段归一化静默丢掉,重开判据永远拿不到锚点。
   if (patch.stewardQuick && typeof patch.stewardQuick === 'object' && !Array.isArray(patch.stewardQuick)) {
     const q = patch.stewardQuick;
+    const closedTurnSeq = Number(q.closedTurnSeq);
     session.stewardQuick = {
       schema: 1,
       askedAt: String(q.askedAt || ''),
       question: String(q.question || '').slice(0, 1000),
       stewardTurnKey: String(q.stewardTurnKey || ''),
       closedAt: q.closedAt ? String(q.closedAt) : null,
+      ...(Number.isFinite(closedTurnSeq) && closedTurnSeq >= 0 ? { closedTurnSeq: Math.round(closedTurnSeq) } : {}),
     };
   }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
@@ -989,18 +994,29 @@ async function updateSessionMeta(id, patch) {
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
   const previous = sessionMetaDeferChains.get(id) || Promise.resolve();
   const chain = previous.catch(() => {}).then(async () => {
+    let forced = false;
     const settler = turnSettlers.get(id);
     if (settler && settler.promise) {
       const settled = await Promise.race([
         settler.promise.then(() => true, () => true),
         new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
       ]);
-      if (!settled) logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+      if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
     const fresh = await loadSession(id).catch(() => null);
     if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
+    // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
+    // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
+    // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
+    // 但必须【留痕】:落一条审计事件,写清楚这次强制写发生在什么状态下,事后能对账。
+    if (forced) {
+      logEvent({
+        kind: 'session_meta_defer_forced', sessionId: id, keys: Object.keys(p).slice(0, 8),
+        stillActive: activeChildren.has(id), stillSettling: turnSettlers.has(id),
+      });
+    }
   });
   // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
   const wrapped = chain.then(() => {}, () => {});
@@ -3050,7 +3066,12 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
 
   // Optional file rollback of the discarded turns, newest→oldest (so multiple writes to a file unwind to
   // the earliest recorded `before` across turns). Aggregate into filesReverted / filesFailed.
-  const filesReverted = [], filesFailed = [];
+  // 116-3 data-safety P1-4:`turnsWithoutCheckpoint` —— 哪些被丢弃的回合【压根没有 checkpoint 记录】。
+  // 修前「0 条 revert」这一个形状同时代表两件完全不同的事:「这一步没碰过文件,不用回滚」与
+  // 「这一步改过文件,但改动没进 journal(引擎用自己的原生编辑能力绕过了 file_* 桥),回滚不了」。
+  // 用户看到「文件已回滚」会以为磁盘复原了,实际改动原封不动留着。这里把第二种如实说出来,
+  // 让上层能在提示旁边补一句「以下回合的文件改动未被追踪,可能没有被撤销」。只加字段,不改行为。
+  const filesReverted = [], filesFailed = [], turnsWithoutCheckpoint = [];
   if (rollbackFiles) {
     const seqs = [...discarded].sort((a, b) => b - a); // newest first
     for (const s of seqs) {
@@ -3058,8 +3079,10 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
         const r = await journalRollback(sessionId, s); // whole-turn rollback
         if (r && Array.isArray(r.reverted)) for (const x of r.reverted) filesReverted.push(x);
         if (r && Array.isArray(r.failed)) for (const x of r.failed) filesFailed.push(x);
+        if (r && r.ok === false && r.error === 'no entries') turnsWithoutCheckpoint.push(s);
       } catch (e) { filesFailed.push({ path: '', reason: (e && e.message) ? e.message : String(e) }); }
     }
+    turnsWithoutCheckpoint.sort((a, b) => a - b);
   }
 
   const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
@@ -3076,9 +3099,13 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },
-    detail: { removedTurns, rollbackFiles: Boolean(rollbackFiles), filesReverted: filesReverted.length, filesFailed: filesFailed.length },
+    detail: {
+      removedTurns, rollbackFiles: Boolean(rollbackFiles),
+      filesReverted: filesReverted.length, filesFailed: filesFailed.length,
+      turnsWithoutCheckpoint: turnsWithoutCheckpoint.length,   // 116-3 P1-4
+    },
   });
-  return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed };
+  return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed, turnsWithoutCheckpoint };
 }
 
 // Resolve the journal {sessionId, turnSeq} for a file-mutating toolCall. Priority:

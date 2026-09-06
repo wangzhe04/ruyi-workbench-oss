@@ -528,6 +528,71 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       ok(after.body && after.body.running.length === 0 && after.body.queue.length === 0, '⑫ 收场时并发位与队列都清空(结转的入队路径不漏条目)');
     }
 
+    /* ═════════ ⑬(116-3 P1-11:cwd 锁键先 realpath)═════════ */
+    // 修前 stewardArbiterCwdKey 只做 path.resolve + Windows 折大小写,不做 realpath —— 两个会话的 cwd
+    // 经不同的符号链接 / 目录联接(junction)指向同一个真实目录时会算出两个不同的锁键,写互斥完全
+    // 不生效,同一棵目录树真的会被两条线程并发改。
+    {
+      const linkPath = path.join(HOME, 'ws-shared-link');
+      let linked = false;
+      try { fs.rmSync(linkPath, { recursive: true, force: true }); } catch { /* ignore */ }
+      try { fs.symlinkSync(cwds.shared, linkPath, 'junction'); linked = true; } catch { linked = false; }
+      if (!linked) {
+        console.log('SKIP ⑬ 本机建不出目录联接(需要 junction 支持),跳过 realpath 归一化判定');
+      } else {
+        await setConfig({ stewardMaxParallelThreads: 8, stewardGlobalMaxCostPerDay: 0 });
+        const real = await newSession('junction-real', cwds.shared);
+        const viaLink = await newSession('junction-link', linkPath);
+        const s = sampler(WP, hdr);
+        const pa = stream(WP, { sessionId: real, message: '真实路径', cwd: cwds.shared }, hdr);
+        await sleep(150);
+        const pb = stream(WP, { sessionId: viaLink, message: '走联接', cwd: linkPath }, hdr);
+        const [ra, rb] = await Promise.all([pa, pb]);
+        await s.stop();
+        ok(ra.events.some(e => e.type === 'result' && e.ok === true) && rb.events.some(e => e.type === 'result' && e.ok === true),
+          '⑬ 两条都跑完');
+        const w = queueOf(s.frames, viaLink);
+        ok(w && w.wait && w.wait.reason === 'lock',
+          `⑬ 经目录联接指向同一个文件夹的第二条被判为等锁(修前算出不同的哈希键、直接并发;实测 ${w && w.wait ? w.wait.reason : '没等过'})`);
+        ok(s.frames.every(f => f.running.length <= 1), '⑬ 两条从不同时在跑(realpath 归一化真的生效)');
+        try { fs.rmSync(linkPath, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
+    }
+
+    /* ═════════ ⑭(116-3 P1-13:看板插队走工具实现,校验 + 审计)═════════ */
+    // 修前这条路由直接调仲裁器裸原语:既不校验目标是否存在/是不是管家会话,也不落决策日志 ——
+    // 于是【每一次经看板做的插队在 decisions-v1.ndjson 里都没有记录】,与 §3.4「全部行动经命令核心
+    // 与审计」相悖;编造的 sessionId 也只是静默 not_queued。
+    {
+      const decisionsFile = path.join(HOME, 'steward', 'decisions-v1.ndjson');
+      const readDecisions = () => {
+        try {
+          return fs.readFileSync(decisionsFile, 'utf8').split('\n').filter(Boolean)
+            .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        } catch { return []; }
+      };
+      await setConfig({ stewardMaxParallelThreads: 1, stewardGlobalMaxCostPerDay: 0 });
+      const head = await newSession('audit-head', cwds.a);
+      const queuedOne = await newSession('audit-queued', cwds.b);
+      const runs = [stream(WP, { sessionId: head, message: '占位', cwd: cwds.a }, hdr)];
+      await sleep(200);
+      runs.push(stream(WP, { sessionId: queuedOne, message: '排队', cwd: cwds.b }, hdr));
+      await sleep(250);
+      const before = readDecisions().length;
+      const pr = await req(WP, 'POST', '/api/steward/arbiter/prioritize', { sessionId: queuedOne }, hdr);
+      ok(pr.status === 200 && pr.body && pr.body.prioritized === true, `⑭ 看板插队照常成功(got ${pr.status})`);
+      await Promise.all(runs);
+      await sleep(400);
+      const rows = readDecisions();
+      const row = [...rows].reverse().find(r => r.tool === 'steward_thread_prioritize' && r.targetSessionId === queuedOne) || null;
+      ok(rows.length > before && row, `⑭ 看板插队落进决策日志(修前一行都没有;新增 ${rows.length - before} 行)`);
+      ok(row && typeof row.permissionMode === 'string' && row.undoRef && row.undoRef.kind === 'prioritize',
+        '⑭ 与工具路径逐字同形(permissionMode / undoRef 都在)');
+      const ghost = await req(WP, 'POST', '/api/steward/arbiter/prioritize', { sessionId: 'sess_does_not_exist' }, hdr);
+      ok(ghost.status === 400 && ghost.body && ghost.body.error && ghost.body.error.code === 'not_found',
+        `⑭ 编造的 sessionId 被目标存在性校验拦下(修前静默 not_queued;got ${ghost.status} ${ghost.body && ghost.body.error && ghost.body.error.code})`);
+    }
+
     /* ═════════ 源码单点锁:四个展示面都走 06i 的 waitReasonFor ═════════ */
     {
       const SRC = path.join(WB, 'app', 'src');

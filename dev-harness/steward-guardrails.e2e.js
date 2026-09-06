@@ -392,6 +392,30 @@ try {
       await sleep(200);
     }
     ok(settled.every(s => s && s.granted === true), 'F4 四条最终都拿到过并发位(排队不丢条目)');
+
+    // 116-3 P1-12:队列硬顶(500)的逃生舱只对【预算与并发位】开,同 cwd 写互斥不许被它绕过。
+    // 修前 stewardArbiterBlocked 已经判定「这条被同 cwd 锁挡住」之后,只要队列触顶就仍然直接放行 ——
+    // 而队列打满最常见的成因恰恰是「同一个繁忙目录上的自理重试循环」,放行等于让两条线程一起改
+    // 同一棵树。这里灌到硬顶再多来一条,它必须仍然在排队。
+    const overflowSettled = [];
+    const overflowLocked = path.join(HOME, 'ws-overflow');
+    fs.mkdirSync(overflowLocked, { recursive: true });
+    for (let i = 0; i < 502; i++) {
+      const idx = overflowSettled.push(null) - 1;
+      srv.StewardHooks.acquireTurnSlot({ sessionId: 'sess_of_' + i, title: 'of' + i, cwd: overflowLocked, config: cfg, onEvent: () => {} })
+        .then(slot => { overflowSettled[idx] = slot; }, () => { overflowSettled[idx] = { granted: false }; });
+    }
+    await sleep(1500);
+    const overflowGranted = overflowSettled.filter(s => s && s.granted === true).length;
+    ok(overflowGranted === 1,
+      `F5 队列灌到硬顶(502 条同 cwd)之后仍然只有 1 条在跑 —— 溢出逃生舱不绕过写互斥(修前会放行第 501/502 条;实测 ${overflowGranted})`);
+    for (let round = 0; round < 4; round++) {
+      for (const slot of overflowSettled) { if (slot && typeof slot.release === 'function') { try { slot.release(); } catch { /* 幂等 */ } } }
+      await sleep(120);
+    }
+    // 收尾:把还挂着的条目全部取消,免得留下 500 个悬挂 Promise。
+    for (let i = 0; i < 502; i++) { try { srv.StewardHooks.cancelQueuedTurn('sess_of_' + i); } catch { /* ignore */ } }
+    await sleep(300);
   }
   /* ═════════ (G) P0-6 到访归档与在途回合的互斥(慢回合下的确定性复现) ═════════ */
   // 修前:stewardVisit 全文不读 stewardRunnerRuntime.inflight。归档自己 loadSession 拿到一份【与在途
@@ -428,6 +452,72 @@ try {
     ok(inLive + inArchive === 1, `G4 并发写的那条消息不多不少正好在一个地方(活会话 ${inLive} 处 / 归档 ${inArchive} 处)`);
     ok(!liveText().includes('锚点消息-P06'),
       'G5 已归档的旧消息没有被在途回合的陈旧快照复活(修前归档卡在回合中间,回合收尾会把整段历史盖回活会话)');
+  }
+  /* ═════════ (H) P1-5 / P1-6:「速查线程」这个概念的边界 ═════════ */
+  console.log('── (H) P1-5/P1-6 速查线程 ──');
+  {
+    // 普通日常对话:sessionKind() 会把它归一成 'quick_ask'(第 70 波的「纯问答默认档」),但它跟
+    // 116 波的「速查线程」是两个概念。修前 13g/13h 的兜底判据是「非 mission 即 quick_ask」,于是
+    // 用户正在进行的对话会被打上「速问」标签、原样写进喂给管家的总览 —— 用户实测到的
+    // 「管家把我的普通会话说成速查线程」正是这条。
+    const SID_PLAIN = 'sess_plain_chat';
+    craftThread(SID_PLAIN, { kind: 'quick_ask', title: '我的日常对话', turnSeq: 2 });
+    const plain = await call('steward_thread_status', { sessionId: SID_PLAIN }, stewardCtx());
+    ok(plain && plain.ok === true, `H1 普通会话的 thread_status 正常返回(got ${plain && (plain.error || 'ok')})`);
+    ok(plain && plain.state !== 'quick_ask' && plain.stateLabel !== '速问',
+      `H2 普通会话不再被判成速查线程(got state=${plain && plain.state} / label=${plain && plain.stateLabel})`);
+
+    // 真正的速查线程:由 steward_quick_ask 建,头上带 stewardQuick —— 那才是这个标签唯一该出现的地方。
+    const SID_QUICK = 'sess_real_quick';
+    craftThread(SID_QUICK, { kind: 'quick_ask', title: '这台机器上装了什么', turnSeq: 1, stewardQuick: { schema: 1, askedAt: new Date().toISOString(), question: '装了什么', stewardTurnKey: 't1', closedAt: null } });
+    const quick = await call('steward_thread_status', { sessionId: SID_QUICK }, stewardCtx());
+    ok(quick && quick.state === 'quick_ask', `H3 带 stewardQuick 的线程才是速查(got ${quick && quick.state})`);
+    ok(quick && quick.stateLabel === '速查中',
+      `H4 人话标签改成「速查中」(§8.1 第 7 条:界面不出现「速问」这个系统标签;got ${quick && quick.stateLabel})`);
+
+    // P1-6:收工不是终态 —— 用户在经典 2.0 视窗里继续这条对话就算重开。
+    const headOf = sid => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, sid + '.json'), 'utf8')); } catch { return null; } };
+    const closed = await srv.StewardHooks.quickClose(SID_QUICK);
+    ok(closed && closed.ok === true && closed.changed === true, `H5 速查线程收工(got ${JSON.stringify(closed)})`);
+    ok(srv.StewardHooks.quickClosed(headOf(SID_QUICK)) === true, 'H6 收工后默认从总览与线程搜索里消失');
+    ok(Number(headOf(SID_QUICK).stewardQuick.closedTurnSeq) === 1,
+      `H7 收工时记下当时的回合数(重开判据的锚;got ${headOf(SID_QUICK) && headOf(SID_QUICK).stewardQuick.closedTurnSeq})`);
+
+    // 用户又聊了一轮(经典壳里继续这条会话 = turnSeq 往前走)。
+    const reopened = headOf(SID_QUICK);
+    reopened.turnSeq = 2;
+    fs.writeFileSync(path.join(sessionsDir, SID_QUICK + '.json'), JSON.stringify(reopened, null, 2), 'utf8');
+    ok(srv.StewardHooks.quickClosed(headOf(SID_QUICK)) === false,
+      'H8 收工之后用户又聊了一轮 -> 自动重开(修前 closedAt 一旦写入就是终态,管家从此跟丢这条线程)');
+    const reclosed = await srv.StewardHooks.quickClose(SID_QUICK);
+    ok(reclosed && reclosed.changed === true && Number(reclosed.closedTurnSeq) === 2,
+      `H9 重开之后还能再次收工(锚点跟着往前走;got ${JSON.stringify(reclosed)})`);
+    ok(srv.StewardHooks.quickClosed(headOf(SID_QUICK)) === true, 'H10 再次收工后又从总览里消失');
+  }
+
+  /* ═════════ (I) 源码单点锁:两处只能靠读源码钉住的口径 ═════════ */
+  console.log('── (I) 源码单点锁 ──');
+  {
+    const SRC = path.join(WB, 'app', 'src');
+    const rd = f => fs.readFileSync(path.join(SRC, f), 'utf8');
+    // data-safety P1-3:超时兜底那条路【明知有残留竞态】仍然写下去(拒绝会把「会丢字段」换成
+    // 「权限 chip 用不了」,§8.6 不接受)。行为不改,但必须留痕 —— 事后能对账「这次强制写发生过」。
+    const src02 = rd('02-session-store.js');
+    ok(/session_meta_defer_forced/.test(src02), 'I1 P1-3:超时兜底强制写落一条审计事件(session_meta_defer_forced)');
+    ok(/stillActive: activeChildren\.has\(id\), stillSettling: turnSettlers\.has\(id\)/.test(src02),
+      'I1b 审计事件写清楚当时会话还在不在活回合/收尾窗口里');
+    // copy P1-1:前端的 ※ 脚注优先读后端给的人话标签。
+    const conv = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'steward-conversation.js'), 'utf8');
+    ok(/tool: String\(row\.label \|\| row\.tool\)/.test(conv),
+      'I2 copy P1-1:※ 脚注优先读 label(读不到才回落工具 id),不再直接吐 steward_* 内部标识符');
+    // P1-5:兜底判据的唯一定义点(13g),13h 复用它 —— 两处不许各写一份「非 mission 即 quick_ask」。
+    const src13g = rd('13g-steward.js');
+    const src13h = rd('13h-steward-runner.js');
+    ok(/function stewardQuickThread\(head\)/.test(src13g), 'I3 P1-5:速查线程判据只声明在 13g');
+    ok(!/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13g) && !/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13h),
+      'I3b 「非 mission 即 quick_ask」那个兜底在 13g/13h 里一处都不剩');
+    ok((src13g.match(/stewardQuickThread\(head\)/g) || []).length >= 3 && /stewardQuickThread\(head\)/.test(src13h),
+      'I3c 三个派生点(threads_search / thread_status / 总览行)都走同一个判据');
   }
 } finally {
   try { providerServer.close(); } catch { /* ignore */ }

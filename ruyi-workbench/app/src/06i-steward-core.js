@@ -44,9 +44,13 @@ const STEWARD_STATE_LABELS = Object.freeze({
   needs_you: '需要你',
   done: '已收工',
   stopped: '已停工',
-  // 116c 补齐:速问是五态之外的显式逃生舱(mission-state.js 的第六个取值)。116a 只装了任务五态,
-  // 到 deriveStewardThreadState 落地时才需要它 —— 缺了会让 quick_ask 线程的人话标签退化成英文枚举值。
-  quick_ask: '速问',
+  // 116c 补齐:五态之外的显式逃生舱(mission-state.js 的第六个取值)。116a 只装了任务五态,
+  // 到 deriveStewardThreadState 落地时才需要它 —— 缺了会让这类线程的人话标签退化成英文枚举值。
+  // 116-3 P1-5:措辞从「速问」改成「速查中」。§8.1 第 7 条明令界面不出现「速问」这个系统标签;
+  // 而且这个取值现在【只】给管家用 steward_quick_ask 开的速查线程用(判据见 13g/13h 的派生分支),
+  // 不再是「所有没显式标 mission 的会话」的兜底 —— 那个兜底正是用户实测到的
+  // 「管家把我的普通对话说成速查线程」的根因。
+  quick_ask: '速查中',
 });
 const STEWARD_PERMISSION_LABELS = Object.freeze({
   default: '每步都问',

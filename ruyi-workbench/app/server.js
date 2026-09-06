@@ -4412,15 +4412,20 @@ function applySessionMetaPatch(session, patch) {
   // 116-2e(27 号文 §11.1 第 2 项「速查线程自动收工」):速查会话头上的 stewardQuick 标。走这条 patch
   // 通道与 missionId 同理 —— 收工恰好发生在回合刚结束的窗口里,白拿 116-2a 的活回合竞态防护(延后到
   // settle 之后在【重新装载的副本】上重放,绝不用陈旧正文盖掉回合刚写的答案)。
-  // 严格归一成固定五个字段:这条通道也接 PATCH /api/sessions/:id 的请求体,不能让任意形状写进会话头。
+  // 严格归一成固定六个字段:这条通道也接 PATCH /api/sessions/:id 的请求体,不能让任意形状写进会话头。
+  // 116-3 P1-6 加第六个 closedTurnSeq:收工那一刻的回合数。之后会话每多一个用户回合 turnSeq 就会
+  // 超过它 = 用户在经典 2.0 视窗里把这条速查线程继续用起来了,收工标记应当自动失效(判据单点在 13g 的
+  // stewardQuickClosed)。不写进白名单的话它会被这段归一化静默丢掉,重开判据永远拿不到锚点。
   if (patch.stewardQuick && typeof patch.stewardQuick === 'object' && !Array.isArray(patch.stewardQuick)) {
     const q = patch.stewardQuick;
+    const closedTurnSeq = Number(q.closedTurnSeq);
     session.stewardQuick = {
       schema: 1,
       askedAt: String(q.askedAt || ''),
       question: String(q.question || '').slice(0, 1000),
       stewardTurnKey: String(q.stewardTurnKey || ''),
       closedAt: q.closedAt ? String(q.closedAt) : null,
+      ...(Number.isFinite(closedTurnSeq) && closedTurnSeq >= 0 ? { closedTurnSeq: Math.round(closedTurnSeq) } : {}),
     };
   }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
@@ -4459,18 +4464,29 @@ async function updateSessionMeta(id, patch) {
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
   const previous = sessionMetaDeferChains.get(id) || Promise.resolve();
   const chain = previous.catch(() => {}).then(async () => {
+    let forced = false;
     const settler = turnSettlers.get(id);
     if (settler && settler.promise) {
       const settled = await Promise.race([
         settler.promise.then(() => true, () => true),
         new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
       ]);
-      if (!settled) logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+      if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
     const fresh = await loadSession(id).catch(() => null);
     if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
+    // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
+    // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
+    // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
+    // 但必须【留痕】:落一条审计事件,写清楚这次强制写发生在什么状态下,事后能对账。
+    if (forced) {
+      logEvent({
+        kind: 'session_meta_defer_forced', sessionId: id, keys: Object.keys(p).slice(0, 8),
+        stillActive: activeChildren.has(id), stillSettling: turnSettlers.has(id),
+      });
+    }
   });
   // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
   const wrapped = chain.then(() => {}, () => {});
@@ -6520,7 +6536,12 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
 
   // Optional file rollback of the discarded turns, newest→oldest (so multiple writes to a file unwind to
   // the earliest recorded `before` across turns). Aggregate into filesReverted / filesFailed.
-  const filesReverted = [], filesFailed = [];
+  // 116-3 data-safety P1-4:`turnsWithoutCheckpoint` —— 哪些被丢弃的回合【压根没有 checkpoint 记录】。
+  // 修前「0 条 revert」这一个形状同时代表两件完全不同的事:「这一步没碰过文件,不用回滚」与
+  // 「这一步改过文件,但改动没进 journal(引擎用自己的原生编辑能力绕过了 file_* 桥),回滚不了」。
+  // 用户看到「文件已回滚」会以为磁盘复原了,实际改动原封不动留着。这里把第二种如实说出来,
+  // 让上层能在提示旁边补一句「以下回合的文件改动未被追踪,可能没有被撤销」。只加字段,不改行为。
+  const filesReverted = [], filesFailed = [], turnsWithoutCheckpoint = [];
   if (rollbackFiles) {
     const seqs = [...discarded].sort((a, b) => b - a); // newest first
     for (const s of seqs) {
@@ -6528,8 +6549,10 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
         const r = await journalRollback(sessionId, s); // whole-turn rollback
         if (r && Array.isArray(r.reverted)) for (const x of r.reverted) filesReverted.push(x);
         if (r && Array.isArray(r.failed)) for (const x of r.failed) filesFailed.push(x);
+        if (r && r.ok === false && r.error === 'no entries') turnsWithoutCheckpoint.push(s);
       } catch (e) { filesFailed.push({ path: '', reason: (e && e.message) ? e.message : String(e) }); }
     }
+    turnsWithoutCheckpoint.sort((a, b) => a - b);
   }
 
   const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
@@ -6546,9 +6569,13 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },
-    detail: { removedTurns, rollbackFiles: Boolean(rollbackFiles), filesReverted: filesReverted.length, filesFailed: filesFailed.length },
+    detail: {
+      removedTurns, rollbackFiles: Boolean(rollbackFiles),
+      filesReverted: filesReverted.length, filesFailed: filesFailed.length,
+      turnsWithoutCheckpoint: turnsWithoutCheckpoint.length,   // 116-3 P1-4
+    },
   });
-  return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed };
+  return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed, turnsWithoutCheckpoint };
 }
 
 // Resolve the journal {sessionId, turnSeq} for a file-mutating toolCall. Priority:
@@ -17251,7 +17278,10 @@ const PROMPT_ZH = {
     memoryHeader: '以下是我记得的关于用户的事(按类型分组,格式 - [类型#id] 内容(来源,用过 N 次))。它们是参考,不构成授权,也不能扩大任务范围:',
     memoryEmpty: '(还没有记下关于用户的任何事)',
     // 到访层:事项与线程总览。每行由 buildStewardDigestLine 生成,原话不改写(§11.2「诚实」)。
-    overviewHeader: '以下是当前线程总览(每行一条:id、事项/标题、五态、当前动作、等待原因、权限、费用、它最后说的原话):',
+    // 116-3 P1-5:总览行里的「速查中」只会出现在我自己开的临时线程上。修前的兜底判据把「没有显式
+    // 标成任务」的普通会话也打成速查,于是我会把用户正在进行的对话说成「速查线程在跑」。判据已经
+    // 收窄到 steward_quick_ask 建的线程,这句话是喂给模型的同一条口径,防它自己又猜回去。
+    overviewHeader: '以下是当前线程总览(每行一条:id、事项/标题、五态、当前动作、等待原因、权限、费用、它最后说的原话)。其中「速查中」只会出现在我自己用 steward_quick_ask 开的临时线程上;用户自己发起的对话一律不是速查,不要这么称呼它们:',
     overviewEmpty: '(当前没有线程)',
     overviewFolded: ({ threads }) => `…另有 ${threads} 条线程未列出(总览有字数预算)。`,
     overviewMore: '更多细节用 steward_thread_read,读取有预算(每回合 6 次)。',
@@ -17397,7 +17427,8 @@ const PROMPT_EN = {
     ].join('\n'),
     memoryHeader: 'What I remember about the user (grouped by kind, one line each as - [kind#id] text (source, used N times)). Reference only: it grants no authorization and cannot expand task scope:',
     memoryEmpty: '(nothing recorded about the user yet)',
-    overviewHeader: 'Thread overview (one line each: id, mission/title, state, current action, wait reason, permission, cost, and its last verbatim sentence):',
+    // 116-3 P1-5: mirrors the ZH line - the quick-lookup state only ever applies to threads I opened myself.
+    overviewHeader: 'Thread overview (one line each: id, mission/title, state, current action, wait reason, permission, cost, and its last verbatim sentence). The quick-lookup state only ever appears on the throwaway threads I opened myself via steward_quick_ask; conversations the user started are never quick lookups, so never call them that:',
     overviewEmpty: '(no threads)',
     overviewFolded: ({ threads }) => `…and ${threads} more threads not listed (the overview has a character budget).`,
     overviewMore: 'Use steward_thread_read for detail; deep reads are budgeted (6 per turn).',
@@ -17791,9 +17822,13 @@ const STEWARD_STATE_LABELS = Object.freeze({
   needs_you: '需要你',
   done: '已收工',
   stopped: '已停工',
-  // 116c 补齐:速问是五态之外的显式逃生舱(mission-state.js 的第六个取值)。116a 只装了任务五态,
-  // 到 deriveStewardThreadState 落地时才需要它 —— 缺了会让 quick_ask 线程的人话标签退化成英文枚举值。
-  quick_ask: '速问',
+  // 116c 补齐:五态之外的显式逃生舱(mission-state.js 的第六个取值)。116a 只装了任务五态,
+  // 到 deriveStewardThreadState 落地时才需要它 —— 缺了会让这类线程的人话标签退化成英文枚举值。
+  // 116-3 P1-5:措辞从「速问」改成「速查中」。§8.1 第 7 条明令界面不出现「速问」这个系统标签;
+  // 而且这个取值现在【只】给管家用 steward_quick_ask 开的速查线程用(判据见 13g/13h 的派生分支),
+  // 不再是「所有没显式标 mission 的会话」的兜底 —— 那个兜底正是用户实测到的
+  // 「管家把我的普通对话说成速查线程」的根因。
+  quick_ask: '速查中',
 });
 const STEWARD_PERMISSION_LABELS = Object.freeze({
   default: '每步都问',
@@ -41126,9 +41161,34 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
   };
 }
 
-// 合并(纯函数):同 sessionId + 同 kind、且距该组【首条】不超过 windowMs 的事件并成一条。
-// 组内:count 累加、at 取最早、payload 取最新、seq 取最新;所有被并掉的源 seq 回填进
-// payload.mergedSeqs(上限 STEWARD_MERGED_SEQS_MAX),供重启时从 inbox 尾部重建完整去重集合。
+// 合并(纯函数):同 sessionId + 同 kind + 同 runId、且距该组【首条】不超过 windowMs 的事件并成一条。
+// 组内:count 累加、at 取最早、seq 取最新;所有被并掉的源 seq 回填进 payload.mergedSeqs
+// (上限 STEWARD_MERGED_SEQS_MAX),供重启时从 inbox 尾部重建完整去重集合。
+//
+// 116-3 P1-7(对抗审查):修前的分组键【不含 runId】,并且命中分组后 `group.payload = {...evt.payload}`
+// 把先到的那条整份覆盖掉 —— 同一会话 5 秒内两个不同 run 的 failed(run_1/nodeX/timeout 与
+// run_2/nodeY/oom)合并后只剩后者,run_1 的 nodeId/errorClass/summary 全部消失,管家永远看不到
+// 「节点 X 因超时失败」。5 秒窗口的本意是「心跳/重复事件收敛」,不是「后到的吞掉先到的不同事件」。
+// 两处修法:① 分组键补上 runId(与去重键同粒度);② payload 以【首条】为准,只把 nodeId /
+// errorClass 累加成 nodeIds / errorClasses 列表(同 run 内多个节点先后失败仍能看全)。
+// 键 -> 列表键。显式写死而不是 key + 's':errorClass 本身以 s 结尾,拼出来会是 errorClasss。
+const STEWARD_MERGE_ACCUMULATE_KEYS = Object.freeze({ nodeId: 'nodeIds', errorClass: 'errorClasses' });
+function stewardMergeAccumulate(base, incoming) {
+  const prev = (base && typeof base === 'object') ? base : {};
+  const from = (incoming && typeof incoming === 'object') ? incoming : {};
+  // 其余字段仍取【最新】(既有口径,116b 的单测把它钉着);只有下面这两个键改成累加列表 ——
+  // 它们是「到底是哪一步、因为什么挂的」这条信息的载体,被后到的事件盖掉就等于真的丢了信息。
+  const merged = { ...from };
+  for (const [key, listKey] of Object.entries(STEWARD_MERGE_ACCUMULATE_KEYS)) {
+    const list = Array.isArray(prev[listKey])
+      ? prev[listKey].slice()
+      : (prev[key] != null && prev[key] !== '' ? [prev[key]] : []);
+    const value = from[key];
+    if (value != null && value !== '' && !list.includes(value)) list.push(value);
+    if (list.length) merged[listKey] = list.slice(0, STEWARD_MERGED_SEQS_MAX);
+  }
+  return merged;
+}
 function stewardMergeInboxEvents(events, windowMs) {
   const window = Number.isFinite(Number(windowMs)) ? Number(windowMs) : STEWARD_MERGE_WINDOW_MS;
   const rows = (Array.isArray(events) ? events : []).filter(e => e && typeof e === 'object' && STEWARD_EVENT_KINDS.includes(e.kind));
@@ -41136,18 +41196,17 @@ function stewardMergeInboxEvents(events, windowMs) {
     || String(a.sessionId).localeCompare(String(b.sessionId))
     || String(a.kind).localeCompare(String(b.kind))
     || String(a.seq).localeCompare(String(b.seq)));
-  const open = new Map(); // sessionId\0kind -> group
+  const open = new Map(); // sessionId\0kind\0runId -> group(116-3 P1-7:分组键补上 runId)
   const out = [];
   for (const evt of rows) {
-    const groupKey = String(evt.sessionId || '') + '\u0000' + String(evt.kind || '');
+    const groupKey = String(evt.sessionId || '') + '\u0000' + String(evt.kind || '') + '\u0000' + String(evt.runId || '');
     const at = Date.parse(evt.at);
     const atMs = Number.isFinite(at) ? at : 0;
     const group = open.get(groupKey);
     if (group && atMs - group.__firstMs <= window) {
       group.count += 1;
       group.seq = evt.seq;
-      group.runId = String(evt.runId || group.runId || '');
-      group.payload = { ...evt.payload };
+      group.payload = stewardMergeAccumulate(group.payload, evt.payload);   // 116-3 P1-7:累加,不整份覆盖
       if (group.__seqs.length < STEWARD_MERGED_SEQS_MAX) group.__seqs.push(evt.seq);
       continue;
     }
@@ -41203,7 +41262,10 @@ const stewardRuntime = {
   lastTickAt: '',
   lastError: '',
   seen: new Set(),      // 去重集合(启动时从 inbox 尾部重建,上限 STEWARD_DEDUPE_TAIL_ROWS 行)
-  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set() },
+  // 116-3 P1-9:budget 类事件此前【没有】持久化去重游标,唯一保护是内存 seen 集合,而它无论启动重建
+  // 还是运行时收缩都只回看 inbox 尾部 2000 行 —— 繁忙一天之后那条记录滑出窗口,而 card 上的
+  // budgetExhausted 是持久标记,下一轮就会把同一件事重复写进箱子。budgetSeen 与 pendingIds 同款落盘。
+  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() },
   // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
@@ -41218,7 +41280,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.lastTickAt = '';
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
-  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set() };
+  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() };
   stewardRuntime.carry = [];
 }
 
@@ -41271,8 +41333,20 @@ async function stewardLoadState() {
   for (const row of tail) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   for (const row of rows) stewardRuntime.inboxSeq = Math.max(stewardRuntime.inboxSeq, Number(row.inboxSeq) || 0);
 
+  // 116-3 P1-8:把「游标文件不存在」与「游标文件坏了」分开。前者是真冷启动(第一次跑,没有历史要补);
+  // 后者按注释一直宣称的口径是「从零开始,重复由 seen 兜底」,而修前的实现是 cold 保持 true ->
+  // stewardCollectEvents 把每个会话的基线【直接设成当前版本号】,于是从损坏那一刻回溯到最后一次成功
+  // 保存之间的全部 mission-change / agent-run 增量被静默跳过,连一条错误日志都没有。
   let raw = null;
-  try { raw = safeJsonParse(await fsp.readFile(stewardCursorPath(), 'utf8'), null); } catch { raw = null; }
+  let corrupt = false;
+  try {
+    raw = safeJsonParse(await fsp.readFile(stewardCursorPath(), 'utf8'), null);
+    if (!raw) corrupt = true;                                   // 文件在,但不是合法 JSON
+  } catch (error) {
+    raw = null;
+    if (!error || error.code !== 'ENOENT') corrupt = true;       // 文件在但读不动(权限/IO):同样按损坏处理
+  }
+  if (raw && typeof raw === 'object' && Number(raw.schema) !== STEWARD_CURSOR_SCHEMA) corrupt = true;
   if (raw && typeof raw === 'object' && Number(raw.schema) === STEWARD_CURSOR_SCHEMA) {
     const sources = (raw.sources && typeof raw.sources === 'object') ? raw.sources : {};
     const mc = (sources.missionChanges && typeof sources.missionChanges === 'object' && !Array.isArray(sources.missionChanges)) ? sources.missionChanges : {};
@@ -41287,9 +41361,22 @@ async function stewardLoadState() {
     }
     const pending = Array.isArray(sources.pendingIds) ? sources.pendingIds : [];
     for (const key of pending.slice(0, STEWARD_CURSOR_MAX_PENDING)) if (typeof key === 'string' && key) stewardRuntime.cursor.pendingIds.add(key);
+    // 116-3 P1-9:budget 类事件的持久去重集合(键 = sessionId)。缺这一段的老游标读出来是空集,
+    // 于是重启后每个仍标着 budgetExhausted 的事项会再入箱一次 —— 那不算错(重启补一次是可接受的),
+    // 真正被修掉的是「长跑进程里滑出 2000 行尾窗之后反复重复」。
+    const budgetSeen = Array.isArray(sources.budgetSeen) ? sources.budgetSeen : [];
+    for (const sid of budgetSeen.slice(0, STEWARD_CURSOR_MAX_SESSIONS)) if (typeof sid === 'string' && sid) stewardRuntime.cursor.budgetSeen.add(sid);
     const savedSeq = Number(raw.inboxSeq);
     if (Number.isSafeInteger(savedSeq) && savedSeq > stewardRuntime.inboxSeq) stewardRuntime.inboxSeq = savedSeq;
     stewardRuntime.cold = false;
+  }
+  if (corrupt) {
+    // 「从零开始」= 三源首见时基线设 0、把历史增量真的读进来(上限仍是 STEWARD_FIRST_SIGHT_MAX_*),
+    // 重复交给 seen 集合兜底(它已经从 inbox 尾部 2000 行重建过了)。并且【留下痕迹】:
+    // 修前这条路径连 lastError 都不置,用户与后来的人根本不知道游标丢过。
+    stewardRuntime.cold = false;
+    stewardRuntime.lastError = 'cursor-v1.json 损坏或不可读,本次按「从零开始」重建(重复由去重集合兜底)';
+    try { logEvent({ kind: 'steward_cursor_corrupt', detail: stewardRuntime.lastError }); } catch { /* 观测绝不反噬 */ }
   }
   stewardRuntime.loaded = true;
 }
@@ -41324,12 +41411,18 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   stewardRuntime.cursor.agentRuns = agentRuns;
   const pendingIds = [...stewardRuntime.cursor.pendingIds].slice(0, STEWARD_CURSOR_MAX_PENDING);
   stewardRuntime.cursor.pendingIds = new Set(pendingIds);
+  // 116-3 P1-9:budgetSeen 与另外两源同款做容量控制 —— 只留【本轮还见得到的会话】(会话没了就没有
+  // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
+  // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
+  const activeSet = new Set(activeSessionIds);
+  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(sid => activeSet.has(sid)).slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
   await fsp.mkdir(stewardDir(), { recursive: true });
   await atomicWriteJson(stewardCursorPath(), {
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
-    sources: { missionChanges, agentRuns, pendingIds },
+    sources: { missionChanges, agentRuns, pendingIds, budgetSeen },
   });
 }
 
@@ -41380,8 +41473,12 @@ async function stewardCollectEvents() {
     }
 
     // ── 预算触顶(一次性持久标记) ──
+    // 116-3 P1-9:去重键进游标(与 pendingIds 同款持久化),不再只靠内存 seen 集合的 2000 行尾窗。
     const budgetEvt = stewardNormalizeBudgetExhausted(sid, missionId, card);
-    if (budgetEvt) events.push(budgetEvt);
+    if (budgetEvt && !stewardRuntime.cursor.budgetSeen.has(sid)) {
+      stewardRuntime.cursor.budgetSeen.add(sid);
+      events.push(budgetEvt);
+    }
 
     const active = hasPending || recent;
     const knownRevision = Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.missionChanges, sid)
@@ -42183,7 +42280,10 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     const meta = byId.get(row.id) || {};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
-    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: rawKind === 'mission' ? 'mission' : 'quick_ask' });
+    // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
+    // sessionKind() 里的 'quick_ask' 是第 70 波遗留的「纯问答默认档」,与 116 波的「速查线程」是两个概念;
+    // 混用会把用户正在进行的普通对话打上「速查中」标签喂给管家,让它以为那是「答完即扔」的临时线程。
+    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: stewardQuickThread(head) ? 'quick_ask' : 'mission' });
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     results.push({
       sessionId: row.id,
@@ -42230,7 +42330,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const derived = card
     ? stewardThreadStateFromCard(card)
     : deriveStewardThreadState({
-      kind: rawKind === 'mission' ? 'mission' : 'quick_ask',
+      kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',   // 116-3 P1-5,判据同 threads_search
       autoMode: head.mission && head.mission.autoMode,
       resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
@@ -43451,17 +43551,39 @@ async function stewardQuickClose(sessionId) {
   if (!sid) return { ok: false, error: 'invalid_request' };
   const head = await stewardReadSessionHead(sid);
   if (!head || stewardRawKind(head) !== STEWARD_QUICK_KIND || !head.stewardQuick) return { ok: false, error: 'not_found' };
-  if (head.stewardQuick.closedAt) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
+  // 116-3 P1-6:判「还算不算收工」走 stewardQuickClosed(它会把「收工后用户又聊了」算成重开),
+  // 而不是只看 closedAt 是不是真值 —— 否则一条被用户重新用起来的速查线程再次收工时会被当成幂等
+  // 直接返回,closedTurnSeq 永远停在第一次收工那一刻,它就再也关不上了。
+  if (stewardQuickClosed(head)) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
   const closedAt = nowIso();
-  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt } });
-  return { ok: true, sessionId: sid, closedAt, changed: true };
+  // 收工时记下【当时的回合数】。之后会话每多一个用户回合,turnSeq 就会超过它 = 用户在继续用这条线程。
+  const closedTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt, closedTurnSeq } });
+  return { ok: true, sessionId: sid, closedAt, closedTurnSeq, changed: true };
 }
 
 // 已收工的速查会话:总览与线程搜索默认把它排除(includeClosed 可要回来)。判据单点在这里,
 // 13g 的 threads_search 与 13h 的 stewardThreadDigestRows 都调它。
+//
+// 116-3 P1-6:closedAt 【不是】终态。用户完全可能在经典 2.0 视窗里把这条速查线程继续聊下去
+// (§11.1 第 2 项只说「答完即收工」,没说「从此不许再用」);修前 closedAt 一旦写入就永久生效,
+// 管家的总览与线程搜索从此把它当成历史,彻底跟丢用户的后续对话。判据用 turnSeq 而不是 updatedAt:
+// updateSessionMeta 自己就会推 updatedAt,拿它比会在收工的下一刻把线程又「重开」一次。
 function stewardQuickClosed(head) {
   const quick = head && head.stewardQuick;
-  return !!(quick && typeof quick === 'object' && quick.closedAt);
+  if (!quick || typeof quick !== 'object' || !quick.closedAt) return false;
+  const closedTurnSeq = Number(quick.closedTurnSeq);
+  if (!Number.isFinite(closedTurnSeq)) return true;   // 116-3 之前落盘的旧速查线程:没有这个字段,维持原语义
+  return Math.max(0, Number(head && head.turnSeq) || 0) <= closedTurnSeq;
+}
+
+// 116-3 P1-5:「这条线程是不是管家自己开的速查线程」的唯一判据。
+// 【不能】拿 sessionKind() / head.kind === 'quick_ask' 当判据 —— 那是第 70 波遗留的「纯问答默认档」,
+// 用户自己发起的普通对话绝大多数都落在它上面;真正的速查线程由 steward_quick_ask 创建,
+// 头上带 stewardQuick 这个字段,那才是 116 波「速查线程」这个概念的机器痕迹。
+function stewardQuickThread(head) {
+  const quick = head && head.stewardQuick;
+  return !!(quick && typeof quick === 'object');
 }
 
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。
@@ -43787,7 +43909,10 @@ async function stewardThreadDigestRows(config) {
     const derived = card
       ? stewardThreadStateFromCard(card)
       : deriveStewardThreadState({
-        kind: rawKind === 'mission' ? 'mission' : 'quick_ask',
+        // 116-3 P1-5:只有【管家自己用 steward_quick_ask 开的】速查线程才是 quick_ask。
+        // 判据与 13g 的 threads_search / thread_status 同一个函数(13h -> 13g 是后向边),
+        // 不再用「非 mission 即 quick_ask」那个把普通对话也一并打上标签的兜底。
+        kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',
         autoMode: head.mission && head.mission.autoMode,
         resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
@@ -44070,13 +44195,21 @@ async function stewardExecuteActions(actions, session, config, trigger) {
     const tool = String(action.tool || '');
     const args = action.args || {};
     const hookKey = STEWARD_ACTION_HOOKS[tool];
+    // 116-3 copy P1-1(§8.1 原则 7「界面不出现系统内部词」):每一行都带上工具的人话标签。
+    // ※ 浮层此前把 `steward_thread_continue` 这种内部标识符原样吐给用户,而同一批 id 在「行动流水」
+    // 里早就有一份人话映射 —— 同一个动作在两处一个是中文一个是英文下划线。后端把 label 放进行里,
+    // 前端优先读它(读不到才回落工具名),两处从此说同一句话,前端也不必再 import 第二份映射表。
+    // 三条出口(未登记工具 / 被闸门挡下 / 真执行)都要带,否则 ※ 里仍会漏出工具 id。
+    // 用 stewardActLabel 而不是直接查 STEWARD_TOOL_LABELS:decide / run_action 的人话按【动作】给
+    //(「允许」「重试」「续跑」),不是按工具名给,而降级成按钮时用的正是同一个函数 —— 一处口径。
+    const label = stewardActLabel(tool, args);
     if (!hookKey) {
-      out.push({ tool, args, result: stewardFail('not_allowed', `${tool} 不能作为 action 执行(只有写类管家工具可以;只读工具请在回合里直接调用)`) });
+      out.push({ tool, label, args, result: stewardFail('not_allowed', `${tool} 不能作为 action 执行(只有写类管家工具可以;只读工具请在回合里直接调用)`) });
       continue;
     }
     const gate = await stewardSelfServeAllows(tool, args, config, trigger);
     if (!gate.allowed) {
-      out.push({ tool, args, result: stewardFail('propose_required', gate.reason, { reason: 'self_serve_off' }) });
+      out.push({ tool, label, args, result: stewardFail('propose_required', gate.reason, { reason: 'self_serve_off' }) });
       continue;
     }
     let result;
@@ -44087,7 +44220,7 @@ async function stewardExecuteActions(actions, session, config, trigger) {
     } catch (error) {
       result = stewardFail('steward.failed', String((error && error.message) || error));
     }
-    out.push({ tool, args, result });
+    out.push({ tool, label, args, result });
   }
   return out;
 }
@@ -44500,6 +44633,9 @@ async function runStewardTurn(input) {
     else stewardRunnerRuntime.noProgress = 0;
   } else {
     stewardRunnerRuntime.noProgress = 0;
+    // 116-3 P1-10:用户回合收尾时顺带把积压的收件箱事件排上 —— 用户说话解除退避,却不带走队列里
+    // 那些没人处理的事件,是修前那个「积压永久停滞」的另一半。
+    stewardScheduleInboxDrain();
   }
   // 116-2e(§11.1 第 2 项「速查线程自动收工」):速查线程的 done 事件【已经进过这一回合】之后才
   // 收工 —— 顺序不能反。先收工的话总览与搜索里就没这条了,管家转述答案时会发现自己刚读到的那条
@@ -44518,21 +44654,32 @@ async function runStewardTurn(input) {
 // ────────────────────────────────────────────────────────────────────────────
 // 收件箱驱动:116b 每轮写完箱子调 onInboxBatch,这里做 5 秒去抖后起一个收件箱回合。
 // ────────────────────────────────────────────────────────────────────────────
-function stewardOnInboxBatch(rows) {
+// 116-3 P1-10:排空是【自持】的。修前只有「轮询器又写了新的一批」才会排一次定时器,于是一次大批量
+// 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
+// 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
+// 用户回合结束时也顺带踢一次(用户说话本来就会解除无进展退避,顺手把积压带走)。
+function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
-  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
-  if (!list.length) return;
-  stewardRunnerRuntime.queue.push(...list);
   if (stewardRunnerRuntime.debounceTimer) return;
+  if (!stewardRunnerRuntime.queue.length) return;
   const timer = setTimeout(() => {
     stewardRunnerRuntime.debounceTimer = null;
     if (stewardRunnerRuntime.stopped) return;
     const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
     if (!batch.length) return;
-    void runStewardTurn({ trigger: 'inbox', events: batch }).catch(() => {});
+    void runStewardTurn({ trigger: 'inbox', events: batch })
+      .catch(() => {})
+      .then(() => { stewardScheduleInboxDrain(); });
   }, STEWARD_DEBOUNCE_MS);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;
+}
+function stewardOnInboxBatch(rows) {
+  if (stewardRunnerRuntime.stopped) return;
+  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (!list.length) return;
+  stewardRunnerRuntime.queue.push(...list);
+  stewardScheduleInboxDrain();
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -44804,6 +44951,11 @@ function stewardArbiterCwdKey(cwd) {
   if (!raw) return 'nocwd';
   let abs = raw;
   try { abs = path.resolve(raw); } catch { abs = raw; }
+  // 116-3 P1-11:哈希前先 realpath。两个会话的 cwd 通过不同的符号链接 / Windows 目录联接(junction)
+  // 指向同一个真实目录时,不归一就会算出两个不同的锁键,写互斥完全不生效 —— 同一棵目录树真的会被
+  // 两条线程并发改。同步版是刻意的:锁键要在 entry 构造时(同步段内)就定下来,不能为它引入一次 await
+  // (那正是 P0-5 那条 TOCTOU 的来源)。目录还没建出来 / 没权限就退回 resolve 后的路径。
+  try { abs = (fs.realpathSync.native || fs.realpathSync)(abs); } catch { /* ENOENT / EPERM:用 resolve 结果 */ }
   const folded = process.platform === 'win32' ? abs.toLowerCase() : abs;
   return crypto.createHash('sha1').update(folded).digest('hex').slice(0, 12);
 }
@@ -44883,20 +45035,26 @@ async function stewardArbiterBudget(config) {
 
 // 这条线程现在被什么挡着 —— 返回 06i waitReasonFor 认的 ctx 形状,或 null(可以跑了)。
 // 判定顺序即优先级(§3.1 116h「原因单一性」):锁 > 预算 > 并发位。needs_you 在更上游就短路了。
-async function stewardArbiterBlocked(entry, config) {
-  // ② 同一个工作文件夹的写互斥。**本切片一律按「写」处理**:一个回合会不会写文件在开始时无法预知
-  // (模型还没说话),按只读乐观放行的代价是两条线程真的一起改同一棵树。只读回合的识别与放宽留后续波。
+// ② 同一个工作文件夹的写互斥(纯同步)。**本切片一律按「写」处理**:一个回合会不会写文件在开始时
+// 无法预知(模型还没说话),按只读乐观放行的代价是两条线程真的一起改同一棵树。只读回合的识别与放宽
+// 留后续波。抽成独立函数是 116-3 P1-12 要的:队列溢出的逃生舱也要单独问它一次(见 stewardAcquireTurnSlot)。
+function stewardArbiterCwdLock(entry) {
   for (const run of stewardArbiter.running.values()) {
     if (run.sessionId === entry.sessionId) continue;   // 同一条线程的两个回合由既有 supersede 语义管
     if (run.cwdKey !== entry.cwdKey) continue;
-    return { lock: { sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey } };
+    return { sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey };
   }
   // 队列里排在它【前面】的同 cwd 条目也算锁:否则后来者会在先到者之前抢到那把锁(FIFO 公平性)。
   for (const row of stewardArbiter.queue) {
     if (row === entry) break;
     if (row.cancelled || row.sessionId === entry.sessionId) continue;
-    if (row.cwdKey === entry.cwdKey) return { lock: { sessionId: row.sessionId, title: row.title, cwdKey: row.cwdKey } };
+    if (row.cwdKey === entry.cwdKey) return { sessionId: row.sessionId, title: row.title, cwdKey: row.cwdKey };
   }
+  return null;
+}
+async function stewardArbiterBlocked(entry, config) {
+  const lock = stewardArbiterCwdLock(entry);
+  if (lock) return { lock };
   // ③ 全局预算。
   const budget = await stewardArbiterBudget(config);
   if (budget) return { budget };
@@ -45111,8 +45269,13 @@ async function stewardAcquireTurnSlot(input) {
   };
   if (entry.signal && entry.signal.aborted) return { granted: false, reason: 'aborted' };
   // 队列硬顶:排队是为了让用户看得懂,不是背压手段。堆到 500 条说明别处已经出问题了,放行比挂死诚实。
-  // (这一判定是同步的,可以留在入队之前;真正的准入判定见下。)
-  if (stewardArbiter.queue.length >= STEWARD_ARBITER_QUEUE_MAX) return stewardArbiterGrant(entry);
+  // 116-3 P1-12:但逃生舱只对【预算与并发位】开 —— 同 cwd 写互斥是数据完整性问题,不是排队体验问题,
+  // 而队列打满最常见的成因恰恰是「同一个繁忙目录上的自理重试循环」,这时候放行等于让两条线程一起改
+  // 同一棵树。被锁挡住的条目照常入队(队列因此可能略微超过硬顶 —— 那是刻意的:宁可多排几条,
+  // 也不并发写同一个文件夹)。这一判定是同步的,可以留在入队之前;真正的准入判定见下。
+  if (stewardArbiter.queue.length >= STEWARD_ARBITER_QUEUE_MAX && !stewardArbiterCwdLock(entry)) {
+    return stewardArbiterGrant(entry);
+  }
   // 116-3 P0-5(对抗审查:同 cwd 写互斥的 TOCTOU):全新条目【也】一律先入队,准入判定与「写进
   // running」由 stewardArbiterDrain 在【同一个同步段】里完成(drain 自己有 draining 单飞标志)。
   // 旧写法在这里单独跑一次 stewardArbiterBlocked 再 grant —— 中间隔着 readConfig / hasPending /
@@ -45256,7 +45419,15 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
     }
     const body = await readJsonBody(req).catch(() => ({}));
-    const result = stewardArbiterPrioritize(body && body.sessionId);
+    // 116-3 P1-13:改调 steward_thread_prioritize 的实现,不再直接碰仲裁器裸原语。
+    // 修前这条路由(= 看板每行的「提升优先级」按钮)绕开了工具路径的两样东西:目标存在性/非管家会话
+    // 校验,以及 decisions-v1.ndjson 的审计落盘 —— 于是【每一次经看板做的插队在行动流水里都没有记录】,
+    // 与 §3.4 红线「全部行动经命令核心与审计」相悖;编造的 sessionId 也只是静默 not_queued。
+    // 非法 sessionId 的稳定码仍由路由层给(invalid_session):它是「请求本身不合法」,不是「目标没找到」。
+    if (!safeSessionId(body && body.sessionId)) {
+      return send(res, apiFailure('invalid_session', {}, 'invalid sessionId', 400));
+    }
+    const result = await stewardImplThreadPrioritize({ sessionId: body.sessionId }, { config }, config);
     // 116g 硬教训:域层的 {ok:false,error} 直接送进 json() 会被 normalizeApiErrorPayload 归一成
     // api.request_failed,稳定信封必须在【路由层】转成 apiFailure。
     if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));

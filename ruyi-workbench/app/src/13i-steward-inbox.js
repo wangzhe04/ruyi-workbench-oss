@@ -334,9 +334,34 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
   };
 }
 
-// 合并(纯函数):同 sessionId + 同 kind、且距该组【首条】不超过 windowMs 的事件并成一条。
-// 组内:count 累加、at 取最早、payload 取最新、seq 取最新;所有被并掉的源 seq 回填进
-// payload.mergedSeqs(上限 STEWARD_MERGED_SEQS_MAX),供重启时从 inbox 尾部重建完整去重集合。
+// 合并(纯函数):同 sessionId + 同 kind + 同 runId、且距该组【首条】不超过 windowMs 的事件并成一条。
+// 组内:count 累加、at 取最早、seq 取最新;所有被并掉的源 seq 回填进 payload.mergedSeqs
+// (上限 STEWARD_MERGED_SEQS_MAX),供重启时从 inbox 尾部重建完整去重集合。
+//
+// 116-3 P1-7(对抗审查):修前的分组键【不含 runId】,并且命中分组后 `group.payload = {...evt.payload}`
+// 把先到的那条整份覆盖掉 —— 同一会话 5 秒内两个不同 run 的 failed(run_1/nodeX/timeout 与
+// run_2/nodeY/oom)合并后只剩后者,run_1 的 nodeId/errorClass/summary 全部消失,管家永远看不到
+// 「节点 X 因超时失败」。5 秒窗口的本意是「心跳/重复事件收敛」,不是「后到的吞掉先到的不同事件」。
+// 两处修法:① 分组键补上 runId(与去重键同粒度);② payload 以【首条】为准,只把 nodeId /
+// errorClass 累加成 nodeIds / errorClasses 列表(同 run 内多个节点先后失败仍能看全)。
+// 键 -> 列表键。显式写死而不是 key + 's':errorClass 本身以 s 结尾,拼出来会是 errorClasss。
+const STEWARD_MERGE_ACCUMULATE_KEYS = Object.freeze({ nodeId: 'nodeIds', errorClass: 'errorClasses' });
+function stewardMergeAccumulate(base, incoming) {
+  const prev = (base && typeof base === 'object') ? base : {};
+  const from = (incoming && typeof incoming === 'object') ? incoming : {};
+  // 其余字段仍取【最新】(既有口径,116b 的单测把它钉着);只有下面这两个键改成累加列表 ——
+  // 它们是「到底是哪一步、因为什么挂的」这条信息的载体,被后到的事件盖掉就等于真的丢了信息。
+  const merged = { ...from };
+  for (const [key, listKey] of Object.entries(STEWARD_MERGE_ACCUMULATE_KEYS)) {
+    const list = Array.isArray(prev[listKey])
+      ? prev[listKey].slice()
+      : (prev[key] != null && prev[key] !== '' ? [prev[key]] : []);
+    const value = from[key];
+    if (value != null && value !== '' && !list.includes(value)) list.push(value);
+    if (list.length) merged[listKey] = list.slice(0, STEWARD_MERGED_SEQS_MAX);
+  }
+  return merged;
+}
 function stewardMergeInboxEvents(events, windowMs) {
   const window = Number.isFinite(Number(windowMs)) ? Number(windowMs) : STEWARD_MERGE_WINDOW_MS;
   const rows = (Array.isArray(events) ? events : []).filter(e => e && typeof e === 'object' && STEWARD_EVENT_KINDS.includes(e.kind));
@@ -344,18 +369,17 @@ function stewardMergeInboxEvents(events, windowMs) {
     || String(a.sessionId).localeCompare(String(b.sessionId))
     || String(a.kind).localeCompare(String(b.kind))
     || String(a.seq).localeCompare(String(b.seq)));
-  const open = new Map(); // sessionId\0kind -> group
+  const open = new Map(); // sessionId\0kind\0runId -> group(116-3 P1-7:分组键补上 runId)
   const out = [];
   for (const evt of rows) {
-    const groupKey = String(evt.sessionId || '') + '\u0000' + String(evt.kind || '');
+    const groupKey = String(evt.sessionId || '') + '\u0000' + String(evt.kind || '') + '\u0000' + String(evt.runId || '');
     const at = Date.parse(evt.at);
     const atMs = Number.isFinite(at) ? at : 0;
     const group = open.get(groupKey);
     if (group && atMs - group.__firstMs <= window) {
       group.count += 1;
       group.seq = evt.seq;
-      group.runId = String(evt.runId || group.runId || '');
-      group.payload = { ...evt.payload };
+      group.payload = stewardMergeAccumulate(group.payload, evt.payload);   // 116-3 P1-7:累加,不整份覆盖
       if (group.__seqs.length < STEWARD_MERGED_SEQS_MAX) group.__seqs.push(evt.seq);
       continue;
     }
@@ -411,7 +435,10 @@ const stewardRuntime = {
   lastTickAt: '',
   lastError: '',
   seen: new Set(),      // 去重集合(启动时从 inbox 尾部重建,上限 STEWARD_DEDUPE_TAIL_ROWS 行)
-  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set() },
+  // 116-3 P1-9:budget 类事件此前【没有】持久化去重游标,唯一保护是内存 seen 集合,而它无论启动重建
+  // 还是运行时收缩都只回看 inbox 尾部 2000 行 —— 繁忙一天之后那条记录滑出窗口,而 card 上的
+  // budgetExhausted 是持久标记,下一轮就会把同一件事重复写进箱子。budgetSeen 与 pendingIds 同款落盘。
+  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() },
   // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
@@ -426,7 +453,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.lastTickAt = '';
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
-  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set() };
+  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() };
   stewardRuntime.carry = [];
 }
 
@@ -479,8 +506,20 @@ async function stewardLoadState() {
   for (const row of tail) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   for (const row of rows) stewardRuntime.inboxSeq = Math.max(stewardRuntime.inboxSeq, Number(row.inboxSeq) || 0);
 
+  // 116-3 P1-8:把「游标文件不存在」与「游标文件坏了」分开。前者是真冷启动(第一次跑,没有历史要补);
+  // 后者按注释一直宣称的口径是「从零开始,重复由 seen 兜底」,而修前的实现是 cold 保持 true ->
+  // stewardCollectEvents 把每个会话的基线【直接设成当前版本号】,于是从损坏那一刻回溯到最后一次成功
+  // 保存之间的全部 mission-change / agent-run 增量被静默跳过,连一条错误日志都没有。
   let raw = null;
-  try { raw = safeJsonParse(await fsp.readFile(stewardCursorPath(), 'utf8'), null); } catch { raw = null; }
+  let corrupt = false;
+  try {
+    raw = safeJsonParse(await fsp.readFile(stewardCursorPath(), 'utf8'), null);
+    if (!raw) corrupt = true;                                   // 文件在,但不是合法 JSON
+  } catch (error) {
+    raw = null;
+    if (!error || error.code !== 'ENOENT') corrupt = true;       // 文件在但读不动(权限/IO):同样按损坏处理
+  }
+  if (raw && typeof raw === 'object' && Number(raw.schema) !== STEWARD_CURSOR_SCHEMA) corrupt = true;
   if (raw && typeof raw === 'object' && Number(raw.schema) === STEWARD_CURSOR_SCHEMA) {
     const sources = (raw.sources && typeof raw.sources === 'object') ? raw.sources : {};
     const mc = (sources.missionChanges && typeof sources.missionChanges === 'object' && !Array.isArray(sources.missionChanges)) ? sources.missionChanges : {};
@@ -495,9 +534,22 @@ async function stewardLoadState() {
     }
     const pending = Array.isArray(sources.pendingIds) ? sources.pendingIds : [];
     for (const key of pending.slice(0, STEWARD_CURSOR_MAX_PENDING)) if (typeof key === 'string' && key) stewardRuntime.cursor.pendingIds.add(key);
+    // 116-3 P1-9:budget 类事件的持久去重集合(键 = sessionId)。缺这一段的老游标读出来是空集,
+    // 于是重启后每个仍标着 budgetExhausted 的事项会再入箱一次 —— 那不算错(重启补一次是可接受的),
+    // 真正被修掉的是「长跑进程里滑出 2000 行尾窗之后反复重复」。
+    const budgetSeen = Array.isArray(sources.budgetSeen) ? sources.budgetSeen : [];
+    for (const sid of budgetSeen.slice(0, STEWARD_CURSOR_MAX_SESSIONS)) if (typeof sid === 'string' && sid) stewardRuntime.cursor.budgetSeen.add(sid);
     const savedSeq = Number(raw.inboxSeq);
     if (Number.isSafeInteger(savedSeq) && savedSeq > stewardRuntime.inboxSeq) stewardRuntime.inboxSeq = savedSeq;
     stewardRuntime.cold = false;
+  }
+  if (corrupt) {
+    // 「从零开始」= 三源首见时基线设 0、把历史增量真的读进来(上限仍是 STEWARD_FIRST_SIGHT_MAX_*),
+    // 重复交给 seen 集合兜底(它已经从 inbox 尾部 2000 行重建过了)。并且【留下痕迹】:
+    // 修前这条路径连 lastError 都不置,用户与后来的人根本不知道游标丢过。
+    stewardRuntime.cold = false;
+    stewardRuntime.lastError = 'cursor-v1.json 损坏或不可读,本次按「从零开始」重建(重复由去重集合兜底)';
+    try { logEvent({ kind: 'steward_cursor_corrupt', detail: stewardRuntime.lastError }); } catch { /* 观测绝不反噬 */ }
   }
   stewardRuntime.loaded = true;
 }
@@ -532,12 +584,18 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   stewardRuntime.cursor.agentRuns = agentRuns;
   const pendingIds = [...stewardRuntime.cursor.pendingIds].slice(0, STEWARD_CURSOR_MAX_PENDING);
   stewardRuntime.cursor.pendingIds = new Set(pendingIds);
+  // 116-3 P1-9:budgetSeen 与另外两源同款做容量控制 —— 只留【本轮还见得到的会话】(会话没了就没有
+  // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
+  // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
+  const activeSet = new Set(activeSessionIds);
+  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(sid => activeSet.has(sid)).slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
   await fsp.mkdir(stewardDir(), { recursive: true });
   await atomicWriteJson(stewardCursorPath(), {
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
-    sources: { missionChanges, agentRuns, pendingIds },
+    sources: { missionChanges, agentRuns, pendingIds, budgetSeen },
   });
 }
 
@@ -588,8 +646,12 @@ async function stewardCollectEvents() {
     }
 
     // ── 预算触顶(一次性持久标记) ──
+    // 116-3 P1-9:去重键进游标(与 pendingIds 同款持久化),不再只靠内存 seen 集合的 2000 行尾窗。
     const budgetEvt = stewardNormalizeBudgetExhausted(sid, missionId, card);
-    if (budgetEvt) events.push(budgetEvt);
+    if (budgetEvt && !stewardRuntime.cursor.budgetSeen.has(sid)) {
+      stewardRuntime.cursor.budgetSeen.add(sid);
+      events.push(budgetEvt);
+    }
 
     const active = hasPending || recent;
     const knownRevision = Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.missionChanges, sid)

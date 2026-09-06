@@ -465,7 +465,10 @@ export function createStewardConversation({
       const result = row.result;
       const okFlag = !(result && result.ok === false);
       out.push(t('stewardShell.chat.actionLine', {
-        tool: String(row.tool),
+        // 116-3 copy P1-1（§8.1 原则 7）：优先用后端给的人话标签（13h 的 stewardActLabel，与「行动流水」
+        // 同一批口径）；拿不到才回落工具 id。此前这里直接吐 `steward_thread_continue` 这种内部标识符，
+        // 同一个动作在 ※ 里是英文下划线、在流水里是中文，两处对不上。
+        tool: String(row.label || row.tool),
         state: okFlag ? t('stewardShell.chat.actionDone') : stewardErrorText(result && result.error),
       }));
     }

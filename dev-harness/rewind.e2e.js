@@ -122,6 +122,11 @@ function spawnFake(seq, extraEnv) {
     ok(rw.removedTurns === 4, '(a) removedTurns === 4 (t2 user+assistant + t3 user+assistant) (got ' + rw.removedTurns + ')');
     ok(Array.isArray(rw.filesReverted) && rw.filesReverted.some(f => f.path === bTxt), '(a) filesReverted includes b.txt');
     ok(!fs.existsSync(bTxt), '(a) b.txt removed by rollback (create inverse = delete)');
+    // 116-3 data-safety P1-4:「0 条 revert」此前一个形状同时代表两件事 ——「这一步没碰过文件」与
+    // 「碰了、但改动没进 checkpoint(引擎用自己的原生编辑能力绕过 file_* 桥),回滚不了」。
+    // t2 写过 b.txt(有记录),t3 是纯聊天(没有记录):新字段必须只点名 t3。
+    ok(Array.isArray(rw.turnsWithoutCheckpoint) && rw.turnsWithoutCheckpoint.includes(3) && !rw.turnsWithoutCheckpoint.includes(2),
+      '(a) 116-3 P1-4: turnsWithoutCheckpoint 如实点名没有 checkpoint 记录的回合 (got ' + JSON.stringify(rw.turnsWithoutCheckpoint) + ')');
 
     const post = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session;
     ok((post.messages || []).length === 2, '(a) only t1 user+assistant remain (2 messages, got ' + (post.messages || []).length + ')');
