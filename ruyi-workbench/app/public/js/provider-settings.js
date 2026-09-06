@@ -744,7 +744,11 @@ function addProviderFromPreset() {
   const presets = (state.status && state.status.providerPresets) || [];
   const preset = presets.find(p => p.id === sel.value) || presets[0];
   if (!preset) return;
-  state.providersDraft = state.providersDraft || [];
+  // 2026-09-06 设置弹窗子审查：草稿从未播种时直接 `|| []` 再 push，会把「原有 5 个」变成「只剩新加的 1 个」
+  // 并在下一次保存时整份覆盖（缩水不是清空，旧的备份门也不触发）。先从 config 播种，再在其上追加。
+  if (state.providersDraftSeeded !== true || !Array.isArray(state.providersDraft)) {
+    state.providersDraft = JSON.parse(JSON.stringify((state.config && state.config.providers) || []));
+  }
   state.providersDraftSeeded = true;   // 用户亲手添加 Provider：草稿从此是用户意图，保存时照常上传
   // 118a: 序列化下沉到模块级 providerDraftFromPreset()(与欢迎向导共用同一实现,零行为变化)。
   const draft = providerDraftFromPreset(preset, state.providersDraft.map(p => p.id));

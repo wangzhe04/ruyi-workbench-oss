@@ -434,6 +434,16 @@ function isSensitiveDataPath(p) {
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
   const bases = (_dataRootReal && _dataRootReal !== root) ? [root, _dataRootReal] : [root];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
+  // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
+  // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
+  // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
+  try {
+    const base = path.basename(p);
+    if (/^config\.json(\.|$)/i.test(base)) {
+      const dir = path.resolve(path.dirname(p));
+      for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
+    }
+  } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   return false;
 }
 // v1.0.2-S3: shared allowed-root guard for the file endpoints (/api/file/preview borrows the inline version;

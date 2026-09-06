@@ -75,13 +75,28 @@ try {
   disk = readDisk();
   ok(r.status === 200 && disk.providers.length === 2 && disk.providers[1].apiKey === 'sk-real-key-B', 'B2 masked round-trip restores the real keys');
 
+  // ②b 缩水（2 → 1，丢 fake-b）也要备份 + 审计（设置弹窗子审查：草稿未播种时「添加一条再保存」正是这种丢法）。
+  r = await reqJson('POST', '/api/config', { providers: [masked[0]] });
+  disk = readDisk();
+  const shrinkBackups = fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-'));
+  ok(r.status === 200 && disk.providers.length === 1 && disk.providers[0].id === 'fake-a', 'B3 shrinking to a partial list is still honoured');
+  ok(shrinkBackups.length === 1, `B4 a backup is written on shrink, not only on clear (${shrinkBackups.join(',')})`);
+  await sleep(300);
+  ok(/config_providers_shrunk/.test(fs.existsSync(path.join(HOME, 'logs')) ? fs.readdirSync(path.join(HOME, 'logs')).filter(f => f.endsWith('.ndjson')).map(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8')).join('\n') : ''),
+    'B5 audit event config_providers_shrunk logged with the lost ids');
+  // 恢复成两条（fake-b 已不在盘上，掩码无从复原，这里显式带真密钥），下面的清空场景从两条开始。
+  r = await reqJson('POST', '/api/config', { providers: [masked[0], { ...masked[1], apiKey: 'sk-real-key-B' }] });
+  ok(r.status === 200 && readDisk().providers.length === 2 && readDisk().providers[1].apiKey === 'sk-real-key-B', 'B6 re-adding the second provider with an explicit key lands on disk');
+  const backupsBeforeClear = fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-')).length;
+
   // ③ 整份保存把 providers 清成 [] → 仍然写入（不拦截），但先另存一份备份 + 审计事件。
   r = await reqJson('POST', '/api/config', { providers: [], permissionMode: 'default' });
   disk = readDisk();
   const backups = fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-'));
   ok(r.status === 200 && Array.isArray(disk.providers) && disk.providers.length === 0, 'C1 clearing providers is still honoured (last-one-deleted is legal)');
-  ok(backups.length === 1, `C2 exactly one backup written before the wipe (${backups.join(',')})`);
-  const backup = backups.length ? JSON.parse(fs.readFileSync(path.join(HOME, backups[0]), 'utf8')) : null;
+  ok(backups.length === backupsBeforeClear + 1, `C2 exactly one more backup written before the wipe (${backups.join(',')})`);
+  const newestBackup = backups.slice().sort().pop();
+  const backup = newestBackup ? JSON.parse(fs.readFileSync(path.join(HOME, newestBackup), 'utf8')) : null;
   ok(backup && Array.isArray(backup.providers) && backup.providers.length === 2 && backup.providers[0].apiKey === 'sk-real-key-A',
     'C3 the backup carries both providers with real keys (recoverable)');
   await sleep(300);
@@ -91,7 +106,7 @@ try {
 
   // ④ 已经是空的再发 [] → 不再重复备份。
   r = await reqJson('POST', '/api/config', { providers: [] });
-  ok(fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-')).length === 1, 'C5 no second backup when there was nothing to lose');
+  ok(fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-')).length === backupsBeforeClear + 1, 'C5 no extra backup when there was nothing to lose');
 
   // ⑤ 前端守门的源码锚：saveSettings 只在草稿播种后上传 providers。
   const ps = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'provider-settings.js'), 'utf8');

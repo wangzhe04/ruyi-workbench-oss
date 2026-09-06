@@ -183,12 +183,17 @@ async function applyConfigPatch(body) {
   // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
   // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
   // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
-  if (Array.isArray(current.providers) && current.providers.length > 0
-      && Array.isArray(merged.providers) && merged.providers.length === 0) {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `config.json.bak-providers-${stamp}`;
-    try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
-    logEvent({ kind: 'config_providers_cleared', before: current.providers.length, backup: backupName });
+  // 设置弹窗子审查追加：不只「清空」，任何【缩水】（现值里某个 id 在来件里没了）都先备份——用户以为在
+  // 原有列表上加一条、实际把整份换成只剩一条，正是那种既不为空也没告警的丢法。
+  if (Array.isArray(current.providers) && current.providers.length > 0 && Array.isArray(merged.providers)) {
+    const nextIds = new Set(merged.providers.map(p => String((p && p.id) || '')));
+    const lost = current.providers.map(p => String((p && p.id) || '')).filter(id => id && !nextIds.has(id));
+    if (lost.length) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupName = `config.json.bak-providers-${stamp}`;
+      try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+      logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
+    }
   }
   const next = await writeConfig(merged);
   // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
