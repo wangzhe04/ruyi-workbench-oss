@@ -37,6 +37,9 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 117g/117h, the block stack from the item row down to the direct composer). Appended last for the
   // same reason: it leans on every token above and owns no classic selector.
   'css/views/steward-drawer.css',
+  // 117e: steward settings layer (the settings modal's 管家 tab — six groups, memory panel, action-log
+  // table — plus the shell header's shield and always-on stop button). Appended last for the same reason.
+  'css/views/steward-settings.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -153,7 +156,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // eleven-block stack, plus the quick-switch chips shared by 117d/117g/117h). Additive only: no existing
 // layer's rules were touched, and the link/@import/overlay order gained exactly one trailing entry.
 // Re-pin the intentional payload.
-const LEGACY_STYLES_SHA256 = 'f1cf5958dfd0851dfbaf4ac5542d9b9522f4c0aa6eb5c5a352c3b7722a615cb8';
+// 117e: one more new owned layer, css/views/steward-settings.css (the settings modal's steward tab: the
+// six groups, the memory panel, the action-log table; plus the shell header's shield and always-on stop
+// button). Additive only: no existing layer's rules were touched, and the link/@import/overlay order
+// gained exactly one trailing entry. Re-pin the intentional payload.
+const LEGACY_STYLES_SHA256 = 'ffbe8397d2093d75c9f7f9c6688559cf704f39984a1826e95321b4ef0d3339a1';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

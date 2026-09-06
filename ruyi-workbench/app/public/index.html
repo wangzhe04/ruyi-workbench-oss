@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="/css/views/steward-avatar.css" />
     <link rel="stylesheet" href="/css/views/steward-conversation.css" />
     <link rel="stylesheet" href="/css/views/steward-drawer.css" />
+    <link rel="stylesheet" href="/css/views/steward-settings.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -561,6 +562,16 @@
           <span class="steward-tagline" data-i18n="stewardShell.previewNotice">管家壳（预览）—— 功能随 117 后续切片到位。</span>
           <span id="stewardPresenceText" class="steward-presence-text" aria-live="polite"></span>
         </div>
+        <!-- 117e（§8.2「右上角只有两个常驻图标」/ §8.6）：盾牌 = 新线程默认权限，点开四档菜单；
+             停机键常驻且永远可点，停机后同一个按钮变「唤醒」。两者的行为都住 js/steward-settings.js
+             （权限档位表与全自动二次确认文案从 steward-chips.js 复用，不写第二份）。 -->
+        <div class="steward-header-actions">
+          <div class="steward-shield-wrap">
+            <button type="button" id="stewardShieldBtn" class="steward-shield" aria-haspopup="true" aria-expanded="false"></button>
+            <div id="stewardShieldMenu" class="steward-shield-menu" role="menu" hidden></div>
+          </div>
+          <button type="button" id="stewardStopBtn" class="steward-stop-btn"></button>
+        </div>
       </header>
       <div id="stewardFeed" class="steward-feed" role="log" aria-live="polite" aria-label="管家对话" data-i18n-attr="aria-label:stewardShell.feedLabel"></div>
       <div id="stewardComposer" class="steward-composer">
@@ -682,6 +693,8 @@
         <div class="modal-body" id="settingsBody">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
             <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
+            <!-- 117e：管家页签排在「基础」之后、「Agent CLI」之前（27 号文 §5 117e 行）。 -->
+            <button type="button" data-stab="steward" data-i18n="settings.steward.tab">管家</button>
             <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
             <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
             <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
@@ -798,6 +811,162 @@
                 </select>
               </div>
             </div>
+          </div>
+
+          <!-- ===== 117e 管家（27 号文 §5 117e 行 / §8.6 权限的界面表达 / §4 记忆面板）===== -->
+          <!-- 六个 <section>，控件 id 一律 cfgSteward* 前缀。骨架静态写死在这里； -->
+          <!-- js/steward-settings.js 只 createElement + textContent 填内容（零 innerHTML）。 -->
+          <div class="settings-tab" id="stab-steward">
+            <p id="cfgStewardNote" class="field-help steward-settings-note" role="status" aria-live="polite"></p>
+
+            <!-- ① 总开关与壳 -->
+            <section class="steward-settings-group" id="cfgStewardGroupPower" aria-labelledby="cfgStewardPowerHeading">
+              <h4 id="cfgStewardPowerHeading" class="settings-subhead" data-i18n="settings.steward.group.power">管家总开关</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.powerHint">打开之后，管家会在后台盯着你的线程；关掉即刻停下，不留任何后台活动。</p>
+              <label class="check"><input type="checkbox" id="cfgStewardEnabled" /> <span data-i18n="settings.steward.enabled">打开管家</span></label>
+              <div class="steward-settings-row">
+                <button type="button" id="cfgStewardShellBtn" class="btn btn-sm" data-i18n="settings.steward.openShell">切到管家界面</button>
+                <button type="button" id="cfgStewardStopBtn" class="btn btn-sm" data-i18n="settings.steward.stop">一键停机</button>
+                <span id="cfgStewardRunState" class="steward-settings-state" role="status" aria-live="polite"></span>
+              </div>
+              <p class="field-help muted" data-i18n="settings.steward.stopHint">停机只停管家自己的轮询与在途回合；已经在跑的线程照旧，由它们自己的权限管。</p>
+            </section>
+
+            <!-- ② 新线程默认权限 -->
+            <section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="cfgStewardPermissionHeading">
+              <h4 id="cfgStewardPermissionHeading" class="settings-subhead" data-i18n="settings.steward.group.permission">新线程默认权限</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.permissionHint">新开的线程用这一档；每条线程随时可以单独改。管家替你答复的范围也由这一档决定。</p>
+              <div class="field-block">
+                <label for="cfgStewardDefaultPermission" data-i18n="settings.steward.defaultPermission">默认权限</label>
+                <select id="cfgStewardDefaultPermission"></select>
+                <p class="field-help muted" id="cfgStewardPermissionHint"></p>
+              </div>
+              <div class="steward-settings-confirm" id="cfgStewardPermissionConfirm" role="dialog" aria-labelledby="cfgStewardPermissionConfirmTitle" hidden>
+                <strong id="cfgStewardPermissionConfirmTitle"></strong>
+                <ul id="cfgStewardPermissionConfirmList"></ul>
+                <div class="steward-settings-confirm-actions">
+                  <button type="button" id="cfgStewardPermissionCancel" class="btn btn-sm" data-confirm="cancel"></button>
+                  <button type="button" id="cfgStewardPermissionOk" class="btn btn-sm" data-confirm="ok"></button>
+                </div>
+              </div>
+            </section>
+
+            <!-- ③ 管家可以自己做的事 -->
+            <section class="steward-settings-group" id="cfgStewardGroupAuto" aria-labelledby="cfgStewardAutoHeading">
+              <h4 id="cfgStewardAutoHeading" class="settings-subhead" data-i18n="settings.steward.group.auto">管家可以自己做的事</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.autoHint">这份清单只对「改文件不问」以上的线程生效；「每步都问」的线程一律只提议。</p>
+              <label class="check"><input type="checkbox" id="cfgStewardAutoRetry" /> <span data-i18n="settings.steward.auto.retry">失败自动重试一次</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.auto.retryHint">线程因为临时故障停了，管家替你重试一次；再失败就来问你。</p>
+              <div class="field-block">
+                <label for="cfgStewardAutoResume" data-i18n="settings.steward.auto.resume">重启后自动续跑</label>
+                <select id="cfgStewardAutoResume">
+                  <option value="" data-i18n="settings.steward.auto.resumeFollow">跟随线程的自动续跑设置</option>
+                  <option value="on" data-i18n="settings.steward.auto.resumeOn">开：重启后能续的都续上</option>
+                  <option value="off" data-i18n="settings.steward.auto.resumeOff">关：重启后都等你按</option>
+                </select>
+                <p class="field-help muted" data-i18n="settings.steward.auto.resumeHint">如意被关掉又打开时，管家要不要把中断的线程接着跑下去。</p>
+              </div>
+              <label class="check"><input type="checkbox" id="cfgStewardAutoRelay" /> <span data-i18n="settings.steward.auto.relay">事项内自动交接</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.auto.relayHint">同一件事里，上一条线程的结论自动交给下一条；关掉就只提议。</p>
+              <label class="check"><input type="checkbox" id="cfgStewardAutoNewThread" /> <span data-i18n="settings.steward.auto.newThread">需要时自己新开线程</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.auto.newThreadHint">定时任务到点、或接力需要一条新线程时，管家自己开一条，不再等你按。</p>
+            </section>
+
+            <!-- ④ 模型与预算 -->
+            <section class="steward-settings-group" id="cfgStewardGroupBudget" aria-labelledby="cfgStewardBudgetHeading">
+              <h4 id="cfgStewardBudgetHeading" class="settings-subhead" data-i18n="settings.steward.group.budget">模型与预算</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.budgetHint">管家自己跑回合也花钱。默认跟随主端点，也可以给它换一个便宜模型。</p>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardProviderId" data-i18n="settings.steward.providerId">管家用的服务商</label>
+                  <select id="cfgStewardProviderId"></select>
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardModel" data-i18n="settings.steward.model">管家用的模型</label>
+                  <input id="cfgStewardModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardPollMs" data-i18n="settings.steward.pollSeconds">多久看一次收件箱（秒）</label>
+                  <input id="cfgStewardPollMs" type="number" min="5" max="120" step="1" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardVisitIdle" data-i18n="settings.steward.visitIdle">多久没动算一次新到访（分钟）</label>
+                  <input id="cfgStewardVisitIdle" type="number" min="5" max="1440" step="1" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardMaxTurnsPerHour" data-i18n="settings.steward.maxTurnsPerHour">管家每小时最多跑几个回合</label>
+                  <input id="cfgStewardMaxTurnsPerHour" type="number" min="1" max="120" step="1" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardMaxCostPerDay" data-i18n="settings.steward.maxCostPerDay">管家每天最多花（USD）</label>
+                  <input id="cfgStewardMaxCostPerDay" type="number" min="0" max="1000" step="0.5" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardMaxParallelThreads" data-i18n="settings.steward.maxParallelThreads">同时最多跑几条线程</label>
+                  <input id="cfgStewardMaxParallelThreads" type="number" min="1" max="32" step="1" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardGlobalMaxTurnsPerHour" data-i18n="settings.steward.globalMaxTurnsPerHour">全部线程每小时最多几个回合</label>
+                  <input id="cfgStewardGlobalMaxTurnsPerHour" type="number" min="1" max="2000" step="1" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardGlobalMaxCostPerDay" data-i18n="settings.steward.globalMaxCostPerDay">全部线程每天最多花（USD）</label>
+                  <input id="cfgStewardGlobalMaxCostPerDay" type="number" min="0" max="10000" step="1" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardRetention" data-i18n="settings.steward.retention">和管家的对话保留多久</label>
+                  <select id="cfgStewardRetention">
+                    <option value="visit" data-i18n="settings.steward.retention.visit">只保留本次打开期间（默认）</option>
+                    <option value="24h" data-i18n="settings.steward.retention.24h">24 小时</option>
+                    <option value="forever" data-i18n="settings.steward.retention.forever">一直保留</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <!-- ⑤ 管家记得的关于你（§4「面板」）-->
+            <section class="steward-settings-group" id="cfgStewardGroupMemory" aria-labelledby="cfgStewardMemoryHeading">
+              <h4 id="cfgStewardMemoryHeading" class="settings-subhead" data-i18n="settings.steward.group.memory">管家记得的关于你</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.memoryHint">这些只进管家自己的提示词，不会进普通会话。每条都能改、能否决、能恢复。</p>
+              <div class="steward-settings-row">
+                <button type="button" id="cfgStewardMemoryRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.memory.refresh">刷新</button>
+                <button type="button" id="cfgStewardMemoryExportBtn" class="btn btn-sm" data-i18n="settings.steward.memory.export">导出 JSON</button>
+                <button type="button" id="cfgStewardMemoryClearBtn" class="btn btn-sm" data-i18n="settings.steward.memory.clear">清空全部</button>
+              </div>
+              <div class="steward-settings-confirm" id="cfgStewardMemoryClearConfirm" role="dialog" aria-labelledby="cfgStewardMemoryClearTitle" hidden>
+                <strong id="cfgStewardMemoryClearTitle" data-i18n="settings.steward.memory.clearTitle">清空管家记得的全部内容？</strong>
+                <p class="field-help muted" data-i18n="settings.steward.memory.clearHint">这一步不可撤销。请在下面逐字输入 clear 再确认。</p>
+                <input id="cfgStewardMemoryClearInput" type="text" autocomplete="off" placeholder="clear" />
+                <div class="steward-settings-confirm-actions">
+                  <button type="button" id="cfgStewardMemoryClearCancel" class="btn btn-sm" data-confirm="cancel" data-i18n="settings.steward.memory.clearCancel">算了</button>
+                  <button type="button" id="cfgStewardMemoryClearOk" class="btn btn-sm" data-confirm="ok" data-i18n="settings.steward.memory.clearOk">清空</button>
+                </div>
+              </div>
+              <div id="cfgStewardMemoryPanel" class="steward-memory-panel"></div>
+            </section>
+
+            <!-- ⑥ 行动流水（§8.6 末条）-->
+            <section class="steward-settings-group" id="cfgStewardGroupDecisions" aria-labelledby="cfgStewardDecisionsHeading">
+              <h4 id="cfgStewardDecisionsHeading" class="settings-subhead" data-i18n="settings.steward.group.decisions">行动流水</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.decisionsHint">管家替你做过的每一件事：依据、目标线程、当时的线程权限、花了多少、能不能撤销。</p>
+              <div class="steward-settings-row">
+                <label class="steward-settings-filter" for="cfgStewardDecisionsThread"><span data-i18n="settings.steward.decisions.filterThread">按线程</span>
+                  <select id="cfgStewardDecisionsThread"></select></label>
+                <label class="steward-settings-filter" for="cfgStewardDecisionsDate"><span data-i18n="settings.steward.decisions.filterDate">按日期</span>
+                  <input id="cfgStewardDecisionsDate" type="date" /></label>
+                <button type="button" id="cfgStewardDecisionsRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.decisions.refresh">刷新</button>
+                <button type="button" id="cfgStewardDecisionsMoreBtn" class="btn btn-sm" data-i18n="settings.steward.decisions.more">加载更多</button>
+              </div>
+              <div id="cfgStewardDecisions" class="steward-decisions"></div>
+            </section>
           </div>
 
           <!-- ===== Agent CLI (Claude Code / Kimi Code) ===== -->

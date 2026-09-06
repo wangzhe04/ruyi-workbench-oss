@@ -28,6 +28,12 @@ export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
 export const STEWARD_DETAILS_KEY = 'wcw.stewardDetails';
+// 117e：头像菜单里「细节」之后的三项（人话键 → 设置页里要滚到的区块）。顺序即菜单顺序。
+export const STEWARD_MENU_SECTIONS = Object.freeze([
+  ['stewardShell.menu.settings', ''],
+  ['stewardShell.menu.memory', 'memory'],
+  ['stewardShell.menu.decisions', 'decisions'],
+]);
 // 主动作的视觉档只有这一个类名，且只有一处字面量 —— §8.4「主动作只有一个（金色或主色），其余安静」
 // 的机械保证：想再造一个「重点按钮」就必须先改这一行，静态锁看得见。
 export const STEWARD_PRIMARY_CLASS = 'is-primary';
@@ -80,6 +86,9 @@ export function createStewardConversation({
   t = key => key,
   presence = null,
   isStewardMode = () => false,
+  // 117e：头像菜单的「设置／记忆／行动流水」三项。本模块只负责【调用】——切页签、滚动、取数
+  // 全在 steward-settings.js 里（对话区不认识设置页的任何 id，也不多一条 /api 路由）。
+  openStewardPanel = null,
 } = {}) {
   const doc = () => globalThis.document || null;
   const byId = id => (doc() ? doc().getElementById(id) : null);
@@ -651,6 +660,17 @@ export function createStewardConversation({
       });
       toggle.setAttribute('aria-pressed', detailsOn ? 'true' : 'false');
       menu.appendChild(toggle);
+      // 117e：§8.2「头像本身是管家的口袋」。三项都只是「打开设置的管家页签并滚到那一段」，
+      // 注入缺席时（依赖没接上）整段不出现，菜单退回 117c 的只有「细节」。
+      if (typeof openStewardPanel === 'function') {
+        for (const [labelKey, section] of STEWARD_MENU_SECTIONS) {
+          menu.appendChild(button('steward-menu-item', t(labelKey), () => {
+            menu.hidden = true;
+            avatar.setAttribute('aria-expanded', 'false');
+            openStewardPanel(section);
+          }));
+        }
+      }
       const header = byId('stewardHeader');
       if (header) header.appendChild(menu);
       avatar.addEventListener('click', () => {

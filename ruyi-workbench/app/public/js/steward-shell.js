@@ -4,6 +4,7 @@ import { derivePresence, presenceLabelKey } from './steward-presence.js';
 import { createStewardConversation } from './steward-conversation.js';
 import { createStewardComposer } from './steward-composer.js';
 import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';
+import { createStewardSettingsDomain } from './steward-settings.js';
 
 // 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -72,6 +73,10 @@ export function createStewardShellDomain({
   // 117d：抽屉的「2.0 视窗」要「切到经典壳并选中该会话」，openSession 是经典壳既有的那一个
   // （session-experience.js 导出，preview-shell 的 openSelectedInClassic 用的也是它）。
   openSession = async () => {},
+  // 117e：设置写口与「打开设置的某个页签」。前者是 provider-settings 既有的那一个（POST /api/config
+  // 的唯一封装），后者让头像菜单三项与盾牌的二次确认能直达「管家」页签。
+  saveConfigPartial = async () => false,
+  openSettingsTab = () => {},
 } = {}) {
   const byId = id => (globalThis.document ? globalThis.document.getElementById(id) : null);
   const setStatusText = key => {
@@ -119,6 +124,10 @@ export function createStewardShellDomain({
       // 依赖缺失时抽屉也开不出来（它要 applyShellMode 才能切 2.0 视窗）：给一个同形的空壳，
       // 调用方（117h）拿到的键集不变，只是永远打不开。
       drawer: Object.freeze({ openThread: () => {}, closeDrawer: () => {}, isOpen: () => false }),
+      // 117e：同理给一个同形空壳 —— 组合根照常能调 fillStewardSettings()，只是什么也不做。
+      fillStewardSettings: () => false,
+      openStewardPanel: () => '',
+      settings: Object.freeze({ fillStewardSettings: () => false, openPanel: () => '', setStopped: () => false, isStopped: () => true }),
     });
   }
 
@@ -179,6 +188,8 @@ export function createStewardShellDomain({
         inflight: typeof response.inflight === 'string' ? response.inflight : '',
         lastError: (lastReply && lastReply.error) ? String(lastReply.error) : '',
       });
+      // 117e：头部常驻停机键与设置页的运行态读同一份真值，不各自再发一条请求。
+      settings.setStopped(response.stopped === true);
     }).catch(() => { /* 状态面不因单次轮询失败整条消失，下一轮再试 */ });
   }
 
@@ -258,11 +269,19 @@ export function createStewardShellDomain({
   // 计时器分工(与 C2a「本文件恰好一处 setInterval」互不干扰)：撤回倒计时住 steward-conversation.js，
   // 预判去抖住 steward-composer.js，本文件仍然只有 avatar 状态轮询这一个 setInterval。
   const presenceApi = Object.freeze({ derive: derivePresence, set: setPresenceInputs, current: () => presenceState });
-  const conversation = createStewardConversation({ api, state, t, presence: presenceApi, isStewardMode });
+  const conversation = createStewardConversation({
+    api, state, t, presence: presenceApi, isStewardMode,
+    // 117e：头像菜单的「设置／记忆／行动流水」三项（117c 那里只有「细节」）。菜单只负责调用，
+    // 页签切换、滚动与取数全在 steward-settings.js 里。
+    openStewardPanel: section => settings.openPanel(section),
+  });
   const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
   // 抽屉那一处住在 steward-drawer.js 里，与 avatar 轮询各自独立门控）。
   const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });
+  // 117e：设置页「管家」页签 + 头部的盾牌与停机键。它是【唯一】写全局 permissionMode 与管家配置的
+  // 地方；四档表与全自动确认文案由它从 steward-chips.js import 复用，本文件不碰。
+  const settings = createStewardSettingsDomain({ api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi });
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
@@ -288,6 +307,7 @@ export function createStewardShellDomain({
       globalThis.document.addEventListener(STEWARD_NEW_THREAD_EVENT,
         event => composer.markNewInMission(event && event.detail && event.detail.missionId));
     }
+    settings.bindStewardSettings();       // 117e：设置页控件 + 头部盾牌与常驻停机键
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
       new MutationObserver(syncConversation)
@@ -307,6 +327,12 @@ export function createStewardShellDomain({
     presence: presenceApi,
     conversation,
     composer,
+    // 117e：组合根在 fillSettings() 里调 fillStewardSettings()（一行注入），面板本身归 settings。
+    // 排在 drawer 之前，是为了让 117d 的 `steward-drawer.static I7`（锚「drawer 是导出对象的末项」）
+    // 原样通过 —— 既有断言只加不改。
+    settings,
+    fillStewardSettings: () => settings.fillStewardSettings(),
+    openStewardPanel: section => settings.openPanel(section),
     // 117d：117h「现在这一件」直接调 drawer.openThread(sessionId)，不再另起一份抽屉。
     drawer,
   });

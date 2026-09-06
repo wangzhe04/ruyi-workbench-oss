@@ -71,7 +71,7 @@ ok(/data-i18n-attr="aria-label:stewardShell\.avatarLabel"/.test(header), 'C7 ava
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(stewardShell),
   'D1 steward-shell.js 零 innerHTML/insertAdjacentHTML/document.write');
 // 117c／117d 重钉（语义不变，只是本域内又多了一个子模块）：steward-shell.js 组装 117c 的对话区与
-// 输入区、117d 的线程抽屉，import 由 1 条 → 3 条 → 4 条。断言仍是「只从【本域内】的相对路径取值、
+// 输入区、117d 的线程抽屉、117e 的设置页，import 由 1 条 → 3 条 → 4 条 → 5 条。断言仍是「只从【本域内】的相对路径取值、
 // 零第三方库、零裸包名」—— 每条 import 的来源必须逐字落在这份白名单里
 // （来源：117c／117d 交付，27 号文 §5 117c／117d 行）。
 const importLines = [...stewardShell.matchAll(/^import .*$/gm)].map(match => match[0]);
@@ -80,7 +80,10 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   "import { createStewardConversation } from './steward-conversation.js';",
   "import { createStewardComposer } from './steward-composer.js';",
   "import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';",
-]), `D2 steward-shell.js 的 import 只有本域内四条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
+  // 117e：设置页「管家」页签 + 头部盾牌与常驻停机键。白名单加第五条（只加，形态不变：仍是
+  // 本域内的相对路径、零第三方库、零裸包名）。
+  "import { createStewardSettingsDomain } from './steward-settings.js';",
+]), `D2 steward-shell.js 的 import 只有本域内五条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');
 

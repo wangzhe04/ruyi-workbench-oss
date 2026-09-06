@@ -1,0 +1,269 @@
+/* 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」）。
+   两片地盘，共一层：
+     ① 设置弹窗的「管家」页签（#stab-steward 里的六组 <section>、记忆面板、行动流水表）——
+        它不在管家壳里，所以【不能】挂 :root[data-shell-mode="steward"] 前缀（经典壳里也要能看）；
+     ② 管家壳头部右上角的盾牌与停机键（.steward-header-actions）—— 那两个只在管家壳里出现，
+        显隐随 #stewardShell 本身走，本层不碰壳模式属性（那是 117a 的单一写入点）。
+   全部颜色走主题 token，零硬编码色值；动效只用 --dur-*/--ease-out 并在 reduced-motion 下全关。 */
+
+/* ── ① 设置页签：六组 ────────────────────────────────────────────────────────────── */
+.steward-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+.steward-settings-group:last-of-type { border-bottom: none; }
+.steward-settings-group .settings-subhead { margin: 0; }
+
+.steward-settings-note {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--muted);
+}
+.steward-settings-note:empty { display: none; }
+.steward-settings-note[data-tone="err"] { color: var(--danger); }
+
+.steward-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.steward-settings-state {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-settings-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* 二次确认（切「全自动」/ 清空记忆）就地展开，不另起模态：设置弹窗本身已经是模态，
+   模态套模态会把焦点管理搞坏（与 steward-chips.js 里那处同一条理由）。 */
+.steward-settings-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+.steward-settings-confirm[hidden] { display: none; }
+.steward-settings-confirm ul {
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-settings-confirm li { margin: 0 0 var(--sp-1); }
+.steward-settings-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* ── 记忆面板（§4「面板」：按 kind 分组、可编辑、可否决、可清空、导出）─────────────── */
+.steward-memory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.steward-memory-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.steward-memory-group-title {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-memory-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-memory-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.steward-memory-item:hover { border-color: var(--line-2); }
+.steward-memory-item[data-state="vetoed"] { opacity: 0.6; }
+.steward-memory-text {
+  width: 100%;
+  min-height: calc(var(--sp-6) + var(--sp-2));
+  resize: vertical;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.steward-memory-text:hover { border-color: var(--line); }
+.steward-memory-text:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-memory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.steward-memory-new {
+  padding: 0 var(--sp-1);
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: var(--r-pill);
+}
+.steward-memory-btn {
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-memory-btn:hover { color: var(--ink); }
+.steward-memory-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ── 行动流水（§8.6 末条）：宽表自己横向滚，不让页面横滚 ─────────────────────────── */
+.steward-decisions { overflow-x: auto; }
+.steward-decisions table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.steward-decisions th,
+.steward-decisions td {
+  text-align: left;
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  white-space: nowrap;
+}
+.steward-decisions th { color: var(--muted); font-weight: 600; }
+.steward-decisions td.steward-decision-basis { white-space: normal; min-width: 12em; }
+.steward-decisions-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.steward-decision-btn {
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-decision-btn:hover { color: var(--ink); }
+.steward-decision-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ── ② 管家壳头部：盾牌与常驻停机键（§8.2「右上角只有两个常驻图标」）─────────────── */
+.steward-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+.steward-shield-wrap { position: relative; }
+.steward-shield,
+.steward-stop-btn {
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  padding: var(--sp-1) var(--sp-3);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.steward-shield:hover,
+.steward-stop-btn:hover { color: var(--ink); border-color: var(--accent); }
+.steward-shield:focus-visible,
+.steward-stop-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+/* §8.6：每步都问（安静）／改文件不问（青花蓝）／全自动（金底）；只做计划不改盾牌色。 */
+.steward-shield[data-permission="acceptEdits"] { color: var(--brand-qh); border-color: var(--brand-qh); }
+.steward-shield[data-permission="auto"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.steward-stop-btn[data-stopped="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+
+.steward-shield-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 16em;
+  padding: var(--sp-2);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-2);
+}
+.steward-shield-menu[hidden] { display: none; }
+.steward-shield-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.steward-shield-option:hover { border-color: var(--line-2); }
+.steward-shield-option:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-shield-option[aria-checked="true"] { border-color: var(--accent); }
+.steward-shield-option-label { font-size: var(--fs-sm); }
+.steward-shield-option-hint { font-size: var(--fs-xs); color: var(--muted); }
+
+/* 窄屏：头部两个常驻控件换行不挤头像；设置页的确认区与流水表各自收一档。 */
+@media (max-width: 390px) {
+  .steward-header-actions { gap: var(--sp-1); }
+  .steward-shield, .steward-stop-btn { padding: var(--sp-1) var(--sp-2); }
+  .steward-shield-menu { min-width: 0; left: 0; right: 0; }
+  .steward-settings-confirm-actions .btn { flex: 1 1 auto; }
+  .steward-settings-row { gap: var(--sp-1); }
+}
+
+/* 动效可以没有，信息不能少（§8.1 原则 5）。 */
+@media (prefers-reduced-motion: reduce) {
+  .steward-shield,
+  .steward-stop-btn,
+  .steward-shield-option,
+  .steward-memory-item,
+  .steward-memory-text,
+  .steward-memory-btn,
+  .steward-decision-btn { transition: none; }
+}

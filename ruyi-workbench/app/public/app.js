@@ -222,6 +222,7 @@ const {
   updateContextMeter: () => updateContextMeter(),
   // 117a: every config refresh re-decides whether the steward shell may be entered (switch + skeleton).
   syncStewardShellAvailability: () => stewardShellGuard?.syncStewardShellAvailability(),
+  fillStewardSettings: () => stewardShellGuard?.fillStewardSettings(), // 117e：设置页「管家」页签随 config 回填
 });
 
 const {
@@ -998,6 +999,7 @@ const stewardShellDomain = createStewardShellDomain({
   closeSettings: () => closeModal('settingsModal'),
   now: () => new Date(),
   openSession, // 117d：抽屉的「2.0 视窗」＝切经典壳 + 选中该会话
+  saveConfigPartial, openSettingsTab: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'steward', true); }, // 117e
 });
 stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;

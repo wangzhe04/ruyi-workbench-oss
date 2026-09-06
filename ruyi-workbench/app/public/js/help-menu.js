@@ -29,6 +29,7 @@ export const LOG_TAIL_LINE_CHOICES = Object.freeze([100, 500, 2000]);
 // 手册改了标题而这里没跟着改,门就红 -- 免得「?」静默退化成滚到文首。
 export const SETTINGS_TAB_HELP_ANCHORS = Object.freeze({
   basic: 'help.anchor.settings',
+  steward: 'help.anchor.settings',
   claude: 'help.anchor.settings',
   providers: 'help.anchor.settings',
   network: 'help.anchor.settings',
