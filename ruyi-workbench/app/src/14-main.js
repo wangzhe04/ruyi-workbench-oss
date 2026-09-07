@@ -335,6 +335,11 @@ module.exports = {
   STEWARD_WAIT_REASONS,
   STEWARD_WAIT_LABELS,
   waitReasonFor,
+  // 第117波117l-A1(27号文§11.9 D5/D7/D4): id 人话化、新线程模型分档、「它在问你」三态 —— 三个纯
+  //   函数(只吃入参、无 IO),exposed for 单测(unit/steward-humanize.test.js)与 e2e 直测。
+  stewardHumanizeIds,
+  stewardThreadEngineRoute,
+  stewardAsksYou,
   // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
   //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
   runSessionTurn,

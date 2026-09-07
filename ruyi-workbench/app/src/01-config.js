@@ -301,6 +301,11 @@ function defaultConfig() {
     // 2026-09-07 拍板,§11.8.10 第 1 条):消费面一半在经典壳(侧栏会话列表、113b 会话搜索),
     // 管家关着也该有名字。关掉 = 零调用、零字段、零记账。
     stewardThreadBriefV1: true,
+    // 第 117 波 117l(27 号文 §11.9 D7;用户 2026-09-07 走查第 7 条「设置的管家页里可以默认配置新开线程
+    // 的端点和模型:一个针对复杂任务的强模型、一个简单任务的快速模型」):管家新开线程时按 tier 选端点。
+    // 两档都留空 = 全部跟随全局主端点(= 116a 起的既有行为,存量用户零变化)。判定单点在 06i 的
+    // stewardThreadEngineRoute;**这两个键不进 steward_config_set 白名单**(模型不能自己换模型)。
+    stewardThreadModels: { strong: { providerId: '', model: '' }, fast: { providerId: '', model: '' } },
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
@@ -950,6 +955,21 @@ function normalizeConfig(raw) {
   {
     const b = config.stewardThreadBriefV1 !== false;
     if (b !== config.stewardThreadBriefV1) { config.stewardThreadBriefV1 = b; changed = true; }
+  }
+  // 第 117 波 117l(27 号文 §11.9 D7):新开线程的两档端点/模型。形状归一 —— 缺键补空、非对象整体回默认、
+  // 未知键丢弃;providerId ≤120、model ≤160(与 stewardProviderId/stewardModel 同一口径),两者都 trim。
+  // 这里【不】校验 provider 是否真的存在:设置页可能先配 id 后建端点,存在性由 06i 的
+  // stewardThreadEngineRoute 在用的那一刻判(不存在就回落全局并记一条审计),不在这里静默清空用户输入。
+  {
+    const DEF_TM = { strong: { providerId: '', model: '' }, fast: { providerId: '', model: '' } };
+    const rawTm = (config.stewardThreadModels && typeof config.stewardThreadModels === 'object' && !Array.isArray(config.stewardThreadModels)) ? config.stewardThreadModels : null;
+    const slot = raw => {
+      const s = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+      return { providerId: String(s.providerId || '').trim().slice(0, 120), model: String(s.model || '').trim().slice(0, 160) };
+    };
+    const tm = rawTm ? { strong: slot(rawTm.strong), fast: slot(rawTm.fast) } : { ...DEF_TM };
+    if (JSON.stringify(tm) !== JSON.stringify(config.stewardThreadModels)) { config.stewardThreadModels = tm; changed = true; }
+    else config.stewardThreadModels = tm;
   }
   // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
   {

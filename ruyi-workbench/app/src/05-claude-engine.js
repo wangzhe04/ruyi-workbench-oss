@@ -6,8 +6,12 @@ async function runClaudeTurn({
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
   const activeTraceId = _traceId || AgentLoopHooks.makeAgentLoopTraceId(session.id, _resumeRecoveryAttempt ? session.turnSeq : (Number(session.turnSeq) || 0) + 1);
+  // 117l D4:尾巴要接在【这个】包装里而不是 reg.onEvent 上 —— reg.onEvent 只看得见桥接/MCP 那一路的
+  // 事件(见它自己的头注),引擎自己流出来的 assistant_delta 走的是本地 onEvent。
+  let liveTailReg = null;
   onEvent = evt => {
     const normalized = evt && typeof evt === 'object' && !evt.traceId ? { ...evt, traceId: activeTraceId } : evt;
+    if (liveTailReg) appendLiveTail(liveTailReg, normalized);
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
@@ -466,11 +470,13 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '' }; // 47a: kind 供 /api/steer 按引擎分派
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' } }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
+  // 117l D4(§11.9):活回合的尾巴 —— 与 09 同一个累加器、同一份预算(见 appendLiveTail 头注)。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
   const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId

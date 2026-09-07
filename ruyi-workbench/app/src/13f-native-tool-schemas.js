@@ -770,13 +770,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_new',
-    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,undoRef};undoRef.rewindTargetTurnSeq 是委托书那一回合的 seq(整单回退的锚点);回合是后台异步跑的,返回时通常还没有结果。',
+    description: '按【委托书】新开一条线程并立刻让它跑起来。委托书结构固定:brief.userText 是用户原话(逐字放在首条消息最前,绝不改写),你的补充(目标/验收项/相关文件/偏好/约束)经中和后放在其后的管家围栏里、总长 ≤1200 字。何时用:用户提出的是一件要动手做的新事(要读写文件、跑命令、联网、做东西)。何时别用:关于如意自身、事项、费用、设置的问题你直接回答,不要为此开线程;已有对口线程时改用 steward_thread_continue。本工具是管家唯一的「动世界」出口——你自己没有文件/shell/桌面工具,想动手就必须经由线程。返回 {ok,sessionId,missionId,tier,engine,undoRef};undoRef.rewindTargetTurnSeq 是委托书那一回合的 seq(整单回退的锚点);回合是后台异步跑的,返回时通常还没有结果。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['brief'],
       properties: {
         title: { type: 'string', description: '可选。线程标题;省略则由首条消息自动命名。' },
         missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
         cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则用全局默认工作区。这只是线程的起点目录,不是你自己能读写的路径。' },
+        tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
         brief: {
           type: 'object', additionalProperties: false, required: ['userText'],
           description: '委托书。userText 必填且逐字保留;其余各段是你的补充,对用户可见、可改、可删,不得改写用户意图。',
@@ -796,7 +797,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程并让它继续跑。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。何时用:用户的话明确属于某条已有线程(接着上次的事继续说)。何时别用:目标线程正忙(在途回合)时会返回 {ok:false,error:"steward.busy"},不要轮询重试,先向用户说明或等它停;新的一件事用 steward_thread_new;管家自己的会话不能作为目标。返回 {ok,sessionId,undoRef};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
+    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选四条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合);② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);④ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {

@@ -84,6 +84,29 @@ function logEvent(record) {
 
 // --- Active claude child registry keyed by session id, for stop/restart/interrupt + disconnect kill. ---
 const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt, lastEventAt, interactive, onEvent }
+// 第 117 波 117l D4(27 号文 §11.9;用户第四轮走查第 3 条「『它刚说』更新不够及时」):活回合尾巴的累加器。
+// 两个引擎(09 的 provider 回合与 05 的 Claude 回合)在各自的 reg.onEvent 包装里调它 —— 同一份口径、
+// 同一份预算,不各写一套。三条纪律:
+//   ① 只在内存(reg 上),不落盘、不进任何投影 —— 回合一结束 reg 从 activeChildren 里去掉,尾巴随之消失;
+//   ② 只留最后 600 字(抖动的是“它正在说什么”,不是全文;全文在回合收尾时才落盘);
+//   ③ 工具名只在【工具在跑】期间在:tool_use 记上,tool_result 清掉。
+// 发不出事件的回合(引擎不流 delta)就是空尾巴 —— 不编,不拿上一回合的话冒充(§11.2 「诚实」)。
+const LIVE_TAIL_CHARS = 600;
+function appendLiveTail(reg, evt) {
+  if (!reg || !evt) return;
+  const tail = reg.liveTail && typeof reg.liveTail === 'object' ? reg.liveTail : (reg.liveTail = { text: '', tool: '', updatedAt: '' });
+  const type = String(evt.type || '');
+  if (type === 'assistant_delta') {
+    const chunk = String(evt.text || '');
+    if (!chunk) return;
+    tail.text = (tail.text + chunk).slice(-LIVE_TAIL_CHARS);
+  } else if (type === 'tool_use') {
+    tail.tool = String(evt.name || evt.tool || '').slice(0, 80);
+  } else if (type === 'tool_result') {
+    tail.tool = '';
+  } else return;
+  tail.updatedAt = nowIso();
+}
 // 回合 settle 登记表(第69波 rewind 竞态修复):sessionId -> { promise, resolve }。driver(chat/stream)
 // 在回合开始登记、driver finally(收尾 saveSession 已落盘后)resolve 并删除。stopSession 会立即删
 // activeChildren,但被停回合的收尾(推 aborted assistant + saveSession)发生在此之后 —— rewindSession

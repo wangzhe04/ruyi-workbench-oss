@@ -1281,6 +1281,7 @@
         "CLAUDE_RECOVERY_HISTORY_CHARS",
         "CLAUDE_RECOVERY_MESSAGE_CHARS",
         "CLAUDE_TASK_NOTIFICATION_MAX_CHARS",
+        "LIVE_TAIL_CHARS",
         "MCP_COMPAT_MATRIX",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
@@ -1294,6 +1295,7 @@
         "_nativeToolNameSet",
         "_parseTomlMcpServers",
         "activeChildren",
+        "appendLiveTail",
         "bridgedCatalogCache",
         "bridgedToolCallTimeoutMs",
         "bridgedToolTimeoutMs",
@@ -1964,6 +1966,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "appendLiveTail",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -3616,6 +3625,7 @@
       "file": "06i-steward-core.js",
       "layer": "engine",
       "provides": [
+        "STEWARD_ASKS_YOU_CHARS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
@@ -3631,6 +3641,9 @@
         "STEWARD_EXEMPT_INPUT_CHARS",
         "STEWARD_EXEMPT_INPUT_DEPTH",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
+        "STEWARD_ID_OPAQUE_RE",
+        "STEWARD_ID_SESSION_RE",
+        "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_PERMISSION_LABELS",
@@ -3659,12 +3672,17 @@
         "deriveStewardThreadState",
         "isStewardToolName",
         "prerouteText",
+        "stewardAsksYou",
+        "stewardAsksYouForThread",
+        "stewardClipSay",
         "stewardConfigTierFor",
         "stewardExemptInputText",
         "stewardHasText",
+        "stewardHumanizeIds",
         "stewardMayAct",
         "stewardMayTightenTo",
         "stewardMemoryTerms",
+        "stewardPendingOneLine",
         "stewardPendingTotal",
         "stewardPermissionLabel",
         "stewardPermissionRank",
@@ -3681,6 +3699,7 @@
         "stewardSanitizeText",
         "stewardStateLabel",
         "stewardTermJaccard",
+        "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
         "stewardToolPermanentlyExempt",
         "waitReasonFor"
@@ -5848,6 +5867,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "appendLiveTail",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11201,6 +11227,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAsksYou",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -11469,7 +11502,6 @@
         "STEWARD_DECISIONS_LIMIT_MAX",
         "STEWARD_DECISIONS_MASK",
         "STEWARD_DECISIONS_TAIL_BYTES",
-        "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_FILE",
         "STEWARD_MEMORY_MERGED_FROM_MAX",
         "STEWARD_MEMORY_NEW_WINDOW_MS",
@@ -11500,7 +11532,6 @@
         "stewardAppendDecision",
         "stewardBasisOf",
         "stewardClampInt",
-        "stewardClipSay",
         "stewardCtxIsSteward",
         "stewardDecisionChain",
         "stewardDecisionSeq",
@@ -11551,7 +11582,6 @@
         "stewardNormalizeMemoryEntry",
         "stewardPanelFailure",
         "stewardPanelGate",
-        "stewardPendingOneLine",
         "stewardQuickClose",
         "stewardQuickClosed",
         "stewardQuickThread",
@@ -11806,6 +11836,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
           "kinds": [
             "call"
@@ -11890,13 +11927,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_DIGEST_LIMITS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_KINDS",
           "kinds": [
             "read"
@@ -11946,6 +11976,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAsksYouForThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardClipSay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardConfigTierFor",
           "kinds": [
             "call"
@@ -11975,6 +12019,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMemoryTerms",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPendingOneLine",
           "kinds": [
             "call"
           ]
@@ -12218,6 +12269,9 @@
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
+        "STEWARD_RELAY_CHANNELS",
+        "STEWARD_ROUTE_HINT_MAX",
+        "STEWARD_ROUTE_HINT_REASON_CHARS",
         "STEWARD_RUN_ACTION_LABELS",
         "STEWARD_SAY_MAX",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
@@ -12226,6 +12280,7 @@
         "STEWARD_TOOL_LABELS",
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
+        "STEWARD_USER_QUEUE_WAIT_MS",
         "STEWARD_VISITS_DIR",
         "STEWARD_VISITS_KEEP",
         "STEWARD_VISIT_DIGEST_MAX",
@@ -12239,6 +12294,7 @@
         "stewardAbortInflight",
         "stewardAcquireTurnSlot",
         "stewardActLabel",
+        "stewardApplyThreadTier",
         "stewardArbiter",
         "stewardArbiterAhead",
         "stewardArbiterBlocked",
@@ -12271,15 +12327,18 @@
         "stewardCircuitCheck",
         "stewardContextBudget",
         "stewardDayCost",
+        "stewardDisplayTitleOf",
         "stewardDowngradeActions",
         "stewardEventLine",
         "stewardExecuteActions",
+        "stewardHumanizeSay",
         "stewardImplThreadPrioritize",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
         "stewardMemoryBlock",
         "stewardNormalizeAct",
         "stewardNormalizeActs",
+        "stewardNormalizeRouteHint",
         "stewardOnInboxBatch",
         "stewardOverviewBlock",
         "stewardParseReply",
@@ -12287,9 +12346,12 @@
         "stewardPreroute",
         "stewardPrerouteIndexRows",
         "stewardQueueHasQuickAnswer",
+        "stewardRelayChannelFor",
+        "stewardRelayDeliver",
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunAct",
+        "stewardRunClaimedTurn",
         "stewardRunnerRuntime",
         "stewardRunnerState",
         "stewardScheduleInboxDrain",
@@ -12517,6 +12579,27 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "normalizeQuestionAnswer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingQuestions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "stopSession",
           "kinds": [
             "call"
@@ -12615,7 +12698,21 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardHumanizeIds",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardMayAct",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPendingOneLine",
           "kinds": [
             "call"
           ]
@@ -12630,6 +12727,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadEngineRoute",
           "kinds": [
             "call"
           ]
@@ -12658,6 +12762,20 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runSessionTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "steerSessionCore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "decideIntervention",
           "kinds": [
             "call"
           ]
@@ -12693,13 +12811,6 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardFail",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardPendingOneLine",
           "kinds": [
             "call"
           ]
@@ -14878,6 +14989,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAsksYou",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardConfigTierFor",
           "kinds": [
             "read"
@@ -14886,6 +15004,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardHumanizeIds",
           "kinds": [
             "read"
           ]
@@ -14928,6 +15053,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadEngineRoute",
           "kinds": [
             "read"
           ]

@@ -49,6 +49,11 @@ const src01b = read('01b-route-auth.js');
   // 13g 不得继续膨胀(SPEC §2 目标 2000 行;116c 交付记录已把 116f 另起 13h 的理由写在案)。
   const lines13g = src13g.split('\n').length;
   ok(lines13g < 2000, `① 13g 不超过 SPEC 目标 2000 行(got ${lines13g};116f 另起 13h 就是为了这条)`);
+  // 117l companion:这条预算不是靠少写注释守住的,而是靠「新判定不往 13g 堆」。本波三个新判据
+  // 一个都不在 13g 里 —— 递话通道的判定与执行在 13h,id 人话化 / 模型分档 / 「它在问你」在 06i。
+  for (const symbol of ['stewardRelayChannelFor', 'stewardHumanizeIds', 'stewardThreadEngineRoute', 'stewardAsksYou']) {
+    ok(!new RegExp('function ' + symbol + '\\s*\\(').test(src13g), `① 117l companion: ${symbol} 的实现不在 13g(新判定往 13h/06i 放)`);
+  }
 }
 
 /* ═════════════ ② 零前向边:消费者只认 StewardHooks ═════════════ */
@@ -88,7 +93,19 @@ const src01b = read('01b-route-auth.js');
   // cancelQueuedTurn / arbiterRefresh)+ 116h 的第 21 个工具键 threadPrioritize(它的实现要直接调 13h 的
   // 仲裁器原语,故与其余 20 个工具不同、由 13h 填充)。插队原语与仲裁器快照【不】上命名空间——它们的
   // 消费者全在 13h 内部,挂上去会被下面的 unused 判据判成死代码。重钉来源:27 号文 §3.1 116h 行。
-  ok(hookKeys.length === 14, `② 13h 填充 14 个实现键(116f 8 + 116-pre 1 + 116h 5;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  //
+  // 【117l 重钉 14 -> 16】旧断言钉的是 116h 那一刻的键集大小 —— 那是一个「当时有几个」的快照,不是
+  // 契约本身。117l 新增两个实现键,两个都是因为「够不着」才落在 13h:
+  //   · relayDeliver —— 递话四通道的判定与执行,要同时够到 04 的三张待决表、13b 的 steerSessionCore、
+  //     13d 的 decideIntervention 与 09 的 activeChildren;
+  //   · applyThreadTier —— 把 06i 判出的那一档落成 session.engineRoute,要 02 的 normalizeSessionEngineRoute
+  //     与 04 的 logEvent(06i 不能引用 00/02/04:103b 的依赖债务上限会把它拖进强连通分量)。
+  // 真正的约束是下面两条(每个键都有消费者 + 每个键都登记在 06i 的契约注释里),故同时补一条
+  // companion:新增的必须【就是】这两个,而不是"随便多了两个钩子";通道判定 stewardRelayChannelFor
+  // 仍不上命名空间(消费者全在 13h 内)。
+  ok(hookKeys.length === 16, `② 13h 填充 16 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  ok(hookKeys.includes('relayDeliver') && hookKeys.includes('applyThreadTier') && !hookKeys.includes('relayChannel'),
+    '② 117l companion:新增的两个键是 relayDeliver 与 applyThreadTier;通道判定 relayChannel 不上命名空间(消费者全在 13h 内)');
   // 116-2e:onInboxBatch / stopRunner / resumeRunner 的消费者在收件箱侧,随拆分搬进了 13i。
   const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13i;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
@@ -97,7 +114,7 @@ const src01b = read('01b-route-auth.js');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));
   const undocumented = hookKeys.filter(k => !contract.includes(k + '('));
-  ok(undocumented.length === 0, '② 14 个键全部登记在 06i 的契约注释里' + (undocumented.length ? ' → 漏登: ' + undocumented.join(',') : ''));
+  ok(undocumented.length === 0, '② 每个键都登记在 06i 的契约注释里' + (undocumented.length ? ' → 漏登: ' + undocumented.join(',') : ''));
 }
 
 /* ═════════════ ③ 06b steward 段与分层预算 ═════════════ */

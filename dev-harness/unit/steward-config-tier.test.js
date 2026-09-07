@@ -89,6 +89,13 @@ const EXPECTED = {
   // 管家自己把它打开 = 给自己开一条不受管家日预算约束的花钱通道,故 confirm 而不是 free。
   stewardThreadBriefV1: 'confirm',
 
+  // ── forbidden(117l D7 新键,只加不改)────────────────────────────────────
+  // stewardThreadModels = 管家新开线程默认用哪个端点/哪个模型。**故意不进 free 也不进 confirm**:
+  // 让模型能改「下一条线程用哪个模型」等于让它自己换自己的执行主体(而且是绕过 activeProvider 那
+  // 一条 confirm 门的第二条路)。这一档只能由用户在设置页里改(POST /api/config 那条路仍然通)。
+  // 与 §11.9 D7 的拍板一字对应:「模型不能经 steward_config_set 改这两个键」。
+  stewardThreadModels: 'forbidden',
+
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', extraClaudeArgs: 'forbidden',

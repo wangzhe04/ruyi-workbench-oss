@@ -182,7 +182,6 @@ const STEWARD_MEMORY_SCHEMA = 1;
 
 // ── 工具面数值口径 ──────────────────────────────────────────────────────────────────────
 const STEWARD_SEARCH_LIMIT_DEFAULT = 10, STEWARD_SEARCH_LIMIT_MAX = 50;
-const STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS.lastSayChars;   // 200,与总览行同一口径
 const STEWARD_READ_TAIL_DEFAULT = 6, STEWARD_READ_TAIL_MAX = 20;
 const STEWARD_READ_CHARS_DEFAULT = 12000, STEWARD_READ_CHARS_MIN = 1000, STEWARD_READ_CHARS_MAX = 12000;
 const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
@@ -249,10 +248,6 @@ function stewardClampInt(value, min, max, dflt) {
   const n = Number(value);
   if (!Number.isFinite(n)) return dflt;
   return Math.min(max, Math.max(min, Math.round(n)));
-}
-function stewardClipSay(value) {
-  const raw = stewardSanitizeText(value);
-  return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
 }
 // 会话头的原始 kind(未经 sessionKind 归一)。管家会话过滤与目标合法性判定都靠它。
 async function stewardReadSessionHead(sessionId) {
@@ -605,18 +600,6 @@ async function stewardImplThreadsSearch(args, ctx, config) {
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
-function stewardPendingOneLine(iv) {
-  const type = String((iv && iv.type) || '');
-  if (type === 'permission') return `工具 ${stewardSanitizeText(iv.toolName || '?')}(${stewardSanitizeText(iv.tier || 'exec')} 级)等待放行`;
-  if (type === 'question') {
-    const first = (Array.isArray(iv && iv.questions) ? iv.questions : [])[0];
-    return stewardClipSay((first && (first.question || first.title)) || '等待你回答');
-  }
-  if (type === 'plan') return stewardClipSay(iv.planSummary || '计划等待批准');
-  if (type === 'pool') return stewardClipSay(iv.task || '任务池提案等待批准');
-  if (type === 'replan') return stewardClipSay(iv.summary || '重规划提案等待批准');
-  return stewardClipSay(type || '未知待决');
-}
 async function stewardImplThreadStatus(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
@@ -640,8 +623,8 @@ async function stewardImplThreadStatus(args, ctx, config) {
       turnSeq: head.turnSeq,
     });
 
-  const interventions = (await readInterventions(sessionId).catch(() => []))
-    .filter(iv => iv && iv.status === 'pending')
+  const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');
+  const interventions = rawPending
     .slice(0, STEWARD_PENDING_SUMMARY_MAX)
     .map(iv => ({ id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0 }));
 
@@ -682,6 +665,12 @@ async function stewardImplThreadStatus(args, ctx, config) {
       { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
       typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(sessionId) : null,
     ),
+    // 117l D4(§11.9;用户第四轮走查第 1 条):它在问你。【只加字段】—— wait 与五态一字不改。
+    // 判据单点在 06i;本处拿得到完整的最后一条助手消息(session 已装载),所以三态都算得准。
+    asksYou: stewardAsksYouForThread({
+      pending: rawPending, activeTurn: activeChildren.has(sessionId),
+      lastAssistantText: session ? stewardLastAssistantText(session) : (head.summary || ''),
+    }),
     // permissionMode 保持既有语义 =【生效】档(既有断言与提示词都读它;断言只加不改)。
     permissionMode: stewardThreadPermissionMode(head, config),
     permissionLabel: stewardPermissionLabel(stewardThreadPermissionMode(head, config)),
@@ -993,6 +982,8 @@ async function stewardImplThreadNew(args, ctx, config) {
     memoryIds: composed.memoryIds,
     playbookId: String(brief.playbookId || ''),
   };
+  // 117l D7:按任务复杂度选档(缺省 strong)—— 写在 saveSession 之前,跟着同一次落盘走,零额外写。
+  const tiered = StewardHooks.applyThreadTier(session, args.tier, config);
   await saveSession(session);
   // 116g:显式指定了事项就写反向索引(事项文件不存在 = 「未归类」,missionIndexAdd 自身 no-op ——
   // 新会话的 missionId === sessionId 那条常规路径永远不会凭空建出一个事项文件)。
@@ -1012,14 +1003,14 @@ async function stewardImplThreadNew(args, ctx, config) {
   const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_thread_new',
-    args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated },
+    args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier },
     targetSessionId: session.id,
     permissionMode: stewardThreadPermissionMode(session, config),
     mayAct: 'auto',
     undoRef,
     basis: { memoryIds: composed.memoryIds },
   });
-  return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, undoRef };
+  return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef };
 }
 
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
@@ -1031,8 +1022,10 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
-  // 忙锁复用既有活回合判定(activeChildren —— 与 mission 五态的 activeTurn 同一权威信号),不新造锁。
-  if (activeChildren.has(sessionId)) return stewardFail('steward.busy', `thread ${sessionId} already has a turn in flight; do not retry — tell the user or wait for it to settle`);
+  // 117l D2(§11.9;用户第四轮走查第 1、6 条):这里原本只有一道 activeChildren.has -> steward.busy,
+  // 两头都错(等回答的线程也算「忙」;没命中时 stewardLaunchTurn 又会 supersede 掉它)。现在按
+  // 【目标状态】选通道,判定与执行的单点在 13h(经 StewardHooks.relayDeliver 延迟绑定,零前向边;
+  // 四条通道各自的理由写在那里的头注),POST /api/steward/relay 走的是同一个实现。
 
   // 116-3 P0-2:无人值守(收件箱)触发的递话要过两道闸 —— 自理清单勾选 + 目标线程权限档
   // (§3.5 工具面表格:线程族按目标线程权限,「每步都问」「只做计划」一律提议)。判据与
@@ -1059,25 +1052,30 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
   const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
   const basis = stewardBasisOf(args);
-  stewardLaunchTurn({
-    sessionId,
-    message,
-    source: 'steward',
-    requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) },
-  }, 'steward_thread_continue');
+  // title 用【显示名】(116-5b 单点),不拿 id 冒充标题;turn 通道的启动仍是 13g 自己的
+  // stewardLaunchTurn(同一个 requestMeta、同一本决策日志)—— 13h 只决定「走哪条」。
+  const delivered = await StewardHooks.relayDeliver({
+    sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
+    launch: () => {
+      stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      return { undoRef };
+    },
+  });
+  if (delivered && delivered.ok === false) return delivered;
 
   stewardAppendDecision({
     tool: 'steward_thread_continue',
-    args: { messageChars: message.length },
+    // 117l D2:走的哪条通道进决策日志 —— 行动流水里「答了一道提问」与「开了一个新回合」是两件事。
+    args: { messageChars: message.length, channel: String(delivered && delivered.channel || 'turn') },
     targetSessionId: sessionId,
     permissionMode,
     // 116-3 P0-2:写【真实】判定值,不再是硬编码 'auto' —— 决策日志要能事后对账
     // 「这个动作到底是不是该提议而没提议」。
     mayAct,
-    undoRef,
+    undoRef: (delivered && delivered.undoRef) || undoRef,
     basis,
   });
-  return { ok: true, sessionId, undoRef };
+  return { ok: true, sessionId, undoRef, ...(delivered && typeof delivered === 'object' ? delivered : {}) };
 }
 
 // 12) steward_thread_rename —— undoRef 带旧标题(一键改回)。
@@ -1862,6 +1860,8 @@ async function stewardImplQuickAsk(args, ctx, config) {
     stewardTurnKey: String(stewardTurnKeyOf(ctx)),
     closedAt: null,
   };
+  // 117l D7:速查线程恒走 fast 档 —— 它定义上就是「查一下」,没有理由烧强模型(没配 fast 档就跟随全局)。
+  const quickTier = StewardHooks.applyThreadTier(session, 'fast', config);
   await saveSession(session);
 
   stewardLaunchTurn({
@@ -1879,14 +1879,14 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_quick_ask',
-    args: { chars: question.length },
+    args: { chars: question.length, tier: quickTier.tier },
     targetSessionId: session.id,
     permissionMode: stewardThreadPermissionMode(session, config),
     mayAct: 'auto',
     undoRef,
     basis: stewardBasisOf(args),
   });
-  return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, undoRef };
+  return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef };
 }
 
 // ── 速查会话的收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)────────────────────────

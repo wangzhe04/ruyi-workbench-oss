@@ -395,9 +395,24 @@ function overlayMissionCard(slice) {
   liveRuns.sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
   const latestLive = liveRuns.length ? liveRuns[liveRuns.length - 1] : null;
   const activeTurn = activeChildren.has(slice.sessionId);
+  // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
+  // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
+  const pendingQuestion = (Array.isArray(slice.interventions) ? slice.interventions : [])
+    .find(iv => iv && iv.status === 'pending' && iv.type === 'question') || null;
+  const asksYou = stewardAsksYou({
+    question: pendingQuestion
+      ? {
+        questionId: String(pendingQuestion.id),
+        text: ((Array.isArray(pendingQuestion.questions) ? pendingQuestion.questions : [])[0] || {}).question || pendingQuestion.questionSummary || '',
+      }
+      : null,
+    activeTurn,
+    lastAssistantText: String(card.lastSay || ''),
+  });
   return {
     ...card,
     activeTurn,
+    asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
     freshness: {

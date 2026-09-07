@@ -275,15 +275,27 @@ try {
     // 117d 第 0 步:rewindSession 的主键是【被递那一回合】的 seq,不是递话前的 seq。
     ok(r1.undoRef.rewindTargetTurnSeq === r1.undoRef.turnSeq + 1,
       `E1b thread_continue 的 undoRef.rewindTargetTurnSeq === turnSeq + 1(${beforeTurnSeq + 1},整单回退的锚点)`);
-    // 在途 -> busy。先等回合真的挂上活标志(fire-and-forget 有一个 loadSession 的异步窗口),再【只发一次】
-    // 探针 —— 循环重发会真的开出更多回合并把前一个顶掉(superseded),那测的就不是 busy 了。
+    // 在途的目标线程。先等回合真的挂上活标志(fire-and-forget 有一个 loadSession 的异步窗口),
+    // 再【只发一次】探针 —— 循环重发会真的开出更多回合。
     for (let i = 0; i < 100; i++) {
       const s = await call('steward_thread_status', { sessionId: threadId }, stewardCtx());
       if (s && s.ok && s.activeTurn === true) break;
       await sleep(50);
     }
     const busy = await call('steward_thread_continue', { sessionId: threadId, message: '再来一句' }, stewardCtx());
-    ok(busy && busy.ok === false && busy.error === 'steward.busy', 'E2 同一目标线程已有在途回合 -> steward.busy');
+    // 【117l D2 重钉】旧断言钉的是 116f 那一版的契约:「目标线程有在途回合 -> steward.busy」。
+    // 那一版只有一道 activeChildren.has 判据,它把三种完全不同的情形混成了一个「忙」:线程在跑、
+    // 线程在等用户回答、线程在等用户批准。用户第四轮走查的第 1、6 条正是它的后果 —— 线程挂在
+    // request_user_input 上等答案时,用户那句「走 A」被原地退回,界面还说成「我正忙着上一件」。
+    // 新契约(27 号文 §11.9 D2):按目标状态选四条通道,在跑 = 插话(steer),不是拒绝。
+    ok(busy && busy.ok === true && busy.channel === 'steer',
+      `E2 同一目标线程已有在途回合 -> 走插话通道(不再是 steward.busy;got ok=${busy && busy.ok} channel=${busy && busy.channel})`);
+    // companion(钉住新契约的另一半):插话【不】开新回合、【不】顶掉在途那个。
+    const afterSteer = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', threadId + '.json'), 'utf8'));
+    ok(Number(afterSteer.turnSeq) === Number(before.turnSeq) + 1,
+      `E2b companion:插话没有再开一个回合(turnSeq 仍是递话那一回合的 ${Number(before.turnSeq) + 1};got ${afterSteer.turnSeq})`);
+    ok(Number(busy.queued) >= 1 || busy.injected === true,
+      `E2c companion:这句话真的进了在途回合的插话队列(queued=${busy && busy.queued} injected=${busy && busy.injected})`);
     providerDelayMs = 0;
     for (let i = 0; i < 150; i++) {
       const s = await call('steward_thread_status', { sessionId: threadId }, stewardCtx());

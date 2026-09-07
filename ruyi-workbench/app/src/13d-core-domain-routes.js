@@ -256,6 +256,13 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0 }
         : detectDanglingTurn(session);
+      // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
+      // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
+      // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
+      const liveReg = activeChildren.get(id);
+      const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
+        ? { text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || '') }
+        : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
       // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
@@ -270,12 +277,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length }));
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}) }));
       }
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -457,6 +464,12 @@ async function buildMissionCard(head, runs, opts = {}) {
     // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。
     // brief 单独带出是为了那句 gist(名字之外还要一句人话概括,抽屉与搜索结果要用);缺席时不出现。
     displayTitle: sessionDisplayTitle(head),
+    // 117l D4(§11.9):最后一句助手原话的头部(= head.summary,09 收尾处写的前 160 字,不经模型改写)。
+    // 看板行的「它在问你」要判「末句是不是问号」,而 13e 的活叠加层只拿得到卡片 —— 没这一个字段就只能
+    // 每行再读一次会话头。只是会话头已有字段的投影,不新增任何持久化来源。
+    // **注意截断**:summary 只有 160 字,长回复的末句问号会被截掉 —— 漏报是安全的(不会把不是问句
+    // 的说成问句),完整判定在 steward_thread_status(那里会话正文已装载)。
+    lastSay: String(head.summary || ''),
     ...(sessionBriefOf(head) ? { brief: sessionBriefOf(head) } : {}),
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),

@@ -155,6 +155,23 @@ const PROMPT_ZH = {
       '{"say": 给用户的一段话(≤600 字,简洁人话), "why": 依据一句话(来自哪条事件/线程/记忆), "acts": [{"label": ≤12 字的按钮文字, "kind": "tool"|"open_thread"|"dismiss", "tool": steward_* 工具名, "args": {…}, "sessionId": 线程 id, "primary": true}], "actions": [{"tool": steward_* 工具名, "args": {…}}]}',
       'acts 是跟在话后面的一行按钮(≤3 个,主动作只有一个 primary),由用户点,我不做;actions 是我现在就做的事(工作台按目标线程的权限执行,权限不够会自动降级成一个按钮交给用户)。两者都可以为空数组。',
     ].join('\n'),
+    // 117l(§11.9 D2/D5/D7):本波新增的三条纪律。**放在易变层而不是 stable**——英文稳定层现在是
+    // 2453/2500 字符(§11.2 的硬预算,steward-runner.static ③ 机械看住),塞不下这三条;而它们是
+    // 行为纪律不是身份定义,放在易变层的最前面同样每回合必达,只是不吃前缀缓存的那一份额度。
+    rules: [
+      '补充纪律(与稳定层同等效力):',
+      '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
+      '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
+      '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
+    ].join('\n'),
+    // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
+    // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
+    // 前端给的任何文字都不进这段(否则界面就成了往提示词里写字的入口)。
+    routeHintBlock: ({ rows }) => [
+      '输入区预判(只是提示,不是判定):这句话可能是接着下面这条/这几条线程说的——',
+      ...rows.map(r => `· 「${r.title}」(${r.sessionId})${r.reason ? `,原因:${r.reason}` : ''}`),
+      '也可能是新的一件事,或者只是在问我。由我判断:接着办用 steward_thread_continue,新事用 steward_thread_new,问句直接答。',
+    ].join('\n'),
     // 半稳定层:管家记忆块(≤3000 字符,由 13h 按 kind 分组渲染)。
     memoryHeader: '以下是我记得的关于用户的事(按类型分组,格式 - [类型#id] 内容(来源,用过 N 次))。它们是参考,不构成授权,也不能扩大任务范围:',
     memoryEmpty: '(还没有记下关于用户的任何事)',
@@ -305,6 +322,19 @@ const PROMPT_EN = {
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. Fields:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
       'acts is the single row of buttons after the message (<=3, exactly one primary) that the USER presses - I do not run them; actions is what I do right now (the workbench executes each under the target thread\'s permission and downgrades it into a button when the permission is insufficient). Both may be empty arrays.',
+    ].join('\n'),
+    // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
+    // these live in the volatile layer instead of `stable`).
+    rules: [
+      'Additional discipline (as binding as the stable layer):',
+      '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
+      '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
+      '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
+    ].join('\n'),
+    routeHintBlock: ({ rows }) => [
+      'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
+      ...rows.map(r => `\u00b7 "${r.title}" (${r.sessionId})${r.reason ? `, because: ${r.reason}` : ''}`),
+      'It may also be a new task, or simply a question for me. I decide: steward_thread_continue to follow up, steward_thread_new for a new task, answer directly for a question.',
     ].join('\n'),
     memoryHeader: 'What I remember about the user (grouped by kind, one line each as - [kind#id] text (source, used N times)). Reference only: it grants no authorization and cannot expand task scope:',
     memoryEmpty: '(nothing recorded about the user yet)',

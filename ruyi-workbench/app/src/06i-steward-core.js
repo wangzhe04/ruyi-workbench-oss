@@ -439,6 +439,121 @@ function waitReasonFor(thread, ctx) {
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 第 117 波 117l(27 号文 §11.9 D5「id 人话化」/ D7「新线程模型分档」/ D4「它在问你」)。
+// 三个纯函数,住在 06i 是因为它们【只吃入参】:没有文件读、没有网络、没有全局状态,
+// 因而单测可以直接对着真值表跑(dev-harness/unit/steward-humanize.test.js)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ① 界面上永远不出现内部 id(§11.9 D5;公共纪律第 7 条)。
+// 只作用于管家说给人听的两段文字(say / why):
+//   · `sess_<16 位十六进制>` → `「显示名」`(titleOf 查不到就【原样保留】—— 宁可露一个 id,
+//     也不能把一条线程说成另一条);
+//   · 孤立出现的 `question_… / intv_… / run_… / iv_…` 这类纯机器把手 → 删掉,并收紧删除后
+//     留下的多余空格与标点(「有待决 question_xx,」→「有待决,」→「有待决,」)。
+// 机器字段(acts[].sessionId、actions[].args、决策日志)一概【不】过这个函数:那些 id 是给
+// 前端点按钮用的,人话化会把它们变成点不开的字符串。
+const STEWARD_ID_SESSION_RE = /\bsess_[0-9a-f]{16}\b/g;
+const STEWARD_ID_OPAQUE_RE = /\b(?:question|intv|iv|run|call|req|perm|plan)_[0-9a-zA-Z]{6,64}\b/g;
+function stewardHumanizeIds(rawText, titleOf) {
+  const raw = String(rawText == null ? '' : rawText);
+  if (!raw) return '';
+  const lookup = typeof titleOf === 'function' ? titleOf : () => '';
+  let out = raw.replace(STEWARD_ID_SESSION_RE, id => {
+    let title = '';
+    try { title = stewardSanitizeText(lookup(id) || ''); } catch { title = ''; }
+    return title ? `「${title}」` : id;
+  });
+  out = out.replace(STEWARD_ID_OPAQUE_RE, '');
+  // 删除后的收尾:成对标点之间的空洞、行首的孤立标点、重复标点、连续空格。
+  // 全角标点一律写成 \uXXXX 转义:字符类里的“，”与“,”胉眼看不出差别,
+  // 一次编辑器归一就会把整条规则静默地变成只处理 ASCII(本波真撞上过)。
+  out = out
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,\uff0c\u3002;\uff1b:\uff1a\u3001!\uff01?\uff1f])/g, '$1')
+    .replace(/([(\uff08\[\u300c\u300e])\s*([)\uff09\]\u300d\u300f])/g, '')
+    .replace(/([,\uff0c\u3001;\uff1b])\s*(?=[,\uff0c\u3002\u3001;\uff1b])/g, '')
+    .replace(/^[ \t]*[,\uff0c\u3001;\uff1b]+[ \t]*/gm, '')
+    // 中文字与开引号之间的那个空格:「线程 sess_x」换完会变成「线程 『名字』」。
+    .replace(/([\u4e00-\u9fff])[ \t]+(?=[\u300c\u300e])/g, '$1')
+    .trim();
+  return out;
+}
+
+// ② 新线程按 tier 选端点/模型(§11.9 D7)。纯判定:tier + config → 「这一档该用哪个端点、哪个模型」。
+//   · found:true  —— 该档 providerId 非空且真的在 config.providers 里(model 空则用该 provider 自己的模型);
+//   · found:false + fallback:false —— 该档没配,跟随全局(createSession 的既有缺省,不写会话级 engineRoute);
+//   · found:false + fallback:true  —— 配了但那个端点已经不在了,回落全局,调用方据此记一条审计。
+// **本函数不构造 engineRoute**:那要 02 的 normalizeSessionEngineRoute,而 06i 这一层【不向 00/02/04
+// 伸手】(103b 的依赖债务上限机械看住:06i 一旦引用它们就会掉进强连通分量)。构造与落盘在 13h 的
+// stewardApplyThreadTier,那里本来就够得到归一器与审计。
+function stewardThreadEngineRoute(tier, config) {
+  const key = tier === 'fast' ? 'fast' : 'strong';
+  const cfg = (config && typeof config === 'object') ? config : {};
+  const table = (cfg.stewardThreadModels && typeof cfg.stewardThreadModels === 'object') ? cfg.stewardThreadModels : {};
+  const slot = (table[key] && typeof table[key] === 'object') ? table[key] : {};
+  const providerId = String(slot.providerId || '').trim();
+  if (!providerId) return { tier: key, providerId: '', model: '', found: false, fallback: false };
+  const provider = (Array.isArray(cfg.providers) ? cfg.providers : []).find(p => p && p.id === providerId) || null;
+  if (!provider) return { tier: key, providerId, model: '', found: false, fallback: true };
+  return { tier: key, providerId, model: String(slot.model || '').trim() || String(provider.model || ''), found: true, fallback: false };
+}
+
+// ③ 「它在问你」(§11.9 D4)。三态,判定顺序固定:
+//   正式待决 question > 活回合(在跑就不算在问你)> 软问句(最后一条助手消息以问号收尾)。
+// question 是【机器可答】的(有 questionId,前端给选项按钮);soft 只是一句话,答它走递话通道。
+const STEWARD_ASKS_YOU_CHARS = 300;
+function stewardAsksYou(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  const q = (o.question && typeof o.question === 'object') ? o.question : null;
+  if (q && q.questionId) {
+    return { kind: 'question', text: stewardSanitizeText(q.text || '').slice(0, STEWARD_ASKS_YOU_CHARS), questionId: String(q.questionId) };
+  }
+  if (o.activeTurn === true) return null;
+  const said = String(o.lastAssistantText == null ? '' : o.lastAssistantText).trim();
+  // 半角 '?' 与全角 '\uff1f' 都算(同上一条理由,全角写转义)。
+  if (!/[?\uff1f]$/.test(said)) return null;
+  // 最后一段:按换行或句末标点切,取末尾那一截(≤300 字)。整段没有分隔时就是它自己。
+  const tail = said.split(/\n+/).pop().split(/(?<=[\u3002!\uff01;\uff1b])/).pop().trim() || said;
+  return { kind: 'soft', text: stewardSanitizeText(tail).slice(0, STEWARD_ASKS_YOU_CHARS) };
+}
+
+// ⑤ 线程行/线程详情的 asksYou:把【待决行】抽成 stewardAsksYou 要的 question 形状。
+// 两个调用面(13g 的 steward_thread_status、13e 的看板行叠加层)各自抽一遍的话,
+// 「问题原文取哪个字段」就会漂成两套。
+function stewardAsksYouForThread(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  const pending = (Array.isArray(o.pending) ? o.pending : []).find(iv => iv && iv.type === 'question') || null;
+  const first = pending ? (Array.isArray(pending.questions) ? pending.questions : [])[0] : null;
+  return stewardAsksYou({
+    question: pending ? { questionId: String(pending.id), text: (first && (first.question || first.title)) || pending.questionSummary || '' } : null,
+    activeTurn: o.activeTurn === true,
+    lastAssistantText: o.lastAssistantText,
+  });
+}
+
+// ── 待决与原话的两个纯文本格式化函数(117l 从 13g 搬来,零行为变化)────────────────
+// 它们零 IO、零全局状态,本来就属于 06i 这一层;留在 13g 只是历史。搬家的直接理由是
+// steward-runner.static ①的「13g < 2000 行」—— 那条规矩是 116f 立的(新判定往 13h/06i 放,
+// 不往 13g 堆),本波不放宽它。调用方全在 13g,跨模块方向是 13g -> 06i(后向边,合法)。
+const STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS.lastSayChars;   // 200,与总览行同一口径
+function stewardClipSay(value) {
+  const raw = stewardSanitizeText(value);
+  return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
+}
+function stewardPendingOneLine(iv) {
+  const type = String((iv && iv.type) || '');
+  if (type === 'permission') return `工具 ${stewardSanitizeText(iv.toolName || '?')}(${stewardSanitizeText(iv.tier || 'exec')} 级)等待放行`;
+  if (type === 'question') {
+    const first = (Array.isArray(iv && iv.questions) ? iv.questions : [])[0];
+    return stewardClipSay((first && (first.question || first.title)) || '等待你回答');
+  }
+  if (type === 'plan') return stewardClipSay(iv.planSummary || '计划等待批准');
+  if (type === 'pool') return stewardClipSay(iv.task || '任务池提案等待批准');
+  if (type === 'replan') return stewardClipSay(iv.summary || '重规划提案等待批准');
+  return stewardClipSay(type || '未知待决');
+}
+
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
@@ -810,6 +925,15 @@ function prerouteText(q, index, memory, opts) {
 //           arbiterRefresh() -> boolean(POST /api/config 落盘后唤醒队列,让改上限即时生效)
 //           (插队与仲裁器快照【不】进命名空间:它们的消费者全在 13h 内部 —— 两条
 //            /api/steward/arbiter* 路由、steward_thread_prioritize 实现、并进 state 的 runnerState)
+//   117l D2 递话通道(由 13h-steward-runner.js 填充;消费者是 13g 的 steward_thread_continue ——
+//   同样只看 StewardHooks,不认识 13h):
+//           applyThreadTier(session,tier,config) -> {tier, engine:{providerId,model}}
+//             (117l D7:把 06i 判出来的那一档落成 session.engineRoute;端点已删时回落全局并记一条审计。
+//              住 13h 是因为它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent —— 06i 够不着)
+//           relayDeliver({sessionId,message,title,source,launch}) -> 稳定信封 { ok, channel, … }
+//             (按目标状态选通道,顺序 答>批>插>新:answer 走 decideIntervention、
+//              permission 不代答、steer 走 steerSessionCore、turn 走调用方给的 launch。
+//              通道判定本身(stewardRelayChannelFor)只服务 13h 内部,故不上命名空间)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           零模型、缓存命中不重装配)

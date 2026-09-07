@@ -1223,6 +1223,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   let activeProviderBatchId = '';
   let activeTraceId = '';
+  let liveTailReg = null;   // 117l D4:活回合登记项建好之后才有尾巴可攒(见下面 activeChildren.set 处)
   onEvent = evt => {
     let normalized = evt && evt.type === 'tool_use' && activeProviderBatchId && !evt.batchId
       ? { ...evt, batchId: activeProviderBatchId }
@@ -1234,6 +1235,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       estStreamText += String(normalized.text || '');
       emitContextEstimate(false);
     }
+    // 117l D4:尾巴接在【这个】包装里而不是 reg.onEvent 上 —— reg.onEvent 只看得见桥接/MCP
+    // 那一路的事件(见它自己的头注),工具循环里的 assistant_delta / tool_use 走的是本地 onEvent。
+    if (liveTailReg) appendLiveTail(liveTailReg, normalized);
     turnSegments.consume(normalized);
     downstreamEvent(normalized);
   };
@@ -1358,10 +1362,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // iteration to consume the steer immediately. Quiet/non-interruptible tools still get liveness heartbeats.
     interruptToolWait: null,
     questionContext: '',
+    // 117l D4:活回合的尾巴(只在内存,随 reg 一起消失)。累加在下面的 reg.onEvent 包装里。
+    liveTail: { text: '', tool: '', updatedAt: '' },
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
   // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
+// 117l D4(§11.9;用户第四轮走查第 3 条「『它刚说』更新不够及时」):活回合的尾巴。
+// 「它刚说」读的是【落盘】的最后一条助手消息,回合跑几分钟期间它纹丝不动 —— 因为活回合的文本
+// 只在发起那条 /api/chat/stream 连接上流,而管家派出去的回合 onEvent 是空函数,谁也看不见。
+// 这里在活回合登记表上攒一份【只在内存、不落盘、只留最后 600 字】的尾巴,随既有的
+// GET /api/sessions/:id 下发(零新请求)。不进总览摘要、不进 steward_thread_status —— 那两处有字数预算。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
