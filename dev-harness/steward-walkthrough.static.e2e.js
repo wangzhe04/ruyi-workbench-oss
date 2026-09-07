@@ -74,6 +74,10 @@ const ok = (condition, label) => {
       ['css/views/steward-drawer.css', '.steward-chip-menu[hidden]'],
       ['css/views/steward-settings.css', '.steward-shield-menu[hidden]'],
       ['css/views/steward-board.css', '.steward-now[hidden]'],
+      // 117k：用户走查「每次切进管家壳都冒出那张设置小纸」的根因 —— 头像菜单是第六处同款，
+      // 建出来就 menu.hidden = true，却一直画在屏幕上盖住问候语（.steward-menu 那条 display:flex
+      // 压过 UA 表的 [hidden]）。补上守卫并在这里钉住。
+      ['css/views/steward-conversation.css', '.steward-menu[hidden]'],
     ]) ok(read(file).includes(selector + ' { display: none; }'), `B1b 既有同款守卫仍在：${selector}`);
     ok(/if \(open\.contains && node && open\.contains\(node\)\) return;/.test(composer)
       && /if \(chip && chip\.contains && node && chip\.contains\(node\)\) return;/.test(composer),

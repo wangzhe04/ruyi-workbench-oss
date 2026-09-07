@@ -201,8 +201,12 @@
 /* 头像菜单（原型 .menu：一张实底小纸，项是左对齐的一行）。 */
 .steward-menu {
   position: absolute;
+  /* 117k：此前只有 position:absolute + margin-top，没有 top/left —— 用的是「静态位置」，
+     实测落在 y = -20px（首项「细节」被窗口上沿切掉、点不着）。改成贴着顶栏下沿左对齐展开。 */
+  top: 100%;
+  left: 0;
   z-index: 34;
-  margin-top: var(--sp-6);
+  margin-top: var(--sp-1);
   min-width: 200px;
   display: flex;
   flex-direction: column;
@@ -212,6 +216,12 @@
   box-shadow: var(--glass-shadow);
   padding: var(--sp-1);
 }
+/* 117k（用户走查：每次切进管家壳都冒出那张「设置/记得的关于你/行动流水」的小纸）：
+   与上面 .steward-target-picker 同一条根因 —— 上面那条 display:flex 是作者样式，压过 UA 表的
+   [hidden]{display:none}。头像菜单建出来就 menu.hidden = true，可它一直画在屏幕上，盖住问候语；
+   Esc 与点菜单项确实把 hidden 改回 true，屏幕上却纹丝不动。 */
+.steward-menu[hidden] { display: none; }
+
 .steward-menu-item {
   min-height: 0;
   font: inherit;

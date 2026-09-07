@@ -183,7 +183,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     （.steward-avslot，绝对定位，历史消息靠 :empty::before 画静态点）。
 //   · steward-shell.css：W2-3 头部那枚 6px 状态点（.steward-presence-dot，七态颜色与 avatar 层同令牌）。
 // 无新样式层、link/@import/overlay 顺序不变，经典与 Preview 层规则零漂移。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'ae5f47461b6a715ffc26569078e573a597d9bf9f4376ebc77dc60ca5e9b970c6';
+// 117k(用户走查:「每次切进管家壳都冒出那张有设置的小纸」)重钉,一处,仍落在管家壳自己的所有权层:
+//   · steward-conversation.css:补 .steward-menu[hidden]{display:none} —— 与上面 W2-2 同一条根因的
+//     第六处。头像菜单建出来就 menu.hidden = true,可 .steward-menu 那条 display:flex 是作者样式,
+//     压过 UA 表的 [hidden] —— 于是它一直画在屏幕上盖住问候语,Esc 与点菜单项都关不掉(只改了 DOM)。
+// 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '1c9803d1e2e4a9be0ebe5cd80b854ee886c9fe6cf988aa2ab491f37af0cadbb2';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

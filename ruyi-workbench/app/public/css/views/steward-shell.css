@@ -66,6 +66,9 @@
    117i：按原型 .head 去掉底边框，改成留白；名字与状态行是紧挨着的两行。 */
 .steward-header {
   display: flex;
+  /* 117k：头像菜单(.steward-menu)绝对定位要有个确定的锚 —— 不给的话它落在静态位置，
+     被窗口上沿切掉。relative 不改变本身布局，只是给菜单一个定位上下文。 */
+  position: relative;
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
