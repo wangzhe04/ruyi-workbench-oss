@@ -63,7 +63,10 @@ function isolatedEnv(home) {
 const FAKE_KEY = 'sk-' + 'abcdefghijklmnopqrstuvwxyz012345';
 const SESSIONS = [
   {
+    // 116-5b:唯一带线程摘要的夹具。名字与概括都用了【正文里没有的词】(「字节序标记」),
+    // 所以下面 G2 能证明摘要真的进了检索单元,而不是碰巧被正文命中。
     id: 'sess-alpha', title: '无关标题甲', summary: '', cwd: 'C:/work/alpha',
+    threadBrief: { schema: 1, title: 'CSV 导出乱码', gist: '给导出的表格补上字节序标记', at: '2026-09-01T00:00:00.000Z', model: 'fixture', stage: 'settled' },
     messages: [
       { role: 'user', content: '帮我把导出的 CSV 加上 BOM,Excel 打开老是乱码' },
       { role: 'assistant', content: '已经在导出函数里补了 UTF-8 BOM,再导一次试试。' },
@@ -102,6 +105,7 @@ function seed(home) {
     const updatedAt = `2026-09-0${index + 1}T00:00:00.000Z`;
     fs.writeFileSync(path.join(home, 'sessions', `${fixture.id}.json`), JSON.stringify({
       id: fixture.id, storageVersion: 2, title: fixture.title, summary: fixture.summary, cwd: fixture.cwd,
+      ...(fixture.threadBrief ? { threadBrief: fixture.threadBrief } : {}),
       pinned: false, createdAt: updatedAt, updatedAt, turnSeq: 1,
       messageCount: fixture.messages.length, providerHistoryCount: 0, messages: [], providerHistory: [],
     }, null, 2));
@@ -220,6 +224,17 @@ try {
     `F1 显式关闭时端点明确回「已关闭」(实得 ${JSON.stringify(off.json)})`);
   ok(!fs.existsSync(path.join(HOME_OFF, 'sessions', '_search-index-v1.json')),
     'F2 关闭时不建索引(零新增持久化面)');
+  // ── G 116-5b 线程摘要:结果带名字与概括,且它们也进检索单元 ────────────────────────────
+  const alphaRow = (bom.json?.results || []).find(r => r.id === 'sess-alpha') || {};
+  ok(alphaRow.briefTitle === 'CSV 导出乱码' && alphaRow.briefGist === '给导出的表格补上字节序标记',
+    `G1 有摘要的会话在结果里带 briefTitle/briefGist(实得 ${JSON.stringify({ briefTitle: alphaRow.briefTitle, briefGist: alphaRow.briefGist })})`);
+  ok(alphaRow.title === '无关标题甲', 'G1b title 仍是原话(它是权威,也是 hover 全文与回退)');
+  const byBrief = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('字节序标记'), auth);
+  ok((byBrief.json?.results || [])[0]?.id === 'sess-alpha',
+    `G2 只出现在摘要里的词也能搜到(摘要进了检索单元,顺带提召回;实得 ${JSON.stringify((byBrief.json?.results || []).map(r => r.id))})`);
+  const betaRow = (hereString.json?.results || []).find(r => r.id === 'sess-beta') || {};
+  ok(!('briefTitle' in betaRow) && !('briefGist' in betaRow),
+    'G3 没有摘要的会话这两个键根本不出现(存量载荷逐字节不变)');
 } finally {
   kill(server);
   kill(serverOff);

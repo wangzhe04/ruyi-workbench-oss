@@ -190,9 +190,16 @@ function renderSessions() {
 function sessionItem(s) {
   const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
   const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + sessionDisplayTitle(s)); // 50-fix:未命名显示本地化占位
+  // 116-5b:名字被自动摘要换掉之后,用户原话仍要能看到(§11.8 红线「不改写 title」)——挂 hover。
+  // 只在真的不一样时才挂:没有摘要的会话,悬浮提示与正文一字不差地重复一遍是噪音。
+  const rawTitle = String((s && s.title) || '').trim();
+  if (rawTitle && rawTitle !== sessionDisplayTitle(s)) title.title = rawTitle;
   const running = activeTurns.has(s.id);
   if (running) item.classList.add('running');
-  const subParts = [running ? `◐ ${t('session.running')}` : '', tCount('session.messageCount', s.messageCount || 0), s.summary || s.cwd || ''].filter(Boolean);
+  // 116-5b:有那句概括就先说它 —— 它答的是「这条线程要干什么」,比末句摘要更能让人认出是哪条。
+  // 没有摘要的会话逐字节还是老样子(summary → cwd)。
+  const gist = String(((s && s.brief) || {}).gist || '').trim();
+  const subParts = [running ? `◐ ${t('session.running')}` : '', tCount('session.messageCount', s.messageCount || 0), gist || s.summary || s.cwd || ''].filter(Boolean);
   const sub = el('span', 's-sub', subParts.join(' · '));
   const actions = el('span', 's-actions');
   const pinBtn = el('button', s.pinned ? 's-act pinned' : 's-act'); pinBtn.appendChild(icon('pin', 15)); pinBtn.title = s.pinned ? t('session.unpin') : t('session.pin'); pinBtn.setAttribute('aria-label', pinBtn.title);
@@ -686,7 +693,23 @@ function renderResumeBanner() {
 
 // 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。
 function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === t('chat.newSession'); }
-function sessionDisplayTitle(s) { return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim(); }
+// 116-5b(27 号文 §11.8.5「消费面」):经典壳这一面的显示名。优先级与服务端 02-session-store 的
+// sessionDisplayTitle 【逐条相同】:人起的名字 > 自动生成的名字 > 原话。原话不被改写,它仍是权威
+// (也是下面 s-title 的 hover 全文与这里的最后回退)。
+// 为什么这一面还要再算一次、而管家壳那边是服务端算好直出的:本函数【本来就是】经典壳唯一的显示名
+// 判据 —— 「未命名 → 本地化占位」那条规则依赖 t(),服务端不认识它。把显示名拆成「服务端算一半、
+// 前端算一半」只会多出一个分叉点。public/ 下读 brief.title / titleSource 的地方只有这一处,
+// 由 thread-brief.static ③ 机械看住。
+function sessionGeneratedTitle(s) {
+  if (!s || s.titleSource === 'user') return '';
+  const brief = (s.brief && typeof s.brief === 'object') ? s.brief : null;
+  return String((brief && brief.title) || '').trim();
+}
+function sessionDisplayTitle(s) {
+  const generated = sessionGeneratedTitle(s);
+  if (generated) return generated;
+  return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim();
+}
 async function newSession(options = {}) {
   const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的

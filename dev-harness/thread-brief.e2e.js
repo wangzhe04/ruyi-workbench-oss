@@ -25,6 +25,8 @@
 //  (H) 记账:aux 台账里是 note:'thread-brief',**不是** 'steward'(不进管家日费用熔断)。
 //  (I) 解析器 parseThreadBrief:围栏/前后杂字/数组/缺 title/空串。
 //  (J) 落盘时就夹死上限:超长 title/gist 在会话头上已经是 24/80 字。
+//  (K) 116-5b 消费面:事项卡片(看板/抽屉/「现在这一件」读的那一份)带 displayTitle 与 brief、
+//      title 仍是原话;管家的线程搜索结果带 brief、title 仍是原话。
 //
 // 判定行:`THREAD BRIEF E2E: ALL PASS`。
 const http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -246,6 +248,36 @@ try {
     ok(b && b.title.length === 24, `J1 title 落盘时就夹到 24 字(got ${b && b.title.length})`);
     ok(b && b.gist.length === 80, `J2 gist 落盘时就夹到 80 字(got ${b && b.gist.length})`);
     briefMode = 'json';
+  }
+  /* ═════════ (K) 116-5b 消费面:服务端一处装配、多处消费 ═════════ */
+  console.log('── (K) 消费面 ──');
+  {
+    writeConfig({ stewardEnabledV1: true });
+    // 投影【只给 kind:'mission' 的会话建卡片】,而看板/抽屉/「现在这一件」读的就是那张卡片 ——
+    // 前面几组用的都是 quick_ask 会话(createSession 的默认档),它们没有卡片,测不到这一面。
+    const sK = await srv.createSession({ title: '', cwd: HOME });
+    sK.kind = 'mission';
+    await srv.saveSession(sK);
+    const idK = sK.id;
+    await srv.runSessionTurn({ sessionId: idK, message: RAW, cwd: HOME, onEvent: () => {} });
+    ok(!!(await waitBrief(idK)), 'K0 事项线程同样起名字(摘要不挑 kind,只挑「有没有人给的名字」)');
+
+    // ① 事项卡片:13d buildMissionCard -> 13e 投影 -> GET /api/missions -> 看板行/抽屉页签/「现在这一件」
+    const index = await srv.getPretenderProjectionIndex();
+    const slice = ((index && index.sessions) || []).find(r => r && r.sessionId === idK);
+    const card = slice && slice.card;
+    ok(card && card.displayTitle === TITLE, `K1 卡片带服务端算好的显示名(got ${card && JSON.stringify(card.displayTitle)})`);
+    ok(card && card.title === RAW, 'K2 卡片的 title 仍是原话(它是权威,也是壳层的 hover 全文)');
+    ok(card && card.brief && card.brief.gist === GIST, 'K3 卡片带那句概括(抽屉与搜索结果要用)');
+
+    // ② 管家的线程搜索:13g steward_threads_search
+    const found = await srv.StewardHooks.threadsSearch({ q: 'AMD' }, { session: { kind: 'steward' } });
+    const rowK = ((found && found.results) || []).find(r => r && r.sessionId === idK);
+    ok(rowK && rowK.brief && rowK.brief.title === TITLE && rowK.brief.gist === GIST,
+      `K4 线程搜索结果带 brief(got ${rowK && JSON.stringify(rowK.brief)})`);
+    ok(rowK && rowK.title === RAW,
+      'K5 线程搜索的 title 仍是原话 —— 管家要凭它认出用户当时的原始说法,压过的名字只是【多】给的');
+    writeConfig();
   }
 } catch (e) {
   console.log('ERROR ' + ((e && e.stack) || e));

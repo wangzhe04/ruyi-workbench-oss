@@ -404,11 +404,26 @@
   - **红线**：不改写 `session.title`（原话是权威，也是 brief 缺席时的回退与 hover 全文）；不给存量会话补账；不进 `providerHistory`；不新增路由；**摘要的任何环节都不阻塞回合**（整段包 try + 调用方一律 `void`）。限流每进程每分钟 20 条。
   - 测试：新增 `dev-harness/thread-brief.e2e.js`（进程内真回合 + 假 OpenAI 端点按系统提示词口令把「起名字那一发」与真回合分开计数，所以每条断言的调用次数都可判定），A–J 十组 35 条：正常路径只调一次、原话不被改写、`sessionMeta` 带出、显示优先级两种形态、第二回合零调用、用户改名压过生成名、模型吐非 JSON 时 4 次后放弃且**回合照常收工**、开关关零调用零字段、管家会话不起名、端点解析（跟 `stewardModel`／配错了 fail-closed）、aux 台账口径、解析器边界、上限落盘即夹死。
   - 门：依赖图 **41 模块／316 边／前向边 67 不变／1 SCC**；路由清册 **127 判定点、ROUTE_AUTH 115 条均不变**（零新增路由）；durable-state 清册 `session-head` 行补 116-4／116-5 的四个新字段（全部 additive、不动 storageVersion）；`facts.json` 的 e2e 计数随新件重算；`build --check` 新鲜；全量回归 `--parallel 4` **300 pass / 5 fail / 6 flaky / 305 ran / 7 skipped**。5 条失败:`module-dependency-graph.static` 是生成器链没跟上最后一次 src 改动（重跑生成器链后 ALL PASS —— 又一次印证「生成器链必须在最后一次 src 改动之后整条重跑」）；其余 4 条（interventions-cas／mcp-ops-closure／pretender-needs-drawer／steward-board）**逐条单跑全部 ALL PASS**，是并行下起服务的时序抖动。
-  - **116-5b（消费面）未做**：`sessionDisplayTitle` 与 `sessionMeta.brief` 已经就位，但 113b 会话搜索结果、`steward_threads_search`、看板／抽屉／递送候选／「现在这一件」四个显示点、以及设置页那个开关都还没接。见 §11.8.5 那张表。
+  - **116-5b（消费面）已于同日入库**，交付记录见上一条。
+- **116-5b 线程自动摘要 · 消费面（2026-09-07 入库，opus 实现，`(sha)`）**：§11.8.5 那张表的五个面全部接上，外加设置页开关、中英文案与一条新静态锁。**零新增路由**（127 判定点 / ROUTE_AUTH 115 条不变）、**前向边 67 不变**。
+  - **一条贯穿全片的定则**：**「哪个名字该显示」只允许有一个判据**。它住 02 的 `sessionDisplayTitle`（人起的 > 生成的 > 原话），各读模型只把**算好的结果**带出去，壳层一律 `displayTitle || title` 直读——不是回落判据，只是老载荷的兜底。这与本行早就有的 `stateLabel` / `missionTitle` / `wait.label` 是同一条纪律：这些读模型里本来就装着服务端算好的显示串。反面教材是 112 波摸底那条「服务端发 54 种、前端认 34 种」。
+  - **六个装配点**（全部 additive，缺摘要时逐字节不变）：① 13d `buildMissionCard` 加 `displayTitle` + `brief` → 13e 投影 → `GET /api/missions` → 看板行 / 抽屉页签 / 「现在这一件」/ `steward_missions`；② 13d `searchSessionsByContent` 结果加 `briefTitle` / `briefGist`；③ 13d `GET /api/sessions/:id` **信封**加 `displayTitle`（不塞进 `session` —— 那是会话头本身，路由不许改写它的形状，与 116-4 `?since=` 分支同一条纪律）；④ 13g `steward_threads_search` 结果加 `brief`；⑤ 13h 总览行顶层加 `displayTitle`（放顶层不放 `digest` 里的理由与 116-pre 的 `missionId` 相同：`buildStewardDigestLine` 的 lead 段只吃三键）；⑥ 06i `stewardPrerouteHit` 加 `displayTitle`。
+  - **打分那一侧一个字没动**（本片最容易做错、也最该写下来的一条）：`prerouteText` 的词法打分吃的是 `row.title`，而 `title` 仍是**原话**。如果图省事把 `title` 直接换成压过的名字，用户当时打的那些词（截图里的「超威半导体」）就从递送索引里消失了 —— 名字是**多**给的一个键，不是替换。单测 ⑪ 用「超威半导体」这个只在原话里出现的词把它钉住。
+  - **摘要进检索单元（顺带提召回，不只是显示）**：13b 的 `buildSessionSearchUnit` 把 `brief.title` / `brief.gist` 也收进去。它们常常用了用户原话里没打出来的词（原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」）。索引失效判据不用另加：摘要落盘走 `saveSession`（推 `updatedAt`），而单元指纹就是 `updatedAt|messageCount`。e2e G2 用一个**只在摘要里出现**的词（「字节序标记」）证明它真的进了单元。
+  - **前端只有一处算判据，且是既有的那一处**：经典壳 `session-experience.js` 的 `sessionDisplayTitle` —— 它本来就是那一面唯一的显示名判据（「未命名 → 本地化占位」那条规则依赖 `t()`，服务端不认识它），这次只是给它补上前两级优先级。管家壳四个消费点（看板 / 抽屉 / 递送候选 / 递话回执）一律只读服务端算好的值。静态锁 ③ 机械对账：`public/` 下出现 `titleSource` 的文件**有且只有** `session-experience.js`。
+  - **原话是权威，也是 hover 全文**：侧栏条目、看板行、抽屉页签、抽屉标题在显示名与原话不同时把原话挂 `title` 属性；相同就不挂（悬浮提示与正文一字不差地重复一遍是噪音）。经典壳侧栏的副行也改成「有 gist 就先说 gist」（它答的是「这条线程要干什么」，比末句摘要更能让人认出是哪条），没有摘要时逐字还是老样子。
+  - **设置开关**：`cfgStewardThreadBrief` 放在**「模型与预算」**段而不是「自治」段 —— 它不是一项管家的自治权，是一笔钱。填充判 `!== false`（默认开，缺字段不等于关），文案按 §11.8.6 写明「经典壳的会话列表和搜索结果也用它」（它不随 `stewardEnabledV1`）。设置页那几个组在管家关着时**不隐藏**（只有「去管家壳」按钮 disabled），所以这个开关在管家关着时照样够得着 —— 这一点是本片实测确认过的，不是假设。
+  - **本片实现时自己挖出并修掉的两条（都不在派单范围里，但不修就等于这一波白做）**：
+    - **① 投影 schema 2 → 3**。卡片的形状变了（加了 `displayTitle`／`brief`），而 13e 只在 `sourceStamp` 变过的会话上重建切片 —— 不升号的话，盘上那些没再动过的会话会一直带着缺这两个键的旧卡片，壳层那句 `displayTitle || title` 于是一直回落到原话，**而摘要明明已经写在会话头上了**。索引是纯派生物（durable-state 清册记的就是 fully regenerable），升号的代价只是升级后第一次读时全量重建一次。清册那一行同步改写。
+    - **② 递送预判的缓存键漏了速查线程**（116-pre 遗留）。`stewardPrerouteIndexRows` 拿 `index.revision` 当 memo 键，而 `revision` 只由**有卡片的**会话算出（13e `finalizePretenderIndex` 的 `missionRows` 把 `card === null` 的会话过滤掉了）—— 一条**速查线程**的会话头改了（比如摘要刚落盘），revision 一个字节都不会变，候选列表于是永远显示它的原话。而速查线程恰恰是本波最该起名字的那种（13g 建完显式清 `titleSource` 就是为了让它拿到摘要）。改成 `revision + builtAt`：`builtAt` 只在投影**真的重建过**时才变，连续敲字那段快路径一次没丢；ETag 那一侧完全不受影响 —— 这是 13h 自己的进程内 memo 键，不是 `revision` 的定义。
+  - 测试：新增静态锁 `dev-harness/thread-brief.static.e2e.js`（33 条：判据单点、六个装配点齐、`public/` 下判据唯一、红线「摘要块里没有任何给 title 赋值的语句」、开关三件套 + 中英文案、confirm 档）；`thread-brief.e2e.js` 加 (K) 消费面 6 条（**用 `kind:'mission'` 的会话**——投影只给它建卡片，前面几组的 `quick_ask` 会话测不到这一面）；`session-search.e2e.js` 加 (G) 4 条；`unit/steward-preroute.test.js` 加 ⑪ 4 条。三件都是只加不改。
+  - 门：依赖图 **41 模块／316 边／前向边 67 不变／1 SCC**；路由清册 **127 判定点、ROUTE_AUTH 115 条均不变**（零新增路由）；`build --check` 新鲜；全量回归 `--parallel 4` **299 pass / 7 fail / 9 flaky / 306 ran / 7 skipped**。
+  - **那 7 条里只有 1 条是真的**：`steward-runner.static` 的 ① 「13g 不超过 SPEC 目标 2000 行」—— 本片给 13g 加的两处 `brief` 把它顶到 2004 行。修法是把**本片自己写的那两段注释**折回代码行（不删既有内容、不为了过门去拆别人的模块），13g 现在 1998 行。**这条守卫值得记一笔：13g 已经贴着上限了，下一次往它里面加逻辑就该按 116f 另起 13h 的先例拆文件，而不是再折一次注释。**其余 6 条（`context-compact-v2`／`kimi-agent-cli`／`interventions-cas`／`mcp-ops-closure`／`perf`／`tools-v2`）逐条单跑**全部 exit 0**，是 4 路并行的资源竞争（`interventions-cas`／`mcp-ops-closure` 两条在 116-4／116-5a 的回归里也是同样的表现）。
+  - **排错时自己踩的一个坑，记下来免得下次再花时间**：`run-all` 的进度行是**交错**的 —— `[B1] ([fast]) X.e2e.js ... [B2] FAIL exit=1` 里那个 FAIL 属于 **B2 车道刚跑完的那一件**，不是行首那个正在启动的 X。照字面读会得出「X 红了」的错误结论（本片就为此白查了两轮 `steward-tools.static`，它一直是绿的）。**要看谁真的红了，只看结尾那段「失败件 tail」的 `=== 文件名 (exit=1) ===` 标题。**
 
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
-**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的设计页见 §11.8（三条拍板已定），**116-5a 引擎侧已入库**（交付记录见下）。**下一刀 116-5b 消费面**（五个显示点 + 设置开关 + i18n），再 117j。
+**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的设计页见 §11.8（三条拍板已定），**116-5a 引擎侧与 116-5b 消费面均已入库**（交付记录见 §11.6）。**下一刀 117j**（前端走查修复，派单稿全文见下）—— 它的两条前置依赖现在都到位了：W2-4 的 `?since=` 由 116-4 给出，「线程标题改用摘要」由 116-5b 给出（壳层读 `displayTitle`，**不必再自己按 `stewardShortTitle` 截原话**）。
 
 **现状**：116-3（后端对抗修复）三批全部入库——`e520428`（P0 六条＋A2＋B1）、`013d274`（P1 九条＋数据安全两条＋※ 脚注人话）、`2b334b9`（P2 四条＋A4），交付记录见 §11.6；`server.js` 已 cp 进 `dist/Ruyi-full/app/`，**桌面端重启后服务端守卫才生效**。全量回归提速已有结论：本机 24 核用 `--parallel 8`，约 9 分钟、失败谱与 4 路一致。
 
@@ -418,7 +433,7 @@
 
 **用户第三条新需求（2026-09-06 夜，截图：搜索结果整段是用户原话「帮我分析一下AMD——按美股超威半导体…」）→ 116-5 线程自动摘要**：每开一个线程（任何来源：经典壳新会话、管家 `steward_thread_new`／`steward_quick_ask`／递话新开、事项内线程、班组子线程）在第一条用户消息落盘后**自动调一次 LLM**生成两样东西写进会话头 `meta.brief = {title ≤ 24 字, gist ≤ 80 字, at, model}`：`title` 是任务的名（「AMD 收盘分析」），`gist` 是一句人话概括（「拉 AMD 最新行情与新闻，给博物影业格式的结论」）。用途：线程搜索结果（`steward_thread_search`／`06h` 检索、经典壳会话列表搜索）显示 title＋gist 而不是原话整段；抽屉／看板／递送 chip 候选／「现在这一件」标题全部改用 `brief.title`，原话保留在 `meta.title`（不改写，作为回退与 hover 全文）。实现要点（派 Opus，先设计再派）：走管家端点（`stewardProviderId`，OpenAI 兼容）而非主引擎，避免占用 Kimi CLI 与工具循环；单次 1 短提示词、`max_tokens` ≤ 120、失败静默留空并 2 次退避重试后放弃（不阻塞回合）；在回合收工时若 `brief` 仍空再补一次（此时有助手回复，概括更准）；线程改名（用户手改 `meta.title`）后不再覆盖 `brief.title`；配置键 `stewardThreadBriefV1`（默认开、随 `stewardEnabledV1`）；清册 durable-state 加 `session.meta.brief` 行；e2e：假 OpenAI 端点回固定 JSON → 新会话首轮后 `brief` 落盘、搜索结果用 brief、失败不阻塞。与 117i 已做的「文案层截 24 字」并存（brief 缺席时仍截原话）。
 
-**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → ~~116-5a~~ **已收口（2026-09-07，见 §11.6）** → 116-5b（消费面:五个显示点 + 设置开关 + i18n，见 §11.8.5 那张表）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
+**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → ~~116-5a~~ **已收口（2026-09-07，见 §11.6）** → ~~116-5b~~ **已收口（2026-09-07，见 §11.6）** → 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；两条前置依赖已齐：W2-4 的 `?since=` 来自 116-4，线程标题读 `displayTitle` 来自 116-5b —— 原稿里「若 116-5 未出门先按 `stewardShortTitle` 截断」那条**作废**）。
 
 #### 116-4 派单稿（引擎侧收件箱第四源与唤醒链）—— **已完成，保留原稿备查；实测与它有三处出入，最终实现以 §11.6 交付记录为准**
 > ① 会话头上**没有** `lastError`／`resumable.dangling`（实测：一条 HTTP 500 的回合，头上只有 `summary` 里那句人话，那是渲染不是信号）→ 改为先由 13g 在回合 settle 之后落 `stewardLastTurn` 这本账，第四源再读它；
@@ -533,6 +548,8 @@ session.titleSource = 'user'     // 只认这一个字面量;由「用户手改�
 | `steward_threads_search`（13g） | `title` 原话 | 结果加 `brief`，`title` 仍是原话 |
 | `steward_missions`／看板／抽屉／递送 chip／「现在这一件」（117） | `stewardShortTitle(原话)` | 改读 brief 的显示优先级；brief 缺席时仍走 `stewardShortTitle` |
 
+**116-5b 实测落地形状（本表的最终口径）**：判据不在前端各算一遍的办法是**服务端把算好的结果一并带出**——各读模型加一个 `displayTitle`（`buildMissionCard` / 总览行 / preroute hit / `GET /api/sessions/:id` 信封），壳层只写 `displayTitle || title`。两个例外都有理由：① `steward_threads_search` 与 `searchSessionsByContent` 是**给管家和搜索 UI 读的数据面**，那里 `title` 必须留原话（管家要认出用户当时的说法），故只**加** `brief` / `briefTitle`+`briefGist`；② 经典壳 `session-experience.js` 仍自己算，因为「未命名 → 本地化占位」那条规则依赖 `t()`，服务端不认识它 —— 那本来就是经典壳唯一的显示名判据，不是新增的分叉点（静态锁 ③ 看住 `public/` 下只有它读 `titleSource`）。**打分面一律不换**：`prerouteText` 的词法命中吃的仍是原话 `title`。
+
 #### 11.8.6 配置
 `stewardThreadBriefV1`（boolean，**默认 true**）。**不随 `stewardEnabledV1`（修正，待拍板）**：消费面一半在经典壳（侧栏、会话搜索），管家关着也该有名字。设置界面放管家页签下，文案注明「经典壳的会话列表也用它」。开关关 → 零调用、零字段、零记账。
 
@@ -550,7 +567,7 @@ session.titleSource = 'user'     // 只认这一个字面量;由「用户手改�
 #### 11.8.9 切片、验收与门
 - **116-5a 引擎侧**（生成 + 落盘 + 配置 + 记账 + 显示优先级判据）：`01-config` 加一键；`02` 白名单加两字段 + `sessionMeta` 带出 + 显示优先级纯函数；新原语住 `06-provider-engine`（紧邻 `providerRawCompletion`）或 `10`；`runSessionTurn` 两个 hook 点。
   e2e（假 OpenAI 端点回固定 JSON）：新会话首轮后 `threadBrief` 落盘且 ≤24／≤80；第二回合不再调；开关关零调用；端点不可用时静默且回合照常收工；JSON 解析失败 → 重试两次后留空且回合不受影响；改过名的线程显示用用户的名字；`kind:'aux'/note:'thread-brief'` 进了台账。
-- **116-5b 消费面**：上表五个面 + i18n + 静态锁（判据单点）。
+- **116-5b 消费面**：上表五个面 + i18n + 静态锁（判据单点）。**已交付**，交付记录见 §11.6；与本行的出入只有一处：静态锁不止钉「判据单点」，还机械对账六个装配点与「摘要块里没有任何给 title 赋值的语句」这条红线。
 - 门：前向边 67 不变；路由零新增；durable-state 清册 `session-head` 行补 `threadBrief`／`titleSource`；`build --check` 新鲜；全量回归 `--parallel 4`（8 路会大面积起不来服务，见 §11.6 116-4）。
 - **顺序**：116-5a → 116-5b → 117j（117j 里「线程标题改用 brief.title」的措辞要同步改成 `threadBrief`；5b 没出门时 117j 按 `stewardShortTitle` 截断先行）。
 

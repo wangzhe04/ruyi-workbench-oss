@@ -285,7 +285,11 @@ export function createStewardBoard({
 
     const head = el('div', 'steward-board-thread-head');
     head.appendChild(paintDot(el('span', 'steward-board-dot'), threadState));
-    const title = el('button', 'steward-board-thread-title', String(row.title || sessionId));
+    // 116-5b(§11.8.5):显示名由服务端一处算好(13d buildMissionCard 的 displayTitle,判据在 02 的
+    // sessionDisplayTitle),看板只读结果 —— 与本行的 stateLabel / wait.label 同一条纪律。
+    // 原话挂 hover(它没被改写,仍是权威);没有摘要时 displayTitle 逐字等于 title,不挂重复的提示。
+    const title = el('button', 'steward-board-thread-title', String(row.displayTitle || row.title || sessionId));
+    if (row.title && row.displayTitle && row.title !== row.displayTitle) title.title = String(row.title);
     title.type = 'button';
     title.onclick = () => focusThread(sessionId);
     head.appendChild(title);

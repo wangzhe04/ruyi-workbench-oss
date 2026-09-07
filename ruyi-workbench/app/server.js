@@ -18780,6 +18780,11 @@ function stewardPrerouteHit(candidate) {
     sessionId: stewardSanitizeText((candidate.row && candidate.row.sessionId) || ''),
     missionId: stewardSanitizeText((candidate.row && candidate.row.missionId) || ''),
     title: stewardSanitizeText((candidate.row && candidate.row.title) || ''),
+    // 116-5b(§11.8.5):递送候选列表显示的名字(人起的 > 生成的 > 原话,判据单点在 02 的
+    // sessionDisplayTitle,装配在 13h 的 stewardPrerouteIndexRows)。缺摘要时它逐字等于 title。
+    // **打分不用它**:上面的 titleHits 仍然只吃原话 title —— 摘要出来的名字是压过的,拿它去做词法
+    // 匹配会把用户当时打的那些词(「超威半导体」)从索引里抹掉,递送反而变笨。
+    displayTitle: stewardSanitizeText((candidate.row && candidate.row.displayTitle) || (candidate.row && candidate.row.title) || ''),
     score: Math.round(candidate.score * 100) / 100,
     reason: stewardPrerouteReason(candidate),
   };
@@ -38994,7 +38999,13 @@ async function buildSessionSearchUnit(meta) {
   const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
   const firstUser = headRows.find(row => row && row.role === 'user');
   const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
-  const parts = [meta.title || '', meta.summary || '', meta.cwd || ''];
+  // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
+  // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
+  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉,检索单元逐字节不变。
+  // 索引指纹是 updatedAt|messageCount:摘要落盘走 saveSession(它会推 updatedAt),所以指纹自然会变、
+  // 单元自然会重抽,不需要在这里另加一条失效判据。
+  const briefUnit = sessionBriefOf(meta);
+  const parts = [meta.title || '', (briefUnit && briefUnit.title) || '', (briefUnit && briefUnit.gist) || '', meta.summary || '', meta.cwd || ''];
   const seen = new Set();
   const push = value => {
     const trimmed = String(value || '').trim();
@@ -39097,6 +39108,11 @@ async function searchSessionsByContent(query, limit) {
     results: ranked.slice(0, cap).map(row => ({
       id: row.id,
       title: row.meta.title || '',
+      // 116-5b(§11.8.5):线程的名字与一句概括。**缺席时这两个键不出现** —— 存量会话的
+      // /api/sessions/search 载荷逐字节不变。title 仍是原话(它是权威,也是 hover 全文与回退)。
+      // 加在这里而不是让调用方自己去 /api/sessions 里 join:这条响应从此自足,
+      // 只拿到搜索结果的消费者(经典壳搜索、将来的任何面)不必再取一次会话列表。
+      ...(sessionBriefOf(row.meta) ? { briefTitle: sessionBriefOf(row.meta).title, briefGist: sessionBriefOf(row.meta).gist } : {}),
       cwd: row.meta.cwd || '',
       updatedAt: row.meta.updatedAt || '',
       pinned: Boolean(row.meta.pinned),
@@ -39173,7 +39189,10 @@ async function handleSessionApiRoutes(req, res, pathname) {
         });
         return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length }));
       }
-      return send(res, json({ ok: true, session, resumable }));
+      // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
+      // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
+      // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -39350,6 +39369,12 @@ async function buildMissionCard(head, runs, opts = {}) {
   const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
+    // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
+    // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。
+    // brief 单独带出是为了那句 gist(名字之外还要一句人话概括,抽屉与搜索结果要用);缺席时不出现。
+    displayTitle: sessionDisplayTitle(head),
+    ...(sessionBriefOf(head) ? { brief: sessionBriefOf(head) } : {}),
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
@@ -39459,6 +39484,10 @@ async function buildMissionAggregateRows(options = {}) {
     group.threads.push({
       sessionId: meta.id,
       title: stewardSanitizeText(meta.title || ''),
+      // 116-5b:同 buildMissionCard —— title 仍是原话,显示名另给一个键(steward_missions 的线程清单、
+      // 抽屉页签、看板行都读它)。meta 是索引条目形态(brief/titleSource),sessionDisplayTitle 两形态都认。
+      displayTitle: stewardSanitizeText(sessionDisplayTitle(meta)),
+      ...(sessionBriefOf(meta) ? { brief: sessionBriefOf(meta) } : {}),
       kind: meta.kind || 'quick_ask',
       state: derived.state,
       stateLabel: derived.label,
@@ -39485,7 +39514,9 @@ async function buildMissionAggregateRows(options = {}) {
     const row = {
       missionId: group.missionId,
       // 未归类事项没有事项文件,标题只能从它唯一那条线程的会话标题派生(§3.1「不改写历史」)。
-      title: container ? container.title : ((group.threads[0] && group.threads[0].title) || group.missionId),
+      // 116-5b:派生用的是那条线程的【显示名】而不是原话 —— 这个字段本来就是一个派生出来的显示串
+      // (真事项走 container.title),不是权威数据;线程的原话仍在 threads[].title 里原样躺着。
+      title: container ? container.title : ((group.threads[0] && (group.threads[0].displayTitle || group.threads[0].title)) || group.missionId),
       goal: container ? container.goal : '',
       derived: !container,
       archivedAt: (container && container.archivedAt) || '',
@@ -39534,7 +39565,7 @@ function overlayMissionAggregateFields(card, row) {
       aggregateState: aggregateMissionState([derived.state]),
       threadCount: 1, acceptance: { done: 0, total: 0 }, budget: {}, cost: emptyMissionCostBucket(), derived: true,
       // 117h 第 0 步:没有聚合行 = 没有容器,事项标题就是这条线程自己的标题,目标与验收项如实为空。
-      missionTitle: String(card.title || ''), goal: '', acceptanceItems: [],
+      missionTitle: String(card.displayTitle || card.title || ''), goal: '', acceptanceItems: [],
       wait: waitReasonFor(
         { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
         typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(card.sessionId) : null,
@@ -39554,7 +39585,8 @@ function overlayMissionAggregateFields(card, row) {
     //   · missionTitle:有容器就是容器标题;没有容器(derived 行,`未归类事项`)就是本行自己的标题;
     //   · goal        :容器目标,无容器为空串(不猜、不拿线程摘要冒充);
     //   · acceptanceItems:容器验收项整表(既有 acceptance 只有 done/total 两个数,画不出条目)。
-    missionTitle: row.derived ? String(card.title || '') : String(row.title || ''),
+    // 116-5b:derived 行的事项标题 = 这条线程自己的【显示名】(见 buildMissionAggregateRows 同款注释)。
+    missionTitle: row.derived ? String(card.displayTitle || card.title || '') : String(row.title || ''),
     goal: String(row.goal || ''),
     acceptanceItems: Array.isArray(row.acceptance.items) ? row.acceptance.items : [],
     wait: threadWait,
@@ -40784,7 +40816,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // 第75c波(Pretender P1):Mission / Intervention 可重建物化索引、revision cursor 与 ETag。
 // 权威源始终是 session head、Intervention journal、run snapshot 与 usage ledger；本文件只维护可删缓存。
 // ============================================================================
-const PRETENDER_INDEX_SCHEMA = 2;
+// 116-5b:2 -> 3。事项卡片的形状变了(加了 displayTitle 与 brief,见 13d buildMissionCard)。
+// 不升号的话,盘上那些 sourceStamp 没变过的会话【不会重建】,它们的卡片会一直缺这两个键 —— 壳层
+// 那句 displayTitle || title 于是一直回落到原话,而摘要明明已经写在会话头上了。索引是纯派生物
+// (durable-state 清册记的就是 fully regenerable),升号的代价只是启动后第一次读时全量重建一次。
+const PRETENDER_INDEX_SCHEMA = 3;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -42789,6 +42825,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
+      ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
       kind: rawKind,
       state: derived.state,
       stateLabel: derived.label,
@@ -43730,6 +43767,7 @@ async function stewardImplMissions(args, ctx, config) {
         stateLabel: thread.stateLabel,
         permissionMode: thread.permissionMode,
         lastAssistantText: thread.lastAssistantText,   // 13d 已按 §11.2 截到 120 字
+        ...(thread.brief ? { brief: thread.brief } : {}),   // 116-5b:同 threads_search —— title 仍是原话,brief 多给的
         wait: thread.wait || null,                     // 116h:等待原因原样透传(13d 已经过 waitReasonFor)
       })),
     };
@@ -44505,6 +44543,12 @@ async function stewardThreadDigestRows(config) {
       // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
       // 多一个 missionId 键对总览行的拼装零影响(新增只加不改)。
       missionId: sessionMissionId(head) || sid,
+      // 116-5b(§11.8.5):这条线程的【显示名】(人起的 > 生成的 > 原话,判据单点在 02 的
+      // sessionDisplayTitle)。与 missionId 同一条理由放在行的顶层而不是 digest 里:
+      // buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,多一个顶层键对总览行的
+      // 拼装零影响。**digest.title 仍是原话** —— 管家读到的是用户当时怎么说的,那比一个名字信息更全;
+      // 需要显示名的是壳层(「现在这一件」、递送候选),它们读这个字段。
+      displayTitle: sessionDisplayTitle(head),
       updatedAt: String(head.updatedAt || ''),
       state: derived.state,
       wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
@@ -44541,21 +44585,33 @@ async function stewardThreadDigestRows(config) {
 //
 // 缓存(§11.3 交付物「按 13e 投影的 changeSeq 总和或最近会话 updatedAt 作为缓存键,命中则不重装配」):
 // getPretenderProjectionIndex() 内部已经是增量维护的运行时缓存(source stamp 没变就不重扫会话),
-// 它的整体 revision 已经是「本次投影所有 changeSeq 与卡片状态」的一个哈希摘要 —— 直接拿它当缓存键,
-// 比自己重新求和一遍 changeSeq 更省一次遍历,语义完全等价(revision 本身就由 changeSeq 参与算出)。
+// 它的整体 revision 已经是「本次投影所有 changeSeq 与卡片状态」的一个哈希摘要 —— 拿它当缓存键的一半,
+// 比自己重新求和一遍 changeSeq 更省一次遍历。(116-5b 补上另一半 builtAt:revision 只覆盖【有卡片的】
+// 会话,速查线程的会话头改了它不会变 —— 详见下面 stewardPrerouteIndexRows 里那段注释。)
 // 命中时跳过的是【每会话一次 stewardReadSessionHead 文件读】那一段(§11.3 的目标 p50 ≤50ms 主要靠它)。
 // 只在内存,不写盘;开关关时这段代码根本不会被调到(见路由分支)。
 const _stewardPrerouteCache = { revision: '', rows: [] };
 async function stewardPrerouteIndexRows(config) {
   const index = await getPretenderProjectionIndex().catch(() => null);
-  const revision = String((index && index.revision) || '');
-  if (revision && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
+  // 116-5b:缓存键从「只看 revision」改成「revision + builtAt」。revision 只由【事项卡片】与待决行
+  // 算出(见 13e finalizePretenderIndex:missionRows 过滤掉了 card 为 null 的会话),所以一条
+  // 【速查线程】的会话头改了 —— 比如本波的摘要刚落盘 —— revision 一个字节都不会变,这里就会一直
+  // 回一份旧行,递送候选列表于是永远显示那条速查线程的原话。而速查线程恰恰是本波最需要起名字的那种
+  // (13g 建完显式清了 titleSource 就是为了让它拿到摘要)。builtAt 只在投影【真的重建过】时才变
+  // (getPretenderProjectionIndex 没有脏会话时直接返回同一个对象),所以连续敲字那段快路径一次没丢,
+  // 多出来的只是「投影确实重建了一次」时多装配一次行。ETag 那一侧完全不受影响:这是 13h 自己的
+  // 进程内 memo 键,不是 revision 的定义。
+  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '');
+  if (index && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
   const digestRows = await stewardThreadDigestRows(config);
   const rows = digestRows.map(row => ({
     sessionId: row.sessionId,
     missionId: row.missionId || row.sessionId,
     missionTitle: (row.digest && row.digest.missionTitle) || '',
     title: (row.digest && row.digest.title) || '',
+    // 116-5b:显示名单独一个键。**不覆盖 title** —— prerouteText 的词法打分吃的就是 title,
+    // 把它换成压过的名字等于把用户当时打的那些词从索引里抹掉(见 06i stewardPrerouteHit 处的原注释)。
+    displayTitle: row.displayTitle || (row.digest && row.digest.title) || '',
     // 116-pre 交付物口径:「summary(lastAssistantText 或摘要,≤400 字)」——digest.lastSay 就是
     // head.summary(诚实纪律:原话,不经模型改写),这里只做 400 字截断,不重新中和(stewardSanitizeText
     // 在 prerouteText 内部拼 reason/title 时才需要,summary 只参与打分不进返回值)。
@@ -45462,7 +45518,8 @@ async function stewardVisit(opts) {
     archive,
     digest: { items: digest.items, counts: digest.counts },
     pending,
-    focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.digest.title, state: focusRow.state } : null,
+    // 116-5b:「现在这一件」的标题走显示名(缺摘要时仍回落到原话,与旧行为逐字相同)。
+    focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.displayTitle || focusRow.digest.title, state: focusRow.state } : null,
   };
 }
 

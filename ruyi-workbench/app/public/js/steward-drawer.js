@@ -147,6 +147,8 @@ export function createStewardDrawer({
   let sessionId = '';
   let session = null;             // GET /api/sessions/:id 的 session
   let resumable = null;           // 同一响应的 resumable（live 判定：在途才走插话通道）
+  // 116-5b：同一响应信封里的显示名（人起的 > 生成的 > 原话，判据在服务端 02 的 sessionDisplayTitle）。
+  let displayTitle = '';
   let missionRows = [];           // GET /api/missions 里与本线程同事项的行（线程行）
   let missionRow = null;          // 其中本线程自己那一行
   let snapshot = null;            // GET /api/missions/:id 的 snapshot（验收项与控制面）
@@ -209,6 +211,7 @@ export function createStewardDrawer({
     if (sessionRes && sessionRes.ok !== false && sessionRes.session) {
       session = sessionRes.session;
       resumable = sessionRes.resumable || null;
+      displayTitle = String(sessionRes.displayTitle || '');
     }
     const list = (interventionsRes && Array.isArray(interventionsRes.pending)) ? interventionsRes.pending : [];
     pendingForThread = list.find(item => item && String(item.sessionId) === id) || null;
@@ -279,7 +282,9 @@ export function createStewardDrawer({
       tab.dataset.sessionId = String(row.sessionId);
       const dot = el('span', 'steward-drawer-dot');
       dot.dataset.state = threadStateOf(row);
-      tab.append(dot, el('span', 'steward-drawer-tab-title', String(row.title || row.sessionId)));
+      // 116-5b:页签/标题/接力清单三处都读服务端算好的 displayTitle(缺席时逐字回落原话)。
+      tab.append(dot, el('span', 'steward-drawer-tab-title', String(row.displayTitle || row.title || row.sessionId)));
+      if (row.title && row.displayTitle && row.title !== row.displayTitle) tab.title = String(row.title);
       tab.onclick = () => { if (!selected) openThread(String(row.sessionId)); };
       host.appendChild(tab);
     }
@@ -303,7 +308,13 @@ export function createStewardDrawer({
     const titleNode = byId('stewardDrawerTitle');
     const stateNode = byId('stewardDrawerState');
     const waitNode = byId('stewardDrawerWait');
-    if (titleNode) titleNode.textContent = String((session && session.title) || (missionRow && missionRow.title) || sessionId);
+    // 116-5b:显示名优先(GET /api/sessions/:id 的信封带出的那一个,判据在 02 的 sessionDisplayTitle);
+    // 拿不到就退回今天的两级回落。原话挂 hover。
+    if (titleNode) {
+      titleNode.textContent = String(displayTitle || (session && session.title) || (missionRow && missionRow.displayTitle) || (missionRow && missionRow.title) || sessionId);
+      const raw = String((session && session.title) || (missionRow && missionRow.title) || '');
+      if (raw && raw !== titleNode.textContent) titleNode.title = raw; else titleNode.removeAttribute('title');
+    }
     if (stateNode) stateNode.textContent = stateLabel(threadStateOf(missionRow));
     if (!waitNode) return;
     const wait = (missionRow && missionRow.wait) || null;
@@ -361,7 +372,7 @@ export function createStewardDrawer({
       const item = el('li');
       const dot = el('span', 'steward-drawer-dot');
       dot.dataset.state = threadStateOf(row);
-      item.append(dot, doc().createTextNode(` ${String(row.title || row.sessionId)} · ${stateLabel(threadStateOf(row))}`));
+      item.append(dot, doc().createTextNode(` ${String(row.displayTitle || row.title || row.sessionId)} · ${stateLabel(threadStateOf(row))}`));
       list.appendChild(item);
     }
   }
@@ -633,6 +644,7 @@ export function createStewardDrawer({
     if (!drawer) return;
     sessionId = id;
     session = null; resumable = null; snapshot = null; pendingForThread = null;
+    displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
     missionRow = null; missionRows = [];
     drawer.hidden = false;
     if (shell) shell.dataset.drawer = 'open';

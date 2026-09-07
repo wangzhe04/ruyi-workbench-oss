@@ -711,6 +711,11 @@ function stewardPrerouteHit(candidate) {
     sessionId: stewardSanitizeText((candidate.row && candidate.row.sessionId) || ''),
     missionId: stewardSanitizeText((candidate.row && candidate.row.missionId) || ''),
     title: stewardSanitizeText((candidate.row && candidate.row.title) || ''),
+    // 116-5b(§11.8.5):递送候选列表显示的名字(人起的 > 生成的 > 原话,判据单点在 02 的
+    // sessionDisplayTitle,装配在 13h 的 stewardPrerouteIndexRows)。缺摘要时它逐字等于 title。
+    // **打分不用它**:上面的 titleHits 仍然只吃原话 title —— 摘要出来的名字是压过的,拿它去做词法
+    // 匹配会把用户当时打的那些词(「超威半导体」)从索引里抹掉,递送反而变笨。
+    displayTitle: stewardSanitizeText((candidate.row && candidate.row.displayTitle) || (candidate.row && candidate.row.title) || ''),
     score: Math.round(candidate.score * 100) / 100,
     reason: stewardPrerouteReason(candidate),
   };

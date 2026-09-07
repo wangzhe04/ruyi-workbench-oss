@@ -13,6 +13,7 @@
 //   ⑧ 全不命中陈述句 -> new
 //   ⑨ 尖括号中和(hit.title/reason 里的 </> 变成 []/[])
 //   ⑩ 超长 q(500 字硬顶——夹断点之后的内容不参与打分)
+//   ⑪ 116-5b:hit 带 displayTitle(递送候选列表显示它),而打分那一侧仍只吃原话 title
 //
 // 与既有 dev-harness/unit 件同款约定(见 steward-core.test.js):require server.js 前先把
 // WIN_CLAUDE_WORKBENCH_HOME 覆盖到临时目录;PASS/FAIL 逐条打印,process.exit(fail?1:0)。
@@ -220,6 +221,21 @@ function row(sessionId, over) {
   const summaryScore = prerouteText('库存对账', [summaryHitRow], [], opts).hits[0].score;
   ok(titleScore > missionScore && missionScore > summaryScore,
     `title(×3) > missionTitle(×2) > summary(×1)权重梯度正确(实测 ${titleScore} > ${missionScore} > ${summaryScore})`);
+}
+
+/* ═══════ ⑪ 116-5b:hit.displayTitle 供递送候选列表显示,打分仍只看原话 title ═══════ */
+{
+  const RAW_TITLE = '帮我分析一下AMD——按美股超威半导体,今天收盘怎么样';
+  const withBrief = row('s_brief', { title: RAW_TITLE, displayTitle: 'AMD 收盘分析', updatedAt: RECENT });
+  const r = prerouteText('超威半导体', [withBrief], [], opts);
+  ok(r.kind === 'thread' && r.hits[0].sessionId === 's_brief',
+    '⑪ 用户打的是原话里的词(「超威半导体」)——它必须还能命中(打分吃的是 title,不是压过的名字)');
+  ok(r.hits[0].title === RAW_TITLE, '⑪ hit.title 仍是原话');
+  ok(r.hits[0].displayTitle === 'AMD 收盘分析', '⑪ hit.displayTitle 是显示名(输入区候选列表显示它)');
+  const noBrief = row('s_plain', { title: '支付网关重构', updatedAt: RECENT });
+  const r2 = prerouteText('支付网关重构', [noBrief], [], opts);
+  ok(r2.hits[0].displayTitle === '支付网关重构',
+    '⑪ 没有摘要时 displayTitle 逐字等于 title(壳层那句 displayTitle || title 的回落永远有值)');
 }
 
 try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort tmpdir cleanup */ }

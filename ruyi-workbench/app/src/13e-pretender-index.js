@@ -2,7 +2,11 @@
 // 第75c波(Pretender P1):Mission / Intervention 可重建物化索引、revision cursor 与 ETag。
 // 权威源始终是 session head、Intervention journal、run snapshot 与 usage ledger；本文件只维护可删缓存。
 // ============================================================================
-const PRETENDER_INDEX_SCHEMA = 2;
+// 116-5b:2 -> 3。事项卡片的形状变了(加了 displayTitle 与 brief,见 13d buildMissionCard)。
+// 不升号的话,盘上那些 sourceStamp 没变过的会话【不会重建】,它们的卡片会一直缺这两个键 —— 壳层
+// 那句 displayTitle || title 于是一直回落到原话,而摘要明明已经写在会话头上了。索引是纯派生物
+// (durable-state 清册记的就是 fully regenerable),升号的代价只是启动后第一次读时全量重建一次。
+const PRETENDER_INDEX_SCHEMA = 3;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;

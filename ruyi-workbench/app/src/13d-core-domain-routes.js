@@ -82,7 +82,13 @@ async function buildSessionSearchUnit(meta) {
   const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
   const firstUser = headRows.find(row => row && row.role === 'user');
   const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
-  const parts = [meta.title || '', meta.summary || '', meta.cwd || ''];
+  // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
+  // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
+  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉,检索单元逐字节不变。
+  // 索引指纹是 updatedAt|messageCount:摘要落盘走 saveSession(它会推 updatedAt),所以指纹自然会变、
+  // 单元自然会重抽,不需要在这里另加一条失效判据。
+  const briefUnit = sessionBriefOf(meta);
+  const parts = [meta.title || '', (briefUnit && briefUnit.title) || '', (briefUnit && briefUnit.gist) || '', meta.summary || '', meta.cwd || ''];
   const seen = new Set();
   const push = value => {
     const trimmed = String(value || '').trim();
@@ -185,6 +191,11 @@ async function searchSessionsByContent(query, limit) {
     results: ranked.slice(0, cap).map(row => ({
       id: row.id,
       title: row.meta.title || '',
+      // 116-5b(§11.8.5):线程的名字与一句概括。**缺席时这两个键不出现** —— 存量会话的
+      // /api/sessions/search 载荷逐字节不变。title 仍是原话(它是权威,也是 hover 全文与回退)。
+      // 加在这里而不是让调用方自己去 /api/sessions 里 join:这条响应从此自足,
+      // 只拿到搜索结果的消费者(经典壳搜索、将来的任何面)不必再取一次会话列表。
+      ...(sessionBriefOf(row.meta) ? { briefTitle: sessionBriefOf(row.meta).title, briefGist: sessionBriefOf(row.meta).gist } : {}),
       cwd: row.meta.cwd || '',
       updatedAt: row.meta.updatedAt || '',
       pinned: Boolean(row.meta.pinned),
@@ -261,7 +272,10 @@ async function handleSessionApiRoutes(req, res, pathname) {
         });
         return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length }));
       }
-      return send(res, json({ ok: true, session, resumable }));
+      // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
+      // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
+      // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -438,6 +452,12 @@ async function buildMissionCard(head, runs, opts = {}) {
   const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
+    // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
+    // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。
+    // brief 单独带出是为了那句 gist(名字之外还要一句人话概括,抽屉与搜索结果要用);缺席时不出现。
+    displayTitle: sessionDisplayTitle(head),
+    ...(sessionBriefOf(head) ? { brief: sessionBriefOf(head) } : {}),
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
@@ -547,6 +567,10 @@ async function buildMissionAggregateRows(options = {}) {
     group.threads.push({
       sessionId: meta.id,
       title: stewardSanitizeText(meta.title || ''),
+      // 116-5b:同 buildMissionCard —— title 仍是原话,显示名另给一个键(steward_missions 的线程清单、
+      // 抽屉页签、看板行都读它)。meta 是索引条目形态(brief/titleSource),sessionDisplayTitle 两形态都认。
+      displayTitle: stewardSanitizeText(sessionDisplayTitle(meta)),
+      ...(sessionBriefOf(meta) ? { brief: sessionBriefOf(meta) } : {}),
       kind: meta.kind || 'quick_ask',
       state: derived.state,
       stateLabel: derived.label,
@@ -573,7 +597,9 @@ async function buildMissionAggregateRows(options = {}) {
     const row = {
       missionId: group.missionId,
       // 未归类事项没有事项文件,标题只能从它唯一那条线程的会话标题派生(§3.1「不改写历史」)。
-      title: container ? container.title : ((group.threads[0] && group.threads[0].title) || group.missionId),
+      // 116-5b:派生用的是那条线程的【显示名】而不是原话 —— 这个字段本来就是一个派生出来的显示串
+      // (真事项走 container.title),不是权威数据;线程的原话仍在 threads[].title 里原样躺着。
+      title: container ? container.title : ((group.threads[0] && (group.threads[0].displayTitle || group.threads[0].title)) || group.missionId),
       goal: container ? container.goal : '',
       derived: !container,
       archivedAt: (container && container.archivedAt) || '',
@@ -622,7 +648,7 @@ function overlayMissionAggregateFields(card, row) {
       aggregateState: aggregateMissionState([derived.state]),
       threadCount: 1, acceptance: { done: 0, total: 0 }, budget: {}, cost: emptyMissionCostBucket(), derived: true,
       // 117h 第 0 步:没有聚合行 = 没有容器,事项标题就是这条线程自己的标题,目标与验收项如实为空。
-      missionTitle: String(card.title || ''), goal: '', acceptanceItems: [],
+      missionTitle: String(card.displayTitle || card.title || ''), goal: '', acceptanceItems: [],
       wait: waitReasonFor(
         { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
         typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(card.sessionId) : null,
@@ -642,7 +668,8 @@ function overlayMissionAggregateFields(card, row) {
     //   · missionTitle:有容器就是容器标题;没有容器(derived 行,`未归类事项`)就是本行自己的标题;
     //   · goal        :容器目标,无容器为空串(不猜、不拿线程摘要冒充);
     //   · acceptanceItems:容器验收项整表(既有 acceptance 只有 done/total 两个数,画不出条目)。
-    missionTitle: row.derived ? String(card.title || '') : String(row.title || ''),
+    // 116-5b:derived 行的事项标题 = 这条线程自己的【显示名】(见 buildMissionAggregateRows 同款注释)。
+    missionTitle: row.derived ? String(card.displayTitle || card.title || '') : String(row.title || ''),
     goal: String(row.goal || ''),
     acceptanceItems: Array.isArray(row.acceptance.items) ? row.acceptance.items : [],
     wait: threadWait,

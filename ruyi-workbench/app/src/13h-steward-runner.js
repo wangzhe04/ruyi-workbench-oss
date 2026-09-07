@@ -310,6 +310,12 @@ async function stewardThreadDigestRows(config) {
       // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
       // 多一个 missionId 键对总览行的拼装零影响(新增只加不改)。
       missionId: sessionMissionId(head) || sid,
+      // 116-5b(§11.8.5):这条线程的【显示名】(人起的 > 生成的 > 原话,判据单点在 02 的
+      // sessionDisplayTitle)。与 missionId 同一条理由放在行的顶层而不是 digest 里:
+      // buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,多一个顶层键对总览行的
+      // 拼装零影响。**digest.title 仍是原话** —— 管家读到的是用户当时怎么说的,那比一个名字信息更全;
+      // 需要显示名的是壳层(「现在这一件」、递送候选),它们读这个字段。
+      displayTitle: sessionDisplayTitle(head),
       updatedAt: String(head.updatedAt || ''),
       state: derived.state,
       wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
@@ -346,21 +352,33 @@ async function stewardThreadDigestRows(config) {
 //
 // 缓存(§11.3 交付物「按 13e 投影的 changeSeq 总和或最近会话 updatedAt 作为缓存键,命中则不重装配」):
 // getPretenderProjectionIndex() 内部已经是增量维护的运行时缓存(source stamp 没变就不重扫会话),
-// 它的整体 revision 已经是「本次投影所有 changeSeq 与卡片状态」的一个哈希摘要 —— 直接拿它当缓存键,
-// 比自己重新求和一遍 changeSeq 更省一次遍历,语义完全等价(revision 本身就由 changeSeq 参与算出)。
+// 它的整体 revision 已经是「本次投影所有 changeSeq 与卡片状态」的一个哈希摘要 —— 拿它当缓存键的一半,
+// 比自己重新求和一遍 changeSeq 更省一次遍历。(116-5b 补上另一半 builtAt:revision 只覆盖【有卡片的】
+// 会话,速查线程的会话头改了它不会变 —— 详见下面 stewardPrerouteIndexRows 里那段注释。)
 // 命中时跳过的是【每会话一次 stewardReadSessionHead 文件读】那一段(§11.3 的目标 p50 ≤50ms 主要靠它)。
 // 只在内存,不写盘;开关关时这段代码根本不会被调到(见路由分支)。
 const _stewardPrerouteCache = { revision: '', rows: [] };
 async function stewardPrerouteIndexRows(config) {
   const index = await getPretenderProjectionIndex().catch(() => null);
-  const revision = String((index && index.revision) || '');
-  if (revision && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
+  // 116-5b:缓存键从「只看 revision」改成「revision + builtAt」。revision 只由【事项卡片】与待决行
+  // 算出(见 13e finalizePretenderIndex:missionRows 过滤掉了 card 为 null 的会话),所以一条
+  // 【速查线程】的会话头改了 —— 比如本波的摘要刚落盘 —— revision 一个字节都不会变,这里就会一直
+  // 回一份旧行,递送候选列表于是永远显示那条速查线程的原话。而速查线程恰恰是本波最需要起名字的那种
+  // (13g 建完显式清了 titleSource 就是为了让它拿到摘要)。builtAt 只在投影【真的重建过】时才变
+  // (getPretenderProjectionIndex 没有脏会话时直接返回同一个对象),所以连续敲字那段快路径一次没丢,
+  // 多出来的只是「投影确实重建了一次」时多装配一次行。ETag 那一侧完全不受影响:这是 13h 自己的
+  // 进程内 memo 键,不是 revision 的定义。
+  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '');
+  if (index && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
   const digestRows = await stewardThreadDigestRows(config);
   const rows = digestRows.map(row => ({
     sessionId: row.sessionId,
     missionId: row.missionId || row.sessionId,
     missionTitle: (row.digest && row.digest.missionTitle) || '',
     title: (row.digest && row.digest.title) || '',
+    // 116-5b:显示名单独一个键。**不覆盖 title** —— prerouteText 的词法打分吃的就是 title,
+    // 把它换成压过的名字等于把用户当时打的那些词从索引里抹掉(见 06i stewardPrerouteHit 处的原注释)。
+    displayTitle: row.displayTitle || (row.digest && row.digest.title) || '',
     // 116-pre 交付物口径:「summary(lastAssistantText 或摘要,≤400 字)」——digest.lastSay 就是
     // head.summary(诚实纪律:原话,不经模型改写),这里只做 400 字截断,不重新中和(stewardSanitizeText
     // 在 prerouteText 内部拼 reason/title 时才需要,summary 只参与打分不进返回值)。
@@ -1267,7 +1285,8 @@ async function stewardVisit(opts) {
     archive,
     digest: { items: digest.items, counts: digest.counts },
     pending,
-    focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.digest.title, state: focusRow.state } : null,
+    // 116-5b:「现在这一件」的标题走显示名(缺摘要时仍回落到原话,与旧行为逐字相同)。
+    focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.displayTitle || focusRow.digest.title, state: focusRow.state } : null,
   };
 }
 

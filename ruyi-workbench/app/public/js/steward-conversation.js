@@ -522,7 +522,8 @@ export function createStewardConversation({
     }
     const label = stewardShortTitle(title || sid);
     const others = (Array.isArray(hits) ? hits : []).filter(hit => hit && hit.sessionId !== sid)
-      .map(hit => stewardShortTitle(hit.title || hit.sessionId));
+      // 116-5b:与输入区候选列表同一份数据、同一个显示名(hit.displayTitle,服务端算好)。
+      .map(hit => stewardShortTitle(hit.displayTitle || hit.title || hit.sessionId));
     const row = appendSteward(t('stewardShell.chat.handedOff', { title: label }), String(reason || ''),
       others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join('、') })] : []);
     focusThread(sid);

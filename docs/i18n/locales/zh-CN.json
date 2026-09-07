@@ -2830,6 +2830,8 @@
   ,"settings.steward.maxParallelThreads": "同时最多跑几条线程"
   ,"settings.steward.globalMaxTurnsPerHour": "全部线程每小时最多几个回合"
   ,"settings.steward.globalMaxCostPerDay": "全部线程每天最多花（USD）"
+  ,"settings.steward.threadBrief": "自动给每条线程起名字"
+  ,"settings.steward.threadBriefHint": "每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的会话列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。"
   ,"settings.steward.retention": "和管家的对话保留多久"
   ,"settings.steward.retention.visit": "只保留本次打开期间（默认）"
   ,"settings.steward.retention.24h": "24 小时"

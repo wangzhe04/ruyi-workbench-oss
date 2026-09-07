@@ -710,6 +710,8 @@ export function createStewardSettingsDomain({
       const parallel = byId('cfgStewardMaxParallelThreads'); if (parallel) parallel.value = String(Number(c.stewardMaxParallelThreads || 5));
       const globalTurns = byId('cfgStewardGlobalMaxTurnsPerHour'); if (globalTurns) globalTurns.value = String(Number(c.stewardGlobalMaxTurnsPerHour || 120));
       const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 20));
+      // 116-5b:默认开(缺字段 = 开),所以判的是 !== false 而不是 === true。
+      const brief = byId('cfgStewardThreadBrief'); if (brief) brief.checked = c.stewardThreadBriefV1 !== false;
       const retention = byId('cfgStewardRetention');
       if (retention) retention.value = ['visit', '24h', 'forever'].includes(c.stewardConversationRetention) ? c.stewardConversationRetention : 'visit';
     } finally {
@@ -755,6 +757,7 @@ export function createStewardSettingsDomain({
       onChange(id, () => saveConfig({ stewardAutoActions: autoPatch() }));
     }
 
+    onChange('cfgStewardThreadBrief', event => saveConfig({ stewardThreadBriefV1: event.target.checked === true }));
     onChange('cfgStewardProviderId', event => saveConfig({ stewardProviderId: String(event.target.value || '') }));
     onChange('cfgStewardModel', event => saveConfig({ stewardModel: String(event.target.value || '').trim() }));
     // 秒进毫秒出：界面按秒（下限 5），落盘按毫秒（后端 clamp [5000,120000]）。

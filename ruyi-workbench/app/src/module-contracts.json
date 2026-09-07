@@ -10588,6 +10588,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionBriefOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionKind",
           "kinds": [
             "call"
@@ -11782,6 +11796,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionBriefOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
           "kinds": [
             "call"
@@ -12452,6 +12473,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
           ]

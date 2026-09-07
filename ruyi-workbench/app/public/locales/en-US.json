@@ -2830,6 +2830,8 @@
   ,"settings.steward.maxParallelThreads": "Threads running at once"
   ,"settings.steward.globalMaxTurnsPerHour": "Turns per hour across all threads"
   ,"settings.steward.globalMaxCostPerDay": "Spend per day across all threads (USD)"
+  ,"settings.steward.threadBrief": "Name each thread automatically"
+  ,"settings.steward.threadBriefHint": "Each new thread costs one small call on the steward's endpoint to produce a short name and a one-line gist, instead of using your whole opening message as the title. The classic session list and search results use it too. Your original wording is never rewritten (hover still shows it in full)."
   ,"settings.steward.retention": "How long to keep the steward conversation"
   ,"settings.steward.retention.visit": "Only while this session is open (default)"
   ,"settings.steward.retention.24h": "24 hours"

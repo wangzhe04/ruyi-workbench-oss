@@ -80,7 +80,9 @@ export function createStewardComposer({
       if (!hit || !hit.sessionId) continue;
       const index = recent.findIndex(row => row.sessionId === hit.sessionId);
       if (index >= 0) recent.splice(index, 1);
-      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.title || hit.sessionId) });
+      // 116-5b:候选列表显示的是服务端算好的 displayTitle(06i stewardPrerouteHit;判据在 02 的
+      // sessionDisplayTitle)。缺席时逐字等于 title,老载荷零变化。
+      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId) });
     }
     while (recent.length > STEWARD_RECENT_MAX) recent.pop();
   }
@@ -145,7 +147,7 @@ export function createStewardComposer({
     for (const hit of routeHits) {
       if (!hit || !hit.sessionId || seen.has(hit.sessionId)) continue;
       seen.add(hit.sessionId);
-      out.push({ sessionId: String(hit.sessionId), title: String(hit.title || hit.sessionId) });
+      out.push({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId) });
     }
     for (const row of recent) {
       if (seen.has(row.sessionId)) continue;

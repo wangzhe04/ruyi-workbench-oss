@@ -998,6 +998,10 @@
                   </select>
                 </div>
               </div>
+              <!-- 116-5b（§11.8.5/§11.8.6）：线程自动摘要。放在「模型与预算」段而不是「自治」段——它不是一项管家的自治权，是一笔钱：开着就会在每一条还没有名字的新线程上多打一发。 -->
+              <!-- 也【不随管家总开关】：消费面一半在经典壳（会话列表与搜索结果），管家关着也该有名字。 -->
+              <label class="check"><input type="checkbox" id="cfgStewardThreadBrief" /> <span data-i18n="settings.steward.threadBrief">自动给每条线程起名字</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.threadBriefHint">每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的会话列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。</p>
             </section>
 
             <!-- ⑤ 管家记得的关于你（§4「面板」）-->

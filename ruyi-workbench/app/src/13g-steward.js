@@ -591,6 +591,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
+      ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
       kind: rawKind,
       state: derived.state,
       stateLabel: derived.label,
@@ -1532,6 +1533,7 @@ async function stewardImplMissions(args, ctx, config) {
         stateLabel: thread.stateLabel,
         permissionMode: thread.permissionMode,
         lastAssistantText: thread.lastAssistantText,   // 13d 已按 §11.2 截到 120 字
+        ...(thread.brief ? { brief: thread.brief } : {}),   // 116-5b:同 threads_search —— title 仍是原话,brief 多给的
         wait: thread.wait || null,                     // 116h:等待原因原样透传(13d 已经过 waitReasonFor)
       })),
     };
