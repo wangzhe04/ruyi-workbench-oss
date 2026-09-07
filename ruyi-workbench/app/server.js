@@ -4261,7 +4261,32 @@ function sessionMissionId(o) {
 // 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
 const SESSION_BRIEF_TITLE_CHARS = 24;
 const SESSION_BRIEF_GIST_CHARS = 80;
-// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话。
+// 117l-A1-fix (2)(27 号文 §11.9;用户真机天天看见):占位标题不是名字,它是「还没有名字」。
+// 未命名线程在第一回合结束、摘要(threadBrief)生成之前,raw 逐字就是后端占位符 'New session'
+// (createSession 写的),于是收件箱事件行写成「线程「New session」(sess_x)」、routeHint 块与
+// humanize 出来的 say/why 也全是「New session」—— 用户真机上管家说「十几条 New session 还在交办中」。
+// 补一档兜底:占位标题 + 【手上真有正文】时,用首条用户消息的前 24 个字顶上(与 SESSION_BRIEF_TITLE_CHARS
+// 同一个上限,摘要落盘后自然被生成的名字接管)。
+// 纪律三条:
+//   · 用户手改的标题(titleSource === 'user')在函数第一行就返回了,永远不受这一档影响;
+//   · 只在入参【自己带着正文】时才走(完整会话对象:GET /api/sessions/:id 的 loadSession 结果)。
+//     只有会话头 / 索引条目的调用面拿不到正文,那就仍旧保留占位 —— 这个函数在总览里每条线程都要跑
+//     一遍,为了一个名字去多读一次正文文件是不能接受的代价;
+//   · 优先级顺序一个字不动:人起的 > 生成的 > 原话,摘录只是【占位符这一种原话】的兜底。
+function sessionFirstUserExcerpt(o) {
+  const rows = (o && Array.isArray(o.messages)) ? o.messages : null;
+  if (!rows) return '';
+  for (const m of rows) {
+    if (!m || m.role !== 'user' || typeof m.content !== 'string') continue;
+    const text = m.content.replace(/\s+/g, ' ').trim();   // 标题是一行:换行折成空格
+    if (!text) continue;
+    const chars = [...text];   // 按字符切,不按 UTF-16 码元(别把一个 emoji 劈成两半)
+    return chars.length > SESSION_BRIEF_TITLE_CHARS ? chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('') + '…' : text;
+  }
+  return '';
+}
+// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话
+// (原话是占位符且手上有正文时,退一档用首条用户消息的摘录,见上面 sessionFirstUserExcerpt 的头注)。
 // 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
 // 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
 // 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
@@ -4270,7 +4295,8 @@ function sessionDisplayTitle(o) {
   if (!o || o.titleSource === 'user') return raw;
   const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
   const generated = String((brief && brief.title) || '').trim();
-  return generated || raw;
+  if (generated || !isUntitledSessionTitle(raw)) return generated || raw;
+  return sessionFirstUserExcerpt(o) || raw;
 }
 
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
@@ -36066,7 +36092,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选四条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合);② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);④ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
+    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选五条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合);② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它已经排在队里、还没轮到它开跑(等锁/等预算/等并发位)→ 这句话【递不进去】,返回 {ok:false,error:"steward.queued",wait:{reason,label}};此时【不要重试】,把 wait.label 说给用户听,等它开跑之后再递一次;④ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);⑤ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
@@ -45975,11 +46001,13 @@ function stewardApplyThreadTier(session, tier, config) {
 //
 // 单点判定 + 单点执行:13g 的 steward_thread_continue 与 POST /api/steward/relay 都走这里,
 // 抽屉「直接对这条线程说」不必再自己在 /api/steer 与 /api/chat/stream 之间猜。判定顺序固定:
-//   answer(在等回答)> permission(在等批准)> steer(在跑)> turn(空闲)。
+//   answer(在等回答)> permission(在等批准)> queued(在仲裁器队列里排着)> steer(在跑)> turn(空闲)。
 // 每一条都复用【既有】核心,不新造第二条通路:answer 走 decideIntervention(与 /api/chat/answer
 // 同一条),steer 走 steerSessionCore(与 /api/steer 同一条),turn 走 stewardLaunchTurn。
 // ════════════════════════════════════════════════════════════════════════════
-const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'steer', 'turn']);
+// 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
+// 见 stewardRelayChannelFor 里那段头注。
+const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
 
 // 判定单点。只读内存注册表(04 的三张待决表)与活回合表,零写入、零文件读 —— 判定必须便宜,
 // 它在每一次递话前都要跑一遍。用【内存】表而不是待决旁路账:旁路账里可能留着一条回合已经死掉的
@@ -45995,6 +46023,19 @@ function stewardRelayChannelFor(sessionId) {
     if (!entry || entry.sessionId !== sid || entry.commandApplying) continue;
     return { channel: 'permission', pendingId: String(rid), pendingType: 'permission' };
   }
+  // 117l-A1-fix (1)(§11.9;主会话在真夹具上复核 A1 时撞出来的边界,是真丢数据):线程【已经排在
+  // 仲裁器队列里、还没开跑】也是一种目标状态,而且它落在下面两道判据的缝里 —— 它不在 activeChildren
+  // 里(09 的 activeChildren.set 在回合本体里,回合本体要等 10 拿到并发位之后才开始跑),也没有任何
+  // 待决(有待决的回合根本不入队,见 stewardArbiterHasPending)。修前因此判成 turn -> stewardLaunchTurn
+  // 又排一个回合;锁一放两个回合前后脚被放行,后一个在 09 的
+  // `if (activeChildren.has) stopSession('superseded')` 里把前一个就地杀掉 —— 排队中那句话连同它的
+  // 回合一起没了(实测 turn_start x2 / turn_kill superseded / 正文只剩第二句)。这正是 §11.9 D2 要
+  // 杜绝的那种 supersede,只是换了个入口,所以判据加在这里、与另外四条同一处。
+  // 判据用 13h 既有的同步只读单点 stewardArbiterWait:非 null 就是「此刻真的排在队里」。
+  // 入队到 drain 首次判定之间有一个极短的窗口(条目已在队列、但马上会被放行),那一刻的递话也会被
+  // 判成 queued —— 保守方向:让用户再说一遍,远好过丢掉一整个回合。
+  const queuedWait = stewardArbiterWait(sid);
+  if (queuedWait) return { channel: 'queued', wait: waitReasonFor({ pending: 0 }, queuedWait) };
   if (activeChildren.has(sid)) return { channel: 'steer' };
   return { channel: 'turn' };
 }
@@ -46035,6 +46076,18 @@ async function stewardRelayDeliver(input) {
     // 不代答。放行一个动作与回答一句话是两件事:前者要用户看着命令原文点头(§3.3 永久豁免的同一条精神)。
     return stewardFail('propose_required', '它在等你批准一个动作,先去批了再递话', {
       reason: 'pending_permission', channel: 'permission', sessionId: sid, pendingId: decided.pendingId,
+    });
+  }
+
+  if (decided.channel === 'queued') {
+    // 117l-A1-fix (1):不启动回合。也【不】把这句话挂到排队项上 —— 那要改仲裁器的队列形状
+    // (entry 现在只有 sessionId/cwdKey/等待原因,没有「待递的话」这个概念),超出本轮;
+    // 而在两者之间,诚实地退回来让用户再说一遍是唯一不丢数据的选择。
+    // 人话里带上等待原因(与 steward_thread_status / 看板 / GET /api/missions 逐字同源的那个 label),
+    // 用户才知道自己在等什么、什么时候该再说一次。
+    const label = String((decided.wait && decided.wait.label) || '还没轮到它开跑');
+    return stewardFail('steward.queued', `线程「${stewardSanitizeText(title) || sid}」还在排队(${label}),这句先没递进去;等它开跑后再说一次`, {
+      channel: 'queued', sessionId: sid, wait: decided.wait || null,
     });
   }
 
@@ -46752,6 +46805,9 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       return send(res, apiFailure(code, {
         ...(result.channel ? { channel: result.channel } : {}),
         ...(result.reason ? { reason: result.reason } : {}),
+        // 117l-A1-fix (1):queued 的等待原因也带上(与工具面同一份结构化 wait)—— 抽屉据此能显示
+        // 「它在等锁 / 等预算 / 等并发位」,而不必去解析上面那句人话。别的通道没有这个键。
+        ...(result.wait ? { wait: result.wait } : {}),
       }, result.message || code, status));
     }
     return send(res, json(result));

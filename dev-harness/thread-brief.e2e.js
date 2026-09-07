@@ -279,6 +279,35 @@ try {
       'K5 线程搜索的 title 仍是原话 —— 管家要凭它认出用户当时的原始说法,压过的名字只是【多】给的');
     writeConfig();
   }
+
+  /* ═════════ (L) 占位标题不是名字 ═════════ */
+  // 117l-A1-fix ②(§11.9):未命名线程在第一回合结束、摘要生成之前,raw 就是后端占位符 'New session' ——
+  // 于是收件箱事件行写「线程「New session」(sess_x)」,routeHint 块与 humanize 出来的 say/why 也全是
+  // 「New session」,用户真机上管家说「十几条 New session 还在交办中」。占位符不是名字,它是「还没有名字」。
+  // 纯函数,直调判据单点(02 的 sessionDisplayTitle)—— 不需要跑回合。
+  console.log('── (L) 占位标题 + 有正文 → 首条用户消息摘录 ──');
+  {
+    const LONG = '帮我把这个季度的销售数据整理成一张表,并给出三条结论和下一步建议';
+    const msgs = t => [{ role: 'assistant', content: '(系统提示)' }, { role: 'user', content: t }];
+    ok(srv.sessionDisplayTitle({ id: 'sess_l1', title: 'New session', messages: msgs(LONG) }) === LONG.slice(0, 24) + '…',
+      `L1 占位标题 + 有首条用户消息 → 前 24 字 + …(got ${JSON.stringify(srv.sessionDisplayTitle({ id: 'sess_l1', title: 'New session', messages: msgs(LONG) }))})`);
+    ok(srv.sessionDisplayTitle({ id: 'sess_l2', title: '新会话', messages: msgs('看一下 README') }) === '看一下 README',
+      'L2 中文占位符同样认;不到 24 字不加省略号');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l3', title: 'New chat', messages: msgs('第一行\n第二行') }) === '第一行 第二行',
+      'L3 换行折成空格(标题是一行)');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l4', title: 'New session' }) === 'New session',
+      'L4 占位标题 + 拿不到正文(只有会话头/索引条目的调用面)→ 仍是占位,不去多读一次正文');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l5', title: 'New session', messages: [{ role: 'assistant', content: '你好' }] }) === 'New session',
+      'L5 正文里没有用户消息 → 仍是占位');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l6', title: '我自己起的名字', titleSource: 'user', messages: msgs(LONG) }) === '我自己起的名字',
+      'L6 红线:用户手改的标题一律不动(titleSource 为 user 时第一行就返回了)');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l7', title: 'New session', threadBrief: { title: 'AMD 收盘复盘' }, messages: msgs(LONG) }) === 'AMD 收盘复盘',
+      'L7 优先级不变:生成的名字仍压过摘录(摘录只是占位符的兜底)');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l8', title: '预算报告解读', messages: msgs(LONG) }) === '预算报告解读',
+      'L8 companion:raw 不是占位符时,摘录一步都不走(既有的「生成的名字 > 原话」逐字不变)');
+    ok(srv.sessionDisplayTitle({ id: 'sess_l9', title: 'New session', brief: { title: '索引条目形态' } }) === '索引条目形态',
+      'L9 索引条目形态(brief)照旧认');
+  }
 } catch (e) {
   console.log('ERROR ' + ((e && e.stack) || e));
   fail++;

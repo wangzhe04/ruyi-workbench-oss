@@ -756,7 +756,32 @@ function sessionMissionId(o) {
 // 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
 const SESSION_BRIEF_TITLE_CHARS = 24;
 const SESSION_BRIEF_GIST_CHARS = 80;
-// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话。
+// 117l-A1-fix (2)(27 号文 §11.9;用户真机天天看见):占位标题不是名字,它是「还没有名字」。
+// 未命名线程在第一回合结束、摘要(threadBrief)生成之前,raw 逐字就是后端占位符 'New session'
+// (createSession 写的),于是收件箱事件行写成「线程「New session」(sess_x)」、routeHint 块与
+// humanize 出来的 say/why 也全是「New session」—— 用户真机上管家说「十几条 New session 还在交办中」。
+// 补一档兜底:占位标题 + 【手上真有正文】时,用首条用户消息的前 24 个字顶上(与 SESSION_BRIEF_TITLE_CHARS
+// 同一个上限,摘要落盘后自然被生成的名字接管)。
+// 纪律三条:
+//   · 用户手改的标题(titleSource === 'user')在函数第一行就返回了,永远不受这一档影响;
+//   · 只在入参【自己带着正文】时才走(完整会话对象:GET /api/sessions/:id 的 loadSession 结果)。
+//     只有会话头 / 索引条目的调用面拿不到正文,那就仍旧保留占位 —— 这个函数在总览里每条线程都要跑
+//     一遍,为了一个名字去多读一次正文文件是不能接受的代价;
+//   · 优先级顺序一个字不动:人起的 > 生成的 > 原话,摘录只是【占位符这一种原话】的兜底。
+function sessionFirstUserExcerpt(o) {
+  const rows = (o && Array.isArray(o.messages)) ? o.messages : null;
+  if (!rows) return '';
+  for (const m of rows) {
+    if (!m || m.role !== 'user' || typeof m.content !== 'string') continue;
+    const text = m.content.replace(/\s+/g, ' ').trim();   // 标题是一行:换行折成空格
+    if (!text) continue;
+    const chars = [...text];   // 按字符切,不按 UTF-16 码元(别把一个 emoji 劈成两半)
+    return chars.length > SESSION_BRIEF_TITLE_CHARS ? chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('') + '…' : text;
+  }
+  return '';
+}
+// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话
+// (原话是占位符且手上有正文时,退一档用首条用户消息的摘录,见上面 sessionFirstUserExcerpt 的头注)。
 // 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
 // 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
 // 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
@@ -765,7 +790,8 @@ function sessionDisplayTitle(o) {
   if (!o || o.titleSource === 'user') return raw;
   const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
   const generated = String((brief && brief.title) || '').trim();
-  return generated || raw;
+  if (generated || !isUntitledSessionTitle(raw)) return generated || raw;
+  return sessionFirstUserExcerpt(o) || raw;
 }
 
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the

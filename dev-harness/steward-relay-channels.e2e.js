@@ -474,6 +474,75 @@ try {
     ok(!!(row && Object.prototype.hasOwnProperty.call(row, 'pending') && Object.prototype.hasOwnProperty.call(row, 'activeTurn')),
       'I2b 看板行的既有字段一个不少(只加不改)');
   }
+
+  /* ═════════ (J) queued 通道:线程还在仲裁器队列里时递话 ═════════ */
+  // 117l-A1-fix ①(§11.9;主会话在真夹具上复核 A1 时撞出来的边界,是真丢数据)。
+  // A1 的四条通道少了一种目标状态:线程【已经排在仲裁器队列里、还没开跑】。它不在 activeChildren 里
+  // (09 的 activeChildren.set 在回合本体里,而回合本体要等 10 拿到并发位之后才开始跑),也没有任何
+  // 待决 —— 于是修前判成 turn,stewardLaunchTurn 又排一个回合;锁一放两个回合前后脚被放行,后一个在
+  // 09 的 `activeChildren.has -> stopSession('superseded')` 里把前一个就地杀掉。修前的实测:
+  //   turn_start x2;turn_kill reason:'superseded';turn_end {ok:false,aborted:true} 再 {ok:true}
+  //   正文只剩第二句 —— 排队中那句话连同它的回合一起没了。
+  console.log('-- (J) queued 通道:线程还在排队时递话,不新开回合、不丢那句话 --');
+  {
+    // 同一个工作文件夹的两条线程:116h 的 cwd 写互斥会把后到的那条挡在队列里。
+    const sharedCwd = mkws();
+    const c1 = await request('POST', '/api/sessions', { title: '占着文件夹的', cwd: sharedCwd }, hdr);
+    const c2 = await request('POST', '/api/sessions', { title: '排队的', cwd: sharedCwd }, hdr);
+    const sidHold = c1.json && c1.json.session && c1.json.session.id;
+    const sidQ = c2.json && c2.json.session && c2.json.session.id;
+    const prevSlow = slowDelayMs;
+    slowDelayMs = 6000;   // 长回合,但别超过 10 秒(用例分钟级就太慢)
+    fireTurn(sidHold, 'SLOW 占住这个文件夹');
+    let holding = false;
+    for (let i = 0; i < 300; i++) {
+      const st = await request('GET', '/api/steward/arbiter', undefined, hdr);
+      if (((st.json && st.json.running) || []).some(r => r && r.sessionId === sidHold)) { holding = true; break; }
+      await sleep(60);
+    }
+    ok(holding, `J0 第一条线程占住了这个工作文件夹的写锁(sid=${sidHold})`);
+
+    const FIRST = '我是第一句,排队中';
+    fireTurn(sidQ, FIRST);
+    let queuedRow = null;
+    for (let i = 0; i < 300; i++) {
+      const st = await request('GET', '/api/steward/arbiter', undefined, hdr);
+      queuedRow = ((st.json && st.json.queue) || []).find(r => r && r.sessionId === sidQ) || null;
+      if (queuedRow) break;
+      await sleep(50);
+    }
+    ok(!!queuedRow, `J1 第二条线程排在仲裁器队列里(既不在 activeChildren、也没有待决;got ${JSON.stringify(queuedRow)})`);
+
+    const relayed = await request('POST', '/api/steward/relay', { sessionId: sidQ, message: '我是第二句,插队' }, hdr);
+    const err = (relayed.json && relayed.json.error) || null;
+    ok(relayed.status === 409 && !!err && err.code === 'steward.queued',
+      `J2 排队中递话 -> 409 steward.queued(got ${relayed.status}/${err && err.code})`);
+    ok(!!(err && /排队/.test(String(err.message || ''))),
+      `J3 人话说清了它还在排队、这句没递进去(got ${err && JSON.stringify(err.message)})`);
+
+    // 工具面走的是同一个判定/执行单点(与 A-E 段同一条纪律):此刻它还在排队,再递一次仍是 queued。
+    const viaTool = await relayViaTool(sidQ, '我是第三句,从工具面递');
+    const tr = viaTool.json && viaTool.json.result;
+    ok(!!(tr && tr.ok === false && tr.error === 'steward.queued' && tr.channel === 'queued' && tr.wait && tr.wait.reason === 'lock'),
+      `J3b 工具面同一条核心(got ${tr && (tr.error || 'ok')}/channel=${tr && tr.channel}/wait=${tr && JSON.stringify(tr.wait && tr.wait.reason)})`);
+
+    // 等排队那条真的跑完,再对账「排队中那句话还在不在」。
+    for (let i = 0; i < 400; i++) {
+      if (auditRows().some(r => r && r.kind === 'turn_end' && r.sessionId === sidQ)) break;
+      await sleep(100);
+    }
+    await sleep(600);
+    const starts = auditRows().filter(r => r && r.kind === 'turn_start' && r.sessionId === sidQ).length;
+    ok(starts === 1, `J4 排队的那条线程只开了 1 个回合(turn_start=${starts};修前是 2)`);
+    const kills = auditRows().filter(r => r && r.kind === 'turn_kill' && r.sessionId === sidQ).length;
+    ok(kills === 0, `J5 没有 turn_kill(superseded)(got ${kills})`);
+    const userRows = sessionMessages(sidQ).filter(m => m && m.role === 'user').map(m => String(m.content || ''));
+    ok(userRows[0] === FIRST, `J6 排队中的第一句话还在正文里(got ${JSON.stringify(userRows)})`);
+    const ends = auditRows().filter(r => r && r.kind === 'turn_end' && r.sessionId === sidQ);
+    ok(ends.length === 1 && ends[0].aborted !== true,
+      `J7 那一个回合正常收尾(不是 aborted;got ${JSON.stringify(ends.map(e => ({ ok: e.ok, aborted: e.aborted })))})`);
+    slowDelayMs = prevSlow;
+  }
 } finally {
   kill(wb);
   wb = null;

@@ -54,6 +54,21 @@ const runner = readSrc('13h-steward-runner.js');
     '① 优先级第一条:人起的名字压过一切(titleSource === \'user\' 直接回原话)');
   ok(/return generated \|\| raw;/.test(store),
     '① 优先级第二、三条:生成的名字 > 原话');
+  // 117l-A1-fix ②:第四档兜底 —— 原话是占位符('New session' / '新会话' / 'New chat')且手上真有
+  // 正文时,退一档用首条用户消息的摘录。上面那两条断言【一条没改】:优先级前三档逐字不变,
+  // 摘录只是「原话恰好是占位符」这一种情况的兜底(行为由 thread-brief.e2e.js 的 (L) 段跑出来验)。
+  ok(/if \(generated \|\| !isUntitledSessionTitle\(raw\)\) return generated \|\| raw;/.test(store),
+    '① 117l-A1-fix companion:占位符判据复用既有的 isUntitledSessionTitle(中英占位集单点),不另立一张表');
+  ok(/return sessionFirstUserExcerpt\(o\) \|\| raw;/.test(store),
+    '① 117l-A1-fix companion:第四档是首条用户消息的摘录,取不到仍旧回落原话(绝不返回空标题)');
+  {
+    const excerptDefs = fs.readdirSync(SRC).filter(f => f.endsWith('.js'))
+      .filter(f => /function\s+sessionFirstUserExcerpt\s*\(/.test(fs.readFileSync(path.join(SRC, f), 'utf8')));
+    ok(excerptDefs.length === 1 && excerptDefs[0] === '02-session-store.js',
+      `① 117l-A1-fix companion:摘录函数也只定义一次,且与判据住同一处(实得 ${JSON.stringify(excerptDefs)})`);
+  }
+  ok(/const rows = \(o && Array\.isArray\(o\.messages\)\) \? o\.messages : null;\s*\n\s*if \(!rows\) return '';/.test(store),
+    '① 117l-A1-fix companion:只在入参【自己带着正文】时才走(会话头/索引条目的调用面不去多读一次正文文件)');
 }
 
 /* ── ② 消费面六个装配点 ─────────────────────────────────────────────────────── */

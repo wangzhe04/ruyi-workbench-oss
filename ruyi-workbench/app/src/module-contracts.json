@@ -693,6 +693,7 @@
         "sessionDisplayTitle",
         "sessionEngineRouteFromConfig",
         "sessionEngineRouteOverrides",
+        "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
         "sessionIndexPath",
