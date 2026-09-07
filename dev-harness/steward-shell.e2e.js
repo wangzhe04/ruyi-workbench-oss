@@ -160,8 +160,10 @@ const SHELL_SNAPSHOT = `(() => {
     status: document.getElementById('stewardStatus').textContent,
     focused: document.activeElement ? document.activeElement.id : '',
     previewPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 30000).length,
-    // 117b：管家自己的状态轮询周期跟 config.stewardPollMs 一致，测试固定端配置为默认值 15000。
-    stewardPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 15000).length,
+    // 117b：管家自己的状态轮询。117j W2-4 重钉：表按 5s 下限起（真要不要拉由 pollStewardTick 自己判，
+    // 见 steward-shell.js 那段头注），所以「这是管家的计时器」的身份判据从 config.stewardPollMs
+    // 重钉到 5000 —— 不改的话本断言恒为 0，D8 会从「轮询在跑」变成永远失败。
+    stewardPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 5000).length,
     avatarState: document.getElementById('stewardAvatar')?.dataset.state || '',
   };
 })()`;
@@ -311,7 +313,7 @@ try {
     return snapshot.stewardPollTimers > 0 ? snapshot : null;
   })()`);
   ok(stewardPolling && stewardPolling.stewardPollTimers > 0,
-    'D8 管家壳自己对 /api/steward/state 的状态轮询在跑(默认 15s 周期,只在管家模式下才起)');
+    'D8 管家壳自己对 /api/steward/state 的状态轮询在跑(表按 5s 下限起,只在管家模式下才起)');
 
   // ─── ③ 刷新恢复 + 管家 → 经典 → 预览全链路一致 ────────────────────────────────
   await cdp.evaluate('location.reload(); true');

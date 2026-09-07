@@ -175,7 +175,15 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 117 走查修正（用户 2026-09-06）重钉：steward-avatar.css / steward-settings.css 头注释里的
 // 「--dur-*/--ease-out」把注释提前关掉、吞掉了各自后面的第一条规则（头像被撑到 300 多像素），改写注释；
 // steward-conversation.css 末尾追加按钮与候选项的一行截断。既有层规则零改动。
-const LEGACY_STYLES_SHA256 = '6db4f137da16b399470c559242cd3c986220a508d35aff686c5b9c01328f7a7a';
+// 117j（前端走查修复，用户 2026-09-06 第二轮走查 W2-2/W2-3）重钉，两处都落在管家壳自己的所有权层：
+//   · steward-conversation.css：① 补 .steward-target-picker[hidden]{display:none} —— 上面那条 display:flex
+//     是作者样式，压过了 UA 表的 [hidden]，JS 写的 picker.hidden 只改了 DOM 没改屏幕（W2-2「候选列表
+//     关不掉、进壳就自己弹出来」的根因）；本仓已有四处同款守卫（.steward-drawer / .steward-chip-menu /
+//     .steward-shield-menu / .steward-now），这里补上漏掉的第五处。② W2-3 的 36px 头像槽
+//     （.steward-avslot，绝对定位，历史消息靠 :empty::before 画静态点）。
+//   · steward-shell.css：W2-3 头部那枚 6px 状态点（.steward-presence-dot，七态颜色与 avatar 层同令牌）。
+// 无新样式层、link/@import/overlay 顺序不变，经典与 Preview 层规则零漂移。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'ae5f47461b6a715ffc26569078e573a597d9bf9f4376ebc77dc60ca5e9b970c6';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

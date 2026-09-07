@@ -42,7 +42,11 @@ const THREAD_C = '选个框架';
 // A 的最后一条助手消息：四句，末句是问句。抽屉只该显示前三句（§8.13「≤3 句」）。
 const A_REPLY = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。要不要我把汇总也做了？';
 const A_FIRST3 = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。';
-const POLL_MS = 120000;   // 轮询周期拉满：测试窗口内不会自己 tick，计时器只按周期数个数
+const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
+// 117j W2-5：表按 5s 下限起（见 steward-drawer.js pollSlice 头注），所以数计时器要按这个周期。
+// 表虽然每 5 秒响一次，但 pollSlice 第一件事就是「离上次拉够 120000ms 了吗」——不够就原地返回，
+// 测试窗口内一个请求都不会多发，断言仍然是确定的。
+const TICK_MS = 5000;
 
 function browserPath() {
   return [
@@ -438,7 +442,9 @@ try {
     `B14 快切 chip 三个：权限／模型／引擎（实测 ${JSON.stringify(openedA.chipKeys)}）`);
   ok(openedA.chipValues[0] === zh['stewardShell.chips.followGlobal'],
     `B14b 权限 chip 初始是「跟随全局」（实测「${openedA.chipValues[0]}」）`);
-  ok(openedA.intervals.filter(ms => ms === POLL_MS).length === 2,
+  // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
+  // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
+  ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 2,
     `B15 抽屉自己的轮询与 avatar 轮询各一（实测 ${JSON.stringify(openedA.intervals)}）`);
 
   // ── ⑤ 权限 chip 切「改文件不问」 ────────────────────────────────────────────
@@ -532,7 +538,7 @@ try {
   })()`);
   ok(Boolean(closed), 'F1 Esc 关闭抽屉');
   ok(closed && closed.shellDrawer === '', 'F1b 关闭后管家壳不再让出右栏');
-  ok(closed && closed.intervals.filter(ms => ms === POLL_MS).length === 1,
+  ok(closed && closed.intervals.filter(ms => ms === TICK_MS).length === 1,
     `F2 关抽屉即停表，只剩 avatar 那一个轮询（实测 ${closed && JSON.stringify(closed.intervals)}）`);
 
   // ── ⑨ 切回经典壳：零残留定时器 ──────────────────────────────────────────────
@@ -546,7 +552,7 @@ try {
     const snapshot = ${DRAWER};
     return document.documentElement.getAttribute('data-shell-mode') === 'classic' ? snapshot : null;
   })()`);
-  ok(Boolean(classic) && classic.intervals.filter(ms => ms === POLL_MS).length === 0,
+  ok(Boolean(classic) && classic.intervals.filter(ms => ms === TICK_MS).length === 0,
     `G1 切回经典壳后管家侧零残留定时器（实测 ${classic && JSON.stringify(classic.intervals)}）`);
   ok(Boolean(classic) && classic.hidden === true, 'G2 抽屉在经典壳里保持关闭');
 } catch (error) {

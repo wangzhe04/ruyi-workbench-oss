@@ -40,6 +40,25 @@ export const STEWARD_MENU_SECTIONS = Object.freeze([
 export const STEWARD_PRIMARY_CLASS = 'is-primary';
 // 117 走查（用户 2026-09-06）：线程标题常常是用户说的一整句话。CSS 的一行省略号只救了按钮的
 // 宽度，读屏念的 aria-label 与灰字回执还是整段。这里在【文案层】就截短，界面与读屏一个口径。
+// 117j W2-1（用户 2026-09-06 第二轮走查①）：这三个工具【执行成功】就意味着「有一条线程现在该被看见」。
+// 只认已执行的 actions，不认降级成按钮的 acts —— 后者还没发生，自动展示会抢在用户的判断前面。
+export const STEWARD_THREAD_OPENING_TOOLS = Object.freeze(['steward_thread_new', 'steward_quick_ask', 'steward_thread_continue']);
+
+// 本回合最后一条真开出来的线程 id（一回合最多动 3 条，取最后一条 = 事情发生的顺序里最新的那条）。
+// 纯函数、零 DOM —— dev-harness/unit/steward-focus-thread.test.js 直接跑真值表。
+export function executedThreadSessionId(actions) {
+  let sessionId = '';
+  for (const row of (Array.isArray(actions) ? actions : [])) {
+    if (!row || !STEWARD_THREAD_OPENING_TOOLS.includes(String(row.tool || ''))) continue;
+    const result = row.result;
+    // ok !== true 一律不算：失败自不必说，propose_required（降级成按钮）也是「还没开」。
+    if (!result || result.ok !== true) continue;
+    const id = String(result.sessionId || (row.args && row.args.sessionId) || '');
+    if (id) sessionId = id;
+  }
+  return sessionId;
+}
+
 export const STEWARD_TITLE_MAX = 24;
 export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
   const text = String(title == null ? '' : title).trim();
@@ -139,11 +158,37 @@ export function createStewardConversation({
     return detailsOn;
   }
 
+  // ── 117j W2-3：头像跟着话走（用户 2026-09-06 第二轮走查③，推翻 2026-09-05 §8.x「固定顶部」）──
+  // 搬的是【同一个】 #stewardAvatar 节点，不复制 SVG —— 所以 117b 那套 presence 渲染
+  // （data-state ＋ .pulse/.shake ＋ aria-live 文字）一个字都不用改，它写的还是同一个元素。
+  // 历史管家消息左边留一个静态小圆点：由 CSS 的 .steward-avslot:empty::before 画，零 DOM、零 SVG 复制。
+  //
+  // **搬走之前必须先送回头部**：feed 一清（clearFeed）或某一行被移除（流失败的两处 removeChild）时，
+  // 头像若还在那一行里就会跟着被销毁 —— 之后 byId('stewardAvatar') 恒 null，presence 再也画不出来。
+  // 这是本条改动唯一的真陷阱，所以 park 在三个销毁点各调一次。
+  function parkAvatar() {
+    const avatar = byId('stewardAvatar');
+    const header = byId('stewardHeader');
+    if (!avatar || !header || avatar.parentNode === header) return false;
+    header.insertBefore(avatar, header.firstChild);
+    return true;
+  }
+  function moveAvatarTo(row) {
+    const avatar = byId('stewardAvatar');
+    if (!avatar || !row) return false;
+    const slot = row.querySelector('.steward-avslot');
+    if (!slot || avatar.parentNode === slot) return false;
+    slot.appendChild(avatar);
+    return true;
+  }
+
   // ── 气泡 ──────────────────────────────────────────────────────────────────────
   function appendRow(kind) {
     const feed = feedEl();
     if (!feed) return null;
     const row = el('div', `steward-msg steward-msg-${kind}`);
+    // 管家的每一行都留一个 36px 的槽：最新那一行装真头像，其余靠 CSS 的 :empty::before 画静态点。
+    if (kind === 'ruyi') row.appendChild(el('span', 'steward-avslot'));
     feed.appendChild(row);
     feed.scrollTop = feed.scrollHeight;
     return row;
@@ -185,6 +230,7 @@ export function createStewardConversation({
   function appendSteward(say, why, extraWhyLines) {
     const row = appendRow('ruyi');
     if (!row) return null;
+    moveAvatarTo(row);   // W2-3：头像永远在【最新】一条管家的话旁边
     const sayNode = el('p', 'steward-say', String(say || ''));
     row.appendChild(sayNode);
     row.appendChild(attachWhy(sayNode, why, extraWhyLines));
@@ -323,6 +369,7 @@ export function createStewardConversation({
   function appendTyping() {
     const row = appendRow('ruyi');
     if (!row) return null;
+    moveAvatarTo(row);   // W2-3：「···」占位一出现，头像先搬过去（它就是这一回合管家所在的位置）
     const dots = el('div', 'steward-typing');
     dots.setAttribute('aria-label', t('stewardShell.chat.thinking'));
     for (let i = 0; i < 3; i++) dots.appendChild(el('span', 'steward-typing-dot', '·'));
@@ -400,6 +447,7 @@ export function createStewardConversation({
       finishReply(row, sayNode, reply, tools, message);
       return reply;
     } catch (error) {
+      parkAvatar();   // W2-3 陷阱：这一行马上要被移除，头像若还在里面会一起没
       if (row && row.parentNode) row.parentNode.removeChild(row);
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
       if (engineProblemInfo(error)) {
@@ -446,6 +494,7 @@ export function createStewardConversation({
       // 一个空行和 ※。引擎不支持 → 换成人话＋「改用某端点／去设置」并可自动重发；其它错误至少把后端
       // 给的人话（message）放进 say，绝不留空行。
       if (stewardErrorCode(reply.error) === 'steward.unsupported_engine') {
+        parkAvatar();   // W2-3 陷阱：同上
         if (row.parentNode) row.parentNode.removeChild(row);
         showEngineProblem(() => sendToSteward(sourceMessage));
         return;
@@ -455,6 +504,10 @@ export function createStewardConversation({
     }
     setPresence({ lastError: '' });
     renderActs(row, reply.acts);
+    // W2-1：回合结束即展示管家刚开的那条线程（宽屏切「现在这一件」，窄屏开抽屉——两者都接
+    // steward:focus-thread）。管家的话后面仍然保留「打开」按钮，只是不必再点了。
+    const opened = executedThreadSessionId(reply.actions);
+    if (opened) focusThread(opened);
   }
 
   // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）。
@@ -583,10 +636,13 @@ export function createStewardConversation({
   // ── §8.9 每次打开只汇报本次 ─────────────────────────────────────────────────
   let visitBusy = false;
   let visitStartedAt = '';
+  // 117j W2-4：对话流已经画到哪一条（createdAt 水位）。进壳渲染历史时一路推高，收件箱增量以它为界。
+  let lastRenderedAt = '';
 
   function clearFeed() {
     const feed = feedEl();
     if (!feed) return;
+    parkAvatar();   // W2-3 陷阱：不先送回头部，头像会跟着被清掉的那一行一起消失
     while (feed.firstChild) feed.removeChild(feed.firstChild);
   }
 
@@ -656,6 +712,9 @@ export function createStewardConversation({
       if (!message || (message.role !== 'user' && message.role !== 'assistant')) continue;
       const at = Date.parse(String(message.createdAt || ''));
       if (Number.isFinite(at) && at < floor) continue;
+      // 117j W2-4：记住「已经画到哪一条」的水位。ISO 8601 是定长 UTC 串，字典序即时间序。
+      const stampAt = String(message.createdAt || '');
+      if (stampAt && stampAt > lastRenderedAt) lastRenderedAt = stampAt;
       if (message.role === 'user') {
         // 收件箱触发的回合没有「用户的话」：那条 user 消息是系统事件，落盘在 meta.origin='inbox'
         // 上（09-workflow 的 messageMeta），不是用户本人说的，不该在对话流里冒充成用户气泡。
@@ -673,6 +732,30 @@ export function createStewardConversation({
     return rendered;
   }
 
+  // 117j W2-4（用户走查⑤「收件箱触发的回复不进对话流」）：线程跑完 → 收件箱唤醒管家 → 管家回了一句，
+  // 而屏幕上一个字都不变 —— 那条回复只落在会话文件里，对话流却只在【进壳】那一刻渲染过一次历史。
+  // 这里按 116-4 新加的 「?since=」 拉增量（整份拉一条长会话是几百 KB 的重复载荷），只画比已画过的
+  // 最后一条更新的那些。去重口径是 createdAt：「?since=」 在服务端已按它过滤，这里只需记住水位。
+  async function appendSince(sinceIso) {
+    const since = String(sinceIso || lastRenderedAt || visitStartedAt || '');
+    if (!since) return 0;
+    let payload = null;
+    try { payload = await api('/api/sessions/steward?since=' + encodeURIComponent(since)); } catch { return 0; }
+    const messages = (payload && payload.session && Array.isArray(payload.session.messages)) ? payload.session.messages : [];
+    if (!messages.length) return 0;
+    const rendered = renderHistorySince(messages, since);
+    if (!rendered) return 0;
+    // W2-1 同款：这一轮里管家自己开／续的线程，追加完就直接展示（收件箱回合尤其需要 ——
+    // 用户根本没在跟管家说话，屏幕上得自己把结果摆出来）。
+    let lastStamp = null;
+    for (const message of messages) {
+      if (message && message.role === 'assistant' && message.steward && typeof message.steward === 'object') lastStamp = message.steward;
+    }
+    const opened = lastStamp ? executedThreadSessionId(lastStamp.actions) : '';
+    if (opened) focusThread(opened);
+    return rendered;
+  }
+
   async function enterVisit() {
     if (visitBusy) return null;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return null;
@@ -687,6 +770,7 @@ export function createStewardConversation({
       try { history = await api('/api/sessions/steward'); } catch { history = null; }
       const messages = (history && history.session && Array.isArray(history.session.messages)) ? history.session.messages : [];
       clearFeed();
+      lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
       let rendered = 0;
       if (visit.newVisit === true) {
         const nothing = !pending.length && !visit.focus
@@ -782,6 +866,9 @@ export function createStewardConversation({
     appendSteward,
     renderActs,
     setDetails,
+    // 117j W2-4：壳层的状态轮询发现 lastReply 变了且 trigger==='inbox' 时调它（对话流的写口只有
+    // 本模块，壳层不碰 feed 的 DOM）。
+    appendSince,
     detailsEnabled: () => detailsOn,
     visitStartedAt: () => visitStartedAt,
   });

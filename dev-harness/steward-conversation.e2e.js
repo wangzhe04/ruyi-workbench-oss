@@ -196,6 +196,25 @@ const FEED = `(() => {
     chip: chip && chip.querySelector('.steward-target-label') ? chip.querySelector('.steward-target-label').textContent : '',
     fetches: (window.__ruyiFetchLog || []).slice(),
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
+    // 117j W2-3（头像跟着话走）：头像现在应该在【最后一条】管家的话左边那个 36px 槽里。
+    // 全部走公开 DOM，不碰任何私有状态：谁是它的父节点、那个父节点属于哪一行、页面上还剩几个头像。
+    avatarSlot: (() => {
+      const avatar = document.getElementById('stewardAvatar');
+      if (!avatar || !avatar.parentElement) return '';
+      return avatar.parentElement.className || '';
+    })(),
+    avatarOnLastRuyi: (() => {
+      const avatar = document.getElementById('stewardAvatar');
+      const ruyiRows = [...feed.querySelectorAll('.steward-msg-ruyi')];
+      const last = ruyiRows[ruyiRows.length - 1] || null;
+      return Boolean(avatar && last && last.contains(avatar));
+    })(),
+    avatarCount: document.querySelectorAll('#stewardAvatar, .steward-avatar').length,
+    avslots: feed.querySelectorAll('.steward-avslot').length,
+    presenceDot: (() => {
+      const dot = document.getElementById('stewardPresenceDot');
+      return dot ? String(dot.dataset.state || '') : '';
+    })(),
   };
 })()`;
 
@@ -364,6 +383,20 @@ try {
   ok(turnActs.length === 2 && !turnActs.includes('第四个'),
     `C5 一行按钮 ≤3（剧本给了 4 个，本回合只渲染出 3 个：知道了/改一下/再看看，第四个被丢弃；实测 ${JSON.stringify(turnActs)}）`);
 
+  // ─── 117j W2-3：头像跟着话走（用户 2026-09-06 第二轮走查③，推翻「固定顶部」的拍板）────────
+  ok(Boolean(typing) && typing.avatarOnLastRuyi === true,
+    'W2-3a「···」占位一出现，头像就已经在那一行旁边（它是这一回合管家所在的位置）');
+  ok(Boolean(settledTurn) && settledTurn.avatarSlot === 'steward-avslot',
+    `W2-3b 回合结束后头像住在 36px 的槽里（实测父节点 class「${settledTurn && settledTurn.avatarSlot}」）`);
+  ok(Boolean(settledTurn) && settledTurn.avatarOnLastRuyi === true,
+    'W2-3c 头像在【最后一条】管家的话旁边');
+  ok(Boolean(settledTurn) && settledTurn.avatarCount === 1,
+    `W2-3d 全页只有一个头像节点 —— 是【搬】不是【复制】（实测 ${settledTurn && settledTurn.avatarCount} 个）`);
+  ok(Boolean(settledTurn) && settledTurn.avslots >= 2 && settledTurn.avslots >= settledTurn.rows - settledTurn.users,
+    `W2-3e 每一条管家的话都有槽（历史那些是空槽，靠 CSS 的 :empty::before 画静态点；实测槽 ${settledTurn && settledTurn.avslots} 个）`);
+  ok(Boolean(settledTurn) && settledTurn.presenceDot !== '',
+    `W2-3f 头部那枚 6px 状态点有态（头像搬走之后它是头部唯一的状态投影；实测「${settledTurn && settledTurn.presenceDot}」）`);
+
   // ─── ③ 点 dismiss → 灰字回执 ──────────────────────────────────────────────────
   const receiptsBefore = settledTurn ? settledTurn.receipts.length : 0;
   await cdp.evaluate(`(() => {
@@ -465,10 +498,15 @@ try {
     const mode = document.documentElement.getAttribute('data-shell-mode');
     return mode === 'classic' ? ${FEED} : null;
   })()`);
-  ok(Boolean(classic) && classic.intervals.filter(ms => ms === 120000).length === 0,
+  // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
+  // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
+  ok(Boolean(classic) && classic.intervals.filter(ms => ms === 5000).length === 0,
     'H1 回经典后管家状态轮询计时器被清');
   ok(Boolean(classic) && classic.intervals.filter(ms => ms === 1000).length <= (baseline ? baseline.thousand : 0),
     `H2 回经典后没有残留的撤回倒计时（1000ms 计时器不多于基线 ${baseline ? baseline.thousand : 0}）`);
+  ok(Boolean(classic) && classic.avatarCount === 1,
+    `H3 117j W2-3：回经典之后头像节点仍然只有一个、且还活着（clearFeed / 移除失败行之前都先 park 过；
+        它一旦跟着某一行被销毁，presence 从此再也画不出来。实测 ${classic && classic.avatarCount} 个）`);
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

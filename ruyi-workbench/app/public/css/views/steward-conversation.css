@@ -26,6 +26,31 @@
   background: var(--accent-soft);
 }
 .steward-msg-ruyi { align-self: flex-start; }
+
+/* 117j W2-3（用户 2026-09-06 第二轮走查③，推翻 2026-09-05「头像固定顶部」的拍板）：
+   头像跟着最新一条管家的话走。槽用【绝对定位】而不是把消息行改成横向 flex —— 后者要给每一行
+   再套一层容器，会动到所有既有子元素的层级；绝对定位只多一条 padding，行内结构一个字不变。 */
+.steward-msg-ruyi { position: relative; padding-inline-start: 44px; }
+.steward-avslot {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+/* 真头像在槽里时缩到 36px（头部那一份仍是 56px）。 */
+.steward-avslot .steward-avatar { width: 36px; height: 36px; }
+/* 历史消息：槽是空的，画一个静态小圆点即可 —— 不复制 SVG、不多一个 DOM 节点。 */
+.steward-avslot:empty::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--glass-border-strong);
+}
 .steward-say {
   margin: 0;
   white-space: pre-wrap;
@@ -248,6 +273,12 @@
   box-shadow: var(--glass-shadow);
   padding: var(--sp-1);
 }
+/* 117j W2-2（用户走查②「候选列表关不掉」的根因）：上面那条 display:flex 是作者样式，
+   它压过 UA 表里的 [hidden]{display:none} —— JS 写的 picker.hidden 于是只改了 DOM、没改屏幕。
+   同一条纪律在本仓已有先例（.steward-drawer[hidden] / .steward-chip-menu[hidden] /
+   .steward-shield-menu[hidden] / .steward-now[hidden]），这里补上漏掉的这一处。 */
+.steward-target-picker[hidden] { display: none; }
+
 .steward-target-option {
   min-height: 0;
   font: inherit;

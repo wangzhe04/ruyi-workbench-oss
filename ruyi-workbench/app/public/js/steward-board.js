@@ -33,6 +33,8 @@ import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
 // 后台计时器（§3.4 红线的延伸）。
 
 export const STEWARD_BOARD_POLL_MS_MIN = 5000;
+// 同 steward-drawer.js：setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍。
+const POLL_DUE_SLACK_MS = 250;
 export const STEWARD_BOARD_POLL_MS_DEFAULT = 15000;
 export const STEWARD_NOW_CLOSED_KEY = 'wcw.stewardNowClosed';
 export const STEWARD_NOW_MIN_WIDTH = 1000;
@@ -518,6 +520,7 @@ export function createStewardBoard({
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────────
   // 行没变（304）就不重画正文 —— 既省事，也不会在用户正开着某个 chip 菜单时把它连根拔掉。
   async function refreshBoard() {
+    lastRefreshAt = Date.now();   // 117j W2-5：手动刷新也重置节拍，不让下一拍紧跟着再拉一次
     const changed = await loadMissions();
     await loadArbiter();
     if (changed) renderBoard();
@@ -532,6 +535,19 @@ export function createStewardBoard({
     return Number.isFinite(raw) && raw > 0 ? Math.max(STEWARD_BOARD_POLL_MS_MIN, raw) : STEWARD_BOARD_POLL_MS_DEFAULT;
   }
 
+  // 117j W2-5（用户走查④，与抽屉同一条纪律）：表按下限（5s）走，真要不要拉由这一拍自己判 ——
+  // 有线程在跑就每拍都拉（「跑完了」最多 5 秒就出现在看板与「现在这一件」上），空闲时仍按配置节拍。
+  // 不动态换表的理由同抽屉：F1/F3 锁死了本模块只有一处 setInterval 与那一个 syncPolling 形状。
+  let lastRefreshAt = 0;
+  function anyThreadRunning() {
+    return rows.some(row => row && row.activeTurn === true);
+  }
+  async function pollTick() {
+    const due = anyThreadRunning() ? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs();
+    if (Date.now() - lastRefreshAt < due - POLL_DUE_SLACK_MS) return;
+    await refreshBoard();
+  }
+
   let pollTimer = 0;
   function stopPolling() {
     if (!pollTimer) return;
@@ -540,7 +556,8 @@ export function createStewardBoard({
   }
   function startPolling() {
     if (pollTimer) return;
-    pollTimer = setInterval(() => { void refreshBoard(); }, pollIntervalMs());
+    // 表走下限，节拍由 pollTick 自己按「有没有在跑的线程」判（见那里的头注）。
+    pollTimer = setInterval(() => { void pollTick(); }, STEWARD_BOARD_POLL_MS_MIN);
   }
   // 唯一入口：看板打开 且 还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
   function syncPolling() {
@@ -629,5 +646,8 @@ export function createStewardBoard({
       return row ? String(row.missionTitle || row.title || '') : '';
     },
     focusThreadId: () => currentFocusId(),
+    // 117j W2-4：壳层的状态轮询要按「有没有线程在跑」决定节拍。这个事实看板每一拍都已经算过
+    // （行上的 activeTurn），开放一个只读句柄比让壳层再拉一次 /api/missions 便宜得多。
+    hasRunningThread: () => anyThreadRunning(),
   });
 }

@@ -588,6 +588,10 @@
         </button>
         <div class="steward-header-text">
           <strong class="steward-name" data-i18n="stewardShell.name">如意</strong>
+          <!-- 117j W2-3（用户 2026-09-06 第二轮走查③，推翻 2026-09-05「头像固定顶部」的拍板）：
+               头像跟着最新一条管家的话走之后，头部就没有那张脸了。这枚 6px 的点补上「它现在什么态」
+               这一半信息 —— 颜色与 #stewardAvatar 读同一个 data-state（一处 presence，两处投影）。 -->
+          <span id="stewardPresenceDot" class="steward-presence-dot" data-state="idle" aria-hidden="true"></span>
           <span id="stewardPresenceText" class="steward-presence-text" aria-live="polite"></span>
           <!-- 117h（§8.2 L1「一行状态（点开即看板）」）：文案由 js/steward-board.js 按 /api/missions
                的行现算（N 个事项 · A 条在跑，B 条等你），点一下把 #stewardBoard 拉下来。 -->

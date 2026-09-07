@@ -110,8 +110,13 @@ const clearIntervalSites = (stewardShell.match(/clearInterval\(/g) || []).length
 const apiCallSites = (stewardShell.match(/\bapi\(/g) || []).length;
 ok(setIntervalSites === 1 && clearIntervalSites === 1,
   'C2a 全文件恰好一处 setInterval、一处 clearInterval(不会散落出第二套计时)');
-ok(/function startPolling\(\) \{\s*if \(pollTimer\) return;\s*pollStewardState\(\);\s*pollTimer = setInterval\(pollStewardState, pollIntervalMs\(\)\);\s*\}/.test(stewardShell),
+// 117j W2-4 重钉：表按 5s 下限起（不再等于 config.stewardPollMs），真要不要拉由 pollStewardTick
+// 自己判。「setInterval 只住在 startPolling 里」这条契约本身一个字没变，变的只是它的两个参数。
+ok(/function startPolling\(\) \{\s*if \(pollTimer\) return;\s*pollStewardState\(\);\s*pollTimer = setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\);\s*\}/.test(stewardShell),
   'C2b setInterval 只住在 startPolling 里');
+ok(/function pollStewardTick\(\) \{\s*const due = stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\);/.test(stewardShell)
+  && /if \(presenceInputs\.inflight\) return true;/.test(stewardShell),
+  'C2b2 节拍由 pollStewardTick 判：壳可见且真有事在跑才用 5s，否则仍按 config.stewardPollMs（后端下限未动）');
 ok(/function stopPolling\(\) \{\s*if \(!pollTimer\) return;\s*clearInterval\(pollTimer\);\s*pollTimer = 0;\s*\}/.test(stewardShell),
   'C2c clearInterval 只住在 stopPolling 里');
 ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);\s*\}/.test(stewardShell),

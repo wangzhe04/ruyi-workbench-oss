@@ -2745,6 +2745,7 @@
   ,"stewardShell.drawer.steered": "Slipped it in mid-turn."
   ,"stewardShell.drawer.answered": "Answered for you."
   ,"stewardShell.drawer.failed": "Did not go through: {{error}}"
+  ,"stewardShell.drawer.settled": "Wrapped up · {{elapsed}}"
   ,"stewardShell.drawer.state.dispatching": "Dispatching"
   ,"stewardShell.drawer.state.running": "Running"
   ,"stewardShell.drawer.state.needs_you": "Needs you"

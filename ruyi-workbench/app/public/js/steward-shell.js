@@ -49,6 +49,8 @@ export const STEWARD_SHELL_SLOT_IDS = Object.freeze([
 // (config 已经 clamp 过一次，这里只防「配置还没到达/被清空」时退回 15000 默认值)。
 const STEWARD_POLL_MS_DEFAULT = 15000;
 const STEWARD_POLL_MS_MIN = 5000;
+// setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍（与 steward-drawer/board 同一常量口径）。
+const POLL_DUE_SLACK_MS = 250;
 
 // 骨架齐备 = 同级容器在，且四个空位都在。纯 DOM 判定，无副作用，测试与 UI 共用同一口径。
 export function stewardShellDomReady(doc = globalThis.document) {
@@ -168,6 +170,10 @@ export function createStewardShellDomain({
         else if (next === 'error') { void avatar.offsetWidth; avatar.classList.add('shake'); }
       }
     }
+    // 117j W2-3：头部那枚 6px 状态点。头像跟着话走之后它是头部唯一的状态投影，读的仍是这一处
+    // 算出来的 next —— 绝不另起一份判据（117b 的「三处一次写完」现在是四处，仍然只有一个真值）。
+    const dot = byId('stewardPresenceDot');
+    if (dot) dot.dataset.state = next;
     const text = byId('stewardPresenceText');
     if (text) text.textContent = t(presenceLabelKey(next), { detail: '' });
     return next;
@@ -183,10 +189,32 @@ export function createStewardShellDomain({
   // 「有提议待批」；117c 改接真值 —— POST /api/steward/visit 回的 `pending[]` 就是仍待决的提议清单，
   // 由 steward-conversation.js 的 enterVisit() 直接写进 presence.pendingCount(每次进壳刷新一次)。
   // 轮询这一路因此【不再】碰 pendingCount，只管 stopped/inflight/lastError 三个真有的字段。
+  // 117j W2-4：对话流已渲染到的最后一条 lastReply.at。空 = 还没轮询过一次（此时的 lastReply 属于
+  // 进壳前，enterVisit 已经把它画进历史了，再追加一次就重了）。
+  let lastReplyAt = '';
+  let lastStateAt = 0;
+
+  // 节拍：壳可见【且】真有事情在跑时用 5 秒，否则仍按配置（默认 15 秒）。「有事情在跑」= 管家自己
+  // 有在途回合，或看板那份行里有线程在跑 —— 后者看板每一拍都已经算过，这里只读它的句柄。
+  // **后端的 stewardPollMs 下限一个字没动**：这是前端自己的节拍，不是配置。
+  function stewardPollFast() {
+    if (!isStewardMode() || (globalThis.document && globalThis.document.hidden)) return false;
+    if (presenceInputs.inflight) return true;
+    try { return board.hasRunningThread() === true; } catch { return false; }
+  }
+  // 表按下限走，真要不要拉由这一拍自己判（与 steward-drawer.js／steward-board.js 逐字同一条纪律：
+  // 动态换表会多一处 clearInterval 或多一个 start/stop 调用点，撞上 steward-avatar.static 的 F1/F3）。
+  function pollStewardTick() {
+    const due = stewardPollFast() ? STEWARD_POLL_MS_MIN : pollIntervalMs();
+    if (Date.now() - lastStateAt < due - POLL_DUE_SLACK_MS) return;
+    pollStewardState();
+  }
+
   function pollStewardState() {
     if (typeof api !== 'function') return;
     Promise.resolve(api('/api/steward/state')).then(response => {
       if (!response || typeof response !== 'object') return;
+      lastStateAt = Date.now();   // 117j W2-4：节拍水位。落在这里而不是函数头 —— C3b 逐字钉住了函数头那两行。
       const lastReply = (response.lastReply && typeof response.lastReply === 'object') ? response.lastReply : null;
       setPresenceInputs({
         stopped: response.stopped === true,
@@ -195,7 +223,16 @@ export function createStewardShellDomain({
       });
       // 117e：头部常驻停机键与设置页的运行态读同一份真值，不各自再发一条请求。
       settings.setStopped(response.stopped === true);
-    }).catch(() => { /* 状态面不因单次轮询失败整条消失，下一轮再试 */ });
+      // 117j W2-4：收件箱唤醒管家跑完的那一回合要实时进对话流。只认 trigger==='inbox' ——
+      // 用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了；首次轮询也跳过（那一条
+      // 属于进壳之前，enterVisit 已经画过）。
+      const at = String((lastReply && lastReply.at) || '');
+      if (at && at !== lastReplyAt) {
+        const firstSeen = !lastReplyAt;
+        lastReplyAt = at;
+        if (!firstSeen && isStewardMode() && lastReply.trigger === 'inbox') void conversation.appendSince('');
+      }
+    }).catch(() => { lastStateAt = Date.now(); /* 状态面不因单次轮询失败整条消失，下一轮再试（失败也推水位，否则每一拍都重试） */ });
   }
 
   function pollIntervalMs() {
@@ -212,7 +249,7 @@ export function createStewardShellDomain({
   function startPolling() {
     if (pollTimer) return;
     pollStewardState();
-    pollTimer = setInterval(pollStewardState, pollIntervalMs());
+    pollTimer = setInterval(pollStewardTick, STEWARD_POLL_MS_MIN);
   }
   // 唯一入口：轮询该开该关只由这一个判定决定——管家模式 且 页面可见。本文件别处一律不直接调
   // startPolling/stopPolling，只调 syncPolling（源码正则锚，见 dev-harness/steward-avatar.static.e2e.js）。

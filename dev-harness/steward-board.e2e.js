@@ -38,7 +38,9 @@ const MISSION_TITLE = '季度收尾';
 const THREAD_A = '等华南的表';
 const THREAD_B = '跑批处理';
 const THREAD_C = '选个框架';
-const POLL_MS = 120000;   // 轮询周期拉满：测试窗口内不会自己 tick，计时器只按周期数个数
+const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
+// 117j W2-5：表按 5s 下限起（见 steward-board.js pollTick 头注），数计时器要按这个周期。
+const TICK_MS = 5000;
 
 function browserPath() {
   return [
@@ -410,7 +412,9 @@ try {
     `B2b 焦点线程是【等你】那条（focusThreadFor：等你＞在跑＞失败＞最近；实测「${docked && docked.nowThread}」）`);
   ok(docked && docked.drawerMount === 'docked' && docked.drawerParent === 'stewardNowBody' && docked.drawerHidden === false,
     `B2c 它就是【同一个】抽屉节点被搬进 #stewardNowBody（实测 mount=${docked && docked.drawerMount} parent=${docked && docked.drawerParent}）`);
-  ok(docked && docked.intervals.filter(ms => ms === POLL_MS).length === 2,
+  // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
+  // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
+  ok(docked && docked.intervals.filter(ms => ms === TICK_MS).length === 2,
     `B2d 看板没打开时不多一条计时器（抽屉 + avatar 各一，实测 ${docked && JSON.stringify(docked.intervals)}）`);
 
   // ── ② 点开看板 → 分组、验收 a/b、等待原因、chip ────────────────────────────────
@@ -447,7 +451,7 @@ try {
     `C9 每行都有紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowA && JSON.stringify(rowA.chips)}）`);
   ok(Boolean(rowA) && ['prioritize', 'stop', 'open', 'classic'].every(action => rowA.actions.includes(action)),
     `C10 行操作齐备（优先／停止／打开／2.0；实测 ${rowA && JSON.stringify(rowA.actions)}）`);
-  ok(opened.intervals.filter(ms => ms === POLL_MS).length === 3,
+  ok(opened.intervals.filter(ms => ms === TICK_MS).length === 3,
     `C11 看板打开才起第三条计时器（实测 ${JSON.stringify(opened.intervals)}）`);
 
   // ── ③ 「同时最多」改成 3 → 后端即时生效 ──────────────────────────────────────
@@ -524,7 +528,7 @@ try {
     const snapshot = ${BOARD};
     return document.documentElement.getAttribute('data-shell-mode') === 'classic' ? snapshot : null;
   })()`);
-  ok(Boolean(classic) && classic.intervals.filter(ms => ms === POLL_MS).length === 0,
+  ok(Boolean(classic) && classic.intervals.filter(ms => ms === TICK_MS).length === 0,
     `H1 切回经典壳后管家侧零残留定时器（实测 ${classic && JSON.stringify(classic.intervals)}）`);
   ok(Boolean(classic) && classic.boardHidden === true && classic.nowHidden === true,
     'H2 看板与「现在这一件」都收起');

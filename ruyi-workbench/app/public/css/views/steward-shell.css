@@ -79,6 +79,23 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+/* 117j W2-3：头部的 6px 状态点。头像搬去消息旁之后，它是头部唯一的状态投影；
+   七种态的颜色与 avatar 走同一组令牌（data-state 由 steward-shell.js 的 renderPresence 写）。 */
+.steward-presence-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.steward-presence-dot[data-state="idle"] { background: var(--muted); }
+.steward-presence-dot[data-state="listening"],
+.steward-presence-dot[data-state="thinking"],
+.steward-presence-dot[data-state="working"] { background: var(--accent); }
+.steward-presence-dot[data-state="waiting_you"] { background: var(--gold); }
+.steward-presence-dot[data-state="error"] { background: var(--danger); }
+.steward-presence-dot[data-state="sleeping"] { background: var(--glass-border-strong); }
+
 .steward-name {
   flex-basis: 100%;
   font-size: var(--fs-lg);

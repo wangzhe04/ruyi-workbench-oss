@@ -28,6 +28,8 @@ import { createQuickSwitchChips } from './steward-chips.js';
 
 export const STEWARD_QUICK_REPLIES_MAX = 3;
 export const STEWARD_DRAWER_POLL_MS_MIN = 5000;
+// setInterval 会比标称早几毫秒回来，不留容差的话「到点该拉的那一拍」会被推迟整整一拍。
+const POLL_DUE_SLACK_MS = 250;
 export const STEWARD_DRAWER_POLL_MS_DEFAULT = 15000;
 export const STEWARD_LAST_SAY_SENTENCES = 3;
 export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
@@ -396,12 +398,24 @@ export function createStewardDrawer({
     return null;
   }
 
+  // 117j W2-5 末条：普通会话没有事项／验收／未决，三问此前一律三个「暂无」——可那是「不知道」，
+  // 而我们其实知道两件事：**它已经收工了**、**从建到现在多久**。只在真的不在跑、且确实跑过至少
+  // 一个回合时才说这一句；有未决或在等资源时让上面那条 view 说话（它更具体）。仍然绝不因为
+  // 「线程在跑」就编一个 thinking（§8.1 原则 2：不知道就说不知道）。
+  function settledHead() {
+    if (isLive() || pendingForThread) return '';
+    if (!(Number(session && session.turnSeq) > 0)) return '';   // 一回合都没跑过,说「收工」是撒谎
+    const started = (snapshot && snapshot.createdAt) || (session && session.createdAt) || '';
+    const elapsed = started ? elapsedLabel(started, new Date()) : '';
+    return elapsed ? t('stewardShell.drawer.settled', { elapsed }) : '';
+  }
+
   function renderActivity() {
     const doing = byId('stewardDrawerActivityDoing');
     const progress = byId('stewardDrawerActivityProgress');
     const waiting = byId('stewardDrawerActivityWaiting');
     const view = describeTurnActivity(activitySnapshot(), t);
-    if (doing) doing.textContent = (view && view.head) || t('stewardShell.drawer.none');
+    if (doing) doing.textContent = (view && view.head) || settledHead() || t('stewardShell.drawer.none');
     if (progress) progress.textContent = progressText();
     if (waiting) {
       const wait = (missionRow && missionRow.wait) || null;
@@ -574,6 +588,7 @@ export function createStewardDrawer({
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────
   async function refreshOnce() {
+    lastPollAt = Date.now();
     await loadThreadSlice();
     await loadMissionSlice();
     renderAll();
@@ -581,8 +596,23 @@ export function createStewardDrawer({
 
   // 轮询只刷新「本线程切片」这两面（§117d 刷新纪律逐字）：会话原文与未决清单。事项聚合与验收快照
   // 在打开、切线程、任一写动作之后各刷一次 —— 它们不会因为等待而秒变。
+  //
+  // 117j W2-5（用户走查④「抽屉里线程跑完显示不及时」）：**表按下限（5s）走，真要不要拉由这一拍
+  // 自己判** —— 有在跑的回合就每一拍都拉（回合结束最多 5 秒就看得见），空闲时仍按配置的节拍
+  // （默认 15s），请求数与今天一样。之所以不「动态换表」：C1/C3b 锁死了本模块只有一处 setInterval／
+  // 一处 clearInterval、start/stop 只有那几个调用点，换表要么多一处 clearInterval 要么多一个调用点，
+  // 两者都会撞上既有断言（本片纪律：断言只加不改）。
+  let lastPollAt = 0;
   async function pollSlice() {
+    const now = Date.now();
+    const wasLive = isLive();
+    const due = wasLive ? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs();
+    if (now - lastPollAt < due - POLL_DUE_SLACK_MS) return;
+    lastPollAt = now;
     await loadThreadSlice();
+    // 回合刚结束（live 真 -> 假）：当拍把事项行与快照一并重拉，不等下一次写动作 —— 五态、验收进度、
+    // 「已收工」这三样只有事项面知道，而「跑完了」恰恰是用户最想立刻看见的那一刻。
+    if (wasLive && !isLive()) await loadMissionSlice();
     renderAll();
   }
 
@@ -599,7 +629,8 @@ export function createStewardDrawer({
   }
   function startPolling() {
     if (pollTimer) return;
-    pollTimer = setInterval(pollSlice, pollIntervalMs());
+    // 表走下限，节拍由 pollSlice 自己按「有没有在跑的回合」判（见那里的头注）。
+    pollTimer = setInterval(pollSlice, STEWARD_DRAWER_POLL_MS_MIN);
   }
   // 唯一入口：抽屉开着 且 还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
   function syncPolling() {

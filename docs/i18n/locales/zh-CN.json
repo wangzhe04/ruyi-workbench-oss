@@ -2745,6 +2745,7 @@
   ,"stewardShell.drawer.steered": "已插话给它。"
   ,"stewardShell.drawer.answered": "已替你回复。"
   ,"stewardShell.drawer.failed": "没成：{{error}}"
+  ,"stewardShell.drawer.settled": "已收工 · 用时 {{elapsed}}"
   ,"stewardShell.drawer.state.dispatching": "交办中"
   ,"stewardShell.drawer.state.running": "进行中"
   ,"stewardShell.drawer.state.needs_you": "需要你"

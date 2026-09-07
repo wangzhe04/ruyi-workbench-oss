@@ -141,19 +141,26 @@ export function createStewardComposer({
   }
 
   // ── 候选列表（点 chip／输入 @／Tab 循环共用同一份候选）────────────────────────
+  // 117j W2-2：按 sessionId 去重（原有）之外再【按标题去重】—— 同一件事开过好几条线程时，
+  // 候选列表里会出现三四行一模一样的字，用户没法选。同标题只留最先出现的那一条：预判命中排在
+  // 回忆池前面，而预判本身已按「近期更新」加过权，所以留下的就是最近那一条。
   function candidates() {
     const out = [];
     const seen = new Set();
-    for (const hit of routeHits) {
-      if (!hit || !hit.sessionId || seen.has(hit.sessionId)) continue;
-      seen.add(hit.sessionId);
-      out.push({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId) });
-    }
-    for (const row of recent) {
-      if (seen.has(row.sessionId)) continue;
+    const titles = new Set();
+    const take = row => {
+      if (!row || !row.sessionId || seen.has(row.sessionId)) return;
+      const title = String(row.title || '').trim();
+      if (title && titles.has(title)) { seen.add(row.sessionId); return; }
       seen.add(row.sessionId);
-      out.push(row);
+      if (title) titles.add(title);
+      out.push({ sessionId: String(row.sessionId), title: title || String(row.sessionId) });
+    };
+    for (const hit of routeHits) {
+      if (!hit || !hit.sessionId) continue;
+      take({ sessionId: hit.sessionId, title: String(hit.displayTitle || hit.title || hit.sessionId) });
     }
+    for (const row of recent) take(row);
     return out.slice(0, STEWARD_PICKER_MAX);
   }
 
@@ -288,6 +295,24 @@ export function createStewardComposer({
       if (value.endsWith('@')) openPicker();
       schedulePreroute(value);
     });
+    // 117j W2-2：点列表【外】任意处收起。挂在 document 上但只在真开着时才做事；chip 与列表
+    // 自身的点击交给各自的处理器（chip 那一路是 toggle，列表那一路选完自己会 closePicker）。
+    //
+    // **必须用捕获阶段**：撤回之后的「换一条」是在【别的按钮的 click 处理器里】调 openPicker() 的
+    // （conversation 的 pickTarget 回调）。冒泡阶段的话，那一次 click 走到 document 时列表刚被打开、
+    // 而事件目标又在列表外面 —— 于是刚开就被自己关掉（实测 G2a「就地打开候选列表」变成 0 项）。
+    // 捕获阶段先于目标处理器跑：那一刻列表还关着，直接早退，随后目标处理器才把它打开。
+    if (doc()) {
+      doc().addEventListener('click', event => {
+        const open = byId('stewardTargetPicker');
+        if (!open || open.hidden) return;
+        const chip = byId('stewardTarget');
+        const node = event && event.target;
+        if (open.contains && node && open.contains(node)) return;
+        if (chip && chip.contains && node && chip.contains(node)) return;
+        closePicker();
+      }, true);
+    }
     input.addEventListener('keydown', event => {
       if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); return; }
       if (event.key === 'Escape') { closePicker(); return; }
