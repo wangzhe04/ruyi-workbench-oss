@@ -235,7 +235,8 @@ export function createStewardConversation({
       if (!pop.hidden) { closeWhy(); return; }
       pop.hidden = false;
       trigger.setAttribute('aria-expanded', 'true');
-      releaseWhyEscape = stewardEscapeStack.push(closeWhy);
+      releaseWhyEscape = stewardEscapeStack.push(closeWhy,
+        node => Boolean(node && (pop.contains(node) || trigger.contains(node))));   // 117k：点别处收回
     });
     pop.addEventListener('keydown', event => {
       if (event.key === 'Escape') closeWhy();   // 焦点真在浮层里时的近路（栈那一路同样能关）
@@ -934,7 +935,8 @@ export function createStewardConversation({
         if (!menu.hidden) { closeMenu(); return; }
         menu.hidden = false;
         avatar.setAttribute('aria-expanded', 'true');
-        releaseMenuEscape = stewardEscapeStack.push(closeMenu);
+        releaseMenuEscape = stewardEscapeStack.push(closeMenu,
+          node => Boolean(node && (menu.contains(node) || avatar.contains(node))));   // 117k：点别处收回
       });
       avatar.setAttribute('aria-expanded', 'false');
     }

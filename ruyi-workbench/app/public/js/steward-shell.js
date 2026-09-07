@@ -88,6 +88,13 @@ export function createStewardShellDomain({
     const node = byId('stewardStatus');
     if (node) node.textContent = t(key);
   };
+  // 117k（用户走查②）：恢复位只写不清 —— 开机 config 还没到时先 fail-closed 写了「管家还没打开，
+  // 已回到经典布局」，等 config 到了、壳真的进了管家，那句话还挂在底部（实测 12 秒后仍在），
+  // 而它是 role="status" aria-live，读屏也会念一遍。准入判定通过就把它擦掉。
+  const clearStatusText = () => {
+    const node = byId('stewardStatus');
+    if (node && node.textContent) node.textContent = '';
+  };
   const setStoredMode = mode => {
     try { localStorage.setItem('wcw.shellMode', mode); } catch { /* local preference may be unavailable */ }
   };
@@ -304,6 +311,7 @@ export function createStewardShellDomain({
     // 的一次性门（每次进壳只到访一次）保证这里的补调不会把正在进行的对话清屏重画。
     syncConversation();
     if (canEnterSteward()) {
+      clearStatusText();   // 117k：进得去就没有「回到经典」这回事，那句话不该再留在屏幕上
       if (storedMode() === 'steward' && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
     }
@@ -382,6 +390,14 @@ export function createStewardShellDomain({
         if (event.key !== 'Escape' || !isStewardMode()) return;
         if (stewardEscapeStack.handleEscape()) event.stopPropagation();
       });
+      // 117k（用户要求）：点界面别的地方，所有菜单／浮层自动收回。与 Esc 同一个栈、同一处监听，
+      // 每一层自己说「哪些节点算我的」。**必须捕获阶段**：同一次点击里，另一颗键的处理器可能
+      // 【正要】打开一个菜单（比如撤回到点后的「换一条」）——冒泡阶段跑到这里时它刚开、而目标
+      // 又在它外面，就会刚开就被关掉。捕获阶段先于目标处理器：那一刻它还没开，我们直接略过。
+      globalThis.document.addEventListener('click', event => {
+        if (!isStewardMode()) return;
+        stewardEscapeStack.handleOutsideClick(event && event.target);
+      }, true);
     }
     const classic = byId('stewardClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');

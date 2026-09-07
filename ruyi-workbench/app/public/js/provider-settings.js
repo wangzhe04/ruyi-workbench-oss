@@ -489,7 +489,14 @@ function fillSettings() {
     // 2026-09-06 事故：草稿从未由 config 播种（initial []）时被整份保存写成 providers: []，用户的五个
     // Provider 连同密钥被清空。此后 saveSettings 只在「草稿确实来自 config 或用户手动改过」时才上传
     // providers（见 providersDraftSeeded），否则省略该键让服务端保留现值。
-    state.providersDraftSeeded = true;
+    // 117k（2026-09-07 走查复现）：那道守卫只问「播种过没有」，没问「播种的是不是【真的 config】」。
+    // 剩下的洞：在 config 还没到达时打开设置弹窗 —— fillSettings 被 state.config（此刻 {}）调一次，
+    // c.providers 是 undefined，草稿播成 []【并被标成已播种】；config 随后到了，可这次「弹窗开着」
+    // 分支跳过重播，草稿就一直空着。此时点保存 = 把用户的整份 Provider 连同密钥写成 []。
+    // 实测（真机）：页面加载后 2ms 打开设置 → 5s 后 config 到齐、草稿仍是 [] → 一次保存清空。
+    // 判据改成「这次拿到的确实是一份带 providers 数组的 config」：没到就别声称播过种，
+    // saveSettings 会省略该键（服务端保留现值），下一次 fillSettings 也还会补播。
+    state.providersDraftSeeded = Array.isArray(c.providers);
     renderProviders();
   }
 }

@@ -414,10 +414,15 @@ try {
     `B5 线程页签是 tablist，两条兄弟线程各一个 tab（实测 ${openedA.tabRoles}）`);
   ok(openedA.tabs.length === 3 && openedA.tabs[2] === zh['stewardShell.drawer.newThread'],
     `B5b 页签行末尾是「＋ 线程」（实测 ${JSON.stringify(openedA.tabs)}）`);
-  // 事项【容器】标题不在 GET /api/missions 的行里（本波交付记录登记项：那条路由返回的是线程行）。
-  // 抽屉按确定性顺序回落到本线程标题 —— 断言钉的是这条回落，不是「显示容器名」。
-  ok(openedA.missionTitle === THREAD_A,
-    `B6 事项行显示事项名（容器标题无 HTTP 面时确定性回落为本线程标题，实测「${openedA.missionTitle}」）`);
+  // 117k 重钉（用户第三轮走查④）：事项【容器】的标题现在【就在】行里 —— 116-5b 给 GET /api/missions
+  // 的每一行加了 missionTitle（显式容器＝用户起的名，派生事项＝那条线程的显示名）。本条此前钉的是
+  // 「回落到本线程标题」，那是 116-5b 之前的世界；照那条回落，同一块面板上事项行写整句原话、
+  // 下面的页签写生成名 —— 一块面板三个名字指同一件事（用户走查原话：看不出这是同一件）。
+  ok(openedA.missionTitle === MISSION_TITLE,
+    `B6 事项行显示【事项容器】的名字（用户起的那个，实测「${openedA.missionTitle}」）`);
+  // companion：同一帧里线程自己的名字不许被事项名顶掉 —— 两个名字各就各位才是这条修法的完整形状。
+  ok(openedA.title === THREAD_A,
+    `B6b 同一帧里线程头仍是线程自己的名字（实测「${openedA.title}」）`);
   ok(openedA.missionAcceptance === zh['stewardShell.drawer.acceptanceCount'].replace('{{done}}', '1').replace('{{total}}', '2'),
     `B7 事项行显示验收 a/b（实测「${openedA.missionAcceptance}」）`);
   ok(openedA.title === THREAD_A, `B8 线程头显示线程标题（实测「${openedA.title}」）`);

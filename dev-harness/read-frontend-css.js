@@ -188,7 +188,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     第六处。头像菜单建出来就 menu.hidden = true,可 .steward-menu 那条 display:flex 是作者样式,
 //     压过 UA 表的 [hidden] —— 于是它一直画在屏幕上盖住问候语,Esc 与点菜单项都关不掉(只改了 DOM)。
 // 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '1c9803d1e2e4a9be0ebe5cd80b854ee886c9fe6cf988aa2ab491f37af0cadbb2';
+//   · 再加一处定位锚（.steward-menu 的 top/left 与 .steward-header 的 position:relative）:
+//     这张菜单原先没有 top/left，用的是「静态位置」，实测落在 y=-20px 首项被窗口上沿切掉。
+const LEGACY_STYLES_SHA256 = 'bab77e274e3ca38a461dbfa0f9313a3fa74d5653f567f5c5af96de26cf085c77';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

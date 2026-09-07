@@ -2704,6 +2704,7 @@
   ,"stewardShell.drawer.close": "Close"
   ,"stewardShell.drawer.handBack": "Hand back to Ruyi"
   ,"stewardShell.drawer.missionSection": "Item"
+  ,"stewardShell.drawer.loading": "Loading…"
   ,"stewardShell.drawer.missionUnfiled": "Unfiled item"
   ,"stewardShell.drawer.acceptanceCount": "Acceptance {{done}}/{{total}}"
   ,"stewardShell.drawer.acceptanceNone": "No acceptance criteria"

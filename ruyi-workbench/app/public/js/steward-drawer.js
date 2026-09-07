@@ -240,14 +240,17 @@ export function createStewardDrawer({
     const acceptanceNode = byId('stewardDrawerMissionAcceptance');
     const costNode = byId('stewardDrawerMissionCost');
     if (!titleNode || !acceptanceNode || !costNode) return;
-    // 事项【容器】的标题不在 GET /api/missions 的行里（那些行是线程行，只带 missionId 与聚合事实；
-    // 容器标题目前只有 steward_missions 工具面拿得到）。所以按确定性顺序回落：
-    //   ① 「自成事项」的那条线程（sessionId === missionId）的标题就是事项标题；
-    //   ② 显式事项容器：退到【本线程】自己的标题（不猜、不拿兄弟线程的名字冒充事项名）；
-    //   ③ 一条行都没有（线程还没进投影）：说「未归事项」。
+    // 117k（用户走查④）：事项【容器】的标题现在就在行里 —— 116-5b 给 GET /api/missions 的每一行
+    // 加了 missionTitle（显式容器＝用户起的名，派生事项＝那条线程的显示名）。此前这里的回落
+    // 注释还停在「容器标题不在行里」的旧世界，于是显式事项的行显示的是【本线程的整句原话】，
+    // 而同一块面板下面的页签写着生成名 —— 一块面板三个名字指同一件事。按确定性顺序回落：
+    //   ① 行里的 missionTitle（116-5b 的权威口径）；
+    //   ② 「自成事项」那条线程（sessionId === missionId）的显示名 → 原话；
+    //   ③ 一条行都没有（线程还没进投影）：读取中说「读取中…」，读完了才说「未归事项」。
     const missionId = String((missionRow && missionRow.missionId) || '');
     const root = missionRows.find(row => String(row.sessionId) === missionId) || missionRow || null;
-    titleNode.textContent = root ? String(root.title || missionId) : t('stewardShell.drawer.missionUnfiled');
+    const rootName = root ? String(root.missionTitle || root.displayTitle || root.title || missionId) : '';
+    titleNode.textContent = rootName || (loading ? t('stewardShell.drawer.loading') : t('stewardShell.drawer.missionUnfiled'));
     const acceptance = (missionRow && missionRow.acceptance) || null;
     const total = Math.max(0, Number(acceptance && acceptance.total) || 0);
     acceptanceNode.textContent = total
@@ -331,7 +334,9 @@ export function createStewardDrawer({
     // 116-5b:显示名优先(GET /api/sessions/:id 的信封带出的那一个,判据在 02 的 sessionDisplayTitle);
     // 拿不到就退回今天的两级回落。原话挂 hover。
     if (titleNode) {
-      titleNode.textContent = String(displayTitle || (session && session.title) || (missionRow && missionRow.displayTitle) || (missionRow && missionRow.title) || sessionId);
+      const name = String(displayTitle || (session && session.title) || (missionRow && missionRow.displayTitle) || (missionRow && missionRow.title) || '');
+      // 117k：读到之前不拿内部 id 冒充名字（用户看得见 sess_xxxxxxxx 是纯泄漏）。
+      titleNode.textContent = name || (loading ? t('stewardShell.drawer.loading') : sessionId);
       const raw = String((session && session.title) || (missionRow && missionRow.title) || '');
       if (raw && raw !== titleNode.textContent) titleNode.title = raw; else titleNode.removeAttribute('title');
     }
@@ -357,7 +362,8 @@ export function createStewardDrawer({
     const quote = byId('stewardDrawerLastSayText');
     if (!quote) return;
     const said = lastSaySentences(lastAssistantText());
-    quote.textContent = said || t('stewardShell.drawer.lastSayEmpty');
+    // 117k：还没读到就说「它还没说过话」是假话（多数时候它刚说过）。
+    quote.textContent = said || (loading ? t('stewardShell.drawer.loading') : t('stewardShell.drawer.lastSayEmpty'));
   }
 
   // ── ⑥ 你可以说 ──────────────────────────────────────────────────────────────
@@ -547,6 +553,11 @@ export function createStewardDrawer({
       } else if (!(await sayToThread(reply.text))) return;
     } catch (error) { failNote(error); return; }
     await refreshOnce();
+    // 117k（用户走查⑥）：答完的那一瞬服务端往往还没把待决清掉（回合要先接住答案），于是
+    // 「等你(1 条待决)」与那两枚候选答案还挂在屏幕上，看起来像没答进去。**不加新计时器**（本件
+    // 的契约是抽屉零 setTimeout，见 steward-drawer.static C2）：把节拍闸清零，让【已经在跑】的
+    // 那张表下一拍（答完线程回到 live，就是 5s 下限那一档）真的去拉一次。
+    lastPollAt = 0;
   }
 
   // ── ③/⑩ 2.0 视窗：切到经典壳并选中该会话（顶部返回带归 117g） ────────────────
@@ -685,6 +696,10 @@ export function createStewardDrawer({
     return mountMode;
   }
 
+  // 117k（用户走查⑤）：第一帧的「读取中」闸。openThread 先画一帧再去拉数据，那一帧手里
+  // 什么都没有 —— 标题回落成内部 id（sess_xxxxxxxx）、事项行说「未归事项」、「它刚说」说
+  // 「它还没说过话。」。三句都不是真的，只是还没读到。读到之前一律说「读取中…」。
+  let loading = false;
   async function openThread(nextId) {
     const id = String(nextId || '');
     if (!id) return;
@@ -692,6 +707,7 @@ export function createStewardDrawer({
     const shell = byId('stewardShell');
     if (!drawer) return;
     sessionId = id;
+    loading = true;
     session = null; resumable = null; snapshot = null; pendingForThread = null;
     displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
     missionRow = null; missionRows = [];
@@ -703,7 +719,7 @@ export function createStewardDrawer({
     syncPolling();
     const title = byId('stewardDrawerTitle');
     if (title && typeof title.focus === 'function') { title.tabIndex = -1; title.focus(); }
-    await refreshOnce();
+    try { await refreshOnce(); } finally { if (sessionId === id) { loading = false; renderAll(); } }
   }
 
   // 「交回管家」＝关抽屉、焦点回输入框、输入区 chip 恢复「→ 如意」（composer.resetComposer 由宿主接）。

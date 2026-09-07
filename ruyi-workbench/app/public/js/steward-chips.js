@@ -29,9 +29,11 @@ const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
   // 返回一个「注销自己」的函数（调用方存起来，关闭时调一次）。同一层重复 push 会得到两个独立句柄，
   // 但关闭器是幂等的（自己不开着就返回 false），所以多注册一次只是多问一句。
-  push(close) {
+  // 117k：第二个参数 owns(node) = 「这次点击落在我自己身上吗」（菜单本体或触发它的那颗键）。
+  // 给了它的层才参与「点别处就收回」；不给的层只有 Esc 关得掉（保守：宁可不关，不误关）。
+  push(close, owns) {
     if (typeof close !== 'function') return () => {};
-    const layer = { close };
+    const layer = { close, owns: typeof owns === 'function' ? owns : null };
     escapeLayers.push(layer);
     return () => {
       const index = escapeLayers.indexOf(layer);
@@ -47,6 +49,21 @@ export const stewardEscapeStack = Object.freeze({
       if (closed) return true;
     }
     return false;
+  },
+  // 117k（用户要求：所有菜单点了界面别的地方都要自动收回）：从栈顶往下，把每一层「这次点击
+  // 不属于我」的都关掉。判据抛错一律当【点在里面】—— 一个坏掉的判据可以让菜单关不掉，
+  // 但绝不能让它把用户正在点的菜单关掉。close() 会把自己从栈里摘掉，所以只能【倒着】走。
+  handleOutsideClick(node) {
+    let closed = 0;
+    for (let i = escapeLayers.length - 1; i >= 0; i -= 1) {
+      const layer = escapeLayers[i];
+      if (!layer || !layer.owns) continue;
+      let inside = true;
+      try { inside = layer.owns(node) === true; } catch { inside = true; }
+      if (inside) continue;
+      try { if (layer.close() !== false) closed += 1; } catch { /* 坏掉的浮层不吃掉这次点击 */ }
+    }
+    return closed;
   },
   size: () => escapeLayers.length,
 });
@@ -330,7 +347,16 @@ export function createQuickSwitchChips({
     chip.menu.hidden = false;
     chip.button.setAttribute('aria-expanded', 'true');
     openMenu = chip.menu;
-    releaseEscape = stewardEscapeStack.push(() => { if (!openMenu) return false; closeMenu(); return true; });
+    releaseEscape = stewardEscapeStack.push(
+      () => { if (!openMenu) return false; closeMenu(); return true; },
+      // 菜单本体、以及打开它的那枚 chip：点这两处不算「点别处」。
+      node => {
+        if (!openMenu || !node) return false;
+        if (openMenu.contains(node)) return true;
+        const owner = chips.get(openMenu.dataset.kind);
+        return Boolean(owner && owner.button && owner.button.contains(node));
+      },
+    );
   }
 
   // chip 上显示的当前值：权限显示档位人话（未设会话级则「跟随全局」），模型／引擎显示生效值。

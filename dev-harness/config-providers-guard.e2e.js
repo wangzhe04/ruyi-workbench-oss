@@ -112,8 +112,17 @@ try {
   const ps = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'provider-settings.js'), 'utf8');
   ok(/providers: state\.providersDraftSeeded === true \? \(state\.providersDraft \|\| \[\]\) : undefined/.test(ps),
     'D1 saveSettings uploads providers only when the draft was seeded from config');
-  ok((ps.match(/state\.providersDraftSeeded = true/g) || []).length >= 2,
-    'D2 the draft is marked seeded both at fillSettings replay and when the user adds a provider by hand');
+  // 117k（2026-09-07 真机走查复现的【剩余那半个洞】）：那道守卫只问「播种过没有」，没问「播种的
+  // 是不是真的 config」。config 还没到达时打开设置弹窗 → fillSettings 拿着空 state.config 跑一次，
+  // 草稿播成 [] 并被标成【已播种】；config 随后到了，可「弹窗开着」分支跳过重播，草稿就一直空着。
+  // 此时点保存 = 把用户整份 Provider 连同密钥写成 []。实测：加载后 2ms 打开设置 → 一次保存清空。
+  // 判据必须是「这一次拿到的确实是一份带 providers 数组的 config」。
+  ok(/state\.providersDraftSeeded = Array\.isArray\(c\.providers\);/.test(ps),
+    'D2 fillSettings 只在【真的拿到 config】时才把草稿标成已播种（config 没到就不声称播过种）');
+  ok(/state\.providersDraftSeeded = true;   \/\/ 用户亲手添加/.test(ps),
+    'D2b 用户亲手添加 Provider 仍然直接标记已播种（那是用户意图，保存时照常上传）');
+  ok(!/state\.providersDraftSeeded = true;\n/.test(ps.slice(0, ps.indexOf('renderProviders();'))),
+    'D2c fillSettings 那一处不再无条件标 true（防回改）');
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));
 } finally {

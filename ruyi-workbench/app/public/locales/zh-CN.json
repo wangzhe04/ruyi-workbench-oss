@@ -2704,6 +2704,7 @@
   ,"stewardShell.drawer.close": "关闭"
   ,"stewardShell.drawer.handBack": "交回管家"
   ,"stewardShell.drawer.missionSection": "事项"
+  ,"stewardShell.drawer.loading": "读取中…"
   ,"stewardShell.drawer.missionUnfiled": "未归事项"
   ,"stewardShell.drawer.acceptanceCount": "验收 {{done}}/{{total}}"
   ,"stewardShell.drawer.acceptanceNone": "没有验收项"

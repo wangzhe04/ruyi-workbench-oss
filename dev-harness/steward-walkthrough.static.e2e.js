@@ -12,6 +12,9 @@
 //   E W2-5 刷新节拍：三个计时器统一「表按 5s 下限起，真要不要拉由这一拍自己判」。
 //   F 第二批（UX-F1/F2/F5、copy-P1-1、classic-1/2、B2、copy-P3-3）：确认闸、文案分支、口径同步。
 //   G 第三批（UX-F3/F4、copy-P2-2/3/4/5、copy-P3-1/4、classic-3/4）：Esc 逐层与读屏噪音。
+//   H 117k（用户第三轮走查 · 2026-09-07 真机端到端）：简易模式的死键、恢复位那句假话、
+//     递送 chip 与抽屉事项行的显示名、抽屉第一帧的占位事实、以及「点界面别的地方，
+//     所有菜单／浮层自动收回」（与 Esc 同一个栈、同一处监听）。
 //
 // 判定行：`STEWARD WALKTHROUGH STATIC E2E: ALL PASS`。
 
@@ -296,6 +299,72 @@ const ok = (condition, label) => {
       'G9 classic-3：离开经典壳的【任何一条路】都清返回标记（修前只认「切回管家」，切到预览壳时标记会留下）');
     ok(/if \(visit\.newVisit !== true\) \{\s*try \{ history = await api\('\/api\/sessions\/steward'\); \}/.test(conversation),
       'G10 classic-4：新到访不去拉那条还没落盘的管家会话（那一发必然 404，而 newVisit 分支压根不用 messages）');
+  }
+
+
+  /* ── H：117k（用户第三轮走查 · 2026-09-07 真机端到端）───────────────────────── */
+  {
+    const chips = read('js/steward-chips.js');
+    const settings = read('js/steward-settings.js');
+    const nav = read('js/navigation-controls.js');
+    const uiModeCss = read('css/themes/ui-modes.css');
+
+    // H1 简易模式下的「死键」：JS 白名单与 CSS 隐藏清单必须【互补】。
+    // 出厂默认 uiMode='simple'，而管家总开关只住在管家页 —— 白名单漏了 steward 就等于
+    // 「第一次把管家打开」无路可走（按钮看得见、点了静默落回基础）。
+    const stabs = [...html.matchAll(/data-stab="([a-z]+)"/g)].map(m => m[1]);
+    const allowed = new Set([...(/SETTINGS_SIMPLE_TABS = new Set\(\[([^\]]*)\]\)/.exec(nav) || [, ''])[1]
+      .matchAll(/'([a-z]+)'/g)].map(m => m[1]));
+    const hidden = new Set([...uiModeCss.matchAll(/:root\[data-ui-mode="simple"\] #settingsTabs button\[data-stab="([a-z]+)"\]/g)].map(m => m[1]));
+    const dead = stabs.filter(stab => !allowed.has(stab) && !hidden.has(stab));
+    const ghost = stabs.filter(stab => allowed.has(stab) && hidden.has(stab));
+    ok(stabs.length > 0 && dead.length === 0,
+      'H1 简易模式没有死键：每个设置页签要么在 JS 白名单里、要么被 CSS 藏起来' + (dead.length ? '（死键：' + dead.join('、') + '）' : ''));
+    ok(ghost.length === 0,
+      'H1b 也没有反过来的：被 CSS 藏掉的页签不该还留在白名单里' + (ghost.length ? '（' + ghost.join('、') + '）' : ''));
+    ok(allowed.has('steward'), 'H1c 管家页签在简易模式可达（管家总开关是它唯一的入口）');
+
+    // H2 恢复位那句话只写不清 → 进得去就擦掉。
+    ok(/const clearStatusText = \(\) => \{/.test(shell) && /clearStatusText\(\);/.test(shell)
+      && /if \(canEnterSteward\(\)\) \{\s*\n\s*clearStatusText\(\);/.test(shell),
+      'H2 准入通过就擦掉「管家还没打开，已回到经典布局」（它是 role=status aria-live，留着就是一句会被念出来的假话）');
+
+    // H3 递送目标：自动选中的那一个也走显示名（116-5b）。
+    ok(/return \{ sessionId: String\(routeHits\[0\]\.sessionId\), title: String\(routeHits\[0\]\.displayTitle \|\| routeHits\[0\]\.title/.test(composer),
+      'H3 chip 与递话回执用生成名，不用整句原话（候选列表早就在用 displayTitle，只有自动选中的那个漏了）');
+
+    // H4 抽屉事项行：读行里的 missionTitle（116-5b 已经加了）。
+    ok(/String\(root\.missionTitle \|\| root\.displayTitle \|\| root\.title \|\| missionId\)/.test(drawer),
+      'H4 抽屉的事项行显示事项名（显式容器＝用户起的名；派生＝那条线程的显示名）');
+
+    // H5 抽屉第一帧不拿内部 id 冒充名字。
+    ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
+      && /finally \{ if \(sessionId === id\) \{ loading = false; renderAll\(\); \} \}/.test(drawer),
+      'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
+    ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
+      && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
+      'H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」');
+    for (const loc of ['zh-CN', 'en-US']) {
+      const cat = JSON.parse(read('locales/' + loc + '.json'));
+      ok(typeof cat['stewardShell.drawer.loading'] === 'string', `H5c ${loc} 有 drawer.loading`);
+    }
+
+    // H6 答完待决补一次延迟复读。
+    ok(/await refreshOnce\(\);\n[\s\S]{0,400}lastPollAt = 0;\n  \}/.test(drawer) && !/setTimeout\(/.test(drawer),
+      'H6 答完待决后把节拍闸清零，让已经在跑的那张表下一拍真的去拉一次（不加新计时器：抽屉零 setTimeout 是 C2 的契约）');
+
+    // H7「点界面别的地方，所有菜单自动收回」：一处监听、一处判定、五处浮层各自给 owns。
+    ok(/handleOutsideClick\(node\) \{/.test(chips) && /if \(!layer \|\| !layer\.owns\) continue;/.test(chips)
+      && /try \{ inside = layer\.owns\(node\) === true; \} catch \{ inside = true; \}/.test(chips),
+      'H7 Esc 栈同时管「点别处收回」：判据抛错一律当【点在里面】（宁可不关，绝不误关用户正在点的那个）');
+    ok(/globalThis\.document\.addEventListener\('click', event => \{[\s\S]{0,220}stewardEscapeStack\.handleOutsideClick\(event && event\.target\);[\s\S]{0,40}\}, true\);/.test(shell),
+      'H7b 只有一处 document click，且是【捕获阶段】（冒泡的话，同一次点击里刚被别的处理器打开的菜单会当场被关掉）');
+    ok(/stewardEscapeStack\.push\(\s*\(\) => \{ if \(!openMenu\) return false; closeMenu\(\); return true; \},/.test(chips)
+      && /stewardEscapeStack\.push\(closeWhy,/.test(conversation)
+      && /stewardEscapeStack\.push\(closeMenu,/.test(conversation)
+      && /stewardEscapeStack\.push\(\s*\(\) => \{ if \(!shieldOpen\) return false; closeShield\(\); return true; \},/.test(settings)
+      && /\}, node => \{\s*\n\s*const own = byId\('stewardTargetPicker'\);/.test(composer),
+      'H7c 五处浮层（chip 菜单／※／头像菜单／盾牌／递送候选）都带上了 owns 判据');
   }
 
   console.log(`\nSTEWARD WALKTHROUGH STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

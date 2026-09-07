@@ -400,7 +400,15 @@ export function createStewardSettingsDomain({
     btn.setAttribute('aria-controls', 'stewardShieldMenu');   // copy-P2-4
     btn.setAttribute('aria-expanded', 'true');
     shieldOpen = true;
-    releaseShieldEscape = stewardEscapeStack.push(() => { if (!shieldOpen) return false; closeShield(); return true; });
+    releaseShieldEscape = stewardEscapeStack.push(
+      () => { if (!shieldOpen) return false; closeShield(); return true; },
+      // 117k：点别处收回。盾牌菜单与盾牌键自己不算「别处」。
+      node => {
+        const own = byId('stewardShieldMenu');
+        const trigger = byId('stewardShieldBtn');
+        return Boolean(node && ((own && own.contains(node)) || (trigger && trigger.contains(node))));
+      },
+    );
   }
 
   /* ═══════════════ ⑤ 记忆面板（§4「面板」）═══════════════ */

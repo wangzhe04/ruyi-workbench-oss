@@ -92,7 +92,8 @@ export function createStewardComposer({
   function currentTarget() {
     if (picked) return picked;
     if (routeKind === 'thread' && routeHits.length) {
-      return { sessionId: String(routeHits[0].sessionId), title: String(routeHits[0].title || routeHits[0].sessionId) };
+      // 117k（用户走查③）：与上面 recent／candidates 同一口径 —— 显示名优先。缺席时逐字等于 title。
+      return { sessionId: String(routeHits[0].sessionId), title: String(routeHits[0].displayTitle || routeHits[0].title || routeHits[0].sessionId) };
     }
     return null;   // null = 递给如意
   }
@@ -210,6 +211,12 @@ export function createStewardComposer({
         closePicker();
         try { const back = byId('stewardTarget'); if (back) back.focus(); } catch { /* 宿主没有 focus */ }
         return true;
+      // 117k：候选列表本来就有自己那条 document 监听（W2-2 加的），这里补上同款判据是为了
+      // 让「所有浮层点别处就收回」这件事在【一个地方】说得清；两路都关是幂等的。
+      }, node => {
+        const own = byId('stewardTargetPicker');
+        const trigger = byId('stewardTarget');
+        return Boolean(node && ((own && own.contains(node)) || (trigger && trigger.contains(node))));
       });
     }
   }

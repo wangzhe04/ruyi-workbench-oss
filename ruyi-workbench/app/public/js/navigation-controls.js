@@ -810,7 +810,11 @@ function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop'
 // v1.5 (§1.2): 简易模式可见的设置页签白名单 —— 只留「基础/服务商/联网搜索」。其余(Claude CLI/Agent 角色/
 // 集成 MCP/高级)含 MAX_THINKING_TOKENS / --max-turns / Overlay ID 等开发者字段,对非程序员主画像纯劝退,
 // 一律隐藏。CSS(styles.css)隐藏页签按钮,这里的 JS 兜底防「隐藏页签的面板悬空显示」。
-const SETTINGS_SIMPLE_TABS = new Set(['basic', 'providers', 'network', 'doctor']);
+// 117k（用户走查①）：这张白名单必须与 ui-modes.css 那条隐藏清单互补 —— 只被 JS 拦、没被 CSS
+// 藏的页签就是一枚【死键】：看得见、点了静默落回「基础」。steward 与 update 正是漏的两枚，
+// 而管家总开关只住在管家页，于是「第一次把管家打开」在出厂默认（uiMode='simple'）下无路可走。
+// 互补关系由 uimode-style 的 S1b 机械看住（新增页签时忘了这里，那条断言会红）。
+const SETTINGS_SIMPLE_TABS = new Set(['basic', 'steward', 'providers', 'network', 'doctor', 'update']);
 // Settings tab switcher (§4.5): toggles the tab-bar button + the matching .settings-tab panel.
 // v1.5 (§1.2): 简易模式下,非白名单页签一律落回「基础」;force=true 供明确的开发者入口(如引导页
 // 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
