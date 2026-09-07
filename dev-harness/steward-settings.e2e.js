@@ -13,7 +13,11 @@
 //      导出的 JSON 里含该条 → 清空必须逐字输入 clear；
 //   ⑦ 行动流水：夹具两条决策 → 表格出现、按线程过滤只剩一条；
 //   ⑧ 头部常驻停机键 → GET /api/steward/state 的 stopped===true 且头像 data-state="sleeping"
-//      → 再按一次唤醒 → stopped===false 且头像不再 sleeping。
+//      → 再按一次唤醒 → stopped===false 且头像不再 sleeping；
+//   ⑨（117l-A3）新开线程用什么模型：强/快两档各自的服务商 select + 模型名 input 分别改动 →
+//      GET /api/status 的 config.stewardThreadModels.{strong,fast}.{providerId,model} 落盘同值；
+//      改快档不冲掉刚存的强档（整对象上传，不是只传半个）。依赖服务端 stewardThreadModels 配置键
+//      （由并行切片 A1 加：01-config.js 的 defaultConfig/normalizeConfig）。
 //
 // 与 steward-shell / steward-conversation / steward-drawer 同一套 CDP 无头驱动。
 // 后端只多用 117e 第 0 步那一条只读面（/api/steward/decisions）。
@@ -186,6 +190,12 @@ const PANEL = `(() => {
     retention: val('cfgStewardRetention'),
     poll: val('cfgStewardPollMs'),
     providerOptions: [...document.querySelectorAll('#cfgStewardProviderId option')].map(node => node.value),
+    strongProviderOptions: [...document.querySelectorAll('#cfgStewardStrongProviderId option')].map(node => node.value),
+    fastProviderOptions: [...document.querySelectorAll('#cfgStewardFastProviderId option')].map(node => node.value),
+    strongProviderId: val('cfgStewardStrongProviderId'),
+    strongModel: val('cfgStewardStrongModel'),
+    fastProviderId: val('cfgStewardFastProviderId'),
+    fastModel: val('cfgStewardFastModel'),
     memoryGroups: [...document.querySelectorAll('#cfgStewardMemoryPanel .steward-memory-group')].map(node => node.dataset.kind),
     memoryTexts: [...document.querySelectorAll('#cfgStewardMemoryPanel .steward-memory-text')].map(node => node.value),
     memoryNew: document.querySelectorAll('#cfgStewardMemoryPanel .steward-memory-new').length,
@@ -247,7 +257,12 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   stewardPollMs: POLL_MS,
   stewardMaxParallelThreads: 5,
   stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true },
-  providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
+  // 117l-A3：夹具备两个 provider——⑨ 用第二个（'fake2'）来验证「强/快两档」的 providerId select
+  // 真的切到了非默认值（只有一个 provider 时，选它和「跟随」在肉眼上分不出差别）。
+  providers: [
+    { id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] },
+    { id: 'fake2', label: 'Fake Two', type: 'openai-compat', baseUrl: 'http://127.0.0.1:2', apiKey: 'k2', model: 'fake2-model', models: [{ id: 'fake2-model', label: 'Fake Two' }] },
+  ],
 }), 'utf8');
 
 let server = null;
@@ -542,6 +557,77 @@ try {
   const awake = await waitForEval(cdp, `(() => { const s = ${PANEL}; return s.avatarState && s.avatarState !== 'sleeping' ? s : null; })()`);
   ok(Boolean(awake), `H6 头像离开 sleeping（实测 ${awake && awake.avatarState}）`);
   ok(awake && awake.stopLabel === zh['settings.steward.stop'], 'H7 按钮回到「一键停机」');
+
+  /* ═════════ ⑨ 新开线程用什么模型（117l-A3：强/快两档；依赖 A1 的 stewardThreadModels 键） ═════════ */
+  console.log('── ⑨ 新开线程用什么模型（强/快两档） ──');
+  ok(Boolean(await waitForEval(cdp, OPEN_TAB)), 'I1 重新打开设置弹窗并回到「管家」页签（⑧切去了管家壳）');
+  const beforeThreadModels = await cdp.evaluate(PANEL);
+  ok(JSON.stringify(beforeThreadModels.strongProviderOptions) === JSON.stringify(['', 'fake', 'fake2'])
+    && JSON.stringify(beforeThreadModels.fastProviderOptions) === JSON.stringify(['', 'fake', 'fake2']),
+    `I2 强/快两个服务商 select 都是「跟随 + 两个夹具 provider」（实测 强=${JSON.stringify(beforeThreadModels.strongProviderOptions)} 快=${JSON.stringify(beforeThreadModels.fastProviderOptions)}）`);
+  ok(beforeThreadModels.strongProviderId === '' && beforeThreadModels.strongModel === ''
+    && beforeThreadModels.fastProviderId === '' && beforeThreadModels.fastModel === '',
+    'I3 出发点：夹具没设 stewardThreadModels，四格都回填成空（跟随主端点）');
+
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgStewardStrongProviderId');
+    select.value = 'fake2';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const strongProviderSaved = await waitForHttp(appPort, 'GET', '/api/status',
+    result => result.json && result.json.config && result.json.config.stewardThreadModels
+      && result.json.config.stewardThreadModels.strong && result.json.config.stewardThreadModels.strong.providerId === 'fake2', token);
+  ok(Boolean(strongProviderSaved), 'I4 强模型服务商改 fake2 → config.stewardThreadModels.strong.providerId 落盘为 fake2');
+
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('cfgStewardStrongModel');
+    input.value = 'strong-test-model';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const strongModelSaved = await waitForHttp(appPort, 'GET', '/api/status',
+    result => result.json && result.json.config && result.json.config.stewardThreadModels
+      && result.json.config.stewardThreadModels.strong && result.json.config.stewardThreadModels.strong.model === 'strong-test-model', token);
+  ok(Boolean(strongModelSaved), 'I5 强模型名改 strong-test-model → config.stewardThreadModels.strong.model 落盘同值');
+  ok((await cfg()).stewardThreadModels.strong.providerId === 'fake2',
+    'I5b 改模型名没有把上一步刚存的 providerId 顺手冲掉（同一档内两次写口各自合并，不是互相覆盖）');
+
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgStewardFastProviderId');
+    select.value = 'fake';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const fastProviderSaved = await waitForHttp(appPort, 'GET', '/api/status',
+    result => result.json && result.json.config && result.json.config.stewardThreadModels
+      && result.json.config.stewardThreadModels.fast && result.json.config.stewardThreadModels.fast.providerId === 'fake', token);
+  ok(Boolean(fastProviderSaved), 'I6 快速模型服务商改 fake → config.stewardThreadModels.fast.providerId 落盘为 fake');
+
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('cfgStewardFastModel');
+    input.value = 'fast-test-model';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const fastModelSaved = await waitForHttp(appPort, 'GET', '/api/status',
+    result => result.json && result.json.config && result.json.config.stewardThreadModels
+      && result.json.config.stewardThreadModels.fast && result.json.config.stewardThreadModels.fast.model === 'fast-test-model', token);
+  ok(Boolean(fastModelSaved), 'I7 快速模型名改 fast-test-model → config.stewardThreadModels.fast.model 落盘同值');
+
+  // 关键的「整对象上传、不是只传半个」契约：改快档的两步走完之后，强档（上面①②两步存的）必须
+  // 原封不动——如果写口只传半个 stewardThreadModels，POST /api/config 的顶层 {...current, ...body}
+  // 会把整个 stewardThreadModels 键换成只剩 fast 的那一半，strong 就会静默消失。
+  const finalConfig = await cfg();
+  ok(finalConfig.stewardThreadModels
+    && finalConfig.stewardThreadModels.strong && finalConfig.stewardThreadModels.strong.providerId === 'fake2'
+    && finalConfig.stewardThreadModels.strong.model === 'strong-test-model',
+    `I8 改完快档之后，强档（provider=fake2/model=strong-test-model）没被冲掉（实测 ${JSON.stringify(finalConfig.stewardThreadModels && finalConfig.stewardThreadModels.strong)}）`);
+
+  const afterThreadModels = await cdp.evaluate(PANEL);
+  ok(afterThreadModels.strongProviderId === 'fake2' && afterThreadModels.strongModel === 'strong-test-model'
+    && afterThreadModels.fastProviderId === 'fake' && afterThreadModels.fastModel === 'fast-test-model',
+    `I9 四格界面回显与落盘一致（实测 强=${afterThreadModels.strongProviderId}/${afterThreadModels.strongModel} 快=${afterThreadModels.fastProviderId}/${afterThreadModels.fastModel}）`);
 } catch (error) {
   console.log('ERROR ' + ((error && error.stack) || error));
   fail += 1;

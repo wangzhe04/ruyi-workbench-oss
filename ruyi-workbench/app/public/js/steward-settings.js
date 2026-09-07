@@ -13,8 +13,9 @@ import {
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
 // 两片地盘，一个模块：
-//   ① 设置弹窗的「管家」页签（#stab-steward）——六组 <section>：总开关与壳、新线程默认权限、
-//      管家可以自己做的事、模型与预算、管家记得的关于你、行动流水；
+//   ① 设置弹窗的「管家」页签（#stab-steward）——七组 <section>：总开关与壳、新线程默认权限、
+//      管家可以自己做的事、模型与预算、新开线程用什么模型（117l-A3：强/快两档）、
+//      管家记得的关于你、行动流水；
 //   ② 管家壳头部右上角的两个常驻控件（§8.2）——盾牌（新线程默认权限）与一键停机／唤醒。
 // 两片共用一份判据：权限四档的档位表、人话键与「全自动」二次确认文案【全部从 steward-chips.js
 // import】，本模块【不定义第二份四档表】（静态锁看住：settings 里零 'acceptEdits' 之类的字面量枚举）。
@@ -685,11 +686,14 @@ export function createStewardSettingsDomain({
 
   /* ═══════════════ ④ 模型与预算 ═══════════════ */
 
-  function renderProviderSelect() {
-    const select = byId('cfgStewardProviderId');
+  // 117l-A3：三个 select 共用一份「providers + 『跟随主端点』」填充逻辑——管家自己的服务商、
+  // 新开线程「强模型」的服务商、「快速模型」的服务商。savedId 由调用方各自传各自的落盘值；
+  // 不在列表里也不是空串时补一条「保存的值」占位（与原来 renderProviderSelect 的既有语义一致，
+  // 只是不再各自拼一份，本函数【只有一处定义】）。
+  function fillProviderOptions(select, savedId) {
     if (!select) return;
     const providers = Array.isArray(config().providers) ? config().providers : [];
-    const saved = String(config().stewardProviderId || '');
+    const saved = String(savedId || '');
     clear(select);
     const follow = el('option', '', t('settings.steward.providerFollow'));
     follow.value = '';
@@ -706,6 +710,15 @@ export function createStewardSettingsDomain({
       select.appendChild(stale);
     }
     select.value = saved;
+  }
+
+  function renderProviderSelect() {
+    const threadModels = (config().stewardThreadModels && typeof config().stewardThreadModels === 'object') ? config().stewardThreadModels : {};
+    const strong = (threadModels.strong && typeof threadModels.strong === 'object') ? threadModels.strong : {};
+    const fast = (threadModels.fast && typeof threadModels.fast === 'object') ? threadModels.fast : {};
+    fillProviderOptions(byId('cfgStewardProviderId'), config().stewardProviderId);
+    fillProviderOptions(byId('cfgStewardStrongProviderId'), strong.providerId);
+    fillProviderOptions(byId('cfgStewardFastProviderId'), fast.providerId);
   }
 
   /* ═══════════════ 填充与接线 ═══════════════ */
@@ -729,6 +742,13 @@ export function createStewardSettingsDomain({
       if (resume) resume.value = RESUME_TO_SELECT[String(auto.resume)] || '';
       renderProviderSelect();
       const model = byId('cfgStewardModel'); if (model) model.value = String(c.stewardModel || '');
+      // 117l-A3：强/快两档各自的模型名文本框（providerId 由上面 renderProviderSelect 里的
+      // fillProviderOptions 播种，这里只补 model 字段）。
+      const threadModels = (c.stewardThreadModels && typeof c.stewardThreadModels === 'object') ? c.stewardThreadModels : {};
+      const strongModel = byId('cfgStewardStrongModel');
+      if (strongModel) strongModel.value = String((threadModels.strong && threadModels.strong.model) || '');
+      const fastModel = byId('cfgStewardFastModel');
+      if (fastModel) fastModel.value = String((threadModels.fast && threadModels.fast.model) || '');
       const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 15000) / 1000));
       const visitIdle = byId('cfgStewardVisitIdle'); if (visitIdle) visitIdle.value = String(Number(c.stewardVisitIdleMinutes || 60));
       const turns = byId('cfgStewardMaxTurnsPerHour'); if (turns) turns.value = String(Number(c.stewardMaxTurnsPerHour || 12));
@@ -786,6 +806,18 @@ export function createStewardSettingsDomain({
     onChange('cfgStewardThreadBrief', event => saveConfig({ stewardThreadBriefV1: event.target.checked === true }));
     onChange('cfgStewardProviderId', event => saveConfig({ stewardProviderId: String(event.target.value || '') }));
     onChange('cfgStewardModel', event => saveConfig({ stewardModel: String(event.target.value || '').trim() }));
+    // 117l-A3：强/快两档各自的服务商与模型。四个控件都在「当前 config 里的 stewardThreadModels」
+    // 基础上合并那一格再整对象上传——不是只传半个（POST /api/config 是整键覆盖写，传半个会把另一
+    // 档手滑清空）。
+    const threadModelPatch = (tier, field, value) => {
+      const current = (config().stewardThreadModels && typeof config().stewardThreadModels === 'object') ? config().stewardThreadModels : {};
+      const currentTier = (current[tier] && typeof current[tier] === 'object') ? current[tier] : {};
+      return { ...current, [tier]: { ...currentTier, [field]: value } };
+    };
+    onChange('cfgStewardStrongProviderId', event => saveConfig({ stewardThreadModels: threadModelPatch('strong', 'providerId', String(event.target.value || '')) }));
+    onChange('cfgStewardStrongModel', event => saveConfig({ stewardThreadModels: threadModelPatch('strong', 'model', String(event.target.value || '').trim()) }));
+    onChange('cfgStewardFastProviderId', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'providerId', String(event.target.value || '')) }));
+    onChange('cfgStewardFastModel', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'model', String(event.target.value || '').trim()) }));
     // 秒进毫秒出：界面按秒（下限 5），落盘按毫秒（后端 clamp [5000,120000]）。
     onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 15)) * 1000 }));
     onChange('cfgStewardVisitIdle', event => saveConfig({ stewardVisitIdleMinutes: num(event.target, 60) }));

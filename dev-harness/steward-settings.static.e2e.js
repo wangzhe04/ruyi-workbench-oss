@@ -11,7 +11,9 @@
 //   F 组合根口径：app.js 净增 ≤2 行（1280 护栏内）、provider-settings 只多一处调用；
 //   G 新样式层三处登记 + 零硬编码色 + reduced-motion + 390px；
 //   H i18n 两组键中英对称 + 禁词 + 引用到的键都齐备；
-//   I 只调既有路由 + 117e 第 0 步那一条新只读面，零其它新增后端面。
+//   I 只调既有路由 + 117e 第 0 步那一条新只读面，零其它新增后端面；
+//   J 117l-A3：新开线程用什么模型（强/快两档）——六个新 id、fillProviderOptions 三处 select
+//     共用一份定义、写口整对象上传、六个新 i18n 键中英都非空且挂在面板里。
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -57,11 +59,19 @@ const panelEnd = html.indexOf('<!-- ===== Agent CLI', panelStart);
 const panel = html.slice(panelStart, panelEnd);
 ok(panelStart > 0 && panelEnd > panelStart, 'A3 管家面板在 Agent CLI 面板之前，边界可定位');
 
+// 117l-A3 重钉：旧断言钉的是「117e 那一版」六组面板。117l-A3 在「模型与预算」之后插入第七组
+// 「新开线程用什么模型」（强/快两档，§11.9）——新契约是七组、顺序固定，不是放宽旧契约，是把新组
+// 纳入同一条「齐全且顺序固定」的判据（companion 见下面 A4b，单独钉住新组的插入位置）。
 const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPermission', 'cfgStewardGroupAuto',
-  'cfgStewardGroupBudget', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
+  'cfgStewardGroupBudget', 'cfgStewardGroupThreadModels', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
 const groupOrder = [...panel.matchAll(/<section class="steward-settings-group" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
 ok(JSON.stringify(groupOrder) === JSON.stringify(GROUP_IDS),
-  `A4 六组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+  `A4 七组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+// A4b companion（117l-A3 新增）：新组必须紧跟在「模型与预算」之后、「管家记得的关于你」之前——
+// 不许插到别处（比如页尾或权限组旁边，那样会打散「预算相关的钱都聚在一起」这条既有阅读顺序）。
+ok(groupOrder.indexOf('cfgStewardGroupThreadModels') === groupOrder.indexOf('cfgStewardGroupBudget') + 1
+  && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupThreadModels') + 1,
+  'A4b 117l-A3：「新开线程用什么模型」紧跟在「模型与预算」之后、「管家记得的关于你」之前');
 
 // 每一组都必须是真的 <section>（不是 div 冒充）且带 aria-labelledby（§8.8 无障碍）。
 ok(GROUP_IDS.every(id => new RegExp(`<section class="steward-settings-group" id="${id}" aria-labelledby="`).test(panel)),
@@ -75,6 +85,8 @@ const CONTROL_IDS = [
   'cfgStewardProviderId', 'cfgStewardModel', 'cfgStewardPollMs', 'cfgStewardVisitIdle',
   'cfgStewardMaxTurnsPerHour', 'cfgStewardMaxCostPerDay', 'cfgStewardMaxParallelThreads',
   'cfgStewardGlobalMaxTurnsPerHour', 'cfgStewardGlobalMaxCostPerDay', 'cfgStewardRetention',
+  // 117l-A3：新开线程「强模型」／「快速模型」两档，各自服务商 + 模型名。
+  'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel',
   'cfgStewardMemoryPanel', 'cfgStewardMemoryRefreshBtn', 'cfgStewardMemoryExportBtn',
   'cfgStewardMemoryClearBtn', 'cfgStewardMemoryClearConfirm', 'cfgStewardMemoryClearInput',
   'cfgStewardMemoryClearCancel', 'cfgStewardMemoryClearOk',
@@ -249,6 +261,32 @@ ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
 ok(!/\/api\/config/.test(settingsCode) && count(settingsCode, /saveConfigPartial\(/g) >= 1,
   'I2 配置写口只经注入的 saveConfigPartial（本模块不自己拼 POST /api/config）');
 ok(count(settingsCode, /\bfetch\(/g) === 0, 'I3 零直调 fetch（一律经注入的 api()）');
+
+// ─── J 117l-A3：新开线程用什么模型（强/快两档）──────────────────────────────────
+const THREAD_MODEL_IDS = ['cfgStewardGroupThreadModels', 'cfgStewardThreadModelsHeading',
+  'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel'];
+const missingThreadModelIds = THREAD_MODEL_IDS.filter(id => !new RegExp(`id="${id}"`).test(panel));
+ok(missingThreadModelIds.length === 0, `J1 六个新 id 都在管家面板里（缺: ${missingThreadModelIds.join(',') || '无'}）`);
+const budgetIdx = panel.indexOf('id="cfgStewardGroupBudget"');
+const threadModelsIdx = panel.indexOf('id="cfgStewardGroupThreadModels"');
+ok(budgetIdx > 0 && threadModelsIdx > budgetIdx, 'J2 六个新 id 所在的组确实在 cfgStewardGroupBudget 之后');
+// fillProviderOptions 只有一处定义、三处调用（管家自己／强模型／快模型三个 select 共用同一份填充逻辑，
+// 不复制第二份）：字面量出现次数 = 1 处 `function fillProviderOptions(` + 3 处调用 = 4。
+ok(count(settingsCode, /function fillProviderOptions\(/g) === 1, 'J3 fillProviderOptions 只有一处定义');
+ok(count(settingsCode, /fillProviderOptions\(/g) === 4,
+  `J4 fillProviderOptions 恰好三处调用（连同定义共 4 处字面量；实测 ${count(settingsCode, /fillProviderOptions\(/g)}）`);
+// stewardThreadModels 整对象上传：merge 出来的补丁必须带上 current（既有的另一档），不是只传半个。
+ok(/const current = \(config\(\)\.stewardThreadModels/.test(settings) && /\.\.\.current, \[tier\]:/.test(settings),
+  'J5 强/快两档的写口在当前 config 基础上合并整个 stewardThreadModels 对象上传（不是只传半个）');
+const THREAD_MODEL_KEYS = [
+  'settings.steward.group.threadModels', 'settings.steward.threadModels.strongProvider',
+  'settings.steward.threadModels.strongModel', 'settings.steward.threadModels.fastProvider',
+  'settings.steward.threadModels.fastModel', 'settings.steward.threadModels.hint',
+];
+const missingThreadModelKeys = THREAD_MODEL_KEYS.filter(key => !(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0));
+ok(missingThreadModelKeys.length === 0, `J6 六个新 i18n 键 zh/en 都非空（缺: ${missingThreadModelKeys.join(',') || '无'}）`);
+ok(THREAD_MODEL_KEYS.every(key => panel.includes(`data-i18n="${key}"`)),
+  'J7 六个新键都在面板里以 data-i18n 挂上（不是孤儿翻译）');
 
 console.log(`\nSTEWARD SETTINGS STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

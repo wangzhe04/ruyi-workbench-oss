@@ -1008,6 +1008,32 @@
               <p class="field-help muted" data-i18n="settings.steward.threadBriefHint">每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的会话列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。</p>
             </section>
 
+            <!-- ④b 新开线程用什么模型（117l-A3，27 号文 §11.9：新线程默认端点与模型分复杂/简单两档） -->
+            <section class="steward-settings-group" id="cfgStewardGroupThreadModels" aria-labelledby="cfgStewardThreadModelsHeading">
+              <h4 id="cfgStewardThreadModelsHeading" class="settings-subhead" data-i18n="settings.steward.group.threadModels">新开线程用什么模型</h4>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardStrongProviderId" data-i18n="settings.steward.threadModels.strongProvider">复杂任务 · 强模型服务商</label>
+                  <select id="cfgStewardStrongProviderId"></select>
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardStrongModel" data-i18n="settings.steward.threadModels.strongModel">复杂任务 · 强模型</label>
+                  <input id="cfgStewardStrongModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardFastProviderId" data-i18n="settings.steward.threadModels.fastProvider">简单任务 · 快速模型服务商</label>
+                  <select id="cfgStewardFastProviderId"></select>
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardFastModel" data-i18n="settings.steward.threadModels.fastModel">简单任务 · 快速模型</label>
+                  <input id="cfgStewardFastModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                </div>
+              </div>
+              <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>
+            </section>
+
             <!-- ⑤ 管家记得的关于你（§4「面板」）-->
             <section class="steward-settings-group" id="cfgStewardGroupMemory" aria-labelledby="cfgStewardMemoryHeading">
               <h4 id="cfgStewardMemoryHeading" class="settings-subhead" data-i18n="settings.steward.group.memory">管家记得的关于你</h4>
