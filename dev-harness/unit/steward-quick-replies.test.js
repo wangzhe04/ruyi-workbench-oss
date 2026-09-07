@@ -115,6 +115,30 @@ describe('quickRepliesFor: ① 待决优先（permission）', () => {
     assert.equal(replies[0].interventionId, 'perm_1');
   });
 
+  // 117j UX-F6 复核（review-steward-ux.md 标的是「待复核：抽屉挂 permission 待决时『你可以说』
+  // 应给『允许/拒绝』」）：用 **GET /api/interventions 真实回的那一行**（13d 的 pending 行形状：
+  // id/type/sessionId/missionId/requestedAt/interventionVersion/toolName/tier/revertible/input/
+  // deliverable/live 全带上）再跑一遍。结论：**不是 bug** —— 判据读的是 pending.type 与 pending.id，
+  // 真实形状上本来就成立。这条用例把结论钉住，免得下次又靠读代码推一遍。
+  it('UX-F6 复核：真实 /api/interventions 行形状下同样给「允许」「拒绝」', async () => {
+    const { quickRepliesFor } = await loadModule();
+    const realRow = {
+      id: 'iv_9f2c', type: 'permission', sessionId: 'sess_a', missionId: 'sess_a',
+      requestedAt: '2026-09-07T02:11:04.512Z', interventionVersion: 1,
+      toolName: 'powershell_run', tier: 'exec', revertible: false,
+      runId: '', proposedBy: '', task: '',
+      input: { command: 'git status' },
+      questionSummary: '', questions: [], context: '',
+      planSummary: '', replanSummary: '', replanTriggerType: '', replanNodeId: '',
+      deliverable: true, live: true,
+    };
+    const replies = quickRepliesFor({ pending: realRow, lastAssistantText: '', state: 'needs_you', t });
+    assert.deepEqual(replies.map(reply => reply.label), [K('allow'), K('deny')]);
+    assert.deepEqual(replies.map(reply => reply.behavior), ['allow', 'deny']);
+    assert.equal(replies[0].interventionId, 'iv_9f2c');
+    assert.equal(replies[0].kind, 'permission');
+  });
+
   it('plan／pool／replan 这些本波不做快捷回复的类型，落到下一优先级', async () => {
     const { quickRepliesFor } = await loadModule();
     for (const type of ['plan', 'pool', 'replan']) {

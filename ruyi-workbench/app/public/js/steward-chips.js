@@ -15,6 +15,42 @@
 //   · 模型／引擎的候选来源【复用经典壳那一份】：Claude 侧是 state.status.models，provider 侧是
 //     state.config.providers[].models（navigation-controls.js 的模型菜单读的就是这两处），不另写一份。
 
+// ── 117j UX-F3/F4（§8.8 键盘可达）：Esc 逐层 ────────────────────────────────────────────
+// 修前的两个毛病：
+//   ① 抽屉与看板各挂了一处 document keydown 且各自 stopPropagation —— 抽屉开着时再打开一个
+//      chip 菜单，Esc 关掉的是【抽屉】，菜单还在。谁先关取决于谁先注册，不是取决于谁在上面。
+//   ② ※ 浮层与三个菜单（chip／盾牌／头像）的 Esc 要么挂在自己身上（焦点不在里面就收不到），
+//      要么根本没有。
+// 改成一个栈：浮层与菜单各自 push 自己的关闭器、关掉时 remove，由 steward-shell.js 那【一处】
+// keydown 从栈顶往下关一层。抽屉与看板那两处 document keydown 保留不动 —— 它们天然是最底层，
+// 而栈的监听【注册在它们之前】，所以「栈顶先关」自然成立：栈里有东西就关栈顶并 stopPropagation，
+// 栈是空的才轮到抽屉／看板自己那一路。这样既拿到逐层语义，又不必动它们已被静态锁逐字钉住的形状。
+const escapeLayers = [];
+export const stewardEscapeStack = Object.freeze({
+  // 返回一个「注销自己」的函数（调用方存起来，关闭时调一次）。同一层重复 push 会得到两个独立句柄，
+  // 但关闭器是幂等的（自己不开着就返回 false），所以多注册一次只是多问一句。
+  push(close) {
+    if (typeof close !== 'function') return () => {};
+    const layer = { close };
+    escapeLayers.push(layer);
+    return () => {
+      const index = escapeLayers.indexOf(layer);
+      if (index >= 0) escapeLayers.splice(index, 1);
+    };
+  },
+  // 从栈顶往下找第一个【真的关掉了什么】的层。关闭器返回 false = 「我现在没开着」，继续往下问；
+  // 抛错也当没关掉（一个坏掉的浮层不该把 Esc 整条吃掉）。
+  handleEscape() {
+    for (let i = escapeLayers.length - 1; i >= 0; i -= 1) {
+      let closed = false;
+      try { closed = escapeLayers[i].close() !== false; } catch { closed = false; }
+      if (closed) return true;
+    }
+    return false;
+  },
+  size: () => escapeLayers.length,
+});
+
 export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto']);
 // 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：只有全自动需要二次确认。
 export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
@@ -100,13 +136,20 @@ export function createQuickSwitchChips({
 
   function config() { return (state && state.config) || {}; }
 
+  // 117j copy-P2-4/5：菜单开着时进 Esc 栈，关掉时注销并把焦点还给触发它的 chip
+  // （键盘用户按完 Esc 得知道自己回到了哪里）。
+  let releaseEscape = null;
   function closeMenu() {
     if (!openMenu) return;
     openMenu.hidden = true;
     while (openMenu.firstChild) openMenu.removeChild(openMenu.firstChild);
     const owner = chips.get(openMenu.dataset.kind);
-    if (owner) owner.button.setAttribute('aria-expanded', 'false');
+    if (owner) {
+      owner.button.setAttribute('aria-expanded', 'false');
+      try { owner.button.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+    }
     openMenu = null;
+    if (releaseEscape) { releaseEscape(); releaseEscape = null; }
   }
 
   function note(text) {
@@ -287,6 +330,7 @@ export function createQuickSwitchChips({
     chip.menu.hidden = false;
     chip.button.setAttribute('aria-expanded', 'true');
     openMenu = chip.menu;
+    releaseEscape = stewardEscapeStack.push(() => { if (!openMenu) return false; closeMenu(); return true; });
   }
 
   // chip 上显示的当前值：权限显示档位人话（未设会话级则「跟随全局」），模型／引擎显示生效值。

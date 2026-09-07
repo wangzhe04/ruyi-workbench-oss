@@ -16,6 +16,8 @@
 // 纪律）；本模块唯一的 timer 是去抖 setTimeout（一处 setTimeout ＋ 一处 clearTimeout，都锁在
 // schedulePreroute/cancelPreroute 里）。
 
+import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈
+
 export const STEWARD_PREROUTE_DEBOUNCE_MS = 150;   // §8.12 第 1 条：目标 ≤50ms 出判定，150ms 去抖不抢跑
 export const STEWARD_PICKER_MAX = 8;               // 候选列表最多 8 条
 export const STEWARD_RECENT_MAX = 8;               // 见过的线程做「最近线程」回忆池（零新增路由）
@@ -164,11 +166,15 @@ export function createStewardComposer({
     return out.slice(0, STEWARD_PICKER_MAX);
   }
 
+  // 117j UX-F3：候选列表也进 Esc 栈。输入框那条 keydown 保留（焦点在里面时的近路），
+  // 但焦点跑到别处（比如刚点完 chip）时，只有栈这一路收得到。
+  let releasePickerEscape = null;
   function closePicker() {
     const picker = byId('stewardTargetPicker');
     if (picker) picker.hidden = true;
     const chip = byId('stewardTarget');
     if (chip) chip.setAttribute('aria-expanded', 'false');
+    if (releasePickerEscape) { releasePickerEscape(); releasePickerEscape = null; }
   }
 
   function openPicker() {
@@ -193,7 +199,19 @@ export function createStewardComposer({
     }
     picker.hidden = false;
     const chip = byId('stewardTarget');
-    if (chip) chip.setAttribute('aria-expanded', 'true');
+    if (chip) {
+      chip.setAttribute('aria-expanded', 'true');
+      chip.setAttribute('aria-controls', 'stewardTargetPicker');   // copy-P2-4
+    }
+    if (!releasePickerEscape) {
+      releasePickerEscape = stewardEscapeStack.push(() => {
+        const open = byId('stewardTargetPicker');
+        if (!open || open.hidden) return false;
+        closePicker();
+        try { const back = byId('stewardTarget'); if (back) back.focus(); } catch { /* 宿主没有 focus */ }
+        return true;
+      });
+    }
   }
 
   // Tab 在「如意 → 各候选线程」间循环（§8.8）。没有候选时不劫持 Tab，Shift+Tab 永远是正常的

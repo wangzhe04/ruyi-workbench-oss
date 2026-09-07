@@ -11,6 +11,7 @@
 //   D W2-4 收件箱回合实时进对话流：走 116-4 的 ?since= 增量，只认 trigger==='inbox'。
 //   E W2-5 刷新节拍：三个计时器统一「表按 5s 下限起，真要不要拉由这一拍自己判」。
 //   F 第二批（UX-F1/F2/F5、copy-P1-1、classic-1/2、B2、copy-P3-3）：确认闸、文案分支、口径同步。
+//   G 第三批（UX-F3/F4、copy-P2-2/3/4/5、copy-P3-1/4、classic-3/4）：Esc 逐层与读屏噪音。
 //
 // 判定行：`STEWARD WALKTHROUGH STATIC E2E: ALL PASS`。
 
@@ -210,6 +211,87 @@ const ok = (condition, label) => {
       'F5 UX-F5：open_thread 回执优先读 sessionTitle —— 否则会出「打开了「打开「X」」」');
     ok((conversation.match(/sessionTitle: String\(/g) || []).length === 2,
       'F5b 构造 open_thread act 的两处（renderDigest / renderPending）都带上了线程名');
+  }
+
+  /* ── G：117j 第三批（P2/P3 + classic-3/4）───────────────────────────────────── */
+  {
+    const chips = read('js/steward-chips.js');
+    const settings = read('js/steward-settings.js');
+    const classicWindow = read('js/steward-classic-window.js');
+    const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
+    const { stewardEscapeStack } = chipsMod;
+
+    // UX-F3/F4：Esc 逐层。栈是纯内存的，可以直接在 Node 里跑真值表。
+    ok(typeof stewardEscapeStack === 'object' && typeof stewardEscapeStack.push === 'function',
+      'G1 Esc 栈是可 Node import 的共享原语（住零 import 的叶子模块，四个子域直接 import）');
+    {
+      const order = [];
+      const releaseA = stewardEscapeStack.push(() => { order.push('a'); return true; });
+      const releaseB = stewardEscapeStack.push(() => { order.push('b'); return true; });
+      ok(stewardEscapeStack.handleEscape() === true && order.join(',') === 'b',
+        `G1b 栈顶先关（后 push 的先响应；实测 ${JSON.stringify(order)}）`);
+      releaseB();
+      order.length = 0;
+      ok(stewardEscapeStack.handleEscape() === true && order.join(',') === 'a',
+        'G1c 注销之后轮到下一层');
+      releaseA();
+      const closedNothing = stewardEscapeStack.push(() => false);
+      const real = stewardEscapeStack.push(() => { order.push('real'); return true; });
+      order.length = 0;
+      ok(stewardEscapeStack.handleEscape() === true && order.join(',') === 'real',
+        'G1d 返回 false 的层表示「我没开着」，继续往下问');
+      real(); closedNothing();
+      const boom = stewardEscapeStack.push(() => { throw new Error('boom'); });
+      ok(stewardEscapeStack.handleEscape() === false,
+        'G1e 一个抛错的层不会把 Esc 整条吃掉（当它没关掉，继续往下）');
+      boom();
+      ok(stewardEscapeStack.size() === 0, 'G1f 用例自己清干净了（栈是模块级共享状态）');
+    }
+    ok(/if \(event\.key !== 'Escape' \|\| !isStewardMode\(\)\) return;\s*if \(stewardEscapeStack\.handleEscape\(\)\) event\.stopPropagation\(\);/.test(shell),
+      'G2 唯一那处 keydown 住 steward-shell.js；栈里没东西就不拦，抽屉/看板自己那两路照常收到');
+    ok(shell.indexOf("addEventListener('keydown'") < shell.indexOf('composer.bindStewardComposer()'),
+      'G2b 它【注册在抽屉/看板之前】—— 同型监听按注册顺序触发，这就是「栈顶先关」成立的原因');
+    for (const [name, source] of [['chip 菜单', chips], ['盾牌菜单', settings], ['※ 浮层与头像菜单', conversation], ['候选列表', composer]]) {
+      ok(/stewardEscapeStack\.push\(/.test(source), `G3 ${name} 进 Esc 栈`);
+    }
+    ok((conversation.match(/stewardEscapeStack\.push\(/g) || []).length === 2,
+      'G3b ※ 浮层与头像菜单各一处（两个都要，不是只挂一个）');
+    for (const [name, source, needle] of [
+      ['chip', chips, 'owner.button.focus()'],
+      ['盾牌', settings, 'btn.focus()'],
+      ['头像', conversation, 'avatar.focus()'],
+      ['※', conversation, 'trigger.focus()'],
+    ]) ok(source.includes(needle), `G4 copy-P2-4/5：${name} 关掉时把焦点还回触发它的控件`);
+    ok(/avatar\.setAttribute\('aria-controls', menu\.id\)/.test(conversation)
+      && /btn\.setAttribute\('aria-controls', 'stewardShieldMenu'\)/.test(settings)
+      && /chip\.setAttribute\('aria-controls', 'stewardTargetPicker'\)/.test(composer),
+      'G4b 三处浮层都有 aria-controls（读屏要知道这颗按钮控制的是哪一块）');
+
+    // copy-P2-2：倒计时不在 aria-live 区刷屏。
+    ok(/face\.setAttribute\('aria-hidden', 'true'\);/.test(conversation)
+      && /btn\.setAttribute\('aria-label', t\('stewardShell\.chat\.undo'\)\);/.test(conversation)
+      && !/btn\.textContent = t\('stewardShell\.chat\.undoCountdown'/.test(conversation),
+      'G5 copy-P2-2：数字进 aria-hidden 的 span，按钮 aria-label 固定「撤回」（feed 是 aria-live 区，每秒改一次文本读屏会一路念下去）');
+
+    // copy-P2-3：presence 文案没变就不重写。
+    ok(/if \(text && text\.textContent !== label\) text\.textContent = label;/.test(shell),
+      'G6 copy-P2-3：presence 文案先比再写（它也在 aria-live 区，赋同样的值也会被念一遍）');
+
+    // copy-P3-1 / P3-4。
+    ok(/others\.join\(t\('stewardShell\.chat\.listSeparator'\)\)/.test(conversation),
+      'G7 copy-P3-1：列表分隔符走 i18n（中文「、」/ 英文「, 」）');
+    for (const loc of ['zh-CN', 'en-US']) {
+      const cat = JSON.parse(read('locales/' + loc + '.json'));
+      ok(typeof cat['stewardShell.chat.listSeparator'] === 'string', `G7b ${loc} 有 listSeparator`);
+    }
+    ok(/const keys = \{ ArrowLeft: -1, ArrowRight: 1 \};/.test(drawer) && /event\.key === 'Home'/.test(drawer) && /event\.key === 'End'/.test(drawer),
+      'G8 copy-P3-4：抽屉页签支持 ←/→ 与 Home/End（它已经是正经 tablist，此前只能一个个 Tab 过去）');
+
+    // classic-3 / classic-4。
+    ok(/if \(document_\.documentElement\.getAttribute\('data-shell-mode'\) !== 'classic'\) clearMark\(\);/.test(classicWindow),
+      'G9 classic-3：离开经典壳的【任何一条路】都清返回标记（修前只认「切回管家」，切到预览壳时标记会留下）');
+    ok(/if \(visit\.newVisit !== true\) \{\s*try \{ history = await api\('\/api\/sessions\/steward'\); \}/.test(conversation),
+      'G10 classic-4：新到访不去拉那条还没落盘的管家会话（那一发必然 404，而 newVisit 分支压根不用 messages）');
   }
 
   console.log(`\nSTEWARD WALKTHROUGH STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

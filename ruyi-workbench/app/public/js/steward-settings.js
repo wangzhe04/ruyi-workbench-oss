@@ -7,6 +7,7 @@ import {
   STEWARD_CONFIRM_KEYS,
   permissionLabelKey,
   permissionHintKey,
+  stewardEscapeStack,
 } from './steward-chips.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
@@ -342,12 +343,18 @@ export function createStewardSettingsDomain({
 
   /* ═══════════════ 盾牌（管家壳头部，§8.2 右上两个常驻图标之一）═══════════════ */
 
+  // 117j copy-P2-4：盾牌菜单进 Esc 栈，关掉时把焦点还给盾牌键（键盘用户按完 Esc 要知道回到了哪里）。
+  let releaseShieldEscape = null;
   function closeShield() {
     const menu = byId('stewardShieldMenu');
     if (menu) { menu.hidden = true; clear(menu); }
     const btn = byId('stewardShieldBtn');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+      try { btn.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+    }
     shieldOpen = false;
+    if (releaseShieldEscape) { releaseShieldEscape(); releaseShieldEscape = null; }
   }
 
   function renderShield() {
@@ -389,8 +396,11 @@ export function createStewardSettingsDomain({
       menu.appendChild(option);
     }
     menu.hidden = false;
+    menu.id = menu.id || 'stewardShieldMenu';
+    btn.setAttribute('aria-controls', 'stewardShieldMenu');   // copy-P2-4
     btn.setAttribute('aria-expanded', 'true');
     shieldOpen = true;
+    releaseShieldEscape = stewardEscapeStack.push(() => { if (!shieldOpen) return false; closeShield(); return true; });
   }
 
   /* ═══════════════ ⑤ 记忆面板（§4「面板」）═══════════════ */

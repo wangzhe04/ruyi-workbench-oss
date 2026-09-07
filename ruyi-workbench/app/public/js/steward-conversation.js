@@ -5,6 +5,7 @@ import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出�
 // 117j copy-P1-1：工具的人话表。前端【只有这一份】（行动流水与 ※ 浮层共用），从 steward-settings.js
 // 复用而不是在这里抄第二份 —— 同一个动作在两处必须是同一句话。
 import { STEWARD_TOOL_LABEL_KEYS } from './steward-settings.js';
+import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -219,12 +220,25 @@ export function createStewardConversation({
     pop.hidden = true;
     if (!lines.length) pop.appendChild(el('p', 'steward-why-line', t('stewardShell.chat.whyEmpty')));
     else for (const line of lines) pop.appendChild(el('p', 'steward-why-line', line));
+    // 117j UX-F4：※ 浮层的 Esc 此前挂在浮层【自己】身上 —— 点开它焦点还在触发按钮上，
+    // 键盘事件根本不经过浮层，于是那条监听形同虚设。改成开的时候进 Esc 栈（栈的监听在 document 上）。
+    let releaseWhyEscape = null;
+    const closeWhy = () => {
+      if (pop.hidden) return false;
+      pop.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      try { trigger.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+      if (releaseWhyEscape) { releaseWhyEscape(); releaseWhyEscape = null; }
+      return true;
+    };
     trigger.addEventListener('click', () => {
-      pop.hidden = !pop.hidden;
-      trigger.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+      if (!pop.hidden) { closeWhy(); return; }
+      pop.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      releaseWhyEscape = stewardEscapeStack.push(closeWhy);
     });
     pop.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { pop.hidden = true; trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }
+      if (event.key === 'Escape') closeWhy();   // 焦点真在浮层里时的近路（栈那一路同样能关）
     });
     sayNode.appendChild(trigger);
     return pop;
@@ -580,13 +594,22 @@ export function createStewardConversation({
   }
   // 唯一的 setInterval：撤回窄窗倒计时。只在一次真实递话之后起，倒计时归零即自清（见 tick 里的
   // stopUndoCountdown），离开管家壳时 resetConversation() 也会清 —— 不存在「没递话却在跑的计时器」。
+  // 117j copy-P2-2：倒计时数字每秒变一次，而这枚按钮就在 #stewardFeed 里 —— 那是个
+  // role="log" aria-live="polite" 的区。读屏于是把「撤回（9）」「撤回（8）」…一路念下去，
+  // 把真正的新消息全淹掉。数字放进 aria-hidden 的 span，按钮自己的 aria-label 固定成「撤回」：
+  // 看得见的仍然在跳，念出来的只有一句。
   function startUndoCountdown(btn, onExpire) {
     stopUndoCountdown();
     let left = Math.round(STEWARD_UNDO_WINDOW_MS / 1000);
-    btn.textContent = t('stewardShell.chat.undoCountdown', { seconds: left });
+    btn.textContent = '';
+    btn.setAttribute('aria-label', t('stewardShell.chat.undo'));
+    const face = el('span', 'steward-undo-face');
+    face.setAttribute('aria-hidden', 'true');
+    face.textContent = t('stewardShell.chat.undoCountdown', { seconds: left });
+    btn.appendChild(face);
     undoTimer = setInterval(() => {
       left -= 1;
-      if (left > 0) { btn.textContent = t('stewardShell.chat.undoCountdown', { seconds: left }); return; }
+      if (left > 0) { face.textContent = t('stewardShell.chat.undoCountdown', { seconds: left }); return; }
       stopUndoCountdown();
       onExpire();
     }, 1000);
@@ -615,8 +638,9 @@ export function createStewardConversation({
     const others = (Array.isArray(hits) ? hits : []).filter(hit => hit && hit.sessionId !== sid)
       // 116-5b:与输入区候选列表同一份数据、同一个显示名(hit.displayTitle,服务端算好)。
       .map(hit => stewardShortTitle(hit.displayTitle || hit.title || hit.sessionId));
+    // 117j copy-P3-1：列表分隔符走 i18n —— 中文用「、」，英文得用「, 」，写死一个必然在另一种语言下别扭。
     const row = appendSteward(t('stewardShell.chat.handedOff', { title: label }), String(reason || ''),
-      others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join('、') })] : []);
+      others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join(t('stewardShell.chat.listSeparator')) })] : []);
     focusThread(sid);
     const undoRef = (result && result.undoRef) || null;
     const actsRow = el('div', 'steward-acts');
@@ -631,7 +655,9 @@ export function createStewardConversation({
     // （预判 hits ＋ 本次见过的线程 ＋「→ 如意」），「在事项下新开／另起一件」两项随 117d 的
     // 事项视图一起到位。
     startUndoCountdown(undoBtn, () => {
+      // 窄窗到点：整枚按钮换成「换一条」——文字与 aria-label 一起换（倒计时那个 span 随之被丢掉）。
       undoBtn.textContent = t('stewardShell.chat.switchTarget');
+      undoBtn.setAttribute('aria-label', t('stewardShell.chat.switchTarget'));
       undoBtn.classList.add('steward-act-switch');
     });
     return { sessionId: sid, undoRef, row, actsRow };
@@ -807,8 +833,13 @@ export function createStewardConversation({
       visitStartedAt = String((visit.visit && visit.visit.startedAt) || '');
       const pending = Array.isArray(visit.pending) ? visit.pending : [];
       setPresence({ pendingCount: pending.length });
+      // 117j classic-4：**新到访不必去拉历史**。管家会话是懒创建的，第一次进壳时它还没落盘，
+      // 这一发必然 404 —— 每次进管家壳的控制台里都躺着一条红色请求，而下面那个 newVisit 分支
+      // 压根不用 messages（它画的是问候语与摘要）。既省一次往返，也不再制造假故障。
       let history = null;
-      try { history = await api('/api/sessions/steward'); } catch { history = null; }
+      if (visit.newVisit !== true) {
+        try { history = await api('/api/sessions/steward'); } catch { history = null; }
+      }
       const messages = (history && history.session && Array.isArray(history.session.messages)) ? history.session.messages : [];
       clearFeed();
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
@@ -886,9 +917,24 @@ export function createStewardConversation({
       }
       const header = byId('stewardHeader');
       if (header) header.appendChild(menu);
+      // 117j copy-P2-5：头像菜单加 Esc（进栈）＋ aria-controls ＋ 关掉时焦点还给头像。
+      menu.id = 'stewardAvatarMenu';
+      avatar.setAttribute('aria-controls', menu.id);
+      avatar.setAttribute('aria-haspopup', 'menu');
+      let releaseMenuEscape = null;
+      const closeMenu = () => {
+        if (menu.hidden) return false;
+        menu.hidden = true;
+        avatar.setAttribute('aria-expanded', 'false');
+        try { avatar.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+        if (releaseMenuEscape) { releaseMenuEscape(); releaseMenuEscape = null; }
+        return true;
+      };
       avatar.addEventListener('click', () => {
-        menu.hidden = !menu.hidden;
-        avatar.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+        if (!menu.hidden) { closeMenu(); return; }
+        menu.hidden = false;
+        avatar.setAttribute('aria-expanded', 'true');
+        releaseMenuEscape = stewardEscapeStack.push(closeMenu);
       });
       avatar.setAttribute('aria-expanded', 'false');
     }

@@ -123,10 +123,13 @@ export function createStewardClassicWindow({
       new MutationObserver(() => renderBand())
         .observe(title, { childList: true, characterData: true, subtree: true });
     }
-    // 回到管家（谁改的 data-shell-mode 都算）即结束这趟视窗：清标记、收带子。
+    // 117j classic-3（经典壳回归审查 P2「返回带残留」）：**离开经典壳的任何一条路**都结束这趟视窗。
+    // 修前只认「切回管家」那一条，于是从 2.0 视窗切到【预览壳】时标记还留在 sessionStorage 里 ——
+    // 等下次回到经典，带子又自己冒出来，而用户这一趟根本不是从管家进来的。
+    // 置标的入口仍然只有 openClassicWindow 一个（switchWholeShell 明确清标，见它的头注）。
     if (globalThis.MutationObserver && document_ && document_.documentElement) {
       new MutationObserver(() => {
-        if (document_.documentElement.getAttribute('data-shell-mode') === 'steward') clearMark();
+        if (document_.documentElement.getAttribute('data-shell-mode') !== 'classic') clearMark();
         renderBand();
       }).observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }

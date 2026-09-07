@@ -2684,6 +2684,7 @@
   ,"stewardShell.chat.engineUnsupported": "管家现在只能走 OpenAI 兼容端点，而你的主端点是命令行引擎。给管家单独选一个端点，就能聊了。"
   ,"stewardShell.chat.useProvider": "改用『{{provider}}』"
   ,"stewardShell.chat.providerSwitched": "已改用『{{provider}}』"
+  ,"stewardShell.chat.listSeparator": "、"
   ,"stewardShell.chat.openSettings": "去设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么…"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改…"

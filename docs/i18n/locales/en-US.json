@@ -2684,6 +2684,7 @@
   ,"stewardShell.chat.engineUnsupported": "The steward can only run on an OpenAI-compatible endpoint, and your main endpoint is a CLI engine. Pick an endpoint for the steward and it can talk."
   ,"stewardShell.chat.useProvider": "Use “{{provider}}”"
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"
+  ,"stewardShell.chat.listSeparator": ", "
   ,"stewardShell.chat.openSettings": "Open settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi…"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change…"

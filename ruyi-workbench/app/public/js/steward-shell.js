@@ -7,6 +7,7 @@ import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createStewardClassicWindow } from './steward-classic-window.js';
+import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点
 
 // 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -174,8 +175,12 @@ export function createStewardShellDomain({
     // 算出来的 next —— 绝不另起一份判据（117b 的「三处一次写完」现在是四处，仍然只有一个真值）。
     const dot = byId('stewardPresenceDot');
     if (dot) dot.dataset.state = next;
+    // 117j copy-P2-3：#stewardPresenceText 是 aria-live="polite" 的。轮询每一拍都会走到这里，
+    // 而 textContent 只要被赋值（哪怕值一模一样）读屏就再念一遍 —— 空闲时它会每 5～15 秒念一次
+    // 「空闲」。所以先比一次，真变了才写。
     const text = byId('stewardPresenceText');
-    if (text) text.textContent = t(presenceLabelKey(next), { detail: '' });
+    const label = t(presenceLabelKey(next), { detail: '' });
+    if (text && text.textContent !== label) text.textContent = label;
     return next;
   }
 
@@ -368,6 +373,16 @@ export function createStewardShellDomain({
   }
 
   function bindStewardShell() {
+    // 117j UX-F3/F4：Esc 逐层的【唯一】 keydown。**必须排在 composer/drawer/board 的绑定之前** ——
+    // 抽屉与看板各自那处 document keydown 保留着（它们是最底层），而 DOM 的同型监听按注册顺序触发，
+    // 所以这一处先跑：栈里有浮层／菜单就关栈顶并 stopPropagation（下面那两路收不到），
+    // 栈空了才轮到它们关抽屉／看板。判据与关闭器都不在这里 —— 各模块只 push 自己的那一个。
+    if (globalThis.document) {
+      globalThis.document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || !isStewardMode()) return;
+        if (stewardEscapeStack.handleEscape()) event.stopPropagation();
+      });
+    }
     const classic = byId('stewardClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
     syncSettingOption();

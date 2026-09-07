@@ -288,6 +288,24 @@ export function createStewardDrawer({
       tab.append(dot, el('span', 'steward-drawer-tab-title', String(row.displayTitle || row.title || row.sessionId)));
       if (row.title && row.displayTitle && row.title !== row.displayTitle) tab.title = String(row.title);
       tab.onclick = () => { if (!selected) openThread(String(row.sessionId)); };
+      // 117j copy-P3-4：正经 tablist 的键盘规矩 —— ←/→ 在页签间走，Home/End 跳首尾，环绕。
+      // 页签本身已经是 role="tab"（A7 锁），此前却只能用 Tab 一个一个跳过去。
+      tab.onkeydown = event => {
+        const keys = { ArrowLeft: -1, ArrowRight: 1 };
+        const tabs = [...host.querySelectorAll('[role="tab"]')];
+        const here = tabs.indexOf(tab);
+        if (here < 0 || tabs.length < 2) return;
+        let next = -1;
+        if (Object.prototype.hasOwnProperty.call(keys, event.key)) next = (here + keys[event.key] + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        if (next < 0) return;
+        event.preventDefault();
+        const target = tabs[next];
+        try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+        const sid = target.dataset.sessionId;
+        if (sid && sid !== sessionId) openThread(String(sid));
+      };
       host.appendChild(tab);
     }
     // 「＋ 线程」：创建本身仍经管家（委托书表单归 117e），这里只派事件 + 把输入区 chip 置为
