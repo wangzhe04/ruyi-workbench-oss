@@ -375,6 +375,11 @@ async function saveConfigPartial(patch) {
   try {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
     state.config = res.config;
+    // 117j B2（权限口径同步）：顶栏那枚安全 chip 的唯一真值来源是 state.config.permissionMode。
+    // 修前只有设置页那一路写完会 renderPermChip()，而管家壳的盾牌菜单、线程 chip、顶栏下拉走的都是
+    // 这同一个 saveConfigPartial 却各自不刷 —— 于是切完档顶栏还挂着旧的。放在【唯一写口】里 =
+    // 谁写都刷，不必给每个调用方各补一次（那正是漏掉三处的原因）。
+    if (patch && Object.prototype.hasOwnProperty.call(patch, 'permissionMode')) renderPermChip();
     return true;
   } catch (e) {
     toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err');
@@ -462,9 +467,18 @@ function fillSettings() {
   { const b = c.usageBudget || {}; const m = $('cfgUsageBudgetMonthly'); if (m) m.value = (b.monthly === 0 || b.monthly) ? String(b.monthly) : ''; const cur = $('cfgUsageBudgetCurrency'); if (cur) cur.value = b.currency || 'CNY'; }
   { const cpr = c.claudePricing || {}; const pi = $('cfgClaudePriceIn'); if (pi) pi.value = (cpr.inputPerM === 0 || cpr.inputPerM) ? String(cpr.inputPerM) : ''; const po = $('cfgClaudePriceOut'); if (po) po.value = (cpr.outputPerM === 0 || cpr.outputPerM) ? String(cpr.outputPerM) : ''; const pc = $('cfgClaudePriceCurrency'); if (pc) pc.value = cpr.currency || 'CNY'; }
   populateProviderPresets();
-  syncStewardShellAvailability(); // 117a: 壳模式第三项（管家）随 stewardEnabledV1 置灰/放开
-  fillStewardSettings();          // 117e: 设置页「管家」页签的控件随 config 回填（面板数据懒加载）
-  // A8: a background refreshStatus() calls fillSettings on a timer. If the settings modal is OPEN the
+  // 117j classic-2（经典壳回归审查 P1）：这两条是【管家壳的】旁路，谁抛错都不该把它后面的
+  // 草稿播种与 renderProviders() 一起带走 —— 那两样是经典壳设置页的正事。各自包一层，只 warn。
+  try { syncStewardShellAvailability(); } // 117a: 壳模式第三项（管家）随 stewardEnabledV1 置灰/放开
+  catch (error) { console.warn('[steward] syncStewardShellAvailability failed', error); }
+  try { fillStewardSettings(); }          // 117e: 设置页「管家」页签的控件随 config 回填（面板数据懒加载）
+  catch (error) { console.warn('[steward] fillStewardSettings failed', error); }
+  // 117j B2：下面这段注释的第一句原本说「后台有个定时器在调 refreshStatus() → fillSettings」。
+  // 全仓已经没有那个定时器了（refreshStatus 的调用点只剩 boot、按钮、命令面板与保存之后），
+  // 但它引出的那道守卫仍然是活的、也仍然是必要的 —— 重入 fillSettings 的入口换成了 openModal 与
+  // 「保存后重拉 config」。所以这里只改掉那句已经不成立的话，守卫与 2026-09-06 的事故记录原样保留。
+  // A8: fillSettings() 会被重入（openModal 打开设置页、以及任一次保存后的 refreshStatus）。若设置弹窗
+  // 正开着，用户可能正在编辑某个 provider 草稿 —— 这里重新播种会把他没保存的编辑悄悄丢掉。
   // user may be mid-edit on a provider draft — re-seeding it here would silently discard their edits.
   // Skip the draft replay + re-render while open; everything else (read-only-ish fields) is fine to set.
   // 2026-09-06 事故根因（对抗审查 P0-1）：navigation-controls 的 openModal 先摘 hidden 再调 fillSettings，

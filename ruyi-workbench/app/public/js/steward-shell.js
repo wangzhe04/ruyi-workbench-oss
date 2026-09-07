@@ -328,7 +328,13 @@ export function createStewardShellDomain({
   const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });
   // 117e：设置页「管家」页签 + 头部的盾牌与停机键。它是【唯一】写全局 permissionMode 与管家配置的
   // 地方；四档表与全自动确认文案由它从 steward-chips.js import 复用，本文件不碰。
-  const settings = createStewardSettingsDomain({ api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi });
+  // 117j UX-F1：总开关关掉的那一刻要立刻回经典。准入判定的单点就在本文件的
+  // syncStewardShellAvailability（fail-closed 回退那一支也在它里面），设置域只负责在写完配置之后
+  // 踢它一脚 —— 不给它第二份「能不能进管家壳」的判据。
+  const settings = createStewardSettingsDomain({
+    api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi,
+    syncShellAvailability: () => syncStewardShellAvailability(),
+  });
   // 117g：2.0 视窗与顶部返回带。它不发请求，只读 state 与 chips（返回带的 DOM 在经典壳里，逻辑住这边）。
   // 事项名向 117h 看板要它已经取回来的那一行 —— 迟绑定句柄（board 在它之后才构造）。
   let boardHandle = null;

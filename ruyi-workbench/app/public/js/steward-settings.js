@@ -61,6 +61,11 @@ const RESUME_TO_SELECT = Object.freeze({ true: 'on', false: 'off' });
 const SELECT_TO_RESUME = Object.freeze({ on: true, off: false });
 
 export function createStewardSettingsDomain({
+  // 117j UX-F1：总开关关掉的那一刻，如果用户正站在管家壳里，必须【立刻】回经典。修前只把配置写了，
+  // 壳还留在原地，而状态行已经说「已回到经典」—— 说的和看到的不是一回事。壳的准入判定单点在
+  // steward-shell.js 的 syncStewardShellAvailability（它内部就有 fail-closed 回退那一支），
+  // 这里只负责在写完配置之后把它踢一脚，不自己再判一遍「能不能进管家壳」。
+  syncShellAvailability = () => 'classic',
   api = async () => null,
   state = null,
   t = key => key,
@@ -191,6 +196,9 @@ export function createStewardSettingsDomain({
       stopped = true;
     }
     fillStewardSettings();
+    // UX-F1：配置已落盘（saveConfigPartial 顺手把 state.config 换成了服务端回的那一份），此刻再跑
+    // 一次准入判定 —— 开关关着且人在管家壳里，它会 recoverStewardShell() 把壳与本机偏好一起改回经典。
+    try { syncShellAvailability(); } catch (error) { console.warn('[steward] syncShellAvailability failed', error); }
     return true;
   }
 

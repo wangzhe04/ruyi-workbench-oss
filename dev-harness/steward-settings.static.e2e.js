@@ -179,11 +179,19 @@ ok(appLines <= 1280, `F1 app.js 仍在 1280 行护栏内（实测 ${appLines}）
 const appStewardLines = app.split('\n').filter(line => /fillStewardSettings|openSettingsTab:/.test(line));
 ok(appStewardLines.length === 2 && appStewardLines.every(line => /\/\/ 117e/.test(line)),
   `F2 组合根为 117e 净增恰好两行注入（fillStewardSettings + openSettingsTab；实测 ${appStewardLines.length} 行）`);
+// 117j classic-2 重钉：这两条管家侧的旁路各自包了一层 try/catch（谁抛错都不该把它后面的草稿播种与
+// renderProviders() 一起带走）。「只多一处调用」这条契约一个字没变，变的是它外面多了一层守卫。
 ok(count(providerSettings, /fillStewardSettings\(\)/g) === 1
-  && /fillStewardSettings\(\);          \/\/ 117e/.test(providerSettings),
+  && /try \{ fillStewardSettings\(\); \}          \/\/ 117e/.test(providerSettings),
   'F3 provider-settings.js 只多一处 fillStewardSettings() 调用（既有静态锁只加）');
-ok(/const settings = createStewardSettingsDomain\(\{ api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi \}\);/.test(stewardShell),
+ok(/try \{ syncStewardShellAvailability\(\); \}[\s\S]{0,120}console\.warn\('\[steward\] syncStewardShellAvailability failed'/.test(providerSettings)
+  && /try \{ fillStewardSettings\(\); \}[\s\S]{0,120}console\.warn\('\[steward\] fillStewardSettings failed'/.test(providerSettings),
+  'F3b 117j classic-2：两条管家旁路各自 try/catch + console.warn，任何抛错不得阻断其后的草稿播种与 renderProviders()');
+// 117j UX-F1 重钉：注入表多了 syncShellAvailability（总开关关掉即回经典，判定仍在壳层单点）。
+ok(/const settings = createStewardSettingsDomain\(\{\s*api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi,\s*syncShellAvailability: \(\) => syncStewardShellAvailability\(\),\s*\}\);/.test(stewardShell),
   'F4 设置域在 steward-shell.js 内组装并注入依赖');
+ok(/try \{ syncShellAvailability\(\); \} catch \(error\) \{ console\.warn\('\[steward\] syncShellAvailability failed', error\); \}/.test(settings),
+  'F4b 117j UX-F1：总开关落盘之后跑一次准入判定 —— 人在管家壳里就 recoverStewardShell 回经典（状态行说的和看到的必须是同一件事）');
 
 // ─── G 新样式层三处登记 + token / 降级 / 窄屏 ───────────────────────────────────
 ok(styles.includes('@import url("/css/views/steward-settings.css");')

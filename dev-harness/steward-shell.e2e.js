@@ -55,7 +55,12 @@ function request(port, pathname) {
   });
 }
 
-async function waitForHttp(port, pathname, predicate, attempts = 100) {
+// 117j：预算从 100×60ms(6s) 提到 200×60ms(12s)，与同族另外五件 steward e2e 一致 —— 本件是这一族里
+// 唯一一个把预算定在 6 秒的，机器一忙 A1 就随机红。断言本身没放宽：工作台还是必须真的起来。
+// （排查时真正的元凶是【单独跑浏览器 e2e 会漏掉 Edge 进程】：run-all 每件跑完会调
+//  lib/browser-cleanup.js 的 stopRuyiTestBrowsers 收尸，手工单跑不会 —— 攒到 345 个 msedge 之后
+//  冷启动从 4 秒涨到 24～86 秒，看上去就像「服务起不来的回归」。手工连跑记得自己收一次。）
+async function waitForHttp(port, pathname, predicate, attempts = 200) {
   for (let i = 0; i < attempts; i++) {
     const result = await request(port, pathname);
     if (result && predicate(result)) return result;
@@ -176,6 +181,11 @@ const profile = path.join(root, 'profile');
 fs.mkdirSync(home);
 const configFile = path.join(home, 'config.json');
 const writeConfig = stewardEnabledV1 => fs.writeFileSync(configFile, JSON.stringify({
+  // 117j 排查 A1「workbench started」偶发红时补上的：不关这个开关，启动时会把【开发机真实的】
+  // ~/.claude.json 里那一批 MCP server 导进这个临时 HOME（本机 10 个，其中几个是故意做成挂起/
+  // 断连的夹具）。实测它不是这次超时的主因（关掉前后都在 4～7.5 秒之间摆动，主要看机器负载），
+  // 但「临时 HOME 的 e2e 去读开发机的真实配置」本身就不该发生 —— v2.5 波已为此立过同一条纪律。
+  autoImportClaudeCodeMcp: false,
   configSchema: 9,
   version: '2.4.0',
   permissionMode: 'default',

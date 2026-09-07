@@ -2680,6 +2680,7 @@
   ,"stewardShell.chat.errBusy": "I'm still on the last one; try again in a moment."
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
+  ,"stewardShell.chat.engineNotListed": "The steward endpoint \"{{provider}}\" is not in your provider list, so it cannot run a single turn. Switch to another one, or add it back in settings."
   ,"stewardShell.chat.engineUnsupported": "The steward can only run on an OpenAI-compatible endpoint, and your main endpoint is a CLI engine. Pick an endpoint for the steward and it can talk."
   ,"stewardShell.chat.useProvider": "Use “{{provider}}”"
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"

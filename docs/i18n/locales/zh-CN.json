@@ -2680,6 +2680,7 @@
   ,"stewardShell.chat.errBusy": "我正忙着上一件，稍等一下再点。"
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
+  ,"stewardShell.chat.engineNotListed": "管家端点『{{provider}}』不在 Provider 列表里，所以它现在一句话也跑不了。换一个，或者去设置里把它加回来。"
   ,"stewardShell.chat.engineUnsupported": "管家现在只能走 OpenAI 兼容端点，而你的主端点是命令行引擎。给管家单独选一个端点，就能聊了。"
   ,"stewardShell.chat.useProvider": "改用『{{provider}}』"
   ,"stewardShell.chat.providerSwitched": "已改用『{{provider}}』"

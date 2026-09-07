@@ -37,6 +37,7 @@ import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createPreviewShellDomain } from './js/preview-shell.js';
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
+import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
 import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
 // Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
 // runtime can mirror read-only deltas without importing the second shell or creating a second stream.
@@ -1025,13 +1026,11 @@ function bindEvents() {
   { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
   { const cb = $('capBadge'); if (cb) cb.onclick = openCapPopover; } // v0.8-S6 capability matrix
   $('permSelect').onchange = e => {
-    // v0.9-S1 (C1): in simple mode the bypass option stays visible but selecting it prompts a confirm once —
-    // 精简界面用户更需要一道明确的确认闸门（bypass = 跳过所有权限弹窗）。Cancelling reverts the select.
-    if ((e.target.value === 'bypass' || e.target.value === 'auto') && document.documentElement.getAttribute('data-ui-mode') === 'simple') {
-      const confirmationKey = e.target.value === 'bypass' ? 'permission.mode.bypass.confirm' : 'permission.mode.auto.confirm';
-      if (!confirm(t(confirmationKey))) {
-        e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
-      }
+    // 117j classic-1：切「全自动」一律先确认（不再只在精简界面），bypass 仍沿用 v0.9-S1 那道闸。
+    // 判据与五条人话都在 steward-chips.js 单点，经典壳与管家壳盾牌菜单逐字同源。
+    if (permissionSwitchNeedsConfirm(e.target.value, document.documentElement.getAttribute('data-ui-mode'))
+      && !confirm(permissionConfirmText(e.target.value, t))) {
+      e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
     }
     saveConfigPartial({ permissionMode: e.target.value, confirm: true }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast(t('permission.mode.bypass.activated'), 'err'); else if (e.target.value === 'auto') toast(t('permission.mode.auto.activated'), 'ok'); // 116-3 B1: confirm:true = 用户亲手切的(applyConfigPatch 的 409 门)
   };

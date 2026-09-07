@@ -10,6 +10,7 @@
 //   C W2-3 头像跟着话走：搬的是同一个节点、三个销毁点都先 park、头部有 6px 状态点。
 //   D W2-4 收件箱回合实时进对话流：走 116-4 的 ?since= 增量，只认 trigger==='inbox'。
 //   E W2-5 刷新节拍：三个计时器统一「表按 5s 下限起，真要不要拉由这一拍自己判」。
+//   F 第二批（UX-F1/F2/F5、copy-P1-1、classic-1/2、B2、copy-P3-3）：确认闸、文案分支、口径同步。
 //
 // 判定行：`STEWARD WALKTHROUGH STATIC E2E: ALL PASS`。
 
@@ -154,6 +155,61 @@ const ok = (condition, label) => {
       'E5 三问的「已收工 · 用时 X」只在真跑过回合时才说（一回合没跑过说「收工」是撒谎）');
     ok(/\(view && view\.head\) \|\| settledHead\(\) \|\| t\('stewardShell\.drawer\.none'\)/.test(drawer),
       'E5b 优先级：真活动 > 已收工 > 暂无（绝不因为「线程在跑」就编一个 thinking）');
+  }
+
+  /* ── F：117j 第二批（其余 P1 + 顺手的 P3-3）───────────────────────────────────── */
+  {
+    const app = read('app.js');
+    const providerSettings = read('js/provider-settings.js');
+    const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
+    const { permissionSwitchNeedsConfirm, permissionConfirmText } = chipsMod;
+
+    // classic-1：切「全自动」一律先确认 —— 修前专家模式下一声不吭就生效了。
+    ok(permissionSwitchNeedsConfirm('auto', 'pro') === true && permissionSwitchNeedsConfirm('auto', 'simple') === true,
+      'F1 全自动在【两种界面模式】下都要确认（修前专家模式无门）');
+    ok(permissionSwitchNeedsConfirm('bypass', 'simple') === true && permissionSwitchNeedsConfirm('bypass', 'pro') === false,
+      'F1b bypass 沿用 v0.9-S1 那道闸：只在精简界面问');
+    ok(permissionSwitchNeedsConfirm('default', 'simple') === false && permissionSwitchNeedsConfirm('acceptEdits', 'pro') === false,
+      'F1c 收紧与常规档不问（确认闸只对「放宽」用）');
+    ok(permissionConfirmText('auto', key => key).split('\n').length === 1 + chipsMod.STEWARD_CONFIRM_KEYS.length,
+      'F1d 全自动的确认文案 = 一句提问 + §8.6 的五条人话（与管家壳盾牌菜单逐字同源）');
+    ok(/permissionSwitchNeedsConfirm\(e\.target\.value, document\.documentElement\.getAttribute\('data-ui-mode'\)\)/.test(app)
+      && /confirm\(permissionConfirmText\(e\.target\.value, t\)\)/.test(app),
+      'F1e 经典壳顶栏那一路读的就是这个单点（不再自己拼 confirm key）');
+    ok(app.trimEnd().split(/\r?\n/).length <= 1277,
+      `F1f 组合根没有因为本片长胖（117j 纪律「app.js 不增行」；实测 ${app.trimEnd().split(/\r?\n/).length} 行）`);
+
+    // B2：权限口径同步 —— 顶栏那枚安全 chip 的刷新落在【唯一写口】里。
+    ok(/if \(patch && Object\.prototype\.hasOwnProperty\.call\(patch, 'permissionMode'\)\) renderPermChip\(\);/.test(providerSettings),
+      'F2 B2：任何一处写 permissionMode 都会刷新顶栏 chip（放在 saveConfigPartial 里 = 谁写都刷）');
+
+    // UX-F2：引擎问题分两种人话，后端给了 message 就原文照登。
+    ok(/const message = String\(\(info && info\.message\) \|\| ''\)\.trim\(\);\s*if \(message\) return message;/.test(conversation),
+      'F3 UX-F2：后端的 message 原文照登（它比前端更知道是哪一种）');
+    ok(/t\('stewardShell\.chat\.engineNotListed', \{ provider: configured \}\)/.test(conversation)
+      && /: t\('stewardShell\.chat\.engineUnsupported'\)/.test(conversation),
+      'F3b 没有 message 时按「管家端点配了却不在列表里」二选一');
+    for (const loc of ['zh-CN', 'en-US']) {
+      const cat = JSON.parse(read('locales/' + loc + '.json'));
+      ok(typeof cat['stewardShell.chat.engineNotListed'] === 'string' && cat['stewardShell.chat.engineNotListed'].length > 0,
+        `F3c ${loc} 有 engineNotListed`);
+    }
+    ok(/use\.classList\.add\(STEWARD_PRIMARY_CLASS\);/.test(conversation),
+      'F3d copy-P3-3：主动作（真能解决问题的那一个）用统一的金色主按钮类');
+
+    // copy-P1-1：※ 里不再漏工具 id。
+    ok(/import \{ STEWARD_TOOL_LABEL_KEYS \} from '\.\/steward-settings\.js';/.test(conversation),
+      'F4 工具人话表前端只有一份（从行动流水那边复用，不抄第二份）');
+    ok(/function toolLabelOf\(row\) \{[\s\S]{0,320}return key \? String\(t\(key\)\) : String\(\(row && row\.tool\) \|\| ''\);/.test(conversation),
+      'F4b 三级回落：后端标签 > 前端 i18n 表 > 工具 id（前两道都落空才用 id，那是诚实兜底）');
+    ok(/tool: toolLabelOf\(row\),/.test(conversation),
+      'F4c ※ 浮层那一行读的就是它');
+
+    // UX-F5：回执说线程名，不说按钮全文。
+    ok(/stewardShortTitle\(act\.sessionTitle \|\| act\.label \|\| act\.sessionId\)/.test(conversation),
+      'F5 UX-F5：open_thread 回执优先读 sessionTitle —— 否则会出「打开了「打开「X」」」');
+    ok((conversation.match(/sessionTitle: String\(/g) || []).length === 2,
+      'F5b 构造 open_thread act 的两处（renderDigest / renderPending）都带上了线程名');
   }
 
   console.log(`\nSTEWARD WALKTHROUGH STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

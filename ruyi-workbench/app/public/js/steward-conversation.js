@@ -2,6 +2,9 @@
 
 import { authHeaders } from './net.js';
 import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出的 JSON 信封（单独一行，J2 锁钉住上一行原样）
+// 117j copy-P1-1：工具的人话表。前端【只有这一份】（行动流水与 ※ 浮层共用），从 steward-settings.js
+// 复用而不是在这里抄第二份 —— 同一个动作在两处必须是同一句话。
+import { STEWARD_TOOL_LABEL_KEYS } from './steward-settings.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -309,8 +312,26 @@ export function createStewardConversation({
     const providers = (state && state.config && Array.isArray(state.config.providers)) ? state.config.providers : [];
     return providers.find(p => p && p.id && (!p.type || String(p.type).startsWith('openai'))) || null;
   }
-  function showEngineProblem(retry) {
-    const row = appendSteward(t('stewardShell.chat.engineUnsupported'), '');
+  // 117j UX-F2：引擎问题不写死一句话。后端对这两种情形早就各给了各自的人话（13h stewardResolveRoute：
+  // 「管家端点 X 不在 Provider 列表里，请到设置里改」／「管家本版只支持 OpenAI 兼容端点，当前主端点是 X」），
+  // 而前端此前把它们统统折成同一句 engineUnsupported —— 用户看不出该去改哪一个。
+  // 口径：**后端给了 message 就原文照登**（它比前端更知道是哪一种）；没给才按「管家端点配没配、配的那个
+  // 在不在 Provider 列表里」二选一。
+  function engineProblemSay(info) {
+    const message = String((info && info.message) || '').trim();
+    if (message) return message;
+    const cfg = (state && state.config) || {};
+    const configured = String(cfg.stewardProviderId || '').trim()
+      || String((info && info.params && info.params.engine) || '').trim();
+    const providers = Array.isArray(cfg.providers) ? cfg.providers : [];
+    const listed = Boolean(configured) && providers.some(p => p && p.id === configured);
+    return (configured && !listed)
+      ? t('stewardShell.chat.engineNotListed', { provider: configured })
+      : t('stewardShell.chat.engineUnsupported');
+  }
+
+  function showEngineProblem(retry, info) {
+    const row = appendSteward(engineProblemSay(info), '');
     if (!row) return;
     const actsRow = el('div', 'steward-acts');
     const candidate = firstOpenAiProvider();
@@ -328,6 +349,8 @@ export function createStewardConversation({
           use.disabled = false;
         }
       });
+      // 117j copy-P3-3：主动作（真能把问题解决的那一个）用统一的金色主按钮类，不再两个按钮一样重。
+      use.classList.add(STEWARD_PRIMARY_CLASS);
       actsRow.appendChild(use);
     }
     if (typeof openStewardPanel === 'function') {
@@ -349,7 +372,10 @@ export function createStewardConversation({
   function receiptFor(act) {
     if (!act) return t('stewardShell.chat.acked');
     if (act.kind === 'dismiss') return t('stewardShell.chat.acked');
-    if (act.kind === 'open_thread') return t('stewardShell.chat.opened', { title: stewardShortTitle(act.label || act.sessionId) });
+    // 117j UX-F5：回执要说【线程的名字】，不是按钮上那句话。act.label 是「打开「X」」，直接套进
+    // 「打开了…」就成了「打开了「打开「X」」」。构造 act 的两处（renderDigest / renderPending）现在
+    // 顺手带上 sessionTitle，这里优先读它；老载荷没有就仍然回落到 label（不比修前更差）。
+    if (act.kind === 'open_thread') return t('stewardShell.chat.opened', { title: stewardShortTitle(act.sessionTitle || act.label || act.sessionId) });
     if (act.kind === 'tool' && act.tool === 'steward_thread_continue') {
       return t('stewardShell.chat.handedOff', { title: stewardShortTitle((act.args && act.args.sessionId) || act.sessionId) });
     }
@@ -450,8 +476,9 @@ export function createStewardConversation({
       parkAvatar();   // W2-3 陷阱：这一行马上要被移除，头像若还在里面会一起没
       if (row && row.parentNode) row.parentNode.removeChild(row);
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
-      if (engineProblemInfo(error)) {
-        showEngineProblem(() => sendToSteward(message));
+      const engineInfo = engineProblemInfo(error);
+      if (engineInfo) {
+        showEngineProblem(() => sendToSteward(message), engineInfo);
         return null;
       }
       const failRow = appendSteward(t('stewardShell.chat.streamFailed'), '');
@@ -496,7 +523,9 @@ export function createStewardConversation({
       if (stewardErrorCode(reply.error) === 'steward.unsupported_engine') {
         parkAvatar();   // W2-3 陷阱：同上
         if (row.parentNode) row.parentNode.removeChild(row);
-        showEngineProblem(() => sendToSteward(sourceMessage));
+        // 回合层的失败走的是 200 流，不是抛出来的信封 —— 自己拼一个同形的 info 喂给同一处文案。
+        showEngineProblem(() => sendToSteward(sourceMessage),
+          { code: 'steward.unsupported_engine', params: {}, message: String(reply.message || '') });
         return;
       }
       if (!say && node) node.textContent = stewardErrorText(reply.message || reply.error) || t('stewardShell.chat.streamFailed');
@@ -519,13 +548,22 @@ export function createStewardConversation({
       const okFlag = !(result && result.ok === false);
       out.push(t('stewardShell.chat.actionLine', {
         // 116-3 copy P1-1（§8.1 原则 7）：优先用后端给的人话标签（13h 的 stewardActLabel，与「行动流水」
-        // 同一批口径）；拿不到才回落工具 id。此前这里直接吐 `steward_thread_continue` 这种内部标识符，
-        // 同一个动作在 ※ 里是英文下划线、在流水里是中文，两处对不上。
-        tool: String(row.label || row.tool),
+        // 同一批口径）。117j 补上第二道：后端没给 label 时（116-3 之前落盘的历史回合就没有），
+        // 回落到【前端那份 i18n 表】而不是工具 id —— 界面上永远不该出现 `steward_thread_continue`
+        // 这种内部标识符。两道都落空（表外的新工具）才用 id，那是最后的诚实兜底。
+        tool: toolLabelOf(row),
         state: okFlag ? t('stewardShell.chat.actionDone') : stewardErrorText(result && result.error),
       }));
     }
     return out;
+  }
+
+  // 117j copy-P1-1：一条 action 在 ※ 里该显示什么名字。后端标签 > 前端 i18n 表 > 工具 id。
+  function toolLabelOf(row) {
+    const backend = String((row && row.label) || '').trim();
+    if (backend) return backend;
+    const key = STEWARD_TOOL_LABEL_KEYS[String((row && row.tool) || '')];
+    return key ? String(t(key)) : String((row && row.tool) || '');
   }
 
   // ── §8.12 递话：Enter 直接递给线程，不经管家回合 ─────────────────────────────
@@ -666,6 +704,8 @@ export function createStewardConversation({
     if (visit.focus && visit.focus.sessionId) {
       acts.push({
         kind: 'open_thread', sessionId: String(visit.focus.sessionId), primary: true,
+        // UX-F5：按钮全文与线程名分开带 —— 回执读后者。
+        sessionTitle: String(visit.focus.title || visit.focus.sessionId),
         label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(visit.focus.title || visit.focus.sessionId) }),
       });
     }
@@ -679,6 +719,7 @@ export function createStewardConversation({
       const row = appendSteward(String(item.summary || ''), t('stewardShell.chat.pendingWhy', { type: String(item.type || '') }));
       renderActs(row, [{
         kind: 'open_thread', sessionId: String(item.sessionId), primary: true,
+        sessionTitle: String(item.title || item.sessionId),   // UX-F5：同上
         label: t('stewardShell.chat.openThread'),
       }, { kind: 'dismiss', label: t('stewardShell.chat.gotIt') }]);
     }
@@ -785,8 +826,9 @@ export function createStewardConversation({
       return visit;
     } catch (error) {
       // 引擎不支持是唯一要当场说清楚的失败（否则用户以为管家坏了）；其它失败保持沉默，下次进壳再试。
-      if (engineProblemInfo(error)) {
-        showEngineProblem(async () => { visitBusy = false; await enterVisit(); });
+      const visitEngineInfo = engineProblemInfo(error);
+      if (visitEngineInfo) {
+        showEngineProblem(async () => { visitBusy = false; await enterVisit(); }, visitEngineInfo);
       }
       return null;   // 到访失败不该让管家壳白屏：状态区已有 117a 的兜底，下次进壳再试
     } finally {

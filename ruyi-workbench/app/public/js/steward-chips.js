@@ -29,6 +29,22 @@ export const STEWARD_CONFIRM_KEYS = Object.freeze([
 // Agent CLI 的品牌名（不是文案，两个语言下逐字相同），与 navigation-controls.js 的同名表同源。
 const AGENT_CLI_LABELS = Object.freeze({ claude: 'Claude Code', kimi: 'Kimi Code' });
 
+// 117j classic-1（经典壳回归审查 P1）：切「全自动」要不要二次确认，全仓只有这一处判据。
+// 修前经典壳顶栏那个权限下拉只在【精简界面】才问一句，专家模式下切 auto 一声不吭就生效了 ——
+// 同一个动作、同样的后果（它能在你不在时改文件、跑命令），两个壳、两种界面模式的门槛不该不一样。
+// 纯函数 + 注入的 t：本模块不认识 window.confirm，也不该认识（它要能在 Node 里跑真值表）。
+export function permissionSwitchNeedsConfirm(mode, uiMode) {
+  if (STEWARD_PERMISSION_CONFIRM_MODES.includes(String(mode || ''))) return true;
+  // bypass 沿用 v0.9-S1 那道闸：只在精简界面问（专家模式下它是常用档，问了反而是噪音）。
+  return String(mode || '') === 'bypass' && String(uiMode || '') === 'simple';
+}
+// 确认文案：全自动走 §8.6 那五条人话（与管家壳盾牌菜单逐字同源），bypass 走既有那一句。
+export function permissionConfirmText(mode, t) {
+  const say = key => String(t(key));
+  if (String(mode || '') === 'bypass') return say('permission.mode.bypass.confirm');
+  return [say('permission.mode.auto.confirm'), ...STEWARD_CONFIRM_KEYS.map(key => '· ' + say(key))].join('\n');
+}
+
 export function permissionLabelKey(mode) {
   return STEWARD_PERMISSION_MODES.includes(mode) ? `stewardShell.permission.${mode}.label` : '';
 }

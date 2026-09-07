@@ -144,7 +144,7 @@ ok(stewardShell.includes('return Object.freeze({'), 'C8 管家壳领域导出是
 ok(app.includes("from './js/steward-shell.js'") && app.includes('createStewardShellDomain({')
   && app.includes('bindStewardShell();')
   && app.includes('stewardShellGuard = stewardShellDomain;')
-  && providerSettings.includes('syncStewardShellAvailability(); // 117a'),
+  && providerSettings.includes('try { syncStewardShellAvailability(); } // 117a'),   // 117j classic-2 重钉：调用点没变，外面多了一层 try/catch
   'C9 组合根只做领域组合与绑定，config 刷新点同步第三项可选性');
 
 // ─── D 样式层 ────────────────────────────────────────────────────────────────────
