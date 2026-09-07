@@ -2189,7 +2189,45 @@ function healStalePendingSegments(session) {
   return healed;
 }
 
-async function loadSession(id) {
+// ── 117j 收尾（实证定位的一条真 bug，不是测试问题）─────────────────────────────────────────
+// Windows 上 `rename(tmp, final)` 替换【已存在】的文件时，并发的读会在「旧文件已解链、新文件还没
+// 链入」的那一瞬拿到 **ENOENT**。会话头每保存一次就开一个这样的窗口，而回合跑起来时它一直在写 ——
+// 于是一发单打的 readFile 会偶发读空，把「文件正在被原子替换」误判成「这个会话不存在」。
+//
+// 实证：steward-drawer.e2e 的 E4b 约 1/3 概率红，打点抓到 `decideIntervention` 里那一发
+// `readFile(sessionPath(missionId))` 抛的正是 ENOENT，而同一时刻 `pendingQuestions.has(qid)` 仍为
+// true（待决好端端在那儿）。用户于是看到「答不进去：answer could not be delivered」——**这不是
+// 夹具的问题，是产品在真机上也会偶发的失败**：谁恰好在回合写头的那一瞬点「允许／回答」，谁就中招。
+//
+// 修法与写侧对称：atomicWriteJson 早就为 EPERM/EBUSY/EACCES/EEXIST 做了重试，这里补上读侧。
+// 只重试「瞬时缺席/占用」这几类；**真的不存在的会话最多多花 ~80ms 仍然返回 null**，判据与语义不变。
+// 解析失败不在重试之列 —— 那是内容坏了，归 loadSession 的隔离路径管，重试只会把坏内容读四遍。
+const SESSION_HEAD_READ_RETRIES = 4;
+const SESSION_HEAD_TRANSIENT = new Set(['ENOENT', 'EPERM', 'EBUSY', 'EACCES']);
+async function readSessionHeadResilient(id) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return safeJsonParse(await fsp.readFile(sessionPath(id), 'utf8'), null);
+    } catch (error) {
+      const code = String((error && error.code) || '');
+      if (!SESSION_HEAD_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
+}
+
+// 117j 收尾（实证定位的一条真 bug，会【删数据】）：本函数下面两个动作都是破坏性的 ——
+// 「未提交尾巴」物理截断正文、以及把头与正文一起隔离成 .corrupt。它们的判据是「头声明的行数 vs
+// 正文实际行数」，而这两样是**先后两次**读进来的：先读头，再读两个正文。一次并发的 saveSession
+// 完全可以落在这两次读之间，于是我们拿【旧头】去量【新正文】：
+//   · 正文比旧头多 → 被当成「崩溃留下的未提交尾巴」物理截断，**真数据被删**；
+//   · 反过来（旧正文 + 新头）→ 被当成「已提交数据丢失」，整条会话隔离成 .corrupt，**会话消失**。
+// 实证（steward-drawer.e2e 的 E4b 约 1/3 概率红）：打点抓到 messages.ndjson 被截成 0 字节、而头仍
+// 声明 1 条、随后整条会话被隔离；用户那一侧的表现是「答待决答不进去（会话不存在）」。真机上同样成立：
+// 谁恰好在回合写盘的那一瞬触发一次 loadSession（打开会话、改元数据、投影重建都会），谁就中招。
+// 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
+// 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
+async function loadSession(id, reloadDepth = 0) {
   let raw;
   try {
     raw = await fsp.readFile(sessionPath(id), 'utf8');
@@ -2216,6 +2254,31 @@ async function loadSession(id) {
       || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount);
     const countsDiffer = () => (Number.isInteger(parsed.messageCount) && msg && !msg.corrupt && msg.entries.length !== parsed.messageCount)
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
+    // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
+    // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
+    // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
+    if (bodyBad() || countsDiffer()) {
+      // 先问最硬的那个信号：**本进程此刻正在给这条会话写盘吗**。saveSession 的 per-id 写链就是
+      // 权威答案 —— 链在跑，说明「正文已落、头还没落」这个中间态是【预期内】的，不是崩溃残留。
+      // 等它跑完再重读一次，头与正文自然对齐，一个字都不用删。
+      // （只重读头是不够的：写链里正文先落、头后落，此刻重读拿到的仍是那份旧头，判据照样成立。
+      //  实证——打点抓到 TRUNCATE from=1 to=0 紧跟着 QUARANTINE headMsg=1 body=0，会话就此消失。）
+      const inFlight = sessionWriteChains.get(id);
+      if (inFlight) {
+        await inFlight.catch(() => {});
+        if (reloadDepth >= 1) return null;
+        return loadSession(id, reloadDepth + 1);
+      }
+      const again = await readSessionHeadResilient(id);
+      const moved = !again
+        || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
+        || again.messageCount !== parsed.messageCount
+        || again.providerHistoryCount !== parsed.providerHistoryCount;
+      if (moved) {
+        if (reloadDepth >= 1) return null;   // 有界：连着两次都在写，这一趟就诚实地不给结果
+        return loadSession(id, reloadDepth + 1);
+      }
+    }
     // .prevbody 快照(saveSession 慢路径重写前的旧正文)在场 + 正文坏/计数与头不符 = 上次慢路径中断
     // (崩溃于「正文重写、头未提交」之间)→ 恢复快照,与磁盘上的旧头重新配对。
     // 注意区分:头计数==正文行数时 prevbody 是「头已提交、清理未完成」的陈旧快照 → 不恢复,随下方清理删掉。

@@ -533,6 +533,8 @@
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "SESSION_BRIEF_GIST_CHARS",
         "SESSION_BRIEF_TITLE_CHARS",
+        "SESSION_HEAD_READ_RETRIES",
+        "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
         "SESSION_META_DEFER_TIMEOUT_MS",
@@ -668,6 +670,7 @@
         "readMissionContainer",
         "readMissionSessionHead",
         "readSessionBodyFile",
+        "readSessionHeadResilient",
         "readSessionIndex",
         "readSessionNotes",
         "reconcileMissionThreads",
@@ -10392,13 +10395,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "sessionPath",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "tokenOk",
           "kinds": [
             "call"
@@ -10561,6 +10557,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionSessionHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "call"
           ]
@@ -13413,6 +13416,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionContainer",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "read"
           ]

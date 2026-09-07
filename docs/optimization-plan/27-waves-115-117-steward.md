@@ -438,6 +438,20 @@
   - 门：**零后端改动** —— `app/src/` 一行未动，依赖图（41 模块／316 边／前向边 67）与路由清册（127 判定点、ROUTE_AUTH 115 条）逐字节不变，`build --check` 新鲜；`app.js` 1277 → **1276 行**（纪律「不增行」，classic-1 那一块换成调用单点反而净减一行）；D51 CSS 载荷 SHA 按既有先例重钉一次（改动只落在管家壳自己的两个所有权层）。
   - 全量回归 `--parallel 4` **304 pass / 3 fail / 9 flaky / 307 ran / 7 skipped**；三条失败（`perf`／`context-compact-v2`／`mcp-ops-closure`）逐条单跑**全部 exit 0**，是 4 路并行的资源竞争（`perf` 那条本来就是「冷启动 < 5000ms」的时间门，实测 5324ms）。
   - **上一轮全量跑出 7 条红，值得记一笔**：3 条是同款资源竞争，4 条是真的、且全部属于「契约没变、源码形状变了」——`route-inventory.json` 漂移（本片的 e2e 改动给 `/api/interventions` 那一行多带了一个消费者，12 件 → 13 件，跑一遍生成器即可）、`steward-avatar.static` D2（壳层 import 白名单 7 → 8）、`pretender-shell.static` W117g-7（判据随 classic-3 放宽）、`steward-guardrails` I2（copy-P1-1 的回落多了一级）。**加上前面那 12 条，本片一共重钉 15 条既有断言**，每一条的理由都写在改动点旁边。
+- **117j 收尾 · E4b flake 的真根因（2026-09-07 入库，opus 实现）：一条会【删数据】的产品 bug，不是测试问题**
+  - 起点是 `steward-drawer.e2e` 的 `E4b` 约 1/3 概率红。**我上一版给出的根因是错的**（当时写「回合问完问题会自己跑完、收尾把待决结掉」）—— 那一版打点记的是 `clearPendingQuestions` 的**每一次调用**，不是「真的清掉了一条」，据此下的结论不成立。重新打点后事实完全相反：答案到达时 `pendingQuestions.has(qid)` **仍为 true**，待决好端端在那儿。
+  - **实际链条**（逐层打点抓出来的，每一步都有实证）：
+    1. `POST /api/chat/answer` 拿到的是 `decideIntervention` 的 **404 `intervention.not_found`**，而不是「待决没了」；
+    2. 404 出在第一道门：`readFile(sessionPath(missionId))` 抛 **ENOENT** —— 会话头文件在那一瞬**不存在**；
+    3. 为什么不存在：`loadSession` 把它**隔离**成了 `.corrupt`。打点原文：`TRUNCATE id=… file=…messages.ndjson from=1 to=0` 紧跟着 `QUARANTINE id=… headMsg=1 body=0`。
+  - **真正的 bug 在 `loadSession`**：它的两个动作是**破坏性**的 —— 截断「未提交尾巴」、把头与正文一起隔离成 `.corrupt`；而判据「头声明的行数 vs 正文实际行数」建立在**先后两次读**上（先读头、再读两个正文）。`saveSession` 的写链里**正文先落、头后落**，一次并发的 `loadSession` 正好落在中间，就会拿【旧头】去量【新正文】：多出来的那一行被当成崩溃残留**物理截断**（`from=1 to=0`），下一次 load 再看到「头说 1、正文 0」，**整条会话被隔离，会话消失**。真机上同样成立：谁恰好在回合写盘的那一瞬触发一次 `loadSession`（打开会话、改元数据、投影重建都会），谁就中招。
+  - **修法两道守卫**（都在 `02-session-store.js`）：
+    - **① 写链在跑就别动手**（真正起作用的那一道）：破坏性动作之前先看 `sessionWriteChains.get(id)` —— 链在跑说明「正文已落、头未落」是**预期内的中间态**，不是崩溃残留；`await` 它跑完再重跑一次 load（有界一次），一个字都不用删。
+    - **② 动手前把头再读一遍**：头的 `updatedAt` ＋ 两个计数当指纹，变了就重来。**单靠这一道不够** —— 实测仍会 TRUNCATE+QUARANTINE，因为写链里头还没落，重读拿到的仍是那份旧头。这一条留着是为了覆盖「写者不在本进程写链里」的情形。
+    - 顺带把 `decideIntervention` 的头读换成新加的 `readSessionHeadResilient`（对 ENOENT/EPERM/EBUSY/EACCES 有界退避重试，解析失败**不**重试——那归隔离路径管）。它是用户动作的判定入口：读空一次就等于把「允许／回答」当场判成 404「会话不存在」。
+  - **验证**：带打点连跑 —— 修前 `TRUNCATE`/`QUARANTINE` 必现（一次跑里三条会话全中招），修后 5 连跑**一次都没有**；`steward-drawer.e2e` 连跑 5 次全绿（此前 1/3 红）。
+  - **测试的诚实说明**：新增 `dev-harness/unit/session-head-read.test.js`。其中那条「并发 save 期间读同一条会话」**不是那条竞态的可靠复现** —— 实测把守卫①关掉它照样绿（要精确卡进 `saveSession` 内部「正文已落、头未落」那一格，从外部 API 命不中）。它断言的是不变量本身，有价值但没牙；真正防回改的是同文件里那四条**源码锁**（两道守卫的形状 + `decideIntervention` 不再直读 + 重试只认瞬时错误）。
+  - **上一版那条错误结论已作废**：不需要改夹具的假 provider（回合本来就挂着等答案），也不需要在点击前查 `live`。派单稿给的两条修法方向都不对症 —— 因为它们建立在同一个错误根因上。
 
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 

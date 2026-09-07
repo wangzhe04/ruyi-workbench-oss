@@ -1028,8 +1028,9 @@ async function decideIntervention(command = {}) {
   if (!missionId || missionId !== rawMissionId || !/^[A-Za-z0-9_-]{1,160}$/.test(interventionId)) {
     return interventionCommandFailure('invalid_request', 400, {}, 'invalid missionId or interventionId');
   }
-  let head = null;
-  try { head = safeJsonParse(await fsp.readFile(sessionPath(missionId), 'utf8'), null); } catch { /* 404 below */ }
+  // 117j 收尾：这一发读【必须】走带瞬时重试的那一个。它是用户动作的判定入口 —— 读空一次就等于
+  // 把「允许／回答」当场判成 404「会话不存在」，而真相只是回合正好在写头（见 02 的头注）。
+  const head = await readSessionHeadResilient(missionId);
   // 117e 第 0 步(116g 引入的真 bug):这道门在 116g 之前是恒等式 —— 会话没挂进显式事项容器时
   // sessionMissionId(head) 就回落成 head.id,而 head 正是按 `sessionPath(missionId)` 读出来的。
   // 116g 的 missionAttachThread 把 session.missionId 改写成【容器 id】之后,同一条会话再按自己的

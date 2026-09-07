@@ -265,6 +265,9 @@ module.exports = {
   //     服务端一处装配、多处消费,前端不许各算一遍;
   //   maybeWriteThreadBrief / parseThreadBrief —— exposed for e2e 与单测直测(生成与解析各自可判定)。
   sessionDisplayTitle,
+  // 117j 收尾:会话头的【带瞬时重试】读取。Windows 的 rename 替换会开一个 ENOENT 窗口,
+  // 单发 readFile 会把「正在被原子替换」误判成「不存在」。exposed for unit/session-head-read.test.js。
+  readSessionHeadResilient,
   maybeWriteThreadBrief,
   parseThreadBrief,
   detectDanglingTurn,
