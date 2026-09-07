@@ -56,27 +56,59 @@
 }
 .steward-board[hidden] { display: none; }
 
+/* 117l-B2 ②（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）：
+   修前这一行是一排【裸文字】——「同时最多 [5] 在跑 2 排队 0 全部暂停 整体切到 2.0」挤在一起，
+   哪个是可改的、哪个是状态、哪个是按钮，全靠猜。现在做成一条玻璃底的 toolbar：
+   左边一枚带标签的数字胶囊，中间两枚状态 pill（在跑有色点／排队安静），右边两个幽灵动作键。
+   底色用 --glass-bg-3（卡片族）而【不叠 backdrop-filter】—— 同屏模糊预算 §3.2-E 是有上限的，
+   看板本身已经坐在 #stewardStage 那面玻璃上，再叠一层既超预算也没有视觉收益。 */
 .steward-board-top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
+  margin: var(--sp-1) var(--sp-1) var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-xs);
   color: var(--muted);
+  background: var(--glass-bg-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
 }
+/* 「同时最多 ⟨5⟩」：标签与输入框合成一枚胶囊，聚焦时整枚亮起来（而不是只有那个小框） */
+.steward-board-maxwrap {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-1) 2px var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.steward-board-maxwrap:focus-within { border-color: var(--accent); }
 .steward-board-max { font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-max-input {
-  width: 4.5em;
+  width: 48px;
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
   color: var(--ink);
   background: var(--panel-2);
   border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-pill);
+  padding: 2px var(--sp-1);
 }
 .steward-board-max-input:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 两个动作键推到右侧：toolbar 的左半是「现在什么情况」，右半是「你能做什么」。 */
+.steward-board-tools {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-inline-start: auto;
+}
 
 .steward-board-pill {
   flex: 0 0 auto;
@@ -87,18 +119,45 @@
   border-radius: var(--r-pill);
   padding: 0;
 }
+/* 状态 pill：在跑的那枚前面一颗 running 色点（与线程行的 data-tone="active" 同一个令牌），
+   排队那枚保持安静 —— 排队不是「出事了」，不该抢眼。 */
+.steward-board-pill.is-live,
+.steward-board-pill.is-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--glass-border);
+}
+.steward-board-pill.is-live::before,
+.steward-board-pill.is-quiet::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.steward-board-pill.is-live { color: var(--ink-2); }
+.steward-board-pill.is-live::before { background: var(--accent); }
+.steward-board-pill:empty { display: none; }
 /* 117l D4（用户第四轮走查①）：「它在问你」是行上唯一一枚【要你动手】的 pill，所以它是可点的
    （点开抽屉里的问答框），并用与主动作同色系的金色把自己从一排灰字里拎出来。 */
+/* 117l-B2 ②：从【金色实底】改成【金色描边 + 极淡金底】。实底那一版在真机截图里是一整块金砖，
+   把它旁边的线程名和时间都压下去了（用户第五轮走查 2 说的「优化美观一下」里就有它一份）。
+   描边档仍然是全行唯一带颜色的东西，只是不再喊；语义、可点性、判据都没动。 */
 .steward-board-pill.is-asks-you {
   font: inherit;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--gold-ink);
-  background: var(--gold);
+  color: var(--gold);
+  background: var(--gold-soft);
   border: 1px solid var(--gold-line);
   padding: 0 var(--sp-2);
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
 }
+.steward-board-pill.is-asks-you:hover { background: var(--gold); color: var(--gold-ink); }
 .steward-board-pill.is-asks-you:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-board-btn {
   flex: 0 0 auto;
@@ -116,32 +175,64 @@
 }
 .steward-board-btn:hover { color: var(--ink); background: var(--panel-3); }
 .steward-board-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 117l-B2 ②：「全部暂停」在没有可暂停的 run 时是不可点态（判据在 steward-board.js 的
+   syncPauseAll，与 pauseAll 自己那一行 filter 逐字同源）。灰着但仍留在原位 —— 位置不跳，
+   用户也就知道它平时在哪。 */
+.steward-board-btn:disabled { color: var(--muted); opacity: .45; cursor: default; }
+.steward-board-btn:disabled:hover { color: var(--muted); background: transparent; }
 
-.steward-board-list { display: flex; flex-direction: column; }
-.steward-board-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+/* 117l-B2 ②：事项之间从「一条细分隔线」改成「一张张卡」—— 修前每个事项与它的线程行糊在一起，
+   十来行下来分不出哪几行属于哪一件。 */
+.steward-board-list { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-1); }
+.steward-board-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-4) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: var(--glass-bg-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--r-md);
+}
+.steward-board-empty-say { margin: 0; }
 .steward-board-note { margin: 0; min-height: 1.2em; font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-note:empty { display: none; }
 
-/* 事项分组：原型 .mh 是一条细分隔线上的一行小字（不是一张卡），线程行直接挂在它下面。 */
+/* 事项分组：117g/117h 原型 .mh 是一条细分隔线上的一行小字；117l-B2 ② 改成一张玻璃卡
+   （用户第五轮走查 2「优化美观一下」的主体）。卡头＝状态点 ＋ 事项名 ＋ 右侧 meta ＋「＋ 线程」，
+   卡身＝缩进的线程行。同样不叠 backdrop-filter（模糊预算，见上面 toolbar 那段的理由）。 */
 .steward-board-mission {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  padding: var(--sp-2) 0 var(--sp-1);
-  border-top: 1px solid var(--glass-border);
+  padding: var(--sp-3);
+  background: var(--glass-bg-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
 }
-.steward-board-mission:first-child { border-top: 0; }
 .steward-board-mission-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
-  padding: var(--sp-1) var(--sp-3);
+  padding: 0 0 var(--sp-1);
   font-size: var(--fs-xs);
   color: var(--muted);
 }
-.steward-board-mission-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+.steward-board-mission-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+/* 右侧 meta（线程数／验收／花费）连成一串小字，中间用「·」分隔 —— 三枚各自带边框的胶囊
+   会让卡头比事项名本身还重。分隔符是相邻兄弟的生成内容，DOM 一个节点没加。 */
+.steward-board-mission-head .steward-board-pill + .steward-board-pill { margin-inline-start: 0; }
+.steward-board-mission-head .steward-board-pill + .steward-board-pill::before {
+  content: "·";
+  margin-inline-end: var(--sp-2);
+  color: var(--line-2);
+}
+.steward-board-mission-head .steward-board-btn { margin-inline-start: var(--sp-2); }
 
 /* 五态点：颜色只经 data-tone（dockToneForMissionState 的三档表现），data-state 留给测试与调试。 */
 .steward-board-dot {
@@ -162,27 +253,39 @@
   display: flex;
   flex-direction: column;
 }
+/* 117l-B2 ②：线程行缩进 --sp-4 挂在事项名下面（一眼看出「这几条属于那一件」），行与行之间
+   一道 1px 分隔线，hover 时整行底色微亮。缩进用 margin 而不是 padding —— hover 的底色要从
+   缩进位置开始，跟着文字走。 */
 .steward-board-thread {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--sp-2);
   row-gap: 2px;
-  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);
+  margin-inline-start: var(--sp-4);
+  padding: var(--sp-2);
   border-radius: var(--r-sm);
   transition: background var(--dur-fast) var(--ease-out);
 }
+.steward-board-thread + .steward-board-thread { border-top: 1px solid var(--glass-border); }
 .steward-board-thread > * { grid-column: 1; }
 .steward-board-thread:hover { background: var(--panel-2); }
 .steward-board-thread-head {
   display: flex;
+  /* 117l-B2 ②：390px 下这一行放不开时让它换行 —— 不换的话名字（唯一可收缩的那一项）会被
+     「它在问你」和右边那句时间挤到宽度 0，整个线程名从屏幕上消失（改前实测截图里就这样）。 */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
 }
+/* 117l-B2 ②：显示名【不再】撑满整行 —— 撑满的话它后面那枚「它在问你」会被推到最右边，
+   看着像是跟「5 分钟前有动静」一伙的。名字只占自己那么宽（min-width:0 保住一行省略号），
+   把行尾那句时间用 margin-inline-start:auto 顶到右边。 */
 .steward-board-thread-title {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 1 auto;
+  /* 收缩下限：留住几个字 —— 名字可以被截成「等华南…」，但不许被截成什么都不剩。 */
+  min-width: 5em;
   min-height: 0;
   text-align: left;
   font: inherit;
@@ -200,7 +303,8 @@
 .steward-board-thread-title:hover { text-decoration: underline; }
 .steward-board-thread-title:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
-.steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.steward-board-thread-head .steward-board-meta { margin-inline-start: auto; padding-inline-start: var(--sp-2); }
+.steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
 .steward-board-wait { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-wait:empty { display: none; }
 /* 悬停/聚焦才亮起来的一行操作：默认安静（§8.4「主动作只有一个，其余安静」的同一条纪律）。 */
@@ -300,7 +404,12 @@
 /* 窄屏：看板铺满、返回带换行、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
 @media (max-width: 390px) {
   .steward-board { top: 72px; left: var(--sp-2); right: var(--sp-2); padding: var(--sp-1) 0 var(--sp-2); }
-  .steward-board-top { gap: var(--sp-1); }
+  /* 117l-B2 ②：窄屏 toolbar 换行之后，右半那两个动作键不该还被 auto 顶到右边（会孤零零地
+     吊在第二行末尾）；线程行的缩进也收一档，390px 下每一格都要算。 */
+  .steward-board-top { gap: var(--sp-1); margin-inline: var(--sp-1); padding: var(--sp-2); }
+  .steward-board-tools { margin-inline-start: 0; }
+  .steward-board-mission { padding: var(--sp-2); }
+  .steward-board-thread { margin-inline-start: var(--sp-2); }
   .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
   .steward-return-chips { margin-left: 0; }
 }
@@ -310,5 +419,9 @@
   .steward-status-line,
   .steward-board-btn,
   .steward-board-actions,
+  /* 117l-B2 ② 新增的三处过渡（并发胶囊的聚焦高亮、线程行 hover、「它在问你」hover）同样关掉。 */
+  .steward-board-maxwrap,
+  .steward-board-thread,
+  .steward-board-pill.is-asks-you,
   .steward-return-btn { transition: none; }
 }

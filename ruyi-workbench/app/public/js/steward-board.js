@@ -181,7 +181,20 @@ export function createStewardBoard({
     const queuedCount = arbiter && Array.isArray(arbiter.queue) ? arbiter.queue.length : 0;
     if (running) running.textContent = t('stewardShell.board.running', { n: runningCount });
     if (queued) queued.textContent = t('stewardShell.board.queued', { n: queuedCount });
+    syncPauseAll();
     return { runningCount, queuedCount };
+  }
+
+  // 117l-B2 ②（用户第五轮走查 2）：「全部暂停」只在【真有东西可暂停】时才是可点态。
+  // 判据必须与 pauseAll 自己那一行 filter 逐字同源（row.lastRun.live && !paused）—— 借用上面那两枚
+  // pill 的 arbiter.running 会撒谎：仲裁面数的是「占着并发位的线程」，而能被暂停的是「有活的 run」，
+  // 两者在「只跑对话回合、没有 run」的线程上就对不上（pauseAll 自己也是这么说的：那些只能停止）。
+  function syncPauseAll() {
+    const button = byId('stewardBoardPauseAllBtn');
+    if (!button) return false;
+    const pausable = rows.some(row => row.lastRun && row.lastRun.live === true && row.lastRun.paused !== true);
+    button.disabled = !pausable;
+    return pausable;
   }
 
   async function saveMaxParallel(raw) {
@@ -370,7 +383,12 @@ export function createStewardBoard({
     if (!host) return 0;
     const groups = groupRows();
     if (!groups.length) {
-      host.appendChild(el('p', 'steward-board-empty', t('stewardShell.board.statusEmpty')));
+      // 117l-B2 ②（用户第五轮走查 2）：空态从「一句灰字」变成「一句话 ＋ 一个出口」。
+      // 文案与「＋ 线程」都是既有的键，不新开第二套说法；按钮走的也是同一个 newThread。
+      const empty = el('div', 'steward-board-empty');
+      empty.appendChild(el('p', 'steward-board-empty-say', t('stewardShell.board.statusEmpty')));
+      empty.appendChild(boardButton('stewardShell.board.newThread', () => newThread(''), { newThread: '1' }));
+      host.appendChild(empty);
       return 0;
     }
     for (const group of groups) host.appendChild(renderMissionGroup(group));

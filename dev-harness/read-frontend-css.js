@@ -222,7 +222,23 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   · .is-stale 行的 act 幽灵档（只改样式，不 disabled、不 pointer-events:none）。
 // steward-shell.css：只改了 .steward-header{position:relative} 那一条的注释（说明它不再是菜单的锚）。
 // 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'd2856ad35fc1ee14a006153d9f673d775d2a393726d915f1bc9069aac8795594';
+// 117l-B2 第②批（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）重钉，只动 steward-board.css
+// 这一个所有权层，经典与 Preview 层零漂移：
+//   · .steward-board-top 从一排裸文字变成一条玻璃底 toolbar（--glass-bg-3 + 圆角边框），
+//     新增 .steward-board-maxwrap（带标签的并发数胶囊，48px 输入框、focus-within 高亮）与
+//     .steward-board-tools（两个动作键推到右侧）；
+//   · .steward-board-pill 加 is-live／is-quiet 两档（在跑一颗 --accent 色点、排队安静），
+//     并补 :empty{display:none}（首帧还没数字时不留一枚空胶囊）；
+//   · .steward-board-btn:disabled（「全部暂停」没东西可暂停时的灰档）；
+//   · .steward-board-mission 从「细分隔线上的一行小字」改成一张玻璃卡，卡头 meta 用「·」相连；
+//   · .steward-board-thread 缩进 --sp-4、行间 1px 分隔线、hover 微亮；线程名 min-width:5em 且
+//     .steward-board-thread-head 可换行（390px 下不换行会把名字挤成 0 宽，实测截图里名字消失）；
+//   · .steward-board-pill.is-asks-you 从金色实底改成金色描边 + --gold-soft 极淡金底；
+//   · .steward-board-empty 从一行灰字改成「一句话 ＋ ＋线程」的虚线框空态；
+//   · 390px 与 reduced-motion 两个既有分支各补了本波新增的那几条。
+// **一条 backdrop-filter 都没加**：toolbar 与事项卡只用玻璃底色，同屏模糊预算（§3.2-E，
+// ui-v4-glass G2 的使用点白名单）一个字没动。无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'b345f06f9de97debdbd979551d9f7c19c84d876d19026e6bc1273d70b31ce6fd';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

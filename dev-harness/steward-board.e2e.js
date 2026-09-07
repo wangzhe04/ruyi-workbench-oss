@@ -247,6 +247,37 @@ const BOARD = `(() => {
     drawerParent: drawer && drawer.parentElement ? drawer.parentElement.id : '',
     nowClosedPref: (() => { try { return localStorage.getItem('wcw.stewardNowClosed') || ''; } catch { return 'ERR'; } })(),
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
+    // 117l-B2 ②（用户第五轮走查 2「这个限制界面优化美观一下」）：视觉那几件的可判定结果。
+    // 全部读【计算样式】与公开属性，不看 CSS 源码（源码形状由 steward-board.static 的 I 组钉）。
+    pauseAllDisabled: (() => {
+      const btn = document.getElementById('stewardBoardPauseAllBtn');
+      return btn ? btn.disabled : null;
+    })(),
+    topGround: (() => {
+      const top = document.querySelector('#stewardBoard .steward-board-top');
+      if (!top) return '';
+      const style = getComputedStyle(top);
+      return style.backgroundColor + '|' + style.backdropFilter;
+    })(),
+    missionGround: (() => {
+      const card = document.querySelector('#stewardBoardList .steward-board-mission');
+      if (!card) return '';
+      const style = getComputedStyle(card);
+      return style.backgroundColor + '|' + style.backdropFilter;
+    })(),
+    // 同一张卡里第二条线程行的上边线（分隔线）与整行的左缩进。
+    threadRule: (() => {
+      const rows = [...document.querySelectorAll('#stewardBoardList .steward-board-mission')]
+        .map(card => [...card.querySelectorAll('.steward-board-thread')])
+        .find(list => list.length >= 2) || [];
+      if (rows.length < 2) return '';
+      const first = getComputedStyle(rows[0]);
+      const second = getComputedStyle(rows[1]);
+      return first.borderTopWidth + '|' + second.borderTopWidth + '|' + second.marginInlineStart;
+    })(),
+    // 线程名在窄屏下有没有被挤没（走查 2 的返工点：0 宽 = 名字从屏幕上消失）。
+    titleWidths: [...document.querySelectorAll('#stewardBoardList .steward-board-thread-title')]
+      .map(node => Math.round(node.getBoundingClientRect().width)),
   };
 })()`;
 
@@ -465,6 +496,24 @@ try {
   })()`)), 'C10d 点这枚 pill 就是打开抽屉（问答框在那儿）');
   ok(opened.intervals.filter(ms => ms === TICK_MS).length === 3,
     `C11 看板打开才起第三条计时器（实测 ${JSON.stringify(opened.intervals)}）`);
+
+  // ── 117l-B2 ②：看板视觉的可判定结果（用户第五轮走查 2）──────────────────────────
+  const transparent = value => /rgba\(0, 0, 0, 0\)|transparent/.test(String(value));
+  ok(opened.topGround && !transparent(opened.topGround.split('|')[0])
+    && /^(none|)$/.test(opened.topGround.split('|')[1] || ''),
+    `V1 顶部 toolbar 有自己的玻璃底，且【没有】叠 backdrop-filter（同屏模糊预算不变；实测 ${opened.topGround}）`);
+  ok(opened.missionGround && !transparent(opened.missionGround.split('|')[0])
+    && /^(none|)$/.test(opened.missionGround.split('|')[1] || ''),
+    `V2 每个事项是一张有底的卡，同样不叠模糊（实测 ${opened.missionGround}）`);
+  ok(opened.threadRule && /^0px\|1px\|16px$/.test(opened.threadRule),
+    `V3 同一张卡里第一条线程行不画上边线、第二条画 1px 分隔线，两条都缩进 --sp-4=16px（实测 ${opened.threadRule}）`);
+  ok(Array.isArray(opened.titleWidths) && opened.titleWidths.length >= 3 && opened.titleWidths.every(width => width > 0),
+    `V4 每条线程行的名字都真的占着宽度（不会被 pill 与时间挤成 0；实测 ${JSON.stringify(opened.titleWidths)}）`);
+  // 本夹具里 B 只有一个活的对话回合、没有可暂停的 run（pauseAll 自己也会说「那些只能停止」），
+  // 所以「全部暂停」应当是灰的 —— 这正是「按钮说的话必须是真的」那条纪律的可判定形式。
+  const pausableRows = rowsNow.filter(row => row.lastRun && row.lastRun.live === true && row.lastRun.paused !== true);
+  ok(opened.pauseAllDisabled === (pausableRows.length === 0),
+    `V5 「全部暂停」的可点态与「真有几条可暂停」一致（可暂停 ${pausableRows.length} 条，按钮 disabled=${opened.pauseAllDisabled}）`);
 
   // ── ③ 「同时最多」改成 3 → 后端即时生效 ──────────────────────────────────────
   await cdp.evaluate(`(() => {

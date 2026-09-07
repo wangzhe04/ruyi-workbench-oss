@@ -626,17 +626,26 @@
            分组，由 js/steward-board.js 用 createElement 填（零 innerHTML）。 -->
       <div id="stewardBoard" class="steward-board" role="region"
            aria-label="看板" data-i18n-attr="aria-label:stewardShell.board.label" hidden>
+        <!-- 117l-B2 ②（用户第五轮走查 2「这个限制界面优化美观一下」）：顶部这一行从一排裸文字
+             变成一条玻璃底的 toolbar。id 与事件绑定一个没动，只多了两层包裹节点与两个状态修饰类：
+             .steward-board-maxwrap 把「同时最多 + 数字框」收成一枚带标签的小胶囊，
+             .steward-board-tools 把两个动作键推到右侧；在跑／排队两枚 pill 用 is-live／is-quiet
+             区分（在跑有一点颜色、排队保持安静）。 -->
         <div class="steward-board-top">
-          <label class="steward-board-max" for="stewardBoardMax"
-                 data-i18n="stewardShell.board.maxParallelLabel">同时最多</label>
-          <input type="number" id="stewardBoardMax" class="steward-board-max-input" min="1" max="32" step="1"
-                 data-i18n-attr="title:stewardShell.board.maxParallelHint" />
-          <span id="stewardBoardRunning" class="steward-board-pill"></span>
-          <span id="stewardBoardQueued" class="steward-board-pill"></span>
-          <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
-                  data-i18n="stewardShell.board.pauseAll">全部暂停</button>
-          <button type="button" id="stewardBoardClassicBtn" class="steward-board-btn"
-                  data-i18n="stewardShell.classicWindow.switchWhole">整体切到 2.0</button>
+          <span class="steward-board-maxwrap">
+            <label class="steward-board-max" for="stewardBoardMax"
+                   data-i18n="stewardShell.board.maxParallelLabel">同时最多</label>
+            <input type="number" id="stewardBoardMax" class="steward-board-max-input" min="1" max="32" step="1"
+                   data-i18n-attr="title:stewardShell.board.maxParallelHint" />
+          </span>
+          <span id="stewardBoardRunning" class="steward-board-pill is-live"></span>
+          <span id="stewardBoardQueued" class="steward-board-pill is-quiet"></span>
+          <span class="steward-board-tools">
+            <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
+                    data-i18n="stewardShell.board.pauseAll">全部暂停</button>
+            <button type="button" id="stewardBoardClassicBtn" class="steward-board-btn"
+                    data-i18n="stewardShell.classicWindow.switchWhole">整体切到 2.0</button>
+          </span>
         </div>
         <div id="stewardBoardList" class="steward-board-list"></div>
         <p id="stewardBoardNote" class="steward-board-note" role="status" aria-live="polite"></p>

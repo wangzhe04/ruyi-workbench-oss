@@ -395,7 +395,9 @@ export function createStewardComposer({
     // 只改 chip 形态，不发请求 —— 真正的创建仍要用户说一句话、由管家的委托书完成。
     markNewInMission: missionId => {
       picked = null;
-      routeKind = 'missionNew';
+      // 117l-B2 ②：看板空态那枚「＋ 线程」没有事项可挂（一条线程都还没有），派来的 missionId 是空串。
+      // 这种时候 chip 说「在事项下新开」是句假话 —— 没有那个「事项」。空 id 一律落到「另起一件」。
+      routeKind = missionId ? 'missionNew' : 'new';
       routeHits = [];
       routeReason = String(missionId || '');
       renderChip();

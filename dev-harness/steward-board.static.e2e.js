@@ -279,6 +279,58 @@ for (const pattern of FORBIDDEN) {
 ok(/2\.0/.test(String(zh['stewardShell.classicWindow.switchWhole'])),
   'H5 「整体切到 2.0」照 §5 117g 行的原话说（2.0 不是禁词，3.0 才是）');
 
+// ─── I 117l-B2 ②：看板视觉（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）──────────
+// 修前顶部是一排裸文字、事项与线程行糊在一起。本组只钉【结构性的那几件】：
+// 玻璃 toolbar／状态 pill／事项卡／线程行缩进与分隔／空态有出口／不许偷偷加模糊预算。
+ok(/\.steward-board-top \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode),
+  'I1 顶部一行是一条玻璃底的 toolbar（--glass-bg-3 卡片族 + 圆角边框），不再是一排裸文字');
+ok(!/\.steward-board-top \{[^}]*backdrop-filter/.test(cssCode)
+  && !/\.steward-board-mission \{[^}]*backdrop-filter/.test(cssCode),
+  'I1b **模糊预算**：toolbar 与事项卡只用玻璃底色，不叠 backdrop-filter（ui-v4-glass G2 的白名单一个字没加）');
+ok(/<span class="steward-board-maxwrap">/.test(html)
+  && /\.steward-board-maxwrap:focus-within \{ border-color: var\(--accent\); \}/.test(cssCode)
+  && /\.steward-board-max-input \{[\s\S]{0,200}width: 48px;/.test(cssCode),
+  'I2 「同时最多 ⟨n⟩」是一枚带标签的胶囊：48px 输入框，聚焦时整枚亮起来');
+ok(/id="stewardBoardRunning" class="steward-board-pill is-live"/.test(html)
+  && /id="stewardBoardQueued" class="steward-board-pill is-quiet"/.test(html)
+  && /\.steward-board-pill\.is-live::before \{ background: var\(--accent\); \}/.test(cssCode),
+  'I3 在跑／排队是两枚状态 pill：在跑带 running 色点，排队保持安静');
+ok(/<span class="steward-board-tools">/.test(html)
+  && /\.steward-board-tools \{[\s\S]{0,200}margin-inline-start: auto;/.test(cssCode),
+  'I4 两个动作键收进右侧的 .steward-board-tools（左半是「什么情况」，右半是「你能做什么」）');
+// 「全部暂停」的可点态：判据必须与 pauseAll 自己那一行 filter 逐字同源，不许借 arbiter.running
+// （仲裁面数的是占着并发位的线程，能被暂停的是有活 run 的线程，两者在「只跑对话回合」那类线程上不一样）。
+ok(/function syncPauseAll\(\) \{/.test(boardCode)
+  && /const pausable = rows\.some\(row => row\.lastRun && row\.lastRun\.live === true && row\.lastRun\.paused !== true\);/.test(boardCode)
+  && /const pausable = rows\.filter\(row => row\.lastRun && row\.lastRun\.live === true && row\.lastRun\.paused !== true\);/.test(boardCode)
+  && /\.steward-board-btn:disabled \{/.test(cssCode),
+  'I5 「全部暂停」只在真有可暂停的 run 时可点，判据与 pauseAll 自己那一行 filter 逐字同源');
+ok(/\.steward-board-mission \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode)
+  && !/\.steward-board-mission \{[^}]*border-top: 1px solid/.test(cssCode),
+  'I6 每个事项一张卡（此前是「一条细分隔线上的一行小字」，十来行下来分不出哪几行属于哪一件）');
+ok(/\.steward-board-mission-head \.steward-board-pill \+ \.steward-board-pill::before \{/.test(cssCode)
+  && /content: "·";/.test(cssCode),
+  'I6b 卡头右侧的线程数／验收／花费用「·」连成一串小字（分隔符是生成内容，DOM 一个节点没加）');
+ok(/\.steward-board-thread \{[\s\S]{0,400}margin-inline-start: var\(--sp-4\);/.test(cssCode)
+  && /\.steward-board-thread \+ \.steward-board-thread \{ border-top: 1px solid var\(--glass-border\); \}/.test(cssCode)
+  && /\.steward-board-thread:hover \{ background: var\(--panel-2\); \}/.test(cssCode),
+  'I7 线程行缩进 --sp-4 挂在事项名下、行间 1px 分隔线、hover 底色微亮');
+ok(/\.steward-board-thread-head \{[\s\S]{0,300}flex-wrap: wrap;/.test(cssCode)
+  && /\.steward-board-thread-title \{[\s\S]{0,200}min-width: 5em;/.test(cssCode),
+  'I7b 390px 下线程名不许被 pill 与时间挤成 0 宽（改前实测：整个线程名从屏幕上消失）');
+ok(/\.steward-board-pill\.is-asks-you \{[\s\S]{0,300}background: var\(--gold-soft\);/.test(cssCode)
+  && /color: var\(--gold\);/.test(cssCode),
+  'I8 「它在问你」从金色实底改成金色描边 + 极淡金底（仍是全行唯一带颜色的东西，只是不再喊）');
+ok(/const empty = el\('div', 'steward-board-empty'\);/.test(boardCode)
+  && /empty\.appendChild\(boardButton\('stewardShell\.board\.newThread', \(\) => newThread\(''\)/.test(boardCode),
+  'I9 空态是「一句话 ＋ 一个出口」（＋ 线程），不是一行孤零零的灰字');
+ok(/routeKind = missionId \? 'missionNew' : 'new';/.test(read('js/steward-composer.js')),
+  'I9b companion：空态那枚「＋ 线程」没有事项可挂，chip 落到「另起一件」而不是撒谎说「在事项下新开」');
+for (const selector of ['\\.steward-board-maxwrap', '\\.steward-board-thread', '\\.steward-board-pill\\.is-asks-you']) {
+  ok(new RegExp(`@media \\(prefers-reduced-motion: reduce\\)[\\s\\S]*${selector},`).test(cssCode),
+    `I10 本波新增的过渡 ${selector.replace(/\\/g, '')} 也进了 reduced-motion 的关闭清单`);
+}
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });
