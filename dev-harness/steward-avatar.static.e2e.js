@@ -105,6 +105,35 @@ ok(/if \(next === 'waiting_you'\) \{ void avatar\.offsetWidth; avatar\.classList
   && /const entering = next !== presenceState;/.test(stewardShell),
   'E3 renderPresence 只在真正切换到该态(entering)时才补一次性类，同态内重复渲染不重放动效');
 
+// 117l-B2 ①（用户第五轮走查 1「线程返回信息给管家时，最好给 avatar 一个小动效」）：
+// 第三个一次性类 .is-nudged。它【不是】第八个状态（B1/B2 的七态枚举一个字没动，见上面）——
+// 线程回报时 data-state 多半仍是 idle，所以只能是类，不能是态。
+ok(/\.steward-avatar\.is-nudged::after \{/.test(css)
+  && /animation: sa-nudge-halo \.6s var\(--ease-out\) 1;/.test(css)
+  && /@keyframes sa-nudge-halo \{/.test(css),
+  'E4 nudge 的扩散光环是 .is-nudged::after（600ms 一次，零 DOM 节点）');
+ok(/\.steward-avatar\.is-nudged \.sa-body \{ animation: sa-nudge-bob \.6s var\(--ease-out\) 1; \}/.test(css)
+  && /@keyframes sa-nudge-bob \{[\s\S]{0,120}scale\(1\.06\)/.test(css),
+  'E5 本体那次轻微起伏是 1 → 1.06 → 1 的一次性动画');
+// reduced-motion 分支：光环留着、位移关掉。光环必须留 —— 摘类靠的是 animationend，
+// 两个动画都被关掉的话事件永远不来，.is-nudged 会永远挂在头像上。
+// 扫的是【剥掉注释】的 CSS：这一段的修法注释里逐字写了「光环（.is-nudged::after）因此照播」，
+// 不剥的话写下纪律的那一句会把自己判红（与本仓其它 static 件同一条 stripComments 纪律）。
+const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const reducedBlock = cssCode.slice(cssCode.indexOf('@media (prefers-reduced-motion: reduce)'));
+ok(/\.steward-avatar\.is-nudged \.sa-body \{ animation: none !important; \}/.test(reducedBlock)
+  && !/\.is-nudged::after/.test(reducedBlock),
+  'E6 reduced-motion 下 .is-nudged 只做光环不做位移（光环留着，animationend 才回得来）');
+// 触发点唯一性：nudge 只在壳层轮询判定 trigger==='inbox' 的那一分支里发一次。
+ok(/lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
+  && (stewardShell.match(/nudgeAvatar\(\)/g) || []).length === 2,
+  'E7 nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 trigger===\'inbox\' 那一分支');
+ok(/function nudgeAvatar\(\) \{[\s\S]{0,420}addEventListener\('animationend'[\s\S]{0,120}\{ once: true \}\)/.test(stewardShell)
+  && (stewardShell.match(/setTimeout\(/g) || []).length === 0,
+  'E8 nudge 零计时器：类由 animationend 摘（steward-shell.js 仍然零 setTimeout）');
+ok(!/nudge/.test(stewardPresenceSrc),
+  'E9 nudge 一个字都没进 steward-presence.js —— 那是零 DOM 的纯投影，不该长出「播过没有」这种记忆');
+
 // ─── F 定时器只在 isStewardMode() 门控内(重钉锚点，与 steward-shell.static.e2e.js C2/C3 呼应) ───
 const setIntervalSites = (stewardShell.match(/setInterval\(/g) || []).length;
 const clearIntervalSites = (stewardShell.match(/clearInterval\(/g) || []).length;

@@ -111,8 +111,22 @@ const ok = (condition, label) => {
       'C3b clearFeed 里 park 排在清空之前');
     ok(/if \(kind === 'ruyi'\) row\.appendChild\(el\('span', 'steward-avslot'\)\);/.test(conversation),
       'C4 只有管家的话有槽（用户气泡不留 36px 空位）');
-    ok(/\.steward-avslot:empty::before/.test(convCss) && /\.steward-avslot \.steward-avatar \{ width: 36px; height: 36px; \}/.test(convCss),
-      'C5 历史消息靠 :empty::before 画静态点；真头像在槽里缩到 36px');
+    // 117l-B2 ④ 重钉（用户第五轮走查 4「很多轮的看起来有点奇怪，尤其是边边那个点」）：
+    // 旧断言钉的是 117j W2-3 当时的做法 ——「历史消息的空槽画一个 8px 静态点」。用户看了十几轮
+    // 之后的真实效果，判定那一列点本身就是噪音，于是那条规则整条删除（不是改样式，是不画了）。
+    // 断言因此从「必须有那条规则」翻成「必须没有」；槽的尺寸契约（36px）原样保留在同一行里，
+    // 由下面的 C5b/C5c companion 把「删掉点之后，正文左缘与视觉锚都还在」重新钉住。
+    // 注意扫的是【剥掉注释】的 CSS：修法注释里逐字写了那条被删的选择器，不剥的话它会自己判红。
+    const convCssCode = convCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    ok(!/\.steward-avslot:empty::before/.test(convCssCode)
+      && /\.steward-avslot \.steward-avatar \{ width: 36px; height: 36px; \}/.test(convCssCode),
+      'C5 历史消息的空槽不再画点（那一列灰点已删）；真头像在槽里仍缩到 36px');
+    ok(/\.steward-avslot \{[\s\S]{0,200}width: 36px;/.test(convCssCode)
+      && /\.steward-msg-ruyi \{ position: relative; padding-inline-start: 44px; \}/.test(convCssCode),
+      'C5b companion：槽位与 44px 左内边距一个像素没动 —— 删的只是点，正文左缘不会跟着左移');
+    ok(/\.steward-msg-ruyi:not\(\.is-group-start\.is-group-end\)::before \{/.test(convCssCode)
+      && /background: var\(--glass-border\);/.test(convCssCode),
+      'C5c companion：「这是如意在说」的视觉锚改由组的左侧竖线承担（117l-B2 ④），不是白删了一个信号');
     ok(html.includes('id="stewardPresenceDot"') && /\.steward-presence-dot \{/.test(shellCss),
       'C6 头部有那枚 6px 状态点（头像搬走之后它是头部唯一的状态投影）');
     ok(/const dot = byId\('stewardPresenceDot'\);\s*if \(dot\) dot\.dataset\.state = next;/.test(shell),
@@ -131,8 +145,25 @@ const ok = (condition, label) => {
       'D2 去重靠 createdAt 水位（ISO 8601 定长 UTC 串，字典序即时间序）');
     ok(/lastRenderedAt = '';   \/\/ 117j W2-4/.test(conversation),
       'D2b 整屏重画时水位归零（clearFeed 之后由 renderHistorySince 重新推上去）');
-    ok(/if \(!firstSeen && isStewardMode\(\) && lastReply\.trigger === 'inbox'\) void conversation\.appendSince\(''\);/.test(shell),
+    // 117l-B2 ① 重钉（语义只加不改）：旧断言逐字钉的是【那一行只做一件事】—— 单语句
+    // `void conversation.appendSince('')`。它钉的是 117j W2-4 当时的形状；本波在【同一个分支里】
+    // 多了一件事（nudgeAvatar()：头像那记「点一下」），语句块因此从单语句变成 `{ … ; … }`。
+    // 判据本身（!firstSeen && 管家模式 && trigger==='inbox'）一个字没动，所以这里只把「一行」
+    // 放宽成「这个分支」，并用下面的 D3c/D3d companion 把「多出来的那件事到底是什么、有没有
+    // 跑到别的分支去」重新钉死 —— 不是放宽正则让它过，是把断言拆成条件与动作两半各钉一遍。
+    ok(/if \(!firstSeen && isStewardMode\(\) && lastReply\.trigger === 'inbox'\) \{[^}]*void conversation\.appendSince\(''\);[^}]*\}/.test(shell),
       'D3 只认 trigger===\'inbox\'：用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了');
+    // companion ①：nudge 全文件只被调用一次，且就在这一个分支里 —— 用户自己说完一句、
+    // 首次轮询、非管家模式，一律不播（否则头像会在用户打字时莫名其妙地亮一下）。
+    const nudgeCalls = (shell.match(/nudgeAvatar\(\)/g) || []).length;
+    ok(nudgeCalls === 2
+      && /lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(shell),
+      `D3c companion：nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 inbox 那一分支的第一句（实测 ${nudgeCalls} 处）`);
+    // companion ②：这记动效【零计时器】—— 类由 animationend 摘，本文件的 setTimeout 仍然是 0
+    // （setInterval 恰好一处那条由 steward-avatar.static F1 / steward-shell.static C2a 各钉一遍）。
+    ok((shell.match(/setTimeout\(/g) || []).length === 0
+      && /addEventListener\('animationend', \(\) => avatar\.classList\.remove\('is-nudged'\), \{ once: true \}\)/.test(shell),
+      'D3d companion：nudge 靠 animationend 摘类，steward-shell.js 仍然零 setTimeout');
     ok(/const firstSeen = !lastReplyAt;/.test(shell),
       'D3b 首次轮询跳过（那一条属于进壳之前，enterVisit 已经画过）');
     ok(/appendSince,/.test(conversation),

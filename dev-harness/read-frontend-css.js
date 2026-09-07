@@ -206,7 +206,23 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // steward-board.css（走查①）：
 //   · .steward-board-pill.is-asks-you —— 行上「它在问你」的可点 pill。
 // 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'f4cce185f8bdd5b91aa3f41d9ef8eda65a15ca9db629668e772e83ef4735fc2a';
+// 117l-B2 第①批（用户第五轮走查 1／3／4）重钉，三个所有权层，经典与 Preview 层零漂移。
+// steward-avatar.css（走查 1「线程返回信息给管家时，最好给 avatar 一个小动效」）：
+//   · .steward-avatar 加 position:relative（光环 ::after 的定位上下文，对布局零影响）；
+//   · 一次性类 .is-nudged —— ::after 一道 600ms 扩散光环 ＋ .sa-body 一次 1→1.06→1 的起伏，
+//     两个 @keyframes（sa-nudge-halo / sa-nudge-bob）；reduced-motion 分支里只关起伏、留光环
+//     （摘类靠 animationend，两个都关掉的话事件永远不来，类会永远挂着）。七态枚举一个字没动。
+// steward-conversation.css（走查 3「为啥点 Avatar，显示面板是在最上面」＋ 走查 4「边边那个点」）：
+//   · .steward-menu 从 absolute+top:100%（117k 的顶栏锚点）改成 fixed，锚点由 JS 按头像 rect
+//     逐次写行内样式；[hidden] 守卫原样保留；
+//   · .steward-avslot:empty::before 那条「历史行画 8px 灰点」整条删除（走查 4 说的就是它）；
+//   · 新增组呈现：.steward-feed 的 gap --sp-4 → --sp-1，.steward-msg 补 margin-top --sp-3
+//     （两者相加＝原来的 16px，组与组之间一个像素没变），.steward-msg-ruyi:not(.is-group-start)
+//     归零；组的左侧 2px 淡竖线（::before，含头像所在最新组的 :has() 排除）；
+//   · .is-stale 行的 act 幽灵档（只改样式，不 disabled、不 pointer-events:none）。
+// steward-shell.css：只改了 .steward-header{position:relative} 那一条的注释（说明它不再是菜单的锚）。
+// 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'd2856ad35fc1ee14a006153d9f673d775d2a393726d915f1bc9069aac8795594';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

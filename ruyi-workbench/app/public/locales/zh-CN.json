@@ -2682,6 +2682,8 @@
   ,"stewardShell.chat.errProposeRequired": "这件事需要你在设置里亲手确认。"
   ,"stewardShell.chat.errNotFound": "没找到这一条，它可能已经变了。"
   ,"stewardShell.chat.errBusy": "那条线程正忙着上一件，这句先没递进去；等它停了再说一次。"
+  ,"stewardShell.chat.errQueued": "那条线程还在排队（{{wait}}），这句先没递进去；等它开跑后再说一次。"
+  ,"stewardShell.chat.errQueuedPlain": "那条线程还在排队，这句先没递进去；等它开跑后再说一次。"
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
   ,"stewardShell.chat.engineNotListed": "管家端点『{{provider}}』不在 Provider 列表里，所以它现在一句话也跑不了。换一个，或者去设置里把它加回来。"

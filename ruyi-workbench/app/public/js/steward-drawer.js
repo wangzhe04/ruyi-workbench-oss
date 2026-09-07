@@ -264,6 +264,17 @@ export function createStewardDrawer({
   }
   function failNote(error) {
     const info = apiErrorInfo(error);
+    // 117l-B2 ⑤：递话单口（POST /api/steward/relay）在目标线程还排队时回 409 `steward.queued`。
+    // 与对话流那一头【同两个键】说同一句人话（stewardShell.chat.errQueued / …Plain），
+    // 而不是把服务端那句原文塞进「没做成：…」的模板里 —— 后者读起来像出了故障，其实只是还没轮到它。
+    // 判据只看稳定码与 wait.label，一个字都不自己编（label 由服务端一处算，与看板行逐字同源）。
+    const code = String((info && info.code) || '');
+    if (code === 'steward.queued') {
+      const wait = (info && info.params && info.params.wait) || null;
+      const label = (wait && typeof wait === 'object' && wait.label) ? String(wait.label) : '';
+      note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
+      return;
+    }
     const message = String((info && info.message) || (error && error.message) || error || 'failed');
     note(t('stewardShell.drawer.failed', { error: message }));
   }

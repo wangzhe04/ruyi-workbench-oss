@@ -196,6 +196,23 @@ export function createStewardShellDomain({
     return renderPresence();
   }
 
+  // 117l-B2 ①（用户第五轮走查 1「线程返回信息给管家时，最好给 avatar 一个小动效」）：
+  // 「点一下」是一次性视觉信号，不是第八个状态 —— 线程回报时管家多半仍是 idle，presenceInputs
+  // 一个字都不该被它写脏（derivePresence 是纯投影，掺一个 nudge 字段进去就等于给它加了记忆）。
+  // 所以另开这一个显式口子，与 renderPresence 里 .pulse/.shake 那套一次性类同一条纪律。
+  // 【零计时器】：类由 animationend 自己摘 —— steward-avatar.css 保证 .is-nudged 一定有动画在播
+  // （reduced-motion 下也留着光环，正是为了这个事件一定回来），本文件的 setInterval／setTimeout
+  // 计数因此一个没变（steward-avatar.static F1 与 steward-shell.static C2a 都盯着）。
+  function nudgeAvatar() {
+    const avatar = byId('stewardAvatar');
+    if (!avatar) return false;
+    avatar.classList.remove('is-nudged');
+    void avatar.offsetWidth;   // 强制重排：同一帧内摘了又加，不重排的话动画不会重放
+    avatar.addEventListener('animationend', () => avatar.classList.remove('is-nudged'), { once: true });
+    avatar.classList.add('is-nudged');
+    return true;
+  }
+
   // GET /api/steward/state 没有独立的 pending 字段(13h-steward-runner.js stewardRunnerState 只有
   // stopped/inflight/circuit/lastReply/queued/noProgress/arbiter)。117b 曾借 lastReply.acts 非空近似
   // 「有提议待批」；117c 改接真值 —— POST /api/steward/visit 回的 `pending[]` 就是仍待决的提议清单，
@@ -242,7 +259,10 @@ export function createStewardShellDomain({
       if (at && at !== lastReplyAt) {
         const firstSeen = !lastReplyAt;
         lastReplyAt = at;
-        if (!firstSeen && isStewardMode() && lastReply.trigger === 'inbox') void conversation.appendSince('');
+        // 117l-B2 ①：nudge 与 appendSince 同一道判据、同一分支 —— 有「线程回来了」这件事的
+        // 那一刻才播，且必须在追加之前发（头像随即被 moveAvatarTo 搬到新那一行，先播后搬，
+        // 光环跟着头像走）。用户自己发的那条回复走的是 sendToSteward，压根不进这个分支。
+        if (!firstSeen && isStewardMode() && lastReply.trigger === 'inbox') { nudgeAvatar(); void conversation.appendSince(''); }
       }
     }).catch(() => { lastStateAt = Date.now(); /* 状态面不因单次轮询失败整条消失，下一轮再试（失败也推水位，否则每一拍都重试） */ });
   }

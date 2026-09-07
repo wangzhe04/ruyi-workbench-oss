@@ -5,11 +5,18 @@
 
 /* 对话流：只有两种气泡，没有卡片盒子。用户的话靠右、管家的话靠左，两者都不画边框——
    §8.1「极简」的落地就是「少一个盒子」，不是「换一种盒子」。 */
+/* 117l-B2 ④（用户第五轮走查 4「现在这种很多轮的看起来有点奇怪」）：行距从「一律 --sp-4」改成
+   「组内紧、组间松」—— gap 收到 --sp-1（4px）当组内档，组的第一行再补 --sp-3（12px）的上外边距，
+   两者相加正好还是原来的 16px，所以【组与组之间的间距一个像素没变】，变的只是同一个人连着说的
+   那几行贴得更近。用户气泡不动：它只吃默认的那份 --sp-3，不进组内档（见下面的 :not 那条）。 */
 .steward-feed {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
+  gap: var(--sp-1);
 }
+.steward-msg { margin-top: var(--sp-3); }
+.steward-msg-ruyi:not(.is-group-start) { margin-top: 0; }
+.steward-feed > .steward-msg:first-child { margin-top: 0; }
 .steward-msg {
   display: flex;
   flex-direction: column;
@@ -43,13 +50,34 @@
 }
 /* 真头像在槽里时缩到 36px（头部那一份仍是 56px）。 */
 .steward-avslot .steward-avatar { width: 36px; height: 36px; }
-/* 历史消息：槽是空的，画一个静态小圆点即可 —— 不复制 SVG、不多一个 DOM 节点。 */
-.steward-avslot:empty::before {
+/* 117l-B2 ④（用户第五轮走查 4「尤其是边边那个点」）：历史消息的空槽此前画一个 8px 灰点
+   （.steward-avslot:empty::before），十几轮之后左边就是一列点。那条规则整条删掉 —— 空槽什么都不画。
+   槽本身（绝对定位、36px）与 .steward-msg-ruyi 的 44px 左内边距原样保留，正文左缘一个像素不动。
+   「这是如意在说」的视觉锚改由下面那道组竖线承担。 */
+
+/* 组的左侧锚线：2px、--glass-border，从组的第一行一直到最后一行。
+   为什么每行各画一段而不是「只在组首画一条」：兄弟元素的高度对 CSS 是不可知的，一条 ::before
+   跨不过兄弟；所以非组尾的那几段各自向下多探出一个 gap（--sp-1），相邻两段接得上，看起来就是
+   连续的一条。单行成组（既是组首又是组尾）不画 —— 一行没有「一串」可锚。 */
+.steward-msg-ruyi:not(.is-group-start.is-group-end)::before {
   content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--glass-border-strong);
+  position: absolute;
+  inset-inline-start: 17px;   /* 36px 槽的中线（17 = (36 - 2) / 2） */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--glass-border);
+}
+.steward-msg-ruyi:not(.is-group-start.is-group-end):not(.is-group-end)::before {
+  bottom: calc(-1 * var(--sp-1));
+}
+/* 头像所在的【最新那一组】不画线：头像本身就是锚，再来一道竖线就是两个锚。
+   「最新那一组」= 最后一个 .is-group-start，加上它后面那些续行（续行没有 .is-group-start，
+   而它们前面已经没有别的组首了）。两条选择器合起来正好覆盖这一组的每一行。 */
+.steward-msg-ruyi.is-group-start:not(:has(~ .steward-msg-ruyi.is-group-start))::before,
+.steward-msg-ruyi.is-group-start:not(:has(~ .steward-msg-ruyi.is-group-start)) ~ .steward-msg-ruyi:not(.is-group-start)::before {
+  content: none;
 }
 .steward-say {
   margin: 0;
@@ -152,6 +180,18 @@
   border-color: transparent;
 }
 .steward-act.is-primary:hover { border-color: var(--gold-line); }
+/* 117l-B2 ④：不是最新那一条管家消息的行（.is-stale，由 steward-conversation.js 的 markStale 一处
+   维护）把按钮降成幽灵档：无底、细边、灰字。**行为一个字没改** —— 还是同一个 button、同一个
+   runAct、照样可点可聚焦，只是不再和最新一条的金色主按钮抢眼。最新那一条不带 .is-stale，
+   上面两条 .is-primary 的规则原样生效。 */
+.steward-msg-ruyi.is-stale .steward-act,
+.steward-msg-ruyi.is-stale .steward-act.is-primary {
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--glass-border);
+}
+.steward-msg-ruyi.is-stale .steward-act:hover { color: var(--ink); border-color: var(--accent); }
 
 /* 按钮落定后的灰字回执，与失败时的人话提示（提示在按钮行【上方】，按钮行留着可重试）。 */
 .steward-receipt,
@@ -220,13 +260,16 @@
 
 /* 头像菜单（原型 .menu：一张实底小纸，项是左对齐的一行）。 */
 .steward-menu {
-  position: absolute;
   /* 117k：此前只有 position:absolute + margin-top，没有 top/left —— 用的是「静态位置」，
-     实测落在 y = -20px（首项「细节」被窗口上沿切掉、点不着）。改成贴着顶栏下沿左对齐展开。 */
-  top: 100%;
-  left: 0;
+     实测落在 y = -20px（首项「细节」被窗口上沿切掉、点不着），于是改成贴着顶栏下沿展开。
+     117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面」）：那个锚点已经不成立了 ——
+     117j W2-3 之后头像跟着最新一条管家的话走，头像在下、菜单还在顶栏。现在 top/left/bottom 由
+     JS 按头像的 getBoundingClientRect() 逐次写在行内样式上（steward-conversation.js placeMenu：
+     下方够放就开下方，不够就开上方），本层因此【不再】写死任何锚点，只留 fixed 与外观。
+     fixed 而不是 absolute：菜单节点挂在 #stewardShell 上，绕开 #stewardStage 的 backdrop-filter
+     （会给 fixed 后代造包含块）与它的 overflow:hidden（会把开在舞台外的菜单切掉）。 */
+  position: fixed;
   z-index: 34;
-  margin-top: var(--sp-1);
   min-width: 200px;
   display: flex;
   flex-direction: column;

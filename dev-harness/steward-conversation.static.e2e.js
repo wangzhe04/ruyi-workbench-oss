@@ -286,6 +286,89 @@ ok(/\.steward-composer-note:empty \{ display: none; \}/.test(cssCode)
   && html.includes('id="stewardComposerNote"'),
   'L10 输入区那行小字有骨架，且空的时候不占位');
 
+// ─── M 117l-B2：菜单锚点（③）、对话流分组与降噪（④）、steward.queued 的人话（⑤）────────
+// ③ 用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面，怎么也得要么在下面要么在上面吧」。
+//   117k 把菜单锚在【顶栏】下沿（.steward-menu 的 top:100%/left:0），而 117j W2-3 之后头像跟着
+//   最新一条管家的话走 —— 头像在屏幕下半截、菜单还钉在最上面。现在按头像的 rect 定位。
+ok(!/top: 100%;/.test(cssCode) && !/\.steward-menu \{[^}]*position: absolute;/.test(cssCode)
+  && /\.steward-menu \{[\s\S]{0,600}position: fixed;/.test(cssCode),
+  'M1 .steward-menu 不再有 top:100% 那个顶栏锚点，改成 fixed（锚点由 JS 按头像 rect 逐次写行内样式）');
+ok(/\.steward-menu\[hidden\] \{ display: none; \}/.test(cssCode),
+  'M1b companion：117k 那道 [hidden] 守卫原样还在（作者 display:flex 仍会压过 UA 表）');
+ok(/const rect = avatar\.getBoundingClientRect\(\);/.test(conversation)
+  && /function placeMenu\(\) \{/.test(conversation),
+  'M2 打开时读的是【头像】的 getBoundingClientRect()，不是顶栏的');
+ok(/const below = \(viewport - rect\.bottom\) >= \(height \+ STEWARD_MENU_GAP\);/.test(conversation)
+  && /menu\.style\.top = `\$\{Math\.round\(rect\.bottom \+ STEWARD_MENU_GAP\)\}px`;/.test(conversation)
+  && /menu\.style\.bottom = `\$\{Math\.round\(viewport - rect\.top \+ STEWARD_MENU_GAP\)\}px`;/.test(conversation),
+  'M3 有上下翻转分支：下方够放就开下方，不够就开上方（底缘贴住头像顶）');
+ok(mod.STEWARD_MENU_GAP === 8 && /export const STEWARD_MENU_GAP = 8;/.test(conversation),
+  `M3b 空隙是导出常量，定位与「放不放得下」的判定读同一个数（实测 ${mod.STEWARD_MENU_GAP}）`);
+ok(/const menuHost = byId\('stewardShell'\);/.test(conversation)
+  && !/header\.appendChild\(menu\)/.test(conversationCode),
+  'M4 菜单挂在 #stewardShell 上：#stewardStage 有 backdrop-filter(给 fixed 后代造包含块)＋overflow:hidden(会切掉菜单)');
+ok(/const closeMenuOnViewportChange = \(\) => \{ if \(!menu\.hidden\) closeMenu\(\); \};/.test(conversation)
+  && /addEventListener\('resize', closeMenuOnViewportChange\)/.test(conversation)
+  && /feedForMenu\.addEventListener\('scroll', closeMenuOnViewportChange\)/.test(conversation),
+  'M5 开着时窗口 resize／对话流 scroll 即关（关着时两个监听一件事都不做）');
+ok(/releaseMenuEscape = stewardEscapeStack\.push\(closeMenu,/.test(conversation)
+  && /avatar\.setAttribute\('aria-controls', menu\.id\)/.test(conversation),
+  'M5b companion：117k 的 Esc 栈与 owns 判定原样保留（只改了锚点，没改开合契约）');
+
+// ④ 用户第五轮走查 4「Ruyi 说的话…现在这种很多轮的看起来有点奇怪，尤其是边边那个点」。
+ok(!/\.steward-avslot:empty::before/.test(cssCode),
+  'M6 历史消息的空槽不再画那个 8px 灰点（十几轮之后左边一列点，用户说的就是它）');
+ok(/function markGroup\(row, kind\) \{/.test(conversation)
+  && /row\.classList\.add\('is-group-end'\);/.test(conversation)
+  && /else row\.classList\.add\('is-group-start'\);/.test(conversation)
+  && /if \(sameSpeaker\) previous\.classList\.remove\('is-group-end'\);/.test(conversation),
+  'M7 is-group-start / is-group-end 在 appendRow 时按【前一行的角色】维护（追加式，不重排整条流）');
+ok(/markGroup\(row, kind\);/.test(conversation)
+  && /function markStale\(current\) \{/.test(conversation)
+  && /row\.classList\.toggle\('is-stale', stale\);/.test(conversation)
+  && /markStale\(row\);/.test(conversation),
+  'M7b 三个类都在 JS 里一处维护：组界靠 markGroup，「不是最新那条」靠 markStale(判据＝头像在谁那儿)');
+ok(/\.steward-msg-ruyi:not\(\.is-group-start\.is-group-end\)::before \{/.test(cssCode)
+  && /\.steward-msg-ruyi\.is-group-start:not\(:has\(~ \.steward-msg-ruyi\.is-group-start\)\)::before,/.test(cssCode),
+  'M8 组的左侧竖线只画给多行组；头像所在的【最新那一组】整组不画（头像本身就是锚）');
+ok(/\.steward-msg-ruyi\.is-stale \.steward-act,/.test(cssCode)
+  && /\.steward-msg-ruyi\.is-stale \.steward-act\.is-primary \{/.test(cssCode)
+  && /\.steward-act\.is-primary \{/.test(cssCode),
+  'M9 旧行的 act 降成幽灵档，最新那一条仍是金底主按钮（.is-primary 那条原样在）');
+ok(!/is-stale[\s\S]{0,200}(disabled|pointer-events: none)/.test(cssCode),
+  'M9b companion：降噪只改样式 —— 没有 disabled、没有 pointer-events:none，旧行的按钮照样可点');
+ok(/\.steward-feed \{[\s\S]{0,200}gap: var\(--sp-1\);/.test(cssCode)
+  && /\.steward-msg \{ margin-top: var\(--sp-3\); \}/.test(cssCode)
+  && /\.steward-msg-ruyi:not\(\.is-group-start\) \{ margin-top: 0; \}/.test(cssCode),
+  'M10 组内 --sp-1、组间 --sp-1+--sp-3＝原来的 --sp-4：组与组之间的间距一个像素没变，用户气泡不进组内档');
+
+// ⑤ A1-fix（56f8c2b）的第五条通道：线程还排在仲裁器队列里时递话 → 409 steward.queued。
+ok(/'steward\.queued': 'stewardShell\.chat\.errQueued',/.test(conversation)
+  && mod.stewardActErrorKey({ code: 'steward.queued' }) === 'stewardShell.chat.errQueued',
+  'M11 steward.queued 有自己的人话键（它不是 steward.busy：忙＝插不进去，排队＝还没轮到它开跑）');
+ok(mod.stewardQueuedWaitLabel({ code: 'steward.queued', params: { wait: { reason: 'lock', label: '等锁：同一个文件夹被「X」占着' } } }) === '等锁：同一个文件夹被「X」占着'
+  && mod.stewardQueuedWaitLabel({ code: 'steward.queued', wait: { label: '等并发位' } }) === '等并发位'
+  && mod.stewardQueuedWaitLabel({ error: { code: 'steward.queued', params: { wait: { label: '等预算' } } } }) === '等预算'
+  && mod.stewardQueuedWaitLabel({ code: 'steward.queued' }) === ''
+  && mod.stewardQueuedWaitLabel(null) === '',
+  'M11b wait.label 只取不编：三种落点都找得到，一个都没有就回空串');
+ok(mod.stewardActErrorMessage({ code: 'steward.queued', params: { wait: { label: '等锁' } } }, (key, params) => `${key}|${params && params.wait}`) === 'stewardShell.chat.errQueued|等锁'
+  && mod.stewardActErrorMessage({ code: 'steward.queued' }, key => key) === 'stewardShell.chat.errQueuedPlain'
+  && mod.stewardActErrorMessage({ code: 'steward.busy' }, key => key) === 'stewardShell.chat.errBusy'
+  && mod.stewardActErrorMessage({ code: '不在表里' }, key => key) === '',
+  'M11c 取不到 wait 就换成不带括号的那一句；表外仍回空串(由调用方落到 errGeneric，原始 error 原样带出去)');
+for (const key of ['stewardShell.chat.errQueued', 'stewardShell.chat.errQueuedPlain']) {
+  ok(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0,
+    `M12 locale 键 ${key} 中英齐备`);
+}
+ok(/\{\{wait\}\}/.test(String(zh['stewardShell.chat.errQueued'])) && /\{\{wait\}\}/.test(String(en['stewardShell.chat.errQueued']))
+  && !/\{\{wait\}\}/.test(String(zh['stewardShell.chat.errQueuedPlain'])) && !/\{\{wait\}\}/.test(String(en['stewardShell.chat.errQueuedPlain'])),
+  'M12b 带括号的那句有 {{wait}} 插值、不带括号的那句没有(否则界面会出现一对空括号)');
+const drawerSrc = read('js/steward-drawer.js');
+ok(/if \(code === 'steward\.queued'\) \{/.test(drawerSrc)
+  && /t\('stewardShell\.chat\.errQueued', \{ wait: label \}\) : t\('stewardShell\.chat\.errQueuedPlain'\)/.test(drawerSrc),
+  'M13 抽屉「直接对这条线程说」走 relay 时读同两个键，不把服务端原文塞进「没做成：…」的模板');
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

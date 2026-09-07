@@ -67,7 +67,9 @@
 .steward-header {
   display: flex;
   /* 117k：头像菜单(.steward-menu)绝对定位要有个确定的锚 —— 不给的话它落在静态位置，
-     被窗口上沿切掉。relative 不改变本身布局，只是给菜单一个定位上下文。 */
+     被窗口上沿切掉。relative 不改变本身布局，只是给菜单一个定位上下文。
+     117l-B2 ③：菜单已经改成按头像 rect 定位的 fixed 浮层、并挂到 #stewardShell 上，
+     这条不再是它的锚；留着是因为它对头部自身布局零影响，且仍是头部内任何后续浮层的现成上下文。 */
   position: relative;
   align-items: center;
   gap: var(--sp-3);

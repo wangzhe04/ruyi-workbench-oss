@@ -2682,6 +2682,8 @@
   ,"stewardShell.chat.errProposeRequired": "This one needs you to confirm it yourself in settings."
   ,"stewardShell.chat.errNotFound": "I couldn't find it — it may have changed."
   ,"stewardShell.chat.errBusy": "That thread is still busy with the previous one, so this line did not go through. Say it again once it stops."
+  ,"stewardShell.chat.errQueued": "That thread is still in the queue ({{wait}}), so this line did not go through. Say it again once it starts running."
+  ,"stewardShell.chat.errQueuedPlain": "That thread is still in the queue, so this line did not go through. Say it again once it starts running."
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
   ,"stewardShell.chat.engineNotListed": "The steward endpoint \"{{provider}}\" is not in your provider list, so it cannot run a single turn. Switch to another one, or add it back in settings."

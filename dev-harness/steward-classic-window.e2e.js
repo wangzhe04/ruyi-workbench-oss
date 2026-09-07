@@ -193,7 +193,34 @@ const VIEW = `(() => {
     drawerHidden: document.getElementById('stewardDrawer') ? document.getElementById('stewardDrawer').hidden : null,
     sessionTitle: text('sessionTitle'),
     returnMark: (() => { try { return sessionStorage.getItem('wcw.stewardReturn') || ''; } catch { return 'ERR'; } })(),
-    menuItems: [...document.querySelectorAll('#stewardHeader .steward-menu-item')].map(node => node.textContent.trim()),
+    // 117l-B2 ③ 重钉：选择器从 '#stewardHeader .steward-menu-item' 改成 '#stewardAvatarMenu …'。
+    // 旧选择器钉的是 117k 当时的挂点（菜单是顶栏的子节点、absolute 锚在顶栏下沿）；用户第五轮
+    // 走查 3 指出头像早就跟着最新一条话走了、菜单却还钉在最上面，于是菜单改成按头像 rect 定位的
+    // fixed 浮层，挂点必须移出 #stewardStage（它有 backdrop-filter 会给 fixed 造包含块、
+    // 还有 overflow:hidden 会切掉菜单）。菜单的 id 与项的类名一个字没改，所以这里换的是【父节点】
+    // 而不是断言强度；下面 menuHost/menuPlace 两项 companion 把新挂点与新锚点各钉一遍。
+    menuItems: [...document.querySelectorAll('#stewardAvatarMenu .steward-menu-item')].map(node => node.textContent.trim()),
+    menuHost: (() => {
+      const menu = document.getElementById('stewardAvatarMenu');
+      return menu && menu.parentElement ? menu.parentElement.id : '';
+    })(),
+    menuPlace: (() => {
+      const menu = document.getElementById('stewardAvatarMenu');
+      const avatar = document.getElementById('stewardAvatar');
+      if (!menu || menu.hidden || !avatar) return '';
+      const rect = menu.getBoundingClientRect();
+      const anchor = avatar.getBoundingClientRect();
+      const style = getComputedStyle(menu);
+      // 「贴着头像开」的可判定判据：定位是 fixed、左缘对齐头像、且整张纸在头像的上方或下方
+      // （±2px 容差给取整）。data-place 是 JS 自己记的那一半，两边对得上才算数。
+      const aligned = Math.abs(rect.left - anchor.left) <= 2;
+      const below = rect.top >= anchor.bottom - 2;
+      const above = rect.bottom <= anchor.top + 2;
+      // 拼接而不是模板串：VIEW 本身就住在一条模板串里，里面再写 \${} 会被外层先吃掉。
+      return style.position + '|' + (aligned ? 'aligned' : 'off')
+        + '|' + (below ? 'below' : (above ? 'above' : 'overlap'))
+        + '|' + (menu.dataset.place || '');
+    })(),
   };
 })()`;
 
@@ -367,7 +394,15 @@ try {
   })()`);
   ok(menu && menu.menuItems.includes(zh['stewardShell.classicWindow.switchWhole']),
     `F1 头像菜单末项是「整体切到 2.0」（实测 ${menu && JSON.stringify(menu.menuItems)}）`);
-  await cdp.evaluate(`[...document.querySelectorAll('#stewardHeader .steward-menu-item')]
+  // 117l-B2 ③ companion ①：菜单挂在 #stewardShell 上（不是顶栏、不是 body）。
+  ok(menu && menu.menuHost === 'stewardShell',
+    `F1b companion：菜单节点挂在 #stewardShell（绕开 #stewardStage 的 backdrop-filter 与 overflow:hidden；实测「${menu && menu.menuHost}」）`);
+  // 117l-B2 ③ companion ②：贴着【头像】开，且真的在它上方或下方 —— 这正是用户第五轮走查 3
+  // 「怎么也得要么在下面要么在上面吧」那一句话的可判定形式。
+  ok(menu && /^fixed\|aligned\|(below|above)\|(below|above)$/.test(menu.menuPlace)
+    && menu.menuPlace.split('|')[2] === menu.menuPlace.split('|')[3],
+    `F1c companion：fixed ＋ 左缘对齐头像 ＋ 开在头像上方或下方，且与 data-place 自述一致（实测「${menu && menu.menuPlace}」）`);
+  await cdp.evaluate(`[...document.querySelectorAll('#stewardAvatarMenu .steward-menu-item')]
     .find(node => node.textContent.trim() === ${JSON.stringify(zh['stewardShell.classicWindow.switchWhole'])}).click(), true`);
   const whole = await waitForEval(cdp, `(() => {
     const view = ${VIEW};

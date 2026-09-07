@@ -232,6 +232,29 @@ const FEED = `(() => {
     })(),
     avatarCount: document.querySelectorAll('#stewardAvatar, .steward-avatar').length,
     avslots: feed.querySelectorAll('.steward-avslot').length,
+    // 117l-B2 ④（用户第五轮走查 4「很多轮的看起来有点奇怪，尤其是边边那个点」）：
+    // 管家那几行的分组／降噪状态。全部走公开 DOM（className、::before 的计算样式、按钮的
+    // disabled 与计算底色），不碰模块私有状态。
+    ruyiRows: [...feed.querySelectorAll('.steward-msg-ruyi')].map(node => ({
+      groupStart: node.classList.contains('is-group-start'),
+      groupEnd: node.classList.contains('is-group-end'),
+      stale: node.classList.contains('is-stale'),
+      hasAvatar: Boolean(node.querySelector('#stewardAvatar')),
+      acts: node.querySelectorAll('.steward-act').length,
+      disabledActs: [...node.querySelectorAll('.steward-act')].filter(btn => btn.disabled).length,
+      // 幽灵档到底生没生效：不是最新那一行的按钮，计算出来的底色应该是全透明的。
+      actBg: (() => {
+        const btn = node.querySelector('.steward-act');
+        return btn ? getComputedStyle(btn).backgroundColor : '';
+      })(),
+      // 空槽还画不画那个 8px 灰点：content 是 'none' 就说明那条规则真的没了。
+      slotMark: (() => {
+        const slot = node.querySelector('.steward-avslot');
+        return slot ? getComputedStyle(slot, '::before').content : '';
+      })(),
+      // 组的左侧竖线画没画在这一行上。
+      groupLine: getComputedStyle(node, '::before').content !== 'none',
+    })),
     presenceDot: (() => {
       const dot = document.getElementById('stewardPresenceDot');
       return dot ? String(dot.dataset.state || '') : '';
@@ -624,6 +647,53 @@ try {
   const threadMessages = rewound && rewound.json && rewound.json.session && Array.isArray(rewound.json.session.messages)
     ? rewound.json.session.messages.length : -1;
   ok(threadMessages === 0, `G4 线程回退到递话前（这句话视为没发出去，剩余消息 ${threadMessages} 条）`);
+
+  // ─── 117l-B2 ④：多轮之后的对话流长什么样（用户第五轮走查 4）─────────────────────
+  // 到这儿剧本已经积了好几轮管家的话（到访问候 ＋ 每一轮的回复 ＋ 撤回后那句「那递给谁？」），
+  // 正是用户抱怨的那个形状：修前左边是一列 8px 灰点，且每一行的按钮都一样重。
+  const grouped = await cdp.evaluate(FEED);
+  const ruyiRows = (grouped && grouped.ruyiRows) || [];
+  ok(ruyiRows.length >= 3, `R1 剧本跑到这里至少有三条管家消息（实测 ${ruyiRows.length} 条）`);
+  ok(ruyiRows.length >= 3 && ruyiRows.filter(row => row.hasAvatar).length === 1
+    && ruyiRows[ruyiRows.length - 1].hasAvatar === true,
+    'R2 只有【最后一行】有真头像（其余行的槽是空的）');
+  ok(ruyiRows.length >= 3 && ruyiRows.slice(0, -1).every(row => row.stale === true)
+    && ruyiRows[ruyiRows.length - 1].stale === false,
+    'R3 除最新那一条之外全部 .is-stale（判据＝头像在谁那儿，markStale 一处维护）');
+  ok(ruyiRows.length >= 3 && ruyiRows[0].groupStart === true,
+    'R4 第一行是组首（.is-group-start）');
+  // 撤回之后那两行是连着的两条管家消息（「已经递给…」＋「那递给谁？」），它们该是【同一组】：
+  // 倒数第二行是组首、最后一行不是组首但是组尾。这就是「连发多条管家消息成组」的真实证据。
+  const tail = ruyiRows.slice(-2);
+  ok(tail.length === 2 && tail[0].groupStart === true && tail[0].groupEnd === false
+    && tail[1].groupStart === false && tail[1].groupEnd === true,
+    `R5 撤回后那两条连着的管家消息成【一组】（组首/组尾各一，实测 ${JSON.stringify(tail.map(r => [r.groupStart, r.groupEnd]))}）`);
+  ok(ruyiRows.every(row => row.slotMark === 'none'),
+    `R6 空槽不再画那个 8px 灰点（用户说的「边边那个点」；实测 ${JSON.stringify([...new Set(ruyiRows.map(r => r.slotMark))])}）`);
+  // 左侧那道竖线的三条规矩，按【实际算出来的组】逐行核对，不写死行号：
+  //   · 单行成组 → 不画（否则又变成「每一行左边一个记号」，正是用户抱怨的那个形状）；
+  //   · 头像所在的【最新那一组】→ 不画（头像本身就是锚）；
+  //   · 其余的多行组 → 组里每一行都画（各画一段、非组尾那几段向下多探一个 gap，接成一条）。
+  const groups = [];
+  for (const row of ruyiRows) {
+    if (row.groupStart || !groups.length) groups.push([]);
+    groups[groups.length - 1].push(row);
+  }
+  const lastGroup = groups[groups.length - 1] || [];
+  const lineVerdict = groups.map(group => {
+    const shouldDraw = group.length >= 2 && group !== lastGroup;
+    return group.every(row => row.groupLine === shouldDraw) ? 'ok' : `bad(len=${group.length},draw=${shouldDraw})`;
+  });
+  ok(groups.length >= 3 && groups.some(group => group.length >= 2 && group !== lastGroup)
+    && lineVerdict.every(verdict => verdict === 'ok'),
+    `R7 竖线只画给「多行且不是头像所在那一组」的组（${groups.length} 组，逐组核对 ${JSON.stringify(lineVerdict)}）`);
+  ok(lastGroup.length >= 2 && lastGroup.every(row => row.groupLine === false),
+    `R7b companion：头像所在的最新那一组【整组】不画（它有 ${lastGroup.length} 行，是多行组，只因为有头像才不画）`);
+  const staleWithActs = ruyiRows.filter(row => row.stale && row.acts > 0);
+  ok(staleWithActs.length > 0
+    && staleWithActs.every(row => /rgba\(0, 0, 0, 0\)|transparent/.test(row.actBg))
+    && staleWithActs.every(row => row.disabledActs === 0),
+    `R8 旧行的按钮降成幽灵档（底色透明）但【仍然可点】（零 disabled；实测 ${staleWithActs.length} 行，底色 ${JSON.stringify([...new Set(staleWithActs.map(r => r.actBg))])}）`);
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");

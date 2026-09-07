@@ -36,6 +36,9 @@ export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
 export const STEWARD_DETAILS_KEY = 'wcw.stewardDetails';
+// 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面」）：头像菜单与头像之间留的空隙，
+// 也是「下方还放不放得下」那个判定的余量。一处常量，两处（定位与判定）读同一个数。
+export const STEWARD_MENU_GAP = 8;
 // 117e：头像菜单里「细节」之后的三项（人话键 → 设置页里要滚到的区块）。顺序即菜单顺序。
 export const STEWARD_MENU_SECTIONS = Object.freeze([
   ['stewardShell.menu.settings', ''],
@@ -79,6 +82,11 @@ const STEWARD_ACT_ERROR_KEYS = Object.freeze({
   propose_required: 'stewardShell.chat.errProposeRequired',
   not_found: 'stewardShell.chat.errNotFound',
   'steward.busy': 'stewardShell.chat.errBusy',
+  // 117l-B2 ⑤（A1-fix commit 56f8c2b 给递话加的第五条通道）：目标线程还排在仲裁器队列里
+  // （等锁／等预算／等并发位）时递话 → 409 `steward.queued`。它【不是】 steward.busy ——
+  // 「忙」是「在跑，这一步插不进去」，「排队」是「还没轮到它开跑」，用户该做的事也不同
+  // （前者等它停，后者等它开跑）。表外落到 errGeneric 时用户看到的是后端那句原文，能懂但不成体系。
+  'steward.queued': 'stewardShell.chat.errQueued',
   version_conflict: 'stewardShell.chat.errConflict',
 });
 
@@ -114,6 +122,34 @@ export function stewardErrorText(error) {
 
 export function stewardActErrorKey(error) {
   return STEWARD_ACT_ERROR_KEYS[stewardErrorCode(error)] || '';
+}
+
+// 117l-B2 ⑤：`steward.queued` 那条人话要说清「在等什么」。等待原因由服务端一处算出
+// （`wait.label`，与看板行、抽屉、steward_thread_status 逐字同源），这里【只取不编】：
+// 结构化信封的三种落点都找一遍（error.params.wait / error.wait / 再套一层的 error.error.*），
+// 一个都取不到就回空串，由调用方落到不带括号的那一句 —— 宁可少说一句，不许编一个等待原因出来。
+export function stewardQueuedWaitLabel(error) {
+  if (error == null) return '';
+  const info = (error instanceof Error) ? apiErrorInfo(error) : error;
+  if (!info || typeof info !== 'object') return '';
+  const nested = (info.error && typeof info.error === 'object') ? info.error : null;
+  const wait = (info.params && info.params.wait)
+    || info.wait
+    || (nested && ((nested.params && nested.params.wait) || nested.wait))
+    || null;
+  return (wait && typeof wait === 'object' && wait.label) ? String(wait.label) : '';
+}
+
+// 稳定码 → 一句人话。除 `steward.queued` 之外都是「查表 + t(key)」；那一条要把 wait.label 插进去，
+// 取不到就换成不带括号的那一句。表外一律回空串，由调用方落到 errGeneric（诚实优先：把原始 error
+// 原样带出去）。抽屉那一头（POST /api/steward/relay 的 409）读的是同两个键，见 steward-drawer.js。
+export function stewardActErrorMessage(error, translate) {
+  const say = typeof translate === 'function' ? translate : (key => key);
+  const key = stewardActErrorKey(error);
+  if (!key) return '';
+  if (key !== 'stewardShell.chat.errQueued') return say(key);
+  const wait = stewardQueuedWaitLabel(error);
+  return wait ? say(key, { wait }) : say('stewardShell.chat.errQueuedPlain');
 }
 
 // 流事件里算「在动手」的那几类（presence 的 phase 由它切到 calling_tool，§8.3 working 态）。
@@ -186,17 +222,63 @@ export function createStewardConversation({
     const slot = row.querySelector('.steward-avslot');
     if (!slot || avatar.parentNode === slot) return false;
     slot.appendChild(avatar);
+    markStale(row);
     return true;
   }
 
+  // 117l-B2 ④（用户第五轮走查 4「Ruyi 说的话…尤其是边边那个点」的后半条）：只有【最新】那一条
+  // 管家消息是「现在这一句」，更早的几条是历史。历史行加 .is-stale，样式层把它们那一行按钮降成
+  // 幽灵档 —— 行为一个字不改（仍然可点、仍然走同一个 runAct），只是不再和最新一条抢眼。
+  // 判据就是「头像在谁那儿」：头像永远被 moveAvatarTo 搬到最新一条管家的话上，所以这里一处维护。
+  function markStale(current) {
+    const feed = feedEl();
+    if (!feed) return 0;
+    let count = 0;
+    for (const row of feed.querySelectorAll('.steward-msg-ruyi')) {
+      const stale = row !== current;
+      row.classList.toggle('is-stale', stale);
+      if (stale) count += 1;
+    }
+    return count;
+  }
+
   // ── 气泡 ──────────────────────────────────────────────────────────────────────
+  // 117l-B2 ④：把连续同一发言者的行标成一「组」。判据只看【前一行】是谁说的 —— 对话流是追加式
+  // 渲染，天然只需要知道前面那一行，不用回头重排整条流。
+  //   .is-group-start  这一行是本组第一行（组与组之间留 --sp-3，组内只留 feed 的 --sp-1）
+  //   .is-group-end    这一行【目前】是本组最后一行；下一行同角色时由那一行把上一行的这个类摘掉
+  // 组的左侧那道淡竖线画在哪几行、哪一组不画（头像所在的最新组），全由样式层按这两个类判，
+  // 本函数不掺第三种状态。
+  function markGroup(row, kind) {
+    const previous = row.previousElementSibling;
+    const sameSpeaker = Boolean(previous && previous.classList
+      && previous.classList.contains(`steward-msg-${kind}`));
+    row.classList.add('is-group-end');
+    if (sameSpeaker) previous.classList.remove('is-group-end');
+    else row.classList.add('is-group-start');
+    return row;
+  }
+
+  // 流失败时那一行会被就地移除（本模块有两处）。移掉的永远是【末尾】那一行，所以补一句：把
+  // 现在的最后一行重新封成组尾 —— 不补的话上一行会保留「我后面还有同伴」的状态，左侧那道锚线
+  // 会往下多探出一个 gap 的空档。
+  function resealGroups() {
+    const feed = feedEl();
+    const last = feed ? feed.lastElementChild : null;
+    if (last && last.classList) last.classList.add('is-group-end');
+    return Boolean(last);
+  }
+
   function appendRow(kind) {
     const feed = feedEl();
     if (!feed) return null;
     const row = el('div', `steward-msg steward-msg-${kind}`);
-    // 管家的每一行都留一个 36px 的槽：最新那一行装真头像，其余靠 CSS 的 :empty::before 画静态点。
+    // 管家的每一行都留一个 36px 的槽：最新那一行装真头像。117l-B2 ④ 之前历史行的空槽由 CSS 的
+    // :empty::before 画一个 8px 灰点 —— 十几轮之后左边就是一列点（用户第五轮走查 4 说的正是它）。
+    // 现在空槽什么都不画，槽位（绝对定位的 36px）与行的 44px 左内边距原样保留，文字左缘不动。
     if (kind === 'ruyi') row.appendChild(el('span', 'steward-avslot'));
     feed.appendChild(row);
+    markGroup(row, kind);
     feed.scrollTop = feed.scrollHeight;
     return row;
   }
@@ -317,8 +399,10 @@ export function createStewardConversation({
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
       const result = response && response.result;
       if (result && result.ok === false) {
-        const key = stewardActErrorKey(result.error);
-        const message = key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
+        // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
+        // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
+        const message = stewardActErrorMessage(result.error, t)
+          || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) btn.disabled = false;   // 按钮行保留可重试
         return;
@@ -560,7 +644,7 @@ export function createStewardConversation({
       return reply;
     } catch (error) {
       parkAvatar();   // W2-3 陷阱：这一行马上要被移除，头像若还在里面会一起没
-      if (row && row.parentNode) row.parentNode.removeChild(row);
+      if (row && row.parentNode) { row.parentNode.removeChild(row); resealGroups(); }
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
       const engineInfo = engineProblemInfo(error);
       if (engineInfo) {
@@ -611,7 +695,7 @@ export function createStewardConversation({
       // 给的人话（message）放进 say，绝不留空行。
       if (stewardErrorCode(reply.error) === 'steward.unsupported_engine') {
         parkAvatar();   // W2-3 陷阱：同上
-        if (row.parentNode) row.parentNode.removeChild(row);
+        if (row.parentNode) { row.parentNode.removeChild(row); resealGroups(); }
         // 回合层的失败走的是 200 流，不是抛出来的信封 —— 自己拼一个同形的 info 喂给同一处文案。
         showEngineProblem(() => sendToSteward(sourceMessage),
           { code: 'steward.unsupported_engine', params: {}, message: String(reply.message || '') });
@@ -992,8 +1076,37 @@ export function createStewardConversation({
           switchWholeShell();
         }));
       }
-      const header = byId('stewardHeader');
-      if (header) header.appendChild(menu);
+      // 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面，怎么也得要么在下面
+      // 要么在上面吧」）：117k 把菜单锚在【顶栏】下沿（.steward-menu 的 top:100%/left:0），可
+      // 117j W2-3 之后头像跟着最新一条管家的话走 —— 头像在屏幕下半截、菜单还钉在最上面。
+      // 现在按【头像自己】的 rect 定位（见 placeMenu），position 因此从 absolute 改成 fixed。
+      // 挂点必须是 #stewardShell 而不是 #stewardHeader／body：
+      //   · #stewardStage（头栏的父节点）有 backdrop-filter ＋ overflow:hidden —— 前者会给 fixed
+      //     后代造出新的包含块（定位就不再相对视口了），后者会把开在舞台外的菜单直接切掉；
+      //   · body 上没有管家壳的主题上下文（玻璃令牌挂在壳上），挂过去颜色会不对。
+      const menuHost = byId('stewardShell');
+      if (menuHost) menuHost.appendChild(menu);
+      const feedForMenu = byId('stewardFeed');
+      // 开的时候量一次头像的 rect：下方放得下（视口底 − 头像底 ≥ 菜单高 + 空隙）就开在头像【下方】、
+      // 左缘对齐头像；放不下就开在【上方】、底缘贴住头像顶。量之前菜单必须已经不是 hidden，
+      // 否则 offsetHeight 恒 0（display:none 的元素没有盒子）。
+      function placeMenu() {
+        const rect = avatar.getBoundingClientRect();
+        const viewport = globalThis.innerHeight
+          || (doc() && doc().documentElement ? doc().documentElement.clientHeight : 0) || 0;
+        const height = menu.offsetHeight || 0;
+        const below = (viewport - rect.bottom) >= (height + STEWARD_MENU_GAP);
+        menu.style.left = `${Math.round(rect.left)}px`;
+        if (below) {
+          menu.style.top = `${Math.round(rect.bottom + STEWARD_MENU_GAP)}px`;
+          menu.style.bottom = 'auto';
+        } else {
+          menu.style.top = 'auto';
+          menu.style.bottom = `${Math.round(viewport - rect.top + STEWARD_MENU_GAP)}px`;
+        }
+        menu.dataset.place = below ? 'below' : 'above';
+        return menu.dataset.place;
+      }
       // 117j copy-P2-5：头像菜单加 Esc（进栈）＋ aria-controls ＋ 关掉时焦点还给头像。
       menu.id = 'stewardAvatarMenu';
       avatar.setAttribute('aria-controls', menu.id);
@@ -1010,10 +1123,17 @@ export function createStewardConversation({
       avatar.addEventListener('click', () => {
         if (!menu.hidden) { closeMenu(); return; }
         menu.hidden = false;
+        placeMenu();   // 117l-B2 ③：先取消 hidden 再量，量的是头像【此刻】在哪
         avatar.setAttribute('aria-expanded', 'true');
         releaseMenuEscape = stewardEscapeStack.push(closeMenu,
           node => Boolean(node && (menu.contains(node) || avatar.contains(node))));   // 117k：点别处收回
       });
+      // 117l-B2 ③：菜单开着时窗口大小变了、或对话流滚了一下，头像就不在原地了 —— 直接关掉，
+      // 不跟着重算（跟着算要么每帧量一次，要么就会飘在离头像很远的地方）。两个监听都先看
+      // menu.hidden：关着的时候它们一件事都不做（与 steward-composer 的 B2b 同一条纪律）。
+      const closeMenuOnViewportChange = () => { if (!menu.hidden) closeMenu(); };
+      if (globalThis.addEventListener) globalThis.addEventListener('resize', closeMenuOnViewportChange);
+      if (feedForMenu) feedForMenu.addEventListener('scroll', closeMenuOnViewportChange);
       avatar.setAttribute('aria-expanded', 'false');
     }
     if (isStewardMode()) ensureVisit();

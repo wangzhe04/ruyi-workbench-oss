@@ -7,6 +7,9 @@
 
 .steward-avatar {
   flex: 0 0 auto;
+  /* 117l-B2 ①：nudge 的扩散光环是本元素的 ::after，要有个定位上下文才贴得住头像。
+     relative 不改变头像在头部 flex 行／在 36px 槽里的任何布局。 */
+  position: relative;
   width: 56px;
   height: 56px;
   padding: 0;
@@ -83,6 +86,26 @@
 .steward-avatar[data-state="sleeping"] { filter: saturate(.2); opacity: .55; }
 .steward-avatar[data-state="sleeping"] .sa-ring { opacity: 0; }
 
+/* 117l-B2 ①（用户第五轮走查 1「线程返回信息给管家时，最好给 avatar 一个小动效」）：
+   一次性的「点一下」。它【不是】第八个状态 —— 线程回报时管家多半仍是 idle，data-state 一个字不变；
+   触发点全仓只有一个：steward-shell.js 的轮询发现 lastReply 变了且 trigger==='inbox'（线程跑完／
+   等你／失败 → 收件箱 → 管家自己开口）那一处调 nudgeAvatar()。用户自己发的那句话不走这条路。
+   表现：外圈一道 600ms 的扩散光环（::after，零 DOM）＋ 本体 1 次轻微起伏（1 → 1.06 → 1）。
+   类由 animationend 自己摘（见 steward-shell.js），本层因此【必须】保证 .is-nudged 一定有动画在播 ——
+   reduced-motion 下也留着光环，就是为了那个事件一定回来（否则类会永远挂着）。
+   位置：本段排在七态规则【之后】—— `.steward-avatar.is-nudged .sa-body` 与
+   `.steward-avatar[data-state="idle"] .sa-body` 特指度相同，靠源码顺序压过 idle 的呼吸循环。 */
+.steward-avatar.is-nudged::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  animation: sa-nudge-halo .6s var(--ease-out) 1;
+}
+.steward-avatar.is-nudged .sa-body { animation: sa-nudge-bob .6s var(--ease-out) 1; }
+
 @keyframes sa-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 @keyframes sa-flow { to { stroke-dashoffset: -22; } }
 @keyframes sa-spin { to { transform: rotate(360deg); } }
@@ -95,6 +118,14 @@
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
   75% { transform: translateX(3px); }
+}
+@keyframes sa-nudge-halo {
+  0% { transform: scale(1); opacity: .55; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes sa-nudge-bob {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.06); }
 }
 
 /* 顶栏名字旁的一行状态文字（aria-live="polite" 与 avatar 的视觉状态同源，退化时唯一还在的信号，§8.1 原则 5）。
@@ -140,4 +171,8 @@
     animation: none !important;
     transition: none !important;
   }
+  /* 117l-B2 ①：nudge 在这一档【只做光环、不做位移】。上面那条 !important 打的是元素与两个
+     SVG 形状，伪元素不在里面 —— 光环（.is-nudged::after）因此照播，animationend 照样回来把
+     .is-nudged 摘掉。这里再把本体那次起伏显式关掉，写清楚「关的是位移不是信号」。 */
+  .steward-avatar.is-nudged .sa-body { animation: none !important; }
 }

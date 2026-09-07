@@ -123,6 +123,15 @@ ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(globalThis\.docum
   'C2d 唯一入口 syncPolling 先判 isStewardMode()(与页面可见性)才决定启停，非管家模式恒 stopPolling');
 ok(apiCallSites === 1 && !/\bfetch\(/.test(stewardShell),
   'C3a 全文件恰好一处 api() 调用、零直调 fetch(轮询之外零请求，一律经注入的 api())');
+// 117l-B2 ①（用户第五轮走查 1）：头像那记「点一下」是一次性类 + animationend，不是新的后台活动。
+// 这里是 C2a「恰好一处 setInterval」那条纪律在 setTimeout 一侧的补齐：本波之前本文件就是 0 个
+// setTimeout，本波之后仍然是 0 —— 动效不许换来一条计时器。
+ok((stewardShell.match(/setTimeout\(/g) || []).length === 0,
+  'C2e 全文件零 setTimeout(117l-B2 的头像动效靠 animationend 摘类，没有引入第二种计时)');
+ok(/function nudgeAvatar\(\) \{/.test(stewardShell)
+  && /lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
+  && !/presenceInputs\.nudge|nudge:/.test(stewardShell),
+  'C2f nudge 是显式的一次性口子，不写进 presenceInputs(derivePresence 是纯投影，不该有「播过没有」的记忆)');
 ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),
   'C3b 唯一的 api() 调用住在 pollStewardState 里，目标就是状态轮询端点');
 ok(/function startPolling\(\) \{[\s\S]{0,80}pollStewardState\(\);/.test(stewardShell),
