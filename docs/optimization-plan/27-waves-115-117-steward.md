@@ -395,17 +395,17 @@
 
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
-**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。**下一刀 116-5（线程自动摘要，需先出一页设计再派），再 117j。**
+**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的**设计页已出（§11.8）**，含四处对需求稿的修正与三条待拍板；用户拍板后即可派 116-5a 引擎侧。再 117j。
 
 **现状**：116-3（后端对抗修复）三批全部入库——`e520428`（P0 六条＋A2＋B1）、`013d274`（P1 九条＋数据安全两条＋※ 脚注人话）、`2b334b9`（P2 四条＋A4），交付记录见 §11.6；`server.js` 已 cp 进 `dist/Ruyi-full/app/`，**桌面端重启后服务端守卫才生效**。全量回归提速已有结论：本机 24 核用 `--parallel 8`，约 9 分钟、失败谱与 4 路一致。
 
 **用户第二轮走查（2026-09-06 晚，两张截图）五条定案**：① 管家开了线程不直接展示（前端 W2-1）；② 候选列表关不掉（前端 W2-2）；③ 头像应跟着话走、在管家的话前面（前端 W2-3，**推翻 2026-09-05 §8.x「固定顶部」拍板**）；④ 抽屉里线程跑完显示不及时（前端 W2-5）；⑤ **线程跑完管家没被唤醒——引擎侧真缺口**（116-4）：收件箱三源＝事项账本／班组 run 事件／待决投影，速查线程与 `steward_thread_new` 开的普通会话跑完不产生任何入箱事件；用户机器证据：`<data>/steward/` 只有游标且各会话 missionChanges 全 0、`inbox-v1.ndjson` 从未写过、管家会话只有两次用户触发回合、速查 `sess_06466e02a6d0f5e8` 的 `stewardQuick.closedAt` 仍为 null。116-2e 的「速查 done 行补 answer」建立在永远不会来的 done 行上。
 
-**⚠️ 116-5 开工前必读（116-4 实测发现）**：`session.brief` 这个键**已经被占用** —— `steward_thread_new` 建线程时就把「委托书」写在 `session.brief = {schema, by:'steward', userText, supplement, truncated, memoryIds, playbookId}`（13g）。116-5 计划的 `meta.brief = {title, gist, at, model}` 与它正面撞车：同一个会话头上不可能既是委托书又是摘要。开工第一件事是改名（建议 `session.threadBrief` 或 `session.summaryBrief`，并同步 117j 里所有「线程标题改用 `brief.title`」的措辞），不要在设计定稿之后才发现。另：`launchedBy` 与 `stewardLastTurn` 两个会话头字段已由 116-4 占用并进了 02 的元数据白名单，116-5 加字段时按同一条纪律（严格归一 + 只认白名单值）。
+**⚠️ 116-5 的设计页在 §11.8**（2026-09-07 出稿）。它逐条核过下面这段需求稿，列出四处修正：「班组子线程」不是会话（全仓只有三个 `createSession` 来源，班组跑在父会话里）、三引擎共用 `runSessionTurn` 一个 hook 点（不必在 05／05b／09 各钉一遍）、`session.brief` 已被 `steward_thread_new` 的委托书占用（定案改叫 `session.threadBrief`）、会话头是扁平的没有 `meta` 这一层。**开工前需要用户拍板三条**，见 §11.8.10。另：`launchedBy` 与 `stewardLastTurn` 已由 116-4 占用并进了 02 的元数据白名单，116-5 加字段按同一条纪律（严格归一 + 只认白名单值）。下面这段需求稿原样保留备查。
 
 **用户第三条新需求（2026-09-06 夜，截图：搜索结果整段是用户原话「帮我分析一下AMD——按美股超威半导体…」）→ 116-5 线程自动摘要**：每开一个线程（任何来源：经典壳新会话、管家 `steward_thread_new`／`steward_quick_ask`／递话新开、事项内线程、班组子线程）在第一条用户消息落盘后**自动调一次 LLM**生成两样东西写进会话头 `meta.brief = {title ≤ 24 字, gist ≤ 80 字, at, model}`：`title` 是任务的名（「AMD 收盘分析」），`gist` 是一句人话概括（「拉 AMD 最新行情与新闻，给博物影业格式的结论」）。用途：线程搜索结果（`steward_thread_search`／`06h` 检索、经典壳会话列表搜索）显示 title＋gist 而不是原话整段；抽屉／看板／递送 chip 候选／「现在这一件」标题全部改用 `brief.title`，原话保留在 `meta.title`（不改写，作为回退与 hover 全文）。实现要点（派 Opus，先设计再派）：走管家端点（`stewardProviderId`，OpenAI 兼容）而非主引擎，避免占用 Kimi CLI 与工具循环；单次 1 短提示词、`max_tokens` ≤ 120、失败静默留空并 2 次退避重试后放弃（不阻塞回合）；在回合收工时若 `brief` 仍空再补一次（此时有助手回复，概括更准）；线程改名（用户手改 `meta.title`）后不再覆盖 `brief.title`；配置键 `stewardThreadBriefV1`（默认开、随 `stewardEnabledV1`）；清册 durable-state 加 `session.meta.brief` 行；e2e：假 OpenAI 端点回固定 JSON → 新会话首轮后 `brief` 落盘、搜索结果用 brief、失败不阻塞。与 117i 已做的「文案层截 24 字」并存（brief 缺席时仍截原话）。
 
-**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → 116-5（线程自动摘要，需先出一页设计再派）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
+**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → 116-5（线程自动摘要；**设计页 §11.8 已出**，拍板后派 116-5a 引擎侧、再 116-5b 消费面）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
 
 #### 116-4 派单稿（引擎侧收件箱第四源与唤醒链）—— **已完成，保留原稿备查；实测与它有三处出入，最终实现以 §11.6 交付记录为准**
 > ① 会话头上**没有** `lastError`／`resumable.dangling`（实测：一条 HTTP 500 的回合，头上只有 `summary` 里那句人话，那是渲染不是信号）→ 改为先由 13g 在回合 settle 之后落 `stewardLastTurn` 这本账，第四源再读它；
@@ -463,3 +463,82 @@
 - P1 W2-3 **头像跟着话走（用户改口，推翻 2026-09-05「固定顶部」）**：默认 follow 模式——头部只留名字＋状态行（带 6px 状态点）与右侧两枚图标键；`#stewardAvatar` 节点（同一 SVG、同一 presence 状态）移到**最新一条管家的话**左侧的 `.steward-avslot`（36px），思考占位「···」出现时先移到占位旁；历史管家消息左侧留一个 36px 的静态小圆点（不复制 SVG，`::before` 圆点即可）；390px 下同。`steward-avatar.static` 只加断言（follow 模式源码锚、头部无 SVG 时状态点仍在）。设置项不做开关（用户已拍板）。
 - P1 W2-4 **收件箱触发的回复要实时进对话流**：117b 的 15s 轮询已拿 `GET /api/steward/state.lastReply.at`；变化且 `trigger==='inbox'` 时拉 `GET /api/sessions/steward`（或 116-4 新加的 `?since=`）把新回合追加到 feed（去重按 `at`）；管家壳可见时轮询降到 5s（`stewardPollMs` 下限仍由后端定，前端取 min(配置, 5000)？——不改后端下限，前端只在壳可见且有在跑线程时用 5s）。
 - P1 W2-5 **抽屉／现在这一件刷新不及时**：有在跑线程（`activeTurn`）时抽屉轮询 5s，回合结束（`activeTurn` 由真变假）当轮立即重拉 `GET /api/sessions/<id>` 与 missions 行；「三问」对普通会话至少显示「已收工 · 用时 X」而不是三个「暂无」。
+
+### 11.8 116-5 设计页 · 线程自动摘要（`threadBrief`）
+
+> 2026-09-07 出稿。派单前先摸底，四处与 §11.7 需求稿不符，逐条在下面标了「**修正**」。
+> 决定项集中在 §11.8.10，**开工前需要用户拍板的只有三条**。
+
+#### 11.8.1 一句话与用户证据
+每条线程在第一条用户消息之后自动生成**一个名字（≤24 字）与一句人话概括（≤80 字）**，让线程搜索结果、抽屉、看板、递送候选、「现在这一件」不再拿用户原话整段去充标题。
+用户证据（2026-09-06 夜截图）：线程搜索结果里整条是原话「帮我分析一下AMD——按美股超威半导体…」，一屏放不下三条，看不出哪条是哪件事。
+
+#### 11.8.2 摸底结论（实测，不是推测）
+1. **「班组子线程」不存在 —— 修正**。全仓 `createSession(` 的调用面只有四处：02（定义）、13d 的 `POST /api/sessions`（经典壳新会话）、13g 的 `steward_thread_new`／`steward_quick_ask`、10 的 `runSessionTurn` 兜底新建。班组（agent run）**跑在父会话里**，不建会话。所以需求稿里的「任何来源」实际只有**三个真实来源**，「事项内线程」只是一条 `missionId !== sessionId` 的普通会话，不是第四种建法。
+2. **只有一个 hook 点，不是三个 —— 修正**。三引擎（Provider／Claude CLI／Kimi CLI）共用 `runSessionTurn`（10-context-governance.js:2188）这一个入口，引擎分叉在它内部的 `runTurn`。故生成时机与补写时机各只需要**一处**代码，不必在 05／05b／09 各钉一遍（对比：自动命名 `isUntitledSessionTitle` 就是在三处各写了一遍，那是要避开的前例）。
+3. **一次性补全调用已有现成原语**：`providerRawCompletion(provider, history)`（06-provider-engine.js:983）—— 非流式、identity-only 系统层、60s 超时、返回 `{ok, content, usage, model}`。playbook 起草与 JSON 修复都用它，并按 `kind:'aux'` + `note:` 记进用量台账。116-5 复用它，不新写 HTTP。
+4. **`session.brief` 已被占用 —— 修正**。`steward_thread_new` 把「委托书」写在 `session.brief = {schema, by:'steward', userText, supplement, truncated, memoryIds, playbookId}`（13g:985）。需求稿的 `meta.brief` 与它正面撞车。
+5. **会话头是扁平的，没有 `meta` 这一层**。需求稿写的 `meta.brief`／`meta.title` 实际就是 `session.brief`／`session.title`。
+6. **显示层拿不到「这个标题是不是用户自己起的」**。`session.title` 既可能是自动派生（首条消息前 60 字），也可能是用户手改或 `steward_thread_rename` 改的，两者在会话头上长得一模一样。需求稿「线程改名后不再覆盖 `brief.title`」在当前数据形状下**无法实现**（解法见 §11.8.3 的 `titleSource`）。
+
+#### 11.8.3 数据形状与命名（定案）
+会话头新增**两个**字段，都进 02 `applySessionMetaPatch` 的白名单并严格归一（与 `stewardQuick`／116-4 的 `stewardLastTurn` 同纪律 —— 这条通道也接 `PATCH /api/sessions/:id`）：
+
+```
+session.threadBrief = {          // ← 不叫 brief:那个名字是「委托书」
+  schema: 1,
+  title: '',                     // ≤24 字,任务的名,例:「AMD 收盘分析」
+  gist:  '',                     // ≤80 字,一句人话,例:「拉 AMD 最新行情与新闻,给博物影业格式的结论」
+  at:    '',                     // ISO
+  model: '',                     // 实际用的模型(事后对账「这条摘要是谁写的」)
+  stage: 'first_turn'|'settled', // 首回合发起的那次 / 收工补写的那次
+}
+session.titleSource = 'user'     // 只认这一个字面量;由「用户手改标题」与 steward_thread_rename 写
+```
+
+**显示优先级（唯一判据，服务端一处装配）**：`titleSource === 'user'` → 用 `session.title`；否则 `threadBrief.title || session.title`。原话**永远**留在 `session.title` 不被改写（回退 + hover 全文），与 117i 已做的「文案层截 24 字」并存 —— brief 缺席时仍走截断。
+
+#### 11.8.4 何时调、调谁
+- **触发**：`runSessionTurn` 里，`session.turnSeq === 0`（首回合）且 `threadBrief` 缺席时，在把回合交给引擎**之前** fire-and-forget 一次（此刻 `body.message` 就在手上，不必等消息落盘；brief 描述的是**任务**不是答案）。回合与摘要并行跑，摘要通常 1–2 秒回来，真回合可能要一分钟。
+- **补写**：`runSessionTurn` 的 `finally` 里，若 `threadBrief` 仍空则再来一次，这次带上助手回复首 400 字（`stage:'settled'`，概括更准）。**最多两次机会**，之后这条线程永远不再试。
+- **端点（修正）**：`stewardProviderId` 优先 → 未设时**回落到这条线程自己的 OpenAI 兼容 provider** → 两者都不可用（主引擎是 CLI 且没配管家端点）则**不生成**，静默。
+  需求稿写「走管家端点而非主引擎，避免占用 Kimi CLI 与工具循环」——要避开的是 **CLI 进程与工具循环**，不是「同一个 provider」；一次独立的非流式 HTTP 调用不占 CLI。不回落的话，Kimi CLI 用户只要没单独配管家端点就永远没有 brief，而消费面一半在经典壳。
+- **提示词**：一条 system（「你给对话线程起名字。只输出一个 JSON 对象，不要解释、不要代码围栏」）+ 一条 user（原话 ≤1200 字，`stage:'settled'` 时再附助手回复 ≤400 字）。`max_tokens: 120`，语言跟 `config.locale`。要求输出 `{"title":"…","gist":"…"}`；解析失败按失败处理。
+- **失败**：2 次退避重试（1s／4s）后放弃，静默留空，落一条 `logEvent({kind:'thread_brief_failed', sessionId, stage, error})`。**任何环节抛错都不得影响回合**（整段包在 try 里，与 13i 调 `enrichInboxRows` 同一条旁路纪律）。
+- **限流**：每进程每分钟至多 20 条（防批量导入会话把端点打爆），超出的直接跳过不排队。
+
+#### 11.8.5 消费面（改哪些地方）
+服务端**一处装配、多处消费**（判据不许在前端各算一遍）：
+| 面 | 现状 | 改法 |
+|---|---|---|
+| `sessionMeta`（02） | 7 个侧栏字段 | 有 `threadBrief` 时带出 `brief:{title,gist}` 与 `titleSource`；**缺席时逐字节不变**（存量会话零影响） |
+| `GET /api/sessions`（经典壳侧栏） | `title` 原话 | 走 `sessionMeta`，自动带上 |
+| `searchSessionsByContent`（113b 会话搜索） | `title` + `snippet` | 结果加 `briefTitle`／`briefGist`；`buildSessionSearchUnit` 把 brief 也拼进检索单元（顺带提召回） |
+| `steward_threads_search`（13g） | `title` 原话 | 结果加 `brief`，`title` 仍是原话 |
+| `steward_missions`／看板／抽屉／递送 chip／「现在这一件」（117） | `stewardShortTitle(原话)` | 改读 brief 的显示优先级；brief 缺席时仍走 `stewardShortTitle` |
+
+#### 11.8.6 配置
+`stewardThreadBriefV1`（boolean，**默认 true**）。**不随 `stewardEnabledV1`（修正，待拍板）**：消费面一半在经典壳（侧栏、会话搜索），管家关着也该有名字。设置界面放管家页签下，文案注明「经典壳的会话列表也用它」。开关关 → 零调用、零字段、零记账。
+
+#### 11.8.7 成本与记账
+每条**新**线程一次调用，输出 ≤120 token，输入是首条消息（多数 <500 token）。按 `appendUsageLedger({kind:'aux', note:'thread-brief'})` 记账（与 playbook-draft／json-repair 同款）。
+**不计入** `stewardMaxCostPerDay` 那条管家日费用熔断 —— 它不是管家回合，混进去会让管家因为用户开了几条新线程而提前停机。
+
+#### 11.8.8 红线与不做
+- **不改写 `session.title`**：原话是权威，brief 只是显示层的另一份数据。
+- **不给存量会话补账**：只对新线程生效，没有批量回填（与 116-4 的首见纪律同立场）。
+- **不进 `providerHistory`**：brief 调用与会话上下文完全隔离，不污染下一回合。
+- **不做第三次尝试**、不做后台重扫、不做「用户改了标题就重算」。
+- **不新增路由**。
+
+#### 11.8.9 切片、验收与门
+- **116-5a 引擎侧**（生成 + 落盘 + 配置 + 记账 + 显示优先级判据）：`01-config` 加一键；`02` 白名单加两字段 + `sessionMeta` 带出 + 显示优先级纯函数；新原语住 `06-provider-engine`（紧邻 `providerRawCompletion`）或 `10`；`runSessionTurn` 两个 hook 点。
+  e2e（假 OpenAI 端点回固定 JSON）：新会话首轮后 `threadBrief` 落盘且 ≤24／≤80；第二回合不再调；开关关零调用；端点不可用时静默且回合照常收工；JSON 解析失败 → 重试两次后留空且回合不受影响；改过名的线程显示用用户的名字；`kind:'aux'/note:'thread-brief'` 进了台账。
+- **116-5b 消费面**：上表五个面 + i18n + 静态锁（判据单点）。
+- 门：前向边 67 不变；路由零新增；durable-state 清册 `session-head` 行补 `threadBrief`／`titleSource`；`build --check` 新鲜；全量回归 `--parallel 4`（8 路会大面积起不来服务，见 §11.6 116-4）。
+- **顺序**：116-5a → 116-5b → 117j（117j 里「线程标题改用 brief.title」的措辞要同步改成 `threadBrief`；5b 没出门时 117j 按 `stewardShortTitle` 截断先行）。
+
+#### 11.8.10 待拍板（三条）
+1. **开关是否随 `stewardEnabledV1`**。建议**不随**（默认独立开），理由见 §11.8.6；随的话经典壳用户永远看不到 brief。
+2. **端点是否回落到线程自己的 provider**。建议**回落**，理由见 §11.8.4；不回落的话 Kimi CLI 用户默认无 brief。
+3. **`titleSource` 这个新字段**（为了让用户手改的名字压过生成的名字）。它是 §11.8.2 第 6 条那个缺口的最小解法；不加的话「线程改名后不再覆盖」这条需求无法实现。
