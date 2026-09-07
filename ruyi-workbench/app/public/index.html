@@ -616,6 +616,8 @@
         <textarea id="stewardComposerInput" class="steward-composer-input" rows="1" disabled
                   placeholder="跟如意说点什么…" data-i18n-attr="placeholder:stewardShell.compose.placeholder"></textarea>
         <button type="button" id="stewardClassicBtn" class="steward-classic-btn" data-i18n="stewardShell.openClassic" data-i18n-attr="title:stewardShell.openClassic;aria-label:stewardShell.openClassic">经典模式</button>
+        <!-- 117l D3：连发队列满时的那一行小字（「先等一等」）。平时空着，:empty 收掉高度。 -->
+        <p id="stewardComposerNote" class="steward-composer-note" role="status" aria-live="polite"></p>
       </div>
       <div id="stewardStatus" class="steward-status" role="status" aria-live="polite"></div>
 
@@ -684,49 +686,75 @@
                     data-i18n="stewardShell.drawer.classicView"
                     data-i18n-attr="title:stewardShell.drawer.classicView">2.0 视窗</button>
           </header>
-          <!-- ④ 快切 chip：权限／模型／引擎（同一组控件在看板行与 2.0 顶栏复用，见 js/steward-chips.js） -->
+          <!-- ④ 117l D4「它在问你」（用户第四轮走查①：线程提问弹出来了，却没有 2.0 那种问答框）。
+               只在 asksYou 非空时显示（[hidden] 由 JS 写，样式层配 .steward-drawer-ask[hidden]）。
+               正式待决 question 走 /api/chat/answer（选项按钮＋自由回答的 otherText）；
+               软问句（原话末尾是问号）走 POST /api/steward/relay，由服务端判通道。 -->
+          <section id="stewardDrawerAsk" class="steward-drawer-ask" hidden
+                   aria-label="它在问你" data-i18n-attr="aria-label:stewardShell.drawer.asksYou">
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.asksYou">它在问你</h3>
+            <ul id="stewardDrawerAskText" class="steward-drawer-ask-list"></ul>
+            <div id="stewardDrawerAskOptions" class="steward-drawer-chiprow"></div>
+            <label class="steward-drawer-foot-label" for="stewardDrawerAskInput"
+                   data-i18n="stewardShell.drawer.askAnswerLabel">你的回答</label>
+            <textarea id="stewardDrawerAskInput" class="steward-drawer-input" rows="2"
+                      placeholder="直接把答案写在这里…"
+                      data-i18n-attr="placeholder:stewardShell.drawer.askPlaceholder"></textarea>
+            <div class="steward-drawer-foot-actions">
+              <button type="button" id="stewardDrawerAskSendBtn" class="steward-drawer-btn is-primary"
+                      data-i18n="stewardShell.drawer.askSend">回答</button>
+            </div>
+          </section>
+          <!-- ⑤ 快切 chip：权限／模型／引擎（同一组控件在看板行与 2.0 顶栏复用，见 js/steward-chips.js） -->
           <div id="stewardDrawerChips" class="steward-drawer-chips"
                aria-label="快切" data-i18n-attr="aria-label:stewardShell.drawer.chipsSection"></div>
-          <!-- ⑤ 它刚说：最后一条助手消息的原话（≤3 句），不是摘要 -->
+          <!-- ⑥ 它正在说／它刚说：在跑时是活回合尾巴（liveTail 的【末尾】≤3 句），
+               不在跑时是最后一条助手消息原话的【开头】≤3 句 —— 两者都不是摘要 -->
           <section id="stewardDrawerLastSay" class="steward-drawer-block">
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.lastSay">它刚说</h3>
+            <h3 id="stewardDrawerLastSayHead" class="steward-drawer-h" data-i18n="stewardShell.drawer.lastSay">它刚说</h3>
             <blockquote id="stewardDrawerLastSayText" class="steward-drawer-quote"></blockquote>
             <button type="button" id="stewardDrawerFullTextBtn" class="steward-drawer-link"
                     data-i18n="stewardShell.drawer.fullText">看全文</button>
           </section>
-          <!-- ⑥ 你可以说：≤3 条快捷回复，来源是确定性优先级（quickRepliesFor 纯函数） -->
+          <!-- ⑦ 你可以说：≤3 条快捷回复，来源是确定性优先级（quickRepliesFor 纯函数）。
+               ④ 已经把同一批选项按钮摆出来时本区隐藏，避免一屏两排一样的按钮 -->
           <section id="stewardDrawerQuickReplies" class="steward-drawer-block">
             <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.quickReplies">你可以说</h3>
             <div id="stewardDrawerQuickRepliesRow" class="steward-drawer-chiprow"></div>
           </section>
-          <!-- ⑦ 接力关系：本波只列同事项其它线程与它们的五态（真正的接力图归 120） -->
-          <section id="stewardDrawerRelay" class="steward-drawer-block" hidden>
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.relay">接力关系</h3>
-            <ul id="stewardDrawerRelayList" class="steward-drawer-list"></ul>
-          </section>
-          <!-- ⑧ 三问：在干什么／干到哪／在等什么（describeTurnActivity，拿不到就说「暂无」） -->
-          <section id="stewardDrawerActivity" class="steward-drawer-block">
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.activity">三问</h3>
-            <dl class="steward-drawer-dl">
-              <dt data-i18n="stewardShell.drawer.activityDoing">在干什么</dt>
-              <dd id="stewardDrawerActivityDoing"></dd>
-              <dt data-i18n="stewardShell.drawer.activityProgress">干到哪</dt>
-              <dd id="stewardDrawerActivityProgress"></dd>
-              <dt data-i18n="stewardShell.drawer.activityWaiting">在等什么</dt>
-              <dd id="stewardDrawerActivityWaiting"></dd>
-            </dl>
-          </section>
-          <!-- ⑨ 验收项：acceptanceItems ＋ activeAcceptanceIndex（复用 preview-task-sheet.js） -->
-          <section id="stewardDrawerAcceptance" class="steward-drawer-block">
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.acceptanceSection">验收项</h3>
-            <ol id="stewardDrawerAcceptanceList" class="steward-drawer-list"></ol>
-          </section>
-          <!-- ⑩ 现场：本波只放「看改动」→ 2.0 视窗（changes 面板归经典壳） -->
-          <section id="stewardDrawerScene" class="steward-drawer-block">
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.scene">现场</h3>
-            <button type="button" id="stewardDrawerChangesBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.viewChanges">看改动</button>
-          </section>
+          <!-- ⑧ 117l D4「更多」（用户第四轮走查③：线程页内容太多太杂）。默认收起，
+               接力／三问／验收项／现场四块原封不动搬进来 —— 内容一个字没改，只是不再常驻。 -->
+          <details id="stewardDrawerMore" class="steward-drawer-more">
+            <summary class="steward-drawer-more-summary" data-i18n="stewardShell.drawer.more">更多</summary>
+            <!-- ⑧-1 接力关系：本波只列同事项其它线程与它们的五态（真正的接力图归 120） -->
+            <section id="stewardDrawerRelay" class="steward-drawer-block" hidden>
+              <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.relay">接力关系</h3>
+              <ul id="stewardDrawerRelayList" class="steward-drawer-list"></ul>
+            </section>
+            <!-- ⑧-2 三问：在干什么／干到哪／在等什么（describeTurnActivity，拿不到就说「暂无」） -->
+            <section id="stewardDrawerActivity" class="steward-drawer-block">
+              <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.activity">三问</h3>
+              <dl class="steward-drawer-dl">
+                <dt data-i18n="stewardShell.drawer.activityDoing">在干什么</dt>
+                <dd id="stewardDrawerActivityDoing"></dd>
+                <dt data-i18n="stewardShell.drawer.activityProgress">干到哪</dt>
+                <dd id="stewardDrawerActivityProgress"></dd>
+                <dt data-i18n="stewardShell.drawer.activityWaiting">在等什么</dt>
+                <dd id="stewardDrawerActivityWaiting"></dd>
+              </dl>
+            </section>
+            <!-- ⑧-3 验收项：acceptanceItems ＋ activeAcceptanceIndex（复用 preview-task-sheet.js） -->
+            <section id="stewardDrawerAcceptance" class="steward-drawer-block">
+              <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.acceptanceSection">验收项</h3>
+              <ol id="stewardDrawerAcceptanceList" class="steward-drawer-list"></ol>
+            </section>
+            <!-- ⑧-4 现场：本波只放「看改动」→ 2.0 视窗（changes 面板归经典壳） -->
+            <section id="stewardDrawerScene" class="steward-drawer-block">
+              <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.scene">现场</h3>
+              <button type="button" id="stewardDrawerChangesBtn" class="steward-drawer-btn"
+                      data-i18n="stewardShell.drawer.viewChanges">看改动</button>
+            </section>
+          </details>
         </div>
         <!-- ⑪ 底部：直连输入框（不经管家）＋ 暂停／继续 ＋ 停止 ＋ 整单回退 ＋ 交回管家 -->
         <div id="stewardDrawerFoot" class="steward-drawer-foot">

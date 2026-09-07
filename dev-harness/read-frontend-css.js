@@ -190,7 +190,23 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
 //   · 再加一处定位锚（.steward-menu 的 top/left 与 .steward-header 的 position:relative）:
 //     这张菜单原先没有 top/left，用的是「静态位置」，实测落在 y=-20px 首项被窗口上沿切掉。
-const LEGACY_STYLES_SHA256 = 'bab77e274e3ca38a461dbfa0f9313a3fa74d5653f567f5c5af96de26cf085c77';
+// 117l-B1（用户第四轮走查①③④⑥）重钉，全部落在管家壳自己的三个所有权层，经典与 Preview 层零漂移。
+// steward-conversation.css（走查④⑥）：
+//   · .steward-why-h —— ※ 浮层里「依据／已办」两个小标题（走查④：※ 没有标明标题）；
+//   · .steward-msg-user.is-queued 与 .steward-queued —— 连发时排队那一行的淡化档与右下角小标
+//     （走查⑥：管家在流时用户的第二句此前被静默丢弃，现在立刻上屏并标「排队中」）；
+//   · .steward-composer-note —— 队列满时输入区下面那一行小字（绝对定位，不进胶囊那一行 flex）。
+// steward-drawer.css（走查①③）：
+//   · .steward-drawer-ask 一族 ——「它在问你」卡（浅金底，与主动作同色系）＋ 必配的
+//     .steward-drawer-ask[hidden]{display:none} 守卫（作者 display:flex 会压过 UA 表的 [hidden]，
+//     这是本仓第七处同款根因）；
+//   · .steward-drawer-more / -summary ——「更多」折叠区（走查③「线程页内容太多太杂」）。
+//     注意它【故意】不给 <details> 写 display:flex —— 那会让收起来的内容照样画出来；
+//   · .steward-drawer-btn.is-primary —— 问答卡那枚「回答」的金色档。
+// steward-board.css（走查①）：
+//   · .steward-board-pill.is-asks-you —— 行上「它在问你」的可点 pill。
+// 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'f4cce185f8bdd5b91aa3f41d9ef8eda65a15ca9db629668e772e83ef4735fc2a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

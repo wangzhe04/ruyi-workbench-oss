@@ -99,6 +99,26 @@ ok(/if \(!isStewardMode\(\)\) return;/.test(composer)
   'D4 预判受「管家模式 + 管家开关」双重门控（非管家模式零请求，延续 117b 纪律）');
 ok(/api\(`\/api\/steward\/preroute\?q=\$\{encodeURIComponent\(query\)\}`\)/.test(composer),
   'D5 预判走既有的 GET /api/steward/preroute（后端零改动）');
+// 117l D1（用户第四轮走查②「无论关键词匹配到什么，都要发给管家让它决定」）：预判从「目标」降级
+// 成「提示」。修前 currentTarget() 把 routeHits[0] 当目标返回，submit() 于是直递 —— 用户说
+// 「大A这周走势会怎么样」被「走势」命中美股那条线程，一句新话把它正在等的提问 supersede 掉。
+ok(/function currentTarget\(\) \{\s*return picked;/.test(composer),
+  'D6 currentTarget() 只回 picked —— 自动预判永远不是递送目标');
+ok(/function hintedThread\(\) \{/.test(composer)
+  && /if \(routeKind === 'thread' && routeHits\.length\) \{/.test(composer)
+  && /label\.textContent = t\('stewardShell\.compose\.targetSteward\.hint', \{ title: hint\.title \}\);/.test(composer),
+  'D6b 预判命中只用来显示 chip 上那句「像是接着『X』」（hintedThread 一处判定）');
+ok(/if \(target\) await conversation\.handOff\(/.test(composer)
+  && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
+  'D6c companion：**手选的目标仍然直递**（那是用户明示），其余一律经管家并带上 routeHint');
+ok(/hits: routeHits\.slice\(0, 3\)\.map\(hit => \(\{ sessionId: String\(\(hit && hit\.sessionId\) \|\| ''\), reason: String\(\(hit && hit\.reason\) \|\| ''\) \}\)\)/.test(composer)
+  && !/displayTitle/.test(composer.slice(composer.indexOf('function routeHintPayload'), composer.indexOf('function renderChip'))),
+  'D6d routeHint 只带 sessionId 与命中理由，≤3 条 —— 标题一个字都不进请求（服务端自己重查）');
+ok(/const hint = \(opts && opts\.routeHint && typeof opts\.routeHint === 'object'\) \? opts\.routeHint : null;/.test(conversation)
+  && /body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\) \}\)/.test(conversation),
+  'D7 routeHint 与用户那句话分开走请求体（用户消息逐字不动）；没有 hint 时这个键整个不出现');
+ok(!/sending/.test(composerCode),
+  'D8 输入区不再有「上一句没发完就不许再发」的闸（走查⑥：第二句此前被无声丢弃）');
 
 // ─── E 撤回：10 秒窄窗 + 先 stop 再 rewind ───────────────────────────────────────
 ok(mod.STEWARD_UNDO_WINDOW_MS === 10000 && /export const STEWARD_UNDO_WINDOW_MS = 10000;/.test(conversation),
@@ -227,6 +247,44 @@ ok(errGenericArgs.length >= 5 && errGenericArgs.every(arg => arg.startsWith('ste
 const afterHelpers = conversationCode.slice(conversationCode.indexOf('export function stewardActErrorKey'));
 ok(!/String\([^)]*\berror\b/.test(afterHelpers),
   'K5 两个纯函数之外零 String(<error 值>)（结构化对象绝不直落文案）');
+
+// ─── L 117l：连发队列（D3）与 ※ 的两个小标题（D5）────────────────────────────────
+// 修前 sendToSteward 的第一行是 `if (!message || streaming) return null;` —— 管家还在流的时候
+// 用户再说一句，那句话不上屏、不排队、不报错，只是没了（用户第四轮走查⑥）。
+ok(mod.STEWARD_SEND_QUEUE_MAX === 5 && /export const STEWARD_SEND_QUEUE_MAX = 5;/.test(conversation),
+  `L1 连发队列上限是导出常量 5（实测 ${mod.STEWARD_SEND_QUEUE_MAX}）`);
+// 扫的是【剥掉注释】的源码：修法头注里逐字引用了那一行坏代码（「修前这里是 …」），
+// 不剥注释的话写下修法的那一行会把自己判红（与本件顶部 stripComments 同一条理由）。
+ok(!/if \(!message \|\| streaming\) return null;/.test(conversationCode),
+  'L2 「正在流就静默丢弃」那一行已经不在了');
+ok(/if \(streaming\) \{[\s\S]{0,320}const row = appendUser\(message\);\s*markQueued\(row, true\);\s*sendQueue\.push\(/.test(conversation),
+  'L3 在流时第二句【立刻上屏】并入队（不是丢掉，也不是等发完再画）');
+ok(/if \(sendQueue\.length >= STEWARD_SEND_QUEUE_MAX\) \{ composerNote\(t\('stewardShell\.chat\.queueFull'\)\); return null; \}/.test(conversation),
+  'L4 超过上限时在输入框旁如实说一句，而不是继续往里堆');
+ok(/function drainQueue\(\) \{\s*const next = sendQueue\.shift\(\);/.test(conversation)
+  && /drainQueue\(\);\s*\}\s*\}\s*\n\s*function finishReply/.test(conversation),
+  'L5 当前这条流的 finally 里 shift 下一条（按序发，不并发）');
+ok(/row\.classList\.toggle\('is-queued', on === true\);/.test(conversation)
+  && /\.steward-msg-user\.is-queued \{/.test(cssCode),
+  'L6 排队中的行带 is-queued，样式层有对应的淡化档');
+ok(/const tag = el\('span', 'steward-queued', t\('stewardShell\.chat\.queued'\)\);/.test(conversation)
+  && /tag\.setAttribute\('aria-label', t\('stewardShell\.chat\.queued'\)\);/.test(conversation),
+  'L6b 「排队中」是真节点（读屏念得到），不是 CSS 生成内容');
+ok(/if \(!isStewardMode\(\)\) \{[\s\S]{0,300}for \(const row of \[next, \.\.\.sendQueue\]\) markQueued\(row\.row, false\);\s*sendQueue\.length = 0;/.test(conversation),
+  'L7 人已经离开管家壳就不再替他把排队的话发出去（清队列，并把每一行的「排队中」小标摘掉）');
+// D5：※ 浮层的两个小标题，各自只在对应内容非空时渲染。
+ok(/pop\.appendChild\(el\('h4', 'steward-why-h', t\('stewardShell\.chat\.whyHeading'\)\)\);/.test(conversation)
+  && /pop\.appendChild\(el\('h4', 'steward-why-h', t\('stewardShell\.chat\.whyDone'\)\)\);/.test(conversation),
+  'L8 ※ 浮层里「依据」「已办」两个小标题（用户第四轮走查④）');
+ok(/if \(whyLines\.length\) \{/.test(conversation) && /if \(doneRows\.length\) \{/.test(conversation)
+  && /if \(!whyLines\.length && !doneRows\.length\) pop\.appendChild\(el\('p', 'steward-why-line', t\('stewardShell\.chat\.whyEmpty'\)\)\);/.test(conversation),
+  'L8b 两段各自只在有内容时才渲染；两段都空时仍是那句「这一条没有更多依据」');
+ok(/appendSteward\(t\('stewardShell\.chat\.handedOff', \{ title: label \}\), String\(reason \|\| ''\), \[\],/.test(conversation),
+  'L8c 「其它候选」走【依据】那一段，不会被扣上「已办」的帽子（分段之后的必然要求）');
+ok(/\.steward-why-h \{/.test(cssCode), 'L9 样式层有 .steward-why-h');
+ok(/\.steward-composer-note:empty \{ display: none; \}/.test(cssCode)
+  && html.includes('id="stewardComposerNote"'),
+  'L10 输入区那行小字有骨架，且空的时候不占位');
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

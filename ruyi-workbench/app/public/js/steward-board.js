@@ -295,6 +295,16 @@ export function createStewardBoard({
     title.type = 'button';
     title.onclick = () => focusThread(sessionId);
     head.appendChild(title);
+    // 117l D4（用户第四轮走查①）：线程真的在问你时，行上给一枚 pill —— 点它就是打开抽屉（那里有
+    // 问答框）。判据【只读】行上的 asksYou（06i 的 stewardAsksYou 单点算出，与抽屉同一份），
+    // 本模块不写第二套「它算不算在问你」。
+    if (row.asksYou && typeof row.asksYou === 'object' && String(row.asksYou.kind || '')) {
+      const pill = el('button', 'steward-board-pill is-asks-you', t('stewardShell.board.asksYou'));
+      pill.type = 'button';
+      pill.dataset.asksYou = String(row.asksYou.kind);
+      pill.onclick = () => openThread(sessionId);
+      head.appendChild(pill);
+    }
     const elapsed = elapsedLabel(row.updatedAt, new Date());
     if (elapsed) head.appendChild(el('span', 'steward-board-meta', t('stewardShell.board.updated', { elapsed })));
     item.appendChild(head);

@@ -36,8 +36,15 @@ const ok = (condition, label) => {
 
 const THREAD_TITLE = '周报-W36';
 const STEWARD_SAY = '我看了一眼，现在这条线程停在等你。';
-// 剧本[0] = 测试②的管家回合（四个 acts —— 后端归一后前端只该渲染 ≤3 个）；delayMs 让「···」占位
-// 有一段可观察的窗口。剧本[1+] = 递话之后那条线程自己的回合（内容不参与断言，钳到末条）。
+// 117l D1／D3 新增三段剧本。剧本按【流式请求的先后】取，所以顺序就是本件的用例顺序：
+//   [0] 测试②的管家回合（四个 acts —— 后端归一后前端只该渲染 ≤3 个）；delayMs 让「···」占位有窗口
+//   [1] 测试 F（预判命中却【不】直递）那一轮管家回合
+//   [2][3] 测试 Q（连发两句）的两轮；[2] 慢一点，好让第二句真的排上队
+//   [4] 递话之后那条【线程】自己的回合（内容不参与断言，钳到末条）
+const HINT_SAY = '这句我先接着办。';
+const QUEUE_SAY_1 = '第一句收到了。';
+const QUEUE_SAY_2 = '第二句也收到了。';
+const stewardScript = say => JSON.stringify({ say, why: '', acts: [], actions: [] });
 const REPLY_SEQUENCE = [
   {
     text: JSON.stringify({
@@ -53,6 +60,9 @@ const REPLY_SEQUENCE = [
     }),
     delayMs: 900,
   },
+  stewardScript(HINT_SAY),
+  { text: stewardScript(QUEUE_SAY_1), delayMs: 1500 },
+  stewardScript(QUEUE_SAY_2),
   '好的，我接着做。',
 ];
 
@@ -188,6 +198,17 @@ const FEED = `(() => {
   return {
     rows: rows.length,
     users: feed.querySelectorAll('.steward-msg-user').length,
+    // 117l D3：用户气泡的原文与「排队中」那一档（连发用例按这两项判定）。
+    userSays: [...feed.querySelectorAll('.steward-msg-user .steward-say')].map(node => node.textContent),
+    queued: [...feed.querySelectorAll('.steward-msg-user.is-queued .steward-say')].map(node => node.textContent),
+    queuedTags: [...feed.querySelectorAll('.steward-msg-user .steward-queued')].map(node => node.textContent),
+    // 117l D1：请求体（只留管家域的），用来钉 routeHint 真的进了 POST /api/steward/message。
+    stewardBodies: (window.__ruyiStewardBodies || []).slice(),
+    // 117l D5：※ 浮层里的两个小标题（只数【打开着】的那一个浮层 —— 关着的浮层也在 DOM 里，
+    // 不加 :not([hidden]) 的话这一项恒非空、断言形同虚设）。
+    whyHeads: [...feed.querySelectorAll('.steward-why-pop:not([hidden]) .steward-why-h')].map(node => node.textContent),
+    composerNote: document.getElementById('stewardComposerNote')
+      ? document.getElementById('stewardComposerNote').textContent : '',
     says: [...feed.querySelectorAll('.steward-say')].map(node => node.textContent),
     acts: [...feed.querySelectorAll('.steward-act')].map(node => node.textContent),
     primaries: feed.querySelectorAll('.steward-act.is-primary').length,
@@ -311,11 +332,18 @@ try {
       window.clearInterval = function (id) { live.delete(id); return nativeClear.call(window, id); };
       window.__ruyiLiveIntervals = () => [...live.values()];
       window.__ruyiFetchLog = [];
+      window.__ruyiStewardBodies = [];
       const nativeFetch = window.fetch;
       window.fetch = function (input, init) {
         try {
           const url = typeof input === 'string' ? input : (input && input.url) || '';
-          window.__ruyiFetchLog.push(String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0]);
+          const route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
+          window.__ruyiFetchLog.push(route);
+          // 117l：管家域的请求体也留一份 —— routeHint 是否真的进了 POST /api/steward/message，
+          // 只有请求体说了算（URL 相同，差别全在 body 里）。
+          if (route.indexOf('/api/steward/') === 0) {
+            window.__ruyiStewardBodies.push({ route, body: String((init && init.body) || '') });
+          }
         } catch { /* probe must never break the app */ }
         return nativeFetch.call(window, input, init);
       };
@@ -428,7 +456,13 @@ try {
   })()`);
   ok(Boolean(chipNew), `E1 什么都不像时 chip 显示「${zh['stewardShell.compose.targetNew']}」`);
 
-  // ─── ④ 输入含线程标题 → chip 变线程 → Enter 直接递 → 撤回 ─────────────────────
+  // ─── ④-1 117l D1（用户第四轮走查②）：输入含线程标题 → chip 只【提示】，Enter 仍发给管家 ──
+  // 117l 重钉（语义收紧，不是放宽）：F1 此前钉的是「chip 变成 → 周报-W36」（= 预判即目标），
+  // F2/F3 钉的是「Enter 直接递、请求打 /api/steward/act」。那是 117c 的世界。用户第四轮走查②
+  // 原话「无论关键词匹配到什么，都要发给管家让它决定是哪个线程，是否是新线程」推翻了它 ——
+  // 真机上「大A这周走势会怎么样」被「走势」命中美股那条线程，一句新话直递进去，把那条线程正在
+  // 等的提问 supersede 掉（§11.9.2 ①⑥ 是同一起事故）。所以三条一起重钉成「预判只进 hint」，
+  // companion 是下面 P 组的「手选仍直递」—— 直递这条路没有被删掉，只是必须由用户明示。
   await cdp.evaluate(`(() => {
     const input = document.getElementById('stewardComposerInput');
     input.focus();
@@ -436,12 +470,100 @@ try {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     return true;
   })()`);
-  const chipThread = await waitForEval(cdp, `(() => {
+  const chipHint = await waitForEval(cdp, `(() => {
     const snapshot = ${FEED};
     return snapshot.chip.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0 ? snapshot : null;
   })()`);
-  ok(Boolean(chipThread), `F1 输入即预判：chip 变成「→ ${THREAD_TITLE}」`);
+  const hintCopy = zh['stewardShell.compose.targetSteward.hint'].replace('{{title}}', THREAD_TITLE);
+  ok(Boolean(chipHint) && chipHint.chip === hintCopy,
+    `F1 预判命中时 chip 是【提示】而不是目标：「${hintCopy}」（实测「${chipHint && chipHint.chip}」）`);
 
+  const beforeHint = await cdp.evaluate('(window.__ruyiFetchLog || []).length');
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  })()`);
+  const hinted = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.says.some(text => text.indexOf(${JSON.stringify(HINT_SAY)}) >= 0) ? snapshot : null;
+  })()`, 900);
+  ok(Boolean(hinted), 'F2 预判命中的那句话仍然【经过管家回合】（管家自己回了一句）');
+  const afterHint = hinted ? hinted.fetches.slice(beforeHint) : [];
+  ok(afterHint.includes('/api/steward/message') && !afterHint.includes('/api/steward/act'),
+    `F3 这一发打的是 POST /api/steward/message，【不是】 /api/steward/act（实测 ${JSON.stringify(afterHint)}）`);
+  const hintBody = (hinted ? hinted.stewardBodies : []).filter(row => row.route === '/api/steward/message').pop();
+  let hintJson = null;
+  try { hintJson = JSON.parse((hintBody && hintBody.body) || 'null'); } catch { hintJson = null; }
+  ok(Boolean(hintJson) && hintJson.routeHint && hintJson.routeHint.kind === 'thread'
+    && Array.isArray(hintJson.routeHint.hits) && hintJson.routeHint.hits.some(hit => hit.sessionId === threadId),
+    `F3b 请求体带 routeHint，命中里有那条线程的 sessionId（实测 ${JSON.stringify(hintJson && hintJson.routeHint)}）`);
+  ok(Boolean(hintJson) && hintJson.message === THREAD_TITLE + ' 接着做，把华南的表补上'
+    && JSON.stringify(hintJson.routeHint).indexOf(THREAD_TITLE) < 0,
+    'F3c 用户那句话逐字不动，且 routeHint 里【没有】标题（服务端只信 sessionId，标题自己重查）');
+
+  // ─── ④-2 117l D3（用户第四轮走查⑥）：连着说两句 ────────────────────────────────
+  // 修前 sendToSteward 第一行是 `if (!message || streaming) return null;` —— 第二句不上屏、
+  // 不排队、不报错，只是没了。现在第二句立刻上屏并标「排队中」，前一条收尾后按序发。
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = '第一句：先看看昨天的日志';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.value = '第二句：顺便把结论写下来';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  })()`);
+  const queuedSnapshot = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.queued.length === 1 ? snapshot : null;
+  })()`, 600);
+  ok(Boolean(queuedSnapshot), 'Q1 第二句立刻上屏并标「排队中」（修前它被静默丢弃）');
+  ok(Boolean(queuedSnapshot) && queuedSnapshot.queued[0].indexOf('第二句') >= 0,
+    `Q1b 排队的是【第二句】，第一句照常在跑（实测 ${JSON.stringify(queuedSnapshot && queuedSnapshot.queued)}）`);
+  ok(Boolean(queuedSnapshot) && queuedSnapshot.queuedTags.includes(zh['stewardShell.chat.queued']),
+    'Q1c 「排队中」是真节点（读屏念得到），不是 CSS 生成内容');
+  ok(Boolean(queuedSnapshot) && queuedSnapshot.userSays.some(text => text.indexOf('第一句') >= 0)
+    && queuedSnapshot.userSays.some(text => text.indexOf('第二句') >= 0),
+    'Q1d 两句都在对话流里（一句都没丢）');
+  const bothReplied = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.says.some(text => text.indexOf(${JSON.stringify(QUEUE_SAY_2)}) >= 0) ? snapshot : null;
+  })()`, 1200);
+  ok(Boolean(bothReplied), 'Q2 排队那一句最终真的发出去并拿到了回复');
+  const firstAt = bothReplied ? bothReplied.says.findIndex(text => text.indexOf(QUEUE_SAY_1) >= 0) : -1;
+  const secondAt = bothReplied ? bothReplied.says.findIndex(text => text.indexOf(QUEUE_SAY_2) >= 0) : -1;
+  ok(firstAt >= 0 && secondAt > firstAt,
+    `Q3 两条回复【按序】落在对话流里（实测 ${firstAt} / ${secondAt}）`);
+  ok(Boolean(bothReplied) && bothReplied.queued.length === 0,
+    'Q3b 轮到它发的时候「排队中」那一档被摘掉');
+
+  // ─── ④-3 手选目标仍然直递（companion：D1 没有删掉直递这条路，只是要用户明示）──────
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = ${JSON.stringify(THREAD_TITLE + ' 接着做，把华南的表补上')};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await waitForEval(cdp, `(() => (${FEED}).chip.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0 || null)()`);
+  await cdp.evaluate(`document.getElementById('stewardTarget').click(), true`);
+  const pickedOne = await cdp.evaluate(`(() => {
+    const option = [...document.querySelectorAll('#stewardTargetPicker .steward-target-option')]
+      .find(node => node.textContent.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0);
+    if (option) option.click();
+    return Boolean(option);
+  })()`);
+  ok(pickedOne === true, 'P1 候选列表里能手选那条线程');
+  const chipPicked = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.chip === ${JSON.stringify(zh['stewardShell.compose.targetThread'].replace('{{title}}', THREAD_TITLE))} ? snapshot : null;
+  })()`);
+  ok(Boolean(chipPicked), `P2 手选之后 chip 才是【目标态】「→ ${THREAD_TITLE}」`);
+
+  const beforeHand = await cdp.evaluate('(window.__ruyiFetchLog || []).length');
   await cdp.evaluate(`(() => {
     const input = document.getElementById('stewardComposerInput');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -452,12 +574,23 @@ try {
     return snapshot.says.some(text => text.indexOf('递给了') >= 0) ? snapshot : null;
   })()`, 600);
   ok(Boolean(handed) && handed.says.some(text => text.indexOf(THREAD_TITLE) >= 0),
-    'F2 Enter 直接递：管家只回一行「递给了『周报-W36』。」');
-  ok(Boolean(handed) && handed.fetches.includes('/api/steward/act'),
-    'F3 递话走 POST /api/steward/act（不经管家回合，后端零改动）');
+    'P3 手选之后 Enter 仍然直递：管家只回一行「递给了『周报-W36』。」');
+  ok(Boolean(handed) && handed.fetches.slice(beforeHand).includes('/api/steward/act'),
+    'P3b 手选那一发走 POST /api/steward/act（直递这条路仍在，只是要用户明示）');
   const undoLabel = handed ? handed.acts.find(label => label.startsWith(zh['stewardShell.chat.undo'])) : '';
   ok(Boolean(undoLabel) && /撤回 \d+/.test(undoLabel),
     `F4 回执按钮是带倒计时的「撤回 N」（实测 ${JSON.stringify(undoLabel)}）`);
+  // 117l D5（用户第四轮走查④）：※ 浮层里两段各有小标题。递话那一条的 ※ 里有「依据」（命中理由）。
+  const whyOpened = await cdp.evaluate(`(() => {
+    const buttons = [...document.querySelectorAll('#stewardFeed .steward-why-btn')];
+    const last = buttons[buttons.length - 1];
+    if (last) last.click();
+    return Boolean(last);
+  })()`);
+  const whySnapshot = whyOpened ? await cdp.evaluate(FEED) : null;
+  ok(Boolean(whySnapshot) && whySnapshot.whyHeads.includes(zh['stewardShell.chat.whyHeading']),
+    `F4b ※ 浮层里有「依据」小标题（实测 ${JSON.stringify(whySnapshot && whySnapshot.whyHeads)}）`);
+  await cdp.evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true");
 
   const clicked = await cdp.evaluate(`(() => {
     const buttons = [...document.querySelectorAll('#stewardFeed .steward-act')];

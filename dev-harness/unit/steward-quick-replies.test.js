@@ -41,11 +41,22 @@ function questionPending(options) {
 }
 
 describe('quickRepliesFor: 常量与形状', () => {
-  it('上限常量是 3，且导出的区块顺序表是冻结的 11 项（区块顺序即契约）', async () => {
+  // 117l D4 重钉（用户第四轮走查①③）：11 → 13。多的两项是「它在问你」问答卡与「更多」这个容器
+  // 本身；接力／三问／验收项／现场四块【搬进】容器，一块没少、顺序没变（companion 就钉这一半）。
+  it('上限常量是 3，且导出的区块顺序表是冻结的 13 项（区块顺序即契约）', async () => {
     const { STEWARD_QUICK_REPLIES_MAX, STEWARD_DRAWER_BLOCK_IDS } = await loadModule();
     assert.equal(STEWARD_QUICK_REPLIES_MAX, 3);
-    assert.equal(STEWARD_DRAWER_BLOCK_IDS.length, 11);
+    assert.equal(STEWARD_DRAWER_BLOCK_IDS.length, 13);
     assert.equal(Object.isFrozen(STEWARD_DRAWER_BLOCK_IDS), true);
+  });
+
+  it('companion：折进「更多」的四块仍在顺序表里，顺序没变（搬家不是删块）', async () => {
+    const { STEWARD_DRAWER_BLOCK_IDS, STEWARD_DRAWER_MORE_BLOCK_IDS } = await loadModule();
+    assert.equal(Object.isFrozen(STEWARD_DRAWER_MORE_BLOCK_IDS), true);
+    assert.deepEqual([...STEWARD_DRAWER_MORE_BLOCK_IDS],
+      ['stewardDrawerRelay', 'stewardDrawerActivity', 'stewardDrawerAcceptance', 'stewardDrawerScene']);
+    const inOrder = STEWARD_DRAWER_BLOCK_IDS.filter(id => STEWARD_DRAWER_MORE_BLOCK_IDS.includes(id));
+    assert.deepEqual(inOrder, [...STEWARD_DRAWER_MORE_BLOCK_IDS]);
   });
 
   it('完全不传入参也不抛，落到「其余五态」的默认：继续', async () => {

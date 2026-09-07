@@ -39,6 +39,10 @@ const MISSION_TITLE = '季度收尾';
 const THREAD_A = '报表汇总';
 const THREAD_B = '整理素材';
 const THREAD_C = '选个框架';
+const THREAD_D = '再选一次框架';
+// 117l D4：挂起前先流出去的那段正文（四句）。抽屉的「它正在说」只该显示【末尾】三句。
+const LIVE_PIECES = ['我先看了三个候选。', '一是 React。', '二是 Vue。', '三是原生。'];
+const LIVE_TAIL3 = '一是 React。二是 Vue。三是原生。';
 // A 的最后一条助手消息：四句，末句是问句。抽屉只该显示前三句（§8.13「≤3 句」）。
 const A_REPLY = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。要不要我把汇总也做了？';
 const A_FIRST3 = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。';
@@ -91,6 +95,21 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
   return null;
 }
 
+// 117l D2：审计流水（与 steward-relay-channels.e2e.js 同一读法）。「有没有 supersede 掉一个
+// 等回答的回合」只有 turn_kill 这一行说了算 —— 界面上看不出来（截图 2 里「0 条等你」正是因为
+// 问题已经被杀没了）。logsDir 在真正建出 home 之后才知道，所以这里接受一个目录参数。
+function auditRowsIn(dir) {
+  const out = [];
+  for (const file of (fs.existsSync(dir) ? fs.readdirSync(dir) : [])) {
+    if (!file.endsWith('.ndjson')) continue;
+    for (const line of fs.readFileSync(path.join(dir, file), 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      try { out.push(JSON.parse(line)); } catch { /* skip */ }
+    }
+  }
+  return out;
+}
+
 function killTree(child) {
   if (!child || !child.pid) return;
   try {
@@ -113,7 +132,9 @@ async function startProvider(port) {
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const lastUser = [...messages].reverse().find(message => message && message.role === 'user');
     const wantsQuestion = /ask/i.test(String((lastUser && lastUser.content) || ''));
-    const answered = messages.some(message => message && message.role === 'tool' && /Vue|React/.test(String(message.content || '')));
+    // 117l：自由回答（问答卡的 textarea）送进去的不是 React/Vue 而是用户自己写的一句话，所以
+    // 「答过了吗」的判据从「工具结果里有 React|Vue」放宽成「有过任何一条工具结果」。
+    const answered = messages.some(message => message && message.role === 'tool');
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     const sse = value => res.write('data: ' + JSON.stringify(value) + '\n\n');
     if (wantsQuestion && !answered) {
@@ -121,6 +142,9 @@ async function startProvider(port) {
         id: 'framework', header: 'Framework', question: '接着用哪个框架？', answerMode: 'single',
         options: [{ id: 'react', label: 'React' }, { id: 'vue', label: 'Vue' }],
       }] });
+      // 117l D4：先流一段正文再挂起 —— 回合活着时服务端的 liveTail 里才有东西，
+      // 抽屉的「它正在说」才有可验的内容（四句，抽屉只该显示【末尾】三句）。
+      for (const piece of LIVE_PIECES) sse({ choices: [{ index: 0, delta: { role: 'assistant', content: piece }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_117d_question', type: 'function', function: { name: 'request_user_input', arguments: '' } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
@@ -213,9 +237,11 @@ const READY = `(() => {
 // 抽屉快照：全部走 textContent / 属性，不碰任何模块私有状态。
 const DRAWER = `(() => {
   const drawer = document.getElementById('stewardDrawer');
-  const ids = ['stewardDrawerMission','stewardDrawerTabs','stewardDrawerHead','stewardDrawerChips',
-    'stewardDrawerLastSay','stewardDrawerQuickReplies','stewardDrawerRelay','stewardDrawerActivity',
-    'stewardDrawerAcceptance','stewardDrawerScene','stewardDrawerFoot'];
+  // 117l D4 重钉：区块清单从 11 变 13（多了「它在问你」与「更多」容器；四块折进后者，顺序不变）。
+  const ids = ['stewardDrawerMission','stewardDrawerTabs','stewardDrawerHead','stewardDrawerAsk',
+    'stewardDrawerChips','stewardDrawerLastSay','stewardDrawerQuickReplies','stewardDrawerMore',
+    'stewardDrawerRelay','stewardDrawerActivity','stewardDrawerAcceptance','stewardDrawerScene',
+    'stewardDrawerFoot'];
   const nodes = ids.map(id => document.getElementById(id));
   const ordered = nodes.every((node, index) => node && (index === 0
     || (nodes[index - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0));
@@ -236,6 +262,16 @@ const DRAWER = `(() => {
     title: text('stewardDrawerTitle'),
     state: text('stewardDrawerState'),
     lastSay: text('stewardDrawerLastSayText'),
+    lastSayHead: text('stewardDrawerLastSayHead'),
+    // 117l D4：④「它在问你」卡片、⑦ 是否被它顶掉、⑧「更多」的收起状态、焦点在哪。
+    askHidden: document.getElementById('stewardDrawerAsk') ? document.getElementById('stewardDrawerAsk').hidden : null,
+    askLines: [...document.querySelectorAll('#stewardDrawerAskText .steward-drawer-ask-line')].map(node => node.textContent.trim()),
+    askOptions: [...document.querySelectorAll('#stewardDrawerAskOptions .steward-drawer-reply')].map(node => node.textContent.trim()),
+    askOptionKinds: [...document.querySelectorAll('#stewardDrawerAskOptions .steward-drawer-reply')].map(node => node.dataset.replyKind),
+    askFocused: document.activeElement === document.getElementById('stewardDrawerAskInput'),
+    quickRepliesHidden: document.getElementById('stewardDrawerQuickReplies')
+      ? document.getElementById('stewardDrawerQuickReplies').hidden : null,
+    moreOpen: document.getElementById('stewardDrawerMore') ? document.getElementById('stewardDrawerMore').open : null,
     replies: [...document.querySelectorAll('#stewardDrawerQuickRepliesRow .steward-drawer-reply')].map(node => node.textContent.trim()),
     replyKinds: [...document.querySelectorAll('#stewardDrawerQuickRepliesRow .steward-drawer-reply')].map(node => node.dataset.replyKind),
     relayHidden: document.getElementById('stewardDrawerRelay') ? document.getElementById('stewardDrawerRelay').hidden : null,
@@ -258,6 +294,7 @@ const debugPort = await getFreePort();
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-drawer-'));
 const home = path.join(root, 'home');
 const profile = path.join(root, 'profile');
+const auditRows = () => auditRowsIn(path.join(home, 'logs'));
 fs.mkdirSync(home);
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9,
@@ -305,15 +342,21 @@ try {
   const createdA = await request(appPort, 'POST', '/api/sessions', { title: THREAD_A, cwd: home }, token);
   const createdB = await request(appPort, 'POST', '/api/sessions', { title: THREAD_B, cwd: home }, token);
   const createdC = await request(appPort, 'POST', '/api/sessions', { title: THREAD_C, cwd: home }, token);
+  // 117l D4：D 与 C 同形（都挂在 request_user_input 上），区别只在【怎么答】—— C 点选项，
+  // D 用问答卡的自由回答框。两条各自要一个待决，所以必须是两条线程。
+  const createdD = await request(appPort, 'POST', '/api/sessions', { title: THREAD_D, cwd: home }, token);
   const idA = createdA && createdA.json && createdA.json.session && createdA.json.session.id;
   const idB = createdB && createdB.json && createdB.json.session && createdB.json.session.id;
   const idC = createdC && createdC.json && createdC.json.session && createdC.json.session.id;
-  ok(Boolean(idA && idB && idC), `A3 三条线程已建（${idA || '失败'} / ${idB || '失败'} / ${idC || '失败'}）`);
-  if (!idA || !idB || !idC) throw new Error('session fixtures unavailable');
+  const idD = createdD && createdD.json && createdD.json.session && createdD.json.session.id;
+  ok(Boolean(idA && idB && idC && idD), `A3 四条线程已建（${idA || '失败'} / ${idB || '失败'} / ${idC || '失败'} / ${idD || '失败'}）`);
+  if (!idA || !idB || !idC || !idD) throw new Error('session fixtures unavailable');
 
   // 会话头的 mission 账本：kind 翻 'mission'（否则不进 /api/missions 的投影），并给两条里程碑 ——
   // 抽屉 ⑨ 验收项读的是这一份（GET /api/missions/:id 的 snapshot.acceptance.items）。
-  for (const [id, goal] of [[idA, '把季度报表汇总出来'], [idB, '把素材归档'], [idC, '定下前端框架']]) {
+  // D 也要 kind='mission'：否则它不进 /api/missions 的投影，而 117h 的「现在这一件」会按行数据
+  // 自己挑焦点线程并把抽屉拽走（实测：D 不在行里时，focus-thread 打开 D 之后当拍就被换回别的线程）。
+  for (const [id, goal] of [[idA, '把季度报表汇总出来'], [idB, '把素材归档'], [idC, '定下前端框架'], [idD, '再定一次前端框架']]) {
     await request(appPort, 'POST', '/api/mission', {
       sessionId: id, action: 'start', goal,
       milestones: [{ id: 'm1', desc: '拿到三个区的数字' }, { id: 'm2', desc: '汇总表可打开' }],
@@ -344,6 +387,9 @@ try {
 
   // C 跑一个回合并停在 question 待决（不 await：这条回合要一直挂着等答案）。
   // C 【不】挂进事项 M —— 见文件头注：既有后端在 attach 之后送不进决策。
+  // 【只起 C】。D 的回合留到 C 被答完之后再起 —— 两条挂在 request_user_input 上的回合共用同一个
+  // 工作区，第二条会一直卡在资源租约上（实测：provider 只收到一次带 messages 的请求，第二条线程
+  // 的回合根本没起来）。这是夹具的约束，不是被测行为。
   request(appPort, 'POST', '/api/chat/stream', { sessionId: idC, message: 'ask which framework', cwd: home }, token);
   const pendingReady = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
     const pending = (result.json && result.json.pending) || [];
@@ -407,7 +453,8 @@ try {
   if (!openedA) throw new Error('drawer did not open');
   ok(openedA.role === 'dialog' && openedA.labelledby === 'stewardDrawerTitle',
     'B2 抽屉是 role="dialog" + aria-labelledby="stewardDrawerTitle"');
-  ok(openedA.ordered === true, 'B3 十一个区块的 DOM 顺序 === §8.13 的契约顺序');
+  // 117l D4 重钉：11 → 13（多了「它在问你」与「更多」；四块折进后者，一块没少、顺序没变）。
+  ok(openedA.ordered === true, 'B3 十三个区块的 DOM 顺序 === §11.9 D4 的契约顺序');
   ok(openedA.shellDrawer === 'open', 'B4 宽屏下管家壳被标为 drawer=open（对话区收窄，抽屉占右侧 390px 栏）');
   ok(openedA.ariaModal === null, 'B4b 1440px 宽屏是栏式，不加 aria-modal');
   ok(openedA.tablist === 'tablist' && openedA.tabRoles === 2,
@@ -439,6 +486,20 @@ try {
     && openedA.replies[0] === zh['stewardShell.drawer.reply.yes']
     && openedA.replies[1] === zh['stewardShell.drawer.reply.no'],
     `B11 A 无待决、末句是问句 → 「你可以说」给「好，就这样」「先不要」（实测 ${JSON.stringify(openedA.replies)}）`);
+  // ── 117l D4（用户第四轮走查①③）：软问句也算「它在问你」；四块折进「更多」并默认收起 ──────
+  ok(openedA.askHidden === false && openedA.askLines.length === 1
+    && openedA.askLines[0].indexOf('要不要我把汇总也做了') >= 0,
+    `B16 A 的最后一句是问句 → ④「它在问你」把【问题原文】摆出来（实测 ${JSON.stringify(openedA.askLines)}）`);
+  ok(openedA.askOptions.length === 0 && openedA.quickRepliesHidden === false,
+    'B16b 软问句没有选项按钮 → ⑦「你可以说」照常在（只有 ④ 真给出选项时 ⑦ 才让位）');
+  ok(openedA.lastSay === A_FIRST3,
+    `B16c ④ 里是【末句问话】、⑥ 里仍是原话开头三句，两处不重复（实测「${openedA.lastSay}」）`);
+  ok(openedA.moreOpen === false,
+    `B17 ⑧「更多」默认收起（走查③「线程页内容还是太多太杂」；实测 open=${openedA.moreOpen}）`);
+  const focusedA = await waitForEval(cdp, `(() => (${DRAWER}).askFocused ? { ok: 1 } : null)()`);
+  ok(Boolean(focusedA), 'B18 打开线程、数据到齐之后焦点落进问答框（走查①「打开线程回答」按下去该发生的事）');
+  ok(openedA.lastSayHead === zh['stewardShell.drawer.lastSay'],
+    `B19 A 没有在跑 → 标题是「它刚说」（实测「${openedA.lastSayHead}」）`);
   ok(openedA.relayHidden === false && openedA.relay.length === 1 && openedA.relay[0].includes(THREAD_B),
     `B12 接力关系列出同事项的另一条线程（实测 ${JSON.stringify(openedA.relay)}）`);
   ok(openedA.acceptance.length === 2 && openedA.acceptance[0].includes('三个区'),
@@ -517,23 +578,120 @@ try {
     return snapshot.title === ${JSON.stringify(THREAD_C)} && snapshot.replies.length ? snapshot : null;
   })()`);
   ok(Boolean(onC), 'E2 steward:focus-thread 也能打开抽屉（117h「现在这一件」接同一个口）');
-  ok(onC && JSON.stringify(onC.replies) === JSON.stringify(['React', 'Vue']),
-    `E3 「你可以说」来自待决 question 的候选答案（实测 ${onC && JSON.stringify(onC.replies)}）`);
-  ok(onC && onC.replyKinds.every(kind => kind === 'question'), 'E3b 这两条的 kind 是 question（走 /api/chat/answer）');
+  // 117l D4 重钉 E3/E3b（用户第四轮走查①）：候选答案【搬进了④「它在问你」卡】。旧断言钉的是
+  // 「它们在 ⑥『你可以说』那一行里」—— 那是 117d 的位置，而用户的原话是「弹出打开线程回答，
+  // 却并没有 2.0 的那种问答框，导致没法正常地回复」：光有一排 chip、没有问题原文也没有输入框。
+  // 现在问题原文＋选项＋回答框在同一张卡里，⑥ 让位（否则一屏两排一模一样的按钮）。
+  // companion（E3c）：⑥ 是【隐藏】不是【被删】—— 没有选项的软问句仍然由它出「好，就这样／先不要」。
+  ok(onC && JSON.stringify(onC.askOptions) === JSON.stringify(['React', 'Vue']),
+    `E3 候选答案在 ④「它在问你」卡里（实测 ${onC && JSON.stringify(onC.askOptions)}）`);
+  ok(onC && onC.askOptionKinds.every(kind => kind === 'question'), 'E3b 这两条的 kind 是 question（走 /api/chat/answer）');
+  ok(onC && onC.quickRepliesHidden === true,
+    'E3c companion：④ 出选项时 ⑥「你可以说」整块隐藏（不是被删 —— B16b 里软问句那一档它照常在）');
+  ok(onC && onC.askHidden === false && onC.askLines.length === 1 && onC.askLines[0] === '接着用哪个框架？',
+    `E3f ④ 里是【问题原文】而不是一句摘要（实测 ${onC && JSON.stringify(onC.askLines)}）`);
+  ok(Boolean(await waitForEval(cdp, `(() => (${DRAWER}).askFocused ? { ok: 1 } : null)()`)),
+    'E3g 切到 C 之后焦点也落进问答框');
   ok(onC && onC.state === zh['stewardShell.drawer.state.needs_you'],
     `E3c 有待决时五态是「需要你」（实测「${onC && onC.state}」）`);
   ok(onC && onC.activityDoing.length > 0 && onC.activityDoing !== zh['stewardShell.drawer.none'],
     `E3d 三问的「在干什么」说出「等你」（实测「${onC && onC.activityDoing}」）`);
   ok(onC && onC.relayHidden === true, 'E3e C 自成事项，没有兄弟线程 → 接力关系整块隐藏');
-  await cdp.evaluate(`[...document.querySelectorAll('#stewardDrawerQuickRepliesRow .steward-drawer-reply')]
+  const killsBeforeC = auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idC).length;
+  await cdp.evaluate(`[...document.querySelectorAll('#stewardDrawerAskOptions .steward-drawer-reply')]
     .find(node => node.textContent.trim() === 'Vue').click(), true`);
   const cleared = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
     const pending = (result.json && result.json.pending) || [];
     return !pending.some(item => item && item.type === 'question' && item.sessionId === idC);
   }, token);
   const afterAnswer = await cdp.evaluate(DRAWER);
-  ok(Boolean(cleared), `E4 点一条「你可以说」（question 选项）→ 该待决消失（抽屉回执 ${JSON.stringify(afterAnswer && afterAnswer.note)}）`);
+  ok(Boolean(cleared), `E4 点一条选项按钮 → 该待决消失（抽屉回执 ${JSON.stringify(afterAnswer && afterAnswer.note)}）`);
   ok(afterAnswer && afterAnswer.note === zh['stewardShell.drawer.answered'], 'E4b 抽屉给出「已替你回复」的回执');
+  ok(auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idC).length === killsBeforeC,
+    'E4c 回答不 supersede 那个回合（该线程零新增 turn_kill）');
+  const continuedC = await waitForHttp(appPort, 'GET', `/api/sessions/${idC}`, result => {
+    const messages = (result.json && result.json.session && result.json.session.messages) || [];
+    return messages.some(message => message && message.role === 'assistant' && String(message.content || '').includes('就按这个来'));
+  }, token);
+  ok(Boolean(continuedC), 'E4d 答完那条线程的回合接着往下跑（不是被杀掉之后重开）');
+  const goneC = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return snapshot.askHidden === true ? snapshot : null;
+  })()`);
+  ok(Boolean(goneC), 'E4e 答完之后 ④「它在问你」自己消失（没人在问了就不该留在屏幕上）');
+
+  // ─── 117l D4：问答卡的【自由回答】（textarea ＋「回答」）走 /api/chat/answer 的 otherText ────
+  // 用户第四轮走查①的原话是「没法正常地回复」—— 只有几枚候选按钮时，想说的话没有出口。
+  // C 已经答完、回合收尾了，现在才轮到 D 起回合（见 A7 处的夹具说明：同工作区不并跑两条挂起的回合）。
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idD, message: 'ask which framework', cwd: home }, token);
+  const pendingD = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
+    const pending = (result.json && result.json.pending) || [];
+    return pending.some(item => item && item.type === 'question' && item.sessionId === idD);
+  }, token);
+  ok(Boolean(pendingD), 'E4f 线程 D 起了回合并挂在 request_user_input 上');
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idD}' } })), true`);
+  const onD = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return snapshot.askHidden === false && snapshot.askLines.length ? snapshot : null;
+  })()`);
+  ok(Boolean(onD), 'E5 线程 D 也挂着一条 question 待决 → ④ 出现');
+  if (!onD) console.log('DIAG onD=null 快照 ' + JSON.stringify(await cdp.evaluate(DRAWER)).slice(0, 600));
+  // ── 117l D4（用户第四轮走查③「它刚说更新还是不够及时」）：在跑的回合看【活回合尾巴】────
+  // D 的回合此刻还活着（挂在 request_user_input 上），服务端的 liveTail 里有它挂起前流出来的四句。
+  ok(Boolean(onD) && onD.lastSayHead === zh['stewardShell.drawer.liveSay'],
+    `E6 回合还活着 → 标题是「它正在说」（实测「${onD && onD.lastSayHead}」）`);
+  ok(Boolean(onD) && onD.lastSay.indexOf(LIVE_TAIL3) === 0,
+    `E6b 内容以活回合的【末尾】三句打头，不是开头（实测「${onD && onD.lastSay}」）`);
+  ok(Boolean(onD) && onD.lastSay.indexOf('我先看了三个候选') < 0,
+    'E6c 第一句被截掉 —— 活回合要看的是最新那几句（落盘原话那一路仍取开头，见 B10）');
+  ok(Boolean(onD) && onD.lastSay.indexOf(zh['stewardShell.drawer.tool.askYou']) > 0
+    && onD.lastSay.indexOf('request_user_input') < 0,
+    `E6d 正在用的工具说【人话】，界面上不出现工具名（实测「${onD && onD.lastSay}」）`);
+  const killsBeforeD = auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idD).length;
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardDrawerAskInput');
+    input.value = '都不用，就用原生的写';
+    document.getElementById('stewardDrawerAskSendBtn').click();
+    return true;
+  })()`);
+  const clearedD = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
+    const pending = (result.json && result.json.pending) || [];
+    return !pending.some(item => item && item.type === 'question' && item.sessionId === idD);
+  }, token);
+  ok(Boolean(clearedD), 'E5b 自由回答（不是候选里的任何一条）也能把待决答掉');
+  ok(auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idD).length === killsBeforeD,
+    'E5c 自由回答同样【不】 supersede 那个回合（零新增 turn_kill）');
+  const answeredD = await request(appPort, 'GET', `/api/sessions/${idD}`, null, token);
+  const dMessages = (answeredD && answeredD.json && answeredD.json.session && answeredD.json.session.messages) || [];
+  ok(dMessages.some(message => JSON.stringify(message || {}).indexOf('都不用，就用原生的写') >= 0),
+    'E5d 用户写的那句话逐字进了会话（otherText，不是被折成某个选项 id）');
+
+  // ─── 117l D2：「直接对这条线程说」走 /api/steward/relay 单口 ────────────────────
+  // 修前抽屉自己猜通道：不 live 就直打 /api/chat/stream，撞上 09-workflow 的
+  // `activeChildren.has → stopSession('superseded')`。现在只有一个口子，通道由服务端判。
+  // B 是空闲线程 → 服务端判 turn 通道 → 那句话真的进了 B 的会话并开出一个回合。
+  // 此刻抽屉停在 D（自成事项，页签里没有 B），所以换线程走 focus-thread 事件而不是点页签。
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idB}' } })), true`);
+  await waitForEval(cdp, `(() => (${DRAWER}).title === ${JSON.stringify(THREAD_B)} || null)()`);
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardDrawerInput');
+    input.value = '直接对这条线程说一句';
+    document.getElementById('stewardDrawerSendBtn').click();
+    return true;
+  })()`);
+  const relayedToB = await waitForHttp(appPort, 'GET', `/api/sessions/${idB}`, result => {
+    const messages = (result.json && result.json.session && result.json.session.messages) || [];
+    return messages.some(message => message && message.role === 'user' && String(message.content || '').includes('直接对这条线程说一句'));
+  }, token);
+  ok(Boolean(relayedToB), 'E7 底部「直接对这条线程说」把话真的送进了那条线程（relay 的 turn 通道）');
+  const noteAfterRelay = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return snapshot.note ? snapshot : null;
+  })()`);
+  ok(Boolean(noteAfterRelay) && noteAfterRelay.note === zh['stewardShell.drawer.sent'],
+    `E7b 回执按服务端回的 channel 说话（空闲线程 → 「已发给它」；实测「${noteAfterRelay && noteAfterRelay.note}」）`);
+  ok(auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idB).length === 0,
+    'E7c 这条路上零 turn_kill');
 
   // ── ⑧ Esc 关闭 ─────────────────────────────────────────────────────────────
   await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true`);

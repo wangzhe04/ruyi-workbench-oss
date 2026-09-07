@@ -1,7 +1,10 @@
 'use strict';
 
 import './mission-state.js';
-import { authHeaders } from './net.js';
+// 117l D2：抽屉不再直调 fetch（原来那一处是 POST /api/chat/stream，已被 /api/steward/relay 取代），
+// 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
+// （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
+import { apiErrorInfo } from './net.js';
 import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './preview-task-sheet.js';
 import { describeTurnActivity } from './turn-activity.js';
 import { createQuickSwitchChips } from './steward-chips.js';
@@ -23,8 +26,15 @@ import { createQuickSwitchChips } from './steward-chips.js';
 // clearInterval（stopPolling），唯一入口 syncPolling() 先判「抽屉开着 && 管家模式 && 页面可见」，
 // 任一为否即停。触发点：抽屉开关、data-shell-mode 的 MutationObserver、visibilitychange。
 //
-// 「不经管家」（§8.13）：你可以说与底部输入框直接对线程说话 —— 线程在途走 POST /api/steer（插话通道），
-// 空闲走 POST /api/chat/stream 开一个新回合（抽屉不渲染流，只把响应体读完就算送达）。
+// 「不经管家」（§8.13）：你可以说与底部输入框直接对线程说话 —— 117l D2 起【一律走 POST
+// /api/steward/relay】，四通道（在等回答→当答案／在等批准→不代答／在跑→插话／空闲→新回合）由
+// 服务端一处判定（13h 的 stewardRelayChannelFor）。修前抽屉自己在 /api/steer 与 /api/chat/stream
+// 之间猜：线程挂在 request_user_input 上等答案时它判成「不 live」→ 直打 /api/chat/stream，
+// 09-workflow 的 `activeChildren.has → stopSession('superseded')` 于是把用户还没回答的那道提问
+// 连回合一起杀了（§11.9.2 ①⑥ 的真机事故）。
+//
+// 117l D4 区块重排（用户第四轮走查①③）：③ 线程头之下多一张「它在问你」卡（问题原文＋选项按钮＋
+// 自由回答框），接力／三问／验收项／现场四块折进默认收起的「更多」。
 
 export const STEWARD_QUICK_REPLIES_MAX = 3;
 export const STEWARD_DRAWER_POLL_MS_MIN = 5000;
@@ -43,14 +53,23 @@ export const STEWARD_DRAWER_BLOCK_IDS = Object.freeze([
   'stewardDrawerMission',
   'stewardDrawerTabs',
   'stewardDrawerHead',
+  'stewardDrawerAsk',        // 117l D4：④「它在问你」（走查①：提问弹出来了却没有问答框）
   'stewardDrawerChips',
   'stewardDrawerLastSay',
   'stewardDrawerQuickReplies',
+  'stewardDrawerMore',       // 117l D4：⑧「更多」容器（走查③：线程页太多太杂），下面四块住在它里面
   'stewardDrawerRelay',
   'stewardDrawerActivity',
   'stewardDrawerAcceptance',
   'stewardDrawerScene',
   'stewardDrawerFoot',
+]);
+// 折进「更多」的那四块（顺序即它们在 <details> 里的顺序）。静态锁按这张表核对「四块确实在容器内」。
+export const STEWARD_DRAWER_MORE_BLOCK_IDS = Object.freeze([
+  'stewardDrawerRelay',
+  'stewardDrawerActivity',
+  'stewardDrawerAcceptance',
+  'stewardDrawerScene',
 ]);
 
 // 「它刚说」= 最后一条助手消息的【原话】前 ≤3 句（§8.13：不是模型另写的摘要）。中英句末标点同表。
@@ -60,6 +79,65 @@ export function lastSaySentences(text, max = STEWARD_LAST_SAY_SENTENCES) {
   const parts = clean.match(/[^。！？.!?]+[。！？.!?]*/g) || [clean];
   return parts.slice(0, Math.max(1, max)).join('').trim();
 }
+
+// 117l D4（用户第四轮走查③「它刚说更新还是不够及时」）：在跑的回合里，要看的是【尾巴】。
+// 服务端的 liveTail 本身就是一段被裁到 600 字的活文本（前面很可能被从中间切断），所以取【末尾】
+// ≤3 句而不是开头 —— 与上面那个函数是一对，切句判据（同一张标点表）逐字共用。
+export function liveTailSentences(text, max = STEWARD_LAST_SAY_SENTENCES) {
+  const clean = String(text == null ? '' : text).replace(/\r\n/g, '\n').trim();
+  if (!clean) return '';
+  const parts = clean.match(/[^。！？.!?]+[。！？.!?]*/g) || [clean];
+  return parts.slice(-Math.max(1, max)).join('').trim();
+}
+
+// 「它在问你」（§11.9 D4）。三个来源，优先级固定：
+//   ① 正式待决 question（机器可答：有 questionId，前端给选项按钮，答案走 /api/chat/answer）；
+//   ② 线程行上的 asksYou（服务端 06i 的 stewardAsksYou 单点判定，看板行与抽屉同一份）；
+//   ③ 客户端兜底：没有待决、回合不在跑、最后一条助手消息以问号收尾 → 取末段（≤300 字）。
+// ③ 存在的理由：服务端那一路的 soft 判定吃的是总览行里被裁到 160 字的 head.summary，会漏报；
+// 抽屉手上有完整的会话正文，所以在这里补一道（只可能补出更多，不会把 ① ② 判反）。
+export const STEWARD_ASKS_YOU_CHARS = 300;
+export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false } = {}) {
+  if (pending && String(pending.type) === 'question') {
+    const questions = (Array.isArray(pending.questions) ? pending.questions : [])
+      .map(q => String((q && (q.question || q.title)) || '').trim()).filter(Boolean);
+    return {
+      kind: 'question',
+      questionId: String(pending.id || ''),
+      texts: questions.length ? questions : [String(pending.questionSummary || '').trim()].filter(Boolean),
+    };
+  }
+  if (pending) return null;                       // permission／plan 等：不是「在问你一句话」，交给 ⑥
+  const row = (rowAsksYou && typeof rowAsksYou === 'object') ? rowAsksYou : null;
+  const rowText = String((row && row.text) || '').trim();
+  // 行上说「在问你」而本地待决清单还没到（两趟请求之间的那一帧）：照样把问题摆出来。没有本地
+  // 待决就没有选项按钮，自由回答走递话单口 —— 服务端那一头照样判成 answer 通道，不会答错地方。
+  if (row && String(row.kind) === 'question' && rowText) return { kind: 'question', questionId: '', texts: [rowText] };
+  if (row && String(row.kind) === 'soft' && rowText) return { kind: 'soft', texts: [rowText] };
+  if (live) return null;                          // 在跑就不算「在问你」（它还在说）
+  const said = String(lastAssistantText || '').trim();
+  if (!/[？?]$/.test(said)) return null;
+  const tail = (said.split(/\n+/).pop() || said).split(/(?<=[。！;；])/).pop().trim() || said;
+  return { kind: 'soft', texts: [tail.slice(0, STEWARD_ASKS_YOU_CHARS)] };
+}
+
+// 117l D4：活回合正在用的那个工具，界面上得说人话 —— 铁律「界面上永远不出现内部 id（含工具名）」。
+// 这张表只覆盖线程侧最常见的那几个；表外的一律落到「一个工具」（诚实兜底，绝不把 Bash/Grep 这种
+// 机器把手漏到用户面前）。管家侧的工具人话表在 steward-settings.js，两张表管的是两批工具，不重叠。
+export const STEWARD_THREAD_TOOL_LABEL_KEYS = Object.freeze({
+  Read: 'stewardShell.drawer.tool.read',
+  Write: 'stewardShell.drawer.tool.write',
+  Edit: 'stewardShell.drawer.tool.edit',
+  Bash: 'stewardShell.drawer.tool.bash',
+  Glob: 'stewardShell.drawer.tool.search',
+  Grep: 'stewardShell.drawer.tool.search',
+  Task: 'stewardShell.drawer.tool.subagent',
+  WebSearch: 'stewardShell.drawer.tool.web',
+  WebFetch: 'stewardShell.drawer.tool.web',
+  TodoWrite: 'stewardShell.drawer.tool.todo',
+  // 挂在提问上时 liveTail.tool 就是这个 —— 说「正在用一个工具」是假话，它在【等你】。
+  request_user_input: 'stewardShell.drawer.tool.askYou',
+});
 
 // 「你可以说」的来源是【确定性优先级】，不是模型生成（§8.13）：
 //   待决的选项（question 的候选答案 / permission 的允许·拒绝） > 最后一句是问句 > 五态默认。
@@ -149,6 +227,8 @@ export function createStewardDrawer({
   let sessionId = '';
   let session = null;             // GET /api/sessions/:id 的 session
   let resumable = null;           // 同一响应的 resumable（live 判定：在途才走插话通道）
+  // 117l D4：同一响应【条件】带出来的活回合尾巴（回合一结束这个键就不在了）。零新请求。
+  let liveTail = null;            // { text, tool, updatedAt } | null
   // 116-5b：同一响应信封里的显示名（人起的 > 生成的 > 原话，判据在服务端 02 的 sessionDisplayTitle）。
   let displayTitle = '';
   let missionRows = [];           // GET /api/missions 里与本线程同事项的行（线程行）
@@ -183,7 +263,9 @@ export function createStewardDrawer({
     if (target) target.textContent = String(text || '');
   }
   function failNote(error) {
-    note(t('stewardShell.drawer.failed', { error: String((error && error.message) || error || 'failed') }));
+    const info = apiErrorInfo(error);
+    const message = String((info && info.message) || (error && error.message) || error || 'failed');
+    note(t('stewardShell.drawer.failed', { error: message }));
   }
 
   // ── 五态：只经 mission-state.js（全仓唯一判据），人话走 i18n（LABELS 是中文单语） ──────
@@ -201,6 +283,12 @@ export function createStewardDrawer({
     return Boolean(missionRow) && threadStateOf(missionRow) === 'running';
   }
 
+  // 工具名 → 人话（表外落到「一个工具」）。表住模块顶层，本函数只做查表。
+  function threadToolLabel(tool) {
+    const key = STEWARD_THREAD_TOOL_LABEL_KEYS[String(tool || '')];
+    return key ? t(key) : t('stewardShell.drawer.tool.other');
+  }
+
   // ── 取数 ────────────────────────────────────────────────────────────────────
   async function loadThreadSlice() {
     if (!sessionId) return;
@@ -214,6 +302,9 @@ export function createStewardDrawer({
       session = sessionRes.session;
       resumable = sessionRes.resumable || null;
       displayTitle = String(sessionRes.displayTitle || '');
+      // 117l D4：只在【真有活回合】时下发，所以「键不在」本身就是「回合结束了」的信号 ——
+      // 抽屉据此把「它正在说」换回「它刚说」。不落盘、不进任何投影。
+      liveTail = (sessionRes.liveTail && typeof sessionRes.liveTail === 'object') ? sessionRes.liveTail : null;
     }
     const list = (interventionsRes && Array.isArray(interventionsRes.pending)) ? interventionsRes.pending : [];
     pendingForThread = list.find(item => item && String(item.sessionId) === id) || null;
@@ -358,18 +449,119 @@ export function createStewardDrawer({
     return '';
   }
 
+  // 117l D4（用户第四轮走查③「它刚说更新还是不够及时」）：回合跑起来之后，落盘的助手消息几分钟
+  // 都不会变（活回合的文本只在发起那条 /api/chat/stream 连接上流，管家派出去的回合谁也看不见）。
+  // 现在在跑时改标题为「它正在说」并显示服务端 liveTail 的【末尾】≤3 句；回合一结束 liveTail 这个键
+  // 就不在了，标题与内容自动换回「它刚说」＋落盘原话的【开头】≤3 句。
   function renderLastSay() {
+    const head = byId('stewardDrawerLastSayHead');
     const quote = byId('stewardDrawerLastSayText');
     if (!quote) return;
+    const tailText = String((liveTail && liveTail.text) || '').trim();
+    // 判据【只看 liveTail 在不在】，不叠 isLive()：服务端只在真有活回合时才下发这个键，它比
+    // isLive() 准 —— 后者拿不到 resumable.live（GET /api/sessions/:id 的 live 分支根本不回这个字段）
+    // 就回落到「事项行的五态是不是 running」，而挂在提问上的回合五态是 needs_you，于是恒判成不在跑。
+    const streaming = Boolean(liveTail) && Boolean(tailText);
+    if (streaming) {
+      if (head) head.textContent = t('stewardShell.drawer.liveSay');
+      const tool = String((liveTail && liveTail.tool) || '').trim();
+      quote.textContent = liveTailSentences(tailText)
+        + (tool ? t('stewardShell.drawer.usingTool', { tool: threadToolLabel(tool) }) : '');
+      return;
+    }
+    if (head) head.textContent = t('stewardShell.drawer.lastSay');
+    // ④ 已经把这句问话原文摆出来了就不再重复一遍（走查③「太多太杂」：一屏两遍同一句话）。
+    const ask = asksYouNow();
     const said = lastSaySentences(lastAssistantText());
+    if (ask && ask.kind === 'soft' && said && ask.texts.some(text => said.indexOf(text) >= 0 || text.indexOf(said) >= 0)) {
+      quote.textContent = t('stewardShell.drawer.lastSayInAsk');
+      return;
+    }
     // 117k：还没读到就说「它还没说过话」是假话（多数时候它刚说过）。
     quote.textContent = said || (loading ? t('stewardShell.drawer.loading') : t('stewardShell.drawer.lastSayEmpty'));
   }
 
+  // ── ④ 它在问你（117l D4）────────────────────────────────────────────────────
+  function asksYouNow() {
+    return asksYouFrom({
+      pending: pendingForThread,
+      rowAsksYou: missionRow && missionRow.asksYou,
+      lastAssistantText: lastAssistantText(),
+      live: isLive(),
+    });
+  }
+
+  // 待决 question 的选项按钮：与 ⑥「你可以说」【同一份】判据（quickRepliesFor），只是摆在卡片里。
+  // 不另写一遍「从 questions[0].options 里取 label||value」—— 那会长出第二套取值口径。
+  function askOptionReplies() {
+    if (!pendingForThread || String(pendingForThread.type) !== 'question') return [];
+    return quickRepliesFor({ pending: pendingForThread, t }).filter(reply => reply.kind === 'question');
+  }
+
+  function renderAsk() {
+    const section = byId('stewardDrawerAsk');
+    const list = clear(byId('stewardDrawerAskText'));
+    const options = clear(byId('stewardDrawerAskOptions'));
+    if (!section || !list || !options) return;
+    const ask = asksYouNow();
+    section.hidden = !ask;
+    if (!ask) return;
+    for (const text of ask.texts) list.appendChild(el('li', 'steward-drawer-ask-line', text));
+    for (const reply of askOptionReplies()) {
+      const button = el('button', 'steward-drawer-reply', reply.label);
+      button.type = 'button';
+      button.dataset.replyKind = reply.kind;
+      button.onclick = () => runQuickReply(reply);
+      options.appendChild(button);
+    }
+  }
+
+  // 卡片里的自由回答。正式待决 question 走 /api/chat/answer（content ＋ otherText，与选项按钮
+  // 同一条路）；其余（软问句、或行上说在问你而本地待决还没到）走递话单口 /api/steward/relay。
+  async function submitAsk() {
+    const input = byId('stewardDrawerAskInput');
+    const text = input ? String(input.value || '').trim() : '';
+    if (!text || !sessionId) return;
+    const ask = asksYouNow();
+    if (!ask) return;
+    if (input) input.value = '';
+    if (ask.kind === 'question' && pendingForThread && String(pendingForThread.type) === 'question') {
+      const first = (Array.isArray(pendingForThread.questions) ? pendingForThread.questions : [])[0] || null;
+      try {
+        const answered = await api('/api/chat/answer', {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId,
+            questionId: String(pendingForThread.id || ''),
+            answers: [{ questionId: String((first && first.id) || ''), selectedOptionIds: [], otherText: text }],
+            content: text,
+          }),
+        });
+        if (!answered || answered.ok !== true) { failNote((answered && answered.error) || 'answer_failed'); return; }
+        note(t('stewardShell.drawer.answered'));
+      } catch (error) { failNote(error); return; }
+    } else if (!(await sayToThread(text))) return;
+    await refreshOnce();
+    lastPollAt = 0;   // 与 runQuickReply 同一条：把节拍闸清零，让已经在跑的那张表下一拍真去拉
+  }
+
+  // 「打开线程回答」按下去该发生的事（走查①）：抽屉开出来之后，焦点落在问答框里。
+  function focusAsk() {
+    const section = byId('stewardDrawerAsk');
+    const input = byId('stewardDrawerAskInput');
+    if (!section || section.hidden || !input || typeof input.focus !== 'function') return false;
+    try { input.focus(); } catch { return false; }
+    return true;
+  }
+
   // ── ⑥ 你可以说 ──────────────────────────────────────────────────────────────
   function renderQuickReplies() {
+    const section = byId('stewardDrawerQuickReplies');
     const host = clear(byId('stewardDrawerQuickRepliesRow'));
     if (!host) return;
+    // 117l D4：④ 已经把同一批选项按钮摆出来时，本区整块隐藏 —— 两排一模一样的按钮只会让人犹豫
+    // 该点哪一排（走查③「太多太杂」）。判据就是 askOptionReplies 有没有东西，不另起一套。
+    if (section) section.hidden = askOptionReplies().length > 0;
     const replies = quickRepliesFor({
       pending: pendingForThread,
       // 问句判定看的是【整条原话】的收尾，不是「它刚说」那 ≤3 句的截断 —— 把问句截掉再判，
@@ -429,9 +621,12 @@ export function createStewardDrawer({
   function settledHead() {
     if (isLive() || pendingForThread) return '';
     if (!(Number(session && session.turnSeq) > 0)) return '';   // 一回合都没跑过,说「收工」是撒谎
-    const started = (snapshot && snapshot.createdAt) || (session && session.createdAt) || '';
-    const elapsed = started ? elapsedLabel(started, new Date()) : '';
-    return elapsed ? t('stewardShell.drawer.settled', { elapsed }) : '';
+    // 117l D4（用户第四轮走查③）：修前这里算的是【从建会话】到现在，于是真机上出现「收工 · 用时
+    // 770h 35m」—— 那不是它干了 770 小时，那是这条会话建了一个月。改说「最近动过 X 前」，锚点换成
+    // updatedAt（同一处 elapsedLabel，判据不复制）。拿不到 updatedAt 就不说 —— 不猜。
+    const touched = String((missionRow && missionRow.updatedAt) || (session && session.updatedAt) || '');
+    const elapsed = touched ? elapsedLabel(touched, new Date()) : '';
+    return elapsed ? t('stewardShell.drawer.settledSince', { elapsed }) : '';
   }
 
   function renderActivity() {
@@ -495,6 +690,7 @@ export function createStewardDrawer({
     renderMission();
     renderTabs();
     renderHead();
+    renderAsk();
     renderLastSay();
     renderQuickReplies();
     renderRelay();
@@ -504,26 +700,23 @@ export function createStewardDrawer({
   }
 
   // ── 直连发话（§8.13「不经管家」）────────────────────────────────────────────
-  // 在途 → 插话通道；空闲 → 开一个新回合。抽屉不渲染流，把响应体读完就算送达（读完＝服务端
-  // 那一路已经落盘，用户回 2.0 视窗看得到；这里不做第二个消息渲染器）。
+  // 117l D2：**单口 POST /api/steward/relay**，通道由服务端一处判（answer > permission > steer > turn）。
+  // 修前抽屉自己猜：`isLive()` 假就直打 /api/chat/stream —— 而线程挂在 request_user_input 上等答案时
+  // 恰恰不 live，于是 09-workflow 的 `activeChildren.has → stopSession('superseded')` 把用户还没回答
+  // 的那道提问连回合一起杀了（真机 10:32:34 的 turn_kill，§11.9.2）。抽屉不再渲染流：relay 是一次
+  // 普通 JSON 往返，正文仍由 2.0 视窗与经典流负责呈现。
+  const RELAY_NOTE_KEYS = Object.freeze({
+    answer: 'stewardShell.drawer.relayAnswered',
+    steer: 'stewardShell.drawer.steered',
+    turn: 'stewardShell.drawer.sent',
+  });
   async function sayToThread(text) {
     const message = String(text || '').trim();
     if (!message || !sessionId) return false;
     try {
-      if (isLive()) {
-        const steered = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text: message }) });
-        if (!steered || steered.ok === false) { failNote((steered && steered.error) || 'steer_failed'); return false; }
-        note(t('stewardShell.drawer.steered'));
-        return true;
-      }
-      const response = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ sessionId, message }),
-      });
-      if (!response.ok) { failNote(await response.text()); return false; }
-      await response.text();       // 读到结束即送达；NDJSON 正文由 2.0 视窗与经典流负责呈现
-      note(t('stewardShell.drawer.sent'));
+      const relayed = await api('/api/steward/relay', { method: 'POST', body: JSON.stringify({ sessionId, message }) });
+      if (!relayed || relayed.ok === false) { failNote((relayed && relayed.error) || 'relay_failed'); return false; }
+      note(t(RELAY_NOTE_KEYS[String(relayed.channel || '')] || 'stewardShell.drawer.sent'));
       return true;
     } catch (error) { failNote(error); return false; }
   }
@@ -709,6 +902,7 @@ export function createStewardDrawer({
     sessionId = id;
     loading = true;
     session = null; resumable = null; snapshot = null; pendingForThread = null;
+    liveTail = null;     // 117l D4：切线程要一起清，否则新线程第一帧还挂着上一条的活回合尾巴
     displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
     missionRow = null; missionRows = [];
     drawer.hidden = false;
@@ -719,7 +913,12 @@ export function createStewardDrawer({
     syncPolling();
     const title = byId('stewardDrawerTitle');
     if (title && typeof title.focus === 'function') { title.tabIndex = -1; title.focus(); }
-    try { await refreshOnce(); } finally { if (sessionId === id) { loading = false; renderAll(); } }
+    // 117l D4（用户第四轮走查①）：数据到齐、「读取中」闸落下的【那一帧】，如果「它在问你」真的
+    // 在，焦点就落进那个回答框 —— 这才是「打开线程回答」按下去该发生的事（open_thread act →
+    // steward:focus-thread → 抽屉）。闸落之前不抢焦点：那时候还不知道它到底有没有在问你。
+    try { await refreshOnce(); } finally {
+      if (sessionId === id) { loading = false; renderAll(); focusAsk(); }
+    }
   }
 
   // 「交回管家」＝关抽屉、焦点回输入框、输入区 chip 恢复「→ 如意」（composer.resetComposer 由宿主接）。
@@ -751,6 +950,7 @@ export function createStewardDrawer({
     on('stewardDrawerFullTextBtn', () => { openClassicView(); });
     on('stewardDrawerChangesBtn', () => { openClassicView(); });
     on('stewardDrawerSendBtn', () => { submitDirect(); });
+    on('stewardDrawerAskSendBtn', () => { submitAsk(); });
     on('stewardDrawerPauseBtn', () => { runAction('pause'); });
     on('stewardDrawerResumeBtn', () => { runAction('resume'); });
     on('stewardDrawerStopBtn', () => { stopThread(); });
@@ -762,6 +962,15 @@ export function createStewardDrawer({
         if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
         event.preventDefault();
         submitDirect();
+      });
+    }
+    // 117l D4：问答框的 Enter 与底部输入框同一套规矩（Shift+Enter 换行、输入法组合中不发）。
+    const askInput = byId('stewardDrawerAskInput');
+    if (askInput) {
+      askInput.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+        event.preventDefault();
+        submitAsk();
       });
     }
 

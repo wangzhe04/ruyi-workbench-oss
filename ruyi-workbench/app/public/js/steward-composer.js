@@ -89,13 +89,33 @@ export function createStewardComposer({
     while (recent.length > STEWARD_RECENT_MAX) recent.pop();
   }
 
+  // 117l D1（用户第四轮走查②「无论关键词匹配到什么，都要发给管家让它决定」）：
+  // **只有 picked 才是目标**。自动预判从「目标」降级成「提示」—— 它进 routeHint 随请求走，由管家
+  // 在回合里决定接着办／新开／直接答（服务端只信 sessionId，标题自己重查）。修前这里把 routeHits[0]
+  // 当成目标返回，于是 submit() 走 handOff 直递：用户说「大A这周走势会怎么样」被「走势」命中美股那条
+  // 线程，一句新话直接递进去，把那条线程正在等的提问 supersede 掉（§11.9.2 ①⑥ 同一起事故）。
   function currentTarget() {
-    if (picked) return picked;
+    return picked;   // null = 递给如意（预判不再是目标，见 hintedThread）
+  }
+
+  // 预判命中的线程：只用来显示 chip 上那句「像是接着『X』」并组装 routeHint，永远不是递送目标。
+  function hintedThread() {
+    if (picked) return null;
     if (routeKind === 'thread' && routeHits.length) {
       // 117k（用户走查③）：与上面 recent／candidates 同一口径 —— 显示名优先。缺席时逐字等于 title。
       return { sessionId: String(routeHits[0].sessionId), title: String(routeHits[0].displayTitle || routeHits[0].title || routeHits[0].sessionId) };
     }
-    return null;   // null = 递给如意
+    return null;
+  }
+
+  // 随 POST /api/steward/message 一起走的提示（§11.9 D1）。前端给的文字一个字都不进提示词 ——
+  // 服务端只认 sessionId，标题它自己重查；这里只带 sessionId 与命中理由，最多 3 条。
+  function routeHintPayload() {
+    return {
+      kind: String(routeKind || 'steward'),
+      hits: routeHits.slice(0, 3).map(hit => ({ sessionId: String((hit && hit.sessionId) || ''), reason: String((hit && hit.reason) || '') })),
+      picked: null,
+    };
   }
 
   function renderChip() {
@@ -104,13 +124,14 @@ export function createStewardComposer({
     const label = chip.querySelector('.steward-target-label');
     const clear = chip.querySelector('.steward-target-clear');
     const target = currentTarget();
-    chip.classList.toggle('is-thread', Boolean(target));
+    const hint = hintedThread();
+    chip.classList.toggle('is-thread', Boolean(target || hint));
     chip.classList.toggle('is-picked', Boolean(picked));
     if (clear) clear.hidden = !picked;
     if (!label) return;
-    label.textContent = target
-      ? t('stewardShell.compose.targetThread', { title: target.title })
-      : t(stewardTargetKey(routeKind));
+    if (target) label.textContent = t('stewardShell.compose.targetThread', { title: target.title });
+    else if (hint) label.textContent = t('stewardShell.compose.targetSteward.hint', { title: hint.title });
+    else label.textContent = t(stewardTargetKey(routeKind));
   }
 
   // ── 输入即预判：去抖 ＋ 序号丢弃 ─────────────────────────────────────────────
@@ -234,25 +255,25 @@ export function createStewardComposer({
   }
 
   // ── 发送 ────────────────────────────────────────────────────────────────────
-  let sending = false;
+  // 117l D3：这里【没有】「上一句还没发完就不许再发」的闸。修前那道 `sending` 守卫与
+  // conversation 里的 `streaming` 守卫叠在一起，用户连着说两句时第二句被无声丢弃（走查⑥）。
+  // 清空输入框仍然是发送的第一步 —— 它同时也是天然的重入保护：第二次 submit 拿到的是空串。
   async function submit() {
     const input = byId('stewardComposerInput');
-    if (!input || sending || !conversation) return;
+    if (!input || !conversation) return;
     const text = String(input.value || '').trim();
     if (!text) return;
     const target = currentTarget();
-    sending = true;
     input.value = '';
     input.placeholder = t('stewardShell.compose.placeholder');
     cancelPreroute();
     closePicker();
     try {
-      // 目标是线程 → 直接递（不经管家回合）；如意／会问你／定时一律发给管家（§8.12 第 2、5 条：
-      // 分不出高下时由管家出那句二选一；定时意图在 119 到位前由管家自答或另起一件）。
+      // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
+      // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
       if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits });
-      else await conversation.sendToSteward(text);
+      else await conversation.sendToSteward(text, { routeHint: routeHintPayload() });
     } finally {
-      sending = false;
       picked = null;             // 手选只管这一次发送，之后自动回到「→ 如意」
       routeKind = 'steward';
       routeHits = [];

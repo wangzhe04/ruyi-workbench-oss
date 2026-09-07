@@ -28,6 +28,9 @@ import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F4：※ �
 // （decoder + 按行切 + 末尾残行补发），鉴权头复用 net.js 的 authHeaders()，不另起一套 token 读取。
 
 export const STEWARD_ACTS_MAX = 3;                       // §8.4 纪律：一次回合按钮 ≤3 个
+// 117l D3（用户第四轮走查⑥「要能让用户连续发消息」）：管家在跑时用户还能接着说，第二句立刻上屏、
+// 标「排队中」、按序发。上限 5 条 —— 再多就不是「连着说两句」而是刷屏，超了在输入框旁如实说一句。
+export const STEWARD_SEND_QUEUE_MAX = 5;
 export const STEWARD_UNDO_WINDOW_MS = 10000;             // §8.12 第 3 条：10 秒撤回窄窗
 export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在的时候」要点 ≤5 条
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
@@ -207,9 +210,15 @@ export function createStewardConversation({
 
   // 「※」= 依据／影响范围／来源的浮层。默认收起；aria-expanded 跟着开合走，浮层本身是
   // role="dialog"（§8.4「依据收进句尾 ※」＋ §8.8 键盘可达）。
-  function attachWhy(sayNode, why, extraLines) {
-    const lines = [String(why || '').trim(), ...(Array.isArray(extraLines) ? extraLines : [])]
-      .map(line => String(line || '').trim()).filter(Boolean);
+  // 117l D5（用户第四轮走查④「管家回复的※号没有正确的标明标题」）：浮层里原来是一串没头没尾的
+  // 句子 —— 第一行是模型给的「依据」，后面几行是本回合【已经做掉】的动作回执，读者分不出哪句是哪。
+  // 现在分两段各带一个小标题；两个小标题都只在对应内容非空时才渲染（没有的段落连标题一起不出现）。
+  //   whyLines —— 依据（模型的 why ＋ 调用方补的同类说明，比如「其它候选：A、B」）
+  //   doneLines —— 已办（actionWhyLines：本回合执行过的工具回执）
+  function attachWhy(sayNode, why, doneLines, extraWhyLines) {
+    const clean = list => (Array.isArray(list) ? list : []).map(line => String(line || '').trim()).filter(Boolean);
+    const whyLines = clean([String(why || ''), ...(Array.isArray(extraWhyLines) ? extraWhyLines : [])]);
+    const doneRows = clean(doneLines);
     const trigger = button('steward-why-btn', '※');
     trigger.setAttribute('aria-expanded', 'false');
     trigger.title = t('stewardShell.chat.whyLabel');
@@ -218,8 +227,15 @@ export function createStewardConversation({
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', t('stewardShell.chat.whyLabel'));
     pop.hidden = true;
-    if (!lines.length) pop.appendChild(el('p', 'steward-why-line', t('stewardShell.chat.whyEmpty')));
-    else for (const line of lines) pop.appendChild(el('p', 'steward-why-line', line));
+    if (!whyLines.length && !doneRows.length) pop.appendChild(el('p', 'steward-why-line', t('stewardShell.chat.whyEmpty')));
+    if (whyLines.length) {
+      pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyHeading')));
+      for (const line of whyLines) pop.appendChild(el('p', 'steward-why-line', line));
+    }
+    if (doneRows.length) {
+      pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyDone')));
+      for (const line of doneRows) pop.appendChild(el('p', 'steward-why-line', line));
+    }
     // 117j UX-F4：※ 浮层的 Esc 此前挂在浮层【自己】身上 —— 点开它焦点还在触发按钮上，
     // 键盘事件根本不经过浮层，于是那条监听形同虚设。改成开的时候进 Esc 栈（栈的监听在 document 上）。
     let releaseWhyEscape = null;
@@ -245,13 +261,13 @@ export function createStewardConversation({
     return pop;
   }
 
-  function appendSteward(say, why, extraWhyLines) {
+  function appendSteward(say, why, doneLines, extraWhyLines) {
     const row = appendRow('ruyi');
     if (!row) return null;
     moveAvatarTo(row);   // W2-3：头像永远在【最新】一条管家的话旁边
     const sayNode = el('p', 'steward-say', String(say || ''));
     row.appendChild(sayNode);
-    row.appendChild(attachWhy(sayNode, why, extraWhyLines));
+    row.appendChild(attachWhy(sayNode, why, doneLines, extraWhyLines));
     const feed = feedEl();
     if (feed) feed.scrollTop = feed.scrollHeight;
     return row;
@@ -432,11 +448,63 @@ export function createStewardConversation({
   }
 
   // ── 发给如意：POST /api/steward/message 的 NDJSON 流 ─────────────────────────
+  // 117l D3（用户第四轮走查⑥）：修前这里是 `if (!message || streaming) return null;` —— 管家还在流
+  // 的时候用户再说一句，那句话【无声无息地消失】：不上屏、不排队、不报错，用户只看见自己敲的字被
+  // 清空了。现在改成队列：第二句立刻上屏并标「排队中」，当前这条流收尾时按序发下一条。
   let streaming = false;
-  async function sendToSteward(text) {
+  const sendQueue = [];
+
+  // 输入框旁那行小字（队列满时说「先等一等」）。它与抽屉的 note 是两处，各归各的区域。
+  function composerNote(text) {
+    const node = byId('stewardComposerNote');
+    if (node) node.textContent = String(text || '');
+  }
+
+  // 排队中的那一行：淡一点 ＋ 右下角一枚「排队中」小标。用真节点而不是 CSS ::after —— 生成内容
+  // 在部分读屏里读不到，而这句话恰恰是「你的话没丢，只是还没轮到」的唯一凭据。
+  function markQueued(row, on) {
+    if (!row) return;
+    row.classList.toggle('is-queued', on === true);
+    const existing = row.querySelector('.steward-queued');
+    if (on !== true) { if (existing && existing.parentNode) existing.parentNode.removeChild(existing); return; }
+    if (existing) return;
+    const tag = el('span', 'steward-queued', t('stewardShell.chat.queued'));
+    tag.setAttribute('aria-label', t('stewardShell.chat.queued'));
+    row.appendChild(tag);
+  }
+
+  function drainQueue() {
+    const next = sendQueue.shift();
+    if (!next) return;
+    // 人已经走了（切壳／关管家）就别替他把排队的话发出去。resetConversation 那一头【不】动 ——
+    // 它的函数体被 steward-conversation.static I7/I9 逐字钉着，而这道判据放在出口这里更准：
+    // 离开壳时正在跑的那条流仍会走到 finally，于是清队列恰好发生在它收尾的那一刻。
+    if (!isStewardMode()) {
+      // 连同还排在后面的那几行一起摘掉「排队中」—— 它们永远不会被发出去了，留着那枚小标是撒谎。
+      for (const row of [next, ...sendQueue]) markQueued(row.row, false);
+      sendQueue.length = 0;
+      return;
+    }
+    markQueued(next.row, false);
+    void runSend(next.message, next.opts, next.row);
+  }
+
+  async function sendToSteward(text, opts = {}) {
     const message = String(text || '').trim();
-    if (!message || streaming) return null;
-    appendUser(message);
+    if (!message) return null;
+    if (streaming) {
+      if (sendQueue.length >= STEWARD_SEND_QUEUE_MAX) { composerNote(t('stewardShell.chat.queueFull')); return null; }
+      const row = appendUser(message);
+      markQueued(row, true);
+      sendQueue.push({ message, opts: opts || {}, row });
+      return null;
+    }
+    return runSend(message, opts, null);
+  }
+
+  async function runSend(message, opts, queuedRow) {
+    composerNote('');
+    if (!queuedRow) appendUser(message);
     streaming = true;
     setPresence({ streaming: true, phase: 'thinking' });
     const row = appendTyping();
@@ -456,8 +524,11 @@ export function createStewardConversation({
       if (feed) feed.scrollTop = feed.scrollHeight;
     };
     try {
+      // 117l D1：routeHint 是【提示】，与用户那句话分开走（用户消息逐字不动的纪律，见 §11.9 D1
+      // 与 06b 的 routeHintBlock —— 服务端只信 sessionId，标题它自己重查）。没有 hint 时不带这个键。
+      const hint = (opts && opts.routeHint && typeof opts.routeHint === 'object') ? opts.routeHint : null;
       const res = await fetch('/api/steward/message', {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ message }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}) }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       const reader = res.body.getReader();
@@ -493,7 +564,7 @@ export function createStewardConversation({
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
       const engineInfo = engineProblemInfo(error);
       if (engineInfo) {
-        showEngineProblem(() => sendToSteward(message), engineInfo);
+        showEngineProblem(() => sendToSteward(message, opts), engineInfo);
         return null;
       }
       const failRow = appendSteward(t('stewardShell.chat.streamFailed'), '');
@@ -503,7 +574,7 @@ export function createStewardConversation({
         const retryRow = el('div', 'steward-acts');
         const retryBtn = button('steward-act', t('stewardShell.chat.retry'), () => {
           if (failRow.parentNode) failRow.parentNode.removeChild(failRow);
-          sendToSteward(message);
+          sendToSteward(message, opts);
         });
         retryBtn.classList.add(STEWARD_PRIMARY_CLASS);
         retryRow.appendChild(retryBtn);
@@ -513,6 +584,9 @@ export function createStewardConversation({
     } finally {
       streaming = false;
       setPresence({ streaming: false, phase: 'idle' });
+      // 117l D3：这一条收尾了才轮到排队的下一条（按序发；不 await —— finally 里等下一条跑完
+      // 会把本次调用方一直挂住）。队列空时 drainQueue 立刻返回，老路径逐字不变。
+      drainQueue();
     }
   }
 
@@ -640,7 +714,9 @@ export function createStewardConversation({
       // 116-5b:与输入区候选列表同一份数据、同一个显示名(hit.displayTitle,服务端算好)。
       .map(hit => stewardShortTitle(hit.displayTitle || hit.title || hit.sessionId));
     // 117j copy-P3-1：列表分隔符走 i18n —— 中文用「、」，英文得用「, 」，写死一个必然在另一种语言下别扭。
-    const row = appendSteward(t('stewardShell.chat.handedOff', { title: label }), String(reason || ''),
+    // 「其它候选」是【依据】而不是【已办】：它说明「为什么递给了这一条」，所以走第 4 个参数
+    // （117l D5 把 ※ 分成「依据／已办」两段之后，这一行如果留在第 3 个参数上会被扣上「已办」的帽子）。
+    const row = appendSteward(t('stewardShell.chat.handedOff', { title: label }), String(reason || ''), [],
       others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join(t('stewardShell.chat.listSeparator')) })] : []);
     focusThread(sid);
     const undoRef = (result && result.undoRef) || null;

@@ -234,6 +234,8 @@ const BOARD = `(() => {
         title: (item.querySelector('.steward-board-thread-title') || {}).textContent || '',
         state: (item.querySelector('.steward-board-dot') || {}).dataset?.state || '',
         wait: (item.querySelector('.steward-board-wait') || {}).textContent || '',
+        // 117l D4：行上那枚「它在问你」pill（只在 asksYou 非空时出现，点它＝打开抽屉）。
+        asksYou: [...item.querySelectorAll('.steward-board-pill.is-asks-you')].map(node => node.textContent.trim()),
         chips: [...item.querySelectorAll('.steward-board-chips .steward-chip')].map(node => node.dataset.chip),
         actions: [...item.querySelectorAll('.steward-board-actions .steward-board-btn')].map(node => node.dataset.action),
       })),
@@ -451,6 +453,16 @@ try {
     `C9 每行都有紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowA && JSON.stringify(rowA.chips)}）`);
   ok(Boolean(rowA) && ['prioritize', 'stop', 'open', 'classic'].every(action => rowA.actions.includes(action)),
     `C10 行操作齐备（优先／停止／打开／2.0；实测 ${rowA && JSON.stringify(rowA.actions)}）`);
+  // 117l D4（用户第四轮走查①）：只加不改 —— 真在问你的那一行多一枚 pill，其它行没有。
+  ok(Boolean(rowA) && JSON.stringify(rowA.asksYou) === JSON.stringify([zh['stewardShell.board.asksYou']]),
+    `C10b 挂着 question 待决的那一行有「它在问你」pill（实测 ${rowA && JSON.stringify(rowA.asksYou)}）`);
+  ok(Boolean(rowB) && rowB.asksYou.length === 0,
+    `C10c 在跑（没人在问你）的那一行【没有】这枚 pill（实测 ${rowB && JSON.stringify(rowB.asksYou)}）`);
+  await cdp.evaluate(`document.querySelector('#stewardBoardList .steward-board-thread[data-session-id="${created.A}"] .steward-board-pill.is-asks-you').click(), true`);
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.drawerHidden === false && snapshot.nowThread ? snapshot : null;
+  })()`)), 'C10d 点这枚 pill 就是打开抽屉（问答框在那儿）');
   ok(opened.intervals.filter(ms => ms === TICK_MS).length === 3,
     `C11 看板打开才起第三条计时器（实测 ${JSON.stringify(opened.intervals)}）`);
 

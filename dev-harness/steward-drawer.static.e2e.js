@@ -51,21 +51,36 @@ const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chi
 
 // ─── A 区块顺序即契约 ────────────────────────────────────────────────────────────
 const BLOCKS = mod.STEWARD_DRAWER_BLOCK_IDS;
-ok(Array.isArray(BLOCKS) && BLOCKS.length === 11 && Object.isFrozen(BLOCKS),
-  `A1 导出的区块顺序表是冻结的 11 项（实测 ${BLOCKS && BLOCKS.length}）`);
+// 117l D4 **重钉 A1/A2**（用户第四轮走查①③；语义是「多了两块、四块换了位置」，不是放宽）。
+// 旧断言钉的是 117d 立的十一块常驻清单。用户第四轮走查推翻了它的两条前提：
+//   ① 「线程里的提问出来时…并没有 2.0 的那种问答框，导致没法正常地回复」→ ③ 之下必须多一张
+//      「它在问你」卡（stewardDrawerAsk）；
+//   ③ 「线程页内容还是太多太杂了」→ 接力／三问／验收项／现场四块折进默认收起的
+//      <details id="stewardDrawerMore">。
+// 所以清单从 11 变 13（多的两项是「问答卡」与「更多」这个容器本身）。
+// companion（A2b）：被折进去的那四块【一块没少、顺序没变】—— 这条修法是「换个地方放」，
+// 不是「删掉」，静态锁必须能把「顺手删了一块」和「折起来了」分开。
+ok(Array.isArray(BLOCKS) && BLOCKS.length === 13 && Object.isFrozen(BLOCKS),
+  `A1 导出的区块顺序表是冻结的 13 项（实测 ${BLOCKS && BLOCKS.length}）`);
 ok(JSON.stringify(BLOCKS) === JSON.stringify([
   'stewardDrawerMission',      // ① 事项行
   'stewardDrawerTabs',         // ② 线程页签
   'stewardDrawerHead',         // ③ 线程头
-  'stewardDrawerChips',        // ④ 快切 chip
-  'stewardDrawerLastSay',      // ⑤ 它刚说
-  'stewardDrawerQuickReplies', // ⑥ 你可以说
-  'stewardDrawerRelay',        // ⑦ 接力关系
-  'stewardDrawerActivity',     // ⑧ 三问
-  'stewardDrawerAcceptance',   // ⑨ 验收项
-  'stewardDrawerScene',        // ⑩ 现场
+  'stewardDrawerAsk',          // ④ 它在问你（117l）
+  'stewardDrawerChips',        // ⑤ 快切 chip
+  'stewardDrawerLastSay',      // ⑥ 它正在说／它刚说
+  'stewardDrawerQuickReplies', // ⑦ 你可以说
+  'stewardDrawerMore',         // ⑧ 更多（容器，117l）
+  'stewardDrawerRelay',        // ⑧-1 接力关系
+  'stewardDrawerActivity',     // ⑧-2 三问
+  'stewardDrawerAcceptance',   // ⑧-3 验收项
+  'stewardDrawerScene',        // ⑧-4 现场
   'stewardDrawerFoot',         // ⑪ 底部
-]), `A2 区块顺序逐字为 §8.13 那一串（实测 ${JSON.stringify(BLOCKS)}）`);
+]), `A2 区块顺序逐字为 §11.9 D4 那一串（实测 ${JSON.stringify(BLOCKS)}）`);
+ok(JSON.stringify(mod.STEWARD_DRAWER_MORE_BLOCK_IDS)
+  === JSON.stringify(['stewardDrawerRelay', 'stewardDrawerActivity', 'stewardDrawerAcceptance', 'stewardDrawerScene'])
+  && mod.STEWARD_DRAWER_MORE_BLOCK_IDS.every(id => BLOCKS.includes(id)),
+  'A2b companion：折进「更多」的四块一块没少、顺序没变（这条修法是换地方，不是删块）');
 const positions = BLOCKS.map(id => html.indexOf(`id="${id}"`));
 ok(positions.every(index => index > 0), 'A3 十一个区块骨架都静态写在 index.html 里（不是 JS 现搭）');
 ok(positions.every((index, i) => i === 0 || index > positions[i - 1]),
@@ -172,19 +187,37 @@ const routes = [...new Set([
   ...[...`${drawerCode}\n${chipsCode}`.matchAll(/'(\/api\/[a-z/-]+)[^']*'/g)].map(match => match[1]),
   ...[...`${drawerCode}\n${chipsCode}`.matchAll(/`(\/api\/[a-z/-]+)\$\{/g)].map(match => match[1]),
 ])].sort();
+// 117l D2 **重钉 F1/F2/F4**（用户第四轮走查①⑥；语义是收紧：路由面从两条收成一条）。
+// 旧断言钉的是「抽屉自己在 /api/steer 与 /api/chat/stream 之间二选一」（F4 逐字钉了 isLive() 那道
+// 判据，F1 的白名单里因此有这两条，F2 钉了那一处直调 fetch）。真机 10:32:34 证明这个二选一是错的：
+// 线程挂在 request_user_input 上等答案时【不 live】，于是走 /api/chat/stream 开新回合，
+// 09-workflow:1343 的 `activeChildren.has → stopSession('superseded')` 把用户还没回答的那道提问
+// 连回合一起杀了（turn_kill reason:superseded，§11.9.2 ①⑥）。117l 把通道判定收进服务端单点
+// （13h 的 stewardRelayChannelFor：answer > permission > steer > turn），抽屉只剩一个口子。
+// 所以白名单加 /api/steward/relay、去掉 /api/steer 与 /api/chat/stream；F2 从「恰好一处 fetch」
+// 收紧成「零处 fetch」（不再需要读流，也就不再需要 authHeaders）。
 const ALLOWED = [
-  '/api/agent-runs/', '/api/chat/answer', '/api/chat/stream', '/api/interventions',
+  '/api/agent-runs/', '/api/chat/answer', '/api/interventions',
   '/api/missions', '/api/missions/', '/api/permission/decision', '/api/session/rewind',
-  '/api/sessions/', '/api/steer', '/api/stop',
+  '/api/sessions/', '/api/steward/relay', '/api/stop',
 ].sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
-  `F1 只调既有路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
-ok(count(drawerCode, /\bfetch\(/g) === 1 && /await response\.text\(\);/.test(drawer)
-  && /import \{ authHeaders \} from '\.\/net\.js';/.test(drawer),
-  'F2 唯一的直调 fetch 是 POST /api/chat/stream（api() 吃不下流），鉴权头复用 net.js；抽屉不渲染流');
+  `F1 递话收成单口：白名单里有 /api/steward/relay，没有 /api/steer 与 /api/chat/stream（实测 ${JSON.stringify(routes)}）`);
+ok(count(drawerCode, /\bfetch\(/g) === 0 && !/authHeaders/.test(drawerCode)
+  && /import \{ apiErrorInfo \} from '\.\/net\.js';/.test(drawer),
+  `F2 抽屉零直调 fetch（不再读流）；net.js 那一份改取 apiErrorInfo —— relay 的失败是结构化信封（实测 fetch=${count(drawerCode, /\bfetch\(/g)}）`);
 ok(count(chipsCode, /\bfetch\(/g) === 0, 'F3 chip 模块一律经注入的 api()，零直调 fetch');
-ok(/if \(isLive\(\)\) \{[\s\S]{0,200}api\('\/api\/steer'/.test(drawer),
-  'F4 线程在途走插话通道（/api/steer），空闲才开新回合 —— 两条都【不经管家】（§8.13）');
+ok(/const relayed = await api\('\/api\/steward\/relay', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId, message \}\) \}\);/.test(drawer)
+  && !/api\('\/api\/steer'/.test(drawerCode) && !/\/api\/chat\/stream/.test(drawerCode),
+  'F4 「直接对这条线程说」走 relay 单口，抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜');
+// companion：通道是【服务端】判的，抽屉只把回执文案按 channel 分档 —— 它自己没有第二套判据。
+ok(/const RELAY_NOTE_KEYS = Object\.freeze\(\{\s*answer:/.test(drawer)
+  && !/isLive\(\)/.test(drawer.slice(drawer.indexOf('async function sayToThread'), drawer.indexOf('async function runQuickReply'))),
+  'F4b companion：sayToThread 里一个 isLive() 都没有（通道判定不在前端）');
+// 选项按钮与「有本地待决 question 时的自由回答」仍走 /api/chat/answer（带 content 与 otherText）——
+// 那是「回答一道正式提问」，不是「递一句话」，两者本来就是两条路。
+ok(/answers: \[\{ questionId: String\(\(first && first\.id\) \|\| ''\), selectedOptionIds: \[\], otherText: text \}\],\s*content: text,/.test(drawer),
+  'F4c 问答卡的自由回答（有本地待决时）走 /api/chat/answer，content 与 otherText 都带上');
 ok(/targetTurnSeq: target, rollbackFiles: true/.test(drawer)
   && /function firstUserTurnSeq\(\)/.test(drawer)
   && drawer.indexOf("api('/api/stop'") < drawer.indexOf("api('/api/session/rewind'"),
@@ -270,6 +303,74 @@ ok(/document_\.addEventListener\('steward:open-thread'/.test(drawer)
   'I6 抽屉接 117c 派发的两个事件（steward:open-thread / steward:focus-thread）');
 ok(/openThread,/.test(drawer) && /drawer,\n\s*\}\);/.test(stewardShell),
   'I7 openThread 与 drawer 子域都导出（117h「现在这一件」直接调，不另起一份抽屉）');
+
+// ─── J 117l D4：④ 问答卡、⑧「更多」、liveTail、焦点 ──────────────────────────────
+// 骨架仍然静态写在 index.html 里（与 A3 同一条纪律：JS 只填内容，不现搭区块）。
+ok(/<section id="stewardDrawerAsk"[^>]*class="steward-drawer-ask"[\s\S]{0,200}?hidden/.test(html)
+  && html.includes('id="stewardDrawerAskText"') && html.includes('id="stewardDrawerAskOptions"')
+  && html.includes('id="stewardDrawerAskInput"') && html.includes('id="stewardDrawerAskSendBtn"'),
+  'J1 ④ 问答卡骨架（问题原文／选项／回答框／回答键）静态写在 index.html 里，默认 hidden');
+ok(/\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(cssCode),
+  'J1b **[hidden] 守卫**：.steward-drawer-ask 那条 display:flex 是作者样式，会压过 UA 表的 [hidden]（本层第三处同款）');
+const moreOpen = html.indexOf('<details id="stewardDrawerMore"');
+const moreClose = html.indexOf('</details>', moreOpen);
+ok(moreOpen > 0 && moreClose > moreOpen && !/<details id="stewardDrawerMore"[^>]*\bopen\b/.test(html),
+  'J2 ⑧「更多」是 <details> 且【默认收起】（没有 open 属性）');
+for (const id of mod.STEWARD_DRAWER_MORE_BLOCK_IDS) {
+  const at = html.indexOf(`id="${id}"`);
+  ok(at > moreOpen && at < moreClose, `J2b ${id} 真的在「更多」容器【内】`);
+}
+ok(!/\.steward-drawer-more \{[^}]*display:\s*(flex|grid)/.test(cssCode),
+  'J2c 样式层【不】给 <details> 本身写 display:flex/grid —— 那会让收起来的内容照样画出来，「默认收起」当场失效');
+ok(typeof mod.liveTailSentences === 'function'
+  && mod.liveTailSentences('一。二。三。四。') === '二。三。四。'
+  && mod.lastSaySentences('一。二。三。四。') === '一。二。三。',
+  'J3 活回合取【末尾】≤3 句、落盘原话取【开头】≤3 句（两个导出纯函数，切句判据同一张标点表）');
+ok(/liveTail = \(sessionRes\.liveTail && typeof sessionRes\.liveTail === 'object'\) \? sessionRes\.liveTail : null;/.test(drawer)
+  && count(drawerCode, /\/api\/sessions\//g) === 1,
+  `J3b liveTail 从既有那一发 GET /api/sessions/:id 的信封里读，零新请求（实测 /api/sessions/ 出现 ${count(drawerCode, /\/api\/sessions\//g)} 次）`);
+ok(/const streaming = Boolean\(liveTail\) && Boolean\(tailText\);/.test(drawer)
+  && /head\.textContent = t\('stewardShell\.drawer\.liveSay'\);/.test(drawer)
+  && /head\.textContent = t\('stewardShell\.drawer\.lastSay'\);/.test(drawer),
+  'J3c 在跑说「它正在说」，不在跑换回「它刚说」（liveTail 这个键不在 = 回合结束了）');
+// 判据【不许】叠 isLive()：13d 的 live 分支回的 resumable 里根本没有 live 字段，isLive() 于是
+// 回落到「事项行五态是不是 running」——挂在提问上的回合五态是 needs_you，叠上去就恒判成不在跑
+// （实测：E6 直接说「它还没说过话」）。服务端只在真有活回合时下发 liveTail，那才是权威判据。
+ok(!/Boolean\(liveTail\) && isLive\(\)/.test(drawer),
+  'J3d 「在不在跑」只看 liveTail 在不在，不叠 isLive()');
+ok(/t\('stewardShell\.drawer\.usingTool', \{ tool: threadToolLabel\(tool\) \}\)/.test(drawer)
+  && /function threadToolLabel\(tool\) \{[\s\S]{0,200}return key \? t\(key\) : t\('stewardShell\.drawer\.tool\.other'\);/.test(drawer),
+  'J4 工具说人话（铁律：界面上永远不出现工具名），表外落到「用一个工具」');
+ok(typeof mod.asksYouFrom === 'function'
+  && mod.asksYouFrom({ pending: { id: 'p1', type: 'question', questions: [{ question: '用哪个？' }] } }).kind === 'question'
+  && mod.asksYouFrom({ pending: { id: 'p2', type: 'permission' } }) === null
+  && mod.asksYouFrom({ rowAsksYou: { kind: 'soft', text: '要接着做吗？' } }).texts[0] === '要接着做吗？'
+  && mod.asksYouFrom({ lastAssistantText: '看完了。要不要我继续？' }).kind === 'soft'
+  && mod.asksYouFrom({ lastAssistantText: '看完了。要不要我继续？', live: true }) === null
+  && mod.asksYouFrom({ lastAssistantText: '看完了。' }) === null,
+  'J5 「它在问你」是可 Node import 的纯函数：待决 question > 行上的 asksYou > 客户端兜底；在跑就不算');
+ok(/const ask = asksYouNow\(\);\s*section\.hidden = !ask;/.test(drawer),
+  'J5b 卡片只在真有人问你时出现（[hidden] 一处驱动）');
+ok(/if \(section\) section\.hidden = askOptionReplies\(\)\.length > 0;/.test(drawer),
+  'J6 ④ 已经把选项摆出来时 ⑦「你可以说」整块隐藏（不出现两排一样的按钮）');
+ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pending: pendingForThread, t \}\)/.test(drawer),
+  'J6b 选项按钮复用 quickRepliesFor（与 ⑦ 同一份判据，不另写一遍「取 label || value」）');
+ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
+  'J7 焦点在【loading 闸落下之后】才给问答框（闸落之前还不知道它有没有在问你）');
+ok(/function focusAsk\(\) \{[\s\S]{0,320}if \(!section \|\| section\.hidden \|\| !input/.test(drawer),
+  'J7b 卡片没出现时不抢焦点');
+ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed \}\)/.test(drawer)
+  && /const touched = String\(\(missionRow && missionRow\.updatedAt\) \|\| \(session && session\.updatedAt\) \|\| ''\);/.test(drawer)
+  && !/stewardShell\.drawer\.settled'/.test(drawer),
+  'J8 「已收工 · 最近动过 X 前」锚在 updatedAt（修前锚在 createdAt，真机上说成「用时 770h 35m」）');
+ok(typeof zh['stewardShell.drawer.settled'] === 'undefined' && typeof en['stewardShell.drawer.settled'] === 'undefined',
+  'J8b 旧键 stewardShell.drawer.settled 已随最后一个引用一起删掉（零引用键不留在目录里）');
+// 看板行那枚 pill（117l D4）：只读行上的 asksYou，点击 = 打开抽屉。
+const board = read('js/steward-board.js');
+ok(/if \(row\.asksYou && typeof row\.asksYou === 'object' && String\(row\.asksYou\.kind \|\| ''\)\) \{/.test(board)
+  && /pill\.onclick = \(\) => openThread\(sessionId\);/.test(board)
+  && /t\('stewardShell\.board\.asksYou'\)/.test(board),
+  'J9 看板行的「它在问你」pill 只读行上的 asksYou，点它就是打开抽屉（问答框在那儿）');
 
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

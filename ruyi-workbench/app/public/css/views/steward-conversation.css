@@ -97,6 +97,26 @@
 }
 .steward-why-line { margin: 0 0 var(--sp-1); }
 .steward-why-line:last-child { margin-bottom: 0; }
+/* 117l D5（用户第四轮走查④「※号没有正确的标明标题」）：浮层里的两段各带一个小标题
+   （「依据」／「已办」）。两段各自只在有内容时渲染，所以这里不需要 :empty 兜底。 */
+.steward-why-h {
+  margin: var(--sp-2) 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.steward-why-h:first-child { margin-top: 0; }
+
+/* 117l D3（用户第四轮走查⑥「要能让用户连续发消息」）：还没轮到发的那一句。淡一点，右下角一枚
+   「排队中」小标 —— 用真节点（.steward-queued）而不是 ::after，读屏才念得到。 */
+.steward-msg-user.is-queued { opacity: 0.62; }
+.steward-queued {
+  align-self: flex-end;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  color: var(--muted);
+}
 
 /* 一行按钮：≤3 个，主动作只有一个（.is-primary），其余安静。原型 .b 是 32px 高的药丸。 */
 .steward-acts {
@@ -242,6 +262,18 @@
 /* 递送目标 chip（原型 .cbox .to）：住在输入框【里面】的左侧，默认「→ 如意」，
    命中线程时着重色，手选后实底带 ×（§8.12 第 1、4 条）。 */
 .steward-composer { position: relative; }
+/* 117l D3：队列满时那一行小字。绝对定位挂在胶囊【下面】—— 输入区自己是一行横向 flex，
+   多一个流内子元素会把 chip／输入框／两枚圆键挤成另一种排布。 */
+.steward-composer-note {
+  position: absolute;
+  inset-inline-start: var(--sp-3);
+  top: calc(100% + 2px);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--warn);
+}
+.steward-composer-note:empty { display: none; }
 .steward-target {
   flex: 0 0 auto;
   display: inline-flex;

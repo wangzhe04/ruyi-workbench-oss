@@ -329,18 +329,34 @@ const ok = (condition, label) => {
       && /if \(canEnterSteward\(\)\) \{\s*\n\s*clearStatusText\(\);/.test(shell),
       'H2 准入通过就擦掉「管家还没打开，已回到经典布局」（它是 role=status aria-live，留着就是一句会被念出来的假话）');
 
-    // H3 递送目标：自动选中的那一个也走显示名（116-5b）。
-    ok(/return \{ sessionId: String\(routeHits\[0\]\.sessionId\), title: String\(routeHits\[0\]\.displayTitle \|\| routeHits\[0\]\.title/.test(composer),
-      'H3 chip 与递话回执用生成名，不用整句原话（候选列表早就在用 displayTitle，只有自动选中的那个漏了）');
+    // H3 **117l 重钉**（用户第四轮走查②，语义收紧不是放宽）。
+    // 旧断言钉的是「currentTarget() 自动选中 routeHits[0] 时也用 displayTitle」—— 那是 117k 的世界，
+    // 前提是「预判命中就是递送目标」。117l D1 推翻了这个前提：预判只进 routeHint，由管家决定接着办／
+    // 新开／直接答（用户原话：「无论关键词匹配到什么，都要发给管家让它决定是哪个线程」）。
+    // 所以本条改钉「预判只进 hint、不进目标」，显示名那一条纪律跟着搬进 hintedThread（见 H3c）。
+    ok(/function currentTarget\(\) \{\s*return picked;/.test(composer)
+      && !/routeHits\[0\]/.test(composer.slice(composer.indexOf('function currentTarget'), composer.indexOf('function hintedThread'))),
+      'H3 预判只进 hint、不进目标：currentTarget() 只回 picked');
+    ok(/if \(target\) await conversation\.handOff\(/.test(composer)
+      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
+      'H3b companion：**picked 仍直递**（手选是用户明示，§8.12 第 4 条没有被 D1 推翻）');
+    ok(/function hintedThread\(\) \{[\s\S]{0,400}return \{ sessionId: String\(routeHits\[0\]\.sessionId\), title: String\(routeHits\[0\]\.displayTitle \|\| routeHits\[0\]\.title/.test(composer),
+      'H3c 117k 那条纪律原样保留：chip 上的提示也用生成名，不用整句原话');
 
     // H4 抽屉事项行：读行里的 missionTitle（116-5b 已经加了）。
     ok(/String\(root\.missionTitle \|\| root\.displayTitle \|\| root\.title \|\| missionId\)/.test(drawer),
       'H4 抽屉的事项行显示事项名（显式容器＝用户起的名；派生＝那条线程的显示名）');
 
     // H5 抽屉第一帧不拿内部 id 冒充名字。
+    // H5 **117l 微调重钉**：闸本身一个字没变，只是闸【落下的那一帧】多干一件事 —— 把焦点交给
+    // 「它在问你」的回答框（117l D4，走查①「打开线程回答」按下去该发生的事）。旧断言把 finally
+    // 的函数体逐字钉死，多这一步就红；companion（H5d）钉住「focus 必须在闸之后」——
+    // 闸落之前还没读到待决，那时候抢焦点等于赌它在问你。
     ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
-      && /finally \{ if \(sessionId === id\) \{ loading = false; renderAll\(\); \} \}/.test(drawer),
+      && /if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
       'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
+    ok(drawer.indexOf('loading = false; renderAll(); focusAsk();') > drawer.indexOf('try { await refreshOnce(); }'),
+      'H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）');
     ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
       && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
       'H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」');
@@ -365,6 +381,39 @@ const ok = (condition, label) => {
       && /stewardEscapeStack\.push\(\s*\(\) => \{ if \(!shieldOpen\) return false; closeShield\(\); return true; \},/.test(settings)
       && /\}, node => \{\s*\n\s*const own = byId\('stewardTargetPicker'\);/.test(composer),
       'H7c 五处浮层（chip 菜单／※／头像菜单／盾牌／递送候选）都带上了 owns 判据');
+  }
+
+  /* ── I：117l（用户第四轮走查 · 2026-09-07 下午，三张截图）───────────────────── */
+  // I1 ② 每句话都到管家；I2 ⑥ 连发不再被吞；I3 ① 线程的提问要有问答框；I4 ①⑥ 递话单口不再猜通道。
+  {
+    ok(/function currentTarget\(\) \{\s*return picked;/.test(composer)
+      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
+      'I1 ② 预判只当提示：没手选就发给管家并带 routeHint（修前 routeHits[0] 直接被当成目标直递）');
+    ok(/body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\) \}\)/.test(conversation),
+      'I1b routeHint 与用户那句话分开走（用户消息逐字不动的纪律）');
+
+    ok(convMod.STEWARD_SEND_QUEUE_MAX === 5
+      && /if \(sendQueue\.length >= STEWARD_SEND_QUEUE_MAX\)/.test(conversation)
+      && /if \(streaming\) \{[\s\S]{0,320}sendQueue\.push\(/.test(conversation),
+      'I2 ⑥ 管家在流时用户还能接着说：第二句入队而不是被静默丢弃');
+    ok(/drainQueue\(\);\s*\}\s*\}\s*\n\s*function finishReply/.test(conversation),
+      'I2b 队列在当前这条流的 finally 里 shift（按序发，不并发）');
+
+    // I3 ①「线程里的提问出来时…并没有 2.0 的那种问答框」：③ 之下多一张卡，打开线程即给焦点。
+    const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-drawer.js')).href);
+    ok(drawerMod.STEWARD_DRAWER_BLOCK_IDS.indexOf('stewardDrawerAsk') === 3
+      && html.includes('id="stewardDrawerAskInput"')
+      && /\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(read('css/views/steward-drawer.css')),
+      'I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫');
+    ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
+      'I3b 打开线程、数据到齐之后焦点落进问答框（这就是「打开线程回答」按下去该发生的事）');
+
+    // I4 ①⑥ 递话单口：抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜通道。
+    ok(/api\('\/api\/steward\/relay'/.test(drawer)
+      && !/api\('\/api\/steer'/.test(drawer) && !/'\/api\/chat\/stream'/.test(drawer),
+      'I4 ①⑥ 「直接对这条线程说」走 /api/steward/relay 单口（修前猜错就 supersede 掉待决提问）');
+    ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed \}\)/.test(drawer),
+      'I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）');
   }
 
   console.log(`\nSTEWARD WALKTHROUGH STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

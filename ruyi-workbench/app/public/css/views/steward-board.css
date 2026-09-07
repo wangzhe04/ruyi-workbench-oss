@@ -87,6 +87,19 @@
   border-radius: var(--r-pill);
   padding: 0;
 }
+/* 117l D4（用户第四轮走查①）：「它在问你」是行上唯一一枚【要你动手】的 pill，所以它是可点的
+   （点开抽屉里的问答框），并用与主动作同色系的金色把自己从一排灰字里拎出来。 */
+.steward-board-pill.is-asks-you {
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--gold-ink);
+  background: var(--gold);
+  border: 1px solid var(--gold-line);
+  padding: 0 var(--sp-2);
+  cursor: pointer;
+}
+.steward-board-pill.is-asks-you:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-board-btn {
   flex: 0 0 auto;
   min-height: 0;
