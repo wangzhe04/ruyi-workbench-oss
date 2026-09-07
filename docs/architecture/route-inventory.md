@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 127(精确 110 / 前缀 12 / 正则 5),ROUTE_AUTH 115 条,生成于 2026-09-07T05:30:57.269Z。
+> 判定点 127(精确 110 / 前缀 12 / 正则 5),ROUTE_AUTH 115 条,生成于 2026-09-07T07:29:45.713Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -100,7 +100,7 @@
 |---|---|---|---|---|---|
 | POST | `/api/_test/pretender-maintenance` | exact | token | 13d-core-domain-routes.js:1342 | pretender-index-scale.e2e.js |
 | POST | `/api/missions/:missionId/interventions/:interventionId/decision` | regex | token | 13d-core-domain-routes.js:1356 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 24 件 |
-| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js:1381 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, interventions-persist.e2e.js 等 12 件 |
+| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js:1381 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, interventions-persist.e2e.js 等 13 件 |
 | GET | `/api/interventions/` | prefix | token-browser self | 13d-core-domain-routes.js:1434 | interventions-persist.e2e.js, pretender-index-scale.e2e.js, pretender-needs-drawer.e2e.js |
 | POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js:1470 | interactive-question.e2e.js, intervention-mission-gate.e2e.js, interventions-c4.e2e.js 等 12 件 |
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js:1490 | — |

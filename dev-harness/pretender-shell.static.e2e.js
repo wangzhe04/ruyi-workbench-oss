@@ -174,9 +174,12 @@ ok(/export const STEWARD_RETURN_STORAGE_KEY = 'wcw\.stewardReturn';/.test(classi
   && /sessionStorage\.setItem\(STEWARD_RETURN_STORAGE_KEY/.test(classicWindow)
   && /sessionStorage\.removeItem\(STEWARD_RETURN_STORAGE_KEY\)/.test(classicWindow),
   'W117g-6 返回标记存 sessionStorage（刷新仍在 2.0 视窗里；整体切壳不设标记）');
-ok(/getAttribute\('data-shell-mode'\) === 'steward'\) clearMark\(\);/.test(classicWindow)
+// 117j classic-3 重钉：判据从「切回管家」放宽成「**离开经典壳的任何一条路**」——修前从 2.0 视窗
+// 切到预览壳时标记会留在 sessionStorage 里，下次回经典带子自己冒出来。契约的后半（本模块只读、
+// 不写 data-shell-mode）一个字没变。
+ok(/getAttribute\('data-shell-mode'\) !== 'classic'\) clearMark\(\);/.test(classicWindow)
   && !/setAttribute\('data-shell-mode'/.test(classicWindow),
-  'W117g-7 回到管家即结束这趟视窗；本模块只读 data-shell-mode，写它仍然只有 applyShellMode 那一处');
+  'W117g-7 离开经典壳（回管家或切预览）即结束这趟视窗；本模块只读 data-shell-mode，写它仍然只有 applyShellMode 那一处');
 ok(/if \(typeof openClassicWindow === 'function'\) \{ try \{ await openClassicWindow\(id\); \}/.test(stewardDrawer)
   && (stewardDrawer.match(/openClassicView\(\)/g) || []).length >= 3,
   'W117g-8 抽屉的「2.0 视窗」「看全文」「看改动」三处走同一个 openClassicWindow');

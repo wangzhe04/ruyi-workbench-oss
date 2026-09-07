@@ -589,8 +589,12 @@ try {
       'I1b 审计事件写清楚当时会话还在不在活回合/收尾窗口里');
     // copy P1-1:前端的 ※ 脚注优先读后端给的人话标签。
     const conv = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'steward-conversation.js'), 'utf8');
-    ok(/tool: String\(row\.label \|\| row\.tool\)/.test(conv),
-      'I2 copy P1-1:※ 脚注优先读 label(读不到才回落工具 id),不再直接吐 steward_* 内部标识符');
+    // 117j copy-P1-1 重钉：中间多了一层 —— 后端标签 > 前端 i18n 表(STEWARD_TOOL_LABEL_KEYS,
+    // 与「行动流水」同一份) > 工具 id。116-3 之前落盘的历史回合没有 label,修前那一路会直接漏出
+    // steward_thread_continue 这种内部标识符。契约的方向没变,只是回落多了一级。
+    ok(/tool: toolLabelOf\(row\)/.test(conv)
+      && /const key = STEWARD_TOOL_LABEL_KEYS\[String\(\(row && row\.tool\) \|\| ''\)\];/.test(conv),
+      'I2 copy P1-1:※ 脚注优先读 label(读不到先查前端人话表,再落回工具 id),不再直接吐 steward_* 内部标识符');
     // P1-5:兜底判据的唯一定义点(13g),13h 复用它 —— 两处不许各写一份「非 mission 即 quick_ask」。
     const src13g = rd('13g-steward.js');
     const src13h = rd('13h-steward-runner.js');

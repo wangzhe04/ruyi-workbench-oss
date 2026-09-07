@@ -87,7 +87,11 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 看板与「现在这一件」、2.0 视窗与返回带。形态仍然不变：本域内相对路径、零第三方库、零裸包名。
   "import { createStewardBoard } from './steward-board.js';",
   "import { createStewardClassicWindow } from './steward-classic-window.js';",
-]), `D2 steward-shell.js 的 import 只有本域内七条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
+  // 117j UX-F3（重钉来源：本波交付，27 号文 §11.7 走查 P2）：白名单加第八条 —— Esc 逐层的那个栈。
+  // 它住 steward-chips.js（零 import 的叶子），壳层 import 它是为了出【那一处】 document keydown。
+  // 形态仍然不变：本域内相对路径、零第三方库、零裸包名。
+  "import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点",
+]), `D2 steward-shell.js 的 import 只有本域内八条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');
 
