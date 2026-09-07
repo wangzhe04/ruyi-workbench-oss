@@ -433,19 +433,30 @@ try {
     const sid = await newThread('看尾巴');
     fireTurn(sid, 'SLOW 看尾巴');
     let tail = null;
+    let liveResumable = null;
     for (let i = 0; i < 200; i++) {
       const s = await request('GET', `/api/sessions/${sid}`, undefined, hdr);
-      if (s.json && s.json.liveTail && String(s.json.liveTail.text || '')) { tail = s.json.liveTail; break; }
+      if (s.json && s.json.liveTail && String(s.json.liveTail.text || '')) { tail = s.json.liveTail; liveResumable = s.json.resumable; break; }
       await sleep(60);
     }
     ok(!!tail, `H1 活回合时 GET /api/sessions/:id 带 liveTail(got ${JSON.stringify(tail)})`);
     ok(!!(tail && /一步一步/.test(String(tail.text || ''))), `H2 liveTail.text 是活回合真正流出来的文本(got ${tail && String(tail.text).slice(0, 40)})`);
+    // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 isLive() 第一判据是
+    // `resumable && resumable.live === true`,而【活回合】分支修前只回
+    // { dangling:false, kind:null, turnSeq, historyLength } —— 没有 live 键,这条判据从没走通过,
+    // 一直静默回落到「事项行五态 === 'running'」;挂在 request_user_input 上等答案时五态是
+    // needs_you,于是恒判成不在跑。钉住活回合期间这个键必须是 true。
+    ok(!!(liveResumable && liveResumable.live === true), `H1b 活回合时 resumable.live === true(got ${JSON.stringify(liveResumable)})`);
+    let idleResumable = null;
     for (let i = 0; i < 300; i++) {
       const s = await request('GET', `/api/sessions/${sid}`, undefined, hdr);
-      if (!s.json || !s.json.liveTail) { tail = null; break; }
+      if (!s.json || !s.json.liveTail) { tail = null; idleResumable = s.json && s.json.resumable; break; }
       await sleep(100);
     }
     ok(tail === null, 'H3 回合结束后 liveTail 不再下发(不落盘)');
+    // companion:回合结束后不是活回合,resumable.live 不该是 true —— detectDanglingTurn 那一支的
+    // 形状一个字不动(悬挂与否是另一条判据的事,不在本条范围内)。
+    ok(!(idleResumable && idleResumable.live === true), `H3b 回合结束后 resumable.live 不是 true(got ${JSON.stringify(idleResumable)})`);
   }
 
   /* ═════ (I2) 看板行的 asksYou ═════ */

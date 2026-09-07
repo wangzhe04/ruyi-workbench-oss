@@ -215,37 +215,37 @@
     {
       "file": "13d-core-domain-routes.js",
       "startLine": 39226,
-      "endLine": 41136,
+      "endLine": 41142,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 41137,
-      "endLine": 41562,
+      "startLine": 41143,
+      "endLine": 41568,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "13i-steward-inbox.js",
-      "startLine": 41563,
-      "endLine": 42571,
+      "startLine": 41569,
+      "endLine": 42577,
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 42572,
-      "endLine": 44570,
+      "startLine": 42578,
+      "endLine": 44576,
       "note": "第116波116c:/api/steward/* 域路由、决策日志、管家记忆存储与全部管家工具实现(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 44571,
-      "endLine": 46939,
+      "startLine": 44577,
+      "endLine": 46945,
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "14-main.js",
-      "startLine": 46940,
-      "endLine": 47537,
+      "startLine": 46946,
+      "endLine": 47543,
       "note": "main()/module.exports"
     }
   ]

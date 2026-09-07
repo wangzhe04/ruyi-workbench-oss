@@ -86,6 +86,13 @@ const runner = readSrc('13h-steward-runner.js');
     '② GET /api/sessions/:id 的信封带 displayTitle(抽屉标题读它)');
   ok(/\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/.test(domain),
     '② 117l companion:liveTail 在同一个信封上【条件】展开(没有活回合时这个键不存在)');
+  // 117l-A1-fix2:抽屉 isLive() 第一判据是 resumable.live === true,而【活回合】分支修前没有这个
+  // 键,判据从没走通过。钉住活回合分支带 live:true,且悬挂检测(detectDanglingTurn)那一支原样不动
+  // —— 只加了这一个键,没有顺手改别的。
+  ok(/\{ dangling: false, kind: null, turnSeq: Math\.max\(0, Number\(session\.turnSeq\) \|\| 0\), historyLength: Array\.isArray\(session\.providerHistory\) \? session\.providerHistory\.length : 0, live: true \}/.test(domain),
+    '② 117l-A1-fix2:GET /api/sessions/:id 活回合分支的 resumable 带 live:true(抽屉 isLive() 靠它)');
+  ok(/: detectDanglingTurn\(session\);/.test(domain),
+    '② 117l-A1-fix2 companion:非活回合分支仍是 detectDanglingTurn(session) 原样,没被顺手改动');
   ok(/\{ brief: sessionBriefOf\(head\) \|\| sessionBriefOf\(meta\) \}/.test(steward),
     '② steward_threads_search 结果带 brief');
   ok(/displayTitle: sessionDisplayTitle\(head\),/.test(runner),

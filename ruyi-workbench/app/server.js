@@ -39478,8 +39478,14 @@ async function handleSessionApiRoutes(req, res, pathname) {
           if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
         }
       }
+      // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
+      // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
+      // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
+      // request_user_input 上等答案的回合五态是 needs_you,于是被判成不在跑,抽屉的轮询节拍
+      // (活 5s／闲 15s)与 activitySnapshot 都跟着错。只加这一个键;detectDanglingTurn 那一支
+      // (真正判悬挂的形状)一个字不动。
       const resumable = live
-        ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0 }
+        ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0, live: true }
         : detectDanglingTurn(session);
       // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
       // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
