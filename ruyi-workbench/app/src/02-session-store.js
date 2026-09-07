@@ -958,6 +958,28 @@ function applySessionMetaPatch(session, patch) {
       ...(Number.isFinite(closedTurnSeq) && closedTurnSeq >= 0 ? { closedTurnSeq: Math.round(closedTurnSeq) } : {}),
     };
   }
+  // 116-4（27 号文 §11.7「第四源 sessionTurns 与唤醒链」）：管家线程的两个标。
+  //   · launchedBy:'steward' —— 这条线程的回合是管家发起的（thread_new / quick_ask / 递话）。
+  //     收件箱第四源只对【管家关心的会话】入箱，它就是「关心」的机器痕迹之一
+  //     （另两个是 stewardQuick 与「线程在别人的事项里」）。只认 'steward' 这一个字面量：
+  //     其它值一律当没写，不让 PATCH /api/sessions/:id 的调用方拿它给自己的普通会话
+  //     挂上管家的注意力。
+  //   · stewardLastTurn —— 管家发起的那一回合 settle 之后的成败（13g stewardLaunchTurn 写）。
+  //     会话头上本来【没有】任何回合成败字段（116-4 实测：回合失败后头上只有 summary
+  //     里那句人话，那是渲染不是信号），而收件箱只读磁盘 —— 所以第四源要分得出
+  //     done / failed，就必须有这一条落盘的账。严格归一成固定五字段，与 stewardQuick 同纪律。
+  if (patch.launchedBy === 'steward') session.launchedBy = 'steward';
+  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
+    const t = patch.stewardLastTurn;
+    const seq = Number(t.seq);
+    session.stewardLastTurn = {
+      seq: Number.isFinite(seq) && seq >= 0 ? Math.round(seq) : 0,
+      ok: t.ok === true,
+      aborted: t.aborted === true,
+      errorClass: String(t.errorClass || '').slice(0, 64),
+      at: String(t.at || ''),
+    };
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the

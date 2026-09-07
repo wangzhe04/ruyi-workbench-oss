@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 1976 | 1950 | 316 | 67 | 0 | 1 |
+| 41 | 1985 | 1952 | 316 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -52,9 +52,9 @@
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 108 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 24 | 7 |
-| 37 | `13i-steward-inbox.js` | transport | 58 | 19 | 7 |
-| 38 | `13g-steward.js` | transport | 110 | 87 | 18 |
-| 39 | `13h-steward-runner.js` | transport | 110 | 64 | 11 |
+| 37 | `13i-steward-inbox.js` | transport | 64 | 21 | 7 |
+| 38 | `13g-steward.js` | transport | 111 | 87 | 18 |
+| 39 | `13h-steward-runner.js` | transport | 112 | 64 | 11 |
 | 40 | `14-main.js` | entrypoint | 1 | 470 | 31 |
 
 ## 模块边
@@ -340,9 +340,9 @@
 | `13h-steward-runner.js` | `13g-steward.js` | backward | `_stewardReadBudget`, `stewardAppendDecision`, `stewardFail`, `stewardPendingOneLine`, `stewardQuickThread`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardRunResumeTier`, `stewardThreadPermissionMode`, `stewardToolHandler` |
 | `13h-steward-runner.js` | `13i-steward-inbox.js` | backward | `stewardDir`, `stewardInboxRead` |
 | `13i-steward-inbox.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
-| `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `repairMissionChangeTornTail` |
-| `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `logEvent` |
+| `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |

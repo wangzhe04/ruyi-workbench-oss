@@ -11192,6 +11192,7 @@
         "STEWARD_DIR_NAME",
         "STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ",
         "STEWARD_FIRST_SIGHT_MAX_REVISION",
+        "STEWARD_FIRST_SIGHT_MAX_TURNS",
         "STEWARD_INBOX_FILE",
         "STEWARD_INBOX_FULL_READ_BYTES",
         "STEWARD_INBOX_LIMIT_DEFAULT",
@@ -11211,6 +11212,7 @@
         "stewardAppendInboxRows",
         "stewardClipSummary",
         "stewardCollectEvents",
+        "stewardCollectSessionTurn",
         "stewardCursorPath",
         "stewardDir",
         "stewardEventDedupeKey",
@@ -11227,17 +11229,21 @@
         "stewardNormalizeMissionChange",
         "stewardNormalizePendingIntervention",
         "stewardNormalizeRunEvent",
+        "stewardNormalizeSessionTurn",
         "stewardParseInboxText",
         "stewardReadInboxRows",
         "stewardReadInboxText",
+        "stewardReadTurnHead",
         "stewardResetRuntimeState",
         "stewardResolveMissionResultKind",
         "stewardResolveNodeSettledKind",
         "stewardResolveRunEndKind",
+        "stewardResolveSessionTurnKind",
         "stewardRunTick",
         "stewardRuntime",
         "stewardSaveCursor",
         "stewardTickOnce",
+        "stewardWatchedThread",
         "stopStewardInbox"
       ],
       "requires": [
@@ -11305,6 +11311,13 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "sessionPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "readMissionChangesWithMeta",
           "kinds": [
@@ -11316,6 +11329,13 @@
           "symbol": "repairMissionChangeTornTail",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11480,6 +11500,7 @@
         "stewardReadDecisionsText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
+        "stewardRecordLaunchOutcome",
         "stewardRelayAutoAllowed",
         "stewardRunResumeTier",
         "stewardSourceIsUserMessage",
@@ -12129,6 +12150,7 @@
         "STEWARD_NO_PROGRESS_MAX",
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
+        "STEWARD_QUICK_DEBOUNCE_MS",
         "STEWARD_RUN_ACTION_LABELS",
         "STEWARD_SAY_MAX",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
@@ -12197,6 +12219,7 @@
         "stewardPendingList",
         "stewardPreroute",
         "stewardPrerouteIndexRows",
+        "stewardQueueHasQuickAnswer",
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunAct",

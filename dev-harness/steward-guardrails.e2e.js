@@ -14,6 +14,9 @@
 //       resume 的那条路不再绕开 classifyRunResumeTier。
 //   (D) A2 管家会话不接受普通 /api/chat/stream 发起的回合(403 steward.forbidden、零回合);
 //       GET /api/sessions/steward 保留(117c 历史渲染依赖),PATCH 拒绝。
+//   (K) 116-4 唤醒链诚实:GET /api/sessions/steward?since=<ISO> 只回该时刻之后的消息(117j W2-4 用它
+//       把收件箱触发的回复追加进对话流,不必整份重拉);不带 since 的旧调用逐字节不变;
+//       since 只对管家会话生效,普通会话给了也当没给。
 //   (E) B1 `POST /api/config` 把全局默认权限切到「全自动」须 confirm:true(409 permission.confirm_required,
 //       错误码与 13d 的线程级 PATCH 同一个);收紧不需要;confirm 不会被当成配置键写进 config.json。
 //
@@ -149,6 +152,25 @@ try {
     ok(read.status === 200 && read.json && read.json.session && read.json.session.id === 'steward',
       `D3 GET /api/sessions/steward 保留(117c 历史渲染依赖;got ${read.status})`);
 
+    // (K) 116-4:?since= 增量读。不带 since 的载荷里【不】出现 since 键 —— 旧调用零变化是硬要求。
+    ok(read.json && !Object.prototype.hasOwnProperty.call(read.json, 'since'),
+      'K1 不带 since 的旧调用载荷里没有 since 键(逐字节不变)');
+    const allCount = ((read.json && read.json.session && read.json.session.messages) || []).length;
+    const future = new Date(Date.now() + 3600000).toISOString();
+    const sinceFuture = await request('GET', '/api/sessions/steward?since=' + encodeURIComponent(future), undefined, hdr);
+    ok(sinceFuture.status === 200 && ((sinceFuture.json.session || {}).messages || []).length === 0,
+      `K2 since=未来 -> 零条消息(got ${((sinceFuture.json && sinceFuture.json.session) || {}).messages && sinceFuture.json.session.messages.length})`);
+    ok(sinceFuture.json && sinceFuture.json.since === future && Number(sinceFuture.json.messageCount) === allCount,
+      `K3 回执带 since 原值与整份消息数(用来判断有没有漏;got ${sinceFuture.json && sinceFuture.json.messageCount}/${allCount})`);
+    ok(sinceFuture.json && sinceFuture.json.session && sinceFuture.json.session.id === 'steward' && sinceFuture.json.resumable,
+      'K4 其余字段原样带出(前端拿到的仍是同一个形状)');
+    const sinceEpoch = await request('GET', '/api/sessions/steward?since=1970-01-01T00%3A00%3A00.000Z', undefined, hdr);
+    ok(sinceEpoch.status === 200 && ((sinceEpoch.json.session || {}).messages || []).length === allCount,
+      `K5 since=纪元 -> 全部消息(got ${((sinceEpoch.json && sinceEpoch.json.session) || {}).messages && sinceEpoch.json.session.messages.length}/${allCount})`);
+    const bogus = await request('GET', '/api/sessions/steward?since=not-a-date', undefined, hdr);
+    ok(bogus.status === 200 && !Object.prototype.hasOwnProperty.call(bogus.json, 'since'),
+      'K6 since 解析不了 -> 走原路(不报错、不过滤)');
+
     const patched = await request('PATCH', '/api/sessions/steward', { title: '被改名的管家' }, hdr);
     ok(patched.status === 403 && patched.json && patched.json.error && patched.json.error.code === 'steward.forbidden',
       `D4 PATCH /api/sessions/steward -> 403 steward.forbidden(got ${patched.status})`);
@@ -159,6 +181,13 @@ try {
     const plainId = created.json && created.json.session && created.json.session.id;
     const plain = await request('POST', '/api/chat/stream', { sessionId: plainId, message: '你好', cwd: HOME }, hdr);
     ok(plain.status === 200 && /"type":"result"/.test(plain.raw), `D6 回归:普通会话经 /api/chat/stream 照常跑完(got ${plain.status})`);
+    // K7:since 只对管家会话生效 —— 普通会话有自己的分页语义,不在本波范围。
+    const plainAll = await request('GET', '/api/sessions/' + plainId, undefined, hdr);
+    const plainSince = await request('GET', '/api/sessions/' + plainId + '?since=' + encodeURIComponent(new Date(Date.now() + 3600000).toISOString()), undefined, hdr);
+    const n1 = ((plainAll.json && plainAll.json.session) || {}).messages || [];
+    const n2 = ((plainSince.json && plainSince.json.session) || {}).messages || [];
+    ok(n1.length > 0 && n2.length === n1.length && !Object.prototype.hasOwnProperty.call(plainSince.json, 'since'),
+      `K7 普通会话给了 since 也当没给(${n1.length} -> ${n2.length})`);
   }
 
   /* ═════════ (E) B1:全局默认权限切「全自动」的服务端门 ═════════ */

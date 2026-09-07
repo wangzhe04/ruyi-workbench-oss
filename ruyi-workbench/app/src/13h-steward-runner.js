@@ -48,6 +48,10 @@ const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个
 const STEWARD_ACTIONS_MAX = 5;                // 一次回合最多执行 5 条 action(其余丢弃并如实标注)
 const STEWARD_DEBOUNCE_MS = 5000;             // 收件箱去抖窗口
+// 116-4(27 号文 §11.7 第 2 项「速查闭环」):速查线程的答案是【用户正在等的那一句】。让它也压满
+// 5 秒去抖,用户的体感就是「问一次要等两趟」。带 quick:true 的 done 行把本次去抖压到 0,其余事件
+// 仍走 5 秒 —— 它们是通知,不是有人正等着的答案。
+const STEWARD_QUICK_DEBOUNCE_MS = 0;          // 速查答案:不去抖,立刻起回合
 const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限
@@ -107,6 +111,7 @@ const stewardRunnerRuntime = {
   inflight: null,       // { kind:'user'|'inbox', promise, controller, cancelled, events }
   queue: [],            // 待处理的收件箱事件(抢占时回排在这里)
   debounceTimer: null,
+  debounceMs: -1,       // 116-4:当前那个定时器排的是多久(用来判「该不该重排成更快的」)
   lastReply: null,      // 最近一次 steward_reply 的精简副本(供 /api/steward/state)
   circuit: null,        // 最近一次触发的熔断 { kind, at, detail }
   stopped: false,       // 一键停机:停轮询的同时停回合队列
@@ -1045,12 +1050,25 @@ async function runStewardTurn(input) {
 // 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
 // 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
 // 用户回合结束时也顺带踢一次(用户说话本来就会解除无进展退避,顺手把积压带走)。
+// 116-4:队列里有没有「有人正等着的那一句答案」。
+function stewardQueueHasQuickAnswer(rows) {
+  return (Array.isArray(rows) ? rows : []).some(r => r && r.kind === 'done' && r.payload && r.payload.quick === true);
+}
 function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
-  if (stewardRunnerRuntime.debounceTimer) return;
   if (!stewardRunnerRuntime.queue.length) return;
+  // 116-4:去抖时长由【队列内容】决定,不由调用方决定 —— 五个调用点一行都不用改,新语义自动覆盖全部。
+  const delay = stewardQueueHasQuickAnswer(stewardRunnerRuntime.queue) ? STEWARD_QUICK_DEBOUNCE_MS : STEWARD_DEBOUNCE_MS;
+  if (stewardRunnerRuntime.debounceTimer) {
+    // 已经排着的那个更快或一样快:不动。更慢:重排 —— 否则一条先到的普通通知会把速查答案一起按住 5 秒。
+    if (delay >= stewardRunnerRuntime.debounceMs) return;
+    clearTimeout(stewardRunnerRuntime.debounceTimer);
+    stewardRunnerRuntime.debounceTimer = null;
+  }
+  stewardRunnerRuntime.debounceMs = delay;
   const timer = setTimeout(() => {
     stewardRunnerRuntime.debounceTimer = null;
+    stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
     const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
     if (!batch.length) return;
@@ -1061,7 +1079,7 @@ function stewardScheduleInboxDrain() {
       result => { if (!(result && result.circuit)) stewardScheduleInboxDrain(); },
       () => { /* 抛错不自排:等下一批新事件或下一次用户回合 */ },
     );
-  }, STEWARD_DEBOUNCE_MS);
+  }, delay);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;
 }

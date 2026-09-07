@@ -20,6 +20,11 @@
 //  (E) 排除:收工后 steward_threads_search 默认搜不到,includeClosed:true 能搜到;
 //      经典壳的会话列表不受影响(它只是数据)。
 //  (F) 边界:空问题 -> invalid_request;超长问题 -> invalid_request。
+//  (G) 116-4 第四源 sessionTurns:速查线程跑完【真的】入箱(修前三源全挂在事项上,而速查线程没有
+//      mission 容器 -> bumpMissionChangeSeq 直接 no-op -> 箱子永远是空的,管家永远不被唤醒);
+//      done 行带 quick:true + answer;普通经典壳会话跑完【不】入箱;被管家递过话的普通会话入箱一条;
+//      幂等(再跑两轮不重复);冷启动那一轮只建基线。
+//  (H) 116-4 闭环:入箱 -> 管家收件箱回合 -> stewardQuick.closedAt 落盘(不再依赖一条永远不会来的 done 行)。
 //
 // 判定行:`STEWARD QUICK ASK E2E: ALL PASS`。
 const http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -196,6 +201,109 @@ try {
     const metas = await srv.listSessions();
     ok(metas.some(m => m.id === quickId), 'E4 经典壳会话列表里仍然有它(收工只影响管家的注意力预算)');
   }
+  /* ═════════ (G) 116-4 第四源 sessionTurns ═════════ */
+  console.log('── (G) 第四源:线程跑完真的入箱 ──');
+  const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+  const inboxRows = async () => (await srv.StewardHooks.inboxRead({ since: 0, limit: 200 })).items;
+  // 冷启动一轮:本次装载没有可用游标 -> 三源加第四源都只建基线,历史【不】倒灌进箱子。
+  await srv.startStewardInbox(cfg);
+  await sleep(400);
+  {
+    const rows = await inboxRows();
+    ok(rows.length === 0, `G0 冷启动那一轮只建基线,箱子仍是空的(got ${rows.length} 行)`);
+    ok(fs.existsSync(path.join(HOME, 'steward', 'cursor-v1.json')), 'G0b 游标已落盘(冷启动的基线本身必须存下来)');
+    const cursor = JSON.parse(fs.readFileSync(path.join(HOME, 'steward', 'cursor-v1.json'), 'utf8'));
+    ok(cursor.sources && cursor.sources.sessionTurns && typeof cursor.sources.sessionTurns === 'object',
+      'G0c 游标里有第四源 sessionTurns 段(schema 号不变,老游标缺这段 = 每条会话都算首见)');
+  }
+  // 生产时序:管家在【开机建完基线之后】才开线程 —— 第四源正是为这条时序设计的。
+  const g = await call('steward_quick_ask', { question: '第四源要问的问题？', cwd: HOME }, stewardCtx(7));
+  ok(g && g.ok === true, 'G1 又开了一条速查线程');
+  const gId = g.sessionId;
+  for (let i = 0; i < 120; i++) {
+    const s2 = await srv.loadSession(gId).catch(() => null);
+    if (s2 && (s2.messages || []).some(m => m.role === 'assistant')) break;
+    await sleep(150);
+  }
+  await sleep(600);
+  await srv.startStewardInbox(cfg);   // 幂等 start = 补跑一轮
+  await sleep(600);
+  {
+    const rows = await inboxRows();
+    const mine = rows.filter(r => r.sessionId === gId);
+    ok(mine.length === 1, `G2 速查线程跑完 -> 箱子里正好一条(got ${mine.length};修前恒为 0)`);
+    const row = mine[0] || { payload: {} };
+    ok(row.kind === 'done', `G3 kind === 'done'(got ${row.kind})`);
+    ok(row.payload.source === 'session_turn', `G4 来源是第四源 session_turn(got ${row.payload.source})`);
+    ok(row.payload.turnSeq === 1 && row.seq === 1, `G5 去重游标就是 turnSeq(got seq=${row.seq})`);
+    ok(row.payload.launchedBy === 'steward', 'G6 会话头上有 launchedBy:steward(第四源的「管家关心」判据之一)');
+    ok(row.payload.quick === true, 'G7 done 行带 quick:true');
+    ok(String(row.payload.answer || '').includes('三个分支'), 'G8 done 行带 answer(13g 的 enrichInboxRows 补的)');
+  }
+  // 用户自己在经典壳里聊的普通会话:跑完【不】入箱 —— 他就坐在那条线程前面,不需要被通知一次。
+  const plainRun = await (async () => {
+    const sx = await srv.createSession({ title: '用户自己聊的线程', cwd: HOME });
+    await srv.saveSession(sx);
+    await srv.runSessionTurn({ sessionId: sx.id, message: '你好', cwd: HOME, onEvent: () => {} });
+    return sx.id;
+  })();
+  await sleep(400);
+  await srv.startStewardInbox(cfg);
+  await sleep(600);
+  {
+    const rows = await inboxRows();
+    ok(rows.filter(r => r.sessionId === plainRun).length === 0, 'G9 用户自己的普通会话跑完不入箱');
+  }
+  // 被管家递过话的普通会话:从此就是「管家关心的」,跑完入箱一条。
+  {
+    const relayed = await call('steward_thread_continue', { sessionId: plainRun, message: '再帮我看一眼' }, stewardCtx(8));
+    ok(relayed && relayed.ok === true, `G10 递话成功(got ${relayed && (relayed.error || 'ok')})`);
+    for (let i = 0; i < 120; i++) {
+      const s2 = await srv.loadSession(plainRun).catch(() => null);
+      if (s2 && (s2.messages || []).filter(m => m.role === 'assistant').length >= 2) break;
+      await sleep(150);
+    }
+    await sleep(800);
+    await srv.startStewardInbox(cfg);
+    await sleep(600);
+    const rows = await inboxRows();
+    const mine = rows.filter(r => r.sessionId === plainRun);
+    ok(mine.length === 1, `G11 被递过话的普通会话跑完入箱一条(got ${mine.length})`);
+    ok(mine[0] && mine[0].payload.launchedBy === 'steward', 'G12 递话把 launchedBy 补写到了会话头上');
+  }
+  // 幂等:再连跑两轮,行数不变(去重键 = sid|kind|''|turnSeq)。
+  {
+    const before = (await inboxRows()).length;
+    await srv.startStewardInbox(cfg); await sleep(300);
+    await srv.startStewardInbox(cfg); await sleep(300);
+    const after = await inboxRows();
+    ok(after.length === before, `G13 再连跑两轮不重复(${before} -> ${after.length})`);
+  }
+  // 唤醒链诚实:state 要能分清「轮询活着」与「箱子真的收到过东西」。
+  {
+    const state = await srv.StewardHooks.inboxState(cfg);
+    ok(!!state.lastTickAt, 'G14 state.lastTickAt 非空(轮询活着)');
+    ok(!!state.lastInboxAt, 'G15 state.lastInboxAt 非空(箱子真的收到过东西 —— 修前这两件事分不开)');
+    ok(Number(state.sourcesSeen && state.sourcesSeen.sessionTurns) >= 2, `G16 state.sourcesSeen.sessionTurns 计到了第四源的条数(got ${state.sourcesSeen && state.sourcesSeen.sessionTurns})`);
+  }
+
+  /* ═════════ (H) 116-4 闭环:入箱 -> 管家回合 -> 收工 ═════════ */
+  console.log('── (H) 闭环:速查答完自动收工 ──');
+  {
+    // 上面那一轮 tick 已经把 done{quick:true} 交给 13h(它对速查答案不去抖,立刻起回合)。
+    // 等管家回合把它读进去并收工。
+    let closed = null;
+    for (let i = 0; i < 80; i++) {
+      const head = headOf(gId);
+      if (head.stewardQuick && head.stewardQuick.closedAt) { closed = head.stewardQuick; break; }
+      await sleep(200);
+    }
+    ok(!!closed, 'H1 速查线程被自动收工(closedAt 落盘)—— 修前它挂在一条永远不会来的 done 行上');
+    ok(closed && Number.isFinite(Number(closed.closedTurnSeq)), 'H2 收工时记下了当时的回合数(用户续聊可自动重开)');
+    const steward = await srv.loadSession('steward').catch(() => null);
+    ok(steward && (steward.messages || []).some(m => m.role === 'assistant'), 'H3 管家会话里真的多了一个回合(收件箱触发)');
+  }
+  srv.stopStewardInbox();
 } catch (e) {
   console.log('ERROR ' + ((e && e.stack) || e));
   fail++;

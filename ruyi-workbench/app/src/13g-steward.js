@@ -883,12 +883,45 @@ async function stewardImplAuditTail(args, ctx, config) {
 
 // 后台回合:fire-and-forget(不 await)。管家回合不能被线程回合的时长绑住 —— 它要立刻回一句
 // 「已经交给线程 X 去做了」。异常只写 logEvent,绝不冒泡到工具返回值(那会让模型以为没交出去)。
+// 116-4(27 号文 §11.7「第四源 sessionTurns」):回合 settle 之后把【身份与成败】落到会话头上。
+// 为什么必须落盘:收件箱只读磁盘上的账,而会话头本来没有任何回合成败字段(实测:回合失败后头上只有
+// summary 里那句人话,那是渲染不是信号),runSessionTurn 的返回值只活在这一个进程的这一个闭包里。
+// 不落盘 = 第四源永远只能报「跑完了」,报不出「挂了」。
+//   · launchedBy 在这里补写,是为了覆盖 thread_continue(递话给用户自己的会话,它没经过 createSession)；
+//     quick_ask / thread_new 已经在建会话时就地写过了,这里重复写是幂等的。
+//   · 成败取【内层】result.result.ok —— 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层
+//     仍然是 ok:true(116-4 实测),拿外层判会把每一条失败回合都说成收工。
+//   · 走 updateSessionMeta 而不是 loadSession+saveSession:settle 那一刻会话可能还在收尾窗口里,
+//     这条通道会延后到 settle 之后在【重新装载的副本】上重放,不会用陈旧正文盖掉回合刚写的消息。
+//   · 旁路纪律:写失败只是少一条账(第四源退化成报 done),绝不反噬回合本身。
+function stewardRecordLaunchOutcome(sessionId, result) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return Promise.resolve(null);
+  const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+  const aborted = !!(inner ? inner.aborted : (result && result.stopped));
+  const ok = inner ? inner.ok === true : !!(result && result.ok);
+  return updateSessionMeta(sid, {
+    launchedBy: 'steward',
+    stewardLastTurn: {
+      seq: Math.max(0, Number(result && result.turnSeq) || 0),
+      ok,
+      aborted,
+      errorClass: String((inner && inner.errorClass) || ''),
+      at: nowIso(),
+    },
+  }).catch(() => null);
+}
+
 function stewardLaunchTurn(input, tool) {
   const promise = runSessionTurn({ ...input, onEvent: () => {} });
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
+    void stewardRecordLaunchOutcome(input.sessionId, result);
   }).catch(error => {
     logEvent({ kind: 'steward_turn_error', tool, sessionId: String(input.sessionId || ''), message: String((error && error.message) || error).slice(0, 400) });
+    // 回合整个抛出来(不是回合内部失败):同样要留一条落盘的账,否则第四源看见 turnSeq 没动
+    // 就什么都不报,管家永远不知道自己派出去的这一趟连回合都没起来。
+    void stewardRecordLaunchOutcome(input.sessionId, { result: { ok: false, aborted: false, errorClass: 'launch_error' } });
   });
   return promise;
 }
@@ -946,6 +979,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
+  session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
   if (requestedMissionId) session.missionId = requestedMissionId; // 归入既有事项;否则 createSession 已置 missionId = 自身 id
   // 委托书落盘:原话与管家补充【分开存】,供 117 显示与用户「改一下」;不把拼好的整段存成一坨。
   session.brief = {
@@ -1810,6 +1844,9 @@ async function stewardImplQuickAsk(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = STEWARD_QUICK_KIND;
+  // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
+  // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
+  session.launchedBy = 'steward';
   // 速查线程【不进事项】:missionId 指回自己(createSession 的缺省),不写任何反向索引,
   // GET /api/missions 里它就是一条「未归类」的派生行,不占任何事项的验收与预算。
   session.stewardQuick = {

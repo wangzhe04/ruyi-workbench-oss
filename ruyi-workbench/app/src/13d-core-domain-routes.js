@@ -245,6 +245,22 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0 }
         : detectDanglingTurn(session);
+      // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
+      // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
+      // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
+      // 纪律：① 只对管家会话生效 —— 别的会话有自己的分页语义，不在本波范围；② 不带 since 的旧调用
+      // 逐字节不变（没有这个参数就走原路，一行都不改）；③ 只切 messages 的尾巴，其余字段原样带出，
+      // 前端拿到的仍是同一个形状；④ 不改会话对象本身（浅拷贝），loadSession 的返回值不许被路由改写。
+      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      const sinceMs = sinceRaw ? Date.parse(String(sinceRaw)) : NaN;
+      if (Number.isFinite(sinceMs)) {
+        const all = Array.isArray(session.messages) ? session.messages : [];
+        const tail = all.filter(m => {
+          const at = Date.parse(String((m && m.createdAt) || ''));
+          return Number.isFinite(at) && at > sinceMs;
+        });
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length }));
+      }
       return send(res, json({ ok: true, session, resumable }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
@@ -409,25 +425,34 @@ function missionRunDigest(r, includeLive = true, includeGraph = false) {
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
 async function buildMissionCard(head, runs, opts = {}) {
+  // 116-4 第 0 步（复现出来的根因）：kind 是 'mission' 但头上【没有】mission 容器的会话是
+  // 真实形状 —— steward_thread_new 建线程时显式写 kind='mission'，mission 容器要等
+  // /api/mission start 才有。修前这里 m.goal 直接读 null，而 buildPretenderSessionSlice 没有
+  // try，rebuildPretenderIndexFull 的 Promise.all 整份 reject：GET /api/missions、/api/missions/<id>、
+  // GET /api/interventions 全部 500，收件箱每轮 tick 抛 "Cannot read properties of null (reading 'goal')"
+  // 三个源一起停摆 —— 这正是「线程跑完管家没被唤醒」的第一层根因。
+  // missionCardStatus(null) 早就返回 'none'（故它仍收 m 而不是 mm，否则 {} 会变成 'idle'）——
+  // 本函数其余部分本来就是按「可能没有 mission」写的，只有下面那一段漏了守卫。
   const m = head.mission;
-  const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
+  const mm = (m && typeof m === 'object') ? m : {};
+  const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
     mission: {
-      goal: m.goal || '', createdAt: m.createdAt || '', updatedAt: m.updatedAt || '',
-      autoMode: m.autoMode || 'off',
+      goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
+      autoMode: mm.autoMode || 'off',
       milestonesTotal: ms.length,
       done: ms.filter(x => x && x.status === 'done').length,
       blocked: ms.filter(x => x && x.status === 'blocked').length,
       pending: ms.filter(x => !x || x.status === 'pending').length,
-      budget: m.budget || { maxAutoTurns: 0, maxTokens: 0 },
-      spent: m.spent || { autoTurns: 0, tokens: 0 },
-      budgetExhausted: Boolean(m.budgetExhaustedAt),
+      budget: mm.budget || { maxAutoTurns: 0, maxTokens: 0 },
+      spent: mm.spent || { autoTurns: 0, tokens: 0 },
+      budgetExhausted: Boolean(mm.budgetExhaustedAt),
       // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
-      result: (m.result && typeof m.result === 'object') ? { status: m.result.status || '', finishedAt: m.result.finishedAt || '' } : null,
+      result: (mm.result && typeof mm.result === 'object') ? { status: mm.result.status || '', finishedAt: mm.result.finishedAt || '' } : null,
     },
     pending: await missionPendingCounts(head.id, runs, opts.interventions),
     runCount: (runs || []).length,

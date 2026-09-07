@@ -4428,6 +4428,28 @@ function applySessionMetaPatch(session, patch) {
       ...(Number.isFinite(closedTurnSeq) && closedTurnSeq >= 0 ? { closedTurnSeq: Math.round(closedTurnSeq) } : {}),
     };
   }
+  // 116-4（27 号文 §11.7「第四源 sessionTurns 与唤醒链」）：管家线程的两个标。
+  //   · launchedBy:'steward' —— 这条线程的回合是管家发起的（thread_new / quick_ask / 递话）。
+  //     收件箱第四源只对【管家关心的会话】入箱，它就是「关心」的机器痕迹之一
+  //     （另两个是 stewardQuick 与「线程在别人的事项里」）。只认 'steward' 这一个字面量：
+  //     其它值一律当没写，不让 PATCH /api/sessions/:id 的调用方拿它给自己的普通会话
+  //     挂上管家的注意力。
+  //   · stewardLastTurn —— 管家发起的那一回合 settle 之后的成败（13g stewardLaunchTurn 写）。
+  //     会话头上本来【没有】任何回合成败字段（116-4 实测：回合失败后头上只有 summary
+  //     里那句人话，那是渲染不是信号），而收件箱只读磁盘 —— 所以第四源要分得出
+  //     done / failed，就必须有这一条落盘的账。严格归一成固定五字段，与 stewardQuick 同纪律。
+  if (patch.launchedBy === 'steward') session.launchedBy = 'steward';
+  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
+    const t = patch.stewardLastTurn;
+    const seq = Number(t.seq);
+    session.stewardLastTurn = {
+      seq: Number.isFinite(seq) && seq >= 0 ? Math.round(seq) : 0,
+      ok: t.ok === true,
+      aborted: t.aborted === true,
+      errorClass: String(t.errorClass || '').slice(0, 64),
+      at: String(t.at || ''),
+    };
+  }
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -38820,6 +38842,22 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0 }
         : detectDanglingTurn(session);
+      // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
+      // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
+      // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
+      // 纪律：① 只对管家会话生效 —— 别的会话有自己的分页语义，不在本波范围；② 不带 since 的旧调用
+      // 逐字节不变（没有这个参数就走原路，一行都不改）；③ 只切 messages 的尾巴，其余字段原样带出，
+      // 前端拿到的仍是同一个形状；④ 不改会话对象本身（浅拷贝），loadSession 的返回值不许被路由改写。
+      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      const sinceMs = sinceRaw ? Date.parse(String(sinceRaw)) : NaN;
+      if (Number.isFinite(sinceMs)) {
+        const all = Array.isArray(session.messages) ? session.messages : [];
+        const tail = all.filter(m => {
+          const at = Date.parse(String((m && m.createdAt) || ''));
+          return Number.isFinite(at) && at > sinceMs;
+        });
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length }));
+      }
       return send(res, json({ ok: true, session, resumable }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
@@ -38984,25 +39022,34 @@ function missionRunDigest(r, includeLive = true, includeGraph = false) {
 
 // 列表卡片:从会话头文件投影(头含 mission,见 saveSession 头/正文拆分)。
 async function buildMissionCard(head, runs, opts = {}) {
+  // 116-4 第 0 步（复现出来的根因）：kind 是 'mission' 但头上【没有】mission 容器的会话是
+  // 真实形状 —— steward_thread_new 建线程时显式写 kind='mission'，mission 容器要等
+  // /api/mission start 才有。修前这里 m.goal 直接读 null，而 buildPretenderSessionSlice 没有
+  // try，rebuildPretenderIndexFull 的 Promise.all 整份 reject：GET /api/missions、/api/missions/<id>、
+  // GET /api/interventions 全部 500，收件箱每轮 tick 抛 "Cannot read properties of null (reading 'goal')"
+  // 三个源一起停摆 —— 这正是「线程跑完管家没被唤醒」的第一层根因。
+  // missionCardStatus(null) 早就返回 'none'（故它仍收 m 而不是 mm，否则 {} 会变成 'idle'）——
+  // 本函数其余部分本来就是按「可能没有 mission」写的，只有下面那一段漏了守卫。
   const m = head.mission;
-  const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
+  const mm = (m && typeof m === 'object') ? m : {};
+  const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
     mission: {
-      goal: m.goal || '', createdAt: m.createdAt || '', updatedAt: m.updatedAt || '',
-      autoMode: m.autoMode || 'off',
+      goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
+      autoMode: mm.autoMode || 'off',
       milestonesTotal: ms.length,
       done: ms.filter(x => x && x.status === 'done').length,
       blocked: ms.filter(x => x && x.status === 'blocked').length,
       pending: ms.filter(x => !x || x.status === 'pending').length,
-      budget: m.budget || { maxAutoTurns: 0, maxTokens: 0 },
-      spent: m.spent || { autoTurns: 0, tokens: 0 },
-      budgetExhausted: Boolean(m.budgetExhaustedAt),
+      budget: mm.budget || { maxAutoTurns: 0, maxTokens: 0 },
+      spent: mm.spent || { autoTurns: 0, tokens: 0 },
+      budgetExhausted: Boolean(mm.budgetExhaustedAt),
       // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
-      result: (m.result && typeof m.result === 'object') ? { status: m.result.status || '', finishedAt: m.result.finishedAt || '' } : null,
+      result: (mm.result && typeof mm.result === 'object') ? { status: mm.result.status || '', finishedAt: mm.result.finishedAt || '' } : null,
     },
     pending: await missionPendingCounts(head.id, runs, opts.interventions),
     runCount: (runs || []).length,
@@ -40876,6 +40923,7 @@ const STEWARD_ACTIVE_WINDOW_MS = 24 * 60 * 60 * 1000; // 「活跃」= 有待决
 const STEWARD_RUN_EVENT_PAGE = 200;        // 单个 run 单轮最多读多少条事件(下轮继续)
 const STEWARD_FIRST_SIGHT_MAX_REVISION = 200; // 首见会话:revision 不超过它才全读,否则只建基线
 const STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ = 500; // 首见 run:同上
+const STEWARD_FIRST_SIGHT_MAX_TURNS = 50;  // 116-4 首见会话:回合数不超过它才补一条,否则只建基线
 
 // ── 容量常量(游标不得无限增长) ───────────────────────────────────────────────
 const STEWARD_CURSOR_MAX_SESSIONS = 500;
@@ -40959,6 +41007,13 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
   projection: Object.freeze({
     budget_exhausted: 'budget',   // m.budgetExhaustedAt 是一次性持久标记 → 每个事项只入箱一次
   }),
+  // ④' 第四源 sessionTurns(116-4,27 号文 §11.7)。它没有「源码写入端的 type 字面量」可对账
+  //    —— 事实来自会话头本身(turnSeq 前进 + 无活回合 = 这条线程的一个回合结束了),故与 projection
+  //    一样【不】参与 116b 静态锁的三条双向等集判定,只在这里登记一条,让「新信号必须有人登记」这条
+  //    纪律不被沉默绕过。语义由 payload(会话头上的 stewardLastTurn)决定,见 @sessionTurn 解析器。
+  sessionTurn: Object.freeze({
+    turn_settled: '@sessionTurn',
+  }),
   // ⑤ 只走 SSE、【故意】不落任何持久日志的进度信号(116-2b 登记)。收件箱只读三条带 seq 的持久
   //    日志,故这里的东西不可能入箱 —— 登记为 null 是为了让"新信号必须有人登记一次"这条纪律不被
   //    沉默绕过:下一个人加进度事件时,至少要来这张表里写一行"它是进度,不是信号"。
@@ -40990,7 +41045,16 @@ function stewardResolveNodeSettledKind(data) {
   const status = String((data && data.status) || '');
   return (status === 'failed' || status === 'rejected') ? 'failed' : null;
 }
+// 116-4:会话头上的 stewardLastTurn(13g 在回合 settle 之后落的账)-> done | failed。
+// 账缺席一律 done:「跑完了」这件事本身是真的(turnSeq 真的前进了),成败让管家自己去读线程 ——
+// 绝不拿会话头 summary 里那句人话去猜(实测那是渲染,不是信号)。
+// 用户主动停(aborted)按 done:与 @runEnd 的 'stopped' -> done 同口径,自己按的停不是故障。
+function stewardResolveSessionTurnKind(last) {
+  if (!last || typeof last !== 'object') return 'done';
+  return (last.ok === false && last.aborted !== true) ? 'failed' : 'done';
+}
 const STEWARD_KIND_RESOLVERS = Object.freeze({
+  '@sessionTurn': stewardResolveSessionTurnKind,
   '@missionResult': stewardResolveMissionResultKind,
   '@runEnd': stewardResolveRunEndKind,
   '@nodeSettled': stewardResolveNodeSettledKind,
@@ -41161,6 +41225,35 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
   };
 }
 
+// ⑤ 116-4 第四源:一条会话的「某个回合结束了」-> done | failed 事件 | null。
+// seq 位就是该会话的 turnSeq(它自己的单调游标),故去重键 = sid|kind|''|turnSeq —— 同一回合只报一次。
+function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
+  const seq = Math.max(0, Number(turnSeq) || 0);
+  if (seq < 1) return null;
+  const h = (head && typeof head === 'object') ? head : {};
+  const last = (h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
+  if (!kind) return null;
+  const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
+  const payload = { source: 'session_turn', turnSeq: seq };
+  if (h.launchedBy) payload.launchedBy = stewardClipSummary(h.launchedBy);
+  if (quick) payload.quick = true;                       // 13g 的 enrichInboxRows 会给它补 answer
+  if (last && last.errorClass) payload.errorClass = stewardClipSummary(last.errorClass);
+  if (last && last.aborted === true) payload.aborted = true;
+  payload.summary = stewardClipSummary(kind === 'failed'
+    ? `线程第 ${seq} 回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+    : `线程第 ${seq} 回合跑完了${payload.aborted ? '(被停止)' : ''}`);
+  return {
+    kind,
+    sessionId: String(sessionId || ''),
+    missionId: String(missionId || sessionId || ''),
+    runId: '',
+    seq,
+    at: stewardIsoAt((last && last.at) || h.updatedAt),
+    payload,
+  };
+}
+
 // 合并(纯函数):同 sessionId + 同 kind + 同 runId、且距该组【首条】不超过 windowMs 的事件并成一条。
 // 组内:count 累加、at 取最早、seq 取最新;所有被并掉的源 seq 回填进 payload.mergedSeqs
 // (上限 STEWARD_MERGED_SEQS_MAX),供重启时从 inbox 尾部重建完整去重集合。
@@ -41260,12 +41353,16 @@ const stewardRuntime = {
   inboxSeq: 0,
   pollMs: 15000,
   lastTickAt: '',
+  lastInboxAt: '',      // 116-4:最后一次【真的写进箱子】的时刻(lastTickAt 只说明轮询活着)
+  sourcesSeen: { sessionTurns: 0 }, // 116-4:第四源本进程入箱条数,给 /api/steward/state 的诚实字段
   lastError: '',
   seen: new Set(),      // 去重集合(启动时从 inbox 尾部重建,上限 STEWARD_DEDUPE_TAIL_ROWS 行)
   // 116-3 P1-9:budget 类事件此前【没有】持久化去重游标,唯一保护是内存 seen 集合,而它无论启动重建
   // 还是运行时收缩都只回看 inbox 尾部 2000 行 —— 繁忙一天之后那条记录滑出窗口,而 card 上的
   // budgetExhausted 是持久标记,下一轮就会把同一件事重复写进箱子。budgetSeen 与 pendingIds 同款落盘。
-  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() },
+  // 116-4:第四源 sessionTurns 的游标 —— sid -> { turnSeq, stamp }。stamp 是投影免费给的
+  // 会话文件指纹(size:mtime 的哈希);它没变就连会话头都不用读,这是第四源不把轮询成本推高的关键。
+  cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} },
   // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
@@ -41278,9 +41375,10 @@ function stewardResetRuntimeState() {
   stewardRuntime.cold = true;
   stewardRuntime.inboxSeq = 0;
   stewardRuntime.lastTickAt = '';
+  stewardRuntime.lastInboxAt = '';
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
-  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set() };
+  stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
   stewardRuntime.carry = [];
 }
 
@@ -41366,6 +41464,15 @@ async function stewardLoadState() {
     // 真正被修掉的是「长跑进程里滑出 2000 行尾窗之后反复重复」。
     const budgetSeen = Array.isArray(sources.budgetSeen) ? sources.budgetSeen : [];
     for (const sid of budgetSeen.slice(0, STEWARD_CURSOR_MAX_SESSIONS)) if (typeof sid === 'string' && sid) stewardRuntime.cursor.budgetSeen.add(sid);
+    // 116-4:第四源游标。老游标没有这一段 -> 读出来是空对象 = 每条会话都算「首见」,由首见纪律
+    // (只有关心的 + 最近动过的 + 回合数不多的才补一条)兜住,不会把历史整份倒灌进箱子。
+    const st = (sources.sessionTurns && typeof sources.sessionTurns === 'object' && !Array.isArray(sources.sessionTurns)) ? sources.sessionTurns : {};
+    for (const [sid, value] of Object.entries(st).slice(0, STEWARD_CURSOR_MAX_SESSIONS)) {
+      if (!safeSessionId(sid) || !value || typeof value !== 'object') continue;
+      const turnSeq = Number(value.turnSeq);
+      if (!Number.isSafeInteger(turnSeq) || turnSeq < 0) continue;
+      stewardRuntime.cursor.sessionTurns[sid] = { turnSeq, stamp: String(value.stamp || '') };
+    }
     const savedSeq = Number(raw.inboxSeq);
     if (Number.isSafeInteger(savedSeq) && savedSeq > stewardRuntime.inboxSeq) stewardRuntime.inboxSeq = savedSeq;
     stewardRuntime.cold = false;
@@ -41417,13 +41524,76 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   const activeSet = new Set(activeSessionIds);
   const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(sid => activeSet.has(sid)).slice(0, STEWARD_CURSOR_MAX_SESSIONS);
   stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
+  // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
+  const sessionTurns = {};
+  for (const sid of activeSessionIds) {
+    if (Object.keys(sessionTurns).length >= STEWARD_CURSOR_MAX_SESSIONS) break;
+    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.sessionTurns, sid)) sessionTurns[sid] = stewardRuntime.cursor.sessionTurns[sid];
+  }
+  stewardRuntime.cursor.sessionTurns = sessionTurns;
   await fsp.mkdir(stewardDir(), { recursive: true });
   await atomicWriteJson(stewardCursorPath(), {
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
-    sources: { missionChanges, agentRuns, pendingIds, budgetSeen },
+    sources: { missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns },
   });
+}
+
+// ── 116-4 第四源 sessionTurns(27 号文 §11.7)─────────────────────────────────
+// 为什么需要它:前三源全都挂在【事项】上 —— 02 的 bumpMissionChangeSeq 读会话头,`!head.mission`
+// 就直接返回 null,而管家自己开的线程(steward_quick_ask / steward_thread_new)恰恰【没有】 mission
+// 容器。于是它们跑完之后三条源日志一个字都不写,收件箱永远是空的,管家也就永远不会被唤醒。
+// 116-4 复现:开一条速查 + 一条委托线程,两条都真跑完,inbox 0 行、cursor 里两条会话 changeSeq 全 0
+// —— 与用户机器上的证据逐条对上。
+//
+// 事实来源是会话头本身:turnSeq 前进 + 当前无活回合 = 这条线程的一个回合结束了。成败读 13g 在回合
+// settle 之后落的 stewardLastTurn(会话头上本来没有任何回合成败字段,实测过)。
+// 成本:先拿投影免费给的 sourceStamp(会话文件的 size:mtime 指纹)比一次,没变就连头都不读。
+async function stewardReadTurnHead(sessionId) {
+  try { return safeJsonParse(await fsp.readFile(sessionPath(sessionId), 'utf8'), null); } catch { return null; }
+}
+
+// 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
+// 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
+function stewardWatchedThread(head, sessionId, missionId) {
+  if (!head || typeof head !== 'object') return false;
+  if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
+  if (head.launchedBy === 'steward') return true;
+  return String(missionId || '') !== String(sessionId || '');
+}
+
+// 返回本轮该为这条会话入箱的事件(至多一条)或 null;顺带维护它自己的游标。
+async function stewardCollectSessionTurn(sid, missionId, row, now) {
+  const stamp = String((row && row.sourceStamp) || '');
+  const known = stewardRuntime.cursor.sessionTurns[sid];
+  if (known && known.stamp && stamp && known.stamp === stamp) return null;   // 文件一个字节没动:零磁盘读
+  const head = await stewardReadTurnHead(sid);
+  if (!head || !head.id) return null;
+  const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  if (activeChildren.has(sid)) {
+    // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
+    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: known ? known.turnSeq : turnSeq, stamp: '' };
+    return null;
+  }
+  const watched = stewardWatchedThread(head, sid, missionId);
+  if (known == null) {
+    // 首见。【不能】一律按「基线 = 当前 turnSeq」:速查线程从建到跑完只要几秒,而轮询 15 秒一轮 ——
+    // 第一次看见它时回合早就结束了,按当前 turnSeq 建基线等于把唯一那条 done 永久吞掉(这正是本波
+    // 要修的那个洞的另一半)。故:关心的 + 最近动过的 + 回合数不多的线程,首见就补这一条;
+    // 冷启动(本次装载没有可用游标)与存量老线程仍然只建基线,不把历史倒灌进箱子。
+    const updatedMs = Date.parse(String(head.updatedAt || ''));
+    const fresh = Number.isFinite(updatedMs) && (now - updatedMs) <= STEWARD_ACTIVE_WINDOW_MS;
+    const backfill = watched && fresh && !stewardRuntime.cold && turnSeq > 0 && turnSeq <= STEWARD_FIRST_SIGHT_MAX_TURNS;
+    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: backfill ? 0 : turnSeq, stamp: backfill ? '' : stamp };
+    if (!backfill) return null;
+  }
+  const baseline = Math.max(0, Number(stewardRuntime.cursor.sessionTurns[sid].turnSeq) || 0);
+  stewardRuntime.cursor.sessionTurns[sid] = { turnSeq, stamp };
+  if (!watched || turnSeq <= baseline) return null;
+  const evt = stewardNormalizeSessionTurn(sid, missionId, head, turnSeq);
+  if (evt) stewardRuntime.sourcesSeen.sessionTurns += 1;
+  return evt;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -41479,6 +41649,13 @@ async function stewardCollectEvents() {
       stewardRuntime.cursor.budgetSeen.add(sid);
       events.push(budgetEvt);
     }
+
+    // ── ④ 会话回合(116-4 第四源) ──
+    // 位置纪律:必须在下面那条「不活跃且账本没新版本就 continue」【之前】。速查线程没有 mission 卡片,
+    // card.updatedAt 是空的 -> recent 恒 false -> active 恒 false;第二轮开始它就会被那条 continue
+    // 直接跳过,放在后面等于第四源只在会话首见那一轮生效。
+    const turnEvt = await stewardCollectSessionTurn(sid, missionId, row, now);
+    if (turnEvt) events.push(turnEvt);
 
     const active = hasPending || recent;
     const knownRevision = Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.missionChanges, sid)
@@ -41589,6 +41766,7 @@ async function stewardTickOnce() {
     try { await StewardHooks.enrichInboxRows(rows); } catch { /* 增强失败只是少两个字段,不反噬轮询器 */ }
   }
   if (rows.length) await stewardAppendInboxRows(rows);
+  if (rows.length) stewardRuntime.lastInboxAt = nowIso();   // 116-4:唤醒链诚实 —— 「箱子最后一次真的收到东西」
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经
   // 被游标挡住了,重建只是把内存占用重新压回上限)。
@@ -41693,6 +41871,11 @@ async function stewardInboxState(config) {
     inboxSeq: Math.max(inboxSeq, stewardRuntime.inboxSeq),
     pollMs: Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000))),
     lastTickAt: stewardRuntime.lastTickAt,
+    // 116-4(§11.7 第 3 项「唤醒链诚实」):前端要能分清三件事 —— 轮询活着(lastTickAt 在动)、
+    // 箱子真的收到过东西(lastInboxAt)、第四源真的在工作(sourcesSeen.sessionTurns)。
+    // 修前只有 lastTickAt,一个「每 15 秒空转一次」的收件箱和一个真在干活的收件箱长得一模一样。
+    lastInboxAt: stewardRuntime.lastInboxAt,
+    sourcesSeen: { sessionTurns: Number(stewardRuntime.sourcesSeen.sessionTurns) || 0 },
     lastError: stewardRuntime.lastError,
     counts: { byKind },
   };
@@ -42583,12 +42766,45 @@ async function stewardImplAuditTail(args, ctx, config) {
 
 // 后台回合:fire-and-forget(不 await)。管家回合不能被线程回合的时长绑住 —— 它要立刻回一句
 // 「已经交给线程 X 去做了」。异常只写 logEvent,绝不冒泡到工具返回值(那会让模型以为没交出去)。
+// 116-4(27 号文 §11.7「第四源 sessionTurns」):回合 settle 之后把【身份与成败】落到会话头上。
+// 为什么必须落盘:收件箱只读磁盘上的账,而会话头本来没有任何回合成败字段(实测:回合失败后头上只有
+// summary 里那句人话,那是渲染不是信号),runSessionTurn 的返回值只活在这一个进程的这一个闭包里。
+// 不落盘 = 第四源永远只能报「跑完了」,报不出「挂了」。
+//   · launchedBy 在这里补写,是为了覆盖 thread_continue(递话给用户自己的会话,它没经过 createSession)；
+//     quick_ask / thread_new 已经在建会话时就地写过了,这里重复写是幂等的。
+//   · 成败取【内层】result.result.ok —— 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层
+//     仍然是 ok:true(116-4 实测),拿外层判会把每一条失败回合都说成收工。
+//   · 走 updateSessionMeta 而不是 loadSession+saveSession:settle 那一刻会话可能还在收尾窗口里,
+//     这条通道会延后到 settle 之后在【重新装载的副本】上重放,不会用陈旧正文盖掉回合刚写的消息。
+//   · 旁路纪律:写失败只是少一条账(第四源退化成报 done),绝不反噬回合本身。
+function stewardRecordLaunchOutcome(sessionId, result) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return Promise.resolve(null);
+  const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+  const aborted = !!(inner ? inner.aborted : (result && result.stopped));
+  const ok = inner ? inner.ok === true : !!(result && result.ok);
+  return updateSessionMeta(sid, {
+    launchedBy: 'steward',
+    stewardLastTurn: {
+      seq: Math.max(0, Number(result && result.turnSeq) || 0),
+      ok,
+      aborted,
+      errorClass: String((inner && inner.errorClass) || ''),
+      at: nowIso(),
+    },
+  }).catch(() => null);
+}
+
 function stewardLaunchTurn(input, tool) {
   const promise = runSessionTurn({ ...input, onEvent: () => {} });
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
+    void stewardRecordLaunchOutcome(input.sessionId, result);
   }).catch(error => {
     logEvent({ kind: 'steward_turn_error', tool, sessionId: String(input.sessionId || ''), message: String((error && error.message) || error).slice(0, 400) });
+    // 回合整个抛出来(不是回合内部失败):同样要留一条落盘的账,否则第四源看见 turnSeq 没动
+    // 就什么都不报,管家永远不知道自己派出去的这一趟连回合都没起来。
+    void stewardRecordLaunchOutcome(input.sessionId, { result: { ok: false, aborted: false, errorClass: 'launch_error' } });
   });
   return promise;
 }
@@ -42646,6 +42862,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
+  session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
   if (requestedMissionId) session.missionId = requestedMissionId; // 归入既有事项;否则 createSession 已置 missionId = 自身 id
   // 委托书落盘:原话与管家补充【分开存】,供 117 显示与用户「改一下」;不把拼好的整段存成一坨。
   session.brief = {
@@ -43510,6 +43727,9 @@ async function stewardImplQuickAsk(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = STEWARD_QUICK_KIND;
+  // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
+  // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
+  session.launchedBy = 'steward';
   // 速查线程【不进事项】:missionId 指回自己(createSession 的缺省),不写任何反向索引,
   // GET /api/missions 里它就是一条「未归类」的派生行,不占任何事项的验收与预算。
   session.stewardQuick = {
@@ -43704,6 +43924,10 @@ const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个
 const STEWARD_ACTIONS_MAX = 5;                // 一次回合最多执行 5 条 action(其余丢弃并如实标注)
 const STEWARD_DEBOUNCE_MS = 5000;             // 收件箱去抖窗口
+// 116-4(27 号文 §11.7 第 2 项「速查闭环」):速查线程的答案是【用户正在等的那一句】。让它也压满
+// 5 秒去抖,用户的体感就是「问一次要等两趟」。带 quick:true 的 done 行把本次去抖压到 0,其余事件
+// 仍走 5 秒 —— 它们是通知,不是有人正等着的答案。
+const STEWARD_QUICK_DEBOUNCE_MS = 0;          // 速查答案:不去抖,立刻起回合
 const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限
@@ -43763,6 +43987,7 @@ const stewardRunnerRuntime = {
   inflight: null,       // { kind:'user'|'inbox', promise, controller, cancelled, events }
   queue: [],            // 待处理的收件箱事件(抢占时回排在这里)
   debounceTimer: null,
+  debounceMs: -1,       // 116-4:当前那个定时器排的是多久(用来判「该不该重排成更快的」)
   lastReply: null,      // 最近一次 steward_reply 的精简副本(供 /api/steward/state)
   circuit: null,        // 最近一次触发的熔断 { kind, at, detail }
   stopped: false,       // 一键停机:停轮询的同时停回合队列
@@ -44701,12 +44926,25 @@ async function runStewardTurn(input) {
 // 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
 // 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
 // 用户回合结束时也顺带踢一次(用户说话本来就会解除无进展退避,顺手把积压带走)。
+// 116-4:队列里有没有「有人正等着的那一句答案」。
+function stewardQueueHasQuickAnswer(rows) {
+  return (Array.isArray(rows) ? rows : []).some(r => r && r.kind === 'done' && r.payload && r.payload.quick === true);
+}
 function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
-  if (stewardRunnerRuntime.debounceTimer) return;
   if (!stewardRunnerRuntime.queue.length) return;
+  // 116-4:去抖时长由【队列内容】决定,不由调用方决定 —— 五个调用点一行都不用改,新语义自动覆盖全部。
+  const delay = stewardQueueHasQuickAnswer(stewardRunnerRuntime.queue) ? STEWARD_QUICK_DEBOUNCE_MS : STEWARD_DEBOUNCE_MS;
+  if (stewardRunnerRuntime.debounceTimer) {
+    // 已经排着的那个更快或一样快:不动。更慢:重排 —— 否则一条先到的普通通知会把速查答案一起按住 5 秒。
+    if (delay >= stewardRunnerRuntime.debounceMs) return;
+    clearTimeout(stewardRunnerRuntime.debounceTimer);
+    stewardRunnerRuntime.debounceTimer = null;
+  }
+  stewardRunnerRuntime.debounceMs = delay;
   const timer = setTimeout(() => {
     stewardRunnerRuntime.debounceTimer = null;
+    stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
     const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
     if (!batch.length) return;
@@ -44717,7 +44955,7 @@ function stewardScheduleInboxDrain() {
       result => { if (!(result && result.circuit)) stewardScheduleInboxDrain(); },
       () => { /* 抛错不自排:等下一批新事件或下一次用户回合 */ },
     );
-  }, STEWARD_DEBOUNCE_MS);
+  }, delay);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;
 }

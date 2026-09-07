@@ -14,6 +14,8 @@
 //      (三元表达式里的比较值不是事件 type,必须在 NON_TYPE_LITERALS 里写明理由 —— 想放行就得留一行字。)
 //   D3 intervention:全 src 扫 registerIntervention(sid, '<type>', ...) ↔ 表 intervention 子表,双向等集。
 //   D4 模块落点:manifest 里 13g-steward.js 紧跟 13e-pretender-index.js 之后、14-main.js 之前。
+//   D7 第四源 sessionTurns(116-4):登记在表里、走 @sessionTurn 解析器、收集器与它的三条判据
+//      (速查线程 / launchedBy:'steward' / 别人事项里的线程)都在 13i,且 13g 真的在会话头上写这两个标。
 //   D5 挂接纪律:13-http-router.js 只经 StewardHooks 挂路由与关服收尾 —— 源码含
 //      `StewardHooks.handleApiRoutes` / `StewardHooks.stopInbox`,且【不含】`handleStewardApiRoutes`
 //      字面量(直接引用 13g 的符号 = 新前向边,是本切片的硬红线);另锁开关门控与 ROUTE_AUTH 档位。
@@ -205,6 +207,53 @@ function typeExpressionLiterals(text) {
     'D6 频控在写入端(同 run/会话 5 分钟一条),不是读取端去重');
   ok(/missionBudgetTripTurns\.get\(sid\) === turnSeq/.test(src02),
     'D6 budget_tripped 每回合最多一条(按 turnSeq 去重)');
+}
+
+/* ═══════════════ D7 第四源 sessionTurns(116-4) ═══════════════ */
+
+// 为什么它不参与 D1/D2/D3 的双向等集:那三条扫的是【源码里的写入端 type 字面量】,而第四源的事实
+// 来自会话头本身(turnSeq 前进 + 无活回合),没有写入端可对账 —— 与 projection 派生组同一处境。
+// 但「新信号必须有人登记一次」这条纪律照样适用,故在这里单独钉一遍。
+{
+  const st = STEWARD_SOURCE_EVENT_MAP.sessionTurn || {};
+  ok(Object.prototype.hasOwnProperty.call(st, 'turn_settled') && st.turn_settled === '@sessionTurn',
+    "D7 sessionTurn.turn_settled 登记为 '@sessionTurn'(语义由会话头上的 stewardLastTurn 决定)");
+  const src13i = read('13i-steward-inbox.js');
+  ok(src13i.includes('function stewardResolveSessionTurnKind('), 'D7 解析器 stewardResolveSessionTurnKind 在 13i');
+  ok(src13i.includes("'@sessionTurn': stewardResolveSessionTurnKind"), 'D7 解析器登记进 STEWARD_KIND_RESOLVERS');
+  ok(src13i.includes("return (last.ok === false && last.aborted !== true) ? 'failed' : 'done';"),
+    "D7 判据:账上 ok:false 且不是用户主动停 -> failed;其余(含账缺席)-> done");
+  const Q = String.fromCharCode(39);   // 单引号:内联在断言字符串里会把本文件的引号配对搞乱
+  ok(src13i.includes('function stewardWatchedThread(')
+    && src13i.includes('if (head.stewardQuick && typeof head.stewardQuick === ' + Q + 'object' + Q + ') return true;')
+    && src13i.includes('if (head.launchedBy === ' + Q + 'steward' + Q + ') return true;')
+    && src13i.includes('return String(missionId || ' + Q + Q + ') !== String(sessionId || ' + Q + Q + ');'),
+    "D7 「管家关心哪些会话」的三条判据单点在 13i(速查 / launchedBy / 别人事项里的线程)");
+  // 位置纪律:第四源必须排在「不活跃就 continue」之前 —— 速查线程没有 mission 卡片,
+  // recent 恒 false,放在后面等于它只在会话首见那一轮生效。
+  const collectAt = src13i.indexOf('const turnEvt = await stewardCollectSessionTurn(');
+  const continueAt = src13i.indexOf('{ idleSessionIds.push(sid); continue; }');
+  ok(collectAt > 0 && continueAt > 0 && collectAt < continueAt,
+    'D7 第四源的收集点排在「不活跃就 continue」之前(否则第二轮起就再也看不到速查线程)');
+  // 游标:新字段不改 schema 号(老游标缺这段 = 每条会话都算首见,由首见纪律兜住)。
+  ok(src13i.includes('sources: { missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns },'),
+    'D7 游标落盘带上 sessionTurns 段');
+  ok(src13i.includes('const STEWARD_CURSOR_SCHEMA = 1;'), 'D7 游标 schema 号仍是 1(向后兼容,不做迁移)');
+  // 写入端:13g 必须真的在会话头上写这两个标,否则第四源的判据永远为假。
+  const src13g = read('13g-steward.js');
+  ok(src13g.includes('function stewardRecordLaunchOutcome('), 'D7 13g 有回合成败的落盘写入端');
+  ok((src13g.match(/session.launchedBy = 'steward';/g) || []).length === 2,
+    'D7 两条建线程的路径(quick_ask / thread_new)都就地写了 launchedBy');
+  ok(src13g.includes("launchedBy: 'steward',") && src13g.includes('stewardLastTurn: {'),
+    'D7 settle 之后的那次落盘同时补 launchedBy(覆盖递话给用户自己会话的那条路)');
+  ok(src13g.includes("result.result && typeof result.result === 'object'"),
+    "D7 成败取【内层】result.result.ok —— 外层 ok 只表示这次调用完成了(一条 HTTP 500 的回合外层仍是 ok:true)");
+  const src02b = read('02-session-store.js');
+  ok(src02b.includes("if (patch.launchedBy === 'steward') session.launchedBy = 'steward';"),
+    "D7 02 的元数据白名单只认 'steward' 这一个字面量(PATCH /api/sessions 的调用方拿不到别的值)");
+  ok(src02b.includes('session.stewardLastTurn = {')
+    && src02b.includes("errorClass: String(t.errorClass || '').slice(0, 64),"),
+    'D7 stewardLastTurn 严格归一成固定五字段(与 stewardQuick 同纪律)');
 }
 
 console.log(fail === 0 ? 'STEWARD EVENTS STATIC E2E: ALL PASS' : `STEWARD EVENTS STATIC E2E: ${fail} FAILED`);

@@ -9,6 +9,11 @@
 //  (d) 验收推进:里程碑 done 后 acceptance 与列表进度同步;全部 done → status 'complete'。
 //  (e) 静态锁:ROUTE_AUTH token-browser 条目、handler 挂载、createSession/mission-start kind 写入。
 //  (f) 未知 sessionId → 404。
+//  (g) 116-4 第 0 步回归:kind='mission' 但头上【没有】 mission 容器的会话(steward_thread_new 建出来
+//      的就是这个形状)不得把整份投影打崩 —— 修前 buildMissionCard 直接读 m.goal,而
+//      buildPretenderSessionSlice 没有 try、rebuildPretenderIndexFull 的 Promise.all 整份 reject,
+//      于是 GET /api/missions、/api/missions/<id>、GET /api/interventions 一起 500,管家收件箱
+//      每轮 tick 抛 "Cannot read properties of null (reading 'goal')" 三个源全停摆。
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -168,6 +173,30 @@ function spawnFake(seq, extraEnv) {
     await postJson(WB_PORT, '/api/mission', { sessionId: sidB, action: 'update', patch: { milestones: [{ id: 'm2', status: 'done', evidence: 'e2e' }] } }, H(token));
     const detB3 = await getJson(WB_PORT, '/api/missions/' + sidB, H(token));
     ok(detB3.body.snapshot.acceptance.done === 2 && detB3.body.snapshot.status === 'complete', '(d) 全部 done → status=complete(实 ' + detB3.body.snapshot.status + ')');
+
+    // ============ (g) 116-4:kind='mission' 但没有 mission 容器 ============
+    // 造这个形状用【真实路径 + 改会话头文件】:steward_thread_new 就是 createSession 之后把
+    // session.kind 置成 'mission'(mission 容器要等 /api/mission start 才有)。这里不 monkey-patch
+    // 服务端,只按既有文件格式落一份同形状的会话头 —— 与 steward-inbox.e2e 合成 agent run 快照同纪律。
+    {
+      const cg = await postJson(WB_PORT, '/api/sessions', { title: '管家开的线程', cwd: HOME });
+      const gid = cg.body.session.id;
+      const head = JSON.parse(fs.readFileSync(headFile(gid), 'utf8'));
+      ok(head.mission == null, '(g) 前置:新建会话头上的 mission 容器确实是空的');
+      head.kind = 'mission';
+      fs.writeFileSync(headFile(gid), JSON.stringify(head, null, 2), 'utf8');
+      await sleep(300);
+      const list = await getJson(WB_PORT, '/api/missions', H(token));
+      ok(list.status === 200, '(g) GET /api/missions 仍是 200(修前整份投影抛错)');
+      const row = (list.body.missions || []).find(m => m.sessionId === gid);
+      ok(!!row, '(g) 这条线程照常出现在列表里');
+      ok(row && row.status === 'none' && row.mission && row.mission.goal === '',
+        `(g) 没有 mission 容器时 status='none'、goal 空(got ${row && row.status}/${JSON.stringify(row && row.mission && row.mission.goal)})`);
+      const detail = await getJson(WB_PORT, '/api/missions/' + gid, H(token));
+      ok(detail.status === 200, '(g) GET /api/missions/<id> 详情也是 200');
+      const ivs = await getJson(WB_PORT, '/api/interventions', H(token));
+      ok(ivs.status === 200, '(g) GET /api/interventions 也是 200(它走同一份投影,修前一起 500)');
+    }
 
     // ============ (f) 未知 sessionId → 404 ============
     const nf = await getJson(WB_PORT, '/api/missions/sess_nonexistent', H(token));
