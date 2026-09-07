@@ -435,7 +435,9 @@
   - **顺手修的一条与本片无关但挡住验证的夹具问题**：`steward-shell.e2e` 的启动预算是这一族里唯一的 6 秒（其余五件 12 秒），机器一忙 `A1 workbench started` 就随机红；顺带补上 `autoImportClaudeCodeMcp:false`（临时 HOME 的 e2e 不该去读开发机真实的 `~/.claude.json`）。断言没放宽。
   - **两条排错教训，写下来免得下次再花时间**：① `run-all` 的进度行是**交错**的 —— `[B1] X.e2e.js ... [B2] FAIL` 里那个 FAIL 属于 **B2 车道刚跑完的那一件**，不是行首那个正在启动的 X；要看谁真的红了只看结尾「失败件 tail」里的 `=== 文件名 (exit=1) ===`。本片为此白查了两轮 `steward-tools.static`（它一直是绿的）。② **手工单跑浏览器 e2e 会漏 Edge 进程**（`run-all` 每件跑完会调 `lib/browser-cleanup.js` 的 `stopRuyiTestBrowsers` 收尸，手工不会）：攒到 345 个之后工作台冷启动从 4 秒涨到 24～86 秒，一批件以「服务起不来」的形式假红，差点被当成本片改坏了服务端去二分。两条都进了本会话的记忆。
   - **另外定位到一条老 flake 的根因（不是本片引入，已单独登记）**：`steward-drawer.e2e` 的 `E4b`「抽屉给出『已替你回复』的回执」失败率约 1/3（117j 改动前后各跑三次都是 1/3）。打点抓到调用栈：线程 C 那个 `POST /api/chat/stream` 起的回合**问完问题会自己跑完**，收尾时 `clearPendingQuestions(sessionId, 'turn ended')` 把那条 question 以 `ok:false` 结掉；浏览器那边的点击若晚于回合收尾，`POST /api/chat/answer` 就拿到 409 `question.delivery_failed` —— 待决确实没了（E4 绿），但回执是失败的（E4b 红）。修法应是让夹具的假 provider 在提问之后保持回合挂起（那才是真实场景：AskUser 期间回合是阻塞的），不能把断言改宽。
-  - 门：（回归数字待填）
+  - 门：**零后端改动** —— `app/src/` 一行未动，依赖图（41 模块／316 边／前向边 67）与路由清册（127 判定点、ROUTE_AUTH 115 条）逐字节不变，`build --check` 新鲜；`app.js` 1277 → **1276 行**（纪律「不增行」，classic-1 那一块换成调用单点反而净减一行）；D51 CSS 载荷 SHA 按既有先例重钉一次（改动只落在管家壳自己的两个所有权层）。
+  - 全量回归 `--parallel 4` **304 pass / 3 fail / 9 flaky / 307 ran / 7 skipped**；三条失败（`perf`／`context-compact-v2`／`mcp-ops-closure`）逐条单跑**全部 exit 0**，是 4 路并行的资源竞争（`perf` 那条本来就是「冷启动 < 5000ms」的时间门，实测 5324ms）。
+  - **上一轮全量跑出 7 条红，值得记一笔**：3 条是同款资源竞争，4 条是真的、且全部属于「契约没变、源码形状变了」——`route-inventory.json` 漂移（本片的 e2e 改动给 `/api/interventions` 那一行多带了一个消费者，12 件 → 13 件，跑一遍生成器即可）、`steward-avatar.static` D2（壳层 import 白名单 7 → 8）、`pretender-shell.static` W117g-7（判据随 classic-3 放宽）、`steward-guardrails` I2（copy-P1-1 的回落多了一级）。**加上前面那 12 条，本片一共重钉 15 条既有断言**，每一条的理由都写在改动点旁边。
 
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
