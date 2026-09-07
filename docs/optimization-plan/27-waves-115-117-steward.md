@@ -466,6 +466,8 @@
   - **头像菜单那条单独先修的**（用户走查原话：「每次切管家，会冒出那个有设置的二级窗口」）：`.steward-menu` 那条 `display:flex` 是作者样式，压过 UA 表的 `[hidden]{display:none}` —— 菜单建出来就 `menu.hidden = true`，可它一直画在屏幕上盖住问候语与头像，Esc 与点菜单项都「关不掉」（只改了 DOM）。这是本仓同款守卫的**第六处**（前五处：drawer / chip-menu / shield-menu / now / target-picker）。顺带修位置：它只有 `position:absolute` 没有 `top/left`，用的是静态位置，实测落在 **y = −20px**，首项「细节」被窗口上沿切掉、点不着 —— 给 `.steward-header` 加 `position:relative` 作锚，改为贴顶栏下沿展开。提交 `8096ad5`，静态锁 B1b 第六处 ＋ CSS 载荷 SHA 重钉。
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
+**2026-09-07 下午追加**：用户第四轮走查（七条 + 一条桌面崩溃）立项 **117l**，设计页与派单见 §11.9（Fable 设计与验收，Opus／Sonnet 实现）。
+
 **现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的设计页见 §11.8（三条拍板已定），**116-5a 引擎侧与 116-5b 消费面均已入库**（交付记录见 §11.6）。**117j 也已入库**（三批，交付记录见 §11.6）。管家线（115→116→117）到此收口；剩下两条明确挂起：**copy-P2-1**（要先在读模型里露出「这条是不是管家开的速查线程」，116-3 P1-5 的服务端判据已有）与 **classic-5**（经典壳首屏动态 `import()` 九个管家 JS，派单稿本来就写了「不在本片做」）。
 
 **现状**：116-3（后端对抗修复）三批全部入库——`e520428`（P0 六条＋A2＋B1）、`013d274`（P1 九条＋数据安全两条＋※ 脚注人话）、`2b334b9`（P2 四条＋A4），交付记录见 §11.6；`server.js` 已 cp 进 `dist/Ruyi-full/app/`，**桌面端重启后服务端守卫才生效**。全量回归提速已有结论：本机 24 核用 `--parallel 8`，约 9 分钟、失败谱与 4 路一致。
@@ -618,3 +620,58 @@ session.titleSource = 'user'     // 只认这一个字面量;由「用户手改�
 1. **开关独立、默认开**（不随 `stewardEnabledV1`）——✅ 定案。理由见 §11.8.6：消费面一半在经典壳。
 2. **端点回落到线程自己的 OpenAI 兼容 provider**——✅ 定案。优先 `stewardProviderId`，其次线程自己的 provider，两者都不可用则静默不生成。
 3. **加 `session.titleSource`**——✅ 定案。显示优先级：用户起的名字 > 生成的名字 > 原话。
+
+
+### 11.9 117l 设计页 · 用户第四轮走查（2026-09-07 下午，三张截图，七条 + 一条崩溃；Fable 设计与验收，Opus／Sonnet 实现）
+
+> 派单稿全文在会话 scratchpad：`brief-117l-common.md`（纪律）、`brief-117l-A1-backend.md`、`brief-117l-A2-desktop.md`、`brief-117l-A3-settings.md`、`brief-117l-B1-frontend.md`。本节记的是**证据、拍板与验收口径**；与派单稿有出入时以本节拍板为准、以派单稿细节为准。
+
+#### 11.9.1 用户原话（编号沿用）
+
+1. 线程里的提问出来时，虽然会弹出「打开线程回答」，但并没有 2.0 的那种问答框，导致没法正常地回复。
+2. 无论关键词匹配到什么，都要发给管家让它决定是哪个线程、是否是新线程。
+3. 「它刚说」更新不够及时；线程页内容太多太杂。
+4. 管家回复的 ※ 没有正确标明标题。
+5. 直接卡死崩溃了（截图：「应用程序中发生了未经处理的异常 … 算术运算导致溢出」）。
+6. 为啥输出完了还显示「在忙上一件」；要能让用户连续发消息。
+7. 设置的管家页里可以默认配置新开线程的端点和模型：一个针对复杂任务的强模型、一个简单任务的快速模型。
+
+#### 11.9.2 证据（读用户真机 `~/.win-claude-workbench` 的日志与管家会话，不是推测）
+
+- **①⑥ 是同一起事故**。10:31:06 线程「帮我预判一下美股今晚走势」(`sess_a506…`) 调 `request_user_input` 挂起等答案（正式待决 `question_77ef…`）；10:31:16 收件箱 needs_you → 管家：「美股那条线程刚问到你了…」，act = open_thread「打开线程回答」。**10:32:34 该线程 `turn_kill reason:superseded`**，`request_user_input` 工具调用 `status:failed`，回合 5 aborted；同一毫秒 `steward_turn_done tool:steward_thread_continue`；10:32:38 回合 6 以一句新话开跑。也就是说：**用户还没回答的问题，被一句新递进去的话杀掉了**（`09-workflow.js:1343` `if (activeChildren.has) stopSession('superseded')` 是 2.0 主输入框的既有语义；管家递话与抽屉「直接对这条线程说」两条路都不该走到它——抽屉那条在不 live 时直打 `/api/chat/stream`，管家那条 `steward_thread_continue` 只有一道 `activeChildren.has → steward.busy`）。截图 2 里「0 条等你 / 在等什么 暂无」不是抽屉撒谎——那一刻问题已经没了；截图 3 的「我正忙着上一件」= `stewardShell.chat.errBusy` ← `steward.busy`（**线程**忙），文案却说成管家忙。用户输入区的关键词预判（「走势」命中美股线程）把「大A这周走势会怎么样」直递给了那条线程，这就是 ② 的由来。
+- **④** 管家落盘的 `why` 原文：「收件箱事件 [1] needs_you:线程 sess_a50604717960006a 有待决 question_77ef30898760f07a,…」——收件箱事件行（13h:869）本来就是 `线程 ${sid}` 喂给模型的，模型照抄。总览行还在用原话 `title`，用户机器上十几条无名线程被管家叫成「**New session**」。
+- **⑤** `desktop/RuyiDesktop.cs:1322` 与 `:1339`：`m.LParam.ToInt32()`（WM_MOUSEWHEEL／WM_NCHITTEST）；`build-desktop.ps1` 用 `/platform:x64`。x64 下 `IntPtr.ToInt32()` 超 int32 即抛 `OverflowException`；LPARAM 打包屏幕坐标，y 为负（副屏在上／左上、窗口部分在屏外）时高字 0xFFxx 被符号扩展成 64 位 → 抛。WM_NCHITTEST 鼠标一动就来，所以是「直接卡死」。
+- **③** 「它刚说」= 最后一条**落盘**助手消息的前 ≤3 句；回合跑几分钟期间它纹丝不动（活回合的文本只在发起那条 `/api/chat/stream` 连接上流，管家派出去的回合 `onEvent: () => {}` 谁也看不见）。抽屉 11 个区块全部常驻。「收工 · 用时 770h 35m」是从建会话算起的。
+- **⑦** `stewardImplThreadNew` → `createSession` → `engineRoute = sessionEngineRouteFromConfig(config)`（全局主端点）；会话级 `engineRoute` 是既有先例（02:1197），只差一个来源。
+
+#### 11.9.3 拍板
+
+- **D1（②）用户每句话都到管家**。输入区预判降级为「提示」：chip 显示「→ 如意 · 像是接着『X』」，随请求带 `routeHint` 进管家回合的 volatile 段（服务端只信 sessionId，标题自己重查；用户消息逐字不动），由管家决定接着办／新开／直接答。**手选 @ 目标仍直递**（那是用户明示）。
+- **D2（①⑥）`steward_thread_continue` 按目标状态选通道，永不 supersede 一个等回答的回合**：在等回答 → 当作答案（`decideIntervention` answer 通道；permission 待决不代答，propose_required）；在跑 → 插话（`steerSessionCore`）；空闲 → 新回合；只有「正忙且不能插话」才 busy，文案说清是线程忙。新 `POST /api/steward/relay` 单口，抽屉「直接对这条线程说」与问答卡自由回答都走它，不再自己在 `/api/steer` 与 `/api/chat/stream` 之间猜。
+- **D3（⑥）用户连发**：前端队列（第二句立即上屏、标「排队中」、按序发）；服务端「用户撞用户」真串行（循环等在途回合收尾，5 分钟上限，不双跑）；收件箱回合照旧被用户抢占。
+- **D4（①③）抽屉重排**：③ 之下新增「它在问你」卡（正式待决的问题原文 + 选项按钮 + 自由回答框；软问句——原话末尾是问号——也算）；「打开线程回答」落到这张卡上并给焦点。在跑时「它正在说」显示活回合尾巴（服务端 `liveTail`，随既有 `GET /api/sessions/:id` 下发，零新请求）。三问／验收／接力／现场折进默认收起的「更多」。「收工 · 用时」改「已收工 · 最近动过 X 前」。看板行加「它在问你」pill。线程行加 `asksYou` 字段（不改 `wait`／五态）。
+- **D5（④）id 人话化**：服务端确定性把 `say`／`why` 里的 `sess_…` 换成「显示名」、删掉孤立的 `question_…` 等内部 id；收件箱事件行与自理 notes 改成「线程『显示名』(id)」；总览行用显示名；06b 加规则。※ 浮层加「依据／已办」小标题。
+- **D6（⑤）** 两处 `ToInt32()` 改 64 位安全截取；重建两份 exe；静态锁禁止 `LParam/WParam.ToInt32()`。
+- **D7（⑦）** `stewardThreadModels: { strong:{providerId,model}, fast:{providerId,model} }`；`steward_thread_new` 加 `tier`（缺省 strong），`steward_quick_ask` 恒 fast；provider 不存在回落全局 + 审计；模型不能经 `steward_config_set` 改这两个键；设置管家页新组「新开线程用什么模型」。
+
+#### 11.9.4 切片、分工与顺序
+
+| 片 | 谁 | 动哪 | 内容 |
+|---|---|---|---|
+| A1 | Opus | `app/src` + 后端测试 | D2 通道、D3 服务端、D5 服务端、D1 服务端（routeHint）、D7 服务端、`liveTail`、`asksYou`、`/api/steward/relay` |
+| A2 | Sonnet | `desktop/` + exe + 静态锁 | D6 |
+| A3 | Sonnet | `index.html`／`steward-settings.js`／locale／设置测试 | D7 前端 |
+| B1 | Opus（等 A1） | `app/public` 其余 + 前端测试 | D1 前端、D3 前端、D4、D5 前端 |
+
+A1／A2／A3 并行（文件不相交，各自显式路径提交）；B1 串行在 A1 之后。全量回归与真机走查由 Fable 亲自做。
+
+#### 11.9.5 验收口径（Fable 亲自复核，报告里的「已验证」全部重跑）
+
+- 夹具：线程挂在 `request_user_input` 上 → 管家递话／抽屉直说 → **待决被回答、无 turn_kill**；线程在跑 → 插话入队；空闲 → 新回合。
+- 输入区：关键词命中线程时请求仍打 `/api/steward/message`（带 hint），管家的 volatile 里有标题无 id。
+- 连发两句：两句都上屏、按序两条回复、服务端零并跑。
+- 抽屉：问答卡可见且有焦点、答完卡消失；在跑时「它正在说」每 5s 变；「更多」默认收起。
+- ※：`why` 无 `sess_`／`question_`。
+- 桌面：静态锁绿、exe 重建为 Amd64；用户端需重启桌面壳。
+- 设置：strong／fast 各配一个 provider 后管家开的线程 `engineRoute` 对得上；速查线程用 fast。
+- 门：`run-all --parallel 4` 无新增确定性红；prompt-snapshot 只 steward 段变；facts 工具数不变；路由判定点数变化在报告里写明。
