@@ -31,5 +31,9 @@ ok(/无法打开外部链接/.test(source) && /复制链接/.test(source) && /�
 ok(/关闭网页，返回工作台/.test(source) && /ruyiReturnHome/.test(source),
   'escaped embedded pages receive an explicit return-to-workbench escape hatch');
 
+ok(!/\b(LParam|WParam)\.ToInt32\(\)/.test(source), 'x64 下 IntPtr.ToInt32() 遇到负坐标会抛 OverflowException（117l 用户真机崩溃）——LPARAM 一律先 ToInt64 再截低 32 位');
+ok(/unchecked\(\(int\)(\(long\)m\.LParam|m\.LParam\.ToInt64\(\))\)/.test(source), 'LPARAM 改用 unchecked 截取低 32 位解码，不经过会抛异常的 checked ToInt32()');
+ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'desktop', 'build-desktop.ps1'), 'utf8')), '桌面壳按 x64 编译（上面那条锁的前提）');
+
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

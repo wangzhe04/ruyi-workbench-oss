@@ -1319,7 +1319,10 @@ namespace RuyiDesktop
             {
                 // Win32 滚轮消息发给【焦点窗口】：点过标题栏/三键后焦点留在原生控件，
                 // 在页面上滚滚轮就不动（“滑不动”）。转发到光标下最深的子窗口（WebView 宿主）。
-                int wlp = m.LParam.ToInt32();
+                // 117l：x64 下对 LParam 直接调用 checked 的 ToInt32() 在坐标 y 为负（副屏在主屏
+                // 上方/左侧等多屏布局）时会抛 OverflowException（用户真机崩溃）。改用 unchecked
+                // 截取低 32 位，不做范围检查。
+                int wlp = unchecked((int)(long)m.LParam);
                 var pt = new Native.POINT();
                 pt.x = (short)(wlp & 0xFFFF);
                 pt.y = (short)((wlp >> 16) & 0xFFFF);
@@ -1336,7 +1339,8 @@ namespace RuyiDesktop
             }
             if (m.Msg == Native.WM_NCHITTEST && WindowState != FormWindowState.Maximized)
             {
-                int lp = m.LParam.ToInt32();
+                // 117l：同上，WM_NCHITTEST 随鼠标移动高频触发，是用户「一动鼠标就崩」的直接成因。
+                int lp = unchecked((int)(long)m.LParam);
                 short sx = (short)(lp & 0xFFFF);
                 short sy = (short)((lp >> 16) & 0xFFFF);
                 Point p = PointToClient(new Point(sx, sy));
