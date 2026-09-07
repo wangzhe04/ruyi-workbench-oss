@@ -50,6 +50,8 @@ const round6 = n => Math.round((Number(n) || 0) * 1e6) / 1e6;
 
 function writeConfig() {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 7, version: '1.4.0', permissionMode: 'bypass', defaultWorkspace: HOME,
     subagentMaxConcurrent: 2,
     // NOTE: no modelsApiBase (Anthropic-direct → claudeLedgerSource costTrusted:true) and NO claudePricing,

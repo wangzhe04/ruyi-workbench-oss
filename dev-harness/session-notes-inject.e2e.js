@@ -64,6 +64,8 @@ async function launchStack(tag, flags) {
   const EHOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-w105d-e-' + tag + '-'));
   const CAP = path.join(EHOME, 'caps'); fs.mkdirSync(CAP, { recursive: true });
   fs.writeFileSync(path.join(EHOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'test-key', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }], contextWindow: 40000 }],
     activeProvider: 'fake',

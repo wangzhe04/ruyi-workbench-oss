@@ -25,6 +25,8 @@ fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(WORK, { recursive: true });
 fs.writeFileSync(FILE, 'The secret marker is ' + SECRET + '.', 'utf8');
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+  // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+  stewardThreadBriefV1: false,
   configSchema: 4, version: '0.5.0', permissionMode: 'bypass', defaultWorkspace: WORK,
   providers: [{ id: 'fake-resp', label: 'Fake Responses', type: 'openai-compat', apiStyle: 'responses',
     baseUrl: `http://127.0.0.1:${FP}`, apiKey: 'k', model: 'deepseek-v4-flash',

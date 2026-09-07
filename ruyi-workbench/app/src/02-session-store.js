@@ -751,6 +751,23 @@ function sessionMissionId(o) {
   return (typeof id === 'string' && id) ? id : '';
 }
 
+// ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
+// 名字与概括的字数上限。在【落盘时】就夹死(见 applySessionMetaPatch),不是显示时才截:
+// 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
+const SESSION_BRIEF_TITLE_CHARS = 24;
+const SESSION_BRIEF_GIST_CHARS = 80;
+// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话。
+// 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
+// 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
+// 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
+function sessionDisplayTitle(o) {
+  const raw = String((o && o.title) || '');
+  if (!o || o.titleSource === 'user') return raw;
+  const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
+  const generated = String((brief && brief.title) || '').trim();
+  return generated || raw;
+}
+
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
 // 116-2a: 可选第二参 config —— 给了(且是对象)就额外带出派生的 effectivePermissionMode。索引条目
@@ -780,6 +797,12 @@ function sessionMeta(o, config) {
     // chip 要能分清「这条线程自己定了档」(显示实底)与「跟着全局默认走」(显示浅底),填全局值就分不清了。
     // 存量会话读到没有该字段 → null,零迁移。
     permissionMode: sessionPermissionModeOf(o),
+    // 116-5a(§11.8.5):线程的名字与一句概括。**缺席时这两个键根本不出现** —— 存量会话的
+    // /api/sessions 载荷逐字节不变。两个入参形态都要认:会话头(threadBrief)与已归一过的索引条目
+    // (brief) —— 快路径会把索引条目再喂一次 sessionMeta,只认前者的话这个字段在那一趟就丢了
+    // (与上面 rawKind 那条同一个坑)。
+    ...(sessionBriefOf(o) ? { brief: sessionBriefOf(o) } : {}),
+    ...(o && o.titleSource === 'user' ? { titleSource: 'user' } : {}),
     // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
     // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
     ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
@@ -787,6 +810,15 @@ function sessionMeta(o, config) {
 }
 // 116f: 管家会话不是「一个会话」,它是工作台本身的那张脸 —— 会话列表、内容搜索、投影、收件箱四个面
 // 都必须看不见它。判定读【原始】 kind,不经 sessionKind()(那会把它说成 quick_ask)。
+// 116-5a:从两种入参形态里取出摘要(会话头的 threadBrief / 索引条目的 brief),形状归一成
+// {title, gist} —— 索引条目只带显示要用的两个字段,at/model/stage 留在会话头上供事后对账。
+function sessionBriefOf(o) {
+  const b = o && ((o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null));
+  if (!b) return null;
+  const title = String(b.title || '').trim();
+  const gist = String(b.gist || '').trim();
+  return (title || gist) ? { title, gist } : null;
+}
 function sessionMetaIsSteward(meta) {
   return !!(meta && (meta.rawKind === 'steward' || meta.kind === 'steward'));
 }
@@ -916,7 +948,11 @@ async function listSessions() {
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
 function applySessionMetaPatch(session, patch) {
   const id = session.id;
-  if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
+  // 116-5a(27 号文 §11.8.3):走这条通道改标题的只有两个调用面 —— PATCH /api/sessions/:id(用户
+  // 在界面上改名)与 steward_thread_rename(管家替用户改名)。两者都是【有意起的名字】,应当压过
+  // 116-5 自动生成的 threadBrief.title。会话头上本来分不出「标题是自动派生的原话」还是「人起的名字」
+  // (两者都只是 session.title),不记这一笔的话「线程改名后不再被摘要覆盖」这条需求无法实现。
+  if (typeof patch.title === 'string') { session.title = patch.title.slice(0, 200); session.titleSource = 'user'; }
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
@@ -980,6 +1016,24 @@ function applySessionMetaPatch(session, patch) {
       at: String(t.at || ''),
     };
   }
+  // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
+  // stewardQuick / stewardLastTurn 同纪律 —— 这条通道也接 PATCH /api/sessions/:id,不能让任意形状
+  // 写进会话头。title/gist 在这里就夹到上限:显示层不必再截一次,存量数据也不会因为上限调整而变形。
+  if (patch.threadBrief && typeof patch.threadBrief === 'object' && !Array.isArray(patch.threadBrief)) {
+    const b = patch.threadBrief;
+    const stage = String(b.stage || '');
+    session.threadBrief = {
+      schema: 1,
+      title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_TITLE_CHARS),
+      gist: String(b.gist || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_GIST_CHARS),
+      at: String(b.at || ''),
+      model: String(b.model || '').slice(0, 160),
+      stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
+    };
+  }
+  // 116-5a:只认 'user' 这一个字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
+  // 给自己刷一个假的「人起的名字」没有意义,但白名单该有的严格一分不能少。
+  if (patch.titleSource === 'user') session.titleSource = 'user';
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -2396,6 +2450,11 @@ async function createSession({ title, cwd }) {
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
+    // 116-5a(§11.8.3):建会话时就带了一个【不是占位符】的标题 = 这条线程已经有名字了,不必再花一次
+    // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
+    // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
+    // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
+    ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
   return session;

@@ -58,6 +58,8 @@ function readCaptures(dir) {
 }
 function seedConfig(home, fakePort) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }] }],
     activeProvider: 'fake',

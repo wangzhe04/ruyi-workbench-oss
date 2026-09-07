@@ -207,6 +207,8 @@ const home = path.join(root, 'home');
 const profile = path.join(root, 'profile');
 fs.mkdirSync(home);
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
+  // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+  stewardThreadBriefV1: false,
   configSchema: 9,
   version: '2.4.0',
   activeProvider: 'fake',

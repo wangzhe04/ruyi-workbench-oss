@@ -67,6 +67,8 @@ function inboxSize() { try { return fs.statSync(inboxFile()).size; } catch { ret
 
 function writeConfig(stewardOn) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 7, activeProvider: 'fake', engineMode: 'interactive',
     permissionMode: 'default', // file_write(edit 层)必须走 permission_request
     permissionTimeoutMs: 30000, includeWorkbenchMcp: true, defaultWorkspace: HOME, recentWorkspaces: [],

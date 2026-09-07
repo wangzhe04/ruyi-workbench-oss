@@ -531,6 +531,8 @@
         "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
+        "SESSION_BRIEF_GIST_CHARS",
+        "SESSION_BRIEF_TITLE_CHARS",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
         "SESSION_META_DEFER_TIMEOUT_MS",
@@ -684,6 +686,8 @@
         "sessionBodyPaths",
         "sessionBodyState",
         "sessionBodyText",
+        "sessionBriefOf",
+        "sessionDisplayTitle",
         "sessionEngineRouteFromConfig",
         "sessionEngineRouteOverrides",
         "sessionIndexChain",
@@ -3096,6 +3100,11 @@
         "STORAGE_STEWARD",
         "STORAGE_TREND_MAX",
         "STORAGE_TREND_MIN_GAP_MS",
+        "THREAD_BRIEF_FIRST_TURN_TRIES",
+        "THREAD_BRIEF_INPUT_CHARS",
+        "THREAD_BRIEF_PER_MINUTE",
+        "THREAD_BRIEF_REPLY_CHARS",
+        "THREAD_BRIEF_RETRY_BACKOFF_MS",
         "TOOL_ITERATION_BUDGETS",
         "TOOL_REQUIRES",
         "_capCache",
@@ -3117,6 +3126,7 @@
         "buildSkillsPromptSection",
         "buildSoftwareEngineeringPolicy",
         "buildStableSystemPrompt",
+        "buildThreadBriefMessages",
         "buildToolCustomizationHint",
         "buildVolatileParts",
         "builtinPlaybooksDir",
@@ -3146,12 +3156,14 @@
         "loadAllPlaybooks",
         "markNetworkOnline",
         "maybeRecordStorageTrend",
+        "maybeWriteThreadBrief",
         "metricsBucketIndex",
         "networkAnchors",
         "normalizeMetricsPath",
         "normalizePlaybook",
         "normalizeStoragePolicy",
         "parsePlaybookDraft",
+        "parseThreadBrief",
         "peekCapabilities",
         "probeAny",
         "probeDesktopMcp",
@@ -3162,12 +3174,14 @@
         "readProjectMemory",
         "readStorageTrend",
         "readWorkbenchAudit",
+        "reassertThreadBrief",
         "recordEngineTranscript",
         "recordRequestMetric",
         "repairNodeJsonViaProvider",
         "resolveToolIterationBudget",
         "sampleProcessRss",
         "saveUserPlaybook",
+        "settleThreadBrief",
         "shouldExtendToolIterationBudget",
         "shrinkFencedSection",
         "softwareEngineeringTaskProfile",
@@ -3177,6 +3191,13 @@
         "sweepEngineTranscriptsStore",
         "sweepLogsStore",
         "sweepWebcacheStore",
+        "threadBriefCalls",
+        "threadBriefDone",
+        "threadBriefEnabled",
+        "threadBriefInflight",
+        "threadBriefOnce",
+        "threadBriefProvider",
+        "threadBriefRateLimited",
         "toolRequirementsMet"
       ],
       "requires": [
@@ -3367,6 +3388,13 @@
           "symbol": "SESSION_INDEX_FILE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6947,6 +6975,7 @@
         "fitHistoryForSummary",
         "historyStartsWithCompactionSummary",
         "isContextOverflowError",
+        "lastAssistantTextOf",
         "lastSessionContextTokens",
         "learnedWindowCap",
         "legacySingleSummaryCall",
@@ -7351,6 +7380,20 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "maybeWriteThreadBrief",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "settleThreadBrief",
           "kinds": [
             "call"
           ]
@@ -13383,6 +13426,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "read"
@@ -14181,6 +14231,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "maybeWriteThreadBrief",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "NETWORK_ANCHORS",
           "kinds": [
             "read"
@@ -14217,6 +14274,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "parsePlaybookDraft",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "parseThreadBrief",
           "kinds": [
             "read"
           ]

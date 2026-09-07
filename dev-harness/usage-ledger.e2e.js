@@ -43,6 +43,8 @@ const round6 = n => Math.round((Number(n) || 0) * 1e6) / 1e6;
 
 function writeConfig(activeProvider) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 7, version: '1.4.0', permissionMode: 'bypass',
     providers: [
       { id: 'priced', label: 'Priced', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_A, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false, pricing: { inputPerM: IN_PER_M, cachedInputPerM: CACHED_PER_M, outputPerM: OUT_PER_M, currency: CUR, models: [{ model: 'fake-model', inputPerM: MODEL_IN_PER_M, cachedInputPerM: MODEL_CACHED_PER_M, outputPerM: MODEL_OUT_PER_M }] } },

@@ -200,6 +200,8 @@ function startLegacySseMcp(port, state) {
   fs.writeFileSync(path.join(DROPIN_DIR2, 'ruyi-mcp.json'), JSON.stringify({ id: 'drop-shadow', label: 'shadow', command: process.execPath, args: [FAKE_MCP] }));
   let WP = await getFreePort();
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 7, version: '2.0.1', permissionMode: 'bypass', enableMcpDropIn: true, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false },
     externalMcpServers: [
       { id: 'stdio-good', label: '好的', command: process.execPath, args: [FAKE_MCP], env: { SECRET: 'ghp_xxx', FAKE_MCP_PID_CAPTURE: path.join(HOME, 'good-pids.txt') }, cwd: '', enabled: true },

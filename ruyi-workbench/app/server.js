@@ -1101,6 +1101,11 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,空值="跟随主端点"(照抄 subagentPreferredProvider/Model)。
     stewardProviderId: '',
     stewardModel: '',
+    // 第 116 波 116-5a(27 号文 §11.8「线程自动摘要」):每开一条新线程自动生成一个 ≤24 字的名字与
+    // 一句 ≤80 字的概括,写进会话头 threadBrief。**默认开,且【不】随 stewardEnabledV1**(用户
+    // 2026-09-07 拍板,§11.8.10 第 1 条):消费面一半在经典壳(侧栏会话列表、113b 会话搜索),
+    // 管家关着也该有名字。关掉 = 零调用、零字段、零记账。
+    stewardThreadBriefV1: true,
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
@@ -1743,6 +1748,13 @@ function normalizeConfig(raw) {
     if (sp !== config.stewardProviderId) { config.stewardProviderId = sp; changed = true; }
     const sm = String(config.stewardModel || '').trim().slice(0, 160);
     if (sm !== config.stewardModel) { config.stewardModel = sm; changed = true; }
+  }
+  // 第 116 波 116-5a(27 号文 §11.8):线程自动摘要开关。与 stewardEnabledV1 相反,它默认【开】,
+  // 所以严格布尔的方向也相反:只有显式写 false 才算关(!== false),别的垃圾值一律归一成 true ——
+  // 这样手改坏了配置文件不会静默丢掉一个默认开的能力。
+  {
+    const b = config.stewardThreadBriefV1 !== false;
+    if (b !== config.stewardThreadBriefV1) { config.stewardThreadBriefV1 = b; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
   {
@@ -4221,6 +4233,23 @@ function sessionMissionId(o) {
   return (typeof id === 'string' && id) ? id : '';
 }
 
+// ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
+// 名字与概括的字数上限。在【落盘时】就夹死(见 applySessionMetaPatch),不是显示时才截:
+// 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
+const SESSION_BRIEF_TITLE_CHARS = 24;
+const SESSION_BRIEF_GIST_CHARS = 80;
+// 「这条线程该显示什么名字」的【唯一】判据。优先级:人起的名字 > 自动生成的名字 > 原话。
+// 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
+// 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
+// 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
+function sessionDisplayTitle(o) {
+  const raw = String((o && o.title) || '');
+  if (!o || o.titleSource === 'user') return raw;
+  const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
+  const generated = String((brief && brief.title) || '').trim();
+  return generated || raw;
+}
+
 // The 7 sidebar fields. Accepts a full session (has .messages) OR an index entry (has .messageCount), so the
 // same shaper builds index entries and normalizes them on read.
 // 116-2a: 可选第二参 config —— 给了(且是对象)就额外带出派生的 effectivePermissionMode。索引条目
@@ -4250,6 +4279,12 @@ function sessionMeta(o, config) {
     // chip 要能分清「这条线程自己定了档」(显示实底)与「跟着全局默认走」(显示浅底),填全局值就分不清了。
     // 存量会话读到没有该字段 → null,零迁移。
     permissionMode: sessionPermissionModeOf(o),
+    // 116-5a(§11.8.5):线程的名字与一句概括。**缺席时这两个键根本不出现** —— 存量会话的
+    // /api/sessions 载荷逐字节不变。两个入参形态都要认:会话头(threadBrief)与已归一过的索引条目
+    // (brief) —— 快路径会把索引条目再喂一次 sessionMeta,只认前者的话这个字段在那一趟就丢了
+    // (与上面 rawKind 那条同一个坑)。
+    ...(sessionBriefOf(o) ? { brief: sessionBriefOf(o) } : {}),
+    ...(o && o.titleSource === 'user' ? { titleSource: 'user' } : {}),
     // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
     // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
     ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
@@ -4257,6 +4292,15 @@ function sessionMeta(o, config) {
 }
 // 116f: 管家会话不是「一个会话」,它是工作台本身的那张脸 —— 会话列表、内容搜索、投影、收件箱四个面
 // 都必须看不见它。判定读【原始】 kind,不经 sessionKind()(那会把它说成 quick_ask)。
+// 116-5a:从两种入参形态里取出摘要(会话头的 threadBrief / 索引条目的 brief),形状归一成
+// {title, gist} —— 索引条目只带显示要用的两个字段,at/model/stage 留在会话头上供事后对账。
+function sessionBriefOf(o) {
+  const b = o && ((o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null));
+  if (!b) return null;
+  const title = String(b.title || '').trim();
+  const gist = String(b.gist || '').trim();
+  return (title || gist) ? { title, gist } : null;
+}
 function sessionMetaIsSteward(meta) {
   return !!(meta && (meta.rawKind === 'steward' || meta.kind === 'steward'));
 }
@@ -4386,7 +4430,11 @@ async function listSessions() {
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
 function applySessionMetaPatch(session, patch) {
   const id = session.id;
-  if (typeof patch.title === 'string') session.title = patch.title.slice(0, 200);
+  // 116-5a(27 号文 §11.8.3):走这条通道改标题的只有两个调用面 —— PATCH /api/sessions/:id(用户
+  // 在界面上改名)与 steward_thread_rename(管家替用户改名)。两者都是【有意起的名字】,应当压过
+  // 116-5 自动生成的 threadBrief.title。会话头上本来分不出「标题是自动派生的原话」还是「人起的名字」
+  // (两者都只是 session.title),不记这一笔的话「线程改名后不再被摘要覆盖」这条需求无法实现。
+  if (typeof patch.title === 'string') { session.title = patch.title.slice(0, 200); session.titleSource = 'user'; }
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
@@ -4450,6 +4498,24 @@ function applySessionMetaPatch(session, patch) {
       at: String(t.at || ''),
     };
   }
+  // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
+  // stewardQuick / stewardLastTurn 同纪律 —— 这条通道也接 PATCH /api/sessions/:id,不能让任意形状
+  // 写进会话头。title/gist 在这里就夹到上限:显示层不必再截一次,存量数据也不会因为上限调整而变形。
+  if (patch.threadBrief && typeof patch.threadBrief === 'object' && !Array.isArray(patch.threadBrief)) {
+    const b = patch.threadBrief;
+    const stage = String(b.stage || '');
+    session.threadBrief = {
+      schema: 1,
+      title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_TITLE_CHARS),
+      gist: String(b.gist || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_GIST_CHARS),
+      at: String(b.at || ''),
+      model: String(b.model || '').slice(0, 160),
+      stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
+    };
+  }
+  // 116-5a:只认 'user' 这一个字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
+  // 给自己刷一个假的「人起的名字」没有意义,但白名单该有的严格一分不能少。
+  if (patch.titleSource === 'user') session.titleSource = 'user';
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -5866,6 +5932,11 @@ async function createSession({ title, cwd }) {
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
+    // 116-5a(§11.8.3):建会话时就带了一个【不是占位符】的标题 = 这条线程已经有名字了,不必再花一次
+    // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
+    // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
+    // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
+    ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
   return session;
@@ -16509,6 +16580,204 @@ async function providerRawCompletion(provider, history) {
   } finally { if (timer) clearTimeout(timer); }
 }
 
+// ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
+// 每开一条新线程,自动生成一个 ≤24 字的名字与一句 ≤80 字的概括写进会话头 threadBrief。用户证据:
+// 线程搜索结果里整条是用户原话「帮我分析一下AMD——按美股超威半导体…」,一屏放不下三条,
+// 看不出哪条是哪件事。
+//
+// 为什么住在这里:它就是 providerRawCompletion 的第三个消费者,与 playbook 起草、JSON 修复同一族
+// —— 非流式一次性补全 + aux 台账记账。放这里不新增任何模块边,也不碰 CLI 引擎与工具循环。
+//
+// 红线(§11.8.8):不改写 session.title(原话是权威,brief 只是显示层的另一份数据);不给存量会话
+// 补账;不进 providerHistory(与会话上下文完全隔离,不污染下一回合);失败静默,绝不阻塞回合。
+const THREAD_BRIEF_INPUT_CHARS = 1200;    // 喂给模型的用户原话上限
+const THREAD_BRIEF_REPLY_CHARS = 400;     // settled 阶段附带的助手回复上限
+// 两次机会各自的尝试预算(实测调整,见 §11.6 116-5a 交付记录):
+//   · 首回合那次是【机会性】的 —— 端点正常时一发就中,不该为了一个名字在回合刚起跑时连打三次;
+//   · 收工那次才是真正的兜底(此刻有助手回复,概括也更准),退避重试留给它。
+// 全流程一条线程最多 4 次调用(常见路径 1 次),而不是「两次机会 × 各 3 次 = 6 次」。
+const THREAD_BRIEF_FIRST_TURN_TRIES = 1;
+const THREAD_BRIEF_RETRY_BACKOFF_MS = [1000, 4000];  // 收工那次:首发 + 两次退避重试后放弃
+const THREAD_BRIEF_PER_MINUTE = 20;       // 每进程每分钟上限,防批量导入会话把端点打爆
+const threadBriefCalls = [];              // 最近一分钟的调用时刻(ms),纯内存
+// 每会话在途/已成的登记表(纯内存,进程重启即清)。**没有它就会重复调模型**:首回合那次的落盘走
+// updateSessionMeta,活回合期间它会被延后到 settle 之后重放;而收工钩子恰恰在那个窗口里判「还没有
+// brief」—— 于是同一条线程被起了两次名字(116-5a 实测:briefHits=2)。磁盘上的判据在这个窗口里
+// 是不可靠的,唯一可靠的是进程内「我已经在给它起名字了」。
+const threadBriefInflight = new Map();    // sessionId -> Promise<brief|null>
+const threadBriefDone = new Map();        // sessionId -> 本进程内算出来的 brief(供收工补写)
+
+function threadBriefEnabled(config) {
+  // 默认【开】,所以判据是 !== false(与 01-config 的归一同方向)。
+  return !config || config.stewardThreadBriefV1 !== false;
+}
+
+// 端点解析(用户 2026-09-07 拍板 §11.8.10 第 2 条):管家端点优先,没配就回落到【这条线程自己的】
+// OpenAI 兼容 provider;两者都不可用(主引擎是 CLI 且没配管家端点)则不生成。
+// 要避开的是 CLI 进程与工具循环,不是「同一个 provider」—— 一次独立的非流式 HTTP 调用不占 CLI。
+function threadBriefProvider(config, threadProvider) {
+  const id = String((config && config.stewardProviderId) || '').trim();
+  if (id) {
+    const found = ((config && config.providers) || []).find(p => p && p.id === id);
+    if (!found) return null;   // 配了却找不到:不静默换成别的端点(与 13h stewardResolveRoute 同立场)
+    const model = String((config && config.stewardModel) || '').trim();
+    return model ? { ...found, model } : found;
+  }
+  return threadProvider || null;
+}
+
+function threadBriefRateLimited() {
+  const now = Date.now();
+  while (threadBriefCalls.length && now - threadBriefCalls[0] > 60000) threadBriefCalls.shift();
+  if (threadBriefCalls.length >= THREAD_BRIEF_PER_MINUTE) return true;
+  threadBriefCalls.push(now);
+  return false;
+}
+
+// 模型输出 -> {title, gist} | null。围栏、前后杂字、以及【单元素数组】外壳都容忍(取第一个 { 到
+// 最后一个 },所以 [{…}] 会被拆开;多元素数组切出来不是合法 JSON,照样失败)。宽容一点是有代价考量的:
+// 每失败一次就要多两次模型调用。但解析不出合法对象就是失败(交给重试)—— 绝不拿整段原文当标题,
+// 那正是这一波要消灭的东西。
+function parseThreadBrief(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  let obj = null;
+  try { obj = JSON.parse(raw.slice(start, end + 1)); } catch { return null; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const title = String(obj.title || '').replace(/\s+/g, ' ').trim();
+  const gist = String(obj.gist || '').replace(/\s+/g, ' ').trim();
+  return title ? { title, gist } : null;   // 没有名字就不算成功(概括可以空)
+}
+
+function buildThreadBriefMessages(message, replyText, locale) {
+  const zh = !String(locale || '').toLowerCase().startsWith('en');
+  const sys = zh
+    ? '你给一条对话线程起名字。只输出一个 JSON 对象:{"title":"…","gist":"…"}。title 是这件事的名字,不超过 24 个字,像文件名一样具体(例:「AMD 收盘分析」);gist 是一句人话,不超过 80 个字,说清要做什么。不要解释、不要代码围栏、不要任何多余字符。'
+    : 'You name a conversation thread. Output only one JSON object: {"title":"…","gist":"…"}. title names the task in at most 24 characters, concrete like a filename; gist is one plain sentence of at most 80 characters saying what is being done. No explanation, no code fences, no extra characters.';
+  const parts = [(zh ? '用户原话:' : "User's own words:") + '\n' + String(message || '').slice(0, THREAD_BRIEF_INPUT_CHARS)];
+  const reply = String(replyText || '').trim();
+  if (reply) parts.push((zh ? '助手回复(节选):' : 'Assistant reply (excerpt):') + '\n' + reply.slice(0, THREAD_BRIEF_REPLY_CHARS));
+  return [{ role: 'system', content: sys }, { role: 'user', content: parts.join('\n\n') }];
+}
+
+// 主入口。**永不抛、永不阻塞回合**:调用方一律 void 调它。返回落盘的 brief 或 null。
+// 外壳只做一件事:同一条会话同时只有一次在途 —— 后到的那次等前一次的结果,前一次成了就不再调模型。
+async function maybeWriteThreadBrief(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  const sid0 = safeSessionId(o.sessionId);
+  if (!sid0) return null;
+  if (threadBriefDone.has(sid0)) return null;
+  const inflight = threadBriefInflight.get(sid0);
+  if (inflight) {
+    const prior = await inflight.catch(() => null);
+    if (prior) return null;                 // 前一次已经把名字写上了,这一次不用再调
+    if (threadBriefDone.has(sid0)) return null;
+  }
+  const task = threadBriefOnce(o, sid0);
+  threadBriefInflight.set(sid0, task);
+  try {
+    const brief = await task;
+    if (brief) threadBriefDone.set(sid0, brief);
+    return brief;
+  } finally {
+    if (threadBriefInflight.get(sid0) === task) threadBriefInflight.delete(sid0);
+  }
+}
+
+// 116-5a 收工那一刻的唯一入口:先【补写】(不调模型),不行再走收工那次兜底。
+// 为什么必须补写(116-5a 实测抓到的丢写):首回合那次是在回合刚起跑时发的,它的落盘与回合自己的
+// 收尾整份 saveSession 抢同一个文件 —— 回合手里那份内存副本【不含】 brief,谁后写谁赢,而回合
+// 几乎总是后写。updateSessionMeta 的活回合延后防护挡不住这一发(brief 的写可能恰好落在
+// turnSettlers 已清、回合收尾 save 还没落地的那个窗口里)。补写是幂等的,而且不再调模型。
+async function settleThreadBrief(o) {
+  const sid = safeSessionId(o && o.sessionId);
+  if (!sid) return null;
+  const reasserted = await reassertThreadBrief(sid);
+  if (reasserted) return reasserted;
+  return maybeWriteThreadBrief({ ...(o || {}), stage: 'settled' });
+}
+
+// 把本进程算出来的 brief 再写一次(仅当盘上确实没有)。永不调模型、永不抛。
+async function reassertThreadBrief(sessionId) {
+  try {
+    const sid = safeSessionId(sessionId);
+    if (!sid) return null;
+    const brief = threadBriefDone.get(sid);
+    if (!brief) return null;
+    const head = await loadSession(sid).catch(() => null);
+    if (head && head.threadBrief && String(head.threadBrief.title || '').trim()) return brief;  // 已经在盘上
+    await updateSessionMeta(sid, { threadBrief: brief }).catch(() => null);
+    return brief;
+  } catch { return null; }
+}
+
+async function threadBriefOnce(o, sid) {
+  try {
+    const config = o.config || null;
+    if (!threadBriefEnabled(config)) return null;
+    const stage = o.stage === 'settled' ? 'settled' : 'first_turn';
+    const message = String(o.message || '').trim();
+    if (!message) return null;
+    // 管家会话不是线程(它没有名字要起)。判据读【原始】 kind,不经 sessionKind() —— 那会把它归一成
+    // quick_ask。这里【不能】引用 06i 的 STEWARD_SESSION_ID:06i 拼在 06 之后,引用它就是一条前向边。
+    const head = await loadSession(sid).catch(() => null);
+    if (!head || !head.id) return null;
+    if (head.kind === 'steward') return null;
+    // 116-5a:这条线程已经有【人给的】名字(建会话时就带了非占位标题,或用户/管家改过名)——
+    // 生成的名字本来就排在它后面(§11.8.3 的显示优先级),再花一次调用去起一个永远不显示的名字
+    // 是纯浪费。这也是 116-5a 全量回归里那批红的根因:默认开之后,每一条首轮都多打一发,把各
+    // e2e 假端点的计数与剧本序列全打乱了 —— 收窄到「真的没名字才起名」之后,那批红自然消失,
+    // 而不是靠给二十几个夹具挨个塞一行开关关掉。
+    if (head.titleSource === 'user') return null;
+    // 已经有名字了就不再写:两次机会(首回合发起 + 收工补写)里先到的那次说了算。
+    if (head.threadBrief && typeof head.threadBrief === 'object' && String(head.threadBrief.title || '').trim()) return null;
+    const provider = threadBriefProvider(config, o.threadProvider || null);
+    if (!provider) return null;                    // 端点不可用:静默不生成
+    if (threadBriefRateLimited()) return null;
+    const messages = buildThreadBriefMessages(message, o.replyText, config && config.locale);
+    const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
+    for (let attempt = 0; attempt < tries; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));
+      const sc = await providerRawCompletion(provider, messages);
+      // 记账:与 playbook-draft / json-repair 逐条同款(kind:'aux' + note)。usage 缺失直接跳过不估算。
+      // **不计入 stewardMaxCostPerDay**(note 不是 'steward')—— 它不是管家回合,混进去会让管家因为
+      // 用户开了几条新线程而提前停机。防御式:记账绝不可影响摘要,更不可影响回合。
+      try {
+        const u = sc && sc.usage;
+        const inTok = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
+        const outTok = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
+        const cachedInTok = cachedInputTokensFromUsage(u);
+        if (inTok > 0 || outTok > 0) {
+          const ledgerModel = (sc && sc.model) || provider.model || '';
+          const { cost, currency } = computeProviderCost(provider, inTok, outTok, cachedInTok, ledgerModel);
+          appendUsageLedger({
+            sessionId: sid, engine: 'openai', provider: provider.id, model: ledgerModel,
+            inTok, outTok, cachedInTok, cost, currency, estimated: false,
+            turnSeq: Math.max(0, Number(head.turnSeq) || 0), kind: 'aux', note: 'thread-brief',
+          });
+        }
+      } catch { /* accounting must never break the brief */ }
+      const parsed = (sc && sc.ok) ? parseThreadBrief(sc.content) : null;
+      if (parsed) {
+        // 走 updateSessionMeta:首回合那次发起时回合还在跑,这条通道会延后到 settle 之后在
+        // 【重新装载的副本】上重放,绝不会用陈旧正文盖掉回合刚写的消息(116-2a 的既有防护)。
+        const brief = { schema: 1, title: parsed.title, gist: parsed.gist, at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
+        await updateSessionMeta(sid, { threadBrief: brief }).catch(() => null);
+        return brief;
+      }
+    }
+    // 只有收工那次(真正的兜底)失败才算「放弃」值得记一条;首回合那一发是机会性的,失败很正常。
+    if (stage === 'settled') logEvent({ kind: 'thread_brief_failed', sessionId: sid, stage, provider: String(provider.id || '') });
+    return null;
+  } catch (error) {
+    try { logEvent({ kind: 'thread_brief_failed', sessionId: String(o.sessionId || ''), stage: String(o.stage || ''), error: String((error && error.message) || error).slice(0, 200) }); } catch { /* 观测绝不反噬 */ }
+    return null;
+  }
+}
+
 // v1.5 (Judge JSON 修复 · 兜底/§2): provider 引擎节点的解析加固仍失败时的一次性(bounded=1)无工具修复调用。复用
 // providerRawCompletion 的非流式模式：system 层钉「JSON 修复器」，user 层携原始输出 + 解析错误 + schema 要点，
 // 只求模型吐回单个合法 JSON 对象；结果交回同一解析管线。这一次补全按 aux 台账记账(kind:'aux'/note:'json-repair'，
@@ -18312,6 +18581,12 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'externalMcpServers', 'enableMcpDropIn', 'includeWorkbenchMcp', 'browserAutomation',
   // 新线程默认权限、管家总开关与自理清单
   'permissionMode', 'stewardEnabledV1', 'stewardAutoActions',
+  // 116-5a:线程自动摘要开关。放 confirm 而不是 free —— 它开着就会在【每一条新线程】上花一次钱,
+  // 而且按 §11.8.7 那条口径记的是 aux(note:'thread-brief'),**不进 stewardMaxCostPerDay**。
+  // 也就是说管家把它打开等于给自己开了一条不受管家日预算约束的花钱通道,正落在本档「改动会花钱」
+  // 那条判据上。它与同族的 stewardProviderId/stewardModel(free)不同:那两个只是换管家自己用哪个
+  // 端点,花的还是管家自己那份预算。
+  'stewardThreadBriefV1',
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把
@@ -30681,6 +30956,17 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
 //     settle,否则 rewind 会在尾部 delta 写出之前拿到 settle 信号。
 // source/requestMeta 只作为回合元信息记在 settle 条目上并原样回传,不参与任何判定(管家怎么用是 116c 的事)。
 // engineRoute 是可选的显式路由覆盖:不传时 routeSource === session,与搬家前逐字节等价;HTTP 壳不传。
+// 116-5a:取会话里最后一句助手原话(给收工补写那次当上下文)。只读内存副本,不碰磁盘 ——
+// 回合刚把它 push 进 session.messages,这里是最便宜的取法。
+function lastAssistantTextOf(session) {
+  const list = (session && Array.isArray(session.messages)) ? session.messages : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m && m.role === 'assistant' && String(m.content || '').trim()) return String(m.content);
+  }
+  return '';
+}
+
 async function runSessionTurn(input) {
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
@@ -30772,6 +31058,9 @@ async function runSessionTurn(input) {
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
   // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。
   let stewardSlot = null;
+  // 116-5a:finally 里要用,但 provider 与「这是不是首回合」都是在 try 内部才算出来的。
+  let briefSettleCandidate = false;
+  let briefSettleProvider = null;
   try {
     emit({ type: 'session', session });
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
@@ -30807,6 +31096,18 @@ async function runSessionTurn(input) {
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
+    // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
+    // 位置纪律:必须在这里而不是三个引擎里各钉一遍 —— 三引擎共用本函数,引擎分叉在上面那个 runTurn
+    // 里(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
+    // 时机:brief 描述的是【任务】不是答案,用户原话此刻就在手上,不必等消息落盘;摘要 1–2 秒回来,
+    // 真回合可能要一分钟,两者并行跑。落盘走 updateSessionMeta,它会自己避开活回合的写竞态。
+    // fire-and-forget + 内部整段 try:摘要的任何环节都不得影响这一回合。
+    const briefFirstTurn = (Number(session.turnSeq) || 0) === 0 && !session.threadBrief;
+    if (briefFirstTurn) {
+      void maybeWriteThreadBrief({ sessionId: session.id, message: String(body.message || ''), stage: 'first_turn', config, threadProvider: provider });
+    }
+    briefSettleCandidate = briefFirstTurn;
+    briefSettleProvider = provider;
     await runTurn(String(body.message || ''), false);
     // until-done 驱动器:仅当会话有活动账本才进(非账本会话零行为变化,与旧单回合完全等价)。
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
@@ -30832,6 +31133,20 @@ async function runSessionTurn(input) {
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
+    //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
+    //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
+    //   ② 补写没东西可写(首回合那次压根没成:端点不通、模型吐了非 JSON、限流)才走【第二次机会】:
+    //      此刻有助手回复,概括更准。**只有这两次机会**,之后这条线程永远不再试。
+    if (briefSettleCandidate) {
+      void settleThreadBrief({
+        sessionId: session.id,
+        message: String(body.message || ''),
+        replyText: lastAssistantTextOf(session),
+        config,
+        threadProvider: briefSettleProvider,
+      });
+    }
   }
   return {
     ok: !turnError,
@@ -43727,6 +44042,10 @@ async function stewardImplQuickAsk(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = STEWARD_QUICK_KIND;
+  // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
+  // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程
+  // 永远拿不到自动摘要。thread_new 那边不清:args.title 是管家【有意】起的名字,与改名同一性质。
+  delete session.titleSource;
   // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
   // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
   session.launchedBy = 'steward';
@@ -46186,6 +46505,13 @@ module.exports = {
   BUILTIN_AGENT_ROLES,
   normalizeSession,
   isUntitledSessionTitle, // 50-fix: 未命名标题判定(双引擎自动命名共用) — exposed for e2e
+  // 第 116 波 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。
+  //   sessionDisplayTitle —— 「这条线程该显示什么名字」的唯一判据(人起的 > 生成的 > 原话),
+  //     服务端一处装配、多处消费,前端不许各算一遍;
+  //   maybeWriteThreadBrief / parseThreadBrief —— exposed for e2e 与单测直测(生成与解析各自可判定)。
+  sessionDisplayTitle,
+  maybeWriteThreadBrief,
+  parseThreadBrief,
   detectDanglingTurn,
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
   bridgedToolTier,

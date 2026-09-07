@@ -512,6 +512,12 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'externalMcpServers', 'enableMcpDropIn', 'includeWorkbenchMcp', 'browserAutomation',
   // 新线程默认权限、管家总开关与自理清单
   'permissionMode', 'stewardEnabledV1', 'stewardAutoActions',
+  // 116-5a:线程自动摘要开关。放 confirm 而不是 free —— 它开着就会在【每一条新线程】上花一次钱,
+  // 而且按 §11.8.7 那条口径记的是 aux(note:'thread-brief'),**不进 stewardMaxCostPerDay**。
+  // 也就是说管家把它打开等于给自己开了一条不受管家日预算约束的花钱通道,正落在本档「改动会花钱」
+  // 那条判据上。它与同族的 stewardProviderId/stewardModel(free)不同:那两个只是换管家自己用哪个
+  // 端点,花的还是管家自己那份预算。
+  'stewardThreadBriefV1',
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把

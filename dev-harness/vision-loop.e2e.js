@@ -63,6 +63,8 @@ function streamChat(port, payload) {
 // vision boolean + whether to bridge fake-mcp (desktop tools) + extra fake env; single active provider.
 function writeConfig(vision, bridgeMcp) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 8, version: '1.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     defaultWorkspace: HOME, recentWorkspaces: [],
     externalMcpServers: bridgeMcp ? [{ id: 'ai-computer-control', label: 'Fake ACC', command: NODE, args: [FAKE_MCP], enabled: true }] : [],

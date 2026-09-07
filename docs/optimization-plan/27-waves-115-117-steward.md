@@ -392,10 +392,23 @@
   - **第 4 步 唤醒链诚实**：`GET /api/steward/state` 加 `lastInboxAt`（箱子最后一次真的收到东西）与 `sourcesSeen.sessionTurns`（第四源本进程入箱条数）—— 修前只有 `lastTickAt`，一个每 15 秒空转的收件箱和一个真在干活的长得一模一样。`GET /api/sessions/steward?since=<ISO>` 只回该时刻之后的消息（117j W2-4 用它把收件箱触发的回复追加进对话流，不必整份重拉）：只对管家会话生效、不带 `since` 的旧调用逐字节不变（载荷里连 `since` 键都不出现）、解析不了当没给。**路由零新增**。
   - 测试（**只加不改**）：`steward-quick-ask.e2e` (G) 第四源 17 条（冷启动只建基线／速查跑完入箱一条且带 quick+answer／普通会话不入箱／被递话过的会话入箱／幂等／state 三个诚实字段）＋ (H) 闭环 3 条（入箱 → 管家收件箱回合 → `closedAt` 落盘）；`steward-guardrails.e2e` (K) `?since=` 7 条；`missions-readmodel.e2e` (g) 第 0 步回归 6 条；`steward-events.static` D7 第四源登记 14 条。
   - 门：依赖图 **41 模块／316 边／前向边 67 不变／1 SCC**（13i 新增引用 `sessionPath`(01)、`activeChildren`(04) 全是后向边）；路由清册 **127 判定点、ROUTE_AUTH 115 条均不变**（`since` 是既有路由的 query，不是新判定点）；durable-state 清册 steward-cursor 行补第四源字段；`build --check` 新鲜；全量回归 `--parallel 4` **298 pass / 6 fail / 9 flaky / 304 ran / 7 skipped**，6 条失败（plan-mode／interventions-cas／multi-session-parallel／perf／context-compact-v2／steward-inbox 的 (H) 重启段）**逐条单跑全部 ALL PASS** —— 是并行下起服务的时序抖动，不是回归。另注：`--parallel 8` 在本次会话的机器状态下大面积 `ECONNREFUSED`（100 fail，服务起不来而非断言失败），本波结论改为**用 4 路**，覆盖 §11.7 里那条「用 8 路约 9 分钟」。
+- **116-5a 线程自动摘要 · 引擎侧（2026-09-07 入库，opus 实现，`(sha)`）**：设计页 §11.8 的三条拍板全按建议落地（开关独立默认开、端点回落到线程自己的 provider、加 `titleSource`）。实测又改了三处设计，逐条记在下面。
+  - **落点**：新原语住 `06-provider-engine.js`，紧邻 `providerRawCompletion` —— 它就是那个非流式一次性补全原语的第三个消费者（前两个是 playbook 起草与 JSON 修复），连记账口径都照抄（`kind:'aux'` + `note`）。**零新增模块边**。
+  - **两个 hook 点，不是六个**：三引擎共用 `runSessionTurn`（10-context-governance），首回合发起前一个、`finally` 里一个。对比既有的自动命名 `isUntitledSessionTitle` —— 它在 05／05b／09 各写了一遍，那是这次刻意避开的前例。
+  - **数据形状**：`session.threadBrief = {schema:1, title≤24, gist≤80, at, model, stage}` 与 `session.titleSource:'user'`，都进 02 的元数据白名单并严格归一（`titleSource` 只认 `'user'` 一个字面量 —— 这条通道也接 `PATCH /api/sessions/:id`）。**字数上限在落盘时就夹死**，不是显示时才截：上限将来一调，存量数据仍是按当时上限存的，显示层再截一次只会掩盖这件事。
+  - **显示优先级单点**：`sessionDisplayTitle(o)` —— 人给的名字 > 生成的名字 > 原话。两种入参形态都认（会话头的 `threadBrief` / 索引条目的 `brief`），因为 `listSessions` 的快路径会把索引条目再喂一次 `sessionMeta`（116f 的 `rawKind` 就在这里栽过一次）。`sessionMeta` 只在**有** brief 时才多带那两个键，存量会话的 `/api/sessions` 载荷逐字节不变。
+  - **实测改动一 · 丢写（最花时间的一条）**：首回合那次的落盘与回合自己的收尾整份 `saveSession` 抢同一个文件 —— 回合手里那份内存副本【不含】 brief，谁后写谁赢，而回合几乎总是后写。`updateSessionMeta` 的活回合延后防护挡不住它（brief 的写可能恰好落在 `turnSettlers` 已清、回合收尾 save 还没落地的那个窗口里）。**症状很隐蔽**：第一版验证脚本靠时序侥幸通过了，正式 e2e 才稳定复现（A1／A7／A9 红而 A5 绿）。修法：收工那一刻先做一次**补写**（`reassertThreadBrief`：用本进程已算出的结果再写一遍，幂等、**不再调模型**），补写没东西可写才走第二次机会；同一条会话还做在途合流（`threadBriefInflight`），否则首回合与收工两条路会各调一次模型（实测 `briefHits=2`）。
+  - **实测改动二 · 尝试预算 1+3 而不是 3+3**：原设计「两次机会、各自 2 次退避重试」在端点全挂时是 6 次调用。改成 **首回合 1 发（机会性，端点正常时一发就中）+ 收工 3 发（首发 + 1s/4s 两次退避）**，常见路径 1 次、最坏 4 次。首回合那一发是在回合刚起跑时发的，不该为了一个名字连打三次；退避留给真正的兜底那次（此刻还有助手回复，概括也更准）。
+  - **实测改动三 · 「已经有名字就不起名」**：`createSession` 收到一个**非占位**标题（判据复用既有的 `isUntitledSessionTitle`，中英占位集）时就写 `titleSource:'user'`，摘要直接跳过。这既是产品上更对的规则（生成的名字本来就排在人给的名字后面，再花一次调用去起一个永远不显示的名字是纯浪费），也是**全量回归那批红的根因**：默认开之后每一条首轮都多打一发，把各 e2e 假端点的计数、剧本序列与台账行数全打乱了（24 件红 vs 基线 6 件）。收窄之后仍有一批测「回合／工具面／台账」本身的 e2e 会看见那一发，**在夹具里显式关掉**（`stewardThreadBriefV1:false`，25 个文件 30 处 config 字面量，只加一行不改任何断言）—— 它们测的不是摘要，摘要有自己的 `thread-brief.e2e.js`。速查线程那边要**反着来**：它建出来时 title 是问题原话的前 N 个字，那不是「人给的名字」而恰恰是本波要替换的东西，故 `steward_quick_ask` 建完显式 `delete session.titleSource`。
+  - **配置分级**：`stewardThreadBriefV1` 登记进 06i 的 **confirm** 档（不是 free）。它开着就会在每一条新线程上花一次钱，而按 §11.8.7 记的是 `aux`、**不进 `stewardMaxCostPerDay`** —— 管家自己把它打开等于给自己开一条不受管家日预算约束的花钱通道，正落在该档「改动会花钱」那条判据上。（同族的 `stewardProviderId`／`stewardModel` 仍是 free：那两个只换管家自己用哪个端点，花的还是管家那份预算。）单测 `unit/steward-config-tier.test.js` 的期望表同步 —— 那道门本来就是为「新增键必须回来做一次分级判断」设的，这次正常报红、正常判定。
+  - **红线**：不改写 `session.title`（原话是权威，也是 brief 缺席时的回退与 hover 全文）；不给存量会话补账；不进 `providerHistory`；不新增路由；**摘要的任何环节都不阻塞回合**（整段包 try + 调用方一律 `void`）。限流每进程每分钟 20 条。
+  - 测试：新增 `dev-harness/thread-brief.e2e.js`（进程内真回合 + 假 OpenAI 端点按系统提示词口令把「起名字那一发」与真回合分开计数，所以每条断言的调用次数都可判定），A–J 十组 35 条：正常路径只调一次、原话不被改写、`sessionMeta` 带出、显示优先级两种形态、第二回合零调用、用户改名压过生成名、模型吐非 JSON 时 4 次后放弃且**回合照常收工**、开关关零调用零字段、管家会话不起名、端点解析（跟 `stewardModel`／配错了 fail-closed）、aux 台账口径、解析器边界、上限落盘即夹死。
+  - 门：依赖图 **41 模块／316 边／前向边 67 不变／1 SCC**；路由清册 **127 判定点、ROUTE_AUTH 115 条均不变**（零新增路由）；durable-state 清册 `session-head` 行补 116-4／116-5 的四个新字段（全部 additive、不动 storageVersion）；`facts.json` 的 e2e 计数随新件重算；`build --check` 新鲜；全量回归 `--parallel 4` **300 pass / 5 fail / 6 flaky / 305 ran / 7 skipped**。5 条失败:`module-dependency-graph.static` 是生成器链没跟上最后一次 src 改动（重跑生成器链后 ALL PASS —— 又一次印证「生成器链必须在最后一次 src 改动之后整条重跑」）；其余 4 条（interventions-cas／mcp-ops-closure／pretender-needs-drawer／steward-board）**逐条单跑全部 ALL PASS**，是并行下起服务的时序抖动。
+  - **116-5b（消费面）未做**：`sessionDisplayTitle` 与 `sessionMeta.brief` 已经就位，但 113b 会话搜索结果、`steward_threads_search`、看板／抽屉／递送候选／「现在这一件」四个显示点、以及设置页那个开关都还没接。见 §11.8.5 那张表。
 
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
-**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的**设计页已出（§11.8）**，含四处对需求稿的修正与三条待拍板；用户拍板后即可派 116-5a 引擎侧。再 117j。
+**现状（2026-09-07 续）**：116-4 已入库（引擎侧收件箱第四源 `sessionTurns` ＋ 速查闭环 ＋ 唤醒链诚实字段 ＋ `?since=`，外加复现时挖出的 P0「管家开过线程就把整份投影打崩」；交付记录见 §11.6）。116-5 的设计页见 §11.8（三条拍板已定），**116-5a 引擎侧已入库**（交付记录见下）。**下一刀 116-5b 消费面**（五个显示点 + 设置开关 + i18n），再 117j。
 
 **现状**：116-3（后端对抗修复）三批全部入库——`e520428`（P0 六条＋A2＋B1）、`013d274`（P1 九条＋数据安全两条＋※ 脚注人话）、`2b334b9`（P2 四条＋A4），交付记录见 §11.6；`server.js` 已 cp 进 `dist/Ruyi-full/app/`，**桌面端重启后服务端守卫才生效**。全量回归提速已有结论：本机 24 核用 `--parallel 8`，约 9 分钟、失败谱与 4 路一致。
 
@@ -405,7 +418,7 @@
 
 **用户第三条新需求（2026-09-06 夜，截图：搜索结果整段是用户原话「帮我分析一下AMD——按美股超威半导体…」）→ 116-5 线程自动摘要**：每开一个线程（任何来源：经典壳新会话、管家 `steward_thread_new`／`steward_quick_ask`／递话新开、事项内线程、班组子线程）在第一条用户消息落盘后**自动调一次 LLM**生成两样东西写进会话头 `meta.brief = {title ≤ 24 字, gist ≤ 80 字, at, model}`：`title` 是任务的名（「AMD 收盘分析」），`gist` 是一句人话概括（「拉 AMD 最新行情与新闻，给博物影业格式的结论」）。用途：线程搜索结果（`steward_thread_search`／`06h` 检索、经典壳会话列表搜索）显示 title＋gist 而不是原话整段；抽屉／看板／递送 chip 候选／「现在这一件」标题全部改用 `brief.title`，原话保留在 `meta.title`（不改写，作为回退与 hover 全文）。实现要点（派 Opus，先设计再派）：走管家端点（`stewardProviderId`，OpenAI 兼容）而非主引擎，避免占用 Kimi CLI 与工具循环；单次 1 短提示词、`max_tokens` ≤ 120、失败静默留空并 2 次退避重试后放弃（不阻塞回合）；在回合收工时若 `brief` 仍空再补一次（此时有助手回复，概括更准）；线程改名（用户手改 `meta.title`）后不再覆盖 `brief.title`；配置键 `stewardThreadBriefV1`（默认开、随 `stewardEnabledV1`）；清册 durable-state 加 `session.meta.brief` 行；e2e：假 OpenAI 端点回固定 JSON → 新会话首轮后 `brief` 落盘、搜索结果用 brief、失败不阻塞。与 117i 已做的「文案层截 24 字」并存（brief 缺席时仍截原话）。
 
-**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → 116-5（线程自动摘要；**设计页 §11.8 已出**，拍板后派 116-5a 引擎侧、再 116-5b 消费面）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
+**派单顺序**：116-3 已收口（2026-09-07，三 commit 全入库）→ ~~116-4~~ **已收口（2026-09-07，见 §11.6）** → ~~116-5a~~ **已收口（2026-09-07，见 §11.6）** → 116-5b（消费面:五个显示点 + 设置开关 + i18n，见 §11.8.5 那张表）→ 117j（前端走查修复，派单稿全文见下；串行以免回归互相冲突；117j 的 W2-4 依赖 116-4 的 `?since=`，线程标题改用 `brief.title` 依赖 116-5——若 116-5 未出门，117j 先按 `stewardShortTitle` 截断做）。
 
 #### 116-4 派单稿（引擎侧收件箱第四源与唤醒链）—— **已完成，保留原稿备查；实测与它有三处出入，最终实现以 §11.6 交付记录为准**
 > ① 会话头上**没有** `lastError`／`resumable.dangling`（实测：一条 HTTP 500 的回合，头上只有 `summary` 里那句人话，那是渲染不是信号）→ 改为先由 13g 在回合 settle 之后落 `stewardLastTurn` 这本账，第四源再读它；
@@ -504,7 +517,10 @@ session.titleSource = 'user'     // 只认这一个字面量;由「用户手改�
 - **端点（修正）**：`stewardProviderId` 优先 → 未设时**回落到这条线程自己的 OpenAI 兼容 provider** → 两者都不可用（主引擎是 CLI 且没配管家端点）则**不生成**，静默。
   需求稿写「走管家端点而非主引擎，避免占用 Kimi CLI 与工具循环」——要避开的是 **CLI 进程与工具循环**，不是「同一个 provider」；一次独立的非流式 HTTP 调用不占 CLI。不回落的话，Kimi CLI 用户只要没单独配管家端点就永远没有 brief，而消费面一半在经典壳。
 - **提示词**：一条 system（「你给对话线程起名字。只输出一个 JSON 对象，不要解释、不要代码围栏」）+ 一条 user（原话 ≤1200 字，`stage:'settled'` 时再附助手回复 ≤400 字）。`max_tokens: 120`，语言跟 `config.locale`。要求输出 `{"title":"…","gist":"…"}`；解析失败按失败处理。
-- **失败**：2 次退避重试（1s／4s）后放弃，静默留空，落一条 `logEvent({kind:'thread_brief_failed', sessionId, stage, error})`。**任何环节抛错都不得影响回合**（整段包在 try 里，与 13i 调 `enrichInboxRows` 同一条旁路纪律）。
+- **失败**：静默留空，落一条 `logEvent({kind:'thread_brief_failed', …})`。**任何环节抛错都不得影响回合**（整段包在 try 里，与 13i 调 `enrichInboxRows` 同一条旁路纪律）。
+  **（116-5a 实测修正 ①）尝试预算是 1+3，不是 3+3**：首回合那一发是机会性的（端点正常时一发就中，不该为了一个名字在回合刚起跑时连打三次），退避重试留给收工那次兜底。常见路径 1 次调用、最坏 4 次 —— 原写法在端点全挂时是 6 次。
+  **（116-5a 实测修正 ②）收工那一刻要先补写**：首回合那次的落盘与回合自己的收尾整份 `saveSession` 抢同一个文件，回合手里那份内存副本不含 brief，谁后写谁赢而回合几乎总是后写。故收工先用本进程已算出的结果**再写一遍**（幂等、不调模型），补写没东西可写才走第二次机会；同一条会话还要做在途合流，否则两条路会各调一次模型。
+  **（116-5a 实测修正 ③）已经有名字的线程不起名**：`createSession` 收到非占位标题（判据复用 `isUntitledSessionTitle`）即写 `titleSource:'user'`，摘要跳过 —— 生成的名字本来就排在人给的名字后面，再花一次调用去起一个永远不显示的名字是纯浪费。速查线程反着来（它的 title 是问题原话，不是名字），`steward_quick_ask` 建完显式清掉该标记。
 - **限流**：每进程每分钟至多 20 条（防批量导入会话把端点打爆），超出的直接跳过不排队。
 
 #### 11.8.5 消费面（改哪些地方）
@@ -538,7 +554,7 @@ session.titleSource = 'user'     // 只认这一个字面量;由「用户手改�
 - 门：前向边 67 不变；路由零新增；durable-state 清册 `session-head` 行补 `threadBrief`／`titleSource`；`build --check` 新鲜；全量回归 `--parallel 4`（8 路会大面积起不来服务，见 §11.6 116-4）。
 - **顺序**：116-5a → 116-5b → 117j（117j 里「线程标题改用 brief.title」的措辞要同步改成 `threadBrief`；5b 没出门时 117j 按 `stewardShortTitle` 截断先行）。
 
-#### 11.8.10 待拍板（三条）
-1. **开关是否随 `stewardEnabledV1`**。建议**不随**（默认独立开），理由见 §11.8.6；随的话经典壳用户永远看不到 brief。
-2. **端点是否回落到线程自己的 provider**。建议**回落**，理由见 §11.8.4；不回落的话 Kimi CLI 用户默认无 brief。
-3. **`titleSource` 这个新字段**（为了让用户手改的名字压过生成的名字）。它是 §11.8.2 第 6 条那个缺口的最小解法；不加的话「线程改名后不再覆盖」这条需求无法实现。
+#### 11.8.10 拍板结果（用户 2026-09-07，三条全按建议）
+1. **开关独立、默认开**（不随 `stewardEnabledV1`）——✅ 定案。理由见 §11.8.6：消费面一半在经典壳。
+2. **端点回落到线程自己的 OpenAI 兼容 provider**——✅ 定案。优先 `stewardProviderId`，其次线程自己的 provider，两者都不可用则静默不生成。
+3. **加 `session.titleSource`**——✅ 定案。显示优先级：用户起的名字 > 生成的名字 > 原话。

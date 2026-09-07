@@ -85,6 +85,9 @@ const EXPECTED = {
   externalMcpServers: 'confirm', enableMcpDropIn: 'confirm', includeWorkbenchMcp: 'confirm',
   browserAutomation: 'confirm',
   permissionMode: 'confirm', stewardEnabledV1: 'confirm', stewardAutoActions: 'confirm',
+  // 116-5a:开着就在每一条新线程上花一次钱,且记的是 aux 不进 stewardMaxCostPerDay ——
+  // 管家自己把它打开 = 给自己开一条不受管家日预算约束的花钱通道,故 confirm 而不是 free。
+  stewardThreadBriefV1: 'confirm',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',

@@ -172,6 +172,8 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
     const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-w105c-e-'));
     const SUMDIR = path.join(HOME, 'sum-req');
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+      stewardThreadBriefV1: false,
       configSchema: 4, version: '1.0.0', permissionMode: 'bypass',
       ...(flagValue === null ? {} : { runtimeSummaryEntityCheckV1: flagValue }),
       providers: [{

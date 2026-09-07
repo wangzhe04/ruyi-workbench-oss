@@ -296,6 +296,11 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,空值="跟随主端点"(照抄 subagentPreferredProvider/Model)。
     stewardProviderId: '',
     stewardModel: '',
+    // 第 116 波 116-5a(27 号文 §11.8「线程自动摘要」):每开一条新线程自动生成一个 ≤24 字的名字与
+    // 一句 ≤80 字的概括,写进会话头 threadBrief。**默认开,且【不】随 stewardEnabledV1**(用户
+    // 2026-09-07 拍板,§11.8.10 第 1 条):消费面一半在经典壳(侧栏会话列表、113b 会话搜索),
+    // 管家关着也该有名字。关掉 = 零调用、零字段、零记账。
+    stewardThreadBriefV1: true,
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
@@ -938,6 +943,13 @@ function normalizeConfig(raw) {
     if (sp !== config.stewardProviderId) { config.stewardProviderId = sp; changed = true; }
     const sm = String(config.stewardModel || '').trim().slice(0, 160);
     if (sm !== config.stewardModel) { config.stewardModel = sm; changed = true; }
+  }
+  // 第 116 波 116-5a(27 号文 §11.8):线程自动摘要开关。与 stewardEnabledV1 相反,它默认【开】,
+  // 所以严格布尔的方向也相反:只有显式写 false 才算关(!== false),别的垃圾值一律归一成 true ——
+  // 这样手改坏了配置文件不会静默丢掉一个默认开的能力。
+  {
+    const b = config.stewardThreadBriefV1 !== false;
+    if (b !== config.stewardThreadBriefV1) { config.stewardThreadBriefV1 = b; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
   {

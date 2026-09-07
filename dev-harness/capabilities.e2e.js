@@ -108,6 +108,8 @@ function systemOf(body) {
   fs.writeFileSync(path.join(WS, 'CLAUDE.md'), `# ${MARKER}\n` + FENCE_ATTACK + ('x'.repeat(80) + '\n').repeat(260), 'utf8'); // ~21KB
 
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
     providers: [{
       id: 'fake', label: 'Fake', type: 'openai-compat',
@@ -216,6 +218,8 @@ function systemOf(body) {
     fs.rmSync(HOME_B, { recursive: true, force: true });
     fs.mkdirSync(HOME_B, { recursive: true });
     fs.writeFileSync(path.join(HOME_B, 'config.json'), JSON.stringify({
+      // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+      stewardThreadBriefV1: false,
       configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
       // No active provider; probe an explicit DEAD url.
       capabilityProbeUrl: 'http://127.0.0.1:' + DEAD_PORT + '/health',
@@ -248,6 +252,8 @@ function systemOf(body) {
     fs.rmSync(HOME_E, { recursive: true, force: true });
     fs.mkdirSync(HOME_E, { recursive: true });
     fs.writeFileSync(path.join(HOME_E, 'config.json'), JSON.stringify({
+      // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+      stewardThreadBriefV1: false,
       configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
       providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT_E, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }] }],
       activeProvider: 'fake',
@@ -290,6 +296,8 @@ function systemOf(body) {
     fs.rmSync(HOME_F, { recursive: true, force: true });
     fs.mkdirSync(HOME_F, { recursive: true });
     fs.writeFileSync(path.join(HOME_F, 'config.json'), JSON.stringify({
+      // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+      stewardThreadBriefV1: false,
       configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
       providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT_F, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }] }],
       activeProvider: 'fake',
@@ -346,6 +354,8 @@ function systemOf(body) {
       fs.rmSync(HOME_G, { recursive: true, force: true });
       fs.mkdirSync(HOME_G, { recursive: true });
       fs.writeFileSync(path.join(HOME_G, 'config.json'), JSON.stringify({
+        // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+        stewardThreadBriefV1: false,
         configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
         desktopMcp: item.desktopMcp,
       }, null, 2));

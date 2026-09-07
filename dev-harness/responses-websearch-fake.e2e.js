@@ -112,6 +112,8 @@ async function runPhase(serverWebSearch, label) {
     models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' }], reasoning: true };
   if (serverWebSearch) provider.serverWebSearch = true;
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 4, version: '0.6.0', permissionMode: 'bypass', defaultWorkspace: work,
     providers: [provider],
     activeProvider: 'fake-resp',

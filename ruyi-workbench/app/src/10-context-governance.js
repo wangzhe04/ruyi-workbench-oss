@@ -2185,6 +2185,17 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
 //     settle,否则 rewind 会在尾部 delta 写出之前拿到 settle 信号。
 // source/requestMeta 只作为回合元信息记在 settle 条目上并原样回传,不参与任何判定(管家怎么用是 116c 的事)。
 // engineRoute 是可选的显式路由覆盖:不传时 routeSource === session,与搬家前逐字节等价;HTTP 壳不传。
+// 116-5a:取会话里最后一句助手原话(给收工补写那次当上下文)。只读内存副本,不碰磁盘 ——
+// 回合刚把它 push 进 session.messages,这里是最便宜的取法。
+function lastAssistantTextOf(session) {
+  const list = (session && Array.isArray(session.messages)) ? session.messages : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m && m.role === 'assistant' && String(m.content || '').trim()) return String(m.content);
+  }
+  return '';
+}
+
 async function runSessionTurn(input) {
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
@@ -2276,6 +2287,9 @@ async function runSessionTurn(input) {
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
   // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。
   let stewardSlot = null;
+  // 116-5a:finally 里要用,但 provider 与「这是不是首回合」都是在 try 内部才算出来的。
+  let briefSettleCandidate = false;
+  let briefSettleProvider = null;
   try {
     emit({ type: 'session', session });
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
@@ -2311,6 +2325,18 @@ async function runSessionTurn(input) {
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
+    // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
+    // 位置纪律:必须在这里而不是三个引擎里各钉一遍 —— 三引擎共用本函数,引擎分叉在上面那个 runTurn
+    // 里(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
+    // 时机:brief 描述的是【任务】不是答案,用户原话此刻就在手上,不必等消息落盘;摘要 1–2 秒回来,
+    // 真回合可能要一分钟,两者并行跑。落盘走 updateSessionMeta,它会自己避开活回合的写竞态。
+    // fire-and-forget + 内部整段 try:摘要的任何环节都不得影响这一回合。
+    const briefFirstTurn = (Number(session.turnSeq) || 0) === 0 && !session.threadBrief;
+    if (briefFirstTurn) {
+      void maybeWriteThreadBrief({ sessionId: session.id, message: String(body.message || ''), stage: 'first_turn', config, threadProvider: provider });
+    }
+    briefSettleCandidate = briefFirstTurn;
+    briefSettleProvider = provider;
     await runTurn(String(body.message || ''), false);
     // until-done 驱动器:仅当会话有活动账本才进(非账本会话零行为变化,与旧单回合完全等价)。
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
@@ -2336,6 +2362,20 @@ async function runSessionTurn(input) {
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
+    //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
+    //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
+    //   ② 补写没东西可写(首回合那次压根没成:端点不通、模型吐了非 JSON、限流)才走【第二次机会】:
+    //      此刻有助手回复,概括更准。**只有这两次机会**,之后这条线程永远不再试。
+    if (briefSettleCandidate) {
+      void settleThreadBrief({
+        sessionId: session.id,
+        message: String(body.message || ''),
+        replyText: lastAssistantTextOf(session),
+        config,
+        threadProvider: briefSettleProvider,
+      });
+    }
   }
   return {
     ok: !turnError,

@@ -55,6 +55,8 @@ async function runCase(modelViewOn) {
     { name: 'file_write', args: { path: target, content: BIG } },
   ];
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+    // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+    stewardThreadBriefV1: false,
     configSchema: 10, version: '2.5.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     runtimeOptimizationShadowV1: true, runtimeToolRetrievalV1: false, runtimeFailureTelemetryV1: false,
     actionArgumentModelViewV1: modelViewOn,

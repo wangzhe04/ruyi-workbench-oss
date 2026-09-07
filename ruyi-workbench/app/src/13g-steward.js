@@ -1844,6 +1844,10 @@ async function stewardImplQuickAsk(args, ctx, config) {
     cwd: args.cwd ? String(args.cwd) : undefined,
   });
   session.kind = STEWARD_QUICK_KIND;
+  // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
+  // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程
+  // 永远拿不到自动摘要。thread_new 那边不清:args.title 是管家【有意】起的名字,与改名同一性质。
+  delete session.titleSource;
   // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
   // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
   session.launchedBy = 'steward';

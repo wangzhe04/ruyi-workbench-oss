@@ -15,6 +15,8 @@ fs.mkdirSync(HOME, { recursive: true });
 fs.mkdirSync(path.join(HOME, 'capture'), { recursive: true });
 fs.writeFileSync(TOOLFILE, MARKER + ' (workbench native tool loop works)');
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+  // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
+  stewardThreadBriefV1: false,
   configSchema: 4, version: '1.0.0', permissionMode: 'bypass',
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: true }],
   activeProvider: 'fake',
