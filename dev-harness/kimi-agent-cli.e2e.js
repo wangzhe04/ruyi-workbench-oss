@@ -119,7 +119,30 @@ const ui = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'provider-settin
 const navigation = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'navigation-controls.js'), 'utf8');
 const streamUi = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js'), 'utf8');
 const sessionUi = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'session-experience.js'), 'utf8');
-ok(/compactProviderId/.test(navigation) && /默认（Kimi 原生压缩）/.test(navigation), 'context panel exposes universal compaction-model selector');
+// 117q 重钉（理由：这条原本钉的是 navigation-controls.js 里那句【硬编码中文】「默认（Kimi 原生压缩）」，
+// 而 117q-B3a(P1-7) 干的正事就是把压缩面板整片漏掉的 t() 补上、把那句中文搬进四份 locale ——
+// 功能修对了，锁没跟上，于是它自 B3a 落地起一直红着。重钉后不再钉任何用户可见字面量
+// （那类锁只要一做 i18n 就必然假红），改钉「选择器还在 + 那个默认名走的是 t() 键」，
+// 并补 D0b 把「键在四份 locale 里都解析得出」钉住 —— 比修前更严：修前只保证中文串出现过，
+// 现在保证 zh/en 两语、public/docs 四份都真的有值，英文界面不会退化成 [key] 或中文。）
+ok(/compactProviderId/.test(navigation) && /t\('ctx\.compact\.defaultKimi'\)/.test(navigation)
+  && !/默认（Kimi 原生压缩）/.test(navigation),
+  'context panel exposes universal compaction-model selector');
+{
+  const localeDirs = [
+    path.join(WB, 'app', 'public', 'locales'),
+    path.join(path.resolve(__dirname, '..'), 'docs', 'i18n', 'locales'),
+  ];
+  const missing = [];
+  for (const dir of localeDirs) {
+    for (const lang of ['zh-CN', 'en-US']) {
+      let value = '';
+      try { value = JSON.parse(fs.readFileSync(path.join(dir, lang + '.json'), 'utf8'))['ctx.compact.defaultKimi'] || ''; } catch { value = ''; }
+      if (!value) missing.push(path.basename(dir) + '/' + lang);
+    }
+  }
+  ok(missing.length === 0, `D0b ctx.compact.defaultKimi 在四份 locale 里都有值（缺：${missing.join(', ') || '无'}）`);
+}
 ok(/\/api\/agent\/compact/.test(streamUi) && !/sendPrompt\('\/compact'\)[\s\S]{0,120}agentCliType === 'kimi'/.test(streamUi), 'Kimi manual compact routes to native API instead of prompt text');
 ok(/isProviderMode\(\) \|\| currentEngineMeta\(\)\.agentCliType !== 'kimi'/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
 ok(/handle && !isProviderMode\(\) && currentEngineMeta\(\)\.agentCliType === 'kimi'/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');

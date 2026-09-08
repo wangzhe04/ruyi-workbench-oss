@@ -80,8 +80,17 @@ ok(restarted.notify.length === 0, 'C8 an application restart rebuilds its baseli
 const shell = fs.readFileSync(path.join(PUBLIC, 'js', 'preview-shell.js'), 'utf8');
 const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(PUBLIC, 'css', 'views', 'preview-shell.css'), 'utf8');
+// 117q 重钉（理由：117m-A3(`90691d3`) 修「交办台被空账本打死」时，把这次取数抽成了
+// `changesOrEmpty = revision => api(.../changes?after=${revision})` —— 形参从 `feed.cursor` 改名成
+// `revision`，游标本身没变、行为也没变，但这条钉的是**模板串里那个变量名**，于是一改名就假红，
+// 而当时没有重钉，它自 117m 起一直红着。重钉后不再钉变量名，改钉两件真正要守的事，比修前更严：
+//   ① URL 仍然由该函数【自己的形参】拼出（不是写死某个 revision，也不是丢掉 after 变成全量拉）；
+//   ② `feed.cursor` 仍然是决定「能不能复用那一发请求」的判据 —— 修前只要模板串里出现过
+//      `feed.cursor` 这几个字就算过，游标即使被架空成摆设也照样绿。
 ok(/import '\.\/preview-narrative\.js'/.test(shell) && /appendNarrativeEntries\(feed\.entries, response\.changes\)/.test(shell)
-  && /changes\?after=\$\{feed\.cursor\}/.test(shell) && /list\.appendChild\(fragment\)/.test(shell)
+  && /changesOrEmpty = revision => api\(`\/api\/missions\/\$\{sessionId\}\/changes\?after=\$\{revision\}`\)/.test(shell)
+  && /feed\.cursor === detailBaselineRevision/.test(shell)
+  && /list\.appendChild\(fragment\)/.test(shell)
   && /feed\.entries\.length - 160/.test(shell) && /row\.remove\(\)/.test(shell),
   'D1 task detail fetches by cursor, appends unseen rows, and keeps the normal DOM window bounded');
 ok(/text\('details', `preview-narrative-entry/.test(shell) && /preview-narrative-facts/.test(shell)
