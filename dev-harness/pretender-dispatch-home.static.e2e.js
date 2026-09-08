@@ -74,10 +74,27 @@ ok(stream.includes("...(options.permissionMode ? { permissionMode: options.permi
 // 三层【共用同一张 PERMISSION_MODES 白名单】,非法/缺失静默回落下一层。判据同时更严了一格:
 // 除了「局部副本仍是 storedConfig 的浅拷贝」,还锁住枚举校验只有 01-config 那一处。
 const config01 = read(path.join(SRC, '01-config.js'));
+// 117q 重钉(理由:117m-A6 修「会话级 PATCH 静默顶掉请求级收紧」那个 P0 时,给局部副本多带了一个
+// permissionModeFromRequest 标,字面量从 '{ ...storedConfig, permissionMode: resolvedPermissionMode }'
+// 变成带展开三元的形状 —— 当时没有重钉,D2 自此一直红着)。重钉后判据【更严】了两格:
+//   ① 局部副本仍然只是 storedConfig 的浅拷贝 + 覆盖 permissionMode(前缀原样锁住);
+//   ② 新增的 permissionModeFromRequest 只能挂在【真带了请求级档】的分支上(必须被 requestPermissionMode 守着),
+//      且没带请求级档、解析结果又与全局相同时,必须原样返回 storedConfig 【同一个对象】——
+//      这正是 117m-A6 刻意保留的恒等优化,也是「不带请求级档的回合行为与修前逐字节一致」这条承诺的锚点。
 ok(context.includes('resolvePermissionMode({ request: body.permissionMode, session, config: storedConfig })')
-  && context.includes('{ ...storedConfig, permissionMode: resolvedPermissionMode }')
+  && context.includes('{ ...storedConfig, permissionMode: resolvedPermissionMode')
   && config01.includes('function resolvePermissionMode(input)')
   && config01.includes("return PERMISSION_MODES.includes(mode) ? mode : '';"), 'D2 后端按唯一枚举校验并只创建局部配置副本');
+ok(context.includes('const requestPermissionMode = permissionModeFrom(body.permissionMode);')
+  && context.includes('...(requestPermissionMode ? { permissionModeFromRequest: true } : {})')
+  && !/permissionModeFromRequest: true(?!.*requestPermissionMode)/.test(
+    context.split('...(requestPermissionMode ? { permissionModeFromRequest: true } : {})').join('')),
+  'D2b permissionModeFromRequest 只在【真带了请求级档】时才挂上(117m-A6:带请求级档的回合不许被中途的会话级改动接管)');
+const identityBranch = context.slice(context.indexOf("(resolvedPermissionMode === storedConfig.permissionMode && !requestPermissionMode)"), context.indexOf("(resolvedPermissionMode === storedConfig.permissionMode && !requestPermissionMode)") + 240);
+ok(context.includes("(resolvedPermissionMode === storedConfig.permissionMode && !requestPermissionMode)")
+  && identityBranch.includes("? storedConfig")
+  && identityBranch.indexOf("? storedConfig") < identityBranch.indexOf(": { ...storedConfig"),
+  'D2c 没带请求级档、解析结果又等于全局时仍返回 storedConfig 同一个对象(恒等优化在,存量回合行为逐字节不变)');
 ok(context.includes('runOpenAiTurn({ session') && context.includes('provider, config, driverAuto')
   && context.includes('runClaudeTurn({ session') && context.includes('onEvent: emit, config, driverAuto'), 'D3 Provider/Claude 首回合消费同一局部安全档');
 ok(mission.includes('runMissionDriver({ session, config, provider') && claude.includes('config: turnConfig')
