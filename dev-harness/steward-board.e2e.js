@@ -39,6 +39,8 @@ const MISSION_TITLE = '季度收尾';
 const THREAD_A = '等华南的表';
 const THREAD_B = '跑批处理';
 const THREAD_C = '选个框架';
+// 117r-D2：这一条【故意】等浏览器已经取过一趟行之后才建，专用来造「行还没刷到就派焦点事件」的时序。
+const THREAD_D = '刚开的这一条';
 const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
 // 117j W2-5：表按 5s 下限起（见 steward-board.js pollTick 头注），数计时器要按这个周期。
 const TICK_MS = 5000;
@@ -564,6 +566,60 @@ try {
   ok(Boolean(reopened), 'F2 行上的「打开」把「现在这一件」请回来（关掉不是单程票）');
   ok(reopened && reopened.nowClosedPref === '' && reopened.boardHidden === true,
     'F2b 请回来时清掉「关掉」偏好，并把看板收起（别盖着自己要看的东西）');
+
+  // ── ⑥b 117r-D2（用户第八轮走查①「管家新开线程之后不会自动打开线程详情页了」）──────────
+  // 造的是真正出问题的那个时序：线程在看板【已经取过一趟行之后】才建出来，所以它一定不在手里
+  // 这批 rows 里（rows 是上一趟 GET /api/missions 的快照）。此刻看板是关着的（F2b 刚断言过），
+  // syncPolling 的门控因此把表也停了 —— 除了「焦点事件那一刷」没有任何东西会去刷新行。
+  const madeD = await request(appPort, 'POST', '/api/sessions', { title: THREAD_D, cwd: home }, token);
+  const idD = (madeD && madeD.json && madeD.json.session && madeD.json.session.id) || '';
+  if (idD) {
+    await request(appPort, 'POST', '/api/mission', {
+      sessionId: idD, action: 'start', goal: THREAD_D, milestones: [{ id: 'm1', desc: '第一步' }],
+    }, token);
+  }
+  ok(Boolean(idD), `E2 第四条线程在浏览器取过行之后才建出来（${idD || '失败'}）`);
+  const projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
+  ok(((projected && projected.json && projected.json.missions) || []).some(row => row.sessionId === idD),
+    'E2a 服务端投影里确实有它 —— 看板此刻取不到它的唯一原因是【行还没刷】');
+  const boardIdsOf = snapshot => (snapshot && Array.isArray(snapshot.groups) ? snapshot.groups : [])
+    .flatMap(group => group.threads.map(thread => thread.sessionId));
+  const beforeFocus = await cdp.evaluate(BOARD);
+  ok(!boardIdsOf(beforeFocus).includes(idD),
+    `E2b 派事件之前，看板手里的行【没有】这一条（实测 ${JSON.stringify(boardIdsOf(beforeFocus))}）`);
+  // 记下抽屉标题的变化轨迹：修前看板会把抽屉刚打开的那一份顶掉、换成自动挑选的【等你】那条
+  // （THREAD_A），所以「中途有没有回落」是可判定的 —— 只看最终态不够（那一刷最终仍会纠回来）。
+  await cdp.evaluate(`(() => {
+    const node = document.getElementById('stewardDrawerTitle');
+    window.__ruyiTitleTrail = [];
+    new MutationObserver(() => {
+      const text = node.textContent.trim();
+      const trail = window.__ruyiTitleTrail;
+      if (!trail.length || trail[trail.length - 1] !== text) trail.push(text);
+    }).observe(node, { childList: true, characterData: true, subtree: true });
+    return true;
+  })()`);
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idD}' } })), true`);
+  const focusedNew = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.nowHidden === false && snapshot.nowThread === ${JSON.stringify(THREAD_D)} ? snapshot : null;
+  })()`);
+  ok(Boolean(focusedNew),
+    `E2c 行里还没有它，右栏照样把这条【刚建出来的】线程打开（实测「${focusedNew && focusedNew.nowThread}」）`);
+  const titleTrail = await cdp.evaluate('window.__ruyiTitleTrail || []');
+  ok(Array.isArray(titleTrail) && !titleTrail.includes(THREAD_A),
+    `E2d 中途【没有】回落到自动挑选的那条（修前 currentFocusId 不认这一钉，会把抽屉顶成「${THREAD_A}」；实测轨迹 ${JSON.stringify(titleTrail)}）`);
+  ok(boardIdsOf(focusedNew).includes(idD),
+    'E2e 焦点事件同时触发了那一刷：这一钉随后被真行核实（文件头刷新纪律的「焦点事件」这一刷）');
+  // 边界必须是【有界的】：不许「一钉就永久信任」—— 一条根本不存在的线程会把右栏永远占着。
+  // 派一条不存在的 id：那一刷跑完就交回原判据，右栏回到自动挑选的【等你】那条。
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: 'sess_117r_d2_absent' } })), true`);
+  const bounded = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.nowThread === ${JSON.stringify(THREAD_A)} ? snapshot : null;
+  })()`);
+  ok(Boolean(bounded) && bounded.nowHidden === false,
+    `E2f 一条【不存在】的线程只被信任到那一刷跑完为止，随后交回原判据、回落自动挑选（实测「${bounded && bounded.nowThread}」）`);
 
   // ── ⑧ 缩到 900px → 不常驻 ────────────────────────────────────────────────────
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });

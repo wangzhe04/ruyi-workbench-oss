@@ -435,6 +435,31 @@ ok(/\.steward-status-needsyou\[hidden\] \{ display: none; \}/.test(cssCode)
   && !/\.steward-status-needsyou \{[^}]*transition/.test(cssCode),
   'J4 新控件的显隐由 [hidden] 驱动（配 display 守卫），且没有偷偷加过渡（reduced-motion 清单一个字没动）');
 
+// ─── K 117r-D2：管家新开线程之后，右栏／抽屉真的把它打开（用户第八轮走查①）─────────────
+// 现象：「管家新开线程之后不会自动打开线程详情页了」。回合收尾派 steward:focus-thread
+// （steward-conversation.js:704），抽屉那一侧 openThread 真的打开了，看板这一侧却把它顶掉：
+//   ① focusFrom 是本模块 focusThread() 的一份弱化抄写（丢了「宽屏没接住就退回覆盖式打开」那条回退）；
+//   ② currentFocusId 用「rows 里有没有它」这道门否掉刚钉上的线程 —— 而 rows 是上一趟
+//      GET /api/missions 的快照，刚建出来的线程当然不在里面；否掉之后回落自动挑选，挑不出来就把
+//      #stewardNow 整块收起并 closeDrawer()，恰好关掉抽屉刚打开的那一份。
+// 本组一律比对【剥过注释】的 boardCode（117q-B3b 踩过：源码扫描锁匹配到注释里的字，假绿）。
+const focusFromBody = boardCode.slice(boardCode.indexOf('const focusFrom = event =>'),
+  boardCode.indexOf('document_.addEventListener(STEWARD_FOCUS_THREAD_EVENT'));
+ok(focusFromBody.includes('focusThread(id);')
+  && !/pinnedId = String\(id\)/.test(focusFromBody)
+  && count(boardCode, /pinnedId = String\(/g) === 1,
+  'K1 焦点／打开事件走本模块唯一的那一份 focusThread（弱化抄写已删；pinnedId 的非空赋值口只剩 focusThread 一处）');
+ok(/void verifyPinnedRow\(\);/.test(focusFromBody),
+  'K2 「焦点事件」这一刷真的存在（文件头刷新纪律里的第三个确定性时刻，此前只写在注释里、代码没照做）');
+ok(/if \(pinnedId && \(pinnedUnverified \|\| rows\.some\(row => String\(row\.sessionId\) === pinnedId\)\)\) return pinnedId;/.test(boardCode),
+  'K3 未核实期间 currentFocusId 无条件返回 pinnedId（不走 rows.some 那道门），核实之后原判据一个字不动');
+const verifyBody = boardCode.slice(boardCode.indexOf('async function verifyPinnedRow'),
+  boardCode.indexOf('function pollIntervalMs'));
+ok(/try \{ await refreshBoard\(\); \}/.test(verifyBody)
+  && /finally \{ pinnedUnverified = false; syncNow\(\); \}/.test(verifyBody)
+  && count(boardCode, /pinnedUnverified = true/g) === 1,
+  'K4 「未核实」是【有界的】：refreshBoard 跑完（无论成败）就在 finally 里清位并再 syncNow 一次，全模块只有焦点事件那一处置位 —— 不存在「一钉就永久信任」（那样一条不存在的线程会把右栏永远占着）');
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

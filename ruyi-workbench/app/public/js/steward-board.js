@@ -95,6 +95,9 @@ export function createStewardBoard({
   let arbiter = null;               // GET /api/steward/arbiter 的只读状态
   let missionsEtag = '';            // 带 If-None-Match 走，没变就连解析都省了
   let pinnedId = '';                // 用户显式选过的线程（steward:open-thread / focus-thread / 看板行）
+  // 117r-D2（用户第八轮走查①）：这一钉还没被【行】核实过。派进来一个焦点／打开事件时置位，
+  // 焦点事件那一刷跑完就清（verifyPinnedRow 的 finally）—— 见 currentFocusId 的头注。
+  let pinnedUnverified = false;
   let suppressCloseRecord = false;  // 程序性关抽屉（窄屏／切壳）不该被记成用户「关掉」了这一件
   // 117m-A2：状态行那一次 filter 顺手留下的名单（等你的线程 id）。它是「N 条等你」这枚按钮的去处，
   // 也是「把等你的行排到最前」的判据 —— 两处都读它，不再数第二遍，也不新开第二个计数源。
@@ -582,7 +585,12 @@ export function createStewardBoard({
   }
 
   function currentFocusId() {
-    if (pinnedId && rows.some(row => String(row.sessionId) === pinnedId)) return pinnedId;
+    // 117r-D2（用户第八轮走查①）：「rows 里没有它」不等于它不存在，只等于【看板还没去问过】——
+    // rows 是上一趟 GET /api/missions 的快照，管家刚建出来的那条线程一定不在里面。原来这道门
+    // 会把刚钉上的新线程否掉、回落去自动挑【别的】那条，挑不出来还会把 #stewardNow 整块收起并
+    // closeDrawer()，恰好把抽屉刚打开的那一份关掉。所以「还没被行核实」的那一小段无条件认这一钉；
+    // 核实完（verifyPinnedRow 的 finally）立刻交回下面这道原判据，一个字不改。
+    if (pinnedId && (pinnedUnverified || rows.some(row => String(row.sessionId) === pinnedId))) return pinnedId;
     const focus = focusThreadFor(threadViews());
     return focus ? String(focus.sessionId) : '';
   }
@@ -641,6 +649,16 @@ export function createStewardBoard({
     syncNow();
     if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
     return rows.length;
+  }
+
+  // 117r-D2（用户第八轮走查①）：文件头那条刷新纪律列了五个确定性时刻，「焦点事件」这一刷
+  // 【从来没有实现过】—— focusFrom 里一个 refresh 都没有。于是「刚开的线程」这个最需要刷新的
+  // 时刻，恰恰是唯一没刷的。这里把它补上，并让「未核实」这个位是【有界的】：这一趟跑完（无论
+  // 成败）就清位、再 syncNow 一次 —— 从这一刻起恢复原判据，行里真的没有它（线程被归档／删了）
+  // 就正常回落自动挑选。不做「一钉就永久信任」：那样一条真的不存在的线程会把右栏永远占着。
+  async function verifyPinnedRow() {
+    try { await refreshBoard(); }
+    finally { pinnedUnverified = false; syncNow(); }
   }
 
   function pollIntervalMs() {
@@ -716,9 +734,16 @@ export function createStewardBoard({
 
     const document_ = doc();
     if (document_) {
+      // 117r-D2（用户第八轮走查①「管家新开线程不会自动打开线程详情页了」）：这里原来是本模块
+      // focusThread() 的一份【弱化抄写】—— 只写 pinnedId ＋ syncNow，把「宽屏那一份没接住就退回
+      // 覆盖式打开抽屉」那条回退整个丢了（同 117n-M1 的收编纪律：同一件事只留一处实现）。
+      // 改成调那一份，并把派进来的这一钉先记成【未核实】，随即补上「焦点事件」这一刷。
       const focusFrom = event => {
         const id = event && event.detail && event.detail.sessionId;
-        if (id) { pinnedId = String(id); syncNow(); }
+        if (!id) return;
+        pinnedUnverified = true;
+        focusThread(id);
+        void verifyPinnedRow();
       };
       document_.addEventListener(STEWARD_FOCUS_THREAD_EVENT, focusFrom);
       document_.addEventListener(STEWARD_OPEN_THREAD_EVENT, focusFrom);
