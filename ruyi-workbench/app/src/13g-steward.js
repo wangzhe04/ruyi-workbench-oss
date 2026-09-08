@@ -576,7 +576,15 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
     // sessionKind() 里的 'quick_ask' 是第 70 波遗留的「纯问答默认档」,与 116 波的「速查线程」是两个概念;
     // 混用会把用户正在进行的普通对话打上「速查中」标签喂给管家,让它以为那是「答完即扔」的临时线程。
-    const derived = card ? stewardThreadStateFromCard(card) : deriveStewardThreadState({ kind: stewardQuickThread(head) ? 'quick_ask' : 'mission' });
+    // 117r-D5 收尾(主会话):D5 把五态的守卫从「是不是速查」换成「调用方有没有事实」之后，这条【没有
+    // 卡片】的兜底支就漏了 —— 它一个事实都不喂,原来靠 kind 短路才说得出「速查中」,改完会一路掉进
+    // 「无 run、无回合、无里程碑」那条分支变成「交办中」。D1 之后速查线程恒有卡片,所以只在投影还没
+    // 赶上的瞬时窗口走到这里,但那也是一句假话。速查那一侧显式说「我没有事实」,与 13d 那条不读会话头
+    // 的兜底支同一口径;mission 那一侧不动(它本来就落 dispatching,逐字节不变)。
+    const derived = card ? stewardThreadStateFromCard(card)
+      : (stewardQuickThread(head)
+        ? deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true })
+        : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     results.push({
       sessionId: row.id,

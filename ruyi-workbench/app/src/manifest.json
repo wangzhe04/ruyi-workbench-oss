@@ -233,19 +233,19 @@
     {
       "file": "13g-steward.js",
       "startLine": 43163,
-      "endLine": 45159,
+      "endLine": 45167,
       "note": "第116波116c:/api/steward/* 域路由、决策日志、管家记忆存储与全部管家工具实现(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 45160,
-      "endLine": 47598,
+      "startLine": 45168,
+      "endLine": 47606,
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "14-main.js",
-      "startLine": 47599,
-      "endLine": 48215,
+      "startLine": 47607,
+      "endLine": 48223,
       "note": "main()/module.exports"
     }
   ]

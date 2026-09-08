@@ -134,10 +134,38 @@ const codeOnly = text => text.split(/\r?\n/).map(line => line.replace(/\/\/.*$/,
 const producers = (codeOnly(src13d).match(/factsUnknown:\s*true/g) || []).length;
 ok(producers === 1 && /else derived = deriveStewardThreadState\(\{ kind: 'quick_ask', factsUnknown: true \}\);/.test(src13d),
   `④ factsUnknown:true 在 13d 里恰好一处,就是那条不读会话头的 else 支(got ${producers} 处)`);
+// 117r 收尾重钉(主会话)：原来这里钉的是【只有 13d 一处】。它钉的是「今天的代码长什么样」,
+// 不是「什么必须成立」—— 13g 的 steward_threads_search 有一条同形的兜底支(没有卡片、一个事实都不喂),
+// D5 之后它掉进「无 run、无回合」那条分支说出「交办中」,那是假话;主会话补了 factsUnknown: true,
+// 这条计数锁就把一次【正确的】修改判成了违规。改成白名单 + 一条更强的伴随断言(下一条):
+// 真正的危险不是「有几处」,而是「有人一边说没事实、一边把真事实喂进来」——那才是拿 kind 当 state 用。
 const srcDir = path.join(repo, 'ruyi-workbench', 'app', 'src');
-const strayed = fs.readdirSync(srcDir).filter(f => f.endsWith('.js') && f !== '13d-core-domain-routes.js'
+const ALLOWED_NO_FACTS = new Set(['13d-core-domain-routes.js', '13g-steward.js']);
+const strayed = fs.readdirSync(srcDir).filter(f => f.endsWith('.js') && !ALLOWED_NO_FACTS.has(f)
   && /factsUnknown:\s*true/.test(codeOnly(fs.readFileSync(path.join(srcDir, f), 'utf8'))));
-ok(strayed.length === 0, '④ src/ 里除 13d 外没有第二个「明说没事实」的调用面' + (strayed.length ? ' -> ' + strayed.join(',') : ''));
+ok(strayed.length === 0, '④ 「明说没事实」的调用面只许出现在白名单里的两个文件(13d 的 else 支 / 13g 的 threads_search 兜底支)' + (strayed.length ? ' -> ' + strayed.join(',') : ''));
+ok(/factsUnknown: true \}\)\s*$|deriveStewardThreadState\(\{ kind: 'quick_ask', factsUnknown: true \}\)/.test(codeOnly(fs.readFileSync(path.join(srcDir, '13g-steward.js'), 'utf8'))),
+  '④ 13g 那条兜底支确实是「速查那一侧才说没事实」(mission 那一侧仍落 dispatching,逐字节不变)');
+// 伴随(比原条更强):每一个「明说没事实」的调用,对象字面量里【不许】同时出现任何一个真事实键。
+// 一边说没事实一边喂事实 = 用一个字段把真相盖掉,这正是本刀要根除的那种用法。
+const FACT_KEYS = /\b(activeTurn|turnSeq|pending|runCount|liveRuns|resultStatus|autoMode|milestonesDone|ledgerless|lastTurnFailed)\b/;
+const maskers = [];
+for (const file of fs.readdirSync(srcDir).filter(f => f.endsWith('.js'))) {
+  const code = codeOnly(fs.readFileSync(path.join(srcDir, file), 'utf8'));
+  let at = code.indexOf('factsUnknown: true');
+  while (at >= 0) {
+    const open = code.lastIndexOf('{', at);
+    let depth = 0; let close = open;
+    for (let i = open; i < code.length; i++) {
+      if (code[i] === '{') depth += 1;
+      else if (code[i] === '}') { depth -= 1; if (depth === 0) { close = i; break; } }
+    }
+    const literal = code.slice(open, close + 1);
+    if (FACT_KEYS.test(literal)) maskers.push(file + ': ' + literal.replace(/\s+/g, ' ').slice(0, 90));
+    at = code.indexOf('factsUnknown: true', at + 1);
+  }
+}
+ok(maskers.length === 0, '④ 没有任何一处一边说「没事实」一边把真事实喂进来(那是拿一个字段盖住真相)' + (maskers.length ? ' -> ' + maskers.join(' | ') : ''));
 
 /* ═══════════ ⑤ 看板行上的速查徽标:身份没消失,只是搬了家 ═══════════ */
 
