@@ -819,6 +819,13 @@ const liveTurnTitle = () => t('chat.liveTurn.title');
 const liveTurnEmpty = () => t('chat.liveTurn.empty');
 const liveTurnUsing = () => t('chat.liveTurn.using');
 let liveTurnTail = null;      // 最近一次 GET 带回来的 liveTail（服务端没下发就是 null）
+// 117o-A7（用户第七轮，两张截图对照：「为啥这个查看全文，不能像 2.0 那样显示呢？第二张图是 2.0 的」）：
+// A5 那张气泡是一坨纯文本，因为服务端只送了一段拼好的文字。现在服务端在同一个信封上多送一个
+// liveTurn ＝ 在途回合的【有序叙事账本】（02c 的 segments，回合落盘后经典壳重建叙事靠的也是它）。
+// 前端据此把它组装成一条与落盘助手消息【同形】的对象，交给 renderStaticMessage() ——
+// 也就是经典壳画一条落盘助手消息的那个入口 —— 去画，思考块 / 过程记录 / 工具卡 / 完成徽章
+// 全部同源。**不写第二套简版渲染器**：经典壳以后怎么改，在途回合当场跟着改。
+let liveTurnNarrative = null; // 最近一次 GET 带回来的 liveTurn（服务端没下发/这条路没有账本就是 null）
 let liveTurnSessionId = '';   // 这份活文本属于哪条会话：切会话立刻作废，别把 A 的正文画到 B 上
 let liveTurnLive = false;     // resumable.live —— 服务端对「这条会话有没有活回合」的判定
 let liveTurnCardEls = null;   // 挂在 DOM 上的那张气泡的构件（就地刷新，不整份重绘）
@@ -827,6 +834,7 @@ let liveTurnTimer = 0;        // 本模块唯一的 setInterval 句柄（见 syn
 function captureLiveTurn(sessionId, res) {
   liveTurnSessionId = String(sessionId || '');
   liveTurnTail = res && res.liveTail && typeof res.liveTail === 'object' ? res.liveTail : null;
+  liveTurnNarrative = res && res.liveTurn && typeof res.liveTurn === 'object' ? res.liveTurn : null;
   liveTurnLive = Boolean(res && res.resumable && res.resumable.live === true);
 }
 // 该不该画这张气泡。四条都为真才画 —— 任一为否，renderCurrentSession 就当它不存在。
@@ -884,6 +892,13 @@ function buildLiveTurnCard() {
   const head = el('div', 'msg-head live-turn-head');
   const iter = el('span', 'live-turn-iter');
   head.append(el('span', 'live-turn-title', liveTurnTitle()), iter);
+  // 117o-A7：截断提示。服务端砍的是【头部】（用户要看的是它现在在说什么），所以这句话在最上面。
+  const cut = el('div', 'live-turn-truncated');
+  // 117o-A7：2.0 那套真实渲染落在这里。内容由 renderStaticMessage()（画落盘助手消息的同一个入口）
+  // 生成，本模块只负责把它搬进这张临时壳里，不自己画一个像素级仿制品。
+  const narrative = el('div', 'live-turn-narrative');
+  // A5 的纯文本兜底：服务端没送 liveTurn（旧版本/这条引擎路径还没挂账本），或者这一回合还一个段都
+  // 没有（刚起、只挂着一个待决）时，仍然要有话给用户看，不能退回一片空白。
   const body = el('div', 'live-turn-body');
   const tool = el('div', 'live-turn-tool');
   const stop = el('button', 'live-turn-stop', t('common.stop'));
@@ -891,9 +906,9 @@ function buildLiveTurnCard() {
   stop.onclick = () => stopLiveTurn(stop);
   const foot = el('div', 'live-turn-actions');
   foot.appendChild(stop);
-  main.append(head, body, tool, foot);
+  main.append(head, cut, narrative, body, tool, foot);
   row.append(avatar, main);
-  liveTurnCardEls = { row, body, tool, iter, stop };
+  liveTurnCardEls = { row, cut, narrative, body, tool, iter, stop, narrativeSig: '' };
   // 117m-A6（审查报回 P2）：这一刻 row 还没被 append 进文档，isConnected 恒为 false。
   // 不带 mounted 地调会被那道守卫直接退回去，于是首帧正文区一片空白（连空态文案都没有），
   // 要等 3 秒后下一拍才自愈。首次填内容明确告诉它「现在还没挂上去」。
@@ -909,6 +924,16 @@ function paintLiveTurnCard(opts) {
   if (!(opts && opts.mounted === false) && !els.row.isConnected) return false;
   const tail = liveTurnTail;
   const full = String((tail && tail.full) || '');
+  // 117o-A7：有账本就画 2.0 那一套（同一个渲染器），没有才回落到 A5 的纯文本。两条路互斥，
+  // 屏幕上永远只有一份正文 —— 否则同一段话会出现两遍。
+  const turn = liveTurnNarrative;
+  const segments = Array.isArray(turn && turn.segments) ? turn.segments.filter(Boolean) : [];
+  const narrated = segments.length > 0 && paintLiveTurnNarrative(els, turn, segments);
+  els.narrative.hidden = !narrated;
+  els.body.hidden = narrated;
+  if (!narrated) { els.narrative.replaceChildren(); els.narrativeSig = ''; }
+  els.cut.textContent = (narrated ? Boolean(turn && turn.truncated) : false) ? t('chat.liveTurn.truncated') : '';
+  els.cut.hidden = !els.cut.textContent;
   // truncated：04 是从【头部】丢弃的（用户要看的是它现在在说什么），所以省略号标在开头。
   els.body.textContent = full ? ((tail && tail.truncated) ? `…${full}` : full) : liveTurnEmpty();
   els.body.classList.toggle('is-empty', !full);
@@ -920,6 +945,66 @@ function paintLiveTurnCard(opts) {
   const n = Math.max(0, Number(tail && tail.iterations) || 0);
   els.iter.textContent = n ? t('chat.liveTurn.iter', { n }) : '';
   return true;
+}
+// 117o-A7：把 liveTurn 画成 2.0 的样子。返回 false = 这一份账本画不出东西（调用方据此回落到纯文本）。
+// 唯一的渲染来源是 renderStaticMessage()：经典壳画一条【落盘助手消息】用的就是它，所以在途回合与
+// 回合结束后的那条真消息在结构上一模一样（思考块、过程记录组、工具卡、完成徽章、本回合工具索引）。
+// 组装出来的对象与落盘助手消息同形：{ role:'assistant', segments, toolCalls }。
+//   · readonly:true —— 在途回合没有「重跑 / 回退 / 复制这条」这些落盘消息才有的动作，也没有本轮变更；
+//   · idScope:'live' —— 工具卡的锚点 id 与落盘消息的不撞车；
+//   · 只把它 .msg-main 里的正文搬过来，不搬它自己那一行引擎徽标头（这张卡有自己的标题行）。
+function paintLiveTurnNarrative(els, turn, segments) {
+  const signature = liveTurnNarrativeSignature(turn, segments);
+  if (els.narrativeSig === signature && els.narrative.firstChild) return true;
+  const rendered = renderStaticMessage(
+    { role: 'assistant', segments, toolCalls: Array.isArray(turn.toolCalls) ? turn.toolCalls : [] },
+    '', '', { readonly: true, idScope: 'live' },
+  );
+  const main = rendered && typeof rendered.querySelector === 'function' ? rendered.querySelector('.msg-main') : null;
+  const nodes = main ? Array.from(main.children).filter(node => !node.classList.contains('msg-head')) : [];
+  if (!nodes.length) return false;
+  // 3 秒一拍地整份换掉正文会把用户刚展开的工具卡/思考块又合上。换之前记下哪些开着，换完照原样开回去。
+  const open = captureOpenDetails(els.narrative);
+  els.narrative.replaceChildren(...nodes);
+  restoreOpenDetails(els.narrative, open);
+  els.narrativeSig = signature;
+  return true;
+}
+// 内容有没有变的判据。只看会改变屏幕的东西（段的身份/类型/状态/文本长度、工具行的状态与摘要长度），
+// 不序列化正文本身 —— 一回合的正文可以有一万多字，每 3 秒 stringify 一遍是白烧。
+function liveTurnNarrativeSignature(turn, segments) {
+  const tools = Array.isArray(turn && turn.toolCalls) ? turn.toolCalls : [];
+  return [
+    turn && turn.truncated ? 't' : 'f',
+    segments.map(s => `${s.id || ''}:${s.type || ''}:${s.status || ''}:${String(s.text || s.markdown || '').length}`).join(','),
+    tools.map(tc => `${(tc && tc.id) || ''}:${(tc && tc.status) || ''}:${String((tc && tc.inputPreview) || '').length}`).join(','),
+  ].join('|');
+}
+// 展开态的身份：优先用元素自己的 id（工具卡有稳定锚点 id），没有 id 的按「同类里的第几个」定位。
+// 两个函数用同一套键，配对使用。
+function openDetailsKey(node, seen) {
+  if (node.id) return `#${node.id}`;
+  const cls = node.className || 'details';
+  const n = seen.get(cls) || 0;
+  seen.set(cls, n + 1);
+  return `${cls}#${n}`;
+}
+function captureOpenDetails(host) {
+  const open = new Set();
+  if (!host) return open;
+  const seen = new Map();
+  for (const node of host.querySelectorAll('details')) {
+    const key = openDetailsKey(node, seen);
+    if (node.open) open.add(key);
+  }
+  return open;
+}
+function restoreOpenDetails(host, open) {
+  if (!host || !open || !open.size) return;
+  const seen = new Map();
+  for (const node of host.querySelectorAll('details')) {
+    if (open.has(openDetailsKey(node, seen))) node.open = true;
+  }
 }
 async function stopLiveTurn(btn) {
   const id = state.currentSession?.id || '';

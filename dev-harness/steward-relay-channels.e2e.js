@@ -20,6 +20,11 @@
 //       速查线程恒 fast。
 //   (H) liveTail:活回合时 GET /api/sessions/:id 的信封里有尾巴,回合结束后消失。
 //   (I) asksYou 三态(question / soft / null)。
+//   (K) 117o-A7:一条线程 = 一个 2.0 会话。用户原话「我希望 3.0 的每一条线程,都能对应 2.0 的一个会话」——
+//       架构上一直成立(steward_thread_new 走的就是 createSession),但从来没有断言看着它。
+//       这一条把它钉死:管家开出来的线程 ① 出现在 GET /api/sessions 的列表里(经典壳侧栏读的就是这一份)、
+//       ② GET /api/sessions/:id 打得开(「看全文」走的就是这条路)、③ 它的 kind='mission' 不是把它从
+//       2.0 会话面赶出去的理由。以后谁给列表加 kind 过滤,这条当场红。
 //
 // 判定行:`STEWARD RELAY CHANNELS E2E: ALL PASS`。
 (async () => {
@@ -574,6 +579,29 @@ try {
     ok(ends.length === 1 && ends[0].aborted !== true,
       `J7 那一个回合正常收尾(不是 aborted;got ${JSON.stringify(ends.map(e => ({ ok: e.ok, aborted: e.aborted })))})`);
     slowDelayMs = prevSlow;
+  }
+
+  /* ═════ (K) 117o-A7:一条线程 = 一个 2.0 会话 ═════ */
+  console.log('── (K) 线程 ↔ 2.0 会话 1:1 ──');
+  {
+    const made = await request('POST', '/api/steward/act',
+      { act: { kind: 'tool', tool: 'steward_thread_new', args: { title: '看全文这条', brief: { userText: '帮我看一眼这件事' }, cwd: mkws() } } }, hdr);
+    const tid = made.json && made.json.result && made.json.result.sessionId;
+    ok(!!tid, `K1 steward_thread_new 开出一条线程(got ${tid})`);
+    const list = await request('GET', '/api/sessions', undefined, hdr);
+    const rows = (list.json && Array.isArray(list.json.sessions)) ? list.json.sessions : [];
+    ok(rows.some(r => r && r.id === tid),
+      `K2 它出现在 GET /api/sessions 的列表里 —— 经典壳侧栏读的就是这一份(列表 ${rows.length} 条)`);
+    const opened = await request('GET', `/api/sessions/${tid}`, undefined, hdr);
+    ok(!!(opened.json && opened.json.ok === true && opened.json.session && opened.json.session.id === tid),
+      `K3 GET /api/sessions/:id 打得开 —— 「看全文」走的就是这条路(HTTP ${opened.status})`);
+    const kind = String((opened.json && opened.json.session && opened.json.session.kind) || '');
+    ok(kind === 'mission',
+      `K4 它确实是 kind:'mission' 的线程(got ${JSON.stringify(kind)})—— 但 K2/K3 照样成立,kind 不是把它赶出 2.0 会话面的理由`);
+    const row = rows.find(r => r && r.id === tid);
+    ok(!!(row && String(row.kind || '') === 'mission'),
+      `K5 列表条目上也如实带着 kind(前端渲染无 kind 过滤,由 live-full-text.static 的 I1/I2 从另一头钉着;got ${JSON.stringify(row && row.kind)})`);
+    ok(rows.filter(r => r && r.id === tid).length === 1, 'K6 列表里恰好一条(不重复、不分身)');
   }
 } finally {
   kill(wb);

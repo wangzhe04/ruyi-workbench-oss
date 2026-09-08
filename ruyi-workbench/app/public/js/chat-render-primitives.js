@@ -341,7 +341,13 @@ export function createChatRenderPrimitives(deps = {}) {
     if (!input || typeof input !== 'object') return '';
     let raw = '';
     for (const k of TC_ARG_KEYS) { const v = input[k]; if (typeof v === 'string' && v.trim() !== '') { raw = v; break; } }
-    return middleEllipsis(raw.replace(/\s+/g, ' ').trim(), max);
+    return toolArgSummaryText(raw, max);
+  }
+  // 117o-A7:把「归一空白 + 中间省略」这一步单独拎出来当【唯一的截断口径】。在途回合的工具卡拿不到
+  // 完整 input(工具参数只以一行 inputPreview 下发,结果一律不下发),但它上屏的那一行必须与落盘消息
+  // 的工具卡一模一样宽、一模一样省略 —— 两条路都走这一个函数,不许另写一套。
+  function toolArgSummaryText(raw, max = 44) {
+    return middleEllipsis(String(raw || '').replace(/\s+/g, ' ').trim(), max);
   }
   // Middle-ellipsize a string to at most `max` chars, keeping the head and tail (so long paths/urls stay
   // recognizable at both ends). Uses a single '…' in the middle. Pure.
@@ -413,8 +419,15 @@ export function createChatRenderPrimitives(deps = {}) {
   // Returns handles the streaming path uses to fill the result + timing + status bar post-render.
   function toolCard(tc) {
     const d = el('details', 'tool-card');
-    const done = tc.result !== undefined;
-    const statusbar = el('div', 'tc-statusbar' + (done ? (tc.isError ? ' err' : ' ok') : ' running'));
+    // 117o-A7:在途回合(经典壳「看全文」那张临时卡)走的是【同一张工具卡】,但它手上没有工具结果 ——
+    // 服务端的 liveTurn 信封只送 {id,name,inputPreview,status},结果一律不下发(可能是整份文件、可能含密钥)。
+    // 于是「这一步跑完没有」不能再只看 result 在不在:tc.status 是在途路径独有的一个【可选】字段
+    // ('running'|'done'|'error'|'cancelled'),落盘消息的 toolCalls 上从来没有它 —— 既有三个调用点
+    // (静态叙事 / 静态平铺组 / 流式 tool_use)传进来的对象都不带 status,所以它们的行为逐字节不变。
+    const liveStatus = typeof tc.status === 'string' ? tc.status : '';
+    const settled = liveStatus ? liveStatus !== 'running' : tc.result !== undefined;
+    const isError = tc.isError === true || liveStatus === 'error';
+    const statusbar = el('div', 'tc-statusbar' + (settled ? (isError ? ' err' : ' ok') : ' running'));
     d.appendChild(statusbar);
     const sum = el('summary');
     // v0.7d: bridged desktop-control tools carry the ai_computer_control__ prefix — badge them with 🖥.
@@ -429,14 +442,17 @@ export function createChatRenderPrimitives(deps = {}) {
       nameEl,
       verbEl,
     );
-    const arg = toolArgSummary(tc.input);
+    // 117o-A7:在途卡只有一行 inputPreview(服务端按与 TC_ARG_KEYS 逐字对齐的顺序挑出来的那个字段,
+    // 只做 200 字传输上限);上屏的省略仍走上面那一个 toolArgSummaryText —— 截断口径只有一处。
+    const argSource = typeof tc.inputPreview === 'string' && tc.inputPreview ? tc.inputPreview : '';
+    const arg = argSource ? toolArgSummaryText(argSource) : toolArgSummary(tc.input);
     const argEl = el('span', 'tc-arg', arg); if (arg) argEl.title = arg;
     sum.appendChild(argEl);
     // Duration slot: filled now for static cards that carry durationMs; streaming fills it on tool_result.
-    const dur = el('span', 'tc-dur'); if (done && Number.isFinite(tc.durationMs)) dur.textContent = `· ${(tc.durationMs / 1000).toFixed(1)}s`;
+    const dur = el('span', 'tc-dur'); if (settled && Number.isFinite(tc.durationMs)) dur.textContent = `· ${(tc.durationMs / 1000).toFixed(1)}s`;
     sum.appendChild(dur);
-    const status = el('span', 'tc-status', done ? (tc.isError ? t('status.error') : t('status.done')) : t('status.running'));
-    if (done) status.classList.add(tc.isError ? 'err' : 'ok');
+    const status = el('span', 'tc-status', settled ? (isError ? t('status.error') : t('status.done')) : t('status.running'));
+    if (settled) status.classList.add(isError ? 'err' : 'ok');
     sum.appendChild(status);
     sum.appendChild(el('span', 'tc-caret'));
     d.appendChild(sum);
@@ -446,7 +462,7 @@ export function createChatRenderPrimitives(deps = {}) {
     // streaming tool_result path can fill it once the result arrives.
     const diffHost = el('div', 'tc-diff-host');
     body.appendChild(diffHost);
-    if (done && !tc.isError) renderGitDiffInto(diffHost, tc.name, tc.result);
+    if (settled && !isError && tc.result !== undefined) renderGitDiffInto(diffHost, tc.name, tc.result);
     // v0.9-S1 (C1): the input/result JSON lives in a nested <details class="tc-detail"> (open by default). In
     // pro mode CSS hides the nested summary so it reads as a plain always-open body (unchanged look); in simple
     // mode the 「详情」summary shows so a 人人可用 user can collapse the raw JSON. It starts open either way,
@@ -454,15 +470,19 @@ export function createChatRenderPrimitives(deps = {}) {
     const detail = el('details', 'tc-detail'); detail.open = true;
     const detailSum = el('summary', 'tc-detail-sum'); detailSum.textContent = t('chat.details'); detail.appendChild(detailSum);
     detail.appendChild(el('div', 'tc-label', t('chat.input')));
-    const inp = el('pre'); inp.textContent = safeStringify(tc.input); detail.appendChild(wrapPreWithCopy(inp));
+    // 在途卡没有完整参数(只有那一行摘要)也没有结果:详情区如实写清楚,不留一个空框让人以为丢了东西。
+    const inp = el('pre'); inp.textContent = safeStringify(tc.input) || argSource; detail.appendChild(wrapPreWithCopy(inp));
     const resLabel = el('div', 'tc-label', t('chat.result')); detail.appendChild(resLabel);
-    const resPre = el('pre'); resPre.textContent = done ? safeStringify(tc.result) : t('chat.waitingResult'); detail.appendChild(wrapPreWithCopy(resPre));
+    const resPre = el('pre');
+    resPre.textContent = tc.result !== undefined ? safeStringify(tc.result)
+      : (settled ? t('chat.liveTurn.resultOffEnvelope') : t('chat.waitingResult'));
+    detail.appendChild(wrapPreWithCopy(resPre));
     body.appendChild(detail);
     // 109b: 结果图内联缩略图,挂在含 result <pre> 的 detail 之后,只在终态(done)且非错误时懒请求预览。
     // imageHost 随卡片句柄一起返回,供流式路径在 tool_result 到达时再补一次(见 renderToolImageInto)。
     const imageHost = el('div', 'tc-image-host');
     body.appendChild(imageHost);
-    if (done && !tc.isError) renderToolImageInto(imageHost, tc.name, tc.result);
+    if (settled && !isError && tc.result !== undefined) renderToolImageInto(imageHost, tc.name, tc.result);
     d.appendChild(body);
     return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, imageHost, nameEl, verbEl, name: tc.name };
   }

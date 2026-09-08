@@ -3007,5 +3007,7 @@
   ,"chat.liveTurn.empty": "No words yet — it may be thinking, or running a tool."
   ,"chat.liveTurn.using": "Using: "
   ,"chat.liveTurn.iter": "· tool round {{n}}"
+  ,"chat.liveTurn.truncated": "Earlier output omitted; showing only the most recent stretch."
+  ,"chat.liveTurn.resultOffEnvelope": "(Tool results are not sent while the turn is in flight; the full result lands here once it ends.)"
   ,"settings.steward.tool.threadStop": "Pause this thread"
 }

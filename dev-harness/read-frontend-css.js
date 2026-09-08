@@ -263,7 +263,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   · .steward-board-dot[data-tone="settled"] —— 看板圆点第四档「已完成」，复用抽屉 done 那一档
 //     同一个语义 token（--ok），不新造颜色；只在 paintDot 显式传 settleDone:true 时才会出现。
 // 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '6def9be756181cc2c0302d517e5f19b36544a5f30058a5a9e876998b31dce4e3';
+// 117o-A7（用户第七轮「为啥这个查看全文，不能像 2.0 那样显示呢」）重钉，只动
+// css/states/chat-live.css 这一个【已注册的】所有权层，纯新增两条规则，其余每一层零漂移：
+//   · .live-turn-narrative —— 在途回合正文的宿主（内容由 renderStaticMessage 生成，与落盘助手消息
+//     同一个渲染器），只给一个 max-height:520px + overflow:auto 的滚动上限，不带任何排版意见；
+//   · .live-turn-truncated —— 「更早的内容已省略」那一行，--muted + --fs-xs，零新颜色。
+// 无新样式层、零 transition（reduced-motion 关闭清单一个字没加）、link/@import/overlay 顺序不变。
+const LEGACY_STYLES_SHA256 = '646b63cd8291c7aef65e107d9a389e017d4f478e34b49c35fd1f5c771c7049de';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

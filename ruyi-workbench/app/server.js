@@ -3315,9 +3315,49 @@ const sessionWriteChains = new Map();
 // use segments to reconstruct the actual text -> tool -> text sequence after a refresh. Tool payloads stay in
 // toolCalls; a tool segment only stores its id/name/status/batch reference, avoiding a second copy of large
 // inputs/results in the session JSON.
+// 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢?第二张图是 2.0 的」):
+// 这份账本【在途】也要能下发一份。117m-A5 只往前端送了一段拼好的纯文本(liveTail.full)＋工具名列表,
+// 渲染层再怎么写也画不出思考块 / 过程记录 / 工具卡 —— 差距的根子是数据形状,不是渲染。
+// liveSnapshot() 是 snapshot() 的【在途只读】版本:同一份 segments,加三重硬顶,并额外带一份
+// toolCalls(只有 id/name/inputPreview/status)供前端复用经典壳的工具卡。
+//   · 段数硬顶 LIVE_TURN_SEGMENTS_MAX;单段长文本硬顶 LIVE_TURN_SEGMENT_CHARS;
+//     全部文本总预算 LIVE_TURN_TEXT_BUDGET(与 04 的 LIVE_FULL_CHARS 同量级);
+//   · 超顶一律从【头部】丢弃并置 truncated:true —— 用户要看的是「它现在在说什么」,
+//     砍掉的应该是最早那段;
+//   · **工具结果一个字节都不出现在这里**。结果可能是整份文件、可能含密钥,而这条信封是
+//     「看一眼它在干嘛」用的,不是审计面。回合一结束真消息落盘,经典壳照常拿到全部。
+// snapshot()(落盘那一份)与本函数各走各的:落盘形状一个字节不变。
 function createTurnSegmentBuilder() {
+  // 这几个常量与这个小函数【故意留在函数体内】:dev-harness/turn-narrative.static.e2e.js 是把
+  // createTurnSegmentBuilder 整段抠出来在 vm 沙箱里跑的,挂在模块顶层的东西那边一个也看不见。
+  const LIVE_TURN_SEGMENTS_MAX = 200;
+  // 单段硬顶与 04 的 LIVE_FULL_CHARS 取同一个数:一段大长文里前端能看到的量,两条路一致。
+  const LIVE_TURN_SEGMENT_CHARS = 12000;
+  // 总预算取它的两倍 —— 叙事里除了正文还有【思考】段(2.0 那张截图上就是「思考 · 3222 字」),
+  // A5 的 full 只攒 assistant_delta,不含思考,所以这里的总量本来就该比它宽一档。
+  const LIVE_TURN_TEXT_BUDGET = 24000;
+  const LIVE_TURN_PREVIEW_CHARS = 200;
+  // 只有这两个键装得下长文本;其余字段(status/name/planId…)都是短标量,不进预算。
+  const LIVE_TURN_LONG_KEYS = ['text', 'markdown'];
+  // 工具卡头一行的「参数摘要」挑哪个字段:与前端 chat-render-primitives.js 的 TC_ARG_KEYS 逐字对齐
+  // (dev-harness/live-full-text.static.e2e.js 有一条断言把两份列表钉成必须【完全相等】,谁先漂谁当场红)。
+  // 这里只做【传输上限】(200 字),真正上屏的中间省略仍由前端那一个 middleEllipsis 做 —— 截断口径只有一处。
+  const LIVE_TURN_ARG_KEYS = ['path', 'url', 'command', 'pattern', 'root', 'query', 'title', 'text'];
+  const liveTurnInputPreview = input => {
+    if (!input || typeof input !== 'object') return '';
+    for (const key of LIVE_TURN_ARG_KEYS) {
+      const value = input[key];
+      if (typeof value === 'string' && value.trim() !== '') {
+        return value.replace(/\s+/g, ' ').trim().slice(0, LIVE_TURN_PREVIEW_CHARS);
+      }
+    }
+    return '';
+  };
   const segments = [];
   const toolSegments = new Map();
+  // 117o-A7:工具参数摘要【与段分开存】—— 落盘的 snapshot() 一个字节都拿不到它(段上不加字段),
+  // 只有在途的 liveSnapshot() 会去查。有界:条数与段数同顶,超顶丢最早的。
+  const toolPreviews = new Map();
   const subagentSegments = new Map();
   const permissionSegments = new Map();
   const questionSegments = new Map();
@@ -3353,6 +3393,9 @@ function createTurnSegmentBuilder() {
       const segment = { id: nextId(), type: 'tool', toolCallId, name: String(evt.name || 'tool'), batchId, status: 'running' };
       segments.push(segment);
       toolSegments.set(toolCallId, segment);
+      // 117o-A7:参数摘要只进这张【旁挂】表,不进段 —— 落盘形状因此逐字节不变。
+      toolPreviews.set(toolCallId, liveTurnInputPreview(evt.input));
+      while (toolPreviews.size > LIVE_TURN_SEGMENTS_MAX) toolPreviews.delete(toolPreviews.keys().next().value);
       lastEventType = 'tool_use';
       return;
     }
@@ -3522,9 +3565,45 @@ function createTurnSegmentBuilder() {
       fallbackBatchId = ''; lastEventType = 'error';
     }
   };
+  const keepable = segment => segment
+    && (segment.type !== 'text' && segment.type !== 'thinking' && segment.type !== 'note' || String(segment.text || '').length);
   const snapshot = () => segments
-    .filter(segment => segment && (segment.type !== 'text' && segment.type !== 'thinking' && segment.type !== 'note' || String(segment.text || '').length))
+    .filter(keepable)
     .map(segment => ({ ...segment }));
+  // 117o-A7:在途只读快照(见文件头注)。从【尾巴】往回收,收满三重硬顶就停,停下来时前面还有段
+  // 就置 truncated:true —— 丢的一定是最早那段。返回的 toolCalls 只有四个键,**没有 result**。
+  const liveSnapshot = () => {
+    const kept = [];
+    let budget = LIVE_TURN_TEXT_BUDGET;
+    let truncated = false;
+    for (let i = segments.length - 1; i >= 0; i -= 1) {
+      const segment = segments[i];
+      if (!keepable(segment)) continue;
+      if (kept.length >= LIVE_TURN_SEGMENTS_MAX || budget <= 0) { truncated = true; break; }
+      const copy = { ...segment };
+      for (const key of LIVE_TURN_LONG_KEYS) {
+        const value = typeof copy[key] === 'string' ? copy[key] : '';
+        if (!value) continue;
+        const room = Math.min(budget, LIVE_TURN_SEGMENT_CHARS);
+        if (value.length > room) { copy[key] = value.slice(value.length - room); copy.truncated = true; truncated = true; }
+        budget -= String(copy[key]).length;
+      }
+      kept.push(copy);
+    }
+    kept.reverse();
+    const toolCalls = [];
+    for (const segment of kept) {
+      if (segment.type !== 'tool') continue;
+      const toolCallId = String(segment.toolCallId || '');
+      toolCalls.push({
+        id: toolCallId,
+        name: String(segment.name || 'tool'),
+        inputPreview: String(toolPreviews.get(toolCallId) || ''),
+        status: String(segment.status || ''),
+      });
+    }
+    return { segments: kept, toolCalls, truncated };
+  };
   // 47b/86 修复「工具超时但一直卡在运行中」:回合被 Stop/看门狗/异常中止时,正在执行的 tool/subagent/
   // workflow 段永远拿不到 tool_result/end 事件,会以 status:'running' 落盘并在刷新后永远显示「运行中」。
   // finalizeAll 在回合收尾 snapshot() 之前把这类悬空段诚实标终态 'cancelled'(前端 pill 词汇已有 cancelled),
@@ -3542,7 +3621,7 @@ function createTurnSegmentBuilder() {
     }
     return healed;
   };
-  return { consume, snapshot, createBatchId, finalizeAll };
+  return { consume, snapshot, liveSnapshot, createBatchId, finalizeAll };
 }
 
 // ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
@@ -11337,7 +11416,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' } }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, liveSegments: turnSegments }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -27575,6 +27654,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     questionContext: '',
     // 117l D4:活回合的尾巴(只在内存,随 reg 一起消失)。累加在下面的 reg.onEvent 包装里。
     liveTail: { text: '', tool: '', updatedAt: '' },
+    // 117o-A7(用户第七轮「看全文要长成 2.0 的样子」):活回合的【有序叙事账本】。就是上面那一份
+    // turnSegments —— 回合落盘后经典壳重建叙事靠的也是它,在途下发的是同一份、同一个顺序,
+    // 所以前端能用【渲染落盘助手消息的同一个入口】把它画出来。只读:13d 只调它的 liveSnapshot()。
+    liveSegments: turnSegments,
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
   // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
@@ -39830,6 +39913,27 @@ async function handleSessionApiRoutes(req, res, pathname) {
           })),
         }
         : null;
+      // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
+      // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
+      // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
+      // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
+      // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
+      // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
+      // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
+      // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
+      // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
+      const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
+        ? liveReg.liveSegments.liveSnapshot()
+        : null;
+      const liveTurn = liveNarrative
+        ? {
+          segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
+          toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
+          truncated: Boolean(liveNarrative.truncated),
+          startedAt: liveTail ? liveTail.startedAt : '',
+          iterations: liveTail ? liveTail.iterations : 0,
+        }
+        : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
       // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
@@ -39844,12 +39948,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}) }));
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
       }
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);

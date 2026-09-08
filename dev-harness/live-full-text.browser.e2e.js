@@ -13,7 +13,12 @@
 //     且此刻 state.currentSession.messages 里【一条助手消息都没有】—— 气泡不是消息,没污染数据面;
 //   C 节拍:活着时恰好一处 3000ms 计时器;切去管家壳当拍停表(零后台活动),切回来又起;
 //   D 收尾:回合结束后气泡消失、真助手消息落到屏幕上、3000ms 计时器归零。
-// 与 steward-drawer.e2e.js 同一套 CDP 无头驱动;后端零改动。
+// 与 steward-drawer.e2e.js 同一套 CDP 无头驱动。
+//
+// 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢?第二张图是 2.0 的」):
+// 这一件的【验收点】升级 —— 屏幕上不能再是一坨纯文本气泡,必须是 2.0 那套真实渲染:可折叠思考块、
+// 工具卡(工具名 + 参数那一行 + 完成徽章)、本回合工具索引,而且纯文本兜底那一块要被藏起来
+// (同一段话不许出现两遍)。新增 B9-B15。
 (async () => {
 const cp = require('child_process');
 const fs = require('fs');
@@ -32,6 +37,7 @@ const ok = (condition, label) => {
 };
 
 const THREAD = '别处起的回合';
+const THINK = '我先想一想:这件事得先看一眼现场,再下结论。';
 const FIRST = '第一段:我先看一眼这件事的现场。';
 const SECOND = '第二段:看完了,现在我把结论写下来。';
 const FINAL = '第三段:这就是全部结论。';
@@ -101,6 +107,9 @@ async function startProvider(port) {
     const sse = value => { try { res.write('data: ' + JSON.stringify(value) + '\n\n'); } catch { /* client gone */ } };
     const delta = text => sse({ choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] });
     if (!answered) {
+      // 117o-A7:reasoning_content 会被 provider 引擎映射成 thinking_delta,于是账本里有一个 thinking 段,
+      // 屏幕上就该出现 2.0 那个可折叠的「思考」块。这是本件新增断言 B10 的数据源。
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', reasoning_content: THINK }, finish_reason: null }] });
       delta(FIRST);
       const args = JSON.stringify({ path: probeFile });
       sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_live_ui', type: 'function', function: { name: 'file_read', arguments: '' } }] }, finish_reason: null }] });
@@ -206,6 +215,15 @@ const SNAP = `(() => {
     liveRows: box ? box.querySelectorAll('[data-live="1"]').length : -1,
     realAssistantRows: box ? box.querySelectorAll('.message.assistant:not(.live-turn)').length : -1,
     realAssistantText: box ? [...box.querySelectorAll('.message.assistant:not(.live-turn)')].map(n => n.textContent).join(' ') : '',
+    narrative: Boolean(row && row.querySelector('.live-turn-narrative .turn-narrative')),
+    thinkingPanels: row ? row.querySelectorAll('.live-turn-narrative .thinking').length : -1,
+    toolCards: row ? row.querySelectorAll('.live-turn-narrative .tool-card').length : -1,
+    turnRecords: row ? row.querySelectorAll('.live-turn-narrative .turn-record').length : -1,
+    toolName: text(row, '.live-turn-narrative .tool-card .tc-name'),
+    toolArg: text(row, '.live-turn-narrative .tool-card .tc-arg'),
+    toolStatus: text(row, '.live-turn-narrative .tool-card .tc-status'),
+    narrativeText: text(row, '.live-turn-narrative'),
+    bodyHidden: row && row.querySelector('.live-turn-body') ? row.querySelector('.live-turn-body').hidden : null,
     msgRoles: session && Array.isArray(session.messages) ? session.messages.map(m => m && m.role) : [],
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
   };
@@ -343,6 +361,32 @@ try {
   ok(Boolean(withTool && withTool.tool.includes('file_read')),
     `B7 「正在用」写着工具名(实测「${withTool && withTool.tool}」)`);
   ok(Boolean(withTool && withTool.iter.includes('1')), `B8 轮次写着第 1 轮(实测「${withTool && withTool.iter}」)`);
+
+  /* ═════════ 117o-A7:屏幕上必须是 2.0 那套真实渲染,不是一坨纯文本 ═════════ */
+  // 这几条才是用户第七轮那两张截图的对照点。修前这张气泡里只有一个 .live-turn-body 纯文本块,
+  // 下面每一条都会红。
+  const shaped = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return (snapshot.hasCard && snapshot.toolCards > 0 && snapshot.toolStatus) ? snapshot : null;
+  })()`);
+  ok(Boolean(shaped && shaped.narrative),
+    `B9 气泡里是【经典壳同一个渲染器】画出来的叙事容器 .turn-narrative(实测 ${Boolean(shaped && shaped.narrative)})`);
+  ok(Boolean(shaped && shaped.thinkingPanels >= 1),
+    `B10 屏幕上有可折叠的【思考块】(实测 ${shaped && shaped.thinkingPanels} 个)`);
+  ok(Boolean(shaped && shaped.toolCards >= 1),
+    `B11 屏幕上有【工具卡】,不是一行「正在用:X」的文字(实测 ${shaped && shaped.toolCards} 张)`);
+  ok(Boolean(shaped && shaped.toolName.includes('file_read')),
+    `B12 工具卡上写着工具名(实测「${shaped && shaped.toolName}」)`);
+  ok(Boolean(shaped && shaped.toolArg.includes('probe')),
+    `B13 工具卡上那一行是真参数(与落盘消息的工具卡同一个截断口径;实测「${shaped && shaped.toolArg}」)`);
+  ok(Boolean(shaped && shaped.toolStatus && shaped.toolStatus !== '运行中'),
+    `B14 工具跑完后卡上是【完成】徽章 —— 结果没下发也照样能诚实标终态(实测「${shaped && shaped.toolStatus}」)`);
+  ok(Boolean(shaped && shaped.turnRecords >= 1),
+    `B15 「本回合工具」索引卡也在(与落盘消息同源;实测 ${shaped && shaped.turnRecords} 张)`);
+  ok(Boolean(shaped && shaped.bodyHidden === true),
+    `B16 纯文本兜底那一块被藏起来了 —— 同一段话不会在屏幕上出现两遍(实测 hidden=${shaped && shaped.bodyHidden})`);
+  ok(Boolean(shaped && shaped.narrativeText.includes(FIRST)),
+    `B17 叙事里就是这一回合真流出来的话(实测「${shaped && shaped.narrativeText.slice(0, 40)}」)`);
 
   /* ═════════ C 节拍:一处表,离开经典壳当拍停 ═════════ */
   console.log('── C 节拍与零后台活动 ──');

@@ -267,3 +267,9 @@
   border-radius: var(--r-pill); color: var(--muted); cursor: pointer; }
 .live-turn-stop:hover:not(:disabled) { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 .live-turn-stop:disabled { cursor: default; opacity: .6; }
+/* 117o-A7（用户第七轮「为啥这个查看全文，不能像 2.0 那样显示呢」）：在途回合的正文现在由
+   renderStaticMessage()（画落盘助手消息的同一个入口）生成，落在这个宿主里。宿主本身【不带任何
+   排版意见】—— 思考块 / 工具卡 / 过程记录组的样式全部沿用经典壳既有那几层，这里只给它一个滚动
+   上限，免得一条跑了半小时的回合把整页撑到几屏高。全 token 化配色，零动画。 */
+.live-turn-narrative { max-height: 520px; overflow: auto; }
+.live-turn-truncated { color: var(--muted); font-size: var(--fs-xs); margin-bottom: 4px; }

@@ -17,6 +17,16 @@
 //   (C) full 超顶(12000 字)时从【头部】截断且 truncated:true —— 用户要看的是「它现在在说什么」。
 //   (D) 117l 的老语义一字未动:text 仍然 ≤600 字,且是 full 的尾巴。
 //
+// 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢?第二张图是 2.0 的」):
+// A5 只送了一段拼好的纯文本,渲染层再怎么写也画不出思考块 / 过程记录 / 工具卡 —— 差距的根子是数据形状。
+// 服务端早就有 02c 的 createTurnSegmentBuilder 那份【有序叙事账本】(回合落盘后经典壳重建叙事靠的就是它),
+// 只是从没在途下发过。本波把它作为一个【新键】liveTurn 挂上同一个信封,前端用同一个渲染器画。新增覆盖:
+//   (E) liveTurn:段的顺序与真实事件顺序一致(文字 → 工具 → 文字)、工具段带 name/status、
+//       toolCalls 每行恰好 {id,name,inputPreview,status} 四个键、inputPreview 是真参数(带 ARG 记号),
+//       且【一个工具结果字节都没有】(RESULT 记号 0 次);回合结束后这个键消失,落盘消息的段序与它一致
+//       (证明在途与落盘是同一份账本,不是两套数据);liveTail 那几个老键一个字没被动。
+//   (F) liveTurn 超顶:单段硬顶 12000,超顶从【头部】丢弃并置 truncated:true(与 full 同方向)。
+//
 // 判定行:`LIVE FULL TEXT E2E: ALL PASS`。
 (async () => {
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -108,8 +118,15 @@ function request(method, p, body, headers) {
       host: '127.0.0.1', port: WB_PORT, path: p, method, timeout: 60000,
       headers: { ...(raw ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) } : {}), ...(headers || {}) },
     }, res => {
-      let b = ''; res.on('data', c => { b += c; });
-      res.on('end', () => { let json = null; try { json = JSON.parse(b); } catch { json = null; } resolve({ status: res.statusCode, json, raw: b }); });
+      // 117o-A7:攒 Buffer 再一次性解码。修前是 `b += c`(逐块 toString),一个三字节汉字被 chunk 边界
+      // 劈开就会变成两个 U+FFFD —— 本件的载荷是两万多个汉字,必踩,读出来的字数会凭空多几个,
+      // 于是「硬顶 12000 字」这类长度断言会假红(实测 12002)。这是夹具的读法错,不是被测代码错。
+      const chunks = []; res.on('data', c => { chunks.push(Buffer.from(c)); });
+      res.on('end', () => {
+        const b = Buffer.concat(chunks).toString('utf8');
+        let json = null; try { json = JSON.parse(b); } catch { json = null; }
+        resolve({ status: res.statusCode, json, raw: b });
+      });
     });
     r.on('error', () => resolve({ status: 0, json: null, raw: '' }));
     r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '' }); });
@@ -172,6 +189,8 @@ try {
   console.log('── (A) 活回合:full / tools / iterations,且零工具参数与结果 ──');
   let sidA = '';
   let tailA = null;          // A 段抓到的那一份活文本(C6 的 companion 要用它)
+  let turnA = null;          // 117o-A7:A 段抓到的那一份【叙事账本】(E 段用)
+  let rawA = '';             // 117o-A7:A 段那一整份信封的原始 JSON(扫记号用)
   let midFlightA = [];       // 回合还活着时盘上的样子(B0 用;在 A 段当场取,不留时间窗)
   {
     const th = await newThread('看全文');
@@ -182,11 +201,16 @@ try {
     for (let i = 0; i < 400; i++) {
       const s = await request('GET', `/api/sessions/${sidA}`, undefined, hdr);
       const lt = s.json && s.json.liveTail;
-      if (lt && String(lt.full || '') && Array.isArray(lt.tools) && lt.tools.length) { env = s; midFlightA = sessionMessages(sidA); break; }
+      // 117o-A7:等到【两份东西都齐】才取样 —— 文本尾巴有工具行,且叙事账本里那一段工具已经收尾。
+      const seg = s.json && s.json.liveTurn && Array.isArray(s.json.liveTurn.segments) ? s.json.liveTurn.segments : [];
+      const toolDone = seg.some(x => x && x.type === 'tool' && x.status === 'done');
+      if (lt && String(lt.full || '') && Array.isArray(lt.tools) && lt.tools.length && toolDone) { env = s; midFlightA = sessionMessages(sidA); break; }
       await sleep(60);
     }
     const tail = env && env.json && env.json.liveTail;
     tailA = tail;
+    turnA = env && env.json ? env.json.liveTurn : null;
+    rawA = String((env && env.raw) || '');
     ok(!!tail, `A1 活回合时 GET /api/sessions/:id 带 liveTail(got ${tail ? 'yes' : 'no'})`);
     ok(!!(tail && /第一段/.test(String(tail.full || ''))),
       `A2 liveTail.full 是这一回合真流出来的正文(got ${tail && String(tail.full).slice(0, 40)})`);
@@ -244,6 +268,7 @@ try {
 
   /* ═════════ (C) full 超顶:从头部截断 ═════════ */
   console.log('── (C) full 超顶时从【头部】丢弃 ──');
+  let bigTurn = null;   // 117o-A7:同一回合的叙事账本(F 段用)
   {
     const th = await newThread('超长');
     fireTurn(th.id, 'LIVEBIG 说很多话', th.cwd);
@@ -251,7 +276,7 @@ try {
     for (let i = 0; i < 400; i++) {
       const s = await request('GET', `/api/sessions/${th.id}`, undefined, hdr);
       const lt = s.json && s.json.liveTail;
-      if (lt && String(lt.full || '').length >= 12000) { tail = lt; break; }
+      if (lt && String(lt.full || '').length >= 12000) { tail = lt; bigTurn = s.json.liveTurn || null; break; }
       await sleep(60);
     }
     ok(!!tail, `C1 拿到了超顶的活文本(got ${tail ? String(tail.full).length + ' 字' : 'null'})`);
@@ -262,6 +287,72 @@ try {
     // companion:没超顶的那一回合 truncated 必须是 false —— 这个键不能一律置真,否则前端每张气泡
     // 都会在开头无中生有一个「…」。
     ok(!!tailA && tailA.truncated === false, `C6 companion:没超顶的回合 truncated 是 false(got ${tailA && tailA.truncated})`);
+  }
+
+  /* ═════════ (E) 117o-A7:在途回合的【有序叙事账本】 ═════════ */
+  console.log('── (E) liveTurn:段序、工具行、零工具结果 ──');
+  {
+    ok(!!turnA, `E1 活回合时信封上有【新键】liveTurn(got ${turnA ? 'yes' : 'no'})`);
+    const segs = Array.isArray(turnA && turnA.segments) ? turnA.segments : [];
+    const types = segs.map(x => x && x.type);
+    // 段序就是真实事件顺序:先说第一段 → 调 file_read → 再说第二段。修前前端只有一坨拼好的纯文本,
+    // 这个顺序信息根本不在数据里,画不出工具卡夹在两段话中间的样子。
+    ok(JSON.stringify(types) === JSON.stringify(['text', 'tool', 'text']),
+      `E2 段序与真实事件顺序一致(文字→工具→文字;实测 ${JSON.stringify(types)})`);
+    ok(/第一段/.test(String(segs[0] && segs[0].text || '')) && /第二段/.test(String(segs[2] && segs[2].text || '')),
+      'E2b 两段文字就是这一回合真流出来的话');
+    const toolSeg = segs.find(x => x && x.type === 'tool');
+    ok(!!(toolSeg && toolSeg.name === 'file_read' && toolSeg.status === 'done'),
+      `E3 工具段带 name 与 status(got ${JSON.stringify(toolSeg)})`);
+    const rows = Array.isArray(turnA && turnA.toolCalls) ? turnA.toolCalls : [];
+    ok(rows.length === 1 && rows[0].name === 'file_read' && rows[0].status === 'done',
+      `E4 toolCalls 与段一一对应(got ${JSON.stringify(rows)})`);
+    ok(rows.every(r => JSON.stringify(Object.keys(r).sort()) === JSON.stringify(['id', 'inputPreview', 'name', 'status'])),
+      `E5 每行恰好 {id,name,inputPreview,status} 四个键(got ${JSON.stringify(rows.map(r => Object.keys(r).sort()))})`);
+    // inputPreview 必须是【真参数】—— 否则 E7 那条「不含结果」会因为字段本来就是空的而成为空断言。
+    ok(rows.some(r => String(r.inputPreview || '').includes(ARG_MARKER)),
+      `E6 inputPreview 是这一回合真正传给工具的那个参数(got ${JSON.stringify(rows.map(r => r.inputPreview))})`);
+    // 本切片的安全线:工具【结果】一个字节都不许进这个信封(结果可能是整份文件、可能含密钥)。
+    // 前提由 A7a 已证:这两个记号确实在这一回合里流过。
+    const rawTurn = JSON.stringify(turnA || null);
+    ok(!rawTurn.includes(RESULT_MARKER),
+      `E7 liveTurn 不含任何工具【结果】(${RESULT_MARKER} 在 liveTurn 里出现 ${rawTurn.split(RESULT_MARKER).length - 1} 次)`);
+    ok(rawA.includes(RESULT_MARKER),
+      'E7a 前提:这一份信封里【别处】确实有那个结果记号(会话自己的 providerHistory),所以 E7 不是空断言');
+    ok(!/"result"|"content"|"output"/.test(rawTurn),
+      `E8 liveTurn 里没有任何叫 result/content/output 的字段(got ${rawTurn.slice(0, 0) || 'clean'})`);
+    ok(!!(turnA && turnA.startedAt === (tailA && tailA.startedAt) && turnA.iterations === (tailA && tailA.iterations)),
+      `E9 startedAt/iterations 与 liveTail 同源(got ${JSON.stringify({ s: turnA && turnA.startedAt, i: turnA && turnA.iterations })})`);
+    ok(!!(turnA && turnA.truncated === false), `E10 没超顶时 truncated 是 false(got ${turnA && turnA.truncated})`);
+    // 老键一个字没被动:新键是【加】不是改(抽屉的「它正在说」在读 liveTail)。
+    ok(!!(tailA && typeof tailA.full === 'string' && typeof tailA.text === 'string' && Array.isArray(tailA.tools)),
+      'E11 liveTail 那几个老键仍然原样在(新键是加不是改)');
+    // 在途与落盘是【同一份账本】:回合结束后落盘消息的段序必须与在途看到的一致。
+    let landedSegs = null;
+    for (let i = 0; i < 100; i++) {
+      const msg = sessionMessages(sidA).filter(m => m && m.role === 'assistant').pop();
+      if (msg && Array.isArray(msg.segments) && msg.segments.length) { landedSegs = msg.segments; break; }
+      await sleep(100);
+    }
+    const landedTypes = (landedSegs || []).map(x => x && x.type);
+    ok(JSON.stringify(landedTypes) === JSON.stringify(['text', 'tool', 'text']),
+      `E12 落盘消息的段序与在途看到的一致(同一份账本;实测 ${JSON.stringify(landedTypes)})`);
+    ok(!(landedSegs || []).some(x => x && 'inputPreview' in x),
+      'E13 落盘的段上【没有】inputPreview —— 参数摘要只旁挂在内存,落盘形状一个字节没变');
+    const gone = await request('GET', `/api/sessions/${sidA}`, undefined, hdr);
+    ok(!!(gone.json && !gone.json.liveTurn), 'E14 回合结束后 liveTurn 这个键也消失(与 liveTail 同进同出,始终不落盘)');
+  }
+
+  /* ═════════ (F) 117o-A7:liveTurn 超顶也从【头部】丢弃 ═════════ */
+  console.log('── (F) liveTurn 超顶时从【头部】丢弃 ──');
+  {
+    ok(!!bigTurn, `F1 超长回合也带回了 liveTurn(got ${bigTurn ? 'yes' : 'no'})`);
+    const seg = Array.isArray(bigTurn && bigTurn.segments) ? bigTurn.segments : [];
+    const text = String((seg[0] && seg[0].text) || '');
+    ok(text.length === 12000, `F2 单段硬顶 12000 字(实测 ${text.length})`);
+    ok(!!(bigTurn && bigTurn.truncated === true), `F3 超顶时 truncated:true(got ${bigTurn && bigTurn.truncated})`);
+    ok(!text.includes('HEADMARK'), 'F4 砍掉的是【开头】那一段');
+    ok(text.includes('TAILMARK'), 'F5 留下的是【刚说的】那一段');
   }
 
   console.log(fail === 0 ? 'LIVE FULL TEXT E2E: ALL PASS' : `LIVE FULL TEXT E2E: ${fail} FAILED`);

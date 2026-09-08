@@ -3007,5 +3007,7 @@
   ,"chat.liveTurn.empty": "它还没说出正文 —— 可能正在想，或者正在跑工具。"
   ,"chat.liveTurn.using": "正在用："
   ,"chat.liveTurn.iter": "· 第 {{n}} 轮工具"
+  ,"chat.liveTurn.truncated": "更早的内容已省略，只显示它最近说的这一段。"
+  ,"chat.liveTurn.resultOffEnvelope": "（工具结果不随在途信封下发；回合结束后这里会有完整结果）"
   ,"settings.steward.tool.threadStop": "暂停这条线程"
 }

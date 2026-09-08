@@ -1364,6 +1364,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     questionContext: '',
     // 117l D4:活回合的尾巴(只在内存,随 reg 一起消失)。累加在下面的 reg.onEvent 包装里。
     liveTail: { text: '', tool: '', updatedAt: '' },
+    // 117o-A7(用户第七轮「看全文要长成 2.0 的样子」):活回合的【有序叙事账本】。就是上面那一份
+    // turnSegments —— 回合落盘后经典壳重建叙事靠的也是它,在途下发的是同一份、同一个顺序,
+    // 所以前端能用【渲染落盘助手消息的同一个入口】把它画出来。只读:13d 只调它的 liveSnapshot()。
+    liveSegments: turnSegments,
   };
   // External bridge/MCP activity can also arrive through the active-turn registry.  Keep that path symmetric
   // with Claude so a live workflow refreshes the parent watchdog no matter which engine launched it.
