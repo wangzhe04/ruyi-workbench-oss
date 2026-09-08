@@ -482,3 +482,29 @@ export function createQuickSwitchChips({
     currentRoute: () => resolveEngineRoute(session, config()),
   });
 }
+
+// 117o（用户第七轮走查②：「管家在规划的时候会把格式也输出出来，会先出现 {say:...} 这种」）：
+// 管家回合的模型输出是一整个 JSON 信封，而 /api/steward/message 的 assistant_delta 是【原样】的
+// 模型文本。修前前端把 delta 直接追加上屏，于是用户先看到半截 JSON，等 steward_reply 到了才
+// 被替换成人话 —— 信封里的 why/acts 本来就不该在这一刻出现在对话流里（§8.1 原则 7）。
+// 本函数只做一件事：从【到此刻为止的原始文本】里增量取出 say 已经吐出的那一段（转义已还原）。
+// 取不到就回空串，调用方据此停在「···」：宁可少显示一拍，不许把系统内部格式端给用户。
+// 放在这个零 import 的叶子模块里，单测才能脱开整个壳层依赖图直接 import 它。
+const STEWARD_SAY_OPEN = new RegExp('"say"\\s*:\\s*"');
+export function stewardSayFromPartial(raw) {
+  const text = String(raw == null ? '' : raw);
+  const open = STEWARD_SAY_OPEN.exec(text);
+  if (!open) return '';
+  let body = '';
+  let escaped = false;
+  for (let i = open.index + open[0].length; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { body += '\\' + ch; escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }   // 末尾孤立反斜杠：等下一片 delta
+    if (ch === '"') break;                              // say 已经收尾
+    body += ch;
+  }
+  // 尾部可能停在半个 unicode 转义上，JSON.parse 会炸 —— 先丢掉那半截。
+  const safe = body.replace(new RegExp('\\\\u[0-9a-fA-F]{0,3}$'), '');
+  try { return JSON.parse('"' + safe + '"'); } catch { return ''; }
+}

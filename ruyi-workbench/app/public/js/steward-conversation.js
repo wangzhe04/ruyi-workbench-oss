@@ -6,7 +6,7 @@ import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出�
 // 原来从 steward-settings.js 复用，现在改从 steward-chips.js（它是本波把这张纯常量表搬去的
 // 零 import 叶子）——settings.js 接下来要反过来 import 本文件的 stewardErrorText 等函数，
 // 不先切断「conversation → settings」这条边就会造出循环 import。表本身一个字没变。
-import { STEWARD_TOOL_LABEL_KEYS } from './steward-chips.js';
+import { STEWARD_TOOL_LABEL_KEYS, stewardSayFromPartial } from './steward-chips.js';
 // 117n-M1：DOM 基础件 doc/byId/el/button 也从 steward-chips.js 复用（六个消费方零本地重复定义）。
 import { stewardEscapeStack, doc, byId, el, button } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
 
@@ -583,15 +583,20 @@ export function createStewardConversation({
     let sayNode = null;
     const tools = [];
     let reply = null;
+    // 117o：攒的是【原始信封】，上屏的只有 say 的当前值（判据在 steward-chips 的 stewardSayFromPartial）。
+    let rawEnvelope = '';
     const applyDelta = chunk => {
       if (!row) return;
+      rawEnvelope += chunk;
+      const say = stewardSayFromPartial(rawEnvelope);
+      if (!say) return;                       // 还没吐到 say：停在「···」，不端半截 JSON 给用户
       if (!sayNode) {
         const dots = row.querySelector('.steward-typing');
         if (dots) row.removeChild(dots);
         sayNode = el('p', 'steward-say', '');
         row.appendChild(sayNode);
       }
-      sayNode.textContent += chunk;
+      sayNode.textContent = say;              // 整段重写：半截信封里的 say 是会长的
       const feed = feedEl();
       if (feed) feed.scrollTop = feed.scrollHeight;
     };
