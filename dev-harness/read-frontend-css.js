@@ -269,7 +269,32 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     同一个渲染器），只给一个 max-height:520px + overflow:auto 的滚动上限，不带任何排版意见；
 //   · .live-turn-truncated —— 「更早的内容已省略」那一行，--muted + --fs-xs，零新颜色。
 // 无新样式层、零 transition（reduced-motion 关闭清单一个字没加）、link/@import/overlay 顺序不变。
-const LEGACY_STYLES_SHA256 = '646b63cd8291c7aef65e107d9a389e017d4f478e34b49c35fd1f5c771c7049de';
+// 117r-D3／D4 重钉（**一次钉两刀**：这两刀同波各改一个【已注册的】所有权层，而本常量是全部 CSS 层的
+// 联合载荷哈希 —— 两边各自重钉必然撞车，所以两刀都不碰它，由主会话在双双落地之后统一钉一次）：
+//   · css/states/chat-live.css（117r-D4，用户第八轮走查④「为啥在运行时会显示这段对话是在一个框里」）：
+//     - `.message.live-turn .msg-main` 整条【删除】（虚线边框＋弱底色＋内边距）—— A5 当初加它的理由是
+//       「长得就该和落盘消息不一样」，而 117o-A7 把正文换成 renderStaticMessage()（画落盘助手消息的
+//       同一个渲染器）之后，这圈框成了唯一的差别，读起来不是「草稿」而是「窗中窗」；
+//     - `.live-turn-narrative` 整条【删除】（原 max-height:520px + overflow:auto）—— 那条内滚动条正是
+//       用户看到的子窗口；宿主自此一条规则都不剩，名副其实地不带任何排版意见；
+//     - `.live-turn-body` 去掉 max-height:420px + overflow:auto（同上，A5 那条回落路径的正文）；
+//     - `.live-turn-title` 从「粗体 --fs-md / --ink-2」降成状态行（--muted + --fs-xs，取值对齐
+//       chat-primitives.css 的 .msg-head .when）。零新颜色、零新 token。
+//   · css/views/steward-shell.css（117r-D3，用户第八轮走查②「不要和输入框放同一行，会把输入框内容挤没」）：
+//     - `.steward-composer` 从单行 flex 改成 flex-direction:column + align-items:stretch（chip 一行、
+//       输入行一行）；
+//     - 新增 `.steward-composer-row`（第二行：input/plus/send）。**刻意不声明 position** ——
+//       #stewardTargetPicker 的定位基准仍是 .steward-composer 自己。
+//   · css/views/steward-conversation.css（117r-D3）：
+//     - `.steward-target` 加 align-self:flex-start（column 布局下不被拉成整行宽的大按钮）与 max-width:100%；
+//     - 新增 `.steward-target-label`（min-width:0 / overflow:hidden / text-overflow:ellipsis）——
+//       标题截短（steward-composer.js 走 stewardShortTitle）之外的第二道兜底；
+//     - `.steward-target-clear` 加 flex:0 0 auto（× 不许被省略号吃掉，它是「关掉这次匹配」的唯一出口）；
+//     - 删掉 620px 断点里的 `.steward-target { max-width: 45vw }` —— 那是「chip 与输入框同行」时代的
+//       硬编码，现在整行都归 chip，留着就是一个脱节的断点。
+// 三层都是既有所有权层，无新样式层、无新硬编码色（全 token / color-mix）、零新增 transition
+// （reduced-motion 关闭清单一个字没加）、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'e4b6c361e94e340a663c66624e64eb6752d6b627fe131c8f0e978bf883e53056';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
