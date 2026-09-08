@@ -408,3 +408,60 @@
 `node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
 `node ruyi-workbench/tools/gen-manifest.js` → `node dev-harness/architecture-contract-snapshots.js` →
 `node dev-harness/facts-generate.js`。
+
+## 8.8 第二段进度（2026-09-08 晚，主会话回到 Fable 手上之后）
+
+### 已入库
+
+| commit | 内容 |
+|---|---|
+| `673e3c1` | **重钉 D2**（`pretender-dispatch-home.static`）。它是 117m-A6 改了字面量没重钉留下的，HEAD 上一直红着。重钉附两条更严的伴随断言：`permissionModeFromRequest` 只能挂在被 `requestPermissionMode` 守着的分支上（这是 A6 那个 P0 的核心不变量，此前无人钉）、没带请求级档时必须返回 `storedConfig` **同一个对象**。D2c 已反向验证 |
+| `c989289` | **`mission-result.e2e.js` 的「117m 回归」查明并更正**（见下） |
+| `9b6f19d` | **117q-B1**：P0-1 三条子进程 NDJSON 主干道改用 `StringDecoder`（`00-boot.js` 新增 `createNdjsonLineFeeder`，05/07/05b 三个调用点转换，顺带补上 05b 缺失的 close 前 flush）。新单测 8/8（3 字节汉字跨 `push` 拆开必须零 `U+FFFD`），反向验证真的红。顺手收掉了 `facts.static` 那条既有红 |
+| `1e02f3c` | **117q-B3a**：P1-6 `net.js` 抽 `apiRaw`（403 换 token 重放，返回原始 `Response` 供 304/etag 用），看板不再空转；P1-7「压缩」整片文案 + 两处半 i18n 补 `t()`，21 个新键四份 locale 同步。新件 `net-token-replay.static.e2e.js` 真跑重放代码并做了反向验证；`copy-path-guard.static` 新增 §⑤ 把四个文件纳入硬编码中文扫描（扫出 16 处存量，逐条登记「待另刀」） |
+| `c34544d` | **重钉 `steward-walkthrough` F4**。117o 把 `stewardSayFromPartial` 也搬进 `steward-chips.js`，那行 import 多了一个符号，而 F4 是**整行逐字匹配** —— 一加符号就假红。重钉后只锁「从哪个模块拿」，并补 **F4a**：扫整个 `public/js`，这张表的定义必须恰好一处。F4a 已反向验证 |
+
+主会话对 B1/B3a 的独立复核：`git archive <commit>` 重建的 `server.js` 与提交里的**逐字节相同**；
+三条主干道的 stdout **没有** `setEncoding`（所以 `decoder.write(chunk)` 收到的是 Buffer，用法正确）；
+`05b:1450` 那处残留的 `toString('utf8')` 是对**完整** buffer 的一次性解码，不是 chunk 边界场景，
+正确地没有动；`apiRaw` 只在 `!res.ok` 时才 `clone()`，成功路径零开销。
+
+### 更正：`mission-result.e2e.js` 从来不是 117m 的代码回归
+
+我先前把它二分成「117m 区间内的回归」（`dd8f15f` 通过、`90691d3` 失败）并挂进 §8.6 的欠账。
+**这个定性是错的**，错在拿一条 `FAIL workbench up` 去做二分。
+
+实测（隔离 worktree、同机、同 env）：工作台冷启动到 `/health` 返回 200，
+**HEAD 4657 ms**，**`dd8f15f` 6282 ms —— 比 HEAD 还慢**。
+而这一件的健康等待预算是 `60 × 100ms` = **6 秒**。预算压在被等待的事实本身上，
+只剩 1.3 秒余量，机器一有负载就穿；那次二分量到的是**机器负载**，不是代码。
+只把预算抬到 `300 × 100ms`、**一行生产代码没动**，`MISSION RESULT E2E: ALL PASS`。
+
+**这条推广开来比单件重要**：41 件 e2e 用同一个 `60×100ms`，另有 5 秒、3 秒的。
+此前那次全量回归「248 pass / 64 fail」里一大片 `FAIL workbench up` 基本都是这个 ——
+**那批红大部分是假红，不只是「并发污染」那么简单**。故总表里 P3-30 已升级为 **P1-31**，
+§5 里「`waitHealth` 的超时数字只能证明不一致、不能证明哪个错」那条判断已被推翻并改写。
+
+**留给所有人的纪律**：`FAIL workbench up` / `ECONNREFUSED` 这类失败**不能拿来二分** ——
+它测的是机器不是代码。二分之前先把「被等待的事实到底要多久」量出来。
+
+### 在途
+
+| 切片 | 独占面 |
+|---|---|
+| **117q-P1-31** | `dev-harness/*.e2e.js` 的健康等待预算（只抬探 `/health` 的循环；等业务事实的轮询一律不动 —— 抬高那些等于放宽断言） |
+| **117q-B5** | P2-8 围栏中和 ×6 收进 `00-boot`、P2-9 tier 排序表 ×6 收进 `07`、P2-14 死循环护栏常量、P2-18 Claude 引擎补 `cachedInTok`、P2-17 `agent-workflows.js` 补可见性门控 |
+
+### 下一步（按解锁顺序）
+
+1. **117q-B3b**（P0-4 五态人话四份）：等 B5 让开 `06i` 与生成器链。
+   **文案已定**：`quick_ask` = **速查 / Lookup**；`done` = **Done**（同组另外四个都是中性短词，
+   只有 `Wrapped up` 是暖调的，自己跟自己不一致）。服务端 `STEWARD_STATE_LABELS` 那份中文只留给
+   工具返回给模型看的人话，下发给前端的 `stateLabel` 要改成让前端自己按 `state` 走 `t()`
+   —— 否则英文界面永远拿中文。
+2. **117q-B6**（P2-10 尾窗读原语 + P2-11 撕裂尾 → `01`/`02`）：**单独一批、串行做**。
+3. **干净的全量回归**：等 P1-31 落地之后再跑才有意义 —— 在此之前跑出来的红有很大比例是假的。
+
+**并发纪律的经验值**：`src/` 切片的真正串行点是**生成器链**（任何改 `src/` 的刀都要重跑
+`module-dependency-graph --write` 等，产物互相覆盖）。所以同一时刻**只放一把改 `src/` 的刀**，
+其余的排到 `dev-harness/` 或 `public/js/` 这类不进生成器链的面上并行。
