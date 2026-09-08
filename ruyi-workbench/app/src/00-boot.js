@@ -169,6 +169,28 @@ function safeJsonParse(raw, fallback = null) {
   }
 }
 
+// 117q-B1(30 号文 §4.1):子进程 stdout 的 NDJSON 逐行喂入器。为什么必须走 StringDecoder ——
+// chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
+// 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
+// flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
+function createNdjsonLineFeeder(onLine) {
+  const decoder = new StringDecoder('utf8');
+  let remainder = '';
+  return {
+    push(chunk) {
+      remainder += decoder.write(chunk);
+      const lines = remainder.split(/\r?\n/);
+      remainder = lines.pop() || '';
+      for (const line of lines) onLine(line);
+    },
+    flush() {
+      remainder += decoder.end();
+      if (remainder.trim()) onLine(remainder);
+      remainder = '';
+    },
+  };
+}
+
 function nowIso() {
   return new Date().toISOString();
 }

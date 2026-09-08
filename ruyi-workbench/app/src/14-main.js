@@ -600,4 +600,6 @@ module.exports = {
   // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
   responsesHistoryWithCompleteToolPairs,
   buildResponsesInputItems,
+  // 117q-B1(30 号文 §4.1): 子进程 NDJSON 逐行喂入器 — exposed for unit 直测(chunk 边界切开 CJK 字节不得产生 U+FFFD)。
+  createNdjsonLineFeeder,
 };

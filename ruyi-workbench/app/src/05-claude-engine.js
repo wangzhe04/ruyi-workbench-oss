@@ -500,7 +500,6 @@ async function runClaudeTurn({
   let thinkingText = '';
   const toolCalls = [];
   let stderrText = '';
-  let stdoutRemainder = '';
   let rawSeq = 0;
   // Per-MESSAGE delta dedup: partials for a message set these; the following whole `assistant`
   // message is then suppressed; flags reset after each whole message so a later whole-only message
@@ -795,12 +794,10 @@ async function runClaudeTurn({
     if (evt.type === 'assistant' || evt.role === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
   };
 
-  child.stdout.on('data', chunk => {
-    stdoutRemainder += chunk.toString('utf8');
-    const lines = stdoutRemainder.split(/\r?\n/);
-    stdoutRemainder = lines.pop() || '';
-    for (const line of lines) consumeLine(line);
-  });
+  // 117q-B1(30 号文 §4.1):走 createNdjsonLineFeeder 而非逐块 toString——chunk 边界不保证落在字符边界上,
+  // 被切开的 CJK 字节不能各自独立解码,会静默变成 U+FFFD。
+  const stdoutFeeder = createNdjsonLineFeeder(consumeLine);
+  child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
 
   const exit = await new Promise(resolve => {
     child.on('error', error => { reg.exited = true; resolve({ code: -1, error }); });
@@ -809,7 +806,7 @@ async function runClaudeTurn({
   clearInterval(watchdog);
   clearInterval(nativeAgentProgressTimer);
   stopKimiWireWatch();
-  if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
+  stdoutFeeder.flush();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.

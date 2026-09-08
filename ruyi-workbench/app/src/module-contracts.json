@@ -28,6 +28,7 @@
         "computeCostFromPricing",
         "computeProviderCost",
         "cp",
+        "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
         "ensureDirs",
@@ -1693,6 +1694,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "crypto",
           "kinds": [
             "read"
@@ -2488,6 +2496,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -4435,6 +4450,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12944,6 +12966,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "CONFIG_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createNdjsonLineFeeder",
           "kinds": [
             "read"
           ]

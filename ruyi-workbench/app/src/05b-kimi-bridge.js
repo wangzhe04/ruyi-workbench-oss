@@ -655,7 +655,6 @@ function kimiAcpRpcError(payload, method) {
 // transport: Kimi can pause session/prompt, ask Ruyi for permission/input, then continue after our response.
 function createKimiAcpRpc(child, handlers = {}) {
   let nextId = 0;
-  let buffer = '';
   let closed = false;
   const pending = new Map();
   const reversePending = new Map();
@@ -710,19 +709,22 @@ function createKimiAcpRpc(child, handlers = {}) {
     }
     if (message.method && handlers.onNotification) handlers.onNotification(message.method, message.params || {});
   };
-  child.stdout.on('data', chunk => {
-    buffer += chunk.toString('utf8');
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      if (handlers.onLine) handlers.onLine(line);
-      const message = safeJsonParse(line);
-      if (message) dispatch(message);
-    }
-  });
-  child.once('error', error => { closed = true; rejectPending(error); });
+  // 117q-B1(30 号文 §4.1):与 05/07 同一缺陷,同一个 createNdjsonLineFeeder 修法——chunk 边界不保证落在
+  // 字符边界上,被切开的 CJK 字节不能各自独立解码。
+  const consumeAcpLine = line => {
+    if (!line.trim()) return;
+    if (handlers.onLine) handlers.onLine(line);
+    const message = safeJsonParse(line);
+    if (message) dispatch(message);
+  };
+  const stdoutFeeder = createNdjsonLineFeeder(consumeAcpLine);
+  child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
+  // 附带修的漂移(30 号文 §4.1):05/07 都在子进程 close 后 flush 残留半行,这里原来没有——三者协议都是
+  // 「一行一个 JSON」,没理由 ACP 单独在半行 JSON 上突然退出时把最后一条消息静默丢掉。flush 放在
+  // rejectPending 之前,让最后一行(若恰好是某个 pending 请求的响应)先有机会被 dispatch 结算。
+  child.once('error', error => { stdoutFeeder.flush(); closed = true; rejectPending(error); });
   child.once('close', code => {
+    stdoutFeeder.flush();
     closed = true;
     rejectPending(new Error(`Kimi ACP process exited${code == null ? '' : ` (${code})`}`));
   });

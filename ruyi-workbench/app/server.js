@@ -169,6 +169,28 @@ function safeJsonParse(raw, fallback = null) {
   }
 }
 
+// 117q-B1(30 号文 §4.1):子进程 stdout 的 NDJSON 逐行喂入器。为什么必须走 StringDecoder ——
+// chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
+// 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
+// flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
+function createNdjsonLineFeeder(onLine) {
+  const decoder = new StringDecoder('utf8');
+  let remainder = '';
+  return {
+    push(chunk) {
+      remainder += decoder.write(chunk);
+      const lines = remainder.split(/\r?\n/);
+      remainder = lines.pop() || '';
+      for (const line of lines) onLine(line);
+    },
+    flush() {
+      remainder += decoder.end();
+      if (remainder.trim()) onLine(remainder);
+      remainder = '';
+    },
+  };
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -11449,7 +11471,6 @@ async function runClaudeTurn({
   let thinkingText = '';
   const toolCalls = [];
   let stderrText = '';
-  let stdoutRemainder = '';
   let rawSeq = 0;
   // Per-MESSAGE delta dedup: partials for a message set these; the following whole `assistant`
   // message is then suppressed; flags reset after each whole message so a later whole-only message
@@ -11744,12 +11765,10 @@ async function runClaudeTurn({
     if (evt.type === 'assistant' || evt.role === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
   };
 
-  child.stdout.on('data', chunk => {
-    stdoutRemainder += chunk.toString('utf8');
-    const lines = stdoutRemainder.split(/\r?\n/);
-    stdoutRemainder = lines.pop() || '';
-    for (const line of lines) consumeLine(line);
-  });
+  // 117q-B1(30 号文 §4.1):走 createNdjsonLineFeeder 而非逐块 toString——chunk 边界不保证落在字符边界上,
+  // 被切开的 CJK 字节不能各自独立解码,会静默变成 U+FFFD。
+  const stdoutFeeder = createNdjsonLineFeeder(consumeLine);
+  child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
 
   const exit = await new Promise(resolve => {
     child.on('error', error => { reg.exited = true; resolve({ code: -1, error }); });
@@ -11758,7 +11777,7 @@ async function runClaudeTurn({
   clearInterval(watchdog);
   clearInterval(nativeAgentProgressTimer);
   stopKimiWireWatch();
-  if (stdoutRemainder.trim()) consumeLine(stdoutRemainder);
+  stdoutFeeder.flush();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.
@@ -13028,7 +13047,6 @@ function kimiAcpRpcError(payload, method) {
 // transport: Kimi can pause session/prompt, ask Ruyi for permission/input, then continue after our response.
 function createKimiAcpRpc(child, handlers = {}) {
   let nextId = 0;
-  let buffer = '';
   let closed = false;
   const pending = new Map();
   const reversePending = new Map();
@@ -13083,19 +13101,22 @@ function createKimiAcpRpc(child, handlers = {}) {
     }
     if (message.method && handlers.onNotification) handlers.onNotification(message.method, message.params || {});
   };
-  child.stdout.on('data', chunk => {
-    buffer += chunk.toString('utf8');
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      if (handlers.onLine) handlers.onLine(line);
-      const message = safeJsonParse(line);
-      if (message) dispatch(message);
-    }
-  });
-  child.once('error', error => { closed = true; rejectPending(error); });
+  // 117q-B1(30 号文 §4.1):与 05/07 同一缺陷,同一个 createNdjsonLineFeeder 修法——chunk 边界不保证落在
+  // 字符边界上,被切开的 CJK 字节不能各自独立解码。
+  const consumeAcpLine = line => {
+    if (!line.trim()) return;
+    if (handlers.onLine) handlers.onLine(line);
+    const message = safeJsonParse(line);
+    if (message) dispatch(message);
+  };
+  const stdoutFeeder = createNdjsonLineFeeder(consumeAcpLine);
+  child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
+  // 附带修的漂移(30 号文 §4.1):05/07 都在子进程 close 后 flush 残留半行,这里原来没有——三者协议都是
+  // 「一行一个 JSON」,没理由 ACP 单独在半行 JSON 上突然退出时把最后一条消息静默丢掉。flush 放在
+  // rejectPending 之前,让最后一行(若恰好是某个 pending 请求的响应)先有机会被 dispatch 结算。
+  child.once('error', error => { stdoutFeeder.flush(); closed = true; rejectPending(error); });
   child.once('close', code => {
+    stdoutFeeder.flush();
     closed = true;
     rejectPending(new Error(`Kimi ACP process exited${code == null ? '' : ` (${code})`}`));
   });
@@ -23579,7 +23600,6 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     let progressChars = 0; // v1.4.6 (C): high-water mark of chars already reported via subagent_progress (resets per attempt)
     let toolCallCount = 0;
     let resultOk = true, resultText = '', gotResult = false;
-    let stdoutRemainder = '';
     // v1.4-OSS 用量看板(补): per-attempt token accounting. The result frame's usage is the turn's CUMULATIVE
     // total — preferred when a field is populated. Absent it (an attempt that died before the result frame),
     // fall back to this attempt's msg_usage. The real CLI splits one multi-content-block assistant message into
@@ -23619,14 +23639,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         else if (ev.kind === 'msg_usage' && ev.usage && typeof ev.usage === 'object') { msgBillInMax = Math.max(msgBillInMax, Number(ev.usage.input_tokens) || 0); const mo = Number(ev.usage.output_tokens) || 0; msgBillOutMax = Math.max(msgBillOutMax, mo > 0 ? mo : 0); }
       }
     };
-    child.stdout.on('data', chunk => {
-      stdoutRemainder += chunk.toString('utf8');
-      const lines = stdoutRemainder.split(/\r?\n/);
-      stdoutRemainder = lines.pop() || '';
-      for (const line of lines) consumeLine(line);
-    });
+    // 117q-B1(30 号文 §4.1):与 05-claude-engine.js 逐字节相同的旧缺陷——走 createNdjsonLineFeeder 而非逐块
+    // toString,chunk 边界不保证落在字符边界上,被切开的 CJK 字节不能各自独立解码。
+    const stdoutFeeder = createNdjsonLineFeeder(consumeLine);
+    child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
     let settled = false;
-    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); stdoutFeeder.flush(); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
     child.on('error', () => finish(-1));
     child.on('close', code => finish(code == null ? -1 : code));
   });
@@ -48048,4 +48066,6 @@ module.exports = {
   // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
   responsesHistoryWithCompleteToolPairs,
   buildResponsesInputItems,
+  // 117q-B1(30 号文 §4.1): 子进程 NDJSON 逐行喂入器 — exposed for unit 直测(chunk 边界切开 CJK 字节不得产生 U+FFFD)。
+  createNdjsonLineFeeder,
 };

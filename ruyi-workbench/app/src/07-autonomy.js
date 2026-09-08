@@ -1876,7 +1876,6 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     let progressChars = 0; // v1.4.6 (C): high-water mark of chars already reported via subagent_progress (resets per attempt)
     let toolCallCount = 0;
     let resultOk = true, resultText = '', gotResult = false;
-    let stdoutRemainder = '';
     // v1.4-OSS 用量看板(补): per-attempt token accounting. The result frame's usage is the turn's CUMULATIVE
     // total — preferred when a field is populated. Absent it (an attempt that died before the result frame),
     // fall back to this attempt's msg_usage. The real CLI splits one multi-content-block assistant message into
@@ -1916,14 +1915,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         else if (ev.kind === 'msg_usage' && ev.usage && typeof ev.usage === 'object') { msgBillInMax = Math.max(msgBillInMax, Number(ev.usage.input_tokens) || 0); const mo = Number(ev.usage.output_tokens) || 0; msgBillOutMax = Math.max(msgBillOutMax, mo > 0 ? mo : 0); }
       }
     };
-    child.stdout.on('data', chunk => {
-      stdoutRemainder += chunk.toString('utf8');
-      const lines = stdoutRemainder.split(/\r?\n/);
-      stdoutRemainder = lines.pop() || '';
-      for (const line of lines) consumeLine(line);
-    });
+    // 117q-B1(30 号文 §4.1):与 05-claude-engine.js 逐字节相同的旧缺陷——走 createNdjsonLineFeeder 而非逐块
+    // toString,chunk 边界不保证落在字符边界上,被切开的 CJK 字节不能各自独立解码。
+    const stdoutFeeder = createNdjsonLineFeeder(consumeLine);
+    child.stdout.on('data', chunk => { stdoutFeeder.push(chunk); });
     let settled = false;
-    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); if (stdoutRemainder.trim()) consumeLine(stdoutRemainder); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
+    const finish = exitCode => { if (settled) return; settled = true; clearInterval(watchdog); clearInterval(steerTimer); closeStdin(); stdoutFeeder.flush(); currentChild = null; resolve({ exitCode, stderrText, assistantText, toolCallCount, resultOk, resultText, gotResult, resultUsage, resultCostUsd, msgBillInMax, msgBillOutMax }); };
     child.on('error', () => finish(-1));
     child.on('close', code => finish(code == null ? -1 : code));
   });
