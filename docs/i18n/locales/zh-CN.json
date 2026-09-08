@@ -3003,4 +3003,8 @@
   ,"stewardShell.board.nowClose": "关掉"
   ,"stewardShell.classicWindow.back": "回到管家"
   ,"stewardShell.classicWindow.switchWhole": "整体切到 2.0"
+  ,"chat.liveTurn.title": "它正在跑（这一回合是在别处起的）"
+  ,"chat.liveTurn.empty": "它还没说出正文 —— 可能正在想，或者正在跑工具。"
+  ,"chat.liveTurn.using": "正在用："
+  ,"chat.liveTurn.iter": "· 第 {{n}} 轮工具"
 }

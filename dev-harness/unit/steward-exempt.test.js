@@ -153,6 +153,29 @@ for (const [group, commands] of Object.entries(HIT)) {
     '④ 工具名命中时不再看 input(短路)');
 }
 
+/* ═══════════ ⑤ 117m-A3：结构化入参里的对外写（命令文本看不见的那一类） ═══════════ */
+// 为什么现在才补：117m-A1 把这条判据接成了原生闸门 auto 档的高风险判据，漏判的后果
+// 从「管家替你按」变成「根本不问就发出去」。http_request 的参数是字段不是命令行，
+// 两道文本正则一条都不命中。
+{
+  const writes = ['POST', 'PUT', 'PATCH', 'DELETE', 'post', ' put '];
+  const missed = writes.filter(m => stewardToolPermanentlyExempt('http_request', { method: m, url: 'https://example.com/x' }) !== true);
+  ok(missed.length === 0, '⑤ 写型 HTTP 方法一律当对外写' + (missed.length ? ' → 漏判: ' + missed.join(' | ') : ''));
+  const reads = ['GET', 'HEAD', 'OPTIONS', 'get'];
+  const wrong = reads.filter(m => stewardToolPermanentlyExempt('http_request', { method: m, url: 'https://example.com/x' }) !== false);
+  ok(wrong.length === 0, '⑤ 读方法零误伤（拓行情就是 GET，误伤它等于把「全自动」又退回去）'
+    + (wrong.length ? ' → 误判: ' + wrong.join(' | ') : ''));
+  ok(stewardToolPermanentlyExempt('http_request', { url: 'https://example.com/x' }) === false,
+    '⑤ 没写 method 的调用按默认 GET 放行');
+  ok(stewardToolPermanentlyExempt('mcp_configure', { serverId: 'x' }) === true,
+    '⑤ mcp_configure 进工具名清单（注册任意 stdio server = 任意代码执行）');
+  ok(stewardToolPermanentlyExempt('file_read', { method: 'POST' }) === true,
+    '⑤ 写型 method 不看工具名（宁可误判成要人按）');
+  ok(stewardToolPermanentlyExempt('http_request', { method: 3 }) === true,
+    '⑤ method 是个说不清的值时当对外写（不是公认读方法就不放行）');
+  ok(stewardToolPermanentlyExempt('script_run', { command: 'ls -la' }) === false,
+    '⑤ companion：普通执行仍然不命中（本波只收紧了对外写这一类）');
+}
 console.log('');
 if (fail) { console.log(`STEWARD EXEMPT UNIT: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD EXEMPT UNIT: ALL PASS');

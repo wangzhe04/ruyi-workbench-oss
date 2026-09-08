@@ -802,7 +802,19 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-    if (!session.mission) return send(res, json({ ok: false, error: 'mission not found' }, 404));
+    // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):线程 kind:'mission' 而 mission:null 是【合法状态】
+    // —— 管家刚开的线程还没有任何变更账本。修前这里 404 'mission not found',而交办台详情是一个
+    // Promise.all(详情 + 两次 changes),一挂就把整块面板换成错误卡(用户截图里那张)。把「还没有变更」
+    // 说成「找不到事项」是判据错位:找不到的是账本,不是事项,而空账本本来就该回一份空清单。
+    // 只放宽这一种情形(会话在、账本空);会话不存在仍旧 404。
+    if (!session.mission) {
+      return send(res, json({
+        ok: true, missionId: sessionMissionId(session), sessionId,
+        fromRevision: after, currentRevision: 0, baseRevision: 0,
+        changes: [], degraded: false, gap: null,
+        integrity: { corruptLines: 0, lastRevision: 0 },
+      }));
+    }
     const currentRevision = Math.max(0, Number(session.mission.changeSeq) || 0);
     const folded = await readMissionChangesWithMeta(sessionId, currentRevision);
     let gap = folded.gap;
@@ -1569,10 +1581,18 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
     const bridgeTier = nativeToolTier(String(body.toolName || ''));
+    // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
+    const bridgeMode = String(config.permissionMode || '');
+    const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
+    // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
+    // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
+    if (bridgeMode === 'auto' && bridgeGate === 'allow') {
+      return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
+    }
     // 对抗轮 P3(天花板对称):与 native 主 gate 对齐 —— 仅当工作台自身权限模式对该档判定为 'ask' 时才允许授权书降级。
     // 工作台若处于 plan 模式(该档判 'block'),即便 CLI 发来请求也不放行(子集律:授权书永不把 block 提升为 allow),
     // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
-    if (nativeToolGate(config.permissionMode, bridgeTier) === 'ask') {
+    if (bridgeGate === 'ask') {
       const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
       // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
       // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。

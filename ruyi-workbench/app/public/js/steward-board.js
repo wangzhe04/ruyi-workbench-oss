@@ -755,5 +755,11 @@ export function createStewardBoard({
     // 117j W2-4：壳层的状态轮询要按「有没有线程在跑」决定节拍。这个事实看板每一拍都已经算过
     // （行上的 activeTurn），开放一个只读句柄比让壳层再拉一次 /api/missions 便宜得多。
     hasRunningThread: () => anyThreadRunning(),
+    // 117m-A3(A2 报回的洞①):头像的「等你」此前只由管家自己的 pendingCount 触发 ——
+    // presence 里那个 needsYouCount 字段声明了、steward-presence.js:64 也读了,但【全仓没有一处写它】,
+    // 于是线程级待决(用户⑤⑥ 那 14 条 permission)根本不进头像。这里开一个只读句柄,与
+    // hasRunningThread 同一个先例:计数仍然只有 renderStatusLine 那一处算(needsYouIds 就是它的产物),
+    // 不新开第二个计数源。
+    needsYouCount: () => needsYouIds.length,
   });
 }

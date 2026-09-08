@@ -1759,7 +1759,17 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   const registered = activeChildren.get(sessionId);
   let session = await loadSession(sessionId) || (registered && registered.session) || null;
   if (!session) return missionControlFailure('not_found', 404, 'session not found');
-  if (!session.mission) return missionControlFailure('mission_missing', 404, 'mission not found');
+  // 117m-A3（用户第六轮走查④ 的同一个模具，第二处）：管家开的线程是 kind:'mission' 而
+  // mission:null（steward_thread_new 只竖了 kind，从来不建账本）。修前这里一律 404 'mission not found'，
+  // 于是交办台上的「暂停/停止/接管」对【每一条管家开的线程】都失败，而用户看到的只是一句 404。
+  // 账本改成【惰性建】：真要用到它时就地补一份最小账本（goal 取会话标题、里程碑为空），然后走原路 ——
+  // 不为一个 null 再写一套「没有账本时怎么办」的平行控制逻辑（下面整段都直接解引用 mission）。
+  // 只对 kind==='mission' 的会话补：普通对话不会因为被调了一次控制面就升格成事项。
+  if (!session.mission) {
+    if (String(session.kind || '') !== 'mission') return missionControlFailure('mission_missing', 404, 'mission not found');
+    session.mission = normalizeMission({ goal: String(session.title || '').slice(0, 2000) }, null);
+    logEvent({ kind: 'mission_ledger_seeded', sessionId, action, source: 'mission_control' });
+  }
 
   let cpEntries = await journalReadIndex(sessionId).catch(() => []);
   let runs = await listAgentRuns(sessionId).catch(() => []);

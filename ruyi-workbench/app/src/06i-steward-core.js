@@ -190,7 +190,7 @@ function isStewardToolName(name) {
 // 对外发送(send/mail/sms/post_message)、支付与交易(pay/purchase/transfer)、安装卸载
 // (install/uninstall)、系统设置与注册表(registry/system_setting)、关机与格式化(shutdown/format)。
 // 宁可误判成「要人按」,不可漏判成「自动执行」—— 这条清单的失守没有 checkpoint 可回滚。
-const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format/i;
+const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format|mcp_configure/i;
 
 // 116-3 P0-1(对抗审查):只匹配 toolName 字面量的判据在【通用执行工具】面前形同虚设 ——
 // `Bash`/`PowerShell`/`run_command`/`delete_file`/`kill_process`/`git_push` 一个都不命中上面那条正则,
@@ -248,10 +248,26 @@ function stewardExemptInputText(input, depth = 0) {
   }
   return '';
 }
+// 117m-A3（对抗审查：A1 把这条判据接成了【原生闸门】的高风险判据后暴露的缺口）：
+// 上面那两道判据都只看【文本】—— 工具名字面量与命令行文本。可对外动作不一定长成命令行：
+//   · `http_request{method:'POST', url, body}` —— 它就是 `curl -X POST`，只是参数是字段不是命令行；
+//   · `mcp_configure` —— 注册一个任意 stdio MCP server 等于任意代码执行。
+// 116-3 那一刀只补了命令文本一路，当时这条判据只给 steward_decide 用（漏判的后果是“管家替你按”）；
+// 117m 起它同时是「全自动」档自己的免检线，漏判的后果变成“根本不问就发出去”—— 所以补上第三道：
+// 结构化入参里的写型 HTTP 方法。只放行公认的读方法（GET/HEAD/OPTIONS）与没写 method 的调用（默认 GET）；
+// 其余一律当对外写。宁可误判成「要人按」—— 与上两道同一条纪律。
+const STEWARD_EXEMPT_READ_METHODS = Object.freeze(['GET', 'HEAD', 'OPTIONS']);
+function stewardExemptStructuredWrite(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const method = String(input.method == null ? '' : input.method).trim().toUpperCase();
+  if (!method) return false;
+  return !STEWARD_EXEMPT_READ_METHODS.includes(method);
+}
 function stewardToolPermanentlyExempt(toolName, input) {
   const name = String(toolName == null ? '' : toolName);
   if (name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name)) return true;
   if (input == null) return false;
+  if (stewardExemptStructuredWrite(input)) return true;
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   if (!composed) return false;
   return STEWARD_EXEMPT_CONTENT_PATTERNS.some(pattern => pattern.test(composed));

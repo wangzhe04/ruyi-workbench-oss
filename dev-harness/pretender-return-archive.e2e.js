@@ -92,6 +92,22 @@ try {
   fs.writeFileSync(journal, original + '{corrupt-tail}\n', 'utf8');
   const badJournal = await request(`/api/missions/${session.id}/changes?after=${types.length}`, token);
   ok(badJournal?.json?.degraded === true && badJournal.json.integrity?.corruptLines === 1, 'B9 corrupt journal cannot silently advance a client cursor');
+
+  // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):管家刚开的线程是 kind:'mission' 而 mission:null
+  // ——【还没有变更账本】是合法状态,不是错误。修前这里 404 'mission not found',而交办台详情是一个
+  // Promise.all,一挂整块面板就换成错误卡。会话【不存在】仍旧 404,那条一起钉住。
+  const emptyLedger = await core.createSession({ title: '117m empty ledger', cwd: ROOT });
+  emptyLedger.kind = 'mission'; emptyLedger.mission = null;
+  await core.saveSession(emptyLedger);
+  const empty = await request(`/api/missions/${emptyLedger.id}/changes?after=0`, token);
+  ok(empty?.status === 200, 'B10 空账本线程的 changes 回 200(不是 404 mission not found)');
+  ok(empty?.json?.ok === true && Array.isArray(empty.json.changes) && empty.json.changes.length === 0,
+    'B11 空账本回的是一份空清单');
+  ok(empty?.json?.currentRevision === 0 && empty.json.degraded === false && empty.json.gap === null,
+    'B12 空账本不谎报降级(currentRevision 0 / degraded false / gap null)');
+  ok(empty?.json?.sessionId === emptyLedger.id, 'B13 空账本回的 sessionId 是它自己');
+  const missing = await request('/api/missions/sess_ffffffffffffffff/changes?after=0', token);
+  ok(missing?.status === 404, 'B14 companion:会话不存在仍旧 404(只放宽了「账本空」这一种)');
 } finally {
   killTree(server);
   await sleep(120);

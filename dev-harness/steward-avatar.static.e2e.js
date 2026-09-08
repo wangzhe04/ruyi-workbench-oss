@@ -18,6 +18,7 @@ const css = read('css/views/steward-avatar.css');
 const styles = read('styles.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
+const stewardBoard = read('js/steward-board.js');
 const overlay = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
 const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.js'), 'utf8');
 
@@ -168,6 +169,17 @@ ok(readFrontendCss.includes("'css/views/steward-avatar.css',"),
   'H2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-avatar.css');
 ok(overlay.includes("'app/public/css/views/steward-avatar.css'") && overlay.includes("'app/public/js/steward-presence.js'"),
   'H3 离线包清单收录 steward-avatar.css 与 steward-presence.js');
+
+// ─── I 117m-A3：线程级「等你」真的进头像（needsYouCount 修前是个死字段）──────
+// derivePresence 早就把 needsYouCount>0 判成 waiting_you，但全仓没有一处【写】它 —— 于是用户那 14 条
+// permission 挂在线程上时，头像照旧一副没事人的样子（用户第六轮走查⑤⑥ 的另一半）。
+// 这三条钉住「有一个写口、且它读的是看板已经算好的那一份」，不许再退回死字段。
+ok(stewardBoard.includes('needsYouCount: () => needsYouIds.length,'),
+  'I1 看板开放只读句柄 needsYouCount()，值就是状态行算出的那份名单长度（不新开计数源）');
+ok(stewardShell.includes('needsYouCount: boardNeedsYouCount(),') && stewardShell.includes('function boardNeedsYouCount()'),
+  'I2 壳层把它喂进 setPresenceInputs（needsYouCount 有且只有这一个写口）');
+ok((stewardShell.match(/needsYouCount/g) || []).length === 3,
+  'I3 壳层里 needsYouCount 恰好三处：声明、取值函数、喂给 presence（没有第二条拉取路径）');
 
 console.log(`\nSTEWARD AVATAR STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

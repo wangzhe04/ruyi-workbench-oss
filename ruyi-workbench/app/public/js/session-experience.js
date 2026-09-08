@@ -813,9 +813,11 @@ function refreshKimiContextForSession(session) {
 // 文案说明：本切片的文件白名单不含 locales 那四份目录（另有切片在改），所以这三句先按经典壳既有
 // 惯例（renderStepBar 的「已完成 j/N」同款）写死中文，可复用的既有键（停止/已停止）仍走 t()。
 const LIVE_TURN_POLL_MS = 3000;
-const LIVE_TURN_TITLE = '它正在跑（这一回合是在别处起的）';
-const LIVE_TURN_EMPTY = '它还没说出正文 —— 可能正在想，或者正在跑工具。';
-const LIVE_TURN_USING = '正在用：';
+// 117m-A3：这四句走 i18n。A5 落地时按经典壳 renderStepBar「已完成 j/N」的旧惯例写死了中文，
+// 但这张气泡是本波新面（en-US 用户会在一屏英文里撞到一段中文），新面不应该再欠这笔账。
+const liveTurnTitle = () => t('chat.liveTurn.title');
+const liveTurnEmpty = () => t('chat.liveTurn.empty');
+const liveTurnUsing = () => t('chat.liveTurn.using');
 let liveTurnTail = null;      // 最近一次 GET 带回来的 liveTail（服务端没下发就是 null）
 let liveTurnSessionId = '';   // 这份活文本属于哪条会话：切会话立刻作废，别把 A 的正文画到 B 上
 let liveTurnLive = false;     // resumable.live —— 服务端对「这条会话有没有活回合」的判定
@@ -875,13 +877,13 @@ async function refreshLiveTurn() {
 function buildLiveTurnCard() {
   const row = el('article', 'message assistant live-turn');
   row.dataset.live = '1';
-  row.setAttribute('aria-label', LIVE_TURN_TITLE);
+  row.setAttribute('aria-label', liveTurnTitle());
   const avatar = el('div', 'avatar live-turn-avatar', '◐');
   avatar.setAttribute('aria-hidden', 'true');
   const main = el('div', 'msg-main');
   const head = el('div', 'msg-head live-turn-head');
   const iter = el('span', 'live-turn-iter');
-  head.append(el('span', 'live-turn-title', LIVE_TURN_TITLE), iter);
+  head.append(el('span', 'live-turn-title', liveTurnTitle()), iter);
   const body = el('div', 'live-turn-body');
   const tool = el('div', 'live-turn-tool');
   const stop = el('button', 'live-turn-stop', t('common.stop'));
@@ -902,15 +904,15 @@ function paintLiveTurnCard() {
   const tail = liveTurnTail;
   const full = String((tail && tail.full) || '');
   // truncated：04 是从【头部】丢弃的（用户要看的是它现在在说什么），所以省略号标在开头。
-  els.body.textContent = full ? ((tail && tail.truncated) ? `…${full}` : full) : LIVE_TURN_EMPTY;
+  els.body.textContent = full ? ((tail && tail.truncated) ? `…${full}` : full) : liveTurnEmpty();
   els.body.classList.toggle('is-empty', !full);
   const tools = Array.isArray(tail && tail.tools) ? tail.tools : [];
   const last = tools.length ? tools[tools.length - 1] : null;
   const name = String((last && last.name) || '');
-  els.tool.textContent = name ? `${LIVE_TURN_USING}${name}${last.status === 'running' ? '' : ' ✓'}` : '';
+  els.tool.textContent = name ? `${liveTurnUsing()}${name}${last.status === 'running' ? '' : ' ✓'}` : '';
   els.tool.hidden = !name;
   const n = Math.max(0, Number(tail && tail.iterations) || 0);
-  els.iter.textContent = n ? `· 第 ${n} 轮工具` : '';
+  els.iter.textContent = n ? t('chat.liveTurn.iter', { n }) : '';
   return true;
 }
 async function stopLiveTurn(btn) {

@@ -226,6 +226,9 @@ export function createStewardShellDomain({
   // 节拍：壳可见【且】真有事情在跑时用 5 秒，否则仍按配置（默认 15 秒）。「有事情在跑」= 管家自己
   // 有在途回合，或看板那份行里有线程在跑 —— 后者看板每一拍都已经算过，这里只读它的句柄。
   // **后端的 stewardPollMs 下限一个字没动**：这是前端自己的节拍，不是配置。
+  function boardNeedsYouCount() {
+    try { return Number(board.needsYouCount()) || 0; } catch { return 0; }
+  }
   function stewardPollFast() {
     if (!isStewardMode() || (globalThis.document && globalThis.document.hidden)) return false;
     if (presenceInputs.inflight) return true;
@@ -249,6 +252,9 @@ export function createStewardShellDomain({
         stopped: response.stopped === true,
         inflight: typeof response.inflight === 'string' ? response.inflight : '',
         lastError: (lastReply && lastReply.error) ? String(lastReply.error) : '',
+        // 117m-A3:线程级「等你」进头像。读看板已经算好的那一份(它每一拍都在算 needs_you 行),
+        // 与 hasRunningThread 同一个只读句柄先例 —— 不发第二条请求、不开第二个计数源。
+        needsYouCount: boardNeedsYouCount(),
       });
       // 117e：头部常驻停机键与设置页的运行态读同一份真值，不各自再发一条请求。
       settings.setStopped(response.stopped === true);

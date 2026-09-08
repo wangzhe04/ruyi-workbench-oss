@@ -5268,7 +5268,17 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   const registered = activeChildren.get(sessionId);
   let session = await loadSession(sessionId) || (registered && registered.session) || null;
   if (!session) return missionControlFailure('not_found', 404, 'session not found');
-  if (!session.mission) return missionControlFailure('mission_missing', 404, 'mission not found');
+  // 117m-A3（用户第六轮走查④ 的同一个模具，第二处）：管家开的线程是 kind:'mission' 而
+  // mission:null（steward_thread_new 只竖了 kind，从来不建账本）。修前这里一律 404 'mission not found'，
+  // 于是交办台上的「暂停/停止/接管」对【每一条管家开的线程】都失败，而用户看到的只是一句 404。
+  // 账本改成【惰性建】：真要用到它时就地补一份最小账本（goal 取会话标题、里程碑为空），然后走原路 ——
+  // 不为一个 null 再写一套「没有账本时怎么办」的平行控制逻辑（下面整段都直接解引用 mission）。
+  // 只对 kind==='mission' 的会话补：普通对话不会因为被调了一次控制面就升格成事项。
+  if (!session.mission) {
+    if (String(session.kind || '') !== 'mission') return missionControlFailure('mission_missing', 404, 'mission not found');
+    session.mission = normalizeMission({ goal: String(session.title || '').slice(0, 2000) }, null);
+    logEvent({ kind: 'mission_ledger_seeded', sessionId, action, source: 'mission_control' });
+  }
 
   let cpEntries = await journalReadIndex(sessionId).catch(() => []);
   let runs = await listAgentRuns(sessionId).catch(() => []);
@@ -18493,7 +18503,7 @@ function isStewardToolName(name) {
 // 对外发送(send/mail/sms/post_message)、支付与交易(pay/purchase/transfer)、安装卸载
 // (install/uninstall)、系统设置与注册表(registry/system_setting)、关机与格式化(shutdown/format)。
 // 宁可误判成「要人按」,不可漏判成「自动执行」—— 这条清单的失守没有 checkpoint 可回滚。
-const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format/i;
+const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format|mcp_configure/i;
 
 // 116-3 P0-1(对抗审查):只匹配 toolName 字面量的判据在【通用执行工具】面前形同虚设 ——
 // `Bash`/`PowerShell`/`run_command`/`delete_file`/`kill_process`/`git_push` 一个都不命中上面那条正则,
@@ -18551,10 +18561,26 @@ function stewardExemptInputText(input, depth = 0) {
   }
   return '';
 }
+// 117m-A3（对抗审查：A1 把这条判据接成了【原生闸门】的高风险判据后暴露的缺口）：
+// 上面那两道判据都只看【文本】—— 工具名字面量与命令行文本。可对外动作不一定长成命令行：
+//   · `http_request{method:'POST', url, body}` —— 它就是 `curl -X POST`，只是参数是字段不是命令行；
+//   · `mcp_configure` —— 注册一个任意 stdio MCP server 等于任意代码执行。
+// 116-3 那一刀只补了命令文本一路，当时这条判据只给 steward_decide 用（漏判的后果是“管家替你按”）；
+// 117m 起它同时是「全自动」档自己的免检线，漏判的后果变成“根本不问就发出去”—— 所以补上第三道：
+// 结构化入参里的写型 HTTP 方法。只放行公认的读方法（GET/HEAD/OPTIONS）与没写 method 的调用（默认 GET）；
+// 其余一律当对外写。宁可误判成「要人按」—— 与上两道同一条纪律。
+const STEWARD_EXEMPT_READ_METHODS = Object.freeze(['GET', 'HEAD', 'OPTIONS']);
+function stewardExemptStructuredWrite(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const method = String(input.method == null ? '' : input.method).trim().toUpperCase();
+  if (!method) return false;
+  return !STEWARD_EXEMPT_READ_METHODS.includes(method);
+}
 function stewardToolPermanentlyExempt(toolName, input) {
   const name = String(toolName == null ? '' : toolName);
   if (name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name)) return true;
   if (input == null) return false;
+  if (stewardExemptStructuredWrite(input)) return true;
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   if (!composed) return false;
   return STEWARD_EXEMPT_CONTENT_PATTERNS.some(pattern => pattern.test(composed));
@@ -40169,7 +40195,19 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-    if (!session.mission) return send(res, json({ ok: false, error: 'mission not found' }, 404));
+    // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):线程 kind:'mission' 而 mission:null 是【合法状态】
+    // —— 管家刚开的线程还没有任何变更账本。修前这里 404 'mission not found',而交办台详情是一个
+    // Promise.all(详情 + 两次 changes),一挂就把整块面板换成错误卡(用户截图里那张)。把「还没有变更」
+    // 说成「找不到事项」是判据错位:找不到的是账本,不是事项,而空账本本来就该回一份空清单。
+    // 只放宽这一种情形(会话在、账本空);会话不存在仍旧 404。
+    if (!session.mission) {
+      return send(res, json({
+        ok: true, missionId: sessionMissionId(session), sessionId,
+        fromRevision: after, currentRevision: 0, baseRevision: 0,
+        changes: [], degraded: false, gap: null,
+        integrity: { corruptLines: 0, lastRevision: 0 },
+      }));
+    }
     const currentRevision = Math.max(0, Number(session.mission.changeSeq) || 0);
     const folded = await readMissionChangesWithMeta(sessionId, currentRevision);
     let gap = folded.gap;
@@ -40936,10 +40974,18 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
     const bridgeTier = nativeToolTier(String(body.toolName || ''));
+    // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
+    const bridgeMode = String(config.permissionMode || '');
+    const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
+    // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
+    // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
+    if (bridgeMode === 'auto' && bridgeGate === 'allow') {
+      return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
+    }
     // 对抗轮 P3(天花板对称):与 native 主 gate 对齐 —— 仅当工作台自身权限模式对该档判定为 'ask' 时才允许授权书降级。
     // 工作台若处于 plan 模式(该档判 'block'),即便 CLI 发来请求也不放行(子集律:授权书永不把 block 提升为 allow),
     // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
-    if (nativeToolGate(config.permissionMode, bridgeTier) === 'ask') {
+    if (bridgeGate === 'ask') {
       const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
       // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
       // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。

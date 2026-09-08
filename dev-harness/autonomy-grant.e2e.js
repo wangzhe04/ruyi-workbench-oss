@@ -55,8 +55,18 @@ ok(!/bodyTokenOk|body\.token === RUNTIME\.token|RUNTIME\.token &&/.test(autonomy
 // S4 子集律插桩:provider 主 gate 仅在 gate==='ask' && !bridge 时 consumeGrant('native');CLI 桥 consumeGrant('cli')。
 ok(/if \(gate === 'ask' && !bridge\) \{\s*\n\s*const grantHit = consumeGrant\(session, tc\.name, args, 'native', workingDir\)/.test(src), 'S4 provider 主 gate 消耗点(ask+!bridge, native)');
 ok(/const grantHit = consumeGrant\(\{ id: sessionId \}, String\(body\.toolName \|\| ''\), body\.input \|\| \{\}, 'cli', null\)/.test(src), 'S4 CLI 桥消耗点(cli, 命中直接 allow)');
-// 对抗轮 P3:CLI 桥消耗点须裹在 nativeToolGate(...)==='ask' 天花板复检内(与 native 对称,plan 模式不放行)。
-ok(/if \(nativeToolGate\(config\.permissionMode, bridgeTier\) === 'ask'\) \{\s*\n\s*const grantHit = consumeGrant\(\{ id: sessionId \}/.test(src), 'S4 CLI 桥消耗前复检 permissionMode 天花板(P3 对称)');
+// 117m-A3 重钉（理由）：原文钉死了源码字面 nativeToolGate(config.permissionMode, bridgeTier)。
+// 117m-A1 把闸门签名扩成 (mode, tier, toolName, input)；不把工具名与入参传进去，CLI 桥这一侧的
+// auto 档就还是老口径 —— 同一个「全自动」在两个引擎下行为不一。天花板语义一字未改：
+// 仍是「只有闸门判 ask 才允许授权书降级」。下面三条比旧那一条强：除了钉住复检本身，
+// 还钉住它【吃到了工具名与入参】且 auto 档判 allow 时不得再弹一次窗。
+ok(src.includes("const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});"),
+  'S4 CLI 桥的闸门判定吃到工具名与入参(与原生主 gate 同口径)');
+ok(src.includes("if (bridgeGate === 'ask') {")
+  && src.indexOf("consumeGrant({ id: sessionId }") > src.indexOf("if (bridgeGate === 'ask') {"),
+  'S4 CLI 桥消耗前复检闸门天花板(P3 对称；只降 ask，plan 的 block 永不放行)');
+ok(src.includes("if (bridgeMode === 'auto' && bridgeGate === 'allow') {"),
+  'S4 auto 档判 allow 时 CLI 桥直接放行(不再弹窗；只对 auto 档短路)');
 // 主 gate 消耗点必须落在 gate==='block' 判定【之前】(子集律:只作用于 ask 分支)。
 const nativeConsumeIdx = src.indexOf("consumeGrant(session, tc.name, args, 'native'");
 const blockCheckIdx = src.indexOf("if (gate === 'block') {", nativeConsumeIdx - 2000);

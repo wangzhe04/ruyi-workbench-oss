@@ -3353,10 +3353,20 @@ export function createPreviewShellDomain({
       const needsSession = forceSession || !session || session.id !== sessionId || previousTurn !== nextTurn
         || (rawDirty && selectedLens === 'raw');
       const feed = narrativeFeed(sessionId);
-      const returnChangesPromise = api(`/api/missions/${sessionId}/changes?after=${detailBaselineRevision}`);
+      // 117m-A3(用户第六轮走查④):变更账本拉不到【不该把整块面板换成错误卡】。服务端这一波已经把
+      // 「会话在、账本空」改回 200 空清单,这里是第二道:任何一次 changes 失败都退化成一份 degraded 的
+      // 空清单 —— 详情快照与会话正文照常渲染,只是「自离开后的变更」那一段这一拍不更新。
+      // degraded:true 是关键:下面推进 lastSeenRevision 的那道判据看它,合成件绝不许推进游标。
+      const emptyChanges = revision => ({
+        ok: true, sessionId, fromRevision: revision, currentRevision: 0, baseRevision: 0,
+        changes: [], degraded: true, gap: null, synthetic: true,
+      });
+      const changesOrEmpty = revision => api(`/api/missions/${sessionId}/changes?after=${revision}`)
+        .catch(() => emptyChanges(revision));
+      const returnChangesPromise = changesOrEmpty(detailBaselineRevision);
       const narrativeChangesPromise = feed.cursor === detailBaselineRevision
         ? returnChangesPromise
-        : api(`/api/missions/${sessionId}/changes?after=${feed.cursor}`);
+        : changesOrEmpty(feed.cursor);
       const [sessionResponse, changeResponse, narrativeResponse] = await Promise.all([
         needsSession ? api(`/api/sessions/${sessionId}`) : Promise.resolve(null),
         returnChangesPromise,

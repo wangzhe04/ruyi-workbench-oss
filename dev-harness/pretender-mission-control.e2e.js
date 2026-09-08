@@ -214,6 +214,29 @@ try {
   ok(preview.includes("runMissionControlTurn") && preview.includes("/api/checkpoints/rollback") && preview.includes("controlScope"), 'Preview reuses classic stream and real rollback endpoints with visible scopes');
   ok(preview.includes("/api/agent-runs/") && preview.includes("action: 'stop'") && preview.includes('previewMissionLedger'), 'Run controls and permanent archive ledger are wired');
   ok(css.includes('.preview-control-board') && css.includes('.preview-ledger-tape::before') && /@media \(max-width: 620px\)/.test(css), 'telegraph/tape aesthetic and 390px flow are locked');
+
+  // 117m-A3（用户第六轮走查④ 同一模具的第二处）：管家开的线程是 kind:"mission" 而 mission:null
+  // （steward_thread_new 只竖 kind、从不建账本）。修前控制面一律 404 mission_missing ——
+  // 交办台上的「暂停/停止/接管」对每一条管家开的线程都失败。现在惰性补一份最小账本再走原路。
+  const seeded = await request('/api/sessions', { title: '117m 空账本线程', cwd: WORKSPACE }, token);
+  const seededId = seeded.json?.session?.id;
+  ok(Boolean(seededId), '117m 空账本线程建好');
+  const seededHeadPath = path.join(HOME, 'sessions', seededId + '.json');
+  const seededHead = JSON.parse(fs.readFileSync(seededHeadPath, 'utf8'));
+  seededHead.kind = 'mission'; seededHead.mission = null;
+  fs.writeFileSync(seededHeadPath, JSON.stringify(seededHead));
+  const seededStop = await request('/api/missions/' + seededId + '/control', { action: 'stop' }, token);
+  ok(seededStop.status === 200 && seededStop.json?.ok === true,
+    '117m kind:mission 而 mission:null 的线程，控制面不再 404（惰性补账本后走原路）');
+  const seededAfter = JSON.parse(fs.readFileSync(seededHeadPath, 'utf8'));
+  ok(seededAfter.mission && Array.isArray(seededAfter.mission.milestones) && seededAfter.mission.milestones.length === 0
+    && seededAfter.mission.goal === seededHead.title,
+    '117m 补出来的是一份【最小】账本（goal 取会话标题、里程碑为空，不凭空编验收项）');
+  const plainSession = await request('/api/sessions', { title: '117m 普通对话', cwd: WORKSPACE }, token);
+  const plainId = plainSession.json?.session?.id;
+  const plainStop = await request('/api/missions/' + plainId + '/control', { action: 'stop' }, token);
+  ok(plainStop.status === 404 && plainStop.json?.ok === false && plainStop.json?.reason === 'mission_missing',
+    '117m companion：非 mission 会话仍旧 404（普通对话不会因为被调一次控制面就升格成事项）');
 } finally {
   killTree(wb);
   await new Promise(resolve => provider.close(resolve));

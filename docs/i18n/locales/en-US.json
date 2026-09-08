@@ -3003,4 +3003,8 @@
   ,"stewardShell.board.nowClose": "Close"
   ,"stewardShell.classicWindow.back": "Back to the steward"
   ,"stewardShell.classicWindow.switchWhole": "Switch the whole app to 2.0"
+  ,"chat.liveTurn.title": "It's running (this turn was started elsewhere)"
+  ,"chat.liveTurn.empty": "No words yet — it may be thinking, or running a tool."
+  ,"chat.liveTurn.using": "Using: "
+  ,"chat.liveTurn.iter": "· tool round {{n}}"
 }
