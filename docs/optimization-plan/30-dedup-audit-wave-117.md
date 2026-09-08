@@ -275,3 +275,114 @@
 `node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
 `node ruyi-workbench/tools/gen-manifest.js` → `node dev-harness/architecture-contract-snapshots.js` →
 `node dev-harness/facts-generate.js`。
+
+## 8. 交接状态（2026-09-08，用户额度将尽，换 agent 接手）
+
+### 8.1 已入库
+
+| commit | 内容 |
+|---|---|
+| `8b8bc21` | 117o 前置：流式回复只上屏 `say`，不再把 `{say:…}` 信封端给用户 |
+| `e402eab` | **本文档立项** + 27 号文 §11.11（第七轮走查设计页） |
+| `e60fda8` | **117o-A7**：「看全文」的在途回合改用经典壳同一个渲染器（`liveSnapshot()` / `liveTurn` 信封 / `renderStaticMessage` 复用 / 线程↔会话 1:1 断言）。主会话已复核：`git archive HEAD` 重建出的 `server.js` 与 `HEAD:server.js` **逐字节相同**，`live-full-text.static.e2e.js` 在干净树里 ALL PASS，18 个文件全是它自己的 |
+
+> A7 中途独立踩到了本文档 P0-1 的**同一个失效模式**：`live-full-text.e2e.js` 的 HTTP 读法 `b += chunk`
+> 逐块 `toString`，汉字被 chunk 边界劈开变 `U+FFFD`，长度断言假红（实测 12002 而非 12000）。
+> 它改的是夹具读法。**这是 P0-1 在生产代码之外的第二次独立现形——不要再降级它的优先级。**
+
+### 8.2 交接时仍在跑的三把刀（工作树里的改动都是它们的，别当成脏东西清掉）
+
+| 切片 | 独占文件 | 状态 |
+|---|---|---|
+| **117p-S1** 收件箱第四源基线 off-by-one | `src/13i-steward-inbox.js`、`dev-harness/steward-events.static.e2e.js`、`dev-harness/steward-quick-ask.e2e.js` | 在途 |
+| **117q-B2** autoexec 取并集 + 删死代码 + `makeId` | `src/03-bridge-guard.js`、`src/06f-autonomy-grants.js`、`src/10-context-governance.js`、`src/06d-memory-domain.js` | 在途 |
+| **117q-B4** 浏览器 e2e 补收尸 + `browserPath` 收编 | `dev-harness/` 里 9 件浏览器 e2e ＋ 新建 `dev-harness/lib/browser-path.js` | 在途 |
+
+**工作树里的 `ruyi-workbench/app/server.js` 与 `src/manifest.json` 现在是污染构建**（含 13i 的在途改动）。
+任何人提交前都必须走干净副本法重新 build，不要直接提交工作树里的产物。
+
+### 8.3 下一刀：117p-S2（规格完整，可直接开工）
+
+**这是用户第七轮走查的另一半，优先级最高。** 前置依赖（A7 占着 `13d`）已解除，可以立刻做。
+根因与证据见 27 号文 §11.11 与本文 §6。实现规格：
+
+1. **`13d-core-domain-routes.js:493 buildMissionCard`** 给卡片补两个字段（都只是会话头已有字段的投影，
+   不新增持久化来源，与 `lastSay` / `displayTitle` 同一条纪律）：
+   `turnSeq: Math.max(0, Number(head.turnSeq) || 0)`；
+   `lastTurn: head.stewardLastTurn ? { seq, ok: ok !== false, aborted: aborted === true } : null`。
+2. **五态判据加一条分支，两份抄写件（`06i-steward-core.js deriveStewardThreadState` 与
+   `public/js/mission-state.js deriveMissionState`）必须逐条同步**，位置在最后那条
+   `else state = 'stopped'` **之前**（这样只有本来会落到「已停工」的线程才可能变，前四条判据一个字不动）：
+   `else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';`
+   归一化入参多两个键 `ledgerless` / `lastTurnFailed`（进 `src`，`sources` 证据里看得见）。
+3. **`ledgerless` 的判据只能是 `card.status === 'none'`**——`13d` 的 `missionCardStatus(m)` 在 `m` 为 null 时
+   就返回 `'none'`（`buildMissionCard` 头注释写着这件事）。**不许**用 `milestonesTotal === 0` 之类的近似判据：
+   那会把「一个还没定里程碑的 2.0 任务单」也判成无账本线程，2.0 的语义就被改了。
+   `lastTurnFailed = card.lastTurn && (ok === false || aborted === true)`。
+4. **三个「没有卡片」的分支也要喂上**：`13d:615`、`13g:616`、`13h:290` 三处
+   `deriveStewardThreadState({… turnSeq: head.turnSeq …})` 各补 `ledgerless: !head.mission` 与 `lastTurnFailed`。
+   **它们与第 2 条是同一件事的三个投影面，漏一个就是把今天这个 bug 换个地方重演一遍。**
+5. **`13e-pretender-index.js:9 PRETENDER_INDEX_SCHEMA` 3 → 4**，理由写进注释：卡片形状变了，
+   且**必须强制整份重建**——否则存量那些已经跑完的线程的旧卡片永远不会再刷新（它们的会话文件不会再变），
+   用户那条线程会一直卡在「交办中」。先例：116-5b 的 2 → 3。
+   同步改 `dev-harness/durable-state-inventory.js:75` 那一行并重跑生成器刷新两份 docs 视图。
+
+**断言（只加不改）**：
+- 新单测 `dev-harness/unit/thread-state-ledgerless.test.js`（新文件 = 纯追加），**同时** require
+  产物导出的 `deriveStewardThreadState` 与 `public/js/mission-state.js`（双导出，node 可直接 require），
+  对同一组入参断言**两份结果逐字相等**，覆盖：无账本+turnSeq 1+账缺席 → `done`；`ok:false` → `stopped`；
+  `aborted:true` → `stopped`；turnSeq 0 → `dispatching`；有待决 → `needs_you`（新分支不许抢第 2 条的优先级）；
+  `activeTurn` → `running`；**有账本 + turnSeq 5 + 无结果章 + runCount 0 → 仍然是 `stopped`**
+  （这条最重要：证明 2.0 任务单语义一个字没变）。
+- 静态锁追加两条：两份抄写件里都不再出现硬编码 `turnSeq: 0` 且都出现 `ledgerless`；
+  `buildMissionCard` 真的产出 `turnSeq` 与 `lastTurn`。
+- **反向验证必做**：把第 1 条的两个新字段临时去掉重新 build，确认新单测真的红，再改回来。
+
+**回归门**：`pretender-gate.e2e.js`（它有 `MissionState.fromCard` 的定点断言：`:107` 刚立单 → dispatching、
+`:152` stop 章 → stopped）一条都不许红；`mission-threads.e2e.js`、
+`node --test dev-harness/unit/mission-aggregate.test.js`、看板/抽屉件不得变红。
+
+### 8.4 再往后的派单顺序（§7 那张表的执行态）
+
+- **117q-B1**（P0-1 NDJSON 解码 → `00`/`05`/`05b`/`07`）：A7 已放开 `05`，**现在可以派**。
+  必须重跑 `node dev-harness/module-dependency-graph.js --write`；伴随断言是「把一个 3 字节汉字拆成两次
+  `push()`，断言拼出来的行里没有 `U+FFFD`」——现有 e2e 一条都没有测过这个。
+- **117q-B3**（P0-4 五态人话四份 + P1-6 看板裸 fetch 缺 token 重放 + P1-7「压缩」文案漏 `t()`）：
+  **需要用户先拍板文案**（见 §8.5），且与 S2 在 `06i` / `steward-board.js` 上重叠 → **排在 S2 之后**。
+- **117q-B5**（P2 后端杂项：围栏标签中和 ×6、tier rank ×6、死循环护栏常量、`cachedInTok`、
+  `agent-workflows.js` 可见性门控）：与 B1 在 `00`/`05`/`07` 上重叠 → **排在 B1 之后**。
+- **117q-B6**（P2-10 尾窗读原语 + P2-11 撕裂尾 → `01`/`02`）：**单独一批、串行做**。
+  `02-session-store.js` 出过真数据事故，改完必须跑全部 session/intervention/mission 功能性 e2e。
+- **P3 各条**：本波不排期。
+
+### 8.5 挂起：两个等用户拍板的决策
+
+1. **`quick_ask` 的人话到底是「速问」还是「速查」**（英文 `Quick Ask` / `Lookup`）。
+   工程侧建议**「速查 / Lookup」**——这个功能的定义是「为了回答一个要读文件/联网/动手才能答的问题
+   临时开的线程」，「查」比「问」准。`done` 的英文同理要在 `Done` / `Wrapped up` 里定一个。
+2. **autoexec 并集怎么取**。工程侧建议：**只让授权书层（`06f`）变严**，取
+   `[/(^|[\/])\.git[\/]/i, ...AUTOEXEC_DENYLIST]`；**工具层（`03`）保持原样**，不扩到整个 `.git/`——
+   它是有人值守面，扩严会误伤 `.git/COMMIT_EDITMSG` 这类日常写。
+   （117q-B2 已按这个口径开工；若用户改口径，改的是 `06f` 那一行。）
+
+### 8.6 还欠的两件事（不要忘）
+
+- **干净的全量回归**：上一次 `run-all --parallel 4` 是在三个子代理同时跑 e2e 时做的，
+  248/64 里那 64 条几乎全是 `FAIL workbench up` / ECONNREFUSED 的**假红**，已判定不可用。
+  等本批全部出门、机器空下来之后**在隔离 worktree 里重跑一次**，再报真实门数字。
+  注意有 4 件要回主树单跑（依赖主树未入库的 `dev-harness/realhist-fixtures`，或断言写死仓库目录名）。
+- **`mission-result.e2e.js` 的回归**：已二分定位到 117m 区间内（在 `dd8f15f` 通过、在 `90691d3` 失败），
+  **根因尚未查明**，仍然挂着。
+
+### 8.7 全批共用的提交纪律（吃过亏，别省这一步）
+
+`git archive HEAD` 解到临时目录 → **只**把自己改过的文件复制进去 → 在那里 `node ruyi-workbench/app/build.js`
+→ `git hash-object -w` + `git update-index --cacheinfo` 逐个入索引 → `git commit`。
+**绝不 `git add -A` / `git commit -a`，绝不 stash 别人的在途改动。**
+117m 出过一次「后提交的切片把前一刀整份回退掉」的事故；A7 这次提交后还额外把主索引刷成了自己的新 blob，
+防止下一个提交者把它的改动带回退——这个动作值得照抄。
+
+**生成器链**（最后一次 `src/` 改动之后整条重跑）：
+`node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
+`node ruyi-workbench/tools/gen-manifest.js` → `node dev-harness/architecture-contract-snapshots.js` →
+`node dev-harness/facts-generate.js`。
