@@ -89,5 +89,18 @@ const accMentions = [...readme.matchAll(/(\d+)\s*个?(?:桌面| )?工具/g)].map
 const accClaimsOk = !accMentions.includes(99) && !accMentions.includes(98);
 ok(accClaimsOk, `README 无过时 ACC 工具数口径(99/98 绝迹;现行 ${facts.accTools})`);
 
+// 117m：README 的三个门面数字也跟 facts 对账。上面那条 ACC 软锁只拦住了 99/98 两个具体值，
+// 而实测 README 已经漂到「89 个原生工具 / 243 项 e2e / 15 组 unit」，真值是 90 / 318 / 30 ——
+// 漂了好几波没人发现，因为没有任何机器在看。这三条只要求「真值在 README 里出现过」，
+// 不钉句式（README 改排版不该把门弄红）；数字一变而 README 没跟，这里就红。
+const readmeNums = new Set((readme.match(/[0-9]+/g) || []).map(Number));
+ok(readmeNums.has(facts.nativeTools),
+  'README 提到的原生工具数与 facts 一致(现行 ' + facts.nativeTools + ')');
+ok(readmeNums.has(facts.e2eCount),
+  'README 提到的 e2e 总数与 facts 一致(现行 ' + facts.e2eCount + ')');
+ok(readmeNums.has(facts.unitSuites),
+  'README 提到的 unit suite 数与 facts 一致(现行 ' + facts.unitSuites + ')');
+
+
 console.log('\nFACTS STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
