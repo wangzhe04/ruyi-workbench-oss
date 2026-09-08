@@ -38,6 +38,12 @@ function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, '
 // listen 与 runtime.json 落盘之间有一个短窗口(健康探针先通),握手文件要轮询等一下。
 async function waitToken() { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return ''; }
+// 117q-P1-32:上面的 waitToken 只等「非空」,在重启点不够 —— server.listen 先让 /health 答 200,
+// runtime.json 里的新 token 要晚一步才落盘,窗口期内 waitToken() 会读到【上一个进程】的旧 token(非空,
+// 但已失效)。重启点改用这个:轮询到 readToken() 与旧值不同再返回(token 每次 boot 都是新的
+// randomBytes(16),必然会变);预算与 waitToken/waitHealth 同量级(300×100ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t && t !== oldToken) return t; await sleep(100); } return readToken(); }
 
 function request(method, pathname, body, token) {
   return new Promise((resolve, reject) => {
@@ -187,7 +193,9 @@ try {
   writeConfig(true);
   wb = spawnWb();
   ok(await waitHealth(), '(B) workbench up(开关开)');
-  const tok = await waitToken();
+  // 117q-P1-32:waitHealth 只证明 listen 已起来,不证明新 token 已落盘——用 waitTokenRotated 等到跟
+  // (A) 阶段的旧 token 不同,不然带旧 token 的后续请求会全数 403。
+  const tok = await waitTokenRotated(token);
   let state = null;
   for (let i = 0; i < 60 && !(state && state.lastTickAt); i++) { state = (await get('/api/steward/state', tok)).json; if (!(state && state.lastTickAt)) await sleep(150); }
   ok(state && state.enabled === true && state.running === true, '(B) 开关开:boot 后 state enabled:true/running:true');
@@ -297,7 +305,8 @@ try {
   kill(wb); wb = null; await sleep(400);
   wb = spawnWb();
   ok(await waitHealth(), '(H) 重启后 workbench up');
-  const tok2 = await waitToken();
+  // 117q-P1-32:同上——等到跟 (B) 阶段的旧 token(tok)不同再用。
+  const tok2 = await waitTokenRotated(tok);
   let state2 = null;
   for (let i = 0; i < 60 && !(state2 && state2.lastTickAt); i++) { state2 = (await get('/api/steward/state', tok2)).json; if (!(state2 && state2.lastTickAt)) await sleep(150); }
   ok(state2 && state2.running === true, '(H) 重启后轮询器自动起来');
@@ -313,7 +322,8 @@ try {
   writeConfig(false);
   wb = spawnWb();
   ok(await waitHealth(), '(I) 关开关后 workbench up');
-  const tok3 = await waitToken();
+  // 117q-P1-32:同上——等到跟 (H) 阶段的旧 token(tok2)不同再用。
+  const tok3 = await waitTokenRotated(tok2);
   const stateOff2 = (await get('/api/steward/state', tok3)).json;
   ok(stateOff2.enabled === false && stateOff2.running === false, '(I) 关开关后 state enabled:false/running:false');
   const sessC = await post('/api/sessions', { title: 'steward-off-again' }, tok3);

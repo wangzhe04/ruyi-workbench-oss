@@ -49,6 +49,17 @@ function spawnFake(env) {
   fk.stdout.on('data', () => {}); fk.stderr.on('data', () => {});
   return fk;
 }
+// 117q-P1-32:server.listen 先让 /health 答 200,runtime.json 里的新 token 要晚一步(生成+落盘)才写好——
+// up(WB_PORT) 返回不蕴含 token 已重写。重启点必须轮询到 token 与旧值不同再用(每次 boot 都是新的
+// randomBytes(16),必然会变),不然带旧 token 的后续请求会全数 403。预算与 up() 同量级(300×100ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) {
+    const t = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+    if (t && t !== oldToken) return t;
+    await sleep(100);
+  }
+  return (readJson(path.join(HOME, 'runtime.json')) || {}).token || oldToken;
+}
 function runFileOf(sessionId, runId) { return path.join(HOME, 'agent-runs', sessionId, runId + '.json'); }
 function eventsFileOf(sessionId, runId) { return path.join(HOME, 'agent-runs', sessionId, runId + '.events.ndjson'); }
 function readEvents(sessionId, runId) {
@@ -159,7 +170,9 @@ function capturesContaining(dir, needle) {
 
   // resume → 注入【断点续跑】,首个 file_write 幂等跳过,run 最终 succeeded
   const capBefore = fs.existsSync(CAP1) ? fs.readdirSync(CAP1).length : 0;
-  const token2 = (readJson(path.join(HOME, 'runtime.json')) || {}).token || token;
+  // 117q-P1-32:直读 runtime.json 只在文件不存在时才回退旧 token,读到【上一个进程】残留的旧 token 也会
+  // 被当成「新的」放行——改用 waitTokenRotated,等到确实与重启前的 token 不同再用。
+  const token2 = await waitTokenRotated(token);
   const resume = (await httpReq(WB_PORT, 'POST', '/api/agent-runs/' + runId, { sessionId: sid, action: 'resume' }, { 'x-wcw-token': token2 })).json;
   ok(resume && resume.ok, 'C resume 接受');
   let done = false;
@@ -210,7 +223,8 @@ function capturesContaining(dir, needle) {
   const hadSteps = !!(n2AfterKill && n2AfterKill.continuation && (n2AfterKill.continuation.steps || []).length);
   wb = spawnWb();
   ok(await up(WB_PORT), 'D 再次重启 up');
-  const token3 = (readJson(path.join(HOME, 'runtime.json')) || {}).token || token2;
+  // 117q-P1-32:同上——等到与 token2(上一次重启后的 token)不同再用。
+  const token3 = await waitTokenRotated(token2);
   let r2 = null;
   for (let i = 0; i < 40; i++) { await sleep(200); r2 = readJson(runFileOf(sid, runId2)); if (r2 && r2.status === 'interrupted') break; }
   ok(r2 && r2.status === 'interrupted', 'D 重启后 run2=interrupted');

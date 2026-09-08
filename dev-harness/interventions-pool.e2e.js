@@ -41,6 +41,11 @@ function requestJson(port, pathname, body, token) {
 }
 async function waitHealth(port) { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { const r = await requestJson(port, '/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
+// 117q-P1-32:server.listen 在 13-http-router.js:1772 就让 /health 答 200,新 token 要到 :1775-1777 才生成 +
+// 落盘 runtime.json —— waitHealth 返回不蕴含 token 已重写。重启点必须轮询到 readToken() 与旧值不同再用
+// (token 每次 boot 都是新的 randomBytes(16),必然会变);预算与 waitHealth 同量级(300×100ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t && t !== oldToken) return t; await sleep(100); } return readToken(); }
 function ivFile(sid) { return path.join(HOME, 'sessions', sid + '.interventions.ndjson'); }
 function readIv(sid) {
   const byId = new Map();
@@ -193,6 +198,7 @@ const mkPoolItem = (id, task) => ({ id, proposedBy: 'n1', task, roleId: '', depe
     ok(det2.json && det2.json.snapshot && det2.json.snapshot.pending && det2.json.snapshot.pending.pool === 0, '(a5) 全部终态后 pending.pool=0');
 
     // ============ (b) boot 路径:kill + 播种 + respawn ============
+    const tokenBeforeB = token; // 117q-P1-32:重启前留旧值,供下面等 token 真的换过再用
     kill(wb); await sleep(500);
     // b-seed 1: paused run 带存量 proposed(无 Intervention 记录 —— 模拟 71b 前落盘)
     fs.mkdirSync(path.join(HOME, 'agent-runs', sid), { recursive: true });
@@ -217,7 +223,9 @@ const mkPoolItem = (id, task) => ({ id, proposedBy: 'n1', task, roleId: '', depe
 
     wb = spawnWb(); wb.stderr.on('data', d => String(d).trim() && console.error('[wb2!] ' + String(d).trim()));
     ok(await waitHealth(WB_PORT), '(b) workbench 重启 up');
-    token = readToken(); ok(!!token, '(b) 重启后重读 token');
+    // 117q-P1-32:waitHealth 只证明 listen 已起来,不证明新 token 已落盘——轮询等 readToken() 与重启前的
+    // 旧值不同,不然带旧 token 的后续请求会全数 403。
+    token = await waitTokenRotated(tokenBeforeB); ok(!!token, '(b) 重启后重读 token');
 
     // b1+b2: 对账补登记 + paused 分流保留
     const ivL1 = await waitForIv(sid, 'pool-l1', 'pending', 5000);

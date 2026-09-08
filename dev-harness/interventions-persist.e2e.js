@@ -36,6 +36,11 @@ function requestJson(port, pathname, body, token) {
 }
 async function waitHealth(port) { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { const r = await requestJson(port, '/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
+// 117q-P1-32:server.listen 在 13-http-router.js:1772 就让 /health 答 200,新 token 要到 :1775-1777 才生成 +
+// 落盘 runtime.json —— waitHealth 返回不蕴含 token 已重写。重启点必须轮询到 readToken() 与旧值不同再用
+// (token 每次 boot 都是新的 randomBytes(16),必然会变);预算与 waitHealth 同量级(300×100ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t && t !== oldToken) return t; await sleep(100); } return readToken(); }
 function ivFile(sid) { return path.join(HOME, 'sessions', sid + '.interventions.ndjson'); }
 // 读 NDJSON 折叠(后写胜),返回 Map(id -> record)。
 function readIv(sid) {
@@ -234,10 +239,13 @@ function spawnWb() {
     fs.appendFileSync(ivFile(sidC), JSON.stringify(staleIv) + '\n', 'utf8');
     ok(readIv(sidC).get('perm_test_stale_1')?.status === 'pending', '(c) 手动写 pending Intervention(模拟崩溃前状态)');
     // kill + respawn wb -> boot markInterruptedInterventions 标 cancelled_restart。
+    const tokenBeforeC = token; // 117q-P1-32:重启前留旧值,供下面等 token 真的换过再用
     kill(wb); await sleep(400);
     wb = spawnWb(); wb.stderr.on('data', d => String(d).trim() && console.error('[wb2!] ' + String(d).trim()));
     ok(await waitHealth(WB_PORT), '(c) workbench 重启 up');
-    token = readToken(); ok(!!token, '(c) 重启后重读 token(respawn 重新生成 token)');
+    // 117q-P1-32:waitHealth 只证明 listen 已起来,不证明新 token 已落盘(见 waitTokenRotated 头注)——
+    // 轮询等 readToken() 与重启前的旧值不同,不然带旧 token 的后续请求会全数 403。
+    token = await waitTokenRotated(tokenBeforeC); ok(!!token, '(c) 重启后重读 token(respawn 重新生成 token)');
     const restartReplay = await requestJson(
       WB_PORT,
       '/api/missions/' + encodeURIComponent(contractTurn.sid) + '/interventions/' + encodeURIComponent(contractTurn.questionId) + '/decision',
@@ -275,10 +283,13 @@ function spawnWb() {
       fs.appendFileSync(ivFile(sidH), validPending + tornTail, 'utf8');
       const rawBefore = fs.readFileSync(ivFile(sidH), 'utf8');
       ok(rawBefore.includes('torn_line_xyz') && !rawBefore.endsWith('\n'), '(h) 准备:写入撕裂尾行(无 \\n)');
+      const tokenBeforeH = token; // 117q-P1-32:重启前留旧值,供下面等 token 真的换过再用
       kill(wb); await sleep(400);
       wb = spawnWb(); wb.stderr.on('data', d => String(d).trim() && console.error('[wb3!] ' + String(d).trim()));
       ok(await waitHealth(WB_PORT), '(h) workbench 重启 up');
-      token = readToken();
+      // 117q-P1-32:同上——等 readToken() 真的与重启前不同,不满足于「非空」(可能是上一进程的旧 token)。
+      token = await waitTokenRotated(tokenBeforeH);
+      ok(!!token && token !== tokenBeforeH, '(h) 重启后重读 token 已轮换(新增断言,117q-P1-32)');
       const tornAfter = await waitForIv(sidH, 'torn_perm_1', 'cancelled_restart', 3000);
       ok(!!tornAfter && tornAfter.status === 'cancelled_restart', '(h) boot 为 torn_perm_1 append cancelled_restart(触发 repair)');
       const rawAfter = fs.readFileSync(ivFile(sidH), 'utf8');

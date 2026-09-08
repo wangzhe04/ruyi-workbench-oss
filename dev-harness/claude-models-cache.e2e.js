@@ -28,6 +28,17 @@ function req(port, method, p, body, headers = {}) {
 async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { try { const r = await req(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* ignore */ } await sleep(150); } return false; }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+// 117q-P1-32:server.listen 先让 /health 答 200,runtime.json 里的新 token 要晚一步(生成+落盘)才写好——
+// up() 返回不蕴含 token 已重写。重启点必须轮询到 token 与旧值不同再用(每次 boot 都是新的
+// randomBytes(16),必然会变),不然带旧 token 的后续请求会全数 403。预算与 up() 同量级(300×150ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) {
+    const t = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+    if (t && t !== oldToken) return t;
+    await sleep(150);
+  }
+  return (readJson(path.join(HOME, 'runtime.json')) || {}).token || oldToken;
+}
 
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });
@@ -92,7 +103,9 @@ try {
   await sleep(500);
   wb = startWb(WB_PORT2);
   ok(await up(WB_PORT2), 'workbench up(第 2 轮,代理离线)');
-  const token2 = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+  // 117q-P1-32:直读 runtime.json 只在文件不存在时才是空串,读到【上一个进程】残留的旧 token 也会被
+  // 当成「有效」放行——改用 waitTokenRotated,等到确实与重启前的 token 不同再用。
+  const token2 = await waitTokenRotated(token);
   const H2 = { 'x-wcw-token': token2 };
   const r2 = (await req(WB_PORT2, 'GET', '/api/models', null, H2)).json;
   const ids2 = ((r2 && r2.models) || []).map(m => m.id);

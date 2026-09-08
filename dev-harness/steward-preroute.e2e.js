@@ -32,6 +32,12 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 async function waitToken() { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return ''; }
+// 117q-P1-32:上面的 waitToken 只等「非空」,在重启点不够 —— server.listen 先让 /health 答 200,
+// runtime.json 里的新 token 要晚一步才落盘,窗口期内 waitToken() 会读到【上一个进程】的旧 token(非空,
+// 但已失效)。重启点改用这个:轮询到 readToken() 与旧值不同再返回(token 每次 boot 都是新的
+// randomBytes(16),必然会变);预算与 waitToken/waitHealth 同量级(300×100ms)。
+async function waitTokenRotated(oldToken) {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t && t !== oldToken) return t; await sleep(100); } return readToken(); }
 
 function request(method, pathname, body, token) {
   return new Promise((resolve, reject) => {
@@ -163,7 +169,9 @@ try {
   writeConfig(true);
   wb = spawnWb();
   ok(await waitHealth(), '(B) workbench up(开关开)');
-  const tok = await waitToken();
+  // 117q-P1-32:waitHealth 只证明 listen 已起来,不证明新 token 已落盘——用 waitTokenRotated 等到跟
+  // (A) 阶段的旧 token(tokOff)不同,不然带旧 token 的后续请求会全数 403。
+  const tok = await waitTokenRotated(tokOff);
   ok(!!tok, '(B) runtime token 可读');
 
   ok((await preroute('随便')).status === 403, '(C) 开关开:无 token 依旧 403');
