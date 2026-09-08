@@ -342,9 +342,15 @@ function recordMissionBudgetTrippedChange(sessionId, detail) {
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
 // tail, silently losing both records. Same discipline as readSessionBodyFile for messages.ndjson.
 // 117q-B6(30 号文 P2-11):此前这里是独立一份 repairInterventionTornTail,与上面 repairMissionChangeTornTail
-// 算法逐字节相同。该函数只有本处一个调用点,而本调用点已经被下面 appendIntervention 尾部的
-// `.catch(() => {})` 兜住(async 函数体内任何抛出——含修复失败——都在那里被吞掉,不阻断执行,内存
-// Map 才是执行权威源),故直接改调真身 repairMissionChangeTornTail,对外可见行为不变。已删除旧函数。
+// 算法逐字节相同。该函数只有本处一个调用点,已删除旧函数,改调真身。
+// 117q-B6fix:B6 的自证「外层 .catch(() => {}) 兜住,对外可见行为不变」是错的——那个 catch 在
+// fsp.appendFile *之后* 才接住,救不了这一行。真身 repairMissionChangeTornTail 内部没有 catch,修复
+// 失败(如 readFileTail/fsp.truncate 之间的罕见竞态或权限错误)就会在 appendFile *之前* 抛出,整个
+// then 块中断,这一条 intervention 记录被静默丢弃、没有任何痕迹。被删的旧函数最后一行是
+// `catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry */ }`——
+// intervention 这一路本来就是 best-effort:内存态(interventionRecordCache 等)才是执行权威源,落盘
+// 失败不该阻断执行;修复失败就把撕裂尾留给下一次 append 重试。这里补回同等语义的 try/catch,不改
+// 真身本身的抛出行为(appendMissionChangeRecord 与 13g/13i 三个消费者仍然需要它抛)。
 function appendIntervention(sessionId, record) {
   const sid = String(sessionId || '');
   if (!sid) return;
@@ -352,7 +358,7 @@ function appendIntervention(sessionId, record) {
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
-    await repairMissionChangeTornTail(file); // 75a/117q-B6: truncate torn tail before append (prevent weld)
+    try { await repairMissionChangeTornTail(file); } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry (117q-B6fix) */ }
     await fsp.appendFile(file, line, 'utf8');
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
   }).catch(() => {});

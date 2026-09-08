@@ -166,6 +166,76 @@ fsp.stat = async (p, ...rest) => {
     ok(after.equals(Buffer.from(content, 'utf8')), '(b5) 短读+本来干净的文件:按 bytesRead 定界后未被误截,字节完全不变');
   }
 
+  // ---------- (c) 117q-B6fix:appendIntervention「repair 失败不阻断 append」语义的缺席断言 ----------
+  // 117q-B6 把 appendIntervention 内联的旧撕裂尾修复(repairInterventionTornTail,内部自吞错)改调
+  // 共用真身 repairMissionChangeTornTail(真身内部没有 catch)。真身抛错时会在 fsp.appendFile *之前*
+  // 中断 then 块 —— 外层那个 `.catch(() => {})` 只在 appendFile *之后* 才接得住,救不了这一行;这一条
+  // intervention 记录会被静默丢弃、没有任何痕迹。117q-B6fix 把那次调用重新包回 try/catch,这里补上
+  // 此前完全缺席、专门盯这一件事的断言:
+  //  (c1) 真实故障注入(打桩 fsp.truncate,只对目标文件生效,其余文件走真实实现,同本文件顶部
+  //       fsp.stat 打桩同一手法)证明 repairMissionChangeTornTail 在真撕裂尾场景下确实会抛
+  //       (不是模拟的假抛,是让真实调用链真的走到抛错分支)。
+  //  (c2) 从当前 server 源码里原样抠出 appendIntervention 的写入块函数体(正则先锚定函数声明再锚定
+  //       .then(async () => {...}).catch(() => {}) 这一段,避免误配到附近同形态的其它写链如
+  //       writeSessionNotes/appendMissionChangeRecord),用同一次故障注入执行这段【从磁盘读回的真实
+  //       源码文本】,断言:写入块本身不因 repair 抛错而中断 + 这一行 intervention 记录仍然被 append
+  //       进文件。readServerSource 自带 freshness 校验(与产物 server.js 不一致会先报错拦下),所以
+  //       只要把 ① 的 try/catch 从 02-session-store.js 去掉、重新 build、重跑本文件,这里就会真的
+  //       翻红 —— 断言的对错直接绑定在真实源码文本上,不是绑定在这个测试自己另写的一份复现逻辑上。
+  {
+    const bodySrc = (() => {
+      const localSrc = readServerSource();
+      const fnMatch = localSrc.match(/^function appendIntervention\(sessionId, record\) \{[\s\S]*?\n\}\n/m);
+      if (!fnMatch) return null;
+      const bodyMatch = fnMatch[0].match(/\.then\(async \(\) => \{([\s\S]*?)\}\)\.catch\(\(\) => \{\}\);/);
+      return bodyMatch ? bodyMatch[1] : null;
+    })();
+    ok(!!bodySrc, '(c 准备) 从 server 源码定位到 appendIntervention 写入块函数体(两级正则只锚定该函数,不误配其它写链)');
+
+    // (c1)
+    const f1 = tmpFile('c1-repair-throws.ndjson');
+    const torn1 = '{"id":"a"}\n{"id":"b","noNewline":true'; // 真撕裂尾:必然走到 fsp.truncate 分支
+    fs.writeFileSync(f1, torn1, 'utf8');
+    const target1 = path.resolve(f1);
+    const realTruncate1 = fsp.truncate.bind(fsp);
+    let repairThrew = false;
+    try {
+      fsp.truncate = async (p, ...rest) => {
+        if (path.resolve(String(p)) === target1) throw new Error('injected truncate failure (117q-B6fix c1)');
+        return realTruncate1(p, ...rest);
+      };
+      try { await repairMissionChangeTornTail(f1); } catch { repairThrew = true; }
+    } finally { fsp.truncate = realTruncate1; }
+    ok(repairThrew, '(c1) 真实故障注入下,repairMissionChangeTornTail 对真撕裂尾文件确实抛错(不是模拟的假抛)');
+
+    // (c2)
+    if (bodySrc) {
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+      const writeBlock = new AsyncFunction('file', 'line', 'sid', 'fsp', 'repairMissionChangeTornTail', 'markPretenderIndexDirty', bodySrc);
+      const f2 = tmpFile('c2-append-survives-repair-failure.ndjson');
+      const torn2 = '{"id":"a"}\n{"id":"b","noNewline":true';
+      fs.writeFileSync(f2, torn2, 'utf8');
+      const target2 = path.resolve(f2);
+      const realTruncate2 = fsp.truncate.bind(fsp);
+      const newLine = JSON.stringify({ id: 'appended-despite-repair-failure-117q-B6fix' }) + '\n';
+      let writeBlockThrew = false, writeBlockErr = null;
+      try {
+        fsp.truncate = async (p, ...rest) => {
+          if (path.resolve(String(p)) === target2) throw new Error('injected truncate failure (117q-B6fix c2)');
+          return realTruncate2(p, ...rest);
+        };
+        try {
+          await writeBlock(f2, newLine, 'sid-c2', fsp, repairMissionChangeTornTail, () => {});
+        } catch (e) { writeBlockThrew = true; writeBlockErr = e; }
+      } finally { fsp.truncate = realTruncate2; }
+      const after2 = fs.readFileSync(f2, 'utf8');
+      ok(!writeBlockThrew, '(c2) appendIntervention 写入块本身不因 repair 抛错而中断' + (writeBlockThrew ? ('(实际抛出: ' + (writeBlockErr && writeBlockErr.message) + ')') : ''));
+      ok(after2.includes('appended-despite-repair-failure-117q-B6fix'), '(c2b) repair 抛错时,这一条 intervention 记录仍然被 append 进文件(语义已还回,不再静默丢行)');
+    } else {
+      ok(false, '(c2) 未能定位 appendIntervention 写入块,跳过行为断言(见上方 (c 准备) 失败)');
+    }
+  }
+
   // ---------- (d) 静态锁:全仓「尾窗读」原语只有一份定义 ----------
   {
     const src = readServerSource();
