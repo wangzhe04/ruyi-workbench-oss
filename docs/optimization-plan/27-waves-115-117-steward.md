@@ -695,3 +695,75 @@ A1／A2／A3 并行（文件不相交，各自显式路径提交）；B1 串行�
 2. 看板（用户叫「限制界面」）美观 → 玻璃 toolbar（并发数胶囊、在跑／排队 pill、幽灵动作键）+ 事项卡（卡头名与 meta 分层、线程行缩进 + 分隔线 + hover）+ 空态；DOM id／chips 组件不动；改前后截图入档。
 3. 点头像菜单出现在最顶上 → 117k 把菜单锚在顶栏，可头像 W2-3 起跟着最新一条话走。改按头像 rect 定位（下方够放开下方，否则开上方），`fixed`，resize／scroll 即关；`[hidden]`／Esc 栈／owns 原样。
 4. 管家多轮的话左边一列小圆点看着怪 → 历史行不再画点；连续管家消息成组（组内紧、组间松、组首一道淡竖线，头像所在组不画线）；非最新行的 act 按钮降为幽灵样式但仍可点。
+
+### 11.10 117m 设计页 · 用户第六轮走查（2026-09-08 上午，三张截图 + 一张追加，六条 + 熔断；Fable 设计与验收，Opus／Sonnet 实现）
+
+**这一轮的证据全部来自用户真机**，不是从截图推的：日志 `~/.win-claude-workbench/logs/workbench-2026-09-08.ndjson`、
+会话 `sessions/sess_8bb0dd55d35045b0.{json,messages.ndjson,interventions.ndjson}`、`config.json`。
+服务端 02:18:46 起（v2.6.2，node 直起），用户 02:21 让管家开了「博纳影业怎么看怎么操作」这条线程，
+之后 15 分钟里发生的事就是这七条 bug 的全部现场。
+
+#### 11.10.1 用户原话与现场证据
+
+| # | 用户原话 | 现场证据（真机） |
+| --- | --- | --- |
+| ① | 点开线程的「看全文」，还是啥也看不到 | 该线程 55 条 `model_call_completed`／53 条 `tool_call_completed`，`messages.ndjson` **只有 1 行**（那条 user 消息） |
+| ② | 已经默认线程全自动了，还是很多要求权限，管家还是一条条汇报，费 Token | 会话头 `permissionMode:"auto"`、引擎 `openai-compatible/qwen3.8-flash`；11 条 `intervention source:"steward_decision" action:"allow"`，两分钟一条 |
+| ③ | 暂停这个线程，会显示 invalid | 管家降级出的按钮打的是 `steward_run_action`，而该工具 `sessionId && runId` 缺一即 `invalid_request`；这条线程根本没有班组 run |
+| ④ | 交办台点开，显示报错 | 截图里的信封就是 `GET /api/missions/:id/changes` 的 404 `mission not found`：会话 `kind:'mission'` 但 `mission:null` |
+| ⑤ | 系统提示的「需要我」通知，在管家界面也点不开 | `stewardAsksYouForThread` 只认 `question` 一类；托盘气泡点击只 `ActivateShellWindow()`，不带线程 |
+| ⑥ | 需要我允许的也没在线程中 | 同 ⑤：该线程 14 条待决全是 `perm_*`，最后一条 02:36:57 `decidedBy:"timeout"` 自己超时被拒 |
+| ⑦ | 这个熔断也不对吧 | `{"kind":"steward_circuit","circuit":"turns_per_hour","trigger":"user"}` ×2（02:31:33、02:33:25）——被挡的是**用户自己那两句话** |
+
+#### 11.10.2 定案（D1–D7）
+
+- **D1「全自动」要真的不问。** `nativeToolGate`（07:771）的 `auto` 档在原生引擎里对 exec **一律 ask**，
+  而 `auto` 在三处界面（onboarding、管家壳档位、06i 标签表）都叫「全自动」，经典壳自己的说明写的是
+  「低风险自动执行，高风险仍会问你」——**那个风险判据从来没有被实现**。修法不是改标签，是把承诺兑现成
+  确定性判据：复用既有单点 `stewardToolPermanentlyExempt(toolName, input)`（工具名正则 + 命令文本正则，
+  覆盖对外发送／支付／安装卸载／系统设置注册表／关机格式化／`rm -rf`／`git push`）——命中才问，
+  其余放行。`bypass`／`read`／`plan`／`acceptEdits` 五条分支一行不动，缺工具名时保守回落 `ask`。
+- **D2 回合中途改档要立刻生效。** 档位在回合开始时被解析成快照（10:2230），闸门全程读它；
+  02-session-store 那张会话级覆盖表（`sessionPermissionModeOverrides`）的头注自称「对所有读者立刻是新值」，
+  **但 09 的闸门根本不读它**。加一个只读访问器让闸门取活档——放宽与**收紧**都立刻生效，后者比前者更要紧。
+- **D3 熔断只节流自主回合。** `turns_per_hour` 不看 trigger，与同一函数里 `no_progress` 那句
+  「用户消息永远优先」自相矛盾。改成只对 `trigger !== 'user'` 生效；默认 12 → 30（**不迁移存量配置**：
+  静默抬高别人的花钱上限不合适）；被挡时那句话要说清去哪调。收件箱合并窗口 5s → 30s。
+- **D4 四类待决都要能点。** `asksYou` 只认 `question`，于是挂着 `permission` 的线程「等你」却无处可点。
+  扩到 `question > permission > plan > pool` 固定优先级，人话仍走既有 `stewardPendingOneLine` 单点；
+  看板 pill 按类说话；抽屉问答卡吃下 permission（复用既有 `/api/permission/decision`，不新起路径）；
+  状态行「N 条等你」做成直达（恰好 1 条就开那条线程并聚焦问答卡）。
+- **D5 在途回合要看得见。** 管家起的回合没有客户端挂在流上，正文要到回合结束才落盘，全仓也没有
+  「事后挂载」的通道。把 04 的 `appendLiveTail` 从「尾巴」扩成「本回合正文 + 最近工具名」
+  （不落盘、不含工具参数与结果），经既有 `GET /api/sessions/:id` 信封下发；经典壳渲染一张临时
+  「它正在跑」气泡（不进 messages 数据面），单点 3s 节拍，回合一结束换成真消息。
+- **D6 交办台不许被一个空账本打死。** 线程 `kind:'mission'` 而 `mission:null` 是合法状态（还没有变更账本），
+  `/changes` 对它 404 是把「还没有变更」说成「找不到事项」，而 `preview-shell` 的 `Promise.all` 一挂就整页
+  换成错误卡。服务端改成 200 空账本；客户端顺带做一道降级（单个子请求失败不许清空整块面板）。
+- **D7 线程级「暂停」要有自己的原语。** `steward_run_action` 是**班组**动作（要 runId）；普通线程没有 run，
+  管家却只有这一个「暂停」可提，于是必然 `invalid_request`。给管家一个线程级停止工具（走 `/api/stop`
+  同一语义，收紧类动作任何权限档都可直接执行），并让「没有在跑的回合」返回一句人话而不是 invalid。
+
+#### 11.10.3 切片与分工
+
+| 切片 | 内容 | 谁 | 文件面 |
+| --- | --- | --- | --- |
+| A1 | D1 + D2 + D3 | Opus（并行） | 07 / 08 / 09 / 02 / 14 / 13h（仅熔断）/ 01-config / 13i |
+| A2 | D4 | Opus（并行） | 06i / 13g（仅 status）/ 13e / 管家壳前端 / index.html / locale ×4 |
+| A5 | D5 | Opus（并行） | 04 / 13d（仅 GET session 段）/ session-experience / 经典壳样式 |
+| A3 | D6 | Fable 亲自 | 13d（`/changes` 与 1557 行闸门补参）/ preview-shell |
+| A4 | D7 | 待 A1／A2 落地后串行 | 13f / 13g / 13h（hook 表）/ 06b |
+| A6 | 托盘气泡带 sessionId、点击直达线程 | 待定（要重建 exe） | desktop/RuyiDesktop.cs + 前端监听 |
+
+三片并行的前提是**文件面不相交**：13d 的其它部分归主会话，13g／13h 各自只碰点名的那一个函数。
+
+#### 11.10.4 验收口径（Fable 亲自复核，子代理报告里的「已验证」一律重跑）
+
+- ② 全自动线程跑 `script_run`（普通命令）零权限弹窗；换成 `git push`／`winget install` 仍然弹。
+- ② 回合跑到一半把档从「每步都问」切到「全自动」→ **同一个回合**的下一个工具不再弹；反向切回立刻重新弹。
+- ⑦ 小时窗打满后用户说话仍有回复，收件箱回合被挡且那句话告诉你去哪调。
+- ①「看全文」切过去能看到正在产生的正文与「正在用 X」，回合结束后换成真消息、不留残影。
+- ⑤⑥ 一条挂着 permission 的线程：看板行有 pill、抽屉顶部有卡、点「允许」后待决消失、线程继续跑。
+- ③ 对没有班组的线程按「暂停这条线程」→ 真的停，或给一句人话，绝不出现 `invalid`。
+- ④ 交办台打开一条 `mission:null` 的线程不报错。
+- 门：`run-all --parallel 4` 无新增确定性红；工具数与路由判定点变化在交付记录里写明。
