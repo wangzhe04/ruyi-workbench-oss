@@ -227,25 +227,25 @@
     {
       "file": "13i-steward-inbox.js",
       "startLine": 42028,
-      "endLine": 43040,
+      "endLine": 43064,
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 43041,
-      "endLine": 45039,
+      "startLine": 43065,
+      "endLine": 45063,
       "note": "第116波116c:/api/steward/* 域路由、决策日志、管家记忆存储与全部管家工具实现(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 45040,
-      "endLine": 47474,
+      "startLine": 45064,
+      "endLine": 47498,
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "14-main.js",
-      "startLine": 47475,
-      "endLine": 48078,
+      "startLine": 47499,
+      "endLine": 48102,
       "note": "main()/module.exports"
     }
   ]

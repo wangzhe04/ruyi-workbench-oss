@@ -254,6 +254,21 @@ function typeExpressionLiterals(text) {
   ok(src02b.includes('session.stewardLastTurn = {')
     && src02b.includes("errorClass: String(t.errorClass || '').slice(0, 64),"),
     'D7 stewardLastTurn 严格归一成固定五字段(与 stewardQuick 同纪律)');
+  // 117p①(用户第七轮走查「2.0 回合已经跑完了,管家没有收到体现也没收工」):活回合分支的基线不能是
+  // 「正在跑的那一回合」本身 —— turnSeq 在回合【开始】那一刻就落盘,首见就撞上活回合时拿它当基线
+  // 等于把这一回合算成已报过,回合真跑完时 turnSeq 没再前进,唯一那条 done 被永久吞掉。
+  ok(src13i.includes("turnSeq: known ? known.turnSeq : Math.max(0, turnSeq - 1), stamp: '' };"),
+    'D7 117p① 活回合分支的基线是「这一回合之前」那个号(Math.max(0, turnSeq - 1)),不是正在跑的那个 turnSeq');
+  // 117p②:首见分支还要堵住「回合已起手、还没登记进 activeChildren」那个窗口 —— 判据是
+  // stewardLastTurn 落盘(last.seq >= turnSeq),且只能在 known == null 这一次生效(之后 known != null,
+  // 普通的 turnSeq > baseline 就够了;放开范围会把用户自己接着聊的回合永久判成「还没结束」)。
+  {
+    const knownNullAt = src13i.indexOf('if (known == null) {');
+    const inFlightAt = src13i.indexOf("const inFlight = String(head.launchedBy || '') === 'steward'");
+    const backfillInFlightAt = src13i.indexOf('if (backfill && inFlight) {');
+    ok(knownNullAt > 0 && inFlightAt > knownNullAt && backfillInFlightAt > inFlightAt,
+      'D7 117p② 首见分支(known == null)里有 stewardLastTurn 的 in-flight 判据,且被 backfill && inFlight 一起把关');
+  }
 }
 
 console.log(fail === 0 ? 'STEWARD EVENTS STATIC E2E: ALL PASS' : `STEWARD EVENTS STATIC E2E: ${fail} FAILED`);

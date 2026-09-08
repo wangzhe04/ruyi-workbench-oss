@@ -25,6 +25,9 @@
 //      done 行带 quick:true + answer;普通经典壳会话跑完【不】入箱;被管家递过话的普通会话入箱一条;
 //      幂等(再跑两轮不重复);冷启动那一轮只建基线。
 //  (H) 116-4 闭环:入箱 -> 管家收件箱回合 -> stewardQuick.closedAt 落盘(不再依赖一条永远不会来的 done 行)。
+//  (I) 117p-S1:回合还在跑的时候轮询器就第一次看见这条线程(用户第七轮走查「2.0 回合已经跑完了,
+//      管家没有收到体现也没收工」的真机时序)——箱子当轮 0 行、游标基线是「这一回合之前」的号;
+//      回合真的跑完之后再 tick 一轮,箱子里正好一条 done。
 //
 // 判定行:`STEWARD QUICK ASK E2E: ALL PASS`。
 const http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -41,6 +44,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 const PROVIDER_PORT = await getFreePort();
 const ANSWER = '你那个仓库现在有三个分支：master、feature/steward、hotfix/eol。';
 let providerHits = 0;
+// 117p (I) 段用的闸:默认打开(不改变 (A)~(H) 任何一段的时序),(I) 段临时关上它,逼真机那种
+// 「回合已起手、provider 还没回应」的窗口 —— provider 收到请求(providerHits 已 +1,严格晚于
+// 09-workflow.js 的 turnSeq 落盘与 activeChildren 登记)之后、写第一帧之前卡住。
+let gate = Promise.resolve();
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
   req.on('data', c => { raw += c; });
@@ -51,6 +58,7 @@ const providerServer = http.createServer(async (req, res) => {
   }
   providerHits += 1;
   let body = null; try { body = JSON.parse(raw); } catch { body = null; }
+  await gate;   // 默认 resolved 的闸;(I) 段临时换成未 resolve 的 promise
   if (body && body.stream === false) {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: ANSWER } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }));
@@ -220,9 +228,15 @@ try {
   const g = await call('steward_quick_ask', { question: '第四源要问的问题？', cwd: HOME }, stewardCtx(7));
   ok(g && g.ok === true, 'G1 又开了一条速查线程');
   const gId = g.sessionId;
+  // 117p(b):②之后,首见分支的 backfill 多了一条「stewardLastTurn 必须已落盘」的前提 ——
+  // 只等「助手消息出现」不够(assistant 消息落盘早于 activeChildren 清场、更早于 13g 在 settle
+  // 之后写 stewardLastTurn),这里补等同一件生产判据真正依赖的事实,去掉一处本来就存在的时序脆弱点。
   for (let i = 0; i < 120; i++) {
     const s2 = await srv.loadSession(gId).catch(() => null);
-    if (s2 && (s2.messages || []).some(m => m.role === 'assistant')) break;
+    if (s2 && (s2.messages || []).some(m => m.role === 'assistant')) {
+      const h = headOf(gId);
+      if (h.stewardLastTurn && Number(h.stewardLastTurn.seq) >= 1) break;
+    }
     await sleep(150);
   }
   await sleep(600);
@@ -302,6 +316,62 @@ try {
     ok(closed && Number.isFinite(Number(closed.closedTurnSeq)), 'H2 收工时记下了当时的回合数(用户续聊可自动重开)');
     const steward = await srv.loadSession('steward').catch(() => null);
     ok(steward && (steward.messages || []).some(m => m.role === 'assistant'), 'H3 管家会话里真的多了一个回合(收件箱触发)');
+  }
+
+  /* ═════════ (I) 117p-S1:回合还在跑的时候轮询器就第一次看见这条线程 ═════════ */
+  // 复现用户第七轮走查那次真机时序:管家开的线程第一回合动辄几分钟,轮询 15 秒一轮,
+  // 首见几乎必然撞上活回合。用上面新加的闸逼出这个窗口(默认打开,不影响 (A)~(H))。
+  console.log('── (I) 117p-S1:首见即活回合,done 事件不能被永久吞掉 ──');
+  {
+    let releaseGate;
+    gate = new Promise(r => { releaseGate = r; });
+    const beforeI = providerHits;
+    const created3 = await call('steward_quick_ask', { question: '第四源在活回合窗口要问的问题?', cwd: HOME }, stewardCtx(20));
+    ok(created3 && created3.ok === true, `I1 建线程成功(got ${created3 && (created3.error || 'ok')})`);
+    const iId = created3.sessionId;
+    // 稳妥信号:provider 真的收到了这次请求。09-workflow.js 里 turnSeq 落盘(1292 一带的
+    // saveSession)与 activeChildren.set(1381)都严格早于实际发出的那次网络请求(2033) ——
+    // provider 收到请求就意味着两者都已经成立,而此刻闸关着,回合卡在等响应,activeChildren
+    // 里仍然登记着这条会话。
+    for (let i = 0; i < 80; i++) {
+      if (providerHits > beforeI) break;
+      await sleep(50);
+    }
+    ok(providerHits > beforeI, 'I2 回合真的起手了(provider 收到了这次请求;此刻闸关着,回合卡在等响应)');
+    const headStarted = headOf(iId);
+    ok(headStarted.turnSeq === 1, `I3 会话头上 turnSeq === 1(回合已起手;got ${headStarted.turnSeq})`);
+    await srv.startStewardInbox(cfg);   // 轮询器此刻第一次看见这条线程 —— 回合还在跑
+    await sleep(300);
+    {
+      const rows = await inboxRows();
+      ok(rows.filter(r => r.sessionId === iId).length === 0,
+        'I4 箱子里这条会话 0 行(修前:此刻会把正在跑的 turnSeq 记成基线,回合结束后再没人报)');
+      const cursor = JSON.parse(fs.readFileSync(path.join(HOME, 'steward', 'cursor-v1.json'), 'utf8'));
+      const entry = cursor.sources && cursor.sources.sessionTurns && cursor.sources.sessionTurns[iId];
+      ok(entry && Number(entry.turnSeq) === 0,
+        `I5 游标基线是「这一回合之前」的 0,不是正在跑的那个 1(修前这里是 1;got ${entry && entry.turnSeq})`);
+    }
+    releaseGate();   // 开闸,回合往下跑完
+    for (let i = 0; i < 120; i++) {
+      const s2 = await srv.loadSession(iId).catch(() => null);
+      if (s2 && (s2.messages || []).some(m => m.role === 'assistant')) {
+        const h = headOf(iId);
+        if (h.stewardLastTurn && Number(h.stewardLastTurn.seq) >= 1) break;
+      }
+      await sleep(150);
+    }
+    await sleep(300);
+    await srv.startStewardInbox(cfg);   // 再 tick 一轮:回合真的结束了
+    await sleep(400);
+    {
+      const rows = await inboxRows();
+      const mine = rows.filter(r => r.sessionId === iId);
+      ok(mine.length === 1, `I6 回合真的跑完之后,箱子里正好一条(got ${mine.length};修前恒为 0)`);
+      const row = mine[0] || { payload: {} };
+      ok(row.kind === 'done', `I7 kind === 'done'(got ${row.kind})`);
+      ok(row.seq === 1, `I8 seq === 1(去重游标就是 turnSeq;got ${row.seq})`);
+      ok(row.payload.source === 'session_turn', `I9 来源是第四源 session_turn(got ${row.payload.source})`);
+    }
   }
   srv.stopStewardInbox();
 } catch (e) {

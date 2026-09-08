@@ -42730,7 +42730,13 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
   if (activeChildren.has(sid)) {
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
-    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: known ? known.turnSeq : turnSeq, stamp: '' };
+    // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
+    // 基线必须是【这一回合之前】那个号。turnSeq 在回合【开始】那一刻就 +1 落盘(05:88 / 09:1292,
+    // 都紧跟 saveSession),所以此刻头上的号就是【正在跑】的那一回合 —— 记成基线 = 把它算作已报过,
+    // 等它真的跑完 turnSeq 没再前进,唯一那条 done 被永久吞掉。真机证据(2026-09-08):
+    // sess_e97b29759a586485 头上 turnSeq:1 + stewardLastTurn{seq:1,ok:true},游标记着 {turnSeq:1},
+    // inbox 里这条会话零行 —— 管家开的线程第一回合几乎必然命中(轮询 15 秒,那条线程跑了 11 分钟)。
+    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: known ? known.turnSeq : Math.max(0, turnSeq - 1), stamp: '' };
     return null;
   }
   const watched = stewardWatchedThread(head, sid, missionId);
@@ -42742,6 +42748,24 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const fresh = Number.isFinite(updatedMs) && (now - updatedMs) <= STEWARD_ACTIVE_WINDOW_MS;
     const backfill = watched && fresh && !stewardRuntime.cold && turnSeq > 0 && turnSeq <= STEWARD_FIRST_SIGHT_MAX_TURNS;
+    // 117p ②(同一条真机证据的另一半):上面 activeChildren.has(sid) 那道判据挡不住「回合已起手、
+    // 还没登记进 activeChildren」的窗口 —— 09-workflow.js 把 turnSeq 落盘(1292)与
+    // activeChildren.set(1381)之间隔着 captureWorkspaceTurnBaseline(大工作区要好几秒)。首见正好
+    // 落在这个窗口里时,backfill 会当场报一条「这回合跑完了」(其实还在跑),并把基线推到当前
+    // turnSeq —— 真跑完时反而再也报不出来。判据用确定性落盘证据,不猜时间/心跳:管家发起的线程由
+    // 13g 的 stewardRecordLaunchOutcome 在 settle 之后写 stewardLastTurn,last.seq >= turnSeq 才算
+    // 这一回合真的结束了。只在 known == null 这一次用它:之后 known != null,普通的
+    // turnSeq > baseline 就够了 —— 否则用户在 2.0 视窗里自己接着聊的那些回合(它们不写
+    // stewardLastTurn)会被永久判成「还没结束」,那是把一个洞换成另一个洞。
+    const last = (head.stewardLastTurn && typeof head.stewardLastTurn === 'object') ? head.stewardLastTurn : null;
+    const inFlight = String(head.launchedBy || '') === 'steward'
+      && !(Math.max(0, Number(last && last.seq) || 0) >= turnSeq);
+    if (backfill && inFlight) {
+      // 回合已起手、还没登记进 activeChildren 的窗口:这一轮什么都不报,基线退到上一回合,
+      // 等 13g 的成败账落盘之后的某一轮再报 —— stamp 置空,保证下一轮一定会重读这个头。
+      stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: Math.max(0, turnSeq - 1), stamp: '' };
+      return null;
+    }
     stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: backfill ? 0 : turnSeq, stamp: backfill ? '' : stamp };
     if (!backfill) return null;
   }
