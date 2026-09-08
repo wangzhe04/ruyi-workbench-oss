@@ -181,6 +181,7 @@
         "cmdLineBudgetSeam",
         "commandForSelfMcp",
         "configDegraded",
+        "configMutateChain",
         "configWriteChain",
         "contentTypeFor",
         "decodeClaudeCliText",
@@ -208,6 +209,7 @@
         "isKimiCodingEndpoint",
         "lastGoodConfig",
         "mergeAgentRole",
+        "mutateConfig",
         "normalizeAgentRole",
         "normalizeConfig",
         "normalizeWorkspacePathString",
@@ -525,6 +527,7 @@
         "MISSION_CONTAINER_MAX_FILES",
         "MISSION_CONTAINER_SCHEMA",
         "MISSION_DEFAULT_MAX_TURNS",
+        "MISSION_EMPTY_LEDGER_VIEW",
         "MISSION_MAX_CONSTRAINTS",
         "MISSION_MAX_MILESTONES",
         "MISSION_MAX_TEXT",
@@ -622,6 +625,7 @@
         "listMissionContainerIds",
         "listMissionContainers",
         "listSessions",
+        "liveSessionPermissionMode",
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
@@ -1288,6 +1292,7 @@
         "MCP_COMPAT_MATRIX",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
+        "MCP_DROPIN_SHADOW_WARNING",
         "MCP_FAILURE_COOLDOWN_MS",
         "McpHttpClient",
         "McpStdioClient",
@@ -1338,9 +1343,11 @@
         "mcpClientGen",
         "mcpClientPending",
         "mcpClients",
+        "mcpConnectorMutateError",
         "mcpDropInDirs",
         "mcpRuntimeCommon",
         "mcpStartingClients",
+        "mutateMcpConnector",
         "nativeClaudeAgentResultInfo",
         "normalizeQuestionAnswer",
         "normalizeQuestionContext",
@@ -1497,6 +1504,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "generateMcpConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1505,13 +1526,6 @@
         {
           "provider": "01-config.js",
           "symbol": "selectedAgentCli",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "writeConfig",
           "kinds": [
             "call"
           ]
@@ -3643,6 +3657,7 @@
         "STEWARD_EXEMPT_CONTENT_PATTERNS",
         "STEWARD_EXEMPT_INPUT_CHARS",
         "STEWARD_EXEMPT_INPUT_DEPTH",
+        "STEWARD_EXEMPT_READ_METHODS",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_ID_OPAQUE_RE",
         "STEWARD_ID_SESSION_RE",
@@ -3680,6 +3695,7 @@
         "stewardClipSay",
         "stewardConfigTierFor",
         "stewardExemptInputText",
+        "stewardExemptStructuredWrite",
         "stewardHasText",
         "stewardHumanizeIds",
         "stewardMayAct",
@@ -4737,6 +4753,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardToolPermanentlyExempt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "08-agent-runs.js",
           "symbol": "saveAgentRun",
           "kinds": [
@@ -4997,6 +5020,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "bridgedWriteRelativePathArg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "call"
           ]
@@ -5749,6 +5779,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalReadIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "call"
           ]
@@ -7162,6 +7199,13 @@
           "symbol": "DurableJsonStore",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "permissionModeFrom",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -8752,6 +8796,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
@@ -8865,13 +8916,6 @@
         {
           "provider": "01-config.js",
           "symbol": "tokenOk",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "writeConfig",
           "kinds": [
             "call"
           ]
@@ -9865,7 +9909,6 @@
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
-        "mcpConnectorMutateError",
         "steerSessionCore"
       ],
       "requires": [
@@ -9955,6 +9998,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -9977,13 +10027,6 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "writeConfig",
           "kinds": [
             "call"
           ]
@@ -10046,13 +10089,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "invalidateMcpRuntime",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -10067,6 +10103,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "mutateMcpConnector",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "probeMcpConnector",
           "kinds": [
             "call"
@@ -10075,13 +10118,6 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "resolveExternalMcpServers",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "scanMcpDropIns",
           "kinds": [
             "call"
           ]
@@ -12280,6 +12316,7 @@
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
         "STEWARD_SELF_SERVE_PER_TURN_MAX",
         "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
+        "STEWARD_STOP_REASON_MAX",
         "STEWARD_TOOL_LABELS",
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
@@ -12336,6 +12373,7 @@
         "stewardExecuteActions",
         "stewardHumanizeSay",
         "stewardImplThreadPrioritize",
+        "stewardImplThreadStop",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
         "stewardMemoryBlock",
@@ -12616,6 +12654,13 @@
           ]
         },
         {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeAllGrants",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "buildStewardDigestLine",
           "kinds": [
@@ -12807,6 +12852,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardBasisOf",
           "kinds": [
             "call"
           ]
@@ -13432,6 +13484,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "listSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "read"
           ]
@@ -15223,6 +15282,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "readClaudeProjectAgentRoles",
           "kinds": [
             "read"
@@ -16120,6 +16186,13 @@
         {
           "provider": "13h-steward-runner.js",
           "symbol": "runStewardTurn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "stewardCircuitCheck",
           "kinds": [
             "read"
           ]
