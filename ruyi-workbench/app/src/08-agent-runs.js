@@ -146,18 +146,15 @@ async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
   }
   if (size <= AGENT_RUN_EVENTS_TAIL_BYTES) return fullRead(); // 小文件整读(恒完整,便宜)
   // 大文件:先只读尾窗;窗回溯到 afterSeq+1 即完整,否则回落全读。
-  let fh = null;
+  // 117q-B6(30 号文 P2-10):open/alloc/read/close 收编进 01-config.js 的 readFileTail —— 本处早已按
+  // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
   try {
-    fh = await fsp.open(file, 'r');
-    const startAt = size - AGENT_RUN_EVENTS_TAIL_BYTES;
-    const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
-    const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, startAt);
+    const { buf, bytesRead } = await readFileTail(file, AGENT_RUN_EVENTS_TAIL_BYTES);
     const { matched, minSeq } = parseEventWindow(buf.toString('utf8', 0, bytesRead), floor, true);
     // 窗内最小完整 seq ≤ afterSeq+1 ⇒ 所有 seq>afterSeq 的事件都在窗内(afterSeq+1 是待返回的最小 seq)。
     if (minSeq <= floor + 1) return finish(matched);
     // afterSeq 远落后于尾窗(冷客户端 / afterSeq=0 遇大文件)→ 回落全读(罕见,保正确性)。
   } catch { /* 读尾窗失败 → 回落全读 */ }
-  finally { if (fh) await fh.close().catch(() => {}); }
   return fullRead();
 }
 // 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/

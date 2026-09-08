@@ -227,6 +227,7 @@
         "readBody",
         "readConfig",
         "readConfigPrev",
+        "readFileTail",
         "readJsonBody",
         "resolveClaudeLauncher",
         "resolveKimiNpmEntry",
@@ -686,7 +687,6 @@
         "recordMissionBudgetTrippedChange",
         "recordMissionStalledChange",
         "registerIntervention",
-        "repairInterventionTornTail",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
         "rewindSession",
@@ -856,6 +856,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readFileTail",
           "kinds": [
             "call"
           ]
@@ -5074,6 +5081,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readFileTail",
           "kinds": [
             "call"
           ]
@@ -11887,6 +11901,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "readFileTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readJsonBody",
           "kinds": [
             "call"
@@ -13292,6 +13313,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "readFileTail",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
           "kinds": [
             "read"
@@ -13762,6 +13790,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairMissionChangeTornTail",
           "kinds": [
             "read"
           ]

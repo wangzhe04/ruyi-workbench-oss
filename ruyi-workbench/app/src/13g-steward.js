@@ -366,14 +366,12 @@ async function stewardReadDecisionsText() {
   if (size <= STEWARD_DECISIONS_FULL_READ_BYTES) {
     try { return { text: await fsp.readFile(file, 'utf8'), droppedHead: false }; } catch { return { text: '', droppedHead: false }; }
   }
-  let fh = null;
+  // 117q-B6(30 号文 P2-10):open/alloc/read/close 收编进 01-config.js 的 readFileTail —— 本处早已按
+  // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
   try {
-    fh = await fsp.open(file, 'r');
-    const buf = Buffer.alloc(STEWARD_DECISIONS_TAIL_BYTES);
-    const { bytesRead } = await fh.read(buf, 0, STEWARD_DECISIONS_TAIL_BYTES, size - STEWARD_DECISIONS_TAIL_BYTES);
+    const { buf, bytesRead } = await readFileTail(file, STEWARD_DECISIONS_TAIL_BYTES);
     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
   } catch { return { text: '', droppedHead: false }; }
-  finally { if (fh) await fh.close().catch(() => {}); }
 }
 
 // { limit, sessionId, since } -> { ok, rows, total, limit }

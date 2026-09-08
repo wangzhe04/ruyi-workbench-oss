@@ -1165,6 +1165,34 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   }
 }
 
+// 117q-B6(30 号文 P2-10):「读文件末尾 N 字节」原语【统一入口】。此前四处独立手写同一套动作
+// (stat 拿 size -> 算尾窗起点 -> open -> 分配 buffer -> read -> finally 关 fd):02-session-store.js 的
+// repairMissionChangeTornTail/repairInterventionTornTail 两处【不检查 bytesRead】——直接对整段已分配
+// buffer 取最后一字节 / lastIndexOf,若 fd.read 实际读到的字节数少于请求量(stat 与 read 之间文件被
+// 截短等罕见竞态),就会对 buffer 里未被写入的那一截(未初始化或陈旧内存)算截断点——而这个截断点
+// 会被直接拿去 fsp.truncate()。算错就是真的截错数据。08-agent-runs.js/13g-steward.js 的两处已经在
+// 检查 bytesRead,行为不变,只是把手写的 open/alloc/read/close 换成本函数。
+// 返回 { buf, bytesRead, size }：size < 0 表示文件不存在(或 stat 失败,与原四处"stat 出错即当无文件"
+// 同口径)；buf.length === 请求要读的字节数(= min(maxBytes, size) 且已 clamp 到 >=0),但【只有
+// buf[0..bytesRead) 是本次 read 实际写入的有效数据】——调用方必须按 bytesRead 定界(取最后一个有效
+// 字节要用 buf[bytesRead-1],扫 \n 要把 lastIndexOf 的搜索起点钉在 bytesRead-1),不能假设 bytesRead
+// === buf.length。空文件(size===0)与「尾窗一字节都不用读」的退化情形直接返回 bytesRead:0,不开 fd。
+async function readFileTail(file, maxBytes) {
+  let size = -1;
+  try { size = (await fsp.stat(file)).size; } catch { return { buf: Buffer.alloc(0), bytesRead: 0, size: -1 }; }
+  const max = Math.max(0, Math.floor(Number(maxBytes) || 0));
+  const start = Math.max(0, size - max);
+  const want = size - start;
+  if (!want) return { buf: Buffer.alloc(0), bytesRead: 0, size };
+  let fh = null;
+  try {
+    fh = await fsp.open(file, 'r');
+    const buf = Buffer.alloc(want);
+    const { bytesRead } = await fh.read(buf, 0, want, start);
+    return { buf, bytesRead, size };
+  } finally { if (fh) await fh.close().catch(() => {}); }
+}
+
 // ── 103c: composable lifecycle for small durable JSON state ──────────────────
 // This is deliberately narrower than a database abstraction. NDJSON append logs, session v2 bodies,
 // exit-time synchronous snapshots and externally-owned files keep their dedicated protocols. The helper

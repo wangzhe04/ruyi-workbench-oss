@@ -2030,6 +2030,34 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   }
 }
 
+// 117q-B6(30 号文 P2-10):「读文件末尾 N 字节」原语【统一入口】。此前四处独立手写同一套动作
+// (stat 拿 size -> 算尾窗起点 -> open -> 分配 buffer -> read -> finally 关 fd):02-session-store.js 的
+// repairMissionChangeTornTail/repairInterventionTornTail 两处【不检查 bytesRead】——直接对整段已分配
+// buffer 取最后一字节 / lastIndexOf,若 fd.read 实际读到的字节数少于请求量(stat 与 read 之间文件被
+// 截短等罕见竞态),就会对 buffer 里未被写入的那一截(未初始化或陈旧内存)算截断点——而这个截断点
+// 会被直接拿去 fsp.truncate()。算错就是真的截错数据。08-agent-runs.js/13g-steward.js 的两处已经在
+// 检查 bytesRead,行为不变,只是把手写的 open/alloc/read/close 换成本函数。
+// 返回 { buf, bytesRead, size }：size < 0 表示文件不存在(或 stat 失败,与原四处"stat 出错即当无文件"
+// 同口径)；buf.length === 请求要读的字节数(= min(maxBytes, size) 且已 clamp 到 >=0),但【只有
+// buf[0..bytesRead) 是本次 read 实际写入的有效数据】——调用方必须按 bytesRead 定界(取最后一个有效
+// 字节要用 buf[bytesRead-1],扫 \n 要把 lastIndexOf 的搜索起点钉在 bytesRead-1),不能假设 bytesRead
+// === buf.length。空文件(size===0)与「尾窗一字节都不用读」的退化情形直接返回 bytesRead:0,不开 fd。
+async function readFileTail(file, maxBytes) {
+  let size = -1;
+  try { size = (await fsp.stat(file)).size; } catch { return { buf: Buffer.alloc(0), bytesRead: 0, size: -1 }; }
+  const max = Math.max(0, Math.floor(Number(maxBytes) || 0));
+  const start = Math.max(0, size - max);
+  const want = size - start;
+  if (!want) return { buf: Buffer.alloc(0), bytesRead: 0, size };
+  let fh = null;
+  try {
+    fh = await fsp.open(file, 'r');
+    const buf = Buffer.alloc(want);
+    const { bytesRead } = await fh.read(buf, 0, want, start);
+    return { buf, bytesRead, size };
+  } finally { if (fh) await fh.close().catch(() => {}); }
+}
+
 // ── 103c: composable lifecycle for small durable JSON state ──────────────────
 // This is deliberately narrower than a database abstraction. NDJSON append logs, session v2 bodies,
 // exit-time synchronous snapshots and externally-owned files keep their dedicated protocols. The helper
@@ -3848,20 +3876,22 @@ function normalizeMissionChangePayload(payload) {
     : {};
   return { type, cursor, detail };
 }
+// 117q-B6(30 号文 P2-11):此前 repairMissionChangeTornTail(本函数)与 repairInterventionTornTail(旧
+// 71a 撕裂尾修复,02:344 一带)是同一算法的两份手写——真身是本函数(已被 13g/13i 两处共用),旧函数
+// 只有 appendIntervention 一个调用点,已删,该调用点改调本函数(见下方 appendIntervention)。
+// 读取原语收编进 01-config.js 的 readFileTail(30 号文 P2-10)——原实现用 Buffer.allocUnsafe 且不检查
+// fd.read 的 bytesRead,直接对整段已分配 buffer 取最后一字节 / lastIndexOf;若实际读到的字节数少于
+// 请求的 65536(stat 与 read 之间文件被截短等罕见竞态),就是在对未初始化/陈旧内存算截断点——而这个
+// 截断点会被拿去 fsp.truncate()。这里【一律按 bytesRead 定界】(不用 buf.length/请求的窗口大小),
+// 这就是修 bug 的那一步;尾窗起点 start 仍按原请求窗口(size - 65536)计算,与原逻辑一致。
 async function repairMissionChangeTornTail(file) {
-  let st;
-  try { st = await fsp.stat(file); } catch { return; }
-  if (!st.size) return;
-  const tailSize = Math.min(65536, st.size);
-  let fd;
-  try {
-    fd = await fsp.open(file, 'r');
-    const buf = Buffer.allocUnsafe(tailSize);
-    await fd.read(buf, 0, tailSize, st.size - tailSize);
-    if (buf[tailSize - 1] === 0x0a) return;
-    const lastNl = buf.lastIndexOf(0x0a);
-    await fsp.truncate(file, lastNl === -1 ? st.size - tailSize : st.size - tailSize + lastNl + 1);
-  } finally { if (fd) await fd.close().catch(() => {}); }
+  const TAIL = 65536;
+  const { buf, bytesRead, size } = await readFileTail(file, TAIL);
+  if (size <= 0 || !bytesRead) return; // 不存在(-1)/空文件(0)/尾窗读到 0 字节(无数据可判)
+  if (buf[bytesRead - 1] === 0x0a) return; // 按 bytesRead 定界:只看已实际读到的最后一个字节
+  const lastNl = buf.lastIndexOf(0x0a, bytesRead - 1); // 搜索起点同样钉在 bytesRead-1,不扫未读区
+  const start = Math.max(0, size - TAIL);
+  await fsp.truncate(file, lastNl === -1 ? start : start + lastNl + 1);
 }
 function appendMissionChangeRecord(sessionId, record) {
   const sid = String(sessionId || '');
@@ -4022,27 +4052,10 @@ function recordMissionBudgetTrippedChange(sessionId, detail) {
 // 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
 // tail, silently losing both records. Same discipline as readSessionBodyFile for messages.ndjson.
-// Reads only the last 64KB tail (intervention records are small JSON; a single valid record >64KB is
-// impossible for this schema), so cost is constant per append regardless of file size.
-async function repairInterventionTornTail(file) {
-  let st;
-  try { st = await fsp.stat(file); } catch { return; } // file does not exist yet -> nothing to repair
-  if (!st.size) return;
-  const TAIL = 65536;
-  const start = Math.max(0, st.size - TAIL);
-  let fd = null;
-  try {
-    fd = await fsp.open(file, 'r');
-    const len = st.size - start;
-    const buf = Buffer.allocUnsafe(len);
-    await fd.read(buf, 0, len, start);
-    if (len > 0 && buf[len - 1] === 0x0a) return; // ends with '\n' -> clean tail
-    const lastNl = buf.lastIndexOf(0x0a); // drop everything after the last '\n' (the torn tail)
-    await fsp.truncate(file, lastNl === -1 ? start : (start + lastNl + 1));
-  } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry */ }
-  finally { if (fd) { try { await fd.close(); } catch {} } }
-}
-// 追加一条 Intervention 记录(append-only,整行+\n)。fire-and-forget:落盘失败不阻断执行(内存 Map 是执行权威源)。
+// 117q-B6(30 号文 P2-11):此前这里是独立一份 repairInterventionTornTail,与上面 repairMissionChangeTornTail
+// 算法逐字节相同。该函数只有本处一个调用点,而本调用点已经被下面 appendIntervention 尾部的
+// `.catch(() => {})` 兜住(async 函数体内任何抛出——含修复失败——都在那里被吞掉,不阻断执行,内存
+// Map 才是执行权威源),故直接改调真身 repairMissionChangeTornTail,对外可见行为不变。已删除旧函数。
 function appendIntervention(sessionId, record) {
   const sid = String(sessionId || '');
   if (!sid) return;
@@ -4050,7 +4063,7 @@ function appendIntervention(sessionId, record) {
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
-    await repairInterventionTornTail(file); // 75a: truncate torn tail before append (prevent weld)
+    await repairMissionChangeTornTail(file); // 75a/117q-B6: truncate torn tail before append (prevent weld)
     await fsp.appendFile(file, line, 'utf8');
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
   }).catch(() => {});
@@ -23951,18 +23964,15 @@ async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
   }
   if (size <= AGENT_RUN_EVENTS_TAIL_BYTES) return fullRead(); // 小文件整读(恒完整,便宜)
   // 大文件:先只读尾窗;窗回溯到 afterSeq+1 即完整,否则回落全读。
-  let fh = null;
+  // 117q-B6(30 号文 P2-10):open/alloc/read/close 收编进 01-config.js 的 readFileTail —— 本处早已按
+  // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
   try {
-    fh = await fsp.open(file, 'r');
-    const startAt = size - AGENT_RUN_EVENTS_TAIL_BYTES;
-    const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
-    const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, startAt);
+    const { buf, bytesRead } = await readFileTail(file, AGENT_RUN_EVENTS_TAIL_BYTES);
     const { matched, minSeq } = parseEventWindow(buf.toString('utf8', 0, bytesRead), floor, true);
     // 窗内最小完整 seq ≤ afterSeq+1 ⇒ 所有 seq>afterSeq 的事件都在窗内(afterSeq+1 是待返回的最小 seq)。
     if (minSeq <= floor + 1) return finish(matched);
     // afterSeq 远落后于尾窗(冷客户端 / afterSeq=0 遇大文件)→ 回落全读(罕见,保正确性)。
   } catch { /* 读尾窗失败 → 回落全读 */ }
-  finally { if (fh) await fh.close().catch(() => {}); }
   return fullRead();
 }
 // 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/
@@ -43458,14 +43468,12 @@ async function stewardReadDecisionsText() {
   if (size <= STEWARD_DECISIONS_FULL_READ_BYTES) {
     try { return { text: await fsp.readFile(file, 'utf8'), droppedHead: false }; } catch { return { text: '', droppedHead: false }; }
   }
-  let fh = null;
+  // 117q-B6(30 号文 P2-10):open/alloc/read/close 收编进 01-config.js 的 readFileTail —— 本处早已按
+  // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
   try {
-    fh = await fsp.open(file, 'r');
-    const buf = Buffer.alloc(STEWARD_DECISIONS_TAIL_BYTES);
-    const { bytesRead } = await fh.read(buf, 0, STEWARD_DECISIONS_TAIL_BYTES, size - STEWARD_DECISIONS_TAIL_BYTES);
+    const { buf, bytesRead } = await readFileTail(file, STEWARD_DECISIONS_TAIL_BYTES);
     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
   } catch { return { text: '', droppedHead: false }; }
-  finally { if (fh) await fh.close().catch(() => {}); }
 }
 
 // { limit, sessionId, since } -> { ok, rows, total, limit }
@@ -47772,6 +47780,10 @@ module.exports = {
   readMissionChangesWithMeta,
   bumpMissionChangeSeq,
   sessionBodyPaths,
+  // 117q-B6(30 号文 P2-10/P2-11):尾窗读原语 + 撕裂尾修复合一 — exposed for e2e 字节级直测
+  // (造真撕裂尾文件、跑修复、断言截断后字节逐字节等于预期;不经 HTTP,直接函数调用可控)。
+  readFileTail,
+  repairMissionChangeTornTail,
   recordEngineTranscript,
   claudeProjectsRoot,
   claudeProjectDirKey,

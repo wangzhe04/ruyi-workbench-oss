@@ -165,20 +165,22 @@ function normalizeMissionChangePayload(payload) {
     : {};
   return { type, cursor, detail };
 }
+// 117q-B6(30 号文 P2-11):此前 repairMissionChangeTornTail(本函数)与 repairInterventionTornTail(旧
+// 71a 撕裂尾修复,02:344 一带)是同一算法的两份手写——真身是本函数(已被 13g/13i 两处共用),旧函数
+// 只有 appendIntervention 一个调用点,已删,该调用点改调本函数(见下方 appendIntervention)。
+// 读取原语收编进 01-config.js 的 readFileTail(30 号文 P2-10)——原实现用 Buffer.allocUnsafe 且不检查
+// fd.read 的 bytesRead,直接对整段已分配 buffer 取最后一字节 / lastIndexOf;若实际读到的字节数少于
+// 请求的 65536(stat 与 read 之间文件被截短等罕见竞态),就是在对未初始化/陈旧内存算截断点——而这个
+// 截断点会被拿去 fsp.truncate()。这里【一律按 bytesRead 定界】(不用 buf.length/请求的窗口大小),
+// 这就是修 bug 的那一步;尾窗起点 start 仍按原请求窗口(size - 65536)计算,与原逻辑一致。
 async function repairMissionChangeTornTail(file) {
-  let st;
-  try { st = await fsp.stat(file); } catch { return; }
-  if (!st.size) return;
-  const tailSize = Math.min(65536, st.size);
-  let fd;
-  try {
-    fd = await fsp.open(file, 'r');
-    const buf = Buffer.allocUnsafe(tailSize);
-    await fd.read(buf, 0, tailSize, st.size - tailSize);
-    if (buf[tailSize - 1] === 0x0a) return;
-    const lastNl = buf.lastIndexOf(0x0a);
-    await fsp.truncate(file, lastNl === -1 ? st.size - tailSize : st.size - tailSize + lastNl + 1);
-  } finally { if (fd) await fd.close().catch(() => {}); }
+  const TAIL = 65536;
+  const { buf, bytesRead, size } = await readFileTail(file, TAIL);
+  if (size <= 0 || !bytesRead) return; // 不存在(-1)/空文件(0)/尾窗读到 0 字节(无数据可判)
+  if (buf[bytesRead - 1] === 0x0a) return; // 按 bytesRead 定界:只看已实际读到的最后一个字节
+  const lastNl = buf.lastIndexOf(0x0a, bytesRead - 1); // 搜索起点同样钉在 bytesRead-1,不扫未读区
+  const start = Math.max(0, size - TAIL);
+  await fsp.truncate(file, lastNl === -1 ? start : start + lastNl + 1);
 }
 function appendMissionChangeRecord(sessionId, record) {
   const sid = String(sessionId || '');
@@ -339,27 +341,10 @@ function recordMissionBudgetTrippedChange(sessionId, detail) {
 // 75a: before appending, ensure the NDJSON file ends with '\n'. A torn tail (a previous append crashed
 // mid-write, leaving bytes with no terminating '\n') would otherwise weld the new line into the partial
 // tail, silently losing both records. Same discipline as readSessionBodyFile for messages.ndjson.
-// Reads only the last 64KB tail (intervention records are small JSON; a single valid record >64KB is
-// impossible for this schema), so cost is constant per append regardless of file size.
-async function repairInterventionTornTail(file) {
-  let st;
-  try { st = await fsp.stat(file); } catch { return; } // file does not exist yet -> nothing to repair
-  if (!st.size) return;
-  const TAIL = 65536;
-  const start = Math.max(0, st.size - TAIL);
-  let fd = null;
-  try {
-    fd = await fsp.open(file, 'r');
-    const len = st.size - start;
-    const buf = Buffer.allocUnsafe(len);
-    await fd.read(buf, 0, len, start);
-    if (len > 0 && buf[len - 1] === 0x0a) return; // ends with '\n' -> clean tail
-    const lastNl = buf.lastIndexOf(0x0a); // drop everything after the last '\n' (the torn tail)
-    await fsp.truncate(file, lastNl === -1 ? start : (start + lastNl + 1));
-  } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry */ }
-  finally { if (fd) { try { await fd.close(); } catch {} } }
-}
-// 追加一条 Intervention 记录(append-only,整行+\n)。fire-and-forget:落盘失败不阻断执行(内存 Map 是执行权威源)。
+// 117q-B6(30 号文 P2-11):此前这里是独立一份 repairInterventionTornTail,与上面 repairMissionChangeTornTail
+// 算法逐字节相同。该函数只有本处一个调用点,而本调用点已经被下面 appendIntervention 尾部的
+// `.catch(() => {})` 兜住(async 函数体内任何抛出——含修复失败——都在那里被吞掉,不阻断执行,内存
+// Map 才是执行权威源),故直接改调真身 repairMissionChangeTornTail,对外可见行为不变。已删除旧函数。
 function appendIntervention(sessionId, record) {
   const sid = String(sessionId || '');
   if (!sid) return;
@@ -367,7 +352,7 @@ function appendIntervention(sessionId, record) {
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
-    await repairInterventionTornTail(file); // 75a: truncate torn tail before append (prevent weld)
+    await repairMissionChangeTornTail(file); // 75a/117q-B6: truncate torn tail before append (prevent weld)
     await fsp.appendFile(file, line, 'utf8');
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
   }).catch(() => {});

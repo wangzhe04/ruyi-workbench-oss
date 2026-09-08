@@ -265,7 +265,8 @@ function spawnWb() {
 
     // ============ (h) 75a: 撕裂尾行 append 前物理截断 ============
     // 写「有效 pending 行 + 撕裂尾行(无 \n)」-> 重启 -> boot markInterruptedInterventions 为 pending append
-    // cancelled_restart 时,appendIntervention 先 repairInterventionTornTail 截断撕裂尾再 append。
+    // cancelled_restart 时,appendIntervention 先 repairMissionChangeTornTail 截断撕裂尾再 append
+    // (117q-B6:与 session-changes/inbox 同一份原语,旧 repairInterventionTornTail 已收编删除)。
     // 断言:撕裂尾(torn_line_xyz)被截断不在文件;新 append 干净;文件以 \n 结尾。
     {
       const sidH = sidC, isoH = new Date().toISOString();

@@ -242,6 +242,10 @@ module.exports = {
   readMissionChangesWithMeta,
   bumpMissionChangeSeq,
   sessionBodyPaths,
+  // 117q-B6(30 号文 P2-10/P2-11):尾窗读原语 + 撕裂尾修复合一 — exposed for e2e 字节级直测
+  // (造真撕裂尾文件、跑修复、断言截断后字节逐字节等于预期;不经 HTTP,直接函数调用可控)。
+  readFileTail,
+  repairMissionChangeTornTail,
   recordEngineTranscript,
   claudeProjectsRoot,
   claudeProjectDirKey,
