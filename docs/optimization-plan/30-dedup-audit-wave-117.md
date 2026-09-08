@@ -277,7 +277,7 @@
 
 **生成器链**（最后一次 `src/` 改动之后整条重跑）：
 `node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
-`node ruyi-workbench/tools/gen-manifest.js` → `node dev-harness/architecture-contract-snapshots.js` →
+`node dev-harness/architecture-contract-snapshots.js` →
 `node dev-harness/facts-generate.js`。
 
 ## 8. 交接状态（2026-09-08，用户额度将尽，换 agent 接手）
@@ -406,7 +406,7 @@
 
 **生成器链**（最后一次 `src/` 改动之后整条重跑）：
 `node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
-`node ruyi-workbench/tools/gen-manifest.js` → `node dev-harness/architecture-contract-snapshots.js` →
+`node dev-harness/architecture-contract-snapshots.js` →
 `node dev-harness/facts-generate.js`。
 
 ## 8.8 第二段进度（2026-09-08 晚，主会话回到 Fable 手上之后）
@@ -465,3 +465,53 @@
 **并发纪律的经验值**：`src/` 切片的真正串行点是**生成器链**（任何改 `src/` 的刀都要重跑
 `module-dependency-graph --write` 等，产物互相覆盖）。所以同一时刻**只放一把改 `src/` 的刀**，
 其余的排到 `dev-harness/` 或 `public/js/` 这类不进生成器链的面上并行。
+
+## 8.9 两条我自己派单稿里的错，以及一条我自己的设计误判（2026-09-08，主会话自查）
+
+### ① 生成器链里混进了一个不属于它的工具（已改正）
+
+本文 §7 与 §8.7 原来写的链是
+`route-inventory` → `module-dependency-graph --write` → **`ruyi-workbench/tools/gen-manifest.js`** →
+`architecture-contract-snapshots` → `facts-generate`。**中间那一步是错的。**
+
+- `ruyi-workbench/tools/gen-manifest.js` 的签名是 `gen-manifest.js <payloadDir> <version> [overlayLabel]`，
+  它产出的是 **`update-manifest.json`** —— **发行包完整性清单**（`/api/status` 拿它校验 payload 的 sha256），
+  与 `src/manifest.json` 是两个完全不同的文件。裸跑（不给 payloadDir）会去遍历整个仓库。
+- `ruyi-workbench/app/src/manifest.json` 的真正所有者是 **`ruyi-workbench/app/build.js`**
+  （`build.js:72` 起的 `manifestPath` / `rangeMismatches()` 那一段，负责校验并写回行区间）。
+  也就是说**只要跑了 `build.js`，`src/manifest.json` 就已经是新的**，不需要额外一步。
+
+**正确的链**（已就地改正两处）：
+`node dev-harness/route-inventory.js` → `node dev-harness/module-dependency-graph.js --write` →
+`node dev-harness/architecture-contract-snapshots.js` → `node dev-harness/facts-generate.js`
+（`src/manifest.json` 由 `build.js` 顺带写。）
+
+这条错在 117q-B5 那一刀上被执行者当场识破并拒绝执行（它用 TaskStop 中止了那个卡死的进程，
+并在报告里说明理由）。**这是派单稿的错，不是执行者的错**，记在这里免得下一个人照着错的链跑。
+
+### ② `TOOL_TIER_RANK` 的落点我选错了（待改）
+
+117q-B5 的派单稿里我把 `TOOL_TIER_RANK`（`{read:0, edit:1, exec:2}`）指到了 `07-autonomy.js`，
+理由是「`nativeToolTier`/`bridgedToolTier` 就在那儿，是本仓既有的工具分级事实源」。
+**这个语义理由不足以抵消它的架构代价**：`09b-replan-ledger.js` 此前**从未消费过 07 的任何符号**，
+于是这次收编**新增了一条循环边** `09b-replan-ledger.js->07-autonomy.js`，
+必须登记进 `module-dependency-policy.json` 的白名单并附架构审查说明。
+
+**更好的落点是 `00-boot.js`**：`07`／`08`／`09b` 三个消费者**全部已经依赖 `00-boot`**
+（`09b-replan-ledger.js->00-boot.js` 早在 110-4a 就已登记），所以放那里**新增边数为零**，
+既不需要白名单条目、也不需要架构审查。而 `TOOL_TIER_RANK` 只是一张纯查表常量，没有任何 autonomy 语义，
+放 `00-boot` 不损失可读性。
+
+**待办**：把 `TOOL_TIER_RANK` 从 `07-autonomy.js` 移到 `00-boot.js`，六个引用点改指过去，
+**并把 `09b-replan-ledger.js->07-autonomy.js` 这条白名单条目撤掉**（移完之后 09b 不再引用 07 的任何符号，
+那条边会真的消失，留着就变成一条陈旧条目）。与「P2-16 `argsHash` 两份」并成一刀做
+（两者都往 `00-boot.js` 加符号、都要重跑生成器链，必须同刀，不能并发）。
+
+`LOOP_GUARD_LIMITS` 留在 `07-autonomy.js` **不动**：它的两个消费者 `08`／`09` 对 07 的边**本来就存在**，
+放那里新增边数同样为零，而它确实是「回合护栏」的语义归属。
+
+### ③ 一条纪律，从 ① 里长出来的
+
+派单稿写的命令**执行者有权拒绝并上报**，而不是硬着头皮跑完。117q-B5 与 117q-P1-31 这两刀
+都做对了这件事（前者拒跑错命令，后者把三类边界面 escalate 上来等裁决而不是自己扩权）。
+**这比「完成度」更值钱** —— 派单稿是人写的，会错。
