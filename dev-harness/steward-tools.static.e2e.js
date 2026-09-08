@@ -194,6 +194,8 @@ const BRANCHES = [
   "resultStatus === 'complete') state = 'done';",
   "autoMode === 'until-done' || src.liveRuns > 0) state = 'running';",
   "src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';",
+  // 117p-S2(30 号文 §8.3):无账本线程分支,位置钉在 dispatching 之后、stopped 兜底之前。
+  "else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';",
   "else state = 'stopped';",
 ];
 let branchBad = [];

@@ -31,7 +31,8 @@
   }
 
   // 归一化输入(卡片与详情快照都可适配进来,见 fromCard/fromSnapshot):
-  //   { kind, autoMode, budgetExhausted, resultStatus, pending, activeTurn, liveRuns, runCount, turnSeq, milestonesTotal, milestonesDone }
+  //   { kind, autoMode, budgetExhausted, resultStatus, pending, activeTurn, liveRuns, runCount, turnSeq,
+  //     milestonesTotal, milestonesDone, ledgerless, lastTurnFailed }
   function deriveMissionState(n) {
     const src = {
       kind: n.kind || 'quick_ask',
@@ -45,6 +46,11 @@
       turnSeq: Math.max(0, Number(n.turnSeq) || 0),
       milestonesTotal: Math.max(0, Number(n.milestonesTotal) || 0),
       milestonesDone: Math.max(0, Number(n.milestonesDone) || 0),
+      // 117p-S2(30 号文 §8.3):无账本线程的两个新证据键。ledgerless 的唯一判据是卡片
+      // status === 'none'(13d missionCardStatus(null) 的返回值)/ 会话头没有 mission 容器 ——
+      // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
+      ledgerless: n.ledgerless === true,
+      lastTurnFailed: n.lastTurnFailed === true,
     };
     let state;
     // 0. Quick Ask 逃生舱:显式 kind,不进入任务五态(概念稿:速问是必需品不是锦上添花)。
@@ -57,6 +63,10 @@
     else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
     // 4. 交办中:立了单但还没有任何执行痕迹(无 run、无回合、无里程碑完成)——刚交办待启动。
     else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
+    // 4b. 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
+    // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
+    // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
+    else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
     // 5. 已停工:其余一切 —— 结果章 stopped / 预算耗尽(supervised 待命)/ 用户停驱(idle)——诚实:活没在干。
     else state = 'stopped';
     return { state, label: LABELS[state] || state, sources: src };
@@ -75,7 +85,12 @@
       activeTurn: card && card.activeTurn === true,
       liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
       runCount: card && card.runCount,
-      turnSeq: 0, // 卡片无 turnSeq;dispatching 判据由 runCount + milestonesDone 承担(卡片语义足够)
+      // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
+      // 旧索引里的存量卡片没有这两个键 -> turnSeq 归一成 0、lastTurnFailed false,行为退回修前,
+      // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
+      turnSeq: card && card.turnSeq,
+      ledgerless: !!(card && card.status === 'none'),
+      lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
       milestonesTotal: m.milestonesTotal,
       milestonesDone: m.done,
     });

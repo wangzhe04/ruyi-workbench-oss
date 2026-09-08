@@ -6,7 +6,10 @@
 // 不升号的话,盘上那些 sourceStamp 没变过的会话【不会重建】,它们的卡片会一直缺这两个键 —— 壳层
 // 那句 displayTitle || title 于是一直回落到原话,而摘要明明已经写在会话头上了。索引是纯派生物
 // (durable-state 清册记的就是 fully regenerable),升号的代价只是启动后第一次读时全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 3;
+// 117p-S2:3 -> 4。卡片又加了 turnSeq 与 lastTurn(30 号文 §8.3,五态判据的新证据)。这次【必须】
+// 强制整份重建,而不只是形状升级 —— 否则存量那些已经跑完的管家线程的旧卡片永远不会再刷新
+// (它们的会话文件不会再变,sourceStamp 不动),无账本线程的五态就一直卡在「交办中」。
+const PRETENDER_INDEX_SCHEMA = 4;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;

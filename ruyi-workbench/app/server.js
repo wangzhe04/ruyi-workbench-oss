@@ -18879,6 +18879,11 @@ function deriveStewardThreadState(n) {
     turnSeq: Math.max(0, Number(input.turnSeq) || 0),
     milestonesTotal: Math.max(0, Number(input.milestonesTotal) || 0),
     milestonesDone: Math.max(0, Number(input.milestonesDone) || 0),
+    // 117p-S2(30 号文 §8.3):无账本线程的两个新证据键。ledgerless 的唯一判据是卡片
+    // status === 'none'(13d missionCardStatus(null) 的返回值)/ 会话头没有 mission 容器 ——
+    // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
+    ledgerless: input.ledgerless === true,
+    lastTurnFailed: input.lastTurnFailed === true,
   };
   let state;
   if (src.kind === 'quick_ask') state = 'quick_ask';
@@ -18886,6 +18891,10 @@ function deriveStewardThreadState(n) {
   else if (src.resultStatus === 'complete') state = 'done';
   else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
   else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
+  // 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
+  // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
+  // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
+  else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
   else state = 'stopped';
   return { state, label: stewardStateLabel(state), sources: src };
 }
@@ -18903,7 +18912,12 @@ function stewardThreadStateFromCard(card) {
     activeTurn: card && card.activeTurn === true,
     liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
     runCount: card && card.runCount,
-    turnSeq: 0,
+    // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
+    // 旧索引里的存量卡片没有这两个键 -> turnSeq 归一成 0、lastTurnFailed false,行为退回修前,
+    // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
+    turnSeq: card && card.turnSeq,
+    ledgerless: !!(card && card.status === 'none'),
+    lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
     milestonesTotal: m.milestonesTotal,
     milestonesDone: m.done,
   });
@@ -40062,6 +40076,13 @@ async function buildMissionCard(head, runs, opts = {}) {
     ...(sessionBriefOf(head) ? { brief: sessionBriefOf(head) } : {}),
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
+    // 117p-S2(30 号文 §8.3):五态判据需要的两个卡片字段 —— 都只是会话头已有字段的投影,不新增
+    // 持久化来源(与 lastSay / displayTitle 同一条纪律)。缺了它们,两份五态抄写件只能把 turnSeq
+    // 硬编码成 0,于是「跑过回合但头上没有 mission 账本」的管家线程永远落不进 done/stopped。
+    turnSeq: Math.max(0, Number(head.turnSeq) || 0),
+    lastTurn: head.stewardLastTurn && typeof head.stewardLastTurn === 'object'
+      ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
+      : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
@@ -40164,6 +40185,10 @@ async function buildMissionAggregateRows(options = {}) {
         activeTurn: activeChildren.has(meta.id),
         runCount: 0,
         turnSeq: head && head.turnSeq,
+        // 117p-S2:与 13g thread_status / 13h 总览同一条投影 —— 无账本判据只认「头上没有 mission 容器」,
+        // 与卡片侧 card.status === 'none' 同义;不许拿 milestonesTotal === 0 之类的近似顶替。
+        ledgerless: !(head && head.mission),
+        lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask' });
     group.threads.push({
@@ -41526,7 +41551,10 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // 不升号的话,盘上那些 sourceStamp 没变过的会话【不会重建】,它们的卡片会一直缺这两个键 —— 壳层
 // 那句 displayTitle || title 于是一直回落到原话,而摘要明明已经写在会话头上了。索引是纯派生物
 // (durable-state 清册记的就是 fully regenerable),升号的代价只是启动后第一次读时全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 3;
+// 117p-S2:3 -> 4。卡片又加了 turnSeq 与 lastTurn(30 号文 §8.3,五态判据的新证据)。这次【必须】
+// 强制整份重建,而不只是形状升级 —— 否则存量那些已经跑完的管家线程的旧卡片永远不会再刷新
+// (它们的会话文件不会再变,sourceStamp 不动),无账本线程的五态就一直卡在「交办中」。
+const PRETENDER_INDEX_SCHEMA = 4;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -43602,7 +43630,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
       activeTurn: activeChildren.has(sessionId),
       runCount: 0,
-      turnSeq: head.turnSeq,
+      turnSeq: head.turnSeq, ledgerless: !head.mission, lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)), // 117p-S2(§8.3):无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;13g 行闸所迫挤一行,释义见 06i/13d 同名键注释
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');
@@ -45277,6 +45305,10 @@ async function stewardThreadDigestRows(config) {
         resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
         turnSeq: head.turnSeq,
+        // 117p-S2:与 13g thread_status / 13d 事项聚合同一个喂法 —— 无账本判据只认
+        // 「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义。
+        ledgerless: !head.mission,
+        lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const settled = derived.state === 'done' || derived.state === 'stopped';

@@ -518,6 +518,13 @@ async function buildMissionCard(head, runs, opts = {}) {
     ...(sessionBriefOf(head) ? { brief: sessionBriefOf(head) } : {}),
     createdAt: head.createdAt || '', updatedAt: head.updatedAt || '',
     status: missionCardStatus(m),
+    // 117p-S2(30 号文 §8.3):五态判据需要的两个卡片字段 —— 都只是会话头已有字段的投影,不新增
+    // 持久化来源(与 lastSay / displayTitle 同一条纪律)。缺了它们,两份五态抄写件只能把 turnSeq
+    // 硬编码成 0,于是「跑过回合但头上没有 mission 账本」的管家线程永远落不进 done/stopped。
+    turnSeq: Math.max(0, Number(head.turnSeq) || 0),
+    lastTurn: head.stewardLastTurn && typeof head.stewardLastTurn === 'object'
+      ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
+      : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
@@ -620,6 +627,10 @@ async function buildMissionAggregateRows(options = {}) {
         activeTurn: activeChildren.has(meta.id),
         runCount: 0,
         turnSeq: head && head.turnSeq,
+        // 117p-S2:与 13g thread_status / 13h 总览同一条投影 —— 无账本判据只认「头上没有 mission 容器」,
+        // 与卡片侧 card.status === 'none' 同义;不许拿 milestonesTotal === 0 之类的近似顶替。
+        ledgerless: !(head && head.mission),
+        lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask' });
     group.threads.push({

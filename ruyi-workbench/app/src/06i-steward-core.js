@@ -352,6 +352,11 @@ function deriveStewardThreadState(n) {
     turnSeq: Math.max(0, Number(input.turnSeq) || 0),
     milestonesTotal: Math.max(0, Number(input.milestonesTotal) || 0),
     milestonesDone: Math.max(0, Number(input.milestonesDone) || 0),
+    // 117p-S2(30 号文 §8.3):无账本线程的两个新证据键。ledgerless 的唯一判据是卡片
+    // status === 'none'(13d missionCardStatus(null) 的返回值)/ 会话头没有 mission 容器 ——
+    // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
+    ledgerless: input.ledgerless === true,
+    lastTurnFailed: input.lastTurnFailed === true,
   };
   let state;
   if (src.kind === 'quick_ask') state = 'quick_ask';
@@ -359,6 +364,10 @@ function deriveStewardThreadState(n) {
   else if (src.resultStatus === 'complete') state = 'done';
   else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
   else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
+  // 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
+  // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
+  // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
+  else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
   else state = 'stopped';
   return { state, label: stewardStateLabel(state), sources: src };
 }
@@ -376,7 +385,12 @@ function stewardThreadStateFromCard(card) {
     activeTurn: card && card.activeTurn === true,
     liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
     runCount: card && card.runCount,
-    turnSeq: 0,
+    // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
+    // 旧索引里的存量卡片没有这两个键 -> turnSeq 归一成 0、lastTurnFailed false,行为退回修前,
+    // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
+    turnSeq: card && card.turnSeq,
+    ledgerless: !!(card && card.status === 'none'),
+    lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
     milestonesTotal: m.milestonesTotal,
     milestonesDone: m.done,
   });

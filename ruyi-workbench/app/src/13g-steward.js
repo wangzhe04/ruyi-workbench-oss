@@ -620,7 +620,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
       activeTurn: activeChildren.has(sessionId),
       runCount: 0,
-      turnSeq: head.turnSeq,
+      turnSeq: head.turnSeq, ledgerless: !head.mission, lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)), // 117p-S2(§8.3):无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;13g 行闸所迫挤一行,释义见 06i/13d 同名键注释
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');

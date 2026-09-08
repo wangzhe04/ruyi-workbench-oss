@@ -296,6 +296,10 @@ async function stewardThreadDigestRows(config) {
         resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
         turnSeq: head.turnSeq,
+        // 117p-S2:与 13g thread_status / 13d 事项聚合同一个喂法 —— 无账本判据只认
+        // 「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义。
+        ledgerless: !head.mission,
+        lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const settled = derived.state === 'done' || derived.state === 'stopped';
