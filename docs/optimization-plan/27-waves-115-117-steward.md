@@ -477,6 +477,29 @@
   - **两条查了但不是 bug**：抽屉「看全文」看着被分隔线压半截 —— DOM 几何 261–277 vs 下一块 289，是滚动阴影；`resumable.live` 之外的「它刚说」在回合刚结束那一拍仍显示旧值是轮询节拍（5s），不是数据错。**夹具五个坑**记进记忆（客户端断流即 `turn_kill(disconnected)`、同 cwd 写锁串行、非 mission 会话不进 `/api/missions`、易变前缀拼在首条 user 消息前、假管家别在收件箱回合调工具）—— 三趟验收里两趟的红全是它们。
   - **门**：路由判定点 127→128、鉴权表 115→116、facts nativeTools 89 不变、e2e 315、unit 29；13g 1998 行（<2000 未放宽，靠把纯判定搬进 06i/13h 守住）；模块 41／边 319；CSS 载荷 SHA `bab77e27…` → `f4cce185…`（B1）→ `d2856ad3…`（B2①）→ `b345f06f…`（B2②）。**全量回归**（隔离 worktree，`--parallel 4`）：`558a32a` 上 299 pass／9 fail／9 flaky，9 条失败逐一复核 —— 5 条单跑绿（并行争抢），4 条是 worktree 缺本地未入库 fixture 目录（`realhist-fixtures`）或断言写死仓库目录名（`pretender-dispatch-home` C1），主树单跑全绿，**零确定性红**。**最终 HEAD `9d4a3cd`**：300 pass／8 fail／9 flaky／308 ran／7 skipped，8 条失败件逐一复核 —— `multi-session-parallel`、`responses-websearch-fake`、`budget-guard`、`perf` 在 worktree 单跑绿（并行争抢），`observation-recall` ×2、`session-notes`、`pretender-dispatch-home` 在主树单跑绿（worktree 缺本地 fixture／断言写死目录名），**零确定性红**；9 flaky 与既有时序名单重合。
   - **治理登记**：收件箱行／总览行的占位标题要吃到首条消息摘录得多读一次正文（每线程一次 I/O）；`steward-drawer.static` C2「零 setTimeout」与 `steward-shell` 的 setInterval 计数继续是硬约束（本波两处都靠 `animationend`／节拍闸绕开）；桌面壳 exe 不进 git，发版要单独重建。
+#### 11.6.117m 117m + 117n 交付记录（2026-09-08，用户第六轮走查六条 + 熔断；Fable 设计与验收，Opus／Sonnet 实现）
+
+设计页 §11.10。九个 commit，全部由 Fable 在主树逐条复核（子代理报告里的「已验证」一律重跑）。
+
+| commit | 切片 | 根因 → 修法 |
+| --- | --- | --- |
+| `5566d89` | 设计页 | §11.10：真机日志证据、D1–D7 定案、切片表与验收口径 |
+| `11d8a05` | A5 看全文 | 管家起的回合没有客户端挂在流上，正文要到回合结束才落盘（真机：53 次工具调用，messages.ndjson 只有 1 行）→ 04 的 liveTail 从「尾巴」扩成「本回合正文 + 最近工具名」（不落盘、不含工具参数与结果），经既有 `GET /api/sessions/:id` 下发；经典壳一张临时气泡 + 单点 3s 节拍 |
+| `b7230d7` | A2 四类待决 | `stewardAsksYouForThread` 只认 question，而用户那条线程 14 条待决全是 permission → 扩到 question>permission>plan>pool，人话仍走 `stewardPendingOneLine` 单点；看板 pill 按类说话；抽屉问答卡吃下 permission（复用既有决策通道）；状态行「N 条等你」直达 |
+| `b4325bb` | A1 权限档+熔断 | ① `auto` 档 exec 一律 ask 而三处界面都叫它「全自动」→ 高风险判据复用 `stewardToolPermanentlyExempt`，命中才问；② 回合中途改档对活回合无效（02 的覆盖表从没被闸门读过）→ 只在本回合被改过时接管；③ 小时窗把用户自己的话也挡了（真机两条 `trigger:'user'`）→ 只节流自主回合，默认 12→30；④ 收件箱合并窗口 5s→30s |
+| `90691d3` | A3 交办台 | `kind:'mission'` 而 `mission:null` 是合法状态，`/changes` 对它 404 把整块面板换成错误卡 → 回 200 空清单；CLI 桥闸门补参同口径；`needsYouCount` 修前是死字段（声明了、presence 读了、全仓没人写）→ 看板只读句柄喂进 presence；06i 补第三道判据：结构化入参里的写型 HTTP 方法 + `mcp_configure`（A1 把这条判据接成原生闸门的免检线后，漏判的后果从「管家替你按」变成「根本不问就发出去」） |
+| `adf1997` | A6 审查回补 | 四路只读审查报回：P0-1 请求级档被会话级中途改动静默顶掉；P0-2 惰性补的账本被中途重读吃掉（暂停正在跑的线程 → 回合真停了却报 500）；P1 交办台按钮判据侧没跟着修（七个按钮全灰、执行侧修复走不到）；P1 首屏刷新 Promise.all 一挂清空面板；P1 管家输入框漏 `isComposing`（中文候选词回车误发）；P2 活回合气泡首帧留白。另加 `unit/permission-ceiling.test.js` 把「管家能自动放行的、原生引擎也必须允许」这条只写在注释里的天花板不变量钉成红线 |
+| `c87df6e` | A4 暂停线程 | `steward_run_action` 是班组动作（要 runId），普通线程没有 run，管家只能拿它凑 → 必然 `invalid_request` → 前端把机器码原样贴出 = 用户看到的「invalid」。新原语 `steward_thread_stop`（复用 stopSession + 出队 + 撤授权书三个既有核心），收紧类任何档都可直接执行，没在跑回 `not_running` + 人话；`run_action` 缺 runId 改成能自纠正的人话。工具数 89→90 |
+| `bc2bbfd` | README 上锁 | 门面数字漂了好几波（89/243/15 vs 真值 90/318/30），因为没有任何机器在看 → 按 facts.json 刷新十二处 + 三条对账断言（只要求真值出现过，不钉句式） |
+| `c469bdb` | 117n-M2 合并 | ① `mcp_configure` 工具面漏三项副作用（删连接器不记 `dismissedMcpIds`→重启被自动加回、不重生成 `.mcp.json`、没有 drop-in/内置护栏）→ 护栏下沉到 04 + 新内核 `mutateMcpConnector`，HTTP 面与工具面同走一条路；② 配置「读-改-写」被 9 处绕过，锁只保护物理写 → `mutateConfig` 全程持锁，裸 `writeConfig` 调用点 10→1。修前实测 5 路并发只活 1 个（丢失更新真身），修后 5/5 |
+| `6155e92` | 生成器链收口 | 两片各自在干净副本 build，共享再生物没人提交 → 依赖图 41 模块 320 边、路由清册 128 判定点双向无漂移 |
+
+**并发施工的教训（记进纪律）**：这一波六个切片并行跑在同一棵主树上，出过一次真实事故 —— 某片用底层
+命令提交时基线与父提交对不上，**把上一个 commit 整个回退了**（当事片自己发现并 CAS 回滚重做）。
+此后各片一律「`git archive HEAD` 出干净副本 → 只覆盖自己的文件 → 在副本里 build → 用 `hash-object`
++ `update-index` 把干净产物入索引」，共享再生物（`server.js`／`manifest.json`／依赖图／路由清册／
+`facts.json`）由主会话最后统一重跑一次收口。**并行派单前先把文件白名单切干净，是这条流水线的前提。**
+
 ### 11.7 停点与待派清单（2026-09-06 夜，用户额度将尽，明日续；Fable 写）
 
 **2026-09-07 下午追加**：用户第四轮走查（七条 + 一条桌面崩溃）立项 **117l**，设计页与派单见 §11.9（Fable 设计与验收，Opus／Sonnet 实现）。**当晚已全部入库**（九个 commit，交付记录见 §11.6「117l」）；挂起两条治理项：收件箱行／总览行的占位标题摘录（要多读一次正文）、桌面壳 exe 发版单独重建。
@@ -767,3 +790,66 @@ A1／A2／A3 并行（文件不相交，各自显式路径提交）；B1 串行�
 - ③ 对没有班组的线程按「暂停这条线程」→ 真的停，或给一句人话，绝不出现 `invalid`。
 - ④ 交办台打开一条 `mission:null` 的线程不报错。
 - 门：`run-all --parallel 4` 无新增确定性红；工具数与路由判定点变化在交付记录里写明。
+
+### 11.11 117p 设计页 · 用户第七轮走查（2026-09-08，一张截图；Fable 设计与验收，Sonnet 实现）
+
+**用户原话**：「其实 2.0 回合已经跑完了，但是管家没有收到体现也没收工。」
+
+截图里那条线程「大A接下来的走势会怎么样」抽屉顶部标着「交办中」，管家侧「它刚说」停在半路，
+用户问「现在呢」时管家只能说「一直在跑、没卡住也没在问你」。**实际上这条线程 11 分钟前就跑完了。**
+
+#### 证据（用户真机数据目录，2026-09-08，不看截图看账）
+
+| 事实 | 出处 |
+|---|---|
+| 会话真的跑完了：`turnSeq: 1`、`launchedBy: "steward"`、`stewardLastTurn: {seq:1, ok:true, aborted:false, at:"2026-09-08T05:11:29.172Z"}`、`messages.ndjson` 两行（user + assistant） | `sessions/sess_e97b29759a586485.json` |
+| 收件箱游标却记着 `sessionTurns["sess_e97b29759a586485"] = {turnSeq:1, stamp:"249228…"}` | `steward/cursor-v1.json` |
+| 箱子里这条会话**零行**（最后一行是 02:41 的 needs_you） | `steward/inbox-v1.ndjson` |
+| `server_start` 在 02:18:46Z，会话建于 05:00:37Z —— 首见时 `stewardRuntime.cold` 早已 false，排除「冷启动只建基线」 | `logs/workbench-2026-09-08.ndjson` |
+| 这条线程 `mission` 为 **null**（`kind:'mission'` 但没有账本容器）——三条源日志一个字都不会写 | 同会话头 |
+
+#### 两处根因（都不是「没实现」，是判据用错了字段）
+
+**S1 · 收件箱第四源的基线 off-by-one。** `13i-steward-inbox.js` 的 `stewardCollectSessionTurn`
+在「首见就撞上活回合」时写 `{ turnSeq: known ? known.turnSeq : turnSeq }`。
+而 `turnSeq` 是在回合**开始**那一刻就 +1 落盘的（`05-claude-engine.js:88`、`09-workflow.js:1292`，
+两处都紧跟 `saveSession`），**不是**「已经跑完的回合数」。于是首见时基线被记成**正在跑的那一回合**，
+回合真结束后 `turnSeq` 没再前进 → `turnSeq <= baseline` → 唯一那条 `done` 被**永久吞掉**。
+轮询 15 秒一轮而线程回合动辄几分钟 → **管家自己开的线程第一回合几乎必然命中**，
+也就是说「管家派出去的线程跑完了」这件事在真机上一次也没报出来过。
+另有一处窄窗口：`09:1292` 落盘 turnSeq 之后还要跑 `captureWorkspaceTurnBaseline`（大工作区好几秒）
+才 `activeChildren.set`（`09:1381`），首见落进这个窗口会当场报一条「跑完了」（其实还在跑）
+并把基线推到当前 turnSeq——真跑完时反而再也报不出来。
+判据用确定性落盘证据（13g 在 settle 之后写的 `stewardLastTurn.seq` 追平 `turnSeq`），**且只在首见那一次用**——
+否则用户在 2.0 视窗里自己接着聊的回合（它们不写 `stewardLastTurn`）会被永久判成「还没结束」，
+那是把一个洞换成另一个洞。
+
+**S2 · 五态判据把 `turnSeq` 硬编码成 0。** `06i-steward-core.js:367 stewardThreadStateFromCard`
+与它的前端抄写件 `public/js/mission-state.js fromCard` **都写死 `turnSeq: 0`**，注释理由是
+「卡片无 turnSeq；dispatching 判据由 runCount + milestonesDone 承担（卡片语义足够）」。
+这个假设对 2.0 任务单成立（一定有 mission 账本和 run），对管家线程**不成立**：
+`steward_thread_new` 只写 `kind:'mission'`，mission 容器要 `POST /api/missions` 才有。
+于是 `runCount===0 && turnSeq===0 && milestonesDone===0` 恒真 → **永远「交办中」**。
+`13d-core-domain-routes.js:609` 的注释**已经警告过这件事**（「少喂 turnSeq 会把一条跑过回合的线程说成交办中，
+和 thread_status 的『已停工』打架」），但当时只修了没有卡片的那条分支，有卡片那条（也就是真实路径）没修。
+
+#### 修法与验收判据
+
+- **S1**：活回合分支基线取 `Math.max(0, turnSeq - 1)`；首见分支对「管家发起、`stewardLastTurn` 还没追平」
+  的线程延后一轮再报。回归 e2e 必须复现「回合还在跑时轮询器第一次看见它」这个时序，
+  并做**反向验证**（把那一行改回旧写法，确认新测试真的红）。
+- **S2**：`13d buildMissionCard` 给卡片补 `turnSeq` 与 `lastTurn{seq,ok,aborted}`（都是会话头已有字段的投影，
+  不新增持久化来源）；两份五态抄写件同步加一条**无账本线程**分支：没有里程碑、没有结果章、没有班组、
+  跑过回合、此刻没在跑 → **已收工**；末回合 `ok:false` 或 `aborted` → **已停工**；
+  账缺席按成功算（与 13i 的 `@sessionTurn` 解析器「账缺席一律 done」同口径）。
+  `13e` 的 `PRETENDER_INDEX_SCHEMA` **3 → 4**（卡片形状变了，且必须强制重建——
+  否则存量已跑完的线程旧卡片永远不刷新，用户那条线程会一直卡在「交办中」），
+  同步更新 `dev-harness/durable-state-inventory.js:75` 与两份生成视图。先例：116-5b 的 2 → 3。
+- **走查判据**：管家开一条线程 → 线程跑完 → **管家在一个轮询周期内主动转述结论**；
+  抽屉与看板上那条线程从「交办中」变成「已收工」；用户主动停掉的线程显示「已停工」。
+
+#### 与 117q（重复造轮子普查）的关系
+
+S2 属于普查里的 B 类（同一事实两处各算一遍），故与 117q 同批做。
+普查的完整清单、分批派单顺序与每条的撞锁分析见
+[`30-dedup-audit-wave-117.md`](30-dedup-audit-wave-117.md)。
