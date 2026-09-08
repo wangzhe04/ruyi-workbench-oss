@@ -44,7 +44,7 @@ function reqJson(method, p, payload) {
     if (data) r.write(data); r.end();
   });
 }
-async function waitForHttp(attempts = 100) {
+async function waitForHttp(attempts = 300) { // 117q:预算 100×150ms=15s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)
   for (let i = 0; i < attempts; i++) { try { const r = await reqJson('GET', '/api/status'); if (r.status === 200) return true; } catch { /* not up yet */ } await sleep(150); }
   return false;
 }

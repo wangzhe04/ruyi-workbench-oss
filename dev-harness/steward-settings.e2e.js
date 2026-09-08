@@ -269,7 +269,7 @@ try {
     env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
     windowsHide: true, stdio: 'ignore',
   });
-  ok(Boolean(await waitForHttp(appPort, 'GET', '/health', result => result.status === 200)), 'A1 workbench started');
+  ok(Boolean(await waitForHttp(appPort, 'GET', '/health', result => result.status === 200, undefined, 300)), 'A1 workbench started'); // 117q:此启动门原吃默认 attempts=200(200×80ms=16s)低于 30 号文 P1-31 建议的 300×同款间隔量级,是「FAIL workbench up」假红的根;默认值被本文件下方大量业务断言调用复用,不能整体抬,这里改成显式传 300 只抬这一处(30 号文 P1-31)
 
   let token = '';
   for (let i = 0; i < 80 && !token; i++) {

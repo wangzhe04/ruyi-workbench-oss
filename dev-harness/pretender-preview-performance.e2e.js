@@ -255,7 +255,7 @@ const VIEW_SWITCH_MEASURE = `(async () => {
       windowsHide: true,
       stdio: 'ignore',
     });
-    const healthy = await waitForHttp(appPort, '/health', result => result.status === 200);
+    const healthy = await waitForHttp(appPort, '/health', result => result.status === 200, 300); // 117q:此启动门原吃默认 attempts=140(140×60ms=8.4s)小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根;本文件此助手只此一处调用,仍按同批 12 处一致的编辑形态显式传 300 而不改默认(30 号文 P1-31)
     ok(Boolean(healthy), 'A1 75c-scale workbench started');
     const executable = browserPath();
     ok(Boolean(executable), 'A2 Edge/Chrome found');

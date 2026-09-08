@@ -40,7 +40,8 @@ const { aggregateMissionState, stewardThreadStateFromCard } = srv;
 
 function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
-async function waitToken() { for (let i = 0; i < 60; i++) { const t = readToken(); if (t) return t; await sleep(100); } return ''; }
+async function waitToken() { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return ''; }
 
 function request(method, pathname, body, token, extraHeaders) {
   return new Promise((resolve, reject) => {

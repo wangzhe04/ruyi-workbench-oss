@@ -177,7 +177,7 @@ try {
   });
   server.stdout.on('data', chunk => { serverOutput += String(chunk); });
   server.stderr.on('data', chunk => { serverOutput += String(chunk); });
-  ok(Boolean(await waitForHttp(appPort, '/health', result => result.status === 200)), 'A1 workbench and fake provider started');
+  ok(Boolean(await waitForHttp(appPort, '/health', result => result.status === 200, 300)), 'A1 workbench and fake provider started'); // 117q:此启动门原吃默认 attempts=140(140×60ms=8.4s)小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根;默认值被本文件下方的业务断言调用复用,不能整体抬,这里改成显式传 300 只抬这一处(30 号文 P1-31)
   const token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token;
   const sessionResponse = await request(appPort, '/api/sessions', { title: 'Wave 81 decision journey', cwd: ROOT }, token);
   const sessionId = sessionResponse.json?.session?.id || '';

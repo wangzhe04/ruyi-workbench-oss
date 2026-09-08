@@ -259,7 +259,7 @@ try {
     cwd: WB, env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
     windowsHide: true, stdio: 'ignore',
   });
-  ok(Boolean(await waitForHttp(appPort, '/health', result => result.status === 200)), 'A1 workbench + fake provider started');
+  ok(Boolean(await waitForHttp(appPort, '/health', result => result.status === 200, 300)), 'A1 workbench + fake provider started'); // 117q:此启动门原吃默认 attempts=120(120×60ms=7.2s)小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根;本文件此助手只此一处调用,仍按同批 12 处一致的编辑形态显式传 300 而不改默认(30 号文 P1-31)
   // Seed after boot: boot intentionally terminalizes stale pending Interventions and may reconcile old runs.
   // The fixture represents live data created during this process lifetime, matching the user journey.
   ids = seedJourneys(home);

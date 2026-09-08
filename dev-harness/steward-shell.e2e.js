@@ -203,7 +203,7 @@ try {
     windowsHide: true,
     stdio: 'ignore',
   });
-  const healthy = await waitForHttp(appPort, '/health', result => result.status === 200);
+  const healthy = await waitForHttp(appPort, '/health', result => result.status === 200, 300); // 117q:此启动门原吃默认 attempts=200(200×60ms=12s)余量对本机冷启动实测 4.6-6.3s 偏窄,是「FAIL workbench up」假红的根;本文件此助手只此一处调用,仍按同批 12 处一致的编辑形态显式传 300 而不改默认(30 号文 P1-31)
   ok(Boolean(healthy), 'A1 workbench started');
   const executable = browserPath();
   ok(Boolean(executable), 'A2 Edge/Chrome found');

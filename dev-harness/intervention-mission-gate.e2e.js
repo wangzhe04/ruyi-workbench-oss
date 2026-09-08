@@ -123,7 +123,7 @@ try {
     cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true, stdio: 'ignore',
   });
   let token = '';
-  for (let i = 0; i < 100 && !token; i++) {
+  for (let i = 0; i < 300 && !token; i++) { // 117q:预算 100×120ms=12s 余量对本机冷启动实测 4.6-6.3s 偏窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
     await sleep(120);
     try { token = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
   }

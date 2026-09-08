@@ -163,7 +163,7 @@ try {
   });
   wb.stderr.on('data', d => String(d).trim() && console.error('[wb!] ' + String(d).trim()));
   let token = '';
-  for (let i = 0; i < 80 && !token; i++) {
+  for (let i = 0; i < 300 && !token; i++) { // 117q:预算 80×150ms=12s 余量对本机冷启动实测 4.6-6.3s 偏窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
     await sleep(150);
     try { token = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
   }
