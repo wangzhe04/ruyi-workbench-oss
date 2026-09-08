@@ -258,7 +258,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     (+[hidden] 守卫 / :hover / :focus-visible)，金色描边族，与行上的「它在问你」pill 同色系。
 // 两处都是 token 化配色、**零 transition**（故 reduced-motion 的关闭清单一个字没加）、无新样式层、
 // link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '434491eda320034bab9f474b1232ded8e5f6d8fa76983733c19ce097aa3de45a';
+// 117n-M1③（用户「看板圆点看不出已完成」走查）重钉，只动 css/views/steward-board.css 这一个
+// 【已注册的】所有权层，纯新增规则，其余每一层零漂移：
+//   · .steward-board-dot[data-tone="settled"] —— 看板圆点第四档「已完成」，复用抽屉 done 那一档
+//     同一个语义 token（--ok），不新造颜色；只在 paintDot 显式传 settleDone:true 时才会出现。
+// 无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '6def9be756181cc2c0302d517e5f19b36544a5f30058a5a9e876998b31dce4e3';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

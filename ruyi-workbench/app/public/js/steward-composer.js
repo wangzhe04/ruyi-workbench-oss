@@ -16,7 +16,7 @@
 // 纪律）；本模块唯一的 timer 是去抖 setTimeout（一处 setTimeout ＋ 一处 clearTimeout，都锁在
 // schedulePreroute/cancelPreroute 里）。
 
-import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈
+import { stewardEscapeStack, doc, byId, el } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈；117n-M1：DOM 基础件复用（doc/byId/el 不再本地重复）
 
 export const STEWARD_PREROUTE_DEBOUNCE_MS = 150;   // §8.12 第 1 条：目标 ≤50ms 出判定，150ms 去抖不抢跑
 export const STEWARD_PICKER_MAX = 8;               // 候选列表最多 8 条
@@ -46,15 +46,7 @@ export function createStewardComposer({
   isStewardMode = () => false,
   conversation = null,
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
-
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
+  // 117n-M1：doc/byId/el 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   // 117i：输入框右侧两枚圆键的线条图标（原型 .ic）。零 innerHTML —— SVG 也要 createElementNS，
   // 用 createElement('svg') 会造出一个 HTML 未知元素，画不出东西。

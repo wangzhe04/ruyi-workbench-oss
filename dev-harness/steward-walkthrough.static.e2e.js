@@ -237,8 +237,18 @@ const ok = (condition, label) => {
       'F3d copy-P3-3：主动作（真能解决问题的那一个）用统一的金色主按钮类');
 
     // copy-P1-1：※ 里不再漏工具 id。
-    ok(/import \{ STEWARD_TOOL_LABEL_KEYS \} from '\.\/steward-settings\.js';/.test(conversation),
-      'F4 工具人话表前端只有一份（从行动流水那边复用，不抄第二份）');
+    // 117n-M1 重钉（用户「查下有没有能合并的功能」走查）：STEWARD_TOOL_LABEL_KEYS 这张纯常量表从
+    // steward-settings.js 搬到了 steward-chips.js（零 import 的叶子模块，settings/conversation 两个
+    // 消费方原本就已经在 import 它的别的导出）。搬家切断了「conversation → settings」这条边——
+    // conversation 原来【只】为了这张表才 import settings.js；这一步是给「settings/board 反过来
+    // import steward-conversation.js 的 stewardErrorText 等函数」腾位置，不切断这条边就会造出循环
+    // import。表本身一个字没变：settings.js 仍然 import 它并原样 re-export，老的
+    // `mod.STEWARD_TOOL_LABEL_KEYS` 用法（steward-settings.static.e2e.js 的 H4）不受影响——
+    // 新判据比原来更强：不但要求「前端只有一份」，还要求 conversation.js 不再对 settings.js 有
+    // 任何依赖（模块依赖边被真的切断了，不只是表没抄两份）。
+    ok(/import \{ STEWARD_TOOL_LABEL_KEYS \} from '\.\/steward-chips\.js';/.test(conversation)
+      && !/from '\.\/steward-settings\.js';/.test(conversation),
+      'F4 工具人话表前端只有一份，住 steward-chips.js（从行动流水那边复用，不抄第二份）；conversation.js 不再依赖 steward-settings.js');
     ok(/function toolLabelOf\(row\) \{[\s\S]{0,320}return key \? String\(t\(key\)\) : String\(\(row && row\.tool\) \|\| ''\);/.test(conversation),
       'F4b 三级回落：后端标签 > 前端 i18n 表 > 工具 id（前两道都落空才用 id，那是诚实兜底）');
     ok(/tool: toolLabelOf\(row\),/.test(conversation),

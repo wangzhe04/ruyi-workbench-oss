@@ -23,6 +23,7 @@ const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/'
 const html = read('index.html');
 const conversation = read('js/steward-conversation.js');
 const composer = read('js/steward-composer.js');
+const chips = read('js/steward-chips.js');
 const stewardShell = read('js/steward-shell.js');
 const css = read('css/views/steward-conversation.css');
 const styles = read('styles.css');
@@ -54,8 +55,23 @@ for (const [name, source] of [['steward-conversation.js', conversationCode], ['s
   const imports = [...source.matchAll(/^import .* from '([^']+)';$/gm)].map(match => match[1]);
   ok(imports.every(spec => spec.startsWith('./')), `A2 ${name} 的 import 全部是本域内相对路径（零第三方库）`);
 }
-ok(/createElement\(/.test(conversation) && /textContent/.test(conversation),
-  'A3 对话流一律 createElement + textContent 生成（零 innerHTML 的正面证据）');
+// 117n-M1 重钉：el()/button() 搬进 steward-chips.js 集中定义（六个消费方零本地重复）之后，
+// conversation.js 自己不再直接调 .createElement——但它仍然只经从 chips.js import 的共享
+// el()/button() 生成节点，createElement 本体仍可在 chips.js 里查证。原判据只证明「某处调过
+// createElement」；新判据在此之上再加一条正面证据（零本地重复定义），是更强而不是更弱的版本。
+ok(/textContent/.test(conversation)
+  && /createElement\(/.test(chips)
+  && !/function el\(tag, className, text\) \{/.test(conversation)
+  && !/function button\(className, text, onClick\) \{/.test(conversation)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(conversationCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(conversationCode),
+  'A3 对话流的节点创建委托给 steward-chips.js 共享的 el()/button()（117n-M1 去重）：零本地重复定义，createElement 仍可在 chips.js 里查证（零 innerHTML 的证据没消失，只是搬了家）');
+// A3b companion：composer.js 同样去重（doc/byId/el），不定义第二份。
+ok(/import \{ stewardEscapeStack, doc, byId, el \} from '\.\/steward-chips\.js';/.test(composer)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(composerCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(composerCode)
+  && !/function el\(tag, className, text\) \{/.test(composerCode),
+  'A3c steward-composer.js 的 doc/byId/el 也从 steward-chips.js import，零本地重复定义');
 
 // ─── B 按钮行契约：≤3 且主动作唯一 ───────────────────────────────────────────────
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href);

@@ -167,9 +167,15 @@ ok(bandAt > chatPaneAt && bandAt < topbarAt
 ok(html.includes('id="stewardReturnBtn"') && html.includes('id="stewardReturnSession"')
   && html.includes('id="stewardReturnMission"') && html.includes('id="stewardReturnChips"'),
   'W117g-4 返回带四件事：回到管家 / 会话名 / 事项名 / 同一组快切 chip');
-ok(/import \{ createQuickSwitchChips \} from '\.\/steward-chips\.js';/.test(classicWindow)
-  && !/method: 'PATCH'/.test(classicWindowCode),
-  'W117g-5 带上的 chip 是 steward-chips.js 的同一个工厂，它自己不写第二条 PATCH');
+// 117n-M1 重钉：classic-window.js 的 chips import 那一行加了 doc/byId（DOM 基础件去重——本模块
+// 只搬节点、不建节点，所以只需要这两个，不需要 el/clear/button）。原判据只钉
+// createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出新增的两个名字，还额外证明
+// 零本地重复定义——比原来更精确，不是放宽。
+ok(/import \{ createQuickSwitchChips, doc, byId \} from '\.\/steward-chips\.js';/.test(classicWindow)
+  && !/method: 'PATCH'/.test(classicWindowCode)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(classicWindowCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(classicWindowCode),
+  'W117g-5 带上的 chip 是 steward-chips.js 的同一个工厂，它自己不写第二条 PATCH；同一条 import 顺带把 doc/byId 也接过来，零本地重复定义（117n-M1）');
 ok(/export const STEWARD_RETURN_STORAGE_KEY = 'wcw\.stewardReturn';/.test(classicWindow)
   && /sessionStorage\.setItem\(STEWARD_RETURN_STORAGE_KEY/.test(classicWindow)
   && /sessionStorage\.removeItem\(STEWARD_RETURN_STORAGE_KEY\)/.test(classicWindow),

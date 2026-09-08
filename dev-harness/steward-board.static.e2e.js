@@ -58,6 +58,8 @@ const ok = (condition, label) => {
 if (!globalThis.window) globalThis.window = globalThis;
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-board.js')).href);
 const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-drawer.js')).href);
+const previewShellMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'preview-shell.js')).href);
+const previewShell = read('js/preview-shell.js');
 
 // ─── A DOM 锚点 ─────────────────────────────────────────────────────────────────
 const headerStart = html.indexOf('id="stewardHeader"');
@@ -141,9 +143,12 @@ ok(mod.STEWARD_NOW_MIN_WIDTH === 1000 && /min-width: \$\{STEWARD_NOW_MIN_WIDTH\}
   'C6 ≥1000px 才常驻，断点是导出常量（与 CSS 那一条同一个数）');
 
 // ─── D chip 与线程动作原语都是复用 ──────────────────────────────────────────────
-ok(/import \{ createQuickSwitchChips \} from '\.\/steward-chips\.js';/.test(board)
+// 117n-M1 重钉：board.js 的 chips import 那一行加了 doc/byId/el/clear（DOM 基础件去重，见 F9
+// companion）。原判据只钉 createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出
+// 完整的四个新增名字——比原来更精确，不是放宽。
+ok(/import \{ createQuickSwitchChips, doc, byId, el, clear \} from '\.\/steward-chips\.js';/.test(board)
   && /compact: true,/.test(board),
-  'D1 快切 chip 是 steward-chips.js 的同一个工厂（紧凑模式：权限＋模型，引擎收进模型菜单）');
+  'D1 快切 chip 是 steward-chips.js 的同一个工厂（紧凑模式：权限＋模型，引擎收进模型菜单）；同一条 import 顺带把 DOM 基础件也接过来');
 ok(count(boardCode, /method: 'PATCH'/g) === 0 && !/permissionMode/.test(boardCode),
   'D2 看板不自己 PATCH 线程权限（唯一写口仍是 steward-chips.js）');
 ok(/if \(compact\) \{[\s\S]{0,240}buildEngineMenu\(menu\);/.test(chips)
@@ -167,6 +172,26 @@ ok(/api\('\/api\/steward\/arbiter\/prioritize'/.test(board)
 ok(/saveConfigPartial\(\{ stewardMaxParallelThreads: value \}\)/.test(board)
   && /await loadArbiter\(\);\s*renderArbiterFacts\(\);/.test(board),
   'D8 并发上限经既有配置写口，存完回读仲裁面确认（界面只说后端真答应了的数）');
+
+// ─── D9 117n-M1②：failNote 不再是第二份弱化的错误解包 ──────────────────────────
+// 修前 failNote 只是 `String(error.message || error)`——既不解结构化信封（对象会拍扁成
+// "[object Object]"）也不特判 steward.queued 的 wait.label。同一种排队失败，看板上的提示比
+// 抽屉里（steward-drawer.js:287 的 failNote）差。现在直接 import steward-conversation.js 的权威
+// 实现，不再自己写一份。
+ok(/import \{ stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(board),
+  'D9a board.js 的错误信封解包从 steward-conversation.js import，不是自己再写一份');
+ok(!/String\(\(error && error\.message\) \|\| error \|\| 'failed'\)/.test(boardCode),
+  'D9b 旧的弱化版 failNote（裸 String(error) 拍扁结构化信封）已经不在了');
+const failNoteBody = boardCode.slice(boardCode.indexOf('function failNote'), boardCode.indexOf('function failNote') + 600);
+ok(/const code = stewardErrorCode\(error\);/.test(failNoteBody)
+  && /if \(code === 'steward\.queued'\) \{/.test(failNoteBody)
+  && /stewardQueuedWaitLabel\(error\)/.test(failNoteBody)
+  && /stewardErrorText\(error\)/.test(failNoteBody),
+  'D9c failNote 先查 steward.queued 并取 wait.label（照 steward-drawer.js:287 的形状），其余情形一律经 stewardErrorText，不直落 String(error)');
+for (const key of ['stewardShell.chat.errQueued', 'stewardShell.chat.errQueuedPlain']) {
+  ok(typeof zh[key] === 'string' && typeof en[key] === 'string',
+    `D9d 复用的 i18n 键 ${key} 中英本来就齐备（看板不需要新开一套）`);
+}
 
 // ─── E 抽屉复用：不存在第二份抽屉区块渲染 ────────────────────────────────────────
 for (const id of drawerMod.STEWARD_DRAWER_BLOCK_IDS) {
@@ -203,7 +228,18 @@ for (const [name, source] of [['steward-board.js', boardCode], ['steward-classic
   const imports = [...source.matchAll(/^import .*from '([^']+)';$/gm)].map(match => match[1]);
   ok(imports.every(spec => spec.startsWith('./')), `F8 ${name} 的 import 全是本域内相对路径（零第三方库）`);
 }
-ok(/createElement\(/.test(board) && /textContent/.test(board), 'F9 DOM 一律 createElement + textContent');
+// 117n-M1 重钉：el()/clear() 搬进 steward-chips.js 集中定义（composer/drawer/conversation/board/
+// classic-window/settings 六个消费方零本地重复）之后，board.js 自己不再直接调 .createElement——
+// 但它仍然只经从 chips.js import 的共享 el()/clear() 生成节点，createElement 本体仍可在 chips.js
+// 里查证。原判据只证明「某处调过 createElement」；新判据在此之上再加一条正面证据（零本地重复
+// 定义），是更强而不是更弱的版本。
+ok(/textContent/.test(board)
+  && /createElement\(/.test(chips)
+  && !/function el\(tag, className, text\) \{/.test(boardCode)
+  && !/function clear\(node\) \{/.test(boardCode)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(boardCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(boardCode),
+  'F9 看板的节点创建委托给 steward-chips.js 共享的 el()/clear()（117n-M1 去重）：零本地重复定义，createElement 仍可在 chips.js 里查证（零 innerHTML 的证据没消失，只是搬了家）');
 // 后端零新增面：只调 116 之前就有的路由。
 const routes = [...new Set([
   ...[...boardCode.matchAll(/'(\/api\/[a-z/-]+)[^']*'/g)].map(match => match[1]),
@@ -254,6 +290,22 @@ ok(/\.steward-board-dot\[data-tone="attention"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="active"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="quiet"\]/.test(cssCode),
   'G9 五态点的颜色只经 dockToneForMissionState 的三档 data-tone');
+// 117n-M1③（用户「看板圆点看不出已完成」走查）：新增，不改 G9——加一档 settled，只在 done 且
+// 调用方主动传 settleDone:true 时才出现（默认返回值一个字不变，交办台 dock 座的三档表现零漂移）。
+ok(previewShellMod.dockToneForMissionState('done') === 'quiet'
+  && previewShellMod.dockToneForMissionState('done', { settleDone: true }) === 'settled'
+  && previewShellMod.dockToneForMissionState('running', { settleDone: true }) === 'active'
+  && previewShellMod.dockToneForMissionState('dispatching', { settleDone: true }) === 'active'
+  && previewShellMod.dockToneForMissionState('needs_you', { settleDone: true }) === 'attention'
+  && previewShellMod.dockToneForMissionState('stopped', { settleDone: true }) === 'quiet'
+  && previewShellMod.dockToneForMissionState('quick_ask', { settleDone: true }) === 'quiet',
+  'G9b dockToneForMissionState 加了可选参数 settleDone：不传时 done 仍是 quiet（默认返回值零漂移），看板传 true 时 done 单独出第四档 settled，其余状态不受影响');
+ok(/dockToneForMissionState\(value, \{ settleDone: true \}\)/.test(board),
+  'G9c 看板 paintDot 显式传 settleDone:true 才选出第四档（不是改了默认返回值）');
+ok(/button\.dataset\.dockTone = dockToneForMissionState\(derived\.state\);/.test(previewShell),
+  'G9d companion：交办台 renderDock 那处调用一个字没改（不传 settleDone，三档表现零漂移）');
+ok(/\.steward-board-dot\[data-tone="settled"\] \{ background: var\(--ok\); \}/.test(cssCode),
+  'G9e 看板 CSS 补上 settled 档，复用抽屉 done 那一档同一个语义 token（--ok），不新造颜色');
 
 // ─── H i18n ──────────────────────────────────────────────────────────────────────
 for (const prefix of ['stewardShell.board.', 'stewardShell.classicWindow.']) {

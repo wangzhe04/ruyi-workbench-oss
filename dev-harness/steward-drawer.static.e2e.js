@@ -112,8 +112,17 @@ for (const [name, source] of [['steward-drawer.js', drawerCode], ['steward-chips
   const imports = [...source.matchAll(/^import .*from '([^']+)';$/gm)].map(match => match[1]);
   ok(imports.every(spec => spec.startsWith('./')), `B2 ${name} 的 import 全是本域内相对路径（零第三方库）`);
 }
-ok(/createElement\(/.test(drawer) && /textContent/.test(drawer) && /createElement\(/.test(chips),
-  'B3 两模块一律 createElement + textContent 生成（零 innerHTML 的正面证据）');
+// 117n-M1 重钉：el()/clear() 搬进 steward-chips.js 集中定义（六个消费方零本地重复）之后，
+// drawer.js 自己不再直接调 .createElement——但它仍然只经从 chips.js import 的共享 el()/clear()
+// 生成节点，createElement 本体仍可在 chips.js 里查证。原判据只证明「某处调过 createElement」；
+// 新判据在此之上再加一条正面证据（零本地重复定义），是更强而不是更弱的版本。
+ok(/textContent/.test(drawer)
+  && /createElement\(/.test(chips)
+  && !/function el\(tag, className, text\) \{/.test(drawerCode)
+  && !/function clear\(node\) \{/.test(drawerCode)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(drawerCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(drawerCode),
+  'B3 抽屉的节点创建委托给 steward-chips.js 共享的 el()/clear()（117n-M1 去重）：零本地重复定义，createElement 仍可在 chips.js 里查证（零 innerHTML 的证据没消失，只是搬了家）');
 
 // ─── C 轮询纪律：恰好一处 setInterval／clearInterval，且三重门控 ─────────────────
 ok(count(drawer, /setInterval\(/g) === 1 && count(drawer, /clearInterval\(/g) === 1,
@@ -156,9 +165,12 @@ ok(/import \{ describeTurnActivity \} from '\.\/turn-activity\.js';/.test(drawer
   'E2 三问 import 自 turn-activity.js');
 ok(/import '\.\/mission-state\.js';/.test(drawer) && /globalThis\.MissionState/.test(drawer),
   'E3 五态经 mission-state.js（UMD，与 preview-shell.js 同款 import 后读 globalThis）');
-ok(/import \{ createQuickSwitchChips \} from '\.\/steward-chips\.js';/.test(drawer)
+// 117n-M1 重钉：drawer.js 的 chips import 那一行加了 doc/byId/el/clear（DOM 基础件去重，见 B3
+// companion）。原判据只钉 createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出
+// 完整的四个新增名字——比原来更精确，不是放宽。
+ok(/import \{ createQuickSwitchChips, doc, byId, el, clear \} from '\.\/steward-chips\.js';/.test(drawer)
   && /createQuickSwitchChips\(\{/.test(drawer),
-  'E4 快切 chip 是 mount 进来的共用控件，不是抽屉自己搭的');
+  'E4 快切 chip 是 mount 进来的共用控件，不是抽屉自己搭的；同一条 import 顺带把 DOM 基础件也接过来');
 for (const name of ['acceptanceItems', 'activeAcceptanceIndex', 'taskProgress', 'elapsedLabel', 'describeTurnActivity', 'deriveMissionState']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(drawerCode),
     `E5 抽屉不定义同名函数 ${name}（复制即失去「同一份判据」）`);

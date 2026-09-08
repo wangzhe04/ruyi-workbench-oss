@@ -2,10 +2,13 @@
 
 import { authHeaders } from './net.js';
 import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出的 JSON 信封（单独一行，J2 锁钉住上一行原样）
-// 117j copy-P1-1：工具的人话表。前端【只有这一份】（行动流水与 ※ 浮层共用），从 steward-settings.js
-// 复用而不是在这里抄第二份 —— 同一个动作在两处必须是同一句话。
-import { STEWARD_TOOL_LABEL_KEYS } from './steward-settings.js';
-import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
+// 117j copy-P1-1：工具的人话表。前端【只有这一份】（行动流水与 ※ 浮层共用）。117n-M1 重钉：
+// 原来从 steward-settings.js 复用，现在改从 steward-chips.js（它是本波把这张纯常量表搬去的
+// 零 import 叶子）——settings.js 接下来要反过来 import 本文件的 stewardErrorText 等函数，
+// 不先切断「conversation → settings」这条边就会造出循环 import。表本身一个字没变。
+import { STEWARD_TOOL_LABEL_KEYS } from './steward-chips.js';
+// 117n-M1：DOM 基础件 doc/byId/el/button 也从 steward-chips.js 复用（六个消费方零本地重复定义）。
+import { stewardEscapeStack, doc, byId, el, button } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -171,24 +174,9 @@ export function createStewardConversation({
   // 所以【不】留返回带）。同样只负责调用，切壳与返回标记住 steward-classic-window.js。
   switchWholeShell = null,
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
   const feedEl = () => byId('stewardFeed');
   const setPresence = patch => { try { presence && presence.set && presence.set(patch); } catch { /* presence 是旁路 */ } };
-
-  // ── 零 innerHTML 的 DOM 小工具 ────────────────────────────────────────────────
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
-  function button(className, text, onClick) {
-    const node = el('button', className, text);
-    node.type = 'button';
-    if (onClick) node.addEventListener('click', onClick);
-    return node;
-  }
+  // 117n-M1：doc/byId/el/button 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   // ── 细节开关（头像菜单内；本机偏好，不同步服务端）────────────────────────────
   let detailsOn = false;

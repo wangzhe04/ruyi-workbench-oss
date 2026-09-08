@@ -124,6 +124,59 @@ export function resolveEngineRoute(session, config) {
   return { engine: 'agent', agentCliType: cfg.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(cfg.model || '') };
 }
 
+// 行动流水的「做了什么」列：与 13h 的 STEWARD_TOOL_LABELS 同一批键，但人话住 i18n。117n-M1
+// （用户「查下有没有能合并的功能」走查）从 steward-settings.js 搬到这里：它是纯常量表，本来就该
+// 住零 import 的叶子模块——settings/conversation 两个消费方都已经在 import 本文件的别的导出，
+// 搬过来不新增任何模块依赖边。搬家本身切断了 conversation → settings 这条边（conversation 原来
+// 为了这张表才 import settings.js），是给 ②「错误信封解包改引用权威实现」腾出的第一步：
+// settings/board 接下来要反过来 import steward-conversation.js 的 stewardErrorText 等函数，
+// 不先切断这条边就会造出循环 import。settings.js 仍然 export 这个名字（re-export），
+// 老的 mod.STEWARD_TOOL_LABEL_KEYS 用法不受影响。
+export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
+  steward_thread_new: 'settings.steward.tool.threadNew',
+  steward_thread_continue: 'settings.steward.tool.threadContinue',
+  steward_thread_rename: 'settings.steward.tool.threadRename',
+  steward_thread_prioritize: 'settings.steward.tool.threadPrioritize',
+  steward_memory_write: 'settings.steward.tool.memoryWrite',
+  steward_memory_veto: 'settings.steward.tool.memoryVeto',
+  steward_config_set: 'settings.steward.tool.configSet',
+  steward_skill_toggle: 'settings.steward.tool.skillToggle',
+  steward_decide: 'settings.steward.tool.decide',
+  steward_run_action: 'settings.steward.tool.runAction',
+  steward_thread_note: 'settings.steward.tool.threadNote',
+  steward_quick_ask: 'settings.steward.tool.quickAsk',
+  steward_playbook_draft: 'settings.steward.tool.playbookDraft',
+  steward_memory_panel_edit: 'settings.steward.tool.memoryEdit',
+  steward_memory_panel_restore: 'settings.steward.tool.memoryRestore',
+  steward_memory_panel_clear: 'settings.steward.tool.memoryClear',
+});
+
+// 117n-M1①（用户「查下有没有能合并的功能，比如对话输入框，通常应该都是一样的，应该要能做成
+// 复用的」走查）：DOM 基础件三兄弟 doc()/byId()/el()，外加 clear()/button()，逐字复制在
+// composer/drawer/conversation/board/classic-window/settings 六个消费方里（此前本模块自己在
+// createQuickSwitchChips 内部也重复一份）。本模块是这六个消费方【已经】在 import 的零 import 叶子，
+// 收进来不新增任何模块依赖边，也不动离线包清单。doc() 用 globalThis.document || null 是刻意的
+// （非浏览器宿主——比如 Node 里的静态契约测试——不炸），六个消费方原来的写法逐字一致，保留。
+export const doc = () => globalThis.document || null;
+export const byId = id => (doc() ? doc().getElementById(id) : null);
+export function el(tag, className, text) {
+  const node = doc().createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = String(text);
+  return node;
+}
+export function clear(node) {
+  if (!node) return null;
+  while (node.firstChild) node.removeChild(node.firstChild);
+  return node;
+}
+export function button(className, text, onClick) {
+  const node = el('button', className, text);
+  node.type = 'button';
+  if (onClick) node.addEventListener('click', onClick);
+  return node;
+}
+
 export function createQuickSwitchChips({
   api = async () => null,
   t = key => key,
@@ -137,19 +190,11 @@ export function createQuickSwitchChips({
   // 没给就按宿主喂进来的那份渲染 —— 抽屉与 2.0 顶栏本来拿的就是完整会话，不需要这一步。
   hydrate = null,
 } = {}) {
-  const doc = () => globalThis.document || null;
   let sessionId = '';
   let session = null;
   let host = null;
   let openMenu = null;                 // 同一时刻只允许一个 chip 菜单展开
   const chips = new Map();             // kind -> { button, value, menu }
-
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
 
   function config() { return (state && state.config) || {}; }
 

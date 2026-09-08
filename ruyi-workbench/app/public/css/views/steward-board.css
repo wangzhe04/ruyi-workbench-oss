@@ -257,7 +257,12 @@
 }
 .steward-board-mission-head .steward-board-btn { margin-inline-start: var(--sp-2); }
 
-/* 五态点：颜色只经 data-tone（dockToneForMissionState 的三档表现），data-state 留给测试与调试。 */
+/* 五态点：颜色只经 data-tone（dockToneForMissionState 的表现），data-state 留给测试与调试。
+   117n-M1③（用户「看板圆点看不出已完成」走查）：加一档 settled——同一条线程收工之后，抽屉那颗点
+   走六态原始 state 直接判绿（steward-drawer.css 的 [data-state="done"]），看板这颗点此前经
+   dockToneForMissionState 收成三档、done 落进 quiet 灰点，用户扫看板看不出哪条线程真的完成了。
+   settled 只在 paintDot 显式传 settleDone:true 时才会被 dockToneForMissionState 选出，颜色复用
+   抽屉 done 那一档同一个语义 token（--ok），不新造颜色。 */
 .steward-board-dot {
   flex: 0 0 auto;
   width: 8px;
@@ -268,6 +273,7 @@
 .steward-board-dot[data-tone="attention"] { background: var(--warn); }
 .steward-board-dot[data-tone="active"] { background: var(--accent); }
 .steward-board-dot[data-tone="quiet"] { background: var(--muted); }
+.steward-board-dot[data-tone="settled"] { background: var(--ok); }
 
 .steward-board-threads {
   list-style: none;

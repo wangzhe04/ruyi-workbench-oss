@@ -47,9 +47,14 @@ export function normalizeShellMode(value) {
   return SHELL_MODES.includes(value) ? value : 'classic';
 }
 
-export function dockToneForMissionState(value) {
+// 117n-M1③：加一档 settled——只在 done 且调用方主动选它（settleDone:true）时才返回，默认返回值
+// 一个字不变。看板 steward-board.js 的 paintDot 传 settleDone:true（同一条线程抽屉里已经是绿点，
+// 看板此前落 quiet 灰点，两处不一致）；本文件自己的 renderDock（交办台 dock 座）调用时不传这个
+// 选项——那处走查没人报过看不出完成态，不该跟着漂移，所以选了加可选参数而不是改默认返回值。
+export function dockToneForMissionState(value, { settleDone = false } = {}) {
   if (value === 'needs_you') return 'attention';
   if (value === 'running' || value === 'dispatching') return 'active';
+  if (settleDone && value === 'done') return 'settled';
   return 'quiet';
 }
 

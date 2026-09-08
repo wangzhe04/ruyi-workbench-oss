@@ -7,7 +7,7 @@ import './mission-state.js';
 import { apiErrorInfo } from './net.js';
 import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './preview-task-sheet.js';
 import { describeTurnActivity } from './turn-activity.js';
-import { createQuickSwitchChips } from './steward-chips.js';
+import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -243,9 +243,6 @@ export function createStewardDrawer({
   applyShellMode = null,
   openSession = async () => {},
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
-
   let sessionId = '';
   let session = null;             // GET /api/sessions/:id 的 session
   let resumable = null;           // 同一响应的 resumable（live 判定：在途才走插话通道）
@@ -269,17 +266,7 @@ export function createStewardDrawer({
     onChanged: next => { session = next || session; renderAll(); },
   });
 
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
-  function clear(node) {
-    if (!node) return null;
-    while (node.firstChild) node.removeChild(node.firstChild);
-    return node;
-  }
+  // 117n-M1：el/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
   function note(text) {
     const target = byId('stewardDrawerNote');
     if (target) target.textContent = String(text || '');

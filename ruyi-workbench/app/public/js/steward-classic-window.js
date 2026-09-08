@@ -1,6 +1,6 @@
 'use strict';
 
-import { createQuickSwitchChips } from './steward-chips.js';
+import { createQuickSwitchChips, doc, byId } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId 不再本地重复）
 
 // 第117波 117g：「2.0 视窗」与顶部返回带（27 号文 §5 117g 行 / §8.2 L2′ / §8.13 末条）。
 //
@@ -32,8 +32,7 @@ export function createStewardClassicWindow({
   openSession = async () => {},
   missionTitleOf = () => '',
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
+  // 117n-M1：doc/byId 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   // chip 控件本体：构造时只把注入的 api 交给它（本模块自己一次都不调），写口仍然只有 chips 那一处。
   const chips = createQuickSwitchChips({ api, t, state, onChanged: () => renderBand() });

@@ -150,7 +150,21 @@ ok(!/saveConfig\(/.test(stopBlock), 'C5 一键停机／唤醒不写配置（只�
 // ─── D 零 innerHTML、零计时器、<a download> 只此一处 ─────────────────────────────
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(settingsCode),
   'D1 零 innerHTML/insertAdjacentHTML/document.write');
-ok(/createElement\(/.test(settings) && /textContent/.test(settings), 'D2 DOM 一律 createElement + textContent');
+// 117n-M1 重钉：el()/button()/clear() 搬进 steward-chips.js 集中定义（六个消费方零本地重复）之后，
+// settings.js 自己不再直接调 .createElement——但它仍然只经从 chips.js import 的共享
+// el()/button()/clear() 生成节点，createElement 本体仍可在 chips.js 里查证；同一条 chips import
+// 也确实带着 doc/byId/el/clear/button 这五个名字（fromChips 是下面 B 节已经解析好的那份，此处复用
+// 不再重新解析一次）。原判据只证明「某处调过 createElement」；新判据在此之上再加两条正面证据
+// （五个名字真的都 import 了、零本地重复定义），是更强而不是更弱的版本。
+ok(/textContent/.test(settings)
+  && /createElement\(/.test(chips)
+  && ['doc', 'byId', 'el', 'clear', 'button'].every(name => fromChips.names.includes(name))
+  && !/function el\(tag, className, text\) \{/.test(settingsCode)
+  && !/function button\(className, text, onClick\) \{/.test(settingsCode)
+  && !/function clear\(node\) \{ if \(node\)/.test(settingsCode)
+  && !/const doc = \(\) => globalThis\.document \|\| null;/.test(settingsCode)
+  && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(settingsCode),
+  'D2 设置页的节点创建委托给 steward-chips.js 共享的 el()/button()/clear()（117n-M1 去重）：五个名字都从同一条 import 拿、零本地重复定义，createElement 仍可在 chips.js 里查证');
 const count = (source, pattern) => (source.match(pattern) || []).length;
 ok(count(settingsCode, /setInterval\(/g) === 0 && count(settingsCode, /setTimeout\(/g) === 0,
   'D3 设置页零计时器（不轮询；停机态由壳层那一处已有的 setInterval 喂进来）');
@@ -163,6 +177,16 @@ ok(count(stewardShell, /\bapi\(/g) === 1,
 // 结构化 error 绝不 String() 直落（与 117e 第 0 步给 conversation 立的同一条纪律）。
 const afterHelper = settingsCode.slice(settingsCode.indexOf('async function call('));
 ok(!/String\([^)]*\berror\b/.test(afterHelper), 'D7 errorText 之外零 String(<error 值>)');
+// 117n-M1②：settings.js 原来的本地 errorText 少了 error instanceof Error 分支（api() 抛出的原始
+// Error 会退化成「[object Object]」那一类）——它旁边的注释自己也承认「与 steward-conversation
+// 同一条纪律」，那就该是【同一份】而不是【抄一份】。现在直接 import steward-conversation.js 的
+// stewardErrorText，本文件零第二份错误解包实现。
+ok(/import \{ stewardErrorText \} from '\.\/steward-conversation\.js';/.test(settings),
+  'D7b settings.js 的错误信封解包从 steward-conversation.js import，不是自己再写一份');
+ok(!/function errorText\(error\) \{/.test(settingsCode),
+  'D7c 旧的本地 errorText（漏了 error instanceof Error 分支的弱化版）已经不在了');
+ok((settingsCode.match(/stewardErrorText\(/g) || []).length >= 2,
+  'D7d call() 里两处（response.error 分支与 catch 分支）都改用了 stewardErrorText');
 
 // ─── E 壳头部两个常驻控件 + 头像菜单三项 ────────────────────────────────────────
 const stewardStart_ = html.indexOf('<section id="stewardShell"');

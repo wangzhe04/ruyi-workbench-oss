@@ -4,8 +4,13 @@ import './mission-state.js';
 import { authHeaders } from './net.js';
 import { elapsedLabel } from './preview-task-sheet.js';
 import { dockToneForMissionState } from './preview-shell.js';
-import { createQuickSwitchChips } from './steward-chips.js';
+import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
 import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
+// 117n-M1②（用户第六轮走查后走查「合并功能」）：failNote 原来只是 String(error.message || error)，
+// 既不解结构化信封也不特判 steward.queued 的 wait.label —— 同一种排队失败，看板上的提示比抽屉里
+// （steward-drawer.js:287 的 failNote）差。改成引用 steward-conversation.js 的权威实现，不再自己
+// 写第二份弱化版。
+import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
 
 // 第117波 117h：一行状态 → 看板 → 「现在这一件」（27 号文 §8.2 L1／§8.10 多线程看板与注意力预算）。
 //
@@ -86,10 +91,7 @@ export function createStewardBoard({
   // （missionTitleOf）。不通知的话，进壳后立刻开 2.0 视窗会赶在第一趟取数之前，事项名那段空着。
   onRowsChanged = () => {},
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
-
-  let rows = [];                    // GET /api/missions 的线程行（卡片形状 + 116g/117h-0 的追加字段）
+  let rows = [];                  // GET /api/missions 的线程行（卡片形状 + 116g/117h-0 的追加字段）
   let arbiter = null;               // GET /api/steward/arbiter 的只读状态
   let missionsEtag = '';            // 带 If-None-Match 走，没变就连解析都省了
   let pinnedId = '';                // 用户显式选过的线程（steward:open-thread / focus-thread / 看板行）
@@ -101,23 +103,23 @@ export function createStewardBoard({
   const chipsBySession = new Map(); // sessionId -> chips 控件（每行一份实例，读同一份数据）
   const sessionCache = new Map();   // sessionId -> 会话（chip 补齐或 PATCH 回来的那一份）
 
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
-  function clear(node) {
-    if (!node) return null;
-    while (node.firstChild) node.removeChild(node.firstChild);
-    return node;
-  }
+  // 117n-M1：el/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
   function note(text) {
     const target = byId('stewardBoardNote');
     if (target) target.textContent = String(text || '');
   }
+  // 117n-M1②：与 steward-drawer.js:287 的 failNote 同一条纪律——稳定信封先经 stewardErrorCode 查
+  // steward.queued，取得到 wait.label 就说「在等什么」；query 不到或不是这个码，落到一般失败文案，
+  // 一律用 stewardErrorText 取值，绝不 String(error) 直落（结构化 error 对象此前会被拍扁成
+  // "[object Object]"）。
   function failNote(error) {
-    note(t('stewardShell.board.failed', { error: String((error && error.message) || error || 'failed') }));
+    const code = stewardErrorCode(error);
+    if (code === 'steward.queued') {
+      const label = stewardQueuedWaitLabel(error);
+      note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
+      return;
+    }
+    note(t('stewardShell.board.failed', { error: stewardErrorText(error) || 'failed' }));
   }
 
   // ── 五态与聚合态：只读，不判 ────────────────────────────────────────────────────
@@ -130,9 +132,14 @@ export function createStewardBoard({
   function stateLabel(value) {
     return value ? t(`stewardShell.drawer.state.${value}`) : '';
   }
+  // 117n-M1③（用户「看板圆点看不出已完成」）：同一条线程收工之后，抽屉那颗点走六态原始 state
+  // 直接判绿（steward-drawer.js:419／CSS 的 [data-state="done"]），看板这颗点却经
+  // dockToneForMissionState 收成三档、done 落进 quiet 灰点 —— 用户扫看板看不出哪条线程真的完成了。
+  // 传 settleDone:true 让看板这一处主动选出第四档 settled；不传参数的默认行为（交办台的 dock 座，
+  // 见 preview-shell.js 的 renderDock）一个字不变。
   function paintDot(node, value) {
     node.dataset.state = value;
-    node.dataset.tone = dockToneForMissionState(value);
+    node.dataset.tone = dockToneForMissionState(value, { settleDone: true });
     return node;
   }
 

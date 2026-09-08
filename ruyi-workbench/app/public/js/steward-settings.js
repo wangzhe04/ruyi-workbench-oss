@@ -8,7 +8,22 @@ import {
   permissionLabelKey,
   permissionHintKey,
   stewardEscapeStack,
+  // 117n-M1：工具人话表与 DOM 基础件三兄弟（doc/byId/el）＋ clear/button 都搬到 steward-chips.js
+  // 集中定义。STEWARD_TOOL_LABEL_KEYS 原来就定义在本文件里，现在从这里引用，仍然 export 出去
+  // （下面那行 re-export）——老的 `import { STEWARD_TOOL_LABEL_KEYS } from './steward-settings.js'`
+  // 用法（本波之前 steward-conversation.js 就是这么用的）不受影响。
+  STEWARD_TOOL_LABEL_KEYS,
+  doc,
+  byId,
+  el,
+  clear,
+  button,
 } from './steward-chips.js';
+export { STEWARD_TOOL_LABEL_KEYS };
+// 117n-M1②：错误信封解包不再自己写一份弱化版（漏了 error instanceof Error 分支，api() 抛出的
+// 原始 Error 会退化成「[object Object]」那一类）——改成引用 steward-conversation.js 的权威实现，
+// 它正确调用 net.js 的 apiErrorInfo 解结构化信封。
+import { stewardErrorText } from './steward-conversation.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
@@ -39,24 +54,7 @@ export const STEWARD_SETTINGS_TAB = 'steward';     // data-stab 值，头像菜�
 
 // 行动流水的「做了什么」列：与 13h 的 STEWARD_TOOL_LABELS 同一批键，但人话住 i18n（前端自己一份
 // 映射，不从后端拿文案——后端那份是给模型看的，两边受众不同）。表外的工具原样显示工具名。
-export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
-  steward_thread_new: 'settings.steward.tool.threadNew',
-  steward_thread_continue: 'settings.steward.tool.threadContinue',
-  steward_thread_rename: 'settings.steward.tool.threadRename',
-  steward_thread_prioritize: 'settings.steward.tool.threadPrioritize',
-  steward_memory_write: 'settings.steward.tool.memoryWrite',
-  steward_memory_veto: 'settings.steward.tool.memoryVeto',
-  steward_config_set: 'settings.steward.tool.configSet',
-  steward_skill_toggle: 'settings.steward.tool.skillToggle',
-  steward_decide: 'settings.steward.tool.decide',
-  steward_run_action: 'settings.steward.tool.runAction',
-  steward_thread_note: 'settings.steward.tool.threadNote',
-  steward_quick_ask: 'settings.steward.tool.quickAsk',
-  steward_playbook_draft: 'settings.steward.tool.playbookDraft',
-  steward_memory_panel_edit: 'settings.steward.tool.memoryEdit',
-  steward_memory_panel_restore: 'settings.steward.tool.memoryRestore',
-  steward_memory_panel_clear: 'settings.steward.tool.memoryClear',
-});
+// 117n-M1：这张纯常量表搬到 steward-chips.js 去了（本文件顶部 import 它，并原样 re-export）。
 
 // 三态「重启后自动续跑」：null = 跟随线程的自动续跑设置（后端 stewardAutoActions.resume 的三态）。
 const RESUME_TO_SELECT = Object.freeze({ true: 'on', false: 'off' });
@@ -77,8 +75,6 @@ export function createStewardSettingsDomain({
   // sleeping，不能等下一次壳层轮询——§8.3「停机覆盖一切」是个即时语义。
   presence = null,
 } = {}) {
-  const doc = () => globalThis.document || null;
-  const byId = id => (doc() ? doc().getElementById(id) : null);
   const config = () => (state && state.config) || {};
 
   let bound = false;
@@ -89,13 +85,7 @@ export function createStewardSettingsDomain({
   let decisionsLimit = STEWARD_DECISIONS_PAGE;
   let decisionRows = [];
   let shieldOpen = false;
-
-  function el(tag, className, text) {
-    const node = doc().createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
+  // 117n-M1：doc/byId/el/clear/button 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   // 117i：管家壳头部右上角那两枚常驻小图标（原型 .head 的 .ib：34px 圆、只有线条，没有底）。
   // 零 innerHTML —— SVG 必须 createElementNS；文字留在一个只给读屏的 span 里，所以按钮的
@@ -117,13 +107,7 @@ export function createStewardSettingsDomain({
     node.appendChild(svg);
     node.appendChild(el('span', 'steward-icon-label', label));
   }
-  function button(className, text, onClick) {
-    const node = el('button', className, text);
-    node.type = 'button';
-    if (onClick) node.addEventListener('click', onClick);
-    return node;
-  }
-  function clear(node) { if (node) while (node.firstChild) node.removeChild(node.firstChild); }
+  // 117n-M1：button/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   function note(message, tone) {
     const target = byId('cfgStewardNote');
@@ -135,29 +119,21 @@ export function createStewardSettingsDomain({
     note(message, 'err');
     try { toast(message, 'err'); } catch { /* toast 是旁路，失败不该吞掉这次操作的结论 */ }
   }
-  // 稳定信封 → 人话。与 steward-conversation 的 stewardErrorText 同一条纪律：结构化 error 对象
-  // 取 message‖error‖code，绝不 String(obj)。
-  function errorText(error) {
-    if (error == null) return '';
-    if (typeof error === 'string') return error;
-    if (typeof error === 'object') {
-      const raw = error.message || error.error || error.code;
-      if (raw && typeof raw === 'object') return errorText(raw);
-      return raw ? String(raw) : '';
-    }
-    return String(error);
-  }
+  // 117n-M1②：稳定信封 → 人话不再自己写弱化版（原来的本地 errorText 少了 error instanceof Error
+  // 分支——api() 抛出的原始 Error 会退化成「[object Object]」那一类）。直接引用
+  // steward-conversation.js 的权威实现 stewardErrorText（正确调用 net.js 的 apiErrorInfo 解结构化
+  // 信封），两处（这里与对话流）从此是同一条纪律的同一份实现，不是「同一条纪律的两份抄本」。
 
   async function call(pathname, options) {
     try {
       const response = await api(pathname, options);
       if (response && response.ok === false) {
-        problem(t('settings.steward.failed', { error: errorText(response.error) || errorText(response) }));
+        problem(t('settings.steward.failed', { error: stewardErrorText(response.error) || stewardErrorText(response) }));
         return null;
       }
       return response;
     } catch (error) {
-      problem(t('settings.steward.failed', { error: errorText(error) }));
+      problem(t('settings.steward.failed', { error: stewardErrorText(error) }));
       return null;
     }
   }
