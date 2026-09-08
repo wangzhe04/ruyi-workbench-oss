@@ -853,3 +853,129 @@ A1／A2／A3 并行（文件不相交，各自显式路径提交）；B1 串行�
 S2 属于普查里的 B 类（同一事实两处各算一遍），故与 117q 同批做。
 普查的完整清单、分批派单顺序与每条的撞锁分析见
 [`30-dedup-audit-wave-117.md`](30-dedup-audit-wave-117.md)。
+
+### 11.12 117r 设计页 · 用户第八轮走查（2026-09-08 夜，四张截图，四条；Fable 设计与验收，Opus／Sonnet 实现）
+
+**用户开场**：「似乎整体好很多了，但是改出了几个问题」——四条里有两条确实是本波改出来的，
+另外两条是一直存在、这一轮才被撞见（下面逐条注明是哪种）。
+
+| # | 用户原话 | 定性 | 刀 |
+|---|---|---|---|
+| ① | 管家新开线程等不会自动打开线程详情页了 | 时序洞，一直存在；③ 落地后才会彻底好 | 117r-D2 |
+| ② | 关键词匹配这个，最好不要和输入框放同一行，会把输入框内容挤没…而且匹配的没法删掉/关掉 | 117l D1 新面遗留 | 117r-D3 |
+| ③ | 管家线程下拉，并没有正确同步显示 | 一直存在（116 波起） | 117r-D1 |
+| ④ | 2.0 视窗，为啥在运行时会显示这段对话是在一个框里，而不是普通 2.0 一样 | 117o-A7 之后过期的设计 | 117r-D4 |
+
+#### ③ 的根因：看板上那两个数字来自两个对「线程」定义不同的源
+
+截图里看板顶部说「同时最多 5 · **在跑 1** · 排队 0」，正下方的列表说「**还没有任务**，直接说你想做什么」。
+
+- 顶部两个数来自 `GET /api/steward/arbiter`（`13h-steward-runner.js:2101`），
+  数的是 `stewardArbiter.running` —— 内存里此刻占着并发位的**管家派出去的回合**；
+- 列表来自 `GET /api/missions`（`steward-board.js:163`），而 `13d-core-domain-routes.js` 把行集过滤成
+  `index.sessions.filter(row => row.card)`，卡片只在 `13e-pretender-index.js:145` 的
+  `kind === 'mission'` 分支才造。
+
+`steward_quick_ask` 建的线程（`13g-steward.js:1844`）显式写 `kind = 'quick_ask'`，
+**于是恒无卡片 → 恒不进 `/api/missions` → 看板永远看不见它**，而它照常占仲裁器的并发位、照常被计数。
+
+**实测**（主会话，真服务器，临时 HOME，两条会话头：一条 `kind:'mission'`、一条 `kind:'quick_ask'`＋`stewardQuick` 标）：
+
+```
+GET /api/sessions  -> 200 count: 2  sess_probe0000000001(mission), sess_probe0000000002(quick_ask)
+GET /api/missions  -> 200 rows: 1   sess_probe0000000001(kind=mission state=none)
+```
+
+`13g-steward.js:1852` 的注释写着「速查线程…GET /api/missions 里它就是一条『未归类』的派生行」——
+**这句话是假的**，它根本不在那份行里。设计意图写在注释里，代码从来没实现过。
+
+**修法**：「管家关心这条会话吗」这条判据**已经有唯一实现**——`13i-steward-inbox.js:691`
+的 `stewardWatchedThread`（速查线程／管家发起过回合的线程／别人事项里的线程；用户自己在经典壳里
+聊的普通会话**不**算）。把它搬到 `06i-steward-core.js`（06i < 13e 且 06i < 13i，两条都是合法后向边），
+13e 用同一份实现决定要不要造卡片。**不新造判据**，也不能简单地「所有 quick_ask 都放进来」——
+`sessionKind()` 对任何没有 mission 容器的会话都回 `quick_ask`，那会把用户几百条 2.0 对话全灌进看板，
+而这正是那个 `filter(row => row.card)` 当初存在的理由。
+
+#### ① 的根因：「行里没有它」被当成了「它不存在」
+
+`steward-conversation.js:704` 在回合收尾时派 `steward:focus-thread`，两个模块各自听。
+看板那一路（`steward-board.js:719`）是本模块自己 `focusThread()`（`:552`）的一个**弱化抄写件**——
+把 `if (!syncNow()) drawer.openThread(...)` 那条回退整个丢了。更要命的是第二层：
+
+```js
+function currentFocusId() {                                    // steward-board.js:584
+  if (pinnedId && rows.some(row => String(row.sessionId) === pinnedId)) return pinnedId;
+  ...
+}
+```
+
+**刚建出来的线程还不在 `rows` 里**（`rows` 是上一趟 `/api/missions` 的快照），于是这一钉被否掉，
+回落去自动挑一条别的；挑不出来 `syncNow()` 就 `show=false` → `#stewardNow` 整块 hidden，
+并且 `if (drawer.mountMode() === 'docked') drawer.closeDrawer()` —— **把抽屉刚打开的那一份关掉**。
+
+而 `steward-board.js:37` 的文件头自己写着「行数据在进壳／开看板／**焦点事件**／写动作／页面重新可见
+这五个确定性时刻各刷一次」——**「焦点事件」这一刷从来没实现过**。
+
+**修法**：焦点事件改调既有的 `focusThread()`（删掉抄写件），并加一个**有界**的「这一钉还没被行核实过」
+状态位：未核实期间 `currentFocusId()` 无条件认这一钉，同一个处理器随即刷一次行，刷完（无论成败）
+交回原判据。不许「一钉就永久信任」——那样一条真的不存在的线程会把右栏永远占着。
+
+#### ② 的根因：三条各自独立
+
+1. **标题没截短**：`steward-composer.js:94 hintedThread()` 返回的是标题**原话**，
+   `:125` 直接套进「像是接着『X』」。全仓别处都过 `stewardShortTitle`（`STEWARD_TITLE_MAX = 24`），
+   只有这一处（和手选那一支）漏了——而线程标题常常就是用户说的一整句话。
+2. **chip 不缩**：`.steward-composer` 是单行 flex，`.steward-target` 是 `flex:0 0 auto; white-space:nowrap`，
+   有多长吃多长；`.steward-composer-input` 的 `min-width:0` 被压到零宽也不吭声。
+   （`max-width:45vw` 只在 620px 那个媒体查询里有，宽屏没有。）
+3. **自动命中没有关闭出口**：`:122` 的 `clear.hidden = !picked` —— 那枚 `×` 只在**手选过**时出现。
+
+**修法**：截短走既有实现；chip 挪到输入框上面自成一行（位置恒定，不许短的时候在行内、长的时候跳上去）；
+自动命中也给 `×`，撤掉之后这一次预判不再随后续输入回来（发送／清空即复位）。
+**递送语义一个字不改**：117l D1 的铁律「无论关键词匹配到什么，都要发给管家让它决定」仍然成立，
+撤掉提示的效果只是这一次 `routeHint` 不带 hits —— 那本来就是用户在说「这不是接着那条」。
+
+#### ④ 的根因：一条「刻意做得不一样」的设计，在后续改动之后过期了
+
+`chat-live.css:255` 那圈虚线框是 117m-A5 的**刻意设计**，注释写着「它长得就该和落盘消息不一样，
+用户一眼看出『这还没定稿』」。**这个判断在 117o-A7 之后就过期了**——A7 把这张卡的正文改成由
+`renderStaticMessage()`（画落盘助手消息的同一个渲染器）生成，思考块／工具卡／过程记录／完成徽章
+已经逐像素同源。**于是框成了唯一的差别**，它不再读作「草稿」，而读作「一个嵌在页面里的窗口」；
+`max-height + overflow:auto` 那条内滚动条更把它坐实成子窗口。
+
+**修法**：去掉边框／底色／内边距与两处 `max-height`，标题行降成状态行的样子；
+那行「它正在跑（这一回合是在别处起的）」与「停止」键**都留着**——它们是用户判断
+「这一段还在跑、而且不是我在这个窗口里起的」的唯一凭据。
+**本刀真正的风险不是删 CSS**：`paintLiveTurnCard` 每 3 秒把正文整份 `replaceChildren` 换一次，
+修前那个 `max-height` 把高度变化关在盒子里、页面高度不变；去掉之后每一拍都会改变页面总高。
+必须用既有的 `captureScrollAnchor` / `restoreScrollAnchor`（`turn-narrative.js:133/146`）把那次替换包起来，
+与它旁边已有的 `captureOpenDetails` / `restoreOpenDetails` 同一条纪律。
+
+#### 本轮的横向账：注释写了纪律，代码没照做
+
+四条里有**三条**是同一个形状——**注释是设计意图的存档，代码漂移之后没人回头对账**：
+
+| 注释说 | 代码实际 |
+|---|---|
+| `steward-board.js:37`「行数据在…焦点事件…各刷一次」 | 焦点事件那一刷从来没有 |
+| `13g-steward.js:1852`「`/api/missions` 里它就是一条派生行」 | 它根本不在那份行里 |
+| `chat-live.css:255`「虚线框是刻意的，一眼看出还没定稿」 | A7 之后正文已同源，框只剩「窗中窗」这一个读法 |
+
+**可以直接用的纪律**：注释里凡是出现「唯一判据／恒／一定／就是」这类**断言式**说法的，
+都应该有一条真断言钉着它；**没有钉着的，就是下一个洞**——它坏掉的时候不会有任何人发现。
+（同一条纪律的另一面见 30 号文 §8.13：锁不要钉「文本长什么样」，要钉「哪件事必须成立」。）
+
+#### 派单（四刀并行，文件互斥）
+
+| 刀 | 面 | 独占文件 |
+|---|---|---|
+| 117r-D1 | 速查线程进不了看板 | `src/06i` `src/13e` `src/13i`（＋build 产物与生成器链产物） |
+| 117r-D2 | 焦点事件不刷行 | `public/js/steward-board.js` ＋ 它的两件 e2e |
+| 117r-D3 | 预判 chip | `public/js/steward-composer.js` ＋ `css/views/steward-*.css` ＋ 四份 locale |
+| 117r-D4 | 在途回合的框 | `public/js/session-experience.js` ＋ `css/states/chat-live.css` |
+
+D3 与 D4 都改 CSS，而 `dev-harness/read-frontend-css.js` 的 `LEGACY_STYLES_SHA256` 是**全部 CSS 层的
+载荷哈希**——两刀都去重钉必然撞车。**两刀一律不碰它**，由主会话在两刀都落地之后统一重钉一次，
+理由一并写在那里（先例：117n-M1③ 与 117o-A7 各自重钉时的写法）。
+在这两次提交与重钉之间，`live-full-text.static.e2e.js` 的 F3 与 `frontend-domains.static.e2e.js`
+的同款锁**预期为红**——这是已知且有界的，不是新债。
