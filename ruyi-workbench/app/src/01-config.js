@@ -1377,6 +1377,36 @@ async function writeConfig(next) {
   return config;
 }
 
+// ── 117n-M2:配置「读-改-写」的唯一临界区 ────────────────────────────────────────────────────
+// writeConfigAtomic 的 configWriteChain(上面)只串行化【物理写】,不保护「读-改」:两个并发请求
+// 各自 readConfig() 读到同一份旧值、各自 merge 后 writeConfig,后写者会静默吞掉先写者的字段
+// (真机形态:一边保存设置一边启停连接器,其中一次的改动凭空消失)。此前有 9 处这样的裸
+// read-modify-write 绕过了 applyConfigPatch;mutateConfig 把「读 -> mutator -> writeConfig」整段
+// 占住一条队列,丢失更新在这里根除。
+// 为什么另开 configMutateChain 而不复用 configWriteChain:readConfig 自己在迁移/从 .prev 恢复时会
+// 调 writeConfigAtomic,复用同一条队列会自锁。两条队列职责不同,物理写仍由 configWriteChain 串行。
+//
+// mutator(current) 在锁内执行,current 是刚从盘上读到并归一化的配置(可就地改)。返回值形状:
+//   undefined / {}   -> 落盘 current
+//   { next }         -> 落盘 next(调用方自己拼了新对象,而不是就地改)
+//   { value }        -> 随行数据,原样回给调用方
+//   { abort: X }     -> 不落盘(校验没过/没什么可写),结果 { ok:false, config: current, value: X }
+// 结果统一为 { ok, config, value }:ok=true 时 config 是 writeConfig 之后已归一化的 next。
+// mutator 抛出的异常照常向调用方冒泡(与此前直接 await writeConfig 抛出等价),且不毒化队列。
+let configMutateChain = Promise.resolve();
+function mutateConfig(mutator) {
+  const run = configMutateChain.catch(() => {}).then(async () => {
+    const current = await readConfig();
+    const decision = await mutator(current);
+    const d = (decision && typeof decision === 'object') ? decision : {};
+    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, config: current, value: d.abort };
+    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current);
+    return { ok: true, config: next, value: d.value };
+  });
+  configMutateChain = run.then(() => {}, () => {});
+  return run;
+}
+
 // v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
 // aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
 // Covers: permissionMode, model, thinkingBudget, appendSystemPrompt.
@@ -1549,33 +1579,41 @@ async function autoImportClaudeCodeMcp(config) {
     //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
     const RESERVED_IDS = new Set(['win-claude-workbench', 'ai-computer-control']);
     const claudeJson = path.join(os.homedir(), '.claude.json');
-    const { servers, errors } = await scanMcpSources([claudeJson], config);
-    // scanMcpSources 把"文件不存在/无 mcpServers 字段"也作为 error 返回 -- 这两者是预期情况
-    // (用户没装 Claude Code 或没配 MCP),静默合理。但"文件过大(>256KB)/JSON 解析失败"是真问题,
-    // 静默吞掉会让自动导入不工作且零诊断(重度用户的 ~/.claude.json projects 字段可超 256KB)。
-    // 故:非预期 error 走审计,让用户/开发者能定位"为什么没自动导入"。
-    if (Array.isArray(errors)) {
-      for (const e of errors) {
-        const msg = String((e && e.error) || '');
-        if (!msg || msg.includes('文件不存在') || msg.includes('未找到 mcpServers')) continue; // 预期,跳过
-        try { logEvent({ kind: 'mcp_auto_import_scan_error', path: String((e && e.path) || claudeJson), error: msg }); } catch { /* logging must never re-throw */ }
+    // 117n-M2:扫描 + 合并 + 落盘整段进 mutateConfig 的临界区(此前是裸 readConfig 之外的
+    // read-modify-write:boot 期这一写与并发的 /api/config 保存互相吞字段)。conflict/dismissed
+    // 的判据一律用锁内刚读到的 current,不用调用方传进来的可能已陈旧的 config。
+    const r = await mutateConfig(async (current) => {
+      const { servers, errors } = await scanMcpSources([claudeJson], current);
+      // scanMcpSources 把"文件不存在/无 mcpServers 字段"也作为 error 返回 -- 这两者是预期情况
+      // (用户没装 Claude Code 或没配 MCP),静默合理。但"文件过大(>256KB)/JSON 解析失败"是真问题,
+      // 静默吞掉会让自动导入不工作且零诊断(重度用户的 ~/.claude.json projects 字段可超 256KB)。
+      // 故:非预期 error 走审计,让用户/开发者能定位"为什么没自动导入"。
+      if (Array.isArray(errors)) {
+        for (const e of errors) {
+          const msg = String((e && e.error) || '');
+          if (!msg || msg.includes('文件不存在') || msg.includes('未找到 mcpServers')) continue; // 预期,跳过
+          try { logEvent({ kind: 'mcp_auto_import_scan_error', path: String((e && e.path) || claudeJson), error: msg }); } catch { /* logging must never re-throw */ }
+        }
       }
-    }
-    const dismissed = new Set(Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []);
-    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
-    const added = [];
-    for (const raw of servers) {
-      if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
-      if (raw.conflict) continue; // 已在 config -> 不覆盖
-      if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
-      if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
-      if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
-      const srv = sanitizeExternalMcpServer(raw);
-      if (!srv) continue;
-      list.push(srv); added.push(srv.id);
-    }
-    if (!added.length) return { added: 0, config };
-    const next = await writeConfig({ ...config, externalMcpServers: list });
+      const dismissed = new Set(Array.isArray(current.dismissedMcpIds) ? current.dismissedMcpIds : []);
+      const list = Array.isArray(current.externalMcpServers) ? current.externalMcpServers.slice() : [];
+      const added = [];
+      for (const raw of servers) {
+        if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
+        if (raw.conflict) continue; // 已在 config -> 不覆盖
+        if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
+        if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
+        if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
+        const srv = sanitizeExternalMcpServer(raw);
+        if (!srv) continue;
+        list.push(srv); added.push(srv.id);
+      }
+      if (!added.length) return { abort: null }; // 零新增 -> 不落盘(与修前 return 前不写盘等价)
+      current.externalMcpServers = list;
+      return { value: added };
+    });
+    if (!r.ok) return { added: 0, config: r.config };
+    const next = r.config; const added = r.value;
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_auto_import', source: claudeJson, added: added.length, ids: added });
     return { added: added.length, ids: added, config: next };

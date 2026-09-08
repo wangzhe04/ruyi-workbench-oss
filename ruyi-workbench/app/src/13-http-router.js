@@ -181,38 +181,44 @@ async function applyConfigPatch(rawBody) {
       });
     }
   }
-  const current = await readConfig();
-  const merged = { ...current, ...body };
-  // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
-  // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
-  // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
-  // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
-  if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
-    const restored = unmaskSecrets(body, current);
-    if (Array.isArray(body.providers)) merged.providers = restored.providers;
-    if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
-  }
-  // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
-  if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
-    merged.knownModels = [...(merged.knownModels || []), body.model];
-  }
-  // 2026-09-06 事故(用户的五个 Provider 连同密钥被一次整份保存写成 providers: [])后的服务端保险:
-  // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
-  // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
-  // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
-  // 设置弹窗子审查追加：不只「清空」，任何【缩水】（现值里某个 id 在来件里没了）都先备份——用户以为在
-  // 原有列表上加一条、实际把整份换成只剩一条，正是那种既不为空也没告警的丢法。
-  if (Array.isArray(current.providers) && current.providers.length > 0 && Array.isArray(merged.providers)) {
-    const nextIds = new Set(merged.providers.map(p => String((p && p.id) || '')));
-    const lost = current.providers.map(p => String((p && p.id) || '')).filter(id => id && !nextIds.has(id));
-    if (lost.length) {
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupName = `config.json.bak-providers-${stamp}`;
-      try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
-      logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
+  // 117n-M2:整段「读 current -> merge -> 落盘」搬进 mutateConfig 的临界区。外部契约与顺序不变
+  // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
+  //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
+  const patched = await mutateConfig(async (current) => {
+    const merged = { ...current, ...body };
+    // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
+    // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
+    // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
+    // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
+    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
+      const restored = unmaskSecrets(body, current);
+      if (Array.isArray(body.providers)) merged.providers = restored.providers;
+      if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
     }
-  }
-  const next = await writeConfig(merged);
+    // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
+    if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
+      merged.knownModels = [...(merged.knownModels || []), body.model];
+    }
+    // 2026-09-06 事故(用户的五个 Provider 连同密钥被一次整份保存写成 providers: [])后的服务端保险:
+    // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
+    // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
+    // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
+    // 设置弹窗子审查追加：不只「清空」，任何【缩水】（现值里某个 id 在来件里没了）都先备份——用户以为在
+    // 原有列表上加一条、实际把整份换成只剩一条，正是那种既不为空也没告警的丢法。
+    if (Array.isArray(current.providers) && current.providers.length > 0 && Array.isArray(merged.providers)) {
+      const nextIds = new Set(merged.providers.map(p => String((p && p.id) || '')));
+      const lost = current.providers.map(p => String((p && p.id) || '')).filter(id => id && !nextIds.has(id));
+      if (lost.length) {
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupName = `config.json.bak-providers-${stamp}`;
+        try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+        logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
+      }
+    }
+    return { next: merged, value: current };
+  });
+  const next = patched.config;
+  const current = patched.value; // 落盘前那一份(锁内读到的),下面的三路同步判「改没改」要用它
   // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
   // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
   // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
@@ -462,9 +468,10 @@ async function handleApi(req, res, pathname) {
       const saved = await saveProjectAgentRoles(path.resolve(cwdRaw), roles);
       return send(res, json({ ok: true, scope, roles: saved, file: projectAgentRoleFile(cwdRaw) }));
     }
-    const config = await readConfig(); config.agentRoleOverrides = roles;
-    const next = await writeConfig(config);
-    return send(res, json({ ok: true, scope, roles: next.agentRoleOverrides }));
+    // 117n-M2:走 mutateConfig 的临界区(此前裸 readConfig -> 改字段 -> writeConfig:与并发的
+    // /api/config 保存互吞 —— 存角色的那一下能把刚存的 Provider 整份回滚成读时的旧值)。
+    const saved = await mutateConfig(async (config) => { config.agentRoleOverrides = roles; });
+    return send(res, json({ ok: true, scope, roles: saved.config.agentRoleOverrides }));
   }
   if (req.method === 'GET' && pathname === '/api/agent-workflows') {
     const config = await readConfig(); const u = new URL(req.url, 'http://x');

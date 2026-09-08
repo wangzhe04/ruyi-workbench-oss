@@ -29,18 +29,24 @@ async function handleMcpApiRoutes(req, res, pathname) {
     const withCwd = { ...raw, cwd: (typeof raw.cwd === 'string' && raw.cwd.trim()) ? raw.cwd : folder };
     const cleaned = sanitizeExternalMcpServer(withCwd);
     if (!cleaned) return send(res, json({ ok: false, error: '清单无效:至少需要 id 与 command 两个字段', template: MANIFEST_TEMPLATE }));
-    const config = await readConfig();
-    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
-    const existingIdx = list.findIndex(s => s && s.id === cleaned.id);
-    let updated = false;
-    if (existingIdx >= 0) { list[existingIdx] = cleaned; updated = true; }
-    else {
-      if (list.length >= 10) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
-      list.push(cleaned);
-    }
-    // 显式再导入覆盖撤销:把该 id 从 dismissedMcpIds 移除(与 import-config/apply 同语义)。
-    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => x !== cleaned.id);
-    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
+    // 117n-M2:读-改-写整段进 mutateConfig 的临界区(此前裸 readConfig -> writeConfig,与并发的
+    // 设置保存/启停互相吞字段)。上限判定也搬进锁内 —— 用锁外快照判 10 条上限本身就是竞态。
+    const imp = await mutateConfig(async (config) => {
+      const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+      const existingIdx = list.findIndex(s => s && s.id === cleaned.id);
+      let updated = false;
+      if (existingIdx >= 0) { list[existingIdx] = cleaned; updated = true; }
+      else {
+        if (list.length >= 10) return { abort: 'limit' };
+        list.push(cleaned);
+      }
+      config.externalMcpServers = list;
+      // 显式再导入覆盖撤销:把该 id 从 dismissedMcpIds 移除(与 import-config/apply 同语义)。
+      config.dismissedMcpIds = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => x !== cleaned.id);
+      return { value: updated };
+    });
+    if (!imp.ok) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
+    const next = imp.config; const updated = imp.value;
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
@@ -66,28 +72,33 @@ async function handleMcpApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/mcp/import-config/apply') {
     const body = await readJsonBody(req);
-    const config = await readConfig();
     const incoming = Array.isArray(body && body.servers) ? body.servers : [];
-    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
-    const added = [], updated = [], skipped = [];
-    for (const raw of incoming) {
-      // 49c:sse/http 已落地(McpHttpClient)—— 远程条目与 stdio 同走 sanitize(缺 url 判无效);
-      // 解析期 unsupported 标记(如远程缺 url)仍跳过。
-      if (raw && raw.unsupported) { skipped.push({ id: String(raw && raw.id || ''), reason: String(raw.unsupported) }); continue; }
-      const srv = sanitizeExternalMcpServer(raw); // 复用 import-folder 同款清洗(stdio:需 id+command;远程:需 id+http(s) url)
-      if (!srv) { skipped.push({ id: String(raw && raw.id || ''), reason: '无效条目(缺 id/command/url)' }); continue; }
-      const idx = list.findIndex(s => s && s.id === srv.id);
-      if (idx >= 0) { list[idx] = srv; updated.push(srv.id); }
-      else {
-        if (list.length >= 10) { skipped.push({ id: srv.id, reason: '外部 MCP 数量已达上限(10)' }); continue; }
-        list.push(srv); added.push(srv.id);
+    // 117n-M2:同 import-folder,合并 + 上限 + dismissed 记账整段进 mutateConfig 的临界区。
+    const imp = await mutateConfig(async (config) => {
+      const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+      const added = [], updated = [], skipped = [];
+      for (const raw of incoming) {
+        // 49c:sse/http 已落地(McpHttpClient)—— 远程条目与 stdio 同走 sanitize(缺 url 判无效);
+        // 解析期 unsupported 标记(如远程缺 url)仍跳过。
+        if (raw && raw.unsupported) { skipped.push({ id: String(raw && raw.id || ''), reason: String(raw.unsupported) }); continue; }
+        const srv = sanitizeExternalMcpServer(raw); // 复用 import-folder 同款清洗(stdio:需 id+command;远程:需 id+http(s) url)
+        if (!srv) { skipped.push({ id: String(raw && raw.id || ''), reason: '无效条目(缺 id/command/url)' }); continue; }
+        const idx = list.findIndex(s => s && s.id === srv.id);
+        if (idx >= 0) { list[idx] = srv; updated.push(srv.id); }
+        else {
+          if (list.length >= 10) { skipped.push({ id: srv.id, reason: '外部 MCP 数量已达上限(10)' }); continue; }
+          list.push(srv); added.push(srv.id);
+        }
       }
-    }
-    if (!added.length && !updated.length) return send(res, json({ ok: false, error: '没有可导入的条目', skipped }));
-    // 显式再导入覆盖撤销:把本次导入的 id 从 dismissedMcpIds 移除(用户改变主意,要它回来了)。
-    const reImported = new Set([...added, ...updated]);
-    const dismissed = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => !reImported.has(x));
-    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
+      if (!added.length && !updated.length) return { abort: { skipped } };
+      config.externalMcpServers = list;
+      // 显式再导入覆盖撤销:把本次导入的 id 从 dismissedMcpIds 移除(用户改变主意,要它回来了)。
+      const reImported = new Set([...added, ...updated]);
+      config.dismissedMcpIds = (Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : []).filter(x => !reImported.has(x));
+      return { value: { added, updated, skipped } };
+    });
+    if (!imp.ok) return send(res, json({ ok: false, error: '没有可导入的条目', skipped: imp.value.skipped }));
+    const next = imp.config; const { added, updated, skipped } = imp.value;
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));
@@ -124,6 +135,8 @@ async function handleMcpApiRoutes(req, res, pathname) {
   //   状态与配置一致) + invalidateMcpRuntime(id) 杀活客户端/清失败冷却(停用后不再重连,启用后
   //   可立即重测) + 审计;无关连接器的客户端与配置不受影响。
   //   mcpConnectorMutateError(id, config):可 mutate 返回 null;否则 {status, error} 人话原因。
+  //   117n-M2:守卫与整套副作用已下沉到 04 的 mutateMcpConnector(工具面 mcp_configure 与这两条路由
+  //   共用同一个内核;04 -> 13b 是前向边,所以是函数下沉到 04,不是路由上提)。下面只剩 HTTP 形状。
   // POST /api/mcp/connectors/toggle {id, enabled:boolean} -> 启停用户连接器。
   if (req.method === 'POST' && pathname === '/api/mcp/connectors/toggle') {
     const body = await readJsonBody(req);
@@ -131,57 +144,24 @@ async function handleMcpApiRoutes(req, res, pathname) {
     if (!id) return send(res, json({ ok: false, error: 'id is required' }, 400));
     if (typeof (body && body.enabled) !== 'boolean') return send(res, json({ ok: false, error: 'enabled 必须是布尔值(true=启用 / false=停用)' }, 400));
     const enabled = body.enabled;
-    const config = await readConfig();
-    const guard = mcpConnectorMutateError(id, config);
-    if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
-    const list = config.externalMcpServers.slice();
-    const idx = list.findIndex(s => s && s.id === id);
-    list[idx] = { ...list[idx], enabled };
-    const next = await writeConfig({ ...config, externalMcpServers: list });
-    invalidateMcpRuntime(id);
-    await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 与 import 路径一致:启用集变化后再生成 .mcp.json
-    // 同 id drop-in 存在时,停用 config 条目会让 drop-in 版本接管(resolveExternalMcpServers:config 优先,
-    // 停用后 drop-in 落入清单)——如实告知,不静默。
-    const shadowed = !enabled && scanMcpDropIns().some(d => d && d.id === id);
-    const warning = shadowed ? `注意:存在同 id 的 drop-in 连接器,停用该 config 条目后 drop-in 版本将生效;如需彻底停用,请移除对应 drop-in 目录。` : null;
-    logEvent({ kind: 'mcp_connector_toggle', id, enabled });
-    return send(res, json({ ok: true, id, enabled, ...(warning ? { warning } : {}) }));
+    // 117n-M2:源守卫 / 改 list / 落盘 / invalidateMcpRuntime / 重生成 .mcp.json / drop-in 遮蔽警告 /
+    // 审计,全部下沉进 mutateMcpConnector(04),与工具面 mcp_configure 共用同一条路径。这里只剩 HTTP 形状。
+    const r = await mutateMcpConnector({ op: 'set-enabled', id, enabled });
+    if (!r.ok) return send(res, json({ ok: false, error: r.error }, r.status));
+    return send(res, json({ ok: true, id, enabled, ...(r.warning ? { warning: r.warning } : {}) }));
   }
   // DELETE /api/mcp/connectors {id} -> 删除用户连接器(持久化;删后即卸载,重启不复活)。
   if (req.method === 'DELETE' && pathname === '/api/mcp/connectors') {
     const body = await readJsonBody(req);
     const id = String((body && body.id) || '').trim();
     if (!id) return send(res, json({ ok: false, error: 'id is required' }, 400));
-    const config = await readConfig();
-    const guard = mcpConnectorMutateError(id, config);
-    if (guard) return send(res, json({ ok: false, error: guard.error }, guard.status));
-    const list = config.externalMcpServers.filter(s => !(s && s.id === id));
-    // 记入 dismissedMcpIds:启动时 autoImportClaudeCodeMcp 会跳过它,避免「删了又自动回来」。
-    // (normalizeConfig 去重;用户经 import-folder/import-config 显式再导入会从 dismissed 移除。)
-    const dismissed = Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds.slice() : [];
-    if (!dismissed.includes(id)) dismissed.push(id);
-    const next = await writeConfig({ ...config, externalMcpServers: list, dismissedMcpIds: dismissed });
-    invalidateMcpRuntime(id);
-    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
-    // 与 toggle 对称(55b 对抗审查):删除遮蔽同 id drop-in 的 config 条目后,drop-in 版本将静默接管
-    // (resolveExternalMcpServers:config 优先,条目消失则 drop-in 落入清单)——如实告知,不假装彻底删除。
-    const shadowed = scanMcpDropIns().some(d => d && d.id === id);
-    const warning = shadowed ? `注意:存在同 id 的 drop-in 连接器,删除该 config 条目后 drop-in 版本将生效;如需彻底移除,请同时删除对应 drop-in 目录。` : null;
-    logEvent({ kind: 'mcp_connector_delete', id });
-    return send(res, json({ ok: true, id, removed: true, ...(warning ? { warning } : {}) }));
+    // 117n-M2:同 toggle,整段下沉进 mutateMcpConnector(04)—— 含 dismissedMcpIds 记账与 drop-in
+    // 遮蔽告知(55b 对抗审查那条:删除遮蔽同 id drop-in 的 config 条目后 drop-in 版本会静默接管)。
+    const r = await mutateMcpConnector({ op: 'remove', id });
+    if (!r.ok) return send(res, json({ ok: false, error: r.error }, r.status));
+    return send(res, json({ ok: true, id, removed: true, ...(r.warning ? { warning: r.warning } : {}) }));
   }
   return false;
-}
-
-// 55b: toggle/delete 的源守卫。config 源(externalMcpServers 里有该 id)-> null(可操作);
-// 内置 desktop / drop-in -> 409 + 人话原因;都没找到 -> 404。toggle 与 delete 共用,防两路判定分歧。
-function mcpConnectorMutateError(id, config) {
-  if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
-  const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
-  if (list.some(s => s && s.id === id)) return null;
-  const drop = scanMcpDropIns().find(d => d && d.id === id);
-  if (drop) return { status: 409, error: `连接器「${id}」是 drop-in 目录运行时合并的(${drop._dropInFolder}),不可在此启停/删除;请移除对应目录后再试。` };
-  return { status: 404, error: '未找到连接器: ' + id };
 }
 
 // ── checkpoint·storage 域:/api/storage/policy|clean、/api/checkpoints/rollback、/api/session/rewind ──
@@ -191,9 +171,11 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
     const src = (body && typeof body === 'object')
       ? (body.storagePolicy && typeof body.storagePolicy === 'object' ? body.storagePolicy : body)
       : {};
-    const config = await readConfig();
-    config.storagePolicy = { ...(config.storagePolicy || {}), ...src };
-    const saved = await writeConfig(config);
+    // 117n-M2:走 mutateConfig 的临界区(此前裸 readConfig -> 改字段 -> writeConfig,与并发的
+    // /api/config 保存互相吞:一次并发就能让刚存的存储策略或刚存的 Provider 其中一份凭空消失)。
+    const saved = (await mutateConfig(async (config) => {
+      config.storagePolicy = { ...(config.storagePolicy || {}), ...src };
+    })).config;
     return send(res, json({ ok: true, policy: normalizeStoragePolicy(saved.storagePolicy) }));
   }
   if (req.method === 'POST' && pathname === '/api/storage/clean') {

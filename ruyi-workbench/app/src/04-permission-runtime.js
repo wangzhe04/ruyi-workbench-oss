@@ -1293,39 +1293,110 @@ function invalidateMcpRuntime(id) {
   }
 }
 
+// 55b: toggle/delete 的源守卫。config 源(externalMcpServers 里有该 id)-> null(可操作);
+// 内置 desktop / drop-in -> 409 + 人话原因;都没找到 -> 404。toggle 与 delete 共用,防两路判定分歧。
+// 117n-M2:从 13b 下沉到 04 —— 工具面的 mcp_configure 也必须走这条护栏,而它住 04,04 -> 13b 是前向边。
+// opts.allowMissing:upsert 语义下「本来就没有」是合法的新建,不算错;内置与 drop-in 仍然挡。
+function mcpConnectorMutateError(id, config, opts) {
+  if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
+  const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
+  if (list.some(s => s && s.id === id)) return null;
+  const drop = scanMcpDropIns().find(d => d && d.id === id);
+  if (drop) return { status: 409, error: `连接器「${id}」是 drop-in 目录运行时合并的(${drop._dropInFolder}),不可在此启停/删除/改写;请移除对应目录后再试。` };
+  if (opts && opts.allowMissing) return null;
+  return { status: 404, error: '未找到连接器: ' + id };
+}
+
+// 停用/删除遮蔽了同 id drop-in 的 config 条目时的如实告知(resolveExternalMcpServers:config 优先,
+// 条目消失/停用后 drop-in 落入清单)。两个动作两句话,别处不要再抄一份。
+const MCP_DROPIN_SHADOW_WARNING = {
+  remove: '注意:存在同 id 的 drop-in 连接器,删除该 config 条目后 drop-in 版本将生效;如需彻底移除,请同时删除对应 drop-in 目录。',
+  disable: '注意:存在同 id 的 drop-in 连接器,停用该 config 条目后 drop-in 版本将生效;如需彻底停用,请移除对应 drop-in 目录。',
+};
+
+// ── 117n-M2:MCP 连接器变更的唯一内核 ────────────────────────────────────────────────────────
+// 修前同一件事有两处独立实现。HTTP 面(13b 的 POST /api/mcp/connectors/toggle 与
+// DELETE /api/mcp/connectors)做了八件事:源守卫 -> 改 list -> 落盘 -> invalidateMcpRuntime ->
+// 重生成 .mcp.json -> 删除时记 dismissedMcpIds -> drop-in 遮蔽警告 -> 审计。
+// 工具面(mcp_configure -> configureMcpFromTool)只做了其中三件,于是漏了三项副作用:
+//   · remove 不记 dismissedMcpIds -> 模型删掉的连接器下次启动被 autoImportClaudeCodeMcp 悄悄加回来;
+//   · 不调 generateMcpConfig -> .mcp.json 落后于 config.json,CLI 侧看到的是旧清单;
+//   · 没有源守卫(只硬编码挡了 ai-computer-control)-> drop-in 来源的连接器在工具面能改、
+//     HTTP 面却拒绝(同一件事两套判据),且零审计。
+// 现在两边都调这里,判据与副作用只有一份。op:'set-enabled' | 'remove' | 'upsert'
+// (upsert 是工具面专有的写入操作,但走同一条护栏与同一个 generateMcpConfig 收尾)。
+// 不收 config 入参:护栏与改 list 必须发生在 mutateConfig 的锁内、基于锁内刚读到的那一份,
+// 拿调用方的快照判定等于把丢失更新换个地方留着。
+// 返回 { ok:false, status, error } 或 { ok:true, op, id, config, server, removed, warning? }。
+async function mutateMcpConnector({ op, id, enabled, server }) {
+  const wantId = String(id || '').trim();
+  if (!wantId) return { ok: false, status: 400, error: 'id is required' };
+  const on = enabled !== false;
+  const r = await mutateConfig(async (config) => {
+    const guard = mcpConnectorMutateError(wantId, config, { allowMissing: op === 'upsert' });
+    if (guard) return { abort: { ok: false, status: guard.status, error: guard.error } };
+    const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
+    const dismissed = Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds.slice() : [];
+    const idx = list.findIndex(s => s && s.id === wantId);
+    if (op === 'set-enabled') {
+      list[idx] = { ...list[idx], enabled: on };
+    } else if (op === 'remove') {
+      list.splice(idx, 1);
+      // 记入 dismissedMcpIds:启动时 autoImportClaudeCodeMcp 会跳过它,避免「删了又自动回来」。
+      // (normalizeConfig 去重;用户经 import-folder/import-config/upsert 显式再导入会从 dismissed 移除。)
+      if (!dismissed.includes(wantId)) dismissed.push(wantId);
+    } else if (op === 'upsert') {
+      const clean = sanitizeExternalMcpServer({ ...(server || {}), id: wantId });
+      if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
+      if (idx >= 0) list[idx] = clean; else list.push(clean);
+      // 显式(再)导入覆盖撤销 —— 与 import-folder / import-config/apply 同语义。
+      for (let i = dismissed.length - 1; i >= 0; i--) if (dismissed[i] === wantId) dismissed.splice(i, 1);
+    } else {
+      return { abort: { ok: false, status: 400, error: 'operation 必须是 upsert、remove 或 set-enabled' } };
+    }
+    config.externalMcpServers = list;
+    config.dismissedMcpIds = dismissed;
+    return {};
+  });
+  if (!r.ok) return r.value;
+  const next = r.config;
+  invalidateMcpRuntime(wantId); // 杀活客户端 / 清失败冷却:停用后不再重连,启用后可立即重测
+  await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 与 import 路径一致:启用集变化后再生成 .mcp.json
+  const shadowKind = op === 'remove' ? 'remove' : (op === 'set-enabled' && !on ? 'disable' : '');
+  const warning = (shadowKind && scanMcpDropIns().some(d => d && d.id === wantId)) ? MCP_DROPIN_SHADOW_WARNING[shadowKind] : null;
+  if (op === 'remove') logEvent({ kind: 'mcp_connector_delete', id: wantId });
+  else if (op === 'set-enabled') logEvent({ kind: 'mcp_connector_toggle', id: wantId, enabled: on });
+  else logEvent({ kind: 'mcp_connector_upsert', id: wantId });
+  return { ok: true, op, id: wantId, config: next, removed: op === 'remove',
+    server: (next.externalMcpServers || []).find(s => s && s.id === wantId) || null,
+    ...(warning ? { warning } : {}) };
+}
+
+// 工具面入口(mcp_configure)。117n-M2 起只剩「工具形状 + set-browser」,连接器三操作全部转
+// mutateMcpConnector。第二个参数 currentConfig 保留在签名里只为兼容既有调用点(12-tool-dispatch),
+// 【有意不再使用】:落盘前的读必须发生在 mutateConfig 的锁内,回合起点的快照到这里已可能陈旧。
 async function configureMcpFromTool(args, currentConfig) {
+  void currentConfig; // 见上:有意不用
   const operation = String(args && args.operation || '').trim();
-  const config = currentConfig || await readConfig();
   if (operation === 'set-browser') {
     const raw = (args && args.browser && typeof args.browser === 'object') ? args.browser : {};
-    const next = await writeConfig({ ...config, browserAutomation: {
-      mode: raw.mode, executable: raw.executable, cdpUrl: raw.cdpUrl,
-    } });
+    const r = await mutateConfig(async (config) => {
+      config.browserAutomation = { mode: raw.mode, executable: raw.executable, cdpUrl: raw.cdpUrl };
+      return {};
+    });
     invalidateMcpRuntime('ai-computer-control');
-    return { ok: true, operation, browserAutomation: next.browserAutomation,
+    return { ok: true, operation, browserAutomation: r.config.browserAutomation,
       note: '浏览器目标已保存；当前桌面 MCP 连接已刷新，下一次工具发现会按新策略启动。' };
   }
   const id = String(args && (args.id || (args.server && args.server.id)) || '').trim();
   if (!id || id === 'ai-computer-control') return { ok: false, error: '外部 MCP 需要合法 id；内置 ai-computer-control 只能用 set-browser 调整浏览器目标。' };
-  const list = Array.isArray(config.externalMcpServers) ? config.externalMcpServers.slice() : [];
-  const index = list.findIndex(s => s && s.id === id);
-  if (operation === 'remove') {
-    if (index < 0) return { ok: false, error: `未找到外部 MCP: ${id}` };
-    list.splice(index, 1);
-  } else if (operation === 'set-enabled') {
-    if (index < 0) return { ok: false, error: `未找到外部 MCP: ${id}` };
-    list[index] = { ...list[index], enabled: args.enabled !== false };
-  } else if (operation === 'upsert') {
-    const server = sanitizeExternalMcpServer({ ...(args.server || {}), id });
-    if (!server) return { ok: false, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' };
-    if (index >= 0) list[index] = server; else list.push(server);
-  } else {
+  if (operation !== 'upsert' && operation !== 'remove' && operation !== 'set-enabled') {
     return { ok: false, error: 'operation 必须是 upsert、remove、set-enabled 或 set-browser' };
   }
-  const next = await writeConfig({ ...config, externalMcpServers: list });
-  invalidateMcpRuntime(id);
-  const saved = (next.externalMcpServers || []).find(s => s.id === id);
-  return { ok: true, operation, id, removed: operation === 'remove',
+  const r = await mutateMcpConnector({ op: operation, id, enabled: args && args.enabled, server: (args && args.server) || null });
+  if (!r.ok) return { ok: false, operation, id, error: r.error };
+  const saved = r.server;
+  return { ok: true, operation, id, removed: r.removed, ...(r.warning ? { warning: r.warning } : {}),
     server: saved ? { id: saved.id, label: saved.label, command: saved.command, args: saved.args, cwd: saved.cwd, enabled: saved.enabled, envKeys: Object.keys(saved.env || {}) } : null,
     note: '配置已原子保存并刷新工具目录；若工具仍不可用，请读取 MCP 列表与启动诊断。' };
 }
