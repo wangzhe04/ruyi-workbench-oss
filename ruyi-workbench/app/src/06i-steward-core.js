@@ -939,7 +939,9 @@ function prerouteText(q, index, memory, opts) {
 //           threadPrioritize(args,ctx)(116h:把一条排队中的线程提到队首,下一个并发位归它)、
 //           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)、
 //           threadNote(args,ctx)(116-2b:给【已在跑】的线程以插话补一句上下文,走 /api/steer 同一通道)
-//   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
+//   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)、
+//           threadStop(args,ctx)(117m-A4:线程级停止 —— runAction 只对【班组】有效,普通线程回合
+//           没有 runId;收紧类,任何权限档都放行,没在跑回 not_running。实现住 13h,理由同 threadPrioritize)
 //   设置族(tier exec,116-2e): configGet(args,ctx)、configSet(args,ctx)
 //           —— 按 stewardConfigTierFor 三级分档:free 直写、confirm 须 ctx.userPressed === true、
 //           forbidden 整份拒绝(零写入)。落盘走与 POST /api/config 同一个核心。

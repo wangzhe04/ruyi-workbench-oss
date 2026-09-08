@@ -163,6 +163,7 @@ const PROMPT_ZH = {
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
       '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
       '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
+      '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -330,6 +331,7 @@ const PROMPT_EN = {
       '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
       '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
       '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
+      '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',

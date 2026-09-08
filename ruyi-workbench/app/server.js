@@ -17808,6 +17808,7 @@ const PROMPT_ZH = {
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
       '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
       '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
+      '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -17975,6 +17976,7 @@ const PROMPT_EN = {
       '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
       '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
       '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
+      '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
@@ -19273,7 +19275,9 @@ function prerouteText(q, index, memory, opts) {
 //           threadPrioritize(args,ctx)(116h:把一条排队中的线程提到队首,下一个并发位归它)、
 //           threadPermission(args,ctx)(116-2a:线程权限【只降不升】,放宽一律 steward.widen_forbidden)、
 //           threadNote(args,ctx)(116-2b:给【已在跑】的线程以插话补一句上下文,走 /api/steer 同一通道)
-//   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)
+//   决策族(tier exec): decide(args,ctx)、runAction(args,ctx)、
+//           threadStop(args,ctx)(117m-A4:线程级停止 —— runAction 只对【班组】有效,普通线程回合
+//           没有 runId;收紧类,任何权限档都放行,没在跑回 not_running。实现住 13h,理由同 threadPrioritize)
 //   设置族(tier exec,116-2e): configGet(args,ctx)、configSet(args,ctx)
 //           —— 按 stewardConfigTierFor 三级分档:free 直写、confirm 须 ctx.userPressed === true、
 //           forbidden 整份拒绝(零写入)。落盘走与 POST /api/config 同一个核心。
@@ -21727,6 +21731,9 @@ const NATIVE_TOOL_TIER = {
   steward_thread_note: 'edit',
   steward_thread_prioritize: 'edit',   // 116h:插队只动队列顺序,不改文件不动世界,归线程族 edit
   steward_decide: 'exec', steward_run_action: 'exec',
+  // 117m-A4: 线程级停止与 run_action 同族(决策族 exec)—— 它真的去掐一个在跑的子进程/在途请求。
+  // 归 exec 是按「动作强度」定档,不是按「危险方向」:它是收紧类,13g 内部对任何权限档都放行。
+  steward_thread_stop: 'exec',
   // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
   // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
   steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
@@ -21828,6 +21835,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
+  steward_thread_stop: 'steward',                                            // 117m-A4
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
   steward_config_get: 'steward', steward_config_set: 'steward',              // 116-2e
   steward_playbook_draft: 'steward', steward_skill_toggle: 'steward', steward_quick_ask: 'steward',
@@ -34215,6 +34223,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_prioritize: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPrioritize(args, ctx) },
   steward_decide: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.decide(args, ctx) },
   steward_run_action: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runAction(args, ctx) },
+  steward_thread_stop: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStop(args, ctx) },  // 117m-A4
   steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },
   steward_memory_veto: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryVeto(args, ctx) },
   steward_memory_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memorySearch(args, ctx) },
@@ -36369,6 +36378,17 @@ const MCP_TOOLS = [
         action: { type: 'string', enum: ['pause', 'resume', 'stop', 'retry_node', 'steer_node'], description: '要执行的动作。' },
         nodeId: { type: 'string', description: 'retry_node / steer_node 必填:目标节点 id。' },
         message: { type: 'string', description: 'steer_node 必填:插话内容(≤2000 字)。' },
+      },
+    },
+  },
+  {
+    name: 'steward_thread_stop',
+    description: '把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,顺带把还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId'],
+      properties: {
+        sessionId: { type: 'string', description: '要停的线程 id(不能是管家自己的会话)。' },
+        reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
       },
     },
   },
@@ -44099,7 +44119,7 @@ async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
   const action = String(args.action || '');
-  if (!sessionId || !runId) return stewardFail('invalid_request', 'sessionId and runId are required');
+  if (!sessionId || !runId) return (sessionId && STEWARD_RUN_TIGHTENING.includes(action)) ? stewardFail('no_agent_run', '这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop', { sessionId, action }) : stewardFail('invalid_request', 'sessionId and runId are required');  // 117m-A4:缺 runId 的收紧类是【问错了工具】(普通线程没有班组),不是请求非法;其余动作逐字不变。全部理由见 13h 的 stewardImplThreadStop 头注
   if (!STEWARD_RUN_TIGHTENING.includes(action) && !STEWARD_RUN_ADVANCING.includes(action)) {
     return stewardFail('invalid_request', `unknown action: ${stewardSanitizeText(action)}`);
   }
@@ -44902,6 +44922,7 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_prioritize: 'threadPrioritize',   // 116h:§8.10 看板每行的「提升优先级」按钮
   steward_decide: 'decide',
   steward_run_action: 'runAction',
+  steward_thread_stop: 'threadStop',               // 117m-A4:线程级停止(不在表里 = 按钮按下去 4xx)
   steward_memory_write: 'memoryWrite',
   steward_memory_veto: 'memoryVeto',
   // 116-2e:两个「须确认」的写工具。它们在模型回合里一定回 propose_required(ctx 里没有
@@ -44918,6 +44939,7 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_new: '新开线程', steward_thread_continue: '接着办', steward_thread_rename: '改标题',
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
+  steward_thread_stop: '暂停这条线程',                            // 117m-A4
   steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
 });
 
@@ -45408,6 +45430,9 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
     }
     return { allowed: true }; // pause/stop 是收紧类,任何时候都可以做(13g 里也是这个口径)
   }
+  // 117m-A4:线程级停止与 run_action{pause,stop} 同族 —— 收紧类,无人值守也可以做。写成显式一行
+  // 而不是靠函数末尾的兜底 return:这是一条【口径】,不该长得像「忘了登记所以放行」。
+  if (tool === 'steward_thread_stop') return { allowed: true };
   return { allowed: true }; // decide / rename:由 13g 内部的 stewardMayAct 与永久豁免清单裁决
 }
 
@@ -46968,6 +46993,58 @@ async function stewardImplThreadPrioritize(args, ctx, config) {
   return { ok: true, sessionId, prioritized: true, wait: waitReasonFor({ pending: 0 }, stewardArbiterWait(sessionId)) };
 }
 
+// ── steward_thread_stop(117m-A4,27 号文 §11.10 用户第六轮走查第 ③ 条「暂停这个线程,会显示 invalid」)──
+// 根因:管家手里【只有】班组级的 steward_run_action(13g 的 stewardImplRunAction 头一行就要 sessionId
+// 与 runId)。普通线程回合根本没有班组,模型想「暂停这条线程」只能拿它凑 -> 必然 invalid_request ->
+// 前端 errGeneric 把机器码原样贴出来,就是用户看到的那个「invalid」。抽屉底部那枚「停止」按钮走的是
+// POST /api/stop,管家一直没有对应的原语。这里补的就是那条路,不是第二条停机路径:
+//   ① stopSession(既有停止原语:拿 activeChildren 里的 abort 句柄直接掐,并清掉该会话的三张待决表);
+//   ② stewardCancelQueuedTurn(116h 仲裁器:stopSession 只认活回合,【还在排队】的回合它看不见);
+//   ③ revokeAllGrants(第 27 波:显式停止 = 夺回控制,该会话的授权书连 scope:'session' 一并撤)。
+// 三件都是既有核心,本函数一行停机逻辑都不自己写。
+//
+// 落在 13h 而不是 13g:与 stewardImplThreadPrioritize 同一条理由 —— 它要直接调本文件的仲裁器原语,
+// 而 13g 已经顶到 SPEC §2 的 2000 行目标。门控壳仍用 13g 的 stewardToolHandler(13h -> 13g 是后向边),
+// 开关/身份两道 fail-closed 与其余工具逐字一致。
+//
+// 权限:停止是【收紧类】—— 与 STEWARD_RUN_TIGHTENING 同款,任何权限档都 mayAct='auto'(连「每步都问」
+// 的线程也允许管家替你按停,因为它只会让事情【少】发生)。只放开了收紧:同一条线程的 thread_continue /
+// decide / run_action{resume} 仍各自过自己的权限门,一条都没松。
+//
+// 没在跑时不许回 invalid:那不是「请求非法」,是「不用停」。信封 not_running + 一句人话,模型照直说给
+// 用户听就行(schema 的 description 里写明了拿到它不要重试)。也不许有副作用 —— 所以先看 activeChildren
+// 再决定要不要调 stopSession:stopSession 即使拿不到条目也会清一遍三张待决表,那是【停一个真在跑的
+// 回合】的收尾语义,不该发生在一个 not_running 的信封上;revokeAllGrants 同理,只在真停下了什么之后才撤。
+const STEWARD_STOP_REASON_MAX = 200;
+async function stewardImplThreadStop(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('invalid_request', 'sessionId is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot stop its own turn');
+  const reason = stewardSanitizeText(args.reason).trim().slice(0, STEWARD_STOP_REASON_MAX);
+
+  const stopped = activeChildren.has(sessionId) ? stopSession(sessionId, 'steward-stop') === true : false;
+  let queuedStopped = false;
+  try { queuedStopped = stewardCancelQueuedTurn(sessionId) === true; } catch { queuedStopped = false; }
+  if (!stopped && !queuedStopped) return stewardFail('not_running', '这条线程现在没有在跑,不用停', { sessionId });
+  try { revokeAllGrants(sessionId, 'steward-stop'); } catch { /* best-effort,与 /api/stop 同款 */ }
+
+  // 停下的回合【不能】原样续上(它的半截输出已经落进会话正文;要撤销那一整回合是 rewind,另一件事)。
+  // undoRef 诚实标 none,并把用户真正该走的那条路写进 note。
+  const undoRef = { kind: 'none', note: '停下的回合不能原样续上;要继续用「接着办」' };
+  stewardAppendDecision({
+    tool: 'steward_thread_stop',
+    args: { stopped, queuedStopped, ...(reason ? { reason } : {}) },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: stewardBasisOf(args, {}),
+  });
+  return { ok: true, sessionId, stopped, queuedStopped, undoRef };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 路由(token 级,ROUTE_AUTH 在 01b 登记)。经 13g 的 handleStewardApiRoutes 末尾转交(见那里的注释)。
 // ────────────────────────────────────────────────────────────────────────────
@@ -47179,6 +47256,9 @@ Object.assign(StewardHooks, {
   arbiterRefresh: stewardArbiterRefresh,
   // 116h 的第 21 个管家工具:实现住本文件(要直接调仲裁器原语),门控壳仍是 13g 的 stewardToolHandler。
   threadPrioritize: stewardToolHandler('steward_thread_prioritize', stewardImplThreadPrioritize),
+  // 117m-A4 的第 27 个管家工具:线程级停止。住本文件的理由与 threadPrioritize 同款(要直接调仲裁器
+  // 原语,且 13g 已顶到 2000 行闸);门控壳仍是 13g 的 stewardToolHandler。
+  threadStop: stewardToolHandler('steward_thread_stop', stewardImplThreadStop),
   // 117l D2(§11.9):递话通道的判定与执行。实现住本文件的理由与 threadPrioritize 同款 ——
   // 它要同时够到 04 的三张待决内存表、13b 的 steerSessionCore、13d 的 decideIntervention 与
   // 09 的 activeChildren,而 13g 在 13b/13d 之后、13h 之前,由 13h 来当这个汇合点边最少。

@@ -407,6 +407,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_prioritize: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPrioritize(args, ctx) },
   steward_decide: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.decide(args, ctx) },
   steward_run_action: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runAction(args, ctx) },
+  steward_thread_stop: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStop(args, ctx) },  // 117m-A4
   steward_memory_write: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryWrite(args, ctx) },
   steward_memory_veto: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memoryVeto(args, ctx) },
   steward_memory_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.memorySearch(args, ctx) },

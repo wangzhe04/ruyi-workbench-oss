@@ -19,6 +19,10 @@
 //       since 只对管家会话生效,普通会话给了也当没给。
 //   (E) B1 `POST /api/config` 把全局默认权限切到「全自动」须 confirm:true(409 permission.confirm_required,
 //       错误码与 13d 的线程级 PATCH 同一个);收紧不需要;confirm 不会被当成配置键写进 config.json。
+//   (L)(M) 117m-A4(§11.10 用户第六轮走查第 ③ 条)线程级停止 steward_thread_stop:管家原先只有【班组】级的
+//       steward_run_action,普通线程没有 runId -> 必然 invalid_request -> 用户看到「invalid」。(L) 端到端验
+//       「用户亲手按那枚按钮真能把在跑的回合掐掉」;(M) 验权限口径(收紧类任何档都放行,但推进类一条没松)
+//       与 run_action 缺 runId 时的自纠正信封(pause/stop -> no_agent_run 并点名替代工具,其余逐字不变)。
 //
 // 结构:前半真服务(HTTP 面 D/E),后半进程内直调(工具面 A/B/C)—— 与 steward-runner.e2e.js 同款。
 // 端口全部 getFreePort()。判定行:`STEWARD GUARDRAILS E2E: ALL PASS`。
@@ -43,6 +47,10 @@ const configFile = path.join(HOME, 'config.json');
 
 // ── 最小 fake provider(只要能把一个回合跑完;providerDelayMs 让某一段做成「慢回合」) ─────────
 let providerDelayMs = 0;
+// 117m-A4:自己的一把「卡住不回」旋钮。有意【不】复用上面那个 providerDelayMs —— 它在本件里
+// 从声明起就没有任何读取点(section G 的「慢回合」其实一点都不慢),把它接上会改变 G 段的实际
+// 时序,而那是别人的断言,本切片不动。这一把只被下面 (L) 段用。
+let providerStallMs = 0;
 let providerReply = JSON.stringify({ say: '看过了。', why: '总览', acts: [] });
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
@@ -52,6 +60,7 @@ const providerServer = http.createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] }));
   }
+  if (providerStallMs > 0) await sleep(providerStallMs);   // 117m-A4:把回合卡在模型往返上
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   const frame = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
   frame({ choices: [{ index: 0, delta: { content: providerReply } }] });
@@ -221,6 +230,59 @@ try {
     const other = await request('POST', '/api/config', { locale: 'zh-CN' }, hdr);
     ok(other.status === 200, 'E10 不带 permissionMode 的补丁完全不受影响');
     await request('POST', '/api/config', { permissionMode: 'default', confirm: true }, hdr);
+  }
+
+  /* ═════════ (L) 117m-A4:「暂停这条线程」不许再回 invalid(真服务面) ═════════ */
+  // 用户第六轮走查第 ③ 条:管家把「暂停这条线程」提成 steward_run_action,而那是【班组】动作 ——
+  // 普通线程回合根本没有 runId,必然撞上 13g 的 `!sessionId || !runId` -> invalid_request,前端
+  // errGeneric 把机器码原样贴出来。修法是给管家一个线程级停止原语,走抽屉那个「停止」按钮的同一条路。
+  // 这一段验的是【端到端】:用户亲手按下那枚按钮(POST /api/steward/act,经 STEWARD_ACTION_HOOKS)
+  // 能不能把一个真在跑的回合掐掉。
+  console.log('── (L) 117m-A4 线程级停止(真服务)──');
+  {
+    const STALL = 6000;
+    const created = await request('POST', '/api/sessions', { title: '要被停的线程', cwd: HOME }, hdr);
+    const sid = created.json && created.json.session && created.json.session.id;
+    ok(!!sid, `L0 前置:建出一条普通线程(got ${sid})`);
+
+    providerStallMs = STALL;                       // provider 卡住不回 -> 回合一定还在跑
+    const t0 = Date.now();
+    const streaming = request('POST', '/api/chat/stream', { sessionId: sid, message: '开始一件很慢的事', cwd: HOME }, hdr);
+
+    // 等回合真的登记进 activeChildren 再按停。轮询用的就是这枚按钮本身:没在跑时它回 not_running
+    // 且【零副作用】(这正是本切片要证的性质之一),所以拿它当探针是安全的。
+    let act = null;
+    for (let i = 0; i < 40; i++) {
+      await sleep(150);
+      act = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_stop', args: { sessionId: sid } } }, hdr);
+      if (act.status === 200 && act.json && act.json.result && act.json.result.stopped === true) break;
+    }
+    ok(act && act.status === 200 && act.json && act.json.ok === true && act.json.kind === 'tool',
+      `L1 steward_thread_stop 能作为按钮执行(在 STEWARD_ACTION_HOOKS 里;修前这个工具根本不存在 -> not_allowed;got ${act && act.status} ${act && act.json && act.json.error})`);
+    ok(act && act.json && act.json.result && act.json.result.ok === true && act.json.result.stopped === true,
+      `L2 在跑的线程真的被停掉(stopped:true;got ${act && act.json && JSON.stringify(act.json.result)})`);
+    ok(act && act.json && act.json.result && act.json.result.undoRef && act.json.result.undoRef.kind === 'none'
+      && /接着办/.test(String(act.json.result.undoRef.note || '')),
+      `L2b undoRef 诚实标 none 并写清替代路径(停下的回合不能原样续上;got ${act && act.json && JSON.stringify(act.json.result && act.json.result.undoRef)})`);
+
+    const streamRes = await streaming;
+    const elapsed = Date.now() - t0;
+    ok(elapsed < STALL, `L3 那条 /api/chat/stream 在 provider 吐第一个字之前就收尾了 —— 回合是被【掐掉】的,不是自然跑完(${elapsed}ms < ${STALL}ms;status ${streamRes.status})`);
+
+    // 停完之后会话回到非 live:同一枚按钮再按一次只能拿到 not_running + 人话,绝不是 invalid_request。
+    await sleep(300);
+    const again = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_stop', args: { sessionId: sid } } }, hdr);
+    const r2 = again.json && again.json.result;
+    ok(again.status === 200 && r2 && r2.ok === false && r2.error === 'not_running',
+      `L4 没在跑 -> not_running(不是 invalid_request;got ${r2 && r2.error})`);
+    ok(r2 && r2.error !== 'invalid_request' && /没有在跑/.test(String(r2.message || '')),
+      `L5 而且是一句人话,不是机器码(got ${r2 && r2.message})`);
+    providerStallMs = 0;
+
+    // 对照组:没登记进 ACTION_HOOKS 的工具名走同一条路仍然是 not_allowed —— 白名单还是白名单。
+    const bogus = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_read', args: { sessionId: sid } } }, hdr);
+    ok(bogus.status === 400 && bogus.json && bogus.json.error && bogus.json.error.code === 'not_allowed',
+      `L6 对照组:只读工具仍进不了 act 白名单(got ${bogus.status} ${bogus.json && bogus.json.error && bogus.json.error.code})`);
   }
 } finally {
   kill(wb);
@@ -574,6 +636,61 @@ try {
     ok(sig(base) !== sig({ ...base, acceptance: { done: 2, total: 3 } }), 'A4-3 勾掉一条验收项 -> 签名变');
     ok(sig(base) !== sig({ ...base, acceptance: { done: 1, total: 4 } }), 'A4-4 加一条验收项 -> 签名变');
     ok(sig({ missionId: 'm1' }) === sig({ missionId: 'm1' }), 'A4-5 字段缺失时不炸(缺省当空)');
+  }
+
+  /* ═════════ (M) 117m-A4:停止的权限口径与 run_action 的自纠正信封(进程内) ═════════ */
+  console.log('── (M) 117m-A4 停止的权限口径 ──');
+  {
+    const SID_STRICT = 'sess_a4_strict';
+    craftThread(SID_STRICT, { permissionMode: 'default', title: '每步都问的线程' });
+    // 自理清单全开 + 全局 default:这样 M2 拿到的 propose_required 一定来自【目标线程权限】那道闸,
+    // 而不是「没勾选」那道 —— 否则伴随断言就证不了「只放开了收紧」。
+    writeConfig({ permissionMode: 'default', stewardMaxTurnsPerHour: 500,
+      stewardAutoActions: { relay: true, newThread: true, retry: true, resume: true } });
+
+    const beforeRows = readDecisions().filter(r => r.tool === 'steward_thread_stop').length;
+
+    // M1:收紧类不受权限档限制 —— 「每步都问」的线程也允许管家按停。这条线程没有在跑,所以正确的
+    // 出口是 not_running(而不是 propose_required、更不是 invalid_request):它已经【过了】权限判定。
+    // 两条都用【无人值守】的 inbox ctx:那是最严的一档(用户不在跟前),也是 thread_continue 的
+    // 目标线程权限闸唯一生效的入口 —— 两边同一个 ctx,M1/M2 才是可比的一对。
+    const inbox = stewardCtx({ trigger: 'inbox' });
+    const stop = await call('steward_thread_stop', { sessionId: SID_STRICT }, inbox);
+    ok(stop && stop.ok === false && stop.error === 'not_running',
+      `M1 「每步都问」档也不拦停止(收紧类;没在跑 -> not_running;got ${stop && (stop.error || 'ok')})`);
+    ok(stop && stop.error !== 'propose_required' && stop.error !== 'invalid_request',
+      `M1b 既不是 propose_required 也不是 invalid_request(修前用户看到的就是那个 invalid;got ${stop && stop.error})`);
+    ok(stop && /没有在跑/.test(String(stop.message || '')), `M1c 人话原样可端给用户(got ${stop && stop.message})`);
+
+    // M2 伴随断言:只放开了【收紧】。同一条线程的推进类动作(递话)在「每步都问」下仍是提议。
+    const cont = await call('steward_thread_continue', { sessionId: SID_STRICT, message: '接着办' }, inbox);
+    ok(cont && cont.ok === false && cont.error === 'propose_required' && cont.reason === 'target_permission',
+      `M2 同一条线程的 thread_continue 在「每步都问」下仍只提议(没有顺手放开推进;got ${cont && (cont.reason || cont.error || 'ok')})`);
+
+    // M3:not_running 是【零副作用】的信封 —— 不写决策日志(也就不会在「行动流水」里凭空多一行
+    // 「暂停这条线程」,而其实什么都没停)。
+    await sleep(200);
+    ok(readDecisions().filter(r => r.tool === 'steward_thread_stop').length === beforeRows,
+      `M3 not_running 不落决策日志(前 ${beforeRows} 行,现 ${readDecisions().filter(r => r.tool === 'steward_thread_stop').length} 行)`);
+
+    // M4:管家自己的会话停不了自己 —— 与 run_action 的 invalid_target 同一口径。
+    const selfStop = await call('steward_thread_stop', { sessionId: 'steward' }, inbox);
+    ok(selfStop && selfStop.ok === false && (selfStop.error === 'invalid_target' || selfStop.error === 'not_found'),
+      `M4 管家会话不是停止目标(got ${selfStop && selfStop.error})`);
+
+    // M5/M6/M7:run_action 缺 runId 的自纠正信封。收紧类的两个动作说人话并点名替代工具;
+    // 推进类逐字不变(既有行为零回归)。
+    for (const action of ['pause', 'stop']) {
+      const r = await call('steward_run_action', { sessionId: SID_STRICT, action }, inbox);
+      ok(r && r.ok === false && r.error === 'no_agent_run' && /steward_thread_stop/.test(String(r.message || '')),
+        `M5 run_action{${action}} 缺 runId -> no_agent_run 且点名 steward_thread_stop(got ${r && r.error}: ${r && r.message})`);
+    }
+    const retry = await call('steward_run_action', { sessionId: SID_STRICT, action: 'retry_node' }, inbox);
+    ok(retry && retry.ok === false && retry.error === 'invalid_request' && retry.message === 'sessionId and runId are required',
+      `M6 retry_node 缺 runId 仍是逐字不变的 invalid_request(既有行为零回归;got ${retry && retry.error}: ${retry && retry.message})`);
+    const noSid = await call('steward_run_action', { runId: 'run_x', action: 'pause' }, inbox);
+    ok(noSid && noSid.ok === false && noSid.error === 'invalid_request',
+      `M7 连 sessionId 都没有仍是 invalid_request(那才真是请求非法;got ${noSid && noSid.error})`);
   }
 
   /* ═════════ (I) 源码单点锁:两处只能靠读源码钉住的口径 ═════════ */

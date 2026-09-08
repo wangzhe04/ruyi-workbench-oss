@@ -878,6 +878,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_thread_stop',
+    description: '把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,顺带把还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId'],
+      properties: {
+        sessionId: { type: 'string', description: '要停的线程 id(不能是管家自己的会话)。' },
+        reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
+      },
+    },
+  },
+  {
     name: 'steward_memory_write',
     description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。',
     inputSchema: {

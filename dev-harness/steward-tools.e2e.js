@@ -518,8 +518,15 @@ try {
     // 116-2b 重钉:18 → 19(新增 steward_thread_note);116g 再钉:19 → 20(新增 steward_missions);
     // 116h 再钉:20 → 21(新增 steward_thread_prioritize,27 号文 §3.1 116h 行 / §8.10「提升优先级」)。
     // 116-2e 再钉:21 → 26(新增 config_get/config_set/playbook_draft/skill_toggle/quick_ask)。
-    ok(srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).length === 26,
-      'K1b 面 1 管家会话拿到全部 26 个');
+    // 117m-A4 再钉:26 → 27(新增 steward_thread_stop,§11.10 用户第六轮走查第 ③ 条 —— 管家原先只有
+    // 班组级的 run_action,普通线程没有 runId 必然 invalid_request)。重钉的同时把这条从【只数个数】
+    // 换成【逐名对账】:个数对但少一个多一个的错法从此也会红。
+    const stewardOffered = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).sort();
+    ok(stewardOffered.length === 27, `K1b 面 1 管家会话拿到全部 27 个(got ${stewardOffered.length})`);
+    const stewardRegistered = Object.keys(srv.TOOL_HANDLERS).filter(n => n.startsWith('steward_')).sort();
+    ok(JSON.stringify(stewardOffered) === JSON.stringify(stewardRegistered),
+      `K1c offer 出去的那一份与 12 的注册表【逐名】相同(缺: ${stewardRegistered.filter(n => !stewardOffered.includes(n)).join(',') || '无'};多: ${stewardOffered.filter(n => !stewardRegistered.includes(n)).join(',') || '无'})`);
+    ok(stewardOffered.includes('steward_thread_stop'), 'K1d 117m-A4:线程级停止真的 offer 给了管家(否则模型手里仍然只有 run_action)');
     const cat = await srv.adaptiveCatalogForMcp(cfg);
     const catNames = (cat.catalog.tools || cat.catalog || []).map(t => t.name || (t.function && t.function.name));
     ok(!catNames.some(n => String(n).startsWith('steward_')), 'K2 面 3 adaptive 目录(普通会话)零 steward_*');

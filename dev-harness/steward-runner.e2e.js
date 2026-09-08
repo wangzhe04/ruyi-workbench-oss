@@ -208,7 +208,11 @@ try {
     ok(!!stewardBody, 'B7 工具面:管家回合的请求体里只有 steward_* 工具(零文件/shell/桌面/联网/元工具)');
     // 116-2a 重钉:17 → 18(新增 steward_thread_permission);116-2b 重钉:18 → 19(新增 steward_thread_note);
     // 116g 重钉:19 → 20(新增 steward_missions);116h 重钉:20 → 21(新增 steward_thread_prioritize,27 号文 §3.1 116h 行)。
-    ok(stewardBody && stewardBody.tools.length === 26, `B7b 管家回合拿到全部 26 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
+    // 117m-A4 重钉:26 → 27(新增 steward_thread_stop)。伴随一条更强的:请求体里【真的】有那个工具名 ——
+    // 只钉个数的话,「加了一个别的工具、漏了 thread_stop」也会绿。
+    ok(stewardBody && stewardBody.tools.length === 27, `B7b 管家回合拿到全部 27 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
+    ok(stewardBody && stewardBody.tools.some(t => String(t.function && t.function.name) === 'steward_thread_stop'),
+      'B7c 117m-A4:管家回合的请求体里有 steward_thread_stop(线程级停止原语真的到了模型手里)');
     const sys = stewardBody ? String((stewardBody.messages.find(m => m.role === 'system') || {}).content || '') : '';
     ok(/我是如意/.test(sys) && /永久豁免/.test(sys) && /输出契约/.test(sys), 'B8 稳定层:身份/永久豁免/输出契约都在系统提示里');
     ok(!/先读后改/.test(sys) && !/当前能力/.test(sys), 'B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)');

@@ -236,6 +236,9 @@ const NATIVE_TOOL_TIER = {
   steward_thread_note: 'edit',
   steward_thread_prioritize: 'edit',   // 116h:插队只动队列顺序,不改文件不动世界,归线程族 edit
   steward_decide: 'exec', steward_run_action: 'exec',
+  // 117m-A4: 线程级停止与 run_action 同族(决策族 exec)—— 它真的去掐一个在跑的子进程/在途请求。
+  // 归 exec 是按「动作强度」定档,不是按「危险方向」:它是收紧类,13g 内部对任何权限档都放行。
+  steward_thread_stop: 'exec',
   // 记忆族整族 edit(含只读的 search):27 号文 §3.5「内容管理」按族定档,116c 交办单同口径。
   // search 本身零副作用,给 edit 只是让整族在权限面上同进同退,不额外放宽任何东西。
   steward_memory_write: 'edit', steward_memory_veto: 'edit', steward_memory_search: 'edit',
@@ -337,6 +340,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
+  steward_thread_stop: 'steward',                                            // 117m-A4
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
   steward_config_get: 'steward', steward_config_set: 'steward',              // 116-2e
   steward_playbook_draft: 'steward', steward_skill_toggle: 'steward', steward_quick_ask: 'steward',

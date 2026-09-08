@@ -1281,7 +1281,7 @@ async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
   const action = String(args.action || '');
-  if (!sessionId || !runId) return stewardFail('invalid_request', 'sessionId and runId are required');
+  if (!sessionId || !runId) return (sessionId && STEWARD_RUN_TIGHTENING.includes(action)) ? stewardFail('no_agent_run', '这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop', { sessionId, action }) : stewardFail('invalid_request', 'sessionId and runId are required');  // 117m-A4:缺 runId 的收紧类是【问错了工具】(普通线程没有班组),不是请求非法;其余动作逐字不变。全部理由见 13h 的 stewardImplThreadStop 头注
   if (!STEWARD_RUN_TIGHTENING.includes(action) && !STEWARD_RUN_ADVANCING.includes(action)) {
     return stewardFail('invalid_request', `unknown action: ${stewardSanitizeText(action)}`);
   }
