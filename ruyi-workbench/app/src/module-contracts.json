@@ -4252,6 +4252,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "AUTOEXEC_DENYLIST",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "isSensitiveDataPath",
           "kinds": [
             "call"
@@ -5345,6 +5352,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "classifyToolPacks",
           "kinds": [
             "call"
@@ -6160,6 +6174,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "evalPlaybookAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "getCapabilities",
           "kinds": [
             "call"
@@ -6371,6 +6392,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "buildOpenAiTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
           "kinds": [
             "call"
           ]
@@ -8494,7 +8522,15 @@
       "provides": [
         "MCP_TOOLS"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "adaptiveMetaToolSchemas",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
     },
     {
       "file": "13-http-router.js",
@@ -10235,6 +10271,13 @@
           "symbol": "storageSweep",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
           ]
         },
         {

@@ -50,6 +50,34 @@ function moduleLayer(file) {
 function isIdentifierStart(ch) { return /[A-Za-z_$]/.test(ch || ''); }
 function isIdentifierPart(ch) { return /[A-Za-z0-9_$]/.test(ch || ''); }
 
+// 117q-G1: tokenize() renders a rest/spread marker `...` as three consecutive '.' punct tokens (there is no
+// dedicated token type for it - see tokenize() below). Every place in this file that decides "is the
+// identifier at `idx` a genuine reference, or a property read I should ignore because the preceding token is
+// '.'" must tell that apart from a spread/rest target, whose preceding token is *also* '.' (the third of the
+// three). A bare `previous === '.'` check conflates the two: `[a, ...B]`, `{...B}` and `fn(...B)` all put a
+// single '.' immediately before `B`, identical to what `x.B` puts before a real property access. Without this
+// distinction, `B` in a spread position is silently treated as member access and dropped - which is exactly
+// how `06f-autonomy-grants.js`'s `[/regex/, ...AUTOEXEC_DENYLIST]` reference to 03-bridge-guard.js's exported
+// `AUTOEXEC_DENYLIST` went unrecorded. This helper is shared by every call site that needs the distinction;
+// collectArrowParamLocals() below used to compute the same three-token lookback inline, and now delegates here.
+function precededByRestDots(tokens, idx) {
+  return !!(tokens[idx - 1] && tokens[idx - 1].value === '.' &&
+    tokens[idx - 2] && tokens[idx - 2].value === '.' &&
+    tokens[idx - 3] && tokens[idx - 3].value === '.');
+}
+
+// Shared "is this identifier token a property/key read I should ignore, rather than a genuine reference"
+// check used by the cross-module requires scan in buildGraph() below. A single preceding '.' or '?.' means
+// member access (`x.B`); a following ':' means an object-literal key. Excluded from all three: a preceding
+// '.' that is actually the third dot of a `...` spread/rest marker (precededByRestDots()), which places an
+// identical single '.' immediately before its target and must NOT be treated as member access.
+function isMemberAccessSkip(tokens, index) {
+  const previous = tokens[index - 1] && tokens[index - 1].value;
+  const next = tokens[index + 1] && tokens[index + 1].value;
+  const isSpreadTarget = previous === '.' && precededByRestDots(tokens, index);
+  return (previous === '.' && !isSpreadTarget) || previous === '?.' || next === ':';
+}
+
 // Tokenizer deliberately discards comments, string/regex bodies and template literal text. `${...}` inside
 // templates is retained by a small recursive code-mode stack, so dependencies used only in interpolation
 // are not silently missed. It is not a general parser; node --check remains the syntax authority.
@@ -165,7 +193,14 @@ function declarationInfo(tokens) {
           else if (objects === 1 && part.type === 'id' && !KEYWORDS.has(part.value)) {
             const previous = tokens[j - 1] && tokens[j - 1].value;
             const next = tokens[j + 1] && tokens[j + 1].value;
-            if (previous !== '.' && previous !== '?.' && next !== ':') {
+            // 117q-G1: a rest binding here (`const { a, ...rest } = Foo;`) puts a single '.' right before
+            // `rest`, same as the `previous === '.'` guard below is trying to exclude for property reads.
+            // Without carving out the spread case, `rest` is never added to declarationTokenIndexes - which,
+            // once the cross-module requires scan in buildGraph() below stops blanket-skipping every
+            // preceding-'.' identifier (see that fix further down), would make a destructured rest name that
+            // happens to collide with another module's top-level export look like a genuine reference to it.
+            const isRestBinding = previous === '.' && precededByRestDots(tokens, j);
+            if ((previous !== '.' || isRestBinding) && previous !== '?.' && next !== ':') {
               provides.push({ name: part.value, kind: token.value, line: part.line });
               declarationTokenIndexes.add(j);
             }
@@ -225,13 +260,10 @@ function collectArrowParamLocals(tokens, declarationTokenIndexes) {
     for (let t = paramsStart; t <= bodyEnd; t++) {
       const tok = tokens[t];
       if (tok.type !== 'id' || KEYWORDS.has(tok.value) || !names.has(tok.value)) continue;
-      const previous = tokens[t - 1] && tokens[t - 1].value;
-      const next = tokens[t + 1] && tokens[t + 1].value;
       // A single preceding '.' means member access (skip); three preceding '.' tokens are this tokenizer's
-      // rendering of the rest/spread marker '...' (see tokenize() above) and are not member access - a
-      // rest-bound name's own declaration site (`...text`) must still be marked local.
-      const isRestDots = previous === '.' && tokens[t - 2] && tokens[t - 2].value === '.' && tokens[t - 3] && tokens[t - 3].value === '.';
-      if ((previous === '.' && !isRestDots) || previous === '?.' || next === ':') continue;
+      // rendering of the rest/spread marker '...' (see tokenize() above and precededByRestDots()) and are not
+      // member access - a rest-bound name's own declaration site (`...text`) must still be marked local.
+      if (isMemberAccessSkip(tokens, t)) continue;
       declarationTokenIndexes.add(t);
     }
   }
@@ -381,7 +413,11 @@ function buildGraph() {
       if (!owner || owner.file === analysis.file) continue;
       const previous = analysis.tokens[i - 1] && analysis.tokens[i - 1].value;
       const next = analysis.tokens[i + 1] && analysis.tokens[i + 1].value;
-      if (previous === '.' || previous === '?.' || next === ':') continue;
+      // 117q-G1: a spread/rest target (`[a, ...B]`, `{...B}`, `fn(...B)`) also has a single '.' immediately
+      // before it (see precededByRestDots() above) - without carving that out here, this loop mistook it for
+      // a property read (`x.B`) and dropped the reference. This is why 06f-autonomy-grants.js's
+      // `[/regex/, ...AUTOEXEC_DENYLIST]` reference to 03-bridge-guard.js never showed up as a `requires`.
+      if (isMemberAccessSkip(analysis.tokens, i)) continue;
       const map = requirements.get(analysis.file);
       const key = `${owner.file}\0${token.value}`;
       const existing = map.get(key) || { provider: owner.file, symbol: token.value, kinds: new Set(), lines: new Set() };
@@ -549,4 +585,7 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildGraph, buildContract, buildPolicy, buildMarkdown, policyViolations, tokenize, declarationInfo };
+module.exports = {
+  buildGraph, buildContract, buildPolicy, buildMarkdown, policyViolations, tokenize, declarationInfo,
+  precededByRestDots, isMemberAccessSkip,
+};

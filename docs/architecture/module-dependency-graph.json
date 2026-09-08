@@ -5,8 +5,8 @@
   "summary": {
     "modules": 41,
     "providedSymbols": 2046,
-    "requiredSymbols": 2001,
-    "edges": 321,
+    "requiredSymbols": 2007,
+    "edges": 322,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1382,6 +1382,7 @@
           "lines": [
             789,
             790,
+            791,
             792,
             1371,
             1373,
@@ -6866,6 +6867,16 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "AUTOEXEC_DENYLIST",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            34
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "isSensitiveDataPath",
           "kinds": [
             "call"
@@ -8558,6 +8569,16 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            586
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "classifyToolPacks",
           "kinds": [
             "call"
@@ -8745,7 +8766,8 @@
             "read"
           ],
           "lines": [
-            792
+            792,
+            797
           ]
         },
         {
@@ -9849,6 +9871,16 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "evalPlaybookAvailability",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1471
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "getCapabilities",
           "kinds": [
             "call"
@@ -10192,6 +10224,16 @@
           ],
           "lines": [
             1395
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            1571
           ]
         },
         {
@@ -12369,6 +12411,7 @@
             675,
             676,
             681,
+            682,
             1403,
             1415
           ]
@@ -13590,7 +13633,18 @@
       "provides": [
         "MCP_TOOLS"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "adaptiveMetaToolSchemas",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            3
+          ]
+        }
+      ]
     },
     {
       "file": "13-http-router.js",
@@ -15519,7 +15573,8 @@
             "call"
           ],
           "lines": [
-            320
+            320,
+            458
           ]
         },
         {
@@ -16980,6 +17035,16 @@
           ],
           "lines": [
             191
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            207
           ]
         },
         {
@@ -27791,6 +27856,7 @@
       "from": "06f-autonomy-grants.js",
       "to": "03-bridge-guard.js",
       "symbols": [
+        "AUTOEXEC_DENYLIST",
         "isSensitiveDataPath",
         "normalizeCwd",
         "pathWithinRoot"
@@ -28121,6 +28187,7 @@
         "agentRunWriteChains",
         "bridgedToolTier",
         "buildOpenAiTools",
+        "buildResponsesInputItems",
         "classifyToolPacks",
         "fetchOpenAiModels",
         "loopAbortExempt",
@@ -28334,6 +28401,7 @@
         "buildPromptTaskContext",
         "buildStableSystemPrompt",
         "buildVolatileParts",
+        "evalPlaybookAvailability",
         "getCapabilities",
         "loadAllPlaybooks",
         "readProjectMemory",
@@ -28422,6 +28490,7 @@
         "agentRunFile",
         "bridgedToolTier",
         "buildOpenAiTools",
+        "buildResponsesInputItems",
         "classifyRuntimeToolFailure",
         "cleanupAgentWorktree",
         "compareToolRetrievalShadow",
@@ -29424,7 +29493,8 @@
       "from": "13b-api-domain-routes.js",
       "to": "07-autonomy.js",
       "symbols": [
-        "STEER_QUEUE_MAX"
+        "STEER_QUEUE_MAX",
+        "activeAgentRuns"
       ],
       "direction": "backward"
     },
@@ -29747,6 +29817,14 @@
       "symbols": [
         "buildMissionCard",
         "missionRunDigest"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13f-native-tool-schemas.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "adaptiveMetaToolSchemas"
       ],
       "direction": "backward"
     },
@@ -30941,7 +31019,8 @@
       "13b-api-domain-routes.js",
       "13c-overlay-routes.js",
       "13d-core-domain-routes.js",
-      "13e-pretender-index.js"
+      "13e-pretender-index.js",
+      "13f-native-tool-schemas.js"
     ]
   ],
   "cycleEdgeKeys": [
@@ -30982,6 +31061,7 @@
     "04-permission-runtime.js->05-claude-engine.js",
     "04-permission-runtime.js->06d-memory-domain.js",
     "04-permission-runtime.js->13d-core-domain-routes.js",
+    "04-permission-runtime.js->13f-native-tool-schemas.js",
     "04-visual-pipeline.js->00-boot.js",
     "05-claude-engine.js->00-boot.js",
     "05-claude-engine.js->01-config.js",
@@ -31058,6 +31138,7 @@
     "07-autonomy.js->08-agent-runs.js",
     "07-autonomy.js->09d-token-estimation.js",
     "07-autonomy.js->10-context-governance.js",
+    "07-autonomy.js->13f-native-tool-schemas.js",
     "08-agent-runs.js->00-boot.js",
     "08-agent-runs.js->01-config.js",
     "08-agent-runs.js->02-session-store.js",
@@ -31133,6 +31214,7 @@
     "13-http-router.js->13c-overlay-routes.js",
     "13-http-router.js->13d-core-domain-routes.js",
     "13-http-router.js->13e-pretender-index.js",
+    "13-http-router.js->13f-native-tool-schemas.js",
     "13b-api-domain-routes.js->00-boot.js",
     "13b-api-domain-routes.js->01-config.js",
     "13b-api-domain-routes.js->02-session-store.js",
@@ -31160,7 +31242,8 @@
     "13e-pretender-index.js->04-permission-runtime.js",
     "13e-pretender-index.js->07-autonomy.js",
     "13e-pretender-index.js->08-agent-runs.js",
-    "13e-pretender-index.js->13d-core-domain-routes.js"
+    "13e-pretender-index.js->13d-core-domain-routes.js",
+    "13f-native-tool-schemas.js->07-autonomy.js"
   ],
   "forwardEdgeKeys": [
     "00-boot.js->01-config.js",
