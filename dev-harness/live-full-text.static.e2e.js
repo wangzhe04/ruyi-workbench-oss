@@ -164,6 +164,32 @@ ok(!/#[0-9a-fA-F]{3,8}\b/.test(chatLive.slice(chatLive.indexOf('117m-A5'))),
   'F2 新增规则零硬编码色(全 token / color-mix)');
 ok(crypto.createHash('sha256').update(readLayerPayload()).digest('hex') === LEGACY_STYLES_SHA256,
   'F3 经典样式载荷锁已按本波的有意新增重钉');
+{
+  // 117r-D4(用户第八轮走查④「2.0 视窗,为啥在运行时会显示这段对话是在一个框里」):117o-A7 之后
+  // 在途正文与落盘消息已经逐像素同源,于是 A5 那圈虚线边框成了唯一的差别 —— 它不再读作「草稿」,
+  // 而读作「一个嵌在页面里的窗口」;max-height + overflow:auto 那条内滚动条更把它坐实成子窗口。
+  // 两条都撤掉。扫 CSS 之前【先剥注释】:上面那段注释里就写着 border / max-height 这些字,
+  // 不剥就会匹配到自己写下的说明而假绿(117q-B3b 踩过同款)。
+  const liveCss = stripComments(chatLive);
+  const rule = sel => {
+    const at = liveCss.indexOf(`${sel} {`);
+    return at >= 0 ? liveCss.slice(at, liveCss.indexOf('}', at) + 1) : '';
+  };
+  const mainRule = rule('.message.live-turn .msg-main');
+  ok(!/(border|background|padding)\s*:/.test(mainRule),
+    `F4 在途气泡的正文列与普通助手消息【同形】:没有自己的边框/底色/内边距(实测规则「${mainRule || '整条已删'}」)`);
+  // overflow-wrap 不是内滚动,所以锁的是「overflow 后面紧跟冒号」而不是裸的 overflow 三个字。
+  const scrolls = sel => /max-height\s*:/.test(rule(sel)) || /overflow\s*:/.test(rule(sel));
+  ok(!scrolls('.live-turn-narrative') && !scrolls('.live-turn-body'),
+    'F5 正文没有自己的滚动上限:靠整页滚动来看,不是窗中窗(narrative / body 两处 max-height + overflow 都已撤)');
+  // 正向锁:去掉内滚动之后页面高度每拍都在变,重绘必须自己兜住阅读位置(否则用户滚上去看历史会被顶飞)。
+  // 位置在 paintLiveTurnCard() 而不是 paintLiveTurnNarrative():cut/body/tool/iter 四处文本也在同一拍改,
+  // 且没有账本时 body 就是全部正文 —— 括号开在外层才盖得住两条路。
+  const start = experienceCode.indexOf('function paintLiveTurnCard(');
+  const body = start >= 0 ? experienceCode.slice(start, experienceCode.indexOf('\n}', start) + 2) : '';
+  ok(/captureScrollAnchor\(box\)/.test(body) && /restoreScrollAnchor\(box, scroll\)/.test(body),
+    'F6 每拍重绘前后用 captureScrollAnchor / restoreScrollAnchor 兜住 #messages 的阅读位置');
+}
 
 /* ─── G 117o-A7 服务端:把叙事账本在途下发 ─────────────────────────────────── */
 ok(/const liveSnapshot = \(\) => \{/.test(turnSegments) && /return \{ consume, snapshot, liveSnapshot, createBatchId, finalizeAll \};/.test(turnSegments),

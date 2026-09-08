@@ -922,6 +922,14 @@ function paintLiveTurnCard(opts) {
   // mounted:false = 调用方自己知道气泡还没挂上去（刚造出来），跳过这道守卫。
   // 守卫本身不能去：它是「气泡被整份重绘换掉了」的判据，返回 false 让调用方去重绘。
   if (!(opts && opts.mounted === false) && !els.row.isConnected) return false;
+  // 117r-D4：这张卡的正文不再有自己的 max-height（那条内滚动条正是用户看到的「窗中窗」），于是
+  // 每 3 秒一拍的重绘会真的改变整页高度 —— 用户滚上去看历史时会被顶得乱跳。用 renderCurrentSession()
+  // 那对现成的原语兜住：换之前记下阅读位置，换完还回去（在底部就继续贴底跟随，不在底部就原地不动）。
+  // 括号开在这一层而不是 paintLiveTurnNarrative 里：本函数还会改 cut/body/tool/iter 四处文本，
+  // 其中 body 的 max-height 也在本刀里撤掉了（没有账本时它就是全部正文），narrative 那一层管不到。
+  // 气泡还没挂进文档时（buildLiveTurnCard 的首帧）不做：那一刻外层 renderCurrentSession 自己正拿着锚点。
+  const box = els.row.isConnected ? $('messages') : null;
+  const scroll = box ? captureScrollAnchor(box) : null;
   const tail = liveTurnTail;
   const full = String((tail && tail.full) || '');
   // 117o-A7：有账本就画 2.0 那一套（同一个渲染器），没有才回落到 A5 的纯文本。两条路互斥，
@@ -944,6 +952,9 @@ function paintLiveTurnCard(opts) {
   els.tool.hidden = !name;
   const n = Math.max(0, Number(tail && tail.iterations) || 0);
   els.iter.textContent = n ? t('chat.liveTurn.iter', { n }) : '';
+  // 这张气泡没有 data-message-key，keyed 那条路找不到自己的锚点，会落到「在底部就贴底 / 不在底部
+  // 就按数值 scrollTop 复位」两条兜底 —— 本场景（内容只在页尾长出来）够用。
+  if (box) restoreScrollAnchor(box, scroll);
   return true;
 }
 // 117o-A7：把 liveTurn 画成 2.0 的样子。返回 false = 这一份账本画不出东西（调用方据此回落到纯文本）。

@@ -250,16 +250,24 @@
 
 /* 117m-A5（用户第六轮走查①「点开线程的看全文，还是啥也看不到」）：在途回合的【临时】气泡。
    管家派出去的回合没有客户端挂在流上，正文要到收尾才落盘 —— 这张卡画的是服务端内存里那份活文本
-   （liveTail.full ＋ 最近工具名），回合一结束就整张换成真消息。虚线边界＋弱底色是刻意的：它长得
-   就该和落盘消息不一样，用户一眼看出「这还没定稿」。全 token 化配色，零动画（无需 reduced-motion 分支）。 */
+   （liveTail.full ＋ 最近工具名），回合一结束就整张换成真消息。全 token 化配色，零动画（无需
+   reduced-motion 分支）。
+   117r-D4（用户第八轮走查④「2.0 视窗，为啥在运行时会显示这段对话是在一个框里，而不是普通 2.0
+   一样」）：A5 原本给这张卡加了虚线边界＋弱底色，理由写在这里 ——「它长得就该和落盘消息不一样，
+   用户一眼看出这还没定稿」。那个判断在 117o-A7 之后就过期了：A7 把正文改成由 renderStaticMessage()
+   （画落盘助手消息的【同一个渲染器】）生成，思考块／工具卡／过程记录／完成徽章已经与落盘消息
+   逐像素同源，于是那圈边框成了唯一的差别 —— 它不再读作「草稿」，而读作「一个嵌在页面里的窗口」。
+   边框、弱底色、内边距全部撤掉，这张卡与普通助手消息同形；「这一段还在跑、而且不是我在这个窗口
+   里起的」改由那一行状态字（.live-turn-title）、停止键与运行中头像来说。 */
 .message.live-turn .avatar.live-turn-avatar { background: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); color: var(--ink-2); }
-.message.live-turn .msg-main { border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--r-md);
-  padding: 8px 12px; background: color-mix(in srgb, var(--accent) 5%, transparent); }
-.live-turn-title { font-weight: 600; font-size: var(--fs-md); color: var(--ink-2); }
+/* 117r-D4：标题行从「粗体 --fs-md」降成状态行，取值对齐 chat-primitives.css 的 .msg-head .when
+   （--muted ＋ --fs-xs）。这句话本身一个字都不许删：它是用户判断「这一回合是在别处起的」的唯一凭据。 */
+.live-turn-title { color: var(--muted); font-size: var(--fs-xs); }
 .live-turn-iter { color: var(--muted); font-size: var(--fs-xs); }
 .live-turn-iter:empty { display: none; }
-.live-turn-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-md); color: var(--ink);
-  max-height: 420px; overflow: auto; }
+/* 117r-D4：这里原有一条 max-height: 420px ＋ overflow: auto。它和下面 narrative 那条一起，把这张卡
+   坐实成一个「子窗口」。正文该像普通消息一样把整页撑长，由整页滚动来看，所以两条都撤掉。 */
+.live-turn-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-md); color: var(--ink); }
 .live-turn-body.is-empty { color: var(--muted); font-style: italic; }
 .live-turn-tool { margin-top: 6px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); overflow-wrap: anywhere; }
 .live-turn-actions { margin-top: 8px; display: flex; gap: 6px; }
@@ -268,8 +276,11 @@
 .live-turn-stop:hover:not(:disabled) { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 .live-turn-stop:disabled { cursor: default; opacity: .6; }
 /* 117o-A7（用户第七轮「为啥这个查看全文，不能像 2.0 那样显示呢」）：在途回合的正文现在由
-   renderStaticMessage()（画落盘助手消息的同一个入口）生成，落在这个宿主里。宿主本身【不带任何
-   排版意见】—— 思考块 / 工具卡 / 过程记录组的样式全部沿用经典壳既有那几层，这里只给它一个滚动
-   上限，免得一条跑了半小时的回合把整页撑到几屏高。全 token 化配色，零动画。 */
-.live-turn-narrative { max-height: 520px; overflow: auto; }
+   renderStaticMessage()（画落盘助手消息的同一个入口）生成，落在 .live-turn-narrative 这个宿主里。
+   宿主本身【不带任何排版意见】—— 思考块 / 工具卡 / 过程记录组的样式全部沿用经典壳既有那几层。
+   117r-D4：A7 当时还在这里给它留了一条 max-height: 520px ＋ overflow: auto（理由是「免得一条跑了
+   半小时的回合把整页撑到几屏高」）。那条内滚动条正是用户看到的「窗中窗」，现已撤掉 —— 于是
+   .live-turn-narrative 这个宿主【一条 CSS 规则都不剩】，名副其实地不带任何排版意见。
+   代价是页面高度每 3 秒（LIVE_TURN_POLL_MS）变一次；由 session-experience.js 的 paintLiveTurnCard()
+   在重绘前后用 captureScrollAnchor / restoreScrollAnchor 兜住阅读位置，别处不必再管。 */
 .live-turn-truncated { color: var(--muted); font-size: var(--fs-xs); margin-bottom: 4px; }

@@ -19,6 +19,13 @@
 // 这一件的【验收点】升级 —— 屏幕上不能再是一坨纯文本气泡,必须是 2.0 那套真实渲染:可折叠思考块、
 // 工具卡(工具名 + 参数那一行 + 完成徽章)、本回合工具索引,而且纯文本兜底那一块要被藏起来
 // (同一段话不许出现两遍)。新增 B9-B15。
+//
+// 117r-D4(用户第八轮走查④「2.0 视窗,为啥在运行时会显示这段对话是在一个框里,而不是普通 2.0 一样」):
+// 虚线框与 max-height + overflow:auto 都撤掉之后,在途正文改成把【整页】撑长。新增 S 组守住随之而来的
+// 唯一风险 —— 页面高度每 3 秒变一次,视口不许跟着跳:S1 页面真的被撑长了(不再是窗中窗)、S2 这两拍
+// 确实在长(否则 S3/S4 是空断言)、S3 滚到中间等两拍原地不动、S4 在底部时继续跟随。
+// 为此夹具也改了:HOLD_MS 30s→45s,且挂住的那段窗口改成【持续吐字】(修前是干等,活文本一字不变,
+// paintLiveTurnNarrative 的签名判据整拍短路,S 组会变成空断言)。
 (async () => {
 const cp = require('child_process');
 const fs = require('fs');
@@ -43,7 +50,16 @@ const FIRST = '第一段:我先看一眼这件事的现场。';
 const SECOND = '第二段:看完了,现在我把结论写下来。';
 const FINAL = '第三段:这就是全部结论。';
 const LIVE_TICK_MS = 3000;      // session-experience.js 的 LIVE_TURN_POLL_MS
-const HOLD_MS = 30000;          // 回合在「说完第二段」之后还活着的时长(留够 B/C 两段断言的窗口)
+// 117r-D4:观察窗从 30s 抬到 45s —— 新增的 S 组要在同一个活回合里滚两次、各等两拍(2×7.5s)。
+const HOLD_MS = 45000;          // 回合在「说完第二段」之后还活着的时长(留够 B/S/C 三段断言的窗口)
+// 117r-D4:挂住的这段时间里【持续吐字】。修前这一段是干等,活文本一个字都不变,于是
+// paintLiveTurnNarrative 的签名判据整拍短路、根本不重绘 —— S 组会变成空断言(反向验证也红不了)。
+// 每 2.5s 吐约 800 字(实测这一屏宽度下约 280px 高),比 3s 的轮询快一拍,保证每一拍看到的页面
+// 都比上一拍高;吐 GROW_ROUNDS 轮就停(14×800≈11.2k 字,压在 02c 的 LIVE_TURN_SEGMENT_CHARS=12000
+// 之下 —— 一旦触顶,服务端会从段的【头部】开始丢字,页面高度反而不再单调增,S 组就不成立了)。
+const GROW_STEP_MS = 2500;
+const GROW_ROUNDS = 14;
+const GROW_LINE = i => `\n第 ${i + 1} 段过程记录:${'它还在一行行地往下说,页面就这样一拍一拍地变长。'.repeat(33)}`;
 const SHORT_WAIT = 150;         // 「该发生的当拍就该发生」的等待上限(150×40ms = 6s):失败时不许把活回合的窗口耗光
 
 const { findBrowserExecutable } = require('./lib/browser-path');
@@ -112,7 +128,10 @@ async function startProvider(port) {
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
     } else {
       delta(SECOND);
-      await sleep(HOLD_MS);
+      // 117r-D4:HOLD_MS 这段窗口不再是干等 —— 每 GROW_STEP_MS 吐一段,在途正文真的在长,
+      // 于是 S 组量到的「页面高度每拍都在变」是真的,不是摆设。
+      for (let i = 0; i < GROW_ROUNDS; i++) { await sleep(GROW_STEP_MS); delta(GROW_LINE(i)); }
+      await sleep(Math.max(0, HOLD_MS - GROW_ROUNDS * GROW_STEP_MS));
       delta(FINAL);
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
       sse({ choices: [], usage: { prompt_tokens: 8, completion_tokens: 4 } });
@@ -382,6 +401,55 @@ try {
     `B16 纯文本兜底那一块被藏起来了 —— 同一段话不会在屏幕上出现两遍(实测 hidden=${shaped && shaped.bodyHidden})`);
   ok(Boolean(shaped && shaped.narrativeText.includes(FIRST)),
     `B17 叙事里就是这一回合真流出来的话(实测「${shaped && shaped.narrativeText.slice(0, 40)}」)`);
+
+  /* ═════════ S 117r-D4:去掉内滚动之后,视口不许跟着页面高度乱跳 ═════════ */
+  // 用户第八轮走查④「2.0 视窗,为啥在运行时会显示这段对话是在一个框里,而不是普通 2.0 一样」。
+  // 虚线框与 max-height + overflow:auto 撤掉之后,在途正文改成【把整页撑长】,于是每 3 秒一拍的
+  // 整份重绘会真的改变 #messages 的 scrollHeight —— 这才是本刀真正的风险(修前那个 max-height 把
+  // 高度变化关在盒子里,页面高度不变)。两条断言守住两种阅读姿势:滚上去看历史时原地不动、
+  // 在底部时继续跟随。反向验证:把 paintLiveTurnCard() 里那对锚点去掉,S4 当场红。
+  console.log('── S 在途刷新时的阅读位置 ──');
+  const METRICS = `(() => {
+    const box = document.getElementById('messages');
+    return box ? { scrollTop: Math.round(box.scrollTop), scrollHeight: box.scrollHeight, clientHeight: box.clientHeight } : null;
+  })()`;
+  // 阈值 24px 的定法:正文行高约 22px(--fs-md 14px × 1.6 行距),一整行都跳不动才算「原地不动」;
+  // 而两拍之间新长出来的正文有好几百 px(S2 把实测值打出来),真出问题时的漂移量远在这条线之上,
+  // 所以 24px 既容得下亚像素取整,又不会把真跳漏过去。
+  const DRIFT_MAX_PX = 24;
+  const TWO_TICKS_MS = LIVE_TICK_MS * 2 + 1500;   // 两拍 + 半拍余量:重绘一定发生过
+  // 余量下限 600px 不是拍脑袋:滚到正中间时离底就是余量的一半,必须 >120px 才不落进
+  // captureScrollAnchor 的「贴底」判据 —— 否则 S3 量到的是「跟随」而不是「原地不动」,是条假题。
+  // 等待预算 350×40ms=14s:每 2.5s 才长一段、轮询又是 3s 一拍,SHORT_WAIT 的 6s 不够攒够两段。
+  const tall = await waitForEval(cdp, `(() => {
+    const m = ${METRICS};
+    return (m && m.scrollHeight - m.clientHeight > 600) ? m : null;
+  })()`, 350);
+  ok(Boolean(tall), `S1 在途正文把【整页】撑长了(可滚动余量 ${tall ? tall.scrollHeight - tall.clientHeight : 0}px) —— 不再是窗中窗`);
+  const readAt = await cdp.evaluate(`(() => {
+    const box = document.getElementById('messages');
+    box.scrollTop = Math.round((box.scrollHeight - box.clientHeight) / 2);
+    return ${METRICS};
+  })()`);
+  await sleep(TWO_TICKS_MS);
+  const readAfter = await cdp.evaluate(METRICS);
+  ok(Boolean(readAt && readAfter && readAfter.scrollHeight > readAt.scrollHeight),
+    `S2 这两拍里页面确实变高了(${readAt && readAt.scrollHeight} → ${readAfter && readAfter.scrollHeight}px) —— 否则 S3 是条空断言`);
+  const drift = (readAt && readAfter) ? Math.abs(readAfter.scrollTop - readAt.scrollTop) : -1;
+  // 反向验证的实测结论(如实记在这里,免得后人高估这条):把 paintLiveTurnCard() 里那对锚点整个拿掉,
+  // 这一条【仍然绿】—— 新正文全长在视口【下方】,而 replaceChildren 是一次性替换、中途不强制布局,
+  // Chromium 不会把 scrollTop 夹回去,所以「中间」这个姿势本来就不动(实测漂移 0px)。
+  // 真正咬住缺锚点的是下面的 S4(无锚点时离底 1247px)。这一条留着的意义是防【将来】的回归:
+  // 谁把整份重绘改成「先清空再插入」(中间夹一次布局就会被 clamp),或让内容在视口上方发生变化,
+  // 这一条会当场红。两条一起才是完整的守门人。
+  ok(drift >= 0 && drift <= DRIFT_MAX_PX,
+    `S3 滚到中间等两拍,视口原地不动(漂移 ${drift}px ≤ ${DRIFT_MAX_PX}px)`);
+  await cdp.evaluate(`(() => { const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight; return true; })()`);
+  await sleep(TWO_TICKS_MS);
+  const tailRead = await cdp.evaluate(METRICS);
+  const gap = tailRead ? tailRead.scrollHeight - tailRead.scrollTop - tailRead.clientHeight : -1;
+  ok(gap >= 0 && gap < 120,
+    `S4 在底部时继续跟着新流出来的正文走(离底 ${gap}px < 120px,与 captureScrollAnchor 的同一个判据)`);
 
   /* ═════════ C 节拍:一处表,离开经典壳当拍停 ═════════ */
   console.log('── C 节拍与零后台活动 ──');
