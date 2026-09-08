@@ -143,6 +143,9 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
   steward_skill_toggle: 'settings.steward.tool.skillToggle',
   steward_decide: 'settings.steward.tool.decide',
   steward_run_action: 'settings.steward.tool.runAction',
+  // 117m-A4 新增的线程级停止原语。漏登记在这里 = 「行动流水」那一列把
+  // steward_thread_stop 这个内部 id 原样显给用户（§8.1 原则 7：界面不出现系统内部词）。
+  steward_thread_stop: 'settings.steward.tool.threadStop',
   steward_thread_note: 'settings.steward.tool.threadNote',
   steward_quick_ask: 'settings.steward.tool.quickAsk',
   steward_playbook_draft: 'settings.steward.tool.playbookDraft',

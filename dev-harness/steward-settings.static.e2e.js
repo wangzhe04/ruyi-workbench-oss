@@ -268,6 +268,18 @@ const template = [
 ];
 const missingTemplate = template.filter(key => typeof zh[key] !== 'string' || typeof en[key] !== 'string');
 ok(missingTemplate.length === 0, `H4 模板拼出来的 ${template.length} 个键也齐备（缺: ${missingTemplate.join(',') || '无'}）`);
+// H5（117m）：这张表必须盖住 13h 的 STEWARD_ACTION_HOOKS 全部键 —— 逐名对账，不是计数。
+// 117m-A4 新增 steward_thread_stop 时就漏了这一条，后果是「行动流水」那一列把内部 id
+// 原样显给用户（§8.1 原则 7 明文禁止，上一轮用户就为这类事提过意见）。
+// 钉成逐名对账：以后再加管家工具，漏登记会当场红，而不是等用户在界面上看到 id。
+const runnerSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13h-steward-runner.js'), 'utf8');
+const hooksBlock = (runnerSrc.split('const STEWARD_ACTION_HOOKS = Object.freeze({')[1] || '').split('});')[0];
+const hookNames = [...hooksBlock.matchAll(new RegExp('^\\s*(steward_[a-z_]+):', 'gm'))].map(m => m[1]);
+const labelled = new Set(Object.keys(mod.STEWARD_TOOL_LABEL_KEYS));
+const unlabelled = hookNames.filter(name => !labelled.has(name));
+ok(hookNames.length >= 10 && unlabelled.length === 0,
+  `H5 STEWARD_ACTION_HOOKS 的 ${hookNames.length} 个工具在前端都有人话标签（缺: ${unlabelled.join(',') || '无'}）`);
+
 
 // ─── I 后端面：只用 116 已有的 + 117e 第 0 步那一条 ───────────────────────────────
 const routes = [...new Set([
