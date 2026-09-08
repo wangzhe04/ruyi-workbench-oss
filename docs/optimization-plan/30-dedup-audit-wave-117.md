@@ -285,23 +285,35 @@
 | `8b8bc21` | 117o 前置：流式回复只上屏 `say`，不再把 `{say:…}` 信封端给用户 |
 | `e402eab` | **本文档立项** + 27 号文 §11.11（第七轮走查设计页） |
 | `e60fda8` | **117o-A7**：「看全文」的在途回合改用经典壳同一个渲染器（`liveSnapshot()` / `liveTurn` 信封 / `renderStaticMessage` 复用 / 线程↔会话 1:1 断言）。主会话已复核：`git archive HEAD` 重建出的 `server.js` 与 `HEAD:server.js` **逐字节相同**，`live-full-text.static.e2e.js` 在干净树里 ALL PASS，18 个文件全是它自己的 |
+| `59420f3` | **117p-S1**：收件箱第四源基线 off-by-one（首见即活回合把唯一那条 `done` 永久吞掉）。活回合基线取 `max(0, turnSeq-1)` + 首见延后一轮；含反向验证 |
+| `a6e7c32` | **117q-B4**：9 件浏览器 e2e 补 `finally` 收尸 + `dev-harness/lib/browser-path.js` 收编浏览器路径探测 |
+| `38d95d4` | **117q-B2**：autoexec 黑名单授权书层（`06f`）取并集、工具层（`03`）保持原样；`makeId` 死代码/手写 id 收编 |
+| `6fed7a3` | **117p-S2**：五态判据补「无账本线程」分支（§8.3 规格逐条落地），`13d` 卡片补 `turnSeq`/`lastTurn`，`13e` schema 3→4 强制重建。反向验证做过（摘字段→新单测红→还原绿）；回归门全绿。**注意：`13g` 因此顶到 1999/2000 行闸只剩 1 行余量**，下一个动 13g 的切片要先减脂 |
 
 > A7 中途独立踩到了本文档 P0-1 的**同一个失效模式**：`live-full-text.e2e.js` 的 HTTP 读法 `b += chunk`
 > 逐块 `toString`，汉字被 chunk 边界劈开变 `U+FFFD`，长度断言假红（实测 12002 而非 12000）。
 > 它改的是夹具读法。**这是 P0-1 在生产代码之外的第二次独立现形——不要再降级它的优先级。**
 
-### 8.2 交接时仍在跑的三把刀（工作树里的改动都是它们的，别当成脏东西清掉）
+> S2 实施时又踩了一次 **U+FFFD 的编辑器变体**：对 `13g` 做局部编辑后，离编辑点 400 行外的一个
+> 「递」字被压成两个 `U+FFFD`（HEAD 0 处、改后 1 处，`git diff` 才看见）。**凡动过 src 文件，
+> 提交前一律 `grep -c $'\xEF\xBF\xBD'` 对比 HEAD**——这条纪律已写进每片简报，仍然有人会忘。
 
-| 切片 | 独占文件 | 状态 |
-|---|---|---|
-| **117p-S1** 收件箱第四源基线 off-by-one | `src/13i-steward-inbox.js`、`dev-harness/steward-events.static.e2e.js`、`dev-harness/steward-quick-ask.e2e.js` | 在途 |
-| **117q-B2** autoexec 取并集 + 删死代码 + `makeId` | `src/03-bridge-guard.js`、`src/06f-autonomy-grants.js`、`src/10-context-governance.js`、`src/06d-memory-domain.js` | 在途 |
-| **117q-B4** 浏览器 e2e 补收尸 + `browserPath` 收编 | `dev-harness/` 里 9 件浏览器 e2e ＋ 新建 `dev-harness/lib/browser-path.js` | 在途 |
+### 8.2 交接时仍在跑的三把刀（已全部入库，本节留档）
 
-**工作树里的 `ruyi-workbench/app/server.js` 与 `src/manifest.json` 现在是污染构建**（含 13i 的在途改动）。
-任何人提交前都必须走干净副本法重新 build，不要直接提交工作树里的产物。
+§8.2 原列的三把刀（117p-S1 / 117q-B2 / 117q-B4）与 §8.3 的 117p-S2 均已入库（见 §8.1）。
+工作树里的 `server.js` 与 `src/manifest.json` 是 S2 收尾时的干净构建，与 HEAD 逐字节一致，
+不再是污染构建。后续切片的提交纪律不变：干净副本法（§8.7）。
 
-### 8.3 下一刀：117p-S2（规格完整，可直接开工）
+### 8.3 下一刀：117p-S2 —— **已入库（`6fed7a3`，2026-09-08）**
+
+> 实施结果：规格五条逐条落地；新单测 `dev-harness/unit/thread-state-ledgerless.test.js`（双 require
+> 逐字对账 + 静态锁）；反向验证红→绿；回归门全绿（pretender-gate / mission-threads / 看板抽屉 e2e /
+> unit 300/300 / 16 件相关 static）。两处实施注记：① `13g` 的 2000 行闸把它的那处喂参挤成了一行
+> （释义留在 06i/13d 同名键注释），**13g 现在只剩 1 行余量**；② quick_ask 的服务端/前端人话标签
+> 有意不同（116-3 P1-5），双实现对账时这个取值只比 state 与 sources。
+> 已知非本片红（核实过签名未变）：`facts.static.e2e.js` ×2（README 门面数字滞后）、
+> `pretender-dispatch-home.static.e2e.js` D2（117m-A6 改了字面量未重钉）。
+> 以下原规格留档备查。
 
 **这是用户第七轮走查的另一半，优先级最高。** 前置依赖（A7 占着 `13d`）已解除，可以立刻做。
 根因与证据见 27 号文 §11.11 与本文 §6。实现规格：
