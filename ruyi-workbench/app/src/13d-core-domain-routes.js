@@ -265,9 +265,27 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
       // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
       // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
+      // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
+      // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
+      // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
+      // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
+      // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
+      // tools 里还有工具调用 id,都不该出现在信封上。
       const liveReg = activeChildren.get(id);
       const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
-        ? { text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || '') }
+        ? {
+          text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
+          full: String(liveReg.liveTail.full || ''),
+          truncated: Boolean(liveReg.liveTail.truncated),
+          startedAt: String(liveReg.liveTail.startedAt || ''),
+          iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
+          tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
+            name: String((row && row.name) || '').slice(0, 80),
+            status: String((row && row.status) || ''),
+            startedAt: String((row && row.startedAt) || ''),
+            endedAt: String((row && row.endedAt) || ''),
+          })),
+        }
         : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新

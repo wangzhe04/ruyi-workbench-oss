@@ -238,7 +238,27 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   · 390px 与 reduced-motion 两个既有分支各补了本波新增的那几条。
 // **一条 backdrop-filter 都没加**：toolbar 与事项卡只用玻璃底色，同屏模糊预算（§3.2-E，
 // ui-v4-glass G2 的使用点白名单）一个字没动。无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'b345f06f9de97debdbd979551d9f7c19c84d876d19026e6bc1273d70b31ce6fd';
+// 117m-A5（用户第六轮走查①「点开线程的看全文，还是啥也看不到」）重钉，只动 css/states/chat-live.css
+// 这一个【已注册的】所有权层（在途回合本来就归它），文件末尾追加 12 条纯新增规则：
+//   · .message.live-turn .avatar.live-turn-avatar / .message.live-turn .msg-main —— 在途回合那张
+//     临时气泡的虚线边界与弱底色（它长得就该和落盘消息不一样，用户一眼看出「这还没定稿」）；
+//   · .live-turn-title / .live-turn-iter(+:empty) —— 标题行与「第 N 轮工具」；
+//   · .live-turn-body(+.is-empty) —— 正文（pre-wrap、420px 封顶自滚，长回合不把页面撑爆）；
+//   · .live-turn-tool —— 「正在用：<工具名>」一行；
+//   · .live-turn-actions / .live-turn-stop(+:hover:not(:disabled) / :disabled) —— 「停止」。
+// 全 token 化配色、零动画（故不需要 reduced-motion 分支）、无新样式层、link/@import/overlay 顺序不变，
+// 其余每一层规则零漂移。重钉有意载荷。
+// 117m-A2（用户第六轮走查⑤⑥「需要我允许的也没在线程中」）重钉，只动两个【已注册的】所有权层，
+// 全部是纯新增规则，其余每一层零漂移：
+//   · css/views/steward-drawer.css —— 「它在问你」卡片吃下 permission/plan/pool 之后多出来的四组：
+//     .steward-drawer-ask-meta(+[hidden])、.steward-drawer-ask-meta-line
+//     (+[data-revertible="0"] 用 --warn 说「这一步无法自动撤销」)、.steward-drawer-ask-answer
+//     (+[hidden]，permission 那三类把自由输入整块收起)；
+//   · css/views/steward-board.css —— 状态行旁边那枚「去处理」：.steward-status-needsyou
+//     (+[hidden] 守卫 / :hover / :focus-visible)，金色描边族，与行上的「它在问你」pill 同色系。
+// 两处都是 token 化配色、**零 transition**（故 reduced-motion 的关闭清单一个字没加）、无新样式层、
+// link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '434491eda320034bab9f474b1232ded8e5f6d8fa76983733c19ce097aa3de45a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

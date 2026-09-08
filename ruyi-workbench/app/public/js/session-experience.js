@@ -225,6 +225,7 @@ async function openSession(id) {
   const switchedSession = prevId !== id;
   state.currentSession = res.session;
   state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
+  captureLiveTurn(id, res); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
   state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
   try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
   // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
@@ -240,6 +241,7 @@ async function openSession(id) {
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
+  syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
   // The global status denominator describes the new-session default. Resolve this session's pinned route
   // after every switch so the context meter and model list do not lag behind until the next completed turn.
   api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
@@ -798,6 +800,138 @@ function refreshKimiContextForSession(session) {
     renderContextMeter(result.usage);
   }).catch(() => {});
 }
+/* ---------------- 117m-A5：在途回合的临时气泡（用户第六轮走查①「看全文，还是啥也看不到」） ------- */
+// 根因：助手消息在【回合收尾】才落盘，而管家派出去的回合没有任何客户端挂在它的流上。用户真机上那条
+// 线程跑了 15 分钟、53 次工具调用，sessions/<id>.messages.ndjson 只有那条 user 消息一行；经典壳
+// （renderCurrentSession）只渲染已落盘的 messages，所以「看全文」切过来就是一张交办书 ＋ 一片空白。
+// 修法不是提前落盘（那会把半截正文写进正文数据面），而是把服务端内存里那份活文本画出来：
+// 04 的累加器已经扩成「本回合正文 + 最近工具名」，13d 把它挂在既有 GET /api/sessions/:id 的信封上。
+// 三条纪律：
+//   ① 这张气泡【不是消息】—— 带 data-live="1"，绝不写进 state.currentSession.messages；
+//   ② 只有「当前会话有活回合 && 不是自己的流在跑」才画：自己发起的回合有实时那一张，别画两遍；
+//   ③ 回合一结束服务端就不再下发 liveTail，那一拍整份重拉会话，临时气泡换成真消息，不留残影。
+// 文案说明：本切片的文件白名单不含 locales 那四份目录（另有切片在改），所以这三句先按经典壳既有
+// 惯例（renderStepBar 的「已完成 j/N」同款）写死中文，可复用的既有键（停止/已停止）仍走 t()。
+const LIVE_TURN_POLL_MS = 3000;
+const LIVE_TURN_TITLE = '它正在跑（这一回合是在别处起的）';
+const LIVE_TURN_EMPTY = '它还没说出正文 —— 可能正在想，或者正在跑工具。';
+const LIVE_TURN_USING = '正在用：';
+let liveTurnTail = null;      // 最近一次 GET 带回来的 liveTail（服务端没下发就是 null）
+let liveTurnSessionId = '';   // 这份活文本属于哪条会话：切会话立刻作废，别把 A 的正文画到 B 上
+let liveTurnLive = false;     // resumable.live —— 服务端对「这条会话有没有活回合」的判定
+let liveTurnCardEls = null;   // 挂在 DOM 上的那张气泡的构件（就地刷新，不整份重绘）
+let liveTurnTimer = 0;        // 本模块唯一的 setInterval 句柄（见 syncLivePolling）
+
+function captureLiveTurn(sessionId, res) {
+  liveTurnSessionId = String(sessionId || '');
+  liveTurnTail = res && res.liveTail && typeof res.liveTail === 'object' ? res.liveTail : null;
+  liveTurnLive = Boolean(res && res.resumable && res.resumable.live === true);
+}
+// 该不该画这张气泡。四条都为真才画 —— 任一为否，renderCurrentSession 就当它不存在。
+function liveTurnVisible() {
+  const id = state.currentSession?.id || '';
+  if (!id || liveTurnSessionId !== id) return false; // 手上这份活文本不是当前会话的
+  if (!liveTurnLive) return false;                   // 服务端说这条会话没有活回合
+  if (activeTurns.has(id)) return false;             // 自己的流正在跑：实时那一张已经在画了
+  return true;
+}
+// 该不该开表。在 liveTurnVisible 之上再加两道「零后台活动」的门：页面不可见不轮询；不在经典壳里
+// 不轮询（管家壳有它自己的节拍，这张气泡那时根本不在屏幕上）。
+function liveTurnPollable() {
+  if (!liveTurnVisible()) return false;
+  const doc = globalThis.document || null;
+  if (!doc || doc.hidden) return false;
+  const mode = (doc.documentElement && doc.documentElement.getAttribute('data-shell-mode')) || 'classic';
+  return mode === 'classic';
+}
+// 全模块唯一的 setInterval／clearInterval 都在这里（抄 steward-drawer.js 的 syncPolling 写法）：
+// 开关只有一处，条件只有 liveTurnPollable() 一条，别处一律只调这个函数。
+function syncLivePolling() {
+  const want = liveTurnPollable();
+  if (want && !liveTurnTimer) liveTurnTimer = setInterval(() => { refreshLiveTurn(); }, LIVE_TURN_POLL_MS);
+  else if (!want && liveTurnTimer) { clearInterval(liveTurnTimer); liveTurnTimer = 0; }
+}
+// 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
+// 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
+async function refreshLiveTurn() {
+  const id = state.currentSession?.id || '';
+  if (!id) { syncLivePolling(); return; }
+  let res = null;
+  try { res = await api(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
+  if (!res || !res.ok || state.currentSession?.id !== id) { syncLivePolling(); return; }
+  const wasLive = liveTurnVisible();
+  captureLiveTurn(id, res);
+  if (liveTurnVisible()) {
+    if (!paintLiveTurnCard()) renderCurrentSession(); // 气泡不在 DOM 上（刚切回来）才重绘一次
+  } else if (wasLive && !state.streaming && !activeTurns.has(id)) {
+    state.currentSession = res.session;
+    state.resumable = res.resumable || null;
+    liveTurnCardEls = null;
+    renderCurrentSession();
+    renderResumeBanner();
+  }
+  syncLivePolling();
+}
+function buildLiveTurnCard() {
+  const row = el('article', 'message assistant live-turn');
+  row.dataset.live = '1';
+  row.setAttribute('aria-label', LIVE_TURN_TITLE);
+  const avatar = el('div', 'avatar live-turn-avatar', '◐');
+  avatar.setAttribute('aria-hidden', 'true');
+  const main = el('div', 'msg-main');
+  const head = el('div', 'msg-head live-turn-head');
+  const iter = el('span', 'live-turn-iter');
+  head.append(el('span', 'live-turn-title', LIVE_TURN_TITLE), iter);
+  const body = el('div', 'live-turn-body');
+  const tool = el('div', 'live-turn-tool');
+  const stop = el('button', 'live-turn-stop', t('common.stop'));
+  stop.type = 'button';
+  stop.onclick = () => stopLiveTurn(stop);
+  const foot = el('div', 'live-turn-actions');
+  foot.appendChild(stop);
+  main.append(head, body, tool, foot);
+  row.append(avatar, main);
+  liveTurnCardEls = { row, body, tool, iter, stop };
+  paintLiveTurnCard();
+  return row;
+}
+// 就地把手上这份活文本写进气泡。返回 false = 气泡不在 DOM 上（调用方据此决定要不要重绘）。
+function paintLiveTurnCard() {
+  const els = liveTurnCardEls;
+  if (!els || !els.row.isConnected) return false;
+  const tail = liveTurnTail;
+  const full = String((tail && tail.full) || '');
+  // truncated：04 是从【头部】丢弃的（用户要看的是它现在在说什么），所以省略号标在开头。
+  els.body.textContent = full ? ((tail && tail.truncated) ? `…${full}` : full) : LIVE_TURN_EMPTY;
+  els.body.classList.toggle('is-empty', !full);
+  const tools = Array.isArray(tail && tail.tools) ? tail.tools : [];
+  const last = tools.length ? tools[tools.length - 1] : null;
+  const name = String((last && last.name) || '');
+  els.tool.textContent = name ? `${LIVE_TURN_USING}${name}${last.status === 'running' ? '' : ' ✓'}` : '';
+  els.tool.hidden = !name;
+  const n = Math.max(0, Number(tail && tail.iterations) || 0);
+  els.iter.textContent = n ? `· 第 ${n} 轮工具` : '';
+  return true;
+}
+async function stopLiveTurn(btn) {
+  const id = state.currentSession?.id || '';
+  if (!id) return;
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id }) });
+    if (!r || r.ok === false) {
+      toast(t('mission.stop.failed', { reason: (r && r.error) || t('common.unknownError') }), 'err');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    toast(t('toast.turnStopped'), 'ok');
+  } catch (e) {
+    toast(t('mission.stop.failed', { reason: apiErrText(e) }), 'err');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  await refreshLiveTurn(); // 立刻按新事实收尾，不等下一拍
+}
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
@@ -818,7 +952,9 @@ function renderCurrentSession() {
     queueMicrotask(() => box.setAttribute('aria-live', previousLive === 'off' ? 'polite' : previousLive));
   };
   const liveForSession = session ? activeTurns.get(session.id) : null;
-  if (!session || (!session.messages?.length && !liveForSession)) {
+  // 117m-A5：一条【别处起的】回合可能一条落盘消息都没有（管家新建线程 → 交办书还没写完就开跑），
+  // 那时也不能落空态 —— 空态会把「它正在跑」这张气泡整个吞掉。
+  if (!session || (!session.messages?.length && !liveForSession && !liveTurnVisible())) {
     box.replaceChildren(buildEmptyState());
     settleLog();
     renderContextMeter(null);
@@ -857,6 +993,10 @@ function renderCurrentSession() {
   // keyed shell attached instead of reproducing the old "innerHTML clears the answer in progress" failure.
   const activeRow = activeTurns.get(session.id)?.live?.narrative?.closest('.message');
   if (activeRow && activeRow.isConnected) fragment.appendChild(activeRow);
+  // 117m-A5：在途回合的临时气泡挂在会话末尾。它不是消息，上面那一圈窗口化／签名复用逻辑一个字没改，
+  // state.currentSession.messages 也一个字没多 —— 回合结束后 liveTurnVisible() 转假，它就自己不见了。
+  if (liveTurnVisible()) fragment.appendChild(buildLiveTurnCard());
+  else liveTurnCardEls = null;
   box.replaceChildren(fragment);
   settleLog();
   restoreScrollAnchor(box, anchor || { atBottom: true });
@@ -1194,6 +1334,9 @@ function buildEmptyCTA() {
 }
 // meta (optional, assistant only): engine identity used to render the source badge + colored avatar
 // so a multi-engine session shows WHICH engine/model produced each reply (A4/§4.4).
+  // 117m-A5：页面藏起来／回到前台就重判一次表。挂在本域内，组合根零改动（app.js 不在本切片白名单）。
+  try { globalThis.document.addEventListener('visibilitychange', () => syncLivePolling()); }
+  catch { /* 非浏览器宿主（静态件 import 本模块时）：没有表可开 */ }
   return Object.freeze({
     autonomyFormSync,
     buildEmptyState,
@@ -1223,6 +1366,7 @@ function buildEmptyCTA() {
     rollbackTurn,
     stopMission,
     submitGrant,
+    syncLivePolling, // 117m-A5: 在途回合气泡的唯一开关表入口
     toggleStepBar,
     turnArtifactChips,
     turnSummaryCard,

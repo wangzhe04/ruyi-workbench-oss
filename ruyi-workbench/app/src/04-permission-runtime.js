@@ -91,21 +91,67 @@ const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt
 //   ② 只留最后 600 字(抖动的是“它正在说什么”,不是全文;全文在回合收尾时才落盘);
 //   ③ 工具名只在【工具在跑】期间在:tool_use 记上,tool_result 清掉。
 // 发不出事件的回合(引擎不流 delta)就是空尾巴 —— 不编,不拿上一回合的话冒充(§11.2 「诚实」)。
+//
+// 117m-A5(用户第六轮走查①「现在点开线程的看全文,还是啥也看不到」):把这个累加器从「尾巴」扩成
+// 「本回合正文」。根因是助手消息在【回合收尾】才落盘,而管家起的回合没有任何客户端挂在它的流上 ——
+// 用户真机上跑了 15 分钟、53 次工具调用,messages.ndjson 只有那条 user 消息一行。经典壳只渲染已落盘的
+// messages,于是「看全文」是一片空白。修法不是提前落盘(那会把半截正文写进数据面),而是把内存里这份
+// 活文本扩到够看,经既有的 GET /api/sessions/:id 信封下发。四条新纪律,与上面三条并列:
+//   ④ text 的语义与 600 字上限【一个字不动】—— 抽屉的「它正在说」在用它,117l 的断言钉着它;
+//   ⑤ 新增 full = 本回合从头累加的助手正文,硬顶 12000 字。超顶从【头部】丢弃并置 truncated:true:
+//      用户要看的是「它现在在说什么」,砍掉的应该是最早那段,不是刚说的;
+//   ⑥ 新增 tools = 最近 ≤20 条工具名 + 起止 + 状态。**只存名字与状态,不存参数、不存结果** ——
+//      参数与结果里可能有密钥/路径/整份文件内容,这条信封是给「看一眼它在干嘛」用的,不是审计面;
+//   ⑦ 新增 startedAt(回合起点)与 iterations(工具轮次:一批并行工具算一轮)。
+// 全部仍然只在内存,回合一结束 reg 从 activeChildren 里去掉,这份东西随之整份消失。
 const LIVE_TAIL_CHARS = 600;
+const LIVE_FULL_CHARS = 12000;
+const LIVE_TOOLS_MAX = 20;
 function appendLiveTail(reg, evt) {
   if (!reg || !evt) return;
   const tail = reg.liveTail && typeof reg.liveTail === 'object' ? reg.liveTail : (reg.liveTail = { text: '', tool: '', updatedAt: '' });
+  // 05/09 建的仍是 117l 那个三字段裸对象(本波不碰那两个文件),缺的字段在这里就地补齐 —— 累加器是
+  // 唯一的写口,补在这里就不会有「某条路径的 reg 少个键」的形状分叉。
+  if (typeof tail.full !== 'string') tail.full = '';
+  if (typeof tail.truncated !== 'boolean') tail.truncated = false;
+  if (!Array.isArray(tail.tools)) tail.tools = [];
+  if (typeof tail.startedAt !== 'string') tail.startedAt = '';
+  if (!Number.isFinite(tail.iterations)) tail.iterations = 0;
   const type = String(evt.type || '');
+  const at = nowIso();
   if (type === 'assistant_delta') {
     const chunk = String(evt.text || '');
     if (!chunk) return;
     tail.text = (tail.text + chunk).slice(-LIVE_TAIL_CHARS);
+    const merged = tail.full + chunk;
+    if (merged.length > LIVE_FULL_CHARS) { tail.full = merged.slice(merged.length - LIVE_FULL_CHARS); tail.truncated = true; }
+    else tail.full = merged;
   } else if (type === 'tool_use') {
-    tail.tool = String(evt.name || evt.tool || '').slice(0, 80);
+    const name = String(evt.name || evt.tool || '').slice(0, 80);
+    tail.tool = name;
+    // 轮次:provider 路径有 batchId(09 的包装给同一批并行工具打同一个),换批才 +1;Claude 路径没有
+    // batchId,退化成「上一个事件不是 tool_use 就算新的一轮」。两条路都不把一批并行工具数成 N 轮。
+    const batch = String(evt.batchId || '');
+    const sameBatch = batch ? batch === tail.batchMark : tail.lastKind === 'tool_use';
+    if (!sameBatch) tail.iterations += 1;
+    tail.batchMark = batch;
+    tail.tools.push({ id: String(evt.id || ''), name, startedAt: at, endedAt: '', status: 'running' });
+    while (tail.tools.length > LIVE_TOOLS_MAX) tail.tools.shift();
   } else if (type === 'tool_result') {
     tail.tool = '';
+    const id = String(evt.id || '');
+    for (let i = tail.tools.length - 1; i >= 0; i -= 1) {
+      const row = tail.tools[i];
+      if (!row || row.status !== 'running') continue;
+      if (id && row.id && row.id !== id) continue;
+      row.endedAt = at;
+      row.status = evt.isError ? 'error' : 'done';
+      break;
+    }
   } else return;
-  tail.updatedAt = nowIso();
+  tail.lastKind = type;
+  if (!tail.startedAt) tail.startedAt = Number.isFinite(reg.startedAt) ? new Date(reg.startedAt).toISOString() : at;
+  tail.updatedAt = at;
 }
 // 回合 settle 登记表(第69波 rewind 竞态修复):sessionId -> { promise, resolve }。driver(chat/stream)
 // 在回合开始登记、driver finally(收尾 saveSession 已落盘后)resolve 并删除。stopSession 会立即删

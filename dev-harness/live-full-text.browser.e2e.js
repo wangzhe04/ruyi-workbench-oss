@@ -1,0 +1,416 @@
+#!/usr/bin/env node
+'use strict';
+
+// 真实浏览器 E2E(第 117 波 117m-A5 · 27 号文 §11.10):经典壳里「在途回合」那张临时气泡。
+//
+// 用户第六轮走查①「现在点开线程的看全文,还是啥也看不到」。这一件是本切片的【验收点】:
+// 起一个【浏览器从没挂过流】的回合(管家派活就是这个形状),再在经典壳里打开这条线程,屏幕上必须
+// 真的出现「它正在跑」那张气泡,里面有它这一回合说到现在的正文与正在用的工具;回合一结束,
+// 气泡换成真消息,不留残影,表也停掉。
+//
+// 覆盖:
+//   B 活回合:气泡出现、正文是真流出来的、「正在用」有工具名、有「停止」;
+//     且此刻 state.currentSession.messages 里【一条助手消息都没有】—— 气泡不是消息,没污染数据面;
+//   C 节拍:活着时恰好一处 3000ms 计时器;切去管家壳当拍停表(零后台活动),切回来又起;
+//   D 收尾:回合结束后气泡消失、真助手消息落到屏幕上、3000ms 计时器归零。
+// 与 steward-drawer.e2e.js 同一套 CDP 无头驱动;后端零改动。
+(async () => {
+const cp = require('child_process');
+const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const path = require('path');
+const { getFreePort } = require('./free-port.js');
+
+const ROOT = path.resolve(__dirname, '..');
+const WB = path.join(ROOT, 'ruyi-workbench');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+let fail = 0;
+const ok = (condition, label) => {
+  if (condition) console.log('PASS ' + label);
+  else { fail += 1; console.log('FAIL ' + label); }
+};
+
+const THREAD = '别处起的回合';
+const FIRST = '第一段:我先看一眼这件事的现场。';
+const SECOND = '第二段:看完了,现在我把结论写下来。';
+const FINAL = '第三段:这就是全部结论。';
+const LIVE_TICK_MS = 3000;      // session-experience.js 的 LIVE_TURN_POLL_MS
+const HOLD_MS = 30000;          // 回合在「说完第二段」之后还活着的时长(留够 B/C 两段断言的窗口)
+const SHORT_WAIT = 150;         // 「该发生的当拍就该发生」的等待上限(150×40ms = 6s):失败时不许把活回合的窗口耗光
+
+function browserPath() {
+  return [
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  ].find(file => fs.existsSync(file)) || '';
+}
+
+function request(port, method, pathname, body, token) {
+  return new Promise(resolve => {
+    const raw = body == null ? '' : JSON.stringify(body);
+    const req = http.request({
+      host: '127.0.0.1', port, path: pathname, method, timeout: 20000,
+      headers: {
+        ...(raw ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) } : {}),
+        ...(token ? { 'x-wcw-token': token } : {}),
+      },
+    }, response => {
+      let text = '';
+      response.on('data', chunk => { text += chunk; });
+      response.on('end', () => { let json = null; try { json = JSON.parse(text); } catch { /* non-json */ } resolve({ status: response.statusCode, text, json }); });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    if (raw) req.write(raw);
+    req.end();
+  });
+}
+async function waitForHttp(port, method, pathname, predicate, token, attempts = 200) {
+  for (let i = 0; i < attempts; i++) {
+    const result = await request(port, method, pathname, null, token);
+    if (result && predicate(result)) return result;
+    await sleep(80);
+  }
+  return null;
+}
+function killTree(child) {
+  if (!child || !child.pid) return;
+  try {
+    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    else child.kill('SIGKILL');
+  } catch { /* already exited */ }
+}
+
+// 确定性 provider:第一轮先流一段正文再要一次 file_read(read 档,自动放行);第二轮流第二段正文、
+// 挂住 HOLD_MS 再说最后一段收尾 —— 那段挂住的时间就是「回合还活着」的观察窗口。
+let probeFile = '';
+async function startProvider(port) {
+  const server = http.createServer(async (req, res) => {
+    if ((req.url || '').includes('/models')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end('{"data":[{"id":"fake-model"}]}');
+    }
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    let body = {}; try { body = JSON.parse(raw || '{}'); } catch { body = {}; }
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const answered = messages.some(m => m && m.role === 'tool');
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+    const sse = value => { try { res.write('data: ' + JSON.stringify(value) + '\n\n'); } catch { /* client gone */ } };
+    const delta = text => sse({ choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] });
+    if (!answered) {
+      delta(FIRST);
+      const args = JSON.stringify({ path: probeFile });
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_live_ui', type: 'function', function: { name: 'file_read', arguments: '' } }] }, finish_reason: null }] });
+      sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
+      sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+    } else {
+      delta(SECOND);
+      await sleep(HOLD_MS);
+      delta(FINAL);
+      sse({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+      sse({ choices: [], usage: { prompt_tokens: 8, completion_tokens: 4 } });
+    }
+    try { res.write('data: [DONE]\n\n'); res.end(); } catch { /* client gone */ }
+  });
+  await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
+  return server;
+}
+
+class CdpClient {
+  constructor(url) { this.url = url; this.nextId = 1; this.pending = new Map(); this.socket = null; this.logs = []; }
+  connect() {
+    return new Promise((resolve, reject) => {
+      this.socket = new WebSocket(this.url);
+      this.socket.addEventListener('open', resolve, { once: true });
+      this.socket.addEventListener('error', reject, { once: true });
+      this.socket.addEventListener('message', event => {
+        let message;
+        try { message = JSON.parse(String(event.data)); } catch { return; }
+        if (message.method === 'Runtime.consoleAPICalled' || message.method === 'Runtime.exceptionThrown') {
+          try { this.logs.push(JSON.stringify(message.params).slice(0, 400)); } catch { /* ignore */ }
+          return;
+        }
+        if (!message.id || !this.pending.has(message.id)) return;
+        const pending = this.pending.get(message.id);
+        this.pending.delete(message.id);
+        if (message.error) pending.reject(new Error(message.error.message || JSON.stringify(message.error)));
+        else pending.resolve(message.result || {});
+      });
+      this.socket.addEventListener('close', () => {
+        for (const pending of this.pending.values()) pending.reject(new Error('CDP socket closed'));
+        this.pending.clear();
+      });
+    });
+  }
+  send(method, params = {}) {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.socket.send(JSON.stringify({ id, method, params }));
+    });
+  }
+  async evaluate(expression, awaitPromise = true) {
+    const result = await this.send('Runtime.evaluate', { expression, awaitPromise, returnByValue: true });
+    if (result.exceptionDetails) {
+      const detail = result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'Runtime.evaluate failed';
+      throw new Error(detail);
+    }
+    return result.result && result.result.value;
+  }
+  close() { try { this.socket && this.socket.close(); } catch { /* ignore */ } }
+}
+async function waitForTarget(debugPort, appUrl) {
+  for (let i = 0; i < 200; i++) {
+    const result = await request(debugPort, 'GET', '/json/list');
+    const targets = result && Array.isArray(result.json) ? result.json : [];
+    const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
+    if (target && target.webSocketDebuggerUrl) return target;
+    await sleep(50);
+  }
+  return null;
+}
+async function waitForEval(cdp, expression, attempts = 500) {
+  for (let i = 0; i < attempts; i++) {
+    try { const value = await cdp.evaluate(expression); if (value) return value; }
+    catch { /* reload swaps execution context */ }
+    await sleep(40);
+  }
+  return null;
+}
+
+const READY = `(() => {
+  if (!document.getElementById('sessionList') || !window.state || !window.state.status || !window.state.config) return null;
+  if (!document.querySelectorAll('#sessionList .session-item').length) return null;
+  return { ready: true };
+})()`;
+
+// 屏幕快照:全部走 textContent / class,不碰任何模块私有状态。
+const SNAP = `(() => {
+  const box = document.getElementById('messages');
+  const row = box ? box.querySelector('[data-live="1"]') : null;
+  const text = (node, sel) => { const found = node ? node.querySelector(sel) : null; return found ? found.textContent.trim() : ''; };
+  const session = window.state && window.state.currentSession;
+  return {
+    shellMode: document.documentElement.getAttribute('data-shell-mode'),
+    currentId: session ? String(session.id || '') : '',
+    hasCard: Boolean(row),
+    cardRole: row ? row.className : '',
+    title: text(row, '.live-turn-title'),
+    body: text(row, '.live-turn-body'),
+    tool: text(row, '.live-turn-tool'),
+    iter: text(row, '.live-turn-iter'),
+    hasStop: Boolean(row && row.querySelector('.live-turn-stop')),
+    liveRows: box ? box.querySelectorAll('[data-live="1"]').length : -1,
+    realAssistantRows: box ? box.querySelectorAll('.message.assistant:not(.live-turn)').length : -1,
+    realAssistantText: box ? [...box.querySelectorAll('.message.assistant:not(.live-turn)')].map(n => n.textContent).join(' ') : '',
+    msgRoles: session && Array.isArray(session.messages) ? session.messages.map(m => m && m.role) : [],
+    intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
+  };
+})()`;
+
+const appPort = await getFreePort();
+const providerPort = await getFreePort();
+const debugPort = await getFreePort();
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-live-ui-'));
+const home = path.join(root, 'home');
+const profile = path.join(root, 'profile');
+fs.mkdirSync(home);
+probeFile = path.join(home, 'probe.txt');
+fs.writeFileSync(probeFile, '现场看过了。', 'utf8');
+fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
+  configSchema: 9, version: '2.4.0', activeProvider: 'fake', engineMode: 'interactive',
+  permissionMode: 'default', theme: 'dark', uiMode: 'pro', locale: 'zh-CN',
+  defaultWorkspace: home, includeWorkbenchMcp: false, killOnDisconnect: false,
+  autoImportClaudeCodeMcp: false,
+  // 管家壳要能切过去(C2 要看「离开经典壳当拍停表」);它自己的节拍拉满,免得跟本件的 3000ms 表混。
+  stewardEnabledV1: true, stewardPollMs: 120000,
+  providers: [{
+    id: 'fake', label: 'Fake', type: 'openai-compat',
+    baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model',
+    models: [{ id: 'fake-model', label: 'Fake' }],
+  }],
+}), 'utf8');
+
+let provider = null;
+let server = null;
+let browser = null;
+let cdp = null;
+try {
+  provider = await startProvider(providerPort);
+  server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
+    cwd: WB,
+    env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
+    windowsHide: true, stdio: 'ignore',
+  });
+  ok(Boolean(await waitForHttp(appPort, 'GET', '/health', result => result.status === 200)), 'A1 workbench started');
+  let token = '';
+  for (let i = 0; i < 80 && !token; i++) {
+    try { token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
+    if (!token) await sleep(100);
+  }
+  ok(Boolean(token), 'A2 runtime token 可读');
+
+  const created = await request(appPort, 'POST', '/api/sessions', { title: THREAD, cwd: home }, token);
+  const sid = created && created.json && created.json.session && created.json.session.id;
+  ok(Boolean(sid), `A3 线程已建(${sid || '失败'})`);
+  if (!sid) throw new Error('session fixture unavailable');
+
+  const executable = browserPath();
+  ok(Boolean(executable), 'A4 Edge/Chrome found');
+  if (!executable) throw new Error('browser unavailable');
+
+  const appUrl = `http://127.0.0.1:${appPort}/`;
+  browser = cp.spawn(executable, [
+    '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+    '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    '--force-device-scale-factor=1', '--window-size=1440,1000',
+    '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
+  ], { windowsHide: true, stdio: 'ignore' });
+  const target = await waitForTarget(debugPort, appUrl);
+  ok(Boolean(target), 'A5 browser target available');
+  if (!target) throw new Error('CDP target unavailable');
+  cdp = new CdpClient(target.webSocketDebuggerUrl);
+  await cdp.connect();
+  await cdp.send('Page.enable');
+  await cdp.send('Runtime.enable');
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+      const live = new Map();
+      const nativeSet = window.setInterval;
+      const nativeClear = window.clearInterval;
+      window.setInterval = function (handler, delay, ...rest) {
+        const id = nativeSet.call(window, handler, delay, ...rest);
+        live.set(id, Number(delay) || 0);
+        return id;
+      };
+      window.clearInterval = function (id) { live.delete(id); return nativeClear.call(window, id); };
+      window.__ruyiLiveIntervals = () => [...live.values()];
+    })();`,
+  });
+  await cdp.evaluate('location.reload(); true');
+  ok(Boolean(await waitForEval(cdp, READY)), 'A6 经典壳载入,侧栏里有这条线程');
+  ok(Boolean(await waitForEval(cdp, 'Array.isArray(window.__ruyiLiveIntervals && window.__ruyiLiveIntervals()) ? 1 : null')),
+    'A7 计时器探针已装上');
+
+  /* ═════════ 起一个【浏览器从没挂过流】的回合 ═════════ */
+  // 这才是管家派活的形状:发起方是另一个进程,浏览器这一侧一个字节都没收到过。
+  {
+    const raw = JSON.stringify({ sessionId: sid, message: '看一眼这件事', cwd: home });
+    const req = http.request({
+      host: '127.0.0.1', port: appPort, path: '/api/chat/stream', method: 'POST', timeout: 120000,
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), 'x-wcw-token': token },
+    }, res => { res.on('data', () => {}); res.on('end', () => {}); });
+    req.on('error', () => {});
+    req.write(raw); req.end();
+  }
+  const liveOnServer = await waitForHttp(appPort, 'GET', `/api/sessions/${sid}`,
+    result => Boolean(result.json && result.json.liveTail && String(result.json.liveTail.full || '')), token);
+  ok(Boolean(liveOnServer), 'A8 服务端确认这一回合活着(信封里有 liveTail.full)');
+
+  /* ═════════ B 打开线程:气泡真的出现 ═════════ */
+  console.log('── B 经典壳打开这条线程 ──');
+  await cdp.evaluate(`(() => {
+    const item = [...document.querySelectorAll('#sessionList .session-item')]
+      .find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
+    if (!item) return false;
+    item.click();
+    return true;
+  })()`);
+  const live = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.hasCard && snapshot.body ? snapshot : null;
+  })()`);
+  ok(Boolean(live), `B1 屏幕上出现了「它正在跑」那张气泡(修前这里是一片空白)`);
+  if (!live) throw new Error('live card never appeared');
+  ok(live.currentId === sid, `B1b 打开的就是这条线程(${live.currentId})`);
+  ok(live.title.includes('它正在跑'), `B2 气泡标题说清了这一回合是在别处起的(实测「${live.title}」)`);
+  ok(live.body.includes(FIRST) || live.body.includes(SECOND),
+    `B3 正文是这一回合真流出来的话(实测「${live.body.slice(0, 60)}」)`);
+  ok(live.hasStop, 'B4 气泡上有「停止」');
+  ok(live.liveRows === 1, `B5 屏幕上只有一张临时气泡(实测 ${live.liveRows} 张)`);
+  // 本切片的数据面红线:气泡不是消息。
+  ok(!live.msgRoles.includes('assistant'),
+    `B6 这一刻 state.currentSession.messages 里一条助手消息都没有(实测 ${JSON.stringify(live.msgRoles)})`);
+  ok(live.realAssistantRows === 0,
+    `B6b 屏幕上也没有第二张假的「真消息」(实测 ${live.realAssistantRows} 条)`);
+  const withTool = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.hasCard && snapshot.tool ? snapshot : null;
+  })()`);
+  ok(Boolean(withTool && withTool.tool.includes('file_read')),
+    `B7 「正在用」写着工具名(实测「${withTool && withTool.tool}」)`);
+  ok(Boolean(withTool && withTool.iter.includes('1')), `B8 轮次写着第 1 轮(实测「${withTool && withTool.iter}」)`);
+
+  /* ═════════ C 节拍:一处表,离开经典壳当拍停 ═════════ */
+  console.log('── C 节拍与零后台活动 ──');
+  const ticking = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.intervals.filter(ms => ms === ${LIVE_TICK_MS}).length === 1 ? snapshot : null;
+  })()`, SHORT_WAIT);
+  ok(Boolean(ticking), `C1 活回合期间恰好一处 ${LIVE_TICK_MS}ms 计时器(实测 ${JSON.stringify((ticking || live).intervals)})`);
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgShellMode');
+    select.value = 'steward';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const parked = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.shellMode === 'steward' && snapshot.intervals.filter(ms => ms === ${LIVE_TICK_MS}).length === 0 ? snapshot : null;
+  })()`, SHORT_WAIT);
+  ok(Boolean(parked), 'C2 切去管家壳后经典壳这张表停掉(零后台活动)');
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgShellMode');
+    select.value = 'classic';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  // 切回来时 openSession 会被「2.0 视窗」那条路重走一遍;这里直接再点一次侧栏,等价且不依赖那条路。
+  await cdp.evaluate(`(() => {
+    const item = [...document.querySelectorAll('#sessionList .session-item')]
+      .find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
+    if (item) item.click();
+    return true;
+  })()`);
+  const back = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.shellMode === 'classic' && snapshot.hasCard
+      && snapshot.intervals.filter(ms => ms === ${LIVE_TICK_MS}).length === 1 ? snapshot : null;
+  })()`, SHORT_WAIT);
+  ok(Boolean(back), 'C3 切回经典壳并重开线程后气泡与表都回来了');
+
+  /* ═════════ D 回合结束:气泡换成真消息 ═════════ */
+  console.log('── D 回合结束后收尾 ──');
+  const settled = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return (!snapshot.hasCard && snapshot.realAssistantRows > 0) ? snapshot : null;
+  })()`, 900);
+  ok(Boolean(settled), 'D1 回合结束后临时气泡消失,真消息落到屏幕上');
+  ok(Boolean(settled && settled.realAssistantText.includes(FINAL)),
+    `D2 屏幕上的是这一回合的完整正文(含收尾那句;实测 ${settled && settled.realAssistantText.length} 字)`);
+  ok(Boolean(settled && settled.liveRows === 0), `D3 零残影(data-live 节点 ${settled && settled.liveRows} 个)`);
+  ok(Boolean(settled && settled.msgRoles.includes('assistant')),
+    `D4 这时候正文才进 state.currentSession.messages(实测 ${JSON.stringify(settled && settled.msgRoles)})`);
+  const stopped = await waitForEval(cdp, `(() => {
+    const snapshot = ${SNAP};
+    return snapshot.intervals.filter(ms => ms === ${LIVE_TICK_MS}).length === 0 ? snapshot : null;
+  })()`);
+  ok(Boolean(stopped), 'D5 回合结束后表自己停了(零后台活动)');
+} catch (error) {
+  console.log('ERROR ' + (error && error.stack || error));
+  fail += 1;
+} finally {
+  if (cdp && fail) console.log('CONSOLE ' + cdp.logs.slice(-6).join(' | '));
+  if (cdp) cdp.close();
+  killTree(browser);
+  killTree(server);
+  if (provider) await new Promise(resolve => provider.close(resolve));
+  await sleep(300);
+  try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ }
+  console.log(`\nLIVE FULL TEXT BROWSER E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
+  process.exitCode = fail ? 1 : 0;
+}
+})().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });
