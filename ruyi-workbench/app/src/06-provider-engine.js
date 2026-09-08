@@ -1518,7 +1518,7 @@ async function readProjectMemory(cwd) {
       // early and let a CLAUDE.md line escape into the system layer. Rewrite the angle-bracket form to a
       // bracket form (`<project-memory` → `[project-memory`, `</project-memory` → `[/project-memory`) —
       // same byte length, so the truncation math below is unaffected.
-      text = text.replace(/<(\/?)project-memory/gi, '[$1project-memory');
+      text = neutralizeFenceTag(text, 'project-memory'); // P2-8: 单一事实源见 00-boot.js
       let truncated = false;
       if (Buffer.byteLength(text, 'utf8') > PROJECT_MEMORY_CAP) {
         // Truncate to the cap by bytes (slice by chars then trim until under the byte cap — good enough).
@@ -1728,7 +1728,7 @@ function buildSkillsPromptSection(enabledSkills, engine, config) {
   // P2-1: 声明式表头 —— 技能 name/description 来自不可信 SKILL.md,明确降级为「参考资料」,不得覆盖以上任何守则;
   // 技能行包进 <skill-index> 围栏(不可信带),并中和技能名/描述里可能伪造围栏的 <skill-index> / </skill-index> 记号
   // (同 project-memory 的 fence 手法,把尖括号换成方括号)。
-  const fence = t => String(t).replace(/<(\/?)skill-index/gi, '[$1skill-index');
+  const fence = t => neutralizeFenceTag(t, 'skill-index'); // P2-8: 单一事实源见 00-boot.js
   const header = isClaude ? getPromptPack(config && config.locale).skillsHeader.claude : getPromptPack(config && config.locale).skillsHeader.provider;
   const body = [];
   for (const s of skills) {

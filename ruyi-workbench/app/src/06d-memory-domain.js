@@ -963,7 +963,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   const mems = all.filter(m => m.coreStatus !== 'active');
   const coreSection = buildCoreMemoryPromptSection(core, config);
   if (!mems.length) return coreSection;
-  const fence = t => String(t).replace(/<(\/?)workbench-memory/gi, '[$1workbench-memory');
+  const fence = t => neutralizeFenceTag(t, 'workbench-memory'); // P2-8: 单一事实源见 00-boot.js
   const tool = engine === 'claude' ? 'Read' : 'file_read';
   const header = getPromptPack(config && config.locale).memoryHeader(tool);
   // R4: conflicts=Map<memoryId,Set<conflictId>>(仅 confirmed contradicts,由 buildMemoryConflictMap 产出)。
@@ -989,7 +989,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
 }
 
 function memoryCoreLine(entry) {
-  const clean = value => String(value || '').replace(/<(\/?)workbench-memory-core/gi, '[$1workbench-memory-core').replace(/\s+/g, ' ').trim();
+  const clean = value => neutralizeFenceTag(String(value || ''), 'workbench-memory-core').replace(/\s+/g, ' ').trim(); // P2-8: 单一事实源见 00-boot.js
   const summary = clean(entry.coreSummary || entry.description).slice(0, CORE_MEMORY_SUMMARY_CAP);
   return `- [${entry.scope}/${entry.type}] ${clean(entry.name || entry.id)} [${entry.id}]: ${summary}`;
 }

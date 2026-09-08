@@ -99,7 +99,7 @@ function buildOpenAiTools(config, caps, opts) {
   const allowDesk = config.allowDesktopTools !== false;
   const out = [];
   const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
-  const tierRank = { read: 0, edit: 1, exec: 2 };
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见本文件上方 TOOL_TIER_RANK
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
   const noSpawnAgent = !!(opts && opts.noSpawnAgent);
@@ -260,6 +260,12 @@ const NATIVE_TOOL_TIER = {
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
+// P2-9(30号文§3 总表): 工具分级排序表 —— 曾在 07(本文件)/08-agent-runs.js/09b-replan-ledger.js 六处独立
+// 声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠人工复制维持。这是【权限升级判据】——
+// 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan 补丁是否试图把节点 tier 抬高",分叉的后果
+// 是越权。单一事实源落在本文件(nativeToolTier/bridgedToolTier 已在此,是既有的「工具分级」事实源),
+// 08(manifest 序 24)、09b(序 25)都在本文件(序 23)之后,引用它是既有后向边。冻结防意外改写。
+const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
 function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // unknown → safest (treat as exec)
 // v2.6 (loop guard 分层): 同签名连击(连续相同 name+rawArgs)对「无副作用」工具不应 abort ——
 // 轮询/等待原语(相同参数反复调用是其设计语义: wait_agents 等后台 run 结束、shell_poll 读增量输出)
@@ -268,6 +274,14 @@ function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // un
 const LOOP_POLLING_TOOLS = new Set(['wait_agents', 'shell_poll']);
 function loopAbortExempt(name) { return LOOP_POLLING_TOOLS.has(String(name || '').replace(/^.+?__/, '')); } // 轮询原语: 完全豁免
 function loopWarnOnly(name) { return nativeToolTier(String(name || '').replace(/^.+?__/, '')) === 'read'; } // 无副作用只读: 只 warn 不 abort
+
+// P2-14(30号文§3 总表): 死循环护栏数值 —— 主回合(09-workflow.js 的 LOOP_WARN_AT/LOOP_ABORT_AT/
+// LOOP_RECOVERY_MAX)与子代理(08-agent-runs.js 的 SUB_LOOP_WARN_AT/SUB_LOOP_ABORT_AT/SUB_LOOP_RECOVERY_MAX)
+// 各写一份完全相同的数值(3/5/2),两处注释互相点名「对称」。只抽这三个数值,不抽判定逻辑 —— 两边命中之后
+// 的「配对铁律补答」各有必要差异(主回合数 toolCalls 数组、子代理数 subHistory 消息数组;主回合额外记
+// mission 停滞账本、子代理不记;子代理事件带 subagentId/scope:'subagent'),强行合并成参数化大函数收益
+// 不抵风险,明确不做。09/08 两处保留各自的局部变量名(LOOP_*/SUB_LOOP_*),只把右侧字面量改成引用这里。
+const LOOP_GUARD_LIMITS = Object.freeze({ WARN_AT: 3, ABORT_AT: 5, RECOVERY_MAX: 2 });
 
 // v0.8-S0: risk tiers for BRIDGED (external/desktop MCP) tools, keyed by the UNPREFIXED tool name
 // (the bridged name is `serverId__tool`; look up bridge.toolName). Replaces the old flat 'exec' so ACC's
@@ -1934,7 +1948,11 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // so it yields cost:null (unknown), never a false trusted-$0 row (mirrors the main turn's Number(undefined)).
   // ledgerEstimated flips true whenever an attempt fell back to the msg_usage max (保守下限, not the exact
   // cumulative result usage) so the row is honestly badged 估算.
-  let ledgerIn = 0, ledgerOut = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // P2-18(30号文§3 总表): ledgerCachedIn —— 同一批次三处「Claude 引擎从不写 cachedInTok」缺口之一,累加口径
+  // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
+  // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
+  // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
+  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (killed) break;
@@ -1946,7 +1964,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         // billable this attempt.
         const ru = res.resultUsage;
         const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
-        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; }
+        const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
+        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
         else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
           ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
         }
@@ -1996,7 +2015,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that
           // actually ran is then config.model — record that, never the literal 'inherit'.
           model: (subModel && subModel !== 'inherit') ? subModel : (config.model || ''), inTok: ledgerIn, outTok: ledgerOut,
-          cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
+          cachedInTok: ledgerCachedIn, cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
           kind: 'subagent', agentKey, subagentId,
         });
         // 29c: 用量随事件上抛 —— DAG 节点的 nodeEvent 借此把 token/成本累进 run.usageTotals(前端画布迷你条

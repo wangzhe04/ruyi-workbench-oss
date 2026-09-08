@@ -29,8 +29,10 @@ if (process.env.WCW_FAKE_ENV_CAPTURE) {
 // SAME id across resumed turns; the random default emulates a fresh conversation each spawn).
 const SID = process.env.WCW_FAKE_SID || 'fake-' + Math.random().toString(16).slice(2, 10);
 const initEvt = { type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' };
-const resultEvt = (text) => ({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: SID,
-  duration_ms: 2400, num_turns: 1, total_cost_usd: 0.0123, usage: { input_tokens: 812, output_tokens: 214 } });
+// P2-18(30号文§3 总表)测试缝: 可选 usageExtra 合并进 usage 帧(默认 undefined → 行为与此前逐字节相同),
+// 供 'cachehit' 场景(见下)注入 cache_read_input_tokens/cache_creation_input_tokens 而不影响任何既有场景。
+const resultEvt = (text, usageExtra) => ({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: SID,
+  duration_ms: 2400, num_turns: 1, total_cost_usd: 0.0123, usage: { input_tokens: 812, output_tokens: 214, ...(usageExtra || {}) } });
 
 function emit(evt) { process.stdout.write(JSON.stringify(evt) + '\n'); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -91,6 +93,12 @@ function build(scenario) {
       { type: 'tool_result', tool_use_id: toolId, is_error: false, content: '审查完成：没有阻断问题。' },
     ] } });
     events.push(resultEvt('审查完成。'));
+  } else if (scenario === 'cachehit') {
+    // P2-18 测试缝: 结果帧带 cache_read_input_tokens/cache_creation_input_tokens,专供 usage-claude-cached.e2e.js
+    // 验证 05-claude-engine.js / 07-autonomy.js 三处 appendUsageLedger 是否把这两个字段相加写进 cachedInTok。
+    events.push(...textDeltas(REPLY));
+    events.push(assistantText(REPLY));
+    events.push(resultEvt(REPLY, { cache_read_input_tokens: 500, cache_creation_input_tokens: 100 }));
   } else {
     events.push(...textDeltas(REPLY));
     events.push(assistantText(REPLY)); // whole message — should be deduped against the deltas
@@ -101,7 +109,7 @@ function build(scenario) {
 
 function scenarioFromEnvAndPrompt(prompt) {
   let scenario = process.env.WCW_FAKE_SCENARIO || 'happy';
-  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'agents-background', 'steer']) if (prompt.includes(k)) scenario = k;
+  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'agents-background', 'steer', 'cachehit']) if (prompt.includes(k)) scenario = k;
   return scenario;
 }
 

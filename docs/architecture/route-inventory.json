@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-08T09:27:09.904Z",
+  "generatedAt": "2026-09-08T10:15:32.022Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -753,6 +753,7 @@
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\help-viewer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\overlay-update-core.e2e.js",
         "dev-harness\\session-search.e2e.js",
@@ -1600,6 +1601,7 @@
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
+        "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\pretender-crew-lens.e2e.js",
         "dev-harness\\pretender-dispatch-home.e2e.js",
@@ -1718,6 +1720,7 @@
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
@@ -1736,6 +1739,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-dashboard.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js"
@@ -2139,6 +2143,7 @@
         "dev-harness\\tools-v2.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\usage-accum.e2e.js",
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
@@ -2664,6 +2669,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
@@ -2832,6 +2838,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
@@ -2963,6 +2970,7 @@
         "dev-harness\\mission-result.e2e.js",
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\pretender-crew-lens.e2e.js",
         "dev-harness\\pretender-dispatch-home.e2e.js",
@@ -3010,6 +3018,7 @@
         "dev-harness\\mission-result.e2e.js",
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\pretender-crew-lens.e2e.js",
         "dev-harness\\pretender-dispatch-home.e2e.js",
@@ -3525,6 +3534,7 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
@@ -3920,6 +3930,7 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-config-tools.e2e.js",

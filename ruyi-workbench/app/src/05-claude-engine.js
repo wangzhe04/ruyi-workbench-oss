@@ -938,20 +938,30 @@ async function runClaudeTurn({
   // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
   if (agentCliType === 'claude' && usage && usage.usage) {
     const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+    // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
+    // 两项相加,读法与本文件 761 行(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,只读一项会
+    // 漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
+    // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
+    // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
+    // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
+    // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
+    const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
     // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
     const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
     appendUsageLedger({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok, outTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+      inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
     });
   } else if (agentCliType === 'claude' && (billInMax > 0 || billOutMax > 0)) {
     // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
     // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
     // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
+    // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
+    // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
     const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
     appendUsageLedger({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok: billInMax, outTok: billOutMax, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
+      inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
     });
   }
   const claudeTurnOk = exit.code === 0 && !wasStopped;

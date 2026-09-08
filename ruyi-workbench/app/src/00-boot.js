@@ -199,6 +199,17 @@ function makeId(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
 }
 
+// P2-8(30号文§3 总表 + §4「中和伪造围栏标签」判据): 防提示词注入的判据 —— 曾在 06d/06e/06/09 手写 6 遍
+// (workbench-memory / workbench-memory-core / mission-ledger / project-memory / skill-index /
+// workbench-plan-approved),六处形状完全一致(gi 标志 + 可选斜杠捕获组),判据一致全靠人工复制维持。把不可信
+// 文本里可能出现的 `<TAG`/`</TAG` 前括号换成方括号,让模型吐出来的文本不能提前闭合/伪造调用方外层拼接的固定
+// 字面围栏(如 <workbench-memory>…</workbench-memory>)。方括号与尖括号同为 1 字符/1 字节,替换不改变长度,
+// 不影响调用方紧随其后的字符/字节预算截断算术。只做这一步替换 —— 调用方各自原有的空白折叠(`\s+`→' ')/
+// trim/null 兜底/截断等链式处理保持原样,不并入本函数(各处链式处理的必要差异见各调用点)。
+function neutralizeFenceTag(text, tagName) {
+  return String(text).replace(new RegExp('<(/?)' + tagName, 'gi'), '[$1' + tagName);
+}
+
 async function ensureDirs() {
   await Promise.all([
     fsp.mkdir(paths.data, { recursive: true }),

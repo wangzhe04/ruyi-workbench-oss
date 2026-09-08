@@ -818,15 +818,22 @@ async function loadAgentRuns(force) {
 }
 // v3 P3a:轮询期望态由「监控页签激活」∪「工作台画布视图激活」共同决定 —— 画布复用同一份 2s 轮询(loadAgentRuns
 // 内联刷新画布),不新增请求。tab 参数保留兼容既有 switchTab 调用点;实际期望态从 DOM(激活页签)+ Workbench 域派生。
+// P2-17(30号文§3 总表): 页面可见性门控 —— 本文件此前是 preview-shell.js/session-experience.js/steward-board.js/
+// steward-drawer.js 五个轮询循环里唯一没判 document.hidden 的,标签页整个切到后台,2 秒一拍的定时器照常跑
+// (「漏做一半」不是设计差异)。不抽公共模块(另外四处已被静态锁按函数体逐字钉着,30 号文已否决合并),
+// 只在本文件内补上判据 + visibilitychange 监听,与 steward-drawer.js 的 `!(doc() && doc().hidden)` 同款写法。
 function agentRunsPollWanted() {
   const tabActive = !!document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"].active');
-  return tabActive || isWorkbenchCanvasView();
+  return (tabActive || isWorkbenchCanvasView()) && !document.hidden;
 }
 function syncAgentRunsPolling() {
   if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
   if (agentRunsPollWanted()) { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
 }
 function updateAgentRunsPolling(tab) { syncAgentRunsPolling(); }
+// 标签页切到后台/切回前台都要重新同步期望态(切走时停表、切回来时立即补一次 + 恢复 2s 心跳)——
+// 全文件恰好这一处 visibilitychange 监听,与 agentRunsPoll 那一处 setInterval 配对。
+document.addEventListener('visibilitychange', syncAgentRunsPolling);
 
 /* 第60波：Workbench DAG 视图、状态与原生 Claude Agent 投影已拆入 ./js/workbench.js。 */
 

@@ -344,6 +344,9 @@ module.exports = {
   stewardHumanizeIds,
   stewardThreadEngineRoute,
   stewardAsksYou,
+  // 第117波117q-B5(30号文§3 总表 P2-8): 中和伪造围栏标签 —— 纯函数(只吃入参、无 IO),六个调用点(06d/06e/06/09)
+  //   的单一事实源。exposed for 单测(unit/neutralize-fence-tag.test.js)。
+  neutralizeFenceTag,
   // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
   //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
   runSessionTurn,

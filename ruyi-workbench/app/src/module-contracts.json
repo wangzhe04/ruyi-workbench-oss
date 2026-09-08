@@ -41,6 +41,7 @@
         "isPkg",
         "json",
         "makeId",
+        "neutralizeFenceTag",
         "normalizeApiErrorPayload",
         "normalizePricing",
         "nowIso",
@@ -3331,6 +3332,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -3899,6 +3907,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -4090,6 +4105,13 @@
         "runMissionDriver"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "nowIso",
@@ -4351,6 +4373,7 @@
         "CLAUDE_SUBAGENT_TIER_TOOLS",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
+        "LOOP_GUARD_LIMITS",
         "LOOP_POLLING_TOOLS",
         "MAIL_GLOBAL_MAX",
         "MAIL_PER_SENDER_MAX",
@@ -4367,6 +4390,7 @@
         "STEER_QUEUE_MAX",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
+        "TOOL_TIER_RANK",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -5335,6 +5359,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "LOOP_GUARD_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "loopAbortExempt",
           "kinds": [
             "call"
@@ -5380,6 +5411,13 @@
           "symbol": "runClaudeSubAgentOnce",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "TOOL_TIER_RANK",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5544,6 +5582,13 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "TOOL_TIER_RANK",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -5633,6 +5678,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "neutralizeFenceTag",
           "kinds": [
             "call"
           ]
@@ -6398,6 +6450,13 @@
           "symbol": "looksLikePlan",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "LOOP_GUARD_LIMITS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -12973,6 +13032,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "neutralizeFenceTag",
           "kinds": [
             "read"
           ]

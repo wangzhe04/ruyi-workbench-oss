@@ -1929,7 +1929,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the turn (declared here, not module-level) so counters never leak across turns.
   let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false, loopRecoveryAttempts = 0;
   let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
-  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5, LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
+  // P2-14: 数值单一事实源见 07-autonomy.js 的 LOOP_GUARD_LIMITS(与 08-agent-runs.js 的 SUB_LOOP_* 对称)。
+  const LOOP_WARN_AT = LOOP_GUARD_LIMITS.WARN_AT, LOOP_ABORT_AT = LOOP_GUARD_LIMITS.ABORT_AT, LOOP_RECOVERY_MAX = LOOP_GUARD_LIMITS.RECOVERY_MAX; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
   // 或 grep 不同 pattern 都返回空 -- sig 每次不同但结果内容摘要不变)。连续 N 次结果指纹相同 -> loopWarning
@@ -2284,7 +2285,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // user continuation on the common no-note path, a real model sees its own "wait for approval"
             // plan as the final history item and can keep waiting/re-plan even though planApproved unlocked
             // tools in this closure. Pairing-safe: the last history entry is the assistant plan text.
-            const safeNote = note.replace(/<(\/?)(?:workbench-plan-approved)/gi, '[$1workbench-plan-approved');
+            const safeNote = neutralizeFenceTag(note, 'workbench-plan-approved'); // P2-8: 单一事实源见 00-boot.js
             session.providerHistory.push({ role: 'user', content: getPromptPack(config && config.locale).planApproved({ note: safeNote }) });
             if (note) onEvent({ type: 'plan_note', text: note });
             await saveSession(session);

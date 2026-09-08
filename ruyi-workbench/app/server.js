@@ -199,6 +199,17 @@ function makeId(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
 }
 
+// P2-8(30号文§3 总表 + §4「中和伪造围栏标签」判据): 防提示词注入的判据 —— 曾在 06d/06e/06/09 手写 6 遍
+// (workbench-memory / workbench-memory-core / mission-ledger / project-memory / skill-index /
+// workbench-plan-approved),六处形状完全一致(gi 标志 + 可选斜杠捕获组),判据一致全靠人工复制维持。把不可信
+// 文本里可能出现的 `<TAG`/`</TAG` 前括号换成方括号,让模型吐出来的文本不能提前闭合/伪造调用方外层拼接的固定
+// 字面围栏(如 <workbench-memory>…</workbench-memory>)。方括号与尖括号同为 1 字符/1 字节,替换不改变长度,
+// 不影响调用方紧随其后的字符/字节预算截断算术。只做这一步替换 —— 调用方各自原有的空白折叠(`\s+`→' ')/
+// trim/null 兜底/截断等链式处理保持原样,不并入本函数(各处链式处理的必要差异见各调用点)。
+function neutralizeFenceTag(text, tagName) {
+  return String(text).replace(new RegExp('<(/?)' + tagName, 'gi'), '[$1' + tagName);
+}
+
 async function ensureDirs() {
   await Promise.all([
     fsp.mkdir(paths.data, { recursive: true }),
@@ -11909,20 +11920,30 @@ async function runClaudeTurn({
   // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
   if (agentCliType === 'claude' && usage && usage.usage) {
     const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+    // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
+    // 两项相加,读法与本文件 761 行(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,只读一项会
+    // 漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
+    // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
+    // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
+    // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
+    // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
+    const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
     // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
     const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
     appendUsageLedger({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok, outTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+      inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
     });
   } else if (agentCliType === 'claude' && (billInMax > 0 || billOutMax > 0)) {
     // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
     // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
     // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
+    // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
+    // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
     const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
     appendUsageLedger({
       sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok: billInMax, outTok: billOutMax, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
+      inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
     });
   }
   const claudeTurnOk = exit.code === 0 && !wasStopped;
@@ -17508,7 +17529,7 @@ async function readProjectMemory(cwd) {
       // early and let a CLAUDE.md line escape into the system layer. Rewrite the angle-bracket form to a
       // bracket form (`<project-memory` → `[project-memory`, `</project-memory` → `[/project-memory`) —
       // same byte length, so the truncation math below is unaffected.
-      text = text.replace(/<(\/?)project-memory/gi, '[$1project-memory');
+      text = neutralizeFenceTag(text, 'project-memory'); // P2-8: 单一事实源见 00-boot.js
       let truncated = false;
       if (Buffer.byteLength(text, 'utf8') > PROJECT_MEMORY_CAP) {
         // Truncate to the cap by bytes (slice by chars then trim until under the byte cap — good enough).
@@ -17718,7 +17739,7 @@ function buildSkillsPromptSection(enabledSkills, engine, config) {
   // P2-1: 声明式表头 —— 技能 name/description 来自不可信 SKILL.md,明确降级为「参考资料」,不得覆盖以上任何守则;
   // 技能行包进 <skill-index> 围栏(不可信带),并中和技能名/描述里可能伪造围栏的 <skill-index> / </skill-index> 记号
   // (同 project-memory 的 fence 手法,把尖括号换成方括号)。
-  const fence = t => String(t).replace(/<(\/?)skill-index/gi, '[$1skill-index');
+  const fence = t => neutralizeFenceTag(t, 'skill-index'); // P2-8: 单一事实源见 00-boot.js
   const header = isClaude ? getPromptPack(config && config.locale).skillsHeader.claude : getPromptPack(config && config.locale).skillsHeader.provider;
   const body = [];
   for (const s of skills) {
@@ -20518,7 +20539,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   const mems = all.filter(m => m.coreStatus !== 'active');
   const coreSection = buildCoreMemoryPromptSection(core, config);
   if (!mems.length) return coreSection;
-  const fence = t => String(t).replace(/<(\/?)workbench-memory/gi, '[$1workbench-memory');
+  const fence = t => neutralizeFenceTag(t, 'workbench-memory'); // P2-8: 单一事实源见 00-boot.js
   const tool = engine === 'claude' ? 'Read' : 'file_read';
   const header = getPromptPack(config && config.locale).memoryHeader(tool);
   // R4: conflicts=Map<memoryId,Set<conflictId>>(仅 confirmed contradicts,由 buildMemoryConflictMap 产出)。
@@ -20544,7 +20565,7 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
 }
 
 function memoryCoreLine(entry) {
-  const clean = value => String(value || '').replace(/<(\/?)workbench-memory-core/gi, '[$1workbench-memory-core').replace(/\s+/g, ' ').trim();
+  const clean = value => neutralizeFenceTag(String(value || ''), 'workbench-memory-core').replace(/\s+/g, ' ').trim(); // P2-8: 单一事实源见 00-boot.js
   const summary = clean(entry.coreSummary || entry.description).slice(0, CORE_MEMORY_SUMMARY_CAP);
   return `- [${entry.scope}/${entry.type}] ${clean(entry.name || entry.id)} [${entry.id}]: ${summary}`;
 }
@@ -21133,7 +21154,7 @@ async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query
 const MISSION_DIGEST_CAP = 1200;
 function buildMissionPromptSection(mission, engine, config) {
   if (!mission || !mission.goal || !Array.isArray(mission.milestones) || !mission.milestones.length) return '';
-  const fence = t => String(t == null ? '' : t).replace(/<(\/?)mission-ledger/gi, '[$1mission-ledger').replace(/\s+/g, ' ').trim();
+  const fence = t => neutralizeFenceTag(t == null ? '' : t, 'mission-ledger').replace(/\s+/g, ' ').trim(); // P2-8: 单一事实源见 00-boot.js
   const tool = engine === 'claude' ? 'mission_update' : 'mission_update';
   const doneN = mission.milestones.filter(m => m.status === 'done').length;
   const lines = [];
@@ -21823,7 +21844,7 @@ function buildOpenAiTools(config, caps, opts) {
   const allowDesk = config.allowDesktopTools !== false;
   const out = [];
   const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
-  const tierRank = { read: 0, edit: 1, exec: 2 };
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见本文件上方 TOOL_TIER_RANK
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
   const noSpawnAgent = !!(opts && opts.noSpawnAgent);
@@ -21984,6 +22005,12 @@ const NATIVE_TOOL_TIER = {
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
+// P2-9(30号文§3 总表): 工具分级排序表 —— 曾在 07(本文件)/08-agent-runs.js/09b-replan-ledger.js 六处独立
+// 声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠人工复制维持。这是【权限升级判据】——
+// 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan 补丁是否试图把节点 tier 抬高",分叉的后果
+// 是越权。单一事实源落在本文件(nativeToolTier/bridgedToolTier 已在此,是既有的「工具分级」事实源),
+// 08(manifest 序 24)、09b(序 25)都在本文件(序 23)之后,引用它是既有后向边。冻结防意外改写。
+const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
 function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // unknown → safest (treat as exec)
 // v2.6 (loop guard 分层): 同签名连击(连续相同 name+rawArgs)对「无副作用」工具不应 abort ——
 // 轮询/等待原语(相同参数反复调用是其设计语义: wait_agents 等后台 run 结束、shell_poll 读增量输出)
@@ -21992,6 +22019,14 @@ function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // un
 const LOOP_POLLING_TOOLS = new Set(['wait_agents', 'shell_poll']);
 function loopAbortExempt(name) { return LOOP_POLLING_TOOLS.has(String(name || '').replace(/^.+?__/, '')); } // 轮询原语: 完全豁免
 function loopWarnOnly(name) { return nativeToolTier(String(name || '').replace(/^.+?__/, '')) === 'read'; } // 无副作用只读: 只 warn 不 abort
+
+// P2-14(30号文§3 总表): 死循环护栏数值 —— 主回合(09-workflow.js 的 LOOP_WARN_AT/LOOP_ABORT_AT/
+// LOOP_RECOVERY_MAX)与子代理(08-agent-runs.js 的 SUB_LOOP_WARN_AT/SUB_LOOP_ABORT_AT/SUB_LOOP_RECOVERY_MAX)
+// 各写一份完全相同的数值(3/5/2),两处注释互相点名「对称」。只抽这三个数值,不抽判定逻辑 —— 两边命中之后
+// 的「配对铁律补答」各有必要差异(主回合数 toolCalls 数组、子代理数 subHistory 消息数组;主回合额外记
+// mission 停滞账本、子代理不记;子代理事件带 subagentId/scope:'subagent'),强行合并成参数化大函数收益
+// 不抵风险,明确不做。09/08 两处保留各自的局部变量名(LOOP_*/SUB_LOOP_*),只把右侧字面量改成引用这里。
+const LOOP_GUARD_LIMITS = Object.freeze({ WARN_AT: 3, ABORT_AT: 5, RECOVERY_MAX: 2 });
 
 // v0.8-S0: risk tiers for BRIDGED (external/desktop MCP) tools, keyed by the UNPREFIXED tool name
 // (the bridged name is `serverId__tool`; look up bridge.toolName). Replaces the old flat 'exec' so ACC's
@@ -23658,7 +23693,11 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // so it yields cost:null (unknown), never a false trusted-$0 row (mirrors the main turn's Number(undefined)).
   // ledgerEstimated flips true whenever an attempt fell back to the msg_usage max (保守下限, not the exact
   // cumulative result usage) so the row is honestly badged 估算.
-  let ledgerIn = 0, ledgerOut = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // P2-18(30号文§3 总表): ledgerCachedIn —— 同一批次三处「Claude 引擎从不写 cachedInTok」缺口之一,累加口径
+  // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
+  // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
+  // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
+  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (killed) break;
@@ -23670,7 +23709,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
         // billable this attempt.
         const ru = res.resultUsage;
         const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
-        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; }
+        const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
+        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
         else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
           ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
         }
@@ -23720,7 +23760,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that
           // actually ran is then config.model — record that, never the literal 'inherit'.
           model: (subModel && subModel !== 'inherit') ? subModel : (config.model || ''), inTok: ledgerIn, outTok: ledgerOut,
-          cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
+          cachedInTok: ledgerCachedIn, cost, currency, costTrusted, estimated: ledgerEstimated, turnSeq: parentSession.turnSeq,
           kind: 'subagent', agentKey, subagentId,
         });
         // 29c: 用量随事件上抛 —— DAG 节点的 nodeEvent 借此把 token/成本累进 run.usageTotals(前端画布迷你条
@@ -24274,7 +24314,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   if (tier !== 'exec') {
-    const rank = { read: 0, edit: 1, exec: 2 };
+    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
   }
   const allows = (name, bridge) => {
@@ -24397,7 +24437,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
-  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5, SUB_LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
+  // P2-14: 数值单一事实源见 07-autonomy.js 的 LOOP_GUARD_LIMITS;SUB_* 变量名保留(与主回合 09-workflow.js 的
+  // LOOP_* 对称),只把右侧字面量改成引用共享常量 —— 判定逻辑(subHistory/subagentId/scope 等差异)不合并。
+  const SUB_LOOP_WARN_AT = LOOP_GUARD_LIMITS.WARN_AT, SUB_LOOP_ABORT_AT = LOOP_GUARD_LIMITS.ABORT_AT, SUB_LOOP_RECOVERY_MAX = LOOP_GUARD_LIMITS.RECOVERY_MAX; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
     useTools = false;
@@ -24640,7 +24682,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
             // file_write). Refuse it at execution time — independent of permission mode — so a read sub can
             // NEVER mutate the filesystem even under bypass. Ranks: read<edit<exec.
-            const tierRank = { read: 0, edit: 1, exec: 2 };
+            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
             const allowedRank = tierRank[tier] != null ? tierRank[tier] : 0;
             if ((tierRank[ntier] != null ? tierRank[ntier] : 2) > allowedRank) {
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
@@ -25914,7 +25956,7 @@ function materializePoolItem(run, item, opts = {}) {
     if (missing.length) return { ok: false, error: `依赖引用了不存在的节点: ${missing.join(', ')}` };
     if (dependsOn.includes(item.id)) return { ok: false, error: '不能依赖自身' };
     const engine = (proposer && (proposer.engine === 'claude' || proposer.engine === 'openai')) ? proposer.engine : 'openai';
-    const tierRank = { read: 0, edit: 1, exec: 2 };
+    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
     const propTier = proposer && ['read', 'edit', 'exec'].includes(proposer.toolTier) ? proposer.toolTier : 'read';
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者
@@ -26075,7 +26117,7 @@ function validateReplanPatch(run, patch) {
   if (!changes) return { ok: false, error: 'changes 必须是数组(可为空,表示待补充)' };
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
   const nodeIds = new Set(nodes.map(n => n.id));
-  const tierRank = { read: 0, edit: 1, exec: 2 };
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
   for (const c of changes) {
     if (!c || !REPLAN_CHANGE_OPS.has(c.op)) return { ok: false, error: `非法 op: ${c && c.op}` };
     const tgt = String(c.target || '');
@@ -26135,7 +26177,7 @@ function applyReplanPatch(run, patchId) {
       if (c.op === 'change_tier') {
         const node = nodes.find(n => n.id === c.target);
         if (!node) return { ok: false, error: `change_tier target 不存在: ${c.target}` };
-        const tierRank = { read: 0, edit: 1, exec: 2 };
+        const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
         if (tierRank[c.to] == null) return { ok: false, error: 'change_tier 目标 tier 非法' };
         if (tierRank[c.to] > (tierRank[node.toolTier] || 0)) return { ok: false, error: 'change_tier 不得抬高权限层级' };
         node.toolTier = c.to;
@@ -28257,7 +28299,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the turn (declared here, not module-level) so counters never leak across turns.
   let loopSig = null, loopCount = 0, loopAborted = false, steerAborted = false, loopRecoveryAttempts = 0;
   let selfCheckDone = false; // O3 (hb360): 产物完成前自检只跑一次,防无限循环
-  const LOOP_WARN_AT = 3, LOOP_ABORT_AT = 5, LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
+  // P2-14: 数值单一事实源见 07-autonomy.js 的 LOOP_GUARD_LIMITS(与 08-agent-runs.js 的 SUB_LOOP_* 对称)。
+  const LOOP_WARN_AT = LOOP_GUARD_LIMITS.WARN_AT, LOOP_ABORT_AT = LOOP_GUARD_LIMITS.ABORT_AT, LOOP_RECOVERY_MAX = LOOP_GUARD_LIMITS.RECOVERY_MAX; // v2.7.1 opt#2: 5x 中止后自主恢复预算(注入恢复指令+重置签名计数,最多 N 轮,仍死循环才硬停)
   // 04 Phase D 语义 loop-guard(§04-D1): 结果指纹无进展判定 -- 与"同签名连击"(loopSig/loopCount)互补。
   // 同签名连击抓"完全相同调用(name+rawArgs)";结果指纹抓"换参数但结果无新信息"(如换路径反复读同类文件,
   // 或 grep 不同 pattern 都返回空 -- sig 每次不同但结果内容摘要不变)。连续 N 次结果指纹相同 -> loopWarning
@@ -28612,7 +28655,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // user continuation on the common no-note path, a real model sees its own "wait for approval"
             // plan as the final history item and can keep waiting/re-plan even though planApproved unlocked
             // tools in this closure. Pairing-safe: the last history entry is the assistant plan text.
-            const safeNote = note.replace(/<(\/?)(?:workbench-plan-approved)/gi, '[$1workbench-plan-approved');
+            const safeNote = neutralizeFenceTag(note, 'workbench-plan-approved'); // P2-8: 单一事实源见 00-boot.js
             session.providerHistory.push({ role: 'user', content: getPromptPack(config && config.locale).planApproved({ note: safeNote }) });
             if (note) onEvent({ type: 'plan_note', text: note });
             await saveSession(session);
@@ -47810,6 +47853,9 @@ module.exports = {
   stewardHumanizeIds,
   stewardThreadEngineRoute,
   stewardAsksYou,
+  // 第117波117q-B5(30号文§3 总表 P2-8): 中和伪造围栏标签 —— 纯函数(只吃入参、无 IO),六个调用点(06d/06e/06/09)
+  //   的单一事实源。exposed for 单测(unit/neutralize-fence-tag.test.js)。
+  neutralizeFenceTag,
   // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
   //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
   runSessionTurn,

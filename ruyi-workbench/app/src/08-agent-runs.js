@@ -530,7 +530,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   if (tier !== 'exec') {
-    const rank = { read: 0, edit: 1, exec: 2 };
+    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
   }
   const allows = (name, bridge) => {
@@ -653,7 +653,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
-  const SUB_LOOP_WARN_AT = 3, SUB_LOOP_ABORT_AT = 5, SUB_LOOP_RECOVERY_MAX = 2; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
+  // P2-14: 数值单一事实源见 07-autonomy.js 的 LOOP_GUARD_LIMITS;SUB_* 变量名保留(与主回合 09-workflow.js 的
+  // LOOP_* 对称),只把右侧字面量改成引用共享常量 —— 判定逻辑(subHistory/subagentId/scope 等差异)不合并。
+  const SUB_LOOP_WARN_AT = LOOP_GUARD_LIMITS.WARN_AT, SUB_LOOP_ABORT_AT = LOOP_GUARD_LIMITS.ABORT_AT, SUB_LOOP_RECOVERY_MAX = LOOP_GUARD_LIMITS.RECOVERY_MAX; // v2.7.1 opt#2: 5x 中止后自主恢复预算(与主回合 LOOP_RECOVERY_MAX 对称)
   const runFinalizerWithoutTools = async () => {
     const hadTools = useTools;
     useTools = false;
@@ -896,7 +898,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
             // file_write). Refuse it at execution time — independent of permission mode — so a read sub can
             // NEVER mutate the filesystem even under bypass. Ranks: read<edit<exec.
-            const tierRank = { read: 0, edit: 1, exec: 2 };
+            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
             const allowedRank = tierRank[tier] != null ? tierRank[tier] : 0;
             if ((tierRank[ntier] != null ? tierRank[ntier] : 2) > allowedRank) {
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
@@ -2170,7 +2172,7 @@ function materializePoolItem(run, item, opts = {}) {
     if (missing.length) return { ok: false, error: `依赖引用了不存在的节点: ${missing.join(', ')}` };
     if (dependsOn.includes(item.id)) return { ok: false, error: '不能依赖自身' };
     const engine = (proposer && (proposer.engine === 'claude' || proposer.engine === 'openai')) ? proposer.engine : 'openai';
-    const tierRank = { read: 0, edit: 1, exec: 2 };
+    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
     const propTier = proposer && ['read', 'edit', 'exec'].includes(proposer.toolTier) ? proposer.toolTier : 'read';
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者

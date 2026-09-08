@@ -11,7 +11,7 @@
 const MISSION_DIGEST_CAP = 1200;
 function buildMissionPromptSection(mission, engine, config) {
   if (!mission || !mission.goal || !Array.isArray(mission.milestones) || !mission.milestones.length) return '';
-  const fence = t => String(t == null ? '' : t).replace(/<(\/?)mission-ledger/gi, '[$1mission-ledger').replace(/\s+/g, ' ').trim();
+  const fence = t => neutralizeFenceTag(t == null ? '' : t, 'mission-ledger').replace(/\s+/g, ' ').trim(); // P2-8: 单一事实源见 00-boot.js
   const tool = engine === 'claude' ? 'mission_update' : 'mission_update';
   const doneN = mission.milestones.filter(m => m.status === 'done').length;
   const lines = [];
