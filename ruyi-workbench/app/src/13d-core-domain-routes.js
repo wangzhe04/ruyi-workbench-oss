@@ -505,10 +505,13 @@ async function buildMissionCard(head, runs, opts = {}) {
   return {
     // 117r-D1:kind 从写死的 'mission' 改成【如实】取 sessionKind(head)。修前唯一的调用面是
     // 13e「kind === 'mission' 才造卡片」,所以这个字面量恒等于真值;现在管家关心的速查线程也有卡片了,
-    // 再写死就是撒谎 —— 五态的第一条分支就是 `kind === 'quick_ask'` 短路(mission-state.js /
-    // 06i deriveStewardThreadState 两份抄写件同款),谎报成 mission 会让一条速查线程在看板上顶着
-    // 「交办中/已收工」。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
+    // 再写死就是撒谎。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
     // 走 sessionKind 仍然返回 'mission',既有行为逐字不变。
+    // 117r-D5:这个字段的【消费者换了一批】。修前它是五态第一条分支的守卫入参(kind === 'quick_ask'
+    // 就短路),所以谎报会让速查线程顶着「交办中/已收工」;修后五态不再读 kind(守卫改看
+    // factsUnknown),它转而是「这条线程是什么」的唯一出处 —— 看板行上那枚速查徽标
+    // (public/js/steward-board.js 读 row.kind)就靠它。谎报的后果从「状态说错」变成「身份说错」,
+    // 如实取 sessionKind 这件事因此比修前更要紧,不是更松。
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: sessionKind(head),
     // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
     // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
@@ -620,7 +623,11 @@ async function buildMissionAggregateRows(options = {}) {
     //   ① 有投影卡片 -> fromCard(与 /api/missions 的卡片同源);
     //   ② 没卡片但是 mission 会话(投影还没赶上这条新会话)-> 按会话头现算,入参与 thread_status 相同
     //      —— 少喂 turnSeq 会把一条跑过回合的线程说成「交办中」,和 thread_status 的「已停工」打架;
-    //   ③ 速问会话 -> kind 一个字段就短路(mission-state.js 第一条分支),不必读头文件。
+    //   ③ 其余会话(= 用户自己在经典 2.0 里聊的普通会话)-> 【刻意不读会话头】以省 I/O,
+    //      所以这一支手上一条事实都没有,明说 factsUnknown:true 让判据短路成「事实未知」。
+    //      117r-D5 之前这里靠的是 kind === 'quick_ask' 那条守卫,出参完全一样(仍是 quick_ask、
+    //      聚合仍落 stopped),变的只是【为什么】短路 —— 从「它是速查」变成「我不知道它在干什么」。
+    //      对应地:①支里的速查线程(D1 之后它有卡片、有事实)不再被这条守卫劫走,走完整五态。
     let derived;
     if (card) derived = stewardThreadStateFromCard(card);
     else if (meta.kind === 'mission') {
@@ -638,7 +645,7 @@ async function buildMissionAggregateRows(options = {}) {
         ledgerless: !(head && head.mission),
         lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
-    } else derived = deriveStewardThreadState({ kind: 'quick_ask' });
+    } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
     group.threads.push({
       sessionId: meta.id,
       title: stewardSanitizeText(meta.title || ''),

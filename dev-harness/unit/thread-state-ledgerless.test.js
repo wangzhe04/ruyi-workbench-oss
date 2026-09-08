@@ -66,8 +66,18 @@ both({ kind: 'mission', turnSeq: 5, ledgerless: false, runCount: 0, milestonesTo
   '有账本 + turnSeq 5 + 无结果章 + runCount 0 -> 仍是 stopped(2.0 任务单语义不变)');
 both({ kind: 'mission', turnSeq: 5, runCount: 0, milestonesTotal: 2, milestonesDone: 1 }, 'stopped',
   '有账本(ledgerless 键缺席等价 false)+ turnSeq 5 -> 仍是 stopped');
-// quick_ask 逃生舱不被新分支影响:
-both({ kind: 'quick_ask', turnSeq: 3, ledgerless: true }, 'quick_ask', '速问 + 无账本 -> 仍是 quick_ask(第 0 条短路)');
+// 逃生舱不被无账本分支影响。
+// 117r-D5 重钉(逐对交代):这一行原来断言 `{kind:'quick_ask', turnSeq:3, ledgerless:true}` -> 'quick_ask'。
+// D5 把第 0 条守卫从「kind 是不是 quick_ask」换成「调用方有没有事实」之后,这组入参【手上有事实】
+// (ledgerless + turnSeq 3 = 一条跑完的无账本线程),所以它如实落 done —— 这正是本刀要修的症状本身
+// (一条三小时前就跑完的速查线程修前永远只说「速查中」),不是回归。
+// 原断言的【意图】是「第 0 条逃生舱还在,无账本分支抢不走它」,这个意图一个字没变,所以下面两行
+// 用【同一组入参】把它钉得比原来更紧:同一组事实,不带标志时走完整五态(done),明说没事实时
+// 仍然短路(quick_ask)。原来只钉了后者的一半,现在两个方向都钉住了。
+both({ kind: 'quick_ask', turnSeq: 3, ledgerless: true }, 'done',
+  '速问 kind + 无账本 + 跑过回合 -> done(117r-D5:kind 不再短路,事实说了算)');
+both({ kind: 'quick_ask', turnSeq: 3, ledgerless: true, factsUnknown: true }, 'quick_ask',
+  '同一组入参 + 明说没事实 -> 仍是 quick_ask(第 0 条逃生舱还在,无账本分支抢不走它)');
 
 /* ═══════════ ③ fromCard / stewardThreadStateFromCard 适配器层面的逐字对账 ═══════════ */
 

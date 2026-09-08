@@ -189,7 +189,14 @@ ok(/session\.kind === 'steward'/.test(src13g), "⑤ 13g 身份判定读【显式
 
 const frontSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'mission-state.js'), 'utf8');
 const BRANCHES = [
-  "=== 'quick_ask') state = 'quick_ask';",
+  // 117r-D5 重钉(逐对交代):这一条原来钉的是 "=== 'quick_ask') state = 'quick_ask';",
+  // 也就是第 0 条守卫「kind 是 quick_ask 就短路」。D5 把它换成「调用方有没有这条线程的事实」
+  // (factsUnknown,默认有事实)—— 速查是一个 kind、不是一个 state,被短路掉的整台五态机器
+  // 正是「在跑/在等你/跑完的速查线程都只会说速查中」的根因。断言的【意图】(两份抄写件的第 0 条
+  // 分支逐字相同、且排在最前)一个字没变,变的只是那一行的字面量。
+  // 伴随的更强断言在下面 BRANCH_GONE:除了钉住新守卫在两边逐字相同,还【反向】钉住旧守卫在两份
+  // 抄写件里一处都不剩 —— 原来那一条只钉了「有」,钉不住有人把旧逃生舱悄悄加回来并存。
+  "if (src.factsUnknown) state = 'quick_ask';",
   "pendingTotal > 0) state = 'needs_you';",
   "resultStatus === 'complete') state = 'done';",
   "autoMode === 'until-done' || src.liveRuns > 0) state = 'running';",
@@ -201,6 +208,12 @@ const BRANCHES = [
 let branchBad = [];
 for (const b of BRANCHES) if (!(frontSrc.includes(b) && src06i.includes(b))) branchBad.push(b);
 ok(branchBad.length === 0, '⑥ 06i 的五态分支与 public/js/mission-state.js 逐条相同(抄写件,非第二套状态机)' + (branchBad.length ? ' → ' + JSON.stringify(branchBad) : ''));
+// 117r-D5 伴随断言(比被它替换掉的那一条更强):旧逃生舱在两份抄写件里一处都不剩。
+// 只钉「新守卫在」挡不住有人把 `if (src.kind === 'quick_ask') state = 'quick_ask';` 加回来并存 ——
+// 那样一条速查线程又会在第 0 条被劫走,而 BRANCHES 那张表照样全绿。
+const BRANCH_GONE = "src.kind === 'quick_ask'";
+ok(!frontSrc.includes(BRANCH_GONE) && !src06i.includes(BRANCH_GONE),
+  "⑥ 「kind 是 quick_ask 就短路」那条旧逃生舱在两份抄写件里一处都不剩(速查是 kind 不是 state)");
 ok(/来源:ruyi-workbench\/app\/public\/js\/mission-state\.js/.test(src06i), '⑥ 06i 注明抄写来源(改判据必须两边同改)');
 // 分支顺序也要一致:两份源码里 6 个分支的出现顺序必须完全相同。
 const orderOf = text => BRANCHES.map(b => text.indexOf(b));

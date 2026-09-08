@@ -164,7 +164,17 @@ function spawnWb() {
     ok(MissionState.fromCard(cards.find(c => c.sessionId === s2)).state === 'running', '(b) until-done -> 进行中 running');
 
     // (b-6) quick_ask 逃生舱
-    ok(MissionState.deriveMissionState({ kind: 'quick_ask', pending: { questions: 1 } }).state === 'quick_ask', '(b) quick_ask 不硬套五态(有未决也不鎏金化任务态)');
+    // 117r-D5 重钉(逐对交代):这一行原来断言 `{kind:'quick_ask', pending:{questions:1}}` -> 'quick_ask'
+    // (「有未决也不鎏金化任务态」)。理由:D5 把第 0 条守卫从「kind 是不是速查」换成「调用方有没有
+    // 这条线程的事实」—— 这组入参是【真事实】(一条速查线程真的挂着一条 question 待决,它正在问你),
+    // 而原断言恰好把用户走查③那个症状钉成了「正确行为」:一条正在问你的速查线程既不会被
+    // focusThreadFor 选成「现在这一件」,也不进状态行的「N 条等你」,那枚待决在管家壳里点不开。
+    // 伴随的更强断言(原来只有一条,现在两个方向都钉):同一组入参明说没事实时【仍然】短路成 quick_ask,
+    // 于是「逃生舱还在」与「有事实就别硬套」两条纪律各钉一半,没有一半是靠嘴说的。
+    ok(MissionState.deriveMissionState({ kind: 'quick_ask', pending: { questions: 1 } }).state === 'needs_you',
+      '(b) 有待决的速查线程 -> needs_you(117r-D5:速查是 kind 不是 state,它正在问你就该鎏金)');
+    ok(MissionState.deriveMissionState({ kind: 'quick_ask', pending: { questions: 1 }, factsUnknown: true }).state === 'quick_ask',
+      '(b) 同一组入参 + 明说没事实 -> 仍是 quick_ask(逃生舱还在,只是判据从 kind 换成了 factsUnknown)');
 
     // ── (c) 四旅程数据面 ──
     const snapDone = (await requestJson(WB_PORT, '/api/missions/' + s1, null, token)).json.snapshot;

@@ -46,13 +46,30 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
 
 (async () => {
   const WB_PORT = await getFreePort();
+  // 117r-D5:⑥ 段要一条【真的在飞】的回合,所以这里起一个只发首块、永不收尾的 fake provider
+  // (与 steward-board.e2e.js 的 'hang' 分支同款)。①—⑤ 段一个字节都不碰它:那几段零回合零模型。
+  const PROVIDER_PORT = await getFreePort();
+  const hungResponses = [];
+  const providerServer = http.createServer(async (req, res) => {
+    if (String(req.url || '').includes('/models')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end('{"data":[{"id":"fake-model"}]}');
+    }
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    void raw;
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+    res.write('data: ' + JSON.stringify({ choices: [{ index: 0, delta: { role: 'assistant', content: '开工了…' }, finish_reason: null }] }) + '\n\n');
+    hungResponses.push(res);            // 故意不收尾:这条回合一直在飞
+  });
+  await new Promise(resolve => providerServer.listen(PROVIDER_PORT, '127.0.0.1', resolve));
+  const inflight = [];
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const procs = [];
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + PROVIDER_PORT + '/v1', apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
     activeProvider: 'fake',
   }, null, 2));
 
@@ -121,8 +138,17 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
     ok(quickRow && quickRow.kind === 'quick_ask',
       '④ 速查行的 kind 如实是 quick_ask(实 ' + (quickRow && quickRow.kind) + ')');
     const derived = quickRow ? MissionState.fromCard(quickRow) : null;
-    ok(derived && derived.state === 'quick_ask',
-      '④ 五态落在 quick_ask(速查中;实 ' + (derived && derived.state) + ')');
+    // 117r-D5 重钉(逐对交代):这一行原来断言 `derived.state === 'quick_ask'`。
+    // 理由:D1 那一刀只关心「它进不进看板」,当时五态对它还是短路的;D5 把第 0 条守卫从
+    // 「kind 是不是速查」换成「调用方有没有事实」之后,这条夹具线程手上有事实(turnSeq 1 +
+    // stewardLastTurn{ok:true} = 跑完了),于是如实落 done。原断言钉的是【被修掉的那个症状】本身
+    // (一条三小时前就跑完的速查线程永远只会说「速查中」),不是被误伤的正确行为。
+    // 伴随的更强断言(原来一条都没有):同一屏上组标题的 aggregateState 必须与行上的五态【不打脸】——
+    // 症状②就是「组标题已停工 / 组内那行速查中」,只钉行不钉组的话那条打脸下次还能悄悄回来。
+    ok(derived && derived.state === 'done',
+      '④ 跑完的速查线程五态落在 done(已收工;实 ' + (derived && derived.state) + ')');
+    ok(quickRow && quickRow.aggregateState === 'done' && quickRow.aggregateState === derived.state,
+      '④ 组标题的 aggregateState 与行上五态一致,不再互相打脸(实 aggregate=' + (quickRow && quickRow.aggregateState) + ' / row=' + (derived && derived.state) + ')');
     ok(quickRow && quickRow.derived === true && quickRow.missionId === sidQuick,
       '④ 它是一条「未归类」的派生行(derived:true、missionId 指回自己)—— 与 13g:1852 那句注释一致');
 
@@ -132,9 +158,45 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
       '⑤ 抽屉第二发 GET /api/missions/<速查线程> -> 200(实 ' + detail.status + ')');
     ok(detail.body && detail.body.snapshot && detail.body.snapshot.kind === 'quick_ask',
       '⑤ 详情快照 kind 也如实是 quick_ask(实 ' + (detail.body && detail.body.snapshot && detail.body.snapshot.kind) + ')');
+
+    // ── ⑥ 117r-D5:一条【在跑】的速查线程,行上的五态与它所在组的聚合态都必须是 running ──────
+    // 这一条钉的是症状①(状态行数 view.state === 'running' 数出 0、看板头数仲裁器数出 1)与
+    // 症状②(组标题「已停工」/ 组内那行「速查中」)。修前它恒是 quick_ask、聚合恒落 stopped,
+    // 两个数字必然打脸;修后同一份事实只有一个说法。
+    // 「在跑」用真回合造:开一条挂着不收尾的 SSE(provider 只发首块、不发 [DONE]),
+    // activeTurn 于是一直为真 —— 不拿 autoMode 之类的旁门左道顶替(那不是速查线程的真实形状)。
+    const streamReq = http.request({
+      host: '127.0.0.1', port: WB_PORT, path: '/api/chat/stream', method: 'POST',
+      headers: { 'content-type': 'application/json', ...H(token) },
+    }, res => { res.on('data', () => {}); res.on('error', () => {}); });
+    streamReq.on('error', () => { /* 收尾时被掐断是预期的 */ });
+    streamReq.end(JSON.stringify({ sessionId: sidQuick, message: 'hang here', cwd: HOME }));
+    inflight.push(streamReq);
+
+    let runningRow = null;
+    for (let i = 0; i < 80 && !runningRow; i++) {
+      await sleep(150);
+      const poll = await getJson(WB_PORT, '/api/missions?limit=200', H(token)).catch(() => null);
+      const row = ((poll && poll.body && poll.body.missions) || []).find(r => r && r.sessionId === sidQuick) || null;
+      if (row && row.activeTurn === true) runningRow = row;
+    }
+    ok(!!runningRow, '⑥ 速查线程的回合真的在飞(行上 activeTurn=true)');
+    const runningDerived = runningRow ? MissionState.fromCard(runningRow) : null;
+    ok(runningDerived && runningDerived.state === 'running',
+      '⑥ 在跑的速查线程,行上五态是 running(实 ' + (runningDerived && runningDerived.state) + ')—— 修前恒是 quick_ask,状态行「A 条在跑」永远数不到它');
+    ok(runningRow && runningRow.aggregateState === 'running',
+      '⑥ 它所在组的 aggregateState 也是 running(实 ' + (runningRow && runningRow.aggregateState) + ')—— 修前 aggregateMissionState([quick_ask]) 恒落 stopped,组标题「已停工」压着组内「速查中」');
+    // 身份没有随状态一起消失:kind 仍如实是 quick_ask(看板行上那枚徽标读的就是它)。
+    ok(runningRow && runningRow.kind === 'quick_ask',
+      '⑥ 在跑时 kind 仍如实是 quick_ask(速查是 kind 不是 state;徽标读它)');
   } catch (error) {
     fail++; console.log('FAIL 未捕获异常: ' + (error && error.stack || error));
   } finally {
+    // 收尸顺序:先掐在途的 SSE 客户端连接,再放掉挂着的 provider 响应,最后关服务与 workbench 进程 ——
+    // 少一步这件 e2e 就会挂在 event loop 上不退出(与 117q-B4 那条 finally 收尸同一条纪律)。
+    for (const r of inflight) { try { r.destroy(); } catch { /* 已断 */ } }
+    for (const r of hungResponses) { try { r.end(); } catch { /* 已断 */ } }
+    try { providerServer.close(); } catch { /* 已关 */ }
     for (const p of procs) killp(p);
   }
   console.log(fail ? `STEWARD QUICKASK BOARD E2E: ${fail} FAILURE(S)` : 'STEWARD QUICKASK BOARD E2E: ALL PASS');

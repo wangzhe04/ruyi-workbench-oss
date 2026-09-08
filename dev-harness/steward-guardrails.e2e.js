@@ -563,9 +563,30 @@ try {
     const SID_QUICK = 'sess_real_quick';
     craftThread(SID_QUICK, { kind: 'quick_ask', title: '这台机器上装了什么', turnSeq: 1, stewardQuick: { schema: 1, askedAt: new Date().toISOString(), question: '装了什么', stewardTurnKey: 't1', closedAt: null } });
     const quick = await call('steward_thread_status', { sessionId: SID_QUICK }, stewardCtx());
-    ok(quick && quick.state === 'quick_ask', `H3 带 stewardQuick 的线程才是速查(got ${quick && quick.state})`);
-    ok(quick && quick.stateLabel === '速查中',
-      `H4 人话标签改成「速查中」(§8.1 第 7 条:界面不出现「速问」这个系统标签;got ${quick && quick.stateLabel})`);
+    // 117r-D5 重钉(逐对交代,H3/H4 两条一起):
+    // 原来 H3 断言 `quick.state === 'quick_ask'`、H4 断言 `quick.stateLabel === '速查中'`。
+    // 理由:D5 把五态的第 0 条守卫从「kind 是不是速查」换成「调用方有没有这条线程的事实」——
+    // 「速查」是这条线程【是什么】(kind),不是它【在干什么】(state)。这条夹具线程 turnSeq 1、
+    // 无账本、此刻没在跑 = 跑完了,所以它如实说「已收工」。原来那两条钉的正是本刀要修的症状
+    // (一条三小时前就跑完的速查线程永远只会说「速查中」),不是被误伤的正确行为。
+    // 原断言的【意图】是「速查这个身份只属于带 stewardQuick 的线程,普通会话别想蹭」。这个意图
+    // 一个字没变,只是它现在住在 kind 那一栏而不是 state 那一栏,所以下面用【更强】的方式钉它:
+    //   · H3   :状态如实(跑完就说 done),不再被 kind 短路;
+    //   · H3b  :身份仍然分得开 —— 同一发 thread_status 里,真速查线程的 stateSources.kind 是
+    //            'quick_ask',而 H2 那条普通会话是 'mission'。原来只钉了真速查这一侧,现在两侧
+    //            对照着钉,普通会话哪天又蹭上这个身份照样必红;
+    //   · H4   :人话跟着真状态走(已收工);
+    //   · H4b  :§8.1 第 7 条那条纪律仍然钉在它唯一的产出点上 —— 只要还有人拿到 quick_ask,
+    //            服务端给的人话就必须是「速查中」而不是「速问」。
+    ok(quick && quick.state === 'done',
+      `H3 跑完的速查线程如实说已收工,不再被 kind 短路(got ${quick && quick.state})`);
+    ok(quick && quick.stateSources && quick.stateSources.kind === 'quick_ask'
+      && plain && plain.stateSources && plain.stateSources.kind === 'mission',
+      `H3b 「是不是速查」这个身份仍然分得开,它住在 kind 上(真速查 got ${quick && quick.stateSources && quick.stateSources.kind} / 普通会话 got ${plain && plain.stateSources && plain.stateSources.kind})`);
+    ok(quick && quick.stateLabel === '已收工',
+      `H4 人话跟着真状态走(got ${quick && quick.stateLabel})`);
+    ok(srv.deriveStewardThreadState({ factsUnknown: true }).label === '速查中',
+      `H4b 事实未知时服务端人话仍是「速查中」(§8.1 第 7 条:界面不出现「速问」这个系统标签;got ${srv.deriveStewardThreadState({ factsUnknown: true }).label})`);
 
     // P1-6:收工不是终态 —— 用户在经典 2.0 视窗里继续这条对话就算重开。
     const headOf = sid => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, sid + '.json'), 'utf8')); } catch { return null; } };

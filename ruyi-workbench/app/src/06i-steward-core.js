@@ -341,6 +341,9 @@ function stewardPendingTotal(p) {
 function deriveStewardThreadState(n) {
   const input = (n && typeof n === 'object') ? n : {};
   const src = {
+    // 117r-D5:kind 自此【只是证据】,不再参与判定 —— 「这条线程是什么」(kind)和「它在干什么」
+    // (state)是两回事,把前者塞进五态正是 ①②③ 三条毛病的同一个根因。默认值留着不动:它对
+    // state 已经完全无害(下面的守卫不读它),动它反而会改掉 sources 里那条已被消费的证据形状。
     kind: input.kind || 'quick_ask',
     autoMode: input.autoMode || 'off',
     budgetExhausted: input.budgetExhausted === true,
@@ -357,9 +360,15 @@ function deriveStewardThreadState(n) {
     // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
     ledgerless: input.ledgerless === true,
     lastTurnFailed: input.lastTurnFailed === true,
+    // 117r-D5(用户第八轮走查③的三条子症状):守卫从「是不是速查」换成「调用方手上有没有这条
+    // 线程的事实」。默认【有事实】—— 只有明说 factsUnknown:true 的调用面才短路(全仓唯一一处:
+    // 13d buildMissionAggregateRows 那条「没卡片、也不是 mission 会话」的 else 支,它刻意不读
+    // 会话头以省 I/O,注释就写在那里)。于是 'quick_ask' 退回它唯一诚实的语义:【事实未知】,
+    // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
+    factsUnknown: input.factsUnknown === true,
   };
   let state;
-  if (src.kind === 'quick_ask') state = 'quick_ask';
+  if (src.factsUnknown) state = 'quick_ask';
   else if (src.pendingTotal > 0) state = 'needs_you';
   else if (src.resultStatus === 'complete') state = 'done';
   else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
@@ -402,7 +411,13 @@ function stewardThreadStateFromCard(card) {
 // 五态本身由 06i 的 deriveStewardThreadState / stewardThreadStateFromCard 产出(mission-state.js 的
 // 服务端抄写件)。这里【不】认识 card、不读磁盘、不看配置:纯函数,可穷举。
 // 注:'quick_ask'(五态之外的第六个取值)既不是 done 也不是 running/dispatching,按规则落到 stopped ——
-// 这是刻意的:速问线程不构成事项的推进,一个只剩速问的事项对用户就是「没有在动」。
+// 这是刻意的,但 117r-D5 之后它适用的范围窄了一圈,注释跟着代码改:
+//   · 仍然适用:'quick_ask' 现在【只】由「调用方明说没有这条线程的事实」产出(deriveStewardThreadState
+//     的 factsUnknown 守卫;全仓唯一产出点是 13d 那条不读会话头的 else 支 = 用户自己在 2.0 里聊的
+//     普通会话)。事实未知的线程不构成事项的推进,落 stopped 就是诚实的说法。
+//   · 不再适用:管家 steward_quick_ask 开的速查线程(D1 之后它有卡片)走的是完整五态 ——
+//     在跑就是 running、有待决就是 needs_you、跑完就是 done。它【不会】再以 'quick_ask' 进到这里,
+//     于是「一条在跑的速查线程」的事项聚合态如实是 running,不再被这条注释里的旧假设按成 stopped。
 function aggregateMissionState(threadStates) {
   const states = (Array.isArray(threadStates) ? threadStates : []).map(s => String(s == null ? '' : s));
   if (!states.length) return 'dispatching';

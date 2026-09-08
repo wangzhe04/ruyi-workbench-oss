@@ -380,6 +380,17 @@ export function createStewardBoard({
     title.type = 'button';
     title.onclick = () => focusThread(sessionId);
     head.appendChild(title);
+    // 117r-D5：「速查」是这条线程【是什么】(kind)，不是它【在干什么】(state)。修前它霸占着状态位，
+    // 于是一条速查线程无论在跑、在等你还是三小时前就跑完了都只会说「速查中」。判据搬回 kind 之后
+    // 这个身份不能就此消失——它是有用的信息(管家自己开的临时线程，不是一件正经交办)，所以在行上
+    // 与五态那颗点【并列】给一枚徽标，不替换它。文案复用既有键 mission.state.quick_ask，不新开键。
+    // 判据仍然【只读】行上的 kind(13d buildMissionCard 如实取 sessionKind(head) 的那一个)，
+    // 本模块不认识 stewardQuick / launchedBy 这些会话头字段，也就长不出第二套「它算不算速查」。
+    if (String(row.kind || '') === 'quick_ask') {
+      const badge = el('span', 'steward-board-pill', t('mission.state.quick_ask'));
+      badge.dataset.kind = 'quick_ask';
+      head.appendChild(badge);
+    }
     // 117l D4（用户第四轮走查①）：线程真的在问你时，行上给一枚 pill —— 点它就是打开抽屉（那里有
     // 问答框）。判据【只读】行上的 asksYou（06i 的 stewardAsksYou 单点算出，与抽屉同一份），
     // 本模块不写第二套「它算不算在问你」。

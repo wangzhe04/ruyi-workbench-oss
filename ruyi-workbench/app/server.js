@@ -18953,6 +18953,9 @@ function stewardPendingTotal(p) {
 function deriveStewardThreadState(n) {
   const input = (n && typeof n === 'object') ? n : {};
   const src = {
+    // 117r-D5:kind 自此【只是证据】,不再参与判定 —— 「这条线程是什么」(kind)和「它在干什么」
+    // (state)是两回事,把前者塞进五态正是 ①②③ 三条毛病的同一个根因。默认值留着不动:它对
+    // state 已经完全无害(下面的守卫不读它),动它反而会改掉 sources 里那条已被消费的证据形状。
     kind: input.kind || 'quick_ask',
     autoMode: input.autoMode || 'off',
     budgetExhausted: input.budgetExhausted === true,
@@ -18969,9 +18972,15 @@ function deriveStewardThreadState(n) {
     // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
     ledgerless: input.ledgerless === true,
     lastTurnFailed: input.lastTurnFailed === true,
+    // 117r-D5(用户第八轮走查③的三条子症状):守卫从「是不是速查」换成「调用方手上有没有这条
+    // 线程的事实」。默认【有事实】—— 只有明说 factsUnknown:true 的调用面才短路(全仓唯一一处:
+    // 13d buildMissionAggregateRows 那条「没卡片、也不是 mission 会话」的 else 支,它刻意不读
+    // 会话头以省 I/O,注释就写在那里)。于是 'quick_ask' 退回它唯一诚实的语义:【事实未知】,
+    // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
+    factsUnknown: input.factsUnknown === true,
   };
   let state;
-  if (src.kind === 'quick_ask') state = 'quick_ask';
+  if (src.factsUnknown) state = 'quick_ask';
   else if (src.pendingTotal > 0) state = 'needs_you';
   else if (src.resultStatus === 'complete') state = 'done';
   else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
@@ -19014,7 +19023,13 @@ function stewardThreadStateFromCard(card) {
 // 五态本身由 06i 的 deriveStewardThreadState / stewardThreadStateFromCard 产出(mission-state.js 的
 // 服务端抄写件)。这里【不】认识 card、不读磁盘、不看配置:纯函数,可穷举。
 // 注:'quick_ask'(五态之外的第六个取值)既不是 done 也不是 running/dispatching,按规则落到 stopped ——
-// 这是刻意的:速问线程不构成事项的推进,一个只剩速问的事项对用户就是「没有在动」。
+// 这是刻意的,但 117r-D5 之后它适用的范围窄了一圈,注释跟着代码改:
+//   · 仍然适用:'quick_ask' 现在【只】由「调用方明说没有这条线程的事实」产出(deriveStewardThreadState
+//     的 factsUnknown 守卫;全仓唯一产出点是 13d 那条不读会话头的 else 支 = 用户自己在 2.0 里聊的
+//     普通会话)。事实未知的线程不构成事项的推进,落 stopped 就是诚实的说法。
+//   · 不再适用:管家 steward_quick_ask 开的速查线程(D1 之后它有卡片)走的是完整五态 ——
+//     在跑就是 running、有待决就是 needs_you、跑完就是 done。它【不会】再以 'quick_ask' 进到这里,
+//     于是「一条在跑的速查线程」的事项聚合态如实是 running,不再被这条注释里的旧假设按成 stopped。
 function aggregateMissionState(threadStates) {
   const states = (Array.isArray(threadStates) ? threadStates : []).map(s => String(s == null ? '' : s));
   if (!states.length) return 'dispatching';
@@ -40177,10 +40192,13 @@ async function buildMissionCard(head, runs, opts = {}) {
   return {
     // 117r-D1:kind 从写死的 'mission' 改成【如实】取 sessionKind(head)。修前唯一的调用面是
     // 13e「kind === 'mission' 才造卡片」,所以这个字面量恒等于真值;现在管家关心的速查线程也有卡片了,
-    // 再写死就是撒谎 —— 五态的第一条分支就是 `kind === 'quick_ask'` 短路(mission-state.js /
-    // 06i deriveStewardThreadState 两份抄写件同款),谎报成 mission 会让一条速查线程在看板上顶着
-    // 「交办中/已收工」。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
+    // 再写死就是撒谎。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
     // 走 sessionKind 仍然返回 'mission',既有行为逐字不变。
+    // 117r-D5:这个字段的【消费者换了一批】。修前它是五态第一条分支的守卫入参(kind === 'quick_ask'
+    // 就短路),所以谎报会让速查线程顶着「交办中/已收工」;修后五态不再读 kind(守卫改看
+    // factsUnknown),它转而是「这条线程是什么」的唯一出处 —— 看板行上那枚速查徽标
+    // (public/js/steward-board.js 读 row.kind)就靠它。谎报的后果从「状态说错」变成「身份说错」,
+    // 如实取 sessionKind 这件事因此比修前更要紧,不是更松。
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: sessionKind(head),
     // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
     // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
@@ -40292,7 +40310,11 @@ async function buildMissionAggregateRows(options = {}) {
     //   ① 有投影卡片 -> fromCard(与 /api/missions 的卡片同源);
     //   ② 没卡片但是 mission 会话(投影还没赶上这条新会话)-> 按会话头现算,入参与 thread_status 相同
     //      —— 少喂 turnSeq 会把一条跑过回合的线程说成「交办中」,和 thread_status 的「已停工」打架;
-    //   ③ 速问会话 -> kind 一个字段就短路(mission-state.js 第一条分支),不必读头文件。
+    //   ③ 其余会话(= 用户自己在经典 2.0 里聊的普通会话)-> 【刻意不读会话头】以省 I/O,
+    //      所以这一支手上一条事实都没有,明说 factsUnknown:true 让判据短路成「事实未知」。
+    //      117r-D5 之前这里靠的是 kind === 'quick_ask' 那条守卫,出参完全一样(仍是 quick_ask、
+    //      聚合仍落 stopped),变的只是【为什么】短路 —— 从「它是速查」变成「我不知道它在干什么」。
+    //      对应地:①支里的速查线程(D1 之后它有卡片、有事实)不再被这条守卫劫走,走完整五态。
     let derived;
     if (card) derived = stewardThreadStateFromCard(card);
     else if (meta.kind === 'mission') {
@@ -40310,7 +40332,7 @@ async function buildMissionAggregateRows(options = {}) {
         ledgerless: !(head && head.mission),
         lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
-    } else derived = deriveStewardThreadState({ kind: 'quick_ask' });
+    } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
     group.threads.push({
       sessionId: meta.id,
       title: stewardSanitizeText(meta.title || ''),

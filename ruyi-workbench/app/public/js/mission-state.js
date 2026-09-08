@@ -3,7 +3,10 @@
 // mission-state.js — 任务单五态派生纯函数（任务台立项门 P0）
 //
 // 概念稿(UI-VNEXT-CONCEPT §0)的五态:交办中 dispatching / 进行中 running / 需要你 needs_you /
-// 已收工 done / 已停工 stopped;Quick Ask 是显式逃生舱(纯问答不硬套任务心智,概念稿风险 #1)。
+// 已收工 done / 已停工 stopped;quick_ask 是显式逃生舱(不硬套任务心智,概念稿风险 #1)。
+// 117r-D5:那个逃生舱的【判据】从「kind 是不是 quick_ask」换成「调用方有没有这条线程的事实」
+// (factsUnknown,默认有事实)。速查是一个 kind,不是一个 state —— 一条速查线程在跑就该说 running、
+// 跑完就该说 done;它「是速查」这件事由 kind 说(看板行上的徽标),不再霸占状态位。
 //
 // go 条件 #1(状态可信):每个状态只从【权威字段】派生 —— 持久化 mission 账本(autoMode/result/
 // budgetExhaustedAt)、持久化 Intervention 计数(pending)、会话 kind、run 快照/活标志;绝不读
@@ -40,6 +43,9 @@
   //     milestonesTotal, milestonesDone, ledgerless, lastTurnFailed }
   function deriveMissionState(n) {
     const src = {
+      // 117r-D5:kind 自此【只是证据】,不再参与判定 —— 「这条线程是什么」(kind)和「它在干什么」
+      // (state)是两回事,把前者塞进五态正是 ①②③ 三条毛病的同一个根因。默认值留着不动:它对
+      // state 已经完全无害(下面的守卫不读它),动它反而会改掉 sources 里那条已被消费的证据形状。
       kind: n.kind || 'quick_ask',
       autoMode: n.autoMode || 'off',
       budgetExhausted: n.budgetExhausted === true,
@@ -56,10 +62,17 @@
       // 不许用 milestonesTotal === 0 之类的近似,那会把还没定里程碑的 2.0 任务单误判成无账本线程。
       ledgerless: n.ledgerless === true,
       lastTurnFailed: n.lastTurnFailed === true,
+      // 117r-D5(用户第八轮走查③的三条子症状):守卫从「是不是速查」换成「调用方手上有没有这条
+      // 线程的事实」。默认【有事实】—— 只有明说 factsUnknown:true 的调用面才短路(全仓唯一一处:
+      // 13d buildMissionAggregateRows 那条「没卡片、也不是 mission 会话」的 else 支,它刻意不读
+      // 会话头以省 I/O,注释就写在那里)。于是 'quick_ask' 退回它唯一诚实的语义:【事实未知】,
+      // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
+      factsUnknown: n.factsUnknown === true,
     };
     let state;
-    // 0. Quick Ask 逃生舱:显式 kind,不进入任务五态(概念稿:速问是必需品不是锦上添花)。
-    if (src.kind === 'quick_ask') state = 'quick_ask';
+    // 0. 事实未知的逃生舱:调用方明说「我没有这条线程的事实」时,不硬套五态(概念稿风险 #1 的
+    // 落点仍在,只是判据从 kind 换成了 factsUnknown —— 117r-D5,理由见上面那条证据键的注释)。
+    if (src.factsUnknown) state = 'quick_ask';
     // 1. 需要你:有未决 Intervention 永远最先亮(鎏金)——哪怕任务同时在跑/已停,等你拿主意是最高打扰级。
     else if (src.pendingTotal > 0) state = 'needs_you';
     // 2. 已收工:结果章 complete(72波持久化盖章,全部里程碑 done 的权威记录)。
