@@ -150,11 +150,17 @@ ok(!!am, 'P 源抽取 AUTOEXEC_DENYLIST(03 工具层表字面量)');
 if (!am) { console.log('\nAUTONOMY-GRANT E2E: FAIL (AUTOEXEC_DENYLIST 抽取失败)'); process.exit(1); }
 const AUTOEXEC_DENYLIST = new Function(am[0] + '\nreturn AUTOEXEC_DENYLIST;')();
 
+// 抽真 hashArgs(00-boot.js,117q-B7(P2-16)单一事实源;consumeGrant 现在调它算 argsHash,不再手写 sha1 字面量)。
+const hm = src.match(/function hashArgs\(args\) \{[\s\S]*?\n\}/);
+ok(!!hm, 'P 源抽取 hashArgs(00-boot.js 单一事实源,保真不重写)');
+if (!hm) { console.log('\nAUTONOMY-GRANT E2E: FAIL (hashArgs 抽取失败)'); process.exit(1); }
+const hashArgs = new Function('crypto', hm[0] + '\nreturn hashArgs;')(crypto);
+
 const factory = new Function(
-  'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path', 'AUTOEXEC_DENYLIST',
+  'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path', 'AUTOEXEC_DENYLIST', 'hashArgs',
   mm[0] + '\nreturn { autonomyGrants, activeDriverRuns, grantIssueTierInfo, resolveToolPermissionContext, normalizeGrant, consumeGrant, revokeGrant, revokeAllGrants, revokeGrantsForRun, bindDriverRun, listGrantsView, GRANT_EXEC_METACHARS, GRANT_NET_PATTERN, GRANT_EDIT_AUTOEXEC_DENY };'
 );
-const G = factory(NATIVE_TOOL_TIER_STUB, nativeToolTier, globToRegExp, isSensitiveDataPath, pathWithinRoot, normalizeCwd, makeId, crypto, () => {}, path, AUTOEXEC_DENYLIST);
+const G = factory(NATIVE_TOOL_TIER_STUB, nativeToolTier, globToRegExp, isSensitiveDataPath, pathWithinRoot, normalizeCwd, makeId, crypto, () => {}, path, AUTOEXEC_DENYLIST, hashArgs);
 
 // 并集表组合关系的行为级对账:授权书层 = 1(整条 .git/) + 03 表全长。
 ok(G.GRANT_EDIT_AUTOEXEC_DENY.length === AUTOEXEC_DENYLIST.length + 1, 'P 并集表长度 = 03 表 + 1(整条 .git/)');

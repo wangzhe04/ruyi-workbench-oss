@@ -16,6 +16,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "StringDecoder",
+        "TOOL_TIER_RANK",
         "URL",
         "VERSION",
         "apiFailure",
@@ -37,6 +38,7 @@
         "externalRoot",
         "fs",
         "fsp",
+        "hashArgs",
         "http",
         "isPkg",
         "json",
@@ -4224,16 +4226,16 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "crypto",
+          "symbol": "fsp",
           "kinds": [
             "read"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fsp",
+          "symbol": "hashArgs",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -4397,7 +4399,6 @@
         "STEER_QUEUE_MAX",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
-        "TOOL_TIER_RANK",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -4542,6 +4543,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
           ]
@@ -5044,6 +5052,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "TOOL_TIER_RANK",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -5429,13 +5444,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "TOOL_TIER_RANK",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
           "kinds": [
             "call"
@@ -5578,9 +5586,9 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "crypto",
+          "symbol": "hashArgs",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -5598,7 +5606,7 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
+          "provider": "00-boot.js",
           "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
@@ -13075,6 +13083,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "hashArgs",
           "kinds": [
             "read"
           ]

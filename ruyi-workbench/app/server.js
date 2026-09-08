@@ -210,6 +210,30 @@ function neutralizeFenceTag(text, tagName) {
   return String(text).replace(new RegExp('<(/?)' + tagName, 'gi'), '[$1' + tagName);
 }
 
+// P2-9(30号文§3 总表 + §8.9②): 工具分级排序表 —— 现有 07-autonomy.js/08-agent-runs.js(×3)/
+// 09b-replan-ledger.js(×2)六处独立声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠
+// 人工复制维持。这是【权限升级判据】—— 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan
+// 补丁是否试图把节点 tier 抬高",分叉的后果是越权。117q-B5 曾把它落在 07-autonomy.js,但 09b 此前从未
+// 消费 07 的任何符号,那次收编因此新增了一条循环边 09b-replan-ledger.js->07-autonomy.js,被迫登记进
+// module-dependency-policy.json 的白名单(117q-B7 已撤回该条目 —— 移完后 09b 不再引用 07 的任何符号,
+// 那条边真的不存在了)。落回本文件(00-boot.js)则 07/08/09b 三个消费者全部已经依赖 00-boot,新增边数
+// 为零——它本就只是一张纯查表常量,没有任何 autonomy 语义。冻结防意外改写。
+const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
+
+// P2-16(30号文§3 总表): argsHash 指纹算法两份字面相同 —— 06f-autonomy-grants.js::consumeGrant(用量事件,
+// 收对象 args)与 09b-replan-ledger.js::recordNodeContinuation(节点续点 pending 步骤,收预先算好的
+// argsStr 字符串)各自手写一遍 sha1+hex 截 12 位。收拢两处 best-effort 语义:入参已经是字符串就直接用,
+// 否则 JSON.stringify(args || {});任何异常兜底返回空串(与两处原有 try/catch 兜底行为一致,不让指纹计算
+// 炸调用方主流程)。纯函数,只吃入参、无 IO。
+function hashArgs(args) {
+  try {
+    const str = typeof args === 'string' ? args : JSON.stringify(args || {});
+    return crypto.createHash('sha1').update(str).digest('hex').slice(0, 12);
+  } catch {
+    return '';
+  }
+}
+
 async function ensureDirs() {
   await Promise.all([
     fsp.mkdir(paths.data, { recursive: true }),
@@ -21452,8 +21476,7 @@ function consumeGrant(session, toolName, args, entrypoint, workingDir) {
     // ── 命中:同步消耗(读改写不可分割)──
     g.usedCount += 1;
     const remaining = g.maxUses - g.usedCount;
-    let argsHash = '';
-    try { argsHash = crypto.createHash('sha1').update(JSON.stringify(args || {})).digest('hex').slice(0, 12); } catch { /* best-effort */ }
+    const argsHash = hashArgs(args); // P2-16: 单一事实源见 00-boot.js::hashArgs
     logEvent({ kind: 'autonomy_grant_consume', grantId: g.grantId, sessionId: session.id, tool: g.tool, tier: g.tier, scope: g.scope, usedCount: g.usedCount, maxUses: g.maxUses, remaining, argsHash });
     return { grantId: g.grantId, remaining, tool: g.tool, tier: g.tier };
   }
@@ -21844,7 +21867,7 @@ function buildOpenAiTools(config, caps, opts) {
   const allowDesk = config.allowDesktopTools !== false;
   const out = [];
   const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
-  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见本文件上方 TOOL_TIER_RANK
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从本文件移出)
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
   const noSpawnAgent = !!(opts && opts.noSpawnAgent);
@@ -22005,12 +22028,10 @@ const NATIVE_TOOL_TIER = {
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
-// P2-9(30号文§3 总表): 工具分级排序表 —— 曾在 07(本文件)/08-agent-runs.js/09b-replan-ledger.js 六处独立
-// 声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠人工复制维持。这是【权限升级判据】——
-// 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan 补丁是否试图把节点 tier 抬高",分叉的后果
-// 是越权。单一事实源落在本文件(nativeToolTier/bridgedToolTier 已在此,是既有的「工具分级」事实源),
-// 08(manifest 序 24)、09b(序 25)都在本文件(序 23)之后,引用它是既有后向边。冻结防意外改写。
-const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
+// P2-9(30号文§3 总表 + §8.9②): 工具分级排序表 TOOL_TIER_RANK 117q-B7 已迁往 00-boot.js —— 117q-B5 曾把它
+// 落在本文件,但 09b-replan-ledger.js 此前从未消费本文件的任何符号,那次收编因此新增了一条循环边
+// 09b-replan-ledger.js->07-autonomy.js,被迫登记进白名单;07/08/09b 三个消费者其实全部已经依赖
+// 00-boot.js,落回那里新增边数为零。定义与说明见 00-boot.js。
 function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // unknown → safest (treat as exec)
 // v2.6 (loop guard 分层): 同签名连击(连续相同 name+rawArgs)对「无副作用」工具不应 abort ——
 // 轮询/等待原语(相同参数反复调用是其设计语义: wait_agents 等后台 run 结束、shell_poll 读增量输出)
@@ -24314,7 +24335,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   if (tier !== 'exec') {
-    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
   }
   const allows = (name, bridge) => {
@@ -24682,7 +24703,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
             // file_write). Refuse it at execution time — independent of permission mode — so a read sub can
             // NEVER mutate the filesystem even under bypass. Ranks: read<edit<exec.
-            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
             const allowedRank = tierRank[tier] != null ? tierRank[tier] : 0;
             if ((tierRank[ntier] != null ? tierRank[ntier] : 2) > allowedRank) {
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
@@ -25956,7 +25977,7 @@ function materializePoolItem(run, item, opts = {}) {
     if (missing.length) return { ok: false, error: `依赖引用了不存在的节点: ${missing.join(', ')}` };
     if (dependsOn.includes(item.id)) return { ok: false, error: '不能依赖自身' };
     const engine = (proposer && (proposer.engine === 'claude' || proposer.engine === 'openai')) ? proposer.engine : 'openai';
-    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     const propTier = proposer && ['read', 'edit', 'exec'].includes(proposer.toolTier) ? proposer.toolTier : 'read';
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者
@@ -26085,7 +26106,7 @@ function recordNodeContinuation(node, evt) {
     let argsStr = ''; try { argsStr = JSON.stringify(evt.input || {}); } catch { argsStr = ''; }
     c.pending[evtId] = {
       tool: flat(evt.name).slice(0, 80),
-      argsHash: crypto.createHash('sha1').update(argsStr).digest('hex').slice(0, 12),
+      argsHash: hashArgs(argsStr), // P2-16: 单一事实源见 00-boot.js::hashArgs
       argsPreview: flat(argsStr).slice(0, 200),
     };
     // 防泄压:极端情况下(只有 tool_use 没等到 result 的崩溃/异常流)pending 无界 —— 留最近 16 个。
@@ -26117,7 +26138,7 @@ function validateReplanPatch(run, patch) {
   if (!changes) return { ok: false, error: 'changes 必须是数组(可为空,表示待补充)' };
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
   const nodeIds = new Set(nodes.map(n => n.id));
-  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
   for (const c of changes) {
     if (!c || !REPLAN_CHANGE_OPS.has(c.op)) return { ok: false, error: `非法 op: ${c && c.op}` };
     const tgt = String(c.target || '');
@@ -26177,7 +26198,7 @@ function applyReplanPatch(run, patchId) {
       if (c.op === 'change_tier') {
         const node = nodes.find(n => n.id === c.target);
         if (!node) return { ok: false, error: `change_tier target 不存在: ${c.target}` };
-        const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+        const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
         if (tierRank[c.to] == null) return { ok: false, error: 'change_tier 目标 tier 非法' };
         if (tierRank[c.to] > (tierRank[node.toolTier] || 0)) return { ok: false, error: 'change_tier 不得抬高权限层级' };
         node.toolTier = c.to;
@@ -47856,6 +47877,10 @@ module.exports = {
   // 第117波117q-B5(30号文§3 总表 P2-8): 中和伪造围栏标签 —— 纯函数(只吃入参、无 IO),六个调用点(06d/06e/06/09)
   //   的单一事实源。exposed for 单测(unit/neutralize-fence-tag.test.js)。
   neutralizeFenceTag,
+  // 第117波117q-B7(30号文§3 总表 P2-16): argsHash 指纹算法 —— 纯函数(只吃入参、无 IO),06f-autonomy-grants.js
+  //   ::consumeGrant 与 09b-replan-ledger.js::recordNodeContinuation 两个调用点的单一事实源。
+  //   exposed for 单测(unit/hash-args.test.js)。
+  hashArgs,
   // 第116波116c-0(27号文§1/§3.5): 会话回合核心 —— 进程内(不经 HTTP)在任意会话上发起一个完整回合,
   //   自带 sink;HTTP 的 /api/chat/stream 现在也只是它的一层壳。exposed for e2e 等价性直测与后续切片调用。
   runSessionTurn,

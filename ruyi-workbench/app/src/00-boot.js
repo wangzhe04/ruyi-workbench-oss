@@ -210,6 +210,30 @@ function neutralizeFenceTag(text, tagName) {
   return String(text).replace(new RegExp('<(/?)' + tagName, 'gi'), '[$1' + tagName);
 }
 
+// P2-9(30号文§3 总表 + §8.9②): 工具分级排序表 —— 现有 07-autonomy.js/08-agent-runs.js(×3)/
+// 09b-replan-ledger.js(×2)六处独立声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠
+// 人工复制维持。这是【权限升级判据】—— 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan
+// 补丁是否试图把节点 tier 抬高",分叉的后果是越权。117q-B5 曾把它落在 07-autonomy.js,但 09b 此前从未
+// 消费 07 的任何符号,那次收编因此新增了一条循环边 09b-replan-ledger.js->07-autonomy.js,被迫登记进
+// module-dependency-policy.json 的白名单(117q-B7 已撤回该条目 —— 移完后 09b 不再引用 07 的任何符号,
+// 那条边真的不存在了)。落回本文件(00-boot.js)则 07/08/09b 三个消费者全部已经依赖 00-boot,新增边数
+// 为零——它本就只是一张纯查表常量,没有任何 autonomy 语义。冻结防意外改写。
+const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
+
+// P2-16(30号文§3 总表): argsHash 指纹算法两份字面相同 —— 06f-autonomy-grants.js::consumeGrant(用量事件,
+// 收对象 args)与 09b-replan-ledger.js::recordNodeContinuation(节点续点 pending 步骤,收预先算好的
+// argsStr 字符串)各自手写一遍 sha1+hex 截 12 位。收拢两处 best-effort 语义:入参已经是字符串就直接用,
+// 否则 JSON.stringify(args || {});任何异常兜底返回空串(与两处原有 try/catch 兜底行为一致,不让指纹计算
+// 炸调用方主流程)。纯函数,只吃入参、无 IO。
+function hashArgs(args) {
+  try {
+    const str = typeof args === 'string' ? args : JSON.stringify(args || {});
+    return crypto.createHash('sha1').update(str).digest('hex').slice(0, 12);
+  } catch {
+    return '';
+  }
+}
+
 async function ensureDirs() {
   await Promise.all([
     fsp.mkdir(paths.data, { recursive: true }),

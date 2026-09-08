@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 2046 | 2007 | 322 | 67 | 0 | 1 |
+| 41 | 2047 | 2009 | 321 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 51 | 5 | 4 |
+| 0 | `00-boot.js` | bootstrap | 53 | 5 | 4 |
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 31 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 100 | 35 | 8 |
@@ -38,9 +38,9 @@
 | 20 | `06e-mission-domain.js` | engine | 3 | 12 | 5 |
 | 21 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 22 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 23 | `07-autonomy.js` | orchestration | 89 | 58 | 13 |
+| 23 | `07-autonomy.js` | orchestration | 88 | 59 | 13 |
 | 24 | `08-agent-runs.js` | orchestration | 89 | 85 | 16 |
-| 25 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 2 |
+| 25 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 26 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
 | 27 | `09-workflow.js` | orchestration | 10 | 204 | 22 |
 | 28 | `10-context-governance.js` | orchestration | 126 | 66 | 14 |
@@ -55,7 +55,7 @@
 | 37 | `13i-steward-inbox.js` | transport | 64 | 21 | 7 |
 | 38 | `13g-steward.js` | transport | 108 | 91 | 18 |
 | 39 | `13h-steward-runner.js` | transport | 125 | 74 | 14 |
-| 40 | `14-main.js` | entrypoint | 1 | 482 | 31 |
+| 40 | `14-main.js` | entrypoint | 1 | 483 | 31 |
 
 ## 模块边
 
@@ -161,7 +161,7 @@
 | `06e-mission-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `06e-mission-domain.js` | `04-permission-runtime.js` | backward | `logEvent` |
 | `06e-mission-domain.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
-| `06f-autonomy-grants.js` | `00-boot.js` | backward | `crypto`, `fsp`, `makeId`, `path` |
+| `06f-autonomy-grants.js` | `00-boot.js` | backward | `fsp`, `hashArgs`, `makeId`, `path` |
 | `06f-autonomy-grants.js` | `03-bridge-guard.js` | backward | `AUTOEXEC_DENYLIST`, `isSensitiveDataPath`, `normalizeCwd`, `pathWithinRoot` |
 | `06f-autonomy-grants.js` | `04-permission-runtime.js` | backward | `logEvent` |
 | `06f-autonomy-grants.js` | `07-autonomy.js` | forward | `NATIVE_TOOL_TIER`, `nativeToolTier` |
@@ -169,7 +169,7 @@
 | `06g-resource-leases.js` | `00-boot.js` | backward | `makeId`, `nowIso`, `path` |
 | `06g-resource-leases.js` | `02-session-store.js` | backward | `collectBridgedWriteTargets` |
 | `06g-resource-leases.js` | `03-bridge-guard.js` | backward | `pathWithinRoot` |
-| `07-autonomy.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
+| `07-autonomy.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `07-autonomy.js` | `01-config.js` | backward | `BUILTIN_AGENT_ROLES`, `CLAUDE_PERMISSION_MODE_MAP`, `atomicWriteJson`, `batchSafeSpawn`, `buildUserEnvelope`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `detectClaudePath`, `effectiveAnthropicEnv`, `generateAgentNodeMcpConfig`, `mergeAgentRole`, `normalizeAgentRole`, `safeSessionId`, `spawnCmdLineLength` |
 | `07-autonomy.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `observationRecallEnabled` |
 | `07-autonomy.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `registerIntervention`, `repairProviderHistoryPairing`, `saveSession`, `settleIntervention`, `unprefixedBridgedName` |
@@ -182,7 +182,7 @@
 | `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokens` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
 | `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
-| `08-agent-runs.js` | `00-boot.js` | backward | `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
+| `08-agent-runs.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
 | `08-agent-runs.js` | `02-session-store.js` | backward | `MISSION_STALL_SIGNAL_WINDOW_MS`, `bridgedWriteRelativePathArg`, `liveSessionPermissionMode`, `loadSession`, `missionSignalThrottleAllow`, `readInterventions`, `registerIntervention`, `saveSession`, `settleIntervention` |
@@ -191,7 +191,7 @@
 | `08-agent-runs.js` | `05-claude-engine.js` | backward | `applyProviderReasoningEffort`, `providerBaseWithV1`, `providerResponsesBase`, `resolveProvider` |
 | `08-agent-runs.js` | `06-provider-engine.js` | backward | `TOOL_ITERATION_BUDGETS`, `appendResponseLanguagePolicy`, `buildProviderSystemPrompt`, `getCapabilities`, `readProjectMemory`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget` |
 | `08-agent-runs.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease` |
-| `08-agent-runs.js` | `07-autonomy.js` | backward | `LOOP_GUARD_LIMITS`, `TOOL_TIER_RANK`, `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `buildResponsesInputItems`, `classifyToolPacks`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `runClaudeSubAgentOnce`, `toResponsesTools`, `toolPackForName` |
+| `08-agent-runs.js` | `07-autonomy.js` | backward | `LOOP_GUARD_LIMITS`, `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `buildResponsesInputItems`, `classifyToolPacks`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `runClaudeSubAgentOnce`, `toResponsesTools`, `toolPackForName` |
 | `08-agent-runs.js` | `09-workflow.js` | forward | `launchPersistedAgentRun` |
 | `08-agent-runs.js` | `09d-token-estimation.js` | forward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `CompactionPlan`, `evaporateHistory`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult` |
@@ -220,8 +220,7 @@
 | `09-workflow.js` | `09d-token-estimation.js` | backward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
 | `09-workflow.js` | `10-context-governance.js` | forward | `CompactionPlan`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `contextWindowFromTable`, `evaporateHistory`, `historyStartsWithCompactionSummary`, `isContextOverflowError`, `maybeAutoCompact`, `measureObservationReductionShadow`, `noteEstimateSample`, `noteWindowOvershoot`, `providerContextWindow`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult`, `upsertCompactMarker`, `writeHistorySnapshot` |
 | `09-workflow.js` | `13-http-router.js` | forward | `buildModelHint`, `resolveNodeModel` |
-| `09b-replan-ledger.js` | `00-boot.js` | backward | `crypto`, `makeId`, `nowIso` |
-| `09b-replan-ledger.js` | `07-autonomy.js` | backward | `TOOL_TIER_RANK` |
+| `09b-replan-ledger.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `hashArgs`, `makeId`, `nowIso` |
 | `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
 | `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
 | `10-context-governance.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
@@ -352,7 +351,7 @@
 | `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
-| `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA`, `createNdjsonLineFeeder`, `neutralizeFenceTag` |
+| `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA`, `createNdjsonLineFeeder`, `hashArgs`, `neutralizeFenceTag` |
 | `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectKimiPath`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `resolveClaudeLauncher`, `resolvePermissionMode`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi` |
 | `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `14-main.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |

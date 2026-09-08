@@ -21,7 +21,7 @@ function recordNodeContinuation(node, evt) {
     let argsStr = ''; try { argsStr = JSON.stringify(evt.input || {}); } catch { argsStr = ''; }
     c.pending[evtId] = {
       tool: flat(evt.name).slice(0, 80),
-      argsHash: crypto.createHash('sha1').update(argsStr).digest('hex').slice(0, 12),
+      argsHash: hashArgs(argsStr), // P2-16: 单一事实源见 00-boot.js::hashArgs
       argsPreview: flat(argsStr).slice(0, 200),
     };
     // 防泄压:极端情况下(只有 tool_use 没等到 result 的崩溃/异常流)pending 无界 —— 留最近 16 个。
@@ -53,7 +53,7 @@ function validateReplanPatch(run, patch) {
   if (!changes) return { ok: false, error: 'changes 必须是数组(可为空,表示待补充)' };
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
   const nodeIds = new Set(nodes.map(n => n.id));
-  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
   for (const c of changes) {
     if (!c || !REPLAN_CHANGE_OPS.has(c.op)) return { ok: false, error: `非法 op: ${c && c.op}` };
     const tgt = String(c.target || '');
@@ -113,7 +113,7 @@ function applyReplanPatch(run, patchId) {
       if (c.op === 'change_tier') {
         const node = nodes.find(n => n.id === c.target);
         if (!node) return { ok: false, error: `change_tier target 不存在: ${c.target}` };
-        const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+        const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
         if (tierRank[c.to] == null) return { ok: false, error: 'change_tier 目标 tier 非法' };
         if (tierRank[c.to] > (tierRank[node.toolTier] || 0)) return { ok: false, error: 'change_tier 不得抬高权限层级' };
         node.toolTier = c.to;

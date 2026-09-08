@@ -530,7 +530,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   if (tier !== 'exec') {
-    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+    const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
   }
   const allows = (name, bridge) => {
@@ -898,7 +898,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // but a misbehaving model could still emit a tool_call above its tier (e.g. a read-tier sub calling
             // file_write). Refuse it at execution time — independent of permission mode — so a read sub can
             // NEVER mutate the filesystem even under bypass. Ranks: read<edit<exec.
-            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+            const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
             const allowedRank = tierRank[tier] != null ? tierRank[tier] : 0;
             if ((tierRank[ntier] != null ? tierRank[ntier] : 2) > allowedRank) {
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
@@ -2172,7 +2172,7 @@ function materializePoolItem(run, item, opts = {}) {
     if (missing.length) return { ok: false, error: `依赖引用了不存在的节点: ${missing.join(', ')}` };
     if (dependsOn.includes(item.id)) return { ok: false, error: '不能依赖自身' };
     const engine = (proposer && (proposer.engine === 'claude' || proposer.engine === 'openai')) ? proposer.engine : 'openai';
-    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 07-autonomy.js
+    const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     const propTier = proposer && ['read', 'edit', 'exec'].includes(proposer.toolTier) ? proposer.toolTier : 'read';
     let toolTier = ['read', 'edit', 'exec'].includes(item.toolTier) ? item.toolTier : propTier;
     if ((tierRank[toolTier] || 0) > (tierRank[propTier] || 0)) toolTier = propTier; // 不得超过提案者

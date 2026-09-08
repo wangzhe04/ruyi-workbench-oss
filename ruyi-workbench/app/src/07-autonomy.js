@@ -99,7 +99,7 @@ function buildOpenAiTools(config, caps, opts) {
   const allowDesk = config.allowDesktopTools !== false;
   const out = [];
   const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
-  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见本文件上方 TOOL_TIER_RANK
+  const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从本文件移出)
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
   const noSpawnAgent = !!(opts && opts.noSpawnAgent);
@@ -260,12 +260,10 @@ const NATIVE_TOOL_TIER = {
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
-// P2-9(30号文§3 总表): 工具分级排序表 —— 曾在 07(本文件)/08-agent-runs.js/09b-replan-ledger.js 六处独立
-// 声明字面量 `{read:0,edit:1,exec:2}`,判据一致(数值越大权限越宽)全靠人工复制维持。这是【权限升级判据】——
-// 08/09b 拿它判"子代理这次调用的工具是否超出授权层级"、"replan 补丁是否试图把节点 tier 抬高",分叉的后果
-// 是越权。单一事实源落在本文件(nativeToolTier/bridgedToolTier 已在此,是既有的「工具分级」事实源),
-// 08(manifest 序 24)、09b(序 25)都在本文件(序 23)之后,引用它是既有后向边。冻结防意外改写。
-const TOOL_TIER_RANK = Object.freeze({ read: 0, edit: 1, exec: 2 });
+// P2-9(30号文§3 总表 + §8.9②): 工具分级排序表 TOOL_TIER_RANK 117q-B7 已迁往 00-boot.js —— 117q-B5 曾把它
+// 落在本文件,但 09b-replan-ledger.js 此前从未消费本文件的任何符号,那次收编因此新增了一条循环边
+// 09b-replan-ledger.js->07-autonomy.js,被迫登记进白名单;07/08/09b 三个消费者其实全部已经依赖
+// 00-boot.js,落回那里新增边数为零。定义与说明见 00-boot.js。
 function nativeToolTier(name) { return NATIVE_TOOL_TIER[name] || 'exec'; } // unknown → safest (treat as exec)
 // v2.6 (loop guard 分层): 同签名连击(连续相同 name+rawArgs)对「无副作用」工具不应 abort ——
 // 轮询/等待原语(相同参数反复调用是其设计语义: wait_agents 等后台 run 结束、shell_poll 读增量输出)

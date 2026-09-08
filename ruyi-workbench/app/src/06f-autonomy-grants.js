@@ -202,8 +202,7 @@ function consumeGrant(session, toolName, args, entrypoint, workingDir) {
     // ── 命中:同步消耗(读改写不可分割)──
     g.usedCount += 1;
     const remaining = g.maxUses - g.usedCount;
-    let argsHash = '';
-    try { argsHash = crypto.createHash('sha1').update(JSON.stringify(args || {})).digest('hex').slice(0, 12); } catch { /* best-effort */ }
+    const argsHash = hashArgs(args); // P2-16: 单一事实源见 00-boot.js::hashArgs
     logEvent({ kind: 'autonomy_grant_consume', grantId: g.grantId, sessionId: session.id, tool: g.tool, tier: g.tier, scope: g.scope, usedCount: g.usedCount, maxUses: g.maxUses, remaining, argsHash });
     return { grantId: g.grantId, remaining, tool: g.tool, tier: g.tier };
   }
