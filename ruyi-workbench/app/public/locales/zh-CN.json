@@ -2092,12 +2092,12 @@
   "previewShell.refresh": "刷新",
   "previewShell.openClassic": "经典模式",
   "previewShell.unknown": "未设置",
-  "previewShell.state.dispatching": "交办中",
-  "previewShell.state.running": "进行中",
-  "previewShell.state.needs_you": "需要你",
-  "previewShell.state.done": "已收工",
-  "previewShell.state.stopped": "已停工",
-  "previewShell.state.quick_ask": "速问",
+  "mission.state.dispatching": "交办中",
+  "mission.state.running": "进行中",
+  "mission.state.needs_you": "需要你",
+  "mission.state.done": "已收工",
+  "mission.state.stopped": "已停工",
+  "mission.state.quick_ask": "速查",
   "previewShell.sealFallback": "任",
   "previewShell.missionFallback": "未命名任务",
   "previewShell.sealAria": "{{p1}}，{{p2}}，进度 {{p3}}%",
@@ -2804,12 +2804,6 @@
   ,"stewardShell.drawer.relayAnswered": "已当作那道提问的答案递过去了。"
   ,"stewardShell.drawer.failed": "没成：{{error}}"
   ,"stewardShell.drawer.settledSince": "已收工 · 最近动过 {{elapsed}} 前"
-  ,"stewardShell.drawer.state.dispatching": "交办中"
-  ,"stewardShell.drawer.state.running": "进行中"
-  ,"stewardShell.drawer.state.needs_you": "需要你"
-  ,"stewardShell.drawer.state.done": "已收工"
-  ,"stewardShell.drawer.state.stopped": "已停工"
-  ,"stewardShell.drawer.state.quick_ask": "速查"
   ,"stewardShell.drawer.reply.allow": "允许"
   ,"stewardShell.drawer.reply.deny": "拒绝"
   ,"stewardShell.drawer.reply.approve": "批准"

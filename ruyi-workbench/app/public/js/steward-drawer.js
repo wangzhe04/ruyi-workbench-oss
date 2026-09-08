@@ -294,8 +294,10 @@ export function createStewardDrawer({
     if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
     return String(missionState.fromCard(card).state || '');
   }
+  // 117q-B3b：五态人话统一走中性的 mission.state.*（原 stewardShell.drawer.state.* 已并入，
+  // 与看板、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
   function stateLabel(value) {
-    return value ? t(`stewardShell.drawer.state.${value}`) : '';
+    return value ? t(`mission.state.${value}`) : '';
   }
 
   function isLive() {

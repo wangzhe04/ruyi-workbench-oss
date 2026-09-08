@@ -27,6 +27,20 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   }
   console.log(`PASS catalogs: ${keys(zh).length} matched keys and placeholder contracts`);
 
+  // 117q-B3b（30 号文 §4.4 P0-4）伴随断言：任务五态人话此前抄了四份，其中两套 locale key
+  // （previewShell.state.* 与 stewardShell.drawer.state.*）已经判出不同文案结果（quick_ask/done）。
+  // 合并后四份 locale 都必须只剩中性的 mission.state.* 一套六个键，旧的两个前缀一个字都不许再
+  // 出现——防止哪天又有人抄出第三套。
+  const MISSION_STATES = ['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask'];
+  for (const [label, catalog] of [['public zh-CN', zh], ['public en-US', en], ['docs zh-CN', docsZh], ['docs en-US', docsEn]]) {
+    const staleKeys = Object.keys(catalog).filter(key => key.startsWith('previewShell.state.') || key.startsWith('stewardShell.drawer.state.'));
+    assert.deepStrictEqual(staleKeys, [], `${label} must not resurrect previewShell.state.*/stewardShell.drawer.state.* (found: ${staleKeys.join(',')})`);
+    for (const state of MISSION_STATES) {
+      assert.strictEqual(typeof catalog[`mission.state.${state}`], 'string', `${label} must carry mission.state.${state}`);
+    }
+  }
+  console.log('PASS mission.state.*: all four locales carry the unified five-state copy with zero legacy previewShell.state./stewardShell.drawer.state. keys');
+
   const runtimePath = path.join(PUBLIC, 'js', 'i18n.js');
   const runtimeSource = fs.readFileSync(runtimePath, 'utf8')
     // The test imports from a data URL to retain ESM semantics without changing the package type. Keep the
@@ -197,6 +211,22 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(usageDashboard.includes("toLocaleString(getLocale()"), 'usage values must follow the active locale');
   assert.ok(util.includes("toLocaleString(getLocale()"), 'time formatting must follow the active locale');
   console.log('PASS static wiring: locale settings and translated P0/P1 UI are present');
+
+  // 117q-B3b（30 号文 §4.4 P0-4）伴随断言：服务端 06i-steward-core.js 的 STEWARD_STATE_LABELS 是
+  // 中文单语，随 API 下发的 stateLabel 字段只给「工具返回给模型看的人话」用——前端已实测零调用点读
+  // 这个字段（英文界面读它会看到中文）。mission-state.js 的 LABELS/.label 同理是服务端形状的镜像，
+  // 不是给界面用的。用户可见的人话只有 t('mission.state.*') 一条路，这里钉死不许开第二条。
+  assert.ok(!/\.stateLabel\b/.test(app),
+    'client code must never read a server-dispatched .stateLabel field — user-facing state copy comes only from t(\'mission.state.*\')');
+  assert.ok(!/\.fromCard\([^)]*\)\.label\b|\.fromSnapshot\([^)]*\)\.label\b|derived\.label\b|missionState\.LABELS\b|MissionState\.LABELS\b/.test(app),
+    'client code must never read mission-state.js LABELS/.label — that is a mirror of the server shape, not for UI copy');
+  // 三个壳（交办台／看板／抽屉）的 stateLabel() 函数体现在应当逐字查同一个前缀 mission.state.
+  // （包装形式允许不同——preview-shell.js 原本就是箭头函数、steward-board.js／steward-drawer.js
+  // 原本就是声明式函数——本条只钉「查同一个前缀」这一件事，不强行拉齐包装语法）。
+  const stateLabelPrefixHits = [...app.matchAll(/`mission\.state\.\$\{value\}`/g)].length;
+  assert.strictEqual(stateLabelPrefixHits, 3,
+    `exactly three stateLabel() bodies (preview-shell/steward-board/steward-drawer) must query the same mission.state. prefix (found ${stateLabelPrefixHits})`);
+  console.log('PASS mission.state.* single path: no client read of server stateLabel or mission-state.js .label; three shells query the same prefix');
   console.log('I18N STATIC E2E: ALL PASS');
 })().catch(error => {
   console.error('I18N STATIC E2E: FAIL');

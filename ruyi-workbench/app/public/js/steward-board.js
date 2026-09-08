@@ -128,9 +128,10 @@ export function createStewardBoard({
     if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
     return String(missionState.fromCard(card).state || '');
   }
-  // 人话复用抽屉那一组键（stewardShell.drawer.state.*），不再开第二套五态文案。
+  // 117q-B3b：五态人话统一走中性的 mission.state.*（原来那组仅抽屉专属命名的键已并入，
+  // 与看板、抽屉、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
   function stateLabel(value) {
-    return value ? t(`stewardShell.drawer.state.${value}`) : '';
+    return value ? t(`mission.state.${value}`) : '';
   }
   // 117n-M1③（用户「看板圆点看不出已完成」）：同一条线程收工之后，抽屉那颗点走六态原始 state
   // 直接判绿（steward-drawer.js:419／CSS 的 [data-state="done"]），看板这颗点却经

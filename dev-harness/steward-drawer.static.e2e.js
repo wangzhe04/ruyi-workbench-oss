@@ -262,10 +262,13 @@ for (const prefix of ['stewardShell.drawer.', 'stewardShell.chips.', 'stewardShe
   ok(zhKeys.length > 0 && JSON.stringify(zhKeys) === JSON.stringify(enKeys),
     `H1 ${prefix}* 中英键对称（${zhKeys.length} 条）`);
 }
+// 117q-B3b 重钉（理由：30 号文 §4.4 P0-4——五态人话原来抄了四份，两套 locale key 已判出不同文案
+// 结果。六个五态键从抽屉专属的 stewardShell.drawer.state.* 搬到中性的 mission.state.*，与看板、
+// 交办台三个壳共用同一组键；不是被删掉，所以模板键扫描要跟着认 mission. 前缀，不能只认 stewardShell.）。
 const usedKeys = [...new Set([
   ...[...`${drawer}\n${chips}`.matchAll(/'(stewardShell\.[a-zA-Z0-9_.]+)'/g)].map(match => match[1]),
   ...[...`${drawer}
-${chips}`.matchAll(/`(stewardShell\.[a-zA-Z0-9_.]+)\$\{/g)].map(match => match[1]),
+${chips}`.matchAll(/`((?:stewardShell|mission)\.[a-zA-Z0-9_.]+)\$\{/g)].map(match => match[1]),
 ])];
 const templated = usedKeys.filter(key => key.endsWith('.'));
 const literal = usedKeys.filter(key => !key.endsWith('.'));
@@ -273,8 +276,8 @@ const missing = literal.filter(key => typeof zh[key] !== 'string' || typeof en[k
 ok(missing.length === 0, `H2 两模块引用的 ${literal.length} 个 i18n 键中英都齐备（缺: ${missing.join(',') || '无'}）`);
 // 模板键（五态标签、四档 label/hint）按枚举逐条核对，不能只靠前缀存在。
 for (const value of ['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']) {
-  const key = `stewardShell.drawer.state.${value}`;
-  ok(typeof zh[key] === 'string' && typeof en[key] === 'string', `H3 五态人话 ${value} 中英齐备`);
+  const key = `mission.state.${value}`;
+  ok(typeof zh[key] === 'string' && typeof en[key] === 'string', `H3 五态人话 ${value} 中英齐备（mission.state.*）`);
 }
 for (const mode of chipsMod.STEWARD_PERMISSION_MODES) {
   ok(typeof zh[`stewardShell.permission.${mode}.label`] === 'string'
@@ -283,7 +286,10 @@ for (const mode of chipsMod.STEWARD_PERMISSION_MODES) {
     && typeof en[`stewardShell.permission.${mode}.hint`] === 'string',
     `H4 权限档 ${mode} 有 label 与一句人话 hint（中英）`);
 }
-ok(templated.length === 2, `H4b 只有五态与权限档两组模板键（实测 ${JSON.stringify(templated)}）`);
+// 两组模板键：mission.state.（五态，117q-B3b 前是 stewardShell.drawer.state.）与 stewardShell.permission.
+// （四档 label/hint）。数量不变，前缀之一变了，实测数组一并打进失败信息方便下次核对。
+ok(templated.length === 2 && templated.includes('mission.state.') && templated.includes('stewardShell.permission.'),
+  `H4b 只有五态与权限档两组模板键（实测 ${JSON.stringify(templated)}）`);
 // 禁词：界面不出现系统标签，也不提前暴露内部代号（locale 一侧只查 stewardShell.* 命名空间，
 // 与 117c 同一理由 —— 「速问」是交办台预览壳自己的产品词）。
 const FORBIDDEN = [/速问/, /不立单/, /已切到档位/, /Pretender/, /3\.0/];

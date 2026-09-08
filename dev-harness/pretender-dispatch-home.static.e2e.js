@@ -116,6 +116,10 @@ ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(shell), 'F1 Wave 7
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'F2 Wave 78 CSS 继续全部使用主题/语义 token');
 ok(css.includes('@media (max-width: 920px)') && css.includes('.preview-first-run-steps { grid-template-columns: minmax(0, 1fr); }')
   && css.includes('@media (max-width: 620px)'), 'F3 首跑/确认/首页卡片有平板与窄屏收敛');
+// 117q-B3b 复核（30 号文 §4.4 P0-4）：本条按 previewShell. 前缀计数，此前实测印出「(511)」。
+// 那六个 previewShell.state.* 键（任务五态人话）已经搬到中性的 mission.state.*，与看板／抽屉
+// 两个壳共用同一组键（不再是「谁的键」），所以前缀计数如实降到 505 —— 是搬家不是漏收，下限
+// 115 是原有的宽松哨兵，不因这次迁移收紧，真实计数继续动态打进失败信息里。
 const zhKeys = Object.keys(zh).filter(key => key.startsWith('previewShell.')).sort();
 const enKeys = Object.keys(en).filter(key => key.startsWith('previewShell.')).sort();
 ok(zhKeys.length >= 115 && JSON.stringify(zhKeys) === JSON.stringify(enKeys), `F4 Wave 78 中英键完全对称(${zhKeys.length})`);

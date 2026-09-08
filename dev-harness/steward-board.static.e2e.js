@@ -121,8 +121,16 @@ ok(needsYouSites === 2 && count(focusBody, /needs_you/g) === 1 && count(statusBo
 // 等待原因单一性（§8.10「排队可解释」）：wait.label 只渲染一处，没有第二套等待文案。
 ok(count(boardCode, /wait\.label/g) === 1,
   `B6 每行只渲染 wait.label 一处（实测 ${count(boardCode, /wait\.label/g)}）`);
-ok(/stewardShell\.drawer\.state\./.test(board) && !/stewardShell\.board\.state\./.test(board),
-  'B7 五态人话复用抽屉那一组键，不另开第二套 stewardShell.board.state.*');
+// 117q-B3b 重钉（理由：30 号文 §4.4 P0-4——五态人话原本抄了四份，其中 previewShell.state.* 与
+// stewardShell.drawer.state.* 两套 locale key 已判出不同文案结果。本条原判据「看板复用抽屉那一组
+// stewardShell.drawer.state.* 键」不再成立，不是因为键被删掉了，而是六个键搬到了中性的
+// mission.state.*，三个壳（交办台／看板／抽屉）现在共用同一组键，不再有「谁的键」这个问题。
+// 判据同步收紧：看板必须查 mission.state.，且旧的 stewardShell.drawer.state.* /
+// stewardShell.board.state.* 两个前缀都不许再出现（用 boardCode 剥过注释的版本比对，不让注释里的
+// 说明文字巧合撞出假绿）。
+ok(/mission\.state\./.test(boardCode) && !/stewardShell\.drawer\.state\./.test(boardCode)
+  && !/stewardShell\.board\.state\./.test(boardCode),
+  'B7 五态人话复用中性的 mission.state.* 键（原抽屉专属命名已废弃），不另开第二套 stewardShell.board.state.*');
 
 // ─── C 焦点线程只经纯函数 ───────────────────────────────────────────────────────
 ok(typeof mod.focusThreadFor === 'function',

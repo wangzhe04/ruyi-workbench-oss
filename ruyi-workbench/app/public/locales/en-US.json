@@ -2092,12 +2092,12 @@
   "previewShell.refresh": "Refresh",
   "previewShell.openClassic": "Classic mode",
   "previewShell.unknown": "Not set",
-  "previewShell.state.dispatching": "Dispatching",
-  "previewShell.state.running": "Running",
-  "previewShell.state.needs_you": "Needs you",
-  "previewShell.state.done": "Done",
-  "previewShell.state.stopped": "Stopped",
-  "previewShell.state.quick_ask": "Quick Ask",
+  "mission.state.dispatching": "Dispatching",
+  "mission.state.running": "Running",
+  "mission.state.needs_you": "Needs you",
+  "mission.state.done": "Done",
+  "mission.state.stopped": "Stopped",
+  "mission.state.quick_ask": "Lookup",
   "previewShell.sealFallback": "T",
   "previewShell.missionFallback": "Untitled task",
   "previewShell.sealAria": "{{p1}}, {{p2}}, {{p3}}% complete",
@@ -2804,12 +2804,6 @@
   ,"stewardShell.drawer.relayAnswered": "Sent as the answer to that question."
   ,"stewardShell.drawer.failed": "Did not go through: {{error}}"
   ,"stewardShell.drawer.settledSince": "Wrapped up · last touched {{elapsed}} ago"
-  ,"stewardShell.drawer.state.dispatching": "Dispatching"
-  ,"stewardShell.drawer.state.running": "Running"
-  ,"stewardShell.drawer.state.needs_you": "Needs you"
-  ,"stewardShell.drawer.state.done": "Wrapped up"
-  ,"stewardShell.drawer.state.stopped": "Stopped"
-  ,"stewardShell.drawer.state.quick_ask": "Lookup"
   ,"stewardShell.drawer.reply.allow": "Allow"
   ,"stewardShell.drawer.reply.deny": "Deny"
   ,"stewardShell.drawer.reply.approve": "Approve"

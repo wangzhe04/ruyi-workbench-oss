@@ -473,7 +473,9 @@ try {
     `C7 线程行五态经 mission-state.js（A=${rowA && rowA.state} / B=${rowB && rowB.state}）`);
   ok(Boolean(rowA) && rowA.wait.length > 0,
     `C8 等你那条给出等待原因（116h 的 wait.label 单点判定；实测「${rowA && rowA.wait}」）`);
-  ok(Boolean(rowB) && rowB.wait === zh['stewardShell.drawer.state.running'],
+  // 117q-B3b 重钉（理由同 30 号文 §4.4）：五态人话键从 stewardShell.drawer.state.* 搬到中性的
+  // mission.state.*，看板／抽屉共用同一组键，locale 断言跟着改查新前缀。
+  ok(Boolean(rowB) && rowB.wait === zh['mission.state.running'],
     `C8b 没在等的那条如实显示五态人话，不另编一句（实测「${rowB && rowB.wait}」）`);
   ok(Boolean(rowA) && JSON.stringify(rowA.chips) === JSON.stringify(['permission', 'model']),
     `C9 每行都有紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowA && JSON.stringify(rowA.chips)}）`);

@@ -470,8 +470,9 @@ try {
   ok(openedA.title === THREAD_A, `B8 线程头显示线程标题（实测「${openedA.title}」）`);
   // 五态取 mission-state.js 的 fromCard（全仓唯一判据）。卡片投影不带 turnSeq，跑过 chat 回合但没有
   // agent run、没有里程碑完成的 mission 会话按那份判据就是「交办中」—— 抽屉如实照搬，不另编一套。
+  // 117q-B3b 重钉：五态人话键从 stewardShell.drawer.state.* 搬到中性的 mission.state.*（30 号文 §4.4）。
   const STATE_LABELS = ['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']
-    .map(value => zh[`stewardShell.drawer.state.${value}`]);
+    .map(value => zh[`mission.state.${value}`]);
   ok(STATE_LABELS.includes(openedA.state),
     `B9 线程头显示五态人话，且落在 mission-state.js 的枚举里（实测「${openedA.state}」）`);
   ok(openedA.lastSay === A_FIRST3,
@@ -587,7 +588,8 @@ try {
     `E3f ④ 里是【问题原文】而不是一句摘要（实测 ${onC && JSON.stringify(onC.askLines)}）`);
   ok(Boolean(await waitForEval(cdp, `(() => (${DRAWER}).askFocused ? { ok: 1 } : null)()`)),
     'E3g 切到 C 之后焦点也落进问答框');
-  ok(onC && onC.state === zh['stewardShell.drawer.state.needs_you'],
+  // 117q-B3b 重钉：五态人话键从 stewardShell.drawer.state.* 搬到中性的 mission.state.*（30 号文 §4.4）。
+  ok(onC && onC.state === zh['mission.state.needs_you'],
     `E3c 有待决时五态是「需要你」（实测「${onC && onC.state}」）`);
   ok(onC && onC.activityDoing.length > 0 && onC.activityDoing !== zh['stewardShell.drawer.none'],
     `E3d 三问的「在干什么」说出「等你」（实测「${onC && onC.activityDoing}」）`);

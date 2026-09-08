@@ -214,7 +214,8 @@ export function createPreviewShellDomain({
     node.textContent = value == null ? '' : String(value);
     return node;
   };
-  const stateLabel = value => t(`previewShell.state.${value}`);
+  // 117q-B3b：五态人话统一走中性的 mission.state.*（原 previewShell.state.* 已并入，见 30 号文 §4.4）。
+  const stateLabel = value => t(`mission.state.${value}`);
   const selectedCard = () => cards.find(card => card && card.missionId === selectedMissionId) || cards[0] || null;
   const selectedSessionId = () => activeView === 'mission' ? String(selectedCard()?.sessionId || '') : '';
   const missionUi = missionId => previewUiState.missions[String(missionId || '')] || { pinned: false, archived: false };
