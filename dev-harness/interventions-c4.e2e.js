@@ -33,6 +33,10 @@ function requestJson(port, pathname, body, token) {
 }
 async function waitHealth(port) { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { const r = await requestJson(port, '/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
+// 117q-P1-33:/health 返回 200(13-http-router.js:1619)不蕴含 runtime.json 已写好(要到 :1777 才生成+落盘)——
+// 单次 readToken() 可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算与 waitHealth 同量级(300×100ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return readToken(); }
 function headPath(sid) { return path.join(HOME, 'sessions', sid + '.json'); }
 function readMission(sid) { try { return JSON.parse(fs.readFileSync(headPath(sid), 'utf8')).mission || null; } catch { return null; } }
 function spawnWb() {
@@ -91,7 +95,8 @@ function streamWithQuestion(body, token, onAsk) {
 
   try {
     ok(await waitHealth(WB_PORT), 'workbench up');
-    let token = readToken(); ok(!!token, 'runtime token');
+    // 117q-P1-33:见 waitToken 头注——单次 readToken() 可能在 runtime.json 落盘前抢跑,读到空串。
+    let token = await waitToken(); ok(!!token, 'runtime token');
     const sess = await requestJson(WB_PORT, '/api/sessions', { title: 'c4' }, token);
     const sid = sess.json.session.id;
     await requestJson(WB_PORT, '/api/mission', { sessionId: sid, action: 'start', mission: { goal: 'C4 test', milestones: [{ id: 'm1', desc: 'base' }] } }, token);

@@ -42,6 +42,10 @@ async function waitHealth(port) { // 117q:预算 60×100ms=6s 小于本机冷启
 // (token 每次 boot 都是新的 randomBytes(16),必然会变);预算与 waitHealth 同量级(300×100ms)。
 async function waitTokenRotated(oldToken) {
   for (let i = 0; i < 300; i++) { const t = readToken(); if (t && t !== oldToken) return t; await sleep(100); } return readToken(); }
+// 117q-P1-33:第一次启动没有「旧 token」可比(waitTokenRotated 是重启点专用)——/health 返回 200(13-http-router.js:1619)
+// 不蕴含 runtime.json 已写好(要到 :1777 才落盘),判据只能是「非空」。预算与 waitHealth 同量级(300×100ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return readToken(); }
 
 function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
 function emitToolCall(res, id, callId, name, argsObj) {
@@ -107,7 +111,8 @@ function spawnWb() {
 
   try {
     ok(await waitHealth(WB_PORT), 'workbench up');
-    let token = readToken(); ok(!!token, 'runtime token available');
+    // 117q-P1-33:见 waitToken 头注——单次 readToken() 可能在 runtime.json 落盘前抢跑,读到空串。
+    let token = await waitToken(); ok(!!token, 'runtime token available');
 
     const legacyCreated = await requestJson(WB_PORT, '/api/sessions', { title: 'legacy-acceptance-copy' }, token);
     const legacySid = legacyCreated.json && legacyCreated.json.session && legacyCreated.json.session.id;

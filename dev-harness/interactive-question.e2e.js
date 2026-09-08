@@ -72,6 +72,10 @@ async function waitHealth() { // 117q:预算 60×100ms=6s 小于本机冷启动�
   }
   return false;
 }
+// 117q-P1-33:/health 返回 200(13-http-router.js:1619)不蕴含 runtime.json 已写好(要到 :1777 才生成+落盘)——
+// 单次 readToken() 可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算与 waitHealth 同量级(300×100ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = readToken(); if (t) return t; await sleep(100); } return readToken(); }
 function streamAndAnswer(body, token, answerSpec) {
   let answerPromise = null;
   return new Promise((resolve, reject) => {
@@ -169,7 +173,8 @@ function startProvider(captures) {
   wb.stderr.on('data', d => String(d).trim() && console.error('[workbench] ' + String(d).trim()));
   try {
     ok(await waitHealth(), 'workbench starts');
-    const token = readToken(); ok(!!token, 'runtime token is available');
+    // 117q-P1-33:见 waitToken 头注——单次 readToken() 可能在 runtime.json 落盘前抢跑,读到空串。
+    const token = await waitToken(); ok(!!token, 'runtime token is available');
 
     const claude = await streamAndAnswer({ message: 'ask for the framework' }, token, 'React');
     const sessionId = (claude.events.find(e => e.type === 'session') || {}).session?.id;

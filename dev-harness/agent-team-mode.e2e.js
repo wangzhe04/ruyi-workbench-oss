@@ -59,7 +59,15 @@ async function waitListening(port) { // 117q:预算 50×120ms=6s 小于本机冷
   for (let i = 0; i < 300; i++) { const r = await get(port, '/health'); if (r.status > 0) return true; await sleep(120); }
   return false;
 }
+// 117q-P1-33:/health 返回 200(13-http-router.js:1619)不蕴含 RUYI_TOKEN 已生成(要到 :1777 才落盘 + 供 index.html
+// 渲染)——单次抓页可能抢跑读到空 meta。第一次启动没有旧值可比,判据是非空即可;预算与 waitHealth 同量级(300×120ms)。
 async function browserToken() {
+  for (let i = 0; i < 300; i++) {
+    const r = await get(WB_PORT, '/');
+    const t = (r.body.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '';
+    if (t) return t;
+    await sleep(120);
+  }
   const r = await get(WB_PORT, '/');
   return (r.body.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '';
 }

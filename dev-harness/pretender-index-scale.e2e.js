@@ -36,6 +36,10 @@ async function waitHealth(port) { // 117q:预算 80×100ms=8s 小于本机冷启
   for (let i = 0; i < 300; i++) { const r = await request('/health', '', { port }).catch(() => null); if (r && r.status === 200) return true; await sleep(100); }
   return false;
 }
+// 117q-P1-33:waitHealth 返回不蕴含 runtime.json 已写好(server.listen 让 /health 答 200 在先,token 生成+落盘在后——
+// 13-http-router.js:1619 vs :1777)——单次 runtimeToken() 可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算与 waitHealth 同量级(300×100ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = runtimeToken(); if (t) return t; await sleep(100); } return runtimeToken(); }
 
 function sessionId(i) { return 'sess_scale_' + String(i).padStart(3, '0'); }
 function iso(i) { return new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(); }
@@ -101,7 +105,8 @@ let stderr = ''; wb.stderr.on('data', d => stderr += String(d));
 
 try {
   ok(await waitHealth(WB_PORT), 'workbench up');
-  const token = runtimeToken(); ok(!!token, 'runtime token');
+  // 117q-P1-33:见 waitToken 头注——单次 runtimeToken() 可能在 runtime.json 落盘前抢跑,读到空串。
+  const token = await waitToken(); ok(!!token, 'runtime token');
   seedScaleDataset();
 
   // 标准档:300 Mission / 30k unique Intervention / 100k usage rows.

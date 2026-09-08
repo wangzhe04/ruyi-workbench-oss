@@ -43,6 +43,15 @@ async function waitForHttp(port, pathname, predicate, attempts = 180, token = ''
   }
   return null;
 }
+// 117q-P1-33:/health 200(13-http-router.js:1619)不蕴含 runtime.json 已写好(token 要到 :1777 才生成+落盘)——
+// 单次直读可能抢跑读到空串(甚至文件还不存在时直接抛)。第一次启动没有旧值可比,判据是非空即可;预算 300×60ms(与本文件轮询同节奏)。
+async function waitToken(home) {
+  for (let i = 0; i < 300; i++) {
+    try { const t = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; if (t) return t; } catch { /* not yet */ }
+    await sleep(60);
+  }
+  return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token;
+}
 function killTree(child) {
   if (!child || !child.pid) return;
   try {
@@ -176,7 +185,8 @@ try {
     env: { ...process.env, RUYI_HOME: home, WCW_POOL_GRACE_MS: '30000' },
   });
   ok(Boolean(await waitForHttp(appPort, '/health', result => result.status === 200, 300)), 'A1 workbench and fake provider started'); // 117q:此启动门原吃默认 attempts=180(180×60ms=10.8s)小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根;默认值被本文件下方的业务断言调用复用,不能整体抬,这里改成显式传 300 只抬这一处(30 号文 P1-31)
-  const token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token;
+  // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串/抛错。
+  const token = await waitToken(home);
   // The crew contract does not depend on repository discovery. Keep the fixture workspace tiny so role/skill
   // discovery cannot consume the narrow overlap between a running keeper and a freshly proposed task.
   const created = await request(appPort, '/api/sessions', { title: 'Wave 82 crew journey', cwd: home }, token);

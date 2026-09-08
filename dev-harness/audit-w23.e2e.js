@@ -49,7 +49,17 @@ function httpReq(port, method, p, { headers = {}, body = null } = {}) {
   });
 }
 async function health(port) { try { const r = await httpReq(port, 'GET', '/api/status'); return r.status === 200; } catch { return null; } }
-const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'cors' }; // rebinding 攻击页的浏览器指纹
+// 117q-P1-33:health() 探的是 /api/status,/health 从 server.listen(13-http-router.js:1619)起就能答 —— 不管哪一路探通,
+// 都不蕴含 runtime.json 已写好(token 要到 :1777 才生成+落盘)。单次直读可能抢跑读到空串;第一次启动没有旧值可比,
+// 判据是非空即可;预算 300×150ms(与本文件健康轮询同量级)。
+async function waitToken(home) {
+  for (let i = 0; i < 300; i++) {
+    try { const t = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; if (t) return t; } catch { /* not yet */ }
+    await sleep(150);
+  }
+  try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; }
+}
+const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'cors' }; // rebinding 攻击页的浏览器指纹
 
 (async () => {
   const WB_PORT = await getFreePort(), FAKE401_PORT = await getFreePort();
@@ -202,8 +212,8 @@ const BROWSER = { origin: 'http://evil.example', 'sec-fetch-site': 'cross-site',
   try {
     let up = null; for (let k = 0; k < 40 && !up; k++) { await sleep(150); up = await health(WB_PORT); }
     ok(!!up, 'workbench listening on :' + WB_PORT);
-    const rt = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8'));
-    const TOK = rt.token;
+    // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
+    const TOK = await waitToken(HOME);
     ok(!!TOK, 'runtime.json token 读到');
 
     // ---- P1 #1: GET 鉴权(rebinding) ----

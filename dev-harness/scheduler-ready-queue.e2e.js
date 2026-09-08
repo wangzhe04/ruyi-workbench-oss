@@ -37,6 +37,12 @@ function httpReq(port, method, p, body, headers = {}) {
 }
 async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { try { const r = await httpReq(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ } await sleep(150); } return false; }
+// 117q-P1-33:up() 返回不蕴含 runtime.json 已写好(server.listen 让 /health 答 200 在先,token 生成+落盘在后——
+// 13-http-router.js:1619 vs :1777)——单次直读可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算与 up() 同量级(300×150ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = (readJson(path.join(HOME, 'runtime.json')) || {}).token || ''; if (t) return t; await sleep(150); }
+  return (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+}
 
 // 内联 fake:按请求体里的任务标记决定响应延迟(SLOWMARK ~4s / 其余 ~0.25s),纯文本回答(无工具)。
 const fake = http.createServer((req, res) => {
@@ -90,7 +96,8 @@ const fake = http.createServer((req, res) => {
   wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
   try {
     ok(await up(WB_PORT), 'workbench up on :' + WB_PORT);
-    const token = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+    // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
+    const token = await waitToken();
     const H = { 'x-wcw-token': token };
     const sid = ((await httpReq(WB_PORT, 'POST', '/api/sessions', { title: 'rq', cwd: HOME }, H)).json || {}).session.id;
     ok(!!sid, '会话已建');

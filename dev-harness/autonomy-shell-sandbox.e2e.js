@@ -35,6 +35,12 @@ function req(method, p, body, headers = {}) {
 }
 async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
+// 117q-P1-33:up() 返回不蕴含 runtime.json 已写好(server.listen 让 /health 答 200 在先,token 生成+落盘在后——
+// 13-http-router.js:1619 vs :1777)——单次直读可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算与 up() 同量级(300×150ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = (readJson(path.join(HOME, 'runtime.json')) || {}).token || ''; if (t) return t; await sleep(150); }
+  return (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+}
 
 // ═══════════════════════ A 段: guardFileToolPath 直接单元测 ═══════════════════════
 async function runA() {
@@ -127,7 +133,8 @@ console.log('\n── B 段: 全工具分发路径验证 ──');
   wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
   try {
     ok(await up(), 'B workbench up on :' + WB_PORT);
-    const token = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+    // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
+    const token = await waitToken();
     const H = { 'x-wcw-token': token };
 
     // B1: file_write .git/hooks → autoexec-denied (bypass 模式全路径)

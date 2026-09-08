@@ -75,6 +75,10 @@ function getRaw(port, p, headers) { return new Promise(resolve => { const r = ht
 // P2-1: content-型 GET(/api/memory, /api/memory/item)现须 tokenOk 自校验;token 落盘 dataRoot()/runtime.json。
 let TOKEN = '';
 function readRuntimeToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
+// 117q-P1-33:/health 返回 200(13-http-router.js:1619)不蕴含 runtime.json 已写好(要到 :1777 才生成+落盘)——
+// 单次 readRuntimeToken() 可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算 300×150ms(与本文件健康轮询同量级)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) { const t = readRuntimeToken(); if (t) return t; await sleep(150); } return readRuntimeToken(); }
 function tokenHeaders() { return { 'x-wcw-token': TOKEN }; }
 function postJson(port, p, payload, headers) {
   return new Promise((resolve, reject) => {
@@ -132,7 +136,8 @@ async function saveMem(id, scope, name, description, body, cwd, type = 'conventi
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
-    TOKEN = readRuntimeToken();
+    // 117q-P1-33:见 waitToken 头注——单次 readRuntimeToken() 可能在 runtime.json 落盘前抢跑,读到空串。
+    TOKEN = await waitToken();
     ok(!!TOKEN, 'read workbench token from runtime.json (for content-GET token gate)');
 
     // seed base memories

@@ -39,6 +39,16 @@ async function waitTokenRotated(oldToken) {
   }
   return (readJson(path.join(HOME, 'runtime.json')) || {}).token || oldToken;
 }
+// 117q-P1-33:第一次启动没有「旧 token」可比(waitTokenRotated 是重启点专用)——/health 返回 200(13-http-router.js:1619)
+// 不蕴含 runtime.json 已写好(要到 :1777 才落盘),判据只能是「非空」。预算与 up() 同量级(300×150ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) {
+    const t = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+    if (t) return t;
+    await sleep(150);
+  }
+  return (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+}
 
 fs.rmSync(HOME, { recursive: true, force: true });
 fs.mkdirSync(HOME, { recursive: true });
@@ -72,7 +82,8 @@ function startWb(port) {
 let wb = startWb(WB_PORT);
 try {
   ok(await up(WB_PORT), 'workbench up(第 1 轮,代理在线)');
-  const token = (readJson(path.join(HOME, 'runtime.json')) || {}).token || '';
+  // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
+  const token = await waitToken();
   const H = { 'x-wcw-token': token };
 
   // ── a) 列表构成 ──

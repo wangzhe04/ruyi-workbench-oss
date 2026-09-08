@@ -61,7 +61,14 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
   procs.push(fake, wb);
   let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(wbPort); }
   if (!h) return { listening: false };
-  const token = (() => { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } })();
+  // 117q-P1-33:/health 返回 200(13-http-router.js:1619)不蕴含 runtime.json 已写好(要到 :1777 才生成+落盘)——
+  // 单次直读可能抢跑读到空串。第一次启动没有旧值可比,判据是非空即可;预算 300×150ms(与本文件健康轮询同量级)。
+  let token = '';
+  for (let i = 0; i < 300; i++) {
+    try { token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
+    if (token) break;
+    await sleep(150);
+  }
   let sessionId = '', decisionPromise = null;
   const events = await postStream(wbPort, { message: '请调用工具', cwd: home }, evt => {
     if (evt.type === 'session' && evt.session && evt.session.id) sessionId = evt.session.id;

@@ -52,6 +52,15 @@ async function waitHealth() { // 117q:预算 100×80ms=8s 小于本机冷启动�
   }
   return false;
 }
+// 117q-P1-33:waitHealth 返回不蕴含 runtime.json 已写好(server.listen 让 /health 答 200 在先,token 生成+落盘在后——
+// 13-http-router.js:1619 vs :1777)——单次直读可能抢跑读到空串/抛错。第一次启动没有旧值可比,判据是非空即可;预算与 waitHealth 同量级(300×80ms)。
+async function waitToken() {
+  for (let i = 0; i < 300; i++) {
+    try { const t = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; if (t) return t; } catch { /* not yet */ }
+    await sleep(80);
+  }
+  return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token;
+}
 function sse(res, value) { res.write('data: ' + JSON.stringify(value) + '\n\n'); }
 function emitText(res, value) {
   sse(res, { id: 'chatcmpl-wave84', choices: [{ index: 0, delta: { role: 'assistant', content: value }, finish_reason: null }] });
@@ -108,7 +117,8 @@ wb.stderr.on('data', chunk => String(chunk).trim() && console.error('[wb] ' + St
 
 try {
   ok(await waitHealth(), 'workbench up');
-  const token = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token;
+  // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串/抛错。
+  const token = await waitToken();
   ok(Boolean(token), 'runtime token available');
   const created = await request('/api/sessions', { title: 'wave84 control', cwd: WORKSPACE }, token);
   const sessionId = created.json?.session?.id;
