@@ -238,7 +238,7 @@ async function readMemoryItem(id, scope, cwd) {
 async function saveMemory(mem, cwd) {
   const m = (mem && typeof mem === 'object') ? mem : {};
   let id = String(m.id || '').trim();
-  if (!id) id = 'mem-' + crypto.randomBytes(4).toString('hex');
+  if (!id) id = makeId('mem'); // 117q-B2(P2-15):统一走 00-boot 的 makeId,不再手写 randomBytes
   if (!SKILL_ID_RE.test(id)) return { ok: false, error: '无效的记忆 id(仅限字母/数字/_-,长度 1..64)' };
   const scope = m.scope === 'global' ? 'global' : 'project';
   const name = fmVal(m.name).slice(0, 120);
@@ -422,7 +422,7 @@ async function proposeWorkbenchMemory(args, ctx) {
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   const registry = await loadMemoryRegistry(cwd).catch(() => []);
   if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
     state.current.status = 'superseded';
@@ -455,7 +455,7 @@ async function commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey
   if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
     return { proposalId: state.current.id, proposal: state.current.proposal, alreadyPending: true };
   }
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
     state.current.status = 'superseded';
@@ -875,7 +875,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   }
   const globalAllowed = gate.durablePreference && /(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(gate.userText);
   if (proposal.scope === 'global' && !globalAllowed) proposal.scope = 'project';
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
   state.lastShownTurn = gate.turnSeq;
   state.current = { id, status: 'pending', source: 'automatic', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
@@ -1143,7 +1143,7 @@ async function proposeMemoryRelation(rel, cwd, opts = {}) {
   if (all.length >= MEMORY_RELATION_CAP) return { ok: false, error: '该 scope 关系边已达上限 ' + MEMORY_RELATION_CAP + '(清理 pending 后重试)' };
   const dup = all.find(x => x.from === from && x.to === to && x.type === type);
   if (dup) return { ok: false, error: dup.confirmed ? '同形关系已确认,无需重复' : '同形关系已处于 pending', relation: dup };
-  const id = 'rel-' + crypto.randomBytes(4).toString('hex');
+  const id = makeId('rel'); // 117q-B2(P2-15):统一走 makeId
   const evidenceRefRaw = SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '';
   // R4-S2: 自动提议路径传 opts.evidenceCatalog(= run.evidence)时,校验 evidenceRef 是否为该 run 真实 eventId。
   // API 手动提议无 catalog -> evidenceRefVerified=false(仅存档,见设计稿 §9)。

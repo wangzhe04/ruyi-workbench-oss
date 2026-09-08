@@ -90,6 +90,31 @@ ok(missionDigest.length > 50 && !/autonomyGrant|grantRoot|cmdAllow/.test(mission
 // S8 红线#4:签发路径禁 spawn_agent/orchestrate_agents(grantIssueTierInfo 返 null)。
 ok(/if \(t === 'spawn_agent' \|\| t === 'orchestrate_agents' \|\| t === '\*' \|\| !t\) return null/.test(src), 'S8 grantIssueTierInfo 禁 spawn_agent/orchestrate_agents/通配');
 
+// S9 117q-B2(30 号文 §4.2):03 工具层 AUTOEXEC_DENYLIST 是 autoexec 条目唯一事实源 —— 九条字面量逐条钉住,
+// 且经 14-main 导出(shell-sandbox e2e 直接单测依赖此导出关系)。
+for (const lit of [
+  '/(^|[\\\\/])\\.git[\\\\/]hooks[\\\\/]/i',
+  '/(^|[\\\\/])\\.git[\\\\/]config(?:\\.worktree)?$/i',
+  '/(^|[\\\\/])\\.githooks[\\\\/]/i',
+  '/(^|[\\\\/])\\.husky[\\\\/]/i',
+  '/(^|[\\\\/])\\.vscode[\\\\/]tasks\\.json$/i',
+  '/(^|[\\\\/])\\.vscode[\\\\/]launch\\.json$/i',
+  '/(^|[\\\\/])\\.github[\\\\/]workflows[\\\\/]/i',
+  '/(^|[\\\\/])\\.gitlab-ci\\.yml$/i',
+  '/(^|[\\\\/])Jenkinsfile$/i',
+]) ok(src.includes(lit), 'S9 03 AUTOEXEC_DENYLIST 含条目 ' + lit);
+ok(/^  AUTOEXEC_DENYLIST,$/m.test(src), 'S9 AUTOEXEC_DENYLIST 经 14-main 导出(导出关系不漂移)');
+
+// S10 117q-B2:06f 授权书层拒止表 = 整条 .git/ + 03 表取并集(派生,不再自维护 CI 条目副本)。
+ok(src.includes('const GRANT_EDIT_AUTOEXEC_DENY = [\n  /(^|[\\\\/])\\.git[\\\\/]/i, ...AUTOEXEC_DENYLIST,\n];'),
+  'S10 06f GRANT_EDIT_AUTOEXEC_DENY = [整条 .git/, ...AUTOEXEC_DENYLIST](并集字面量钉死)');
+const grantBlock = (src.match(/const autonomyGrants = new Map\(\);[\s\S]*?\nfunction listGrantsView\(sessionId\) \{[\s\S]*?\n\}/) || [''])[0];
+ok(grantBlock.length > 1000
+  && !/\.github\[\\\\\/\]workflows/.test(grantBlock)
+  && !/\\\.gitlab-ci\\\.yml\$/.test(grantBlock)
+  && !/\[\\\\\/\]\)Jenkinsfile\$/.test(grantBlock),
+  'S10 06f 授权书块内不再有 CI 条目的正则字面量副本(唯一事实源在 03;注释提及不算)');
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // [P] 纯逻辑源抽取
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -118,11 +143,20 @@ let _idc = 0; const makeId = pfx => pfx + '_' + (++_idc);
 const crypto = require('crypto');
 
 
+// 抽 03 工具层 AUTOEXEC_DENYLIST(117q-B2 起 06f 的 GRANT_EDIT_AUTOEXEC_DENY 派生自它,授权书块运行需要这个符号)。
+const am = src.match(/const AUTOEXEC_DENYLIST = \[[\s\S]*?\n\];/);
+ok(!!am, 'P 源抽取 AUTOEXEC_DENYLIST(03 工具层表字面量)');
+if (!am) { console.log('\nAUTONOMY-GRANT E2E: FAIL (AUTOEXEC_DENYLIST 抽取失败)'); process.exit(1); }
+const AUTOEXEC_DENYLIST = new Function(am[0] + '\nreturn AUTOEXEC_DENYLIST;')();
+
 const factory = new Function(
-  'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path',
+  'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path', 'AUTOEXEC_DENYLIST',
   mm[0] + '\nreturn { autonomyGrants, activeDriverRuns, grantIssueTierInfo, resolveToolPermissionContext, normalizeGrant, consumeGrant, revokeGrant, revokeAllGrants, revokeGrantsForRun, bindDriverRun, listGrantsView, GRANT_EXEC_METACHARS, GRANT_NET_PATTERN, GRANT_EDIT_AUTOEXEC_DENY };'
 );
-const G = factory(NATIVE_TOOL_TIER_STUB, nativeToolTier, globToRegExp, isSensitiveDataPath, pathWithinRoot, normalizeCwd, makeId, crypto, () => {}, path);
+const G = factory(NATIVE_TOOL_TIER_STUB, nativeToolTier, globToRegExp, isSensitiveDataPath, pathWithinRoot, normalizeCwd, makeId, crypto, () => {}, path, AUTOEXEC_DENYLIST);
+
+// 并集表组合关系的行为级对账:授权书层 = 1(整条 .git/) + 03 表全长。
+ok(G.GRANT_EDIT_AUTOEXEC_DENY.length === AUTOEXEC_DENYLIST.length + 1, 'P 并集表长度 = 03 表 + 1(整条 .git/)');
 
 const ROOT = path.resolve(os.tmpdir(), 'gr-e2e-root');
 const SESS = { id: 's1', cwd: ROOT };
@@ -228,6 +262,27 @@ ok(G.normalizeGrant({ tool: 'powershell_run', scope: 'session' }, SESS, CFG, NOW
   ok(miss2 === null, 'P4 edit → .vscode/tasks.json → 不命中');
   const hit = G.consumeGrant(SESS, 'file_edit', { path: path.join(ROOT, 'src', 'ok.js') }, 'native', ROOT);
   ok(!!hit, 'P4 edit → 普通文件 → 命中');
+}
+{
+  // 117q-B2(30 号文 §4.2 伴随断言):授权书 edit 档下改 CI/CD 自动执行入口必须回落弹窗(consumeGrant → null)。
+  // 修法前 06f 表里没有这三条 —— 一张无人值守 edit 授权书可以静默改 .github/workflows/*.yml,而同一改动
+  // 走工作台 file_edit(03 工具层)会被挡。并集后两层同口径(授权书层另加整条 .git/,无人值守面更严)。
+  issue({ tool: 'file_edit', pathGlob: ['**'] });
+  ok(G.consumeGrant(SESS, 'file_edit', { path: path.join(ROOT, '.github', 'workflows', 'x.yml') }, 'native', ROOT) === null,
+    'B2 edit 授权 → .github/workflows/x.yml → 不命中(回落弹窗)');
+  issue({ tool: 'file_edit', pathGlob: ['**'] });
+  ok(G.consumeGrant(SESS, 'file_edit', { path: path.join(ROOT, '.gitlab-ci.yml') }, 'native', ROOT) === null,
+    'B2 edit 授权 → .gitlab-ci.yml → 不命中(回落弹窗)');
+  issue({ tool: 'file_edit', pathGlob: ['**'] });
+  ok(G.consumeGrant(SESS, 'file_edit', { path: path.join(ROOT, 'Jenkinsfile') }, 'native', ROOT) === null,
+    'B2 edit 授权 → Jenkinsfile → 不命中(回落弹窗)');
+  issue({ tool: 'file_edit', pathGlob: ['**'] });
+  ok(G.consumeGrant(SESS, 'file_edit', { path: path.join(ROOT, '.git', 'COMMIT_EDITMSG') }, 'native', ROOT) === null,
+    'B2 edit 授权 → .git/ 整目录(授权书层比工具层严,拍板口径) → 不命中(回落弹窗)');
+  // CLI 桥(Edit/Write/MultiEdit/NotebookEdit)与 native 同表:同一 CI 入口两个 entrypoint 同口径。
+  issue({ tool: 'Edit', pathGlob: ['**'] });
+  ok(G.consumeGrant(SESS, 'Edit', { file_path: path.join(ROOT, '.github', 'workflows', 'x.yml') }, 'cli', ROOT) === null,
+    'B2 CLI Edit 授权 → .github/workflows/x.yml → 不命中(回落弹窗)');
 }
 {
   issue({ tool: 'file_write', pathGlob: ['**'] });

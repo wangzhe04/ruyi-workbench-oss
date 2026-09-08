@@ -3877,6 +3877,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -7047,7 +7054,6 @@
         "lastAssistantTextOf",
         "lastSessionContextTokens",
         "learnedWindowCap",
-        "legacySingleSummaryCall",
         "loadContextCalibration",
         "mapSummaryWithLimit",
         "markSummaryCallPolicyUnsupported",
@@ -7414,13 +7420,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]

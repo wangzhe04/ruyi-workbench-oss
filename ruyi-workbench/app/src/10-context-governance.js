@@ -1205,10 +1205,8 @@ function chunkHistoryByBudget(history, budgetTokens) {
   return chunks;
 }
 
-// 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
-// v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
-// 22-§4.2 第0步:econCtx.econ 为真时,每次真实 HTTP 尝试(成功或失败)落一条 econ_summary_call ——
-// 此前摘要/压缩调用完全不在经济性账本里,报表的 callsPerTask 系统性漏掉它们(归属缺口由本行修复)。
+// econSummaryCall 记账的开关缓存(22-§4.2 第0步):摘要/压缩调用也要落 econ_summary_call,否则报表
+// callsPerTask 系统性漏掉它们。现行摘要路径(下方 map-reduce 内核)在每次真实 HTTP 尝试时记账。
 let ECON_AUX_FLAG_CACHE = { at: 0, on: false };
 async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路径上反复读盘
   if (Date.now() - ECON_AUX_FLAG_CACHE.at < 60000) return ECON_AUX_FLAG_CACHE.on;
@@ -1217,92 +1215,6 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
     ECON_AUX_FLAG_CACHE = { at: Date.now(), on: cfg && cfg.toolEconomicsShadowV1 === true };
   } catch { /* keep previous cached value */ }
   return ECON_AUX_FLAG_CACHE.on;
-}
-async function legacySingleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal) {
-  const respStyle = provider && provider.apiStyle === 'responses';
-  // 105c: promptOverride 供定向修补调用替换尾部 SUMMARY_PROMPT(默认不变)。
-  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : SUMMARY_PROMPT;
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
-  // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
-  // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
-  const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = applyProviderReasoningEffort(respStyle
-    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false }, provider, respStyle ? 'responses' : 'chat');
-  const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
-  if (temp !== undefined) bodyObj.temperature = temp;
-  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  let timeoutMs = 180000; // 远程默认 3 分钟:实测 60K token 摘要 p50≈45–51s,60s 会整批作废(22-S0 热点基线)
-  try {
-    const u = new URL(String(provider && provider.baseUrl || ''));
-    if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
-  } catch { /* retain remote default */ }
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
-  const econT0 = Date.now();
-  const econDone = result => { // 摘要调用账目:usage 缺失时 usageSource='missing',不推算不冒充
-    try {
-      if (!econCtx || econCtx.econ !== true) return;
-      const u = result && result.usage;
-      const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
-      const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
-      const okRes = !!(result && result.ok);
-      const hasUsage = uIn > 0 || uOut > 0;
-      logEvent({
-        kind: 'econ_summary_call',
-        ...(econCtx.sessionId ? { sessionId: econCtx.sessionId } : {}),
-        ...(econCtx.turnSeq != null && Number(econCtx.turnSeq) > 0 ? { turnSeq: Number(econCtx.turnSeq) } : {}),
-        ...(econCtx.traceId ? { traceId: econCtx.traceId } : {}),
-        ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
-        trigger: String(econCtx.trigger || 'summary'),
-        model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat',
-        ok: okRes,
-        usageSource: okRes && hasUsage ? 'provider' : 'missing',
-        inputTokens: uIn, outputTokens: uOut,
-        ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
-        ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}),
-        httpMs: Date.now() - econT0,
-      });
-    } catch { /* shadow accounting must never break compaction */ }
-  };
-  // 105i: extraSignal 供并行 map-reduce 的 fail-fast 取消(兄弟块失败即中止本请求);与内部超时合并为一个信号。
-  const mergedSignal = ctrl
-    ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
-    : (extraSignal || undefined);
-  try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: mergedSignal });
-    if (!res || !res.ok) {
-      let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      const failed = { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
-      econDone(failed); return failed;
-    }
-    const j = await res.json().catch(() => null);
-    let summary = '';
-    if (respStyle) {
-      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-        if (item && item.type === 'message' && Array.isArray(item.content)) {
-          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') summary += part.text; }
-        }
-      }
-    } else {
-      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-      summary = String((msg && msg.content) || '');
-    }
-    summary = summary.trim();
-    if (!summary) { const failed = { ok: false, error: 'provider returned an empty summary' }; econDone(failed); return failed; }
-    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    const okRes = { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
-    econDone(okRes); return okRes;
-  } catch (e) {
-    const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
-    const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
-    econDone(failed); return failed;
-  } finally { if (timer) clearTimeout(timer); }
 }
 
 // 105j: Responses/Chat 非流式响应统一解析。尤其要保留 status/incomplete_details/usage，不能把

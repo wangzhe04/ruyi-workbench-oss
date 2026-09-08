@@ -7956,7 +7956,10 @@ function providerIsLocal(config) {
 //   • allowOutsideWorkspace === true → bypass (still audit-logged so an operator can see the crossings).
 // 第31波B(autonomy-shell-sandbox L1): 工具层 autoexec 路径黑名单 —— 从授权书层(consumeGrant)下沉到
 // guardFileToolPath,让 bypass/plan/default 全模式都受 autoexec 保护,不再依赖"是否有授权书"。
-// 与 GRANT_EDIT_AUTOEXEC_DENY(:6139) 同源但独立维护:授权书层保留引用(纵深,向后兼容),此处为工具层统一 sink。
+// 117q-B2(30 号文 §4.2 拍板口径): 本表是 autoexec 条目的【唯一事实源】——授权书层 06f 的
+// GRANT_EDIT_AUTOEXEC_DENY 不再自维护副本,而是 [...本条整条 .git/ 规则, ...AUTOEXEC_DENYLIST] 取并集
+// (无人值守面更严:授权书层挡整条 .git/;工具层是有人值守面,保持只挡 hooks/config,扩严会误伤
+// .git/COMMIT_EDITMSG 这类日常写)。改条目只改这里。
 // 精确匹配 .git/hooks/ 等自动执行入口(不误伤 .gitignore/.gitattributes 等工作区根级文件)。
 const AUTOEXEC_DENYLIST = [
   // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）；.git/config 可通过 core.hooksPath 把 hook 重定向到任意目录。
@@ -19755,7 +19758,7 @@ async function readMemoryItem(id, scope, cwd) {
 async function saveMemory(mem, cwd) {
   const m = (mem && typeof mem === 'object') ? mem : {};
   let id = String(m.id || '').trim();
-  if (!id) id = 'mem-' + crypto.randomBytes(4).toString('hex');
+  if (!id) id = makeId('mem'); // 117q-B2(P2-15):统一走 00-boot 的 makeId,不再手写 randomBytes
   if (!SKILL_ID_RE.test(id)) return { ok: false, error: '无效的记忆 id(仅限字母/数字/_-,长度 1..64)' };
   const scope = m.scope === 'global' ? 'global' : 'project';
   const name = fmVal(m.name).slice(0, 120);
@@ -19939,7 +19942,7 @@ async function proposeWorkbenchMemory(args, ctx) {
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   const registry = await loadMemoryRegistry(cwd).catch(() => []);
   if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
     state.current.status = 'superseded';
@@ -19972,7 +19975,7 @@ async function commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey
   if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
     return { proposalId: state.current.id, proposal: state.current.proposal, alreadyPending: true };
   }
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
     state.current.status = 'superseded';
@@ -20392,7 +20395,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   }
   const globalAllowed = gate.durablePreference && /(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(gate.userText);
   if (proposal.scope === 'global' && !globalAllowed) proposal.scope = 'project';
-  const id = 'proposal-' + crypto.randomBytes(8).toString('hex');
+  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
   state.lastShownTurn = gate.turnSeq;
   state.current = { id, status: 'pending', source: 'automatic', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
@@ -20660,7 +20663,7 @@ async function proposeMemoryRelation(rel, cwd, opts = {}) {
   if (all.length >= MEMORY_RELATION_CAP) return { ok: false, error: '该 scope 关系边已达上限 ' + MEMORY_RELATION_CAP + '(清理 pending 后重试)' };
   const dup = all.find(x => x.from === from && x.to === to && x.type === type);
   if (dup) return { ok: false, error: dup.confirmed ? '同形关系已确认,无需重复' : '同形关系已处于 pending', relation: dup };
-  const id = 'rel-' + crypto.randomBytes(4).toString('hex');
+  const id = makeId('rel'); // 117q-B2(P2-15):统一走 makeId
   const evidenceRefRaw = SKILL_ID_RE.test(String(r.evidenceRef || '')) ? String(r.evidenceRef).slice(0, 256) : '';
   // R4-S2: 自动提议路径传 opts.evidenceCatalog(= run.evidence)时,校验 evidenceRef 是否为该 run 真实 eventId。
   // API 手动提议无 catalog -> evidenceRefVerified=false(仅存档,见设计稿 §9)。
@@ -21216,10 +21219,13 @@ const GRANT_EXEC_METACHARS = /[;|&$`\n\r><(){}]/;
 // 默认禁网:命令含这些网络特征即不匹配(即便 env token 泄露也断外传信道;复用 SSRF 判定思路)。
 const GRANT_NET_PATTERN = /(^|[\s"'`])(curl|wget|iwr|invoke-webrequest|invoke-restmethod|nc|ncat|telnet|ssh|scp|sftp|ftp)([\s"'`]|$)|https?:\/\/|\bstart-bitstransfer\b/i;
 // edit 档【工作区内】二级 denylist:命中即回落弹窗(工作区内但会被自动执行的文件 = 潜伏 RCE,不需 exec 授权,R-P2-1)。
+// 117q-B2(30 号文 §4.2 拍板口径):授权书层取并集 = 本条整条 .git/ 规则(本层原有,无人值守面,比工具层更严)
+// + 03-bridge-guard 的 AUTOEXEC_DENYLIST 全部条目(.github/workflows/、.gitlab-ci.yml、Jenkinsfile 等 CI/CD 入口
+// 此前只挡工具层、不挡授权书层 —— 同一「自动执行入口=潜伏 RCE」判断两层口径不一,属判据分裂,已实测双向漂移)。
+// 工具层(03)保持原样,不扩到整条 .git/(有人值守面,扩严会误伤 .git/COMMIT_EDITMSG 这类日常写)。
 // package.json/pyproject 未纳入(合法编辑高频),其间接提权已在「诚实结论」交代:根治需 shell 沙箱化,授权书层无解。
 const GRANT_EDIT_AUTOEXEC_DENY = [
-  /(^|[\\/])\.git[\\/]/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
-  /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
+  /(^|[\\/])\.git[\\/]/i, ...AUTOEXEC_DENYLIST,
 ];
 // Claude CLI 桥的工具名 → 档位(CLI 弹窗以 Claude 名 Edit/Write/Bash 显示;签发卡片以同名列出,口径一致)。
 // 与 NATIVE_TOOL_TIER(工作台原生名)【不重叠】——故一张 grant 的 entrypoint 由其 tool 名唯一确定,消耗点重算 tier 必一致。
@@ -30682,10 +30688,8 @@ function chunkHistoryByBudget(history, budgetTokens) {
   return chunks;
 }
 
-// 单次摘要调用(原内核体,45a 拆出以便 map-reduce 复用)。messages 为历史,prompt 追加于尾。
-// v1.7: follows provider.apiStyle — Responses protocol uses instructions+input, reads output_text.
-// 22-§4.2 第0步:econCtx.econ 为真时,每次真实 HTTP 尝试(成功或失败)落一条 econ_summary_call ——
-// 此前摘要/压缩调用完全不在经济性账本里,报表的 callsPerTask 系统性漏掉它们(归属缺口由本行修复)。
+// econSummaryCall 记账的开关缓存(22-§4.2 第0步):摘要/压缩调用也要落 econ_summary_call,否则报表
+// callsPerTask 系统性漏掉它们。现行摘要路径(下方 map-reduce 内核)在每次真实 HTTP 尝试时记账。
 let ECON_AUX_FLAG_CACHE = { at: 0, on: false };
 async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路径上反复读盘
   if (Date.now() - ECON_AUX_FLAG_CACHE.at < 60000) return ECON_AUX_FLAG_CACHE.on;
@@ -30694,92 +30698,6 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
     ECON_AUX_FLAG_CACHE = { at: Date.now(), on: cfg && cfg.toolEconomicsShadowV1 === true };
   } catch { /* keep previous cached value */ }
   return ECON_AUX_FLAG_CACHE.on;
-}
-async function legacySingleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal) {
-  const respStyle = provider && provider.apiStyle === 'responses';
-  // 105c: promptOverride 供定向修补调用替换尾部 SUMMARY_PROMPT(默认不变)。
-  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : SUMMARY_PROMPT;
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
-  // v0.8-S6: prepend the IDENTITY-ONLY layer so the summary call keeps the pinned identity (product name
-  // never enters). identityOnly skips the capability/project layers — a摘要 call needs the pin, not the矩阵.
-  const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  const bodyObj = applyProviderReasoningEffort(respStyle
-    ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false }, provider, respStyle ? 'responses' : 'chat');
-  const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
-  if (temp !== undefined) bodyObj.temperature = temp;
-  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  let timeoutMs = 180000; // 远程默认 3 分钟:实测 60K token 摘要 p50≈45–51s,60s 会整批作废(22-S0 热点基线)
-  try {
-    const u = new URL(String(provider && provider.baseUrl || ''));
-    if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname) || /ollama/i.test(String(provider && (provider.id + ' ' + provider.label) || ''))) timeoutMs = 300000;
-  } catch { /* retain remote default */ }
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
-  const econT0 = Date.now();
-  const econDone = result => { // 摘要调用账目:usage 缺失时 usageSource='missing',不推算不冒充
-    try {
-      if (!econCtx || econCtx.econ !== true) return;
-      const u = result && result.usage;
-      const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
-      const uOut = u ? (Number(u.completion_tokens != null ? u.completion_tokens : u.output_tokens) || 0) : 0;
-      const okRes = !!(result && result.ok);
-      const hasUsage = uIn > 0 || uOut > 0;
-      logEvent({
-        kind: 'econ_summary_call',
-        ...(econCtx.sessionId ? { sessionId: econCtx.sessionId } : {}),
-        ...(econCtx.turnSeq != null && Number(econCtx.turnSeq) > 0 ? { turnSeq: Number(econCtx.turnSeq) } : {}),
-        ...(econCtx.traceId ? { traceId: econCtx.traceId } : {}),
-        ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
-        trigger: String(econCtx.trigger || 'summary'),
-        model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat',
-        ok: okRes,
-        usageSource: okRes && hasUsage ? 'provider' : 'missing',
-        inputTokens: uIn, outputTokens: uOut,
-        ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
-        ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}),
-        httpMs: Date.now() - econT0,
-      });
-    } catch { /* shadow accounting must never break compaction */ }
-  };
-  // 105i: extraSignal 供并行 map-reduce 的 fail-fast 取消(兄弟块失败即中止本请求);与内部超时合并为一个信号。
-  const mergedSignal = ctrl
-    ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
-    : (extraSignal || undefined);
-  try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: mergedSignal });
-    if (!res || !res.ok) {
-      let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      const failed = { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
-      econDone(failed); return failed;
-    }
-    const j = await res.json().catch(() => null);
-    let summary = '';
-    if (respStyle) {
-      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-        if (item && item.type === 'message' && Array.isArray(item.content)) {
-          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') summary += part.text; }
-        }
-      }
-    } else {
-      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-      summary = String((msg && msg.content) || '');
-    }
-    summary = summary.trim();
-    if (!summary) { const failed = { ok: false, error: 'provider returned an empty summary' }; econDone(failed); return failed; }
-    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model + 对发送 payload 的输入估算,让压缩调用方记入 aux 台账。
-    const okRes = { ok: true, summary, usage: (j && j.usage) || null, model, promptTokensEst: estimateHistoryTokens(bodyObj.messages || bodyObj.input) };
-    econDone(okRes); return okRes;
-  } catch (e) {
-    const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
-    const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
-    econDone(failed); return failed;
-  } finally { if (timer) clearTimeout(timer); }
 }
 
 // 105j: Responses/Chat 非流式响应统一解析。尤其要保留 status/incomplete_details/usage，不能把

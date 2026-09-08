@@ -25,10 +25,13 @@ const GRANT_EXEC_METACHARS = /[;|&$`\n\r><(){}]/;
 // 默认禁网:命令含这些网络特征即不匹配(即便 env token 泄露也断外传信道;复用 SSRF 判定思路)。
 const GRANT_NET_PATTERN = /(^|[\s"'`])(curl|wget|iwr|invoke-webrequest|invoke-restmethod|nc|ncat|telnet|ssh|scp|sftp|ftp)([\s"'`]|$)|https?:\/\/|\bstart-bitstransfer\b/i;
 // edit 档【工作区内】二级 denylist:命中即回落弹窗(工作区内但会被自动执行的文件 = 潜伏 RCE,不需 exec 授权,R-P2-1)。
+// 117q-B2(30 号文 §4.2 拍板口径):授权书层取并集 = 本条整条 .git/ 规则(本层原有,无人值守面,比工具层更严)
+// + 03-bridge-guard 的 AUTOEXEC_DENYLIST 全部条目(.github/workflows/、.gitlab-ci.yml、Jenkinsfile 等 CI/CD 入口
+// 此前只挡工具层、不挡授权书层 —— 同一「自动执行入口=潜伏 RCE」判断两层口径不一,属判据分裂,已实测双向漂移)。
+// 工具层(03)保持原样,不扩到整条 .git/(有人值守面,扩严会误伤 .git/COMMIT_EDITMSG 这类日常写)。
 // package.json/pyproject 未纳入(合法编辑高频),其间接提权已在「诚实结论」交代:根治需 shell 沙箱化,授权书层无解。
 const GRANT_EDIT_AUTOEXEC_DENY = [
-  /(^|[\\/])\.git[\\/]/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
-  /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
+  /(^|[\\/])\.git[\\/]/i, ...AUTOEXEC_DENYLIST,
 ];
 // Claude CLI 桥的工具名 → 档位(CLI 弹窗以 Claude 名 Edit/Write/Bash 显示;签发卡片以同名列出,口径一致)。
 // 与 NATIVE_TOOL_TIER(工作台原生名)【不重叠】——故一张 grant 的 entrypoint 由其 tool 名唯一确定,消耗点重算 tier 必一致。

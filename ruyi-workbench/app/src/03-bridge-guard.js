@@ -498,7 +498,10 @@ function providerIsLocal(config) {
 //   • allowOutsideWorkspace === true → bypass (still audit-logged so an operator can see the crossings).
 // 第31波B(autonomy-shell-sandbox L1): 工具层 autoexec 路径黑名单 —— 从授权书层(consumeGrant)下沉到
 // guardFileToolPath,让 bypass/plan/default 全模式都受 autoexec 保护,不再依赖"是否有授权书"。
-// 与 GRANT_EDIT_AUTOEXEC_DENY(:6139) 同源但独立维护:授权书层保留引用(纵深,向后兼容),此处为工具层统一 sink。
+// 117q-B2(30 号文 §4.2 拍板口径): 本表是 autoexec 条目的【唯一事实源】——授权书层 06f 的
+// GRANT_EDIT_AUTOEXEC_DENY 不再自维护副本,而是 [...本条整条 .git/ 规则, ...AUTOEXEC_DENYLIST] 取并集
+// (无人值守面更严:授权书层挡整条 .git/;工具层是有人值守面,保持只挡 hooks/config,扩严会误伤
+// .git/COMMIT_EDITMSG 这类日常写)。改条目只改这里。
 // 精确匹配 .git/hooks/ 等自动执行入口(不误伤 .gitignore/.gitattributes 等工作区根级文件)。
 const AUTOEXEC_DENYLIST = [
   // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）；.git/config 可通过 core.hooksPath 把 hook 重定向到任意目录。

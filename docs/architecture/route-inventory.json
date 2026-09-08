@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-08T04:43:15.032Z",
+  "generatedAt": "2026-09-08T07:19:51.254Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2943,7 +2943,7 @@
       "kind": "exact",
       "path": "/api/missions",
       "file": "13d-core-domain-routes.js",
-      "line": 719,
+      "line": 740,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "GET"
@@ -2990,7 +2990,7 @@
       "kind": "exact",
       "path": "/api/missions",
       "file": "13d-core-domain-routes.js",
-      "line": 745,
+      "line": 766,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "POST"
@@ -3038,7 +3038,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)$",
       "path": "/api/missions/:missionId",
       "file": "13d-core-domain-routes.js",
-      "line": 752,
+      "line": 773,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "PATCH",
@@ -3080,7 +3080,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/threads$",
       "path": "/api/missions/:missionId/threads",
       "file": "13d-core-domain-routes.js",
-      "line": 762,
+      "line": 783,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "POST"
@@ -3121,7 +3121,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/merge$",
       "path": "/api/missions/:missionId/merge",
       "file": "13d-core-domain-routes.js",
-      "line": 777,
+      "line": 798,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "POST"
@@ -3162,7 +3162,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/split$",
       "path": "/api/missions/:missionId/split",
       "file": "13d-core-domain-routes.js",
-      "line": 786,
+      "line": 807,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "POST"
@@ -3202,7 +3202,7 @@
       "kind": "prefix",
       "path": "/api/missions/",
       "file": "13d-core-domain-routes.js",
-      "line": 848,
+      "line": 869,
       "handler": "handleMissionsApiRoutes",
       "methods": [
         "GET"
@@ -3242,7 +3242,7 @@
       "kind": "exact",
       "path": "/api/_test/pretender-maintenance",
       "file": "13d-core-domain-routes.js",
-      "line": 1392,
+      "line": 1413,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3260,7 +3260,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$",
       "path": "/api/missions/:missionId/interventions/:interventionId/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1406,
+      "line": 1427,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3300,7 +3300,7 @@
       "kind": "exact",
       "path": "/api/interventions",
       "file": "13d-core-domain-routes.js",
-      "line": 1431,
+      "line": 1452,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3329,7 +3329,7 @@
       "kind": "prefix",
       "path": "/api/interventions/",
       "file": "13d-core-domain-routes.js",
-      "line": 1484,
+      "line": 1505,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3348,7 +3348,7 @@
       "kind": "exact",
       "path": "/api/chat/answer",
       "file": "13d-core-domain-routes.js",
-      "line": 1520,
+      "line": 1541,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3376,7 +3376,7 @@
       "kind": "exact",
       "path": "/api/question/heartbeat",
       "file": "13d-core-domain-routes.js",
-      "line": 1540,
+      "line": 1561,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3391,7 +3391,7 @@
       "kind": "exact",
       "path": "/api/question/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1550,
+      "line": 1571,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3406,7 +3406,7 @@
       "kind": "exact",
       "path": "/api/permission/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1565,
+      "line": 1586,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3421,7 +3421,7 @@
       "kind": "exact",
       "path": "/api/permission/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1659,
+      "line": 1680,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3445,7 +3445,7 @@
       "kind": "exact",
       "path": "/api/plan/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1678,
+      "line": 1699,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3467,7 +3467,7 @@
       "kind": "exact",
       "path": "/api/_test/intervention-cas",
       "file": "13d-core-domain-routes.js",
-      "line": 1699,
+      "line": 1720,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3485,7 +3485,7 @@
       "kind": "exact",
       "path": "/api/agent-runs",
       "file": "13d-core-domain-routes.js",
-      "line": 1806,
+      "line": 1827,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3534,7 +3534,7 @@
       "path": "/api/agent-runs/",
       "suffix": "/events",
       "file": "13d-core-domain-routes.js",
-      "line": 1845,
+      "line": 1866,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3571,7 +3571,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1856,
+      "line": 1877,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "POST"
@@ -3608,7 +3608,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1914,
+      "line": 1935,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "DELETE"
@@ -3645,7 +3645,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1934,
+      "line": 1955,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -4029,7 +4029,8 @@
         "dev-harness\\steward-guardrails.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
-        "dev-harness\\steward-runner.static.e2e.js"
+        "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\unit\\steward-say-stream.test.js"
       ]
     }
   ],
