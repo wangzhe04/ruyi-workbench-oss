@@ -29,14 +29,8 @@ const ok = (condition, label) => {
   else { fail += 1; console.log('FAIL ' + label); }
 };
 
-function browserPath() {
-  return [
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].find(file => fs.existsSync(file)) || '';
-}
+const { findBrowserExecutable } = require('./lib/browser-path');
+const browserPath = findBrowserExecutable;
 function request(port, pathname, method = 'GET') {
   return new Promise(resolve => {
     const req = http.request({ host: '127.0.0.1', port, path: pathname, method, timeout: 1500 }, response => {

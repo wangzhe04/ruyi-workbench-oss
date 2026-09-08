@@ -26,6 +26,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -45,14 +46,8 @@ const LIVE_TICK_MS = 3000;      // session-experience.js 的 LIVE_TURN_POLL_MS
 const HOLD_MS = 30000;          // 回合在「说完第二段」之后还活着的时长(留够 B/C 两段断言的窗口)
 const SHORT_WAIT = 150;         // 「该发生的当拍就该发生」的等待上限(150×40ms = 6s):失败时不许把活回合的窗口耗光
 
-function browserPath() {
-  return [
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].find(file => fs.existsSync(file)) || '';
-}
+const { findBrowserExecutable } = require('./lib/browser-path');
+const browserPath = findBrowserExecutable;
 
 function request(port, method, pathname, body, token) {
   return new Promise(resolve => {
@@ -453,6 +448,7 @@ try {
   killTree(server);
   if (provider) await new Promise(resolve => provider.close(resolve));
   await sleep(300);
+  stopRuyiTestBrowsers(profile);
   try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ }
   console.log(`\nLIVE FULL TEXT BROWSER E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
   process.exitCode = fail ? 1 : 0;

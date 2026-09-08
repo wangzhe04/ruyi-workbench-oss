@@ -24,6 +24,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -52,14 +53,8 @@ const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的
 // 测试窗口内一个请求都不会多发，断言仍然是确定的。
 const TICK_MS = 5000;
 
-function browserPath() {
-  return [
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].find(file => fs.existsSync(file)) || '';
-}
+const { findBrowserExecutable } = require('./lib/browser-path');
+const browserPath = findBrowserExecutable;
 
 function request(port, method, pathname, body, token) {
   return new Promise(resolve => {
@@ -728,6 +723,7 @@ try {
   killTree(server);
   if (provider) await new Promise(resolve => provider.close(resolve));
   await sleep(300);
+  stopRuyiTestBrowsers(profile);
   try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ }
   console.log(`\nSTEWARD DRAWER E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
   process.exitCode = fail ? 1 : 0;

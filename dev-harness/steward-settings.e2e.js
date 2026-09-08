@@ -28,6 +28,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -43,14 +44,8 @@ const POLL_MS = 120000;   // 轮询周期拉满：测试窗口内壳层不会自
 const SID_A = 'sess_settings_thread_a';
 const SID_B = 'sess_settings_thread_b';
 
-function browserPath() {
-  return [
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].find(file => fs.existsSync(file)) || '';
-}
+const { findBrowserExecutable } = require('./lib/browser-path');
+const browserPath = findBrowserExecutable;
 
 function request(port, method, pathname, body, token) {
   return new Promise(resolve => {
@@ -636,6 +631,7 @@ try {
   killTree(browser);
   killTree(server);
   await sleep(400);
+  stopRuyiTestBrowsers(profile);
   try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 
