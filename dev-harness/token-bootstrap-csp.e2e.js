@@ -36,7 +36,8 @@ function req(method, p, headers, body) {
   });
 }
 let PORT = 0;
-async function up() { for (let i = 0; i < 50; i++) { try { const r = await req('GET', '/health', {}); if (r.status === 200) return true; } catch {} await sleep(120); } return false; }
+async function up() { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { try { const r = await req('GET', '/health', {}); if (r.status === 200) return true; } catch {} await sleep(120); } return false; }
 
 (async () => {
   // ── S 段: 静态锁 ──

@@ -81,7 +81,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   function getToken() { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port: PORT, path: '/', timeout: 1500 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); }
   try {
     let up = false;
-    for (let i = 0; i < 60 && !up; i++) { await sleep(250); const h = await getJson('/health'); up = h.status === 200; }
+    for (let i = 0; i < 300 && !up; i++) { await sleep(250); const h = await getJson('/health'); up = h.status === 200; } // 117q:预算 60×250ms=15s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)
     ok(up, 'B1 workbench up on :' + PORT);
     const token = await getToken();
     ok(!!token, 'B1 UI token scraped');

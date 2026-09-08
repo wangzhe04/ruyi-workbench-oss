@@ -37,7 +37,8 @@ function httpReq(port, method, p, body, headers = {}) {
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
-async function up(port) { for (let i = 0; i < 60; i++) { try { const r = await httpReq(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ } await sleep(150); } return false; }
+async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { try { const r = await httpReq(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ } await sleep(150); } return false; }
 function spawnWb() {
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});

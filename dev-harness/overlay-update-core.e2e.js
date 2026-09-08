@@ -52,7 +52,8 @@ function post(port, p, body, headers = {}) {
     r.write(raw); r.end();
   });
 }
-async function up(port) { for (let i = 0; i < 60; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
+async function up(port) { // 117q:预算 60×120ms=7.2s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
 
 // ── PS1 调用(直测 A/B 段用) ──
 // 严格输出纪律:-Json 模式应只输出单 JSON 对象。检测 first-{ 前是否有非空白(管道泄漏,如 $x++ 吐数字),

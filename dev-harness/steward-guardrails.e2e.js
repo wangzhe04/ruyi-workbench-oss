@@ -106,8 +106,8 @@ function request(method, p, body, headers) {
     r.end();
   });
 }
-async function waitUp() {
-  for (let i = 0; i < 100; i++) {
+async function waitUp() { // 117q:预算 100×120ms=12s 余量对本机冷启动实测 4.6-6.3s 偏窄,抬到 30 号文 P1-31 建议的量级(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) {
     const h = await request('GET', '/health');
     if (h.status === 200) return true;
     await sleep(120);

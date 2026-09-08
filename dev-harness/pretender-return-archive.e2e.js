@@ -32,7 +32,8 @@ function request(pathname, token = '') {
     req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); });
   });
 }
-async function waitHealth() { for (let i = 0; i < 100; i++) { const result = await request('/health'); if (result?.status === 200) return true; await sleep(60); } return false; }
+async function waitHealth() { // 117q:预算 100×60ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const result = await request('/health'); if (result?.status === 200) return true; await sleep(60); } return false; }
 
 fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
 process.env.RUYI_HOME = HOME; process.env.HOME = HOME; process.env.USERPROFILE = HOME;

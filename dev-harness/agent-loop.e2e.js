@@ -47,7 +47,7 @@ function writeConfig(home, fakePort) {
     return { fake, wb };
   };
   const killPair = pair => { for (const c of [pair.wb, pair.fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } } };
-  const waitHealthy = async (port) => { let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(port); } return h; };
+  const waitHealthy = async (port) => { let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await health(port); } return h; }; // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
 
   try {
     // ---- Part 0: lifecycle hook contract (in-process, no provider required) ----

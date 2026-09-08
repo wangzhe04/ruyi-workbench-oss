@@ -41,7 +41,8 @@ function chatStream(payload, headers) {
     r.on('error', reject); r.write(data); r.end();
   });
 }
-async function up() { for (let i = 0; i < 60; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
+async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { try { const r = await req('GET', '/health'); if (r.status === 200) return true; } catch {} await sleep(150); } return false; }
 
 // ── 内联 fake(按 session 初始消息的任务标记分支) ──
 function sse(res, o) { res.write('data: ' + JSON.stringify(o) + '\n\n'); }

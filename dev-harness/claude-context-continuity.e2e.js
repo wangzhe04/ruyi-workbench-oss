@@ -36,7 +36,8 @@ function health() {
     req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); });
   });
 }
-async function waitHealth() { for (let i = 0; i < 50; i++) { const h = await health(); if (h) return h; await sleep(120); } return null; }
+async function waitHealth() { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const h = await health(); if (h) return h; await sleep(120); } return null; }
 function stream(body) {
   return new Promise((resolve, reject) => {
     const raw = JSON.stringify(body);

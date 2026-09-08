@@ -95,7 +95,7 @@ function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['
   await new Promise(resolve => fake.listen(FP, '127.0.0.1', resolve));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, windowsHide: true, env: { ...process.env, RUYI_HOME: HOME, WCW_TURN_IDLE_MS: String(IDLE_MS), WCW_AGENT_WORKFLOW_IDLE_MS: String(IDLE_MS) } });
   try {
-    let healthy = false; for (let i = 0; i < 50 && !healthy; i++) { await sleep(120); healthy = !!(await get(WP, '/health')); }
+    let healthy = false; for (let i = 0; i < 300 && !healthy; i++) { await sleep(120); healthy = !!(await get(WP, '/health')); } // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
     ok(healthy, 'workbench starts');
     const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => { b += c; }); res.on('end', () => resolve(b)); }));
     const token = (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1];

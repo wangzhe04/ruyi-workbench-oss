@@ -44,7 +44,7 @@ function alive(pid) { try { process.kill(pid, 0); return true; } catch { return 
     A = spawnWb('A');
     // wait for A to listen
     let hA = null;
-    for (let i = 0; i < 40 && !hA; i++) { await sleep(150); hA = await health(); }
+    for (let i = 0; i < 300 && !hA; i++) { await sleep(150); hA = await health(); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
     ok(!!hA, 'A is listening on :' + PORT);
     const idA = hA && hA.overlayId;
     console.log('  A overlayId=' + idA + ' pid=' + A.pid);

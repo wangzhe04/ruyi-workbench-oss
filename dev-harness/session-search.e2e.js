@@ -53,7 +53,8 @@ function post(port, route, body, headers = {}) {
     req.write(raw); req.end();
   });
 }
-async function up(port) { for (let i = 0; i < 80; i++) { const r = await get(port, '/health'); if (r.json) return true; await sleep(150); } return false; }
+async function up(port) { // 117q:预算 80×150ms=12s 余量对本机冷启动实测 4.6-6.3s 偏窄,抬到 30 号文 P1-31 建议的量级(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const r = await get(port, '/health'); if (r.json) return true; await sleep(150); } return false; }
 function isolatedEnv(home) {
   return { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home,
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'), KIMI_CODE_HOME: path.join(home, '.kimi') };

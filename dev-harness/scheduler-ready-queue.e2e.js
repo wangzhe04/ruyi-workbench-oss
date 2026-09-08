@@ -35,7 +35,8 @@ function httpReq(port, method, p, body, headers = {}) {
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
-async function up(port) { for (let i = 0; i < 60; i++) { try { const r = await httpReq(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ } await sleep(150); } return false; }
+async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { try { const r = await httpReq(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ } await sleep(150); } return false; }
 
 // 内联 fake:按请求体里的任务标记决定响应延迟(SLOWMARK ~4s / 其余 ~0.25s),纯文本回答(无工具)。
 const fake = http.createServer((req, res) => {

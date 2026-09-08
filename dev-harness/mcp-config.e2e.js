@@ -191,7 +191,7 @@ async function runDropIn(fakePort, wbPort) {
   const wb = cp.spawn(NODE, ['app/server.js', 'serve', '--port', String(wbPort)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   try {
-    let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await getJson(wbPort, '/health'); }
+    let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await getJson(wbPort, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
     ok(!!h, 'workbench up (bad manifest did NOT crash startup)');
     // 驱动一次 echo → drop-in 的 foo_dropin__echo 被桥接并调用。
     const events = await postStream(wbPort, { message: '用 drop-in 的 echo 工具' });

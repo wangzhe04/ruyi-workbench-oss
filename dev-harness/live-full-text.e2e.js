@@ -134,8 +134,8 @@ function request(method, p, body, headers) {
     r.end();
   });
 }
-async function waitUp() {
-  for (let i = 0; i < 150; i++) { const h = await request('GET', '/health'); if (h.status === 200) return true; await sleep(120); }
+async function waitUp() { // 117q:预算 150×120ms=18s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const h = await request('GET', '/health'); if (h.status === 200) return true; await sleep(120); }
   return false;
 }
 async function tokenOf() {

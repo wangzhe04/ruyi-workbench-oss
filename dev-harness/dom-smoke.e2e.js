@@ -85,7 +85,7 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
 (async () => {
   try {
     let up = false;
-    for (let i = 0; i < 40 && !up; i++) { await sleep(150); up = (await get('/health')).status === 200; }
+    for (let i = 0; i < 300 && !up; i++) { await sleep(150); up = (await get('/health')).status === 200; } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
     ok(up, 'workbench up on :' + PORT);
     const bootstrap = await post('/api/bootstrap', {});
     let token = '';

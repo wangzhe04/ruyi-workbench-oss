@@ -64,7 +64,7 @@ const { getFreePort } = require('./free-port.js');
   };
   try {
     let healthy = false;
-    for (let i = 0; i < 60 && !healthy; i++) {
+    for (let i = 0; i < 300 && !healthy; i++) { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
       await sleep(100);
       try { const r = await requestJson('GET', '/health'); healthy = r.status === 200; } catch { /* retry */ }
     }

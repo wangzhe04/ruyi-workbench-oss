@@ -52,7 +52,7 @@ async function launchStack(tag, flags, fakeEnv) {
   });
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: EHOME, RUYI_HOME: EHOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!' + tag + '] ' + l.trim())));
-  let h = null; for (let i = 0; i < 80 && !h; i++) { await sleep(250); h = await new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health', timeout: 3000 }, res => { res.resume(); resolve({ status: res.statusCode }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
+  let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(250); h = await new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health', timeout: 3000 }, res => { res.resume(); resolve({ status: res.statusCode }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); } // 117q:预算 80×250ms=20s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)
   const readCap = n => { try { return JSON.parse(fs.readFileSync(path.join(CAP, 'req-' + String(n).padStart(3, '0') + '.json'), 'utf8')); } catch { return null; } };
   const capCount = () => { try { return fs.readdirSync(CAP).filter(f => f.startsWith('req-')).length; } catch { return 0; } };
   // logEvent 是异步追加流 —— 轮询读当日 ndjson,容忍 flush 延迟。

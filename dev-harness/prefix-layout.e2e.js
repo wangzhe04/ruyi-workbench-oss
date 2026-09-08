@@ -54,7 +54,7 @@ async function launchStack(tag, flags) {
   });
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: EHOME, RUYI_HOME: EHOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!' + tag + '] ' + l.trim())));
-  let h = null; for (let i = 0; i < 80 && !h; i++) { await sleep(250); h = await get(WB_PORT, '/health'); }
+  let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(250); h = await get(WB_PORT, '/health'); } // 117q:预算 80×250ms=20s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)
   const readCap = n => { try { return JSON.parse(fs.readFileSync(path.join(CAP, 'req-' + String(n).padStart(3, '0') + '.json'), 'utf8')); } catch { return null; } };
   const logFile = path.join(EHOME, 'logs', 'workbench-' + new Date().toISOString().slice(0, 10) + '.ndjson');
   const waitLog = async (pred, ms) => {

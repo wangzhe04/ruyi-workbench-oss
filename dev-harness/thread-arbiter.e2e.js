@@ -85,8 +85,8 @@ function stream(port, body, hdr) {
     r.write(raw); r.end();
   });
 }
-async function waitUp(port) {
-  for (let i = 0; i < 80; i++) {
+async function waitUp(port) { // 117q:预算 80×120ms=9.6s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) {
     const h = await req(port, 'GET', '/health');
     if (h.status === 200) return true;
     await sleep(120);

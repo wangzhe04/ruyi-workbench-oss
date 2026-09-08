@@ -49,7 +49,8 @@ function lastAssistant(session) {
   for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i] && msgs[i].role === 'assistant') return msgs[i];
   return null;
 }
-async function waitHealth(port) { let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(port); } return h; }
+async function waitHealth(port) { // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await health(port); } return h; }
 function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
 
 (async () => {

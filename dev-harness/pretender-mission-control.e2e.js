@@ -44,8 +44,8 @@ function request(pathname, body = null, token = '') {
     req.on('error', reject); if (raw) req.write(raw); req.end();
   });
 }
-async function waitHealth() {
-  for (let i = 0; i < 100; i++) {
+async function waitHealth() { // 117q:预算 100×80ms=8s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) {
     const result = await request('/health').catch(() => null);
     if (result && result.status === 200) return true;
     await sleep(80);

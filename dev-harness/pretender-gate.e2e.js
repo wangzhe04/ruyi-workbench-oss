@@ -34,7 +34,8 @@ function requestJson(port, pathname, body, token) {
     req.on('error', reject); if (raw) req.write(raw); req.end();
   });
 }
-async function waitHealth(port) { for (let i = 0; i < 60; i++) { const r = await requestJson(port, '/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
+async function waitHealth(port) { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const r = await requestJson(port, '/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
 
 // fake provider:首个 user 消息触发 request_user_input;答了 Vue 后纯文本收尾(与 interventions-persist 同型)。
 function startProvider() {

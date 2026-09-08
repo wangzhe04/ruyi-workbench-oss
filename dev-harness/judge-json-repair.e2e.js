@@ -127,7 +127,8 @@ fake.on('connection', s => { sockets.add(s); s.on('close', () => sockets.delete(
 // ---------- http helpers ----------
 function get(port, p, headers = {}) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 4000, headers }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
 function post(port, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', timeout: 30000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } }); }); r.on('error', reject); r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); }); r.write(raw); r.end(); }); }
-async function up(port, p = '/health') { for (let i = 0; i < 50; i++) { if (await get(port, p)) return true; await sleep(120); } return false; }
+async function up(port, p = '/health') { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { if (await get(port, p)) return true; await sleep(120); } return false; }
 async function waitFor(label, fn, tries = 80, gap = 150) { for (let i = 0; i < tries; i++) { const v = await fn(); if (v) return v; await sleep(gap); } ok(false, label + ' (timed out)'); return null; }
 function readRecs() { try { return fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/).filter(l => l.trim()).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; } }
 function repairCount() { return get(FP, '/__repairs').then(r => (r && r.count) || 0); }

@@ -71,7 +71,7 @@ async function startServer(port) {
   });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
-  let h = null; for (let i = 0; i < 40 && !(h && h.body && h.body.ok); i++) { await sleep(150); h = await getJson(port, '/health'); }
+  let h = null; for (let i = 0; i < 300 && !(h && h.body && h.body.ok); i++) { await sleep(150); h = await getJson(port, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   return { wb, h };
 }
 async function stopServer(wb) { if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } await sleep(300); }

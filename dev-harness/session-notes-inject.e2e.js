@@ -78,7 +78,7 @@ async function launchStack(tag, flags) {
   });
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: EHOME, RUYI_HOME: EHOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!' + tag + '] ' + l.trim())));
-  let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await get(WB_PORT, '/health'); }
+  let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await get(WB_PORT, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   const readCap = n => { try { return JSON.parse(fs.readFileSync(path.join(CAP, 'req-' + String(n).padStart(3, '0') + '.json'), 'utf8')); } catch { return null; } };
   const cleanup = async () => { kill(wb); kill(fake); await sleep(300); fs.rmSync(EHOME, { recursive: true, force: true }); };
   return { EHOME, WB_PORT, CAP, readCap, cleanup, healthy: !!h };

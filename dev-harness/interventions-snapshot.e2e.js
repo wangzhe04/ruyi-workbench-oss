@@ -62,7 +62,8 @@ function requestJson(pathname, body, opts = {}) {
     req.on('error', reject); if (raw) req.write(raw); req.end();
   });
 }
-async function waitHealth() { for (let i = 0; i < 60; i++) { const r = await requestJson('/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
+async function waitHealth() { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { const r = await requestJson('/health', null).catch(() => null); if (r && r.status === 200) return true; await sleep(100); } return false; }
 
 const ivFile = sid => path.join(HOME, 'sessions', sid + '.interventions.ndjson');
 function seedIv(sid, rows) {

@@ -164,7 +164,7 @@ function writeCfg(flags) {
     const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: EHOME, RUYI_HOME: EHOME }, windowsHide: true });
     wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
     try {
-      let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await get(WB_PORT, '/health'); }
+      let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await get(WB_PORT, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
       ok(!!h, 'E0 workbench listening on :' + WB_PORT);
       const events = await postStream(WB_PORT, { message: '调用 observation_recall 工具试试' });
       const result = events.find(e => e.type === 'result');

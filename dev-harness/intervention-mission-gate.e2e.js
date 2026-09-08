@@ -128,7 +128,7 @@ try {
     try { token = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
   }
   ok(!!token, 'A0 服务起来了(拿到 token)');
-  for (let i = 0; i < 60; i++) { const r = await req('GET', '/health', null, token); if (r.status === 200) break; await sleep(120); }
+  for (let i = 0; i < 300; i++) { const r = await req('GET', '/health', null, token); if (r.status === 200) break; await sleep(120); } // 117q:预算 60×120ms=7.2s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
 
   /* ═════════ (A) 容器 + attach ═════════ */
   console.log('── (A) 事项容器与线程归属 ──');

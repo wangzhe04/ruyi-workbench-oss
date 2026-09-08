@@ -47,8 +47,8 @@ function request(method, p, body, headers = {}) {
     req.end();
   });
 }
-async function up() {
-  for (let i = 0; i < 60; i++) {
+async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) {
     try { const r = await request('GET', '/health'); if (r.status === 200) return true; } catch { /* not yet */ }
     await sleep(150);
   }

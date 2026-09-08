@@ -51,8 +51,8 @@ function request(method, pathname, body, token) {
 const get = (p, token) => request('GET', p, null, token);
 const post = (p, body, token) => request('POST', p, body == null ? {} : body, token);
 
-async function waitHealth() {
-  for (let i = 0; i < 80; i++) {
+async function waitHealth() { // 117q:预算 80×100ms=8s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) {
     const r = await get('/health').catch(() => null);
     if (r && r.status === 200) return true;
     await sleep(100);

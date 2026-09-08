@@ -25,7 +25,8 @@ function req(port, method, p, body, headers = {}) {
     r.on('error', reject); if (data) r.write(data); r.end();
   });
 }
-async function up(port) { for (let i = 0; i < 60; i++) { try { const r = await req(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* ignore */ } await sleep(150); } return false; }
+async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
+  for (let i = 0; i < 300; i++) { try { const r = await req(port, 'GET', '/health'); if (r.status === 200) return true; } catch { /* ignore */ } await sleep(150); } return false; }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 
 fs.rmSync(HOME, { recursive: true, force: true });
