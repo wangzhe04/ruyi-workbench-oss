@@ -18807,15 +18807,49 @@ function stewardAsksYou(input) {
 // ⑤ 线程行/线程详情的 asksYou:把【待决行】抽成 stewardAsksYou 要的 question 形状。
 // 两个调用面(13g 的 steward_thread_status、13e 的看板行叠加层)各自抽一遍的话,
 // 「问题原文取哪个字段」就会漂成两套。
+// 117m-A2(用户第六轮走查⑤⑥「系统提示的需要我通知,在管家界面也点不开」/「需要我允许的也没在线程中」):
+// 修前这一行只认 `iv.type === 'question'`,于是【四类待决】(§3.1 的 permission/question/plan/pool,
+// 与 13i-steward-inbox 的 intervention 表同一口径)里只有一类能变成「它在问你」。真机
+// sess_8bb0dd55d35045b0 的 14 条待决全是 permission(最后一条 02:34:57 请求、02:36:57 decidedBy
+// 'timeout' 被拒),于是:看板行拿不到 asksYou -> 没有 pill;抽屉的问答卡整段不出 -> 右上说「需要你 1」
+// 却什么都点不开。
+// 修法:按【固定优先级】取第一条待决 question > permission > plan > pool;人话一律走下面那个单点
+// stewardPendingOneLine(它对四类都已经有一句人话),本层不另写第二套措辞。
+// 返回形状【只加不改】:question 一支逐字不变(既有断言看着 kind/questionId/text),只补一个与
+// questionId 同值的 interventionId,让前端四类走同一个字段名去做决策。
 function stewardAsksYouForThread(input) {
   const o = (input && typeof input === 'object') ? input : {};
-  const pending = (Array.isArray(o.pending) ? o.pending : []).find(iv => iv && iv.type === 'question') || null;
+  const list = Array.isArray(o.pending) ? o.pending : [];
+  // 顺序即优先级:能【机器可答】的排前面(question 有候选项),再是「按一下就放行」的 permission,
+  // 最后是两类「批准/驳回」。同一条线程同时挂多类时只报最靠前的那一条 —— 界面一次只让人做一件事。
+  let pending = null;
+  for (const type of ['question', 'permission', 'plan', 'pool']) {
+    pending = list.find(iv => iv && iv.type === type) || null;
+    if (pending) break;
+  }
+  if (pending && pending.type !== 'question') {
+    // 活回合【不】压过正式待决:待决是「机器已经停在那儿等你按一下」,回合在不在跑都不改变这个事实
+    // (question 一支的既有语义同此 —— stewardAsksYou 里 question 也判在 activeTurn 之前)。
+    return {
+      kind: String(pending.type),
+      text: stewardSanitizeText(stewardPendingOneLine(pending)).slice(0, STEWARD_ASKS_YOU_CHARS),
+      interventionId: String(pending.id || ''),
+      // permission 一支多带三样,抽屉要用它们说「这一步要动什么、能不能撤回」(registerIntervention
+      // 落盘时就有,不是这里现编的)。
+      ...(pending.type === 'permission' ? {
+        toolName: String(pending.toolName || ''),
+        tier: String(pending.tier || ''),
+        revertible: pending.revertible === true,
+      } : {}),
+    };
+  }
   const first = pending ? (Array.isArray(pending.questions) ? pending.questions : [])[0] : null;
-  return stewardAsksYou({
+  const asks = stewardAsksYou({
     question: pending ? { questionId: String(pending.id), text: (first && (first.question || first.title)) || pending.questionSummary || '' } : null,
     activeTurn: o.activeTurn === true,
     lastAssistantText: o.lastAssistantText,
   });
+  return (asks && asks.kind === 'question') ? { ...asks, interventionId: asks.questionId } : asks;
 }
 
 // ── 待决与原话的两个纯文本格式化函数(117l 从 13g 搬来,零行为变化)────────────────
@@ -41603,15 +41637,14 @@ function overlayMissionCard(slice) {
   const activeTurn = activeChildren.has(slice.sessionId);
   // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
   // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
-  const pendingQuestion = (Array.isArray(slice.interventions) ? slice.interventions : [])
-    .find(iv => iv && iv.status === 'pending' && iv.type === 'question') || null;
-  const asksYou = stewardAsksYou({
-    question: pendingQuestion
-      ? {
-        questionId: String(pendingQuestion.id),
-        text: ((Array.isArray(pendingQuestion.questions) ? pendingQuestion.questions : [])[0] || {}).question || pendingQuestion.questionSummary || '',
-      }
-      : null,
+  // 117m-A2:判据单点从 stewardAsksYou 换成 stewardAsksYouForThread —— 后者认【四类待决】
+  // (question > permission > plan > pool),而这里修前只挑 question,于是挂着 permission 的线程
+  // 在看板行永远拿不到 asksYou(用户第六轮走查⑥:标着「需要你」的行上一枚 pill 都没有)。
+  // 抽取待决行的那一段一并搬进 06i:两个调用面(13g 与本处)现在喂的是同一个入参形状。
+  const pending = (Array.isArray(slice.interventions) ? slice.interventions : [])
+    .filter(iv => iv && iv.status === 'pending');
+  const asksYou = stewardAsksYouForThread({
+    pending,
     activeTurn,
     lastAssistantText: String(card.lastSay || ''),
   });

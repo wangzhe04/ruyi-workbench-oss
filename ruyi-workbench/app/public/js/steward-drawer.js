@@ -97,6 +97,13 @@ export function liveTailSentences(text, max = STEWARD_LAST_SAY_SENTENCES) {
 // ③ 存在的理由：服务端那一路的 soft 判定吃的是总览行里被裁到 160 字的 head.summary，会漏报；
 // 抽屉手上有完整的会话正文，所以在这里补一道（只可能补出更多，不会把 ① ② 判反）。
 export const STEWARD_ASKS_YOU_CHARS = 300;
+// 117m-A2（用户第六轮走查⑤⑥）：四类待决（§3.1 的 permission/question/plan/pool）都算「有人在等你」。
+// 修前这里是一句 `if (pending) return null;` —— 只有 question 出得了卡片，于是挂着 permission 的
+// 线程打开抽屉什么问答卡都没有，用户看见「需要你 1」却点不开任何东西。
+// 顺序与服务端 06i 的 stewardAsksYouForThread 逐字同源（question > permission > plan > pool）。
+// 人话【不在这里编】：permission／plan／pool 那一句一律来自服务端 06i 的 stewardPendingOneLine
+// （经行上的 asksYou.text 送过来）；行还没到就先不摆那句话，绝不在前端另写一句。
+export const STEWARD_ASK_PENDING_KINDS = Object.freeze(['question', 'permission', 'plan', 'pool']);
 export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false } = {}) {
   if (pending && String(pending.type) === 'question') {
     const questions = (Array.isArray(pending.questions) ? pending.questions : [])
@@ -107,9 +114,24 @@ export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantTe
       texts: questions.length ? questions : [String(pending.questionSummary || '').trim()].filter(Boolean),
     };
   }
-  if (pending) return null;                       // permission／plan 等：不是「在问你一句话」，交给 ⑥
   const row = (rowAsksYou && typeof rowAsksYou === 'object') ? rowAsksYou : null;
   const rowText = String((row && row.text) || '').trim();
+  const type = String((pending && pending.type) || '');
+  if (type === 'permission' || type === 'plan' || type === 'pool') {
+    return {
+      kind: type,
+      interventionId: String(pending.id || ''),
+      // 决策要打到【这条会话自己】的 id 上：待决本体在它自己那本旁路账里（13d 的 decideIntervention
+      // 把「missionId 等于会话自身 id」显式认作合法别名，116g 之后容器 id 那一条反而读不到）。
+      missionId: String(pending.sessionId || ''),
+      interventionVersion: Math.max(0, Number(pending.interventionVersion) || 0),
+      toolName: String(pending.toolName || ''),
+      tier: String(pending.tier || ''),
+      revertible: pending.revertible === true,
+      texts: (row && String(row.kind) === type && rowText) ? [rowText] : [],
+    };
+  }
+  if (pending) return null;                       // replan 等四类白名单之外的：本波不认领，交给 ⑥
   // 行上说「在问你」而本地待决清单还没到（两趟请求之间的那一帧）：照样把问题摆出来。没有本地
   // 待决就没有选项按钮，自由回答走递话单口 —— 服务端那一头照样判成 answer 通道，不会答错地方。
   if (row && String(row.kind) === 'question' && rowText) return { kind: 'question', questionId: '', texts: [rowText] };
@@ -318,7 +340,14 @@ export function createStewardDrawer({
       liveTail = (sessionRes.liveTail && typeof sessionRes.liveTail === 'object') ? sessionRes.liveTail : null;
     }
     const list = (interventionsRes && Array.isArray(interventionsRes.pending)) ? interventionsRes.pending : [];
-    pendingForThread = list.find(item => item && String(item.sessionId) === id) || null;
+    // 117m-A2：按【与服务端同一条】优先级挑那一条待决（question > permission > plan > pool）。
+    // 修前取的是 /api/interventions 按 requestedAt 排好的第一条 —— 同一条线程既挂着 question 又挂着
+    // permission 时，抽屉会挑先来的那条、看板行挑优先级最高的那条，两边各说各的。
+    // 四类之外（replan）仍回落到「最早的那一条」，三问那一路的既有行为一个字不变。
+    const mine = list.filter(item => item && String(item.sessionId) === id);
+    pendingForThread = STEWARD_ASK_PENDING_KINDS
+      .map(type => mine.find(item => String(item.type) === type) || null)
+      .find(Boolean) || mine[0] || null;
   }
 
   async function loadMissionSlice() {
@@ -504,10 +533,42 @@ export function createStewardDrawer({
 
   // 待决 question 的选项按钮：与 ⑥「你可以说」【同一份】判据（quickRepliesFor），只是摆在卡片里。
   // 不另写一遍「从 questions[0].options 里取 label||value」—— 那会长出第二套取值口径。
+  // 117m-A2：permission 走的也是 quickRepliesFor 的【既有】那一支（它第 164 行本来就出「允许／拒绝」，
+  // 修前只是没人把它摆进卡里）；plan／pool 那两枚「批准／驳回」在这里补形状，走的仍是既有的统一
+  // 决策契约端点（见 runQuickReply），不新起路径。
   function askOptionReplies() {
-    if (!pendingForThread || String(pendingForThread.type) !== 'question') return [];
-    return quickRepliesFor({ pending: pendingForThread, t }).filter(reply => reply.kind === 'question');
+    const type = String((pendingForThread && pendingForThread.type) || '');
+    if (type === 'question' || type === 'permission') {
+      return quickRepliesFor({ pending: pendingForThread, t }).filter(reply => reply.kind === type);
+    }
+    if (type !== 'plan' && type !== 'pool') return [];
+    const base = {
+      kind: type,
+      interventionId: String(pendingForThread.id || ''),
+      missionId: String(pendingForThread.sessionId || ''),
+      interventionVersion: Math.max(0, Number(pendingForThread.interventionVersion) || 0),
+    };
+    return [
+      { ...base, action: 'approve', label: t('stewardShell.drawer.reply.approve') },
+      { ...base, action: 'reject', label: t('stewardShell.drawer.reply.rejectProposal') },
+    ];
   }
+
+  // 117m-A2：卡片标题按【哪一类在等你】说话（question／soft 逐字沿用 117l 那一句）。
+  const ASK_HEAD_KEYS = Object.freeze({
+    question: 'stewardShell.drawer.asksYou',
+    soft: 'stewardShell.drawer.asksYou',
+    permission: 'stewardShell.drawer.asksYouPermission',
+    plan: 'stewardShell.drawer.asksYouApprove',
+    pool: 'stewardShell.drawer.asksYouApprove',
+  });
+  // 权限档说人话（read/edit/exec 是内部分级，界面上不出现这三个词）。表外一律按 exec 说 ——
+  // fail-closed：说重了顶多让人多看一眼，说轻了就是骗人放行。
+  const ASK_TIER_KEYS = Object.freeze({
+    read: 'stewardShell.drawer.askTier.read',
+    edit: 'stewardShell.drawer.askTier.edit',
+    exec: 'stewardShell.drawer.askTier.exec',
+  });
 
   function renderAsk() {
     const section = byId('stewardDrawerAsk');
@@ -516,8 +577,30 @@ export function createStewardDrawer({
     if (!section || !list || !options) return;
     const ask = asksYouNow();
     section.hidden = !ask;
+    const meta = clear(byId('stewardDrawerAskMeta'));
+    const answer = byId('stewardDrawerAskAnswer');
+    const head = byId('stewardDrawerAskHead');
     if (!ask) return;
+    const kind = String(ask.kind || '');
+    if (head) head.textContent = t(ASK_HEAD_KEYS[kind] || ASK_HEAD_KEYS.soft);
     for (const text of ask.texts) list.appendChild(el('li', 'steward-drawer-ask-line', text));
+    // permission 多两行：「这一步要动：⟨工具人话⟩（⟨档⟩）」＋ 一枚能不能撤回的徽章。
+    // 徽章只说【真的知道】的事：revertible 为真才说「可以撤回」，否则如实说「无法自动撤销」——
+    // 两句都由服务端那一位落盘的事实决定（07 的 toolIsRevertible），不许编第三种说法。
+    if (meta && kind === 'permission') {
+      meta.appendChild(el('li', 'steward-drawer-ask-meta-line', t('stewardShell.drawer.askScope', {
+        tool: threadToolLabel(ask.toolName),
+        tier: t(ASK_TIER_KEYS[String(ask.tier || '')] || ASK_TIER_KEYS.exec),
+      })));
+      const badge = el('li', 'steward-drawer-ask-meta-line',
+        t(ask.revertible === true ? 'stewardShell.drawer.askRevertible' : 'stewardShell.drawer.askIrreversible'));
+      badge.dataset.revertible = ask.revertible === true ? '1' : '0';
+      meta.appendChild(badge);
+    }
+    if (meta) meta.hidden = !meta.firstChild;
+    // 自由输入只对「答一句话」有意义。permission／plan／pool 是按一下的事，留着输入框只会让人
+    // 以为要打完字才算数（真机上那两枚「允许／拒绝」就是这么被当成背景的）。
+    if (answer) answer.hidden = kind === 'permission' || kind === 'plan' || kind === 'pool';
     for (const reply of askOptionReplies()) {
       const button = el('button', 'steward-drawer-reply', reply.label);
       button.type = 'button';
@@ -557,11 +640,22 @@ export function createStewardDrawer({
   }
 
   // 「打开线程回答」按下去该发生的事（走查①）：抽屉开出来之后，焦点落在问答框里。
+  // 117m-A2（走查⑤⑥「点不开」）：焦点落在【第一个可操作控件】上，并把卡片滚进视野 ——
+  // permission／plan／pool 没有输入框（renderAsk 把它整块隐藏了），能操作的是那两枚按钮；
+  // 只认输入框的话，从「N 条等你」跳过来会一个焦点都不落，人还是找不到要点哪儿。
+  // 不加任何计时器（本件契约是抽屉零 setTimeout）：renderAll 已经把卡片画完了才轮到这里。
   function focusAsk() {
     const section = byId('stewardDrawerAsk');
+    if (!section || section.hidden) return false;
+    try { if (typeof section.scrollIntoView === 'function') section.scrollIntoView({ block: 'nearest' }); }
+    catch { /* 老浏览器不支持 options 形参，滚不动不影响下面的聚焦 */ }
     const input = byId('stewardDrawerAskInput');
-    if (!section || section.hidden || !input || typeof input.focus !== 'function') return false;
-    try { input.focus(); } catch { return false; }
+    const answer = byId('stewardDrawerAskAnswer');
+    const target = (input && !(answer && answer.hidden))
+      ? input
+      : (byId('stewardDrawerAskOptions') || section).querySelector('.steward-drawer-reply');
+    if (!target || typeof target.focus !== 'function') return false;
+    try { target.focus(); } catch { return false; }
     return true;
   }
 
@@ -753,6 +847,22 @@ export function createStewardDrawer({
           }),
         });
         if (!answered || answered.ok !== true) { failNote((answered && answered.error) || 'answer_failed'); return; }
+        note(t('stewardShell.drawer.answered'));
+      } else if (reply.kind === 'plan' || reply.kind === 'pool') {
+        // 117m-A2：这两类走【既有】的统一决策契约端点（75b 立的那一条，交办台的收件箱抽屉走的
+        // 就是它）。不新起路径，也不各自去找 /api/plan/decision 与 /api/agent-runs/:id 那两个
+        // 老适配器 —— 那会长出第三、第四条决策路径。
+        // 路径上的 missionId 用【这条会话自己的 id】：待决本体在它自己那本旁路账里（13d 的
+        // decideIntervention 把「等于会话自身 id」显式认作合法别名）。
+        const decided = await api(`/api/missions/${encodeURIComponent(reply.missionId)}/interventions/${encodeURIComponent(reply.interventionId)}/decision`, {
+          method: 'POST',
+          body: JSON.stringify({
+            expectedVersion: Math.max(0, Number(reply.interventionVersion) || 0),
+            idempotencyKey: `drawer-${reply.interventionId}-${reply.action}`,
+            action: reply.action,
+          }),
+        });
+        if (!decided || decided.ok !== true) { failNote((decided && decided.error) || 'decision_failed'); return; }
         note(t('stewardShell.drawer.answered'));
       } else if (!(await sayToThread(reply.text))) return;
     } catch (error) { failNote(error); return; }
@@ -1028,6 +1138,9 @@ export function createStewardDrawer({
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
     setMount,
     mountMode: () => mountMode,
+    // 117m-A2：「N 条等你」恰好 1 条时的直达。抽屉自己在数据到齐那一帧已经聚过一次焦
+    // （openThread 末尾），这个句柄补的是「右栏已经开着同一条线程」那种不重走加载的情况。
+    focusAsk,
     refreshOnce,
     chips,
   });

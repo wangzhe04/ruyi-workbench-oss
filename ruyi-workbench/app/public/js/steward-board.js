@@ -41,6 +41,19 @@ export const STEWARD_NOW_MIN_WIDTH = 1000;
 // 与 01-config.js 的 stewardMaxParallelThreads 校验同一区间（[1,32]，默认 5）。
 export const STEWARD_MAX_PARALLEL_MIN = 1;
 export const STEWARD_MAX_PARALLEL_MAX = 32;
+// 117m-A2（用户第六轮走查⑤⑥）：行上那枚 pill 按【哪一类待决】说话。四类的分量不一样：
+// question 是「要你答一句」，permission 是「它停在那儿，要你按一下才敢动手」，plan／pool 是提案。
+// 全说成同一句「它在问你」，用户就分不清「点进去要干什么」——真机上他看到「需要你 1」却什么都
+// 点不开，正是因为 permission 这一类修前连 pill 都没有。
+// 判据仍然【只有】行上的 asksYou.kind（06i 的单点算出，与抽屉同一份）；本模块不认识 intervention 的形状。
+export const STEWARD_BOARD_ASKS_YOU_KEYS = Object.freeze({
+  question: 'stewardShell.board.asksYou.question',
+  permission: 'stewardShell.board.asksYou.permission',
+  plan: 'stewardShell.board.asksYou.plan',
+  pool: 'stewardShell.board.asksYou.pool',
+  // 软问句（没有正式待决、只是最后一句以问号收尾）沿用 117l 那一句，逐字不变。
+  soft: 'stewardShell.board.asksYou',
+});
 export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread';
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';
@@ -81,6 +94,10 @@ export function createStewardBoard({
   let missionsEtag = '';            // 带 If-None-Match 走，没变就连解析都省了
   let pinnedId = '';                // 用户显式选过的线程（steward:open-thread / focus-thread / 看板行）
   let suppressCloseRecord = false;  // 程序性关抽屉（窄屏／切壳）不该被记成用户「关掉」了这一件
+  // 117m-A2：状态行那一次 filter 顺手留下的名单（等你的线程 id）。它是「N 条等你」这枚按钮的去处，
+  // 也是「把等你的行排到最前」的判据 —— 两处都读它，不再数第二遍，也不新开第二个计数源。
+  let needsYouIds = [];
+  let needsYouFirst = false;        // 从那枚按钮跳进来的这一程才排序；关看板即复位（后端行序不动）
   const chipsBySession = new Map(); // sessionId -> chips 控件（每行一份实例，读同一份数据）
   const sessionCache = new Map();   // sessionId -> 会话（chip 补齐或 PATCH 回来的那一份）
 
@@ -151,19 +168,60 @@ export function createStewardBoard({
   }
 
   // ── ① 一行状态 ──────────────────────────────────────────────────────────────────
+  // 117m-A2（用户第六轮走查⑤⑥「系统提示的需要我通知，在管家界面也点不开」）：那个数字要有【去处】。
+  // 为什么做成挨着状态行的一枚兄弟按钮，而不是把状态行里「B 条等你」那几个字变成控件：
+  // #stewardStatusLine 自己就是一个 <button>（steward-board.static A1 逐字钉着它），button 里再嵌
+  // button 是非法 HTML、读屏也点不到；把整行改成 <div> 又会把「点开即看板」这条路一起改掉。
+  // 没有人等你的时候整枚隐藏（[hidden] 一处驱动，样式层不管显隐）。
+  function renderNeedsYouGo() {
+    const button = byId('stewardStatusNeedsYouBtn');
+    if (!button) return 0;
+    const count = needsYouIds.length;
+    button.hidden = count === 0;
+    button.textContent = t('stewardShell.board.needsYouGo');
+    const hint = t('stewardShell.board.needsYouGoHint', { n: count });
+    button.title = hint;
+    button.setAttribute('aria-label', hint);
+    return count;
+  }
+
   function renderStatusLine() {
     const line = byId('stewardStatusLine');
     if (!line) return '';
     const views = threadViews();
     if (!views.length) {
+      needsYouIds = [];
+      renderNeedsYouGo();
       line.textContent = t('stewardShell.board.statusEmpty');
       return line.textContent;
     }
     const missions = new Set(rows.map(row => String(row.missionId || row.sessionId))).size;
     const running = views.filter(view => view.state === 'running').length;
-    const needsYou = views.filter(view => view.state === 'needs_you').length;
-    line.textContent = t('stewardShell.board.statusLine', { missions, running, needsYou });
+    // 计数与【名单】同一次 filter 算出来：右上那枚「去处理」要知道去哪一条，而计数源仍然只有这一处
+    // （117l 的 needsYouCount 读的也是这条状态行的同一份事实，不新开第二个计数源）。
+    const waiting = views.filter(view => view.state === 'needs_you');
+    needsYouIds = waiting.map(view => String(view.sessionId));
+    renderNeedsYouGo();
+    line.textContent = t('stewardShell.board.statusLine', { missions, running, needsYou: waiting.length });
     return line.textContent;
+  }
+
+  // 「N 条等你」按下去：恰好 1 条就直接把那条线程的抽屉打开（问答卡在那儿，焦点也落进去）；
+  // 多于 1 条就拉开看板，并把等你的那几行排到最前 —— 排的是这一次渲染用的副本，后端行序不动。
+  function goToNeedsYou() {
+    const ids = needsYouIds.slice();
+    if (!ids.length) return '';
+    if (ids.length === 1) {
+      const id = openThread(ids[0]);
+      // 抽屉在数据到齐的那一帧自己会把焦点送进问答卡（117l 的 focusAsk）。这里再点一次，是为了
+      // 「右栏已经开着同一条线程」那种情况 —— 那时 openThread 不重走一遍加载，也就不会再聚焦。
+      if (drawer && typeof drawer.focusAsk === 'function') drawer.focusAsk();
+      return id;
+    }
+    needsYouFirst = true;
+    setBoardOpen(true);
+    renderBoard();
+    return '';
   }
 
   // ── ② 看板顶部：并发上限就地可调 + 在跑／排队计数 ───────────────────────────────
@@ -312,9 +370,14 @@ export function createStewardBoard({
     // 问答框）。判据【只读】行上的 asksYou（06i 的 stewardAsksYou 单点算出，与抽屉同一份），
     // 本模块不写第二套「它算不算在问你」。
     if (row.asksYou && typeof row.asksYou === 'object' && String(row.asksYou.kind || '')) {
-      const pill = el('button', 'steward-board-pill is-asks-you', t('stewardShell.board.asksYou'));
+      const kind = String(row.asksYou.kind);
+      const pill = el('button', 'steward-board-pill is-asks-you',
+        t(STEWARD_BOARD_ASKS_YOU_KEYS[kind] || STEWARD_BOARD_ASKS_YOU_KEYS.soft));
       pill.type = 'button';
-      pill.dataset.asksYou = String(row.asksYou.kind);
+      // 待决原话（06i 的 stewardPendingOneLine 出的那一句）挂 hover：pill 上只放「哪一类」，
+      // 「具体是什么」在抽屉的问答卡里说全，行上不抢那句话的位置。
+      if (row.asksYou.text) pill.title = String(row.asksYou.text);
+      pill.dataset.asksYou = kind;
       pill.onclick = () => openThread(sessionId);
       head.appendChild(pill);
     }
@@ -382,6 +445,15 @@ export function createStewardBoard({
     const host = clear(byId('stewardBoardList'));
     if (!host) return 0;
     const groups = groupRows();
+    // 117m-A2：从「N 条等你」跳过来时（多于 1 条那一支），把等你的行排到最前。排的是这一次渲染
+    // 用的【副本】—— rows 本身与 GET /api/missions 的行序一个字节不动，看板关掉即复位。
+    // sort 在现代 JS 里是稳定的，所以其余行的相对顺序不变。
+    if (needsYouFirst && needsYouIds.length) {
+      const waiting = new Set(needsYouIds);
+      const waits = row => Number(waiting.has(String(row && row.sessionId)));
+      for (const group of groups) group.rows = group.rows.slice().sort((a, b) => waits(b) - waits(a));
+      groups.sort((a, b) => Number(a.rows.some(waits) ? 0 : 1) - Number(b.rows.some(waits) ? 0 : 1));
+    }
     if (!groups.length) {
       // 117l-B2 ②（用户第五轮走查 2）：空态从「一句灰字」变成「一句话 ＋ 一个出口」。
       // 文案与「＋ 线程」都是既有的键，不新开第二套说法；按钮走的也是同一个 newThread。
@@ -539,6 +611,8 @@ export function createStewardBoard({
     const line = byId('stewardStatusLine');
     if (!board) return false;
     board.hidden = !open;
+    // 117m-A2：「等你的排最前」只活在【这一程】—— 看板一关就复位，下次点开还是后端那个行序。
+    if (!open) needsYouFirst = false;
     if (line) line.setAttribute('aria-expanded', open ? 'true' : 'false');
     syncPolling();
     if (open) void refreshBoard();
@@ -599,6 +673,7 @@ export function createStewardBoard({
     if (board) board.hidden = true;
     const line = byId('stewardStatusLine');
     if (line) line.setAttribute('aria-expanded', 'false');
+    needsYouFirst = false;
     pinnedId = '';
     syncNow();
     stopPolling();
@@ -611,6 +686,9 @@ export function createStewardBoard({
       line.setAttribute('aria-expanded', 'false');
       line.onclick = () => setBoardOpen(!isBoardOpen());
     }
+    // 117m-A2：「N 条等你」的去处（恰好 1 条直接开那条线程，多于 1 条拉开看板并把它们排到最前）。
+    const needsYouGo = byId('stewardStatusNeedsYouBtn');
+    if (needsYouGo) { needsYouGo.hidden = true; needsYouGo.onclick = () => { goToNeedsYou(); }; }
     const max = byId('stewardBoardMax');
     if (max) max.onchange = () => { void saveMaxParallel(max.value); };
     const pause = byId('stewardBoardPauseAllBtn');

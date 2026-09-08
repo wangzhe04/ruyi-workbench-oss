@@ -35,6 +35,29 @@
 .steward-status-line[aria-expanded="true"] { color: var(--ink); }
 .steward-status-line:empty { display: none; }
 
+/* 117m-A2：「N 条等你」的去处。它是状态行的兄弟节点（button 不能套 button），所以自己带底色，
+   金色描边 + 极淡金底 —— 与看板行那枚「它在问你」pill 同一族，一眼看出是同一件事。
+   显隐由 [hidden] 驱动（JS 写），这里配守卫：作者样式的 display 会压过 UA 表的 [hidden]。 */
+.steward-status-needsyou {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+  padding: 3px var(--sp-2);
+  margin-inline-start: var(--sp-1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.steward-status-needsyou[hidden] { display: none; }
+.steward-status-needsyou:hover { background: var(--gold); color: var(--panel); }
+.steward-status-needsyou:focus-visible { outline: none; box-shadow: var(--ring); }
+
 /* ── ② 看板：从状态行下拉的面板 ──────────────────────────────────────────────── */
 .steward-board {
   position: absolute;

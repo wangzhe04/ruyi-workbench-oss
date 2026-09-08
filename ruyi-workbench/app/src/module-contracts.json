@@ -1282,7 +1282,9 @@
         "CLAUDE_RECOVERY_HISTORY_CHARS",
         "CLAUDE_RECOVERY_MESSAGE_CHARS",
         "CLAUDE_TASK_NOTIFICATION_MAX_CHARS",
+        "LIVE_FULL_CHARS",
         "LIVE_TAIL_CHARS",
+        "LIVE_TOOLS_MAX",
         "MCP_COMPAT_MATRIX",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
@@ -11229,7 +11231,7 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardAsksYou",
+          "symbol": "stewardAsksYouForThread",
           "kinds": [
             "call"
           ]

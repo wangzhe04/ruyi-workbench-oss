@@ -331,6 +331,35 @@ for (const selector of ['\\.steward-board-maxwrap', '\\.steward-board-thread', '
     `I10 本波新增的过渡 ${selector.replace(/\\/g, '')} 也进了 reduced-motion 的关闭清单`);
 }
 
+// ─── J 117m-A2：「等你」要点得开（用户第六轮走查⑤⑥）─────────────────────────────
+// ⑤「系统提示的需要我通知，在管家界面也点不开」／⑥「需要我允许的也没在线程中」。
+// 根因在服务端（06i 的 asksYou 只认 question），界面这一侧要跟上两件事：
+//   pill 按【哪一类待决】说话；「N 条等你」那个数字要有【去处】。
+ok(JSON.stringify(Object.keys(mod.STEWARD_BOARD_ASKS_YOU_KEYS)) === JSON.stringify(['question', 'permission', 'plan', 'pool', 'soft'])
+  && Object.isFrozen(mod.STEWARD_BOARD_ASKS_YOU_KEYS)
+  && Object.values(mod.STEWARD_BOARD_ASKS_YOU_KEYS).every(key => typeof zh[key] === 'string' && typeof en[key] === 'string'),
+  'J1 pill 文案表覆盖四类待决 ＋ 软问句，五个键中英都齐备（导出常量，不是散落字面量）');
+ok(/t\(STEWARD_BOARD_ASKS_YOU_KEYS\[kind\] \|\| STEWARD_BOARD_ASKS_YOU_KEYS\.soft\)/.test(boardCode)
+  && !/t\('stewardShell\.board\.asksYou'\)/.test(boardCode),
+  'J1b pill 文案【由 kind 决定】，看板里没有第二处写死的「它在问你」');
+ok(/<button type="button" id="stewardStatusNeedsYouBtn" class="steward-status-needsyou" hidden><\/button>/.test(header),
+  'J2 「N 条等你」的去处是 #stewardStatusLine 的【兄弟】button（那一行自己就是 button，套不了第二个），默认 hidden');
+ok(/const waiting = views\.filter\(view => view\.state === 'needs_you'\);/.test(boardCode)
+  && /needsYouIds = waiting\.map\(view => String\(view\.sessionId\)\);/.test(boardCode)
+  && /needsYou: waiting\.length/.test(boardCode),
+  'J2b 名单与计数是【同一次】filter 的产物：不新开第二个计数源，也不把 needs_you 数第二遍（B5 仍然只准两处）');
+ok(/if \(ids\.length === 1\) \{[\s\S]{0,400}drawer\.focusAsk\(\)/.test(boardCode)
+  && /const id = openThread\(ids\[0\]\);/.test(boardCode)
+  && /focusAsk,/.test(drawer),
+  'J3 恰好 1 条 → 直接打开那条线程的抽屉，并把焦点送进问答卡（抽屉导出 focusAsk 供「已经开着同一条」时补一次）');
+ok(/needsYouFirst = true;\s*setBoardOpen\(true\);/.test(boardCode)
+  && /if \(!open\) needsYouFirst = false;/.test(boardCode)
+  && /group\.rows = group\.rows\.slice\(\)\.sort/.test(boardCode),
+  'J3b 多于 1 条 → 拉开看板并把等你的行排到最前；排的是渲染用的【副本】，看板一关就复位（GET /api/missions 的行序不动）');
+ok(/\.steward-status-needsyou\[hidden\] \{ display: none; \}/.test(cssCode)
+  && !/\.steward-status-needsyou \{[^}]*transition/.test(cssCode),
+  'J4 新控件的显隐由 [hidden] 驱动（配 display 守卫），且没有偷偷加过渡（reduced-motion 清单一个字没动）');
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

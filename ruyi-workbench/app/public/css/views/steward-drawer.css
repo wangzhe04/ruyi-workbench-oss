@@ -388,6 +388,27 @@
 .steward-drawer-ask-list:empty { display: none; }
 .steward-drawer-ask-line { overflow-wrap: anywhere; }
 .steward-drawer-ask .steward-drawer-chiprow:empty { display: none; }
+/* 117m-A2：permission 那两行「这一步要动什么／能不能撤回」。比问题原文低一级（--muted），
+   撤不回来的那一枚用警示色 —— 它是这张卡上唯一需要人多看一眼的事实。
+   两处 [hidden] 守卫同上：作者样式的 display:flex 会压过 UA 表的 [hidden]。 */
+.steward-drawer-ask-meta {
+  margin: 0;
+  padding-inline-start: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.steward-drawer-ask-meta[hidden] { display: none; }
+.steward-drawer-ask-meta-line { overflow-wrap: anywhere; }
+.steward-drawer-ask-meta-line[data-revertible="0"] { color: var(--warn); }
+.steward-drawer-ask-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.steward-drawer-ask-answer[hidden] { display: none; }
 
 /* ⑧ 117l D4「更多」（用户第四轮走查③「线程页内容还是太多太杂」）：四块折进来，默认收起。 */
 /* 【不要】给 <details> 本身写 display:flex/grid —— 那会让浏览器把收起来的内容也当成流内 flex 项

@@ -341,14 +341,40 @@ ok(!/Boolean\(liveTail\) && isLive\(\)/.test(drawer),
 ok(/t\('stewardShell\.drawer\.usingTool', \{ tool: threadToolLabel\(tool\) \}\)/.test(drawer)
   && /function threadToolLabel\(tool\) \{[\s\S]{0,200}return key \? t\(key\) : t\('stewardShell\.drawer\.tool\.other'\);/.test(drawer),
   'J4 工具说人话（铁律：界面上永远不出现工具名），表外落到「用一个工具」');
+// 117m-A2 **重钉 J5**（用户第六轮走查⑤⑥；语义是「一类放开成四类」，不是放宽）。
+// 旧断言里那一条 `asksYouFrom({ pending: { type: 'permission' } }) === null` 钉住的正是本波要修的
+// bug 本身：真机 sess_8bb0dd55d35045b0 的 14 条待决全是 permission（最后一条 02:34:57 请求、
+// 02:36:57 被 timeout 拒掉），于是抽屉一张问答卡都不出 —— 右上说「需要你 1」，点进去什么都没有。
+// 现在四类待决（question > permission > plan > pool，与服务端 06i 逐字同序）都出卡；
+// 三条 companion（J5a/J5a2/J5a3）比旧断言更强：它们钉住形状、钉住「人话只有服务端一个来源」、
+// 也钉住四类之外的 replan 仍然回 null（不是把闸门整个拆掉）。
 ok(typeof mod.asksYouFrom === 'function'
   && mod.asksYouFrom({ pending: { id: 'p1', type: 'question', questions: [{ question: '用哪个？' }] } }).kind === 'question'
-  && mod.asksYouFrom({ pending: { id: 'p2', type: 'permission' } }) === null
   && mod.asksYouFrom({ rowAsksYou: { kind: 'soft', text: '要接着做吗？' } }).texts[0] === '要接着做吗？'
   && mod.asksYouFrom({ lastAssistantText: '看完了。要不要我继续？' }).kind === 'soft'
   && mod.asksYouFrom({ lastAssistantText: '看完了。要不要我继续？', live: true }) === null
   && mod.asksYouFrom({ lastAssistantText: '看完了。' }) === null,
   'J5 「它在问你」是可 Node import 的纯函数：待决 question > 行上的 asksYou > 客户端兜底；在跑就不算');
+{
+  const perm = mod.asksYouFrom({
+    pending: { id: 'perm_1', type: 'permission', sessionId: 'sess_a', interventionVersion: 2, toolName: 'script_run', tier: 'exec', revertible: false },
+    rowAsksYou: { kind: 'permission', text: '工具 script_run(exec 级)等待放行' },
+  });
+  const plan = mod.asksYouFrom({ pending: { id: 'plan_1', type: 'plan', sessionId: 'sess_a' }, rowAsksYou: { kind: 'plan', text: '先清库存再补货' } });
+  const pool = mod.asksYouFrom({ pending: { id: 'pool_1', type: 'pool', sessionId: 'sess_a' }, rowAsksYou: { kind: 'pool', text: '再加一条子任务' } });
+  const noRow = mod.asksYouFrom({ pending: { id: 'perm_2', type: 'permission', sessionId: 'sess_a' } });
+  const replan = mod.asksYouFrom({ pending: { id: 'replan_1', type: 'replan', sessionId: 'sess_a' } });
+  ok(perm.kind === 'permission' && perm.interventionId === 'perm_1' && perm.missionId === 'sess_a'
+    && perm.interventionVersion === 2 && perm.toolName === 'script_run' && perm.tier === 'exec' && perm.revertible === false
+    && perm.texts[0] === '工具 script_run(exec 级)等待放行'
+    && plan.kind === 'plan' && plan.texts[0] === '先清库存再补货'
+    && pool.kind === 'pool' && pool.texts[0] === '再加一条子任务',
+    'J5a companion：permission/plan/pool 三类都出卡；permission 带上 toolName/tier/revertible（抽屉据此说「这一步要动什么」）');
+  ok(noRow.kind === 'permission' && noRow.texts.length === 0 && replan === null,
+    'J5a2 companion：行上的 asksYou 还没到就【不摆那句话】（人话单点在服务端 06i 的 stewardPendingOneLine）；四类白名单外的 replan 仍回 null');
+  ok(JSON.stringify(mod.STEWARD_ASK_PENDING_KINDS) === JSON.stringify(['question', 'permission', 'plan', 'pool']),
+    'J5a3 companion：优先级表是导出的冻结常量，与服务端 06i 的 stewardAsksYouForThread 逐字同序');
+}
 ok(/const ask = asksYouNow\(\);\s*section\.hidden = !ask;/.test(drawer),
   'J5b 卡片只在真有人问你时出现（[hidden] 一处驱动）');
 ok(/if \(section\) section\.hidden = askOptionReplies\(\)\.length > 0;/.test(drawer),
@@ -357,8 +383,17 @@ ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pend
   'J6b 选项按钮复用 quickRepliesFor（与 ⑦ 同一份判据，不另写一遍「取 label || value」）');
 ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
   'J7 焦点在【loading 闸落下之后】才给问答框（闸落之前还不知道它有没有在问你）');
-ok(/function focusAsk\(\) \{[\s\S]{0,320}if \(!section \|\| section\.hidden \|\| !input/.test(drawer),
+// 117m-A2 **重钉 J7b**（语义是「焦点从只认输入框放到第一个可操作控件」，不是放宽）。
+// 旧断言逐字钉着 `if (!section || section.hidden || !input` —— permission／plan／pool 的卡片
+// 【没有】输入框（renderAsk 把自由输入整块隐藏了：那三类是按一下的事）。只认输入框的话，
+// 从「N 条等你」直达跳过来会一个焦点都不落，人照样不知道该点哪儿。
+// companion（J7c）比旧断言更强：它同时钉住「没有输入框时落到第一枚按钮」与「把卡片滚进视野」。
+ok(/function focusAsk\(\) \{[\s\S]{0,160}if \(!section \|\| section\.hidden\) return false;/.test(drawer),
   'J7b 卡片没出现时不抢焦点');
+ok(/const target = \(input && !\(answer && answer\.hidden\)\)/.test(drawer)
+  && /\.querySelector\('\.steward-drawer-reply'\)/.test(drawer)
+  && /section\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(drawer),
+  'J7c companion：焦点落在【第一个可操作控件】上（有输入框就是它，没有就是第一枚按钮），并把卡片滚进视野');
 ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed \}\)/.test(drawer)
   && /const touched = String\(\(missionRow && missionRow\.updatedAt\) \|\| \(session && session\.updatedAt\) \|\| ''\);/.test(drawer)
   && !/stewardShell\.drawer\.settled'/.test(drawer),
@@ -367,10 +402,36 @@ ok(typeof zh['stewardShell.drawer.settled'] === 'undefined' && typeof en['stewar
   'J8b 旧键 stewardShell.drawer.settled 已随最后一个引用一起删掉（零引用键不留在目录里）');
 // 看板行那枚 pill（117l D4）：只读行上的 asksYou，点击 = 打开抽屉。
 const board = read('js/steward-board.js');
+// 117m-A2 **重钉 J9**（语义是「一句话变四句」，不是放宽）：旧断言逐字钉着 `t('stewardShell.board.asksYou')`
+// 这一句写死的文案，于是 permission／plan／pool 三类只能顶着「它在问你」出现 —— 用户看不出
+// 点进去要干什么。现在文案由 asksYou.kind 决定（表在 STEWARD_BOARD_ASKS_YOU_KEYS），
+// 并额外钉住「看板里没有第二处写死的那句话」（比旧断言更强）。
 ok(/if \(row\.asksYou && typeof row\.asksYou === 'object' && String\(row\.asksYou\.kind \|\| ''\)\) \{/.test(board)
   && /pill\.onclick = \(\) => openThread\(sessionId\);/.test(board)
-  && /t\('stewardShell\.board\.asksYou'\)/.test(board),
-  'J9 看板行的「它在问你」pill 只读行上的 asksYou，点它就是打开抽屉（问答框在那儿）');
+  && /t\(STEWARD_BOARD_ASKS_YOU_KEYS\[kind\] \|\| STEWARD_BOARD_ASKS_YOU_KEYS\.soft\)/.test(board)
+  && !/t\('stewardShell\.board\.asksYou'\)/.test(board),
+  'J9 看板行 pill 的文案【由 asksYou.kind 决定】（不是写死一句），点它仍然是打开抽屉（问答卡在那儿）');
+
+// ─── 117m-A2：问答卡吃下四类待决（用户第六轮走查⑤⑥「需要我允许的也没在线程中」）──────────
+ok(/const ASK_HEAD_KEYS = Object\.freeze\(\{[\s\S]{0,400}permission: 'stewardShell\.drawer\.asksYouPermission',[\s\S]{0,120}plan: 'stewardShell\.drawer\.asksYouApprove',[\s\S]{0,80}pool: 'stewardShell\.drawer\.asksYouApprove',/.test(drawer)
+  && /head\.textContent = t\(ASK_HEAD_KEYS\[kind\] \|\| ASK_HEAD_KEYS\.soft\);/.test(drawer),
+  'J10 卡片标题按【哪一类在等你】说话（它在问你／它等你放行／等你批），不是写死一句');
+ok(/if \(meta && kind === 'permission'\) \{/.test(drawer)
+  && /t\('stewardShell\.drawer\.askScope', \{/.test(drawer)
+  && /t\(ask\.revertible === true \? 'stewardShell\.drawer\.askRevertible' : 'stewardShell\.drawer\.askIrreversible'\)/.test(drawer),
+  'J10b permission 卡多两行「这一步要动什么」＋可撤销徽章；徽章只认 revertible 这一个落盘事实（有就说有，没有就说无法自动撤销，不编第三种）');
+ok(/if \(answer\) answer\.hidden = kind === 'permission' \|\| kind === 'plan' \|\| kind === 'pool';/.test(drawer)
+  && html.includes('id="stewardDrawerAskAnswer"') && html.includes('id="stewardDrawerAskMeta"'),
+  'J10c permission／plan／pool 是按一下的事：自由输入整块隐藏（别让人以为要打完字才算数），两个新锚点静态写在 index.html 里');
+ok(count(drawerCode, /\/api\/permission\/decision/g) === 1
+  && /if \(reply\.kind === 'permission'\) \{[\s\S]{0,200}api\('\/api\/permission\/decision'/.test(drawer),
+  `J11 permission 的决策仍然只有 /api/permission/decision 这一条路（实测 ${count(drawerCode, /\/api\/permission\/decision/g)} 处）`);
+ok(/\} else if \(reply\.kind === 'plan' \|\| reply\.kind === 'pool'\) \{/.test(drawer)
+  && /api\(`\/api\/missions\/\$\{encodeURIComponent\(reply\.missionId\)\}\/interventions\/\$\{encodeURIComponent\(reply\.interventionId\)\}\/decision`/.test(drawer)
+  && !/\/api\/plan\/decision/.test(drawerCode) && !/pool_approve/.test(drawerCode),
+  'J11b plan／pool 复用 75b 立的统一决策契约端点，不去找 /api/plan/decision 与 pool_approve 那两个老适配器（否则决策路径就有四条）');
+ok(/function askOptionReplies\(\) \{[\s\S]{0,900}if \(type !== 'plan' && type !== 'pool'\) return \[\];/.test(drawer),
+  'J11c 四类白名单之外（replan…）一枚按钮都不给 —— 给一枚点了没用的按钮比不给更坏');
 
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 2031 | 1979 | 319 | 67 | 0 | 1 |
+| 41 | 2033 | 1979 | 319 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -23,7 +23,7 @@
 | 5 | `02-session-store.js` | foundation | 227 | 42 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 8 | `04-permission-runtime.js` | foundation | 90 | 28 | 7 |
+| 8 | `04-permission-runtime.js` | foundation | 92 | 28 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 10 | `05-claude-engine.js` | engine | 23 | 98 | 15 |
 | 11 | `05b-kimi-bridge.js` | engine | 119 | 62 | 12 |
@@ -307,7 +307,7 @@
 | `13e-pretender-index.js` | `01-config.js` | backward | `atomicWriteJson`, `safeSessionId`, `sessionPath` |
 | `13e-pretender-index.js` | `02-session-store.js` | backward | `compactInterventionJournal`, `interventionFilePath`, `readInterventionsWithMeta`, `sessionKind`, `sessionMissionId` |
 | `13e-pretender-index.js` | `04-permission-runtime.js` | backward | `activeChildren` |
-| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYou` |
+| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYouForThread` |
 | `13e-pretender-index.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunDir` |
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |

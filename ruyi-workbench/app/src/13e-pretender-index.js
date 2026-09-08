@@ -397,15 +397,14 @@ function overlayMissionCard(slice) {
   const activeTurn = activeChildren.has(slice.sessionId);
   // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
   // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
-  const pendingQuestion = (Array.isArray(slice.interventions) ? slice.interventions : [])
-    .find(iv => iv && iv.status === 'pending' && iv.type === 'question') || null;
-  const asksYou = stewardAsksYou({
-    question: pendingQuestion
-      ? {
-        questionId: String(pendingQuestion.id),
-        text: ((Array.isArray(pendingQuestion.questions) ? pendingQuestion.questions : [])[0] || {}).question || pendingQuestion.questionSummary || '',
-      }
-      : null,
+  // 117m-A2:判据单点从 stewardAsksYou 换成 stewardAsksYouForThread —— 后者认【四类待决】
+  // (question > permission > plan > pool),而这里修前只挑 question,于是挂着 permission 的线程
+  // 在看板行永远拿不到 asksYou(用户第六轮走查⑥:标着「需要你」的行上一枚 pill 都没有)。
+  // 抽取待决行的那一段一并搬进 06i:两个调用面(13g 与本处)现在喂的是同一个入参形状。
+  const pending = (Array.isArray(slice.interventions) ? slice.interventions : [])
+    .filter(iv => iv && iv.status === 'pending');
+  const asksYou = stewardAsksYouForThread({
+    pending,
     activeTurn,
     lastAssistantText: String(card.lastSay || ''),
   });

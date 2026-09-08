@@ -598,6 +598,11 @@
           <button type="button" id="stewardStatusLine" class="steward-status-line"
                   aria-expanded="false" aria-controls="stewardBoard"
                   data-i18n-attr="title:stewardShell.board.open"></button>
+          <!-- 117m-A2（用户第六轮走查⑤⑥）：「N 条等你」的去处。恰好 1 条就直接开那条线程的抽屉
+               并把问答卡送到眼前，多于 1 条就拉开看板并把等你的行排到最前。
+               它是 #stewardStatusLine 的【兄弟】而不是它里面的一段：那一行本身就是 button，
+               button 里再嵌 button 是非法 HTML、读屏点不到。文案与 hidden 都由 js/steward-board.js 写。 -->
+          <button type="button" id="stewardStatusNeedsYouBtn" class="steward-status-needsyou" hidden></button>
         </div>
         <!-- 117e（§8.2「右上角只有两个常驻图标」/ §8.6）：盾牌 = 新线程默认权限，点开四档菜单；
              停机键常驻且永远可点，停机后同一个按钮变「唤醒」。两者的行为都住 js/steward-settings.js
@@ -701,17 +706,26 @@
                软问句（原话末尾是问号）走 POST /api/steward/relay，由服务端判通道。 -->
           <section id="stewardDrawerAsk" class="steward-drawer-ask" hidden
                    aria-label="它在问你" data-i18n-attr="aria-label:stewardShell.drawer.asksYou">
-            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.asksYou">它在问你</h3>
+            <!-- 117m-A2：标题按【哪一类在等你】说话（它在问你／它等你放行／等你批），文案由
+                 js/steward-drawer.js 每次渲染写；data-i18n 留着当默认值（question/soft 那一档）。 -->
+            <h3 id="stewardDrawerAskHead" class="steward-drawer-h"
+                data-i18n="stewardShell.drawer.asksYou">它在问你</h3>
             <ul id="stewardDrawerAskText" class="steward-drawer-ask-list"></ul>
+            <!-- 117m-A2：permission 专用的两行「这一步要动什么／能不能撤回」。没有内容时整块 hidden。 -->
+            <ul id="stewardDrawerAskMeta" class="steward-drawer-ask-meta" hidden></ul>
             <div id="stewardDrawerAskOptions" class="steward-drawer-chiprow"></div>
-            <label class="steward-drawer-foot-label" for="stewardDrawerAskInput"
-                   data-i18n="stewardShell.drawer.askAnswerLabel">你的回答</label>
-            <textarea id="stewardDrawerAskInput" class="steward-drawer-input" rows="2"
-                      placeholder="直接把答案写在这里…"
-                      data-i18n-attr="placeholder:stewardShell.drawer.askPlaceholder"></textarea>
-            <div class="steward-drawer-foot-actions">
-              <button type="button" id="stewardDrawerAskSendBtn" class="steward-drawer-btn is-primary"
-                      data-i18n="stewardShell.drawer.askSend">回答</button>
+            <!-- 117m-A2：自由输入只对「答一句话」有意义；permission／plan／pool 是按一下的事，
+                 整块由 JS 隐藏（[hidden]，样式层不管显隐）。 -->
+            <div id="stewardDrawerAskAnswer" class="steward-drawer-ask-answer">
+              <label class="steward-drawer-foot-label" for="stewardDrawerAskInput"
+                     data-i18n="stewardShell.drawer.askAnswerLabel">你的回答</label>
+              <textarea id="stewardDrawerAskInput" class="steward-drawer-input" rows="2"
+                        placeholder="直接把答案写在这里…"
+                        data-i18n-attr="placeholder:stewardShell.drawer.askPlaceholder"></textarea>
+              <div class="steward-drawer-foot-actions">
+                <button type="button" id="stewardDrawerAskSendBtn" class="steward-drawer-btn is-primary"
+                        data-i18n="stewardShell.drawer.askSend">回答</button>
+              </div>
             </div>
           </section>
           <!-- ⑤ 快切 chip：权限／模型／引擎（同一组控件在看板行与 2.0 顶栏复用，见 js/steward-chips.js） -->

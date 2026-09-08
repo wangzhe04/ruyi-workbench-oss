@@ -484,6 +484,27 @@ try {
       `I2 看板行带 asksYou(question)(got ${JSON.stringify(row && row.asksYou)})`);
     ok(!!(row && Object.prototype.hasOwnProperty.call(row, 'pending') && Object.prototype.hasOwnProperty.call(row, 'activeTurn')),
       'I2b 看板行的既有字段一个不少(只加不改)');
+
+    /* 117m-A2:挂着 permission 的线程,看板行也要有 asksYou —— 修前这里恒 null,
+       于是那一行标着「需要你」却连一枚 pill 都没有(用户第六轮走查⑥的截图)。 */
+    const made2 = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_new', args: { title: '等你放行的任务', brief: { userText: '帮我跑一下' }, cwd: mkws() } } }, hdr);
+    const pid = made2.json && made2.json.result && made2.json.result.sessionId;
+    fs.appendFileSync(path.join(sessionsDir, pid + '.interventions.ndjson'), JSON.stringify({
+      id: 'perm_board_1', type: 'permission', sessionId: pid, status: 'pending',
+      requestedAt: new Date().toISOString(), interventionVersion: 1,
+      toolName: 'script_run', tier: 'exec', revertible: false, input: {},
+    }) + '\n', 'utf8');
+    let permRow = null;
+    for (let i = 0; i < 100; i++) {
+      const missions = await request('GET', '/api/missions', undefined, hdr);
+      permRow = ((missions.json && missions.json.missions) || []).find(m => m && m.sessionId === pid) || null;
+      if (permRow && permRow.asksYou) break;
+      await sleep(120);
+    }
+    ok(!!(permRow && permRow.asksYou && permRow.asksYou.kind === 'permission'
+      && permRow.asksYou.text === '工具 script_run(exec 级)等待放行'
+      && permRow.asksYou.toolName === 'script_run' && permRow.asksYou.tier === 'exec' && permRow.asksYou.revertible === false),
+      `I2c 挂着 permission 的看板行也带 asksYou(kind='permission' + 人话 + toolName/tier/revertible)(got ${JSON.stringify(permRow && permRow.asksYou)})`);
   }
 
   /* ═════════ (J) queued 通道:线程还在仲裁器队列里时递话 ═════════ */
@@ -610,6 +631,55 @@ try {
     ok(!!(st3 && st3.asksYou === null), `I4 既无待决也不是问句 → asksYou === null(got ${JSON.stringify(st3 && st3.asksYou)})`);
     ok(!!(st3 && Object.prototype.hasOwnProperty.call(st3, 'wait') && st3.state && st3.stateLabel),
       'I5 wait 与五态字段照旧在(只加不改)');
+  }
+
+  /* ═════ (I6) 117m-A2:asksYou 覆盖【四类】待决 ═════ */
+  // 用户第六轮走查⑤⑥:真机 sess_8bb0dd55d35045b0 的 14 条待决全是 permission,而修前
+  // stewardAsksYouForThread 只认 type==='question' —— 于是看板行没有 pill、抽屉没有问答卡,
+  // 右上说「需要你 1」却点不开任何东西。这一组按四类各喂一次,再钉一次优先级。
+  console.log('── (I6) asksYou 四类待决 + 固定优先级 ──');
+  {
+    const write = (sid, rows) => {
+      craftThread(sid, {}, [{ role: 'assistant', content: '我先看一眼。' }]);
+      fs.writeFileSync(path.join(sessionsDir, sid + '.interventions.ndjson'),
+        rows.map(row => JSON.stringify({ sessionId: sid, status: 'pending', requestedAt: new Date().toISOString(), interventionVersion: 1, ...row })).join('\n') + '\n', 'utf8');
+    };
+    const SID_PERM = 'sess_asksyou_permis00';
+    const SID_PLAN = 'sess_asksyou_plan0000';
+    const SID_POOL = 'sess_asksyou_pool0000';
+    const SID_BOTH = 'sess_asksyou_both0000';
+    write(SID_PERM, [{ id: 'perm_a1', type: 'permission', toolName: 'script_run', tier: 'exec', revertible: false }]);
+    write(SID_PLAN, [{ id: 'plan_a1', type: 'plan', planSummary: '先清库存再补货' }]);
+    write(SID_POOL, [{ id: 'pool_a1', type: 'pool', task: '再加一条子任务' }]);
+    // 同一条线程同时挂 permission(先来)与 question(后到):优先级固定,question 压过 permission。
+    write(SID_BOTH, [
+      { id: 'perm_b1', type: 'permission', toolName: 'Bash', tier: 'exec', revertible: false },
+      { id: 'question_b1', type: 'question', questions: [{ id: 'q1', question: '走 A 还是走 B?' }], questionSummary: '走 A 还是走 B?' },
+    ]);
+    const perm = await call('steward_thread_status', { sessionId: SID_PERM });
+    ok(!!(perm && perm.asksYou && perm.asksYou.kind === 'permission' && perm.asksYou.interventionId === 'perm_a1'
+      && /script_run/.test(String(perm.asksYou.text || '')) && /exec/.test(String(perm.asksYou.text || ''))
+      && perm.asksYou.toolName === 'script_run' && perm.asksYou.tier === 'exec' && perm.asksYou.revertible === false),
+      `I6a permission 待决 → asksYou.kind='permission' + stewardPendingOneLine 的原话 + toolName/tier/revertible(got ${JSON.stringify(perm && perm.asksYou)})`);
+    const plan = await call('steward_thread_status', { sessionId: SID_PLAN });
+    ok(!!(plan && plan.asksYou && plan.asksYou.kind === 'plan' && plan.asksYou.interventionId === 'plan_a1'
+      && /先清库存再补货/.test(String(plan.asksYou.text || ''))),
+      `I6b plan 待决 → asksYou.kind='plan' + 计划摘要(got ${JSON.stringify(plan && plan.asksYou)})`);
+    const pool = await call('steward_thread_status', { sessionId: SID_POOL });
+    ok(!!(pool && pool.asksYou && pool.asksYou.kind === 'pool' && pool.asksYou.interventionId === 'pool_a1'
+      && /再加一条子任务/.test(String(pool.asksYou.text || ''))),
+      `I6c pool 待决 → asksYou.kind='pool' + 任务原话(got ${JSON.stringify(pool && pool.asksYou)})`);
+    const both = await call('steward_thread_status', { sessionId: SID_BOTH });
+    ok(!!(both && both.asksYou && both.asksYou.kind === 'question' && both.asksYou.questionId === 'question_b1'
+      && both.asksYou.interventionId === 'question_b1' && /走 A 还是走 B/.test(String(both.asksYou.text || ''))),
+      `I6d 优先级固定:question 压过 permission,且 question 一支照旧带 questionId(got ${JSON.stringify(both && both.asksYou)})`);
+    // 「人话只有一个来源」的正面证据:permission 那一句逐字等于 06i 的 stewardPendingOneLine。
+    ok(!!(perm && perm.asksYou && perm.asksYou.text === '工具 script_run(exec 级)等待放行'),
+      `I6e permission 的人话逐字来自 stewardPendingOneLine 单点(got ${JSON.stringify(perm && perm.asksYou && perm.asksYou.text)})`);
+    // pending 数组与五态字段照旧(只加不改)。
+    ok(!!(perm && Array.isArray(perm.pending) && perm.pending.length === 1 && perm.pending[0].summary === '工具 script_run(exec 级)等待放行'
+      && perm.state && perm.stateLabel),
+      'I6f pending 摘要与五态字段照旧在(只加不改)');
   }
 
   /* ═════ (G7) 速查线程恒 fast 档 ═════ */
