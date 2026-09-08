@@ -1,7 +1,7 @@
 'use strict';
 
 import './mission-state.js';
-import { authHeaders } from './net.js';
+import { apiRaw } from './net.js';
 import { elapsedLabel } from './preview-task-sheet.js';
 import { dockToneForMissionState } from './preview-shell.js';
 import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
@@ -155,8 +155,11 @@ export function createStewardBoard({
   // ── 取数 ────────────────────────────────────────────────────────────────────────
   async function loadMissions() {
     try {
-      const headers = authHeaders(missionsEtag ? { 'if-none-match': missionsEtag } : {});
-      const response = await fetch('/api/missions?limit=200', { headers });
+      // 117q-B3a(P1-6):裸 fetch 换 apiRaw——304/etag 判断逻辑一个字不动，唯一变化是拿到 403 +
+      // auth.token_invalid(后台进程重启后旧 token 失效)时会像其余 45+ 处 api() 调用点一样自愈：
+      // 换新 token 重放一次，而不是直接放弃、空转到用户手动刷新页面。
+      const headers = missionsEtag ? { 'if-none-match': missionsEtag } : {};
+      const response = await apiRaw('/api/missions?limit=200', { headers });
       if (response.status === 304) return false;          // 没变：不重画，chip 菜单也就不会被打断
       if (!response.ok) return false;
       missionsEtag = response.headers.get('etag') || '';

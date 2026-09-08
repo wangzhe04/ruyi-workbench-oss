@@ -33,6 +33,11 @@ const read = (...p) => fs.readFileSync(path.join(...p), 'utf8');
 const indexHtml = read(PUBLIC, 'index.html');
 const appSrc = read(PUBLIC, 'app.js');
 const navSrc = read(PUBLIC, 'js', 'navigation-controls.js');
+// 117q-B3a(P1-7，30 号文 §4.7)登记：「压缩」整片文案漏 t() 的教训——这四个文件此前不在本守卫
+// 任何一张扫描名单里，见下方 ⑤ 节。
+const chatStreamSrc = read(PUBLIC, 'js', 'chat-stream-runtime.js');
+const workbenchSrc = read(PUBLIC, 'js', 'workbench.js');
+const agentRolesSrc = read(PUBLIC, 'js', 'agent-roles.js');
 const menuSrc = read(PUBLIC, 'js', 'help-menu.js');
 const viewerSrc = read(PUBLIC, 'js', 'help-viewer.js');
 const wizardSrc = read(PUBLIC, 'js', 'onboarding-wizard.js');
@@ -266,6 +271,97 @@ const helpKeys = ['help.menu.title', 'help.menu.userGuide', 'help.menu.adminGuid
   'help.logs.fileLabel', 'help.open.ok', 'help.open.failed', 'help.open.unknownTarget', 'help.tabHelp'];
 const helpMissing = helpKeys.filter(k => ['zh-CN', 'en-US'].some(l => !locales[l][k] || docsLocales[l][k] !== locales[l][k]));
 ok(helpMissing.length === 0, `④ ${helpKeys.length} 条 help.menu/logs/open/tabHelp 键在四个 locale 齐备且逐字一致` + (helpMissing.length ? ' -- 缺: ' + helpMissing.join(', ') : ''));
+
+/* ═══════════════ ⑤ 117q-B3a(30 号文 §4.7)：压缩文案漏 t() 的硬编码中文回归锁 ═══════════════ */
+// 教训：「压缩」整片文案一半走了 t()、另一半是硬编码中文字面量，英文界面下用户先看到英文字符串，
+// 一有进度事件又被中文覆盖。①的 ANTIPATTERN 扫描只认「自己去打开」这一类【说法】，不认「压根没走
+// i18n」这一类【缺陷】——这四个文件此前不在任何判「硬编码中文」的名单里。本节新增（纯新增，不改
+// 既有 ①～④ 任何判据）：剥注释后逐行找中文字符——本仓所有标识符都是 ASCII，t('key') 的 key 也是
+// ASCII 点号路径，翻译文案只活在四份 locale.json 里，所以「代码行里出现中文字符」本身就等价于
+// 「这段文案没走 catalog」，不需要更复杂的 AST 判断。
+//
+// 纳入后确实扫出本刀 P1-7 范围外的既有硬编码中文（下方按行号登记，逐条写了不改的理由）——不在本
+// 刀顺手全改，会让「apiRaw 重放 + 压缩文案 i18n」这两件事失焦；清单已经列进 117q-B3a 的验收报告，
+// 由另一刀专门清。
+const stripCjkScanComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const CJK_CODE_RE = /[一-龥]/;
+function cjkCodeLineNumbers(source) {
+  return stripCjkScanComments(source).split(/\r?\n/)
+    .map((line, index) => ({ line: index + 1, text: line.trim() }))
+    .filter(entry => CJK_CODE_RE.test(entry.text));
+}
+// 白名单：117q-B3a 走查时扫出的既有硬编码中文，逐条登记理由。键是文件名，值是「行号 -> 理由」。
+// 「行号」按剥注释后的原始行号数（不删行，只清空注释内容，行号与源文件一一对应）。
+const ALLOWED_CJK_CODE = Object.freeze({
+  'chat-stream-runtime.js': {
+    325: '进程状态 tooltip：117q-B3a 登记，待另刀（P1-7 范围外）',
+    1010: '工具面板里的调试回显（模型=/权限=），不是常规用户文案：117q-B3a 登记，待另刀',
+    1324: '「已按你的补充意见继续」提示：117q-B3a 登记，待另刀',
+    1358: '正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
+    1368: '子代理卡状态行「生成中 · N 字」：117q-B3a 登记，待另刀',
+    1395: '子代理卡依赖标签「依赖 ...」：117q-B3a 登记，待另刀',
+    1399: '子代理卡状态「执行中…」：117q-B3a 登记，待另刀',
+    1424: '子代理卡重试状态「重试中 n/m」：117q-B3a 登记，待另刀',
+    1457: '子代理卡「后台执行中」状态：117q-B3a 登记，待另刀',
+    1458: '子代理卡「✓ 完成 · N 字结论」状态：117q-B3a 登记，待另刀',
+  },
+  'workbench.js': {
+    531: '工作流节点 aria-label「节点 N · 状态(点击定位到监控卡)」：117q-B3a 登记，待另刀',
+    561: '工作流节点判定标签「判定 X」：117q-B3a 登记，待另刀',
+    562: '工作流节点置信度标签：117q-B3a 登记，待另刀',
+    567: '工作流节点依赖标签「← 依赖 ...」：117q-B3a 登记，待另刀',
+  },
+  'agent-roles.js': {},
+  'navigation-controls.js': {
+    499: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
+    615: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
+  },
+});
+const CJK_SCAN_TARGETS = [
+  ['chat-stream-runtime.js', chatStreamSrc],
+  ['workbench.js', workbenchSrc],
+  ['agent-roles.js', agentRolesSrc],
+  ['navigation-controls.js', navSrc],
+];
+for (const [name, source] of CJK_SCAN_TARGETS) {
+  const allowed = ALLOWED_CJK_CODE[name] || {};
+  const hits = cjkCodeLineNumbers(source);
+  const unexpected = hits.filter(hit => !(hit.line in allowed));
+  ok(unexpected.length === 0,
+    `⑤ ${name} 的硬编码中文只剩白名单登记的既有项，零新增` +
+    (unexpected.length ? ' -- 新增未登记: ' + unexpected.map(h => `${h.line}: ${h.text.slice(0, 80)}`).join(' | ') : ''));
+}
+// 白名单本身不许悄悄膨胀成藏污纳垢的地方：登记的每一行必须真的还命中中文，且必须是刚才那三个
+// 「本刀已修」的文件之外的行——否则白名单会在没人注意的情况下越攒越旧，失去「登记，待另刀」的意义。
+const staleAllowlist = [];
+for (const [name, source] of CJK_SCAN_TARGETS) {
+  const allowed = ALLOWED_CJK_CODE[name] || {};
+  const hitLines = new Set(cjkCodeLineNumbers(source).map(h => h.line));
+  for (const lineNo of Object.keys(allowed)) {
+    if (!hitLines.has(Number(lineNo))) staleAllowlist.push(`${name}:${lineNo}`);
+  }
+}
+ok(staleAllowlist.length === 0,
+  '⑤ 白名单零陈旧登记（每一条都对应当前源码里真实存在的中文命中，不是摆设）' +
+  (staleAllowlist.length ? ' -- 已不命中，该从白名单删掉: ' + staleAllowlist.join(', ') : ''));
+// 本刀实际修掉的四处不许再出现在白名单里——防止「白名单反手把自己刚修的 bug 又豁免回来」这种
+// 悄悄回潮。
+const p17FixedLines = {
+  'chat-stream-runtime.js': [1251, 1255, 1256, 1260, 1274],
+  'workbench.js': [462, 465],
+  'agent-roles.js': [45],
+  'navigation-controls.js': [534, 536, 537, 560, 562, 564, 566, 567, 575],
+};
+const reintroduced = [];
+for (const [name] of CJK_SCAN_TARGETS) {
+  const allowed = ALLOWED_CJK_CODE[name] || {};
+  for (const lineNo of p17FixedLines[name] || []) {
+    if (lineNo in allowed) reintroduced.push(`${name}:${lineNo}`);
+  }
+}
+ok(reintroduced.length === 0,
+  '⑤ P1-7 本刀已修的行号零一个出现在白名单里（不许用白名单把刚修的 bug 豁免回来）' +
+  (reintroduced.length ? ' -- 违规: ' + reintroduced.join(', ') : ''));
 
 console.log('\nCOPY PATH GUARD STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

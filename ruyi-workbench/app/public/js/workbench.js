@@ -470,10 +470,10 @@ function wbBuildZoomCapsule() {
   const z = wbState.zoom || 1;
   const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', t('workflow.canvas.zoom'));
   const idx = WB_ZOOM_GEARS.indexOf(z);
-  const minus = el('button', 'wb-cv-btn', '−'); minus.title = t('workflow.canvas.zoomOut'); minus.setAttribute('aria-label', '缩小'); minus.dataset.fk = 'zoom:minus';
+  const minus = el('button', 'wb-cv-btn', '−'); minus.title = t('workflow.canvas.zoomOut'); minus.setAttribute('aria-label', t('workflow.canvas.zoomOut')); minus.dataset.fk = 'zoom:minus';
   minus.disabled = idx <= 0; minus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.max(0, (idx < 0 ? 1 : idx) - 1)]);
   const read = el('span', 'wb-cv-zoom num', `${Math.round(z * 100)}%`);
-  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = t('workflow.canvas.zoomIn'); plus.setAttribute('aria-label', '放大'); plus.dataset.fk = 'zoom:plus';
+  const plus = el('button', 'wb-cv-btn', '＋'); plus.title = t('workflow.canvas.zoomIn'); plus.setAttribute('aria-label', t('workflow.canvas.zoomIn')); plus.dataset.fk = 'zoom:plus';
   plus.disabled = idx >= WB_ZOOM_GEARS.length - 1; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.min(WB_ZOOM_GEARS.length - 1, (idx < 0 ? 1 : idx) + 1)]);
   const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = t('workflow.canvas.fitView'); fit.setAttribute('aria-label', t('workflow.canvas.fitView')); fit.dataset.fk = 'zoom:fit';
   fit.onclick = () => wbFitView();

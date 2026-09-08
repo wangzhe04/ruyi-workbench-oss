@@ -52,21 +52,30 @@ function invalidTokenResponse(status, body) {
   return /missing or invalid workbench token/i.test(String(body || ''));
 }
 
-// 带鉴权头的 JSON fetch。后台进程在同一端口重启时，旧页面的 sessionStorage token 会失效；
-// 服务端在路由执行前以 403/auth.token_invalid 拒绝，因此刷新 bootstrap token 后原请求重放一次是安全的。
-// 其它非 2xx 仍直接抛错(错误信息为响应体文本,供 apiErrText 提取人话)。
-export async function api(path, options = {}) {
+// 117q-B3a(P1-6，见 30 号文 §4.6):带鉴权头的原始 fetch。后台进程在同一端口重启时，旧页面的
+// sessionStorage token 会失效；服务端在路由执行前以 403/auth.token_invalid 拒绝，因此刷新
+// bootstrap token 后原请求重放一次是安全的。与 api() 的区别:本函数返回原始 Response(不做
+// res.json()、不对非 2xx 抛错)，供需要读状态码/响应头的调用方自己判断(例如 steward-board.js
+// 靠 304 + etag 省一次重画)。非 ok 且不满足重放条件时，返回的 Response 的 body 仍可安全读取一次
+// (内部用 clone() 探测 token 失效，不会消费掉原始 body 流)。
+export async function apiRaw(path, options = {}) {
   const request = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
   let res = await request();
   if (!res.ok) {
-    const body = await res.text();
+    const body = await res.clone().text();
     if (invalidTokenResponse(res.status, body) && await initToken(true)) {
       res = await request();
-      if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
-    } else {
-      throw new Error(body || `HTTP ${res.status}`);
     }
   }
+  return res;
+}
+
+// 带鉴权头的 JSON fetch。403/auth.token_invalid 换 token 重放一次的行为见 apiRaw() 注释——
+// 本函数只是在其上加「非 2xx 抛错(供 apiErrText 提取人话) + 成功解析 JSON」这一层，不再自己
+// 重复一份 authHeaders/403 判定逻辑。
+export async function api(path, options = {}) {
+  const res = await apiRaw(path, options);
+  if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
   return res.json();
 }
 

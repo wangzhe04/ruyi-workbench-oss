@@ -42,7 +42,7 @@ function roleSelect(field, value, choices) { const s = document.createElement('s
 function renderAgentRoleEditors() {
   const host = $('agentRoleEditorList'); if (!host) return; host.textContent = '';
   const scope = $('agentRoleScope')?.value || 'global';
-  $('agentRoleScopeHint').textContent = scope === 'project' ? `${t('role.saveToLocal')}` : '保存在本机配置中，对所有项目生效；内置角色可在这里覆盖。';
+  $('agentRoleScopeHint').textContent = scope === 'project' ? t('role.saveToLocal') : t('role.saveGlobal');
   for (const role of agentRoleDraft) {
     const card = el('details', 'agent-role-edit-card'); card.open = agentRoleDraft.length <= 5; card.dataset.builtin = role.builtin ? '1' : '0';
     card.appendChild(el('summary', 'agent-role-edit-head', `${role.label || role.id} · ${role.toolTier || 'read'} · ${role.permissionMode || 'inherit'}`));

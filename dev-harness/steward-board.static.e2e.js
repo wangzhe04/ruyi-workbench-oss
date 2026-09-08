@@ -24,6 +24,7 @@ const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
 const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/')), 'utf8');
 const html = read('index.html');
 const board = read('js/steward-board.js');
+const net = read('js/net.js');
 const classicWindow = read('js/steward-classic-window.js');
 const drawer = read('js/steward-drawer.js');
 const chips = read('js/steward-chips.js');
@@ -248,8 +249,22 @@ const routes = [...new Set([
 ok(JSON.stringify(routes) === JSON.stringify(
   ['/api/missions', '/api/sessions/', '/api/steward/arbiter', '/api/steward/arbiter/prioritize'].sort()),
   `F10 只调既有路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
-ok(count(boardCode, /\bfetch\(/g) === 1 && /import \{ authHeaders \} from '\.\/net\.js';/.test(board),
-  'F11 唯一的直调 fetch 是带 If-None-Match 的 /api/missions（api() 看不见 304），鉴权头复用 net.js');
+// F11 重钉（117q-B3a，见 30 号文 §4.6 P1-6）：裸 fetch 缺 403 换 token 重放是真 bug——后端进程
+// 重启导致旧 token 失效后，看板会一直空转到用户手动刷新页面，而其余 45+ 处 api() 调用点都能自愈。
+// net.js 抽出 apiRaw(path, options)（拼 authHeaders + 403 判定 + initToken(true) + 重放一次，返回
+// 原始 Response 不做 res.json()），api() 自己也改成 apiRaw(...).then(json)，消灭 net.js 内部的
+// 自我重复；看板换成 apiRaw 之后，字面意义上的裸 fetch(就不会再出现在这个文件里，旧判据「唯一
+// 一处 fetch(」也就必然不成立——这是①那条修复本身的直接后果，不是顺手改动。原判据的证据价值
+// （只有一条直调、鉴权头不野生拼装）由新判据整体保留，只是换成了 apiRaw 语义。
+ok(count(boardCode, /\bfetch\(/g) === 0 && count(boardCode, /\bapiRaw\(/g) === 1 && /import \{ apiRaw \} from '\.\/net\.js';/.test(board),
+  'F11 零裸 fetch，唯一取数走 apiRaw（带 If-None-Match 的 /api/missions；304/etag 判断逻辑不动，鉴权头由 apiRaw 内部拼）');
+// 更强伴随断言：apiRaw 是 net.js 里【唯一】一处 403 判定 + initToken(true) + 重放逻辑，api() 复用
+// 它而不是自己再拼一份——防止「看板改对了，但 net.js 内部又长出第二份重复实现」这种回潮。
+ok(net.includes('export async function apiRaw(path, options = {})')
+  && count(net, /invalidTokenResponse\(res\.status, body\)/g) === 1
+  && count(net, /await initToken\(true\)/g) === 1
+  && /export async function api\(path, options = \{\}\) \{\s*const res = await apiRaw\(path, options\);/.test(net),
+  'F11b net.js 的 403 换 token 重放只有 apiRaw 一份实现，api() 复用它（零自我重复）');
 
 // ─── 117g：2.0 视窗与返回带的组装（细契约在 pretender-shell.static） ─────────────
 ok(/const classicWindow = createStewardClassicWindow\(\{/.test(stewardShell)

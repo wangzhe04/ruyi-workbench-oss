@@ -531,10 +531,10 @@ function openContextPopover() {
     wrap.appendChild(custom);
     // Universal compaction model: default follows the current access mode (Claude/Kimi native or active
     // Provider); every explicitly configured Provider/Ollama model is available across all three modes.
-    const compactLabel = el('label', 'ctx-compact-model-label muted', '压缩模型');
+    const compactLabel = el('label', 'ctx-compact-model-label muted', t('ctx.compact.label'));
     const compactSelect = el('select', 'ctx-compact-model');
-    const defaultName = isProviderMode() ? '默认（当前 Provider 模型）'
-      : (currentEngineMeta().agentCliType === 'kimi' ? '默认（Kimi 原生压缩）' : '默认（Claude 原生 /compact）');
+    const defaultName = isProviderMode() ? t('ctx.compact.defaultProvider')
+      : (currentEngineMeta().agentCliType === 'kimi' ? t('ctx.compact.defaultKimi') : t('ctx.compact.defaultClaude'));
     compactSelect.appendChild(new Option(defaultName, ''));
     const selectedProvider = String(state.config?.compactProviderId || '');
     const selectedModel = String(state.config?.compactModel || '');
@@ -557,14 +557,14 @@ function openContextPopover() {
       const provider = (state.config?.providers || []).find(item => item && item.id === providerId);
       const modelRow = provider && (provider.models || []).find(item => String((item && item.id) || item || '') === selectedId);
       const compactWindow = Number(modelRow && modelRow.contextLength) || Number(provider && provider.contextWindow) || 0;
-      const windowNote = compactWindow > 0 ? `压缩输入会按 ${ctxLenBadge(compactWindow)} 窗口安全分段；上方上限仍表示当前对话模型。` : '';
+      const windowNote = compactWindow > 0 ? t('ctx.compact.windowNote', { window: ctxLenBadge(compactWindow) }) : '';
       compactModelHint.textContent = !compactSelect.value
-        ? '默认会使用当前接入方式的原生压缩能力。'
+        ? t('ctx.compact.hintDefault')
         : (/1b|1\.\d+b/.test(model)
-          ? `不建议：本机测试中 1B 模型会遗漏并编造关键事实。${windowNote}`
+          ? t('ctx.compact.hintRisky1b', { windowNote })
           : (/2b|2\.\d+b/.test(model)
-            ? `可用但有损：小窗口会自动分段汇总，重要任务建议复核摘要。${windowNote}`
-            : `外部模型会使用分段汇总；Agent CLI 将在下一轮从摘要重建原生会话。${windowNote}`));
+            ? t('ctx.compact.hintLossy2b', { windowNote })
+            : t('ctx.compact.hintExternal', { windowNote })));
     };
     renderCompactHint();
     compactSelect.onchange = async () => {
@@ -572,7 +572,7 @@ function openContextPopover() {
       compactSelect.disabled = true;
       const saved = await saveConfigPartial({ compactProviderId, compactModel });
       compactSelect.disabled = false;
-      if (saved) { renderCompactHint(); toast(compactProviderId ? `默认压缩模型已设为 ${compactSelect.options[compactSelect.selectedIndex].text}` : '已恢复当前引擎的原生压缩', 'ok'); }
+      if (saved) { renderCompactHint(); toast(compactProviderId ? t('ctx.compact.toastSet', { model: compactSelect.options[compactSelect.selectedIndex].text }) : t('ctx.compact.toastReset'), 'ok'); }
     };
     compactLabel.appendChild(compactSelect);
     compactLabel.appendChild(compactModelHint);

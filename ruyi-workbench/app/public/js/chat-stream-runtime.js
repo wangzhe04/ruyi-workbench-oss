@@ -1248,16 +1248,16 @@ export function createChatStreamRuntime(deps = {}) {
         if (phase === 'started') {
           if (!compactState.active) beginCompactIndicator();
           const label = $('compactIndicator')?.querySelector('span:last-child');
-          if (label) label.textContent = evt.mode === 'kimi-native' ? 'Kimi 正在压缩原生上下文…' : '正在分段汇总并重建上下文…';
+          if (label) label.textContent = evt.mode === 'kimi-native' ? t('chat.compactStartedKimi') : t('chat.compactStartedGeneric');
         } else if (phase === 'running' || phase === 'applied') {
           const label = $('compactIndicator')?.querySelector('span:last-child');
           if (label) label.textContent = phase === 'applied'
-            ? `摘要已应用${evt.compactedCount ? `，折叠 ${evt.compactedCount} 条记录` : ''}…`
-            : `压缩进行中${evt.elapsedMs ? ` · ${Math.round(evt.elapsedMs / 1000)}s` : ''}…`;
+            ? (evt.compactedCount ? t('chat.compactAppliedCount', { count: evt.compactedCount }) : t('chat.compactApplied'))
+            : (evt.elapsedMs ? t('chat.compactRunningElapsed', { seconds: Math.round(evt.elapsedMs / 1000) }) : t('chat.compactRunning'));
         } else if (phase === 'completed') {
           // v2.6.2-r2: 标记插入 live.narrative(时序流),随当前思考/工具位置就地显示;不再沉到回合最底部。
           const markerBox = live && live.narrative ? live.narrative : null;
-          if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, `🗜 自动压缩已完成：${fmtTokens(evt.beforeTokens || 0)} → ${fmtTokens(evt.afterTokens || 0)}`, markerBox);
+          if (evt.beforeTokens || evt.afterTokens) appendMsgNote(main, live, t('chat.compactCompleted', { before: fmtTokens(evt.beforeTokens || 0), after: fmtTokens(evt.afterTokens || 0) }), markerBox);
           // A compact event is newer than the previous persisted usage row. Reflect its post-compact
           // numerator immediately instead of waiting for the next model response's usage frame.
           if (Number.isFinite(Number(evt.afterTokens)) && Number(evt.afterTokens) >= 0) {
@@ -1271,7 +1271,7 @@ export function createChatStreamRuntime(deps = {}) {
           endCompactIndicator();
         } else if (phase === 'failed') {
           const markerBox = live && live.narrative ? live.narrative : null;
-          appendMsgError(main, live, `自动压缩未完成：${evt.error || '未知错误'}`, markerBox);
+          appendMsgError(main, live, t('chat.compactFailed', { error: evt.error || t('chat.compactUnknownError') }), markerBox);
           endCompactIndicator();
         }
         break;
