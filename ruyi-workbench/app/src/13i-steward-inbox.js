@@ -38,7 +38,11 @@ const STEWARD_CURSOR_FILE = 'cursor-v1.json';
 const STEWARD_CURSOR_SCHEMA = 1;
 
 // ── 归一化/合并常量 ──────────────────────────────────────────────────────────
-const STEWARD_MERGE_WINDOW_MS = 5000;      // §11.3:同 sessionId 同 kind 5 秒窗口内合并为一条
+// §11.3:同 sessionId 同 kind(同 runId)窗口内合并为一条。117m-A1:5s → 30s。5 秒窗口在真机上几乎
+// 不合并任何东西 —— 同一条线程的失败/停滞信号往往隔十几秒才来第二条,于是管家一条一条汇报、一条起
+// 一个回合(用户第六轮走查②「管家还是会一条条汇报,没有必要还费 Token」)。纯批处理收益:分组键
+// (sessionId\0kind\0runId)与「同类 N 条」文案一字未动,只是把攒批的窗口拉长。
+const STEWARD_MERGE_WINDOW_MS = 30000;
 const STEWARD_SUMMARY_CHARS = 200;         // payload 摘要硬顶(与 STEWARD_DIGEST_LIMITS.lastSayChars 同数)
 const STEWARD_MERGED_SEQS_MAX = 20;        // 合并行里回填的源 seq 上限(供重启重建去重集合)
 const STEWARD_TICK_MAX_EVENTS = 200;       // 单轮入箱上限(防某次大补账把箱子灌爆)

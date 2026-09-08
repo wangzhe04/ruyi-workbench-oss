@@ -768,7 +768,17 @@ function estimateToolSchemaTokens(tools) {
 }
 
 // Decide gate for a tool call given the permission mode. Returns 'allow' | 'ask' | 'block'.
-function nativeToolGate(mode, tier) {
+// 117m-A1(用户第六轮走查②「我已经默认线程全自动了,还是会有很多要求权限」):`auto` 档的 exec 分支
+// 从「一律 ask」改成「高风险才 ask」。修前 `auto` 只放行 edit 档,exec 落到末尾的 `return 'ask'` ——
+// 于是三处界面都把它叫「全自动」、管家壳的档位说明写「不再问你」,而线程每一步 script_run /
+// http_request 仍旧弹权限,进收件箱、管家再起一个回合去「代批」(真机日志里 11 条
+// intervention source:"steward_decision" action:"allow",两分钟一条,把每小时回合额度全吃光)。
+// 高风险判据【复用既有单点】stewardToolPermanentlyExempt(06i):工具名正则 + 命令文本正则两道,
+// 覆盖对外发送/支付/安装卸载/系统设置注册表/关机格式化/删除/git push。不另起一套判据 —— 那条
+// 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
+// toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
+// 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   if (tier === 'read') return 'allow';
@@ -777,6 +787,10 @@ function nativeToolGate(mode, tier) {
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
   if (mode === 'auto' && tier === 'edit') return 'allow';
   if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto') {
+    if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
+    return stewardToolPermanentlyExempt(toolName, input) ? 'ask' : 'allow';
+  }
   return 'ask';
 }
 // v0.8-S4b B3: which tools produce a change that the checkpoint journal can undo? Exactly the journaled

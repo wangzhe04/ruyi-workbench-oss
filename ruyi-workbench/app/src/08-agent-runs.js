@@ -494,6 +494,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  // 117m-A1(同 09 的 gateWithLiveMode,判据一字不差):子回合跑在父会话的档下,父线程中途改档要对
+  // 【这个】子回合生效。只有在本子回合期间【被改过】才接管;没改过返回 '' → 下面的 effMode 逐字节
+  // 走原来的优先级。角色自带的档(roleMode)与工作流下发的 permModeOverride 都排在它前面 —— 那两个
+  // 是节点级的授权约束,不能被会话级快切放宽。
+  const parentPermissionModeAtStart = liveSessionPermissionMode(parentSession && parentSession.id);
+  const liveParentPermissionMode = () => {
+    const live = liveSessionPermissionMode(parentSession && parentSession.id);
+    return (live && live !== parentPermissionModeAtStart) ? live : '';
+  };
   const requestedBudget = Math.min(1000, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
   const budgetPolicy = resolveToolIterationBudget(requestedBudget, String(task || ''), config);
   // Tiny node budgets are intentional control-plane limits (for example, a two-turn verifier).
@@ -901,8 +910,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
             const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode);
-            const gate = nativeToolGate(effMode, ntier);
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            const gate = nativeToolGate(effMode, ntier, tc.name, args);
             if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {

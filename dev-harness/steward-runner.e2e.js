@@ -20,8 +20,10 @@
 //  (E) 收件箱回合:events -> 一条 origin:'inbox' 的 user 消息;拿它当记忆来源 -> source_not_user。
 //  (F) 用户消息抢占在途收件箱回合(fake 慢响应):被抢占的回合 steward.cancelled,事件重排不丢。
 //  (G) 到访:静默判定、归档文件出现、历史清空、待决仍在、digest ≤5 条。
-//  (H) 熔断:stewardMaxTurnsPerHour=1 时下一条 message 得 circuit 且不再调模型;连续 5 次零进展的
-//      收件箱回合后退避到下一次用户消息(no_progress)。
+//  (H) 熔断:117m-A1 起小时窗【只节流 trigger !== 'user' 的自主回合】—— stewardMaxTurnsPerHour=1 打满后
+//      用户自己的 message 照样放行且真的调模型(H1/H1b/H2),停机这条熔断对用户仍成立(H3b);
+//      自主回合被挡时不调模型、文案带「去设置·管家页调高每小时上限」(H7 系列,进程内);
+//      连续 5 次零进展的收件箱回合后退避到下一次用户消息(no_progress)。
 //  (K) 记账:管家回合在用量台账里是 kind:'aux' + note:'steward'(日费用熔断按这条口径累计)。
 //  (I) 上下文预算分叉:管家预算 = min(配置, 模型窗口) × 60%。
 //  (J) CLI 引擎主端点 -> steward.unsupported_engine。
@@ -86,15 +88,17 @@ const FIXED_THREAD = 'sess_stewardrunner01';
 THREAD_ID = FIXED_THREAD;
 const REPLY_SEQUENCE = [
   CONTRACT_A,                                          // [0] 服务端 /api/steward/message
-  PLAIN_TEXT,                                          // [1] 进程内:非 JSON
-  contractDecide(FIXED_THREAD, 'perm_default'),        // [2] 进程内:default 权限 -> 降级
+  CONTRACT_MIN,                                        // [1] 服务端 (H):小时窗打满时【用户】那一条 —— 117m-A1 起它不再被熔断挡下,
+                                                       //     于是它真的会消耗一条剧本(这一条就是为它加的,后面的序号整体后移一位)
+  PLAIN_TEXT,                                          // [2] 进程内:非 JSON
+  contractDecide(FIXED_THREAD, 'perm_default'),        // [3] 进程内:default 权限 -> 降级
   contractDecide(FIXED_THREAD, 'perm_auto', [{ tool: 'steward_thread_rename', args: { sessionId: FIXED_THREAD, title: '周报-W36 · 收尾' } }]),
-                                                       // [3] 进程内:auto 权限 -> 过档位门 + 一条真落账的写动作
-  CONTRACT_MIN,                                        // [4] 进程内:收件箱回合
-  { text: CONTRACT_MIN, delayMs: 3000 },               // [5] 进程内:慢的收件箱回合(被抢占)
-  CONTRACT_MIN,                                        // [6] 进程内:抢占的用户回合
-  contractRelay(FIXED_THREAD),                         // [7] 进程内:自理清单(relay 未勾选)
-  CONTRACT_MIN,                                        // [8+] 其余钳到末条
+                                                       // [4] 进程内:auto 权限 -> 过档位门 + 一条真落账的写动作
+  CONTRACT_MIN,                                        // [5] 进程内:收件箱回合
+  { text: CONTRACT_MIN, delayMs: 3000 },               // [6] 进程内:慢的收件箱回合(被抢占)
+  CONTRACT_MIN,                                        // [7] 进程内:抢占的用户回合
+  contractRelay(FIXED_THREAD),                         // [8] 进程内:自理清单(relay 未勾选)
+  CONTRACT_MIN,                                        // [9+] 其余钳到末条
 ];
 
 const fake = cp.spawn(process.execPath, [path.join(__dirname, 'fake-openai.js'), String(PROVIDER_PORT)], {
@@ -256,16 +260,38 @@ try {
   /* ═════════ (H) 熔断 ═════════ */
   console.log('── (H) 熔断 ──');
   {
+    // 117m-A1 重钉(用户第六轮走查⑦「这个熔断也不对吧」):H1/H2 原来钉的是【用户消息也被小时窗挡】
+    // —— 那正是用户真机上撞到的 bug(日志里两条 steward_circuit{circuit:'turns_per_hour',trigger:'user'}
+    // 就是他那两句「还在正常运转吗」),同一个函数下面几行的 no_progress 却写着「用户消息永远优先」。
+    // 小时窗从此只节流 trigger !== 'user' 的自主回合,H1/H2 按新纪律重钉,并补三条【更强】的伴随断言:
+    //   · H1b:放行不是「假装放行」—— 模型真的被调了(capture +1);
+    //   · H2b(进程内 H-3):真正该被挡的 inbox 回合仍被挡、且【确实没调模型】(原 H2 的强度搬到那里,
+    //     它验的是真正的节流路径,比在用户路径上验更有意义);
+    //   · H3b:停机这条熔断对用户回合仍然成立(state 带 circuit 的能力仍被真值证明,而且是原先没测过的分支)。
     const capturedBefore = countFiles(CAPTURE);
     writeConfig({ stewardMaxTurnsPerHour: 1 });
     const res = await request('POST', '/api/steward/message', { message: '再看一眼' });
     const reply = res.lines.find(l => l && l.type === 'steward_reply') || null;
-    ok(reply && reply.circuit && reply.circuit.kind === 'turns_per_hour',
-      `H1 每小时回合上限=1 且本小时已跑过 1 个回合 -> 下一条 message 得 circuit(got ${reply && JSON.stringify(reply.circuit)})`);
-    ok(countFiles(CAPTURE) === capturedBefore, 'H2 熔断时不再调模型(fake 没有收到新请求)');
+    ok(reply && !reply.circuit,
+      `H1 每小时回合上限=1 且本小时已跑满 -> 用户自己的 message 【不】被挡(小时窗只节流自主回合;got ${reply && JSON.stringify(reply.circuit)})`);
+    ok(reply && typeof reply.say === 'string' && reply.say.length > 0, 'H1b 用户真的拿到了一句回答(不是空信封)');
+    ok(countFiles(CAPTURE) > capturedBefore, 'H2 而且模型真的被调了(fake 收到新请求)—— 放行不是假装放行');
     const state = await request('GET', '/api/steward/state');
-    ok(state.status === 200 && state.json && state.json.circuit && state.json.circuit.kind === 'turns_per_hour', 'H3 /api/steward/state 带 circuit');
+    ok(state.status === 200 && state.json && 'circuit' in state.json && !state.json.circuit,
+      'H3 用户回合放行后 /api/steward/state 的 circuit 键仍在、值为空(形状不变)');
     ok(state.json && state.json.visit && state.json.turns && state.json.cost && 'lastReply' in state.json, 'H4 /api/steward/state 扩展了 visit/turns/cost/lastReply');
+    // H3b:停机是【用户自己按的】,它对用户回合当然仍然成立 —— 「state 带 circuit」这条能力照旧被真值钉住。
+    const stopped = await request('POST', '/api/steward/stop', {});
+    ok(stopped.status === 200, 'H3b 停机 200');
+    const capturedAfterStop = countFiles(CAPTURE);
+    const res2 = await request('POST', '/api/steward/message', { message: '停机之后再说一句' });
+    const reply2 = res2.lines.find(l => l && l.type === 'steward_reply') || null;
+    ok(reply2 && reply2.circuit && reply2.circuit.kind === 'stopped',
+      `H3b 停机后连用户消息也得 circuit:stopped(用户自己按的停机 > 用户说话;got ${reply2 && JSON.stringify(reply2.circuit)})`);
+    ok(countFiles(CAPTURE) === capturedAfterStop, 'H3b 停机熔断时不再调模型(fake 没有收到新请求)');
+    const state2 = await request('GET', '/api/steward/state');
+    ok(state2.status === 200 && state2.json && state2.json.circuit && state2.json.circuit.kind === 'stopped', 'H3b /api/steward/state 带 circuit');
+    ok((await request('POST', '/api/steward/start', {})).status === 200, 'H3b 恢复运行(后续相位不受影响)');
     writeConfig({});
   }
 } finally {
@@ -442,6 +468,34 @@ try {
       `H5 连续 ${5} 次收件箱回合零 acts 零 actions -> no_progress 退避(got ${lastResult && JSON.stringify(lastResult.circuit)})`);
     const afterUser = await srv.runStewardTurn({ trigger: 'user', message: '你还在吗' });
     ok(afterUser && afterUser.ok === true && !afterUser.circuit, 'H6 用户消息永远优先:一说话就解除无进展退避');
+  }
+
+  /* ═════════ (H-3) 117m-A1:小时窗只节流自主回合 ═════════ */
+  {
+    // 前面的相位已经跑掉几十个回合,窗口里必然满。把上限压到 1 → 小时窗必然打满。
+    writeConfig({ stewardMaxTurnsPerHour: 1 });
+    const capturedBefore = countFiles(CAPTURE);
+    const inboxEvent = i => ({ inboxSeq: 900 + i, kind: 'done', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 900 + i, at: new Date().toISOString(), payload: { summary: '收工' }, count: 1 });
+    const blocked = await srv.runStewardTurn({ trigger: 'inbox', events: [inboxEvent(1)] });
+    ok(blocked && blocked.circuit && blocked.circuit.kind === 'turns_per_hour',
+      `H7 小时窗打满 -> trigger:'inbox' 的自主回合【仍被挡】(got ${blocked && JSON.stringify(blocked.circuit)})`);
+    ok(countFiles(CAPTURE) === capturedBefore, 'H7b 被挡的自主回合确实没调模型(原 H2 的强度搬到真正该被挡的这条路径上)');
+    ok(blocked && typeof blocked.say === 'string' && /设置/.test(blocked.say) && /管家/.test(blocked.say) && /每小时/.test(blocked.say),
+      `H7c 挡下自主回合那句话告诉用户去哪儿调(带「设置·管家页 / 每小时最多回合数」);got ${blocked && JSON.stringify(blocked.say)}`);
+    ok(blocked && /不受这条限制/.test(String(blocked.say)), 'H7d 并且说清楚「你随时可以直接跟我说话」—— 别让用户以为自己也被锁了');
+    const passed = await srv.runStewardTurn({ trigger: 'user', message: '还在正常运转吗' });
+    ok(passed && passed.ok === true && !passed.circuit,
+      `H8 同一时刻 trigger:'user' 【放行】(小时窗不是用户的说话额度;got ${passed && JSON.stringify(passed.circuit)})`);
+    ok(countFiles(CAPTURE) > capturedBefore, 'H8b 用户那一句真的调了模型');
+    // 纯函数真值表(不经回合运行器,判据本身逐条钉死)。
+    const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
+    const asUser = await srv.stewardCircuitCheck(cfg, 'user');
+    const asInbox = await srv.stewardCircuitCheck(cfg, 'inbox');
+    const asOther = await srv.stewardCircuitCheck(cfg, 'timer');
+    ok(asUser === null, `H9 stewardCircuitCheck(cfg,'user') === null(小时窗对用户不生效;got ${JSON.stringify(asUser)})`);
+    ok(asInbox && asInbox.kind === 'turns_per_hour' && asInbox.limit === 1, 'H9b stewardCircuitCheck(cfg,\'inbox\') 命中 turns_per_hour 且回报 limit');
+    ok(asOther && asOther.kind === 'turns_per_hour', "H9c 未知 trigger(非 'user')按【自主回合】处理 —— 白名单式放行,新调用面不会误当成用户");
+    writeConfig({ stewardMaxTurnsPerHour: 100 });
   }
   /* ═════════ (I) 上下文预算分叉 ═════════ */
   console.log('── (I) 预算分叉 ──');

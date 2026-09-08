@@ -34,7 +34,20 @@ ok(/stewardEnabledV1:\s*false,/.test(configSrc), '默认值: stewardEnabledV1=fa
 ok(/stewardProviderId:\s*'',/.test(configSrc), "默认值: stewardProviderId=''");
 ok(/stewardModel:\s*'',/.test(configSrc), "默认值: stewardModel=''(在 stewardProviderId 之后,与 subagent 写法对齐)");
 ok(/stewardPollMs:\s*15000,/.test(configSrc), '默认值: stewardPollMs=15000');
-ok(/stewardMaxTurnsPerHour:\s*12,/.test(configSrc), '默认值: stewardMaxTurnsPerHour=12');
+// 117m-A1 重钉(用户第六轮走查⑦):默认值 12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」
+// 15 分钟吃光(11 条 steward_decision),于是用户那两句「还在正常运转吗」撞上熔断。重钉的同时补两条
+// 【更强】的伴随断言:默认表与 sanitize 兜底必须是同一个数(B10b),且 clamp 区间一字未动(下面 clampChecks)。
+ok(/stewardMaxTurnsPerHour:\s*30,/.test(configSrc), '默认值: stewardMaxTurnsPerHour=30(117m-A1 从 12 抬到 30)');
+{
+  const declared = (configSrc.match(/stewardMaxTurnsPerHour:\s*(\d+),/) || [])[1];
+  const fallback = (configSrc.match(/Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : (\d+);/) || [])[1];
+  ok(declared === '30' && fallback === '30',
+    `默认值: stewardMaxTurnsPerHour 的默认表与 sanitize 兜底是同一个数(默认表 ${declared} / 兜底 ${fallback})—— 两处漂移会让「缺省」和「填了垃圾」落到不同上限`);
+}
+// 存量配置【不迁移】:normalizeConfig 只在值缺失/非法时才写默认值,合法的旧值(含 12)原样保留 ——
+// 静默抬高别人的花钱上限不合适。下面 c1 那一段的 clamp 断言就是这条纪律的机器证据。
+ok(/if \(clamped !== config\.stewardMaxTurnsPerHour\) \{ config\.stewardMaxTurnsPerHour = clamped; changed = true; \}/.test(configSrc),
+  'sanitize: 合法的存量值原样保留(只有 clamp 后不同才回写 —— 抬高默认值不会动老用户已有的上限)');
 ok(/stewardMaxCostPerDay:\s*1,/.test(configSrc), '默认值: stewardMaxCostPerDay=1');
 ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*false,\s*newThread:\s*true\s*\},/.test(configSrc),
   "默认值: stewardAutoActions={retry:true,resume:null,relay:false,newThread:true}");
@@ -58,7 +71,7 @@ ok(/\['visit', '24h', 'forever'\]\.includes\(config\.stewardConversationRetentio
 // 数字键 clamp 上下限字面量(逐个断言,防止有意/无意漂移;含 Math.round(n) 嵌套括号,按实际写法逐字匹配)。
 const clampChecks = [
   { label: 'stewardPollMs clamp [5000,120000]', re: /Math\.min\(120000, Math\.max\(5000, Math\.round\(n\)\)\) : 15000;/ },
-  { label: 'stewardMaxTurnsPerHour clamp [1,120]', re: /Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : 12;/ },
+  { label: 'stewardMaxTurnsPerHour clamp [1,120]', re: /Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : 30;/ }, // 117m-A1:区间 [1,120] 一字未动,只有兜底默认 12→30
   { label: 'stewardMaxCostPerDay clamp [0,1000]', re: /Math\.min\(1000, Math\.max\(0, n\)\) : 1;/ },
   { label: 'stewardContextBudgetTokens clamp [16000,2000000]', re: /Math\.min\(2000000, Math\.max\(16000, Math\.round\(n\)\)\) : 200000;/ },
   { label: 'stewardReadBudgetChars clamp [4000,400000]', re: /Math\.min\(400000, Math\.max\(4000, Math\.round\(n\)\)\) : 48000;/ },

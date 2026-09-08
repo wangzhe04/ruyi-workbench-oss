@@ -40,6 +40,19 @@ function applySessionPermissionModeOverride(session) {
   if (mode) session.permissionMode = mode; else delete session.permissionMode;
   return session;
 }
+// 117m-A1(用户第六轮走查②;27 号文 §3.3/§8.6):活回合中途改档,闸门要读【此刻】的会话级档,
+// 而不是回合开始时的那个快照。修前 10-context-governance 在回合开始时把三层解析成一个不可变快照
+// (resolvePermissionMode(request > session > config)),09/08 全程读它 —— 上面 sessionMetaDeferChains
+// 的设计注释 ② 自称「permissionMode 先进内存覆盖表…对所有读者立刻是新值」,但 09 的闸门从来没读过
+// 这张表,那句话对活回合从未成立。后果是用户在最该收紧/放宽的那几分钟里改档等于没改(放宽只是费
+// token,反过来「想临时收紧」失效则是安全问题)。
+// 本函数【只读】,不碰延后落盘那条链;档位仍然只有 PATCH 一个写口。
+// '' = 用户清了会话级设置(回落全局),此时返回 null 让调用方继续用它自己的解析结果 —— 中途「清除」
+// 要到下一个回合才生效。这是有意的保守取舍:清除是回落全局,方向不定,不在活回合里替用户猜。
+function liveSessionPermissionMode(id) {
+  const mode = sessionPermissionModeOverrides.get(String(id || ''));
+  return mode ? mode : null;
+}
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),

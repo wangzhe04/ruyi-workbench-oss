@@ -883,9 +883,15 @@ function stewardTurnsInWindow(now, windowMs) {
 
 async function stewardCircuitCheck(config, trigger) {
   if (stewardRunnerRuntime.stopped) return { kind: 'stopped', detail: '管家已停机(可在设置或 /api/steward/start 恢复)' };
+  // 117m-A1(用户第六轮走查⑦「这个熔断也不对吧」):小时窗是【自主回合】的节流器,不是用户的说话额度。
+  // 与下面 no_progress 那一条同一句纪律:用户消息永远优先,任何时候都能把管家叫醒。修前这条判据不看
+  // trigger —— 真机日志里 {"kind":"steward_circuit","circuit":"turns_per_hour","trigger":"user"} 出现两次
+  // (02:31:33 / 02:33:25),正是用户那两句「还在正常运转吗」被机器回了「本小时已经跑了 12 个管家回合,
+  // 先歇一会儿」;而那 12 个额度是被根因 1 的「代批风暴」在 15 分钟内吃光的。两条判据当时自相矛盾。
+  // 挡下【收件箱】回合时那句话必须能落地 —— 带上去哪儿调,否则用户只知道被挡了不知道怎么办。
   const maxTurns = Math.max(0, Math.round(Number(config.stewardMaxTurnsPerHour) || 0));
-  if (maxTurns > 0 && stewardTurnsInWindow(Date.now(), STEWARD_TURN_WINDOW_MS) >= maxTurns) {
-    return { kind: 'turns_per_hour', detail: `本小时已经跑了 ${maxTurns} 个管家回合,先歇一会儿`, limit: maxTurns };
+  if (trigger !== 'user' && maxTurns > 0 && stewardTurnsInWindow(Date.now(), STEWARD_TURN_WINDOW_MS) >= maxTurns) {
+    return { kind: 'turns_per_hour', detail: `本小时已经跑了 ${maxTurns} 个管家回合,先歇一会儿(你随时可以直接跟我说话,不受这条限制)。要让它自己多跑一些,去设置·管家页把「每小时最多回合数」调高。`, limit: maxTurns };
   }
   const maxCost = Number(config.stewardMaxCostPerDay);
   if (Number.isFinite(maxCost) && maxCost > 0) {

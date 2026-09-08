@@ -323,6 +323,10 @@ module.exports = {
   // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
   // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
   resolvePermissionMode,
+  // 第117波117m-A1(27号文§3.3/§8.6): 原生引擎权限闸门本体(mode,tier,toolName,input)与「活回合此刻
+  // 的会话级档」只读访问器 — exposed for e2e 直测(auto 档的高风险判据、中途改档立刻生效两条)。
+  nativeToolGate,
+  liveSessionPermissionMode,
   PERMISSION_MODES_REQUIRING_CONFIRM,
   STEWARD_PERMISSION_RANK,
   stewardPermissionRank,
@@ -395,6 +399,8 @@ module.exports = {
   STEWARD_SESSION_TITLE,
   STEWARD_PERMISSION_MODE,
   runStewardTurn,
+  // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
+  stewardCircuitCheck,
   stewardVisit,
   stewardParseReply,
   stewardResolveRoute,

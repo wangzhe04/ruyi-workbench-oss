@@ -1957,6 +1957,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // one-shot pause (we look for a PLAN: on the FIRST assistant message only). `planRejected` records a reject.
   let planApproved = false, planRejected = false, planPhase = planMode, planRejectNote = '';
   const isProviderPlanMode = planMode; // stable snapshot for the gate (config isn't mutated, but read once)
+  // 117m-A1(用户第六轮走查②;27 号文 §3.3/§8.6「点开即换、立即生效」):活回合中途改档要对【这个】
+  // 回合生效。config.permissionMode 是 10-context-governance 在回合开始时解析出来的快照(请求级 >
+  // 会话级 > 全局);02 的 sessionPermissionModeOverrides 才是会话级档的【此刻】权威副本。
+  // 判据刻意写成「只有在这个回合里【被改过】才接管」,而不是「有会话级档就接管」:
+  //   · 没改过 → 一律返回快照的判定,行为与修前逐字节一致(含既有断言「请求级优先于会话级」——
+  //     请求级 plan + 会话级 auto 的回合里没人改档,于是仍旧按 plan 走);
+  //   · 改过 → 用户刚刚按下的那一档是最新的意思表示,收紧与放宽都当场生效(收紧比放宽更重要)。
+  // liveSessionPermissionMode 对 '' (用户清除会话级设置)返回 null → 落回快照,不在活回合里替用户猜。
+  const permissionModeAtTurnStart = liveSessionPermissionMode(session.id);
+  let permissionModeLiveLogged = false;
+  const gateWithLiveMode = (gateTier, gateToolName, gateInput) => {
+    const snapshotGate = nativeToolGate(config.permissionMode, gateTier, gateToolName, gateInput);
+    const live = liveSessionPermissionMode(session.id);
+    if (!live || live === permissionModeAtTurnStart) return snapshotGate;
+    const liveGate = nativeToolGate(live, gateTier, gateToolName, gateInput);
+    // 只在换档【真的改变了这一步的判定】时记一条观测事件,每回合最多一条(方便下次对账,不刷屏)。
+    if (liveGate !== snapshotGate && !permissionModeLiveLogged) {
+      permissionModeLiveLogged = true;
+      try { logEvent({ kind: 'permission_mode_live', sessionId: session.id, from: config.permissionMode, to: live }); } catch { /* 遥测绝不阻断 */ }
+    }
+    return liveGate;
+  };
   // v0.9-S6 (子代理) turn-local state. spawn_agent calls emitted in ONE assistant tool batch are started
   // together and awaited in their original tool_call order, so provider-history pairing stays deterministic
   // while the delegated work actually overlaps. `subagentBatchCount` resets at the top of each assistant
@@ -2685,7 +2707,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // 不会被 offer(07 的 stewardSession 分支),真被调到只可能是伪造/回放,直接 block(防御纵深)。
           let gate = isStewardTurn
             ? (isStewardToolName(tc.name) ? 'allow' : 'block')
-            : nativeToolGate(config.permissionMode, tier);
+            : gateWithLiveMode(tier, tc.name, args);
           // v0.9-S5 (真流程 plan mode): once the user APPROVED this turn's plan, plan mode's blanket block on
           // mutating tools is lifted for THIS turn only (planApproved is a turn-local closure flag — it does
           // NOT change config.permissionMode, so the next turn re-blocks until a fresh plan is approved). We

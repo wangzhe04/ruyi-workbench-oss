@@ -149,6 +149,24 @@ try {
     ok(Array.isArray(acc.errorClasses) && acc.errorClasses.join(',') === 'timeout,oom',
       `B5 errorClass 累加成列表(got ${JSON.stringify(acc.errorClasses)})`);
     ok(Array.isArray(acc.mergedSeqs) && acc.mergedSeqs.length === 2, 'B6 mergedSeqs 仍回填(重启重建去重集合的既有口径不变)');
+
+    /* ── 117m-A1:真实 tick 用的那个窗口是 5s → 30s ── */
+    // 用户第六轮走查②「管家还是会一条条汇报,没有必要还费 Token」。5 秒窗口在真机上几乎不合并任何
+    // 东西 —— 同一条线程的失败/停滞信号往往隔十几秒才来第二条,于是每一条各起一个管家回合。
+    // 上面 B1–B6 显式传 5000,钉的是【分组键】的行为,与窗口长度无关,故一字未改;下面钉的是
+    // 「不传 windowMs 时用的那个常量到底是多长」——它才是 stewardTickOnce 真正走的那条路。
+    const spread = (gapMs, windowMs) => srv.stewardMergeInboxEvents([
+      ev('run_w', 1, 0, { summary: '第一条' }),
+      ev('run_w', 2, gapMs, { summary: '第二条' }),
+      ev('run_w', 3, gapMs * 2, { summary: '第三条' }),
+    ], windowMs);
+    ok(spread(12000, undefined).length === 1, 'B7 缺省窗口下:同 session 同 kind 同 run、相隔 12s/24s 的三条并成一条(修前 5s 窗口是三条,管家要汇报三次)');
+    ok(spread(12000, undefined)[0].count === 3, 'B7b 并成的那一条 count=3(既有「同类 N 条」文案原样复用,不新起措辞)');
+    ok(spread(20000, undefined).length === 2, 'B8 距【本组首条】超过 30s 的照样另起一组(窗口是 30s,不是无限攒批)');
+    ok(spread(12000, 5000).length === 3, 'B8b 显式传 5000 时仍旧是三条 —— 变的只有缺省常量,函数本身的语义一字未动');
+    const src13i = fs.readFileSync(path.join(WB, 'app', 'src', '13i-steward-inbox.js'), 'utf8');
+    ok(/const STEWARD_MERGE_WINDOW_MS = 30000;/.test(src13i), 'B9 源码常量就是 30000(缺省值的唯一来源,防止有人只改注释)');
+    ok(/stewardMergeInboxEvents\(head, STEWARD_MERGE_WINDOW_MS\)/.test(src13i), 'B9b stewardTickOnce 用的正是这个常量(没有第二个写死的窗口)');
   }
 } finally {
   try { srv.stopStewardInbox(); } catch { /* ignore */ }

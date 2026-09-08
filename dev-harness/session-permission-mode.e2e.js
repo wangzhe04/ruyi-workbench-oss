@@ -21,6 +21,13 @@
 //  ⑦ 管家工具 steward_thread_permission:收紧成功 + 决策日志一行;放宽 → steward.widen_forbidden;
 //     普通会话 ctx → steward.forbidden。
 //  ⑧ steward_thread_status 的 effectivePermissionMode / sessionPermissionMode 与 PATCH 后一致。
+// 117m-A1 追加(用户第六轮走查②「我已经默认线程全自动了,还是会有很多要求权限」):
+//  ⑨ auto + exec + 普通工具(script_run 写个文件)→ 不弹权限,且工具真的执行;
+//  ⑩ auto + exec + 高风险(命令文本含 rm -rf)→ 仍然弹权限,且超时 deny 后没有执行;
+//  ⑪ nativeToolGate 真值矩阵(进程内纯函数):没传 toolName 回落 ask;九种高风险形状全 ask;
+//     bypass/read/plan/dontAsk/acceptEdits/default 六条既有分支逐条钉住「一行没动」;
+//  ⑫ 活回合中途 PATCH 改档:default → auto 放宽后同一回合的下一个工具不再弹窗、auto → default
+//     收紧后重新弹窗(收紧比放宽更重要),并各记恰好一条 permission_mode_live 观测事件。
 //
 // ①–⑥ 走真服务 HTTP;⑦⑧ 在服务停掉之后【进程内】直调 TOOL_HANDLERS(合成管家 ctx),读的是同一个
 // 数据根 —— 于是「HTTP 改的档,管家看得见」也是被验证的。
@@ -41,7 +48,10 @@ const PROVIDER_PORT = await getFreePort();
 const WB_PORT = await getFreePort();
 
 // ── fake-openai:每个回合先发一次 file_write(目标路径由测试端控制),拿到 tool 结果后回一句话 ──
+// 117m-A1:多一个 nextTool 旋钮 —— 置上之后这一回合改发它(名字与参数都由测试端给),用来观测
+// 【exec 档】工具在各档下到底放不放行。不置 = 逐字节走原来的 file_write 剧本。
 let toolTargetPath = path.join(HOME, 'unused.txt');
+let nextTool = null;
 let providerDelayMs = 0;
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
@@ -61,8 +71,10 @@ const providerServer = http.createServer(async (req, res) => {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   const frame = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
   if (wantTool) {
-    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'file_write', arguments: '' } }] } }] });
-    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ path: toolTargetPath, content: 'written' }) } }] } }] });
+    const callName = nextTool ? nextTool.name : 'file_write';
+    const callArgs = nextTool ? nextTool.args : { path: toolTargetPath, content: 'written' };
+    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: callName, arguments: '' } }] } }] });
+    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify(callArgs) } }] } }] });
     frame({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
   } else {
     frame({ choices: [{ index: 0, delta: { content: '好的，做完了。' } }] });
@@ -122,9 +134,40 @@ const messageLines = id => { try { return fs.readFileSync(path.join(HOME, 'sessi
 async function turnWritesFile(sessionId, extra) {
   const target = path.join(HOME, 'probe-' + Math.random().toString(36).slice(2, 8) + '.txt');
   toolTargetPath = target;
+  nextTool = null;
   try { fs.unlinkSync(target); } catch { /* not there */ }
   await runTurn({ sessionId, message: '写个文件', cwd: HOME, ...(extra || {}) });
   return fs.existsSync(target);
+}
+// 117m-A1:同一个判据搬到 exec 档 —— 让这一回合发一次 script_run(node),脚本自己写一个标记文件。
+// 于是「这一档放不放行 exec 层工具」有两条互相独立的可观测量:标记文件在不在(真跑了没),以及
+// 事件流里有没有 permission_request(弹没弹窗)。riskyText 非空时把它塞进 code —— 命令文本里带
+// `rm -rf` 之类的高风险动作,判据(stewardToolPermanentlyExempt)应当把它拦回「要人按」。
+async function runExecTurn(sessionId, opts) {
+  const o = opts || {};
+  const marker = path.join(HOME, 'exec-probe-' + Math.random().toString(36).slice(2, 8) + '.txt');
+  try { fs.unlinkSync(marker); } catch { /* not there */ }
+  const risky = o.riskyText ? `// ${o.riskyText}\n` : '';
+  nextTool = {
+    name: o.toolName || 'script_run',
+    args: { language: 'node', code: risky + `require('fs').writeFileSync(${JSON.stringify(marker)}, 'ran');` },
+  };
+  const events = await runTurn({ sessionId, message: '跑一句', cwd: HOME, ...(o.extra || {}) });
+  nextTool = null;
+  return {
+    ran: fs.existsSync(marker),
+    asked: events.some(e => e && e.type === 'permission_request'),
+    events,
+  };
+}
+// 观测日志:permission_mode_live 是「中途换档真的改变了这一步的判定」的唯一记账口。
+function liveModeLogRows() {
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    return fs.readFileSync(path.join(HOME, 'logs', `workbench-${day}.ndjson`), 'utf8')
+      .split(/\r?\n/).filter(l => l.trim()).map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .filter(r => r && r.kind === 'permission_mode_live');
+  } catch { return []; }
 }
 
 let wb = null;
@@ -231,6 +274,73 @@ try {
     ok(head && Number(head.messageCount) === after, '⑥ 会话头计数与正文行数一致(没有被陈旧副本盖出错位)');
   }
 
+  /* ═══════ ⑨ 117m-A1:「全自动」对 exec 层真的不问(用户第六轮走查②)═══════ */
+  // 修前 nativeToolGate 的 auto 档只放行 edit,exec 落到末尾的 return 'ask' —— 三处界面都叫它
+  // 「全自动」,而线程每一步 script_run/http_request 照样弹窗、进收件箱、管家再起一个回合去代批。
+  {
+    const D = await mk('线程D-全自动');
+    const set = await reqJson('PATCH', '/api/sessions/' + D, { permissionMode: 'auto', confirm: true });
+    ok(set.status === 200 && set.json.sessionMeta.permissionMode === 'auto', '⑨ 线程 D 切到 auto(全自动)');
+    const plain = await runExecTurn(D, {});
+    ok(plain.asked === false, '⑨ auto + exec + 普通工具(script_run 写个文件)→ 【不弹权限】(事件流里没有 permission_request)');
+    ok(plain.ran === true, '⑨ 而且工具是真的执行了(脚本写出的标记文件在)');
+  }
+
+  /* ═══════ ⑩ 高风险仍然要人按(判据复用 06i stewardToolPermanentlyExempt)═══════ */
+  {
+    const D2 = await mk('线程D2-全自动高风险');
+    await reqJson('PATCH', '/api/sessions/' + D2, { permissionMode: 'auto', confirm: true });
+    const risky = await runExecTurn(D2, { riskyText: 'rm -rf C:/nope' });
+    ok(risky.asked === true, '⑩ auto + exec + 命令文本含 rm -rf → 【仍然弹权限】(高风险不因「全自动」而免检)');
+    ok(risky.ran === false, '⑩ 且超时回落 deny → 脚本没有执行(标记文件不在)');
+  }
+
+  /* ═══════ ⑫ 活回合中途改档:同一个回合的下一个工具立刻按新档判 ═══════ */
+  // 修前 09 的闸门只读回合开始时那个快照,02 的 sessionPermissionModeOverrides 从来没人读 ——
+  // 于是用户在最该收紧/放宽的那几分钟里改档等于没改(放宽只是费 token,收紧失效是安全问题)。
+  {
+    const E = await mk('线程E-回合中放宽');
+    const t0 = await reqJson('PATCH', '/api/sessions/' + E, { permissionMode: 'default' });
+    ok(t0.status === 200 && t0.json.sessionMeta.permissionMode === 'default', '⑫ 线程 E 起手是 default(exec 要问)');
+    const before = liveModeLogRows().length;
+    const marker = path.join(HOME, 'live-widen.txt');
+    try { fs.unlinkSync(marker); } catch { /* not there */ }
+    nextTool = { name: 'script_run', args: { language: 'node', code: `require('fs').writeFileSync(${JSON.stringify(marker)}, 'ran');` } };
+    providerDelayMs = 2500;
+    const turn = runTurn({ sessionId: E, message: '跑一句', cwd: HOME }); // 不 await:回合在飞
+    await sleep(900);
+    const widen = await reqJson('PATCH', '/api/sessions/' + E, { permissionMode: 'auto', confirm: true });
+    ok(widen.status === 200, '⑫ 回合在飞时把 E 切成 auto(PATCH 照常 200)');
+    const events = await turn;
+    providerDelayMs = 0; nextTool = null;
+    ok(!events.some(e => e && e.type === 'permission_request'), '⑫ 放宽:同一个回合的下一个工具【不再弹窗】(default → auto 当场生效)');
+    ok(fs.existsSync(marker), '⑫ 放宽:该工具真的执行了');
+    const rows = liveModeLogRows();
+    ok(rows.length === before + 1 && rows[rows.length - 1].sessionId === E
+      && rows[rows.length - 1].from === 'default' && rows[rows.length - 1].to === 'auto',
+      '⑫ 恰好记一条 permission_mode_live{sessionId,from:"default",to:"auto"}(每回合最多一条)');
+  }
+  {
+    const F = await mk('线程F-回合中收紧');
+    await reqJson('PATCH', '/api/sessions/' + F, { permissionMode: 'auto', confirm: true });
+    const before = liveModeLogRows().length;
+    const marker = path.join(HOME, 'live-tighten.txt');
+    try { fs.unlinkSync(marker); } catch { /* not there */ }
+    nextTool = { name: 'script_run', args: { language: 'node', code: `require('fs').writeFileSync(${JSON.stringify(marker)}, 'ran');` } };
+    providerDelayMs = 2500;
+    const turn = runTurn({ sessionId: F, message: '跑一句', cwd: HOME });
+    await sleep(900);
+    const tighten = await reqJson('PATCH', '/api/sessions/' + F, { permissionMode: 'default' });
+    ok(tighten.status === 200, '⑫ 回合在飞时把 F 从 auto 收紧成 default(PATCH 照常 200)');
+    const events = await turn;
+    providerDelayMs = 0; nextTool = null;
+    ok(events.some(e => e && e.type === 'permission_request'), '⑫ 收紧:同一个回合的下一个工具【重新弹窗】(auto → default 当场生效 —— 这条比放宽更重要)');
+    ok(!fs.existsSync(marker), '⑫ 收紧:该工具没有执行(超时回落 deny)');
+    const rows = liveModeLogRows();
+    ok(rows.length === before + 1 && rows[rows.length - 1].from === 'auto' && rows[rows.length - 1].to === 'default',
+      '⑫ 恰好再记一条 permission_mode_live{from:"auto",to:"default"}');
+  }
+
   /* ═══════════════ ⑦⑧ 管家侧:先把服务停掉,再进程内直调工具 ═══════════════ */
   killp(wb); wb = null; await sleep(600);
   writeConfig({ stewardEnabledV1: true, stewardPollMs: 120000 });
@@ -285,6 +395,43 @@ try {
     ok(noSession && noSession.ok === false && noSession.error === 'not_found', '⑦ 目标线程不存在 → not_found');
     const stewardTarget = await call('steward_thread_permission', { sessionId: 'steward', permissionMode: 'plan' });
     ok(stewardTarget && stewardTarget.ok === false, '⑦ 管家自己的会话不能被当成目标线程');
+  }
+
+  /* ═══════ ⑪ 117m-A1:nativeToolGate 真值矩阵(纯函数,穷举比走 HTTP 便宜且更全)═══════ */
+  {
+    const g = srv.nativeToolGate;
+    ok(typeof g === 'function' && typeof srv.liveSessionPermissionMode === 'function',
+      '⑪ nativeToolGate / liveSessionPermissionMode 已从产物导出(e2e 可直测)');
+    // 保守回落:调用方没给工具名 → 仍然 ask。新调用面忘了传参【不会】静默放权(13d 的桥消耗点
+    // 眼下就还没补传,它必须继续走 ask —— 这条断言就是那一处的安全网)。
+    ok(g('auto', 'exec') === 'ask', '⑪ auto + exec + 没传 toolName → ask(保守回落)');
+    ok(g('auto', 'exec', '') === 'ask', '⑪ auto + exec + 空工具名 → ask');
+    ok(g('auto', 'exec', 'script_run', { language: 'node', code: "console.log('hi')" }) === 'allow',
+      '⑪ auto + exec + 普通命令 → allow');
+    for (const [name, input, why] of [
+      ['script_run', { code: 'rm -rf /var/x' }, '删除数据(rm -rf)'],
+      ['powershell_run', { command: 'Remove-Item C:/x -Recurse -Force' }, '删除数据(Remove-Item -Recurse)'],
+      ['powershell_run', { command: 'git push origin main' }, '推到远端(git push)'],
+      ['script_run', { code: 'winget install Foo' }, '安装软件(winget install)'],
+      ['powershell_run', { command: 'reg add HKLM\\Software\\X /v Y' }, '改注册表(reg add)'],
+      ['powershell_run', { command: 'shutdown /s /t 0' }, '关机'],
+      ['script_run', { code: "curl -X POST https://x/y -d 'z'" }, '对外发送(curl -X POST)'],
+      ['acc__install_package', {}, '工具名命中 install'],
+      ['keyboard_send_keys', { keys: 'hi' }, '工具名命中 send'],
+    ]) {
+      ok(g('auto', 'exec', name, input) === 'ask', `⑪ auto + exec + 高风险(${why})→ 仍然 ask`);
+    }
+    // 其余五条分支一行不动:改动只准落在 auto 的 exec 一支上。
+    ok(g('bypass', 'exec', 'script_run', { code: 'rm -rf /' }) === 'allow', '⑪ bypass 不变(exec 一律 allow,高风险也不问)');
+    ok(g('bypassPermissions', 'exec', 'script_run', {}) === 'allow', '⑪ bypassPermissions 不变');
+    ok(g('default', 'read', 'file_read', {}) === 'allow', '⑪ read 层不变(任何档都 allow)');
+    ok(g('plan', 'exec', 'script_run', {}) === 'block' && g('plan', 'edit', 'file_write', {}) === 'block', '⑪ plan 不变(edit/exec 都 block)');
+    ok(g('dontAsk', 'exec', 'script_run', {}) === 'block', '⑪ dontAsk 不变');
+    ok(g('acceptEdits', 'edit', 'file_write', {}) === 'allow' && g('acceptEdits', 'exec', 'script_run', { code: "console.log('hi')" }) === 'ask',
+      '⑪ acceptEdits 不变(edit allow / exec ask —— 它【不】跟着 auto 一起放宽)');
+    ok(g('default', 'exec', 'script_run', { code: "console.log('hi')" }) === 'ask', '⑪ default 不变(exec 一律 ask)');
+    ok(g('auto', 'edit', 'file_write', { path: 'C:/x' }) === 'allow', '⑪ auto + edit 不变(可撤销的落盘一直是 allow)');
+    ok(g('auto', 'edit', 'file_delete', { path: 'C:/x' }) === 'allow', '⑪ auto + edit 不看高风险判据(edit 层由检查点兜底,口径与修前逐字节一致)');
   }
 
   {

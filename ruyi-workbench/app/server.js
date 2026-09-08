@@ -1117,7 +1117,10 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
-    stewardMaxTurnsPerHour: 12,
+    // 117m-A1:12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」15 分钟吃光(见 13h
+    // stewardCircuitCheck 的注释)。**不迁移存量配置** —— normalizeConfig 早已把 12 显式写进老用户的
+    // config.json,静默抬高别人的花钱上限不合适;只改默认,老用户在设置·管家页自己调。
+    stewardMaxTurnsPerHour: 30,
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
@@ -1785,10 +1788,11 @@ function normalizeConfig(raw) {
     const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 12。
+  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 30
+  // (117m-A1 把默认值 12 → 30,这里的兜底值与默认表同步;clamp 区间一字未动)。
   {
     const n = Number(config.stewardMaxTurnsPerHour);
-    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 12;
+    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
@@ -3544,6 +3548,19 @@ function applySessionPermissionModeOverride(session) {
   const mode = sessionPermissionModeOverrides.get(id);
   if (mode) session.permissionMode = mode; else delete session.permissionMode;
   return session;
+}
+// 117m-A1(用户第六轮走查②;27 号文 §3.3/§8.6):活回合中途改档,闸门要读【此刻】的会话级档,
+// 而不是回合开始时的那个快照。修前 10-context-governance 在回合开始时把三层解析成一个不可变快照
+// (resolvePermissionMode(request > session > config)),09/08 全程读它 —— 上面 sessionMetaDeferChains
+// 的设计注释 ② 自称「permissionMode 先进内存覆盖表…对所有读者立刻是新值」,但 09 的闸门从来没读过
+// 这张表,那句话对活回合从未成立。后果是用户在最该收紧/放宽的那几分钟里改档等于没改(放宽只是费
+// token,反过来「想临时收紧」失效则是安全问题)。
+// 本函数【只读】,不碰延后落盘那条链;档位仍然只有 PATCH 一个写口。
+// '' = 用户清了会话级设置(回落全局),此时返回 null 让调用方继续用它自己的解析结果 —— 中途「清除」
+// 要到下一个回合才生效。这是有意的保守取舍:清除是回落全局,方向不定,不在活回合里替用户猜。
+function liveSessionPermissionMode(id) {
+  const mode = sessionPermissionModeOverrides.get(String(id || ''));
+  return mode ? mode : null;
 }
 function sessionBodyPaths(id) {
   return {
@@ -22195,7 +22212,17 @@ function estimateToolSchemaTokens(tools) {
 }
 
 // Decide gate for a tool call given the permission mode. Returns 'allow' | 'ask' | 'block'.
-function nativeToolGate(mode, tier) {
+// 117m-A1(用户第六轮走查②「我已经默认线程全自动了,还是会有很多要求权限」):`auto` 档的 exec 分支
+// 从「一律 ask」改成「高风险才 ask」。修前 `auto` 只放行 edit 档,exec 落到末尾的 `return 'ask'` ——
+// 于是三处界面都把它叫「全自动」、管家壳的档位说明写「不再问你」,而线程每一步 script_run /
+// http_request 仍旧弹权限,进收件箱、管家再起一个回合去「代批」(真机日志里 11 条
+// intervention source:"steward_decision" action:"allow",两分钟一条,把每小时回合额度全吃光)。
+// 高风险判据【复用既有单点】stewardToolPermanentlyExempt(06i):工具名正则 + 命令文本正则两道,
+// 覆盖对外发送/支付/安装卸载/系统设置注册表/关机格式化/删除/git push。不另起一套判据 —— 那条
+// 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
+// toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
+// 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   if (tier === 'read') return 'allow';
@@ -22204,6 +22231,10 @@ function nativeToolGate(mode, tier) {
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
   if (mode === 'auto' && tier === 'edit') return 'allow';
   if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto') {
+    if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
+    return stewardToolPermanentlyExempt(toolName, input) ? 'ask' : 'allow';
+  }
   return 'ask';
 }
 // v0.8-S4b B3: which tools produce a change that the checkpoint journal can undo? Exactly the journaled
@@ -23926,6 +23957,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  // 117m-A1(同 09 的 gateWithLiveMode,判据一字不差):子回合跑在父会话的档下,父线程中途改档要对
+  // 【这个】子回合生效。只有在本子回合期间【被改过】才接管;没改过返回 '' → 下面的 effMode 逐字节
+  // 走原来的优先级。角色自带的档(roleMode)与工作流下发的 permModeOverride 都排在它前面 —— 那两个
+  // 是节点级的授权约束,不能被会话级快切放宽。
+  const parentPermissionModeAtStart = liveSessionPermissionMode(parentSession && parentSession.id);
+  const liveParentPermissionMode = () => {
+    const live = liveSessionPermissionMode(parentSession && parentSession.id);
+    return (live && live !== parentPermissionModeAtStart) ? live : '';
+  };
   const requestedBudget = Math.min(1000, Math.max(1, Number(maxIters || (role && role.budgets && role.budgets.openai)) || 100));
   const budgetPolicy = resolveToolIterationBudget(requestedBudget, String(task || ''), config);
   // Tiny node budgets are intentional control-plane limits (for example, a two-turn verifier).
@@ -24333,8 +24373,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
             const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode);
-            const gate = nativeToolGate(effMode, ntier);
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            const gate = nativeToolGate(effMode, ntier, tc.name, args);
             if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
@@ -27962,6 +28002,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // one-shot pause (we look for a PLAN: on the FIRST assistant message only). `planRejected` records a reject.
   let planApproved = false, planRejected = false, planPhase = planMode, planRejectNote = '';
   const isProviderPlanMode = planMode; // stable snapshot for the gate (config isn't mutated, but read once)
+  // 117m-A1(用户第六轮走查②;27 号文 §3.3/§8.6「点开即换、立即生效」):活回合中途改档要对【这个】
+  // 回合生效。config.permissionMode 是 10-context-governance 在回合开始时解析出来的快照(请求级 >
+  // 会话级 > 全局);02 的 sessionPermissionModeOverrides 才是会话级档的【此刻】权威副本。
+  // 判据刻意写成「只有在这个回合里【被改过】才接管」,而不是「有会话级档就接管」:
+  //   · 没改过 → 一律返回快照的判定,行为与修前逐字节一致(含既有断言「请求级优先于会话级」——
+  //     请求级 plan + 会话级 auto 的回合里没人改档,于是仍旧按 plan 走);
+  //   · 改过 → 用户刚刚按下的那一档是最新的意思表示,收紧与放宽都当场生效(收紧比放宽更重要)。
+  // liveSessionPermissionMode 对 '' (用户清除会话级设置)返回 null → 落回快照,不在活回合里替用户猜。
+  const permissionModeAtTurnStart = liveSessionPermissionMode(session.id);
+  let permissionModeLiveLogged = false;
+  const gateWithLiveMode = (gateTier, gateToolName, gateInput) => {
+    const snapshotGate = nativeToolGate(config.permissionMode, gateTier, gateToolName, gateInput);
+    const live = liveSessionPermissionMode(session.id);
+    if (!live || live === permissionModeAtTurnStart) return snapshotGate;
+    const liveGate = nativeToolGate(live, gateTier, gateToolName, gateInput);
+    // 只在换档【真的改变了这一步的判定】时记一条观测事件,每回合最多一条(方便下次对账,不刷屏)。
+    if (liveGate !== snapshotGate && !permissionModeLiveLogged) {
+      permissionModeLiveLogged = true;
+      try { logEvent({ kind: 'permission_mode_live', sessionId: session.id, from: config.permissionMode, to: live }); } catch { /* 遥测绝不阻断 */ }
+    }
+    return liveGate;
+  };
   // v0.9-S6 (子代理) turn-local state. spawn_agent calls emitted in ONE assistant tool batch are started
   // together and awaited in their original tool_call order, so provider-history pairing stays deterministic
   // while the delegated work actually overlaps. `subagentBatchCount` resets at the top of each assistant
@@ -28690,7 +28752,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // 不会被 offer(07 的 stewardSession 分支),真被调到只可能是伪造/回放,直接 block(防御纵深)。
           let gate = isStewardTurn
             ? (isStewardToolName(tc.name) ? 'allow' : 'block')
-            : nativeToolGate(config.permissionMode, tier);
+            : gateWithLiveMode(tier, tc.name, args);
           // v0.9-S5 (真流程 plan mode): once the user APPROVED this turn's plan, plan mode's blanket block on
           // mutating tools is lifted for THIS turn only (planApproved is a turn-local closure flag — it does
           // NOT change config.permissionMode, so the next turn re-blocks until a fresh plan is approved). We
@@ -41703,7 +41765,11 @@ const STEWARD_CURSOR_FILE = 'cursor-v1.json';
 const STEWARD_CURSOR_SCHEMA = 1;
 
 // ── 归一化/合并常量 ──────────────────────────────────────────────────────────
-const STEWARD_MERGE_WINDOW_MS = 5000;      // §11.3:同 sessionId 同 kind 5 秒窗口内合并为一条
+// §11.3:同 sessionId 同 kind(同 runId)窗口内合并为一条。117m-A1:5s → 30s。5 秒窗口在真机上几乎
+// 不合并任何东西 —— 同一条线程的失败/停滞信号往往隔十几秒才来第二条,于是管家一条一条汇报、一条起
+// 一个回合(用户第六轮走查②「管家还是会一条条汇报,没有必要还费 Token」)。纯批处理收益:分组键
+// (sessionId\0kind\0runId)与「同类 N 条」文案一字未动,只是把攒批的窗口拉长。
+const STEWARD_MERGE_WINDOW_MS = 30000;
 const STEWARD_SUMMARY_CHARS = 200;         // payload 摘要硬顶(与 STEWARD_DIGEST_LIMITS.lastSayChars 同数)
 const STEWARD_MERGED_SEQS_MAX = 20;        // 合并行里回填的源 seq 上限(供重启重建去重集合)
 const STEWARD_TICK_MAX_EVENTS = 200;       // 单轮入箱上限(防某次大补账把箱子灌爆)
@@ -45556,9 +45622,15 @@ function stewardTurnsInWindow(now, windowMs) {
 
 async function stewardCircuitCheck(config, trigger) {
   if (stewardRunnerRuntime.stopped) return { kind: 'stopped', detail: '管家已停机(可在设置或 /api/steward/start 恢复)' };
+  // 117m-A1(用户第六轮走查⑦「这个熔断也不对吧」):小时窗是【自主回合】的节流器,不是用户的说话额度。
+  // 与下面 no_progress 那一条同一句纪律:用户消息永远优先,任何时候都能把管家叫醒。修前这条判据不看
+  // trigger —— 真机日志里 {"kind":"steward_circuit","circuit":"turns_per_hour","trigger":"user"} 出现两次
+  // (02:31:33 / 02:33:25),正是用户那两句「还在正常运转吗」被机器回了「本小时已经跑了 12 个管家回合,
+  // 先歇一会儿」;而那 12 个额度是被根因 1 的「代批风暴」在 15 分钟内吃光的。两条判据当时自相矛盾。
+  // 挡下【收件箱】回合时那句话必须能落地 —— 带上去哪儿调,否则用户只知道被挡了不知道怎么办。
   const maxTurns = Math.max(0, Math.round(Number(config.stewardMaxTurnsPerHour) || 0));
-  if (maxTurns > 0 && stewardTurnsInWindow(Date.now(), STEWARD_TURN_WINDOW_MS) >= maxTurns) {
-    return { kind: 'turns_per_hour', detail: `本小时已经跑了 ${maxTurns} 个管家回合,先歇一会儿`, limit: maxTurns };
+  if (trigger !== 'user' && maxTurns > 0 && stewardTurnsInWindow(Date.now(), STEWARD_TURN_WINDOW_MS) >= maxTurns) {
+    return { kind: 'turns_per_hour', detail: `本小时已经跑了 ${maxTurns} 个管家回合,先歇一会儿(你随时可以直接跟我说话,不受这条限制)。要让它自己多跑一些,去设置·管家页把「每小时最多回合数」调高。`, limit: maxTurns };
   }
   const maxCost = Number(config.stewardMaxCostPerDay);
   if (Number.isFinite(maxCost) && maxCost > 0) {
@@ -47365,6 +47437,10 @@ module.exports = {
   // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
   // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
   resolvePermissionMode,
+  // 第117波117m-A1(27号文§3.3/§8.6): 原生引擎权限闸门本体(mode,tier,toolName,input)与「活回合此刻
+  // 的会话级档」只读访问器 — exposed for e2e 直测(auto 档的高风险判据、中途改档立刻生效两条)。
+  nativeToolGate,
+  liveSessionPermissionMode,
   PERMISSION_MODES_REQUIRING_CONFIRM,
   STEWARD_PERMISSION_RANK,
   stewardPermissionRank,
@@ -47437,6 +47513,8 @@ module.exports = {
   STEWARD_SESSION_TITLE,
   STEWARD_PERMISSION_MODE,
   runStewardTurn,
+  // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
+  stewardCircuitCheck,
   stewardVisit,
   stewardParseReply,
   stewardResolveRoute,

@@ -309,7 +309,10 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
-    stewardMaxTurnsPerHour: 12,
+    // 117m-A1:12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」15 分钟吃光(见 13h
+    // stewardCircuitCheck 的注释)。**不迁移存量配置** —— normalizeConfig 早已把 12 显式写进老用户的
+    // config.json,静默抬高别人的花钱上限不合适;只改默认,老用户在设置·管家页自己调。
+    stewardMaxTurnsPerHour: 30,
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
@@ -977,10 +980,11 @@ function normalizeConfig(raw) {
     const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 12。
+  // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 30
+  // (117m-A1 把默认值 12 → 30,这里的兜底值与默认表同步;clamp 区间一字未动)。
   {
     const n = Number(config.stewardMaxTurnsPerHour);
-    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 12;
+    const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
