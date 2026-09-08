@@ -500,6 +500,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // 是节点级的授权约束,不能被会话级快切放宽。
   const parentPermissionModeAtStart = liveSessionPermissionMode(parentSession && parentSession.id);
   const liveParentPermissionMode = () => {
+    // 117m-A6（审查报回 P0-1，与 09 同一条判据）：父回合带了请求级档时，会话级中途改动不得接管。
+    if (config && config.permissionModeFromRequest === true) return '';
     const live = liveSessionPermissionMode(parentSession && parentSession.id);
     return (live && live !== parentPermissionModeAtStart) ? live : '';
   };

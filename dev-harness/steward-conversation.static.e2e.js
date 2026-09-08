@@ -369,6 +369,19 @@ ok(/if \(code === 'steward\.queued'\) \{/.test(drawerSrc)
   && /t\('stewardShell\.chat\.errQueued', \{ wait: label \}\) : t\('stewardShell\.chat\.errQueuedPlain'\)/.test(drawerSrc),
   'M13 抽屉「直接对这条线程说」走 relay 时读同两个键，不把服务端原文塞进「没做成：…」的模板');
 
+// ─── L 117m-A6：中文输入法的候选词回车不许把半句话发出去 ────────────────
+// 管家壳的输入框漏了输入法守卫（审查报回）：经典壳与抽屉两处都有 !event.isComposing，
+// 唯独管家 composer 没有 —— 中文用户选候选词按回车会把未完成的句子直接发给管家。
+// 这是中文优先的产品，这两条钉住「每一处回车发送都带输入法守卫」。
+const enterSendLines = [
+  ...composerCode.split(String.fromCharCode(10)),
+  ...stripComments(read('js/steward-drawer.js')).split(String.fromCharCode(10)),
+].filter(line => line.includes("event.key === 'Enter'") || line.includes("event.key !== 'Enter'"));
+ok(enterSendLines.length === 3, 'L1 管家壳里回车发送的输入框恰好三处(composer + 抽屉两个)');
+ok(enterSendLines.every(line => line.includes("isComposing")),
+  'L2 每一处回车发送都带 !event.isComposing(中文候选词回车不误发)');
+
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

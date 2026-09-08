@@ -2228,9 +2228,15 @@ async function runSessionTurn(input) {
   // 解析结果 === storedConfig.permissionMode,下面那行的恒等判定让 permissionConfig 仍是 storedConfig
   // 【同一个对象】—— 行为与搬家前逐字节一致。
   const resolvedPermissionMode = resolvePermissionMode({ request: body.permissionMode, session, config: storedConfig });
-  const permissionConfig = resolvedPermissionMode === storedConfig.permissionMode
+  // 117m-A6（审查报回 P0-1）：这一单到底带没带【请求级】档位。117m-A1 让闸门读会话级的【此刻】值，
+  // 于是一个与本回合无关的会话级 PATCH 能静默顶掉本回合专门要的收紧（请求级 plan 被中途改成
+  // auto 后变成 allow）—— 而优先级契约写得很清楚：请求级 > 会话级 > 全局。带了请求级档的回合
+  // 就是【这一单自己的意思表示】，中途任何会话级改动都不得接管它。
+  // 只在真带了请求级档时才停用「同一个对象」那个恒等优化（否则行为与修前逐字节一致）。
+  const requestPermissionMode = permissionModeFrom(body.permissionMode);
+  const permissionConfig = (resolvedPermissionMode === storedConfig.permissionMode && !requestPermissionMode)
     ? storedConfig
-    : { ...storedConfig, permissionMode: resolvedPermissionMode };
+    : { ...storedConfig, permissionMode: resolvedPermissionMode, ...(requestPermissionMode ? { permissionModeFromRequest: true } : {}) };
   const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
   const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
   const config = configForSessionEngineRoute(permissionConfig, routeSource);

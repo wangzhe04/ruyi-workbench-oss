@@ -115,10 +115,18 @@ ok(!/messages\.push\(/.test(experienceCode) && !/currentSession\.messages\s*=/.t
   ok(/el\('article', 'message assistant live-turn'\)/.test(body), 'D4 复用既有 .message.assistant 骨架,不另造一套壳');
 }
 {
-  const start = experienceCode.indexOf('function paintLiveTurnCard()');
+  // 117m-A6：定位用的字面从 paintLiveTurnCard() 放宽成 paintLiveTurnCard( —— 函数多了一个 opts
+  // 参数（首帧要能在挂载前填内容）。D5/D6 两条断言本身一字未改，只是定位器不再钉参数表。
+  const start = experienceCode.indexOf('function paintLiveTurnCard(');
   const body = start >= 0 ? experienceCode.slice(start, experienceCode.indexOf('\n}', start) + 2) : '';
   ok(/truncated\) \? `…\$\{full\}`/.test(body), 'D5 truncated 时省略号标在【开头】(后端砍的就是头)');
   ok(/tools\[tools\.length - 1\]/.test(body), 'D6 「正在用」读 tools 的最后一条');
+  // 伴随断言（比旧那两条强）：气泡刚造出来、还没 append 进文档时也得把内容填上。
+  // 修前 isConnected 守卫把首次填充退了回去，首帧正文区一片空白，要等 3 秒下一拍才自愈。
+  ok(experienceCode.includes("paintLiveTurnCard({ mounted: false })"),
+    'D7 首帧在挂载前就填内容(mounted:false 跳过 isConnected 守卫)');
+  ok(body.includes("if (!(opts && opts.mounted === false) && !els.row.isConnected) return false;"),
+    'D8 守卫本身还在(气泡被整份重绘换掉时仍返回 false 让调用方重绘)');
   ok(!/innerHTML/.test(body), 'D7 刷新也走 textContent');
 }
 ok(/if \(liveTurnVisible\(\)\) fragment\.appendChild\(buildLiveTurnCard\(\)\);/.test(experience),

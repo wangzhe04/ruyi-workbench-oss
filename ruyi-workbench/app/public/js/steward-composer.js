@@ -360,7 +360,7 @@ export function createStewardComposer({
       }, true);
     }
     input.addEventListener('keydown', event => {
-      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); return; }
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit(); return; }
       if (event.key === 'Escape') { closePicker(); return; }
       if (event.key === 'Tab' && !event.shiftKey && cycleTarget()) event.preventDefault();
     });

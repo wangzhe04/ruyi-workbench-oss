@@ -1969,6 +1969,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let permissionModeLiveLogged = false;
   const gateWithLiveMode = (gateTier, gateToolName, gateInput) => {
     const snapshotGate = nativeToolGate(config.permissionMode, gateTier, gateToolName, gateInput);
+    // 117m-A6（审查报回 P0-1）：这一单带了请求级档时，会话级中途改动不得接管。
+    // 否则 request > session 这条契约在回合中途会被静默推翻（请求级 plan 本该全程 block）。
+    if (config.permissionModeFromRequest === true) return snapshotGate;
     const live = liveSessionPermissionMode(session.id);
     if (!live || live === permissionModeAtTurnStart) return snapshotGate;
     const liveGate = nativeToolGate(live, gateTier, gateToolName, gateInput);

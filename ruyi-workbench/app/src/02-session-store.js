@@ -1659,8 +1659,18 @@ function missionBudgetRemaining(mission) {
   return true;
 }
 
+// 117m-A3（审查报回）：控制面的【判据侧】要和【执行侧】看到同一个事实。
+// missionControlCommand 已经会惰性补账本，但交办台的按钮是拿 GET /api/missions/:id 里的
+// controls.actions 画的 —— 那一面走的是本函数，它七个动作都以 Boolean(mission) 开头，
+// 于是「没账本的管家线程」七个按钮全灰、点都点不下去，执行侧的修复根本走不到。
+// 这里给 kind==='mission' 且账本为空的会话一份【只读的空账本视图】（不落盘、不改会话），
+// 让判据与惰性补出来的账本一致：在跑 -> 可暂停/可接管，不终态 -> 可停止；
+// 需要里程碑/结果/检查点的那几个（继续、重试、回滚）自然仍然不可用。
+// 非 mission 会话 mission 仍为 null，七个动作照旧全部不可用（普通对话没有任务控制面）。
+const MISSION_EMPTY_LEDGER_VIEW = Object.freeze({ autoMode: 'off', milestones: [], result: null, budget: null, spent: null });
 function missionControlView(session, opts = {}) {
-  const mission = session && session.mission;
+  const mission = (session && session.mission)
+    || (session && String(session.kind || '') === 'mission' ? MISSION_EMPTY_LEDGER_VIEW : null);
   const checkpointEntries = Array.isArray(opts.checkpointEntries) ? opts.checkpointEntries : [];
   const runs = Array.isArray(opts.runs) ? opts.runs : [];
   const activeTurn = Boolean(session && activeChildren.has(session.id));
@@ -1681,7 +1691,7 @@ function missionControlView(session, opts = {}) {
     activeTurn, liveRuns: liveRuns.length, terminal, unfinished, budgetRemaining,
     rollbackTargetTurnSeq,
     actions: {
-      pause: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode === 'until-done'), 'turn_driver', terminal ? 'terminal' : 'already_paused'),
+      pause: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode === 'until-done'), 'turn_driver', !mission ? 'mission_missing' : (terminal ? 'terminal' : 'already_paused')),
       continue: action(Boolean(mission) && !terminal && unfinished && !activeTurn && mission.autoMode !== 'until-done' && budgetRemaining,
         'turn_driver', terminal ? 'terminal' : (!unfinished ? 'complete' : (activeTurn ? 'turn_active' : (!budgetRemaining ? 'budget_exhausted' : 'already_running')))),
       stop: action(Boolean(mission) && !terminal, 'mission', terminal ? 'terminal' : 'mission_missing'),
@@ -1691,7 +1701,7 @@ function missionControlView(session, opts = {}) {
       // 与 retry 的区别:next_turn 不依赖 result.status===stopped,complete 也可用,且携带用户新提示。
       next_turn: action(Boolean(mission) && !activeTurn && liveRuns.length === 0 && !driverArmed && budgetRemaining && followupCapacity,
         'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (driverArmed ? 'already_running' : (!budgetRemaining ? 'budget_exhausted' : (!followupCapacity ? 'milestone_limit' : 'unavailable'))))),
-      takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', terminal ? 'terminal' : 'already_manual'),
+      takeover: action(Boolean(mission) && !terminal && (activeTurn || mission.autoMode !== 'off'), 'turn_driver', !mission ? 'mission_missing' : (terminal ? 'terminal' : 'already_manual')),
       rollback: action(Boolean(mission) && rollbackTargetTurnSeq > 0 && checkpointEntries.length > 0 && !activeTurn && liveRuns.length === 0,
         'mission', activeTurn ? 'turn_active' : (liveRuns.length ? 'run_active' : (!rollbackTargetTurnSeq ? 'target_unknown' : 'no_checkpoints'))),
     },
@@ -1765,9 +1775,18 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   // 账本改成【惰性建】：真要用到它时就地补一份最小账本（goal 取会话标题、里程碑为空），然后走原路 ——
   // 不为一个 null 再写一套「没有账本时怎么办」的平行控制逻辑（下面整段都直接解引用 mission）。
   // 只对 kind==='mission' 的会话补：普通对话不会因为被调了一次控制面就升格成事项。
+  // 补账本写成一个局部函数：下面 pause/stop/takeover 那一支会先 stopSession 再【从磁盘重读】会话，
+  // 内存里刚补的账本会跟着没。117m-A6（审查报回 P0-2）：修前只在入口补一次，重读后
+  // `mission.autoMode = ...` 就对 null 赋值抛 TypeError —— 而那正是本波要修的最典型场景
+  //（暂停一条【正在跑】的、还没账本的管家线程）：回合已经被真停掉，接口却报 500。
+  const ensureMissionLedger = target => {
+    if (!target || target.mission) return true;
+    if (String(target.kind || '') !== 'mission') return false;
+    target.mission = normalizeMission({ goal: String(target.title || '').slice(0, 2000) }, null);
+    return true;
+  };
   if (!session.mission) {
-    if (String(session.kind || '') !== 'mission') return missionControlFailure('mission_missing', 404, 'mission not found');
-    session.mission = normalizeMission({ goal: String(session.title || '').slice(0, 2000) }, null);
+    if (!ensureMissionLedger(session)) return missionControlFailure('mission_missing', 404, 'mission not found');
     logEvent({ kind: 'mission_ledger_seeded', sessionId, action, source: 'mission_control' });
   }
 
@@ -1790,6 +1809,8 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
     const settled = await waitMissionTurnSettled(sessionId);
     if (!settled) logEvent({ kind: 'mission_control_settle_timeout', sessionId, action });
     session = await loadSession(sessionId) || session;
+    // 重读回来的那份又是磁盘上的 mission:null，在这里再补一次（下面整段直接解引用 mission）。
+    ensureMissionLedger(session);
   }
 
   let requiresTurn = false;

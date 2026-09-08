@@ -341,6 +341,34 @@ try {
       '⑫ 恰好再记一条 permission_mode_live{from:"auto",to:"default"}');
   }
 
+  /* ═══════ ╭ 请求级档不得被会话级中途改动顶掉（117m-A6）═══════ */
+  // ⑦ 的契约是「请求级 > 会话级 > 全局」，但 ⑩ 只测了「回合未带请求级档」那一半。
+  // 带了请求级 plan 的回合，如果中途有人（另一个标签页、管家的档位菜单）把会话级 PATCH 成 auto，
+  // 修前会静默把本回合专门要的收紧推翻掉 —— 本该 block 的 exec 变成 allow，且不弹窗、用户无感。
+  {
+    const G = await mk('线程G-请求级锁定');
+    const before = liveModeLogRows().length;
+    const marker = path.join(HOME, 'live-request-lock.txt');
+    try { fs.unlinkSync(marker); } catch { /* not there */ }
+    nextTool = { name: 'script_run', args: { language: 'node', code: `require('fs').writeFileSync(${JSON.stringify(marker)}, 'ran');` } };
+    providerDelayMs = 2500;
+    const turn = runTurn({ sessionId: G, message: '跑一句', cwd: HOME, permissionMode: 'plan' });
+    await sleep(900);
+    const widen = await reqJson('PATCH', '/api/sessions/' + G, { permissionMode: 'auto', confirm: true });
+    ok(widen.status === 200, '╭ 回合在飞时把 G 的会话级档改成 auto(PATCH 照常 200)');
+    const events = await turn;
+    providerDelayMs = 0; nextTool = null;
+    ok(!fs.existsSync(marker),
+      '╭ 请求级 plan 全程有效：中途把会话级改成 auto 也不能把它顶掉(工具没执行)');
+    ok(!events.some(e => e && e.type === 'permission_request'),
+      '╭ 而且是【直接拦】不是弹窗等人(plan 档的语义就是 block)');
+    ok(liveModeLogRows().length === before,
+      '╭ 带请求级档的回合压根不走活档那条路(零新增 permission_mode_live)');
+    const head = readHead(G);
+    ok(head && head.permissionMode === 'auto',
+      '╭ companion：会话级那一改本身照常落盘(只是不管这一单，下一回合就是它)');
+  }
+
   /* ═══════════════ ⑦⑧ 管家侧:先把服务停掉,再进程内直调工具 ═══════════════ */
   killp(wb); wb = null; await sleep(600);
   writeConfig({ stewardEnabledV1: true, stewardPollMs: 120000 });

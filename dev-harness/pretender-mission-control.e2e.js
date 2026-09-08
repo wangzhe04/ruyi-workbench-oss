@@ -225,6 +225,14 @@ try {
   const seededHead = JSON.parse(fs.readFileSync(seededHeadPath, 'utf8'));
   seededHead.kind = 'mission'; seededHead.mission = null;
   fs.writeFileSync(seededHeadPath, JSON.stringify(seededHead));
+  // 117m-A3（审查报回）：判据侧要和执行侧看到同一个事实。交办台的按钮是拿这份 controls 画的，
+  // 它说 enabled:false 按钮就是灰的、点不下去 —— 光修执行侧等于没修。
+  const seededDetail = await request('/api/missions/' + seededId, null, token);
+  const seededActions = seededDetail.json?.snapshot?.controls?.actions || {};
+  ok(seededActions.stop?.enabled === true,
+    '117m 空账本线程的【控制面判据】也看得见：停止可用（不再是七个按钮全灰）');
+  ok(seededActions.continue?.enabled === false && seededActions.rollback?.enabled === false,
+    '117m 空账本只开【不需要账本】的那几个：继续/回滚仍不可用');
   const seededStop = await request('/api/missions/' + seededId + '/control', { action: 'stop' }, token);
   ok(seededStop.status === 200 && seededStop.json?.ok === true,
     '117m kind:mission 而 mission:null 的线程，控制面不再 404（惰性补账本后走原路）');
@@ -232,8 +240,38 @@ try {
   ok(seededAfter.mission && Array.isArray(seededAfter.mission.milestones) && seededAfter.mission.milestones.length === 0
     && seededAfter.mission.goal === seededHead.title,
     '117m 补出来的是一份【最小】账本（goal 取会话标题、里程碑为空，不凭空编验收项）');
+  // 117m-A6（审查报回 P0-2）：上面那条线程是【闲的】，走不到真正崩的那一支。
+  // pause/stop/takeover 对【正在跑】的会话会先 stopSession 再从磁盘重读会话 —— 重读回来的
+  // 仍然是 mission:null，接着对它赋值就是 TypeError：回合真被停掉了，接口却报 500。
+  // 而这正是本波要修的最典型场景（暂停一条正在跑的、还没账本的管家线程）。
+  const liveSeeded = await request('/api/sessions', { title: '117m 空账本·在跑', cwd: WORKSPACE }, token);
+  const liveSeededId = liveSeeded.json?.session?.id;
+  const liveHeadPath = path.join(HOME, 'sessions', liveSeededId + '.json');
+  const liveHead = JSON.parse(fs.readFileSync(liveHeadPath, 'utf8'));
+  liveHead.kind = 'mission'; liveHead.mission = null;
+  fs.writeFileSync(liveHeadPath, JSON.stringify(liveHead));
+  const liveHold = streamChat(liveSeededId, 'HOLD-WAVE84 keep this turn alive', token);
+  let liveActive = false;
+  for (let i = 0; i < 60; i++) {
+    const detail = await request('/api/missions/' + liveSeededId, null, token);
+    if (detail.json?.snapshot?.activeTurn) { liveActive = true; break; }
+    await sleep(50);
+  }
+  ok(liveActive, '117m 空账本线程跑起来了（才能走到 stopSession + 重读那一支）');
+  const livePaused = await request('/api/missions/' + liveSeededId + '/control', { action: 'pause' }, token);
+  ok(livePaused.status === 200 && livePaused.json?.ok === true,
+    '117m 暂停一条【正在跑】的空账本线程：200 而不是 500（重读后账本被再补一次）');
+  ok(livePaused.json?.controls?.activeTurn === false,
+    '117m 暂停真的把回合停了（不是只报错不停事）');
+  await Promise.race([liveHold, sleep(5000)]);
+
   const plainSession = await request('/api/sessions', { title: '117m 普通对话', cwd: WORKSPACE }, token);
   const plainId = plainSession.json?.session?.id;
+  const plainDetail = await request('/api/missions/' + plainId, null, token);
+  const plainActions = plainDetail.json?.snapshot?.controls?.actions || {};
+  ok(Object.values(plainActions).every(a => a && a.enabled === false)
+    && plainActions.pause?.reason === 'mission_missing' && plainActions.takeover?.reason === 'mission_missing',
+    '117m companion：非 mission 会话七个动作照旧全关，且关闭原因说实话（不再说「已经暂停了」）');
   const plainStop = await request('/api/missions/' + plainId + '/control', { action: 'stop' }, token);
   ok(plainStop.status === 404 && plainStop.json?.ok === false && plainStop.json?.reason === 'mission_missing',
     '117m companion：非 mission 会话仍旧 404（普通对话不会因为被调一次控制面就升格成事项）');

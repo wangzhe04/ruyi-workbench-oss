@@ -3431,17 +3431,29 @@ export function createPreviewShellDomain({
     refreshPromise = (async () => {
       try {
         void loadPlaybooksInBackground();
+        // 117m-A3（审查报回，与 /changes 同一个模具）：任务列表不该被一条无关的待决请求拖死。
+        // 修前两条请求同在一个 Promise.all 里：/api/interventions 一抖（网络/临时 5xx/token 竞态）
+        // 就整体 reject，已经到手的 missions 数据被丢弃，整块面板换成错误卡 —— 用户手动点刷新时
+        // （quiet=false、面板本来健康）也会被清空。任务列表是主体，待决只是叠加层：
+        // missions 失败才是真的载入失败（抛出去走错误卡），interventions 失败就这一拍不更新叠加层。
+        // 同文件 refreshSelectedMission 的 changesOrEmpty 已经是这个写法，这里补齐。
         const [missionResponse, interventionResponse] = await Promise.all([
           api('/api/missions?limit=200'),
-          api('/api/interventions?limit=100'),
+          api('/api/interventions?limit=100').catch(() => null),
         ]);
         if (epoch !== refreshEpoch) return null;
         cards = Array.isArray(missionResponse && missionResponse.missions) ? missionResponse.missions : [];
-        inboxCounts = interventionResponse && interventionResponse.counts || { total: 0 };
-        pendingInterventions = Array.isArray(interventionResponse && interventionResponse.pending) ? interventionResponse.pending : [];
-        syncNeedsNotifications(pendingInterventions);
-        const pendingIds = new Set(pendingInterventions.map(item => String(item && item.id || '')));
-        for (const id of interventionDrafts.keys()) if (!pendingIds.has(id)) interventionDrafts.delete(id);
+        // 叠加层拉不到时【保留上一拍】而不是归零：归零会把「需要你 N」偷偷抹掉，
+        // 那比不更新更坏（用户会以为没人等他）。拉到了就按新的写。
+        if (interventionResponse) {
+          inboxCounts = interventionResponse.counts || { total: 0 };
+          pendingInterventions = Array.isArray(interventionResponse.pending) ? interventionResponse.pending : [];
+          syncNeedsNotifications(pendingInterventions);
+        }
+        if (interventionResponse) {
+          const pendingIds = new Set(pendingInterventions.map(item => String(item && item.id || '')));
+          for (const id of interventionDrafts.keys()) if (!pendingIds.has(id)) interventionDrafts.delete(id);
+        }
         const selectedExists = cards.some(card => card && card.missionId === selectedMissionId);
         if (activeView === 'mission' && !selectedExists) {
           activeView = 'home'; selectedMissionId = ''; resetSelectedDetail();

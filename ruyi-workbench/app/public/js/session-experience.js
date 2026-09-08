@@ -894,13 +894,19 @@ function buildLiveTurnCard() {
   main.append(head, body, tool, foot);
   row.append(avatar, main);
   liveTurnCardEls = { row, body, tool, iter, stop };
-  paintLiveTurnCard();
+  // 117m-A6（审查报回 P2）：这一刻 row 还没被 append 进文档，isConnected 恒为 false。
+  // 不带 mounted 地调会被那道守卫直接退回去，于是首帧正文区一片空白（连空态文案都没有），
+  // 要等 3 秒后下一拍才自愈。首次填内容明确告诉它「现在还没挂上去」。
+  paintLiveTurnCard({ mounted: false });
   return row;
 }
 // 就地把手上这份活文本写进气泡。返回 false = 气泡不在 DOM 上（调用方据此决定要不要重绘）。
-function paintLiveTurnCard() {
+function paintLiveTurnCard(opts) {
   const els = liveTurnCardEls;
-  if (!els || !els.row.isConnected) return false;
+  if (!els) return false;
+  // mounted:false = 调用方自己知道气泡还没挂上去（刚造出来），跳过这道守卫。
+  // 守卫本身不能去：它是「气泡被整份重绘换掉了」的判据，返回 false 让调用方去重绘。
+  if (!(opts && opts.mounted === false) && !els.row.isConnected) return false;
   const tail = liveTurnTail;
   const full = String((tail && tail.full) || '');
   // truncated：04 是从【头部】丢弃的（用户要看的是它现在在说什么），所以省略号标在开头。
