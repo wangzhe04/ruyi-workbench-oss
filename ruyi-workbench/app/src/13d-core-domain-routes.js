@@ -503,7 +503,13 @@ async function buildMissionCard(head, runs, opts = {}) {
   const mm = (m && typeof m === 'object') ? m : {};
   const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
-    sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    // 117r-D1:kind 从写死的 'mission' 改成【如实】取 sessionKind(head)。修前唯一的调用面是
+    // 13e「kind === 'mission' 才造卡片」,所以这个字面量恒等于真值;现在管家关心的速查线程也有卡片了,
+    // 再写死就是撒谎 —— 五态的第一条分支就是 `kind === 'quick_ask'` 短路(mission-state.js /
+    // 06i deriveStewardThreadState 两份抄写件同款),谎报成 mission 会让一条速查线程在看板上顶着
+    // 「交办中/已收工」。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
+    // 走 sessionKind 仍然返回 'mission',既有行为逐字不变。
+    sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: sessionKind(head),
     // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
     // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
     // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。

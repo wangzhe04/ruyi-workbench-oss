@@ -9,7 +9,11 @@
 // 117p-S2:3 -> 4。卡片又加了 turnSeq 与 lastTurn(30 号文 §8.3,五态判据的新证据)。这次【必须】
 // 强制整份重建,而不只是形状升级 —— 否则存量那些已经跑完的管家线程的旧卡片永远不会再刷新
 // (它们的会话文件不会再变,sourceStamp 不动),无账本线程的五态就一直卡在「交办中」。
-const PRETENDER_INDEX_SCHEMA = 4;
+// 117r-D1:4 -> 5。这次变的不是卡片【形状】而是卡片的【产生条件】(见下方 buildPretenderSessionSlice:
+// 管家关心的线程现在也有卡片)。不升号的话,存量索引里这些会话的行就是 card:null,而它们的会话文件
+// 不会再变(sourceStamp 不动),增量刷新永远不碰它们 —— 用户已经有的那些速查线程会一直不出现在看板上。
+// 与 117p-S2 同一条理由:索引是纯派生物,升号的代价只是启动后第一次读时全量重建一次。
+const PRETENDER_INDEX_SCHEMA = 5;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -141,11 +145,21 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
     sourceStamp = await pretenderSessionSourceStamp(sid);
   }
   const kind = head && head.id ? sessionKind(head) : 'orphan';
-  const runs = kind === 'mission' ? await listAgentRuns(sid).catch(() => []) : [];
-  const card = kind === 'mission'
+  const missionId = (head && sessionMissionId(head)) || sid;
+  // 117r-D1(用户第八轮走查③「管家开的速查线程在看板上根本不存在」):看板正文的唯一数据源是
+  // GET /api/missions,而那条路由的行集就是 `index.sessions.filter(row => row.card)` —— 卡片只给
+  // kind==='mission' 造,于是 steward_quick_ask 开的线程(显式 kind='quick_ask')恒无卡片、恒不进
+  // 看板;而顶部那两个数字来自仲裁器(它照常给速查回合占并发位),同一块面板上两个数字互相打脸。
+  // 判据【不新造】:用 06i 的 stewardWatchedThread —— 与收件箱第四源逐字同一份实现。它正好画出
+  // 这条线:管家的线程要进,用户自己在 2.0 里聊的几百条普通会话(missionId === sessionId、无
+  // stewardQuick、无 launchedBy)一律不进,不会把看板淹掉。
+  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— stewardWatchedThread 第一行
+  // 就挡住 head 为空的情况,不必在这里再写一道。
+  const carded = kind === 'mission' || stewardWatchedThread(head, sid, missionId);
+  const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
+  const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
-  const missionId = (head && sessionMissionId(head)) || sid;
   const usageFact = usage || emptyMissionUsage();
   const changeSeq = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
   const cardRevision = pretenderHash({ missionId, changeSeq, card });

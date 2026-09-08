@@ -734,6 +734,22 @@ const STEWARD_QUICK_KIND = 'quick_ask';
 const STEWARD_QUICK_ANSWER_CHARS = 1200;
 const STEWARD_QUICK_QUESTION_CHARS = 1000;
 
+// 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
+// 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
+//
+// 117r-D1:原地从 13i-steward-inbox.js 搬来,一个字节没改,13i 改成直接调这一份(不留第二份实现)。
+// 为什么搬:13e 的卡片产生条件要的正是同一条线 —— 管家开的线程要在看板上看得见,用户自己在 2.0 里
+// 聊的几百条普通会话一律不进(那正是 `filter(row => row.card)` 当初存在的理由)。而 13e 引用 13i 是
+// 前向边(13e 拼在 13i 之前),引用 06i 是后向边;13i->06i 与 13e->06i 两条边在依赖图里本来就存在
+// (docs/architecture/module-dependency-graph.json,direction backward),故本次搬家零新增边、
+// forwardEdges 不变。落点教训见 30 号文 §8.9(117q-B7:TOOL_TIER_RANK 放进 07 造出净新增环边)。
+function stewardWatchedThread(head, sessionId, missionId) {
+  if (!head || typeof head !== 'object') return false;
+  if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
+  if (head.launchedBy === 'steward') return true;
+  return String(missionId || '') !== String(sessionId || '');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 第 116 波 116-pre(27 号文 §8.12「递话：交给线程的交互」/ §11.1 第 3 项/ §11.3):
 // 递话预判纯函数。零模型、零磁盘、零网络——入参之外零副作用,与本文件上方两段同一条纪律。

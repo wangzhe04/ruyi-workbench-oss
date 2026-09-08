@@ -19346,6 +19346,22 @@ const STEWARD_QUICK_KIND = 'quick_ask';
 const STEWARD_QUICK_ANSWER_CHARS = 1200;
 const STEWARD_QUICK_QUESTION_CHARS = 1000;
 
+// 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
+// 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
+//
+// 117r-D1:原地从 13i-steward-inbox.js 搬来,一个字节没改,13i 改成直接调这一份(不留第二份实现)。
+// 为什么搬:13e 的卡片产生条件要的正是同一条线 —— 管家开的线程要在看板上看得见,用户自己在 2.0 里
+// 聊的几百条普通会话一律不进(那正是 `filter(row => row.card)` 当初存在的理由)。而 13e 引用 13i 是
+// 前向边(13e 拼在 13i 之前),引用 06i 是后向边;13i->06i 与 13e->06i 两条边在依赖图里本来就存在
+// (docs/architecture/module-dependency-graph.json,direction backward),故本次搬家零新增边、
+// forwardEdges 不变。落点教训见 30 号文 §8.9(117q-B7:TOOL_TIER_RANK 放进 07 造出净新增环边)。
+function stewardWatchedThread(head, sessionId, missionId) {
+  if (!head || typeof head !== 'object') return false;
+  if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
+  if (head.launchedBy === 'steward') return true;
+  return String(missionId || '') !== String(sessionId || '');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 第 116 波 116-pre(27 号文 §8.12「递话：交给线程的交互」/ §11.1 第 3 项/ §11.3):
 // 递话预判纯函数。零模型、零磁盘、零网络——入参之外零副作用,与本文件上方两段同一条纪律。
@@ -40159,7 +40175,13 @@ async function buildMissionCard(head, runs, opts = {}) {
   const mm = (m && typeof m === 'object') ? m : {};
   const ms = Array.isArray(mm.milestones) ? mm.milestones : [];
   return {
-    sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: 'mission',
+    // 117r-D1:kind 从写死的 'mission' 改成【如实】取 sessionKind(head)。修前唯一的调用面是
+    // 13e「kind === 'mission' 才造卡片」,所以这个字面量恒等于真值;现在管家关心的速查线程也有卡片了,
+    // 再写死就是撒谎 —— 五态的第一条分支就是 `kind === 'quick_ask'` 短路(mission-state.js /
+    // 06i deriveStewardThreadState 两份抄写件同款),谎报成 mission 会让一条速查线程在看板上顶着
+    // 「交办中/已收工」。mission 会话(含 steward_thread_new 那种 kind='mission' 但没有 mission 容器的)
+    // 走 sessionKind 仍然返回 'mission',既有行为逐字不变。
+    sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: sessionKind(head),
     // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
     // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
     // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。
@@ -41652,7 +41674,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // 117p-S2:3 -> 4。卡片又加了 turnSeq 与 lastTurn(30 号文 §8.3,五态判据的新证据)。这次【必须】
 // 强制整份重建,而不只是形状升级 —— 否则存量那些已经跑完的管家线程的旧卡片永远不会再刷新
 // (它们的会话文件不会再变,sourceStamp 不动),无账本线程的五态就一直卡在「交办中」。
-const PRETENDER_INDEX_SCHEMA = 4;
+// 117r-D1:4 -> 5。这次变的不是卡片【形状】而是卡片的【产生条件】(见下方 buildPretenderSessionSlice:
+// 管家关心的线程现在也有卡片)。不升号的话,存量索引里这些会话的行就是 card:null,而它们的会话文件
+// 不会再变(sourceStamp 不动),增量刷新永远不碰它们 —— 用户已经有的那些速查线程会一直不出现在看板上。
+// 与 117p-S2 同一条理由:索引是纯派生物,升号的代价只是启动后第一次读时全量重建一次。
+const PRETENDER_INDEX_SCHEMA = 5;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -41784,11 +41810,21 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
     sourceStamp = await pretenderSessionSourceStamp(sid);
   }
   const kind = head && head.id ? sessionKind(head) : 'orphan';
-  const runs = kind === 'mission' ? await listAgentRuns(sid).catch(() => []) : [];
-  const card = kind === 'mission'
+  const missionId = (head && sessionMissionId(head)) || sid;
+  // 117r-D1(用户第八轮走查③「管家开的速查线程在看板上根本不存在」):看板正文的唯一数据源是
+  // GET /api/missions,而那条路由的行集就是 `index.sessions.filter(row => row.card)` —— 卡片只给
+  // kind==='mission' 造,于是 steward_quick_ask 开的线程(显式 kind='quick_ask')恒无卡片、恒不进
+  // 看板;而顶部那两个数字来自仲裁器(它照常给速查回合占并发位),同一块面板上两个数字互相打脸。
+  // 判据【不新造】:用 06i 的 stewardWatchedThread —— 与收件箱第四源逐字同一份实现。它正好画出
+  // 这条线:管家的线程要进,用户自己在 2.0 里聊的几百条普通会话(missionId === sessionId、无
+  // stewardQuick、无 launchedBy)一律不进,不会把看板淹掉。
+  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— stewardWatchedThread 第一行
+  // 就挡住 head 为空的情况,不必在这里再写一道。
+  const carded = kind === 'mission' || stewardWatchedThread(head, sid, missionId);
+  const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
+  const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
-  const missionId = (head && sessionMissionId(head)) || sid;
   const usageFact = usage || emptyMissionUsage();
   const changeSeq = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
   const cardRevision = pretenderHash({ missionId, changeSeq, card });
@@ -42755,14 +42791,10 @@ async function stewardReadTurnHead(sessionId) {
   try { return safeJsonParse(await fsp.readFile(sessionPath(sessionId), 'utf8'), null); } catch { return null; }
 }
 
-// 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
-// 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
-function stewardWatchedThread(head, sessionId, missionId) {
-  if (!head || typeof head !== 'object') return false;
-  if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
-  if (head.launchedBy === 'steward') return true;
-  return String(missionId || '') !== String(sessionId || '');
-}
+// 「管家关心这条会话吗」的唯一判据(§11.7)【定义已搬到 06i-steward-core.js】——
+// 117r-D1 起第二个消费者是 13e 的卡片产生条件(看板正文的唯一数据源 GET /api/missions),
+// 而 13e 拼在 13i 之前,引用 13i 会是前向边。这里【不】留第二份实现,也不留同名薄封装:
+// 本文件下面那处 stewardCollectSessionTurn 直接调 06i 的那一份(后向边,已在依赖图里)。
 
 // 返回本轮该为这条会话入箱的事件(至多一条)或 null;顺带维护它自己的游标。
 async function stewardCollectSessionTurn(sid, missionId, row, now) {

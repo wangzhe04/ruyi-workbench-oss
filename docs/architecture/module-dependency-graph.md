@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 41 | 2047 | 2014 | 321 | 67 | 0 | 1 |
+| 41 | 2047 | 2016 | 321 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,7 +33,7 @@
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 18 | `06i-steward-core.js` | engine | 80 | 0 | 0 |
+| 18 | `06i-steward-core.js` | engine | 81 | 0 | 0 |
 | 19 | `06d-memory-domain.js` | engine | 102 | 34 | 10 |
 | 20 | `06e-mission-domain.js` | engine | 3 | 12 | 5 |
 | 21 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -51,8 +51,8 @@
 | 33 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 35 | `13d-core-domain-routes.js` | transport | 43 | 110 | 14 |
-| 36 | `13e-pretender-index.js` | transport | 36 | 25 | 8 |
-| 37 | `13i-steward-inbox.js` | transport | 64 | 21 | 7 |
+| 36 | `13e-pretender-index.js` | transport | 36 | 26 | 8 |
+| 37 | `13i-steward-inbox.js` | transport | 63 | 22 | 7 |
 | 38 | `13g-steward.js` | transport | 108 | 92 | 18 |
 | 39 | `13h-steward-runner.js` | transport | 125 | 74 | 14 |
 | 40 | `14-main.js` | entrypoint | 1 | 485 | 31 |
@@ -307,7 +307,7 @@
 | `13e-pretender-index.js` | `01-config.js` | backward | `atomicWriteJson`, `safeSessionId`, `sessionPath` |
 | `13e-pretender-index.js` | `02-session-store.js` | backward | `compactInterventionJournal`, `interventionFilePath`, `readInterventionsWithMeta`, `sessionKind`, `sessionMissionId` |
 | `13e-pretender-index.js` | `04-permission-runtime.js` | backward | `activeChildren` |
-| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYouForThread` |
+| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYouForThread`, `stewardWatchedThread` |
 | `13e-pretender-index.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunDir` |
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
@@ -348,7 +348,7 @@
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `repairMissionChangeTornTail` |
 | `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
-| `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText` |
+| `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText`, `stewardWatchedThread` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
 | `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA`, `createNdjsonLineFeeder`, `hashArgs`, `neutralizeFenceTag` |

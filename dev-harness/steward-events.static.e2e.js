@@ -224,11 +224,21 @@ function typeExpressionLiterals(text) {
   ok(src13i.includes("return (last.ok === false && last.aborted !== true) ? 'failed' : 'done';"),
     "D7 判据:账上 ok:false 且不是用户主动停 -> failed;其余(含账缺席)-> done");
   const Q = String.fromCharCode(39);   // 单引号:内联在断言字符串里会把本文件的引号配对搞乱
-  ok(src13i.includes('function stewardWatchedThread(')
-    && src13i.includes('if (head.stewardQuick && typeof head.stewardQuick === ' + Q + 'object' + Q + ') return true;')
-    && src13i.includes('if (head.launchedBy === ' + Q + 'steward' + Q + ') return true;')
-    && src13i.includes('return String(missionId || ' + Q + Q + ') !== String(sessionId || ' + Q + Q + ');'),
-    "D7 「管家关心哪些会话」的三条判据单点在 13i(速查 / launchedBy / 别人事项里的线程)");
+  // 117r-D1 重钉(唯一一条被本刀合法改动打掉的既有断言,提交说明里逐对交代):判据的【定义】从 13i
+  // 搬到了 06i-steward-core.js —— 因为它多了第二个消费者(13e 的卡片产生条件,看板正文的数据源),
+  // 而 13e 拼在 13i 之前,引用 13i 会是前向边。断言的意图一个字没变(「三条判据只有一份实现」),
+  // 变的只是它钉在哪个文件;而且这里比修前【更紧】:除了钉住 06i 有那一份,还反向钉住 13i 里
+  // 不许再冒出第二份实现(修前那条断言只看 13i 有,拦不住别处再抄一份)。
+  const src06i = read('06i-steward-core.js');
+  ok(src06i.includes('function stewardWatchedThread(')
+    && src06i.includes('if (head.stewardQuick && typeof head.stewardQuick === ' + Q + 'object' + Q + ') return true;')
+    && src06i.includes('if (head.launchedBy === ' + Q + 'steward' + Q + ') return true;')
+    && src06i.includes('return String(missionId || ' + Q + Q + ') !== String(sessionId || ' + Q + Q + ');'),
+    "D7 「管家关心哪些会话」的三条判据单点在 06i(速查 / launchedBy / 别人事项里的线程)");
+  ok(!src13i.includes('function stewardWatchedThread(') && src13i.includes('stewardWatchedThread(head, sid, missionId)'),
+    'D7 13i 只【消费】那份判据,不留第二份实现');
+  ok(read('13e-pretender-index.js').includes('stewardWatchedThread(head, sid, missionId)'),
+    'D7 13e 的卡片产生条件消费的是同一份判据(117r-D1:看板与收件箱同一条线)');
   // 位置纪律:第四源必须排在「不活跃就 continue」之前 —— 速查线程没有 mission 卡片,
   // recent 恒 false,放在后面等于它只在会话首见那一轮生效。
   const collectAt = src13i.indexOf('const turnEvt = await stewardCollectSessionTurn(');

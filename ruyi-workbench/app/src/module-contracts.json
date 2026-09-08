@@ -3753,6 +3753,7 @@
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
         "stewardToolPermanentlyExempt",
+        "stewardWatchedThread",
         "waitReasonFor"
       ],
       "requires": []
@@ -11418,6 +11419,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -11520,7 +11528,6 @@
         "stewardRuntime",
         "stewardSaveCursor",
         "stewardTickOnce",
-        "stewardWatchedThread",
         "stopStewardInbox"
       ],
       "requires": [
@@ -11646,6 +11653,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
