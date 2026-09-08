@@ -246,9 +246,27 @@ const ok = (condition, label) => {
     // `mod.STEWARD_TOOL_LABEL_KEYS` 用法（steward-settings.static.e2e.js 的 H4）不受影响——
     // 新判据比原来更强：不但要求「前端只有一份」，还要求 conversation.js 不再对 settings.js 有
     // 任何依赖（模块依赖边被真的切断了，不只是表没抄两份）。
-    ok(/import \{ STEWARD_TOOL_LABEL_KEYS \} from '\.\/steward-chips\.js';/.test(conversation)
-      && !/from '\.\/steward-settings\.js';/.test(conversation),
+    // 117q 重钉（理由：117o 那一刀把 stewardSayFromPartial 也搬进 steward-chips.js 这个零 import 的叶子
+    // 模块，于是 conversation.js 的那行 import 从 `{ STEWARD_TOOL_LABEL_KEYS }` 变成
+    // `{ STEWARD_TOOL_LABEL_KEYS, stewardSayFromPartial }` —— 原判据是**整行逐字匹配**，一加符号就假红，
+    // 而它想守的事实（这张表来自 chips、conversation 不依赖 settings）一秒都没被破坏。当时没重钉，
+    // 这条自那时起一直红着。重钉后判据只锁「从哪个模块拿」，不再锁「那一行还有没有别的符号」，
+    // 并补 F4a 把原判据真正想守的那件事钉得比修前更严：这张表在整个前端**只有一处定义**。
+    ok(/import \{[^}]*\bSTEWARD_TOOL_LABEL_KEYS\b[^}]*\} from '\.\/steward-chips\.js';/.test(conversation)
+      && !/from '\.\/steward-settings\.js';/.test(conversation)
+      && !/(const|let|var)\s+STEWARD_TOOL_LABEL_KEYS\s*=/.test(conversation),
       'F4 工具人话表前端只有一份，住 steward-chips.js（从行动流水那边复用，不抄第二份）；conversation.js 不再依赖 steward-settings.js');
+    {
+      // F4a（新加的更强伴随断言）：整个 public/js 里这张表的**定义**必须恰好一处，且就在 steward-chips.js。
+      // 修前只锁了 conversation.js 那一行长什么样 —— 别的文件再抄一份出来它是看不见的。
+      const jsDir = path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js');
+      const definers = fs.readdirSync(jsDir).filter(f => f.endsWith('.js')).filter(f => {
+        const src = fs.readFileSync(path.join(jsDir, f), 'utf8');
+        return /(const|let|var)\s+STEWARD_TOOL_LABEL_KEYS\s*=/.test(src);
+      });
+      ok(definers.length === 1 && definers[0] === 'steward-chips.js',
+        `F4a 这张表在整个 public/js 里只有一处定义，且就在 steward-chips.js（实测定义方：${definers.join(', ') || '无'}）`);
+    }
     ok(/function toolLabelOf\(row\) \{[\s\S]{0,320}return key \? String\(t\(key\)\) : String\(\(row && row\.tool\) \|\| ''\);/.test(conversation),
       'F4b 三级回落：后端标签 > 前端 i18n 表 > 工具 id（前两道都落空才用 id，那是诚实兜底）');
     ok(/tool: toolLabelOf\(row\),/.test(conversation),
