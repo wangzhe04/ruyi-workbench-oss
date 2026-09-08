@@ -36,6 +36,12 @@ const ok = (condition, label) => {
 };
 
 const THREAD_TITLE = '周报-W36';
+// 117r-D3（用户第八轮走查②「关键词匹配……会把输入框内容挤没」，截图里那一行是一整句问 AMD 行情的
+// 长话）：造一条标题本身就超过 STEWARD_TITLE_MAX(24) 的线程，复现「chip 命中一条长标题线程」这个场景。
+// 词汇跟 THREAD_TITLE 与下面各测试用例的输入文字（周报/接着做/把华南的表补上/落叶/院子/第一句/
+// 第二句/结论 等）刻意不重叠——preroute 是按词命中打分的，撞了词会让别的用例意外变成 kind:'unsure'。
+const LONG_TITLE = '帮我查一下AMD超威半导体NASDAQ最新收盘价涨跌基本面新闻给我一句总评';
+const LONG_TITLE_SHORT = [...LONG_TITLE].slice(0, 24).join('') + '…';   // stewardShortTitle 的算法：前 24 个码点 + 省略号
 const STEWARD_SAY = '我看了一眼，现在这条线程停在等你。';
 // 117l D1／D3 新增三段剧本。剧本按【流式请求的先后】取，所以顺序就是本件的用例顺序：
 //   [0] 测试②的管家回合（四个 acts —— 后端归一后前端只该渲染 ≤3 个）；delayMs 让「···」占位有窗口
@@ -317,6 +323,8 @@ try {
   const created = await request(appPort, 'POST', '/api/sessions', { title: THREAD_TITLE }, token);
   const threadId = created && created.json && created.json.session && created.json.session.id;
   ok(Boolean(threadId), `A3 线程「${THREAD_TITLE}」已建（${threadId || '失败'}）`);
+  // 117r-D3 的长标题线程留到 D3 用例前面才建（见下方 D3-0）——到访（B3）按「最近更新」挑焦点线程，
+  // 这里早建的话，B3 原来钉的「焦点线程是 THREAD_TITLE」这条断言会被新线程顶掉，平白炸掉一条老用例。
 
   const executable = browserPath();
   ok(Boolean(executable), 'A4 Edge/Chrome found');
@@ -642,6 +650,123 @@ try {
   const threadMessages = rewound && rewound.json && rewound.json.session && Array.isArray(rewound.json.session.messages)
     ? rewound.json.session.messages.length : -1;
   ok(threadMessages === 0, `G4 线程回退到递话前（这句话视为没发出去，剩余消息 ${threadMessages} 条）`);
+
+  // ─── 117r-D3：预判命中【长标题】线程 —— chip 不许把输入框挤没，且能撤掉重来 ──────────
+  // 用户第八轮走查②原话：「关键词匹配……最好不要和输入框放同一行，会把输入框内容挤没，要不放在
+  // 输入框上面；而且匹配的没法删掉/关掉」。三条根因这里各钉一处：①标题截短（D3-1）、②输入框仍有
+  // 可用宽度（D3-2，样式挪行是否真的生效，只有真机量出来才算数）、③× 能把这次自动预判撤掉、且不会
+  // 随后续输入自己复活、清空输入框之后正常复位（D3-2c/D3-3/D3-4/D3-5）。
+  //
+  // 这条长标题线程放到现在才建（不是跟 A3 那条一起）：GET /api/steward/visit 按「最近更新」挑
+  // 焦点线程，早建的话会把 B3 原来钉的「焦点线程是 THREAD_TITLE」顶掉，平白炸掉一条无关的老用例。
+  const createdLong = await request(appPort, 'POST', '/api/sessions', { title: LONG_TITLE }, token);
+  const longThreadId = createdLong && createdLong.json && createdLong.json.session && createdLong.json.session.id;
+  ok(Boolean(longThreadId), `D3-0 长标题线程（${[...LONG_TITLE].length} 字）已建（${longThreadId || '失败'}）`);
+
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = ${JSON.stringify(LONG_TITLE + '，麻烦再帮我盯一下')};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  const longHintCopy = zh['stewardShell.compose.targetSteward.hint'].replace('{{title}}', LONG_TITLE_SHORT);
+  const longHint = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.chip === ${JSON.stringify(longHintCopy)} ? snapshot : null;
+  })()`);
+  ok(Boolean(longHint),
+    `D3-1 长标题线程命中之后 chip 走 stewardShortTitle 截短：「${longHintCopy}」（实测「${longHint && longHint.chip}」，原标题 ${[...LONG_TITLE].length} 字）`);
+
+  // 下限怎么定的：.steward-composer 顶多 800px（steward-shell.css .steward-composer{max-width:800px}），
+  // 除输入框外只有两枚 32px 圆键 + 两道 --sp-1 间隙 + 左右内边距，加起来远不到「行宽的 4 成」。chip
+  // 现在挪到了输入框【上面】那一行（117r-D3 ②），不再跟输入框抢同一行的地盘，正常情况下 inputWidth
+  // 该占 rowWidth 的 8~9 成。这里只要求 ≥60%，冗余给得足——本 bug 复现时那一行 chip 文案（截图里一
+  // 整句话）把输入框挤到几乎 0px，跟「≥60%」差着好几倍，不会因几像素的字体/滚动条抖动而误判。
+  const widthSnapshot = await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    const row = document.getElementById('stewardComposer');
+    return { inputWidth: input.getBoundingClientRect().width, rowWidth: row.getBoundingClientRect().width };
+  })()`);
+  ok(widthSnapshot.rowWidth > 0 && widthSnapshot.inputWidth >= widthSnapshot.rowWidth * 0.6,
+    `D3-2 长标题命中时输入框没被挤没：输入框 ${widthSnapshot.inputWidth.toFixed(1)}px / 行宽 ${widthSnapshot.rowWidth.toFixed(1)}px（要求 ≥60%）`);
+  ok(widthSnapshot.inputWidth >= 200,
+    `D3-2b 输入框宽度也过一个不依赖行宽的绝对下限 200px（实测 ${widthSnapshot.inputWidth.toFixed(1)}px）`);
+
+  const clearVisible = await cdp.evaluate(`(() => {
+    const clear = document.querySelector('#stewardTarget .steward-target-clear');
+    return Boolean(clear) && clear.hidden === false;
+  })()`);
+  ok(clearVisible === true, 'D3-2c 自动命中时 × 是可见的（显隐判据不再只看有没有手选）');
+
+  // 截图为证（验收②）：宽屏（真实窗口本来就是 1440×1000，≥1000px 达标，不用再 override）与窄屏
+  // （390px，既有断点）各一张，长标题线程命中时的输入区。宽屏先拍，narrow 拍完立刻把 override 清掉——
+  // 不然后面 R/H 两段断言会在一个被强制改过 viewport 的页面上跑，节外生枝。
+  const shotDir = 'C:\\Users\\87179\\AppData\\Local\\Temp\\claude\\C--Users-87179-Documents-Claude-Code-ruyi-workbench-oss\\a075087e-ba4c-4de8-a8ad-4961390012d1\\scratchpad';
+  const wideShot = await cdp.send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(path.join(shotDir, '117r-D3-wide.png'), Buffer.from(wideShot.data, 'base64'));
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(200);   // 给样式层的 390px 断点一拍时间应用
+  const narrowShot = await cdp.send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(path.join(shotDir, '117r-D3-narrow.png'), Buffer.from(narrowShot.data, 'base64'));
+  await cdp.send('Emulation.clearDeviceMetricsOverride', {});
+  await sleep(200);
+
+  await cdp.evaluate(`(() => {
+    const clear = document.querySelector('#stewardTarget .steward-target-clear');
+    if (clear) clear.click();
+    return Boolean(clear);
+  })()`);
+  const dismissed = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.chip === ${JSON.stringify(zh['stewardShell.compose.targetSteward'])} ? snapshot : null;
+  })()`);
+  ok(Boolean(dismissed), `D3-3 点 × 之后 chip 回到「${zh['stewardShell.compose.targetSteward']}」（实测「${dismissed && dismissed.chip}」）`);
+
+  // 追加一个字再触发一轮预判——撤掉的这次不该自己复活（哪怕命中条件仍然成立）。
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.value = input.value + '喔';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await sleep(600);   // 150ms 去抖 + 一次同机 /api/steward/preroute 往返，600ms 给足冗余
+  const stillDismissed = await cdp.evaluate(FEED);
+  ok(stillDismissed.chip === zh['stewardShell.compose.targetSteward'],
+    `D3-4 撤掉之后追加输入，预判不会自己回来（实测「${stillDismissed.chip}」）`);
+
+  // 清空输入框 = 用户在打一句新的话——这次否掉的状态该复位，预判正常回来。注意：这里【不能】用
+  // 「等 chip 变回『如意』」来判定复位是否完了——chip 因为 D3-3 已经是「如意」了，那个 waitForEval
+  // 会在第一次检查就通过、完全没等到清空这一路的去抖（150ms）真的跑完；真要复位的是 hintDismissed
+  // 这个状态位（不反映在 chip 文案上），所以老老实实睡够一个去抖窗口 + 余量，再打下一句话。
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await sleep(400);
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = ${JSON.stringify(LONG_TITLE + '，再帮我瞧一瞧这条')};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  const revived = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return snapshot.chip === ${JSON.stringify(longHintCopy)} ? snapshot : null;
+  })()`);
+  ok(Boolean(revived), `D3-5 清空输入框、重打一句新的话之后，预判正常回来（实测「${revived && revived.chip}」）`);
+
+  // 收尾：清空输入框，不给后面的分组断言留任何残留文本。
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await waitForEval(cdp, `(() => (${FEED}).chip === ${JSON.stringify(zh['stewardShell.compose.targetSteward'])} ? true : null)()`);
 
   // ─── 117l-B2 ④：多轮之后的对话流长什么样（用户第五轮走查 4）─────────────────────
   // 到这儿剧本已经积了好几轮管家的话（到访问候 ＋ 每一轮的回复 ＋ 撤回后那句「那递给谁？」），

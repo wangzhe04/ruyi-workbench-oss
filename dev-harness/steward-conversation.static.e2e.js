@@ -136,6 +136,29 @@ ok(/const hint = \(opts && opts\.routeHint && typeof opts\.routeHint === 'object
 ok(!/sending/.test(composerCode),
   'D8 输入区不再有「上一句没发完就不许再发」的闸（走查⑥：第二句此前被无声丢弃）');
 
+// ─── D9/D10 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行，会把输入框内容
+// 挤没」「而且匹配的没法删掉/关掉」）：三条根因逐条钉。①③是本文件能扫的机械口径；②（chip 挪到
+// 输入框上面一行）是纯样式改动，靠 steward-conversation.e2e.js 的真实浏览器宽度断言与截图核验。
+ok(/import \{ stewardShortTitle \} from '\.\/steward-conversation\.js';/.test(composer),
+  'D9 复用 steward-conversation.js 的 stewardShortTitle（STEWARD_TITLE_MAX=24），不在本文件里另起一份截断函数');
+ok(/if \(hint\) hint\.title = stewardShortTitle\(hint\.title\);/.test(composerCode),
+  'D9b 自动预判（hintedThread 命中）的标题在塞进 chip 之前过 stewardShortTitle —— 不再原样吐一整句用户的话');
+ok(/label\.textContent = t\('stewardShell\.compose\.targetThread', \{ title: stewardShortTitle\(target\.title\)/.test(composerCode),
+  'D9c 手选目标（target/picked）的标题同样过 stewardShortTitle —— ①的截短对两条分支都成立');
+ok(/const active = Boolean\(target \|\| hint\);/.test(composerCode)
+  && /if \(clear\) clear\.hidden = !active;/.test(composerCode)
+  && !/clear\.hidden = !picked/.test(composerCode),
+  'D10 × 的显隐判据是「手选或自动命中，两者之一就有东西可撤」，不再只看 picked（修前自动命中的提示没有关闭出口）');
+ok(/if \(hintedThread\(\)\) \{[\s\S]{0,120}hintDismissed = true;/.test(composerCode),
+  'D10b 点 × 撤自动预判：routeKind/routeHits/routeReason 清空，并置 hintDismissed（「用户已经否掉这一次预判」的状态位）');
+ok(/if \(hintDismissed\) return;/.test(composerCode)
+  && composerCode.indexOf('if (hintDismissed) return;') < composerCode.indexOf('routeKind = String(result.kind'),
+  'D10c runPreroute 响应回来时先看 hintDismissed —— 否掉之后不会随后续输入自己把 chip 变回去');
+// 排掉 `let hintDismissed = false;` 那处声明本身（否则声明单独一条就能把这条断言撑到 1，
+// 数不出「真的复位了几处」）——三个消费点都是裸赋值 `hintDismissed = false;`，前面不带 `let `。
+ok((composerCode.match(/(?<!let )hintDismissed = false;/g) || []).length >= 3,
+  'D10d hintDismissed 至少三处复位（runPreroute 空查询分支／resetComposer／submit 的 finally）——用户重打一句新的话，预判要正常回来');
+
 // ─── E 撤回：10 秒窄窗 + 先 stop 再 rewind ───────────────────────────────────────
 ok(mod.STEWARD_UNDO_WINDOW_MS === 10000 && /export const STEWARD_UNDO_WINDOW_MS = 10000;/.test(conversation),
   'E1 撤回窄窗是 10 秒的导出常量');

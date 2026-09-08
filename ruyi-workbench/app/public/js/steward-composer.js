@@ -17,6 +17,10 @@
 // schedulePreroute/cancelPreroute 里）。
 
 import { stewardEscapeStack, doc, byId, el } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈；117n-M1：DOM 基础件复用（doc/byId/el 不再本地重复）
+// 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行」「而且匹配的没法删掉/关掉」）：
+// 线程标题截短复用 steward-conversation.js 的既有实现（STEWARD_TITLE_MAX=24），不在本文件里另起一份——
+// 抽屉页签、灰字回执早就走这条口径，chip 是唯一漏掉的一处。
+import { stewardShortTitle } from './steward-conversation.js';
 
 export const STEWARD_PREROUTE_DEBOUNCE_MS = 150;   // §8.12 第 1 条：目标 ≤50ms 出判定，150ms 去抖不抢跑
 export const STEWARD_PICKER_MAX = 8;               // 候选列表最多 8 条
@@ -67,6 +71,11 @@ export function createStewardComposer({
   let routeHits = [];
   let routeReason = '';
   let picked = null;             // { sessionId, title } —— 用户手选的目标
+  // 117r-D3 ③（用户第八轮走查②「匹配的没法删掉/关掉」）：用户点过 chip 的 × 把这次自动预判否掉之后
+  // 置真——在它被复位之前，runPreroute() 拿到的响应不再写回 routeKind/routeHits/routeReason（也就不会
+  // 再把 chip 从「→ 如意」翻回「像是接着『X』」）。复位三处：submit() 的 finally、resetComposer()、
+  // 以及 runPreroute() 自己的空查询分支（= 输入框被清空）——见下方各处标了「117r-D3 ③」的行。
+  let hintDismissed = false;
   const recent = [];             // 见过的线程回忆池（@ 列表里「最近线程」那一半）
 
   function rememberHits(hits) {
@@ -117,11 +126,20 @@ export function createStewardComposer({
     const clear = chip.querySelector('.steward-target-clear');
     const target = currentTarget();
     const hint = hintedThread();
-    chip.classList.toggle('is-thread', Boolean(target || hint));
+    // 117r-D3 ①（用户第八轮走查②「关键词匹配……会把输入框内容挤没」）：hintedThread() 返回的是
+    // routeHits[0] 的原话，常常是用户说的一整句话——在它被塞进 chip 之前统一截短。hintedThread()
+    // 每次调用都返回一个全新对象（不是共享状态），这里改它的 .title 不会影响别处。
+    if (hint) hint.title = stewardShortTitle(hint.title);
+    const active = Boolean(target || hint);   // 手选或自动命中，两者之一在，chip 上就有「东西可撤」
+    chip.classList.toggle('is-thread', active);
     chip.classList.toggle('is-picked', Boolean(picked));
-    if (clear) clear.hidden = !picked;
+    // 117r-D3 ③（用户第八轮走查②「匹配的没法删掉/关掉」）：修前 × 只在【手选】时才出——自动预判命中
+    // 的「像是接着『X』」没有任何关闭出口。判据从「只看 picked」改成「有没有东西可撤」（手选或自动命中）。
+    if (clear) clear.hidden = !active;
     if (!label) return;
-    if (target) label.textContent = t('stewardShell.compose.targetThread', { title: target.title });
+    // 同一条纪律的另一支：手选目标的标题也过 stewardShortTitle（这支不动 target/picked 本身——
+    // picked 是持续状态，handOff() 会再读一次 title，不能在这里被悄悄改掉）。
+    if (target) label.textContent = t('stewardShell.compose.targetThread', { title: stewardShortTitle(target.title) });
     else if (hint) label.textContent = t('stewardShell.compose.targetSteward.hint', { title: hint.title });
     else label.textContent = t(stewardTargetKey(routeKind));
   }
@@ -140,7 +158,8 @@ export function createStewardComposer({
   }
   async function runPreroute(text) {
     const query = String(text || '').trim();
-    if (!query) { routeKind = 'steward'; routeHits = []; routeReason = ''; renderChip(); return; }
+    // 117r-D3 ③ 复位点之一：输入框被清空 = 用户在打一句新的话，之前否掉的那次预判不该再拦后面的响应。
+    if (!query) { routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = false; renderChip(); return; }
     if (!isStewardMode()) return;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return;
     const seq = ++prerouteSeq;
@@ -149,6 +168,9 @@ export function createStewardComposer({
     catch { return; }
     if (seq !== prerouteSeq) return;   // 过期响应：慢的那一次回来时新的判定已经在屏幕上了，丢弃
     if (!result || result.ok !== true) return;
+    // 117r-D3 ③：这一趟输入已经被用户点 × 否掉了——响应回来也不许再往 chip 上写，
+    // 否则「关掉」只是骗人的动画，下一拍又自己变回去（用户第八轮走查②「匹配的没法删掉/关掉」）。
+    if (hintDismissed) return;
     routeKind = String(result.kind || 'steward');
     routeHits = Array.isArray(result.hits) ? result.hits : [];
     routeReason = routeHits.length ? String(routeHits[0].reason || '') : '';
@@ -270,6 +292,7 @@ export function createStewardComposer({
       routeKind = 'steward';
       routeHits = [];
       routeReason = '';
+      hintDismissed = false;     // 117r-D3 ③ 复位点之一：发完这一句，下一句的预判不该被上一句否掉的状态拦住
       renderChip();
     }
   }
@@ -291,7 +314,19 @@ export function createStewardComposer({
     clear.hidden = true;
     chip.appendChild(clear);
     chip.addEventListener('click', event => {
-      if (event.target === clear && picked) { picked = null; renderChip(); return; }
+      if (event.target === clear) {
+        if (picked) { picked = null; renderChip(); return; }         // 手选：撤回到「未选」
+        // 117r-D3 ③：自动预判也能撤——回到「→ 如意」，且这次否掉的判定不许随后续输入自己复活
+        // （置 hintDismissed，三处复位见 runPreroute 的空查询分支 / resetComposer / submit 的 finally）。
+        if (hintedThread()) {
+          routeKind = 'steward';
+          routeHits = [];
+          routeReason = '';
+          hintDismissed = true;
+          renderChip();
+        }
+        return;
+      }
       const picker = byId('stewardTargetPicker');
       if (picker && !picker.hidden) closePicker(); else openPicker();
     });
@@ -320,10 +355,18 @@ export function createStewardComposer({
     send.appendChild(icon('M5 12h14M13 6l6 6-6 6'));
     send.addEventListener('click', () => { submit(); });
 
-    composer.insertBefore(chip, input);
-    composer.insertBefore(picker, input);
-    composer.insertBefore(plus, input.nextSibling);
-    composer.insertBefore(send, plus.nextSibling);
+    // 117r-D3 ②（用户第八轮走查②「最好不要和输入框放同一行，会把输入框内容挤没，要不放在输入框
+    // 上面」）：chip 独占一行，挪到输入框上面；input/plus/send 三个一起挪进一个新的行容器
+    // .steward-composer-row。picker 仍然是 .stewardComposer 的直接子节点、紧跟在 chip 后面——
+    // 它是 position:absolute; bottom:100%（steward-conversation.css），锚点是 .steward-composer
+    // 自己的 position:relative，不是 chip；新加的 inputRow【不】设 position，不会抢那个定位基准。
+    const inputRow = el('div', 'steward-composer-row');
+    composer.insertBefore(inputRow, input);
+    composer.insertBefore(chip, inputRow);
+    composer.insertBefore(picker, inputRow);
+    inputRow.appendChild(input);
+    inputRow.appendChild(plus);
+    inputRow.appendChild(send);
 
     input.disabled = false;
     input.placeholder = t('stewardShell.compose.placeholder');
@@ -369,6 +412,7 @@ export function createStewardComposer({
     routeKind = 'steward';
     routeHits = [];
     routeReason = '';
+    hintDismissed = false;   // 117r-D3 ③ 复位点之一：离开管家壳，否掉的状态不该带到下一次进壳
     renderChip();
   }
 

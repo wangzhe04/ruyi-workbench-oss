@@ -121,12 +121,18 @@
   scrollbar-gutter: stable;
 }
 
-/* 输入区：原型 .cbox 的胶囊 —— 递送 chip 在框内左侧，「+」与圆形发送键在右侧。
+/* 输入区：原型 .cbox 的胶囊 —— 递送 chip 独占第一行，第二行是输入框 +「+」+ 圆形发送键。
    「对管家说」这行文字标签与「经典模式」大按钮都从版面上撤掉：前者只留给读屏
-   （label[for] 仍在 DOM 里），后者的动作已经在头像菜单末项「整体切到 2.0」里。 */
+   （label[for] 仍在 DOM 里），后者的动作已经在头像菜单末项「整体切到 2.0」里。
+   117r-D3 ②（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行，会把输入框内容挤没，
+   要不放在输入框上面」）：改前是单行 display:flex，chip 一长就把 .steward-composer-input 挤到
+   零宽——input 的 min-width:0 只保证「不撑破布局」，不保证「还留着能打字的宽度」。现在改成两行：
+   chip 是第一行，第二行是新增的 .steward-composer-row（装 input/plus/send，见 steward-composer.js
+   buildComposer）。默认态「→ 如意」也走这个两行骨架——位置不随文案长短跳动。 */
 .steward-composer {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;   /* 交叉轴（现在是横向）默认拉伸：第二行才能吃满宽度；chip 自己用 align-self 挑出来（steward-conversation.css .steward-target） */
   gap: var(--sp-1);
   min-width: 0;
   margin-bottom: var(--sp-4);
@@ -135,6 +141,15 @@
   border-radius: 18px;
   background: var(--panel);
   transition: border-color var(--dur-fast) var(--ease-out);
+}
+/* 第二行：input + 「+」+ 发送键。刻意不给它设置 position —— #stewardTargetPicker 仍然锚定在
+   .steward-composer 自己（steward-conversation.css .steward-composer{position:relative}），
+   这个新容器要是也声明了 position，候选列表的定位基准就变了（brief §②硬约束）。 */
+.steward-composer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
 }
 .steward-composer:focus-within { border-color: var(--accent); }
 .steward-composer-label {

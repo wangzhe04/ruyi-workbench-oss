@@ -319,11 +319,18 @@
 .steward-composer-note:empty { display: none; }
 .steward-target {
   flex: 0 0 auto;
+  /* 117r-D3 ②：.steward-composer 现在是 flex-direction:column，交叉轴（横向）默认 stretch——
+     不挑出来的话 chip 会被拉成整行宽的大按钮（brief 明令「不要」）。align-self 只在 chip 自己
+     这条规则里生效，对 .steward-target 用在别处（目前没有）没有副作用。 */
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
   height: 26px;
   min-height: 26px;
+  /* 117r-D3 ②：即使①的标题截短哪天失效，chip 也不会比它那一行更宽——配合下面
+     .steward-target-label 的 min-width:0/ellipsis，兜底不再撑破版面。 */
+  max-width: 100%;
   font: inherit;
   font-size: var(--fs-xs);
   white-space: nowrap;
@@ -339,7 +346,13 @@
 .steward-target.is-thread { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .steward-target.is-picked { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .steward-target:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-target-clear { opacity: 0.6; }
+/* 117r-D3 ②：chip 里真正会变长的是这段文字——命中一条长标题线程时「像是接着『X』」可以是
+   一整句话（①已经用 stewardShortTitle 截到 24 字，这里是第二道防线）。min-width:0 让它在
+   inline-flex 里能被压缩到比内容还窄，压缩之后交给 ellipsis 收尾，不许再把 chip 撑宽。 */
+.steward-target-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 117r-D3 ③：× 是撤销这次预判的唯一出口，不能被上面那条 label 的收缩算法一起挤没——固定
+   flex-basis，永远按自身内容大小显示、永远点得到。 */
+.steward-target-clear { flex: 0 0 auto; opacity: 0.6; }
 
 .steward-target-picker {
   position: absolute;
@@ -421,7 +434,10 @@
 @media (max-width: 390px) {
   .steward-msg { max-width: 100%; }
   .steward-act { max-width: 100%; }
-  .steward-target { max-width: 45vw; overflow: hidden; }
+  /* 117r-D3 ②：这条 45vw 是改前的遗产——chip 那时跟输入框挤在同一行，得给它按视口宽度硬压一刀，
+     不然输入框在窄屏上先没。现在 chip 独占一行（steward-shell.css .steward-composer 改
+     flex-direction:column），基础规则里的 .steward-target{max-width:100%} 已经够用，45vw 这个
+     数字反而会在本来有整行可用时把 chip 无端掐窄——删掉，不留一个跟布局脱节的旧断点。 */
   .steward-target-picker { min-width: 0; inset-inline: 0; }
 }
 
