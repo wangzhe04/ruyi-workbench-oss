@@ -76,6 +76,23 @@
 - 改任何 CSS 层都会红 `read-frontend-css.js` 的 `LEGACY_STYLES_SHA256`——**同一波只让一片改 CSS**，由它自己重钉并做反向验证（先追加一条无关规则确认消费者真红，再还原确认字节相同）。
 - F5 若撞 `steward-settings.static` 里钉 `ICON_STOP` 字面量的锁，**重钉为「停机键与线程停止用的不是同一枚图标」**这种可证伪的事实，不要钉新的字面量。
 
+### 2.2.1 本批并行分工（2026-09-09 派出，三刀同时在跑）
+
+三刀**文件互斥**，同一个 worktree 里并行。互斥表就是它们各自的「独占文件」：
+
+| 刀 | 独占 | 绝不碰 |
+|---|---|---|
+| **T1** 拆 13g | `src/13g*.js`、`manifest.json`、`module-contracts.json`、`server.js`、生成器链产物（`docs/architecture/*`、`facts.json`）、它要重钉的 `*.static` 锁 | `public/` 一律不碰 |
+| **F1+F4** 线程卡与回复定型 | `public/js/steward-conversation.js`、`css/views/steward-conversation.css`、四份 locale（含 `docs/i18n/locales`）、`steward-conversation.{e2e,static.e2e}.js` | 看板／抽屉；`read-frontend-css.js` |
+| **F3** 右栏「现在这几件」 | `public/js/steward-board.js`、`steward-drawer.js`、两份对应 CSS、它们的四件 e2e | 对话区；locale（本轮归 F1）；`read-frontend-css.js` |
+
+三条**共享资源**的归属，派单时就定死，否则必撞：
+1. **CSS 载荷锁 `LEGACY_STYLES_SHA256`**：F1 与 F3 都改 CSS，**两刀都不许碰它**，各自的 `live-full-text.static` F3 与 `frontend-domains.static` D51 预期红；**主会话在两刀都落地之后统一重钉一次**（先例：117r 的 `72873e4`）。
+2. **`facts.json` 的 e2eCount**：只有 T1 会跑生成器链，所以**这一轮谁都不许新建 e2e 文件**，前端两刀只准扩既有件。
+3. **locale**：本轮只有 F1 能写；F3 需要的新键由它在报告里给出 key＋中英文，主会话补。
+
+**教训来源**：117s 那波三刀并行时，G 与 H 前端同时往两份 locale 里写键，H 只能用 `git apply --cached` 挑出自己那一半才提交得成——归属先定死，比事后拆干净。
+
 ### 2.3 刀 E 批 · 管家放权（**31 号文**是完整方案，这里只给执行序）
 
 三批，每批出门再开下一批。**第一批**（用户当下用得上）：
