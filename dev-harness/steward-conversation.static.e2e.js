@@ -250,7 +250,11 @@ ok(/function ensureVisit\(\) \{\s*if \(entered\) return null;\s*entered = true;\
 
 // ─── J 后端零改动：只用 116 已有的路由 ──────────────────────────────────────────
 const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort();
-const ALLOWED = ['/api/session/rewind', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
+// 117s-H2 补一条 `/api/sessions/`（＋ encodeURIComponent(sessionId)）：交付卡取线程原文用的是
+// **13d 早就有的**那条会话信封（`GET /api/sessions/:id`，返回 { ok, session, resumable, displayTitle }，
+// session.messages 就是整份消息）。本条断言钉的是「零新增后端面」——它仍然成立：新增的是一个
+// 【既有】路由的消费者，不是一个新路由。
+const ALLOWED = ['/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(/import \{ authHeaders \} from '\.\/net\.js';/.test(conversation)
@@ -482,6 +486,103 @@ ok(/\.steward-say\.md \{/.test(cssCode) && /white-space: normal;/.test(cssCode) 
   'O9 样式层有 markdown 排版与来源小头两组规则（取值同源 chat-narrative.css 的 .md 族）');
 
 
+
+
+// ─── P 117s-H2/H4：交付卡（27 号文 §11.13.3 H2「用户看原件，管家只加批注」）───────────────
+// 摸底结论：管家【读了】、时机也对，但 say 硬切 600 字 —— 2687 字的交付被压成 407 字的二手货。
+// 所以收件箱触发的那条回复里嵌线程自己的交付原文。下面钉的是「必须成立的事」，不是某一行长什么样。
+// ① 三支纯函数的真值表（零 DOM，Node 里直接跑）。
+ok(typeof mod.stewardTriggerInfo === 'function' && typeof mod.stewardInboxTurnSeq === 'function'
+  && typeof mod.stewardDeliverableFrom === 'function',
+  'P1 三支新判据都是导出的纯函数（stewardTriggerInfo / stewardInboxTurnSeq / stewardDeliverableFrom）');
+ok(JSON.stringify(mod.stewardTriggerInfo({ trigger: { kind: 'inbox', sessionId: 'sess_a', title: '周报', turnSeq: 4 } }))
+    === JSON.stringify({ kind: 'inbox', sessionId: 'sess_a', title: '周报', turnSeq: 4 })
+  && JSON.stringify(mod.stewardTriggerInfo({ trigger: 'inbox' }))
+    === JSON.stringify({ kind: 'inbox', sessionId: '', title: '', turnSeq: 0 })
+  && mod.stewardTriggerInfo({ trigger: 'user' }).kind === 'user'
+  && mod.stewardTriggerInfo({}).kind === '' && mod.stewardTriggerInfo(null).kind === '',
+  'P2 H4：trigger 的两种形状都认 —— 新回合的对象逐字取出，老回合的字符串照旧算数，缺席回空');
+ok(mod.stewardTriggerInfo({ trigger: { kind: 'inbox', turnSeq: 0 } }).turnSeq === 0
+  && mod.stewardTriggerInfo({ trigger: { kind: 'inbox', turnSeq: -3 } }).turnSeq === 0
+  && mod.stewardTriggerInfo({ trigger: { kind: 'inbox', turnSeq: '7' } }).turnSeq === 7,
+  'P2b 回合号越界/非正数一律归 0（调用方据此退到「最后一条助手话」，不去编一个回合号）');
+ok(mod.stewardInboxTurnSeq('- [2] done · 线程「A」(sess_a) · 线程第 3 回合跑完了') === 3
+  && mod.stewardInboxTurnSeq('线程第 12 回合失败(engine)') === 12
+  && mod.stewardInboxTurnSeq('线程「A」(sess_a) 收工了') === 0
+  && mod.stewardInboxTurnSeq('') === 0 && mod.stewardInboxTurnSeq(null) === 0,
+  'P3 回合号取自 13i 那句「线程第 N 回合跑完了/失败」，取不到回 0');
+const deliverSession = { messages: [
+  { role: 'user', turnSeq: 1, content: '问' },
+  { role: 'assistant', turnSeq: 1, content: '第一回合的答' },
+  { role: 'assistant', turnSeq: 2, content: '   ' },
+  { role: 'assistant', turnSeq: 3, content: '第三回合的交付' },
+] };
+ok(JSON.stringify(mod.stewardDeliverableFrom(deliverSession, 3)) === JSON.stringify({ text: '第三回合的交付', turnSeq: 3 })
+  && JSON.stringify(mod.stewardDeliverableFrom(deliverSession, 1)) === JSON.stringify({ text: '第一回合的答', turnSeq: 1 }),
+  'P4 交付＝turnSeq 对得上的那条助手话（09-workflow 落盘时每条助手消息都带 turnSeq）');
+ok(JSON.stringify(mod.stewardDeliverableFrom(deliverSession, 0)) === JSON.stringify({ text: '第三回合的交付', turnSeq: 3 })
+  && JSON.stringify(mod.stewardDeliverableFrom(deliverSession, 9)) === JSON.stringify({ text: '第三回合的交付', turnSeq: 3 }),
+  'P4b 不知道回合号（或那一回合没落到）就退到最后一条【非空】助手话');
+ok(mod.stewardDeliverableFrom({ messages: [{ role: 'user', content: '只有用户的话' }] }, 0) === null
+  && mod.stewardDeliverableFrom({ messages: [{ role: 'assistant', content: '  ' }] }, 0) === null
+  && mod.stewardDeliverableFrom(null, 0) === null && mod.stewardDeliverableFrom({}, 3) === null,
+  'P5 一条都挑不出来就回 null —— 调用方据此画兜底那一句，绝不留一个空盒子');
+ok(mod.STEWARD_DELIVERABLE_LINES === 8,
+  `P5b 折叠阈值是导出常量（§11.13.3 H2「超 8 行折叠」；实测 ${mod.STEWARD_DELIVERABLE_LINES}）`);
+
+// ② 正文必须走【同一条】渲染器：交付是线程产出的、模型写的、不可信的文本，与管家的话同一口径。
+ok(/paintSay\(body, found\.text\);/.test(conversationCode),
+  'P6 交付正文经 paintSay 上屏（＝注入的 renderMarkdownInto ＋ highlightIn；本模块仍然只有这一处渲染入口）');
+const bodyTextWrites = (conversationCode.match(/body\.textContent = /g) || []).length;
+ok(bodyTextWrites === 1 && /body\.textContent = t\('stewardShell\.chat\.deliverableMissing'\);/.test(conversationCode),
+  `P6b 交付正文【唯一】那处 textContent 直写是「取不到」的兜底一句（实测 ${bodyTextWrites} 处）——`
+  + '有渲染器时正文绝不走纯文本，缺席时由 paintSay 内部统一回落');
+
+// ③ 懒：只有收件箱触发的那一行才发信封请求；且零新增路由、零新 fetch。
+const attachDeliverableSites = (conversationCode.match(/attachDeliverable\(/g) || []).length;
+ok(attachDeliverableSites === 2 && /if \(opening\) attachDeliverable\(row, \{ \.\.\.opening, turnSeq: trigger\.turnSeq \|\| inboxTurnSeq \}\);/.test(conversationCode),
+  `P7 交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 调用 1 处，实测 ${attachDeliverableSites}）——`
+  + '用户自己问的那条一发请求都不多发');
+ok(/api\('\/api\/sessions\/' \+ encodeURIComponent\(sessionId\)\)/.test(conversationCode),
+  'P8 取原文走【既有】的 GET /api/sessions/<id>（13d 的信封本来就带 session.messages，零新增路由）');
+const fetchSites = (conversationCode.match(/\bfetch\(/g) || []).length;
+ok(fetchSites === 1,
+  `P8b 全文件仍然只有一处裸 fetch（NDJSON 那条流），交付卡走注入的 api()（实测 ${fetchSites} 处）`);
+ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
+  && /const key = String\(sessionId\) \+ '\|' \+ String\(turnSeq \|\| 0\);/.test(conversationCode)
+  && /task\.catch\(\(\) => \{ deliverableCache\.delete\(key\); \}\);/.test(conversationCode),
+  'P9 按 sessionId|turnSeq 在本实例里缓存（同一条线程反复出现只取一次），失败不进缓存（下次还能再试）');
+
+// ④ import 白名单没变：本刀零新增 import（依赖全部走构造注入，与 117s-C 同一条纪律）。
+const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
+ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(['./net.js', './steward-chips.js']),
+  `P10 import 仍然只有 net.js 与 steward-chips.js 两个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+ok(/openClassicWindow = null,/.test(conversation)
+  && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
+  && /openThread\(id\);/.test(conversationCode)
+  && !/from '\.\/steward-drawer\.js'/.test(conversation) && !/from '\.\/steward-classic-window\.js'/.test(conversation),
+  'P11 「看全文」＝注入的 openClassicWindow（与抽屉同一个入口），缺席时回落既有的 steward:open-thread；'
+  + '本模块不 import 抽屉/视窗模块（不长出第二条切壳通道）');
+ok(/t\('stewardShell\.drawer\.fullText'\)/.test(conversationCode),
+  'P11b 「看全文」与抽屉那一枚共用同一个 i18n 键（同一个词、同一个动作，不另造第二条文案）');
+
+// ⑤ i18n 与样式层。
+for (const key of ['stewardShell.chat.deliverableHead', 'stewardShell.chat.deliverableHeadPlain',
+  'stewardShell.chat.deliverableLoading', 'stewardShell.chat.deliverableMissing',
+  'stewardShell.chat.deliverableExpand', 'stewardShell.chat.deliverableCollapse']) {
+  ok(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0,
+    `P12 locale 键 ${key} 中英齐备`);
+}
+ok(/\{\{seq\}\}/.test(String(zh['stewardShell.chat.deliverableHead']))
+  && /\{\{seq\}\}/.test(String(en['stewardShell.chat.deliverableHead']))
+  && !/\{\{seq\}\}/.test(String(zh['stewardShell.chat.deliverableHeadPlain'])),
+  'P12b 带回合号那句有 {{seq}} 插值、不带的那句没有（不知道回合号时界面不出现一个空的「第  回合」）');
+ok(/\.steward-deliverable \{/.test(cssCode) && /\.steward-deliverable-body\.is-clamped \{ max-height:/.test(cssCode)
+  && /\.steward-deliverable-body\.md \{/.test(cssCode),
+  'P13 样式层有交付卡三组规则：卡本体（左描边，不是盒子）、折叠、markdown 排版（同源 .md 一族）');
+const deliverableCss = cssCode.slice(cssCode.indexOf('.steward-deliverable {'));
+ok(deliverableCss.length > 0 && !/transition|animation/.test(deliverableCss),
+  'P13b 交付卡零 transition／零 animation（故 reduced-motion 的关闭清单一个字没加）');
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

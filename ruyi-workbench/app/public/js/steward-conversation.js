@@ -88,6 +88,65 @@ export function stewardInboxSource(content) {
   return bare ? { sessionId: bare[1], title: '' } : null;
 }
 
+// 117s-H2：同一条收件箱消息里还写着【第几回合】跑完了（13i stewardNormalizeSessionTurn 的
+// payload.summary：「线程第 N 回合跑完了 / 失败」）。交付卡要拿它去 GET /api/sessions/<id> 里
+// 挑对那一回合的助手话 —— 取不到就回 0，调用方退到「最后一条助手话」（宁可少一层精确，
+// 也不去编一个回合号）。与 stewardInboxSource 分开两支：后者的返回形状被静态锁 O2/O3 逐字钉住。
+const STEWARD_INBOX_TURN_RE = /线程第\s*(\d{1,9})\s*回合/;
+export function stewardInboxTurnSeq(content) {
+  const found = STEWARD_INBOX_TURN_RE.exec(String(content == null ? '' : content));
+  const seq = found ? Number(found[1]) : 0;
+  return Number.isSafeInteger(seq) && seq > 0 ? seq : 0;
+}
+
+// 117s-H4：`message.steward.trigger` 有两种形状，两种都要认 ——
+//   · 老回合（H4 之前落盘的）：字符串 'user' / 'inbox'，来源线程与回合号都【不在】里面
+//     （117s-C 就是因此才去抠中文事件行的）；
+//   · 新回合（H4 之后 13h stewardStampReply 盖的）：对象 { kind, sessionId?, title?, turnSeq? }。
+// 归一成同一个形状；对象里有 sessionId 就优先用它（回执是第一手，抠行法是回落）。
+// 纯函数、零 DOM，静态锁直接跑真值表。
+export function stewardTriggerInfo(stamp) {
+  const raw = (stamp && typeof stamp === 'object') ? stamp.trigger : null;
+  if (raw && typeof raw === 'object') {
+    const seq = Number(raw.turnSeq);
+    return {
+      kind: String(raw.kind || ''),
+      sessionId: String(raw.sessionId || ''),
+      title: String(raw.title || ''),
+      turnSeq: Number.isSafeInteger(seq) && seq > 0 ? seq : 0,
+    };
+  }
+  if (stamp && stamp.trigger === 'inbox') {
+    return { kind: 'inbox', sessionId: '', title: '', turnSeq: 0 };
+  }
+  return { kind: String(raw || ''), sessionId: '', title: '', turnSeq: 0 };
+}
+
+// 117s-H2：从 `GET /api/sessions/<id>` 的信封里挑出「这一回合交付的原文」。
+// 判据：turnSeq 对得上的【最后一条】助手消息（09-workflow 落盘时每条助手消息都带 turnSeq）；
+// 不知道回合号、或那一回合没有非空正文时退到整份会话的最后一条非空助手消息。
+// 一条都挑不出来就回 null —— 调用方据此画那句「这次没取到」的兜底，绝不留一个空盒子。
+// 纯函数、零 DOM、零请求。
+export function stewardDeliverableFrom(session, turnSeq) {
+  const messages = (session && Array.isArray(session.messages)) ? session.messages : [];
+  const want = Number(turnSeq) > 0 ? Number(turnSeq) : 0;
+  let matched = null;
+  let last = null;
+  for (const message of messages) {
+    if (!message || message.role !== 'assistant') continue;
+    const text = String(message.content == null ? '' : message.content);
+    if (!text.trim()) continue;
+    const seq = Number(message.turnSeq) > 0 ? Number(message.turnSeq) : 0;
+    last = { text, turnSeq: seq };
+    if (want && seq === want) matched = last;
+  }
+  return matched || last;
+}
+
+// 交付原文超过这么多行就默认折叠（§11.13.3 H2「超 8 行折叠」）。真实版面若在这之内仍然溢出
+// （一段长文本换行成十几行），另有一道实测兜底，见 fillDeliverable。
+export const STEWARD_DELIVERABLE_LINES = 8;
+
 export const STEWARD_TITLE_MAX = 24;
 export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
   const text = String(title == null ? '' : title).trim();
@@ -189,6 +248,13 @@ export function createStewardConversation({
   // 117g：菜单末项「整体切到 2.0」——把整个界面切到经典壳（不是「按会话开一扇 2.0 视窗」，
   // 所以【不】留返回带）。同样只负责调用，切壳与返回标记住 steward-classic-window.js。
   switchWholeShell = null,
+  // 117s-H2：交付卡上的「看全文」——与抽屉标题旁那一枚走【同一个】入口：117g 的
+  // openClassicWindow(sessionId)（记返回标记 → 切经典壳 → 打开该会话 → 顶部返回带）。
+  // 抽屉拿到它是 steward-shell.js 的 drawer.setClassicWindow 那一行；本模块同样【只负责调用】，
+  // 自己不 import steward-drawer.js / steward-classic-window.js（不长出第二条切壳通道）。
+  // **缺席时**（组合根还没接这根线，或 Node 里 await import 本模块）退到既有的
+  // steward:open-thread —— 抽屉／「现在这一件」把那条线程打开，「看全文」就在它的标题旁边。
+  openClassicWindow = null,
   // 117s-C（用户第九轮走查⑦「输出要支持 markdown、制图」）：管家的 say 用【全仓唯一】那条
   // markdown＋净化路径渲染 —— chat-render-primitives.js 的 renderMarkdownInto（trusted innerHTML
   // 只住在它里面）＋ highlightIn（代码高亮＋mermaid 懒加载，就是用户说的「制图显示」）。
@@ -289,6 +355,8 @@ export function createStewardConversation({
   //   · highlight=false 用在流式那一路：say 每来一段就整段重写（renderMarkdown 有 LRU 缓存，
   //     重画便宜），但代码高亮＋mermaid 只在【终态】跑一次，不必每个分片都来一遍。
   // 用户气泡、※ 里的依据与行动行【不】走这里：它们是用户原话与机器回执，被 markdown 吃掉就变形了。
+  //   · 117s-H2：交付卡的正文（线程自己产出的那段话）也走这一个口 —— 它同样是模型写的、同样
+  //     不可信，必须过【同一条】净化器；本模块因此仍然只有这一处渲染入口，不长出第二套。
   function paintSay(node, text, { highlight = true } = {}) {
     if (!node) return node;
     const say = String(text == null ? '' : text);
@@ -557,6 +625,101 @@ export function createStewardConversation({
     if (say) row.insertBefore(chip, say);
     else row.appendChild(chip);
     return chip;
+  }
+
+  // ── 117s-H2 交付卡（27 号文 §11.13.3 H2）────────────────────────────────────
+  // 用户第三轮回话「线程的交付管家能不能看全」。摸底结论：管家【读了】、时机也对，但它转述的是
+  // 二手货 —— say 硬切 600 字，2687 字的交付被压成 407 字。所以收件箱触发的那条回复不再只有
+  // 「管家的话」：线程自己的交付原文嵌在同一张卡里，管家的话退成它【上面】的一两句按语。
+  // 用户看的是原件，管家只加批注 ——「看不全」从此不依赖模型自觉。
+  //
+  // 数据：**零新增路由**。GET /api/sessions/<id> 是既有信封（13d:345 那一条：{ ok, session,
+  // resumable, displayTitle, … }，session.messages 就是整份消息，不需要任何 ?full 参数），
+  // 挑出该回合最后一条助手话（stewardDeliverableFrom）。三条纪律：
+  //   · **懒**：只有收件箱触发的那一行才发这一发；用户自己问的那条一个请求都不多发；
+  //   · **缓存**：按 sessionId|turnSeq 记在本实例里（同一条线程反复出现在对话流里只取一次），
+  //     失败不进缓存，下次进壳还能再试；
+  //   · **绝不把异常抛回对话流**：取不到就画一句兜底，永远不留一个空盒子。
+  const deliverableCache = new Map();
+  function loadDeliverable(sessionId, turnSeq) {
+    const key = String(sessionId) + '|' + String(turnSeq || 0);
+    if (deliverableCache.has(key)) return deliverableCache.get(key);
+    const task = (async () => {
+      const payload = await api('/api/sessions/' + encodeURIComponent(sessionId));
+      return stewardDeliverableFrom(payload && payload.session, turnSeq);
+    })();
+    deliverableCache.set(key, task);
+    task.catch(() => { deliverableCache.delete(key); });   // 失败不留在缓存里（下次还能再试）
+    return task;
+  }
+
+  function fullTextOf(sessionId) {
+    const id = String(sessionId || '');
+    if (!id) return '';
+    if (typeof openClassicWindow === 'function') {
+      try { void openClassicWindow(id); return id; } catch { /* 掉到下面那条既有通道 */ }
+    }
+    openThread(id);   // 缺席时的回落：抽屉/「现在这一件」把它打开，「看全文」就在标题旁边
+    return id;
+  }
+
+  async function fillDeliverable(block, head, body, source) {
+    let found = null;
+    try { found = await loadDeliverable(source.sessionId, source.turnSeq); }
+    catch { found = null; }   // 取不到与「这一回合没有正文」画同一句兜底：原件不在这儿，去 2.0 视窗看
+    if (!block.isConnected && block.parentNode === null) return null;   // 这一行已经被清屏收走了
+    const seq = (found && found.turnSeq) || source.turnSeq || 0;
+    head.textContent = seq
+      ? t('stewardShell.chat.deliverableHead', { seq })
+      : t('stewardShell.chat.deliverableHeadPlain');
+    if (!found || !found.text.trim()) {
+      body.textContent = t('stewardShell.chat.deliverableMissing');
+      block.appendChild(deliverableActs(body, source, false));
+      return null;
+    }
+    paintSay(body, found.text);   // 与管家的话【同一条】渲染＋净化路径（highlightIn 只在这里跑一次）
+    // 折叠：行数超顶就折（判据不依赖版面，Node/隐藏容器里也成立），另加一道真实溢出的兜底。
+    body.classList.add('is-clamped');
+    const longEnough = found.text.split('\n').length > STEWARD_DELIVERABLE_LINES
+      || (Number(body.scrollHeight) || 0) > (Number(body.clientHeight) || 0) + 2;
+    if (!longEnough) body.classList.remove('is-clamped');
+    block.appendChild(deliverableActs(body, source, longEnough));
+    return body;
+  }
+
+  function deliverableActs(body, source, collapsible) {
+    const acts = el('div', 'steward-deliverable-acts');
+    if (collapsible) {
+      const more = button('steward-deliverable-more', t('stewardShell.chat.deliverableExpand'), () => {
+        const clamped = body.classList.toggle('is-clamped');
+        more.textContent = t(clamped ? 'stewardShell.chat.deliverableExpand' : 'stewardShell.chat.deliverableCollapse');
+        more.setAttribute('aria-expanded', clamped ? 'false' : 'true');
+      });
+      more.setAttribute('aria-expanded', 'false');
+      acts.appendChild(more);
+    }
+    // 「看全文」与抽屉那一枚同一个词、同一个动作，所以【共用】同一个 i18n 键，不另造第二条文案。
+    acts.appendChild(button('steward-deliverable-full', t('stewardShell.drawer.fullText'),
+      () => fullTextOf(source.sessionId)));
+    return acts;
+  }
+
+  // 卡片就位（占位先上屏，正文随后填）：来源小头 → 管家的按语 → 交付卡 → ※ → 按钮行。
+  // ※ 仍然挂在按语最后那一段的句尾（117s-C 的 S3c 钉着这条），浮层节点排在交付卡之后。
+  function attachDeliverable(row, source) {
+    if (!row || !source || !source.sessionId) return null;
+    const block = el('div', 'steward-deliverable');
+    block.dataset.sessionId = source.sessionId;
+    if (source.turnSeq) block.dataset.turnSeq = String(source.turnSeq);
+    const head = el('p', 'steward-deliverable-head', t('stewardShell.chat.deliverableLoading'));
+    const body = el('div', 'steward-deliverable-body');
+    block.appendChild(head);
+    block.appendChild(body);
+    const say = row.querySelector('.steward-say');
+    if (say && say.parentNode === row) row.insertBefore(block, say.nextSibling);
+    else row.appendChild(block);
+    void fillDeliverable(block, head, body, source).catch(() => { /* 交付卡绝不把异常丢回对话流 */ });
+    return block;
   }
 
   // ── 「···」占位与流式文字 ────────────────────────────────────────────────────
@@ -1002,6 +1165,8 @@ export function createStewardConversation({
     // 117s-C：上一条【收件箱】系统消息里写着这一回合是被哪条线程叫醒的（stewardEventLine 的
     // 「线程「X」(id)」）。它自己不上屏，但它的来源要跟着下一条管家回复走。
     let inboxSource = null;
+    // 117s-H2：同一条消息里还写着「线程第 N 回合跑完了」——交付卡据此挑对那一回合的原文。
+    let inboxTurnSeq = 0;
     for (const message of (Array.isArray(messages) ? messages : [])) {
       if (!message || (message.role !== 'user' && message.role !== 'assistant')) continue;
       const at = Date.parse(String(message.createdAt || ''));
@@ -1014,6 +1179,7 @@ export function createStewardConversation({
         // 上（09-workflow 的 messageMeta），不是用户本人说的，不该在对话流里冒充成用户气泡。
         if (message.meta && message.meta.origin === 'inbox') {
           inboxSource = stewardInboxSource(String(message.content || ''));   // 117s-C：只取来源，正文照旧不上屏
+          inboxTurnSeq = stewardInboxTurnSeq(String(message.content || ''));   // 117s-H2：顺手取回合号
           continue;
         }
         appendUser(String(message.content || ''));
@@ -1026,12 +1192,19 @@ export function createStewardConversation({
       // 117s-C：只有 trigger==='inbox' 的回合才加小头。落盘的 stamp 里【没有】来源线程 id
       // （13h 只盖了 'user'/'inbox' 这一个字面量），所以来源取自上一条收件箱消息；它也没有时
       // 退到「本回合真开／真续的那条线程」（executedThreadSessionId）；两个都没有就不加。
-      if (stamp && stamp.trigger === 'inbox') {
-        const opening = inboxSource || (executedThreadSessionId(stamp.actions)
+      // 117s-H4：新回合的 stamp.trigger 是对象 { kind, sessionId?, title?, turnSeq? }，老回合是
+      // 'user'/'inbox' 字符串；stewardTriggerInfo 把两种都归一（回执优先，抠行法留作老回合的回落）。
+      const trigger = stewardTriggerInfo(stamp);
+      if (trigger.kind === 'inbox') {
+        const opening = (trigger.sessionId ? { sessionId: trigger.sessionId, title: trigger.title } : null)
+          || inboxSource || (executedThreadSessionId(stamp.actions)
           ? { sessionId: executedThreadSessionId(stamp.actions), title: '' } : null);
         attachSource(row, opening);
+        // 117s-H2：交付卡。只有收件箱触发的这一行才取原文（用户自己问的那条一发请求都不多发）。
+        if (opening) attachDeliverable(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
       }
       inboxSource = null;
+      inboxTurnSeq = 0;
       if (stamp) renderActs(row, stamp.acts);
       rendered += 1;
     }

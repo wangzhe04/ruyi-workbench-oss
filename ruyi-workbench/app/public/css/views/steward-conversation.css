@@ -501,3 +501,59 @@
 }
 .steward-source:hover { color: var(--accent); border-color: var(--accent); }
 .steward-source:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ── 117s-H2 交付卡（27 号文 §11.13.3 H2「用户看原件，管家只加批注」）─────────────────────
+   收件箱触发的那条回复里，管家的话上面是来源小头、下面是【线程自己交付的原文】。卡本身仍然
+   不是一个盒子（§8.1「少一个盒子」）：只有一条左描边把原文与按语分开 —— 引用的观感，不是卡片的。
+   取值全部沿用既有 token，零新配色、零 transition（故 reduced-motion 的关闭清单一个字没加）。 */
+.steward-deliverable {
+  min-width: 0;   /* .steward-msg 是 flex 列：宽内容要能收窄，才谈得上「只在气泡里横滚」 */
+  padding-inline-start: var(--sp-3);
+  border-inline-start: 2px solid var(--line-2);
+}
+.steward-deliverable-head {
+  margin: 0 0 var(--sp-1);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+.steward-deliverable-body {
+  min-width: 0;
+  color: var(--ink-2);
+  line-height: 1.6;
+  white-space: pre-wrap;   /* 没有渲染器时（回落 textContent）原文的换行仍要保住 */
+  word-break: break-word;
+}
+/* 折叠：约 8 行（--sp 体系里没有行数单位，这里按 line-height 折算）。展开＝去掉这个类。 */
+.steward-deliverable-body.is-clamped { max-height: 12.8em; overflow: hidden; }
+/* 交付原文与管家的话走【同一个】渲染器，所以也带 md 类：排版规则同源 chat-narrative.css 的
+   .md 一族。这几条与上面 .steward-say.md 那一组是同一件事（气泡内收口），只是选择器换一个宿主
+   —— 不并进同一条规则是为了不动 117s-C 钉住的那几行。 */
+.steward-deliverable-body.md { white-space: normal; }
+.steward-deliverable-body.md h4 { line-height: 1.3; margin: 1em 0 .5em; font-size: 1em; }
+.steward-deliverable-body.md table,
+.steward-deliverable-body.md pre,
+.steward-deliverable-body.md .mermaid-block,
+.steward-deliverable-body.md .mermaid-view { max-width: 100%; }
+.steward-deliverable-body.md img { max-width: 100%; height: auto; }
+.steward-deliverable-acts {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+/* 「展开」「看全文」都是安静档的文字键：不与管家那一行按钮（药丸＋主动作实底）抢眼。 */
+.steward-deliverable-more,
+.steward-deliverable-full {
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.steward-deliverable-more:hover,
+.steward-deliverable-full:hover { color: var(--accent); }
+.steward-deliverable-more:focus-visible,
+.steward-deliverable-full:focus-visible { outline: none; box-shadow: var(--ring); }

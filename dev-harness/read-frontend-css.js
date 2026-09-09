@@ -311,7 +311,25 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     steward:focus-thread）。安静档：--muted 文字 ＋ --line-2 细描边 ＋ 无实底，hover/focus 走
 //     --accent 与 --ring，全 token 化、**零 transition**（故 reduced-motion 的关闭清单一个字没加）。
 // 无新样式层、无新硬编码色、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'e2a5de916dc052554211090134e3d598b6cc98d669dbd386ad8035023515d1b4';
+// 117s-H2（用户第三轮回话「线程的交付管家能不能看全」／27 号文 §11.13.3 H2）重钉，同样只动
+// css/views/steward-conversation.css 这一个【已注册的】所有权层，纯新增规则（追加在文件末尾，
+// 既有规则一行未改），其余每一层零漂移（本波碰 CSS 的仍然只有管家对话这一条线，故由本刀自己钉）：
+//   · `.steward-deliverable` —— 收件箱触发的那条回复里嵌的「线程自己交付的原文」。它**不是一个
+//     盒子**（§8.1「少一个盒子」）：只有一条 2px 的 --line-2 左描边把原文与管家的按语分开，
+//     引用的观感而不是卡片的；min-width:0 是「宽内容只在气泡里横滚」的前提。
+//   · `.steward-deliverable-head` / `-body` —— 卡头是 --muted + --fs-xs 的状态行（与 .steward-source
+//     同一档）；正文默认 pre-wrap（没有渲染器时回落 textContent，原文的换行要保住）。
+//   · `.steward-deliverable-body.is-clamped { max-height: 12.8em }` —— 约 8 行的折叠（§11.13.3 H2），
+//     展开＝去掉这个类，零动效。
+//   · `.steward-deliverable-body.md` 一族 —— 交付原文与管家的话走同一个渲染器，所以排版同样整套
+//     复用 chat-narrative.css 的 .md（同源取值）；这里只重复 117s-C 给 .steward-say.md 补的那三件
+//     （pre-wrap 退场、h4、宽内容 max-width:100%），换一个宿主选择器 —— 刻意不与 .steward-say.md
+//     并成一条规则，因为那几行被 117s-C 的静态锁 O9 逐字钉着。
+//   · `.steward-deliverable-acts` 与两枚安静档文字键（「展开」「看全文」）—— --muted 文字、无实底、
+//     hover 走 --accent、focus 走 --ring。
+// 全 token（零 `#` 硬编码色）、**零 transition／零 animation**（故 reduced-motion 的关闭清单一个字
+// 没加）、无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = '87d65e2e10864950c35ac2cd4f9a80afee9faa8ab875e17587556b727f303c56';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -947,6 +947,16 @@ try {
     } catch { /* 证据拍不下来不改变判定 */ }
   };
   await shoot('117s-C-markdown.png');
+  // 117s-H：本刀的证据另写一个目录（与 C 刀那批分开，便于逐刀回看）。
+  const shotDirH = path.join(os.tmpdir(), 'ruyi-117s-H-shots');
+  const shootH = async name => {
+    try {
+      fs.mkdirSync(shotDirH, { recursive: true });
+      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(shotDirH, name), Buffer.from(png.data, 'base64'));
+      console.log(`  截图：${path.join(shotDirH, name)}`);
+    } catch { /* 证据拍不下来不改变判定 */ }
+  };
 
   // ─── 117s-C：来源小头「来自线程『X』」（用户第九轮走查⑦「返回消息没有区分」）──────────────
   // 收件箱触发的回合要走真实的线程收工事件才跑得起来（后端 5 秒去抖 + 事件队列），本件的剧本
@@ -1000,6 +1010,220 @@ try {
   ok(Boolean(chipSnapshot.lastSay) && chipSnapshot.lastSay.md === false
     && chipSnapshot.lastSay.text.indexOf('这句是你自己问的。') === 0,
     `T6 没有注入渲染器的实例全线回落 textContent（缺席那条路真的走得通；实测 md=${chipSnapshot.lastSay && chipSnapshot.lastSay.md}）`);
+
+
+  // ─── 117s-H2 交付卡（27 号文 §11.13.3 H2；用户第三轮回话「线程的交付管家能不能看全」）────────
+  // 摸底结论是「管家读了、时机也对，但用户看到的是二手货」：say 硬切 600 字，2687 字的交付被压成
+  // 407 字。所以收件箱触发的那条回复里，线程【自己】的交付原文嵌在同一张卡里，管家的话退成上面
+  // 的一两句按语。这一段用与 T 段同样的手法重放：新建实例、注入一个按 URL 分流的假 api ——
+  // 走的是 appendSince 那条真路径（收件箱回复进对话流的唯一入口），零新增路由（GET /api/sessions/<id>
+  // 是 13d 的既有信封，session.messages 就是整份消息）。
+  const DELIVERABLE_MD = [
+    '## 结论',
+    '',
+    '今天这条线的结论是**偏空**，理由三条：',
+    '',
+    '- 成交额连续两日缩量',
+    '- 涨停家数腰斩',
+    '- 北向资金净流出',
+    '',
+    '| 指标 | 今日 | 昨日 |',
+    '| --- | --- | --- |',
+    '| 成交额 | 1.2 万亿 | 1.5 万亿 |',
+    '| 涨停数 | 31 | 44 |',
+    '',
+    '完整快照已落盘到当天的日志里。',
+  ].join('\n');
+  const DELIVER_THREAD = 'sess_deliver_1';
+  // 交付卡快照：只看【本段新追加的那几行】（上面 T 段的行还在 feed 里，不切一刀会数混）。
+  const DELIVER = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    const blocks = rows.map(row => row.querySelector('.steward-deliverable')).filter(Boolean);
+    const block = blocks[0] || null;
+    const body = block ? block.querySelector('.steward-deliverable-body') : null;
+    const row = block ? block.closest('.steward-msg') : null;
+    const chip = row ? row.querySelector('.steward-source') : null;
+    const pop = row ? row.querySelector('.steward-why-pop') : null;
+    return {
+      rows: rows.length,
+      blocks: blocks.length,
+      head: block ? block.querySelector('.steward-deliverable-head').textContent : '',
+      sessionId: block ? (block.dataset.sessionId || '') : '',
+      md: body ? body.classList.contains('md') : false,
+      h2: body ? body.querySelectorAll('h2').length : 0,
+      li: body ? body.querySelectorAll('li').length : 0,
+      table: body ? body.querySelectorAll('table').length : 0,
+      text: body ? body.textContent : '',
+      clamped: body ? body.classList.contains('is-clamped') : false,
+      overflowing: body ? (body.scrollHeight > body.clientHeight + 2) : false,
+      acts: block ? [...block.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent) : [],
+      // 版面次序：来源小头 → 管家的按语 → 交付卡（按语在卡【上面】，卡不抢开场白）。
+      sayAbove: Boolean(block && block.previousElementSibling
+        && block.previousElementSibling.classList.contains('steward-say')),
+      chipFirst: Boolean(chip && chip.nextElementSibling && chip.nextElementSibling.classList.contains('steward-say')),
+      // ※ 浮层仍然是纯文本（它是机器回执，被 markdown 吃掉就变形）。
+      whyMarkup: pop ? pop.querySelectorAll('h1, h2, h3, strong, li').length : -1,
+      // 用户自己问的那条【一个交付卡都没有】。
+      ruyiBlocks: rows.filter(node => node.classList.contains('steward-msg-ruyi'))
+        .map(node => node.querySelectorAll('.steward-deliverable').length),
+    };
+  })()`;
+  // 三个用例共用的一段：造一个只认两条 URL 的假 api（历史 / 那条线程的信封）。
+  const deliverRig = `(async (options) => {
+    const mod = await import('/js/steward-conversation.js');
+    const prims = (await import('/js/chat-render-primitives.js')).createChatRenderPrimitives({
+      el: (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+      },
+      escapeHtml: value => String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])),
+      // marked 是【依赖注入】的（组合根从 vendor 的全局拿），不是模块内的全局引用 —— 不喂它，
+      // renderMarkdown 会安静地退化成一个 <div class="plain">，md 类还在但一个 h2 都没有。
+      marked: window.marked,
+      t: key => key,
+      toast: () => {},
+    });
+    window.__ruyiDeliverFrom = document.querySelectorAll('#stewardFeed .steward-msg').length;
+    window.__ruyiClassic = [];
+    window.__ruyiCalls = [];
+    const thread = { ok: true, session: { id: options.threadId, messages: [
+      { role: 'user', turnSeq: 1, createdAt: '2099-01-01T00:00:00.000Z', content: '第一回合的问题' },
+      { role: 'assistant', turnSeq: 1, createdAt: '2099-01-01T00:00:01.000Z', content: '第一回合的旧答案（不是这次的交付）' },
+      { role: 'user', turnSeq: 2, createdAt: '2099-01-01T00:00:02.000Z', content: '第二回合的问题' },
+      { role: 'assistant', turnSeq: 2, createdAt: '2099-01-01T00:00:03.000Z', content: '第二回合的旧答案（不是这次的交付）' },
+      { role: 'user', turnSeq: 3, createdAt: '2099-01-01T00:00:04.000Z', content: '第三回合的问题' },
+      { role: 'assistant', turnSeq: 3, createdAt: '2099-01-01T00:00:05.000Z', content: options.deliverable },
+    ] } };
+    const history = { session: { messages: options.messages } };
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        window.__ruyiCalls.push(String(url));
+        if (String(url).indexOf('/api/sessions/steward') === 0) return history;
+        if (options.failThread) throw new Error('boom');
+        return thread;
+      },
+      t: (key, params) => key
+        + ((params && params.title) ? '|' + params.title : '')
+        + ((params && params.seq) ? '|' + params.seq : ''),
+      isStewardMode: () => true,
+      renderMarkdownInto: prims.renderMarkdownInto,
+      highlightIn: prims.highlightIn,
+      openClassicWindow: async id => { window.__ruyiClassic.push(String(id)); return id; },
+    });
+    const rendered = await conv.appendSince('2000-01-01T00:00:00.000Z');
+    return { rendered, calls: window.__ruyiCalls.slice() };
+  })`;
+  // 用例 A：老回合（trigger 是 'inbox' 字符串），来源与回合号都从中文事件行里抠。
+  const deliverA = await cdp.evaluate(`${deliverRig}({
+    threadId: ${JSON.stringify(DELIVER_THREAD)},
+    deliverable: ${JSON.stringify(DELIVERABLE_MD)},
+    messages: [
+      { role: 'user', createdAt: '2099-02-01T00:00:00.000Z', meta: { origin: 'inbox' },
+        content: '[收件箱] 这是工作台的 1 条系统事件 - [2] done · 线程「A股每日分析」(${DELIVER_THREAD}) · 线程第 3 回合跑完了' },
+      { role: 'assistant', createdAt: '2099-02-01T00:00:01.000Z', content: '',
+        steward: { trigger: 'inbox', say: '它收工了，结论偏空。原文见下。', why: '## 这一行是机器回执', acts: [], actions: [] } },
+      { role: 'user', createdAt: '2099-02-01T00:00:02.000Z', content: '知道了' },
+      { role: 'assistant', createdAt: '2099-02-01T00:00:03.000Z', content: '',
+        steward: { trigger: 'user', say: '这句是你自己问的。', why: '', acts: [], actions: [] } },
+    ],
+  })`);
+  const deliverShot = await waitForEval(cdp, `(() => {
+    const snapshot = ${DELIVER};
+    return (snapshot.blocks >= 1 && snapshot.md === true) ? snapshot : null;
+  })()`, 300) || await cdp.evaluate(DELIVER);
+  await shootH('117s-H-deliverable.png');
+  ok(Boolean(deliverA) && deliverA.rendered === 3 && deliverShot.rows === 3
+    && JSON.stringify(deliverShot.ruyiBlocks) === JSON.stringify([1, 0]),
+    `U0 交付卡【只】长在收件箱触发的那条回复上，用户自己问的那条一个都没有（实测每行 ${JSON.stringify(deliverShot.ruyiBlocks)}）`);
+  ok(deliverShot.sessionId === DELIVER_THREAD
+    && deliverShot.head.indexOf('stewardShell.chat.deliverableHead') === 0 && deliverShot.head.indexOf('|3') > 0,
+    `U1 卡头是「它交付的原文 · 第 N 回合」，N 取自事件行里的「线程第 3 回合」（实测「${deliverShot.head}」）`);
+  ok(deliverShot.md === true && deliverShot.h2 >= 1 && deliverShot.li >= 3 && deliverShot.table === 1,
+    `U2 交付原文走【同一条】渲染器成了 DOM：h2/li/table 各就各位（实测 ${JSON.stringify({
+      md: deliverShot.md, h2: deliverShot.h2, li: deliverShot.li, table: deliverShot.table })}）`);
+  ok(deliverShot.text.indexOf('第一回合的旧答案') < 0 && deliverShot.text.indexOf('偏空') >= 0,
+    'U2b 挑的是【第 3 回合】那条助手话，不是整份会话里随便一条（旧回合的答案没混进来）');
+  ok(deliverShot.clamped === true && deliverShot.overflowing === true
+    && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand'
+    && deliverShot.acts[1] === 'stewardShell.drawer.fullText',
+    `U3 默认折叠（真的被裁掉了一截）且「展开」「看全文」两枚都在（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
+  const expanded = await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    const more = rows.map(row => row.querySelector('.steward-deliverable-more')).filter(Boolean)[0];
+    if (more) more.click();
+    return ${DELIVER};
+  })()`);
+  ok(expanded.clamped === false && expanded.overflowing === false
+    && expanded.acts[0] === 'stewardShell.chat.deliverableCollapse',
+    `U4 点「展开」全文展开、按钮换成「收起」（实测 clamped=${expanded.clamped} / 溢出=${expanded.overflowing} / ${JSON.stringify(expanded.acts)}）`);
+  ok(expanded.sayAbove === true && expanded.chipFirst === true,
+    'U5 版面次序：来源小头 → 管家的按语 → 交付卡（管家的话在原件【上面】，只是一句按语）');
+  const classicOpens = await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    const full = rows.map(row => row.querySelector('.steward-deliverable-full')).filter(Boolean)[0];
+    if (full) full.click();
+    return (window.__ruyiClassic || []).slice();
+  })()`);
+  ok(Array.isArray(classicOpens) && classicOpens.length === 1 && classicOpens[0] === DELIVER_THREAD,
+    `U6 「看全文」走的是与抽屉同一个入口 openClassicWindow(sessionId)，带的是那条线程的 id（实测 ${JSON.stringify(classicOpens)}）`);
+  ok(Array.isArray(deliverA.calls) && deliverA.calls.length === 2
+    && deliverA.calls[0].indexOf('/api/sessions/steward?since=') === 0
+    && deliverA.calls[1] === '/api/sessions/' + DELIVER_THREAD,
+    `U7 取原文是【懒】的：两条管家回复只发了一发信封请求（收件箱那条），且走既有的 GET /api/sessions/<id>（实测 ${JSON.stringify(deliverA.calls)}）`);
+  ok(deliverShot.whyMarkup === 0,
+    `U8 ※ 浮层仍然零 h1/h2/strong/li —— 交付卡进了 markdown，机器回执没有（实测 ${deliverShot.whyMarkup}）`);
+
+  // 用例 B（117s-H4）：新回合的 trigger 是对象 { kind, sessionId, title, turnSeq }。
+  // 这一条【没有】收件箱系统消息，抠行法无从下手 —— 卡与小头都只能来自回执本身。
+  const deliverB = await cdp.evaluate(`${deliverRig}({
+    threadId: 'sess_stamped_2',
+    deliverable: ${JSON.stringify(DELIVERABLE_MD)},
+    messages: [
+      { role: 'assistant', createdAt: '2099-03-01T00:00:00.000Z', content: '',
+        steward: { trigger: { kind: 'inbox', sessionId: 'sess_stamped_2', title: '回执里的线程名', turnSeq: 2 },
+          say: '它交了。', why: '', acts: [], actions: [] } },
+    ],
+  })`);
+  const stamped = await waitForEval(cdp, `(() => {
+    const snapshot = ${DELIVER};
+    return (snapshot.blocks >= 1 && snapshot.text.length > 0) ? snapshot : null;
+  })()`, 300) || await cdp.evaluate(DELIVER);
+  const stampedChip = await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    const chip = rows.map(row => row.querySelector('.steward-source')).filter(Boolean)[0];
+    return chip ? { text: chip.textContent, sessionId: chip.dataset.sessionId || '' } : null;
+  })()`);
+  ok(Boolean(deliverB) && deliverB.rendered === 1 && Boolean(stampedChip)
+    && stampedChip.sessionId === 'sess_stamped_2' && stampedChip.text.indexOf('回执里的线程名') > 0,
+    `U9 对象形状的 trigger：来源小头直接读回执里的 sessionId 与 title，不必再去抠中文事件行（实测 ${JSON.stringify(stampedChip)}）`);
+  ok(stamped.blocks === 1 && stamped.sessionId === 'sess_stamped_2'
+    && stamped.head.indexOf('|2') > 0 && stamped.text.indexOf('第二回合的旧答案') >= 0,
+    `U9b 交付卡也认回执里的 turnSeq：钉的是第 2 回合那条助手话（实测卡头「${stamped.head}」）`);
+
+  // 用例 C：信封取不到（网络断、会话被删）——一句兜底，回复本身照常上屏，绝不留空盒子、更不抛异常。
+  const deliverC = await cdp.evaluate(`${deliverRig}({
+    threadId: ${JSON.stringify(DELIVER_THREAD)},
+    deliverable: ${JSON.stringify(DELIVERABLE_MD)},
+    failThread: true,
+    messages: [
+      { role: 'user', createdAt: '2099-04-01T00:00:00.000Z', meta: { origin: 'inbox' },
+        content: '[收件箱] 这是工作台的 1 条系统事件 - [9] done · 线程「取不到的那条」(${DELIVER_THREAD}) · 线程第 3 回合跑完了' },
+      { role: 'assistant', createdAt: '2099-04-01T00:00:01.000Z', content: '',
+        steward: { trigger: 'inbox', say: '它收工了。', why: '', acts: [], actions: [] } },
+    ],
+  })`);
+  const failed = await waitForEval(cdp, `(() => {
+    const snapshot = ${DELIVER};
+    return (snapshot.blocks >= 1 && snapshot.text.length > 0) ? snapshot : null;
+  })()`, 300) || await cdp.evaluate(DELIVER);
+  ok(Boolean(deliverC) && deliverC.rendered === 1
+    && failed.blocks === 1 && failed.text.indexOf('stewardShell.chat.deliverableMissing') === 0
+    && failed.acts.length === 1 && failed.acts[0] === 'stewardShell.drawer.fullText',
+    `U10 取不到原文时画一句兜底＋只留「看全文」，回复本身照常上屏（实测「${failed.text}」，按钮 ${JSON.stringify(failed.acts)}）`);
+  await shootH('117s-H-deliverable-fallback.png');
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");
