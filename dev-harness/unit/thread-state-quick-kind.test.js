@@ -177,9 +177,22 @@ ok(/String\(row\.kind \|\| ''\) === 'quick_ask'/.test(board),
   "⑤ 看板行按【kind】给徽标(不是按 state)");
 ok(/t\('mission\.state\.quick_ask'\)/.test(board),
   '⑤ 徽标文案复用既有键 mission.state.quick_ask(不新开 locale 键)');
-// 徽标是【并列】的兄弟节点,不许替换那颗五态点:paintDot 那一处必须还在同一个 head 里。
-ok(/head\.appendChild\(paintDot\(el\('span', 'steward-board-dot'\), threadState\)\)/.test(board),
-  '⑤ 五态那颗点仍在(徽标是并列的兄弟,不替换它)');
+// 徽标是【并列】的兄弟节点,不许替换五态信号。
+// 117u-G2 重钉:这条锁原来钉的是一行代码的字面写法(`head.appendChild(paintDot(el('span',
+// 'steward-board-dot'), threadState))`)——那是「钉文本长什么样」,本仓已经为这种钉法付过四次假红的账。
+// B2 之后线程卡上的五态改由【药丸】表达(那颗点归线程色号,色 ≠ 态),于是那一行合法地不存在了,
+// 而锁要守的事——「速查徽标没有把五态信号顶掉」——一个字没变。改钉三个必须【同时】成立的事实:
+// 判据必须锚在【长徽标的那个渲染器】里:`head.appendChild(statePill(threadState))` 在本文件里有两处
+// (renderThreadRow 与 renderNowThread 的小行),整文件 test() 会被另一处兜住 —— 那正是「写的时候
+// 以为在守门,其实门是画上去的」。故先切出 renderThreadRow 的函数体再判。
+const rowFnAt = board.indexOf('function renderThreadRow(');
+const nextFnAt = board.indexOf('\n  function ', rowFnAt + 1);
+const rowFn = rowFnAt >= 0 ? board.slice(rowFnAt, nextFnAt > rowFnAt ? nextFnAt : board.length) : '';
+const quickBadgeSibling = /head\.appendChild\(badge\)/.test(rowFn);   // 徽标进的是同一个 head(兄弟,不是替换)
+const stateSignalInHead = /head\.appendChild\(statePill\(threadState\)\)/.test(rowFn);   // 五态信号仍在那个 head 上
+const stateOnCard = /item\.dataset\.state = threadState/.test(rowFn);   // 五态值仍如实写在卡上(给锁与调试读)
+ok(quickBadgeSibling && stateSignalInHead && stateOnCard,
+  `⑤ 五态信号仍在(徽标是并列的兄弟,不替换它;实测 徽标兄弟=${quickBadgeSibling} 头上有五态=${stateSignalInHead} 卡上记五态=${stateOnCard})`);
 
 console.log(fail ? `THREAD STATE QUICK KIND UNIT: ${fail} FAILURE(S)` : 'THREAD STATE QUICK KIND UNIT: ALL PASS');
 process.exit(fail ? 1 : 0);
