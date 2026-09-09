@@ -1062,3 +1062,128 @@ D5 那条「`factsUnknown: true` 在 `src/` 里有且仅有 13d 一处」的锁�
 它钉的是「今天有几处」，而不是「什么必须成立」—— 与 §8.13 记的是同一个模具（那里钉的是文本，这里钉的是计数）。
 已改成白名单 ＋ 那条真正的伴随断言。**本波第三次遇到同类**（前两次：D3 被字面量锁逼成
 「先 mutate 再渲染」、两条钉死用户可见文案／变量名的断言）。
+
+### 11.13 117s 设计页 · 用户第九轮走查（2026-09-09 上午，五张截图，七条；Fable 设计与验收，Opus 实现）
+
+| # | 用户原话（编号沿用） | 定性 | 刀 |
+|---|---|---|---|
+| ① | 递话给已有线程也不会自动打开线程详情页 | 一直存在；117r-D2 只修了「新线程」那一半 | 117s-B |
+| ② | 管家开的线程，打开 2.0 详情页能正常打开到这个会话线程吗，能正常插话吗 | 验证题，不是 bug 报告 | 117s-D（只验不改） |
+| ③ | 在运行中的线程，最好能自动排到最前面 | 一直存在（服务端只按 `updatedAt` 排） | 117s-A |
+| ④ | 给已收工的线程重新递话，「它刚说」更新不够及时 | 与 ① 同根 + 空闲节拍 15 s | 117s-B |
+| ⑤ | 线程标题概括就是管家发的提示词本身，太长了，根本不对 | 116-5 的一条设计假设在真机上不成立 | 117s-A |
+| ⑥ | 管家权限想进一步拓展，比如由管家判断线程任务的工作区 | 设计题，撞 §3.5 禁区，**要拍板** | 117s-E（待拍板） |
+| ⑦ | 管家交互界面优化；返回消息没有区分、有点长；输出要支持 markdown、制图 | 一半是缺一个已有渲染器，一半是设计题 | 117s-C（markdown＋来源区分）＋ 117s-F（待拍板） |
+
+#### 证据（读用户真机 `~/.win-claude-workbench`，不看截图猜）
+
+- **决策账本** `steward/decisions-v1.ndjson` 最后四条：`02:17`／`02:18` 两次 `steward_thread_continue → sess_8bb0…`（博纳影业）、
+  `02:21` 一次 `→ sess_d9de…`（你帮我看看当前进度）、`02:26` 一次 `steward_quick_ask → sess_23ed…`。递话**确实执行了**，且
+  `stewardImplThreadContinue` 的回执带 `sessionId`（`13g:1084`），前端 `executedThreadSessionId()` 的开线程工具表里也**有**
+  `steward_thread_continue`（`steward-conversation.js:58`）—— 所以 ① 不是「没发焦点」，是焦点落到了一个**已经开着同一条线程**的抽屉上。
+- **会话头**：管家开的四条线程里，`steward_thread_new` 开的两条（大A、博纳）**`titleSource:'user'` 且 `threadBrief:null`**；
+  `steward_quick_ask` 开的 `sess_23ed…` **有** `threadBrief`（「Ruyi 工作台推进状态盘点」），但 `title` 是提示词前 80 字，
+  截图里看板显示的正是那 80 字。四条线程的 `cwd` **全部**是 `defaultWorkspace`（`ruyi-workbench-oss`），包括两条股票问题。
+- **配置**：`stewardProviderId=deepseek`、`stewardThreadBriefV1=true`、`stewardPollMs=15000`；`workspaces` 4 条、`recentWorkspaces` 7 条
+  （里面有 `stock-monitor`、`free-stockdb`）。日志里**零** `thread_brief_failed`。
+
+#### 根因（逐条）
+
+**① ④ 同根：焦点落在「已经是当前线程」上时什么都不做。** `steward-board.js:609 syncNow()` 的最后一行是
+`if (drawer.currentSessionId() !== focusId) drawer.openThread(focusId)` —— 相等时**跳过**，没有任何刷新。
+而 117r-D2 修的是「行里还没有它」那一半（新线程）。递话给已有线程时：焦点事件到了、`pinnedId` 设了、`rows` 刷了、
+抽屉却原样不动，用户看到的还是「已收工」与旧的「它刚说」。接着抽屉自己的轮询（`steward-drawer.js:939`）按 `isLive()`
+判节拍：线程刚收工时它不 live → 走 `stewardPollMs`（用户是 15 s）→ 递话之后第一拍最长要等 15 s 才发现它又活了，
+之后才切到 5 s。抽屉 API 上**已经有** `refreshOnce()`（117m-A2 加的，`:922`，正是「右栏已经开着同一条线程」那种情形）。
+
+**③：`/api/missions` 的行与组只按 `updatedAt` 排。** `13d:678`（组内线程）与 `13d:705`（组）都是
+`String(b.updatedAt).localeCompare(a.updatedAt)`；看板只在从「N 条等你」跳过来时临时把等你的行提前（`steward-board.js:474-480`）。
+一条在跑的线程只要 `updatedAt` 比一条刚收工的旧，就排在下面 —— 截图 1 正是这样（「已收工」在上、「进行中」在下，都是 20 s 前有动静）。
+
+**⑤ 有两个子根因，一个是设计假设错了，一个要复核：**
+- 5a `steward_thread_new`：`13g:974` 把模型给的 `args.title` 交给 `createSession`，`02:2581` 见非占位标题即写 `titleSource:'user'`，
+  于是 116-5 的自动摘要**永远不跑**。§11.8.4 写的是「thread_new 那边不清：args.title 是管家【有意】起的名字，与改名同一性质」——
+  **真机证明这条假设不成立**：模型并不是在起名，它把用户那句话原样抄进 `title`（「大A接下来的走势会怎么样」）。
+  工具 schema 还在鼓励它这么做（`13f`：「可选。线程标题；省略则由首条消息自动命名」）。
+- 5b `steward_quick_ask`：摘要**生成了**，看板却显示 80 字原话。`displayTitle` 的装配链（02 `sessionDisplayTitle` → 13d `buildMissionCard`
+  → 13e 卡片索引 → 看板 `row.displayTitle || row.title`）**要逐段复核是哪一段没把摘要带出来**——候选：13e 的派生索引在摘要落盘
+  （`updateSessionMeta`）后没有重算；或看板那一拍取的是摘要落盘前的快照且之后没再刷。不许猜，用真服务器 + 假端点回固定 JSON 复现。
+- 另：速查线程的 `title` 是**管家写给线程的提示词**（`question`）前 80 字，本来就不是给人看的；`STEWARD_TITLE_MAX` 后端 80 / 前端 24 两个同名常量（§11.12 已登记）。
+
+**⑦（可以直接做的那一半）：管家壳没有 markdown 渲染器。** `steward-conversation.js:20` 的纪律是「零 innerHTML，全部 textContent」，
+于是模型写的 `## 结论先行`、`**偏空**` 原样上屏（截图 2、4）。全仓**唯一**的 markdown＋XSS 净化路径是
+`chat-render-primitives.js` 的 `renderMarkdownInto(container, text)`（`:175`，innerHTML 赋值**只**在它里面）＋ `highlightIn()`
+（代码高亮＋mermaid 懒加载 —— 用户说的「制图显示」它已经会）。组合根 `app.js:244/235` 手里就有这两个函数，
+经典壳的六个消费面都是注入拿到的（§5「renderMarkdown／escapeHtml」行）。管家壳要的不是新渲染器，是**同一条注入线再接一根**。
+静态锁不挡：`steward-conversation.static` A2 只要求 import 是 `./` 相对路径，注入不是 import；「零 innerHTML」扫的是管家文件自己的源码。
+
+**⑥ 撞的是 §3.5 的禁区，不是一个开关的事。** `06i:721` 把 `defaultWorkspace / workspaces / recentWorkspaces / additionalDirectories /
+allowOutsideWorkspace` 列在管家配置的 **forbidden** 档（数据根／围栏）—— 管家既读不到工作区清单，也不该能改围栏。
+今天 `steward_thread_new.cwd` 的 schema 只说「省略则用全局默认工作区」，模型没有任何可选项，于是**四条线程全落在代码仓库里**。
+「由管家判断工作区」正确的形状是：**管家在服务端给的候选里选，服务端校验；管家永远碰不到围栏本身**。这条要拍板（见 §11.13.E）。
+
+#### 定案（D1–D5，本轮直接做）
+
+- **D1（③，服务端单点）**：`/api/missions` 的行与组改成「**状态优先、其次 `updatedAt`**」的稳定排序，秩为
+  `needs_you > running > dispatching > done/stopped`（`quick_ask` 是 kind 不是 state，按其真实五态归位，117r-D5 已经这么做了）。
+  组的秩取组内最高秩；组内线程同规则。**只在 13d 一处排**，看板／抽屉页签／「现在这一件」全部消费同一份行序；
+  `steward-board.js:474-480` 那段「等你优先」的临时排序保留不动（它是用户点了「N 条等你」的即时意图，与常态行序是两件事）。
+  行指纹（`13d:709-711`）要把秩纳进去，否则状态变了而 `updatedAt` 没变时 ETag 不失效。
+- **D2（⑤a）**：`steward_thread_new` 传进来的 `title` **不再**算作用户起的名字。写成 `titleSource:'steward'`（02 白名单加这个字面量；
+  `sessionDisplayTitle` 的优先级改为 **user > threadBrief > steward > 原话**），摘要照常生成（`threadBrief` 的跳过判据只认 `'user'`）。
+  13f 的 `title` 描述改成「可选。你给线程起的**短名**（≤24 字），**不要**把用户的话或委托书抄进来；不确定就省略，工作台会自动起名」。
+  `steward_thread_rename` 与用户手改仍写 `'user'`，一字不动。
+- **D3（⑤b）**：先复现，后修。修在**装配链上那一段**（02／13d／13e 之一），不在前端补第二份判据（§11.8.5 的纪律）。
+  速查线程的 `title` 维持「问题原话」（管家和搜索要认它），只保证 `displayTitle` 在摘要落盘后**下一次读**就是摘要。
+- **D4（① ④）**：`syncNow()` 的相等分支改调 `drawer.refreshOnce()`；`refreshOnce` 里把 `lastPollAt` 归零而不是设成 now
+  （现在是 `= Date.now()`，等于把下一拍又推后一个节拍）。抽屉那一拍若发现 `resumable.live` 由假变真，同拍重拉事项切片
+  （与已有的「真→假」那条对称，`:946`）。**不改轮询表**（C1/C3b 锁死一处 `setInterval`），只改「这一拍拉不拉」的判据。
+- **D5（⑦ 前半）**：`app.js` 把 `renderMarkdownInto`／`highlightIn` 注入 `createStewardShellDomain`，shell 转注入 `createStewardConversation`；
+  管家的 `say` 用它渲染（缺席时回落 `textContent`，Node 里的静态锁 `await import` 因此照常通过）。
+  `※` 里的 `why` 与行动行**仍是纯文本**（它们是机器回执，不该被 markdown 吃掉）。
+  **来源区分**：`message.steward.trigger` 已经落盘（13h 的 `stewardStampReply`）—— 收件箱触发（线程 done／needs_you／failed）
+  的那条回复，在气泡顶加一枚「来自线程『X』」的小头（`displayTitle`，点它 = `steward:focus-thread`），
+  用户自己问的那条不加。这就是用户说的「没有任何区分」。**不做**长度压缩（那是提示词层的事，进 F）。
+  CSS：`.steward-msg-ruyi` 内的标题／列表／表格／代码块／mermaid 容器样式，跟 `chat-*.css` 的同名规则**同源取值**，不新配色。
+  `LEGACY_STYLES_SHA256` 由本刀自己重钉（本波只有它改 CSS，不撞车），写明理由。
+
+#### 派单（四刀，文件互斥；与在途的 117q-§8.14 那刀（41 件 e2e 的 `timeout:` 行）互不相交）
+
+| 刀 | 面 | 独占文件 |
+|---|---|---|
+| 117s-A | D1＋D2＋D3 | `src/02` `src/13d` `src/13e`（若 D3 落在它）`src/13f` `src/13g`（＋build 产物、生成器链产物、durable-state 清册）；**新建** e2e `dev-harness/steward-thread-order.e2e.js`、`steward-thread-title.e2e.js` |
+| 117s-B | D4 | `public/js/steward-board.js` `public/js/steward-drawer.js` ＋ `steward-board.e2e.js` `steward-drawer.e2e.js` |
+| 117s-C | D5 | `public/app.js` `public/js/steward-shell.js` `public/js/steward-conversation.js` `public/css/views/steward-conversation.css` 两份 locale ＋ `steward-conversation.static.e2e.js` `steward-conversation.e2e.js` ＋ 重钉 `read-frontend-css.js` |
+| 117s-D | ② 验证 | 不改代码；真浏览器复现并交截图与结论 |
+
+顺序：A／B／C 并行（文件互斥），D 与 A 并行。**A 改 `src/`，生成器链由 A 在最后一次 `src/` 改动后整条重跑**（§8.7）。
+
+#### 验收口径（Fable 亲自复核，报告里的「已验证」全部重跑）
+
+- D1：真服务器、两条会话头（一条旧 `updatedAt` 在跑、一条新 `updatedAt` 已收工）→ `/api/missions` 在跑的在前；ETag 随状态变化失效。
+- D2：真服务器、假 OpenAI 端点回固定 JSON → `steward_thread_new` 带 `title` 开的线程 `titleSource==='steward'` 且 `threadBrief` 落盘；
+  `displayTitle` 是摘要；`steward_thread_rename` 之后变 `'user'` 且摘要不再覆盖。
+- D3：速查线程摘要落盘后，`GET /api/missions` 的那一行 `displayTitle` 是摘要（不是 80 字原话）。
+- D4：夹具里递话给「抽屉正开着的、已收工的」线程 → 5 s 内「它刚说」换成新一回合的话、状态行由「已收工」变「在跑」。
+- D5：`say` 里的 `## / ** / 列表 / 代码围栏 / mermaid` 真浏览器截图；`<script>`／`onerror=` 注入被净化（复用经典壳同一条断言的写法）；
+  收件箱触发的回复带「来自线程」小头且点击聚焦。
+
+#### E／F 两条要拍板的（不拍不做）
+
+**E（⑥ 管家判断工作区）**——建议形状，三条一起拍：
+1. **管家只能选，不能改围栏**：每个管家回合的上下文里给一张只读的「可用工作区」表（`config.workspaces` 的路径＋末段名＋一句用途
+   —— 用途来自一个新的可选字段 `workspaces[].note`，用户在设置里写「股票资料」「小说」之类；没写就只有路径）。
+   `steward_thread_new` / `steward_quick_ask` 的 `cwd` schema 改成「必须是上表之一；与任何工作区都不相关的问题（行情、写作、闲聊）
+   用 `~`」。**13g 校验 `cwd ∈ workspaces ∪ {homedir}`，不在表里的一律拒绝**（`invalid_request`，不静默回落）。
+   `recentWorkspaces` **不**进表（它是用户打开过的目录，不是授权过的目录）。
+2. `defaultWorkspace / workspaces / recentWorkspaces / allowOutsideWorkspace` **继续留在 §3.5 forbidden 档**，一个字不动。
+3. 「进一步扩展管家的能力面」这句话太大，本波只做工作区这一件；别的（比如让管家改线程的模型档、改权限档）**今天已经有**
+   （`steward_thread_permission`、`tier` 入参），先看用户用起来缺什么再加，不预铺。
+
+**F（⑦ 后半：界面整体优化＋回复太长）**——建议先做三件小的，再决定要不要大改：
+1. 管家回复的**长度**是提示词层的事：06b 的管家系统层加一条「先一句结论，再最多三条要点；细节交给线程页」的写法约束，
+   ＋ `STEWARD_SAY_MAX` 从现在的值再压一档（要先量真机最近 30 条回复的长度分布再定数）。
+2. 气泡**分层**：结论句加粗成首行（模型已经在这么写，D5 渲染出来就有了）；行动行折进 `※`（今天已是）；线程转述带「来自线程」小头（D5）。
+3. 不在本波重排整个对话区的布局（头像／输入区／看板三栏）——用户第五轮（117l-B2）刚拍过一次，没有新证据说明它错了。
+
+拍板项：E 的三条按建议做不做；F 只做 1、2 还是要一次大改。
