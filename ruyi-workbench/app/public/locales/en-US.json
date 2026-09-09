@@ -2698,6 +2698,7 @@
   ,"stewardShell.chat.undoneFilesKept": "Undone; check the 2.0 window for file changes."
   ,"stewardShell.chat.whoInstead": "Who should get it instead?"
   ,"stewardShell.chat.opened": "Opened “{{title}}”"
+  ,"stewardShell.chat.fromThread": "From thread “{{title}}”"
   ,"stewardShell.chat.acked": "Got it"
   ,"stewardShell.chat.actDone": "Done: {{label}}"
   ,"stewardShell.chat.errProposeRequired": "This one needs you to confirm it yourself in settings."

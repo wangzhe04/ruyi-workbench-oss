@@ -420,6 +420,68 @@ ok(enterSendLines.length === 3, 'L1 管家壳里回车发送的输入框恰好�
 ok(enterSendLines.every(line => line.includes("isComposing")),
   'L2 每一处回车发送都带 !event.isComposing(中文候选词回车不误发)');
 
+// ─── N 117s-C：管家的话走【注入的】共享渲染器（27 号文 §11.13 D5，用户第九轮走查⑦）──────────
+// 修前 steward-conversation.js:20 的纪律是「零 innerHTML，全部 textContent」，于是模型写的
+// `## 结论先行`、`**偏空**`、列表、代码围栏、mermaid 全部原样上屏。全仓唯一的 markdown＋XSS 净化
+// 路径是 chat-render-primitives.js（renderMarkdownInto 里那一处 innerHTML 是它自己的），管家壳要的
+// 不是新渲染器，是同一条注入线再接一根 —— 所以下面这一组钉的是「注入，不是 import」。
+const appSrc = read('app.js');
+ok(/renderMarkdownInto = null,/.test(conversation) && /highlightIn = null,/.test(conversation),
+  'N1 对话区把两个渲染器作为【可选】依赖收下，缺席时默认 null（Node 里 await import 本模块那条路照常走得通）');
+ok(/if \(typeof renderMarkdownInto !== 'function'\) \{ node\.textContent = say; return node; \}/.test(conversationCode)
+  && /catch \{ node\.textContent = say; \}/.test(conversationCode),
+  'N2 没有渲染器（或渲染器抛了）就回落 textContent —— 话一定说得出来，不会留空节点');
+// 两条都把「行首（只允许缩进）」写进正则：注释掉的那一行（`  // …renderMarkdownInto, highlightIn,`）
+// 因此【不】算数 —— 反向验证时注释掉这一行本条必须立刻转红，否则这条锁形同虚设。
+ok(/createStewardShellDomain\(\{[\s\S]{0,2000}\n\s+renderMarkdownInto, highlightIn,/.test(appSrc)
+  && /createStewardConversation\(\{[\s\S]{0,1200}\n\s+renderMarkdownInto, highlightIn,/.test(stewardShell),
+  'N3 注入线：组合根 app.js → steward-shell.js → steward-conversation.js（三段都是注入，零 import）');
+// A1/A2 已经钉了「零 innerHTML」与「import 全是本域内相对路径」；这里再钉一次「本波没有偷偷加 import」。
+ok(!/from '\.\/chat-render-primitives\.js'/.test(conversation) && !/from '\.\/chat-render-primitives\.js'/.test(stewardShell),
+  'N3b 两个文件都【没有】直接 import 渲染器（走注入＝与经典壳六个消费面同一份，不长出第二条净化通道）');
+// say 的三个上屏口（追加、流式重写、终态）全部经 paintSay；流式那一路不每片都跑高亮。
+const paintCalls = (conversationCode.match(/paintSay\(/g) || []).length;
+ok(/function paintSay\(node, text, \{ highlight = true \} = \{\}\)/.test(conversation) && paintCalls >= 5,
+  `N4 say 的上屏收在一个 paintSay 里（实测 ${paintCalls} 处出现：定义 + 追加/流式/终态两支）`);
+ok(/paintSay\(sayNode, say, \{ highlight: false \}\);/.test(conversationCode),
+  'N4b 流式那一路只渲染 markdown、不每个分片都跑 highlightIn（代码高亮与 mermaid 留到终态一次）');
+// ※ 里的依据与行动行是【机器回执】，不许被 markdown 吃掉；用户气泡是用户原话，同理。
+ok(/pop\.appendChild\(el\('p', 'steward-why-line', line\)\);/.test(conversationCode)
+  && !/paintSay\([^)]*why/.test(conversationCode),
+  'N5 ※ 浮层里的依据行仍然是 el()+textContent（机器回执不进 markdown）');
+ok(/function actionWhyLines\(actions\) \{/.test(conversation) && !/paintSay\([^)]*action/i.test(conversationCode),
+  'N5b 行动行（actionWhyLines）只产字符串、只进 ※ 的纯文本行，不经渲染器');
+ok(/function appendUser\(text\) \{\s*const row = appendRow\('user'\);\s*if \(!row\) return null;\s*row\.appendChild\(el\('p', 'steward-say', String\(text \|\| ''\)\)\);/.test(conversation),
+  'N5c 用户气泡仍是 textContent（用户原话逐字不动，不被 markdown 重排）');
+
+// ─── O 117s-C：来源小头「来自线程『X』」（用户第九轮走查⑦「返回消息没有区分」）────────────
+// 落盘的 message.steward.trigger 只有 'user'/'inbox' 两个字面量（13h stewardStampReply 盖的章就这
+// 一个字段，来源线程 id【不在】里面），所以来源取自同一回合那条 meta.origin==='inbox' 的系统消息
+// —— 13h stewardEventLine 写的「线程「标题」(sess_…)」。下面是那支解析的真值表（纯函数、零 DOM）。
+ok(typeof mod.stewardInboxSource === 'function', 'O1 stewardInboxSource 是导出的纯函数');
+const inboxLine = '[收件箱] 这是工作台的 1 条系统事件:\n- [7] thread_done · 线程「周报-W36」(sess_abc123) · 收工了';
+ok(JSON.stringify(mod.stewardInboxSource(inboxLine)) === JSON.stringify({ sessionId: 'sess_abc123', title: '周报-W36' }),
+  `O2 带显示名的事件行取到 id 与显示名（实测 ${JSON.stringify(mod.stewardInboxSource(inboxLine))}）`);
+ok(JSON.stringify(mod.stewardInboxSource('- [8] thread_failed · 线程 sess_9f0 · 挂了')) === JSON.stringify({ sessionId: 'sess_9f0', title: '' }),
+  'O3 没有显示名时（13h 那条「线程 <id>」的回落）仍取得到 id，标题留空');
+ok(mod.stewardInboxSource('用户自己说的一句话，跟任何线索无关') === null
+  && mod.stewardInboxSource('') === null && mod.stewardInboxSource(null) === null,
+  'O4 认不出来源就回 null —— 宁可不加小头，也不编一个来源出来');
+ok(mod.stewardInboxSource('线程「x」(' + 'a'.repeat(65) + ')') === null,
+  'O5 越界的 id 不认（与服务端 safeSessionId 的 1..64 同一把尺）');
+ok(/if \(stamp && stamp\.trigger === 'inbox'\) \{/.test(conversation),
+  `O6 小头只加给 trigger==='inbox' 的那一条（用户自己问的那条不加）`);
+ok(/const chip = button\('steward-source', label, \(\) => focusThread\(source\.sessionId\)\);/.test(conversation),
+  'O7 点小头走的是既有的 steward:focus-thread（focusThread 一处派发，不新增第二条聚焦通道）');
+for (const key of ['stewardShell.chat.fromThread']) {
+  ok(typeof zh[key] === 'string' && zh[key].includes('{{title}}')
+    && typeof en[key] === 'string' && en[key].includes('{{title}}'),
+    `O8 locale 键 ${key} 中英齐备且带 {{title}} 插值`);
+}
+ok(/\.steward-say\.md \{/.test(cssCode) && /white-space: normal;/.test(cssCode) && /\.steward-source \{/.test(cssCode),
+  'O9 样式层有 markdown 排版与来源小头两组规则（取值同源 chat-narrative.css 的 .md 族）');
+
+
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

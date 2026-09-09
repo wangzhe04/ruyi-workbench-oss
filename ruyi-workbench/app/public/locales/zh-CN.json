@@ -2698,6 +2698,7 @@
   ,"stewardShell.chat.undoneFilesKept": "已撤回；改动请看 2.0 视窗。"
   ,"stewardShell.chat.whoInstead": "那递给谁？"
   ,"stewardShell.chat.opened": "打开了「{{title}}」"
+  ,"stewardShell.chat.fromThread": "来自线程「{{title}}」"
   ,"stewardShell.chat.acked": "知道了"
   ,"stewardShell.chat.actDone": "做了：{{label}}"
   ,"stewardShell.chat.errProposeRequired": "这件事需要你在设置里亲手确认。"

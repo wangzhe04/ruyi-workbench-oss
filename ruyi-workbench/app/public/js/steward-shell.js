@@ -82,6 +82,12 @@ export function createStewardShellDomain({
   // 的唯一封装），后者让头像菜单三项与盾牌的二次确认能直达「管家」页签。
   saveConfigPartial = async () => false,
   openSettingsTab = () => {},
+  // 117s-C（用户第九轮走查⑦）：全仓唯一那条 markdown＋净化路径（chat-render-primitives.js 的
+  // renderMarkdownInto／highlightIn）。117c 那会儿本文件写着「组合根 app.js 一行不加」——那说的是
+  // 117c 自己不需要新依赖；而经典壳六个消费面拿到渲染器【都】是在组合根注入的，管家壳要复用
+  // 同一条净化通道就得走同一条路。本文件只做转注入（不 import 渲染器，D2 的 import 白名单不变）。
+  renderMarkdownInto = null,
+  highlightIn = null,
 } = {}) {
   const byId = id => (globalThis.document ? globalThis.document.getElementById(id) : null);
   const setStatusText = key => {
@@ -360,6 +366,8 @@ export function createStewardShellDomain({
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
     // 117g：菜单末项「整体切到 2.0」——【不】设返回标记，所以经典壳里不出返回带（§5 117g 行）。
     switchWholeShell: () => classicWindow.switchWholeShell(),
+    // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
+    renderMarkdownInto, highlightIn,
   });
   const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——

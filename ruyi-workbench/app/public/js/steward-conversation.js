@@ -72,6 +72,22 @@ export function executedThreadSessionId(actions) {
   return sessionId;
 }
 
+// 117s-C（用户第九轮走查⑦「返回消息没有区分」）：收件箱触发的那条回复要标出【它在说哪条线程】。
+// 落盘的 `message.steward.trigger` 只有 'user' / 'inbox' 两个字面量（13h stewardStampReply 盖的章
+// 就这一个字段，见交付报告里的「发现」），来源线程的 id 与标题只存在于【那一回合的收件箱消息】里
+// ——13h stewardEventLine 写的 `线程「标题」(sess_…)`，随 meta.origin==='inbox' 一起落盘。
+// 所以这里从那条消息的正文里【只取】第一条事件的线程身份：正则两支（有标题 / 只有 id），
+// 取不到就回 null（宁可不加小头，也不编一个来源出来）。纯函数、零 DOM，静态锁直接跑真值表。
+const STEWARD_INBOX_TITLED_RE = /线程「([^」\n]{1,200})」\(([A-Za-z0-9_-]{1,64})\)/;
+const STEWARD_INBOX_BARE_RE = /线程\s+([A-Za-z0-9_-]{1,64})/;
+export function stewardInboxSource(content) {
+  const text = String(content == null ? '' : content);
+  const titled = STEWARD_INBOX_TITLED_RE.exec(text);
+  if (titled) return { sessionId: titled[2], title: titled[1] };
+  const bare = STEWARD_INBOX_BARE_RE.exec(text);
+  return bare ? { sessionId: bare[1], title: '' } : null;
+}
+
 export const STEWARD_TITLE_MAX = 24;
 export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
   const text = String(title == null ? '' : title).trim();
@@ -173,6 +189,15 @@ export function createStewardConversation({
   // 117g：菜单末项「整体切到 2.0」——把整个界面切到经典壳（不是「按会话开一扇 2.0 视窗」，
   // 所以【不】留返回带）。同样只负责调用，切壳与返回标记住 steward-classic-window.js。
   switchWholeShell = null,
+  // 117s-C（用户第九轮走查⑦「输出要支持 markdown、制图」）：管家的 say 用【全仓唯一】那条
+  // markdown＋净化路径渲染 —— chat-render-primitives.js 的 renderMarkdownInto（trusted innerHTML
+  // 只住在它里面）＋ highlightIn（代码高亮＋mermaid 懒加载，就是用户说的「制图显示」）。
+  // 走【注入】不走 import：本模块因此仍然零 innerHTML、零新增 import（A1/A2 原样通过），
+  // 且与经典壳六个消费面拿的是同一份渲染器（同一条净化口径，不长出第二个 markdown 通道）。
+  // 缺席时全线回落 textContent —— 静态锁在 Node 里 await import 本模块（无 DOM、无渲染器），
+  // 那条路必须照常走得通。
+  renderMarkdownInto = null,
+  highlightIn = null,
 } = {}) {
   const feedEl = () => byId('stewardFeed');
   const setPresence = patch => { try { presence && presence.set && presence.set(patch); } catch { /* presence 是旁路 */ } };
@@ -257,6 +282,25 @@ export function createStewardConversation({
     return Boolean(last);
   }
 
+  // 117s-C：把【管家的】一句话画进一个节点。有渲染器就走 markdown（标题／粗体／列表／表格／
+  // 代码围栏／mermaid 都在这一条路上），没有就 textContent —— 两条路都不在本模块里碰 innerHTML。
+  //   · `md` 类名是【经典壳同一套排版规则】（chat-narrative.css 的 .md 一族）：复用规则本体，
+  //     而不是把取值抄第二份，这就是 27 号文 §11.13 D5 说的「同源取值」；
+  //   · highlight=false 用在流式那一路：say 每来一段就整段重写（renderMarkdown 有 LRU 缓存，
+  //     重画便宜），但代码高亮＋mermaid 只在【终态】跑一次，不必每个分片都来一遍。
+  // 用户气泡、※ 里的依据与行动行【不】走这里：它们是用户原话与机器回执，被 markdown 吃掉就变形了。
+  function paintSay(node, text, { highlight = true } = {}) {
+    if (!node) return node;
+    const say = String(text == null ? '' : text);
+    if (typeof renderMarkdownInto !== 'function') { node.textContent = say; return node; }
+    try {
+      renderMarkdownInto(node, say);
+      if (node.classList) node.classList.add('md');
+      if (highlight && typeof highlightIn === 'function') highlightIn(node);
+    } catch { node.textContent = say; }   // 渲染器抛了也得把话说出来（诚实优先，§8.1 原则 2）
+    return node;
+  }
+
   function appendRow(kind) {
     const feed = feedEl();
     if (!feed) return null;
@@ -327,7 +371,12 @@ export function createStewardConversation({
     pop.addEventListener('keydown', event => {
       if (event.key === 'Escape') closeWhy();   // 焦点真在浮层里时的近路（栈那一路同样能关）
     });
-    sayNode.appendChild(trigger);
+    // 117s-C：markdown 渲染之后 sayNode 里装的是块级元素，※ 直接挂在 sayNode 上会掉到新的一行。
+    // 挂进最后那个 <p> 里（句尾原位，与纯文本时代逐像素一致）；最后一块不是段落（代码块、表格、
+    // 图）时不硬塞，让它老老实实另起一行。
+    const tail = sayNode.lastElementChild;
+    if (tail && tail.tagName === 'P') tail.appendChild(trigger);
+    else sayNode.appendChild(trigger);
     return pop;
   }
 
@@ -335,8 +384,9 @@ export function createStewardConversation({
     const row = appendRow('ruyi');
     if (!row) return null;
     moveAvatarTo(row);   // W2-3：头像永远在【最新】一条管家的话旁边
-    const sayNode = el('p', 'steward-say', String(say || ''));
+    const sayNode = el('p', 'steward-say', '');
     row.appendChild(sayNode);
+    paintSay(sayNode, say);   // 117s-C：先渲染再挂 ※（renderMarkdownInto 会整段重写这个节点）
     row.appendChild(attachWhy(sayNode, why, doneLines, extraWhyLines));
     const feed = feedEl();
     if (feed) feed.scrollTop = feed.scrollHeight;
@@ -494,6 +544,21 @@ export function createStewardConversation({
     try { doc().dispatchEvent(new CustomEvent(STEWARD_FOCUS_THREAD_EVENT, { detail })); } catch { /* 同上 */ }
   }
 
+  // 117s-C（用户第九轮走查⑦「返回消息没有区分」）：收件箱触发的那一条回复，在话的【上面】加一枚
+  // 「来自线程『X』」的小头 —— 用户自己问的那条什么都不加（不加噪音就是最好的区分）。
+  // 点它 = steward:focus-thread，与「打开」按钮走同一个事件，不新增第二条聚焦通道。
+  function attachSource(row, source) {
+    if (!row || !source || !source.sessionId) return null;
+    const label = t('stewardShell.chat.fromThread', { title: stewardShortTitle(source.title || source.sessionId) });
+    const chip = button('steward-source', label, () => focusThread(source.sessionId));
+    chip.setAttribute('aria-label', label);
+    chip.dataset.sessionId = source.sessionId;
+    const say = row.querySelector('.steward-say');
+    if (say) row.insertBefore(chip, say);
+    else row.appendChild(chip);
+    return chip;
+  }
+
   // ── 「···」占位与流式文字 ────────────────────────────────────────────────────
   function appendTyping() {
     const row = appendRow('ruyi');
@@ -596,7 +661,9 @@ export function createStewardConversation({
         sayNode = el('p', 'steward-say', '');
         row.appendChild(sayNode);
       }
-      sayNode.textContent = say;              // 整段重写：半截信封里的 say 是会长的
+      // 整段重写：半截信封里的 say 是会长的。117s-C：这里也走 markdown（分片渲染的结果就是
+      // 用户边看边成形的标题与列表），但高亮／mermaid 留到 finishReply 的终态跑一次。
+      paintSay(sayNode, say, { highlight: false });
       const feed = feedEl();
       if (feed) feed.scrollTop = feed.scrollHeight;
     };
@@ -671,11 +738,14 @@ export function createStewardConversation({
     void sourceMessage;
     if (!row) return;
     const say = String(reply.say || '');
-    if (sayNode) { if (say) sayNode.textContent = say; }
+    // 117s-C：终态这一次带高亮（代码块的 hljs ＋ mermaid 懒加载都在 highlightIn 里，只跑这一次）。
+    if (sayNode) { if (say) paintSay(sayNode, say); }
     else {
       const dots = row.querySelector('.steward-typing');
       if (dots) row.removeChild(dots);
-      row.appendChild(el('p', 'steward-say', say));
+      const fresh = el('p', 'steward-say', '');
+      row.appendChild(fresh);          // 先进文档再渲染：mermaid 懒加载量的是真实版面
+      paintSay(fresh, say);
     }
     const node = row.querySelector('.steward-say');
     if (node) row.appendChild(attachWhy(node, reply.why, actionWhyLines(reply.actions)));
@@ -929,6 +999,9 @@ export function createStewardConversation({
     const cut = Date.parse(String(startedAt || ''));
     const floor = Number.isFinite(cut) ? cut : 0;
     let rendered = 0;
+    // 117s-C：上一条【收件箱】系统消息里写着这一回合是被哪条线程叫醒的（stewardEventLine 的
+    // 「线程「X」(id)」）。它自己不上屏，但它的来源要跟着下一条管家回复走。
+    let inboxSource = null;
     for (const message of (Array.isArray(messages) ? messages : [])) {
       if (!message || (message.role !== 'user' && message.role !== 'assistant')) continue;
       const at = Date.parse(String(message.createdAt || ''));
@@ -939,7 +1012,10 @@ export function createStewardConversation({
       if (message.role === 'user') {
         // 收件箱触发的回合没有「用户的话」：那条 user 消息是系统事件，落盘在 meta.origin='inbox'
         // 上（09-workflow 的 messageMeta），不是用户本人说的，不该在对话流里冒充成用户气泡。
-        if (message.meta && message.meta.origin === 'inbox') continue;
+        if (message.meta && message.meta.origin === 'inbox') {
+          inboxSource = stewardInboxSource(String(message.content || ''));   // 117s-C：只取来源，正文照旧不上屏
+          continue;
+        }
         appendUser(String(message.content || ''));
         rendered += 1;
         continue;
@@ -947,6 +1023,15 @@ export function createStewardConversation({
       const stamp = (message.steward && typeof message.steward === 'object') ? message.steward : null;
       const row = appendSteward(String((stamp && stamp.say) || message.content || ''), stamp ? stamp.why : '',
         stamp ? actionWhyLines(stamp.actions) : []);
+      // 117s-C：只有 trigger==='inbox' 的回合才加小头。落盘的 stamp 里【没有】来源线程 id
+      // （13h 只盖了 'user'/'inbox' 这一个字面量），所以来源取自上一条收件箱消息；它也没有时
+      // 退到「本回合真开／真续的那条线程」（executedThreadSessionId）；两个都没有就不加。
+      if (stamp && stamp.trigger === 'inbox') {
+        const opening = inboxSource || (executedThreadSessionId(stamp.actions)
+          ? { sessionId: executedThreadSessionId(stamp.actions), title: '' } : null);
+        attachSource(row, opening);
+      }
+      inboxSource = null;
       if (stamp) renderActs(row, stamp.acts);
       rendered += 1;
     }

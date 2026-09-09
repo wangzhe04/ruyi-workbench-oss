@@ -456,3 +456,48 @@
 /* 117 走查（用户 2026-09-06）：线程标题常常是一整句话，按钮与候选项按一行截断。 */
 .steward-act { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .steward-target-option { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── 117s-C（用户第九轮走查⑦「输出要支持 markdown、制图」／27 号文 §11.13 D5）───────────────
+   管家的话现在经【注入的】共享渲染器上屏（chat-render-primitives.js 的 renderMarkdownInto ＋
+   highlightIn），渲染出来的节点带 `md` 类 —— 于是标题／段落／列表／链接／引用／代码块／表格／
+   mermaid 容器的排版规则【整套复用】 chat-narrative.css 里 .md 与 .mermaid-* 那两族，一个取值都
+   不抄第二份（§11.13 D5「同源取值，不新配色」）。本层只补三件 .md 那边没有、或在气泡里必须收口
+   的事：pre-wrap 的退场、h4、以及「宽内容只许在气泡里横滚，绝不许推着页面走」。 */
+.steward-say.md {
+  /* 纯文本时代靠 pre-wrap 保留换行；markdown 一来，块与块之间那些结构性换行就成了真空行。 */
+  white-space: normal;
+  min-width: 0;   /* 表格/代码块要能在这个 flex 子项里收窄，才谈得上「在气泡里横滚」 */
+}
+/* .md 只写了 h1-h3（chat-narrative.css），h4 落到浏览器缺省（粗体 ＋ 一大截外边距）。
+   这一条按同一族的取值把它补齐，不引入新的字号体系。 */
+.steward-say.md h4 { line-height: 1.3; margin: 1em 0 .5em; font-size: 1em; }
+/* 宽内容在气泡内部横滚：.md table / .md pre code / .mermaid-view 本来就各自带 overflow-x:auto，
+   这里只把它们的宽度钉在气泡里 —— 缺这一刀时长表格会把 .steward-msg 撑开、进而顶宽整页。 */
+.steward-say.md table,
+.steward-say.md pre,
+.steward-say.md .mermaid-block,
+.steward-say.md .mermaid-view { max-width: 100%; }
+.steward-say.md img { max-width: 100%; height: auto; }
+
+/* 来源小头：收件箱触发的那条回复才有（用户自己问的那条不加）。点它 = steward:focus-thread。
+   安静档 —— 灰字、细描边、无实底，不跟话本身抢眼；零 transition，故 reduced-motion 的关闭清单
+   一个字没加。 */
+.steward-source {
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 0;
+  padding: 1px var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-source:hover { color: var(--accent); border-color: var(--accent); }
+.steward-source:focus-visible { outline: none; box-shadow: var(--ring); }

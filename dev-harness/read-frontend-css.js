@@ -294,7 +294,24 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //       硬编码，现在整行都归 chip，留着就是一个脱节的断点。
 // 三层都是既有所有权层，无新样式层、无新硬编码色（全 token / color-mix）、零新增 transition
 // （reduced-motion 关闭清单一个字没加）、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = 'e4b6c361e94e340a663c66624e64eb6752d6b627fe131c8f0e978bf883e53056';
+// 117s-C（用户第九轮走查⑦「输出要支持 markdown、制图」／27 号文 §11.13 D5）重钉，只动
+// css/views/steward-conversation.css 这一个【已注册的】所有权层，纯新增规则，其余每一层零漂移
+// （本波只有这一刀碰 CSS，不存在 117r-D3/D4 那种「两刀各钉一次必撞车」的情形，故由本刀自己钉）：
+//   · `.steward-say.md` —— 管家的话改由【注入的】共享渲染器（chat-render-primitives 的
+//     renderMarkdownInto ＋ highlightIn）上屏之后，节点带 `md` 类：标题／段落／列表／引用／代码块／
+//     表格／mermaid 的排版【整套复用】 chat-narrative.css 的 .md 与 .mermaid-* 两族（同源取值，
+//     零新配色、零新 token）。本层只补它们没有、或在气泡里必须收口的三件：
+//       - white-space:normal ＋ min-width:0（纯文本时代的 pre-wrap 会把块间换行画成真空行；
+//         min-width:0 是「宽内容能在 flex 子项里收窄」的前提）；
+//       - h4（.md 只写到 h3，h4 会掉到浏览器缺省的粗体＋大外边距），取值照 h1-h3 那一族；
+//       - table / pre / .mermaid-block / .mermaid-view / img 的 max-width:100%
+//         —— 它们各自本来就带 overflow-x:auto，这一刀只保证横滚发生在【气泡内部】，
+//         不会把 .steward-msg 撑开、进而顶宽整页。
+//   · `.steward-source` —— 收件箱触发的那条回复顶上那枚「来自线程『X』」小头（点它＝
+//     steward:focus-thread）。安静档：--muted 文字 ＋ --line-2 细描边 ＋ 无实底，hover/focus 走
+//     --accent 与 --ring，全 token 化、**零 transition**（故 reduced-motion 的关闭清单一个字没加）。
+// 无新样式层、无新硬编码色、link/@import/overlay 顺序不变。重钉有意载荷。
+const LEGACY_STYLES_SHA256 = 'e2a5de916dc052554211090134e3d598b6cc98d669dbd386ad8035023515d1b4';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -51,6 +51,11 @@ const STEWARD_SAY = '我看了一眼，现在这条线程停在等你。';
 const HINT_SAY = '这句我先接着办。';
 const QUEUE_SAY_1 = '第一句收到了。';
 const QUEUE_SAY_2 = '第二句也收到了。';
+// 117s-C：管家写的 markdown（标题／粗体／列表／代码围栏／mermaid 围栏）＋ 两枚 XSS 载荷。
+// 后端只把 say 截到 600 字并做 id→显示名的人话化（13h stewardHumanizeSay），【不】过滤 HTML ——
+// 所以这两枚载荷是原样到前端的，净化只可能发生在共享渲染器的 sanitizeNode 里，这正是要钉的。
+const MD_SAY = "## 结论先行\n\n**偏空**，理由三条：\n\n- 量能没跟上\n- 外盘走弱\n- 北向连续净卖\n\n```js\nconst risk = 1;\n```\n\n```mermaid\ngraph TD; A-->B;\n```\n\n<img src=x onerror=\"alert(1)\"> <script>alert(2)</script>";
+const MD_WHY = '## 依据不该被渲染 **也不该加粗**';
 const stewardScript = say => JSON.stringify({ say, why: '', acts: [], actions: [] });
 const REPLY_SEQUENCE = [
   {
@@ -71,6 +76,11 @@ const REPLY_SEQUENCE = [
   { text: stewardScript(QUEUE_SAY_1), delayMs: 1500 },
   stewardScript(QUEUE_SAY_2),
   '好的，我接着做。',
+  // 117s-C（用户第九轮走查⑦「输出要支持 markdown、制图」）：一条【真·markdown】回复，顺带带上
+  // 两枚注入载荷。放在剧本末条 —— FAKE_REPLY_SEQUENCE 超出即钳到末条，所以哪怕前面多跑了一个
+  // 后台回合把序号推掉一格，本用例等到的仍然是这一条。why 里故意写 markdown：它是【机器回执】,
+  // 必须原样上屏（本波的纪律：只有 say 走渲染器）。
+  JSON.stringify({ say: MD_SAY, why: MD_WHY, acts: [], actions: [] }),
 ];
 
 const { findBrowserExecutable } = require('./lib/browser-path');
@@ -255,6 +265,50 @@ const FEED = `(() => {
       })(),
       // 组的左侧竖线画没画在这一行上。
       groupLine: getComputedStyle(node, '::before').content !== 'none',
+    })),
+    // 117s-C：最后一条管家的话的 markdown 结构与净化结果。全部走公开 DOM；innerHTML 只在这里【读】
+    // 一次，为的是证明「onerror= 这几个字符在最终 DOM 里一个都不剩」。
+    lastSay: (() => {
+      const nodes = [...feed.querySelectorAll('.steward-msg-ruyi .steward-say')];
+      const node = nodes[nodes.length - 1];
+      if (!node) return null;
+      const tail = [...node.children].filter(child => !child.classList.contains('steward-why-btn')).pop();
+      return {
+        md: node.classList.contains('md'),
+        whiteSpace: getComputedStyle(node).whiteSpace,
+        h2: node.querySelectorAll('h2').length,
+        strong: node.querySelectorAll('strong').length,
+        li: node.querySelectorAll('li').length,
+        preCode: node.querySelectorAll('pre > code').length,
+        mermaidBlocks: node.querySelectorAll('.mermaid-block').length,
+        scripts: node.querySelectorAll('script').length,
+        onerrorAttrs: [...node.querySelectorAll('*')].filter(el => el.hasAttribute('onerror')).length,
+        rawHasOnerror: node.innerHTML.indexOf('onerror') >= 0,
+        imgs: node.querySelectorAll('img').length,
+        text: node.textContent,
+        // ※ 还在句尾那一段里（markdown 之后它若掉出段落就会自己占一行）。
+        whyInTail: Boolean(tail && tail.tagName === 'P' && tail.querySelector('.steward-why-btn')),
+      };
+    })(),
+    // ※ 浮层里的行：不管开着还是收着都读（它们是机器回执，任何时候都该是纯文本）。
+    // 取的是【lastSay 那一行】的浮层，不是「最后一个管家行」—— 后者可能是一行还只有「···」占位的
+    // 新回合，于是浮层恒 null，与 lastSay 说的不是同一条消息。
+    lastWhy: (() => {
+      const nodes = [...feed.querySelectorAll('.steward-msg-ruyi .steward-say')];
+      const last = nodes[nodes.length - 1];
+      const row = last ? last.closest('.steward-msg-ruyi') : null;
+      const pop = row ? row.querySelector('.steward-why-pop') : null;
+      if (!pop) return null;
+      return {
+        lines: [...pop.querySelectorAll('.steward-why-line')].map(node => node.textContent),
+        headings: pop.querySelectorAll('h1, h2, h3, strong, li').length,
+      };
+    })(),
+    // 117s-C：来源小头（收件箱触发的那条回复才有）。
+    sources: [...feed.querySelectorAll('.steward-source')].map(node => ({
+      text: node.textContent,
+      sessionId: node.dataset.sessionId || '',
+      beforeSay: Boolean(node.nextElementSibling && node.nextElementSibling.classList.contains('steward-say')),
     })),
     presenceDot: (() => {
       const dot = document.getElementById('stewardPresenceDot');
@@ -814,6 +868,138 @@ try {
     && staleWithActs.every(row => /rgba\(0, 0, 0, 0\)|transparent/.test(row.actBg))
     && staleWithActs.every(row => row.disabledActs === 0),
     `R8 旧行的按钮降成幽灵档（底色透明）但【仍然可点】（零 disabled；实测 ${staleWithActs.length} 行，底色 ${JSON.stringify([...new Set(staleWithActs.map(r => r.actBg))])}）`);
+
+  // ─── 117s-C（用户第九轮走查⑦「管家交互界面优化…输出要支持 markdown、制图」）───────────────
+  // 修前 steward-conversation.js 的纪律是「零 innerHTML，全部 textContent」，模型写的 `## 结论先行`
+  // 与 `**偏空**` 原样上屏（用户截图 2、4）。现在管家的 say 经【注入的】共享渲染器上屏 ——
+  // 与经典壳六个消费面同一份 renderMarkdownInto ＋ highlightIn（后者就是用户说的「制图显示」）。
+  // 先烧掉一格剧本序号，再问真正要断言的那一句。为什么要这一步：FAKE_REPLY_SEQUENCE 是按【流式
+  // 请求序】取的，而剧本第 5 条（'好的，我接着做。'，本来给递话之后那条线程自己的回合用）在本件
+  // 的真实时序里【不一定】被消费——递话随后就被撤回了。烧一格之后无论那一条有没有被人用掉，
+  // 本用例拿到的都是末条（超出即钳到末条）：没被用掉→这一发吃掉它，下一发是 MD；被用掉了→
+  // 这一发就是 MD，下一发钳住还是 MD。两条路都落在 markdown 那一条上。
+  const beforeBurn = await cdp.evaluate(FEED);
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = '嗯';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  })()`);
+  await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return (snapshot.typing === 0 && snapshot.rows >= ${beforeBurn.rows} + 2) ? snapshot : null;
+  })()`, 600);
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = '说说你的看法';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  })()`);
+  // 先等这一回合的话上屏（终态那一次才带高亮／mermaid，所以判据取 say 的正文）。
+  const arrived = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    // 判据带上 ※ 浮层：say 是【流式】上屏的，只看正文会等到「刚流到一半」那一瞬间的快照；
+    // 浮层是 finishReply 里紧挨着终态渲染那一行加的，它在＝这一回合真的收尾了。
+    return (snapshot.lastSay && snapshot.lastSay.text.indexOf('结论先行') >= 0 && snapshot.lastWhy) ? snapshot : null;
+  })()`, 300);
+  const shot = arrived || await cdp.evaluate(FEED);
+  ok(Boolean(arrived),
+    `S0 管家那条 markdown 回复上屏了（实测最后一条话「${((shot.lastSay && shot.lastSay.text) || '').slice(0, 80)}」，`
+    + `全部 says ${JSON.stringify((shot.says || []).slice(-3))}）`);
+  // mermaid 容器是 highlightIn 里【异步】补上的（renderMermaidBlocks 的 ensureWrapper 在 vendor
+  // 加载之前就把 .mermaid-block 框好了），所以它单独再等一次。
+  const markdown = await waitForEval(cdp, `(() => {
+    const snapshot = ${FEED};
+    return (snapshot.lastSay && snapshot.lastSay.mermaidBlocks >= 1) ? snapshot : null;
+  })()`, 150) || arrived;
+  const md = markdown ? markdown.lastSay : null;
+  ok(Boolean(md) && md.md === true && md.h2 >= 1 && md.strong >= 1 && md.li >= 3 && md.preCode >= 2,
+    `S1 markdown 真的成了 DOM：h2/strong/li/pre>code 各就各位（实测 ${JSON.stringify(md && {
+      md: md.md, h2: md.h2, strong: md.strong, li: md.li, preCode: md.preCode })}）`);
+  ok(Boolean(md) && md.mermaidBlocks >= 1,
+    `S2 mermaid 围栏拿到了图表容器 .mermaid-block（vendor 里没有 mermaid.min.js 时它退化成「原代码块 + 一行提示」，`
+    + `容器仍在——这一条钉的正是「制图这条路真的接上了」；实测 ${md && md.mermaidBlocks} 个）`);
+  ok(Boolean(md) && md.scripts === 0 && md.onerrorAttrs === 0 && md.rawHasOnerror === false,
+    `S3 注入被净化：零 script 元素、零 onerror 属性、最终 DOM 里连 onerror 这几个字符都不剩`
+    + `（实测 script ${md && md.scripts} / onerror属性 ${md && md.onerrorAttrs} / 源码里还有 onerror: ${md && md.rawHasOnerror}）`);
+  ok(Boolean(md) && md.whiteSpace === 'normal',
+    `S3b 样式层跟上了：markdown 一来 white-space 就从 pre-wrap 退场（否则块与块之间那些结构性换行`
+    + ` 会被画成一片真空行；实测「${md && md.whiteSpace}」）`);
+  ok(Boolean(md) && md.whyInTail === true,
+    'S3c ※ 仍然挂在句尾那一段里（markdown 之后它若掉出段落就会自己占一行）');
+  const mdWhy = markdown ? markdown.lastWhy : null;
+  ok(Boolean(mdWhy) && mdWhy.headings === 0 && mdWhy.lines.some(line => line.indexOf('##') === 0),
+    `S4 ※ 里的依据【不】走渲染器：井号原样在，浮层里零 h1/h2/h3/strong/li（它是机器回执，`
+    + `被 markdown 吃掉就变形了；实测 ${JSON.stringify(mdWhy)}）`);
+  // 截图为证（§11.13 验收 D5「真浏览器截图」）。写进一个自己建的固定目录，不依赖任何人的临时路径；
+  // 拍不下来也绝不影响断言（它是证据，不是判据）。
+  const shotDirC = path.join(os.tmpdir(), 'ruyi-117s-C-shots');
+  const shoot = async name => {
+    try {
+      fs.mkdirSync(shotDirC, { recursive: true });
+      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(shotDirC, name), Buffer.from(png.data, 'base64'));
+      console.log(`  截图：${path.join(shotDirC, name)}`);
+    } catch { /* 证据拍不下来不改变判定 */ }
+  };
+  await shoot('117s-C-markdown.png');
+
+  // ─── 117s-C：来源小头「来自线程『X』」（用户第九轮走查⑦「返回消息没有区分」）──────────────
+  // 收件箱触发的回合要走真实的线程收工事件才跑得起来（后端 5 秒去抖 + 事件队列），本件的剧本
+  // 序号经不起那一下抖动。所以这里用【同一个模块的公开 API】把那条历史重放一遍：新建一个
+  // conversation 实例（注入一个只回固定 JSON 的假 api），调它的 appendSince —— 走的是收件箱回复
+  // 进对话流的那条真路径（steward-shell 的状态轮询发现 trigger==='inbox' 时调的就是它）。
+  // 这个实例【没有】注入渲染器，于是它顺带钉住了另一半：缺席时全线回落 textContent。
+  const chipCase = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    window.__ruyiFocused = [];
+    document.addEventListener(mod.STEWARD_FOCUS_THREAD_EVENT, event => {
+      window.__ruyiFocused.push(String((event.detail && event.detail.sessionId) || ''));
+    });
+    const inbox = '[收件箱] 这是工作台的 1 条系统事件 - [1] thread_done · 线程「' + ${JSON.stringify(THREAD_TITLE)} + '」(' + ${JSON.stringify(threadId)} + ') · 收工了';
+    const payload = { session: { messages: [
+      { role: 'user', createdAt: '2099-01-01T00:00:00.000Z', meta: { origin: 'inbox' }, content: inbox },
+      { role: 'assistant', createdAt: '2099-01-01T00:00:01.000Z', content: '',
+        steward: { trigger: 'inbox', say: '那条线程收工了。', why: '', acts: [], actions: [] } },
+      { role: 'user', createdAt: '2099-01-01T00:00:02.000Z', content: '那我自己问一句' },
+      { role: 'assistant', createdAt: '2099-01-01T00:00:03.000Z', content: '',
+        steward: { trigger: 'user', say: '这句是你自己问的。', why: '', acts: [], actions: [] } },
+    ] } };
+    const conv = mod.createStewardConversation({
+      api: async () => payload,
+      t: (key, params) => key + ((params && params.title) ? '|' + params.title : ''),
+      isStewardMode: () => true,
+    });
+    return { rendered: await conv.appendSince('2000-01-01T00:00:00.000Z') };
+  })()`);
+  ok(Boolean(chipCase) && chipCase.rendered === 3,
+    `T0 三条上屏（收件箱那条系统消息不冒充用户气泡，老纪律不动；实测 ${chipCase && chipCase.rendered}）`);
+  const chipSnapshot = await cdp.evaluate(FEED);
+  await shoot('117s-C-source-chip.png');
+  const sources = chipSnapshot.sources || [];
+  ok(sources.length === 1,
+    `T1 只有【收件箱触发】的那条回复带来源小头，用户自己问的那条不带（实测 ${sources.length} 枚）`);
+  ok(sources.length === 1 && sources[0].sessionId === threadId,
+    `T2 小头指向事件里那条线程的 sessionId（实测「${sources[0] && sources[0].sessionId}」，应为「${threadId}」）`);
+  ok(sources.length === 1 && sources[0].text.indexOf(THREAD_TITLE) >= 0
+    && sources[0].text.indexOf('stewardShell.chat.fromThread') === 0,
+    `T3 小头念的是线程【显示名】而不是 id（实测「${sources[0] && sources[0].text}」）`);
+  ok(sources.length === 1 && sources[0].beforeSay === true,
+    'T4 小头在话的【上面】（先说这是哪条线程，再说话）');
+  const focused = await cdp.evaluate(`(() => {
+    const chip = document.querySelector('#stewardFeed .steward-source');
+    if (chip) chip.click();
+    return (window.__ruyiFocused || []).slice();
+  })()`);
+  ok(Array.isArray(focused) && focused.includes(threadId),
+    `T5 点小头派发 steward:focus-thread，带的是那条线程的 id（实测 ${JSON.stringify(focused)}）`);
+  ok(Boolean(chipSnapshot.lastSay) && chipSnapshot.lastSay.md === false
+    && chipSnapshot.lastSay.text.indexOf('这句是你自己问的。') === 0,
+    `T6 没有注入渲染器的实例全线回落 textContent（缺席那条路真的走得通；实测 md=${chipSnapshot.lastSay && chipSnapshot.lastSay.md}）`);
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");
