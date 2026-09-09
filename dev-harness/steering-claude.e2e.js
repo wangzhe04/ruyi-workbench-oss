@@ -103,7 +103,10 @@ async function getToken(port) {
   'S10 Kimi ACP/Claude 分派均先于通用 fallthrough(不再一刀切)');
   // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
   ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
-  ok(/steer = streaming && !!\(\(\$\('promptInput'\)/.test(app) || app.includes("const steer = streaming &&"), 'S12 流式+有文本 → 插话态判定在');
+  // 117s-G：插话态不再只看「本页自己在流式」(state.streaming)，改看 live = 本页在流 或 服务端说这条会话有别处起的活回合
+  // (state.sessionRelay)。钉的事实不变：有活回合 + 有文本 → 插话；行为层由 classic-window-live-steer.e2e H3 在真浏览器里钉。
+  ok(/const steer = live && hasText/.test(app) && /const live = /.test(app.slice(app.indexOf('function updateSendBtn()'), app.indexOf('function updateSendBtn()') + 900)),
+    'S12 流式+有文本 → 插话态判定在');
   ok(app.includes("iconTextBtn(btn, 'send', t('chat.steer'))"), 'S13 插话态按钮文案走 chat.steer');
   ok(/ta\.addEventListener\('input'.*updateSendBtn\(\)/.test(app.replace(/\n/g, ' ')) || app.includes("} updateSendBtn(); }); // 50-fix"), 'S14 input 事件即时切换插话/停止');
   ok(zh.includes('"chat.steer"') && en.includes('"chat.steer"') && zh.includes('"chat.steerHint"') && en.includes('"chat.steerHint"'), 'S15 i18n 双语键同交(chat.steer/chat.steerHint)');
