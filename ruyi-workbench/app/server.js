@@ -18100,6 +18100,8 @@ const PROMPT_ZH = {
       '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
       '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
       '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
+      // 117s-H1(§11.13.3):收件箱事件行后面跟着的引用块就是那条线程【自己写的交付原文】。
+      '· 转述交付:一句结论 + 明说「原文见线程卡」;数字、结论、文件名逐字照抄,不改写不换算;线程写过文件就把文件名列出来。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -18268,6 +18270,8 @@ const PROMPT_EN = {
       '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
       '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
       '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',
+      // 117s-H1: the quoted block after an inbox event line is the thread\'s OWN deliverable text.
+      '\u00b7 Retelling a deliverable: one sentence of conclusion plus an explicit "the full text is on the thread card". Copy numbers, conclusions and file names VERBATIM - never reword or convert them; when the thread wrote files, list the file names.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
@@ -19389,6 +19393,12 @@ function stewardConfigTierFor(key) {
 const STEWARD_QUICK_KIND = 'quick_ask';
 const STEWARD_QUICK_ANSWER_CHARS = 1200;
 const STEWARD_QUICK_QUESTION_CHARS = 1000;
+
+// 117s-H1(27 号文 §11.13.3「交付进箱」):一条 done 事件随身带的【交付正文】上限。
+// 与上面那个 1200 的速查答案是两回事:速查答案是「一句话答案」,交付是线程这一回合真正产出的东西
+// (真机上「A股每日分析」那一回合 2687 字),4000 字才装得下一份带小标题与清单的交付。
+// 放在这里而不是 13g:它与 STEWARD_QUICK_ANSWER_CHARS 是同一族预算,数字只许有一份。
+const STEWARD_DELIVERABLE_CHARS = 4000;
 
 // 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
 // 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
@@ -43471,6 +43481,8 @@ const STEWARD_SEARCH_LIMIT_DEFAULT = 10, STEWARD_SEARCH_LIMIT_MAX = 50;
 const STEWARD_READ_TAIL_DEFAULT = 6, STEWARD_READ_TAIL_MAX = 20;
 const STEWARD_READ_CHARS_DEFAULT = 12000, STEWARD_READ_CHARS_MIN = 1000, STEWARD_READ_CHARS_MAX = 12000;
 const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
+const STEWARD_READ_ROW_OVERHEAD = 16;       // 每行的行首开销(角色/回合号那一截),算预算时按行计
+const STEWARD_READ_CLIP_MARK = '…';         // 117s-H3:被截了头的那一行的行首标记
 const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
 const STEWARD_TITLE_MAX = 80;
 const STEWARD_STEER_TEXT_MAX = 2000;
@@ -43565,6 +43577,43 @@ function stewardLastAssistantText(session) {
   }
   return String((session && session.summary) || '');
 }
+// 117s-H1:这一回合的交付正文 = turnSeq 对得上的【最后一条】助手话(09-workflow.js:3079 落盘时每条
+// 助手消息都带 turnSeq);不知道回合号、或那一回合没有非空正文时退到整份会话的最后一条非空助手话
+// (与 stewardLastAssistantText 同一口径,但【不】退到 session.summary —— 摘要不是交付)。
+function stewardTurnAssistantText(session, turnSeq) {
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  const want = Math.max(0, Number(turnSeq) || 0);
+  let matched = '', last = '';
+  for (const m of messages) {
+    if (!m || m.role !== 'assistant') continue;
+    const text = String(m.content == null ? '' : m.content);
+    if (!text.trim()) continue;
+    last = text;
+    if (want > 0 && Number(m.turnSeq) === want) matched = text;
+  }
+  return matched || last;
+}
+
+// 117s-H1:这一回合写过的文件。事实源是【既有的】改动账 —— 02-session-store.js:1513 foldTurnSummaries,
+// 也就是 13d:986 给 /api/missions 详情(「看改动」面板)算 filesChanged 的那一份,不新造任何跟踪器。
+// fold 按 path 后写胜去重,故同一路径被后面的回合又改过时它归属那个更新的回合 —— 本函数只在
+// 【刚跑完的那一回合】上调用,是 fold 里最新的那一层,不受这条影响。
+const STEWARD_DELIVERABLE_FILES_MAX = 20;
+function stewardTurnFiles(session, turnSeq) {
+  const want = Math.max(0, Number(turnSeq) || 0);
+  if (!want) return [];
+  let folded = null;
+  try { folded = foldTurnSummaries(session); } catch { return []; }
+  const files = [];
+  for (const f of ((folded && folded.filesChanged) || [])) {
+    if (!f || !f.path || Number(f.turnSeq) !== want) continue;
+    const p = stewardSanitizeText(f.path);
+    if (p && !files.includes(p)) files.push(p);
+    if (files.length >= STEWARD_DELIVERABLE_FILES_MAX) break;
+  }
+  return files;
+}
+
 function stewardEngineOf(head) {
   const route = (head && head.engineRoute && typeof head.engineRoute === 'object') ? head.engineRoute : null;
   if (!route) return { engine: '', model: '' };
@@ -44038,11 +44087,23 @@ async function stewardImplThreadRead(args, ctx, config) {
   // 超出 maxChars 时从【最早】的行开始丢(最近的对话最有用),并如实标 truncated。
   let used = 0, cut = rows.length;
   for (let i = rows.length - 1; i >= 0; i--) {
-    used += rows[i].text.length + 16;
+    used += rows[i].text.length + STEWARD_READ_ROW_OVERHEAD;
     if (used > maxChars) { cut = i + 1; break; }
     cut = i;
   }
-  const kept = rows.slice(cut);
+  let kept = rows.slice(cut);
+  // 117s-H3(27 号文 §11.13.3 ④,真 bug):上面那个循环第一步就可能 `used > maxChars` —— 最新的那一行
+  // 单独超预算时 cut = rows.length,kept 直接是【空数组】,管家读一条 13000 字的交付得到 `rows: []`,
+  // 于是它只能回一句「读不到」。整行丢在「行很多、每行不长」时是对的,在「就一行、那一行很长」时是错的:
+  // 用户要的东西全在那一行里。修法 —— 最新一行单独超预算时截【它的尾巴】(结论一般在末尾),
+  // 前面补一个 '…' 说明前文被截掉了,并如实标 clippedRows:1(与整行丢的 truncated 分开报,两件事)。
+  let clippedRows = 0;
+  if (!kept.length && rows.length) {
+    const newest = rows[rows.length - 1];
+    const room = Math.max(1, maxChars - STEWARD_READ_ROW_OVERHEAD);
+    kept = [{ ...newest, text: STEWARD_READ_CLIP_MARK + newest.text.slice(-room) }];
+    clippedRows = 1;
+  }
   const chars = kept.reduce((n, r) => n + r.text.length, 0);
   bucket.chars += chars;
   return {
@@ -44051,6 +44112,7 @@ async function stewardImplThreadRead(args, ctx, config) {
     tail,
     turnSeqs: [...wanted].sort((a, b) => a - b),
     truncated: cut > 0,
+    clippedRows,
     chars,
     quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars },
     rows: kept,
@@ -45184,11 +45246,17 @@ async function stewardImplQuickAsk(args, ctx, config) {
   return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef };
 }
 
-// ── 速查会话的收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)────────────────────────
-// 给速查会话的 `done` 行补 `quick:true` 与 `answer`(最后一句助手原话,≤1200 字符)。
-// 为什么在这里而不是在 13i:13i 只认三条 seq 日志,不读会话正文;而「最后一句助手原话」要装载会话。
-// 放在 13g 并经命名空间回调,13i 就不需要认识 13g 的任何符号(前向边红线)。
-// 旁路纪律:抛错绝不反噬轮询器 —— 13i 那边整段包在 try 里,补不上就是少两个字段。
+// ── 收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)──────────────────────────────────
+// 117s-H1(27 号文 §11.13.3,用户第三轮回话「线程的交付管家能不能看全」):给【每一条】管家关心的
+// 线程的 `done` 行补上这一回合真正的交付 —— `payload.deliverable = {text,chars,truncated,turnSeq,files}`。
+// 修前只有速查线程补一个 `answer`,而那个字段 13h 里【零渲染点】(grep 可自证):交付正文从来没有
+// 进过收件箱回合,管家只拿到一行「线程第 N 回合跑完了」,正文全靠它自己再花一次 thread_read 配额去读。
+// 判据用 06i 的 stewardWatchedThread —— 与 13i 决定「这条线程要不要入箱」的是同一条线,不另立第二套
+// (用户自己在经典壳里聊的普通会话本来就不入箱,这里也就不会为它们装载会话)。
+//
+// 为什么在这里而不是在 13i:13i 只认三条 seq 日志,不读会话正文;而交付正文与本回合的文件账都要装载
+// 会话。放在 13g 并经命名空间回调,13i 就不需要认识 13g 的任何符号(前向边红线)。
+// 旁路纪律:抛错绝不反噬轮询器 —— 13i 那边整段包在 try 里,补不上就是少几个字段。
 async function stewardEnrichInboxRows(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const heads = new Map();
@@ -45198,10 +45266,33 @@ async function stewardEnrichInboxRows(rows) {
     if (!sid) continue;
     if (!heads.has(sid)) heads.set(sid, await stewardReadSessionHead(sid).catch(() => null));
     const head = heads.get(sid);
-    if (!head || stewardRawKind(head) !== STEWARD_QUICK_KIND || !head.stewardQuick) continue;
+    if (!head) continue;
+    if (!stewardWatchedThread(head, sid, row.missionId)) continue;
+    const quick = stewardRawKind(head) === STEWARD_QUICK_KIND && !!head.stewardQuick;
     const session = await loadSession(sid).catch(() => null);
-    const answer = stewardSanitizeText(stewardLastAssistantText(session)).slice(0, STEWARD_QUICK_ANSWER_CHARS);
-    row.payload = { ...(row.payload && typeof row.payload === 'object' ? row.payload : {}), quick: true, answer };
+    if (!session) continue;
+    const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
+    // 回合号取事件自己的(第四源 stewardNormalizeSessionTurn 落的 payload.turnSeq);取不到就退到
+    // 会话头上的当前回合号,再取不到才让下面的挑选退到「最后一条助手话」。
+    const turnSeq = Math.max(0, Number(payload.turnSeq) || 0) || Math.max(0, Number(head.turnSeq) || 0);
+    const full = stewardSanitizeBlock(stewardTurnAssistantText(session, turnSeq));
+    const patch = {};
+    if (full.trim()) {
+      patch.deliverable = {
+        text: full.slice(0, STEWARD_DELIVERABLE_CHARS),
+        chars: full.length,
+        truncated: full.length > STEWARD_DELIVERABLE_CHARS,
+        turnSeq,
+        files: stewardTurnFiles(session, turnSeq),
+      };
+    }
+    // 速查线程的 `answer` 留着(老消费者与 116-2e 的收工判据都认它),但它现在与交付【同一份原文】,
+    // 只是仍按 ≤1200 的老口径中和成单行 —— 两个字段从此不会各说各的。
+    if (quick) {
+      patch.quick = true;
+      patch.answer = stewardSanitizeText(full || stewardLastAssistantText(session)).slice(0, STEWARD_QUICK_ANSWER_CHARS);
+    }
+    if (Object.keys(patch).length) row.payload = { ...payload, ...patch };
   }
   return list;
 }
@@ -45335,6 +45426,10 @@ const STEWARD_VISITS_KEEP = 200;              // 归档文件保留个数(超出
 // ── 回合层数值口径(§11.2)────────────────────────────────────────────────────────────────────
 const STEWARD_INBOX_EVENTS_PER_TURN = 30;     // 一个收件箱回合最多带 30 条事件
 const STEWARD_INBOX_EVENT_CHARS = 400;        // 每条事件 ≤400 字
+// 117s-H1(27 号文 §11.13.3):事件行仍是那 400 字的标题行,交付正文另起一个【受预算的引用块】
+// 跟在它后面 —— 于是模型不必再花一次 steward_thread_read 配额去读它自己刚被通知的那份交付。
+const STEWARD_INBOX_DELIVERABLE_CHARS = 4000; // 单条交付正文在收件箱消息里的上限
+const STEWARD_INBOX_MESSAGE_CHARS = 12000;    // 一条收件箱消息的总预算(标题行永不丢,正文从最旧的丢起)
 const STEWARD_MEMORY_BLOCK_CHARS = 3000;      // 记忆块 ≤3000 字符
 const STEWARD_SAY_MAX = 600;                  // say ≤600 字
 const STEWARD_WHY_MAX = 400;
@@ -46225,6 +46320,31 @@ function stewardEventLine(row, titleOf) {
   return line.slice(0, STEWARD_INBOX_EVENT_CHARS);
 }
 
+// 117s-H1:一条 done 行的交付引用块。13g 的 enrichInboxRows 已经把正文中和过(stewardSanitizeBlock)
+// 并截到 4000 字,这里只负责把它摆成一个有头有尾、模型一眼能看出边界的块:
+//   > 线程「X」第 N 回合的交付(全文 M 字,已截 4000):
+//   <正文>
+//   > 写过的文件:a, b
+// 头尾两行都以 '> ' 起头 —— 正文里就算自己写了一行 '> …' 也只是块内的一行,块的边界由「头行必然紧跟
+// 在那条事件行之后、尾行必然是『写过的文件』」这条固定结构给出,不靠正文自律。
+// 文件那一行【永远】出现(没有就如实说「改动账里没有」),它同时是这个块的收尾标记。
+function stewardDeliverableBlock(row, title) {
+  const d = (row && row.payload && row.payload.deliverable && typeof row.payload.deliverable === 'object')
+    ? row.payload.deliverable : null;
+  const text = stewardSanitizeBlock(d && d.text).slice(0, STEWARD_INBOX_DELIVERABLE_CHARS);
+  if (!text.trim()) return '';
+  const seq = Math.max(0, Number(d.turnSeq) || 0);
+  const chars = Math.max(0, Number(d.chars) || text.length);
+  const who = title ? `线程「${stewardSanitizeText(title)}」` : `线程 ${stewardSanitizeText(row && row.sessionId)}`;
+  const clipped = (d.truncated === true || chars > text.length) ? `,已截到 ${text.length}` : '';
+  const files = (Array.isArray(d.files) ? d.files : []).map(f => stewardSanitizeText(f)).filter(Boolean);
+  return [
+    `> ${who}第 ${seq} 回合的交付原文(全文 ${chars} 字${clipped}):`,
+    text,
+    files.length ? `> 写过的文件:${files.join('、')}` : '> 写过的文件:(本回合的改动账里没有)',
+  ].join('\n');
+}
+
 async function stewardInboxMessage(events, config, selfServeNotes) {
   const pack = getPromptPack(config && config.locale);
   const rows = events.slice(-STEWARD_INBOX_EVENTS_PER_TURN);
@@ -46237,10 +46357,56 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
   // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
   // 收件箱回合的消息与 116f 逐字节相同。
   const notes = (Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX);
-  const lines = [pack.steward.inboxHeader({ count: rows.length }), ...rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''))];
-  if (notes.length) lines.push('[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes);
-  lines.push(pack.steward.inboxTrailer);
+  const headlines = rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''));
+  const bodies = rows.map(row => stewardDeliverableBlock(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
+
+  // 117s-H1 的预算:标题行【永不丢】(它是「发生了什么」的唯一载体),超预算时从【最旧】的那一条
+  // 交付正文开始丢 —— 与 stewardEventLine 的整体口径一致:最近的最有用。丢掉几条要如实说,
+  // 否则模型会以为它拿到的就是全部。
+  const header = pack.steward.inboxHeader({ count: rows.length });
+  const trailer = pack.steward.inboxTrailer;
+  const noteLines = notes.length ? ['[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes] : [];
+  let used = [header, ...headlines, ...noteLines, trailer].reduce((n, s) => n + String(s).length + 1, 0);
+  const keepBody = new Array(rows.length).fill(false);
+  let dropped = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (!bodies[i]) continue;
+    const cost = bodies[i].length + 1;
+    if (used + cost > STEWARD_INBOX_MESSAGE_CHARS) { dropped += 1; continue; }
+    used += cost;
+    keepBody[i] = true;
+  }
+  const lines = [header];
+  for (let i = 0; i < rows.length; i++) {
+    lines.push(headlines[i]);
+    if (keepBody[i]) lines.push(bodies[i]);
+  }
+  if (dropped) lines.push(`> (另有 ${dropped} 条交付正文没装下这条消息的字数预算,需要时用 steward_thread_read 去读)`);
+  if (noteLines.length) lines.push(...noteLines);
+  lines.push(trailer);
   return lines.join('\n');
+}
+
+// 117s-H4(27 号文 §11.13.3;117s-C 的派单稿在这里被证伪):落盘的回执里 `trigger` 修前只有
+// `'user'|'inbox'` 两个字面量,来源线程的 id / 标题 / 回合号一个都不在里面 —— 前端要给收件箱那条
+// 回复加「来自线程」小头,只能拿正则去抠中文事件行(`线程「X」(sess_…)`)。回执才是第一手证据,
+// 所以这里把它加厚成一个对象:{ kind, sessionId?, title?, turnSeq?, sessionIds? }。
+//   · 领头行取这一批里第一条 done / needs_you(它们才是「有东西可看」的那两类);都没有就退到第一条;
+//   · 一批里涉及几条线程时 sessionIds 全给,小头指的是领头那一条。
+// 【只改落盘的那一份】:运行器内存态 stewardRunnerRuntime.lastReply.trigger 仍是字符串 ——
+// 壳层的状态轮询(public/js/steward-shell.js:277 `lastReply.trigger === 'inbox'`)靠它决定要不要
+// 把新回复追进对话流,改了它就是一个静默的功能回归。两处是两个消费者,不必也不该同形。
+async function stewardTriggerStamp(trigger, events) {
+  if (trigger !== 'inbox') return { kind: 'user' };
+  const rows = (Array.isArray(events) ? events : []).filter(r => r && safeSessionId(r.sessionId));
+  const sessionIds = [...new Set(rows.map(r => safeSessionId(r.sessionId)))];
+  const lead = rows.find(r => r.kind === 'done' || r.kind === 'needs_you') || rows[0] || null;
+  const stamp = { kind: 'inbox', sessionIds };
+  if (!lead) return stamp;
+  stamp.sessionId = safeSessionId(lead.sessionId);
+  stamp.title = await stewardDisplayTitleOf(stamp.sessionId).catch(() => '') || '';
+  stamp.turnSeq = Math.max(0, Number(lead.payload && lead.payload.turnSeq) || 0);
+  return stamp;
 }
 
 // 把结构化结果落到管家会话最新一条助手消息的 meta 上(§11.3:「结构化结果落在 …助手消息的 meta」)。
@@ -46454,7 +46620,11 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     sessionId: session.id,
     circuit: null,
   };
-  await stewardStampReply({ say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed, trigger });
+  // 117s-H4:落盘的回执带来源(对象);reply.trigger(内存态 lastReply 与 steward_reply 帧)仍是字符串。
+  await stewardStampReply({
+    say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed,
+    trigger: await stewardTriggerStamp(trigger, events).catch(() => ({ kind: trigger })),
+  });
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {
@@ -48133,6 +48303,11 @@ module.exports = {
   stewardConfigTierFor,
   STEWARD_QUICK_KIND,
   STEWARD_QUICK_ANSWER_CHARS,
+  // 117s-H1(27 号文 §11.13.3「交付进箱」): 交付正文的三个预算 —— e2e 直接拿它们断言,
+  //   数字只许有一份(06i 一份、13h 两份),测试不再自带字面量。
+  STEWARD_DELIVERABLE_CHARS,
+  STEWARD_INBOX_DELIVERABLE_CHARS,
+  STEWARD_INBOX_MESSAGE_CHARS,
   // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
   readMissionContainer,
   listMissionContainers,

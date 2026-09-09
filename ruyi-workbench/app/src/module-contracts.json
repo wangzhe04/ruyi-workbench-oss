@@ -3684,6 +3684,7 @@
         "STEWARD_CONFIG_TIER_CONFIRM",
         "STEWARD_CONFIG_TIER_FORBIDDEN_NOTE",
         "STEWARD_CONFIG_TIER_FREE",
+        "STEWARD_DELIVERABLE_CHARS",
         "STEWARD_DIGEST_LIMITS",
         "STEWARD_EVENT_KINDS",
         "STEWARD_EXEMPT_CONTENT_PATTERNS",
@@ -11716,6 +11717,7 @@
         "STEWARD_DECISIONS_LIMIT_MAX",
         "STEWARD_DECISIONS_MASK",
         "STEWARD_DECISIONS_TAIL_BYTES",
+        "STEWARD_DELIVERABLE_FILES_MAX",
         "STEWARD_MEMORY_FILE",
         "STEWARD_MEMORY_MERGED_FROM_MAX",
         "STEWARD_MEMORY_NEW_WINDOW_MS",
@@ -11729,6 +11731,8 @@
         "STEWARD_READ_CHARS_DEFAULT",
         "STEWARD_READ_CHARS_MAX",
         "STEWARD_READ_CHARS_MIN",
+        "STEWARD_READ_CLIP_MARK",
+        "STEWARD_READ_ROW_OVERHEAD",
         "STEWARD_READ_TAIL_DEFAULT",
         "STEWARD_READ_TAIL_MAX",
         "STEWARD_RUNS_MAX",
@@ -11812,6 +11816,8 @@
         "stewardToolCallLine",
         "stewardToolHandler",
         "stewardTriggerOf",
+        "stewardTurnAssistantText",
+        "stewardTurnFiles",
         "stewardTurnKeyOf",
         "stewardTurnQuotaTake",
         "stewardUnattendedByModel"
@@ -12001,6 +12007,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "foldTurnSummaries",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "listSessions",
           "kinds": [
             "call"
@@ -12142,6 +12155,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_CONFIG_SECRET_PATTERN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DELIVERABLE_CHARS",
           "kinds": [
             "read"
           ]
@@ -12296,6 +12316,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardToolPermanentlyExempt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -12483,8 +12510,10 @@
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
         "STEWARD_DIGEST_KIND_TEXT",
+        "STEWARD_INBOX_DELIVERABLE_CHARS",
         "STEWARD_INBOX_EVENTS_PER_TURN",
         "STEWARD_INBOX_EVENT_CHARS",
+        "STEWARD_INBOX_MESSAGE_CHARS",
         "STEWARD_MEMORY_BLOCK_CHARS",
         "STEWARD_NO_PROGRESS_MAX",
         "STEWARD_PENDING_LIST_MAX",
@@ -12549,6 +12578,7 @@
         "stewardCircuitCheck",
         "stewardContextBudget",
         "stewardDayCost",
+        "stewardDeliverableBlock",
         "stewardDisplayTitleOf",
         "stewardDowngradeActions",
         "stewardEventLine",
@@ -12588,6 +12618,7 @@
         "stewardStopRunner",
         "stewardTargetPermission",
         "stewardThreadDigestRows",
+        "stewardTriggerStamp",
         "stewardTrimVisits",
         "stewardTurnsInWindow",
         "stewardVisit",
@@ -12950,6 +12981,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeBlock",
           "kinds": [
             "call"
           ]
@@ -15163,6 +15201,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DELIVERABLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_DIGEST_LIMITS",
           "kinds": [
             "read"
@@ -16410,6 +16455,20 @@
         {
           "provider": "13h-steward-runner.js",
           "symbol": "runStewardTurn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13h-steward-runner.js",
+          "symbol": "STEWARD_INBOX_MESSAGE_CHARS",
           "kinds": [
             "read"
           ]

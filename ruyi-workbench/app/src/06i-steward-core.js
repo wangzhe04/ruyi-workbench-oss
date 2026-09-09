@@ -763,6 +763,12 @@ const STEWARD_QUICK_KIND = 'quick_ask';
 const STEWARD_QUICK_ANSWER_CHARS = 1200;
 const STEWARD_QUICK_QUESTION_CHARS = 1000;
 
+// 117s-H1(27 号文 §11.13.3「交付进箱」):一条 done 事件随身带的【交付正文】上限。
+// 与上面那个 1200 的速查答案是两回事:速查答案是「一句话答案」,交付是线程这一回合真正产出的东西
+// (真机上「A股每日分析」那一回合 2687 字),4000 字才装得下一份带小标题与清单的交付。
+// 放在这里而不是 13g:它与 STEWARD_QUICK_ANSWER_CHARS 是同一族预算,数字只许有一份。
+const STEWARD_DELIVERABLE_CHARS = 4000;
+
 // 「管家关心这条会话吗」的唯一判据(§11.7):速查线程 / 管家发起过回合的线程 / 别人事项里的线程。
 // 用户自己在经典壳里聊的普通会话【不】入箱 —— 他就坐在那条线程前面,不需要管家再通知他一次。
 //

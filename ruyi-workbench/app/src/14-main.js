@@ -395,6 +395,11 @@ module.exports = {
   stewardConfigTierFor,
   STEWARD_QUICK_KIND,
   STEWARD_QUICK_ANSWER_CHARS,
+  // 117s-H1(27 号文 §11.13.3「交付进箱」): 交付正文的三个预算 —— e2e 直接拿它们断言,
+  //   数字只许有一份(06i 一份、13h 两份),测试不再自带字面量。
+  STEWARD_DELIVERABLE_CHARS,
+  STEWARD_INBOX_DELIVERABLE_CHARS,
+  STEWARD_INBOX_MESSAGE_CHARS,
   // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
   readMissionContainer,
   listMissionContainers,

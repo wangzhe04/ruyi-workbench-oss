@@ -41,6 +41,10 @@ const STEWARD_VISITS_KEEP = 200;              // 归档文件保留个数(超出
 // ── 回合层数值口径(§11.2)────────────────────────────────────────────────────────────────────
 const STEWARD_INBOX_EVENTS_PER_TURN = 30;     // 一个收件箱回合最多带 30 条事件
 const STEWARD_INBOX_EVENT_CHARS = 400;        // 每条事件 ≤400 字
+// 117s-H1(27 号文 §11.13.3):事件行仍是那 400 字的标题行,交付正文另起一个【受预算的引用块】
+// 跟在它后面 —— 于是模型不必再花一次 steward_thread_read 配额去读它自己刚被通知的那份交付。
+const STEWARD_INBOX_DELIVERABLE_CHARS = 4000; // 单条交付正文在收件箱消息里的上限
+const STEWARD_INBOX_MESSAGE_CHARS = 12000;    // 一条收件箱消息的总预算(标题行永不丢,正文从最旧的丢起)
 const STEWARD_MEMORY_BLOCK_CHARS = 3000;      // 记忆块 ≤3000 字符
 const STEWARD_SAY_MAX = 600;                  // say ≤600 字
 const STEWARD_WHY_MAX = 400;
@@ -931,6 +935,31 @@ function stewardEventLine(row, titleOf) {
   return line.slice(0, STEWARD_INBOX_EVENT_CHARS);
 }
 
+// 117s-H1:一条 done 行的交付引用块。13g 的 enrichInboxRows 已经把正文中和过(stewardSanitizeBlock)
+// 并截到 4000 字,这里只负责把它摆成一个有头有尾、模型一眼能看出边界的块:
+//   > 线程「X」第 N 回合的交付(全文 M 字,已截 4000):
+//   <正文>
+//   > 写过的文件:a, b
+// 头尾两行都以 '> ' 起头 —— 正文里就算自己写了一行 '> …' 也只是块内的一行,块的边界由「头行必然紧跟
+// 在那条事件行之后、尾行必然是『写过的文件』」这条固定结构给出,不靠正文自律。
+// 文件那一行【永远】出现(没有就如实说「改动账里没有」),它同时是这个块的收尾标记。
+function stewardDeliverableBlock(row, title) {
+  const d = (row && row.payload && row.payload.deliverable && typeof row.payload.deliverable === 'object')
+    ? row.payload.deliverable : null;
+  const text = stewardSanitizeBlock(d && d.text).slice(0, STEWARD_INBOX_DELIVERABLE_CHARS);
+  if (!text.trim()) return '';
+  const seq = Math.max(0, Number(d.turnSeq) || 0);
+  const chars = Math.max(0, Number(d.chars) || text.length);
+  const who = title ? `线程「${stewardSanitizeText(title)}」` : `线程 ${stewardSanitizeText(row && row.sessionId)}`;
+  const clipped = (d.truncated === true || chars > text.length) ? `,已截到 ${text.length}` : '';
+  const files = (Array.isArray(d.files) ? d.files : []).map(f => stewardSanitizeText(f)).filter(Boolean);
+  return [
+    `> ${who}第 ${seq} 回合的交付原文(全文 ${chars} 字${clipped}):`,
+    text,
+    files.length ? `> 写过的文件:${files.join('、')}` : '> 写过的文件:(本回合的改动账里没有)',
+  ].join('\n');
+}
+
 async function stewardInboxMessage(events, config, selfServeNotes) {
   const pack = getPromptPack(config && config.locale);
   const rows = events.slice(-STEWARD_INBOX_EVENTS_PER_TURN);
@@ -943,10 +972,56 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
   // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
   // 收件箱回合的消息与 116f 逐字节相同。
   const notes = (Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX);
-  const lines = [pack.steward.inboxHeader({ count: rows.length }), ...rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''))];
-  if (notes.length) lines.push('[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes);
-  lines.push(pack.steward.inboxTrailer);
+  const headlines = rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''));
+  const bodies = rows.map(row => stewardDeliverableBlock(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
+
+  // 117s-H1 的预算:标题行【永不丢】(它是「发生了什么」的唯一载体),超预算时从【最旧】的那一条
+  // 交付正文开始丢 —— 与 stewardEventLine 的整体口径一致:最近的最有用。丢掉几条要如实说,
+  // 否则模型会以为它拿到的就是全部。
+  const header = pack.steward.inboxHeader({ count: rows.length });
+  const trailer = pack.steward.inboxTrailer;
+  const noteLines = notes.length ? ['[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes] : [];
+  let used = [header, ...headlines, ...noteLines, trailer].reduce((n, s) => n + String(s).length + 1, 0);
+  const keepBody = new Array(rows.length).fill(false);
+  let dropped = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (!bodies[i]) continue;
+    const cost = bodies[i].length + 1;
+    if (used + cost > STEWARD_INBOX_MESSAGE_CHARS) { dropped += 1; continue; }
+    used += cost;
+    keepBody[i] = true;
+  }
+  const lines = [header];
+  for (let i = 0; i < rows.length; i++) {
+    lines.push(headlines[i]);
+    if (keepBody[i]) lines.push(bodies[i]);
+  }
+  if (dropped) lines.push(`> (另有 ${dropped} 条交付正文没装下这条消息的字数预算,需要时用 steward_thread_read 去读)`);
+  if (noteLines.length) lines.push(...noteLines);
+  lines.push(trailer);
   return lines.join('\n');
+}
+
+// 117s-H4(27 号文 §11.13.3;117s-C 的派单稿在这里被证伪):落盘的回执里 `trigger` 修前只有
+// `'user'|'inbox'` 两个字面量,来源线程的 id / 标题 / 回合号一个都不在里面 —— 前端要给收件箱那条
+// 回复加「来自线程」小头,只能拿正则去抠中文事件行(`线程「X」(sess_…)`)。回执才是第一手证据,
+// 所以这里把它加厚成一个对象:{ kind, sessionId?, title?, turnSeq?, sessionIds? }。
+//   · 领头行取这一批里第一条 done / needs_you(它们才是「有东西可看」的那两类);都没有就退到第一条;
+//   · 一批里涉及几条线程时 sessionIds 全给,小头指的是领头那一条。
+// 【只改落盘的那一份】:运行器内存态 stewardRunnerRuntime.lastReply.trigger 仍是字符串 ——
+// 壳层的状态轮询(public/js/steward-shell.js:277 `lastReply.trigger === 'inbox'`)靠它决定要不要
+// 把新回复追进对话流,改了它就是一个静默的功能回归。两处是两个消费者,不必也不该同形。
+async function stewardTriggerStamp(trigger, events) {
+  if (trigger !== 'inbox') return { kind: 'user' };
+  const rows = (Array.isArray(events) ? events : []).filter(r => r && safeSessionId(r.sessionId));
+  const sessionIds = [...new Set(rows.map(r => safeSessionId(r.sessionId)))];
+  const lead = rows.find(r => r.kind === 'done' || r.kind === 'needs_you') || rows[0] || null;
+  const stamp = { kind: 'inbox', sessionIds };
+  if (!lead) return stamp;
+  stamp.sessionId = safeSessionId(lead.sessionId);
+  stamp.title = await stewardDisplayTitleOf(stamp.sessionId).catch(() => '') || '';
+  stamp.turnSeq = Math.max(0, Number(lead.payload && lead.payload.turnSeq) || 0);
+  return stamp;
 }
 
 // 把结构化结果落到管家会话最新一条助手消息的 meta 上(§11.3:「结构化结果落在 …助手消息的 meta」)。
@@ -1160,7 +1235,11 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     sessionId: session.id,
     circuit: null,
   };
-  await stewardStampReply({ say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed, trigger });
+  // 117s-H4:落盘的回执带来源(对象);reply.trigger(内存态 lastReply 与 steward_reply 帧)仍是字符串。
+  await stewardStampReply({
+    say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed,
+    trigger: await stewardTriggerStamp(trigger, events).catch(() => ({ kind: trigger })),
+  });
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {
