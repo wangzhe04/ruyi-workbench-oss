@@ -63,8 +63,16 @@ const ok = (condition, label) => {
     ]) === 'last', 'A6 一回合动了多条时取最后一条（事情发生的顺序）');
     ok(executedThreadSessionId(null) === '' && executedThreadSessionId([]) === '' && executedThreadSessionId([null]) === '',
       'A7 空/畸形输入一律空串，不抛');
-    ok(/const opened = executedThreadSessionId\(reply\.actions\);\s*if \(opened\) focusThread\(opened\);/.test(conversation),
-      'A8 回合结束就派 steward:focus-thread（宽屏切「现在这一件」，窄屏开抽屉，两者接同一个事件）');
+    // 117v-V1 ③ 重钉：原判据把两句连写的字面量钉死了，而那一支现在还要多做一件事（当场挂线程卡，
+    // 频道条才会当场多一枚 chip）。要成立的事实是【回合结束、真开出线程时派 focusThread】，
+    // 而不是那两句挨在一起。锚在 finishReply 的函数体里：整文件匹配的话，appendSince 那一处
+    // 同形调用会把本条养成假绿（把 finishReply 里这一句整个删掉也照样绿）。
+    const finishReplyRule = conversation.slice(conversation.indexOf('function finishReply('),
+      conversation.indexOf('function actionWhyLines'));
+    ok(finishReplyRule.length > 0
+      && /const opened = executedThreadSessionId\(reply\.actions\);/.test(finishReplyRule)
+      && /focusThread\(opened\);/.test(finishReplyRule),
+      'A8 回合结束、且这一回合真开出了线程就派 steward:focus-thread（宽屏切「现在这一件」，窄屏开抽屉，两者接同一个事件）');
   }
 
   /* ── B：W2-2 候选列表开合 ───────────────────────────────────────────────────── */

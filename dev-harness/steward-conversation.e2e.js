@@ -1176,7 +1176,7 @@ try {
     'U2b 挑的是【第 3 回合】那条助手话，不是整份会话里随便一条（旧回合的答案没混进来）');
   ok(deliverShot.clamped === true && deliverShot.overflowing === true
     && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand'
-    && deliverShot.acts[1] === 'stewardShell.drawer.fullText',
+    && deliverShot.acts[1] === 'stewardShell.chat.deliverableFull',   // 117v-V1 ⑨：交付卡那枚改用自己的键
     `U3 默认折叠（真的被裁掉了一截）且「展开」「看全文」两枚都在（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
   const expanded = await cdp.evaluate(`(() => {
     const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
@@ -1249,7 +1249,7 @@ try {
   })()`, 300) || await cdp.evaluate(DELIVER);
   ok(Boolean(deliverC) && deliverC.rendered === 1
     && failed.blocks === 1 && failed.text.indexOf('stewardShell.chat.deliverableMissing') === 0
-    && failed.acts.length === 1 && failed.acts[0] === 'stewardShell.drawer.fullText',
+    && failed.acts.length === 1 && failed.acts[0] === 'stewardShell.chat.deliverableFull',   // 同上
     `U10 取不到原文时画一句兜底＋只留「看全文」，回复本身照常上屏（实测「${failed.text}」，按钮 ${JSON.stringify(failed.acts)}）`);
   await shootH('117s-H-deliverable-fallback.png');
 
@@ -1850,6 +1850,217 @@ try {
   ok(Array.isArray(undoCalls) && undoCalls.lastIndexOf('/api/stop') >= 0
     && undoCalls.lastIndexOf('/api/session/rewind') > undoCalls.lastIndexOf('/api/stop'),
     `Z7b companion：换一条走的仍是「先 stop 再 rewind」那条老路（实测 ${JSON.stringify(undoCalls)}）`);
+
+  // ─── AA 117v-V1（27 号文 §11.16.2 V1 行；用户第十轮走查②③⑨）─────────────────────────────
+  // ② 「打开线程」点完【不】落回执、按钮行原样留着，可以反复点（导航 ≠ 表态）；
+  // ③ 用户问、管家开线程的那一轮也长线程卡 → 频道条上真的多一枚 chip（回放一轮 ＋ 当场一轮各一）；
+  // ⑨ 交付卡那枚「看全文」有自己的词，与抽屉那枚（泛泛的「看全文」）不再同字。
+  // 手法与 T/U/F1/F2/Z 五段一样：新建实例 ＋ 注入按 URL 分流的假 api，走 enterVisit / sendToSteward
+  // 两条【真】路径。enterVisit 自己 clearFeed，所以本段的行与 chip 都只属于本段。
+  const V_IN = 'sess_v1_inbox';    // 收件箱触发的那条（⑨ 的交付卡长在它身上）
+  const V_ASK = 'sess_v1_asked';   // 用户问、管家在【历史那一回合】开的那条
+  const V_LIVE = 'sess_v1_live';   // 用户问、管家在【当场这一轮】开的那条
+  const V_IN_TITLE = '英伟达那件事';
+  const V_ASK_TITLE = '博通那件事';
+  const V_LIVE_TITLE = '中芯国际那件事';
+  const V_ACT_LABEL = '看英伟达分析全文';   // 用户截图里那枚琥珀色按钮：写着「看…全文」，去处却是打开线程
+  const V_SHOT = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const bar = feed.querySelector('.steward-channels');
+    const rows = [...feed.querySelectorAll('.steward-msg')];
+    const text = (row, sel) => (row.querySelector(sel) ? row.querySelector(sel).textContent : '');
+    return {
+      rows: rows.length,
+      chips: bar ? [...bar.querySelectorAll('.steward-channel')].map(node => ({
+        channel: node.dataset.channel || '',
+        name: node.querySelector('.steward-channel-name').textContent,
+      })) : [],
+      cards: rows.map(row => ({
+        thread: row.dataset.thread || '',
+        heads: row.querySelectorAll('.steward-thread-head').length,
+        headName: text(row, '.steward-thread-name'),
+        sources: row.querySelectorAll('.steward-source').length,
+        deliverables: row.querySelectorAll('.steward-deliverable').length,
+        fulls: [...row.querySelectorAll('.steward-deliverable-full')].map(node => node.textContent),
+        acts: [...row.querySelectorAll('.steward-act')].map(node => node.textContent),
+        disabled: [...row.querySelectorAll('.steward-act')].map(node => node.disabled === true),
+        receipts: row.querySelectorAll('.steward-receipt').length,
+        say: text(row, '.steward-say'),
+      })),
+    };
+  })()`;
+  const vRun = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    const i18n = await import('/js/i18n.js');
+    const prims = (await import('/js/chat-render-primitives.js')).createChatRenderPrimitives({
+      el: (tag, cls, txt) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (txt != null) node.textContent = txt;
+        return node;
+      },
+      escapeHtml: value => String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])),
+      marked: window.marked,
+      t: key => key,
+      toast: () => {},
+    });
+    const touched = new Date(Date.now() - 30000).toISOString();
+    const envelope = (id, title) => ({
+      ok: true, displayTitle: title, resumable: { live: true },
+      session: {
+        id, turnSeq: 2, updatedAt: touched,
+        engineRoute: { engine: 'openai', providerId: 'fake', model: 'gpt-5-mini' },
+        messages: [
+          { role: 'user', turnSeq: 2, createdAt: '2099-07-01T00:00:00.000Z', content: '第 2 回合的问题' },
+          { role: 'assistant', turnSeq: 2, createdAt: '2099-07-01T00:00:01.000Z', content: '第 2 回合的交付原文。' },
+        ],
+      },
+    });
+    const envelopes = {
+      [${JSON.stringify(V_IN)}]: envelope(${JSON.stringify(V_IN)}, ${JSON.stringify(V_IN_TITLE)}),
+      [${JSON.stringify(V_ASK)}]: envelope(${JSON.stringify(V_ASK)}, ${JSON.stringify(V_ASK_TITLE)}),
+      [${JSON.stringify(V_LIVE)}]: envelope(${JSON.stringify(V_LIVE)}, ${JSON.stringify(V_LIVE_TITLE)}),
+    };
+    // 三条消息：① 收件箱触发的一轮（老行为）；② 用户自己问的一句；③ 那一句的管家回复 ——
+    // trigger 是 'user'，但 actions 里【真的开出了】一条线程。修前这一行连色条都没有。
+    const history = { session: { messages: [
+      { role: 'assistant', createdAt: '2099-07-02T00:00:00.000Z', content: '',
+        steward: { trigger: { kind: 'inbox', sessionId: ${JSON.stringify(V_IN)}, title: ${JSON.stringify(V_IN_TITLE)}, turnSeq: 2 },
+          say: '它交了。', why: '', acts: [], actions: [] } },
+      { role: 'user', createdAt: '2099-07-02T00:00:01.000Z', content: '也帮我看看博通' },
+      { role: 'assistant', createdAt: '2099-07-02T00:00:02.000Z', content: '',
+        steward: { trigger: 'user', say: '开了一条线程去查。', why: '', acts: [],
+          actions: [{ tool: 'steward_thread_new', label: '新开线程', result: { ok: true, sessionId: ${JSON.stringify(V_ASK)} } }] } },
+    ] } };
+    window.__ruyiV1Calls = [];
+    window.__ruyiV1Opens = [];
+    document.addEventListener(mod.STEWARD_OPEN_THREAD_EVENT, evt => {
+      window.__ruyiV1Opens.push(String((evt.detail && evt.detail.sessionId) || ''));
+    });
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        const route = String(url).split('?')[0];
+        window.__ruyiV1Calls.push(route);
+        if (route === '/api/steward/visit') return { ok: true, newVisit: false, pending: [], visit: { startedAt: '2000-01-01T00:00:00.000Z' } };
+        if (route === '/api/sessions/steward') return history;
+        if (route === '/api/steward/act') return { result: { ok: true } };
+        return envelopes[route.replace('/api/sessions/', '')] || null;
+      },
+      state: { config: { stewardEnabledV1: true } },
+      t: (key, params) => i18n.t(key, params || {}),
+      isStewardMode: () => true,
+      renderMarkdownInto: prims.renderMarkdownInto,
+      highlightIn: prims.highlightIn,
+    });
+    window.__ruyiV1Conv = conv;
+    const visit = await conv.enterVisit();
+    return { ok: Boolean(visit), calls: window.__ruyiV1Calls.slice() };
+  })()`);
+  // 卡头的事实是异步填的，chip 的名字是从卡头读的 —— 等到两枚线程 chip 都换成显示名为止。
+  const vBefore = await waitForEval(cdp, `(() => {
+    const snapshot = ${V_SHOT};
+    const named = snapshot.chips.filter(chip => chip.name === ${JSON.stringify(V_IN_TITLE)} || chip.name === ${JSON.stringify(V_ASK_TITLE)});
+    return named.length === 2 ? snapshot : null;
+  })()`, 400) || await cdp.evaluate(V_SHOT);
+  const shotDirV = path.join(os.tmpdir(), 'ruyi-117v-V1-shots');
+  const shootV = async name => {
+    try {
+      fs.mkdirSync(shotDirV, { recursive: true });
+      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(shotDirV, name), Buffer.from(png.data, 'base64'));
+      console.log(`  截图：${path.join(shotDirV, name)}`);
+    } catch { /* 证据拍不下来不改变判定 */ }
+  };
+  await shootV('V1-1-history-chips.png');
+  const vAskRow = (vBefore.cards || []).filter(card => card.thread === V_ASK)[0] || null;
+  const vInRow = (vBefore.cards || []).filter(card => card.thread === V_IN)[0] || null;
+  ok(Boolean(vRun) && vRun.ok === true && Boolean(vAskRow) && vAskRow.heads === 1
+    && vAskRow.headName === V_ASK_TITLE && vAskRow.sources === 1,
+    `AA1 ③ 回放：用户问的那一轮（trigger:'user'）只要真开出了线程，就照样长线程卡（实测 卡头 ${vAskRow && vAskRow.heads} 枚、名字「${vAskRow && vAskRow.headName}」）`);
+  const vChipsBefore = (vBefore.chips || []).map(chip => chip.channel);
+  ok(vChipsBefore.filter(id => id === V_ASK).length === 1 && vChipsBefore.filter(id => id === V_IN).length === 1,
+    `AA2 ③ 频道条上真的多了那一枚 chip（实测 ${JSON.stringify((vBefore.chips || []).map(chip => chip.name))}）`);
+  ok(Boolean(vInRow) && vInRow.deliverables === 1 && Boolean(vAskRow) && vAskRow.deliverables === 0,
+    `AA3 ③ 的边界：交付卡【没有】跟着放出来 —— 收件箱那一行有（${vInRow && vInRow.deliverables}），刚开的线程那一行没有（${vAskRow && vAskRow.deliverables}），它这一回合还没有任何交付`);
+  ok(Array.isArray(vRun.calls) && vRun.calls.length === 4
+    && vRun.calls.filter(url => url === '/api/sessions/' + V_ASK).length === 1
+    && vRun.calls.filter(url => url === '/api/sessions/' + V_IN).length === 1,
+    `AA4 ③ 的代价是【一条线程一发信封】（卡头要线程名与药丸），交付卡与卡头 await 同一个被缓存的 promise 所以零新增（实测 ${JSON.stringify(vRun.calls)}）`);
+  ok(Boolean(vInRow) && vInRow.fulls.length === 1 && vInRow.fulls[0] === zh['stewardShell.chat.deliverableFull']
+    && vInRow.fulls[0] !== zh['stewardShell.drawer.fullText'],
+    `AA5 ⑨ 交付卡那枚「看全文」用的是自己的词并写明去处（实测「${vInRow && vInRow.fulls[0]}」，抽屉那枚仍是「${zh['stewardShell.drawer.fullText']}」）`);
+
+  // ③ 的另一半：**当场**。stub 掉 /api/steward/message 那一条 NDJSON 流（本模块唯一那处裸 fetch），
+  // 走 sendToSteward 的真路径回一个带 actions 的 steward_reply。
+  const vLiveRun = await cdp.evaluate(`(async () => {
+    const conv = window.__ruyiV1Conv;
+    const reply = {
+      type: 'steward_reply',
+      say: '开好了，我这就让它去查。',
+      why: '',
+      acts: [
+        { kind: 'open_thread', sessionId: ${JSON.stringify(V_IN)}, sessionTitle: ${JSON.stringify(V_IN_TITLE)}, primary: true, label: ${JSON.stringify(V_ACT_LABEL)} },
+        { kind: 'dismiss', label: '知道了' },
+      ],
+      actions: [{ tool: 'steward_thread_new', label: '新开线程', result: { ok: true, sessionId: ${JSON.stringify(V_LIVE)} } }],
+    };
+    const realFetch = window.fetch;
+    window.fetch = async (url, init) => {
+      if (String(url).indexOf('/api/steward/message') >= 0) return new Response(JSON.stringify(reply) + '\\n', { status: 200 });
+      return realFetch(url, init);
+    };
+    try { await conv.sendToSteward('帮我看看中芯国际'); } finally { window.fetch = realFetch; }
+    return true;
+  })()`);
+  const vAfter = await waitForEval(cdp, `(() => {
+    const snapshot = ${V_SHOT};
+    const named = snapshot.chips.filter(chip => chip.name === ${JSON.stringify(V_LIVE_TITLE)});
+    return named.length === 1 ? snapshot : null;
+  })()`, 400) || await cdp.evaluate(V_SHOT);
+  await shootV('V1-2-live-chip.png');
+  const vChipsAfter = (vAfter.chips || []).map(chip => chip.channel);
+  const vLiveRow = (vAfter.cards || []).filter(card => card.thread === V_LIVE)[0] || null;
+  ok(Boolean(vLiveRun) && vChipsAfter.length === vChipsBefore.length + 1
+    && vChipsAfter.filter(id => id === V_LIVE).length === 1
+    && Boolean(vLiveRow) && vLiveRow.heads === 1 && vLiveRow.headName === V_LIVE_TITLE,
+    `AA6 ③「当场」：用户问 → 管家开线程 → 频道条【就地】多一枚 chip（实测 ${vChipsBefore.length} 枚 → ${vChipsAfter.length} 枚：${JSON.stringify((vAfter.chips || []).map(chip => chip.name))}）`);
+
+  // ② 那枚琥珀色「看…全文」：点两次，两次都真去开线程，按钮行一次都没被消费掉。
+  const vClick = `(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')];
+    const btn = rows.flatMap(row => [...row.querySelectorAll('.steward-act')])
+      .filter(node => node.textContent === ${JSON.stringify(V_ACT_LABEL)})[0];
+    if (!btn) return false;
+    btn.click();
+    return true;
+  })()`;
+  await cdp.evaluate(vClick);
+  const vOnce = await waitForEval(cdp, `((window.__ruyiV1Opens || []).length === 1) ? ${V_SHOT} : null`, 300)
+    || await cdp.evaluate(V_SHOT);
+  const vOnceRow = (vOnce.cards || []).filter(card => card.acts.includes(V_ACT_LABEL))[0] || null;
+  ok(Boolean(vOnceRow) && vOnceRow.receipts === 0 && vOnceRow.acts.length === 2
+    && vOnceRow.disabled.every(flag => flag === false),
+    `AA7 ② 点「${V_ACT_LABEL}」之后：没有灰字回执（${vOnceRow && vOnceRow.receipts}）、两枚按钮都还在（${JSON.stringify(vOnceRow && vOnceRow.acts)}）、且都还按得动（disabled=${JSON.stringify(vOnceRow && vOnceRow.disabled)}）`);
+  await cdp.evaluate(vClick);
+  const vTwice = await waitForEval(cdp, `((window.__ruyiV1Opens || []).length === 2) ? (window.__ruyiV1Opens || []).slice() : null`, 300)
+    || await cdp.evaluate('(window.__ruyiV1Opens || []).slice()');
+  ok(Array.isArray(vTwice) && vTwice.length === 2 && vTwice.every(id => id === V_IN),
+    `AA8 ② 同一枚按钮点第二次照样真去开线程（从 2.0 视窗回来还要再点一次的就是它；实测派出的 steward:open-thread ${JSON.stringify(vTwice)}）`);
+  await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')];
+    const btn = rows.flatMap(row => [...row.querySelectorAll('.steward-act')])
+      .filter(node => node.textContent === '知道了').pop();
+    if (btn) btn.click();
+    return true;
+  })()`);
+  const vDismissed = await waitForEval(cdp, `(() => {
+    const snapshot = ${V_SHOT};
+    const row = snapshot.cards.filter(card => card.thread === ${JSON.stringify(V_LIVE)})[0];
+    return (row && row.receipts === 1) ? snapshot : null;
+  })()`, 300) || await cdp.evaluate(V_SHOT);
+  const vDismissRow = (vDismissed.cards || []).filter(card => card.thread === V_LIVE)[0] || null;
+  ok(Boolean(vDismissRow) && vDismissRow.receipts === 1 && vDismissRow.acts.length === 0,
+    `AA9 ② 的对照面没坏：「知道了」这类【表态】点完仍然整行换成灰字回执、按钮一个不剩（实测 回执 ${vDismissRow && vDismissRow.receipts} / 剩余按钮 ${vDismissRow && vDismissRow.acts.length}）`);
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");

@@ -539,10 +539,17 @@ ok(bodyTextWrites === 1 && /body\.textContent = t\('stewardShell\.chat\.delivera
   + '有渲染器时正文绝不走纯文本，缺席时由 paintSay 内部统一回落');
 
 // ③ 懒：只有收件箱触发的那一行才发信封请求；且零新增路由、零新 fetch。
+// 117v-V1 ③ 重钉：判据从「调用点长什么样」改成【那一支里的边界】—— 回放这一段（renderHistorySince）
+// 现在对 inbox 与 user 两种回合都挂线程卡，只有交付卡还锁在 inbox 那一支。锚在函数体里而不是整文件：
+// attachDeliverable 的定义在别处，整文件匹配连「调用点被整个删掉」都发现不了。
+const historyPath = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
+  conversationCode.indexOf('async function appendSince'));
 const attachDeliverableSites = (conversationCode.match(/attachDeliverable\(/g) || []).length;
-ok(attachDeliverableSites === 2 && /if \(opening\) attachDeliverable\(row, \{ \.\.\.opening, turnSeq: trigger\.turnSeq \|\| inboxTurnSeq \}\);/.test(conversationCode),
-  `P7 交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 调用 1 处，实测 ${attachDeliverableSites}）——`
-  + '用户自己问的那条一发请求都不多发');
+ok(historyPath.length > 0 && attachDeliverableSites === 2
+  && (historyPath.match(/attachDeliverable\(/g) || []).length === 1
+  && /if \(trigger\.kind === 'inbox'\) attachDeliverable\(row, \{ \.\.\.opening, turnSeq: trigger\.turnSeq \|\| inboxTurnSeq \}\);/.test(historyPath),
+  `P7 交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放里调用 1 处，实测全文件 ${attachDeliverableSites}）——`
+  + '用户自己问的那条一发请求都不多发；117v-V1 ③ 放出线程卡时它【没有】跟着放出来（刚开的线程还没有交付）');
 ok(/api\('\/api\/sessions\/' \+ encodeURIComponent\(sessionId\)\)/.test(conversationCode),
   'P8 取原文走【既有】的 GET /api/sessions/<id>（13d 的信封本来就带 session.messages，零新增路由）');
 const fetchSites = (conversationCode.match(/\bfetch\(/g) || []).length;
@@ -569,13 +576,31 @@ ok(/openClassicWindow = null,/.test(conversation)
   && !/from '\.\/steward-drawer\.js'/.test(conversation) && !/from '\.\/steward-classic-window\.js'/.test(conversation),
   'P11 「看全文」＝注入的 openClassicWindow（与抽屉同一个入口），缺席时回落既有的 steward:open-thread；'
   + '本模块不 import 抽屉/视窗模块（不长出第二条切壳通道）');
-ok(/t\('stewardShell\.drawer\.fullText'\)/.test(conversationCode),
-  'P11b 「看全文」与抽屉那一枚共用同一个 i18n 键（同一个词、同一个动作，不另造第二条文案）');
+// 117v-V1 ⑨ 重钉（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程」）：
+// 原判据钉的是「共用抽屉那一个键」。同一屏上还有第二枚「看…全文」（管家写的 open_thread act，
+// 点下去打开线程），两个去处共用一个泛泛的词，用户只能靠猜 —— 所以交付卡这一枚改用自己的键，
+// 词里必须写清去处（中英都得出现「2.0」），且必须与抽屉那一枚的词【不同】。
+// 锚在 deliverableActs 的函数体里：整文件匹配的话，把这一处按钮整个删掉也照样绿。
+const deliverableActsRule = conversationCode.slice(conversationCode.indexOf('function deliverableActs'),
+  conversationCode.indexOf('function attachDeliverable'));
+const FULL_KEY = 'stewardShell.chat.deliverableFull';
+ok(deliverableActsRule.length > 0
+  && new RegExp(`t\\('${FULL_KEY.replace(/\./g, '\\.')}'\\)`).test(deliverableActsRule)
+  && !/stewardShell\.drawer\.fullText/.test(conversationCode)
+  && typeof zh[FULL_KEY] === 'string' && typeof en[FULL_KEY] === 'string'
+  && zh[FULL_KEY] !== zh['stewardShell.drawer.fullText'] && en[FULL_KEY] !== en['stewardShell.drawer.fullText']
+  && zh[FULL_KEY].includes('2.0') && en[FULL_KEY].includes('2.0'),
+  `P11b 交付卡那枚「看全文」有【自己】的键且词里写明去处（zh「${zh[FULL_KEY]}」／en「${en[FULL_KEY]}」），`
+  + '与抽屉那枚（打开线程的琥珀色 act 旁边那个泛泛的词）区分得开；本模块不再引 stewardShell.drawer.fullText');
+ok(zh['stewardShell.chat.deliverableMissing'].includes(zh[FULL_KEY])
+  && en['stewardShell.chat.deliverableMissing'].includes(en[FULL_KEY]),
+  'P11c 「这一次没取到原文」那句兜底引的就是这一枚按钮【现在】的词（改了词就得跟着改，中英都是）');
 
 // ⑤ i18n 与样式层。
 for (const key of ['stewardShell.chat.deliverableHead', 'stewardShell.chat.deliverableHeadPlain',
   'stewardShell.chat.deliverableLoading', 'stewardShell.chat.deliverableMissing',
-  'stewardShell.chat.deliverableExpand', 'stewardShell.chat.deliverableCollapse']) {
+  'stewardShell.chat.deliverableExpand', 'stewardShell.chat.deliverableCollapse',
+  'stewardShell.chat.deliverableFull']) {
   ok(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0,
     `P12 locale 键 ${key} 中英齐备`);
 }
@@ -927,6 +952,44 @@ ok(count(conversation, /stewardShell\.chat\.undoCountdown/g) === 1
   'Y11 undoCountdown 没成死键：秒数改写进环那枚 aria-hidden 元素的 title（鼠标停上去仍看得到「还剩几秒」，而整棵子树不在无障碍树里，读屏照旧不会每秒念一遍）');
 ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversationCode),
   'Y12 companion：本刀既没多起一个计时器（仍然全文件一处 setInterval），也没开 innerHTML 的口子');
+
+// ─── Z 117v-V1（27 号文 §11.16.2 V1 行；用户第十轮走查②③）───────────────────────────────
+// 每一条都【锚在它要守的那个函数体里】：整文件匹配在本波已经栽过一次 —— 同名调用在另一个渲染器里
+// 也有一处，把目标那处整个删掉锁照样绿。
+{
+  const navRule = conversationCode.slice(conversationCode.indexOf('function isNavigationAct'),
+    conversationCode.indexOf('async function runAct('));
+  const runActRule = conversationCode.slice(conversationCode.indexOf('async function runAct('),
+    conversationCode.indexOf('function engineProblemInfo'));
+  const settleInRunAct = (runActRule.match(/settleRow\(/g) || []).length;
+  ok(navRule.length > 0 && runActRule.length > 0
+    && /act\.kind === 'open_thread'/.test(navRule) && !/label/.test(navRule)
+    && /if \(isNavigationAct\(act\)\) \{/.test(runActRule)
+    && settleInRunAct === 1
+    && /\} else \{\s*settleRow\(actsRow, receiptFor\(act\)\);\s*\}/.test(runActRule),
+    `Z1 ② 导航 ≠ 表态：「点完要不要落回执」按 act.kind 判（不看按钮上的字），runAct 里唯一那处 settleRow`
+    + `（实测 ${settleInRunAct} 处）落在【非导航】那一支 —— open_thread 点完按钮行原样留着，从 2.0 回来还能再点`);
+  const navBranch = runActRule.slice(runActRule.indexOf('if (isNavigationAct(act))'));
+  ok(/if \(btn\) btn\.disabled = false;/.test(navBranch) && /openThread\(act\.sessionId\)/.test(navBranch),
+    'Z2 ② companion：导航那一支既把按钮恢复可点（runAct 入口统一 disable 过一次，不恢复的话按钮还在却按不动，与「失效」没区别），也照旧真去开线程');
+  const historyRule = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
+    conversationCode.indexOf('async function appendSince'));
+  const finishRule = conversationCode.slice(conversationCode.indexOf('function finishReply('),
+    conversationCode.indexOf('function actionWhyLines'));
+  // Z3 的头一版只钉「attachThreadCard 没被 inbox 守着」，反向验证时发现它是【假绿】：把兜底那一档
+  // 改回 `: null`（＝修前行为）之后本条照样通过 —— 卡的挂法没变，变的是「非 inbox 那一支拿不到来源」。
+  // 所以必须连【兜底真的给到了非 inbox 那一支】一起钉。行为那一面由真机 AA1／AA2 看着。
+  ok(historyRule.length > 0
+    && (historyRule.match(/attachThreadCard\(/g) || []).length === 1
+    && !/inbox'\)[^\n]*attachThreadCard\(/.test(historyRule)
+    && /executedThreadSessionId\(stamp\.actions\)/.test(historyRule)
+    && /\?[\s\S]{0,240}:\s*executedSource;/.test(historyRule),
+    'Z3 ③ 回放这一支：线程卡（＝频道条 chip 的唯一来源）挂不挂，只看「这一回合有没有真开出一条线程」——「本回合真开的那条」这一档兜底对非 inbox 的回合同样给到，不再被 inbox 独占');
+  ok(finishRule.length > 0
+    && /const opened = executedThreadSessionId\(reply\.actions\);/.test(finishRule)
+    && /attachThreadCard\(row, \{ sessionId: opened, title: '' \}\);/.test(finishRule),
+    'Z4 ③「当场」：用户问、管家开线程的【那一轮】就挂卡 —— 回放那条路要等下一次进壳或下一条收件箱增量才走得到，只改回放等于「刷新一下才长出 chip」');
+}
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

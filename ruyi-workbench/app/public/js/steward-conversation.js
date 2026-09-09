@@ -684,6 +684,16 @@ export function createStewardConversation({
     input.focus();
   }
 
+  // 117v-V1 ②（用户第十轮走查②「在会话中点开这些线程后，那个按钮就失效了，但是从 2.0 返回又会
+  // 出现」）：**导航不是表态**。「知道了」这类表态是一次性的 —— 点完落成灰字回执，再点一次没有
+  // 意义；而「打开线程」没有任何副作用，从 2.0 视窗回来还要再点同一枚按钮，它本来就该反复点。
+  // 判据钉在 kind 上而不是按钮文字上：后端 13h stewardRunAct 只认三种 kind，其中 dismiss 记一行
+  // 日志、tool 真去执行工具，**只有 open_thread 是「只回 sessionId，切换由 UI 完成」的纯导航**
+  // （那一段的头注原话）。所以这里只有它一条，不是一张会长的表。
+  function isNavigationAct(act) {
+    return Boolean(act) && act.kind === 'open_thread';
+  }
+
   async function runAct(act, actsRow, btn, onSettled) {
     if (!act || typeof act !== 'object') return;
     if (act.kind === 'dismiss' && isChangeAct(act)) { focusComposerForChange(); return; }
@@ -700,8 +710,14 @@ export function createStewardConversation({
         if (btn) btn.disabled = false;   // 按钮行保留可重试
         return;
       }
-      settleRow(actsRow, receiptFor(act));
-      if (act.kind === 'open_thread' && act.sessionId) openThread(act.sessionId);
+      // ② 纯导航：**不落回执、不消费按钮行**，把这一枚恢复成可点的（下次还要再点）。
+      // 其余 kind 照旧一次性落定成灰字回执。
+      if (isNavigationAct(act)) {
+        if (btn) btn.disabled = false;
+        if (act.sessionId) openThread(act.sessionId);
+      } else {
+        settleRow(actsRow, receiptFor(act));
+      }
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
       showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
@@ -783,6 +799,9 @@ export function createStewardConversation({
     // 117j UX-F5：回执要说【线程的名字】，不是按钮上那句话。act.label 是「打开「X」」，直接套进
     // 「打开了…」就成了「打开了「打开「X」」」。构造 act 的两处（renderDigest / renderPending）现在
     // 顺手带上 sessionTitle，这里优先读它；老载荷没有就仍然回落到 label（不比修前更差）。
+    // 117v-V1 ② 起【runAct 不再为 open_thread 要回执】（导航可反复点，见 isNavigationAct），
+    // 所以这一支目前没有调用方。本函数是 act→回执文案的全表，缺一支比留一支更容易误导下一个人：
+    // 哪天再有别的面要为「打开了哪条线程」写一句话，口径就在这里，不必重新想一遍。
     if (act.kind === 'open_thread') return t('stewardShell.chat.opened', { title: stewardShortTitle(act.sessionTitle || act.label || act.sessionId) });
     if (act.kind === 'tool' && act.tool === 'steward_thread_continue') {
       return t('stewardShell.chat.handedOff', { title: stewardShortTitle((act.args && act.args.sessionId) || act.sessionId) });
@@ -1137,8 +1156,14 @@ export function createStewardConversation({
   function deliverableActs(body, source, collapsible) {
     const acts = el('div', 'steward-deliverable-acts');
     if (collapsible) acts.appendChild(collapseToggle(body));   // F4：与管家正文共用那一处折叠实现
-    // 「看全文」与抽屉那一枚同一个词、同一个动作，所以【共用】同一个 i18n 键，不另造第二条文案。
-    acts.appendChild(button('steward-deliverable-full', t('stewardShell.drawer.fullText'),
+    // 117v-V1 ⑨（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程，
+    // 这个 UX 体验就很迷」）：这一枚与抽屉那一枚确实还是同一个动作（两边都调 openClassicWindow），
+    // 但**同一屏上还有第二枚「看…全文」**——管家写的 open_thread act（琥珀色那一枚）点下去是
+    // 打开线程，不是跳 2.0。两个去处共用一个泛泛的「看全文」，用户就只能靠猜。
+    // 所以这一枚**自己一个键**，文案里把去处写出来（「到 2.0 视窗看全文」）；抽屉那一枚不动
+    // （它旁边没有第二个「看全文」，那里的短词是对的）。原来那句「同一个词、同一个动作，所以
+    // 共用同一个键」是本刀之前的注释：动作那半句今天仍然成立，**「共用一个词」这半句已经不成立**。
+    acts.appendChild(button('steward-deliverable-full', t('stewardShell.chat.deliverableFull'),
       () => fullTextOf(source.sessionId)));
     return acts;
   }
@@ -1375,7 +1400,15 @@ export function createStewardConversation({
     // W2-1：回合结束即展示管家刚开的那条线程（宽屏切「现在这一件」，窄屏开抽屉——两者都接
     // steward:focus-thread）。管家的话后面仍然保留「打开」按钮，只是不必再点了。
     const opened = executedThreadSessionId(reply.actions);
-    if (opened) focusThread(opened);
+    if (opened) {
+      // 117v-V1 ③ 的另一半：「**当场**上频道条」说的就是这一轮 —— 用户问、管家开线程，人还看着
+      // 屏幕。回放那条路（renderHistorySince）要等下一次进壳或下一条收件箱增量才走得到，只改那边
+      // 等于「刷新一下才长出 chip」。同一条判据（executedThreadSessionId）、同一处挂法
+      // （attachThreadCard 里 markThread → 卡头 → syncChannels），不新造第二套。
+      // 标题留空是诚实的：这一刻前端手上只有 id，线程的显示名由卡头自己去信封里取（fillThreadHead）。
+      attachThreadCard(row, { sessionId: opened, title: '' });
+      focusThread(opened);
+    }
   }
 
   // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）。
@@ -1657,16 +1690,29 @@ export function createStewardConversation({
       // 117s-H4：新回合的 stamp.trigger 是对象 { kind, sessionId?, title?, turnSeq? }，老回合是
       // 'user'/'inbox' 字符串；stewardTriggerInfo 把两种都归一（回执优先，抠行法留作老回合的回落）。
       const trigger = stewardTriggerInfo(stamp);
-      if (trigger.kind === 'inbox') {
-        const opening = (trigger.sessionId ? { sessionId: trigger.sessionId, title: trigger.title } : null)
-          || inboxSource || (executedThreadSessionId(stamp.actions)
-          ? { sessionId: executedThreadSessionId(stamp.actions), title: '' } : null);
+      // 117v-V1 ③（用户第十轮走查③「为啥最上面那不像设计图那样，一个一个小胶囊代表一个个线程」）：
+      // executedThreadSessionId 认的是【这一回合真执行成功的开线程工具】，它对 inbox 与 user 两种
+      // 回合一样成立 —— 117s-C 却把它连同线程卡一起关在 inbox 这一支里。于是「用户问一句、管家
+      // 当场开了一条线程」那一轮长不出线程卡，而线程卡是频道条 chip 的【唯一】来源（channelList
+      // 只认 .steward-msg-ruyi.is-thread[data-thread] 的行），一枚 chip 都长不出来。这里把它放出来：
+      // 来源仍按「回执 > 收件箱事件行 > 本回合真开的那条」的老次序取，只是最后那一档不再限于 inbox。
+      const executed = stamp ? executedThreadSessionId(stamp.actions) : '';
+      const executedSource = executed ? { sessionId: executed, title: '' } : null;
+      const opening = trigger.kind === 'inbox'
+        ? ((trigger.sessionId ? { sessionId: trigger.sessionId, title: trigger.title } : null)
+          || inboxSource || executedSource)
+        : executedSource;
+      if (opening) {
         attachSource(row, opening);
         // F1：线程卡。同一条线程连着的几条合成一张（色条＋卡头），管家本人的话不进这一支。
         // 排在交付卡【之前】：卡头要插在来源小头前面，而交付卡是插在话后面的，两者互不挤位。
-        if (opening) attachThreadCard(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
-        // 117s-H2：交付卡。只有收件箱触发的这一行才取原文（用户自己问的那条一发请求都不多发）。
-        if (opening) attachDeliverable(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
+        attachThreadCard(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
+        // 117s-H2 的交付卡【不】跟着放出来 —— 边界就钉在这一行：交付卡说的是「它交付的原文」，
+        // 而管家刚开的那条线程这一回合还没跑完、根本没有交付，放出来只会给每一条用户回合垫一句
+        // 「这一次没取到原文」。（顺带纠一处口径：它并不多发请求 —— 卡头与交付卡 await 的是
+        // loadDeliverable 同一个被缓存的 promise，键是 sessionId|turnSeq，V9 钉着这件事。所以
+        // 拦住它的理由是【没有可显示的东西】，不是省一发请求。）
+        if (trigger.kind === 'inbox') attachDeliverable(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
       }
       inboxSource = null;
       inboxTurnSeq = 0;
