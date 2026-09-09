@@ -368,7 +368,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 中间态留档：只含 G1 那一刀时 = d566049a…（若将来要二分定位是哪一刀改动了载荷，从这个值查起）。
 // 反向验证：往 steward-board.css 追加一条无关规则 → F3 与 D51 当场双双转红；还原后该层 sha256 与
 // 追加前逐字节相同、两个消费者都回绿。
-const LEGACY_STYLES_SHA256 = '2431350bf3945eb5f74f3b2557d217334a112f9913b4947e3e64cb6ca045ddcf';
+// 117u-G3／G3b 续钉（前值 2431350b…）：同一波第三、四刀又动了 steward-drawer.css 一层 ——
+//   · G3（`c4d3169`）加 `.steward-drawer-chips[hidden] { display: none; }`（display:flex 是作者样式，
+//     会盖掉 UA 的 [hidden] 规则，本层已有三处踩过同一个坑）；
+//   · G3b（`9462e5d`，主会话裁决）加 `.steward-drawer-chips.is-default .steward-chip-value{display:none}`
+//     —— 详情栏只收 chip 的【值】那半，键与按钮留着（那一行是「给这条线程单独定一档」的入口，
+//     不是元信息；看板那一面仍然整条不印）。
+// 算法自证照旧：按【上一次钉的那个 commit】(`c3a8fc3`) 全量重算 = 2431350b…，与被替换的旧值逐字
+// 相同；再按 HEAD 算得下面这个值。反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51
+// 双双转红；还原后该层与 HEAD 逐字节相同、两个消费者回绿。
+const LEGACY_STYLES_SHA256 = '6c0c0b0479494b7eb76145cc6fe9ae79903109a34b023144413f124e4c5f78f4';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
