@@ -675,7 +675,14 @@ async function buildMissionAggregateRows(options = {}) {
   for (const group of byMissionId.values()) {
     const container = group.container;
     const acceptanceItems = container ? container.acceptance : [];
-    group.threads.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    // 117s-A D1(§11.13 ③):组内线程改成「状态秩优先、其次 updatedAt 降序」。秩由 06i 的
+    // stewardThreadStateRank 单点给(needs_you > running > dispatching > done/stopped),
+    // 状态本身仍是上面那三条取值路径算出来的那一个 —— 这里【不】重新判定任何状态。
+    // 末位补 sessionId 是为了确定性:两条线程秩与 updatedAt 都相同时,行序不该随 listSessions
+    // 的目录枚举顺序漂移(夹具与 ETag 都指望同样的输入给同样的行序)。
+    group.threads.sort((a, b) => stewardThreadStateRank(a.state) - stewardThreadStateRank(b.state)
+      || String(b.updatedAt).localeCompare(String(a.updatedAt))
+      || String(a.sessionId).localeCompare(String(b.sessionId)));
     const row = {
       missionId: group.missionId,
       // 未归类事项没有事项文件,标题只能从它唯一那条线程的会话标题派生(§3.1「不改写历史」)。
@@ -702,14 +709,29 @@ async function buildMissionAggregateRows(options = {}) {
     rows.push(row);
     for (const thread of group.threads) rowBySessionId.set(thread.sessionId, row);
   }
-  rows.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  // 117s-A D1(§11.13 ③):组同规则 —— 状态秩优先、其次 updatedAt 降序。组的秩取【它自己的聚合态】
+  // 的秩,而聚合态只经 06i 的 aggregateMissionState(上面已经算过一次,直接读 row.aggregateState);
+  // 「组的秩 = 组内最高秩」这句话由 aggregateMissionState 的规则本身保证,不在这里另算一遍最大值
+  // (any needs_you -> needs_you;非全 done 时 any running -> running;再 any dispatching;否则
+  //  done/stopped 同落末档 —— 逐档与 stewardThreadStateRank 的秩一一对应)。
+  rows.sort((a, b) => stewardThreadStateRank(a.aggregateState) - stewardThreadStateRank(b.aggregateState)
+    || String(b.updatedAt).localeCompare(String(a.updatedAt))
+    || String(a.missionId).localeCompare(String(b.missionId)));
   // 事项文件不在 75c 物化索引的 sourceStamp 覆盖面内(它们不是会话文件),所以 ETag 必须自己带上
   // 它们的指纹 —— 否则 PATCH 完验收项、再带 If-None-Match 来读会拿到 304 + 陈旧的 acceptance。
   // 117h 第 0 步:行上新增的 missionTitle / goal / acceptanceItems 都由容器字段直出,所以指纹要把
   // 它们一并纳入 —— 光靠 updatedAt 依赖「每次改都会动 updatedAt」这条隐含约定,写进指纹才是自证的。
-  const stamp = pretenderHash(containers.map(row => [
-    row.missionId, row.updatedAt, row.archivedAt || '', row.title || '', row.goal || '',
-  ]));
+  // 117s-A D1:行序自此由【状态秩】决定,而状态可以在 updatedAt 与容器字段都不动的情况下变
+  //   (最典型的一条:活回合结束 -> activeTurn 由真变假 -> running 落 done,会话头那一刻并没有再写一次)。
+  // 指纹不带秩的话,带 If-None-Match 来的下一拍会拿到 304 + 一份【旧顺序】的行 —— 与上面那条
+  // acceptance 的教训同一个模具,所以把秩写进指纹,而不是依赖「状态变了 updatedAt 一定也变」。
+  const stamp = pretenderHash([
+    containers.map(row => [row.missionId, row.updatedAt, row.archivedAt || '', row.title || '', row.goal || '']),
+    rows.map(row => [
+      row.missionId, stewardThreadStateRank(row.aggregateState),
+      row.threads.map(thread => [thread.sessionId, stewardThreadStateRank(thread.state)]),
+    ]),
+  ]);
   return { rows, rowBySessionId, stamp };
 }
 
@@ -769,7 +791,36 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const aggregate = await buildMissionAggregateRows();
     const missions = index.sessions.filter(row => row.card)
       .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
-    missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
+    // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
+    // 那两处排序,但那一份是给 steward_missions 工具面消费的;**看板真正吃的是这一行**,所以三处
+    // 一起改,否则「在跑的排最前」在工具面成立、在用户眼前的看板上不成立。
+    // 排序键四段,一段都不能省:
+    //   ① 组的秩(aggregateState;overlayMissionAggregateFields 两个分支都已挂上它);
+    //   ② 组的 updatedAt 降序 —— 取【同组各行 updatedAt 的最大值】,与修前「组序由它最新的那条线程
+    //      决定」逐字同义(修前没有显式组序,组序就是第一条落在组里的行的位置);
+    //   ③ 组内线程的秩(从叠加过 live 层的卡片现算,与看板自己 MissionState.fromCard(row) 同源);
+    //   ④ 线程 updatedAt 降序,末位 sessionId 兜确定性。
+    // 一二段在前保证【组仍然是连续的】—— 少了它,一条 needs_you 的线程会把它所在的组劈成两半。
+    const groupRank = new Map();     // missionId -> 组秩(取组内最小秩,即最高优先级)
+    const groupUpdated = new Map();  // missionId -> 组内最大 updatedAt
+    const threadRank = new Map();    // sessionId -> 线程秩
+    for (const row of missions) {
+      const mid = String(row.missionId || row.sessionId || '');
+      const rank = stewardThreadStateRank(stewardThreadStateFromCard(row).state);
+      threadRank.set(String(row.sessionId || ''), rank);
+      const own = stewardThreadStateRank(row.aggregateState);
+      groupRank.set(mid, Math.min(groupRank.has(mid) ? groupRank.get(mid) : own, own));
+      const at = String(row.updatedAt || '');
+      if (!groupUpdated.has(mid) || at > groupUpdated.get(mid)) groupUpdated.set(mid, at);
+    }
+    const gid = row => String(row.missionId || row.sessionId || '');
+    missions.sort((a, b) => (groupRank.get(gid(a)) - groupRank.get(gid(b)))
+      || String(groupUpdated.get(gid(b))).localeCompare(String(groupUpdated.get(gid(a))))
+      || String(gid(a)).localeCompare(String(gid(b)))
+      || (threadRank.get(String(a.sessionId)) - threadRank.get(String(b.sessionId)))
+      || String(b.updatedAt).localeCompare(String(a.updatedAt))
+      || String(a.sessionId).localeCompare(String(b.sessionId)));
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);

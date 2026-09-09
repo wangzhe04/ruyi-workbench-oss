@@ -976,6 +976,9 @@ async function stewardImplThreadNew(args, ctx, config) {
   });
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
+  // 117s-A D2(§11.13 ⑤a):管家给的 title【不是】人起的名字(模型只是把用户那句话抄了一遍),
+  // 覆写掉 createSession 刚写下的 'user',否则 116-5 的自动摘要永远跳过 —— 白名单与理由见 02:1066。
+  if (args.title) session.titleSource = 'steward';
   if (requestedMissionId) session.missionId = requestedMissionId; // 归入既有事项;否则 createSession 已置 missionId = 自身 id
   // 委托书落盘:原话与管家补充【分开存】,供 117 显示与用户「改一下」;不把拼好的整段存成一坨。
   session.brief = {

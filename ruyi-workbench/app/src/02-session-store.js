@@ -789,6 +789,9 @@ function sessionFirstUserExcerpt(o) {
 // 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
 // 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
 // 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
+// 117s-A D2(§11.13 ⑤a):titleSource 多了一个字面量 'steward'(管家开线程时抄进来的那句话)。
+// 本函数【一行没改】—— 它本来就只在 'user' 那一档提前返回,'steward' 自然落在第二档之后,
+// 于是优先级如实是:人起的 > 生成的名字 > 管家给的那句(它就是 raw 本身)> 原话。
 function sessionDisplayTitle(o) {
   const raw = String((o && o.title) || '');
   if (!o || o.titleSource === 'user') return raw;
@@ -832,7 +835,10 @@ function sessionMeta(o, config) {
     // (brief) —— 快路径会把索引条目再喂一次 sessionMeta,只认前者的话这个字段在那一趟就丢了
     // (与上面 rawKind 那条同一个坑)。
     ...(sessionBriefOf(o) ? { brief: sessionBriefOf(o) } : {}),
-    ...(o && o.titleSource === 'user' ? { titleSource: 'user' } : {}),
+    // 117s-A D2:'steward' 也如实带出(索引条目要能说出「这个标题是谁给的」)。
+    // 显示不靠它 —— sessionDisplayTitle 只在 'user' 那一档提前返回,'steward' 走的是与缺席
+    // 逐字相同的那条路(brief.title > 原话);带出它是为了不让索引条目比会话头少说一句实话。
+    ...(o && (o.titleSource === 'user' || o.titleSource === 'steward') ? { titleSource: o.titleSource } : {}),
     // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
     // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
     ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
@@ -1061,9 +1067,18 @@ function applySessionMetaPatch(session, patch) {
       stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
     };
   }
-  // 116-5a:只认 'user' 这一个字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
+  // 116-5a:只认白名单里的字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
   // 给自己刷一个假的「人起的名字」没有意义,但白名单该有的严格一分不能少。
-  if (patch.titleSource === 'user') session.titleSource = 'user';
+  // 117s-A D2(§11.13 ⑤a;用户第九轮走查「线程标题概括就是管家发的提示词本身,太长了」):
+  // 白名单多一个字面量 'steward' —— `steward_thread_new` 传进来的 title 【不是】人起的名字。
+  // §11.8.4 当年的假设是「args.title 是管家有意起的名字,与改名同一性质」,用户真机上两条线程
+  // (sess_e97b… 大A / sess_8bb0… 博纳)证明这条假设不成立:模型把用户那句话原样抄进了 title,
+  // 而 createSession 见非占位标题就写 titleSource:'user'(见下方 createSession),于是 116-5 的
+  // 自动摘要判据(06-provider-engine:「titleSource === 'user' 就跳过」)永远短路,threadBrief 恒为 null。
+  // 'steward' 这一档的语义:标题有,但它排在生成的名字【后面】—— 显示优先级于是如实是
+  // 人起的 > 生成的 > 管家抄来的那句(它就是 session.title 本身)> 原话,sessionDisplayTitle
+  // 一个字都不用改就已经是这条顺序(它只在 'user' 那一档提前返回)。
+  if (patch.titleSource === 'user' || patch.titleSource === 'steward') session.titleSource = patch.titleSource;
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the

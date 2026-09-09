@@ -382,6 +382,8 @@ module.exports = {
   stewardThreadStateFromCard,
   // 第116波116g(§3.1 事项跨会话升格): 事项级聚合状态的唯一定义(纯函数,unit 穷举真值表)。
   aggregateMissionState,
+  // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。
+  stewardThreadStateRank,
   STEWARD_MEMORY_KINDS,
   STEWARD_MEMORY_LIMITS,
   stewardMemoryTerms,

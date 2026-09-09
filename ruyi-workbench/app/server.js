@@ -4500,6 +4500,9 @@ function sessionFirstUserExcerpt(o) {
 // 服务端一处装配、多处消费(sessionMeta / 113b 会话搜索 / 13g 线程搜索 / 117 的抽屉看板递送候选),
 // 判据绝不许在前端各算一遍 —— 那正是 112 波摸底里「服务端发 54 种、前端认 34 种」那类分叉的起点。
 // 入参两形态都要认:会话头(有 threadBrief)与索引条目(sessionMeta 带出的 brief)。
+// 117s-A D2(§11.13 ⑤a):titleSource 多了一个字面量 'steward'(管家开线程时抄进来的那句话)。
+// 本函数【一行没改】—— 它本来就只在 'user' 那一档提前返回,'steward' 自然落在第二档之后,
+// 于是优先级如实是:人起的 > 生成的名字 > 管家给的那句(它就是 raw 本身)> 原话。
 function sessionDisplayTitle(o) {
   const raw = String((o && o.title) || '');
   if (!o || o.titleSource === 'user') return raw;
@@ -4543,7 +4546,10 @@ function sessionMeta(o, config) {
     // (brief) —— 快路径会把索引条目再喂一次 sessionMeta,只认前者的话这个字段在那一趟就丢了
     // (与上面 rawKind 那条同一个坑)。
     ...(sessionBriefOf(o) ? { brief: sessionBriefOf(o) } : {}),
-    ...(o && o.titleSource === 'user' ? { titleSource: 'user' } : {}),
+    // 117s-A D2:'steward' 也如实带出(索引条目要能说出「这个标题是谁给的」)。
+    // 显示不靠它 —— sessionDisplayTitle 只在 'user' 那一档提前返回,'steward' 走的是与缺席
+    // 逐字相同的那条路(brief.title > 原话);带出它是为了不让索引条目比会话头少说一句实话。
+    ...(o && (o.titleSource === 'user' || o.titleSource === 'steward') ? { titleSource: o.titleSource } : {}),
     // 派生的【生效】档(会话级 > 全局)。只在调用方给了 config 时输出:索引条目保持精简,而 API 层
     // 拿得到 config,给 UI 与管家一个不用自己再解析一遍的现成值。
     ...(cfg ? { effectivePermissionMode: resolvePermissionMode({ session: o, config: cfg }) } : {}),
@@ -4772,9 +4778,18 @@ function applySessionMetaPatch(session, patch) {
       stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
     };
   }
-  // 116-5a:只认 'user' 这一个字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
+  // 116-5a:只认白名单里的字面量(同 116-4 的 launchedBy)。别的值一律当没写 —— 调用方拿它
   // 给自己刷一个假的「人起的名字」没有意义,但白名单该有的严格一分不能少。
-  if (patch.titleSource === 'user') session.titleSource = 'user';
+  // 117s-A D2(§11.13 ⑤a;用户第九轮走查「线程标题概括就是管家发的提示词本身,太长了」):
+  // 白名单多一个字面量 'steward' —— `steward_thread_new` 传进来的 title 【不是】人起的名字。
+  // §11.8.4 当年的假设是「args.title 是管家有意起的名字,与改名同一性质」,用户真机上两条线程
+  // (sess_e97b… 大A / sess_8bb0… 博纳)证明这条假设不成立:模型把用户那句话原样抄进了 title,
+  // 而 createSession 见非占位标题就写 titleSource:'user'(见下方 createSession),于是 116-5 的
+  // 自动摘要判据(06-provider-engine:「titleSource === 'user' 就跳过」)永远短路,threadBrief 恒为 null。
+  // 'steward' 这一档的语义:标题有,但它排在生成的名字【后面】—— 显示优先级于是如实是
+  // 人起的 > 生成的 > 管家抄来的那句(它就是 session.title 本身)> 原话,sessionDisplayTitle
+  // 一个字都不用改就已经是这条顺序(它只在 'user' 那一档提前返回)。
+  if (patch.titleSource === 'user' || patch.titleSource === 'steward') session.titleSource = patch.titleSource;
   // v0.9-S3 (C3): the top-bar working-folder picker + folder-drag switch persist the session's cwd here.
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
@@ -19038,6 +19053,20 @@ function aggregateMissionState(threadStates) {
   if (states.includes('running')) return 'running';
   if (states.includes('dispatching')) return 'dispatching';
   return 'stopped';
+}
+
+// ── 117s-A D1(27 号文 §11.13 ③;用户第九轮走查「在运行中的线程,最好能自动排到最前面」)──────
+// 行序的【状态秩】。这【不是】第二个状态机:入参已经是 deriveStewardThreadState /
+// aggregateMissionState 算出来的那一个字符串,本函数只回答「同一屏上谁该排在谁前面」。
+// 秩:needs_you(等你按) > running(在跑) > dispatching(刚交办、还没动静) > 其余(done/stopped)。
+// 理由是「哪一条最需要你现在看它」,不是「哪一条更新」——修前 13d 只按 updatedAt 排,一条刚收工的
+// 线程只要 updatedAt 新一秒就压在一条在跑的线程上面(用户截图 1 正是如此)。
+// 'quick_ask' 落在「其余」档:117r-D5 之后它只由「调用方明说没有这条线程的事实」产出(factsUnknown),
+// 事实未知的线程不该抢在等你/在跑的前面。
+const STEWARD_THREAD_STATE_ORDER = Object.freeze(['needs_you', 'running', 'dispatching']);
+function stewardThreadStateRank(state) {
+  const i = STEWARD_THREAD_STATE_ORDER.indexOf(String(state == null ? '' : state));
+  return i < 0 ? STEWARD_THREAD_STATE_ORDER.length : i;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36531,7 +36560,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['brief'],
       properties: {
-        title: { type: 'string', description: '可选。线程标题;省略则由首条消息自动命名。' },
+        // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
+        // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
+        title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
         missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
         cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则用全局默认工作区。这只是线程的起点目录,不是你自己能读写的路径。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
@@ -40362,7 +40393,14 @@ async function buildMissionAggregateRows(options = {}) {
   for (const group of byMissionId.values()) {
     const container = group.container;
     const acceptanceItems = container ? container.acceptance : [];
-    group.threads.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    // 117s-A D1(§11.13 ③):组内线程改成「状态秩优先、其次 updatedAt 降序」。秩由 06i 的
+    // stewardThreadStateRank 单点给(needs_you > running > dispatching > done/stopped),
+    // 状态本身仍是上面那三条取值路径算出来的那一个 —— 这里【不】重新判定任何状态。
+    // 末位补 sessionId 是为了确定性:两条线程秩与 updatedAt 都相同时,行序不该随 listSessions
+    // 的目录枚举顺序漂移(夹具与 ETag 都指望同样的输入给同样的行序)。
+    group.threads.sort((a, b) => stewardThreadStateRank(a.state) - stewardThreadStateRank(b.state)
+      || String(b.updatedAt).localeCompare(String(a.updatedAt))
+      || String(a.sessionId).localeCompare(String(b.sessionId)));
     const row = {
       missionId: group.missionId,
       // 未归类事项没有事项文件,标题只能从它唯一那条线程的会话标题派生(§3.1「不改写历史」)。
@@ -40389,14 +40427,29 @@ async function buildMissionAggregateRows(options = {}) {
     rows.push(row);
     for (const thread of group.threads) rowBySessionId.set(thread.sessionId, row);
   }
-  rows.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  // 117s-A D1(§11.13 ③):组同规则 —— 状态秩优先、其次 updatedAt 降序。组的秩取【它自己的聚合态】
+  // 的秩,而聚合态只经 06i 的 aggregateMissionState(上面已经算过一次,直接读 row.aggregateState);
+  // 「组的秩 = 组内最高秩」这句话由 aggregateMissionState 的规则本身保证,不在这里另算一遍最大值
+  // (any needs_you -> needs_you;非全 done 时 any running -> running;再 any dispatching;否则
+  //  done/stopped 同落末档 —— 逐档与 stewardThreadStateRank 的秩一一对应)。
+  rows.sort((a, b) => stewardThreadStateRank(a.aggregateState) - stewardThreadStateRank(b.aggregateState)
+    || String(b.updatedAt).localeCompare(String(a.updatedAt))
+    || String(a.missionId).localeCompare(String(b.missionId)));
   // 事项文件不在 75c 物化索引的 sourceStamp 覆盖面内(它们不是会话文件),所以 ETag 必须自己带上
   // 它们的指纹 —— 否则 PATCH 完验收项、再带 If-None-Match 来读会拿到 304 + 陈旧的 acceptance。
   // 117h 第 0 步:行上新增的 missionTitle / goal / acceptanceItems 都由容器字段直出,所以指纹要把
   // 它们一并纳入 —— 光靠 updatedAt 依赖「每次改都会动 updatedAt」这条隐含约定,写进指纹才是自证的。
-  const stamp = pretenderHash(containers.map(row => [
-    row.missionId, row.updatedAt, row.archivedAt || '', row.title || '', row.goal || '',
-  ]));
+  // 117s-A D1:行序自此由【状态秩】决定,而状态可以在 updatedAt 与容器字段都不动的情况下变
+  //   (最典型的一条:活回合结束 -> activeTurn 由真变假 -> running 落 done,会话头那一刻并没有再写一次)。
+  // 指纹不带秩的话,带 If-None-Match 来的下一拍会拿到 304 + 一份【旧顺序】的行 —— 与上面那条
+  // acceptance 的教训同一个模具,所以把秩写进指纹,而不是依赖「状态变了 updatedAt 一定也变」。
+  const stamp = pretenderHash([
+    containers.map(row => [row.missionId, row.updatedAt, row.archivedAt || '', row.title || '', row.goal || '']),
+    rows.map(row => [
+      row.missionId, stewardThreadStateRank(row.aggregateState),
+      row.threads.map(thread => [thread.sessionId, stewardThreadStateRank(thread.state)]),
+    ]),
+  ]);
   return { rows, rowBySessionId, stamp };
 }
 
@@ -40456,7 +40509,36 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const aggregate = await buildMissionAggregateRows();
     const missions = index.sessions.filter(row => row.card)
       .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
-    missions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
+    // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
+    // 那两处排序,但那一份是给 steward_missions 工具面消费的;**看板真正吃的是这一行**,所以三处
+    // 一起改,否则「在跑的排最前」在工具面成立、在用户眼前的看板上不成立。
+    // 排序键四段,一段都不能省:
+    //   ① 组的秩(aggregateState;overlayMissionAggregateFields 两个分支都已挂上它);
+    //   ② 组的 updatedAt 降序 —— 取【同组各行 updatedAt 的最大值】,与修前「组序由它最新的那条线程
+    //      决定」逐字同义(修前没有显式组序,组序就是第一条落在组里的行的位置);
+    //   ③ 组内线程的秩(从叠加过 live 层的卡片现算,与看板自己 MissionState.fromCard(row) 同源);
+    //   ④ 线程 updatedAt 降序,末位 sessionId 兜确定性。
+    // 一二段在前保证【组仍然是连续的】—— 少了它,一条 needs_you 的线程会把它所在的组劈成两半。
+    const groupRank = new Map();     // missionId -> 组秩(取组内最小秩,即最高优先级)
+    const groupUpdated = new Map();  // missionId -> 组内最大 updatedAt
+    const threadRank = new Map();    // sessionId -> 线程秩
+    for (const row of missions) {
+      const mid = String(row.missionId || row.sessionId || '');
+      const rank = stewardThreadStateRank(stewardThreadStateFromCard(row).state);
+      threadRank.set(String(row.sessionId || ''), rank);
+      const own = stewardThreadStateRank(row.aggregateState);
+      groupRank.set(mid, Math.min(groupRank.has(mid) ? groupRank.get(mid) : own, own));
+      const at = String(row.updatedAt || '');
+      if (!groupUpdated.has(mid) || at > groupUpdated.get(mid)) groupUpdated.set(mid, at);
+    }
+    const gid = row => String(row.missionId || row.sessionId || '');
+    missions.sort((a, b) => (groupRank.get(gid(a)) - groupRank.get(gid(b)))
+      || String(groupUpdated.get(gid(b))).localeCompare(String(groupUpdated.get(gid(a))))
+      || String(gid(a)).localeCompare(String(gid(b)))
+      || (threadRank.get(String(a.sessionId)) - threadRank.get(String(b.sessionId)))
+      || String(b.updatedAt).localeCompare(String(a.updatedAt))
+      || String(a.sessionId).localeCompare(String(b.sessionId)));
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
@@ -44138,6 +44220,9 @@ async function stewardImplThreadNew(args, ctx, config) {
   });
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
+  // 117s-A D2(§11.13 ⑤a):管家给的 title【不是】人起的名字(模型只是把用户那句话抄了一遍),
+  // 覆写掉 createSession 刚写下的 'user',否则 116-5 的自动摘要永远跳过 —— 白名单与理由见 02:1066。
+  if (args.title) session.titleSource = 'steward';
   if (requestedMissionId) session.missionId = requestedMissionId; // 归入既有事项;否则 createSession 已置 missionId = 自身 id
   // 委托书落盘:原话与管家补充【分开存】,供 117 显示与用户「改一下」;不把拼好的整段存成一坨。
   session.brief = {
@@ -47988,6 +48073,8 @@ module.exports = {
   stewardThreadStateFromCard,
   // 第116波116g(§3.1 事项跨会话升格): 事项级聚合状态的唯一定义(纯函数,unit 穷举真值表)。
   aggregateMissionState,
+  // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。
+  stewardThreadStateRank,
   STEWARD_MEMORY_KINDS,
   STEWARD_MEMORY_LIMITS,
   stewardMemoryTerms,

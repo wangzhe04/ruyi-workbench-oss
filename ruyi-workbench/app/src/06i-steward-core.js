@@ -428,6 +428,20 @@ function aggregateMissionState(threadStates) {
   return 'stopped';
 }
 
+// ── 117s-A D1(27 号文 §11.13 ③;用户第九轮走查「在运行中的线程,最好能自动排到最前面」)──────
+// 行序的【状态秩】。这【不是】第二个状态机:入参已经是 deriveStewardThreadState /
+// aggregateMissionState 算出来的那一个字符串,本函数只回答「同一屏上谁该排在谁前面」。
+// 秩:needs_you(等你按) > running(在跑) > dispatching(刚交办、还没动静) > 其余(done/stopped)。
+// 理由是「哪一条最需要你现在看它」,不是「哪一条更新」——修前 13d 只按 updatedAt 排,一条刚收工的
+// 线程只要 updatedAt 新一秒就压在一条在跑的线程上面(用户截图 1 正是如此)。
+// 'quick_ask' 落在「其余」档:117r-D5 之后它只由「调用方明说没有这条线程的事实」产出(factsUnknown),
+// 事实未知的线程不该抢在等你/在跑的前面。
+const STEWARD_THREAD_STATE_ORDER = Object.freeze(['needs_you', 'running', 'dispatching']);
+function stewardThreadStateRank(state) {
+  const i = STEWARD_THREAD_STATE_ORDER.indexOf(String(state == null ? '' : state));
+  return i < 0 ? STEWARD_THREAD_STATE_ORDER.length : i;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「排队可解释」):等待原因的【唯一】判定点。
 //

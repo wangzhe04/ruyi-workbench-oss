@@ -3712,6 +3712,7 @@
         "STEWARD_SESSION_TITLE",
         "STEWARD_STATE_LABELS",
         "STEWARD_THREAD_STATES",
+        "STEWARD_THREAD_STATE_ORDER",
         "STEWARD_TOOL_PREFIX",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
@@ -3752,6 +3753,7 @@
         "stewardTermJaccard",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
+        "stewardThreadStateRank",
         "stewardToolPermanentlyExempt",
         "stewardWatchedThread",
         "waitReasonFor"
@@ -11019,6 +11021,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateRank",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -15330,6 +15339,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateRank",
           "kinds": [
             "read"
           ]
