@@ -377,7 +377,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证照旧：按【上一次钉的那个 commit】(`c3a8fc3`) 全量重算 = 2431350b…，与被替换的旧值逐字
 // 相同；再按 HEAD 算得下面这个值。反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51
 // 双双转红；还原后该层与 HEAD 逐字节相同、两个消费者回绿。
-const LEGACY_STYLES_SHA256 = '6c0c0b0479494b7eb76145cc6fe9ae79903109a34b023144413f124e4c5f78f4';
+// 117v-V4 续钉（前值 6c0c0b04…）：V4（`112757b`）改 steward-conversation.css 一层 —— 四档间距
+// （新增卡内块间与卡间两条，组内/组间两档一个像素没动）＋频道条重做（chip 进可换行的滚动容器、
+// 加高度上限 --steward-channels-max-h、删掉 scrollbar-width:none 与 ::-webkit-scrollbar{height:0}，
+// 「全部线程」提成 bar 的直接子节点故恒可达）。算法自证照旧：按上一次钉的那个 commit(`e78d8af`)
+// 全量重算 = 6c0c0b04…，与被替换的旧值逐字相同；再按 HEAD 算得下面这个值 —— 它与 V4 在自己那一侧
+// 独立算出的值【逐字相同】，两条路互相印证。反向验证：往该层追加一条无关规则 → F3 与 D51 双双转红。
+const LEGACY_STYLES_SHA256 = '801d85e53b8f7c50dae3453dff2844f06ea59eaa312cfa4e62c8d25afe67c3f2';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
