@@ -166,9 +166,17 @@ export function stewardDeliverableText(message) {
   const content = String((message && message.content) == null ? '' : message.content);
   const segments = (message && Array.isArray(message.segments)) ? message.segments : null;
   if (!segments || !segments.length) return content;   // 老会话：账本缺席就回落整段
-  let after = 0;                                       // 最后一个工具段【之后】的下标（没有工具段就是 0）
+  // 117v-V4b（主会话裁决，§11.16.7）：边界从「最后一个 tool 段」扩到「最后一个 tool 或 subagent 段」。
+  // V4 严格照原判据只认 tool，并如实把这个缺口登记成债 —— 它做对了（放宽判据是判断题，不该由执行者
+  // 顺手改）。裁决理由：**会产生「过程叙述」的活动有两种**，自己调工具、以及派子代理去干；后者同样会
+  // 在段与段之间留下「我先派个 agent 去查」这类叙述，而那正是本刀要挡在交付之外的东西。
+  // **有意不扩到「所有非 text/thinking 段」**：mission / workflow 这类记账段有可能【尾随】在正文之后，
+  // 那样一刀切会把真交付整个切掉、变成一句「这一次没取到原文」—— 把「读得到」演成「没交付」，
+  // 比漏掉一句叙述坏得多。宁可判据窄一点、错在少挡，也不错在多挡。
+  const ACTIVITY = ['tool', 'subagent'];
+  let after = 0;                                       // 最后一个活动段【之后】的下标（没有就是 0）
   for (let i = 0; i < segments.length; i += 1) {
-    if (segments[i] && segments[i].type === 'tool') after = i + 1;
+    if (segments[i] && ACTIVITY.includes(segments[i].type)) after = i + 1;
   }
   let text = '';
   for (let i = after; i < segments.length; i += 1) {

@@ -1086,7 +1086,35 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
   };
   ok(typeof mod.stewardDeliverableText === 'function'
     && mod.stewardDeliverableText(mixed) === DELIVERED,
-    'AA7 ③ 交付原文＝【最后一个 type:\'tool\' 段之后】的 text 段：工具调用之间那两句过程叙述与两段 thinking 一个字都没进来（用户第十轮再追加②「参杂了一些线程推进的原文，也不要有」）');
+    'AA7 ③ 交付原文＝【最后一个活动段之后】的 text 段：工具调用之间那两句过程叙述与两段 thinking 一个字都没进来（用户第十轮再追加②「参杂了一些线程推进的原文，也不要有」）');
+  // 117v-V4b（主会话裁决，§11.16.7）：会产生「过程叙述」的活动有两种 —— 自己调工具、以及派子代理。
+  // V4 严格照原判据只认 tool 并把这个缺口如实登记成债（它做对了：放宽判据是判断题）。这里补上另一半。
+  // **反向的边界同样要钉住**：记账类段（mission/workflow 之流）有可能尾随在正文之后，若把边界扩成
+  // 「所有非 text/thinking 段」，那一刀会把真交付整个切掉、演成「这一次没取到原文」—— 比漏挡一句叙述坏得多。
+  {
+    const viaSubagent = {
+      role: 'assistant', turnSeq: 8,
+      content: PROCESS_A + DELIVERED,
+      segments: [
+        { id: 'segment-1', type: 'text', text: PROCESS_A },
+        { id: 'segment-2', type: 'subagent', name: 'researcher', status: 'done' },
+        { id: 'segment-3', type: 'text', text: DELIVERED },
+      ],
+    };
+    ok(mod.stewardDeliverableText(viaSubagent) === DELIVERED,
+      `AA7b ③ 子代理段同样算「活动」边界：派 agent 之前那句叙述不进交付（实测「${mod.stewardDeliverableText(viaSubagent)}」）`);
+    const trailingLedger = {
+      role: 'assistant', turnSeq: 9,
+      content: DELIVERED,
+      segments: [
+        { id: 'segment-1', type: 'tool', toolCallId: 't1', name: 'web_search', status: 'done' },
+        { id: 'segment-2', type: 'text', text: DELIVERED },
+        { id: 'segment-3', type: 'mission', status: 'updated' },
+      ],
+    };
+    ok(mod.stewardDeliverableText(trailingLedger) === DELIVERED,
+      `AA7c ③ 反向边界：记账类段【尾随】在正文之后时，交付仍然是那段正文（判据只认 tool/subagent，没有一刀切成「所有非文本段」；实测「${mod.stewardDeliverableText(trailingLedger)}」）`);
+  }
   {
     const noTool = {
       role: 'assistant', content: PROCESS_A + DELIVERED,
