@@ -145,7 +145,96 @@ export function stewardDeliverableFrom(session, turnSeq) {
 
 // 交付原文超过这么多行就默认折叠（§11.13.3 H2「超 8 行折叠」）。真实版面若在这之内仍然溢出
 // （一段长文本换行成十几行），另有一道实测兜底，见 fillDeliverable。
+// F4：管家【自己那段话】的折叠用同一个阈值、同一处实现（clampIfLong ＋ collapseToggle），
+// 不为「正文超 8 行」另造第二套判据与第二枚按钮。
 export const STEWARD_DELIVERABLE_LINES = 8;
+
+// ── F1 线程卡（27 号文 §11.13.1「线程即频道」；设计稿画板「宽屏 · 线程即频道」）────────────
+// 连续几条【属于同一条线程】的管家消息合成一张卡：3px 色条 ＋ 一行卡头（线程名 · 五态药丸 ·
+// 最后动静 · 模型 · 打开）。管家【本人】说的话（没有来源线程）不进卡、不画色条 —— 色条只表示
+// 「这是哪条线程」，不表示状态（27 号文 §11.13 F 追加：两套信号不混用）。
+//
+// 四色按【首次出现顺序】分配并循环；同一条线程在整个实例生命期里恒用同一色（threadHues 那张表
+// 只增不清 —— 进壳重画历史时顺序不变，颜色因此也不变）。取值不写在这里：色相/饱和度/明度全是
+// steward-conversation.css 里的自定义属性（--thread-hue-1..4 ＋ --thread-sat/--thread-light），
+// 本文件只负责把「第几号」写进 data-thread-hue，主题层可以整组覆盖。
+export const STEWARD_THREAD_HUES = 4;
+export function stewardThreadHue(order) {
+  const n = Number(order);
+  return (Number.isSafeInteger(n) && n >= 0 ? n % STEWARD_THREAD_HUES : 0) + 1;
+}
+
+// 卡头上的五态药丸用【全仓既有的那组人话键】，不新开一套词。
+// 「排队」在 mission.state.* 里没有对应枚举（五态里没有它），复用管家壳自己那句「排队中」。
+const STEWARD_THREAD_STATE_KEYS = Object.freeze({
+  needs_you: 'mission.state.needs_you',
+  queued: 'stewardShell.chat.queued',
+  running: 'mission.state.running',
+  stopped: 'mission.state.stopped',
+  done: 'mission.state.done',
+});
+
+// 卡头要的四件事全部从【已经在取的那个信封】里读：GET /api/sessions/<id>（13d:343 那一条，
+// 交付卡 117s-H2 已经在发它了，本刀零新增请求、零新增路由）。判据只取【权威字段】，取不到就
+// 不说（§8.1 原则 2 诚实优先）：
+//   · 线程名 = 信封上的 displayTitle（02 sessionDisplayTitle 一处判定，前端只读结果）；
+//   · 五态   = relay.channel（13h stewardRelayChannelFor，全仓递话唯一那处判定，13d 投影到信封上）
+//             ＞ resumable.live（抽屉 isLive() 读的就是它）＞ 会话头的 stewardLastTurn / turnSeq
+//             （13d 投影卡片时读的也是这两个）。**这不是 mission-state.js 的五态判据**——那一支要
+//             mission 账本与待决计数，只有 /api/missions 的卡片上才有，本模块够不着（J1 只许调
+//             116 已有的那几条路由）。所以这里只在信封说得死的那几种情形上说话，其余一律不出药丸。
+//   · 最后动静 = 会话头的 updatedAt；· 模型 = 会话头的 engineRoute.model，缺席时回落到最后一条
+//     助手消息上的 model（02 inferSessionEngineRoute 用的是同两个来源）。
+// 纯函数、零 DOM、零请求。
+export function stewardThreadFacts(payload) {
+  const envelope = (payload && typeof payload === 'object') ? payload : {};
+  const session = (envelope.session && typeof envelope.session === 'object') ? envelope.session : {};
+  const relay = (envelope.relay && typeof envelope.relay === 'object') ? envelope.relay : null;
+  const channel = relay ? String(relay.channel || '') : '';
+  const live = Boolean(envelope.resumable && envelope.resumable.live === true);
+  const lastTurn = (session.stewardLastTurn && typeof session.stewardLastTurn === 'object') ? session.stewardLastTurn : null;
+  const turnSeq = Number(session.turnSeq) > 0 ? Number(session.turnSeq) : 0;
+  let state = '';
+  if (channel === 'answer' || channel === 'permission') state = 'needs_you';
+  else if (channel === 'queued') state = 'queued';
+  else if (live || channel === 'steer') state = 'running';
+  else if (lastTurn && lastTurn.ok === false) state = 'stopped';
+  else if (turnSeq > 0) state = 'done';
+  const route = (session.engineRoute && typeof session.engineRoute === 'object') ? session.engineRoute : null;
+  let model = route ? String(route.model || '') : '';
+  if (!model) {
+    const messages = Array.isArray(session.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0 && !model; i--) {
+      const message = messages[i];
+      if (message && message.role === 'assistant' && message.model) model = String(message.model);
+    }
+  }
+  return {
+    title: String(envelope.displayTitle || ''),
+    state,
+    stateKey: state ? STEWARD_THREAD_STATE_KEYS[state] : '',
+    updatedAt: String(session.updatedAt || ''),
+    model,
+  };
+}
+
+// 「最后动静」= 相对时间。**不自己写一套人话**：只算出 Intl.RelativeTimeFormat 要的
+// (value, unit) 两个数，人话交给平台按 documentElement.lang 去说（skills-memory.js:659 用
+// Intl.DateTimeFormat 是同一个先例）—— 于是零新增 i18n 键，也不去抄 preview-task-sheet.js 的
+// elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」，两码事）。
+// 拿不到时间、或时间在未来，一律回 null —— 不猜。纯函数、零 DOM。
+export function stewardAgoParts(iso, nowMs) {
+  const at = Date.parse(String(iso == null ? '' : iso));
+  const now = Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now();
+  if (!Number.isFinite(at) || at > now + 60000) return null;
+  const seconds = Math.max(0, Math.round((now - at) / 1000));
+  if (seconds < 60) return { value: -seconds, unit: 'second' };
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return { value: -minutes, unit: 'minute' };
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return { value: -hours, unit: 'hour' };
+  return { value: -Math.round(hours / 24), unit: 'day' };
+}
 
 export const STEWARD_TITLE_MAX = 24;
 export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
@@ -345,6 +434,9 @@ export function createStewardConversation({
     const feed = feedEl();
     const last = feed ? feed.lastElementChild : null;
     if (last && last.classList) last.classList.add('is-group-end');
+    // F1：线程卡的「这一段到此为止」是同一件事的另一层（色条要不要向下多探一个 gap 靠它判），
+    // 所以同一处一起封口 —— 少封这一刀，被移除那一行留下的色条会往下探进空档里。
+    if (last && last.classList && last.classList.contains('is-thread')) last.classList.add('is-thread-end');
     return Boolean(last);
   }
 
@@ -367,6 +459,47 @@ export function createStewardConversation({
       if (highlight && typeof highlightIn === 'function') highlightIn(node);
     } catch { node.textContent = say; }   // 渲染器抛了也得把话说出来（诚实优先，§8.1 原则 2）
     return node;
+  }
+
+  // ── 折叠：一处实现，两个调用方（117s-H2 的交付卡 ＋ F4 的管家正文）─────────────────────
+  // 117s-H2 把折叠写在 fillDeliverable/deliverableActs 里；F4 要给管家自己那段话也折一次，
+  // 于是把那份实现原样抽出来 —— **不是复制第二份**：判据（行数 ＋ 一道实测溢出兜底）、类名
+  // （is-clamped）、按钮（.steward-deliverable-more，展开/收起两句话）全部只有这一处。
+  // 折叠阈值也是同一个常量，样式层的高度也是同一个自定义属性（--steward-clamp-h）。
+  function clampIfLong(node, text) {
+    if (!node) return false;
+    node.classList.add('is-clamped');
+    const longEnough = String(text == null ? '' : text).split('\n').length > STEWARD_DELIVERABLE_LINES
+      || (Number(node.scrollHeight) || 0) > (Number(node.clientHeight) || 0) + 2;
+    if (!longEnough) node.classList.remove('is-clamped');
+    return longEnough;
+  }
+  function collapseToggle(node) {
+    const more = button('steward-deliverable-more', t('stewardShell.chat.deliverableExpand'), () => {
+      const clamped = node.classList.toggle('is-clamped');
+      more.textContent = t(clamped ? 'stewardShell.chat.deliverableExpand' : 'stewardShell.chat.deliverableCollapse');
+      more.setAttribute('aria-expanded', clamped ? 'false' : 'true');
+    });
+    more.setAttribute('aria-expanded', 'false');
+    return more;
+  }
+
+  // ── F4 回复定型（设计稿画板「一条回复的解剖」的 2 与 4）────────────────────────────────
+  // ② 首句即结论 —— 提示词层（06b）本来就要求这么写，所以渲染层只做【呈现】：给正文的第一个
+  //    段落加 .is-lead，样式层把它抬成一行醒目的引子。**一个字都不改、一块都不挪**：不切句、
+  //    不拆文本节点、不重排 markdown 块（第一块本来就是标题时不加 —— 它已经够重了）。
+  // ④ 正文超 8 行折起来 —— 走上面那一处折叠，按钮插在话的【后面】一行（不塞进 .steward-say
+  //    里：※ 靠「最后一段是不是 <p>」认句尾，塞个按钮进去它就掉出段落了，117s-C 的 S3c 钉着）。
+  function finishSay(row, node, text) {
+    if (!row || !node) return null;
+    const lead = node.firstElementChild;
+    if (lead && lead.tagName === 'P') lead.classList.add('is-lead');
+    if (!clampIfLong(node, text)) return null;
+    const acts = el('div', 'steward-say-acts');
+    acts.appendChild(collapseToggle(node));
+    if (node.parentNode === row) row.insertBefore(acts, node.nextSibling);
+    else row.appendChild(acts);
+    return acts;
   }
 
   function appendRow(kind) {
@@ -455,6 +588,7 @@ export function createStewardConversation({
     const sayNode = el('p', 'steward-say', '');
     row.appendChild(sayNode);
     paintSay(sayNode, say);   // 117s-C：先渲染再挂 ※（renderMarkdownInto 会整段重写这个节点）
+    finishSay(row, sayNode, say);   // F4：首句抬成引子 ＋ 超 8 行折叠（都在挂 ※ 之前，※ 仍在句尾）
     row.appendChild(attachWhy(sayNode, why, doneLines, extraWhyLines));
     const feed = feedEl();
     if (feed) feed.scrollTop = feed.scrollHeight;
@@ -627,6 +761,99 @@ export function createStewardConversation({
     return chip;
   }
 
+  // ── F1 线程卡（27 号文 §11.13.1「线程即频道」）──────────────────────────────────────────
+  // 「一张卡」不是一个新盒子：对话流仍然是一列平铺的 .steward-msg（§8.1「少一个盒子」，也是
+  // 117s-H2 的交付卡定的调子）。合成靠三个类＋一个色号，和 117l-B2 ④ 的分组一模一样的追加式做法：
+  //   .is-thread        这一行属于某条线程（画 3px 色条；管家本人的话没有这个类，也就没有色条）
+  //   .is-thread-start  这一段的第一行 —— 卡头只长在它身上
+  //   .is-thread-end    这一段【目前】的最后一行；下一行还是同一条线程时由那一行把它摘掉
+  // 与既有分组规则的关系（本刀必须交代清楚的那一条）：**分组照旧，色条更强**。
+  //   · 间距完全不动：组间 --sp-3 ＋ 组内 --sp-1 仍由 markGroup 的 is-group-start/end 说了算；
+  //   · 那道淡竖线在 .is-thread 的行上【让位】给色条（样式层一条 content:none）—— 一行只能有
+  //     一个锚：头像所在的最新那一组不画竖线是同一条道理（117l-B2 ④ 的原话「再来一道竖线就是
+  //     两个锚」）。线程段永远落在同一个说话人的组【之内】，所以两者不会互相撕开。
+  const threadHues = new Map();
+  function hueOf(sessionId) {
+    const id = String(sessionId || '');
+    if (!id) return 0;
+    if (!threadHues.has(id)) threadHues.set(id, stewardThreadHue(threadHues.size));
+    return threadHues.get(id);
+  }
+
+  function markThread(row, sessionId) {
+    const id = String(sessionId || '');
+    if (!row || !id) return null;
+    row.dataset.thread = id;
+    row.dataset.threadHue = String(hueOf(id));
+    row.classList.add('is-thread');
+    row.classList.add('is-thread-end');
+    const previous = row.previousElementSibling;
+    const sameThread = Boolean(previous && previous.classList && previous.classList.contains('is-thread')
+      && previous.dataset && previous.dataset.thread === id);
+    if (sameThread) previous.classList.remove('is-thread-end');
+    else row.classList.add('is-thread-start');
+    return row;
+  }
+
+  // 相对时间的人话交给平台（见 stewardAgoParts 的头注）：算不出来就整段不说。
+  function agoLabel(iso) {
+    const parts = stewardAgoParts(iso, Date.now());
+    if (!parts) return '';
+    try {
+      const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
+      return new Intl.RelativeTimeFormat(page || undefined, { numeric: 'auto' }).format(parts.value, parts.unit);
+    } catch { return ''; }   // 没有 Intl.RelativeTimeFormat 的宿主：不说，而不是吐一个英文串
+  }
+
+  // 卡头（占位先上屏，事实随后填）：色点 · 线程名 · 五态药丸 · 最后动静 · 模型 · 打开。
+  // 药丸与「最后动静 · 模型」默认 hidden —— 信封里说不死的那几样宁可不出现，也不留空壳。
+  function attachThreadHead(row, source) {
+    if (!row || !row.classList.contains('is-thread-start')) return null;
+    const head = el('div', 'steward-thread-head');
+    head.appendChild(el('span', 'steward-thread-dot'));
+    const name = el('span', 'steward-thread-name', stewardShortTitle(source.title || source.sessionId));
+    head.appendChild(name);
+    const state = el('span', 'steward-thread-state');
+    state.hidden = true;
+    head.appendChild(state);
+    const meta = el('span', 'steward-thread-meta');
+    meta.hidden = true;
+    head.appendChild(meta);
+    // 「打开」与来源小头是同一个动作（steward:focus-thread），所以【共用】同一条通道与同一个词，
+    // 不新增第二条聚焦通道、不另造第二句文案。
+    const open = button('steward-thread-open', t('stewardShell.acts.open'), () => focusThread(source.sessionId));
+    open.setAttribute('aria-label', t('stewardShell.acts.open'));
+    head.appendChild(open);
+    const anchor = row.querySelector('.steward-source') || row.querySelector('.steward-say');
+    if (anchor && anchor.parentNode === row) row.insertBefore(head, anchor);
+    else row.appendChild(head);
+    void fillThreadHead(head, { name, state, meta }, source).catch(() => { /* 卡头绝不把异常丢回对话流 */ });
+    return head;
+  }
+
+  async function fillThreadHead(head, parts, source) {
+    let facts = null;
+    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); facts = stewardThreadFacts(got && got.envelope); }
+    catch { facts = null; }   // 取不到信封就保持占位（名字来自事件行/回执），不编一个状态出来
+    if (!head.isConnected && head.parentNode === null) return null;   // 这一行已经被清屏收走了
+    if (!facts) return null;
+    if (facts.title) parts.name.textContent = stewardShortTitle(facts.title);
+    if (facts.stateKey) {
+      parts.state.textContent = t(facts.stateKey);
+      parts.state.dataset.state = facts.state;
+      parts.state.hidden = false;
+    }
+    const bits = [agoLabel(facts.updatedAt), facts.model].filter(Boolean);
+    if (bits.length) { parts.meta.textContent = bits.join(' · '); parts.meta.hidden = false; }
+    return head;
+  }
+
+  function attachThreadCard(row, source) {
+    if (!row || !source || !source.sessionId) return null;
+    markThread(row, source.sessionId);
+    return attachThreadHead(row, source);
+  }
+
   // ── 117s-H2 交付卡（27 号文 §11.13.3 H2）────────────────────────────────────
   // 用户第三轮回话「线程的交付管家能不能看全」。摸底结论：管家【读了】、时机也对，但它转述的是
   // 二手货 —— say 硬切 600 字，2687 字的交付被压成 407 字。所以收件箱触发的那条回复不再只有
@@ -644,9 +871,11 @@ export function createStewardConversation({
   function loadDeliverable(sessionId, turnSeq) {
     const key = String(sessionId) + '|' + String(turnSeq || 0);
     if (deliverableCache.has(key)) return deliverableCache.get(key);
+    // F1：卡头（线程名/五态/最后动静/模型）与交付原文来自【同一个信封】，所以这一处解出来的是
+    // { envelope, deliverable } 两样 —— 两个消费方 await 的是同一个 promise，请求仍然只发一发。
     const task = (async () => {
       const payload = await api('/api/sessions/' + encodeURIComponent(sessionId));
-      return stewardDeliverableFrom(payload && payload.session, turnSeq);
+      return { envelope: payload, deliverable: stewardDeliverableFrom(payload && payload.session, turnSeq) };
     })();
     deliverableCache.set(key, task);
     task.catch(() => { deliverableCache.delete(key); });   // 失败不留在缓存里（下次还能再试）
@@ -665,7 +894,7 @@ export function createStewardConversation({
 
   async function fillDeliverable(block, head, body, source) {
     let found = null;
-    try { found = await loadDeliverable(source.sessionId, source.turnSeq); }
+    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; }
     catch { found = null; }   // 取不到与「这一回合没有正文」画同一句兜底：原件不在这儿，去 2.0 视窗看
     if (!block.isConnected && block.parentNode === null) return null;   // 这一行已经被清屏收走了
     const seq = (found && found.turnSeq) || source.turnSeq || 0;
@@ -679,25 +908,15 @@ export function createStewardConversation({
     }
     paintSay(body, found.text);   // 与管家的话【同一条】渲染＋净化路径（highlightIn 只在这里跑一次）
     // 折叠：行数超顶就折（判据不依赖版面，Node/隐藏容器里也成立），另加一道真实溢出的兜底。
-    body.classList.add('is-clamped');
-    const longEnough = found.text.split('\n').length > STEWARD_DELIVERABLE_LINES
-      || (Number(body.scrollHeight) || 0) > (Number(body.clientHeight) || 0) + 2;
-    if (!longEnough) body.classList.remove('is-clamped');
+    // F4 之后这一段搬进 clampIfLong —— 同一份判据现在也给管家自己那段话用（一处实现，两个调用方）。
+    const longEnough = clampIfLong(body, found.text);
     block.appendChild(deliverableActs(body, source, longEnough));
     return body;
   }
 
   function deliverableActs(body, source, collapsible) {
     const acts = el('div', 'steward-deliverable-acts');
-    if (collapsible) {
-      const more = button('steward-deliverable-more', t('stewardShell.chat.deliverableExpand'), () => {
-        const clamped = body.classList.toggle('is-clamped');
-        more.textContent = t(clamped ? 'stewardShell.chat.deliverableExpand' : 'stewardShell.chat.deliverableCollapse');
-        more.setAttribute('aria-expanded', clamped ? 'false' : 'true');
-      });
-      more.setAttribute('aria-expanded', 'false');
-      acts.appendChild(more);
-    }
+    if (collapsible) acts.appendChild(collapseToggle(body));   // F4：与管家正文共用那一处折叠实现
     // 「看全文」与抽屉那一枚同一个词、同一个动作，所以【共用】同一个 i18n 键，不另造第二条文案。
     acts.appendChild(button('steward-deliverable-full', t('stewardShell.drawer.fullText'),
       () => fullTextOf(source.sessionId)));
@@ -911,6 +1130,7 @@ export function createStewardConversation({
       paintSay(fresh, say);
     }
     const node = row.querySelector('.steward-say');
+    finishSay(row, node, say);   // F4：与 appendSteward 同一处定型（流式那一路只在终态跑这一次）
     if (node) row.appendChild(attachWhy(node, reply.why, actionWhyLines(reply.actions)));
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
@@ -1200,6 +1420,9 @@ export function createStewardConversation({
           || inboxSource || (executedThreadSessionId(stamp.actions)
           ? { sessionId: executedThreadSessionId(stamp.actions), title: '' } : null);
         attachSource(row, opening);
+        // F1：线程卡。同一条线程连着的几条合成一张（色条＋卡头），管家本人的话不进这一支。
+        // 排在交付卡【之前】：卡头要插在来源小头前面，而交付卡是插在话后面的，两者互不挤位。
+        if (opening) attachThreadCard(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
         // 117s-H2：交付卡。只有收件箱触发的这一行才取原文（用户自己问的那条一发请求都不多发）。
         if (opening) attachDeliverable(row, { ...opening, turnSeq: trigger.turnSeq || inboxTurnSeq });
       }

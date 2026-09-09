@@ -1225,6 +1225,222 @@ try {
     `U10 取不到原文时画一句兜底＋只留「看全文」，回复本身照常上屏（实测「${failed.text}」，按钮 ${JSON.stringify(failed.acts)}）`);
   await shootH('117s-H-deliverable-fallback.png');
 
+  // ─── F1 线程卡 ＋ F4 回复定型（27 号文 §11.13.1「线程即频道」；设计稿两块画板）─────────────
+  // 同一条线程连着的几条管家的话合成【一张卡】（3px 色条 ＋ 一行卡头：线程名 · 五态 · 最后动静 ·
+  // 模型 · 打开）；管家【本人】说的话没有色条、没有卡。四色按首次出现顺序循环，同一条线程恒用同一色。
+  // 回复定型：首句抬成引子（只加类，不改一个字），正文超 8 行折起来（与交付卡同一处折叠实现）。
+  // 手法与 T/U 两段一样：新建实例 ＋ 注入按 URL 分流的假 api，走 appendSince 那条真路径。
+  const THREAD_A = 'sess_v_alpha';
+  const THREAD_B = 'sess_v_beta';
+  // 纯文本（不带 markdown 记号）的长回复：这样「DOM 里的字和模型说的字一模一样」才验得干净。
+  const LEAD_SAY = [
+    '偏空，但不是崩。',
+    '今天最可能的剧本是贴着均价阴跌、尾盘定方向。',
+    '不是它一家的事：整个板块集体退潮。',
+    '数据是盘中快照，收盘前还会变。',
+    '主力资金连续两日净流出。',
+    '涨停家数腰斩。',
+    '北向资金今天也是净卖。',
+    '成交额比昨天少了三成。',
+    '要不要现在动手，你说了算。',
+    '我这边随时可以再跑一次。',
+  ].join('\n\n');
+  const THREAD_SHOT = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiThreadFrom || 0);
+    const readHead = row => {
+      const head = row.querySelector('.steward-thread-head');
+      if (!head) return null;
+      const state = head.querySelector('.steward-thread-state');
+      const meta = head.querySelector('.steward-thread-meta');
+      return {
+        name: head.querySelector('.steward-thread-name').textContent,
+        state: state.hidden ? '' : state.textContent,
+        stateAttr: state.dataset.state || '',
+        meta: meta.hidden ? '' : meta.textContent,
+        opens: head.querySelectorAll('.steward-thread-open').length,
+      };
+    };
+    return {
+      rows: rows.length,
+      ruyi: rows.filter(row => row.classList.contains('steward-msg-ruyi')).map(row => {
+        const say = row.querySelector('.steward-say');
+        const lead = say ? say.querySelector('.is-lead') : null;
+        return {
+          thread: row.dataset.thread || '',
+          hue: row.dataset.threadHue || '',
+          isThread: row.classList.contains('is-thread'),
+          start: row.classList.contains('is-thread-start'),
+          end: row.classList.contains('is-thread-end'),
+          // 色条与组竖线各自画没画（都走计算样式，不碰任何私有状态）。
+          stripe: getComputedStyle(row, '::after').content !== 'none',
+          stripeColor: getComputedStyle(row, '::after').backgroundColor,
+          groupLine: getComputedStyle(row, '::before').content !== 'none',
+          heads: row.querySelectorAll('.steward-thread-head').length,
+          head: readHead(row),
+          sources: row.querySelectorAll('.steward-source').length,
+          sourceShown: (() => {
+            const chip = row.querySelector('.steward-source');
+            return chip ? getComputedStyle(chip).display !== 'none' : false;
+          })(),
+          deliverables: row.querySelectorAll('.steward-deliverable').length,
+          sayText: say ? say.textContent : '',
+          leads: say ? say.querySelectorAll('.is-lead').length : 0,
+          leadTag: lead ? lead.tagName : '',
+          leadWeight: lead ? getComputedStyle(lead).fontWeight : '',
+          clamped: say ? say.classList.contains('is-clamped') : false,
+          sayCut: say ? (say.scrollHeight > say.clientHeight + 2) : false,
+          sayActs: [...row.querySelectorAll('.steward-say-acts button')].map(node => node.textContent),
+        };
+      }),
+    };
+  })()`;
+  const threadRun = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    const prims = (await import('/js/chat-render-primitives.js')).createChatRenderPrimitives({
+      el: (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+      },
+      escapeHtml: value => String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])),
+      marked: window.marked,
+      t: key => key,
+      toast: () => {},
+    });
+    window.__ruyiThreadFrom = document.querySelectorAll('#stewardFeed .steward-msg').length;
+    const touched = new Date(Date.now() - 20000).toISOString();
+    const threadSession = (id, title, extra, seqs) => ({
+      ok: true, displayTitle: title, ...extra,
+      session: {
+        id, turnSeq: seqs[seqs.length - 1], updatedAt: touched,
+        engineRoute: { engine: 'openai', providerId: 'fake', model: id === ${JSON.stringify(THREAD_A)} ? 'qwen3.8-flash' : 'gpt-5-mini' },
+        messages: seqs.flatMap(seq => ([
+          { role: 'user', turnSeq: seq, createdAt: '2099-05-01T00:00:00.000Z', content: '第 ' + seq + ' 回合的问题' },
+          { role: 'assistant', turnSeq: seq, createdAt: '2099-05-01T00:00:01.000Z', content: ${JSON.stringify(DELIVERABLE_MD)} },
+        ])),
+      },
+    });
+    const envelopes = {
+      [${JSON.stringify(THREAD_A)}]: threadSession(${JSON.stringify(THREAD_A)}, '博纳影业怎么看', { resumable: { live: true } }, [3, 4, 5]),
+      [${JSON.stringify(THREAD_B)}]: threadSession(${JSON.stringify(THREAD_B)}, '大A接下来的走势', { relay: { channel: 'permission' } }, [2]),
+    };
+    const inbox = (id, title, seq) => ({ kind: 'inbox', sessionId: id, title, turnSeq: seq });
+    const history = { session: { messages: [
+      { role: 'assistant', createdAt: '2099-05-02T00:00:00.000Z', content: '',
+        steward: { trigger: inbox(${JSON.stringify(THREAD_A)}, '博纳影业怎么看', 3), say: '它交了第三回合。', why: '', acts: [], actions: [] } },
+      { role: 'assistant', createdAt: '2099-05-02T00:00:01.000Z', content: '',
+        steward: { trigger: inbox(${JSON.stringify(THREAD_A)}, '博纳影业怎么看', 4), say: '第四回合也交了。', why: '', acts: [], actions: [] } },
+      { role: 'assistant', createdAt: '2099-05-02T00:00:02.000Z', content: '',
+        steward: { trigger: inbox(${JSON.stringify(THREAD_B)}, '大A接下来的走势', 2), say: '这条在等你拿主意。', why: '', acts: [], actions: [] } },
+      { role: 'user', createdAt: '2099-05-02T00:00:03.000Z', content: '知道了' },
+      { role: 'assistant', createdAt: '2099-05-02T00:00:04.000Z', content: '',
+        steward: { trigger: 'user', say: ${JSON.stringify(LEAD_SAY)}, why: '', acts: [], actions: [] } },
+      { role: 'assistant', createdAt: '2099-05-02T00:00:05.000Z', content: '',
+        steward: { trigger: inbox(${JSON.stringify(THREAD_A)}, '博纳影业怎么看', 5), say: '第五回合又交了。', why: '', acts: [], actions: [] } },
+    ] } };
+    window.__ruyiThreadCalls = [];
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        window.__ruyiThreadCalls.push(String(url));
+        const path = String(url).split('?')[0];
+        if (path === '/api/sessions/steward') return history;
+        const id = path.replace('/api/sessions/', '');
+        return envelopes[id] || null;
+      },
+      t: (key, params) => key + ((params && params.title) ? '|' + params.title : '') + ((params && params.seq) ? '|' + params.seq : ''),
+      isStewardMode: () => true,
+      renderMarkdownInto: prims.renderMarkdownInto,
+      highlightIn: prims.highlightIn,
+    });
+    const rendered = await conv.appendSince('2000-01-01T00:00:00.000Z');
+    return { rendered, calls: window.__ruyiThreadCalls.slice() };
+  })()`);
+  // 卡头的事实是异步填的（与交付卡 await 同一个 promise），所以等到药丸真的亮出来为止。
+  const cards = await waitForEval(cdp, `(() => {
+    const snapshot = ${THREAD_SHOT};
+    const heads = snapshot.ruyi.filter(row => row.head);
+    return (heads.length === 3 && heads.every(row => row.head.state)) ? snapshot : null;
+  })()`, 300) || await cdp.evaluate(THREAD_SHOT);
+  const shotDirF = path.join(os.tmpdir(), 'ruyi-F1F4-shots');
+  const shootF = async name => {
+    try {
+      fs.mkdirSync(shotDirF, { recursive: true });
+      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(shotDirF, name), Buffer.from(png.data, 'base64'));
+      console.log(`  截图：${path.join(shotDirF, name)}`);
+    } catch { /* 证据拍不下来不改变判定 */ }
+  };
+  await shootF('F1-thread-cards.png');
+  // 第二张证据：滚到第二条线程那一段 —— 一屏里同时看得见【两种颜色的色条】与【折起来的正文】
+  // （这一张要在点「展开」之前拍，展开之后就不是折叠态了）。
+  await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiThreadFrom || 0);
+    const beta = rows.filter(row => row.dataset.thread === ${JSON.stringify(THREAD_B)})[0];
+    if (beta && beta.scrollIntoView) beta.scrollIntoView({ block: 'start' });
+    return true;
+  })()`);
+  await shootF('F1-two-threads-and-clamp.png');
+  const cardRows = (cards && cards.ruyi) || [];
+  ok(Boolean(threadRun) && threadRun.rendered === 6 && cardRows.length === 5,
+    `V0 六条上屏（五条管家的话 ＋ 一条用户的话；实测 rendered=${threadRun && threadRun.rendered} / 管家行 ${cardRows.length}）`);
+  const [a3, a4, b2, self, a5] = cardRows;
+  ok(Boolean(a3) && Boolean(a4) && a3.thread === THREAD_A && a4.thread === THREAD_A
+    && a3.start === true && a3.end === false && a4.start === false && a4.end === true
+    && a3.heads + a4.heads === 1,
+    `V1 连着的两条【同一线程】合成一张卡：一个卡头、组首组尾各一（实测 ${JSON.stringify([a3 && [a3.start, a3.end, a3.heads], a4 && [a4.start, a4.end, a4.heads]])}）`);
+  ok(Boolean(b2) && b2.thread === THREAD_B && b2.start === true && b2.heads === 1
+    && a3.hue !== b2.hue && a3.stripeColor !== b2.stripeColor
+    && /^rgb/.test(String(a3.stripeColor)) && /^rgb/.test(String(b2.stripeColor)),
+    `V2 两条不同线程＝两张卡，色条不是同一个颜色（实测 ${a3 && a3.stripeColor} ／ ${b2 && b2.stripeColor}）`);
+  ok(Boolean(a5) && a5.thread === THREAD_A && a5.start === true
+    && a5.hue === a3.hue && a5.stripeColor === a3.stripeColor,
+    `V3 同一条线程隔了几条之后再出现，仍是同一个色（实测 ${a5 && a5.hue} vs ${a3 && a3.hue}，${a5 && a5.stripeColor}）`);
+  ok(Boolean(self) && self.isThread === false && self.thread === '' && self.heads === 0
+    && self.stripe === false && self.sources === 0,
+    `V4 管家【本人】说的话没有色条、没有卡头、没有来源小头（实测 isThread=${self && self.isThread} / 色条=${self && self.stripe}）`);
+  ok(cardRows.filter(row => row.isThread).every(row => row.stripe === true && row.groupLine === false),
+    `V4b 一行只有一个锚：有色条的那几行不再画那道组竖线（实测 ${JSON.stringify(cardRows.map(row => [row.isThread, row.stripe, row.groupLine]))}）`);
+  ok(Boolean(self) && self.clamped === true && self.sayCut === true
+    && self.sayActs.length === 1 && self.sayActs[0] === 'stewardShell.chat.deliverableExpand',
+    `V5 正文超 8 行默认折叠（真的被裁掉了一截）且带一枚「展开」（实测 clamped=${self && self.clamped} / 溢出=${self && self.sayCut} / ${JSON.stringify(self && self.sayActs)}）`);
+  const expandedSay = await cdp.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiThreadFrom || 0);
+    const more = rows.map(row => row.querySelector('.steward-say-acts .steward-deliverable-more')).filter(Boolean)[0];
+    if (more) more.click();
+    return ${THREAD_SHOT};
+  })()`);
+  const selfOpen = (expandedSay && expandedSay.ruyi[3]) || null;
+  ok(Boolean(selfOpen) && selfOpen.clamped === false && selfOpen.sayCut === false
+    && selfOpen.sayActs[0] === 'stewardShell.chat.deliverableCollapse',
+    `V5b 点「展开」全文展开、按钮换成「收起」——【与交付卡同一处折叠实现】（实测 clamped=${selfOpen && selfOpen.clamped} / ${JSON.stringify(selfOpen && selfOpen.sayActs)}）`);
+  // 「首句抬成引子」是纯呈现：加粗的是第一个段落，而【一个字都没变】——把两边的空白去掉之后
+  // DOM 里的字必须与模型说的那句话逐字相同（※ 是渲染层加的一枚按钮，不算正文，先摘掉）。
+  const saidPlain = LEAD_SAY.replace(/\s+/g, '');
+  const domPlain = String((selfOpen && selfOpen.sayText) || '').replace(/※/g, '').replace(/\s+/g, '');
+  ok(Boolean(selfOpen) && selfOpen.leads === 1 && selfOpen.leadTag === 'P' && selfOpen.leadWeight === '600'
+    && domPlain === saidPlain,
+    `V6 首句抬成引子（第一个段落加粗）而正文逐字未变（引子 ${selfOpen && selfOpen.leadTag}/${selfOpen && selfOpen.leadWeight}，文字相同=${domPlain === saidPlain}）`);
+  ok(Boolean(a3) && a3.deliverables === 1 && a3.sources === 1 && a3.sourceShown === false
+    && Boolean(a3.head) && a3.head.opens === 1,
+    `V7 117s-H 的交付卡与来源小头照旧长在卡里：小头仍在 DOM（它的聚焦通道没动），只是让位给卡头右端的「打开」（实测 交付卡 ${a3 && a3.deliverables} / 小头 ${a3 && a3.sources} / 可见 ${a3 && a3.sourceShown}）`);
+  ok(Boolean(a3.head) && a3.head.name.indexOf('博纳影业怎么看') === 0
+    && a3.head.stateAttr === 'running' && a3.head.state === 'mission.state.running'
+    && a3.head.meta.indexOf(' · ') > 0 && a3.head.meta.indexOf('qwen3.8-flash') > 0,
+    `V8 卡头的线程名/五态/最后动静/模型全部来自那一个信封（displayTitle、resumable.live、updatedAt、engineRoute.model；实测 ${JSON.stringify(a3.head)}）`);
+  ok(Boolean(b2.head) && b2.head.stateAttr === 'needs_you' && b2.head.state === 'mission.state.needs_you'
+    && b2.head.meta.indexOf('gpt-5-mini') > 0,
+    `V8b 另一条线程的药丸走 relay.channel（13h 那条递话阶梯的输出）说「等你」，模型也是它自己那一份（实测 ${JSON.stringify(b2.head)}）`);
+  // 本刀【零新增请求】：卡头没有自己的一发，它 await 的就是交付卡那一发（loadDeliverable 一处缓存，
+  // 键仍是 117s-H2 定的 sessionId|turnSeq）。所以请求数完全由交付卡的既有行为决定 ——
+  // 历史 1 发 ＋ A 的三个回合各 1 发 ＋ B 的一个回合 1 发 = 5 发，与本刀之前一模一样。
+  ok(Array.isArray(threadRun.calls) && threadRun.calls.length === 5
+    && threadRun.calls[0].indexOf('/api/sessions/steward?since=') === 0
+    && threadRun.calls.filter(url => url === '/api/sessions/' + THREAD_A).length === 3
+    && threadRun.calls.filter(url => url === '/api/sessions/' + THREAD_B).length === 1,
+    `V9 卡头零新增请求：它与同一行的交付原文 await 同一个被缓存的 promise（实测 ${JSON.stringify(threadRun.calls)}）`);
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");
   const classic = await waitForEval(cdp, `(() => {

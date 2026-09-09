@@ -584,6 +584,127 @@ const deliverableCss = cssCode.slice(cssCode.indexOf('.steward-deliverable {'));
 ok(deliverableCss.length > 0 && !/transition|animation/.test(deliverableCss),
   'P13b 交付卡零 transition／零 animation（故 reduced-motion 的关闭清单一个字没加）');
 
+
+// ─── Q F1 线程卡 ＋ F4 回复定型（27 号文 §11.13.1「线程即频道」；设计稿两块画板）──────────────
+// 钉的是「哪件事必须成立」，不是「某一行长什么样」（32 号文 §4 第 3 条）。
+// ① 三支新判据的真值表（纯函数、零 DOM，Node 里直接跑）。
+ok(typeof mod.stewardThreadHue === 'function' && typeof mod.stewardThreadFacts === 'function'
+  && typeof mod.stewardAgoParts === 'function' && mod.STEWARD_THREAD_HUES === 4,
+  `Q1 三支新判据都是导出的纯函数，色卡是 4 色的导出常量（实测 ${mod.STEWARD_THREAD_HUES}）`);
+ok([0, 1, 2, 3, 4, 7].map(mod.stewardThreadHue).join(',') === '1,2,3,4,1,4'
+  && mod.stewardThreadHue(-1) === 1 && mod.stewardThreadHue('x') === 1,
+  'Q1b 色号按首次出现顺序循环（第 5 条线程回到 1 号色），越界/非数一律归 1 号');
+const factsOf = payload => JSON.stringify(mod.stewardThreadFacts(payload));
+ok(mod.stewardThreadFacts({ relay: { channel: 'permission' } }).state === 'needs_you'
+  && mod.stewardThreadFacts({ relay: { channel: 'answer' } }).state === 'needs_you'
+  && mod.stewardThreadFacts({ relay: { channel: 'queued' } }).state === 'queued'
+  && mod.stewardThreadFacts({ relay: { channel: 'steer' } }).state === 'running'
+  && mod.stewardThreadFacts({ resumable: { live: true } }).state === 'running'
+  && mod.stewardThreadFacts({ session: { turnSeq: 2, stewardLastTurn: { seq: 2, ok: false } } }).state === 'stopped'
+  && mod.stewardThreadFacts({ session: { turnSeq: 2 } }).state === 'done',
+  'Q2 五态只从信封上的权威字段派生：relay.channel（13h 那条递话阶梯的输出）＞ resumable.live ＞ 会话头的 stewardLastTurn/turnSeq');
+ok(mod.stewardThreadFacts({ relay: { channel: 'permission' }, resumable: { live: true }, session: { turnSeq: 9 } }).state === 'needs_you'
+  && mod.stewardThreadFacts({ resumable: { live: true }, session: { turnSeq: 2, stewardLastTurn: { ok: false } } }).state === 'running',
+  'Q2b 优先级：等你 ＞ 在跑 ＞ 上一回合的结果（正在等你拿主意时不该说「在跑」，正在跑时不该说「上次失败了」）');
+ok(mod.stewardThreadFacts({}).state === '' && mod.stewardThreadFacts(null).stateKey === ''
+  && mod.stewardThreadFacts({ session: { turnSeq: 0 } }).state === '',
+  'Q2c 一回合都没跑过、信封什么都没说时【不出药丸】—— 宁可少一枚药丸，不许编一个状态（§8.1 原则 2）');
+ok(mod.stewardThreadFacts({ session: { turnSeq: 1 } }).stateKey === 'mission.state.done'
+  && mod.stewardThreadFacts({ relay: { channel: 'queued' } }).stateKey === 'stewardShell.chat.queued',
+  'Q2d 药丸人话复用全仓既有的那组键（mission.state.* ＋ 管家壳自己那句「排队中」），不新开一套词');
+ok(factsOf({ displayTitle: '周报', session: { engineRoute: { model: 'q3-flash' }, updatedAt: '2026-09-09T00:00:00.000Z', turnSeq: 1 } })
+    === JSON.stringify({ title: '周报', state: 'done', stateKey: 'mission.state.done', updatedAt: '2026-09-09T00:00:00.000Z', model: 'q3-flash' })
+  && mod.stewardThreadFacts({ session: { turnSeq: 1, messages: [{ role: 'assistant', model: 'm-last' }] } }).model === 'm-last'
+  && mod.stewardThreadFacts({ session: {} }).model === '' && mod.stewardThreadFacts({ session: {} }).title === '',
+  'Q3 线程名取信封的 displayTitle（02 一处判定）；模型取会话头 engineRoute.model，缺席才回落最后一条助手消息上的 model；都取不到就空着');
+const agoNow = Date.parse('2026-09-09T12:00:00.000Z');
+ok(JSON.stringify(mod.stewardAgoParts('2026-09-09T11:59:40.000Z', agoNow)) === JSON.stringify({ value: -20, unit: 'second' })
+  && JSON.stringify(mod.stewardAgoParts('2026-09-09T11:55:00.000Z', agoNow)) === JSON.stringify({ value: -5, unit: 'minute' })
+  && JSON.stringify(mod.stewardAgoParts('2026-09-09T09:00:00.000Z', agoNow)) === JSON.stringify({ value: -3, unit: 'hour' })
+  && JSON.stringify(mod.stewardAgoParts('2026-09-07T12:00:00.000Z', agoNow)) === JSON.stringify({ value: -2, unit: 'day' }),
+  'Q4 「最后动静」只算出 (value, unit)，人话交给 Intl.RelativeTimeFormat 按 documentElement.lang 去说（零新增 i18n 键）');
+ok(mod.stewardAgoParts('2026-09-10T12:00:00.000Z', agoNow) === null
+  && mod.stewardAgoParts('', agoNow) === null && mod.stewardAgoParts(null, agoNow) === null,
+  'Q4b 时间在未来、或根本没有时间戳时回 null（调用方据此整段不说，不猜一个「刚刚」出来）');
+ok(/new Intl\.RelativeTimeFormat\(/.test(conversationCode)
+  && !/from '\.\/preview-task-sheet\.js'/.test(conversation),
+  'Q4c 相对时间走平台的 Intl，不去抄 preview-task-sheet.js 的 elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」）');
+
+// ② 颜色只从令牌来：本层【只有一处】把颜色算出来，四个色号规则各自只改 --thread-hue 指向哪一根，
+//    JS 一个颜色值都不写（它只写 data-thread-hue 这个序号）。
+ok(/--thread-hue-1:/.test(cssCode) && /--thread-hue-4:/.test(cssCode)
+  && /--thread-sat:/.test(cssCode) && /--thread-light:/.test(cssCode)
+  && /--thread-color: hsl\(var\(--thread-hue\) var\(--thread-sat\) var\(--thread-light\)\);/.test(cssCode),
+  'Q5 四色是一组【色相角 + 共用饱和度/明度】的自定义属性，颜色由一条 hsl() 算出来（27 号文 §11.13.1「同明度同饱和度只换色相」）');
+ok((cssCode.match(/hsl\(/g) || []).length === 1,
+  `Q5b 整层【只有一处】构造颜色：换四色只需改令牌，不必改任何一条元素规则（实测 ${(cssCode.match(/hsl\(/g) || []).length} 处）`);
+for (const hue of [2, 3, 4]) {
+  ok(new RegExp(`\\.steward-msg-ruyi\\.is-thread\\[data-thread-hue="${hue}"\\] \\{ --thread-hue: var\\(--thread-hue-${hue}\\); \\}`).test(cssCode),
+    `Q5c ${hue} 号色规则只把 --thread-hue 指到另一根令牌上，不写第二个颜色值`);
+}
+ok(/:root\[data-theme="dark"\] \{ --thread-sat:/.test(cssCode),
+  'Q5d 深浅两档各一组饱和度/明度（月白底要压暗、墨夜底要提亮），主题层特指度更高因此还能整组覆盖');
+ok(count(conversationCode, /dataset\.threadHue/g) === 1
+  && !/hsl\(|rgb\(|style\.(background|color)/.test(conversationCode),
+  'Q5e JS 只写色【号】（一处 dataset.threadHue），一个颜色值都不写（零行内样式、零 hsl/rgb 字面量）');
+
+// ③ 折叠只有一处实现，两个调用方（117s-H2 的交付卡 ＋ F4 的管家正文）。
+ok(count(conversationCode, /function clampIfLong\(/g) === 1
+  && count(conversationCode, /function collapseToggle\(/g) === 1
+  && count(conversationCode, /clampIfLong\(/g) === 3 && count(conversationCode, /collapseToggle\(/g) === 3,
+  `Q6 折叠是【一处】实现两个调用方（clampIfLong ${count(conversationCode, /clampIfLong\(/g)} 处出现 = 定义 + 交付卡 + 管家正文，collapseToggle 同）`);
+ok(count(conversationCode, /button\('steward-deliverable-more'/g) === 1
+  && count(conversationCode, /classList\.toggle\('is-clamped'\)/g) === 1
+  && count(conversationCode, /classList\.add\('is-clamped'\)/g) === 1
+  && count(conversationCode, /classList\.remove\('is-clamped'\)/g) === 1,
+  'Q6b 「展开」按钮、is-clamped 的加/减/翻转各自全文件恰好一处 —— 想再造一个折叠必须先动这几行');
+ok(/\.steward-say\.is-clamped \{ max-height: var\(--steward-clamp-h\); overflow: hidden; \}/.test(cssCode)
+  && /\.steward-deliverable-body\.is-clamped \{ max-height: var\(--steward-clamp-h\); overflow: hidden; \}/.test(cssCode)
+  && (cssCode.match(/--steward-clamp-h:/g) || []).length === 1,
+  'Q6c 两处折叠读同一个高度令牌（--steward-clamp-h 全层只定义一次）：改折叠高度只有一处可改');
+ok(mod.STEWARD_DELIVERABLE_LINES === 8 && /clampIfLong\(node, text\)/.test(conversationCode)
+  && /clampIfLong\(body, found\.text\)/.test(conversationCode),
+  'Q6d 两个调用方吃的是同一个阈值常量（STEWARD_DELIVERABLE_LINES=8），没有第二个「8」');
+
+// ④ 卡头的事实【只从信封来】：零新增路由、零新增请求、零新增 import。
+const factsStart = conversationCode.indexOf('export function stewardThreadFacts');
+const factsEnd = conversationCode.indexOf('export function stewardAgoParts');
+const factsSlice = conversationCode.slice(factsStart, factsEnd);
+ok(factsStart > 0 && factsEnd > factsStart
+  && ['resumable', 'relay', 'engineRoute', 'stewardLastTurn'].every(field =>
+    count(conversationCode, new RegExp(field, 'g')) === count(factsSlice, new RegExp(field, 'g'))),
+  'Q7 信封上那四个字段（resumable/relay/engineRoute/stewardLastTurn）只在 stewardThreadFacts 一处读 —— 卡头的事实不许散落在渲染代码里');
+ok(/const got = await loadDeliverable\(source\.sessionId, source\.turnSeq\); facts = stewardThreadFacts\(got && got\.envelope\);/.test(conversationCode)
+  && /return \{ envelope: payload, deliverable: stewardDeliverableFrom\(payload && payload\.session, turnSeq\) \}/.test(conversationCode),
+  'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），所以请求数一发没多');
+ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED),
+  'Q7c companion：本刀零新增后端面（路由白名单与 J1 逐字相同）');
+ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(['./net.js', './steward-chips.js']),
+  'Q7d companion：本刀零新增 import（卡头要的东西全在信封里，不去别的域借函数）');
+
+// ⑤ 线程卡与既有分组规则的关系：分组照旧，色条更强。
+ok(/function markThread\(row, sessionId\) \{/.test(conversation)
+  && /if \(sameThread\) previous\.classList\.remove\('is-thread-end'\);/.test(conversation)
+  && /else row\.classList\.add\('is-thread-start'\);/.test(conversation),
+  'Q8 线程段与说话人分组同一种追加式做法（只看前一行），三个类在 JS 里一处维护');
+const markThreadSlice = conversationCode.slice(conversationCode.indexOf('function markThread'), conversationCode.indexOf('function agoLabel'));
+ok(markThreadSlice.length > 0 && !/is-group/.test(markThreadSlice)
+  && /\.steward-msg \{ margin-top: var\(--sp-3\); \}/.test(cssCode)
+  && /\.steward-msg-ruyi:not\(\.is-group-start\) \{ margin-top: 0; \}/.test(cssCode),
+  'Q8b 线程卡【不碰】分组的任何一个类，组间/组内的间距规则一个字没改（卡是叠在分组之上的一层）');
+ok(/\.steward-feed \.steward-msg-ruyi\.is-thread\[data-thread\]::before \{ content: none; \}/.test(cssCode)
+  && /\.steward-msg-ruyi\.is-thread::after \{/.test(cssCode)
+  && /\.steward-msg-ruyi\.is-thread:not\(\.is-thread-end\)::after \{ bottom: calc\(-1 \* var\(--sp-1\)\); \}/.test(cssCode),
+  'Q8c 一行只有一个锚：有色条的那几行让出那道淡竖线；色条按与竖线同一个接线法跨过组内的 --sp-1');
+ok(/\.steward-say > \.is-lead \{/.test(cssCode) && /const lead = node\.firstElementChild;/.test(conversation)
+  && /if \(lead && lead\.tagName === 'P'\) lead\.classList\.add\('is-lead'\);/.test(conversation),
+  'Q9 首句抬成引子是【纯呈现】：只给第一个段落加一个类，不切句、不改文本、不重排 markdown 块（第一块是标题时不加）');
+for (const key of ['mission.state.running', 'mission.state.needs_you', 'mission.state.done', 'mission.state.stopped',
+  'stewardShell.chat.queued', 'stewardShell.acts.open']) {
+  ok(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0,
+    `Q10 卡头复用的既有 locale 键 ${key} 中英齐备（本刀零新增键）`);
+}
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

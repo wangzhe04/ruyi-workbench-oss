@@ -524,8 +524,10 @@
   white-space: pre-wrap;   /* 没有渲染器时（回落 textContent）原文的换行仍要保住 */
   word-break: break-word;
 }
-/* 折叠：约 8 行（--sp 体系里没有行数单位，这里按 line-height 折算）。展开＝去掉这个类。 */
-.steward-deliverable-body.is-clamped { max-height: 12.8em; overflow: hidden; }
+/* 折叠：约 8 行（--sp 体系里没有行数单位，这里按 line-height 折算）。展开＝去掉这个类。
+   F4：管家自己那段话也要折同样一刀，高度因此收成【一个自定义属性】（--steward-clamp-h，定义
+   在文件末尾那一组令牌里）—— 两条规则读同一个数，改折叠高度只有一处可改。 */
+.steward-deliverable-body.is-clamped { max-height: var(--steward-clamp-h); overflow: hidden; }
 /* 交付原文与管家的话走【同一个】渲染器，所以也带 md 类：排版规则同源 chat-narrative.css 的
    .md 一族。这几条与上面 .steward-say.md 那一组是同一件事（气泡内收口），只是选择器换一个宿主
    —— 不并进同一条规则是为了不动 117s-C 钉住的那几行。 */
@@ -557,3 +559,140 @@
 .steward-deliverable-full:hover { color: var(--accent); }
 .steward-deliverable-more:focus-visible,
 .steward-deliverable-full:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ── F1 线程卡 · 令牌（27 号文 §11.13.1「线程即频道」；设计稿画板「宽屏 · 线程即频道」）──────
+   线程色卡是本波【新加】的四色，纪律是「同明度同饱和度只换色相」（27 号文 §11.13.1 F 原话）。
+   所以这里不写四个颜色值，写的是【一组色相角 + 一对共用的饱和度/明度】：
+     · 四个色相取自设计稿的珊瑚 / 竹青 / 紫毫 / 秋波（角度就是那四色的 H）；
+     · 饱和度与明度两主题各一档 —— 月白底上要压暗才看得见，墨夜底上要提亮才看得见。
+   定义挂在 :root 上而不是挂在气泡上，主题层（css/themes/color-schemes.css 的
+   :root[data-theme="dark|light"]，特指度更高）因此可以整组覆盖，不必改本层一个字。
+   全部走 hsl()，故 H4「零硬编码色值（无 #rrggbb）」原样成立，且整份样式里【只有一处】真正把
+   颜色算出来（--thread-color），四个色号规则各自只改 --thread-hue 指向哪一根。 */
+:root {
+  --thread-sat: 46%;
+  --thread-light: 42%;
+  --thread-hue-1: 9;     /* 珊瑚 */
+  --thread-hue-2: 143;   /* 竹青 */
+  --thread-hue-3: 257;   /* 紫毫 */
+  --thread-hue-4: 188;   /* 秋波 */
+  /* 折叠高度：交付原文与管家正文共用（≈8 行 × line-height 1.6）。 */
+  --steward-clamp-h: 12.8em;
+}
+:root[data-theme="dark"] { --thread-sat: 52%; --thread-light: 64%; }
+
+/* 3px 色条：只说「这是哪条线程」，不说状态（两套信号不混用）。画在 ::after 上，位置取头像槽的
+   右缘（36px）—— 正文左缘 44px 一个像素不动。与组竖线同一个接线法：不是本段最后一行的那几段
+   各自向下多探一个 gap，于是隔着 --sp-1 的间距看起来仍是连续的一条。 */
+.steward-msg-ruyi.is-thread {
+  --thread-hue: var(--thread-hue-1);
+  --thread-color: hsl(var(--thread-hue) var(--thread-sat) var(--thread-light));
+}
+.steward-msg-ruyi.is-thread[data-thread-hue="2"] { --thread-hue: var(--thread-hue-2); }
+.steward-msg-ruyi.is-thread[data-thread-hue="3"] { --thread-hue: var(--thread-hue-3); }
+.steward-msg-ruyi.is-thread[data-thread-hue="4"] { --thread-hue: var(--thread-hue-4); }
+.steward-msg-ruyi.is-thread::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 36px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--thread-color);
+}
+.steward-msg-ruyi.is-thread:not(.is-thread-end)::after { bottom: calc(-1 * var(--sp-1)); }
+/* 分组照旧，色条更强：属于某条线程的那几行【不再】画那道淡竖线 —— 一行只能有一个锚
+   （与「头像所在的最新那一组不画竖线」是同一条道理）。间距规则一个字没改，仍由
+   .is-group-start / .is-group-end 说了算，所以线程卡是叠在分组之上的一层，不是替代它。
+   选择器带上 .steward-feed 是为了稳压上面那两条带 :not() 的竖线规则（它们的特指度不低）。 */
+.steward-feed .steward-msg-ruyi.is-thread[data-thread]::before { content: none; }
+/* 卡头出现之后，「来自线程『X』」那枚小头就是重复的一句话：视觉上收起来（DOM 与它的
+   steward:focus-thread 通道一个字没动，卡头右端的「打开」是同一个动作的可见入口）。 */
+.steward-msg-ruyi.is-thread > .steward-source { display: none; }
+
+/* 卡头：色点 · 线程名 · 五态药丸 · 最后动静 · 模型 · 打开。取值全部沿用既有 token。 */
+.steward-thread-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.steward-thread-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--thread-color);
+}
+.steward-thread-name {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 五态药丸：默认是「在跑」那一档（着重色）；其余三档各自换一族语义色。人话与颜色都复用既有
+   口径（看板行的「等你」用的就是 --gold / --gold-soft 这一对）。 */
+.steward-thread-state {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.steward-thread-state[data-state="needs_you"] { color: var(--gold); background: var(--gold-soft); }
+.steward-thread-state[data-state="stopped"] { color: var(--danger); background: var(--danger-soft); }
+.steward-thread-state[data-state="done"],
+.steward-thread-state[data-state="queued"] { color: var(--muted); background: var(--panel-3); }
+.steward-thread-meta {
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 作者样式的 display 会压过 UA 表的 [hidden]{display:none}（本层已有四处同款先例）：药丸与
+   「最后动静 · 模型」在信封说不死的时候是 hidden 的，少这两条它们会以空壳的样子留在屏幕上。 */
+.steward-thread-state[hidden],
+.steward-thread-meta[hidden] { display: none; }
+.steward-thread-open {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  min-height: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.steward-thread-open:hover { color: var(--accent-hover); }
+.steward-thread-open:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ── F4 回复定型（设计稿画板「一条回复的解剖」）─────────────────────────────────────────
+   ② 首句即结论：只加粗、只提墨色，【不动字号体系】—— 设计稿那 1px 的字号差在本仓的 --fs-*
+      阶梯上没有对应档，硬造一档比不造更糟。第一块本来就是标题时不加这个类（JS 只给 <p> 加）。
+   ④ 正文超 8 行折起来：与交付卡同一个高度令牌、同一枚按钮类。折叠时 ※ 会一起被收进折线以下
+      （它按 117s-C 的纪律挂在句尾那一段里），点「展开」即可见 —— 这是本刀已知并接受的一处
+      取舍：把 ※ 挪出正文会动到 S3c 钉住的那条「※ 在句尾」的事实。 */
+.steward-say > .is-lead {
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.steward-say.is-clamped { max-height: var(--steward-clamp-h); overflow: hidden; }
+.steward-say-acts {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: calc(-1 * var(--sp-1));
+}
