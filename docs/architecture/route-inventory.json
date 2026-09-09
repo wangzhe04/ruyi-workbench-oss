@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-09T04:16:22.698Z",
+  "generatedAt": "2026-09-09T07:23:44.031Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -3731,7 +3731,7 @@
       "kind": "exact",
       "path": "/api/steward/start",
       "file": "13g-steward.js",
-      "line": 42,
+      "line": 49,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3752,7 +3752,7 @@
       "kind": "exact",
       "path": "/api/steward/stop",
       "file": "13g-steward.js",
-      "line": 52,
+      "line": 59,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3773,7 +3773,7 @@
       "kind": "exact",
       "path": "/api/steward/state",
       "file": "13g-steward.js",
-      "line": 58,
+      "line": 65,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3796,7 +3796,7 @@
       "kind": "exact",
       "path": "/api/steward/inbox",
       "file": "13g-steward.js",
-      "line": 70,
+      "line": 77,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3814,7 +3814,7 @@
       "kind": "exact",
       "path": "/api/steward/preroute",
       "file": "13g-steward.js",
-      "line": 81,
+      "line": 88,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3833,7 +3833,7 @@
       "kind": "exact",
       "path": "/api/steward/memory",
       "file": "13g-steward.js",
-      "line": 103,
+      "line": 110,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3852,7 +3852,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/export",
       "file": "13g-steward.js",
-      "line": 109,
+      "line": 116,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -3870,7 +3870,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/edit",
       "file": "13g-steward.js",
-      "line": 114,
+      "line": 121,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3888,7 +3888,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/veto",
       "file": "13g-steward.js",
-      "line": 120,
+      "line": 127,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3906,7 +3906,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/restore",
       "file": "13g-steward.js",
-      "line": 127,
+      "line": 134,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3924,7 +3924,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/clear",
       "file": "13g-steward.js",
-      "line": 134,
+      "line": 141,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -3942,7 +3942,7 @@
       "kind": "exact",
       "path": "/api/steward/decisions",
       "file": "13g-steward.js",
-      "line": 144,
+      "line": 151,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"

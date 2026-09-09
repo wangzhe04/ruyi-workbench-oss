@@ -734,12 +734,20 @@ try {
       && /const key = STEWARD_TOOL_LABEL_KEYS\[String\(\(row && row\.tool\) \|\| ''\)\];/.test(conv),
       'I2 copy P1-1:※ 脚注优先读 label(读不到先查前端人话表,再落回工具 id),不再直接吐 steward_* 内部标识符');
     // P1-5:兜底判据的唯一定义点(13g),13h 复用它 —— 两处不许各写一份「非 mission 即 quick_ask」。
-    const src13g = rd('13g-steward.js');
+    // 117 波 T1(32 号文 §2.1)重钉:13g 拆成了 13j/13k/13l/13g 四个文件(纯搬家)。判据本身
+    // (stewardQuickThread)搬到 13j-steward-tool-base.js,派生点搬到 13k-steward-threads.js。
+    // 原来钉的是「它在 13g 这个文件里」= 钉落点;I3 改成钉【全仓只声明一次】—— 那才是「单点」这个
+    // 词的意思,而且比原来严(原来 13k 里再抄一份判据照样绿)。
+    const STEWARD_FAMILY = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js'];
+    const srcFam = STEWARD_FAMILY.map(rd).join('\n');
     const src13h = rd('13h-steward-runner.js');
-    ok(/function stewardQuickThread\(head\)/.test(src13g), 'I3 P1-5:速查线程判据只声明在 13g');
-    ok(!/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13g) && !/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13h),
-      'I3b 「非 mission 即 quick_ask」那个兜底在 13g/13h 里一处都不剩');
-    ok((src13g.match(/stewardQuickThread\(head\)/g) || []).length >= 3 && /stewardQuickThread\(head\)/.test(src13h),
+    const srcDirAll = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
+    const quickDefs = srcDirAll.filter(f => /function stewardQuickThread\(head\)/.test(rd(f)));
+    ok(quickDefs.length === 1 && quickDefs[0] === '13j-steward-tool-base.js',
+      `I3 P1-5:速查线程判据全仓只声明一次,住 13j-steward-tool-base.js(实得 ${JSON.stringify(quickDefs)})`);
+    ok(!/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(srcFam) && !/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13h),
+      'I3b 「非 mission 即 quick_ask」那个兜底在 13g 族/13h 里一处都不剩');
+    ok((srcFam.match(/stewardQuickThread\(head\)/g) || []).length >= 3 && /stewardQuickThread\(head\)/.test(src13h),
       'I3c 三个派生点(threads_search / thread_status / 总览行)都走同一个判据');
   }
 } finally {

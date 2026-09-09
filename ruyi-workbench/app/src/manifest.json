@@ -231,21 +231,39 @@
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
-      "file": "13g-steward.js",
+      "file": "13j-steward-tool-base.js",
       "startLine": 43297,
-      "endLine": 45385,
-      "note": "第116波116c:/api/steward/* 域路由、决策日志、管家记忆存储与全部管家工具实现(经 StewardHooks 延迟绑定挂接)"
+      "endLine": 43704,
+      "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)"
+    },
+    {
+      "file": "13k-steward-threads.js",
+      "startLine": 43705,
+      "endLine": 44459,
+      "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)"
+    },
+    {
+      "file": "13l-steward-ops.js",
+      "startLine": 44460,
+      "endLine": 45095,
+      "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)"
+    },
+    {
+      "file": "13g-steward.js",
+      "startLine": 45096,
+      "endLine": 45454,
+      "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 45386,
-      "endLine": 47908,
+      "startLine": 45455,
+      "endLine": 47977,
       "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)"
     },
     {
       "file": "14-main.js",
-      "startLine": 47909,
-      "endLine": 48532,
+      "startLine": 47978,
+      "endLine": 48601,
       "note": "main()/module.exports"
     }
   ]

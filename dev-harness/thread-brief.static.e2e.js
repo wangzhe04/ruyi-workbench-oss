@@ -41,7 +41,11 @@ const provider = readSrc('06-provider-engine.js');
 const core = readSrc('06i-steward-core.js');
 const config = readSrc('01-config.js');
 const domain = readSrc('13d-core-domain-routes.js');
-const steward = readSrc('13g-steward.js');
+// 117 波 T1(32 号文 §2.1):13g 拆成 13j/13k/13l/13g 四个文件(纯搬家),steward_threads_search
+// 现在住 13k-steward-threads.js。这里要钉的事实是「threads_search 的结果带 brief」,与它住哪个
+// 文件无关,故改读整个 13g 族 —— 拆分再动一次也不会假红。
+const steward = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js']
+  .map(readSrc).join('\n');
 const runner = readSrc('13h-steward-runner.js');
 
 /* ── ① 判据只有一处 ─────────────────────────────────────────────────────────── */

@@ -629,7 +629,7 @@
     {
       "id": "steward-decisions",
       "pattern": "<data>/steward/decisions-v1.ndjson",
-      "owner": "13g-steward.js",
+      "owner": "13j-steward-tool-base.js",
       "anchor": "STEWARD_DECISIONS_FILE",
       "schema": "NDJSON decision rows / decisions-v1",
       "writePrimitive": "repairMissionChangeTornTail + appendFile through a per-process serialized chain (the session-changes primitive)",
@@ -643,7 +643,7 @@
     {
       "id": "steward-memory",
       "pattern": "<data>/steward/memory-v1.json",
-      "owner": "13g-steward.js",
+      "owner": "13j-steward-tool-base.js",
       "anchor": "STEWARD_MEMORY_FILE",
       "schema": "object / schema 1",
       "writePrimitive": "atomicWriteJson through a per-process read-modify-write chain",

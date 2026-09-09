@@ -252,13 +252,20 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 // 别处(比如被 stewardMayAct 或永久豁免判定读到),「用户点了一下」就会变成「管家从此可以放宽权限」
 // —— 27 号文 §3.3 永久豁免第 2 条正是禁止这个。故这里把全仓每一处 userPressed 的出现点钉死:
 //   · 06i-steward-core.js —— 只在契约注释里(纯函数层不读它);
-//   · 13g-steward.js      —— 门控壳剥字段 + config_set / skill_toggle 两处「须确认」判定;
+//   · 13g-steward.js      —— 门控壳剥字段(117 波 T1 之后这里只剩剥字段那一处);
+//   · 13k-steward-threads.js —— 只在注释里(派活原语那段解释「用 trigger 而不是 userPressed」);
+//   · 13l-steward-ops.js  —— config_set / skill_toggle 两处「须确认」判定(T1 随实现从 13g 搬来);
 //   · 13h-steward-runner.js —— 唯一置 true 的那一行(act 执行路径)。
-// 任何第四个文件出现它 = 锁红。
+// 任何第六个文件出现它 = 锁红。
+// 117 波 T1 重钉:白名单从三个文件扩到五个,读点计数从「13g 里两处」改成「13g 族里两处、且都在
+// 13l」。改的只是这两处代码住在哪个文件,被钉的事实(唯一置 true 点在 13h 的 act 路径、读点恰好
+// 两处、权限门与授权书零 userPressed)一个字没变;读点那条还比原来严 —— 原来只看 13g 一个文件,
+// 把实现搬进兄弟文件就绕过去了,现在整族一起数。
 {
   const NEWLINE_RE = /\r?\n/;
   const COMMENT_RE = /^\s*(\/\/|\*|\/\*)/;
-  const ALLOWED = new Set(['06i-steward-core.js', '13g-steward.js', '13h-steward-runner.js']);
+  const STEWARD_TOOL_FAMILY = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js'];
+  const ALLOWED = new Set(['06i-steward-core.js', ...STEWARD_TOOL_FAMILY, '13h-steward-runner.js']);
   const hits = [];
   for (const file of srcFiles) {
     const text = read(file);
@@ -266,16 +273,21 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     if (count) hits.push([file, count, text]);
   }
   const outside = hits.filter(([file]) => !ALLOWED.has(file)).map(([file]) => file);
-  ok(outside.length === 0, '⑦ userPressed 只出现在 06i / 13g / 13h 三个文件里' + (outside.length ? ' → ' + outside.join(',') : ''));
+  ok(outside.length === 0, '⑦ userPressed 只出现在 06i / 13g 族 / 13h 里' + (outside.length ? ' → ' + outside.join(',') : ''));
   const src13h2 = read('13h-steward-runner.js');
   const setters = (src13h2.match(/userPressed: true/g) || []).length;
   ok(setters === 1, `⑦ 全仓只有一处把 userPressed 置 true(13h 的 act 执行路径;got ${setters})`);
   ok(/pathname === '\/api\/steward\/act'/.test(src13h2), "⑦ 那一处所在的路由就是 POST /api/steward/act");
   // 读它的地方只有 config_set 与 skill_toggle 的「须确认」判定(加上门控壳剥字段那一处)。
   // 只数【代码行】:注释里指路的那一句不算读。
-  const readers = src13g.split(NEWLINE_RE)
-    .filter(line => line.includes('ctx.userPressed') && !COMMENT_RE.test(line)).length;
-  ok(readers === 2, `⑦ 13g 里只有两处读 ctx.userPressed(config_set / skill_toggle 的须确认判定;got ${readers})`);
+  const readerLines = STEWARD_TOOL_FAMILY.flatMap(f => read(f).split(NEWLINE_RE)
+    .filter(line => line.includes('ctx.userPressed') && !COMMENT_RE.test(line)).map(() => f));
+  ok(readerLines.length === 2, `⑦ 13g 族里只有两处读 ctx.userPressed(config_set / skill_toggle 的须确认判定;got ${readerLines.length})`);
+  ok(readerLines.every(f => f === '13l-steward-ops.js'),
+    `⑦ 这两处都在 13l-steward-ops.js(设置族与内容管理族的实现所在;got ${JSON.stringify(readerLines)})`);
+  // 伴随:门控壳剥字段那一处仍在 13g —— 它是「args 里的同名字段一概不作数」的唯一执行点。
+  ok(/for \(const key of Object\.keys\(raw\)\) \{ if \(key !== 'userPressed'\)/.test(src13g),
+    '⑦ 门控壳剥 args.userPressed 那一处仍在 13g(唯一执行点,拆分没把它挪走)');
   ok(!/userPressed/.test(read('07-autonomy.js')) && !/userPressed/.test(read('06f-autonomy-grants.js')),
     '⑦ 权限门(07 nativeToolGate)与授权书(06f)源码里零 userPressed —— 按钮不等于扩权');
   const src06i2 = read('06i-steward-core.js');

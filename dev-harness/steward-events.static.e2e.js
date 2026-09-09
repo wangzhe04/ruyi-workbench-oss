@@ -132,9 +132,21 @@ function typeExpressionLiterals(text) {
   // 116-2e 重钉:13g 与 13e 之间插入了 13i-steward-inbox.js(收件箱轮询与游标的零行为搬家落点;
   // 只能前置 —— steward-runner.static ① 同时锁着「13h 紧跟 13g」与「13h 紧邻 14-main」)。判据的用意
   // 不变 —— 管家这一族仍连续地待在 transport 层末尾、组合根 14-main 之前。
-  ok(files[i - 1] === '13i-steward-inbox.js', 'D4 13g 紧跟 13i-steward-inbox.js 之后(116-2e 重钉)');
-  ok(files[i - 2] === '13e-pretender-index.js', 'D4 13i 紧跟 13e-pretender-index.js 之后');
-  ok(fs.existsSync(path.join(SRC, '13i-steward-inbox.js')), 'D4 13i-steward-inbox.js 文件存在');
+  // 117 波 T1 重钉:13g 又拆出 13j-steward-tool-base / 13k-steward-threads / 13l-steward-ops 三个
+  // 文件(纯搬家),它们必须排在 13g【之前】—— 13g 的注册表要引用它们的 stewardImpl*,排在后面才是
+  // 前向边。原来钉的是「13g 的前一个下标是 13i、前两个是 13e」,那钉的是当时的排布长什么样;这条
+  // 判据的【用意】一直写在上面那段注释里 ——「管家这一族连续地待在 transport 层末尾、组合根之前」。
+  // 故改钉这条用意本身:整族六个模块在 manifest 里连续、顺序即依赖方向、且紧跟 13e 之后。
+  // 这比原来两个下标探针更严:任何一个族成员被挪出这段连续区间、或顺序被换,这条都红。
+  const STEWARD_FAMILY = ['13i-steward-inbox.js', '13j-steward-tool-base.js', '13k-steward-threads.js',
+    '13l-steward-ops.js', '13g-steward.js', '13h-steward-runner.js'];
+  const famAt = files.indexOf(STEWARD_FAMILY[0]);
+  ok(famAt > 0 && STEWARD_FAMILY.every((f, k) => files[famAt + k] === f),
+    'D4 管家族六个模块连续且按依赖方向排列(' + STEWARD_FAMILY.join(' -> ') + ';实得 '
+    + JSON.stringify(files.slice(famAt, famAt + STEWARD_FAMILY.length)) + ')');
+  ok(files[famAt - 1] === '13e-pretender-index.js', 'D4 管家族紧跟 13e-pretender-index.js 之后');
+  ok(files[i - 1] === '13l-steward-ops.js', 'D4 13g 紧跟 13l-steward-ops.js 之后(117 波 T1 重钉)');
+  ok(STEWARD_FAMILY.every(f => fs.existsSync(path.join(SRC, f))), 'D4 管家族六个文件都在 src/ 里');
   // 116f 重钉:13g 与 14-main 之间插入了 13h-steward-runner.js(管家回合运行器,同为 transport 层;
   // 理由见 116c 交付记录「13g 已 1710 行,116f 另起 13h」)。判据的用意不变 —— 13g 仍在 transport 层
   // 末尾、组合根 14-main 之前,故改钉「13g 之后是 13h」+「14-main 仍是最后一个模块」。
@@ -249,14 +261,21 @@ function typeExpressionLiterals(text) {
   ok(src13i.includes('sources: { missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns },'),
     'D7 游标落盘带上 sessionTurns 段');
   ok(src13i.includes('const STEWARD_CURSOR_SCHEMA = 1;'), 'D7 游标 schema 号仍是 1(向后兼容,不做迁移)');
-  // 写入端:13g 必须真的在会话头上写这两个标,否则第四源的判据永远为假。
-  const src13g = read('13g-steward.js');
-  ok(src13g.includes('function stewardRecordLaunchOutcome('), 'D7 13g 有回合成败的落盘写入端');
-  ok((src13g.match(/session.launchedBy = 'steward';/g) || []).length === 2,
+  // 写入端:管家族必须真的在会话头上写这两个标,否则第四源的判据永远为假。
+  // 117 波 T1 重钉:派活原语与 thread_new / quick_ask 随 T1 一起搬进了 13k-steward-threads.js
+  // (逐字节不变)。原断言读的是「13g 这个文件」,钉的是落点;改成读整个 13g 族(13g/13j/13k/13l)
+  // 并把「有」换成【恰好几处】—— 既跟着搬家走,又比原来严:原来只钉「至少有一处」,加回一份重复的
+  // 写入端照样绿;现在族里多一份就红。
+  const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js',
+    '13l-steward-ops.js'].map(read).join('\n');
+  const famCount = re => (stewardFamilySrc.match(re) || []).length;
+  ok(famCount(/function stewardRecordLaunchOutcome\(/g) === 1,
+    'D7 管家族里恰好一处回合成败的落盘写入端(stewardRecordLaunchOutcome)');
+  ok(famCount(/session\.launchedBy = 'steward';/g) === 2,
     'D7 两条建线程的路径(quick_ask / thread_new)都就地写了 launchedBy');
-  ok(src13g.includes("launchedBy: 'steward',") && src13g.includes('stewardLastTurn: {'),
+  ok(famCount(/launchedBy: 'steward',/g) === 1 && famCount(/stewardLastTurn: \{/g) === 1,
     'D7 settle 之后的那次落盘同时补 launchedBy(覆盖递话给用户自己会话的那条路)');
-  ok(src13g.includes("result.result && typeof result.result === 'object'"),
+  ok(famCount(/result\.result && typeof result\.result === 'object'/g) === 1,
     "D7 成败取【内层】result.result.ok —— 外层 ok 只表示这次调用完成了(一条 HTTP 500 的回合外层仍是 ok:true)");
   const src02b = read('02-session-store.js');
   ok(src02b.includes("if (patch.launchedBy === 'steward') session.launchedBy = 'steward';"),

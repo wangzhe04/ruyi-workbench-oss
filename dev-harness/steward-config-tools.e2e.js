@@ -192,8 +192,14 @@ try {
       `G3 服务端仲裁上限即时变成 9(改上限不必重启;got ${after && after.maxParallel})`);
     ok(/StewardHooks\.arbiterRefresh/.test(fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8').split('async function applyConfigPatch')[1].split('\nasync function handleApi')[0]),
       'G4 源码单点:arbiterRefresh 就挂在 applyConfigPatch 里(路由与管家共用同一条落盘路径)');
-    ok(/await applyConfigPatch\(patch\)/.test(fs.readFileSync(path.join(WB, 'app', 'src', '13g-steward.js'), 'utf8')),
-      'G5 源码单点:steward_config_set 走 applyConfigPatch,不另写落盘');
+    // 117 波 T1(32 号文 §2.1)重钉:steward_config_set 的实现随拆分搬进了 13l-steward-ops.js
+    // (纯搬家,逐字节不变)。原来钉的是「13g 这个文件里有这一行」—— 钉的是落点;改成钉
+    // 「整个 13g 族里恰好一处走 applyConfigPatch」:跟着搬家走,而且比原来严 —— 原来只要有就绿,
+    // 现在族里再冒出第二条落盘路径也红。
+    const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js']
+      .map(f => fs.readFileSync(path.join(WB, 'app', 'src', f), 'utf8')).join('\n');
+    ok((stewardFamilySrc.match(/await applyConfigPatch\(patch\)/g) || []).length === 1,
+      'G5 源码单点:steward_config_set 走 applyConfigPatch,不另写落盘(13g 族里恰好一处)');
   }
 } catch (e) {
   console.log('ERROR ' + ((e && e.stack) || e));

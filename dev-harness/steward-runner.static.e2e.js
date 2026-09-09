@@ -34,6 +34,12 @@ const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
 const src13d = read('13d-core-domain-routes.js');
 const src13g = read('13g-steward.js');
+// 117 波 T1(32 号文 §2.1):13g 的工具实现与共享原语拆到了三个新文件(纯搬家)。它们与 13g 同属
+// 「13g 族」,同样是 13h 的【消费者】—— 下面 ② 的零前向边判据与 unused 判据都必须覆盖它们,
+// 否则一条 13h 符号只要搬进新文件就能绕过这把锁。
+const src13j = read('13j-steward-tool-base.js');
+const src13k = read('13k-steward-threads.js');
+const src13l = read('13l-steward-ops.js');
 // 116-2e:收件箱轮询与游标前移到 13i-steward-inbox.js(零行为搬家),⑤ 的收件箱断言随之改读 13i。
 const src13i = read('13i-steward-inbox.js');
 const src13h = read('13h-steward-runner.js');
@@ -49,10 +55,21 @@ const src01b = read('01b-route-auth.js');
   // 13g 不得继续膨胀(SPEC §2 目标 2000 行;116c 交付记录已把 116f 另起 13h 的理由写在案)。
   const lines13g = src13g.split('\n').length;
   ok(lines13g < 2000, `① 13g 不超过 SPEC 目标 2000 行(got ${lines13g};116f 另起 13h 就是为了这条)`);
+  // 117 波 T1:这条闸在 HEAD 上红了很久(2089 行)。T1 把 13g 按工具族拆成四个文件后它自然绿了 ——
+  // 但只钉 13g 一个文件等于把债推到新文件里而锁看不见。故同时钉整族每个文件都在目标线以内。
+  // (13h 本身 2523 行,SPEC §2 目标 2000 行上它【已经超了】—— 这是 T1 之前就存在、也不在 T1 面上的
+  //  既有债,故不在这里新钉一条红。登记在案:下一把动 13h 的刀先拆它。)
+  for (const [name, text] of [['13j-steward-tool-base.js', src13j], ['13k-steward-threads.js', src13k],
+    ['13l-steward-ops.js', src13l]]) {
+    const n = text.split('\n').length;
+    ok(n < 2000, `① ${name} 也在 SPEC 目标 2000 行以内(got ${n};拆分不许把债换个文件放)`);
+  }
   // 117l companion:这条预算不是靠少写注释守住的,而是靠「新判定不往 13g 堆」。本波三个新判据
   // 一个都不在 13g 里 —— 递话通道的判定与执行在 13h,id 人话化 / 模型分档 / 「它在问你」在 06i。
+  // 117 波 T1:判据面从 13g 一个文件扩到整个 13g 族 —— 否则拆完之后把新判定塞进 13k/13l 就绕过去了。
+  const famText = src13g + src13j + src13k + src13l;
   for (const symbol of ['stewardRelayChannelFor', 'stewardHumanizeIds', 'stewardThreadEngineRoute', 'stewardAsksYou']) {
-    ok(!new RegExp('function ' + symbol + '\\s*\\(').test(src13g), `① 117l companion: ${symbol} 的实现不在 13g(新判定往 13h/06i 放)`);
+    ok(!new RegExp('function ' + symbol + '\\s*\\(').test(famText), `① 117l companion: ${symbol} 的实现不在 13g 族(新判定往 13h/06i 放)`);
   }
 }
 
@@ -65,8 +82,10 @@ const src01b = read('01b-route-auth.js');
   // 116h 重钉:消费者面从 06/09/10/13g 扩到 06/09/10/12/13/13d/13g —— 仲裁的钩子多了三个新消费者
   // (12 的工具 handler、13 的 /api/stop、13d 的事项聚合行)。加入样本让「零前向边」的判据【更严】
   // (这三个文件同样不许出现 13h 的符号),同时让下面反向的 unused 判据仍然覆盖全部消费者。
+  // 117 波 T1 再扩:13g 拆出的三个新文件同属 13g 族,同样不许出现 13h 的符号(判据更严,不是放宽)。
   const consumers = [['06-provider-engine.js', src06], ['09-workflow.js', src09], ['10-context-governance.js', src10],
     ['12-tool-dispatch.js', src12], ['13-http-router.js', src13], ['13d-core-domain-routes.js', src13d], ['13g-steward.js', src13g],
+    ['13j-steward-tool-base.js', src13j], ['13k-steward-threads.js', src13k], ['13l-steward-ops.js', src13l],
     ['13i-steward-inbox.js', src13i]];
   const leaks = [];
   for (const [name, text] of consumers) {
@@ -124,9 +143,11 @@ const src01b = read('01b-route-auth.js');
   ok(hookKeys.includes('relayChannel') && /StewardHooks\.relayChannel/.test(src13d) && /relayChannel: stewardRelayChannelFor/.test(src13h),
     '② 117s-G companion:relayChannel 上了命名空间,且 13d 只经 StewardHooks.relayChannel 消费它');
   // 116-2e:onInboxBatch / stopRunner / resumeRunner 的消费者在收件箱侧,随拆分搬进了 13i。
-  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13i;
+  // 117 波 T1:relayDeliver / applyThreadTier 的消费者随线程族工具搬进了 13k-steward-threads.js,
+  // 故消费面同样扩到整个 13g 族(13g/13j/13k/13l)。判据一字未变:每个键都必须真的有人用。
+  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13j + src13k + src13l + src13i;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
-  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
+  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 族之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));

@@ -631,11 +631,15 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       const SRC = path.join(WB, 'app', 'src');
       const rd = f => fs.readFileSync(path.join(SRC, f), 'utf8');
       ok(/function waitReasonFor\(thread, ctx\)/.test(rd('06i-steward-core.js')), '单点:waitReasonFor 只声明在 06i(引擎层纯函数)');
-      ok(/waitReasonFor\(/.test(rd('13g-steward.js')), '单点:steward_thread_status 经 waitReasonFor');
+      // 117 波 T1(32 号文 §2.1)重钉:steward_thread_status 的实现随拆分搬进 13k-steward-threads.js
+      // (纯搬家,逐字节不变)。判据不变 —— 那个展示面必须经 06i 的 waitReasonFor,只是它现在住在
+      // 13g 族的哪个文件里由拆分决定,故改读整族。下面「没有第二处自己拼的等待人话」也随之覆盖全族。
+      const STEWARD_FAMILY = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js'];
+      ok(/waitReasonFor\(/.test(STEWARD_FAMILY.map(rd).join('\n')), '单点:steward_thread_status 经 waitReasonFor');
       ok(/waitReasonFor\(/.test(rd('13d-core-domain-routes.js')), '单点:GET /api/missions 的线程行经 waitReasonFor');
       const src13h = rd('13h-steward-runner.js');
       ok((src13h.match(/waitReasonFor\(/g) || []).length >= 3, '单点:总览行 / 仲裁器读模型 / 插队工具三处都经 waitReasonFor');
-      for (const f of ['06i-steward-core.js', '13d-core-domain-routes.js', '13g-steward.js', '13h-steward-runner.js']) {
+      for (const f of ['06i-steward-core.js', '13d-core-domain-routes.js', ...STEWARD_FAMILY, '13h-steward-runner.js']) {
         ok(!/等你\(\$\{[^}]*\} 条待决\)/.test(rd(f).replace(/^.*function waitReasonFor[\s\S]*?\n}\n/m, '')) || f === '06i-steward-core.js',
           `单点:${f} 里没有第二处自己拼的等待人话`);
       }

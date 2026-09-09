@@ -43295,164 +43295,29 @@ async function stewardInboxState(config) {
 }
 
 // ============================================================================
-// 第 116 波 116c(27 号文 §3.5「管家工具面设计」/ §4「管家记忆层」):管家(Steward)域路由、
-// 决策日志、记忆存储与全部管家工具的实现。
+// 第 117 波 T1(32 号文 §2.1「拆 13g-steward.js」):管家工具面的共享底座。
 //
-// 落点(transport 层,manifest 中位于 13i-steward-inbox.js 之后、13h-steward-runner.js 之前)。
-// 116-2e 拆分:收件箱轮询与游标(原本是本文件的前半)整体前移到 `13i-steward-inbox.js`,零行为搬家;
-//   本文件引用它的符号(stewardDir / stewardInboxRead / stewardInboxState / startStewardInbox …)
-//   全部是后向边。理由见 13i 的文件头。
+// 落点(transport 层,manifest 中位于 13i-steward-inbox.js 之后、13k-steward-threads.js 之前)。
+// T1 拆分:原 13g-steward.js 已 2088 行,`steward-runner.static.e2e.js` ①「13g 不超过 SPEC 目标
+// 2000 行」在 HEAD 上长期是红的,而 31 号文七轴还要往管家里加 8-12 个工具。按「谁被谁引用」把它
+// 拆成四个文件,拼接顺序即依赖方向,零新增前向边:
+//   · 13j-steward-tool-base.js(本文件)—— 两个工具族都要用的共享面:常量、稳定信封、门控壳用的
+//     失败信封、会话头读取与线程小工具、决策日志(写与只读)、记忆存储、深读预算、每回合配额桶、
+//     速查线程的两条判据。它被下面三个文件引用,故排在最前;
+//   · 13k-steward-threads.js —— 线程族(tier edit):派活原语 + thread_* / quick_ask /
+//     threads_search / 收件箱行增强;
+//   · 13l-steward-ops.js —— 观察族 / 决策族 / 记忆族 / 设置族 / 内容管理族;
+//   · 13g-steward.js —— 管家域路由、记忆面板、工具门控壳与 StewardHooks 注册表(排在最后,
+//     因为注册表要引用上面两个文件里的 stewardImpl*,排在后面才是后向边)。
+// 本次拆分是【纯搬家】:所有函数体逐字节不变,新写的只有各文件的头部注释。
 //
-// 依赖纪律(§11.3「不得新增前向边」):
-//   · 13g 只引用拼接顺序在它之前的模块符号(00/01/01b/02/06i/08/13e/13i …),全部后向边;
-//   · 13-http-router.js 【不得】直接引用本文件的任何符号 —— 那会是前向边。挂接走延迟绑定:
-//     本文件在加载时 `Object.assign(StewardHooks, { handleApiRoutes, stopInbox, inboxRead, ... })`,
-//     13 只写 `StewardHooks.handleApiRoutes`(13 → 06i 是后向边);
-//   · 12-tool-dispatch.js 的管家工具 handler 同理,只写 `StewardHooks.<键>(args, ctx)`。
+// 依赖纪律(§11.3「不得新增前向边」):本文件只引用拼接顺序在它之前的模块符号
+// (00/01/02/04/06i/13i …),全部后向边;它自己的符号只被 13k/13l/13g/13h 引用,同样是后向边。
 //
-// 开关(§3.4 红线):`stewardEnabledV1 !== true` 时路由 409 `steward.disabled`、工具门控壳零写入。
+// 下面这段 116c 的横幅逐字节原样保留。其中「真实实现全在这里」如今指的是
+// 13j/13k/13l/13g 这四个文件合起来的「13g 族」,不再只是一个文件;四条铁律一字未改,
+// 对整个族同样成立。
 // ============================================================================
-
-// ────────────────────────────────────────────────────────────────────────────
-// 路由(全部 token 级,ROUTE_AUTH 在 01b-route-auth.js 登记;handler 内另做 tokenOk 纵深自查)。
-// 13-http-router.js 只经 StewardHooks.handleApiRoutes 调用本函数,不直接引用它(禁止前向边)。
-// ────────────────────────────────────────────────────────────────────────────
-// 形态与 handleOverlayApiRoutes 一致:命中即 send(调用方以 res.writableEnded 为命中信号),
-// 不命中就自然返回让路由链继续(不写前缀早退守卫 —— 那会在路由清册里多出一个无鉴权首配的裸前缀判定点)。
-// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
-// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
-async function stewardPanelGate(req) {
-  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
-  const config = await readConfig();
-  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
-  return null;
-}
-// 域层稳定信封 -> 路由层 apiFailure(不转的话会被 normalizeApiErrorPayload 归一成 api.request_failed)。
-function stewardPanelFailure(result) {
-  const code = String((result && result.error) || 'invalid_request');
-  const status = code === 'version_conflict' ? 409 : (code === 'not_found' ? 404 : 400);
-  return apiFailure(code, {}, String((result && result.message) || code), status);
-}
-
-async function handleStewardApiRoutes(req, res, pathname) {
-  if (req.method === 'POST' && pathname === '/api/steward/start') {
-    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-    const config = await readConfig();
-    if (config.stewardEnabledV1 !== true) {
-      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
-    }
-    const started = await startStewardInbox(config);
-    return send(res, json({ ok: true, running: Boolean(started && started.running) }));
-  }
-
-  if (req.method === 'POST' && pathname === '/api/steward/stop') {
-    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-    stopStewardInbox();
-    return send(res, json({ ok: true, running: false }));
-  }
-
-  if (req.method === 'GET' && pathname === '/api/steward/state') {
-    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-    const config = await readConfig();
-    // 116f: 收件箱状态之上并进回合运行器状态(visit/turns/cost/circuit/lastReply)。运行器故障时
-    // 这条只读路由仍然返回收件箱那一半 —— 状态面不该因为旁路组件出错而整条不可用。
-    let runner = {};
-    if (typeof StewardHooks.runnerState === 'function') {
-      try { runner = (await StewardHooks.runnerState(config)) || {}; } catch { runner = {}; }
-    }
-    return send(res, json({ ok: true, ...await stewardInboxState(config), ...runner }));
-  }
-
-  if (req.method === 'GET' && pathname === '/api/steward/inbox') {
-    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-    const query = new URL(req.url, 'http://x').searchParams;
-    const result = await stewardInboxRead({ since: query.get('since'), limit: query.get('limit') });
-    return send(res, json({ ok: true, ...result }));
-  }
-
-  // 116-pre(27号文§8.12/§11.1第3项/§11.3):递话预判——只读、零模型、不写盘。装配(读投影+会话头+
-  // 记忆存储、缓存)在 13h-steward-runner.js(拼接顺序在本文件之后),故经 StewardHooks 转交(同
-  // handleRunnerApiRoutes 一手法);q 长度在这里再夹一遍(纯函数自己也夹,双重防线)。tookMs 只计
-  // StewardHooks.preroute 这一段(排除 token 校验与 HTTP 层开销),与「p50 ≤50ms」的度量口径对齐。
-  if (req.method === 'GET' && pathname === '/api/steward/preroute') {
-    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-    const config = await readConfig();
-    if (config.stewardEnabledV1 !== true) {
-      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
-    }
-    const query = new URL(req.url, 'http://x').searchParams;
-    const q = String(query.get('q') || '').slice(0, STEWARD_PREROUTE_QUERY_MAX);
-    const startedAt = Date.now();
-    const result = typeof StewardHooks.preroute === 'function'
-      ? await StewardHooks.preroute(q, config)
-      : { kind: 'new', hits: [] }; // 理论上不可能(13h 恒填充);兜底而不是抛异常
-    const tookMs = Date.now() - startedAt;
-    return send(res, json({ ok: true, kind: result.kind, hits: result.hits, tookMs }));
-  }
-
-  // ── 116-2e 记忆面板(27 号文 §4「面板」:按 kind 分组、可编辑、可否决、可清空、导出 JSON)──────
-  // 六条 exact 路由,与其余 /api/steward/* 同一鉴权等级(token 级,ROUTE_AUTH 逐条登记)。刻意【不写】
-  // `pathname.startsWith('/api/steward/memory')` 的前缀守卫 —— 那会在路由清册里多出一个裸前缀判定点
-  // (116b 的原注释已经写明这条纪律);共用的「token + 开关」两道闸抽成 stewardPanelGate 一行调用。
-  // 稳定信封必须在【路由层】转成 apiFailure —— 域层的 {ok:false,error} 送进 json() 会被
-  // normalizeApiErrorPayload 归一成 api.request_failed(116g 交付记录里的硬教训)。
-  if (req.method === 'GET' && pathname === '/api/steward/memory') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const result = await stewardMemoryPanelList(new URL(req.url, 'http://x').searchParams.get('kind') || '');
-    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
-  }
-
-  if (req.method === 'GET' && pathname === '/api/steward/memory/export') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    return send(res, json(await stewardMemoryPanelExport()));
-  }
-
-  if (req.method === 'POST' && pathname === '/api/steward/memory/edit') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const result = await stewardMemoryPanelEdit(await readJsonBody(req).catch(() => ({})));
-    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
-  }
-
-  if (req.method === 'POST' && pathname === '/api/steward/memory/veto') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const body = await readJsonBody(req).catch(() => ({}));
-    const result = await stewardImplMemoryVeto({ id: (body && body.id) || '' });
-    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
-  }
-
-  if (req.method === 'POST' && pathname === '/api/steward/memory/restore') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const body = await readJsonBody(req).catch(() => ({}));
-    const result = await stewardMemoryPanelRestore((body && body.id) || '');
-    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
-  }
-
-  if (req.method === 'POST' && pathname === '/api/steward/memory/clear') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const body = await readJsonBody(req).catch(() => ({}));
-    const result = await stewardMemoryPanelClear((body && body.confirm) || '');
-    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
-  }
-
-  // ── 117e 第 0 步:行动流水的只读面(§8.6 末条)────────────────────────────────────────
-  // 与记忆面板同族(exact 路由、token 级、共用 stewardPanelGate 的两道闸)。纯只读:不建目录、
-  // 不写盘、不启轮询。每行的 args 与 basis 过一遍 116-2e 的密钥判据再出门。
-  if (req.method === 'GET' && pathname === '/api/steward/decisions') {
-    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    const query = new URL(req.url, 'http://x').searchParams;
-    return send(res, json(await stewardDecisionsRead({
-      limit: query.get('limit'), sessionId: query.get('sessionId'), since: query.get('since'),
-    })));
-  }
-
-  // 116f: /api/steward/{visit,message,act} 住 13h-steward-runner.js(拼接顺序在本文件【之后】)。
-  // 与 13 挂 13g 同一手法:直接写函数名会是前向边,故经 06i 的延迟绑定命名空间转交;未填充时本行
-  // 是无操作,路由链继续往下走(最终 404)。命中与否仍以 res.writableEnded 为准。
-  if (typeof StewardHooks.handleRunnerApiRoutes === 'function') {
-    await StewardHooks.handleRunnerApiRoutes(req, res, pathname);
-  }
-}
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 第 116 波 116c(27 号文 §3.5 工具面 / §4 记忆层 / §11.2 读预算):管家工具集实现。
@@ -43505,40 +43370,6 @@ const STEWARD_QUICK_ASKS_PER_TURN = 2;                     // §11.1 第 2 项:�
 // 一律不重试 —— schema description 里写明了。
 function stewardFail(code, message, extra) {
   return { ok: false, error: String(code), message: String(message || code), ...(extra && typeof extra === 'object' ? extra : {}) };
-}
-
-// 管家会话身份:只认会话头上【显式】的 kind === 'steward'。有意不用 sessionKind()——那个归一化函数
-// 只回 'mission'|'quick_ask',把管家会话也算成普通会话,拿它做身份判定等于把门拆了。
-function stewardCtxIsSteward(ctx) {
-  const session = ctx && ctx.session;
-  return !!(session && typeof session === 'object' && session.kind === 'steward');
-}
-
-// 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
-function stewardToolHandler(toolName, impl) {
-  return async (args, ctx) => {
-    let config = null;
-    try { config = await readConfig(); } catch { config = null; }
-    if (!config || config.stewardEnabledV1 !== true) {
-      return stewardFail('steward.disabled', `${toolName} is unavailable: the workbench steward is disabled (stewardEnabledV1=false)`);
-    }
-    if (!stewardCtxIsSteward(ctx)) {
-      return stewardFail('steward.forbidden', `${toolName} is only available to the workbench steward session (session.kind must be 'steward')`);
-    }
-    try {
-      // 116-2e:剥掉 args 里任何名为 userPressed 的字段。它的唯一合法来源是 ctx(由 13h 的
-      // POST /api/steward/act 在用户【亲手按下按钮】时置 true);模型在参数里自称「用户按了」
-      // 不算数,静默丢弃比报错更稳(报错会让模型学会换个名字再试一次)。
-      const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
-      const clean = {};
-      for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
-      return await impl(clean, ctx || {}, config);
-    } catch (error) {
-      const message = String((error && error.message) || error);
-      logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
-      return stewardFail('steward.failed', `${toolName} failed: ${message}`);
-    }
-  };
 }
 
 // ── 小工具 ──────────────────────────────────────────────────────────────────────────────
@@ -43833,27 +43664,62 @@ function stewardTurnKeyOf(ctx) {
   return history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 观察族(tier read)—— 只读如意自身账面,零副作用,不写任何持久化。
-// ════════════════════════════════════════════════════════════════════════════
-
-// 1) steward_self_status —— 复用 108c 的装配函数(12-tool-dispatch 的 buildWorkbenchSelfStatus),
-//    再追加一个 steward 段(管家设置掩码 + 收件箱状态)。不新造任何事实源。
-const STEWARD_CONFIG_KEYS = Object.freeze([
-  'stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
-  'stewardMaxCostPerDay', 'stewardAutoActions', 'stewardContextBudgetTokens', 'stewardReadBudgetChars',
-  'stewardVisitIdleMinutes', 'stewardConversationRetention',
-]);
-async function stewardImplSelfStatus(args, ctx, config) {
-  const wantSteward = !args.section || args.section === 'all' || args.section === 'steward';
-  // section:'steward' 只要身份 + 管家段(省上下文);其余 section 原样透传给 108c 的装配函数。
-  const base = await buildWorkbenchSelfStatus({ section: args.section === 'steward' ? 'identity' : args.section }, ctx);
-  if (!wantSteward) return base;
-  const stewardConfig = {};
-  // 全部是标量/小对象开关,天生不含 apiKey/token;仍按白名单逐键回显,防将来新增敏感键被顺带带出。
-  for (const key of STEWARD_CONFIG_KEYS) stewardConfig[key] = config[key];
-  return { ...base, steward: { config: stewardConfig, inbox: await stewardInboxState(config) } };
+// 每回合配额桶:复用 116c 的 stewardReadBucket 形状(会话 id + 回合序号),但各族一张自己的表 ——
+// 深读预算与起草/速查次数是三件不同的事,合在一个桶里会互相饿死。
+const _stewardTurnQuota = new Map(); // bucket -> Map(`${sessionId} ${turnKey}` -> count)
+function stewardTurnQuotaTake(bucket, ctx, max) {
+  const key = String(ctx && ctx.sessionId ? ctx.sessionId : '') + ' ' + stewardTurnKeyOf(ctx);
+  let table = _stewardTurnQuota.get(bucket);
+  if (!table) { table = new Map(); _stewardTurnQuota.set(bucket, table); }
+  const used = Number(table.get(key)) || 0;
+  if (used >= max) return false;
+  table.set(key, used + 1);
+  while (table.size > 64) table.delete(table.keys().next().value);
+  return true;
 }
+
+// 已收工的速查会话:总览与线程搜索默认把它排除(includeClosed 可要回来)。判据单点在这里,
+// 13g 的 threads_search 与 13h 的 stewardThreadDigestRows 都调它。
+//
+// 116-3 P1-6:closedAt 【不是】终态。用户完全可能在经典 2.0 视窗里把这条速查线程继续聊下去
+// (§11.1 第 2 项只说「答完即收工」,没说「从此不许再用」);修前 closedAt 一旦写入就永久生效,
+// 管家的总览与线程搜索从此把它当成历史,彻底跟丢用户的后续对话。判据用 turnSeq 而不是 updatedAt:
+// updateSessionMeta 自己就会推 updatedAt,拿它比会在收工的下一刻把线程又「重开」一次。
+function stewardQuickClosed(head) {
+  const quick = head && head.stewardQuick;
+  if (!quick || typeof quick !== 'object' || !quick.closedAt) return false;
+  const closedTurnSeq = Number(quick.closedTurnSeq);
+  if (!Number.isFinite(closedTurnSeq)) return true;   // 116-3 之前落盘的旧速查线程:没有这个字段,维持原语义
+  return Math.max(0, Number(head && head.turnSeq) || 0) <= closedTurnSeq;
+}
+
+// 116-3 P1-5:「这条线程是不是管家自己开的速查线程」的唯一判据。
+// 【不能】拿 sessionKind() / head.kind === 'quick_ask' 当判据 —— 那是第 70 波遗留的「纯问答默认档」,
+// 用户自己发起的普通对话绝大多数都落在它上面;真正的速查线程由 steward_quick_ask 创建,
+// 头上带 stewardQuick 这个字段,那才是 116 波「速查线程」这个概念的机器痕迹。
+function stewardQuickThread(head) {
+  const quick = head && head.stewardQuick;
+  return !!(quick && typeof quick === 'object');
+}
+
+// ============================================================================
+// 第 117 波 T1(32 号文 §2.1):管家线程族工具 —— 管家「动如意」的那只手全在这里。
+//
+// 落点(transport 层,manifest 中位于 13j-steward-tool-base.js 之后、13l-steward-ops.js 之前)。
+// 收录九个工具的实现:steward_threads_search / thread_status / thread_read / thread_new /
+//   thread_continue / thread_rename / thread_permission / thread_note / quick_ask;
+//   派活原语(stewardLaunchTurn / stewardRecordLaunchOutcome / stewardTriggerOf /
+//   stewardUnattendedByModel / stewardRelayAutoAllowed)也在这里 —— 它们的消费者全在本文件内;
+//   外加两个基础设施实现 —— stewardEnrichInboxRows(给收件箱行补交付摘要,消费者是 13i 的轮询器)
+//   与 stewardQuickClose(速查线程收工,消费者是 13h 的回合收尾),它们都只经 StewardHooks 露面。
+// 全部函数体自原 13g-steward.js 逐字节搬来,零行为改动;工具门控壳与注册表仍在 13g。
+//
+// 铁律一条没变(见 13j 顶部 116c 横幅):管家不「动世界」,要动手一律委派给线程;每个写动作经
+// stewardAppendDecision 落一行决策日志;放行范围一律经 06i 的 stewardMayAct,只能收紧不能放宽。
+//
+// 依赖纪律(§11.3):本文件只引用拼接顺序在它之前的模块符号(00/01/01c/02/04/06i/10/13d/13e/13i/13j …),
+// 全部后向边;它自己的符号只被 13g 的注册表引用,同样是后向边。
+// ============================================================================
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
 async function stewardImplThreadsSearch(args, ctx, config) {
@@ -44117,108 +43983,6 @@ async function stewardImplThreadRead(args, ctx, config) {
     quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars },
     rows: kept,
   };
-}
-
-// 5) steward_runs_status —— 复用 08 的 listAgentRuns + 13d 的 missionRunDigest(不另造 digest)。
-async function stewardImplRunsStatus(args, ctx, config) {
-  const explicit = args.sessionId ? safeSessionId(args.sessionId) : '';
-  if (args.sessionId && !explicit) return stewardFail('not_found', 'invalid sessionId');
-  let sessionIds = [];
-  if (explicit) sessionIds = [explicit];
-  else {
-    const index = await getPretenderProjectionIndex().catch(() => null);
-    sessionIds = ((index && index.sessions) || []).filter(row => row.card).map(row => row.sessionId);
-  }
-  const runs = [];
-  for (const sid of sessionIds) {
-    if (runs.length >= STEWARD_RUNS_MAX) break;
-    const head = await stewardReadSessionHead(sid);
-    if (stewardRawKind(head) === 'steward') continue;
-    for (const run of await listAgentRuns(sid).catch(() => [])) {
-      if (runs.length >= STEWARD_RUNS_MAX) break;
-      const live = activeAgentRuns.get(run.id);
-      const mem = live && live.run ? live.run : run;
-      const nodes = Array.isArray(mem.nodes) ? mem.nodes : [];
-      runs.push({
-        sessionId: sid,
-        runId: String(run.id || ''),
-        status: String(mem.status || ''),
-        live: !!live,
-        paused: !!(live && live.paused),
-        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
-        // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
-        waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
-          : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'
-            : (live && live.paused) ? '已暂停' : '',
-        resumeTier: String(mem.resumeTier || ''),
-        digest: missionRunDigest(mem, !!live),
-      });
-    }
-  }
-  return { ok: true, runs, truncated: runs.length >= STEWARD_RUNS_MAX };
-}
-
-// 6) steward_inbox_read —— 直接委托 116b 的原始读取器(同一实现,不复制第二份)。
-async function stewardImplInboxRead(args) {
-  return { ok: true, ...await stewardInboxRead({ since: args.since, limit: args.limit }) };
-}
-
-// 7) steward_usage —— 用量台账按会话/按日汇总;管家自身开销(kind:'aux', note:'steward')单列。
-function stewardEmptyUsageBucket() { return { turns: 0, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} }; }
-function stewardAddUsageRow(bucket, row) {
-  bucket.turns += 1;
-  bucket.inTok += Number(row.inTok) || 0;
-  bucket.outTok += Number(row.outTok) || 0;
-  bucket.cachedInTok += Number(row.cachedInTok) || 0;
-  const cost = Number(row.cost);
-  const currency = typeof row.currency === 'string' ? row.currency : '';
-  // costTrusted === false 的行(套餐制的名义金额)不进真实费用合计 —— 与 13e 的 addMissionUsageRow 同口径。
-  if (row.costTrusted !== false && currency && Number.isFinite(cost)) {
-    bucket.costsByCurrency[currency] = Math.round(((bucket.costsByCurrency[currency] || 0) + cost) * 1e6) / 1e6;
-  }
-}
-async function stewardImplUsage(args) {
-  const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
-  if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
-  const rows = await readUsageRows(0).catch(() => []);
-  const total = stewardEmptyUsageBucket();
-  const steward = stewardEmptyUsageBucket();
-  const bySession = new Map();
-  const byDay = new Map();
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    if (sessionId && String(row.sessionId || '') !== sessionId) continue;
-    const rowDay = usageDayKey(Date.parse(row.ts));
-    if (day && rowDay !== day) continue;
-    stewardAddUsageRow(total, row);
-    if (row.kind === 'aux' && row.note === 'steward') stewardAddUsageRow(steward, row);
-    const sid = String(row.sessionId || '');
-    if (!bySession.has(sid)) bySession.set(sid, stewardEmptyUsageBucket());
-    stewardAddUsageRow(bySession.get(sid), row);
-    if (!byDay.has(rowDay)) byDay.set(rowDay, stewardEmptyUsageBucket());
-    stewardAddUsageRow(byDay.get(rowDay), row);
-  }
-  const topSessions = [...bySession.entries()]
-    .sort((a, b) => (b[1].inTok + b[1].outTok) - (a[1].inTok + a[1].outTok))
-    .slice(0, 20)
-    .map(([sid, bucket]) => ({ sessionId: sid, ...bucket }));
-  const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-31).map(([d, bucket]) => ({ day: d, ...bucket }));
-  return { ok: true, scope: { sessionId: sessionId || '', day: day || '' }, total, steward, bySession: topSessions, byDay: days };
-}
-
-// 8) steward_health —— computeHealth 的原始项(人话映射留给前端/管家自己说)。
-async function stewardImplHealth(args, ctx, config) {
-  const { health } = await computeHealth(config);
-  return { ok: true, health: (Array.isArray(health) ? health : []).map(h => ({ id: h.id, ok: h.ok, detail: h.detail })) };
-}
-
-// 9) steward_audit_tail —— 既有 collectAudit(内部已过 redact 脱敏),只取 workbench 源(桌面 MCP 审计
-//    要起桥,管家的「刚才发生了什么」不该为此拉起一个子进程)。
-async function stewardImplAuditTail(args, ctx, config) {
-  const limit = stewardClampInt(args.limit, 1, STEWARD_AUDIT_LIMIT_MAX, STEWARD_AUDIT_LIMIT_DEFAULT);
-  const audit = await collectAudit(config, { limit, sourceFilter: 'workbench', typeFilter: null });
-  return { ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated) };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -44517,6 +44281,323 @@ async function stewardImplThreadPermission(args, ctx, config) {
   return { ok: true, sessionId, permissionMode: target, effectivePermissionMode: target, previousEffective: current, previous, undoRef };
 }
 
+// 15b) steward_thread_note —— 既有线程的【插话补充】(116-2b,§3.5 委派行末句)。
+//
+// 为什么是插话而不是递话:§8.12 定的是「既有线程的递话走原话直递,管家如有补充以插话追加,不阻塞
+// 线程启动」。递话(thread_continue)会【起一个新回合】,补充却必须落在【正在跑的那个回合】里 ——
+// 它是给线程补上下文,不是给它派新活。所以走的是 /api/steer 背后的同一条注入通道(116-2b 把它零行为
+// 抽成了 13b 的 steerSessionCore),而不是第二条注入路径:引擎分流(openai 队列 / Claude stdin /
+// Kimi ACP 跟随)、队列上限、提问挂起时拒绝、持久呈现进会话正文,一条纪律都不用重写。
+//
+// 三条自己的收紧:①≤600 字;②尖括号中和(stewardSanitizeText,与总览行同一函数);③服务端加
+// 「（管家补充）」前缀 —— 用户在 2.0 视窗里看到的插话必须能一眼分清是谁说的。
+// 没有在途回合(或该回合不接受插话)时一律 steward.no_active_turn:模型看到这个信封就该改用
+// steward_thread_continue,而不是轮询重试。
+async function stewardImplThreadNote(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const text = stewardSanitizeText(args.text).trim().slice(0, STEWARD_NOTE_TEXT_MAX);
+  if (!text) return stewardFail('invalid_request', 'text is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot receive a steward note');
+
+  const outcome = await steerSessionCore({ sessionId, text: STEWARD_NOTE_PREFIX + text });
+  // 核心的两种"没成"(apiFailure 形态的 400/409 与裸 json 的 {ok:false,error}) 归一成同一个稳定信封:
+  // 对模型来说它们是同一件事 —— 现在没法把这句话插进去,别重试。
+  if (outcome.kind === 'failure' || !(outcome.body && outcome.body.ok === true)) {
+    const detail = String((outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)) || '').slice(0, 300);
+    return stewardFail('steward.no_active_turn', `thread ${sessionId} cannot take a note right now: ${detail} —— do not retry; use steward_thread_continue to start a new turn instead`, { sessionId });
+  }
+  const body = outcome.body;
+  // 撤回原语是 DELETE /api/steer,它按【文本】在队列里找那一条 —— 所以 undoRef 的真正把手是 text
+  // 而不是某个 id(既有插话通道就没有 id 这个东西,编一个出来只会骗人)。
+  const undoRef = { kind: 'note', sessionId, text: STEWARD_NOTE_PREFIX + text, queued: Number(body.queued) || 0, injected: body.injected === true };
+  stewardAppendDecision({
+    tool: 'steward_thread_note',
+    args: { textChars: text.length },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: {},
+  });
+  return { ok: true, sessionId, queued: Number(body.queued) || 0, injected: body.injected === true, undoRef };
+}
+
+// 24) steward_quick_ask —— 速查线程(§11.1 第 2 项)。
+//     何时用:要读文件、联网或动手才能答的问题。何时别用:关于如意、事项、费用、设置的问题 —— 那些
+//     管家自己就知道,开一条线程去问等于让用户白等一次回合。
+//     不进任何事项;权限用新线程默认权限(即全局 permissionMode),照常受 116h 仲裁;答完自动收工。
+async function stewardImplQuickAsk(args, ctx, config) {
+  const question = stewardSanitizeText(args.question).trim();
+  if (!question) return stewardFail('invalid_request', 'question is required');
+  if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
+    return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
+  }
+  if (!stewardTurnQuotaTake('quick_ask', ctx, STEWARD_QUICK_ASKS_PER_TURN)) {
+    return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
+  }
+  const session = await createSession({
+    title: question.slice(0, STEWARD_TITLE_MAX),
+    cwd: args.cwd ? String(args.cwd) : undefined,
+  });
+  session.kind = STEWARD_QUICK_KIND;
+  // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
+  // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程
+  // 永远拿不到自动摘要。thread_new 那边不清:args.title 是管家【有意】起的名字,与改名同一性质。
+  delete session.titleSource;
+  // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
+  // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
+  session.launchedBy = 'steward';
+  // 速查线程【不进事项】:missionId 指回自己(createSession 的缺省),不写任何反向索引,
+  // GET /api/missions 里它就是一条「未归类」的派生行,不占任何事项的验收与预算。
+  session.stewardQuick = {
+    schema: 1,
+    askedAt: nowIso(),
+    question,
+    stewardTurnKey: String(stewardTurnKeyOf(ctx)),
+    closedAt: null,
+  };
+  // 117l D7:速查线程恒走 fast 档 —— 它定义上就是「查一下」,没有理由烧强模型(没配 fast 档就跟随全局)。
+  const quickTier = StewardHooks.applyThreadTier(session, 'fast', config);
+  await saveSession(session);
+
+  stewardLaunchTurn({
+    sessionId: session.id,
+    message: question,
+    cwd: session.cwd,
+    source: 'steward',
+    requestMeta: { tool: 'steward_quick_ask' },
+  }, 'steward_quick_ask');
+
+  // 117e 第 0 步:与 117d-0 的 thread_new / thread_continue 同口径 —— 撤回锚点显式化。
+  // rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的 plannedTurnSeq = turnSeq + 1),
+  // 按 `turnSeq` 字面传会得 target turn not found。新建会话的 turnSeq 恒为 0,这里仍按字段读,
+  // 与上面那两处逐字同形(将来 createSession 若带出非零 seq 也不会错)。
+  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
+  stewardAppendDecision({
+    tool: 'steward_quick_ask',
+    args: { chars: question.length, tier: quickTier.tier },
+    targetSessionId: session.id,
+    permissionMode: stewardThreadPermissionMode(session, config),
+    mayAct: 'auto',
+    undoRef,
+    basis: stewardBasisOf(args),
+  });
+  return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef };
+}
+
+// ── 收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)──────────────────────────────────
+// 117s-H1(27 号文 §11.13.3,用户第三轮回话「线程的交付管家能不能看全」):给【每一条】管家关心的
+// 线程的 `done` 行补上这一回合真正的交付 —— `payload.deliverable = {text,chars,truncated,turnSeq,files}`。
+// 修前只有速查线程补一个 `answer`,而那个字段 13h 里【零渲染点】(grep 可自证):交付正文从来没有
+// 进过收件箱回合,管家只拿到一行「线程第 N 回合跑完了」,正文全靠它自己再花一次 thread_read 配额去读。
+// 判据用 06i 的 stewardWatchedThread —— 与 13i 决定「这条线程要不要入箱」的是同一条线,不另立第二套
+// (用户自己在经典壳里聊的普通会话本来就不入箱,这里也就不会为它们装载会话)。
+//
+// 为什么在这里而不是在 13i:13i 只认三条 seq 日志,不读会话正文;而交付正文与本回合的文件账都要装载
+// 会话。放在 13g 并经命名空间回调,13i 就不需要认识 13g 的任何符号(前向边红线)。
+// 旁路纪律:抛错绝不反噬轮询器 —— 13i 那边整段包在 try 里,补不上就是少几个字段。
+async function stewardEnrichInboxRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const heads = new Map();
+  for (const row of list) {
+    if (!row || row.kind !== 'done') continue;
+    const sid = safeSessionId(row.sessionId);
+    if (!sid) continue;
+    if (!heads.has(sid)) heads.set(sid, await stewardReadSessionHead(sid).catch(() => null));
+    const head = heads.get(sid);
+    if (!head) continue;
+    if (!stewardWatchedThread(head, sid, row.missionId)) continue;
+    const quick = stewardRawKind(head) === STEWARD_QUICK_KIND && !!head.stewardQuick;
+    const session = await loadSession(sid).catch(() => null);
+    if (!session) continue;
+    const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
+    // 回合号取事件自己的(第四源 stewardNormalizeSessionTurn 落的 payload.turnSeq);取不到就退到
+    // 会话头上的当前回合号,再取不到才让下面的挑选退到「最后一条助手话」。
+    const turnSeq = Math.max(0, Number(payload.turnSeq) || 0) || Math.max(0, Number(head.turnSeq) || 0);
+    const full = stewardSanitizeBlock(stewardTurnAssistantText(session, turnSeq));
+    const patch = {};
+    if (full.trim()) {
+      patch.deliverable = {
+        text: full.slice(0, STEWARD_DELIVERABLE_CHARS),
+        chars: full.length,
+        truncated: full.length > STEWARD_DELIVERABLE_CHARS,
+        turnSeq,
+        files: stewardTurnFiles(session, turnSeq),
+      };
+    }
+    // 速查线程的 `answer` 留着(老消费者与 116-2e 的收工判据都认它),但它现在与交付【同一份原文】,
+    // 只是仍按 ≤1200 的老口径中和成单行 —— 两个字段从此不会各说各的。
+    if (quick) {
+      patch.quick = true;
+      patch.answer = stewardSanitizeText(full || stewardLastAssistantText(session)).slice(0, STEWARD_QUICK_ANSWER_CHARS);
+    }
+    if (Object.keys(patch).length) row.payload = { ...payload, ...patch };
+  }
+  return list;
+}
+
+// 收工:回合结束后由 13h 调 —— 把 stewardQuick.closedAt 落在会话头上。收工后这条线程从管家的总览
+// 与 steward_threads_search 里消失(经典壳照常看得见,它只是数据)。幂等:已收工的再调是无操作。
+async function stewardQuickClose(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return { ok: false, error: 'invalid_request' };
+  const head = await stewardReadSessionHead(sid);
+  if (!head || stewardRawKind(head) !== STEWARD_QUICK_KIND || !head.stewardQuick) return { ok: false, error: 'not_found' };
+  // 116-3 P1-6:判「还算不算收工」走 stewardQuickClosed(它会把「收工后用户又聊了」算成重开),
+  // 而不是只看 closedAt 是不是真值 —— 否则一条被用户重新用起来的速查线程再次收工时会被当成幂等
+  // 直接返回,closedTurnSeq 永远停在第一次收工那一刻,它就再也关不上了。
+  if (stewardQuickClosed(head)) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
+  const closedAt = nowIso();
+  // 收工时记下【当时的回合数】。之后会话每多一个用户回合,turnSeq 就会超过它 = 用户在继续用这条线程。
+  const closedTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
+  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt, closedTurnSeq } });
+  return { ok: true, sessionId: sid, closedAt, closedTurnSeq, changed: true };
+}
+
+// ============================================================================
+// 第 117 波 T1(32 号文 §2.1):管家非线程族工具 —— 观察 / 决策 / 记忆 / 设置 / 内容管理。
+//
+// 落点(transport 层,manifest 中位于 13k-steward-threads.js 之后、13g-steward.js 之前)。
+// 收录十六个工具的实现:steward_self_status / runs_status / inbox_read / usage / health /
+//   audit_tail / decide / run_action / memory_write / memory_veto / memory_search / missions /
+//   config_get / config_set / playbook_draft / skill_toggle。
+// 全部函数体自原 13g-steward.js 逐字节搬来,零行为改动;工具门控壳与注册表仍在 13g。
+//
+// ctx.userPressed 的两处读点(config_set 与 skill_toggle 的「须确认」判定)随实现一起搬到本文件。
+// steward-tools.static ⑦ 的出现处白名单已随之重钉:全仓唯一把它置 true 的地方仍只有 13h 的
+// POST /api/steward/act 执行路径,读它的代码行仍恰好两处,只是这两处从 13g 挪到了这里。
+//
+// 依赖纪律(§11.3):本文件只引用拼接顺序在它之前的模块符号(00/01/02/04/05/06/06d/06i/07/08/12/13/
+// 13b/13d/13i/13j …),全部后向边;它自己的符号只被 13g 的路由与注册表引用,同样是后向边。
+// ============================================================================
+
+// ════════════════════════════════════════════════════════════════════════════
+// 观察族(tier read)—— 只读如意自身账面,零副作用,不写任何持久化。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 1) steward_self_status —— 复用 108c 的装配函数(12-tool-dispatch 的 buildWorkbenchSelfStatus),
+//    再追加一个 steward 段(管家设置掩码 + 收件箱状态)。不新造任何事实源。
+const STEWARD_CONFIG_KEYS = Object.freeze([
+  'stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
+  'stewardMaxCostPerDay', 'stewardAutoActions', 'stewardContextBudgetTokens', 'stewardReadBudgetChars',
+  'stewardVisitIdleMinutes', 'stewardConversationRetention',
+]);
+async function stewardImplSelfStatus(args, ctx, config) {
+  const wantSteward = !args.section || args.section === 'all' || args.section === 'steward';
+  // section:'steward' 只要身份 + 管家段(省上下文);其余 section 原样透传给 108c 的装配函数。
+  const base = await buildWorkbenchSelfStatus({ section: args.section === 'steward' ? 'identity' : args.section }, ctx);
+  if (!wantSteward) return base;
+  const stewardConfig = {};
+  // 全部是标量/小对象开关,天生不含 apiKey/token;仍按白名单逐键回显,防将来新增敏感键被顺带带出。
+  for (const key of STEWARD_CONFIG_KEYS) stewardConfig[key] = config[key];
+  return { ...base, steward: { config: stewardConfig, inbox: await stewardInboxState(config) } };
+}
+
+// 5) steward_runs_status —— 复用 08 的 listAgentRuns + 13d 的 missionRunDigest(不另造 digest)。
+async function stewardImplRunsStatus(args, ctx, config) {
+  const explicit = args.sessionId ? safeSessionId(args.sessionId) : '';
+  if (args.sessionId && !explicit) return stewardFail('not_found', 'invalid sessionId');
+  let sessionIds = [];
+  if (explicit) sessionIds = [explicit];
+  else {
+    const index = await getPretenderProjectionIndex().catch(() => null);
+    sessionIds = ((index && index.sessions) || []).filter(row => row.card).map(row => row.sessionId);
+  }
+  const runs = [];
+  for (const sid of sessionIds) {
+    if (runs.length >= STEWARD_RUNS_MAX) break;
+    const head = await stewardReadSessionHead(sid);
+    if (stewardRawKind(head) === 'steward') continue;
+    for (const run of await listAgentRuns(sid).catch(() => [])) {
+      if (runs.length >= STEWARD_RUNS_MAX) break;
+      const live = activeAgentRuns.get(run.id);
+      const mem = live && live.run ? live.run : run;
+      const nodes = Array.isArray(mem.nodes) ? mem.nodes : [];
+      runs.push({
+        sessionId: sid,
+        runId: String(run.id || ''),
+        status: String(mem.status || ''),
+        live: !!live,
+        paused: !!(live && live.paused),
+        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
+        // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
+        waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
+          : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'
+            : (live && live.paused) ? '已暂停' : '',
+        resumeTier: String(mem.resumeTier || ''),
+        digest: missionRunDigest(mem, !!live),
+      });
+    }
+  }
+  return { ok: true, runs, truncated: runs.length >= STEWARD_RUNS_MAX };
+}
+
+// 6) steward_inbox_read —— 直接委托 116b 的原始读取器(同一实现,不复制第二份)。
+async function stewardImplInboxRead(args) {
+  return { ok: true, ...await stewardInboxRead({ since: args.since, limit: args.limit }) };
+}
+
+// 7) steward_usage —— 用量台账按会话/按日汇总;管家自身开销(kind:'aux', note:'steward')单列。
+function stewardEmptyUsageBucket() { return { turns: 0, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} }; }
+function stewardAddUsageRow(bucket, row) {
+  bucket.turns += 1;
+  bucket.inTok += Number(row.inTok) || 0;
+  bucket.outTok += Number(row.outTok) || 0;
+  bucket.cachedInTok += Number(row.cachedInTok) || 0;
+  const cost = Number(row.cost);
+  const currency = typeof row.currency === 'string' ? row.currency : '';
+  // costTrusted === false 的行(套餐制的名义金额)不进真实费用合计 —— 与 13e 的 addMissionUsageRow 同口径。
+  if (row.costTrusted !== false && currency && Number.isFinite(cost)) {
+    bucket.costsByCurrency[currency] = Math.round(((bucket.costsByCurrency[currency] || 0) + cost) * 1e6) / 1e6;
+  }
+}
+async function stewardImplUsage(args) {
+  const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
+  if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
+  const rows = await readUsageRows(0).catch(() => []);
+  const total = stewardEmptyUsageBucket();
+  const steward = stewardEmptyUsageBucket();
+  const bySession = new Map();
+  const byDay = new Map();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    if (sessionId && String(row.sessionId || '') !== sessionId) continue;
+    const rowDay = usageDayKey(Date.parse(row.ts));
+    if (day && rowDay !== day) continue;
+    stewardAddUsageRow(total, row);
+    if (row.kind === 'aux' && row.note === 'steward') stewardAddUsageRow(steward, row);
+    const sid = String(row.sessionId || '');
+    if (!bySession.has(sid)) bySession.set(sid, stewardEmptyUsageBucket());
+    stewardAddUsageRow(bySession.get(sid), row);
+    if (!byDay.has(rowDay)) byDay.set(rowDay, stewardEmptyUsageBucket());
+    stewardAddUsageRow(byDay.get(rowDay), row);
+  }
+  const topSessions = [...bySession.entries()]
+    .sort((a, b) => (b[1].inTok + b[1].outTok) - (a[1].inTok + a[1].outTok))
+    .slice(0, 20)
+    .map(([sid, bucket]) => ({ sessionId: sid, ...bucket }));
+  const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-31).map(([d, bucket]) => ({ day: d, ...bucket }));
+  return { ok: true, scope: { sessionId: sessionId || '', day: day || '' }, total, steward, bySession: topSessions, byDay: days };
+}
+
+// 8) steward_health —— computeHealth 的原始项(人话映射留给前端/管家自己说)。
+async function stewardImplHealth(args, ctx, config) {
+  const { health } = await computeHealth(config);
+  return { ok: true, health: (Array.isArray(health) ? health : []).map(h => ({ id: h.id, ok: h.ok, detail: h.detail })) };
+}
+
+// 9) steward_audit_tail —— 既有 collectAudit(内部已过 redact 脱敏),只取 workbench 源(桌面 MCP 审计
+//    要起桥,管家的「刚才发生了什么」不该为此拉起一个子进程)。
+async function stewardImplAuditTail(args, ctx, config) {
+  const limit = stewardClampInt(args.limit, 1, STEWARD_AUDIT_LIMIT_MAX, STEWARD_AUDIT_LIMIT_DEFAULT);
+  const audit = await collectAudit(config, { limit, sourceFilter: 'workbench', typeFilter: null });
+  return { ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated) };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // 决策族(tier exec)—— 替用户答复待决 / 控制班组。放行范围一律经 stewardMayAct + 永久豁免。
 // ════════════════════════════════════════════════════════════════════════════
@@ -44684,50 +44765,6 @@ async function stewardImplRunAction(args, ctx, config) {
     basis: stewardBasisOf(args, { runId }),
   });
   return { ...body, sessionId, runId, action, undoRef };
-}
-
-// 15b) steward_thread_note —— 既有线程的【插话补充】(116-2b,§3.5 委派行末句)。
-//
-// 为什么是插话而不是递话:§8.12 定的是「既有线程的递话走原话直递,管家如有补充以插话追加,不阻塞
-// 线程启动」。递话(thread_continue)会【起一个新回合】,补充却必须落在【正在跑的那个回合】里 ——
-// 它是给线程补上下文,不是给它派新活。所以走的是 /api/steer 背后的同一条注入通道(116-2b 把它零行为
-// 抽成了 13b 的 steerSessionCore),而不是第二条注入路径:引擎分流(openai 队列 / Claude stdin /
-// Kimi ACP 跟随)、队列上限、提问挂起时拒绝、持久呈现进会话正文,一条纪律都不用重写。
-//
-// 三条自己的收紧:①≤600 字;②尖括号中和(stewardSanitizeText,与总览行同一函数);③服务端加
-// 「（管家补充）」前缀 —— 用户在 2.0 视窗里看到的插话必须能一眼分清是谁说的。
-// 没有在途回合(或该回合不接受插话)时一律 steward.no_active_turn:模型看到这个信封就该改用
-// steward_thread_continue,而不是轮询重试。
-async function stewardImplThreadNote(args, ctx, config) {
-  const sessionId = safeSessionId(args.sessionId);
-  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const text = stewardSanitizeText(args.text).trim().slice(0, STEWARD_NOTE_TEXT_MAX);
-  if (!text) return stewardFail('invalid_request', 'text is required');
-  const head = await stewardReadSessionHead(sessionId);
-  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
-  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot receive a steward note');
-
-  const outcome = await steerSessionCore({ sessionId, text: STEWARD_NOTE_PREFIX + text });
-  // 核心的两种"没成"(apiFailure 形态的 400/409 与裸 json 的 {ok:false,error}) 归一成同一个稳定信封:
-  // 对模型来说它们是同一件事 —— 现在没法把这句话插进去,别重试。
-  if (outcome.kind === 'failure' || !(outcome.body && outcome.body.ok === true)) {
-    const detail = String((outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)) || '').slice(0, 300);
-    return stewardFail('steward.no_active_turn', `thread ${sessionId} cannot take a note right now: ${detail} —— do not retry; use steward_thread_continue to start a new turn instead`, { sessionId });
-  }
-  const body = outcome.body;
-  // 撤回原语是 DELETE /api/steer,它按【文本】在队列里找那一条 —— 所以 undoRef 的真正把手是 text
-  // 而不是某个 id(既有插话通道就没有 id 这个东西,编一个出来只会骗人)。
-  const undoRef = { kind: 'note', sessionId, text: STEWARD_NOTE_PREFIX + text, queued: Number(body.queued) || 0, injected: body.injected === true };
-  stewardAppendDecision({
-    tool: 'steward_thread_note',
-    args: { textChars: text.length },
-    targetSessionId: sessionId,
-    permissionMode: stewardThreadPermissionMode(head, config),
-    mayAct: 'auto',
-    undoRef,
-    basis: {},
-  });
-  return { ok: true, sessionId, queued: Number(body.queued) || 0, injected: body.injected === true, undoRef };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -44899,6 +44936,365 @@ async function stewardImplMissions(args, ctx, config) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// 设置族(tier exec)—— §3.5「如意设置」行的三级分级。判据唯一来源是 06i 的 stewardConfigTierFor。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 22) steward_config_get —— 掩码复用 POST /api/config 回包用的同一个 maskProviders(不另写一套)。
+//     forbidden 级的键【连掩码值都不回】,只在 omitted[] 里列键名 —— 给出掩码值等于承认它存在
+//     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
+async function stewardImplConfigGet(args, ctx, config) {
+  const masked = maskProviders(config);
+  const requested = Array.isArray(args.keys)
+    ? args.keys.map(k => String(k || '').trim()).filter(Boolean).slice(0, 64)
+    : Object.keys(masked);
+  const values = {};
+  const tiers = {};
+  const omitted = [];
+  for (const key of requested) {
+    const tier = stewardConfigTierFor(key);
+    if (tier === 'forbidden') { omitted.push(key); continue; }
+    if (!Object.prototype.hasOwnProperty.call(masked, key)) { omitted.push(key); continue; }
+    values[key] = masked[key];
+    tiers[key] = tier;
+  }
+  return { ok: true, values, tiers, omitted };
+}
+
+// 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户
+//     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
+//     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
+async function stewardImplConfigSet(args, ctx, config) {
+  const rawPatch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
+  if (!rawPatch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
+  const patch = { ...rawPatch };   // 本地副本:下面要往里塞一个请求级信号(confirm),不该改模型给的对象
+  const keys = Object.keys(patch);
+  if (!keys.length) return stewardFail('invalid_request', 'patch is empty');
+  if (keys.length > 32) return stewardFail('invalid_request', 'patch carries too many keys (max 32)');
+
+  const forbidden = keys.filter(k => stewardConfigTierFor(k) === 'forbidden');
+  if (forbidden.length) {
+    return stewardFail('steward.forbidden', `these keys can never be changed through the steward: ${forbidden.join(', ')}`, { keys: forbidden });
+  }
+  // 116-3 P2-12(§8.6):把全局默认权限切到「全自动」是一条【专门】要求二次确认的动作,不是任意
+  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、13 的 applyConfigPatch 共用
+  // 同一张 PERMISSION_MODES_REQUIRING_CONFIRM 与同一个 `permission.confirm_required` 码。
+  // 外层信封仍是 propose_required —— 13h 只对这个码做「降级成一个按钮」,换成别的码用户就再也
+  // 按不到那个按钮了;专门口径放在 reason 与人话里(界面按 reason 取 §8.6 那五条文案)。
+  // 只读一次 ctx.userPressed:06i 的契约与 steward-tools.static ⑦ 把「13g 里读它的地方」钉成两处
+  //(config_set / skill_toggle 各一处),下面两道门共用这一个局部量。
+  const pressed = ctx.userPressed === true;
+  if (Object.prototype.hasOwnProperty.call(patch, 'permissionMode') && !pressed) {
+    const requested = patch.permissionMode == null ? '' : String(patch.permissionMode);
+    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested)) {
+      return stewardFail('propose_required',
+        `把【新线程的默认权限】切到「${stewardPermissionLabel(requested)}」要你亲手确认:那之后线程可以在你不在的时候改文件、跑命令、装东西、联网发东西。把它作为提议交给用户按,不要重试`,
+        { reason: 'permission.confirm_required', keys: ['permissionMode'], permissionMode: requested });
+    }
+  }
+  const confirmKeys = keys.filter(k => stewardConfigTierFor(k) === 'confirm');
+  if (confirmKeys.length && !pressed) {
+    // 13h 既有的降级路径会把 propose_required 变成一个按钮;用户按下那个按钮走 POST /api/steward/act,
+    // 只有那条路径会置 ctx.userPressed = true(06i 的契约注释里写死了唯一来源)。
+    return stewardFail('propose_required', `changing ${confirmKeys.join(', ')} needs the user to press the button`, { reason: 'confirm_required', keys: confirmKeys });
+  }
+
+  // 校验整份 patch 走【与 POST /api/config 同一条】normalize/sanitize:先合进当前配置跑一遍
+  // normalizeConfig,再逐键比对 —— 被 sanitize 清洗掉(非法值静默回落)的键当场拒绝,而不是写进去
+  // 之后让用户在设置页里发现「我改的没生效」。
+  const probe = normalizeConfig({ ...config, ...patch }).config;
+  const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(patch[k]));
+  if (rejected.length) {
+    return stewardFail('invalid_request', `these values did not survive config sanitize (illegal value or out of range): ${rejected.join(', ')}`, { keys: rejected });
+  }
+
+  const before = {};
+  for (const key of keys) before[key] = config[key];
+  // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
+  // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
+  // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
+  // 走到这一行时 confirm 档的判定已经过了(permissionMode 本来就在 STEWARD_CONFIG_TIER_CONFIRM 里,
+  // 所以想改它必须 ctx.userPressed === true = 用户在界面上亲手按下了那个按钮),这个事实如实带过去。
+  // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
+  // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
+  patch.confirm = true;
+  const next = await applyConfigPatch(patch);
+  const applied = {};
+  for (const key of keys) applied[key] = next[key];
+  // undoRef 内联在决策日志行里({kind:'config', before:{key:oldValue}}),不新增任何持久化面。
+  const undoRef = { kind: 'config', before };
+  stewardAppendDecision({
+    tool: 'steward_config_set',
+    args: { keys, confirmed: confirmKeys.length > 0 },
+    targetSessionId: '',
+    permissionMode: '',
+    mayAct: confirmKeys.length ? 'user' : 'auto',
+    undoRef,
+    basis: stewardBasisOf(args),
+  });
+  return { ok: true, applied, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 内容管理族 —— §3.5「内容管理」行。playbook 只起草不保存;技能启停须确认;速查线程自己收工。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 22) steward_playbook_draft —— 只返回草稿,【不保存】。保存走既有 UI(POST /api/playbooks,117 接)。
+//     每回合 1 次:draftPlaybookFromSession 自己要调一次模型,管家一个回合里连起五个草稿是纯烧钱。
+async function stewardImplPlaybookDraft(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 同 skill_toggle:身份判定排在装载之前(见那边的原注释)。
+  if (sessionId === STEWARD_SESSION_ID) return stewardFail('steward.forbidden', 'the steward session cannot be turned into a playbook');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('steward.forbidden', 'the steward session cannot be turned into a playbook');
+  if (!stewardTurnQuotaTake('playbook_draft', ctx, STEWARD_PLAYBOOK_DRAFTS_PER_TURN)) {
+    return stewardFail('quota_exceeded', `at most ${STEWARD_PLAYBOOK_DRAFTS_PER_TURN} playbook draft per steward turn; do not retry - tell the user what you have`);
+  }
+  const draft = await draftPlaybookFromSession(sessionId);
+  if (!draft || draft.ok === false) {
+    return stewardFail('draft_failed', String((draft && draft.error) || 'the engine could not draft a playbook from this thread'));
+  }
+  return { ok: true, sessionId, draft: draft.playbook || draft.draft || null, saveVia: 'POST /api/playbooks' };
+}
+
+// 23) steward_skill_toggle —— 与 POST /api/session/skills 共用 setSessionSkillsCore(同一段校验/去重/
+//     截 8/来源锁定/活动回合同步)。须确认:改了技能就等于改了那条线程下一回合的工具面与提示词。
+async function stewardImplSkillToggle(args, ctx, config) {
+  const sessionId = safeSessionId(args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 管家不能对自己用:管家提示词包本来就不含技能索引(§3.5「管家动如意、线程动世界」)。这一条排在
+  // 会话装载【之前】—— 目标是管家自己时,答案是「这件事不该做」,不该因为管家会话恰好还没建出来
+  // 就退化成「找不到」(两个信封说的是完全不同的两件事)。
+  if (sessionId === STEWARD_SESSION_ID) {
+    return stewardFail('steward.forbidden', 'the steward session has no skills to toggle');
+  }
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') {
+    return stewardFail('steward.forbidden', 'the steward session has no skills to toggle');
+  }
+  if (!Array.isArray(args.skills)) return stewardFail('invalid_request', 'skills must be an array of skill ids');
+  if (ctx.userPressed !== true) {
+    return stewardFail('propose_required', 'changing the enabled skills of a thread needs the user to press the button',
+      { reason: 'confirm_required', sessionId, skills: args.skills.map(x => String((x && x.id) || x || '')).slice(0, 8) });
+  }
+  const result = await setSessionSkillsCore(sessionId, args.skills);
+  if (!result.ok) return stewardFail('not_found', String(result.error || 'session not found'));
+  stewardAppendDecision({
+    tool: 'steward_skill_toggle',
+    args: { skills: result.skills.map(s => s.id) },
+    targetSessionId: sessionId,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'user',
+    undoRef: { kind: 'skills', sessionId, before: Array.isArray(head.skills) ? head.skills.map(s => (s && s.id) || '') : [] },
+    basis: stewardBasisOf(args),
+  });
+  return { ok: true, sessionId, skills: result.skills };
+}
+
+// ============================================================================
+// 第 116 波 116c(27 号文 §3.5「管家工具面设计」/ §4「管家记忆层」):管家(Steward)域路由、
+// 记忆面板、管家工具的门控壳与 StewardHooks 注册表。
+//
+// 落点(transport 层,manifest 中位于 13l-steward-ops.js 之后、13h-steward-runner.js 之前)。
+// 116-2e 拆分:收件箱轮询与游标(原本是本文件的前半)整体前移到 `13i-steward-inbox.js`,零行为搬家;
+//   本文件引用它的符号(stewardDir / stewardInboxRead / stewardInboxState / startStewardInbox …)
+//   全部是后向边。理由见 13i 的文件头。
+// 第 117 波 T1 拆分(32 号文 §2.1):本文件曾 2088 行(`steward-runner.static` ①「≤2000 行」长期红),
+//   工具实现与共享原语整体前移到三个新文件,同样是零行为搬家 ——
+//   `13j-steward-tool-base.js`(共享常量、稳定信封、决策日志、记忆存储、深读预算、配额桶)、
+//   `13k-steward-threads.js`(线程族:派活原语与 thread_* / quick_ask / threads_search)、
+//   `13l-steward-ops.js`(观察族 / 决策族 / 记忆族 / 设置族 / 内容管理族)。
+//   三者都排在本文件【之前】:注册表要引用它们的 stewardImpl*,排在后面才是后向边。
+//   本文件留下的是:管家域路由 + 记忆面板六条 + 工具门控壳 + StewardHooks 注册表。
+//
+// 依赖纪律(§11.3「不得新增前向边」):
+//   · 13g 只引用拼接顺序在它之前的模块符号(00/01/01b/02/06d/06i/13i/13j/13k/13l …),全部后向边;
+//   · 13-http-router.js 【不得】直接引用本文件的任何符号 —— 那会是前向边。挂接走延迟绑定:
+//     本文件在加载时 `Object.assign(StewardHooks, { handleApiRoutes, stopInbox, inboxRead, ... })`,
+//     13 只写 `StewardHooks.handleApiRoutes`(13 → 06i 是后向边);
+//   · 12-tool-dispatch.js 的管家工具 handler 同理,只写 `StewardHooks.<键>(args, ctx)`。
+//
+// 开关(§3.4 红线):`stewardEnabledV1 !== true` 时路由 409 `steward.disabled`、工具门控壳零写入。
+// ============================================================================
+
+// ────────────────────────────────────────────────────────────────────────────
+// 路由(全部 token 级,ROUTE_AUTH 在 01b-route-auth.js 登记;handler 内另做 tokenOk 纵深自查)。
+// 13-http-router.js 只经 StewardHooks.handleApiRoutes 调用本函数,不直接引用它(禁止前向边)。
+// ────────────────────────────────────────────────────────────────────────────
+// 形态与 handleOverlayApiRoutes 一致:命中即 send(调用方以 res.writableEnded 为命中信号),
+// 不命中就自然返回让路由链继续(不写前缀早退守卫 —— 那会在路由清册里多出一个无鉴权首配的裸前缀判定点)。
+// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
+// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
+async function stewardPanelGate(req) {
+  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
+  const config = await readConfig();
+  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
+  return null;
+}
+// 域层稳定信封 -> 路由层 apiFailure(不转的话会被 normalizeApiErrorPayload 归一成 api.request_failed)。
+function stewardPanelFailure(result) {
+  const code = String((result && result.error) || 'invalid_request');
+  const status = code === 'version_conflict' ? 409 : (code === 'not_found' ? 404 : 400);
+  return apiFailure(code, {}, String((result && result.message) || code), status);
+}
+
+async function handleStewardApiRoutes(req, res, pathname) {
+  if (req.method === 'POST' && pathname === '/api/steward/start') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (config.stewardEnabledV1 !== true) {
+      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
+    }
+    const started = await startStewardInbox(config);
+    return send(res, json({ ok: true, running: Boolean(started && started.running) }));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/stop') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    stopStewardInbox();
+    return send(res, json({ ok: true, running: false }));
+  }
+
+  if (req.method === 'GET' && pathname === '/api/steward/state') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    // 116f: 收件箱状态之上并进回合运行器状态(visit/turns/cost/circuit/lastReply)。运行器故障时
+    // 这条只读路由仍然返回收件箱那一半 —— 状态面不该因为旁路组件出错而整条不可用。
+    let runner = {};
+    if (typeof StewardHooks.runnerState === 'function') {
+      try { runner = (await StewardHooks.runnerState(config)) || {}; } catch { runner = {}; }
+    }
+    return send(res, json({ ok: true, ...await stewardInboxState(config), ...runner }));
+  }
+
+  if (req.method === 'GET' && pathname === '/api/steward/inbox') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const query = new URL(req.url, 'http://x').searchParams;
+    const result = await stewardInboxRead({ since: query.get('since'), limit: query.get('limit') });
+    return send(res, json({ ok: true, ...result }));
+  }
+
+  // 116-pre(27号文§8.12/§11.1第3项/§11.3):递话预判——只读、零模型、不写盘。装配(读投影+会话头+
+  // 记忆存储、缓存)在 13h-steward-runner.js(拼接顺序在本文件之后),故经 StewardHooks 转交(同
+  // handleRunnerApiRoutes 一手法);q 长度在这里再夹一遍(纯函数自己也夹,双重防线)。tookMs 只计
+  // StewardHooks.preroute 这一段(排除 token 校验与 HTTP 层开销),与「p50 ≤50ms」的度量口径对齐。
+  if (req.method === 'GET' && pathname === '/api/steward/preroute') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const config = await readConfig();
+    if (config.stewardEnabledV1 !== true) {
+      return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
+    }
+    const query = new URL(req.url, 'http://x').searchParams;
+    const q = String(query.get('q') || '').slice(0, STEWARD_PREROUTE_QUERY_MAX);
+    const startedAt = Date.now();
+    const result = typeof StewardHooks.preroute === 'function'
+      ? await StewardHooks.preroute(q, config)
+      : { kind: 'new', hits: [] }; // 理论上不可能(13h 恒填充);兜底而不是抛异常
+    const tookMs = Date.now() - startedAt;
+    return send(res, json({ ok: true, kind: result.kind, hits: result.hits, tookMs }));
+  }
+
+  // ── 116-2e 记忆面板(27 号文 §4「面板」:按 kind 分组、可编辑、可否决、可清空、导出 JSON)──────
+  // 六条 exact 路由,与其余 /api/steward/* 同一鉴权等级(token 级,ROUTE_AUTH 逐条登记)。刻意【不写】
+  // `pathname.startsWith('/api/steward/memory')` 的前缀守卫 —— 那会在路由清册里多出一个裸前缀判定点
+  // (116b 的原注释已经写明这条纪律);共用的「token + 开关」两道闸抽成 stewardPanelGate 一行调用。
+  // 稳定信封必须在【路由层】转成 apiFailure —— 域层的 {ok:false,error} 送进 json() 会被
+  // normalizeApiErrorPayload 归一成 api.request_failed(116g 交付记录里的硬教训)。
+  if (req.method === 'GET' && pathname === '/api/steward/memory') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const result = await stewardMemoryPanelList(new URL(req.url, 'http://x').searchParams.get('kind') || '');
+    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
+  }
+
+  if (req.method === 'GET' && pathname === '/api/steward/memory/export') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    return send(res, json(await stewardMemoryPanelExport()));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/memory/edit') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const result = await stewardMemoryPanelEdit(await readJsonBody(req).catch(() => ({})));
+    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/memory/veto') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const body = await readJsonBody(req).catch(() => ({}));
+    const result = await stewardImplMemoryVeto({ id: (body && body.id) || '' });
+    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/memory/restore') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const body = await readJsonBody(req).catch(() => ({}));
+    const result = await stewardMemoryPanelRestore((body && body.id) || '');
+    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/memory/clear') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const body = await readJsonBody(req).catch(() => ({}));
+    const result = await stewardMemoryPanelClear((body && body.confirm) || '');
+    return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
+  }
+
+  // ── 117e 第 0 步:行动流水的只读面(§8.6 末条)────────────────────────────────────────
+  // 与记忆面板同族(exact 路由、token 级、共用 stewardPanelGate 的两道闸)。纯只读:不建目录、
+  // 不写盘、不启轮询。每行的 args 与 basis 过一遍 116-2e 的密钥判据再出门。
+  if (req.method === 'GET' && pathname === '/api/steward/decisions') {
+    const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
+    const query = new URL(req.url, 'http://x').searchParams;
+    return send(res, json(await stewardDecisionsRead({
+      limit: query.get('limit'), sessionId: query.get('sessionId'), since: query.get('since'),
+    })));
+  }
+
+  // 116f: /api/steward/{visit,message,act} 住 13h-steward-runner.js(拼接顺序在本文件【之后】)。
+  // 与 13 挂 13g 同一手法:直接写函数名会是前向边,故经 06i 的延迟绑定命名空间转交;未填充时本行
+  // 是无操作,路由链继续往下走(最终 404)。命中与否仍以 res.writableEnded 为准。
+  if (typeof StewardHooks.handleRunnerApiRoutes === 'function') {
+    await StewardHooks.handleRunnerApiRoutes(req, res, pathname);
+  }
+}
+
+
+// 管家会话身份:只认会话头上【显式】的 kind === 'steward'。有意不用 sessionKind()——那个归一化函数
+// 只回 'mission'|'quick_ask',把管家会话也算成普通会话,拿它做身份判定等于把门拆了。
+function stewardCtxIsSteward(ctx) {
+  const session = ctx && ctx.session;
+  return !!(session && typeof session === 'object' && session.kind === 'steward');
+}
+
+// 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
+function stewardToolHandler(toolName, impl) {
+  return async (args, ctx) => {
+    let config = null;
+    try { config = await readConfig(); } catch { config = null; }
+    if (!config || config.stewardEnabledV1 !== true) {
+      return stewardFail('steward.disabled', `${toolName} is unavailable: the workbench steward is disabled (stewardEnabledV1=false)`);
+    }
+    if (!stewardCtxIsSteward(ctx)) {
+      return stewardFail('steward.forbidden', `${toolName} is only available to the workbench steward session (session.kind must be 'steward')`);
+    }
+    try {
+      // 116-2e:剥掉 args 里任何名为 userPressed 的字段。它的唯一合法来源是 ctx(由 13h 的
+      // POST /api/steward/act 在用户【亲手按下按钮】时置 true);模型在参数里自称「用户按了」
+      // 不算数,静默丢弃比报错更稳(报错会让模型学会换个名字再试一次)。
+      const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+      const clean = {};
+      for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
+      return await impl(clean, ctx || {}, config);
+    } catch (error) {
+      const message = String((error && error.message) || error);
+      logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
+      return stewardFail('steward.failed', `${toolName} failed: ${message}`);
+    }
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 第 116 波 116-2e —— 记忆面板(§4「面板」)、如意设置三级分级(§3.5)、内容管理(§3.5)、
 // 速查线程(§11.1 第 2 项)。
 // ════════════════════════════════════════════════════════════════════════════
@@ -45011,333 +45407,6 @@ async function stewardMemoryPanelExport() {
   };
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 设置族(tier exec)—— §3.5「如意设置」行的三级分级。判据唯一来源是 06i 的 stewardConfigTierFor。
-// ════════════════════════════════════════════════════════════════════════════
-
-// 22) steward_config_get —— 掩码复用 POST /api/config 回包用的同一个 maskProviders(不另写一套)。
-//     forbidden 级的键【连掩码值都不回】,只在 omitted[] 里列键名 —— 给出掩码值等于承认它存在
-//     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
-async function stewardImplConfigGet(args, ctx, config) {
-  const masked = maskProviders(config);
-  const requested = Array.isArray(args.keys)
-    ? args.keys.map(k => String(k || '').trim()).filter(Boolean).slice(0, 64)
-    : Object.keys(masked);
-  const values = {};
-  const tiers = {};
-  const omitted = [];
-  for (const key of requested) {
-    const tier = stewardConfigTierFor(key);
-    if (tier === 'forbidden') { omitted.push(key); continue; }
-    if (!Object.prototype.hasOwnProperty.call(masked, key)) { omitted.push(key); continue; }
-    values[key] = masked[key];
-    tiers[key] = tier;
-  }
-  return { ok: true, values, tiers, omitted };
-}
-
-// 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户
-//     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
-//     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
-async function stewardImplConfigSet(args, ctx, config) {
-  const rawPatch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
-  if (!rawPatch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
-  const patch = { ...rawPatch };   // 本地副本:下面要往里塞一个请求级信号(confirm),不该改模型给的对象
-  const keys = Object.keys(patch);
-  if (!keys.length) return stewardFail('invalid_request', 'patch is empty');
-  if (keys.length > 32) return stewardFail('invalid_request', 'patch carries too many keys (max 32)');
-
-  const forbidden = keys.filter(k => stewardConfigTierFor(k) === 'forbidden');
-  if (forbidden.length) {
-    return stewardFail('steward.forbidden', `these keys can never be changed through the steward: ${forbidden.join(', ')}`, { keys: forbidden });
-  }
-  // 116-3 P2-12(§8.6):把全局默认权限切到「全自动」是一条【专门】要求二次确认的动作,不是任意
-  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、13 的 applyConfigPatch 共用
-  // 同一张 PERMISSION_MODES_REQUIRING_CONFIRM 与同一个 `permission.confirm_required` 码。
-  // 外层信封仍是 propose_required —— 13h 只对这个码做「降级成一个按钮」,换成别的码用户就再也
-  // 按不到那个按钮了;专门口径放在 reason 与人话里(界面按 reason 取 §8.6 那五条文案)。
-  // 只读一次 ctx.userPressed:06i 的契约与 steward-tools.static ⑦ 把「13g 里读它的地方」钉成两处
-  //(config_set / skill_toggle 各一处),下面两道门共用这一个局部量。
-  const pressed = ctx.userPressed === true;
-  if (Object.prototype.hasOwnProperty.call(patch, 'permissionMode') && !pressed) {
-    const requested = patch.permissionMode == null ? '' : String(patch.permissionMode);
-    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested)) {
-      return stewardFail('propose_required',
-        `把【新线程的默认权限】切到「${stewardPermissionLabel(requested)}」要你亲手确认:那之后线程可以在你不在的时候改文件、跑命令、装东西、联网发东西。把它作为提议交给用户按,不要重试`,
-        { reason: 'permission.confirm_required', keys: ['permissionMode'], permissionMode: requested });
-    }
-  }
-  const confirmKeys = keys.filter(k => stewardConfigTierFor(k) === 'confirm');
-  if (confirmKeys.length && !pressed) {
-    // 13h 既有的降级路径会把 propose_required 变成一个按钮;用户按下那个按钮走 POST /api/steward/act,
-    // 只有那条路径会置 ctx.userPressed = true(06i 的契约注释里写死了唯一来源)。
-    return stewardFail('propose_required', `changing ${confirmKeys.join(', ')} needs the user to press the button`, { reason: 'confirm_required', keys: confirmKeys });
-  }
-
-  // 校验整份 patch 走【与 POST /api/config 同一条】normalize/sanitize:先合进当前配置跑一遍
-  // normalizeConfig,再逐键比对 —— 被 sanitize 清洗掉(非法值静默回落)的键当场拒绝,而不是写进去
-  // 之后让用户在设置页里发现「我改的没生效」。
-  const probe = normalizeConfig({ ...config, ...patch }).config;
-  const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(patch[k]));
-  if (rejected.length) {
-    return stewardFail('invalid_request', `these values did not survive config sanitize (illegal value or out of range): ${rejected.join(', ')}`, { keys: rejected });
-  }
-
-  const before = {};
-  for (const key of keys) before[key] = config[key];
-  // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
-  // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
-  // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
-  // 走到这一行时 confirm 档的判定已经过了(permissionMode 本来就在 STEWARD_CONFIG_TIER_CONFIRM 里,
-  // 所以想改它必须 ctx.userPressed === true = 用户在界面上亲手按下了那个按钮),这个事实如实带过去。
-  // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
-  // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
-  patch.confirm = true;
-  const next = await applyConfigPatch(patch);
-  const applied = {};
-  for (const key of keys) applied[key] = next[key];
-  // undoRef 内联在决策日志行里({kind:'config', before:{key:oldValue}}),不新增任何持久化面。
-  const undoRef = { kind: 'config', before };
-  stewardAppendDecision({
-    tool: 'steward_config_set',
-    args: { keys, confirmed: confirmKeys.length > 0 },
-    targetSessionId: '',
-    permissionMode: '',
-    mayAct: confirmKeys.length ? 'user' : 'auto',
-    undoRef,
-    basis: stewardBasisOf(args),
-  });
-  return { ok: true, applied, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// 内容管理族 —— §3.5「内容管理」行。playbook 只起草不保存;技能启停须确认;速查线程自己收工。
-// ════════════════════════════════════════════════════════════════════════════
-
-// 每回合配额桶:复用 116c 的 stewardReadBucket 形状(会话 id + 回合序号),但各族一张自己的表 ——
-// 深读预算与起草/速查次数是三件不同的事,合在一个桶里会互相饿死。
-const _stewardTurnQuota = new Map(); // bucket -> Map(`${sessionId} ${turnKey}` -> count)
-function stewardTurnQuotaTake(bucket, ctx, max) {
-  const key = String(ctx && ctx.sessionId ? ctx.sessionId : '') + ' ' + stewardTurnKeyOf(ctx);
-  let table = _stewardTurnQuota.get(bucket);
-  if (!table) { table = new Map(); _stewardTurnQuota.set(bucket, table); }
-  const used = Number(table.get(key)) || 0;
-  if (used >= max) return false;
-  table.set(key, used + 1);
-  while (table.size > 64) table.delete(table.keys().next().value);
-  return true;
-}
-
-// 22) steward_playbook_draft —— 只返回草稿,【不保存】。保存走既有 UI(POST /api/playbooks,117 接)。
-//     每回合 1 次:draftPlaybookFromSession 自己要调一次模型,管家一个回合里连起五个草稿是纯烧钱。
-async function stewardImplPlaybookDraft(args, ctx, config) {
-  const sessionId = safeSessionId(args.sessionId);
-  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  // 同 skill_toggle:身份判定排在装载之前(见那边的原注释)。
-  if (sessionId === STEWARD_SESSION_ID) return stewardFail('steward.forbidden', 'the steward session cannot be turned into a playbook');
-  const head = await stewardReadSessionHead(sessionId);
-  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
-  if (stewardRawKind(head) === 'steward') return stewardFail('steward.forbidden', 'the steward session cannot be turned into a playbook');
-  if (!stewardTurnQuotaTake('playbook_draft', ctx, STEWARD_PLAYBOOK_DRAFTS_PER_TURN)) {
-    return stewardFail('quota_exceeded', `at most ${STEWARD_PLAYBOOK_DRAFTS_PER_TURN} playbook draft per steward turn; do not retry - tell the user what you have`);
-  }
-  const draft = await draftPlaybookFromSession(sessionId);
-  if (!draft || draft.ok === false) {
-    return stewardFail('draft_failed', String((draft && draft.error) || 'the engine could not draft a playbook from this thread'));
-  }
-  return { ok: true, sessionId, draft: draft.playbook || draft.draft || null, saveVia: 'POST /api/playbooks' };
-}
-
-// 23) steward_skill_toggle —— 与 POST /api/session/skills 共用 setSessionSkillsCore(同一段校验/去重/
-//     截 8/来源锁定/活动回合同步)。须确认:改了技能就等于改了那条线程下一回合的工具面与提示词。
-async function stewardImplSkillToggle(args, ctx, config) {
-  const sessionId = safeSessionId(args.sessionId);
-  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  // 管家不能对自己用:管家提示词包本来就不含技能索引(§3.5「管家动如意、线程动世界」)。这一条排在
-  // 会话装载【之前】—— 目标是管家自己时,答案是「这件事不该做」,不该因为管家会话恰好还没建出来
-  // 就退化成「找不到」(两个信封说的是完全不同的两件事)。
-  if (sessionId === STEWARD_SESSION_ID) {
-    return stewardFail('steward.forbidden', 'the steward session has no skills to toggle');
-  }
-  const head = await stewardReadSessionHead(sessionId);
-  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
-  if (stewardRawKind(head) === 'steward') {
-    return stewardFail('steward.forbidden', 'the steward session has no skills to toggle');
-  }
-  if (!Array.isArray(args.skills)) return stewardFail('invalid_request', 'skills must be an array of skill ids');
-  if (ctx.userPressed !== true) {
-    return stewardFail('propose_required', 'changing the enabled skills of a thread needs the user to press the button',
-      { reason: 'confirm_required', sessionId, skills: args.skills.map(x => String((x && x.id) || x || '')).slice(0, 8) });
-  }
-  const result = await setSessionSkillsCore(sessionId, args.skills);
-  if (!result.ok) return stewardFail('not_found', String(result.error || 'session not found'));
-  stewardAppendDecision({
-    tool: 'steward_skill_toggle',
-    args: { skills: result.skills.map(s => s.id) },
-    targetSessionId: sessionId,
-    permissionMode: stewardThreadPermissionMode(head, config),
-    mayAct: 'user',
-    undoRef: { kind: 'skills', sessionId, before: Array.isArray(head.skills) ? head.skills.map(s => (s && s.id) || '') : [] },
-    basis: stewardBasisOf(args),
-  });
-  return { ok: true, sessionId, skills: result.skills };
-}
-
-// 24) steward_quick_ask —— 速查线程(§11.1 第 2 项)。
-//     何时用:要读文件、联网或动手才能答的问题。何时别用:关于如意、事项、费用、设置的问题 —— 那些
-//     管家自己就知道,开一条线程去问等于让用户白等一次回合。
-//     不进任何事项;权限用新线程默认权限(即全局 permissionMode),照常受 116h 仲裁;答完自动收工。
-async function stewardImplQuickAsk(args, ctx, config) {
-  const question = stewardSanitizeText(args.question).trim();
-  if (!question) return stewardFail('invalid_request', 'question is required');
-  if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
-    return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
-  }
-  if (!stewardTurnQuotaTake('quick_ask', ctx, STEWARD_QUICK_ASKS_PER_TURN)) {
-    return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
-  }
-  const session = await createSession({
-    title: question.slice(0, STEWARD_TITLE_MAX),
-    cwd: args.cwd ? String(args.cwd) : undefined,
-  });
-  session.kind = STEWARD_QUICK_KIND;
-  // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
-  // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程
-  // 永远拿不到自动摘要。thread_new 那边不清:args.title 是管家【有意】起的名字,与改名同一性质。
-  delete session.titleSource;
-  // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
-  // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
-  session.launchedBy = 'steward';
-  // 速查线程【不进事项】:missionId 指回自己(createSession 的缺省),不写任何反向索引,
-  // GET /api/missions 里它就是一条「未归类」的派生行,不占任何事项的验收与预算。
-  session.stewardQuick = {
-    schema: 1,
-    askedAt: nowIso(),
-    question,
-    stewardTurnKey: String(stewardTurnKeyOf(ctx)),
-    closedAt: null,
-  };
-  // 117l D7:速查线程恒走 fast 档 —— 它定义上就是「查一下」,没有理由烧强模型(没配 fast 档就跟随全局)。
-  const quickTier = StewardHooks.applyThreadTier(session, 'fast', config);
-  await saveSession(session);
-
-  stewardLaunchTurn({
-    sessionId: session.id,
-    message: question,
-    cwd: session.cwd,
-    source: 'steward',
-    requestMeta: { tool: 'steward_quick_ask' },
-  }, 'steward_quick_ask');
-
-  // 117e 第 0 步:与 117d-0 的 thread_new / thread_continue 同口径 —— 撤回锚点显式化。
-  // rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的 plannedTurnSeq = turnSeq + 1),
-  // 按 `turnSeq` 字面传会得 target turn not found。新建会话的 turnSeq 恒为 0,这里仍按字段读,
-  // 与上面那两处逐字同形(将来 createSession 若带出非零 seq 也不会错)。
-  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
-  stewardAppendDecision({
-    tool: 'steward_quick_ask',
-    args: { chars: question.length, tier: quickTier.tier },
-    targetSessionId: session.id,
-    permissionMode: stewardThreadPermissionMode(session, config),
-    mayAct: 'auto',
-    undoRef,
-    basis: stewardBasisOf(args),
-  });
-  return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef };
-}
-
-// ── 收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)──────────────────────────────────
-// 117s-H1(27 号文 §11.13.3,用户第三轮回话「线程的交付管家能不能看全」):给【每一条】管家关心的
-// 线程的 `done` 行补上这一回合真正的交付 —— `payload.deliverable = {text,chars,truncated,turnSeq,files}`。
-// 修前只有速查线程补一个 `answer`,而那个字段 13h 里【零渲染点】(grep 可自证):交付正文从来没有
-// 进过收件箱回合,管家只拿到一行「线程第 N 回合跑完了」,正文全靠它自己再花一次 thread_read 配额去读。
-// 判据用 06i 的 stewardWatchedThread —— 与 13i 决定「这条线程要不要入箱」的是同一条线,不另立第二套
-// (用户自己在经典壳里聊的普通会话本来就不入箱,这里也就不会为它们装载会话)。
-//
-// 为什么在这里而不是在 13i:13i 只认三条 seq 日志,不读会话正文;而交付正文与本回合的文件账都要装载
-// 会话。放在 13g 并经命名空间回调,13i 就不需要认识 13g 的任何符号(前向边红线)。
-// 旁路纪律:抛错绝不反噬轮询器 —— 13i 那边整段包在 try 里,补不上就是少几个字段。
-async function stewardEnrichInboxRows(rows) {
-  const list = Array.isArray(rows) ? rows : [];
-  const heads = new Map();
-  for (const row of list) {
-    if (!row || row.kind !== 'done') continue;
-    const sid = safeSessionId(row.sessionId);
-    if (!sid) continue;
-    if (!heads.has(sid)) heads.set(sid, await stewardReadSessionHead(sid).catch(() => null));
-    const head = heads.get(sid);
-    if (!head) continue;
-    if (!stewardWatchedThread(head, sid, row.missionId)) continue;
-    const quick = stewardRawKind(head) === STEWARD_QUICK_KIND && !!head.stewardQuick;
-    const session = await loadSession(sid).catch(() => null);
-    if (!session) continue;
-    const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
-    // 回合号取事件自己的(第四源 stewardNormalizeSessionTurn 落的 payload.turnSeq);取不到就退到
-    // 会话头上的当前回合号,再取不到才让下面的挑选退到「最后一条助手话」。
-    const turnSeq = Math.max(0, Number(payload.turnSeq) || 0) || Math.max(0, Number(head.turnSeq) || 0);
-    const full = stewardSanitizeBlock(stewardTurnAssistantText(session, turnSeq));
-    const patch = {};
-    if (full.trim()) {
-      patch.deliverable = {
-        text: full.slice(0, STEWARD_DELIVERABLE_CHARS),
-        chars: full.length,
-        truncated: full.length > STEWARD_DELIVERABLE_CHARS,
-        turnSeq,
-        files: stewardTurnFiles(session, turnSeq),
-      };
-    }
-    // 速查线程的 `answer` 留着(老消费者与 116-2e 的收工判据都认它),但它现在与交付【同一份原文】,
-    // 只是仍按 ≤1200 的老口径中和成单行 —— 两个字段从此不会各说各的。
-    if (quick) {
-      patch.quick = true;
-      patch.answer = stewardSanitizeText(full || stewardLastAssistantText(session)).slice(0, STEWARD_QUICK_ANSWER_CHARS);
-    }
-    if (Object.keys(patch).length) row.payload = { ...payload, ...patch };
-  }
-  return list;
-}
-
-// 收工:回合结束后由 13h 调 —— 把 stewardQuick.closedAt 落在会话头上。收工后这条线程从管家的总览
-// 与 steward_threads_search 里消失(经典壳照常看得见,它只是数据)。幂等:已收工的再调是无操作。
-async function stewardQuickClose(sessionId) {
-  const sid = safeSessionId(sessionId);
-  if (!sid) return { ok: false, error: 'invalid_request' };
-  const head = await stewardReadSessionHead(sid);
-  if (!head || stewardRawKind(head) !== STEWARD_QUICK_KIND || !head.stewardQuick) return { ok: false, error: 'not_found' };
-  // 116-3 P1-6:判「还算不算收工」走 stewardQuickClosed(它会把「收工后用户又聊了」算成重开),
-  // 而不是只看 closedAt 是不是真值 —— 否则一条被用户重新用起来的速查线程再次收工时会被当成幂等
-  // 直接返回,closedTurnSeq 永远停在第一次收工那一刻,它就再也关不上了。
-  if (stewardQuickClosed(head)) return { ok: true, sessionId: sid, closedAt: head.stewardQuick.closedAt, changed: false };
-  const closedAt = nowIso();
-  // 收工时记下【当时的回合数】。之后会话每多一个用户回合,turnSeq 就会超过它 = 用户在继续用这条线程。
-  const closedTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  await updateSessionMeta(sid, { stewardQuick: { ...head.stewardQuick, closedAt, closedTurnSeq } });
-  return { ok: true, sessionId: sid, closedAt, closedTurnSeq, changed: true };
-}
-
-// 已收工的速查会话:总览与线程搜索默认把它排除(includeClosed 可要回来)。判据单点在这里,
-// 13g 的 threads_search 与 13h 的 stewardThreadDigestRows 都调它。
-//
-// 116-3 P1-6:closedAt 【不是】终态。用户完全可能在经典 2.0 视窗里把这条速查线程继续聊下去
-// (§11.1 第 2 项只说「答完即收工」,没说「从此不许再用」);修前 closedAt 一旦写入就永久生效,
-// 管家的总览与线程搜索从此把它当成历史,彻底跟丢用户的后续对话。判据用 turnSeq 而不是 updatedAt:
-// updateSessionMeta 自己就会推 updatedAt,拿它比会在收工的下一刻把线程又「重开」一次。
-function stewardQuickClosed(head) {
-  const quick = head && head.stewardQuick;
-  if (!quick || typeof quick !== 'object' || !quick.closedAt) return false;
-  const closedTurnSeq = Number(quick.closedTurnSeq);
-  if (!Number.isFinite(closedTurnSeq)) return true;   // 116-3 之前落盘的旧速查线程:没有这个字段,维持原语义
-  return Math.max(0, Number(head && head.turnSeq) || 0) <= closedTurnSeq;
-}
-
-// 116-3 P1-5:「这条线程是不是管家自己开的速查线程」的唯一判据。
-// 【不能】拿 sessionKind() / head.kind === 'quick_ask' 当判据 —— 那是第 70 波遗留的「纯问答默认档」,
-// 用户自己发起的普通对话绝大多数都落在它上面;真正的速查线程由 steward_quick_ask 创建,
-// 头上带 stewardQuick 这个字段,那才是 116 波「速查线程」这个概念的机器痕迹。
-function stewardQuickThread(head) {
-  const quick = head && head.stewardQuick;
-  return !!(quick && typeof quick === 'object');
-}
 
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。
 // 消费者(13-http-router 的路由链、13-http-router 的关服收尾、116c 的管家工具 handler)全程只看
