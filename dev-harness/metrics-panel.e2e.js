@@ -78,7 +78,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       r.on('error', () => resolve({ status: 0, body: null })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, body: null }); });
     });
   }
-  function getToken() { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port: PORT, path: '/', timeout: 1500 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); }
+  function getToken() { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port: PORT, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
   try {
     let up = false;
     for (let i = 0; i < 300 && !up; i++) { await sleep(250); const h = await getJson('/health'); up = h.status === 200; } // 117q:预算 60×250ms=15s 低于 30 号文 P1-31 建议的 300×同款间隔量级,为同批口径统一一并抬高(30 号文 P1-31)

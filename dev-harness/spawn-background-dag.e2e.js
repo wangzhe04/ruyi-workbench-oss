@@ -19,7 +19,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-spawn-background-dag');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function killp(child) { if (!child || !child.pid) return; try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
 function health() { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health', timeout: 800 }, res => { let body = ''; res.on('data', c => (body += c)); res.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve(null); } }); }); req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); }); }); }
-function token() { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/', timeout: 1500 }, res => { let body = ''; res.on('data', c => (body += c)); res.on('end', () => resolve((body.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '')); }); req.on('error', () => resolve('')); }); }
+function token() { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/', timeout: 5000 }, res => { let body = ''; res.on('data', c => (body += c)); res.on('end', () => resolve((body.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '')); }); req.on('error', () => resolve('')); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
 function jsonRequest(method, route, body, headers) {
   return new Promise((resolve, reject) => {
     const data = body == null ? '' : JSON.stringify(body);

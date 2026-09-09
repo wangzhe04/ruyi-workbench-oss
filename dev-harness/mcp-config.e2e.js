@@ -52,7 +52,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
 // ── v1.0.2-S5: POST /api/mcp/import-folder ──────────────────────────────────────────────────────────
 // ①合法清单导入成功且 config 落盘含该条; ②同 id 二次导入=更新不重复; ③缺清单报错含 template;
 // ④无 token 403; ⑤超 10 条被拒。掩码:响应里 server.env 值被掩码(不回明文 token)。
-function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 1500 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); }
+function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
 function postJson(port, p, payload, headers) {
   return new Promise(resolve => {
     const data = JSON.stringify(payload || {});
