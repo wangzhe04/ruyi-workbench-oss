@@ -73,6 +73,21 @@ const PROMPT_ZH = {
   // [风格层] - outputStyle==='concise' && !identityOnly
   styleConcise: '回答尽量简短，直接给结果，不解释过程除非被问。',
 
+  // [答复形状层] - 117v-V3(27 号文 §11.16.2 V3 行)· buildStableSystemPrompt 在 !identityOnly 时注入,
+  // 不看 hasTools —— 纯对话的研究型线程恰恰是最需要它的那一种。
+  // 为什么必须单立一层(而不是复用既有的两处):
+  //   · softwareEngineering.completion 里已经有一句「先给结果,再简述变更、验证和仍未验证的风险」,
+  //     但那一包【只对代码/仓库任务注入】(buildSoftwareEngineeringPolicy 经 softwareEngineeringTaskProfile
+  //     判定),一条「分析一下英伟达」的研究线程根本拿不到它;
+  //   · mission 层只在 session.mission 存在时注入,而 steward_thread_new 只竖 kind='mission'、
+  //     【从来不建账本】(13k:385 只写 session.kind/missionId,02:1779 的注释也写着 mission:null),
+  //     管家开的线程同样拿不到。
+  // 为什么这条规则值得占一层:看板的「它最后说」、管家总览行、管家转述时读到的那句话,走的都是
+  // 服务端 head.summary = 最终助手文本的【前 160 字】(13d:539 / 13h:262,345 / 06i:143),完全不经过
+  // 前端的 segments 账本 —— 第一段不是结论,这三个面显示的就是开场白。前端修不到,只能从这里修。
+  // 文字跨进程逐字节恒定(无时间戳/端口/会话 id),不破前缀缓存(budget-guard 两栈逐字节比对)。
+  answerShape: '最终答复的第一段就是结论：先写结果、答案或判断本身（含关键数字与文件名），再写过程、方法与注意事项。不要用铺垫、复述任务或「我先看了…」开场；还没有结论时，第一段就直说卡在哪一步、缺什么。',
+
   // [软件工程策略包] - 仅由 buildSoftwareEngineeringPolicy 对代码/仓库任务按需注入
   softwareEngineering: {
     scope: '先判定交付类型：用户只让解释、审查、汇报或诊断时，读取并给出有证据的结论；除非同时明确要求修复，否则不要修改。用户要求修改、构建或修复时，直接实现并验证。不得把只读调查扩大成写入，也不得把修复授权扩大到无关清理、发布或外部操作。',
@@ -166,6 +181,9 @@ const PROMPT_ZH = {
       '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
       // 117s-H1(§11.13.3):收件箱事件行后面跟着的引用块就是那条线程【自己写的交付原文】。
       '· 转述交付:一句结论 + 明说「原文见线程卡」;数字、结论、文件名逐字照抄,不改写不换算;线程写过文件就把文件名列出来。',
+      // 117v-V3(§11.16.6):琥珀色那枚按钮的词是【我自己现编的】(13h:673 `row.label || stewardActLabel(...)`),
+      // 不是仓里的键 —— 所以「看…全文」这类内容词只能在这里管住,前端改文案管不到它。
+      '· 开线程类 act(kind 为 open_thread)的 label 写【去处】不写【内容】:用「打开线程」「去线程里看」这类词,不要写「看…全文」「查看完整分析」这类 —— 交付卡上已经有一枚说「看全文」的按钮,两个词撞在一起,用户不知道该点哪个。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -255,6 +273,11 @@ const PROMPT_EN = {
 
   styleConcise: 'Keep answers short; give the result directly; do not explain the process unless asked.',
 
+  // 117v-V3 answer-shape layer - same key and (absent) params as PROMPT_ZH.answerShape; see the Chinese
+  // pack for why this is its own layer instead of leaning on softwareEngineering.completion or the mission
+  // ledger (neither reaches a plain research thread), and for the server-side head.summary chain it fixes.
+  answerShape: 'Lead the final reply with its conclusion: the first paragraph states the result, answer or judgement itself (including the key numbers and file names); process, method and caveats come after it. Do not open with preamble, a restatement of the task, or "I started by looking at ..."; when there is no conclusion yet, use that first paragraph to say which step it is stuck on and what is missing.',
+
   softwareEngineering: {
     scope: 'First classify the deliverable: when the user asks only for an explanation, review, report, or diagnosis, inspect and provide an evidence-backed conclusion; do not modify anything unless they also explicitly ask for a fix. When the user asks to change, build, or fix, implement and verify it. Never expand read-only investigation into writes, or repair authorization into unrelated cleanup, publishing, or external actions.',
     preflight: 'Before acting: check relevant project/workbench memory and prior decisions; read repository-level instructions (such as AGENTS.md, README, and contribution guides) and applicable skills; inspect workspace state and preserve existing user changes; locate the real implementation, callers, configuration, and tests; infer conventions from nearby code instead of imposing generic preferences. Do not ask redundant questions when the available context is sufficient to act.',
@@ -336,6 +359,9 @@ const PROMPT_EN = {
       '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',
       // 117s-H1: the quoted block after an inbox event line is the thread\'s OWN deliverable text.
       '\u00b7 Retelling a deliverable: one sentence of conclusion plus an explicit "the full text is on the thread card". Copy numbers, conclusions and file names VERBATIM - never reword or convert them; when the thread wrote files, list the file names.',
+      // 117v-V3: same rule as PROMPT_ZH.steward.rules' last line - the amber button label is written by
+      // the model itself (13h:673), so it can only be constrained here, never by editing a locale key.
+      '\u00b7 Label an open_thread act by its DESTINATION, not by its content: write "Open the thread" style wording, never "See the full ..." or "View the complete analysis" - the delivery card already carries a full-text button, and two lookalike labels leave the user unsure which one to press.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',

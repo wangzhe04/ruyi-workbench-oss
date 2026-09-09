@@ -1587,6 +1587,13 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
   } else if (!identityOnly) {
     lines.push(getPromptPack(config && config.locale).noTools);
   }
+  // [答复形状层] - 117v-V3(27 号文 §11.16.2 V3 行):结论先行。门控只有 !identityOnly ——
+  //   · 排除 identity-only 探针(压缩摘要 06:997 / 10:1263 那两条调用逐字节不变,capabilities.e2e
+  //     的身份泄漏守卫与 prompt-snapshot D13 那条路径都不受影响);
+  //   · 【不】看 hasTools:纯对话的研究型线程(管家 steward_thread_new 开的那种)既没有 mission 账本、
+  //     也进不了 softwareEngineering 那一包,它恰恰是这条规则唯一能落到的地方。理由与被修的那条
+  //     head.summary 链路写在 06b 的 answerShape 头注里。
+  if (!identityOnly) lines.push(getPromptPack(config && config.locale).answerShape);
   // [provider 层]
   const psp = String((provider && provider.systemPrompt) || '').trim();
   if (psp) lines.push(psp);

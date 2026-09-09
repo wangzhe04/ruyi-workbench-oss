@@ -179,6 +179,12 @@ function systemOf(body) {
     // layer; identity bleed is guarded at the lead (same scope as the Claude check above).
     ok(!/Workbench/i.test(sys1.slice(0, 800)), 'system identity lead contains NO "Workbench" (identity bleed guard)');
     ok(sys1.includes('<response-language-policy>') && /latest substantive user request/.test(sys1), 'final system layer carries the response-language policy instead of inheriting internal prompt language');
+    // 117v-V3 (27 号文 §11.16.2 V3 行): the conclusion-first rule must reach a REAL turn, not just the unit
+    // build. This turn's message is 「你好」 — a plain, non-code request, i.e. exactly the shape of the
+    // research thread the steward opens (no mission ledger, no software-engineering pack). Pinned as facts
+    // (「结论」 + 「第一/首段」), not as a verbatim sentence, so rewording the rule does not turn this red.
+    ok(/结论/.test(sys1) && /第一段|首段|开头/.test(sys1), '117v-V3 a real non-code turn receives the conclusion-first rule in its request body');
+    ok(!/<software-engineering-policy>/.test(sys1), '117v-V3 …and it is NOT coming from the software-engineering pack (a plain request does not load it)');
     ok(/<project-memory>/.test(sys1) && sys1.includes(MARKER), 'project layer: <project-memory> fence + marker present');
     ok(/16KB.*截断|已截断/.test(sys1), 'project layer: truncation note for >16KB file');
     // F3 (安全·围栏防字面闭合): the CLAUDE.md contained a literal </project-memory> trying to close the

@@ -173,6 +173,23 @@ const srv = require(path.join(APP, 'server.js'));
     ok(typeof pack.visitNotes === 'string' && pack.visitNotes.length > 40, `③ ${label}包有 visitNotes 摘要 prompt(到访内 L2 压缩用)`);
     ok(typeof pack.overviewFolded === 'function' && typeof pack.inboxHeader === 'function', `③ ${label}包的折叠行与收件箱表头是模板函数`);
   }
+  // 117v-V3(27 号文 §11.16.6):约束【开线程类 act】的措辞。琥珀色那枚按钮的词是模型自己现编的
+  // (13h:673 `String(row.label || '').slice(...) || stewardActLabel(...)`),仓里没有对应的 i18n 键 ——
+  // 所以「看…全文」这类内容词只能从提示词里管住,改前端文案管不到它。钉的是事实不是字面量:
+  //   · 规则住在【易变层 rules】而不是 stable(stable 有 ≤2500 硬闸,英文已到 2453),两包都如此
+  //     —— 判据用「撞车理由」这个语义要素定位它,不能用 open_thread 这个 token:输出契约那一行
+  //     ("kind": "tool"|"open_thread"|"dismiss")本来就在 stable 里,拿它判会永远假红;
+  //   · 规则里同时出现 open_thread(代码 token,稳定)与「和交付卡那枚全文按钮撞车」这个理由。
+  const openThreadRuleZh = zh.rules.split('\n').find(l => /open_thread/.test(l)) || '';
+  const openThreadRuleEn = en.rules.split('\n').find(l => /open_thread/.test(l)) || '';
+  ok(/全文/.test(openThreadRuleZh) && /打开线程|去处/.test(openThreadRuleZh),
+    '③ 117v-V3 中文 steward.rules 里有约束 open_thread 措辞的一条(写去处、别写「看…全文」)');
+  ok(/full[- ]?text|full text/i.test(openThreadRuleEn) && /open the thread|destination/i.test(openThreadRuleEn),
+    '③ 117v-V3 英文包同步一条同义规则(destination 而非 "See the full ...")');
+  ok(!/全文/.test(zh.stable) && !/full[- ]?text/i.test(en.stable),
+    '③ 117v-V3 这条在易变层 rules、没有塞进 stable(≤2500 硬闸没被顶破;英文 stable 现在 ' + en.stable.length + ')');
+  ok(/label: String\(row\.label \|\| ''\)[\s\S]{0,80}stewardActLabel\(/.test(src13h),
+    '③ 117v-V3 那枚 act 的 label 确实由模型给(13h 是 row.label 优先、仓里的 stewardActLabel 只兜底),故只能靠提示词管');
   // 上限数字只有一份:13h 引用 06i 的 STEWARD_DIGEST_LIMITS,不自带 40/12000。
   ok(/STEWARD_DIGEST_LIMITS\.maxThreads/.test(src13h) && /STEWARD_DIGEST_LIMITS\.totalChars/.test(src13h),
     '③ 总览上限取 06i 的 STEWARD_DIGEST_LIMITS(不另立第二套数字)');

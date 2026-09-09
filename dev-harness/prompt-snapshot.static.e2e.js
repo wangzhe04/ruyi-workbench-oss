@@ -164,5 +164,39 @@ ok(!full.includes(stewardMark) && !stable.includes(stewardMark) && !volatile.inc
 ok(typeof stewardPack.visitNotes === 'string' && stewardPack.visitNotes.length > 40,
   'S4 116f 管家包带 visitNotes 摘要 prompt(到访内 L2 压缩换用它,不动普通会话的 SUMMARY_PROMPT)');
 
+console.log('── V 段: 117v-V3 结论先行(27 号文 §11.16.2 V3 行) ──');
+// 钉的是【事实】不是字面量:规则可以被润色、可以换词,但下面五条必须仍然成立 ——
+//   V1 中英两包在同一层都有这条规则(结构对齐 + 两个语义要素:「结论」与「第一/首段」);
+//   V2 每条真正干活的会话都拿得到(!identityOnly 门控,且【不】看 hasTools);
+//   V3 identity-only 探针拿不到(压缩摘要保持廉价,身份泄漏守卫那条路径不变);
+//   V4 它够不到的两个既有替代品确实够不着 —— 研究型任务不进 softwareEngineering 包、
+//      不带 mission 账本,所以这一层是那种会话唯一的载体(这条一红 = 有人把规则挪回那两处了);
+//   V5 文字是常量(不是模板函数、不含插值),跨进程逐字节恒定 —— 前缀缓存与 budget-guard 的前提。
+const zhPack = srv.getPromptPack('zh-CN');
+const enPack = srv.getPromptPack('en-US');
+ok(typeof zhPack.answerShape === 'string' && typeof enPack.answerShape === 'string'
+  && zhPack.answerShape.length > 20 && enPack.answerShape.length > 20,
+  'V1 中英两包同一层都有 answerShape(结构对齐)');
+ok(/结论/.test(zhPack.answerShape) && /第一段|首段|开头/.test(zhPack.answerShape),
+  'V1b 中文规则含「结论」与「第一/首段」两个语义要素(容许润色)');
+ok(/conclusion/i.test(enPack.answerShape) && /first paragraph|lead/i.test(enPack.answerShape),
+  'V1c 英文规则是同义翻译(conclusion + first paragraph/lead),不是另写一条规则');
+const answerShapeMark = zhPack.answerShape.slice(0, 12);
+ok(stable.includes(answerShapeMark), 'V2 有工具的会话在稳定层拿到结论先行');
+const stableNoTools = srv.buildStableSystemPrompt(provider, model, cwd, [], false);
+ok(stableNoTools.includes(answerShapeMark),
+  'V2b 纯对话(无工具)的会话【也】拿得到 —— 门控只有 !identityOnly,不看 hasTools(管家开的研究型线程就是这一种)');
+ok(!stableIdOnly.includes(answerShapeMark), 'V3 identityOnly=true 不注入(压缩摘要/身份探针廉价)');
+// V4:两个既有替代品对「分析英伟达」这种研究型任务确实够不着 —— 判据取自真实路由函数,不是推断。
+const researchTask = '帮我分析一下英伟达最近的业绩和股价走势';
+ok(srv.softwareEngineeringTaskProfile(researchTask).relevant === false
+  && srv.buildSoftwareEngineeringPolicy(researchTask, { locale: 'zh-CN' }) === '',
+  'V4 研究型任务不进 softwareEngineering 包(它那句「先给结果」够不到这种会话)');
+const volatileNoMission = srv.buildVolatileParts(provider, tools, caps, config, '', [], [], null);
+ok(!/任务账本/.test(volatileNoMission),
+  'V4b 无 mission 账本时易变层无账本层(steward_thread_new 只竖 kind、不建账本,故 mission 层也够不到)');
+ok(!/\$\{|（）/.test(zhPack.answerShape) && !/\$\{/.test(enPack.answerShape),
+  'V5 规则是常量文字,不含模板插值(跨进程逐字节恒定,前缀缓存与 budget-guard 的前提)');
+
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
