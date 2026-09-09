@@ -1236,3 +1236,27 @@ allowOutsideWorkspace` 列在管家配置的 **forbidden** 档（数据根／围
 修法（执行者提的，我认可）：不新造判据——`13h stewardRelayChannelFor`（answer > permission > queued > steer > turn）已是唯一判据，
 让会话信封带出 `relay:{channel, wait?}`，经典壳按它路由（steer → `steerPrompt`；queued/permission → 提示不发；idle → 正常回合），
 `updateSendBtn` 读同一字段（卡在屏上时按钮写「插话」）；`09-workflow.js:1347` 作后备：不是同一客户端起的回合一律回 busy 信封而不是杀。
+
+##### F 追加（用户看稿后，2026-09-09）：图标重设计 + 撤回文字的显示问题 → 切片 F5
+
+用户原话：「设计稿挺不错的……图标 icon 什么的也可以重新设计一下，尤其是那个权限管理和停止，包括撤回现在文字的显示似乎也有点问题」。
+
+**证据**：头部两枚常驻控件是 `index.html:612` 的盾牌（`stewardShieldBtn`，新线程默认权限档，点开四档菜单）与 `:615` 的停机键
+（`stewardStopBtn`，`steward-settings.js:95 ICON_STOP = 圆 + 方块`）—— 后者读作「录制／靶心」，与线程「停止」（`icons.js:37` 实心方块）
+同形不同义。撤回按钮（`steward-conversation.js:871` `button('steward-act', …)`）**没有任何专属样式**（`css/` 里零 `.steward-undo` 规则），
+倒计时靠每秒把整段文字换成「撤回 9」「撤回 8」…（`:830/:834`，locale `stewardShell.chat.undoCountdown = "撤回 {{seconds}}"`），
+数字跳、按钮宽度跟着跳，到期又无声地变成「换一条」（`:883`）—— 三个状态之间没有任何视觉过渡。
+（用户没给撤回状态的截图，这条是从代码推的；F5 派单前请用户确认「显示有问题」指的是不是这个。）
+
+**定案（进设计稿「图标集」画板）**：
+- 权限：盾牌保留为家族标，**四档画在盾里**（问号／铅笔／清单线／闪电），头部控件改成「盾＋档位名＋▾」的胶囊——图标不再要求人猜。
+- 停机 ≠ 停止：**电源符号**只给「管家停机／唤醒」（已停机＝加一道斜杠），线程「停止」沿用 `icons.js` 的实心方块。
+- 撤回：倒计时画成**环**（SVG 弧随秒数消退），文字固定「撤回」；到期变「⇄ 换一条」；成功退成「✓ 已撤回」一句灰字。
+- 五态各配一枚图标进状态药丸（在跑／等你／已收工／失败／排队）；线程色条只表示「是哪条」，不表示状态——两套信号不混用。
+- 抽屉与线程叠的动作全部配图标（发给它／插话／暂停／继续／停止／整单回退／交回管家／2.0 视窗／看全文／看改动／打开／只看这条），
+  全部 24px 网格、1.75px 线、`currentColor`，与 `icons.js` 的单线语言同构；**落地时进 `icons.js` 的 `ICONS` 表**，管家壳从那里取，
+  不在 `steward-settings.js` 里再写第二份路径常量（今天的 `ICON_STOP` 就是一份孤本）。
+
+**切片 F5**（只动前端）：`icons.js` 加图标 → `steward-settings.js` 头部两键改用 `icon()` ＋ 档位名 → `steward-conversation.js` 撤回三态 ＋
+`steward-conversation.css` 新增 `.steward-undo-*` → 抽屉／线程叠按钮加图标。静态锁：`steward-settings.static` 若钉了 `ICON_STOP` 字面量要重钉为
+「停机键与线程停止用的不是同一枚图标」这种可成立的事实。
