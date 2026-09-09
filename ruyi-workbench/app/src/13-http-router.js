@@ -760,7 +760,7 @@ async function handleApi(req, res, pathname) {
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
     const r = await analyzeMemoryMaintenance(cwd, scope, { staleDays: sp.get('staleDays') });
-    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-maintenance-scan', meta: { scope, clusters: r.stats.clusters, suggestions: r.stats.expirySuggestions } }); } catch { /* 审计失败不阻断只读分析 */ }
+    try { logEvent({ kind: 'memory_maintenance_scan', scope, clusters: r.stats.clusters, suggestions: r.stats.expirySuggestions }); } catch { /* 审计失败不阻断只读分析 */ }
     return send(res, json(r));
   }
   // POST /api/memory/relations/propose {type,from,to,scope?,evidenceRef?,sourceRunId?,note?,cwd} -- 提议(confirmed:false)。

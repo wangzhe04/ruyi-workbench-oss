@@ -20950,7 +20950,12 @@ async function proposeMemoryRelation(rel, cwd, opts = {}) {
   };
   all.push(entry);
   await writeMemoryRelations(scope, cwd, all);
-  try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-propose', meta: { id, type, from, to, scope } }); } catch { /* 审计失败不阻断 */ }
+  // 审计去向:logEvent(日志 NDJSON),【不是】 appendUsageLedger。用量台账是【费用】账本,它第一件事就是
+  // 丢掉「零 token 且零费用」的行(00-boot 的空行守卫)—— 建边/确认/删边根本不调模型,写进去必被丢掉,
+  // 从来没留下过任何一条(本刀修的就是这个:以为记了,其实一条没记)。logEvent 落 logs/workbench-<日>.ndjson,
+  // 且 {ts, ...record} 整份摊开,所以这些字段原样保留。字段全是 id/枚举/计数 —— from/to 经 SKILL_ID_RE
+  // 校验过是记忆 id 不是正文,合乎 logEvent「只记元数据,不记原文」的纪律。
+  try { logEvent({ kind: 'memory_relation_propose', id, type, from, to, scope }); } catch { /* 审计失败不阻断 */ }
   return { ok: true, relation: entry };
 }
 
@@ -20965,7 +20970,7 @@ async function confirmMemoryRelation(id, cwd) {
     if (all[idx].confirmed === true) return { ok: false, error: '该关系已确认', relation: all[idx] };
     all[idx].confirmed = true; // 仅此一字段;其余忽略(防偷换)
     await writeMemoryRelations(scope, cwd, all);
-    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-confirm', meta: { id, scope } }); } catch { /* 审计失败不阻断 */ }
+    try { logEvent({ kind: 'memory_relation_confirm', id, scope }); } catch { /* 审计失败不阻断 */ }
     return { ok: true, relation: all[idx] };
   }
   return { ok: false, error: '关系不存在' };
@@ -20980,7 +20985,7 @@ async function deleteMemoryRelation(id, cwd) {
     if (idx < 0) continue;
     const removed = all.splice(idx, 1)[0];
     await writeMemoryRelations(scope, cwd, all);
-    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-relation-delete', meta: { id, scope, type: removed.type } }); } catch { /* 审计失败不阻断 */ }
+    try { logEvent({ kind: 'memory_relation_delete', id, scope, type: removed.type }); } catch { /* 审计失败不阻断 */ }
     return { ok: true, relation: removed };
   }
   return { ok: false, error: '关系不存在' };
@@ -37762,7 +37767,7 @@ async function handleApi(req, res, pathname) {
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
     const r = await analyzeMemoryMaintenance(cwd, scope, { staleDays: sp.get('staleDays') });
-    try { appendUsageLedger({ engine: 'openai', kind: 'aux', note: 'memory-maintenance-scan', meta: { scope, clusters: r.stats.clusters, suggestions: r.stats.expirySuggestions } }); } catch { /* 审计失败不阻断只读分析 */ }
+    try { logEvent({ kind: 'memory_maintenance_scan', scope, clusters: r.stats.clusters, suggestions: r.stats.expirySuggestions }); } catch { /* 审计失败不阻断只读分析 */ }
     return send(res, json(r));
   }
   // POST /api/memory/relations/propose {type,from,to,scope?,evidenceRef?,sourceRunId?,note?,cwd} -- 提议(confirmed:false)。

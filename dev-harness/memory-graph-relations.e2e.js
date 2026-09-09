@@ -7,7 +7,11 @@
 //   (4) per-scope 512 上限 -- 代码审查验证(简单 length 检查,不 runtime 造 512 夹具);
 //   (5) confirm 只置 confirmed,不偷换 from/to/type;
 //   (6) 换 cwd 不泄漏他项目边;
-//   (7) propose/confirm/delete 审计 -- 代码内 appendUsageLedger,本测不断言台账文件(避免耦合)。
+//   (7) propose/confirm/delete 审计 -- 事件走 logEvent(logs/*.ndjson),不是费用台账。本测仍不断言日志文件
+//       (纯函数驱动,没跑 boot,paths.logs 没建);「事件真的落盘」由 workbench-memory.e2e 的 AUD 段按真路由钉。
+//       历史教训:这一条原先写的是「代码内 appendUsageLedger,本测不断言台账文件(避免耦合)」——
+//       正因为只确认了「调用存在」而没确认「事件被记下」,那四条审计事件被费用台账的空行守卫全量丢弃,
+//       长期一条都没留下也无人发现。钉「调用在」和钉「事件到」是两回事。
 //   对抗:非法 type / 自环 / 幽灵 id / 重复提议 / 确认不存在 / 删除不存在 / 向后兼容(无 conflicts 参数)。
 const fs = require('fs'), path = require('path'), os = require('os');
 

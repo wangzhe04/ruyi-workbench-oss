@@ -197,6 +197,61 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     const maintenance = await getRaw(WB_PORT, '/api/memory/maintenance?cwd=' + encodeURIComponent(PROJ_A) + '&scope=project&staleDays=30', tokenHeaders());
     ok(maintenance.status === 200 && maintenance.body && maintenance.body.ok && maintenance.body.clusters.some(c => c.memoryIds.includes(aConv.id) && c.memoryIds.includes(aConflict.id)), 'R4-S3 HTTP: token-authorized maintenance endpoint returns the confirmed project cluster');
 
+    // ── AUD 记忆图谱四条审计事件【真的落进日志】(修前一条都没落) ──────────────────────────────
+    // 病:建边/确认/删边/维护扫描四处原来调的是 appendUsageLedger。用量台账是【费用】账本,它第一件事
+    // 就是丢掉「零 token 且零费用」的行(00-boot 的空行守卫);而这四件事根本不调模型,于是四条事件
+    // 从来没有留下过任何一条 —— 代码里 try/catch 写着「审计失败不阻断」,看着像有审计,其实一条都没有。
+    // 改判:落到 logEvent(logs/workbench-<日>.ndjson),它 {ts, ...record} 整份摊开,字段原样保留。
+    //
+    // 这条锁刻意【钉事实、不钉源码字面量】—— 驱动真路由,再把日志逐行 JSON.parse 出来比 kind。
+    // 【不许】改成源码子串匹配:memory_relation_propose 恰好是工具名 workbench_memory_relation_propose
+    // 的子串(server.js 里那 8 处全是工具名),子串匹配会在「事件根本没记」时照样绿。
+    // 删边用一条【一次性】的边:propose 完立刻删,不动上面那条已确认的边,后面的注入断言不受扰动。
+    const relTmp = await postJson(WB_PORT, '/api/memory/relations/propose', { cwd: PROJ_A, scope: 'project', type: 'supports', from: aConflict.id, to: aConv.id, note: 'e2e audit throwaway' });
+    const relTmpId = (relTmp.body && relTmp.body.relation && relTmp.body.relation.id) || '';
+    const relDel = relTmpId
+      ? await postJson(WB_PORT, '/api/memory/relations/' + encodeURIComponent(relTmpId), { cwd: PROJ_A }, { 'x-http-method': 'DELETE' })
+      : { status: 0, body: null };
+    ok(Boolean(relTmpId) && relDel.status === 200 && relDel.body && relDel.body.ok, 'AUD fixture: 一次性关系边 propose→delete 走真路由成功');
+
+    // 日志由子进程的 createWriteStream 落盘,轮询等它,而不是赌一个固定时长。
+    const auditKinds = ['memory_relation_propose', 'memory_relation_confirm', 'memory_relation_delete', 'memory_maintenance_scan'];
+    const readAuditEvents = () => {
+      const dir = path.join(HOME, 'logs');
+      let files = []; try { files = fs.readdirSync(dir); } catch { return []; }
+      const out = [];
+      for (const f of files) {
+        let raw = ''; try { raw = fs.readFileSync(path.join(dir, f), 'utf8'); } catch { continue; }
+        for (const line of raw.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          let rec = null; try { rec = JSON.parse(line); } catch { continue; }
+          if (rec && auditKinds.includes(rec.kind)) out.push(rec);
+        }
+      }
+      return out;
+    };
+    let auditEvents = [];
+    for (let i = 0; i < 40; i++) {
+      auditEvents = readAuditEvents();
+      if (auditKinds.every(k => auditEvents.some(r => r.kind === k))) break;
+      await sleep(100);
+    }
+    const auditMissing = auditKinds.filter(k => !auditEvents.some(r => r.kind === k));
+    ok(auditMissing.length === 0, 'AUD1 四条记忆图谱事件都【真的写进了】 logs/*.ndjson(缺: ' + (auditMissing.join(', ') || '无') + ')');
+
+    const auProp = auditEvents.find(r => r.kind === 'memory_relation_propose') || {};
+    ok(Boolean(auProp.id && auProp.type && auProp.from && auProp.to && auProp.scope),
+      'AUD2 建边事件带全 payload(id/type/from/to/scope 一个不少)—— 修前那份 meta 连字段都不会被拷进台账行(实测 ' + JSON.stringify(Object.keys(auProp)) + ')');
+    const auScan = auditEvents.find(r => r.kind === 'memory_maintenance_scan') || {};
+    ok(auScan.scope !== undefined && auScan.clusters !== undefined && auScan.suggestions !== undefined,
+      'AUD3 维护扫描事件带 scope/clusters/suggestions(实测 ' + JSON.stringify(Object.keys(auScan)) + ')');
+
+    // 反向纪律:这四件事零费用,绝不许为了让它们「记上」而放宽费用台账的空行守卫。
+    // 读台账【复用本文件既有的 readLedgerRows()】(:116),不另写第二份读法。
+    const usageRows = readLedgerRows();
+    ok(!usageRows.some(r => r && r.inTok === 0 && r.outTok === 0 && !(Number(r.cost) > 0)),
+      'AUD4 费用台账里没有任何「零 token 且零费用」的行 —— 空行守卫没有被放宽(实测 ' + usageRows.length + ' 行)');
+
     // ---------- (2) provider injection: default-enable project memory in A ----------
     const S_A = await mkSession(PROJ_A);
     clearCap();
