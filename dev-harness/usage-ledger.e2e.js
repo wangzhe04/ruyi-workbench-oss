@@ -17,6 +17,11 @@
 //     OUT of costsByCurrency; its source is labelled from CLAUDE_ENDPOINT_PRESETS.
 //  ⑨ budget.spentThisMonth = current-month TRUSTED spend in the budget currency.
 //  ⑩ the endpoint is token-gated (403 without the workbench token).
+//  ⑪ 117x-M1 byModel: the summary carries a byModel dimension ({model,provider,engine,turns,inTok,outTok,lastAt,
+//     …同四维口径}); it equals a row-by-row recount of the on-disk ledger keyed by (engine,provider,model);
+//     Σ byModel.turns === Σ byEngine.turns − rows whose model is empty (those rows are SKIPPED, not bucketed);
+//     lastAt is that model's most recent row ts and the array comes back sorted by it, newest first; and a
+//     historical row (model already on the line) aggregates without any new collection.
 // Judgement line (exact): USAGE-LEDGER E2E: ALL PASS
 'use strict';
 const cp = require('child_process');
@@ -202,6 +207,73 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     // ⑨ budget: current-month trusted CNY spend (priced turns only; planBased/old-month excluded).
     ok(sum && sum.budget && sum.budget.monthly === 100 && sum.budget.currency === CUR, 'budget monthly/currency echoed');
     ok(sum && sum.budget && near(sum.budget.spentThisMonth, round6(2 * PER_TURN)), 'budget spentThisMonth = 2×perTurn (' + round6(2 * PER_TURN) + '), got ' + (sum && sum.budget && sum.budget.spentThisMonth));
+
+    // ⑪ 117x-M1 byModel:账本行本来就带 model,这一刀只是把它聚合出来。注入四行——同一 provider 下的第二个
+    // 模型(两条不同 ts,验 lastAt 取最近那条)、一条 model 为空串、一条 model 字段整个缺失。
+    const T_OLDER = new Date(Date.now() - 120000).toISOString();
+    const T_NEWER = new Date(Date.now() - 60000).toISOString();
+    const mrow = o => JSON.stringify({ ts: T_OLDER, sessionId: s1, engine: 'openai', provider: 'priced', inTok: 10, outTok: 5, cost: null, currency: null, costTrusted: true, estimated: false, turnSeq: 1, ...o }) + '\n';
+    fs.appendFileSync(LEDGER, mrow({ model: 'model-beta' }));
+    fs.appendFileSync(LEDGER, mrow({ model: 'model-beta', ts: T_NEWER }));
+    fs.appendFileSync(LEDGER, mrow({ model: '' }));  // 空串 model
+    fs.appendFileSync(LEDGER, mrow({}));             // model 字段缺失
+    const allSum = (await getJson(WB_PORT, '/api/usage/summary?range=all', hdr)).json;
+    const monSum = (await getJson(WB_PORT, '/api/usage/summary?range=month', hdr)).json;
+    const byModel = allSum && allSum.byModel;
+    ok(Array.isArray(byModel) && byModel.length > 0, '⑪ summary 返回带 byModel 数组(' + (Array.isArray(byModel) ? byModel.length + ' 组' : typeof byModel) + ')');
+    ok(Array.isArray(byModel) && byModel.every(m => m && typeof m.model === 'string' && m.model
+      && typeof m.provider === 'string' && typeof m.engine === 'string'
+      && Number.isFinite(m.turns) && Number.isFinite(m.inTok) && Number.isFinite(m.outTok)
+      && typeof m.lastAt === 'string' && Number.isFinite(Date.parse(m.lastAt))),
+      '⑪ byModel 每项带齐 {model,provider,engine,turns,inTok,outTok,lastAt} 且 lastAt 可解析');
+
+    // 逐行重算(设计页 §11.17.7④):把磁盘上所有月份文件按 (engine,provider,model) 三元组自己聚一遍,与接口对齐。
+    const diskRows = [];
+    for (const f of fs.readdirSync(USAGE_DIR)) {
+      if (!/^\d{4}-\d{2}\.jsonl$/.test(f)) continue;
+      for (const l of fs.readFileSync(path.join(USAGE_DIR, f), 'utf8').split(/\r?\n/)) {
+        if (!l.trim()) continue;
+        let r = null; try { r = JSON.parse(l); } catch { continue; } // 坏行跳过,与 readUsageRows 同
+        if (r && typeof r === 'object' && Number.isFinite(Date.parse(r.ts))) diskRows.push(r);
+      }
+    }
+    const expect = new Map(); let emptyModelRows = 0;
+    for (const r of diskRows) {
+      const mid = String(r.model || '');
+      if (!mid) { emptyModelRows++; continue; }
+      const k = JSON.stringify([r.engine === 'claude' ? 'claude' : 'openai', String(r.provider || ''), mid]);
+      let e = expect.get(k); if (!e) expect.set(k, e = { turns: 0, inTok: 0, outTok: 0, lastAt: '' });
+      e.turns += 1; e.inTok += Number(r.inTok) || 0; e.outTok += Number(r.outTok) || 0;
+      if (!e.lastAt || Date.parse(r.ts) > Date.parse(e.lastAt)) e.lastAt = String(r.ts);
+    }
+    const keyOf = m => JSON.stringify([m.engine, m.provider, m.model]);
+    ok(Array.isArray(byModel) && byModel.length === expect.size && byModel.every(m => {
+      const e = expect.get(keyOf(m));
+      return e && e.turns === m.turns && e.inTok === m.inTok && e.outTok === m.outTok && e.lastAt === m.lastAt;
+    }), '⑪ byModel 与账本逐行重算一致(接口 ' + (Array.isArray(byModel) ? byModel.length : '?') + ' 组 / 重算 ' + expect.size + ' 组)');
+
+    // 口径锁:Σ byModel.turns 恰好 = Σ byEngine.turns − 空 model 行数(空 model 整行跳过,但仍进 engine/provider)。
+    const mTurns = (byModel || []).reduce((a, m) => a + m.turns, 0);
+    const eTurns = ((allSum && allSum.byEngine) || []).reduce((a, e) => a + e.turns, 0);
+    ok(emptyModelRows === 2, '⑪ 只有注入的 2 条空 model 行(真回合都带 model,got ' + emptyModelRows + ')');
+    ok(mTurns === eTurns - emptyModelRows, '⑪ Σ byModel.turns = Σ byEngine.turns − 空 model 行数 (' + mTurns + ' = ' + eTurns + ' − ' + emptyModelRows + ')');
+    ok((byModel || []).every(m => m.model !== ''), '⑪ 空 model 行不进 byModel(不记成空串组)');
+
+    // lastAt = 该模型最后一条账本行的 ts;排序按 lastAt 倒序(设计页「常用」按最近一次使用时间排)。
+    const beta = (byModel || []).find(m => m.model === 'model-beta');
+    ok(beta && beta.turns === 2 && beta.lastAt === T_NEWER, '⑪ lastAt 取该模型最近一条行的 ts(' + (beta && beta.lastAt) + ' === ' + T_NEWER + ')');
+    ok((byModel || []).every((m, i, a) => i === 0 || Date.parse(a[i - 1].lastAt) >= Date.parse(m.lastAt)), '⑪ byModel 按 lastAt 倒序返回(不靠 Map 插入序)');
+
+    // 历史行(2020-01 那条,账本里早就带着 model)照样被聚合进来:range=all 比 range=month 多它一回合。
+    const findM = (s, prov, mod) => ((s && s.byModel) || []).find(m => m.provider === prov && m.model === mod);
+    const allPriced = findM(allSum, 'priced', 'fake-model'), monPriced = findM(monSum, 'priced', 'fake-model');
+    ok(allPriced && monPriced && allPriced.turns === monPriced.turns + 1 && allPriced.inTok === monPriced.inTok + 1000,
+      '⑪ 历史行被聚合:range=all 的 priced/fake-model 比 range=month 多 2020-01 那一回合');
+    // 沿用四个既有维度的同一套口径:planBased 推导 + costsByCurrency 分桶 + 缓存输入。
+    const arkM = findM(allSum, 'ark-coding-plan', 'ark-code-latest');
+    ok(arkM && arkM.planBased === true && Object.keys(arkM.costsByCurrency || {}).length === 0, '⑪ byModel 沿用 finishGroup:计划内计费行 planBased=true 且不进 costsByCurrency');
+    ok(monPriced && monPriced.planBased === false && monPriced.cachedInTok === 2 * CACHED_TOKENS && near((monPriced.costsByCurrency || {})[CUR], round6(2 * PER_TURN)),
+      '⑪ byModel 复用同一套成本/缓存口径(priced/fake-model 本月 = 2×perTurn)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of [wb, fakeA, fakeB]) killp(c);

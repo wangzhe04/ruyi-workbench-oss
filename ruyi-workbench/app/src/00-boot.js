@@ -461,6 +461,7 @@ async function readUsageRows(lowerMs) {
 }
 // Aggregate the ledger for a range into the /api/usage/summary shape. costsByCurrency holds ONLY trusted,
 // non-plan-based costs; planBasedTurns counts turns whose cost is plan-based/notional (surfaced separately).
+// Dimensions: engine / provider / session / day / model (117x-M1 added byModel; see its comment in the loop).
 async function buildUsageSummary(range) {
   const config = await readConfig().catch(() => ({}));
   const now = Date.now();
@@ -475,7 +476,7 @@ async function buildUsageSummary(range) {
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
   const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
-  const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map();
+  const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map(), byModel = new Map();
 
   for (const r of rows) {
     const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0, cachedInTok = Math.min(inTok, Number(r.cachedInTok) || 0);
@@ -497,9 +498,31 @@ async function buildUsageSummary(range) {
     const sid = String(r.sessionId || '');
     let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
     sm.inTok += inTok; sm.outTok += outTok; sm.cachedInTok += cachedInTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
-    const dk = usageDayKey(Date.parse(r.ts));
+    const tsMs = Date.parse(r.ts);
+    const dk = usageDayKey(tsMs);
     let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} });
     dm.inTok += inTok; dm.outTok += outTok; dm.cachedInTok += cachedInTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
+    // 117x-M1: byModel. Keyed by the (engine, provider, model) TRIPLE, not by model id alone: the same id can be
+    // served by two providers, and collapsing them would force us to invent one provider/engine for the entry.
+    // Rows whose `model` is empty are SKIPPED entirely (NOT bucketed into a "未记录模型" group): byModel exists to
+    // drive the model selector's 常用置顶/副行, and an entry with no id can neither be selected nor pinned — 设计页
+    // §11.17.7 ④ spells it out: 「把 model 字段删掉 -> 该条不进 byModel 而不是记成空串」. Consequence (and the
+    // invariant its lock pins): sum(byModel.turns) === sum(byEngine.turns) - (rows carrying an empty model).
+    // Everything else reuses the exact same 口径 as the four dimensions above (addCost/roundB/finishGroup), so a
+    // model entry's planBased flag and costsByCurrency mean precisely what a provider entry's do.
+    const mid = String(r.model || '');
+    if (mid) {
+      const mk = JSON.stringify([eng, pid, mid]); // JSON-array key: unambiguous whatever characters an id carries
+      let mm = byModel.get(mk);
+      if (!mm) byModel.set(mk, mm = { model: mid, provider: pid, label: labels.get(pid) || pid, engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {}, lastAt: '', lastMs: 0 });
+      mm.inTok += inTok; mm.outTok += outTok; mm.cachedInTok += cachedInTok; mm.turns += 1; if (!trusted) mm.planBasedTurns += 1; if (hasCost) addCost(mm.costsByCurrency, cur, cost);
+      // lastAt = the ts of this group's MOST RECENT ledger row, kept as that row's own ISO string so it reads
+      // exactly like the `ts` on the line it came from (设计页 §11.17.2「常用」按最近一次使用时间排序). A row whose
+      // ts does not parse is ignored FOR lastAt ONLY — it still counts in this entry's tokens/turns — so lastAt can
+      // never become 'Invalid Date'/NaN; a group with no parseable ts at all keeps the empty string. (readUsageRows
+      // already drops unparseable-ts rows before we get here, so this is defence in depth, not a live path.)
+      if (Number.isFinite(tsMs) && tsMs > mm.lastMs) { mm.lastMs = tsMs; mm.lastAt = String(r.ts); }
+    }
   }
   // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
   // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a
@@ -511,6 +534,7 @@ async function buildUsageSummary(range) {
   for (const m of byEngine.values()) finishGroup(m);
   for (const m of byProvider.values()) finishGroup(m);
   for (const m of bySession.values()) finishGroup(m);
+  for (const m of byModel.values()) finishGroup(m); // same 口径 as the three groups above, deliberately not a second one
   for (const m of byDay.values()) roundB(m.costsByCurrency);
 
   // Budget: CURRENT local month's TRUSTED spend in the budget currency (independent of `range`).
@@ -526,6 +550,13 @@ async function buildUsageSummary(range) {
     ok: true, range, totals,
     byEngine: [...byEngine.values()],
     byProvider: [...byProvider.values()],
+    // 117x-M1: most-recently-used first (lastAt desc), then busier first, then model id — a total order, so the
+    // payload never silently depends on Map insertion order. NOT sliced, unlike bySession: the selector shows a
+    // 「上次用 · 共 M 回合」副行 for EVERY model it lists, and a slice would both starve that副行 and break the
+    // sum(byModel.turns) === sum(byEngine.turns) - empty-model-rows invariant. lastMs is scratch, stripped here.
+    byModel: [...byModel.values()]
+      .sort((a, b) => (b.lastMs - a.lastMs) || (b.turns - a.turns) || (a.model < b.model ? -1 : (a.model > b.model ? 1 : 0)))
+      .map(({ lastMs, ...rest }) => rest),
     bySession: [...bySession.values()].sort((a, b) => (b.inTok + b.outTok) - (a.inTok + a.outTok)).slice(0, 20),
     byDay: [...byDay.values()].sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)),
     budget,
