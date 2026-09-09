@@ -1506,3 +1506,25 @@ F2 第一次重钉时按**工作区**算哈希，把 F5a**尚未提交**的 sett
 
 - **频道条是半透明的**（`9fd7628`）：我看 F5b 截图时发现滚动正文从条背后透出来。`--glass-bg-1` 是「框架族」token，暗色档仅 6.5% 不透明度，blur 只抹糊不遮挡；仓里其余 `position:sticky` 表头一律用不透明面 token。改 `var(--panel)`。
 - **`swap` 字形与两把锁重钉**（`bf3cf42`）：F5b 报「换一条」用 `refresh`（循环箭头）读作**重试**，语义不对；它没有 `icons.js` 所有权，只报路径。收尾加 `swap` 并换过去，顺带把 Y7（钉 `icon('refresh', 12)` 整句）与 Y9（钉写稿时挑的两个名字）重钉成「从源码取出模块**实际用**的每一枚字形名再去词汇表核」——因为 `icon()` 对未知名字只 warn 后返回 null，界面会**静默**少一枚图标。两种取件写法都抓（直接调用 ＋ 名字当字符串传给 `settleRow` 第三参间接取），反向验证过。
+
+#### 11.14.1 117t 收口：全量回归（2026-09-09 夜，主会话亲跑）
+
+隔离 worktree、`--parallel 4`：**317 pass / 6 fail / 6 flaky / 323 ran / 7 skipped**（上一波是 311/12/11，抖动件减半）。
+6 条红逐条定性后 **真回归 0 条**：
+
+| 件 | 定性 |
+|---|---|
+| `observation-recall-realhistory` / `-replay` / `session-notes` | 主树才有的 `realhist-fixtures`，隔离 worktree 里预期红（合并后主树补跑） |
+| `mcp-ops-closure` | 4 路负载的假红，单跑 **101 PASS ALL PASS** |
+| `steward-conversation` | R7 抖动，单跑 **140 PASS ALL PASS** |
+| **`ui-v4-glass.static` G2** | **真红，已修（`6437fa3`）** —— 见下 |
+
+##### 唯一那条真红，以及它为什么此前没人发现
+
+`ui-v4-glass.static` G2 把 `backdrop-filter` 的使用点锁成一张**封闭白名单**（经典框架 4 ＋ 浮层 4 ＋ Preview 互斥壳 ＋ 管家互斥壳 ＋ 降级块）。
+F2 给频道条写 `backdrop-filter: var(--glass-blur-2)` 时越了这张名单 —— 而 F2 与 F5b 各自跑的清单里都**没有这件锁**：
+它们跑的 `live-full-text` / `frontend-domains` 钉的是 **CSS 载荷哈希**（内容变没变），G2 钉的是**玻璃族规**（谁有资格用这个属性），
+两者是不同的判据。**是全量把它翻出来的** —— 这正是「每刀只跑自己那几件、收口必须跑全量」的价值。
+
+修法不是给白名单开口子：上一刀（`9fd7628`）已把底色从 `--glass-bg-1`（框架族，暗色档 6.5% 不透明度）改成 `var(--panel)`，
+背后一个像素都透不过来，这层 blur 本来就什么都不模糊了，纯属白付一层合成。**删掉即可**，两件事同时收敛。
