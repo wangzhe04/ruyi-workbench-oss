@@ -340,7 +340,21 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 「HEAD ＋ 本刀这一层」= 下面这个值，两者只差 steward-conversation.css 一层。
 // 反向验证：往本层追加一条无关规则 → live-full-text F3 与 frontend-domains D51 当场双双转红；
 // 还原后该文件 sha256 与追加前逐字节相同、两个消费者都回绿。
-const LEGACY_STYLES_SHA256 = '275e775ea6c108a40825e58e74bf06c4adb6fa78df397ee466237413af692179';
+// F5b「撤回三态」重钉（前值 275e775e…）。本波只有这一刀碰 CSS，且只碰
+// css/views/steward-conversation.css 这一个【已注册的】所有权层，纯新增三条规则（追加在文件末尾，
+// 既有规则一行未改）：
+//   · `.steward-undo-face` —— 撤回按钮里那圈随秒消退的环（conic-gradient ＋ 中心挖空的 mask）。
+//     它是本刀的全部要害：JS 每秒只写 `--steward-undo-left` 这一个 0–1 的比例，文字一个字都不重写，
+//     按钮宽度因此不再跳。**零 transition／零 animation**（故 reduced-motion 的关闭清单一个字没加），
+//     颜色只有 currentColor 与 --glass-border-strong 两个既有取值（零硬编码色）。
+//   · `.steward-act-switch .ic` / `.steward-receipt .ic` —— 到期那枚「⇄」与落定那枚「✓」的排布
+//     （base.css 的 .ic 已经给了 inline-block/vertical-align，这里只补 flex 收缩与一个字距）。
+// 算法自证（本条锁上一任被working-tree 值污染过一次，故写死流程）：只按 HEAD 全量重算
+// = 275e775e…（＝本刀未落地时消费者实际会算出来的值，与被替换的旧值逐字相同，证明算法与消费者
+// 同源）；「HEAD ＋ 本刀这一层」= 下面这个值，两者只差 steward-conversation.css 一层。
+// 反向验证：往本层追加一条无关规则 → live-full-text F3 与 frontend-domains D51 当场双双转红；
+// 还原后该文件 sha256 与追加前逐字节相同、两个消费者都回绿。
+const LEGACY_STYLES_SHA256 = '6cf3351246747c8332f479262d56a9264b050dff25310fe2fc23948cc37c4de7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

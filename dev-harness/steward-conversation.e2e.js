@@ -658,8 +658,13 @@ try {
   ok(Boolean(handed) && handed.fetches.slice(beforeHand).includes('/api/steward/act'),
     'P3b 手选那一发走 POST /api/steward/act（直递这条路仍在，只是要用户明示）');
   const undoLabel = handed ? handed.acts.find(label => label.startsWith(zh['stewardShell.chat.undo'])) : '';
-  ok(Boolean(undoLabel) && /撤回 \d+/.test(undoLabel),
-    `F4 回执按钮是带倒计时的「撤回 N」（实测 ${JSON.stringify(undoLabel)}）`);
+  // F5b 重钉（32 号文 §2.2.2，用户对着这个现象确认了「对，就是这个」）：这一条原来钉的是
+  // 「按钮上写着『撤回 N』」——而那正是用户指着说「显示有点问题」的东西：每秒把整段文字换一遍，
+  // 位数从两位掉到一位时按钮宽度跟着跳。秒数改画成环之后，可证伪的事实反过来了：
+  // **按钮的字恒是「撤回」，一个数字都不许出现在文字里**。环怎么走、宽度跳不跳，由本件末尾
+  // Z 段逐秒采样真机实测（这里只花一次快照的钱，不占用那 10 秒窄窗）。
+  ok(undoLabel === zh['stewardShell.chat.undo'] && !/\d/.test(String(undoLabel)),
+    `F4 回执按钮的文字恒是「撤回」，秒数不写进文字（实测 ${JSON.stringify(undoLabel)}）`);
   // 117l D5（用户第四轮走查④）：※ 浮层里两段各有小标题。递话那一条的 ※ 里有「依据」（命中理由）。
   const whyOpened = await cdp.evaluate(`(() => {
     const buttons = [...document.querySelectorAll('#stewardFeed .steward-why-btn')];
@@ -1678,6 +1683,150 @@ try {
   ok(Boolean(boardOpened) && boardOpened.boardOpen === true,
     'X8 右端的「全部线程」把看板拉开（点的是 117h 那一个既有入口 #stewardStatusLine，不是第二条通道）');
   await cdp.evaluate(`(() => { const line = document.getElementById('stewardStatusLine'); if (line) line.click(); return true; })()`);
+
+  // ─── Z F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行「撤回：倒计时画成环」）──────
+  // 手法与 T/U/F1/F2 四段一样：新建一个实例 ＋ 注入按 URL 分流的假 api，走 handOff 那条【真】路径
+  // （递话 → 撤回按钮 → 窄窗 → 到期 → 撤回落定，四步一个都没绕）。
+  // 为什么不在上面 F4/F5 那一段就地量：那里的窄窗只有 10 秒，而「逐秒采样 3 秒 ＋ 等它到期」要花掉
+  // 十几秒，塞进去会把 F5「窄窗内可点」挤到窗外 —— 为一条新证据弄红三条老断言不是好买卖。
+  // 放在最后还有一个好处：这一段起的那个 1000ms 计时器到点自清，⑥ 的 H2 基线因此一点不受影响。
+  const UNDO_DICT = {};
+  for (const key of ['undo', 'undoCountdown', 'switchTarget', 'undone', 'undoneFilesKept', 'handedOff', 'whoInstead', 'listSeparator', 'otherCandidates']) {
+    UNDO_DICT['stewardShell.chat.' + key] = zh['stewardShell.chat.' + key];
+  }
+  const UNDO_SHOT = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiUndoFrom || 0);
+    const holder = rows.map(row => row.querySelector('.steward-acts')).filter(Boolean).pop() || null;
+    const btn = holder ? holder.querySelector('.steward-act') : null;
+    const face = btn ? btn.querySelector('.steward-undo-face') : null;
+    const receipt = rows.map(row => row.querySelector('.steward-receipt')).filter(Boolean).pop() || null;
+    return {
+      text: btn ? btn.textContent : null,
+      // 宽度量到千分位（四舍五入到整像素会把「跳了半个字符」这种真事故抹平）。
+      width: btn ? Math.round(btn.getBoundingClientRect().width * 1000) / 1000 : null,
+      aria: btn ? btn.getAttribute('aria-label') : null,
+      cls: btn ? btn.className : '',
+      icons: btn ? btn.querySelectorAll('svg.ic').length : 0,
+      face: Boolean(face),
+      // 环自己占多大也要量：只比按钮宽度是不够的 —— 环是个定死 12px 的盒子，它一旦被删掉
+      // （或缩成 0），按钮四次采样的宽度照样两两相等，本条却会当场看见 0。
+      faceW: face ? Math.round(face.getBoundingClientRect().width * 1000) / 1000 : null,
+      faceHidden: face ? face.getAttribute('aria-hidden') : '',
+      ring: face ? getComputedStyle(face).getPropertyValue('--steward-undo-left').trim() : '',
+      // 光看那个数会造出一条假绿断言：把 CSS 那条规则整条删掉，属性照样在、照样每秒变，环却
+      // 一笔都没画。所以连【算完的画法】一起取——它是那个数真的走进了绘制的唯一证据。
+      ringPaint: face ? getComputedStyle(face).backgroundImage : '',
+      ringTitle: face ? (face.getAttribute('title') || '') : '',
+      acts: rows.reduce((sum, row) => sum + row.querySelectorAll('.steward-act').length, 0),
+      receipt: receipt ? receipt.textContent : '',
+      receiptIcons: receipt ? receipt.querySelectorAll('svg.ic').length : 0,
+    };
+  })()`;
+  const shotDirZ = path.join(os.tmpdir(), 'ruyi-F5b-shots');
+  const shootZ = async name => {
+    try {
+      // 按钮行是【最后】追加进那一行的，appendSteward 里那次滚到底发生在它之前 —— 不补这一下，
+      // 三张证据里的按钮都被输入框压掉半截（第一版就是这样，看不出环长什么样）。
+      await cdp.evaluate(`(() => { const feed = document.getElementById('stewardFeed'); if (feed) feed.scrollTop = feed.scrollHeight; return true; })()`);
+      fs.mkdirSync(shotDirZ, { recursive: true });
+      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(shotDirZ, name), Buffer.from(png.data, 'base64'));
+      console.log(`  截图：${path.join(shotDirZ, name)}`);
+    } catch { /* 证据拍不下来不改变判定 */ }
+  };
+  const undoRun = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    window.__ruyiUndoFrom = document.querySelectorAll('#stewardFeed .steward-msg').length;
+    window.__ruyiUndoCalls = [];
+    const dict = ${JSON.stringify(UNDO_DICT)};
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        const path_ = String(url);
+        window.__ruyiUndoCalls.push(path_);
+        if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1 } } };
+        if (path_ === '/api/stop') return { ok: true };
+        if (path_ === '/api/session/rewind') return { ok: true, filesReverted: ['docs/a.md'] };
+        return { ok: true };
+      },
+      // 真中文目录（本段判定的是用户【看见】的那几个字），插值不走正则：模板串里写 \\{ 太容易被吃掉。
+      t: (key, params) => {
+        let out = String(dict[key] === undefined ? key : dict[key]);
+        for (const name of Object.keys(params || {})) out = out.split('{{' + name + '}}').join(String(params[name]));
+        return out;
+      },
+      isStewardMode: () => true,
+    });
+    const handed = await conv.handOff({
+      sessionId: ${JSON.stringify(threadId)},
+      title: ${JSON.stringify(THREAD_TITLE)},
+      message: '把这条递过去',
+      reason: '',
+    });
+    return { handed: Boolean(handed), calls: window.__ruyiUndoCalls.slice() };
+  })()`);
+  ok(Boolean(undoRun) && undoRun.handed === true && undoRun.calls.length === 1
+    && undoRun.calls[0] === '/api/steward/act',
+    `Z0 递话走的是 handOff 那条真路径，撤回按钮就位（实测 ${JSON.stringify(undoRun && undoRun.calls)}）`);
+  // 逐秒采样：四次快照跨过 3.3 秒（窄窗 10 秒，采样只吃掉三分之一）。
+  const ticks = [];
+  for (let index = 0; index < 4; index += 1) {
+    ticks.push(await cdp.evaluate(UNDO_SHOT));
+    if (index === 1) await shootZ('F5b-1-counting-down.png');
+    if (index < 3) await sleep(1100);
+  }
+  const texts = ticks.map(tick => tick.text);
+  ok(texts.every(text => text === zh['stewardShell.chat.undo']),
+    `Z1 倒计时里按钮的文字【逐字节不变】：四次采样跨 3.3 秒都是「${zh['stewardShell.chat.undo']}」（实测 ${JSON.stringify(texts)}）`);
+  const widths = ticks.map(tick => tick.width);
+  const faceWidths = ticks.map(tick => tick.faceW);
+  ok(widths[0] > 0 && widths.every(width => width === widths[0])
+    && faceWidths[0] > 0 && faceWidths.every(width => width === faceWidths[0]),
+    `Z2 按钮宽度一动不动，且每秒在变的那个东西自己也占着一块【定死的】地方（改前位数从 10 掉到 9 时按钮跟着跳一下；实测 按钮 ${JSON.stringify(widths)} / 环 ${JSON.stringify(faceWidths)}）`);
+  const rings = ticks.map(tick => tick.ring);
+  const ringNums = rings.map(Number);
+  ok(rings[0] === '1' && new Set(rings).size >= 3
+    && ringNums.every((value, index) => index === 0 || value < ringNums[index - 1]),
+    `Z3 环真的在退：驱动它的那个自定义属性从满格 1 一路单调变小、四次采样至少三个不同的值（实测 ${JSON.stringify(rings)}）`);
+  const paints = ticks.map(tick => tick.ringPaint);
+  ok(paints.every(paint => String(paint).indexOf('conic-gradient') >= 0) && new Set(paints).size >= 3,
+    `Z3b 那个数不是写给测试看的：算完的 background-image 每秒跟着换（把 .steward-undo-face 整条规则删掉，本条立刻转红而 Z3 照样绿——那正是「删掉被测代码断言还过」的假绿）（实测 ${JSON.stringify(paints.map(paint => String(paint).slice(0, 96)))}）`);
+  ok(ticks.every(tick => tick.aria === zh['stewardShell.chat.undo'])
+    && ticks.every(tick => tick.face === true && tick.faceHidden === 'true'),
+    `Z4 copy-P2-2 的无障碍契约原样：按钮 aria-label 恒是「撤回」，每秒在变的那个元素整棵子树 aria-hidden（实测 aria ${JSON.stringify([...new Set(ticks.map(tick => tick.aria))])} / hidden ${JSON.stringify([...new Set(ticks.map(tick => tick.faceHidden))])}）`);
+  const titles = ticks.map(tick => tick.ringTitle);
+  ok(new Set(titles).size >= 3 && titles.every(title => /\d/.test(title)),
+    `Z4b 秒数没消失，只是从「文字」挪到了那枚 aria-hidden 元素的 title（鼠标停上去仍看得到；实测 ${JSON.stringify(titles)}）`);
+  const expired = await waitForEval(cdp, `(() => {
+    const snapshot = ${UNDO_SHOT};
+    return snapshot.text === ${JSON.stringify(zh['stewardShell.chat.switchTarget'])} ? snapshot : null;
+  })()`, 400);
+  await shootZ('F5b-2-expired-switch.png');
+  ok(Boolean(expired) && expired.aria === zh['stewardShell.chat.switchTarget']
+    && expired.cls.indexOf('steward-act-switch') >= 0
+    && expired.icons === 1 && expired.face === false,
+    `Z5 到点变成「${zh['stewardShell.chat.switchTarget']}」，且换上了一枚图标 —— 图标这一下变化就是那次改口的过渡（改前是文字无声地换掉；实测 文字「${expired && expired.text}」/ 图标 ${expired && expired.icons} 枚 / 环还在=${expired && expired.face}）`);
+  const clickedSwitch = await cdp.evaluate(`(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiUndoFrom || 0);
+    const holder = rows.map(row => row.querySelector('.steward-acts')).filter(Boolean).pop();
+    const btn = holder ? holder.querySelector('.steward-act') : null;
+    if (btn) btn.click();
+    return Boolean(btn);
+  })()`);
+  ok(clickedSwitch === true, 'Z6 「换一条」可点（它的行为仍是「先回退再递」——同一个 undoHandOff）');
+  const undoSettled = await waitForEval(cdp, `(() => {
+    const snapshot = ${UNDO_SHOT};
+    return snapshot.receipt ? snapshot : null;
+  })()`, 300);
+  await shootZ('F5b-3-undone.png');
+  ok(Boolean(undoSettled) && undoSettled.receipt === zh['stewardShell.chat.undone']
+    && undoSettled.acts === 0 && undoSettled.receiptIcons === 1,
+    `Z7 第三态：整行按钮退成一句安静的「✓ ${zh['stewardShell.chat.undone']}」——按钮一个不剩，对勾一枚（实测「${undoSettled && undoSettled.receipt}」/ 剩余按钮 ${undoSettled && undoSettled.acts} / 图标 ${undoSettled && undoSettled.receiptIcons}）`);
+  const undoCalls = await cdp.evaluate('(window.__ruyiUndoCalls || []).slice()');
+  ok(Array.isArray(undoCalls) && undoCalls.lastIndexOf('/api/stop') >= 0
+    && undoCalls.lastIndexOf('/api/session/rewind') > undoCalls.lastIndexOf('/api/stop'),
+    `Z7b companion：换一条走的仍是「先 stop 再 rewind」那条老路（实测 ${JSON.stringify(undoCalls)}）`);
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");

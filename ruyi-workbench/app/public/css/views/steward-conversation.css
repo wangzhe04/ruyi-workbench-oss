@@ -803,3 +803,24 @@
   .steward-channel { min-height: 44px; padding: 0 var(--sp-4); font-size: var(--fs-sm); }
   .steward-channels-board { min-height: 44px; font-size: var(--fs-sm); }
 }
+
+/* ── F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行「撤回：倒计时画成环」）─────────
+   ① 倒计时：按钮的文字恒是「撤回」，剩下几秒画成一圈环。JS 每秒只写 --steward-undo-left 这一个
+      0–1 的比例（见 paintUndoRing），环整个长在下面这条规则里 —— 改前是每秒把整段文字换成
+      「撤回 9」「撤回 8」，位数从两位变一位时按钮宽度跟着跳一下，用户看到的就是这个毛病。
+      环 ＝ conic-gradient 打底（还剩的那一段是 currentColor，走过的是 --glass-border-strong 那条轨）
+      ＋ 一层把中心挖空的 mask。**零 transition／零 animation**（故 reduced-motion 的关闭清单一个字
+      没加）：它本来就是一秒一格的离散刻度，补间反而让「还剩几秒」读不准。
+   ② 到期：同一枚按钮加 .steward-act-switch ＋ 一枚「⇄」图标 —— 图标这一下变化就是那次改口的过渡。
+   ③ 落定：整行按钮退成一句 .steward-receipt 灰字，前面多一枚对勾（「✓ 已撤回」）。 */
+.steward-undo-face {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(currentColor calc(var(--steward-undo-left, 1) * 360deg), var(--glass-border-strong) 0);
+  -webkit-mask: radial-gradient(closest-side, transparent 62%, currentColor 64%);
+  mask: radial-gradient(closest-side, transparent 62%, currentColor 64%);
+}
+.steward-act-switch .ic { flex: 0 0 auto; }
+.steward-receipt .ic { flex: 0 0 auto; margin-inline-end: var(--sp-1); }

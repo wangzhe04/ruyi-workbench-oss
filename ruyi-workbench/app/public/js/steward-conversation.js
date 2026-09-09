@@ -9,6 +9,10 @@ import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出�
 import { STEWARD_TOOL_LABEL_KEYS, stewardSayFromPartial } from './steward-chips.js';
 // 117n-M1：DOM 基础件 doc/byId/el/button 也从 steward-chips.js 复用（六个消费方零本地重复定义）。
 import { stewardEscapeStack, doc, byId, el, button } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
+// F5b 撤回三态：到期那枚「⇄」与落定那枚「✓」都从【全仓唯一那张】图标词汇表取。F5a 立的规矩是
+// 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
+// steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
+import { icon } from './icons.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -35,6 +39,11 @@ export const STEWARD_ACTS_MAX = 3;                       // §8.4 纪律：一�
 // 标「排队中」、按序发。上限 5 条 —— 再多就不是「连着说两句」而是刷屏，超了在输入框旁如实说一句。
 export const STEWARD_SEND_QUEUE_MAX = 5;
 export const STEWARD_UNDO_WINDOW_MS = 10000;             // §8.12 第 3 条：10 秒撤回窄窗
+// F5b（32 号文 §2.2.2，用户对着「每秒把整段文字换成『撤回 9』『撤回 8』」确认了「对，就是这个」）：
+// 剩余时间改画成一圈环，**文字恒是「撤回」**。计时器每秒只写这一个自定义属性（0–1 的比例），
+// 环怎么画全在 CSS 里 —— 一个字都不重写，按钮宽度因此不跳。名字在 JS 与 CSS 各出现一次，
+// 这里导出成常量，静态锁钉「两边是同一个名字」。
+export const STEWARD_UNDO_RING_PROP = '--steward-undo-left';
 export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在的时候」要点 ≤5 条
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
@@ -602,9 +611,14 @@ export function createStewardConversation({
   }
 
   // 灰字回执：整行按钮换成一句话（§8.4「按钮落定后」列）。
-  function settleRow(actsRow, text) {
+  // F5b：第三个可选参数是一枚字形名（撤回落定那一句用 done 的对勾 = 设计稿里的「✓ 已撤回」）。
+  // 不传就还是原来那句纯灰字 —— 其余两个调用方（dismiss 回执、换 Provider 回执）一个字没动。
+  // 图标插在文字【前面】且 icon() 自带 aria-hidden，所以这一行的 textContent 逐字不变。
+  function settleRow(actsRow, text, glyph) {
     if (!actsRow || !actsRow.parentNode) return;
     const receipt = el('p', 'steward-receipt', text);
+    const mark = glyph ? icon(glyph, 12) : null;
+    if (mark) receipt.insertBefore(mark, receipt.firstChild);
     actsRow.parentNode.replaceChild(receipt, actsRow);
   }
 
@@ -1387,18 +1401,29 @@ export function createStewardConversation({
   // role="log" aria-live="polite" 的区。读屏于是把「撤回（9）」「撤回（8）」…一路念下去，
   // 把真正的新消息全淹掉。数字放进 aria-hidden 的 span，按钮自己的 aria-label 固定成「撤回」：
   // 看得见的仍然在跳，念出来的只有一句。
+  //
+  // F5b 改的是【看得见的那一半】：那个 span 不再放数字，而是一圈随秒消退的环。它每秒只被写一个
+  // 0–1 的比例（STEWARD_UNDO_RING_PROP），环怎么画全在 CSS 里；按钮的文字自始至终是建它时那句
+  // 「撤回」，一个字都没重写过 —— 位数从 10 变 9 时按钮宽度跳一下的毛病，根子就在那次重写。
+  // 秒数仍然留给鼠标用户：写进这个 aria-hidden 元素的 title（整棵子树都不在无障碍树里，
+  // 所以 copy-P2-2 那条「读屏不许每秒念一遍」的纪律照旧成立）。
+  function paintUndoRing(face, left, total) {
+    const ratio = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;
+    face.style.setProperty(STEWARD_UNDO_RING_PROP, String(ratio));
+    face.title = t('stewardShell.chat.undoCountdown', { seconds: left });
+  }
   function startUndoCountdown(btn, onExpire) {
     stopUndoCountdown();
     let left = Math.round(STEWARD_UNDO_WINDOW_MS / 1000);
-    btn.textContent = '';
+    const total = left;
     btn.setAttribute('aria-label', t('stewardShell.chat.undo'));
     const face = el('span', 'steward-undo-face');
     face.setAttribute('aria-hidden', 'true');
-    face.textContent = t('stewardShell.chat.undoCountdown', { seconds: left });
-    btn.appendChild(face);
+    paintUndoRing(face, left, total);
+    btn.insertBefore(face, btn.firstChild);
     undoTimer = setInterval(() => {
       left -= 1;
-      if (left > 0) { face.textContent = t('stewardShell.chat.undoCountdown', { seconds: left }); return; }
+      if (left > 0) { paintUndoRing(face, left, total); return; }
       stopUndoCountdown();
       onExpire();
     }, 1000);
@@ -1450,6 +1475,11 @@ export function createStewardConversation({
       undoBtn.textContent = t('stewardShell.chat.switchTarget');
       undoBtn.setAttribute('aria-label', t('stewardShell.chat.switchTarget'));
       undoBtn.classList.add('steward-act-switch');
+      // F5b：环没了、换上一枚「⇄」——【图标这一下变化】就是这次改口的过渡。改前是文字无声地换掉，
+      // 用户根本注意不到按钮已经不是那个意思了。赋 textContent 顺手把环那个 span 也丢掉了，
+      // 所以这里是从零重挂，不会出现「环 + 换一条」这种半截态。
+      const switchMark = icon('refresh', 12);
+      if (switchMark) undoBtn.insertBefore(switchMark, undoBtn.firstChild);
     });
     return { sessionId: sid, undoRef, row, actsRow };
   }
@@ -1482,7 +1512,8 @@ export function createStewardConversation({
       return false;
     }
     // 引擎没有检查点时 rewind 只回消息不回文件——如实标注，不假装全撤了（§8.1 原则 2「诚实优先」）。
-    settleRow(actsRow, filesReverted > 0 ? t('stewardShell.chat.undone') : t('stewardShell.chat.undoneFilesKept'));
+    // F5b 第三态：整行按钮退成一句安静的「✓ 已撤回」（设计稿「图标集」画板第二行末格）。
+    settleRow(actsRow, filesReverted > 0 ? t('stewardShell.chat.undone') : t('stewardShell.chat.undoneFilesKept'), 'done');
     appendSteward(t('stewardShell.chat.whoInstead'), '');
     try { pickTarget(); } catch { /* 候选列表打不开不影响撤回本身已经完成 */ }
     return true;

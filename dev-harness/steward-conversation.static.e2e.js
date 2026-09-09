@@ -553,10 +553,16 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
   && /task\.catch\(\(\) => \{ deliverableCache\.delete\(key\); \}\);/.test(conversationCode),
   'P9 按 sessionId|turnSeq 在本实例里缓存（同一条线程反复出现只取一次），失败不进缓存（下次还能再试）');
 
-// ④ import 白名单没变：本刀零新增 import（依赖全部走构造注入，与 117s-C 同一条纪律）。
+// ④ import 白名单：整份名单就这三条，多一条都算越界（下面 P10/Q7d/W11 三处钉的是同一份名单，
+//    所以只留一处字面量 —— 三处各写一遍是上一波留下的重复，谁改都得改三次）。
+//    F5b（32 号文 §2.2.2 撤回三态）把 './icons.js' 加了进来：到期那枚「⇄」与落定那枚「✓」必须
+//    从【全仓唯一那张】图标词汇表取件 —— 这正是 F5a 定的规矩「SVG 路径只许住在 icons.js」，
+//    steward-board / steward-drawer / steward-settings 三个消费方走的也是这条 import。
+//    本条锁因此仍然可证伪：它钉的是「除这三条之外，本文件不许再向任何域借东西」。
+const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './steward-chips.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
-ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(['./net.js', './steward-chips.js']),
-  `P10 import 仍然只有 net.js 与 steward-chips.js 两个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
+  `P10 import 只有 net.js、steward-chips.js 与 icons.js 三个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)
@@ -679,8 +685,8 @@ ok(/const got = await loadDeliverable\(source\.sessionId, source\.turnSeq\); fac
   'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），所以请求数一发没多');
 ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED),
   'Q7c companion：本刀零新增后端面（路由白名单与 J1 逐字相同）');
-ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(['./net.js', './steward-chips.js']),
-  'Q7d companion：本刀零新增 import（卡头要的东西全在信封里，不去别的域借函数）');
+ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
+  'Q7d companion：卡头零新增 import（要的东西全在信封里，不去别的域借函数）——名单仍是 P10 那一份');
 
 // ⑤ 线程卡与既有分组规则的关系：分组照旧，色条更强。
 ok(/function markThread\(row, sessionId\) \{/.test(conversation)
@@ -807,8 +813,92 @@ ok(/bar\.setAttribute\('role', 'toolbar'\);/.test(conversationCode)
   && /chip\.setAttribute\('aria-pressed', on \? 'true' : 'false'\);/.test(conversationCode),
   'W10 频道条住在 role=log 的 #stewardFeed 里：aria-live=off ＋「组成没变就不重画」两道一起挡住读屏的重复播报；选中态用 aria-pressed 说，不是只有一层颜色');
 ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED)
-  && JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(['./net.js', './steward-chips.js']),
-  'W11 companion：本刀零新增后端面、零新增 import（频道条要的一切都已经在对话流的行上）');
+  && JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
+  'W11 companion：频道条零新增后端面、零新增 import（要的一切都已经在对话流的行上）——名单仍是 P10 那一份');
+
+// ─── Y F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行）────────────────────────────
+// 用户对着「每秒把整段文字换成『撤回 9』『撤回 8』、位数一变按钮宽度跟着跳；到期又无声变成
+// 『换一条』」确认了「对，就是这个」。改法：秒数画成环、文字恒定；到期换图标；成功退成一句话。
+// 下面这一组钉的全是【机械事实】，不是文案长什么样：
+//   谁在每秒被写（一个自定义属性，不是文字）／属性名两边是不是同一个／aria 契约还在不在／
+//   到期那一下有没有图标／落定那句有没有对勾／图标从哪儿取／五个键在四份目录里齐不齐。
+const undoTickBody = (() => {
+  const at = conversationCode.indexOf('undoTimer = setInterval(');
+  if (at < 0) return '';
+  const end = conversationCode.indexOf('}, 1000);', at);
+  return end < 0 ? '' : conversationCode.slice(at, end);
+})();
+const startUndoBody = (() => {
+  const at = conversationCode.indexOf('function startUndoCountdown(btn, onExpire) {');
+  if (at < 0) return '';
+  const end = conversationCode.indexOf('}, 1000);', at);
+  return end < 0 ? '' : conversationCode.slice(at, end);
+})();
+const paintRingBody = (() => {
+  const at = conversationCode.indexOf('function paintUndoRing(face, left, total) {');
+  if (at < 0) return '';
+  const end = conversationCode.indexOf('\n  }', at);
+  return end < 0 ? '' : conversationCode.slice(at, end);
+})();
+ok(undoTickBody.length > 0 && /paintUndoRing\(face, left, total\)/.test(undoTickBody)
+  && !/textContent/.test(undoTickBody) && !/innerText/.test(undoTickBody),
+  `Y1 倒计时那一拍【只改一个数】：tick 里调 paintUndoRing，零 textContent／innerText（实测这一拍 ${undoTickBody.length} 字符）`);
+ok(paintRingBody.length > 0
+  && /face\.style\.setProperty\(STEWARD_UNDO_RING_PROP, String\(ratio\)\);/.test(paintRingBody)
+  && !/textContent/.test(paintRingBody),
+  'Y2 每秒被写的就是那一个 0–1 的自定义属性（paintUndoRing 里零 textContent）');
+ok(mod.STEWARD_UNDO_RING_PROP === '--steward-undo-left'
+  && /export const STEWARD_UNDO_RING_PROP = '--steward-undo-left';/.test(conversation)
+  && cssCode.includes('var(' + mod.STEWARD_UNDO_RING_PROP),
+  `Y3 环由 CSS 画：JS 写的属性名与 CSS 读的是同一个（导出常量 ${mod.STEWARD_UNDO_RING_PROP}），改一边另一边立刻对不上`);
+ok(startUndoBody.length > 0 && !/btn\.textContent/.test(startUndoBody)
+  && /const undoBtn = button\('steward-act', t\('stewardShell\.chat\.undo'\), \(\) => \{/.test(conversationCode),
+  'Y4 按钮的文字一辈子只写过一次（建它的时候那句「撤回」）：整个 startUndoCountdown 里零 btn.textContent —— 宽度不跳的根据就是这一条');
+ok(/face\.setAttribute\('aria-hidden', 'true'\);/.test(conversationCode)
+  && /btn\.setAttribute\('aria-label', t\('stewardShell\.chat\.undo'\)\);/.test(conversationCode)
+  && !/aria-label/.test(undoTickBody),
+  'Y5 copy-P2-2 的 aria 契约没被本刀稀释：环那个 span 仍是 aria-hidden，按钮 aria-label 仍固定「撤回」，且每秒那一拍连 aria 都不碰（#stewardFeed 是 aria-live 区）');
+ok(/\.steward-undo-face \{[\s\S]{0,480}conic-gradient\(currentColor calc\(var\(--steward-undo-left, 1\) \* 360deg\)/.test(cssCode)
+  && /\.steward-undo-face \{[\s\S]{0,480}mask: radial-gradient\(/.test(cssCode)
+  && !/\.steward-undo-face \{[^}]*(?:transition|animation)/.test(cssCode),
+  'Y6 环＝conic-gradient ＋ 中心挖空的 mask，且零 transition／零 animation（所以 reduced-motion 的关闭清单一个字都不用加）');
+ok(/undoBtn\.classList\.add\('steward-act-switch'\);/.test(conversationCode)
+  && /const switchMark = icon\('refresh', 12\);/.test(conversationCode)
+  && /undoBtn\.insertBefore\(switchMark, undoBtn\.firstChild\);/.test(conversationCode),
+  'Y7 到期那一下换图标：加 .steward-act-switch ＋ 插一枚「⇄」——【图标出现】就是那次改口的过渡（改前是文字无声地换掉）');
+ok(/function settleRow\(actsRow, text, glyph\) \{/.test(conversationCode)
+  && /const mark = glyph \? icon\(glyph, 12\) : null;/.test(conversationCode)
+  && /settleRow\(actsRow, filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\), 'done'\);/.test(conversationCode)
+  && /settleRow\(actsRow, receiptFor\(act\)\);/.test(conversationCode)
+  && /settleRow\(actsRow, t\('stewardShell\.chat\.providerSwitched', \{ provider: candidate\.id \}\)\);/.test(conversationCode),
+  'Y8 第三态「✓ 已撤回」：字形是 settleRow 的【可选】第三参，只有撤回这一处传 —— 另两处回执（dismiss／换 Provider）仍是两个参数，一个字没动');
+{
+  const iconsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'icons.js')).href);
+  const names = iconsMod.iconNames();
+  ok(/import \{ icon \} from '\.\/icons\.js';/.test(conversation)
+    && names.includes('refresh') && names.includes('done')
+    && !/\bd: 'M/.test(conversation) && !/createElementNS/.test(conversation),
+    `Y9 两枚字形从【全仓唯一那张】词汇表取件（refresh／done 都在 icons.js 的 ${names.length} 枚里），本文件一条 SVG path、一次 createElementNS 都没有（F5a 的「不留孤本」）`);
+}
+{
+  const DOCS_LOCALES = path.join(ROOT, 'docs', 'i18n', 'locales');
+  const catalogs = [
+    ['app/zh-CN', zh], ['app/en-US', en],
+    ['docs/zh-CN', JSON.parse(fs.readFileSync(path.join(DOCS_LOCALES, 'zh-CN.json'), 'utf8'))],
+    ['docs/en-US', JSON.parse(fs.readFileSync(path.join(DOCS_LOCALES, 'en-US.json'), 'utf8'))],
+  ];
+  const undoKeys = ['undo', 'undoCountdown', 'switchTarget', 'undone', 'undoneFilesKept']
+    .map(name => 'stewardShell.chat.' + name);
+  const holes = catalogs.flatMap(([name, cat]) => undoKeys
+    .filter(key => typeof cat[key] !== 'string').map(key => `${name}:${key}`));
+  ok(holes.length === 0,
+    `Y10 三态用到的 ${undoKeys.length} 个键在【四份】目录里都齐（app 与 docs 各中英；缺: ${holes.join(',') || '无'}）`);
+}
+ok(count(conversation, /stewardShell\.chat\.undoCountdown/g) === 1
+  && /face\.title = t\('stewardShell\.chat\.undoCountdown', \{ seconds: left \}\);/.test(conversationCode),
+  'Y11 undoCountdown 没成死键：秒数改写进环那枚 aria-hidden 元素的 title（鼠标停上去仍看得到「还剩几秒」，而整棵子树不在无障碍树里，读屏照旧不会每秒念一遍）');
+ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversationCode),
+  'Y12 companion：本刀既没多起一个计时器（仍然全文件一处 setInterval），也没开 innerHTML 的口子');
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
