@@ -22,6 +22,12 @@ import { stewardEscapeStack, doc, byId, el } from './steward-chips.js';   // 117
 // 抽屉页签、灰字回执早就走这条口径，chip 是唯一漏掉的一处。
 import { stewardShortTitle } from './steward-conversation.js';
 
+// F2 频道条：对话流顶上点中一条线程之后，本模块把它写进【自己那个】 picked。事件名与
+// steward-conversation.js 的那份逐字相同（steward-board.js:73 / steward-classic-window.js:25 对
+// steward:open-thread 用的就是这个「各持一份同名常量」的办法）——不为一个字符串在两个域之间多拉
+// 一条 import 边，两份是否还相同由静态锁看住。
+export const STEWARD_PICK_CHANNEL_EVENT = 'steward:pick-channel';
+
 export const STEWARD_PREROUTE_DEBOUNCE_MS = 150;   // §8.12 第 1 条：目标 ≤50ms 出判定，150ms 去抖不抢跑
 export const STEWARD_PICKER_MAX = 8;               // 候选列表最多 8 条
 export const STEWARD_RECENT_MAX = 8;               // 见过的线程做「最近线程」回忆池（零新增路由）
@@ -76,6 +82,16 @@ export function createStewardComposer({
   // 再把 chip 从「→ 如意」翻回「像是接着『X』」）。复位三处：submit() 的 finally、resetComposer()、
   // 以及 runPreroute() 自己的空查询分支（= 输入框被清空）——见下方各处标了「117r-D3 ③」的行。
   let hintDismissed = false;
+  // F2 频道条：对话流上「只看这条」时，这条线程同时成为下一句话的目标。
+  // **这不是第二个目标**：目标仍然只有 picked 一个（currentTarget() 一个字没改），下面两支只是
+  //   · channelPick        —— 频道条【当下】要的那条（过滤还开着就一直是它）；
+  //   · pickedBeforeChannel —— 进频道之前用户手选的是谁，退出频道时原样还给他。
+  // 之所以要 channelPick 而不是「设一次 picked 就完事」：submit() 的 finally 按 §8.12 第 4 条把手选
+  // 清回「→ 如意」，那条规则不该为本刀改；于是发完一句之后由它把频道条要的目标再摆回来 ——
+  // 屏幕上还过滤着某条线程、输入框却已经改指如意，是自相矛盾的一帧。频道条没开时它恒为 null，
+  // 那一行 `picked = channelPick;` 与修前的 `picked = null;` 逐个等价。
+  let channelPick = null;
+  let pickedBeforeChannel = null;
   const recent = [];             // 见过的线程回忆池（@ 列表里「最近线程」那一半）
 
   function rememberHits(hits) {
@@ -268,6 +284,24 @@ export function createStewardComposer({
     return true;
   }
 
+  // F2：频道条派来的一条。sessionId 非空 = 「只看这条」同时把下一句话指向它；空 = 退出频道
+  // （「全部」／「管家本人」／再点一次同一枚），把进频道之前用户手选的那个原样还回去。
+  // 写的是【同一个】 picked，走的是与候选列表手选完全同一条路：chip 变成实底带 ×，Enter 直递。
+  function applyChannelPick(sessionId, title) {
+    const id = String(sessionId || '');
+    if (id) {
+      if (!channelPick) pickedBeforeChannel = picked;   // 只在【进入】频道的那一次记，频道之间互切不覆盖
+      channelPick = { sessionId: id, title: String(title || id) };
+      picked = channelPick;
+    } else {
+      channelPick = null;
+      picked = pickedBeforeChannel;
+      pickedBeforeChannel = null;
+    }
+    renderChip();
+    return picked;
+  }
+
   // ── 发送 ────────────────────────────────────────────────────────────────────
   // 117l D3：这里【没有】「上一句还没发完就不许再发」的闸。修前那道 `sending` 守卫与
   // conversation 里的 `streaming` 守卫叠在一起，用户连着说两句时第二句被无声丢弃（走查⑥）。
@@ -288,7 +322,11 @@ export function createStewardComposer({
       if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits });
       else await conversation.sendToSteward(text, { routeHint: routeHintPayload() });
     } finally {
-      picked = null;             // 手选只管这一次发送，之后自动回到「→ 如意」
+      // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。F2：频道条开着时回到【它】
+      // 那条 —— 屏幕上还只看着某条线程、输入框却已经改指如意，是自相矛盾的一帧。没开时 channelPick
+      // 恒为 null，这一行与修前的 `picked = null;` 逐个等价。
+      picked = channelPick;
+      pickedBeforeChannel = null;
       routeKind = 'steward';
       routeHits = [];
       routeReason = '';
@@ -393,6 +431,12 @@ export function createStewardComposer({
         if (chip && chip.contains && node && chip.contains(node)) return;
         closePicker();
       }, true);
+      // F2：对话流的频道条切了一条，输入区的目标跟着切。事件是这两个域之间【唯一】的接线 ——
+      // 对话流不 import 输入区（E6 那条纪律），输入区也不去碰对话流的 DOM。
+      doc().addEventListener(STEWARD_PICK_CHANNEL_EVENT, event => {
+        const detail = (event && event.detail) || {};
+        applyChannelPick(detail.sessionId, detail.title);
+      });
     }
     input.addEventListener('keydown', event => {
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit(); return; }
@@ -409,6 +453,8 @@ export function createStewardComposer({
     prerouteSeq += 1;
     closePicker();
     picked = null;
+    channelPick = null;        // F2：频道条那次临时过滤不许活过一次切壳，跟着它走的目标同理
+    pickedBeforeChannel = null;
     routeKind = 'steward';
     routeHits = [];
     routeReason = '';

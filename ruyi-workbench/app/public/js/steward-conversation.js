@@ -38,6 +38,12 @@ export const STEWARD_UNDO_WINDOW_MS = 10000;             // §8.12 第 3 条：1
 export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在的时候」要点 ≤5 条
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
+// F2 频道条：点一条 chip 之后，输入区那枚目标 chip 跟着切。事件名在两个模块里各有一份【同名常量】
+// —— steward-board.js:73 与 steward-classic-window.js:25 对上面那两个事件用的就是这个办法（不为了
+// 一个字符串在两个域之间多拉一条 import 边）；两份逐字相同由静态锁看住。
+export const STEWARD_PICK_CHANNEL_EVENT = 'steward:pick-channel';
+// 频道条上「管家本人」那一档不是线程 id：用一个带冒号的值，与后端的 sess_* 永远撞不上。
+export const STEWARD_CHANNEL_SELF = 'steward:self';
 export const STEWARD_DETAILS_KEY = 'wcw.stewardDetails';
 // 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面」）：头像菜单与头像之间留的空隙，
 // 也是「下方还放不放得下」那个判定的余量。一处常量，两处（定位与判定）读同一个数。
@@ -827,7 +833,9 @@ export function createStewardConversation({
     const anchor = row.querySelector('.steward-source') || row.querySelector('.steward-say');
     if (anchor && anchor.parentNode === row) row.insertBefore(head, anchor);
     else row.appendChild(head);
-    void fillThreadHead(head, { name, state, meta }, source).catch(() => { /* 卡头绝不把异常丢回对话流 */ });
+    void fillThreadHead(head, { name, state, meta }, source)
+      .catch(() => { /* 卡头绝不把异常丢回对话流 */ })
+      .then(syncChannels);   // F2：卡头的事实一到（名字改成显示名、药丸亮出来），频道条跟着更新
     return head;
   }
 
@@ -851,7 +859,183 @@ export function createStewardConversation({
   function attachThreadCard(row, source) {
     if (!row || !source || !source.sessionId) return null;
     markThread(row, source.sessionId);
-    return attachThreadHead(row, source);
+    // F2：过滤开着的时候新来一行，它的「上一行」可能是一行藏起来的别家线程 —— markThread 只看得见
+    // 兄弟、看不见可见性，所以紧接着按【可见的上一行】重封一次段首段尾，卡头才长在对的那一行上。
+    // 没开过滤时这一趟算出来与 markThread 逐字相同（同一条判据、同一组兄弟），是空转。
+    resealThreads();
+    const head = attachThreadHead(row, source);
+    syncChannels();   // 多了一条线程，频道条上就该多一枚 chip（新来的行本身不受既有过滤影响，见头注）
+    return head;
+  }
+
+  // ── F2 频道条（27 号文 §11.14；设计稿画板「宽屏 · 线程即频道」与「窄屏」）────────────────
+  // 对话流顶上一排 chip：「只看 · 全部 · 各条线程 · 管家本人 …… 全部线程→看板」。
+  // 三条纪律，本刀从头到尾就守这三条：
+  //   ① **过滤是呈现，不是数据**：点一条只是给别的行加一个类（.is-channel-out → display:none），
+  //      一行都不从 DOM 里拿走、一发请求都不重发、一个字节都不落存储 —— 切壳（下次进壳
+  //      clearFeed 复位）与刷新之后它自然就不在了。递话语义、routeHint、管家自己的判断全不变。
+  //   ② **不建第二个判官**：哪些线程有 chip、每条什么色、叫什么名、什么状态，全部【从行上读】——
+  //      色号是 F1 的 markThread 写进 data-thread-hue 的那一个，名字与药丸是卡头已经填好的那两个
+  //      节点。本段里没有第二次 hueOf()、没有第二次 stewardThreadFacts()。
+  //   ③ **不建第二个「目标」**：输入区跟着切，靠的是派一个事件让输入区把它自己那个 picked 写上
+  //      （= 用户在候选列表里手选一条，完全同一条路），本模块不碰输入区的状态。
+  // 一条明写的取舍：过滤只在【点下去那一刻】对当时在场的行生效；此后新到的行（线程交了活、用户
+  // 自己又说了一句）**照常上屏**。理由是 §8.1 原则 2：把刚刚发生的事按在一个临时视图后面，比这个
+  // 视图不够纯要坏得多 —— 而「全部」那枚 chip 一直就在眼前，一下就退得回去。
+  let channelFilter = '';     // '' = 全部；线程 id = 只看这条；STEWARD_CHANNEL_SELF = 只看管家本人
+  let channelSignature = '';  // 上一次画出来的 chip 组成；没变就不重画（见 syncChannels 的头注）
+
+  // 频道条要的四样（id/色号/名字/状态）逐个从对话流的行上读。首次出现顺序 = 文档顺序。
+  function channelList() {
+    const feed = feedEl();
+    if (!feed) return [];
+    const seen = new Map();
+    for (const row of feed.querySelectorAll('.steward-msg-ruyi.is-thread[data-thread]')) {
+      const id = String(row.dataset.thread || '');
+      if (!id || seen.has(id)) continue;
+      const head = row.querySelector('.steward-thread-head');
+      const name = head ? head.querySelector('.steward-thread-name') : null;
+      const pill = head ? head.querySelector('.steward-thread-state') : null;
+      seen.set(id, {
+        id,
+        // 读的是 F1 已经写好的那个属性（不是再算一次色号）：getAttribute 而不是 dataset，
+        // 是为了让「本层只有一处【写】色号」这件事在静态锁上仍然一眼可数。
+        hue: String(row.getAttribute('data-thread-hue') || '1'),
+        name: String((name && name.textContent) || id),
+        state: (pill && pill.hidden !== true) ? String(pill.textContent || '') : '',
+      });
+    }
+    return [...seen.values()];
+  }
+
+  function channelChip(id, name, state, hue) {
+    const chip = button('steward-channel', '', () => toggleChannel(id));
+    chip.dataset.channel = String(id || '');
+    if (hue) {
+      chip.setAttribute('data-thread-hue', hue);   // 色【号】原样抄一份，颜色仍由样式层的一条 hsl() 算
+      chip.appendChild(el('span', 'steward-channel-dot'));
+    }
+    chip.appendChild(el('span', 'steward-channel-name', name));
+    if (state) chip.appendChild(el('span', 'steward-channel-state', state));
+    const on = channelFilter === String(id || '');
+    chip.classList.toggle('is-on', on);
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+    chip.setAttribute('aria-label', state ? `${name} · ${state}` : String(name));
+    return chip;
+  }
+
+  // 「全部线程」= 看板。**看板的入口全仓只有一处**（117h 建的顶栏那行状态 #stewardStatusLine），
+  // 这里只是把同一个把手多摆一个位置：直接点它，不 import steward-board.js、不新增第二条通道。
+  // 已经开着就什么都不做 —— 那一行是 toggle，再点一下等于把用户要看的东西关上。
+  function openBoard() {
+    const line = byId('stewardStatusLine');
+    if (!line || typeof line.click !== 'function') return false;
+    if (line.getAttribute('aria-expanded') === 'true') return true;
+    line.click();
+    return true;
+  }
+
+  function paintChannels(bar, rows) {
+    while (bar.firstChild) bar.removeChild(bar.firstChild);
+    bar.appendChild(el('span', 'steward-channels-label', t('stewardShell.channels.only')));
+    bar.appendChild(channelChip('', t('stewardShell.channels.all'), '', ''));
+    for (const row of rows) bar.appendChild(channelChip(row.id, row.name, row.state, row.hue));
+    bar.appendChild(channelChip(STEWARD_CHANNEL_SELF, t('stewardShell.channels.steward'), '', ''));
+    bar.appendChild(button('steward-channels-board', t('stewardShell.channels.board'), openBoard));
+    return bar;
+  }
+
+  // 频道条随对话流走：有线程才出现，一条线程都没有就整条收起来（一个人在跟管家说话时没有频道可切）。
+  // 只在【组成变了】的时候重画：它住在 #stewardFeed 里，而 feed 是 role=log aria-live=polite，
+  // 每追加一行就重画一排 chip 等于让读屏把整条频道条再念一遍。
+  function syncChannels() {
+    const feed = feedEl();
+    if (!feed) return null;
+    const rows = channelList();
+    let bar = feed.querySelector('.steward-channels');
+    if (!rows.length) {
+      if (bar) feed.removeChild(bar);
+      channelSignature = '';
+      return null;
+    }
+    if (!bar) {
+      bar = el('div', 'steward-channels');
+      bar.setAttribute('role', 'toolbar');
+      bar.setAttribute('aria-label', t('stewardShell.channels.label'));
+      bar.setAttribute('aria-live', 'off');   // 见上：不关掉，读屏会把每次重画当成「对话里又来了一句」
+      feed.insertBefore(bar, feed.firstChild);
+    }
+    const signature = JSON.stringify([channelFilter, rows]);
+    if (signature === channelSignature) return bar;
+    channelSignature = signature;
+    return paintChannels(bar, rows);
+  }
+
+  function toggleChannel(id) {
+    return setChannel(channelFilter === String(id || '') ? '' : String(id || ''));
+  }
+
+  function setChannel(id) {
+    channelFilter = String(id || '');
+    applyChannel();
+    syncChannels();
+    pickChannelTarget();
+    return channelFilter;
+  }
+
+  // 只加/去一个类。**没有 removeChild、没有 remove()、没有 api()** —— 行数在过滤前后逐个相同。
+  function applyChannel() {
+    const feed = feedEl();
+    if (!feed) return 0;
+    let out = 0;
+    for (const row of feed.querySelectorAll('.steward-msg')) {
+      const own = row.classList.contains('is-thread') ? String(row.dataset.thread || '') : STEWARD_CHANNEL_SELF;
+      const hide = Boolean(channelFilter) && own !== channelFilter;
+      row.classList.toggle('is-channel-out', hide);
+      if (hide) out += 1;
+    }
+    resealThreads();
+    return out;
+  }
+
+  // 藏起一行 ≠ 删掉一行：F1 的 is-thread-start/-end 是【追加时看上一行】算出来的，一过滤，
+  // 「上一行」就换人了 —— 不重封的话，中间那条被藏起来的别家线程会在同一条线程里留下一道假的段界
+  // （一张卡看着成了两张）。这里重跑的是 markThread **逐字同一条**判据（只看前一行是不是同一条
+  // 线程），唯一的区别是「前一行」取的是前一个【还看得见的】兄弟；把过滤清掉再跑一遍，算出来的
+  // 就是原样（同一条规则、同一组兄弟）。
+  // 说话人分组（is-group-start/end）一个字不动：那是「谁在说」的连段，藏掉同一个人的一行不会把
+  // 这一段撕开，反而正好把间距收成组内档 —— 过滤后的一段线程因此仍然是一张卡。
+  function resealThreads() {
+    const feed = feedEl();
+    if (!feed) return 0;
+    let previous = null;
+    let sealed = 0;
+    for (const row of feed.querySelectorAll('.steward-msg')) {
+      if (row.classList.contains('is-channel-out')) continue;
+      if (row.classList.contains('is-thread')) {
+        const id = String(row.dataset.thread || '');
+        const sameThread = Boolean(previous && previous.classList.contains('is-thread')
+          && previous.dataset.thread === id);
+        row.classList.add('is-thread-end');
+        row.classList.toggle('is-thread-start', !sameThread);
+        if (sameThread) previous.classList.remove('is-thread-end');
+        sealed += 1;
+      }
+      previous = row;
+    }
+    return sealed;
+  }
+
+  // ③ 输入区的目标跟着频道条走。**不新造第二个「目标」**：派一个事件，由输入区把它写进它自己那个
+  // picked（§8.12 第 4 条的手选态，chip 上带 ×）—— 与用户在候选列表里点中一条走的是同一条路，
+  // 所以递送语义一个字没变（117l-D1 管的是【自动预判】不许当目标，手选一直是明示、一直直递）。
+  // 选中「管家本人」或「全部」时派一个空 sessionId：目标回到如意。
+  function pickChannelTarget() {
+    const hit = channelList().filter(row => row.id === channelFilter)[0] || null;
+    const detail = { sessionId: hit ? hit.id : '', title: hit ? hit.name : '' };
+    try { doc().dispatchEvent(new CustomEvent(STEWARD_PICK_CHANNEL_EVENT, { detail })); }
+    catch { /* 无 CustomEvent 的宿主 */ }
+    return detail.sessionId;
   }
 
   // ── 117s-H2 交付卡（27 号文 §11.13.3 H2）────────────────────────────────────
@@ -1315,6 +1499,11 @@ export function createStewardConversation({
     if (!feed) return;
     parkAvatar();   // W2-3 陷阱：不先送回头部，头像会跟着被清掉的那一行一起消失
     while (feed.firstChild) feed.removeChild(feed.firstChild);
+    // F2：整屏重画 = 频道条连同它那次临时过滤一起归零（「不许活过一次切壳」的落点就在这里 ——
+    // 出壳 resetConversation 只清计时器，真正把屏幕擦干净的是下次进壳的这一趟）。
+    channelFilter = '';
+    channelSignature = '';
+    pickChannelTarget();
   }
 
   function renderDigest(visit) {

@@ -584,7 +584,10 @@
 /* 3px 色条：只说「这是哪条线程」，不说状态（两套信号不混用）。画在 ::after 上，位置取头像槽的
    右缘（36px）—— 正文左缘 44px 一个像素不动。与组竖线同一个接线法：不是本段最后一行的那几段
    各自向下多探一个 gap，于是隔着 --sp-1 的间距看起来仍是连续的一条。 */
-.steward-msg-ruyi.is-thread {
+/* F2：频道条那枚色点与色条读【同一个】 --thread-color，所以两处必须落在同一条声明上 ——
+   chip 不是消息行的后代，自定义属性继承不过去。加一个选择器，不加第二个 hsl()。 */
+.steward-msg-ruyi.is-thread,
+.steward-channel[data-thread-hue] {
   --thread-hue: var(--thread-hue-1);
   --thread-color: hsl(var(--thread-hue) var(--thread-sat) var(--thread-light));
 }
@@ -695,4 +698,108 @@
   display: flex;
   gap: var(--sp-2);
   margin-top: calc(-1 * var(--sp-1));
+}
+
+/* ── F2 频道条（27 号文 §11.14；设计稿画板「宽屏 · 线程即频道」与「窄屏」）────────────────
+   设计稿把它画在对话流【外面】：一条带下边框的横条，正文在它下面滚。这里落成 #stewardFeed 的
+   第一个子节点 ＋ position:sticky —— 观感是同一件事（钉在滚动区顶上、下面一条分隔线），但
+   **不必去改 .steward-stage 的网格行**。那条 grid-template-rows 住在 steward-shell.css，是
+   `auto minmax(0,1fr) auto auto` 四行对四个在流的子节点；从本层覆盖它就得押上「频道条永远是
+   在流的第 N 个网格项」这个假设，而它一旦被收起来（display:none 的元素根本不是网格项）整张卡
+   的行就会错位、对话区当场塌成一行。住在 feed 里没有这个雷，代价只是它落在 role=log 里 ——
+   靠 aria-live="off" ＋「组成没变就不重画」两道一起挡住读屏的重复播报（见 syncChannels 头注）。 */
+.steward-channels {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0 var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.steward-channels::-webkit-scrollbar { height: 0; }
+/* 频道条插到流的最前面之后，原来那条「第一条消息不留上外边距」（:first-child）就不再命中它后面
+   那一行 —— 补一条同义的相邻选择器，间距一个像素不变。 */
+.steward-feed > .steward-channels + .steward-msg { margin-top: 0; }
+.steward-channels-label {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+/* chip 的安静档与来源小头同一族（灰字、细描边、无实底）；选中那一枚才实底。 */
+.steward-channel {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.steward-channel:hover { border-color: var(--accent); }
+.steward-channel:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-channel.is-on {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+/* 色号规则与色条那三条同形：只把 --thread-hue 指到另一根令牌上，不写第二个颜色值。 */
+.steward-channel[data-thread-hue="2"] { --thread-hue: var(--thread-hue-2); }
+.steward-channel[data-thread-hue="3"] { --thread-hue: var(--thread-hue-3); }
+.steward-channel[data-thread-hue="4"] { --thread-hue: var(--thread-hue-4); }
+.steward-channel-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--thread-color);
+}
+.steward-channel-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.steward-channel-state { color: var(--muted); }
+.steward-channel.is-on .steward-channel-state { color: inherit; }
+.steward-channels-board {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  min-height: 0;
+  padding: 0 0 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--accent);
+  background: none;
+  border: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.steward-channels-board:hover { color: var(--accent-hover); }
+.steward-channels-board:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 过滤掉的行：只是不显示。**DOM 里一个节点都没少** —— 这条规则是「过滤是呈现不是数据」那条
+   纪律在样式层的全部实现，JS 那边只 toggle 这一个类。 */
+.steward-msg.is-channel-out { display: none; }
+/* 过滤之后「这一段的第一行」换了人（见 resealThreads 的头注）：卡头只长在【当下】的段首那一行。
+   没过滤时这条是空转 —— 卡头本来就只挂在 is-thread-start 的行上。少了它，被过滤出来的同一条
+   线程会露出两个卡头，看着像两张卡。 */
+.steward-msg-ruyi.is-thread:not(.is-thread-start) > .steward-thread-head { display: none; }
+
+/* 窄屏（设计稿「窄屏」画板）：频道条横向可滑，chip 的触达高度提到 44px；「只看」两个字让位。 */
+@media (max-width: 390px) {
+  .steward-channels-label { display: none; }
+  .steward-channel { min-height: 44px; padding: 0 var(--sp-4); font-size: var(--fs-sm); }
+  .steward-channels-board { min-height: 44px; font-size: var(--fs-sm); }
 }

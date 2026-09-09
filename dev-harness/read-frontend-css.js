@@ -329,7 +329,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     hover 走 --accent、focus 走 --ring。
 // 全 token（零 `#` 硬编码色）、**零 transition／零 animation**（故 reduced-motion 的关闭清单一个字
 // 没加）、无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '99b9ad4be01c93f350d117064b200b6fa03e9e81aff53c4ff38427fd16e62574';
+// 117t F2「频道条」＋ F5a「图标集」统一重钉（前值 99b9ad4b…）。按 117t 的先例（`b922f33`）：同一波
+// 有两片改了 CSS，两片各自钉必撞车，所以由【后落地的那一片】一次钉完两份有意载荷：
+//   · F5a（`bd52e5a`，已入库）改了 steward-settings / steward-drawer / steward-board 三层
+//     —— 它按分工没有碰本文件，于是锁在它那一个 commit 上是红的；
+//   · F2（本刀）改的是 steward-conversation.css：频道条 chip、过滤那条 display:none、卡头只长在
+//     段首那条，外加把 --thread-color 那条声明多挂一个选择器（chip 的色点要读同一个颜色，且整层
+//     仍然只有一处 hsl()）。
+// 算法自证：只按 HEAD 全量重算 = 0760861e…（＝ F5a 落地后、本刀未落地时消费者实际会算出来的值），
+// 「HEAD ＋ 本刀这一层」= 下面这个值，两者只差 steward-conversation.css 一层。
+// 反向验证：往本层追加一条无关规则 → live-full-text F3 与 frontend-domains D51 当场双双转红；
+// 还原后该文件 sha256 与追加前逐字节相同、两个消费者都回绿。
+const LEGACY_STYLES_SHA256 = '275e775ea6c108a40825e58e74bf06c4adb6fa78df397ee466237413af692179';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
