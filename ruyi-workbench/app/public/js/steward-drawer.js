@@ -897,14 +897,21 @@ export function createStewardDrawer({
   //
   // 收的是【这一拍不值得印】，不是控件：chips 实例一直挂在宿主里（不 unmount、不清空），下一拍
   // 判据一翻脸它就原样出现，用户按了一半的菜单也不会被连根拔掉（chip 菜单那条 304 纪律）。
-  // 如实记一处代价：跟随全局时这一行在详情栏里也看不见了，于是「给这条线程单独定一档」在管家壳里
-  // 只剩卡头那枚「2.0 视窗」一条路（§8.6 三处同一控件的第三处，本来就在那儿）。这是 §11.15.7
-  // 明写的取舍，不是漏做；要收回来只需把下面这一行的 hidden 恒置 false。
+  //
+  // 117u-G3b（主会话裁决，§11.15.8）：G3 第一版把【整行】藏起来，与看板逐字同法。那是照着派单稿
+  // 做的，而派单稿把两件不同的东西混成了一件 —— **看板那一行是「信息」，详情栏这一行是「控件」**：
+  //   · 看板是清点密度，多行并列，「跟随全局」重复 N 遍是纯噪音 → 整条不印（G2/G3 的做法保留）；
+  //   · 详情栏是工作密度，只有一条线程，这一行是「给这条线程单独定一档」在管家壳里的唯一入口
+  //     （藏掉之后只剩卡头那枚「2.0 视窗」）。收掉入口不是用户要的，用户要的是「不印默认值」。
+  // 所以本面只收【值】不收控件：chip 本来就是「键 ＋ 值」两个节点（steward-chips.js buildChip 的
+  // .steward-chip-key ＋ .steward-chip-value），样式层把值那半藏掉即可 —— 零 JS 分支、不动 valueFor、
+  // 不碰看板与 2.0 顶栏那两面，判据仍然只有 chipsWorthPrinting 那一份。
+  // 要回到「整行都不印」只需把下面这行换成 host.hidden = !worth（CSS 那条 [hidden] 守卫仍在）。
   function renderChips() {
     chips.setSession(session);
     const host = byId('stewardDrawerChips');
     if (!host) return;
-    host.hidden = !chipsWorthPrinting(session, (state && state.config) || {}, host);
+    host.classList.toggle('is-default', !chipsWorthPrinting(session, (state && state.config) || {}, host));
   }
 
   function renderAll() {

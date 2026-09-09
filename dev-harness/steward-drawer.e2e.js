@@ -279,9 +279,19 @@ const DRAWER = `(() => {
     // 117u-G3（§11.15.7）：这一行【这一拍印不印】。量的是真绘制（offsetParent === null 才叫没画出来），
     // 不是只读 .hidden 属性 —— .steward-drawer-chips 那条 display:flex 是作者样式，会盖掉 UA 的
     // [hidden]{display:none}，只读属性的话「属性挂上了但照样占着一行」这种回归照样绿。
+    // 117u-G3b：两面对判据的答案【有意做不同的事】，所以这里要分别量「控件在不在」与「值印不印」。
     chipsHidden: (() => {
       const host = document.getElementById('stewardDrawerChips');
-      return host ? { attr: host.hidden, painted: host.offsetParent !== null } : null;
+      if (!host) return null;
+      const values = [...host.querySelectorAll('.steward-chip-value')];
+      const keys = [...host.querySelectorAll('.steward-chip-key')];
+      return {
+        attr: host.hidden,
+        painted: host.offsetParent !== null,               // 控件行整体有没有画出来
+        isDefault: host.classList.contains('is-default'),
+        valuesPainted: values.filter(node => node.offsetParent !== null).length,   // 值那半画出来几个
+        keysPainted: keys.filter(node => node.offsetParent !== null).length,       // 键那半（入口）还在几个
+      };
     })(),
     confirmVisible: document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm').length,
     confirmLines: [...document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm li')].map(node => node.textContent.trim()),
@@ -538,9 +548,16 @@ try {
   // 新判据把同一件事实翻到该在的那一面：跟随全局的这一拍，这一行【不画出来】；而控件本身没被拆
   // （三枚 chip 仍在 DOM 里、值仍然读得出「跟随全局」——收的是墨量，不是能力）。
   // 另一侧在下面 C3b 钉：真定过会话级档位之后它必须现身。只钉一侧的话，把判据写成恒假也能绿。
-  ok(openedA.chipsHidden && openedA.chipsHidden.attr === true && openedA.chipsHidden.painted === false
+  //
+  // 117u-G3b 再重钉（主会话裁决，§11.15.8）：G3 第一版把【整行】藏起来，与看板同法。裁决改成
+  // 「本面只收值、不收控件」—— 详情栏这一行是「给这条线程单独定一档」在管家壳里的入口，藏掉整行
+  // 等于把入口收走，而用户要的只是「不印默认值」。所以判据翻成三件同时成立的事：
+  //   ① 这一拍被判成「跟全局一样」（is-default 挂上了）；② 值那半【一个都没画出来】；
+  //   ③ 键那半（＝入口）三个一个不少地【还画着】—— 这一条是新加的，正是它守住「没把能力删掉」。
+  const chA = openedA.chipsHidden;
+  ok(chA && chA.isDefault === true && chA.painted === true && chA.valuesPainted === 0 && chA.keysPainted === 3
     && openedA.chipValues[0] === zh['stewardShell.chips.followGlobal'],
-    `B14b 跟随全局时详情栏【不印】这一行（实测 hidden=${openedA.chipsHidden && openedA.chipsHidden.attr} 真画出来=${openedA.chipsHidden && openedA.chipsHidden.painted}），但控件还在、值仍读得到「${openedA.chipValues[0]}」`);
+    `B14b 跟随全局时详情栏【不印默认值但留着控件】（实测 is-default=${chA && chA.isDefault} 行画出来=${chA && chA.painted} 值画出来=${chA && chA.valuesPainted} 键画出来=${chA && chA.keysPainted}），值仍读得出「${openedA.chipValues[0]}」`);
   // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
   // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
   ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 2,
@@ -566,8 +583,10 @@ try {
   ok(Boolean(refilled), 'C3 chip 用响应回填成「改文件不问」');
   // 117u-G3 新钉（B14b 的另一侧）：真定过会话级档位之后，这一行必须【现身】—— 判据的权限那一半
   // 读的正是 chips 自己 render() 画上去的 .is-pinned。两侧都钉住，「恒不印」与「恒印」都会被打红。
-  ok(refilled && refilled.chipsHidden && refilled.chipsHidden.attr === false && refilled.chipsHidden.painted === true,
-    `C3b 定过会话级权限档之后这一行【印出来】（实测 hidden=${refilled && refilled.chipsHidden && refilled.chipsHidden.attr} 真画出来=${refilled && refilled.chipsHidden && refilled.chipsHidden.painted}）`);
+  // 117u-G3b 随 B14b 一并翻面：现身的标志从「整行 hidden=false」改成「值那半真画出来了」。
+  const chB = refilled && refilled.chipsHidden;
+  ok(chB && chB.isDefault === false && chB.painted === true && chB.valuesPainted === 3,
+    `C3b 定过会话级权限档之后这一行的【值】印出来（实测 is-default=${chB && chB.isDefault} 行画出来=${chB && chB.painted} 值画出来=${chB && chB.valuesPainted}）`);
 
   // ── ⑥ 切「全自动」：二次确认 → 取消不变 → 再来一次确认才变 ──────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);

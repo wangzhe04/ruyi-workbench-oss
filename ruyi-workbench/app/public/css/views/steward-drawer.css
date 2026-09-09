@@ -185,6 +185,12 @@
    只收 .steward-drawer-chips：2.0 视窗顶栏那一份（.steward-chips）不参与，它是「定一档」的最后
    一条路，不能跟着一起消失。 */
 .steward-drawer-chips[hidden] { display: none; }
+/* 117u-G3b（主会话裁决，§11.15.8）：本面【只收值，不收控件】—— 详情栏这一行是「给这条线程单独
+   定一档」的入口，藏掉整行等于把入口收走，而用户要的只是「不印默认值」。看板那一面仍然整条不印
+   （那里它是重复 N 遍的信息，不是入口）。判据仍是同一份 chipsWorthPrinting，这里只是拿它的答案
+   做了不同的事。chip 本来就是「键 ＋ 值」两个节点，所以这条规则不需要 JS 分叉、不动 valueFor。
+   上面那条 [hidden] 守卫留着：它是「整行都不印」那条退路的落点（renderChips 的注释写了怎么切）。 */
+.steward-drawer-chips.is-default .steward-chip-value { display: none; }
 .steward-chip {
   display: inline-flex;
   align-items: center;

@@ -203,9 +203,13 @@ ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \
   const inner = body ? body[1] : '';
   const setAt = inner.indexOf('chips.setSession(session)');
   const askAt = inner.indexOf('chipsWorthPrinting(');
-  ok(Boolean(body) && setAt >= 0 && askAt > setAt
-    && /host\.hidden = !chipsWorthPrinting\(session, \(state && state\.config\) \|\| \{\}, host\)/.test(inner),
-    `E4b 详情栏的 chip 行「跟全局一样就不印」：先 setSession 再问判据（.is-pinned 是 chips 自己的输出），收的是这一拍印不印、不是把控件拆了（实测 setSession@${setAt} < 判据@${askAt}）`);
+  // 117u-G3b 重钉：判据的答案怎么用，两面【有意不同】——看板整条不印（信息），详情栏只收值、
+  // 留控件（入口）。所以这里不再钉 `host.hidden = !…` 那个字面量，改钉两件事：判据在这个函数体里
+  // 被问到了，且答案落在 classList 上而不是把控件摘掉（`hidden` 与 `remove(`/`clear(` 都算摘）。
+  const toggles = /host\.classList\.toggle\('is-default', !chipsWorthPrinting\(/.test(inner);
+  const tearsDown = /host\.hidden\s*=/.test(inner) || /host\.remove\(/.test(inner) || /clear\(host\)/.test(inner);
+  ok(Boolean(body) && setAt >= 0 && askAt > setAt && toggles && !tearsDown,
+    `E4b 详情栏的 chip 行「跟全局一样就不印默认值」：先 setSession 再问判据（.is-pinned 是 chips 自己的输出），答案落在 is-default 上、控件一直在（实测 setSession@${setAt} < 判据@${askAt}，落 class=${toggles}，摘控件=${tearsDown}）`);
   ok(count(drawerCode, /chips\.setSession\(/g) === 1,
     `E4b2 setSession 全文件只有 renderChips 里这一个调用点 —— 绕开它就是绕开判据（实测 ${count(drawerCode, /chips\.setSession\(/g)} 处）`);
 }
@@ -216,6 +220,12 @@ ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \
 ok(/\.steward-drawer-chips\[hidden\] \{ display: none; \}/.test(cssCode)
   && !/\.steward-chips\[hidden\]/.test(cssCode),
   'E4c 抽屉 chip 行的 [hidden] 守卫在（display:flex 会盖掉 UA 规则），且 2.0 顶栏那一份不受牵连');
+// 117u-G3b：真正在干活的是这条 —— 收的是【值】那半个节点（.steward-chip-value），键那半与整个
+// 按钮都留着，所以「给这条线程单独定一档」的入口没被收走。同样只许作用于抽屉这一份。
+ok(/\.steward-drawer-chips\.is-default \.steward-chip-value \{ display: none; \}/.test(cssCode)
+  && !/\.steward-chips\.is-default/.test(cssCode)
+  && !/\.steward-drawer-chips\.is-default \.steward-chip(-key)? \{/.test(cssCode),
+  'E4d 详情栏收的是 chip 的【值】那半，不是整个控件（键与按钮都还在，入口没丢）；2.0 顶栏那一份不受牵连');
 for (const name of ['acceptanceItems', 'activeAcceptanceIndex', 'taskProgress', 'elapsedLabel', 'describeTurnActivity', 'deriveMissionState']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(drawerCode),
     `E5 抽屉不定义同名函数 ${name}（复制即失去「同一份判据」）`);
