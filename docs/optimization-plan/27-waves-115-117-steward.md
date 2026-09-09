@@ -1367,3 +1367,14 @@ A 仍加了服务端回归锁（title e2e 的 D 段）。
 
 G 第一次 `git commit` 因参数笔误中止，那一瞬间 HEAD 已从 `fe67ea3` 走到 `7d38ce2`；它的索引是按旧 HEAD 建的，
 那次提交若成功会把 H 前端整份回退。执行者自己发现、reset、按新 HEAD 重建索引。**§8.7 的「提交前核 HEAD」不是仪式。**
+
+##### H 后端交付记录（补 §11.13.2 的表）
+
+| commit | 刀 | 主会话怎么核的 |
+|---|---|---|
+| `4c0c071` | 117s-H 后端（交付进箱 `deliverable{text≤4000,chars,truncated,turnSeq,files}`、`thread_read` 整行丢改截尾、回执 `trigger` 落盘为对象） | 亲跑 `steward-deliverable.e2e` ALL PASS、`steward-inbox.e2e` ALL PASS；`build --check` 新鲜；`forwardEdges 67 → 67`；`files` 来自 02 `foldTurnSummaries`（与 13d 「看改动」同一份折叠，按 `turnSeq` 过滤，零新追踪器）。 |
+
+三处如实记：① 06b 那条「转述交付」规则进了 `rules`（易变补充表）而不是 1–6 稳定表——英文稳定表 2453/2500 只剩 47 字，静态锁 ③ 钉着 ≤2500；
+② 内存态 `lastReply.trigger` **仍是字符串**（`steward-shell.js:277` 靠 `=== 'inbox'` 判要不要追加到对话流），只有落盘回执是对象——改内存态会是无声回归；
+③ 服务端本来没有任何读 `message.steward.trigger` 的地方，所以「两种形状都认」在后端是空操作，只钉了新旧回执并存不互相破坏。
+13g 到 2088 行（锁 ① 红得更深）；R7 执行者用 `git archive HEAD` 干净副本复现同红，DOM 逐字节相同——是夹具形状前提，不是竖线规则。
