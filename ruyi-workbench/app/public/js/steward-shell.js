@@ -366,6 +366,9 @@ export function createStewardShellDomain({
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
     // 117g：菜单末项「整体切到 2.0」——【不】设返回标记，所以经典壳里不出返回带（§5 117g 行）。
     switchWholeShell: () => classicWindow.switchWholeShell(),
+    // 117s-H：交付卡的「看全文」直接跳 2.0 视窗（与抽屉那三处同一个入口，117g）。同样是迟绑定闭包：
+    // classicWindow 在下面才建，调用时它早已就位；缺席时对话区回落既有的 steward:open-thread。
+    openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
     // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
     renderMarkdownInto, highlightIn,
   });
