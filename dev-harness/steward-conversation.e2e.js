@@ -1707,6 +1707,140 @@ try {
     'X8 右端的「全部线程」把看板拉开（点的是 117h 那一个既有入口 #stewardStatusLine，不是第二条通道）');
   await cdp.evaluate(`(() => { const line = document.getElementById('stewardStatusLine'); if (line) line.click(); return true; })()`);
 
+  // ─── X8b 117v-V4 ① 四档间距（用户第十轮追加②「每段会话离的太近了，你看图，很密」＋ 再追加①
+  // 「单线程的总结回复和原文最好也中间隔些空间」；27 号文 §11.16.4 追加②／§11.16.5 追加④）──────
+  // 静态锁按 tokens.css 现算四个数比大小（钉声明），这里按【真样式表算出来的计算值】再量一次
+  // （钉渲染）—— 两者差一层级联：声明写对了、被别处压掉，只有量真值才看得见。
+  // 用一段临时的 .steward-feed 造出四种相邻关系（组内／组间／卡内块间／卡间），量完就摘掉：
+  // 挂在 body 上，不碰对话流的行，上面的行计数与请求计数一个都不受影响。
+  const TIER_PROBE = `(() => {
+    const feed = document.createElement('div');
+    feed.className = 'steward-feed';
+    feed.style.position = 'absolute';
+    feed.style.visibility = 'hidden';
+    const row = classes => {
+      const node = document.createElement('div');
+      node.className = classes;
+      const say = document.createElement('p');
+      say.className = 'steward-say';
+      say.textContent = '一句话';
+      node.appendChild(say);
+      feed.appendChild(node);
+      return node;
+    };
+    row('steward-msg steward-msg-user is-group-start is-group-end');
+    // 管家本人的话（不属于任何线程）跟在用户那句后面 = 组间
+    const groupStart = row('steward-msg steward-msg-ruyi is-group-start is-group-end');
+    // 同一个人接着说的第二句 = 组内
+    const groupNext = row('steward-msg steward-msg-ruyi is-group-end');
+    // 一张线程卡的第一行 = 卡间；卡内那几块之间的距离 = 这一行自己的 row-gap
+    const cardStart = row('steward-msg steward-msg-ruyi is-thread is-thread-start is-thread-end');
+    // 卡后面那一行（这里是用户的话）= 卡间的第二个落点
+    const afterCard = row('steward-msg steward-msg-user is-group-start is-group-end');
+    document.body.appendChild(feed);
+    const px = (node, prop) => parseFloat(getComputedStyle(node)[prop]) || 0;
+    const gap = px(feed, 'rowGap');
+    const out = {
+      within: gap + px(groupNext, 'marginTop'),
+      between: gap + px(groupStart, 'marginTop'),
+      inCard: px(cardStart, 'rowGap'),
+      betweenCards: gap + px(cardStart, 'marginTop'),
+      afterCard: gap + px(afterCard, 'marginTop'),
+    };
+    document.body.removeChild(feed);
+    return out;
+  })()`;
+  const tiers = await cdp.evaluate(TIER_PROBE);
+  ok(Boolean(tiers) && tiers.betweenCards > tiers.between
+    && tiers.between > tiers.inCard && tiers.inCard > tiers.within,
+    `X8b ① 四档间距的序关系在【真样式表算出来的计算值】上成立：卡间 ${tiers && tiers.betweenCards}px ＞ 组间 ${tiers && tiers.between}px ＞ 卡内块间 ${tiers && tiers.inCard}px ＞ 组内 ${tiers && tiers.within}px —— F1 之后对话流的单位是一张几百像素高的线程卡，修前卡与卡之间却只有组内那一档`);
+  ok(Boolean(tiers) && tiers.afterCard === tiers.betweenCards,
+    `X8b2 ① 卡间的两个落点算出来是同一个数：卡的第一行 ${tiers && tiers.betweenCards}px、卡后面那一行 ${tiers && tiers.afterCard}px —— 一档两处，不是两个各调各的数`);
+
+  // ─── X9 117v-V4 ② 频道条「显示不全」（用户 2026-09-09「还有那个胶囊显示不全，一块修了吧」；
+  // 27 号文 §11.16.4 追加③）───────────────────────────────────────────────────────────────
+  // 上面 X 段只有三条线程，一行就摆得下 —— 而用户报的病要在【线程条数超出一行宽度】时才现形，
+  // 所以这里按真样式量一次多线程的版面。用真 DOM ＋ 真样式表（同一个页面、同一份 CSS）造 24 枚
+  // chip，量完就把它摘掉：不碰对话流的行、不发一发请求，上面的行计数与请求计数一个都不受影响。
+  // 钉的是三条硬要求本身（不是「用哪种滚法」）：
+  //   ① 没有「看不见也摸不着」的 chip —— 要么现在就在可视区，要么在滚动内容范围内且容器真能滚；
+  //   ② 「全部线程」恒可达 —— 它不在会滚的那一段里，把容器滚到底它一个像素都不动；
+  //   ③ 粘条占高有上限 —— 24 枚 chip 也不会把正文挤没。
+  const CHIP_OVERFLOW = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const bar = document.createElement('div');
+    bar.className = 'steward-channels';
+    const scroll = document.createElement('div');
+    scroll.className = 'steward-channels-scroll';
+    for (let i = 0; i < 24; i += 1) {
+      const chip = document.createElement('button');
+      chip.className = 'steward-channel';
+      const name = document.createElement('span');
+      name.className = 'steward-channel-name';
+      name.textContent = '线程' + i + '·占位标题';
+      chip.appendChild(name);
+      scroll.appendChild(chip);
+    }
+    const board = document.createElement('button');
+    board.className = 'steward-channels-board';
+    board.textContent = '全部线程';
+    bar.appendChild(scroll);
+    bar.appendChild(board);
+    feed.insertBefore(bar, feed.firstChild);
+    const chips = [...scroll.querySelectorAll('.steward-channel')];
+    const style = getComputedStyle(scroll);
+    const barBox = bar.getBoundingClientRect();
+    const boardBox = board.getBoundingClientRect();
+    // 「摸得着」按【操作】量，不按坐标猜：逐枚把容器滚到它那一行，看它是不是真进了容器的可视框，
+    // 量完把滚动位置放回去。已经在可视区里的那几枚这一趟是空转 —— 所以这一条同时覆盖
+    // 「全部可见」与「可见地可滚」两种合格答案，不押某一种实现。
+    const viewOf = () => scroll.getBoundingClientRect();
+    const unreachable = chips.filter(chip => {
+      const before = scroll.scrollTop;
+      const rel = chip.getBoundingClientRect().top - viewOf().top + before;
+      scroll.scrollTop = Math.max(0, Math.min(rel, scroll.scrollHeight));
+      const box = chip.getBoundingClientRect();
+      const view = viewOf();
+      const seen = box.width > 0 && box.height > 0
+        && box.bottom > view.top + 0.5 && box.top < view.bottom - 0.5
+        && box.right > view.left + 0.5 && box.left < view.right - 0.5;
+      scroll.scrollTop = before;
+      return !seen;
+    }).length;
+    const boardTopBefore = board.getBoundingClientRect().top;
+    scroll.scrollTop = scroll.scrollHeight;
+    const boardMoved = Math.round(Math.abs(board.getBoundingClientRect().top - boardTopBefore));
+    const out = {
+      chips: chips.length,
+      wrap: style.flexWrap,
+      rows: new Set(chips.map(chip => Math.round(chip.getBoundingClientRect().top + scroll.scrollTop))).size,
+      unreachable,
+      scrollable: scroll.scrollHeight > scroll.clientHeight + 1,
+      scrollbar: style.scrollbarWidth,
+      gutter: Math.round(scroll.offsetWidth - scroll.clientWidth),
+      boardInScroller: scroll.contains(board),
+      boardMoved,
+      boardVisible: boardBox.width > 0 && boardBox.height > 0
+        && boardBox.top >= barBox.top - 1 && boardBox.bottom <= barBox.bottom + 1,
+      barHeight: Math.round(barBox.height),
+      feedHeight: Math.round(feed.getBoundingClientRect().height),
+    };
+    feed.removeChild(bar);
+    return out;
+  })()`;
+  const overflow = await cdp.evaluate(CHIP_OVERFLOW);
+  ok(Boolean(overflow) && overflow.chips === 24 && overflow.unreachable === 0,
+    `X9 ② 24 枚 chip 里【一枚都不是】「看不见也摸不着」：逐枚滚过去都真进了可视框（实测够不着 ${overflow && overflow.unreachable} 枚；换行摆成 ${overflow && overflow.rows} 行、wrap=${overflow && overflow.wrap}、需要滚=${overflow && overflow.scrollable}）`);
+  ok(Boolean(overflow) && overflow.scrollbar !== 'none'
+    && (overflow.scrollable === false || overflow.gutter > 0),
+    `X9b ② 而且是【看得见地】可滚：scrollbar-width=${overflow && overflow.scrollbar}（不是修前那个 none），需要滚的时候滚动条真占了 ${overflow && overflow.gutter}px 的槽 —— 修前那两条（scrollbar-width:none ＋ ::-webkit-scrollbar{height:0}）正是把这个 affordance 抹掉的东西`);
+  ok(Boolean(overflow) && overflow.boardInScroller === false
+    && overflow.boardMoved === 0 && overflow.boardVisible === true,
+    `X9c ②「全部线程」恒可达：它不在会滚的那一段里，把容器整个滚到底之后它挪了 ${overflow && overflow.boardMoved}px（＝纹丝不动）且整枚仍在粘条里 —— 逃生舱不跟着 chip 一起滚出去`);
+  ok(Boolean(overflow) && overflow.barHeight > 0 && overflow.feedHeight > 0
+    && overflow.barHeight <= overflow.feedHeight / 3,
+    `X9d ② 粘条占高有上限：24 条线程下它只有 ${overflow && overflow.barHeight}px，不到对话流可视高度 ${overflow && overflow.feedHeight}px 的三分之一 —— 换行方案没把正文挤没`);
+
   // ─── Z F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行「撤回：倒计时画成环」）──────
   // 手法与 T/U/F1/F2 四段一样：新建一个实例 ＋ 注入按 URL 分流的假 api，走 handOff 那条【真】路径
   // （递话 → 撤回按钮 → 窄窗 → 到期 → 撤回落定，四步一个都没绕）。

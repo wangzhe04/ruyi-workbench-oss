@@ -24,6 +24,27 @@
   max-width: 680px;
   min-width: 0;
 }
+/* 117v-V4 ①（用户第十轮追加②「每段会话离的太近了，你看图，很密」＋ 再追加①「单线程的总结回复
+   和原文最好也中间隔些空间」；27 号文 §11.16.4 追加②／§11.16.5 追加④）：三档扩成四档。
+   根因是【单位变了而间距没跟着变】：上面那两档是 117l-B2 按「一条消息」定的，F1 之后对话流的
+   单位成了「一张线程卡」（卡头 ＋ 按语 ＋ 交付卡 ＋ 展开 ＋ 动作键，一张卡几百像素高），而两张
+   卡都是管家说的、被 markGroup 判成【同一组】—— 于是卡与卡之间只剩组内那 4px，块大了三四倍，
+   分隔反而是最小的那一档，读起来就是一堵墙。
+   四档（只钉序关系，取值随 --sp 阶梯走；静态锁按 tokens.css 现算四个数比大小，不钉像素）：
+     组内     ＝ .steward-feed 的 gap                              ← 一个像素没动
+     组间     ＝ 那个 gap ＋ .steward-msg 的 margin-top            ← 一个像素没动
+     卡内块间 ＝ .steward-msg-ruyi.is-thread 的 gap                ← 本刀从 --sp-2 提到 --sp-3
+     卡间     ＝ 那个 gap ＋ .is-thread-start 的 margin-top        ← 本刀新增的那一档，最大
+   两条纪律写在这里，免得后人照抄时漏掉：
+   · **组内／组间两档一个像素都不许动** —— 它们是 117l-B2 用户第五轮走查拍过的结论（上面 M10
+     那条锁逐字钉着那两行），动它就是回退别人的结论；本刀只加新的两条规则，不改那两行。
+   · 判据挂在【已有的类】上：.is-thread / .is-thread-start / .is-thread-end 是 F1 就在维护的段界
+     （追加时 markThread 算、过滤后 resealThreads 按同一条判据重算），**不新造第二套分组状态**。
+   卡间落在两处：卡的第一行（.is-thread-start）与卡后面那一行（紧跟 .is-thread-end 的兄弟，可能是
+   用户的话、也可能是管家本人的话）—— 是同一档的两个落点，读的是同一个 token，不是两个数。 */
+.steward-msg-ruyi.is-thread { gap: var(--sp-3); }
+.steward-msg-ruyi.is-thread-start { margin-top: var(--sp-6); }
+.steward-msg-ruyi.is-thread-end + .steward-msg { margin-top: var(--sp-6); }
 .steward-msg-user {
   align-self: flex-end;
   align-items: flex-end;
@@ -578,6 +599,10 @@
   --thread-hue-4: 188;   /* 秋波 */
   /* 折叠高度：交付原文与管家正文共用（≈8 行 × line-height 1.6）。 */
   --steward-clamp-h: 12.8em;
+  /* 117v-V4 ②：频道条换行之后的【高度上限】。粘条是 position:sticky，没有这个顶，线程一多就把
+     正文挤没（27 号文 §11.16.4 追加③ 第 3 条）。96px 在宽屏是 3 行（chip 26px ＋ 行距 8px），
+     在 ≤390px 窄屏是 2 行（那里 chip 的触达高度提到 44px）—— 一个数管两档，不写第二个断点。 */
+  --steward-channels-max-h: 96px;
 }
 :root[data-theme="dark"] { --thread-sat: 52%; --thread-light: 64%; }
 
@@ -763,11 +788,35 @@
      纯属白付一层合成；而且 ui-v4-glass.static G2 把 backdrop-filter 的使用点锁成一张封闭白名单
      （经典框架 4 ＋ 浮层 4 ＋ 两个互斥壳 ＋ 降级块），粘条不属于其中任何一族。 */
   background: var(--panel);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
 }
-.steward-channels::-webkit-scrollbar { height: 0; }
+/* 117v-V4 ②（用户 2026-09-09「还有那个胶囊显示不全，一块修了吧」；27 号文 §11.16.4 追加③）：
+   这里原来是 `overflow-x:auto` ＋ `scrollbar-width:none` ＋ `::-webkit-scrollbar{height:0}` ——
+   一个【刻意隐藏了滚动条的横向滚动容器】。chip 是 flex:0 0 auto / nowrap，线程一多右边的 chip
+   就滑出可视区，而屏幕上没有任何提示：不换行、无滚动条、无渐隐、无箭头。用户看到的「显示不全」
+   就是它。三条硬要求各对一条声明：
+   ① 不许有「看不见也摸不着」的 chip —— chip 装进这个容器并【换行】，常规条数下一枚不缺全可见；
+      真到了换行也装不下的条数，超出的部分靠【可见的】滚动条到达（下面 scrollbar-width:thin ＋
+      ::-webkit-scrollbar 那两条就是那个明确的 affordance，与修前「藏起来」正好相反）；
+   ② 「全部线程」恒可达 —— 它【不在】这个容器里（JS 那侧是 bar 的直接子节点，与本容器并列），
+      所以线程再多它也不跟着滚，这是结构上的保证，不是「留够宽度」这种指望；
+   ③ 粘条占高有上限 —— --steward-channels-max-h 封顶，超出仍可滚，不会线程一多就把正文挤没。 */
+.steward-channels-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  max-height: var(--steward-channels-max-h);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+.steward-channels-scroll::-webkit-scrollbar { width: 6px; }
+.steward-channels-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: var(--r-pill);
+}
 /* 频道条插到流的最前面之后，原来那条「第一条消息不留上外边距」（:first-child）就不再命中它后面
    那一行 —— 补一条同义的相邻选择器，间距一个像素不变。 */
 .steward-feed > .steward-channels + .steward-msg { margin-top: 0; }
@@ -839,7 +888,10 @@
    线程会露出两个卡头，看着像两张卡。 */
 .steward-msg-ruyi.is-thread:not(.is-thread-start) > .steward-thread-head { display: none; }
 
-/* 窄屏（设计稿「窄屏」画板）：频道条横向可滑，chip 的触达高度提到 44px；「只看」两个字让位。 */
+/* 窄屏（设计稿「窄屏」画板）：chip 的触达高度提到 44px；「只看」两个字让位。
+   117v-V4 ②：原来这里写的是「频道条横向可滑」——那条已经不成立了（chip 改成换行，超顶才竖着滚），
+   注释跟着改，免得后人照着一句过时的话去找那个不存在的横滚。高度上限一个数管两档，见上面
+   --steward-channels-max-h 的头注：这里不再补第二个断点。 */
 @media (max-width: 390px) {
   .steward-channels-label { display: none; }
   .steward-channel { min-height: 44px; padding: 0 var(--sp-4); font-size: var(--fs-sm); }

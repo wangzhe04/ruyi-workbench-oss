@@ -838,9 +838,12 @@ ok((cssCode.match(/hsl\(/g) || []).length === 1
   'W8c chip 的色点与色条读同一个 --thread-color，整层仍然只有一处 hsl()（Q5b 的口径没被本刀稀释）；且 chip 自己一条色号规则都没有 —— 色是 [data-thread-hue] 那一条与面无关的规则给的');
 ok(/\.steward-msg-ruyi\.is-thread:not\(\.is-thread-start\) > \.steward-thread-head \{ display: none; \}/.test(cssCode),
   'W8d 卡头只长在【当下】的段首那一行：过滤之后段首换了人，少这一条同一条线程会露出两个卡头（看着像两张卡）');
-ok(/\.steward-channel \{ min-height: 44px;/.test(cssCode.slice(cssCode.lastIndexOf('@media (max-width: 390px)')))
-  && /\.steward-channels \{[\s\S]{0,420}overflow-x: auto;/.test(cssCode),
-  'W8e 窄屏：chip 触达高度 ≥44px，放不下就横向滑（设计稿「窄屏」画板），不换行也不把对话区挤没');
+// 117v-V4 ② 重钉：原判据的后半句钉的是 `.steward-channels` 上的 `overflow-x: auto` —— 那正是
+// 用户报的病（一个把滚动条藏起来的横滚容器，chip 滑出去就「看不见也摸不着」）。它被 §11.16.4
+// 追加③ 判定为要修的东西，所以这一半不再钉；窄屏那一半（触达高度 ≥44px）原样留着，它仍成立。
+// 「chip 不许消失」这件事改由下面 AA 段按事实钉（换行 ＋ 可见滚动条 ＋ 「全部线程」不在滚动容器里）。
+ok(/\.steward-channel \{ min-height: 44px;/.test(cssCode.slice(cssCode.lastIndexOf('@media (max-width: 390px)'))),
+  'W8e 窄屏：chip 触达高度 ≥44px（设计稿「窄屏」画板）');
 ok(/function openBoard\(\) \{[\s\S]{0,360}byId\('stewardStatusLine'\)/.test(conversationCode)
   && /line\.getAttribute\('aria-expanded'\) === 'true'/.test(conversationCode)
   && !/from '\.\/steward-board\.js'/.test(conversation),
@@ -989,6 +992,141 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
     && /const opened = executedThreadSessionId\(reply\.actions\);/.test(finishRule)
     && /attachThreadCard\(row, \{ sessionId: opened, title: '' \}\);/.test(finishRule),
     'Z4 ③「当场」：用户问、管家开线程的【那一轮】就挂卡 —— 回放那条路要等下一次进壳或下一条收件箱增量才走得到，只改回放等于「刷新一下才长出 chip」');
+}
+
+// ─── AA 117v-V4（27 号文 §11.16.4 追加②③／§11.16.5 追加④⑤；用户第十轮追加与再追加）─────────
+// 三件：① 间距扩成四档；② 频道条不许有「看不见也摸不着」的 chip；③ 交付原文里不许混过程叙述。
+// 每一条都钉【必须成立的那件事】：序关系（不是像素）、结构（不是某种滚法）、判据（不是某个正则）。
+{
+  /* ① 四档间距 —— 钉序关系，不钉像素。
+     取值一律从 tokens.css 现算：设计要整体换一套 --sp 阶梯不该误伤本条，而谁把某一档调过头
+     （比如把卡间调到比组间还小、或把卡内块间调过组间）当场红。
+     「组内／组间两档一个像素都不许动」由既有的 M10 逐字钉着（那两行原样在），这里不重复。 */
+  const tokens = read('css/tokens.css');
+  const tokenPx = name => {
+    const found = new RegExp('--' + name + ':\\s*(\\d+)px').exec(tokens);
+    return found ? Number(found[1]) : NaN;
+  };
+  const declToken = (selector, prop) => {
+    const at = cssCode.indexOf(selector + ' {');
+    if (at < 0) return '';
+    const block = cssCode.slice(at, cssCode.indexOf('}', at) + 1);
+    const found = new RegExp(prop + ':\\s*var\\(--(sp-\\d+)\\)').exec(block);
+    return found ? found[1] : '';
+  };
+  const gapToken = declToken('.steward-feed', 'gap');
+  const cardGapToken = declToken('.steward-msg-ruyi.is-thread-start', 'margin-top');
+  const within = tokenPx(gapToken);                                          // 组内
+  const between = within + tokenPx(declToken('.steward-msg', 'margin-top')); // 组间
+  const inCard = tokenPx(declToken('.steward-msg-ruyi.is-thread', 'gap'));   // 卡内块间（按语↔交付卡↔动作键）
+  const betweenCards = within + tokenPx(cardGapToken);                       // 卡间
+  const tiers = [within, between, inCard, betweenCards];
+  ok(tiers.every(Number.isFinite)
+    && betweenCards > between && between > inCard && inCard > within,
+    `AA1 ① 四档间距的【序关系】成立：卡间 ${betweenCards} ＞ 组间 ${between} ＞ 卡内块间 ${inCard} ＞ 组内 ${within}（px，按 tokens.css 现算）`
+    + ' —— F1 之后对话流的单位是一张几百像素高的线程卡，卡与卡之间却只有组内那一档，用户说的「很密」就是它');
+  ok(Boolean(cardGapToken)
+    && declToken('.steward-msg-ruyi.is-thread-end + .steward-msg', 'margin-top') === cardGapToken,
+    `AA2 ① 卡间是【一档两个落点】：卡的第一行与卡后面那一行读同一个 token（实测都是 --${cardGapToken}）—— 不是两个各调各的数`);
+  {
+    // 「判据挂在已有的类上，不新造第二套分组状态」：本刀新写的这三条规则里出现的每一个 .is-*，
+    // 都必须是 JS 【已经在维护】的那几个类（F1 的段界 markThread ／ 过滤后的 resealThreads）。
+    const tierRules = ['.steward-msg-ruyi.is-thread {', '.steward-msg-ruyi.is-thread-start {',
+      '.steward-msg-ruyi.is-thread-end + .steward-msg {'];
+    const used = [...new Set(tierRules.flatMap(rule => [...rule.matchAll(/\.(is-[a-z-]+)/g)].map(m => m[1])))];
+    const strangers = used.filter(name => !conversationCode.includes(`'${name}'`));
+    ok(used.length > 0 && strangers.length === 0
+      && tierRules.every(rule => cssCode.includes(rule)),
+      `AA3 ① 四档判据挂在【已有的类】上：三条规则用到的 ${JSON.stringify(used)} 每一个都是 JS 里真在维护的段界类（陌生的: ${JSON.stringify(strangers)}）—— 没有为了间距新造第二套分组状态`);
+  }
+
+  /* ② 频道条 —— 钉三条硬要求各自的机械落点（改法本身留给实现，这三件事必须成立）。 */
+  const paintRule = conversationCode.slice(conversationCode.indexOf('function paintChannels'),
+    conversationCode.indexOf('function syncChannels'));
+  const chipsInScroll = (paintRule.match(/scroll\.appendChild\(channelChip\(/g) || []).length;
+  ok(paintRule.length > 0
+    && /const scroll = el\('div', 'steward-channels-scroll'\);/.test(paintRule)
+    && chipsInScroll === 3 && !/bar\.appendChild\(channelChip\(/.test(paintRule)
+    && /bar\.appendChild\(scroll\);/.test(paintRule)
+    && /bar\.appendChild\(button\('steward-channels-board'/.test(paintRule)
+    && !/scroll\.appendChild\(button\('steward-channels-board'/.test(paintRule),
+    `AA4 ②「全部线程」恒可达是【结构】保证：chip 一枚不落全装进那个会滚的容器（实测 ${chipsInScroll} 处 appendChild，含线程那一趟循环），而看板入口是 bar 的直接子节点、与容器并列 —— 线程再多它也不在会滚的那一段里`);
+  ok(/\.steward-channels-scroll \{[\s\S]{0,320}flex-wrap: wrap;/.test(cssCode)
+    && /\.steward-channels-scroll \{[\s\S]{0,320}max-height: var\(--steward-channels-max-h\);/.test(cssCode)
+    && /\.steward-channels-scroll \{[\s\S]{0,320}overflow-y: auto;/.test(cssCode)
+    && /--steward-channels-max-h:/.test(cssCode),
+    'AA5 ② 换行 ＋ 高度上限：常规条数下 chip 全可见（不换行才会滑出去），而粘条占高有顶（超出仍可滚）—— 少了这个顶，线程一多 sticky 的频道条就把正文挤没');
+  ok(!/scrollbar-width: none/.test(cssCode)
+    && !/::-webkit-scrollbar \{ height: 0; \}/.test(cssCode)
+    && /\.steward-channels-scroll \{[\s\S]{0,320}scrollbar-width: thin;/.test(cssCode)
+    && /\.steward-channels-scroll::-webkit-scrollbar-thumb \{[\s\S]{0,160}background: var\(--/.test(cssCode),
+    'AA6 ② 不许再有「看不见也摸不着」的 chip：整层零 scrollbar-width:none、零把滚动条压成 0 —— 超出那一段靠一条【看得见】的滚动条到达（这正是修前那两条声明干的反面）');
+
+  /* ③ 交付原文 ＝ 最后一个工具段之后的文本段 —— 真值表跑在导出的纯函数上（判据只有那一处）。 */
+  const deliverableTextRule = conversationCode.slice(conversationCode.indexOf('export function stewardDeliverableText'),
+    conversationCode.indexOf('export function stewardDeliverableFrom'));
+  const deliverableFromRule = conversationCode.slice(conversationCode.indexOf('export function stewardDeliverableFrom'),
+    conversationCode.indexOf('export const STEWARD_DELIVERABLE_LINES'));
+  const PROCESS_A = '我先联网核实最新数据。';
+  const PROCESS_B = '搜索后端对中文长查询分词太差，我改用脚本直连。';
+  const THINK = '（这段是思考，不是交付）';
+  const DELIVERED = '结论：偏多，三条理由。';
+  const mixed = {
+    role: 'assistant', turnSeq: 7,
+    content: PROCESS_A + PROCESS_B + DELIVERED,
+    segments: [
+      { id: 'segment-1', type: 'text', text: PROCESS_A },
+      { id: 'segment-2', type: 'tool', toolCallId: 't1', name: 'web_search', status: 'done' },
+      { id: 'segment-3', type: 'text', text: PROCESS_B },
+      { id: 'segment-4', type: 'thinking', text: THINK },
+      { id: 'segment-5', type: 'tool', toolCallId: 't2', name: 'script_run', status: 'done' },
+      { id: 'segment-6', type: 'thinking', text: THINK },
+      { id: 'segment-7', type: 'text', text: DELIVERED },
+    ],
+  };
+  ok(typeof mod.stewardDeliverableText === 'function'
+    && mod.stewardDeliverableText(mixed) === DELIVERED,
+    'AA7 ③ 交付原文＝【最后一个 type:\'tool\' 段之后】的 text 段：工具调用之间那两句过程叙述与两段 thinking 一个字都没进来（用户第十轮再追加②「参杂了一些线程推进的原文，也不要有」）');
+  {
+    const noTool = {
+      role: 'assistant', content: PROCESS_A + DELIVERED,
+      segments: [
+        { id: 'segment-1', type: 'text', text: PROCESS_A },
+        { id: 'segment-2', type: 'thinking', text: THINK },
+        { id: 'segment-3', type: 'text', text: DELIVERED },
+      ],
+    };
+    ok(mod.stewardDeliverableText(noTool) === noTool.content,
+      'AA8 ③ 没有工具段时＝全部 text 段拼接，而它与今天的 content 【逐字相等】（content 本来就是所有 assistant_delta 的拼接）—— 回落一致，thinking 仍然不进');
+  }
+  {
+    const legacy = { role: 'assistant', content: PROCESS_A + DELIVERED };
+    ok(mod.stewardDeliverableText(legacy) === legacy.content
+      && mod.stewardDeliverableText({ role: 'assistant', content: '老会话', segments: [] }) === '老会话'
+      && mod.stewardDeliverableText({ role: 'assistant', content: '老会话', segments: null }) === '老会话'
+      && mod.stewardDeliverableText({}) === '' && mod.stewardDeliverableText(null) === '',
+      'AA9 ③ 边界：segments 缺席／空／不是数组的老会话（EC-D 之前落盘的）回落到 content 整段 —— **绝不许因为拿不到账本就返回空**，那是把「读不到」演成「它没交付」');
+  }
+  {
+    const trailingTool = {
+      role: 'assistant', turnSeq: 9, content: PROCESS_A + PROCESS_B,
+      segments: [
+        { id: 'segment-1', type: 'text', text: PROCESS_A },
+        { id: 'segment-2', type: 'tool', toolCallId: 't1', name: 'web_search', status: 'done' },
+      ],
+    };
+    ok(mod.stewardDeliverableText(trailingTool) === ''
+      && mod.stewardDeliverableFrom({ messages: [trailingTool] }, 9) === null,
+      'AA10 ③ 以工具调用收尾、后面一句收口的话都没有 → 这一条【没有交付原文】（回空串、from 回 null，调用方画「这一次没取到原文」＋「到 2.0 视窗看全文」）；这一档【不】回落到 content —— 回落等于把用户刚说「不要有」的那几句过程叙述原样端回去');
+  }
+  ok(JSON.stringify(mod.stewardDeliverableFrom({ messages: [mixed] }, 7)) === JSON.stringify({ text: DELIVERED, turnSeq: 7 })
+    && JSON.stringify(mod.stewardDeliverableFrom({ messages: [mixed] }, 0)) === JSON.stringify({ text: DELIVERED, turnSeq: 7 }),
+    'AA11 ③ 挑回合的形状一个字没变（{text,turnSeq}／对不上就退到最后一条），变的只是「这一条消息取哪一段文字」');
+  ok(deliverableTextRule.length > 0 && deliverableFromRule.length > 0
+    && /const text = stewardDeliverableText\(message\);/.test(deliverableFromRule)
+    && !/message\.content/.test(deliverableFromRule)
+    && !/document|fetch\(|api\(/.test(deliverableTextRule),
+    'AA12 ③ 判据只有一处：挑段全在 stewardDeliverableText 里，stewardDeliverableFrom 自己不再碰 message.content（不留第二份取段口径）；两支都还是零 DOM、零请求的纯函数');
 }
 
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

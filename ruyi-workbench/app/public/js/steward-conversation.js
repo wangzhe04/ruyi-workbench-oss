@@ -137,9 +137,51 @@ export function stewardTriggerInfo(stamp) {
   return { kind: String(raw || ''), sessionId: '', title: '', turnSeq: 0 };
 }
 
+// 117v-V4 ③（用户第十轮再追加②「我看里面还参杂了一些线程推进的原文，也不要有」；27 号文
+// §11.16.5 追加⑤）：一条助手消息的 `content` 是这一回合【所有】助手文字的拼接 —— 工具调用之间
+// 那几句过程叙述（「我先联网核实最新数据」「搜索后端分词太差，我改用脚本直连…」）本来就在里面。
+// 要把「交付」从「过程」里分出来【不需要正则、不需要猜哪句像过程】：仓里已经有一份精确的
+// 有序叙事账本 —— 第 54 波 EC-D 的 segments（app/src/02c-turn-segments.js，落盘形状
+// `{ id, type: 'text' | 'thinking' | 'tool' | … , text }`，每一条落盘的助手消息上都带着它），
+// 而前端本来就在拉整份会话（GET /api/sessions/<id> 下发的就是 session.messages）——
+// **所以这是纯前端改动：不动后端、不加路由、不多发一发请求。**
+//
+// 判据（精确，不是启发式）：
+//   · 交付原文 ＝ 【最后一个 type:'tool' 段之后】的所有 type:'text' 段拼接；
+//   · type:'thinking' 段一律不进交付（那是思考，不是交付）；
+//   · 没有 tool 段时 ＝ 全部 text 段拼接。而 content 本来就是全部 assistant_delta 的拼接
+//     （02c 的 appendText 把连续同型段合并，text 段的总和逐字就是 content），所以这一档与今天的
+//     content 【逐字相等】—— 静态锁把这条等式钉住，谁把拼接口径改歪了当场红。
+// 用户抱怨的那几行恰恰是【夹在工具调用之间】的 text 段，按这条判据自然落在「最后一个工具段之前」。
+//
+// 边界（写死在这里，不许再回落成别的样子）：
+//   · segments 缺席／不是数组／是空数组（EC-D 之前落盘的老会话）→ 回落到 content 整段。
+//     **绝不许因为拿不到 segments 就返回空** —— 那是把「读不到」演成「它没交付」。
+//   · segments 在场、但最后一个工具段之后一个 text 段都没有（回合以工具调用收尾，没写收口的话）
+//     → 这一条消息【没有交付原文】，回空串；由 stewardDeliverableFrom 跳过它继续往前找，
+//     一条都找不到时调用方画那句「这一次没取到原文」＋「到 2.0 视窗看全文」。这一档【不】回落到
+//     content：回落等于把用户刚说「不要有」的那几句过程叙述原样端回去。
+// 纯函数、零 DOM、零请求。
+export function stewardDeliverableText(message) {
+  const content = String((message && message.content) == null ? '' : message.content);
+  const segments = (message && Array.isArray(message.segments)) ? message.segments : null;
+  if (!segments || !segments.length) return content;   // 老会话：账本缺席就回落整段
+  let after = 0;                                       // 最后一个工具段【之后】的下标（没有工具段就是 0）
+  for (let i = 0; i < segments.length; i += 1) {
+    if (segments[i] && segments[i].type === 'tool') after = i + 1;
+  }
+  let text = '';
+  for (let i = after; i < segments.length; i += 1) {
+    const segment = segments[i];
+    if (segment && segment.type === 'text') text += String(segment.text == null ? '' : segment.text);
+  }
+  return text;
+}
+
 // 117s-H2：从 `GET /api/sessions/<id>` 的信封里挑出「这一回合交付的原文」。
 // 判据：turnSeq 对得上的【最后一条】助手消息（09-workflow 落盘时每条助手消息都带 turnSeq）；
 // 不知道回合号、或那一回合没有非空正文时退到整份会话的最后一条非空助手消息。
+// 117v-V4 ③：每一条消息取哪一段文字，交给上面那个 stewardDeliverableText（判据只有那一处）。
 // 一条都挑不出来就回 null —— 调用方据此画那句「这次没取到」的兜底，绝不留一个空盒子。
 // 纯函数、零 DOM、零请求。
 export function stewardDeliverableFrom(session, turnSeq) {
@@ -149,7 +191,7 @@ export function stewardDeliverableFrom(session, turnSeq) {
   let last = null;
   for (const message of messages) {
     if (!message || message.role !== 'assistant') continue;
-    const text = String(message.content == null ? '' : message.content);
+    const text = stewardDeliverableText(message);
     if (!text.trim()) continue;
     const seq = Number(message.turnSeq) > 0 ? Number(message.turnSeq) : 0;
     last = { text, turnSeq: seq };
@@ -990,12 +1032,25 @@ export function createStewardConversation({
     return true;
   }
 
+  // 117v-V4 ②（用户 2026-09-09「还有那个胶囊显示不全，一块修了吧」；27 号文 §11.16.4 追加③）：
+  // 修前整条 bar 自己就是那个横向滚动容器，且滚动条被【刻意隐藏】（scrollbar-width:none ＋
+  // ::-webkit-scrollbar{height:0}），chip 又是 flex:0 0 auto / nowrap —— 线程一多，右边的 chip
+  // 就滑出可视区且没有任何提示：不换行、无滚动条、无渐隐、无箭头，「看不见也摸不着」。
+  // 更要命的是「全部线程」排在最末尾，它是通往看板的逃生舱，一被挤出去用户两条路同时断掉。
+  // 改法（三条硬要求各对一条结构）：
+  //   ① chip 全部装进 .steward-channels-scroll，样式层给它【换行】—— 常规条数下一枚不缺、全可见；
+  //   ② 「全部线程」是 bar 的【直接子节点】，与那个滚动容器【并列】，所以它压根不在会滚的那一段里，
+  //      线程再多也恒在原地（这条是结构上的保证，不是「留够宽度」这种指望）；
+  //   ③ 换行不能让粘条把正文挤没：高度上限与超出后【可见的】滚动条都在样式层（--steward-channels-max-h）。
+  // 频道条那三条老纪律一个字没动：过滤仍只是加类、色仍从行上读、目标仍靠派事件。
   function paintChannels(bar, rows) {
     while (bar.firstChild) bar.removeChild(bar.firstChild);
-    bar.appendChild(el('span', 'steward-channels-label', t('stewardShell.channels.only')));
-    bar.appendChild(channelChip('', t('stewardShell.channels.all'), '', ''));
-    for (const row of rows) bar.appendChild(channelChip(row.id, row.name, row.state, row.hue));
-    bar.appendChild(channelChip(STEWARD_CHANNEL_SELF, t('stewardShell.channels.steward'), '', ''));
+    const scroll = el('div', 'steward-channels-scroll');
+    scroll.appendChild(el('span', 'steward-channels-label', t('stewardShell.channels.only')));
+    scroll.appendChild(channelChip('', t('stewardShell.channels.all'), '', ''));
+    for (const row of rows) scroll.appendChild(channelChip(row.id, row.name, row.state, row.hue));
+    scroll.appendChild(channelChip(STEWARD_CHANNEL_SELF, t('stewardShell.channels.steward'), '', ''));
+    bar.appendChild(scroll);
     bar.appendChild(button('steward-channels-board', t('stewardShell.channels.board'), openBoard));
     return bar;
   }
