@@ -1482,6 +1482,12 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'STEWARD_SESSION_FORBIDDEN') {
         return send(res, apiFailure('steward.forbidden', {}, String(error.message || 'forbidden'), 403));
       }
+      // 117s-G:活回合是【别处】起的 —— 回「忙」,不杀。判据与抛点同在 10 的 runSessionTurn 顶部,
+      // 抛得比 onStart 早,所以这里响应头还没发出,能给一条正经的 409 稳定信封。
+      if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
+        return send(res, apiFailure('session.turn_busy_elsewhere', { turnSource: String(error.turnSource || '') },
+          String(error.message || 'the session is running a turn started elsewhere'), 409));
+      }
       throw error;
     }
   }

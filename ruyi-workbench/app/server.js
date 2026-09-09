@@ -19671,7 +19671,9 @@ function prerouteText(q, index, memory, opts) {
 //           relayDeliver({sessionId,message,title,source,launch}) -> 稳定信封 { ok, channel, … }
 //             (按目标状态选通道,顺序 答>批>插>新:answer 走 decideIntervention、
 //              permission 不代答、steer 走 steerSessionCore、turn 走调用方给的 launch。
-//              通道判定本身(stewardRelayChannelFor)只服务 13h 内部,故不上命名空间)
+//           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
+//             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
+//              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           零模型、缓存命中不重装配)
@@ -31789,6 +31791,27 @@ async function runSessionTurn(input) {
       code: 'STEWARD_SESSION_FORBIDDEN', statusCode: 403,
     });
   }
+  // 117s-G(27 号文 §11.13.1 ②):【别处】起的回合不许被一句新话顶掉。
+  // 09:1347 与 05:139 那两行 `if (activeChildren.has) stopSession('superseded')` 是 2.0 主输入框的
+  // 既有语义 ——「同一个人在同一扇窗里又发了一句,用后面这句」。它对别处起的回合不成立:管家经
+  // stewardLaunchTurn 派出去的回合(source 'steward')没有任何客户端挂在它的流上,用户在「2.0 视窗」里
+  // 打一句话就把它连同几分钟的工作一起杀了,只留下一条 turn_kill reason:'superseded' 和一条孤零零的
+  // user 消息。这里按【发起面】分开:同一个 source 再发 = 那条既有语义,原样放行;不同 source = 忙,
+  // 回 409 稳定信封,一个字节都不动那个正在跑的回合。
+  // 判据用【既有】的 turnSettlers 条目:runSessionTurn 在每个回合开头就把 {source, requestMeta} 记在
+  // 那里(第69波 rewind 靠的就是它),活回合期间一直在,所以不必给活回合登记表新加字段。
+  // 位置:必须在 onStart 之【前】—— 响应头此刻还没发出去,抛出去路由层才能回一条正经的 409
+  // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
+  // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
+  // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
+  const busyReg = activeChildren.get(session.id) || null;
+  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  const busySource = busySettler ? String(busySettler.source || '') : '';
+  if (busyReg && busySource && busySource !== source) {
+    throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
+      code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
+    });
+  }
   // 116-2a(§3.3):档位解析挪到会话装载【之后】,因为多了中间一层「会话级」。优先级固定
   // 请求级 > 会话级 > 全局,解析器是 01-config 的纯函数 resolvePermissionMode(三层各自只认
   // PERMISSION_MODES 白名单,非法/缺失静默回落下一层)。没有设过会话级档的会话(含全部存量会话)
@@ -38339,6 +38362,12 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'STEWARD_SESSION_FORBIDDEN') {
         return send(res, apiFailure('steward.forbidden', {}, String(error.message || 'forbidden'), 403));
       }
+      // 117s-G:活回合是【别处】起的 —— 回「忙」,不杀。判据与抛点同在 10 的 runSessionTurn 顶部,
+      // 抛得比 onStart 早,所以这里响应头还没发出,能给一条正经的 409 稳定信封。
+      if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
+        return send(res, apiFailure('session.turn_busy_elsewhere', { turnSource: String(error.turnSource || '') },
+          String(error.message || 'the session is running a turn started elsewhere'), 409));
+      }
       throw error;
     }
   }
@@ -40042,10 +40071,23 @@ async function handleSessionApiRoutes(req, res, pathname) {
         });
         return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
       }
+      // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
+      // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
+      // queued > steer > turn,
+      // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
+      // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
+      // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
+      // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
+      // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
+      // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
+      const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
+      const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
+        ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
+        : null;
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -47682,8 +47724,13 @@ Object.assign(StewardHooks, {
   // 它要同时够到 04 的三张待决内存表、13b 的 steerSessionCore、13d 的 decideIntervention 与
   // 09 的 activeChildren,而 13g 在 13b/13d 之后、13h 之前,由 13h 来当这个汇合点边最少。
   // 消费者:13g 的 steward_thread_continue(经 StewardHooks,零前向边)与本文件的 /api/steward/relay。
-  // stewardRelayChannelFor 【不】上命名空间:它的消费者全在 13h 内部(stewardRelayDeliver 与
-  // /api/steward/relay),挂上去就是一个没人用的钩子 = 死代码(与仲裁器那两个原语同一条纪律)。
+  // 117s-G(27 号文 §11.13.1 ②):stewardRelayChannelFor 现在【也】上命名空间 —— 它有了第一个
+  // 13h 之外的消费者:13d 的 GET /api/sessions/:id 要把「这条线程此刻该走哪条通道」下发给经典壳
+  // (前端此前只认 activeTurns = 本页自己起的流,别处起的回合一律判成空闲,一发消息就把它顶掉)。
+  // 判定仍然只有这一份:13d 不重编第二条阶梯,只把结果投影成 relay:{channel,wait}。挂法与 arbiterWait
+  // 同款(13d -> 06i 是后向边,零新增前向边)。上一版那条「消费者全在 13h 内部,挂上去就是死代码」的
+  // 理由随第一个外部消费者出现而失效 —— 纪律没变,变的是事实。
+  relayChannel: stewardRelayChannelFor,
   relayDeliver: stewardRelayDeliver,
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,

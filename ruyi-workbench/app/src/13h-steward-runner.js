@@ -2430,8 +2430,13 @@ Object.assign(StewardHooks, {
   // 它要同时够到 04 的三张待决内存表、13b 的 steerSessionCore、13d 的 decideIntervention 与
   // 09 的 activeChildren,而 13g 在 13b/13d 之后、13h 之前,由 13h 来当这个汇合点边最少。
   // 消费者:13g 的 steward_thread_continue(经 StewardHooks,零前向边)与本文件的 /api/steward/relay。
-  // stewardRelayChannelFor 【不】上命名空间:它的消费者全在 13h 内部(stewardRelayDeliver 与
-  // /api/steward/relay),挂上去就是一个没人用的钩子 = 死代码(与仲裁器那两个原语同一条纪律)。
+  // 117s-G(27 号文 §11.13.1 ②):stewardRelayChannelFor 现在【也】上命名空间 —— 它有了第一个
+  // 13h 之外的消费者:13d 的 GET /api/sessions/:id 要把「这条线程此刻该走哪条通道」下发给经典壳
+  // (前端此前只认 activeTurns = 本页自己起的流,别处起的回合一律判成空闲,一发消息就把它顶掉)。
+  // 判定仍然只有这一份:13d 不重编第二条阶梯,只把结果投影成 relay:{channel,wait}。挂法与 arbiterWait
+  // 同款(13d -> 06i 是后向边,零新增前向边)。上一版那条「消费者全在 13h 内部,挂上去就是死代码」的
+  // 理由随第一个外部消费者出现而失效 —— 纪律没变,变的是事实。
+  relayChannel: stewardRelayChannelFor,
   relayDeliver: stewardRelayDeliver,
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,

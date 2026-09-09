@@ -7518,6 +7518,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"

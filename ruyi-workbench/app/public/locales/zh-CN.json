@@ -3032,4 +3032,6 @@
   ,"chat.liveTurn.truncated": "更早的内容已省略，只显示它最近说的这一段。"
   ,"chat.liveTurn.resultOffEnvelope": "（工具结果不随在途信封下发；回合结束后这里会有完整结果）"
   ,"settings.steward.tool.threadStop": "暂停这条线程"
+  ,"chat.relayQueued": "它还在排队等着开跑，这句先没发出去；等它开跑后再说一次。"
+  ,"chat.relayPermission": "它在等你批准一个动作，先去批了再跟它说话。"
 }

@@ -2134,6 +2134,27 @@ async function runSessionTurn(input) {
       code: 'STEWARD_SESSION_FORBIDDEN', statusCode: 403,
     });
   }
+  // 117s-G(27 号文 §11.13.1 ②):【别处】起的回合不许被一句新话顶掉。
+  // 09:1347 与 05:139 那两行 `if (activeChildren.has) stopSession('superseded')` 是 2.0 主输入框的
+  // 既有语义 ——「同一个人在同一扇窗里又发了一句,用后面这句」。它对别处起的回合不成立:管家经
+  // stewardLaunchTurn 派出去的回合(source 'steward')没有任何客户端挂在它的流上,用户在「2.0 视窗」里
+  // 打一句话就把它连同几分钟的工作一起杀了,只留下一条 turn_kill reason:'superseded' 和一条孤零零的
+  // user 消息。这里按【发起面】分开:同一个 source 再发 = 那条既有语义,原样放行;不同 source = 忙,
+  // 回 409 稳定信封,一个字节都不动那个正在跑的回合。
+  // 判据用【既有】的 turnSettlers 条目:runSessionTurn 在每个回合开头就把 {source, requestMeta} 记在
+  // 那里(第69波 rewind 靠的就是它),活回合期间一直在,所以不必给活回合登记表新加字段。
+  // 位置:必须在 onStart 之【前】—— 响应头此刻还没发出去,抛出去路由层才能回一条正经的 409
+  // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
+  // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
+  // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
+  const busyReg = activeChildren.get(session.id) || null;
+  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  const busySource = busySettler ? String(busySettler.source || '') : '';
+  if (busyReg && busySource && busySource !== source) {
+    throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
+      code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
+    });
+  }
   // 116-2a(§3.3):档位解析挪到会话装载【之后】,因为多了中间一层「会话级」。优先级固定
   // 请求级 > 会话级 > 全局,解析器是 01-config 的纯函数 resolvePermissionMode(三层各自只认
   // PERMISSION_MODES 白名单,非法/缺失静默回落下一层)。没有设过会话级档的会话(含全部存量会话)

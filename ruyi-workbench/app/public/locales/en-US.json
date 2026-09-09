@@ -3032,4 +3032,6 @@
   ,"chat.liveTurn.truncated": "Earlier output omitted; showing only the most recent stretch."
   ,"chat.liveTurn.resultOffEnvelope": "(Tool results are not sent while the turn is in flight; the full result lands here once it ends.)"
   ,"settings.steward.tool.threadStop": "Pause this thread"
+  ,"chat.relayQueued": "It is still queued and has not started yet, so this message was not sent. Say it again once it starts running."
+  ,"chat.relayPermission": "It is waiting for you to approve an action. Approve that first, then talk to it."
 }

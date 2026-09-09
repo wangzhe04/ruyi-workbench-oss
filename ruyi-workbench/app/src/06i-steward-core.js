@@ -1044,7 +1044,9 @@ function prerouteText(q, index, memory, opts) {
 //           relayDeliver({sessionId,message,title,source,launch}) -> 稳定信封 { ok, channel, … }
 //             (按目标状态选通道,顺序 答>批>插>新:answer 走 decideIntervention、
 //              permission 不代答、steer 走 steerSessionCore、turn 走调用方给的 launch。
-//              通道判定本身(stewardRelayChannelFor)只服务 13h 内部,故不上命名空间)
+//           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
+//             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
+//              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           零模型、缓存命中不重装配)

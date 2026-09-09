@@ -324,10 +324,23 @@ async function handleSessionApiRoutes(req, res, pathname) {
         });
         return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
       }
+      // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
+      // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
+      // queued > steer > turn,
+      // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
+      // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
+      // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
+      // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
+      // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
+      // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
+      const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
+      const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
+        ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
+        : null;
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);

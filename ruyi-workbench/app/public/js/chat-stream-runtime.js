@@ -329,20 +329,55 @@ export function createChatStreamRuntime(deps = {}) {
   // 50-fix(三态):流式中按钮按输入内容分态 —— 输入框【有文本】→「插话」(sendPrompt 路由 /api/steer,不打扰
   // 当前回合);【空输入】→「■ 停止」(stopTurn)。旧行为流式中恒为停止,插话只剩 Enter 一条隐藏路径,
   // 用户"输入后还是停止,不会变成 Steer"(ChatGPT 同款三态:generating + typing → send)。
+  // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug)————————————————————————
+  // activeTurns 里只有【本页自己起的那条流】。管家经 stewardLaunchTurn 在服务端起的回合没有任何
+  // 客户端挂在它的流上,于是「2.0 视窗」里的经典壳把一条正在跑的线程当成空闲:发送门放行 → 新回合 →
+  // 09:1347 的 `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,几分钟的工作
+  // 连同它的正文一起没了,界面零提示。修法不新造判据:服务端 13h stewardRelayChannelFor(全仓递话
+  // 唯一那处阶梯 answer > permission > queued > steer > turn)把结论随会话信封下发,前端只读结论。
+  function sessionRelayChannel(sessionId) {
+    const relay = state.sessionRelay;
+    if (!sessionId || !relay || relay.sessionId !== sessionId) return '';
+    return String(relay.channel || '');
+  }
+  // 「此刻有一个回合在跑,这句话该当插话递进去」。两个来源同一个答案:本页自己的流(activeTurns,
+  // 既有语义一字不动),或服务端说别处起的回合在跑。
+  // 'answer'(它挂在 request_user_input 上等回答)也走插话:经典壳的回答面是 ask_user 事件弹出的那张
+  // 模态框,而别处起的回合根本不往这条连接上发事件,壳里没有第二条能安全递进去的通路;插话至少
+  // 不丢数据、不杀回合(服务端 13h 的 relayDeliver 有真正的 answer 通道,那是管家壳的面)。
+  function sessionAcceptsSteer(sessionId) {
+    if (!sessionId) return false;
+    if (activeTurns.has(sessionId)) return true;
+    const channel = sessionRelayChannel(sessionId);
+    return channel === 'steer' || channel === 'answer';
+  }
+  // 排队中 / 等批准:这句话【不能】变成一个新回合(前者会让排队项与新回合前后脚放行、互相 supersede,
+  // 后者等于绕过一个正等着用户点头的动作),壳里也没有别的通路能把它递进去 —— 诚实地退回来。
+  function relayBlockNote(sessionId) {
+    const channel = sessionRelayChannel(sessionId);
+    if (channel === 'queued') return t('chat.relayQueued');
+    if (channel === 'permission') return t('chat.relayPermission');
+    return '';
+  }
   function updateSendBtn() {
     const btn = $('sendBtn');
     if (!btn) return;
     const streaming = Boolean(state.streaming);
     const hasText = !!(($('promptInput')?.value || '').trim());
     const steerCapability = activeTurnSteerCapability();
-    const steer = streaming && hasText && steerCapability.ok;
-    const blockedSteer = streaming && hasText && !steerCapability.ok;
+    // 117s-G:按钮与发送门读【同一个】判据 —— 「它正在跑(这一回合是在别处起的)」那张卡在屏上时,
+    // 按钮就该写「插话」,而不是写「发送」骗用户去杀掉那个回合。
+    const live = streaming || sessionAcceptsSteer(state.currentSession?.id || '');
+    const steer = live && hasText && steerCapability.ok;
+    const blockedSteer = live && hasText && !steerCapability.ok;
     btn.classList.toggle('danger', streaming && !steer && !blockedSteer);
     btn.classList.toggle('primary', !streaming || steer);
-    if (!streaming) { iconTextBtn(btn, 'send', t('chat.send')); btn.onclick = () => sendPrompt(); btn.title = ''; }
-    else if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
+    if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
     else if (blockedSteer) { iconTextBtn(btn, 'settings', t('chat.steerEnable')); btn.onclick = showClaudeSteerSetup; btn.title = t('chat.steerEnableHint'); }
-    else { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
+    // 只有【本页自己的流】在跑时,空输入才是「停止」:别处起的回合有它自己那张卡上的停止键(117m-A5),
+    // composer 不去抢那个语义,保持「发送」(空输入的 sendPrompt 本来就原地返回)。
+    else if (streaming) { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
+    else { iconTextBtn(btn, 'send', t('chat.send')); btn.onclick = () => sendPrompt(); btn.title = ''; }
   }
   function activeTurnSteerCapability() {
     const sid = state.currentSession?.id || '';
@@ -525,16 +560,22 @@ export function createChatStreamRuntime(deps = {}) {
     // v0.8-S7 steering (§4 A3) + 47a 双引擎:任何引擎回合流式中,composer 的发送都变为插话路由到 /api/steer。
     // provider 经队列在下一边界注入;Claude(interactive)经 stdin 即时注入;Claude print 模式由服务器返回
     // 人话错误(print 不支持),toast 呈现——前端不再按引擎静默吞掉输入。
+    // 117s-G:判据从 activeTurns(只有本页自己起的流)换成 sessionAcceptsSteer(本页的流 ∪ 服务端说
+    // 别处起的回合在跑)。修前管家起的回合在这里判成空闲,一路走到 09:1347 被 supersede 杀掉。
     const selectedId = state.currentSession?.id || '';
-    if (selectedId && activeTurns.has(selectedId)) return steerPrompt(overrideText);
+    if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText);
     const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
     const hasAttachments = Array.isArray(options.attachments) ? options.attachments.length > 0 : state.attachments.length > 0;
     if (!message && !hasAttachments) return;
+    // 117s-G:排队中 / 等批准 —— 不发,给一句人话。放在空输入那道门之后:空输入本来就不该弹提示。
+    const relayBlocked = relayBlockNote(selectedId);
+    if (relayBlocked) { toast(relayBlocked, ''); return; }
     // Migrate a browser-only manual window before the server decides whether this turn needs compacting.
     // On failure preserve the draft/attachments and do not send with a different context limit.
     try { await syncContextWindowManual(); }
     catch (e) { toast(apiErrText(e), 'err'); return; }
-    if (state.currentSession?.id && activeTurns.has(state.currentSession.id)) return steerPrompt(overrideText);
+    // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
+    if (state.currentSession?.id && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText);
     if (!state.currentSession) await newSession();
 
     const turnSessionId = state.currentSession.id;

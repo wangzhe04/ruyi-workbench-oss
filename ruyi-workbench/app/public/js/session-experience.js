@@ -836,6 +836,11 @@ function captureLiveTurn(sessionId, res) {
   liveTurnTail = res && res.liveTail && typeof res.liveTail === 'object' ? res.liveTail : null;
   liveTurnNarrative = res && res.liveTurn && typeof res.liveTurn === 'object' ? res.liveTurn : null;
   liveTurnLive = Boolean(res && res.resumable && res.resumable.live === true);
+  // 117s-G：与 liveTail/liveTurn 同一发 GET 回来的 relay —— 「这条线程此刻该走哪条递话通道」。
+  // 服务端空闲时整个键都不下发，这里就归 null（= 走正常回合那条路）。
+  state.sessionRelay = res && res.relay && typeof res.relay === 'object'
+    ? { sessionId: String(sessionId || ''), channel: String(res.relay.channel || ''), wait: res.relay.wait || null }
+    : null;
 }
 // 该不该画这张气泡。四条都为真才画 —— 任一为否，renderCurrentSession 就当它不存在。
 function liveTurnVisible() {

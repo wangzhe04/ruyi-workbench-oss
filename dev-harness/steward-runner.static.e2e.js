@@ -107,11 +107,22 @@ const src01b = read('01b-route-auth.js');
   // threadStop 要直接调本文件的仲裁器原语 stewardCancelQueuedTurn,而 13g 已经顶到 SPEC §2 的 2000 行目标
   // (steward-runner.static ① 那道闸:HEAD 上是 1998 行)。这条断言本身仍是等号,没有被放宽。
   // 同款 companion 一起补:新增的必须【就是】threadStop,而不是「随便又多了一个钩子」。
-  ok(hookKeys.length === 17, `② 13h 填充 17 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  // 117s-G 重钉 17 -> 18。这一次多出来的不是「够不着才落在 13h」的新实现,而是一个【本来就在 13h、
+  // 现在多了一个 13h 外消费者】的既有判定:relayChannel(= stewardRelayChannelFor)。13d 的
+  // GET /api/sessions/:id 要把「这条线程此刻该走哪条递话通道」投影成信封上的 relay 键下发给经典壳,
+  // 而 13d -> 13h 是前向边,只能经 06i 的延迟绑定命名空间取(与 arbiterWait 同款)。
+  // 上一版那条「它不上命名空间,挂上去就是死代码」的理由随第一个外部消费者出现而失效 ——
+  // 下面的 unused 判据仍然逐键看着「每个键都真的有人用」,纪律没有被放宽。
+  ok(hookKeys.length === 18, `② 13h 填充 18 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
   ok(hookKeys.includes('threadStop') && /async function stewardImplThreadStop/.test(src13h) && !/async function stewardImplThreadStop/.test(src13g),
     '② 117m-A4 companion:新增的键是 threadStop,且它的实现真的在 13h、不在 13g(13g 的 2000 行闸就是这么守住的)');
-  ok(hookKeys.includes('relayDeliver') && hookKeys.includes('applyThreadTier') && !hookKeys.includes('relayChannel'),
-    '② 117l companion:新增的两个键是 relayDeliver 与 applyThreadTier;通道判定 relayChannel 不上命名空间(消费者全在 13h 内)');
+  ok(hookKeys.includes('relayDeliver') && hookKeys.includes('applyThreadTier'),
+    '② 117l companion:117l 那两个键 relayDeliver 与 applyThreadTier 都还在');
+  // 117s-G companion:通道判定上了命名空间,但【只能】这么用 —— 13d 经 StewardHooks.relayChannel 取,
+  // 源码里不许出现 13h 的符号(上面那条零前向边的机械判据已经在看着,这里再把「真的有这个消费者」
+  // 正面钉一遍:哪天有人把它改回直接引用 13h,两条一起红)。
+  ok(hookKeys.includes('relayChannel') && /StewardHooks\.relayChannel/.test(src13d) && /relayChannel: stewardRelayChannelFor/.test(src13h),
+    '② 117s-G companion:relayChannel 上了命名空间,且 13d 只经 StewardHooks.relayChannel 消费它');
   // 116-2e:onInboxBatch / stopRunner / resumeRunner 的消费者在收件箱侧,随拆分搬进了 13i。
   const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13i;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));

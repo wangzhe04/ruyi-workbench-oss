@@ -25,6 +25,13 @@ export const state = {
   // the FIRST rendered message (0 = fully expanded). Reset to null on session open so each session starts
   // windowed. Small sessions keep it null → zero behavior change.
   msgWindowStart: null,
+  // 117s-G(27 号文 §11.13.1 ②):服务端对「这条会话此刻该走哪条递话通道」的判定，随
+  // GET /api/sessions/:id 的 relay 键回来（单点在 13h stewardRelayChannelFor：answer > permission >
+  // queued > steer > turn）。经典壳的发送门与发送键三态都读它 —— activeTurns 只认【本页自己起的流】，
+  // 管家在服务端起的回合不在里面。形状 { sessionId, channel, wait } 或 null（服务端说这条线程空闲）。
+  // 放 state 而不是各自的模块级变量：写在 session-experience（取信封的那一处），读在
+  // chat-stream-runtime（发送门），两边拿到的是同一个 state 对象，无须往组合根加一条注入。
+  sessionRelay: null,
 };
 
 // Count thresholds remain stable; turn-narrative.js adds a bounded content-weight budget so even a few giant
