@@ -5,22 +5,22 @@
 
 ---
 
-## 0. 先做这一件：合并（否则后面全部落空）
+## 0. 合并与补跑：**已完成**（2026-09-09，主会话亲做）
 
-117s 全波（21 个 commit）在 **worktree 分支 `claude/suspicious-cartwright-0bef9d`**，`master` 一字未动，**尚未合并**。
+117s 全波 22 个 commit 已 `--ff-only` 快进进 `master`，主树 HEAD = **`4e7f73b`**，工作区干净
+（只剩两个一贯不入库的本地产物：`.ruyi-runtime/`、`dev-harness/summary-provider-matrix-live.js`）。
+`node ruyi-workbench/app/build.js --check`：**产物与 src 一致（新鲜）**。
 
-```
-# 在主树（不是 worktree）里：
-git merge --ff-only claude/suspicious-cartwright-0bef9d
-```
+合并后在主树补跑的三件 realhist（它们依赖主树本地未入库的 `dev-harness/realhist-fixtures`，
+在隔离 worktree 里必红，这也是分支收口那次回归里那三条红的全部原因）：
 
-合并后在**主树**补跑三件（它们依赖主树本地未入库的 `dev-harness/realhist-fixtures`，在隔离 worktree 里必红）：
+| 件 | 结果 |
+|---|---|
+| `observation-recall-realhistory.e2e.js` | **74 PASS · ALL PASS** |
+| `observation-recall-replay.e2e.js` | **14 PASS · ALL PASS** |
+| `session-notes.e2e.js` | **26 PASS · ALL PASS** |
 
-```
-node dev-harness/observation-recall-realhistory.e2e.js
-node dev-harness/observation-recall-replay.e2e.js
-node dev-harness/session-notes.e2e.js
-```
+**下一个 agent 从 §2 开始取刀，不必再做合并。** 若要推远端，`git push` 由用户决定（本会话未推）。
 
 分支收口时的全量回归（隔离 worktree、`--parallel 4`）：**311 pass / 12 fail / 11 flaky / 323 ran / 7 skipped**，12 条红逐条串行复验后**真回归 0 条**，定性见 27 号文 §11.13.4。
 
@@ -46,7 +46,7 @@ node dev-harness/session-notes.e2e.js
 
 ## 2. 下一批刀（按执行顺序；每一刀出门再开下一刀）
 
-### 2.0 前置：合并（§0）
+### 2.0 前置：合并（§0）—— **已完成，跳过**
 
 ### 2.1 刀 T1 · 拆 `13g-steward.js`（**第一刀，必须先做**）
 
@@ -132,5 +132,5 @@ node dev-harness/session-notes.e2e.js
 
 ## 6. 一句话地图
 
-**先合并** → **拆 13g** → **F1–F5 把设计稿落地** → **31 号文第一批（手／嘴／时间＋119）** → 第二批（眼睛／代答）→ 第三批（记忆／编排）。
+**（合并已完成）** → **拆 13g** → **F1–F5 把设计稿落地** → **31 号文第一批（手／嘴／时间＋119）** → 第二批（眼睛／代答）→ 第三批（记忆／编排）。
 挂起三条等用户：撤回显示、冷启动阈值、回复长度。
