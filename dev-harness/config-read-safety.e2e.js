@@ -27,7 +27,7 @@ fs.writeFileSync(CONFIG, JSON.stringify(seeded, null, 2));
 let TOKEN = '';
 function getToken() {
   return new Promise(res => {
-    const r = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/', timeout: 1500 }, resp => {
+    const r = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/', timeout: 5000 }, resp => { // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
       let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); });
     });
     r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); });
