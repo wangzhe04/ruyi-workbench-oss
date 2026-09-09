@@ -352,7 +352,7 @@
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
 .steward-board-chips .steward-chip-menu { left: 0; right: auto; }
 
-/* ── ③ 「现在这一件」：≥1000px 的常驻右栏 ───────────────────────────────────── */
+/* ── ③ 「现在这几件」：≥1000px 的常驻右栏 ───────────────────────────────────── */
 .steward-now { display: none; }
 .steward-now[hidden] { display: none; }
 .steward-now-bar {
@@ -364,7 +364,76 @@
   border-bottom: 1px solid var(--line);
 }
 .steward-now-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
+.steward-now-count { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
 .steward-now-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* F3「现在这几件」：焦点那一条【就是】那份 docked 抽屉（上面那条规则不动），其余线程按服务端
+   行序在它上下叠成小行。两条 stack 各自最多吃掉三分之一高度、超出自己滚，抽屉仍然 flex:1 拿走
+   剩下的高度 —— 线程再多也不会把「正在看的那一件」挤出屏幕。
+   色点与状态药丸【复用】看板行那两个类（.steward-board-dot / .steward-board-pill）：颜色仍然只经
+   dockToneForMissionState 的 data-tone，本层不为右栏另配一套颜色。
+   本组一处过渡都不加（hover 只换底色）—— reduced-motion 的关闭清单因此一个字都不用动。 */
+.steward-now-stack {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: var(--sp-2);
+  max-height: 33%;
+  overflow-y: auto;
+  list-style: none;
+}
+.steward-now-stack:empty { display: none; }
+.steward-now-thread {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding-inline-end: var(--sp-1);
+  background: var(--glass-bg-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+}
+.steward-now-thread:hover { background: var(--panel-2); }
+.steward-now-thread-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2);
+  text-align: left;
+  cursor: pointer;
+}
+.steward-now-thread-main:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-now-thread-head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+/* 名字可以被截成「大A接下来…」，但不许被状态药丸挤成什么都不剩（同 .steward-board-thread-title）。 */
+.steward-now-thread-title {
+  flex: 1 1 auto;
+  min-width: 4em;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 「它刚说／它在问你」那一行：只给一行，超出省略 —— 全文在抽屉里。 */
+.steward-now-thread-say {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 已收工／已停工（tone 不是 attention/active）本来就没有那一行，这里只把行高再收一档。 */
+.steward-now-thread[data-tone="settled"] .steward-now-thread-main,
+.steward-now-thread[data-tone="quiet"] .steward-now-thread-main { padding-block: var(--sp-1); }
+.steward-now-thread [data-action="answer"] { flex: 0 0 auto; color: var(--gold); }
 
 @media (min-width: 1000px) {
   .steward-now:not([hidden]) {

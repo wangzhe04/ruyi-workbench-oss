@@ -20,9 +20,14 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './st
 //   ② 看板 `#stewardBoard`：从状态行下拉的面板（role="region"，Esc 关）。顶部是并发上限就地可调、
 //      在跑／排队计数、「全部暂停」「整体切到 2.0」；正文按【事项】分组，事项行给聚合态与验收 a/b，
 //      线程行给五态点、耗时、快切 chip、单一的等待原因与悬停操作。
-//   ③ 「现在这一件」`#stewardNow`：≥1000px 常驻右栏，内容就是【同一个】线程抽屉以 docked 挂法挂进来
-//      （steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进 #stewardNowBody）——
-//      不存在第二份抽屉区块渲染。焦点线程由纯函数 focusThreadFor 决定，用户显式选过就钉住。
+//   ③ 「现在这几件」`#stewardNow`：≥1000px 常驻右栏。焦点那一条的内容就是【同一个】线程抽屉以
+//      docked 挂法挂进来（steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进
+//      #stewardNowBody）—— 不存在第二份抽屉区块渲染。焦点线程由纯函数 focusThreadFor 决定，
+//      用户显式选过就钉住。
+//      F3（32 号文 §2.2「线程即频道」）：其余在办的线程按 GET /api/missions 的【服务端行序】
+//      （117s-A 的 D1 已经在 13d 一处按「状态优先、其次 updatedAt」排好）在抽屉的上下叠成小行 ——
+//      焦点行之前的进上面那条 stack，之后的进下面那条，于是抽屉就插在它自己那一格里，右栏行序与
+//      看板、抽屉页签逐字节同源；本模块【不再排一次】，也【不复制】任何抽屉区块。
 //
 // 不另起判据（§8.10 逐条）：
 //   · 事项聚合态【只读】行上的 `aggregateState`（116g 由 06i 的 aggregateMissionState 单点算出），
@@ -43,6 +48,10 @@ const POLL_DUE_SLACK_MS = 250;
 export const STEWARD_BOARD_POLL_MS_DEFAULT = 15000;
 export const STEWARD_NOW_CLOSED_KEY = 'wcw.stewardNowClosed';
 export const STEWARD_NOW_MIN_WIDTH = 1000;
+// F3：右栏那两条「小行叠」的容器 id。它们【不在】 index.html 的静态骨架里（A5/A7 的纪律：
+// #stewardNowBody 只是一个挂点），由本模块建出来并始终夹着抽屉那一份 —— 上面一条放焦点行之前的
+// 线程，下面一条放之后的。做成导出的冻结常量而不是两个散落字面量，静态锁才钉得住。
+export const STEWARD_NOW_STACK_IDS = Object.freeze({ before: 'stewardNowStackBefore', after: 'stewardNowStackAfter' });
 // 与 01-config.js 的 stewardMaxParallelThreads 校验同一区间（[1,32]，默认 5）。
 export const STEWARD_MAX_PARALLEL_MIN = 1;
 export const STEWARD_MAX_PARALLEL_MAX = 32;
@@ -581,7 +590,19 @@ export function createStewardBoard({
     return id;
   }
 
-  // ── ③ 「现在这一件」：≥1000px 常驻，内容是同一个抽屉的 docked 挂法 ──────────────
+  // F3「就地回答」：等你的那条小行按下去 = 把这条线程变成【抽屉本体】，并把光标送进抽屉自己
+  // 那个回答口 —— 有问答卡就是卡里的输入框（focusAsk，117m-A2 就有；「N 条等你」那条路也是这么
+  // 点的），没有卡就落到底部「直接对这条线程说」（focusComposer）。于是答案仍然走抽屉那唯一一条
+  // 递话路径（POST /api/steward/relay ／ /api/chat/answer），本模块一个字节的发送逻辑都没有，
+  // 也就不可能长出第二条发送路径 —— 这是「就地回答」在零重复前提下的唯一诚实形状。
+  function answerHere(sessionId) {
+    const id = openThread(sessionId);
+    if (drawer && typeof drawer.focusAsk === 'function' && drawer.focusAsk()) return id;
+    if (drawer && typeof drawer.focusComposer === 'function') drawer.focusComposer();
+    return id;
+  }
+
+  // ── ③ 「现在这几件」：≥1000px 常驻，焦点那条是同一个抽屉的 docked 挂法，其余叠成小行 ──────
   function nowClosed() {
     try { return localStorage.getItem(STEWARD_NOW_CLOSED_KEY) === '1'; }
     catch { return false; }
@@ -596,6 +617,127 @@ export function createStewardBoard({
   function wideEnough() {
     if (!globalThis.matchMedia) return true;
     return globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).matches;
+  }
+
+  // ── F3：右栏那两条「小行叠」──────────────────────────────────────────────────────
+  // 容器按需建、始终夹着抽屉那一份。搬的永远只有【自己的】这两个节点：抽屉是 setMount('docked')
+  // 挂进 #stewardNowBody 的，本模块一次都不碰它（E 组纪律：一份实现、两种挂法）。
+  // 每一趟都重新摆一次位置，是因为抽屉可能在 overlay ↔ docked 之间来回搬（窄屏／关掉／切壳），
+  // 回到 docked 时它被 appendChild 到末尾 —— 那时候只要把下面那条 stack 再 append 一次就复位了。
+  function nowStack(which) {
+    const id = STEWARD_NOW_STACK_IDS[which];
+    let list = byId(id);
+    if (!list) {
+      list = el('ul', 'steward-now-stack');
+      list.id = id;
+      list.dataset.stack = which;
+    }
+    return list;
+  }
+  function placeNowStacks(before, after) {
+    const body = byId('stewardNowBody');
+    if (!body) return false;
+    if (body.firstChild !== before) body.insertBefore(before, body.firstChild);
+    if (body.lastChild !== after) body.appendChild(after);
+    return true;
+  }
+
+  // 一条小行：色点＋名字＋状态药丸；在跑／等你的多一行「它刚说／它在问你」，已收工／已停工折成
+  // 一行。「展开还是折成一行」的判据【只有一处】—— paintDot 出的 data-tone（dockToneForMissionState
+  // 的四档，与看板行那颗点、交办台 dock 座同一份判据），所以本模块不因为多了这一面而多认一个
+  // 五态字面量；那一行说什么也只读行上既有的两个事实：asksYou.text（06i 的 stewardPendingOneLine
+  // 单点算出，与抽屉问答卡同源）与 lastSay（13d 投影出的 head.summary），本模块不编第三句。
+  function renderNowThread(row) {
+    const sessionId = String(row.sessionId || '');
+    const item = el('li', 'steward-now-thread');
+    item.dataset.sessionId = sessionId;
+    const threadState = threadStateOf(row);
+    const dot = paintDot(el('span', 'steward-board-dot'), threadState);
+    const tone = String(dot.dataset.tone || '');
+    item.dataset.tone = tone;
+    const main = el('button', 'steward-now-thread-main');
+    main.type = 'button';
+    // 点任意一行 = 让它成为抽屉本体（focusThread 是本模块唯一的「有人请求聚焦」入口，
+    // 强刷、回退、钉住三件事都在它里面，这里不另走一条）。
+    main.onclick = () => focusThread(sessionId);
+    const head = el('span', 'steward-now-thread-head');
+    head.appendChild(dot);
+    const titleText = String(row.displayTitle || row.title || sessionId);
+    head.appendChild(el('span', 'steward-now-thread-title', titleText));
+    head.appendChild(el('span', 'steward-board-pill', stateLabel(threadState)));
+    main.appendChild(head);
+    main.title = titleText;
+    const asks = (row.asksYou && typeof row.asksYou === 'object' && String(row.asksYou.kind || '')) ? row.asksYou : null;
+    const say = String((asks && asks.text) || row.lastSay || '');
+    if ((tone === 'attention' || tone === 'active') && say) {
+      main.appendChild(el('span', 'steward-now-thread-say', say));
+    }
+    item.appendChild(main);
+    // 就地回答只给【真有人在问你】的那一行（判据仍然只读行上的 asksYou，与看板行那枚 pill 同源）。
+    // 焦点那条本来就没有小行 —— 它是抽屉本体，回答框在抽屉里开着。
+    if (asks) {
+      item.appendChild(boardButton('stewardShell.board.answerHere', () => answerHere(sessionId), { action: 'answer' }));
+    }
+    return item;
+  }
+
+  // 头上那个数：右栏此刻叠着几条线程。文案复用既有的「N 条线程」，不新开第二套计数说法；
+  // 节点由本模块建（index.html 的静态骨架一个 slot 都没加）。
+  function renderNowCount(now, total) {
+    const bar = now.querySelector('.steward-now-bar');
+    if (!bar) return 0;
+    let count = bar.querySelector('.steward-now-count');
+    if (!count) {
+      count = el('span', 'steward-now-count');
+      const close = byId('stewardNowCloseBtn');
+      if (close && close.parentNode === bar) bar.insertBefore(count, close);
+      else bar.appendChild(count);
+    }
+    count.textContent = t('stewardShell.board.threadCount', { n: total });
+    return total;
+  }
+
+  // 重画判据：行的「身份／五态／名字／那一句」有一处变了才重画 —— 否则用户正按着某一行时，
+  // 每一拍都会把它连根拔掉（chip 菜单那条 304 纪律的同一条道理）。
+  let nowSignature = '';
+  function renderNow(focusId) {
+    const now = byId('stewardNow');
+    if (!now) return 0;
+    const before = nowStack('before');
+    const after = nowStack('after');
+    placeNowStacks(before, after);
+    renderNowCount(now, rows.length);
+    now.dataset.focusId = String(focusId || '');
+    const signature = JSON.stringify([String(focusId || ''), rows.map(row => [
+      String(row.sessionId || ''), threadStateOf(row), String(row.displayTitle || row.title || ''),
+      String((row.asksYou && row.asksYou.text) || row.lastSay || ''),
+    ])]);
+    if (signature === nowSignature) return rows.length;
+    nowSignature = signature;
+    clear(before);
+    clear(after);
+    // 行序【原样取服务端】：117s-A 的 D1 已经在 13d 一处排好（状态优先、其次 updatedAt），
+    // 看板、抽屉页签、右栏三面消费同一份序 —— 这里再排一次就是第二份判据（也会与另外两面打架）。
+    // 焦点那条不画小行：它就是下面／上面那一份抽屉本体。行里还没有它（管家刚开的新线程，见
+    // currentFocusId 的头注）时 index 是 -1，其余线程整体落到抽屉【下面】，抽屉留在最上头。
+    const index = rows.findIndex(row => String(row.sessionId || '') === String(focusId || ''));
+    rows.forEach((row, at) => {
+      if (at === index) return;
+      (index >= 0 && at < index ? before : after).appendChild(renderNowThread(row));
+    });
+    return rows.length;
+  }
+
+  // 右栏收起时把小行也清掉（藏着的那一份不留旧行；抽屉那一份由 syncNow 自己 closeDrawer）。
+  function clearNow() {
+    const now = byId('stewardNow');
+    const before = byId(STEWARD_NOW_STACK_IDS.before);
+    const after = byId(STEWARD_NOW_STACK_IDS.after);
+    if (before) clear(before);
+    if (after) clear(after);
+    if (now) now.dataset.focusId = '';
+    nowSignature = '';
+    return true;
   }
 
   function currentFocusId() {
@@ -634,9 +776,12 @@ export function createStewardBoard({
       suppressCloseRecord = true;
       try { if (drawer.mountMode() === 'docked') drawer.closeDrawer(); drawer.setMount('overlay'); }
       finally { suppressCloseRecord = false; }
+      clearNow();
       return false;
     }
     drawer.setMount('docked');
+    // F3：先把小行叠摆好（它要夹着刚挂进来的那一份抽屉），再决定抽屉自己开哪一条。
+    renderNow(focusId);
     if (drawer.currentSessionId() !== focusId) drawer.openThread(focusId);
     // 不 await：syncNow 的返回值是【同步的】「右栏这一份接住了没有」，focusThread 的回退判据
     // （`if (!syncNow()) drawer.openThread(...)`）、closeNow、leaveSteward 与断点回调都拿它当同步

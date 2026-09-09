@@ -47,6 +47,11 @@ const THREAD_D = '刚开的这一条';
 // E 钉「强刷读得太早」那一条，F 钉「看板行上的『打开』不派事件」那一条。
 const THREAD_E = '收工了又被叫醒';
 const THREAD_F = '收工了又被点开';
+// F3（S 组）：右栏「现在这几件」要同时看到三种状态，这一条专门停在「已收工」不再被叫醒。
+const THREAD_G = '这件已经收工了';
+// F3（S 组）：等你的那条与在跑的那条也就地造，不借早先那两条（跑到 S 组时它们可能已经收尾）。
+const THREAD_H = '这件在等你答';
+const THREAD_I = '这件正在跑着';
 const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
 // 117j W2-5：表按 5s 下限起（见 steward-board.js pollTick 头注），数计时器要按这个周期。
 const TICK_MS = 5000;
@@ -745,6 +750,161 @@ try {
     `R8 对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「${zh['mission.state.done']}」变「${zh['mission.state.running']}」、「${zh['stewardShell.drawer.lastSay']}」换成「${zh['stewardShell.drawer.liveSay']}」（实测 ${Date.now() - clickedAt}ms；这一路不派事件，修前 syncNow 相等即跳过，抽屉一次都不刷）`);
   ok(Boolean(flippedF.snapshot) && flippedF.snapshot.nowLastSay.includes('开工了'),
     `R8b 换上来的是【新那一回合】流出来的话，不是上一回合的落盘原话（实测「${flippedF.snapshot && flippedF.snapshot.nowLastSay}」）`);
+
+  // ── S F3（32 号文 §2.2「线程即频道」）：右栏是「现在这几件」──────────────────────────────
+  // 此刻壳里已经有三种状态的线程：A 停在 question 待决（等你）、B／E／F 的回合挂着（在跑）、
+  // 再造一条 G 走完一个回合（已收工）。右栏要把它们按【服务端行序】叠起来：焦点那条是抽屉本体，
+  // 其余是小行；已收工的折成一行；等你的那条给「就地回答」。
+  // 快照只读 DOM（textContent／dataset／子节点数），不碰任何模块私有状态；文案一个字都不断言
+  // （新键还没进 locale，断言结构不断言中文）。
+  const NOW = `(() => {
+    const now = document.getElementById('stewardNow');
+    const body = document.getElementById('stewardNowBody');
+    if (!now || !body) return null;
+    const focusId = now.dataset.focusId || '';
+    // 列内顺序：#stewardNowBody 的三个直系子节点按 DOM 顺序摊平 —— 两条 stack 摊成各自的行，
+    // 抽屉那一格顶上 data-focus-id。这就是「抽屉插在它自己那一格里」的可判定形式。
+    const order = [];
+    for (const child of body.children) {
+      if (child.classList.contains('steward-now-stack')) {
+        for (const item of child.children) order.push(item.dataset.sessionId || '');
+      } else if (child.id === 'stewardDrawer') order.push(focusId);
+      else order.push('?' + (child.id || child.className));
+    }
+    return {
+      focusId,
+      order,
+      hidden: now.hidden,
+      count: (now.querySelector('.steward-now-count') || {}).textContent || '',
+      drawerTitle: (document.getElementById('stewardDrawerTitle') || { textContent: '' }).textContent.trim(),
+      drawerParent: document.getElementById('stewardDrawer') && document.getElementById('stewardDrawer').parentElement
+        ? document.getElementById('stewardDrawer').parentElement.id : '',
+      active: document.activeElement ? (document.activeElement.id || '') : '',
+      rows: [...body.querySelectorAll('.steward-now-thread')].map(item => ({
+        sessionId: item.dataset.sessionId || '',
+        tone: item.dataset.tone || '',
+        title: (item.querySelector('.steward-now-thread-title') || { textContent: '' }).textContent.trim(),
+        pill: (item.querySelector('.steward-board-pill') || { textContent: '' }).textContent.trim(),
+        hasSay: Boolean(item.querySelector('.steward-now-thread-say')),
+        say: (item.querySelector('.steward-now-thread-say') || { textContent: '' }).textContent.trim(),
+        hasAnswer: Boolean(item.querySelector('[data-action="answer"]')),
+        blocks: item.querySelectorAll('.steward-now-thread-main > *').length,
+      })),
+    };
+  })()`;
+  // 三条线程【就地造】，不借用上面几组留下来的那几条：跑到这里已经两三分钟，早先那两条（A 的
+  // question 待决、B 的挂起回合）在真服务器上可能已经收尾或被仲裁器停掉 —— 借它们等于把本组的
+  // 结论建在别组的副作用上（实测过一次：到这一组时 A 不再等你、B 已停工）。
+  const workG = path.join(root, 'work-g');
+  const workH = path.join(root, 'work-h');
+  const workI = path.join(root, 'work-i');
+  for (const dir of [workG, workH, workI]) fs.mkdirSync(dir, { recursive: true });
+  // 与 settleThread 同一条路，只是回合【不】收尾（provider 的 ask/hang 两支），所以不 await。
+  const startThread = async (title, cwd, message) => {
+    const made = await request(appPort, 'POST', '/api/sessions', { title, cwd }, token);
+    const id = (made && made.json && made.json.session && made.json.session.id) || '';
+    if (!id) return '';
+    await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: id }, token);
+    request(appPort, 'POST', '/api/chat/stream', { sessionId: id, message, cwd }, token);
+    return id;
+  };
+  const idG = await settleThread(THREAD_G, workG);
+  const idH = await startThread(THREAD_H, workH, 'ask about south');
+  const askedH = await waitForHttp(appPort, 'GET', '/api/missions?limit=200', result => {
+    const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === idH);
+    return Boolean(row && row.asksYou && String(row.asksYou.kind || ''));
+  }, token);
+  const idI = await startThread(THREAD_I, workI, 'hang here');
+  const liveI = await liveOn(idI);
+  ok(Boolean(idH) && Boolean(askedH) && Boolean(idI) && Boolean(liveI),
+    `S1b 另外两种状态也就位：一条停在 question 待决（等你，${idH || '失败'}）、一条回合挂着（在跑，${idI || '失败'}）`);
+  // 右栏那几条小行读的是【本模块手里这批行】，而行只在文件头那五个确定性时刻刷新（进壳／开看板／
+  // 焦点事件／写动作／页面重新可见）—— F3 不加第六个时刻，更不加第二条计时器（F1 锁死一处
+  // setInterval，看板关着时管家壳不多一条后台活动）。上一组最后一步是行上的「打开」，它顺手把
+  // 看板收了（openThread → setBoardOpen(false)），表也就停了。所以这里先把看板拉开：这既是真实
+  // 交互（用户要看这几条线程本来就会开看板），也让下面「服务端行序 vs 列内顺序」比的是同一份行。
+  await cdp.evaluate(`(() => {
+    const board = document.getElementById('stewardBoard');
+    if (board && board.hidden) document.getElementById('stewardStatusLine').click();
+    return true;
+  })()`);
+  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
+  ok(Boolean(idG), `S1 第三种状态就位：一条跑完一个回合、此刻没在跑的线程（五态「${zh['mission.state.done']}」；${idG || '失败'}）`);
+  // 服务端行序与列内顺序【同一时刻】各取一份再比：行序本身会随状态与 updatedAt 变，
+  // 拿一份旧快照去等 DOM 追上来，等到的可能是「两边都对、只是不同时刻」的假红。
+  const matchOrder = async budgetMs => {
+    const startedAt = Date.now();
+    let ids = [];
+    let snapshot = null;
+    while (Date.now() - startedAt < budgetMs) {
+      const projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
+      ids = (((projected && projected.json) || {}).missions || []).map(row => String(row.sessionId));
+      snapshot = await cdp.evaluate(NOW).catch(() => null);
+      if (snapshot && JSON.stringify(snapshot.order) === JSON.stringify(ids)) break;
+      await sleep(200);
+    }
+    return { ids, snapshot };
+  };
+  const matched = await matchOrder(30000);
+  const serverOrder = matched.ids;
+  const stacked = matched.snapshot;
+  ok(stacked && JSON.stringify(stacked.order) === JSON.stringify(serverOrder),
+    `S2 右栏按【服务端行序】叠（117s-A 的状态优先序在 13d 排一次，右栏原样消费）：期望 ${JSON.stringify(serverOrder)}，实测 ${JSON.stringify(stacked && stacked.order)}`);
+  ok(stacked && stacked.focusId && stacked.order.includes(stacked.focusId)
+    && stacked.rows.every(row => row.sessionId !== stacked.focusId)
+    && stacked.drawerParent === 'stewardNowBody'
+    && stacked.rows.length === serverOrder.length - 1,
+    `S3 焦点那一条【就是那份抽屉】（同一个节点仍挂在 #stewardNowBody 里），它不再另画一条小行：${serverOrder.length} 行 → ${stacked && stacked.rows.length} 条小行 ＋ 1 份抽屉`);
+  const rowOf = (snapshot, id) => (snapshot && snapshot.rows.find(row => row.sessionId === id)) || null;
+  const rowG = rowOf(stacked, idG);
+  ok(rowG && rowG.tone === 'settled' && rowG.hasSay === false && rowG.hasAnswer === false && rowG.blocks === 1,
+    `S4 已收工的那条折成【一行】：只有「点＋名字＋状态」这一格，没有「它刚说」，也没有回答口（实测 tone=${rowG && rowG.tone} 块数=${rowG && rowG.blocks}）`);
+  const nowRowH = rowOf(stacked, idH);
+  ok(nowRowH && nowRowH.tone === 'attention' && nowRowH.hasSay === true && nowRowH.say.length > 0 && nowRowH.hasAnswer === true,
+    `S5 等你的那条多一行「它在问你」（行上 asksYou.text，06i 单点算出）并给出就地回答口（实测「${nowRowH && nowRowH.say}」answer=${nowRowH && nowRowH.hasAnswer}）`);
+  const nowRowI = rowOf(stacked, idI);
+  ok(nowRowI && nowRowI.tone === 'active' && nowRowI.pill === zh['mission.state.running'],
+    `S5b 在跑的那条是展开档（tone=active）且状态药丸说的是五态人话（实测 tone=${nowRowI && nowRowI.tone}「${nowRowI && nowRowI.pill}」）`);
+  ok(stacked && stacked.count === fill('stewardShell.board.threadCount', { n: serverOrder.length }),
+    `S6 头上的数＝右栏此刻叠着几条线程（复用既有「N 条线程」文案；实测「${stacked && stacked.count}」）`);
+  // ── 点一条小行 = 让它成为抽屉本体（5 s 内） ───────────────────────────────────────────
+  const clickedRowAt = Date.now();
+  await cdp.evaluate(`document.querySelector('.steward-now-thread[data-session-id="${idG}"] .steward-now-thread-main').click(), true`);
+  const swapped = await waitForEval(cdp, `(() => {
+    const snapshot = ${NOW};
+    return snapshot && snapshot.focusId === ${JSON.stringify(idG)}
+      && snapshot.drawerTitle === ${JSON.stringify(THREAD_G)} ? snapshot : null;
+  })()`);
+  ok(Boolean(swapped) && Date.now() - clickedRowAt <= 5000,
+    `S7 点那条已收工的小行 → 5 s 内它成为抽屉本体，抽屉里的内容【就是这条线程的】（标题「${swapped && swapped.drawerTitle}」；实测 ${Date.now() - clickedRowAt}ms）`);
+  ok(swapped && swapped.rows.every(row => row.sessionId !== idG)
+    && swapped.rows.some(row => row.sessionId === idF)
+    && JSON.stringify(swapped.order) === JSON.stringify(stacked.order),
+    `S7b 换焦点只换「谁是抽屉」：刚才那条 F 退回小行，列内顺序一个字没动（换焦点前 ${JSON.stringify(stacked && stacked.order)}，换焦点后 ${JSON.stringify(swapped && swapped.order)}）`);
+  // ── 就地回答：光标【当场】落进抽屉既有的回答口，那条线程也成了抽屉本体 ─────────────────────
+  // 为什么要在【同一次 evaluate 里】点完就读：抽屉自己的 openThread 末尾也会 focusAsk（117l D4），
+  // 所以「过几秒之后光标在输入框里」这句话【不能证明】就地回答做了什么 —— 写这条锁时先做了反向
+  // 验证：把 answerHere 里那两行焦点交接删掉，整件仍然 ALL PASS。真正属于本刀的是【这一帧】：
+  // 点下去的那一刻抽屉的数据还在飞，它自己只把焦点放在标题上（openThread 的同步段），要等一趟
+  // 网络回来才轮到 focusAsk；答话的人这段时间没有光标可用。就地回答当场把光标交给抽屉既有的
+  // 输入口，所以点完立刻读，activeElement 就已经是那两个输入框之一。
+  const clickedAnswerAt = Date.now();
+  const answering = await cdp.evaluate(`(() => {
+    document.querySelector('.steward-now-thread[data-session-id="${idH}"] [data-action="answer"]').click();
+    return ${NOW};
+  })()`);
+  ok(answering && answering.focusId === idH
+    && (answering.active === 'stewardDrawerAskInput' || answering.active === 'stewardDrawerInput'),
+    `S8 就地回答按下去的【那一帧】：那条线程已经是抽屉本体，光标已经在抽屉既有的输入口里（实测 activeElement=${answering && answering.active}，不是抽屉加载时自己抓走的 stewardDrawerTitle；${Date.now() - clickedAnswerAt}ms）`);
+  // 光标先落进底部那个输入口（S8 已经断言过），抽屉这一趟的数据还在飞 —— 117k 的「读取中…」闸
+  // 落下之后标题才是真的，所以这一条单独等一次（等的是内容，不是焦点）。
+  const answeringOn = await waitForEval(cdp, `(() => {
+    const snapshot = ${NOW};
+    return snapshot && snapshot.drawerTitle === ${JSON.stringify(THREAD_H)} ? snapshot : null;
+  })()`);
+  ok(Boolean(answeringOn) && answeringOn.focusId === idH
+    && (answeringOn.active === 'stewardDrawerAskInput' || answeringOn.active === 'stewardDrawerInput'),
+    `S8b 抽屉里开着的正是那一条（标题「${answeringOn && answeringOn.drawerTitle}」），闸落之后光标仍在抽屉的输入口里（实测 ${answeringOn && answeringOn.active}）—— 答案因此走抽屉那唯一一条递话路径，右栏没有第二个输入框`);
 
   // ── ⑧ 缩到 900px → 不常驻 ────────────────────────────────────────────────────
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });

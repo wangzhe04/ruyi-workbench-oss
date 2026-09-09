@@ -469,6 +469,22 @@ ok(/\} else if \(reply\.kind === 'plan' \|\| reply\.kind === 'pool'\) \{/.test(d
 ok(/function askOptionReplies\(\) \{[\s\S]{0,900}if \(type !== 'plan' && type !== 'pool'\) return \[\];/.test(drawer),
   'J11c 四类白名单之外（replan…）一枚按钮都不给 —— 给一枚点了没用的按钮比不给更坏');
 
+// ─── K F3（32 号文 §2.2）：右栏「就地回答」把光标交回抽屉，抽屉这一侧只多了一个只读句柄 ──────
+// 「现在这几件」把等你的那条线程做成可就地回答的小行。诚实的零重复形状是：小行只负责【聚焦】，
+// 答案仍然从抽屉这一份输入口发出去 —— 所以抽屉这边只该多一个 focusComposer，发送路径一处不加。
+// 本组钉的是「输入口与发送路径都还是一份」这件事，不钉那几行长什么样。
+ok(/function focusComposer\(\) \{[\s\S]{0,200}byId\('stewardDrawerInput'\)/.test(drawerCode)
+  && /focusComposer,/.test(drawer) && /focusAsk,/.test(drawer),
+  'K1 抽屉导出 focusComposer（把光标放回底部「直接对这条线程说」），与 focusAsk 一起构成右栏就地回答的两个落点');
+ok(count(drawerCode, /api\('\/api\/steward\/relay'/g) === 1
+  && count(drawerCode, /api\('\/api\/chat\/answer'/g) === 2
+  && !/api\(/.test(drawerCode.slice(drawerCode.indexOf('function focusComposer()'), drawerCode.indexOf('function renderQuickReplies'))),
+  `K2 发送路径一处不加：递话单口仍然只有 1 个调用点、答复口仍然是既有那 2 个（卡里的自由回答 ＋ 选项按钮；实测 ${count(drawerCode, /api\('\/api\/steward\/relay'/g)}／${count(drawerCode, /api\('\/api\/chat\/answer'/g)}），新句柄自己一个请求都不发`);
+const drawerMarkup = html.slice(html.indexOf('id="stewardDrawer"'), html.indexOf('</aside>', html.indexOf('id="stewardDrawer"')));
+ok(count(drawerMarkup, /<textarea/g) === 2
+  && drawerMarkup.includes('id="stewardDrawerAskInput"') && drawerMarkup.includes('id="stewardDrawerInput"'),
+  `K3 全壳仍然只有抽屉里这两个输入框（问答卡一个、底部一个）——右栏没有、也不许有第三个（实测 ${count(drawerMarkup, /<textarea/g)} 个）`);
+
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

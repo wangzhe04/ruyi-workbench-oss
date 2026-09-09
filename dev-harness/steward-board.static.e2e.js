@@ -42,6 +42,9 @@ const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.
 const stripComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 const boardCode = stripComments(board);
 const classicCode = stripComments(classicWindow);
+// F3（M 组）：抽屉那一侧也要剥注释再比对 —— 「递话原语只有一个调用点」这种计数断言，
+// 撞上注释里那几处 /api/steward/relay 的说明文字就会假红。
+const drawerCode = stripComments(drawer);
 const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
 const count = (source, pattern) => (source.match(pattern) || []).length;
 
@@ -484,6 +487,43 @@ ok(count(boardCode, /syncNow\(\{ focusRequest: true \}\)/g) === 1
   && /if \(!syncNow\(\{ focusRequest: true \}\) &&/.test(boardCode)
   && count(boardCode, /drawer\.refreshOnce\(\)/g) === 1,
   'L3 强刷只挂在【焦点请求】这一条路上（全模块唯一一处 focusRequest:true 就在 focusThread 里，而焦点／打开事件、行标题、行上的「打开」四条路都经它）—— refreshBoard 的每一拍、closeNow、leaveSteward、断点变化那几处 syncNow() 不强刷');
+
+// ─── M F3（32 号文 §2.2「线程即频道」）：右栏从「现在这一件」变成「现在这几件」──────────
+// 焦点那一条【仍然是那一份 docked 抽屉】（E 组一个字没动），其余线程按服务端行序在它上下叠成
+// 小行。本组钉的是这一刀最容易被后人悄悄破坏的五件事，全都可证伪：
+//   ① 两条 stack 的 id 是导出的冻结常量，且【不在】 index.html 的静态骨架里（右栏仍然只是挂点）；
+//   ② 右栏不排第二次序（117s-A 已经在 13d 一处排好，客户端再排一次就会与看板／抽屉页签打架）；
+//   ③ 「就地回答」不长第二条发送路径（看板零发送端点，抽屉里递话原语恰好一个调用点）；
+//   ④ 看板不认识任何输入框 id —— 落点是抽屉导出的两个句柄（focusAsk → focusComposer）；
+//   ⑤ 小行不为自己另造一套颜色与五态判据（点与药丸复用看板既有类，展开与否只读 data-tone）。
+ok(JSON.stringify(mod.STEWARD_NOW_STACK_IDS) === JSON.stringify({ before: 'stewardNowStackBefore', after: 'stewardNowStackAfter' })
+  && Object.isFrozen(mod.STEWARD_NOW_STACK_IDS)
+  && !html.includes('stewardNowStackBefore') && !html.includes('stewardNowStackAfter'),
+  'M1 两条小行叠的容器 id 是导出的冻结常量（不是散落字面量），且骨架里没有它们 —— #stewardNow 仍然只是一个挂点（A5/A7 未被本刀稀释）');
+const renderNowBody = boardCode.slice(boardCode.indexOf('function renderNow(focusId)'), boardCode.indexOf('function clearNow()'));
+ok(renderNowBody.length > 0 && count(renderNowBody, /\bsort\(/g) === 0
+  && /rows\.forEach\(\(row, at\) =>/.test(renderNowBody)
+  && count(renderNowBody, /appendChild\(renderNowThread\(row\)\)/g) === 1,
+  `M2 右栏的行序【原样取 GET /api/missions】：renderNow 里零 sort（实测 ${count(renderNowBody, /\bsort\(/g)} 处），一次遍历一处出行 —— 117s-A 的状态优先序只在 13d 排一次，看板／抽屉页签／右栏消费同一份`);
+ok(count(boardCode, /steward\/relay/g) === 0 && count(boardCode, /chat\/answer/g) === 0
+  && count(drawerCode, /api\('\/api\/steward\/relay'/g) === 1,
+  `M3 「就地回答」零第二条发送路径：看板里零递话／答复端点，递话原语在抽屉里恰好一个调用点（实测 ${count(drawerCode, /api\('\/api\/steward\/relay'/g)} 处）`);
+ok(!/stewardDrawerInput/.test(boardCode) && !/stewardDrawerAskInput/.test(boardCode)
+  && /drawer\.focusAsk === 'function' && drawer\.focusAsk\(\)/.test(boardCode)
+  && /drawer\.focusComposer/.test(boardCode) && /focusComposer,/.test(drawer),
+  'M4 看板不认识任何输入框 id：就地回答的落点是抽屉导出的两个句柄（有问答卡走 focusAsk，没有才落到底部 focusComposer），输入框与发送逻辑都只在抽屉里有一份');
+const nowThreadBody = boardCode.slice(boardCode.indexOf('function renderNowThread(row)'), boardCode.indexOf('function renderNowCount('));
+ok(/paintDot\(el\('span', 'steward-board-dot'\), threadState\)/.test(nowThreadBody)
+  && /el\('span', 'steward-board-pill', stateLabel\(threadState\)\)/.test(nowThreadBody)
+  && !/steward-now-dot/.test(cssCode) && !/steward-now-pill/.test(cssCode),
+  'M5 小行的五态点与状态药丸复用看板既有的两个类（颜色仍只经 dockToneForMissionState 的 data-tone），样式层零 .steward-now-dot/.steward-now-pill —— 右栏没有第二套颜色');
+ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
+  && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
+  `M6 「展开还是折成一行」只读 paintDot 出的 data-tone（四档里的前两档），零新增五态字面量：needs_you 仍然恰好两处、'stopped' 一处、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+ok(/\.steward-now-stack \{/.test(cssCode) && /max-height: 33%;/.test(cssCode) && /overflow-y: auto;/.test(cssCode)
+  && /\.steward-now-stack:empty \{ display: none; \}/.test(cssCode)
+  && !/\.steward-now-(stack|thread)[^{]*\{[^}]*transition/.test(cssCode),
+  'M7 两条 stack 各自最多吃三分之一高度并自己滚（线程再多也挤不掉正在看的那一件），空叠不占位；本组零过渡，reduced-motion 清单一个字不用动');
 
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

@@ -648,6 +648,18 @@ export function createStewardDrawer({
     return true;
   }
 
+  // F3（32 号文 §2.2「现在这几件」）：右栏小行上的「就地回答」把光标交回抽屉自己的输入口。
+  // 与 focusAsk 的分工：真有人在问你时那一份优先（问答卡才是正式答复口，答案走 /api/chat/answer），
+  // 没有卡就落到这里 —— 底部「直接对这条线程说」，话仍然走 sayToThread 那唯一一处
+  // POST /api/steward/relay。看板因此不需要认识任何输入框 id，右栏也就长不出第二个输入框、
+  // 第二条发送路径（这是「就地回答」零重复的唯一形状）。
+  function focusComposer() {
+    const input = byId('stewardDrawerInput');
+    if (!input || typeof input.focus !== 'function') return false;
+    try { input.focus(); } catch { return false; }
+    return true;
+  }
+
   // ── ⑥ 你可以说 ──────────────────────────────────────────────────────────────
   function renderQuickReplies() {
     const section = byId('stewardDrawerQuickReplies');
@@ -1147,6 +1159,9 @@ export function createStewardDrawer({
     // 117m-A2：「N 条等你」恰好 1 条时的直达。抽屉自己在数据到齐那一帧已经聚过一次焦
     // （openThread 末尾），这个句柄补的是「右栏已经开着同一条线程」那种不重走加载的情况。
     focusAsk,
+    // F3「就地回答」：没有问答卡时的落点（底部「直接对这条线程说」）。看板拿到的是这个句柄，
+    // 而不是输入框本身 —— 输入框与发送逻辑都只在抽屉里有一份。
+    focusComposer,
     refreshOnce,
     chips,
   });

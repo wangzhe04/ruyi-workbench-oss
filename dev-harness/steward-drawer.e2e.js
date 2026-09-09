@@ -690,6 +690,37 @@ try {
   ok(auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idB).length === 0,
     'E7c 这条路上零 turn_kill');
 
+  // ── H F3（32 号文 §2.2）：右栏变成「现在这几件」之后，抽屉【仍然只有一份】────────────────
+  // 这一刀最容易破坏的就是本件的头号纪律：右栏叠起小行之后，很容易有人顺手把抽屉的区块复制一份
+  // 进小行里（「小卡也要有它刚说、也要有回答框」）。那样壳里就有了两份抽屉渲染与两个输入框。
+  // 判据不看小行长什么样，只看两件事：整页 id 以 stewardDrawer 开头的节点【全部】在同一棵
+  // #stewardDrawer 子树里；右栏的小行里一个抽屉区块 id 都没有（区块清单取自模块导出的冻结表）。
+  const NOW_STACK = `(() => {
+    const body = document.getElementById('stewardNowBody');
+    const drawer = document.getElementById('stewardDrawer');
+    if (!body || !drawer) return null;
+    const rows = [...body.querySelectorAll('.steward-now-thread')];
+    const ids = ${JSON.stringify(['stewardDrawerMission', 'stewardDrawerTabs', 'stewardDrawerHead', 'stewardDrawerAsk',
+    'stewardDrawerChips', 'stewardDrawerLastSay', 'stewardDrawerQuickReplies', 'stewardDrawerMore',
+    'stewardDrawerRelay', 'stewardDrawerActivity', 'stewardDrawerAcceptance', 'stewardDrawerScene',
+    'stewardDrawerFoot'])};
+    return {
+      rows: rows.length,
+      blocksInRows: rows.reduce((sum, row) => sum + ids.filter(id => row.querySelector('#' + id)).length, 0),
+      inputsInRows: rows.reduce((sum, row) => sum + row.querySelectorAll('textarea, input').length, 0),
+      strays: [...document.querySelectorAll('[id^="stewardDrawer"]')].filter(node => node !== drawer && !drawer.contains(node)).length,
+      drawerParent: drawer.parentElement ? drawer.parentElement.id : '',
+    };
+  })()`;
+  const oneDrawer = await waitForEval(cdp, `(() => {
+    const snapshot = ${NOW_STACK};
+    return snapshot && snapshot.rows > 0 ? snapshot : null;
+  })()`) || await cdp.evaluate(NOW_STACK);
+  ok(Boolean(oneDrawer) && oneDrawer.rows > 0 && oneDrawer.drawerParent === 'stewardNowBody',
+    `H1 右栏叠着小行，抽屉那一份仍然是搬进 #stewardNowBody 的【同一个】节点（实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
+  ok(oneDrawer && oneDrawer.blocksInRows === 0 && oneDrawer.inputsInRows === 0 && oneDrawer.strays === 0,
+    `H1b 小行里零抽屉区块、零输入框，整页也没有第二处 #stewardDrawer* 节点（实测 区块 ${oneDrawer && oneDrawer.blocksInRows}／输入框 ${oneDrawer && oneDrawer.inputsInRows}／游离 ${oneDrawer && oneDrawer.strays}）`);
+
   // ── ⑧ Esc 关闭 ─────────────────────────────────────────────────────────────
   await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true`);
   const closed = await waitForEval(cdp, `(() => {
