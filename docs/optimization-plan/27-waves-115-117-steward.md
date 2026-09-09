@@ -1395,3 +1395,21 @@ G 第一次 `git commit` 因参数笔误中止，那一瞬间 HEAD 已从 `fe67e
 
 **合并**：分支 `claude/suspicious-cartwright-0bef9d` 全部为线性提交，master 未动，主树 `git merge --ff-only claude/suspicious-cartwright-0bef9d` 即可；
 合并后主树跑 `node dev-harness/observation-recall-realhistory.e2e.js` 等三件 realhist 件补验。
+
+### 11.14 117t 交付记录 · 「线程即频道」落地与拆 13g（2026-09-09 下午起，三刀并行）
+
+分工与共享资源归属见 32 号文 §2.2.1。逐刀记录（主会话亲验，不采信执行者自述）：
+
+| commit | 刀 | 主会话怎么核的 |
+|---|---|---|
+| `242373a` | **F1+F4** 线程卡与回复定型 | 亲跑 `steward-conversation.static` **199 PASS ALL PASS**；提交只含 4 个文件（零 locale、零 `read-frontend-css.js`）；把它新引入的每个 `t()` 键与两份 locale 逐个比对——**全部可解析、零新键**；亲看截图：绿条「大A」卡（五态药丸＋`20秒钟前 · gpt-5-mini`＋打开）、无色条的管家自述（粗体首句＋折叠体＋展开）、珊瑚条「博纳」卡。 |
+
+#### F1 的三处设计取舍（执行者如实报上来的，我认可，登记）
+
+1. **卡与既有分组不冲突，因为它不建新容器**：`markThread` 与既有 `markGroup` 用同一套「只看上一行」的追加式判据，stamp 出 `is-thread/-start/-end`；一段线程 run 恒落在一个说话人组之内，两者撕不开。唯一交互是一行 CSS：有色条的行让出那条淡分组线（与「头像所在那组不画线」同一个理由）。`is-group-start/end` 与间距规则**逐字节未动**。
+2. **五态只能给出四态**：卡头的状态来自 `GET /api/sessions/:id` 信封（`relay.channel` > `resumable.live` > 头上的 `stewardLastTurn/turnSeq`），因此能说 needs_you／queued／running／stopped／done，**永远说不出「交办中」**——那要 `mission-state.js` 的判据，而它要事项账本与待决计数，只在 `/api/missions` 的卡上有，那条路由归 F3 的看板。信封没说的时候**药丸整个不画**，不猜。这是对的：宁可少说一态，也不要在对话区造第二份五态判据。
+3. **正文折叠会把 `※` 一起折进去**（`※` 挂在 say 尾段的 `<p>` 里，117s-C 的 S3c 钉着这一点）。点一次展开即露出。把 `※` 挪出正文会破 S3c，未改，登记。
+
+#### 顺带记的一笔债
+
+`deliverableCache` 按 `sessionId|turnSeq` 缓存，同一条线程跨 3 个回合出现就取 3 次同一个信封（117s-H 引入，本刀只是让它显形）。改成会话级缓存是干净的下一刀，但会动 117s-H 的 P9 锁。**未改，登记。**
