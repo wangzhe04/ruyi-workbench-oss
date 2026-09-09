@@ -717,7 +717,11 @@
   gap: var(--sp-2);
   padding: var(--sp-1) 0 var(--sp-2);
   border-bottom: 1px solid var(--glass-border);
-  background: var(--glass-bg-1);
+  /* F2 收尾：粘条必须【不透明】。--glass-bg-1 是「框架族」token（顶栏/侧栏浮在页面底色上），
+     暗色档只有 6.5% 不透明度 —— 贴在滚动正文上方时字会从背后透出来（真机截图坐实）。
+     仓里其余 position:sticky 的表头（preview-narrative-head / preview-crew-head）用的都是
+     不透明面 token，这里跟同一条house style；blur 留着只影响圆角外沿，不再承担遮挡职责。 */
+  background: var(--panel);
   -webkit-backdrop-filter: var(--glass-blur-2);
   backdrop-filter: var(--glass-blur-2);
   overflow-x: auto;

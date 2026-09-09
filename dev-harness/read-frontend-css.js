@@ -354,7 +354,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 同源）；「HEAD ＋ 本刀这一层」= 下面这个值，两者只差 steward-conversation.css 一层。
 // 反向验证：往本层追加一条无关规则 → live-full-text F3 与 frontend-domains D51 当场双双转红；
 // 还原后该文件 sha256 与追加前逐字节相同、两个消费者都回绿。
-const LEGACY_STYLES_SHA256 = '6cf3351246747c8332f479262d56a9264b050dff25310fe2fc23948cc37c4de7';
+const LEGACY_STYLES_SHA256 = '8fe8f54dc08b4c6998ae292f935b730f748c572e4f004324ef8436694364fad6';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
