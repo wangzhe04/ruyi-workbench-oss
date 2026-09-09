@@ -50,13 +50,58 @@
 
 ### 2.1 刀 T1 · 拆 `13g-steward.js`（**第一刀，必须先做**）
 
+> ## ⚠ 本节已作废：T1 **已经落地**（`c5287ba`，2026-09-09 夜）
+>
+> `13g-steward.js` 已 **2088 → 358 行**，拆成 `13j-steward-tool-base.js`(407) ＋ `13k-steward-threads.js`(754) ＋
+> `13l-steward-ops.js`(635)。纯搬家已由主会话**独立复算**证明：`server.js` 顶层函数名 1471==1471 diff 0、
+> 非注释行多重集 37551==37551 diff 0；`forwardEdges 67 → 67`。交付记录见 27 号文 §11.14。
+>
+> **与下面这份侦察稿的两处实质分歧**（实现方胜出，理由已验证）：
+> ① **命名**：稿子用 `13g1-`/`13g2-`，但 SPEC §1 的 `moduleLayer()` 正则 `^13[a-z]?-` 会把 `13g1-` 判成
+> `unclassified`；单字母后缀（`13j/13k/13l`）才留在传输层。
+> ② **文件数**：稿子分三份，实际必须**四份**——拼接顺序即依赖方向，注册表引用所有 `stewardImpl*` 故必须在最后，
+> 共享常量被两族工具引用故必须在最前，二者不能同居一个文件，于是多出 base 层 `13j`。
+>
+> 下面的原稿**原样保留**：它的逐行归属表与 9 处撞锁清单是那次侦察的真实产出，将来若要再拆
+> （如 `13h-steward-runner.js` 2523 行同样超标）仍是可直接照抄的方法样板。**但不要照它动手拆 13g。**
+>
+> ——以下为第二会话原稿——
+>
+> **状态（2026-09-09，第二会话）：方案已完整侦察并交叉验证，代码零改动（13g 仍 2088 行原样）。**
+> 本节已把「面」落到逐行行号与逐键归属；派单前仍须按 §4.1 核一遍行号（HEAD 若已前进，行号会漂）。
+> 该会话未执行的原因是它的长文本写入通道故障（heredoc 在 10 KB 处截断），与方案本身无关。
+
 **为什么先做**：它已 2088 行，`steward-runner.static.e2e.js` ① 「13g ≤ 2000 行」**在 HEAD 上就是红的**（117s 之前就红，本波又加深）。31 号文七轴要往管家里加 8–12 个工具，没地方放。
 
-- **面**：按工具族把 `src/13g-steward.js` 拆成 `13g-steward.js`（工具注册表＋分发＋共享常量）＋ `13g1-steward-threads.js`（thread_new/continue/read/rename/status/permission/stop/quick_ask）＋ `13g2-steward-ops.js`（memory_*／config_*／playbook_draft／audit_tail／usage／decide／run_action／missions／inbox_read／self_status／runs_status／health／skill_toggle／threads_search）。命名与分层按 SPEC §1；**纯搬家**，零行为改动。
-- **纪律**：`manifest.json` 顺序、`module-contracts.json`、后向边（新文件必须排在所有消费者之前）；**`forwardEdges` 必须仍是 67**；`build --check` 新鲜；生成器链整条重跑（30 号文 §8.7）。
-- **撞锁**：`steward-runner.static` ①（拆完自然绿）、②（hook-key 计数 18，别动）；`steward-tools.static` 的工具计数；`route-inventory.static`（应无变化）；`module-dependency-graph.static`。
-- **验收**：搬家前后 `git show HEAD:.../13g-steward.js` 的函数体逐个 `diff` 应为空（只有 import/export 位置变）；`steward-tools.e2e`、`steward-runner.e2e`、`steward-inbox.e2e`、`steward-deliverable.e2e`、`steward-quick-ask.e2e` 全绿。
-- **反向验证**：故意把一个工具从注册表漏掉 → `steward-tools.static` 计数锁必须红。
+- **面**：`13g-steward.js`（域路由＋决策日志＋记忆存储＋共享基础设施＋四键注册）＋ `13g1-steward-threads.js`（线程族 11 键）＋ `13g2-steward-ops.js`（观察/决策/记忆/设置/内容族 17 键）。**纯搬家**，零行为改动；新写内容仅限三个文件头、13g 内三条指路注释、13g1/13g2 各自的注册段包装。
+- **命名与 manifest**：新顺序 `… 13i, 13g, 13g1, 13g2, 13h, 14 …`（字母序≠manifest 序，13i 仍在 13g 前）。`13g1-`/`13g2-` 不匹配 `dev-harness/module-dependency-graph.js:45` 的 `/^13[a-z]?-/`，须把 transport 行扩为 `/^13[a-z]?[0-9]?-/`（先例：SPEC §1 110-2-pre 扩字母后缀），否则两文件落 unclassified。
+- **归属原则**：共享基础设施全部留 13g——门控壳（stewardFail/stewardToolHandler/stewardCtxIsSteward）、小工具、深读预算、回合配额桶（13g1 与 13g2 都引用它，放任何一侧都与 13g2→13g1 的速查判据边成环）、常量块、决策日志写读面、记忆存储、记忆面板六函数、域路由。**stewardImplMemoryVeto 也留 13g**：路由表（POST /api/steward/memory/veto）直调它，搬走会把路由变成前向边；13g2 经后向边注册它的工具键。
+- **注册模式**：13g 的 `Object.assign(StewardHooks, …)` 只留四键（handleApiRoutes/stopInbox/inboxRead/inboxState）；13g1/13g2 各自用自己的 `Object.assign` 自注册（13g 对新文件零引用）。每个实现仍经 13g 的 stewardToolHandler 包门控壳（开关→身份→实现），键名与 06i 契约逐条对应。
+- **依赖侦察（已验证，勿重开）**：13g 的 95 个 requires 全部来自更早模块；**唯一外部消费者是 13h-steward-runner.js**（11 个符号全后向：`_stewardReadBudget, stewardAppendDecision, stewardBasisOf, stewardFail, stewardQuickThread, stewardRawKind, stewardReadMemoryStore, stewardReadSessionHead, stewardRunResumeTier, stewardThreadPermissionMode, stewardToolHandler`）。拆分后 stewardQuickThread→13g1、stewardRunResumeTier→13g2、其余 9 个留 13g，13h 三条边全后向。13g 对 13h **零符号引用**（逐 token 扫）；13g1 对 13g2 的唯一「引用」是一行注释（stewardImplDecide/stewardImplRunAction）；其余疑似缺失符号全是属性访问（`config.stewardAutoActions` 等）或来自 06i/13i。边统计口径为模块对级（`from->to`）：全部新边后向，**forwardEdges 必须仍是 67，SCC 仍是 1，重复导出仍是 0**；13g 不在现有 SCC 内。policy 的 67 条 allowedForwardEdges 无一涉及 13g/13h，**`module-dependency-policy.json` 不用动**；route-inventory / durable-state-inventory / architecture-contract-snapshots 也不用改（路由全留 13g；决策日志与记忆存储的 owner 仍 13g）。
+- **分块映射**（1-based 行号，锚点已抽验；装配脚本必须内置：锚点断言＋「1–2088 每行恰好一个归属」全覆盖校验＋段序无缝拼合校验，任一不符即 abort）：
+
+| 目的地 | 段（闭区间） |
+|---|---|
+| 13g 保留 | 20–539（路由/基础设施/小工具/决策日志/记忆存储/深读预算）、1529–1544（memoryVeto）、1605–1717（116-2e 横幅＋记忆面板）、1821–1834（回合配额桶）、2046–2053（延迟绑定注释＋四键）＋原 2088 `});` |
+| 13g1 | 647–825（threadStatus/threadRead）、928–1223（线程族横幅/recordLaunchOutcome/launchTurn/触发闸/threadNew/Continue/Rename/Permission）、1393–1436（threadNote）、1890–2045（quickAsk/enrichInboxRows/quickClose/quickClosed/quickThread）＋键行 2060–2061、2068–2072、2084–2087 |
+| 13g2 | 540–646（观察族横幅/selfStatus/threadsSearch）、826–927（runsStatus/inboxRead/usage/health/auditTail）、1224–1392（决策族横幅/decide/runAction 含 STEWARD_RUN_* 与 stewardRunResumeTier）、1437–1528（记忆族横幅/memoryWrite）、1545–1604（memorySearch/missions）、1718–1820（设置族横幅/configGet/configSet＋内容管理横幅）、1835–1889（playbookDraft/skillToggle）＋键行 2058–2059、2062–2067、2073–2083（2078–2079 注释随 configGet） |
+| 丢弃 | 1–19（旧头，改写）、2054–2057（116c 旧注册注释，实质写进 13g1/13g2 注册段包装） |
+
+  13g 三处空洞插指路注释：539 后（总括＋veto 为何留下）、1717 后（配额桶为何留 13g）、2053 后（28 键去了哪）。
+- **撞锁（9 处重钉；断言期望值一律不变，只改读取来源）**：
+  1. `steward-runner.static.e2e.js`：L47「13h 紧跟 13g」**重钉为 13g→13g1→13g2→13h 链**（保留 L48 13h 在 14 前）；L127 `consumedText` 必须拼 src13g1＋src13g2（否则 relayDeliver/applyThreadTier 被判无人消费而红）；L68-70 consumers 加 13g1/13g2。① 的 2000 行闸拆完**自然绿**。
+  2. `steward-tools.static.e2e.js` ⑦：L261 ALLOWED 加 `'13g2-steward-ops.js'`（config_set/skill_toggle 两处 ctx.userPressed 读在 13g2；13g 门控壳剥字段仍在 13g）；L276-278 readers 计数改从 src13g2 数，期望值仍 2；L254-257 注释同步。③ L153 Object.assign 在 13g 仍在 ✓。
+  3. `steward-events.static.e2e.js`：D4 L141 重钉为 `files[i+1..i+3] === 13g1/13g2/13h`；D7 L253 改读 13g1（stewardRecordLaunchOutcome、launchedBy×2 在 13g1）。
+  4. `steward-guardrails.e2e.js` L737：src13g 改为三文件拼接读取（739 定义在 13g1、740 否定断言、742 计数 ≥3 跨拼接仍成立）。
+  5. `thread-arbiter.e2e.js` L634 改读 13g1（threadStatus 的 waitReasonFor）；L638 列表把 '13g-steward.js' 换成 '13g1-steward-threads.js'。
+  6. `steward-config-tools.e2e.js` L195 改读 13g2（applyConfigPatch(patch)）。
+  7. `steward-content-tools.e2e.js` L177 改读 13g2（setSessionSkillsCore）。
+  8. `unit/thread-state-quick-kind.test.js` L143 ALLOWED_NO_FACTS 把 '13g-steward.js' 换成 '13g2-steward-ops.js'，L147 读取同步换（factsUnknown 兜底支在 threadsSearch→13g2）。
+  9. `thread-brief.static.e2e.js` L44 steward 变量改读 13g2（只用于 L96 threadsSearch 的 brief 断言）。
+- **执行序**：装配脚本（锚点断言→切段→组装→写盘；放 `.ruyi-runtime/` 下一次性产物，跑完删）→ manifest 插两条（note 写「T1(32号文§2.1) 纯搬家」）＋改 13g note → 依赖图正则扩展 → 生成器链整条重跑（30 号文 §8.7）：`build.js` → `module-dependency-graph.js --write` → `--check`（核 67/0/1）→ `route-inventory.js`（产物应零变化）→ `architecture-contract-snapshots.js --write` → `durable-state-inventory.js --write` → `facts-generate.js`（模块数 41→43）→ `build.js --check` 新鲜 → 9 处锁重钉（文件互不重叠，**可并行派单**）→ `run-all.js --fast` → 验收集。
+- **验收**：函数体 diff——`git show HEAD:.../13g-steward.js` 与新三文件抽取顶层 function/const 逐个比对，除文件头/指路注释/注册包装外**逐字节一致**；`steward-tools.e2e`、`steward-runner.e2e`、`steward-inbox.e2e`、`steward-deliverable.e2e`、`steward-quick-ask.e2e` 全绿；`run-all.js --parallel 4` 全量回归（3 件 realhist 在主树应绿，红逐条串行复验）。
+- **反向验证**：① 从 13g2 注册表注释掉一个键（如 memorySearch）→ `steward-tools.static` ③ 必须红 → 还原；② 两处重钉锁（steward-runner 的链条、steward-events D4）各做「破坏→红→还原」。
+- **提交**：commit 由用户拍板（SPEC §4）。用 30 号文 §8.7 的 `git archive HEAD` 干净副本法，不用 `git add -A`；建议信息 `refactor(structure): T1 split 13g-steward.js -> 13g1-steward-threads.js + 13g2-steward-ops.js (pure move, zero behavior)`。2078–2079 注释提到的基础设施键已搬 13g1，属可容忍的历史表述，在 commit 信息里交代。
 
 ### 2.2 刀 F1–F5 · 「线程即频道」落地（只动前端，五片可串可并）
 
@@ -146,6 +191,7 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
 6. **回归的红要逐条串行复验。** `--parallel 4` 下大量红是「起不来服务」的级联；`run-all` 日志是交错的，真红只看结尾「失败件 tail」的标题。**别用 8 路。**
 7. **补丁脚本吃反斜杠**：heredoc → python/node 里写正则时 `\b`／`\(` 会被吞或告警，断言可能永远为真且肉眼看不出。改文件优先用 Edit 工具；非用脚本不可时，写完 `cat -A` 验字节 ＋ 反向验证。
 8. **隔离 worktree 跑回归**：3 件 realhist 件必红（fixture 只在主树），`.gitignore` 的 CRLF 是 autocrlf checkout 产物（master 里是 LF），都不是回归。
+9. **长文本写入会截断（2026-09-09 事故）**：一次 ~12 KB 的 heredoc 在 10 KB 处无声截断，装配脚本残件差点入库。生成/装配类脚本：优先 Write 工具一次落盘（无 shell 传输层）；非用 heredoc 不可时切块 < 4 KB 追加、每块 `wc -c` 核累积字节，跑之前先验语法（`node --check`）。
 
 ---
 
