@@ -2032,5 +2032,10 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 // Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
 function responsesHistoryWithCompleteToolPairs(history) {
   const paired = Array.isArray(history) ? history.slice() : [];
-  return { history: paired, repaired: repairProviderHistoryPairing(paired) };
+  // 参数铁律自愈同址施行(见 02-session-store.js)。与配对自愈不同,它是【就地】改消息对象的
+  // ——— 浅拷贝共享同一批 message,故这一改会落到调用方的历史上。这是刻意的:把 arguments 改成
+  // 当时实际执行用的 '{}' 正是我们想让它【持久】的终态(与配对自愈往数组里插合成回复不同,那种
+  // 改写只该活在请求体投影里,所以那条仍严格只动副本)。
+  const argsRepaired = repairProviderHistoryToolArgs(paired);
+  return { history: paired, repaired: repairProviderHistoryPairing(paired) + argsRepaired };
 }

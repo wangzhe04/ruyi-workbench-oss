@@ -605,6 +605,7 @@
         "irreversibleDetail",
         "irreversibleToolKind",
         "isBridgedWriteTool",
+        "isProviderToolArgsObject",
         "isUntitledSessionTitle",
         "ivCacheKey",
         "journalBytesAdjust",
@@ -673,6 +674,7 @@
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
+        "providerHistoryToolCalls",
         "readInterventions",
         "readInterventionsWithMeta",
         "readMissionChangesWithMeta",
@@ -689,6 +691,7 @@
         "registerIntervention",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
+        "repairProviderHistoryToolArgs",
         "rewindSession",
         "safeMissionId",
         "saveSession",
@@ -4707,6 +4710,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryToolArgs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
@@ -5141,6 +5151,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "missionSignalThrottleAllow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "providerHistoryToolCalls",
           "kinds": [
             "call"
           ]
@@ -5927,6 +5944,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "providerHistoryToolCalls",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
           "kinds": [
             "call"
@@ -5963,6 +5987,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairProviderHistoryPairing",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryToolArgs",
           "kinds": [
             "call"
           ]
@@ -14667,6 +14698,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairProviderHistoryPairing",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryToolArgs",
           "kinds": [
             "read"
           ]

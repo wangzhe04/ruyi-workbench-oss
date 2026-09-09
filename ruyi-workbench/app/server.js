@@ -5929,6 +5929,71 @@ function repairProviderHistoryPairing(history) {
   return repaired;
 }
 
+// ── 工具调用参数铁律(第117波;用户线上事故:Qwen/DashScope HTTP 400 invalid_parameter_error
+//    "The \"function.arguments\" parameter of the code model must be in JSON format.")────────────────
+// 事故形状与上面的孤儿 tool_calls 是同一个模具,只是毒在【参数】而不是【配对】上:
+//   ① 三处回放点(09-workflow.js 的两处 providerHistory.push、08-agent-runs.js 子代理那处)把模型给的
+//      rawArgs【逐字节】写成 assistant.tool_calls[].function.arguments,不做任何 JSON 保证;
+//   ② 三个 rawArgs 生产者(07-autonomy.js Responses 非流式 / Chat 非流式 / 流式槽收口)只对【假值】
+//      兜底 `|| '{}'` —— 空串救得回来,"非空但不合法"救不回来;
+//   ③ 流式是纯拼接(07-autonomy.js `slot.args += tc.function.arguments`)。流被截断(客户端断流、
+//      供应商截流、触顶 token)时 slot.args 停在半截 JSON 上,非空,直接躲过 ②;
+//   ④ 每个执行方却都是 `JSON.parse(tc.rawArgs || '{}') catch → {}` —— 工具【实际按 {} 跑了】,
+//      历史却声称那截烂片段。历史与执行各说各话,严校验供应商见到 arguments 不是 JSON 对象即 400;
+//   ⑤ 这条毒回合已落盘 → 之后每次请求都重发它 → 会话永久卡死(与孤儿历史一字不差的死法)。
+// 判据:arguments 必须能 JSON.parse 成【对象】。数组/标量/空串都不合法 —— 供应商按对象反序列化参数,
+// '[1,2]' 能 parse 却填不进 function 的具名参数,同样 400。
+function isProviderToolArgsObject(raw) {
+  if (typeof raw !== 'string' || raw === '') return false;
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return false; }
+  return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+}
+
+// 写侧不变量(唯一收口):rawArgs 变成 providerHistory 的 function.arguments 时过一次判据,不合法一律
+// 记 '{}' —— 与执行方 catch → {} 【完全一致】,历史从此说的就是实际跑的那份参数。
+// 为什么钉在这里、而不是钉在 rawArgs 三个生产者上:rawArgs 本身还有三个【非请求体】读者,改生产者会
+// 连坐它们 —— 09-workflow.js:1911 的连击指纹 sha1(name+'\0'+rawArgs)(两截不同的截断片段会塌成同一
+// 指纹 → 误判"同签名连击"而 abort)、09-workflow.js:1749 的 econArgsBytes(tc.rawArgs) 经济口径(真实
+// 字节数会变成 2)、07-autonomy.js:1042 的动作视图投影(它【故意】对 malformed 拒绝投影)。
+// 不变量说的是"发到供应商的 arguments",落点就该在 arguments 生成处,别处的 rawArgs 一个字节不动。
+// 日志只带工具名与字节数,绝不带片段本身(截断片段可能含密钥/路径,与本仓库其它脱敏处同规矩)。
+function providerHistoryToolCalls(toolCalls, logCtx) {
+  return (Array.isArray(toolCalls) ? toolCalls : []).map(tc => {
+    if (isProviderToolArgsObject(tc.rawArgs)) return { id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } };
+    logEvent({
+      kind: 'provider_tool_args_coerced', ...(logCtx && typeof logCtx === 'object' ? logCtx : {}),
+      tool: String(tc.name || ''), bytes: Buffer.byteLength(String(tc.rawArgs == null ? '' : tc.rawArgs), 'utf8'),
+    });
+    return { id: tc.id, type: 'function', function: { name: tc.name, arguments: '{}' } };
+  });
+}
+
+// 参数铁律自愈(repairProviderHistoryPairing 的同位兄弟):写侧不变量只管【今后】写进去的,用户手上
+// 那条【已经卡死】的会话还得就地修 —— 否则每次请求照样重发同一份毒历史、照样 400。全历史单遍扫描:
+// 任何 assistant.tool_calls[].function.arguments 过不了对象判据的,原地改写成 '{}'(与当时实际执行用的
+// {} 一致);不删不改任何其它字段、不动任何其它消息。返回改写条数(0 = 历史本就干净,调用方无需落盘/
+// 发系统消息)—— 故对合法历史是【逐字节】no-op。
+function repairProviderHistoryToolArgs(history, sessionId) {
+  if (!Array.isArray(history) || !history.length) return 0;
+  let repaired = 0;
+  for (const m of history) {
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.tool_calls) || !m.tool_calls.length) continue;
+    for (const tc of m.tool_calls) {
+      if (!tc || !tc.function || typeof tc.function !== 'object') continue;
+      if (isProviderToolArgsObject(tc.function.arguments)) continue;
+      const raw = tc.function.arguments;
+      logEvent({
+        kind: 'provider_tool_args_repair', ...(sessionId ? { sessionId: String(sessionId) } : {}),
+        tool: String(tc.function.name || ''), bytes: Buffer.byteLength(String(raw == null ? '' : raw), 'utf8'),
+      });
+      tc.function.arguments = '{}';
+      repaired++;
+    }
+  }
+  return repaired;
+}
+
 // Returns the normalized session, or null when the file is missing/unreadable. A file that exists but
 // fails to parse is renamed to <id>.json.corrupt (isolated, not deleted) so a truncated write can't
 // keep 500-ing every read; callers treat null as "not found".
@@ -23891,7 +23956,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 // Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
 function responsesHistoryWithCompleteToolPairs(history) {
   const paired = Array.isArray(history) ? history.slice() : [];
-  return { history: paired, repaired: repairProviderHistoryPairing(paired) };
+  // 参数铁律自愈同址施行(见 02-session-store.js)。与配对自愈不同,它是【就地】改消息对象的
+  // ——— 浅拷贝共享同一批 message,故这一改会落到调用方的历史上。这是刻意的:把 arguments 改成
+  // 当时实际执行用的 '{}' 正是我们想让它【持久】的终态(与配对自愈往数组里插合成回复不同,那种
+  // 改写只该活在请求体投影里,所以那条仍严格只动副本)。
+  const argsRepaired = repairProviderHistoryToolArgs(paired);
+  return { history: paired, repaired: repairProviderHistoryPairing(paired) + argsRepaired };
 }
 
 // ============================================================================
@@ -24717,7 +24787,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -27766,6 +27836,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.messages.push({ role: 'system', content: `🛠 检测到上次回会在工具执行中中断,已补 ${pairingRepaired} 条丢失的工具结果占位(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
     session.providerHistoryCursor = session.messages.length;
   }
+  // 参数铁律自愈(同上一段的同位兄弟,毒在参数而非配对):持久化历史里若有 assistant.tool_calls 的
+  // arguments 不是合法 JSON 对象(上次回合流被截断,半截片段逐字节落了盘),Qwen/DashScope 等严校验
+  // 供应商 400 invalid_parameter_error,且每次重发同一份毒历史 -> 会话永久卡死。就地改写成 '{}'
+  // ——— 那正是当时【实际执行】用的参数(执行方一律 JSON.parse catch → {}),历史与执行就此对齐。
+  const toolArgsRepaired = repairProviderHistoryToolArgs(session.providerHistory, session.id);
+  if (toolArgsRepaired > 0) {
+    session.messages.push({ role: 'system', content: `🛠 检测到上次回会的工具参数被截断(不是合法 JSON),已按实际执行的空参数修正 ${toolArgsRepaired} 处(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
+    session.providerHistoryCursor = session.messages.length;
+  }
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = plannedTurnSeq;
@@ -28783,7 +28862,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -28839,7 +28918,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
@@ -48253,6 +48332,7 @@ module.exports = {
   parseThreadBrief,
   detectDanglingTurn,
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
+  repairProviderHistoryToolArgs, // 参数铁律自愈(arguments 不是 JSON 对象 -> 改写成实际执行用的 '{}') — exposed for e2e 直测
   bridgedToolTier,
   cwdWarning,
   defaultConfig,

@@ -1287,6 +1287,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     session.messages.push({ role: 'system', content: `🛠 检测到上次回会在工具执行中中断,已补 ${pairingRepaired} 条丢失的工具结果占位(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
     session.providerHistoryCursor = session.messages.length;
   }
+  // 参数铁律自愈(同上一段的同位兄弟,毒在参数而非配对):持久化历史里若有 assistant.tool_calls 的
+  // arguments 不是合法 JSON 对象(上次回合流被截断,半截片段逐字节落了盘),Qwen/DashScope 等严校验
+  // 供应商 400 invalid_parameter_error,且每次重发同一份毒历史 -> 会话永久卡死。就地改写成 '{}'
+  // ——— 那正是当时【实际执行】用的参数(执行方一律 JSON.parse catch → {}),历史与执行就此对齐。
+  const toolArgsRepaired = repairProviderHistoryToolArgs(session.providerHistory, session.id);
+  if (toolArgsRepaired > 0) {
+    session.messages.push({ role: 'system', content: `🛠 检测到上次回会的工具参数被截断(不是合法 JSON),已按实际执行的空参数修正 ${toolArgsRepaired} 处(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
+    session.providerHistoryCursor = session.messages.length;
+  }
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = plannedTurnSeq;
@@ -2304,7 +2313,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: call.toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -2360,7 +2369,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:

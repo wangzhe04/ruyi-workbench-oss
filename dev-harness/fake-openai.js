@@ -142,6 +142,28 @@ const SUB_IDENTITY_MARKER = '子任务执行体';
 // 供 e2e 断言「修复后真正发到线上的历史已配对完整」。
 const STRICT_PAIRING = process.env.FAKE_STRICT_PAIRING === '1';
 const LOG_BODY = process.env.FAKE_LOG_BODY || '';
+// 参数铁律(strict provider 仿真,第117波):FAKE_STRICT_JSON_ARGS=1 时,每个 assistant.tool_calls 的
+// function.arguments 必须能 JSON.parse 成【对象】,否则 400(措辞与 Qwen/DashScope 线上一字不差:
+// invalid_parameter_error)。驱动「流被截断 -> 半截 JSON 逐字节落进历史 -> 每次重发都 400 -> 会话
+// 永久卡死」的复现与修复回归。
+const STRICT_JSON_ARGS = process.env.FAKE_STRICT_JSON_ARGS === '1';
+// FAKE_TRUNCATE_TOOL_ARGS=1:emitOneToolCall 只发【前半截】参数分片就收口(不发尾片),仿真客户端
+// 断流/供应商截流/触顶 token —— 工作台的流式槽 slot.args 因此停在半截 JSON 上(非空,躲过生产者的假值兜底 || '{}')。
+const TRUNCATE_TOOL_ARGS = process.env.FAKE_TRUNCATE_TOOL_ARGS === '1';
+function toolArgsViolation(msgs) {
+  for (const m of msgs || []) {
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.tool_calls)) continue;
+    for (const tc of m.tool_calls) {
+      if (!tc || !tc.function) continue;
+      const name = String(tc.function.name || '?');
+      const a = tc.function.arguments;
+      if (typeof a !== 'string' || a === '') return name;
+      let p; try { p = JSON.parse(a); } catch { return name; }
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return name;
+    }
+  }
+  return '';
+}
 function pairingViolation(msgs) {
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i];
@@ -295,6 +317,7 @@ async function emitOneToolCall(res, id, callId, name, args, index = 0) {
   sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant', content: null, tool_calls: [{ index, id: callId, type: 'function', function: { name, arguments: '' } }] }, finish_reason: null }] });
   if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
   sse(res, { id, choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: argsFull.slice(0, half) } }] }, finish_reason: null }] });
+  if (TRUNCATE_TOOL_ARGS) return; // 尾片永不到达:工作台只拼到半截 JSON
   if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
   sse(res, { id, choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: argsFull.slice(half) } }] }, finish_reason: null }] });
 }
@@ -378,6 +401,15 @@ const server = http.createServer((req, res) => {
         if (viol) {
           res.writeHead(400, { 'content-type': 'application/json' });
           res.end(JSON.stringify({ error: { message: "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. (insufficient tool messages following tool_calls message)", type: 'invalid_request_error', param: null, code: 'invalid_request_error' } }));
+          return;
+        }
+      }
+      if (STRICT_JSON_ARGS) {
+        const badTool = toolArgsViolation(msgs);
+        if (badTool) {
+          console.log('[fake] 400 invalid_parameter_error: arguments not JSON object (tool=' + badTool + ')');
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'The "function.arguments" parameter of the code model must be in JSON format.', type: 'invalid_parameter_error', param: null, code: 'invalid_parameter_error' } }));
           return;
         }
       }

@@ -821,7 +821,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: localToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.rawArgs } })) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort

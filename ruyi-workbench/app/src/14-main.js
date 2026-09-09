@@ -276,6 +276,7 @@ module.exports = {
   parseThreadBrief,
   detectDanglingTurn,
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
+  repairProviderHistoryToolArgs, // 参数铁律自愈(arguments 不是 JSON 对象 -> 改写成实际执行用的 '{}') — exposed for e2e 直测
   bridgedToolTier,
   cwdWarning,
   defaultConfig,
