@@ -646,10 +646,12 @@
           <span id="stewardBoardRunning" class="steward-board-pill is-live"></span>
           <span id="stewardBoardQueued" class="steward-board-pill is-quiet"></span>
           <span class="steward-board-tools">
+            <!-- F5a：同一个动词永远同一枚字形 —— 这两枚与线程行上的「暂停」「2.0 视窗」是同一件事，
+                 所以取同一个 pause／monitor。data-i18n 必须挂内层 span（见抽屉底部那段注释的理由）。 -->
             <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
-                    data-i18n="stewardShell.board.pauseAll">全部暂停</button>
+                    data-icon="pause" data-icon-size="12"><span data-i18n="stewardShell.board.pauseAll">全部暂停</span></button>
             <button type="button" id="stewardBoardClassicBtn" class="steward-board-btn"
-                    data-i18n="stewardShell.classicWindow.switchWhole">整体切到 2.0</button>
+                    data-icon="monitor" data-icon-size="12"><span data-i18n="stewardShell.classicWindow.switchWhole">整体切到 2.0</span></button>
           </span>
         </div>
         <div id="stewardBoardList" class="steward-board-list"></div>
@@ -665,7 +667,7 @@
         <div class="steward-now-bar">
           <strong class="steward-now-title" data-i18n="stewardShell.board.now">现在这几件</strong>
           <button type="button" id="stewardNowCloseBtn" class="steward-board-btn"
-                  data-i18n="stewardShell.board.nowClose">关掉</button>
+                  data-icon="close" data-icon-size="12"><span data-i18n="stewardShell.board.nowClose">关掉</span></button>
         </div>
         <div id="stewardNowBody" class="steward-now-body"></div>
       </aside>
@@ -697,8 +699,8 @@
             <span id="stewardDrawerState" class="steward-drawer-state"></span>
             <p id="stewardDrawerWait" class="steward-drawer-wait" hidden></p>
             <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.classicView"
-                    data-i18n-attr="title:stewardShell.drawer.classicView">2.0 视窗</button>
+                    data-icon="monitor" data-icon-size="13"
+                    data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">2.0 视窗</span></button>
           </header>
           <!-- ④ 117l D4「它在问你」（用户第四轮走查①：线程提问弹出来了，却没有 2.0 那种问答框）。
                只在 asksYou 非空时显示（[hidden] 由 JS 写，样式层配 .steward-drawer-ask[hidden]）。
@@ -737,7 +739,7 @@
             <h3 id="stewardDrawerLastSayHead" class="steward-drawer-h" data-i18n="stewardShell.drawer.lastSay">它刚说</h3>
             <blockquote id="stewardDrawerLastSayText" class="steward-drawer-quote"></blockquote>
             <button type="button" id="stewardDrawerFullTextBtn" class="steward-drawer-link"
-                    data-i18n="stewardShell.drawer.fullText">看全文</button>
+                    data-icon="sheet" data-icon-size="13"><span data-i18n="stewardShell.drawer.fullText">看全文</span></button>
           </section>
           <!-- ⑦ 你可以说：≤3 条快捷回复，来源是确定性优先级（quickRepliesFor 纯函数）。
                ④ 已经把同一批选项按钮摆出来时本区隐藏，避免一屏两排一样的按钮 -->
@@ -775,7 +777,7 @@
             <section id="stewardDrawerScene" class="steward-drawer-block">
               <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.scene">现场</h3>
               <button type="button" id="stewardDrawerChangesBtn" class="steward-drawer-btn"
-                      data-i18n="stewardShell.drawer.viewChanges">看改动</button>
+                      data-icon="diff" data-icon-size="13"><span data-i18n="stewardShell.drawer.viewChanges">看改动</span></button>
             </section>
           </details>
         </div>
@@ -787,18 +789,23 @@
                     placeholder="这句话直接发给它，不经如意…"
                     data-i18n-attr="placeholder:stewardShell.drawer.composerPlaceholder"></textarea>
           <div class="steward-drawer-foot-actions">
+            <!-- F5a（§11.13.1「F 追加」）：动作全部配图标。字形由 icons.js 的 hydrateIcons() 按
+                 [data-icon] 注入，人话仍留在按钮里 —— 所以 data-i18n 必须挂在【内层 span】上：
+                 applyTranslations 是 `node.textContent = value`，挂在 button 上会把刚注入的 SVG
+                 一起抹掉（boot 里 hydrateIcons 之后还会再 setLocale 一次）。
+                 「停止」用的是实心方块 stop（停这条线程），与头部电源符（停管家本人）不同形。 -->
             <button type="button" id="stewardDrawerSendBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.send">发给它</button>
+                    data-icon="send" data-icon-size="13"><span data-i18n="stewardShell.drawer.send">发给它</span></button>
             <button type="button" id="stewardDrawerPauseBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.pause" hidden>暂停</button>
+                    data-icon="pause" data-icon-size="13" hidden><span data-i18n="stewardShell.drawer.pause">暂停</span></button>
             <button type="button" id="stewardDrawerResumeBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.resume" hidden>继续</button>
+                    data-icon="resume" data-icon-size="13" hidden><span data-i18n="stewardShell.drawer.resume">继续</span></button>
             <button type="button" id="stewardDrawerStopBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.stop">停止</button>
+                    data-icon="stop" data-icon-size="13"><span data-i18n="stewardShell.drawer.stop">停止</span></button>
             <button type="button" id="stewardDrawerRewindBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.rewindAll">整单回退</button>
+                    data-icon="rewind" data-icon-size="13"><span data-i18n="stewardShell.drawer.rewindAll">整单回退</span></button>
             <button type="button" id="stewardDrawerHandBackBtn" class="steward-drawer-btn"
-                    data-i18n="stewardShell.drawer.handBack">交回管家</button>
+                    data-icon="handBack" data-icon-size="13"><span data-i18n="stewardShell.drawer.handBack">交回管家</span></button>
           </div>
           <p id="stewardDrawerNote" class="steward-drawer-note" role="status" aria-live="polite"></p>
         </div>

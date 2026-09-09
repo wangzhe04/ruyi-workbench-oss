@@ -324,6 +324,63 @@ ok(missingThreadModelKeys.length === 0, `J6 六个新 i18n 键 zh/en 都非空�
 ok(THREAD_MODEL_KEYS.every(key => panel.includes(`data-i18n="${key}"`)),
   'J7 六个新键都在面板里以 data-i18n 挂上（不是孤儿翻译）');
 
+// ─── K F5a 图标集：头部两枚常驻控件（27 号文 §11.13.1「F 追加」／32 号文 §2.2 F5）──────
+// 这一组钉的是【哪件事必须成立】，不是「某个字面量还在不在」（32 号文 §4 纪律 4）：
+//   · 本模块零 SVG 路径常量 —— F5a 之前这里躺着 ICON_SHIELD 与 ICON_STOP 两份孤本；
+//   · 停机键与线程「停止」【不是同一枚图标】—— 这正是派单要求重钉的那条可证伪事实
+//     （修前两处都是「圆里一个方块」，同形不同义）；
+//   · 四档各有自己的盾内字形，且字形名【由档位名派生】（本模块仍然零四档字面量，B4 未被稀释）；
+//   · 按钮的可及名一个字没变（读屏读到的仍是那句人话，界面上多出来的角标是图标不是文字）。
+const iconsSrc = read('js/icons.js');
+const iconsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'icons.js')).href);
+const iconNameSet = new Set(iconsMod.iconNames());
+ok(!/ICON_STOP|ICON_SHIELD|SVG_NS/.test(settingsCode)
+  && !/M12 3a9 9 0 100 18 9 9 0 000-18z/.test(settings)
+  && !/createElementNS/.test(settingsCode)
+  && count(settingsCode, /'M\d[\d .a-zA-Z-]{8,}'/g) === 0,
+  'K1 本模块零 SVG 路径常量、零 createElementNS：两枚控件的字形全部由 icons.js 的 icon() 建（ICON_STOP 那份孤本已死）');
+const settingsIconNames = [...settingsCode.matchAll(/icon\('([A-Za-z]+)'/g)].map(match => match[1]);
+ok(settingsIconNames.length >= 1 && settingsIconNames.every(name => iconNameSet.has(name)),
+  `K2 本模块取用的每一个字形名都真的在 ICONS 表里（实测 ${JSON.stringify([...new Set(settingsIconNames)])}）`);
+ok(/paintIconButton\(node, stopped \? 'powerOff' : 'power', label\)/.test(settingsCode)
+  && iconNameSet.has('power') && iconNameSet.has('powerOff')
+  && !/'stop'/.test(settingsCode)
+  && count(iconsSrc, /M4\.5 19\.5 19\.5 4\.5/g) === 1,
+  'K3 停机键与线程「停止」不是同一枚图标：管家停机／唤醒用电源符（已停机加一道斜杠，全表只此一处斜杠），实心方块 stop 只归线程用，本模块一次都不取它');
+const permissionGlyphs = chipsMod.STEWARD_PERMISSION_MODES.map(mode => iconsMod.permissionIconName(mode));
+ok(permissionGlyphs.every(name => iconNameSet.has(name) && name !== 'shield')
+  && new Set(permissionGlyphs).size === chipsMod.STEWARD_PERMISSION_MODES.length,
+  `K4 四档【各有】自己的盾内字形：都在表里、两两不同、没有一档退回家族标 shield（实测 ${JSON.stringify(permissionGlyphs)}）`);
+const SHIELD_OUTLINE = 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z';
+ok(permissionGlyphs.every(name => new RegExp('^ {2}' + name + ': \\[[\\s\\S]{0,120}?'
+  + SHIELD_OUTLINE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'm').test(iconsSrc)),
+  'K4b 四枚盾牌共享同一条盾牌轮廓（家族标不变，四档只换盾【里面】那个字形）');
+ok(/permissionIconName\(mode\)/.test(settingsCode)
+  && !/'acceptEdits'/.test(settingsCode) && !/'plan'/.test(settingsCode) && !/'auto'/.test(settingsCode)
+  && count(stripComments(iconsSrc), /STEWARD_PERMISSION_MODES|'acceptEdits'|'plan'|'auto'/g) === 0,
+  'K4c 盾内字形名【由档位名派生】而不是查第二张表：settings 零四档字面量（B4 未被本刀稀释），icons.js 也不认识那张四档表');
+ok(/node\.appendChild\(el\('span', 'steward-icon-label', label\)\);/.test(settingsCode)
+  && /node\.title = label;/.test(settingsCode) && /node\.setAttribute\('aria-label', label\);/.test(settingsCode),
+  'K5 停机键的可及名一个字没变：只给读屏的 .steward-icon-label ＋ title ＋ aria-label 仍是同一句人话');
+ok(/const caret = icon\('caret', 12\);/.test(settingsCode)
+  && !/[▾▼⌄∨]/.test(settingsCode) && !/[▾▼]/.test(cssCode)
+  && /paintShieldButton\(btn, permissionIconName\(mode\), t\(permissionLabelKey\(mode\)\)\);/.test(settingsCode),
+  'K6 胶囊右边的角标是一枚【图标】不是文字字符 —— 否则盾牌按钮的 textContent 就不再逐字等于档位名（既有 C0b 读的就是它）');
+ok(/\.steward-shield \{[\s\S]{0,400}?border-radius: var\(--r-pill\);/.test(css)
+  && /\.steward-shield-label \{/.test(css) && /\.steward-shield-caret \{/.test(css)
+  && /\.steward-stop-btn \{[\s\S]{0,300}?width: 34px;/.test(css),
+  'K7 盾牌是「盾＋档位名＋角标」的胶囊（档位名常驻，图标不再是唯一信号）；停机键仍是那颗 34px 圆键');
+// 改了外形不许改行为：菜单仍然进同一个 Esc 栈、仍然带自己那份「哪些节点算我的」判据（117j copy-P2-4
+// 与 117k 的点别处收回），四档选项仍然是 role="menuitemradio" ＋ aria-checked，全自动仍然先过二次确认。
+ok(/releaseShieldEscape = stewardEscapeStack\.push\(/.test(settingsCode)
+  && /const own = byId\('stewardShieldMenu'\);/.test(settingsCode)
+  && /const trigger = byId\('stewardShieldBtn'\);/.test(settingsCode)
+  && /option\.setAttribute\('role', 'menuitemradio'\);/.test(settingsCode)
+  && /option\.setAttribute\('aria-checked', current === mode \? 'true' : 'false'\);/.test(settingsCode)
+  && /btn\.setAttribute\('aria-controls', 'stewardShieldMenu'\);/.test(settingsCode)
+  && /if \(STEWARD_PERMISSION_CONFIRM_MODES\.includes\(mode\)\) \{/.test(settingsCode.slice(settingsCode.indexOf('function toggleShield()'))),
+  'K8 换了外形没换行为：菜单仍进同一个 Esc 栈（连「点别处算不算我的」那份判据一起）、四档仍是 menuitemradio ＋ aria-checked ＋ aria-controls，需要二次确认的那一档仍先过确认');
+
 console.log(`\nSTEWARD SETTINGS STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

@@ -279,6 +279,20 @@ const DRAWER = `(() => {
     confirmVisible: document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm').length,
     confirmLines: [...document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm li')].map(node => node.textContent.trim()),
     note: text('stewardDrawerNote'),
+    // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚由五态派生的字形，以及底部动作键的
+    // 「图标＋文字」形状。后者钉的是一件很容易悄悄坏掉的事 —— i18n 的 applyTranslations 写的是
+    // textContent，一旦 data-i18n 挂回 button 本体，hydrateIcons 注入的 SVG 会在下一次 setLocale
+    // 时被整个抹掉（boot 里就有那第二次）。icons 计数掉到 0 就是这条回归。
+    stateGlyphs: (() => {
+      const node = document.getElementById('stewardDrawerState');
+      return node ? [...node.querySelectorAll('svg path')].map(item => item.getAttribute('d')) : [];
+    })(),
+    footActions: [...document.querySelectorAll('#stewardDrawerFoot .steward-drawer-btn')].map(node => ({
+      id: node.id,
+      icons: node.querySelectorAll('svg.ic').length,
+      rects: node.querySelectorAll('svg rect').length,
+      text: node.textContent.trim(),
+    })),
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
   };
 })()`;
@@ -468,6 +482,16 @@ try {
   ok(openedA.missionAcceptance === zh['stewardShell.drawer.acceptanceCount'].replace('{{done}}', '1').replace('{{total}}', '2'),
     `B7 事项行显示验收 a/b（实测「${openedA.missionAcceptance}」）`);
   ok(openedA.title === THREAD_A, `B8 线程头显示线程标题（实测「${openedA.title}」）`);
+  // ── F5a（§11.13.1「F 追加」）：动作配图标、五态药丸配图标 ─────────────────────────────
+  const stopAction = openedA.footActions.find(action => action.id === 'stewardDrawerStopBtn');
+  ok(openedA.footActions.length >= 5
+    && openedA.footActions.every(action => action.icons === 1 && action.text.length > 0)
+    && stopAction && stopAction.rects === 1,
+    `B8c F5a：底部每一枚动作都是【图标 ＋ 文字】（不是纯图标，也不是被 i18n 抹掉了图标的纯文字）；线程「停止」那一枚是实心方块（<rect>），与头部管家停机的电源符不同形（实测 ${JSON.stringify(openedA.footActions.map(action => action.id + ':' + action.icons + '/' + action.text))}）`);
+  // 五态人话【不在这里再列一遍】：从目录里按 mission.state.* 前缀取（30 号文 §4.4 那一组键）。
+  const stateLabels = Object.keys(zh).filter(key => key.startsWith('mission.state.')).map(key => zh[key]);
+  ok(openedA.stateGlyphs.length > 0 && stateLabels.includes(openedA.state),
+    `B8d F5a：状态药丸带一枚由五态派生的字形，文字仍逐字是那句五态人话（实测「${openedA.state}」＋${openedA.stateGlyphs.length} 条路径）`);
   // 五态取 mission-state.js 的 fromCard（全仓唯一判据）。卡片投影不带 turnSeq，跑过 chat 回合但没有
   // agent run、没有里程碑完成的 mission 会话按那份判据就是「交办中」—— 抽屉如实照搬，不另编一套。
   // 117q-B3b 重钉：五态人话键从 stewardShell.drawer.state.* 搬到中性的 mission.state.*（30 号文 §4.4）。

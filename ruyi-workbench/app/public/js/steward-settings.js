@@ -24,6 +24,10 @@ export { STEWARD_TOOL_LABEL_KEYS };
 // 原始 Error 会退化成「[object Object]」那一类）——改成引用 steward-conversation.js 的权威实现，
 // 它正确调用 net.js 的 apiErrorInfo 解结构化信封。
 import { stewardErrorText } from './steward-conversation.js';
+// 117 波 F5a：头部两枚常驻控件的字形全部取自 icons.js 的 ICONS 表（本模块零 SVG 路径常量）。
+// permissionIconName 是【纯派生】（档位名 → 盾内字形名），不是第二份四档表 —— 四档的唯一判据
+// 仍然是 steward-chips.js 的 STEWARD_PERMISSION_MODES，本文件一个档位名字面量都没有。
+import { icon, permissionIconName } from './icons.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
@@ -88,24 +92,30 @@ export function createStewardSettingsDomain({
   // 117n-M1：doc/byId/el/clear/button 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   // 117i：管家壳头部右上角那两枚常驻小图标（原型 .head 的 .ib：34px 圆、只有线条，没有底）。
-  // 零 innerHTML —— SVG 必须 createElementNS；文字留在一个只给读屏的 span 里，所以按钮的
-  // textContent 仍然逐字是那句人话（既有断言读的就是它），眼睛看到的只有图标。
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  const ICON_SHIELD = 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z';
-  const ICON_STOP = 'M12 3a9 9 0 100 18 9 9 0 000-18zM9 9h6v6H9z';
-  function paintIconButton(node, path, label) {
-    const document_ = doc();
-    if (!document_) return;
-    while (node.firstChild) node.removeChild(node.firstChild);
-    const svg = document_.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('class', 'steward-icon');
-    svg.setAttribute('aria-hidden', 'true');
-    const line = document_.createElementNS(SVG_NS, 'path');
-    line.setAttribute('d', path);
-    svg.appendChild(line);
-    node.appendChild(svg);
+  // 零 innerHTML —— SVG 全部由 icons.js 的 icon() 用 createElementNS 建；文字留在一个只给读屏的
+  // span 里，所以按钮的 textContent 仍然逐字是那句人话（既有断言读的就是它）。
+  //
+  // F5a：本模块【不再自己写 SVG 路径常量】。F5a 之前这里躺着两份孤本 —— ICON_SHIELD 与
+  // ICON_STOP，后者画的是「圆里一个方块」，与线程「停止」（icons.js 的实心方块 stop）同形不同义：
+  // 用户没法从字形分辨停的是管家还是这条线程。现在停机／唤醒是电源符（已停机加一道斜杠），
+  // 盾牌按档位取不同的盾内字形，两者的字形都住 icons.js 的那一张表。
+  function paintIconButton(node, iconName, label, size = 18) {
+    if (!doc()) return;
+    clear(node);
+    const glyph = icon(iconName, size);
+    if (glyph) node.appendChild(glyph);
     node.appendChild(el('span', 'steward-icon-label', label));
+  }
+  // 盾牌是【胶囊】不是圆键（§11.13.1 F 追加：图标不再要求人猜）：盾内字形 ＋ 看得见的档位名 ＋ 角标。
+  // 角标只能是图标，不能是文字字符 —— 按钮的 textContent 必须仍然逐字等于档位名（既有断言读的就是它）。
+  function paintShieldButton(node, iconName, label) {
+    if (!doc()) return;
+    clear(node);
+    const glyph = icon(iconName, 17);
+    if (glyph) node.appendChild(glyph);
+    node.appendChild(el('span', 'steward-shield-label', label));
+    const caret = icon('caret', 12);
+    if (caret) { caret.classList.add('steward-shield-caret'); node.appendChild(caret); }
   }
   // 117n-M1：button/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
 
@@ -215,7 +225,8 @@ export function createStewardSettingsDomain({
       if (!node) continue;
       // 设置页那一枚是普通文字按钮；管家壳头部那一枚按原型 .head 是个 34px 的图标圆键 ——
       // 图标 ＋ 只给读屏看的同一句话（textContent 仍然逐字等于 label，界面上不再是一颗大按钮）。
-      if (id === 'stewardStopBtn') paintIconButton(node, ICON_STOP, label);
+      // F5a：字形是【电源符】，已停机时同一枚加一道斜杠 —— 停的是管家，不是某一条线程。
+      if (id === 'stewardStopBtn') paintIconButton(node, stopped ? 'powerOff' : 'power', label);
       else node.textContent = label;
       node.dataset.stopped = stopped ? 'true' : 'false';
       node.title = label;
@@ -338,7 +349,9 @@ export function createStewardSettingsDomain({
     const btn = byId('stewardShieldBtn');
     if (!btn) return;
     const mode = currentPermission();
-    paintIconButton(btn, ICON_SHIELD, t(permissionLabelKey(mode)));
+    // F5a：盾牌是家族标，档位画在盾【里面】（问号／铅笔／清单线／闪电）；档位名同时以文字常驻，
+    // 图标不是唯一信号。字形名由档位名派生，本函数不认识任何一个档位名。
+    paintShieldButton(btn, permissionIconName(mode), t(permissionLabelKey(mode)));
     btn.dataset.permission = mode;
     btn.title = t('settings.steward.shieldTitle', { mode: t(permissionLabelKey(mode)) });
     btn.setAttribute('aria-label', btn.title);

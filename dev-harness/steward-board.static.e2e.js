@@ -513,8 +513,12 @@ ok(!/stewardDrawerInput/.test(boardCode) && !/stewardDrawerAskInput/.test(boardC
   && /drawer\.focusComposer/.test(boardCode) && /focusComposer,/.test(drawer),
   'M4 看板不认识任何输入框 id：就地回答的落点是抽屉导出的两个句柄（有问答卡走 focusAsk，没有才落到底部 focusComposer），输入框与发送逻辑都只在抽屉里有一份');
 const nowThreadBody = boardCode.slice(boardCode.indexOf('function renderNowThread(row)'), boardCode.indexOf('function renderNowCount('));
+// F5a 重钉：状态药丸从 `el('span', 'steward-board-pill', …)` 就地一行改成走 statePill()
+// （多一枚由五态值派生的字形）。契约一个字没变 —— 药丸【仍然】是看板既有那个类、颜色【仍然】
+// 只经 data-tone、样式层【仍然】零 .steward-now-*；变的只是那一行写在哪儿，所以判据跟去 statePill 的定义。
 ok(/paintDot\(el\('span', 'steward-board-dot'\), threadState\)/.test(nowThreadBody)
-  && /el\('span', 'steward-board-pill', stateLabel\(threadState\)\)/.test(nowThreadBody)
+  && /statePill\(threadState\)/.test(nowThreadBody)
+  && /const pill = el\('span', 'steward-board-pill', stateLabel\(value\)\);/.test(boardCode)
   && !/steward-now-dot/.test(cssCode) && !/steward-now-pill/.test(cssCode),
   'M5 小行的五态点与状态药丸复用看板既有的两个类（颜色仍只经 dockToneForMissionState 的 data-tone），样式层零 .steward-now-dot/.steward-now-pill —— 右栏没有第二套颜色');
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
@@ -524,6 +528,57 @@ ok(/\.steward-now-stack \{/.test(cssCode) && /max-height: 33%;/.test(cssCode) &&
   && /\.steward-now-stack:empty \{ display: none; \}/.test(cssCode)
   && !/\.steward-now-(stack|thread)[^{]*\{[^}]*transition/.test(cssCode),
   'M7 两条 stack 各自最多吃三分之一高度并自己滚（线程再多也挤不掉正在看的那一件），空叠不占位；本组零过渡，reduced-motion 清单一个字不用动');
+
+// ─── N F5a（27 号文 §11.13.1「F 追加」）：五态图标与动作图标，都不许长出第二份判据 ──────
+// 这一组要证的三件事：
+//   ① 五态字形是【从五态值派生】出来的，不是第二张五态表 —— icons.js 里一个五态字面量都没有，
+//      而 mission-state.js 的 STATES 每一态都派生得出一枚字形，六枚两两不同；
+//   ② paintDot 的 tone 契约一个字没变（紧凑行的展开／折叠仍然只读它，M6 是它的另一半）；
+//   ③ 看板取用的每一个字形名都真的在 ICONS 表里（拼错的名字只会 console.warn，界面上静静地少一枚）。
+const iconsSrc = read('js/icons.js');
+const iconsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'icons.js')).href);
+const missionStateMod = require(path.join(PUBLIC, 'js', 'mission-state.js'));
+const iconNameSet = new Set(iconsMod.iconNames());
+const stateGlyphs = missionStateMod.STATES.map(state => iconsMod.missionStateIconName(state));
+ok(missionStateMod.STATES.length >= 5
+  && stateGlyphs.every(name => name && iconNameSet.has(name))
+  && new Set(stateGlyphs).size === missionStateMod.STATES.length,
+  `N1 mission-state.js 的每一态都派生得出一枚【自己的】字形（都在 ICONS 表里、两两不同；实测 ${JSON.stringify(stateGlyphs)}）`);
+const iconsCode = stripComments(iconsSrc);
+ok(missionStateMod.STATES.every(state => !new RegExp("'" + state + "'").test(iconsCode))
+  && !/STATES/.test(iconsCode) && /function missionStateIconName\(state\)/.test(iconsCode)
+  && /replace\(\/_\(\[a-z0-9\]\)\/g/.test(iconsCode),
+  'N2 那一枚字形是【派生】不是【查表】：icons.js 里零五态字面量、零 STATES 清单 —— 谁处在哪一态永远只由 mission-state.js 判，图标层长不出第二份枚举');
+ok(count(boardCode, /missionStateIcon\(/g) === 1
+  && /import \{ icon, missionStateIcon \} from '\.\/icons\.js';/.test(board)
+  && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
+  `N3 看板只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 F3 那一刀逐字相同（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+const paintDotBody = boardCode.slice(boardCode.indexOf('function paintDot(node, value)'), boardCode.indexOf('function threadViews()'));
+ok(/node\.dataset\.state = value;/.test(paintDotBody)
+  && /node\.dataset\.tone = dockToneForMissionState\(value, \{ settleDone: true \}\);/.test(paintDotBody)
+  && count(boardCode, /dockToneForMissionState\(/g) === 1
+  && /import \{ dockToneForMissionState \} from '\.\/preview-shell\.js';/.test(board),
+  'N4 paintDot 的 tone 契约一个字没变：仍然只有这一处调 dockToneForMissionState（settleDone 那一档也没动），四档 tone 仍是紧凑行展开／折叠的唯一判据');
+const boardGlyphNames = [
+  ...[...boardCode.matchAll(/icon\('([A-Za-z]+)'/g)].map(match => match[1]),
+  ...[...boardCode.matchAll(/\}, '([a-zA-Z]+)'\)\);/g)].map(match => match[1]),
+];
+ok(boardGlyphNames.length >= 6 && boardGlyphNames.every(name => iconNameSet.has(name)),
+  `N5 看板取用的每一个字形名都在 ICONS 表里（拼错只会 console.warn，界面上静静地少一枚；实测 ${JSON.stringify([...new Set(boardGlyphNames)].sort())}）`);
+// 文案里已经画过的符号不再画第二遍：「＋ 线程」那句本身以「＋」开头，配上 plus 会渲染成
+// 「＋ ＋ 线程」（第一版就是这样，看板截图当场看出来的）。所以这两处刻意【不给】字形。
+ok(count(boardCode, /boardButton\('stewardShell\.board\.newThread'[^\n]*\)\);/g) === 2
+  && !/boardButton\('stewardShell\.board\.newThread'[^\n]*, '[a-z]+'\)\)/.test(boardCode)
+  && /^＋/.test(String(zh['stewardShell.board.newThread'])),
+  'N5b 「＋ 线程」刻意不配字形：那句文案自己就带着一个「＋」，再画一枚 plus 会变成「＋ ＋ 线程」');
+ok(/function boardButton\(labelKey, handler, dataset, iconName\)/.test(boardCode)
+  && /const button = el\('button', 'steward-board-btn', t\(labelKey\)\);/.test(boardCode)
+  && count(boardCode, /'steward-board-btn'/g) === 1,
+  'N6 动作是【图标＋人话】不是纯图标：文案仍然从同一个 t(labelKey) 出，按钮仍然只有这一处生产点');
+ok(/\.steward-board-pill\.has-icon \{ display: inline-flex;/.test(cssCode)
+  && /\.steward-board-pill:empty \{ display: none; \}/.test(cssCode)
+  && /\.steward-board-btn\[hidden\] \{ display: none; \}/.test(cssCode),
+  'N7 只有【真取到字形】的药丸才换成 inline-flex（事项头那串纯文字药丸的「·」分隔规则不受影响），:empty 隐藏规则仍在；动作键给了 display 就补上 [hidden] 守卫');
 
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

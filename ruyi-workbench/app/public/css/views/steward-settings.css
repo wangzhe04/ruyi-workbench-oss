@@ -221,6 +221,24 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* F5a（27 号文 §11.13.1「F 追加」）：盾牌从 34px 圆键改成【盾＋档位名＋角标】的胶囊 ——
+   一个只有轮廓的盾牌要求人猜「现在是哪一档」，档位名常驻之后图标只是加速识别，不是唯一信号。
+   停机键仍是上面那颗 34px 圆键（它只有开／关两态，一枚电源符说得清）。 */
+.steward-shield {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  width: auto;
+  height: 30px;
+  min-height: 30px;
+  font-size: var(--fs-xs);
+  border-radius: var(--r-pill);
+  border-color: var(--glass-border);
+  padding: 0 var(--sp-2);
+}
+.steward-shield-label { font-weight: 600; white-space: nowrap; }
+.steward-shield-caret { opacity: .7; }
+.steward-shield[aria-expanded="true"] .steward-shield-caret { transform: rotate(180deg); }
 .steward-shield:hover,
 .steward-stop-btn:hover { color: var(--ink); background: var(--glass-bg-2); border-color: var(--glass-border-strong); }
 .steward-stop-btn:hover { color: var(--danger); }

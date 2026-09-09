@@ -785,6 +785,9 @@ try {
         tone: item.dataset.tone || '',
         title: (item.querySelector('.steward-now-thread-title') || { textContent: '' }).textContent.trim(),
         pill: (item.querySelector('.steward-board-pill') || { textContent: '' }).textContent.trim(),
+        // F5a（27 号文 §11.13.1「F 追加」）：药丸里那枚由五态【派生】出来的字形。读路径本身 ——
+        // 三条不同五态的行必须给出三枚不同的字形，否则「加了图标」等于没加。
+        pillGlyph: [...item.querySelectorAll('.steward-board-pill svg path')].map(node => node.getAttribute('d')).join('|'),
         hasSay: Boolean(item.querySelector('.steward-now-thread-say')),
         say: (item.querySelector('.steward-now-thread-say') || { textContent: '' }).textContent.trim(),
         hasAnswer: Boolean(item.querySelector('[data-action="answer"]')),
@@ -865,6 +868,12 @@ try {
   const nowRowI = rowOf(stacked, idI);
   ok(nowRowI && nowRowI.tone === 'active' && nowRowI.pill === zh['mission.state.running'],
     `S5b 在跑的那条是展开档（tone=active）且状态药丸说的是五态人话（实测 tone=${nowRowI && nowRowI.tone}「${nowRowI && nowRowI.pill}」）`);
+  // F5a（§11.13.1「F 追加」）：五态各【一枚】图标进状态药丸。三条行此刻分别是已收工／等你／在跑，
+  // 所以三枚字形必须两两不同 —— 同一枚图标配三种文字等于没加图标；一枚都不画则是没落地。
+  // 判据仍然只有一份：图标名由 icons.js 从五态值派生，五态本身仍由 mission-state.js 判。
+  const pillGlyphs = [rowG, nowRowH, nowRowI].map(row => (row && row.pillGlyph) || '');
+  ok(pillGlyphs.every(glyph => glyph.length > 0) && new Set(pillGlyphs).size === 3,
+    `S5c F5a：三条不同五态的状态药丸各带一枚【不同】的字形（已收工／等你／在跑；实测 ${JSON.stringify(pillGlyphs.map(glyph => glyph.slice(0, 24)))}）`);
   ok(stacked && stacked.count === fill('stewardShell.board.threadCount', { n: serverOrder.length }),
     `S6 头上的数＝右栏此刻叠着几条线程（复用既有「N 条线程」文案；实测「${stacked && stacked.count}」）`);
   // ── 点一条小行 = 让它成为抽屉本体（5 s 内） ───────────────────────────────────────────

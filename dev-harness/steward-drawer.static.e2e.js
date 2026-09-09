@@ -485,6 +485,43 @@ ok(count(drawerMarkup, /<textarea/g) === 2
   && drawerMarkup.includes('id="stewardDrawerAskInput"') && drawerMarkup.includes('id="stewardDrawerInput"'),
   `K3 全壳仍然只有抽屉里这两个输入框（问答卡一个、底部一个）——右栏没有、也不许有第三个（实测 ${count(drawerMarkup, /<textarea/g)} 个）`);
 
+// ─── L F5a（27 号文 §11.13.1「F 追加」）：抽屉的动作与五态都配了图标 ─────────────────
+// 三件必须成立的事：
+//   ① 静态动作键的 data-i18n 挂在【内层 span】上 —— applyTranslations 是 `node.textContent = value`，
+//      挂在带 [data-icon] 的 button 上会把 hydrateIcons 刚注入的 SVG 一起抹掉（boot 里
+//      hydrateIcons 之后还会再 setLocale 一次，所以这不是理论问题）。这条是本组最值钱的一条；
+//   ② 线程「停止」用的是实心方块 stop —— 管家本人的停机在头部，那一枚是电源符（同形不同义到此为止）；
+//   ③ 五态药丸多了一枚由五态值派生的字形，而 textContent 逐字仍是那句人话（既有断言读的就是它）。
+const iconsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'icons.js')).href);
+const iconNameSet = new Set(iconsMod.iconNames());
+const drawerIconed = [...drawerMarkup.matchAll(/<button[^>]*?id="(steward[A-Za-z]+)"[^>]*?data-icon="([A-Za-z]+)"[\s\S]{0,200}?<\/button>/g)]
+  .map(match => ({ id: match[1], glyph: match[2], markup: match[0] }));
+const DRAWER_ICONED_IDS = ['stewardDrawerClassicBtn', 'stewardDrawerFullTextBtn', 'stewardDrawerChangesBtn',
+  'stewardDrawerSendBtn', 'stewardDrawerPauseBtn', 'stewardDrawerResumeBtn', 'stewardDrawerStopBtn',
+  'stewardDrawerRewindBtn', 'stewardDrawerHandBackBtn'];
+ok(DRAWER_ICONED_IDS.every(id => drawerIconed.some(entry => entry.id === id)),
+  `L1 派单点名的九枚抽屉动作全部配了图标（缺: ${DRAWER_ICONED_IDS.filter(id => !drawerIconed.some(entry => entry.id === id)).join(',') || '无'}）`);
+ok(drawerIconed.length > 0 && drawerIconed.every(entry => iconNameSet.has(entry.glyph)),
+  `L2 每一个 data-icon 名都真的在 ICONS 表里（实测 ${JSON.stringify(drawerIconed.map(entry => entry.id + '=' + entry.glyph))}）`);
+ok(drawerIconed.every(entry => !/<button[^>]*data-i18n="/.test(entry.markup)
+    && /<span data-i18n="[a-zA-Z.]+">/.test(entry.markup)),
+  'L3 这些按钮的 data-i18n 挂在【内层 span】上：applyTranslations 写的是 textContent，挂在 button 上会把刚注入的 SVG 一起抹掉（boot 里 hydrateIcons 之后还会再 setLocale 一次）');
+ok(drawerIconed.find(entry => entry.id === 'stewardDrawerStopBtn').glyph === 'stop'
+  && !drawerIconed.some(entry => entry.glyph === 'power' || entry.glyph === 'powerOff'),
+  'L4 线程「停止」用的是实心方块 stop；电源符只归管家本人的停机／唤醒（头部那一枚），抽屉里一次都不出现');
+const renderHeadBody = drawerCode.slice(drawerCode.indexOf('function renderHead()'), drawerCode.indexOf('function lastAssistantText()'));
+ok(renderHeadBody.length > 0
+  && /import \{ missionStateIcon \} from '\.\/icons\.js';/.test(drawer)
+  && count(drawerCode, /missionStateIcon\(/g) === 1
+  && count(renderHeadBody, /stateLabel\(/g) === 1
+  && /stateNode\.appendChild\(doc\(\)\.createTextNode\(stateLabel\(stateValue\)\)\);/.test(renderHeadBody)
+  && /const stateValue = threadStateOf\(missionRow\);/.test(renderHeadBody),
+  'L5 状态药丸 = 一枚派生字形 ＋ 原来那句 stateLabel（药丸里恰好一处文案来源，不是两处），五态仍然只由 threadStateOf → mission-state.js 判一次');
+ok(/\.steward-drawer-state \{[\s\S]{0,200}?gap: var\(--sp-1\);/.test(cssCode)
+  && /\.steward-drawer-link\[hidden\] \{ display: none; \}/.test(cssCode)
+  && /\.steward-drawer-btn\[hidden\] \{ display: none; \}/.test(cssCode),
+  'L6 药丸给字形留了 gap；新给 display 的 .steward-drawer-link 补上了 [hidden] 守卫（本层第四处，前三处的根因写在 .steward-drawer-ask 那段注释里）');
+
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

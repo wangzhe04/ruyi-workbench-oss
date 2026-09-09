@@ -5,6 +5,10 @@ import { apiRaw } from './net.js';
 import { elapsedLabel } from './preview-task-sheet.js';
 import { dockToneForMissionState } from './preview-shell.js';
 import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+// F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
+// missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
+// threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
+import { icon, missionStateIcon } from './icons.js';
 import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
 // 117n-M1②（用户第六轮走查后走查「合并功能」）：failNote 原来只是 String(error.message || error)，
 // 既不解结构化信封也不特判 steward.queued 的 wait.label —— 同一种排队失败，看板上的提示比抽屉里
@@ -365,12 +369,29 @@ export function createStewardBoard({
     return metas.find(meta => meta && String(meta.id) === id) || { id, title: row.title || '' };
   }
 
-  function boardButton(labelKey, handler, dataset) {
+  // F5a：动作 = 图标 ＋ 原来那句人话（不做纯图标 —— 停止／回退这类动作不该让人靠猜）。
+  // 字形名是第四个参数，缺席就还是纯文字按钮；文案与 dataset 一个字没动。
+  // 「＋ 线程」【刻意不给】字形：那句文案本身就以「＋」开头，配上 plus 会变成「＋ ＋ 线程」
+  // （第一版真是这么渲染的，看板截图当场看出来的）。文案里已经有的符号不再画第二遍。
+  function boardButton(labelKey, handler, dataset, iconName) {
     const button = el('button', 'steward-board-btn', t(labelKey));
     button.type = 'button';
     if (dataset) Object.assign(button.dataset, dataset);
+    if (iconName) {
+      const glyph = icon(iconName, 12);
+      if (glyph) button.insertBefore(glyph, button.firstChild);
+    }
     button.onclick = handler;
     return button;
+  }
+
+  // 状态药丸：一枚字形 ＋ 原来那句人话。字形由五态值派生（icons.js 的 missionStateIcon），
+  // 派生不出来就只有文字 —— 本模块不为「没有字形的那一态」编一个默认图标。
+  function statePill(value) {
+    const pill = el('span', 'steward-board-pill', stateLabel(value));
+    const glyph = missionStateIcon(value, 12);
+    if (glyph) { pill.classList.add('has-icon'); pill.insertBefore(glyph, pill.firstChild); }
+    return pill;
   }
 
   function renderThreadRow(row) {
@@ -436,21 +457,22 @@ export function createStewardBoard({
     // 116h 交付记录的登记项①在这里落地：等锁时占用者就在 wait.blockedBy 里，给一个「停掉占用者」。
     if (wait && String(wait.reason) === 'lock' && wait.blockedBy) {
       actions.appendChild(boardButton('stewardShell.board.stopBlocker',
-        () => stopBlocker(String(wait.blockedBy)), { action: 'stop-blocker' }));
+        () => stopBlocker(String(wait.blockedBy)), { action: 'stop-blocker' }, 'stop'));
     }
     const lastRun = (row.lastRun && typeof row.lastRun === 'object') ? row.lastRun : null;
     if (lastRun && lastRun.live === true && lastRun.paused !== true) {
       actions.appendChild(boardButton('stewardShell.board.pause',
-        () => runAction(sessionId, String(lastRun.id || ''), 'pause'), { action: 'pause' }));
+        () => runAction(sessionId, String(lastRun.id || ''), 'pause'), { action: 'pause' }, 'pause'));
     }
     if (lastRun && lastRun.live === true && lastRun.paused === true) {
       actions.appendChild(boardButton('stewardShell.board.resume',
-        () => runAction(sessionId, String(lastRun.id || ''), 'resume'), { action: 'resume' }));
+        () => runAction(sessionId, String(lastRun.id || ''), 'resume'), { action: 'resume' }, 'resume'));
     }
-    actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }));
-    actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }));
-    actions.appendChild(boardButton('stewardShell.board.openThread', () => openThread(sessionId), { action: 'open' }));
-    actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }));
+    actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }, 'up'));
+    // 「停止」这一枚停的是【这条线程】，所以是实心方块；管家本人的停机在头部，那一枚是电源符。
+    actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop'));
+    actions.appendChild(boardButton('stewardShell.board.openThread', () => openThread(sessionId), { action: 'open' }, 'open'));
+    actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }, 'monitor'));
     item.appendChild(actions);
     return item;
   }
@@ -664,7 +686,7 @@ export function createStewardBoard({
     head.appendChild(dot);
     const titleText = String(row.displayTitle || row.title || sessionId);
     head.appendChild(el('span', 'steward-now-thread-title', titleText));
-    head.appendChild(el('span', 'steward-board-pill', stateLabel(threadState)));
+    head.appendChild(statePill(threadState));
     main.appendChild(head);
     main.title = titleText;
     const asks = (row.asksYou && typeof row.asksYou === 'object' && String(row.asksYou.kind || '')) ? row.asksYou : null;
@@ -676,7 +698,7 @@ export function createStewardBoard({
     // 就地回答只给【真有人在问你】的那一行（判据仍然只读行上的 asksYou，与看板行那枚 pill 同源）。
     // 焦点那条本来就没有小行 —— 它是抽屉本体，回答框在抽屉里开着。
     if (asks) {
-      item.appendChild(boardButton('stewardShell.board.answerHere', () => answerHere(sessionId), { action: 'answer' }));
+      item.appendChild(boardButton('stewardShell.board.answerHere', () => answerHere(sessionId), { action: 'answer' }, 'send'));
     }
     return item;
   }

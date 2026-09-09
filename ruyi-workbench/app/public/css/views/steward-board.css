@@ -164,6 +164,10 @@
 .steward-board-pill.is-live { color: var(--ink-2); }
 .steward-board-pill.is-live::before { background: var(--accent); }
 .steward-board-pill:empty { display: none; }
+/* F5a（27 号文 §11.13.1「F 追加」）：五态各一枚字形进状态药丸。字形与文字并列（药丸的
+   textContent 仍逐字是那句人话），只有真的取到字形的那些药丸才换成 inline-flex ——
+   事项头上那串「线程数／验收／花费」是纯文字药丸，它们的「·」分隔规则一个字都不受影响。 */
+.steward-board-pill.has-icon { display: inline-flex; align-items: center; gap: var(--sp-1); }
 /* 117l D4（用户第四轮走查①）：「它在问你」是行上唯一一枚【要你动手】的 pill，所以它是可点的
    （点开抽屉里的问答框），并用与主动作同色系的金色把自己从一排灰字里拎出来。 */
 /* 117l-B2 ②：从【金色实底】改成【金色描边 + 极淡金底】。实底那一版在真机截图里是一整块金砖，
@@ -182,7 +186,11 @@
 }
 .steward-board-pill.is-asks-you:hover { background: var(--gold); color: var(--gold-ink); }
 .steward-board-pill.is-asks-you:focus-visible { outline: none; box-shadow: var(--ring); }
+/* F5a：动作 = 图标 ＋ 人话（不做纯图标 —— 停止／回退这类动作不该让人靠猜）。 */
 .steward-board-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   flex: 0 0 auto;
   min-height: 0;
   font: inherit;
@@ -203,6 +211,9 @@
    用户也就知道它平时在哪。 */
 .steward-board-btn:disabled { color: var(--muted); opacity: .45; cursor: default; }
 .steward-board-btn:disabled:hover { color: var(--muted); background: transparent; }
+/* F5a 顺带的守卫：本层作者样式一给 display，UA 表的 [hidden] 就压不住了（与抽屉层
+   .steward-drawer-btn[hidden] 同一条根因）。今天没人 hidden 这一类，先把门关上。 */
+.steward-board-btn[hidden] { display: none; }
 
 /* 117l-B2 ②：事项之间从「一条细分隔线」改成「一张张卡」—— 修前每个事项与它的线程行糊在一起，
    十来行下来分不出哪几行属于哪一件。 */

@@ -8,6 +8,10 @@ import { apiErrorInfo } from './net.js';
 import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './preview-task-sheet.js';
 import { describeTurnActivity } from './turn-activity.js';
 import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+// F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
+// （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
+// 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
+import { missionStateIcon } from './icons.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -460,7 +464,15 @@ export function createStewardDrawer({
       const raw = String((session && session.title) || (missionRow && missionRow.title) || '');
       if (raw && raw !== titleNode.textContent) titleNode.title = raw; else titleNode.removeAttribute('title');
     }
-    if (stateNode) stateNode.textContent = stateLabel(threadStateOf(missionRow));
+    // F5a：状态药丸 = 一枚字形 ＋ 原来那句人话。文字一个字没动（textContent 仍逐字等于
+    // stateLabel(...)，既有断言读的就是它），图标只是让扫一眼就分得出在跑／等你／已收工。
+    if (stateNode) {
+      const stateValue = threadStateOf(missionRow);
+      clear(stateNode);
+      const glyph = missionStateIcon(stateValue, 12);
+      if (glyph) stateNode.appendChild(glyph);
+      stateNode.appendChild(doc().createTextNode(stateLabel(stateValue)));
+    }
     if (!waitNode) return;
     const wait = (missionRow && missionRow.wait) || null;
     const label = wait ? String(wait.label || '') : '';

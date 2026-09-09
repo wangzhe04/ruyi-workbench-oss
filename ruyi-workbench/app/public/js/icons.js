@@ -190,7 +190,113 @@ const ICONS = {
     ['path', { d: 'M6 13l6 6 6-6' }],
   ],
   minus: [['path', { d: 'M5 12h14' }]],
+  // 第117波 F5a(27 号文 §11.13.1「F 追加」/ 32 号文 §2.2 F5):管家壳图标集。
+  // 全部沿用本表的单线语言(24×24、currentColor、圆角线帽,描边由 icon() 统一给 1.5)。
+  //
+  // ① 停机 ≠ 停止。power/powerOff 只给【管家本人】的停机与唤醒(已停机 = 同一枚加一道斜杠);
+  //    线程的「停止」仍是上面那枚实心方块 stop。F5a 之前这两件事都画成「圆里一个方块」
+  //    (steward-settings.js 里那份孤本 ICON_STOP),读者没法从字形分辨停的是谁。
+  power: [
+    ['path', { d: 'M18.36 6.64a9 9 0 1 1-12.73 0' }],
+    ['path', { d: 'M12 3v9' }],
+  ],
+  powerOff: [
+    ['path', { d: 'M18.36 6.64a9 9 0 1 1-12.73 0' }],
+    ['path', { d: 'M12 3v9' }],
+    ['path', { d: 'M4.5 19.5 19.5 4.5' }],
+  ],
+  // ② 权限四档画在【同一个盾牌轮廓】里(家族标不变,里面的字形说是哪一档):
+  //    问号 = 每步都问 / 铅笔 = 改文件不问 / 清单线 = 只做计划 / 闪电 = 全自动。
+  //    名字由档位名派生(见下面的 permissionIconName),所以本文件【没有】第二份四档表 ——
+  //    四档的唯一判据仍然是 steward-chips.js 的 STEWARD_PERMISSION_MODES。
+  shieldDefault: [
+    ['path', { d: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z' }],
+    ['path', { d: 'M10.4 9.6a1.75 1.75 0 0 1 3.35.6c0 1.2-1.75 1.5-1.75 2.5' }],
+    ['path', { d: 'M12 15.4h.01' }],
+  ],
+  shieldAcceptEdits: [
+    ['path', { d: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z' }],
+    ['path', { d: 'M14.4 7.9a1.45 1.45 0 0 1 2.05 2.05l-5.15 5.15-2.7.65.65-2.7z' }],
+  ],
+  shieldPlan: [
+    ['path', { d: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z' }],
+    ['path', { d: 'M9.2 9.6h5.6M9.2 12.2h5.6M9.2 14.8h3.4' }],
+  ],
+  shieldAuto: [
+    ['path', { d: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z' }],
+    ['path', { d: 'M13.1 7.4 9.5 12.4h2.7l-1.3 4.2 3.6-5h-2.7z' }],
+  ],
+  // ③ 头部胶囊右边那枚「还有别的档可选」的角标。
+  caret: [['path', { d: 'M7 10l5 5 5-5' }]],
+  // ④ 五态药丸的字形。名字同样【从五态值派生】(见下面的 missionStateIconName),
+  //    本表因此不是第二份五态枚举 —— 谁处在哪一态永远只由 mission-state.js 判。
+  //    done 与 quick_ask 的字形表里早就有,别名指向【同一个形状数组】,不抄第二份路径(见文件末)。
+  stateRunning: [
+    ['circle', { cx: '12', cy: '12', r: '8.5' }],
+    ['path', { d: 'M7.4 12h2l1.4-2.9 2.4 5.4 1.3-2.5h2.1' }],
+  ],
+  stateNeedsYou: [
+    ['path', { d: 'M20.5 12.2c0 3.87-3.8 7-8.5 7-1 0-1.97-.14-2.86-.4L4.5 20.5l1.6-4.05A6.6 6.6 0 0 1 3.5 12.2c0-3.87 3.8-7 8.5-7s8.5 3.13 8.5 7z' }],
+    ['path', { d: 'M9.9 10.2a2.2 2.2 0 0 1 4.2.8c0 1.5-2.2 1.8-2.2 3' }],
+    ['path', { d: 'M12 16.5h.01' }],
+  ],
+  stateStopped: [
+    ['circle', { cx: '12', cy: '12', r: '8.5' }],
+    ['path', { d: 'M8.2 12h7.6' }],
+  ],
+  stateDispatching: [
+    ['path', { d: 'M12 3.5v8.7' }],
+    ['path', { d: 'M8.4 8.8 12 12.4l3.6-3.6' }],
+    ['path', { d: 'M4.5 15v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3V15' }],
+  ],
+  // ⑤ 抽屉与看板的动作(其余动作复用表里已有的 send/pause/resume/stop/monitor/sheet/open/plus)。
+  rewind: [
+    ['path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }],
+    ['path', { d: 'M3 3v5h5' }],
+  ],
+  handBack: [
+    ['circle', { cx: '18.2', cy: '6.6', r: '2.6' }],
+    ['path', { d: 'M20.5 18.5v-1.2a4.6 4.6 0 0 0-4.6-4.6H7.4' }],
+    ['path', { d: 'M10.8 9.4 6.4 12.7l4.4 3.3' }],
+  ],
+  diff: [
+    ['path', { d: 'M12 4.5v9' }],
+    ['path', { d: 'M7.5 9h9' }],
+    ['path', { d: 'M6 19h12' }],
+  ],
+  up: [
+    ['path', { d: 'M12 20V7.5' }],
+    ['path', { d: 'M6.8 12.7 12 7.5l5.2 5.2' }],
+    ['path', { d: 'M5.5 4h13' }],
+  ],
 };
+
+// F5a:五态里有两态的字形本表早就有(done 的对勾圈、quick_ask 的闪电)。别名指向【同一个形状
+// 数组】—— 派生名字拿得到,却没有第二份路径字面量(「一套词汇,不留孤本」的同一条纪律)。
+ICONS.stateDone = ICONS.done;
+ICONS.stateQuickAsk = ICONS.quickask;
+
+// 档位名 → 盾牌字形名(default → shieldDefault)。纯派生,不是查表:本文件不认识任何一个档位名,
+// 加一档只要在 ICONS 里补一枚同名盾牌即可。表里没有对应字形时退回家族标 shield(不 warn)。
+export function permissionIconName(mode) {
+  const key = String(mode || '');
+  const name = key ? 'shield' + key.charAt(0).toUpperCase() + key.slice(1) : '';
+  return Object.prototype.hasOwnProperty.call(ICONS, name) ? name : 'shield';
+}
+
+// 五态值 → 字形名(needs_you → stateNeedsYou)。同样是纯派生:本文件没有五态清单,
+// 「谁处在哪一态」永远只由 mission-state.js 判。表里没有对应字形时返回空串(调用方不画图标)。
+export function missionStateIconName(state) {
+  const camel = String(state || '').replace(/_([a-z0-9])/g, (whole, letter) => letter.toUpperCase());
+  const name = camel ? 'state' + camel.charAt(0).toUpperCase() + camel.slice(1) : '';
+  return Object.prototype.hasOwnProperty.call(ICONS, name) ? name : '';
+}
+
+// 五态字形的取件口:名字派生不出来就【什么都不画】,不猜、也不落到某个默认态。
+export function missionStateIcon(state, size = 12) {
+  const name = missionStateIconName(state);
+  return name ? icon(name, size) : null;
+}
 
 // name → SVGElement(未知名返回 null + warn)。
 export function icon(name, size = 16) {

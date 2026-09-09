@@ -211,6 +211,35 @@ const PANEL = `(() => {
   };
 })()`;
 
+// F5a（27 号文 §11.13.1「F 追加」）：头部两枚常驻控件的【字形】。SVG 里没有文字可读，所以这里读
+// 路径本身 —— 四档盾牌必须两两不同却共享同一条盾牌轮廓；停机键必须是电源符（已停机多一道斜杠），
+// 而且不能是线程「停止」那枚实心方块（那一枚是 <rect>）。
+const HEADER = `(() => {
+  const paths = node => (node ? [...node.querySelectorAll('svg path')].map(item => item.getAttribute('d')) : []);
+  const shield = document.getElementById('stewardShieldBtn');
+  const stop = document.getElementById('stewardStopBtn');
+  const menu = document.getElementById('stewardShieldMenu');
+  return {
+    shieldText: shield ? shield.textContent.trim() : '',
+    shieldLabel: shield ? (shield.querySelector('.steward-shield-label') || { textContent: '' }).textContent.trim() : '',
+    shieldGlyph: paths(shield).join('|'),
+    shieldSvgs: shield ? shield.querySelectorAll('svg').length : 0,
+    shieldCarets: shield ? shield.querySelectorAll('.steward-shield-caret').length : 0,
+    shieldExpanded: shield ? shield.getAttribute('aria-expanded') : '',
+    shieldAria: shield ? shield.getAttribute('aria-label') : '',
+    menuHidden: menu ? menu.hidden : null,
+    menuModes: [...document.querySelectorAll('#stewardShieldMenu .steward-shield-option')].map(node => node.dataset.permissionMode),
+    menuLabels: [...document.querySelectorAll('#stewardShieldMenu .steward-shield-option-label')].map(node => node.textContent.trim()),
+    stopGlyph: paths(stop).join('|'),
+    stopPaths: paths(stop).length,
+    stopRects: stop ? stop.querySelectorAll('svg rect').length : 0,
+    stopText: stop ? stop.textContent.trim() : '',
+  };
+})()`;
+const SHIELD_OUTLINE = 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z';
+const POWER_ARC = 'M18.36 6.64a9 9 0 1 1-12.73 0';
+const POWER_SLASH = 'M4.5 19.5 19.5 4.5';
+
 const appPort = await getFreePort();
 const debugPort = await getFreePort();
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-settings-'));
@@ -340,6 +369,31 @@ try {
   ok(afterEnable.permission === 'default', `C0 出发点是「每步都问」（实测 ${afterEnable.permission}）`);
   ok(afterEnable.shieldPermission === 'default' && afterEnable.shield === zh['stewardShell.permission.default.label'],
     `C0b 盾牌显示同一档（实测「${afterEnable.shield}」）`);
+  // ── F5a：盾牌是「盾＋档位名＋角标」的胶囊（§11.13.1「F 追加」）──────────────────────────
+  const headerDefault = await cdp.evaluate(HEADER);
+  ok(headerDefault.shieldLabel === zh['stewardShell.permission.default.label']
+    && headerDefault.shieldText === zh['stewardShell.permission.default.label']
+    && headerDefault.shieldSvgs === 2 && headerDefault.shieldCarets === 1,
+    `C0c F5a：档位名【看得见】地写在盾牌上（盾＋名＋角标 = 2 枚 SVG ＋ 1 段文字），而按钮的 textContent 仍逐字只有那句人话 —— 角标是图标不是字符（实测「${headerDefault.shieldText}」，svg=${headerDefault.shieldSvgs}）`);
+  ok(headerDefault.shieldGlyph.includes(SHIELD_OUTLINE) && headerDefault.shieldGlyph.split('|').length >= 2
+    && headerDefault.shieldAria === zh['settings.steward.shieldTitle'].replace('{{mode}}', zh['stewardShell.permission.default.label']),
+    `C0d F5a：盾内另有一枚只属于这一档的字形（问号），盾牌轮廓这个家族标不变；可及名一个字没动（实测 aria-label「${headerDefault.shieldAria}」）`);
+  // 胶囊点开的仍然是【同一个】四档菜单，Esc 仍然收得回来（117j copy-P2-4 那条键盘纪律没被改形状带走）。
+  await cdp.evaluate(`(document.getElementById('stewardShieldBtn').click(), true)`);
+  const shieldOpen = await waitForEval(cdp, `(() => { const s = ${HEADER}; return s.menuHidden === false ? s : null; })()`);
+  ok(shieldOpen && shieldOpen.shieldExpanded === 'true'
+    && JSON.stringify(shieldOpen.menuModes) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto'])
+    && JSON.stringify(shieldOpen.menuLabels) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto']
+      .map(mode => zh[`stewardShell.permission.${mode}.label`])),
+    `C0e F5a：胶囊点开的仍是那【同一个】四档菜单，顺序与人话都来自 chips 那一份表（实测 ${JSON.stringify(shieldOpen && shieldOpen.menuLabels)}）`);
+  // 收回菜单走「再点一次」这条与壳模式无关的路：Esc 那一路的唯一监听点在 steward-shell.js
+  // （`if (event.key !== 'Escape' || !isStewardMode()) return;`），本组此刻还站在经典壳里，
+  // 在这里按 Esc 本来就不该有反应 —— 键盘那一半由 steward-settings.static 的 K8 钉住接线未动。
+  await cdp.evaluate(`(document.getElementById('stewardShieldBtn').click(), true)`);
+  const shieldClosed = await waitForEval(cdp, `(() => { const s = ${HEADER}; return s.menuHidden === true ? s : null; })()`);
+  ok(shieldClosed && shieldClosed.shieldExpanded === 'false' && shieldClosed.shieldSvgs === 2
+    && shieldClosed.shieldText === zh['stewardShell.permission.default.label'],
+    'C0f F5a：再点一次收回菜单（aria-expanded 回 false），收完盾牌胶囊本身一枚字形都没丢、档位名还在');
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgStewardDefaultPermission');
     select.value = 'acceptEdits';
@@ -356,6 +410,11 @@ try {
   ok(Boolean(afterAccept), 'C1b 盾牌跟着换色档（data-permission=acceptEdits）');
   ok(afterAccept && afterAccept.permissionHint === zh['stewardShell.permission.acceptEdits.hint'],
     'C1c 档位下面那句人话来自 chips 的同一份表');
+  const headerAccept = await cdp.evaluate(HEADER);
+  ok(headerAccept.shieldLabel === zh['stewardShell.permission.acceptEdits.label']
+    && headerAccept.shieldGlyph !== headerDefault.shieldGlyph
+    && headerAccept.shieldGlyph.includes(SHIELD_OUTLINE),
+    `C1e F5a：换档之后【字形与文字一起换】——盾里换成铅笔，盾牌轮廓仍是同一条（实测「${headerAccept.shieldLabel}」，字形变了=${headerAccept.shieldGlyph !== headerDefault.shieldGlyph}）`);
 
   /* ═════════ ③ 全自动二次确认 ═════════ */
   console.log('── ③ 切「全自动」的二次确认 ──');
@@ -394,6 +453,11 @@ try {
   ok(Boolean(autoSaved), 'D4 确认后落盘 auto');
   const afterAuto = await waitForEval(cdp, `(() => { const s = ${PANEL}; return s.shieldPermission === 'auto' ? s : null; })()`);
   ok(Boolean(afterAuto), 'D4b 盾牌切到金底档（data-permission=auto）');
+  const headerAuto = await cdp.evaluate(HEADER);
+  ok(headerAuto.shieldLabel === zh['stewardShell.permission.auto.label']
+    && new Set([headerDefault.shieldGlyph, headerAccept.shieldGlyph, headerAuto.shieldGlyph]).size === 3
+    && headerAuto.shieldGlyph.includes(SHIELD_OUTLINE),
+    `D4c F5a：走过的三档各是一枚【不同】的盾内字形（问号／铅笔／闪电），共享同一条盾牌轮廓（实测「${headerAuto.shieldLabel}」，三档互不相同=${new Set([headerDefault.shieldGlyph, headerAccept.shieldGlyph, headerAuto.shieldGlyph]).size === 3}）`);
 
   /* ═════════ ④ 自理清单 ═════════ */
   console.log('── ④ 管家可以自己做的事 ──');
@@ -535,6 +599,12 @@ try {
   // 停机之前头像【不该】是 sleeping —— 否则下面那条 H2 会「本来就 sleeping」而假过。
   const awakeBefore = await waitForEval(cdp, `(() => { const s = ${PANEL}; return s.avatarState && s.avatarState !== 'sleeping' ? s : null; })()`);
   ok(Boolean(awakeBefore), `H0 停机之前头像不是 sleeping（实测 ${awakeBefore && awakeBefore.avatarState}）`);
+  // ── F5a：停机 ≠ 停止（§11.13.1「F 追加」）。管家的停机键是电源符，线程的「停止」是实心方块；
+  //    修前两处都是「圆里一个方块」，用户看不出停的是谁。 ────────────────────────────────
+  const headerAwake = await cdp.evaluate(HEADER);
+  ok(headerAwake.stopGlyph.includes(POWER_ARC) && !headerAwake.stopGlyph.includes(POWER_SLASH)
+    && headerAwake.stopRects === 0 && headerAwake.stopText === zh['settings.steward.stop'],
+    `H0b F5a：没停机时停机键画的是【电源符】（一段开口圆弧＋一竖，零 <rect> —— 线程「停止」那枚实心方块不在这里），可及名仍是「${headerAwake.stopText}」`);
   await cdp.evaluate(`(document.getElementById('stewardStopBtn').click(), true)`);
   const stoppedState = await waitForHttp(appPort, 'GET', '/api/steward/state',
     result => result.json && result.json.stopped === true, token);
@@ -543,6 +613,11 @@ try {
   ok(Boolean(sleeping), 'H2 头像立刻切到 sleeping（§8.3 停机覆盖一切，不用等下一次轮询）');
   ok(sleeping && sleeping.stopLabel === zh['settings.steward.wake'] && sleeping.stopFlag === 'true',
     `H3 同一个按钮变成「唤醒管家」（实测「${sleeping && sleeping.stopLabel}」）`);
+  const headerStopped = await cdp.evaluate(HEADER);
+  ok(headerStopped.stopGlyph.includes(POWER_ARC) && headerStopped.stopGlyph.includes(POWER_SLASH)
+    && headerStopped.stopPaths === headerAwake.stopPaths + 1 && headerStopped.stopRects === 0
+    && headerStopped.stopText === zh['settings.steward.wake'],
+    `H3b F5a：已停机 = 同一枚电源符【多一道斜杠】（路径数 ${headerAwake.stopPaths} → ${headerStopped.stopPaths}），仍然不是那枚实心方块；可及名跟着变成「${headerStopped.stopText}」`);
   ok((await cfg()).stewardEnabledV1 === true, 'H4 停机不改配置（总开关仍是开的）');
 
   await cdp.evaluate(`(document.getElementById('stewardStopBtn').click(), true)`);
@@ -552,6 +627,9 @@ try {
   const awake = await waitForEval(cdp, `(() => { const s = ${PANEL}; return s.avatarState && s.avatarState !== 'sleeping' ? s : null; })()`);
   ok(Boolean(awake), `H6 头像离开 sleeping（实测 ${awake && awake.avatarState}）`);
   ok(awake && awake.stopLabel === zh['settings.steward.stop'], 'H7 按钮回到「一键停机」');
+  const headerWoke = await cdp.evaluate(HEADER);
+  ok(headerWoke.stopGlyph === headerAwake.stopGlyph && !headerWoke.stopGlyph.includes(POWER_SLASH),
+    `H7b F5a：唤醒之后那道斜杠也跟着走（字形逐字回到停机之前的那一份；实测 ${headerWoke.stopPaths} 条路径）`);
 
   /* ═════════ ⑨ 新开线程用什么模型（117l-A3：强/快两档；依赖 A1 的 stewardThreadModels 键） ═════════ */
   console.log('── ⑨ 新开线程用什么模型（强/快两档） ──');

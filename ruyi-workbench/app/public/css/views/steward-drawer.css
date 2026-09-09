@@ -152,9 +152,12 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+/* F5a（§11.13.1「F 追加」）：五态各带一枚字形。字形与文字并列，不替换文字 ——
+   药丸的 textContent 仍逐字是那句人话。 */
 .steward-drawer-state {
   display: inline-flex;
   align-items: center;
+  gap: var(--sp-1);
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--muted);
@@ -279,6 +282,9 @@
   white-space: pre-wrap;
 }
 .steward-drawer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   min-height: 0;
   align-self: flex-start;
   font-size: var(--fs-sm);
@@ -290,6 +296,9 @@
   text-decoration: underline;
 }
 .steward-drawer-link:focus-visible { outline: none; box-shadow: var(--ring); }
+/* F5a 顺带的守卫：本层作者样式一给 display，UA 表的 [hidden] 就压不住了（同层第四处，
+   前三处的根因写在 .steward-drawer-ask 那段注释里）。这枚今天没人 hidden，先把门关上。 */
+.steward-drawer-link[hidden] { display: none; }
 .steward-drawer-chiprow { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .steward-drawer-reply {
   display: inline-flex;
