@@ -3022,6 +3022,7 @@
   ,"stewardShell.board.notQueued": "It is not queued, so there is nothing to jump."
   ,"stewardShell.board.failed": "That did not go through: {{error}}"
   ,"stewardShell.board.now": "Right now"
+  ,"stewardShell.board.answerHere": "Answer here"
   ,"stewardShell.board.nowClose": "Close"
   ,"stewardShell.classicWindow.back": "Back to the steward"
   ,"stewardShell.classicWindow.switchWhole": "Switch the whole app to 2.0"
