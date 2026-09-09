@@ -143,6 +143,24 @@ ok(mod.STEWARD_DRAWER_POLL_MS_MIN === 5000
   'C6 轮询周期取 config.stewardPollMs 并按 5000 下限 clamp（导出常量，不是散落字面量）');
 ok(count(stewardShell, /setInterval\(/g) === 1,
   'C7 steward-shell.js 仍然全文件恰好一处 setInterval（117b 的 C2a 未被 117d 稀释）');
+// 117s-B（用户第九轮走查①④「递话给已有线程／已收工的线程，『它刚说』更新不够及时」）：
+// 表与三重门控一个字不动（C1／C3／C3b／C6 仍然是上面那几条），本组只钉「这一拍拉不拉」的两条判据。
+// 切到 refreshOnce 自己的收尾大括号为止 —— 一路切到 pollSlice 的话会把中间那句模块级的
+// `let lastPollAt = 0;` 声明也圈进来，本条断言就恒真了（写这条锁时踩过一次：把改动还原成
+// `= Date.now()`，它照样绿）。
+const refreshOnceAt = drawerCode.indexOf('async function refreshOnce()');
+const refreshOnceBody = drawerCode.slice(refreshOnceAt, drawerCode.indexOf('\n  }', refreshOnceAt));
+ok(/lastPollAt = 0;/.test(refreshOnceBody)
+  && refreshOnceBody.lastIndexOf('lastPollAt = 0;') > refreshOnceBody.lastIndexOf('lastPollAt = Date.now();')
+  && refreshOnceBody.lastIndexOf('lastPollAt = 0;') > refreshOnceBody.lastIndexOf('await loadMissionSlice();'),
+  'C8 强刷跑完把节拍闸【打开】而不是关上：refreshOnce 末尾 lastPollAt 归零，下一拍照常自己判「该不该拉」——修前只有开头那句 = Date.now()，等于把下一次复核又推后整整一个节拍（空闲线程走 config.stewardPollMs，用户真机 15 s），而强刷恰恰发生在「刚有事发生」的时刻');
+const pollSliceBody = drawerCode.slice(drawerCode.indexOf('async function pollSlice()'),
+  drawerCode.indexOf('function pollIntervalMs()'));
+ok(/const nowLive = isLive\(\);/.test(pollSliceBody)
+  && /if \(wasLive !== nowLive\) await loadMissionSlice\(\);/.test(pollSliceBody)
+  && !/wasLive && !isLive\(\)/.test(pollSliceBody)
+  && count(pollSliceBody, /loadMissionSlice\(\)/g) === 1,
+  'C9 live 的【两个方向】都同拍重拉事项切片：真→假（回合刚结束）与假→真（递话把已收工的线程重新点着）都只有事项面知道五态，只钉一边的话状态行会停在旧的那一档；判据合成一条 —— live 没变就一个请求都不多发');
 
 // ─── D 快捷回复：确定性纯函数 ────────────────────────────────────────────────────
 ok(typeof mod.quickRepliesFor === 'function' && mod.STEWARD_QUICK_REPLIES_MAX === 3,

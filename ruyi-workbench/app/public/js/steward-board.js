@@ -563,9 +563,12 @@ export function createStewardBoard({
 
   // 焦点线程：用户显式点过就【钉住】，之后的自动挑选不再把它换掉（换回自动要么关掉这一件、
   // 要么点别的线程）。宽屏常驻时抽屉就是右栏本身（同一个节点），窄屏才退回覆盖式打开。
+  // 117s-B（用户第九轮走查①④）：本函数是全模块唯一的「有人【请求】聚焦这条线程」入口（焦点／
+  // 打开事件、行标题、行上的「打开」四条路都经它），所以强刷那一刷只挂在这里 —— 判据与理由写在
+  // syncNow 的头注里。
   function focusThread(sessionId) {
     pinnedId = String(sessionId || '');
-    if (!syncNow() && drawer && typeof drawer.openThread === 'function') drawer.openThread(pinnedId);
+    if (!syncNow({ focusRequest: true }) && drawer && typeof drawer.openThread === 'function') drawer.openThread(pinnedId);
     return pinnedId;
   }
   // 「打开」= 打开抽屉那一份并把看板收起来（不然它盖着自己要看的东西）。
@@ -606,7 +609,21 @@ export function createStewardBoard({
     return focus ? String(focus.sessionId) : '';
   }
 
-  function syncNow() {
+  // 117s-B（用户第九轮走查①「递话给已有线程也不会自动打开线程详情页」／④「给已收工的线程重新
+  // 递话，『它刚说』更新不够及时」——同一个根）：本函数最后一行原来是
+  //   `if (drawer.currentSessionId() !== focusId) drawer.openThread(focusId);`
+  // ——【相等时什么都不做】。管家递话给一条抽屉正开着的线程时，steward:focus-thread 带的正是同一个
+  // id：行刷了、钉子设了、抽屉却原样不动，屏幕上留着「已收工」与上一回合的「它刚说」，要等抽屉
+  // 自己的空闲节拍（config.stewardPollMs，用户真机 15 s）才发现线程又活了。117r-D2 修的是另一半
+  // （「行里还没有它」的新线程），这一半一直没人管。相等分支改成【强刷一次】：refreshOnce 是
+  // 117m-A2 为「右栏已经开着这一条」这种情形留的既有 API，不新起取数路径、不加计时器
+  // （F1 仍然只准本模块一处 setInterval／一处 clearInterval）。
+  //
+  // 为什么用 focusRequest 门着而不是无条件刷：syncNow 还被 refreshBoard 的每一拍、closeNow、
+  // leaveSteward、断点变化各调一次。无条件强刷等于把抽屉的取数频率绑到看板节拍上，而且抽屉那边
+  // refreshOnce 跑完会把节拍闸清零（117s-B 的另一半），于是空闲线程也会被永久按在 5 s 一拍上 ——
+  // 那是另造一个毛病，不是这一条的修法。真正该刷的时刻只有一个：有人【请求聚焦】这条线程。
+  function syncNow({ focusRequest = false } = {}) {
     const now = byId('stewardNow');
     if (!now || !drawer) return false;
     const focusId = currentFocusId();
@@ -621,6 +638,11 @@ export function createStewardBoard({
     }
     drawer.setMount('docked');
     if (drawer.currentSessionId() !== focusId) drawer.openThread(focusId);
+    // 不 await：syncNow 的返回值是【同步的】「右栏这一份接住了没有」，focusThread 的回退判据
+    // （`if (!syncNow()) drawer.openThread(...)`）、closeNow、leaveSteward 与断点回调都拿它当同步
+    // 布尔用；改成 async 会让那条回退恒真（Promise 是真值），宽屏没接住时就再也退不回覆盖式打开。
+    // 失败自吞：一次强刷没成不该把右栏打回去，下一拍抽屉自己还会再判一次。
+    else if (focusRequest && typeof drawer.refreshOnce === 'function') drawer.refreshOnce().catch(() => {});
     return true;
   }
 

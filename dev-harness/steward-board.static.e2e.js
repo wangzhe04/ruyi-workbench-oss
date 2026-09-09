@@ -460,6 +460,31 @@ ok(/try \{ await refreshBoard\(\); \}/.test(verifyBody)
   && count(boardCode, /pinnedUnverified = true/g) === 1,
   'K4 「未核实」是【有界的】：refreshBoard 跑完（无论成败）就在 finally 里清位并再 syncNow 一次，全模块只有焦点事件那一处置位 —— 不存在「一钉就永久信任」（那样一条不存在的线程会把右栏永远占着）');
 
+// ─── L 117s-B：焦点落在【已经开着的同一条线程】上时，右栏要重新读一次（用户第九轮走查①④）─────
+// 现象：管家递话给一条抽屉正开着的线程，steward:focus-thread 带的是同一个 id —— 修前 syncNow()
+// 的最后一行相等即跳过、什么都不做，屏幕上留着「已收工」与上一回合的「它刚说」，要等抽屉自己的
+// 空闲节拍（config.stewardPollMs，用户真机 15 s）才发现线程又活了。117r-D2（K 组）修的是另一半
+// 「行里还没有它」的新线程；这一半一直没人管。
+// 本组钉的是【哪件事必须成立】而不是那一行长什么样（30 号文 §8.13 ①）：
+//   ① 相等分支上真有一次强刷，且走抽屉【既有】的 refreshOnce（不另起第二条取数路径）；
+//   ② syncNow 仍然【同步返回布尔】—— focusThread 的 `if (!syncNow())` 回退靠它，改 async 会让那条
+//      回退恒真（Promise 是真值），宽屏没接住时就再也退不回覆盖式打开；
+//   ③ 这一刷是【焦点请求】专属的：refreshBoard 的每一拍也调 syncNow，无条件强刷等于把抽屉的取数
+//      频率绑到看板节拍上（还会连同 refreshOnce 的节拍闸归零一起，把空闲线程永久按在 5 s 一拍）。
+const syncNowBody = boardCode.slice(boardCode.indexOf('function syncNow('), boardCode.indexOf('function closeNow('));
+ok(/if \(drawer\.currentSessionId\(\) !== focusId\) drawer\.openThread\(focusId\);/.test(syncNowBody)
+  && /drawer\.refreshOnce\(\)/.test(syncNowBody)
+  && /refreshOnce,/.test(drawer),
+  'L1 syncNow 的相等分支上有一次强刷，且用的是抽屉导出的既有 refreshOnce（不同 id 那一支照旧开线程，一个字没动）');
+ok(!/async function syncNow/.test(boardCode)
+  && !/await drawer\.refreshOnce\(\)/.test(syncNowBody)
+  && /drawer\.refreshOnce\(\)\.catch\(\(\) => \{\}\)/.test(syncNowBody),
+  'L2 强刷是发射后不管（不 await、失败自吞）：syncNow 仍然同步返回布尔，focusThread 的回退判据与 closeNow／leaveSteward／断点回调拿到的还是真布尔');
+ok(count(boardCode, /syncNow\(\{ focusRequest: true \}\)/g) === 1
+  && /if \(!syncNow\(\{ focusRequest: true \}\) &&/.test(boardCode)
+  && count(boardCode, /drawer\.refreshOnce\(\)/g) === 1,
+  'L3 强刷只挂在【焦点请求】这一条路上（全模块唯一一处 focusRequest:true 就在 focusThread 里，而焦点／打开事件、行标题、行上的「打开」四条路都经它）—— refreshBoard 的每一拍、closeNow、leaveSteward、断点变化那几处 syncNow() 不强刷');
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

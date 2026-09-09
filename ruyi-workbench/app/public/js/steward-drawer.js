@@ -860,6 +860,9 @@ export function createStewardDrawer({
     // 「等你(1 条待决)」与那两枚候选答案还挂在屏幕上，看起来像没答进去。**不加新计时器**（本件
     // 的契约是抽屉零 setTimeout，见 steward-drawer.static C2）：把节拍闸清零，让【已经在跑】的
     // 那张表下一拍（答完线程回到 live，就是 5s 下限那一档）真的去拉一次。
+    // 117s-B 起 refreshOnce 自己也这么做（每一次强刷都是「刚有事发生」），这一行于是成了同义重复；
+    // 留着不删是因为 117k 的这条保证不该挂在别人的实现细节上 —— 谁将来改 refreshOnce 都不会把
+    // 「答完待决那一拍必须真去拉」一起改没。
     lastPollAt = 0;
   }
 
@@ -920,10 +923,18 @@ export function createStewardDrawer({
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────
   async function refreshOnce() {
-    lastPollAt = Date.now();
+    lastPollAt = Date.now();   // 这一趟在飞的时候别让轮询那一拍再来一趟（同一份切片拉两遍）
     await loadThreadSlice();
     await loadMissionSlice();
     renderAll();
+    // 117s-B（用户第九轮走查④「给已收工的线程重新递话，『它刚说』更新不够及时」）：修前这里【只有】
+    // 开头那一行 `lastPollAt = Date.now()` —— 一次强刷把【下一拍】又推后整整一个节拍。而强刷发生的
+    // 时刻恰恰是「刚有事发生」的时刻（管家递话进来、答完待决、任一写动作），线程往往【正要】活过来：
+    // 这一趟读到的还是「已收工」，然后自己把下一次复核推到 config.stewardPollMs 之后（用户真机 15 s）。
+    // 跑完归零 = 把节拍闸打开，下一拍（表恒走 5 s 下限）照常自己判「该不该拉」。不加计时器、不换表、
+    // 轮询表里的数一个没动。代价有界且只多一拍：那一拍跑完就把 lastPollAt 记回当下，若线程仍然空闲
+    // 就立刻回到配置节拍。
+    lastPollAt = 0;
   }
 
   // 轮询只刷新「本线程切片」这两面（§117d 刷新纪律逐字）：会话原文与未决清单。事项聚合与验收快照
@@ -944,7 +955,13 @@ export function createStewardDrawer({
     await loadThreadSlice();
     // 回合刚结束（live 真 -> 假）：当拍把事项行与快照一并重拉，不等下一次写动作 —— 五态、验收进度、
     // 「已收工」这三样只有事项面知道，而「跑完了」恰恰是用户最想立刻看见的那一刻。
-    if (wasLive && !isLive()) await loadMissionSlice();
+    // 117s-B（用户第九轮走查①④）：把【假 -> 真】那一边补上，与上面那句对称 —— 管家把一条已收工的
+    // 线程重新递话点着时，「它在跑」这件事同样只有事项面知道（状态行取 threadStateOf(missionRow)）。
+    // 不补的话这一拍手里明明已经拿到「它又活了」（resumable.live 翻真、标题换成「它正在说」），
+    // 状态行却仍写着「已收工」，要等下一次写动作或切线程才纠回来。两个方向合成一条判据：live 变了
+    // 就重拉，没变就一个请求都不多发。
+    const nowLive = isLive();
+    if (wasLive !== nowLive) await loadMissionSlice();
     renderAll();
   }
 

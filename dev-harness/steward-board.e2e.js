@@ -12,7 +12,9 @@
 //   ⑥ 派发 steward:focus-thread → 切到另一条（显式选择覆盖自动挑选）；
 //   ⑦ 「关掉」→ 回单列且 localStorage 记住；点某行「打开」→ 请得回来；
 //   ⑧ 缩到 900px → 不常驻（抽屉退回覆盖式）；
-//   ⑨ 切回经典壳 → 管家侧零残留定时器。
+//   ⑨ 切回经典壳 → 管家侧零残留定时器；
+//   ⑩ 117s-B：给【右栏已经开着的、已收工的】线程递话 → 两条真实路径各钉一条（R 组）：强刷读得
+//      太早时下一拍要真去复核（不被推后一整个空闲节拍），行上的「打开」这条不派事件的焦点路要强刷。
 // 与 steward-drawer.e2e.js / steward-shell.e2e.js 同一套 CDP 无头驱动；后端零改动。
 (async () => {
 const cp = require('child_process');
@@ -41,6 +43,10 @@ const THREAD_B = '跑批处理';
 const THREAD_C = '选个框架';
 // 117r-D2：这一条【故意】等浏览器已经取过一趟行之后才建，专用来造「行还没刷到就派焦点事件」的时序。
 const THREAD_D = '刚开的这一条';
+// 117s-B：抽屉【已经开着的就是这一条】时递话进来的两条线程（都走无账本那一路，见 R 组的头注）。
+// E 钉「强刷读得太早」那一条，F 钉「看板行上的『打开』不派事件」那一条。
+const THREAD_E = '收工了又被叫醒';
+const THREAD_F = '收工了又被点开';
 const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
 // 117j W2-5：表按 5s 下限起（见 steward-board.js pollTick 头注），数计时器要按这个周期。
 const TICK_MS = 5000;
@@ -239,6 +245,11 @@ const BOARD = `(() => {
     })),
     nowHidden: now ? now.hidden : null,
     nowThread: text('stewardDrawerTitle'),
+    // 117s-B：右栏那一份抽屉的状态行与「它刚说／它正在说」——「递话进来之后屏幕上有没有变」
+    // 的可判定形式（只读 textContent，不碰任何模块私有状态）。
+    nowState: text('stewardDrawerState'),
+    nowLastSayHead: text('stewardDrawerLastSayHead'),
+    nowLastSay: text('stewardDrawerLastSayText'),
     drawerHidden: drawer ? drawer.hidden : null,
     drawerMount: drawer ? (drawer.dataset.mount || '') : '',
     drawerParent: drawer && drawer.parentElement ? drawer.parentElement.id : '',
@@ -285,8 +296,12 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-board-'));
 const home = path.join(root, 'home');
 const workA = path.join(root, 'work-a');
 const workB = path.join(root, 'work-b');
+// 117s-B：线程 E 自己的工作文件夹 —— 它要连跑两个回合（一个收尾、一个挂着），
+// 与 A／B 同 cwd 会撞上 116h 的写互斥，那不是本组要测的形状。
+const workE = path.join(root, 'work-e');
+const workF = path.join(root, 'work-f');
 const profile = path.join(root, 'profile');
-for (const dir of [home, workA, workB]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [home, workA, workB, workE, workF]) fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9,
   version: '2.4.0',
@@ -620,6 +635,116 @@ try {
   })()`);
   ok(Boolean(bounded) && bounded.nowHidden === false,
     `E2f 一条【不存在】的线程只被信任到那一刷跑完为止，随后交回原判据、回落自动挑选（实测「${bounded && bounded.nowThread}」）`);
+
+  // ── R 117s-B（用户第九轮走查①「递话给已有线程也不会自动打开线程详情页」／④「给已收工的
+  // 线程重新递话，『它刚说』更新不够及时」）────────────────────────────────────────────────
+  // 与上面 E2 那一组【互补】：E2 造的是「行里还没有它」（管家刚开的新线程），这一组造的是另一半 ——
+  // 抽屉【已经开着的就是这一条】。
+  //
+  // 27 号文 §11.13 把 ① ④ 的根因写成「syncNow() 相等时什么都不做，抽屉于是原样不动」——
+  // 这句话【只对了一半】：抽屉自己也听 steward:focus-thread（steward-drawer.js 的 bindStewardDrawer），
+  // 收到就无条件 openThread(id) 重读一遍，同一个 id 也照读。所以真正会让用户看到旧内容的是另外
+  // 两个口子，本组各钉一条：
+  //   ㈠【强刷读得太早】：递话刚落地时那个回合往往还没活过来（排队／抢工作区写锁），强刷这一趟
+  //      读到的还是「已收工」；而强刷跑完把 lastPollAt 记成当下，等于把下一次复核推到一整个空闲
+  //      节拍之后（config.stewardPollMs，本夹具 120000ms，用户真机 15000ms）。→ R4。
+  //   ㈡【没有事件的那条焦点路】：看板行上的「打开」与行标题走的是本模块的 focusThread()，
+  //      【不派事件】，抽屉那边一无所知 —— 右栏已经开着这条线程时，修前这一路一次都不刷。→ R8。
+  // 两条线程：E 钉㈠，F 钉㈡。都走【无账本】那一路（不开 /api/mission 账本 → 卡片 status='none'），
+  // 因为只有它的五态会从「已收工」翻成「进行中」：有账本且里程碑全 done 的线程 result=complete，
+  // 按 mission-state.js 的判定顺序 done 排在 running【前面】，再跑一个回合仍然显示「已收工」
+  // （那是另一件事，不在本刀）。无账本线程要进 GET /api/missions 得先被管家「看着」
+  // （06i stewardWatchedThread）—— 挂进事项容器 M 就够了（missionId !== sessionId 那一支，117r-D1 立的判据）。
+  const settleThread = async (title, cwd) => {
+    const made = await request(appPort, 'POST', '/api/sessions', { title, cwd }, token);
+    const id = (made && made.json && made.json.session && made.json.session.id) || '';
+    if (!id) return '';
+    await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: id }, token);
+    await request(appPort, 'POST', '/api/chat/stream', { sessionId: id, message: '收个尾', cwd }, token);
+    const settled = await waitForHttp(appPort, 'GET', '/api/missions?limit=200', result => {
+      const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === id);
+      return Boolean(row) && row.activeTurn !== true && row.status === 'none' && Number(row.turnSeq) > 0;
+    }, token);
+    return settled ? id : '';
+  };
+  const idE = await settleThread(THREAD_E, workE);
+  const idF = await settleThread(THREAD_F, workF);
+  ok(Boolean(idE) && Boolean(idF),
+    `R1 两条【无账本、已跑完一个回合】的线程就位（status=none ＋ turnSeq>0 ＋ 此刻没在跑 → 五态就是「${zh['mission.state.done']}」；${idE || '失败'} / ${idF || '失败'}）`);
+  const liveOn = async id => waitForHttp(appPort, 'GET', '/api/missions?limit=200', result => {
+    const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === id);
+    return Boolean(row && row.activeTurn === true);
+  }, token);
+  // 抽屉快照的等待循环：返回【等到没等到】与实测耗时，好让断言把「几秒内」写成可判定的数。
+  const waitForDrawer = async (title, state, head, needle, budgetMs) => {
+    const startedAt = Date.now();
+    for (let i = 0; Date.now() - startedAt < budgetMs; i++) {
+      const snapshot = await cdp.evaluate(BOARD).catch(() => null);
+      if (snapshot && snapshot.nowThread === title && snapshot.nowState === state
+        && snapshot.nowLastSayHead === head && String(snapshot.nowLastSay || '').includes(needle)) {
+        return { snapshot, ms: Date.now() - startedAt };
+      }
+      await sleep(100);
+    }
+    return { snapshot: null, ms: Date.now() - startedAt };
+  };
+
+  // ── ㈠ 强刷读得太早：下一拍必须真的去复核，而不是被推后一整个空闲节拍 ──────────────────
+  // 先把抽屉关掉再从行上「打开」重开 —— closeDrawer 会 stopPolling、openThread 再 startPolling，
+  // 于是轮询表的【相位从这一刻重新起算】：下一拍稳稳落在 5 s 之后，中间有足够的余量把回合起起来。
+  // 这不是为了好测才走的路，F1／F2 两条既有断言走的就是这条真实交互（× 关掉 → 行上「打开」请回来）。
+  await cdp.evaluate(`document.getElementById('stewardNowCloseBtn').click(), true`);
+  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.nowHidden === true ? 1 : null; })()`);
+  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
+  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
+  // 看板刚拉开时正文还是上一趟的行；先等这一条线程的行真的渲染出来再点（不然 querySelector 拿到 null）。
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]')`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]').click(), true`);
+  await sleep(1500);
+  const settledE = await cdp.evaluate(BOARD);
+  ok(settledE && settledE.nowThread === THREAD_E && settledE.nowState === zh['mission.state.done']
+    && settledE.nowLastSayHead === zh['stewardShell.drawer.lastSay'],
+    `R2 右栏重新开在线程 E 上：状态行「${zh['mission.state.done']}」、标题「${zh['stewardShell.drawer.lastSay']}」——这就是递话进来【之前】的那一帧（实测 state=「${settledE && settledE.nowState}」head=「${settledE && settledE.nowLastSayHead}」）`);
+  // 递话的服务端那一半：给这条已收工的线程重新开一个回合（provider 的 hang 支只开流不收尾，
+  // 于是 activeTurn 一直为真、服务端的 liveTail 里有「开工了…」）。这一刻【在强刷之后】——
+  // 正是真机上「递话刚落地、回合还在排队」时强刷读到的那个时序。
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idE, message: 'hang here', cwd: workE }, token);
+  ok(Boolean(await liveOn(idE)), 'R3 线程 E 的新回合真的在飞（服务端投影 activeTurn=true）—— 递话的服务端那一半已经发生，且它发生在抽屉那一次强刷【之后】');
+  const flippedE = await waitForDrawer(THREAD_E, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
+  ok(Boolean(flippedE.snapshot) && flippedE.ms <= 12000,
+    `R4 强刷读到的还是「已收工」时，【下一拍】（5 s 下限那一档）真的去复核了：状态行变「${zh['mission.state.running']}」、标题变「${zh['stewardShell.drawer.liveSay']}」（实测 ${flippedE.ms}ms；修前强刷把 lastPollAt 记成当下，下一次复核要等一整个空闲节拍 ${POLL_MS}ms）`);
+  ok(Boolean(flippedE.snapshot) && flippedE.snapshot.nowState === zh['mission.state.running'],
+    `R4b 同一拍里【状态行】也纠了过来：五态只有事项面知道，那一拍必须把事项切片一起重拉（live 假→真与既有的真→假对称；实测「${flippedE.snapshot && flippedE.snapshot.nowState}」）`);
+
+  // ── ㈡ 看板行上的「打开」是一条【不派事件】的焦点路 ────────────────────────────────────
+  // 抽屉那边听不到任何东西 —— 右栏已经开着这条线程时，修前这一路一次都不刷。
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idF}' } })), true`);
+  const onF = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.nowHidden === false && snapshot.nowThread === ${JSON.stringify(THREAD_F)}
+      && snapshot.nowState === ${JSON.stringify(zh['mission.state.done'])}
+      && snapshot.nowLastSayHead === ${JSON.stringify(zh['stewardShell.drawer.lastSay'])} ? snapshot : null;
+  })()`);
+  ok(Boolean(onF), `R5 右栏开在线程 F 上，且是「${zh['mission.state.done']}」那一帧（实测 state=「${onF && onF.nowState}」）`);
+  // openThread 末尾那次强刷把节拍闸清零，于是随后【多一拍】—— 先把那一拍等掉（表的周期是 5 s），
+  // 下面 R7 测到的才是真的空闲节拍，不是这一拍。
+  await sleep(6000);
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idF, message: 'hang here', cwd: workF }, token);
+  ok(Boolean(await liveOn(idF)), 'R6 线程 F 的新回合也在飞了（服务端投影 activeTurn=true）');
+  await sleep(1500);
+  const staleF = await cdp.evaluate(BOARD);
+  ok(staleF && staleF.nowState === zh['mission.state.done'] && staleF.nowLastSayHead === zh['stewardShell.drawer.lastSay'],
+    `R7 没有任何刷新的话抽屉自己【发现不了】：空闲线程走 config.stewardPollMs（本夹具 ${POLL_MS}ms，用户真机 15000ms），屏幕上还是「${zh['mission.state.done']}」＋「${zh['stewardShell.drawer.lastSay']}」（实测 state=「${staleF && staleF.nowState}」head=「${staleF && staleF.nowLastSayHead}」）`);
+  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
+  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]')`);
+  const clickedAt = Date.now();
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]').click(), true`);
+  const flippedF = await waitForDrawer(THREAD_F, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
+  ok(Boolean(flippedF.snapshot) && Date.now() - clickedAt <= 5000,
+    `R8 对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「${zh['mission.state.done']}」变「${zh['mission.state.running']}」、「${zh['stewardShell.drawer.lastSay']}」换成「${zh['stewardShell.drawer.liveSay']}」（实测 ${Date.now() - clickedAt}ms；这一路不派事件，修前 syncNow 相等即跳过，抽屉一次都不刷）`);
+  ok(Boolean(flippedF.snapshot) && flippedF.snapshot.nowLastSay.includes('开工了'),
+    `R8b 换上来的是【新那一回合】流出来的话，不是上一回合的落盘原话（实测「${flippedF.snapshot && flippedF.snapshot.nowLastSay}」）`);
 
   // ── ⑧ 缩到 900px → 不常驻 ────────────────────────────────────────────────────
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });
