@@ -178,7 +178,9 @@ const ok = (condition, label) => {
       'E1 抽屉的表按 5s 下限起');
     ok(/const due = wasLive \? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs\(\);/.test(drawer),
       'E1b 有在跑的回合就每拍都拉，否则仍按 config.stewardPollMs');
-    ok(/if \(wasLive && !isLive\(\)\) await loadMissionSlice\(\);/.test(drawer),
+    // 117s-B 把「真→假」那一支改成了对称的边沿判定：live 只要变了（真→假 = 刚收工，假→真 = 递话后又活了）
+    // 当拍都重拉事项切片。钉的是「边沿变化那一拍重拉」这件事，不再钉旧的一行写法。
+    ok(/const nowLive = isLive\(\);\s*\n\s*if \(wasLive !== nowLive\) await loadMissionSlice\(\);/.test(drawer),
       'E1c 回合刚结束（live 真→假）当拍把事项行与快照一并重拉 —— 「已收工」要立刻看见');
     ok(/pollTimer = setInterval\(\(\) => \{ void pollTick\(\); \}, STEWARD_BOARD_POLL_MS_MIN\);/.test(board)
       && /const due = anyThreadRunning\(\) \? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs\(\);/.test(board),
@@ -215,7 +217,10 @@ const ok = (condition, label) => {
     ok(/permissionSwitchNeedsConfirm\(e\.target\.value, document\.documentElement\.getAttribute\('data-ui-mode'\)\)/.test(app)
       && /confirm\(permissionConfirmText\(e\.target\.value, t\)\)/.test(app),
       'F1e 经典壳顶栏那一路读的就是这个单点（不再自己拼 confirm key）');
-    ok(app.trimEnd().split(/\r?\n/).length <= 1277,
+    // 117s-C：组合根多了两行——把 renderMarkdownInto/highlightIn 注入管家壳（全仓唯一的 markdown+XSS 净化路径
+    // 就是靠注入拿到的，经典壳六个消费面同款）。上限随之 1277→1279；frontend-domains D45 的硬顶 1280 仍在，
+    // 再长一行就得拆 app.js。
+    ok(app.trimEnd().split(/\r?\n/).length <= 1279,
       `F1f 组合根没有因为本片长胖（117j 纪律「app.js 不增行」；实测 ${app.trimEnd().split(/\r?\n/).length} 行）`);
 
     // B2：权限口径同步 —— 顶栏那枚安全 chip 的刷新落在【唯一写口】里。
