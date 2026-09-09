@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-09T07:23:44.031Z。
+> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-09T07:32:07.157Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -180,7 +180,7 @@
 | POST | `/api/steward/arbiter/prioritize` | exact | token self | 13h-steward-runner.js:2309 | steward-board.static.e2e.js, thread-arbiter.e2e.js |
 | POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js:2331 | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-runner.e2e.js 等 4 件 |
 | POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js:2343 | classic-window-live-steer.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 10 件 |
-| POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js:2360 | foreign-turn-busy-guard.e2e.js, steward-drawer.e2e.js, steward-drawer.static.e2e.js 等 5 件 |
+| POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js:2360 | foreign-turn-busy-guard.e2e.js, steward-board.static.e2e.js, steward-drawer.e2e.js 等 6 件 |
 | POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js:2392 | classic-window-live-steer.e2e.js, foreign-turn-busy-guard.e2e.js, steward-conversation.e2e.js 等 9 件 |
 
 ## 域路由委派(handleApi → 域 handler)

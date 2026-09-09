@@ -329,7 +329,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //     hover 走 --accent、focus 走 --ring。
 // 全 token（零 `#` 硬编码色）、**零 transition／零 animation**（故 reduced-motion 的关闭清单一个字
 // 没加）、无新样式层、link/@import/overlay 顺序不变。重钉有意载荷。
-const LEGACY_STYLES_SHA256 = '87d65e2e10864950c35ac2cd4f9a80afee9faa8ab875e17587556b727f303c56';
+const LEGACY_STYLES_SHA256 = '99b9ad4be01c93f350d117064b200b6fa03e9e81aff53c4ff38427fd16e62574';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
