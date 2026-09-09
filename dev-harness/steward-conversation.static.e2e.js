@@ -862,10 +862,15 @@ ok(/\.steward-undo-face \{[\s\S]{0,480}conic-gradient\(currentColor calc\(var\(-
   && /\.steward-undo-face \{[\s\S]{0,480}mask: radial-gradient\(/.test(cssCode)
   && !/\.steward-undo-face \{[^}]*(?:transition|animation)/.test(cssCode),
   'Y6 环＝conic-gradient ＋ 中心挖空的 mask，且零 transition／零 animation（所以 reduced-motion 的关闭清单一个字都不用加）');
+// 收尾重钉：原断言钉死了 `icon('refresh', 12)` 这个【字面量】—— 那是「锁钉文本长什么样」的反模式
+// （30 号文 §8.13 ①）。要成立的事实是两件：到期那一下【插了一枚字形】，且它取自 icons.js 的唯一词汇表
+// （名字必须真的在 ICONS 里 —— icon() 对未知名字只 console.warn 后返回 null，界面上会静默少一枚图标）。
+// 具体挑哪一枚是设计决定，不该由锁冻结（F5b 用 refresh，收尾按语义换成 swap：换目标不是重试）。
+const switchGlyph = (conversationCode.match(/const switchMark = icon\('([a-zA-Z0-9_]+)', \d+\);/) || [])[1] || '';
 ok(/undoBtn\.classList\.add\('steward-act-switch'\);/.test(conversationCode)
-  && /const switchMark = icon\('refresh', 12\);/.test(conversationCode)
+  && Boolean(switchGlyph)
   && /undoBtn\.insertBefore\(switchMark, undoBtn\.firstChild\);/.test(conversationCode),
-  'Y7 到期那一下换图标：加 .steward-act-switch ＋ 插一枚「⇄」——【图标出现】就是那次改口的过渡（改前是文字无声地换掉）');
+  `Y7 到期那一下换图标：加 .steward-act-switch ＋ 在文字【前面】插一枚 icons.js 词汇表里真有的字形（实测 ${JSON.stringify(switchGlyph)}）——【图标出现】就是那次改口的过渡（改前是文字无声地换掉）`);
 ok(/function settleRow\(actsRow, text, glyph\) \{/.test(conversationCode)
   && /const mark = glyph \? icon\(glyph, 12\) : null;/.test(conversationCode)
   && /settleRow\(actsRow, filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\), 'done'\);/.test(conversationCode)
@@ -875,10 +880,20 @@ ok(/function settleRow\(actsRow, text, glyph\) \{/.test(conversationCode)
 {
   const iconsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'icons.js')).href);
   const names = iconsMod.iconNames();
+  // 收尾重钉：原断言写死了 refresh／done 两个名字。要成立的事实是「本模块取的每一枚字形，
+  // 在 icons.js 的词汇表里都真的存在」—— icon() 对未知名字只 console.warn 后返回 null，
+  // 界面上会【静默】少一枚图标，所以这条必须按模块实际取的名字来核，而不是按写稿时挑的那两个。
+  // 两种取件写法都要抓：① 直接 `icon('name', …)`；② 名字先当字符串传给 settleRow 的第三参，
+  // 由它内部 `icon(glyph, 12)` 间接取（撤回成功那一态就是这么走的）。只抓 ① 会把 ② 漏成盲区。
+  const usedGlyphs = [
+    ...[...conversation.matchAll(/\bicon\('([a-zA-Z0-9_]+)'/g)].map(m => m[1]),
+    ...[...conversation.matchAll(/settleRow\([^;]*,\s*'([a-zA-Z0-9_]+)'\s*\)/g)].map(m => m[1]),
+  ];
+  const unknownGlyphs = usedGlyphs.filter(name => !names.includes(name));
   ok(/import \{ icon \} from '\.\/icons\.js';/.test(conversation)
-    && names.includes('refresh') && names.includes('done')
+    && usedGlyphs.length > 0 && unknownGlyphs.length === 0
     && !/\bd: 'M/.test(conversation) && !/createElementNS/.test(conversation),
-    `Y9 两枚字形从【全仓唯一那张】词汇表取件（refresh／done 都在 icons.js 的 ${names.length} 枚里），本文件一条 SVG path、一次 createElementNS 都没有（F5a 的「不留孤本」）`);
+    `Y9 本模块取的每一枚字形都在【全仓唯一那张】词汇表里（实测取了 ${JSON.stringify(usedGlyphs)}，icons.js 共 ${names.length} 枚，未知 ${JSON.stringify(unknownGlyphs)}），本文件一条 SVG path、一次 createElementNS 都没有（F5a 的「不留孤本」）`);
 }
 {
   const DOCS_LOCALES = path.join(ROOT, 'docs', 'i18n', 'locales');

@@ -1478,7 +1478,7 @@ export function createStewardConversation({
       // F5b：环没了、换上一枚「⇄」——【图标这一下变化】就是这次改口的过渡。改前是文字无声地换掉，
       // 用户根本注意不到按钮已经不是那个意思了。赋 textContent 顺手把环那个 span 也丢掉了，
       // 所以这里是从零重挂，不会出现「环 + 换一条」这种半截态。
-      const switchMark = icon('refresh', 12);
+      const switchMark = icon('swap', 12);   // F5b 收尾:换目标不是重试(见 icons.js 的 swap 头注)
       if (switchMark) undoBtn.insertBefore(switchMark, undoBtn.firstChild);
     });
     return { sessionId: sid, undoRef, row, actsRow };
