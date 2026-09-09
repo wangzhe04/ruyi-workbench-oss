@@ -354,7 +354,21 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 同源）；「HEAD ＋ 本刀这一层」= 下面这个值，两者只差 steward-conversation.css 一层。
 // 反向验证：往本层追加一条无关规则 → live-full-text F3 与 frontend-domains D51 当场双双转红；
 // 还原后该文件 sha256 与追加前逐字节相同、两个消费者都回绿。
-const LEGACY_STYLES_SHA256 = 'c7bd24b30f7d7016313f965292cef58ac58bc7d16c834cad35a8d582ccbf95ca';
+// 117u「一枚线程卡，三种密度」统一重钉（前值 c7bd24b3…）。本波两刀各改一层 CSS，按 117t（`b922f33`）
+// 与 117r（`72873e4`）的先例，两刀都不许自己钉（各自钉必撞车），由【主会话】在两刀都落地后一次钉完：
+//   · G1（`0170b71`）改 steward-conversation.css ＋ steward-drawer.css —— 把线程卡的骨架
+//     （3px 色条 ＋ 卡头：色点/名/五态药丸/最后动静/主动作）提成与「面」无关的 .steward-tcard-*，
+//     色号映射从「对话流那一族选择器」改钉在 [data-thread-hue="N"] 属性本身（因此 chip 那份重复的
+//     三条映射被删掉），并给抽屉加 D2 的卡内 callout 与 D3 的动作分级；
+//   · G2（`eb5d3cf`）改 steward-board.css —— 看板卡接同一组 .steward-tcard-*，加分组缩进
+//     （.is-grouped，宽屏与 390px 两档各限定一次）与卡尾一行 .steward-board-tail。
+// 算法自证（本条锁上一任被 working-tree 值污染过一次，故流程写死、每次照做）：只按【两刀落地之前
+// 那个 ref】（`f3dd960`）全量重算 = c7bd24b3…，与被替换的旧值【逐字相同】—— 这证明重算脚本与两个
+// 消费者（live-full-text F3、frontend-domains D51）同源；再按 HEAD（`eb5d3cf`，含两刀）算得下面这个值。
+// 中间态留档：只含 G1 那一刀时 = d566049a…（若将来要二分定位是哪一刀改动了载荷，从这个值查起）。
+// 反向验证：往 steward-board.css 追加一条无关规则 → F3 与 D51 当场双双转红；还原后该层 sha256 与
+// 追加前逐字节相同、两个消费者都回绿。
+const LEGACY_STYLES_SHA256 = '2431350bf3945eb5f74f3b2557d217334a112f9913b4947e3e64cb6ca045ddcf';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
