@@ -1346,3 +1346,24 @@ A 仍加了服务端回归锁（title e2e 的 D 段）。
 | `b134e2a` | 117s-C（markdown ＋ 来源小头） | 亲跑 `steward-conversation.e2e` 83 PASS，S0–S4、T0–T6 全绿；唯一红 **R7** 是 §8.13 ④ 记的那件「3 绿 1 红没抓到断言名」——**名字抓到了：R7**（117l-B2 的分组规则断言，执行者用 HEAD 版原件复现同红，与本刀无关）。`app.js` 1279 行，离 D45 的 1280 上限只剩 1 行。CSS 载荷锁重钉带反向验证。 |
 
 派单稿被证伪第三处：D5 说「`message.steward.trigger` 已经落盘…加『来自线程』小头」——`trigger` 只是 `'user'|'inbox'`，不带线程 id。→ H4。
+
+##### G 刀与 H 前端交付记录（补 §11.13.2 的表；2026-09-09 下午，主会话亲验）
+
+| commit | 刀 | 主会话怎么核的 |
+|---|---|---|
+| `6990c82` + `7d38ce2` | 117s-H 前端（交付卡 + `trigger` 双形状） | 亲跑 `steward-conversation.e2e` 96 PASS（唯一红 R7）；三件静态锁全绿；`steward-shell.e2e` 全绿；亲看截图：来源小头 → 按语 → 「它交付的原文 · 第 N 回合」卡 → ※ → 动作。它不能碰 `steward-shell.js`，「看全文」直跳 2.0 视窗那一根注入线由主会话补（`7d38ce2`）。 |
+| `0530d12` | 117s-G（别处起的回合正在跑时，2.0 视窗里说一句话不许杀掉它） | 亲跑两件新 e2e：`foreign-turn-busy-guard` 20/20（服务端 409 后备）、`classic-window-live-steer` 23/23（真浏览器：按钮写「插话」、走 steer、审计里零 `superseded`）；`build --check` 新鲜；`forwardEdges 67 → 67`；22 个路径与它自述一致，且与 H 前端零交集。 |
+
+##### 派单稿又被证伪三处（G 刀）
+
+1. **`09-workflow.js:1347` 答不了 409**——到那里用户消息已落盘、响应头已出；且它还有一个我没提的孪生 `05-claude-engine.js:139`。
+   真正的唯一咽喉是 `10 runSessionTurn`（两引擎共用），后备就放在它 `onStart` 之前：用**既有**的 `turnSettlers[sid].source` 认「是不是同一个客户端」，
+   同源照常 supersede（经典壳自己重发那条路一字不动），异源抛 `SESSION_TURN_BUSY_ELSEWHERE` → 13 路由层映成 `session.turn_busy_elsewhere` 409。
+2. **「把纯的 state→channel 阶梯挪到 06i」不可达**——阶梯要读 04 的待决、13h 的仲裁队列、09 的 `activeChildren`，06i 一个都看不到（103b 的依赖债上限）。
+   仓里已有正确机制：13d 经 `StewardHooks` 迟绑定读 13h 的 `arbiterWait`（`13d:665`），`relayChannel` 是第五个这样的键，零新边，阶梯仍只有一份。
+3. **`facts.static` 的「README e2e 总数」在 HEAD 上就红**（325 vs 327），不在任何抖动名单里——G 把它抬到真值 329。
+
+##### 差点重演 117m 事故的一次（记下来）
+
+G 第一次 `git commit` 因参数笔误中止，那一瞬间 HEAD 已从 `fe67ea3` 走到 `7d38ce2`；它的索引是按旧 HEAD 建的，
+那次提交若成功会把 H 前端整份回退。执行者自己发现、reset、按新 HEAD 重建索引。**§8.7 的「提交前核 HEAD」不是仪式。**
