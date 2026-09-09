@@ -720,10 +720,11 @@
   /* F2 收尾：粘条必须【不透明】。--glass-bg-1 是「框架族」token（顶栏/侧栏浮在页面底色上），
      暗色档只有 6.5% 不透明度 —— 贴在滚动正文上方时字会从背后透出来（真机截图坐实）。
      仓里其余 position:sticky 的表头（preview-narrative-head / preview-crew-head）用的都是
-     不透明面 token，这里跟同一条house style；blur 留着只影响圆角外沿，不再承担遮挡职责。 */
+     不透明面 token，这里跟同一条 house style。
+     连带删掉 backdrop-filter：底色不透明之后它【什么都不再模糊】（背后一个像素都透不过来），
+     纯属白付一层合成；而且 ui-v4-glass.static G2 把 backdrop-filter 的使用点锁成一张封闭白名单
+     （经典框架 4 ＋ 浮层 4 ＋ 两个互斥壳 ＋ 降级块），粘条不属于其中任何一族。 */
   background: var(--panel);
-  -webkit-backdrop-filter: var(--glass-blur-2);
-  backdrop-filter: var(--glass-blur-2);
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
