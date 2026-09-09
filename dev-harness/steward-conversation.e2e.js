@@ -863,8 +863,13 @@ try {
     const shouldDraw = group.length >= 2 && group !== lastGroup;
     return group.every(row => row.groupLine === shouldDraw) ? 'ok' : `bad(len=${group.length},draw=${shouldDraw})`;
   });
-  ok(groups.length >= 3 && groups.some(group => group.length >= 2 && group !== lastGroup)
-    && lineVerdict.every(verdict => verdict === 'ok'),
+  // 117u 收口·治抖：这条断言原来还要求「此刻存在一个多行且非末组的组」——那是一条【夹具形状】
+  // 前置条件，而这一段的到达顺序本身是竞态的（行数恒为 7，分组在 [1,1,1,2,2] 与 [1,1,1,1,1,2]
+  // 之间跳，取决于排队的那句用户话有没有插进两条管家消息中间）。实测不带任何改动跑三遍是 2 绿 1 红，
+  // 红的那次 lineVerdict 是 ["ok","ok","ok","ok","ok","ok"] —— **规则每一组都过了，倒下的是前置条件**。
+  // 锁要守的是规则，不是夹具长什么样，所以把形状要求从这里摘掉；
+  // 正面分支（多行且非末组的组【真的画】）挪到下面 R7c，在一个【确定性】的时刻钉。
+  ok(groups.length >= 3 && lineVerdict.every(verdict => verdict === 'ok'),
     `R7 竖线只画给「多行且不是头像所在那一组」的组（${groups.length} 组，逐组核对 ${JSON.stringify(lineVerdict)}）`);
   ok(lastGroup.length >= 2 && lastGroup.every(row => row.groupLine === false),
     `R7b companion：头像所在的最新那一组【整组】不画（它有 ${lastGroup.length} 行，是多行组，只因为有头像才不画）`);
@@ -940,6 +945,24 @@ try {
   ok(Boolean(mdWhy) && mdWhy.headings === 0 && mdWhy.lines.some(line => line.indexOf('##') === 0),
     `S4 ※ 里的依据【不】走渲染器：井号原样在，浮层里零 h1/h2/h3/strong/li（它是机器回执，`
     + `被 markdown 吃掉就变形了；实测 ${JSON.stringify(mdWhy)}）`);
+  // ── R7c（117u 收口·治抖：R7 那条正面分支搬到这里钉）─────────────────────────────────────
+  // 为什么这个时刻是【确定性】的：R5 已经钉死「撤回后那两条连着的管家消息成一组」（多行组），
+  // 而上面 S0 这一案又发了一句【用户】的话、并等到了管家的 markdown 回复才走到这里 ——
+  // 用户那一行必然把新回复隔成新的一组，于是那个多行组此刻【必然存在且必然不是末组】。
+  // 不再靠「碰巧没插进用户行」，所以不抖；而正面分支（多行非末组的组真的画竖线）一条没丢。
+  {
+    const rows = (markdown || shot).ruyiRows || [];
+    const gs = [];
+    for (const row of rows) {
+      if (row.groupStart || !gs.length) gs.push([]);
+      gs[gs.length - 1].push(row);
+    }
+    const last = gs[gs.length - 1] || [];
+    const positives = gs.filter(g => g.length >= 2 && g !== last);
+    ok(positives.length >= 1 && positives.every(g => g.every(row => row.groupLine === true)),
+      `R7c 正面分支：多行且非末组的组【真的画】竖线（此刻 ${gs.length} 组，其中多行非末组 ${positives.length} 个，`
+      + `逐组画线情况 ${JSON.stringify(positives.map(g => g.map(row => row.groupLine)))}）`);
+  }
   // 截图为证（§11.13 验收 D5「真浏览器截图」）。写进一个自己建的固定目录，不依赖任何人的临时路径；
   // 拍不下来也绝不影响断言（它是证据，不是判据）。
   const shotDirC = path.join(os.tmpdir(), 'ruyi-117s-C-shots');
