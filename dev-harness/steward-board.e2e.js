@@ -234,20 +234,42 @@ const BOARD = `(() => {
     note: text('stewardBoardNote'),
     groups: [...document.querySelectorAll('#stewardBoardList .steward-board-mission')].map(group => ({
       missionId: group.dataset.missionId || '',
+      // 117u-G2 B1：单线程事项【不画事项层】，所以这三个字段在那种组上如实为空／零 ——
+      // 判据是「有没有 .steward-board-mission-head」，不是「标题串是不是空的」。
+      grouped: group.classList.contains('is-grouped'),
+      hasHead: Boolean(group.querySelector('.steward-board-mission-head')),
       title: (group.querySelector('.steward-board-mission-title') || {}).textContent || '',
+      // 病 2 的可数形式：整组【看得见的字】里，那个名字出现了几次（修前事项头一遍、线程行一遍）。
+      text: group.textContent || '',
       pills: [...group.querySelectorAll('.steward-board-mission-head .steward-board-pill')].map(node => node.textContent.trim()),
       tone: (group.querySelector('.steward-board-mission-head .steward-board-dot') || {}).dataset?.tone || '',
+      // 117u-G2 B4：钱与验收是【事项】的事实，整件事只印一次 —— 多线程落在组尾，单线程落在
+      // 那唯一一张卡的卡尾。这里数的是【整组】里的事实行，两种形状用同一个判据看。
+      facts: [...group.querySelectorAll('.steward-board-facts')].map(node => node.textContent.trim()),
       threads: [...group.querySelectorAll('.steward-board-thread')].map(item => ({
         sessionId: item.dataset.sessionId || '',
         title: (item.querySelector('.steward-board-thread-title') || {}).textContent || '',
-        state: (item.querySelector('.steward-board-dot') || {}).dataset?.state || '',
+        // 117u-G2 B2：五态从「那颗点的颜色」搬到卡上的事实 ＋ 卡头那枚药丸（色 ≠ 态）。
+        // 点自此只说「这是哪条线程」。
+        state: item.dataset.state || '',
+        statePillText: (item.querySelector('.steward-board-thread-head .steward-board-pill[data-state]') || { textContent: '' }).textContent.trim(),
+        hue: item.dataset.threadHue || '',
+        bars: item.querySelectorAll('.steward-tcard-bar').length,
+        stateDots: item.querySelectorAll('.steward-board-dot').length,
+        hueDots: item.querySelectorAll('.steward-tcard-dot').length,
         wait: (item.querySelector('.steward-board-wait') || {}).textContent || '',
         // 117l D4：行上那枚「它在问你」pill（只在 asksYou 非空时出现，点它＝打开抽屉）。
         asksYou: [...item.querySelectorAll('.steward-board-pill.is-asks-you')].map(node => node.textContent.trim()),
         chips: [...item.querySelectorAll('.steward-board-chips .steward-chip')].map(node => node.dataset.chip),
         actions: [...item.querySelectorAll('.steward-board-actions .steward-board-btn')].map(node => node.dataset.action),
+        // 117u-G2 B5：「＋ 线程」收进卡尾那排次级动作（原来在事项头右上角常亮）。
+        newThreadInTail: item.querySelectorAll('.steward-board-actions [data-new-thread]').length,
+        // B4：标题右侧只剩「最后动静」——卡头里除药丸外没有第二串 meta。
+        headMeta: [...item.querySelectorAll('.steward-board-thread-head .steward-board-meta')].map(node => node.textContent.trim()),
       })),
     })),
+    // 117u-G2 B5 的另一半：事项头上不许再留那枚「＋ 线程」。
+    missionHeadNewThread: document.querySelectorAll('#stewardBoardList .steward-board-mission-head [data-new-thread]').length,
     nowHidden: now ? now.hidden : null,
     nowThread: text('stewardDrawerTitle'),
     // 117s-B：右栏那一份抽屉的状态行与「它刚说／它正在说」——「递话进来之后屏幕上有没有变」
@@ -373,6 +395,16 @@ try {
     await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: id }, token);
   }
 
+  // 117u-G2 B3（27 号文 §11.15.3「事实降级」）：把线程 C 的权限档【钉成会话级】，A／B 留着
+  // 跟随全局 —— 于是「与全局不同才印那两枚 chip」这条判据在同一屏里两侧都验得到（只验一侧的话，
+  // 把判据写成恒假也能绿）。走的是 chips 自己那条唯一写口（PATCH /api/sessions/:id），
+  // 不直接改盘上的会话头。
+  const pinnedPermission = await request(appPort, 'PATCH', `/api/sessions/${encodeURIComponent(created.C)}`,
+    { permissionMode: 'plan' }, token);
+  ok(Boolean(pinnedPermission && pinnedPermission.json && pinnedPermission.json.ok === true
+    && pinnedPermission.json.session && pinnedPermission.json.session.permissionMode === 'plan'),
+    `A4b 线程 C 定了会话级权限档（B3 的「与全局不同」那一侧；实测 ${pinnedPermission && pinnedPermission.json && pinnedPermission.json.session && pinnedPermission.json.session.permissionMode}）`);
+
   // A：停在 question 待决（等你）。B：回合一直挂着（在跑）。两条各自的工作文件夹不同 ——
   // 116h 的同 cwd 写互斥会把后来的那条压成「等锁」，那不是本件要测的形状。
   request(appPort, 'POST', '/api/chat/stream', { sessionId: created.A, message: 'ask about south', cwd: workA }, token);
@@ -481,26 +513,54 @@ try {
   const groupC = opened.groups.find(group => group.missionId === created.C) || null;
   ok(Boolean(groupM) && groupM.title === MISSION_TITLE,
     `C3 事项行显示【容器】标题（117h 第 0 步的 missionTitle；实测「${groupM && groupM.title}」）`);
-  ok(Boolean(groupM) && groupM.pills.includes(fill('stewardShell.board.acceptance', { done: 1, total: 2 })),
-    `C4 事项行显示验收 a/b（实测 ${groupM && JSON.stringify(groupM.pills)}）`);
+  // 117u-G2 **重钉 C4**（B4：钱与验收从事项头搬到卡尾一行）：被钉的事实没变 —— 验收 a/b 仍然
+  // 【显示且只显示一次】，变的只是它印在哪儿（多线程事项印在组尾，单线程印在那唯一一张卡的卡尾）。
+  // 新判据比旧的强：旧的只问「事项头那串里有没有它」，新的连「有没有印重复」一起钉。
+  ok(Boolean(groupM) && groupM.facts.length === 1
+    && groupM.facts[0].includes(fill('stewardShell.board.acceptance', { done: 1, total: 2 })),
+    `C4 验收 a/b 印在卡尾那一行事实里，且整组只印一次（实测 ${groupM && JSON.stringify(groupM.facts)}）`);
   ok(Boolean(groupM) && groupM.pills.includes(fill('stewardShell.board.threadCount', { n: 2 })),
     'C4b 事项行显示线程数');
-  ok(Boolean(groupC) && groupC.title === THREAD_C,
-    `C5 自成事项的事项名回落成它自己的标题（实测「${groupC && groupC.title}」）`);
+  // 117u-G2 **重钉 C5**（B1：单线程事项不画事项层 —— §11.15.2 病 2「标题字面重复两次」）。
+  // 旧判据钉的是「自成事项的事项名回落成它自己的标题」，那句话在修前【必然】导致同一个名字上下
+  // 印两遍（事项头一遍、线程行一遍）。新判据钉的是这一刀真正要保证的事：那种组根本没有事项层，
+  // 而那个名字在整组里【恰好出现一次】（在线程卡上）—— 更强，也更贴用户看见的那张截图。
+  ok(Boolean(groupC) && groupC.grouped === false && groupC.hasHead === false && groupC.title === '',
+    `C5 自成事项（1 事项 = 1 线程）不画事项层（实测 grouped=${groupC && groupC.grouped} hasHead=${groupC && groupC.hasHead}）`);
+  const nameHits = (haystack, needle) => String(haystack || '').split(needle).length - 1;
+  ok(Boolean(groupC) && nameHits(groupC.text, THREAD_C) === 1,
+    `C5b 那个名字在整组【看得见的字】里恰好出现一次（修前事项头与线程行各印一遍 —— §11.15.2 病 2 的「季度复盘 / 季度复盘」；实测 ${groupC && nameHits(groupC.text, THREAD_C)} 次）`);
+  ok(Boolean(groupM) && groupM.grouped === true && groupM.hasHead === true && groupM.title === MISSION_TITLE,
+    `C5c ≥2 条线程的事项【仍然】画那一行小标题「事项名 · N 条」（实测「${groupM && groupM.title}」＋${groupM && JSON.stringify(groupM.pills)}）`);
   ok(Boolean(groupM) && groupM.threads.length === 2 && groupC.threads.length === 1,
     'C6 线程行按事项归位（M 两条、C 一条）');
   const rowA = groupM && groupM.threads.find(thread => thread.sessionId === created.A);
   const rowB = groupM && groupM.threads.find(thread => thread.sessionId === created.B);
+  // 117u-G2 **重钉 C7**（B2「色 ≠ 态」）：五态从那颗点的 data-state 搬到卡头那枚药丸上 ——
+  // 点自此只说「这是哪条线程」（线程色），态由药丸独家承担。判据跟着事实走，且比旧的多钉一件：
+  // 线程卡上【一颗按状态上色的点都没有】（.steward-board-dot 计数为 0），否则两套信号又混回去了。
   ok(Boolean(rowA) && rowA.state === 'needs_you' && Boolean(rowB) && rowB.state === 'running',
-    `C7 线程行五态经 mission-state.js（A=${rowA && rowA.state} / B=${rowB && rowB.state}）`);
+    `C7 线程行五态经 mission-state.js，写在卡头那枚药丸上（A=${rowA && rowA.state} / B=${rowB && rowB.state}）`);
+  ok(Boolean(rowB) && rowB.statePillText === zh['mission.state.running'],
+    `C7b 药丸上那句人话仍然只出自 t('mission.state.*')（实测「${rowB && rowB.statePillText}」）`);
+  ok(Boolean(rowA) && rowA.stateDots === 0 && Boolean(rowB) && rowB.stateDots === 0
+    && rowA.hueDots === 1 && rowA.bars === 1,
+    `C7c 色 ≠ 态：线程卡上零颗按状态上色的点，只有一根色条＋一颗线程色点（实测 A 状态点=${rowA && rowA.stateDots} 色点=${rowA && rowA.hueDots} 色条=${rowA && rowA.bars}）`);
   ok(Boolean(rowA) && rowA.wait.length > 0,
     `C8 等你那条给出等待原因（116h 的 wait.label 单点判定；实测「${rowA && rowA.wait}」）`);
-  // 117q-B3b 重钉（理由同 30 号文 §4.4）：五态人话键从 stewardShell.drawer.state.* 搬到中性的
-  // mission.state.*，看板／抽屉共用同一组键，locale 断言跟着改查新前缀。
-  ok(Boolean(rowB) && rowB.wait === zh['mission.state.running'],
-    `C8b 没在等的那条如实显示五态人话，不另编一句（实测「${rowB && rowB.wait}」）`);
-  ok(Boolean(rowA) && JSON.stringify(rowA.chips) === JSON.stringify(['permission', 'model']),
-    `C9 每行都有紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowA && JSON.stringify(rowA.chips)}）`);
+  // 117u-G2 **重钉 C8b**（B2 的直接后果）：修前没在等的那一行会把五态人话再印一遍 —— B2 之后
+  // 卡头那枚药丸已经把这句话说过了，等待行再说一次就是 §11.15.2 病 3 那串等重灰字。所以新判据是
+  // 「没在等就一个字都不说」，同一件事实的另一面（药丸仍然说得出来）由上面的 C7b 钉着。
+  ok(Boolean(rowB) && rowB.wait === '' && rowB.statePillText === zh['mission.state.running'],
+    `C8b 没在等的那条【不再重复印状态】（药丸已经说了；实测等待行「${rowB && rowB.wait}」／药丸「${rowB && rowB.statePillText}」）`);
+  // 117u-G2 **重钉 C9**（B3「事实降级」）：权限与模型只在【与全局不同】时才印。两侧都验 ——
+  // A／B 跟随全局（不印），C 定了会话级权限档（印）。旧判据「每行都有」在 B3 之后正是要消灭的病
+  // （§11.15.2 病 3：每行都印一遍「跟随全局」，信息量为零、墨量却与线程名争重心）。
+  const rowC = groupC && groupC.threads.find(thread => thread.sessionId === created.C);
+  ok(Boolean(rowA) && rowA.chips.length === 0 && Boolean(rowB) && rowB.chips.length === 0,
+    `C9 跟随全局的行【不印】权限与模型（实测 A=${rowA && JSON.stringify(rowA.chips)} B=${rowB && JSON.stringify(rowB.chips)}）`);
+  ok(Boolean(rowC) && JSON.stringify(rowC.chips) === JSON.stringify(['permission', 'model']),
+    `C9b 定过会话级权限档的那一行【印】出紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowC && JSON.stringify(rowC.chips)}）`);
   ok(Boolean(rowA) && ['prioritize', 'stop', 'open', 'classic'].every(action => rowA.actions.includes(action)),
     `C10 行操作齐备（优先／停止／打开／2.0；实测 ${rowA && JSON.stringify(rowA.actions)}）`);
   // 117l D4（用户第四轮走查①）：只加不改 —— 真在问你的那一行多一枚 pill，其它行没有。
@@ -508,11 +568,92 @@ try {
     `C10b 挂着 question 待决的那一行有「它在问你」pill（实测 ${rowA && JSON.stringify(rowA.asksYou)}）`);
   ok(Boolean(rowB) && rowB.asksYou.length === 0,
     `C10c 在跑（没人在问你）的那一行【没有】这枚 pill（实测 ${rowB && JSON.stringify(rowB.asksYou)}）`);
+  // ── 117u-G2 新钉：B2 药丸不印两遍 ／ B4 卡尾一行 ／ B5「＋ 线程」搬家 ────────────────
+  // B2 的收口：真有人在问你时，「它在问你」那枚更具体的顶替笼统的五态药丸 —— 两枚并排就是把
+  // 同一句话印两遍（§11.15.2 病 3 的同一个模具）。态本身没丢：它在卡上的 data-state 里（C7）。
+  ok(Boolean(rowA) && rowA.asksYou.length === 1 && rowA.statePillText === '' && rowA.state === 'needs_you',
+    `C10e 有「它在问你」的那一行不再并排印一枚五态药丸（态仍在卡上：${rowA && rowA.state}；实测药丸「${rowA && rowA.statePillText}」）`);
+  ok(Boolean(rowB) && rowB.asksYou.length === 0 && rowB.statePillText === zh['mission.state.running'],
+    `C10f 没有待决的那一行照印五态药丸（实测「${rowB && rowB.statePillText}」）`);
+  // B4：标题右侧只剩「最后动静」那一段 —— 钱与验收已经搬去卡尾（C4 钉的是那一半）。
+  // 「只剩最后动静」的可证伪形式：卡头恰好一段 meta，而验收那句话【只】出现在卡尾事实行里、
+  // 卡头里一个字都没有（把钱与验收搬回卡头，这一条立刻红）。
+  const acceptanceSay = fill('stewardShell.board.acceptance', { done: 1, total: 2 });
+  ok(Boolean(rowA) && rowA.headMeta.length === 1 && !rowA.headMeta[0].includes(acceptanceSay)
+    && Boolean(groupM) && groupM.facts[0].includes(acceptanceSay),
+    `C10g 卡头右侧只有一段 meta（「最后动静」），钱与验收只在卡尾那一行（实测卡头 ${rowA && JSON.stringify(rowA.headMeta)}）`);
+  // B5：「＋ 线程」从事项头右上角收进卡尾那排次级动作（悬停才亮的那一档）。
+  ok(opened.missionHeadNewThread === 0 && Boolean(rowA) && rowA.newThreadInTail === 1 && Boolean(rowC) && rowC.newThreadInTail === 1,
+    `C10h 「＋ 线程」收进卡尾的次级动作，事项头上一枚不剩（实测 事项头=${opened.missionHeadNewThread} A 卡尾=${rowA && rowA.newThreadInTail} C 卡尾=${rowC && rowC.newThreadInTail}）`);
+  // B2 的【真绘制】证据：色条不是「DOM 里有那个节点」就算数 —— 量它渲染出来的宽度与真背景色。
+  // 必须趁看板【还开着】量：下面 C10d 点完「它在问你」会顺手把看板收起来（openThread →
+  // setBoardOpen(false)），收起来之后看板里所有节点的 rect 都是 0，那不是没画出来，是量错了时候。
+  const boardPaint = await cdp.evaluate(`(() => {
+    const measure = selector => {
+      const bar = document.querySelector(selector + ' .steward-tcard-bar');
+      if (!bar) return '';
+      return Math.round(bar.getBoundingClientRect().width) + 'px|' + getComputedStyle(bar).backgroundColor;
+    };
+    const paint = id => measure('#stewardBoardList .steward-board-thread[data-session-id="' + id + '"]');
+    return {
+      barA: paint('${created.A}'),
+      barB: paint('${created.B}'),
+      barNowB: measure('.steward-now-thread[data-session-id="${created.B}"]'),
+    };
+  })()`);
   await cdp.evaluate(`document.querySelector('#stewardBoardList .steward-board-thread[data-session-id="${created.A}"] .steward-board-pill.is-asks-you').click(), true`);
   ok(Boolean(await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
     return snapshot.drawerHidden === false && snapshot.nowThread ? snapshot : null;
   })()`)), 'C10d 点这枚 pill 就是打开抽屉（问答框在那儿）');
+
+  // ── 117u-G2 B2「三面同色」的自证（§11.15.6 验收 1）─────────────────────────────
+  // 同一条线程在【看板卡】与【线程详情栏卡头】上必须是同一个 data-thread-hue，而且这个号必须
+  // 逐字等于那张【模块级登记表】现在发给它的号 —— 页面里 steward-conversation.js 只被求值一次，
+  // 动态 import 拿到的是【同一个模块实例、同一张 Map】，所以对话流那一面（markThread 写的号
+  // 出自同一个函数）由构造保证一致。三处若有任何一处自己算色，这一条立刻红。
+  // 顺带钉住「号是有效的」：四色循环发出来的号只能是 1..4，取不到会是空串或 0。
+  const hueProof = await cdp.evaluate(`(async () => {
+    const conv = await import('/js/steward-conversation.js');
+    const card = document.querySelector('#stewardBoardList .steward-board-thread[data-session-id="${created.A}"]');
+    const head = document.getElementById('stewardDrawerHead');
+    const now = document.querySelector('.steward-now-thread[data-session-id="${created.B}"]');
+    const paint = node => {
+      const bar = node && node.querySelector('.steward-tcard-bar');
+      if (!bar) return '';
+      const style = getComputedStyle(bar);
+      return Math.round(bar.getBoundingClientRect().width) + 'px|' + style.backgroundColor;
+    };
+    return {
+      board: card ? (card.dataset.threadHue || '') : '',
+      drawer: head ? (head.dataset.threadHue || '') : '',
+      nowRow: now ? (now.dataset.threadHue || '') : '',
+      registryA: String(conv.stewardThreadHueFor('${created.A}')),
+      registryB: String(conv.stewardThreadHueFor('${created.B}')),
+      hues: conv.STEWARD_THREAD_HUES,
+      barDrawer: paint(head),
+    };
+  })()`);
+  ok(Boolean(hueProof) && hueProof.board !== '' && hueProof.board === hueProof.drawer && hueProof.board === hueProof.registryA,
+    `C12 同一条线程在【看板卡】与【线程详情栏卡头】上是同一个色号，且逐字等于那张模块级登记表发的号（实测 看板=${hueProof && hueProof.board} 详情栏=${hueProof && hueProof.drawer} 登记表=${hueProof && hueProof.registryA}）`);
+  ok(Boolean(hueProof) && hueProof.nowRow !== '' && hueProof.nowRow === hueProof.registryB,
+    `C12b 右栏那条小行（D4 的最紧密度卡）问的也是同一张表（实测 小行=${hueProof && hueProof.nowRow} 登记表=${hueProof && hueProof.registryB}）`);
+  // 号必须【真的按首次询问顺序循环发】，不是谁都拿一号：屏上只有三条线程、色表有四色，所以
+  // 两条不同的线程一定拿到两个不同的号（把 stewardThreadHueFor 换成常量，这一条立刻红）。
+  ok(Boolean(hueProof) && hueProof.hues === 4
+    && [hueProof.board, hueProof.nowRow].every(hue => Number(hue) >= 1 && Number(hue) <= hueProof.hues)
+    && hueProof.board !== hueProof.nowRow,
+    `C12c 发出来的号落在四色循环里且两条线程两个号（1..${hueProof && hueProof.hues}；实测 ${hueProof && JSON.stringify([hueProof.board, hueProof.nowRow])}）`);
+  // 真绘制：色条是 3px 实色、看板与详情栏同一条线程同一个颜色值、不同线程不同颜色值。
+  // 光钉 data-thread-hue 是不够的 —— 属性写对了但样式层没接上，屏幕上仍然什么都没有。
+  ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barA) && /^3px\|rgb/.test(boardPaint.barB)
+    && Boolean(hueProof) && boardPaint.barA === hueProof.barDrawer
+    && boardPaint.barA !== boardPaint.barB,
+    `C12d 色条真的画出来了：看板卡上 3px 实色、同一条线程在看板与详情栏是同一个颜色值、不同线程不同色（实测 A=${boardPaint && boardPaint.barA} 详情栏=${hueProof && hueProof.barDrawer} B=${boardPaint && boardPaint.barB}）`);
+  // D4 的那一面也真画出来了：同一条线程 B 在【看板卡】与【右栏小行】上是同一根 3px 同色色条。
+  ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barNowB) && boardPaint.barNowB === boardPaint.barB,
+    `C12e 右栏小行那枚最紧密度卡的色条与看板卡逐字同色（实测 小行=${boardPaint && boardPaint.barNowB} 看板=${boardPaint && boardPaint.barB}）`);
+
   ok(opened.intervals.filter(ms => ms === TICK_MS).length === 3,
     `C11 看板打开才起第三条计时器（实测 ${JSON.stringify(opened.intervals)}）`);
 

@@ -258,15 +258,20 @@
   color: var(--muted);
 }
 .steward-board-mission-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
-/* 右侧 meta（线程数／验收／花费）连成一串小字，中间用「·」分隔 —— 三枚各自带边框的胶囊
-   会让卡头比事项名本身还重。分隔符是相邻兄弟的生成内容，DOM 一个节点没加。 */
-.steward-board-mission-head .steward-board-pill + .steward-board-pill { margin-inline-start: 0; }
-.steward-board-mission-head .steward-board-pill + .steward-board-pill::before {
+/* 一串 meta 药丸连成一句小字，中间用「·」分隔 —— 各自带边框的胶囊会让这一串比它旁边的正名还重。
+   分隔符是生成内容，DOM 一个节点没加。
+   117u-G2（§11.15.3 B1／B4）：这条规则原来只服务事项头那一串三枚（线程数／验收／花费）。B1 之后
+   事项头【只剩】「事项名 · N 条」这一枚药丸，B4 把钱与验收搬去了卡尾那一行 —— 所以「·」的落点
+   跟着搬：卡尾行内是相邻药丸之间，事项头里是那唯一一枚药丸之前（紧跟在事项名后面）。
+   仍然是【同一条声明】的两个落点，不是两份实现。 */
+.steward-board-facts .steward-board-pill + .steward-board-pill,
+.steward-board-mission-head .steward-board-pill { margin-inline-start: 0; }
+.steward-board-facts .steward-board-pill + .steward-board-pill::before,
+.steward-board-mission-head .steward-board-pill::before {
   content: "·";
   margin-inline-end: var(--sp-2);
   color: var(--line-2);
 }
-.steward-board-mission-head .steward-board-btn { margin-inline-start: var(--sp-2); }
 
 /* 五态点：颜色只经 data-tone（dockToneForMissionState 的表现），data-state 留给测试与调试。
    117n-M1③（用户「看板圆点看不出已完成」走查）：加一档 settled——同一条线程收工之后，抽屉那颗点
@@ -293,22 +298,28 @@
   display: flex;
   flex-direction: column;
 }
-/* 117l-B2 ②：线程行缩进 --sp-4 挂在事项名下面（一眼看出「这几条属于那一件」），行与行之间
-   一道 1px 分隔线，hover 时整行底色微亮。缩进用 margin 而不是 padding —— hover 的底色要从
-   缩进位置开始，跟着文字走。 */
+/* 117l-B2 ②：行与行之间一道 1px 分隔线，hover 时整行底色微亮。
+   117u-G2 B1／B2：线程行自此【就是那枚线程卡】—— 骨架（3px 色条 ＋ 色点 ＋ 名 ＋ 药丸）住
+   steward-conversation.css 的 .steward-tcard-*，与对话流、线程详情栏是同一份声明；本层只说
+   「这一面的卡长在哪儿、多密」。两处收口：
+     · 缩进只在【真分了组】时才有（B1：单线程事项不画事项层，那张卡就没有可挂的名字，缩进
+       会让它孤零零地凹进去）。缩进用 margin 而不是 padding —— hover 的底色要跟着文字走。
+     · padding-inline-start 显式写死：本层的 @import 排在 steward-conversation.css 之后，同为
+       单类选择器时后写的赢，光靠 .steward-tcard 那条会被下面的 padding 简写盖掉。
+   排布从 grid 换成 flex 纵列：B4 之后「等什么／钱／验收／动作」全落在卡尾那一行里，卡本身
+   只是自上而下的三段（卡头 · chip · 卡尾），不再需要右侧那一列。 */
 .steward-board-thread {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: var(--sp-2);
-  row-gap: 2px;
-  margin-inline-start: var(--sp-4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: var(--sp-2);
+  padding-inline-start: var(--sp-3);
   border-radius: var(--r-sm);
   transition: background var(--dur-fast) var(--ease-out);
 }
+.steward-board-mission.is-grouped .steward-board-thread { margin-inline-start: var(--sp-4); }
 .steward-board-thread + .steward-board-thread { border-top: 1px solid var(--glass-border); }
-.steward-board-thread > * { grid-column: 1; }
 .steward-board-thread:hover { background: var(--panel-2); }
 .steward-board-thread-head {
   display: flex;
@@ -347,13 +358,25 @@
 .steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
 .steward-board-wait { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-wait:empty { display: none; }
-/* 悬停/聚焦才亮起来的一行操作：默认安静（§8.4「主动作只有一个，其余安静」的同一条纪律）。 */
+/* 117u-G2 B4：卡尾一行 —— 左边是事实（等什么 · 验收 · 花了多少），右边是那排次级动作。
+   两侧共用这一行：有事实时动作【不额外占一行】；没有事实（多线程事项的卡，钱与验收印在组尾）
+   时这一行只剩那排安静的动作。事实那一段自己空着就收掉（:empty），不留一截空白在那儿占位。 */
+.steward-board-tail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.steward-board-facts { display: flex; flex-wrap: wrap; align-items: center; min-width: 0; }
+.steward-board-facts:empty { display: none; }
+/* 悬停/聚焦才亮起来的一行操作：默认安静（§8.4「主动作只有一个，其余安静」的同一条纪律）。
+   117u-G2：从右侧那一列搬进卡尾行的右端（margin-inline-start:auto 顶过去）。 */
 .steward-board-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-1);
-  grid-column: 2;
-  grid-row: 1 / -1;
+  margin-inline-start: auto;
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
@@ -381,8 +404,11 @@
 /* F3「现在这几件」：焦点那一条【就是】那份 docked 抽屉（上面那条规则不动），其余线程按服务端
    行序在它上下叠成小行。两条 stack 各自最多吃掉三分之一高度、超出自己滚，抽屉仍然 flex:1 拿走
    剩下的高度 —— 线程再多也不会把「正在看的那一件」挤出屏幕。
-   色点与状态药丸【复用】看板行那两个类（.steward-board-dot / .steward-board-pill）：颜色仍然只经
-   dockToneForMissionState 的 data-tone，本层不为右栏另配一套颜色。
+   117u-G2 D4（§11.15.3）：小行自此【就是那枚线程卡的最紧密度】—— 色条＋色点＋名＋药丸，骨架与
+   看板行、对话流、线程详情栏是同一份 .steward-tcard-* 声明，色号是同一张登记表发的号（同一条
+   线程在四面同色）。药丸仍然复用 .steward-board-pill；色点从「按状态上色的 .steward-board-dot」
+   换成「按线程上色的 .steward-tcard-dot」（色 ≠ 态：态由药丸说）。本层仍然零 .steward-now-dot／
+   .steward-now-pill —— 右栏没有第二套颜色，也没有第二份骨架。
    本组一处过渡都不加（hover 只换底色）—— reduced-motion 的关闭清单因此一个字都不用动。 */
 .steward-now-stack {
   flex: 0 1 auto;
@@ -397,9 +423,11 @@
 }
 .steward-now-stack:empty { display: none; }
 .steward-now-thread {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-1);
+  padding-inline-start: var(--sp-2);
   padding-inline-end: var(--sp-1);
   background: var(--glass-bg-3);
   border: 1px solid var(--glass-border);
@@ -518,7 +546,9 @@
   .steward-board-top { gap: var(--sp-1); margin-inline: var(--sp-1); padding: var(--sp-2); }
   .steward-board-tools { margin-inline-start: 0; }
   .steward-board-mission { padding: var(--sp-2); }
-  .steward-board-thread { margin-inline-start: var(--sp-2); }
+  /* 117u-G2 B1：缩进只属于【真分了组】的那些卡（单线程事项已经没有事项层可挂），窄屏这一档
+     跟着一起收 —— 少了这个限定，390px 下单线程那张卡会白白凹进去 8px。 */
+  .steward-board-mission.is-grouped .steward-board-thread { margin-inline-start: var(--sp-2); }
   .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
   .steward-return-chips { margin-left: 0; }
 }

@@ -4,7 +4,10 @@ import './mission-state.js';
 import { apiRaw } from './net.js';
 import { elapsedLabel } from './preview-task-sheet.js';
 import { dockToneForMissionState } from './preview-shell.js';
-import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+// 117u-G2 B3：同一条 import 顺带把 resolveEngineRoute 接过来 —— 它是全仓【唯一】那份「会话级
+// 引擎路由 ＞ 全局回落」的判据（chip 自己算生效模型用的就是它）。看板要判「这条线程的模型跟
+// 全局一样吗」，就拿它算两次比一比，不在这里另写一套回落规则。
+import { createQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -14,7 +17,10 @@ import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
 // 既不解结构化信封也不特判 steward.queued 的 wait.label —— 同一种排队失败，看板上的提示比抽屉里
 // （steward-drawer.js:287 的 failNote）差。改成引用 steward-conversation.js 的权威实现，不再自己
 // 写第二份弱化版。
-import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
+// 117u-G2 B2（27 号文 §11.15.3「一枚线程卡，三种密度」）：色号问【全仓那一张登记表】要 ——
+// G1 已经把它从对话流的实例闭包提到模块级（stewardThreadHueFor），所以同一条线程在对话流／
+// 频道条／线程详情栏／看板上恒是同一个号、同一种色。本模块不自己算色、不自己记号、不新开第二张表。
+import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor } from './steward-conversation.js';
 
 // 第117波 117h：一行状态 → 看板 → 「现在这一件」（27 号文 §8.2 L1／§8.10 多线程看板与注意力预算）。
 //
@@ -154,10 +160,34 @@ export function createStewardBoard({
   // dockToneForMissionState 收成三档、done 落进 quiet 灰点 —— 用户扫看板看不出哪条线程真的完成了。
   // 传 settleDone:true 让看板这一处主动选出第四档 settled；不传参数的默认行为（交办台的 dock 座，
   // 见 preview-shell.js 的 renderDock）一个字不变。
+  // 117u-G2 B2：tone 从 paintDot 里【提出来】成一个纯函数。理由是右栏那一面：小行那颗点自此
+  // 归线程色（色 ≠ 态），但「展开还是折成一行」仍然只认这四档 tone —— 提出来之前要拿 tone 必须
+  // 先 paintDot 造一颗点、从 dataset 上读回来再把点扔掉。两处调用问的仍是【同一处】判定：
+  // dockToneForMissionState 在本模块全文仍然只被调用这一次。
+  function toneOf(value) { return dockToneForMissionState(value, { settleDone: true }); }
   function paintDot(node, value) {
     node.dataset.state = value;
-    node.dataset.tone = dockToneForMissionState(value, { settleDone: true });
+    node.dataset.tone = toneOf(value);
     return node;
+  }
+
+  // ── 117u-G2：三面共用的那枚线程卡（27 号文 §11.15.3）───────────────────────────
+  // 骨架 = 3px 色条 ＋ 色点 ＋ 名 ＋ 五态药丸；长相住 steward-conversation.css 的
+  // .steward-tcard-*（G1 提上去的那一份，对话流与线程详情栏用的是同一条声明块），本模块只挂类名。
+  // 色条与色点【只说这是哪条线程】，一个状态字面量都不认 —— 状态由 statePill() 那枚药丸承担
+  // （F1 立的「两套信号不混用」：修前看板那颗点既是身份又是状态，一个视觉信号说两件事）。
+  function paintThreadCard(node, sessionId) {
+    node.classList.add('steward-tcard');
+    if (sessionId) node.dataset.threadHue = String(stewardThreadHueFor(sessionId));
+    const bar = el('span', 'steward-tcard-bar');
+    bar.setAttribute('aria-hidden', 'true');
+    node.appendChild(bar);
+    return node;
+  }
+  function threadDot() {
+    const dot = el('span', 'steward-tcard-dot');
+    dot.setAttribute('aria-hidden', 'true');
+    return dot;
   }
 
   // 焦点线程的入参：把卡片行折成 { sessionId, state, updatedAt } —— 纯函数只认这三个字段。
@@ -387,21 +417,66 @@ export function createStewardBoard({
 
   // 状态药丸：一枚字形 ＋ 原来那句人话。字形由五态值派生（icons.js 的 missionStateIcon），
   // 派生不出来就只有文字 —— 本模块不为「没有字形的那一态」编一个默认图标。
+  // 117u-G2 B2：把五态值【原样】写在药丸上。修前这个事实只挂在那颗点的 data-state 上，而 B2 之后
+  // 那颗点归线程色 —— 不写上来，「这一行现在是什么态」在 DOM 里就只剩一句人话（会随语言变）。
+  // 与线程详情栏那枚药丸（G1 的 stateNode.dataset.state）是同一种写法，值仍然只来自 threadStateOf。
+  // 刻意【不】跟着换皮：本行唯一带颜色的东西仍然是「它在问你」那一枚（I8 立的），五态药丸在看板上
+  // 保持安静的中性皮 —— 换成共享基元那套语义色就是在一行里点起第二盏灯。
   function statePill(value) {
     const pill = el('span', 'steward-board-pill', stateLabel(value));
+    if (value) pill.dataset.state = value;
     const glyph = missionStateIcon(value, 12);
     if (glyph) { pill.classList.add('has-icon'); pill.insertBefore(glyph, pill.firstChild); }
     return pill;
   }
 
-  function renderThreadRow(row) {
+  // 117u-G2 B3（27 号文 §11.15.2 病 3「元信息是一串等重灰字」）：这一行的权限与模型跟全局
+  // 【一样吗】。两件都问【既有的那一份权威】要，本模块不认识任何会话字段名，也不新开判据：
+  //   · 模型：resolveEngineRoute（steward-chips.js 唯一那份「会话级 ＞ 全局回落」）拿【这条会话】
+  //     与【一份没有会话的空位】各算一次 —— 两次生效路由一样，就说明这条线程根本没定过自己的
+  //     模型／引擎，印出来的是全局默认值，印它等于没印；
+  //   · 权限：chips 的 render() 已经把「定过会话级档位」这件事画成 .is-pinned（它给 chip 上色
+  //     用的就是这一个事实），mount 完读一次它自己的输出即可。
+  // 一样就【不印】。收起来的不是能力：卡尾的「打开」进的是线程详情栏，那里三个 chip 一个不少。
+  //
+  // 如实记一处能力边界：会话【元数据】（state.sessions，GET /api/sessions 的 sessionMeta）带
+  // permissionMode 但【不带】 engineRoute，任务卡（GET /api/missions）两者都不带 —— 所以模型这一半
+  // 只有在这条会话真被补齐过（chip 菜单开过一次的 hydrate，或改完档回填的 onChanged）之后才判得准。
+  // 这不是本刀新造的洞：修前那枚模型 chip 在静息态印的【恒是全局值】（元数据里没有 engineRoute，
+  // resolveEngineRoute 必然回落），也就是说定过自己模型的线程在看板上从来就没被如实说过。
+  // 所以这一刀在模型这一件上只会比修前更诚实（不知道就不说），不会更少说实话。权限那一半是准的。
+  function chipsWorthPrinting(row, chipHost) {
+    const cfg = (state && state.config) || {};
+    const mine = JSON.stringify(resolveEngineRoute(sessionForRow(row), cfg));
+    const global = JSON.stringify(resolveEngineRoute(null, cfg));
+    return mine !== global || Boolean(chipHost.querySelector('.steward-chip.is-pinned'));
+  }
+
+  // 事项级的两件事实（钱与验收）：13d 一处算好之后投影到它【每一条】线程行上，所以整件事
+  // 只许印一次 —— 单线程事项印在那唯一一张卡的卡尾，多线程事项印在事项组的组尾。一个渲染器、
+  // 两个落点（G1 那根色条「一份声明两个落点」的同一条道理），不是两份实现。
+  function missionFacts(group) {
+    const line = el('div', 'steward-board-facts');
+    line.appendChild(el('span', 'steward-board-pill', acceptanceText(group)));
+    line.appendChild(el('span', 'steward-board-pill', costText(group)));
+    return line;
+  }
+
+  // options.missionId：B5 那枚「＋ 线程」挂的事项（由 renderMissionGroup 递进来，本函数不自己
+  // 再推一次分组键）；options.facts：单线程事项的钱与验收线（多线程时为 null，落在组尾）。
+  function renderThreadRow(row, options = {}) {
     const sessionId = String(row.sessionId || '');
-    const item = el('li', 'steward-board-thread');
+    const item = paintThreadCard(el('li', 'steward-board-thread'), sessionId);
     item.dataset.sessionId = sessionId;
     const threadState = threadStateOf(row);
+    // 五态原样写在卡上。修前它挂在那颗点上（paintDot 的 node.dataset.state），B2 之后点归线程色、
+    // 态归药丸，而药丸在「它在问你」那种行上是让位的（见下）—— 不写在卡上，这一行现在处于什么态
+    // 在 DOM 里就只剩一句会随语言变的人话。样式层【不读】它（本层零 [data-state] 规则）：它是
+    // 事实与调试用的，不是第二个视觉信号。值仍然只来自 threadStateOf，零新增字面量。
+    if (threadState) item.dataset.state = threadState;
 
     const head = el('div', 'steward-board-thread-head');
-    head.appendChild(paintDot(el('span', 'steward-board-dot'), threadState));
+    head.appendChild(threadDot());
     // 116-5b(§11.8.5):显示名由服务端一处算好(13d buildMissionCard 的 displayTitle,判据在 02 的
     // sessionDisplayTitle),看板只读结果 —— 与本行的 stateLabel / wait.label 同一条纪律。
     // 原话挂 hover(它没被改写,仍是权威);没有摘要时 displayTitle 逐字等于 title,不挂重复的提示。
@@ -424,6 +499,7 @@ export function createStewardBoard({
     // 117l D4（用户第四轮走查①）：线程真的在问你时，行上给一枚 pill —— 点它就是打开抽屉（那里有
     // 问答框）。判据【只读】行上的 asksYou（06i 的 stewardAsksYou 单点算出，与抽屉同一份），
     // 本模块不写第二套「它算不算在问你」。
+    let asksPill = null;
     if (row.asksYou && typeof row.asksYou === 'object' && String(row.asksYou.kind || '')) {
       const kind = String(row.asksYou.kind);
       const pill = el('button', 'steward-board-pill is-asks-you',
@@ -435,23 +511,35 @@ export function createStewardBoard({
       pill.dataset.asksYou = kind;
       pill.onclick = () => openThread(sessionId);
       head.appendChild(pill);
+      asksPill = pill;
     }
+    // B2：状态自此【只由药丸表达】（修前它靠那颗点的颜色说，同一个视觉信号既是身份又是状态）。
+    // 真有人在问你时不印这枚：那枚「它在问你／它等你放行」说的是同一件事的更具体版本，两枚并排
+    // 就是把一句话印两遍（§11.15.2 病 3 的同一个模具）。判据仍然只有 asksYou 那一个，零新增字面量。
+    if (!asksPill) head.appendChild(statePill(threadState));
     const elapsed = elapsedLabel(row.updatedAt, new Date());
+    // B4：标题右侧只留「最后动静」—— 钱与验收线搬去了卡尾，不再与线程名争重心。
     if (elapsed) head.appendChild(el('span', 'steward-board-meta', t('stewardShell.board.updated', { elapsed })));
     item.appendChild(head);
 
     const chipHost = el('div', 'steward-board-chips');
-    item.appendChild(chipHost);
     const control = chipsFor(sessionId);
     control.mount(chipHost);
     control.setSession(sessionForRow(row));
+    // B3：跟全局一样就不印（判据见 chipsWorthPrinting）。控件本身照建不误 —— 下一拍它可能就
+    // 该出场了，而 chipsFor 是每条会话一份的长命实例，不该因为这一拍没挂上去就被丢掉。
+    if (chipsWorthPrinting(row, chipHost)) item.appendChild(chipHost);
 
-    // 单一的等待原因（§8.10「排队可解释」）：`wait.label` 是全仓唯一判据的输出，本模块只渲染它这一处；
-    // 没在等的时候如实显示五态人话，不另编一句「正在忙」。
+    // B4 卡尾一行：等什么 · 钱与验收 · 次级动作。
+    const tail = el('div', 'steward-board-tail');
+    // 单一的等待原因（§8.10「排队可解释」）：`wait.label` 是全仓唯一判据的输出，本模块只渲染它这一处。
+    // 117u-G2：没在等的时候【什么都不说】—— 修前这里回落成五态人话，B2 之后卡头那枚药丸已经把
+    // 同一句话说过了，再印一遍就是病 3 那串等重灰字（空的时候由 :empty 收掉，不占位）。
     const wait = (row.wait && typeof row.wait === 'object') ? row.wait : null;
-    const waitLine = el('p', 'steward-board-wait', wait ? String(wait.label || '') : stateLabel(threadState));
+    const waitLine = el('p', 'steward-board-wait', wait ? String(wait.label || '') : '');
     if (wait && Number.isFinite(Number(wait.ahead)) && Number(wait.ahead) > 0) waitLine.dataset.ahead = String(wait.ahead);
-    item.appendChild(waitLine);
+    tail.appendChild(waitLine);
+    if (options.facts) tail.appendChild(options.facts);
 
     const actions = el('div', 'steward-board-actions');
     // 116h 交付记录的登记项①在这里落地：等锁时占用者就在 wait.blockedBy 里，给一个「停掉占用者」。
@@ -473,25 +561,45 @@ export function createStewardBoard({
     actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop'));
     actions.appendChild(boardButton('stewardShell.board.openThread', () => openThread(sessionId), { action: 'open' }, 'open'));
     actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }, 'monitor'));
-    item.appendChild(actions);
+    // B5：「＋ 线程」从事项头右上角收进卡尾这一排次级动作 —— 它与「停止／优先／打开」同一档，
+    // 不该是每张卡右上角唯一一枚常亮的按钮。挂哪一件由 renderMissionGroup 递进来（同一个分组键，
+    // 本函数不自己再推一次）；没有事项可挂时落到空串，与空态那枚是同一条路（「另起一件」）。
+    actions.appendChild(boardButton('stewardShell.board.newThread', () => newThread(String(options.missionId || '')), { newThread: '1' }));
+    tail.appendChild(actions);
+    item.appendChild(tail);
     return item;
   }
 
+  // B1（27 号文 §11.15.2 病 2「看板把 mission 与 thread 各画一遍」）：事项只有一条线程时
+  // 【不画事项层】—— 真机三条全是「1 事项 = 1 线程」，画了就是把同一个名字上下印两遍
+  // （截图里「季度复盘 / 季度复盘」）。≥2 条才退成一行小标题「事项名 · N 条」＋缩进的线程卡组。
+  // 判据只有一个：这一组里【真拿到了几条线程行】（group.rows）。刻意不用行上的 threadCount ——
+  // 那是事项的线程总数，含本次 limit 没取回来的那些，用它当判据会在截断时画出一个只有一条卡的组头。
   function renderMissionGroup(group) {
     const section = el('section', 'steward-board-mission');
     section.dataset.missionId = group.missionId;
-    const head = el('header', 'steward-board-mission-head');
-    // 事项聚合态【只读】行上的 aggregateState —— 本模块不写第二套聚合判据。
-    head.appendChild(paintDot(el('span', 'steward-board-dot'), group.aggregateState));
-    head.appendChild(el('strong', 'steward-board-mission-title', group.title));
-    head.appendChild(el('span', 'steward-board-pill', t('stewardShell.board.threadCount', { n: group.threadCount || group.rows.length })));
-    head.appendChild(el('span', 'steward-board-pill', acceptanceText(group)));
-    head.appendChild(el('span', 'steward-board-pill', costText(group)));
-    head.appendChild(boardButton('stewardShell.board.newThread', () => newThread(group.missionId), { newThread: '1' }));
-    section.appendChild(head);
+    const grouped = group.rows.length > 1;
+    if (grouped) {
+      section.classList.add('is-grouped');
+      const head = el('header', 'steward-board-mission-head');
+      // 事项聚合态【只读】行上的 aggregateState —— 本模块不写第二套聚合判据。
+      // 这颗点仍按【态】上色：事项没有色号（色号是线程的身份）、也没有药丸，B2 那条「色 ≠ 态」
+      // 约束的是线程卡上那两个信号，不是这一枚。
+      head.appendChild(paintDot(el('span', 'steward-board-dot'), group.aggregateState));
+      head.appendChild(el('strong', 'steward-board-mission-title', group.title));
+      head.appendChild(el('span', 'steward-board-pill', t('stewardShell.board.threadCount', { n: group.threadCount || group.rows.length })));
+      section.appendChild(head);
+    }
     const list = el('ul', 'steward-board-threads');
-    for (const row of group.rows) list.appendChild(renderThreadRow(row));
+    // B4：钱与验收是【事项】的事实，整件事只印一次 —— 单线程落在那张卡的卡尾，多线程落在组尾。
+    for (const row of group.rows) {
+      list.appendChild(renderThreadRow(row, {
+        missionId: group.missionId,
+        facts: grouped ? null : missionFacts(group),
+      }));
+    }
     section.appendChild(list);
+    if (grouped) section.appendChild(missionFacts(group));
     return section;
   }
 
@@ -671,11 +779,14 @@ export function createStewardBoard({
   // 单点算出，与抽屉问答卡同源）与 lastSay（13d 投影出的 head.summary），本模块不编第三句。
   function renderNowThread(row) {
     const sessionId = String(row.sessionId || '');
-    const item = el('li', 'steward-now-thread');
+    // D4（27 号文 §11.15.3）：小行＝同一枚线程卡的【最紧密度】（色条＋色点＋名＋药丸）。骨架与
+    // 看板行、对话流、线程详情栏是同一份 .steward-tcard-* 声明，色号是同一张登记表发的号。
+    const item = paintThreadCard(el('li', 'steward-now-thread'), sessionId);
     item.dataset.sessionId = sessionId;
     const threadState = threadStateOf(row);
-    const dot = paintDot(el('span', 'steward-board-dot'), threadState);
-    const tone = String(dot.dataset.tone || '');
+    // 「展开还是折成一行」的判据【一个字没变】：还是那四档 tone（dockToneForMissionState 的表现，
+    // 与看板行那颗点、交办台 dock 座同一份）。变的只是不必再造一颗点来读它 —— 见 toneOf 的头注。
+    const tone = toneOf(threadState);
     item.dataset.tone = tone;
     const main = el('button', 'steward-now-thread-main');
     main.type = 'button';
@@ -683,7 +794,7 @@ export function createStewardBoard({
     // 强刷、回退、钉住三件事都在它里面，这里不另走一条）。
     main.onclick = () => focusThread(sessionId);
     const head = el('span', 'steward-now-thread-head');
-    head.appendChild(dot);
+    head.appendChild(threadDot());
     const titleText = String(row.displayTitle || row.title || sessionId);
     head.appendChild(el('span', 'steward-now-thread-title', titleText));
     head.appendChild(statePill(threadState));

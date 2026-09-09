@@ -158,9 +158,14 @@ ok(mod.STEWARD_NOW_MIN_WIDTH === 1000 && /min-width: \$\{STEWARD_NOW_MIN_WIDTH\}
 // 117n-M1 重钉：board.js 的 chips import 那一行加了 doc/byId/el/clear（DOM 基础件去重，见 F9
 // companion）。原判据只钉 createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出
 // 完整的四个新增名字——比原来更精确，不是放宽。
-ok(/import \{ createQuickSwitchChips, doc, byId, el, clear \} from '\.\/steward-chips\.js';/.test(board)
-  && /compact: true,/.test(board),
-  'D1 快切 chip 是 steward-chips.js 的同一个工厂（紧凑模式：权限＋模型，引擎收进模型菜单）；同一条 import 顺带把 DOM 基础件也接过来');
+// 117u-G2 **重钉 D1**（B3「事实降级」）：这条 import 又多了一个名字 resolveEngineRoute ——
+// 看板要判「这条线程的模型跟全局一样吗」（一样就不印那两枚 chip），判据必须是 chips 自己算生效
+// 模型用的那一份。新判据仍逐字要求原来的五个名字在场，且把新增那个也写死，比原来更精确不是放宽；
+// 另加一条：本模块不许出现第二处「会话级 ＞ 全局」的回落实现（零 activeProvider／agentCliType）。
+ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute \} from '\.\/steward-chips\.js';/.test(board)
+  && /compact: true,/.test(board)
+  && !/activeProvider/.test(boardCode) && !/agentCliType/.test(boardCode),
+  'D1 快切 chip 与「生效引擎路由」都是 steward-chips.js 的同一份（紧凑模式：权限＋模型，引擎收进模型菜单）；看板零第二套回落规则');
 ok(count(boardCode, /method: 'PATCH'/g) === 0 && !/permissionMode/.test(boardCode),
   'D2 看板不自己 PATCH 线程权限（唯一写口仍是 steward-chips.js）');
 ok(/if \(compact\) \{[\s\S]{0,240}buildEngineMenu\(menu\);/.test(chips)
@@ -190,8 +195,10 @@ ok(/saveConfigPartial\(\{ stewardMaxParallelThreads: value \}\)/.test(board)
 // "[object Object]"）也不特判 steward.queued 的 wait.label。同一种排队失败，看板上的提示比
 // 抽屉里（steward-drawer.js:287 的 failNote）差。现在直接 import steward-conversation.js 的权威
 // 实现，不再自己写一份。
-ok(/import \{ stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(board),
-  'D9a board.js 的错误信封解包从 steward-conversation.js import，不是自己再写一份');
+// 117u-G2 **重钉 D9a**：这条 import 多了 stewardThreadHueFor（B2 色条上板要的号）。原判据只钉
+// 三个错误名，新判据逐字要求四个都在场 —— 更精确，不是放宽。
+ok(/import \{ stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor \} from '\.\/steward-conversation\.js';/.test(board),
+  'D9a board.js 的错误信封解包与线程色号都从 steward-conversation.js import，不是自己再写一份');
 ok(!/String\(\(error && error\.message\) \|\| error \|\| 'failed'\)/.test(boardCode),
   'D9b 旧的弱化版 failNote（裸 String(error) 拍扁结构化信封）已经不在了');
 const failNoteBody = boardCode.slice(boardCode.indexOf('function failNote'), boardCode.indexOf('function failNote') + 600);
@@ -386,13 +393,30 @@ ok(/function syncPauseAll\(\) \{/.test(boardCode)
 ok(/\.steward-board-mission \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode)
   && !/\.steward-board-mission \{[^}]*border-top: 1px solid/.test(cssCode),
   'I6 每个事项一张卡（此前是「一条细分隔线上的一行小字」，十来行下来分不出哪几行属于哪一件）');
-ok(/\.steward-board-mission-head \.steward-board-pill \+ \.steward-board-pill::before \{/.test(cssCode)
-  && /content: "·";/.test(cssCode),
-  'I6b 卡头右侧的线程数／验收／花费用「·」连成一串小字（分隔符是生成内容，DOM 一个节点没加）');
-ok(/\.steward-board-thread \{[\s\S]{0,400}margin-inline-start: var\(--sp-4\);/.test(cssCode)
+// 117u-G2 **重钉 I6b**（B1／B4 把那一串三枚拆成了两处）：事项头只剩「事项名 · N 条」一枚药丸，
+// 钱与验收搬去了卡尾那一行。被钉的事实一个字没变 —— 「·」仍然是【生成内容】，DOM 一个节点没加，
+// 而且仍然只有【一条】声明在生产它（两个落点写在同一条规则里）。判据跟着两个落点走，并额外
+// 钉住「只有一处 content: "·"」——比原来只钉一个选择器更强。
+// 「只有一条规则在生产它」要按【规则块】数，不能按整层数 content:"·" —— 一行状态那枚
+// .steward-status-line::before 从 117h 起就有一个，与药丸串这件事无关（数整层会把它算进来）。
+const pillDotRules = [...cssCode.matchAll(/([^{}]*steward-board-pill[^{}]*)\{([^}]*)\}/g)]
+  .filter(match => /content: "·"/.test(match[2]));
+ok(/\.steward-board-facts \.steward-board-pill \+ \.steward-board-pill::before,\s*\.steward-board-mission-head \.steward-board-pill::before \{/.test(cssCode)
+  && pillDotRules.length === 1,
+  `I6b 「·」是同一条规则生产的生成内容（事项头那枚 N 条之前、卡尾事实行相邻药丸之间两个落点），DOM 一个节点没加（实测涉及药丸的规则块 ${pillDotRules.length} 条）`);
+// 117u-G2 **重钉 I7**（B1）：缩进的意思是「这几条挂在上面那个事项名下面」，所以它只属于【真分了
+// 组】的卡 —— 单线程事项已经不画事项层，那张卡没有可挂的名字，缩进只会让它无故凹进去。原判据
+// 钉的是「.steward-board-thread 自己带 --sp-4」，B1 之后这句话不再成立；新判据把两件事都钉死：
+// 分组时缩进 --sp-4（两个断点各一条，都带 .is-grouped 限定），且【裸】的 .steward-board-thread
+// 规则块里一处 margin-inline-start 都没有（否则单线程那张卡又会凹回去）。
+const bareThreadRule = cssCode.slice(cssCode.indexOf('.steward-board-thread {'),
+  cssCode.indexOf('}', cssCode.indexOf('.steward-board-thread {')));
+ok(/\.steward-board-mission\.is-grouped \.steward-board-thread \{ margin-inline-start: var\(--sp-4\); \}/.test(cssCode)
+  && /\.steward-board-mission\.is-grouped \.steward-board-thread \{ margin-inline-start: var\(--sp-2\); \}/.test(cssCode)
+  && !/margin-inline-start/.test(bareThreadRule)
   && /\.steward-board-thread \+ \.steward-board-thread \{ border-top: 1px solid var\(--glass-border\); \}/.test(cssCode)
   && /\.steward-board-thread:hover \{ background: var\(--panel-2\); \}/.test(cssCode),
-  'I7 线程行缩进 --sp-4 挂在事项名下、行间 1px 分隔线、hover 底色微亮');
+  'I7 缩进只属于分了组的线程卡（宽屏 --sp-4／390px --sp-2 各一条，裸规则块里零 margin-inline-start）；行间 1px 分隔线、hover 底色微亮照旧');
 ok(/\.steward-board-thread-head \{[\s\S]{0,300}flex-wrap: wrap;/.test(cssCode)
   && /\.steward-board-thread-title \{[\s\S]{0,200}min-width: 5em;/.test(cssCode),
   'I7b 390px 下线程名不许被 pill 与时间挤成 0 宽（改前实测：整个线程名从屏幕上消失）');
@@ -516,11 +540,29 @@ const nowThreadBody = boardCode.slice(boardCode.indexOf('function renderNowThrea
 // F5a 重钉：状态药丸从 `el('span', 'steward-board-pill', …)` 就地一行改成走 statePill()
 // （多一枚由五态值派生的字形）。契约一个字没变 —— 药丸【仍然】是看板既有那个类、颜色【仍然】
 // 只经 data-tone、样式层【仍然】零 .steward-now-*；变的只是那一行写在哪儿，所以判据跟去 statePill 的定义。
-ok(/paintDot\(el\('span', 'steward-board-dot'\), threadState\)/.test(nowThreadBody)
+// 117u-G2 **重钉 M5**（D4：小行＝同一枚线程卡的最紧密度）：那颗点从「按状态上色的
+// .steward-board-dot」换成「按线程上色的 .steward-tcard-dot」——**色 ≠ 态**（§11.15.3 B2，F1 立的
+// 纪律），态由那枚药丸独家承担。原判据钉的是「复用看板既有的两个类」，换点之后那句话的前半不再
+// 成立；新判据钉的是同一件事的更强版本：小行仍然【一份骨架都不新造】——
+//   ① 色条与色点走三面共用的 .steward-tcard-*（本文件另有一条钉它们全仓只有一份声明）；
+//   ② 色号问同一张登记表要（threadDot 与 paintThreadCard 是本模块唯一的两个生产点）；
+//   ③ 药丸仍是看板既有那个类、同一个 statePill；
+//   ④ 样式层仍然零 .steward-now-dot ／ .steward-now-pill —— 右栏没有第二套颜色。
+ok(/paintThreadCard\(el\('li', 'steward-now-thread'\), sessionId\)/.test(nowThreadBody)
+  && /head\.appendChild\(threadDot\(\)\);/.test(nowThreadBody)
   && /statePill\(threadState\)/.test(nowThreadBody)
   && /const pill = el\('span', 'steward-board-pill', stateLabel\(value\)\);/.test(boardCode)
+  && count(boardCode, /'steward-tcard-dot'/g) === 1 && count(boardCode, /'steward-tcard-bar'/g) === 1
+  && count(boardCode, /stewardThreadHueFor\(/g) === 1
   && !/steward-now-dot/.test(cssCode) && !/steward-now-pill/.test(cssCode),
-  'M5 小行的五态点与状态药丸复用看板既有的两个类（颜色仍只经 dockToneForMissionState 的 data-tone），样式层零 .steward-now-dot/.steward-now-pill —— 右栏没有第二套颜色');
+  'M5 小行＝同一枚线程卡的最紧密度：色条／色点各只有一个生产点、色号只问那一张登记表要一次、药丸仍是看板既有那个类，样式层零 .steward-now-dot/.steward-now-pill —— 右栏没有第二套颜色，也没有第二份骨架');
+// 117u-G2 M5b（§11.15.3 B2「色 ≠ 态」）：看板与右栏两处线程卡上，色条与色点都【不许】读状态。
+// 可证伪的形式：paintDot（唯一那处把 data-state / data-tone 写上节点的函数）只被事项头那颗聚合点
+// 用一次 —— 线程卡这两面一次都不调它。
+ok(count(boardCode, /paintDot\(/g) === 2
+  && /head\.appendChild\(paintDot\(el\('span', 'steward-board-dot'\), group\.aggregateState\)\);/.test(boardCode)
+  && !/paintDot\(/.test(nowThreadBody),
+  `M5b 色 ≠ 态：paintDot（写 data-state 的那一处）只剩事项头那颗聚合点在用（定义 1 ＋ 调用 1 = ${count(boardCode, /paintDot\(/g)} 处），两面线程卡的色条与色点一次都不读状态`);
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
   && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
   `M6 「展开还是折成一行」只读 paintDot 出的 data-tone（四档里的前两档），零新增五态字面量：needs_you 仍然恰好两处、'stopped' 一处、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
@@ -553,12 +595,17 @@ ok(count(boardCode, /missionStateIcon\(/g) === 1
   && /import \{ icon, missionStateIcon \} from '\.\/icons\.js';/.test(board)
   && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
   `N3 看板只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 F3 那一刀逐字相同（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
-const paintDotBody = boardCode.slice(boardCode.indexOf('function paintDot(node, value)'), boardCode.indexOf('function threadViews()'));
-ok(/node\.dataset\.state = value;/.test(paintDotBody)
-  && /node\.dataset\.tone = dockToneForMissionState\(value, \{ settleDone: true \}\);/.test(paintDotBody)
+// 117u-G2 **重钉 N4**：tone 从 paintDot 里提成了纯函数 toneOf —— B2 之后小行那颗点归线程色，
+// 但「展开还是折成一行」仍然只认这四档 tone，提出来之前要拿 tone 必须先造一颗点再读回来再扔掉。
+// 被钉的契约一个字没变：settleDone 那一档没动，dockToneForMissionState 在全模块【仍然只被调用
+// 一次】（现在这一次住在 toneOf 里），paintDot 仍然把 state 与 tone 一起写在节点上。
+const paintDotBody = boardCode.slice(boardCode.indexOf('function paintDot(node, value)'), boardCode.indexOf('function paintThreadCard('));
+ok(/function toneOf\(value\) \{ return dockToneForMissionState\(value, \{ settleDone: true \}\); \}/.test(boardCode)
+  && /node\.dataset\.state = value;/.test(paintDotBody)
+  && /node\.dataset\.tone = toneOf\(value\);/.test(paintDotBody)
   && count(boardCode, /dockToneForMissionState\(/g) === 1
   && /import \{ dockToneForMissionState \} from '\.\/preview-shell\.js';/.test(board),
-  'N4 paintDot 的 tone 契约一个字没变：仍然只有这一处调 dockToneForMissionState（settleDone 那一档也没动），四档 tone 仍是紧凑行展开／折叠的唯一判据');
+  'N4 tone 契约一个字没变：dockToneForMissionState 全模块仍然只调一次（住在纯函数 toneOf 里，settleDone 那一档没动），四档 tone 仍是紧凑行展开／折叠的唯一判据');
 const boardGlyphNames = [
   ...[...boardCode.matchAll(/icon\('([A-Za-z]+)'/g)].map(match => match[1]),
   ...[...boardCode.matchAll(/\}, '([a-zA-Z]+)'\)\);/g)].map(match => match[1]),
