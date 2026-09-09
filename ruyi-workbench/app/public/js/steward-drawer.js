@@ -20,7 +20,11 @@ import { missionStateIcon } from './icons.js';
 // 看板恒是同一个号）、五态词表（stewardThreadStateKey：查得到就用共享那条键）、相对时间的人话
 // （stewardAgoLabel：两处卡头说同一句「3 分钟前」）。依赖方向 board → drawer → conversation
 // 是既有方向（steward-board.js 已经 import 这两个模块），不成环。
-import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel } from './steward-conversation.js';
+// 117v-V2（27 号文 §11.16.2 V2 行）：⑤「它刚说」的取段判据也从这里拿 —— stewardDeliverableText
+// 是全仓【唯一】那一份「一条助手消息里哪一段才是交付」的判据（117v-V4 立、V4b 扩到 subagent）。
+// 抽屉里不许再抄第二份 segments 遍历：同一件事只能有一处判据。这一行本来就 import 了本模块，
+// 加个名字不新增任何模块依赖边、也不成环（conversation 不 import drawer）。
+import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText } from './steward-conversation.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
