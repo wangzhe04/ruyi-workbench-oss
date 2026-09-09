@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-09T16:21:30.696Z。
+> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-09T16:30:39.841Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -76,23 +76,23 @@
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:1020 | autonomy-grant.e2e.js |
 | POST | `/api/agent-workflow/launch` | exact | body-token | 13-http-router.js:1033 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-quality-workflow.e2e.js 等 29 件 |
 | GET | `/api/usage/summary` | exact | token self | 13-http-router.js:1087 | usage-claude-cached.e2e.js, usage-dashboard.e2e.js, usage-ledger.e2e.js 等 4 件 |
-| GET | `/api/ops/metrics` | exact | token self | 13-http-router.js:1099 | monitor-incremental.e2e.js |
-| GET | `/api/checkpoints` | exact | token self | 13-http-router.js:1108 | artifacts.e2e.js, changes-diff.e2e.js, checkpoint-coverage.e2e.js 等 16 件 |
-| POST | `/api/checkpoints/open-external` | exact | token | 13-http-router.js:1129 | external-code-diff.e2e.js |
-| GET | `/api/checkpoints/diff` | exact | token self | 13-http-router.js:1200 | changes-diff.e2e.js, frontend-domains.static.e2e.js, i18n.e2e.js |
-| GET | `/api/help/doc` | exact | token self | 13-http-router.js:1242 | help-viewer.e2e.js, onboarding.static.e2e.js |
-| POST | `/api/open-path` | exact | token self | 13-http-router.js:1272 | copy-path-guard.static.e2e.js, help-menu.e2e.js |
-| GET | `/api/logs/tail` | exact | token self | 13-http-router.js:1299 | help-menu.e2e.js |
-| GET | `/api/file/preview` | exact | token self | 13-http-router.js:1332 | artifacts.e2e.js, audit-w23.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
-| POST | `/api/file/reveal` | exact | token | 13-http-router.js:1369 | artifacts.e2e.js, copy-path-guard.static.e2e.js, help-menu.e2e.js 等 5 件 |
-| GET | `/api/audit` | exact | token self | 13-http-router.js:1400 | audit.e2e.js, auth-deny-default.e2e.js, autonomy-grant.e2e.js 等 6 件 |
-| GET | `/api/storage/summary` | exact | token self | 13-http-router.js:1417 | frontend-domains.static.e2e.js, metrics-panel.e2e.js, session-storage-v2.e2e.js 等 4 件 |
-| GET | `/api/metrics` | exact | token self | 13-http-router.js:1429 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
-| POST | `/api/upload` | exact | token-browser | 13-http-router.js:1448 | pretender-dispatch-home.static.e2e.js, vision-loop.e2e.js |
-| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1456 | — |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1476 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 117 件 |
-| POST | `/api/tools/` | prefix | token | 13-http-router.js:1494 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
-| * | `/health` | exact | host-gate | 13-http-router.js:1766 | — |
+| GET | `/api/ops/metrics` | exact | token self | 13-http-router.js:1102 | monitor-incremental.e2e.js |
+| GET | `/api/checkpoints` | exact | token self | 13-http-router.js:1111 | artifacts.e2e.js, changes-diff.e2e.js, checkpoint-coverage.e2e.js 等 16 件 |
+| POST | `/api/checkpoints/open-external` | exact | token | 13-http-router.js:1132 | external-code-diff.e2e.js |
+| GET | `/api/checkpoints/diff` | exact | token self | 13-http-router.js:1203 | changes-diff.e2e.js, frontend-domains.static.e2e.js, i18n.e2e.js |
+| GET | `/api/help/doc` | exact | token self | 13-http-router.js:1245 | help-viewer.e2e.js, onboarding.static.e2e.js |
+| POST | `/api/open-path` | exact | token self | 13-http-router.js:1275 | copy-path-guard.static.e2e.js, help-menu.e2e.js |
+| GET | `/api/logs/tail` | exact | token self | 13-http-router.js:1302 | help-menu.e2e.js |
+| GET | `/api/file/preview` | exact | token self | 13-http-router.js:1335 | artifacts.e2e.js, audit-w23.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
+| POST | `/api/file/reveal` | exact | token | 13-http-router.js:1372 | artifacts.e2e.js, copy-path-guard.static.e2e.js, help-menu.e2e.js 等 5 件 |
+| GET | `/api/audit` | exact | token self | 13-http-router.js:1403 | audit.e2e.js, auth-deny-default.e2e.js, autonomy-grant.e2e.js 等 6 件 |
+| GET | `/api/storage/summary` | exact | token self | 13-http-router.js:1420 | frontend-domains.static.e2e.js, metrics-panel.e2e.js, session-storage-v2.e2e.js 等 4 件 |
+| GET | `/api/metrics` | exact | token self | 13-http-router.js:1432 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
+| POST | `/api/upload` | exact | token-browser | 13-http-router.js:1451 | pretender-dispatch-home.static.e2e.js, vision-loop.e2e.js |
+| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1459 | — |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1479 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 117 件 |
+| POST | `/api/tools/` | prefix | token | 13-http-router.js:1497 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
+| * | `/health` | exact | host-gate | 13-http-router.js:1769 | — |
 
 ## intervention(11)
 
@@ -188,8 +188,8 @@
 - 13-http-router.js:517 → `handleSessionApiRoutes`
 - 13-http-router.js:519 → `handleMissionsApiRoutes`
 - 13-http-router.js:859 → `handleInterventionApiRoutes`
-- 13-http-router.js:1107 → `handleAgentRunApiRoutes`
-- 13-http-router.js:1395 → `handleMcpApiRoutes`
-- 13-http-router.js:1439 → `handleCheckpointApiRoutes`
-- 13-http-router.js:1441 → `handleSteerApiRoute`
-- 13-http-router.js:1443 → `handleOverlayApiRoutes`
+- 13-http-router.js:1110 → `handleAgentRunApiRoutes`
+- 13-http-router.js:1398 → `handleMcpApiRoutes`
+- 13-http-router.js:1442 → `handleCheckpointApiRoutes`
+- 13-http-router.js:1444 → `handleSteerApiRoute`
+- 13-http-router.js:1446 → `handleOverlayApiRoutes`

@@ -1827,7 +1827,7 @@ chips 工厂（`steward-chips.js` 的 `buildModelMenu`）同时服务 **2.0 顶�
 
 这条把 M1 从「可能要先改采集」降级成「只改聚合」，是它能排在 M2 前面当第一刀的前提。
 
-**顺带查出一处与本波无关的真缺陷，已登记、不在本波修**：另外 4 处调用
+**顺带查出一处与本波无关的真缺陷 —— 已于 `6ac6f88` 修掉（改走 `logEvent`），本段留作病历，不要再当成未还的债**：另外 4 处调用
 （`06d-memory-domain.js:1164/1179/1194`、`13-http-router.js:763`）传的是
 `{ engine, kind:'aux', note, meta }` —— **既没有 token 也没有 cost**，
 而 `appendUsageLedger` 第 386 行的空行守卫 `if (inTok <= 0 && outTok <= 0 && !(cost > 0)) return;`
@@ -1839,7 +1839,19 @@ chips 工厂（`steward-chips.js` 的 `buildModelMenu`）同时服务 **2.0 顶�
 
 | 刀 | 做什么 | 面 |
 |---|---|---|
-| **M1** | `buildUsageSummary` 加 `byModel` 维度（`{model, provider, engine, turns, inTok, outTok, lastAt}`），在既有 `/api/usage/summary` 的返回里多一个键。**不新增路由。** | `app/src/00-boot.js`（动 `src/` → 必须跑 `build.js` 并核 `--check` 新鲜；若模块结构没变则生成器链只需 build） |
+| **M1** | ~~计划~~ **已交付 `e82c685`**，实际形状见下。**不新增路由。** | `app/src/00-boot.js` ＋ `13-http-router.js`（兜底分支）|
+
+**M1 实际交付的载荷（与本节原先写的七字段有出入，以此为准）**：
+
+`{ model, provider, label, engine, inTok, outTok, cachedInTok, turns, planBasedTurns, costsByCurrency, planBased, lastAt }`
+
+- **分组键是 `(engine, provider, model)` 三元组**，不是 model 单键 —— 同一个 id 可由两个 provider 提供，合成一组就得替它编一个 provider。
+- **`label` 是原设计没有的第八个字段**，与 `byProvider` 对齐，给 M2 的 provider 分组标题直接用；不留它 M2 就得自己再去 join 一次 `config.providers`。**主会话裁决：保留。**
+- **空 `model` 的行整条跳过**（不归成「未记录模型」组）——§11.17.7 ④ 本来就是这么写的。由此得到那条最有力的锁：**Σ byModel.turns ＝ Σ byEngine.turns − 空 model 行数**。
+- **`lastAt`** ＝ 该组最近一条账本行的 `ts`（原样 ISO 串）。解析不出 `ts` 的行**只在 lastAt 这一项上被忽略**，tokens/turns 照常计入，所以它永不为 `Invalid Date`。
+- **排序**：`lastAt` 倒序 → `turns` 倒序 → `model` 升序（全序，不依赖 Map 插入序）。**不切片** —— 与 `bySession` 的 top-20 不同：选择器要给列出的每一行都出副行，切片既饿死副行又会破坏上面那条求和不变量。
+- **M2 要知道的两条**：byModel 全量返回；「最近 30 天／最多 5 条」的裁剪在**前端**做，后端不替它裁。
+- **兜底分支已对齐**（`13-http-router.js` 的 catch 支原先漏了 `byModel`）：`usage-ledger.e2e` ⑫ 机械比对两边的 `by*` 键集合，加了第六个维度却忘了兜底就当场红。
 | **M2** | 选择器重做（搜索／分组／常用／折叠区／键盘） | `js/steward-chips.js` ＋ 对应 CSS ＋ 它的锁 ＋ locale |
 
 M2 依赖 M1 的载荷，**串行**。M2 若改 CSS，`LEGACY_STYLES_SHA256` **不许它自己钉**，由主会话统一重钉。

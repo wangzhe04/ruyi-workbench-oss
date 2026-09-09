@@ -241,6 +241,20 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
 8. **隔离 worktree 跑回归**：3 件 realhist 件必红（fixture 只在主树），`.gitignore` 的 CRLF 是 autocrlf checkout 产物（master 里是 LF），都不是回归。
 9. **长文本写入会截断（2026-09-09 事故）**：一次 ~12 KB 的 heredoc 在 10 KB 处无声截断，装配脚本残件差点入库。生成/装配类脚本：优先 Write 工具一次落盘（无 shell 传输层）；非用 heredoc 不可时切块 < 4 KB 追加、每块 `wc -c` 核累积字节，跑之前先验语法（`node --check`）。
 
+10. **改了 `src/` 就跑整条生成器链，不要自己判断「这次应该只需 build」。** 依赖图产物记的是**每条边所在的行号**，
+    所以**在 src 里加减任何一行（哪怕只是一行注释）**都会让 `module-dependency-graph.json` 过期，
+    不止于增删模块或改路由。两次实测：117x-M1 只在 `buildUsageSummary` 上方加了一行注释，三条边行号整体 +1
+    （`465→466`／`471→472`／`474→475`），`--check` 当场 FAIL；主会话随后给兜底分支加了三行注释，同样 FAIL。
+    **这条是用两次真红换来的，而第二次犯的人正是刚写下第一条的人。**
+
+11. **补丁脚本与 Edit 参数里的转义，是本仓第三类静默损坏（前两类：吃反斜杠、吃长文本）。** 三个已实测的样本：
+    ① 117x-M1 想用一个 NUL 当 Map 键分隔符，Edit 参数被当 JSON 转义解释，**真往 `src/00-boot.js` 写进了 4 个裸 NUL 字节**
+    （`cat -A` 显示 `^@`，而且此后再也 Edit 不中那两行）；它改用 `JSON.stringify([a,b,c])` 做键绕开。
+    ② 主会话用 Python `io.open(path,"w")` 改文档，Windows 下 `newline=None` 把整份 2000 行从 LF 翻成 CRLF，`eol-policy.static` 当场红。
+    ③ 主会话用 heredoc 写**上面这条纪律本身**时，heredoc 吃掉一层反斜杠，把 `x00` 前面那个反斜杠序列变成了真 NUL 写进文档。
+    **结论**：写文件优先用 Write／Edit 工具（不经 shell 传输层）；非用脚本不可就用 node（`fs.writeFileSync` 按字节写，
+    不像 Python 会翻行尾），并且**写完逐字节核一遍**（NUL 用 node 扫，别用 `grep`——空模式会把每一行都算成命中，那个数字是假的）。
+
 ---
 
 ## 5. 已登记、本波明确不动的债

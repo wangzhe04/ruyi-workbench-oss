@@ -274,6 +274,23 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     ok(arkM && arkM.planBased === true && Object.keys(arkM.costsByCurrency || {}).length === 0, '⑪ byModel 沿用 finishGroup:计划内计费行 planBased=true 且不进 costsByCurrency');
     ok(monPriced && monPriced.planBased === false && monPriced.cachedInTok === 2 * CACHED_TOKENS && near((monPriced.costsByCurrency || {})[CUR], round6(2 * PER_TURN)),
       '⑪ byModel 复用同一套成本/缓存口径(priced/fake-model 本月 = 2×perTurn)');
+
+    // ⑫ 117x-M1 收口:兜底分支的维度键必须与成功分支一致。
+    // 读盘出错那一刻端回一个形状不同的载荷,就是「返回什么取决于走了哪条分支」—— 本仓最贵的一类坑。
+    // 钉的是【事实】不是字面量:两边各自抽出 by* 标识符集合再比,重排序/改注释/加非维度键都不会误红,
+    // 只有「加了第 N 个维度却忘了兜底」才红。M1 加 byModel 时兜底就漏了,这条锁是为下一次准备的。
+    const bootSrc = fs.readFileSync(path.join(WB, 'app', 'src', '00-boot.js'), 'utf8');
+    const routerSrc = fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8');
+    const dimsOf = text => new Set((text.match(/\bby[A-Z][A-Za-z0-9]*\s*:/g) || []).map(x => x.replace(/\s*:$/, '')));
+    const fnStart = bootSrc.indexOf('async function buildUsageSummary');
+    const okDims = dimsOf(bootSrc.slice(fnStart, bootSrc.indexOf('\n}', fnStart)));
+    const fbStart = routerSrc.indexOf('Old install with no ledger');
+    const fbDims = dimsOf(routerSrc.slice(fbStart, fbStart + 900));
+    const missing = [...okDims].filter(k => !fbDims.has(k));
+    const extra = [...fbDims].filter(k => !okDims.has(k));
+    ok(okDims.size >= 5 && missing.length === 0 && extra.length === 0,
+      '⑫ 兜底分支与成功分支的 by* 维度键逐个对齐(成功 ' + [...okDims].sort().join(',')
+      + ';兜底缺 ' + (missing.join(',') || '无') + ',多 ' + (extra.join(',') || '无') + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of [wb, fakeA, fakeB]) killp(c);

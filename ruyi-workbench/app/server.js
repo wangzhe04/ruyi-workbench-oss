@@ -38130,7 +38130,10 @@ async function handleApi(req, res, pathname) {
       return send(res, json(await buildUsageSummary(range)));
     } catch {
       // Old install with no ledger / any read error -> empty aggregation, never a 500.
-      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], bySession: [], byDay: [], budget: null }));
+      // 117x-M1 收口:兜底分支的键必须与成功分支【逐个维度对齐】。少一个维度键,消费方在读盘出错那一刻
+      // 拿到的就是一个形状不同的载荷 —— 「返回什么取决于走了哪条分支」正是本仓最贵的一类坑。
+      // usage-ledger.e2e ⑫ 机械比对两边的 by* 键集合,加了第六个维度却忘了这里,当场红。
+      return send(res, json({ ok: true, range, totals: { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} }, byEngine: [], byProvider: [], byModel: [], bySession: [], byDay: [], budget: null }));
     }
   }
   // 第29波(§29c): 运营指标聚合(read-only GET,同 usage/summary 纪律:handler 自查 tokenOk,失败回空聚合)。
