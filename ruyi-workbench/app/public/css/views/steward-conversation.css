@@ -585,25 +585,33 @@
    右缘（36px）—— 正文左缘 44px 一个像素不动。与组竖线同一个接线法：不是本段最后一行的那几段
    各自向下多探一个 gap，于是隔着 --sp-1 的间距看起来仍是连续的一条。 */
 /* F2：频道条那枚色点与色条读【同一个】 --thread-color，所以两处必须落在同一条声明上 ——
-   chip 不是消息行的后代，自定义属性继承不过去。加一个选择器，不加第二个 hsl()。 */
-.steward-msg-ruyi.is-thread,
-.steward-channel[data-thread-hue] {
+   chip 不是消息行的后代，自定义属性继承不过去。加一个选择器，不加第二个 hsl()。
+   117u-G1（27 号文 §11.15.2 病 1）：这四条规则原来各自点名两副【面】（消息行 ／ 频道 chip），
+   于是抽屉与看板要用色就得再往名单里加两个选择器 —— 名单越长，「谁有资格用这个色」越说不清。
+   改钉在【属性本身】上：谁写了 data-thread-hue 谁就拿到 --thread-color，与它长在哪张面上无关。
+   JS 那一侧的写口仍然只有一处（markThread 那一行 dataset.threadHue），号仍然只由模块级的
+   stewardThreadHueFor 发；整层仍然只有一处 hsl()。 */
+[data-thread-hue] {
   --thread-hue: var(--thread-hue-1);
   --thread-color: hsl(var(--thread-hue) var(--thread-sat) var(--thread-light));
 }
-.steward-msg-ruyi.is-thread[data-thread-hue="2"] { --thread-hue: var(--thread-hue-2); }
-.steward-msg-ruyi.is-thread[data-thread-hue="3"] { --thread-hue: var(--thread-hue-3); }
-.steward-msg-ruyi.is-thread[data-thread-hue="4"] { --thread-hue: var(--thread-hue-4); }
-.steward-msg-ruyi.is-thread::after {
-  content: "";
+[data-thread-hue="2"] { --thread-hue: var(--thread-hue-2); }
+[data-thread-hue="3"] { --thread-hue: var(--thread-hue-3); }
+[data-thread-hue="4"] { --thread-hue: var(--thread-hue-4); }
+/* 色条的【长相】一处声明、两处落点：对话流画在行的 ::after 上（位置取头像槽右缘 36px），
+   卡骨架画在一个真节点 .steward-tcard-bar 上（贴卡左缘）。宽度／圆角／颜色三样共用，
+   只有 inset-inline-start 各说各的 —— 不是两条色条，是同一条色条的两个落点。 */
+.steward-msg-ruyi.is-thread::after,
+.steward-tcard-bar {
   position: absolute;
-  inset-inline-start: 36px;
   top: 0;
   bottom: 0;
   width: 3px;
   border-radius: 2px;
   background: var(--thread-color);
 }
+.steward-msg-ruyi.is-thread::after { content: ""; inset-inline-start: 36px; }
+.steward-tcard-bar { inset-inline-start: 0; }
 .steward-msg-ruyi.is-thread:not(.is-thread-end)::after { bottom: calc(-1 * var(--sp-1)); }
 /* 分组照旧，色条更强：属于某条线程的那几行【不再】画那道淡竖线 —— 一行只能有一个锚
    （与「头像所在的最新那一组不画竖线」是同一条道理）。间距规则一个字没改，仍由
@@ -614,13 +622,23 @@
    steward:focus-thread 通道一个字没动，卡头右端的「打开」是同一个动作的可见入口）。 */
 .steward-msg-ruyi.is-thread > .steward-source { display: none; }
 
-/* 卡头：色点 · 线程名 · 五态药丸 · 最后动静 · 模型 · 打开。取值全部沿用既有 token。 */
+/* ── 117u-G1 线程卡骨架 · 三面共用的基元（27 号文 §11.15.3「一枚线程卡，三种密度」）──────────
+   骨架 = 3px 色条 ＋ 一行卡头（色点 · 线程名 · 五态药丸 · 最后动静 · 主动作）。三种密度只改
+   「卡头下面装什么」，骨架这一份声明【全仓只有这一处】。
+   写法上刻意用「一组声明、两个类名」而不是「改对话流的类名」：F1 那几个 .steward-thread-* 已经
+   被 e2e 与频道条按名字读了，改名等于给自己造一次无谓的迁移；而把它们与新的 .steward-tcard-*
+   并进同一条选择器，声明就真的只剩一份 —— 对话流那一侧【一个字节的渲染差别都没有】（同一条
+   声明块、同一份计算样式），抽屉与看板照着 .steward-tcard-* 这份类契约画即可。
+   .steward-tcard 本身只负责「容得下那根色条」：定位上下文 ＋ 给色条让出左边那 3px。 */
+.steward-tcard { position: relative; padding-inline-start: var(--sp-3); }
+.steward-tcard-head,
 .steward-thread-head {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
 }
+.steward-tcard-dot,
 .steward-thread-dot {
   flex: 0 0 auto;
   width: 8px;
@@ -628,6 +646,7 @@
   border-radius: 50%;
   background: var(--thread-color);
 }
+.steward-tcard-name,
 .steward-thread-name {
   min-width: 0;
   font-size: var(--fs-sm);
@@ -637,8 +656,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 五态药丸：默认是「在跑」那一档（着重色）；其余三档各自换一族语义色。人话与颜色都复用既有
-   口径（看板行的「等你」用的就是 --gold / --gold-soft 这一对）。 */
+/* 五态药丸：默认是「在跑」那一档（着重色）；其余各档换一族语义色。人话与颜色都复用既有口径
+   （看板行的「等你」用的就是 --gold / --gold-soft 这一对）。
+   117u-G1：dispatching／quick_ask 两档是【抽屉这一面】才出得来的（它的五态来自 mission-state.js
+   的六个值，对话流那一面从信封只派生得出五个），补在同一张表里而不是让抽屉另写一套 ——
+   这里补的是色，词表仍然只有 STEWARD_THREAD_STATE_KEYS 与 t('mission.state.*') 那两处既有来源。 */
+.steward-tcard-state,
 .steward-thread-state {
   display: inline-flex;
   align-items: center;
@@ -650,10 +673,17 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
+.steward-tcard-state[data-state="needs_you"],
 .steward-thread-state[data-state="needs_you"] { color: var(--gold); background: var(--gold-soft); }
+.steward-tcard-state[data-state="stopped"],
 .steward-thread-state[data-state="stopped"] { color: var(--danger); background: var(--danger-soft); }
+.steward-tcard-state[data-state="dispatching"] { color: var(--accent-2); background: var(--panel-3); }
+.steward-tcard-state[data-state="quick_ask"],
+.steward-tcard-state[data-state="done"],
+.steward-tcard-state[data-state="queued"],
 .steward-thread-state[data-state="done"],
 .steward-thread-state[data-state="queued"] { color: var(--muted); background: var(--panel-3); }
+.steward-tcard-meta,
 .steward-thread-meta {
   min-width: 0;
   font-size: var(--fs-xs);
@@ -664,11 +694,19 @@
 }
 /* 作者样式的 display 会压过 UA 表的 [hidden]{display:none}（本层已有四处同款先例）：药丸与
    「最后动静 · 模型」在信封说不死的时候是 hidden 的，少这两条它们会以空壳的样子留在屏幕上。 */
+.steward-tcard-state[hidden],
+.steward-tcard-meta[hidden],
 .steward-thread-state[hidden],
 .steward-thread-meta[hidden] { display: none; }
+/* 卡头右端那枚主动作。基元只管【落点】（贴右端、不参与压缩）—— 皮由各面自己说：对话流那枚
+   「打开」是一行字里的安静链接，抽屉那枚「2.0 视窗」是控制面里唯一的导航键，得看得见边框。
+   把皮也塞进基元会逼着抽屉在自己那层再写一遍覆盖，那才是真的两份。 */
+.steward-tcard-act,
 .steward-thread-open {
   flex: 0 0 auto;
   margin-inline-start: auto;
+}
+.steward-thread-open {
   min-height: 0;
   padding: 0;
   font: inherit;
@@ -764,10 +802,9 @@
   border-color: transparent;
   font-weight: 600;
 }
-/* 色号规则与色条那三条同形：只把 --thread-hue 指到另一根令牌上，不写第二个颜色值。 */
-.steward-channel[data-thread-hue="2"] { --thread-hue: var(--thread-hue-2); }
-.steward-channel[data-thread-hue="3"] { --thread-hue: var(--thread-hue-3); }
-.steward-channel[data-thread-hue="4"] { --thread-hue: var(--thread-hue-4); }
+/* 117u-G1：这里原来有一组与色条同形的 .steward-channel[data-thread-hue="N"]（第二份映射）。
+   色号规则已经钉在 [data-thread-hue] 这个属性本身上（见 F1 令牌那一段），chip 写了这个属性就
+   自动拿到色，本段一条都不必再写 —— 少一份要跟着走的名单。 */
 .steward-channel-dot {
   flex: 0 0 auto;
   width: 8px;

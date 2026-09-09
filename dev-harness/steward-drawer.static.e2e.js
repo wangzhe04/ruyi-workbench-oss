@@ -522,6 +522,81 @@ ok(/\.steward-drawer-state \{[\s\S]{0,200}?gap: var\(--sp-1\);/.test(cssCode)
   && /\.steward-drawer-btn\[hidden\] \{ display: none; \}/.test(cssCode),
   'L6 药丸给字形留了 gap；新给 display 的 .steward-drawer-link 补上了 [hidden] 守卫（本层第四处，前三处的根因写在 .steward-drawer-ask 那段注释里）');
 
+// ─── M 117u-G1：线程详情栏改用那枚共用的线程卡（27 号文 §11.15.3 D1-D3）────────────────
+// 这一组钉的全是【机械事实】，不是文案或像素：
+//   谁发的色号／五态词表查的是哪一份／卡骨架的皮住在哪一层／破坏性动作还在不在一眼可及处。
+const conversationMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href);
+const conversationSrc = read('js/steward-conversation.js');
+const conversationCssCode = read('css/views/steward-conversation.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+// ① 色号：全仓一张登记表，抽屉只【问】不【记】。
+ok(typeof conversationMod.stewardThreadHueFor === 'function'
+  && conversationMod.stewardThreadHueFor('m-a') === conversationMod.stewardThreadHueFor('m-a')
+  && conversationMod.stewardThreadHueFor('') === 0
+  && count(conversationSrc, /new Map\(\);\s*\nexport function stewardThreadHueFor/g) === 1,
+  'M1 色号登记表提到了模块级并导出（同 id 恒同色、空 id 回 0），全文件只有那一处 new Map()＋导出 —— 三面问同一张表');
+ok(/import \{ stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel \} from '\.\/steward-conversation\.js';/.test(drawer)
+  && count(drawerCode, /stewardThreadHueFor\(/g) === 1
+  && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerCode),
+  `M2 抽屉的色号【只问一次、不自己算】：一处 stewardThreadHueFor(（实测 ${count(drawerCode, /stewardThreadHueFor\(/g)}），零本地登记表、零 stewardThreadHue()、零颜色字面量`);
+ok(/headNode\.dataset\.threadHue = String\(stewardThreadHueFor\(sessionId\)\);/.test(drawerCode)
+  && /else headNode\.removeAttribute\('data-thread-hue'\);/.test(drawerCode),
+  'M2b 号写在详情头的 data-thread-hue 上（与对话流那一行 markThread 同一个属性），没有线程时把属性摘掉 —— 不留一根说不清是谁的色条');
+
+// ② 五态词表：抽屉查【共享那一份】，重合的档从此保证同词；抽屉自己仍然一个五态字面量都没有。
+ok(typeof conversationMod.stewardThreadStateKey === 'function'
+  && conversationMod.stewardThreadStateKey('done') === conversationMod.STEWARD_THREAD_STATE_KEYS.done
+  && conversationMod.stewardThreadStateKey('dispatching') === ''
+  && Object.isFrozen(conversationMod.STEWARD_THREAD_STATE_KEYS),
+  'M3 五态词表导出成一份（查不到回空串，调用方据此回落），表本身仍然冻结 —— 改名它三面同时变');
+// M4 的判据刻意【不】是「本文件零五态字面量」—— 那句话是假的：quickRepliesFor 里真有一行
+// `state === 'running' || state === 'dispatching'`（它判的是「该给哪几句快捷回复」，不是词表）。
+// 要钉的是「没有第二份【态 → 人话键】的表」：全文件出现 mission.state. 的地方恰好一处，且那一处
+// 是模板不是写死的键。反向验证：把 stateLabel 改回 `t('mission.state.' + value)` 之外再补一张
+// { needs_you: 'mission.state.needs_you', … }，count 立刻 >1，本条转红。
+ok(/return t\(stewardThreadStateKey\(value\) \|\| `mission\.state\.\$\{value\}`\);/.test(drawerCode)
+  && count(drawerCode, /stewardThreadStateKey\(/g) === 1
+  && count(drawerCode, /mission\.state\./g) === 1
+  && !/'mission\.state\.[a-z_]+'/.test(drawerCode),
+  `M4 抽屉的药丸人话先查共享词表、查不到才回落中性模板（dispatching／quick_ask 那两档共享表里没有）；全文件出现 mission.state. 恰好一处且是模板，没有第二份「态 → 人话键」的表（实测 ${count(drawerCode, /mission\.state\./g)} 处）`);
+
+// ③ 卡骨架的皮住在【一层】：抽屉挂类名，不重写药丸的色/形。
+for (const klass of ['steward-tcard', 'steward-tcard-name', 'steward-tcard-state', 'steward-tcard-act']) {
+  ok(new RegExp(`classList\\.add\\('${klass}'\\)`).test(drawerCode), `M5 详情头挂上共用类 .${klass}`);
+}
+ok(/\.steward-tcard-state,\s*\n\.steward-thread-state \{/.test(conversationCssCode)
+  && /\.steward-tcard-bar \{ inset-inline-start: 0; \}/.test(conversationCssCode)
+  && /\.steward-msg-ruyi\.is-thread::after,\s*\n\.steward-tcard-bar \{/.test(conversationCssCode),
+  'M5b 骨架（药丸／色条）在 steward-conversation.css 里是【一条选择器两个名字】：对话流那一侧因此逐字节还是同一份声明，抽屉与看板照 .steward-tcard-* 这份类契约画');
+ok(!/\.steward-drawer-state \{[^}]*(border-radius|background|padding)/.test(cssCode)
+  && !/--thread-color/.test(cssCode)
+  && /\.steward-drawer-state \{[\s\S]{0,200}?gap: var\(--sp-1\);/.test(cssCode),
+  'M5c 抽屉那一层【不再】自己写药丸的色/圆角/内距（搬去基元了，留着就是第二份），也不自己构造 --thread-color；只留 F5a 那枚字形要的 gap');
+
+// ④ D2「它在问你」＝卡内 callout（左侧 2px 强调边 ＋ 面色），不再是一整块独立黄框。
+ok(/\.steward-drawer-ask \{[\s\S]{0,400}?border-inline-start: 2px solid var\(--gold\);/.test(cssCode)
+  && /\.steward-drawer-ask \{[\s\S]{0,400}?background: var\(--panel\);/.test(cssCode)
+  && !/\.steward-drawer-ask \{[\s\S]{0,400}?background: var\(--gold-soft\);/.test(cssCode),
+  'M6 「它在问你」是卡内 callout：左侧 2px --gold 强调边 ＋ --panel 面色，整块 --gold-soft 底没了（语义还是那一族色，收的是墨量）');
+
+// ⑤ D3 底部动作分级：主一枚、破坏性两枚收进「更多」，可访问名一个字没改。
+ok(/send\.classList\.add\('is-primary'\)/.test(drawerCode)
+  && count(drawerCode, /classList\.add\('is-primary'\)/g) === 1,
+  'M7 底部只有一枚主动作（「发给它」拿 .is-primary 那身金色皮），不是六枚等重');
+const footMoreIds = (drawerCode.match(/STEWARD_DRAWER_FOOT_MORE_IDS = Object\.freeze\(\[([^\]]*)\]\)/) || [])[1] || '';
+ok(/'stewardDrawerRewindBtn'/.test(footMoreIds) && /'stewardDrawerHandBackBtn'/.test(footMoreIds)
+  && /for \(const button of buttons\) more\.appendChild\(button\);/.test(drawerCode)
+  && !/textContent|setAttribute\('aria-label'/.test(drawerCode.slice(drawerCode.indexOf('function gradeFootActions'), drawerCode.indexOf('function bindStewardDrawer'))),
+  'M8 「整单回退／交回管家」是被【原样搬】进折叠里的（appendChild 同一个节点），这一段一个 textContent／aria-label 都没写 —— 可访问名与既有接线逐字不变');
+ok(/summary\.dataset\.i18n = 'stewardShell\.drawer\.more';/.test(drawerCode)
+  && typeof zh['stewardShell.drawer.more'] === 'string' && typeof en['stewardShell.drawer.more'] === 'string'
+  && count(drawerCode, /t\('stewardShell\.drawer\.more'\)/g) === 1,
+  'M8b 「更多」复用 body 那枚折叠已经在用的键（零新增 i18n 键），且挂了 data-i18n —— 切语言时动态建的这枚 summary 会跟着变');
+ok(/\.steward-drawer-foot-more \{ min-width: 0; margin-inline-start: auto; \}/.test(cssCode)
+  && /\.steward-drawer-foot-more\[open\] \{/.test(cssCode)
+  && !/\.steward-drawer-foot-more \{[^}]*display: flex/.test(cssCode),
+  'M8c 折叠的 display:flex 锁在 [open] 上：给 <details> 本身写 flex 会让收起来的内容照样被画出来（.steward-drawer-more 那条注释里的同一个坑）');
+
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

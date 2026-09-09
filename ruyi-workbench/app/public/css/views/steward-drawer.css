@@ -136,7 +136,13 @@
 .steward-drawer-dot[data-state="dispatching"] { background: var(--accent-2); }
 .steward-drawer-dot[data-state="quick_ask"] { background: var(--line-2); }
 
-/* ③ 线程头 */
+/* ③ 线程头 = 那枚共用的线程卡头（117u-G1 / 27 号文 §11.15.3 D1）。
+   色条／色点／名字／药丸／最后动静的长相【全部】来自 steward-conversation.css 的 .steward-tcard-*
+   （对话流的卡头与它是同一份声明），本层只补三件与「抽屉这副面」有关的事：
+     ① 卡头要能换行（等待原因那一行 flex-basis:100%，得掉到下一行去）；
+     ② 详情栏的名字是这一页的标题，字号仍是 --fs-lg（工作密度 ≠ 转述密度）；
+     ③ 药丸里那枚 F5a 字形要留 gap（基元不管字形，它只管药丸的形与色）。
+   本层因此【不再】自己写药丸的色/圆角/内距 —— 那三样搬去基元了，留在这里就是第二份。 */
 .steward-drawer-head {
   display: flex;
   flex-wrap: wrap;
@@ -146,11 +152,8 @@
 }
 .steward-drawer-title {
   flex: 1 1 auto;
-  min-width: 0;
   margin: 0;
   font-size: var(--fs-lg);
-  color: var(--ink);
-  overflow-wrap: anywhere;
 }
 /* F5a（§11.13.1「F 追加」）：五态各带一枚字形。字形与文字并列，不替换文字 ——
    药丸的 textContent 仍逐字是那句人话。 */
@@ -158,13 +161,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--panel-3);
-  border: 0;
-  border-radius: var(--r-pill);
-  padding: 0 var(--sp-2);
 }
 .steward-drawer-wait {
   flex-basis: 100%;
@@ -371,17 +367,23 @@
 .steward-drawer-head .steward-drawer-btn { flex: 0 0 auto; }
 .steward-drawer-scene-empty { font-size: var(--fs-sm); color: var(--muted); }
 
-/* ④ 117l D4「它在问你」（用户第四轮走查①）。浅金底 —— 与主动作同色系，一眼看出「这块要你动手」。
+/* ④ 117l D4「它在问你」（用户第四轮走查①）。
+   117u-G1（27 号文 §11.15.3 D2）：从「一整块浅金独立方框」改成【卡内 callout】—— 左侧 2px 强调边
+   ＋ 面色 --panel。理由是它现在住在一枚线程卡里：卡左缘已经有一根 3px 色条说「这是哪条线程」，
+   再套一个整块金色方框，一屏上就有两个同等重的容器边界在抢，而这块要的是「卡里的一段强调」，
+   不是「另一张卡」。强调边仍用 --gold（本壳里「等你」恒是这一族色：F1 的药丸、看板行的「等你」
+   pill 用的都是它）——收的是【墨量】，不是那句语义。
    显隐仍由 [hidden] 驱动，但作者样式里的 display:flex 会压过 UA 表的 [hidden]，所以必须配守卫
    （与 .steward-drawer[hidden] / .steward-chip-menu[hidden] 同一条根因，本层第三处）。 */
 .steward-drawer-ask {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-3);
-  border: 1px solid var(--gold-line);
-  border-radius: var(--r-md);
-  background: var(--gold-soft);
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-inline-start: 2px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--panel);
 }
 .steward-drawer-ask[hidden] { display: none; }
 .steward-drawer-ask .steward-drawer-h { color: var(--ink); }
@@ -462,7 +464,19 @@
 }
 .steward-drawer-input:focus { outline: none; border-color: var(--accent); }
 .steward-drawer-input:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-drawer-foot-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.steward-drawer-foot-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* ⑪ 117u-G1（27 号文 §11.15.3 D3）：破坏性的「整单回退／交回管家」收进一枚默认收起的「更多」。
+   summary 的皮直接借 body 那枚折叠的 .steward-drawer-more-summary（同一个类，不写第二份），
+   本条只管把展开后的那两枚按钮摆成一行、并让「更多」自己贴到行尾去 —— 主动作在最左，最危险的
+   两枚要多点一下才够得着。<details> 同样【不要】写 display:flex（收起时会被当成流内 flex 项画出来，
+   与 .steward-drawer-more 那条同一个坑）。 */
+.steward-drawer-foot-more { min-width: 0; margin-inline-start: auto; }
+.steward-drawer-foot-more[open] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
 .steward-drawer-note { margin: 0; min-height: 1.2em; font-size: var(--fs-sm); color: var(--muted); }
 .steward-drawer-note:empty { display: none; }
 

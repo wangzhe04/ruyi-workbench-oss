@@ -12,6 +12,12 @@ import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
 import { missionStateIcon } from './icons.js';
+// 117u-G1（27 号文 §11.15.3 D1「详情头换成同一枚卡头」）：线程卡的三样【共享事实】从对话区那一份
+// 拿，不在本文件另起第二份 —— 色号登记（stewardThreadHueFor：同一条线程在对话流／频道条／抽屉／
+// 看板恒是同一个号）、五态词表（stewardThreadStateKey：查得到就用共享那条键）、相对时间的人话
+// （stewardAgoLabel：两处卡头说同一句「3 分钟前」）。依赖方向 board → drawer → conversation
+// 是既有方向（steward-board.js 已经 import 这两个模块），不成环。
+import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel } from './steward-conversation.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -300,8 +306,13 @@ export function createStewardDrawer({
   }
   // 117q-B3b：五态人话统一走中性的 mission.state.*（原 stewardShell.drawer.state.* 已并入，
   // 与看板、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
+  // 117u-G1：先查【共享的那一份词表】（steward-conversation.js 的 STEWARD_THREAD_STATE_KEYS，
+  // 对话流卡头查的就是它）——重合的那几档从此保证同词，改名它三面一起变。查不到才回落中性模板：
+  // 抽屉的态来自 mission-state.js 的六个值，比共享表多 dispatching／quick_ask 两档，回落是为了
+  // 不把它们说丢。两条路都不在本文件里写任何一个五态字面量。
   function stateLabel(value) {
-    return value ? t(`mission.state.${value}`) : '';
+    if (!value) return '';
+    return t(stewardThreadStateKey(value) || `mission.state.${value}`);
   }
 
   function isLive() {
@@ -450,11 +461,73 @@ export function createStewardDrawer({
     host.appendChild(add);
   }
 
-  // ── ③ 线程头 ────────────────────────────────────────────────────────────────
+  // ── ③ 线程头 = 那枚共用的线程卡头（117u-G1 / 27 号文 §11.15.3 D1）────────────────────
+  // 色条 ＋ 色点 ＋ 线程名 ＋ 五态药丸 ＋ 最后动静 ＋「2.0 视窗」。骨架的长相住在
+  // steward-conversation.css 的 .steward-tcard-* 那一组 —— 对话流的卡头与本处是【同一份声明】，
+  // 本文件只挂类名与事实：一条样式不写、一个颜色不算、一个五态字面量不认。
+  //
+  // 色条与色点是纯装饰节点（aria-hidden），index.html 的静态骨架里没有它们的槽 —— 建一次就够：
+  // renderHead 每一拍都跑，反复建会把用户正按着的东西连根拔掉（chip 菜单那条 304 纪律的同一条
+  // 道理）。「等待原因」那一行挪到卡头【之后】：它 flex-basis:100% 会强制换行，排在「2.0 视窗」
+  // 前面的话，那枚按钮就被挤下去、卡头就不再是一行。
+  function ensureHeadParts(head) {
+    let bar = head.querySelector('.steward-tcard-bar');
+    if (!bar) {
+      bar = el('span', 'steward-tcard-bar');
+      bar.setAttribute('aria-hidden', 'true');
+      head.insertBefore(bar, head.firstChild);
+    }
+    let dot = head.querySelector('.steward-tcard-dot');
+    if (!dot) {
+      dot = el('span', 'steward-tcard-dot');
+      dot.setAttribute('aria-hidden', 'true');
+      head.insertBefore(dot, bar.nextSibling);
+    }
+    let meta = head.querySelector('.steward-tcard-meta');
+    if (!meta) {
+      meta = el('span', 'steward-tcard-meta');
+      const state = byId('stewardDrawerState');
+      if (state && state.parentNode === head) head.insertBefore(meta, state.nextSibling);
+      else head.appendChild(meta);
+    }
+    const wait = byId('stewardDrawerWait');
+    if (wait && wait.parentNode === head && head.lastElementChild !== wait) head.appendChild(wait);
+    return meta;
+  }
+
+  // 「最后动静」= 相对时间，与对话流卡头【同一个】实现（stewardAgoLabel，人话交给平台的
+  // Intl.RelativeTimeFormat）。锚点沿用本文件既有那一处判据（missionRow.updatedAt ＞
+  // session.updatedAt —— settledHead 读的就是这两个），算不出来整段不说，不猜。
+  function lastTouchLabel() {
+    const touched = String((missionRow && missionRow.updatedAt) || (session && session.updatedAt) || '');
+    if (!touched) return '';
+    const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
+    return stewardAgoLabel(touched, page);
+  }
+
   function renderHead() {
+    const headNode = byId('stewardDrawerHead');
     const titleNode = byId('stewardDrawerTitle');
     const stateNode = byId('stewardDrawerState');
     const waitNode = byId('stewardDrawerWait');
+    let metaNode = null;
+    if (headNode) {
+      headNode.classList.add('steward-tcard');
+      // 色号问【全仓那一张登记表】要（steward-conversation.js 的 stewardThreadHueFor）：本文件
+      // 不自己算、也不自己记，所以同一条线程在这里与在对话流／频道条／看板上恒是同一色。
+      if (sessionId) headNode.dataset.threadHue = String(stewardThreadHueFor(sessionId));
+      else headNode.removeAttribute('data-thread-hue');
+      metaNode = ensureHeadParts(headNode);
+    }
+    if (titleNode) titleNode.classList.add('steward-tcard-name');
+    if (stateNode) stateNode.classList.add('steward-tcard-state');
+    const classicNode = byId('stewardDrawerClassicBtn');
+    if (classicNode) classicNode.classList.add('steward-tcard-act');
+    if (metaNode) {
+      const ago = lastTouchLabel();
+      metaNode.textContent = ago;
+      metaNode.hidden = !ago;
+    }
     // 116-5b:显示名优先(GET /api/sessions/:id 的信封带出的那一个,判据在 02 的 sessionDisplayTitle);
     // 拿不到就退回今天的两级回落。原话挂 hover。
     if (titleNode) {
@@ -462,13 +535,20 @@ export function createStewardDrawer({
       // 117k：读到之前不拿内部 id 冒充名字（用户看得见 sess_xxxxxxxx 是纯泄漏）。
       titleNode.textContent = name || (loading ? t('stewardShell.drawer.loading') : sessionId);
       const raw = String((session && session.title) || (missionRow && missionRow.title) || '');
-      if (raw && raw !== titleNode.textContent) titleNode.title = raw; else titleNode.removeAttribute('title');
+      // 117u-G1：卡头是一行，长名字会被省略号截住 —— 所以没有「原话」可挂时改挂显示名本身，
+      // 而不是把 title 摘掉：截断了却连 hover 都看不到全名，是把信息弄丢。
+      if (raw && raw !== titleNode.textContent) titleNode.title = raw;
+      else if (titleNode.textContent) titleNode.title = titleNode.textContent;
+      else titleNode.removeAttribute('title');
     }
     // F5a：状态药丸 = 一枚字形 ＋ 原来那句人话。文字一个字没动（textContent 仍逐字等于
     // stateLabel(...)，既有断言读的就是它），图标只是让扫一眼就分得出在跑／等你／已收工。
     if (stateNode) {
       const stateValue = threadStateOf(missionRow);
       clear(stateNode);
+      // 117u-G1：药丸的【色】由共享基元按 data-state 说（.steward-tcard-state[data-state=…]，
+      // 与对话流卡头同一张表）。这里只把 threadStateOf 的返回值原样写上去 —— 仍然不认字面量。
+      if (stateValue) stateNode.dataset.state = stateValue; else delete stateNode.dataset.state;
       const glyph = missionStateIcon(stateValue, 12);
       if (glyph) stateNode.appendChild(glyph);
       stateNode.appendChild(doc().createTextNode(stateLabel(stateValue)));
@@ -1090,9 +1170,38 @@ export function createStewardDrawer({
     if (input && typeof input.focus === 'function') input.focus();
   }
 
+  // ── ⑪ 底部动作分级（117u-G1 / 27 号文 §11.15.3 D3；病 5「四个动作等宽等重」）──────────
+  // 修前六枚按钮一样重：破坏性最强的「整单回退」和最常用的「发给它」并排、同宽同色。分三档：
+  //   主 = 发给它（唯一那枚金色，与问答卡的主动作同一个类 .is-primary）；
+  //   次 = 暂停／继续／停止（默认那身皮，不动）；
+  //   破坏性的「整单回退」「交回管家」收进一枚默认收起的「更多」。
+  // 【一个字都不改】：两枚按钮连同 id、data-icon、内层 span 的 data-i18n 原样搬进 <details>——
+  // 可访问名与既有接线（on('stewardDrawerRewindBtn'…) 按 id 查）逐字不变，静态锁 L1/L3 读的是
+  // index.html 的静态标记，也一个字节没动。「更多」那句人话复用 body 那枚折叠已经在用的键，
+  // 零新增 i18n 键。搬一次就够（bindStewardDrawer 全程只跑一次，这里再加一道幂等守卫）。
+  const STEWARD_DRAWER_FOOT_MORE_IDS = Object.freeze(['stewardDrawerRewindBtn', 'stewardDrawerHandBackBtn']);
+  function gradeFootActions() {
+    const send = byId('stewardDrawerSendBtn');
+    if (send) send.classList.add('is-primary');
+    const buttons = STEWARD_DRAWER_FOOT_MORE_IDS.map(byId).filter(Boolean);
+    const row = buttons.length ? buttons[0].parentNode : null;
+    if (!row || !row.classList || !row.classList.contains('steward-drawer-foot-actions')) return null;
+    if (row.querySelector('.steward-drawer-foot-more')) return null;
+    const more = el('details', 'steward-drawer-foot-more');
+    const summary = el('summary', 'steward-drawer-more-summary', t('stewardShell.drawer.more'));
+    // 挂上 data-i18n，切语言时 applyTranslations 会把它一起重写（body 那枚折叠的 summary 就是
+    // 这么挂的）—— 动态建的节点少这一句，换成英文界面之后它会一直留着中文。
+    summary.dataset.i18n = 'stewardShell.drawer.more';
+    more.appendChild(summary);
+    for (const button of buttons) more.appendChild(button);
+    row.appendChild(more);
+    return more;
+  }
+
   function bindStewardDrawer() {
     const chipsHost = byId('stewardDrawerChips');
     if (chipsHost) chips.mount(chipsHost);
+    gradeFootActions();
 
     const on = (id, handler) => { const node = byId(id); if (node) node.onclick = handler; };
     on('stewardDrawerCloseBtn', () => closeDrawer());

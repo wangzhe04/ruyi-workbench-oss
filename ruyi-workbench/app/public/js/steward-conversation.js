@@ -169,8 +169,8 @@ export const STEWARD_DELIVERABLE_LINES = 8;
 // 最后动静 · 模型 · 打开）。管家【本人】说的话（没有来源线程）不进卡、不画色条 —— 色条只表示
 // 「这是哪条线程」，不表示状态（27 号文 §11.13 F 追加：两套信号不混用）。
 //
-// 四色按【首次出现顺序】分配并循环；同一条线程在整个实例生命期里恒用同一色（threadHues 那张表
-// 只增不清 —— 进壳重画历史时顺序不变，颜色因此也不变）。取值不写在这里：色相/饱和度/明度全是
+// 四色按【首次询问顺序】分配并循环；同一条线程在整页生命期里恒用同一色（stewardThreadHues 那张
+// 表只增不清 —— 进壳重画历史时顺序不变，颜色因此也不变）。取值不写在这里：色相/饱和度/明度全是
 // steward-conversation.css 里的自定义属性（--thread-hue-1..4 ＋ --thread-sat/--thread-light），
 // 本文件只负责把「第几号」写进 data-thread-hue，主题层可以整组覆盖。
 export const STEWARD_THREAD_HUES = 4;
@@ -179,15 +179,37 @@ export function stewardThreadHue(order) {
   return (Number.isSafeInteger(n) && n >= 0 ? n % STEWARD_THREAD_HUES : 0) + 1;
 }
 
+// 117u-G1（27 号文 §11.15.2 病 1「同一条线程有三副面孔」）：这张【登记表】从
+// createStewardConversation 的实例闭包提到模块级。修前它住在闭包里，抽屉与看板根本够不着，于是
+// F1 自己立的「同一条线程在所有面恒用同一色」只在对话流与频道条兑现。提上来之后三面调同一个
+// 函数、拿同一个号 —— 分配仍按【首次询问顺序】（谁先问谁先占号，不是「谁先在对话流出现」），
+// 只增不清，同 id 恒同色。纯登记：不碰 DOM、不写颜色（颜色仍只由样式层那一条 hsl() 算）。
+// stewardThreadHue(order) 那个纯函数与 STEWARD_THREAD_HUES 一个字没动，本函数只是给它记住顺序。
+const stewardThreadHues = new Map();
+export function stewardThreadHueFor(sessionId) {
+  const id = String(sessionId || '');
+  if (!id) return 0;
+  if (!stewardThreadHues.has(id)) stewardThreadHues.set(id, stewardThreadHue(stewardThreadHues.size));
+  return stewardThreadHues.get(id);
+}
+
 // 卡头上的五态药丸用【全仓既有的那组人话键】，不新开一套词。
 // 「排队」在 mission.state.* 里没有对应枚举（五态里没有它），复用管家壳自己那句「排队中」。
-const STEWARD_THREAD_STATE_KEYS = Object.freeze({
+// 117u-G1：导出这一份 ＋ 一个纯派生（stewardThreadStateKey），三面共用 —— 本仓已经四次栽在
+// 「第二份枚举」上，抽屉要药丸文案就来查这张表，不许自己再抄一张。
+export const STEWARD_THREAD_STATE_KEYS = Object.freeze({
   needs_you: 'mission.state.needs_you',
   queued: 'stewardShell.chat.queued',
   running: 'mission.state.running',
   stopped: 'mission.state.stopped',
   done: 'mission.state.done',
 });
+// 查得到就回那一条键，查不到回空串（调用方据此决定「不出药丸」还是回落到自己的口径）——
+// 绝不回一个猜出来的键。纯函数、零 DOM。
+export function stewardThreadStateKey(state) {
+  const key = String(state == null ? '' : state);
+  return Object.prototype.hasOwnProperty.call(STEWARD_THREAD_STATE_KEYS, key) ? STEWARD_THREAD_STATE_KEYS[key] : '';
+}
 
 // 卡头要的四件事全部从【已经在取的那个信封】里读：GET /api/sessions/<id>（13d:343 那一条，
 // 交付卡 117s-H2 已经在发它了，本刀零新增请求、零新增路由）。判据只取【权威字段】，取不到就
@@ -227,7 +249,7 @@ export function stewardThreadFacts(payload) {
   return {
     title: String(envelope.displayTitle || ''),
     state,
-    stateKey: state ? STEWARD_THREAD_STATE_KEYS[state] : '',
+    stateKey: stewardThreadStateKey(state),
     updatedAt: String(session.updatedAt || ''),
     model,
   };
@@ -249,6 +271,17 @@ export function stewardAgoParts(iso, nowMs) {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return { value: -hours, unit: 'hour' };
   return { value: -Math.round(hours / 24), unit: 'day' };
+}
+
+// 117u-G1：把「(value, unit) → 人话」这一步也提到模块级并导出，抽屉的卡头因此与对话流的卡头
+// 说【同一句】「3 分钟前」，而不是各自 new 一个 Intl（那就是第二处实现）。算不出来一律回空串，
+// 调用方据此整段不说 —— 与 stewardAgoParts 回 null 是同一条纪律。
+export function stewardAgoLabel(iso, lang) {
+  const parts = stewardAgoParts(iso, Date.now());
+  if (!parts) return '';
+  try {
+    return new Intl.RelativeTimeFormat(String(lang || '') || undefined, { numeric: 'auto' }).format(parts.value, parts.unit);
+  } catch { return ''; }   // 没有 Intl.RelativeTimeFormat 的宿主：不说，而不是吐一个英文串
 }
 
 export const STEWARD_TITLE_MAX = 24;
@@ -792,19 +825,13 @@ export function createStewardConversation({
   //   · 那道淡竖线在 .is-thread 的行上【让位】给色条（样式层一条 content:none）—— 一行只能有
   //     一个锚：头像所在的最新那一组不画竖线是同一条道理（117l-B2 ④ 的原话「再来一道竖线就是
   //     两个锚」）。线程段永远落在同一个说话人的组【之内】，所以两者不会互相撕开。
-  const threadHues = new Map();
-  function hueOf(sessionId) {
-    const id = String(sessionId || '');
-    if (!id) return 0;
-    if (!threadHues.has(id)) threadHues.set(id, stewardThreadHue(threadHues.size));
-    return threadHues.get(id);
-  }
-
+  // 117u-G1：色号登记搬到模块级的 stewardThreadHueFor（见文件头那一段）——本闭包不再自持一张表，
+  // 抽屉与看板问同一个函数拿同一个号，同一条线程三面同色。这里【只读不算】。
   function markThread(row, sessionId) {
     const id = String(sessionId || '');
     if (!row || !id) return null;
     row.dataset.thread = id;
-    row.dataset.threadHue = String(hueOf(id));
+    row.dataset.threadHue = String(stewardThreadHueFor(id));
     row.classList.add('is-thread');
     row.classList.add('is-thread-end');
     const previous = row.previousElementSibling;
@@ -817,12 +844,7 @@ export function createStewardConversation({
 
   // 相对时间的人话交给平台（见 stewardAgoParts 的头注）：算不出来就整段不说。
   function agoLabel(iso) {
-    const parts = stewardAgoParts(iso, Date.now());
-    if (!parts) return '';
-    try {
-      const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
-      return new Intl.RelativeTimeFormat(page || undefined, { numeric: 'auto' }).format(parts.value, parts.unit);
-    } catch { return ''; }   // 没有 Intl.RelativeTimeFormat 的宿主：不说，而不是吐一个英文串
+    return stewardAgoLabel(iso, doc() && doc().documentElement ? doc().documentElement.lang : '');
   }
 
   // 卡头（占位先上屏，事实随后填）：色点 · 线程名 · 五态药丸 · 最后动静 · 模型 · 打开。

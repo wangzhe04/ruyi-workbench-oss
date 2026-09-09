@@ -644,9 +644,17 @@ ok(/--thread-hue-1:/.test(cssCode) && /--thread-hue-4:/.test(cssCode)
   'Q5 四色是一组【色相角 + 共用饱和度/明度】的自定义属性，颜色由一条 hsl() 算出来（27 号文 §11.13.1「同明度同饱和度只换色相」）');
 ok((cssCode.match(/hsl\(/g) || []).length === 1,
   `Q5b 整层【只有一处】构造颜色：换四色只需改令牌，不必改任何一条元素规则（实测 ${(cssCode.match(/hsl\(/g) || []).length} 处）`);
+// 117u-G1 重钉：色号映射从「点名某一副面」（.steward-msg-ruyi.is-thread[...] ／ .steward-channel[...]）
+// 挪到【属性本身】上，好让抽屉与看板写同一个 data-thread-hue 就拿到同一个色，不必再往名单里加面。
+// 原判据钉的是那一条选择器长什么样；新判据钉的是两件更强的事实：① 那条规则不带任何面前缀
+// （行首即 `[data-thread-hue="N"]`）；② 全层【恰好一条】—— 谁想再给某一副面开一份专用映射，
+// 这一条立刻转红。反向验证：把 `.steward-channel` 那三条加回去，hits 变 2，本条即红。
 for (const hue of [2, 3, 4]) {
-  ok(new RegExp(`\\.steward-msg-ruyi\\.is-thread\\[data-thread-hue="${hue}"\\] \\{ --thread-hue: var\\(--thread-hue-${hue}\\); \\}`).test(cssCode),
-    `Q5c ${hue} 号色规则只把 --thread-hue 指到另一根令牌上，不写第二个颜色值`);
+  const mapping = new RegExp(`\\[data-thread-hue="${hue}"\\] \\{ --thread-hue: var\\(--thread-hue-${hue}\\); \\}`, 'g');
+  const hits = (cssCode.match(mapping) || []).length;
+  ok(hits === 1
+    && new RegExp(`(^|\\n)\\[data-thread-hue="${hue}"\\] \\{ --thread-hue: var\\(--thread-hue-${hue}\\); \\}`).test(cssCode),
+    `Q5c ${hue} 号色规则全层恰好一条、且与【面】无关（行首就是属性选择器），只把 --thread-hue 指到另一根令牌上，不写第二个颜色值（实测 ${hits} 条）`);
 }
 ok(/:root\[data-theme="dark"\] \{ --thread-sat:/.test(cssCode),
   'Q5d 深浅两档各一组饱和度/明度（月白底要压暗、墨夜底要提亮），主题层特指度更高因此还能整组覆盖');
@@ -749,7 +757,9 @@ ok(!/localStorage|sessionStorage/.test(f2)
 
 // ② 不建第二个判官。
 ok(f2.length > 0
-  && !/hueOf\(|stewardThreadHue\(|stewardThreadFacts\(|loadDeliverable\(/.test(f2)
+  // 117u-G1 重钉：闭包里那个 hueOf() 已经提成模块级的 stewardThreadHueFor()，名字换了就把新名字
+  // 一起钉上 —— 只留 hueOf 的话这条负向锁从此钉的是一个不存在的名字，形同虚设。
+  && !/hueOf\(|stewardThreadHueFor\(|stewardThreadHue\(|stewardThreadFacts\(|loadDeliverable\(/.test(f2)
   && /row\.getAttribute\('data-thread-hue'\)/.test(f2)
   && /head\.querySelector\('\.steward-thread-name'\)/.test(f2)
   && /head\.querySelector\('\.steward-thread-state'\)/.test(f2),
@@ -794,10 +804,13 @@ ok(/\.steward-msg\.is-channel-out \{ display: none; \}/.test(cssCode),
   'W8 「过滤掉的行只是不显示」在样式层就这一条规则，JS 那边只 toggle 这一个类');
 ok(/\.steward-channels \{[\s\S]{0,240}position: sticky;/.test(cssCode) && !/\.steward-stage/.test(cssCode),
   'W8b 频道条钉在滚动区顶上（sticky），而本层【一个字都不碰】 .steward-stage 的网格 —— 那条 grid-template-rows 住在 steward-shell.css，从本层覆盖它就得押上「频道条永远在流」这个假设，它一被收起来整张卡的行就错位');
+// 117u-G1 重钉：chip 那份专用色号映射（.steward-channel[data-thread-hue="N"] 三条）已经删了 ——
+// 映射钉在属性上之后它逐条重复。新判据把「chip 自己没有任何一条色号规则」也钉进来（这比原来
+// 「那三条在不在」更强：它同时挡住了「哪天又给 chip 补一份专用映射」）。
 ok((cssCode.match(/hsl\(/g) || []).length === 1
-  && /\.steward-channel\[data-thread-hue="4"\] \{ --thread-hue: var\(--thread-hue-4\); \}/.test(cssCode)
+  && !/\.steward-channel\[data-thread-hue/.test(cssCode)
   && /\.steward-channel-dot \{[\s\S]{0,200}background: var\(--thread-color\);/.test(cssCode),
-  'W8c chip 的色点与色条读同一个 --thread-color，整层仍然只有一处 hsl()（Q5b 的口径没被本刀稀释）');
+  'W8c chip 的色点与色条读同一个 --thread-color，整层仍然只有一处 hsl()（Q5b 的口径没被本刀稀释）；且 chip 自己一条色号规则都没有 —— 色是 [data-thread-hue] 那一条与面无关的规则给的');
 ok(/\.steward-msg-ruyi\.is-thread:not\(\.is-thread-start\) > \.steward-thread-head \{ display: none; \}/.test(cssCode),
   'W8d 卡头只长在【当下】的段首那一行：过滤之后段首换了人，少这一条同一条线程会露出两个卡头（看着像两张卡）');
 ok(/\.steward-channel \{ min-height: 44px;/.test(cssCode.slice(cssCode.lastIndexOf('@media (max-width: 390px)')))
