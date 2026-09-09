@@ -1260,3 +1260,33 @@ allowOutsideWorkspace` 列在管家配置的 **forbidden** 档（数据根／围
 **切片 F5**（只动前端）：`icons.js` 加图标 → `steward-settings.js` 头部两键改用 `icon()` ＋ 档位名 → `steward-conversation.js` 撤回三态 ＋
 `steward-conversation.css` 新增 `.steward-undo-*` → 抽屉／线程叠按钮加图标。静态锁：`steward-settings.static` 若钉了 `ICON_STOP` 字面量要重钉为
 「停机键与线程停止用的不是同一枚图标」这种可成立的事实。
+
+#### 11.13.2 交付记录（2026-09-09；主会话逐条亲验，不采信执行者自述）
+
+| commit | 刀 | 主会话怎么核的 |
+|---|---|---|
+| `d096cef` | 117s-A（D1 行序、D2 管家标题、D3 复现） | 亲跑两件新 e2e：`steward-thread-order` 24/24、`steward-thread-title` 26/26（**第一次并跑两遍时 D2b/D3 红，单跑全绿**——它等摘要异步落盘，对负载敏感，先登记为抖动候选）；`build --check` 新鲜；`forwardEdges 67 → 67`；13d 的 diff 亲看：三处排序全改、指纹纳秩。 |
+| `fe67ea3` | 117s-B（D4 焦点刷新与节拍） | 亲跑 `steward-board.e2e` 69 PASS，新加的 R4/R4b/R8/R8b 逐条绿（实测 3492 ms / 118 ms）；五个文件与它自述一致。 |
+
+##### 两处派单稿被执行者证伪（记下来，都是我的错）
+
+1. **D1 我只指了 `13d:678/705` 两行**——那是 `buildMissionAggregateRows`，喂的是 `steward_missions` **工具面**；看板真正吃的是
+   `handleMissionsApiRoutes` 里 `13d:772` 那次 `missions.sort`。只改我指的两行，「在跑的排前面」在工具面成立、在用户屏幕上仍不成立。
+   执行者三处都改了，并把秩写进 ETag 指纹。
+2. **D4 我说「①④ 同根：`syncNow()` 相等分支什么都不做」——只对了一半。** `steward-drawer.js:1107` 抽屉自己也听 `steward:focus-thread`
+   并无条件 `openThread`，所以递话触发的焦点事件抽屉**是**会重读的。执行者把只改相等分支的第一版测试跑出**假绿**后重写了根因：
+   真正过期的是 ㈠ 强刷读得太早（回合还没登记）且 `refreshOnce` 把 `lastPollAt` 记成当下、把下一拍推走整个空闲节拍；
+   ㈡ 看板行「打开」那一路**不派事件**，右栏已开着同一条时抽屉一次都不刷。修法相应改成：相等分支只在 `focusRequest` 时强刷
+   （无条件会把抽屉拉取率绑到看板节拍）、强刷后 `lastPollAt = 0`、live 假→真同拍重拉事项切片（与既有真→假对称）。
+
+##### D3 的复现结论（A 刀）
+
+**服务端不 stale。** 真服务器种一条 80 字速查头 → `PATCH threadBrief` → 下一次 `GET /api/missions` 的 `displayTitle` 就是摘要
+（`updateSessionMeta → saveSession → markPretenderIndexDirty`，02:2537）。用户真机那条头 `threadBrief.at 02:27:09` 早于 `updatedAt 02:29:11`
+且没有 `titleSource`——服务端读回来一定是摘要。**屏幕上的 80 字是客户端刷新问题**，B 刀的强刷与 5 s 复核覆盖它；
+A 仍加了服务端回归锁（title e2e 的 D 段）。
+
+##### 登记
+
+- `steward-runner.static.e2e.js` ① 「13g ≤ 2000 行」在 HEAD 上已红（2005），A 的 3 行到 2008。拆 13g 是另一刀，本波不动。
+- `steward-thread-title.e2e.js` 对负载敏感（见上表），进 30 号文 §8.13 ④ 的抖动候选，治理时先跑带完整输出的采样。
