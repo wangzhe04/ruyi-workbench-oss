@@ -1616,3 +1616,24 @@ F2 给频道条写 `backdrop-filter: var(--glass-blur-2)` 时越了这张名单 
 1. 同一条线程在 feed / drawer / board 三处的 `data-thread-hue` **相同**（真夹具跑起来，DOM 断言＋截图）。
 2. **没有第二份色表**：`grep -c "thread-hue-1"` 在 `css/views/` 下的**定义**处仍只有 `steward-conversation.css` 一处。
 3. 五态药丸文案三处一致，来源仍是 `STEWARD_THREAD_STATE_KEYS` 那一份（改名它，三处同时变）。
+
+#### 11.15.7 B3 扩到线程详情栏（用户 2026-09-09 追加：「这个也不印默认值吧」）
+
+G2 把「权限与模型只在与全局不同时才印」落在了看板那一面，详情栏那行 `权限 跟随全局 · 模型 …` 照旧印默认值。
+用户看到后要求一并收掉。**口径自此统一**：`§11.15.2 病 3`（元信息是一串等重灰字）对**所有三面**成立。
+
+**做法的要害是不要写第二份判据。** G2 的 `chipsWorthPrinting` 长在 `steward-board.js` 的闭包里，
+而抽屉**不能** import 看板（`steward-board.js:12` 已经 import 抽屉，反向引用即成环）。所以：
+
+- 把那份判据搬进 **`js/steward-chips.js`**（`resolveEngineRoute` —— 全仓唯一那份「会话级 ＞ 全局回落」——
+  本来就住在这里，chips 工厂也在这里），导出给两面共用；
+- `steward-board.js` 改成 import 它，**行为零改变**（同一段逻辑换了住处，要有自证）；
+- `steward-drawer.js` import 同一个，元信息行按它决定印不印。
+
+**判据两条（与看板逐字同源，不新增第三条）**：
+① 模型 —— `resolveEngineRoute(这条会话, cfg)` 与 `resolveEngineRoute(null, cfg)` 的 JSON 不等；
+② 权限 —— chips 自己 `render()` 出来的 `.steward-chip.is-pinned` 存在（即真定过会话级档位）。
+
+**留一条明写的取舍**：会话元数据在静息态不带 `engineRoute`（要等 `hydrate`／`onChanged` 补齐），
+所以判据①在补齐之前必然回落成「与全局相同」。这只会让它**少说**，不会让它**说错**——
+与 G2 在看板那面记下的是同一笔账，不是新债。
