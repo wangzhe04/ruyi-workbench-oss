@@ -4,10 +4,11 @@ import './mission-state.js';
 import { apiRaw } from './net.js';
 import { elapsedLabel } from './preview-task-sheet.js';
 import { dockToneForMissionState } from './preview-shell.js';
-// 117u-G2 B3：同一条 import 顺带把 resolveEngineRoute 接过来 —— 它是全仓【唯一】那份「会话级
-// 引擎路由 ＞ 全局回落」的判据（chip 自己算生效模型用的就是它）。看板要判「这条线程的模型跟
-// 全局一样吗」，就拿它算两次比一比，不在这里另写一套回落规则。
-import { createQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+// 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
+// G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
+// 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
+// 连「会话级 ＞ 全局回落」都不认识，更长不出第二套。
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -430,27 +431,11 @@ export function createStewardBoard({
     return pill;
   }
 
-  // 117u-G2 B3（27 号文 §11.15.2 病 3「元信息是一串等重灰字」）：这一行的权限与模型跟全局
-  // 【一样吗】。两件都问【既有的那一份权威】要，本模块不认识任何会话字段名，也不新开判据：
-  //   · 模型：resolveEngineRoute（steward-chips.js 唯一那份「会话级 ＞ 全局回落」）拿【这条会话】
-  //     与【一份没有会话的空位】各算一次 —— 两次生效路由一样，就说明这条线程根本没定过自己的
-  //     模型／引擎，印出来的是全局默认值，印它等于没印；
-  //   · 权限：chips 的 render() 已经把「定过会话级档位」这件事画成 .is-pinned（它给 chip 上色
-  //     用的就是这一个事实），mount 完读一次它自己的输出即可。
-  // 一样就【不印】。收起来的不是能力：卡尾的「打开」进的是线程详情栏，那里三个 chip 一个不少。
-  //
-  // 如实记一处能力边界：会话【元数据】（state.sessions，GET /api/sessions 的 sessionMeta）带
-  // permissionMode 但【不带】 engineRoute，任务卡（GET /api/missions）两者都不带 —— 所以模型这一半
-  // 只有在这条会话真被补齐过（chip 菜单开过一次的 hydrate，或改完档回填的 onChanged）之后才判得准。
-  // 这不是本刀新造的洞：修前那枚模型 chip 在静息态印的【恒是全局值】（元数据里没有 engineRoute，
-  // resolveEngineRoute 必然回落），也就是说定过自己模型的线程在看板上从来就没被如实说过。
-  // 所以这一刀在模型这一件上只会比修前更诚实（不知道就不说），不会更少说实话。权限那一半是准的。
-  function chipsWorthPrinting(row, chipHost) {
-    const cfg = (state && state.config) || {};
-    const mine = JSON.stringify(resolveEngineRoute(sessionForRow(row), cfg));
-    const global = JSON.stringify(resolveEngineRoute(null, cfg));
-    return mine !== global || Boolean(chipHost.querySelector('.steward-chip.is-pinned'));
-  }
+  // 117u-G3：B3 那条判据（「这一行的权限与模型跟全局一样吗」）的正身已搬去 steward-chips.js —— 判据
+  // 逐字未改，只是换了住处，好让线程详情栏也读同一份（§11.15.7）。本模块只负责把它要的三件东西递
+  // 进去：这一行对应的会话、当前全局配置、以及 chips 自己画完的那个宿主（.is-pinned 从那里读）。
+  // 那笔「会话元数据不带 engineRoute，所以模型这一半在看板上只会少说不会说错」的账，记在被搬去的
+  // 那个函数头上（同一笔账只记一处）。
 
   // 事项级的两件事实（钱与验收）：13d 一处算好之后投影到它【每一条】线程行上，所以整件事
   // 只许印一次 —— 单线程事项印在那唯一一张卡的卡尾，多线程事项印在事项组的组尾。一个渲染器、
@@ -526,9 +511,10 @@ export function createStewardBoard({
     const control = chipsFor(sessionId);
     control.mount(chipHost);
     control.setSession(sessionForRow(row));
-    // B3：跟全局一样就不印（判据见 chipsWorthPrinting）。控件本身照建不误 —— 下一拍它可能就
-    // 该出场了，而 chipsFor 是每条会话一份的长命实例，不该因为这一拍没挂上去就被丢掉。
-    if (chipsWorthPrinting(row, chipHost)) item.appendChild(chipHost);
+    // B3：跟全局一样就不印（判据见 steward-chips.js 的 chipsWorthPrinting，看板与线程详情栏同一份）。
+    // 控件本身照建不误 —— 下一拍它可能就该出场了，而 chipsFor 是每条会话一份的长命实例，不该因为
+    // 这一拍没挂上去就被丢掉。
+    if (chipsWorthPrinting(sessionForRow(row), (state && state.config) || {}, chipHost)) item.appendChild(chipHost);
 
     // B4 卡尾一行：等什么 · 钱与验收 · 次级动作。
     const tail = el('div', 'steward-board-tail');

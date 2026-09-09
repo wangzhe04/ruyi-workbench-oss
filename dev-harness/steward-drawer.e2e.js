@@ -276,6 +276,13 @@ const DRAWER = `(() => {
     activityWaiting: text('stewardDrawerActivityWaiting'),
     chipKeys: [...document.querySelectorAll('#stewardDrawerChips .steward-chip')].map(node => node.dataset.chip),
     chipValues: [...document.querySelectorAll('#stewardDrawerChips .steward-chip .steward-chip-value')].map(node => node.textContent.trim()),
+    // 117u-G3（§11.15.7）：这一行【这一拍印不印】。量的是真绘制（offsetParent === null 才叫没画出来），
+    // 不是只读 .hidden 属性 —— .steward-drawer-chips 那条 display:flex 是作者样式，会盖掉 UA 的
+    // [hidden]{display:none}，只读属性的话「属性挂上了但照样占着一行」这种回归照样绿。
+    chipsHidden: (() => {
+      const host = document.getElementById('stewardDrawerChips');
+      return host ? { attr: host.hidden, painted: host.offsetParent !== null } : null;
+    })(),
     confirmVisible: document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm').length,
     confirmLines: [...document.querySelectorAll('#stewardDrawerChips .steward-chip-confirm li')].map(node => node.textContent.trim()),
     note: text('stewardDrawerNote'),
@@ -526,8 +533,14 @@ try {
     `B13 验收项来自任务快照（实测 ${JSON.stringify(openedA.acceptance)}）`);
   ok(JSON.stringify(openedA.chipKeys) === JSON.stringify(['permission', 'model', 'engine']),
     `B14 快切 chip 三个：权限／模型／引擎（实测 ${JSON.stringify(openedA.chipKeys)}）`);
-  ok(openedA.chipValues[0] === zh['stewardShell.chips.followGlobal'],
-    `B14b 权限 chip 初始是「跟随全局」（实测「${openedA.chipValues[0]}」）`);
+  // 117u-G3 **重钉 B14b**（§11.15.7；用户 2026-09-09「这个也不印默认值吧」）：原判据钉的是
+  // 「权限 chip 初始印着『跟随全局』」—— 那正是这一刀要消灭的病（§11.15.2 病 3：默认值印了等于没印）。
+  // 新判据把同一件事实翻到该在的那一面：跟随全局的这一拍，这一行【不画出来】；而控件本身没被拆
+  // （三枚 chip 仍在 DOM 里、值仍然读得出「跟随全局」——收的是墨量，不是能力）。
+  // 另一侧在下面 C3b 钉：真定过会话级档位之后它必须现身。只钉一侧的话，把判据写成恒假也能绿。
+  ok(openedA.chipsHidden && openedA.chipsHidden.attr === true && openedA.chipsHidden.painted === false
+    && openedA.chipValues[0] === zh['stewardShell.chips.followGlobal'],
+    `B14b 跟随全局时详情栏【不印】这一行（实测 hidden=${openedA.chipsHidden && openedA.chipsHidden.attr} 真画出来=${openedA.chipsHidden && openedA.chipsHidden.painted}），但控件还在、值仍读得到「${openedA.chipValues[0]}」`);
   // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
   // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
   ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 2,
@@ -551,6 +564,10 @@ try {
     return snapshot.chipValues[0] === ${JSON.stringify(zh['stewardShell.permission.acceptEdits.label'])} ? snapshot : null;
   })()`);
   ok(Boolean(refilled), 'C3 chip 用响应回填成「改文件不问」');
+  // 117u-G3 新钉（B14b 的另一侧）：真定过会话级档位之后，这一行必须【现身】—— 判据的权限那一半
+  // 读的正是 chips 自己 render() 画上去的 .is-pinned。两侧都钉住，「恒不印」与「恒印」都会被打红。
+  ok(refilled && refilled.chipsHidden && refilled.chipsHidden.attr === false && refilled.chipsHidden.painted === true,
+    `C3b 定过会话级权限档之后这一行【印出来】（实测 hidden=${refilled && refilled.chipsHidden && refilled.chipsHidden.attr} 真画出来=${refilled && refilled.chipsHidden && refilled.chipsHidden.painted}）`);
 
   // ── ⑥ 切「全自动」：二次确认 → 取消不变 → 再来一次确认才变 ──────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);

@@ -186,9 +186,36 @@ ok(/import '\.\/mission-state\.js';/.test(drawer) && /globalThis\.MissionState/.
 // 117n-M1 重钉：drawer.js 的 chips import 那一行加了 doc/byId/el/clear（DOM 基础件去重，见 B3
 // companion）。原判据只钉 createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出
 // 完整的四个新增名字——比原来更精确，不是放宽。
-ok(/import \{ createQuickSwitchChips, doc, byId, el, clear \} from '\.\/steward-chips\.js';/.test(drawer)
-  && /createQuickSwitchChips\(\{/.test(drawer),
-  'E4 快切 chip 是 mount 进来的共用控件，不是抽屉自己搭的；同一条 import 顺带把 DOM 基础件也接过来');
+// 117u-G3 **重钉 E4**（§11.15.7；用户「这个也不印默认值吧」）：这条 import 又多了一个名字
+// chipsWorthPrinting —— 详情栏这一行自此与看板同一份判据（跟全局一样就不印）。判据比原来更紧：
+// 除照旧逐字钉住 import 的六个名字与 createQuickSwitchChips 在场，另加两条【抄第二份就立刻红】的：
+// 抽屉剥了注释之后零 resolveEngineRoute(（不自己算生效路由）、零 engineRoute 字面量（不自己认字段）。
+ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \} from '\.\/steward-chips\.js';/.test(drawer)
+  && /createQuickSwitchChips\(\{/.test(drawer)
+  && !/resolveEngineRoute\(/.test(drawerCode) && !/engineRoute/.test(drawerCode),
+  'E4 快切 chip 与「跟全局一样吗」判据都是 mount／import 进来的同一份，不是抽屉自己搭的；抽屉零第二套回落规则');
+// 117u-G3 新钉：顺序是这一刀唯一容易写错的地方 —— 判据的【权限】那一半读的是 chips 自己 render()
+// 画上去的 .is-pinned，所以必须【先 setSession 再问判据】；问早了读到的是上一拍的皮，刚定过档的
+// 线程会晚一拍才现身。钉「同一个函数体里 setSession 出现在 chipsWorthPrinting 之前」，
+// 而不是钉某个字面量在全文件里存在（那种写法在别处有同名调用时会假绿）。
+{
+  const body = /function renderChips\(\) \{([\s\S]*?)\n  \}/.exec(drawerCode);
+  const inner = body ? body[1] : '';
+  const setAt = inner.indexOf('chips.setSession(session)');
+  const askAt = inner.indexOf('chipsWorthPrinting(');
+  ok(Boolean(body) && setAt >= 0 && askAt > setAt
+    && /host\.hidden = !chipsWorthPrinting\(session, \(state && state\.config\) \|\| \{\}, host\)/.test(inner),
+    `E4b 详情栏的 chip 行「跟全局一样就不印」：先 setSession 再问判据（.is-pinned 是 chips 自己的输出），收的是这一拍印不印、不是把控件拆了（实测 setSession@${setAt} < 判据@${askAt}）`);
+  ok(count(drawerCode, /chips\.setSession\(/g) === 1,
+    `E4b2 setSession 全文件只有 renderChips 里这一个调用点 —— 绕开它就是绕开判据（实测 ${count(drawerCode, /chips\.setSession\(/g)} 处）`);
+}
+// 117u-G3：hidden 要真收得住。.steward-drawer-chips 那条 display:flex 是作者样式，会盖掉 UA 的
+// [hidden]{display:none}（本层 .steward-drawer / .steward-drawer-ask / .steward-drawer-wait 三处
+// 踩过同一个坑）。且只许收抽屉这一份：2.0 视窗顶栏的 .steward-chips 是「给这条线程单独定一档」
+// 剩下的那条路，跟着一起消失就是把能力删了。
+ok(/\.steward-drawer-chips\[hidden\] \{ display: none; \}/.test(cssCode)
+  && !/\.steward-chips\[hidden\]/.test(cssCode),
+  'E4c 抽屉 chip 行的 [hidden] 守卫在（display:flex 会盖掉 UA 规则），且 2.0 顶栏那一份不受牵连');
 for (const name of ['acceptanceItems', 'activeAcceptanceIndex', 'taskProgress', 'elapsedLabel', 'describeTurnActivity', 'deriveMissionState']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(drawerCode),
     `E5 抽屉不定义同名函数 ${name}（复制即失去「同一份判据」）`);

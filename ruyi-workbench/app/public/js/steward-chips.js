@@ -124,6 +124,34 @@ export function resolveEngineRoute(session, config) {
   return { engine: 'agent', agentCliType: cfg.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(cfg.model || '') };
 }
 
+// 117u-G3（27 号文 §11.15.7；用户 2026-09-09「这个也不印默认值吧」）：这条会话的权限与模型
+// 跟全局【一样吗】—— 一样就不值得印（§11.15.2 病 3「元信息是一串等重灰字」：满屏「权限 跟随
+// 全局 · 模型 ⟨全局默认⟩」信息量为零，墨量却与线程名争重心）。
+//
+// 为什么住在这里：G2 先把这段判据写在 steward-board.js 的闭包里，G3 要给【看板与线程详情栏】
+// 共用，而抽屉【不能】 import 看板（steward-board.js 已经 import 抽屉，反向引用即成环）。
+// 本模块是这两面【已经】在 import 的零 import 叶子，且 resolveEngineRoute —— 全仓唯一那份
+// 「会话级 ＞ 全局回落」—— 与 chip 工厂本来就住这儿，是它的自然归宿。搬家不改一个字的判据，
+// 也不许再长出第三条：
+//   · 模型：resolveEngineRoute 拿【这条会话】与【一份没有会话的空位】各算一次 —— 两次生效路由
+//     一样，就说明这条线程根本没定过自己的模型／引擎，印出来的是全局默认值，印它等于没印；
+//   · 权限：chips 的 render() 已经把「定过会话级档位」这件事画成 .is-pinned（它给 chip 上色
+//     用的就是这一个事实），宿主 mount 完读一次它自己的输出即可 —— 不在这里第二次去认
+//     session.permissionMode，那就是第二份判据。
+//
+// 如实记一处能力边界（与 G2 在看板那面记的是同一笔账，不是新债）：会话【元数据】
+// （state.sessions，GET /api/sessions 的 sessionMeta）带 permissionMode 但【不带】 engineRoute，
+// 任务卡（GET /api/missions）两者都不带 —— 所以在【看板】那一面，模型这一半只有在这条会话真被
+// 补齐过（chip 菜单开过一次的 hydrate，或改完档回填的 onChanged）之后才判得准；补齐之前它必然
+// 回落成「与全局相同」，也就是只会让它【少说】，不会让它【说错】。抽屉那一面没有这个洞：它的
+// session 来自 GET /api/sessions/:id 的全量会话头，engineRoute 在里面（13d 那一行原样回 session）。
+export function chipsWorthPrinting(session, config, chipHost) {
+  const cfg = (config && typeof config === 'object') ? config : {};
+  const mine = JSON.stringify(resolveEngineRoute(session, cfg));
+  const global = JSON.stringify(resolveEngineRoute(null, cfg));
+  return mine !== global || Boolean(chipHost && chipHost.querySelector('.steward-chip.is-pinned'));
+}
+
 // 行动流水的「做了什么」列：与 13h 的 STEWARD_TOOL_LABELS 同一批键，但人话住 i18n。117n-M1
 // （用户「查下有没有能合并的功能」走查）从 steward-settings.js 搬到这里：它是纯常量表，本来就该
 // 住零 import 的叶子模块——settings/conversation 两个消费方都已经在 import 本文件的别的导出，

@@ -162,10 +162,22 @@ ok(mod.STEWARD_NOW_MIN_WIDTH === 1000 && /min-width: \$\{STEWARD_NOW_MIN_WIDTH\}
 // 看板要判「这条线程的模型跟全局一样吗」（一样就不印那两枚 chip），判据必须是 chips 自己算生效
 // 模型用的那一份。新判据仍逐字要求原来的五个名字在场，且把新增那个也写死，比原来更精确不是放宽；
 // 另加一条：本模块不许出现第二处「会话级 ＞ 全局」的回落实现（零 activeProvider／agentCliType）。
-ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute \} from '\.\/steward-chips\.js';/.test(board)
+//
+// 117u-G3 **再重钉 D1**（§11.15.7）：那条判据的正身搬去了 steward-chips.js（线程详情栏也要读同一份，
+// 而抽屉不能反向 import 看板），所以看板接过来的名字从 resolveEngineRoute 换成了 chipsWorthPrinting。
+// 判据没有放宽而是更紧了——除了照旧逐字钉住 import 的六个名字与 compact，还多钉三件【搬家必须为真、
+// 只要有人再抄一份就立刻红】的事实：看板剥了注释之后
+//   ① 零 resolveEngineRoute( 调用（它自此连「会话级 ＞ 全局回落」都不认识）；
+//   ② 零 function chipsWorthPrinting（判据全仓只许有一个定义，就在 chips.js 里）；
+//   ③ 那唯一的调用点把三件东西【递】进去（会话、全局配置、chips 画完的宿主），而不是就地算。
+// 三条都比对 boardCode（剥过注释的正文）——本文件 472 行那条纪律：源码扫描锁匹配到注释里的字就是假绿。
+ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \} from '\.\/steward-chips\.js';/.test(board)
   && /compact: true,/.test(board)
-  && !/activeProvider/.test(boardCode) && !/agentCliType/.test(boardCode),
-  'D1 快切 chip 与「生效引擎路由」都是 steward-chips.js 的同一份（紧凑模式：权限＋模型，引擎收进模型菜单）；看板零第二套回落规则');
+  && !/activeProvider/.test(boardCode) && !/agentCliType/.test(boardCode)
+  && !/resolveEngineRoute\(/.test(boardCode)
+  && !/function chipsWorthPrinting/.test(boardCode)
+  && count(boardCode, /chipsWorthPrinting\(sessionForRow\(row\), \(state && state\.config\) \|\| \{\}, chipHost\)/g) === 1,
+  'D1 快切 chip 与「跟全局一样吗」判据都是 steward-chips.js 的同一份（紧凑模式：权限＋模型，引擎收进模型菜单）；看板零第二套回落规则、零第二份判据定义');
 ok(count(boardCode, /method: 'PATCH'/g) === 0 && !/permissionMode/.test(boardCode),
   'D2 看板不自己 PATCH 线程权限（唯一写口仍是 steward-chips.js）');
 ok(/if \(compact\) \{[\s\S]{0,240}buildEngineMenu\(menu\);/.test(chips)

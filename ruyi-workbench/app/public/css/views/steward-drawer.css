@@ -179,6 +179,12 @@
   min-width: 0;
   position: relative;
 }
+/* 117u-G3（§11.15.7）：跟全局一样就不印这一行（判据在 js/steward-chips.js 的 chipsWorthPrinting，
+   看板那一面用的是同一份）。上面那条 display:flex 是作者样式，会盖掉 UA 的 [hidden]{display:none}，
+   所以必须显式收 —— 与本文件里 .steward-drawer[hidden] / .steward-drawer-wait[hidden] 同一个写法。
+   只收 .steward-drawer-chips：2.0 视窗顶栏那一份（.steward-chips）不参与，它是「定一档」的最后
+   一条路，不能跟着一起消失。 */
+.steward-drawer-chips[hidden] { display: none; }
 .steward-chip {
   display: inline-flex;
   align-items: center;

@@ -7,7 +7,10 @@ import './mission-state.js';
 import { apiErrorInfo } from './net.js';
 import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './preview-task-sheet.js';
 import { describeTurnActivity } from './turn-activity.js';
-import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+// 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
+// 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
+// import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -883,8 +886,29 @@ export function createStewardDrawer({
     if (resume) resume.hidden = !run || !paused;
   }
 
-  function renderAll() {
+  // ── ⑤ 快切 chip 行：跟全局一样就不印 ────────────────────────────────────────
+  // 117u-G3（27 号文 §11.15.7；用户 2026-09-09「这个也不印默认值吧」）：G2 已经让【看板】的权限与
+  // 模型只在与全局不同时才出现，详情栏这一行却照旧印「权限 跟随全局 · 模型 ⟨全局默认⟩」。口径自此
+  // 统一 —— 病 3 对三面同时成立，用的是【同一份】判据（steward-chips.js 的 chipsWorthPrinting），
+  // 本文件不写第二条。
+  //
+  // 顺序是要紧的：先 setSession（chips 的 render() 在这一步才把 .is-pinned 画上去），再问判据 ——
+  // 判据的权限那一半读的正是 chips 自己的这个输出，问早了它读到的是上一拍的皮。
+  //
+  // 收的是【这一拍不值得印】，不是控件：chips 实例一直挂在宿主里（不 unmount、不清空），下一拍
+  // 判据一翻脸它就原样出现，用户按了一半的菜单也不会被连根拔掉（chip 菜单那条 304 纪律）。
+  // 如实记一处代价：跟随全局时这一行在详情栏里也看不见了，于是「给这条线程单独定一档」在管家壳里
+  // 只剩卡头那枚「2.0 视窗」一条路（§8.6 三处同一控件的第三处，本来就在那儿）。这是 §11.15.7
+  // 明写的取舍，不是漏做；要收回来只需把下面这一行的 hidden 恒置 false。
+  function renderChips() {
     chips.setSession(session);
+    const host = byId('stewardDrawerChips');
+    if (!host) return;
+    host.hidden = !chipsWorthPrinting(session, (state && state.config) || {}, host);
+  }
+
+  function renderAll() {
+    renderChips();
     renderMission();
     renderTabs();
     renderHead();
