@@ -107,6 +107,28 @@ export function liveTailSentences(text, max = STEWARD_LAST_SAY_SENTENCES) {
   return parts.slice(-Math.max(1, max)).join('').trim();
 }
 
+// 117v-V2（用户第十轮走查②；27 号文 §11.16.2 V2 行、§11.16.5 经主会话裁决后的那一版）：
+// 收工态的「它刚说」修前取的是 content 的【开头】≤3 句。而线程模型习惯把过程叙述写在最前面
+// （用户截图里的「我先联网核实最新数据」），content 又是本回合【所有】助手文字的拼接 ——
+// 取开头于是必然取到开场白，不是结论。修法【不是】改成取尾巴（§11.16.1 ⑨ 那句是没有分段账本时
+// 的粗糙近似），而是先把「交付」从「过程」里分出来，再在剩下的文本里取开头。
+// 判据一个字不自己写：整段委托给 steward-conversation.js 的 stewardDeliverableText —— 那是全仓
+// 唯一那一份，本文件因此【没有】第二份分段遍历（静态锁按这条扫）。它自带两条边界，这里一并继承：
+// 老会话（账本缺席）回落到 content 整段、绝不返回空；以工具/子代理段收尾且没写收口话的那一条回空串。
+// 选消息的规则照旧「从后往前第一条【取得出非空文字】的助手消息」，只是「非空」的口径从
+// 「content 非空」换成「交付段非空」—— 取不出交付原文的那一条就跳过继续往前找，
+// 与 stewardDeliverableFrom 的做法逐字同源。纯函数、零 DOM、零请求（Node 可直接 import 验行为）。
+export function stewardLastDeliverable(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const message = list[i];
+    if (!message || message.role !== 'assistant') continue;
+    const text = stewardDeliverableText(message);
+    if (text.trim()) return text;
+  }
+  return '';
+}
+
 // 「它在问你」（§11.9 D4）。三个来源，优先级固定：
 //   ① 正式待决 question（机器可答：有 questionId，前端给选项按钮，答案走 /api/chat/answer）；
 //   ② 线程行上的 asksYou（服务端 06i 的 stewardAsksYou 单点判定，看板行与抽屉同一份）；
@@ -568,6 +590,20 @@ export function createStewardDrawer({
   }
 
   // ── ⑤ 它刚说 ────────────────────────────────────────────────────────────────
+  // 【谁要什么就给什么】——117v-V2 把 ⑤ 换成交付段之后，本闭包里这个函数【不跟着改】，不是漏了：
+  //   · lastAssistantText()（下面这个）= 最后一条非空助手消息的【整条 content】。
+  //     实测有两个消费方，都在判「最后一句是不是问句」：④ asksYouFrom 的客户端兜底，
+  //     以及 ⑦ quickRepliesFor 的「好，就这样／先不要」那一档。
+  //   · ⑤「它刚说」改吃 stewardLastDeliverable(session.messages)（模块顶层那个导出纯函数）。
+  // 为什么不让那两处问句判定也吃过滤结果（117v-V2 查到的事实）：
+  //   ① 两处的判据都是 `/[？?]$/.test(整条原话)` —— 看的是【收尾】。content 是本回合全部
+  //      text 段的拼接，交付段是它的【后缀】，所以只要交付段非空，两者末字符逐字相同，
+  //      问句判定的答案一模一样，换不换都不影响；
+  //   ② 唯一分岔在「这条消息以工具/子代理段收尾、后面一句收口的话都没有」——那时交付段是空串。
+  //      让问句判定也吃过滤结果的话，选消息那一步就会【跳过这条、退到更早一条】，
+  //      于是把一条早就过去了的问句当成「它现在在问你」端出来（陈旧误报）。
+  //      而客户端兜底存在的理由恰恰是「【最后一句话】真是问句时补报一次」，退到更早一条就把它判坏了。
+  // 所以：⑤ 吃过滤后的交付段（用户第十轮走查②「不要参杂线程推进的原文」），④⑦ 继续吃整条 content。
   function lastAssistantText() {
     const messages = (session && Array.isArray(session.messages)) ? session.messages : [];
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -600,7 +636,11 @@ export function createStewardDrawer({
     if (head) head.textContent = t('stewardShell.drawer.lastSay');
     // ④ 已经把这句问话原文摆出来了就不再重复一遍（走查③「太多太杂」：一屏两遍同一句话）。
     const ask = asksYouNow();
-    const said = lastSaySentences(lastAssistantText());
+    // 117v-V2：过滤之后【取头】才对 —— 交付段的第一句就是收口结论，而它的末尾往往是注意事项／
+    // 风险提示／下一步建议（对话区那一份交付卡走的也是「从头显示、超 8 行折叠」，同一个方向）。
+    // 取尾会把「顺便提醒你三件事」端上来当结论。活回合那一路仍取末尾（liveTailSentences，见上）：
+    // 那段文本是被从中间切断的活文本，没有「开头就是结论」这个前提。
+    const said = lastSaySentences(stewardLastDeliverable(session && session.messages));
     if (ask && ask.kind === 'soft' && said && ask.texts.some(text => said.indexOf(text) >= 0 || text.indexOf(said) >= 0)) {
       quote.textContent = t('stewardShell.drawer.lastSayInAsk');
       return;

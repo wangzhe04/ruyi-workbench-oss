@@ -2834,6 +2834,7 @@
   ,"stewardShell.chips.noModels": "这个引擎还没有可选模型。"
   ,"stewardShell.chips.changed": "改好了。"
   ,"stewardShell.chips.changeFailed": "没改成：{{error}}"
+  ,"stewardShell.chips.switchTakesEffect": "切了下一回合生效；正在跑的回合不会被打断，它用的还是原来那个。"
   ,"stewardShell.permission.default.label": "每步都问"
   ,"stewardShell.permission.default.hint": "读、改文件、跑命令都先问过你；如意只提议，一律等你点。"
   ,"stewardShell.permission.acceptEdits.label": "改文件不问"

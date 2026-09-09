@@ -71,6 +71,22 @@ export const stewardEscapeStack = Object.freeze({
 export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto']);
 // 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：只有全自动需要二次确认。
 export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
+// 117v-V2（27 号文 §11.16.2 V2 行；§11.16.5 经主会话裁决后的那一版）：切模型／引擎的那句说明摆在
+// 哪两个菜单里。这句话是【无条件常显】的一句事实陈述，不接任何「在不在跑」的信号，理由三条：
+//   ① 「下一回合生效、不打断正在跑的回合」在两种情形下都为真：在跑时它回答「会不会打断」，
+//      不在跑时它同样准确（下一回合本来就是下一回合）。恒真的话没有理由依赖一个判断；
+//   ② 本仓的活性判据【已知不可靠】，而且代码自己把这件事写在注释里 —— steward-drawer.js 的
+//      renderLastSay 那段说明 isLive() 拿不到 resumable.live 就回落到五态，挂在提问上的回合
+//      五态是 needs_you，于是恒判成不在跑。把一句本来无条件为真的话押在这种信号上，是拿一个
+//      已知坏掉的判据去守它；
+//   ③ chip 有三个宿主（抽屉、看板行、2.0 顶栏），看板行手里只有 GET /api/missions 的卡片
+//      （连 engineRoute 都没有，见本文件 createQuickSwitchChips 的 hydrate 参数那段如实记）。
+//      要让三面都判活性就得给 chip 喂第四种数据 —— 为一句恒真的话付这个代价不值。
+// 事实本身（09-workflow 已核到行）：provider 在【回合入口】绑定，`for (let iter…)` 循环体内不再
+// 重新取 config/provider，所以在跑的回合用旧模型跑完、新模型下一回合生效；13d 的 PATCH 只有
+// 「会话级档位」与「切全自动要 confirm:true」两道门，没有「有活回合就拒」——切换不打断任何东西。
+export const STEWARD_SWITCH_NOTE_KINDS = Object.freeze(['model', 'engine']);
+export const STEWARD_SWITCH_NOTE_KEY = 'stewardShell.chips.switchTakesEffect';
 // §8.6 那条弹窗必须逐条写明的五件事（键名即顺序，测试按这个顺序核对）。
 export const STEWARD_CONFIRM_KEYS = Object.freeze([
   'stewardShell.permission.confirm1',
@@ -420,6 +436,15 @@ export function createQuickSwitchChips({
       if (full && typeof full === 'object') { session = full; render(); }
     }
     BUILDERS[kind](chip.menu);
+    // 117v-V2：那句说明摆在【开菜单这一处】，不摆进 buildModelMenu／buildEngineMenu ——
+    // 紧凑模式（看板行）把引擎收进模型菜单的第一段（buildModelMenu 会调 buildEngineMenu），
+    // 摆在两个 builder 里就会在同一张菜单上出两遍。摆在这里天然「一张菜单一句」，
+    // 也不必为紧凑模式补一个 if。判据只认 kind，与「在不在跑」无关（见 STEWARD_SWITCH_NOTE_KINDS）。
+    if (STEWARD_SWITCH_NOTE_KINDS.includes(kind)) {
+      const switchNote = el('p', 'steward-chip-option-hint', t(STEWARD_SWITCH_NOTE_KEY));
+      switchNote.dataset.chipNote = 'switch';   // 静态锁与真夹具都按这个属性数「出没出、出了几遍」
+      chip.menu.appendChild(switchNote);
+    }
     chip.menu.hidden = false;
     chip.button.setAttribute('aria-expanded', 'true');
     openMenu = chip.menu;

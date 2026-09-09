@@ -47,6 +47,10 @@ const LIVE_TAIL3 = '一是 React。二是 Vue。三是原生。';
 // A 的最后一条助手消息：四句，末句是问句。抽屉只该显示前三句（§8.13「≤3 句」）。
 const A_REPLY = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。要不要我把汇总也做了？';
 const A_FIRST3 = '我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。';
+// 117v-V2：答完待决之后，【同一个回合】接着吐出来的那句收口话。它与上面四句活文本在落盘时是
+// 【同一条助手消息】（09-workflow 每回合只 push 一条，segments 记 text -> tool -> text 的次序），
+// 所以这条线程正是「content 里既有过程叙述又有交付」的真夹具 —— 它刚说该只显示这一句。
+const D_DELIVERED = '知道了，就按这个来。';
 const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的去拉，计时器只按周期数个数
 // 117j W2-5：表按 5s 下限起（见 steward-drawer.js pollSlice 头注），所以数计时器要按这个周期。
 // 表虽然每 5 秒响一次，但 pollSlice 第一件事就是「离上次拉够 120000ms 了吗」——不够就原地返回，
@@ -144,7 +148,7 @@ async function startProvider(port) {
       sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
     } else if (answered) {
-      sse({ choices: [{ index: 0, delta: { role: 'assistant', content: '知道了，就按这个来。' }, finish_reason: null }] });
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', content: D_DELIVERED }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
     } else {
       sse({ choices: [{ index: 0, delta: { role: 'assistant', content: A_REPLY }, finish_reason: null }] });
@@ -615,6 +619,29 @@ try {
     return snapshot.chipValues[0] === ${JSON.stringify(zh['stewardShell.permission.auto.label'])} ? snapshot : null;
   })()`)), 'D3b chip 回填成「全自动」');
 
+  // ── 117v-V2：切模型/引擎的菜单里各有一句「下一回合生效、不打断」（27 号文 §11.16.2 V2 行）──
+  // 真夹具量的是【菜单真的画出来了这一句】，不是源码里有这个字符串。A 此刻是已收工的线程 ——
+  // 这一条同时钉住「不在跑时它照样出现」：那句话是无条件为真的事实陈述，不接任何活性信号。
+  const SWITCH_NOTE = zh['stewardShell.chips.switchTakesEffect'];
+  const NOTE_IN = kind => `(() => {
+    const menu = document.querySelector('#stewardDrawerChips .steward-chip-menu[data-kind="${kind}"]');
+    if (!menu || menu.hidden) return null;
+    const notes = [...menu.querySelectorAll('[data-chip-note="switch"]')];
+    return { count: notes.length, text: notes.map(node => node.textContent.trim()).join('|'), options: menu.querySelectorAll('.steward-chip-option').length };
+  })()`;
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
+  const modelMenu = await waitForEval(cdp, NOTE_IN('model'));
+  ok(modelMenu && modelMenu.count === 1 && modelMenu.text === SWITCH_NOTE,
+    `D4 模型菜单里有【一句】「下一回合生效、不打断」（实测 ${modelMenu && modelMenu.count} 句「${modelMenu && modelMenu.text}」）`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="engine"]').click(), true`);
+  const engineMenu = await waitForEval(cdp, NOTE_IN('engine'));
+  ok(engineMenu && engineMenu.count === 1 && engineMenu.text === SWITCH_NOTE,
+    `D4b 引擎菜单里也有【一句】同样的说明（实测 ${engineMenu && engineMenu.count} 句）`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="engine"]').click(), true`);
+  ok(Boolean(await waitForEval(cdp, `(() => document.querySelectorAll('#stewardDrawerChips [data-chip-note="switch"]').length === 0 ? { ok: 1 } : null)()`)),
+    'D4c 菜单收起来之后那句说明跟着走（它住在菜单里，不是常驻一行占着版面）');
+
   // ─── ⑦-1 点兄弟页签换线程（同事项内切换） ────────────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerTabs [data-session-id="${idB}"]').click(), true`);
   const onB = await waitForEval(cdp, `(() => {
@@ -704,6 +731,14 @@ try {
   ok(Boolean(onD) && onD.lastSay.indexOf(zh['stewardShell.drawer.tool.askYou']) > 0
     && onD.lastSay.indexOf('request_user_input') < 0,
     `E6d 正在用的工具说【人话】，界面上不出现工具名（实测「${onD && onD.lastSay}」）`);
+  // 117v-V2：D 此刻【回合还活着】（挂在 request_user_input 上，E6 刚验过标题是「它正在说」）。
+  // 这一条与 D4 成一对：同一句说明在「在跑」与「不在跑」两种情形下都出现 —— 它是无条件为真的
+  // 事实陈述（下一回合生效、不打断在跑的回合），不该依赖任何活性判断。
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
+  const liveModelMenu = await waitForEval(cdp, NOTE_IN('model'));
+  ok(liveModelMenu && liveModelMenu.count === 1 && liveModelMenu.text === SWITCH_NOTE,
+    `E6e 回合【正在跑】的线程上，模型菜单里那句说明照样出现且只出现一次（实测 ${liveModelMenu && liveModelMenu.count} 句）`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
   const killsBeforeD = auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idD).length;
   await cdp.evaluate(`(() => {
     const input = document.getElementById('stewardDrawerAskInput');
@@ -722,6 +757,46 @@ try {
   const dMessages = (answeredD && answeredD.json && answeredD.json.session && answeredD.json.session.messages) || [];
   ok(dMessages.some(message => JSON.stringify(message || {}).indexOf('都不用，就用原生的写') >= 0),
     'E5d 用户写的那句话逐字进了会话（otherText，不是被折成某个选项 id）');
+
+  // ── 117v-V2（用户第十轮走查②「里面还参杂了一些线程推进的原文，也不要有」）：收工态的
+  //    「它刚说」＝【交付那一段】，不是整条 content 的开头 ────────────────────────────────
+  // D 这一回合的落盘助手消息是【一条】：content ＝ 挂起前流出去的四句 ＋ 答完之后的收口话，
+  // segments ＝ text → tool(request_user_input) → question → text。修前取 content 的前 3 句，
+  // 于是屏幕上永远是「我先看了三个候选。一是 React。二是 Vue。」—— 全是过程叙述，一个结论都没有。
+  const finishedD = await waitForHttp(appPort, 'GET', `/api/sessions/${idD}`, result => {
+    const messages = (result.json && result.json.session && result.json.session.messages) || [];
+    return messages.some(message => message && message.role === 'assistant' && String(message.content || '').includes(D_DELIVERED));
+  }, token);
+  ok(Boolean(finishedD), 'E8 D 的回合答完之后接着跑到收尾（那句收口话已落盘）');
+  {
+    const dLast = ((finishedD && finishedD.json && finishedD.json.session && finishedD.json.session.messages) || [])
+      .filter(message => message && message.role === 'assistant').pop() || null;
+    const segTypes = (dLast && Array.isArray(dLast.segments)) ? dLast.segments.map(segment => segment && segment.type) : [];
+    // 先把夹具本身钉住：这条消息真的【既有过程叙述又有交付】，否则下面两条断言等于没验。
+    ok(Boolean(dLast) && String(dLast.content || '').includes('我先看了三个候选')
+      && String(dLast.content || '').includes(D_DELIVERED)
+      && segTypes.includes('tool') && segTypes.lastIndexOf('text') > segTypes.indexOf('tool'),
+      `E8b 夹具成立：这【一条】助手消息的 content 里过程叙述与交付都在，段序是 …tool… → text（实测段序 ${JSON.stringify(segTypes)}）`);
+  }
+  // 重新打开一次 D 再读：**不是**为了绕过什么，而是因为抽屉此刻手上的会话可能是【回合刚咽气、
+  // 助手消息还没落盘】那一拍拉到的（实测确有这一拍：标题已换回「它刚说」而正文是「它还没说过话。」，
+  // 之后要等满一个配置节拍才会再拉）。那是既有的刷新时序问题，与本刀要钉的「显示哪一段文字」无关 ——
+  // 本条断言只想在【会话已经落盘】之后量取文口径，所以显式重开一次线程（openThread → refreshOnce）。
+  // 这一拍的时序问题已如实登记成债，没有在本刀里顺手改。
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idD}' } })), true`);
+  const settledD = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    if (snapshot.lastSayHead !== ${JSON.stringify(zh['stewardShell.drawer.lastSay'])}) return null;
+    if (!snapshot.lastSay || snapshot.lastSay === ${JSON.stringify(zh['stewardShell.drawer.lastSayEmpty'])}
+      || snapshot.lastSay === ${JSON.stringify(zh['stewardShell.drawer.loading'])}) return null;
+    return snapshot;
+  })()`, 600);
+  ok(Boolean(settledD), `E8c 回合收尾后标题换回「它刚说」并真的印出了一段原话（实测「${settledD && settledD.lastSayHead}」／「${settledD && settledD.lastSay}」）`);
+  ok(Boolean(settledD) && settledD.lastSay === D_DELIVERED,
+    `E8d 「它刚说」＝最后一个工具调用【之后】那段正文，逐字只有收口那一句（实测「${settledD && settledD.lastSay}」）`);
+  ok(Boolean(settledD) && settledD.lastSay.indexOf('我先看了三个候选') < 0
+    && settledD.lastSay.indexOf('一是 React') < 0,
+    `E8e 夹在工具调用之前的过程叙述一句都没混进来（修前这里显示的正是它们；实测「${settledD && settledD.lastSay}」）`);
 
   // ─── 117l D2：「直接对这条线程说」走 /api/steward/relay 单口 ────────────────────
   // 修前抽屉自己猜通道：不 live 就直打 /api/chat/stream，撞上 09-workflow 的

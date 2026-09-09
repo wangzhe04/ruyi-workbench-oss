@@ -2834,6 +2834,7 @@
   ,"stewardShell.chips.noModels": "This engine has no models to choose from yet."
   ,"stewardShell.chips.changed": "Changed."
   ,"stewardShell.chips.changeFailed": "Could not change it: {{error}}"
+  ,"stewardShell.chips.switchTakesEffect": "Takes effect on the next turn; a turn already running is not interrupted and keeps the one it started with."
   ,"stewardShell.permission.default.label": "Ask me every step"
   ,"stewardShell.permission.default.hint": "Reading, editing files and running commands all ask you first; Ruyi only proposes and waits for your click."
   ,"stewardShell.permission.acceptEdits.label": "Edit files without asking"

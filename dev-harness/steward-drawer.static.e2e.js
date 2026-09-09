@@ -572,7 +572,13 @@ ok(typeof conversationMod.stewardThreadHueFor === 'function'
   && conversationMod.stewardThreadHueFor('') === 0
   && count(conversationSrc, /new Map\(\);\s*\nexport function stewardThreadHueFor/g) === 1,
   'M1 色号登记表提到了模块级并导出（同 id 恒同色、空 id 回 0），全文件只有那一处 new Map()＋导出 —— 三面问同一张表');
-ok(/import \{ stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel \} from '\.\/steward-conversation\.js';/.test(drawer)
+// 117v-V2 **重钉 M2 的第一个合取项**（语义没变，被一次合法改动挪走了）：⑤「它刚说」的取段判据
+// 也从 steward-conversation.js 拿（stewardDeliverableText），于是同一行 import 多了第四个名字。
+// 旧断言逐字钉着三个名字的列表 —— 那是「色号只问一次、不自己算」这件事的【伴生字面量】，不是它
+// 本身；钉字面量的代价就是这种：合法复用把名单加长一个，锁当场红，整条 e2e 闸卡死。
+// 现在改成钉三件事实：① 三个名字都还是从这个模块 import 的（一个都没被本地重写）；
+// ② 色号在本文件只问一次；③ 本文件零本地登记表、零 stewardThreadHue()、零颜色字面量。
+ok(/import \{[^}]*\bstewardThreadHueFor\b[^}]*\bstewardThreadStateKey\b[^}]*\bstewardAgoLabel\b[^}]*\} from '\.\/steward-conversation\.js';/.test(drawer)
   && count(drawerCode, /stewardThreadHueFor\(/g) === 1
   && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerCode),
   `M2 抽屉的色号【只问一次、不自己算】：一处 stewardThreadHueFor(（实测 ${count(drawerCode, /stewardThreadHueFor\(/g)}），零本地登记表、零 stewardThreadHue()、零颜色字面量`);
@@ -633,6 +639,100 @@ ok(/\.steward-drawer-foot-more \{ min-width: 0; margin-inline-start: auto; \}/.t
   && /\.steward-drawer-foot-more\[open\] \{/.test(cssCode)
   && !/\.steward-drawer-foot-more \{[^}]*display: flex/.test(cssCode),
   'M8c 折叠的 display:flex 锁在 [open] 上：给 <details> 本身写 flex 会让收起来的内容照样被画出来（.steward-drawer-more 那条注释里的同一个坑）');
+
+// ─── N 117v-V2：⑤「它刚说」按分段取交付；切模型/引擎的那句说明常显（27 号文 §11.16.2 V2 行）───
+// 这一组钉的全是【机械事实】，不是文案也不是像素：判据住在哪一份、有没有长出第二份、
+// 问句判定吃的还是不是整条原话、那句说明依不依赖一个已知不可靠的信号。
+
+// ① 取段判据只有一处 —— 抽屉问 steward-conversation.js 那一份，自己不遍历分段账本。
+ok(/import \{[^}]*\bstewardDeliverableText\b[^}]*\} from '\.\/steward-conversation\.js';/.test(drawer)
+  && count(drawerCode, /stewardDeliverableText\(/g) === 1
+  && !/segments/.test(drawerCode),
+  `N1 ⑤ 的取段判据【只问不写】：从 steward-conversation.js import，全文件调用一次（实测 ${count(drawerCode, /stewardDeliverableText\(/g)}），且剥掉注释后一个 segments 都不出现 —— 抽屉里没有第二份分段遍历`);
+ok(/const said = lastSaySentences\(stewardLastDeliverable\(session && session\.messages\)\);/.test(drawerCode),
+  'N1b 收工态的「它刚说」＝先按分段取交付段、再取那一段的【开头】≤3 句（不是整条 content 的开头）');
+// 取头不取尾是有意的：过滤之后第一句就是收口结论，末尾往往是注意事项/风险提示/下一步建议；
+// 对话区那一份交付卡走的也是「从头显示、超 8 行折叠」，两处同一个方向。活回合那一路仍取末尾。
+ok(mod.lastSaySentences('一。二。三。四。') === '一。二。三。'
+  && mod.liveTailSentences('一。二。三。四。') === '二。三。四。',
+  'N1c 两条取句方向没被顺手对调（收工取头、活回合取尾，与 J3 同一对判据）');
+
+// ② 行为（Node 直接 import 那个导出纯函数跑真值表）：老会话回落、过程叙述被挡、取不出就往前找。
+ok(typeof mod.stewardLastDeliverable === 'function', 'N2 取交付原文的那一步是可 Node import 的纯函数');
+{
+  const PROCESS = '我先联网核实最新数据。';
+  const DELIVERED = '核实完了，三个数字都对得上。';
+  const mixed = {
+    role: 'assistant',
+    content: PROCESS + DELIVERED,
+    segments: [
+      { id: 'segment-1', type: 'text', text: PROCESS },
+      { id: 'segment-2', type: 'tool', toolCallId: 't1', name: 'web_search', status: 'done' },
+      { id: 'segment-3', type: 'text', text: DELIVERED },
+    ],
+  };
+  ok(mod.stewardLastDeliverable([mixed]) === DELIVERED
+    && mod.stewardLastDeliverable([mixed]).indexOf(PROCESS) < 0,
+    `N2b 夹在工具调用之前的过程叙述【不进】「它刚说」（实测「${mod.stewardLastDeliverable([mixed])}」）`);
+  // 老会话（EC-D 之前落盘的，账本缺席/空/不是数组）：必须回落到 content 整段，绝不返回空 ——
+  // 返回空就是把「读不到」演成「它没说过话」。三种缺席形状逐条跑。
+  const legacy = text => ({ role: 'assistant', content: '老会话说的话' + (text || '') });
+  ok(mod.stewardLastDeliverable([legacy()]) === '老会话说的话'
+    && mod.stewardLastDeliverable([{ ...legacy(), segments: [] }]) === '老会话说的话'
+    && mod.stewardLastDeliverable([{ ...legacy(), segments: null }]) === '老会话说的话'
+    && mod.lastSaySentences(mod.stewardLastDeliverable([legacy()])) !== '',
+    'N2c 分段账本缺席/空/不是数组的老会话 → 回落到 content 整段，「它刚说」不为空');
+  // 以工具调用收尾、一句收口的话都没写的那一条：本身没有交付原文 → 跳过它继续往前找。
+  const trailingTool = {
+    role: 'assistant',
+    content: '我去查一下。',
+    segments: [
+      { id: 'segment-1', type: 'text', text: '我去查一下。' },
+      { id: 'segment-2', type: 'tool', toolCallId: 't2', name: 'web_search', status: 'done' },
+    ],
+  };
+  ok(mod.stewardLastDeliverable([trailingTool]) === ''
+    && mod.stewardLastDeliverable([mixed, trailingTool]) === DELIVERED,
+    'N2d 以工具调用收尾、没写收口话的那一条没有交付原文 → 跳过它退到更早一条真有交付的（与 stewardDeliverableFrom 同源）');
+  ok(mod.stewardLastDeliverable([]) === '' && mod.stewardLastDeliverable(null) === ''
+    && mod.stewardLastDeliverable([{ role: 'user', content: '用户说的' }]) === '',
+    'N2e 空/非数组/只有用户消息 → 回空串（调用方据此说「它还没说过话」）');
+}
+
+// ③ 问句判定【继续吃整条 content】：④ 的客户端兜底与 ⑦ 的「好，就这样／先不要」都靠「最后一句
+// 是不是问号收尾」。交付段是 content 的后缀，非空时末字符一样；唯一分岔是交付段为空那一档 ——
+// 那时若也换成交付段，选消息会退到更早一条，把过去了的问句误报成「它现在在问你」。
+ok(count(drawerCode, /lastAssistantText: lastAssistantText\(\)/g) === 2
+  && /function lastAssistantText\(\) \{[\s\S]{0,320}String\(message\.content \|\| ''\)\.trim\(\)/.test(drawerCode)
+  && count(drawerCode, /export function stewardLastDeliverable\(/g) === 1
+  && count(drawerCode, /stewardLastDeliverable\(session/g) === 1,
+  `N3 两处问句判定仍吃【整条 content】（实测 ${count(drawerCode, /lastAssistantText: lastAssistantText\(\)/g)} 处），交付段只有 ⑤ 那一处消费（一处定义 ＋ 一处调用，实测调用 ${count(drawerCode, /stewardLastDeliverable\(session/g)}）`);
+
+// ④ 切模型/引擎的那句说明：两个菜单都带、每张菜单只出一次、不接任何活性信号。
+ok(Object.isFrozen(chipsMod.STEWARD_SWITCH_NOTE_KINDS)
+  && JSON.stringify(chipsMod.STEWARD_SWITCH_NOTE_KINDS) === JSON.stringify(['model', 'engine'])
+  && chipsMod.STEWARD_SWITCH_NOTE_KEY === 'stewardShell.chips.switchTakesEffect',
+  `N4 那句说明摆在【模型与引擎】两个菜单里，清单是导出的冻结常量（实测 ${JSON.stringify(chipsMod.STEWARD_SWITCH_NOTE_KINDS)}）`);
+// 摆在 toggleMenu（开菜单那一处）而不是两个 builder 里：紧凑模式下 buildModelMenu 会调
+// buildEngineMenu，摆进 builder 就会在同一张菜单上出两遍。全文件只有一处 t(那个键)。
+ok(count(chipsCode, /t\(STEWARD_SWITCH_NOTE_KEY\)/g) === 1
+  && /BUILDERS\[kind\]\(chip\.menu\);[\s\S]{0,320}STEWARD_SWITCH_NOTE_KINDS\.includes\(kind\)[\s\S]{0,320}chip\.menu\.appendChild\(switchNote\);/.test(chipsCode)
+  && !/function buildModelMenu\(menu\) \{[\s\S]{0,900}?STEWARD_SWITCH_NOTE/.test(chipsCode)
+  && !/function buildEngineMenu\(menu\) \{[\s\S]{0,600}?STEWARD_SWITCH_NOTE/.test(chipsCode),
+  `N4b 一张菜单只出一句：append 在开菜单那一处（实测 t(键) ${count(chipsCode, /t\(STEWARD_SWITCH_NOTE_KEY\)/g)} 处），两个 builder 里一个字都没有 —— 紧凑模式把引擎收进模型菜单时不会出两遍`);
+// 关键的一条：这句话【无条件为真】，所以它的出现不许押在任何「在不在跑」的信号上。本仓的活性
+// 判据已知不可靠（steward-drawer.js renderLastSay 那段注释写着 isLive() 恒判成不在跑），而 chip
+// 的三个宿主里看板行手上连 engineRoute 都没有。判据：整份 chips（剥注释后）零活性标识符。
+for (const pattern of [/liveTail/, /isLive/, /streaming/, /resumable/, /'running'/]) {
+  ok(!pattern.test(chipsCode), `N4c chips 剥注释后零出现 ${pattern.source} —— 那句说明不接任何活性判断`);
+}
+// 文案两个意思一个都不能少（§11.16.5 裁决：①下一回合生效 ②不打断）。只钉这两个语义锚，
+// 措辞随便润色 —— 钉整句就会被一次合法润色打红。
+ok(/下一回合/.test(String(zh['stewardShell.chips.switchTakesEffect']))
+  && /打断/.test(String(zh['stewardShell.chips.switchTakesEffect']))
+  && /next turn/i.test(String(en['stewardShell.chips.switchTakesEffect']))
+  && /interrupt/i.test(String(en['stewardShell.chips.switchTakesEffect'])),
+  `N4d 中英都说清两件事：下一回合生效 ＋ 不打断正在跑的回合（中「${zh['stewardShell.chips.switchTakesEffect']}」）`);
 
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
