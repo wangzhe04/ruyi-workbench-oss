@@ -1378,3 +1378,20 @@ G 第一次 `git commit` 因参数笔误中止，那一瞬间 HEAD 已从 `fe67e
 ② 内存态 `lastReply.trigger` **仍是字符串**（`steward-shell.js:277` 靠 `=== 'inbox'` 判要不要追加到对话流），只有落盘回执是对象——改内存态会是无声回归；
 ③ 服务端本来没有任何读 `message.steward.trigger` 的地方，所以「两种形状都认」在后端是空操作，只钉了新旧回执并存不互相破坏。
 13g 到 2088 行（锁 ① 红得更深）；R7 执行者用 `git archive HEAD` 干净副本复现同红，DOM 逐字节相同——是夹具形状前提，不是竖线规则。
+
+#### 11.13.4 117s 收口：全量回归与合并（2026-09-09 下午，主会话亲跑）
+
+隔离 worktree、`--parallel 4`：**311 pass / 12 fail / 11 flaky / 323 ran / 7 skipped**。12 条红逐条串行复验后的真相：
+
+| 类 | 件 | 处置 |
+|---|---|---|
+| 主树才有的 fixture（`realhist-fixtures`），worktree 预期红 | `observation-recall-realhistory`、`observation-recall-replay`、`session-notes` | 合并后在主树单跑（117l 记忆里那条纪律） |
+| 4 路负载起不来服务的级联 | `tools-v3`、`perm-v2` | 单跑 ALL PASS |
+| 钉字面量／行号／行数的锁被合法改动挪走 | `copy-path-guard.static`（行号 +41）、`steward-walkthrough.static`（E1c 旧行、F1f 1277 行）、`steering-claude` S12（`streaming &&` 字面量）、`i18n.static`（文档目录漏 9 键） | 重钉为「哪件事必须成立」并单跑绿（`a142311`、`61a2126`） |
+| 已登记、本波不动 | `steward-runner.static` ①（13g 2088 行）、`perf` ②（冷启动 5 s 断言，30 号文 §8.13 ③ 挂起等拍板） | — |
+| 环境 | `eol-policy.static`（`.gitignore` CRLF 是本 worktree autocrlf checkout 产物，master 里的 blob 是 LF） | 主树不受影响 |
+
+11 个抖动件里本波相关的两个（`steward-board`、`steward-conversation`）单跑全绿；`steward-conversation` 的 R7 已定名。
+
+**合并**：分支 `claude/suspicious-cartwright-0bef9d` 全部为线性提交，master 未动，主树 `git merge --ff-only claude/suspicious-cartwright-0bef9d` 即可；
+合并后主树跑 `node dev-harness/observation-recall-realhistory.e2e.js` 等三件 realhist 件补验。
