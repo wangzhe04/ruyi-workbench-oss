@@ -8682,13 +8682,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "appendUsageLedger",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "buildUsageSummary",
           "kinds": [
             "call"
