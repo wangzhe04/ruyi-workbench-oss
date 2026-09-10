@@ -57,6 +57,40 @@ const POLL_MS = 120000;   // 配置的节拍拉满：测试窗口内不会真的
 // 测试窗口内一个请求都不会多发，断言仍然是确定的。
 const TICK_MS = 5000;
 
+// ── 117x-M2 收口（27 号文 §11.17.8 第一行登记的债）：模型选择器的【真浏览器】夹具 ───────────
+// M2 的单测（dev-harness/unit/steward-model-menu.test.js）是驱动真工厂跑的，判据有覆盖；没覆盖的
+// 是【真 CSS 与真焦点】—— .steward-chip-fold-body[hidden]{display:none} 那一条作者样式一旦丢掉，
+// 折叠区就永远是展开的，而只读 .hidden 属性的断言照样绿（与 B14b／C3b 是同一个模具：作者的
+// display:flex 会盖掉 UA 表的 [hidden]{display:none}）。而本文件原来的候选只有 fake-model 一项，
+// 一个非文本 id 都没有，折叠区在真机里根本不出现。
+// 这里补一个【只给模型菜单用】的端点：30 项候选（> 搜索框门槛 8），其中四项的 id 各带一个
+// audio / image / realtime / livetranslate。「哪些该折叠」的判据在 js/steward-chips.js 的
+// looksNonTextModel 里（§11.17.3 硬纪律二：全仓唯一一处子串表），本文件【不抄第二份】——
+// 只按下面这四个【夹具自己放进去的已知 id】断言，并把实现自己标出来的 data-model-non-text 与它对一遍。
+const BULK_PROVIDER_ID = 'bulk';
+const BULK_PROVIDER_LABEL = '批量端点';
+const BULK_NON_TEXT_IDS = [
+  'bulk-audio-preview-2026-04-01',
+  'bulk-image-gen-2026-04-02',
+  'bulk-realtime-chat-2026-04-03',
+  'bulk-livetranslate-flash-2026-04-04',
+];
+// 26 项普通文本 id：一个 hint 子串都不带（audio/realtime/image/ocr/tts/embed/rerank/livetranslate/video）。
+const BULK_TEXT_IDS = [
+  ...Array.from({ length: 12 }, (_, i) => `bulk-chat-${String(i + 1).padStart(2, '0')}`),
+  ...Array.from({ length: 7 }, (_, i) => `bulk-reason-${String(i + 1).padStart(2, '0')}`),
+  ...Array.from({ length: 7 }, (_, i) => `bulk-lite-${String(i + 1).padStart(2, '0')}`),
+];
+// 两项 label ≠ id：主行印的是 label，但搜 id 照样命中（modelMatch 先找 label，找不到退回 id）。
+const BULK_LABELS = new Map([['bulk-chat-01', '批量 · 通用一号'], ['bulk-reason-01', '批量 · 深思一号']]);
+const BULK_MODELS = [...BULK_TEXT_IDS, ...BULK_NON_TEXT_IDS].map(id => ({ id, label: BULK_LABELS.get(id) || id }));
+// 有账的七项（都取文本 id）：0～6 天前各一条用量流水。「常用」只该留最近的【五条】
+// （§11.17.2「最近 30 天／最多 5 条」），另外两条只在自己的分组里出现 —— 于是「≤5」与
+// 「没有账的行不出副行」在同一张菜单上同时可验。
+const BULK_RECENT_MAX = 5;
+const BULK_USED_IDS = BULK_TEXT_IDS.slice(0, 7);
+const BULK_RECENT_TOP5 = BULK_USED_IDS.slice(0, BULK_RECENT_MAX);
+
 const { findBrowserExecutable } = require('./lib/browser-path');
 const browserPath = findBrowserExecutable;
 
@@ -345,8 +379,35 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     id: 'fake', label: 'Fake', type: 'openai-compat',
     baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model',
     models: [{ id: 'fake-model', label: 'Fake' }],
+  }, {
+    // 117x-M2 收口：只为【模型菜单】存在的第二个端点，本文件一个请求都不往它发（baseUrl 指回
+    // 同一个假 provider 就够了）。model 留空 → 切过来时是「跟随全局」；而全局 activeProvider 是
+    // fake，routeKey 不同 → 一枚「默认」徽标都不该出现，菜单形状因此完全确定。
+    id: BULK_PROVIDER_ID, label: BULK_PROVIDER_LABEL, type: 'openai-compat',
+    baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: '',
+    models: BULK_MODELS,
   }],
 }), 'utf8');
+// 117x-M2 收口：「常用」段读的是 GET /api/usage/summary 的 byModel，而它读的是 usage/YYYY-MM.jsonl
+// 这本流水账（每一行＝一个回合）。这里在【起服务之前】就把七条种进去，因为前端那份 byModel 是
+// 【一次页面生命周期只拉一次】的模块级缓存（steward-chips.js 的 usageRowsMemo，第一次开模型菜单时
+// 触发）—— 起完服务再补账，缓存已经定型，界面上什么都不会变。
+{
+  const usageDir = path.join(home, 'usage');
+  fs.mkdirSync(usageDir, { recursive: true });
+  const byMonth = new Map();
+  BULK_USED_IDS.forEach((id, index) => {
+    // 第 index 项＝「index 天前」：往前多推一个钟头，免得整日边界把 days 抖成 index-1。
+    const at = new Date(Date.now() - (index * 24 * 60 * 60 * 1000 + 60 * 60 * 1000));
+    const key = at.toISOString().slice(0, 7);
+    const row = JSON.stringify({
+      ts: at.toISOString(), engine: 'openai', provider: BULK_PROVIDER_ID, model: id,
+      sessionId: 'seed-' + id, inTok: 100, outTok: 20, cachedInTok: 0, kind: 'turn',
+    });
+    byMonth.set(key, (byMonth.get(key) || '') + row + '\n');
+  });
+  for (const [key, text] of byMonth) fs.writeFileSync(path.join(usageDir, `${key}.jsonl`), text, 'utf8');
+}
 
 let provider = null;
 let server = null;
@@ -641,6 +702,179 @@ try {
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="engine"]').click(), true`);
   ok(Boolean(await waitForEval(cdp, `(() => document.querySelectorAll('#stewardDrawerChips [data-chip-note="switch"]').length === 0 ? { ok: 1 } : null)()`)),
     'D4c 菜单收起来之后那句说明跟着走（它住在菜单里，不是常驻一行占着版面）');
+
+  // ── 117x-M2 收口（§11.17.8 第一行）：模型选择器在真浏览器里的形状 ────────────────────────
+  // 量的都是【真绘制】：offsetParent === null 才叫没画出来（只读 .hidden 属性的话，作者样式那条
+  // display:flex 盖掉 UA 的 [hidden]{display:none} 之后照样绿）；焦点量的是 document.activeElement。
+  const MODEL_MENU = `(() => {
+    const menu = document.querySelector('#stewardDrawerChips .steward-chip-menu[data-kind="model"]');
+    if (!menu || menu.hidden) return null;
+    const painted = node => node.offsetParent !== null;
+    const rows = [...menu.querySelectorAll('.steward-chip-option[data-model-id]')];
+    const list = menu.querySelector('.steward-chip-list');
+    const search = menu.querySelector('[data-chip-search="model"]');
+    const foldToggle = menu.querySelector('[data-chip-fold="nonText"]');
+    const foldBody = menu.querySelector('.steward-chip-fold-body');
+    const foldRows = foldBody ? [...foldBody.querySelectorAll('[data-model-id]')] : [];
+    // 分段：一个 <p class="steward-chip-group"> 起一段（第 0 段是没有标题的那截，「跟随全局」住在里面）。
+    // 折叠区是 list 的一个 div 子节点，天然不进这份分段 —— 折起来的行本来就不该混在分组里。
+    const sections = [];
+    let current = { title: '', ids: [] };
+    sections.push(current);
+    for (const child of [...(list ? list.children : [])]) {
+      if (String(child.className || '').split(' ').includes('steward-chip-group')) {
+        sections.push(current = { title: child.textContent.trim(), ids: [] });
+        continue;
+      }
+      if (child.dataset && child.dataset.modelId != null) current.ids.push(child.dataset.modelId);
+    }
+    const hintText = ${JSON.stringify(zh['stewardShell.chips.noMatch'])};
+    return {
+      rowIds: rows.map(node => node.dataset.modelId),
+      paintedIds: rows.filter(painted).map(node => node.dataset.modelId),
+      // 实现自己认定的「看起来不是文本模型」（modelRow 打的 data-model-non-text），用来跟夹具里
+      // 那四个已知 id 对账 —— 本文件不复制那张子串表。
+      nonTextIds: rows.filter(node => node.dataset.modelNonText === '1').map(node => node.dataset.modelId),
+      // 副行只该长在【真有账】的行上。
+      hintIds: rows.filter(node => node.querySelector('.steward-chip-option-hint')).map(node => node.dataset.modelId),
+      hintTexts: [...menu.querySelectorAll('.steward-chip-option[data-model-id] .steward-chip-option-hint')].map(node => node.textContent.trim()),
+      sections,
+      searchPresent: Boolean(search),
+      searchFocused: Boolean(search) && document.activeElement === search,
+      foldPresent: Boolean(foldToggle),
+      foldTitle: foldToggle ? foldToggle.querySelector('.steward-chip-fold-title').textContent.trim() : '',
+      foldCount: foldToggle ? foldToggle.querySelector('.steward-chip-fold-count').textContent.trim() : '',
+      foldExpanded: foldToggle ? foldToggle.getAttribute('aria-expanded') : '',
+      foldBodyHiddenAttr: foldBody ? foldBody.hidden : null,
+      foldBodyPainted: Boolean(foldBody) && painted(foldBody),
+      foldRowIds: foldRows.map(node => node.dataset.modelId),
+      foldRowsPainted: foldRows.filter(painted).length,
+      hits: [...menu.querySelectorAll('.steward-chip-hit')].map(node => node.textContent),
+      noMatch: [...menu.querySelectorAll('.steward-chip-option-hint')]
+        .filter(node => node.textContent.trim() === hintText).length,
+    };
+  })()`;
+  const RECENT_TITLE = zh['stewardShell.chips.groupRecent'];
+  const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+  const sectionOf = (snapshot, title) => (snapshot ? (snapshot.sections || []).find(item => item.title === title) : null) || null;
+
+  // 切到那 30 项候选的端点 —— 走【真菜单】（点引擎 chip → 点它那一行），不用 PATCH 抄近路。
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="engine"]').click(), true`);
+  ok(Boolean(await waitForEval(cdp, `!!document.querySelector('#stewardDrawerChips [data-engine-key="openai:${BULK_PROVIDER_ID}"]')`)),
+    `M1 引擎菜单里有那个补进来的端点「${BULK_PROVIDER_LABEL}」`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-engine-key="openai:${BULK_PROVIDER_ID}"]').click(), true`);
+  ok(Boolean(await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
+    result => result.json && result.json.session && result.json.session.engineRoute
+      && String(result.json.session.engineRoute.providerId || '') === BULK_PROVIDER_ID, token)),
+    'M1b 切过去之后 GET /api/sessions/A 的 engineRoute.providerId 就是它');
+
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
+  // 用量是【后到】的（第一次开模型菜单才去拉一次，到了再重画一遍 list），所以等到「常用」那一段
+  // 真出现为止，而不是拿第一拍的快照去数。
+  const bulkMenu = await waitForEval(cdp, `(() => {
+    const snapshot = ${MODEL_MENU};
+    if (!snapshot) return null;
+    return snapshot.sections.some(item => item.title === ${JSON.stringify(RECENT_TITLE)}) ? snapshot : null;
+  })()`);
+  ok(Boolean(bulkMenu), `M2 模型菜单在这个端点上画出来了（候选 ${BULK_MODELS.length} 项）`);
+  if (!bulkMenu) console.log('DIAG bulkMenu=null 快照 ' + JSON.stringify(await cdp.evaluate(MODEL_MENU)).slice(0, 800));
+
+  // ① 候选 > 8 → 搜索框出现，且开菜单就把【真焦点】交给它。
+  ok(Boolean(bulkMenu) && bulkMenu.searchPresent === true && bulkMenu.searchFocused === true,
+    `M3 候选 ${BULK_MODELS.length} 项（> 门槛 8）→ 搜索框出现且拿到真焦点（实测 出现=${bulkMenu && bulkMenu.searchPresent} activeElement 是它=${bulkMenu && bulkMenu.searchFocused}）`);
+
+  // ② 折叠区在场：标题就是「按名字猜的，可能猜错」那一句，计数＝夹具里放进去的非文本 id 个数。
+  ok(Boolean(bulkMenu) && bulkMenu.foldPresent === true
+    && bulkMenu.foldTitle === zh['stewardShell.chips.groupNonText']
+    && bulkMenu.foldTitle.includes('猜')
+    && bulkMenu.foldCount === String(BULK_NON_TEXT_IDS.length),
+    `M4 折叠区在场，标题明写「猜」且计数 ${BULK_NON_TEXT_IDS.length}（实测 在场=${bulkMenu && bulkMenu.foldPresent}「${bulkMenu && bulkMenu.foldTitle}」× ${bulkMenu && bulkMenu.foldCount}）`);
+  // 判据对账：实现打的 data-model-non-text 与夹具里那四个已知 id 严丝合缝（本文件不抄子串表）。
+  ok(Boolean(bulkMenu) && sameSet(bulkMenu.nonTextIds, BULK_NON_TEXT_IDS) && sameSet(bulkMenu.foldRowIds, BULK_NON_TEXT_IDS),
+    `M4b 折进去的正好是那四个 id，一个不多一个不少（实测 ${bulkMenu && JSON.stringify(bulkMenu.foldRowIds)}）`);
+  // ③ 折叠 ≠ 隐藏：行【一直在 DOM 里】，只是这一拍真的没画出来（.steward-chip-fold-body[hidden]
+  //    那条作者样式的活证据 —— 少了它 foldBodyPainted 就是 true，本条当场红）。
+  ok(Boolean(bulkMenu) && bulkMenu.foldRowIds.length === BULK_NON_TEXT_IDS.length
+    && bulkMenu.foldBodyHiddenAttr === true && bulkMenu.foldBodyPainted === false && bulkMenu.foldRowsPainted === 0
+    && BULK_NON_TEXT_IDS.every(id => !bulkMenu.paintedIds.includes(id)),
+    `M4c 收起来时那四行仍在 DOM、但【真的没画出来】（实测 body.hidden=${bulkMenu && bulkMenu.foldBodyHiddenAttr} body 画出来=${bulkMenu && bulkMenu.foldBodyPainted} 行画出来=${bulkMenu && bulkMenu.foldRowsPainted}）`);
+
+  // ④ 「常用」：七条账只留最近的五条；非文本项不混进 provider 分组。
+  const recentSection = sectionOf(bulkMenu, RECENT_TITLE);
+  ok(Boolean(recentSection) && recentSection.ids.length <= BULK_RECENT_MAX
+    && JSON.stringify(recentSection.ids) === JSON.stringify(BULK_RECENT_TOP5),
+    `M5 「常用」段种了七条账只留最近五条，按最近一次使用倒序（实测 ${recentSection && JSON.stringify(recentSection.ids)}）`);
+  ok(Boolean(bulkMenu) && JSON.stringify(bulkMenu.sections[0].ids) === JSON.stringify(['']),
+    `M5b 第一段只有「跟随全局」那一项（data-model-id 为空串），它永远排头（实测 ${bulkMenu && JSON.stringify(bulkMenu.sections[0].ids)}）`);
+  const groupSection = sectionOf(bulkMenu, BULK_PROVIDER_LABEL);
+  ok(Boolean(groupSection) && JSON.stringify(groupSection.ids) === JSON.stringify(BULK_TEXT_IDS),
+    `M5c 按 provider 分组、组标题就是它的 label，段里是 ${BULK_TEXT_IDS.length} 项文本候选（非文本的四项不在这里）（实测 ${groupSection && groupSection.ids.length} 项）`);
+
+  // ⑤ 副行只长在有账的行上：五条常用 ＋ 分组里那七条，其余 23 行一条副行都没有，
+  //    整张菜单里也不许出现「0 回合」（把「不知道」说成「零」）。
+  const hintUnique = bulkMenu ? [...new Set(bulkMenu.hintIds)] : [];
+  ok(Boolean(bulkMenu) && sameSet(hintUnique, BULK_USED_IDS)
+    && bulkMenu.hintIds.length === BULK_RECENT_MAX + BULK_USED_IDS.length
+    && bulkMenu.hintTexts.every(text => !text.includes('0 回合')),
+    `M6 只有真有账的 ${BULK_USED_IDS.length} 个 id 带副行（常用里 ${BULK_RECENT_MAX} 行＋分组里 ${BULK_USED_IDS.length} 行＝${BULK_RECENT_MAX + BULK_USED_IDS.length} 条），没账的 ${BULK_MODELS.length - BULK_USED_IDS.length} 行一条都没有，且没有「0 回合」（实测 ${bulkMenu && bulkMenu.hintIds.length} 条／唯一 id ${JSON.stringify(hintUnique)}）`);
+  ok(Boolean(bulkMenu) && bulkMenu.hintTexts.some(text => text.includes(zh['stewardShell.chips.usedToday']))
+    && bulkMenu.hintTexts.some(text => text.includes('1 天前')),
+    `M6b 副行说的是我们真知道的那点事（「今天」「1 天前」都在，实测 ${bulkMenu && JSON.stringify(bulkMenu.hintTexts.slice(0, 3))}）`);
+
+  // ⑥ 折叠区里的行【仍可选】：展开 → 真画出来 → 点它 → PATCH 之后 engineRoute.model 就是它。
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip-fold="nonText"]').click(), true`);
+  const expandedMenu = await waitForEval(cdp, `(() => {
+    const snapshot = ${MODEL_MENU};
+    return snapshot && snapshot.foldBodyHiddenAttr === false ? snapshot : null;
+  })()`);
+  ok(Boolean(expandedMenu) && expandedMenu.foldExpanded === 'true' && expandedMenu.foldBodyPainted === true
+    && expandedMenu.foldRowsPainted === BULK_NON_TEXT_IDS.length,
+    `M7 点折叠区标题就展开，四行【真的画出来了】（实测 aria-expanded=${expandedMenu && expandedMenu.foldExpanded} 画出来 ${expandedMenu && expandedMenu.foldRowsPainted} 行）`);
+  const PICK_NON_TEXT = BULK_NON_TEXT_IDS[0];
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-model-id="${PICK_NON_TEXT}"]').click(), true`);
+  ok(Boolean(await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
+    result => result.json && result.json.session && result.json.session.engineRoute
+      && String(result.json.session.engineRoute.model || '') === PICK_NON_TEXT, token)),
+    `M7b 折叠区里的行仍可选：点「${PICK_NON_TEXT}」→ PATCH 之后 engineRoute.model 就是它（折叠只是折叠，不是过滤）`);
+
+  // ⑦ 搜索能命中折叠区里的项：打「audio」→ 折叠区【自动展开】，那一行当场可见并高亮命中段。
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
+  await waitForEval(cdp, `(() => { const snapshot = ${MODEL_MENU}; return snapshot && snapshot.searchPresent ? snapshot : null; })()`);
+  const typeSearch = needle => `(() => {
+    const box = document.querySelector('#stewardDrawerChips [data-chip-search="model"]');
+    box.value = ${JSON.stringify(needle)};
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`;
+  await cdp.evaluate(typeSearch('audio'));
+  const searched = await waitForEval(cdp, `(() => {
+    const snapshot = ${MODEL_MENU};
+    return snapshot && snapshot.rowIds.length === 2 ? snapshot : null;
+  })()`);
+  ok(Boolean(searched) && searched.foldExpanded === 'true' && searched.foldBodyHiddenAttr === false
+    && searched.paintedIds.includes(PICK_NON_TEXT) && searched.foldRowsPainted === 1
+    && searched.hits.join('') === 'audio',
+    `M8 搜「audio」当场命中折叠区里那一行：折叠区自动展开、行真的画出来、命中段高亮（实测 展开=${searched && searched.foldExpanded} 画出来的 ${searched && JSON.stringify(searched.paintedIds)} 高亮 ${searched && JSON.stringify(searched.hits)}）`);
+  ok(Boolean(searched) && !searched.sections.some(item => item.title === RECENT_TITLE),
+    `M8b 这一屏可见的只剩一行没有账的候选 → 「常用」整段不出现（不摆一个空标题；实测段标题 ${searched && JSON.stringify(searched.sections.map(item => item.title))}）`);
+  // 对照：换成一个不存在的串 → 如实说「没有匹配的模型。」，而不是留一张空菜单让人以为坏了。
+  await cdp.evaluate(typeSearch('zzz-这个串不存在'));
+  const noHit = await waitForEval(cdp, `(() => {
+    const snapshot = ${MODEL_MENU};
+    return snapshot && snapshot.noMatch === 1 ? snapshot : null;
+  })()`);
+  ok(Boolean(noHit) && JSON.stringify(noHit.rowIds) === JSON.stringify(['']) && noHit.foldPresent === false,
+    `M8c 对照：搜一个不存在的串 → 出「${zh['stewardShell.chips.noMatch']}」，只剩「跟随全局」那一行、折叠区也不摆（实测 ${noHit && JSON.stringify(noHit.rowIds)} 折叠区在场=${noHit && noHit.foldPresent}）`);
+  // 收尾：清掉搜索词，点「跟随全局」把这条会话的模型还原（顺带钉住这一项确实是个写口）。
+  await cdp.evaluate(typeSearch(''));
+  await waitForEval(cdp, `(() => { const snapshot = ${MODEL_MENU}; return snapshot && snapshot.rowIds.length > 2 ? snapshot : null; })()`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-model-follow="1"]').click(), true`);
+  ok(Boolean(await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
+    result => result.json && result.json.session && result.json.session.engineRoute
+      && String(result.json.session.engineRoute.model || '') === '', token)),
+    'M9 点「跟随全局」把会话级模型清回空串（菜单随之收起，后面的断言从干净状态起跑）');
+  ok(Boolean(await waitForEval(cdp, `(() => document.querySelector('#stewardDrawerChips .steward-chip-menu[data-kind="model"]').hidden ? { ok: 1 } : null)()`)),
+    'M9b 选完之后菜单收起来了');
 
   // ─── ⑦-1 点兄弟页签换线程（同事项内切换） ────────────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerTabs [data-session-id="${idB}"]').click(), true`);
