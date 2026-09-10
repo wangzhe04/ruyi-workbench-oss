@@ -619,7 +619,7 @@
   "onboarding.wizard.safety.acceptEdits.description": "File edits happen directly; running commands still asks first. File changes can be rolled back.",
   "onboarding.wizard.safety.acceptEdits.title": "Do not ask for file edits",
   "onboarding.wizard.safety.auto.description": "Never interrupts you, including deleting files and running commands. Highest risk; use it only for tasks you fully trust.",
-  "onboarding.wizard.safety.auto.title": "Fully automatic",
+  "onboarding.wizard.safety.auto.title": "Smart auto",
   "onboarding.wizard.safety.default.description": "Asks before every change. Safest, and the most clicking.",
   "onboarding.wizard.safety.default.title": "Ask me every time (default)",
   "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. The default is the safest, and you can change it later.",

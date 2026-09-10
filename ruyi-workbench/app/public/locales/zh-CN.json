@@ -619,7 +619,7 @@
   "onboarding.wizard.safety.acceptEdits.description": "改文件直接做，运行命令仍会先问你。文件改动可回滚。",
   "onboarding.wizard.safety.acceptEdits.title": "改文件不问",
   "onboarding.wizard.safety.auto.description": "全程不打断你，包括删改文件和运行命令。风险最高，只在你完全信任这个任务时用。",
-  "onboarding.wizard.safety.auto.title": "全自动",
+  "onboarding.wizard.safety.auto.title": "智能自动",
   "onboarding.wizard.safety.default.description": "任何改动前都先弹窗问你。最安全，也最费点击。",
   "onboarding.wizard.safety.default.title": "每步都问（默认）",
   "onboarding.wizard.safety.hint": "决定 AI 动手前要不要先问你。默认最稳，随时可改。",
