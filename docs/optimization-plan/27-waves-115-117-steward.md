@@ -2615,3 +2615,17 @@ graph 49/390、forwardEdges 67、build 新鲜；三文件 NUL 0／CRLF 0；真�
 
 #### 11.23.5 不做
 IM／邮件（仓里没基座）；「通知里直接回话」；浏览器模式下通知的点击回程；把在场信号落盘或做成新的投影字段。
+
+#### 11.24 118 波交付记录（A/B 两 worktree 并行：`88d63ac`＋`37011b5` ∥ `8dd4beb`→`5bdbf93`；主会话派出与收口，2026-09-10）
+
+**A 刀（worktree cut-zhanyong，分支 cut/zhanyong-dirs，两提交）**：
+- ① 占位原子化 `88d63ac`：`stewardClaimDerivedWorkspace` 把帽检查＋建目录＋append＋落盘坐进一次 `mutateConfig` 临界区，`landed` 后置校验；失败回滚本次新建目录（复用的空目录不碰）。新增 P7（并发）/P8（落盘失败）锁＋静态 ⑪ 重钉，全部反向验证（真红→逐字节还原）。生成器链产物新鲜（49 模块/390 边、route 128/116、facts）。
+- ② 夹具 HOME 守卫 `37011b5`：`dev-harness/lib/fixture-home{,-guard}.js` ＋ run-all 单点注入（临时 HOME/USERPROFILE，真机家走 `RUYI_REAL_HOME`）＋ `fixture-home.static`（120 处 spawn 判据＋4 真子进程探针；e2e 330→331）。反向验证不 spread→真红。NODE_OPTIONS 方案被实测证伪（路径空格分词）后改 spawn CLI `--require`。复跑 agent-role-openai/repo-hygiene/meta-guard 全绿。
+- 登记债：帽复检单摘时 P7/P8 仍绿（`landed` 兜底，只被静态 ⑪ 钉）；直跑单件不经 run-all 守卫不生效；守卫不盖孙进程/自建通道/进程内改 env。
+
+**B 刀（worktree cut-dedup-fe，分支 cut/dedup-33-frontend，八提交）**：33 号文 §4 第 4–10 项完成（三对判据 `8dd4beb`、Enter 守卫 `33f41f6`、NDJSON 读器 `46e2800`、stewardShortTitle＋UTF-16 修 2/4 `8fe851a`、note()×5 `3312582`、轮询常量 `b41c089`、抽屉 rows 注入 `5bdbf93`），每次撞锁重钉均反向验证。第 6/7 项 2.0 侧（`chat-stream-runtime.js`）按「零 import＋vm 直跑＋`app.js` 1280 行顶」三重硬约束拒绝并登记债（32 号文 §5）。第 11 项 i18n 别名**有据跳过**：真阻断是 6 件非 static 夹具钉死别名键＋动态拼键（`steward-presence.js:77`、`steward-chips.js:118`）；「68 键」口径已过时（实测宽松 63／严格 49／严格且出命名空间 33）。
+
+**C 线（只读调查，explorer 档被 plan 权限钳住未实测）**：静态证据链锁定启动链真机主目录 I/O 三连——`syncClaudeCliSettings` 每次启动写真 `~/.claude/settings.json`、`autoImportClaudeCodeMcp` 读真 `~/.claude.json`、`spawnSync` 探测阻塞整个事件循环（fire-and-forget 也挡 /health）——加 `--parallel 4` 负载增量 1.1–2.0s。`perf.e2e.js:73` 只设 `WIN_CLAUDE_WORKBENCH_HOME` 不设 `USERPROFILE/HOME` 是数字随真机漂移的根因（A 刀守卫落地后 run-all 侧已修，直跑侧同债）。E1–E4 实验方案与 stderr 逐段插桩稿已给出，待 exec 档节点实测 5 次分布。
+
+**收口**：32 号文 §5 两债划掉＋三条新债、§6 地图推进；合并后主会话跑 `module-dependency-graph --check`、`route-inventory --check`、`build --check`。
+
