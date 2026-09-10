@@ -24,7 +24,10 @@ import { missionStateIcon } from './icons.js';
 // 是全仓【唯一】那一份「一条助手消息里哪一段才是交付」的判据（117v-V4 立、V4b 扩到 subagent）。
 // 抽屉里不许再抄第二份 segments 遍历：同一件事只能有一处判据。这一行本来就 import 了本模块，
 // 加个名字不新增任何模块依赖边、也不成环（conversation 不 import drawer）。
-import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText } from './steward-conversation.js';
+// 33 号文 §4「抽屉 failNote 对齐看板」：错误信封的三处判据（稳定码 / wait.label / 人话文本）同样
+// 只留 conversation 那一份，抽屉不再自写弱化版 —— 同一条理由，同一行加三个名字。
+import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText,
+  stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -310,21 +313,21 @@ export function createStewardDrawer({
     const target = byId('stewardDrawerNote');
     if (target) target.textContent = String(text || '');
   }
+  // 33 号文 §4「抽屉 failNote 对齐看板」：判据与看板那一条（steward-board.js 的 117n-M1② 版本）
+  // 逐条同 —— 稳定码先经 stewardErrorCode 查 steward.queued，取 wait.label 说「在等什么」（与看板
+  // 行、服务端一处算出的 label 逐字同源）；其余情形一律经 stewardErrorText 取值，绝不 String(error)
+  // 直落（结构化信封会被拍扁成 "[object Object]"）—— 对齐之前这里正是那个弱化版。
+  // apiErrorInfo 仍在：api() 抛的 Error 把整个 JSON 信封放在 message 里，先解成信封形状，
+  // 随后三处判据读到的字段与看板逐个等价。
   function failNote(error) {
-    const info = apiErrorInfo(error);
-    // 117l-B2 ⑤：递话单口（POST /api/steward/relay）在目标线程还排队时回 409 `steward.queued`。
-    // 与对话流那一头【同两个键】说同一句人话（stewardShell.chat.errQueued / …Plain），
-    // 而不是把服务端那句原文塞进「没做成：…」的模板里 —— 后者读起来像出了故障，其实只是还没轮到它。
-    // 判据只看稳定码与 wait.label，一个字都不自己编（label 由服务端一处算，与看板行逐字同源）。
-    const code = String((info && info.code) || '');
+    const info = (error instanceof Error) ? apiErrorInfo(error) : error;
+    const code = stewardErrorCode(info);
     if (code === 'steward.queued') {
-      const wait = (info && info.params && info.params.wait) || null;
-      const label = (wait && typeof wait === 'object' && wait.label) ? String(wait.label) : '';
+      const label = stewardQueuedWaitLabel(info);
       note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
       return;
     }
-    const message = String((info && info.message) || (error && error.message) || error || 'failed');
-    note(t('stewardShell.drawer.failed', { error: message }));
+    note(t('stewardShell.drawer.failed', { error: stewardErrorText(info) || 'failed' }));
   }
 
   // ── 五态：只经 mission-state.js（全仓唯一判据），人话走 i18n（LABELS 是中文单语） ──────

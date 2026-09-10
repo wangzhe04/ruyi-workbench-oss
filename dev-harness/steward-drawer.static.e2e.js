@@ -278,6 +278,17 @@ ok(count(drawerCode, /\bfetch\(/g) === 0 && !/authHeaders/.test(drawerCode)
   && /import \{ apiErrorInfo \} from '\.\/net\.js';/.test(drawer),
   `F2 抽屉零直调 fetch（不再读流）；net.js 那一份改取 apiErrorInfo —— relay 的失败是结构化信封（实测 fetch=${count(drawerCode, /\bfetch\(/g)}）`);
 ok(count(chipsCode, /\bfetch\(/g) === 0, 'F3 chip 模块一律经注入的 api()，零直调 fetch');
+// F4d（33 号文 §4「抽屉 failNote 对齐看板」）：抽屉此前那份 failNote 是 117n-M1② 之前的弱化版 ——
+// 自己读 info.code/info.message，结构化信封拿不到就落到 String(error)。现在三条判据（稳定码 /
+// wait.label / 人话文本）全部取自 steward-conversation.js 的权威实现，与看板那一条逐条同；
+// 把任意一处换回本地解包，这条当场红。
+const failNoteBody = drawerCode.slice(drawerCode.indexOf('function failNote'), drawerCode.indexOf('function failNote') + 800);
+ok(/const code = stewardErrorCode\(info\);/.test(failNoteBody)
+  && /stewardQueuedWaitLabel\(info\)/.test(failNoteBody)
+  && /stewardErrorText\(info\)/.test(failNoteBody)
+  && !/String\(\(info && info\.message\)/.test(failNoteBody)
+  && /stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(drawer),
+  'F4d 抽屉 failNote 与看板同判据：稳定码 / wait.label / 人话文本三处都只经 steward-conversation.js（零本地弱化解包）');
 ok(/const relayed = await api\('\/api\/steward\/relay', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId, message \}\) \}\);/.test(drawer)
   && !/api\('\/api\/steer'/.test(drawerCode) && !/\/api\/chat\/stream/.test(drawerCode),
   'F4 「直接对这条线程说」走 relay 单口，抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜');
