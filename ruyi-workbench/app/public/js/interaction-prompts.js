@@ -6,6 +6,9 @@ import { api } from './net.js';
 import { $, el, toast } from './util.js';
 import { icon } from './icons.js';
 import { t } from './i18n.js';
+// 32 号文 §4（M2-a）：模态原语（背影／焦点陷阱／焦点归还／__cancel）落在叶子 js/modal.js，
+// 3.0 管家壳的危险操作确认与这里共用同一份。
+import { buildModal as openModal, installFocusTrap } from './modal.js';
 
 export function createInteractionPromptsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -13,62 +16,13 @@ export function createInteractionPromptsDomain({
   activeTurns = new Map(),
   saveConfigPartial = async () => false,
 } = {}) {
+// 32 号文 §4（M2-a）：模态原语搬进叶子 js/modal.js，3.0 管家壳的危险操作确认（js/confirm-panel.js）
+// 与这里共用同一份。本域保留 2.0 自己的调用形状（title/body/foot/onCancel），实现只此一处。
 function buildModal(title, bodyEl, footEl, onCancel) {
-  const backdrop = el('div', 'modal-backdrop dynamic');
-  const trigger = document.activeElement; // §4.9: return focus here on close
-  let done = false;
-  const finish = (cancelled) => {
-    if (done) return; done = true;
-    if (cancelled && onCancel) { try { onCancel(); } catch { /* ignore */ } }
-    backdrop.remove();
-    if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch { /* ignore */ } }
-  };
-  backdrop.__cancel = () => finish(true);
-  backdrop.__close = () => finish(false);
-  const modal = el('div', 'modal small');
-  modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', title);
-  const head = el('div', 'modal-head');
-  head.append(el('h3', '', title));
-  const x = el('button', 'icon-btn'); x.appendChild(icon('close', 16)); x.setAttribute('aria-label', t('common.close')); x.onclick = () => finish(true);
-  head.append(x);
-  const body = el('div', 'modal-body'); body.appendChild(bodyEl);
-  const foot = el('div', 'modal-foot'); if (footEl) foot.appendChild(footEl);
-  modal.append(head, body, foot);
-  backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) finish(true); });
-  backdrop.appendChild(modal);
-  installFocusTrap(backdrop); // 第50波 a11y P0:Tab 焦点陷阱
-  document.body.appendChild(backdrop);
-  // §4.9: focus the first interactive element inside the modal (input/button), falling back to ✕.
-  setTimeout(() => { (focusFirstInteractive(modal) || x)?.focus?.(); }, 0);
-  return { backdrop, foot, close: () => finish(false) };
+  return openModal({ title, body: bodyEl, foot: footEl, onCancel });
 }
-// §4.9 helper: find the first focusable control inside a container (visible input/select/textarea/
-// button/[tabindex]≥0), preferring a real form field over a button. Returns the element or null.
-function focusFirstInteractive(container) {
-  if (!container) return null;
-  const sel = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  const nodes = [...container.querySelectorAll(sel)].filter(n => n.offsetParent !== null || n === document.activeElement);
-  // Prefer a field the user is expected to type into over the leading ✕/close button.
-  const field = nodes.find(n => /^(INPUT|SELECT|TEXTAREA)$/.test(n.tagName));
-  return field || nodes[0] || null;
-}
-// 第50波(a11y P0):模态焦点陷阱 —— Tab/Shift+Tab 在模态内循环,焦点不外泄到背景(ESC 与焦点归还
-// 已由全局快捷键/buildModal 承担)。动态(buildModal)与静态(index.html)模态共用。
-function installFocusTrap(backdrop) {
-  if (!backdrop || backdrop.__trapInstalled) return;
-  backdrop.__trapInstalled = true;
-  backdrop.addEventListener('keydown', e => {
-    if (e.key !== 'Tab') return;
-    const modal = backdrop.querySelector('.modal') || backdrop;
-    const sel = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const nodes = [...modal.querySelectorAll(sel)].filter(n => n.offsetParent !== null);
-    if (!nodes.length) return;
-    const first = nodes[0], last = nodes[nodes.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || !modal.contains(active))) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && (active === last || !modal.contains(active))) { e.preventDefault(); first.focus(); }
-  });
-}
+// §4.9 helper 与焦点陷阱（focusFirstInteractive / installFocusTrap）一并搬进 js/modal.js ——
+// 静态模态（index.html）的焦点陷阱仍从本域的返回面取（app.js 那处一个字未动）。
 
 function showAskUserModal(questionId, questions, streamSessionId, context = '', deadlineAt = 0) {
   const sid = streamSessionId || state.currentSession?.id; // pin the session the question belongs to

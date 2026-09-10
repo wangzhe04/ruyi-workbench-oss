@@ -10,6 +10,9 @@ const read = relative => fs.readFileSync(path.join(ROOT, ...relative.split('/'))
 const shell = read('ruyi-workbench/app/public/js/preview-shell.js');
 const app = read('ruyi-workbench/app/public/app.js');
 const prompts = read('ruyi-workbench/app/public/js/interaction-prompts.js');
+// 32 号文 §4（M2-a）：模态原语搬到叶子 js/modal.js —— C1 要连新住址一起查（原判据钉的是
+// 「那行长什么样」，搬完当场假红；重钉为「调用点 + 原语本体 + 接线」三件一起问，比原来更强）。
+const modal = read('ruyi-workbench/app/public/js/modal.js');
 const tools = read('ruyi-workbench/app/public/js/tool-runtime.js');
 const domain = read('ruyi-workbench/app/src/13d-core-domain-routes.js');
 const permissionRuntime = read('ruyi-workbench/app/src/04-permission-runtime.js');
@@ -56,7 +59,9 @@ ok(shell.includes('retry.dataset.retrySameKey = draft.request.idempotencyKey')
   'B3 network retry reuses the exact request and idempotency key');
 
 ok(prompts.includes('function resolveClassicPromptIntervention')
-  && prompts.includes('backdrop.__close = () => finish(false)')
+  && prompts.includes("if (typeof backdrop.__close === 'function') backdrop.__close();")
+  && modal.includes('backdrop.__close = () => finish(false)')
+  && prompts.includes("from './modal.js'")
   && tools.includes('function resolveClassicPlanIntervention')
   && app.includes('syncClassicIntervention: async decision =>')
   && app.includes('resolveClassicPromptIntervention(decision)')
