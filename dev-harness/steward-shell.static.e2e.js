@@ -38,13 +38,20 @@ ok(JSON.stringify(declaredModes) === JSON.stringify(['classic', 'preview', 'stew
 ok(previewShell.includes("SHELL_MODES.includes(value) ? value : 'classic'"),
   'A2 normalizeShellMode 是显式白名单判定，未知值回 classic');
 
-// 预绘脚本与白名单同构：脚本认得的非 classic 模式，必须正好是 SHELL_MODES 去掉 classic。
+// 预绘脚本与白名单同构：脚本显式认得的模式 ∪ 它的默认值，必须【恰好】是 SHELL_MODES 这一集
+// （少一个 = 某个壳再也进不去；多一个 = 凭空发明了第四态）。121 波 K0（34 号文 §8.4 拍板③）把默认
+// 入口从 classic 翻成 steward，所以这里钉的是「无偏好 / 未知值 / localStorage 抛异常 → 一律 steward」。
+// 注意 A2 钉的 normalizeShellMode 兜底仍是 classic：那是 applyShellMode 显式传参的兜底（fail-closed
+// 到最小壳），与「首开进哪个视角」不是同一件事；K1 搬 applyShellMode 时再统一。
 const prePaint = html.slice(html.indexOf("localStorage.getItem('wcw.shellMode')"), html.indexOf('</script>'));
 const prePaintModes = [...prePaint.matchAll(/stored === '([a-z]+)'/g)].map(match => match[1]);
-ok(JSON.stringify(prePaintModes) === JSON.stringify(['preview', 'steward'])
-  && /: 'classic'/.test(prePaint)
-  && /catch \(e\) \{ document\.documentElement\.setAttribute\('data-shell-mode', 'classic'\); \}/.test(html),
-  'A3 index.html 预绘白名单与 SHELL_MODES 同构，异常与未知都回 classic');
+const prePaintDefault = (prePaint.match(/\?\s*stored\s*:\s*'([a-z]+)'/) || [])[1] || '';
+const prePaintCatch = (html.match(/catch \(e\) \{ document\.documentElement\.setAttribute\('data-shell-mode', '([a-z]+)'\); \}/) || [])[1] || '';
+ok(prePaintDefault === 'steward' && prePaintCatch === 'steward'
+  && JSON.stringify([...prePaintModes, prePaintDefault].sort())
+     === JSON.stringify([...(declaredModes || [])].sort()),
+  'A3 index.html 预绘白名单 ∪ 默认值 = SHELL_MODES，且无偏好／未知值／异常一律落 steward（121-K0 默认入口）'
+  + `（实测 白名单 ${JSON.stringify(prePaintModes)} / 默认 '${prePaintDefault}' / 异常 '${prePaintCatch}'）`);
 
 // data-shell-mode 是唯一状态源：全仓写入点只有预绘脚本(2)、applyShellMode(1)、
 // recoverClassicShell(1)、recoverStewardShell(1)，别处一律不许写。

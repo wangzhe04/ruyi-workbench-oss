@@ -173,6 +173,9 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9, version: '2.4.0', permissionMode: 'default', permissionTimeoutMs: 30000,
   theme: 'light', uiMode: 'simple', defaultWorkspace: ROOT, includeWorkbenchMcp: true,
   activeProvider: 'fake', engineMode: 'interactive',
+  // 121 波 K0（34 号文 §8.4）：管家总开关默认翻成 true、首开默认落管家视角。本件测的是【交办台】的
+  // 待决抽屉（:257/:316/:332 三条判据都钉在经典壳上），与管家无关 —— 显式关掉。
+  stewardEnabledV1: false,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
 }), 'utf8');
 

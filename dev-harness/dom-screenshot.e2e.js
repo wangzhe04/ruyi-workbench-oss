@@ -132,7 +132,10 @@ function compare(actual, expected) {
   const port = await getFreePort();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-visual-v2-'));
   const home = path.join(root, 'home'); fs.mkdirSync(home);
-  fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', theme: 'dark' }));
+  // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true、首开默认落管家视角。本件的像素基线
+  // 拍的是【经典壳】，管家开着会把整屏换成管家壳（实测 dark/light 两张 mean 11.26/8.52、96 格里
+  // 变了 14/12 格）。显式关掉管家 = 本件继续拍它一直在拍的那一屏，基线不动。
+  fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', theme: 'dark', stewardEnabledV1: false }));
   const server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], {
     cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: home }, windowsHide: true,
   });

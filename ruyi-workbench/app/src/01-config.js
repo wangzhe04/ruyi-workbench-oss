@@ -291,8 +291,8 @@ function defaultConfig() {
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
     subagentPreferredModel: '',
-    // 第 116 波 116a(27 号文 §11.3):管家总开关,默认关——开之前工作台行为零变化。
-    stewardEnabledV1: false,
+    // 第 116 波 116a(27 号文 §11.3):管家总开关。第 121 波 K0(34 号文 §8.4 拍板③)默认关→开:管家视角成为默认入口。
+    stewardEnabledV1: true,
     // 第 116 波 116a(27 号文 §11.3):管家专用端点/模型,空值="跟随主端点"(照抄 subagentPreferredProvider/Model)。
     stewardProviderId: '',
     stewardModel: '',
@@ -334,7 +334,7 @@ function defaultConfig() {
     stewardConversationRetention: 'visit',
     // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「并发上限就地可调」;用户 2026-09-03 拍板默认 5):
     // 线程间仲裁的三个全局闸。**只在 stewardEnabledV1 开时生效**(关时 runSessionTurn 根本不问仲裁器),
-    // 所以这三个键对存量用户是纯粹的形状扩张,不改任何行为。
+    // 121 波 K0 之前总开关默认关,所以对存量用户(配置里已显式落 false)仍是纯形状扩张;新装默认开即生效。
     //   stewardMaxParallelThreads —— 同时最多几条线程在跑回合,clamp [1,32];
     //   stewardGlobalMaxTurnsPerHour —— 全部线程合计每小时可开始的回合数,clamp [1,2000];
     //   stewardGlobalMaxCostPerDay —— 全部线程合计当日花费上限(USD),clamp [0,10000],0 = 不限。
@@ -977,7 +977,7 @@ function normalizeConfig(raw) {
     const sm = String(config.subagentPreferredModel || '').trim().slice(0, 160);
     if (sm !== config.subagentPreferredModel) { config.subagentPreferredModel = sm; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家总开关,严格布尔(=== true),防手改配置文件误开自主管家。
+  // 第 116 波 116a(27 号文 §11.3):管家总开关,严格布尔(=== true),防手改配置文件把垃圾值当成开(121 波 K0 只改默认值,不改这条归一)。
   {
     const b = config.stewardEnabledV1 === true;
     if (b !== config.stewardEnabledV1) { config.stewardEnabledV1 = b; changed = true; }
@@ -990,8 +990,8 @@ function normalizeConfig(raw) {
     const sm = String(config.stewardModel || '').trim().slice(0, 160);
     if (sm !== config.stewardModel) { config.stewardModel = sm; changed = true; }
   }
-  // 第 116 波 116-5a(27 号文 §11.8):线程自动摘要开关。与 stewardEnabledV1 相反,它默认【开】,
-  // 所以严格布尔的方向也相反:只有显式写 false 才算关(!== false),别的垃圾值一律归一成 true ——
+  // 第 116 波 116-5a(27 号文 §11.8):线程自动摘要开关。它一直默认【开】(121 波 K0 后总开关也默认开,
+  // 但两者的严格布尔方向仍相反):只有显式写 false 才算关(!== false),别的垃圾值一律归一成 true ——
   // 这样手改坏了配置文件不会静默丢掉一个默认开的能力。
   {
     const b = config.stewardThreadBriefV1 !== false;

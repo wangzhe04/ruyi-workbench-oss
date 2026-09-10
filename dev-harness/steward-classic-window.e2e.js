@@ -305,8 +305,11 @@ try {
   ok(Boolean(await waitForEval(cdp, READY)), 'A7 应用就绪（返回带骨架在 DOM 里）');
 
   const initial = await cdp.evaluate(VIEW);
-  ok(initial.bandHidden === true && initial.mode === 'classic',
-    'B0 一进来是经典壳，返回带不显示（没从管家壳来过）');
+  // 121 波 K0 重钉（34 号文 §8.4 拍板③）：本机没存过壳层偏好 + 管家开关开着 = 首开落【管家视角】，
+  // 不再是经典壳。判据本身没放宽：返回带仍然必须是收着的（它只在真的走过「2.0 视窗」那条路时才出），
+  // 而且这条现在顺带证明了新默认入口在真浏览器里生效（本件的 config 就是 stewardEnabledV1:true）。
+  ok(initial.bandHidden === true && initial.mode === 'steward',
+    `B0 首开落管家视角（121-K0 默认入口），返回带不显示（没走过 2.0 视窗；实测 mode='${initial.mode}'）`);
 
   // ── ① 进管家壳 → 打开抽屉 → 「2.0 视窗」 ──────────────────────────────────────
   await cdp.evaluate(`(() => {

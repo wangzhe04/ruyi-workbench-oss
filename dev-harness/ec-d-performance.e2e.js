@@ -253,6 +253,9 @@ const TOOL_VIEW_MEASURE = `(async () => {
     permissionMode: 'bypass',
     theme: 'dark',
     uiMode: 'simple',
+    // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true、首开默认落管家视角。本件量的是
+    // 【经典壳】的冷启动与视图切换预算（基线是按经典壳定的），显式关掉管家，别让口径悄悄换成另一个壳。
+    stewardEnabledV1: false,
   }), 'utf8');
 
   const server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {

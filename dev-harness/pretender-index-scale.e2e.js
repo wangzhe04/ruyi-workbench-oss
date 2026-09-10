@@ -99,7 +99,12 @@ function seedScaleDataset() {
 
 const WB_PORT = await getFreePort();
 fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false }), 'utf8');
+// 121 波 K0(34 号文 §8.4):stewardEnabledV1 默认翻成 true。本件是【投影索引】的规模档,而
+// seedScaleDataset() 刻意在 boot 之后才把 300 条 Mission 物化到盘上;管家开着时 13i 的收件箱 tick
+// 会赶在 seed 之前调 getPretenderProjectionIndex() —— 那条路【没有】warmPretenderProjectionIndex
+// 的空目录守卫,于是一份【空】投影被建出来并持久化,冷列表当场读到 0 条(实测 total=0、无 nextCursor)。
+// 显式关掉管家 = 本件继续量它一直在量的东西。那条空目录守卫的缺口已登记进 121-K0 的报告。
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false, stewardEnabledV1: false }), 'utf8');
 const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1' }, windowsHide: true });
 let stderr = ''; wb.stderr.on('data', d => stderr += String(d));
 

@@ -348,7 +348,18 @@ export function createStewardShellDomain({
     syncConversation();
     if (canEnterSteward()) {
       clearStatusText();   // 117k：进得去就没有「回到经典」这回事，那句话不该再留在屏幕上
-      if (storedMode() === 'steward' && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
+      // 121 波 K0（34 号文 §8.4 拍板③「默认入口改管家视角」）：判据从「存了 steward」放宽成
+      // 「没存过显式的非管家偏好」——与 index.html 预绘脚本同一条规则（没存过／未知值 = steward）。
+      // 【为什么落点在这里而不是预绘脚本】：预绘写下的属性会被 bindPreviewShell 末尾那句
+      // applyShellMode(storedShellMode()) 覆盖（preview-shell.js:3645，storedShellMode 走
+      // normalizeShellMode，空值 → classic），而那一拍 state.config 还没到、canEnterSteward()
+      // 恒 false，所以首开进哪个视角【只能】由 config 到达后的这一处决定。只改预绘是空转
+      // （实测：pretender-shell.e2e.js B1「fresh profile defaults to classic」照旧 PASS）。
+      // 判据写成「不是 classic 也不是 preview」而不是 storedMode() !== 'classic'：交办台偏好要留住
+      // （删 preview 是 K1 的事）。下面 fail-closed 那支【不动】——它仍只认显式存了 steward 的人，
+      // 于是管家关着的存量用户既不会被弹「已回到经典」的说明，也不会被写一条他没选过的本机偏好。
+      const prefersClassicOrPreview = storedMode() === 'classic' || storedMode() === 'preview';
+      if (!prefersClassicOrPreview && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
     }
     if (isStewardMode() || storedMode() === 'steward') return recoverStewardShell();

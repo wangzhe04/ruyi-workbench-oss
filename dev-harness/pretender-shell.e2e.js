@@ -199,6 +199,14 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   uiMode: 'simple',
   defaultWorkspace: ROOT,
   includeWorkbenchMcp: false,
+  // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 的默认值翻成 true，默认入口成了管家视角。本件测的是
+  // 【经典壳 ↔ 交办台】那条线（B1/B2 就钉在「首开落经典」上），与管家无关，所以这里显式把管家关掉 ——
+  // 关着时预绘写下的 steward 会被 bind 期的 applyShellMode(storedShellMode()) 覆盖成 classic、
+  // 且 fail-closed 分支不落盘不出提示，B1 的 stored===null 仍然成立。
+  // 另有一条实测事实（登记在 121-K0 报告里，不在本件修）：管家开着时 13i 的收件箱 tick 会在夹具
+  // seed 之前把一份【空】投影索引建出来并持久化，于是本件 C2–C5 拿到 0 行任务卡，而 sessions/ 里
+  // 三条会话完好无损 —— 那是 13e「boot 之后才物化会话」的空目录守卫只护住 boot 预热一次的后果。
+  stewardEnabledV1: false,
 }), 'utf8');
 
 let server = null;

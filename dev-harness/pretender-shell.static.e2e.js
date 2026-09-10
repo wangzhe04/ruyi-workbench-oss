@@ -32,11 +32,17 @@ const previewStart = html.indexOf('<section id="previewShell"');
 ok(appShellStart >= 0 && appShellEndMarker > appShellStart && previewStart > appShellEndMarker,
   'A1 Preview 是经典 app-shell 的同级后置容器，经典骨架未被包入新壳');
 // 117a 重钉（来源：本波把壳模式升为三态 classic/preview/steward）：预绘表达式由二值三目改为显式
-// 白名单，语义不变（严格归一化 + 未知回 classic），只把「认得的值」从一个扩到两个。
-ok(/\(stored === 'preview' \|\| stored === 'steward'\) \? stored : 'classic'/.test(html)
+// 白名单，严格归一化 —— 只认显式列举的值，其余一律落默认。
+// 121 波 K0 重钉（34 号文 §8.4 拍板③）：默认入口从 classic 翻成 steward。本条不再钉那句表达式的
+// 逐字写法（那是「钉文本长什么样」，32 号文 §4 纪律 5 点名的假红模具），改钉两件必须成立的事：
+//   ① 预绘仍显式认得 'preview' —— 交办台老用户刷新后还回得去交办台（删 preview 是 K1 的事，不是 K0 的）；
+//   ② 无偏好／未知值／localStorage 抛异常，一律落 steward（默认入口）。
+const prePaintModes = [...html.matchAll(/stored === '([a-z]+)'/g)].map(match => match[1]);
+const prePaintDefault = (html.match(/\?\s*stored\s*:\s*'([a-z]+)'/) || [])[1] || '';
+ok(prePaintModes.includes('preview') && prePaintDefault === 'steward'
   && /localStorage\.getItem\('wcw\.shellMode'\)/.test(html)
-  && /data-shell-mode', 'classic'/.test(html),
-  'A2 预绘偏好严格归一化且默认 classic');
+  && /catch \(e\) \{ document\.documentElement\.setAttribute\('data-shell-mode', 'steward'\); \}/.test(html),
+  `A2 预绘偏好严格归一化（显式白名单 ${JSON.stringify(prePaintModes)}，含 preview），默认入口 '${prePaintDefault}'`);
 ok(/:root\[data-shell-mode="preview"\] body > \.app-shell \{ display: none !important; \}/.test(css)
   && /body > \.preview-shell[\s\S]{0,180}display: grid/.test(css),
   'A3 CSS 仅在 preview 模式切同级容器');

@@ -174,6 +174,9 @@ fs.mkdirSync(home);
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9, permissionMode: 'bypass', theme: 'light', uiMode: 'simple',
   defaultWorkspace: home, activeProvider: 'fake', subagentMaxConcurrent: 2,
+  // 121 波 K0（34 号文 §8.4）：管家总开关默认翻成 true、首开默认落管家视角。本件测的是【交办台】的
+  // 班组镜头，从经典壳出发，与管家无关 —— 显式关掉（同 pretender-shell.e2e.js 那条注释的理由）。
+  stewardEnabledV1: false,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model' }],
 }), 'utf8');
 let provider = null, workbench = null, browser = null, cdp = null;

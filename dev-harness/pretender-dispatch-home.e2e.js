@@ -170,6 +170,9 @@ fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({
   configSchema: 9, version: '2.4.0', permissionMode: 'default', theme: 'dark', uiMode: 'simple',
   defaultWorkspace: ROOT, recentWorkspaces: [], includeWorkbenchMcp: false,
   activeProvider: 'fake', engineMode: 'interactive',
+  // 121 波 K0（34 号文 §8.4）：管家总开关默认翻成 true、首开默认落管家视角。本件测的是【交办台】的
+  // 派活首页（:356 那条判据等的就是回到经典壳），与管家无关 —— 显式关掉。
+  stewardEnabledV1: false,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
 }), 'utf8');
 

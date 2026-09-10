@@ -148,7 +148,9 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
 (async () => {
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.rmSync(HOME2, { recursive: true, force: true });
-  writeConfig(HOME, {});                                  // 主进程:开关【关】着启动(①)
+  // 121 波 K0(34 号文 §8.4):stewardEnabledV1 的默认值翻成 true,所以「开关关」这一路不能再靠缺省
+  // ——①三条断言(零 agent_resource / 两条路由 409 steward.disabled)钉的就是【显式关】那一档,必须写死。
+  writeConfig(HOME, { stewardEnabledV1: false });          // 主进程:开关【关】着启动(①)
   writeConfig(HOME2, { stewardEnabledV1: true, stewardMaxParallelThreads: 1, stewardGlobalMaxTurnsPerHour: 2000, stewardGlobalMaxCostPerDay: 0 });
   const cwds = {};
   for (const name of ['a', 'b', 'c', 'd', 'e', 'f', 'shared']) {

@@ -250,6 +250,12 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9, version: '2.4.0', permissionMode: 'bypass', theme: 'dark', uiMode: 'simple',
   defaultWorkspace: ROOT, includeWorkbenchMcp: false, activeProvider: 'fake', engineMode: 'interactive',
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
+  // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true。本件测的是【经典壳 ↔ 交办台任务台】
+  // 那条线（A4/B1 起点就是经典壳），与管家无关，故显式关掉管家 —— 同 pretender-shell.e2e.js 的理由：
+  // 关着时预绘的 steward 会被 bind 期 applyShellMode(storedShellMode()) 覆盖成 classic，
+  // 且本件下面那句「Seed after boot」是刻意的，而管家开着时 13i 的 tick 会赶在 seed 之前
+  // 把一份空投影索引持久化，任务台首刷会拿到 0 行（实测 B5/B12/B13 红，会话文件完好）。
+  stewardEnabledV1: false,
 }), 'utf8');
 
 let provider = null, server = null, browser = null, cdp = null;

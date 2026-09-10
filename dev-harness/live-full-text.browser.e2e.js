@@ -310,6 +310,12 @@ try {
   await cdp.send('Runtime.enable');
   await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
+      // 121 波 K0(34 号文 §8.4):默认入口翻成管家视角,而本件 B/S/C/D 四节测的全是【经典壳】的正文、
+      // 阅读位置与节拍(C2 还要「从经典切去管家」才有意义)。壳层偏好在【预绘之前】就写死成 classic ——
+      // 这段脚本比 index.html 的预绘脚本更早跑,于是管家壳一次都不进,也就不会在本件那 45 秒的活回合
+      // 窗口里插一次到访回合去跟真回合抢同一个 fake provider(实测那样会让 D 组偶发红)。
+      // 不自己写 data-shell-mode(唯一写入点是 applyShellMode,steward-shell.static A4 钉着),只写偏好。
+      try { localStorage.setItem('wcw.shellMode', 'classic'); } catch (e) { /* storage unavailable */ }
       const live = new Map();
       const nativeSet = window.setInterval;
       const nativeClear = window.clearInterval;
@@ -326,6 +332,10 @@ try {
   ok(Boolean(await waitForEval(cdp, READY)), 'A6 经典壳载入,侧栏里有这条线程');
   ok(Boolean(await waitForEval(cdp, 'Array.isArray(window.__ruyiLiveIntervals && window.__ruyiLiveIntervals()) ? 1 : null')),
     'A7 计时器探针已装上');
+  // 121 波 K0:上面那段预绘前注入把本机偏好写成 classic,这里只做验收 —— 它必须真的生效,
+  // 否则 B/S/C/D 四节量的就不是经典壳了(A7b 红 = 那段注入被谁挪走/写错了键)。
+  ok(Boolean(await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'classic' ? 1 : null`)),
+    'A7b 本机壳层偏好已在预绘前钉成经典(121-K0 起首开默认是管家视角,本件的经典壳判据要自己把偏好定下来)');
 
   /* ═════════ 起一个【浏览器从没挂过流】的回合 ═════════ */
   // 这才是管家派活的形状:发起方是另一个进程,浏览器这一侧一个字节都没收到过。

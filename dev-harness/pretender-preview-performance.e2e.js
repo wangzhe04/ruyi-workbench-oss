@@ -242,6 +242,10 @@ const VIEW_SWITCH_MEASURE = `(async () => {
     uiMode: 'simple',
     defaultWorkspace: ROOT,
     includeWorkbenchMcp: false,
+    // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true、首开默认落管家视角。本件 B1 的出发点
+    // 就是「经典壳完整水合之后再从设置里开交办台」，与管家无关，故显式把管家关掉（同
+    // pretender-shell.e2e.js / pretender-task-sheet.e2e.js 的理由）。
+    stewardEnabledV1: false,
   }), 'utf8');
   seedScaleDataset(home);
 

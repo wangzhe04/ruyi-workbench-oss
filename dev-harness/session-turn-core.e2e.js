@@ -74,6 +74,10 @@ function writeConfig(home, fakePort) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
     stewardThreadBriefV1: false,
+    // 121 波 K0(34 号文 §8.4):stewardEnabledV1 默认翻成 true。同上一条的理由 —— 本件隔离的是
+    // 【一条回合的旁车文件集合与台账形状】,管家开着会往同一个 HOME 里另写 steward/ 那一族面,
+    // ④「两条路径会话旁车文件集合相同」当场红。管家自己的覆盖在 steward-* 那十几件里。
+    stewardEnabledV1: false,
     configSchema: 7, version: '1.4.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
     activeProvider: 'fake',

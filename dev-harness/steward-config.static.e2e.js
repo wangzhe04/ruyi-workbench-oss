@@ -30,7 +30,9 @@ const ok = (condition, label) => { if (condition) console.log('PASS ' + label); 
 
 const configSrc = fs.readFileSync(path.join(SRC, '01-config.js'), 'utf8');
 
-ok(/stewardEnabledV1:\s*false,/.test(configSrc), '默认值: stewardEnabledV1=false');
+// 121 波 K0 重钉(34 号文 §8.4 拍板③):默认关 → 默认开,管家视角成为默认入口。
+// 归一口径【不动】(=== true,见下面 ④ 的 'yes' -> false),这里钉的只是默认表那一个值。
+ok(/stewardEnabledV1:\s*true,/.test(configSrc), '默认值: stewardEnabledV1=true(121 波 K0 从 false 翻转)');
 ok(/stewardProviderId:\s*'',/.test(configSrc), "默认值: stewardProviderId=''");
 ok(/stewardModel:\s*'',/.test(configSrc), "默认值: stewardModel=''(在 stewardProviderId 之后,与 subagent 写法对齐)");
 ok(/stewardPollMs:\s*15000,/.test(configSrc), '默认值: stewardPollMs=15000');
@@ -158,9 +160,10 @@ ok(c1.stewardConversationRetention === 'visit', "非法枚举 'never' 回默认 
 ok(c1.stewardMaxParallelThreads === 32, 'stewardMaxParallelThreads 越界高 clamp 到 32');
 ok(c1.stewardGlobalMaxTurnsPerHour === 1, 'stewardGlobalMaxTurnsPerHour=0 clamp 到下限 1');
 ok(c1.stewardGlobalMaxCostPerDay === 20, "非法 stewardGlobalMaxCostPerDay='lots' 回默认 20");
-// 116h:仲裁只在开关开时生效 —— 默认配置里开关仍是关的,所以这三个键对存量用户是纯形状扩张。
-ok(srv.defaultConfig().stewardEnabledV1 === false && srv.defaultConfig().stewardMaxParallelThreads === 5,
-  '116h:默认配置仍是「管家关 + 并发上限 5」(关时仲裁根本不参与回合)');
+// 116h:仲裁只在开关开时生效。121 波 K0 把总开关默认翻成开 —— 于是【新装】默认就带仲裁,
+// 存量用户(config.json 里已显式落 false)不变。并发上限仍是 5,这一条没跟着动。
+ok(srv.defaultConfig().stewardEnabledV1 === true && srv.defaultConfig().stewardMaxParallelThreads === 5,
+  '121-K0:默认配置是「管家开 + 并发上限 5」(仲裁随默认开一起生效)');
 
 const second = srv.normalizeConfig(c1);
 ok(second.changed === false, '同一个已归一 config 再跑一次 normalizeConfig -> changed===false(幂等)');

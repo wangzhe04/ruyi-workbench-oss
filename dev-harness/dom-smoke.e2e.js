@@ -77,7 +77,10 @@ function dumpDom(browser, url, profileDir) {
 }
 
 fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass' }));
+// 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true、首开默认落管家视角。本件是【经典壳】的
+// 冒烟（#modelChip 已渲染、#promptInput 有 placeholder、无故障卡），管家开着虽然也能过（那些节点在
+// DOM 里只是被藏起来），但那就成了「名字说经典、实际拍的是管家」的假绿。显式关掉管家。
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', stewardEnabledV1: false }));
 const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
 wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
 const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);

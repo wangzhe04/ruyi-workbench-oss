@@ -66,15 +66,16 @@
         }
       })();
       // 第76波：新任务台 Preview 默认关闭；只恢复本机壳层偏好，不触碰 Session/Mission 事实。
-      // 第117波 117a：壳模式升为三态（classic / preview / steward），预绘只认显式白名单，
-      // 未知值一律回 classic —— 与 preview-shell.js 的 normalizeShellMode 同构。管家壳的准入
-      // （开关 stewardEnabledV1 + 骨架齐备）在 config 到达后再判，判不过由 recoverStewardShell 回经典。
+      // 第117波 117a：壳模式升为三态（classic / preview / steward），预绘只认显式白名单。
+      // 第121波 K0（34 号文 §8.4）：默认入口改管家视角 —— 没存过偏好、或存了未知值，一律落
+      // steward；显式存 classic / preview / steward 的各落各的。管家壳的准入（开关
+      // stewardEnabledV1 + 骨架齐备）仍在 config 到达后再判，判不过由 recoverStewardShell 回经典。
       (function () {
         try {
           var stored = localStorage.getItem('wcw.shellMode');
-          var shellMode = (stored === 'preview' || stored === 'steward') ? stored : 'classic';
+          var shellMode = (stored === 'classic' || stored === 'preview') ? stored : 'steward';
           document.documentElement.setAttribute('data-shell-mode', shellMode);
-        } catch (e) { document.documentElement.setAttribute('data-shell-mode', 'classic'); }
+        } catch (e) { document.documentElement.setAttribute('data-shell-mode', 'steward'); }
       })();
     </script>
   </head>
