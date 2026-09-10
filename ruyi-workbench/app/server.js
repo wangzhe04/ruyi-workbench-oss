@@ -42903,7 +42903,7 @@ function stewardNormalizeMissionChange(record) {
         ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
         : kind === 'failed'
           ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
-          : `事项结果章:${payload.resultStatus || ''}`);
+          : `任务结果章:${payload.resultStatus || ''}`);
   return {
     kind,
     sessionId: String(r.sessionId || ''),
@@ -44781,7 +44781,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   let mayAct = 'auto';
   if (stewardUnattendedByModel(ctx)) {
     if (!stewardRelayAutoAllowed(config)) {
-      return stewardFail('propose_required', '「事项内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
+      return stewardFail('propose_required', '「任务内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
         reason: 'self_serve_off', sessionId, permissionMode,
       });
     }
@@ -45427,7 +45427,7 @@ async function stewardImplRunAction(args, ctx, config) {
   const permissionMode = stewardThreadPermissionMode(head, config);
   const mayAct = STEWARD_RUN_TIGHTENING.includes(action) ? 'auto' : stewardMayAct(permissionMode, STEWARD_RUN_ACTION_KIND[action], 'exec');
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「全自动」)——把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「智能自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
   }
@@ -47408,7 +47408,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
     // 递话(接力)默认关:只提议。
-    return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「事项内自动交接」没有勾选,只能提议' };
+    return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「任务内自动交接」没有勾选,只能提议' };
   }
   if (tool === 'steward_thread_new') {
     // 自己新开线程只在接力/定时触发时发生(§11.1 第 6 项);本切片没有定时触发源,故与 relay 同门。

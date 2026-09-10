@@ -686,7 +686,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   let mayAct = 'auto';
   if (stewardUnattendedByModel(ctx)) {
     if (!stewardRelayAutoAllowed(config)) {
-      return stewardFail('propose_required', '「事项内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
+      return stewardFail('propose_required', '「任务内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
         reason: 'self_serve_off', sessionId, permissionMode,
       });
     }

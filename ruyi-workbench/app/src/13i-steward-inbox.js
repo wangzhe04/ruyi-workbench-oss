@@ -252,7 +252,7 @@ function stewardNormalizeMissionChange(record) {
         ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
         : kind === 'failed'
           ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
-          : `事项结果章:${payload.resultStatus || ''}`);
+          : `任务结果章:${payload.resultStatus || ''}`);
   return {
     kind,
     sessionId: String(r.sessionId || ''),

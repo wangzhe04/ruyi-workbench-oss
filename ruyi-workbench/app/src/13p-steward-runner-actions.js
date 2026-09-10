@@ -49,7 +49,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
     // 递话(接力)默认关:只提议。
-    return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「事项内自动交接」没有勾选,只能提议' };
+    return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「任务内自动交接」没有勾选,只能提议' };
   }
   if (tool === 'steward_thread_new') {
     // 自己新开线程只在接力/定时触发时发生(§11.1 第 6 项);本切片没有定时触发源,故与 relay 同门。

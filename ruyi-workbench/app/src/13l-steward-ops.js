@@ -270,7 +270,7 @@ async function stewardImplRunAction(args, ctx, config) {
   const permissionMode = stewardThreadPermissionMode(head, config);
   const mayAct = STEWARD_RUN_TIGHTENING.includes(action) ? 'auto' : stewardMayAct(permissionMode, STEWARD_RUN_ACTION_KIND[action], 'exec');
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「全自动」)——把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「智能自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
   }
