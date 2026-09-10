@@ -18973,11 +18973,14 @@ const STEWARD_STATE_LABELS = Object.freeze({
   // 「管家把我的普通对话说成速查线程」的根因。
   quick_ask: '速查中',
 });
+// auto 的措辞必须与 locale 的 permission.mode.auto.short 同词(「智能自动」):修前 auto 与 bypass 都印
+// 「全自动」,界面上分不出自己在哪一档(locale 早已把 auto 改成「智能自动」,只有这里还留着旧词)。
+// bypass 仍叫「全自动」—— 它的 locale 键 permission.mode.bypass.short 就是这四个字,别顺手一起改。
 const STEWARD_PERMISSION_LABELS = Object.freeze({
   default: '每步都问',
   acceptEdits: '改文件不问',
   plan: '只做计划',
-  auto: '全自动',
+  auto: '智能自动',
   bypass: '全自动',
   bypassPermissions: '全自动',
 });

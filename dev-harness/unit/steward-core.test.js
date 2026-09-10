@@ -132,7 +132,15 @@ ok(STEWARD_DIGEST_LIMITS.lastSayChars === 200 && STEWARD_DIGEST_LIMITS.lineChars
 }
 {
   const line = buildStewardDigestLine({ id: 't10', state: 'running', permissionMode: 'auto' });
-  ok(line.includes('进行中') && line.includes('全自动'), '五态/权限人话:running -> 进行中,auto -> 全自动');
+  ok(line.includes('进行中') && line.includes('智能自动'), '五态/权限人话:running -> 进行中,auto -> 智能自动(与 locale permission.mode.auto.short 同词)');
+}
+{
+  // 反向保护:auto 与 bypass 不能是同一个词。修前两档都印「全自动」,界面上分不出自己在哪一档;
+  // bypass 的措辞【保持】「全自动」(它的 locale 键 permission.mode.bypass.short 就是这四个字)。
+  const autoLine = buildStewardDigestLine({ id: 't10', permissionMode: 'auto' });
+  const bypassLine = buildStewardDigestLine({ id: 't10', permissionMode: 'bypass' });
+  ok(bypassLine.includes('全自动') && !autoLine.includes('全自动') && autoLine !== bypassLine,
+    'auto 与 bypass 跨档不同词(auto -> 智能自动 / bypass -> 全自动)');
 }
 {
   const line = buildStewardDigestLine({ id: 't11', state: 'weird_unmapped_state', permissionMode: 'weird_unmapped_mode' });
