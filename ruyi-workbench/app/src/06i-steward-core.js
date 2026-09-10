@@ -1060,9 +1060,17 @@ function prerouteText(q, index, memory, opts) {
 // `ctx.userPressed === true` 的唯一来源是 13h 的 `POST /api/steward/act` 执行路径 —— 用户在界面上
 // 【亲手按下】了那个按钮,13h 在构造 ctx 时置 true。模型回合里的工具调用 ctx 【永远】没有它,
 // 13g 的 stewardToolHandler 在进实现前把 args 里任何同名字段剥掉(模型自称「用户按了」不算数)。
-// 读它的地方只有两处:steward_config_set 与 steward_skill_toggle 的「须确认」判定。
-// `stewardMayAct`、永久豁免清单、线程权限判定一概【不读】它 ——
+// 读它的地方只有三处(117z-E2 之前是两处):
+//   ① steward_config_set 的「须确认」判定(13l);
+//   ② steward_skill_toggle 的「须确认」判定(13l);
+//   ③ 117z-E2(§11.21.3):steward_thread_permission 的 `capabilities.desktop === true` ——
+//      给一条线程【开】桌面权限是这个工具上唯一的放宽方向,它恒 propose_required(含 auto 档),
+//      只有用户亲手按下那枚按钮的那一次能穿过去。收紧方向(desktop:false)与档位轴的收紧一样
+//      不读它。这一处【不是】把按钮变成扩权能力的口子:它开的是【会话级】覆盖,全局
+//      allowDesktopTools 仍在下面的 forbidden 清册里,管家一个字都改不了。
+// `stewardMayAct`、永久豁免清单、线程【档位】判定一概【不读】它 ——
 // 用户按下一个按钮 ≠ 管家从此获得放宽权限的能力(§3.3 永久豁免第 2 条)。
+// 【只降不升的机械规则在新那条轴上原样成立】:能自动的只有降,升永远要人按。
 //   回合运行器(116f,由 13h-steward-runner.js 填充;消费者是 06/09/10 的提示词与预算分叉、13g 的
 //   轮询器出口与 state 路由 —— 它们全都只看 StewardHooks,不认识 13h,故 13h 无任何入边):
 //           buildSystemPrompt(session,config,ctx) -> {stable, volatile}(管家会话整段换掉普通提示词包)

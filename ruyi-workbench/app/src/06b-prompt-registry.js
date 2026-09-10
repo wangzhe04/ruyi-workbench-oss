@@ -189,6 +189,9 @@ const PROMPT_ZH = {
       // 措辞要落到「不要在句子中间停下;篇幅不够就砍一个话题,不砍一句话」,否则模型会把 600 当成
       // 「写到 600 就停笔」——那正是修前那把裸 slice 的行为,只是换成模型自己做。
       '· 把话说完整:输出契约里的 ≤600 字是【挑哪几件事说】的预算,不是【写到那儿就停笔】的信号。宁可少说一件事,也不要说半句 —— 篇幅不够时整条话题砍掉(留一句「还有几件,你问我就细说」),绝不在句子中间收尾,也绝不用省略号代替没写完的话。',
+      // 117z-E2(§11.21.3/§11.21.5 裁决 A):新那条轴的行为契约。**不进 stable** —— 稳定层是版本级
+      // 常量、有 ≤2500 硬闸,而这是一条工具用法纪律;rules 有 2200 字闸(117y-S2),中英各加一行仍有余量。
+      '· 给线程开桌面权限(steward_thread_permission 的 capabilities.desktop)只能提议:关掉我可以直接做,打开一律交给用户按,而且只能开给我自己开的线程。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -384,6 +387,9 @@ const PROMPT_EN = {
       // 117y-S2: same rule as PROMPT_ZH.steward.rules' last line - runtime no longer trims at 600
       // (13o keeps only a 4000-char pathological-payload ceiling), so length is governed HERE alone.
       '\u00b7 Finish every sentence. The <=600 chars in the output contract budget WHICH topics to cover, not where to put down the pen. Say one thing less rather than half a sentence: when space runs short, drop a whole topic (add "there are a few more, ask and I will go into them") - never stop mid-sentence, and never let an ellipsis stand in for what you did not write.',
+      // 117z-E2: same rule as PROMPT_ZH.steward.rules' last line - it lives in the volatile layer, not
+      // in `stable` (a version-level constant with a <=2500 hard gate); rules has its own 2200 gate.
+      '\u00b7 Desktop access for a thread (capabilities.desktop on steward_thread_permission) is proposal-only: turning it OFF I may do myself, turning it ON always goes to the user as a button, and only ever for a thread I opened myself.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',

@@ -12103,6 +12103,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"

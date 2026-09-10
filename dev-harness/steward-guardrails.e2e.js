@@ -799,7 +799,9 @@ try {
     await sleep(200);
     ok(headOf(stewardSid) && headOf(stewardSid).createdBy === 'steward',
       `O2 thread_new 建的线程会话头 createdBy === 'steward'(got ${JSON.stringify(headOf(stewardSid) && headOf(stewardSid).createdBy)})`);
-    const quick = await call('steward_quick_ask', { question: '这条是速查线程' }, user);
+    // cwd 必须显式给 HOME:省略 cwd 会让 117w-W1 的派生逻辑在【真机】的 ~/Ruyi 下建一个工作文件夹
+    // (stewardWorkspaceRoot 的缺省根读的是 os.homedir(),不跟 RUYI_HOME 走),夹具就漏到真机上了。
+    const quick = await call('steward_quick_ask', { question: '这条是速查线程', cwd: HOME }, user);
     const quickSid = quick && quick.sessionId;
     ok(quick && quick.ok === true && !!quickSid, `O3 前置:steward_quick_ask 建出一条速查线程(got ${quick && (quick.error || quickSid)})`);
     await sleep(200);
@@ -844,6 +846,98 @@ try {
     ok(deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: clearedHead.desktopTools == null ? null : clearedHead.desktopTools })).length === 0,
       'O14 反向:清除后该线程也拿不到桌面工具了');
     writeConfig({});
+  }
+
+  /* ═════════ (P) 117z-E2 提交②:steward_thread_permission 的 capabilities.desktop(§11.21.6 锁 1/2/4/7) ═════════ */
+  // 这条轴上的纪律:**能自动的只有降,升永远要人按**。
+  //   锁 1:desktop:true 在【任何】档位(含 auto)都 -> propose_required;desktop:false 照既有口径直接做。
+  //   锁 2:对 createdBy !== 'steward' 的线程 desktop:true -> invalid_target(即使用户按了按钮也一样,
+  //        目标闸在按钮闸【之前】);desktop:false 照常。
+  //   锁 4:steward_config_set 改全局 allowDesktopTools -> 仍 steward.forbidden、零写入。
+  //   锁 7:档位轴的只降不升一条没松(既有断言在 session-permission-mode.e2e ⑦;这里再补一条同时
+  //        给两条轴的交叉用例 —— 档位放宽仍然当场 widen_forbidden,且【零写入】)。
+  console.log('── (P) 117z-E2 capabilities.desktop ──');
+  {
+    const SID_SDESK = 'sess_guard_stewardmade';
+    craftThread(SID_SDESK, { permissionMode: 'auto', createdBy: 'steward' });   // 管家开的 + 全自动档
+    const headOf = id => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, id + '.json'), 'utf8')); } catch { return null; } };
+    const perm = (a, ctx) => call('steward_thread_permission', a, ctx);
+    const user = stewardCtx({ trigger: 'user' });
+    const inbox = stewardCtx({ trigger: 'inbox' });
+    const pressed = stewardCtx({ trigger: 'user', userPressed: true });
+
+    /* ── 锁 1:放宽恒提议,auto 档也不例外 ── */
+    const p1 = await perm({ sessionId: SID_SDESK, capabilities: { desktop: true } }, user);
+    ok(p1 && p1.ok === false && p1.error === 'propose_required' && p1.reason === 'confirm_required',
+      `P1 锁 1:desktop:true 在【全自动】档也只提议(got ${p1 && (p1.reason || p1.error || 'ok')})`);
+    ok(p1 && p1.permissionMode === 'auto',
+      `P1b 信封如实带出目标线程当时的生效档 auto —— 证明「提议」不是因为档位不够(got ${p1 && p1.permissionMode})`);
+    const p1c = await perm({ sessionId: SID_SDESK, capabilities: { desktop: true } }, inbox);
+    ok(p1c && p1c.error === 'propose_required', `P1c 收件箱触发同样只提议(got ${p1c && p1c.error})`);
+    ok(headOf(SID_SDESK) && headOf(SID_SDESK).desktopTools === undefined, 'P1d 被挡下的放宽零写入(会话头上没有这个键)');
+    // 对抗:模型在 args 里自称「用户按了」不算数(13g 的门控壳剥同名字段)。
+    const p1e = await perm({ sessionId: SID_SDESK, capabilities: { desktop: true }, userPressed: true }, user);
+    ok(p1e && p1e.error === 'propose_required',
+      `P1e 对抗:args 里自称 userPressed 无效,仍然只提议(got ${p1e && p1e.error})`);
+
+    /* ── 用户亲手按下那一次:真写入 ── */
+    const beforeRows = readDecisions().length;
+    const p2 = await perm({ sessionId: SID_SDESK, capabilities: { desktop: true } }, pressed);
+    ok(p2 && p2.ok === true && p2.desktopTools === true && p2.previousDesktopTools === null,
+      `P2 ctx.userPressed === true 时真写入(got ${p2 && (p2.error || JSON.stringify({ d: p2.desktopTools, p: p2.previousDesktopTools }))})`);
+    ok(headOf(SID_SDESK) && headOf(SID_SDESK).desktopTools === true,
+      `P2b 落盘到会话头(got ${JSON.stringify(headOf(SID_SDESK) && headOf(SID_SDESK).desktopTools)})`);
+    ok(p2 && p2.undoRef && p2.undoRef.kind === 'desktop' && p2.undoRef.previous === null,
+      `P2c undoRef 走既有形状、kind:'desktop'、带旧值(got ${JSON.stringify(p2 && p2.undoRef)})`);
+    await sleep(300);
+    const drow = [...readDecisions()].reverse().find(r => r.tool === 'steward_thread_permission' && r.args && r.args.capabilities) || null;
+    ok(readDecisions().length > beforeRows && drow && drow.args.capabilities.desktop === true && drow.args.previousDesktop === null,
+      `P2d 决策日志记 capabilities 与 previous(got ${drow && JSON.stringify(drow.args)})`);
+    ok(drow && drow.mayAct === 'user',
+      `P2e 决策日志如实记「这一次是用户按的」(mayAct='user';got ${drow && drow.mayAct})`);
+
+    /* ── 锁 1 的另一半:收紧可自动 ── */
+    const p3 = await perm({ sessionId: SID_SDESK, capabilities: { desktop: false } }, inbox);
+    ok(p3 && p3.ok === true && p3.desktopTools === false && p3.previousDesktopTools === true,
+      `P3 锁 1:desktop:false(收紧)不需要用户按,直接做(got ${p3 && (p3.error || JSON.stringify({ d: p3.desktopTools, p: p3.previousDesktopTools }))})`);
+    ok(headOf(SID_SDESK) && headOf(SID_SDESK).desktopTools === false, 'P3b 收紧也落盘');
+
+    /* ── 锁 2:目标必须是管家自己开的线程 ── */
+    ok(headOf(SID_DEFAULT) && headOf(SID_DEFAULT).createdBy === undefined, 'P4 前置:SID_DEFAULT 不是管家开的');
+    const p4 = await perm({ sessionId: SID_DEFAULT, capabilities: { desktop: true } }, pressed);
+    ok(p4 && p4.ok === false && p4.error === 'invalid_target' && p4.reason === 'not_steward_created',
+      `P4b 锁 2:对非管家开的线程放宽 -> invalid_target(【连用户按了按钮也不行】,目标闸在按钮闸之前;got ${p4 && (p4.reason || p4.error || 'ok')})`);
+    ok(headOf(SID_DEFAULT) && headOf(SID_DEFAULT).desktopTools === undefined, 'P4c 零写入');
+    const p5 = await perm({ sessionId: SID_DEFAULT, capabilities: { desktop: false } }, inbox);
+    ok(p5 && p5.ok === true && p5.desktopTools === false,
+      `P4d 锁 2 的另一半:desktop:false 对同一条线程照常(收紧总是允许的;got ${p5 && (p5.error || 'ok')})`);
+
+    /* ── 锁 7:档位轴一个字没松 ── */
+    const p6 = await perm({ sessionId: SID_DEFAULT, permissionMode: 'auto' }, pressed);
+    ok(p6 && p6.ok === false && p6.error === 'steward.widen_forbidden',
+      `P5 锁 7:档位放宽仍然当场拒(用户按了按钮也不给 —— 那把闸从来不读 userPressed;got ${p6 && p6.error})`);
+    const p7 = await perm({ sessionId: SID_DEFAULT, permissionMode: 'auto', capabilities: { desktop: false } }, pressed);
+    ok(p7 && p7.ok === false && p7.error === 'steward.widen_forbidden',
+      `P5b 交叉用例:同一次调用里档位放宽 + 能力收紧 -> 整份拒(档位闸在写之前;got ${p7 && p7.error})`);
+    ok(headOf(SID_DEFAULT) && headOf(SID_DEFAULT).permissionMode === 'default',
+      `P5c 被拒的那次零写入,档位还是 default(got ${headOf(SID_DEFAULT) && headOf(SID_DEFAULT).permissionMode})`);
+    // 既有调用形状零回归:只给 permissionMode 的收紧,信封与 undoRef 逐字同修前。
+    const p8 = await perm({ sessionId: SID_SDESK, permissionMode: 'acceptEdits' }, user);
+    ok(p8 && p8.ok === true && p8.permissionMode === 'acceptEdits' && p8.undoRef && p8.undoRef.kind === 'permission'
+      && !Object.prototype.hasOwnProperty.call(p8, 'desktopTools'),
+      `P6 零回归:只给 permissionMode 时 undoRef.kind 仍是 'permission'、信封里不多出 desktopTools 键(got ${JSON.stringify(p8 && p8.undoRef)})`);
+    const p9 = await perm({ sessionId: SID_SDESK }, user);
+    ok(p9 && p9.ok === false && p9.error === 'invalid_request',
+      `P6b 两条轴一条都不给 -> invalid_request(那是一次没有内容的写;got ${p9 && p9.error})`);
+
+    /* ── 锁 4:全局闸仍然 forbidden ── */
+    const cfgBefore = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+    const p10 = await call('steward_config_set', { patch: { allowDesktopTools: true } }, pressed);
+    ok(p10 && p10.ok === false && p10.error === 'steward.forbidden',
+      `P7 锁 4:steward_config_set 改 allowDesktopTools 仍是 steward.forbidden(用户按了按钮也一样;got ${p10 && p10.error})`);
+    const cfgAfter = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+    ok(JSON.stringify(cfgBefore) === JSON.stringify(cfgAfter),
+      'P7b 零写入:config.json 逐字节不变(整份拒绝,不是「能写的写」)');
   }
 } finally {
   try { providerServer.close(); } catch { /* ignore */ }

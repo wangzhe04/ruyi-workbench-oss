@@ -18341,6 +18341,9 @@ const PROMPT_ZH = {
       // 措辞要落到「不要在句子中间停下;篇幅不够就砍一个话题,不砍一句话」,否则模型会把 600 当成
       // 「写到 600 就停笔」——那正是修前那把裸 slice 的行为,只是换成模型自己做。
       '· 把话说完整:输出契约里的 ≤600 字是【挑哪几件事说】的预算,不是【写到那儿就停笔】的信号。宁可少说一件事,也不要说半句 —— 篇幅不够时整条话题砍掉(留一句「还有几件,你问我就细说」),绝不在句子中间收尾,也绝不用省略号代替没写完的话。',
+      // 117z-E2(§11.21.3/§11.21.5 裁决 A):新那条轴的行为契约。**不进 stable** —— 稳定层是版本级
+      // 常量、有 ≤2500 硬闸,而这是一条工具用法纪律;rules 有 2200 字闸(117y-S2),中英各加一行仍有余量。
+      '· 给线程开桌面权限(steward_thread_permission 的 capabilities.desktop)只能提议:关掉我可以直接做,打开一律交给用户按,而且只能开给我自己开的线程。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -18536,6 +18539,9 @@ const PROMPT_EN = {
       // 117y-S2: same rule as PROMPT_ZH.steward.rules' last line - runtime no longer trims at 600
       // (13o keeps only a 4000-char pathological-payload ceiling), so length is governed HERE alone.
       '\u00b7 Finish every sentence. The <=600 chars in the output contract budget WHICH topics to cover, not where to put down the pen. Say one thing less rather than half a sentence: when space runs short, drop a whole topic (add "there are a few more, ask and I will go into them") - never stop mid-sentence, and never let an ellipsis stand in for what you did not write.',
+      // 117z-E2: same rule as PROMPT_ZH.steward.rules' last line - it lives in the volatile layer, not
+      // in `stable` (a version-level constant with a <=2500 hard gate); rules has its own 2200 gate.
+      '\u00b7 Desktop access for a thread (capabilities.desktop on steward_thread_permission) is proposal-only: turning it OFF I may do myself, turning it ON always goes to the user as a button, and only ever for a thread I opened myself.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
@@ -19963,9 +19969,17 @@ function prerouteText(q, index, memory, opts) {
 // `ctx.userPressed === true` 的唯一来源是 13h 的 `POST /api/steward/act` 执行路径 —— 用户在界面上
 // 【亲手按下】了那个按钮,13h 在构造 ctx 时置 true。模型回合里的工具调用 ctx 【永远】没有它,
 // 13g 的 stewardToolHandler 在进实现前把 args 里任何同名字段剥掉(模型自称「用户按了」不算数)。
-// 读它的地方只有两处:steward_config_set 与 steward_skill_toggle 的「须确认」判定。
-// `stewardMayAct`、永久豁免清单、线程权限判定一概【不读】它 ——
+// 读它的地方只有三处(117z-E2 之前是两处):
+//   ① steward_config_set 的「须确认」判定(13l);
+//   ② steward_skill_toggle 的「须确认」判定(13l);
+//   ③ 117z-E2(§11.21.3):steward_thread_permission 的 `capabilities.desktop === true` ——
+//      给一条线程【开】桌面权限是这个工具上唯一的放宽方向,它恒 propose_required(含 auto 档),
+//      只有用户亲手按下那枚按钮的那一次能穿过去。收紧方向(desktop:false)与档位轴的收紧一样
+//      不读它。这一处【不是】把按钮变成扩权能力的口子:它开的是【会话级】覆盖,全局
+//      allowDesktopTools 仍在下面的 forbidden 清册里,管家一个字都改不了。
+// `stewardMayAct`、永久豁免清单、线程【档位】判定一概【不读】它 ——
 // 用户按下一个按钮 ≠ 管家从此获得放宽权限的能力(§3.3 永久豁免第 2 条)。
+// 【只降不升的机械规则在新那条轴上原样成立】:能自动的只有降,升永远要人按。
 //   回合运行器(116f,由 13h-steward-runner.js 填充;消费者是 06/09/10 的提示词与预算分叉、13g 的
 //   轮询器出口与 state 路由 —— 它们全都只看 StewardHooks,不认识 13h,故 13h 无任何入边):
 //           buildSystemPrompt(session,config,ctx) -> {stable, volatile}(管家会话整段换掉普通提示词包)
@@ -36985,12 +36999,19 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_permission',
-    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto)。**只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;也不要拿它当撤销键 —— 撤销用返回的 undoRef。返回 {ok,sessionId,permissionMode,previousEffective,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
+    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto),以及按任务给线程开关桌面权限(capabilities.desktop)。两个参数都可选,但至少给一个。**权限档只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。**桌面权限:关(desktop:false)我可以直接做;开(desktop:true)我永远只能提议** —— 任何权限档(含全自动)都返回 {ok:false,error:"propose_required",reason:"confirm_required"},界面会把它变成一个按钮,用户亲手按下才生效;而且只能开给【我自己开的线程】(steward_thread_new / steward_quick_ask 建的),对用户自己的会话返回 {ok:false,error:"invalid_target",reason:"not_steward_created"} —— 那是用户的会话,桌面权限请他在设置里改。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明;或者我开的线程确实要看屏幕/敲键盘才做得完,把开桌面这件事提给用户按。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;不要拿它当撤销键(撤销用返回的 undoRef);propose_required 与 invalid_target 都【不要重试】,把话说给用户听。返回 {ok,sessionId,permissionMode,previousEffective,desktopTools,previousDesktopTools,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['sessionId', 'permissionMode'],
+      type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
         sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
-        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
+        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档(可选)。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
+        capabilities: {
+          type: 'object', additionalProperties: false,
+          description: '按任务给这条线程开关的能力(可选)。只影响这一条线程,不改全局设置。',
+          properties: {
+            desktop: { type: 'boolean', description: '桌面工具(截图、敲键盘)。false = 关掉,我可以直接做;true = 打开,我永远只能提议、且只能提给我自己开的线程。' },
+          },
+        },
       },
     },
   },
@@ -44552,8 +44573,9 @@ function stewardLaunchTurn(input, tool) {
 //   · 模型在结构化回复里声明的 actions —— 透传本回合的 'user' | 'inbox';
 //   · 确定性自理(七道闸那条路)—— 恒 'inbox',并另带 ctx.selfServe = true;
 //   · 用户在界面上亲手按下按钮的 act 执行路径 —— 恒 'user'。
-// 这里用的是 trigger 而【不是】 userPressed:后者的读者按 06i 契约与静态锁只有 config_set /
-// skill_toggle 两处(「按钮 ≠ 扩权」),线程族的在不在场判定不该去挤那个字段。
+// 这里用的是 trigger 而【不是】 userPressed:后者的读者按 06i 契约与静态锁只有三处(config_set /
+// skill_toggle 的「须确认」判定,加 117z-E2 给 thread_permission 的桌面【放宽】那一处),
+// 「按钮 ≠ 扩权」—— 线程族的在不在场判定不该去挤那个字段。
 // 其余调用面(工具循环里模型直接调、进程内直调)没有 trigger —— 保持既有直递语义。
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
@@ -44784,11 +44806,29 @@ async function stewardImplThreadRename(args, ctx, config) {
 // steward.widen_forbidden —— 放宽只能由用户在界面上改,那条路上还有一道「切到全自动须二次确认」。
 // 不加忙锁:116-2a 把 updateSessionMeta 的读改写竞态改成了「活回合期间延后落盘 + 内存覆盖表立刻生效」,
 // 收紧对下一回合立即有效且不会盖掉在途回合刚写的消息 —— 这正是收紧最该起效的时刻,拒绝反而危险。
+// 117z-E2 提交②(27 号文 §11.21.3/§11.21.5 裁决 A):本工具多一条【能力】轴 —— `capabilities.desktop`。
+// 两条轴上的纪律不是同一条,但方向是同一个:**能自动的只有降,升永远要人按**。
+//   · permissionMode 轴:只降不升,由 06i 的 stewardMayTightenTo 机械执行(一个字没动);
+//   · desktop 轴:false(收紧)与档位轴的收紧同口径 —— 直接做;true(放宽)**恒 propose_required**,
+//     含 auto 档,且目标必须是 createdBy === 'steward' 的线程,否则 invalid_target。
+// 为什么放宽在 auto 档也不给自动路(§11.21.5 选项 A,用户未表态按推荐做):管家稳定层纪律 2 是
+// 「任何情况下都不放宽」,而这条轴的爆炸半径是【用户的桌面】(03-bridge-guard 自己把它描述成
+// "acts on everything the user owns")。例外一旦开在最高爆炸半径的面上,以后每一轴都会来要同样的例外。
+// 于是「放宽」这条路上唯一的钥匙是 `ctx.userPressed === true` —— 用户在界面上亲手按下了那枚按钮
+// (13q 的 POST /api/steward/act 是它全仓唯一的置 true 点)。模型自己在 args 里写 userPressed 不算数
+// (13g 的门控壳把同名字段剥掉)。
 async function stewardImplThreadPermission(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const target = String(args.permissionMode == null ? '' : args.permissionMode);
-  if (!PERMISSION_MODES.includes(target)) {
+  // 两条轴都可选,但不能一条都不给(那是一次没有内容的写)。
+  const hasMode = args.permissionMode != null && String(args.permissionMode) !== '';
+  const capsArg = (args.capabilities && typeof args.capabilities === 'object' && !Array.isArray(args.capabilities)) ? args.capabilities : null;
+  const hasDesktop = !!capsArg && typeof capsArg.desktop === 'boolean';
+  if (!hasMode && !hasDesktop) {
+    return stewardFail('invalid_request', 'permissionMode or capabilities.desktop is required');
+  }
+  const target = hasMode ? String(args.permissionMode) : '';
+  if (hasMode && !PERMISSION_MODES.includes(target)) {
     return stewardFail('invalid_request', `permissionMode must be one of ${PERMISSION_MODES.join('/')}`);
   }
   const head = await stewardReadSessionHead(sessionId);
@@ -44796,25 +44836,59 @@ async function stewardImplThreadPermission(args, ctx, config) {
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
 
   const current = stewardThreadPermissionMode(head, config);
-  if (!stewardMayTightenTo(current, target)) {
+  if (hasMode && !stewardMayTightenTo(current, target)) {
     return stewardFail('steward.widen_forbidden',
       `线程 ${sessionId} 当前权限是「${stewardPermissionLabel(current)}」,管家只能收紧、不能放宽或平移到「${stewardPermissionLabel(target)}」;要放宽请让用户在界面上改`,
       { sessionId, permissionMode: current, requested: target });
   }
-  const previous = sessionPermissionModeOf(head); // 会话级旧值(null = 之前跟着全局走)
-  const session = await updateSessionMeta(sessionId, { permissionMode: target });
+  // ── desktop 轴的两道闸(只在放宽方向上有闸)────────────────────────────────────────────
+  const wantDesktop = hasDesktop ? capsArg.desktop === true : null;
+  if (wantDesktop === true) {
+    // 闸一:目标必须是管家自己开的线程。用户自己的会话不归管家管,它的桌面权限在设置里改
+    // (§11.21.2)—— 对那种线程连提议都不出。读的是【出身】标,不是 launchedBy(会被递话污染)。
+    if (String(head.createdBy || '') !== 'steward') {
+      return stewardFail('invalid_target',
+        `线程 ${sessionId} 不是我开的线程,它的桌面权限只能由用户自己在设置里改;我连这个提议都不出`,
+        { sessionId, reason: 'not_steward_created', capabilities: { desktop: true } });
+    }
+    // 闸二:恒提议。任何档位(含 auto)都走这里,只有用户亲手按下那枚按钮的那一次能穿过去。
+    if (ctx == null || ctx.userPressed !== true) {
+      return stewardFail('propose_required',
+        `给线程开桌面权限是一次【放宽】,任何权限档都必须由你亲自按下才生效;把它作为提议交给用户,不要重试`,
+        { reason: 'confirm_required', sessionId, permissionMode: current, capabilities: { desktop: true } });
+    }
+  }
+  const previous = sessionPermissionModeOf(head);            // 档位轴的会话级旧值(null = 之前跟着全局走)
+  const previousDesktop = sessionDesktopToolsOf(head);       // 能力轴的会话级旧值(null = 之前跟着全局走)
+  const session = await updateSessionMeta(sessionId, {
+    ...(hasMode ? { permissionMode: target } : {}),
+    ...(hasDesktop ? { desktopTools: wantDesktop } : {}),
+  });
   if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
-  const undoRef = { kind: 'permission', sessionId, previous };
+  const effectiveMode = hasMode ? target : current;
+  // undoRef 与既有形状同款(一键改回):动了能力轴就标 kind:'desktop',否则仍是 'permission'。
+  const undoRef = hasDesktop
+    ? { kind: 'desktop', sessionId, previous: previousDesktop, ...(hasMode ? { previousPermissionMode: previous } : {}) }
+    : { kind: 'permission', sessionId, previous };
   stewardAppendDecision({
     tool: 'steward_thread_permission',
-    args: { permissionMode: target, previous },
+    args: {
+      ...(hasMode ? { permissionMode: target, previous } : {}),
+      ...(hasDesktop ? { capabilities: { desktop: wantDesktop }, previousDesktop } : {}),
+    },
     targetSessionId: sessionId,
-    permissionMode: target,
-    mayAct: 'auto',
+    permissionMode: effectiveMode,
+    // 放宽那一次是【用户按的】,如实记 'user'(与 config_set 的 confirm 档同口径);其余仍是 'auto'。
+    mayAct: wantDesktop === true ? 'user' : 'auto',
     undoRef,
     basis: { previousEffective: current },
   });
-  return { ok: true, sessionId, permissionMode: target, effectivePermissionMode: target, previousEffective: current, previous, undoRef };
+  return {
+    ok: true, sessionId,
+    permissionMode: effectiveMode, effectivePermissionMode: effectiveMode, previousEffective: current, previous,
+    ...(hasDesktop ? { desktopTools: wantDesktop, previousDesktopTools: previousDesktop } : {}),
+    undoRef,
+  };
 }
 
 // 15b) steward_thread_note —— 既有线程的【插话补充】(116-2b,§3.5 委派行末句)。

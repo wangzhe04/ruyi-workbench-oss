@@ -500,8 +500,9 @@ function stewardLaunchTurn(input, tool) {
 //   · 模型在结构化回复里声明的 actions —— 透传本回合的 'user' | 'inbox';
 //   · 确定性自理(七道闸那条路)—— 恒 'inbox',并另带 ctx.selfServe = true;
 //   · 用户在界面上亲手按下按钮的 act 执行路径 —— 恒 'user'。
-// 这里用的是 trigger 而【不是】 userPressed:后者的读者按 06i 契约与静态锁只有 config_set /
-// skill_toggle 两处(「按钮 ≠ 扩权」),线程族的在不在场判定不该去挤那个字段。
+// 这里用的是 trigger 而【不是】 userPressed:后者的读者按 06i 契约与静态锁只有三处(config_set /
+// skill_toggle 的「须确认」判定,加 117z-E2 给 thread_permission 的桌面【放宽】那一处),
+// 「按钮 ≠ 扩权」—— 线程族的在不在场判定不该去挤那个字段。
 // 其余调用面(工具循环里模型直接调、进程内直调)没有 trigger —— 保持既有直递语义。
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
@@ -732,11 +733,29 @@ async function stewardImplThreadRename(args, ctx, config) {
 // steward.widen_forbidden —— 放宽只能由用户在界面上改,那条路上还有一道「切到全自动须二次确认」。
 // 不加忙锁:116-2a 把 updateSessionMeta 的读改写竞态改成了「活回合期间延后落盘 + 内存覆盖表立刻生效」,
 // 收紧对下一回合立即有效且不会盖掉在途回合刚写的消息 —— 这正是收紧最该起效的时刻,拒绝反而危险。
+// 117z-E2 提交②(27 号文 §11.21.3/§11.21.5 裁决 A):本工具多一条【能力】轴 —— `capabilities.desktop`。
+// 两条轴上的纪律不是同一条,但方向是同一个:**能自动的只有降,升永远要人按**。
+//   · permissionMode 轴:只降不升,由 06i 的 stewardMayTightenTo 机械执行(一个字没动);
+//   · desktop 轴:false(收紧)与档位轴的收紧同口径 —— 直接做;true(放宽)**恒 propose_required**,
+//     含 auto 档,且目标必须是 createdBy === 'steward' 的线程,否则 invalid_target。
+// 为什么放宽在 auto 档也不给自动路(§11.21.5 选项 A,用户未表态按推荐做):管家稳定层纪律 2 是
+// 「任何情况下都不放宽」,而这条轴的爆炸半径是【用户的桌面】(03-bridge-guard 自己把它描述成
+// "acts on everything the user owns")。例外一旦开在最高爆炸半径的面上,以后每一轴都会来要同样的例外。
+// 于是「放宽」这条路上唯一的钥匙是 `ctx.userPressed === true` —— 用户在界面上亲手按下了那枚按钮
+// (13q 的 POST /api/steward/act 是它全仓唯一的置 true 点)。模型自己在 args 里写 userPressed 不算数
+// (13g 的门控壳把同名字段剥掉)。
 async function stewardImplThreadPermission(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const target = String(args.permissionMode == null ? '' : args.permissionMode);
-  if (!PERMISSION_MODES.includes(target)) {
+  // 两条轴都可选,但不能一条都不给(那是一次没有内容的写)。
+  const hasMode = args.permissionMode != null && String(args.permissionMode) !== '';
+  const capsArg = (args.capabilities && typeof args.capabilities === 'object' && !Array.isArray(args.capabilities)) ? args.capabilities : null;
+  const hasDesktop = !!capsArg && typeof capsArg.desktop === 'boolean';
+  if (!hasMode && !hasDesktop) {
+    return stewardFail('invalid_request', 'permissionMode or capabilities.desktop is required');
+  }
+  const target = hasMode ? String(args.permissionMode) : '';
+  if (hasMode && !PERMISSION_MODES.includes(target)) {
     return stewardFail('invalid_request', `permissionMode must be one of ${PERMISSION_MODES.join('/')}`);
   }
   const head = await stewardReadSessionHead(sessionId);
@@ -744,25 +763,59 @@ async function stewardImplThreadPermission(args, ctx, config) {
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
 
   const current = stewardThreadPermissionMode(head, config);
-  if (!stewardMayTightenTo(current, target)) {
+  if (hasMode && !stewardMayTightenTo(current, target)) {
     return stewardFail('steward.widen_forbidden',
       `线程 ${sessionId} 当前权限是「${stewardPermissionLabel(current)}」,管家只能收紧、不能放宽或平移到「${stewardPermissionLabel(target)}」;要放宽请让用户在界面上改`,
       { sessionId, permissionMode: current, requested: target });
   }
-  const previous = sessionPermissionModeOf(head); // 会话级旧值(null = 之前跟着全局走)
-  const session = await updateSessionMeta(sessionId, { permissionMode: target });
+  // ── desktop 轴的两道闸(只在放宽方向上有闸)────────────────────────────────────────────
+  const wantDesktop = hasDesktop ? capsArg.desktop === true : null;
+  if (wantDesktop === true) {
+    // 闸一:目标必须是管家自己开的线程。用户自己的会话不归管家管,它的桌面权限在设置里改
+    // (§11.21.2)—— 对那种线程连提议都不出。读的是【出身】标,不是 launchedBy(会被递话污染)。
+    if (String(head.createdBy || '') !== 'steward') {
+      return stewardFail('invalid_target',
+        `线程 ${sessionId} 不是我开的线程,它的桌面权限只能由用户自己在设置里改;我连这个提议都不出`,
+        { sessionId, reason: 'not_steward_created', capabilities: { desktop: true } });
+    }
+    // 闸二:恒提议。任何档位(含 auto)都走这里,只有用户亲手按下那枚按钮的那一次能穿过去。
+    if (ctx == null || ctx.userPressed !== true) {
+      return stewardFail('propose_required',
+        `给线程开桌面权限是一次【放宽】,任何权限档都必须由你亲自按下才生效;把它作为提议交给用户,不要重试`,
+        { reason: 'confirm_required', sessionId, permissionMode: current, capabilities: { desktop: true } });
+    }
+  }
+  const previous = sessionPermissionModeOf(head);            // 档位轴的会话级旧值(null = 之前跟着全局走)
+  const previousDesktop = sessionDesktopToolsOf(head);       // 能力轴的会话级旧值(null = 之前跟着全局走)
+  const session = await updateSessionMeta(sessionId, {
+    ...(hasMode ? { permissionMode: target } : {}),
+    ...(hasDesktop ? { desktopTools: wantDesktop } : {}),
+  });
   if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
-  const undoRef = { kind: 'permission', sessionId, previous };
+  const effectiveMode = hasMode ? target : current;
+  // undoRef 与既有形状同款(一键改回):动了能力轴就标 kind:'desktop',否则仍是 'permission'。
+  const undoRef = hasDesktop
+    ? { kind: 'desktop', sessionId, previous: previousDesktop, ...(hasMode ? { previousPermissionMode: previous } : {}) }
+    : { kind: 'permission', sessionId, previous };
   stewardAppendDecision({
     tool: 'steward_thread_permission',
-    args: { permissionMode: target, previous },
+    args: {
+      ...(hasMode ? { permissionMode: target, previous } : {}),
+      ...(hasDesktop ? { capabilities: { desktop: wantDesktop }, previousDesktop } : {}),
+    },
     targetSessionId: sessionId,
-    permissionMode: target,
-    mayAct: 'auto',
+    permissionMode: effectiveMode,
+    // 放宽那一次是【用户按的】,如实记 'user'(与 config_set 的 confirm 档同口径);其余仍是 'auto'。
+    mayAct: wantDesktop === true ? 'user' : 'auto',
     undoRef,
     basis: { previousEffective: current },
   });
-  return { ok: true, sessionId, permissionMode: target, effectivePermissionMode: target, previousEffective: current, previous, undoRef };
+  return {
+    ok: true, sessionId,
+    permissionMode: effectiveMode, effectivePermissionMode: effectiveMode, previousEffective: current, previous,
+    ...(hasDesktop ? { desktopTools: wantDesktop, previousDesktopTools: previousDesktop } : {}),
+    undoRef,
+  };
 }
 
 // 15b) steward_thread_note —— 既有线程的【插话补充】(116-2b,§3.5 委派行末句)。

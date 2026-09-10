@@ -262,7 +262,8 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 // —— 27 号文 §3.3 永久豁免第 2 条正是禁止这个。故这里把全仓每一处 userPressed 的出现点钉死:
 //   · 06i-steward-core.js —— 只在契约注释里(纯函数层不读它);
 //   · 13g-steward.js      —— 门控壳剥字段(117 波 T1 之后这里只剩剥字段那一处);
-//   · 13k-steward-threads.js —— 只在注释里(派活原语那段解释「用 trigger 而不是 userPressed」);
+//   · 13k-steward-threads.js —— 派活原语那段的注释,加 117z-E2 的一处读点
+//     (steward_thread_permission 的 capabilities.desktop === true 那一支,见下面的逐名对账);
 //   · 13l-steward-ops.js  —— config_set / skill_toggle 两处「须确认」判定(T1 随实现从 13g 搬来);
 //   · 13h-steward-runner.js —— 唯一置 true 的那一行(act 执行路径)。
 // 任何第六个文件出现它 = 锁红。
@@ -293,11 +294,35 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(/pathname === '\/api\/steward\/act'/.test(src13h2), "⑦ 那一处所在的路由就是 POST /api/steward/act");
   // 读它的地方只有 config_set 与 skill_toggle 的「须确认」判定(加上门控壳剥字段那一处)。
   // 只数【代码行】:注释里指路的那一句不算读。
+  // 117z-E2(27 号文 §11.21.3)重钉:读点从两处扩到三处,期望值逐条列名而不是只数个数 ——
+  // 第三处是 13k 的 steward_thread_permission 在 `capabilities.desktop === true`(= 给线程开桌面
+  // 权限,本工具上唯一的放宽方向)那一支上的「恒提议、只有用户亲手按下才穿得过去」。
+  // 为什么这次可以扩:被钉的红线是「按钮 ≠ 管家获得放宽权限的能力」。这一处开的是【会话级】覆盖,
+  // 全局 allowDesktopTools 仍在 06i 的 forbidden 清册里,管家一个字都改不了;而且它只在放宽方向
+  // 上读 userPressed,收紧方向(desktop:false)与档位轴的收紧一样不读 —— 「能自动的只有降,升永远
+  // 要人按」这条机械规则在新那条轴上原样成立。下面三条断言一起看住这件事:
+  //   (a) 全仓读点恰好三处;(b) 落点是 13l×2 + 13k×1(不是随便哪三处);
+  //   (c) 13k 那一处必须写在 stewardImplThreadPermission 的函数体里,而且它的条件里带 wantDesktop
+  //       === true —— 挪到别的线程族工具里、或者去掉「只在放宽方向上读」这个限定,都当场红。
   const readerLines = STEWARD_TOOL_FAMILY.flatMap(f => read(f).split(NEWLINE_RE)
     .filter(line => line.includes('ctx.userPressed') && !COMMENT_RE.test(line)).map(() => f));
-  ok(readerLines.length === 2, `⑦ 13g 族里只有两处读 ctx.userPressed(config_set / skill_toggle 的须确认判定;got ${readerLines.length})`);
-  ok(readerLines.every(f => f === '13l-steward-ops.js'),
-    `⑦ 这两处都在 13l-steward-ops.js(设置族与内容管理族的实现所在;got ${JSON.stringify(readerLines)})`);
+  ok(readerLines.length === 3, `⑦ 13g 族里恰好三处读 ctx.userPressed(config_set / skill_toggle 的须确认判定 + thread_permission 的桌面放宽;got ${readerLines.length})`);
+  const readerTally = readerLines.reduce((acc, f) => { acc[f] = (acc[f] || 0) + 1; return acc; }, {});
+  ok(readerTally['13l-steward-ops.js'] === 2 && readerTally['13k-steward-threads.js'] === 1
+    && Object.keys(readerTally).length === 2,
+    `⑦ 落点逐名对账:13l 两处(设置族与内容管理族)+ 13k 一处(桌面放宽);got ${JSON.stringify(readerTally)}`);
+  {
+    const src13k = read('13k-steward-threads.js');
+    const start = src13k.indexOf('async function stewardImplThreadPermission(');
+    const end = start < 0 ? -1 : src13k.indexOf('\n}\n', start);
+    const body = start < 0 ? '' : (end < 0 ? src13k.slice(start) : src13k.slice(start, end));
+    ok(/ctx\.userPressed !== true/.test(body),
+      '⑦ 13k 那一处就写在 stewardImplThreadPermission 的函数体里(不是散在别的线程族工具上)');
+    ok(/if \(wantDesktop === true\) \{/.test(body) && body.indexOf('wantDesktop === true') < body.indexOf('ctx.userPressed'),
+      '⑦ 而且它【只在放宽方向上】读:userPressed 那道闸整个住在 `wantDesktop === true` 的分支里面');
+    ok(!/stewardMayTightenTo[\s\S]{0,400}ctx\.userPressed/.test(body),
+      '⑦ 反向:档位轴的只降不升判定(stewardMayTightenTo)与 userPressed 之间没有任何耦合');
+  }
   // 伴随:门控壳剥字段那一处仍在 13g —— 它是「args 里的同名字段一概不作数」的唯一执行点。
   ok(/for \(const key of Object\.keys\(raw\)\) \{ if \(key !== 'userPressed'\)/.test(src13g),
     '⑦ 门控壳剥 args.userPressed 那一处仍在 13g(唯一执行点,拆分没把它挪走)');

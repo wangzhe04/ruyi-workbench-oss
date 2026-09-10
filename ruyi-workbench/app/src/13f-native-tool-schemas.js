@@ -821,12 +821,19 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_permission',
-    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto)。**只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;也不要拿它当撤销键 —— 撤销用返回的 undoRef。返回 {ok,sessionId,permissionMode,previousEffective,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
+    description: '收紧一条线程的权限档(每步都问 default / 只做计划 plan / 改文件不问 acceptEdits / 全自动 auto),以及按任务给线程开关桌面权限(capabilities.desktop)。两个参数都可选,但至少给一个。**权限档只能收紧,不能放宽**:目标档必须比该线程当前的生效档更严,否则返回 {ok:false,error:"steward.widen_forbidden"} —— 此时【不要重试】,放宽只能由用户在界面上的权限 chip 里改(切到全自动那边还有一道二次确认)。**桌面权限:关(desktop:false)我可以直接做;开(desktop:true)我永远只能提议** —— 任何权限档(含全自动)都返回 {ok:false,error:"propose_required",reason:"confirm_required"},界面会把它变成一个按钮,用户亲手按下才生效;而且只能开给【我自己开的线程】(steward_thread_new / steward_quick_ask 建的),对用户自己的会话返回 {ok:false,error:"invalid_target",reason:"not_steward_created"} —— 那是用户的会话,桌面权限请他在设置里改。何时用:线程正在做的事比原本估计的危险(要动生产目录、要跑破坏性命令),先收紧到「只做计划」或「每步都问」再向用户说明;或者我开的线程确实要看屏幕/敲键盘才做得完,把开桌面这件事提给用户按。何时别用:不要为了「省得被问」而收紧到 plan 让线程停摆;不要拿它当撤销键(撤销用返回的 undoRef);propose_required 与 invalid_target 都【不要重试】,把话说给用户听。返回 {ok,sessionId,permissionMode,previousEffective,desktopTools,previousDesktopTools,undoRef},undoRef 带旧的会话级设置(previous 为 null 表示这条线程此前跟随全局默认)。',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['sessionId', 'permissionMode'],
+      type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
         sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
-        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
+        permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档(可选)。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
+        capabilities: {
+          type: 'object', additionalProperties: false,
+          description: '按任务给这条线程开关的能力(可选)。只影响这一条线程,不改全局设置。',
+          properties: {
+            desktop: { type: 'boolean', description: '桌面工具(截图、敲键盘)。false = 关掉,我可以直接做;true = 打开,我永远只能提议、且只能提给我自己开的线程。' },
+          },
+        },
       },
     },
   },
