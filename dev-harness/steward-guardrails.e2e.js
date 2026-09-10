@@ -740,13 +740,19 @@ try {
     // 词的意思,而且比原来严(原来 13k 里再抄一份判据照样绿)。
     const STEWARD_FAMILY = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js'];
     const srcFam = STEWARD_FAMILY.map(rd).join('\n');
-    const src13h = rd('13h-steward-runner.js');
+    // 117 波 T2(32 号文 §5)重钉:13h 也拆了(六个文件,纯搬家),那三个派生点里属于运行器的
+    // 那一个(总览行)搬进了 13o-steward-runner-prompt.js。判据不变 —— 三个派生点都走同一个判据、
+    // 兜底那句在两族里一处都不剩 —— 只是「运行器」现在是一族文件,故整族一起读。
+    const STEWARD_RUNNER_FAMILY = ['13m-steward-runner-base.js', '13n-steward-arbiter.js',
+      '13o-steward-runner-prompt.js', '13p-steward-runner-actions.js', '13q-steward-runner-turn.js',
+      '13h-steward-runner.js'];
+    const src13h = STEWARD_RUNNER_FAMILY.map(rd).join('\n');
     const srcDirAll = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
     const quickDefs = srcDirAll.filter(f => /function stewardQuickThread\(head\)/.test(rd(f)));
     ok(quickDefs.length === 1 && quickDefs[0] === '13j-steward-tool-base.js',
       `I3 P1-5:速查线程判据全仓只声明一次,住 13j-steward-tool-base.js(实得 ${JSON.stringify(quickDefs)})`);
     ok(!/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(srcFam) && !/rawKind === 'mission' \? 'mission' : 'quick_ask'/.test(src13h),
-      'I3b 「非 mission 即 quick_ask」那个兜底在 13g 族/13h 里一处都不剩');
+      'I3b 「非 mission 即 quick_ask」那个兜底在 13g 族/13h 族里一处都不剩');
     ok((srcFam.match(/stewardQuickThread\(head\)/g) || []).length >= 3 && /stewardQuickThread\(head\)/.test(src13h),
       'I3c 三个派生点(threads_search / thread_status / 总览行)都走同一个判据');
   }

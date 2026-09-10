@@ -85,7 +85,13 @@ const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
 const src13f = read('13f-native-tool-schemas.js');
 const src13g = read('13g-steward.js');
-const src13h = read('13h-steward-runner.js');   // 117m-A4 ①c/①d:ACTION_HOOKS 与人话标签的登记面
+const src13h = read('13h-steward-runner.js');
+// 117 波 T2(32 号文 §5):13h 拆成六个文件(纯搬家)。①c/①d 要的那两张登记表(STEWARD_ACTION_HOOKS
+// 与 STEWARD_TOOL_LABELS)随共享常量块搬进 13m;⑦ 的 userPressed 三处分落 13m(注释)/13q(唯一置 true)
+// /13h(act 路由那段「不置」的注释)。故这两组判据改读确切的那个文件与整族,期望值一字未改。
+const src13m = read('13m-steward-runner-base.js');   // 117m-A4 ①c/①d:ACTION_HOOKS 与人话标签的登记面(T2 后住这里)
+const STEWARD_RUNNER_FAMILY = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-steward-runner-prompt.js',
+  '13p-steward-runner-actions.js', '13q-steward-runner-turn.js', '13h-steward-runner.js'];
 
 /* ═════════════ ① 四处登记一致(真实产物内省,不靠 grep 形状) ═════════════ */
 
@@ -114,10 +120,10 @@ ok(Object.keys(srv.TOOL_HANDLERS).length === 90, `① 注册表总数 90(63 + 27
 const stopPrimitives = expected.filter(n => /_stop$/.test(n));
 ok(JSON.stringify(stopPrimitives) === JSON.stringify(['steward_thread_stop']),
   `①b 决策族里恰好【一个】线程级停止原语(多一个 = 两条停机路径,少一个 = 管家又只能拿 run_action 凑;got ${JSON.stringify(stopPrimitives)})`);
-const hooksBlock = src13h.slice(src13h.indexOf('const STEWARD_ACTION_HOOKS'), src13h.indexOf('const STEWARD_DECIDE_LABELS'));
+const hooksBlock = src13m.slice(src13m.indexOf('const STEWARD_ACTION_HOOKS'), src13m.indexOf('const STEWARD_DECIDE_LABELS'));
 ok(/steward_thread_stop: 'threadStop'/.test(hooksBlock),
-  '①c steward_thread_stop 登记进 13h 的 STEWARD_ACTION_HOOKS(不在表里 = 用户亲手按那枚按钮时 not_allowed)');
-ok(/steward_thread_stop: '暂停这条线程'/.test(src13h),
+  '①c steward_thread_stop 登记进 13h 族的 STEWARD_ACTION_HOOKS(不在表里 = 用户亲手按那枚按钮时 not_allowed)');
+ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
   '①d STEWARD_TOOL_LABELS 有它的人话标签(※ 脚注与降级按钮不许吐 steward_thread_stop 这个内部 id)');
 
 /* ═════════════ ② handler 纪律:paths:null + guardNote + 只调 StewardHooks ═════════════ */
@@ -265,7 +271,11 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   const NEWLINE_RE = /\r?\n/;
   const COMMENT_RE = /^\s*(\/\/|\*|\/\*)/;
   const STEWARD_TOOL_FAMILY = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js'];
-  const ALLOWED = new Set(['06i-steward-core.js', ...STEWARD_TOOL_FAMILY, '13h-steward-runner.js']);
+  // 117 波 T2 重钉:白名单里的「13h」扩成 T2 拆出的运行器族六个文件(纯搬家)。三处出现点各自的
+  // 落点:13m 是 ACTION_HOOKS 表头那两行注释、13q 是【唯一】置 true 的那一行(stewardRunAct)、
+  // 13h 是 act 路由里「不置 userPressed」的那句注释。被钉的事实(唯一置 true 点在 act 路径、读点
+  // 恰好两处且都在 13l、权限门与授权书零 userPressed)一个字没变。
+  const ALLOWED = new Set(['06i-steward-core.js', ...STEWARD_TOOL_FAMILY, ...STEWARD_RUNNER_FAMILY]);
   const hits = [];
   for (const file of srcFiles) {
     const text = read(file);
@@ -273,10 +283,10 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     if (count) hits.push([file, count, text]);
   }
   const outside = hits.filter(([file]) => !ALLOWED.has(file)).map(([file]) => file);
-  ok(outside.length === 0, '⑦ userPressed 只出现在 06i / 13g 族 / 13h 里' + (outside.length ? ' → ' + outside.join(',') : ''));
-  const src13h2 = read('13h-steward-runner.js');
+  ok(outside.length === 0, '⑦ userPressed 只出现在 06i / 13g 族 / 13h 族里' + (outside.length ? ' → ' + outside.join(',') : ''));
+  const src13h2 = STEWARD_RUNNER_FAMILY.map(read).join('\n');
   const setters = (src13h2.match(/userPressed: true/g) || []).length;
-  ok(setters === 1, `⑦ 全仓只有一处把 userPressed 置 true(13h 的 act 执行路径;got ${setters})`);
+  ok(setters === 1, `⑦ 全仓只有一处把 userPressed 置 true(13h 族的 act 执行路径;got ${setters})`);
   ok(/pathname === '\/api\/steward\/act'/.test(src13h2), "⑦ 那一处所在的路由就是 POST /api/steward/act");
   // 读它的地方只有 config_set 与 skill_toggle 的「须确认」判定(加上门控壳剥字段那一处)。
   // 只数【代码行】:注释里指路的那一句不算读。

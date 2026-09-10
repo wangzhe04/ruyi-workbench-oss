@@ -138,19 +138,29 @@ function typeExpressionLiterals(text) {
   // 判据的【用意】一直写在上面那段注释里 ——「管家这一族连续地待在 transport 层末尾、组合根之前」。
   // 故改钉这条用意本身:整族六个模块在 manifest 里连续、顺序即依赖方向、且紧跟 13e 之后。
   // 这比原来两个下标探针更严:任何一个族成员被挪出这段连续区间、或顺序被换,这条都红。
+  // 117 波 T2 重钉:13h 又拆出 13m/13n/13o/13p/13q 五个文件(纯搬家),它们必须排在 13h【之前】——
+  // 13h 的注册表要引用它们的实现,排在后面才是前向边。判据的用意不变(整族连续、顺序即依赖方向、
+  // 紧跟 13e 之后),故只是把这五个补进同一条链里;族从六个变成十一个,判得更严不更松。
   const STEWARD_FAMILY = ['13i-steward-inbox.js', '13j-steward-tool-base.js', '13k-steward-threads.js',
-    '13l-steward-ops.js', '13g-steward.js', '13h-steward-runner.js'];
+    '13l-steward-ops.js', '13g-steward.js', '13m-steward-runner-base.js', '13n-steward-arbiter.js',
+    '13o-steward-runner-prompt.js', '13p-steward-runner-actions.js', '13q-steward-runner-turn.js',
+    '13h-steward-runner.js'];
   const famAt = files.indexOf(STEWARD_FAMILY[0]);
   ok(famAt > 0 && STEWARD_FAMILY.every((f, k) => files[famAt + k] === f),
     'D4 管家族六个模块连续且按依赖方向排列(' + STEWARD_FAMILY.join(' -> ') + ';实得 '
     + JSON.stringify(files.slice(famAt, famAt + STEWARD_FAMILY.length)) + ')');
   ok(files[famAt - 1] === '13e-pretender-index.js', 'D4 管家族紧跟 13e-pretender-index.js 之后');
   ok(files[i - 1] === '13l-steward-ops.js', 'D4 13g 紧跟 13l-steward-ops.js 之后(117 波 T1 重钉)');
-  ok(STEWARD_FAMILY.every(f => fs.existsSync(path.join(SRC, f))), 'D4 管家族六个文件都在 src/ 里');
+  ok(STEWARD_FAMILY.every(f => fs.existsSync(path.join(SRC, f))), `D4 管家族 ${STEWARD_FAMILY.length} 个文件都在 src/ 里`);
   // 116f 重钉:13g 与 14-main 之间插入了 13h-steward-runner.js(管家回合运行器,同为 transport 层;
   // 理由见 116c 交付记录「13g 已 1710 行,116f 另起 13h」)。判据的用意不变 —— 13g 仍在 transport 层
   // 末尾、组合根 14-main 之前,故改钉「13g 之后是 13h」+「14-main 仍是最后一个模块」。
-  ok(files[i + 1] === '13h-steward-runner.js', 'D4 13g 之后是 13h-steward-runner.js(116f 重钉)');
+  // 117 波 T2 重钉:13g 与 13h 之间插进了 T2 拆出的五个文件,故「13g 之后紧挨着 13h」这个下标探针
+  // 不再成立。上面那条整族连续链已经把顺序钉死了;这里改钉它原本要表达的另一半 ——
+  // 运行器族以 13h 收尾,而 13h 仍在组合根 14-main 之前。
+  ok(files[i + 1] === '13m-steward-runner-base.js' && files[i + 5] === '13q-steward-runner-turn.js'
+    && files[i + 6] === '13h-steward-runner.js',
+  'D4 13g 之后是 T2 的运行器族、以 13h 收尾(116f/T2 重钉)');
   ok(files[files.length - 1] === '14-main.js', 'D4 14-main.js 仍是组合根(最后一个模块)');
   ok(fs.existsSync(path.join(SRC, '13g-steward.js')), 'D4 13g-steward.js 文件存在');
 }

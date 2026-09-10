@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 44,
+    "modules": 49,
     "providedSymbols": 2062,
-    "requiredSymbols": 2140,
-    "edges": 345,
+    "requiredSymbols": 2269,
+    "edges": 390,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -22219,21 +22219,15 @@
       ]
     },
     {
-      "file": "13h-steward-runner.js",
+      "file": "13m-steward-runner-base.js",
       "order": 42,
       "layer": "transport",
-      "note": "第116波116f:管家回合运行器/{say,acts,actions,why} 输出契约/熔断/到访归档与 /api/steward/{visit,message,act}(经 StewardHooks 延迟绑定挂接)",
+      "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
         "STEWARD_ACTIONS_MAX",
         "STEWARD_ACTION_HOOKS",
         "STEWARD_ACTS_MAX",
         "STEWARD_ACT_LABEL_MAX",
-        "STEWARD_ARBITER_COST_CACHE_MS",
-        "STEWARD_ARBITER_DURATION_SAMPLES",
-        "STEWARD_ARBITER_QUEUE_MAX",
-        "STEWARD_ARBITER_STARVE_FACTOR",
-        "STEWARD_ARBITER_STARVE_MIN_MS",
-        "STEWARD_ARBITER_STARVE_OVERRIDE_MS",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
         "STEWARD_DIGEST_KIND_TEXT",
@@ -22246,15 +22240,11 @@
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
-        "STEWARD_RELAY_CHANNELS",
-        "STEWARD_ROUTE_HINT_MAX",
-        "STEWARD_ROUTE_HINT_REASON_CHARS",
         "STEWARD_RUN_ACTION_LABELS",
         "STEWARD_SAY_MAX",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
         "STEWARD_SELF_SERVE_PER_TURN_MAX",
         "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
-        "STEWARD_STOP_REASON_MAX",
         "STEWARD_TOOL_LABELS",
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
@@ -22264,15 +22254,155 @@
         "STEWARD_VISIT_DIGEST_MAX",
         "STEWARD_VISIT_SCHEMA",
         "STEWARD_WHY_MAX",
-        "_stewardPrerouteCache",
-        "buildStewardSystemPrompt",
         "ensureStewardSession",
-        "handleStewardRunnerApiRoutes",
-        "runStewardTurn",
         "stewardAbortInflight",
+        "stewardResolveRoute",
+        "stewardResumeRunner",
+        "stewardRunnerRuntime",
+        "stewardStopRunner"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            192
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            201
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SESSION_SCHEMA",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            195
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            182
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            163
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            189,
+            215
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            168
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            216
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            145
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_PERMISSION_MODE",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            213
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            145,
+            182,
+            183,
+            194,
+            211,
+            216
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_TITLE",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            197
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13n-steward-arbiter.js",
+      "order": 43,
+      "layer": "transport",
+      "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
+      "provides": [
+        "STEWARD_ARBITER_COST_CACHE_MS",
+        "STEWARD_ARBITER_DURATION_SAMPLES",
+        "STEWARD_ARBITER_QUEUE_MAX",
+        "STEWARD_ARBITER_STARVE_FACTOR",
+        "STEWARD_ARBITER_STARVE_MIN_MS",
+        "STEWARD_ARBITER_STARVE_OVERRIDE_MS",
         "stewardAcquireTurnSlot",
-        "stewardActLabel",
-        "stewardApplyThreadTier",
         "stewardArbiter",
         "stewardArbiterAhead",
         "stewardArbiterBlocked",
@@ -22300,90 +22430,9 @@
         "stewardArbiterState",
         "stewardArbiterWait",
         "stewardArbiterWaitSignature",
-        "stewardArchiveConversation",
-        "stewardCancelQueuedTurn",
-        "stewardCircuitCheck",
-        "stewardContextBudget",
-        "stewardDayCost",
-        "stewardDeliverableBlock",
-        "stewardDisplayTitleOf",
-        "stewardDowngradeActions",
-        "stewardEventLine",
-        "stewardExecuteActions",
-        "stewardHumanizeSay",
-        "stewardImplThreadPrioritize",
-        "stewardImplThreadStop",
-        "stewardInboxMessage",
-        "stewardLastAssistantContent",
-        "stewardMemoryBlock",
-        "stewardNormalizeAct",
-        "stewardNormalizeActs",
-        "stewardNormalizeRouteHint",
-        "stewardOnInboxBatch",
-        "stewardOverviewBlock",
-        "stewardParseReply",
-        "stewardPendingList",
-        "stewardPreroute",
-        "stewardPrerouteIndexRows",
-        "stewardQueueHasQuickAnswer",
-        "stewardRelayChannelFor",
-        "stewardRelayDeliver",
-        "stewardResolveRoute",
-        "stewardResumeRunner",
-        "stewardRunAct",
-        "stewardRunClaimedTurn",
-        "stewardRunnerRuntime",
-        "stewardRunnerState",
-        "stewardScheduleInboxDrain",
-        "stewardSelfServeAllows",
-        "stewardSelfServeEntry",
-        "stewardSelfServeGate",
-        "stewardSelfServeInbox",
-        "stewardSelfServeKey",
-        "stewardSelfServePlan",
-        "stewardStampReply",
-        "stewardStopRunner",
-        "stewardTargetPermission",
-        "stewardThreadDigestRows",
-        "stewardTriggerStamp",
-        "stewardTrimVisits",
-        "stewardTurnsInWindow",
-        "stewardVisit",
-        "stewardVisitDigest",
-        "stewardVisitFileName",
-        "stewardVisitNotesPrompt",
-        "stewardVisitsDir"
+        "stewardCancelQueuedTurn"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "apiFailure",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2301,
-            2304,
-            2310,
-            2313,
-            2322,
-            2327,
-            2332,
-            2335,
-            2339,
-            2344,
-            2347,
-            2351,
-            2361,
-            2364,
-            2368,
-            2371,
-            2381,
-            2393,
-            2396,
-            2400
-          ]
-        },
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
@@ -22391,7 +22440,7 @@
             "read"
           ],
           "lines": [
-            1754
+            104
           ]
         },
         {
@@ -22401,56 +22450,7 @@
             "read"
           ],
           "lines": [
-            1752
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "fsp",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1331,
-            1334,
-            1362
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "json",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2306,
-            2328,
-            2340,
-            2352,
-            2389
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "nowIso",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            200,
-            1093,
-            1095,
-            1172,
-            1173,
-            1197,
-            1264,
-            1326,
-            1360,
-            1459,
-            1470,
-            1471,
-            2415,
-            2425
+            102
           ]
         },
         {
@@ -22460,21 +22460,7 @@
             "read"
           ],
           "lines": [
-            1322,
-            1334,
-            1361,
-            1379,
-            1747
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "paths",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            209
+            97
           ]
         },
         {
@@ -22484,36 +22470,7 @@
             "call"
           ],
           "lines": [
-            880,
-            1801
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "SESSION_SCHEMA",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            203
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            530,
-            531,
-            863,
-            864,
-            949,
-            950,
-            952,
-            954,
-            958
+            151
           ]
         },
         {
@@ -22523,20 +22480,8 @@
             "call"
           ],
           "lines": [
-            878,
-            882,
-            1799,
-            1802
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "atomicWriteJson",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1363
+            149,
+            152
           ]
         },
         {
@@ -22546,32 +22491,9 @@
             "call"
           ],
           "lines": [
-            410,
-            1087,
-            1422,
-            2024,
-            2069,
-            2173,
-            2302,
-            2311,
-            2333,
-            2345,
-            2362,
-            2394
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2315,
-            2337,
-            2349,
-            2366,
-            2398
+            374,
+            419,
+            523
           ]
         },
         {
@@ -22581,105 +22503,10 @@
             "call"
           ],
           "lines": [
-            282,
-            507,
-            565,
-            636,
-            674,
-            722,
-            724,
-            968,
-            976,
-            1016,
-            1017,
-            1021,
-            1066,
-            1074,
-            1403,
-            1540,
-            1572,
-            1652,
-            1969,
-            2071,
-            2138,
-            2149,
-            2218,
-            2266,
-            2321,
-            2367
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "send",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2301,
-            2304,
-            2306,
-            2310,
-            2313,
-            2322,
-            2327,
-            2328,
-            2332,
-            2335,
-            2339,
-            2340,
-            2344,
-            2347,
-            2351,
-            2352,
-            2361,
-            2364,
-            2368,
-            2371,
-            2381,
-            2389,
-            2393,
-            2396,
-            2400
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "tokenOk",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2301,
-            2310,
-            2332,
-            2344,
-            2361,
-            2393
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "loadSession",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            190,
-            1030,
-            1044,
-            1346
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            171,
-            1506
+            319,
+            421,
+            488,
+            499
           ]
         },
         {
@@ -22689,17 +22516,7 @@
             "call"
           ],
           "lines": [
-            2058
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readMissionContainer",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            274
+            408
           ]
         },
         {
@@ -22709,65 +22526,7 @@
             "call"
           ],
           "lines": [
-            1875
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            197,
-            223,
-            1036,
-            1377
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionDisplayTitle",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            332,
-            859
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            176
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionMissionId",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            326,
-            341
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            301,
-            344,
-            1563,
-            2273
+            225
           ]
         },
         {
@@ -22777,178 +22536,7 @@
             "call"
           ],
           "lines": [
-            224,
-            535,
-            844,
-            1096,
-            1119,
-            1132,
-            1142,
-            1200,
-            1208,
-            1463,
-            1509,
-            1595,
-            1622,
-            1636,
-            1648,
-            1879
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "normalizeQuestionAnswer",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1582
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "pendingPermissions",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1546
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "pendingQuestions",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1542
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "stopSession",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            153,
-            2273
-          ]
-        },
-        {
-          "provider": "06b-prompt-registry.js",
-          "symbol": "getPromptPack",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            448,
-            471,
-            964
-          ]
-        },
-        {
-          "provider": "06f-autonomy-grants.js",
-          "symbol": "revokeAllGrants",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2277
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "buildStewardDigestLine",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            433
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "deriveStewardThreadState",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            294
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "isStewardToolName",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            499,
-            542
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "prerouteText",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            418
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_DIGEST_LIMITS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            429,
-            434
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_EVENT_KINDS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1386,
-            1391
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_MEMORY_KINDS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            241
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_MEMORY_LIMITS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            236
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_PERMISSION_MODE",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            221
+            229
           ]
         },
         {
@@ -22958,103 +22546,7 @@
             "read"
           ],
           "lines": [
-            153,
-            190,
-            191,
-            202,
-            219,
-            224,
-            283,
-            1030,
-            1044,
-            1067,
-            1346,
-            1365,
-            1404,
-            1466,
-            2072
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_SESSION_TITLE",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            205
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "StewardHooks",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            236,
-            290,
-            653,
-            827,
-            1257,
-            1261,
-            1671,
-            2372,
-            2482
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardHumanizeIds",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            871
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardMayAct",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            592,
-            772,
-            780
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardPendingOneLine",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1413
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardPermissionLabel",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            593,
-            773,
-            781
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardSanitizeBlock",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            949
+            422
           ]
         },
         {
@@ -23064,44 +22556,8 @@
             "call"
           ],
           "lines": [
-            244,
-            245,
-            500,
-            843,
-            927,
-            928,
-            930,
-            932,
-            953,
-            955,
-            1071,
-            1613,
-            1627,
-            1656,
-            1659,
-            2079,
-            2086,
-            2271
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardThreadEngineRoute",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1504
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardThreadStateFromCard",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            293
+            429,
+            436
           ]
         },
         {
@@ -23111,10 +22567,272 @@
             "call"
           ],
           "lines": [
-            320,
-            1562,
-            2194,
-            2239
+            544
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_DAY_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            166,
+            525
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_WINDOW_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            169,
+            547
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13o-steward-runner-prompt.js",
+      "order": 44,
+      "layer": "transport",
+      "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
+      "provides": [
+        "_stewardPrerouteCache",
+        "buildStewardSystemPrompt",
+        "stewardActLabel",
+        "stewardContextBudget",
+        "stewardMemoryBlock",
+        "stewardNormalizeAct",
+        "stewardNormalizeActs",
+        "stewardOverviewBlock",
+        "stewardParseReply",
+        "stewardPreroute",
+        "stewardPrerouteIndexRows",
+        "stewardThreadDigestRows",
+        "stewardVisitNotesPrompt"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            330,
+            331
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            210
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            82,
+            307
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            74
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            132
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            126,
+            141
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            101,
+            144
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            335
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            248,
+            271
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "buildStewardDigestLine",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            233
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "deriveStewardThreadState",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            94
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            299,
+            342
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "prerouteText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            218
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DIGEST_LIMITS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            229,
+            234
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_MEMORY_KINDS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            41
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_MEMORY_LIMITS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            36
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            83
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            36,
+            90
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            44,
+            45,
+            300
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            93
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            120
           ]
         },
         {
@@ -23124,37 +22842,7 @@
             "call"
           ],
           "lines": [
-            532
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "runSessionTurn",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1178
-          ]
-        },
-        {
-          "provider": "13b-api-domain-routes.js",
-          "symbol": "steerSessionCore",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1619
-          ]
-        },
-        {
-          "provider": "13d-core-domain-routes.js",
-          "symbol": "decideIntervention",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1583
+            332
           ]
         },
         {
@@ -23164,9 +22852,8 @@
             "call"
           ],
           "lines": [
-            266,
-            376,
-            1400
+            66,
+            176
           ]
         },
         {
@@ -23176,112 +22863,7 @@
             "call"
           ],
           "lines": [
-            291
-          ]
-        },
-        {
-          "provider": "13g-steward.js",
-          "symbol": "stewardToolHandler",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2504,
-            2507
-          ]
-        },
-        {
-          "provider": "13i-steward-inbox.js",
-          "symbol": "stewardDir",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1322
-          ]
-        },
-        {
-          "provider": "13i-steward-inbox.js",
-          "symbol": "stewardInboxRead",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            1384
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
-          "symbol": "_stewardReadBudget",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            1466
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
-          "symbol": "stewardAppendDecision",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2230,
-            2282
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
-          "symbol": "stewardBasisOf",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            2289
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
-          "symbol": "stewardFail",
-          "kinds": [
-            "call"
-          ],
-          "lines": [
-            630,
-            638,
-            645,
-            655,
-            813,
-            837,
-            1088,
-            1113,
-            1133,
-            1160,
-            1170,
-            1201,
-            1210,
-            1423,
-            1446,
-            1575,
-            1576,
-            1591,
-            1601,
-            1613,
-            1627,
-            1633,
-            1653,
-            1656,
-            1659,
-            1661,
-            2219,
-            2221,
-            2222,
-            2225,
-            2267,
-            2269,
-            2270,
-            2276
+            91
           ]
         },
         {
@@ -23291,7 +22873,7 @@
             "call"
           ],
           "lines": [
-            298
+            98
           ]
         },
         {
@@ -23301,9 +22883,7 @@
             "call"
           ],
           "lines": [
-            286,
-            2222,
-            2270
+            86
           ]
         },
         {
@@ -23313,7 +22893,7 @@
             "call"
           ],
           "lines": [
-            413
+            213
           ]
         },
         {
@@ -23323,11 +22903,7 @@
             "call"
           ],
           "lines": [
-            284,
-            567,
-            858,
-            2220,
-            2268
+            84
           ]
         },
         {
@@ -23337,10 +22913,383 @@
             "call"
           ],
           "lines": [
-            349,
-            568,
-            2234,
-            2286
+            149
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACT_LABEL_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            283,
+            287,
+            289,
+            300
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTIONS_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            344
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            318
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_DECIDE_LABELS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            283
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_MEMORY_BLOCK_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            52
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_RUN_ACTION_LABELS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            287
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SAY_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            336,
+            348
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TOOL_LABELS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            289
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_WHY_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            349
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardRunnerRuntime",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            255
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterWait",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            120
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13p-steward-runner-actions.js",
+      "order": 45,
+      "layer": "transport",
+      "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
+      "provides": [
+        "STEWARD_ROUTE_HINT_MAX",
+        "STEWARD_ROUTE_HINT_REASON_CHARS",
+        "stewardCircuitCheck",
+        "stewardDayCost",
+        "stewardDeliverableBlock",
+        "stewardDisplayTitleOf",
+        "stewardDowngradeActions",
+        "stewardEventLine",
+        "stewardExecuteActions",
+        "stewardHumanizeSay",
+        "stewardInboxMessage",
+        "stewardLastAssistantContent",
+        "stewardNormalizeRouteHint",
+        "stewardSelfServeAllows",
+        "stewardSelfServeEntry",
+        "stewardSelfServeGate",
+        "stewardSelfServeInbox",
+        "stewardSelfServeKey",
+        "stewardSelfServePlan",
+        "stewardStampReply",
+        "stewardTargetPermission",
+        "stewardTriggerStamp",
+        "stewardTurnsInWindow"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "readUsageRows",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            353
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            336,
+            337,
+            422,
+            423,
+            425,
+            427,
+            431
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKey",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            351,
+            355
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            38,
+            109,
+            147,
+            195,
+            197,
+            441,
+            449,
+            489,
+            490,
+            494,
+            539,
+            547
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            503,
+            517
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            509
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            332
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            317
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            437
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            503,
+            517,
+            540
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            126,
+            300
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardHumanizeIds",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            344
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardMayAct",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            65,
+            245,
+            253
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPermissionLabel",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            66,
+            246,
+            254
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeBlock",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            422
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            316,
+            400,
+            401,
+            403,
+            405,
+            426,
+            428,
+            544
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            103,
+            111,
+            118,
+            128,
+            286,
+            310
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            40,
+            331
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            41
           ]
         },
         {
@@ -23350,14 +23299,1434 @@
             "call"
           ],
           "lines": [
-            783
+            256
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACT_LABEL_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            146
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTION_HOOKS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            93,
+            291
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            139,
+            152
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            422
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_EVENT_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            408
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_EVENTS_PER_TURN",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            438
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_MESSAGE_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            463
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_NO_PROGRESS_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            388,
+            389
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SELF_SERVE_ATTEMPT_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            235
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SELF_SERVE_PER_TURN_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            110,
+            112,
+            273,
+            447
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            242
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_DAY_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            365
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_WINDOW_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            231,
+            366,
+            379
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardRunnerRuntime",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            183,
+            184,
+            295,
+            365,
+            367,
+            371,
+            388
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardActLabel",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            101,
+            146
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13q-steward-runner-turn.js",
+      "order": 46,
+      "layer": "transport",
+      "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
+      "provides": [
+        "STEWARD_RELAY_CHANNELS",
+        "runStewardTurn",
+        "stewardApplyThreadTier",
+        "stewardArchiveConversation",
+        "stewardOnInboxBatch",
+        "stewardPendingList",
+        "stewardQueueHasQuickAnswer",
+        "stewardRelayChannelFor",
+        "stewardRelayDeliver",
+        "stewardRunAct",
+        "stewardRunClaimedTurn",
+        "stewardScheduleInboxDrain",
+        "stewardTrimVisits",
+        "stewardVisit",
+        "stewardVisitDigest",
+        "stewardVisitFileName",
+        "stewardVisitsDir"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            281,
+            284,
+            312
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            43,
+            45,
+            122,
+            123,
+            147,
+            214,
+            276,
+            310,
+            409,
+            420,
+            421
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            272,
+            284,
+            311,
+            329
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            313
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            37,
+            372
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            353,
+            490,
+            522,
+            602
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            296
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            456
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            327
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            513
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            46,
+            69,
+            82,
+            92,
+            150,
+            158,
+            413,
+            459,
+            545,
+            572,
+            586,
+            598
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "normalizeQuestionAnswer",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            532
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            496
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingQuestions",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            492
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EVENT_KINDS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            336,
+            341
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            296,
+            315,
+            354,
+            416
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            207,
+            211,
+            621
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPendingOneLine",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            363
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            563,
+            577,
+            606,
+            609
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadEngineRoute",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            454
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            512
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "runSessionTurn",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            128
+          ]
+        },
+        {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "steerSessionCore",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            569
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "decideIntervention",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            533
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            350
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardDir",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            272
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxRead",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            334
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "_stewardReadBudget",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            416
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            38,
+            63,
+            83,
+            110,
+            120,
+            151,
+            160,
+            373,
+            396,
+            525,
+            526,
+            541,
+            551,
+            563,
+            577,
+            583,
+            603,
+            606,
+            609,
+            611
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "ensureStewardSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            108,
+            610
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTION_HOOKS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            608
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_DEBOUNCE_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            233
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_DIGEST_KIND_TEXT",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            343
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_EVENTS_PER_TURN",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            136,
+            245
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_PENDING_LIST_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            357
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_PREEMPT_WAIT_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            392
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_USER_QUEUE_WAIT_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            81
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VISIT_DIGEST_MAX",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            342
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VISIT_SCHEMA",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            314
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VISITS_DIR",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            272
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VISITS_KEEP",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            282,
+            283
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardAbortInflight",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            68
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardRunnerRuntime",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            42,
+            43,
+            45,
+            59,
+            62,
+            67,
+            80,
+            95,
+            99,
+            122,
+            123,
+            124,
+            147,
+            196,
+            197,
+            199,
+            214,
+            230,
+            231,
+            233,
+            234,
+            236,
+            237,
+            238,
+            240,
+            242,
+            243,
+            244,
+            245,
+            256,
+            259,
+            262,
+            375,
+            378,
+            379,
+            388,
+            395,
+            397,
+            417,
+            418,
+            419,
+            428,
+            438
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterWait",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            511
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardParseReply",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            163
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardThreadDigestRows",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            431
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardCircuitCheck",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            40
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardDowngradeActions",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            172
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardExecuteActions",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            170
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardHumanizeSay",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            175,
+            176
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardInboxMessage",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            119
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardLastAssistantContent",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            162
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardNormalizeRouteHint",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            55
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardSelfServeInbox",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            117
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardStampReply",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            189
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardTriggerStamp",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            191
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13h-steward-runner.js",
+      "order": 47,
+      "layer": "transport",
+      "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
+      "provides": [
+        "STEWARD_STOP_REASON_MAX",
+        "handleStewardRunnerApiRoutes",
+        "stewardImplThreadPrioritize",
+        "stewardImplThreadStop",
+        "stewardRunnerState"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            155,
+            158,
+            164,
+            167,
+            176,
+            181,
+            186,
+            189,
+            193,
+            198,
+            201,
+            205,
+            215,
+            218,
+            222,
+            225,
+            235,
+            247,
+            250,
+            254
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            160,
+            182,
+            194,
+            206,
+            243
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            269,
+            279
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            156,
+            165,
+            187,
+            199,
+            216,
+            248
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            169,
+            191,
+            203,
+            220,
+            252
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            72,
+            120,
+            175,
+            221
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            155,
+            158,
+            160,
+            164,
+            167,
+            176,
+            181,
+            182,
+            186,
+            189,
+            193,
+            194,
+            198,
+            201,
+            205,
+            206,
+            215,
+            218,
+            222,
+            225,
+            235,
+            243,
+            247,
+            250,
+            254
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            155,
+            164,
+            186,
+            198,
+            215,
+            247
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            127
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            127
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "revokeAllGrants",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            131
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            226,
+            336
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            125
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "waitReasonFor",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            93
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardToolHandler",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            358,
+            361
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            84,
+            136
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardBasisOf",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            143
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            73,
+            75,
+            76,
+            79,
+            121,
+            123,
+            124,
+            130
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            76,
+            124
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            74,
+            122
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            88,
+            140
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "ensureStewardSession",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            224
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_DAY_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            319
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TURN_WINDOW_MS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            319
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardResumeRunner",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            344
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardRunnerRuntime",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            318,
+            321,
+            322,
+            323,
+            324,
+            325,
+            326
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardStopRunner",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            343
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardAcquireTurnSlot",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            353
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterPrioritize",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            77
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterRefresh",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            356
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterState",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            160,
+            329
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiterWait",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            93,
+            354
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardCancelQueuedTurn",
+          "kinds": [
+            "call",
+            "read"
+          ],
+          "lines": [
+            129,
+            355
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "buildStewardSystemPrompt",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            337
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardContextBudget",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            338
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardPreroute",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            346
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardVisitNotesPrompt",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            339
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardDayCost",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            320
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardTurnsInWindow",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            319
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "runStewardTurn",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            291
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardApplyThreadTier",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            375
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardOnInboxBatch",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            340
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardRelayChannelFor",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            372
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardRelayDeliver",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            373
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardRunAct",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            204
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardVisit",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            192
           ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 43,
+      "order": 48,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -28061,116 +29430,6 @@
           ]
         },
         {
-          "provider": "13h-steward-runner.js",
-          "symbol": "buildStewardSystemPrompt",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            427
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "ensureStewardSession",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            426
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "runStewardTurn",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            420
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            402
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "STEWARD_INBOX_MESSAGE_CHARS",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            403
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardCircuitCheck",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            422
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardContextBudget",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            428
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardParseReply",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            424
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardPreroute",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            430
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardResolveRoute",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            425
-          ]
-        },
-        {
-          "provider": "13h-steward-runner.js",
-          "symbol": "stewardVisit",
-          "kinds": [
-            "read"
-          ],
-          "lines": [
-            423
-          ]
-        },
-        {
           "provider": "13i-steward-inbox.js",
           "symbol": "startStewardInbox",
           "kinds": [
@@ -28270,6 +29529,116 @@
           ],
           "lines": [
             364
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "ensureStewardSession",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            426
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            402
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_INBOX_MESSAGE_CHARS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            403
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardResolveRoute",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            425
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "buildStewardSystemPrompt",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            427
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardContextBudget",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            428
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardParseReply",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            424
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardPreroute",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            430
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardCircuitCheck",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            422
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "runStewardTurn",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            420
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardVisit",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            423
           ]
         }
       ]
@@ -31503,18 +32872,9 @@
       "from": "13h-steward-runner.js",
       "to": "00-boot.js",
       "symbols": [
-        "SESSION_SCHEMA",
         "apiFailure",
-        "crypto",
-        "fs",
-        "fsp",
         "json",
-        "nowIso",
-        "path",
-        "paths",
-        "readUsageRows",
-        "text",
-        "usageDayKey"
+        "nowIso"
       ],
       "direction": "backward"
     },
@@ -31522,7 +32882,6 @@
       "from": "13h-steward-runner.js",
       "to": "01-config.js",
       "symbols": [
-        "atomicWriteJson",
         "readConfig",
         "readJsonBody",
         "safeSessionId",
@@ -31533,38 +32892,10 @@
     },
     {
       "from": "13h-steward-runner.js",
-      "to": "02-session-store.js",
-      "symbols": [
-        "loadSession",
-        "normalizeSessionEngineRoute",
-        "readInterventions",
-        "readMissionContainer",
-        "recordMissionBudgetTrippedChange",
-        "saveSession",
-        "sessionDisplayTitle",
-        "sessionEngineRouteFromConfig",
-        "sessionMissionId"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
-        "logEvent",
-        "normalizeQuestionAnswer",
-        "pendingPermissions",
-        "pendingQuestions",
         "stopSession"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "06b-prompt-registry.js",
-      "symbols": [
-        "getPromptPack"
       ],
       "direction": "backward"
     },
@@ -31580,68 +32911,9 @@
       "from": "13h-steward-runner.js",
       "to": "06i-steward-core.js",
       "symbols": [
-        "STEWARD_DIGEST_LIMITS",
-        "STEWARD_EVENT_KINDS",
-        "STEWARD_MEMORY_KINDS",
-        "STEWARD_MEMORY_LIMITS",
-        "STEWARD_PERMISSION_MODE",
-        "STEWARD_SESSION_ID",
-        "STEWARD_SESSION_TITLE",
         "StewardHooks",
-        "buildStewardDigestLine",
-        "deriveStewardThreadState",
-        "isStewardToolName",
-        "prerouteText",
-        "stewardHumanizeIds",
-        "stewardMayAct",
-        "stewardPendingOneLine",
-        "stewardPermissionLabel",
-        "stewardSanitizeBlock",
         "stewardSanitizeText",
-        "stewardThreadEngineRoute",
-        "stewardThreadStateFromCard",
         "waitReasonFor"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "08-agent-runs.js",
-      "symbols": [
-        "parseStructuredAgentOutput"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "10-context-governance.js",
-      "symbols": [
-        "runSessionTurn"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "13b-api-domain-routes.js",
-      "symbols": [
-        "steerSessionCore"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "13d-core-domain-routes.js",
-      "symbols": [
-        "decideIntervention"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
-      "to": "13e-pretender-index.js",
-      "symbols": [
-        "getPretenderProjectionIndex",
-        "overlayMissionCard"
       ],
       "direction": "backward"
     },
@@ -31655,24 +32927,12 @@
     },
     {
       "from": "13h-steward-runner.js",
-      "to": "13i-steward-inbox.js",
-      "symbols": [
-        "stewardDir",
-        "stewardInboxRead"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13h-steward-runner.js",
       "to": "13j-steward-tool-base.js",
       "symbols": [
-        "_stewardReadBudget",
         "stewardAppendDecision",
         "stewardBasisOf",
         "stewardFail",
-        "stewardQuickThread",
         "stewardRawKind",
-        "stewardReadMemoryStore",
         "stewardReadSessionHead",
         "stewardThreadPermissionMode"
       ],
@@ -31680,9 +32940,61 @@
     },
     {
       "from": "13h-steward-runner.js",
-      "to": "13l-steward-ops.js",
+      "to": "13m-steward-runner-base.js",
       "symbols": [
-        "stewardRunResumeTier"
+        "STEWARD_TURN_DAY_MS",
+        "STEWARD_TURN_WINDOW_MS",
+        "ensureStewardSession",
+        "stewardResumeRunner",
+        "stewardRunnerRuntime",
+        "stewardStopRunner"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13h-steward-runner.js",
+      "to": "13n-steward-arbiter.js",
+      "symbols": [
+        "stewardAcquireTurnSlot",
+        "stewardArbiterPrioritize",
+        "stewardArbiterRefresh",
+        "stewardArbiterState",
+        "stewardArbiterWait",
+        "stewardCancelQueuedTurn"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13h-steward-runner.js",
+      "to": "13o-steward-runner-prompt.js",
+      "symbols": [
+        "buildStewardSystemPrompt",
+        "stewardContextBudget",
+        "stewardPreroute",
+        "stewardVisitNotesPrompt"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13h-steward-runner.js",
+      "to": "13p-steward-runner-actions.js",
+      "symbols": [
+        "stewardDayCost",
+        "stewardTurnsInWindow"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13h-steward-runner.js",
+      "to": "13q-steward-runner-turn.js",
+      "symbols": [
+        "runStewardTurn",
+        "stewardApplyThreadTier",
+        "stewardOnInboxBatch",
+        "stewardRelayChannelFor",
+        "stewardRelayDeliver",
+        "stewardRunAct",
+        "stewardVisit"
       ],
       "direction": "backward"
     },
@@ -32121,6 +33433,486 @@
         "stewardReadSessionHead",
         "stewardThreadPermissionMode",
         "stewardTurnQuotaTake"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13m-steward-runner-base.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "SESSION_SCHEMA",
+        "nowIso",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13m-steward-runner-base.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "loadSession",
+        "normalizeSessionEngineRoute",
+        "saveSession",
+        "sessionEngineRouteFromConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13m-steward-runner-base.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "logEvent",
+        "stopSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13m-steward-runner-base.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_PERMISSION_MODE",
+        "STEWARD_SESSION_ID",
+        "STEWARD_SESSION_TITLE"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "crypto",
+        "fs",
+        "path",
+        "readUsageRows",
+        "usageDayKey"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "01-config.js",
+      "symbols": [
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "readInterventions",
+        "recordMissionBudgetTrippedChange"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "logEvent"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_SESSION_ID",
+        "stewardSanitizeText",
+        "waitReasonFor"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13n-steward-arbiter.js",
+      "to": "13m-steward-runner-base.js",
+      "symbols": [
+        "STEWARD_TURN_DAY_MS",
+        "STEWARD_TURN_WINDOW_MS"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "01-config.js",
+      "symbols": [
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "readMissionContainer",
+        "sessionDisplayTitle",
+        "sessionMissionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "logEvent"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "06b-prompt-registry.js",
+      "symbols": [
+        "getPromptPack"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_DIGEST_LIMITS",
+        "STEWARD_MEMORY_KINDS",
+        "STEWARD_MEMORY_LIMITS",
+        "STEWARD_SESSION_ID",
+        "StewardHooks",
+        "buildStewardDigestLine",
+        "deriveStewardThreadState",
+        "isStewardToolName",
+        "prerouteText",
+        "stewardSanitizeText",
+        "stewardThreadStateFromCard",
+        "waitReasonFor"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "08-agent-runs.js",
+      "symbols": [
+        "parseStructuredAgentOutput"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "13e-pretender-index.js",
+      "symbols": [
+        "getPretenderProjectionIndex",
+        "overlayMissionCard"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "13j-steward-tool-base.js",
+      "symbols": [
+        "stewardQuickThread",
+        "stewardRawKind",
+        "stewardReadMemoryStore",
+        "stewardReadSessionHead",
+        "stewardThreadPermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "13m-steward-runner-base.js",
+      "symbols": [
+        "STEWARD_ACTIONS_MAX",
+        "STEWARD_ACTS_MAX",
+        "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_DECIDE_LABELS",
+        "STEWARD_MEMORY_BLOCK_CHARS",
+        "STEWARD_RUN_ACTION_LABELS",
+        "STEWARD_SAY_MAX",
+        "STEWARD_TOOL_LABELS",
+        "STEWARD_WHY_MAX",
+        "stewardRunnerRuntime"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "13n-steward-arbiter.js",
+      "symbols": [
+        "stewardArbiterWait"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "readUsageRows",
+        "text",
+        "usageDayKey"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "01-config.js",
+      "symbols": [
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "loadSession",
+        "saveSession",
+        "sessionDisplayTitle"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "logEvent"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "06b-prompt-registry.js",
+      "symbols": [
+        "getPromptPack"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_SESSION_ID",
+        "StewardHooks",
+        "stewardHumanizeIds",
+        "stewardMayAct",
+        "stewardPermissionLabel",
+        "stewardSanitizeBlock",
+        "stewardSanitizeText"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "13j-steward-tool-base.js",
+      "symbols": [
+        "stewardFail",
+        "stewardReadSessionHead",
+        "stewardThreadPermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "13l-steward-ops.js",
+      "symbols": [
+        "stewardRunResumeTier"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "13m-steward-runner-base.js",
+      "symbols": [
+        "STEWARD_ACTION_HOOKS",
+        "STEWARD_ACTS_MAX",
+        "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_INBOX_DELIVERABLE_CHARS",
+        "STEWARD_INBOX_EVENTS_PER_TURN",
+        "STEWARD_INBOX_EVENT_CHARS",
+        "STEWARD_INBOX_MESSAGE_CHARS",
+        "STEWARD_NO_PROGRESS_MAX",
+        "STEWARD_SELF_SERVE_ATTEMPT_MAX",
+        "STEWARD_SELF_SERVE_PER_TURN_MAX",
+        "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
+        "STEWARD_TURN_DAY_MS",
+        "STEWARD_TURN_WINDOW_MS",
+        "stewardRunnerRuntime"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "13o-steward-runner-prompt.js",
+      "symbols": [
+        "stewardActLabel"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "fsp",
+        "nowIso",
+        "path"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "01-config.js",
+      "symbols": [
+        "atomicWriteJson",
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "loadSession",
+        "normalizeSessionEngineRoute",
+        "saveSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "logEvent",
+        "normalizeQuestionAnswer",
+        "pendingPermissions",
+        "pendingQuestions"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_EVENT_KINDS",
+        "STEWARD_SESSION_ID",
+        "StewardHooks",
+        "stewardPendingOneLine",
+        "stewardSanitizeText",
+        "stewardThreadEngineRoute",
+        "waitReasonFor"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "10-context-governance.js",
+      "symbols": [
+        "runSessionTurn"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13b-api-domain-routes.js",
+      "symbols": [
+        "steerSessionCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "decideIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13e-pretender-index.js",
+      "symbols": [
+        "getPretenderProjectionIndex"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13i-steward-inbox.js",
+      "symbols": [
+        "stewardDir",
+        "stewardInboxRead"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13j-steward-tool-base.js",
+      "symbols": [
+        "_stewardReadBudget",
+        "stewardFail"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13m-steward-runner-base.js",
+      "symbols": [
+        "STEWARD_ACTION_HOOKS",
+        "STEWARD_DEBOUNCE_MS",
+        "STEWARD_DIGEST_KIND_TEXT",
+        "STEWARD_INBOX_EVENTS_PER_TURN",
+        "STEWARD_PENDING_LIST_MAX",
+        "STEWARD_PREEMPT_WAIT_MS",
+        "STEWARD_USER_QUEUE_WAIT_MS",
+        "STEWARD_VISITS_DIR",
+        "STEWARD_VISITS_KEEP",
+        "STEWARD_VISIT_DIGEST_MAX",
+        "STEWARD_VISIT_SCHEMA",
+        "ensureStewardSession",
+        "stewardAbortInflight",
+        "stewardRunnerRuntime"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13n-steward-arbiter.js",
+      "symbols": [
+        "stewardArbiterWait"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13o-steward-runner-prompt.js",
+      "symbols": [
+        "stewardParseReply",
+        "stewardThreadDigestRows"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13p-steward-runner-actions.js",
+      "symbols": [
+        "stewardCircuitCheck",
+        "stewardDowngradeActions",
+        "stewardExecuteActions",
+        "stewardHumanizeSay",
+        "stewardInboxMessage",
+        "stewardLastAssistantContent",
+        "stewardNormalizeRouteHint",
+        "stewardSelfServeInbox",
+        "stewardStampReply",
+        "stewardTriggerStamp"
       ],
       "direction": "backward"
     },
@@ -32798,24 +34590,6 @@
     },
     {
       "from": "14-main.js",
-      "to": "13h-steward-runner.js",
-      "symbols": [
-        "STEWARD_INBOX_DELIVERABLE_CHARS",
-        "STEWARD_INBOX_MESSAGE_CHARS",
-        "buildStewardSystemPrompt",
-        "ensureStewardSession",
-        "runStewardTurn",
-        "stewardCircuitCheck",
-        "stewardContextBudget",
-        "stewardParseReply",
-        "stewardPreroute",
-        "stewardResolveRoute",
-        "stewardVisit"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
       "to": "13i-steward-inbox.js",
       "symbols": [
         "STEWARD_SOURCE_EVENT_MAP",
@@ -32828,6 +34602,45 @@
         "stewardNormalizePendingIntervention",
         "stewardNormalizeRunEvent",
         "stopStewardInbox"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13m-steward-runner-base.js",
+      "symbols": [
+        "STEWARD_INBOX_DELIVERABLE_CHARS",
+        "STEWARD_INBOX_MESSAGE_CHARS",
+        "ensureStewardSession",
+        "stewardResolveRoute"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13o-steward-runner-prompt.js",
+      "symbols": [
+        "buildStewardSystemPrompt",
+        "stewardContextBudget",
+        "stewardParseReply",
+        "stewardPreroute"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13p-steward-runner-actions.js",
+      "symbols": [
+        "stewardCircuitCheck"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13q-steward-runner-turn.js",
+      "symbols": [
+        "runStewardTurn",
+        "stewardVisit"
       ],
       "direction": "backward"
     }

@@ -272,7 +272,9 @@ ok(missingTemplate.length === 0, `H4 模板拼出来的 ${template.length} 个�
 // 117m-A4 新增 steward_thread_stop 时就漏了这一条，后果是「行动流水」那一列把内部 id
 // 原样显给用户（§8.1 原则 7 明文禁止，上一轮用户就为这类事提过意见）。
 // 钉成逐名对账：以后再加管家工具，漏登记会当场红，而不是等用户在界面上看到 id。
-const runnerSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13h-steward-runner.js'), 'utf8');
+// 117 波 T2(32 号文 §5):13h 拆成六个文件(纯搬家),STEWARD_ACTION_HOOKS 这张表随共享常量块
+// 搬进 13m-steward-runner-base.js。钉的事实(表里每个工具在前端都有人话标签)一字未改,只换读取来源。
+const runnerSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13m-steward-runner-base.js'), 'utf8');
 const hooksBlock = (runnerSrc.split('const STEWARD_ACTION_HOOKS = Object.freeze({')[1] || '').split('});')[0];
 const hookNames = [...hooksBlock.matchAll(new RegExp('^\\s*(steward_[a-z_]+):', 'gm'))].map(m => m[1]);
 const labelled = new Set(Object.keys(mod.STEWARD_TOOL_LABEL_KEYS));

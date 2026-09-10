@@ -43,6 +43,13 @@ const src13l = read('13l-steward-ops.js');
 // 116-2e:收件箱轮询与游标前移到 13i-steward-inbox.js(零行为搬家),⑤ 的收件箱断言随之改读 13i。
 const src13i = read('13i-steward-inbox.js');
 const src13h = read('13h-steward-runner.js');
+// 117 波 T2(32 号文 §5):13h 已 2522 行(比 T1 拆之前的 13g 还长),按「谁被谁引用」拆成六个文件
+// (纯搬家,拼接顺序即依赖方向)。这六个合起来才是原来那个「13h」,故下面凡是钉【运行器里有这件事】
+// 的判据一律改读整族 —— 事实一个字没变,只是它现在住在族里的哪个文件由拆分决定;钉【落点】的那几条
+// (① 的顺序链、② 的注册表与 threadStop 实现)仍各自钉到确切的那个文件。
+const STEWARD_RUNNER_FAMILY = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-steward-runner-prompt.js',
+  '13p-steward-runner-actions.js', '13q-steward-runner-turn.js', '13h-steward-runner.js'];
+const srcRunnerFamily = STEWARD_RUNNER_FAMILY.map(read).join('\n');
 const src01b = read('01b-route-auth.js');
 
 /* ═════════════ ① 模块落点 ═════════════ */
@@ -50,17 +57,25 @@ const src01b = read('01b-route-auth.js');
   const files = manifest.modules.map(m => m.file);
   const iRunner = files.indexOf('13h-steward-runner.js');
   ok(iRunner > 0, '① manifest 收录 13h-steward-runner.js');
-  ok(iRunner === files.indexOf('13g-steward.js') + 1, '① 13h 紧跟 13g 之后(同为 transport 层)');
+  // 117 波 T2 重钉:13g 与 13h 之间插入了 T2 拆出的五个文件(纯搬家)。原来钉的是「下标差 1」,
+  // 那钉的是当时的排布长什么样;这条判据的用意是「运行器族整段待在 13g 之后、组合根 14-main 之前,
+  // 且顺序即依赖方向」。故改钉整条链本身 —— 比原来那个探针更严:族里任何一个被挪出这段连续区间、
+  // 或顺序被换,这条都红。
+  const iFam = files.indexOf('13g-steward.js') + 1;
+  ok(iFam > 0 && STEWARD_RUNNER_FAMILY.every((f, k) => files[iFam + k] === f),
+    '① 13g 之后是 T2 拆出的运行器族、以 13h 收尾(' + STEWARD_RUNNER_FAMILY.join(' -> ') + ';实得 '
+    + JSON.stringify(files.slice(iFam, iFam + STEWARD_RUNNER_FAMILY.length)) + ')');
   ok(iRunner === files.indexOf('14-main.js') - 1, '① 13h 在 14-main.js 之前(组合根仍是最后一个)');
   // 13g 不得继续膨胀(SPEC §2 目标 2000 行;116c 交付记录已把 116f 另起 13h 的理由写在案)。
   const lines13g = src13g.split('\n').length;
   ok(lines13g < 2000, `① 13g 不超过 SPEC 目标 2000 行(got ${lines13g};116f 另起 13h 就是为了这条)`);
   // 117 波 T1:这条闸在 HEAD 上红了很久(2089 行)。T1 把 13g 按工具族拆成四个文件后它自然绿了 ——
   // 但只钉 13g 一个文件等于把债推到新文件里而锁看不见。故同时钉整族每个文件都在目标线以内。
-  // (13h 本身 2523 行,SPEC §2 目标 2000 行上它【已经超了】—— 这是 T1 之前就存在、也不在 T1 面上的
-  //  既有债,故不在这里新钉一条红。登记在案:下一把动 13h 的刀先拆它。)
+  // 117 波 T2 重钉:上一版这里写着「13h 本身 2523 行已经超了,是既有债,不在这里新钉一条红」——
+  // T2 已经把那笔债还了(13h 拆成六个文件,纯搬家)。故那条豁免删掉,运行器族六个文件与工具族三个
+  // 一起进这道闸:以后再往管家回合层加东西,超线的是哪个文件当场就看得见。
   for (const [name, text] of [['13j-steward-tool-base.js', src13j], ['13k-steward-threads.js', src13k],
-    ['13l-steward-ops.js', src13l]]) {
+    ['13l-steward-ops.js', src13l], ...STEWARD_RUNNER_FAMILY.map(f => [f, read(f)])]) {
     const n = text.split('\n').length;
     ok(n < 2000, `① ${name} 也在 SPEC 目标 2000 行以内(got ${n};拆分不许把债换个文件放)`);
   }
@@ -75,8 +90,10 @@ const src01b = read('01b-route-auth.js');
 
 /* ═════════════ ② 零前向边:消费者只认 StewardHooks ═════════════ */
 {
-  // 13h 里所有顶层 function 名(它们是「13h 的符号」)。任何消费者源码里出现其中之一 = 前向边。
-  const runnerSymbols = [...new Set((src13h.match(/^(?:async )?function ([A-Za-z0-9_]+)/gm) || [])
+  // 13h 族里所有顶层 function 名(它们是「13h 的符号」)。任何消费者源码里出现其中之一 = 前向边。
+  // 117 波 T2 重钉:样本从「13h 一个文件」扩到整族 —— 否则一条符号只要搬进 13m/13n/13o/13p/13q
+  // 就能绕过这把锁。判据一字未变,样本比原来大(判得更严)。
+  const runnerSymbols = [...new Set((srcRunnerFamily.match(/^(?:async )?function ([A-Za-z0-9_]+)/gm) || [])
     .map(m => m.replace(/^(?:async )?function /, '')))];
   ok(runnerSymbols.length >= 15, `② 13h 顶层函数抽取到 ${runnerSymbols.length} 个(锁的样本足够大)`);
   // 116h 重钉:消费者面从 06/09/10/13g 扩到 06/09/10/12/13/13d/13g —— 仲裁的钩子多了三个新消费者
@@ -188,14 +205,16 @@ const srv = require(path.join(APP, 'server.js'));
     '③ 117v-V3 英文包同步一条同义规则(destination 而非 "See the full ...")');
   ok(!/全文/.test(zh.stable) && !/full[- ]?text/i.test(en.stable),
     '③ 117v-V3 这条在易变层 rules、没有塞进 stable(≤2500 硬闸没被顶破;英文 stable 现在 ' + en.stable.length + ')');
-  ok(/label: String\(row\.label \|\| ''\)[\s\S]{0,80}stewardActLabel\(/.test(src13h),
-    '③ 117v-V3 那枚 act 的 label 确实由模型给(13h 是 row.label 优先、仓里的 stewardActLabel 只兜底),故只能靠提示词管');
-  // 上限数字只有一份:13h 引用 06i 的 STEWARD_DIGEST_LIMITS,不自带 40/12000。
-  ok(/STEWARD_DIGEST_LIMITS\.maxThreads/.test(src13h) && /STEWARD_DIGEST_LIMITS\.totalChars/.test(src13h),
+  // 117 波 T2 重钉:下面五条钉的都是【运行器里有这件事】,不是【它住哪个文件】,故一律改读整族
+  // (拆分把 label 兜底搬进 13p、总览搬进 13o、三个数值口径搬进 13m)。期望值一个字没改。
+  ok(/label: String\(row\.label \|\| ''\)[\s\S]{0,80}stewardActLabel\(/.test(srcRunnerFamily),
+    '③ 117v-V3 那枚 act 的 label 确实由模型给(13h 族是 row.label 优先、仓里的 stewardActLabel 只兜底),故只能靠提示词管');
+  // 上限数字只有一份:13h 族引用 06i 的 STEWARD_DIGEST_LIMITS,不自带 40/12000。
+  ok(/STEWARD_DIGEST_LIMITS\.maxThreads/.test(srcRunnerFamily) && /STEWARD_DIGEST_LIMITS\.totalChars/.test(srcRunnerFamily),
     '③ 总览上限取 06i 的 STEWARD_DIGEST_LIMITS(不另立第二套数字)');
-  ok(/buildStewardDigestLine\(/.test(src13h), '③ 总览行由 06i 的 buildStewardDigestLine 生成(与 116a 同一口径)');
-  ok(/STEWARD_MEMORY_BLOCK_CHARS = 3000/.test(src13h), '③ 记忆块 ≤3000 字符(§11.2 半稳定层预算)');
-  ok(/STEWARD_INBOX_EVENTS_PER_TURN = 30/.test(src13h) && /STEWARD_INBOX_EVENT_CHARS = 400/.test(src13h),
+  ok(/buildStewardDigestLine\(/.test(srcRunnerFamily), '③ 总览行由 06i 的 buildStewardDigestLine 生成(与 116a 同一口径)');
+  ok(/STEWARD_MEMORY_BLOCK_CHARS = 3000/.test(srcRunnerFamily), '③ 记忆块 ≤3000 字符(§11.2 半稳定层预算)');
+  ok(/STEWARD_INBOX_EVENTS_PER_TURN = 30/.test(srcRunnerFamily) && /STEWARD_INBOX_EVENT_CHARS = 400/.test(srcRunnerFamily),
     '③ 回合层:收件箱事件 ≤30 条、每条 ≤400 字');
 }
 
