@@ -168,6 +168,7 @@
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
         "RUNTIME",
+        "WORKSPACE_NOTE_MAX",
         "_agentCliPathProbe",
         "_claudePathProbe",
         "_launcherResolveCache",
@@ -1383,6 +1384,7 @@
         "safeMcpInventory",
         "safeUrlForDisplay",
         "sameClaudeResumeCwd",
+        "sanitizeFsSegmentName",
         "sanitizeServerId",
         "scanMcpDropIns",
         "scanMcpSources",
@@ -11931,7 +11933,12 @@
       "layer": "transport",
       "provides": [
         "STEWARD_CWD_CANDIDATES_MAX",
+        "STEWARD_WORKSPACE_DERIVE_NOTE",
+        "STEWARD_WORKSPACE_DERIVE_TRIES",
+        "STEWARD_WORKSPACE_SLUG_MAX",
         "stewardCanonWorkspacePath",
+        "stewardDeriveThreadCwd",
+        "stewardDeriveWorkspaceDir",
         "stewardEnrichInboxRows",
         "stewardFoldWorkspacePath",
         "stewardImplQuickAsk",
@@ -11946,13 +11953,22 @@
         "stewardLaunchTurn",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
+        "stewardRegisterDerivedWorkspace",
         "stewardRelayAutoAllowed",
         "stewardToolCallLine",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
-        "stewardValidateCwd"
+        "stewardValidateCwd",
+        "stewardWorkspaceSlug"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "nowIso",
@@ -11972,6 +11988,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12096,6 +12119,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
           "kinds": [
             "call"
           ]

@@ -21,9 +21,11 @@
 //  (I) 记忆:来源非用户消息 -> source_not_user;敏感 -> sensitive_rejected;同义合并;veto 后同义拒。
 //  (J) 决策日志:每个写动作恰好一行,字段齐整。
 //  (K) 四门:普通会话在 buildOpenAiTools / adaptive 目录 / /api/status / MCP tools/list 四处都看不到 steward_*。
-//  (N) 117w-W1 提交①(27 号文 §11.19.4)cwd 三态:省略 -> 照旧回落 defaultWorkspace(零行为变化的证明);
-//      表内 -> 用表里那一行的归一化值(斜杠/大小写两种写法各一次);其它 -> invalid_request 且不静默回落
-//      (表外 / `~` / 主目录 / 只在 recentWorkspaces 里的 / 相对路径),thread_new 与 quick_ask 共用一份校验。
+//  (N) 117w-W1 提交①②(27 号文 §11.19.4)cwd 三态:表内 -> 用表里那一行的归一化值(斜杠/大小写两种
+//      写法各一次);其它 -> invalid_request 且不静默回落(表外 / `~` / 主目录 / 只在 recentWorkspaces
+//      里的 / 相对路径),thread_new 与 quick_ask 共用一份校验;省略 -> 提交② 起在 Ruyi 根下派生
+//      <root>/<slug(标题)> 并登记进 workspaces[] 末尾(带 note),撞名 -2、空目录复用、标题全非法字符
+//      回落 thread-<id>,外加「cwdWarning 对它静默 / defaultWorkspace 没被顶掉」两条反向保护。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -582,31 +584,54 @@ try {
     const WS_ALPHA = path.join(HOME, 'ws-alpha');
     const WS_BETA = path.join(HOME, 'ws-beta');
     const WS_RECENT_ONLY = path.join(HOME, 'ws-recent-only');
+    // 117w-W1 ②:Ruyi 根【必须】指到夹具的临时 HOME 里。出厂默认是 ~/Ruyi(真实主目录),不覆盖
+    // 就会在跑测试的人的机器上真建目录 —— 那是污染,不是覆盖。
+    const RUYI_ROOT = path.join(HOME, 'Ruyi');
     for (const d of [WS_ALPHA, WS_BETA, WS_RECENT_ONLY]) fs.mkdirSync(d, { recursive: true });
     // HOME 放在第 0 位:01-config 的清洗会把 defaultWorkspace 同步成 workspaces[0].path,
-    // 放别的在前面会把 N2「省略 cwd == defaultWorkspace」那条锁的比较对象换掉。
+    // 放别的在前面会把 N14b「defaultWorkspace 仍等于 workspaces[0].path」那条锁的比较对象换掉。
     // recentWorkspaces 里那一条【有意】不进 workspaces —— 打开过 ≠ 授权过(§11.19.2 红线)。
+    const baseWorkspaces = () => ([
+      { path: HOME, read: true, write: true, execute: true },
+      { path: WS_ALPHA, read: true, write: true, execute: true },
+      { path: WS_BETA, read: true, write: true, execute: true },
+    ]);
     writeConfig({
       permissionMode: 'default',
-      workspaces: [
-        { path: HOME, read: true, write: true, execute: true },
-        { path: WS_ALPHA, read: true, write: true, execute: true },
-        { path: WS_BETA, read: true, write: true, execute: true },
-      ],
+      stewardWorkspaceRoot: RUYI_ROOT,
+      workspaces: baseWorkspaces(),
       recentWorkspaces: [WS_RECENT_ONLY],
     });
     const headOf = sid => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', sid + '.json'), 'utf8'));
+    const readCfg = () => srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
     const newThread = (cwd, tag) => call('steward_thread_new', {
       title: 'cwd 锁 ' + tag, ...(cwd === undefined ? {} : { cwd }),
       brief: { userText: 'cwd 锁 ' + tag },
     }, stewardCtx('cwd-' + tag));
-    const effectiveDefault = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config.defaultWorkspace;
+    const effectiveDefault = readCfg().defaultWorkspace;
 
-    // N1/N2 —— 省略 cwd:与修前【逐字节相同】(不传 → createSession 的回落链 → defaultWorkspace)。
+    // N1/N2 —— 省略 cwd:117w-W1 ② 起【不再】回落 defaultWorkspace,而是在 Ruyi 根下按标题派生一条
+    // 属于这条线程自己的子工作区。修前十几条线程全挤在主目录根上,而仓里自己的 03 cwdWarning 恰恰把
+    // 「cwd 落在主目录根」判成最高风险目标 —— 这条锁钉的就是那个病灶被治好。
     const omitted = await newThread(undefined, 'omit');
-    ok(omitted && omitted.ok === true, 'N1 省略 cwd 仍然照常开线程(本提交零行为变化)');
-    ok(omitted && omitted.ok === true && headOf(omitted.sessionId).cwd === effectiveDefault,
-      `N2 省略 cwd -> 线程 cwd == config.defaultWorkspace(${effectiveDefault};got ${omitted && omitted.ok ? headOf(omitted.sessionId).cwd : 'n/a'})`);
+    ok(omitted && omitted.ok === true, 'N1 省略 cwd 仍然照常开线程');
+    const omittedCwd = omitted && omitted.ok ? headOf(omitted.sessionId).cwd : '';
+    ok(omittedCwd === path.join(RUYI_ROOT, 'cwd 锁 omit'),
+      `N2 省略 cwd -> 线程 cwd == <Ruyi 根>/<slug(标题)>(want ${path.join(RUYI_ROOT, 'cwd 锁 omit')};got ${omittedCwd})`);
+    ok(omittedCwd !== effectiveDefault, 'N2b 省略 cwd 不再落在 defaultWorkspace 上(这一刀改掉的正是它)');
+    ok(fs.existsSync(omittedCwd) && fs.statSync(omittedCwd).isDirectory(), 'N2c 派生出来的目录真的建出来了');
+    {
+      const rows = readCfg().workspaces;
+      const last = rows[rows.length - 1];
+      ok(last && last.path === omittedCwd && last.note === 'Ruyi 自动开的'
+        && last.read === true && last.write === true && last.execute === true,
+        `N2d 派生目录登记进 workspaces[] 【末尾】且带 note(got ${JSON.stringify(last)})`);
+      ok(rows[0].path === HOME, 'N2e 派生追加在末尾,没有顶掉 workspaces[0](defaultWorkspace 的同步源)');
+    }
+    // N2f —— 派生出来的路径立刻就是【表内路径】:再传一次它,走的是三态的第 ② 态而不是被拒。
+    const reuseDerived = await newThread(omittedCwd, 'reuse-derived');
+    ok(reuseDerived && reuseDerived.ok === true && headOf(reuseDerived.sessionId).cwd === omittedCwd,
+      'N2f 派生目录进表之后,把它当 cwd 传回来 -> 命中表内(闭环)');
 
     // N3 —— 表内路径原样:线程 cwd 就是表里那一行。
     const inTable = await newThread(WS_ALPHA, 'alpha');
@@ -666,8 +691,68 @@ try {
     ok(qGood && qGood.ok === true && headOf(qGood.sessionId).cwd === WS_BETA,
       `N10c quick_ask 表内路径 -> 线程 cwd 等于表里那一行(got ${qGood && qGood.ok ? headOf(qGood.sessionId).cwd : JSON.stringify(qGood)})`);
     const qOmit = await call('steward_quick_ask', { question: 'cwd 锁:省略' }, stewardCtx('cwd-q4'));
-    ok(qOmit && qOmit.ok === true && headOf(qOmit.sessionId).cwd === effectiveDefault,
-      'N10d quick_ask 省略 cwd -> 与修前一样落在 defaultWorkspace');
+    ok(qOmit && qOmit.ok === true && headOf(qOmit.sessionId).cwd === path.join(RUYI_ROOT, 'cwd 锁:省略'.replace(/:/g, '_')),
+      `N10d quick_ask 省略 cwd -> 同样派生子工作区(问题原话当标题,冒号被换成 _;got ${qOmit && qOmit.ok ? headOf(qOmit.sessionId).cwd : JSON.stringify(qOmit)})`);
+
+    /* ── 117w-W1 提交②:派生的三条判据(§11.19.2)—— 撞名 / 空目录复用 / slug 回落 ── */
+    // N11 —— 同标题第二条:第一条的目录【非空】(N2 那条线程正在里面跑,而且我们下面先塞个文件
+    // 保证它一定非空)→ 派生 -2。「非空才让位」是设计里明写的:同一件事重开线程不该长出第二个空壳。
+    // 护栏:下面 N12 要把 omittedCwd 【清空】。派生要是哪天静默失效,omittedCwd 就会是夹具的
+    // 临时 HOME 本身,那一句 rmSync 会把 config.json 和整个 sessions 目录一起删掉,后面几十条锁
+    // 于是变成一片 steward.disabled —— 真红被伪装成别的病。所以先钉死「它必须在 Ruyi 根之下」。
+    ok(omittedCwd.startsWith(RUYI_ROOT + path.sep),
+      `N11a(护栏)派生路径落在 Ruyi 根之下,清空它才是安全的(got ${omittedCwd})`);
+    fs.writeFileSync(path.join(omittedCwd, 'report.md'), 'x', 'utf8');
+    const dup2 = await newThread(undefined, 'omit');
+    const dup2Cwd = dup2 && dup2.ok ? headOf(dup2.sessionId).cwd : '';
+    ok(dup2Cwd === path.join(RUYI_ROOT, 'cwd 锁 omit-2'),
+      `N11 同标题第二条 -> <slug>-2(want ${path.join(RUYI_ROOT, 'cwd 锁 omit-2')};got ${dup2Cwd})`);
+    ok(fs.existsSync(dup2Cwd), 'N11b -2 目录真的建出来了');
+    // N12 —— 把第一条的目录【清空】,再开第三条:直接【复用】第一条,不长出 -3。
+    if (omittedCwd.startsWith(RUYI_ROOT + path.sep)) {
+      for (const name of fs.readdirSync(omittedCwd)) fs.rmSync(path.join(omittedCwd, name), { recursive: true, force: true });
+    }
+    const dup3 = await newThread(undefined, 'omit');
+    const dup3Cwd = dup3 && dup3.ok ? headOf(dup3.sessionId).cwd : '';
+    ok(dup3Cwd === omittedCwd,
+      `N12 第一条目录清空后再开 -> 【复用】第一条,不长 -3(want ${omittedCwd};got ${dup3Cwd})`);
+    ok(!fs.existsSync(path.join(RUYI_ROOT, 'cwd 锁 omit-3')), 'N12b 没有凭空长出 -3');
+    // N12c —— 复用不重复登记:workspaces 里 <slug> 那一行仍然只有一行。
+    {
+      const hits = readCfg().workspaces.filter(w => String(w.path).toLowerCase() === omittedCwd.toLowerCase());
+      ok(hits.length === 1, `N12c 复用同一个目录不重复登记进 workspaces(got ${hits.length} 行)`);
+    }
+    // N13 —— 标题整条都是非法字符(尖括号/冒号/引号/斜杠/竖线/问号/星号)→ slug 空 → 回落 thread-<id>。
+    // 用【去掉 sess_ 前缀之后】的 8 位:id 是 sess_+16 位十六进制,直接切前 8 位只剩 3 位有效字符。
+    const nasty = await call('steward_thread_new', {
+      title: '<>:"/\\|?*', brief: { userText: '全是非法字符的标题' },
+    }, stewardCtx('cwd-nasty'));
+    const nastyCwd = nasty && nasty.ok ? headOf(nasty.sessionId).cwd : '';
+    const nastyWant = path.join(RUYI_ROOT, 'thread-' + String(nasty && nasty.sessionId).replace(/^sess_/, '').slice(0, 8));
+    ok(nastyCwd === nastyWant, `N13 标题全非法字符 -> thread-<id 8 位>(want ${nastyWant};got ${nastyCwd})`);
+    ok(!/[<>:"/\\|?*]/.test(path.basename(nastyCwd)), 'N13b 派生出来的目录名里零 Windows 非法字符');
+    // N13c —— 中文标题原样保留(slug 只做文件系统安全,不做 ASCII 化)。
+    const zh = await call('steward_thread_new', {
+      title: '英伟达分析', brief: { userText: '看一下英伟达' },
+    }, stewardCtx('cwd-zh'));
+    ok(zh && zh.ok === true && headOf(zh.sessionId).cwd === path.join(RUYI_ROOT, '英伟达分析'),
+      `N13c 中文标题原样进目录名(got ${zh && zh.ok ? headOf(zh.sessionId).cwd : JSON.stringify(zh)})`);
+
+    /* ── N14 反向保护:派生的目标不是「高风险目录」,且默认工作区没被顶掉 ── */
+    ok(srv.cwdWarning(omittedCwd) === null,
+      `N14 cwdWarning(<Ruyi 根>/<slug>) === null(它是主目录的子目录,不是 03 点名的四个根之一)`);
+    ok(srv.cwdWarning(os.homedir()) !== null,
+      'N14a 反向:cwdWarning(主目录) 仍然报警 —— 这条锁没被写成恒 null');
+    {
+      const cfg = readCfg();
+      ok(cfg.defaultWorkspace === cfg.workspaces[0].path,
+        `N14b defaultWorkspace 仍然等于 workspaces[0].path(${cfg.defaultWorkspace} / ${cfg.workspaces[0].path})`);
+      ok(cfg.defaultWorkspace === HOME, 'N14c 派生了这么多次,用户的默认工作区一个字都没变');
+      ok(cfg.workspaces.filter(w => w.note === 'Ruyi 自动开的').every(w => String(w.path).startsWith(RUYI_ROOT)),
+        'N14d 带「Ruyi 自动开的」备注的行全都在 Ruyi 根下(没有给根外目录加备注)');
+      ok(cfg.workspaces.slice(0, 3).every(w => !('note' in w)),
+        'N14e 用户原有那三行没有被加上 note(只写新追加的那一行)');
+    }
   }
 
 } finally {

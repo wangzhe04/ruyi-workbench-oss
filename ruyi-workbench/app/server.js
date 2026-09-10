@@ -1202,6 +1202,13 @@ function defaultConfig() {
     // 两档都留空 = 全部跟随全局主端点(= 116a 起的既有行为,存量用户零变化)。判定单点在 06i 的
     // stewardThreadEngineRoute;**这两个键不进 steward_config_set 白名单**(模型不能自己换模型)。
     stewardThreadModels: { strong: { providerId: '', model: '' }, fast: { providerId: '', model: '' } },
+    // 第 117 波 117w-W1 提交②(27 号文 §11.19.2/§11.19.5 推荐 A):Ruyi 默认工作区【根】。
+    // 管家开线程时若省略 cwd,工作台在这个根下派生一条属于那个线程自己的子工作区(<root>/<slug(标题)>)
+    // 并把它登记进 workspaces[]。放 ~/Ruyi 而不是 <dataRoot>/workspace 的理由(§11.19.5):这些目录里
+    // 放的是【用户的工作产物】(报告、抓下来的数据),不是 Ruyi 的运行数据 —— 用户要在资源管理器里
+    // 一眼找得到。它是主目录的【子目录】,不是主目录本身,所以 03 的 cwdWarning 对它静默。
+    // 围栏类键:按 06i 的 fail-closed 语义自动落 forbidden(管家改不了它,用户在设置里能改)。
+    stewardWorkspaceRoot: path.join(os.homedir(), 'Ruyi'),
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
@@ -1371,6 +1378,10 @@ function mergeAgentRole(base, override, source) {
 // Windows Explorer's "Copy as path" includes wrapping quotes. The picker already strips them for new UI
 // input, but older configs can retain both C:\\x and "C:\\x" as distinct recent/favorite entries. Clean at
 // the persistence boundary as well so every client and upgraded install converges on one canonical string.
+// 117w-W1 提交②(27 号文 §11.19.2):workspaces[].note 的字数上限。备注是给管家的候选表投影用的
+// 一句话标签(「股票资料」「客户合同」),不是说明文档 —— 80 字够写清楚,又不至于把到访层撑爆。
+const WORKSPACE_NOTE_MAX = 80;
+
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
@@ -1795,7 +1806,13 @@ function normalizeConfig(raw) {
       const key = p.toLowerCase();
       if (seen.has(key)) return;
       seen.add(key);
-      clean.push({ path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false });
+      const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
+      // 117w-W1 提交②(§11.19.2):可选备注 —— 用户在设置里给工作区写一句「股票资料」之类,管家的
+      // 候选表投影按「末段名 + 备注」渲染(见 13o stewardWorkspaceTableBlock)。空/非字符串一律【不写字段】
+      // (缺省不写而不是写空串:老配置逐字节不变,JSON.stringify 比较不会因为多一个 "" 就判成 changed)。
+      const note = typeof raw.note === 'string' ? raw.note.trim().slice(0, WORKSPACE_NOTE_MAX) : '';
+      if (note) entry.note = note;
+      clean.push(entry);
     };
     for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
     if (!clean.length && incomingConfigSchema < 10) {
@@ -1810,6 +1827,14 @@ function normalizeConfig(raw) {
     if (config.defaultWorkspace !== primary) { config.defaultWorkspace = primary; changed = true; }
     const ab = config.allowOutsideWorkspace === true;
     if (ab !== config.allowOutsideWorkspace) { config.allowOutsideWorkspace = ab; changed = true; }
+    // 117w-W1 提交②(§11.19.2):Ruyi 根。清洗与 defaultWorkspace 同一口径(剥「复制为路径」的引号 +
+    // trim + 截 1000),外加两条:必须是【绝对路径】(相对路径会被 path.resolve 按服务进程的 cwd 补全,
+    // 那是一条无声的越权路),空/非绝对一律回落出厂默认 ~/Ruyi。这里【不】做 path.resolve —— 与
+    // normalizeWorkspacePathString 处理 workspaces[].path 时同形(表里存的就是用户敲进去的原样),
+    // resolve 由消费侧(13k stewardCanonWorkspacePath)统一补。
+    const rootRaw = normalizeWorkspacePathString(config.stewardWorkspaceRoot);
+    const root = (rootRaw && path.isAbsolute(rootRaw)) ? rootRaw : path.join(os.homedir(), 'Ruyi');
+    if (root !== config.stewardWorkspaceRoot) { config.stewardWorkspaceRoot = root; changed = true; }
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
@@ -8741,10 +8766,19 @@ const VisualPipeline = ((fspModule, pathModule) => {
   return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages });
 })(fsp, path);
 
+// 117w-W1 提交②(27 号文 §11.19.2):Windows 文件系统非法字符的【唯一一份】替换表 —— 尖括号、
+// 冒号、双引号、两种斜杠、竖线、问号、星号、控制字符,一律换成下划线;中文与其它可见字符原样保留。
+// 修前它是 makeAttachmentRecord 里的一条内联正则,提交② 的派生子工作区(13k stewardWorkspaceSlug)
+// 要用同一张表 —— 抄第二份迟早分叉(一边补了新字符另一边没补,于是「附件名安全、目录名不安全」)。
+// 抽成函数是为了让两处【共用同一个正则字面量】,不是为了复用一行代码。
+function sanitizeFsSegmentName(fsSegmentRaw) {
+  return String(fsSegmentRaw == null ? '' : fsSegmentRaw).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+}
+
 async function makeAttachmentRecord(input) {
   await ensureDirs();
   const id = makeId('file');
-  const safeName = path.basename(input.name || 'upload.bin').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+  const safeName = sanitizeFsSegmentName(path.basename(input.name || 'upload.bin'));
   const targetDir = path.join(paths.uploads, id);
   await fsp.mkdir(targetDir, { recursive: true });
   const target = path.join(targetDir, safeName);
@@ -36793,7 +36827,7 @@ const MCP_TOOLS = [
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
         missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
-        cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则用全局默认工作区。这只是线程的起点目录,不是你自己能读写的路径。' },
+        cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则工作台在 Ruyi 根下按标题给这条线程派生一个自己的文件夹(认不出这件事该归哪个文件夹时就省略,这是正解)。这只是线程的起点目录,不是你自己能读写的路径。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
         brief: {
           type: 'object', additionalProperties: false, required: ['userText'],
@@ -36994,7 +37028,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
         question: { type: 'string', description: '要查的问题(用户原话优先,最多 1000 字符)。' },
-        cwd: { type: 'string', description: '可选。在哪个工作文件夹里查;省略用默认工作区。' },
+        cwd: { type: 'string', description: '可选。在哪个工作文件夹里查;省略则工作台在 Ruyi 根下派生一个给这次速查用的文件夹。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },
@@ -43926,8 +43960,8 @@ function stewardQuickThread(head) {
 // (workspaces 在 06i 的 forbidden 清册里)所以从不传 cwd —— 一旦 §11.19.4 提交③ 把表喂进上下文,
 // 幻觉路径会被直接接受。所以校验先行:本提交零行为变化(管家本来就不传),但门先装上。
 //
-// 三态(与 §11.19.2 同一口径;提交① 只实现 ① 与 ③,「省略 → 派生子工作区」是提交②):
-//   ① 省略/空串 → 不传,走 createSession 原有的回落链(与修前逐字节相同)。
+// 三态(与 §11.19.2 同一口径;提交② 已补上第 ① 态的派生,见下面的 stewardDeriveThreadCwd):
+//   ① 省略/空串 → 不传给 createSession,改为在 Ruyi 根下派生 <root>/<slug(标题)> 并登记进 workspaces[]。
 //   ② 归一化后 ∈ config.workspaces[].path → 用【表里那一行】的归一化值(不是调用方的写法)。
 //   ③ 其它任何值 → invalid_request。`~`、主目录、相对路径、只在 recentWorkspaces 里的路径,全在这一档。
 //      红线两条(§11.19.3):`~` 不是合法值(仓里自己的 03 cwdWarning 把主目录判成最高风险目标);
@@ -43976,6 +44010,95 @@ function stewardValidateCwd(stewardCwdRaw, stewardCwdConfig) {
     ? `cwd 不在工作区表里(不要自己编路径)。表里现有:${names.join('、')}${more}。要用别处请先请用户在设置里把那个文件夹加成工作区;不确定就【省掉 cwd】,不要重试同一个值。`
     : 'cwd 不在工作区表里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';
   return { ok: false, fail: stewardFail('invalid_request', message, { reason: 'cwd_not_in_workspaces' }) };
+}
+
+// ── 117w-W1 提交②(27 号文 §11.19.2「子工作区派生」)────────────────────────────────────────
+// 三态里的第 ② 态从「照旧回落 defaultWorkspace」改成【在 Ruyi 根下派生一条属于这条线程自己的
+// 子工作区】。病灶是用户看到的那句「同一个文件夹被占着」:出厂 defaultWorkspace 就是主目录,
+// 管家读不到工作区表所以从不传 cwd,于是十几条线程全挤在主目录根上 —— 而仓里自己的 03 cwdWarning
+// 恰恰把「cwd 落在主目录根」判成最高风险目标。
+//
+// 为什么不是「与工作区无关就用 `~`」(§11.19.3):① 那正是守卫警告的地方;② 「英伟达分析」这类
+// 研究线程要写报告、要存抓下来的数据,它需要一个自己的目录,而不是散在主目录里;③ 多留一个 `~`
+// 出口只会给幻觉一条合法的逃生路。
+const STEWARD_WORKSPACE_SLUG_MAX = 64;          // 目录名截到 64 字符(保留中文,只做文件系统安全处理)
+const STEWARD_WORKSPACE_DERIVE_TRIES = 50;      // 撞名后缀上限:slug、slug-2 … slug-50
+const STEWARD_WORKSPACE_DERIVE_NOTE = 'Ruyi 自动开的';   // 写进 workspaces[].note,用户一眼看出这行是谁加的
+
+// 标题 → 目录名。非法字符表【复用 04 的 sanitizeFsSegmentName】(提交② 把 makeAttachmentRecord 里
+// 那条内联正则抽成了函数),这里不另写第二份 —— 两处分叉的后果是「附件名安全、目录名不安全」。
+function stewardWorkspaceSlug(stewardSlugTitle, stewardSlugSessionId) {
+  const safe = sanitizeFsSegmentName(stewardSlugTitle)
+    .replace(/\s+/g, ' ')                        // 制表/换行已被上面的控制字符档换成 '_',这里只并空格
+    .replace(/_+/g, '_')                         // 连续替身并成一个:`<>:"` 不该变成四道下划线
+    .slice(0, STEWARD_WORKSPACE_SLUG_MAX)
+    // 首尾的替身/点/空格全剥掉。两个理由:Windows 目录名不许以点或空格【结尾】;而「"报告"」这种
+    // 带引号的标题被替换后是 `_报告_`,首尾那两道下划线只是噪声。剥完为空 = 这条标题里没有任何
+    // 可用作目录名的字符(整条都是非法字符),走下面的 id 回落。
+    .replace(/^[_.\s]+/, '')
+    .replace(/[_.\s]+$/, '');
+  if (safe) return safe;
+  // 标题为空,或整条被非法字符替换后只剩替身/点/空格 → 回落到线程 id。
+  // 【与设计页的一处出入,如实记】§11.19.2 写「thread-<id 前 8 位>」,而 id 形如 sess_+16 位十六进制,
+  // 直接切前 8 位得到的是 'sess_' + 3 位,几乎必然撞名;这里按【去掉 sess_ 前缀之后】的 8 位取。
+  const short = String(stewardSlugSessionId || '').replace(/^sess_/, '').slice(0, 8);
+  return 'thread-' + (short || 'unnamed');
+}
+
+// 撞名规则(§11.19.2):不存在 → 建它;已存在且【空】→ 直接复用(同一件事重开线程不该长出第二个
+// 空壳);已存在且【非空】→ 试 -2、-3…。同名的是文件、或读不动 → 换下一个后缀(开线程不该因为
+// 用户在 Ruyi 根下放了个同名文件就失败)。试满上限返回 '' = 「没派生成」,调用方保持修前的回落链。
+async function stewardDeriveWorkspaceDir(stewardDeriveRoot, stewardDeriveSlug) {
+  for (let attempt = 1; attempt <= STEWARD_WORKSPACE_DERIVE_TRIES; attempt++) {
+    const dir = path.join(stewardDeriveRoot, attempt === 1 ? stewardDeriveSlug : `${stewardDeriveSlug}-${attempt}`);
+    let entries = null;
+    try {
+      entries = await fsp.readdir(dir);
+    } catch (error) {
+      if (error && error.code === 'ENOENT') {
+        try { await fsp.mkdir(dir, { recursive: true }); return dir; } catch { continue; }
+      }
+      continue;
+    }
+    if (entries.length === 0) return dir;
+  }
+  return '';
+}
+
+// 把派生出来的目录登记进 workspaces[] —— 用户在设置里【看得到、删得掉】(§11.19.2)。
+// 两条纪律:
+//  · 走 mutateConfig(01-config 那条「读-改-写」的唯一临界区),不裸 readConfig + writeConfig。
+//    两条线程同时派生时,后写者会静默吞掉先写者那一行 —— 117n-M2 治的就是这个模具。
+//  · 追加在【末尾】。01-config 的清洗把 defaultWorkspace 与 workspaces[0].path 保持同步,
+//    插在头上等于悄悄换掉用户的默认工作区。
+// 这是工作台写自己的配置,不经 steward_config_set,所以不违反 workspaces 的 forbidden 档。
+async function stewardRegisterDerivedWorkspace(stewardRegisterPath) {
+  const key = stewardFoldWorkspacePath(stewardCanonWorkspacePath(stewardRegisterPath));
+  if (!key) return false;
+  try {
+    const result = await mutateConfig(current => {
+      const rows = Array.isArray(current.workspaces) ? current.workspaces : [];
+      if (rows.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === key)) return { abort: 'exists' };
+      current.workspaces = rows.concat([{
+        path: stewardRegisterPath, read: true, write: true, execute: true, note: STEWARD_WORKSPACE_DERIVE_NOTE,
+      }]);
+      return {};
+    });
+    return !!(result && result.ok);
+  } catch {
+    return false;    // 登记失败不挡开线程:目录已经建好、线程照常跑,只是这次没进候选表
+  }
+}
+
+// 三态第 ② 态的入口。返回派生好的绝对路径,或 ''(根不可用/撞名试满)—— 返回 '' 时调用方保持
+// 修前的回落链(createSession 的 `cwd || defaultWorkspace || homedir`),绝不拿一个假路径去跑。
+async function stewardDeriveThreadCwd(stewardDeriveTitle, stewardDeriveSessionId, stewardDeriveConfig) {
+  const root = stewardCanonWorkspacePath(stewardDeriveConfig && stewardDeriveConfig.stewardWorkspaceRoot);
+  if (!root) return '';
+  const dir = await stewardDeriveWorkspaceDir(root, stewardWorkspaceSlug(stewardDeriveTitle, stewardDeriveSessionId));
+  if (!dir) return '';
+  await stewardRegisterDerivedWorkspace(dir);
+  return dir;
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
@@ -44346,6 +44469,13 @@ async function stewardImplThreadNew(args, ctx, config) {
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
     cwd: cwdCheck.cwd,
   });
+  // 117w-W1 ②:省略 cwd → 在 Ruyi 根下派生子工作区(三态的第 ② 态)。写在 createSession 之后是为了
+  // 拿到真线程 id(标题为空时 slug 要回落到它),改的是内存副本,跟着下面那一次 saveSession 一起落盘,
+  // 零额外写。派生不成(根不可用/撞名试满)就保持 createSession 刚落的回落值 = 修前行为。
+  if (cwdCheck.cwd === undefined) {
+    const derivedCwd = await stewardDeriveThreadCwd(args.title, session.id, config);
+    if (derivedCwd) session.cwd = derivedCwd;
+  }
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
   // 117s-A D2(§11.13 ⑤a):管家给的 title【不是】人起的名字(模型只是把用户那句话抄了一遍),
@@ -44606,6 +44736,12 @@ async function stewardImplQuickAsk(args, ctx, config) {
     title: question.slice(0, STEWARD_TITLE_MAX),
     cwd: quickCwdCheck.cwd,
   });
+  // 117w-W1 ②:与 thread_new 同一口径 —— 省略 cwd 就派生子工作区。速查线程的「标题」就是问题原话
+  // 的前 N 个字,slug 自己会截到 64;答完就收工的线程也照样给它一个自己的目录(它可能下载了东西)。
+  if (quickCwdCheck.cwd === undefined) {
+    const quickDerivedCwd = await stewardDeriveThreadCwd(question, session.id, config);
+    if (quickDerivedCwd) session.cwd = quickDerivedCwd;
+  }
   session.kind = STEWARD_QUICK_KIND;
   // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
   // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程

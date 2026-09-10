@@ -77,6 +77,9 @@ fs.mkdirSync(HOME, { recursive: true });
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   configSchema: 7, activeProvider: 'fake', engineMode: 'interactive', permissionMode: 'default',
   includeWorkbenchMcp: false, defaultWorkspace: HOME, recentWorkspaces: [], subagentMaxPerTurn: 0,
+  // 117w-W1 ②:本件有几处【省略 cwd】的 steward_quick_ask,而省略即在 Ruyi 根下派生子工作区。
+  // 出厂根是 ~/Ruyi(真实主目录),不覆盖就会在跑测试的人的机器上真建目录。
+  stewardWorkspaceRoot: path.join(HOME, 'Ruyi'),
   stewardEnabledV1: true, stewardPollMs: 120000, sessionSearchIndexV1: false,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${PROVIDER_PORT}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
 }, null, 2), 'utf8');

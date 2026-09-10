@@ -10,9 +10,11 @@
 //
 // 覆盖:
 //   ① 判据本身:free / confirm 两张表逐条、forbidden 的 fail-closed、密钥正则兜底压过两张表
-//   ② 全键矩阵:默认表 138 个键逐个断言 tier,与显式期望表零差集
+//   ② 全键矩阵:默认表 141 个键逐个断言 tier,与显式期望表零差集
 //   ③ 边界:空串/null/非字符串/带空格的键名 -> forbidden
 //   ④ 常量表形状:STEWARD_CONFIG_TIERS 冻结、free 与 confirm 两张表零交集
+//   ⑤ 117w-W1 提交②:围栏三兄弟(stewardWorkspaceRoot / workspaces / defaultWorkspace)被【点名】
+//      钉成 forbidden;新键 stewardWorkspaceRoot 的出厂值与清洗;workspaces[].note 的清洗
 //
 // 与既有 dev-harness/unit 件同款约定:require server.js 前先把 WIN_CLAUDE_WORKBENCH_HOME 覆盖到
 // 临时目录(它是系统级环境变量,曾污染真实数据);PASS/FAIL 逐条打印,process.exit(fail?1:0)。
@@ -100,6 +102,10 @@ const EXPECTED = {
   configSchema: 'forbidden', version: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', extraClaudeArgs: 'forbidden',
   defaultWorkspace: 'forbidden', workspaces: 'forbidden', recentWorkspaces: 'forbidden',
+  // 117w-W1 提交②(27 号文 §11.19.2):Ruyi 默认工作区【根】。围栏类键 —— 它决定「管家省略 cwd 时
+  // 线程被派生到哪」,能改它就等于能把新线程指到任意目录去。没有额外登记,靠 fail-closed 落 forbidden;
+  // 下面另有一条【显式】断言把这个事实钉死(新增键忘了判断时,那条也会红)。
+  stewardWorkspaceRoot: 'forbidden',
   additionalDirectories: 'forbidden', allowOutsideWorkspace: 'forbidden',
   autoResumeClaudeSessions: 'forbidden', contextWindowOverrides: 'forbidden', maxTurns: 'forbidden',
   allowCommandTools: 'forbidden', allowDesktopTools: 'forbidden',
@@ -186,6 +192,44 @@ ok(defaultKeys.length >= 100, `② 默认表抽到 ${defaultKeys.length} 个键(
 for (const key of STEWARD_CONFIG_TIERS.free) ok(stewardConfigTierFor(key) === 'free', `① free 表条目 ${key} -> free`);
 for (const key of STEWARD_CONFIG_TIERS.confirm) ok(stewardConfigTierFor(key) === 'confirm', `① confirm 表条目 ${key} -> confirm`);
 ok(stewardConfigTierFor('someKeyNobodyEverDeclared') === 'forbidden', '① 未登记的键 -> forbidden(fail-closed)');
+
+/* ═══════════ ⑤ 117w-W1 提交②:围栏三兄弟(§11.19.2)═══════════ */
+// 「看得见 ≠ 改得了」是这一刀的整条脊梁:提交③ 会把 workspaces 的【只读投影】喂进管家上下文,
+// 而 workspaces / stewardWorkspaceRoot / defaultWorkspace 三个键本身仍然一个都改不了。
+// 单独钉是因为上面那张 EXPECTED 表是「有人加新键就红」的普查,普查绿了不等于这三个键被【点名】看住;
+// 而且新键 stewardWorkspaceRoot 靠 fail-closed 落档 —— 哪天有人手滑把它写进 free 表,只有这一条会红。
+for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace']) {
+  ok(stewardConfigTierFor(key) === 'forbidden', `⑤ 围栏键 ${key} -> forbidden(steward_config_set 改不了)`);
+  ok(!STEWARD_CONFIG_TIERS.free.includes(key) && !STEWARD_CONFIG_TIERS.confirm.includes(key),
+    `⑤ ${key} 不在 free / confirm 任何一张白名单里`);
+}
+// 反向保护:出厂默认值真的是 ~/Ruyi(主目录的【子目录】,不是主目录本身 —— 03 的 cwdWarning
+// 把主目录根判成最高风险目标,§11.19.5 选 A 的理由就在这)。
+{
+  const root = normalizeConfig({}).config.stewardWorkspaceRoot;
+  ok(root === path.join(os.homedir(), 'Ruyi'), `⑤ 出厂 stewardWorkspaceRoot === ~/Ruyi(got ${root})`);
+  ok(root !== os.homedir(), '⑤ 根不等于主目录本身(反向保护)');
+  // 清洗:非绝对/空/非字符串一律回落出厂默认,绝不留一个相对路径进配置。
+  for (const bad of ['', '   ', 'Ruyi', null, 42, { x: 1 }]) {
+    ok(normalizeConfig({ stewardWorkspaceRoot: bad }).config.stewardWorkspaceRoot === path.join(os.homedir(), 'Ruyi'),
+      `⑤ 非法根 ${JSON.stringify(bad)} -> 回落 ~/Ruyi`);
+  }
+  const custom = process.platform === 'win32' ? 'D:\\Work\\Ruyi' : '/srv/ruyi';
+  ok(normalizeConfig({ stewardWorkspaceRoot: `"${custom}"` }).config.stewardWorkspaceRoot === custom,
+    '⑤ 绝对路径原样留下,且「复制为路径」带的引号被剥掉(与 defaultWorkspace 同一口径)');
+}
+// workspaces[].note:新可选字段,trim + 截 80,缺省【不写字段】。
+{
+  const ws = p => normalizeConfig({ workspaces: [p] }).config.workspaces[0];
+  const home = os.homedir();
+  ok(ws({ path: home, note: '  股票资料  ' }).note === '股票资料', '⑤ note 被 trim');
+  ok(ws({ path: home, note: 'x'.repeat(200) }).note.length === 80, '⑤ note 截到 80 字');
+  ok(!('note' in ws({ path: home })), '⑤ 没给 note 就不写这个字段(老配置逐字节不变)');
+  ok(!('note' in ws({ path: home, note: '   ' })), '⑤ 全空白的 note 不写字段');
+  ok(!('note' in ws({ path: home, note: 42 })), '⑤ 非字符串 note 不写字段');
+  ok(ws({ path: home, note: 'n' }).read === true && ws({ path: home, note: 'n' }).write === true,
+    '⑤ 加了 note 不影响 rwx 三个标志(反向保护)');
+}
 
 console.log('');
 if (fail) { console.log(`STEWARD CONFIG TIER UNIT: ${fail} FAILURE(S)`); process.exit(1); }

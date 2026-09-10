@@ -2,10 +2,10 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 49,
+  "count": 50,
   "lifecycleCounts": {
     "dedicated-exemption": 15,
-    "external-exemption": 8,
+    "external-exemption": 9,
     "regenerable-exemption": 7,
     "shared-lifecycle": 19
   },
@@ -667,6 +667,20 @@
       "recovery": "nothing rebuilds it - the archived turns are gone from the live session by design (the decision ledger keeps what the steward actually did)",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "steward-workspace-derived",
+      "pattern": "<stewardWorkspaceRoot, default ~/Ruyi>/<slug(title)>[-N]",
+      "owner": "13k-steward-threads.js",
+      "anchor": "STEWARD_WORKSPACE_DERIVE_NOTE",
+      "schema": "directory only / no schema (the workbench writes no file of its own inside it)",
+      "writePrimitive": "fsp.mkdir({recursive:true}); the workspaces[] row that records it goes through mutateConfig -> writeConfig",
+      "corruption": "a collision with an existing NON-EMPTY directory takes the next -N suffix; an existing EMPTY directory is reused (reopening the same task must not grow a second empty shell); a same-named plain file or an unreadable entry skips to the next suffix; after 50 tries derivation gives up and the thread keeps the pre-117w defaultWorkspace fallback",
+      "capacity": "slug capped at 64 characters; 50 collision suffixes per title; the workspaces[] table that records the row caps at 20 rows",
+      "cache": "none: the path is written into the session head and never cached",
+      "recovery": "nothing rebuilds it - the files inside are user work products a thread produced, and the workbench never regenerates user content",
+      "lifecycle": "external-exemption",
+      "exemptionReason": "the workbench creates the directory but owns nothing inside it: threads write there under their own permission and the workbench never reads it back, rewrites it or deletes it"
     },
     {
       "id": "mission-container",

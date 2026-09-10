@@ -306,6 +306,13 @@ function defaultConfig() {
     // 两档都留空 = 全部跟随全局主端点(= 116a 起的既有行为,存量用户零变化)。判定单点在 06i 的
     // stewardThreadEngineRoute;**这两个键不进 steward_config_set 白名单**(模型不能自己换模型)。
     stewardThreadModels: { strong: { providerId: '', model: '' }, fast: { providerId: '', model: '' } },
+    // 第 117 波 117w-W1 提交②(27 号文 §11.19.2/§11.19.5 推荐 A):Ruyi 默认工作区【根】。
+    // 管家开线程时若省略 cwd,工作台在这个根下派生一条属于那个线程自己的子工作区(<root>/<slug(标题)>)
+    // 并把它登记进 workspaces[]。放 ~/Ruyi 而不是 <dataRoot>/workspace 的理由(§11.19.5):这些目录里
+    // 放的是【用户的工作产物】(报告、抓下来的数据),不是 Ruyi 的运行数据 —— 用户要在资源管理器里
+    // 一眼找得到。它是主目录的【子目录】,不是主目录本身,所以 03 的 cwdWarning 对它静默。
+    // 围栏类键:按 06i 的 fail-closed 语义自动落 forbidden(管家改不了它,用户在设置里能改)。
+    stewardWorkspaceRoot: path.join(os.homedir(), 'Ruyi'),
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
@@ -475,6 +482,10 @@ function mergeAgentRole(base, override, source) {
 // Windows Explorer's "Copy as path" includes wrapping quotes. The picker already strips them for new UI
 // input, but older configs can retain both C:\\x and "C:\\x" as distinct recent/favorite entries. Clean at
 // the persistence boundary as well so every client and upgraded install converges on one canonical string.
+// 117w-W1 提交②(27 号文 §11.19.2):workspaces[].note 的字数上限。备注是给管家的候选表投影用的
+// 一句话标签(「股票资料」「客户合同」),不是说明文档 —— 80 字够写清楚,又不至于把到访层撑爆。
+const WORKSPACE_NOTE_MAX = 80;
+
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
@@ -899,7 +910,13 @@ function normalizeConfig(raw) {
       const key = p.toLowerCase();
       if (seen.has(key)) return;
       seen.add(key);
-      clean.push({ path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false });
+      const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
+      // 117w-W1 提交②(§11.19.2):可选备注 —— 用户在设置里给工作区写一句「股票资料」之类,管家的
+      // 候选表投影按「末段名 + 备注」渲染(见 13o stewardWorkspaceTableBlock)。空/非字符串一律【不写字段】
+      // (缺省不写而不是写空串:老配置逐字节不变,JSON.stringify 比较不会因为多一个 "" 就判成 changed)。
+      const note = typeof raw.note === 'string' ? raw.note.trim().slice(0, WORKSPACE_NOTE_MAX) : '';
+      if (note) entry.note = note;
+      clean.push(entry);
     };
     for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
     if (!clean.length && incomingConfigSchema < 10) {
@@ -914,6 +931,14 @@ function normalizeConfig(raw) {
     if (config.defaultWorkspace !== primary) { config.defaultWorkspace = primary; changed = true; }
     const ab = config.allowOutsideWorkspace === true;
     if (ab !== config.allowOutsideWorkspace) { config.allowOutsideWorkspace = ab; changed = true; }
+    // 117w-W1 提交②(§11.19.2):Ruyi 根。清洗与 defaultWorkspace 同一口径(剥「复制为路径」的引号 +
+    // trim + 截 1000),外加两条:必须是【绝对路径】(相对路径会被 path.resolve 按服务进程的 cwd 补全,
+    // 那是一条无声的越权路),空/非绝对一律回落出厂默认 ~/Ruyi。这里【不】做 path.resolve —— 与
+    // normalizeWorkspacePathString 处理 workspaces[].path 时同形(表里存的就是用户敲进去的原样),
+    // resolve 由消费侧(13k stewardCanonWorkspacePath)统一补。
+    const rootRaw = normalizeWorkspacePathString(config.stewardWorkspaceRoot);
+    const root = (rootRaw && path.isAbsolute(rootRaw)) ? rootRaw : path.join(os.homedir(), 'Ruyi');
+    if (root !== config.stewardWorkspaceRoot) { config.stewardWorkspaceRoot = root; changed = true; }
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.

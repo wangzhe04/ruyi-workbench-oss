@@ -1,7 +1,16 @@
+// 117w-W1 提交②(27 号文 §11.19.2):Windows 文件系统非法字符的【唯一一份】替换表 —— 尖括号、
+// 冒号、双引号、两种斜杠、竖线、问号、星号、控制字符,一律换成下划线;中文与其它可见字符原样保留。
+// 修前它是 makeAttachmentRecord 里的一条内联正则,提交② 的派生子工作区(13k stewardWorkspaceSlug)
+// 要用同一张表 —— 抄第二份迟早分叉(一边补了新字符另一边没补,于是「附件名安全、目录名不安全」)。
+// 抽成函数是为了让两处【共用同一个正则字面量】,不是为了复用一行代码。
+function sanitizeFsSegmentName(fsSegmentRaw) {
+  return String(fsSegmentRaw == null ? '' : fsSegmentRaw).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+}
+
 async function makeAttachmentRecord(input) {
   await ensureDirs();
   const id = makeId('file');
-  const safeName = path.basename(input.name || 'upload.bin').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+  const safeName = sanitizeFsSegmentName(path.basename(input.name || 'upload.bin'));
   const targetDir = path.join(paths.uploads, id);
   await fsp.mkdir(targetDir, { recursive: true });
   const target = path.join(targetDir, safeName);
