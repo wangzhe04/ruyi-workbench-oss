@@ -96,8 +96,17 @@ ok(drawerMod.STEWARD_DRAWER_BLOCK_IDS.every(id => !nowMarkup.includes(id)),
   'A7 #stewardNow 的骨架零抽屉区块 id（内容是搬过去的同一个 #stewardDrawer 节点）');
 
 // ─── B 不另起判据 ───────────────────────────────────────────────────────────────
-ok(/import '\.\/mission-state\.js';/.test(board) && /globalThis\.MissionState/.test(board)
-  && /missionState\.fromCard\(card\)/.test(board),
+// 33 号文 §4「costText／acceptanceText／threadStateOf 三对收进 drawer 导出」**重钉 B1**（反向验证过：
+// 往看板里塞回一句 globalThis.MissionState 立刻真红）：五态判据的**实现体**（globalThis.MissionState
+// ＋ missionState.fromCard(card)）已从本模块搬进 steward-drawer.js 的导出 stewardThreadStateOf，本模块
+// 只剩一个短名。被钉的那件事一个字没变：五态仍然只由 mission-state.js 的 fromCard 判【一次】、看板与
+// 抽屉同源；而且**本模块零直接 MissionState 引用** —— 判据搬走之后，谁也别想在这里再长一份（B2 同理）。
+// 顺手把三处正则换成纯字符串判定：这条锁钉的是「哪件事成立」，不该被一次等价的写法微调撞红。
+ok(board.includes("import './mission-state.js';")
+  && boardCode.includes('const threadStateOf = stewardThreadStateOf;')
+  && drawer.includes('export function stewardThreadStateOf(card)')
+  && !boardCode.includes('globalThis.MissionState')
+  && drawer.includes('globalThis.MissionState') && drawer.includes('missionState.fromCard(card)'),
   'B1 线程五态经 mission-state.js 的 fromCard（全仓唯一判据，与抽屉、交办台同源）');
 for (const name of ['deriveMissionState', 'aggregateMissionState', 'dockToneForMissionState', 'elapsedLabel']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(boardCode),

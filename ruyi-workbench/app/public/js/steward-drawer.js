@@ -277,6 +277,42 @@ export async function stewardThreadStop({ api, sessionId }) {
   } catch (error) { return { ok: false, error }; }
 }
 
+// 33 号文 §4「costText／acceptanceText／threadStateOf 三对收一处」：这三条判据此前看板与抽屉各一份、
+// 逐字重复（40 余行两份）。现在只住本模块 —— 看板 import 得到（它本来就 import 本文件的
+// stewardThreadRunAction／stewardThreadStop，方向不变、不成环）。人话的**文案键**仍按各界面自己的
+// 那一套传进来（keys）：判据一处，两面各说各的话。keys 的形状固定为 { none, budget/count, cost }。
+export function stewardThreadStateOf(card) {
+  const missionState = globalThis.MissionState;
+  if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
+  return String(missionState.fromCard(card).state || '');
+}
+
+export function stewardCostText(group, translate, keys) {
+  const say = typeof translate === 'function' ? translate : key => key;
+  const table = keys || {};
+  const costs = (group && group.cost && group.cost.costsByCurrency) || {};
+  const spent = Object.entries(costs)
+    .filter(([, amount]) => Number.isFinite(Number(amount)))
+    .map(([currency, amount]) => `${currency} ${Number(amount).toFixed(4)}`)
+    .join(' · ');
+  if (!spent) return say(table.none);
+  const budget = (group && group.budget) || {};
+  const maxCost = Number(budget.maxCost);
+  if (Number.isFinite(maxCost) && maxCost > 0) {
+    return say(table.budget, { cost: spent, budget: `${String(budget.currency || '')} ${maxCost}`.trim() });
+  }
+  return say(table.cost, { cost: spent });
+}
+
+export function stewardAcceptanceText(group, translate, keys) {
+  const say = typeof translate === 'function' ? translate : key => key;
+  const table = keys || {};
+  const acceptance = (group && group.acceptance) || null;
+  const total = Math.max(0, Number(acceptance && acceptance.total) || 0);
+  if (!total) return say(table.none);
+  return say(table.count, { done: Math.max(0, Number(acceptance && acceptance.done) || 0), total });
+}
+
 export function createStewardDrawer({
   api = async () => null,
   state = null,
@@ -331,11 +367,18 @@ export function createStewardDrawer({
   }
 
   // ── 五态：只经 mission-state.js（全仓唯一判据），人话走 i18n（LABELS 是中文单语） ──────
-  function threadStateOf(card) {
-    const missionState = globalThis.MissionState;
-    if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
-    return String(missionState.fromCard(card).state || '');
-  }
+  // 33 号文 §4：判据本体已收进本模块导出的 stewardThreadStateOf（看板 import 同一份），这里只剩短名。
+  const threadStateOf = stewardThreadStateOf;
+  // 本界面的文案键（判据共享、措辞各说各的）。
+  const COST_KEYS = Object.freeze({
+    none: 'stewardShell.drawer.costNone',
+    budget: 'stewardShell.drawer.costBudget',
+    cost: 'stewardShell.drawer.cost',
+  });
+  const ACCEPTANCE_KEYS = Object.freeze({
+    none: 'stewardShell.drawer.acceptanceNone',
+    count: 'stewardShell.drawer.acceptanceCount',
+  });
   // 117q-B3b：五态人话统一走中性的 mission.state.*（原 stewardShell.drawer.state.* 已并入，
   // 与看板、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
   // 117u-G1：先查【共享的那一份词表】（steward-conversation.js 的 STEWARD_THREAD_STATE_KEYS，
@@ -418,27 +461,8 @@ export function createStewardDrawer({
     const root = missionRows.find(row => String(row.sessionId) === missionId) || missionRow || null;
     const rootName = root ? String(root.missionTitle || root.displayTitle || root.title || missionId) : '';
     titleNode.textContent = rootName || (loading ? t('stewardShell.drawer.loading') : t('stewardShell.drawer.missionUnfiled'));
-    const acceptance = (missionRow && missionRow.acceptance) || null;
-    const total = Math.max(0, Number(acceptance && acceptance.total) || 0);
-    acceptanceNode.textContent = total
-      ? t('stewardShell.drawer.acceptanceCount', { done: Math.max(0, Number(acceptance.done) || 0), total })
-      : t('stewardShell.drawer.acceptanceNone');
-    costNode.textContent = costText();
-  }
-
-  function costText() {
-    const costs = (missionRow && missionRow.cost && missionRow.cost.costsByCurrency) || {};
-    const spent = Object.entries(costs)
-      .filter(([, amount]) => Number.isFinite(Number(amount)))
-      .map(([currency, amount]) => `${currency} ${Number(amount).toFixed(4)}`)
-      .join(' · ');
-    if (!spent) return t('stewardShell.drawer.costNone');
-    const budget = (missionRow && missionRow.budget) || {};
-    const maxCost = Number(budget.maxCost);
-    if (Number.isFinite(maxCost) && maxCost > 0) {
-      return t('stewardShell.drawer.costBudget', { cost: spent, budget: `${String(budget.currency || '')} ${maxCost}`.trim() });
-    }
-    return t('stewardShell.drawer.cost', { cost: spent });
+    acceptanceNode.textContent = stewardAcceptanceText(missionRow, t, ACCEPTANCE_KEYS);
+    costNode.textContent = stewardCostText(missionRow, t, COST_KEYS);
   }
 
   // ── ② 线程页签 ──────────────────────────────────────────────────────────────

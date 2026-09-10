@@ -14,6 +14,13 @@ import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting } from
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
 import { icon, missionStateIcon } from './icons.js';
 import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
+// 33 号文 §4（「costText／acceptanceText／threadStateOf 三对收进 drawer 导出」）：这三条判据的正身
+// 只在 steward-drawer.js 一份，本模块 import 过来用 —— 方向与上面那两个动作函数一致（看板 → 抽屉，
+// 抽屉不反过来 import 看板），不成环。判据共享，**文案键各传各的**（看板递 stewardShell.board.*，
+// 抽屉递 stewardShell.drawer.*），所以两面各说各的话、判据只有一处。
+// 单开一条 import（而非并入上面那行）是刻意的：steward-board.static D4 逐字钉着上面那行的写法，
+// 而 D4 要守的是「动作走抽屉同一段原语」这件事，不该为一次收编去动它（32 号文 §4 纪律 5）。
+import { stewardThreadStateOf, stewardCostText, stewardAcceptanceText } from './steward-drawer.js';
 // 117n-M1②（用户第六轮走查后走查「合并功能」）：failNote 原来只是 String(error.message || error)，
 // 既不解结构化信封也不特判 steward.queued 的 wait.label —— 同一种排队失败，看板上的提示比抽屉里
 // （steward-drawer.js:287 的 failNote）差。改成引用 steward-conversation.js 的权威实现，不再自己
@@ -146,11 +153,19 @@ export function createStewardBoard({
   }
 
   // ── 五态与聚合态：只读，不判 ────────────────────────────────────────────────────
-  function threadStateOf(card) {
-    const missionState = globalThis.MissionState;
-    if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
-    return String(missionState.fromCard(card).state || '');
-  }
+  // 33 号文 §4：五态判据的正身已住 steward-drawer.js（本模块本来就 import 它的动作函数），这里只剩
+  // 短名 —— 全仓判五态的地方仍然只有 mission-state.js 一处，看板与抽屉读的也是同一个函数。
+  const threadStateOf = stewardThreadStateOf;
+  // 本界面的那一套文案键（判据共享、措辞各说各的）。
+  const COST_KEYS = Object.freeze({
+    none: 'stewardShell.board.costNone',
+    budget: 'stewardShell.board.costBudget',
+    cost: 'stewardShell.board.cost',
+  });
+  const ACCEPTANCE_KEYS = Object.freeze({
+    none: 'stewardShell.board.acceptanceNone',
+    count: 'stewardShell.board.acceptance',
+  });
   // 117q-B3b：五态人话统一走中性的 mission.state.*（原来那组仅抽屉专属命名的键已并入，
   // 与看板、抽屉、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
   function stateLabel(value) {
@@ -348,25 +363,8 @@ export function createStewardBoard({
     return [...groups.values()];
   }
 
-  function costText(group) {
-    const costs = (group.cost && group.cost.costsByCurrency) || {};
-    const spent = Object.entries(costs)
-      .filter(([, amount]) => Number.isFinite(Number(amount)))
-      .map(([currency, amount]) => `${currency} ${Number(amount).toFixed(4)}`)
-      .join(' · ');
-    if (!spent) return t('stewardShell.board.costNone');
-    const maxCost = Number(group.budget && group.budget.maxCost);
-    if (Number.isFinite(maxCost) && maxCost > 0) {
-      return t('stewardShell.board.costBudget', { cost: spent, budget: `${String(group.budget.currency || '')} ${maxCost}`.trim() });
-    }
-    return t('stewardShell.board.cost', { cost: spent });
-  }
-
-  function acceptanceText(group) {
-    const total = Math.max(0, Number(group.acceptance && group.acceptance.total) || 0);
-    if (!total) return t('stewardShell.board.acceptanceNone');
-    return t('stewardShell.board.acceptance', { done: Math.max(0, Number(group.acceptance.done) || 0), total });
-  }
+  // 33 号文 §4：costText／acceptanceText 的正身已住 steward-drawer.js（判据一处），本模块调用点把
+  // 自己那套键（COST_KEYS／ACCEPTANCE_KEYS）与 t 一起递进去 —— 措辞仍是看板原来那五条键，一个字没变。
 
   function chipsFor(sessionId) {
     let control = chipsBySession.get(sessionId);
@@ -442,8 +440,8 @@ export function createStewardBoard({
   // 两个落点（G1 那根色条「一份声明两个落点」的同一条道理），不是两份实现。
   function missionFacts(group) {
     const line = el('div', 'steward-board-facts');
-    line.appendChild(el('span', 'steward-board-pill', acceptanceText(group)));
-    line.appendChild(el('span', 'steward-board-pill', costText(group)));
+    line.appendChild(el('span', 'steward-board-pill', stewardAcceptanceText(group, t, ACCEPTANCE_KEYS)));
+    line.appendChild(el('span', 'steward-board-pill', stewardCostText(group, t, COST_KEYS)));
     return line;
   }
 
