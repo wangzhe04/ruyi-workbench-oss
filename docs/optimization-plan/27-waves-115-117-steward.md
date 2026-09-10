@@ -2629,3 +2629,26 @@ IM／邮件（仓里没基座）；「通知里直接回话」；浏览器模式
 
 **收口**：32 号文 §5 两债划掉＋三条新债、§6 地图推进；合并后主会话跑 `module-dependency-graph --check`、`route-inventory --check`、`build --check`。
 
+#### 11.25 119 波交付记录：2.0/3.0 前端统一（`9ed054b`→`ee6ee5b`，共 18 提交；主会话编排＋亲验）
+
+用户诉求原话：「3.0 线程里的选模型，前端页面啥的完全是两套，我觉得 2.0 更好，一块改了」「前端应该重复的很多，用户认知成本很大」。
+先做了一轮**只读**多 agent 侦察（6 节点，`deepseek-v4-flash` 引擎；产出见 33 号文续篇口径），再按「能复用就复用、不能就在 2.0 老实现上迭代」分四波落地。
+
+**共用件（新叶子，两壳都从这里取）**
+- `js/model-menu.js`（M1-a `9ed054b` 起）：`MODEL_MENU_CLASSES` / `buildModelMenuRow` / `buildModelMenuBody` —— 模型菜单的**行/分组/当前项/键盘**构造。2.0 侧用「HEAD 弹层体切片 vs 新 builder」的**对拍脚本**证 DOM 树逐字节相同（3 场景，各 7867 字节）、键位与点击调用序一致；3.0 侧只换了行构造，容器/开合/写盘未动（`unit/steward-model-menu.test.js` 真工厂驱动，326 全绿）。
+- `js/popover.js`（`9392bd9`）：浮层原语（定位翻转／外点关／Esc／焦点归还／单实例），从 `navigation-controls.js` 搬出。`opts.layer` 让**就地容器**复用同一套行为（3.0 的 chip 菜单/头像/※/递送目标四处都用它，保住了各自类名与 `[hidden]` 语义）。2.0 行为逐字未变。
+- `js/run-state.js`（`461454a`）：`runIsLive/runCanPause/runCanResume/runControlAction/pausableRunOf/pausableRunsOf/hasPausableRun` ＋ `RUN_STATE_TEXT_KEYS/runTextKeys`。修前同一条 `live && paused` 判据在 2.0 run 卡、3.0 看板行、`syncPauseAll`、`pauseAll`、抽屉 `pausableRunOf` **各写一遍**。
+- `js/modal.js`（`58c6c2b`）：`buildModal`（背影／Tab 焦点陷阱／焦点归还／`__cancel`）＋`focusFirstInteractive`＋`installFocusTrap`，从 `interaction-prompts.js` 领域闭包搬成叶子。
+- `js/confirm-panel.js`（`36b39b6`）：`confirmDanger({name, bodyParams})` → `Promise<boolean>`；§8.6 五条确认文案键与「哪一档要确认」的判据**只在这一处定义**（`18fb0e4` 后 chips/settings 只取不定）。
+
+**用户点名项收口**：线程内选模型 chip 的开合改走 `popover.js`（`84d12f3`），`setEngineModel` 加 `opts.scope`（2.0 不传 ⇒ 行为逐字不变；3.0 传 `'session'` ⇒ 只写本会话、**不**误改新会话默认）；3.0 的搜索/常用/用量副行/非文本折叠全部保住（unit 真值断言逐项覆盖）。
+
+**3.0 危险操作确认四套→一套**：看板「停掉占用者」（`14fcb71`）与抽屉「整单回退」（`025bd52`）两处原生 `confirm()` 改走 `confirm-panel`——`git grep` 证 **3.0 内原生 confirm 调用清零**；抽屉那处配了真浏览器覆盖（N 段 11 条，含「点确认才真发 `/api/stop`＋`/api/session/rewind`」「默认焦点落取消」）。
+
+**术语两壳归一**（locale 四份同步，`8aaec07`→`b4ba202`）：**「全自动」跨壳异义**（2.0=bypass / 3.0=auto）最高优先，3.0 的 auto 档改「智能自动」，改后该词全仓只剩 bypass 一档；「线程/会话」「事项/任务」收敛到与 2.0 同物同名（zh 53＋11 键 / en 59＋9 键）；新手向导那张 auto 档卡片一并改。JS 侧残留同刀收（`637aadd`／`2c3a2a8`／`ef47eb4`：`06i` 权限标签＋其 unit、`13i` 收件箱三处＋**客户端解析器同刀认新旧两词**、`13l` 把 auto 档写死成「全自动」那句）。提示词层（`13f`／`06b`／`10`）**按纪律未动**、列清单待裁。
+
+**过程中修的真回归（本波最重要的一条教训）**：`modal.js` 那次搬迁后 `interaction-prompts.js` 返回面仍引用 `focusFirstInteractive` 却漏 import → `createInteractionPromptsDomain()` 抛 `ReferenceError` → **前端整体不初始化**，`steward-drawer`/`steward-board`/`steward-settings` 三件真浏览器 e2e 全崩，**而 `--fast` 70/70 全绿**（静态件抓不到运行时崩溃）。修复 `a1c7289`；已写进 32 号文 §4 纪律 13。
+
+**验证**：各波合入前跑重件真浏览器 e2e；`route-inventory` 因本波在 `steward-drawer.e2e.js` 新增覆盖而过期，已重生成（`665108b`）。**最终全量回归**（`--parallel 4`）：**322 pass / 2 fail / 6 flaky / 324 ran**；两件红（`mission-threads`／`responses-fake`）**串行复验全绿**，6 件 flaky 重跑通过 → **真回归 0 条**。脆锁重钉 7 把（`copy-path-guard` 两处行号表、`pretender-shell` C11、`steward-walkthrough` G3/G4/B2、`steward-board` D1/I5/D6、`steward-settings` B5），每把都做了「故意破坏→真红→逐字节还原」。
+
+

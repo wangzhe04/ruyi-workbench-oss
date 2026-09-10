@@ -263,6 +263,13 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
     117y-A 给 `stewardTrimSayAtSentence` 起参数名 `text`，命中 `00-boot` 的顶层 `text`，生成 `06i → 00-boot` 一条边并把 06i 拽进 SCC，
     `--check` 红，而错误信息是「新增循环边」——**指不到参数名**。改名 `value` 后恢复。加一个纯函数这种最无害的改动也能红，记住这条能省一次排查。
 
+13. **搬/改任何符号之后，必须逐一 grep 该文件里所有引用点，确认符号仍有来源。** 本波实测事故：把 `buildModal` 一族从
+    `interaction-prompts.js` 搬进新叶子 `js/modal.js` 后，**返回面里仍引用 `focusFirstInteractive` 却忘了加进 import** →
+    调用 `createInteractionPromptsDomain()` 当场抛 `ReferenceError` → **整个前端不初始化**，`steward-drawer`/`steward-board`/
+    `steward-settings` 三件真浏览器 e2e 全崩。**而 `run-all --fast` 是 70/70 全绿**——因为 `--fast` 全是静态件，一件运行时都不跑。
+    两条结论：① 搬符号后用 `grep -n '<符号名>'` 数一遍引用点；② **改了前端 JS 就必须跑真浏览器 e2e**（`steward-*.e2e.js`／
+    `dom-contract.e2e.js`），`--fast` 绿不等于没坏。修复 `a1c7289`。
+
 ---
 
 ## 5. 已登记、本波明确不动的债
@@ -298,12 +305,18 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
 | `steward-board.static` D4 逐字钉 import 行写法 | 33 §4 收编两次撞红：第 4 项用「同一模块两条 import 行」绕开（`8dd4beb`）；第 8/9 项对同形态的 D1/D2 改「并进原 import 行＋重钉名字集」并反向验证（`3312582`/`b41c089`） | 口径统一为后者；D4 本体下一把动看板的刀重钉 |
 | `chat-stream-runtime.js`「全篇零 import」纪律＋`copy-path-guard` 两张行号键控表（`ALLOWED_CJK_CODE`/`p17FixedLines`） | 第 6 项 2.0 侧豁免根因（`46e2800`）：vm 直跑单测（`unit/context-compact-trigger.test.js:182`）加 import 即 SyntaxError；行号表双向红。该文件无法参与任何跨文件去重 | 要动它先立专项刀：行号表换内容键 |
 | `chat-stream-runtime.js:751/1430` 两处 UTF-16 切半 | 第 7 项（`8fe851a`）只修得 2.0 四处中的两处（agent-workflows/chat-static-renderer）；这两处同根因：零 import＋vm 直跑＋`app.js` 1280 行顶无注入余量 | 随上行同刀 |
+| 2.0 侧仍有 12 处原生 `confirm()` | 本波 §11.25 把 **3.0 内**原生 `confirm` 清零（看板／抽屉改走 `js/confirm-panel.js`），但 2.0 侧 `session-experience.js`（5 处）、`agent-workflows.js`（3 处）、`provider-settings.js`、`skills-memory.js`（2 处）、`settings-operations.js`、`app.js` 等仍在用浏览器原生对话框——同一个「危险操作要再点一次」在两壳仍是两种观感 | 下一把前端刀：`confirm-panel` 已备好，逐个改（同步变异步，逐个跑真浏览器 e2e） |
+| `buildModal` 有两个形状 | `js/modal.js` 是**对象形**（`{title,body,foot,onCancel}`），`interaction-prompts.js:21` 是**位置形**本地包装（薄壳转调）。两者同名不同签名，新人极易接错 | 下次动 `interaction-prompts.js` 时统一为对象形（调用点约 3 处） |
+| `permissionSwitchNeedsConfirm` 无应用代码调用点 | `steward-chips.js` 定义并 export，但 `app/public/js` 内无人调用（chips/settings 都直接读 `STEWARD_PERMISSION_CONFIRM_MODES`）——是「收编未收干净」的残留 | 下一把动 chips 的刀顺手删或接线 |
+| 3.0 模型菜单的**视觉容器**仍与 2.0 不同 | 本波统一了「菜单内容构造」（`model-menu.js`）与「开合行为」（`popover.js`），但受「不碰 .css」约束，3.0 仍用就地 `.steward-chip-menu`、2.0 用 body 挂载 `.popover`；两者 CSS 类名与定位方式不同 | 视觉完全一致需一把 CSS 刀（要重钉 `LEGACY_STYLES_SHA256` 载荷锁） |
+| `steward-settings.js` 的盾牌菜单尚未收编 | 本波收编了 3.0 的 4 处浮层（模型 chip／头像／※／递送目标），盾牌菜单因与确认机制刀撞文件而留在原地 | 下一把动 settings 的刀 |
 
 ---
 
 ## 6. 一句话地图
 
-~~（合并已完成）~~ → ~~拆 13g~~ → ~~F1–F5~~ → ~~117v~~ → ~~117x M1/M2~~ → ~~T2 拆 `13h`~~ → ~~117y~~ → ~~W1＋E-手① ①②③（§11.19）~~ → ~~W1④~~ → ~~E-手②（§11.21，全档只提议）~~ → ~~E-手②b（§11.21.8）~~ → **【118 波已收】小刀「先占位再建目录」（§11.19.9 ＋ §11.21.7 ④ 夹具 HOME 守卫：`88d63ac`＋`37011b5`）∥ 33 号文 §4 前端债（`8dd4beb`→`5bdbf93` 共 8 提交；第 11 项 i18n 别名有据跳过——真阻断是非 static 夹具钉死别名键＋动态拼键，实测口径 63/49/33 非 68）** → E-嘴（§11.23，通道走已通着的 WebView2 托盘气泡；新建最小在场信号；本仓第一条桌面→页面回话）→ **W2（§11.22，放宽安全边界，不拍不做）** →
+~~（合并已完成）~~ → ~~拆 13g~~ → ~~F1–F5~~ → ~~117v~~ → ~~117x M1/M2~~ → ~~T2 拆 `13h`~~ → ~~117y~~ → ~~W1＋E-手① ①②③（§11.19）~~ → ~~W1④~~ → ~~E-手②（§11.21，全档只提议）~~ → ~~E-手②b（§11.21.8）~~ → **【118 波已收】小刀「先占位再建目录」（§11.19.9 ＋ §11.21.7 ④ 夹具 HOME 守卫：`88d63ac`＋`37011b5`）∥ 33 号文 §4 前端债（`8dd4beb`→`5bdbf93` 共 8 提交；第 11 项 i18n 别名有据跳过——真阻断是非 static 夹具钉死别名键＋动态拼键，实测口径 63/49/33 非 68）**
+→ **【119 波已收】2.0/3.0 前端统一（27 号文 §11.25：`9ed054b`→`ee6ee5b`；模型菜单内容＋开合行为共享、3.0 native confirm 清零、术语两壳归一、暂停判据共享件）** → E-嘴（§11.23，通道走已通着的 WebView2 托盘气泡；新建最小在场信号；本仓第一条桌面→页面回话）→ **W2（§11.22，放宽安全边界，不拍不做）** →
 **31 号文第一批（手／嘴／时间＋119）** → 第二批（眼睛／代答）→ 第三批（记忆／编排）。
 
 挂起等用户：**冷启动阈值**（放宽＝放宽一道门，产品决定）、**回复长度**（要先量真机 30 条的分布）。撤回显示那条已解决。
