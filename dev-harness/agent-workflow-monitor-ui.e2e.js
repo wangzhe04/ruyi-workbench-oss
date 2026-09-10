@@ -67,8 +67,18 @@ ok(css.includes('.agent-node.an-skipped'), '④ skipped 灰色标存在');
 ok(has(renderBody, "'wf-stall-banner'", 'idleAborted', 'waitingBlocked'),
   '⑤ 停滞横幅由 run.idleAborted 或有 blocker 的等待资源节点触发');
 ok(has(renderBody, "t('workflow.stall.idle')", "t('workflow.stall.waiting'") && /疑似停滞/.test(zh['workflow.stall.idle'] || ''), '⑤ 横幅文案「疑似停滞」');
-ok(has(renderBody, "t('workflow.view')", "t('workflow.stop')", "agentRunAction(run.id, 'stop')"),
-  '⑤ 横幅 [查看] + [停止](停止 wire 到 stop 动作)');
+// 32 号文 §4（M2-b）：停止键由字面量 `t('workflow.stop')` 改为从 js/run-state.js 的唯一登记表取
+// （`t(WORKFLOW_KEYS.stop)`），键值不变。原判据钉的是「源码里字面量长什么样」——属脆锁（本仓纪律 5
+// 「锁不要钉文本长什么样，要钉哪件事必须成立」）。重钉为更强的结构判定：把判据**收进横幅切片**，
+// 免得运行控制区那几枚 stop 按钮把断言「代答」（旧判据在全函数体里找，删掉横幅那处也照样过）。
+const stallStart = renderBody.indexOf("'wf-stall-banner'");
+const stallSlice = stallStart >= 0 ? renderBody.slice(stallStart, stallStart + 1500) : '';
+ok(stallSlice.length > 0
+  && has(stallSlice, "t('workflow.view')")
+  && /t\(WORKFLOW_KEYS\.stop\)|t\('workflow\.stop'\)/.test(stallSlice)
+  && has(stallSlice, "agentRunAction(run.id, 'stop')")
+  && /stop:\s*'workflow\.stop'/.test(src),
+  '⑤ 横幅切片内 [查看] + [停止](停止 wire 到 stop 动作；停止键取自 run-state.js 登记表且值仍 workflow.stop)');
 ok(has(css, '.wf-stall-banner', 'var(--warn)'), '⑤ 横幅以 --warn 琥珀着色');
 
 // ───────────── ⑥ 迭代/预算 mini 进度 + 计时 + 质量门 + 资源锁（§2.3）─────────────
