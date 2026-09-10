@@ -392,7 +392,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 它与 M2 在自己那一侧独立算出的值【逐字相同】，两条路互证。（主会话第一次手写复现用错了函数——
 // 复现的是 readFrontendCss 而消费者哈希的是 readLayerPayload，自证当场不过，故改为拦截法。）
 // 反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51 双双转红；还原后该层与 HEAD 逐字节相同、回绿。
-const LEGACY_STYLES_SHA256 = '07e82fa02126f8ebdb036fb04e34b735c31b2df095955b3fad224c8e624c888d';
+// 117y-S3 续钉（前值 07e82fa0…）：主会话清掉 steward-conversation.css 里两条死规则（.steward-say.is-clamped、
+// .steward-say-acts —— S3 让 finishSay 不再折叠后 JS 侧零消费方，static Q6a 钉着）并把 F4 头注 ④ 改成事实。
+// 交付卡的折叠与其样式一字不动。算法自证照旧（拦截 fs.readFileSync 让 readLayerPayload 读 git blob）：
+// 按上一次钉的那个 commit（`12b0df1`）算 = 07e82fa0…，与被替换的旧值逐字相同；按 HEAD 算得下面这个值。
+// 反向验证：往该层追加一条无关规则 → F3 与 D51 双双转红；还原后该层与 HEAD 逐字节相同、回绿。
+const LEGACY_STYLES_SHA256 = '37efa1e5cd7e00f99b1ebcdf52b98a6c2a975fbb0b22634989a6072aaf9d3d33';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
