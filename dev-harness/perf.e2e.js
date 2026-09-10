@@ -3,7 +3,7 @@
 // Asserts orders of magnitude (generous budgets to avoid flake), NOT precise values:
 //  ① 400-message fixture → serve up → GET /api/sessions/<id> returns the FULL 400 messages AND server-side
 //     latency < 2000ms (windowing is a pure FRONT-END render-layer behavior; the API never truncates).
-//  ② cold start → /health ready < 5000ms.
+//  ② cold start → /health ready < 7500ms（原 5000；2026-09-09/10 用户拍板抬闸，见 32 号文 §3 第 2 条）。
 //  ③ STATIC: app.js contains the windowing implementation — renderCurrentSession renders a count/weight
 //     bounded tail, builds a「加载更早」control, and retains explicit full-history reachability.
 //  ④ FUNCTIONAL: the API layer surfaces all 400 (proves windowing didn't leak into the server / load path).
@@ -19,7 +19,10 @@ const HOME = path.join(os.tmpdir(), 'wcw-perf-e2e');
 const WB_PORT = await getFreePort();
 const SID = 'sess_perfe2e0001';
 const SESSION_LOAD_BUDGET_MS = 2000;
-const COLD_START_BUDGET_MS = 5000;
+// 2026-09-10 抬闸 5000 → 7500（用户拍板，32 号文 §3 第 2 条）。本机实测冷启动 5506–6282 ms（117v/117y 两轮全量回归），
+// 阈值 5000 正骑在真实耗时上，于是这一件时红时绿——一道时红时绿的闸什么都守不住，只会训练所有人忽略红。
+// 抬闸【不是】承认变慢可以接受：「冷启动为什么要 6 秒」已单独立刀（32 号文 §2.4 排队）。若查清后回到 5 秒内，把这个数改回去。
+const COLD_START_BUDGET_MS = 7500;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
