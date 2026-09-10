@@ -2099,7 +2099,7 @@ V4（交付卡）与 V2（它刚说）都是**纯前端**改动，够不着这�
 | `createSession` 的回落链是 `cwd || config.defaultWorkspace || os.homedir()` | `02-session-store.js:2645` |
 | 出厂 `defaultWorkspace` 就是 `os.homedir()` | `01-config.js:8` |
 | **仓里自己的守卫把「cwd 落在主目录根／桌面／文档／下载根」判成最高风险**（"acts on everything the user owns"） | `03-bridge-guard.js:127-130` `cwdWarning` |
-| `workspaces[]` 形状 `{path, read, write, execute}`，从 `defaultWorkspace + recentWorkspaces` 播种，`defaultWorkspace` 与 `workspaces[0].path` 保持同步 | `01-config.js:275-279, 886-912` |
+| `workspaces[]` 形状 `{path, read, write, execute}`，从 `defaultWorkspace + recentWorkspaces` 播种，`defaultWorkspace` 与 `workspaces[0].path` 保持同步。**更正（W1① 证伪）**：清洗用的 `normalizeWorkspacePathString`（`:478`）只剥引号／trim／截 1000，**不做 `path.resolve`**，表里存的是用户敲的原样，`C:a` 与 `C:/a` 可同时存在；去重键是 `toLowerCase()`（`:895`） | `01-config.js:275-279, 478, 886-912` |
 | `defaultWorkspace / workspaces / recentWorkspaces / additionalDirectories / allowOutsideWorkspace` 全在管家 **forbidden** 清册 | `06i-steward-core.js:735` |
 
 所以病有两层，不是一层：
@@ -2426,3 +2426,29 @@ graph 49/390、forwardEdges 67、build 新鲜；五文件 NUL 0／CRLF 0。
 4. `tierFilter:'read'` 启动的回合与 ① 同判；
 5. 反向：把谓词改成读 say 文本 → 锁必须红（钉「谓词只读 permissionMode/tierFilter」这个事实）；
 6. rivals 段不进 stable（prompt-snapshot 的稳定层字节不变）。
+
+#### 11.19.7 W1 提交① 交付记录（`e9fce10`；主会话逐条复核）
+
+**核过的**：11 个文件全在范围内；`13k` 两处调用点（`:439` thread_new、`:697` quick_ask）都走同一个 `stewardValidateCwd`（`:57`），原透传写法零残留；
+graph 49/390、forwardEdges 67、build 新鲜；三文件 NUL 0／CRLF 0。反向 A（换回透传）12 条翻红、N1/N2/N3/N6c 仍绿——它们钉的正是「省略 cwd 零行为变化」，本就该绿。
+
+**它证伪了我两处**：① §11.19.1「`01-config` 清洗时已归一化」——**不成立**，`normalizeWorkspacePathString` 不做 `path.resolve`，两侧的 resolve 是它补的（已更正）；
+② 它没用我点名的 `03-bridge-guard:122 normalizeCwd`——理由对：那个函数签名自带 `|| os.homedir()` 兜底，**空值会被静默改写成主目录**，正是本刀要禁的事。
+
+**它复现了 §11.18.6 的假绿模具并用三层挡住**：把 quick_ask 的调用挪进 thread_new，「整名出现 3 次」那一层**仍然绿**；只有「两个调用点各自锚到函数体」才红。
+锁 ⑧ 因此是定义计数 ＋ 整名计数 ＋ 函数体锚三层。
+
+**一处非零行为变化，接受并记下**：quick_ask 的 cwd 校验排在 `stewardTurnQuotaTake` **之前**——参数不合法不该烧掉本回合速查名额。「配额已尽＋cwd 非法」从 `quota_exceeded` 变成 `invalid_request`，今天不可达。反向里 N10c 回 `quota_exceeded` 反证了原顺序会烧名额。
+
+**大小写**：win32 折、其余平台不折，理由是 `01-config:895` 自己的去重键就是 `toLowerCase()`，这里再区分会比表本身还严。
+
+**它登记的债，裁决**：
+
+| 债 | 裁决 |
+|---|---|
+| `workspaces[].read/write/execute` 没被看，`write:false` 的工作区照样能当 cwd | **归提交③**：候选表投影里把 `write:false` 的行**标成「只读」**让管家看得见；校验层先不拒（拒它是权限模型的决定，与 E-手② 那条线一起定）。登记 |
+| 非 win32 大小写口径与 01-config 分叉（它全平台 lower，校验只 win32 折） | **登记**。夹具 Windows-only，POSIX 未实测；真要统一得先在 POSIX 上量 |
+| `path.isAbsolute('/foo')` 在 win32 为真，按当前盘符补 | 不构成放宽（仍须逐字命中表）。**登记** |
+| 表为空又给了 cwd 的那支文案没锁 | **归提交③补锁** |
+| 错误文案候选上限 8 vs 候选表投影 20 | **归提交③对齐**：两处读同一个常量 |
+| `03-bridge-guard:122 normalizeCwd` 成了第二份口径 | **登记**，不在本波合并（它是通用工具，有 `os.homedir()` 兜底的既有语义） |
