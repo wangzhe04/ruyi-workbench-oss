@@ -383,7 +383,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 「全部线程」提成 bar 的直接子节点故恒可达）。算法自证照旧：按上一次钉的那个 commit(`e78d8af`)
 // 全量重算 = 6c0c0b04…，与被替换的旧值逐字相同；再按 HEAD 算得下面这个值 —— 它与 V4 在自己那一侧
 // 独立算出的值【逐字相同】，两条路互相印证。反向验证：往该层追加一条无关规则 → F3 与 D51 双双转红。
-const LEGACY_STYLES_SHA256 = '801d85e53b8f7c50dae3453dff2844f06ea59eaa312cfa4e62c8d25afe67c3f2';
+// 117x-M2 续钉（前值 801d85e5…）：M2（`12b0df1`）改 steward-drawer.css 一层 —— 模型选择器重做：搜索框、
+// 「常用」段、按 provider 分组、非文本端点折叠区（[hidden] 守卫照抄本层既有三处的同款）、副行、「默认」徽标；
+// 全部走 token、零硬编码色（G4 绿）。P1（拆 13h）与本刀同波并行但一个 CSS 字节没动。
+// 算法自证（本条锁上一任被 working-tree 值污染过一次，故流程写死）：这次改为【不重写算法】——
+// 拦截 fs.readFileSync 让消费者自己的 readLayerPayload() 直接读 git blob，同一份代码换数据源；
+// 按上一次钉的那个 commit（`8e54128`）算 = 801d85e5…，与被替换的旧值逐字相同；按 HEAD 算得下面这个值，
+// 它与 M2 在自己那一侧独立算出的值【逐字相同】，两条路互证。（主会话第一次手写复现用错了函数——
+// 复现的是 readFrontendCss 而消费者哈希的是 readLayerPayload，自证当场不过，故改为拦截法。）
+// 反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51 双双转红；还原后该层与 HEAD 逐字节相同、回绿。
+const LEGACY_STYLES_SHA256 = '07e82fa02126f8ebdb036fb04e34b735c31b2df095955b3fad224c8e624c888d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
