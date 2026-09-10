@@ -687,23 +687,45 @@ ok(count(conversationCode, /dataset\.threadHue/g) === 1
   && !/hsl\(|rgb\(|style\.(background|color)/.test(conversationCode),
   'Q5e JS 只写色【号】（一处 dataset.threadHue），一个颜色值都不写（零行内样式、零 hsl/rgb 字面量）');
 
-// ③ 折叠只有一处实现，两个调用方（117s-H2 的交付卡 ＋ F4 的管家正文）。
+// ③ 折叠只有一处实现，且【只有交付卡一个调用方】。
+// 117y-S3 重钉（用户第十一轮拍板②「管家的话最好不要用展开的二级菜单了，显示完吧」）：
+// 原判据钉的是「clampIfLong 恰好出现 3 次 ＝ 定义＋交付卡＋管家正文」。管家正文那一路撤掉之后
+// 数字确实变成 2，但**本条不是把 3 改成 2**：改的是判据本身 —— 从「一处实现两个调用方」换成
+// 「一处实现 ＋ 调用方只剩 fillDeliverable 那一个」，并把「finishSay 里没有折叠」单独钉成 Q6a。
+// 谁想给别的东西再折一次，得先在这里加一个新的调用点，这一条立刻转红。
 ok(count(conversationCode, /function clampIfLong\(/g) === 1
   && count(conversationCode, /function collapseToggle\(/g) === 1
-  && count(conversationCode, /clampIfLong\(/g) === 3 && count(conversationCode, /collapseToggle\(/g) === 3,
-  `Q6 折叠是【一处】实现两个调用方（clampIfLong ${count(conversationCode, /clampIfLong\(/g)} 处出现 = 定义 + 交付卡 + 管家正文，collapseToggle 同）`);
+  && count(conversationCode, /clampIfLong\(body, found\.text\)/g) === 1
+  && count(conversationCode, /collapseToggle\(body\)/g) === 1
+  && count(conversationCode, /clampIfLong\(/g) === 2 && count(conversationCode, /collapseToggle\(/g) === 2,
+  `Q6 折叠仍是【一处】实现，而调用方只剩交付卡那一个（clampIfLong ${count(conversationCode, /clampIfLong\(/g)} 处出现 = 定义 + fillDeliverable，collapseToggle 同 = 定义 + deliverableActs）`);
+const finishSayFrom = conversationCode.indexOf('function finishSay(');
+const finishSayTo = conversationCode.indexOf('function appendRow(');
+const finishSaySlice = conversationCode.slice(finishSayFrom, finishSayTo);
+ok(finishSayFrom > 0 && finishSayTo > finishSayFrom
+  && !/clampIfLong|collapseToggle|is-clamped/.test(finishSaySlice)
+  && count(conversationCode, /steward-say-acts/g) === 0,
+  `Q6a 管家的话【不折叠】：finishSay 的函数体内一个 clampIfLong/collapseToggle/is-clamped 都没有，那枚按钮行（.steward-say-acts）整份文件不再生成（判据锚在【函数体】上——整文件匹配会被交付卡那一路假绿；实测函数体 ${finishSaySlice.length} 字符）`);
 ok(count(conversationCode, /button\('steward-deliverable-more'/g) === 1
   && count(conversationCode, /classList\.toggle\('is-clamped'\)/g) === 1
   && count(conversationCode, /classList\.add\('is-clamped'\)/g) === 1
   && count(conversationCode, /classList\.remove\('is-clamped'\)/g) === 1,
   'Q6b 「展开」按钮、is-clamped 的加/减/翻转各自全文件恰好一处 —— 想再造一个折叠必须先动这几行');
-ok(/\.steward-say\.is-clamped \{ max-height: var\(--steward-clamp-h\); overflow: hidden; \}/.test(cssCode)
-  && /\.steward-deliverable-body\.is-clamped \{ max-height: var\(--steward-clamp-h\); overflow: hidden; \}/.test(cssCode)
+// 117y-S3：CSS 一层【本刀一个字节没动】（改它就得重算 LEGACY_STYLES_SHA256，那不归这一刀钉）。
+// 于是 `.steward-say.is-clamped` 与 `.steward-say-acts` 两条规则今天成了【无消费方的死规则】——
+// JS 侧已经没有任何路径会给 .steward-say 加 is-clamped（Q6a 钉着），删它们要与哈希重钉同刀走。
+// 本条因此只钉仍然活着的那一处：交付卡读那个唯一的高度令牌。
+ok(/\.steward-deliverable-body\.is-clamped \{ max-height: var\(--steward-clamp-h\); overflow: hidden; \}/.test(cssCode)
   && (cssCode.match(/--steward-clamp-h:/g) || []).length === 1,
-  'Q6c 两处折叠读同一个高度令牌（--steward-clamp-h 全层只定义一次）：改折叠高度只有一处可改');
-ok(mod.STEWARD_DELIVERABLE_LINES === 8 && /clampIfLong\(node, text\)/.test(conversationCode)
-  && /clampIfLong\(body, found\.text\)/.test(conversationCode),
-  'Q6d 两个调用方吃的是同一个阈值常量（STEWARD_DELIVERABLE_LINES=8），没有第二个「8」');
+  'Q6c 仅剩的那处折叠读一个全层只定义一次的高度令牌（--steward-clamp-h）：改折叠高度只有一处可改');
+ok(mod.STEWARD_DELIVERABLE_LINES === 8
+  && count(conversationCode, /STEWARD_DELIVERABLE_LINES/g) === 2
+  && /clampIfLong\(body, found\.text\)/.test(conversationCode)
+  // 原判据这半句写的是 /clampIfLong\(node, text\)/ —— 它其实一直同时匹配着【定义那一行的签名】，
+  // 所以当年就没真的钉住「管家正文那个调用点」。这次改成钉「这串字只以签名的身份出现一次」。
+  && count(conversationCode, /clampIfLong\(node, text\)/g) === 1
+  && /function clampIfLong\(node, text\)/.test(conversationCode),
+  'Q6d 阈值仍是那一个常量（STEWARD_DELIVERABLE_LINES=8，全文件恰好「定义 + clampIfLong 里用一次」两处），没有第二个「8」；`clampIfLong(node, text)` 只以【定义签名】的身份出现一次，再没有谁这么调它');
 
 // ④ 卡头的事实【只从信封来】：零新增路由、零新增请求、零新增 import。
 const factsStart = conversationCode.indexOf('export function stewardThreadFacts');

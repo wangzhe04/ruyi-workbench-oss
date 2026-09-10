@@ -1256,7 +1256,7 @@ try {
   // ─── F1 线程卡 ＋ F4 回复定型（27 号文 §11.13.1「线程即频道」；设计稿两块画板）─────────────
   // 同一条线程连着的几条管家的话合成【一张卡】（3px 色条 ＋ 一行卡头：线程名 · 五态 · 最后动静 ·
   // 模型 · 打开）；管家【本人】说的话没有色条、没有卡。四色按首次出现顺序循环，同一条线程恒用同一色。
-  // 回复定型：首句抬成引子（只加类，不改一个字），正文超 8 行折起来（与交付卡同一处折叠实现）。
+  // 回复定型：首句抬成引子（只加类，不改一个字）；117y-S3 之后【正文一律不折叠】，折叠只剩交付卡。
   // 手法与 T/U 两段一样：新建实例 ＋ 注入按 URL 分流的假 api，走 appendSince 那条真路径。
   const THREAD_A = 'sess_v_alpha';
   const THREAD_B = 'sess_v_beta';
@@ -1318,7 +1318,17 @@ try {
           leadWeight: lead ? getComputedStyle(lead).fontWeight : '',
           clamped: say ? say.classList.contains('is-clamped') : false,
           sayCut: say ? (say.scrollHeight > say.clientHeight + 2) : false,
+          // 117y-S3：管家正文那一路不该再有按钮行，所以这里量的是【一个都没有】。
+          // 两个选择器都留着：.steward-say-acts 是那枚按钮原来的窝，.steward-deliverable-more 是
+          // 按钮本身 —— 换个容器类名重新塞回来也一样会被下面的 V5 抓住。
           sayActs: [...row.querySelectorAll('.steward-say-acts button')].map(node => node.textContent),
+          sayMore: row.querySelectorAll('.steward-say ~ .steward-deliverable-more, .steward-say-acts .steward-deliverable-more').length,
+          // 反向保护：同一屏上交付卡【仍然】折叠、仍然有那枚「展开」。
+          delivClamped: (() => {
+            const body = row.querySelector('.steward-deliverable-body');
+            return body ? body.classList.contains('is-clamped') : null;
+          })(),
+          delivActs: [...row.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent),
         };
       }),
     };
@@ -1401,8 +1411,8 @@ try {
     } catch { /* 证据拍不下来不改变判定 */ }
   };
   await shootF('F1-thread-cards.png');
-  // 第二张证据：滚到第二条线程那一段 —— 一屏里同时看得见【两种颜色的色条】与【折起来的正文】
-  // （这一张要在点「展开」之前拍，展开之后就不是折叠态了）。
+  // 第二张证据：滚到第二条线程那一段 —— 一屏里同时看得见【两种颜色的色条】与【折起来的交付原文】
+  // （117y-S3 之后管家自己那段话不再折叠，这一张里折着的只剩交付卡）。
   await cdp.evaluate(`(() => {
     const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiThreadFrom || 0);
     const beta = rows.filter(row => row.dataset.thread === ${JSON.stringify(THREAD_B)})[0];
@@ -1430,26 +1440,28 @@ try {
     `V4 管家【本人】说的话没有色条、没有卡头、没有来源小头（实测 isThread=${self && self.isThread} / 色条=${self && self.stripe}）`);
   ok(cardRows.filter(row => row.isThread).every(row => row.stripe === true && row.groupLine === false),
     `V4b 一行只有一个锚：有色条的那几行不再画那道组竖线（实测 ${JSON.stringify(cardRows.map(row => [row.isThread, row.stripe, row.groupLine]))}）`);
-  ok(Boolean(self) && self.clamped === true && self.sayCut === true
-    && self.sayActs.length === 1 && self.sayActs[0] === 'stewardShell.chat.deliverableExpand',
-    `V5 正文超 8 行默认折叠（真的被裁掉了一截）且带一枚「展开」（实测 clamped=${self && self.clamped} / 溢出=${self && self.sayCut} / ${JSON.stringify(self && self.sayActs)}）`);
-  const expandedSay = await cdp.evaluate(`(() => {
-    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiThreadFrom || 0);
-    const more = rows.map(row => row.querySelector('.steward-say-acts .steward-deliverable-more')).filter(Boolean)[0];
-    if (more) more.click();
-    return ${THREAD_SHOT};
-  })()`);
-  const selfOpen = (expandedSay && expandedSay.ruyi[3]) || null;
-  ok(Boolean(selfOpen) && selfOpen.clamped === false && selfOpen.sayCut === false
-    && selfOpen.sayActs[0] === 'stewardShell.chat.deliverableCollapse',
-    `V5b 点「展开」全文展开、按钮换成「收起」——【与交付卡同一处折叠实现】（实测 clamped=${selfOpen && selfOpen.clamped} / ${JSON.stringify(selfOpen && selfOpen.sayActs)}）`);
+  // 117y-S3 重钉（用户第十一轮拍板②「管家的话最好不要用展开的二级菜单了，显示完吧」）：
+  // 原来的 V5／V5b 钉的是「超 8 行默认折叠、点『展开』才看得全」。今天钉相反的事实 ——
+  // 一条【19 行】的回复整段就在那儿，没折、没裁、没有那枚要人再点一次的按钮。
+  // 修前必红：折叠还在时 clamped=true、sayCut=true、sayActs=['…deliverableExpand']。
+  ok(LEAD_SAY.split('\n').length >= 12,
+    `V5a 夹具这条回复够长（${LEAD_SAY.split('\n').length} 行 ≥ 12，远超那个 8 行的折叠线）——不然「没折叠」这件事验不出什么`);
+  ok(Boolean(self) && self.clamped === false && self.sayCut === false
+    && self.sayActs.length === 0 && self.sayMore === 0,
+    `V5 管家的话【说得完】：一条 ${LEAD_SAY.split('\n').length} 行的回复整段可见，没有 is-clamped、没被裁掉一截、一枚「展开」都没有（实测 clamped=${self && self.clamped} / 溢出=${self && self.sayCut} / 按钮 ${JSON.stringify(self && self.sayActs)} / 展开钮 ${self && self.sayMore}）`);
+  // 反向保护（同一屏、同一次渲染）：折叠实现没被删，只是只服务交付卡了 —— 线程卡里那份 15 行的
+  // 交付【原文】仍然折着、仍然有那枚「展开」。这一条把 S3 的边界钉死：再往前削就会踩到它。
+  ok(Boolean(a3) && a3.delivClamped === true
+    && a3.delivActs.length === 2 && a3.delivActs[0] === 'stewardShell.chat.deliverableExpand',
+    `V5b 反向保护：交付卡【仍然】折叠、仍然有「展开」（clampIfLong 只是从两个调用方减到交付卡这一个；实测 clamped=${a3 && a3.delivClamped} / ${JSON.stringify(a3 && a3.delivActs)}）`);
   // 「首句抬成引子」是纯呈现：加粗的是第一个段落，而【一个字都没变】——把两边的空白去掉之后
   // DOM 里的字必须与模型说的那句话逐字相同（※ 是渲染层加的一枚按钮，不算正文，先摘掉）。
+  // S3 之后这一条读的是【第一次快照】：以前要先点开折叠才量得到全文，现在本来就是全的。
   const saidPlain = LEAD_SAY.replace(/\s+/g, '');
-  const domPlain = String((selfOpen && selfOpen.sayText) || '').replace(/※/g, '').replace(/\s+/g, '');
-  ok(Boolean(selfOpen) && selfOpen.leads === 1 && selfOpen.leadTag === 'P' && selfOpen.leadWeight === '600'
+  const domPlain = String((self && self.sayText) || '').replace(/※/g, '').replace(/\s+/g, '');
+  ok(Boolean(self) && self.leads === 1 && self.leadTag === 'P' && self.leadWeight === '600'
     && domPlain === saidPlain,
-    `V6 首句抬成引子（第一个段落加粗）而正文逐字未变（引子 ${selfOpen && selfOpen.leadTag}/${selfOpen && selfOpen.leadWeight}，文字相同=${domPlain === saidPlain}）`);
+    `V6 首句抬成引子（第一个段落加粗）而正文逐字未变、且【不点任何按钮】就已经全在 DOM 里（引子 ${self && self.leadTag}/${self && self.leadWeight}，文字相同=${domPlain === saidPlain}）`);
   ok(Boolean(a3) && a3.deliverables === 1 && a3.sources === 1 && a3.sourceShown === false
     && Boolean(a3.head) && a3.head.opens === 1,
     `V7 117s-H 的交付卡与来源小头照旧长在卡里：小头仍在 DOM（它的聚焦通道没动），只是让位给卡头右端的「打开」（实测 交付卡 ${a3 && a3.deliverables} / 小头 ${a3 && a3.sources} / 可见 ${a3 && a3.sourceShown}）`);

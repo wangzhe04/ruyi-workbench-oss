@@ -210,8 +210,8 @@ export function stewardDeliverableFrom(session, turnSeq) {
 
 // 交付原文超过这么多行就默认折叠（§11.13.3 H2「超 8 行折叠」）。真实版面若在这之内仍然溢出
 // （一段长文本换行成十几行），另有一道实测兜底，见 fillDeliverable。
-// F4：管家【自己那段话】的折叠用同一个阈值、同一处实现（clampIfLong ＋ collapseToggle），
-// 不为「正文超 8 行」另造第二套判据与第二枚按钮。
+// F4 曾拿这个阈值也折管家自己那段话；117y-S3 把那一路撤了（用户：「显示完吧」），所以这个常量
+// 今天【只服务交付卡】一个调用方 —— 名字里的 DELIVERABLE 现在名副其实。
 export const STEWARD_DELIVERABLE_LINES = 8;
 
 // ── F1 线程卡（27 号文 §11.13.1「线程即频道」；设计稿画板「宽屏 · 线程即频道」）────────────
@@ -559,11 +559,12 @@ export function createStewardConversation({
     return node;
   }
 
-  // ── 折叠：一处实现，两个调用方（117s-H2 的交付卡 ＋ F4 的管家正文）─────────────────────
-  // 117s-H2 把折叠写在 fillDeliverable/deliverableActs 里；F4 要给管家自己那段话也折一次，
-  // 于是把那份实现原样抽出来 —— **不是复制第二份**：判据（行数 ＋ 一道实测溢出兜底）、类名
-  // （is-clamped）、按钮（.steward-deliverable-more，展开/收起两句话）全部只有这一处。
-  // 折叠阈值也是同一个常量，样式层的高度也是同一个自定义属性（--steward-clamp-h）。
+  // ── 折叠：一处实现，【只有交付卡一个调用方】（117s-H2）───────────────────────────────
+  // 117s-H2 把折叠写在 fillDeliverable/deliverableActs 里；F4 曾把它抽出来给管家正文也用一次，
+  // 117y-S3 又把管家正文那一路撤了（用户第十一轮拍板②）。抽出来的这份实现【原样留着】：判据
+  // （行数 ＋ 一道实测溢出兜底）、类名（is-clamped）、按钮（.steward-deliverable-more，展开/
+  // 收起两句话）全部仍然只有这一处，只是今天只有 fillDeliverable 在调它。
+  // 折叠阈值仍是那个常量，样式层的高度仍是那个自定义属性（--steward-clamp-h）。
   function clampIfLong(node, text) {
     if (!node) return false;
     node.classList.add('is-clamped');
@@ -586,18 +587,20 @@ export function createStewardConversation({
   // ② 首句即结论 —— 提示词层（06b）本来就要求这么写，所以渲染层只做【呈现】：给正文的第一个
   //    段落加 .is-lead，样式层把它抬成一行醒目的引子。**一个字都不改、一块都不挪**：不切句、
   //    不拆文本节点、不重排 markdown 块（第一块本来就是标题时不加 —— 它已经够重了）。
-  // ④ 正文超 8 行折起来 —— 走上面那一处折叠，按钮插在话的【后面】一行（不塞进 .steward-say
-  //    里：※ 靠「最后一段是不是 <p>」认句尾，塞个按钮进去它就掉出段落了，117s-C 的 S3c 钉着）。
-  function finishSay(row, node, text) {
+  // ④ 【117y-S3 撤掉】原来「正文超 8 行折起来 ＋ 一枚展开按钮」这一路没了。用户第十一轮拍板②：
+  //    「管家的话最好不要用展开的二级菜单了，显示完吧」。话本来就是完整的，折叠只是逼用户为
+  //    看完它多点一次；「让它少说」是提示词的事（同波 S2 在 06b 加了那条规矩），不是运行期把
+  //    已经说出口的话再藏起来。所以这个函数现在【只做首句抬引子】，连正文长度都不看了
+  //    （text 参数因此去掉 —— 想把折叠加回来的人得先把它加回来，改不动是故意的）。
+  //    **交付卡的折叠保留**：那是线程自己写的交付【原文】（117s-H2 实测量到 2687 字），整段
+  //    摊开会把管家的按语挤出屏幕。折叠那一处实现（clampIfLong／collapseToggle）一个字没动，
+  //    只是从两个调用方减到 fillDeliverable 一个。「用户说的『管家的话』不含交付卡」是主会话
+  //    替用户做的判断，写在这里好让下一刀能看见并推翻它。
+  function finishSay(row, node) {
     if (!row || !node) return null;
     const lead = node.firstElementChild;
     if (lead && lead.tagName === 'P') lead.classList.add('is-lead');
-    if (!clampIfLong(node, text)) return null;
-    const acts = el('div', 'steward-say-acts');
-    acts.appendChild(collapseToggle(node));
-    if (node.parentNode === row) row.insertBefore(acts, node.nextSibling);
-    else row.appendChild(acts);
-    return acts;
+    return null;
   }
 
   function appendRow(kind) {
@@ -686,7 +689,7 @@ export function createStewardConversation({
     const sayNode = el('p', 'steward-say', '');
     row.appendChild(sayNode);
     paintSay(sayNode, say);   // 117s-C：先渲染再挂 ※（renderMarkdownInto 会整段重写这个节点）
-    finishSay(row, sayNode, say);   // F4：首句抬成引子 ＋ 超 8 行折叠（都在挂 ※ 之前，※ 仍在句尾）
+    finishSay(row, sayNode);   // F4：首句抬成引子（在挂 ※ 之前，※ 仍在句尾）；117y-S3 之后不再折叠
     row.appendChild(attachWhy(sayNode, why, doneLines, extraWhyLines));
     const feed = feedEl();
     if (feed) feed.scrollTop = feed.scrollHeight;
@@ -1210,7 +1213,7 @@ export function createStewardConversation({
     }
     paintSay(body, found.text);   // 与管家的话【同一条】渲染＋净化路径（highlightIn 只在这里跑一次）
     // 折叠：行数超顶就折（判据不依赖版面，Node/隐藏容器里也成立），另加一道真实溢出的兜底。
-    // F4 之后这一段搬进 clampIfLong —— 同一份判据现在也给管家自己那段话用（一处实现，两个调用方）。
+    // F4 之后这一段搬进 clampIfLong；117y-S3 撤掉管家正文那一路之后，这里是它【唯一】的调用方。
     const longEnough = clampIfLong(body, found.text);
     block.appendChild(deliverableActs(body, source, longEnough));
     return body;
@@ -1218,7 +1221,7 @@ export function createStewardConversation({
 
   function deliverableActs(body, source, collapsible) {
     const acts = el('div', 'steward-deliverable-acts');
-    if (collapsible) acts.appendChild(collapseToggle(body));   // F4：与管家正文共用那一处折叠实现
+    if (collapsible) acts.appendChild(collapseToggle(body));   // 117y-S3 之后这是折叠仅剩的一个调用方
     // 117v-V1 ⑨（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程，
     // 这个 UX 体验就很迷」）：这一枚与抽屉那一枚确实还是同一个动作（两边都调 openClassicWindow），
     // 但**同一屏上还有第二枚「看…全文」**——管家写的 open_thread act（琥珀色那一枚）点下去是
@@ -1438,7 +1441,7 @@ export function createStewardConversation({
       paintSay(fresh, say);
     }
     const node = row.querySelector('.steward-say');
-    finishSay(row, node, say);   // F4：与 appendSteward 同一处定型（流式那一路只在终态跑这一次）
+    finishSay(row, node);   // F4：与 appendSteward 同一处定型（流式那一路只在终态跑这一次）
     if (node) row.appendChild(attachWhy(node, reply.why, actionWhyLines(reply.actions)));
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
