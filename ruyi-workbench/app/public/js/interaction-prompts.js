@@ -8,7 +8,7 @@ import { icon } from './icons.js';
 import { t } from './i18n.js';
 // 32 号文 §4（M2-a）：模态原语（背影／焦点陷阱／焦点归还／__cancel）落在叶子 js/modal.js，
 // 3.0 管家壳的危险操作确认与这里共用同一份。
-import { buildModal as openModal, installFocusTrap } from './modal.js';
+import { buildModal as openModal, focusFirstInteractive, installFocusTrap } from './modal.js';
 
 export function createInteractionPromptsDomain({
   apiErrText = error => String(error && error.message || error || ''),
