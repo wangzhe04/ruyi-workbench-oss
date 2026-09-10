@@ -1,5 +1,10 @@
 'use strict';
 
+// 33 号文 §4：子代理卡摘要的截短走 util.js 的【唯一口径】（按码点数，不再 slice 切半代理对）。
+// 本模块此前零 import（一切靠 deps 注入，为 vm 直跑留门）；这里只引一个无状态纯字符串函数 ——
+// 它是 util.js 里的叶子实现，注入路线需要动 app.js 的 deps 对象，而组合根已无行余量。
+import { stewardShortTitle } from './util.js';
+
 export function createChatStaticRenderer(deps = {}) {
   const {
     attachmentImageUrl,
@@ -34,7 +39,7 @@ export function createChatStaticRenderer(deps = {}) {
     d.open = !ok;
     const sum = el('summary', 'subagent-head');
     const task = String(record && record.task || '').replace(/\s+/g, ' ').trim();
-    const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
+    const taskShort = stewardShortTitle(task, 40);
     const roleTag = record && (record.roleLabel || record.roleId) ? ` · ${record.roleLabel || record.roleId}` : '';
     const driverTag = t('chat.claudeNative');
     sum.append(

@@ -20,9 +20,10 @@ import { stewardEscapeStack, doc, byId, el, isSubmitEnter } from './steward-chip
 // F5a 收编（33 号文 §4「F5a 漏网图标」）：字形一律走全仓唯一那张 ICONS 表，本文件零 SVG path 字面量。
 import { icon } from './icons.js';
 // 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行」「而且匹配的没法删掉/关掉」）：
-// 线程标题截短复用 steward-conversation.js 的既有实现（STEWARD_TITLE_MAX=24），不在本文件里另起一份——
-// 抽屉页签、灰字回执早就走这条口径，chip 是唯一漏掉的一处。
-import { stewardShortTitle } from './steward-conversation.js';
+// 线程标题截短复用【唯一那一份】实现（util.js 的 stewardShortTitle，STEWARD_TITLE_MAX=24），不在本文件里另起一份——
+// 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
+// 33 号文 §4：那份实现的落点从 steward-conversation.js 搬到 util.js（无状态格式化叶子），函数体逐字未改。
+import { stewardShortTitle } from './util.js';
 
 // F2 频道条：对话流顶上点中一条线程之后，本模块把它写进【自己那个】 picked。事件名与
 // steward-conversation.js 的那份逐字相同（steward-board.js:73 / steward-classic-window.js:25 对

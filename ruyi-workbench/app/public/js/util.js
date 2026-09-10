@@ -45,6 +45,17 @@ export function fmtTokens(n) {
   return String(n);
 }
 
+// 33 号文 §4:标题/任务名截短的【唯一口径】。按码点数([...text])而不是 UTF-16 码元数 —— 直接
+// `s.length > N ? s.slice(0, N) + '…'` 会把代理对(emoji)从中间切开,上屏是一个孤立半字。
+// 两个壳共用同一份:线程 chip(2.0 顶栏/3.0 抽屉/看板)与 2.0 的工具卡/子代理卡/工作流节点卡。
+// STEWARD_TITLE_MAX=24 是线程 chip 的历史宽度,故默认值留在这里;名字带 steward 前缀是历史,不改。
+export const STEWARD_TITLE_MAX = 24;
+export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
+  const text = String(title == null ? '' : title).trim();
+  const limit = Number(max) > 0 ? Number(max) : STEWARD_TITLE_MAX;
+  return [...text].length > limit ? [...text].slice(0, limit).join('') + '…' : text;
+}
+
 // toast 通知(依赖同文件 el/$;宿主 #toastTray 在 index.html)。
 export function toast(msg, kind = '') {
   const t = el('div', `toast ${kind}`, msg);

@@ -3,7 +3,7 @@
 // EC-D：Agent 工作流编辑、运行监控与 Workbench 适配领域。
 import { state } from './state.js';
 import { api, wcwToken } from './net.js';
-import { $, el, fmtTokens, toast } from './util.js';
+import { $, el, fmtTokens, toast, stewardShortTitle } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
 import { t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
 
@@ -167,7 +167,7 @@ async function openWorkflowEditor(initialId) {
     for(const node of draft.nodes){const card=el('button',`workflow-node-card${node.id===selectedId?' selected':''}${node.id===connectFromId?' connect-source':''}`);card.type='button';card.dataset.nodeId=node.id;card.style.left=`${node.position?.x||0}px`;card.style.top=`${node.position?.y||0}px`;
       const head=el('div','wf-node-head');head.appendChild(el('strong','',node.id));const badge=agentEngineBadge(node.engine);if(badge)head.appendChild(badge);if(node.gate&&node.gate.mode){const gm=el('span','wf-node-gate','⚖');gm.title=t('workflow.canvas.qualityGate')+node.gate.mode;head.appendChild(gm);}card.appendChild(head);
       const _role=roleById(node.role);const _rc=_role&&_role.color?_role.color:'';if(_rc)card.style.setProperty('--wf-role-color',`var(--role-${_rc}, var(--muted))`);card.appendChild(el('span','wf-role-chip',_role?(_role.label||node.role):(node.role||t('workflow.canvas.noRole'))));
-      if(node.model){const mv=el('span','wf-node-model',node.model.length>18?node.model.slice(0,18)+'…':node.model);mv.title=t('workflow.canvas.model')+node.model;card.appendChild(mv);}
+      if(node.model){const mv=el('span','wf-node-model',stewardShortTitle(node.model, 18));mv.title=t('workflow.canvas.model')+node.model;card.appendChild(mv);}
       card.appendChild(el('small','',(node.dependsOn||[]).length?`${t('workflow.canvas.deps', {deps: (node.dependsOn||[]).join(', ')})}`:t('workflow.canvas.startNode')));
       const port=el('span','wf-port');port.title=t('workflow.canvas.dragHint');
       port.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();const gsvg=graph.querySelector('svg.workflow-edges');const temp=document.createElementNS(NS,'line');temp.setAttribute('class','wf-temp-edge');const x1=(node.position?.x||0)+210,y1=(node.position?.y||0)+45;temp.setAttribute('x1',x1);temp.setAttribute('y1',y1);temp.setAttribute('x2',x1);temp.setAttribute('y2',y1);if(gsvg)gsvg.appendChild(temp);port.setPointerCapture?.(e.pointerId);const move=ev=>{const p=clientToCanvas(ev.clientX,ev.clientY);temp.setAttribute('x2',p.x);temp.setAttribute('y2',p.y);};const up=ev=>{port.removeEventListener('pointermove',move);port.removeEventListener('pointerup',up);temp.remove();const targetId=nodeIdAtClientPoint(ev.clientX,ev.clientY);if(targetId&&targetId!==node.id){snapshot();if(addWorkflowEdge(node.id,targetId)){selectedEdge=null;renderGraph();renderInspector();toast(t("toast.wfEdgeAdded"),'ok');}else{undoStack.pop();toast(t("toast.wfEdgeInvalid"),'err');}}};port.addEventListener('pointermove',move);port.addEventListener('pointerup',up);});

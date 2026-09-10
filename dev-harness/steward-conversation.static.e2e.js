@@ -163,8 +163,9 @@ ok(!/sending/.test(composerCode),
 // ─── D9/D10 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行，会把输入框内容
 // 挤没」「而且匹配的没法删掉/关掉」）：三条根因逐条钉。①③是本文件能扫的机械口径；②（chip 挪到
 // 输入框上面一行）是纯样式改动，靠 steward-conversation.e2e.js 的真实浏览器宽度断言与截图核验。
-ok(/import \{ stewardShortTitle \} from '\.\/steward-conversation\.js';/.test(composer),
-  'D9 复用 steward-conversation.js 的 stewardShortTitle（STEWARD_TITLE_MAX=24），不在本文件里另起一份截断函数');
+ok(/import \{ stewardShortTitle \} from '\.\/util\.js';/.test(composer),
+  'D9 复用【唯一那一份】stewardShortTitle（住 util.js，STEWARD_TITLE_MAX=24），不在本文件里另起一份截断函数'
+  + '（33 号文 §4：这份实现的落点从 steward-conversation.js 搬到 util.js 叶子，函数体逐字未改）');
 ok(/if \(hint\) hint\.title = stewardShortTitle\(hint\.title\);/.test(composerCode),
   'D9b 自动预判（hintedThread 命中）的标题在塞进 chip 之前过 stewardShortTitle —— 不再原样吐一整句用户的话');
 ok(/label\.textContent = t\('stewardShell\.compose\.targetThread', \{ title: stewardShortTitle\(target\.title\)/.test(composerCode),
@@ -611,11 +612,14 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    F5b（32 号文 §2.2.2 撤回三态）把 './icons.js' 加了进来：到期那枚「⇄」与落定那枚「✓」必须
 //    从【全仓唯一那张】图标词汇表取件 —— 这正是 F5a 定的规矩「SVG 路径只许住在 icons.js」，
 //    steward-board / steward-drawer / steward-settings 三个消费方走的也是这条 import。
-//    本条锁因此仍然可证伪：它钉的是「除这三条之外，本文件不许再向任何域借东西」。
-const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './steward-chips.js'];
+//    33 号文 §4 把 './util.js' 加了进来：stewardShortTitle 从本模块搬去 util.js（无状态格式化
+//    叶子，两个壳共用一份截短口径），本文件改为 import 使用 —— 借的还是【叶子】里的纯字符串函数，
+//    不是新借了一个域的实现。
+//    本条锁因此仍然可证伪：它钉的是「除这四条之外，本文件不许再向任何域借东西」。
+const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './steward-chips.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 只有 net.js、steward-chips.js 与 icons.js 三个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 只有 net.js、steward-chips.js、icons.js 与 util.js 四个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)

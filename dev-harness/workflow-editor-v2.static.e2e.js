@@ -73,7 +73,7 @@ ok(/\.wf-insp-group\s*\{[^}]*margin-bottom:\s*var\(--sp-4\)/.test(css), 'A4 组�
 // ───────────── B1 节点卡 v2：引擎徽标 + 模型名 + 质量门标 ─────────────
 ok(/const badge=agentEngineBadge\(node\.engine\)/.test(src), 'B1 节点卡复用 agentEngineBadge（替代 engineTag 文本拼接）');
 ok(!/const engineTag=node\.engine==='claude'\?' · Claude CLI'/.test(src), 'B1 旧 engineTag 文本拼接已移除');
-ok(/wf-node-model'[\s\S]{0,80}node\.model\.slice\(0,18\)/.test(src), 'B1 有 node.model 时第二行 mono 显示模型名（截 18 字）');
+ok(/wf-node-model'[\s\S]{0,80}stewardShortTitle\(node\.model, 18\)/.test(src), 'B1 有 node.model 时第二行 mono 显示模型名（截 18 字；33 号文 §4 改走 util.js 的唯一截短口径，按码点数不再切半代理对）');
 ok(/el\('span','wf-node-gate','⚖'\)/.test(src), 'B1 有 gate 时显示 ⚖ 小标');
 ok(/\.workflow-node-card\.selected\s*\{[^}]*var\(--elev-2\)/.test(css), 'B1 选中态 box-shadow 升 var(--elev-2)');
 

@@ -13,6 +13,9 @@ import { stewardEscapeStack, doc, byId, el, button } from './steward-chips.js'; 
 // 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
 // steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
 import { icon } from './icons.js';
+// 33 号文 §4：stewardShortTitle 与 STEWARD_TITLE_MAX 搬去 util.js（无状态格式化叶子）—— 两个壳
+// 共用同一份截短口径，且 2.0 侧不必为了一个纯字符串函数 import 本模块（1481 行）。函数体逐字未改。
+import { stewardShortTitle } from './util.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -335,12 +338,7 @@ export function stewardAgoLabel(iso, lang) {
   } catch { return ''; }   // 没有 Intl.RelativeTimeFormat 的宿主：不说，而不是吐一个英文串
 }
 
-export const STEWARD_TITLE_MAX = 24;
-export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
-  const text = String(title == null ? '' : title).trim();
-  const limit = Number(max) > 0 ? Number(max) : STEWARD_TITLE_MAX;
-  return [...text].length > limit ? [...text].slice(0, limit).join('') + '…' : text;
-}
+// 33 号文 §4：STEWARD_TITLE_MAX / stewardShortTitle 已搬 util.js（无状态格式化叶子），本文件 import 使用。
 
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
