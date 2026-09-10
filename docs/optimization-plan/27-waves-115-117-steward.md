@@ -2333,6 +2333,16 @@ P3 `desktop:false` 收紧不要按钮；graph 49/390、forwardEdges 67、build �
 | ④ 夹具设 `RUYI_HOME` 却没设 `USERPROFILE`／`stewardWorkspaceRoot` 会摸真机主目录 | 134 个 e2e 设了 `RUYI_HOME`，只有十几个设了 `USERPROFILE`；这次是 `~/Ruyi`，下次可能是别的读 `os.homedir()` 的默认值 | **进「先占位再建目录」小刀**：`dev-harness` 加一道守卫——凡起服的夹具，`USERPROFILE`／`HOME` 一律指向临时 HOME（在公共起服 helper 里做一次，不逐件改）；反向：故意让一件不设，守卫要红 |
 
 **未拍板项保持原判**：auto 档自动开桌面（§11.21.5 B）**没做**，全档只提议。要开例外再立刀，不夹在别的刀里。
+#### 11.21.8 E-手②b 交付记录（`d3ceccf` ＋ `0af605a` ＋ `392f82a`；主会话逐条复核）
+
+**核过的**：① 挂钩 —— `13m:107` `STEWARD_ACTION_HOOKS` 收 `steward_thread_permission`（人话标签「改线程权限」`13m:121`），前端 `steward-chips.js` `STEWARD_TOOL_LABEL_KEYS` 同步，两 locale 各一键（`settings.steward.tool.threadPermission`）；
+② 确认门 —— `13d:372-375` `desktopTools === true` 且 `confirm !== true` 回 409 `permission.confirm_required`（与切全自动同一错误码），清除与 false 不要确认，`13d:392-395` 决策日志照 permission_mode 形状记；
+③ 核锁 —— guardrails (R) 段 R0–R5b 全绿：R1 钉死「桥接工具的档只有 read/edit/exec，没有 desktop 档」、R2/R2b 闸对两个原生桌面工具有效、R4/R5【已知洞】full 注入与 auto `tool_load` 拉入都不读闸，修洞当场红。
+合并后主会话复跑：`module-dependency-graph --check` PASS（49 模块/390 边）、`route-inventory --check` 无漂移。
+
+**③ 的裁决偏离与拍板项**：派单口径「若可达 → 就地按 allowDesk 滤」**不可实现**——「按 desktop 档滤」是空操作（档只有 read/edit/exec，R1 钉死）；真修法要先定「哪些桥接工具算桌面工具」：
+按包名（`07:375` 会把未知外部工具一起滤掉）／按账本 kind（`02:2070` 只盖写族、漏 screenshot/ocr）／按服务器身份 desktopMcp（最贴产品口径但是一份新判据）。
+执行者未擅自选，把洞原样钉住并明写「已知洞」。**拍板项进 32 号文 §3 第 7 条。**
 #### 11.18.6 117y-S3 交付记录（`f582aad`；主会话逐条复核；收口 `a4c7719` ＋ `b5a3169`）
 
 **核过的**：3 个文件全在范围内，零 CSS、零 `src/`；`finishSay` 函数体 202 字符、内含 `clampIfLong`／`collapseToggle` 各 0、`.is-lead` 保留；
