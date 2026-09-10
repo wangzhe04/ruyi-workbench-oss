@@ -77,6 +77,9 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
   // 117m-A4:线程级停止与 run_action{pause,stop} 同族 —— 收紧类,无人值守也可以做。写成显式一行
   // 而不是靠函数末尾的兜底 return:这是一条【口径】,不该长得像「忘了登记所以放行」。
   if (tool === 'steward_thread_stop') return { allowed: true };
+  // 117z-E2b 提交①:线程权限同样写成显式一行。收紧(降档 / desktop:false)是收紧类,无人值守也可以做;
+  // 放宽(desktop:true)的「恒提议、只有用户亲手按下才穿得过去」住在 13k 里,不在这张清单上复判。
+  if (tool === 'steward_thread_permission') return { allowed: true };
   return { allowed: true }; // decide / rename:由 13g 内部的 stewardMayAct 与永久豁免清单裁决
 }
 

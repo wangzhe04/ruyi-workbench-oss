@@ -191,6 +191,9 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
   // steward_thread_stop 这个内部 id 原样显给用户（§8.1 原则 7：界面不出现系统内部词）。
   steward_thread_stop: 'settings.steward.tool.threadStop',
   steward_thread_note: 'settings.steward.tool.threadNote',
+  // 117z-E2b 提交①：线程权限进了 13m 的 STEWARD_ACTION_HOOKS（desktop:true 恒提议 -> 降级成按钮），
+  // 漏登记在这里 = steward-settings.static H5 红，且「行动流水」把 steward_thread_permission 原样显给用户。
+  steward_thread_permission: 'settings.steward.tool.threadPermission',
   steward_quick_ask: 'settings.steward.tool.quickAsk',
   steward_playbook_draft: 'settings.steward.tool.playbookDraft',
   steward_memory_panel_edit: 'settings.steward.tool.memoryEdit',

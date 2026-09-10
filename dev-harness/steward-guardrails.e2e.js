@@ -80,6 +80,10 @@ function writeConfig(patch) {
     stewardEnabledV1: true, stewardPollMs: 120000, stewardReadBudgetChars: 4000,
     stewardMaxTurnsPerHour: 500, stewardMaxCostPerDay: 0,
     stewardGlobalMaxTurnsPerHour: 500, stewardGlobalMaxCostPerDay: 0,
+    // 117z-E2b(27 号文 §11.21.7 债 ④):stewardWorkspaceRoot 的缺省根读 os.homedir(),不跟 RUYI_HOME 走 ——
+    // E-手② 的第一版夹具就因此在【真机】~/Ruyi 下建过测试目录。显式钉到临时 HOME 下(与 relay-channels 同款),
+    // 起服的 env 再把 USERPROFILE / HOME 一起指过去,两道都在,任何读 homedir 的缺省值都落不到真机上。
+    stewardWorkspaceRoot: path.join(HOME, 'Ruyi'),
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${PROVIDER_PORT}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     ...patch,
   };
@@ -129,7 +133,7 @@ try {
   /* ══════════════════════ HTTP 阶段 ══════════════════════ */
   console.log('── HTTP 阶段(真服务)──');
   wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], {
-    cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true,
+    cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME }, windowsHide: true,
   });
   wb.stdout.on('data', () => {});
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -307,6 +311,58 @@ try {
     ok(headOf() && headOf().title === '改过名的线程',
       `N3b 反向:同一次 PATCH 里的 title 真写进去了(证明拒的是 createdBy 这一个键,不是整条请求;got ${headOf() && headOf().title})`);
   }
+
+  /* ═════════ (Q) 117z-E2b 提交①:「给它开桌面」那枚按钮真的按得下去(27 号文 §11.21.7 债 ①) ═════════ */
+  // 被钉的死路:E-手② 让 steward_thread_permission{desktop:true} 在任何档位都回 propose_required,13p 把它
+  // 降级成一枚 kind:'tool' 的按钮;但 13m 的 STEWARD_ACTION_HOOKS 里没有这个工具,用户按下去走 13q 查表
+  // -> 查不到 -> not_allowed 4xx。生产形状:「管家说要开桌面,按钮出来,按了报错」。
+  // 这一段住在 HTTP 阶段而不是 (P) 后面:按钮那条路(POST /api/steward/act -> stewardRunAct)只有 HTTP 一个
+  // 入口,13q 不导出它;而 ctx.userPressed 的全仓唯一置 true 点就在那条路上 —— 进程内直调 StewardHooks 时
+  // 手工塞 userPressed 只能证 13k(那是 P2 已经证过的),证不了「按钮 -> 表 -> 实现」这一跳。
+  console.log('── (Q) 117z-E2b 「给它开桌面」按钮通路 ──');
+  {
+    const SID_Q = 'sess_guard_q_stewardmade';
+    craftThread(SID_Q, { permissionMode: 'auto', createdBy: 'steward' });   // 管家开的 + 全自动档(放宽在这档也要人按)
+    const headOf = () => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, SID_Q + '.json'), 'utf8')); } catch { return null; } };
+    const decisionRows = () => { try { return fs.readFileSync(decisionsFile, 'utf8').split('\n').filter(Boolean).length; } catch { return 0; } };
+    const actArgs = { sessionId: SID_Q, capabilities: { desktop: true } };
+
+    // ④ 先看降级出来的按钮长什么样:让模型在回合里声明这个 action,13p 执行 -> propose_required -> 降级成按钮。
+    providerReply = JSON.stringify({ say: '这条线程要看屏幕才做得完,给它开桌面?', why: '任务需要', acts: [],
+      actions: [{ tool: 'steward_thread_permission', args: actArgs }] });
+    const turn = await request('POST', '/api/steward/message', { message: '那条线程卡在要截图' }, hdr);
+    const frames = String(turn.raw || '').split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    const reply = frames.reverse().find(f => f && f.type === 'steward_reply') || null;
+    const executedRow = (reply && (reply.actions || []).find(r => r && r.tool === 'steward_thread_permission')) || null;
+    ok(turn.status === 200 && !!reply, `Q0 前置:管家回合跑完并吐出 steward_reply 帧(got ${turn.status})`);
+    ok(executedRow && executedRow.result && executedRow.result.ok === false && executedRow.result.error === 'propose_required',
+      `Q1 模型回合里 desktop:true -> propose_required(回合里没有 userPressed;got ${executedRow && executedRow.result && executedRow.result.error})`);
+    ok(headOf() && headOf().desktopTools === undefined, 'Q1b 模型回合零写入(会话头上没有 desktopTools)');
+    const button = (reply && (reply.acts || []).find(a => a && a.kind === 'tool' && a.tool === 'steward_thread_permission')) || null;
+    ok(!!button, `Q2 propose_required 被降级成一枚 kind:'tool' 的按钮(got ${JSON.stringify(reply && reply.acts)})`);
+    ok(button && button.label !== '去做' && !/steward_/.test(String(button.label || '')),
+      `Q2b 按钮标签是人话:不是兜底的「去做」、不含工具名(got ${JSON.stringify(button && button.label)})`);
+    ok(button && button.label === '给它开桌面',
+      `Q2c 按钮上写的是用户要做的那件事「给它开桌面」(§8.4;got ${JSON.stringify(button && button.label)})`);
+    ok(executedRow && executedRow.label === '给它开桌面',
+      `Q2d 行动流水那一行同一句话(降级与流水走同一个 stewardActLabel,一处口径;got ${JSON.stringify(executedRow && executedRow.label)})`);
+    providerReply = JSON.stringify({ say: '看过了。', why: '总览', acts: [] });
+
+    // ①②③ 用户亲手按下那枚按钮:POST /api/steward/act -> STEWARD_ACTION_HOOKS -> StewardHooks.threadPermission。
+    const rowsBefore = decisionRows();
+    const pressed = await request('POST', '/api/steward/act', { act: button || { kind: 'tool', tool: 'steward_thread_permission', args: actArgs } }, hdr);
+    ok(pressed.status === 200 && pressed.json && pressed.json.ok === true && pressed.json.kind === 'tool',
+      `Q3 按钮按得下去:200 ok:true(修前 STEWARD_ACTION_HOOKS 没有它 -> 400 not_allowed;got ${pressed.status} ${pressed.json && pressed.json.error && pressed.json.error.code})`);
+    const pr = pressed.json && pressed.json.result;
+    ok(pr && pr.ok === true && pr.desktopTools === true && pressed.json.executed === true,
+      `Q3b 实现真的拿到 ctx.userPressed 并写入(got ${JSON.stringify(pr && (pr.error || { desktopTools: pr.desktopTools }))})`);
+    await sleep(300);
+    ok(headOf() && headOf().desktopTools === true,
+      `Q4 会话头 desktopTools === true 落盘(got ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    ok(decisionRows() === rowsBefore + 1, `Q5 决策日志恰好多一行(${rowsBefore} -> ${decisionRows()})`);
+    ok(pr && pr.undoRef && pr.undoRef.kind === 'desktop' && pr.undoRef.previous === null,
+      `Q6 undoRef.kind === 'desktop' 且带旧值 null(got ${JSON.stringify(pr && pr.undoRef)})`);
+  }
 } finally {
   kill(wb);
   wb = null;
@@ -317,6 +373,9 @@ await sleep(400);
 console.log('── 进程内阶段(工具面直调)──');
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
 process.env.RUYI_HOME = HOME;
+// 117z-E2b(债 ④):进程内直调同样把 homedir 指到临时目录 —— 与上面起服的 env 同一道守卫。
+process.env.USERPROFILE = HOME;
+process.env.HOME = HOME;
 const srv = require(SERVER);
 const stewardCtx = extra => ({ session: { id: 'steward', kind: 'steward', providerHistory: [] }, ...(extra || {}) });
 const call = (name, args, ctx) => srv.toolCall(name, args || {}, ctx);

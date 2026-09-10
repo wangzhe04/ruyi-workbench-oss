@@ -2980,6 +2980,7 @@
   ,"settings.steward.tool.threadRename": "Renamed it"
   ,"settings.steward.tool.threadPrioritize": "Moved it to the front"
   ,"settings.steward.tool.threadNote": "Added a note"
+  ,"settings.steward.tool.threadPermission": "Changed thread permissions"
   ,"settings.steward.tool.memoryWrite": "Noted it"
   ,"settings.steward.tool.memoryVeto": "Dropped a note"
   ,"settings.steward.tool.memoryEdit": "Edited a note"

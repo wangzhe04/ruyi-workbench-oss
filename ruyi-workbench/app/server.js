@@ -46183,6 +46183,12 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   // POST /api/steward/act,那条路径才置 ctx.userPressed = true。
   steward_config_set: 'configSet',
   steward_skill_toggle: 'skillToggle',
+  // 117z-E2b 提交①(27 号文 §11.21.7 债 ①):线程权限。E-手① 时它只降档、从不 propose_required,
+  // 不进表没关系;E-手② 给它加了 capabilities.desktop,desktop:true 在【任何】档位都回 propose_required
+  // -> 被降级成按钮 -> 用户按下去经这张表找实现;不在表里 = 13q 查不到 -> not_allowed 4xx,
+  // 生产形状是「管家说要开桌面,按钮出来,按了报错」。与 config_set / skill_toggle 同一个「须确认」
+  // 模具:只有 13q 那条路置 ctx.userPressed = true,13k 只在 desktop:true 那一支上读它。
+  steward_thread_permission: 'threadPermission',
 });
 
 // 降级成按钮时的人话标签(§8.4「话＋一行按钮」:按钮上写用户要做的那件事,不写工具名)。
@@ -46194,6 +46200,9 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4
   steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
+  // 117z-E2b 提交①:这是行动流水与兜底用的总称;真正降级成按钮的只有 capabilities.desktop === true
+  // 那一支,13o 的 stewardActLabel 按 args 把它写成「给它开桌面」(按钮上写用户要做的那件事,§8.4)。
+  steward_thread_permission: '改线程权限',
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -47201,6 +47210,14 @@ function stewardActLabel(tool, args) {
     const action = String(a.action || '');
     return (STEWARD_RUN_ACTION_LABELS[action] || action || '执行').slice(0, STEWARD_ACT_LABEL_MAX);
   }
+  // 117z-E2b 提交①(27 号文 §11.21.7 债 ①):线程权限也按 args 给人话 —— 与 decide / run_action 同一条
+  // 理由(按【动作】不按工具名,且降级成按钮与行动流水用的是同一个函数,一处口径)。会降级成按钮的
+  // 只有 capabilities.desktop === true 那一支(13k 恒 propose_required),按钮上写用户要做的那件事:
+  // 「给它开桌面」;其余(收紧档位 / 关桌面)不出按钮,回落到 STEWARD_TOOL_LABELS 的总称「改线程权限」。
+  if (tool === 'steward_thread_permission') {
+    const permCaps = (a.capabilities && typeof a.capabilities === 'object' && !Array.isArray(a.capabilities)) ? a.capabilities : null;
+    if (permCaps && permCaps.desktop === true) return '给它开桌面'.slice(0, STEWARD_ACT_LABEL_MAX);
+  }
   return (STEWARD_TOOL_LABELS[tool] || '去做').slice(0, STEWARD_ACT_LABEL_MAX);
 }
 
@@ -47351,6 +47368,9 @@ async function stewardSelfServeAllows(tool, args, config, trigger) {
   // 117m-A4:线程级停止与 run_action{pause,stop} 同族 —— 收紧类,无人值守也可以做。写成显式一行
   // 而不是靠函数末尾的兜底 return:这是一条【口径】,不该长得像「忘了登记所以放行」。
   if (tool === 'steward_thread_stop') return { allowed: true };
+  // 117z-E2b 提交①:线程权限同样写成显式一行。收紧(降档 / desktop:false)是收紧类,无人值守也可以做;
+  // 放宽(desktop:true)的「恒提议、只有用户亲手按下才穿得过去」住在 13k 里,不在这张清单上复判。
+  if (tool === 'steward_thread_permission') return { allowed: true };
   return { allowed: true }; // decide / rename:由 13g 内部的 stewardMayAct 与永久豁免清单裁决
 }
 

@@ -331,6 +331,14 @@ function stewardActLabel(tool, args) {
     const action = String(a.action || '');
     return (STEWARD_RUN_ACTION_LABELS[action] || action || '执行').slice(0, STEWARD_ACT_LABEL_MAX);
   }
+  // 117z-E2b 提交①(27 号文 §11.21.7 债 ①):线程权限也按 args 给人话 —— 与 decide / run_action 同一条
+  // 理由(按【动作】不按工具名,且降级成按钮与行动流水用的是同一个函数,一处口径)。会降级成按钮的
+  // 只有 capabilities.desktop === true 那一支(13k 恒 propose_required),按钮上写用户要做的那件事:
+  // 「给它开桌面」;其余(收紧档位 / 关桌面)不出按钮,回落到 STEWARD_TOOL_LABELS 的总称「改线程权限」。
+  if (tool === 'steward_thread_permission') {
+    const permCaps = (a.capabilities && typeof a.capabilities === 'object' && !Array.isArray(a.capabilities)) ? a.capabilities : null;
+    if (permCaps && permCaps.desktop === true) return '给它开桌面'.slice(0, STEWARD_ACT_LABEL_MAX);
+  }
   return (STEWARD_TOOL_LABELS[tool] || '去做').slice(0, STEWARD_ACT_LABEL_MAX);
 }
 

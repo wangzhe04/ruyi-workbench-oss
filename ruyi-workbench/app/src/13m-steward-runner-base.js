@@ -99,6 +99,12 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   // POST /api/steward/act,那条路径才置 ctx.userPressed = true。
   steward_config_set: 'configSet',
   steward_skill_toggle: 'skillToggle',
+  // 117z-E2b 提交①(27 号文 §11.21.7 债 ①):线程权限。E-手① 时它只降档、从不 propose_required,
+  // 不进表没关系;E-手② 给它加了 capabilities.desktop,desktop:true 在【任何】档位都回 propose_required
+  // -> 被降级成按钮 -> 用户按下去经这张表找实现;不在表里 = 13q 查不到 -> not_allowed 4xx,
+  // 生产形状是「管家说要开桌面,按钮出来,按了报错」。与 config_set / skill_toggle 同一个「须确认」
+  // 模具:只有 13q 那条路置 ctx.userPressed = true,13k 只在 desktop:true 那一支上读它。
+  steward_thread_permission: 'threadPermission',
 });
 
 // 降级成按钮时的人话标签(§8.4「话＋一行按钮」:按钮上写用户要做的那件事,不写工具名)。
@@ -110,6 +116,9 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4
   steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
+  // 117z-E2b 提交①:这是行动流水与兜底用的总称;真正降级成按钮的只有 capabilities.desktop === true
+  // 那一支,13o 的 stewardActLabel 按 args 把它写成「给它开桌面」(按钮上写用户要做的那件事,§8.4)。
+  steward_thread_permission: '改线程权限',
 });
 
 // ────────────────────────────────────────────────────────────────────────────
