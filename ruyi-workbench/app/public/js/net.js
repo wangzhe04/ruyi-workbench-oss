@@ -113,3 +113,25 @@ export function apiErrorInfo(e) {
 export function apiErrText(e) {
   return apiErrorInfo(e).message;
 }
+
+// 33 号文 §4「NDJSON 读流两份逐字 → 抽共享读器」：/api/chat/stream 与 /api/steward/message 回的都是
+// NDJSON（一行一个 JSON 事件），消费方原先各自写了一遍「getReader + TextDecoder + 按 /\r?\n/ 切 + 留下
+// 不完整的尾行」这套骨架，逐字同形（steward-conversation.js 自己那句注释就写着「照抄」）。
+// 骨架只留这里一份：onLine 收【完整的】一行（不含行尾符，可能就是空串——由消费方自己决定忽略）；
+// 流结束时残留的不完整尾行，只有非空白才补发（两个消费方原来的写法都是「空白尾行不发」：
+// chat-stream-runtime 写的是 if (buf.trim())，steward-conversation 的 takeLine 对空白行直接 return）。
+// 消费方若要对尾行另作处理（比如 2.0 那边尾行走的分支与循环里略有不同），传 onTail 即可。
+export async function readNdjsonStream(body, onLine, onTail) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split(/\r?\n/);
+    buf = lines.pop() || '';
+    for (const line of lines) onLine(line);
+  }
+  if (buf.trim()) (onTail || onLine)(buf);
+}

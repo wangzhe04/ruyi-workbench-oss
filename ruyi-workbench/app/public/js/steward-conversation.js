@@ -1,6 +1,6 @@
 'use strict';
 
-import { authHeaders } from './net.js';
+import { authHeaders, readNdjsonStream } from './net.js';
 import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出的 JSON 信封（单独一行，J2 锁钉住上一行原样）
 // 117j copy-P1-1：工具的人话表。前端【只有这一份】（行动流水与 ※ 浮层共用）。117n-M1 重钉：
 // 原来从 steward-settings.js 复用，现在改从 steward-chips.js（它是本波把这张纯常量表搬去的
@@ -31,8 +31,9 @@ import { icon } from './icons.js';
 //     setInterval」（C2a 原样通过）。
 //
 // 为什么 fetch 直调而不是注入的 api()：/api/steward/message 回的是 NDJSON 流（与 /api/chat/stream
-// 同形），api() 一次性 res.json() 吃不下流。读流部分照抄 chat-stream-runtime.js 的 reader 循环
-// （decoder + 按行切 + 末尾残行补发），鉴权头复用 net.js 的 authHeaders()，不另起一套 token 读取。
+// 同形），api() 一次性 res.json() 吃不下流。读流骨架（decoder + 按行切 + 末尾残行补发）自 33 号文 §4
+// 起与 2.0 同宗同源：唯一一份在 net.js 的 readNdjsonStream（这里 import 它，不再「照抄」一份）。
+// 鉴权头同样复用 net.js 的 authHeaders()，不另起一套 token 读取。
 
 export const STEWARD_ACTS_MAX = 3;                       // §8.4 纪律：一次回合按钮 ≤3 个
 // 117l D3（用户第四轮走查⑥「要能让用户连续发消息」）：管家在跑时用户还能接着说，第二句立刻上屏、
@@ -1368,9 +1369,6 @@ export function createStewardConversation({
         method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}) }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
       const takeLine = line => {
         const trimmed = String(line || '').trim();
         if (!trimmed) return;
@@ -1383,15 +1381,9 @@ export function createStewardConversation({
           if (evt.type === 'tool_use') tools.push(String(evt.name || ''));
         } else if (evt.type === 'steward_reply') reply = evt;
       };
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split(/\r?\n/);
-        buf = lines.pop() || '';
-        for (const line of lines) takeLine(line);
-      }
-      takeLine(buf);
+      // 读流骨架唯一一份在 net.js（33 号文 §4）；尾行由它按「非空白才补发」的规矩交给 takeLine
+      // —— 与原来那个 takeLine(buf) 等价（空白尾行本来就被 takeLine 自己丢掉）。
+      await readNdjsonStream(res.body, takeLine);
       if (!reply) throw new Error('stream ended without steward_reply');
       finishReply(row, sayNode, reply, tools, message);
       return reply;

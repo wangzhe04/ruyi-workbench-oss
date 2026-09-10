@@ -45,6 +45,12 @@ const chipsImportNames = source => source.split(String.fromCharCode(10))
   .flatMap(line => line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(','))
   .map(name => name.trim())
   .filter(Boolean);
+// 同一个判据的通用形态（33 号文 §4 的 J2 也要用）：从 <spec> 那条 import 里读出名字集合。
+const importNamesFrom = (source, spec) => source.split(String.fromCharCode(10))
+  .filter(line => line.startsWith('import {') && line.includes("from './" + spec + "';"))
+  .flatMap(line => line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(','))
+  .map(name => name.trim())
+  .filter(Boolean);
 const conversationCode = stripComments(conversation);
 const composerCode = stripComments(composer);
 const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -275,12 +281,21 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 const ALLOWED = ['/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
-ok(/import \{ authHeaders \} from '\.\/net\.js';/.test(conversation)
+ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')
+  && importNamesFrom(conversation, 'net.js').includes('readNdjsonStream')
   && count(conversation, /\bfetch\(/g) === 1
   && count(composer, /\bfetch\(/g) === 0,
   'J2 唯一的直调 fetch 是 /api/steward/message 的 NDJSON 流（api() 吃不下流），鉴权头复用 net.js');
-ok(/const reader = res\.body\.getReader\(\);/.test(conversation) && /new TextDecoder\(\)/.test(conversation),
-  'J3 读流部分照 chat-stream-runtime.js 的 reader 循环（同形 NDJSON）');
+// 33 号文 §4 重钉 J3（反向验证过）：读流骨架搬进了 net.js 的 readNdjsonStream，本模块不再自己写
+// getReader/TextDecoder —— 所以这条锁改成钉【骨架只有一份 + 本模块真的用它】：
+//   · 本模块零 getReader／零 TextDecoder 字面量（自己再抄一份立刻红）；
+//   · net.js 里那份骨架带 decoder + 按 /\r?\n/ 切 + 留残行的三件事都在（搬走的是同一套，不是重写的另一套）；
+//   · 本模块确实把 res.body 交给了它。
+const netSrc = read('js/net.js');
+ok(!/getReader|TextDecoder/.test(conversation)
+  && /const reader = body\.getReader\(\);/.test(netSrc) && /new TextDecoder\(\)/.test(netSrc)
+  && /buf = lines\.pop\(\) \|\| '';/.test(netSrc) && /await readNdjsonStream\(res\.body, takeLine\);/.test(conversation),
+  'J3 读流骨架只有 net.js 一份（decoder ＋ 按行切 ＋ 末尾残行补发），本模块 import 它而不自己再抄一份');
 
 // ─── K 错误文案：结构化 error 对象绝不 String() 直落（117e 第 0 步，117d 登记项 ②）─────────
 // 后端的失败信封有两种形状：域层裸串 `error:'not_found'` 与路由层 normalizeApiErrorPayload 归一出来的
