@@ -2452,3 +2452,13 @@ graph 49/390、forwardEdges 67、build 新鲜；三文件 NUL 0／CRLF 0。反�
 | 表为空又给了 cwd 的那支文案没锁 | **归提交③补锁** |
 | 错误文案候选上限 8 vs 候选表投影 20 | **归提交③对齐**：两处读同一个常量 |
 | `03-bridge-guard:122 normalizeCwd` 成了第二份口径 | **登记**，不在本波合并（它是通用工具，有 `os.homedir()` 兜底的既有语义） |
+
+**117x-M2 收口小刀交付（`087a574`；主会话核过）**：`steward-drawer.e2e.js` 一个文件 +234；夹具加第二个 provider 30 项（4 项非文本 id），
+**起服务前**种 7 条 usage 流水（前端 byModel 是一次页面生命周期只拉一次的模块级缓存，起完再补界面不会变）；19 条锁，三轮反向各自真红；
+e2e **不抄第二份子串表**，只按夹具放进去的 4 个已知 id 断言并与实现打的 `data-model-non-text` 对一遍。
+真 CSS 用「同一批节点两个状态」互证（M4c 收起时 `offsetParent===null`、M7 展开后 `!==null`），作者样式 `[hidden]{display:none}` 丢了当场红。
+
+**它登记的一条实现层缺陷，裁决：修。** `stewardModelMenuView` 的 `recent = visible.filter(有账)` **不排 `nonText`**，`fold = visible.filter(nonText)` **不排已进常用的**——
+一个「最近用过的 audio 端点」在「常用」段未折叠地印一行、又在折叠区再印一行，折叠计数也把它算上。
+**裁决：「常用」赢，折叠区排除已进「常用」的行**（按 `(provider, model)` 去重）。理由：用过的东西要一眼找得到（常用段的本意），
+而同一屏印两次是重复不是强调；折叠区的计数「× N」也因此才是「还没露面的有 N 个」的真数。单独一把小刀，动 `steward-chips.js` 的纯判据 ＋ 单测 ＋ 这份夹具加一条锁。
