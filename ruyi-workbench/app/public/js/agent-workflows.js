@@ -6,6 +6,11 @@ import { api, wcwToken } from './net.js';
 import { $, el, fmtTokens, toast, stewardShortTitle } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
 import { t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
+// 32 号文 §4（M2-b）：pause/resume 的判据与文案键搬进叶子 js/run-state.js —— 2.0 这张 run 卡与
+// 3.0 管家壳的看板行／抽屉底部同一份（修前四处各写一遍 `live && !paused` 之类的判据）。
+import { runControlAction, runIsLive, runTextKeys } from './run-state.js';
+
+const WORKFLOW_KEYS = runTextKeys('v2');
 
 export function createAgentWorkflowsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -491,23 +496,25 @@ function renderAgentRuns(runs) {
         if (target) { const rowEl = card.querySelector(`.agent-node[data-node-id="${CSS.escape(target.id)}"]`); if (rowEl) { rowEl.open = true; rowEl.scrollIntoView({ block: 'nearest' }); } }
       };
       stallActions.appendChild(view);
-      if (run.live) { const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
+      if (runIsLive(run)) { const stop = el('button', 'mini danger', t(WORKFLOW_KEYS.stop)); stop.setAttribute('aria-label', t(WORKFLOW_KEYS.stop)); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
       banner.appendChild(stallActions);
       card.appendChild(banner);
     }
     // ── 运行控制（§5.3 失败一键处置）：运行中=暂停/继续/停止；已结束未完成=恢复；结束=删除记录。wire 到 POST
     //    /api/agent-runs/:id（action: pause/resume/stop）。按钮均带 aria-label。 ──
     const controls = el('div', 'agent-run-controls');
-    if (run.live && !run.paused) {
-      const pause = el('button', 'mini', t('workflow.pause')); pause.setAttribute('aria-label', t('workflow.pause')); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
-      const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
-    } else if (run.live && run.paused) {
-      const resume = el('button', 'mini primary', t('workflow.resume')); resume.setAttribute('aria-label', t('workflow.resume')); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
-      const stop = el('button', 'mini danger', t('workflow.stop')); stop.setAttribute('aria-label', t('workflow.stop')); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+    // 这一枚是哪一个：判据（不是本处的 if 链）来自 js/run-state.js，与 3.0 管家壳同一份。
+    const controlAction = runControlAction(run);
+    if (controlAction === 'pause') {
+      const pause = el('button', 'mini', t(WORKFLOW_KEYS.pause)); pause.setAttribute('aria-label', t(WORKFLOW_KEYS.pause)); pause.onclick = () => agentRunAction(run.id, 'pause'); controls.appendChild(pause);
+      const stop = el('button', 'mini danger', t(WORKFLOW_KEYS.stop)); stop.setAttribute('aria-label', t(WORKFLOW_KEYS.stop)); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
+    } else if (controlAction === 'resume') {
+      const resume = el('button', 'mini primary', t(WORKFLOW_KEYS.resume)); resume.setAttribute('aria-label', t(WORKFLOW_KEYS.resume)); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const stop = el('button', 'mini danger', t(WORKFLOW_KEYS.stop)); stop.setAttribute('aria-label', t(WORKFLOW_KEYS.stop)); stop.onclick = () => agentRunAction(run.id, 'stop'); controls.appendChild(stop);
     } else if (run.status !== 'succeeded') {
-      const resume = el('button', 'mini primary', t('workflow.resumeIncomplete')); resume.setAttribute('aria-label', t('workflow.resumeIncompleteAria')); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
+      const resume = el('button', 'mini primary', t(WORKFLOW_KEYS.resumeIncomplete)); resume.setAttribute('aria-label', t(WORKFLOW_KEYS.resumeIncompleteAria)); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
     }
-    if (!run.live) { const del = el('button', 'mini', t('workflow.deleteRecord')); del.setAttribute('aria-label', t('workflow.deleteRecordAria')); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
+    if (!runIsLive(run)) { const del = el('button', 'mini', t('workflow.deleteRecord')); del.setAttribute('aria-label', t('workflow.deleteRecordAria')); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
     card.appendChild(controls);
     if (run.summary) card.appendChild(el('pre', 'agent-run-summary', run.summary));
     // ── 团队模式 v2 (A4) 共享任务池分区：simple 模式仅当有 proposed 时浮出「待批准的新任务 N」徽标+审批卡；pro 模式

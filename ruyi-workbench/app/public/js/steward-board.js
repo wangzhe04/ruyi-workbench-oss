@@ -14,6 +14,9 @@ import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, write
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
 import { icon, missionStateIcon } from './icons.js';
 import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
+// 32 号文 §4（M2-b）：暂停／继续的判据（runCanPause/runCanResume + 批量名单 + 文案键）搬进叶子
+// js/run-state.js —— 2.0 顶栏的 run 卡、本看板的行键与「全部暂停」、抽屉底部三处同一份。
+import { runControlAction, runIsLive, runTextKeys, pausableRunsOf, hasPausableRun } from './run-state.js';
 // 33 号文 §4（「costText／acceptanceText／threadStateOf 三对收进 drawer 导出」）：这三条判据的正身
 // 只在 steward-drawer.js 一份，本模块 import 过来用 —— 方向与上面那两个动作函数一致（看板 → 抽屉，
 // 抽屉不反过来 import 看板），不成环。判据共享，**文案键各传各的**（看板递 stewardShell.board.*，
@@ -325,7 +328,8 @@ export function createStewardBoard({
   function syncPauseAll() {
     const button = byId('stewardBoardPauseAllBtn');
     if (!button) return false;
-    const pausable = rows.some(row => row.lastRun && row.lastRun.live === true && row.lastRun.paused !== true);
+    // 判据是 run-state.js 的那一份（与 pauseAll 自己用的名单同一个函数），不借 arbiter.running，也不就地写第二遍。
+    const pausable = hasPausableRun(rows);
     button.disabled = !pausable;
     return pausable;
   }
@@ -534,12 +538,14 @@ export function createStewardBoard({
         () => stopBlocker(String(wait.blockedBy)), { action: 'stop-blocker' }, 'stop'));
     }
     const lastRun = (row.lastRun && typeof row.lastRun === 'object') ? row.lastRun : null;
-    if (lastRun && lastRun.live === true && lastRun.paused !== true) {
-      actions.appendChild(boardButton('stewardShell.board.pause',
+    // 二选一由 run-state.js 的判据说（与 2.0 的 run 卡同一份）：'pause' | 'resume' | 都不出。
+    const controlAction = runControlAction(lastRun);
+    if (controlAction === 'pause') {
+      actions.appendChild(boardButton(runTextKeys('v3').pause,
         () => runAction(sessionId, String(lastRun.id || ''), 'pause'), { action: 'pause' }, 'pause'));
     }
-    if (lastRun && lastRun.live === true && lastRun.paused === true) {
-      actions.appendChild(boardButton('stewardShell.board.resume',
+    if (controlAction === 'resume') {
+      actions.appendChild(boardButton(runTextKeys('v3').resume,
         () => runAction(sessionId, String(lastRun.id || ''), 'resume'), { action: 'resume' }, 'resume'));
     }
     actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }, 'up'));
@@ -660,8 +666,8 @@ export function createStewardBoard({
   // 批量只提供这一项（§8.10）：把每一条【还活着且没暂停】的班组回合逐条暂停。只有在跑的对话回合
   // （没有班组 run）暂停不了 —— 如实报数，不假装批量成功。
   async function pauseAll() {
-    const pausable = rows.filter(row => row.lastRun && row.lastRun.live === true && row.lastRun.paused !== true);
-    const turnsOnly = rows.filter(row => row.activeTurn === true && !(row.lastRun && row.lastRun.live === true));
+    const pausable = pausableRunsOf(rows);
+    const turnsOnly = rows.filter(row => row.activeTurn === true && !runIsLive(row.lastRun));
     let done = 0;
     for (const row of pausable) {
       const result = await stewardThreadRunAction({ api, sessionId: String(row.sessionId), runId: String(row.lastRun.id || ''), action: 'pause' });

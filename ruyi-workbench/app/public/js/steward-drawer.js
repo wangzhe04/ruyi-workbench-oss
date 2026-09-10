@@ -28,6 +28,12 @@ import { missionStateIcon } from './icons.js';
 // 只留 conversation 那一份，抽屉不再自写弱化版 —— 同一条理由，同一行加三个名字。
 import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText,
   stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
+// 32 号文 §4（M2-b）：暂停／继续的判据（含 pausableRunOf）搬到叶子 js/run-state.js，2.0 的 run 卡
+// 与 3.0 的看板行同一份。本文件原来那一处 export function pausableRunOf 就地改成 re-export ——
+// 看板/抽屉的既有 import 面（`{ stewardThreadRunAction, stewardThreadStop }` + pausableRunOf）
+// 一个字都不用动。
+import { pausableRunOf, runControlAction, runTextKeys } from './run-state.js';
+export { pausableRunOf };
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -250,16 +256,8 @@ export function quickRepliesFor({ pending = null, lastAssistantText = '', state 
 }
 
 // ── 线程动作原语（117d 抽屉与 117h 看板行【共用同一段】，不复制）────────────────────
-// 暂停／继续只对「还活着的那一条 run」有意义：快照里最后一条 live run 就是它（与抽屉底部按钮
-// 二选一的判据同源）。看板行拿到的是 GET /api/missions/:id 的同一份快照，所以判据也是同一个。
-export function pausableRunOf(snapshot) {
-  const runs = (snapshot && Array.isArray(snapshot.runs)) ? snapshot.runs : [];
-  for (let i = runs.length - 1; i >= 0; i--) {
-    const run = runs[i];
-    if (run && run.live === true) return run;
-  }
-  return null;
-}
+// 32 号文 §4（M2-b）：pausableRunOf 的判据本体搬去 js/run-state.js（2.0 的 run 卡也在用同一条
+// 「live && paused」判据），本文件顶部按原名字 re-export —— 名字与调用面不变，实现只有一份。
 // 统一 Run 控制端点（pause／resume／retry_node…）。返回稳定信封，调用方自己说人话。
 export async function stewardThreadRunAction({ api, sessionId, runId, action }) {
   if (typeof api !== 'function' || !sessionId || !runId) return { ok: false, error: 'not_found' };
@@ -956,16 +954,15 @@ export function createStewardDrawer({
   }
 
   // ── ⑪ 底部按钮态：暂停／继续按五态二选一显示 ────────────────────────────────
-  // 判据住在模块顶层的 pausableRunOf（117h 看板行复用同一段），这里只喂本抽屉的快照。
+  // 判据住在叶子 js/run-state.js（2.0 的 run 卡、3.0 的看板行与这里同一份），本处只喂本抽屉的快照。
   function pausableRun() { return pausableRunOf(snapshot); }
 
   function renderFoot() {
     const pause = byId('stewardDrawerPauseBtn');
     const resume = byId('stewardDrawerResumeBtn');
-    const run = pausableRun();
-    const paused = Boolean(run && run.paused === true);
-    if (pause) pause.hidden = !run || paused;
-    if (resume) resume.hidden = !run || !paused;
+    const action = runControlAction(pausableRun());
+    if (pause) pause.hidden = action !== 'pause';
+    if (resume) resume.hidden = action !== 'resume';
   }
 
   // ── ⑤ 快切 chip 行：跟全局一样就不印 ────────────────────────────────────────
@@ -1126,7 +1123,8 @@ export function createStewardDrawer({
 
   async function runAction(action) {
     const run = pausableRun();
-    if (!run) { note(t('stewardShell.drawer.noPausableRun')); return; }
+    // 判据（而不是那两枚键的可见性）决定这一步能不能做：跑不动的动作不发请求、如实说一句。
+    if (!run || !runControlAction(run)) { note(t(runTextKeys('v3').noPausableRun)); return; }
     const result = await stewardThreadRunAction({ api, sessionId, runId: run.id, action });
     if (!result || result.ok !== true) { failNote(result && result.error); return; }
     await refreshOnce();

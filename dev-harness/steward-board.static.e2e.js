@@ -62,6 +62,8 @@ const ok = (condition, label) => {
 if (!globalThis.window) globalThis.window = globalThis;
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-board.js')).href);
 const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-drawer.js')).href);
+// 32 号文 §4（M2-b）：暂停／继续判据的共享件（I5 要正面查它真的导出那几个函数）。
+const runStateMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'run-state.js')).href);
 const previewShellMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'preview-shell.js')).href);
 const previewShell = read('js/preview-shell.js');
 
@@ -416,11 +418,20 @@ ok(/<span class="steward-board-tools">/.test(html)
   'I4 两个动作键收进右侧的 .steward-board-tools（左半是「什么情况」，右半是「你能做什么」）');
 // 「全部暂停」的可点态：判据必须与 pauseAll 自己那一行 filter 逐字同源，不许借 arbiter.running
 // （仲裁面数的是占着并发位的线程，能被暂停的是有活 run 的线程，两者在「只跑对话回合」那类线程上不一样）。
+// 32 号文 §4（M2-b）**重钉**：判据本体搬进叶子 js/run-state.js（2.0 的 run 卡同一份），两处就地写的
+// `rows.some(...)` / `rows.filter(...)` 字面量随之消失 —— 原判据「钉那一行长什么样」当场假红。新判据
+// 钉的是同一件事的**更强**版本：① 两处都从共享件取名单（hasPausableRun / pausableRunsOf）；
+// ② 本模块里再没有就地写第二遍的 `lastRun.live === true` 判据；③ 共享件真的导出那三个函数；
+// ④ 「可点态」的样式守卫仍在。（反向验证过：把 syncPauseAll 换回就地 some(...)，本行立刻真红。）
 ok(/function syncPauseAll\(\) \{/.test(boardCode)
-  && /const pausable = rows\.some\(row => row\.lastRun && row\.lastRun\.live === true && row\.lastRun\.paused !== true\);/.test(boardCode)
-  && /const pausable = rows\.filter\(row => row\.lastRun && row\.lastRun\.live === true && row\.lastRun\.paused !== true\);/.test(boardCode)
+  && /const pausable = hasPausableRun\(rows\);/.test(boardCode)
+  && /const pausable = pausableRunsOf\(rows\);/.test(boardCode)
+  && !/lastRun\.live === true/.test(boardCode)
+  && typeof runStateMod.hasPausableRun === 'function'
+  && typeof runStateMod.pausableRunsOf === 'function'
+  && typeof runStateMod.runControlAction === 'function'
   && /\.steward-board-btn:disabled \{/.test(cssCode),
-  'I5 「全部暂停」只在真有可暂停的 run 时可点，判据与 pauseAll 自己那一行 filter 逐字同源');
+  'I5 「全部暂停」只在真有可暂停的 run 时可点，判据与 pauseAll 自己那一行 filter 同源（32 号文 §4 起是 js/run-state.js 那一份共享件）');
 ok(/\.steward-board-mission \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode)
   && !/\.steward-board-mission \{[^}]*border-top: 1px solid/.test(cssCode),
   'I6 每个事项一张卡（此前是「一条细分隔线上的一行小字」，十来行下来分不出哪几行属于哪一件）');

@@ -65,6 +65,9 @@ const PAYLOAD_FILES = [
   // 32 号文 §4（M1-b）：浮层原语（open/close/Esc/点外/定位/焦点归还）搬成的叶子模块 ——
   // 两壳都在 import，同样漏登记即白屏。
   'app/public/js/popover.js',
+  // 32 号文 §4（M2-b）：暂停／继续的判据与文案键（2.0 的 run 卡 + 3.0 的看板行／抽屉共用）——
+  // 两壳都在 import，同样漏登记即白屏。
+  'app/public/js/run-state.js',
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',
