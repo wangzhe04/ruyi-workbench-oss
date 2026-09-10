@@ -8,6 +8,9 @@ import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
 // 32 号文 §4：模型菜单的行/分组/当前项/键盘构造两壳共用（3.0 steward-chips.js 从同一份取行工厂）。
 import { buildModelMenuBody } from './model-menu.js';
+// 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
+// 「开合」，而 3.0 不必为了它把本域的组合根（help-menu / help-viewer / onboarding-wizard）一起拉进来。
+import { popover, popoverAnchor } from './popover.js';
 // 118d: 常驻帮助菜单。菜单本体是壳无关工厂,住在这里只因为 popover 原语在本域;手册阅读器与新手向导
 // 都走各自模块的「共用实例登记处」(help-viewer / onboarding-wizard),所以组合根不必再多注入两条依赖。
 import { createHelpMenuDomain } from './help-menu.js';
@@ -148,54 +151,8 @@ function renderPalette() {
 }
 
 /* ---------------- popover primitive (§4.2) ---------------- */
-// Anchored, fixed-position popover shared by the model chip + context meter. buildContent(close)
-// returns the popover's inner Element (call close() to dismiss). Positions below the anchor, right-
-// aligned; flips above / clamps horizontally on viewport overflow. Closes on Esc, outside mousedown,
-// or a re-click of the anchor; focus returns to the anchor. Only one popover open at a time.
-let activePopover = null;
-function closePopover() {
-  if (!activePopover) return;
-  const { node, anchor, onKey, onDown, onScroll } = activePopover;
-  activePopover = null;
-  document.removeEventListener('keydown', onKey, true);
-  document.removeEventListener('mousedown', onDown, true);
-  window.removeEventListener('resize', onScroll, true);
-  window.removeEventListener('scroll', onScroll, true);
-  node.remove();
-  if (anchor && typeof anchor.focus === 'function') { try { anchor.focus(); } catch { /* ignore */ } }
-}
-function popover(anchorEl, buildContent, opts = {}) {
-  if (activePopover && activePopover.anchor === anchorEl) { closePopover(); return null; }
-  closePopover();
-  const node = el('div', 'popover');
-  const close = () => closePopover();
-  node.appendChild(buildContent(close));
-  document.body.appendChild(node);
-  const place = () => {
-    const r = anchorEl.getBoundingClientRect();
-    const pw = node.offsetWidth, ph = node.offsetHeight;
-    const gap = 6, margin = 8;
-    // Vertical: below by default; flip above if it would overflow the bottom and there's more room up.
-    let top = r.bottom + gap;
-    if (top + ph > window.innerHeight - margin && r.top - gap - ph > margin) top = r.top - gap - ph;
-    top = Math.max(margin, Math.min(top, window.innerHeight - ph - margin));
-    // Horizontal: right-aligned to the anchor's right edge; clamp into the viewport.
-    let left = (opts.placement === 'bottom-start') ? r.left : (r.right - pw);
-    left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
-    node.style.top = top + 'px';
-    node.style.left = left + 'px';
-  };
-  place();
-  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
-  const onDown = e => { if (!node.contains(e.target) && e.target !== anchorEl && !anchorEl.contains(e.target)) close(); };
-  const onScroll = () => place();
-  document.addEventListener('keydown', onKey, true);
-  document.addEventListener('mousedown', onDown, true);
-  window.addEventListener('resize', onScroll, true);
-  window.addEventListener('scroll', onScroll, true);
-  activePopover = { node, anchor: anchorEl, onKey, onDown, onScroll };
-  return { node, close };
-}
+// 32 号文 §4（M1-b）：原语本体已搬进 js/popover.js（叶子模块）—— 本域各弹层（模型 chip / 上下文电池 /
+// 会话改名 / 更多菜单）仍从同一条 import 取它，类的用法与 DOM/关闭路径逐字未变。
 
 /* ---------------- model chip (§4.1) ---------------- */
 // Render the topbar chip's engine/model text + dot state. Claude: "Claude CLI · {model或默认}";
@@ -645,9 +602,10 @@ function openCapPopover(anchorOverride) {
     return wrap;
   });
   // Stop the poll when the popover closes (popover() returns {node, close}; but close via outside-click
-  // won't call our code — hook the badge: when activePopover clears, clear the interval on next tick).
+  // won't call our code — hook the badge: when the active popover's anchor is no longer ours, clear the
+  // interval on the next tick). 32 号文 §4（M1-b）：原语搬走后 activePopover 不再住本文件，走 accessor。
   if (handle) {
-    const stop = () => { if (!activePopover || activePopover.anchor !== anchor) { if (_capPoll) { clearInterval(_capPoll); _capPoll = null; } clearInterval(mon); } };
+    const stop = () => { if (popoverAnchor() !== anchor) { if (_capPoll) { clearInterval(_capPoll); _capPoll = null; } clearInterval(mon); } };
     const mon = setInterval(stop, 500);
   }
 }

@@ -62,6 +62,9 @@ const PAYLOAD_FILES = [
   // 32 号文 §4：2.0 顶栏模型弹层与 3.0 管家壳的模型菜单行【共用】的构造件 —— 两壳都在 import，
   // 漏登记即离线包白屏（43e 同款事故）。
   'app/public/js/model-menu.js',
+  // 32 号文 §4（M1-b）：浮层原语（open/close/Esc/点外/定位/焦点归还）搬成的叶子模块 ——
+  // 两壳都在 import，同样漏登记即白屏。
+  'app/public/js/popover.js',
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',
