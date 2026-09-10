@@ -2203,3 +2203,40 @@ CSS 载荷锁由主会话从 HEAD 续钉（`801d85e5` → `07e82fa0`），**M2 �
 **经典壳那份模型菜单**（`navigation-controls.js:341` `openModelChipPopover`）：**完全独立的另一份渲染**，自己的 DOM 词汇、
 键盘导航、分组，且多两件本刀没有的能力（思考强度下拉、删除自定义模型）。数据源同源、渲染毫无共享。
 **只记录不合并**，合并是另一件事。
+
+### 11.20 T2 交付记录 · 拆 `13h-steward-runner.js`（`9593b82`）＋ CLI「结论先行」缺口（`0c3e0bd`）；主会话逐条复核
+
+**主会话独立复算的纯搬家证明**（不用执行者的脚本）：拆前 `13h` 与拆后六文件之并，**非注释非空行 1753 == 1753、多重集逐条相同**；
+顶层声明名 **129 == 129，缺 0 多 0**。依赖图 44 → 49 模块、345 → 390 边，**`forwardEdges` 67 → 67、SCC 1 → 1**。
+六个文件全部 < 2000 行（13m 218 · 13n 556 · 13o 353 · 13p 549 · 13q 626 · 13h 376），NUL 0／CRLF 0。
+
+**清单顺序 `13g → 13m → 13n → 13o → 13p → 13q → 13h → 14`**。仲裁器（13n）排在提示词层（13o）**之前**，
+虽然它在原文件里是最后一段——`stewardThreadDigestRows` 与 `stewardRelayChannelFor` 都调 `stewardArbiterWait`。
+这不是审美：执行者实测把 13n/13o 对调，`forwardEdges` 67 → 68。
+
+**我派单稿里两处被证伪的事实，照录**：
+1. 「`steward-runner.static` ① 的 ≤2000 行闸在 HEAD 上就是红的」——**不成立**。旧锁 `:60-61` 明写「13h 本身 2523 行…既有债，故不在这里新钉一条红」，
+   那道闸只扫 13j/13k/13l。所以它是**登记的债，不是红**；T2 重钉时删掉豁免、六个文件一起进闸，绿是这么来的。
+2. 「约 8000 字符的闸可能叫 `e2-append-system-prompt.e2e.js`」——**不是那件**（它钉的是信道唯一性）。8000 是 `05` 里的源码字面量
+   `appendLimit = Math.min(8000, …)`，由 `agent-team-budget.static:59` 间接钉、`claude-cmdline-guard.e2e` 以 4200 的对抗预算演练。
+
+**CLI 缺口（提交②）两个坑的答案**：
+- **预算顶不破，且不会静默消失**：`answerShape` 插在**无条件前缀**（四层协议之后、各 hint 之前），排在 `sectionLimit` 计算之前，
+  不参与 fits-or-drop；所有降级路径都**从尾部切**，前缀切不到。zh +95 字符、en +395 字符，对 6780/5143 的 sectionLimit 无影响。
+  真机探针（fake-claude 抓 argv）：改前 3172 字符不含、改后 3267 字符含。
+- **CLI 这一路没有 `identityOnly` 概念，没硬造**：全仓 `identityOnly=true` 只有两处（06:997、10:1263），都是 provider 侧压缩摘要；
+  CLI 自建 prompt，从不调 `buildStableSystemPrompt`。
+- **对称锁**落在 `meta-guard.e2e` 新增 G 组。写它时抓到一条**必然假绿**的判据：`runClaudeTurn → runOpenAiTurn` 区间横跨 05..09 五个模块，
+  `06b` 的包定义与 `06` 的注入都在里面，`/answerShape/.test(区间)` 永远为真。已收紧到 `appendSys` 装配块本身、只看代码行。
+  **同一个模具的 E/F 组仍在用整段区间**，目前安全是巧合——登记。
+
+**它登记的债，主会话裁决**：
+
+| 债 | 裁决 |
+|---|---|
+| 越界改了 `README.md` 三处「37 组 unit suite」→ 38 | **接受，且根因在主会话**：M2 新增了 `unit/steward-model-menu.test.js` 却被派单稿禁止跑生成器，`facts.unitSuites` 因此漂移、`facts.static` 在 HEAD 上就红。T2 跑链必然刷成 38，不同步 README 那道门只会换个姿势继续红。**纪律**：并行刀新增 e2e/unit 文件后，由主会话统一跑一次 `facts-generate` ＋ `route-inventory`（后者的 `coveredBy` 会吸进新文件名） |
+| `appendMemorySection` 的 `if (!s) return b.slice(0, limit)` —— 传空 section 反而把 base 硬截 | **登记**。当前调用点有 `if (misSec)` 挡着不可达，但「传空毁数据」的形状要记，谁去掉那个 guard 就静默截前缀 |
+| `meta-guard` E/F 组沿用整段区间 | **登记**。下一把动 meta-guard 的刀把 E/F 也收到具体块 |
+| `README.md:483` 仍写「325 e2e (318 default)」，facts 是 330/323 | **登记**，陈述性陈旧；下一次动 README 顺手 |
+| `13o` 装了两个主题（提示词装配 ＋ 输出契约解析） | **接受**。两者都只依赖 13m/13n 且都在回合之前；31 号文若往输出契约加东西，它是下一个自然拆点 |
+| `route-inventory.json` 的 `coveredBy` 会吸进并行刀新增的 e2e 文件名 | **登记为纪律**（见第一行） |
