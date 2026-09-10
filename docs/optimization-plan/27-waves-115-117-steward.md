@@ -2308,3 +2308,23 @@ CSS 载荷锁由主会话从 HEAD 续钉（`801d85e5` → `07e82fa0`），**M2 �
 4. `steward_config_set` 改 `allowDesktopTools` → 仍 forbidden。
 5. PATCH `createdBy` → 被白名单拒绝。
 6. 递话进用户会话（`thread_continue`）**不会**让那条会话变成 `createdBy:'steward'`。
+
+#### 11.18.6 117y-S3 交付记录（`f582aad`；主会话逐条复核；收口 `a4c7719` ＋ `b5a3169`）
+
+**核过的**：3 个文件全在范围内，零 CSS、零 `src/`；`finishSay` 函数体 202 字符、内含 `clampIfLong`／`collapseToggle` 各 0、`.is-lead` 保留；
+整文件 `clampIfLong(` ＝ 2、`collapseToggle(` ＝ 2（定义 ＋ 交付卡），交付卡调用点 `clampIfLong(body, found.text)` 仍在；
+`.steward-say-acts` 在 JS 里 0 次；三文件 NUL 0／CRLF 0。真浏览器 V5 反向实测：把折叠加回去 → `clamped=true / 展开钮 1`，修后 `clamped=false / 展开钮 0`。
+
+**S3 按纪律没碰 CSS**（改一字节就要重钉载荷锁，那不归它），把两条死规则登记成债。主会话收口：删掉 `.steward-say.is-clamped` 与
+`.steward-say-acts`（JS 侧零消费方，static Q6a 钉着）、F4 头注 ④ 改成事实（`a4c7719`）；载荷锁 `07e82fa0 → 37efa1e5`（`b5a3169`），
+自证照旧（拦截法回算 `12b0df1` 得旧值逐字相同），反向 F3/D51 双红、还原逐字节同 HEAD。交付卡的折叠与其样式一字未动。
+
+**S3 抓到的一个判据洞，值得单独记**：旧 Q6d 的半句 `/clampIfLong\(node, text\)/` **一直同时匹配着定义那一行的签名**，
+所以它从来没真钉住「管家正文那个调用点」——我派单稿说「去掉那半句」时按的是它只匹配调用点，**错**。
+S3 改成钉「这串字只以定义签名的身份出现恰好一次」。**这是一个模具**：用正则「钉调用点」的锁，凡是调用点与定义签名同形
+（`f(node, text)` 既是调用也是 `function f(node, text)`），都会假绿。**登记一项审计**：扫一遍 `dev-harness/` 里所有
+「以 `名字(参数…)` 正则断言调用点存在/不存在」的锁，凡与定义签名同形的都要改成锚到调用方函数体或钉出现次数。
+
+**它登记的其它两条**：`finishSay` 现在恒返回 `null` 且两个调用点都不取返回值（为压小 diff 没简化成无返回值）——**接受**，
+下次动它顺手；§11.18.5 验收 1「700 字 say 端到端一字不少」跨 S1＋S3，S3 只证到前端半程——**对**，后端半程归 117y-A，
+合并前由主会话用一条真回合把两半接起来验一次。
