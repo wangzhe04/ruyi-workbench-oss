@@ -94,13 +94,19 @@ const ok = (condition, label) => {
       // 守卫，折叠区就永远是展开的：折叠区没了，那些端点又回到扁平裸列表里（那正是这一刀在修的病）。
       ['css/views/steward-drawer.css', '.steward-chip-fold-body[hidden]'],
     ]) ok(read(file).includes(selector + ' { display: none; }'), `B1b 既有同款守卫仍在：${selector}`);
-    ok(/if \(open\.contains && node && open\.contains\(node\)\) return;/.test(composer)
-      && /if \(chip && chip\.contains && node && chip\.contains\(node\)\) return;/.test(composer),
-      'B2 点列表外任意处收起（列表与 chip 自身的点击交给各自的处理器）');
-    ok(/if \(!open \|\| open\.hidden\) return;/.test(composer),
-      'B2b 那个 document 级监听只在列表真开着时才做事（关着时零成本）');
-    ok(/closePicker\(\);\s*\}, true\);/.test(composer),
-      'B2c **捕获阶段**注册：撤回后的「换一条」是在别的按钮的 click 处理器里 openPicker 的，冒泡阶段会把它刚开就关掉');
+    // 32 号文 §4（M2）重钉 B2/B2b/B2c：composer 自己那条 document click 监听撤了 ——「点列表【外】
+    // 任意处收起」现在归两处、共用本层 push 的那一份 owns 判据：
+    //   ① popover 原语的捕获阶段 mousedown（判「既不在节点里、也不是锚点」就关）；
+    //   ② steward-shell.js 那处捕获阶段 click（handleOutsideClick 把 owns 为假的层全关，H7b 已钉）。
+    // 旧三条只问 composer 源码里有没有那三行字面量，于是监听被搬走、甚至整条删掉它照样绿；这里改成
+    // 四件一起问：① 原语真做了点外关；② 那唯一一处 document click 是捕获阶段的 shell；③ composer
+    // 里不再留第二路（两路都关虽然幂等，但次序假设又回来了 —— W2-2 那次就是栽在次序上）。
+    const popoverSrc = read('js/popover.js');
+    ok(/const onDown = e => \{ if \(!node\.contains\(e\.target\) && e\.target !== anchorEl && !anchorEl\.contains\(e\.target\)\) close\(\); \};/.test(popoverSrc)
+      && /globalThis\.document\.addEventListener\('click', event => \{[\s\S]{0,220}stewardEscapeStack\.handleOutsideClick\(event && event\.target\);[\s\S]{0,40}\}, true\);/.test(shell)
+      && !/doc\(\)\.addEventListener\('click'/.test(composer)
+      && !/if \(!open \|\| open\.hidden\) return;/.test(composer),
+      'B2 点列表外任意处收起（M2 起归 popover 原语的 mousedown ＋ shell 那处捕获阶段 click；composer 不再留第二路）');
     ok(/const titles = new Set\(\);/.test(composer) && /if \(title && titles\.has\(title\)\) \{ seen\.add\(row\.sessionId\); return; \}/.test(composer),
       'B3 候选按标题去重（同一件事开过好几条线程时，列表里不会出现三四行一样的字）');
     ok(/if \(event\.key === 'Escape'\) \{ closePicker\(\); return; \}/.test(composer),

@@ -17,6 +17,10 @@
 // schedulePreroute/cancelPreroute 里）。
 
 import { stewardEscapeStack, doc, byId, el, isSubmitEnter } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈；117n-M1：DOM 基础件复用（doc/byId/el 不再本地重复）；33 号文 §4：回车发送的输入法守卫也只有那一条
+// 32 号文 §4（M2）：候选列表的开合（Esc／点外／焦点归还／同一时刻只允许一个浮层）交给两壳共用的
+// 浮层原语。它住在 js/popover.js，本模块只取那一套【开合】，把 3.0 自己的 .steward-target-picker
+// 经 opts.layer 交给它 —— 容器、id、类名、role、[hidden] 与「就地在 .stewardComposer 里」一个字不改。
+import { popover, closePopover, popoverAnchor } from './popover.js';
 // F5a 收编（33 号文 §4「F5a 漏网图标」）：字形一律走全仓唯一那张 ICONS 表，本文件零 SVG path 字面量。
 import { icon } from './icons.js';
 // 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行」「而且匹配的没法删掉/关掉」）：
@@ -222,18 +226,28 @@ export function createStewardComposer({
   // 117j UX-F3：候选列表也进 Esc 栈。输入框那条 keydown 保留（焦点在里面时的近路），
   // 但焦点跑到别处（比如刚点完 chip）时，只有栈这一路收得到。
   let releasePickerEscape = null;
+  // 32 号文 §4（M2）：开合本身（Esc／点外／焦点归还／同一时刻只允许一个浮层）交给两壳共用的
+  // js/popover.js。这里只留【3.0 自己的那一份事实】—— 列表是就地节点（.steward-target-picker 靠
+  // .stewardComposer 定位、靠自己的 [hidden] 开合），所以走 opts.layer：不新建 .popover、不外挂
+  // body、关闭只 hidden 不 remove。本函数仍是「关掉我这张列表」的唯一入口（submit／resetComposer／
+  // 选项点击都调它），列表正开着（原语记的锚点就是那枚 chip）才动手，不会误关别人的浮层。
+  // 焦点归还照旧：popover 归还给它收到的锚点，也就是那枚 chip。
   function closePicker() {
-    const picker = byId('stewardTargetPicker');
-    if (picker) picker.hidden = true;
+    if (popoverAnchor() !== byId('stewardTarget')) return false;
+    closePopover();
+    return true;
+  }
+
+  // 任何一条关闭路径（Esc／点外／自己 close／被下一个浮层顶掉）都到这里：摘 aria、注销 Esc 层。
+  // 列表本身的 hidden 由 popover 按 layer 语义做（只藏不 remove），不必在这里再来一次。
+  function forgetOpenPicker() {
     const chip = byId('stewardTarget');
     if (chip) chip.setAttribute('aria-expanded', 'false');
     if (releasePickerEscape) { releasePickerEscape(); releasePickerEscape = null; }
   }
 
-  function openPicker() {
-    const picker = byId('stewardTargetPicker');
-    if (!picker) return;
-    while (picker.firstChild) picker.removeChild(picker.firstChild);
+  // 候选内容的写手：列表每次打开都由它重画一遍（原语在开之前会清空容器）。
+  function fillPicker(picker) {
     const rows = candidates();
     const options = [{ sessionId: '', title: t('stewardShell.compose.targetSteward') }, ...rows];
     for (const row of options) {
@@ -250,27 +264,37 @@ export function createStewardComposer({
       });
       picker.appendChild(option);
     }
-    picker.hidden = false;
+  }
+
+  function openPicker() {
+    const picker = byId('stewardTargetPicker');
     const chip = byId('stewardTarget');
-    if (chip) {
-      chip.setAttribute('aria-expanded', 'true');
-      chip.setAttribute('aria-controls', 'stewardTargetPicker');   // copy-P2-4
-    }
-    if (!releasePickerEscape) {
-      releasePickerEscape = stewardEscapeStack.push(() => {
-        const open = byId('stewardTargetPicker');
-        if (!open || open.hidden) return false;
-        closePicker();
-        try { const back = byId('stewardTarget'); if (back) back.focus(); } catch { /* 宿主没有 focus */ }
-        return true;
-      // 117k：候选列表本来就有自己那条 document 监听（W2-2 加的），这里补上同款判据是为了
-      // 让「所有浮层点别处就收回」这件事在【一个地方】说得清；两路都关是幂等的。
-      }, node => {
-        const own = byId('stewardTargetPicker');
-        const trigger = byId('stewardTarget');
-        return Boolean(node && ((own && own.contains(node)) || (trigger && trigger.contains(node))));
-      });
-    }
+    if (!picker || !chip) return;
+    // 已经开着（比如话里连着打了个「@」）：只重画候选，不麻烦原语 —— 原语那一下是 toggle 语义，
+    // 锚点相同就当成「再点一次」，会把列表关掉；而这里要的是「还在挑目标，候选刷新一遍」。
+    if (popoverAnchor() === chip) { fillPicker(picker); return; }
+    popover(chip, () => { fillPicker(picker); }, {
+      layer: { mount: picker.parentNode, node: picker },
+      onOpen: () => {
+        chip.setAttribute('aria-expanded', 'true');
+        chip.setAttribute('aria-controls', 'stewardTargetPicker');   // copy-P2-4
+        // 117j UX-F3：管家壳的 Esc 只有 steward-shell.js 那一处监听（走 stewardEscapeStack），
+        // 所以这张列表照旧要 push 自己那一个关闭器 + owns —— 改走 popover 之后这条接线【不能省】：
+        // 少了它就「Esc 关不掉」，或者两路各关一层。
+        releasePickerEscape = stewardEscapeStack.push(() => {
+          if (popoverAnchor() !== chip) return false;
+          closePicker();
+          return true;
+        // 117k：候选列表本来就有自己那条 document 监听（W2-2 加的），这里补上同款判据是为了
+        // 让「所有浮层点别处就收回」这件事在【一个地方】说得清；两路都关是幂等的。
+        }, node => {
+          const own = byId('stewardTargetPicker');
+          const trigger = byId('stewardTarget');
+          return Boolean(node && ((own && own.contains(node)) || (trigger && trigger.contains(node))));
+        });
+      },
+      onClose: forgetOpenPicker,
+    });
   }
 
   // Tab 在「如意 → 各候选线程」间循环（§8.8）。没有候选时不劫持 Tab，Shift+Tab 永远是正常的
@@ -415,23 +439,13 @@ export function createStewardComposer({
       if (value.endsWith('@')) openPicker();
       schedulePreroute(value);
     });
-    // 117j W2-2：点列表【外】任意处收起。挂在 document 上但只在真开着时才做事；chip 与列表
-    // 自身的点击交给各自的处理器（chip 那一路是 toggle，列表那一路选完自己会 closePicker）。
-    //
-    // **必须用捕获阶段**：撤回之后的「换一条」是在【别的按钮的 click 处理器里】调 openPicker() 的
-    // （conversation 的 pickTarget 回调）。冒泡阶段的话，那一次 click 走到 document 时列表刚被打开、
-    // 而事件目标又在列表外面 —— 于是刚开就被自己关掉（实测 G2a「就地打开候选列表」变成 0 项）。
-    // 捕获阶段先于目标处理器跑：那一刻列表还关着，直接早退，随后目标处理器才把它打开。
+    // 117j W2-2 那条「点列表【外】任意处收起」不再自己挂 document 监听（32 号文 §4 M2）：这件事现在
+    // 归两处、共用本层下面 push 的那一份 owns 判据 —— popover 原语的捕获阶段 mousedown，以及
+    // steward-shell.js 那处捕获阶段 click（stewardEscapeStack.handleOutsideClick）。两条都幂等，而且
+    // 都天然满足 W2-2 那条次序要求：撤回之后的「换一条」在【别的按钮的 click 处理器里】打开列表，
+    // 而那一刻（mousedown 已成过去、栈里还没有这一层）谁都还没动手，目标处理器随后才把它打开 ——
+    // 不会刚开就被自己关掉（实测 G2a 曾经退化成 0 项，就是这个次序问题）。
     if (doc()) {
-      doc().addEventListener('click', event => {
-        const open = byId('stewardTargetPicker');
-        if (!open || open.hidden) return;
-        const chip = byId('stewardTarget');
-        const node = event && event.target;
-        if (open.contains && node && open.contains(node)) return;
-        if (chip && chip.contains && node && chip.contains(node)) return;
-        closePicker();
-      }, true);
       // F2：对话流的频道条切了一条，输入区的目标跟着切。事件是这两个域之间【唯一】的接线 ——
       // 对话流不 import 输入区（E6 那条纪律），输入区也不去碰对话流的 DOM。
       doc().addEventListener(STEWARD_PICK_CHANNEL_EVENT, event => {

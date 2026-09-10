@@ -44,7 +44,10 @@ export function popover(anchorEl, buildContent, opts = {}) {
   // 就是菜单本体，把返回值再 append 回它自己会 HierarchyRequestError）。
   if (!layer) node.appendChild(buildContent(close));
   else { const built = buildContent(close); if (built) node.appendChild(built); }
-  if (layer && layer.mount) layer.mount.appendChild(node); else document.body.appendChild(node);
+  // layer 模式：节点本来就住在调用方给的挂载点里（就地浮层），已经在那个父节点下就【不搬家】——
+  // appendChild 会把它挪到末尾，而就地浮层的 DOM 次序是它自己那套 CSS 与兄弟节点的一部分
+  // （比如 .steward-target-picker 排在输入框行【之前】）。2.0 那条路径不进这个分支，一字未变。
+  if (layer && layer.mount) { if (node.parentNode !== layer.mount) layer.mount.appendChild(node); } else document.body.appendChild(node);
   if (keep) node.hidden = false;
   const place = () => {
     const r = anchorEl.getBoundingClientRect();
