@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-10T06:29:44.282Z。
+> 判定点 128(精确 111 / 前缀 12 / 正则 5),ROUTE_AUTH 116 条,生成于 2026-09-10T11:19:00.014Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -22,7 +22,7 @@
 | POST | `/api/storage/policy` | exact | token | 13b-api-domain-routes.js:169 | config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js, session-storage-v2.e2e.js 等 4 件 |
 | POST | `/api/storage/clean` | exact | token | 13b-api-domain-routes.js:181 | frontend-domains.static.e2e.js, session-storage-v2.e2e.js, storage-steward.e2e.js |
 | POST | `/api/checkpoints/rollback` | exact | token | 13b-api-domain-routes.js:196 | artifacts.e2e.js, checkpoint-coverage.e2e.js, checkpoint.e2e.js 等 10 件 |
-| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js:227 | rewind.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 5 件 |
+| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js:227 | rewind.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 6 件 |
 
 ## core-inline(65)
 
@@ -65,7 +65,7 @@
 | POST | `/api/memory/relations/confirm` | exact | token-browser | 13-http-router.js:776 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js:784 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js:793 | agent-quality-workflow.e2e.js, auth-deny-default.e2e.js, memory-auto-proposal-api.e2e.js 等 4 件 |
-| POST | `/api/stop` | exact | token-browser | 13-http-router.js:803 | kimi-agent-cli.e2e.js, live-full-text.static.e2e.js, steward-conversation.e2e.js 等 7 件 |
+| POST | `/api/stop` | exact | token-browser | 13-http-router.js:803 | kimi-agent-cli.e2e.js, live-full-text.static.e2e.js, steward-conversation.e2e.js 等 8 件 |
 | POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js:818 | context-compact-v2.e2e.js, provider-compact.e2e.js, summary-entity-check.e2e.js 等 4 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js:827 | — |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js:844 | — |

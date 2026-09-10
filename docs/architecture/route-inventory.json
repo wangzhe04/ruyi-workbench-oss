@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-10T06:29:44.282Z",
+  "generatedAt": "2026-09-10T11:19:00.014Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1497,6 +1497,7 @@
         "dev-harness\\live-full-text.static.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
@@ -2414,6 +2415,7 @@
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js"
       ]
