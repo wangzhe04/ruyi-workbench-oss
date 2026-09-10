@@ -28,6 +28,8 @@ const net = read('js/net.js');
 const classicWindow = read('js/steward-classic-window.js');
 const drawer = read('js/steward-drawer.js');
 const chips = read('js/steward-chips.js');
+// 33 号文 §4（M3-a）：危险操作确认的共用件（D6 要正面查它的登记表与导出面）。
+const confirmPanel = read('js/confirm-panel.js');
 const stewardShell = read('js/steward-shell.js');
 const conversation = read('js/steward-conversation.js');
 const css = read('css/views/steward-board.css');
@@ -64,6 +66,8 @@ const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-board.js
 const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-drawer.js')).href);
 // 32 号文 §4（M2-b）：暂停／继续判据的共享件（I5 要正面查它真的导出那几个函数）。
 const runStateMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'run-state.js')).href);
+// 33 号文 §4（M3-a）：确认件与其文案键登记表（D6 要正面查，不只看文本）。
+const confirmPanelMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'confirm-panel.js')).href);
 const previewShellMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'preview-shell.js')).href);
 const previewShell = read('js/preview-shell.js');
 
@@ -212,10 +216,21 @@ ok(/const result = await stewardThreadRunAction\(\{ api, sessionId, runId: run\.
   && /const stopped = await stewardThreadStop\(\{ api, sessionId \}\);/.test(drawer),
   'D5 抽屉自己也改调这段原语（「同一段」是真的同一段，不是抄一份给看板）');
 // 116h 交付记录登记项①的落点：等锁时给「停掉占用者」。
-ok(/String\(wait\.reason\) === 'lock' && wait\.blockedBy/.test(board)
-  && /stewardShell\.board\.stopBlockerConfirm/.test(board)
-  && /globalThis\.confirm/.test(board),
-  'D6 等锁那一行给「停掉占用者」，且有一句二次确认（116h 登记项①）');
+// 33 号文 §4（M3-a）**重钉**：危险操作确认四套收一套后，看板不再自己拼文案键、也不再调原生
+// globalThis.confirm —— 原判据钉的正是那两行长什么样，改完当场假红。新判据钉同一件事的**更强**版本：
+//   ① 等锁那一行仍给「停掉占用者」；
+//   ② 看板里【零原生 confirm】（globalThis./window./裸调用三种写法一起扫，注释先剥离）；
+//   ③ 确认走共用件 confirmDanger，键从登记表取（看板里不再出现那个确认文案键的字面量）；
+//   ④ 共用件真的导出 confirmDanger，且登记表那一格指的就是 stewardShell.board.stopBlocker*(标题复用按钮自己的说法)。
+ok(/String\(wait\.reason\) === 'lock' && wait\.blockedBy/.test(boardCode)
+  && !/globalThis\.confirm|window\.confirm|\bconfirm\(/.test(boardCode)
+  && /if \(!await confirmDanger\(\{ name: 'stopBlocker', bodyParams: \{ title \} \}\)\) return false;/.test(boardCode)
+  && !/stewardShell\.board\.stopBlockerConfirm/.test(boardCode)
+  && typeof confirmPanelMod.confirmDanger === 'function'
+  && confirmPanelMod.CONFIRM_TEXT.stopBlocker.bodyKey === 'stewardShell.board.stopBlockerConfirm'
+  && confirmPanelMod.CONFIRM_TEXT.stopBlocker.titleKey === 'stewardShell.board.stopBlocker'
+  && /stewardShell\.board\.stopBlockerConfirm/.test(confirmPanel),
+  'D6 等锁那一行给「停掉占用者」，二次确认走共用确认件（看板已零原生 confirm；33 §4 M3-a）');
 ok(/api\('\/api\/steward\/arbiter\/prioritize'/.test(board)
   && /result\.prioritized === true \? 'stewardShell\.board\.prioritized' : 'stewardShell\.board\.notQueued'/.test(board),
   'D7 「优先」走 116h 的插队路由，且如实区分「插了」与「它没在排队」');

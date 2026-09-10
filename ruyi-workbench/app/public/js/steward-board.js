@@ -32,6 +32,11 @@ import { stewardThreadStateOf, stewardCostText, stewardAcceptanceText } from './
 // G1 已经把它从对话流的实例闭包提到模块级（stewardThreadHueFor），所以同一条线程在对话流／
 // 频道条／线程详情栏／看板上恒是同一个号、同一种色。本模块不自己算色、不自己记号、不新开第二张表。
 import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor } from './steward-conversation.js';
+// 33 号文 §4（M3-a）：危险操作确认四套收一套。本看板的「停掉占用者」修前走原生 globalThis.confirm
+// （全站唯一跳出式浮层：不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套。
+// 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
+// 而 D4 要守的是「动作走抽屉同一段原语」这件事，不该为一次收编去动它（32 号文 §4 纪律 5）。
+import { confirmDanger } from './confirm-panel.js';
 
 // 第117波 117h：一行状态 → 看板 → 「现在这一件」（27 号文 §8.2 L1／§8.10 多线程看板与注意力预算）。
 //
@@ -644,7 +649,9 @@ export function createStewardBoard({
   async function stopBlocker(blockedBy) {
     const blocker = rows.find(row => String(row.sessionId) === blockedBy) || null;
     const title = blocker ? String(blocker.title || blockedBy) : blockedBy;
-    if (globalThis.confirm && !globalThis.confirm(t('stewardShell.board.stopBlockerConfirm', { title }))) return false;
+    // 33 号文 §4（M3-a）：原生 confirm 退役 —— 停掉别人正在跑的回合是不可逆动作，确认件必须跟主题、
+    // 跟语言、焦点归壳管（原生框三样都不跟）。同步变异步：没得到允许就不动手。
+    if (!await confirmDanger({ name: 'stopBlocker', bodyParams: { title } })) return false;
     const stopped = await stewardThreadStop({ api, sessionId: blockedBy });
     if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return false; }
     note(t('stewardShell.board.stopBlockerDone', { title }));
