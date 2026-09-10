@@ -36,6 +36,12 @@ const PERMISSION_CONFIRM_BODY_KEYS = Object.freeze([
   'stewardShell.permission.confirm5',
 ]);
 
+// 「切哪一档权限要先出确认」的判据数据 —— 与那五条文案键同住这一份登记表：全仓唯一一处定义。
+// 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：四档里只有「全自动」要二次确认。
+// 117d 起它住在 steward-chips.js；本刀把它和文案键一起收进本文件，chips 就地 re-export，
+// 所以 chips 菜单口与 settings 设置页（onPermissionChange / toggleShield）读的是同一个数组对象。
+export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
+
 // 确认文案键登记表：全仓唯一一处。加一处新的危险操作确认 = 在这里加一条，不在调用点拼键。
 // titleKey/okKey/cancelKey 走既有的 locale 键（common.confirm / common.cancel 两个语言下都有），
 // 不新开文案、不动 locale。

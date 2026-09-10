@@ -38,7 +38,8 @@ import { icon, permissionIconName } from './icons.js';
 //      管家记得的关于你、行动流水；
 //   ② 管家壳头部右上角的两个常驻控件（§8.2）——盾牌（新线程默认权限）与一键停机／唤醒。
 // 两片共用一份判据：权限四档的档位表、人话键与「全自动」二次确认文案【全部从 steward-chips.js
-// import】，本模块【不定义第二份四档表】（静态锁看住：settings 里零 'acceptEdits' 之类的字面量枚举）。
+// import】（确认文案键与「哪一档要二次确认」的正身是 js/confirm-panel.js，那边定义、chips 就地
+// re-export），本模块【不定义第二份四档表】（静态锁看住：settings 里零 'acceptEdits' 之类的字面量枚举）。
 //
 // 边界：
 //   · 零 innerHTML／insertAdjacentHTML／document.write —— 全部 createElement + textContent；
@@ -286,7 +287,8 @@ export function createStewardSettingsDomain({
     if (box) box.hidden = true;
   }
 
-  // 二次确认：文案与顺序【就是】chips 的 STEWARD_CONFIRM_KEYS（§8.6 那五条），不复制第二份。
+  // 二次确认：文案与顺序【就是】js/confirm-panel.js 登记表里那一份 STEWARD_CONFIRM_KEYS
+  // （§8.6 那五条，经 chips re-export 取得），不复制第二份。
   function showPermissionConfirm(mode, onAccept, onCancel) {
     const box = byId('cfgStewardPermissionConfirm');
     if (!box) { onAccept(); return; }

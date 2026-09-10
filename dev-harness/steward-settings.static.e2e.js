@@ -105,6 +105,8 @@ ok(/id="cfgStewardRetention"[\s\S]{0,400}value="visit"[\s\S]{0,200}value="24h"[\
 // ─── B 四档表只有一份：settings 从 chips import，自己不再列举 ────────────────────
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-settings.js')).href);
 const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
+// 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」）登记表的正身 —— B5* 组正面查它。
+const confirmPanelMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'confirm-panel.js')).href);
 const imports = [...settings.matchAll(/^import \{([\s\S]*?)\} from '([^']+)';$/gm)]
   .map(match => ({ names: match[1].split(',').map(name => name.trim()).filter(Boolean), from: match[2] }));
 const fromChips = imports.find(entry => entry.from === './steward-chips.js');
@@ -116,10 +118,42 @@ ok(imports.every(entry => entry.from.startsWith('./')), 'B3 import 全部是本�
 // 「不定义第二份四档表」的机械判据：settings 模块里不许出现四档枚举的字面量。
 ok(!/'acceptEdits'/.test(settingsCode) && !/'plan'/.test(settingsCode) && !/'auto'/.test(settingsCode),
   'B4 settings 模块零四档字面量（枚举只有 steward-chips.js 那一份）');
-ok(!/confirmTitle[\s\S]{0,200}confirm1/.test(settingsCode)
-  && (settingsCode.match(/STEWARD_CONFIRM_KEYS/g) || []).length >= 1
-  && (chips.match(/stewardShell\.permission\.confirm1/g) || []).length === 1,
-  'B5 §8.6 那五条确认文案只在 chips 里列一次，settings 只引用常量');
+// M3-a **重钉 B5**（33 号文 §4）：旧判据是 chips 的字面计数（`(chips.match(/…confirm1/g) || []).length === 1`）
+// ——它把「这五条只在 chips 里列一次」钉成「谁抄了这几行」。键搬进 js/confirm-panel.js（危险操作确认的
+// 共用件）之后 chips 计数变 0，这条锁必然真红。新判据不数 chips，改成三条【结构判定】（比旧判据强）：
+//   ① 前端 js 源码里那五条键的字面量只许出现在 confirm-panel.js（locales 里的译文键不算编码面）；
+//   ② chips 里不再有那份定义，只剩「import … from './confirm-panel.js'」与 re-export 两行；
+//   ③ 运行时同一性：chips 导出的就是 confirm-panel 那个数组对象本身，settings 只引用常量（零字面量）。
+const confirmPanel = read('js/confirm-panel.js');
+const countConfirmKeys = source => (stripComments(source).match(/stewardShell\.permission\.confirm[1-5]/g) || []).length;
+const jsFiles = [];
+(function walkJs(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'locales') continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkJs(full);
+    else if (entry.name.endsWith('.js')) jsFiles.push(full);
+  }
+})(PUBLIC);
+const strayKeyFiles = jsFiles
+  .filter(file => path.basename(file) !== 'confirm-panel.js' && countConfirmKeys(fs.readFileSync(file, 'utf8')) > 0)
+  .map(file => path.relative(PUBLIC, file));
+ok(countConfirmKeys(confirmPanel) === 5 && strayKeyFiles.length === 0,
+  `B5 §8.6 那五条确认文案键全仓只在 js/confirm-panel.js 登记一次（实测 confirm-panel=${countConfirmKeys(confirmPanel)}，别处 ${strayKeyFiles.join(',') || '零'}）`);
+ok(/^import \{[^}]*\bSTEWARD_CONFIRM_KEYS\b[^}]*\} from '\.\/confirm-panel\.js';$/m.test(chips)
+  && /export \{[^}]*\bSTEWARD_CONFIRM_KEYS\b[^}]*\};/.test(chips)
+  && !/export const STEWARD_CONFIRM_KEYS/.test(chips),
+  'B5b chips 不再自列那五条：从 confirm-panel.js import 后原样 re-export（117d 起的公开面一字未改）');
+ok(chipsMod.STEWARD_CONFIRM_KEYS === confirmPanelMod.STEWARD_CONFIRM_KEYS
+  && chipsMod.STEWARD_CONFIRM_KEYS.length === 5
+  && !/confirmTitle[\s\S]{0,200}confirm1/.test(settingsCode)
+  && (settingsCode.match(/STEWARD_CONFIRM_KEYS/g) || []).length >= 1,
+  'B5c 运行时同一性：chips 那份就是 confirm-panel 登记表那个数组（同一个对象），settings 只引用常量、不复制文案');
+// 「要不要二次确认」的判据也只有一份：chips 菜单口与 settings 两处判定（onPermissionChange / toggleShield）
+// 读的是同一个数组对象；判据表达式的形状仍由 K8 与 steward-drawer.static 的 E10 逐字钉着（没放宽）。
+ok(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES === confirmPanelMod.STEWARD_PERMISSION_CONFIRM_MODES
+  && !/export const STEWARD_PERMISSION_CONFIRM_MODES/.test(chips),
+  'B5d 「哪一档要二次确认」同样只有一份定义（confirm-panel.js），chips 与 settings 读同一个数组对象');
 ok(JSON.stringify(chipsMod.STEWARD_PERMISSION_MODES) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto'])
   && JSON.stringify(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES) === JSON.stringify(['auto']),
   'B6 复用到的四档表本身没被改动（顺序与内容仍是 117d 钉住的那一份）');

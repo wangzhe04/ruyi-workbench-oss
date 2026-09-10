@@ -32,6 +32,10 @@ import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
 // 住在 js/popover.js。本模块只从它取那套【开合】，并把 3.0 自己的 .steward-chip-menu 经 opts.layer 交给
 // 它 —— 容器、类名、data-kind、role、[hidden] 与「就地在 .steward-chip-wrap 里」一个字不改。
 import { popover, closePopover } from './popover.js';
+// 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」的判据数据）的
+// 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
+// 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
+import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES } from './confirm-panel.js';
 
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
@@ -77,8 +81,9 @@ export const stewardEscapeStack = Object.freeze({
 });
 
 export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto']);
-// 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：只有全自动需要二次确认。
-export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
+// 「哪一档要二次确认」的判据数据与 §8.6 那五条文案键都不在本模块定义（下面那行 re-export）：
+// 正身在 js/confirm-panel.js，这里只把同一个数组对象再导出一次，公开面与 117d 起一致。
+export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES };
 // 117v-V2（27 号文 §11.16.2 V2 行；§11.16.5 经主会话裁决后的那一版）：切模型／引擎的那句说明摆在
 // 哪两个菜单里。这句话是【无条件常显】的一句事实陈述，不接任何「在不在跑」的信号，理由三条：
 //   ① 「下一回合生效、不打断正在跑的回合」在两种情形下都为真：在跑时它回答「会不会打断」，
@@ -95,14 +100,6 @@ export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
 // 「会话级档位」与「切全自动要 confirm:true」两道门，没有「有活回合就拒」——切换不打断任何东西。
 export const STEWARD_SWITCH_NOTE_KINDS = Object.freeze(['model', 'engine']);
 export const STEWARD_SWITCH_NOTE_KEY = 'stewardShell.chips.switchTakesEffect';
-// §8.6 那条弹窗必须逐条写明的五件事（键名即顺序，测试按这个顺序核对）。
-export const STEWARD_CONFIRM_KEYS = Object.freeze([
-  'stewardShell.permission.confirm1',
-  'stewardShell.permission.confirm2',
-  'stewardShell.permission.confirm3',
-  'stewardShell.permission.confirm4',
-  'stewardShell.permission.confirm5',
-]);
 // Agent CLI 的品牌名（不是文案，两个语言下逐字相同），与 navigation-controls.js 的同名表同源。
 const AGENT_CLI_LABELS = Object.freeze({ claude: 'Claude Code', kimi: 'Kimi Code' });
 
