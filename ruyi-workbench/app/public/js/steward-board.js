@@ -948,6 +948,16 @@ export function createStewardBoard({
     return rows.length;
   }
 
+  // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：抽屉要新鲜的那一批时走这里。只刷行，并在行真的
+  // 变了时重画本模块自己的正文；不碰仲裁面、不 syncNow —— 那一步见 currentFocusId 变了会去
+  // openThread，等于让一次「读行」反过来驱动抽屉自己。行仍然只有 loadMissions 一处取、一处解析。
+  async function refreshRows() {
+    lastRefreshAt = Date.now();   // 与刷新按钮同一条节拍纪律：刚拉过就别让下一拍紧跟着再拉一次
+    const changed = await loadMissions();
+    if (changed) renderBoard();
+    return rows.length;
+  }
+
   // 117r-D2（用户第八轮走查①）：文件头那条刷新纪律列了五个确定性时刻，「焦点事件」这一刷
   // 【从来没有实现过】—— focusFrom 里一个 refresh 都没有。于是「刚开的线程」这个最需要刷新的
   // 时刻，恰恰是唯一没刷的。这里把它补上，并让「未核实」这个位是【有界的】：这一趟跑完（无论
@@ -1027,6 +1037,11 @@ export function createStewardBoard({
     if (drawer && typeof drawer.setOnClosed === 'function') {
       // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 关掉「现在这一件」，回单列并记住。
       drawer.setOnClosed(mount => { if (mount === 'docked' && !suppressCloseRecord) closeNow(); });
+    }
+    if (drawer && typeof drawer.setMissionRows === 'function') {
+      // 33 号文 §4：抽屉的事项行不再由它自己拉 —— 行是本模块取回来的，读快照与「刷一趟」都从这里
+      // 出去（与上面 setOnClosed 同一条迟绑定纪律，不动被静态锁钉住的构造行）。
+      drawer.setMissionRows({ rows: () => rows, refresh: refreshRows });
     }
 
     const document_ = doc();

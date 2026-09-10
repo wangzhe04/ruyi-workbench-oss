@@ -275,9 +275,13 @@ const routes = [...new Set([
 // 的「常用置顶」由账本按模型的真实用量派生（M1 给这个既有端点补的第六个维度 byModel），
 // 不是浏览器本地的猜测。它仍然是「后端零新增面」：没有新路由、没有新写口，chip 只在【第一次打开
 // 模型菜单】时 GET 一次（模块级缓存，三个宿主共用），F3 的「零直调 fetch」与 C2 的「零计时器」一个字没松。
+// 33 号文 §4 **重钉 F1**（抽屉 /api/missions 改经看板 rows）：白名单去掉【裸的】/api/missions ——
+// 那张 200 行的列表不再由抽屉自己拉（它现在只读看板取回来的那一批），抽屉这一面只剩带 id 的
+// /api/missions/（任务快照）。语义是收紧而不是放宽：这条路由一旦从抽屉里再长出来（自己发一次
+// 列表请求），收集到的路由集就与白名单不再相等，本条当场红。
 const ALLOWED = [
   '/api/agent-runs/', '/api/chat/answer', '/api/interventions',
-  '/api/missions', '/api/missions/', '/api/permission/decision', '/api/session/rewind',
+  '/api/missions/', '/api/permission/decision', '/api/session/rewind',
   '/api/sessions/', '/api/steward/relay', '/api/stop', '/api/usage/summary',
 ].sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),

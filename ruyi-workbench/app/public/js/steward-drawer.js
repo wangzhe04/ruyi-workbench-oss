@@ -340,6 +340,10 @@ export function createStewardDrawer({
   let mountMode = 'overlay';      // 'overlay' | 'docked'（见 STEWARD_DRAWER_MOUNTS）
   let onClosed = () => {};        // 117h：关抽屉时告诉「现在这一件」它被关掉了
   let openClassicWindow = null;   // 117g：统一的「2.0 视窗」入口（切经典壳＋选中会话＋顶部返回带）
+  // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：那一批 200 行不再由本模块自己拉。行的那位主人
+  // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
+  // 新鲜时请它刷一趟。与上面三条同一纪律：不动被静态锁逐字钉住的构造调用，新依赖一律走 setter。
+  let missionRowsFrom = null;     // { rows: () => rows, refresh: async () => n } | null
 
   const chips = createQuickSwitchChips({
     api, t, state,
@@ -434,12 +438,17 @@ export function createStewardDrawer({
   async function loadMissionSlice() {
     if (!sessionId) return;
     const id = sessionId;
-    const [missionsRes, snapshotRes] = await Promise.all([
-      api('/api/missions?limit=200').catch(() => null),
+    // 33 号文 §4：这一批行不经本模块 —— 先请看板（唯一取数者）刷一趟，再读它手里的快照；两句并行，
+    // 不在老的两次请求之外多等一趟。没注入来源时（本模块单测／2.0 侧）手里没有那一批，按「一行都
+    // 没有」判，不在本文件留第二处 /api/missions 取数。
+    const source = missionRowsFrom;
+    const [, snapshotRes] = await Promise.all([
+      source ? Promise.resolve(source.refresh()).catch(() => 0) : null,
       api(`/api/missions/${encodeURIComponent(id)}`).catch(() => null),
     ]);
     if (id !== sessionId) return;
-    const rows = (missionsRes && Array.isArray(missionsRes.missions)) ? missionsRes.missions : [];
+    const listed = source ? source.rows() : null;
+    const rows = Array.isArray(listed) ? listed : [];
     missionRow = rows.find(row => row && String(row.sessionId) === id) || null;
     const missionId = String((missionRow && missionRow.missionId) || (session && session.missionId) || '');
     missionRows = missionId ? rows.filter(row => row && String(row.missionId) === missionId) : (missionRow ? [missionRow] : []);
@@ -1367,6 +1376,12 @@ export function createStewardDrawer({
     // 新依赖一律走 setter，不加构造参数）。
     setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
+    // 33 号文 §4：事项行的那批行由看板注入（它才是唯一取数者）。传进来的形状是
+    // { rows, refresh } 两个函数；缺一个就当作没注入 —— 本模块宁可手里没有行，也不自留第二处取数。
+    setMissionRows: source => {
+      missionRowsFrom = source && typeof source.rows === 'function' && typeof source.refresh === 'function'
+        ? source : null;
+    },
     setMount,
     mountMode: () => mountMode,
     // 117m-A2：「N 条等你」恰好 1 条时的直达。抽屉自己在数据到齐那一帧已经聚过一次焦
