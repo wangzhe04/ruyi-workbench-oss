@@ -2531,3 +2531,53 @@ graph 49/390、forwardEdges 67、build 新鲜；三文件 NUL 0／CRLF 0；真�
 | `stewardRegisterDerivedWorkspace` 仍吞掉登记失败（`catch { return false }`），派生的成功不以「行落盘」为条件 | **同上一刀**：派生的成功判据改为「行已落盘」，写失败 → 删掉刚建的目录并拒。这是「目录建了、行没了」的另一条来路 |
 | 表满且标题本会复用已有行时也一律拒（判复用得先建目录） | **接受**保守拒绝，注释已写 |
 | P4b 是弱断言（修前绿是因为先撞 `quota_exceeded`） | **接受**，它如实标了，真锁是 P4 |
+
+### 11.23 E-嘴 设计页 · 叫得到你（31 号文 §2.4；E 批第一批第二件；Fable 设计）
+
+> 31 号文原稿：`steward_notify` → 桌面桥 `show_notification`；只在 `needs_you`／`failed`／`done` 且用户**不在**时叫；`stewardNotifyPerHour` 默认 6；点通知＝回壳并聚焦那条线程；IM／邮件本波不做。
+
+#### 11.23.1 先核现状——原稿四个前提，一个比它写的好，三个不成立
+
+| 原稿前提 | 实测 | 出处 |
+|---|---|---|
+| 「桌面桥 `show_notification`」是叫的通道 | **有更近的通道，且已经通着**：页面 `preview-shell.js:304` 经 WebView2 `chrome.webview.postMessage({ ruyiNotification:{id,title,body} })` → 桌面壳 `RuyiDesktop.cs:1193 OnWebMessage` → `:886 ShowDesktopNotification` → 托盘气泡 `NotifyIcon.ShowBalloonTip`。**进程内、零 MCP 往返**。ACC 的 `show_notification` 是另一个进程的 MCP 工具（`02:2023` desktop 档），只该做**浏览器模式下无托盘**时的回落 | `preview-shell.js:242-304`、`RuyiDesktop.cs:859-891, 1193-1208` |
+| 「壳层 `visibilitychange` 上报的可见性 … 已有」 | **不成立**。页面里的 `document.hidden` 只用来暂停轮询（`agent-workflows.js:827`、`steward-drawer.js`），**从不上报**；`/api/question/heartbeat` 是问答弹窗的心跳；`stewardVisitIdleMinutes` 是**到访节拍**不是在场；`steward-presence.js` 是**头像**的在场显示表。**服务端没有任何「用户在不在」的信号** | `13q:374`、`13d:1649`、`unit/steward-presence.test.js:2` |
+| 「点通知＝回壳并聚焦那条线程（走 `steward:focus-thread`）」 | **一半成立**：`BalloonTipClicked → ActivateShellWindow()` 能回壳（`:871`）；但 `steward:focus-thread` 是**页面内的 DOM 事件**（`steward-board.js:83`），而**桌面从不向页面回话**——`PostWebMessageAsJson` 只在接口声明里（`:219`），全文件零调用。**聚焦线程这一半要新建一条桌面→页面的回话** | `RuyiDesktop.cs:219, 871`、`steward-board.js:83` |
+| 「复用 12/小时那套熔断」 | **成立且有现成形状**：`13p:364 stewardTurnsInWindow(now, STEWARD_TURN_WINDOW_MS)` 按决策日志计窗，`stewardSelfServeGate` 已在用 | `13p:229-232, 364`、`13m:64` |
+
+另核：服务端要自己叫桥接工具有路可走——`12:94 invokeAdaptiveMcpTool(tier, name, args)`，校 tier ＋ 桥接重校，**不需要模型回合**；这是浏览器模式回落那一支的入口。
+
+#### 11.23.2 判据
+
+**通道优先级**：① 桌面壳在（`desktopNotificationBridge()` 为真）→ 走既有 `ruyiNotification` 消息；② 不在 → `invokeAdaptiveMcpTool('desktop','show_notification',…)`，桥不可用就**不叫**（不编第三条路，不弹浏览器 `Notification` 之外的东西）。**服务端只发一条事件，选通道是页面的事**：13i 的投影已经产出 `needs_you`／`failed`／`done` 五类（`13i:76-132`），加一个 `steward.notify` 的 SSE 事件由壳层消费，**不在服务端直接摸桌面**——服务端摸不到 WebView2。
+
+**在场信号（新，最小）**：壳层在 `visibilitychange`／`focus`／`blur` 上 `POST /api/steward/presence { visible, focused }`，另每 30 s 心跳一次；服务端只在**内存**（`13m` 的运行时态）记 `{ visible, focused, lastSeenAt }`。
+「不在」＝ `!visible || !focused || now − lastSeenAt > 90 s`。**不落盘、不进任何投影**（与 117l 的 liveTail 同一条纪律）。路由 token-gated，进 `route-inventory`。
+
+**何时叫**：只在三类**状态迁移**上（进入 `needs_you`、进入 `failed`、进入 `done`），**同一条线程同一状态只叫一次**（去重键 `sessionId+state`，重进才再叫）；且**当时**「不在」。在壳里时一次都不叫——不是攒着等你离开再叫。
+
+**熔断**：`stewardNotifyPerHour` 默认 6，用 `stewardTurnsInWindow` 的**同款**计窗但**独立计数**（决策日志记 `kind:'notify'`，与回合窗不混）。超了就**静默不叫**并在决策日志记一条 `notify_suppressed`，下次到访时管家说一句「刚才有 N 件想叫你，没叫」。
+
+**点气泡→聚焦线程（新，桌面→页面第一条回话）**：`.cs` 记住最近一条气泡的 `sessionId`；`BalloonTipClicked` 除 `ActivateShellWindow()` 外，`PostWebMessageAsJson({ ruyiFocusThread: { sessionId } })`；页面侧新增**唯一一处** `chrome.webview.addEventListener('message', …)`，收到就 `dispatchEvent(new CustomEvent(STEWARD_FOCUS_THREAD_EVENT, { detail }))`——**复用 `steward-board.js:83` 那个事件**，不新造第二条聚焦通道。浏览器模式回落那一支点击行为不在本刀（ACC 的通知点击不回程）。
+
+**档位与自理清单**：叫不改世界，三档都可；自理清单加 `notify` 开关（默认开）。**内容纪律**：气泡只写线程**标题**与五态人话，不写 `sess_`（117l D5），不写交付内容（那是给壳里看的）。
+
+#### 11.23.3 切法（一刀，三个提交，串行；**排在 E-手② 与「先占位再建目录」小刀之后**）
+
+| 提交 | 做什么 | 面 |
+|---|---|---|
+| ① 在场信号 | `POST /api/steward/presence`；`13m` 内存态；壳层三事件＋心跳 | `13d`（路由）、`13m`、`public/js/steward-shell.js`、`route-inventory` |
+| ② 叫 | 13i 投影迁移处发 `steward.notify` 事件（去重＋在场＋熔断都在服务端判）；壳层消费→选通道；`stewardNotifyPerHour`＋自理 `notify` 开关进 01-config／06i 分档 | `13i`、`13p`（计窗）、`01-config`、`06i`、`public/js/preview-shell.js`（复用 `showNeedsNotification` 那条路，不另写） |
+| ③ 点回来 | `.cs` 记 id ＋ `PostWebMessageAsJson`；页面唯一一处 message 监听 → 既有 `steward:focus-thread` | `desktop/RuyiDesktop.cs`、`public/js/steward-shell.js`（或 board） |
+
+**③ 是本仓第一次让桌面向页面回话**——留意 `.cs` 的 WebView2 COM 接口是手写的（`:219` 是 `[PreserveSig]` 声明），调用前先核 `ICoreWebView2` 实例在哪个字段上。
+
+#### 11.23.4 验收（可证伪；31 号文原稿那三条照抄并补两条）
+1. 页面不可见 ＋ 线程进入 `needs_you` → 壳层收到**一次** `steward.notify`；页面可见时**零次**（用真 presence 路由切状态，不用 mock）。
+2. 一小时内第 7 次 → 不叫，决策日志有 `notify_suppressed`。
+3. 同一线程同一状态不重叫；离开再进入才叫。
+4. 气泡只含标题与五态，`sess_` 零出现。
+5. （③）模拟 `BalloonTipClicked` → 页面收到 `steward:focus-thread` 且 `detail.sessionId` 对；**没有第二个聚焦事件名**。
+
+#### 11.23.5 不做
+IM／邮件（仓里没基座）；「通知里直接回话」；浏览器模式下通知的点击回程；把在场信号落盘或做成新的投影字段。
