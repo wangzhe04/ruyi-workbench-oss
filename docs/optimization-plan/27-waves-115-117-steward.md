@@ -2240,3 +2240,71 @@ CSS 载荷锁由主会话从 HEAD 续钉（`801d85e5` → `07e82fa0`），**M2 �
 | `README.md:483` 仍写「325 e2e (318 default)」，facts 是 330/323 | **登记**，陈述性陈旧；下一次动 README 顺手 |
 | `13o` 装了两个主题（提示词装配 ＋ 输出契约解析） | **接受**。两者都只依赖 13m/13n 且都在回合之前；31 号文若往输出契约加东西，它是下一个自然拆点 |
 | `route-inventory.json` 的 `coveredBy` 会吸进并行刀新增的 e2e 文件名 | **登记为纪律**（见第一行） |
+
+### 11.21 E-手② 设计页 · 按任务给线程开桌面权限（从 §11.19 合刀里切出的小刀；Fable 设计）
+
+> 31 号文 §2.3 放②原文：「补 `capabilities:{desktop:boolean}` 一项，映射到线程的 `allowDesktopTools` 会话级覆盖（不改全局）…
+> 桌面权限只能开给管家自己开的线程 … 档位：auto 自动、其余提议」
+
+#### 11.21.1 先核现状（三处原稿没看到的事实）
+
+| 事实 | 出处 |
+|---|---|
+| `allowDesktopTools` **今天是全局唯一的一把闸**，在 `buildOpenAiTools` 里决定桌面工具**要不要提供给模型**（注册层，不是运行时校验）；**不存在会话级覆盖**——原稿写的「映射到线程的会话级覆盖」是要**新建**的东西，不是已有的 | `07-autonomy.js:99` `const allowDesk = config.allowDesktopTools !== false;` |
+| `allowDesktopTools` 在管家 **forbidden** 清册里（「命令与桌面工具放行」那一档） | `06i-steward-core.js:737` |
+| **没有「这条线程是管家开的」这个标记。** `launchedBy:'steward'` 也会打在 `thread_continue` 递话进用户自己会话的那一路（`13k:294-308`），`titleSource:'steward'` 只在管家给了标题时才有、quick_ask 还会删掉它。**「只能开给管家自己开的线程」今天判不出来** | `13k:294, 386, 389, 645, 648` |
+| 管家稳定层纪律 2：「**不放宽**任何线程的权限…只能收紧,不能放宽」；`06i:64`（116-2a）用 `stewardMayTightenTo` **机械执行**只降不升 | `06b:164`、`06i:64`、`13k:557-562` |
+
+#### 11.21.2 这里有一条红线冲突，不是细节
+
+给线程**开**桌面权限是一次**放宽**。它同时撞两条：
+1. 管家稳定层纪律 2「任何情况下都不放宽」——这是行为契约，`steward-runner.static` 钉着 stable 文本；
+2. 31 号文 §1 红线「围栏与密钥永远 forbidden」——`allowDesktopTools` 正在 forbidden 清册里。
+
+原稿的「auto 档自动开」等于给管家开第一个**自主放宽**的口子，而对象是**用户的桌面**——`03-bridge-guard` 自己把它描述成
+"acts on everything the user owns"。**本刀不接受这条**。
+
+**裁决（保守读法，可被用户推翻，见 11.21.5）**：
+- **全部档位都只提议**（`propose_required` → 降级成一枚 act 交给用户按）。用户仍然是一键，但**按的是用户**。
+- 提议的对象只能是 **`createdBy:'steward'`** 的线程（新标记，见下）；对用户自己开的线程连提议都不出——那是用户的会话，
+  桌面权限在设置里改。
+- **全局 `allowDesktopTools` 仍是 forbidden，本刀一个字不碰它**。会话级覆盖是**另一把钥匙**，且只有「用户按下提议」这一条路能拧。
+
+#### 11.21.3 判据
+
+- **新持久化标记 `session.createdBy = 'steward'`**，只在 `13k` 两处 `createSession` 调用点写（thread_new `:383`、quick_ask `:639`），
+  `02` 的 `applySessionMetaPatch` 白名单里**不许**经 PATCH 改它（它记的是出身，不是状态）。
+  **不用 `launchedBy`**（被递话污染）、**不用 `titleSource`**（语义是标题来源）。
+- **会话级覆盖 `session.desktopTools: true | false | null`**（null ＝ 跟全局）。`buildOpenAiTools` 的调用方把它作为 `opts.desktopOverride` 传进来，
+  `07:99` 改成 `const allowDesk = override == null ? config.allowDesktopTools !== false : override === true;`。
+  **只在会话级覆盖上做「开」，全局闸不动。**
+- **工具面**：`steward_thread_permission` 的 args 加可选 `capabilities: { desktop: boolean }`。
+  - `desktop:false`（收紧）→ 走既有 `mayAct` 判定，可自动；
+  - `desktop:true`（放宽）→ **恒 `propose_required`**，且目标必须 `createdBy === 'steward'`，否则 `invalid_target`。
+  这样「只降不升」的机械规则在这条新维度上**原样成立**：能自动的只有降，升永远要人按。
+- **撤销**：走既有的 `undoRef`（`13k:566`）同一形状，`kind:'desktop'`。
+- **审计**：`stewardAppendDecision` 照既有形状记 `capabilities` 与 `previous`。
+
+#### 11.21.4 切法（一刀，两个提交，串行；**排在 §11.19 W1 落地之后**）
+
+| 提交 | 做什么 | 面 |
+|---|---|---|
+| ① 标记与覆盖 | `createdBy` 落盘 ＋ `desktopTools` 会话级覆盖 ＋ `07:99` 读覆盖 ＋ PATCH 白名单拒改 `createdBy` | `13k`、`02`、`07`、`durable-state-inventory`（会话头多两个字段） |
+| ② 工具面 | `steward_thread_permission` 加 `capabilities.desktop`，收紧可自动、放宽恒提议、非 `createdBy:'steward'` 拒 | `13k`、`06i`（工具 schema）、`06b`（工具说明一句）、`steward-tools.static`／`steward-guardrails` |
+
+#### 11.21.5 待拍板一处：放宽要不要给 auto 档一条自动路
+
+| 选项 | 内容 | 代价 |
+|---|---|---|
+| **A（推荐）** | 全部档位只提议，用户一键按 | 多一次点击；但管家**从不**自主放宽任何东西，稳定层纪律 2 一个字不用改 |
+| B（31 号文原稿） | auto 档自动开桌面 | 管家第一次拥有自主放宽的能力，对象是用户桌面；稳定层纪律 2 要改措辞，`06i:64` 的只降不升要开例外 |
+
+推荐 A。理由：用户自己定的红线是「不放宽」，例外一旦开在最高爆炸半径的面上，以后每一轴都会来要同样的例外。
+
+#### 11.21.6 验收（可证伪）
+1. `desktop:true` 在任何档位 → `propose_required`（含 auto）；`desktop:false` 按既有 mayAct。
+2. 对 `createdBy !== 'steward'` 的线程 `desktop:true` → `invalid_target`；`desktop:false` 照常（收紧总是允许的）。
+3. 覆盖生效：该线程下一回合 `buildOpenAiTools` 的输出含桌面工具，**别的线程不含**，全局 `allowDesktopTools` 值不变。
+4. `steward_config_set` 改 `allowDesktopTools` → 仍 forbidden。
+5. PATCH `createdBy` → 被白名单拒绝。
+6. 递话进用户会话（`thread_continue`）**不会**让那条会话变成 `createdBy:'steward'`。
