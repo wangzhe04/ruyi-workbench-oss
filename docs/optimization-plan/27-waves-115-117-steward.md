@@ -2077,3 +2077,85 @@ V4（交付卡）与 V2（它刚说）都是**纯前端**改动，够不着这�
 3. **JSON 解析失败那条兜底同样走句界裁剪**（`:536` 与 `:548` 用同一个函数，不许只改一处）。
 4. **总览行仍然是 200 字加省略号**（`stewardClipSay` 没被这一刀误伤）—— 反向保护断言。
 5. **交付卡仍然折叠**（`clampIfLong` 仍有交付卡这一个调用方）—— 反向保护断言。
+
+### 11.19 117w-W1 ＋ 31 号文 E-手① 合刀设计页（用户第十一轮拍板③；Fable 设计）
+
+> 拍板原文：「合成一刀吧」。此前的判断：E-手负责「选」，W1 负责「有得可选」，分开做会先落地一个候选表里只有主目录一项的 E-手。
+
+#### 11.19.1 先核现状（比两份原稿写的都更糟）
+
+| 事实 | 出处 |
+|---|---|
+| `steward_thread_new` 把 `args.cwd` **原样透传**给 `createSession`，**零校验** | `13k-steward-threads.js:383` `cwd: args.cwd ? String(args.cwd) : undefined` |
+| `steward_quick_ask` 同一条路 | `13k:639` |
+| `createSession` 的回落链是 `cwd || config.defaultWorkspace || os.homedir()` | `02-session-store.js:2645` |
+| 出厂 `defaultWorkspace` 就是 `os.homedir()` | `01-config.js:8` |
+| **仓里自己的守卫把「cwd 落在主目录根／桌面／文档／下载根」判成最高风险**（"acts on everything the user owns"） | `03-bridge-guard.js:127-130` `cwdWarning` |
+| `workspaces[]` 形状 `{path, read, write, execute}`，从 `defaultWorkspace + recentWorkspaces` 播种，`defaultWorkspace` 与 `workspaces[0].path` 保持同步 | `01-config.js:275-279, 886-912` |
+| `defaultWorkspace / workspaces / recentWorkspaces / additionalDirectories / allowOutsideWorkspace` 全在管家 **forbidden** 清册 | `06i-steward-core.js:735` |
+
+所以病有两层，不是一层：
+- **提示词层**：管家从来不知道有哪些工作区（forbidden 档读不到），于是从不传 `cwd`，一切落到默认工作区 —— 这是用户看到的「同一个文件夹被占着」。
+- **代码层**：`13k` 对 `cwd` 零校验。今天没出事只因为管家从不传；**一旦提示词层放开，幻觉路径会被直接接受**。E-手原稿写的「13g 校验」在 T1 之后要落在 `13k`。
+
+还有一处两份原稿都没看到的**内在矛盾**：E-手原稿说「与工作区无关的问题用 `~`」，而 `cwdWarning` 把 `~` 判成最高风险目标。**本刀不采纳「用 `~`」**，理由见 11.19.3。
+
+#### 11.19.2 判据
+
+**候选表（只读投影，进管家到访层）**：每行 `path` 末段名 ＋ 新可选字段 `workspaces[].note`（用户在设置里写「股票资料」之类）。
+- **只读**：管家看得到投影，`workspaces` 键本身**仍是 forbidden**（`steward_config_set` 改不了它）。看得见 ≠ 改得了，两道闸不合成一道。
+- **`recentWorkspaces` 不进表**：打开过 ≠ 授权过（31 号文红线，照抄）。
+- **表有预算**：与线程总览同一套折叠写法（`overviewFolded` 那种「…另有 N 条未列出」），上限先定 20 行，超出折叠不截断。
+
+**`cwd` 的三态 schema（写进 06b 的工具说明与 13k 的校验，两处同一口径）**：
+1. **表内路径** → 用它。
+2. **省略** → 工作台在 Ruyi 根下**派生一个子工作区**（见下）。这就是「认不出归属」的正解。
+3. **其它任何值** → `invalid_request`，**不静默回落**。`~` 也在「其它」里。
+
+**Ruyi 默认工作区根**：新配置键 `stewardWorkspaceRoot`（**待拍板一处，见 11.19.5**）。
+它是围栏类键 → 按 06i fail-closed 语义自动 forbidden，不用额外登记。
+
+**子工作区派生**：`<root>/<slug(标题)>`。
+- slug 只做**文件系统安全**处理：去掉 Windows 非法字符（尖括号、冒号、引号、斜杠、竖线、问号、星号、控制字符），保留中文；截到 64 字符；空则回落 `thread-<id 前 8 位>`。**复用** `04-permission-runtime.js` `makeAttachmentRecord` 里已有的那套非法字符处理，不另写一份。
+- **撞名**：同名目录已存在且非空 → 追加 `-2`、`-3`；已存在且**空** → 直接复用（同一件事重开线程不该长出第二个空壳）。
+- 派生出来的目录**写进 `workspaces[]`**（带 `note: 'Ruyi 自动开的'`，rwx 全 true —— 它在 Ruyi 自己的根下）。这是工作台写自己的配置，不经 `steward_config_set`，不违反 forbidden。**用户在设置里看得到、删得掉。**
+
+#### 11.19.3 为什么不采纳「与工作区无关的问题用 `~`」
+
+三条：
+1. 仓里自己的守卫 `cwdWarning` 把 `~` 判成最高风险，采纳它等于让管家默认落在守卫警告的地方。
+2. 「与工作区无关」≠「无家可归」。「英伟达分析」这类研究线程会写文件（报告、抓下来的数据），它们**需要一个自己的目录**，而不是散在主目录。
+3. 三态 schema 里「省略 → 派生子工作区」已经覆盖了这一档，且**比 `~` 更安全、更整洁**。多留一个 `~` 出口只会给幻觉一条合法的逃生路。
+
+**与 31 号文 §2.3 的分歧记在这里**：本刀把「用 `~`」改为「省略即派生」。若后续发现有场景真需要主目录，另立刀，不在这里开口子。
+
+#### 11.19.4 切法（一刀，三个提交，串行）
+
+| 提交 | 做什么 | 面 |
+|---|---|---|
+| **① 校验先行** | `13k` 两处（thread_new / quick_ask）加 `cwd ∈ workspaces` 校验，表外 `invalid_request`；**此时管家还不知道表**，所以行为零变化（它本来就不传） | `13k`、`steward-tools.static`／`steward-guardrails.e2e` |
+| **② 根与派生** | `stewardWorkspaceRoot` 配置键（默认值见 11.19.5）；`13k` 在 `cwd` 省略时派生子工作区并登记进 `workspaces[]`；`note` 字段进 `01-config` 的清洗 | `01-config`、`13k`、`02`（若 createSession 要认新根）、`durable-state-inventory`（新增落盘面） |
+| **③ 表进上下文** | 06b 到访层加候选表投影 ＋ 工具说明写清三态；`13h` 组装时喂表 | `06b`、`13h`（注意：**P1 正在拆 13h，本刀必须等 P1 落地后派**） |
+
+**为什么校验先行**：①是纯加固、零行为变化，先落地再放开提示词，任何时刻都不存在「管家能传、代码不校验」的窗口。
+
+#### 11.19.5 待拍板一处：Ruyi 根放哪
+
+| 选项 | 路径 | 代价 |
+|---|---|---|
+| **A（推荐）** | `~/Ruyi`（可配） | 用户在资源管理器里一眼看得到、找得到；不落在守卫警告的四个根上（它是主目录的**子目录**，不是主目录本身）；`cwdWarning` 对它静默 |
+| B | `<dataRoot>/workspace`（`~/.win-claude-workbench/workspace`） | 干净、不污染主目录；但藏在点目录里，用户找不到自己的文件 —— 与「线程写了报告我要看」的用法相冲 |
+
+推荐 A。理由是这些目录里放的是**用户的工作产物**，不是 Ruyi 的运行数据。
+
+#### 11.19.6 验收（可证伪）
+
+1. 表外路径 → `invalid_request`（含 `~`）；表内路径 → 原样用。
+2. 省略 `cwd` → 线程 `cwd` 是 `<root>/<slug>`，且该目录出现在 `workspaces[]` 里带 `note`。
+3. 两条同标题线程 → 第二条落在 `-2`；第一条目录为空时第二条**复用**。
+4. `recentWorkspaces` 里有、`workspaces` 里没有的路径 → **不在**管家上下文里。
+5. 管家上下文里的表**没有**任何围栏字段（`allowOutsideWorkspace` 等一个都不出现）。
+6. `steward_config_set` 改 `workspaces` / `stewardWorkspaceRoot` → 仍是 `forbidden`。
+7. 反向保护：`cwdWarning` 对 `<root>/<slug>` 返回 null（不是高风险目标）。
+
+**E-手②（按任务给线程开桌面权限）不进本刀** —— 它与工作区正交，单独一把小刀。
