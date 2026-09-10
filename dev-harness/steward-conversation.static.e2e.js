@@ -72,6 +72,12 @@ ok(/import \{ stewardEscapeStack, doc, byId, el \} from '\.\/steward-chips\.js';
   && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(composerCode)
   && !/function el\(tag, className, text\) \{/.test(composerCode),
   'A3c steward-composer.js 的 doc/byId/el 也从 steward-chips.js import，零本地重复定义');
+// A3d companion（33 号文 §4「F5a 漏网图标」）：composer 那两枚圆键的图标曾自带一份构造器与两个
+// path 字面量（其中一个与 icons.js 的 plus 逐字同）。收编后本文件零 SVG path 字面量、零
+// createElementNS —— 字形只能来自 ICONS 表那一份词汇表；把任何一处换回内联 path，这条当场红。
+ok(!/\bd:\s*'/.test(composerCode) && !/createElementNS/.test(composerCode)
+  && /from '\.\/icons\.js'/.test(composerCode),
+  'A3d steward-composer.js 零 SVG path 字面量、零 createElementNS：两枚圆键字形走 icons.js 的 ICONS 表（F5a 漏网图标收编）');
 
 // ─── B 按钮行契约：≤3 且主动作唯一 ───────────────────────────────────────────────
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href);

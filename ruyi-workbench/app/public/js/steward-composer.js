@@ -17,6 +17,8 @@
 // schedulePreroute/cancelPreroute 里）。
 
 import { stewardEscapeStack, doc, byId, el } from './steward-chips.js';   // 117j UX-F3：候选列表走同一个 Esc 栈；117n-M1：DOM 基础件复用（doc/byId/el 不再本地重复）
+// F5a 收编（33 号文 §4「F5a 漏网图标」）：字形一律走全仓唯一那张 ICONS 表，本文件零 SVG path 字面量。
+import { icon } from './icons.js';
 // 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行」「而且匹配的没法删掉/关掉」）：
 // 线程标题截短复用 steward-conversation.js 的既有实现（STEWARD_TITLE_MAX=24），不在本文件里另起一份——
 // 抽屉页签、灰字回执早就走这条口径，chip 是唯一漏掉的一处。
@@ -58,18 +60,16 @@ export function createStewardComposer({
 } = {}) {
   // 117n-M1：doc/byId/el 从 steward-chips.js import（六个消费方零本地重复定义）。
 
-  // 117i：输入框右侧两枚圆键的线条图标（原型 .ic）。零 innerHTML —— SVG 也要 createElementNS，
-  // 用 createElement('svg') 会造出一个 HTML 未知元素，画不出东西。
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  function icon(path) {
-    const svg = doc().createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('class', 'steward-icon');
-    svg.setAttribute('aria-hidden', 'true');
-    const line = doc().createElementNS(SVG_NS, 'path');
-    line.setAttribute('d', path);
-    svg.appendChild(line);
-    return svg;
+  // 117i：输入框右侧两枚圆键的线条图标（原型 .ic）。
+  // F5a 收编（33 号文 §4「F5a 漏网图标」）：本文件不再自带图标构造器、也不再存 path 字面量 —— 字形
+  // 一律取自 icons.js 的 ICONS 表（全仓唯一词汇表；「零 innerHTML」那条纪律由它内部的
+  // createElementNS 承担）。steward-icon 这个 class 仍由本文件打上：steward-conversation.css 那枚
+  // 1em 尺寸规则按它命中（本轮不碰 CSS），字形尺寸/描边因此与收编前逐像素同。
+  function paintGlyph(node, name) {
+    const svg = icon(name, 16);
+    if (!svg) return;                       // 未知名子只 console.warn，这里不塞空节点
+    svg.classList.add('steward-icon');
+    node.appendChild(svg);
   }
 
   // 预判实况：kind ＋ 候选（hits）。手选（picked）优先于预判，直到本次发送完成。
@@ -381,7 +381,7 @@ export function createStewardComposer({
     plus.disabled = true;                                     // 附件／语音归后续波，本波只占位
     plus.title = t('stewardShell.compose.plus');
     plus.setAttribute('aria-label', t('stewardShell.compose.plus'));
-    plus.appendChild(icon('M12 5v14M5 12h14'));
+    paintGlyph(plus, 'plus');
 
     // 117i：圆形发送键（原型 .send）。Enter 一直是主路径，这枚键只是把同一个 submit() 摆到
     // 手指够得着的地方 —— 触屏与「不知道按什么」的第一次都需要一个看得见的出口。
@@ -390,7 +390,7 @@ export function createStewardComposer({
     send.id = 'stewardComposerSend';
     send.title = t('stewardShell.compose.send');
     send.setAttribute('aria-label', t('stewardShell.compose.send'));
-    send.appendChild(icon('M5 12h14M13 6l6 6-6 6'));
+    paintGlyph(send, 'go');
     send.addEventListener('click', () => { submit(); });
 
     // 117r-D3 ②（用户第八轮走查②「最好不要和输入框放同一行，会把输入框内容挤没，要不放在输入框
