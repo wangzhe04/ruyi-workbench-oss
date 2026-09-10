@@ -190,7 +190,15 @@ ok(/import '\.\/mission-state\.js';/.test(drawer) && /globalThis\.MissionState/.
 // chipsWorthPrinting —— 详情栏这一行自此与看板同一份判据（跟全局一样就不印）。判据比原来更紧：
 // 除照旧逐字钉住 import 的六个名字与 createQuickSwitchChips 在场，另加两条【抄第二份就立刻红】的：
 // 抽屉剥了注释之后零 resolveEngineRoute(（不自己算生效路由）、零 engineRoute 字面量（不自己认字段）。
-ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \} from '\.\/steward-chips\.js';/.test(drawer)
+// 33 号文 §4 **再重钉 E4**：那次收编（回车发送的守卫进 chips.js）让这条 import 又多了一个名字
+// bindEnterToSubmit。与 A3c 一样改成按名字集合判定：锁要钉的是「chips 与那条判据都是同一份、抽屉
+// 零第二套回落规则」，不是「那一行长什么样」。（反向验证过：把 bindEnterToSubmit 从名字表里去掉立刻真红。）
+const drawerChipsNames = read('js/steward-drawer.js').split(String.fromCharCode(10))
+  .filter(line => line.startsWith('import {') && line.includes("from './steward-chips.js';"))
+  .flatMap(line => line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(','))
+  .map(name => name.trim())
+  .filter(Boolean);
+ok(['createQuickSwitchChips', 'doc', 'byId', 'el', 'clear', 'chipsWorthPrinting', 'bindEnterToSubmit'].every(name => drawerChipsNames.includes(name))
   && /createQuickSwitchChips\(\{/.test(drawer)
   && !/resolveEngineRoute\(/.test(drawerCode) && !/engineRoute/.test(drawerCode),
   'E4 快切 chip 与「跟全局一样吗」判据都是 mount／import 进来的同一份，不是抽屉自己搭的；抽屉零第二套回落规则');

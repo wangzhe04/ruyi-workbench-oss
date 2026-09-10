@@ -227,6 +227,27 @@ export function button(className, text, onClick) {
   return node;
 }
 
+// 33 号文 §4「Enter/isComposing 守卫 ×3 抽 bindEnterToSubmit」：管家壳里「回车发送」的规矩原本在
+// 三处各写一遍（composer 一处、抽屉底部输入框与问答框各一处），三份逐字同形。这里收成一处判据：
+//   · Enter 且不按 Shift（Shift+Enter 在文本框里换行）；
+//   · 且 **不在输入法组合中**（event.isComposing）—— 这是中文优先的产品里最要紧的一条：中文用户
+//     选候选词按的那一下回车，绝不能把半句话发出去（117m-A6 用一次真事故换来的）。
+// isSubmitEnter 是那条纯判据；bindEnterToSubmit 是它的「整框接线」形态（抽屉两次用）。composer 的
+// keydown 还兼管 Esc 与 Tab，所以它读判据、不换监听器 —— 判据仍然只有一份。
+export function isSubmitEnter(event) {
+  return Boolean(event) && event.key === 'Enter' && !event.shiftKey && !event.isComposing;
+}
+
+export function bindEnterToSubmit(node, handler) {
+  if (!node || typeof node.addEventListener !== 'function') return false;
+  node.addEventListener('keydown', event => {
+    if (!isSubmitEnter(event)) return;
+    event.preventDefault();
+    handler(event);
+  });
+  return true;
+}
+
 // ── 117x-M2 模型选择器（27 号文 §11.17）：能说什么、说给谁听，判据全在这一段纯函数里 ──────
 // §11.17.1 划死了界面能说的话：我们真握着的只有 id／label、它属于哪个 provider、当前引擎、当前
 // 选中项与全局默认值，外加账本里【按模型】的真实用量（M1 给 /api/usage/summary 补的第六个维度

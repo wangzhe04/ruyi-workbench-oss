@@ -10,7 +10,7 @@ import { describeTurnActivity } from './turn-activity.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -1318,23 +1318,11 @@ export function createStewardDrawer({
     on('stewardDrawerStopBtn', () => { stopThread(); });
     on('stewardDrawerRewindBtn', () => { rewindAll(); });
 
-    const input = byId('stewardDrawerInput');
-    if (input) {
-      input.addEventListener('keydown', event => {
-        if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
-        event.preventDefault();
-        submitDirect();
-      });
-    }
+    // 33 号文 §4：回车发送（Enter ＋ 非 Shift ＋ 非输入法组合中）的判据收进了 steward-chips.js 的
+    // bindEnterToSubmit —— 这两处与 composer 那处自此读同一个判据，不再各写一遍。
+    bindEnterToSubmit(byId('stewardDrawerInput'), () => submitDirect());
     // 117l D4：问答框的 Enter 与底部输入框同一套规矩（Shift+Enter 换行、输入法组合中不发）。
-    const askInput = byId('stewardDrawerAskInput');
-    if (askInput) {
-      askInput.addEventListener('keydown', event => {
-        if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
-        event.preventDefault();
-        submitAsk();
-      });
-    }
+    bindEnterToSubmit(byId('stewardDrawerAskInput'), () => submitAsk());
 
     const document_ = doc();
     if (document_) {

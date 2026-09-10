@@ -36,6 +36,15 @@ const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.
 // 必须先把注释剥掉 —— 否则写下纪律的那一行会把自己判红。两个模块里没有任何字符串含 `//`，
 // 因此「块注释 + 行注释到行尾」这种朴素剥法在这里是安全的。
 const stripComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+// 33 号文 §4：几条 import 锁原来【逐字钉住整行】（连名字顺序都钉），一次合法的加名就把锁撞红。
+// 本仓自己的先例（117u-G3 重钉 E4／D1）是加名时一并重钉，所以这里改成【按名字集合判定】：
+// 一条 import 行从哪个模块来、带没带必需的那几个名字，不关心顺序、不关心后来还加了谁。
+// 纯字符串切分、不走正则（32 号文 §4 纪律 7：反斜杠在本仓是第三类静默损坏）。
+const chipsImportNames = source => source.split(String.fromCharCode(10))
+  .filter(line => line.startsWith('import {') && line.includes("from './steward-chips.js';"))
+  .flatMap(line => line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(','))
+  .map(name => name.trim())
+  .filter(Boolean);
 const conversationCode = stripComments(conversation);
 const composerCode = stripComments(composer);
 const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -67,7 +76,10 @@ ok(/textContent/.test(conversation)
   && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(conversationCode),
   'A3 对话流的节点创建委托给 steward-chips.js 共享的 el()/button()（117n-M1 去重）：零本地重复定义，createElement 仍可在 chips.js 里查证（零 innerHTML 的证据没消失，只是搬了家）');
 // A3b companion：composer.js 同样去重（doc/byId/el），不定义第二份。
-ok(/import \{ stewardEscapeStack, doc, byId, el \} from '\.\/steward-chips\.js';/.test(composer)
+// 33 号文 §4 重钉 A3c（反向验证过：把 isSubmitEnter 从 composer 的 import 里去掉立刻真红）：那次收编
+// 让本行又多了一个名字 isSubmitEnter。锁要钉的从来是「doc/byId/el 从 chips.js 来、零本地重复定义」，
+// 不是「那一行长什么样」——所以改成按名字集合判定（见头上 chipsImportNames）。
+ok(['stewardEscapeStack', 'doc', 'byId', 'el', 'isSubmitEnter'].every(name => chipsImportNames(composer).includes(name))
   && !/const doc = \(\) => globalThis\.document \|\| null;/.test(composerCode)
   && !/const byId = id => \(doc\(\) \? doc\(\)\.getElementById\(id\) : null\);/.test(composerCode)
   && !/function el\(tag, className, text\) \{/.test(composerCode),
@@ -422,13 +434,26 @@ ok(/if \(code === 'steward\.queued'\) \{/.test(drawerSrc)
 // 管家壳的输入框漏了输入法守卫（审查报回）：经典壳与抽屉两处都有 !event.isComposing，
 // 唯独管家 composer 没有 —— 中文用户选候选词按回车会把未完成的句子直接发给管家。
 // 这是中文优先的产品，这两条钉住「每一处回车发送都带输入法守卫」。
-const enterSendLines = [
+// 33 号文 §4 重钉 L1／L2（反向验证过：把 chips.js 里那句 !event.isComposing 去掉，L2 立刻真红）：
+// 三处回车发送的守卫收进了 steward-chips.js 的 isSubmitEnter／bindEnterToSubmit，所以
+//   L1 改成数【接线点】—— composer 一处读判据、抽屉两个框各一处；并加一条更紧的：壳里零第二处
+//      裸 Enter 判据（谁再手写一份 event.key === 'Enter' 就当场红）；
+//   L2 改成钉【判据本体唯一且带输入法守卫】（守卫只剩一处定义，那处必须含 isComposing）。
+const chipsFile = stripComments(read('js/steward-chips.js'));
+const guardLines = chipsFile.split(String.fromCharCode(10))
+  .filter(line => line.includes("event.key === 'Enter'") || line.includes("event.key !== 'Enter'"));
+const enterWiringLines = [
+  ...composerCode.split(String.fromCharCode(10)),
+  ...stripComments(read('js/steward-drawer.js')).split(String.fromCharCode(10)),
+].filter(line => line.includes('isSubmitEnter(') || line.includes('bindEnterToSubmit('));
+const rawEnterLines = [
   ...composerCode.split(String.fromCharCode(10)),
   ...stripComments(read('js/steward-drawer.js')).split(String.fromCharCode(10)),
 ].filter(line => line.includes("event.key === 'Enter'") || line.includes("event.key !== 'Enter'"));
-ok(enterSendLines.length === 3, 'L1 管家壳里回车发送的输入框恰好三处(composer + 抽屉两个)');
-ok(enterSendLines.every(line => line.includes("isComposing")),
-  'L2 每一处回车发送都带 !event.isComposing(中文候选词回车不误发)');
+ok(enterWiringLines.length === 3 && rawEnterLines.length === 0,
+  'L1 管家壳里回车发送的输入框恰好三处(composer + 抽屉两个)，且三处都走 chips.js 同一个守卫、壳里零第二处裸 Enter 判据');
+ok(guardLines.length === 1 && guardLines[0].includes('isComposing'),
+  'L2 回车发送的守卫只有一处定义，且带 !event.isComposing(中文候选词回车不误发)');
 
 // ─── N 117s-C：管家的话走【注入的】共享渲染器（27 号文 §11.13 D5，用户第九轮走查⑦）──────────
 // 修前 steward-conversation.js:20 的纪律是「零 innerHTML，全部 textContent」，于是模型写的
