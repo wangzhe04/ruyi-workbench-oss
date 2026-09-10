@@ -96,7 +96,16 @@ function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
   const stewardSession = !!(opts && opts.stewardSession === true);
   const allowCmd = config.allowCommandTools !== false;
-  const allowDesk = config.allowDesktopTools !== false;
+  // 117z-E2 提交①(27 号文 §11.21.3):桌面工具从「全局唯一一把闸」变成「全局闸 + 会话级覆盖」。
+  // 【全局闸一个字没动】—— config.allowDesktopTools 仍然是 forbidden 清册里那一个键(06i:776),
+  // 管家改不了它。opts.desktopOverride 是【另一把钥匙】,由调用方从会话头 session.desktopTools 取:
+  //   null / undefined -> 跟随全局(= 修前逐字行为,全部存量会话与所有不传该键的调用方都走这一支);
+  //   true             -> 这条线程拿得到桌面工具;
+  //   false            -> 这条线程拿不到。
+  // 拿不到 session 的调用方(子代理 08-agent-runs、各类探针与 e2e 直调)传 null 或干脆不传 —— 它们
+  // 没有「这一条线程」这个概念,一律跟随全局。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const allowDesk = desktopOverride == null ? config.allowDesktopTools !== false : desktopOverride === true;
   const out = [];
   const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
   const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从本文件移出)

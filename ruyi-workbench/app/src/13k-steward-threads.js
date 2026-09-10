@@ -565,6 +565,13 @@ async function stewardImplThreadNew(args, ctx, config) {
   }
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
+  // 117z-E2 提交①(27 号文 §11.21.3):【出身】标 —— 这条线程是管家自己开的。
+  // 为什么不复用既有的两个标:`launchedBy:'steward'` 也会打在 thread_continue 递话进【用户自己的】
+  // 会话那一路(见本文件 stewardMarkLaunched),`titleSource:'steward'` 语义是标题来源、quick_ask 还
+  // 会删掉它 —— 两个都答不出「这条线程是谁开的」。放宽桌面权限的目标合法性判据(13k 的
+  // stewardImplThreadPermission)只读这一个字段;它只在这里与 quick_ask 各写一次,此后终身不变,
+  // 也【不在】 02 的 applySessionMetaPatch 白名单里(PATCH 改不动它,见那里的注释)。
+  session.createdBy = 'steward';
   // 117s-A D2(§11.13 ⑤a):管家给的 title【不是】人起的名字(模型只是把用户那句话抄了一遍),
   // 覆写掉 createSession 刚写下的 'user',否则 116-5 的自动摘要永远跳过 —— 白名单与理由见 02:1066。
   if (args.title) session.titleSource = 'steward';
@@ -843,6 +850,10 @@ async function stewardImplQuickAsk(args, ctx, config) {
   // 116-4:管家关心的会话的三个机器痕迹之一(另两个是 stewardQuick、线程在别人的事项里)。
   // 在这里就地写进内存副本,跟着下面那次 saveSession 一起落盘 —— 零额外写。
   session.launchedBy = 'steward';
+  // 117z-E2 提交①(§11.21.3):出身标,与 thread_new 那处同一个字段、同一条纪律(见那里的注释)。
+  // 速查线程也算「管家自己开的」—— 它确实是 steward_quick_ask 建出来的,与 titleSource 被删掉那件事
+  // 无关(那删的是「标题是谁给的」,不是「线程是谁开的」)。
+  session.createdBy = 'steward';
   // 速查线程【不进事项】:missionId 指回自己(createSession 的缺省),不写任何反向索引,
   // GET /api/missions 里它就是一条「未归类」的派生行,不占任何事项的验收与预算。
   session.stewardQuick = {

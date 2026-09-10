@@ -1401,7 +1401,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
   // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
   const isStewardTurn = session.kind === 'steward';
-  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, ...(isStewardTurn ? { stewardSession: true } : {}) });
+  // 117z-E2 提交①(§11.21.3):会话级桌面覆盖在这里进注册层。null(绝大多数会话)= 跟随全局
+  // allowDesktopTools = 修前逐字行为。管家会话自己永远走不到这条支路的「true」那一边:它的 kind
+  // 是 'steward',上面那一支只给它 steward_* 工具面,桌面工具压根不在候选里。
+  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, desktopOverride: sessionDesktopToolsOf(session), ...(isStewardTurn ? { stewardSession: true } : {}) });
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };

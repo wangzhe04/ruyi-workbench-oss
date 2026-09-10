@@ -53,6 +53,37 @@ function liveSessionPermissionMode(id) {
   const mode = sessionPermissionModeOverrides.get(String(id || ''));
   return mode ? mode : null;
 }
+
+// ── 117z-E2 提交①(27 号文 §11.21.3):会话级【桌面工具】覆盖 ───────────────────────────────
+// 修前 `allowDesktopTools` 是【全局唯一】的一把闸(07-autonomy:99),在 buildOpenAiTools 的注册层
+// 决定桌面工具要不要提供给模型;没有任何会话级覆盖。本波加的是【另一把钥匙】,不动那把全局闸:
+//   · session.desktopTools === true   -> 这条线程拿得到桌面工具(与全局值无关);
+//   · session.desktopTools === false  -> 这条线程拿不到(与全局值无关);
+//   · 缺席 / null                     -> 跟随全局 allowDesktopTools(= 全部存量会话的行为逐字节不变)。
+// 三态而不是布尔:两态分不出「这条线程自己定了」与「跟着全局走」,与 permissionMode 的 chip 同一条
+// 理由(见 sessionMeta 里那段注释)。
+function normalizeSessionDesktopTools(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return null;   // null/''/缺席/任何野值 -> 跟随全局(fail-open 到【修前行为】,不是 fail-open 到放行)
+}
+// 读形:true / false / null(null = 没设过会话级覆盖)。
+function sessionDesktopToolsOf(o) {
+  return normalizeSessionDesktopTools(o && o.desktopTools);
+}
+// 与 sessionPermissionModeOverrides 同款「live-turn stale-save guard」:活回合手里那份会话内存副本是
+// 回合开始时的快照,不带刚写下的覆盖值;它的收尾 save 会把整个会话头写回「没有该字段」的样子。
+// loadSession / saveSession 两侧都盖一次,任何顺序下这次改动都不会被回合的陈旧副本吞掉。
+// 表为空时全部应用点都是零操作 —— 没设过会话级桌面覆盖的会话(含全部存量会话)行为逐字节不变。
+const sessionDesktopToolsOverrides = new Map();   // id -> true | false | null(null = 清除,回落全局)
+function applySessionDesktopToolsOverride(session) {
+  const id = session && session.id;
+  if (!id || !sessionDesktopToolsOverrides.has(id)) return session;
+  const value = sessionDesktopToolsOverrides.get(id);
+  if (value === null) delete session.desktopTools; else session.desktopTools = value;
+  return session;
+}
+
 function sessionBodyPaths(id) {
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
@@ -1002,6 +1033,25 @@ function applySessionMetaPatch(session, patch) {
     sessionPermissionModeOverrides.set(id, mode);
     if (mode) session.permissionMode = mode; else delete session.permissionMode;
   }
+  // 117z-E2 提交①(§11.21.3):会话级桌面工具覆盖。形状与上面 permissionMode 那条逐字对齐(同覆盖表
+  // 纪律、同延后落盘防护)。三态:true / false / null(= 清除会话级设置,回落全局 allowDesktopTools)。
+  // 【它是状态,不是出身】—— 所以它进白名单,而下面那条 createdBy 不进。
+  // 如实记两件事:① 这条通道也接 PATCH /api/sessions/:id,所以【用户】可以经界面/脚本改自己线程的
+  // 这一项(与「桌面权限在设置里改」同一语义,§11.21.2);管家【碰不到这条路】——它手里只有 steward_*
+  // 工具,没有任何一个能发 HTTP PATCH,放宽那一侧的闸在 13k 的工具实现里。② 与 permissionMode 切
+  // 「全自动」不同,这里【没有】confirm:true 那道二次确认门(那道门在 13d 的路由层,不在本函数);
+  // 已登记为债。
+  if (Object.prototype.hasOwnProperty.call(patch, 'desktopTools')) {
+    const desk = normalizeSessionDesktopTools(patch.desktopTools);
+    sessionDesktopToolsOverrides.set(id, desk);
+    if (desk === null) delete session.desktopTools; else session.desktopTools = desk;
+  }
+  // 117z-E2 提交①(§11.21.3):`createdBy` 【故意不在这张白名单里】,一个分支都不给它。
+  // 它记的是【出身】(这条线程是不是管家开的),不是状态 —— 只在 13k 的两处 createSession 调用点
+  // (thread_new / quick_ask)写一次,此后终身不变。放宽桌面权限的目标合法性判据读的正是它:
+  // 一旦它能经 PATCH 改,任何调用方都能把自己的普通会话刷成「管家开的」,再去要桌面权限,
+  // §11.21.3 的「只能开给管家自己开的线程」就成了一句空话。本函数是白名单语义,不写分支
+  // 即拒绝(patch.createdBy 静默丢弃),这条注释是给日后加分支的人看的锚。
   // 116g(§3.1 事项跨会话升格):线程归属。**只认合法 id,且只由 06e 的 missionAttachThread /
   // missionDetachThread 写** —— 它们成对维护「会话头 missionId」与「事项文件 sessionIds」两侧。
   // 走这条 patch 通道(而不是直接 loadSession+saveSession)是为了白拿 116-2a 的活回合竞态防护:
@@ -1181,6 +1231,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   sessionBodyState.delete(id);
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
+  sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -2469,6 +2520,7 @@ async function loadSession(id, reloadDepth = 0) {
   // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
   // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
   applySessionPermissionModeOverride(session);
+  applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   // 71b: 惰性清理残留 pending 叙事段(见 healStalePendingSegments 头注)。竞态防护:活回合(activeChildren)
   // 或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)内跳过 —— 此时磁盘 pending 可能是活段,
   // 且本会话的收尾 save 会整份重写正文,清理既多余又有互相覆盖风险;下次数 truly idle 的装载再清。
@@ -2525,6 +2577,7 @@ async function saveSession(session) {
   // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
   // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
   applySessionPermissionModeOverride(session);
+  applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];

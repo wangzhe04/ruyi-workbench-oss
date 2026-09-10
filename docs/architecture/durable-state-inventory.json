@@ -169,7 +169,7 @@
       "pattern": "<data>/sessions/<id>.json",
       "owner": "02-session-store.js",
       "anchor": "sessionPath(id)",
-      "schema": "object / storageVersion 2 (116-4 added launchedBy + stewardLastTurn; 116-5 added threadBrief {title,gist,at,model,stage} + titleSource - all additive, no schema bump, absent on every pre-existing session)",
+      "schema": "object / storageVersion 2 (116-4 added launchedBy + stewardLastTurn; 116-5 added threadBrief {title,gist,at,model,stage} + titleSource; 117z-E2 added createdBy (origin mark, written once at the two steward createSession sites, never in the applySessionMetaPatch whitelist) + desktopTools (true|false|absent session-level override of the global allowDesktopTools gate) - all additive, no schema bump, absent on every pre-existing session)",
       "writePrimitive": "atomicWriteJson + per-session chain",
       "corruption": "rename to .corrupt on invalid",
       "capacity": "one per session",

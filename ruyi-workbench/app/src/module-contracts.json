@@ -565,6 +565,7 @@
         "appendIntervention",
         "appendMissionChangeRecord",
         "applyMissionUpdate",
+        "applySessionDesktopToolsOverride",
         "applySessionMetaPatch",
         "applySessionPermissionModeOverride",
         "archiveMissionContainer",
@@ -669,6 +670,7 @@
         "normalizeMissionCheck",
         "normalizeMissionContainer",
         "normalizeSession",
+        "normalizeSessionDesktopTools",
         "normalizeSessionEngineRoute",
         "normalizeSessionPermissionMode",
         "normalizeTodoItems",
@@ -703,6 +705,8 @@
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
+        "sessionDesktopToolsOf",
+        "sessionDesktopToolsOverrides",
         "sessionDisplayTitle",
         "sessionEngineRouteFromConfig",
         "sessionEngineRouteOverrides",
@@ -6008,6 +6012,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]

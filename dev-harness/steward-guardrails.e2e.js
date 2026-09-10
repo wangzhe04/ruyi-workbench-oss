@@ -284,6 +284,29 @@ try {
     ok(bogus.status === 400 && bogus.json && bogus.json.error && bogus.json.error.code === 'not_allowed',
       `L6 对照组:只读工具仍进不了 act 白名单(got ${bogus.status} ${bogus.json && bogus.json.error && bogus.json.error.code})`);
   }
+
+  /* ═════════ (N) 117z-E2 提交①:出身标 createdBy 的 PATCH 面(§11.21.6 锁 5) ═════════ */
+  // 被钉的事实:`createdBy` 记的是【出身】,不是状态 —— 它不在 02 的 applySessionMetaPatch 白名单里,
+  // 所以 PATCH /api/sessions/:id 一个字都改不动它。为什么这条必须机器看着:放宽桌面权限的目标
+  // 合法性判据(13k 的 stewardImplThreadPermission)只读这一个字段,它一旦能经 PATCH 改,任何调用方
+  // 都能把自己的普通会话刷成「管家开的」再去要桌面权限,§11.21.3「只能开给管家自己开的线程」
+  // 就成了一句空话。反向保护同在一段:同一次 PATCH 里的 title 【真的】写进去了 —— 证明这次请求
+  // 本身是通的,createdBy 没写进去是白名单拒了它,不是整条 PATCH 失败。
+  console.log('── (N) 117z-E2 createdBy 的 PATCH 面 ──');
+  {
+    const created = await request('POST', '/api/sessions', { title: '用户自己开的线程', cwd: HOME }, hdr);
+    const sid = created.json && created.json.session && created.json.session.id;
+    ok(!!sid, `N0 前置:建出一条用户自己开的线程(got ${sid})`);
+    const headOf = () => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, sid + '.json'), 'utf8')); } catch { return null; } };
+    ok(headOf() && headOf().createdBy === undefined, 'N1 用户自己开的线程会话头上没有 createdBy(存量会话同形)');
+    const patched = await request('PATCH', '/api/sessions/' + sid, { createdBy: 'steward', title: '改过名的线程' }, hdr);
+    ok(patched.status === 200, `N2 PATCH 本身是通的(got ${patched.status})`);
+    await sleep(200);
+    ok(headOf() && headOf().createdBy === undefined,
+      `N3 锁 5:PATCH createdBy 被白名单拒绝,会话头上仍然没有这个字段(got ${JSON.stringify(headOf() && headOf().createdBy)})`);
+    ok(headOf() && headOf().title === '改过名的线程',
+      `N3b 反向:同一次 PATCH 里的 title 真写进去了(证明拒的是 createdBy 这一个键,不是整条请求;got ${headOf() && headOf().title})`);
+  }
 } finally {
   kill(wb);
   wb = null;
@@ -755,6 +778,72 @@ try {
       'I3b 「非 mission 即 quick_ask」那个兜底在 13g 族/13h 族里一处都不剩');
     ok((srcFam.match(/stewardQuickThread\(head\)/g) || []).length >= 3 && /stewardQuickThread\(head\)/.test(src13h),
       'I3c 三个派生点(threads_search / thread_status / 总览行)都走同一个判据');
+  }
+
+  /* ═════════ (O) 117z-E2 提交①:出身标写点 + 会话级桌面覆盖(§11.21.6 锁 3/6) ═════════ */
+  // 三件事:
+  //   ① `createdBy:'steward'` 只在 13k 的两处 createSession 调用点写(thread_new / quick_ask);
+  //   ② 锁 6:thread_continue 把话递进【用户自己的】会话时,那条会话【不会】变成 createdBy:'steward'
+  //      —— 这正是 §11.21.1 指出 `launchedBy` 不能拿来当出身标的那个反例(它会被递话污染);
+  //   ③ 锁 3:`session.desktopTools` 是【会话级】覆盖 —— 该线程的 buildOpenAiTools 产物含桌面工具,
+  //      别的线程不含,而全局 `config.allowDesktopTools` 的值一个字没动。
+  console.log('── (O) 117z-E2 出身标与会话级桌面覆盖 ──');
+  {
+    const user = stewardCtx({ trigger: 'user' });
+    const headOf = id => { try { return JSON.parse(fs.readFileSync(path.join(sessionsDir, id + '.json'), 'utf8')); } catch { return null; } };
+
+    // ① 管家自己开的两种线程都带出身标。
+    const made = await call('steward_thread_new', { brief: { userText: '这条是管家开的' }, cwd: HOME }, user);
+    const stewardSid = made && made.sessionId;
+    ok(made && made.ok === true && !!stewardSid, `O1 前置:steward_thread_new 建出一条线程(got ${made && (made.error || stewardSid)})`);
+    await sleep(200);
+    ok(headOf(stewardSid) && headOf(stewardSid).createdBy === 'steward',
+      `O2 thread_new 建的线程会话头 createdBy === 'steward'(got ${JSON.stringify(headOf(stewardSid) && headOf(stewardSid).createdBy)})`);
+    const quick = await call('steward_quick_ask', { question: '这条是速查线程' }, user);
+    const quickSid = quick && quick.sessionId;
+    ok(quick && quick.ok === true && !!quickSid, `O3 前置:steward_quick_ask 建出一条速查线程(got ${quick && (quick.error || quickSid)})`);
+    await sleep(200);
+    ok(headOf(quickSid) && headOf(quickSid).createdBy === 'steward',
+      `O4 quick_ask 建的线程也带出身标(got ${JSON.stringify(headOf(quickSid) && headOf(quickSid).createdBy)})`);
+
+    // ② 锁 6:递话【不】污染出身。SID_ACCEPT 是 craftThread 合成的「用户自己的」线程。
+    ok(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).createdBy === undefined, 'O5 前置:用户自己的线程头上没有 createdBy');
+    const relayed = await call('steward_thread_continue', { sessionId: SID_ACCEPT, message: '接着办' }, user);
+    ok(relayed && relayed.ok === true, `O6 前置:递话成功(got ${relayed && (relayed.error || 'ok')})`);
+    await sleep(400);
+    ok(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).createdBy === undefined,
+      `O7 锁 6:递话进用户自己的会话【不会】把它变成 createdBy:'steward'(got ${JSON.stringify(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).createdBy)})`);
+    // 对照:同一条会话上的 launchedBy 【确实】被递话打上了 —— 这就是它当不了出身标的证据。
+    ok(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).launchedBy === 'steward',
+      `O7b 对照:同一次递话把 launchedBy 打成了 'steward'(§11.21.1 指出的污染,故出身标另起一个字段;got ${JSON.stringify(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).launchedBy)})`);
+
+    // ③ 锁 3:会话级覆盖真的落到注册层,且只落在这一条线程上。
+    const DESK = ['desktop_screenshot', 'keyboard_send_keys'];
+    const deskOf = tools => tools.map(t => t.function.name).filter(n => DESK.includes(n)).sort();
+    writeConfig({ allowDesktopTools: false });
+    const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
+    ok(cfg.allowDesktopTools === false, `O8 前置:全局闸 allowDesktopTools = false(got ${cfg.allowDesktopTools})`);
+    await srv.updateSessionMeta(stewardSid, { desktopTools: true });
+    const grantedHead = await srv.loadSession(stewardSid);
+    const plainHead = await srv.loadSession(SID_ACCEPT);
+    ok(grantedHead && grantedHead.desktopTools === true,
+      `O9 覆盖落盘到会话头(got ${JSON.stringify(grantedHead && grantedHead.desktopTools)})`);
+    const grantedTools = deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: grantedHead.desktopTools == null ? null : grantedHead.desktopTools }));
+    const plainTools = deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: plainHead && plainHead.desktopTools != null ? plainHead.desktopTools : null }));
+    ok(grantedTools.length === 2, `O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got ${JSON.stringify(grantedTools)})`);
+    ok(plainTools.length === 0, `O11 锁 3:别的线程仍然不含(got ${JSON.stringify(plainTools)})`);
+    ok(JSON.parse(fs.readFileSync(configFile, 'utf8')).allowDesktopTools === false,
+      'O12 锁 3:全局 allowDesktopTools 的值一个字没动(会话级覆盖是另一把钥匙)');
+    ok(plainHead && plainHead.desktopTools === undefined,
+      `O12b 别的线程会话头上根本没有 desktopTools 这个键(存量会话零迁移;got ${JSON.stringify(plainHead && plainHead.desktopTools)})`);
+    // 反向:把覆盖清成 null(= 跟随全局)后,那条线程也拿不到了。
+    await srv.updateSessionMeta(stewardSid, { desktopTools: null });
+    const clearedHead = await srv.loadSession(stewardSid);
+    ok(clearedHead && clearedHead.desktopTools === undefined,
+      `O13 反向:清除覆盖后会话头上的键被删掉(回落全局;got ${JSON.stringify(clearedHead && clearedHead.desktopTools)})`);
+    ok(deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: clearedHead.desktopTools == null ? null : clearedHead.desktopTools })).length === 0,
+      'O14 反向:清除后该线程也拿不到桌面工具了');
+    writeConfig({});
   }
 } finally {
   try { providerServer.close(); } catch { /* ignore */ }

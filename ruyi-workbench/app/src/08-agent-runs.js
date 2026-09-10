@@ -520,7 +520,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // 非 off(runAgentWorkflow 在策略 off 时不传 proposeTask 闭包)。非工作流的 spawn_agent 子回合两者皆不注册。
   const proposeTaskEnabled = typeof proposeTask === 'function';
   const sendToAgentEnabled = typeof sendToAgent === 'function';
-  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true });
+  // 117z-E2 提交①(§11.21.3):子代理没有「这一条线程」的会话头 —— 它跑在父回合的执行链里,自己
+  // 不是一条会话。desktopOverride 显式传 null = 跟随全局 allowDesktopTools = 修前逐字行为。写成
+  // 显式的 null 而不是省略,是为了让「子代理这一面【没有】会话级桌面覆盖」这件事在源码里可读可查。
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
   // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
   // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
