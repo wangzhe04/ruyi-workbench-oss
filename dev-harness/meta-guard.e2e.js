@@ -134,6 +134,47 @@ const src = readServerSource();
   ok(/(buildProviderSystemPrompt|buildVolatileParts)\([^)]*session\.mission/.test(openaiRegion), 'F Provider 引擎(runOpenAiTurn)也传 session.mission 注入(对称;51d C1b 后走 buildVolatileParts)');
 }
 
+// ── G) 两引擎能力对称(117w-T2):【结论先行】必须两条路都拿得到。117v-V3 只把它接到 provider 引擎的
+//        稳定层(06 buildStableSystemPrompt 的 !identityOnly 分支),Claude/Kimi CLI 那一路当时漏了 ——
+//        用户给管家单配 openai 端点、全局主端点仍是 claude-cli 时,管家开的线程全在洞里。
+//        钉的是【两条路都拿得到这条规则】这个事实,不是某一行的写法:文本可以润色、注入位置可以再挪,
+//        但「只有一份文本 + 两个引擎各注入一次」这两条一破就红。──
+{
+  // ① 文本只有一份:定义在 06b 的提示词包里,两条路都经 getPromptPack(...).answerShape 取,
+  //    src/ 里不许出现第二处自己写的结论先行文字(那是「同一条规则两份口径」的老毛病)。
+  const accessors = (src.match(/getPromptPack\([^)]*\)\.answerShape/g) || []).length;
+  ok(accessors >= 2, 'G answerShape 经 getPromptPack 取用 ≥2 处(两个引擎各一次;实 ' + accessors + ')');
+  const definitions = (src.match(/^\s{2}answerShape:/gm) || []).length;
+  ok(definitions === 2, 'G answerShape 在提示词包里恰好两份定义(中文包 + 英文包;实 ' + definitions + ')');
+  // ② Claude/Kimi CLI 那一路(runClaudeTurn)注入它,且是拼进 --append-system-prompt 的那一段。
+  //    区间必须收到 appendSys 装配块【本身】:runClaudeTurn -> runOpenAiTurn 之间横跨 05..09 五个模块
+  //    (06b 的两份包定义、06 的 provider 注入都落在里面),拿整段去 test(/answerShape/) 永远假绿 ——
+  //    上面 E/F 两组能用整段是因为它们钉的符号本来就只出现在 05 与 09。
+  const claudeStart = src.indexOf('async function runClaudeTurn(');
+  const claudeEnd = src.indexOf('async function runOpenAiTurn(');
+  const claudeRegion = claudeStart >= 0 && claudeEnd > claudeStart ? src.slice(claudeStart, claudeEnd) : '';
+  const apStart = claudeRegion.indexOf("let appendSys = '';");
+  const apEnd = claudeRegion.indexOf("if (appendSys && agentCliType === 'claude')");
+  const appendBlock = apStart >= 0 && apEnd > apStart ? claudeRegion.slice(apStart, apEnd) : '';
+  ok(appendBlock.length > 0, 'G 抓到 CLI 侧 appendSys 装配块(它就是 --append-system-prompt 的载荷来源)');
+  // 只看【代码行】:注释里提一句 answerShape 不算注入(反向验证时踩到过 —— 把那一行换成一句带
+  // answerShape 字样的注释,松判据会假绿)。
+  const appendCode = appendBlock.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  ok(/appendSys \+=[^\n]*answerShape/.test(appendCode),
+    'G Claude/Kimi CLI 引擎(runClaudeTurn)注入结论先行 ← 修 117v-V3 漏的那一路');
+  ok(/append-system-prompt/.test(claudeRegion),
+    'G CLI 侧走 --append-system-prompt 的 appendSys(与四层工具协议同一段,不另开信道)');
+  // ③ 它落在【无条件前缀】里 —— 即排在 sectionLimit 计算之前。所有降级都从尾部切,前缀不会被静默剪掉;
+  //    这条一红 = 有人把它挪进了 fits-or-drop 竞争区,那时它会在长会话里悄悄消失。
+  const appendIdx = appendCode.search(/appendSys \+=[^\n]*answerShape/);
+  const sectionLimitIdx = appendCode.indexOf('const sectionLimit =');
+  ok(appendIdx >= 0 && sectionLimitIdx > appendIdx,
+    'G CLI 侧结论先行在无条件前缀里(排在 sectionLimit 之前,不参与 fits-or-drop;降级一律从尾部切)');
+  // ④ Provider 那一路仍然注入(对称的另一半;117v-V3 建的那条线没被这一刀动过)。
+  ok(/if \(!identityOnly\) lines\.push\(getPromptPack\([^)]*\)\.answerShape\)/.test(src),
+    'G Provider 引擎(buildStableSystemPrompt)也注入结论先行,且仍受 !identityOnly 门控(对称)');
+}
+
 console.log('');
 if (failures) { console.log(`META-GUARD E2E: ${failures} FAILURE(S)`); process.exit(1); }
 console.log('META-GUARD E2E: ALL PASS');

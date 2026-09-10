@@ -11372,6 +11372,19 @@ async function runClaudeTurn({
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.contextBudget}`;
+    // 117w-T2(27 号文 §11.16.6 V3 那条的补口):[答复形状层] 结论先行。117v-V3 只把它接到 provider
+    // 引擎的稳定层(06 buildStableSystemPrompt 的 !identityOnly 分支),CLI 这一路当时漏了 —— 用户给
+    // 管家单配 openai 端点、而全局主端点仍是 claude-cli 时,管家开的那些线程一条都拿不到这条规则。
+    // 位置刻意排在四层协议之后、各类 hint 之前:这一段是【无条件前缀】,不参与下面 sectionLimit 的
+    // fits-or-drop 竞争;而所有降级路径(appendMemorySection 的 b.slice、appendTurnPolicies 的
+    // fenceSafeSlice、启动守卫③的 append-final-trim)一律【从尾部】切,前缀里的东西不会被静默剪掉。
+    // 预算实测:中文 +95 字符、英文 +395(四层本身 461 / 1333),而 sectionLimit 最紧的团队模式下仍有
+    // 5143 —— 顶不破 8000 那道闸。真顶破时是整段 append 被跳过(appendLimit<200),那条路径有 stderr
+    // 事件 + logEvent(cmdline_guard) + meta.cmdlineGuard 三处告知,不会静默消失。
+    // 不做 identityOnly 门控:CLI 这一路【没有】identityOnly 这个概念 —— 它自建 prompt,从不调
+    // buildStableSystemPrompt;全仓 identityOnly=true 只有 06:997 与 10:1263 两个 provider 侧摘要调用,
+    // capabilities.e2e 的身份泄漏守卫查的也是 provider 侧那条 system 首段,与本行无关。
+    appendSys += `\n${getPromptPack(config && config.locale).answerShape}`;
     if (interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
