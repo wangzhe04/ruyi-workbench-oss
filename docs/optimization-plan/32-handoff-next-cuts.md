@@ -255,6 +255,10 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
     **结论**：写文件优先用 Write／Edit 工具（不经 shell 传输层）；非用脚本不可就用 node（`fs.writeFileSync` 按字节写，
     不像 Python 会翻行尾），并且**写完逐字节核一遍**（NUL 用 node 扫，别用 `grep`——空模式会把每一行都算成命中，那个数字是假的）。
 
+12. **06i 里新增带参数的纯函数，参数名不能与更早模块的顶层符号同名。** `module-dependency-graph.js` 把裸参数名当跨模块符号：
+    117y-A 给 `stewardTrimSayAtSentence` 起参数名 `text`，命中 `00-boot` 的顶层 `text`，生成 `06i → 00-boot` 一条边并把 06i 拽进 SCC，
+    `--check` 红，而错误信息是「新增循环边」——**指不到参数名**。改名 `value` 后恢复。加一个纯函数这种最无害的改动也能红，记住这条能省一次排查。
+
 ---
 
 ## 5. 已登记、本波明确不动的债
