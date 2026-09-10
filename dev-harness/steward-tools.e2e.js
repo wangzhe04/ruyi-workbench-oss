@@ -26,6 +26,9 @@
 //      里的 / 相对路径),thread_new 与 quick_ask 共用一份校验;省略 -> 提交② 起在 Ruyi 根下派生
 //      <root>/<slug(标题)> 并登记进 workspaces[] 末尾(带 note),撞名 -2、空目录复用、标题全非法字符
 //      回落 thread-<id>,外加「cwdWarning 对它静默 / defaultWorkspace 没被顶掉」两条反向保护。
+//  (P) 117w-W1④(§11.19.8 债表第一行)workspaces[] 的行数帽子 20 -> 64:63 行派生成功且第 64 行
+//      落盘;64 行时派生【拒开线程】(invalid_request / workspace_table_full)、不建目录、表不动
+//      —— 二者必居其一,不许「目录建了、行没了」;25 行的表经得过清洗,折叠句因此生产可达。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -811,9 +814,11 @@ try {
     ok(!tableBlock.includes(path.basename(WS_HIDDEN)) && !volatileText.includes(path.basename(WS_HIDDEN)),
       'O4 只在 recentWorkspaces 里的目录不进表(打开过 ≠ 授权过)');
 
-    // O5 —— 折叠。config 的 workspaces 清洗自己就截到 20 行,所以 25 行的表【经不过 normalizeConfig】;
-    // 这里直接把 25 行喂给装配函数,验的是投影自己的预算行为(超出折叠、不截断)。
-    // 【登记的事实】两处上限都是 20 而 01-config 的表也正好截 20 —— 生产路径上这句折叠句不可达。
+    // O5 —— 折叠。这里直接把 25 行喂给装配函数,验的是投影【自己】的预算行为(超出折叠、不截断),
+    // 与配置层能不能存下 25 行无关。
+    // 【117w-W1④ 更新】原注写「25 行经不过 normalizeConfig,生产路径上折叠句不可达」——那是帽子还
+    // 在 20 时的事实。帽子抬到 64 之后 25 行的表经得过清洗,折叠句在生产形状下可达,那一条由 (P) 段
+    // 的 P5/P5b 走真 writeConfig 钉住;本条继续只钉投影函数自己。
     {
       const many = [];
       for (let i = 1; i <= 25; i++) many.push({ path: path.join(HOME, 'many-' + i), read: true, write: true, execute: true });
@@ -835,8 +840,10 @@ try {
     // 候选表投影是 20:模型在上下文里看得见 20 行,被拒时只被提醒 8 个,它会合理推断「另外 12 个
     // 不能用」然后去编路径。
     // 【为什么夹具必须是 20 行】3 行的夹具下两边都会列 3 个,常量分叉与否都绿 —— 那是假锁。
-    // 01-config 的 workspaces 清洗自己截到 20 行,所以 20 是这条路径上能造出的最大表:上限一旦
-    // 被改小(比如退回 8),文案侧会只列 8 个并追加「另有 12 个未列出」,这条立刻红。
+    // 20 恰好【踩在】STEWARD_WORKSPACE_TABLE_MAX 上:上限一旦被改小(比如退回 8),文案侧会只列
+    // 8 个并追加「另有 12 个未列出」,这条与下面的 O6b 一起红。
+    // 【117w-W1④ 更新】原注写「01-config 截 20 行,所以 20 是这条路径上能造出的最大表」——帽子抬到
+    // 64 之后不再成立(表能到 64)。「有人把上限改【大】」那一半仍由 steward-tools.static ⑨ 的源码锁管。
     {
       const twenty = [];
       for (let i = 1; i <= 20; i++) twenty.push({ path: path.join(HOME, 'align-' + i), read: true, write: true, execute: true });
@@ -877,6 +884,108 @@ try {
       const builtEmpty = await srv.buildStewardSystemPrompt(stewardSession, emptyCfg, {});
       ok(String(builtEmpty.volatile).includes('(还没有登记任何工作区)'),
         'O7d 空表时投影明说「还没有登记任何工作区」');
+    }
+  }
+
+  /* ═════════ (P) 117w-W1④:workspaces[] 的行数帽子(27 号文 §11.19.8 债表第一行)═════════ */
+  // 修前:01-config 对 workspaces[] 的帽子是 20 行,而 117w-W1② 起工作台【自己】会往表里追加派生
+  // 行。用户已有 20 个工作区时,派生行在下一次 normalizeConfig 就被截掉 —— 目录建了、行没了,线程
+  // 的 cwd 指向表外目录,再拿它当 cwd 会被拒。修后:帽子 64,且派生【之前】先算超不超帽,会超就
+  // fail-closed 拒开线程(不建目录、不写表)。
+  // 本段的核心断言是 P2c/P3c 那一对:【帽满时派生要么行落盘、要么拒,二者必居其一】,不许有中间态。
+  // 反向实测(修前 = 帽子 20 且无帽检查):P1/P1b/P2c/P3/P3b/P3c/P4/P5/P5b 九条红,
+  // 其中 P2b「目录建出来了」仍绿而 P2c「第 64 行落盘」红 —— 那正是「目录建了、行没了」的形状。
+  console.log('── (P) 工作区表行数帽子 ──');
+  {
+    const RUYI_CAP_ROOT = path.join(HOME, 'Ruyi-cap');
+    const capCfg = () => srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
+    const capHead = sid => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', sid + '.json'), 'utf8'));
+    const capRows = n => {
+      const rows = [];
+      for (let i = 1; i <= n; i++) rows.push({ path: path.join(HOME, 'cap-' + i), read: true, write: true, execute: true });
+      return rows;
+    };
+    const capWrite = rows => writeConfig({
+      configSchema: 11, stewardWorkspaceRoot: RUYI_CAP_ROOT, workspaces: rows, recentWorkspaces: [],
+    });
+    fs.mkdirSync(path.join(HOME, 'cap-1'), { recursive: true });
+
+    // P1 —— 帽子本身抬到了 64:63 行原样进得去(修前只剩 20 行)。
+    capWrite(capRows(63));
+    ok(capCfg().workspaces.length === 63, `P1 63 行的表原样通过清洗(got ${capCfg().workspaces.length};修前帽子 20)`);
+    // P1b —— 帽子【是 64,不是无界】:65 行正好被截到 64。
+    capWrite(capRows(65));
+    ok(capCfg().workspaces.length === 64, `P1b 65 行被截到 64(帽子仍在,只是抬高了;got ${capCfg().workspaces.length})`);
+
+    // P2 —— 63 行 + 省略 cwd:派生成功,第 64 行【落盘】。
+    capWrite(capRows(63));
+    const capOk = await call('steward_thread_new', {
+      title: '帽子 63', brief: { userText: '帽子 63' },
+    }, stewardCtx('cap-63'));
+    ok(capOk && capOk.ok === true, `P2 63 行表 + 省略 cwd -> 照常开线程(got ${JSON.stringify(capOk && capOk.error)})`);
+    const capDerived = capOk && capOk.ok ? capHead(capOk.sessionId).cwd : '';
+    ok(capDerived === path.join(RUYI_CAP_ROOT, '帽子 63'),
+      `P2a 线程 cwd == <Ruyi 根>/<slug>(want ${path.join(RUYI_CAP_ROOT, '帽子 63')};got ${capDerived})`);
+    ok(!!capDerived && fs.existsSync(capDerived), 'P2b 派生目录真的建出来了');
+    {
+      const rows = capCfg().workspaces;
+      const last = rows[rows.length - 1];
+      ok(rows.length === 64 && String(last && last.path) === capDerived && (last && last.note) === 'Ruyi 自动开的',
+        `P2c 第 64 行【落盘】了,不是被帽子吞掉(表 ${rows.length} 行;末行 ${JSON.stringify(last)})`);
+    }
+
+    // P3 —— 64 行 + 省略 cwd:fail-closed 拒开线程,目录不建、表不动。
+    capWrite(capRows(64));
+    const CAP_FULL_TITLE = '帽子 64';
+    const capRefused = await call('steward_thread_new', {
+      title: CAP_FULL_TITLE, brief: { userText: CAP_FULL_TITLE },
+    }, stewardCtx('cap-64'));
+    ok(capRefused && capRefused.ok === false && capRefused.error === 'invalid_request'
+      && capRefused.reason === 'workspace_table_full',
+      `P3 表满 + 省略 cwd -> invalid_request / workspace_table_full(got ${JSON.stringify(capRefused && [capRefused.error, capRefused.reason])})`);
+    const capMsg = String((capRefused && capRefused.message) || '');
+    ok(capMsg.includes('工作区表已满(64/64)') && capMsg.includes('设置') && capMsg.includes('不要重试'),
+      `P3b 文案是人话:说清满员数、让用户去设置里清理、别重试(got ${JSON.stringify(capMsg)})`);
+    ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, CAP_FULL_TITLE)),
+      'P3c 目录【没有】建出来 —— 拒得干净,不留「目录建了、行没了」的残骸');
+    ok(!(capRefused && capRefused.sessionId), 'P3d 拒的是「开线程」,连 sessionId 都没有');
+    ok(capCfg().workspaces.length === 64, `P3e 表仍然是 64 行,一行没多(got ${capCfg().workspaces.length})`);
+
+    // P4 —— quick_ask 走同一份帽检查(不许各抄一遍)。
+    const CAP_Q_TITLE = '帽子满了的速查';
+    const capQ = await call('steward_quick_ask', { question: CAP_Q_TITLE }, stewardCtx('cap-64q'));
+    ok(capQ && capQ.ok === false && capQ.error === 'invalid_request' && capQ.reason === 'workspace_table_full',
+      `P4 quick_ask 省略 cwd + 表满 -> 同一个稳定信封(got ${JSON.stringify(capQ && [capQ.error, capQ.reason])})`);
+    ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, CAP_Q_TITLE)), 'P4b quick_ask 那一路同样不建目录');
+    // P4c —— 帽子只挡【派生】,不挡「用表里现成的」:表满时显式给表内 cwd 照常开线程。
+    const capExplicit = await call('steward_thread_new', {
+      title: '帽子满但指定 cwd', cwd: path.join(HOME, 'cap-1'), brief: { userText: 'x' },
+    }, stewardCtx('cap-64x'));
+    ok(capExplicit && capExplicit.ok === true && capHead(capExplicit.sessionId).cwd === path.join(HOME, 'cap-1'),
+      `P4c 表满 + 表内 cwd -> 照常开线程(帽子只挡派生;got ${JSON.stringify(capExplicit && capExplicit.error)})`);
+
+    // P5 —— 候选表的折叠句【生产可达】。走真 writeConfig(不是直接喂装配函数):修前 25 行经不过
+    // 清洗、只剩 20,折叠句在生产形状下永远印不出来 —— O5 那一条是拿 25 行直喂装配函数验的,
+    // 验的是投影自己的预算行为,验不到「这条路上真能有 25 行」。
+    capWrite(capRows(25));
+    const cap25 = capCfg();
+    ok(cap25.workspaces.length === 25, `P5 25 行的表【经得过 normalizeConfig】(got ${cap25.workspaces.length};修前 20)`);
+    {
+      const built25 = await srv.buildStewardSystemPrompt({ id: 'steward', kind: 'steward', providerHistory: [] }, cap25, {});
+      const block25 = (String(built25.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      ok(block25.includes('另有 5 个工作区未列出'),
+        `P5b 管家上下文里真的出现折叠句(got ${JSON.stringify(block25.split('\n').find(l => l.includes('未列出')) || '(没有折叠句)')})`);
+      const listed25 = block25.split('\n').filter(l => l.startsWith('· '));
+      ok(listed25.length === 20, `P5c 到访层仍然只印 20 行 —— 抬的是存储帽子,不是投影预算(got ${listed25.length})`);
+    }
+
+    // P6 —— 反向保护:64 行时 defaultWorkspace 与 workspaces[0].path 的同步语义一个字没变。
+    capWrite(capRows(64));
+    {
+      const cap64 = capCfg();
+      ok(cap64.workspaces.length === 64 && cap64.defaultWorkspace === cap64.workspaces[0].path,
+        `P6 64 行时 defaultWorkspace 仍等于 workspaces[0].path(${cap64.defaultWorkspace} / ${cap64.workspaces[0].path})`);
+      ok(cap64.defaultWorkspace === path.join(HOME, 'cap-1'), 'P6b 同步的是【第一行】,不是最后追加的那一行');
     }
   }
 

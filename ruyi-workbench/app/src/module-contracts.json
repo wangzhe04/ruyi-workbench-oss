@@ -169,6 +169,7 @@
         "PERMISSION_MODE_ALIASES",
         "RUNTIME",
         "WORKSPACE_NOTE_MAX",
+        "WORKSPACE_TABLE_CAP",
         "_agentCliPathProbe",
         "_claudePathProbe",
         "_launcherResolveCache",
@@ -11959,7 +11960,8 @@
         "stewardTriggerOf",
         "stewardUnattendedByModel",
         "stewardValidateCwd",
-        "stewardWorkspaceSlug"
+        "stewardWorkspaceSlug",
+        "stewardWorkspaceTableFull"
       ],
       "requires": [
         {
@@ -12016,6 +12018,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "WORKSPACE_TABLE_CAP",
+          "kinds": [
+            "read"
           ]
         },
         {

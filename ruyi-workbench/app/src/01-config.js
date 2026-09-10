@@ -485,6 +485,18 @@ function mergeAgentRole(base, override, source) {
 // 117w-W1 提交②(27 号文 §11.19.2):workspaces[].note 的字数上限。备注是给管家的候选表投影用的
 // 一句话标签(「股票资料」「客户合同」),不是说明文档 —— 80 字够写清楚,又不至于把到访层撑爆。
 const WORKSPACE_NOTE_MAX = 80;
+// 117w-W1④(27 号文 §11.19.8 债表第一行的裁决):workspaces[] 的行数上限。
+// 20 是 UI 时代手工加文件夹的上限:那时表只会被人一行一行地敲进去,20 已经够多了。117w-W1②
+// 起工作台【自己】会往表里追加行(省略 cwd 时在 Ruyi 根下派生子工作区并登记),表因此会自己长
+// —— 20 那道帽子于是从「够用的上限」变成一把静默的刀:用户手上已有 20 个工作区时,派生出来的
+// 那一行会在下一次 normalizeConfig 时被截掉,而目录已经建好、线程照跑,cwd 于是指向一个【表外】
+// 目录,再拿它当 cwd 会被 13k 拒。「目录建了、行没了」是最坏的形状。
+// 抬到 64 的两条理由:① 派生根在 ~/Ruyi 下,是 Ruyi 自己的地盘,在那里放宽是有意的;
+// ② 06i 的 STEWARD_WORKSPACE_TABLE_MAX(候选表投影的行数上限)保持 20 不动 —— 表能长到 21..64
+// 行之后,13o 那句「…另有 N 个工作区未列出」才在【生产形状】下可达、可测。
+// 帽子只挡「表长到放不下」,不挡「派生」:13k 在派生【之前】自己算一次追加后会不会超帽,会超就
+// fail-closed 拒开线程(见 13k stewardWorkspaceTableFull),绝不允许目录建了而行落不下。
+const WORKSPACE_TABLE_CAP = 64;
 
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
@@ -897,7 +909,8 @@ function normalizeConfig(raw) {
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
-  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe, cap 20.
+  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
     const rawArr = Array.isArray(config.workspaces) ? config.workspaces : [];
@@ -918,12 +931,12 @@ function normalizeConfig(raw) {
       if (note) entry.note = note;
       clean.push(entry);
     };
-    for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
+    for (const e of rawArr) { pushWs(e); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
     if (!clean.length && incomingConfigSchema < 10) {
       const seed = [];
       if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
       for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
-      for (const s of seed) { pushWs({ path: s }); if (clean.length >= 20) break; }
+      for (const s of seed) { pushWs({ path: s }); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.workspaces)) { config.workspaces = clean; changed = true; }
     else config.workspaces = clean;

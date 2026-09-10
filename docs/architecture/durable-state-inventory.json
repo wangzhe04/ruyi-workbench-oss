@@ -676,7 +676,7 @@
       "schema": "directory only / no schema (the workbench writes no file of its own inside it)",
       "writePrimitive": "fsp.mkdir({recursive:true}); the workspaces[] row that records it goes through mutateConfig -> writeConfig",
       "corruption": "a collision with an existing NON-EMPTY directory takes the next -N suffix; an existing EMPTY directory is reused (reopening the same task must not grow a second empty shell); a same-named plain file or an unreadable entry skips to the next suffix; after 50 tries derivation gives up and the thread keeps the pre-117w defaultWorkspace fallback",
-      "capacity": "slug capped at 64 characters; 50 collision suffixes per title; the workspaces[] table that records the row caps at 20 rows",
+      "capacity": "slug capped at 64 characters; 50 collision suffixes per title; the workspaces[] table that records the row caps at 64 rows (117w-W1 4th cut, 01-config WORKSPACE_TABLE_CAP); a derivation that would overflow that cap is refused BEFORE the directory is created (13k stewardWorkspaceTableFull -> invalid_request/workspace_table_full), so the table never ends up with a directory it does not record",
       "cache": "none: the path is written into the session head and never cached",
       "recovery": "nothing rebuilds it - the files inside are user work products a thread produced, and the workbench never regenerates user content",
       "lifecycle": "external-exemption",

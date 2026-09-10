@@ -1381,6 +1381,18 @@ function mergeAgentRole(base, override, source) {
 // 117w-W1 提交②(27 号文 §11.19.2):workspaces[].note 的字数上限。备注是给管家的候选表投影用的
 // 一句话标签(「股票资料」「客户合同」),不是说明文档 —— 80 字够写清楚,又不至于把到访层撑爆。
 const WORKSPACE_NOTE_MAX = 80;
+// 117w-W1④(27 号文 §11.19.8 债表第一行的裁决):workspaces[] 的行数上限。
+// 20 是 UI 时代手工加文件夹的上限:那时表只会被人一行一行地敲进去,20 已经够多了。117w-W1②
+// 起工作台【自己】会往表里追加行(省略 cwd 时在 Ruyi 根下派生子工作区并登记),表因此会自己长
+// —— 20 那道帽子于是从「够用的上限」变成一把静默的刀:用户手上已有 20 个工作区时,派生出来的
+// 那一行会在下一次 normalizeConfig 时被截掉,而目录已经建好、线程照跑,cwd 于是指向一个【表外】
+// 目录,再拿它当 cwd 会被 13k 拒。「目录建了、行没了」是最坏的形状。
+// 抬到 64 的两条理由:① 派生根在 ~/Ruyi 下,是 Ruyi 自己的地盘,在那里放宽是有意的;
+// ② 06i 的 STEWARD_WORKSPACE_TABLE_MAX(候选表投影的行数上限)保持 20 不动 —— 表能长到 21..64
+// 行之后,13o 那句「…另有 N 个工作区未列出」才在【生产形状】下可达、可测。
+// 帽子只挡「表长到放不下」,不挡「派生」:13k 在派生【之前】自己算一次追加后会不会超帽,会超就
+// fail-closed 拒开线程(见 13k stewardWorkspaceTableFull),绝不允许目录建了而行落不下。
+const WORKSPACE_TABLE_CAP = 64;
 
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
@@ -1793,7 +1805,8 @@ function normalizeConfig(raw) {
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
-  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe, cap 20.
+  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
     const rawArr = Array.isArray(config.workspaces) ? config.workspaces : [];
@@ -1814,12 +1827,12 @@ function normalizeConfig(raw) {
       if (note) entry.note = note;
       clean.push(entry);
     };
-    for (const e of rawArr) { pushWs(e); if (clean.length >= 20) break; }
+    for (const e of rawArr) { pushWs(e); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
     if (!clean.length && incomingConfigSchema < 10) {
       const seed = [];
       if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
       for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
-      for (const s of seed) { pushWs({ path: s }); if (clean.length >= 20) break; }
+      for (const s of seed) { pushWs({ path: s }); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.workspaces)) { config.workspaces = clean; changed = true; }
     else config.workspaces = clean;
@@ -18880,6 +18893,10 @@ const STEWARD_DIGEST_LIMITS = Object.freeze({ lastSayChars: 200, lineChars: 320,
 //   · 13k 的 cwd 拒绝文案按它列候选末段名(同样带「另有 N 个未列出」)。
 // 提交① 落地时这两处一个 20 一个 8,是一条会咬人的分叉:模型在上下文里看得见 20 行,被拒时只被
 // 提醒其中 8 个,它会合理地推断「另外那 12 个不能用」,然后去编一个新路径。数字必须是同一个。
+// 117w-W1④:这个 20 【保持不动】,动的是 01-config 的 WORKSPACE_TABLE_CAP(20 → 64)。两个数
+// 治的是两件事:64 是「表能存多少行」(工作台自己会往里追加派生行,表必须能长),20 是「一次给
+// 管家看多少行」(到访层的字数预算)。分开之后 21..64 行的表在【生产形状】下真的会折叠,13o 那句
+// 「…另有 N 个工作区未列出」从此可达、可测 —— 在此之前表最多 20 行,那句话永远印不出来。
 const STEWARD_WORKSPACE_TABLE_MAX = 20;
 
 // 线程权限档位 -> 五态/权限的人话映射(§11.2「诚实」与看板行人话展示共用同一套措辞)。
@@ -44121,6 +44138,23 @@ async function stewardRegisterDerivedWorkspace(stewardRegisterPath) {
   }
 }
 
+// ── 117w-W1④(27 号文 §11.19.8 债表第一行):派生前的帽检查,fail-closed ────────────────
+// 病灶:01-config 对 workspaces[] 有行数上限(WORKSPACE_TABLE_CAP)。表已经满员时,派生仍然会
+// 建目录、仍然会 append 一行,而下一次 normalizeConfig 把那一行截掉 —— 目录建了、行没了,线程的
+// cwd 于是指向一个【表外】目录,再拿它当 cwd 会被上面的 stewardValidateCwd 拒。
+// 裁决:派生【之前】先算「追加后会不会超帽」,会超就拒开线程,不建目录、不写表。
+// 二者必居其一:要么行落盘,要么这条线程根本没开 —— 不许有中间态。
+// 保守之处如实记:表满时哪怕这条标题会【复用】表里已有的那一行(撞名复用、不会真 append),
+// 这里也一律拒。判「会不会复用」得先落地目录才知道,那正是要避免的顺序。
+// 两处调用(thread_new / quick_ask)共用这一份,与 stewardValidateCwd 同一纪律,不许各抄一遍。
+function stewardWorkspaceTableFull(stewardCapConfig) {
+  const rows = Array.isArray(stewardCapConfig && stewardCapConfig.workspaces) ? stewardCapConfig.workspaces : [];
+  if (rows.length + 1 <= WORKSPACE_TABLE_CAP) return null;
+  return stewardFail('invalid_request',
+    `工作区表已满(${rows.length}/${WORKSPACE_TABLE_CAP}),开不了新线程:省掉 cwd 的线程要在 Ruyi 根下派生一个属于它自己的工作区,而表已经放不下这一行。请让用户到设置里删掉不用的工作区;或者这一次直接指定一个表里现成的 cwd。不要重试同一个调用。`,
+    { reason: 'workspace_table_full' });
+}
+
 // 三态第 ② 态的入口。返回派生好的绝对路径,或 ''(根不可用/撞名试满)—— 返回 '' 时调用方保持
 // 修前的回落链(createSession 的 `cwd || defaultWorkspace || homedir`),绝不拿一个假路径去跑。
 async function stewardDeriveThreadCwd(stewardDeriveTitle, stewardDeriveSessionId, stewardDeriveConfig) {
@@ -44495,6 +44529,12 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 117w-W1 ①:cwd 三态校验(见文件头的 stewardValidateCwd)。表外一律拒,不静默回落。
   const cwdCheck = stewardValidateCwd(args.cwd, config);
   if (!cwdCheck.ok) return cwdCheck.fail;
+  // 117w-W1④:省略 cwd = 待会儿要派生一行,表满就【在开线程之前】拒(见 stewardWorkspaceTableFull)。
+  // 位置在 createSession 之前:拒的是「开线程」,不是「开完再回滚」。
+  if (cwdCheck.cwd === undefined) {
+    const capFail = stewardWorkspaceTableFull(config);
+    if (capFail) return capFail;
+  }
 
   const session = await createSession({
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
@@ -44760,6 +44800,12 @@ async function stewardImplQuickAsk(args, ctx, config) {
   // 排在配额之前:参数不合法不该烧掉本回合的速查名额(与上面 question 的两道校验同一位置)。
   const quickCwdCheck = stewardValidateCwd(args.cwd, config);
   if (!quickCwdCheck.ok) return quickCwdCheck.fail;
+  // 117w-W1④:与 thread_new 同一口径 —— 省略 cwd 且表已满就拒。同样排在配额【之前】:
+  // 开不成的线程不该烧掉本回合的速查名额。
+  if (quickCwdCheck.cwd === undefined) {
+    const quickCapFail = stewardWorkspaceTableFull(config);
+    if (quickCapFail) return quickCapFail;
+  }
   if (!stewardTurnQuotaTake('quick_ask', ctx, STEWARD_QUICK_ASKS_PER_TURN)) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }

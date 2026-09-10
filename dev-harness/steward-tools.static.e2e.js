@@ -17,6 +17,9 @@
 //   ⑤ 四个 offer 面各自都有 isStewardToolName 门(源码正则锁 + 真实调用回环)。
 //   ⑥ 五态判据与前端 public/js/mission-state.js 机械对账(分支顺序与关键字面量逐条相同)——
 //      06i 的服务端副本是抄写件,不是第二套状态机。
+//   ⑪ 117w-W1④:workspaces[] 的行数帽子一处定义(01-config WORKSPACE_TABLE_CAP)、清洗块两支
+//      循环各读一次、代码行零裸字面量;13k 的派生前帽检查一处实现两处调用,且都挂在「省略 cwd」
+//      那一支下(表内 cwd 不派生,不该被帽子挡)。
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -344,8 +347,8 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 // ⑨ 117w-W1 提交③(27 号文 §11.19.2 + §11.19.7 裁决):候选表上限【一处定义、两处读】。
 // 被钉的事实:06i 定义 STEWARD_WORKSPACE_TABLE_MAX,13k 的 cwd 拒绝文案与 13o 的候选表投影都读它。
 // 为什么静态与行为两层都要:steward-tools.e2e 的 O6 用 20 行夹具比较两个【运行期产出】,能抓住
-// 「有人把其中一处改小」;但 01-config 的 workspaces 清洗自己就截到 20 行,造不出更大的表,所以
-// 「有人把其中一处改大」行为层抓不住 —— 那一半靠这里的源码锁。
+// 「有人把其中一处改小」;「有人把其中一处改大」在行为层要造一张比上限还大的表才看得见,不是
+// 这条锁的形状 —— 那一半靠这里的源码锁。
 {
   const src06i = read('06i-steward-core.js');
   const src13k = read('13k-steward-threads.js');
@@ -379,6 +382,61 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     ok(!body.includes(fence), `⑩ 投影函数体里零「${fence}」`);
   }
   ok(/row\.write === false/.test(body), '⑩ 只读标的判据写死 `write === false`(缺字段的老配置默认可写,不能反过来)');
+}
+
+// ⑪ 117w-W1④(27 号文 §11.19.8 债表第一行):workspaces[] 的行数帽子【一处定义、两处读】。
+// 被钉的事实:01-config 的清洗块里两支循环(原始数组那一支、从 defaultWorkspace + recentWorkspaces
+// 播种那一支)都读同一个 WORKSPACE_TABLE_CAP,清洗块的【代码行】里零裸字面量帽子。
+// 为什么要钉:修前那两处是两个各自写死的 `>= 20`,谁只改一处,配置就会出现「原始数组能存 64 行、
+// 播种只播 20 行」这种谁也说不清的形状。行为层(steward-tools.e2e P1/P1b)只走得到第一支
+// —— 播种那一支要 configSchema < 10 且表为空才可达,那一半靠这里的源码锁。
+{
+  const src01 = read('01-config.js');
+  const defs = (src01.match(/const WORKSPACE_TABLE_CAP = /g) || []).length;
+  ok(defs === 1, `⑪ WORKSPACE_TABLE_CAP 在 01-config 只定义一次(got ${defs})`);
+  const others = srcFiles.filter(f => f !== '01-config.js' && /const WORKSPACE_TABLE_CAP/.test(read(f)));
+  ok(others.length === 0, '⑪ 没有第二个模块另立同名常量' + (others.length ? ' → ' + others.join(',') : ''));
+  // 清洗块切片:从 workspaces 那段块注释起,到 `config.workspaces = clean;` 落定为止(两支循环都在里面)。
+  const wsStart = src01.indexOf('// v2.7 (workspace permissions): workspaces');
+  const wsEnd = src01.indexOf('config.workspaces = clean;', wsStart);
+  const wsBlock = (wsStart < 0 || wsEnd < 0) ? '' : src01.slice(wsStart, wsEnd);
+  ok(!!wsBlock, '⑪ 取到 01-config 的 workspaces 清洗块');
+  // 只看【代码行】:块注释里为了讲清来历会写「20 -> 64」,那不是帽子。
+  const wsCode = wsBlock.split(/\r?\n/).filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line));
+  const capReads = wsCode.filter(line => line.includes('WORKSPACE_TABLE_CAP')).length;
+  ok(capReads === 2, `⑪ 清洗块的两支循环各读一次同一个常量(got ${capReads})`);
+  const bareCaps = wsCode.filter(line => /clean\.length >= \d/.test(line));
+  ok(bareCaps.length === 0, '⑪ 清洗块代码行里零裸字面量帽子' + (bareCaps.length ? ' → ' + JSON.stringify(bareCaps) : ''));
+  ok(!/\bWORKSPACE_TABLE_CAP\b\s*=\s*20\b/.test(src01), '⑪ 反向:常量没被悄悄改回 20');
+
+  // 派生前的帽检查:一处实现、两处调用(与 ⑧ 的 stewardValidateCwd 同一模具)。
+  const src13k = read('13k-steward-threads.js');
+  const capDefs = (src13k.match(/function stewardWorkspaceTableFull\(/g) || []).length;
+  ok(capDefs === 1, `⑪ stewardWorkspaceTableFull 只定义一次(got ${capDefs})`);
+  const capUses = (src13k.match(/stewardWorkspaceTableFull\(/g) || []).length;
+  ok(capUses === 3, `⑪ 整文件出现 3 次 = 定义 1 + 调用 2(got ${capUses})`);
+  const bodyOfCap = (name) => {
+    const start = src13k.indexOf(`async function ${name}(`);
+    if (start < 0) return '';
+    const end = src13k.indexOf('\n}\n', start);
+    return end < 0 ? src13k.slice(start) : src13k.slice(start, end);
+  };
+  const newBodyCap = bodyOfCap('stewardImplThreadNew');
+  const quickBodyCap = bodyOfCap('stewardImplQuickAsk');
+  ok((newBodyCap.match(/stewardWorkspaceTableFull\(config\)/g) || []).length === 1, '⑪ thread_new 函数体里恰好一处帽检查');
+  ok((quickBodyCap.match(/stewardWorkspaceTableFull\(config\)/g) || []).length === 1, '⑪ quick_ask 函数体里恰好一处帽检查');
+  // 帽检查读的是【同一个】常量,不是自己再写一个数。
+  const capFnStart = src13k.indexOf('function stewardWorkspaceTableFull(');
+  const capFnEnd = src13k.indexOf('\n}\n', capFnStart);
+  const capFnBody = capFnStart < 0 ? '' : src13k.slice(capFnStart, capFnEnd < 0 ? undefined : capFnEnd);
+  ok(/WORKSPACE_TABLE_CAP/.test(capFnBody), '⑪ 帽检查读 01-config 的 WORKSPACE_TABLE_CAP(不另写一个数)');
+  ok(/workspace_table_full/.test(capFnBody), '⑪ 帽满走【专属 reason】workspace_table_full,不与 cwd_not_in_workspaces 混为一谈');
+  // 反向保护:两个调用点都必须在【派生分支】里(cwd 省略才派生;给了表内 cwd 的线程不该被帽子挡)。
+  ok(/cwdCheck\.cwd === undefined\)\s*\{\s*\n\s*const capFail/.test(newBodyCap.replace(/\r/g, ''))
+    || /cwdCheck\.cwd === undefined[\s\S]{0,200}stewardWorkspaceTableFull\(config\)/.test(newBodyCap),
+    '⑪ thread_new 的帽检查挂在「省略 cwd」那一支下(表内 cwd 不派生,不该被挡)');
+  ok(/quickCwdCheck\.cwd === undefined[\s\S]{0,200}stewardWorkspaceTableFull\(config\)/.test(quickBodyCap),
+    '⑪ quick_ask 的帽检查同样挂在「省略 cwd」那一支下');
 }
 
 console.log('');
