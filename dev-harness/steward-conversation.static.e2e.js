@@ -636,11 +636,14 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    33 号文 §4 把 './util.js' 加了进来：stewardShortTitle 从本模块搬去 util.js（无状态格式化
 //    叶子，两个壳共用一份截短口径），本文件改为 import 使用 —— 借的还是【叶子】里的纯字符串函数，
 //    不是新借了一个域的实现。
-//    本条锁因此仍然可证伪：它钉的是「除这四条之外，本文件不许再向任何域借东西」。
-const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './steward-chips.js', './util.js'];
+//    32 号文 §4（M2）把 './popover.js' 加了进来：※ 浮层与头像菜单的开合（Esc／点外／焦点归还锚点／
+//    同一时刻只允许一个浮层）搬去两壳共用的那颗浮层原语，本文件改为 import 使用 —— 借的还是【叶子】
+//    里的开合原语（chips 那一刀走的就是同一条 import），不是新借了一个域的实现。
+//    本条锁因此仍然可证伪：它钉的是「除这五条之外，本文件不许再向任何域借东西」。
+const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './popover.js', './steward-chips.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 只有 net.js、steward-chips.js、icons.js 与 util.js 四个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js 与 util.js 五个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)

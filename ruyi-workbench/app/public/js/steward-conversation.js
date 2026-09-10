@@ -9,6 +9,10 @@ import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出�
 import { STEWARD_TOOL_LABEL_KEYS, stewardSayFromPartial } from './steward-chips.js';
 // 117n-M1：DOM 基础件 doc/byId/el/button 也从 steward-chips.js 复用（六个消费方零本地重复定义）。
 import { stewardEscapeStack, doc, byId, el, button, writeNote } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈；33 号文 §4：note 写手也只有那一条
+// 32 号文 §4（M2）：※ 浮层与头像菜单的开合（Esc／点外／焦点归还锚点／同一时刻只允许一个浮层）交给
+// 两壳共用的浮层原语。它住在 js/popover.js，本模块只取那一套【开合】，把 3.0 自己的 .steward-why-pop
+// 与 .steward-menu 经 opts.layer 交给它 —— 容器、类名、role、[hidden] 与挂点一个字不改。
+import { popover, closePopover, popoverAnchor } from './popover.js';
 // F5b 撤回三态：到期那枚「⇄」与落定那枚「✓」都从【全仓唯一那张】图标词汇表取。F5a 立的规矩是
 // 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
 // steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
@@ -1876,32 +1880,37 @@ export function createStewardConversation({
       menu.setAttribute('role', 'dialog');
       menu.setAttribute('aria-label', t('stewardShell.chat.detailsToggle'));
       menu.hidden = true;
-      const toggle = button('steward-menu-item', t('stewardShell.chat.detailsToggle'), () => {
-        setDetails(!detailsOn);
+      // 菜单内容的写手。32 号文 §4（M2）：开合交给两壳共用的 js/popover.js 之后，Layer 模式会在开
+      // 之前清空容器，所以内容得是「随叫随写」的；建菜单时先写一遍（收着的时候那些项也在 DOM 里，
+      // 与改之前一致），之后每一次开由原语再写一遍 —— 顺带让「细节」那一项的 aria-pressed 每次都按
+      // 当时的 detailsOn 落笔。
+      function fillMenu() {
+        const toggle = button('steward-menu-item', t('stewardShell.chat.detailsToggle'), () => {
+          setDetails(!detailsOn);
+          toggle.setAttribute('aria-pressed', detailsOn ? 'true' : 'false');
+        });
         toggle.setAttribute('aria-pressed', detailsOn ? 'true' : 'false');
-      });
-      toggle.setAttribute('aria-pressed', detailsOn ? 'true' : 'false');
-      menu.appendChild(toggle);
-      // 117e：§8.2「头像本身是管家的口袋」。三项都只是「打开设置的管家页签并滚到那一段」，
-      // 注入缺席时（依赖没接上）整段不出现，菜单退回 117c 的只有「细节」。
-      if (typeof openStewardPanel === 'function') {
-        for (const [labelKey, section] of STEWARD_MENU_SECTIONS) {
-          menu.appendChild(button('steward-menu-item', t(labelKey), () => {
-            menu.hidden = true;
-            avatar.setAttribute('aria-expanded', 'false');
-            openStewardPanel(section);
+        menu.appendChild(toggle);
+        // 117e：§8.2「头像本身是管家的口袋」。三项都只是「打开设置的管家页签并滚到那一段」，
+        // 注入缺席时（依赖没接上）整段不出现，菜单退回 117c 的只有「细节」。
+        if (typeof openStewardPanel === 'function') {
+          for (const [labelKey, section] of STEWARD_MENU_SECTIONS) {
+            menu.appendChild(button('steward-menu-item', t(labelKey), () => {
+              closeMenu();   // 32 号文 §4（M2）：关菜单只有这一个入口（hidden／aria／焦点／Esc 层一起收）
+              openStewardPanel(section);
+            }));
+          }
+        }
+        // 117g：菜单末项「整体切到 2.0」（§5 117g 行「整体切壳走设置或头像菜单」）。它排在
+        // STEWARD_MENU_SECTIONS 之后、不进那张表 —— 那三项是「打开设置的某一段」，这一项是切壳。
+        if (typeof switchWholeShell === 'function') {
+          menu.appendChild(button('steward-menu-item', t('stewardShell.classicWindow.switchWhole'), () => {
+            closeMenu();
+            switchWholeShell();
           }));
         }
       }
-      // 117g：菜单末项「整体切到 2.0」（§5 117g 行「整体切壳走设置或头像菜单」）。它排在
-      // STEWARD_MENU_SECTIONS 之后、不进那张表 —— 那三项是「打开设置的某一段」，这一项是切壳。
-      if (typeof switchWholeShell === 'function') {
-        menu.appendChild(button('steward-menu-item', t('stewardShell.classicWindow.switchWhole'), () => {
-          menu.hidden = true;
-          avatar.setAttribute('aria-expanded', 'false');
-          switchWholeShell();
-        }));
-      }
+      fillMenu();
       // 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面，怎么也得要么在下面
       // 要么在上面吧」）：117k 把菜单锚在【顶栏】下沿（.steward-menu 的 top:100%/left:0），可
       // 117j W2-3 之后头像跟着最新一条管家的话走 —— 头像在屏幕下半截、菜单还钉在最上面。
@@ -1937,22 +1946,39 @@ export function createStewardConversation({
       menu.id = 'stewardAvatarMenu';
       avatar.setAttribute('aria-controls', menu.id);
       avatar.setAttribute('aria-haspopup', 'menu');
+      // 32 号文 §4（M2）：开合本身（Esc／点外／焦点归还锚点／同一时刻只允许一个浮层）交给两壳共用的
+      // js/popover.js。菜单是【就地节点】（.steward-menu 的 fixed 定位与 [hidden] 都住在
+      // steward-conversation.css 里、挂点必须是 #stewardShell），所以传 opts.layer：不新建 .popover、
+      // 不外挂 body、关闭只 [hidden] = true 不 remove —— 容器、id、类名、role 一个字不改。
+      // 本函数仍是「关掉我这张菜单」的唯一入口（菜单项、视口变化都调它），而且只在自己那张真开着
+      // （原语记的锚点就是头像）时才动手，不会误关别人的浮层。
       let releaseMenuEscape = null;
       const closeMenu = () => {
-        if (menu.hidden) return false;
-        menu.hidden = true;
-        avatar.setAttribute('aria-expanded', 'false');
-        try { avatar.focus(); } catch { /* 宿主没有 focus 的环境 */ }
-        if (releaseMenuEscape) { releaseMenuEscape(); releaseMenuEscape = null; }
+        if (popoverAnchor() !== avatar) return false;
+        closePopover();
         return true;
       };
+      // 任何一条关闭路径（Esc／点外／自己关／被下一个浮层顶掉）都到这里：摘 aria、注销 Esc 层。
+      // 焦点归还由原语自己做（锚点就是头像，仍是「关掉时焦点还给触发它的控件」），不在这里再来一次。
+      const forgetOpenMenu = () => {
+        avatar.setAttribute('aria-expanded', 'false');
+        if (releaseMenuEscape) { releaseMenuEscape(); releaseMenuEscape = null; }
+      };
       avatar.addEventListener('click', () => {
-        if (!menu.hidden) { closeMenu(); return; }
-        menu.hidden = false;
-        placeMenu();   // 117l-B2 ③：先取消 hidden 再量，量的是头像【此刻】在哪
-        avatar.setAttribute('aria-expanded', 'true');
-        releaseMenuEscape = stewardEscapeStack.push(closeMenu,
-          node => Boolean(node && (menu.contains(node) || avatar.contains(node))));   // 117k：点别处收回
+        if (!menuHost) return;
+        popover(avatar, () => { fillMenu(); }, {
+          layer: { mount: menuHost, node: menu },
+          onOpen: () => {
+            placeMenu();   // 117l-B2 ③：先取消 hidden 再量，量的是头像【此刻】在哪
+            avatar.setAttribute('aria-expanded', 'true');
+            // 117j copy-P2-4/5：管家壳的 Esc 只有 steward-shell.js 那一处监听（走 stewardEscapeStack），
+            // 所以菜单照旧要 push 自己那一个关闭器 + owns —— 改走 popover 之后这条接线【不能省】：
+            // 少了它就「Esc 关不掉」，或者两路各关一层。
+            releaseMenuEscape = stewardEscapeStack.push(closeMenu,
+              node => Boolean(node && (menu.contains(node) || avatar.contains(node))));   // 117k：点别处收回
+          },
+          onClose: forgetOpenMenu,
+        });
       });
       // 117l-B2 ③：菜单开着时窗口大小变了、或对话流滚了一下，头像就不在原地了 —— 直接关掉，
       // 不跟着重算（跟着算要么每帧量一次，要么就会飘在离头像很远的地方）。两个监听都先看
