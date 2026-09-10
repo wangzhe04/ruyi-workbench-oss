@@ -7,7 +7,11 @@ import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createStewardClassicWindow } from './steward-classic-window.js';
-import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点
+import { stewardEscapeStack, byId } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点
+// 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有 preview-shell.js 那一份定义，
+// byId 只有 steward-chips.js 那一份 —— 本文件两者都不再自带。跨壳取键的先例是 steward-board.js
+// 的反向 import（33 号文 §1 第 10 行登记过），这里沿用同一条路。
+import { SHELL_MODE_STORAGE_KEY } from './preview-shell.js';
 
 // 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -89,7 +93,8 @@ export function createStewardShellDomain({
   renderMarkdownInto = null,
   highlightIn = null,
 } = {}) {
-  const byId = id => (globalThis.document ? globalThis.document.getElementById(id) : null);
+  // 117n-M1：byId 从 steward-chips.js import（六个消费方零本地重复定义）；33 号文 §4 起本文件也收编 ——
+  // 原来那一份 `globalThis.document ? globalThis.document.getElementById(id) : null` 与它逐字同义。
   const setStatusText = key => {
     const node = byId('stewardStatus');
     if (node) node.textContent = t(key);
@@ -102,10 +107,10 @@ export function createStewardShellDomain({
     if (node && node.textContent) node.textContent = '';
   };
   const setStoredMode = mode => {
-    try { localStorage.setItem('wcw.shellMode', mode); } catch { /* local preference may be unavailable */ }
+    try { localStorage.setItem(SHELL_MODE_STORAGE_KEY, mode); } catch { /* local preference may be unavailable */ }
   };
   const storedMode = () => {
-    try { return localStorage.getItem('wcw.shellMode') || ''; }
+    try { return localStorage.getItem(SHELL_MODE_STORAGE_KEY) || ''; }
     catch { return ''; }
   };
   const syncModeSelector = mode => {

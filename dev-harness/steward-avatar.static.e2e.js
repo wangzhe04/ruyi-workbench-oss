@@ -91,8 +91,14 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 117j UX-F3（重钉来源：本波交付，27 号文 §11.7 走查 P2）：白名单加第八条 —— Esc 逐层的那个栈。
   // 它住 steward-chips.js（零 import 的叶子），壳层 import 它是为了出【那一处】 document keydown。
   // 形态仍然不变：本域内相对路径、零第三方库、零裸包名。
-  "import { stewardEscapeStack } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点",
-]), `D2 steward-shell.js 的 import 只有本域内八条（相对路径、零第三方库）：实测 ${JSON.stringify(importLines)}`);
+  "import { stewardEscapeStack, byId } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点",
+  // 33 号文 §4 重钉（本波交付）：白名单加第九条 —— 壳模式本机偏好的那一枚键。原来 steward-shell.js
+  // 自带一份 byId 与两个 'wcw.shellMode' 字面量，与 preview-shell.js:39 的 SHELL_MODE_STORAGE_KEY
+  // 逐字重复；现在两样都只留一份定义（byId 归上一条 steward-chips.js）。跨壳取键的先例是
+  // steward-board.js 反向 import preview-shell.js（33 号文 §1 第 10 行登记）；preview-shell.js 不
+  // import 任何 steward-* 模块，故不构成循环。形态仍然不变：相对路径、零第三方库、零裸包名。
+  "import { SHELL_MODE_STORAGE_KEY } from './preview-shell.js';",
+]), `D2 steward-shell.js 的 import 只有本域内相对路径、零第三方库、零裸包名：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');
 
