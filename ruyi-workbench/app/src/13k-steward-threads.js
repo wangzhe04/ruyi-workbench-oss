@@ -111,7 +111,10 @@ function stewardWorkspaceSlug(stewardSlugTitle, stewardSlugSessionId) {
 
 // 撞名规则(§11.19.2):不存在 → 建它;已存在且【空】→ 直接复用(同一件事重开线程不该长出第二个
 // 空壳);已存在且【非空】→ 试 -2、-3…。同名的是文件、或读不动 → 换下一个后缀(开线程不该因为
-// 用户在 Ruyi 根下放了个同名文件就失败)。试满上限返回 '' = 「没派生成」,调用方保持修前的回落链。
+// 用户在 Ruyi 根下放了个同名文件就失败)。试满上限返回 dir:'' = 「没派生成」,调用方保持修前的回落链。
+// 返回值为什么带 created(117w-W1④ 小刀):建目录已经搬进 mutateConfig 的串行段(见下面的
+// stewardClaimDerivedWorkspace),失败回滚时只许删【本次新建】的那个目录 —— 复用来的空目录可能是
+// 用户自己建的,删它就是删用户的东西。
 async function stewardDeriveWorkspaceDir(stewardDeriveRoot, stewardDeriveSlug) {
   for (let attempt = 1; attempt <= STEWARD_WORKSPACE_DERIVE_TRIES; attempt++) {
     const dir = path.join(stewardDeriveRoot, attempt === 1 ? stewardDeriveSlug : `${stewardDeriveSlug}-${attempt}`);
@@ -120,38 +123,80 @@ async function stewardDeriveWorkspaceDir(stewardDeriveRoot, stewardDeriveSlug) {
       entries = await fsp.readdir(dir);
     } catch (error) {
       if (error && error.code === 'ENOENT') {
-        try { await fsp.mkdir(dir, { recursive: true }); return dir; } catch { continue; }
+        try { await fsp.mkdir(dir, { recursive: true }); return { dir, created: true }; } catch { continue; }
       }
       continue;
     }
-    if (entries.length === 0) return dir;
+    if (entries.length === 0) return { dir, created: false };
   }
-  return '';
+  return { dir: '', created: false };
 }
 
-// 把派生出来的目录登记进 workspaces[] —— 用户在设置里【看得到、删得掉】(§11.19.2)。
-// 两条纪律:
-//  · 走 mutateConfig(01-config 那条「读-改-写」的唯一临界区),不裸 readConfig + writeConfig。
-//    两条线程同时派生时,后写者会静默吞掉先写者那一行 —— 117n-M2 治的就是这个模具。
-//  · 追加在【末尾】。01-config 的清洗把 defaultWorkspace 与 workspaces[0].path 保持同步,
-//    插在头上等于悄悄换掉用户的默认工作区。
-// 这是工作台写自己的配置,不经 steward_config_set,所以不违反 workspaces 的 forbidden 档。
-async function stewardRegisterDerivedWorkspace(stewardRegisterPath) {
-  const key = stewardFoldWorkspacePath(stewardCanonWorkspacePath(stewardRegisterPath));
-  if (!key) return false;
+// 回滚:只删【本次新建】的空目录(stewardDeriveWorkspaceDir 的 created 那一支)。非空就留着 ——
+// 说明已经有别的东西写进去了,强删会毁用户数据。失败吞掉:回滚是尽力而为,它自己再抛出去会把
+// 「派生没成」这件正事盖掉。
+async function stewardDiscardDerivedWorkspaceDir(stewardDiscardDir) {
+  if (!stewardDiscardDir) return;
+  try { await fsp.rmdir(stewardDiscardDir); } catch { /* 非空,或已经被别人删了 */ }
+}
+
+// 把派生出来的目录【帽检查 + 建目录 + 登记】做成一件事,整件坐在 mutateConfig 的串行段里。
+// 前身 stewardRegisterDerivedWorkspace 有三处病灶(27 号文 §11.19.9 债表,本刀要还的就是这三条):
+//  · 帽检查(在调用方、开线程之前)与 append(在这里)之间有一段窗口:两条线程在 63 行时同时过预检
+//    → 两次 append → 65 行 → 下一次 normalizeConfig 截一行 ——「目录建了、行没了」;
+//  · 建目录在登记【之前】,登记失败(或吞掉失败)那一刻目录已经躺在那儿了;
+//  · catch { return false } 把写失败吞了 —— 派生的成功不以「行落盘」为条件。
+// 收进同一个临界区之后口径只有一句:【要么行落盘,要么拒】。四步全在锁内,后到的线程重读的是
+// 【含先到者那一行】的表(01-config 的 mutateConfig 是「读 -> mutator -> 写」的唯一临界区),
+// 帽检查算的是真值,不是预检时那份可能已经过期的副本。
+// 【与派单稿的一处出入,如实记】派单写「占位成功后才建目录」,本实现是「同一临界区内先建目录、
+// 再 append 行、再落盘」。理由:反过来做的话,落盘失败要回滚的是【已经写进配置的那一行】,而那一行
+// 在两段临界区之间是别人读得到的中间态(表里有行、目录不存在,拿它当 cwd 会失败);同段内建目录
+// 只需在失败时删掉本次新建的那个空目录,不会留下任何别人看得见的中间态。不变量与派单同口径。
+// 为什么把文件 I/O 放进配置临界区:目录就一个,readdir/mkdir 是本地快操作;换来的是「占位与建目录
+// 之间不存在窗口」这一条不变量。撞名试满 50 个后缀仍是快路径,不构成实际阻塞源。
+// 返回:派生好的绝对路径,或 ''(根不可用/表满/撞名试满/写失败)。返回 '' 时调用方保持修前的回落链。
+async function stewardClaimDerivedWorkspace(stewardClaimRoot, stewardClaimSlug) {
+  let builtDir = '';       // 本次 mkdir 出来的目录(回滚目标);复用已有空目录时永远留空
+  let claimedDir = '';
+  let claimedKey = '';
+  let outcome = null;
   try {
-    const result = await mutateConfig(current => {
+    outcome = await mutateConfig(async current => {
       const rows = Array.isArray(current.workspaces) ? current.workspaces : [];
-      if (rows.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === key)) return { abort: 'exists' };
+      // ① 帽检查:与两个工具入口的预检共用同一份判据(预检到这一刻之间表可能被别的线程填满)。
+      if (stewardWorkspaceTableFull(current)) return { abort: 'table_full' };
+      // ② 占目录。占不到(撞名试满)= 拒,不留任何东西 —— 失败不建目录这条就落在这里。
+      const claimed = await stewardDeriveWorkspaceDir(stewardClaimRoot, stewardClaimSlug);
+      if (!claimed.dir) return { abort: 'no_dir' };
+      claimedDir = claimed.dir;
+      if (claimed.created) builtDir = claimed.dir;
+      claimedKey = stewardFoldWorkspacePath(stewardCanonWorkspacePath(claimed.dir));
+      if (!claimedKey) return { abort: 'no_dir' };
+      // 已经登记过(同一件事重开线程) -> 不写盘;但那一行【在盘上】,照样算派生成功(见下面的 landed)。
+      if (rows.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === claimedKey)) return { abort: 'exists' };
+      // ③ 追加在【末尾】。01-config 的清洗把 defaultWorkspace 与 workspaces[0].path 保持同步,
+      //    插在头上等于悄悄换掉用户的默认工作区。
+      // 这是工作台写自己的配置,不经 steward_config_set,所以不违反 workspaces 的 forbidden 档。
       current.workspaces = rows.concat([{
-        path: stewardRegisterPath, read: true, write: true, execute: true, note: STEWARD_WORKSPACE_DERIVE_NOTE,
+        path: claimed.dir, read: true, write: true, execute: true, note: STEWARD_WORKSPACE_DERIVE_NOTE,
       }]);
       return {};
     });
-    return !!(result && result.ok);
   } catch {
-    return false;    // 登记失败不挡开线程:目录已经建好、线程照常跑,只是这次没进候选表
+    // ④ 落盘抛了(磁盘满/文件只读/降级期):行没落盘 —— 删掉本次新建的目录,拒。
+    await stewardDiscardDerivedWorkspaceDir(builtDir);
+    return '';
   }
+  // 成功判据是【写完之后那份配置里真有这一行】,不是 mutator 说了什么。下面这行杜绝「行被清洗截掉
+  // 而我们还以为派生成了」—— 那正是本刀要治的形状。
+  const landed = !!(outcome && claimedKey && Array.isArray(outcome.config && outcome.config.workspaces)
+    && outcome.config.workspaces.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === claimedKey));
+  if (!landed) {
+    await stewardDiscardDerivedWorkspaceDir(builtDir);
+    return '';
+  }
+  return claimedDir;
 }
 
 // ── 117w-W1④(27 号文 §11.19.8 债表第一行):派生前的帽检查,fail-closed ────────────────
@@ -162,7 +207,9 @@ async function stewardRegisterDerivedWorkspace(stewardRegisterPath) {
 // 二者必居其一:要么行落盘,要么这条线程根本没开 —— 不许有中间态。
 // 保守之处如实记:表满时哪怕这条标题会【复用】表里已有的那一行(撞名复用、不会真 append),
 // 这里也一律拒。判「会不会复用」得先落地目录才知道,那正是要避免的顺序。
-// 两处调用(thread_new / quick_ask)共用这一份,与 stewardValidateCwd 同一纪律,不许各抄一遍。
+// 三处调用:thread_new / quick_ask 在【开线程之前】各一次(下面的),加上 stewardClaimDerivedWorkspace
+// 串行段里的复检那一次(预检到占位之间表可能被别的线程填满)。共用这一份,与 stewardValidateCwd
+// 同一纪律,不许各抄一遍。
 function stewardWorkspaceTableFull(stewardCapConfig) {
   const rows = Array.isArray(stewardCapConfig && stewardCapConfig.workspaces) ? stewardCapConfig.workspaces : [];
   if (rows.length + 1 <= WORKSPACE_TABLE_CAP) return null;
@@ -171,15 +218,14 @@ function stewardWorkspaceTableFull(stewardCapConfig) {
     { reason: 'workspace_table_full' });
 }
 
-// 三态第 ② 态的入口。返回派生好的绝对路径,或 ''(根不可用/撞名试满)—— 返回 '' 时调用方保持
-// 修前的回落链(createSession 的 `cwd || defaultWorkspace || homedir`),绝不拿一个假路径去跑。
+// 三态第 ② 态的入口。返回派生好的绝对路径,或 ''(根不可用/表满/撞名试满/写失败)—— 返回 '' 时调用方
+// 保持修前的回落链(createSession 的 `cwd || defaultWorkspace || homedir`),绝不拿一个假路径去跑。
 async function stewardDeriveThreadCwd(stewardDeriveTitle, stewardDeriveSessionId, stewardDeriveConfig) {
   const root = stewardCanonWorkspacePath(stewardDeriveConfig && stewardDeriveConfig.stewardWorkspaceRoot);
   if (!root) return '';
-  const dir = await stewardDeriveWorkspaceDir(root, stewardWorkspaceSlug(stewardDeriveTitle, stewardDeriveSessionId));
-  if (!dir) return '';
-  await stewardRegisterDerivedWorkspace(dir);
-  return dir;
+  // 建目录与登记是【一件事】(见 stewardClaimDerivedWorkspace):中间任何一步没成,都不会留下
+  // 「目录建了、行没了」。这两件事不再拆成两次调用 —— 拆开就又把窗口打开了。
+  return await stewardClaimDerivedWorkspace(root, stewardWorkspaceSlug(stewardDeriveTitle, stewardDeriveSessionId));
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。

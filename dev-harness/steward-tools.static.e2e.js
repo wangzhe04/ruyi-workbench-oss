@@ -434,12 +434,14 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(bareCaps.length === 0, '⑪ 清洗块代码行里零裸字面量帽子' + (bareCaps.length ? ' → ' + JSON.stringify(bareCaps) : ''));
   ok(!/\bWORKSPACE_TABLE_CAP\b\s*=\s*20\b/.test(src01), '⑪ 反向:常量没被悄悄改回 20');
 
-  // 派生前的帽检查:一处实现、两处调用(与 ⑧ 的 stewardValidateCwd 同一模具)。
+  // 派生前的帽检查:一处实现、三处调用(与 ⑧ 的 stewardValidateCwd 同一模具)。第三处是
+  // 117w-W1④ 小刀加的复检:占位(建目录 + append)与帽检查现在同处一个 mutateConfig 串行段,
+  // 预检时那份配置副本可能已经过期(另一条线程刚占了第 64 行)。
   const src13k = read('13k-steward-threads.js');
   const capDefs = (src13k.match(/function stewardWorkspaceTableFull\(/g) || []).length;
   ok(capDefs === 1, `⑪ stewardWorkspaceTableFull 只定义一次(got ${capDefs})`);
   const capUses = (src13k.match(/stewardWorkspaceTableFull\(/g) || []).length;
-  ok(capUses === 3, `⑪ 整文件出现 3 次 = 定义 1 + 调用 2(got ${capUses})`);
+  ok(capUses === 4, `⑪ 整文件出现 4 次 = 定义 1 + 调用 3(两个工具入口的预检 + 串行段里的复检;got ${capUses})`);
   const bodyOfCap = (name) => {
     const start = src13k.indexOf(`async function ${name}(`);
     if (start < 0) return '';

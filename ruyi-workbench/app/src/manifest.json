@@ -239,61 +239,61 @@
     {
       "file": "13k-steward-threads.js",
       "startLine": 44090,
-      "endLine": 45105,
+      "endLine": 45151,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)"
     },
     {
       "file": "13l-steward-ops.js",
-      "startLine": 45106,
-      "endLine": 45741,
+      "startLine": 45152,
+      "endLine": 45787,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 45742,
-      "endLine": 46100,
+      "startLine": 45788,
+      "endLine": 46146,
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)"
     },
     {
       "file": "13m-steward-runner-base.js",
-      "startLine": 46101,
-      "endLine": 46338,
+      "startLine": 46147,
+      "endLine": 46384,
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)"
     },
     {
       "file": "13n-steward-arbiter.js",
-      "startLine": 46339,
-      "endLine": 46895,
+      "startLine": 46385,
+      "endLine": 46941,
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)"
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "startLine": 46896,
-      "endLine": 47307,
+      "startLine": 46942,
+      "endLine": 47353,
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)"
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "startLine": 47308,
-      "endLine": 47860,
+      "startLine": 47354,
+      "endLine": 47906,
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)"
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "startLine": 47861,
-      "endLine": 48487,
+      "startLine": 47907,
+      "endLine": 48533,
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 48488,
-      "endLine": 48864,
+      "startLine": 48534,
+      "endLine": 48910,
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)"
     },
     {
       "file": "14-main.js",
-      "startLine": 48865,
-      "endLine": 49496,
+      "startLine": 48911,
+      "endLine": 49542,
       "note": "main()/module.exports"
     }
   ]

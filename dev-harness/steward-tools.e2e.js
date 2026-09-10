@@ -908,6 +908,12 @@ try {
     const capWrite = rows => writeConfig({
       configSchema: 11, stewardWorkspaceRoot: RUYI_CAP_ROOT, workspaces: rows, recentWorkspaces: [],
     });
+    // 派生目录都落在 Ruyi 根下 —— 用绝对路径判,不用字符串 startsWith(别把 Ruyi-cap2 误判进来)。
+    const capInRoot = p => !!p && path.resolve(p).startsWith(path.resolve(RUYI_CAP_ROOT) + path.sep);
+    // 回落链的落点是 createSession 的 `cwd || defaultWorkspace || homedir`;capWrite 每写一次配置,
+    // 01-config 的清洗就把 defaultWorkspace 同步成 workspaces[0].path(见 P6/P6b)—— 所以断言要拿
+    // 【当前配置里的 defaultWorkspace】,不能写死成夹具的 HOME。
+    const capDefaultWs = () => capCfg().defaultWorkspace;
     fs.mkdirSync(path.join(HOME, 'cap-1'), { recursive: true });
 
     // P1 —— 帽子本身抬到了 64:63 行原样进得去(修前只剩 20 行)。
@@ -986,6 +992,71 @@ try {
       ok(cap64.workspaces.length === 64 && cap64.defaultWorkspace === cap64.workspaces[0].path,
         `P6 64 行时 defaultWorkspace 仍等于 workspaces[0].path(${cap64.defaultWorkspace} / ${cap64.workspaces[0].path})`);
       ok(cap64.defaultWorkspace === path.join(HOME, 'cap-1'), 'P6b 同步的是【第一行】,不是最后追加的那一行');
+    }
+
+    // P7 —— 本刀的核心不变量(27 号文 §11.19.9 债表第一行):帽检查与占位建目录在【同一个串行段】,
+    // 两条线程同时派生不会把表顶到 65。
+    // 修前形状:两条线程在 63 行时同时过预检(两侧读到的都是 63 行) → 各自 append → 表 65 行 →
+    // 下一次 normalizeConfig 截掉一行 —— 被截掉那条线程的 cwd 指向【表外】目录,再用它当 cwd 会被拒。
+    // 这里用真并发直测(toolCall 同一个 tick 发出两条 thread_new,标题不同),断言四件事:
+    //   ① 表恰好 64 行;② 恰好一条线程拿到派生目录,另一条回落默认工作区且线程照常开;
+    //   ③ 落盘的就是那一条的行、note 对;④ 没落盘的那条【目录也没建出来】(零残骸)。
+    capWrite(capRows(63));
+    {
+      const RACE_A = '竞态甲';
+      const RACE_B = '竞态乙';
+      const [raceA, raceB] = await Promise.all([
+        call('steward_thread_new', { title: RACE_A, brief: { userText: RACE_A } }, stewardCtx('cap-race-a')),
+        call('steward_thread_new', { title: RACE_B, brief: { userText: RACE_B } }, stewardCtx('cap-race-b')),
+      ]);
+      ok(raceA && raceA.ok === true && raceB && raceB.ok === true,
+        `P7a 两条线程都开成了(派生失败只回落,不挡开线程;got ${JSON.stringify([raceA && raceA.error, raceB && raceB.error])})`);
+      const rows = capCfg().workspaces;
+      ok(rows.length === 64, `P7b 表恰好 64 行 —— 并发派生没把表顶到 65(got ${rows.length})`);
+      const cwdA = raceA && raceA.ok ? capHead(raceA.sessionId).cwd : '';
+      const cwdB = raceB && raceB.ok ? capHead(raceB.sessionId).cwd : '';
+      const derivedCount = (capInRoot(cwdA) ? 1 : 0) + (capInRoot(cwdB) ? 1 : 0);
+      ok(derivedCount === 1, `P7c 恰好一条线程拿到派生目录(甲 ${JSON.stringify(cwdA)} / 乙 ${JSON.stringify(cwdB)})`);
+      const wonCwd = capInRoot(cwdA) ? cwdA : cwdB;
+      const loserTitle = capInRoot(cwdA) ? RACE_B : RACE_A;
+      const loserCwd = capInRoot(cwdA) ? cwdB : cwdA;
+      const last = rows[rows.length - 1];
+      ok(String(last && last.path) === wonCwd && (last && last.note) === 'Ruyi 自动开的',
+        `P7d 落盘那行就是派生成功那条线程的目录(末行 ${JSON.stringify(last)})`);
+      ok(!capInRoot(loserCwd) && loserCwd === capDefaultWs(),
+        `P7e 另一条线程回落默认工作区 ${capDefaultWs()},没拿一个表外目录(got ${JSON.stringify(loserCwd)})`);
+      ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, loserTitle)),
+        `P7f 没落盘那条线程【没有留下目录】(帽检查在占目录之前;检查 ${path.join(RUYI_CAP_ROOT, loserTitle)})`);
+      const racedDirs = (fs.existsSync(RUYI_CAP_ROOT) ? fs.readdirSync(RUYI_CAP_ROOT) : [])
+        .filter(n => n === RACE_A || n === RACE_B);
+      ok(racedDirs.length === 1, `P7g Ruyi 根下这次只多了 1 个派生目录(got ${JSON.stringify(racedDirs)})`);
+    }
+
+    // P8 —— 第二条来路(同一债表下一行):占位之后的【落盘失败】不再被吞掉。
+    // 修前:stewardRegisterDerivedWorkspace 的 `catch { return false }` 把写失败吞了,调用方照样返回
+    // 目录 —— 目录在、行不在。修后:行没落盘 = 派生没成 = 删掉【本次新建】的目录并回落。
+    // 造法:把 config.json 设成只读(Windows 的 +R 属性),写链的 tmp -> rename 覆盖会失败。
+    // P8(前提) 先证明这一写【真的】失败了 —— 否则整条锁是假绿。
+    capWrite(capRows(3));
+    {
+      const cfgPath = path.join(HOME, 'config.json');
+      const beforeText = fs.readFileSync(cfgPath, 'utf8');
+      const WRITE_FAIL_TITLE = '写不下去';
+      let wfail = null;
+      fs.chmodSync(cfgPath, 0o444);
+      try {
+        wfail = await call('steward_thread_new', { title: WRITE_FAIL_TITLE, brief: { userText: WRITE_FAIL_TITLE } }, stewardCtx('cap-wfail'));
+      } finally {
+        fs.chmodSync(cfgPath, 0o666);
+      }
+      ok(fs.readFileSync(cfgPath, 'utf8') === beforeText,
+        'P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了');
+      ok(wfail && wfail.ok === true, `P8a 落盘失败不挡开线程(got ${JSON.stringify(wfail && wfail.error)})`);
+      const wfailCwd = wfail && wfail.ok ? capHead(wfail.sessionId).cwd : '';
+      ok(!capInRoot(wfailCwd) && wfailCwd === capDefaultWs(),
+        `P8b 线程回落默认工作区 ${capDefaultWs()},没拿那个没登记成的目录(got ${JSON.stringify(wfailCwd)})`);
+      ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, WRITE_FAIL_TITLE)), 'P8c 落盘失败 -> 刚建的目录被删掉,不留残骸');
+      ok(capCfg().workspaces.length === 3, `P8d 表还是 3 行(行没落盘也没多出来;got ${capCfg().workspaces.length})`);
     }
   }
 
