@@ -1045,6 +1045,79 @@ try {
     ok(JSON.stringify(cfgBefore) === JSON.stringify(cfgAfter),
       'P7b 零写入:config.json 逐字节不变(整份拒绝,不是「能写的写」)');
   }
+
+  /* ═════════ (R) 117z-E2b 第三件(核,不是改):桥接的桌面工具经不经 allowDesktopTools 这把闸 ═════════ */
+  // 27 号文 §11.21.7 债 ③ 的前提要先纠正,再钉事实:
+  //   · 「桥接工具的档在 02:2064-2074(ACC 全家是 'desktop')」—— 那张表是 IRREVERSIBLE_BRIDGED_KIND,
+  //     是不可逆操作【账本】的 kind,不是风险档;工作台的风险档只有 read/edit/exec(00-boot TOOL_TIER_RANK),
+  //     07:313 bridgedToolTier 对任何名字只回这三个之一,【不存在 'desktop' 档】。「按 bridgedToolTier === 'desktop'
+  //     滤」这条修法因此是一条空操作,本段 R1 把这个事实钉死,免得下一把刀再按它派单。
+  //   · 「auto 模式下 12:100 tier mismatch 拒 -> 不可达」—— 也不成立:ACC 的 mouse_click 档是 'exec',
+  //     tool_invoke_exec 与它【同档】,12:100 放行;tool_load 按名字显式拉入更是直接注入(R5)。
+  // 于是两条路径的事实是:
+  //   full 模式(07:722 createToolLoadingState,07:743 liveList 的 `full ||`)把【全部】桥接 schema 直接注入,
+  //   合并点在 09:1418 `ownTools.concat(bridged.tools)`,04:1486 collectBridgedTools 与 09:2722-2775 的执行路
+  //   都不读 allowDesktopTools / session.desktopTools(全仓唯一读点是 07:108,只滤两个原生工具)。
+  // 【可达且不看闸】。但派单里的就地修法(按 'desktop' 档滤)无从实现,而任何真修法都得先定「哪些桥接工具算
+  // 桌面工具」(按 pack 07:375 会把所有未知外部工具一起滤掉;按账本 02:2070 只盖住写族、漏掉 screenshot/ocr;
+  // 按服务器身份 desktopMcp='ai-computer-control' 最贴产品口径但是一份新判据)—— 这是拍板项,不在「核」的授权
+  // 里。本段把洞【原样钉住并明写「已知洞」】:谁修好它,R4/R5 当场红,顺手把这两条翻成反向断言并在 27 号文划债。
+  console.log('── (R) 117z-E2b 桥接桌面工具 vs allowDesktopTools(核) ──');
+  {
+    const ACC = 'ai-computer-control';
+    const mkBridged = n => ({ type: 'function', function: { name: `${ACC}__${n}`, description: n, parameters: { type: 'object', properties: {} } } });
+    const accNames = ['mouse_click', 'type_text', 'screenshot', 'hotkey'];
+    const accTools = accNames.map(mkBridged);
+    const accRoute = {};
+    for (const n of accNames) accRoute[`${ACC}__${n}`] = { serverId: ACC, toolName: n };
+    const namesOf = tools => tools.map(t => t && t.function && t.function.name).filter(Boolean);
+    const NATIVE_DESK = ['desktop_screenshot', 'keyboard_send_keys'];
+
+    writeConfig({ allowDesktopTools: false, toolLoadingMode: 'full' });
+    const cfgFull = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
+    ok(cfgFull.allowDesktopTools === false && cfgFull.toolLoadingMode === 'full',
+      `R0 前置:全局闸关、full 模式(got allowDesktopTools=${cfgFull.allowDesktopTools} / toolLoadingMode=${cfgFull.toolLoadingMode})`);
+
+    // R1 前提纠正:桥接工具没有 'desktop' 档 —— 07:313 对 ACC 全家只回 read/exec(edit 只来自用户覆盖表)。
+    const tiers = accNames.map(n => srv.bridgedToolTier(n, cfgFull));
+    ok(tiers.every(t => t === 'read' || t === 'edit' || t === 'exec') && !tiers.includes('desktop'),
+      `R1 桥接工具的档只有 read/edit/exec,没有 'desktop'(派单里「按 desktop 档滤」是空操作;got ${JSON.stringify(Object.fromEntries(accNames.map((n, i) => [n, tiers[i]])))})`);
+    const catalog = srv.buildToolCatalog(accTools, accRoute, cfgFull);
+    ok(catalog.length === accNames.length && catalog.every(x => x.bridged === true && x.pack === 'desktop'),
+      `R1b 同一批工具在目录里的【包】是 'desktop'(07:375 按名字归包)—— 「桌面」在工作台里是包名/账本 kind,不是档(got ${JSON.stringify(catalog.map(x => x.pack))})`);
+
+    // R2 对照:同一把闸对两个【原生】桌面工具是有效的(07:129),会话覆盖也生效 —— 这把闸本身没坏,只是够不着桥接面。
+    const ownOff = srv.buildOpenAiTools(cfgFull, null, { desktopOverride: null });
+    ok(!namesOf(ownOff).some(n => NATIVE_DESK.includes(n)),
+      `R2 allowDesktopTools:false + 会话覆盖 null -> 两个原生桌面工具被滤掉(got ${JSON.stringify(namesOf(ownOff).filter(n => NATIVE_DESK.includes(n)))})`);
+    const ownOn = srv.buildOpenAiTools(cfgFull, null, { desktopOverride: true });
+    ok(NATIVE_DESK.every(n => namesOf(ownOn).includes(n)),
+      'R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)');
+
+    // R3 full 模式的注入面(07:722/743):合并点 09:1418 是 ownTools.concat(bridged.tools),这里照样合。
+    const stateFull = srv.createToolLoadingState(cfgFull, '看一眼屏幕', [], ownOff.concat(accTools), accRoute, undefined);
+    const liveFull = namesOf(stateFull.current());
+    ok(stateFull.fullCount === ownOff.length + accTools.length && liveFull.length === stateFull.fullCount,
+      `R3 full 模式一次性注入目录里【全部】schema(got live ${liveFull.length} / fullCount ${stateFull.fullCount})`);
+    // R4 【已知洞,登记债】:同一份工具面里,原生桌面工具已被闸掉,桥接的 ACC 桌面工具却原样在场。
+    const leaked = liveFull.filter(n => n.startsWith(`${ACC}__`));
+    ok(!liveFull.some(n => NATIVE_DESK.includes(n)) && leaked.length === accNames.length,
+      `R4 【已知洞】allowDesktopTools:false 的 full 模式工具面:原生桌面工具 0 个、桥接 ACC 桌面工具 ${leaked.length}/${accNames.length} 个照样注入(注入路不读闸;got ${JSON.stringify(leaked)})`);
+    // R5 【已知洞】auto 模式:默认不注入桥接 schema(O1 hb360),但 tool_load 按名字显式拉入照样进工具面,同样不看闸;
+    //     而 tool_invoke_exec 走 12:100 的档校验,mouse_click 的档正是 'exec' —— 同档即放行,那道校验挡不住它。
+    writeConfig({ allowDesktopTools: false, toolLoadingMode: 'auto' });
+    const cfgAuto = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
+    const stateAuto = srv.createToolLoadingState(cfgAuto, '看一眼屏幕', [], ownOff.concat(accTools), accRoute, undefined);
+    ok(!namesOf(stateAuto.current()).some(n => n.startsWith(`${ACC}__`)),
+      'R5a auto 模式默认不注入桥接 schema(O1 hb360 的既有行为,不是闸的功劳)');
+    const pulled = stateAuto.load({ tools: [`${ACC}__mouse_click`] });
+    ok(pulled && pulled.ok === true && namesOf(stateAuto.current()).includes(`${ACC}__mouse_click`),
+      `R5 【已知洞】auto 模式 tool_load 显式拉入桥接 ACC 工具照样进工具面,不看闸(got ${JSON.stringify(pulled && pulled.loaded)})`);
+    const clickItem = catalog.find(x => x.name === `${ACC}__mouse_click`);
+    ok(clickItem && clickItem.tier === 'exec',
+      `R5b tool_invoke_exec 对它的档校验(12:100)是同档放行:mouse_click 的目录档 = 'exec'(got ${clickItem && clickItem.tier})`);
+    writeConfig({});
+  }
 } finally {
   try { providerServer.close(); } catch { /* ignore */ }
 }
