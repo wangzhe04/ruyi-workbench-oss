@@ -6,6 +6,8 @@
 //
 // 这一份钉的是【事实】，不是某一行的写法：
 //   ① 「看起来不是文本模型」是【折叠】不是【隐藏】—— 收起来时那些行仍在 DOM 里、点了照样能选；
+//   ①b 已经在「常用」里露过面的那一行，折叠区【不重复印第二份】，折叠标题的计数也不算它
+//      （§11.17.8 裁决：常用赢，按 (provider, model) 去重）；
 //   ② 搜索能命中折叠区里的项（并把折叠区自动展开）—— 不许有「看不见也摸不着」的东西；
 //   ③ 「常用」没有用量时【整段不出现】，有用量时按最近一次使用倒序、最多 5 条、只收最近 30 天；
 //   ④ 副行没有用量就【不出】（不显示「0 回合」——那是把「不知道」说成「零」）；
@@ -76,9 +78,11 @@ const byClass = name => node => String(node.className || '').split(' ').includes
 const modelRows = menu => walk(menu, node => node.dataset && typeof node.dataset.modelId === 'string');
 const groupTitles = menu => walk(menu, byClass('steward-chip-group')).map(node => node.textContent);
 const rowOf = (menu, id) => modelRows(menu).find(node => node.dataset.modelId === id) || null;
-// 折叠区那一份【自己的】行：最近用过的模型会在「常用」里也出现一份（那是同一个 id 的两条路，
-// 不是两个东西），所以问「折叠区里的那一条看不看得见」必须问折叠区自己那一份。
+// 折叠区那一份【自己的】行：文本模型最近用过时会在「常用」与「全部模型」里各出现一份（那是同一个
+// id 的两条路，不是两个东西），所以问「折叠区里的那一条看不看得见」必须问折叠区自己那一份。
+// （非文本模型进了「常用」之后折叠区就不再有它了 —— §11.17.8 的去重裁决，见 ①b。）
 const foldToggle = menu => walk(menu, node => node.dataset && node.dataset.chipFold === 'nonText')[0] || null;
+const foldCount = menu => { const node = foldToggle(menu); return node ? (walk(node, byClass('steward-chip-fold-count'))[0] || {}).textContent : null; };
 const foldBody = menu => walk(menu, byClass('steward-chip-fold-body'))[0] || null;
 const foldRowOf = (menu, id) => {
   const body = foldBody(menu);
@@ -121,6 +125,11 @@ const MODELS = [
   { id: 'bge-rerank-v3' },
 ];
 const NON_TEXT = ['omni-audio-preview', 'qwen3.5-livetranslate-flash-realtime-2026-05-19', 'seedream-image-4', 'bge-rerank-v3'];
+// 这四个里只有 omni-audio-preview 在下面那份用量里有账（2 天前）→ 它进「常用」，于是折叠区里
+// 【不再有它】（§11.17.8 裁决：常用赢，折叠区按 (provider, model) 去重）。折叠区因此是三条：
+// 那三个没账的。谁在折叠区不是抄一份常量，而是从「有没有账」这件事实推出来的。
+const NON_TEXT_USED = ['omni-audio-preview'];
+const FOLDED = NON_TEXT.filter(id => !NON_TEXT_USED.includes(id));
 // 用量：6 条落在 30 天内（要验「最多 5 条」与「按最近一次使用倒序」）、1 条在窗口外、1 条没有 ts。
 const USAGE = [
   { model: 'gpt-x-mini', provider: 'p1', engine: 'openai', turns: 3, lastAt: ago(3) },
@@ -182,19 +191,19 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
     const s = await scenario({ tag: 'fold' });
     const body = foldBody(s.menu);
     const folded = body ? modelRows(body).map(node => node.dataset.modelId) : [];
-    ok(JSON.stringify(folded.slice().sort()) === JSON.stringify(NON_TEXT.slice().sort()),
-      `① 收起来的时候，四个「看起来不是文本模型」的端点【仍在 DOM 里】（实测 ${JSON.stringify(folded)}）`);
+    ok(JSON.stringify(folded.slice().sort()) === JSON.stringify(FOLDED.slice().sort()),
+      `① 收起来的时候，那三个【没账的】「看起来不是文本模型」的端点仍在 DOM 里（实测 ${JSON.stringify(folded)}）`);
     // 「看不见」必须连「这一行还在不在」一起问：行被删掉时它当然也看不见，那是【过滤】，正是这条锁要挡的。
-    ok(NON_TEXT.every(id => { const row = foldRowOf(s.menu, id); return Boolean(row) && visible(row) === false; }),
+    ok(FOLDED.every(id => { const row = foldRowOf(s.menu, id); return Boolean(row) && visible(row) === false; }),
       '① 但它们此刻【看不见】—— 折叠区默认收起（body.hidden），这才叫折叠而不是照单全列');
     const toggle = foldToggle(s.menu);
     ok(Boolean(toggle) && toggle.textContent.includes('可能猜错') && toggle.getAttribute('aria-expanded') === 'false',
       `① 折叠区标题明写「按名字猜的，可能猜错」（实测「${toggle && toggle.textContent}」）`);
     if (toggle) toggle.click();
     ok(Boolean(toggle)
-      && NON_TEXT.every(id => { const row = foldRowOf(s.menu, id); return Boolean(row) && visible(row) === true; })
+      && FOLDED.every(id => { const row = foldRowOf(s.menu, id); return Boolean(row) && visible(row) === true; })
       && foldToggle(s.menu).getAttribute('aria-expanded') === 'true',
-      '① 一键展开：展开后四条全部可见，aria-expanded 跟着翻面');
+      '① 一键展开：展开后那三条全部可见，aria-expanded 跟着翻面');
     // 可选性没被改变：点折叠区里的那一行，PATCH 就该带着它的 id 出去（点完菜单会收起来，
     // 所以这一条放在本段最后）。
     const pick = foldRowOf(s.menu, 'seedream-image-4');
@@ -203,6 +212,31 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
     ok(Boolean(patched) && JSON.parse(patched.init.body).engineRoute.model === 'seedream-image-4',
       `① 折叠区里的模型点了照样能选（实测 PATCH ${patched && patched.init.body}）`);
     ok(s.missingKeys.length === 0, `i18n 这张菜单用到的键【逐个】在 zh-CN 里解析得出（缺 ${JSON.stringify(s.missingKeys)}）`);
+  }
+
+  // ── ①b 折叠区不重复印「常用」里已经有的那一行（§11.17.8 裁决：「常用」赢） ───────────
+  // 用过的非文本模型（omni-audio-preview，2 天前）该在「常用」段【不折叠地】印一行；折叠区
+  // 不许再印第二份，折叠标题的「× N」也不许把它算上 —— 同一屏印两次是重复不是强调，去重之后
+  // 那个数才是「还没露面的有 N 个」。
+  {
+    const s = await scenario({ tag: 'dedupe' });
+    const used = NON_TEXT_USED[0];
+    const printed = modelRows(s.menu).map(node => node.dataset.modelId).filter(id => id === used);
+    ok(printed.length === 1, `①b 最近用过的那个非文本 id 整张菜单里【只印一行】（实测 ${printed.length} 行）`);
+    ok(recentIds(s.menu).includes(used) && foldRowOf(s.menu, used) === null,
+      `①b 那一行在「常用」段里，折叠区里没有它（实测 常用 ${JSON.stringify(recentIds(s.menu))}）`);
+    ok(foldCount(s.menu) === String(FOLDED.length),
+      `①b 折叠标题的计数是【去重之后】的 ${FOLDED.length}，不含已经在「常用」露过面的那一个（实测 × ${foldCount(s.menu)}）`);
+    // 搜索时同一条判据成立：过滤之后「常用」里还有的，折叠区照样不重复一份。
+    s.type('audio');
+    const hits = modelRows(s.menu).map(node => node.dataset.modelId).filter(id => id === used);
+    ok(hits.length === 1 && recentIds(s.menu).includes(used) && foldToggle(s.menu) === null,
+      `①b 搜「audio」时也不重复：命中的那一行只印一次、就在「常用」里；折叠区一条不剩于是整块不摆（实测 ${hits.length} 行／折叠区在场=${Boolean(foldToggle(s.menu))}）`);
+    s.type('');
+    // 反向对照：去重去掉的只是【已经露过面的那一行】，不是把非文本全放行。
+    const never = FOLDED[0];
+    ok(Boolean(foldRowOf(s.menu, never)) && !recentIds(s.menu).includes(never),
+      `①b 对照：同一夹具里没账的「${never}」照旧只在折叠区（它没在别处露过面，就该留在折叠区）`);
   }
 
   // ── ② 搜索命中折叠区里的项 ──────────────────────────────────────────────────────
@@ -240,7 +274,8 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
     ok(JSON.stringify(recent) === JSON.stringify(['gpt-x-pro', 'omni-audio-preview', 'gpt-x-mini', 'deepthink-r2', 'qwen3.5-max']),
       `③ 按【最近一次使用】倒序，不是按回合数（实测 ${JSON.stringify(recent)}）`);
     ok(!recent.includes('gpt-x-nano'), '③ lastAt 是空串（该组没有可解析的 ts）的那一条不进「常用」—— 我们不知道它上次是什么时候，就不能说它「最近用过」');
-    ok(recent.includes('omni-audio-preview'), '③ 折叠区里的模型只要真的最近用过，照样能进「常用」（折叠不改变可选性，也不改变它是不是常用）');
+    ok(recent.includes('omni-audio-preview') && foldRowOf(s.menu, 'omni-audio-preview') === null,
+      '③ 「看起来不是文本」的模型只要真的最近用过就进「常用」，并且【只在那里】出现一次（折叠区不再重复一份，见 ①b）');
     // 30 天那道窗口要单独一个夹具才证得伪：上面那份里出窗口的 glm-5-air 排在最后，就算窗口
     // 放宽到十年，它也被「最多 5 条」挡在外面 —— 那条断言恒真，等于没验（写这份锁时踩过一次）。
     // 这一份只放三条用量、两条在窗口内，窗口一放宽第三条立刻现身。

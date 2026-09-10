@@ -84,12 +84,21 @@ const BULK_TEXT_IDS = [
 // 两项 label ≠ id：主行印的是 label，但搜 id 照样命中（modelMatch 先找 label，找不到退回 id）。
 const BULK_LABELS = new Map([['bulk-chat-01', '批量 · 通用一号'], ['bulk-reason-01', '批量 · 深思一号']]);
 const BULK_MODELS = [...BULK_TEXT_IDS, ...BULK_NON_TEXT_IDS].map(id => ({ id, label: BULK_LABELS.get(id) || id }));
-// 有账的七项（都取文本 id）：0～6 天前各一条用量流水。「常用」只该留最近的【五条】
-// （§11.17.2「最近 30 天／最多 5 条」），另外两条只在自己的分组里出现 —— 于是「≤5」与
-// 「没有账的行不出副行」在同一张菜单上同时可验。
+// 有账的七项：0～6 天前各一条用量流水。「常用」只该留最近的【五条】（§11.17.2「最近 30 天／
+// 最多 5 条」），另外两条只在自己的分组里出现 —— 于是「≤5」与「没有账的行不出副行」在同一张
+// 菜单上同时可验。
+// 第三项【故意换成那个非文本 id】（§11.17.8 的去重裁决要在真浏览器里也验得着）：它有账、且在
+// 最近五条之内 → 该在「常用」段不折叠地印一行，而折叠区【不许再印第二份】、折叠标题的计数也
+// 不许把它算上。于是折叠区里剩下的正好是那三个【没账的】非文本 id。
 const BULK_RECENT_MAX = 5;
-const BULK_USED_IDS = BULK_TEXT_IDS.slice(0, 7);
+const BULK_USED_NON_TEXT_ID = 'bulk-audio-preview-2026-04-01';
+const BULK_USED_IDS = [...BULK_TEXT_IDS.slice(0, 2), BULK_USED_NON_TEXT_ID, ...BULK_TEXT_IDS.slice(2, 6)];
 const BULK_RECENT_TOP5 = BULK_USED_IDS.slice(0, BULK_RECENT_MAX);
+// 有账的文本 id：它们在「常用」与 provider 分组里【各印一行】（同一个东西的两条路）；那个有账的
+// 非文本 id 只印一行 —— 分组段本来就不收非文本，折叠区又去了重。副行条数因此是确定的。
+const BULK_USED_TEXT_IDS = BULK_USED_IDS.filter(id => !BULK_NON_TEXT_IDS.includes(id));
+// 真正折进去的：没在「常用」露过面的那些非文本 id（不是抄一份常量，是从「有没有账」推出来的）。
+const BULK_FOLDED_IDS = BULK_NON_TEXT_IDS.filter(id => !BULK_RECENT_TOP5.includes(id));
 
 const { findBrowserExecutable } = require('./lib/browser-path');
 const browserPath = findBrowserExecutable;
@@ -783,21 +792,32 @@ try {
   ok(Boolean(bulkMenu) && bulkMenu.searchPresent === true && bulkMenu.searchFocused === true,
     `M3 候选 ${BULK_MODELS.length} 项（> 门槛 8）→ 搜索框出现且拿到真焦点（实测 出现=${bulkMenu && bulkMenu.searchPresent} activeElement 是它=${bulkMenu && bulkMenu.searchFocused}）`);
 
-  // ② 折叠区在场：标题就是「按名字猜的，可能猜错」那一句，计数＝夹具里放进去的非文本 id 个数。
+  // ② 折叠区在场：标题就是「按名字猜的，可能猜错」那一句，计数＝【真折进去的】那几个
+  //    （§11.17.8：已经在「常用」露过面的那一个不算，那个数说的是「还没露面的有几个」）。
   ok(Boolean(bulkMenu) && bulkMenu.foldPresent === true
     && bulkMenu.foldTitle === zh['stewardShell.chips.groupNonText']
     && bulkMenu.foldTitle.includes('猜')
-    && bulkMenu.foldCount === String(BULK_NON_TEXT_IDS.length),
-    `M4 折叠区在场，标题明写「猜」且计数 ${BULK_NON_TEXT_IDS.length}（实测 在场=${bulkMenu && bulkMenu.foldPresent}「${bulkMenu && bulkMenu.foldTitle}」× ${bulkMenu && bulkMenu.foldCount}）`);
-  // 判据对账：实现打的 data-model-non-text 与夹具里那四个已知 id 严丝合缝（本文件不抄子串表）。
-  ok(Boolean(bulkMenu) && sameSet(bulkMenu.nonTextIds, BULK_NON_TEXT_IDS) && sameSet(bulkMenu.foldRowIds, BULK_NON_TEXT_IDS),
-    `M4b 折进去的正好是那四个 id，一个不多一个不少（实测 ${bulkMenu && JSON.stringify(bulkMenu.foldRowIds)}）`);
+    && bulkMenu.foldCount === String(BULK_FOLDED_IDS.length),
+    `M4 折叠区在场，标题明写「猜」且计数 ${BULK_FOLDED_IDS.length}（夹具里四个非文本 id，其中「${BULK_USED_NON_TEXT_ID}」有账已进「常用」不重复算；实测 在场=${bulkMenu && bulkMenu.foldPresent}「${bulkMenu && bulkMenu.foldTitle}」× ${bulkMenu && bulkMenu.foldCount}）`);
+  // 判据对账：实现打的 data-model-non-text 与夹具里那四个已知 id 严丝合缝（本文件不抄子串表）；
+  // 而真折进去的是其中【没在「常用」露过面】的那三个。
+  ok(Boolean(bulkMenu) && sameSet(bulkMenu.nonTextIds, BULK_NON_TEXT_IDS) && sameSet(bulkMenu.foldRowIds, BULK_FOLDED_IDS),
+    `M4b 四个 id 都被实现认成「看起来不是文本」，而折进去的正好是那三个【没账的】（实测 打标 ${bulkMenu && JSON.stringify(bulkMenu.nonTextIds)} 折叠 ${bulkMenu && JSON.stringify(bulkMenu.foldRowIds)}）`);
   // ③ 折叠 ≠ 隐藏：行【一直在 DOM 里】，只是这一拍真的没画出来（.steward-chip-fold-body[hidden]
   //    那条作者样式的活证据 —— 少了它 foldBodyPainted 就是 true，本条当场红）。
-  ok(Boolean(bulkMenu) && bulkMenu.foldRowIds.length === BULK_NON_TEXT_IDS.length
+  ok(Boolean(bulkMenu) && bulkMenu.foldRowIds.length === BULK_FOLDED_IDS.length
     && bulkMenu.foldBodyHiddenAttr === true && bulkMenu.foldBodyPainted === false && bulkMenu.foldRowsPainted === 0
-    && BULK_NON_TEXT_IDS.every(id => !bulkMenu.paintedIds.includes(id)),
-    `M4c 收起来时那四行仍在 DOM、但【真的没画出来】（实测 body.hidden=${bulkMenu && bulkMenu.foldBodyHiddenAttr} body 画出来=${bulkMenu && bulkMenu.foldBodyPainted} 行画出来=${bulkMenu && bulkMenu.foldRowsPainted}）`);
+    && BULK_FOLDED_IDS.every(id => !bulkMenu.paintedIds.includes(id)),
+    `M4c 收起来时那三行仍在 DOM、但【真的没画出来】（实测 body.hidden=${bulkMenu && bulkMenu.foldBodyHiddenAttr} body 画出来=${bulkMenu && bulkMenu.foldBodyPainted} 行画出来=${bulkMenu && bulkMenu.foldRowsPainted}）`);
+  // ③b 去重（§11.17.8 裁决：「常用」赢）：有账的那个非文本 id 整张菜单【只印一行】，就在「常用」段里，
+  //     折叠区没有它，而且它此刻【真的画出来了】—— 用过的东西要一眼找得到，不该藏在收起来的抽屉里。
+  const dedupeSection = sectionOf(bulkMenu, RECENT_TITLE);
+  const dedupePrinted = bulkMenu ? bulkMenu.rowIds.filter(id => id === BULK_USED_NON_TEXT_ID).length : -1;
+  ok(dedupePrinted === 1
+    && Boolean(dedupeSection) && dedupeSection.ids.includes(BULK_USED_NON_TEXT_ID)
+    && !bulkMenu.foldRowIds.includes(BULK_USED_NON_TEXT_ID)
+    && bulkMenu.paintedIds.includes(BULK_USED_NON_TEXT_ID),
+    `M4d 「${BULK_USED_NON_TEXT_ID}」最近用过 → 整张菜单里只印一行、就在「常用」段、当场看得见，折叠区不重复第二份（实测 印了 ${dedupePrinted} 行／折叠区 ${bulkMenu && JSON.stringify(bulkMenu.foldRowIds)}）`);
 
   // ④ 「常用」：七条账只留最近的五条；非文本项不混进 provider 分组。
   const recentSection = sectionOf(bulkMenu, RECENT_TITLE);
@@ -810,13 +830,14 @@ try {
   ok(Boolean(groupSection) && JSON.stringify(groupSection.ids) === JSON.stringify(BULK_TEXT_IDS),
     `M5c 按 provider 分组、组标题就是它的 label，段里是 ${BULK_TEXT_IDS.length} 项文本候选（非文本的四项不在这里）（实测 ${groupSection && groupSection.ids.length} 项）`);
 
-  // ⑤ 副行只长在有账的行上：五条常用 ＋ 分组里那七条，其余 23 行一条副行都没有，
-  //    整张菜单里也不许出现「0 回合」（把「不知道」说成「零」）。
+  // ⑤ 副行只长在有账的行上：五条常用 ＋ 分组里那六条【文本】的，其余行一条副行都没有，
+  //    整张菜单里也不许出现「0 回合」（把「不知道」说成「零」）。那个有账的非文本 id 只在
+  //    「常用」里印一次（分组段本来就不收非文本，折叠区又去了重），所以它只贡献一条副行。
   const hintUnique = bulkMenu ? [...new Set(bulkMenu.hintIds)] : [];
   ok(Boolean(bulkMenu) && sameSet(hintUnique, BULK_USED_IDS)
-    && bulkMenu.hintIds.length === BULK_RECENT_MAX + BULK_USED_IDS.length
+    && bulkMenu.hintIds.length === BULK_RECENT_MAX + BULK_USED_TEXT_IDS.length
     && bulkMenu.hintTexts.every(text => !text.includes('0 回合')),
-    `M6 只有真有账的 ${BULK_USED_IDS.length} 个 id 带副行（常用里 ${BULK_RECENT_MAX} 行＋分组里 ${BULK_USED_IDS.length} 行＝${BULK_RECENT_MAX + BULK_USED_IDS.length} 条），没账的 ${BULK_MODELS.length - BULK_USED_IDS.length} 行一条都没有，且没有「0 回合」（实测 ${bulkMenu && bulkMenu.hintIds.length} 条／唯一 id ${JSON.stringify(hintUnique)}）`);
+    `M6 只有真有账的 ${BULK_USED_IDS.length} 个 id 带副行（常用里 ${BULK_RECENT_MAX} 行＋分组里 ${BULK_USED_TEXT_IDS.length} 行＝${BULK_RECENT_MAX + BULK_USED_TEXT_IDS.length} 条），没账的 ${BULK_MODELS.length - BULK_USED_IDS.length} 行一条都没有，且没有「0 回合」（实测 ${bulkMenu && bulkMenu.hintIds.length} 条／唯一 id ${JSON.stringify(hintUnique)}）`);
   ok(Boolean(bulkMenu) && bulkMenu.hintTexts.some(text => text.includes(zh['stewardShell.chips.usedToday']))
     && bulkMenu.hintTexts.some(text => text.includes('1 天前')),
     `M6b 副行说的是我们真知道的那点事（「今天」「1 天前」都在，实测 ${bulkMenu && JSON.stringify(bulkMenu.hintTexts.slice(0, 3))}）`);
@@ -828,16 +849,18 @@ try {
     return snapshot && snapshot.foldBodyHiddenAttr === false ? snapshot : null;
   })()`);
   ok(Boolean(expandedMenu) && expandedMenu.foldExpanded === 'true' && expandedMenu.foldBodyPainted === true
-    && expandedMenu.foldRowsPainted === BULK_NON_TEXT_IDS.length,
-    `M7 点折叠区标题就展开，四行【真的画出来了】（实测 aria-expanded=${expandedMenu && expandedMenu.foldExpanded} 画出来 ${expandedMenu && expandedMenu.foldRowsPainted} 行）`);
-  const PICK_NON_TEXT = BULK_NON_TEXT_IDS[0];
+    && expandedMenu.foldRowsPainted === BULK_FOLDED_IDS.length,
+    `M7 点折叠区标题就展开，那三行【真的画出来了】（实测 aria-expanded=${expandedMenu && expandedMenu.foldExpanded} 画出来 ${expandedMenu && expandedMenu.foldRowsPainted} 行）`);
+  // 点的是【折叠区里真有的】那一条（有账的那个已经进「常用」了，不在这块里）。
+  const PICK_NON_TEXT = BULK_FOLDED_IDS[0];
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-model-id="${PICK_NON_TEXT}"]').click(), true`);
   ok(Boolean(await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
     result => result.json && result.json.session && result.json.session.engineRoute
       && String(result.json.session.engineRoute.model || '') === PICK_NON_TEXT, token)),
     `M7b 折叠区里的行仍可选：点「${PICK_NON_TEXT}」→ PATCH 之后 engineRoute.model 就是它（折叠只是折叠，不是过滤）`);
 
-  // ⑦ 搜索能命中折叠区里的项：打「audio」→ 折叠区【自动展开】，那一行当场可见并高亮命中段。
+  // ⑦ 搜索能命中折叠区里的项：打「image」→ 折叠区【自动展开】，那一行当场可见并高亮命中段。
+  // 这个串是【折叠区里那一条】的子串（夹具里 30 个 id 中只有它带 image），所以这一屏只剩它。
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
   await waitForEval(cdp, `(() => { const snapshot = ${MODEL_MENU}; return snapshot && snapshot.searchPresent ? snapshot : null; })()`);
   const typeSearch = needle => `(() => {
@@ -846,17 +869,31 @@ try {
     box.dispatchEvent(new Event('input', { bubbles: true }));
     return true;
   })()`;
-  await cdp.evaluate(typeSearch('audio'));
+  await cdp.evaluate(typeSearch('image'));
   const searched = await waitForEval(cdp, `(() => {
     const snapshot = ${MODEL_MENU};
     return snapshot && snapshot.rowIds.length === 2 ? snapshot : null;
   })()`);
   ok(Boolean(searched) && searched.foldExpanded === 'true' && searched.foldBodyHiddenAttr === false
     && searched.paintedIds.includes(PICK_NON_TEXT) && searched.foldRowsPainted === 1
-    && searched.hits.join('') === 'audio',
-    `M8 搜「audio」当场命中折叠区里那一行：折叠区自动展开、行真的画出来、命中段高亮（实测 展开=${searched && searched.foldExpanded} 画出来的 ${searched && JSON.stringify(searched.paintedIds)} 高亮 ${searched && JSON.stringify(searched.hits)}）`);
+    && searched.hits.join('') === 'image',
+    `M8 搜「image」当场命中折叠区里那一行：折叠区自动展开、行真的画出来、命中段高亮（实测 展开=${searched && searched.foldExpanded} 画出来的 ${searched && JSON.stringify(searched.paintedIds)} 高亮 ${searched && JSON.stringify(searched.hits)}）`);
   ok(Boolean(searched) && !searched.sections.some(item => item.title === RECENT_TITLE),
     `M8b 这一屏可见的只剩一行没有账的候选 → 「常用」整段不出现（不摆一个空标题；实测段标题 ${searched && JSON.stringify(searched.sections.map(item => item.title))}）`);
+  // 搜索时去重同样成立：打「audio」命中的是【有账的】那个非文本 id —— 它只印一行、就在「常用」段，
+  // 折叠区这一屏一条不剩，于是整块不摆（不是摆一个「× 0」的空抽屉）。
+  await cdp.evaluate(typeSearch('audio'));
+  const searchedUsed = await waitForEval(cdp, `(() => {
+    const snapshot = ${MODEL_MENU};
+    return snapshot && snapshot.rowIds.length === 2 ? snapshot : null;
+  })()`);
+  const usedSection = sectionOf(searchedUsed, RECENT_TITLE);
+  ok(Boolean(searchedUsed)
+    && searchedUsed.rowIds.filter(id => id === BULK_USED_NON_TEXT_ID).length === 1
+    && Boolean(usedSection) && JSON.stringify(usedSection.ids) === JSON.stringify([BULK_USED_NON_TEXT_ID])
+    && searchedUsed.foldPresent === false
+    && searchedUsed.paintedIds.includes(BULK_USED_NON_TEXT_ID),
+    `M8d 搜「audio」命中的是有账的那一个：只印一行、就在「常用」段、当场看得见，折叠区整块不摆（实测 行 ${searchedUsed && JSON.stringify(searchedUsed.rowIds)} 折叠区在场=${searchedUsed && searchedUsed.foldPresent}）`);
   // 对照：换成一个不存在的串 → 如实说「没有匹配的模型。」，而不是留一张空菜单让人以为坏了。
   await cdp.evaluate(typeSearch('zzz-这个串不存在'));
   const noHit = await waitForEval(cdp, `(() => {

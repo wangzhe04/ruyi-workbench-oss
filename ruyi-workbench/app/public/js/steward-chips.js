@@ -330,7 +330,19 @@ export function stewardModelMenuView({
     });
   }
   const visible = needle ? rows.filter(row => row.hit) : rows;
-  const folded = visible.filter(row => row.nonText);
+  // 常用：最近 30 天用过的，按最近一次使用时间倒序，最多 5 条。一条都没有时【整段不出现】
+  // （不摆一个空标题）——渲染那一半只需照抄 recent.length。用过的非文本模型【照样进这一段】，
+  // 也【不折叠】：折叠是给「你大概不想要的东西」用的，用过的东西不属于那一类。
+  const recent = visible
+    .filter(row => row.usage && row.usage.days >= 0 && row.usage.days <= STEWARD_MODEL_RECENT_DAYS)
+    .sort((a, b) => (b.usage.lastMs - a.usage.lastMs) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .slice(0, STEWARD_MODEL_RECENT_MAX);
+  // 折叠区【排除已经进了「常用」的那些】（§11.17.8 裁决：「常用」赢）。同一屏印两次是重复不是
+  // 强调；去重之后折叠标题那个「× N」才是「还没露面的有 N 个」的真数。搜索时同样成立——过滤
+  // 后的 recent 里有的，折叠区不再重复一份。key 是 (provider, model)：分组标的就是 provider，
+  // 两件事实合起来才叫「一行」。
+  const inRecent = new Set(recent.map(row => row.group + '\n' + row.id));
+  const folded = visible.filter(row => row.nonText && !inRecent.has(row.group + '\n' + row.id));
   const groups = [];
   for (const row of visible) {
     if (row.nonText) continue;
@@ -342,12 +354,7 @@ export function stewardModelMenuView({
     // 门槛看的是【全部候选】而不是过滤后的那几条：搜索框不许在你打字打到只剩三条时自己消失。
     search: rows.length > STEWARD_MODEL_SEARCH_MIN,
     filtered: Boolean(needle),
-    // 常用：最近 30 天用过的，按最近一次使用时间倒序，最多 5 条。一条都没有时【整段不出现】
-    // （不摆一个空标题）——渲染那一半只需照抄 recent.length。
-    recent: visible
-      .filter(row => row.usage && row.usage.days >= 0 && row.usage.days <= STEWARD_MODEL_RECENT_DAYS)
-      .sort((a, b) => (b.usage.lastMs - a.usage.lastMs) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-      .slice(0, STEWARD_MODEL_RECENT_MAX),
+    recent,
     groups,
     // 折叠区：在搜索时【自动展开】—— 否则命中了却看不见，就成了「看不见也摸不着」的项
     // （§11.16.4 追加③ 同一条纪律）。rows 一直在，展不展开只决定 body 的 hidden。
