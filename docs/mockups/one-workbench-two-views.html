@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- 第 121 波交互原型 v2 · 一台两视。同一份内容发布为 artifact：https://claude.ai/code/artifact/f389c702-7b7b-4eae-85f6-54108caee4e9 ；设计稿 docs/optimization-plan/34-wave-121-one-workbench-two-views.md -->
+<!-- 第 121 波交互原型 v3 · 一台两视（界面／图标／文字优化版）。同一份内容发布为 artifact：https://claude.ai/code/artifact/f389c702-7b7b-4eae-85f6-54108caee4e9 ；设计稿 docs/optimization-plan/34-wave-121-one-workbench-two-views.md -->
 <title>如意 · 一台两视</title>
 <style>
 /* ============================================================
-   如意 Ruyi · 第 121 波交互原型 v2 —— 一台两视（管家视角 / 工作台视角）
-   依据：docs/optimization-plan/34-wave-121-one-workbench-two-views.md
-   v2（用户第二轮反馈）：管家视角以「任务」为单位；文字预算收紧；费用只留在「用量」里；
-   视角切换动效走 View Transitions（左栏不动、中栏滑、右栏淡、标题与色条跨视角变形）。
-   token 对齐 app/public/css/tokens.css 与 themes/color-schemes.css（月白 / 墨夜）。
-   零依赖；所有交互为前端模拟，数据是示例，不连真服务。
+   如意 Ruyi · 第 121 波交互原型 v3 —— 一台两视（管家视角 / 工作台视角）
+   依据：docs/optimization-plan/34-wave-121-one-workbench-two-views.md（§2.10 视觉与文案规范）
+   v3（用户第三轮）：整体界面／图标／文字优化一版 —— 一套 24px 网格 1.75px 圆头单线图标；
+   云头品牌标；字阶 12/13/14/15/17；正文 15px/1.65；组头去大写；输入框改胶囊；名字统一「」；
+   术语「线程」「任务」「如意」；费用不上首屏；动效走 View Transitions。
+   token 对齐 app/public/css/tokens.css 与 themes/color-schemes.css（月白 / 墨夜）。零依赖；数据是示例。
    ============================================================ */
 :root{
   color-scheme:light;
   font-size:14px;
   --font:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,"PingFang SC",Arial,sans-serif;
   --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
-  --fs-xs:.786rem;--fs-sm:.857rem;--fs-md:.929rem;--fs-base:1rem;--fs-lg:1.143rem;--fs-xl:1.429rem;
+  --fs-xs:12px;--fs-sm:13px;--fs-base:14px;--fs-md:15px;--fs-lg:17px;--fs-xl:20px;
   --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
   --ease-out:cubic-bezier(.2,.7,.3,1);--ease-inout:cubic-bezier(.65,0,.35,1);--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
   --bg:#f3f5f9;--panel:#ffffff;--panel-2:#f7f9fc;--panel-3:#eef2f8;
@@ -73,7 +73,7 @@ body{margin:0;font-family:var(--font);font-size:var(--fs-base);line-height:1.5;c
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:var(--ring)}
 input{font:inherit;color:inherit}
-svg{display:block}
+svg{display:block;stroke-linecap:round;stroke-linejoin:round}
 .num{font-variant-numeric:tabular-nums}
 
 /* ---------- 视角切换动效（View Transitions；左栏与顶栏不动，中栏滑，右栏淡） ---------- */
@@ -106,14 +106,14 @@ svg{display:block}
 .proto-title b{font-size:var(--fs-lg);letter-spacing:.2px}
 .proto-title span{color:var(--muted);font-size:var(--fs-sm)}
 .proto-group{display:flex;align-items:center;gap:6px}
-.proto-group>label{font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
+.proto-group>label{font-size:var(--fs-xs);color:var(--muted);margin-right:2px}
 .pbtn{padding:5px 10px;border:1px solid var(--line);border-radius:var(--r-pill);font-size:var(--fs-sm);background:var(--panel-2);color:var(--ink-2);transition:background var(--dur-fast),border-color var(--dur-fast)}
 .pbtn:hover{border-color:var(--line-2);background:var(--panel-3)}
 .pbtn.is-on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 .pbtn.sim{border-style:dashed}
 .proto-stage{position:relative;display:flex;justify-content:center;align-items:flex-start;gap:16px}
 .proto-notes{width:340px;flex:0 0 340px;align-self:stretch;border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel);box-shadow:var(--elev-1);padding:14px 16px;font-size:var(--fs-sm);overflow:auto;max-height:900px}
-.proto-notes h3{margin:0 0 10px;font-size:var(--fs-md)}
+.proto-notes h3{margin:0 0 10px;font-size:var(--fs-base)}
 .proto-notes ol{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:8px}
 .proto-notes li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;padding:6px 8px;border-radius:var(--r-sm);cursor:pointer}
 .proto-notes li:hover,.proto-notes li.is-hot{background:var(--panel-3)}
@@ -124,75 +124,82 @@ svg{display:block}
 .marker{position:absolute;z-index:60;width:22px;height:22px;border-radius:50%;background:var(--gold);color:var(--gold-ink);font-size:11px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--panel),var(--elev-2);pointer-events:none;transform:translate(-50%,-50%);transition:transform var(--dur-fast)}
 
 /* ---------- 产品外框 ---------- */
-.frame{position:relative;container-type:inline-size;width:1440px;max-width:100%;height:880px;display:grid;grid-template-rows:46px minmax(0,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:var(--elev-3);transition:width var(--dur-slow) var(--ease-out)}
-.titlebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.frame{position:relative;container-type:inline-size;width:1440px;max-width:100%;height:880px;display:grid;grid-template-rows:48px minmax(0,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:var(--elev-3);transition:width var(--dur-slow) var(--ease-out)}
+.titlebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
 .tb-left{display:flex;align-items:center;gap:10px;min-width:0}
 .tb-right{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
-.logo{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.2px}
-.logo .cloud{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--brand-qh),var(--brand-au));box-shadow:inset 0 0 0 4px var(--panel),0 0 0 1px var(--line-2)}
-.logo small{font-weight:400;color:var(--muted);font-size:var(--fs-xs)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:.2px;font-size:var(--fs-md)}
+.logo svg{width:26px;height:16px}
+.logo .cloud{fill:var(--brand-qh)}
+.logo .pearl{fill:var(--brand-au)}
+.logo small{font-weight:400;color:var(--muted);font-size:var(--fs-xs);letter-spacing:.3px}
 .seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:var(--r-pill);background:var(--panel-3);border:1px solid var(--line)}
 .seg .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:var(--r-pill);background:var(--panel);box-shadow:var(--elev-1);transition:transform 220ms var(--ease-out)}
 .seg[data-on="work"] .thumb{transform:translateX(100%)}
-.seg button{position:relative;padding:4px 18px;border-radius:var(--r-pill);font-size:var(--fs-sm);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:color var(--dur-base)}
+.seg button{position:relative;padding:5px 16px 5px 13px;border-radius:var(--r-pill);font-size:var(--fs-sm);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:color var(--dur-base)}
+.seg button svg{width:15px;height:15px}
 .seg button.is-on{color:var(--ink);font-weight:600}
-.seg kbd{font:inherit;font-size:10px;color:var(--muted);border:1px solid var(--line-2);border-radius:4px;padding:0 4px;line-height:14px}
-.gstat{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);padding:4px 10px;border-radius:var(--r-pill);background:var(--panel-2);border:1px solid var(--line)}
+.gstat{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);padding:4px 11px;border-radius:var(--r-pill);background:var(--panel-2);border:1px solid var(--line)}
 .gstat .d{width:7px;height:7px;border-radius:50%}
 .gstat .d.run{background:var(--accent)}
 .gstat .d.you{background:var(--gold)}
 .chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap}
+.chip svg{width:13px;height:13px}
 .chip b{font-weight:600;color:var(--ink)}
 .chip.shield{border-color:color-mix(in srgb,var(--gold) 55%,transparent);background:var(--gold-soft);color:var(--gold-ink)}
 .chip.shield b{color:inherit}
 .chip.pinned{border-color:var(--accent);background:var(--accent-soft)}
 .chip.ghost{border-style:dashed;color:var(--muted)}
-.ibtn{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2);transition:background var(--dur-fast)}
+.ibtn{width:32px;height:32px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2);transition:background var(--dur-fast)}
+.ibtn svg{width:17px;height:17px}
 .ibtn:hover{background:var(--panel-3)}
 .ibtn.power{color:var(--danger)}
 
-.body{position:relative;display:grid;grid-template-columns:268px minmax(0,1fr) 392px;min-height:0;transition:grid-template-columns var(--dur-slow) var(--ease-out)}
+.body{position:relative;display:grid;grid-template-columns:272px minmax(0,1fr) 392px;min-height:0;transition:grid-template-columns var(--dur-slow) var(--ease-out)}
 .frame.rail-board .body{grid-template-columns:440px minmax(0,1fr) 392px}
 
 /* ---------- 左栏：任务索引（两视角共用） ---------- */
 .rail{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line)}
-.rail-head{display:flex;align-items:center;gap:6px;padding:10px 10px 6px}
-.rail-head h2{margin:0;font-size:var(--fs-sm);font-weight:600;letter-spacing:.3px;color:var(--ink-2);flex:1}
-.rail-head .cnt{color:var(--muted);font-weight:400;margin-left:4px}
-.rail-search{margin:0 10px 6px;display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);color:var(--muted);font-size:var(--fs-sm)}
+.rail-head{display:flex;align-items:center;gap:6px;padding:12px 12px 8px}
+.rail-head h2{margin:0;font-size:var(--fs-sm);font-weight:600;color:var(--ink);flex:1;display:flex;align-items:center;gap:6px}
+.rail-head .cnt{color:var(--muted);font-weight:400;font-size:var(--fs-xs)}
+.rail-search{margin:0 12px 8px;display:flex;align-items:center;gap:7px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel-2);color:var(--muted);font-size:var(--fs-sm)}
+.rail-search svg{width:14px;height:14px}
 .rail-search input{flex:1;min-width:0;border:0;background:none;outline:none}
 .rail-search input::placeholder{color:var(--muted)}
-.rail-list{flex:1;min-height:0;overflow:auto;padding:2px 6px 8px}
-.rail-gh{display:flex;align-items:center;gap:6px;padding:10px 6px 4px;font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
-.rail-gh .n{font-weight:700;color:var(--ink-2)}
-.rail-gh .n.you{color:var(--gold)}
-.rail-gh .n.run{color:var(--accent)}
-.tcard{position:relative;display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 8px;padding:6px 6px 6px 0;border-radius:var(--r-sm);cursor:pointer;transition:background var(--dur-fast)}
+.rail-list{flex:1;min-height:0;overflow:auto;padding:2px 8px 8px}
+.rail-gh{display:flex;align-items:center;gap:6px;padding:12px 6px 5px;font-size:var(--fs-xs);color:var(--muted);font-weight:600}
+.rail-gh .n{min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-pill);display:grid;place-items:center;font-size:11px;color:var(--ink-2);background:var(--panel-3)}
+.rail-gh .n.you{color:var(--gold-ink);background:var(--gold-soft)}
+.rail-gh .n.run{color:var(--accent);background:var(--accent-soft)}
+.tcard{position:relative;display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 9px;padding:7px 7px 7px 0;border-radius:var(--r-sm);cursor:pointer;transition:background var(--dur-fast)}
 .tcard:hover{background:var(--panel-2)}
 .tcard.is-sel{background:var(--accent-soft)}
 .tcard .bar{border-radius:2px;background:var(--th)}
 .tcard .row1{display:flex;align-items:center;gap:6px;min-width:0}
-.tcard .t{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tcard .sub{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.tcard .t{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px}
+.tcard .sub{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .tcard .sub .live{color:var(--ink-2)}
 .tcard .facts{display:none;gap:10px;font-size:var(--fs-xs);color:var(--muted);margin-top:2px}
 .frame.rail-board .tcard .facts{display:flex;flex-wrap:wrap}
 .frame.rail-board .tcard .t{white-space:normal}
 .tcard .chev{width:16px;height:16px;display:grid;place-items:center;color:var(--muted);transition:transform var(--dur-base) var(--ease-out)}
+.tcard .chev svg{width:12px;height:12px}
 .tcard.is-open .chev{transform:rotate(180deg)}
-.tcard .cnt{font-size:10.5px;color:var(--muted);font-weight:600}
+.tcard .cnt{font-size:11px;color:var(--muted);font-weight:600}
 .sub-threads{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--dur-base) var(--ease-out)}
 .sub-threads.is-open{grid-template-rows:1fr}
 .sub-threads>div{overflow:hidden}
-.trow{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 22px;border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-sm);min-width:0}
+.trow{display:flex;align-items:center;gap:8px;padding:5px 7px 5px 24px;border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-sm);min-width:0}
 .trow:hover{background:var(--panel-2)}
 .trow.is-sel{background:var(--accent-soft)}
 .trow .dot{width:7px;height:7px;border-radius:50%;background:var(--th);flex:0 0 7px}
 .trow .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.og{width:14px;height:14px;color:var(--muted);flex:0 0 14px;display:grid;place-items:center}
+.og{width:16px;height:16px;color:var(--muted);flex:0 0 16px;display:grid;place-items:center}
+.og svg{width:12px;height:12px}
 .og.steward{color:var(--gold)}
 .og.user{color:var(--accent)}
-.pill{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:var(--r-pill);font-size:10.5px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:4px;height:19px;padding:0 7px;border-radius:var(--r-pill);font-size:11px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
 .pill svg{width:10px;height:10px}
 .pill.running{background:var(--accent-soft);color:var(--accent)}
 .pill.needs_you{background:var(--gold-soft);color:var(--gold)}
@@ -200,24 +207,26 @@ svg{display:block}
 .pill.failed{background:var(--danger-soft);color:var(--danger)}
 .pill.queued{background:var(--panel-3);color:var(--muted)}
 .pill.paused{background:var(--warn-soft);color:var(--warn)}
-.rail-foot{border-top:1px solid var(--line);padding:6px}
+.rail-foot{border-top:1px solid var(--line);padding:8px}
 .pocket{display:grid;grid-template-columns:1fr 1fr;gap:2px}
-.pocket button{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--ink-2);text-align:left}
+.pocket button{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--ink-2);text-align:left}
+.pocket button svg{width:14px;height:14px;color:var(--muted)}
 .pocket button:hover{background:var(--panel-2)}
-.pocket button .b{margin-left:auto;font-size:10px;color:var(--muted)}
+.pocket button .b{margin-left:auto;font-size:11px;color:var(--muted)}
 .pocket button .b.hot{color:var(--gold);font-weight:700}
-.rail-new{display:flex;align-items:center;justify-content:center;gap:6px;height:30px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--panel-2);font-size:var(--fs-sm);color:var(--ink-2);margin:0 10px 6px}
-.rail-new:hover{border-color:var(--accent);color:var(--accent)}
+.rail-new{display:flex;align-items:center;justify-content:center;gap:6px;height:32px;border-radius:var(--r-pill);border:1px dashed var(--line-2);background:transparent;font-size:var(--fs-sm);color:var(--ink-2);margin:0 12px 6px;transition:border-color var(--dur-fast),color var(--dur-fast),background var(--dur-fast)}
+.rail-new svg{width:14px;height:14px}
+.rail-new:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 
 /* ---------- 中栏 ---------- */
 .center{position:relative;display:flex;flex-direction:column;min-height:0;min-width:0}
-.center>.col{width:100%;max-width:880px;margin-inline:auto;padding:0 24px;display:flex;flex-direction:column;min-height:0;flex:1}
-.sh-head{display:flex;align-items:center;gap:12px;padding:18px 0 10px}
-.avatar{position:relative;width:38px;height:38px;flex:0 0 38px}
+.center>.col{width:100%;max-width:880px;margin-inline:auto;padding:0 28px;display:flex;flex-direction:column;min-height:0;flex:1}
+.sh-head{display:flex;align-items:center;gap:14px;padding:20px 0 12px}
+.avatar{position:relative;width:40px;height:40px;flex:0 0 40px}
 .avatar .core{position:absolute;inset:7px;border-radius:50%;background:linear-gradient(140deg,var(--brand-qh),color-mix(in srgb,var(--brand-qh) 55%,var(--brand-au)));box-shadow:inset 0 -3px 6px rgba(0,0,0,.18);transition:background var(--dur-slow)}
 .avatar .core::before,.avatar .core::after{content:"";position:absolute;top:44%;width:3px;height:5px;border-radius:2px;background:#fff;opacity:.95}
 .avatar .core::before{left:33%}.avatar .core::after{right:33%}
-.avatar .ring{position:absolute;inset:0;border-radius:50%;border:2px solid color-mix(in srgb,var(--brand-qh) 55%,transparent);animation:breathe 4s ease-in-out infinite}
+.avatar .ring{position:absolute;inset:0;border-radius:50%;border:2px solid color-mix(in srgb,var(--brand-qh) 45%,transparent);animation:breathe 4s ease-in-out infinite}
 .avatar.working .ring{border-style:dashed;border-color:var(--accent);animation:spin 1.6s linear infinite}
 .avatar.waiting_you .ring{border-color:var(--gold);animation:none}
 .avatar.waiting_you .core{background:linear-gradient(140deg,var(--gold),color-mix(in srgb,var(--gold) 60%,var(--brand-qh)))}
@@ -226,104 +235,115 @@ svg{display:block}
 .avatar.sm .core::before,.avatar.sm .core::after{width:2px;height:3px}
 @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.sh-head .name{font-size:var(--fs-lg);font-weight:600;line-height:1.2}
-.sh-head .line{font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:6px}
+.sh-head .name{font-size:var(--fs-lg);font-weight:600;line-height:1.2;letter-spacing:.2px}
+.sh-head .line{font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px}
 .sh-head .line .d{width:6px;height:6px;border-radius:50%;background:var(--ok)}
 .sh-head .line .d.you{background:var(--gold)}
 .sh-head .line .d.run{background:var(--accent)}
 .sh-head .sp{flex:1}
-.feed{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:16px;padding:6px 2px 16px}
+.feed{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:18px;padding:6px 2px 16px}
 .msg{max-width:720px}
-.msg.user{align-self:flex-end;max-width:560px;padding:8px 14px;border-radius:14px 14px 4px 14px;background:var(--user-bubble);border:1px solid var(--user-line)}
+.msg.user{align-self:flex-end;max-width:560px;padding:9px 15px;border-radius:16px 16px 4px 16px;background:var(--user-bubble);border:1px solid var(--user-line);font-size:var(--fs-md);line-height:1.55}
 .msg.steward{display:flex;flex-direction:column;gap:8px}
-.say{margin:0;color:var(--ink)}
+.say{margin:0;color:var(--ink);font-size:var(--fs-md);line-height:1.65}
 .say p{margin:0 0 6px}
 .say .lead{font-weight:600}
 .say ul{margin:2px 0 6px;padding-left:18px}
-.say li{margin:1px 0}
+.say li{margin:2px 0}
 .acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.abtn{height:28px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);font-size:var(--fs-sm);color:var(--ink-2);transition:background var(--dur-fast),border-color var(--dur-fast)}
+.abtn{height:30px;padding:0 13px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);font-size:var(--fs-sm);color:var(--ink-2);display:inline-flex;align-items:center;gap:6px;transition:background var(--dur-fast),border-color var(--dur-fast)}
+.abtn svg{width:13px;height:13px}
 .abtn:hover{border-color:var(--line-2);background:var(--panel-2)}
 .abtn.gold{background:var(--gold-soft);border-color:color-mix(in srgb,var(--gold) 55%,transparent);color:var(--gold-ink);font-weight:600}
 .abtn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .abtn.danger{color:var(--danger)}
-.basis{margin-left:auto;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:var(--fs-xs);color:var(--muted);border:1px solid transparent}
+.basis{margin-left:auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:var(--fs-xs);color:var(--muted);border:1px solid transparent}
 .basis:hover{border-color:var(--line);color:var(--ink-2)}
 .grey{font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.grey .abtn{height:22px;padding:0 8px;font-size:var(--fs-xs)}
+.grey .abtn{height:24px;padding:0 9px;font-size:var(--fs-xs)}
 .grey .avatar{width:16px;height:16px;flex-basis:16px}
 .grey .avatar .core{inset:3px}
 .grey .avatar .core::before,.grey .avatar .core::after{display:none}
-.thc{display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 12px;border-radius:var(--r-md)}
+.thc{display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 13px;border-radius:var(--r-md)}
 .thc .bar{border-radius:2px;background:var(--th)}
 .thc-head{display:flex;align-items:center;gap:8px;min-width:0;font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px}
 .thc-head .d{width:8px;height:8px;border-radius:50%;background:var(--th)}
 .thc-head .t{font-weight:600;color:var(--ink);font-size:var(--fs-sm)}
 .thc-head .t small{font-weight:400;color:var(--muted)}
-.thc-head .open{margin-left:auto;width:24px;height:24px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--muted)}
+.thc-head .open{margin-left:auto;width:26px;height:26px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--muted)}
+.thc-head .open svg{width:14px;height:14px}
 .thc-head .open:hover{background:var(--panel-3);color:var(--accent)}
 .thc .say{margin-bottom:4px}
-.deliv{margin:2px 0 6px;padding:8px 12px;border-left:2px solid var(--line-2);background:var(--panel-2);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:var(--ink-2)}
+.deliv{margin:2px 0 6px;padding:8px 12px;border-left:3px solid var(--line-2);background:var(--panel-2);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:var(--ink-2)}
 .deliv .cap{font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px}
-.composer{margin:6px 0 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel);box-shadow:var(--elev-1);padding:8px 10px 8px 12px;display:flex;flex-direction:column;gap:6px}
-.composer .row{display:flex;align-items:center;gap:8px}
-.target{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-pill);background:var(--panel-3);font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap}
+.composer{margin:8px 0 16px;border:1px solid var(--line);border-radius:26px;background:var(--panel);box-shadow:var(--elev-1);padding:6px 6px 6px 8px;display:flex;align-items:center;gap:8px;min-height:50px}
+.composer:focus-within{border-color:var(--accent);box-shadow:var(--ring)}
+.target{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:var(--r-pill);background:var(--panel-3);font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap}
 .target.thread{background:var(--accent-soft);color:var(--accent)}
-.composer input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:var(--fs-base)}
+.composer input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:var(--fs-md)}
 .composer input::placeholder{color:var(--muted)}
-.send{width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.composer .tools{display:flex;gap:2px;align-items:center}
+.composer .tools button{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.composer .tools button svg{width:16px;height:16px}
+.composer .tools button:hover{background:var(--panel-2);color:var(--ink-2)}
+.composer .tools button.txt{width:auto;padding:0 10px;border-radius:var(--r-pill);gap:6px;font-size:var(--fs-xs);display:inline-flex;color:var(--ink-2)}
+.send{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:0 0 36px;transition:background var(--dur-fast)}
+.send svg{width:16px;height:16px}
+.send:hover{background:var(--accent-hover)}
 .send.stop{background:var(--danger)}
-.composer .tools{display:flex;gap:2px;align-items:center;font-size:var(--fs-xs);color:var(--muted)}
-.composer .tools button{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:var(--r-sm);color:var(--ink-2)}
-.composer .tools button:hover{background:var(--panel-2)}
-.composer .tools .sp{flex:1}
-.wk-head{padding:12px 0 8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
-.wk-title{display:flex;align-items:center;gap:8px;min-width:0}
+.wk-head{padding:14px 0 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+.wk-title{display:flex;align-items:center;gap:9px;min-width:0}
 .wk-title .bar{width:3px;height:22px;border-radius:2px;background:var(--th)}
-.wk-title h1{margin:0;font-size:var(--fs-lg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.wk-title h1{margin:0;font-size:var(--fs-lg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;letter-spacing:.2px}
 .wk-title h1 small{font-weight:400;color:var(--muted);font-size:var(--fs-sm)}
-.wk-title .cwd{font-size:var(--fs-xs);color:var(--muted);font-family:var(--mono);margin-left:auto;white-space:nowrap}
+.wk-title .cwd{font-size:var(--fs-xs);color:var(--muted);font-family:var(--mono);margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.wk-title .cwd svg{width:13px;height:13px}
 .wk-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .wk-chips .sp{flex:1}
-.ctx{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);color:var(--muted)}
+.ctx{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--muted);height:26px}
 .ctx .bat{width:22px;height:11px;border:1.5px solid var(--line-2);border-radius:3px;position:relative}
 .ctx .bat::after{content:"";position:absolute;right:-4px;top:2px;width:2px;height:5px;background:var(--line-2);border-radius:1px}
 .ctx .bat i{display:block;height:100%;width:21%;background:var(--ok);border-radius:1px}
-.stewbar{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px 0 6px;border-radius:var(--r-pill);background:var(--panel-2);border:1px solid var(--line);font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap}
+.stewbar{display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 6px;border-radius:var(--r-pill);background:var(--panel-2);border:1px solid var(--line);font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap}
 .stewbar .st{color:var(--muted)}
-.stewbar .sw{display:inline-flex;align-items:center;gap:5px;margin-left:4px;padding:2px 8px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-2);transition:background var(--dur-base),border-color var(--dur-base)}
+.stewbar .sw{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-2);transition:background var(--dur-base),border-color var(--dur-base)}
 .stewbar .sw.on{background:var(--gold-soft);border-color:color-mix(in srgb,var(--gold) 55%,transparent);color:var(--gold-ink)}
 .stewbar .sw .k{width:8px;height:8px;border-radius:50%;background:var(--line-2);transition:background var(--dur-base)}
 .stewbar .sw.on .k{background:var(--gold)}
-.wk-msgs{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:14px 2px 10px}
+.wk-msgs{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:16px 2px 10px}
 .wk-msgs .m{max-width:720px}
-.wk-msgs .m.user{align-self:flex-end;max-width:560px;padding:8px 14px;border-radius:14px 14px 4px 14px;background:var(--user-bubble);border:1px solid var(--user-line)}
+.wk-msgs .m.user{align-self:flex-end;max-width:560px;padding:9px 15px;border-radius:16px 16px 4px 16px;background:var(--user-bubble);border:1px solid var(--user-line);font-size:var(--fs-md);line-height:1.55}
+.wk-msgs .m.ai{font-size:var(--fs-md);line-height:1.65}
 .wk-msgs .m.ai p{margin:0 0 6px}
 .wk-msgs .m.ai .lead{font-weight:600}
-.toolcard{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);font-size:var(--fs-xs);color:var(--ink-2);max-width:560px}
+.toolcard{display:flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);font-size:var(--fs-xs);color:var(--ink-2);max-width:560px}
+.toolcard svg{width:13px;height:13px;color:var(--muted)}
 .toolcard .verb{font-weight:600}
 .toolcard .mono{font-family:var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.toolcard .ok{margin-left:auto;color:var(--ok)}
-.livebar{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:var(--r-sm);background:var(--accent-soft);font-size:var(--fs-sm);color:var(--ink-2);max-width:720px}
+.toolcard .ok{margin-left:auto;color:var(--ok);display:inline-flex;align-items:center;gap:4px}
+.toolcard .ok svg{color:var(--ok)}
+.livebar{display:flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:var(--r-md);background:var(--accent-soft);font-size:var(--fs-sm);color:var(--ink-2);max-width:720px}
 .livebar .d{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.2s ease-in-out infinite}
 @keyframes blink{50%{opacity:.35}}
-.livebar .stop{margin-left:auto;display:inline-flex;align-items:center;gap:4px;color:var(--danger);font-size:var(--fs-xs)}
+.livebar .stop{margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--danger);font-size:var(--fs-xs)}
+.livebar .stop svg{width:11px;height:11px}
 .wk-msgs .m.ai .steward-note{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--gold);margin-bottom:4px}
+.wk-msgs .m.ai .steward-note svg{width:13px;height:13px}
 
 /* ---------- 右栏 ---------- */
 .side{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:1px solid var(--line)}
-.side-head{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
-.side-head h2{margin:0;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2);letter-spacing:.3px}
+.side-head{display:flex;align-items:center;gap:8px;padding:14px 16px 8px}
+.side-head h2{margin:0;font-size:var(--fs-sm);font-weight:600;color:var(--ink)}
 .side-head .sub{color:var(--muted);font-size:var(--fs-xs)}
 .side-head .sp{flex:1}
-.side-body{flex:1;min-height:0;overflow:auto;padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
-.focus{display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 10px;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px 10px 0;background:var(--panel);view-transition-name:focus-card}
-.focus .bar{border-radius:2px;background:var(--th);margin:2px 0 2px 10px}
+.side-body{flex:1;min-height:0;overflow:auto;padding:0 16px 16px;display:flex;flex-direction:column;gap:14px}
+.focus{display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 11px;border:1px solid var(--line);border-radius:var(--r-md);padding:12px 13px 12px 0;background:var(--panel);box-shadow:var(--elev-1);view-transition-name:focus-card}
+.focus .bar{border-radius:2px;background:var(--th);margin:2px 0 2px 11px}
 .focus .head{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:6px}
-.focus .head .t{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.focus .head .t{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-base)}
 .focus .head .t small{font-weight:400;color:var(--muted)}
-.focus .meta{font-size:var(--fs-xs);color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.callout{padding:8px 10px;border-left:2px solid var(--gold);background:var(--gold-soft);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);color:var(--ink);margin-bottom:8px}
+.focus .meta{font-size:var(--fs-xs);color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.callout{padding:9px 11px;border-left:3px solid var(--gold);background:var(--gold-soft);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);line-height:1.55;color:var(--ink);margin-bottom:8px}
 .callout .cap{font-size:var(--fs-xs);color:var(--gold);font-weight:600;margin-bottom:2px}
 .callout.live{border-left-color:var(--accent);background:var(--accent-soft)}
 .callout.live .cap{color:var(--accent)}
@@ -331,12 +351,13 @@ svg{display:block}
 .callout.done .cap{color:var(--ok)}
 .callout .txt{white-space:pre-wrap;word-break:break-word}
 .callout .cur{display:inline-block;width:2px;height:1em;background:var(--accent);vertical-align:-2px;margin-left:1px;animation:blink 1s step-end infinite}
-.action-line{display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 8px;font-family:var(--mono)}
+.action-line{display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 10px;font-family:var(--mono)}
 .action-line .d{width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .opts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.answer{display:flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);margin-bottom:8px}
+.answer{display:flex;align-items:center;gap:6px;height:34px;padding:0 5px 0 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel-2);margin-bottom:10px}
+.answer:focus-within{border-color:var(--accent)}
 .answer input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:var(--fs-sm)}
-.answer .go{height:24px;padding:0 10px;border-radius:var(--r-sm);background:var(--accent);color:var(--accent-ink);font-size:var(--fs-xs);font-weight:600}
+.answer .go{height:26px;padding:0 11px;border-radius:var(--r-pill);background:var(--accent);color:var(--accent-ink);font-size:var(--fs-xs);font-weight:600}
 .focus .foot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .focus .foot .sp{flex:1}
 .mini{display:grid;grid-template-columns:3px minmax(0,1fr);gap:0 10px;padding:6px 8px 6px 0;border-radius:var(--r-sm);cursor:pointer}
@@ -345,40 +366,43 @@ svg{display:block}
 .mini .r{display:flex;align-items:center;gap:6px;min-width:0}
 .mini .t{flex:1;min-width:0;font-size:var(--fs-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mini .s{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.blk{border-top:1px solid var(--line);padding-top:10px}
-.blk h3{margin:0 0 6px;font-size:var(--fs-xs);color:var(--muted);letter-spacing:.4px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.blk{border-top:1px solid var(--line);padding-top:12px}
+.blk h3{margin:0 0 6px;font-size:var(--fs-xs);color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
 .blk h3 .sp{flex:1}
-.blk h3 a{color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer}
-.sched{display:flex;flex-direction:column;gap:4px}
-.sched .it{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);padding:4px 6px;border-radius:var(--r-sm)}
+.blk h3 a{color:var(--accent);font-weight:400;cursor:pointer}
+.sched{display:flex;flex-direction:column;gap:2px}
+.sched .it{display:flex;align-items:center;gap:9px;font-size:var(--fs-sm);padding:5px 6px;border-radius:var(--r-sm)}
+.sched .it svg{width:13px;height:13px;color:var(--muted)}
 .sched .it:hover{background:var(--panel-2)}
 .sched .when{font-family:var(--mono);font-size:var(--fs-xs);color:var(--muted);min-width:6.5em}
-.tabs{display:flex;flex-wrap:wrap;gap:2px;padding:0 10px 8px}
-.tabs button{padding:4px 9px;border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--ink-2)}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;padding:0 12px 8px}
+.tabs button{padding:5px 9px;border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--ink-2)}
 .tabs button.is-on{background:var(--panel-3);color:var(--ink);font-weight:600}
 .tree{font-size:var(--fs-sm);display:flex;flex-direction:column;gap:2px}
 .tree .f{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:var(--r-sm);color:var(--ink-2)}
+.tree .f svg{width:13px;height:13px;color:var(--muted)}
 .tree .f:hover{background:var(--panel-2)}
 .tree .f.dir{font-weight:600;color:var(--ink)}
-.tree .f .ch{color:var(--muted);font-size:10px;width:10px}
 .tree .f.i1{padding-left:22px}.tree .f.i2{padding-left:38px}
 .wschips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .diffrow{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);padding:4px 6px;border-radius:var(--r-sm);font-family:var(--mono)}
 .diffrow .add{color:var(--ok)}.diffrow .del{color:var(--danger)}
 
 /* ---------- 安静卡 ---------- */
-.toast{position:absolute;right:16px;bottom:78px;width:360px;z-index:40;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--panel);box-shadow:var(--elev-3);padding:10px 12px;display:flex;flex-direction:column;gap:8px;animation:rise var(--dur-slow) var(--ease-out)}
+.toast{position:absolute;right:16px;bottom:80px;width:360px;z-index:40;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--panel);box-shadow:var(--elev-3);padding:11px 13px;display:flex;flex-direction:column;gap:8px;animation:rise var(--dur-slow) var(--ease-out)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .toast .h{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm)}
 .toast .h b{color:var(--ink)}
-.toast .h .x{margin-left:auto;color:var(--muted)}
-.toast .q{font-size:var(--fs-sm);color:var(--ink-2);padding:6px 10px;border-left:2px solid var(--gold);background:var(--gold-soft);border-radius:0 var(--r-sm) var(--r-sm) 0}
+.toast .h .x{margin-left:auto;color:var(--muted);width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.toast .h .x svg{width:12px;height:12px}
+.toast .h .x:hover{background:var(--panel-3)}
+.toast .q{font-size:var(--fs-sm);color:var(--ink-2);padding:7px 11px;border-left:3px solid var(--gold);background:var(--gold-soft);border-radius:0 var(--r-sm) var(--r-sm) 0}
 .toast .acts{gap:6px}
 .side-toggle{display:none}
 
 /* ---------- 响应式（容器查询） ---------- */
 @container (max-width: 1240px){
-  .body{grid-template-columns:248px minmax(0,1fr) !important}
+  .body{grid-template-columns:252px minmax(0,1fr) !important}
   .side{position:absolute;top:0;right:0;bottom:0;width:392px;transform:translateX(100%);transition:transform var(--dur-slow) var(--ease-out);box-shadow:var(--elev-3);z-index:30}
   .frame.side-open .side{transform:none}
   .side-toggle{display:inline-flex}
@@ -405,7 +429,7 @@ svg{display:block}
 
 <div class="proto">
   <div class="proto-bar">
-    <div class="proto-title"><b>如意 · 一台两视</b><span>第 121 波交互原型 v2 · 管家视角与工作台视角共用一台；点击即可切换与模拟</span></div>
+    <div class="proto-title"><b>如意 · 一台两视</b><span>第 121 波交互原型 v3 · 界面／图标／文字优化版；点击即可切换与模拟</span></div>
     <div class="proto-group"><label>宽度</label>
       <button class="pbtn is-on" data-w="1440">1440</button><button class="pbtn" data-w="1180">1180</button><button class="pbtn" data-w="900">900</button>
     </div>
@@ -413,7 +437,7 @@ svg{display:block}
     <div class="proto-group"><label>模拟</label>
       <button class="pbtn sim" data-sim="ask">线程提问</button>
       <button class="pbtn sim" data-sim="done">线程收工</button>
-      <button class="pbtn sim" data-sim="usernew">我在工作台开新任务</button>
+      <button class="pbtn sim" data-sim="usernew">我在工作台开新线程</button>
       <button class="pbtn sim" data-sim="reset">重置</button>
     </div>
     <div class="proto-group"><button class="pbtn" id="notesBtn">标注 ①…⑫</button></div>
@@ -422,17 +446,17 @@ svg{display:block}
   <div class="proto-stage">
     <div class="frame" id="frame" data-lens="steward">
       <div class="titlebar">
-        <div class="tb-left"><div class="logo"><span class="cloud"></span>如意 <small>Ruyi Workbench</small></div></div>
+        <div class="tb-left"><div class="logo"><svg viewBox="0 0 120 70" aria-hidden="true"><path class="cloud" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/><circle class="pearl" cx="60" cy="40" r="6"/></svg>如意 <small>Ruyi Workbench</small></div></div>
         <div class="seg" id="lensSeg" data-note="1" data-on="steward"><span class="thumb"></span>
-          <button data-lens="steward">管家</button>
-          <button data-lens="work">工作台</button>
+          <button data-lens="steward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg>管家</button>
+          <button data-lens="work"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M15 4v16"/></svg>工作台</button>
         </div>
         <div class="tb-right">
           <span class="gstat" id="gstat" data-note="11"></span>
-          <span class="chip shield" title="新任务默认权限"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z"/></svg><b>智能自动</b> ▾</span>
-          <button class="ibtn side-toggle" id="sideToggle" title="打开右栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
-          <button class="ibtn power" title="一键停机（管家）"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
-          <button class="ibtn" title="设置"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+          <span class="chip shield" title="新任务默认权限"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l7 3v6c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><b>智能自动</b> ▾</span>
+          <button class="ibtn side-toggle" id="sideToggle" title="打开右栏"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/></svg></button>
+          <button class="ibtn power" title="一键停机（管家）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
+          <button class="ibtn" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
         </div>
       </div>
       <div class="body">
@@ -448,8 +472,8 @@ svg{display:block}
       <h3>标注（对应 34 号方案文档章节）</h3>
       <ol id="noteList"></ol>
       <div class="sum">
-        <p><b>一句话</b>：一台工作台的两种视角——左栏任务索引两边共用，切换只换中间与右栏；管家开的任务你能在工作台里直接接手，你在工作台开的任务管家看得见、不插手。</p>
-        <p><b>第二轮改动</b>：管家视角以「任务」为单位（多线程任务可展开）；文字预算收紧（头一行、卡一句结论、按钮 ≤2、来源用图形、无模型名）；费用只留在「用量」里；切换动效走 View Transitions（左栏不动、中栏滑、右栏淡、标题与色条跨视角变形）。</p>
+        <p><b>一句话</b>：一台工作台的两种视角——左栏任务索引两边共用，切换只换中间与右栏；管家开的任务你能在工作台里直接接手，你在工作台开的线程管家看得见、不插手。</p>
+        <p><b>第三轮（界面／图标／文字）</b>：一套 24px 网格、1.75px 圆头单线图标；云头品牌标；字阶 12／13／14／15／17，正文 15px 行高 1.65；组头与区块标题不再大写字母风；输入框改胶囊；名字统一用「」；术语只剩「任务／线程／如意／工作台」；费用不上首屏。</p>
       </div>
     </aside>
   </div>
@@ -458,33 +482,40 @@ svg{display:block}
 <script>
 (function(){
 "use strict";
+/* 图标：24px 网格、1.75px 圆头单线；实心只用于最小尺寸求辨识（停止／暂停／来源环） */
+const ic=(d,extra='')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" ${extra}>${d}</svg>`;
 const I={
-  open:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 4h6v6"/><path d="M20 4L10 14"/><path d="M18 13v6H5V6h6"/></svg>',
-  plus:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>',
-  search:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
-  stopsq:'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
-  send:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 12l16-8-6 16-2-6z"/></svg>',
-  clip:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12l-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 8"/></svg>',
-  spark:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
-  team:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M14 18a4 4 0 0 1 7 1"/></svg>',
-  clock:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
-  log:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h14M5 12h10M5 19h14"/></svg>',
-  mem:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4a7 7 0 0 0-7 7v2l-2 4h5"/><path d="M12 4a7 7 0 0 1 7 7v2l2 4h-5"/><path d="M9 21h6"/></svg>',
-  pulse:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>',
-  board:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>',
-  pause:'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
-  chev:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>',
-  person:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
-  stew:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-  st:{running:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
-      needs_you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v9"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      done:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>',
-      failed:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-      queued:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>',
+  open:ic('<path d="M14 4h6v6"/><path d="M20 4L10 14"/><path d="M18 13v6H5V6h6"/>'),
+  plus:ic('<path d="M12 5v14M5 12h14"/>'),
+  search:ic('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  stopsq:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  send:ic('<path d="M4 12l16-8-6 16-2-6z"/>'),
+  clip:ic('<path d="M21 12l-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 8"/>'),
+  spark:ic('<path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'),
+  team:ic('<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M14 18a4 4 0 0 1 7 1"/>'),
+  clock:ic('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'),
+  log:ic('<path d="M5 6h14M5 12h10M5 18h14"/>'),
+  mem:ic('<path d="M12 4a7 7 0 0 0-7 7v2l-2 4h5"/><path d="M12 4a7 7 0 0 1 7 7v2l2 4h-5"/><path d="M9 21h6"/>'),
+  pulse:ic('<path d="M3 12h4l2-6 4 12 2-6h6"/>'),
+  board:ic('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M15 4v16"/>'),
+  pause:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>',
+  chev:ic('<path d="M6 9l6 6 6-6"/>','stroke-width="2"'),
+  close:ic('<path d="M6 6l12 12M18 6L6 18"/>'),
+  check:ic('<path d="M5 12l5 5 9-10"/>'),
+  folder:ic('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+  file:ic('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'),
+  play:ic('<path d="M7 5l12 7-12 7z"/>'),
+  person:ic('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  stew:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg>',
+  st:{running:ic('<path d="M5 12h14M13 6l6 6-6 6"/>','stroke-width="3"'),
+      needs_you:ic('<path d="M12 5v9"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>','stroke-width="3"'),
+      done:ic('<path d="M5 12l5 5 9-10"/>','stroke-width="3"'),
+      failed:ic('<path d="M6 6l12 12M18 6L6 18"/>','stroke-width="3"'),
+      queued:ic('<circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/>','stroke-width="3"'),
       paused:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'}
 };
 const ST={running:'在跑',needs_you:'等你',done:'已收工',failed:'失败',queued:'排队',paused:'已暂停'};
-const ORG={steward:'管家开的',user:'我开的',schedule:'定时'};
+const ORG={steward:'如意开的',user:'我开的',schedule:'定时开的'};
 const RANK={needs_you:0,failed:1,running:2,queued:3,paused:3,done:4};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pill=s=>`<span class="pill ${s}">${I.st[s]}${ST[s]}</span>`;
@@ -494,7 +525,7 @@ const now=Date.now();
 
 function seed(){
   return {
-    lens:'steward', selected:'t1', focus:null, sideOpen:false, railBoard:false, toast:null, watchT:{}, open:{'A 股盯盘':true},
+    lens:'steward', selected:'t1', focus:null, sideOpen:false, railBoard:false, toast:null, watchT:{}, open:{'A 股盯盘':true}, newTask:false,
     threads:[
       {id:'t1',hue:1,task:'A 股盯盘',title:'博纳影业怎么操作',origin:'steward',state:'running',model:'qwen3.8-flash',engine:'Qwen',perm:'智能自动',permPinned:false,updated:now-20000,
        live:{tool:'web_fetch · 东财资金流',text:'',at:now-3000,iter:7,pos:0},lastSay:'偏空，但不是崩。今天最可能的剧本是「贴着均价阴跌、尾盘定方向」。'},
@@ -510,10 +541,10 @@ function seed(){
        lastSay:'今年中秋国庆分开放假，消费带动按两段拆算。'}
     ],
     feed:[
-      {k:'digest',text:'早。你不在的 6 小时里：',items:['『Kimi Code 试跑』收工，五条 e2e 全绿。','『大A走势』在等你定仓位上限。','『博纳影业』还在跑。'],acts:[{t:'打开『大A走势』',g:1,go:'t2'},{t:'知道了'}]},
+      {k:'digest',text:'早。你不在的 6 小时里：',items:['「Kimi Code 试跑」收工，五条 e2e 全绿。','「大A走势」在等你定仓位上限。','「博纳影业」还在跑。'],acts:[{t:'打开「大A走势」',g:1,go:'t2'},{t:'知道了'}]},
       {k:'thread',id:'t1',say:['<span class="lead">偏空，但不是崩。</span>最可能的剧本是「贴着均价阴跌、尾盘定方向」，收在 5.75–5.95。','整个影视板块在退潮，博纳跌得最狠；数据是盘中快照，收盘前还会变。'],acts:[{t:'先停一下'},{t:'晚点再刷'}]},
       {k:'user',text:'Ruyi 推进到哪了'},
-      {k:'thread',id:'t3',say:['<span class="lead">停在 117r，九刀全入库，git 干净。</span>','领先远端 11 个 commit 没 push；三条尾巴等你拍板。'],deliv:'它交付的原文 · 第 6 回合',delivText:'结论先行：本体停在 117r…（展开看全文）',acts:[{t:'去看',g:1,go:'t3',work:1},{t:'知道了'}]},
+      {k:'thread',id:'t3',say:['<span class="lead">停在 117r，九刀全入库，git 干净。</span>','领先远端 11 个 commit 没 push；三条尾巴等你拍板。'],deliv:'它交付的原文 · 第 6 回合',delivText:'结论先行：本体停在 117r…（展开看全文）',acts:[{t:'打开',g:1,go:'t3',work:1},{t:'知道了'}]},
       {k:'grey',text:'记下了：你看盘时只要结论。',acts:[{t:'别记'}]}
     ],
     liveScript:['正在拉 10:25 之后的资金流向。','主力净流出 −1.2 亿，比开盘扩大了三成。','先按「均价阴跌」那条线看，尾盘再定方向。']
@@ -554,8 +585,8 @@ function renderRail(){
   const all=tasks();
   let html=`<div class="rail-head" data-note="4"><h2>任务<span class="cnt num">${all.length}</span></h2>
     <button class="ibtn" title="${S.railBoard?'收起看板':'看板密度'}" data-act="board">${I.board}</button></div>
-    <div class="rail-search">${I.search}<input placeholder="找任务… Ctrl+K"></div>
-    <button class="rail-new" data-act="new" data-note="12" title="${S.lens==='work'?'开一条线程（自成一个任务）':'让如意另起一件'}">${I.plus}<span>${S.lens==='work'?'新线程':'新任务'}</span></button>
+    <div class="rail-search">${I.search}<input placeholder="找任务或线程"></div>
+    <button class="rail-new" data-act="new" data-note="12" title="${S.lens==='work'?'开一条线程，自成一个任务':'让如意另起一件'}">${I.plus}<span>${S.lens==='work'?'新线程':'新任务'}</span></button>
     <div class="rail-list">`;
   for(const [label,st] of groups){
     const rows=all.filter(k=>st==='queued'?(k.state==='queued'||k.state==='paused'):k.state===st).sort((a,b)=>b.updated-a.updated);
@@ -594,18 +625,17 @@ function taskRow(k,cur){
 function renderSteward(){
   const run=S.threads.filter(t=>t.state==='running').length, you=S.threads.filter(t=>t.state==='needs_you').length;
   const pres=stewardPresence();
-  const line=pres==='waiting_you'?`<span class="d you"></span>${you} 条在等你`:pres==='working'?`<span class="d run"></span>看着 ${run} 条在跑`:`<span class="d"></span>空闲`;
+  const line=pres==='waiting_you'?`<span class="d you"></span>${you} 条在等你`:pres==='working'?`<span class="d run"></span>${run} 条在跑`:`<span class="d"></span>空闲`;
   let html=`<div class="col">
     <div class="sh-head" data-note="9">
       <div class="avatar ${pres}"><span class="ring"></span><span class="core"></span></div>
       <div><div class="name">如意</div><div class="line">${line}</div></div>
-      <span class="sp"></span><span class="chip ghost" data-note="3">细节 关</span>
+      <span class="sp"></span><span class="chip ghost" data-note="3">细节</span>
     </div>
     <div class="feed" id="feed">`;
   for(const m of S.feed)html+=feedItem(m);
   html+=`</div>
-    <div class="composer" data-note="2"><div class="row"><span class="target ${S.newTask?'thread':''}">${S.newTask?'→ 如意 · 另起一件':'→ 如意'}</span><input placeholder="${S.newTask?'说你想做什么，回车就开…':'跟如意说点什么… @ 指定任务'}"><button class="send" title="发送">${I.send}</button></div>
-    <div class="tools"><button title="附件">${I.clip}</button><button title="技能">${I.spark}</button><span class="sp"></span></div></div>
+    <div class="composer" data-note="2"><span class="target ${S.newTask?'thread':''}">${S.newTask?'→ 如意 · 另起一件':'→ 如意'}</span><input placeholder="${S.newTask?'说你想做什么，回车就开':'跟如意说点什么'}"><div class="tools"><button title="附件">${I.clip}</button><button title="技能">${I.spark}</button></div><button class="send" title="发送">${I.send}</button></div>
   </div>`;
   $('center').innerHTML=html;
   const f=$('feed');f.scrollTop=f.scrollHeight;
@@ -638,32 +668,32 @@ function renderWork(){
   const watched=S.watchT[t.id]??(t.origin!=='user');
   const live=t.state==='running';
   const fid=S.focus||focusId();
+  const fresh=t.fresh===true;
   let html=`<div class="col">
     <div class="wk-head">
-      <div class="wk-title"><span class="bar" style="--th:var(--th-${t.hue});${t.id===fid?'view-transition-name:thread-bar':''}"></span><h1 style="${t.id===fid?'view-transition-name:thread-title':''}">${nameOf(t)}</h1>${pill(t.state)}${og(t.origin)}<span class="cwd">~/Documents/ruyi-workbench-oss</span></div>
+      <div class="wk-title"><span class="bar" style="--th:var(--th-${t.hue});${t.id===fid?'view-transition-name:thread-bar':''}"></span><h1 style="${t.id===fid?'view-transition-name:thread-title':''}">${nameOf(t)}</h1>${fresh?'':pill(t.state)}${og(t.origin)}<span class="cwd">${I.folder}ruyi-workbench-oss</span></div>
       <div class="wk-chips" data-note="3">
         <span class="chip ${t.permPinned?'pinned':''}" data-note="2">权限 <b>${esc(t.perm)}</b> ▾</span>
         <span class="chip">模型 <b>${esc(t.model)}</b> ▾</span>
         <span class="chip">引擎 <b>${esc(t.engine)}</b></span>
-        <span class="ctx" title="上下文 215K / 1M"><span class="bat"><i></i></span>21%</span>
+        <span class="ctx" title="上下文 ${fresh?'0 / 1M':'215K / 1M'}"><span class="bat"><i style="${fresh?'width:0':''}"></i></span>${fresh?'0%':'21%'}</span>
         <span class="sp"></span>
-        <span class="stewbar"><span class="avatar sm ${stewardPresence()}"><span class="ring"></span><span class="core"></span></span><span class="st">如意${watched?'盯着这条':'看得见、不插手'}</span>
-          <button class="sw ${watched?'on':''}" data-watch="${t.id}"><span class="k"></span>${watched?'交给管家盯':'交给管家'}</button></span>
+        <span class="stewbar"><span class="avatar sm ${stewardPresence()}"><span class="ring"></span><span class="core"></span></span><span class="st">如意${watched?'盯着这条':'看得见，不插手'}</span>
+          <button class="sw ${watched?'on':''}" data-watch="${t.id}"><span class="k"></span>${watched?'交给如意盯':'交给如意'}</button></span>
       </div>
     </div>
-    <div class="wk-msgs">
+    <div class="wk-msgs">${fresh?`<div class="m ai" style="color:var(--muted);font-size:var(--fs-sm)">新线程，上一条的内容不带过来。说你想做什么。</div>`:`
       <div class="m user">${esc(t.origin==='user'?'帮我看下这个仓库当前的进度，应该有多个 worktree 且刚改了不少':'看看博纳影业（001330）今天怎么操作，我 7 块的成本')}</div>
       <div class="m ai">${t.origin!=='user'?`<div class="steward-note">${I.spark} 委托书 · 如意补充：只要结论；成本 7.00，仓位未知</div>`:''}
         <p class="lead">${esc((t.lastSay||'先看现场。').split('。')[0])}。</p>
         <p>${esc(t.origin==='user'?'本体停在 117r，九刀全入库，git 干净；领先远端 11 个 commit 没 push。三个 worktree 里两个已合回主树，剩下那个基线是 HEAD~2。':'今天（9/10）收 5.72、−2.39%，确认跌破 10 日线。从 5.72 回到 7.00 要涨 +22.4%，路上得站上半年线 6.63。')}</p>
       </div>
-      <div class="toolcard"><span class="verb">读文件</span><span class="mono">docs/optimization-plan/32-handoff-next-cuts.md</span><span class="ok">✓ 322 行</span></div>
-      <div class="toolcard"><span class="verb">跑命令</span><span class="mono">git worktree list --porcelain</span><span class="ok">✓ 0.3s</span></div>
+      <div class="toolcard">${I.file}<span class="verb">读文件</span><span class="mono">docs/optimization-plan/32-handoff-next-cuts.md</span><span class="ok">${I.check}322 行</span></div>
+      <div class="toolcard">${I.play}<span class="verb">跑命令</span><span class="mono">git worktree list --porcelain</span><span class="ok">${I.check}0.3s</span></div>
       ${live?`<div class="livebar"><span class="d"></span><span data-livebar="${t.id}">${esc(t.live.tool)} · 第 ${t.live.iter} 次工具调用 · ${ago(Date.now()-t.live.at)}有输出</span><button class="stop">${I.stopsq}停止</button></div>`:
-        t.state==='needs_you'?`<div class="callout"><div class="cap">它在问你</div>${esc(t.question)}<div class="opts" style="margin-top:6px">${t.options.map(o=>`<button class="abtn" data-answer="${t.id}">${esc(o)}</button>`).join('')}</div></div>`:''}
+        t.state==='needs_you'?`<div class="callout"><div class="cap">它在问你</div>${esc(t.question)}<div class="opts" style="margin-top:6px">${t.options.map(o=>`<button class="abtn" data-answer="${t.id}">${esc(o)}</button>`).join('')}</div></div>`:''}`}
     </div>
-    <div class="composer"><div class="row"><input placeholder="${live?'插话：它下一步会看到…':'输入消息，或描述你想完成的任务…'}"><button class="send ${live?'stop':''}" title="${live?'停止':'发送'}">${live?I.stopsq:I.send}</button></div>
-    <div class="tools"><button>${I.team}Agent 团队</button><button>${I.spark}技能</button><button title="附件">${I.clip}</button><span class="sp"></span></div></div>
+    <div class="composer"><input placeholder="${fresh?'说你想做什么':live?'插话，它下一步会看到':'接着说'}"><div class="tools"><button class="txt">${I.team}Agent 团队</button><button class="txt">${I.spark}技能</button><button title="附件">${I.clip}</button></div><button class="send ${live&&!fresh?'stop':''}" title="${live&&!fresh?'停止':'发送'}">${live&&!fresh?I.stopsq:I.send}</button></div>
   </div>`;
   $('center').innerHTML=html;
 }
@@ -681,14 +711,14 @@ function renderSide(){
       <div class="head"><span class="t" style="view-transition-name:thread-title">${nameOf(t)}</span>${pill(t.state)}</div>
       <div class="meta">${og(t.origin)}<span>${ago(Date.now()-t.updated)}有动静</span>${t.permPinned?`<span>· 权限 ${esc(t.perm)}</span>`:''}</div>
       ${focusBody(t)}
-      <div class="foot"><button class="abtn primary" data-go="${t.id}" data-work="1">${I.open} 在工作台打开</button>${t.state==='running'?`<button class="abtn">${I.pause} 暂停</button><button class="abtn danger">${I.stopsq} 停止</button>`:t.state==='needs_you'?'':`<button class="abtn">继续</button>`}<span class="sp"></span><button class="abtn">更多 ▾</button></div>
+      <div class="foot"><button class="abtn primary" data-go="${t.id}" data-work="1">${I.open}在工作台打开</button>${t.state==='running'?`<button class="abtn">${I.pause}暂停</button><button class="abtn danger">${I.stopsq}停止</button>`:t.state==='needs_you'?'':`<button class="abtn">${I.play}继续</button>`}<span class="sp"></span><button class="abtn">更多 ▾</button></div>
     </div></div>
     <div class="blk"><h3>其它在途 <span class="sp"></span><a data-act="board">看板 →</a></h3>
       ${rest.length?rest.map(x=>`<div class="mini" style="--th:var(--th-${x.hue})" data-focus="${x.id}"><span class="bar"></span><div><div class="r"><span class="t">${nameOf(x)}</span>${pill(x.state)}</div><div class="s">${x.state==='running'?`<span data-live="${x.id}">${esc(liveLine(x))}</span>`:x.state==='needs_you'?esc(x.question||'在问你'):esc(x.wait||ago(Date.now()-x.updated))}</div></div></div>`).join(''):`<div class="s" style="color:var(--muted);font-size:var(--fs-xs)">没有别的在途任务</div>`}
     </div>
     <div class="blk"><h3>接下来 <span class="sp"></span><a>定时任务 →</a></h3><div class="sched">
-      <div class="it"><span class="when">今 15:05</span><span>A 股收盘复盘</span></div>
-      <div class="it"><span class="when">明 09:00</span><span>周报-W36 起跑</span></div>
+      <div class="it">${I.clock}<span class="when">今 15:05</span><span>A 股收盘复盘</span></div>
+      <div class="it">${I.clock}<span class="when">明 09:00</span><span>周报-W36 起跑</span></div>
     </div></div>
   </div>`;
   $('side').innerHTML=html;
@@ -696,23 +726,23 @@ function renderSide(){
 function focusBody(t){
   if(t.state==='needs_you')return `<div class="callout"><div class="cap">它在问你</div>${esc(t.question)}</div>
     <div class="opts">${t.options.map((o,i)=>`<button class="abtn ${i===0?'gold':''}" data-answer="${t.id}">${esc(o)}</button>`).join('')}</div>
-    <div class="answer"><input placeholder="或者直接回答它…"><button class="go">回答</button></div>`;
+    <div class="answer"><input placeholder="或者直接回答它"><button class="go">回答</button></div>`;
   if(t.state==='running')return `<div class="callout live"><div class="cap">它正在说</div><div class="txt"><span data-livetxt="${t.id}">${esc(t.live.text)}</span><span class="cur"></span></div></div>
     <div class="action-line"><span class="d"></span><span data-livebar="${t.id}">${esc(t.live.tool)} · 第 ${t.live.iter} 次调用 · ${ago(Date.now()-t.live.at)}有输出</span></div>
-    <div class="answer"><input placeholder="递给它一句…"><button class="go">递给它</button></div>`;
+    <div class="answer"><input placeholder="递给它一句"><button class="go">递给它</button></div>`;
   if(t.state==='queued')return `<div class="callout"><div class="cap">在等什么</div>${esc(t.wait||'排队中')}</div><div class="opts"><button class="abtn">插队</button><button class="abtn">并发上限 5 ▾</button></div>`;
-  return `<div class="callout done"><div class="cap">它最后说</div>${esc(t.lastSay||'')}</div><div class="answer"><input placeholder="接着跟它说…"><button class="go">递给它</button></div>`;
+  return `<div class="callout done"><div class="cap">它最后说</div>${esc(t.lastSay||'')}</div><div class="answer"><input placeholder="接着跟它说"><button class="go">递给它</button></div>`;
 }
 function renderProject(){
   $('side').innerHTML=`<div class="side-head"><h2>项目与进度</h2></div>
   <div class="tabs"><button class="is-on">文件</button><button>产物</button><button>本轮变更 <span class="num">3</span></button><button>记忆</button><button>Agent 工作流</button><button>用量</button><button>记录</button></div>
   <div class="side-body">
-    <div><div class="wschips"><span class="chip pinned">ruyi-workbench-oss</span><span class="chip">SiliconDawn</span><span class="chip">stock-monitor-v2</span></div>
+    <div><div class="wschips"><span class="chip pinned">${I.folder}ruyi-workbench-oss</span><span class="chip">SiliconDawn</span><span class="chip">stock-monitor-v2</span></div>
     <div class="tree">
-      <div class="f dir"><span class="ch">▾</span>ruyi-workbench-oss</div>
-      <div class="f i1"><span class="ch">▸</span>.claude</div><div class="f i1"><span class="ch">▸</span>dev-harness</div>
-      <div class="f i1 dir"><span class="ch">▾</span>docs</div><div class="f i2"><span class="ch">▾</span>optimization-plan</div>
-      <div class="f i1"><span class="ch">▸</span>ruyi-workbench</div><div class="f i1"><span class="ch"></span>README.md</div>
+      <div class="f dir">${I.folder}ruyi-workbench-oss</div>
+      <div class="f i1">${I.folder}.claude</div><div class="f i1">${I.folder}dev-harness</div>
+      <div class="f i1 dir">${I.folder}docs</div><div class="f i2">${I.folder}optimization-plan</div>
+      <div class="f i1">${I.folder}ruyi-workbench</div><div class="f i1">${I.file}README.md</div>
     </div></div>
     <div class="blk"><h3>本轮变更</h3>
       <div class="diffrow"><span class="add">+18</span><span class="del">−4</span><span>docs/optimization-plan/32-handoff-next-cuts.md</span></div>
@@ -726,25 +756,25 @@ function renderToast(){
   const h=$('toastHost');
   if(!S.toast||S.lens!=='work'||S.selected===S.toast.id){h.innerHTML='';return}
   const t=T(S.toast.id);
-  h.innerHTML=`<div class="toast" data-note="7"><div class="h"><span class="avatar sm waiting_you"><span class="ring"></span><span class="core"></span></span><span>『<b>${esc(t.title)}</b>』在问你</span><button class="x" data-act="toastx">✕</button></div>
+  h.innerHTML=`<div class="toast" data-note="7"><div class="h"><span class="avatar sm waiting_you"><span class="ring"></span><span class="core"></span></span><span>「<b>${esc(t.title)}</b>」在问你</span><button class="x" data-act="toastx" title="关闭">${I.close}</button></div>
     <div class="q">${esc(t.question)}</div>
-    <div class="acts">${t.options.map((o,i)=>`<button class="abtn ${i===0?'gold':''}" data-answer="${t.id}">${esc(o)}</button>`).join('')}<button class="abtn" data-go="${t.id}" data-work="1">去看</button><button class="abtn" data-act="toastx">稍后</button></div></div>`;
+    <div class="acts">${t.options.map((o,i)=>`<button class="abtn ${i===0?'gold':''}" data-answer="${t.id}">${esc(o)}</button>`).join('')}<button class="abtn" data-go="${t.id}" data-work="1">打开</button><button class="abtn" data-act="toastx">稍后</button></div></div>`;
 }
 
 /* ---------- 标注 ---------- */
 const NOTES=[
   ['一个顶栏，两种视角','分段钮滑块 220ms；切换时左栏与顶栏不动，中栏滑入滑出（去 140ms / 来 240ms，方向随前进后退），右栏淡入淡出；焦点卡的标题与色条跨视角变形成工作台线程头。View Transitions，reduced-motion 下全部即时。','§2.9 动效'],
   ['每条线程只有一套配置','权限／模型／引擎 chip 只在线程头出现一次；「设为新任务默认」是菜单里的显式动作。','§3.1'],
-  ['管家条','工作台里看得见管家在不在、盯不盯这条；「交给管家」一键。','§4'],
+  ['如意条','工作台里看得见如意在不在、盯不盯这条；「交给如意」一键。','§4'],
   ['以任务为单位的索引','按状态分组；一个任务 = 一条线程时就是一行；多线程任务可展开，色号按任务分配。','§2.3 / §5'],
   ['焦点栏','等你 > 在跑 > 失败。「它正在说」与当前动作来自推送；没有费用、没有计数。','§6'],
-  ['来源用图形','管家开的（环）／我开的（人形）／定时（钟），悬停才出字。','§4.1'],
-  ['安静卡','管家在工作台里的唯一打扰形态：右下角一张，可就地回答，不弹窗、不切视角。','§4.3'],
+  ['来源用图形','如意开的（环）／我开的（人形）／定时（钟），悬停才出字。','§4.1'],
+  ['安静卡','如意在工作台里的唯一打扰形态：右下角一张，可就地回答，不弹窗、不切视角。','§4.3'],
   ['口袋','定时任务、行动流水、记忆、体检用量——费用只在「用量」里出现，不上首屏。','§7.2'],
-  ['文字预算','头部一行；每条话一句结论＋≤2 段；按钮 ≤2；※ 折成一个符号；卡头不印模型名。','§2.4'],
+  ['视觉与文字','一套 1.75px 圆头单线图标（24 网格）；云头品牌标；字阶 12/13/14/15/17；正文 15px/1.65；名字用「」；术语只剩任务／线程／如意／工作台；头一行、一句结论、按钮 ≤2。','§2.4 / §2.10'],
   ['窄屏退化','≤1240 右栏成抽屉，≤980 左栏成图标栏。','§7.3'],
   ['全局状态常驻顶栏','在跑／等你计数、新任务默认权限、一键停机，两视角同一处。','§2.2'],
-  ['交办台删除；两视角两种「＋」','管家视角「＋ 新任务」＝让如意另起一件（输入框目标变「另起一件」）；工作台「＋ 新线程」＝直接开一条线程（自成一个任务）；给已有任务加线程走任务行的「＋ 线程」。交办台入口与 2.0 视窗返回带退役。','§2.3 / §8']
+  ['两视角两种「＋」','管家「＋ 新任务」＝让如意另起一件；工作台「＋ 新线程」＝直接开一条线程并清空中栏现场（像今天的「新会话」）。交办台入口与 2.0 视窗返回带退役。','§2.3 / §8']
 ];
 function renderNotes(){$('noteList').innerHTML=NOTES.map((n,i)=>`<li data-n="${i+1}"><span class="n">${i+1}</span><span><b>${n[0]}</b> ${n[1]}<span class="ref">${n[2]}</span></span></li>`).join('')}
 function placeMarkers(){
@@ -775,7 +805,7 @@ function startLive(){
   clearInterval(liveTimer);
   liveTimer=setInterval(()=>{
     tick++;
-    const t=S.threads.find(x=>x.state==='running'&&x.live);
+    const t=S.threads.find(x=>x.state==='running'&&x.live&&!x.fresh);
     if(!t)return;
     const full=S.liveScript.join('');
     const len=(t.live.pos||0);
@@ -803,7 +833,7 @@ const SIM={
     const n={id:'u1',hue:2,task:'stock-monitor 前端重构',title:'stock-monitor 前端重构',origin:'user',state:'running',model:'glm-5.3-flash',engine:'GLM',perm:'智能自动',permPinned:false,updated:Date.now(),
       live:{tool:'read_file · src/App.jsx',text:'',at:Date.now(),iter:1,pos:0},lastSay:'先看现场。'};
     S.threads.unshift(n);S.selected='u1';S.watchT['u1']=false;
-    S.feed.push({k:'aware',text:'看到你在工作台开了『stock-monitor 前端重构』。我不插手；要我盯着就说一声。',acts:[{t:'帮我盯着',watch:'u1'}]});
+    S.feed.push({k:'aware',text:'看到你在工作台开了「stock-monitor 前端重构」。我不插手；要我盯着就说一声。',acts:[{t:'帮我盯着',watch:'u1'}]});
     transition(()=>{S.lens='work';render()},'fwd')},
   reset(){S=seed();transition(render,'back')}
 };
@@ -819,13 +849,18 @@ document.addEventListener('click',e=>{
   if(b.id==='sideToggle'){S.sideOpen=!S.sideOpen;renderTop();return}
   if(b.dataset.act==='board'){S.railBoard=!S.railBoard;render();return}
   if(b.dataset.act==='toastx'){S.toast=null;renderToast();return}
-  if(b.dataset.act==='new'){const n={id:'n'+Date.now(),hue:4,task:'新任务',title:'新任务',origin:'user',state:'running',model:'qwen3.8-flash',engine:'Qwen',perm:'智能自动',permPinned:false,updated:Date.now(),live:{tool:'等你的第一句',text:'',at:Date.now(),iter:0,pos:0}};
-    if(S.lens==='work'){n.task='新线程';n.title='新线程';S.threads.unshift(n);S.selected=n.id;S.watchT[n.id]=false;transition(render)}
-    else{S.feed.push({k:'grey',text:'另起一件——说你想做什么，我来开线程。'});S.newTask=true;render();const inp=document.querySelector('.composer input');if(inp)inp.focus()}return}
+  if(b.dataset.act==='new'){
+    if(S.lens==='work'){
+      /* 工作台「＋ 新线程」：像今天 2.0 的「新会话」——中栏现场清空，只沿用工作区 */
+      const n={id:'n'+Date.now(),hue:4,task:'新线程',title:'新线程',origin:'user',state:'running',fresh:true,model:'qwen3.8-flash',engine:'Qwen',perm:'智能自动',permPinned:false,updated:Date.now(),live:{tool:'等你的第一句',text:'',at:Date.now(),iter:0,pos:0}};
+      S.threads.unshift(n);S.selected=n.id;S.watchT[n.id]=false;S.toast=null;transition(render);
+      setTimeout(()=>{const inp=document.querySelector('.composer input');if(inp)inp.focus()},260);
+    }else{S.feed.push({k:'grey',text:'另起一件——说你想做什么，我来开线程。'});S.newTask=true;render();const inp=document.querySelector('.composer input');if(inp)inp.focus()}
+    return}
   if(b.dataset.watch){const id=b.dataset.watch;S.watchT[id]=!(S.watchT[id]??(T(id).origin!=='user'));
-    if(S.watchT[id])S.feed.push({k:'grey',text:`好，『${T(id).title}』我盯着。`});render();return}
+    if(S.watchT[id])S.feed.push({k:'grey',text:`好，「${T(id).title}」我盯着。`});render();return}
   if(b.dataset.answer){const t=T(b.dataset.answer);t.state='running';t.updated=Date.now();t.live={tool:'继续 · 第 8 步',text:'',at:Date.now(),iter:8,pos:0};S.toast=null;S.focus=t.id;
-    S.feed.push({k:'grey',text:`已回答『${t.title}』：${b.textContent.trim()}。`,acts:[{t:'撤回'}]});transition(render);return}
+    S.feed.push({k:'grey',text:`已回答「${t.title}」：${b.textContent.trim()}。`,acts:[{t:'撤回'}]});transition(render);return}
   if(b.dataset.go){const id=b.dataset.go;if(b.dataset.work){transition(()=>{S.lens='work';S.selected=id;S.sideOpen=false;render()},'fwd')}else{S.focus=id;S.sideOpen=true;transition(render)}return}
   if(b.dataset.task!==undefined&&b.dataset.open===''){const k=b.dataset.task;S.open[k]=!(S.open[k]??true);renderRail();return}
   if(b.dataset.open){const id=b.dataset.open;if(S.lens==='work'){S.selected=id;transition(render)}else{S.focus=id;S.sideOpen=true;transition(render)}return}
