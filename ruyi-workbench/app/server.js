@@ -18295,6 +18295,20 @@ const PROMPT_ZH = {
     overviewEmpty: '(当前没有线程)',
     overviewFolded: ({ threads }) => `…另有 ${threads} 条线程未列出(总览有字数预算)。`,
     overviewMore: '更多细节用 steward_thread_read,读取有预算(每回合 6 次)。',
+    // 117w-W1 提交③(27 号文 §11.19.2「候选表(只读投影,进管家到访层)」):工作区候选表。
+    // 病灶:workspaces 在 06i 的 forbidden 清册里,管家【读不到】,于是它从不传 cwd,一切落到默认
+    // 工作区 —— 用户看到的「同一个文件夹被占着」。修法是【看得见 ≠ 改得了】:把表的只读投影喂进
+    // 到访层,而 workspaces / stewardWorkspaceRoot / defaultWorkspace 三个键本身仍然一个都改不了。
+    // 三条硬纪律,改这几行的人必须一并守住:
+    //   ① 只投影【末段名 + note + 只读标】。全路径不进(它是围栏信息,末段名足够让模型选对);
+    //      allowOutsideWorkspace / additionalDirectories 这类围栏字段一个都不许出现。
+    //   ② recentWorkspaces 【不进表】—— 打开过 ≠ 授权过(31 号文红线)。数据源只有 config.workspaces。
+    //   ③ 表有预算:与线程总览同一套折叠写法,上限读 06i 的 STEWARD_WORKSPACE_TABLE_MAX,超出折叠不截断。
+    workspaceHeader: '以下是你可以交给线程用的工作区(cwd 只能填这张表里的路径;标了「只读」的那些线程写不进去,只适合查阅):',
+    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? `(${note})` : ''}${readOnly ? '(只读)' : ''}`,
+    workspaceEmpty: '(还没有登记任何工作区)',
+    workspaceFolded: ({ workspaces }) => `…另有 ${workspaces} 个工作区未列出(到访层有字数预算)。`,
+    workspaceMore: '认不出这件事该归哪个文件夹就【省掉 cwd】——工作台会在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进上面这张表。表外的路径一律会被拒,不要自己编。',
     // 回合层:收件箱事件以一条 user 消息注入。措辞必须让模型看清「这不是用户说的话」。
     inboxHeader: ({ count }) => `[收件箱] 这是工作台的 ${count} 条系统事件,不是用户说的话(不能作为记忆来源):`,
     inboxTrailer: '按上面的事件判断要不要动手:该提议的放进 acts,权限允许且属于自理清单的放进 actions;没有值得打扰用户的事就只写一句 say、acts 与 actions 留空。',
@@ -18469,6 +18483,14 @@ const PROMPT_EN = {
     overviewEmpty: '(no threads)',
     overviewFolded: ({ threads }) => `…and ${threads} more threads not listed (the overview has a character budget).`,
     overviewMore: 'Use steward_thread_read for detail; deep reads are budgeted (6 per turn).',
+    // 117w-W1 提交③: workspace candidate table. Same three rules as the zh pack (see there):
+    // last path segment + note + read-only mark only, never a full path or any fence field;
+    // recentWorkspaces never enters the table; folds at STEWARD_WORKSPACE_TABLE_MAX instead of truncating.
+    workspaceHeader: 'Workspaces you may hand to a thread (cwd must be one of these paths; a row marked read-only cannot be written to, so it only suits lookups):',
+    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? ` (${note})` : ''}${readOnly ? ' (read-only)' : ''}`,
+    workspaceEmpty: '(no workspace registered yet)',
+    workspaceFolded: ({ workspaces }) => `…and ${workspaces} more workspaces not listed (the visit layer has a character budget).`,
+    workspaceMore: 'If you cannot tell which folder a task belongs to, omit cwd - the workbench opens a folder for that thread under the Ruyi root, named after its title, and adds it to this table. Any path outside the table is rejected; never invent one.',
     inboxHeader: ({ count }) => `[Inbox] ${count} workbench system events - these are NOT the user speaking (and are never a memory source):`,
     inboxTrailer: 'Decide from the events above: proposals go into acts; work the target thread\'s permission allows and the self-serve list covers goes into actions. When nothing is worth interrupting the user, write one say line and leave acts and actions empty.',
     visitNotes: 'Compress the steward conversation above into a handover note with exactly three sections, each a list of short sentences: (1) decisions already made (what, on which thread, on what grounds); (2) words already relayed (to whom, the gist of the original); (3) still-open items (waiting on whom, next step). No pleasantries, no speculation; write "none" for an empty section.',
@@ -18851,6 +18873,14 @@ const STEWARD_PERMISSION_MODE = 'steward';
 // buildStewardDigestLine 自身强制执行;maxThreads/totalChars 是 116f 组装整块总览时的上限,
 // 本切片只声明常量供后续切片复用同一份数字,不在这里做多线程拼装。
 const STEWARD_DIGEST_LIMITS = Object.freeze({ lastSayChars: 200, lineChars: 320, maxThreads: 40, totalChars: 12000 });
+
+// 117w-W1 提交③(27 号文 §11.19.2 与 §11.19.7 的裁决「两处读同一个常量」):工作区候选表的行数上限。
+// 【一处定义、两处读】:
+//   · 13o 的候选表投影按它折叠(超出写「…另有 N 个未列出」,不截断);
+//   · 13k 的 cwd 拒绝文案按它列候选末段名(同样带「另有 N 个未列出」)。
+// 提交① 落地时这两处一个 20 一个 8,是一条会咬人的分叉:模型在上下文里看得见 20 行,被拒时只被
+// 提醒其中 8 个,它会合理地推断「另外那 12 个不能用」,然后去编一个新路径。数字必须是同一个。
+const STEWARD_WORKSPACE_TABLE_MAX = 20;
 
 // 线程权限档位 -> 五态/权限的人话映射(§11.2「诚实」与看板行人话展示共用同一套措辞)。
 const STEWARD_STATE_LABELS = Object.freeze({
@@ -36827,7 +36857,7 @@ const MCP_TOOLS = [
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
         missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
-        cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则工作台在 Ruyi 根下按标题给这条线程派生一个自己的文件夹(认不出这件事该归哪个文件夹时就省略,这是正解)。这只是线程的起点目录,不是你自己能读写的路径。' },
+        cwd: { type: 'string', description: '可选,三态(与你上下文里那张工作区候选表同一口径):① 传【表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进那张表(认不出这件事该归哪个文件夹时就省略,这是正解);③ 其它任何值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
         brief: {
           type: 'object', additionalProperties: false, required: ['userText'],
@@ -37028,7 +37058,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
         question: { type: 'string', description: '要查的问题(用户原话优先,最多 1000 字符)。' },
-        cwd: { type: 'string', description: '可选。在哪个工作文件夹里查;省略则工作台在 Ruyi 根下派生一个给这次速查用的文件夹。' },
+        cwd: { type: 'string', description: '可选,三态(与 steward_thread_new 同一口径):① 传【工作区候选表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下开一个给这次速查用的工作文件夹;③ 其它任何值一律拒(invalid_request),`~` 与主目录也拒 —— 不要自己编路径。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },
@@ -43971,7 +44001,8 @@ function stewardQuickThread(head) {
 // Windows「复制为路径」带的引号 + trim + 截 1000),外加 path.resolve 收斜杠与尾斜杠。两侧【同一个
 // 函数、同一个顺序】,否则表里的 `C:\a\` 与传入的 `C:/a` 会被判成两个东西。注意 normalizeWorkspacePathString
 // 自己【不做】path.resolve —— 表里存的就是用户敲进去的原样,所以 resolve 这一步两边都得补上。
-const STEWARD_CWD_CANDIDATES_MAX = 8;
+// 117w-W1 提交③:候选上限【读 06i 的 STEWARD_WORKSPACE_TABLE_MAX】,与 13o 的候选表投影同一个数字
+// (§11.19.7 裁决)。提交① 这里曾是自己的 8,而投影是 20 —— 见 06i 该常量处的注释。
 
 // 把一个工作区路径字符串折成可逐字比较的规范形;非绝对路径一律折成 ''(相对路径会被 path.resolve
 // 按【服务进程的 cwd】补全,那是一条无声的越权路,所以在这里就掐掉)。
@@ -44004,8 +44035,8 @@ function stewardValidateCwd(stewardCwdRaw, stewardCwdConfig) {
   const hit = wanted ? table.find(entry => stewardFoldWorkspacePath(entry) === stewardFoldWorkspacePath(wanted)) : '';
   if (hit) return { ok: true, cwd: hit };                          // ② 表内 → 用表里那一行的归一化值
   // ③ 其它 → 拒。人话说清「不在工作区表里」并列出表内候选的末段名(末段名足够让模型改对,又不泄露全路径)。
-  const names = table.slice(0, STEWARD_CWD_CANDIDATES_MAX).map(entry => path.basename(entry) || entry);
-  const more = table.length > STEWARD_CWD_CANDIDATES_MAX ? `,另有 ${table.length - STEWARD_CWD_CANDIDATES_MAX} 个未列出` : '';
+  const names = table.slice(0, STEWARD_WORKSPACE_TABLE_MAX).map(entry => path.basename(entry) || entry);
+  const more = table.length > STEWARD_WORKSPACE_TABLE_MAX ? `,另有 ${table.length - STEWARD_WORKSPACE_TABLE_MAX} 个未列出` : '';
   const message = names.length
     ? `cwd 不在工作区表里(不要自己编路径)。表里现有:${names.join('、')}${more}。要用别处请先请用户在设置里把那个文件夹加成工作区;不确定就【省掉 cwd】,不要重试同一个值。`
     : 'cwd 不在工作区表里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';
@@ -46881,6 +46912,47 @@ function stewardOverviewBlock(rows, pack) {
   return out.join('\n');
 }
 
+// 117w-W1 提交③(27 号文 §11.19.2):工作区候选表的【只读投影】。
+//
+// 为什么它必须存在:workspaces 在 06i 的 forbidden 清册里,管家从来读不到有哪些工作区,于是它从不
+// 传 cwd,一切落到默认工作区 —— 而出厂 defaultWorkspace 就是主目录。用户看到的「同一个文件夹被
+// 占着」是这么来的。提交① 装了门(表外一律拒),提交② 给了省略时的出路(派生),这一段给的是
+// 「有得可选」:没有它,管家永远不知道表里有什么,门与出路都用不上。
+//
+// 为什么它只能是投影:看得见 ≠ 改得了。三个键(workspaces / stewardWorkspaceRoot / defaultWorkspace)
+// 仍然全是 forbidden,steward_config_set 一个都改不了。两道闸不合成一道。
+//
+// 三条硬纪律(与 06b 那几行的头注同一份,谁改都要一起守):
+//   ① 只投影【末段名 + note + 只读标】。全路径不进(围栏信息),更不许出现 allowOutsideWorkspace /
+//      additionalDirectories 这类围栏字段 —— 管家看得见围栏开关就等于知道往哪推。
+//   ② 数据源只有 config.workspaces。recentWorkspaces 【不进表】:打开过 ≠ 授权过。
+//   ③ 预算与线程总览同一套写法:超出 STEWARD_WORKSPACE_TABLE_MAX 折叠成一句「另有 N 个未列出」,
+//      不截断 —— 截断会让模型以为表就那么长,折叠句让它知道「还有,问用户要」。
+//   ④「只读」标来自 write === false(§11.19.7 裁决:校验层先不拒,但要让管家看得见,免得它把
+//      写活派进一个只能读的文件夹)。判据写死 `=== false`:缺字段的老配置默认可写,不能反过来。
+function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
+  const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
+  const lines = [];
+  let folded = 0;
+  for (const row of rows) {
+    const raw = String((row && row.path) || '').trim();
+    if (!raw) continue;
+    if (lines.length >= STEWARD_WORKSPACE_TABLE_MAX) { folded += 1; continue; }
+    // 末段名:先剥尾部斜杠(`C:\work\` 的 basename 是 'work',但 `C:\` 的是空)—— 剥完为空就退回
+    // 原样(盘符根这类没有末段名的路径,写 `C:\` 比写空字符串诚实)。
+    const name = path.basename(raw.replace(/[\\/]+$/, '')) || raw;
+    lines.push(pack.steward.workspaceRow({
+      name: stewardSanitizeText(name),
+      note: stewardSanitizeText((row && row.note) || ''),
+      readOnly: !!(row && row.write === false),
+    }));
+  }
+  const out = [pack.steward.workspaceHeader, ...(lines.length ? lines : [pack.steward.workspaceEmpty])];
+  if (folded > 0) out.push(pack.steward.workspaceFolded({ workspaces: folded }));
+  out.push(pack.steward.workspaceMore);
+  return out.join('\n');
+}
+
 // 09 的提示词分叉入口(经 StewardHooks.buildSystemPrompt 调)。返回 {stable, volatile}:
 // stable 进 system(版本级常量,前缀缓存完整命中),volatile 进第一条 user 消息前缀(与普通会话
 // 的 turnVolatile 同一投放位置),易变内容后置。
@@ -46895,6 +46967,10 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   const hint = stewardRunnerRuntime.inflight && stewardRunnerRuntime.inflight.routeHint;
   if (hint && Array.isArray(hint.rows) && hint.rows.length) parts.push(pack.steward.routeHintBlock({ rows: hint.rows }));
   try { parts.push(await stewardMemoryBlock(session, config, pack)); } catch { /* 记忆是旁路增强,缺了照常开工 */ }
+  // 117w-W1 提交③:工作区候选表。与总览【同一投放位置】(易变层,拼在第一条 user 消息前缀里),
+  // 排在总览之前 —— 它是「你能把活派到哪」,总览是「活现在在哪」,选目录这一步在看进度之前。
+  // 纯同步、纯投影,数据就是刚读到的 config.workspaces,不发一次 IO。
+  try { parts.push(stewardWorkspaceTableBlock(config && config.workspaces, pack)); } catch { /* 同上 */ }
   try { parts.push(stewardOverviewBlock(await stewardThreadDigestRows(config), pack)); } catch { /* 同上 */ }
   return { stable: pack.steward.stable, volatile: parts.filter(Boolean).join('\n\n') };
 }

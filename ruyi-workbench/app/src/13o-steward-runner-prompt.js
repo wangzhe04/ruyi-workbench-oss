@@ -241,6 +241,47 @@ function stewardOverviewBlock(rows, pack) {
   return out.join('\n');
 }
 
+// 117w-W1 提交③(27 号文 §11.19.2):工作区候选表的【只读投影】。
+//
+// 为什么它必须存在:workspaces 在 06i 的 forbidden 清册里,管家从来读不到有哪些工作区,于是它从不
+// 传 cwd,一切落到默认工作区 —— 而出厂 defaultWorkspace 就是主目录。用户看到的「同一个文件夹被
+// 占着」是这么来的。提交① 装了门(表外一律拒),提交② 给了省略时的出路(派生),这一段给的是
+// 「有得可选」:没有它,管家永远不知道表里有什么,门与出路都用不上。
+//
+// 为什么它只能是投影:看得见 ≠ 改得了。三个键(workspaces / stewardWorkspaceRoot / defaultWorkspace)
+// 仍然全是 forbidden,steward_config_set 一个都改不了。两道闸不合成一道。
+//
+// 三条硬纪律(与 06b 那几行的头注同一份,谁改都要一起守):
+//   ① 只投影【末段名 + note + 只读标】。全路径不进(围栏信息),更不许出现 allowOutsideWorkspace /
+//      additionalDirectories 这类围栏字段 —— 管家看得见围栏开关就等于知道往哪推。
+//   ② 数据源只有 config.workspaces。recentWorkspaces 【不进表】:打开过 ≠ 授权过。
+//   ③ 预算与线程总览同一套写法:超出 STEWARD_WORKSPACE_TABLE_MAX 折叠成一句「另有 N 个未列出」,
+//      不截断 —— 截断会让模型以为表就那么长,折叠句让它知道「还有,问用户要」。
+//   ④「只读」标来自 write === false(§11.19.7 裁决:校验层先不拒,但要让管家看得见,免得它把
+//      写活派进一个只能读的文件夹)。判据写死 `=== false`:缺字段的老配置默认可写,不能反过来。
+function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
+  const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
+  const lines = [];
+  let folded = 0;
+  for (const row of rows) {
+    const raw = String((row && row.path) || '').trim();
+    if (!raw) continue;
+    if (lines.length >= STEWARD_WORKSPACE_TABLE_MAX) { folded += 1; continue; }
+    // 末段名:先剥尾部斜杠(`C:\work\` 的 basename 是 'work',但 `C:\` 的是空)—— 剥完为空就退回
+    // 原样(盘符根这类没有末段名的路径,写 `C:\` 比写空字符串诚实)。
+    const name = path.basename(raw.replace(/[\\/]+$/, '')) || raw;
+    lines.push(pack.steward.workspaceRow({
+      name: stewardSanitizeText(name),
+      note: stewardSanitizeText((row && row.note) || ''),
+      readOnly: !!(row && row.write === false),
+    }));
+  }
+  const out = [pack.steward.workspaceHeader, ...(lines.length ? lines : [pack.steward.workspaceEmpty])];
+  if (folded > 0) out.push(pack.steward.workspaceFolded({ workspaces: folded }));
+  out.push(pack.steward.workspaceMore);
+  return out.join('\n');
+}
+
 // 09 的提示词分叉入口(经 StewardHooks.buildSystemPrompt 调)。返回 {stable, volatile}:
 // stable 进 system(版本级常量,前缀缓存完整命中),volatile 进第一条 user 消息前缀(与普通会话
 // 的 turnVolatile 同一投放位置),易变内容后置。
@@ -255,6 +296,10 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   const hint = stewardRunnerRuntime.inflight && stewardRunnerRuntime.inflight.routeHint;
   if (hint && Array.isArray(hint.rows) && hint.rows.length) parts.push(pack.steward.routeHintBlock({ rows: hint.rows }));
   try { parts.push(await stewardMemoryBlock(session, config, pack)); } catch { /* 记忆是旁路增强,缺了照常开工 */ }
+  // 117w-W1 提交③:工作区候选表。与总览【同一投放位置】(易变层,拼在第一条 user 消息前缀里),
+  // 排在总览之前 —— 它是「你能把活派到哪」,总览是「活现在在哪」,选目录这一步在看进度之前。
+  // 纯同步、纯投影,数据就是刚读到的 config.workspaces,不发一次 IO。
+  try { parts.push(stewardWorkspaceTableBlock(config && config.workspaces, pack)); } catch { /* 同上 */ }
   try { parts.push(stewardOverviewBlock(await stewardThreadDigestRows(config), pack)); } catch { /* 同上 */ }
   return { stable: pack.steward.stable, volatile: parts.filter(Boolean).join('\n\n') };
 }

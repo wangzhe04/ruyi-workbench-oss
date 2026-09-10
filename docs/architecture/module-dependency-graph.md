@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 49 | 2079 | 2279 | 390 | 67 | 0 | 1 |
+| 49 | 2080 | 2282 | 390 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,7 +33,7 @@
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 18 | `06i-steward-core.js` | engine | 87 | 0 | 0 |
+| 18 | `06i-steward-core.js` | engine | 88 | 0 | 0 |
 | 19 | `06d-memory-domain.js` | engine | 102 | 34 | 10 |
 | 20 | `06e-mission-domain.js` | engine | 3 | 12 | 5 |
 | 21 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -54,12 +54,12 @@
 | 36 | `13e-pretender-index.js` | transport | 36 | 26 | 8 |
 | 37 | `13i-steward-inbox.js` | transport | 63 | 22 | 7 |
 | 38 | `13j-steward-tool-base.js` | transport | 61 | 18 | 5 |
-| 39 | `13k-steward-threads.js` | transport | 28 | 80 | 11 |
+| 39 | `13k-steward-threads.js` | transport | 27 | 81 | 11 |
 | 40 | `13l-steward-ops.js` | transport | 24 | 57 | 15 |
 | 41 | `13g-steward.js` | transport | 11 | 55 | 9 |
 | 42 | `13m-steward-runner-base.js` | transport | 37 | 12 | 4 |
 | 43 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 44 | `13o-steward-runner-prompt.js` | transport | 13 | 41 | 11 |
+| 44 | `13o-steward-runner-prompt.js` | transport | 14 | 43 | 11 |
 | 45 | `13p-steward-runner-actions.js` | transport | 23 | 35 | 10 |
 | 46 | `13q-steward-runner-turn.js` | transport | 17 | 56 | 15 |
 | 47 | `13h-steward-runner.js` | transport | 5 | 46 | 12 |
@@ -358,7 +358,7 @@
 | `13k-steward-threads.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13k-steward-threads.js` | `02-session-store.js` | backward | `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `saveSession`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
 | `13k-steward-threads.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `sanitizeFsSegmentName` |
-| `13k-steward-threads.js` | `06i-steward-core.js` | backward | `STEWARD_DELIVERABLE_CHARS`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_QUICK_QUESTION_CHARS`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardAsksYouForThread`, `stewardClipSay`, `stewardMayAct`, `stewardMayTightenTo`, `stewardPendingOneLine`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardWatchedThread`, `waitReasonFor` |
+| `13k-steward-threads.js` | `06i-steward-core.js` | backward | `STEWARD_DELIVERABLE_CHARS`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_QUICK_KIND`, `STEWARD_QUICK_QUESTION_CHARS`, `STEWARD_WORKSPACE_TABLE_MAX`, `StewardHooks`, `buildStewardBrief`, `deriveStewardThreadState`, `stewardAsksYouForThread`, `stewardClipSay`, `stewardMayAct`, `stewardMayTightenTo`, `stewardPendingOneLine`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardWatchedThread`, `waitReasonFor` |
 | `13k-steward-threads.js` | `10-context-governance.js` | backward | `runSessionTurn` |
 | `13k-steward-threads.js` | `13b-api-domain-routes.js` | backward | `steerSessionCore` |
 | `13k-steward-threads.js` | `13d-core-domain-routes.js` | backward | `buildMissionAggregateRows`, `missionPendingCounts`, `searchSessionsByContent` |
@@ -389,12 +389,12 @@
 | `13n-steward-arbiter.js` | `04-permission-runtime.js` | backward | `logEvent` |
 | `13n-steward-arbiter.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `stewardSanitizeText`, `waitReasonFor` |
 | `13n-steward-arbiter.js` | `13m-steward-runner-base.js` | backward | `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS` |
-| `13o-steward-runner-prompt.js` | `00-boot.js` | backward | `text` |
+| `13o-steward-runner-prompt.js` | `00-boot.js` | backward | `path`, `text` |
 | `13o-steward-runner-prompt.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `13o-steward-runner-prompt.js` | `02-session-store.js` | backward | `readMissionContainer`, `sessionDisplayTitle`, `sessionMissionId` |
 | `13o-steward-runner-prompt.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13o-steward-runner-prompt.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
-| `13o-steward-runner-prompt.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `StewardHooks`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardTrimSayAtSentence`, `waitReasonFor` |
+| `13o-steward-runner-prompt.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `STEWARD_WORKSPACE_TABLE_MAX`, `StewardHooks`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardTrimSayAtSentence`, `waitReasonFor` |
 | `13o-steward-runner-prompt.js` | `08-agent-runs.js` | backward | `parseStructuredAgentOutput` |
 | `13o-steward-runner-prompt.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
 | `13o-steward-runner-prompt.js` | `13j-steward-tool-base.js` | backward | `stewardQuickThread`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode` |

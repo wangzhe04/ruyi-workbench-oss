@@ -778,7 +778,7 @@ const MCP_TOOLS = [
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
         missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
-        cwd: { type: 'string', description: '可选。线程的工作文件夹;省略则工作台在 Ruyi 根下按标题给这条线程派生一个自己的文件夹(认不出这件事该归哪个文件夹时就省略,这是正解)。这只是线程的起点目录,不是你自己能读写的路径。' },
+        cwd: { type: 'string', description: '可选,三态(与你上下文里那张工作区候选表同一口径):① 传【表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进那张表(认不出这件事该归哪个文件夹时就省略,这是正解);③ 其它任何值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
         brief: {
           type: 'object', additionalProperties: false, required: ['userText'],
@@ -979,7 +979,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
         question: { type: 'string', description: '要查的问题(用户原话优先,最多 1000 字符)。' },
-        cwd: { type: 'string', description: '可选。在哪个工作文件夹里查;省略则工作台在 Ruyi 根下派生一个给这次速查用的文件夹。' },
+        cwd: { type: 'string', description: '可选,三态(与 steward_thread_new 同一口径):① 传【工作区候选表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下开一个给这次速查用的工作文件夹;③ 其它任何值一律拒(invalid_request),`~` 与主目录也拒 —— 不要自己编路径。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },

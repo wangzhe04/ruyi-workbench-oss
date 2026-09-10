@@ -755,6 +755,131 @@ try {
     }
   }
 
+  /* ═════════ (O) 117w-W1 提交③:候选表进上下文(27 号文 §11.19.2)═════════ */
+  // 修前:workspaces 在 06i 的 forbidden 清册里,管家【读不到】表,于是从不传 cwd,一切落到默认
+  // 工作区。这一段钉的是「有得可选」——到访层多了一份【只读投影】,而三个围栏键仍然一个都改不了。
+  // 驱动的是真装配函数 buildStewardSystemPrompt(09 的分叉入口本身),不是复刻一份渲染。
+  console.log('── (O) 工作区候选表进上下文 ──');
+  {
+    const WS_RO = path.join(HOME, 'ws-readonly');
+    const WS_NOTE = path.join(HOME, 'ws-noted');
+    const WS_HIDDEN = path.join(HOME, 'ws-recent-hidden');
+    writeConfig({
+      configSchema: 11,                      // ≥10:关掉「空表就从 defaultWorkspace 播种」那条一次性迁移
+      stewardWorkspaceRoot: path.join(HOME, 'Ruyi'),
+      workspaces: [
+        { path: HOME, read: true, write: true, execute: true },
+        { path: WS_NOTE, read: true, write: true, execute: true, note: '股票资料' },
+        { path: WS_RO, read: true, write: false, execute: true },
+      ],
+      recentWorkspaces: [WS_HIDDEN],
+      allowOutsideWorkspace: true,           // 有意打开:围栏字段【就算是 true】也不许进上下文
+      additionalDirectories: [path.join(HOME, 'ws-extra')],
+    });
+    const stewardSession = { id: 'steward', kind: 'steward', providerHistory: [] };
+    // srv 不导出 readConfig(它是内部原语);与 N 段同款,直接读盘 + normalizeConfig 拿到归一化配置。
+    const cfgNow = () => srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
+    const built = await srv.buildStewardSystemPrompt(stewardSession, cfgNow(), {});
+    const volatileText = String((built && built.volatile) || '');
+    const stableText = String((built && built.stable) || '');
+    const tableBlock = (volatileText.split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+
+    ok(!!tableBlock, 'O1 管家上下文(易变层)里有工作区候选表');
+    ok(tableBlock.includes('· ' + path.basename(WS_NOTE)) && tableBlock.includes('· ' + path.basename(WS_RO)),
+      'O1b 表里逐行是路径的【末段名】');
+    ok(!stableText.includes('以下是你可以交给线程用的工作区'),
+      'O1c 表在【易变层】,不在 stable —— stable 是版本级常量,吃前缀缓存,工作区是用户随时会改的东西');
+
+    // O2 —— 只读标。write:false 的那一行标「只读」,可写的行不标(§11.19.7 裁决:校验层先不拒,
+    // 但要让管家看得见,免得它把写活派进一个只能读的文件夹)。
+    const rowOf = name => (tableBlock.split('\n').find(l => l.startsWith('· ' + name)) || '');
+    ok(rowOf(path.basename(WS_RO)).includes('(只读)'), `O2 write:false 的行标「只读」(got ${JSON.stringify(rowOf(path.basename(WS_RO)))})`);
+    ok(!rowOf(path.basename(WS_NOTE)).includes('(只读)'), 'O2b 可写的行不标只读(反向)');
+    ok(rowOf(path.basename(WS_NOTE)).includes('(股票资料)'), `O2c note 跟在末段名后面(got ${JSON.stringify(rowOf(path.basename(WS_NOTE)))})`);
+
+    // O3 —— 零围栏字段。表是【投影】不是转储:allowOutsideWorkspace 此刻是 true、additionalDirectories
+    // 非空,两者都不许出现在整段上下文里(管家看得见围栏开关就等于知道往哪推)。
+    for (const fence of ['allowOutsideWorkspace', 'additionalDirectories', 'recentWorkspaces']) {
+      ok(!tableBlock.includes(fence), `O3 候选表里零「${fence}」`);
+      ok(!volatileText.includes(fence), `O3b 整段易变层里零「${fence}」`);
+    }
+    // O3c —— 连全路径都不投影:末段名足够让模型选对,全路径是围栏信息。
+    ok(!tableBlock.includes(WS_RO) && !tableBlock.includes(HOME),
+      'O3c 表里只有末段名,没有任何一条全路径');
+
+    // O4 —— recentWorkspaces 里有、workspaces 里没有的 → 不在表里。打开过 ≠ 授权过。
+    ok(!tableBlock.includes(path.basename(WS_HIDDEN)) && !volatileText.includes(path.basename(WS_HIDDEN)),
+      'O4 只在 recentWorkspaces 里的目录不进表(打开过 ≠ 授权过)');
+
+    // O5 —— 折叠。config 的 workspaces 清洗自己就截到 20 行,所以 25 行的表【经不过 normalizeConfig】;
+    // 这里直接把 25 行喂给装配函数,验的是投影自己的预算行为(超出折叠、不截断)。
+    // 【登记的事实】两处上限都是 20 而 01-config 的表也正好截 20 —— 生产路径上这句折叠句不可达。
+    {
+      const many = [];
+      for (let i = 1; i <= 25; i++) many.push({ path: path.join(HOME, 'many-' + i), read: true, write: true, execute: true });
+      const cfgMany = { ...(cfgNow()), workspaces: many };
+      const builtMany = await srv.buildStewardSystemPrompt(stewardSession, cfgMany, {});
+      const blockMany = (String(builtMany.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      const listed = blockMany.split('\n').filter(l => l.startsWith('· '));
+      ok(listed.length === 20, `O5 表最多 20 行(got ${listed.length})`);
+      ok(blockMany.includes('另有 5 个工作区未列出'),
+        `O5b 超出的 5 个折叠成一句,不截断(got ${JSON.stringify(blockMany.split('\n').find(l => l.includes('未列出')) || '(没有折叠句)')})`);
+      // 用 String(listed[i]) 而不是 listed[i].startsWith:表被整段拿掉时 listed 是空数组,
+      // 裸下标会抛 TypeError 把整件 e2e 打断在这里 —— 后面 O6/O7 那些锁就再也不报了,
+      // 一次真红被伪装成一次崩溃。断言要红,不要炸。
+      ok(String(listed[0]).startsWith('· many-1') && String(listed[19]).startsWith('· many-20'),
+        'O5c 折叠是从尾部折的(前 20 行按表里的优先级顺序原样列出)');
+    }
+
+    // O6 —— 两处上限【是同一个数字】(§11.19.7 裁决)。提交① 落地时 13k 的拒绝文案上限是 8、
+    // 候选表投影是 20:模型在上下文里看得见 20 行,被拒时只被提醒 8 个,它会合理推断「另外 12 个
+    // 不能用」然后去编路径。
+    // 【为什么夹具必须是 20 行】3 行的夹具下两边都会列 3 个,常量分叉与否都绿 —— 那是假锁。
+    // 01-config 的 workspaces 清洗自己截到 20 行,所以 20 是这条路径上能造出的最大表:上限一旦
+    // 被改小(比如退回 8),文案侧会只列 8 个并追加「另有 12 个未列出」,这条立刻红。
+    {
+      const twenty = [];
+      for (let i = 1; i <= 20; i++) twenty.push({ path: path.join(HOME, 'align-' + i), read: true, write: true, execute: true });
+      writeConfig({ configSchema: 11, stewardWorkspaceRoot: path.join(HOME, 'Ruyi'), workspaces: twenty, recentWorkspaces: [] });
+      ok(cfgNow().workspaces.length === 20, `O6(前提)夹具真有 20 行进了配置(got ${cfgNow().workspaces.length})`);
+      const rejected = await call('steward_thread_new', {
+        title: '上限对齐', cwd: path.join(HOME, 'nowhere-at-all'), brief: { userText: '上限对齐' },
+      }, stewardCtx('table-align'));
+      const msg = String((rejected && rejected.message) || '');
+      const listedInMsg = (msg.split('表里现有:')[1] || '').split('。')[0].split(/[、,]/).filter(Boolean);
+      const builtAlign = await srv.buildStewardSystemPrompt(stewardSession, cfgNow(), {});
+      const blockAlign = (String(builtAlign.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      const listedInTable = blockAlign.split('\n').filter(l => l.startsWith('· '));
+      ok(rejected && rejected.ok === false, 'O6a 20 行表 + 表外 cwd 仍然被拒');
+      ok(listedInMsg.length === listedInTable.length && listedInTable.length === 20,
+        `O6 拒绝文案列出的候选数 == 候选表的行数 == 20(文案 ${listedInMsg.length} / 表 ${listedInTable.length})`);
+      ok(!msg.includes('未列出') && !blockAlign.includes('未列出'),
+        'O6b 20 行【正好】不触发折叠 —— 两处的边界也是同一个数(任一处改小,上一条与这一条一起红)');
+    }
+
+    // O7 —— 表为空又给了 cwd(提交① 登记的债,归本提交补锁):文案要说「一个工作区都没有登记」
+    // 并让模型【省掉 cwd】,而不是甩一句空的「表里现有:」。
+    {
+      writeConfig({ configSchema: 11, stewardWorkspaceRoot: path.join(HOME, 'Ruyi'), workspaces: [], recentWorkspaces: [] });
+      const emptyCfg = cfgNow();
+      ok(Array.isArray(emptyCfg.workspaces) && emptyCfg.workspaces.length === 0,
+        'O7(前提)configSchema ≥ 10 时空表【不】被 defaultWorkspace 播种回去');
+      const rejectedEmpty = await call('steward_thread_new', {
+        title: '空表', cwd: path.join(HOME, 'nowhere-at-all'), brief: { userText: '空表' },
+      }, stewardCtx('table-empty'));
+      const emptyMsg = String((rejectedEmpty && rejectedEmpty.message) || '');
+      ok(rejectedEmpty && rejectedEmpty.ok === false && rejectedEmpty.error === 'invalid_request'
+        && rejectedEmpty.reason === 'cwd_not_in_workspaces',
+        'O7b 表为空 + 表外 cwd -> 仍是同一个稳定信封');
+      ok(emptyMsg.includes('一个工作区都没有登记') && emptyMsg.includes('省掉 cwd') && !emptyMsg.includes('表里现有'),
+        `O7c 空表那支文案说清「一个都没有,请省掉 cwd」,不甩空清单(got ${JSON.stringify(emptyMsg)})`);
+      // O7d —— 空表时候选表投影输出的是「还没有登记任何工作区」,不是一个只有表头的空壳。
+      const builtEmpty = await srv.buildStewardSystemPrompt(stewardSession, emptyCfg, {});
+      ok(String(builtEmpty.volatile).includes('(还没有登记任何工作区)'),
+        'O7d 空表时投影明说「还没有登记任何工作区」');
+    }
+  }
+
 } finally {
   try { providerServer.close(); } catch {}
 }

@@ -209,6 +209,20 @@ const PROMPT_ZH = {
     overviewEmpty: '(当前没有线程)',
     overviewFolded: ({ threads }) => `…另有 ${threads} 条线程未列出(总览有字数预算)。`,
     overviewMore: '更多细节用 steward_thread_read,读取有预算(每回合 6 次)。',
+    // 117w-W1 提交③(27 号文 §11.19.2「候选表(只读投影,进管家到访层)」):工作区候选表。
+    // 病灶:workspaces 在 06i 的 forbidden 清册里,管家【读不到】,于是它从不传 cwd,一切落到默认
+    // 工作区 —— 用户看到的「同一个文件夹被占着」。修法是【看得见 ≠ 改得了】:把表的只读投影喂进
+    // 到访层,而 workspaces / stewardWorkspaceRoot / defaultWorkspace 三个键本身仍然一个都改不了。
+    // 三条硬纪律,改这几行的人必须一并守住:
+    //   ① 只投影【末段名 + note + 只读标】。全路径不进(它是围栏信息,末段名足够让模型选对);
+    //      allowOutsideWorkspace / additionalDirectories 这类围栏字段一个都不许出现。
+    //   ② recentWorkspaces 【不进表】—— 打开过 ≠ 授权过(31 号文红线)。数据源只有 config.workspaces。
+    //   ③ 表有预算:与线程总览同一套折叠写法,上限读 06i 的 STEWARD_WORKSPACE_TABLE_MAX,超出折叠不截断。
+    workspaceHeader: '以下是你可以交给线程用的工作区(cwd 只能填这张表里的路径;标了「只读」的那些线程写不进去,只适合查阅):',
+    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? `(${note})` : ''}${readOnly ? '(只读)' : ''}`,
+    workspaceEmpty: '(还没有登记任何工作区)',
+    workspaceFolded: ({ workspaces }) => `…另有 ${workspaces} 个工作区未列出(到访层有字数预算)。`,
+    workspaceMore: '认不出这件事该归哪个文件夹就【省掉 cwd】——工作台会在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进上面这张表。表外的路径一律会被拒,不要自己编。',
     // 回合层:收件箱事件以一条 user 消息注入。措辞必须让模型看清「这不是用户说的话」。
     inboxHeader: ({ count }) => `[收件箱] 这是工作台的 ${count} 条系统事件,不是用户说的话(不能作为记忆来源):`,
     inboxTrailer: '按上面的事件判断要不要动手:该提议的放进 acts,权限允许且属于自理清单的放进 actions;没有值得打扰用户的事就只写一句 say、acts 与 actions 留空。',
@@ -383,6 +397,14 @@ const PROMPT_EN = {
     overviewEmpty: '(no threads)',
     overviewFolded: ({ threads }) => `…and ${threads} more threads not listed (the overview has a character budget).`,
     overviewMore: 'Use steward_thread_read for detail; deep reads are budgeted (6 per turn).',
+    // 117w-W1 提交③: workspace candidate table. Same three rules as the zh pack (see there):
+    // last path segment + note + read-only mark only, never a full path or any fence field;
+    // recentWorkspaces never enters the table; folds at STEWARD_WORKSPACE_TABLE_MAX instead of truncating.
+    workspaceHeader: 'Workspaces you may hand to a thread (cwd must be one of these paths; a row marked read-only cannot be written to, so it only suits lookups):',
+    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? ` (${note})` : ''}${readOnly ? ' (read-only)' : ''}`,
+    workspaceEmpty: '(no workspace registered yet)',
+    workspaceFolded: ({ workspaces }) => `…and ${workspaces} more workspaces not listed (the visit layer has a character budget).`,
+    workspaceMore: 'If you cannot tell which folder a task belongs to, omit cwd - the workbench opens a folder for that thread under the Ruyi root, named after its title, and adds it to this table. Any path outside the table is rejected; never invent one.',
     inboxHeader: ({ count }) => `[Inbox] ${count} workbench system events - these are NOT the user speaking (and are never a memory source):`,
     inboxTrailer: 'Decide from the events above: proposals go into acts; work the target thread\'s permission allows and the self-serve list covers goes into actions. When nothing is worth interrupting the user, write one say line and leave acts and actions empty.',
     visitNotes: 'Compress the steward conversation above into a handover note with exactly three sections, each a list of short sentences: (1) decisions already made (what, on which thread, on what grounds); (2) words already relayed (to whom, the gist of the original); (3) still-open items (waiting on whom, next step). No pleasantries, no speculation; write "none" for an empty section.',

@@ -341,6 +341,46 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     '⑧ 归一化复用 01-config 的 normalizeWorkspacePathString(与 workspaces 清洗同一口径)');
 }
 
+// ⑨ 117w-W1 提交③(27 号文 §11.19.2 + §11.19.7 裁决):候选表上限【一处定义、两处读】。
+// 被钉的事实:06i 定义 STEWARD_WORKSPACE_TABLE_MAX,13k 的 cwd 拒绝文案与 13o 的候选表投影都读它。
+// 为什么静态与行为两层都要:steward-tools.e2e 的 O6 用 20 行夹具比较两个【运行期产出】,能抓住
+// 「有人把其中一处改小」;但 01-config 的 workspaces 清洗自己就截到 20 行,造不出更大的表,所以
+// 「有人把其中一处改大」行为层抓不住 —— 那一半靠这里的源码锁。
+{
+  const src06i = read('06i-steward-core.js');
+  const src13k = read('13k-steward-threads.js');
+  const src13o = read('13o-steward-runner-prompt.js');
+  const defs = (src06i.match(/const STEWARD_WORKSPACE_TABLE_MAX = /g) || []).length;
+  ok(defs === 1, `⑨ STEWARD_WORKSPACE_TABLE_MAX 在 06i 只定义一次(got ${defs})`);
+  const others = srcFiles.filter(f => f !== '06i-steward-core.js' && /const STEWARD_WORKSPACE_TABLE_MAX/.test(read(f)));
+  ok(others.length === 0, '⑨ 没有第二个模块另立同名常量' + (others.length ? ' → ' + others.join(',') : ''));
+  // 两个消费者各自【在代码行里】读它(注释里提到不算)。
+  const codeUses = (src, name) => src.split(/\r?\n/)
+    .filter(line => line.includes(name) && !/^\s*(\/\/|\*|\/\*)/.test(line)).length;
+  ok(codeUses(src13k, 'STEWARD_WORKSPACE_TABLE_MAX') >= 1, '⑨ 13k 的拒绝文案读同一个常量');
+  ok(codeUses(src13o, 'STEWARD_WORKSPACE_TABLE_MAX') >= 1, '⑨ 13o 的候选表投影读同一个常量');
+  // 反向保护:提交① 那个自立门户的 8 不许留在任何 src 模块里。
+  const zombie = srcFiles.filter(f => /STEWARD_CWD_CANDIDATES_MAX/.test(read(f)));
+  ok(zombie.length === 0, '⑨ 提交① 的 STEWARD_CWD_CANDIDATES_MAX 已零残留' + (zombie.length ? ' → ' + zombie.join(',') : ''));
+}
+
+// ⑩ 117w-W1 提交③:候选表是【只读投影】,不是配置转储。
+// 被钉的事实:13o 的投影函数体里只出现 path / note / write 三个字段名,围栏字段一个都不出现。
+// e2e 那边是按渲染出来的文本 grep 的(「上下文里没有这几个词」);这里钉的是【源码上取不到它们】——
+// 有人日后往投影里加一行 `allowOutsideWorkspace: config.allowOutsideWorkspace` 时,哪怕它当时恰好
+// 渲染成空串,这一条也会红。
+{
+  const src13o = read('13o-steward-runner-prompt.js');
+  const start = src13o.indexOf('function stewardWorkspaceTableBlock(');
+  const end = src13o.indexOf('\n}\n', start);
+  const body = start < 0 ? '' : src13o.slice(start, end < 0 ? undefined : end);
+  ok(!!body, '⑩ 取到 stewardWorkspaceTableBlock 函数体');
+  for (const fence of ['allowOutsideWorkspace', 'additionalDirectories', 'recentWorkspaces', 'defaultWorkspace', 'apiKey']) {
+    ok(!body.includes(fence), `⑩ 投影函数体里零「${fence}」`);
+  }
+  ok(/row\.write === false/.test(body), '⑩ 只读标的判据写死 `write === false`(缺字段的老配置默认可写,不能反过来)');
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD TOOLS STATIC E2E: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD TOOLS STATIC E2E: ALL PASS');

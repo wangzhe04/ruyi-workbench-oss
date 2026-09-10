@@ -34,7 +34,8 @@
 // Windows「复制为路径」带的引号 + trim + 截 1000),外加 path.resolve 收斜杠与尾斜杠。两侧【同一个
 // 函数、同一个顺序】,否则表里的 `C:\a\` 与传入的 `C:/a` 会被判成两个东西。注意 normalizeWorkspacePathString
 // 自己【不做】path.resolve —— 表里存的就是用户敲进去的原样,所以 resolve 这一步两边都得补上。
-const STEWARD_CWD_CANDIDATES_MAX = 8;
+// 117w-W1 提交③:候选上限【读 06i 的 STEWARD_WORKSPACE_TABLE_MAX】,与 13o 的候选表投影同一个数字
+// (§11.19.7 裁决)。提交① 这里曾是自己的 8,而投影是 20 —— 见 06i 该常量处的注释。
 
 // 把一个工作区路径字符串折成可逐字比较的规范形;非绝对路径一律折成 ''(相对路径会被 path.resolve
 // 按【服务进程的 cwd】补全,那是一条无声的越权路,所以在这里就掐掉)。
@@ -67,8 +68,8 @@ function stewardValidateCwd(stewardCwdRaw, stewardCwdConfig) {
   const hit = wanted ? table.find(entry => stewardFoldWorkspacePath(entry) === stewardFoldWorkspacePath(wanted)) : '';
   if (hit) return { ok: true, cwd: hit };                          // ② 表内 → 用表里那一行的归一化值
   // ③ 其它 → 拒。人话说清「不在工作区表里」并列出表内候选的末段名(末段名足够让模型改对,又不泄露全路径)。
-  const names = table.slice(0, STEWARD_CWD_CANDIDATES_MAX).map(entry => path.basename(entry) || entry);
-  const more = table.length > STEWARD_CWD_CANDIDATES_MAX ? `,另有 ${table.length - STEWARD_CWD_CANDIDATES_MAX} 个未列出` : '';
+  const names = table.slice(0, STEWARD_WORKSPACE_TABLE_MAX).map(entry => path.basename(entry) || entry);
+  const more = table.length > STEWARD_WORKSPACE_TABLE_MAX ? `,另有 ${table.length - STEWARD_WORKSPACE_TABLE_MAX} 个未列出` : '';
   const message = names.length
     ? `cwd 不在工作区表里(不要自己编路径)。表里现有:${names.join('、')}${more}。要用别处请先请用户在设置里把那个文件夹加成工作区;不确定就【省掉 cwd】,不要重试同一个值。`
     : 'cwd 不在工作区表里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';

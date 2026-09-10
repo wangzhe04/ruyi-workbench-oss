@@ -37,6 +37,14 @@ const STEWARD_PERMISSION_MODE = 'steward';
 // 本切片只声明常量供后续切片复用同一份数字,不在这里做多线程拼装。
 const STEWARD_DIGEST_LIMITS = Object.freeze({ lastSayChars: 200, lineChars: 320, maxThreads: 40, totalChars: 12000 });
 
+// 117w-W1 提交③(27 号文 §11.19.2 与 §11.19.7 的裁决「两处读同一个常量」):工作区候选表的行数上限。
+// 【一处定义、两处读】:
+//   · 13o 的候选表投影按它折叠(超出写「…另有 N 个未列出」,不截断);
+//   · 13k 的 cwd 拒绝文案按它列候选末段名(同样带「另有 N 个未列出」)。
+// 提交① 落地时这两处一个 20 一个 8,是一条会咬人的分叉:模型在上下文里看得见 20 行,被拒时只被
+// 提醒其中 8 个,它会合理地推断「另外那 12 个不能用」,然后去编一个新路径。数字必须是同一个。
+const STEWARD_WORKSPACE_TABLE_MAX = 20;
+
 // 线程权限档位 -> 五态/权限的人话映射(§11.2「诚实」与看板行人话展示共用同一套措辞)。
 const STEWARD_STATE_LABELS = Object.freeze({
   dispatching: '交办中',

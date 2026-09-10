@@ -3724,6 +3724,7 @@
         "STEWARD_TOOL_PREFIX",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
+        "STEWARD_WORKSPACE_TABLE_MAX",
         "StewardHooks",
         "aggregateMissionState",
         "buildStewardBrief",
@@ -11932,7 +11933,6 @@
       "file": "13k-steward-threads.js",
       "layer": "transport",
       "provides": [
-        "STEWARD_CWD_CANDIDATES_MAX",
         "STEWARD_WORKSPACE_DERIVE_NOTE",
         "STEWARD_WORKSPACE_DERIVE_TRIES",
         "STEWARD_WORKSPACE_SLUG_MAX",
@@ -12168,6 +12168,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_QUICK_QUESTION_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_WORKSPACE_TABLE_MAX",
           "kinds": [
             "read"
           ]
@@ -13656,9 +13663,17 @@
         "stewardPreroute",
         "stewardPrerouteIndexRows",
         "stewardThreadDigestRows",
-        "stewardVisitNotesPrompt"
+        "stewardVisitNotesPrompt",
+        "stewardWorkspaceTableBlock"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "text",
@@ -13774,6 +13789,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_WORKSPACE_TABLE_MAX",
           "kinds": [
             "read"
           ]
