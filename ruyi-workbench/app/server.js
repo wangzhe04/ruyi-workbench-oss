@@ -42496,6 +42496,20 @@ async function buildOrLoadPretenderIndex() {
     const sources = await scanPretenderSessionSources();
     const usageStamp = await pretenderUsageSourceStamp();
     if (!disk) {
+      // 121-K0b(病根在此):原来的空目录守卫只长在 warmPretenderProjectionIndex 里,只护 boot 那一次
+      // 预热。13i 的收件箱 tick 与其他任何调用方一样直接走 getPretenderProjectionIndex -> 这里,不经过
+      // warm。当索引文件从未建过(currentDiskStamp === '-',即真·首次)且 sessions 目录此刻确实一份
+      // sess_* 都没有(scanPretenderSessionSources 的 sources 为空)时,不能走下面的 rebuildPretenderIndexFull:
+      // 那会把一份空索引落盘(persistPretenderIndex,314 行)并存进 pretenderIndexRuntime.value——下一次
+      // 调用会在 279 行发现 diskStamp 没变就直接信任这份【已缓存为已建】的空索引,永远不再重新发现
+      // (284 行 `if (!value)` 短路)。管家默认开着(121-K0)之后,服务起来的第一拍收件箱 tick 就会撞上这个
+      // 窗口——外部导入/多进程写入/本仓大量夹具都在 boot 之后才把会话物化到盘上。
+      // 修法:直接 return 一份不落盘、不缓存为已建的空索引,下一次调用(不论隔多久)重新 scanPretenderSessionSources
+      // 发现磁盘上的真会话。disk 索引已存在时(currentDiskStamp !== '-',对应下面 corrupt_index 分支)不受影响——
+      // 那是「索引文件在但读不出来」,与「索引从未建过」是两回事,仍应立即重建并落盘(热路径逐字不变)。
+      if (currentDiskStamp === '-' && Object.keys(sources).length === 0) {
+        return finalizePretenderIndex([], sources, usageStamp, 'empty_sessions_dir');
+      }
       value = await rebuildPretenderIndexFull(currentDiskStamp === '-' ? 'missing_index' : 'corrupt_index', sources);
     } else if (disk.usageStamp !== usageStamp) {
       value = await rebuildPretenderIndexFull('usage_source_changed', sources);
@@ -42533,8 +42547,12 @@ async function getPretenderProjectionIndex() {
 }
 
 // Wave 80: warm an existing projection as soon as the local service is listening. The empty-directory
-// guard matters for external import/test flows that materialize sessions after boot: in that case the first
-// authoritative read still performs discovery instead of trusting an intentionally empty in-memory cache.
+// guard here just skips the boot-time warm call entirely when there is nothing to warm yet (cheap early
+// return, no index built, no disk touched) — it does not need to protect every caller against trusting an
+// empty index. 121-K0b moved that protection to the root (buildOrLoadPretenderIndex above): every caller of
+// getPretenderProjectionIndex, not only this boot-time warmer, now gets an unpersisted/uncached empty
+// projection when sessions haven't materialized yet, so this function's own check is now redundant-but-
+// harmless (kept for its boot-time short-circuit, not for correctness).
 async function warmPretenderProjectionIndex() {
   let files = [];
   try { files = await fsp.readdir(paths.sessions); } catch { return null; }
