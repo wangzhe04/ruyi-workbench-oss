@@ -18,6 +18,7 @@ import {
   el,
   clear,
   button,
+  writeNote,
 } from './steward-chips.js';
 export { STEWARD_TOOL_LABEL_KEYS };
 // 117n-M1②：错误信封解包不再自己写一份弱化版（漏了 error instanceof Error 分支，api() 抛出的
@@ -120,9 +121,9 @@ export function createStewardSettingsDomain({
   // 117n-M1：button/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
 
   function note(message, tone) {
-    const target = byId('cfgStewardNote');
+    const target = writeNote('cfgStewardNote', message);
     if (!target) return;
-    target.textContent = String(message || '');
+    // dataset.tone 只对这一个元素有意义，故意不进共享写手（否则其余四处会顺带清掉别人的 tone）。
     if (tone) target.dataset.tone = tone; else delete target.dataset.tone;
   }
   function problem(message) {

@@ -8,7 +8,7 @@ import { apiErrorInfo } from './net.js';   // 117 走查：解开 api() 抛出�
 // 不先切断「conversation → settings」这条边就会造出循环 import。表本身一个字没变。
 import { STEWARD_TOOL_LABEL_KEYS, stewardSayFromPartial } from './steward-chips.js';
 // 117n-M1：DOM 基础件 doc/byId/el/button 也从 steward-chips.js 复用（六个消费方零本地重复定义）。
-import { stewardEscapeStack, doc, byId, el, button } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈
+import { stewardEscapeStack, doc, byId, el, button, writeNote } from './steward-chips.js';   // 117j UX-F4：※ 浮层与头像菜单进 Esc 栈；33 号文 §4：note 写手也只有那一条
 // F5b 撤回三态：到期那枚「⇄」与落定那枚「✓」都从【全仓唯一那张】图标词汇表取。F5a 立的规矩是
 // 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
 // steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
@@ -1283,10 +1283,10 @@ export function createStewardConversation({
   let streaming = false;
   const sendQueue = [];
 
-  // 输入框旁那行小字（队列满时说「先等一等」）。它与抽屉的 note 是两处，各归各的区域。
+  // 输入框旁那行小字（队列满时说「先等一等」）。它与抽屉的 note 落在两个不同的区域，但写法是
+  // 同一份（33 号文 §4「note()×5 收一」）：写手只在 steward-chips.js 里定义一次。
   function composerNote(text) {
-    const node = byId('stewardComposerNote');
-    if (node) node.textContent = String(text || '');
+    writeNote('stewardComposerNote', text);
   }
 
   // 排队中的那一行：淡一点 ＋ 右下角一枚「排队中」小标。用真节点而不是 CSS ::after —— 生成内容

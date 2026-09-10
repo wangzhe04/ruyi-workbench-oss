@@ -10,7 +10,7 @@ import { describeTurnActivity } from './turn-activity.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫与 note 写手也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -346,8 +346,7 @@ export function createStewardDrawer({
 
   // 117n-M1：el/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
   function note(text) {
-    const target = byId('stewardDrawerNote');
-    if (target) target.textContent = String(text || '');
+    writeNote('stewardDrawerNote', text);
   }
   // 33 号文 §4「抽屉 failNote 对齐看板」：判据与看板那一条（steward-board.js 的 117n-M1② 版本）
   // 逐条同 —— 稳定码先经 stewardErrorCode 查 steward.queued，取 wait.label 说「在等什么」（与看板

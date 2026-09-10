@@ -174,13 +174,23 @@ ok(mod.STEWARD_NOW_MIN_WIDTH === 1000 && /min-width: \$\{STEWARD_NOW_MIN_WIDTH\}
 //
 // 117u-G3 **再重钉 D1**（§11.15.7）：那条判据的正身搬去了 steward-chips.js（线程详情栏也要读同一份，
 // 而抽屉不能反向 import 看板），所以看板接过来的名字从 resolveEngineRoute 换成了 chipsWorthPrinting。
-// 判据没有放宽而是更紧了——除了照旧逐字钉住 import 的六个名字与 compact，还多钉三件【搬家必须为真、
+// 判据没有放宽而是更紧了——除了照旧钉住 import 的六个名字与 compact，还多钉三件【搬家必须为真、
 // 只要有人再抄一份就立刻红】的事实：看板剥了注释之后
 //   ① 零 resolveEngineRoute( 调用（它自此连「会话级 ＞ 全局回落」都不认识）；
 //   ② 零 function chipsWorthPrinting（判据全仓只许有一个定义，就在 chips.js 里）；
 //   ③ 那唯一的调用点把三件东西【递】进去（会话、全局配置、chips 画完的宿主），而不是就地算。
 // 三条都比对 boardCode（剥过注释的正文）——本文件 472 行那条纪律：源码扫描锁匹配到注释里的字就是假绿。
-ok(/import \{ createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting \} from '\.\/steward-chips\.js';/.test(board)
+// 33 号文 §4 **再重钉（第三次）**：note()×5 收一那次让这条 import 又多了一个名字 writeNote，而这里
+// 逐字钉的是「那一行长什么样」，当场假红（32 号文 §4 纪律 5：锁要钉「哪件事必须成立」）。与 A3c／E4
+// 同款改成按名字集合判定：一条 import 行从哪个模块来、带没带必需的那六个名字，不关心顺序、不关心
+// 后来还加了谁。纯字符串切分、不走正则（纪律 7：反斜杠在本仓是第三类静默损坏）。
+// （反向验证过：把 chipsWorthPrinting 从看板的 import 里删掉立刻真红。）
+const boardChipsNames = board.split(String.fromCharCode(10))
+  .filter(line => line.startsWith('import {') && line.includes("from './steward-chips.js';"))
+  .flatMap(line => line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(','))
+  .map(name => name.trim())
+  .filter(Boolean);
+ok(['createQuickSwitchChips', 'doc', 'byId', 'el', 'clear', 'chipsWorthPrinting'].every(name => boardChipsNames.includes(name))
   && /compact: true,/.test(board)
   && !/activeProvider/.test(boardCode) && !/agentCliType/.test(boardCode)
   && !/resolveEngineRoute\(/.test(boardCode)

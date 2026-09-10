@@ -8,7 +8,7 @@ import { dockToneForMissionState } from './preview-shell.js';
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
 // 连「会话级 ＞ 全局回落」都不认识，更长不出第二套。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -135,8 +135,7 @@ export function createStewardBoard({
 
   // 117n-M1：el/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
   function note(text) {
-    const target = byId('stewardBoardNote');
-    if (target) target.textContent = String(text || '');
+    writeNote('stewardBoardNote', text);
   }
   // 117n-M1②：与 steward-drawer.js:287 的 failNote 同一条纪律——稳定信封先经 stewardErrorCode 查
   // steward.queued，取得到 wait.label 就说「在等什么」；query 不到或不是这个码，落到一般失败文案，

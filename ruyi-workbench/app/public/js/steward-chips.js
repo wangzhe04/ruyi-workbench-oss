@@ -227,6 +227,17 @@ export function button(className, text, onClick) {
   return node;
 }
 
+// 33 号文 §4「note()×5 收一」：chips／看板／抽屉／输入区／设置页五处「往某个 #...Note 元素写一行
+// 小字」原本各写一份（取元素 → textContent = String(text || '')），逐字相同，只有目标 id 不同。
+// 设置页那处多一句 dataset.tone —— 故意留在调用方：它只对那一个元素有意义，收进来会让其余四处
+// 顺带把别人的 tone 清掉。返回目标节点，调用方要接着做别的事（比如写 tone）时不必再取一次。
+export function writeNote(id, text) {
+  const target = byId(id);
+  if (!target) return null;
+  target.textContent = String(text || '');
+  return target;
+}
+
 // 33 号文 §4「Enter/isComposing 守卫 ×3 抽 bindEnterToSubmit」：管家壳里「回车发送」的规矩原本在
 // 三处各写一遍（composer 一处、抽屉底部输入框与问答框各一处），三份逐字同形。这里收成一处判据：
 //   · Enter 且不按 Shift（Shift+Enter 在文本框里换行）；
@@ -450,8 +461,7 @@ export function createQuickSwitchChips({
   }
 
   function note(text) {
-    const target = doc() && doc().getElementById('stewardDrawerNote');
-    if (target) target.textContent = String(text || '');
+    writeNote('stewardDrawerNote', text);
   }
 
   // ── 唯一的写口：PATCH /api/sessions/:id ────────────────────────────────────────
