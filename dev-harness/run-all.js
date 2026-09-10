@@ -75,6 +75,9 @@ const isFast = f => /\.static\.e2e\.js$/.test(f);
 // 杜绝"测复制副本"的 E2 漂移坑)。判定口径详见该模块头注。
 const { portAuditFromDir } = require('./lib/port-audit');
 const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
+// 27 号文 §11.21.7 债④:夹具 HOME 守卫。夹具拿到的家目录是【临时家】,真机家另走 RUYI_REAL_HOME;
+// 守卫以 --require 装进【每件夹具】,拦住「带了 RUYI_HOME 却没隔离家目录」的子进程(见 lib/fixture-home.js)。
+const { GUARD_FILE: FIXTURE_GUARD, fixtureChildEnv, fixtureHomeDir, REAL_HOME, REAL_HOME_SOURCE } = require('./lib/fixture-home');
 function portAudit() { return portAuditFromDir(HARNESS); }
 
 function listE2e() {
@@ -89,10 +92,13 @@ function runOne(file) {
     const t0 = Date.now();
     const full = path.join(HARNESS, file);
     const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
-    const child = cp.spawn(process.execPath, [full], {
+    // --require 走 CLI 实参而不是 NODE_OPTIONS:Node 的 NODE_OPTIONS 分词器吃引号/反斜杠,
+    // 本仓检出路径含空格,走 NODE_OPTIONS 必挂;CLI 实参还保证 --require 从夹具 argv 里被剔掉。
+    const child = cp.spawn(process.execPath, ['--require', FIXTURE_GUARD, full], {
       cwd: HARNESS,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: fixtureChildEnv(),
     });
     let stdout = '', stderr = '', timedOut = false;
     child.stdout.on('data', d => (stdout += d));
@@ -161,6 +167,9 @@ async function main() {
   console.log(`# 件数: ${files.length} ran / ${SKIP.size} skipped(live)`);
   console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,${PARALLEL > 1 ? `并行(${PARALLEL}路)` : '串行(taskkill /T 杀整树)'}`);
   console.log(`# Node ${process.version}, platform ${process.platform}`);
+  // 27 号文 §11.21.7 债④:夹具一律拿临时家,真机家只以 RUYI_REAL_HOME 的形式传下去(守卫的判据源)。
+  console.log(`# 夹具家目录隔离: USERPROFILE/HOME -> ${fixtureHomeDir()}`);
+  console.log(`# 夹具 HOME 守卫: --require ${path.relative(path.join(HARNESS, '..'), FIXTURE_GUARD)} 装进每件夹具(真机家来自 ${REAL_HOME_SOURCE}: ${REAL_HOME})`);
   // 第36波: 端口唯一性审计(见 stripJsComments 上方说明)。撞车即拒跑 —— 带病跑完全量也是浪费。
   const audit = portAudit();
   if (audit.collisions.length) {
