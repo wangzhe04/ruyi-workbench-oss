@@ -38,7 +38,17 @@ const STEWARD_INBOX_EVENT_CHARS = 400;        // 每条事件 ≤400 字
 const STEWARD_INBOX_DELIVERABLE_CHARS = 4000; // 单条交付正文在收件箱消息里的上限
 const STEWARD_INBOX_MESSAGE_CHARS = 12000;    // 一条收件箱消息的总预算(标题行永不丢,正文从最旧的丢起)
 const STEWARD_MEMORY_BLOCK_CHARS = 3000;      // 记忆块 ≤3000 字符
-const STEWARD_SAY_MAX = 600;                  // say ≤600 字
+// 117y-S1(27 号文 §11.18.2):原来这里只有一个 say 上限常量(600),它同时扮演两个角色 ——
+// 06b 输出契约里写给模型看的「≤600 字」,和 13o 解析时那把裸 slice。用户第十一轮拍板:
+// 「得保证话能说全,不要硬截…通过提示词去约束说的话长度」。于是两个角色拆开:
+//   · TARGET  = 600  —— 只说给模型听的目标(06b 输出契约那一行)。**运行期不再据此裁剪。**
+//   · CEILING = 4000 —— 只防病态载荷(尤其 13o 那条 JSON 解析失败的兜底会把整份原始模型输出
+//     灌进来)。约为目标的 6.7 倍,守规矩的回复永远碰不到;触到了也走 06i 的
+//     stewardTrimSayAtSentence 在句末标点处切并明说,不裸切。
+// 旧名直接删掉而不留别名:全仓消费方只有 13o 的那两处(其余命中全是生成物
+// module-contracts.json / module-dependency-graph 与 27 号文的病灶描述),不存在被静默改语义的第三方。
+const STEWARD_SAY_TARGET = 600;               // say 的提示词目标(不是运行期上限)
+const STEWARD_SAY_CEILING = 4000;             // say 的病态载荷天花板(触顶按句界裁剪并明说)
 const STEWARD_WHY_MAX = 400;
 const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个

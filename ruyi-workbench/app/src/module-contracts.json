@@ -3711,6 +3711,8 @@
         "STEWARD_QUICK_ANSWER_CHARS",
         "STEWARD_QUICK_KIND",
         "STEWARD_QUICK_QUESTION_CHARS",
+        "STEWARD_SAY_SENTENCE_ENDS",
+        "STEWARD_SAY_TRIMMED_NOTE",
         "STEWARD_SCHEDULE_RE",
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
@@ -3759,6 +3761,7 @@
         "stewardThreadStateFromCard",
         "stewardThreadStateRank",
         "stewardToolPermanentlyExempt",
+        "stewardTrimSayAtSentence",
         "stewardWatchedThread",
         "waitReasonFor"
       ],
@@ -13333,7 +13336,8 @@
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
         "STEWARD_RUN_ACTION_LABELS",
-        "STEWARD_SAY_MAX",
+        "STEWARD_SAY_CEILING",
+        "STEWARD_SAY_TARGET",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
         "STEWARD_SELF_SERVE_PER_TURN_MAX",
         "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
@@ -13749,6 +13753,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardTrimSayAtSentence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -13854,7 +13865,7 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_SAY_MAX",
+          "symbol": "STEWARD_SAY_CEILING",
           "kinds": [
             "read"
           ]
@@ -17091,6 +17102,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardClipSay",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardConfigTierFor",
           "kinds": [
             "read"
@@ -17176,6 +17194,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardToolPermanentlyExempt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardTrimSayAtSentence",
           "kinds": [
             "read"
           ]
@@ -18297,6 +18322,20 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_INBOX_MESSAGE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SAY_CEILING",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_SAY_TARGET",
           "kinds": [
             "read"
           ]

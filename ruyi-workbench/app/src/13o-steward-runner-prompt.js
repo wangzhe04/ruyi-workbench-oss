@@ -333,7 +333,9 @@ function stewardParseReply(text) {
   const value = parsed && parsed.ok ? parsed.value : null;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     logEvent({ kind: 'steward_contract_unparsed', chars: raw.length });
-    return { parsed: false, say: raw.trim().slice(0, STEWARD_SAY_MAX), why: '', acts: [], actions: [] };
+    // 117y-S1(§11.18.2):这条兜底灌进来的是【整份原始模型输出】,所以它比解析成功那一路更需要
+    // 天花板;但同样【不许裸切】—— 与下面 say 那一处走的是同一个函数、同一个天花板,不许只改一处。
+    return { parsed: false, say: stewardTrimSayAtSentence(raw.trim(), STEWARD_SAY_CEILING), why: '', acts: [], actions: [] };
   }
   const actions = [];
   for (const item of (Array.isArray(value.actions) ? value.actions : [])) {
@@ -345,7 +347,10 @@ function stewardParseReply(text) {
   }
   return {
     parsed: true,
-    say: String(value.say == null ? '' : value.say).slice(0, STEWARD_SAY_MAX),
+    // 117y-S1(§11.18.2):修前这里是按那个 600 的常量直接裸 slice —— 601 字的回复在第 600 字处
+    // 无声断掉,可能断在半个句子、半个词中间。现在 600 只是提示词目标(STEWARD_SAY_TARGET),
+    // 运行期只剩 4000 的病态载荷天花板,且触顶也在句末标点处切并明说。
+    say: stewardTrimSayAtSentence(value.say, STEWARD_SAY_CEILING),
     why: String(value.why == null ? '' : value.why).slice(0, STEWARD_WHY_MAX),
     acts: stewardNormalizeActs(value.acts),
     actions,

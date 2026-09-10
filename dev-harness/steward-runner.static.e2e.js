@@ -216,6 +216,65 @@ const srv = require(path.join(APP, 'server.js'));
   ok(/STEWARD_MEMORY_BLOCK_CHARS = 3000/.test(srcRunnerFamily), '③ 记忆块 ≤3000 字符(§11.2 半稳定层预算)');
   ok(/STEWARD_INBOX_EVENTS_PER_TURN = 30/.test(srcRunnerFamily) && /STEWARD_INBOX_EVENT_CHARS = 400/.test(srcRunnerFamily),
     '③ 回合层:收件箱事件 ≤30 条、每条 ≤400 字');
+
+  // ── 117y-S1/S2(27 号文 §11.18):say 的长度由【提示词】管,运行期只剩一道病态载荷天花板。──
+  // 钉四件事实,一条一条都可证伪:
+  //   (a) 600 已经不是运行期的刀 —— 13o 里再没有任何 `slice(0, STEWARD_SAY…)`,旧名 STEWARD_SAY_MAX
+  //       全族绝迹(留着它 = 留着第二套语义,谁都不知道该信哪个);
+  //   (b) 两条解析路径(JSON 解析失败的兜底 / 解析成功的 say)走【同一个函数、同一个天花板】,
+  //       不许只改一处 —— 数出现次数,不是「至少有一处」;
+  //   (c) 句界裁剪那个纯函数住在 06i(纯函数与常量的归宿),不在运行器族里另抄一份;
+  //   (d) 06b 输出契约里写给模型看的那个数字与 STEWARD_SAY_TARGET 是同一个 600(不另立第二套数字)。
+  const src13o = read('13o-steward-runner-prompt.js');
+  const src13m = read('13m-steward-runner-base.js');
+  const sayMaxHits = (srcRunnerFamily.match(/STEWARD_SAY_MAX/g) || []).length;
+  ok(sayMaxHits === 0, `③ 117y-S1(a) 旧名 STEWARD_SAY_MAX 在运行器族里绝迹(got ${sayMaxHits} 处)`);
+  const bareSliceHits = (src13o.match(/slice\(0, STEWARD_SAY/g) || []).length;
+  ok(bareSliceHits === 0, `③ 117y-S1(a) 13o 里再没有按 say 常量裸 slice 的写法(got ${bareSliceHits} 处)`);
+  const trimHits = (src13o.match(/stewardTrimSayAtSentence\(/g) || []).length;
+  ok(trimHits === 2, `③ 117y-S1(b) 13o 恰有两处走句界裁剪 = 兜底那条 + say 那条(got ${trimHits} 处)`);
+  // 注意别写成 `\([^)]*STEWARD_SAY_CEILING\)`:兜底那一处的实参是 `raw.trim()`,里面自带一对括号,
+  // 那种写法只数得到一处并给出一条假红(本刀实测)。按「同一行内」定界。
+  const ceilingHits = (src13o.match(/stewardTrimSayAtSentence\([^\n;]*STEWARD_SAY_CEILING\)/g) || []).length;
+  ok(ceilingHits === 2, `③ 117y-S1(b) 两处用的是同一个天花板常量 STEWARD_SAY_CEILING(got ${ceilingHits} 处)`);
+  ok(/const STEWARD_SAY_TARGET = 600;/.test(src13m) && /const STEWARD_SAY_CEILING = 4000;/.test(src13m),
+    '③ 117y-S1 两个常量拆开定在 13m(TARGET 600 只是提示词目标 / CEILING 4000 只防病态载荷)');
+  ok(/function stewardTrimSayAtSentence\(/.test(src06i) && !/function stewardTrimSayAtSentence\(/.test(srcRunnerFamily),
+    '③ 117y-S1(c) 句界裁剪的纯函数只在 06i 定义一份,运行器族不另抄');
+  // (d) 契约里那句 ≤600 与常量同源:中英两包都写着 600,且 13m 的 TARGET 也是 600。
+  ok(new RegExp('<=' + srv.STEWARD_SAY_TARGET + ' chars').test(en.stable)
+    && new RegExp('≤' + srv.STEWARD_SAY_TARGET + ' 字').test(zh.stable),
+    `③ 117y-S1(d) 06b 输出契约里的字数与 STEWARD_SAY_TARGET 同源(${srv.STEWARD_SAY_TARGET})`);
+  // 反向保护(§11.18.5 第 4 条)的源码面:总览行那把 200 字 + 省略号的刀没被这一刀误伤。
+  // 行为面在 unit/steward-core.test.js ⑤ 段;这里钉的是「它没有被改写成走天花板那条路」。
+  ok(/STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS\.lastSayChars/.test(src06i)
+    && /raw\.slice\(0, STEWARD_LAST_SAY_CHARS\) \+ '…'/.test(src06i)
+    && !/function stewardClipSay\(value\) \{[\s\S]{0,200}stewardTrimSayAtSentence/.test(src06i),
+    '③ 117y 反向保护:stewardClipSay 仍是 200 字 + 省略号,没被并进天花板那条路');
+
+  // ── 117y-S2:rules 的字数闸(还 117v-V3 登记的那笔债)────────────────────────────────
+  // rules 每回合拼在第一条 user 消息【前缀】里,**不吃前缀缓存** —— 它比 stable 更该被看住,
+  // 而修前 stable 有 ≤2500 硬闸、rules 一个数字都没人看着(117l 4 条 -> 117s 5 条 -> 117y 7 条)。
+  // 闸取 2200 的理由:**必须低于 stable 的 2500** —— 否则「stable 塞不下就往 rules 挪」就成了
+  // 绕开稳定层预算、把每回合不缓存的开销做大的后门。2200 对英文包当前 1747 字还留 ~450 字
+  // (约两三条规则)的余量,不是钉「今天恰好这么长」。
+  const RULES_BUDGET = 2200;
+  ok(RULES_BUDGET < 2500, '③ 117y-S2 rules 闸严于 stable 闸(不缓存的那一层不许比缓存层更贵)');
+  ok(typeof zh.rules === 'string' && zh.rules.length <= RULES_BUDGET,
+    `③ 117y-S2 中文 rules ≤${RULES_BUDGET} 字符(got ${zh.rules && zh.rules.length})`);
+  ok(typeof en.rules === 'string' && en.rules.length <= RULES_BUDGET,
+    `③ 117y-S2 英文 rules ≤${RULES_BUDGET} 字符(got ${en.rules && en.rules.length})`);
+  ok(zh.rules.split('\n').length === en.rules.split('\n').length,
+    `③ 117y-S2 中英 rules 条数逐条对齐(zh ${zh.rules.split('\n').length} / en ${en.rules.split('\n').length})`);
+  // 第 7 条本身:钉语义要素不钉字面量(容许润色),中英各一条。
+  const finishRuleZh = zh.rules.split('\n').find(l => /说完整|说半句/.test(l)) || '';
+  const finishRuleEn = en.rules.split('\n').find(l => /finish every sentence|half a sentence/i.test(l)) || '';
+  ok(/说完整/.test(finishRuleZh) && /半句/.test(finishRuleZh) && /话题/.test(finishRuleZh),
+    '③ 117y-S2 中文 rules 有「把话说完整/不说半句/砍话题不砍句子」这一条');
+  ok(/finish every sentence/i.test(finishRuleEn) && /half a sentence/i.test(finishRuleEn) && /topic/i.test(finishRuleEn),
+    '③ 117y-S2 英文包同步一条同义规则(finish every sentence + drop a topic)');
+  ok(!/说完整/.test(zh.stable) && !/finish every sentence/i.test(en.stable),
+    `③ 117y-S2 这条同样落在易变层 rules、没塞进 stable(英文 stable 仍 ${en.stable.length}/2500)`);
 }
 
 /* ═════════════ ④ 普通会话包零变化 ═════════════ */

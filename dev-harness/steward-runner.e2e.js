@@ -63,6 +63,17 @@ const CONTRACT_A = JSON.stringify({
   actions: [],
 });
 const PLAIN_TEXT = '这不是 JSON,只是一段大白话。';
+// 117y-S1(27 号文 §11.18.5 第 1、2 条):say 的长度不再由运行期裁。两条剧本 ——
+//   · SAY_700  : 700 字。修前那把 `.slice(0, 600)` 会在第 600 字处无声断掉,这条【必红】;
+//   · SAY_5000 : 5000 字,触到 4000 的病态载荷天花板 —— 断言它切在句末标点上、末尾有明说。
+// 两段都由整句拼成(结尾是全角句号 U+3002),故「切在句号上」是可判定的,不是碰运气。
+const SAY_700_SENTENCE = '这是管家要说完的第七件事。';                       // 13 字
+const SAY_700 = SAY_700_SENTENCE.repeat(54).slice(0, 700);
+// 句子取 11 字(不是 15):11 除不尽 600 —— 于是【修前】那把 slice(0,600) 会切在半句上,
+// C10e 自己也是可证伪的。用 15 字句时 600 恰好是整句边界,C10e 会在修前假绿(本刀实测)。
+const SAY_5000 = '管家把这件事讲清楚了。'.repeat(455).slice(0, 5000);  // 11 字 × N,裁到 5000
+const CONTRACT_SAY_700 = JSON.stringify({ say: SAY_700, why: '本回合用来验 700 字不被裁', acts: [], actions: [] });
+const CONTRACT_SAY_5000 = JSON.stringify({ say: SAY_5000, why: '本回合用来验天花板句界裁剪', acts: [], actions: [] });
 const contractDecide = (missionId, interventionId, extraActions) => JSON.stringify({
   say: '这条线程在问能不能改文件,我看可以。',
   why: '待决 ' + interventionId,
@@ -91,14 +102,19 @@ const REPLY_SEQUENCE = [
   CONTRACT_MIN,                                        // [1] 服务端 (H):小时窗打满时【用户】那一条 —— 117m-A1 起它不再被熔断挡下,
                                                        //     于是它真的会消耗一条剧本(这一条就是为它加的,后面的序号整体后移一位)
   PLAIN_TEXT,                                          // [2] 进程内:非 JSON
-  contractDecide(FIXED_THREAD, 'perm_default'),        // [3] 进程内:default 权限 -> 降级
+  // 117y-S1 的两条插在这里(而不是末尾):fake 在剧本耗尽后【钳到末条】,追加在末尾会把后面
+  // 所有本该拿 CONTRACT_MIN 的回合一并换成长文。插在 [3]/[4] 并把对应的两个回合紧跟在 (C-2)
+  // 之后跑,序号才仍然可判定 —— 下面 [5..11] 就是修前的 [3..9],一条剧本都没换。
+  CONTRACT_SAY_700,                                    // [3] 进程内:700 字的 say(修前必红)
+  CONTRACT_SAY_5000,                                   // [4] 进程内:5000 字的 say(触 4000 天花板)
+  contractDecide(FIXED_THREAD, 'perm_default'),        // [5] 进程内:default 权限 -> 降级
   contractDecide(FIXED_THREAD, 'perm_auto', [{ tool: 'steward_thread_rename', args: { sessionId: FIXED_THREAD, title: '周报-W36 · 收尾' } }]),
-                                                       // [4] 进程内:auto 权限 -> 过档位门 + 一条真落账的写动作
-  CONTRACT_MIN,                                        // [5] 进程内:收件箱回合
-  { text: CONTRACT_MIN, delayMs: 3000 },               // [6] 进程内:慢的收件箱回合(被抢占)
-  CONTRACT_MIN,                                        // [7] 进程内:抢占的用户回合
-  contractRelay(FIXED_THREAD),                         // [8] 进程内:自理清单(relay 未勾选)
-  CONTRACT_MIN,                                        // [9+] 其余钳到末条
+                                                       // [6] 进程内:auto 权限 -> 过档位门 + 一条真落账的写动作
+  CONTRACT_MIN,                                        // [7] 进程内:收件箱回合
+  { text: CONTRACT_MIN, delayMs: 3000 },               // [8] 进程内:慢的收件箱回合(被抢占)
+  CONTRACT_MIN,                                        // [9] 进程内:抢占的用户回合
+  contractRelay(FIXED_THREAD),                         // [10] 进程内:自理清单(relay 未勾选)
+  CONTRACT_MIN,                                        // [11+] 其余钳到末条
 ];
 
 const fake = cp.spawn(process.execPath, [path.join(__dirname, 'fake-openai.js'), String(PROVIDER_PORT)], {
@@ -339,6 +355,37 @@ try {
     const r = await srv.runStewardTurn({ trigger: 'user', message: '随便说点什么' });
     ok(r && r.ok === true && r.parsed === false && r.say === PLAIN_TEXT, `C7 非 JSON 输出 -> say 取原文、acts 空(got parsed=${r && r.parsed})`);
     ok(r && r.acts.length === 0 && r.actions.length === 0, 'C8 非 JSON 时不臆造按钮与动作');
+  }
+
+  /* ═════════ (C-3) 117y-S1:说得完 —— 700 字不裁,5000 字触顶也不裸切 ═════════ */
+  // 用户第十一轮拍板②:「得保证话能说全,不要硬截,用户体验不好」。这一段是 §11.18.5 第 1、2 条,
+  // 走的是【真夹具驱动的真回合】(fake-openai 子进程回放剧本 → runStewardTurn → 落盘),
+  // 不是对纯函数的第二次单测(纯函数面在 unit/steward-core.test.js ④/⑤ 段)。
+  {
+    const r = await srv.runStewardTurn({ trigger: 'user', message: '把那件事完整讲一遍' });
+    ok(r && r.ok === true && r.parsed === true, `C9 700 字回合正常收尾(got ok=${r && r.ok} parsed=${r && r.parsed})`);
+    ok(r && r.say.length === 700, `C9b 700 字的 say 一个字都不少(修前会是 600;got ${r && r.say.length})`);
+    ok(r && r.say === SAY_700, 'C9c 而且逐字相同 —— 不是「长度对了但内容被改写」');
+    // 落盘面:结构化回执写在管家会话最后一条助手消息的 meta 上(13p stewardStampReply)。
+    // 正文不在会话头里 —— 02 的布局是 <id>.json(头)+ <id>.messages.ndjson(正文,一行一条)。
+    const rows = fs.readFileSync(path.join(HOME, 'sessions', 'steward.messages.ndjson'), 'utf8')
+      .split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } });
+    let stamped = null;
+    for (let i = rows.length - 1; i >= 0; i--) { if (rows[i] && rows[i].role === 'assistant' && rows[i].steward) { stamped = rows[i].steward; break; } }
+    ok(stamped && typeof stamped.say === 'string' && stamped.say.length === 700 && stamped.say === SAY_700,
+      `C9d 700 字【落盘】也一个字不少(steward.messages.ndjson 上的回执 meta;got ${stamped && stamped.say && stamped.say.length})`);
+  }
+  {
+    const r = await srv.runStewardTurn({ trigger: 'user', message: '这次你尽量长地说' });
+    ok(r && r.ok === true && r.parsed === true, `C10 5000 字回合正常收尾(got ok=${r && r.ok})`);
+    const say = (r && r.say) || '';
+    const body = say.split('\n')[0];
+    ok(say.length < SAY_5000.length, `C10b 5000 字触到天花板,确实被裁了(got ${say.length})`);
+    ok(body.length <= 4000 && body.length > 3900, `C10c 正文落在 4000 天花板之内且贴着它(got ${body.length})`);
+    ok(SAY_5000.startsWith(body), 'C10d 正文是原文前缀 —— 只截不改写');
+    ok(/[。！？.!?]$/.test(body), `C10e 切在句末标点上,不是半句话(结尾 ${JSON.stringify(body.slice(-3))})`);
+    ok(say.length > body.length && /截断|没说完|后面还有/.test(say.slice(body.length)),
+      `C10f 末尾有诚实的明说,不假装这就是它说完了(标记 ${JSON.stringify(say.slice(body.length))})`);
   }
 
   /* ═════════ (D-2) actions:降级 / 执行 / 自理清单 ═════════ */

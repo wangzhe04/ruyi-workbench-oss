@@ -647,6 +647,33 @@ function stewardPendingOneLine(iv) {
   return stewardClipSay(type || '未知待决');
 }
 
+// ── 117y-S1(27 号文 §11.18.2):管家【正文】的天花板裁剪。────────────────────────────────
+// **与上面的 stewardClipSay 不是一回事,两者永远不要合并**:
+//   · stewardClipSay 喂的是【总览行与待决一行话】—— 那是列表里的一行摘要,200 字加省略号正是
+//     对的做法,一行摘要本来就不该说完整;
+//   · 这个函数喂的是管家在对话里说的【那段话本身】。它不是「让它少说」的手段(少说是提示词的事,
+//     见 06b steward.rules 第 7 条与输出契约里的 ≤600 字目标),只是一道防病态载荷的天花板 ——
+//     尤其 13o 那条 JSON 解析失败的兜底会把【整份原始模型输出】灌进来。
+// 判据:天花板之前的【最后一个句末标点】处切(中文句号与全角叹号问号 + 三个半角同形字,共六个);
+// 一个都找不到才退回裸切。切了就明说:末尾缀一句诚实的话,不许假装这就是它说完了(§11.18.2)。
+// 表里第二、三个是【全角】叹号 U+FF01 与问号 U+FF1F,不是半角的 U+0021/U+003F(本刀写这行时
+// 被静默归一成半角一次)。改这张表之后必须逐字节核码位:归一成半角的话表就只剩半角三个,
+// 中文回复触顶时会全部退回裸切 —— 而那是肉眼看不出来的。
+const STEWARD_SAY_SENTENCE_ENDS = Object.freeze(['。', '！', '？', '.', '!', '?']);
+const STEWARD_SAY_TRIMMED_NOTE = '\n(话太长,先说到这里;后面还有,是工作台截断的,不是我说完了。)';
+function stewardTrimSayAtSentence(value, ceiling) {
+  const raw = String(value == null ? '' : value);
+  const limit = Math.floor(Number(ceiling));
+  if (!Number.isFinite(limit) || limit <= 0 || raw.length <= limit) return raw;
+  const head = raw.slice(0, limit);
+  let cut = -1;
+  for (const mark of STEWARD_SAY_SENTENCE_ENDS) {
+    const at = head.lastIndexOf(mark);
+    if (at > cut) cut = at;
+  }
+  return (cut >= 0 ? head.slice(0, cut + 1) : head) + STEWARD_SAY_TRIMMED_NOTE;
+}
+
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });

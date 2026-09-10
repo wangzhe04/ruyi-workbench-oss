@@ -18236,6 +18236,11 @@ const PROMPT_ZH = {
       // 117v-V3(§11.16.6):琥珀色那枚按钮的词是【我自己现编的】(13h:673 `row.label || stewardActLabel(...)`),
       // 不是仓里的键 —— 所以「看…全文」这类内容词只能在这里管住,前端改文案管不到它。
       '· 开线程类 act(kind 为 open_thread)的 label 写【去处】不写【内容】:用「打开线程」「去线程里看」这类词,不要写「看…全文」「查看完整分析」这类 —— 交付卡上已经有一枚说「看全文」的按钮,两个词撞在一起,用户不知道该点哪个。',
+      // 117y-S2(§11.18;用户第十一轮拍板②「得保证话能说全,不要硬截…通过提示词去约束说的话长度」):
+      // 运行期已经不再按 600 裁剪(13o 只剩 4000 的病态载荷天花板),篇幅从此【只由这一条管住】。
+      // 措辞要落到「不要在句子中间停下;篇幅不够就砍一个话题,不砍一句话」,否则模型会把 600 当成
+      // 「写到 600 就停笔」——那正是修前那把裸 slice 的行为,只是换成模型自己做。
+      '· 把话说完整:输出契约里的 ≤600 字是【挑哪几件事说】的预算,不是【写到那儿就停笔】的信号。宁可少说一件事,也不要说半句 —— 篇幅不够时整条话题砍掉(留一句「还有几件,你问我就细说」),绝不在句子中间收尾,也绝不用省略号代替没写完的话。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -18414,6 +18419,9 @@ const PROMPT_EN = {
       // 117v-V3: same rule as PROMPT_ZH.steward.rules' last line - the amber button label is written by
       // the model itself (13h:673), so it can only be constrained here, never by editing a locale key.
       '\u00b7 Label an open_thread act by its DESTINATION, not by its content: write "Open the thread" style wording, never "See the full ..." or "View the complete analysis" - the delivery card already carries a full-text button, and two lookalike labels leave the user unsure which one to press.',
+      // 117y-S2: same rule as PROMPT_ZH.steward.rules' last line - runtime no longer trims at 600
+      // (13o keeps only a 4000-char pathological-payload ceiling), so length is governed HERE alone.
+      '\u00b7 Finish every sentence. The <=600 chars in the output contract budget WHICH topics to cover, not where to put down the pen. Say one thing less rather than half a sentence: when space runs short, drop a whole topic (add "there are a few more, ask and I will go into them") - never stop mid-sentence, and never let an ellipsis stand in for what you did not write.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
@@ -19418,6 +19426,33 @@ function stewardPendingOneLine(iv) {
   if (type === 'pool') return stewardClipSay(iv.task || '任务池提案等待批准');
   if (type === 'replan') return stewardClipSay(iv.summary || '重规划提案等待批准');
   return stewardClipSay(type || '未知待决');
+}
+
+// ── 117y-S1(27 号文 §11.18.2):管家【正文】的天花板裁剪。────────────────────────────────
+// **与上面的 stewardClipSay 不是一回事,两者永远不要合并**:
+//   · stewardClipSay 喂的是【总览行与待决一行话】—— 那是列表里的一行摘要,200 字加省略号正是
+//     对的做法,一行摘要本来就不该说完整;
+//   · 这个函数喂的是管家在对话里说的【那段话本身】。它不是「让它少说」的手段(少说是提示词的事,
+//     见 06b steward.rules 第 7 条与输出契约里的 ≤600 字目标),只是一道防病态载荷的天花板 ——
+//     尤其 13o 那条 JSON 解析失败的兜底会把【整份原始模型输出】灌进来。
+// 判据:天花板之前的【最后一个句末标点】处切(中文句号与全角叹号问号 + 三个半角同形字,共六个);
+// 一个都找不到才退回裸切。切了就明说:末尾缀一句诚实的话,不许假装这就是它说完了(§11.18.2)。
+// 表里第二、三个是【全角】叹号 U+FF01 与问号 U+FF1F,不是半角的 U+0021/U+003F(本刀写这行时
+// 被静默归一成半角一次)。改这张表之后必须逐字节核码位:归一成半角的话表就只剩半角三个,
+// 中文回复触顶时会全部退回裸切 —— 而那是肉眼看不出来的。
+const STEWARD_SAY_SENTENCE_ENDS = Object.freeze(['。', '！', '？', '.', '!', '?']);
+const STEWARD_SAY_TRIMMED_NOTE = '\n(话太长,先说到这里;后面还有,是工作台截断的,不是我说完了。)';
+function stewardTrimSayAtSentence(value, ceiling) {
+  const raw = String(value == null ? '' : value);
+  const limit = Math.floor(Number(ceiling));
+  if (!Number.isFinite(limit) || limit <= 0 || raw.length <= limit) return raw;
+  const head = raw.slice(0, limit);
+  let cut = -1;
+  for (const mark of STEWARD_SAY_SENTENCE_ENDS) {
+    const at = head.lastIndexOf(mark);
+    if (at > cut) cut = at;
+  }
+  return (cut >= 0 ? head.slice(0, cut + 1) : head) + STEWARD_SAY_TRIMMED_NOTE;
 }
 
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
@@ -45656,7 +45691,17 @@ const STEWARD_INBOX_EVENT_CHARS = 400;        // 每条事件 ≤400 字
 const STEWARD_INBOX_DELIVERABLE_CHARS = 4000; // 单条交付正文在收件箱消息里的上限
 const STEWARD_INBOX_MESSAGE_CHARS = 12000;    // 一条收件箱消息的总预算(标题行永不丢,正文从最旧的丢起)
 const STEWARD_MEMORY_BLOCK_CHARS = 3000;      // 记忆块 ≤3000 字符
-const STEWARD_SAY_MAX = 600;                  // say ≤600 字
+// 117y-S1(27 号文 §11.18.2):原来这里只有一个 say 上限常量(600),它同时扮演两个角色 ——
+// 06b 输出契约里写给模型看的「≤600 字」,和 13o 解析时那把裸 slice。用户第十一轮拍板:
+// 「得保证话能说全,不要硬截…通过提示词去约束说的话长度」。于是两个角色拆开:
+//   · TARGET  = 600  —— 只说给模型听的目标(06b 输出契约那一行)。**运行期不再据此裁剪。**
+//   · CEILING = 4000 —— 只防病态载荷(尤其 13o 那条 JSON 解析失败的兜底会把整份原始模型输出
+//     灌进来)。约为目标的 6.7 倍,守规矩的回复永远碰不到;触到了也走 06i 的
+//     stewardTrimSayAtSentence 在句末标点处切并明说,不裸切。
+// 旧名直接删掉而不留别名:全仓消费方只有 13o 的那两处(其余命中全是生成物
+// module-contracts.json / module-dependency-graph 与 27 号文的病灶描述),不存在被静默改语义的第三方。
+const STEWARD_SAY_TARGET = 600;               // say 的提示词目标(不是运行期上限)
+const STEWARD_SAY_CEILING = 4000;             // say 的病态载荷天花板(触顶按句界裁剪并明说)
 const STEWARD_WHY_MAX = 400;
 const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个
@@ -46727,7 +46772,9 @@ function stewardParseReply(text) {
   const value = parsed && parsed.ok ? parsed.value : null;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     logEvent({ kind: 'steward_contract_unparsed', chars: raw.length });
-    return { parsed: false, say: raw.trim().slice(0, STEWARD_SAY_MAX), why: '', acts: [], actions: [] };
+    // 117y-S1(§11.18.2):这条兜底灌进来的是【整份原始模型输出】,所以它比解析成功那一路更需要
+    // 天花板;但同样【不许裸切】—— 与下面 say 那一处走的是同一个函数、同一个天花板,不许只改一处。
+    return { parsed: false, say: stewardTrimSayAtSentence(raw.trim(), STEWARD_SAY_CEILING), why: '', acts: [], actions: [] };
   }
   const actions = [];
   for (const item of (Array.isArray(value.actions) ? value.actions : [])) {
@@ -46739,7 +46786,10 @@ function stewardParseReply(text) {
   }
   return {
     parsed: true,
-    say: String(value.say == null ? '' : value.say).slice(0, STEWARD_SAY_MAX),
+    // 117y-S1(§11.18.2):修前这里是按那个 600 的常量直接裸 slice —— 601 字的回复在第 600 字处
+    // 无声断掉,可能断在半个句子、半个词中间。现在 600 只是提示词目标(STEWARD_SAY_TARGET),
+    // 运行期只剩 4000 的病态载荷天花板,且触顶也在句末标点处切并明说。
+    say: stewardTrimSayAtSentence(value.say, STEWARD_SAY_CEILING),
     why: String(value.why == null ? '' : value.why).slice(0, STEWARD_WHY_MAX),
     acts: stewardNormalizeActs(value.acts),
     actions,
@@ -48627,6 +48677,13 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第117波117y-S1(27号文§11.18.2): 管家正文的天花板裁剪(句界 + 诚实标记)与它【绝不能被误伤】的
+  // 那个同名邻居 stewardClipSay(总览行/待决一行话的 200 字 + 省略号)—— 两个都 exposed for
+  // unit/steward-core.test.js:一个正测句界裁剪,一个做反向保护断言。
+  stewardTrimSayAtSentence,
+  stewardClipSay,
+  STEWARD_SAY_TARGET,
+  STEWARD_SAY_CEILING,
   // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
   // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
   resolvePermissionMode,

@@ -148,6 +148,83 @@ ok(Array.isArray(STEWARD_EVENT_KINDS) && STEWARD_EVENT_KINDS.length === 5, 'STEW
 ok(JSON.stringify(STEWARD_EVENT_KINDS) === JSON.stringify(['needs_you', 'failed', 'done', 'stalled', 'budget']),
   'STEWARD_EVENT_KINDS 内容与顺序锁定(needs_you/failed/done/stalled/budget)');
 
+/* ═══ ④ 117y-S1(27 号文 §11.18.2):正文天花板裁剪 stewardTrimSayAtSentence ═══ */
+// 钉的是【事实】不是实现:600 不再是运行期的刀、天花板处不许裸切、切了必须明说,
+// 外加一条【反向保护】—— 总览行那把 stewardClipSay(200 字 + 省略号)不许被这一刀误伤。
+const { stewardTrimSayAtSentence, stewardClipSay, STEWARD_SAY_TARGET, STEWARD_SAY_CEILING } = srv;
+
+ok(STEWARD_SAY_TARGET === 600, `④ TARGET = 600(提示词目标;got ${STEWARD_SAY_TARGET})`);
+ok(STEWARD_SAY_CEILING === 4000, `④ CEILING = 4000(病态载荷天花板;got ${STEWARD_SAY_CEILING})`);
+ok(STEWARD_SAY_CEILING >= STEWARD_SAY_TARGET * 6,
+  `④ 天花板 ≥ 目标的 6 倍 —— 守规矩的回复永远碰不到它(got ${STEWARD_SAY_CEILING / STEWARD_SAY_TARGET} 倍)`);
+
+{
+  // 本刀的核心断言(§11.18.5 第 1 条)的纯函数面:700 字【一个字都不少】。
+  // 修前这一路是 `.slice(0, 600)`,700 字会在第 600 字处无声断掉。
+  const say700 = '这是管家的一段长话。'.repeat(70);
+  ok(say700.length === 700, `④ 样本恰 700 字(got ${say700.length})`);
+  const kept = stewardTrimSayAtSentence(say700, STEWARD_SAY_CEILING);
+  ok(kept === say700, `④ 700 字的 say 原样返回,一个字不少(got ${kept.length} 字)`);
+  ok(kept.length > STEWARD_SAY_TARGET, '④ 且它确实越过了 600 这条【提示词目标】线(证明目标不再是刀)');
+}
+{
+  const exact = 'x'.repeat(STEWARD_SAY_CEILING);
+  ok(stewardTrimSayAtSentence(exact, STEWARD_SAY_CEILING) === exact, '④ 恰到天花板不裁剪、不加标记(边界值)');
+}
+{
+  // §11.18.5 第 2 条:5000 字触顶 -> 切在句末标点上,末尾有明说。
+  const sentence = '管家把这件事的来龙去脉讲清楚。';                       // 15 字,以 U+3002 结尾
+  const say5000 = sentence.repeat(334).slice(0, 5000);
+  ok(say5000.length === 5000, `④ 样本恰 5000 字(got ${say5000.length})`);
+  const trimmed = stewardTrimSayAtSentence(say5000, STEWARD_SAY_CEILING);
+  const note = trimmed.slice(trimmed.indexOf('\n'));
+  const body = trimmed.slice(0, trimmed.indexOf('\n'));
+  ok(body.length > 0 && body.length <= STEWARD_SAY_CEILING, `④ 正文不超过天花板(got ${body.length})`);
+  ok(say5000.startsWith(body), '④ 正文是原文的前缀(只截不改写)');
+  ok(/[。！？.!?]$/.test(body), `④ 切在句末标点上,不是半句话(结尾 ${JSON.stringify(body.slice(-3))})`);
+  ok(body.length > STEWARD_SAY_CEILING - sentence.length,
+    `④ 切点是天花板【之前的最后一个】句号,不是更早的某个(got ${body.length},下界 ${STEWARD_SAY_CEILING - sentence.length})`);
+  ok(note.length > 10 && trimmed !== say5000.slice(0, body.length), '④ 触顶必留标记,不许静默');
+  ok(/截断|没说完|后面还有/.test(note), `④ 标记是诚实的明说(不假装说完了):${JSON.stringify(note)}`);
+}
+{
+  // 全角叹号/问号也在表里 —— 这条专防「字面量被静默归一成半角」那类看不见的损坏:
+  // 若表里只剩半角三个,下面两句会退化成裸切,body 就不再以标点结尾。
+  for (const [mark, label] of [['！', '全角叹号 U+FF01'], ['？', '全角问号 U+FF1F']]) {
+    const src = ('管家说了一句话' + mark).repeat(700).slice(0, 5000);
+    const body = stewardTrimSayAtSentence(src, STEWARD_SAY_CEILING).split('\n')[0];
+    ok(body.endsWith(mark), `④ ${label} 认得出来(切在它上面;结尾 ${JSON.stringify(body.slice(-2))})`);
+  }
+  ok('！'.charCodeAt(0) === 0xff01 && '？'.charCodeAt(0) === 0xff1f, '④ 本件用的就是全角码位本身(样本自洽)');
+}
+{
+  // 一个句号都找不到才退回裸切 —— 但【仍然】要留标记。
+  const noStop = '啊'.repeat(5000);
+  const trimmed = stewardTrimSayAtSentence(noStop, STEWARD_SAY_CEILING);
+  const body = trimmed.split('\n')[0];
+  ok(body === '啊'.repeat(STEWARD_SAY_CEILING), `④ 全文无句末标点 -> 退回裸切到天花板(got ${body.length})`);
+  ok(trimmed.length > body.length, '④ 裸切这一路同样留标记(不静默)');
+}
+{
+  ok(stewardTrimSayAtSentence('', STEWARD_SAY_CEILING) === '', '④ 空串原样返回');
+  ok(stewardTrimSayAtSentence(null, STEWARD_SAY_CEILING) === '', '④ null 不抛异常');
+  ok(stewardTrimSayAtSentence('abc', 0) === 'abc' && stewardTrimSayAtSentence('abc', NaN) === 'abc',
+    '④ ceiling 非正/非数时不裁剪(而不是把整段吞成空串)');
+}
+
+/* ═══ ⑤ 反向保护:stewardClipSay 没被 117y-S1 误伤(§11.18.5 第 4 条)═══ */
+// 它喂的是【总览行与待决一行话】—— 列表里的一行摘要,200 字加省略号正是对的做法。
+// 这条一红 = 有人把两个函数当成一件事合并了。
+{
+  ok(stewardClipSay('a'.repeat(201)) === 'a'.repeat(200) + '…', '⑤ 201 字 -> 200 字 + 省略号(与 116a 同一口径)');
+  ok(stewardClipSay('b'.repeat(200)) === 'b'.repeat(200), '⑤ 恰 200 字不截断、不加省略号');
+  const long = stewardClipSay('c'.repeat(5000));
+  ok(long.length === 201, `⑤ 总览行【不】走 4000 天花板那条路(仍是 200+1;got ${long.length})`);
+  ok(!/截断|没说完|后面还有/.test(long), '⑤ 总览行不缀正文那句诚实标记(摘要本来就不该说完整)');
+  ok(stewardClipSay('c'.repeat(5000)) !== stewardTrimSayAtSentence('c'.repeat(5000), STEWARD_SAY_CEILING),
+    '⑤ 两个函数对同一份输入给出不同结果 —— 它们是两件事,不是一件');
+}
+
 try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort tmpdir cleanup */ }
 
 console.log('');

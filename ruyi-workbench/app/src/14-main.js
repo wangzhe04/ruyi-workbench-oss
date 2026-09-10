@@ -325,6 +325,13 @@ module.exports = {
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
   buildStewardDigestLine,
+  // 第117波117y-S1(27号文§11.18.2): 管家正文的天花板裁剪(句界 + 诚实标记)与它【绝不能被误伤】的
+  // 那个同名邻居 stewardClipSay(总览行/待决一行话的 200 字 + 省略号)—— 两个都 exposed for
+  // unit/steward-core.test.js:一个正测句界裁剪,一个做反向保护断言。
+  stewardTrimSayAtSentence,
+  stewardClipSay,
+  STEWARD_SAY_TARGET,
+  STEWARD_SAY_CEILING,
   // 第116波116-2a(27号文§3.3/§8.6): 线程级权限 — 三层解析纯函数(请求级>会话级>全局)与
   // 「管家只能收紧」的序表。exposed for 单测(permission-resolve.test.js)与 e2e 直测。
   resolvePermissionMode,

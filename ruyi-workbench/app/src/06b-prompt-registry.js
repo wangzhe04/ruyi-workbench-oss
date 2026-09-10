@@ -184,6 +184,11 @@ const PROMPT_ZH = {
       // 117v-V3(§11.16.6):琥珀色那枚按钮的词是【我自己现编的】(13h:673 `row.label || stewardActLabel(...)`),
       // 不是仓里的键 —— 所以「看…全文」这类内容词只能在这里管住,前端改文案管不到它。
       '· 开线程类 act(kind 为 open_thread)的 label 写【去处】不写【内容】:用「打开线程」「去线程里看」这类词,不要写「看…全文」「查看完整分析」这类 —— 交付卡上已经有一枚说「看全文」的按钮,两个词撞在一起,用户不知道该点哪个。',
+      // 117y-S2(§11.18;用户第十一轮拍板②「得保证话能说全,不要硬截…通过提示词去约束说的话长度」):
+      // 运行期已经不再按 600 裁剪(13o 只剩 4000 的病态载荷天花板),篇幅从此【只由这一条管住】。
+      // 措辞要落到「不要在句子中间停下;篇幅不够就砍一个话题,不砍一句话」,否则模型会把 600 当成
+      // 「写到 600 就停笔」——那正是修前那把裸 slice 的行为,只是换成模型自己做。
+      '· 把话说完整:输出契约里的 ≤600 字是【挑哪几件事说】的预算,不是【写到那儿就停笔】的信号。宁可少说一件事,也不要说半句 —— 篇幅不够时整条话题砍掉(留一句「还有几件,你问我就细说」),绝不在句子中间收尾,也绝不用省略号代替没写完的话。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -362,6 +367,9 @@ const PROMPT_EN = {
       // 117v-V3: same rule as PROMPT_ZH.steward.rules' last line - the amber button label is written by
       // the model itself (13h:673), so it can only be constrained here, never by editing a locale key.
       '\u00b7 Label an open_thread act by its DESTINATION, not by its content: write "Open the thread" style wording, never "See the full ..." or "View the complete analysis" - the delivery card already carries a full-text button, and two lookalike labels leave the user unsure which one to press.',
+      // 117y-S2: same rule as PROMPT_ZH.steward.rules' last line - runtime no longer trims at 600
+      // (13o keeps only a 4000-char pathological-payload ceiling), so length is governed HERE alone.
+      '\u00b7 Finish every sentence. The <=600 chars in the output contract budget WHICH topics to cover, not where to put down the pen. Say one thing less rather than half a sentence: when space runs short, drop a whole topic (add "there are a few more, ask and I will go into them") - never stop mid-sentence, and never let an ellipsis stand in for what you did not write.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
