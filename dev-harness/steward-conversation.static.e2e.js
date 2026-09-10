@@ -515,6 +515,14 @@ ok(JSON.stringify(mod.stewardInboxSource(inboxLine)) === JSON.stringify({ sessio
   `O2 带显示名的事件行取到 id 与显示名（实测 ${JSON.stringify(mod.stewardInboxSource(inboxLine))}）`);
 ok(JSON.stringify(mod.stewardInboxSource('- [8] thread_failed · 线程 sess_9f0 · 挂了')) === JSON.stringify({ sessionId: 'sess_9f0', title: '' }),
   'O3 没有显示名时（13h 那条「线程 <id>」的回落）仍取得到 id，标题留空');
+// O2b/O3b 术语统一（locale 已把界面上的「线程」改叫「会话」）：新词与旧词【都要认】。上面 O2/O3 钉的
+// 是旧词 —— 已落盘的历史消息正文里逐字就是它，只认新词等于把老会话的来源小头静默丢掉（丢的是小头，
+// 不报错）。下面两条钉新词，一侧缺席就红。
+const inboxLineNew = '- [7] thread_done · 会话「周报-W36」(sess_abc123) · 收工了';
+ok(JSON.stringify(mod.stewardInboxSource(inboxLineNew)) === JSON.stringify({ sessionId: 'sess_abc123', title: '周报-W36' }),
+  `O2b 新词「会话「标题」(id)」同样取到 id 与显示名（实测 ${JSON.stringify(mod.stewardInboxSource(inboxLineNew))}）`);
+ok(JSON.stringify(mod.stewardInboxSource('- [8] thread_failed · 会话 sess_9f0 · 挂了')) === JSON.stringify({ sessionId: 'sess_9f0', title: '' }),
+  'O3b 新词的无显示名回落「会话 <id>」同样取得到 id');
 ok(mod.stewardInboxSource('用户自己说的一句话，跟任何线索无关') === null
   && mod.stewardInboxSource('') === null && mod.stewardInboxSource(null) === null,
   'O4 认不出来源就回 null —— 宁可不加小头，也不编一个来源出来');
@@ -557,7 +565,20 @@ ok(mod.stewardInboxTurnSeq('- [2] done · 线程「A」(sess_a) · 线程第 3 �
   && mod.stewardInboxTurnSeq('线程第 12 回合失败(engine)') === 12
   && mod.stewardInboxTurnSeq('线程「A」(sess_a) 收工了') === 0
   && mod.stewardInboxTurnSeq('') === 0 && mod.stewardInboxTurnSeq(null) === 0,
-  'P3 回合号取自 13i 那句「线程第 N 回合跑完了/失败」，取不到回 0');
+  'P3 回合号取自 13i 那句「第 N 回合跑完了/失败」的旧词形态（历史消息里逐字是「线程第 N 回合」），取不到回 0');
+// P3b 术语统一后的新词：13i stewardNormalizeSessionTurn 现在写「会话第 N 回合…」。新旧都认 ——
+// 只认新词则历史消息退到 0，只认旧词则新回合退到 0，两边都是静默降级。
+ok(mod.stewardInboxTurnSeq('- [2] done · 会话「A」(sess_a) · 会话第 3 回合跑完了') === 3
+  && mod.stewardInboxTurnSeq('会话第 12 回合失败(engine)') === 12
+  && mod.stewardInboxTurnSeq('会话「A」(sess_a) 收工了') === 0,
+  'P3b 新词「会话第 N 回合跑完了/失败」同样取到回合号');
+// P3c 【成对改的反向验证】——不钉行号、不钉整句，只钉「服务端现在写的就是解析器认得的那个形状」：
+// 直接拿 src/13i 的摘要生产处来对（生产端改了措辞而这三支正则没跟，或反过来，这条立刻红）。
+const inboxSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '13i-steward-inbox.js'), 'utf8');
+ok(/`会话第 \$\{seq\} 回合失败/.test(inboxSrc) && /`会话第 \$\{seq\} 回合跑完了/.test(inboxSrc)
+  && /`会话停住了\(/.test(inboxSrc)
+  && mod.stewardInboxTurnSeq('会话第 7 回合跑完了') === 7,
+  'P3c 服务端 13i 现在写的是「会话第 N 回合…／会话停住了」(与上面的解析器同刀改才同时成立)');
 const deliverSession = { messages: [
   { role: 'user', turnSeq: 1, content: '问' },
   { role: 'assistant', turnSeq: 1, content: '第一回合的答' },

@@ -42898,7 +42898,7 @@ function stewardNormalizeMissionChange(record) {
   if (detail.budget != null) payload.budget = Number(detail.budget) || 0;
   payload.summary = stewardClipSummary(
     r.type === 'stalled'
-      ? `线程停住了(${payload.reason || '无进展'}${payload.tool ? ' · ' + payload.tool : ''}${payload.count ? ' · 第 ' + payload.count + ' 次' : ''})`
+      ? `会话停住了(${payload.reason || '无进展'}${payload.tool ? ' · ' + payload.tool : ''}${payload.count ? ' · 第 ' + payload.count + ' 次' : ''})`
       : r.type === 'budget_tripped'
         ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
         : kind === 'failed'
@@ -43008,6 +43008,9 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
 
 // ⑤ 116-4 第四源:一条会话的「某个回合结束了」-> done | failed 事件 | null。
 // seq 位就是该会话的 turnSeq(它自己的单调游标),故去重键 = sid|kind|''|turnSeq —— 同一回合只报一次。
+// 【成对改】下面这两句摘要会被前端【逐字】解析(public/js/steward-conversation.js 的
+// STEWARD_INBOX_TURN_RE 靠它抠出回合号去挑那一回合的原文):动这里的措辞必须同刀改那条正则,
+// 只改一边是静默解析失败(前端拿不到回合号只会悄悄退到「最后一条助手话」,不报错)。
 function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   const seq = Math.max(0, Number(turnSeq) || 0);
   if (seq < 1) return null;
@@ -43022,8 +43025,8 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   if (last && last.errorClass) payload.errorClass = stewardClipSummary(last.errorClass);
   if (last && last.aborted === true) payload.aborted = true;
   payload.summary = stewardClipSummary(kind === 'failed'
-    ? `线程第 ${seq} 回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
-    : `线程第 ${seq} 回合跑完了${payload.aborted ? '(被停止)' : ''}`);
+    ? `会话第 ${seq} 回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+    : `会话第 ${seq} 回合跑完了${payload.aborted ? '(被停止)' : ''}`);
   return {
     kind,
     sessionId: String(sessionId || ''),

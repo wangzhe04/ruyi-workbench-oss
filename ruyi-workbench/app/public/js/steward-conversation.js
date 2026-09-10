@@ -91,14 +91,19 @@ export function executedThreadSessionId(actions) {
   return sessionId;
 }
 
-// 117s-C（用户第九轮走查⑦「返回消息没有区分」）：收件箱触发的那条回复要标出【它在说哪条线程】。
-// 落盘的 `message.steward.trigger` 只有 'user' / 'inbox' 两个字面量（13h stewardStampReply 盖的章
-// 就这一个字段，见交付报告里的「发现」），来源线程的 id 与标题只存在于【那一回合的收件箱消息】里
-// ——13h stewardEventLine 写的 `线程「标题」(sess_…)`，随 meta.origin==='inbox' 一起落盘。
-// 所以这里从那条消息的正文里【只取】第一条事件的线程身份：正则两支（有标题 / 只有 id），
+// 117s-C（用户第九轮走查⑦「返回消息没有区分」）：收件箱触发的那条回复要标出【它在说哪条会话】。
+// 落盘的 `message.steward.trigger` 只有 'user' / 'inbox' 两个字面量（13p stewardStampReply 盖的章
+// 就这一个字段，见交付报告里的「发现」），来源会话的 id 与标题只存在于【那一回合的收件箱消息】里
+// ——13p stewardEventLine 写的事件行 `会话「标题」(sess_…)`，随 meta.origin==='inbox' 一起落盘。
+// 所以这里从那条消息的正文里【只取】第一条事件的会话身份：正则两支（有标题 / 只有 id），
 // 取不到就回 null（宁可不加小头，也不编一个来源出来）。纯函数、零 DOM，静态锁直接跑真值表。
-const STEWARD_INBOX_TITLED_RE = /线程「([^」\n]{1,200})」\(([A-Za-z0-9_-]{1,64})\)/;
-const STEWARD_INBOX_BARE_RE = /线程\s+([A-Za-z0-9_-]{1,64})/;
+//
+// 词统一（2026-09，locale 已把界面上的「线程」改叫「会话」）：两支正则都【同时认】老「线程」与新
+// 「会话」。理由不是兼容洁癖 —— 这里是在读【已落盘的历史消息】，那些正文里逐字就是「线程」，只认新
+// 词等于把老会话的来源小头静默丢掉（丢的是小头，不报错，所以必须靠这条注释留住原因）。同款先例：
+// 下面 stewardTriggerInfo 对 trigger 的老字符串 / 新对象两种形状也是都认。
+const STEWARD_INBOX_TITLED_RE = /(?:线程|会话)「([^」\n]{1,200})」\(([A-Za-z0-9_-]{1,64})\)/;
+const STEWARD_INBOX_BARE_RE = /(?:线程|会话)\s+([A-Za-z0-9_-]{1,64})/;
 export function stewardInboxSource(content) {
   const text = String(content == null ? '' : content);
   const titled = STEWARD_INBOX_TITLED_RE.exec(text);
@@ -108,10 +113,13 @@ export function stewardInboxSource(content) {
 }
 
 // 117s-H2：同一条收件箱消息里还写着【第几回合】跑完了（13i stewardNormalizeSessionTurn 的
-// payload.summary：「线程第 N 回合跑完了 / 失败」）。交付卡要拿它去 GET /api/sessions/<id> 里
+// payload.summary：「会话第 N 回合跑完了 / 失败」）。交付卡要拿它去 GET /api/sessions/<id> 里
 // 挑对那一回合的助手话 —— 取不到就回 0，调用方退到「最后一条助手话」（宁可少一层精确，
 // 也不去编一个回合号）。与 stewardInboxSource 分开两支：后者的返回形状被静态锁 O2/O3 逐字钉住。
-const STEWARD_INBOX_TURN_RE = /线程第\s*(\d{1,9})\s*回合/;
+// 【成对改】：这句摘要的生产者是 13i 的 stewardNormalizeSessionTurn，措辞从「线程第 N 回合」改成
+// 「会话第 N 回合」时本条正则必须同刀改（那边改了这边不改 = 静默解析失败，会悄悄退到 0）。同样两支
+// 都认：历史消息里落盘的是「线程第 N 回合」。
+const STEWARD_INBOX_TURN_RE = /(?:线程|会话)第\s*(\d{1,9})\s*回合/;
 export function stewardInboxTurnSeq(content) {
   const found = STEWARD_INBOX_TURN_RE.exec(String(content == null ? '' : content));
   const seq = found ? Number(found[1]) : 0;
