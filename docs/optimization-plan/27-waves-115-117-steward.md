@@ -2309,6 +2309,30 @@ CSS 载荷锁由主会话从 HEAD 续钉（`801d85e5` → `07e82fa0`），**M2 �
 5. PATCH `createdBy` → 被白名单拒绝。
 6. 递话进用户会话（`thread_continue`）**不会**让那条会话变成 `createdBy:'steward'`。
 
+#### 11.21.7 E-手② 交付记录（`e9ebed8` ＋ `2ca16a8`；主会话逐条复核；按推荐 A 落地）
+
+**核过的**：两个提交 17＋14 个文件，零前端、零 13o、零 CSS；`session.createdBy` 只在 `13k:575`（thread_new）与 `13k:909`（quick_ask）两处写、
+`13k:776` 一处读，`thread_continue` 不碰它（锁 6）；`02:1038-1054` PATCH 白名单收 `desktopTools`（状态）而**故意不收** `createdBy`（出身），
+`patch.createdBy` 静默丢弃（锁 5）；`07:107-108` 的 `desktopOverride` 三态：`null` 逐字等于修前（存量会话与不传该键的调用方全走这一支）、
+`true`／`false` 只改这一条线程，全局 `allowDesktopTools` 仍是 `06i:776` forbidden 清册里那一个键（锁 3／4）；`stewardMayTightenTo` 与 `b480ce8` 逐字节相同
+（只降不升的口径一个字没开例外）；guardrails 新增 N／O／P 三段：P1 `desktop:true` 在全自动档也 `propose_required`、P1e 目标闸在按钮闸**之前**
+（非 `createdBy:steward` 即使 `userPressed` 也 `invalid_target`）、P2 `ctx.userPressed` 才真写入且 `undoRef.kind:'desktop'` 带旧值、
+P3 `desktop:false` 收紧不要按钮；graph 49/390、forwardEdges 67、build 新鲜；五文件 NUL 0／CRLF 0。
+
+**一次真机泄漏，已清理**：执行者第一版夹具没给 `cwd`，而 `stewardWorkspaceRoot` 的默认值读 `os.homedir()` 不读 `RUYI_HOME`，
+于是一条测试线程在**真机** `~/Ruyi/` 下建了目录。它自己删掉并把夹具改成 `HOME/Ruyi`；主会话核过真机 `~/Ruyi` 不存在。
+这不是 E-手② 的 bug，是**夹具层缺一道守卫**：任何设 `RUYI_HOME` 的夹具都可能踩到读 `USERPROFILE`／`os.homedir()` 的默认值。裁决见下表最后一行。
+
+**它登记的债，裁决**（三条都是真债，前两条合成下一把小刀 **E-手②b**，排在「先占位再建目录」**之前**——因为第一条是用户可见的死路）：
+
+| 债 | 事实 | 裁决 |
+|---|---|---|
+| ① `STEWARD_ACTION_HOOKS`（`13m:87`）没有 `steward_thread_permission` | E-手① 时它只降档、从不 `propose_required`，不进表没关系；现在 `desktop:true` 回 `propose_required` → `13p:141` 照样降级成按钮（`kind:'tool'`），用户按下去走 `13p:93` 查表 → 查不到 → `not_allowed` **4xx**。按钮标签走 `13o:334` 的 `STEWARD_TOOL_LABELS` 兜底「去做」。**生产形状：管家说要开桌面，按钮出来，按了报错** | **E-手②b 第一件**：挂钩进 `13m:87` 表 ＋ `13m:107` 人话标签 ＋ 前端 `steward-chips.js:179` `STEWARD_TOOL_LABEL_KEYS` ＋ 两个 locale 键（不加就 `steward-settings.static` H5 红）；锁「按钮按下去 → `desktopTools:true` 落盘 ＋ 决策日志一行」 |
+| ② `PATCH /api/sessions/:id { desktopTools:true }` 没有二次确认 | `13d:371` 前只对 `permissionMode` 切全自动要 `confirm:true`（409），`desktopTools:true` 直接过。调用方是页面／脚本，不是模型（管家会话拿不到 HTTP），所以不是放权面的洞，是**同一道门两种口径** | **E-手②b 第二件**：`desktopTools === true` 同样要 `confirm:true`，否则 409 同一个错误码；清除与 `false` 不要确认；决策日志照 `permission_mode` 那条的形状记一行 |
+| ③ `allowDesktopTools` 只在 `07:129` 滤两个原生桌面工具 | 桥接的 desktop 档（`02:2064-2074` 那张表，ACC 全家）不经这把闸。auto 模式下它们**不可达**——`tool_invoke_*` 只有 read/edit/exec 三档（`07:86`），`12:100` tier mismatch 直接拒；**full 模式（`07:720`）是否把桥接 schema 直接注入、注入时看不看 `allowDesk`，未核** | **E-手②b 第三件是核不是改**：写一条 full 模式下 `allowDesktopTools:false` ∧ 桥接 desktop 档工具的锁。若可达 → 就地按 `allowDesk` 滤（与 `07:129` 同一处、同一把钥匙，会话覆盖自然生效）；若不可达 → 锁钉住「不可达」并把这行债划掉 |
+| ④ 夹具设 `RUYI_HOME` 却没设 `USERPROFILE`／`stewardWorkspaceRoot` 会摸真机主目录 | 134 个 e2e 设了 `RUYI_HOME`，只有十几个设了 `USERPROFILE`；这次是 `~/Ruyi`，下次可能是别的读 `os.homedir()` 的默认值 | **进「先占位再建目录」小刀**：`dev-harness` 加一道守卫——凡起服的夹具，`USERPROFILE`／`HOME` 一律指向临时 HOME（在公共起服 helper 里做一次，不逐件改）；反向：故意让一件不设，守卫要红 |
+
+**未拍板项保持原判**：auto 档自动开桌面（§11.21.5 B）**没做**，全档只提议。要开例外再立刀，不夹在别的刀里。
 #### 11.18.6 117y-S3 交付记录（`f582aad`；主会话逐条复核；收口 `a4c7719` ＋ `b5a3169`）
 
 **核过的**：3 个文件全在范围内，零 CSS、零 `src/`；`finishSay` 函数体 202 字符、内含 `clampIfLong`／`collapseToggle` 各 0、`.is-lead` 保留；
