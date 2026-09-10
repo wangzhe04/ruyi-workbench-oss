@@ -28,6 +28,10 @@
 // 32 号文 §4：模型行（button 骨架 / 当前项标记 / 标签→徽标→副行的落位）两壳共用 —— 2.0 顶栏那颗模型
 // 弹层的每一行也从这里出。只 import 本域内相对路径（抽屉静态锁 B2 钉着本模块的 import 全是 './…'）。
 import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
+// 32 号文 §4（M1-b）：浮层原语（开／关／Esc／点外／定位／焦点归还／同一时刻只允许一个）两壳共用同一份，
+// 住在 js/popover.js。本模块只从它取那套【开合】，并把 3.0 自己的 .steward-chip-menu 经 opts.layer 交给
+// 它 —— 容器、类名、data-kind、role、[hidden] 与「就地在 .steward-chip-wrap 里」一个字不改。
+import { popover, closePopover } from './popover.js';
 
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
@@ -471,17 +475,27 @@ export function createQuickSwitchChips({
   // 117x-M2：菜单一打开就把焦点交给搜索框（有搜索框的那张菜单才有）。它必须在 hidden = false
   // 【之后】才 focus —— 藏着的元素 focus() 不动，所以建菜单时只把节点记在这里，开完再交焦点。
   let pendingFocus = null;
+  // 32 号文 §4（M1-b）：开合本身（Esc／点外／滚动重定位／焦点归还锚点／同一时刻只允许一张菜单）交给
+  // js/popover.js 那条两壳共用的原语。这里只留【3.0 自己的那一份事实】—— 菜单是就地节点
+  // （.steward-chip-menu 靠 .steward-chip-wrap 定位、靠节点自己的 [hidden] 开合），所以走 opts.layer：
+  // 不新建 .popover、不外挂 body、关闭只 hidden 不 remove。本函数仍是「关掉我自己那张菜单」的唯一入口
+  // （抽屉 closeDrawer 与 setSession 都调它），openMenu 非空 ⇔ 那张菜单正开着，所以不会误关别人的浮层。
   function closeMenu() {
     if (!openMenu) return;
+    closePopover();
+  }
+
+  // 任何一条关闭路径（Esc／点外／自己 close／被下一个浮层顶掉）都到这里：清内容、摘 aria、注销 Esc 层。
+  // 焦点归还由 popover 自己做（锚点就是那颗 chip），不必在这里再来一次。
+  function forgetOpenMenu() {
     pendingFocus = null;
-    openMenu.hidden = true;
-    while (openMenu.firstChild) openMenu.removeChild(openMenu.firstChild);
-    const owner = chips.get(openMenu.dataset.kind);
-    if (owner) {
-      owner.button.setAttribute('aria-expanded', 'false');
-      try { owner.button.focus(); } catch { /* 宿主没有 focus 的环境 */ }
-    }
+    const menu = openMenu;
     openMenu = null;
+    if (menu) {
+      while (menu.firstChild) menu.removeChild(menu.firstChild);
+      const owner = chips.get(menu.dataset.kind);
+      if (owner) owner.button.setAttribute('aria-expanded', 'false');
+    }
     if (releaseEscape) { releaseEscape(); releaseEscape = null; }
   }
 
@@ -781,30 +795,45 @@ export function createQuickSwitchChips({
       if (id !== sessionId) return;                 // 期间宿主换了会话，这一趟作废
       if (full && typeof full === 'object') { session = full; render(); }
     }
-    BUILDERS[kind](chip.menu);
-    // 117v-V2：那句说明摆在【开菜单这一处】，不摆进 buildModelMenu／buildEngineMenu ——
-    // 紧凑模式（看板行）把引擎收进模型菜单的第一段（buildModelMenu 会调 buildEngineMenu），
-    // 摆在两个 builder 里就会在同一张菜单上出两遍。摆在这里天然「一张菜单一句」，
-    // 也不必为紧凑模式补一个 if。判据只认 kind，与「在不在跑」无关（见 STEWARD_SWITCH_NOTE_KINDS）。
-    if (STEWARD_SWITCH_NOTE_KINDS.includes(kind)) {
-      const switchNote = el('p', 'steward-chip-option-hint', t(STEWARD_SWITCH_NOTE_KEY));
-      switchNote.dataset.chipNote = 'switch';   // 静态锁与真夹具都按这个属性数「出没出、出了几遍」
-      chip.menu.appendChild(switchNote);
-    }
-    chip.menu.hidden = false;
-    chip.button.setAttribute('aria-expanded', 'true');
-    openMenu = chip.menu;
-    if (pendingFocus) { const target = pendingFocus; pendingFocus = null; try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ } }
-    releaseEscape = stewardEscapeStack.push(
-      () => { if (!openMenu) return false; closeMenu(); return true; },
-      // 菜单本体、以及打开它的那枚 chip：点这两处不算「点别处」。
-      node => {
-        if (!openMenu || !node) return false;
-        if (openMenu.contains(node)) return true;
-        const owner = chips.get(openMenu.dataset.kind);
-        return Boolean(owner && owner.button && owner.button.contains(node));
+    // 32 号文 §4（M1-b）：开合走 js/popover.js 那颗两壳共用的原语。anchor 是那枚 chip（点它一次开、
+    // 再点一次关，toggle 由原语判）；layer 给的是【3.0 自己的菜单节点】—— 因此不新建 .popover、
+    // 不外挂 body、位置交给 .steward-chip-wrap 那套已定的 CSS（place() 不跑）、关闭只 [hidden]=true
+    // 不 remove。容器、类名、data-kind、role、menu.onkeydown 全部留在原地。
+    popover(chip.button, () => {
+      BUILDERS[kind](chip.menu);
+      // 117v-V2：那句说明摆在【开菜单这一处】，不摆进 buildModelMenu／buildEngineMenu ——
+      // 紧凑模式（看板行）把引擎收进模型菜单的第一段（buildModelMenu 会调 buildEngineMenu），
+      // 摆在两个 builder 里就会在同一张菜单上出两遍。摆在这里天然「一张菜单一句」，
+      // 也不必为紧凑模式补一个 if。判据只认 kind，与「在不在跑」无关（见 STEWARD_SWITCH_NOTE_KINDS）。
+      if (STEWARD_SWITCH_NOTE_KINDS.includes(kind)) {
+        const switchNote = el('p', 'steward-chip-option-hint', t(STEWARD_SWITCH_NOTE_KEY));
+        switchNote.dataset.chipNote = 'switch';   // 静态锁与真夹具都按这个属性数「出没出、出了几遍」
+        chip.menu.appendChild(switchNote);
+      }
+    }, {
+      layer: { mount: chip.menu.parentNode, node: chip.menu },
+      onOpen: () => {
+        openMenu = chip.menu;
+        chip.button.setAttribute('aria-expanded', 'true');
+        // 117j copy-P2-4/5：管家壳的 Esc 只有 steward-shell.js 那一处监听（走 stewardEscapeStack），
+        // 所以这张菜单照旧要 push 自己那一个关闭器 + owns —— 改走 popover 之后这条接线【不能省】：
+        // 少了它就「Esc 关不掉」，或者两路各关一层。
+        releaseEscape = stewardEscapeStack.push(
+          () => { if (!openMenu) return false; closeMenu(); return true; },
+          // 菜单本体、以及打开它的那枚 chip：点这两处不算「点别处」。
+          node => {
+            if (!openMenu || !node) return false;
+            if (openMenu.contains(node)) return true;
+            const owner = chips.get(openMenu.dataset.kind);
+            return Boolean(owner && owner.button && owner.button.contains(node));
+          },
+        );
+        // 117x-M2：焦点必须在 hidden = false【之后】才交（藏着的元素 focus() 不动），而 popover 的
+        // onOpen 正好跑在那一步之后。pendingFocus 由 buildModelMenu 在刚建菜单时记下（有搜索框才有）。
+        if (pendingFocus) { const target = pendingFocus; pendingFocus = null; try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ } }
       },
-    );
+      onClose: forgetOpenMenu,
+    });
   }
 
   // chip 上显示的当前值：权限显示档位人话（未设会话级则「跟随全局」），模型／引擎显示生效值。

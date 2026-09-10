@@ -62,7 +62,16 @@ function makeNode(document, tag) {
   return node;
 }
 function makeDocument() {
-  const document = { activeElement: null, getElementById: () => null };
+  // 32 号文 §4（M1-b）：快切菜单的开合改走 js/popover.js（两壳共用的浮层原语），于是这条路也用到了
+  // document/window 的事件注册（开时挂 keydown／mousedown／resize／scroll，关时逐条摘掉）。假 DOM 把
+  // 这两个口子补齐 —— 补的是 mock 自己的契约，不是让产品代码为测试让路（真机浏览器里它们一直都在）。
+  const listeners = new Set();
+  const document = {
+    activeElement: null,
+    getElementById: () => null,
+    addEventListener: (type, handler) => { listeners.add(handler); },
+    removeEventListener: (type, handler) => { listeners.delete(handler); },
+  };
   document.createElement = tag => makeNode(document, tag);
   return document;
 }
@@ -153,6 +162,8 @@ const fill = (text, params) => {
 async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'gpt-x-pro', compact = false }) {
   const document = makeDocument();
   globalThis.document = document;
+  // popover 还往 window 上挂 resize／scroll（layer 模式下那两个是空转，但「注册」这件事真发生）。
+  globalThis.window = document;
   const mod = await import(url.pathToFileURL(CHIPS).href + '?case=' + encodeURIComponent(tag));
   const missingKeys = [];
   const t = (key, params) => {

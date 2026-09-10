@@ -299,6 +299,8 @@ const ok = (condition, label) => {
   /* ── G：117j 第三批（P2/P3 + classic-3/4）───────────────────────────────────── */
   {
     const chips = read('js/steward-chips.js');
+    // 32 号文 §4（M1-b）：G4 的 chip 那一条改问 popover 原语（焦点归还搬去了那里）。
+    const popoverSrc = read('js/popover.js');
     const settings = read('js/steward-settings.js');
     const classicWindow = read('js/steward-classic-window.js');
     const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
@@ -339,8 +341,17 @@ const ok = (condition, label) => {
     }
     ok((conversation.match(/stewardEscapeStack\.push\(/g) || []).length === 2,
       'G3b ※ 浮层与头像菜单各一处（两个都要，不是只挂一个）');
+    // 32 号文 §4（M1-b）重钉「chip」那一条：开合（含焦点归还）搬进了两壳共用的 popover 原语 ——
+    // 焦点归还这件事一秒都没消失，只是从 chips 的 closeMenu 挪进了 popover.js 的 closePopover，
+    // 锚点就是那颗 chip。原判据只问「chips 源码里有没有 owner.button.focus() 这个字面量」，
+    // 这里补成三件一起问：① popover 原语里真把焦点还给 anchor；② chips 开菜单时用的 anchor 就是
+    // 那颗 chip 按钮（popover(chip.button, …)）；③ chips 里不再留第二处 focus（不许两路竞争）。
+    // 比原来强：原来那条就算 focus 被搬走、甚至没人再归还焦点，也照样绿。
+    ok(popoverSrc.includes('anchor.focus()')
+      && /popover\(chip\.button,/.test(chips)
+      && !/owner\.button\.focus\(\)/.test(chips),
+      'G4 copy-P2-4/5：chip 关掉时把焦点还回触发它的控件（M1-b 起由 popover 原语的锚点归还，且只有这一处）');
     for (const [name, source, needle] of [
-      ['chip', chips, 'owner.button.focus()'],
       ['盾牌', settings, 'btn.focus()'],
       ['头像', conversation, 'avatar.focus()'],
       ['※', conversation, 'trigger.focus()'],

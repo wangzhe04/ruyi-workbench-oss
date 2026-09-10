@@ -39,7 +39,11 @@ export function popover(anchorEl, buildContent, opts = {}) {
   const keep = Boolean(layer && layer.node);
   const close = () => closePopover();
   if (keep) { while (node.firstChild) node.removeChild(node.firstChild); }
-  node.appendChild(buildContent(close));
+  // 2.0：buildContent 返回浮层内容节点，由本函数挂进去（返回 null 就是调用方 bug，照旧抛）。
+  // layer 模式：节点本身由调用方给，buildContent 自己往 node 里填 —— 返回值可有可无（3.0 的菜单
+  // 就是菜单本体，把返回值再 append 回它自己会 HierarchyRequestError）。
+  if (!layer) node.appendChild(buildContent(close));
+  else { const built = buildContent(close); if (built) node.appendChild(built); }
   if (layer && layer.mount) layer.mount.appendChild(node); else document.body.appendChild(node);
   if (keep) node.hidden = false;
   const place = () => {
