@@ -1127,6 +1127,119 @@ try {
   ok(oneDrawer && oneDrawer.blocksInRows === 0 && oneDrawer.inputsInRows === 0 && oneDrawer.strays === 0,
     `H1b 小行里零抽屉区块、零输入框，整页也没有第二处 #stewardDrawer* 节点（实测 区块 ${oneDrawer && oneDrawer.blocksInRows}／输入框 ${oneDrawer && oneDrawer.inputsInRows}／游离 ${oneDrawer && oneDrawer.strays}）`);
 
+  // ── N 危险操作确认「四套收一套」的调用点流程（33 号文 §4 M3-a）─────────────────
+  // 前置：把抽屉重新钉回线程 A。「整单回退」退的是【抽屉当前这条线程】的第一条用户消息
+  // （steward-drawer.js firstUserTurnSeq 读的是 session.messages，不是 API 里那条）。跑到这里抽屉
+  // 已被前面几段（页签切换／问答卡／右栏小行）换过线程，直接点那枚按钮会停在 firstUserTurnSeq 的
+  // 零判据上原地返回、说明行印「这个会话还没有可回退的回合。」，连确认件那一行都走不到 —— 那样 N 段
+  // 就成了在一条空线程上自说自话（首版实测正是如此）。所以先照 B1 的做法重开 A，并等它的切片真的
+  // 落进抽屉（标题回到「报表汇总」、最后一句也印出来了；这两个字段都由 session.messages 投影而来），
+  // 再谈确认件。原生 confirm 那版同样过不了零判据，所以这一步不是为迁就新件，而是那处的既有前提。
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread', { detail: { sessionId: '${idA}' } })), true`);
+  const backOnA = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return (snapshot.title === ${JSON.stringify(THREAD_A)} && snapshot.lastSay) ? snapshot : null;
+  })()`);
+  ok(Boolean(backOnA), `N-1 抽屉重新钉回线程 A、且它的切片已落（标题「${THREAD_A}」，实测「${backOnA && backOnA.title}」／「${backOnA && backOnA.lastSay}」）`);
+
+  // 抽屉「整单回退」修前走原生 globalThis.confirm —— 全站唯一跳出应用的浮层（不跟主题、不跟语言、
+  // 焦点不归壳管）。改走 js/confirm-panel.js 的共用确认件后，这里正面验四件事：
+  //   ① 点那一枚出的是【应用内】模态（.modal-backdrop.confirm-panel + role=dialog/aria-modal），不是
+  //      原生框 —— 原生 confirm 会把 CDP 卡死在对话框上，下面这些断言根本执行不到；
+  //   ② 标题／正文／两枚按钮的文案逐字来自 locale 那几个键（键集中登记在确认件里一处）；
+  //   ③ 取消 = 不动手（A 的用户消息一条没少）；
+  //   ④ 确认 = 真动手（A 被退回第一句话之前）—— 这正是「同步变异步」要守的那条线：await 到 false
+  //      就什么都不做，await 到 true 才继续发 /api/stop + /api/session/rewind。
+  const REWIND_PANEL = `(() => {
+    const backdrop = document.querySelector('.modal-backdrop.confirm-panel');
+    if (!backdrop) return null;
+    const modal = backdrop.querySelector('.modal');
+    if (!modal) return null;
+    const head = modal.querySelector('.modal-head h3');
+    const para = modal.querySelector('.modal-body .confirm-body p');
+    const okBtn = modal.querySelector('.modal-foot [data-confirm="ok"]');
+    const cancelBtn = modal.querySelector('.modal-foot [data-confirm="cancel"]');
+    return {
+      role: modal.getAttribute('role'),
+      ariaModal: modal.getAttribute('aria-modal'),
+      ariaLabel: modal.getAttribute('aria-label'),
+      title: head ? head.textContent.trim() : '',
+      body: para ? para.textContent.trim() : '',
+      okText: okBtn ? okBtn.textContent.trim() : '',
+      cancelText: cancelBtn ? cancelBtn.textContent.trim() : '',
+      hasOk: Boolean(okBtn),
+      hasCancel: Boolean(cancelBtn),
+      focusOnCancel: cancelBtn ? document.activeElement === cancelBtn : false,
+      panels: document.querySelectorAll('.modal-backdrop.confirm-panel').length,
+    };
+  })()`;
+  const stillHasUserMessage = async () => {
+    const result = await request(appPort, 'GET', `/api/sessions/${idA}`, null, token);
+    const messages = (result && result.json && result.json.session && result.json.session.messages) || [];
+    return messages.some(message => message && message.role === 'user');
+  };
+  // 点之前先摸清那枚按钮的真身：117u-G1 起「整单回退」被收进一枚默认收起的 <details>（动作分级），
+  // 所以「点了没反应」有两种可能 —— 按钮根本不在文档里，或它在收起的 <details> 里而 click 没落到处理器
+  // 上。这一条把按钮状态与抽屉的说明行一并报出来，免得后面 N1 只看到一个 null。
+  const clickRewind = async () => cdp.evaluate(`(() => {
+    const button = document.getElementById('stewardDrawerRewindBtn');
+    const note = document.getElementById('stewardDrawerNote');
+    const info = {
+      found: Boolean(button),
+      disabled: button ? Boolean(button.disabled) : false,
+      inClosedDetails: button ? Boolean(button.closest('details:not([open])')) : false,
+      wired: button ? typeof button.onclick === 'function' : false,
+      note: note ? note.textContent.trim() : '',
+      backdrops: document.querySelectorAll('.modal-backdrop').length,
+    };
+    if (button) button.click();
+    return info;
+  })()`);
+  ok(await stillHasUserMessage(), 'N0 前置：A 此刻还带着它的用户消息（后两条才谈得上「动没动手」）');
+  const rewindClick = await clickRewind();
+  ok(Boolean(rewindClick) && rewindClick.found && rewindClick.wired && !rewindClick.disabled,
+    `N0b 「整单回退」在文档里、接着处理器、未被禁用（实测 ${JSON.stringify(rewindClick)}）`);
+  const rewindPanel = await waitForEval(cdp, `(() => { const snapshot = ${REWIND_PANEL}; return snapshot || null; })()`);
+  // 拿不到面板时把现场一并报出来（抽屉说明行说了什么、页面上有哪些背影）—— 挂进 N1 的标签里带走，
+  // 免得失败只有一句 null（跑一次真浏览器 e2e 要一分半，别让它白跑）。
+  const rewindMiss = rewindPanel ? '' : JSON.stringify(await cdp.evaluate(`(() => {
+    const note = document.getElementById('stewardDrawerNote');
+    return {
+      note: note ? note.textContent.trim() : '',
+      backdrops: [...document.querySelectorAll('.modal-backdrop')].map(n => n.className),
+    };
+  })()`));
+  ok(Boolean(rewindPanel), `N1 点「整单回退」出的是应用内确认模态（原生 confirm 会卡死 CDP，本条不可能假过）${rewindPanel ? '' : '｜现场 ' + rewindMiss}`);
+  ok(Boolean(rewindPanel) && rewindPanel.panels === 1 && rewindPanel.role === 'dialog' && rewindPanel.ariaModal === 'true',
+    `N1b 只有一层确认、且是 role=dialog + aria-modal=true（实测 ${rewindPanel && rewindPanel.panels} 层／role=${rewindPanel && rewindPanel.role}／aria-modal=${rewindPanel && rewindPanel.ariaModal}）`);
+  ok(Boolean(rewindPanel) && rewindPanel.title === zh['stewardShell.drawer.rewindAll']
+    && rewindPanel.body === zh['stewardShell.drawer.rewindConfirm']
+    && rewindPanel.ariaLabel === zh['stewardShell.drawer.rewindAll'],
+    `N2 标题复用按钮自己的说法、正文逐字来自 locale（实测「${rewindPanel && rewindPanel.title}」／「${rewindPanel && rewindPanel.body}」）`);
+  ok(Boolean(rewindPanel) && rewindPanel.hasOk && rewindPanel.hasCancel
+    && rewindPanel.okText === zh['common.confirm'] && rewindPanel.cancelText === zh['common.cancel'],
+    `N2b 两枚按钮用的是既有公共键 common.confirm／common.cancel（实测「${rewindPanel && rewindPanel.okText}」／「${rewindPanel && rewindPanel.cancelText}」）`);
+  ok(Boolean(rewindPanel) && rewindPanel.focusOnCancel === true,
+    'N2c 默认焦点落在「取消」上（危险动作不该按一次回车就执行）');
+
+  // ③ 取消：什么都不该发生
+  await cdp.evaluate(`(() => { const b = document.querySelector('.modal-backdrop.confirm-panel [data-confirm="cancel"]'); if (b) b.click(); return true; })()`);
+  await waitForEval(cdp, `document.querySelectorAll('.modal-backdrop.confirm-panel').length === 0 ? 1 : null`);
+  await sleep(300);
+  ok(await stillHasUserMessage(), 'N3 点「取消」：确认层收起且 A 一条消息没少（await 到 false 就不动手）');
+
+  // ④ 确认：真动手
+  await clickRewind();
+  await waitForEval(cdp, `(() => { const snapshot = ${REWIND_PANEL}; return snapshot || null; })()`);
+  await cdp.evaluate(`(() => { const b = document.querySelector('.modal-backdrop.confirm-panel [data-confirm="ok"]'); if (b) b.click(); return true; })()`);
+  const afterRewind = await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`, result => {
+    const messages = (result.json && result.json.session && result.json.session.messages) || [];
+    return !messages.some(message => message && message.role === 'user');
+  }, token);
+  ok(Boolean(afterRewind), 'N4 点「确认」：真发 /api/stop + /api/session/rewind，A 退回第一句话之前（await 到 true 才往下走）');
+  ok((await waitForEval(cdp, `document.querySelectorAll('.modal-backdrop.confirm-panel').length === 0 ? 1 : null`)) === 1,
+    'N4b 动手之后确认层自己收起（不留悬空浮层、不挡住抽屉）');
+
   // ── ⑧ Esc 关闭 ─────────────────────────────────────────────────────────────
   await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true`);
   const closed = await waitForEval(cdp, `(() => {

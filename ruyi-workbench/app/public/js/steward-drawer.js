@@ -34,6 +34,10 @@ import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDel
 // 一个字都不用动。
 import { pausableRunOf, runControlAction, runTextKeys } from './run-state.js';
 export { pausableRunOf };
+// 33 号文 §4（M3-a）：危险操作确认四套收一套 —— 本抽屉「整单回退」修前走原生 globalThis.confirm
+// （不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套（建在 js/modal.js 上，
+// 与本文件底部的抽屉浮层共用同一份焦点陷阱/焦点归还语义）。
+import { confirmDanger } from './confirm-panel.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -1108,7 +1112,9 @@ export function createStewardDrawer({
   async function rewindAll() {
     const target = firstUserTurnSeq();
     if (!target) { note(t('stewardShell.drawer.rewindNoTarget')); return; }
-    if (globalThis.confirm && !globalThis.confirm(t('stewardShell.drawer.rewindConfirm'))) return;
+    // 33 号文 §4（M3-a）：原生 confirm 退役 —— 整单回退会撤销这期间改过的文件，不可逆，确认件必须
+    // 跟主题、跟语言、焦点归壳管。同步变异步：没得到允许就不动手。
+    if (!await confirmDanger({ name: 'rewindAll' })) return;
     try {
       await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
       const rewound = await api('/api/session/rewind', {
