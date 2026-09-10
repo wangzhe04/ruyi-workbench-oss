@@ -357,18 +357,19 @@ const ok = (condition, label) => {
       && /popover\(chip\.button,/.test(chips)
       && !/owner\.button\.focus\(\)/.test(chips),
       'G4 copy-P2-4/5：chip 关掉时把焦点还回触发它的控件（M1-b 起由 popover 原语的锚点归还，且只有这一处）');
-    // 32 号文 §4（M2）重钉「头像」那一条：头像菜单的开合（含焦点归还）也搬进了两壳共用的 popover
-    // 原语 —— 焦点归还这件事一秒都没消失，只是从 closeMenu 挪进了 popover.js 的 closePopover，
-    // 锚点就是头像。与上面 G4 的 chip 那一条同口径、同样比原来强：原来那条只问「conversation 源码里
-    // 有没有 avatar.focus() 这个字面量」，焦点被搬走、甚至没人再归还它也照样绿。这里补成三件一起问：
-    // ① 原语里真把焦点还给 anchor；② 开菜单用的 anchor 就是头像（popover(avatar, …)）；③ 本模块里
-    // 不再留第二处 focus（不许两路竞争）。※ 那一条仍钉旧字面量（它这一刀没动）。
+    // 32 号文 §4（M2）重钉「※」那一条：※ 浮层的开合（含焦点归还）也搬进了两壳共用的 popover 原语
+    // —— 焦点归还这件事一秒都没消失，只是从 closeWhy 挪进了 popover.js 的 closePopover，锚点就是那枚
+    // ※ 触发器。与上面 G4 的 chip／头像两条同口径、同样比原来强：原来那条只问「conversation 源码里
+    // 有没有 trigger.focus() 这个字面量」，焦点被搬走、甚至没人再归还它也照样绿。这里补成三件一起问：
+    // ① 原语里真把焦点还给 anchor；② 开浮层用的 anchor 就是那枚 ※（popover(trigger, …)）；③ 本模块
+    // 里不再留第二处 focus（不许两路竞争）。
     for (const [name, source, needle] of [
       ['盾牌', settings, 'btn.focus()'],
-      ['※', conversation, 'trigger.focus()'],
     ]) ok(source.includes(needle), `G4 copy-P2-4/5：${name} 关掉时把焦点还回触发它的控件`);
     ok(/popover\(avatar, /.test(conversation) && !/avatar\.focus\(\)/.test(conversation),
       'G4 copy-P2-4/5：头像菜单关掉时把焦点还回头像（M2 起由 popover 原语的锚点归还，且只有这一处）');
+    ok(/popover\(trigger, /.test(conversation) && !/trigger\.focus\(\)/.test(conversation),
+      'G4 copy-P2-4/5：※ 浮层关掉时把焦点还回句尾那枚 ※（M2 起由 popover 原语的锚点归还，且只有这一处）');
     ok(/avatar\.setAttribute\('aria-controls', menu\.id\)/.test(conversation)
       && /btn\.setAttribute\('aria-controls', 'stewardShieldMenu'\)/.test(settings)
       && /chip\.setAttribute\('aria-controls', 'stewardTargetPicker'\)/.test(composer),

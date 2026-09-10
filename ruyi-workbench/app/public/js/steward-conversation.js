@@ -654,35 +654,54 @@ export function createStewardConversation({
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', t('stewardShell.chat.whyLabel'));
     pop.hidden = true;
-    if (!whyLines.length && !doneRows.length) pop.appendChild(el('p', 'steward-why-line', t('stewardShell.chat.whyEmpty')));
-    if (whyLines.length) {
-      pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyHeading')));
-      for (const line of whyLines) pop.appendChild(el('p', 'steward-why-line', line));
+    // 浮层内容的写手。32 号文 §4（M2）：开合交给两壳共用的 js/popover.js 之后，layer 模式会在开之前
+    // 清空容器，所以内容得「随叫随写」；建的时候先写一遍 —— 收着的浮层里也照样是那些行（真机 e2e 的
+    // lastWhy 就是「不管开着还是收着都读」），之后每一次开再由原语写一遍。
+    function fillWhy() {
+      while (pop.firstChild) pop.removeChild(pop.firstChild);
+      if (!whyLines.length && !doneRows.length) pop.appendChild(el('p', 'steward-why-line', t('stewardShell.chat.whyEmpty')));
+      if (whyLines.length) {
+        pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyHeading')));
+        for (const line of whyLines) pop.appendChild(el('p', 'steward-why-line', line));
+      }
+      if (doneRows.length) {
+        pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyDone')));
+        for (const line of doneRows) pop.appendChild(el('p', 'steward-why-line', line));
+      }
     }
-    if (doneRows.length) {
-      pop.appendChild(el('h4', 'steward-why-h', t('stewardShell.chat.whyDone')));
-      for (const line of doneRows) pop.appendChild(el('p', 'steward-why-line', line));
-    }
-    // 117j UX-F4：※ 浮层的 Esc 此前挂在浮层【自己】身上 —— 点开它焦点还在触发按钮上，
-    // 键盘事件根本不经过浮层，于是那条监听形同虚设。改成开的时候进 Esc 栈（栈的监听在 document 上）。
+    fillWhy();
+    // 32 号文 §4（M2）：开合本身（Esc／点外／焦点归还锚点／同一时刻只允许一个浮层）交给两壳共用的
+    // js/popover.js。※ 是【就地节点】（.steward-why-pop 靠 .steward-msg-ruyi 那套已定的 CSS、靠节点
+    // 自己的 [hidden] 开合），所以传 opts.layer：不新建 .popover、不外挂 body、关闭只 [hidden] = true
+    // 不 remove —— 容器、类名、role、aria 一个字不改。117j UX-F4 那条「点开后焦点还在触发按钮上，
+    // 挂在浮层自己身上的 Esc 形同虚设」由原语的 document 捕获监听接管；锚点就是这枚 ※，所以三条关闭
+    // 路径（Esc／点外／再点一次）焦点都照旧还给句尾那枚按钮，不在这里再来一次。
     let releaseWhyEscape = null;
     const closeWhy = () => {
-      if (pop.hidden) return false;
-      pop.hidden = true;
-      trigger.setAttribute('aria-expanded', 'false');
-      try { trigger.focus(); } catch { /* 宿主没有 focus 的环境 */ }
-      if (releaseWhyEscape) { releaseWhyEscape(); releaseWhyEscape = null; }
+      if (popoverAnchor() !== trigger) return false;   // 这一张 ※ 没开着（开着的是别人的浮层）
+      closePopover();
       return true;
     };
+    // 任何一条关闭路径（Esc／点外／自己关／被下一个浮层顶掉）都到这里：摘 aria、注销 Esc 层。
+    const forgetOpenWhy = () => {
+      trigger.setAttribute('aria-expanded', 'false');
+      if (releaseWhyEscape) { releaseWhyEscape(); releaseWhyEscape = null; }
+    };
     trigger.addEventListener('click', () => {
-      if (!pop.hidden) { closeWhy(); return; }
-      pop.hidden = false;
-      trigger.setAttribute('aria-expanded', 'true');
-      releaseWhyEscape = stewardEscapeStack.push(closeWhy,
-        node => Boolean(node && (pop.contains(node) || trigger.contains(node))));   // 117k：点别处收回
-    });
-    pop.addEventListener('keydown', event => {
-      if (event.key === 'Escape') closeWhy();   // 焦点真在浮层里时的近路（栈那一路同样能关）
+      const mount = pop.parentNode;   // 就地浮层：调用方把返回值挂进那一行之后才可能有人点它
+      if (!mount) return;
+      popover(trigger, () => { fillWhy(); }, {
+        layer: { mount, node: pop },
+        onOpen: () => {
+          trigger.setAttribute('aria-expanded', 'true');
+          // 117j UX-F4：管家壳的 Esc 只有 steward-shell.js 那一处监听（走 stewardEscapeStack），
+          // 所以这张浮层照旧要 push 自己那一个关闭器 + owns —— 改走 popover 之后这条接线【不能省】：
+          // 少了它就「Esc 关不掉」，或者两路各关一层。
+          releaseWhyEscape = stewardEscapeStack.push(closeWhy,
+            node => Boolean(node && (pop.contains(node) || trigger.contains(node))));   // 117k：点别处收回
+        },
+        onClose: forgetOpenWhy,
+      });
     });
     // 117s-C：markdown 渲染之后 sayNode 里装的是块级元素，※ 直接挂在 sayNode 上会掉到新的一行。
     // 挂进最后那个 <p> 里（句尾原位，与纯文本时代逐像素一致）；最后一块不是段落（代码块、表格、
