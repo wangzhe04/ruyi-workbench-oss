@@ -310,6 +310,53 @@ try {
       `N3 锁 5:PATCH createdBy 被白名单拒绝,会话头上仍然没有这个字段(got ${JSON.stringify(headOf() && headOf().createdBy)})`);
     ok(headOf() && headOf().title === '改过名的线程',
       `N3b 反向:同一次 PATCH 里的 title 真写进去了(证明拒的是 createdBy 这一个键,不是整条请求;got ${headOf() && headOf().title})`);
+
+    /* ── 117z-E2b 提交②(27 号文 §11.21.7 债 ②):PATCH desktopTools:true 与「切全自动」同一道确认门 ── */
+    // 修前 13d 只对 permissionMode 切全自动要 confirm:true(409),desktopTools:true 直接过 —— 同一道门两种
+    // 口径。修后:严格 === true 才要确认;false / null / 野值都是收紧或清除,不确认;错误码沿用同一个。
+    // 通过后照 permission_mode 那条 logEvent 的形状记一行(source:'desktop_tools'),事后能对账。
+    const sessionLogRows = source => {
+      const day = new Date().toISOString().slice(0, 10);
+      try {
+        return fs.readFileSync(path.join(HOME, 'logs', `workbench-${day}.ndjson`), 'utf8')
+          .split(/\r?\n/).filter(l => l.trim()).map(l => { try { return JSON.parse(l); } catch { return null; } })
+          .filter(r => r && r.kind === 'session' && r.source === source && r.sessionId === sid);
+      } catch { return []; }
+    };
+    const noConfirm = await request('PATCH', '/api/sessions/' + sid, { desktopTools: true }, hdr);
+    const noConfirmCode = noConfirm.json && noConfirm.json.error && noConfirm.json.error.code;
+    ok(noConfirm.status === 409 && noConfirmCode === 'permission.confirm_required',
+      `N4 desktopTools:true 缺 confirm:true -> 409 permission.confirm_required(与切全自动同一个错误码;got ${noConfirm.status} ${noConfirmCode})`);
+    ok(noConfirm.json && noConfirm.json.error && noConfirm.json.error.params && noConfirm.json.error.params.desktopTools === true,
+      'N4b 错误 params 带 desktopTools:true(界面据此说人话,与 permissionMode 那条同形)');
+    await sleep(200);
+    ok(headOf() && headOf().desktopTools === undefined,
+      `N5 被挡下时会话头不变(仍没有 desktopTools 键;got ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    const logBefore = sessionLogRows('desktop_tools').length;
+    const confirmed = await request('PATCH', '/api/sessions/' + sid, { desktopTools: true, confirm: true }, hdr);
+    ok(confirmed.status === 200 && confirmed.json && confirmed.json.ok === true, `N6 带 confirm:true -> 200(got ${confirmed.status})`);
+    await sleep(300);
+    ok(headOf() && headOf().desktopTools === true, `N6b 确认后真的落盘(got ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    ok(headOf() && !Object.prototype.hasOwnProperty.call(headOf(), 'confirm'), 'N6c confirm 是请求级信号,不落进会话头');
+    const logRows = sessionLogRows('desktop_tools');
+    const logLast = logRows[logRows.length - 1] || null;
+    ok(logRows.length === logBefore + 1 && logLast && logLast.desktopTools === true && logLast.confirmed === true,
+      `N6d 审计照 permission_mode 那条的形状记一行(source:'desktop_tools', desktopTools:true, confirmed:true;got ${JSON.stringify(logLast)})`);
+    const tightened = await request('PATCH', '/api/sessions/' + sid, { desktopTools: false }, hdr);
+    await sleep(200);
+    ok(tightened.status === 200 && headOf() && headOf().desktopTools === false,
+      `N7 desktopTools:false 不需要确认,直接落盘(收紧;got ${tightened.status} / ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    const cleared = await request('PATCH', '/api/sessions/' + sid, { desktopTools: null }, hdr);
+    await sleep(200);
+    ok(cleared.status === 200 && headOf() && headOf().desktopTools === undefined,
+      `N7b 清除(null)同样不需要确认,键被删掉回落全局(got ${cleared.status} / ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    // 严格 === true:字符串 'true' 既不是放宽(02 的三态归一把它当 null = 清除),也不该被当成放宽去要确认。
+    const stringy = await request('PATCH', '/api/sessions/' + sid, { desktopTools: 'true' }, hdr);
+    await sleep(200);
+    ok(stringy.status === 200 && headOf() && headOf().desktopTools === undefined,
+      `N7c 野值 'true' 不触发确认门,也不落成放宽(got ${stringy.status} / ${JSON.stringify(headOf() && headOf().desktopTools)})`);
+    ok(sessionLogRows('desktop_tools').length === logBefore + 4,
+      `N8 每次带 desktopTools 键的 PATCH 通过后都记一行(true/false/null/野值 = 4 行;got ${sessionLogRows('desktop_tools').length - logBefore})`);
   }
 
   /* ═════════ (Q) 117z-E2b 提交①:「给它开桌面」那枚按钮真的按得下去(27 号文 §11.21.7 债 ①) ═════════ */

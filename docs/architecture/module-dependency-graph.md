@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 49 | 2086 | 2285 | 390 | 67 | 0 | 1 |
+| 49 | 2086 | 2286 | 390 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -50,7 +50,7 @@
 | 32 | `13-http-router.js` | transport | 64 | 201 | 23 |
 | 33 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
 | 34 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 35 | `13d-core-domain-routes.js` | transport | 43 | 111 | 14 |
+| 35 | `13d-core-domain-routes.js` | transport | 43 | 112 | 14 |
 | 36 | `13e-pretender-index.js` | transport | 36 | 26 | 8 |
 | 37 | `13i-steward-inbox.js` | transport | 63 | 22 | 7 |
 | 38 | `13j-steward-tool-base.js` | transport | 61 | 18 | 5 |
@@ -300,7 +300,7 @@
 | `13d-core-domain-routes.js` | `00-boot.js` | backward | `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13d-core-domain-routes.js` | `01-config.js` | backward | `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `RUNTIME`, `atomicWriteJson`, `readConfig`, `readJsonBody`, `resolvePermissionMode`, `safeSessionId`, `send`, `tokenOk` |
 | `13d-core-domain-routes.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
-| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionControlCommand`, `missionControlView`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `patchMissionContainer`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionSessionHead`, `readSessionHeadResilient`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionKind`, `sessionMeta`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
+| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionControlCommand`, `missionControlView`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `patchMissionContainer`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionSessionHead`, `readSessionHeadResilient`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionBriefOf`, `sessionDesktopToolsOf`, `sessionDisplayTitle`, `sessionKind`, `sessionMeta`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
 | `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `consumeGrant` |

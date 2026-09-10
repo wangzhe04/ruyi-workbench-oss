@@ -368,6 +368,13 @@ async function handleSessionApiRoutes(req, res, pathname) {
             'switching a thread to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)', 409));
         }
       }
+      // 117z-E2b 提交②(27 号文 §11.21.7 债 ②):给线程开桌面工具是与「切全自动」同一道门的另一种口径 ——
+      // 修前只有 permissionMode 要 confirm:true,`desktopTools:true` 直接过。严格只看 === true:false / null /
+      // '' / 不带键都是收紧或清除,与 permissionMode 那条一样不需要确认。错误码沿用同一个,前端一处分支。
+      if (body && body.desktopTools === true && body.confirm !== true) {
+        return send(res, apiFailure('permission.confirm_required', { desktopTools: true },
+          'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
+      }
       const session = await updateSessionMeta(id, body);
       if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
       const patchedConfig = await readConfig();
@@ -377,6 +384,15 @@ async function handleSessionApiRoutes(req, res, pathname) {
           kind: 'session', source: 'permission_mode', sessionId: id,
           permissionMode: sessionMeta(session).permissionMode,
           effectivePermissionMode: resolvePermissionMode({ session, config: patchedConfig }),
+          confirmed: body.confirm === true,
+        });
+      }
+      // 117z-E2b 提交②:桌面工具的会话级覆盖同样是安全面,照 permission_mode 那条的形状记一行
+      //(哪条线程、写成了什么、是不是带 confirm 来的)。desktopTools 读的是落盘后的三态(true/false/null)。
+      if (body && Object.prototype.hasOwnProperty.call(body, 'desktopTools')) {
+        logEvent({
+          kind: 'session', source: 'desktop_tools', sessionId: id,
+          desktopTools: sessionDesktopToolsOf(session),
           confirmed: body.confirm === true,
         });
       }
