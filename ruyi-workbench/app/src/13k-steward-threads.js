@@ -17,6 +17,64 @@
 // 全部后向边;它自己的符号只被 13g 的注册表引用,同样是后向边。
 // ============================================================================
 
+// ── 117w-W1 提交①(27 号文 §11.19.4):cwd 校验先行 ──────────────────────────────────────
+// 病灶:thread_new / quick_ask 原先把 args.cwd 【原样透传】给 createSession(零校验),而 createSession
+// 的回落链是 `cwd || config.defaultWorkspace || os.homedir()`。今天没出事只因为管家读不到工作区表
+// (workspaces 在 06i 的 forbidden 清册里)所以从不传 cwd —— 一旦 §11.19.4 提交③ 把表喂进上下文,
+// 幻觉路径会被直接接受。所以校验先行:本提交零行为变化(管家本来就不传),但门先装上。
+//
+// 三态(与 §11.19.2 同一口径;提交① 只实现 ① 与 ③,「省略 → 派生子工作区」是提交②):
+//   ① 省略/空串 → 不传,走 createSession 原有的回落链(与修前逐字节相同)。
+//   ② 归一化后 ∈ config.workspaces[].path → 用【表里那一行】的归一化值(不是调用方的写法)。
+//   ③ 其它任何值 → invalid_request。`~`、主目录、相对路径、只在 recentWorkspaces 里的路径,全在这一档。
+//      红线两条(§11.19.3):`~` 不是合法值(仓里自己的 03 cwdWarning 把主目录判成最高风险目标);
+//      recentWorkspaces 不进候选(打开过 ≠ 授权过)。【不静默回落】—— 回落等于把幻觉路径洗成默认工作区。
+//
+// 归一化用仓里既有的那一份:01-config 清洗 workspaces 时用的 normalizeWorkspacePathString(剥
+// Windows「复制为路径」带的引号 + trim + 截 1000),外加 path.resolve 收斜杠与尾斜杠。两侧【同一个
+// 函数、同一个顺序】,否则表里的 `C:\a\` 与传入的 `C:/a` 会被判成两个东西。注意 normalizeWorkspacePathString
+// 自己【不做】path.resolve —— 表里存的就是用户敲进去的原样,所以 resolve 这一步两边都得补上。
+const STEWARD_CWD_CANDIDATES_MAX = 8;
+
+// 把一个工作区路径字符串折成可逐字比较的规范形;非绝对路径一律折成 ''(相对路径会被 path.resolve
+// 按【服务进程的 cwd】补全,那是一条无声的越权路,所以在这里就掐掉)。
+function stewardCanonWorkspacePath(stewardWsPathRaw) {
+  const cleaned = normalizeWorkspacePathString(stewardWsPathRaw);
+  if (!cleaned || !path.isAbsolute(cleaned)) return '';
+  return path.resolve(cleaned);
+}
+
+// win32 忽略大小写比较,其余平台逐字比较。理由两条:(1) NTFS/ReFS 默认不区分大小写,`C:\Work` 与
+// `c:\work` 就是同一个目录,放行一个拒掉另一个是任意的;(2) 01-config 自己的 workspaces 去重键就是
+// `p.toLowerCase()`,配置层已经把两种写法当成【同一行】—— 这里再做区分大小写就比表本身还严,会出现
+// 「表里加不进第二份、传进来又被拒」的死角。非 win32 上文件系统真区分大小写,所以不折。
+function stewardFoldWorkspacePath(stewardWsPathCanon) {
+  return process.platform === 'win32' ? String(stewardWsPathCanon).toLowerCase() : String(stewardWsPathCanon);
+}
+
+// 返回 { ok:true, cwd } —— cwd 为 undefined 表示「照旧不传」;或 { ok:false, fail } —— fail 是现成的稳定信封。
+// thread_new 与 quick_ask 两处【共用这一份】,不许各抄一遍(静态锁钉着出现次数)。
+function stewardValidateCwd(stewardCwdRaw, stewardCwdConfig) {
+  const given = stewardCwdRaw == null ? '' : String(stewardCwdRaw);
+  if (!given.trim()) return { ok: true, cwd: undefined };          // ① 省略 → 行为与修前逐字节相同
+  const rows = Array.isArray(stewardCwdConfig && stewardCwdConfig.workspaces) ? stewardCwdConfig.workspaces : [];
+  const table = [];
+  for (const row of rows) {
+    const canon = stewardCanonWorkspacePath(row && row.path);
+    if (canon && !table.includes(canon)) table.push(canon);
+  }
+  const wanted = stewardCanonWorkspacePath(given);
+  const hit = wanted ? table.find(entry => stewardFoldWorkspacePath(entry) === stewardFoldWorkspacePath(wanted)) : '';
+  if (hit) return { ok: true, cwd: hit };                          // ② 表内 → 用表里那一行的归一化值
+  // ③ 其它 → 拒。人话说清「不在工作区表里」并列出表内候选的末段名(末段名足够让模型改对,又不泄露全路径)。
+  const names = table.slice(0, STEWARD_CWD_CANDIDATES_MAX).map(entry => path.basename(entry) || entry);
+  const more = table.length > STEWARD_CWD_CANDIDATES_MAX ? `,另有 ${table.length - STEWARD_CWD_CANDIDATES_MAX} 个未列出` : '';
+  const message = names.length
+    ? `cwd 不在工作区表里(不要自己编路径)。表里现有:${names.join('、')}${more}。要用别处请先请用户在设置里把那个文件夹加成工作区;不确定就【省掉 cwd】,不要重试同一个值。`
+    : 'cwd 不在工作区表里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';
+  return { ok: false, fail: stewardFail('invalid_request', message, { reason: 'cwd_not_in_workspaces' }) };
+}
+
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
 async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
@@ -377,10 +435,13 @@ async function stewardImplThreadNew(args, ctx, config) {
   const composed = buildStewardBrief(brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
+  // 117w-W1 ①:cwd 三态校验(见文件头的 stewardValidateCwd)。表外一律拒,不静默回落。
+  const cwdCheck = stewardValidateCwd(args.cwd, config);
+  if (!cwdCheck.ok) return cwdCheck.fail;
 
   const session = await createSession({
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
-    cwd: args.cwd ? String(args.cwd) : undefined,
+    cwd: cwdCheck.cwd,
   });
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
@@ -631,12 +692,16 @@ async function stewardImplQuickAsk(args, ctx, config) {
   if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
     return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
   }
+  // 117w-W1 ①:与 thread_new 共用同一份 cwd 三态校验(见文件头的 stewardValidateCwd)。
+  // 排在配额之前:参数不合法不该烧掉本回合的速查名额(与上面 question 的两道校验同一位置)。
+  const quickCwdCheck = stewardValidateCwd(args.cwd, config);
+  if (!quickCwdCheck.ok) return quickCwdCheck.fail;
   if (!stewardTurnQuotaTake('quick_ask', ctx, STEWARD_QUICK_ASKS_PER_TURN)) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
     title: question.slice(0, STEWARD_TITLE_MAX),
-    cwd: args.cwd ? String(args.cwd) : undefined,
+    cwd: quickCwdCheck.cwd,
   });
   session.kind = STEWARD_QUICK_KIND;
   // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要

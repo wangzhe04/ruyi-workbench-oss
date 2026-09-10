@@ -11930,7 +11930,10 @@
       "file": "13k-steward-threads.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_CWD_CANDIDATES_MAX",
+        "stewardCanonWorkspacePath",
         "stewardEnrichInboxRows",
+        "stewardFoldWorkspacePath",
         "stewardImplQuickAsk",
         "stewardImplThreadContinue",
         "stewardImplThreadNew",
@@ -11946,7 +11949,8 @@
         "stewardRelayAutoAllowed",
         "stewardToolCallLine",
         "stewardTriggerOf",
-        "stewardUnattendedByModel"
+        "stewardUnattendedByModel",
+        "stewardValidateCwd"
       ],
       "requires": [
         {
@@ -11958,9 +11962,23 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "normalizeWorkspacePathString",
+          "kinds": [
+            "call"
           ]
         },
         {

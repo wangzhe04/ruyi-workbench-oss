@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 49 | 2066 | 2274 | 390 | 67 | 0 | 1 |
+| 49 | 2070 | 2276 | 390 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -54,7 +54,7 @@
 | 36 | `13e-pretender-index.js` | transport | 36 | 26 | 8 |
 | 37 | `13i-steward-inbox.js` | transport | 63 | 22 | 7 |
 | 38 | `13j-steward-tool-base.js` | transport | 61 | 18 | 5 |
-| 39 | `13k-steward-threads.js` | transport | 17 | 75 | 11 |
+| 39 | `13k-steward-threads.js` | transport | 21 | 77 | 11 |
 | 40 | `13l-steward-ops.js` | transport | 24 | 57 | 15 |
 | 41 | `13g-steward.js` | transport | 11 | 55 | 9 |
 | 42 | `13m-steward-runner-base.js` | transport | 37 | 12 | 4 |
@@ -353,8 +353,8 @@
 | `13j-steward-tool-base.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `foldTurnSummaries`, `repairMissionChangeTornTail` |
 | `13j-steward-tool-base.js` | `06i-steward-core.js` | backward | `STEWARD_CONFIG_SECRET_PATTERN`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `stewardSanitizeText` |
 | `13j-steward-tool-base.js` | `13i-steward-inbox.js` | backward | `stewardDir` |
-| `13k-steward-threads.js` | `00-boot.js` | backward | `nowIso`, `text` |
-| `13k-steward-threads.js` | `01-config.js` | backward | `PERMISSION_MODES`, `safeSessionId` |
+| `13k-steward-threads.js` | `00-boot.js` | backward | `nowIso`, `path`, `text` |
+| `13k-steward-threads.js` | `01-config.js` | backward | `PERMISSION_MODES`, `normalizeWorkspacePathString`, `safeSessionId` |
 | `13k-steward-threads.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13k-steward-threads.js` | `02-session-store.js` | backward | `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `saveSession`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta` |
 | `13k-steward-threads.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |

@@ -21,6 +21,9 @@
 //  (I) 记忆:来源非用户消息 -> source_not_user;敏感 -> sensitive_rejected;同义合并;veto 后同义拒。
 //  (J) 决策日志:每个写动作恰好一行,字段齐整。
 //  (K) 四门:普通会话在 buildOpenAiTools / adaptive 目录 / /api/status / MCP tools/list 四处都看不到 steward_*。
+//  (N) 117w-W1 提交①(27 号文 §11.19.4)cwd 三态:省略 -> 照旧回落 defaultWorkspace(零行为变化的证明);
+//      表内 -> 用表里那一行的归一化值(斜杠/大小写两种写法各一次);其它 -> invalid_request 且不静默回落
+//      (表外 / `~` / 主目录 / 只在 recentWorkspaces 里的 / 相对路径),thread_new 与 quick_ask 共用一份校验。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -570,6 +573,103 @@ try {
         'K4b 面 4 /api/status 工具清单零 steward_*(它是给用户看的会话工具目录)');
     } finally { kill(wb); }
   }
+  /* ═════════ (N) 117w-W1 提交①:cwd 校验先行(27 号文 §11.19.4)═════════ */
+  // 修前:13k 两处把 args.cwd 原样透传给 createSession(零校验),幻觉路径会被直接接受并落进
+  // 线程的 cwd。修后三态:省略 → 照旧回落;表内 → 用表里那一行的归一化值;其它 → invalid_request。
+  // 每一条都在下面【反向验过】(见 117w-W1 交付报告:把校验注释掉后 N2/N3/N5/N6/N7/N8 全部翻红)。
+  console.log('── (N) cwd 校验先行 ──');
+  {
+    const WS_ALPHA = path.join(HOME, 'ws-alpha');
+    const WS_BETA = path.join(HOME, 'ws-beta');
+    const WS_RECENT_ONLY = path.join(HOME, 'ws-recent-only');
+    for (const d of [WS_ALPHA, WS_BETA, WS_RECENT_ONLY]) fs.mkdirSync(d, { recursive: true });
+    // HOME 放在第 0 位:01-config 的清洗会把 defaultWorkspace 同步成 workspaces[0].path,
+    // 放别的在前面会把 N2「省略 cwd == defaultWorkspace」那条锁的比较对象换掉。
+    // recentWorkspaces 里那一条【有意】不进 workspaces —— 打开过 ≠ 授权过(§11.19.2 红线)。
+    writeConfig({
+      permissionMode: 'default',
+      workspaces: [
+        { path: HOME, read: true, write: true, execute: true },
+        { path: WS_ALPHA, read: true, write: true, execute: true },
+        { path: WS_BETA, read: true, write: true, execute: true },
+      ],
+      recentWorkspaces: [WS_RECENT_ONLY],
+    });
+    const headOf = sid => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', sid + '.json'), 'utf8'));
+    const newThread = (cwd, tag) => call('steward_thread_new', {
+      title: 'cwd 锁 ' + tag, ...(cwd === undefined ? {} : { cwd }),
+      brief: { userText: 'cwd 锁 ' + tag },
+    }, stewardCtx('cwd-' + tag));
+    const effectiveDefault = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config.defaultWorkspace;
+
+    // N1/N2 —— 省略 cwd:与修前【逐字节相同】(不传 → createSession 的回落链 → defaultWorkspace)。
+    const omitted = await newThread(undefined, 'omit');
+    ok(omitted && omitted.ok === true, 'N1 省略 cwd 仍然照常开线程(本提交零行为变化)');
+    ok(omitted && omitted.ok === true && headOf(omitted.sessionId).cwd === effectiveDefault,
+      `N2 省略 cwd -> 线程 cwd == config.defaultWorkspace(${effectiveDefault};got ${omitted && omitted.ok ? headOf(omitted.sessionId).cwd : 'n/a'})`);
+
+    // N3 —— 表内路径原样:线程 cwd 就是表里那一行。
+    const inTable = await newThread(WS_ALPHA, 'alpha');
+    ok(inTable && inTable.ok === true && headOf(inTable.sessionId).cwd === WS_ALPHA,
+      'N3 表内路径 -> 线程 cwd 等于表里那个归一化值');
+
+    // N4 —— 同一个表内路径,换【斜杠写法】(正斜杠 + 尾斜杠):归一化后仍然命中,且回的是表里那一行。
+    const slashy = await newThread(WS_BETA.replace(/\\/g, '/') + '/', 'slash');
+    ok(slashy && slashy.ok === true && headOf(slashy.sessionId).cwd === WS_BETA,
+      `N4 表内路径换正斜杠/尾斜杠写法 -> 仍命中,cwd 归一到 ${WS_BETA}(got ${slashy && slashy.ok ? headOf(slashy.sessionId).cwd : JSON.stringify(slashy)})`);
+
+    // N5 —— 换【大小写】。win32 上文件系统不区分大小写、01-config 的去重键也是 toLowerCase,
+    // 所以这里折大小写比较;非 win32 上文件系统真区分,同一个字符串折成两个目标才是对的。
+    const cased = await newThread(WS_ALPHA.toLowerCase(), 'case');
+    if (process.platform === 'win32') {
+      ok(cased && cased.ok === true && headOf(cased.sessionId).cwd === WS_ALPHA,
+        `N5 (win32)表内路径换小写 -> 仍命中,cwd 回的是表里那一行的原样大小写(got ${cased && cased.ok ? headOf(cased.sessionId).cwd : JSON.stringify(cased)})`);
+    } else {
+      ok(cased && cased.ok === false && cased.error === 'invalid_request',
+        'N5 (非 win32)大小写不同视为两个目标 -> invalid_request');
+    }
+
+    // N6 —— 表外路径:拒,且错误文案里要有表内候选的【末段名】(模型据此改对,又不泄露全路径)。
+    const outside = await newThread(path.join(HOME, 'ws-not-registered'), 'outside');
+    ok(outside && outside.ok === false && outside.error === 'invalid_request' && outside.reason === 'cwd_not_in_workspaces',
+      `N6 表外路径 -> invalid_request(reason cwd_not_in_workspaces;got ${JSON.stringify(outside && outside.error)})`);
+    ok(outside && String(outside.message || '').includes('ws-alpha') && String(outside.message || '').includes('ws-beta')
+      && String(outside.message || '').includes(path.basename(HOME)),
+      `N6b 错误文案列出表内候选的末段名(got ${JSON.stringify(outside && outside.message)})`);
+    ok(!fs.existsSync(path.join(HOME, 'ws-not-registered')),
+      'N6c 被拒时零副作用:没有建目录、没有开线程');
+
+    // N7 —— `~` 与主目录:两种写法都在「其它」档里。仓里自己的 03 cwdWarning 把主目录判成最高
+    // 风险目标,所以 §11.19.3 明确【不】给 `~` 开口子。
+    const tilde = await newThread('~', 'tilde');
+    ok(tilde && tilde.ok === false && tilde.error === 'invalid_request', "N7 cwd 传 '~' -> invalid_request(`~` 不是合法值)");
+    const homeDir = await newThread(os.homedir(), 'home');
+    ok(homeDir && homeDir.ok === false && homeDir.error === 'invalid_request',
+      `N7b cwd 传 os.homedir() -> invalid_request(主目录不在表里就不许用;got ${JSON.stringify(homeDir && homeDir.error)})`);
+
+    // N8 —— recentWorkspaces 里有、workspaces 里没有:拒。打开过 ≠ 授权过。
+    const recentOnly = await newThread(WS_RECENT_ONLY, 'recent');
+    ok(recentOnly && recentOnly.ok === false && recentOnly.error === 'invalid_request',
+      `N8 只在 recentWorkspaces 里的路径 -> invalid_request(打开过 ≠ 授权过;got ${JSON.stringify(recentOnly && recentOnly.error)})`);
+
+    // N9 —— 相对路径:拒。放行等于让 path.resolve 按【服务进程的 cwd】补全,那是一条无声的越权路。
+    const relative = await newThread('ws-alpha', 'rel');
+    ok(relative && relative.ok === false && relative.error === 'invalid_request', 'N9 相对路径 -> invalid_request');
+
+    // N10 —— quick_ask 走【同一份】校验:同样的三态,同样的稳定信封。
+    const qBad = await call('steward_quick_ask', { question: 'cwd 锁:表外', cwd: path.join(HOME, 'ws-not-registered') }, stewardCtx('cwd-q1'));
+    ok(qBad && qBad.ok === false && qBad.error === 'invalid_request' && qBad.reason === 'cwd_not_in_workspaces',
+      'N10 quick_ask 表外路径 -> invalid_request(与 thread_new 同一份校验)');
+    const qTilde = await call('steward_quick_ask', { question: 'cwd 锁:波浪号', cwd: '~' }, stewardCtx('cwd-q2'));
+    ok(qTilde && qTilde.ok === false && qTilde.error === 'invalid_request', "N10b quick_ask 传 '~' -> invalid_request");
+    const qGood = await call('steward_quick_ask', { question: 'cwd 锁:表内', cwd: WS_BETA }, stewardCtx('cwd-q3'));
+    ok(qGood && qGood.ok === true && headOf(qGood.sessionId).cwd === WS_BETA,
+      `N10c quick_ask 表内路径 -> 线程 cwd 等于表里那一行(got ${qGood && qGood.ok ? headOf(qGood.sessionId).cwd : JSON.stringify(qGood)})`);
+    const qOmit = await call('steward_quick_ask', { question: 'cwd 锁:省略' }, stewardCtx('cwd-q4'));
+    ok(qOmit && qOmit.ok === true && headOf(qOmit.sessionId).cwd === effectiveDefault,
+      'N10d quick_ask 省略 cwd -> 与修前一样落在 defaultWorkspace');
+  }
+
 } finally {
   try { providerServer.close(); } catch {}
 }

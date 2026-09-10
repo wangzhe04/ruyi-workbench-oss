@@ -305,6 +305,42 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(codeLines.length === 0, '⑦ 06i 里 userPressed 只出现在契约注释,不出现在任何一行代码');
 }
 
+// ⑧ 117w-W1 提交①(27 号文 §11.19.4):cwd 校验【一处实现、两处调用】。
+// 被钉的事实:13k 里 thread_new 与 quick_ask 各自把 args.cwd 交给【同一个】stewardValidateCwd,
+// 而不是各抄一份判据(抄两份 = 迟早分叉,提交②③ 再改一处就漏一处)。
+// 计数口径按 §11.18.6 那个模具:定义签名与调用点【同形】的正则会假绿,所以这里
+//   (a) 分开数「function stewardValidateCwd(」恰好 1 次(定义唯一),
+//   (b) 数整名出现恰好 3 次(定义 1 + 调用 2),
+//   (c) 再把两个调用点【锚到各自的函数体里】—— 只数次数挡不住「两处调用都写在 thread_new 里」。
+// 另钉一条反向保护:修前那行原样透传(`cwd: args.cwd ? String(args.cwd)`)在 src 里必须零残留。
+{
+  const src13k = read('13k-steward-threads.js');
+  const defs = (src13k.match(/function stewardValidateCwd\(/g) || []).length;
+  ok(defs === 1, `⑧ stewardValidateCwd 只定义一次(got ${defs})`);
+  const uses = (src13k.match(/stewardValidateCwd\(/g) || []).length;
+  ok(uses === 3, `⑧ stewardValidateCwd 整文件出现 3 次 = 定义 1 + 调用 2(got ${uses})`);
+  // 函数体切片:从 `async function X(` 起到下一个顶格 `}` 为止(本文件的顶层函数都顶格收尾)。
+  const bodyOf = (name) => {
+    const start = src13k.indexOf(`async function ${name}(`);
+    if (start < 0) return '';
+    const end = src13k.indexOf('\n}\n', start);
+    return end < 0 ? src13k.slice(start) : src13k.slice(start, end);
+  };
+  const newBody = bodyOf('stewardImplThreadNew');
+  const quickBody = bodyOf('stewardImplQuickAsk');
+  ok(newBody && quickBody, '⑧ 取到 stewardImplThreadNew / stewardImplQuickAsk 两个函数体');
+  const inNew = (newBody.match(/stewardValidateCwd\(args\.cwd, config\)/g) || []).length;
+  const inQuick = (quickBody.match(/stewardValidateCwd\(args\.cwd, config\)/g) || []).length;
+  ok(inNew === 1, `⑧ thread_new 函数体里恰好一处调用(got ${inNew})`);
+  ok(inQuick === 1, `⑧ quick_ask 函数体里恰好一处调用(got ${inQuick})`);
+  // 反向保护:修前那行原样透传不许留在任何 src 模块里。
+  const passthrough = srcFiles.filter(f => /cwd:\s*args\.cwd\s*\?\s*String\(args\.cwd\)/.test(read(f)));
+  ok(passthrough.length === 0, '⑧ 全 src 零「cwd: args.cwd ? String(args.cwd)」原样透传' + (passthrough.length ? ' → ' + passthrough.join(',') : ''));
+  // 归一化只用仓里既有的那一份(01-config 的 normalizeWorkspacePathString),不许在 13k 里另写一套。
+  ok(/normalizeWorkspacePathString\(/.test(src13k),
+    '⑧ 归一化复用 01-config 的 normalizeWorkspacePathString(与 workspaces 清洗同一口径)');
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD TOOLS STATIC E2E: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD TOOLS STATIC E2E: ALL PASS');
