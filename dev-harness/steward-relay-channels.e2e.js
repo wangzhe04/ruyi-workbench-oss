@@ -120,6 +120,15 @@ function writeConfig(patch) {
     configSchema: 7, activeProvider: 'fake', engineMode: 'interactive',
     permissionMode: 'default', permissionTimeoutMs: 120000, questionTimeoutMs: 120000,
     includeWorkbenchMcp: false, defaultWorkspace: HOME, recentWorkspaces: [],
+    // 117w-W1 ①:steward_thread_new / quick_ask 的显式 cwd 必须在 workspaces[] 表里,表外一律 invalid_request
+    // (§11.19.2)。本件的 mkws()/mkwsTop() 按确定性命名铸造 HOME/ws/wN、topN,所以把它们【预先登记】进表;
+    // mkws 本身一字不改,各断言的 cwd 语义照旧。第一行必须是 defaultWorkspace(01-config 与 workspaces[0] 同步)。
+    // 注意 wsSeq 有【两个】消费者(:214 的会话助手也 ++wsSeq),按 mkws() 字面计数铸池会算少 —— 第一版正是这么错的
+    // (池 7 个,G 段第一条已落到 w8 被拒)。改为按 01-config 的 20 行帽子铸满:HOME + w1..w18 + top1 = 20。
+    workspaces: [HOME, ...Array.from({ length: 18 }, (_, i) => path.join(HOME, 'ws', 'w' + (i + 1))), ...Array.from({ length: 1 }, (_, i) => path.join(HOME, 'ws', 'top' + (i + 1)))]
+      .map(p => ({ path: p, read: true, write: true, execute: true })),
+    // 省略 cwd 的调用会在 Ruyi 根下派生子工作区(W1 ②);根指到临时 HOME 下,绝不碰真机 ~/Ruyi。
+    stewardWorkspaceRoot: path.join(HOME, 'Ruyi'),
     subagentMaxPerTurn: 0, killOnDisconnect: false, locale: 'zh-CN',
     stewardEnabledV1: true, stewardPollMs: 120000, stewardReadBudgetChars: 4000,
     stewardMaxTurnsPerHour: 500, stewardMaxCostPerDay: 0,

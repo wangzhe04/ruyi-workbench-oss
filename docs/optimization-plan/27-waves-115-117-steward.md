@@ -2504,3 +2504,9 @@ N12 清空动作在派生失效时会删掉夹具临时 HOME，后面几十条�
 | `stewardWorkspaceRoot` 未进 forbidden 说明性清册 | **接受**，fail-closed ＋ unit ⑤ 点名钉着 |
 | Windows 保留名（`CON`/`NUL`）派生会带 `-2` 后缀 | **登记**，不是 bug |
 | `04` 抽取无专门 e2e | **接受**，主会话直接比对两处源码为证 |
+
+**W1 全量回归（319/4/7 flaky）里唯一一条真红，定性与修法**：`steward-relay-channels.e2e` 串行仍红 18 条。根因：该夹具给 `steward_thread_new` 传**显式** `cwd: mkws()`（现铸的临时目录），
+而 `config` 里没有登记它们——W1① 之前任何 cwd 都被接受，现在按 §11.19.2 一律 `invalid_request`。**产品行为是对的**（它回的正是设计要的文案：列出表内候选、说「省掉 cwd」），
+**夹具编码的是旧的、不安全的契约**。修在夹具：把铸造目录**预先登记**进 `workspaces[]`，`mkws` 一字不改；并把 `stewardWorkspaceRoot` 指到临时 HOME 下（真机 `~/Ruyi` 全程不存在）。
+**我第一版铸池铸少了**：按 `mkws()` 字面计数是 7，但 `wsSeq` 有**两个**消费者（`:214` 的 `newThread` 助手也 `++wsSeq`），G 段第一条已落到 `w8` 被拒——插桩打印被吞掉的返回才看出来。
+改为按 01-config 的 20 行帽子铸满（HOME＋w1..w18＋top1）。反向：摘掉登记回到 18 红。**回归里只有这一件带这个写法**（扫过全部会调 thread_new/quick_ask 的夹具）。
