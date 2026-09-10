@@ -262,6 +262,77 @@
 .steward-chip-confirm ul { margin: 0; padding-inline-start: var(--sp-4); color: var(--muted); }
 .steward-chip-confirm-actions { display: flex; gap: var(--sp-2); }
 
+/* 117x-M2（27 号文 §11.17）：模型选择器 —— 搜索框、分组标题、命中高亮、「默认」徽标、折叠区。
+   全部住在这一层：chip 菜单本来就是这一层画的（117g／117h 复用同一份），另起一份 CSS 文件要跟着
+   动离线包清单与载荷锁，代价不成比例。 */
+.steward-chip-group {
+  margin: var(--sp-1) 0 0;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.steward-chip-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.steward-chip-search {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+}
+.steward-chip-search:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 长 id（qwen3.5-livetranslate-flash-realtime-2026-05-19 这种）要换行，不许把菜单撑破：主行印的是
+   【真 id】——不改写、不美化成别的名字，用户要复制粘贴的就是它，所以只能让它折行。 */
+.steward-chip-option-label { overflow-wrap: anywhere; }
+.steward-chip-hit { color: var(--accent); font-weight: 600; }
+.steward-chip-badge {
+  align-self: flex-start;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+  padding: 0 var(--sp-1);
+}
+.steward-chip-fold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.steward-chip-fold-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  text-align: start;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+}
+.steward-chip-fold-toggle:hover { color: var(--ink-2); }
+.steward-chip-fold-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-chip-fold-count { margin-inline-start: auto; }
+.steward-chip-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+/* 与 .steward-chip-menu[hidden] 同一条根因（本层第四处）：上面那条 display:flex 是作者样式，会盖掉
+   UA 表的 [hidden]{display:none}。折叠区收起来靠的正是 body.hidden —— 少这一条它就永远是展开的。 */
+.steward-chip-fold-body[hidden] { display: none; }
+
 /* ⑤～⑩ 通用区块 */
 .steward-drawer-block {
   display: flex;

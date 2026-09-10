@@ -89,6 +89,10 @@ const ok = (condition, label) => {
       // 建出来就 menu.hidden = true，却一直画在屏幕上盖住问候语（.steward-menu 那条 display:flex
       // 压过 UA 表的 [hidden]）。补上守卫并在这里钉住。
       ['css/views/steward-conversation.css', '.steward-menu[hidden]'],
+      // 117x-M2（§11.17.3）：模型菜单里「看起来不是文本模型」那个折叠区是第七处同款 —— 它收起来
+      // 靠的就是 body.hidden，而 .steward-chip-fold-body 那条 display:flex 是作者样式。少这一条
+      // 守卫，折叠区就永远是展开的：折叠区没了，那些端点又回到扁平裸列表里（那正是这一刀在修的病）。
+      ['css/views/steward-drawer.css', '.steward-chip-fold-body[hidden]'],
     ]) ok(read(file).includes(selector + ' { display: none; }'), `B1b 既有同款守卫仍在：${selector}`);
     ok(/if \(open\.contains && node && open\.contains\(node\)\) return;/.test(composer)
       && /if \(chip && chip\.contains && node && chip\.contains\(node\)\) return;/.test(composer),

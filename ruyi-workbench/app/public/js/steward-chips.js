@@ -224,6 +224,159 @@ export function button(className, text, onClick) {
   return node;
 }
 
+// ── 117x-M2 模型选择器（27 号文 §11.17）：能说什么、说给谁听，判据全在这一段纯函数里 ──────
+// §11.17.1 划死了界面能说的话：我们真握着的只有 id／label、它属于哪个 provider、当前引擎、当前
+// 选中项与全局默认值，外加账本里【按模型】的真实用量（M1 给 /api/usage/summary 补的第六个维度
+// byModel）。没握着的一个字都不许出现 —— 上下文窗口、价格、速度、per-model 的能力（能力矩阵是
+// provider 级的 provider.vision / provider.reasoning，不是模型级；给某个模型标「支持视觉」是编）。
+//
+// 「看起来不是文本模型」的 id 子串表：全仓【唯一一处】（§11.17.3 硬纪律二 —— 本仓为「第二份表」
+// 栽过四次）。它只用来【折叠】，绝不用来过滤（硬纪律一）：判据是按名字猜的，猜错的代价是用户找不到
+// 一个真实存在的端点，所以折叠区标题明写「按名字猜的，可能猜错」，里面的项照样能选、照样被搜索命中。
+export const STEWARD_NON_TEXT_MODEL_HINTS = Object.freeze([
+  'audio', 'realtime', 'image', 'ocr', 'tts', 'embed', 'rerank', 'livetranslate', 'video',
+]);
+export function looksNonTextModel(id) {
+  const text = String(id == null ? '' : id).toLowerCase();
+  return STEWARD_NON_TEXT_MODEL_HINTS.some(hint => text.includes(hint));
+}
+
+// 「常用」的两条裁剪与搜索框的出场门槛。后端【不切片】（M1 交付记录写明：byModel 全量返回），
+// 「最近 30 天／最多 5 条」是前端这一处的事，所以它们是常量而不是散落的字面量。
+export const STEWARD_MODEL_RECENT_DAYS = 30;
+export const STEWARD_MODEL_RECENT_MAX = 5;
+// 候选 > 8 项才出搜索框（少的时候多一个框是噪音，§11.17.2 ①）。
+export const STEWARD_MODEL_SEARCH_MIN = 8;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// byModel → 按【模型 id】汇总的一行事实。M1 的分组键是 (engine, provider, model) 三元组（同一个 id
+// 可由两个 provider 提供），而菜单里的一行本身就是【一个 id】，所以这里按 id 并组：turns 相加、
+// 「上次用」取较近的那一条。副行说的于是正好是这个 id 的账，不需要在界面上替它挑一个 provider。
+// lastAt 可能是空串（M1：该组没有可解析的 ts 就如实留空）—— 那一档 lastMs 记 0，副行只报回合数、
+// 不报「几天前」：上次是什么时候我们确实不知道，说成「今天」或「0 天前」都是编。
+export function stewardModelUsageIndex(byModel) {
+  const index = new Map();
+  for (const entry of (Array.isArray(byModel) ? byModel : [])) {
+    const id = String((entry && entry.model) || '');
+    if (!id) continue;
+    const previous = index.get(id) || { turns: 0, lastMs: 0 };
+    const at = Date.parse(String((entry && entry.lastAt) || ''));
+    index.set(id, {
+      turns: previous.turns + (Number(entry && entry.turns) || 0),
+      lastMs: Number.isFinite(at) ? Math.max(previous.lastMs, at) : previous.lastMs,
+    });
+  }
+  return index;
+}
+
+// 命中段：先在 label 上找（那是印出来的那一行），label 没有就退到 id（label 绝大多数就等于 id，
+// 但两者不同时「搜 id 能搜到」比「高亮好看」重要）。返回 null ＝ 这一行不匹配。
+function modelMatch(label, id, needle) {
+  if (!needle) return { start: -1, end: -1 };
+  const at = label.toLowerCase().indexOf(needle);
+  if (at >= 0) return { start: at, end: at + needle.length };
+  return id.toLowerCase().includes(needle) ? { start: -1, end: -1 } : null;
+}
+
+// 菜单里【此刻真看得见】的选项。折叠起来的那些【在 DOM 里但不在这份名单里】：它们照样能被点、
+// 被搜索命中，只是键盘不该跳进一个收起来的抽屉。不走 querySelectorAll 是刻意的 —— 一层层走
+// children 才能一路看住祖先的 hidden（选择器只认元素自己那一个属性）。
+export function stewardVisibleOptions(node, out = []) {
+  for (const child of Array.from((node && node.children) || [])) {
+    if (child.hidden) continue;
+    if (String(child.className || '').split(' ').includes('steward-chip-option')) out.push(child);
+    stewardVisibleOptions(child, out);
+  }
+  return out;
+}
+
+// 菜单要画成什么样，全部在这里算完；渲染那一半只是把它翻译成节点（一处判据，三个宿主同一份）。
+// 入参 options 是「这个端点的全部模型」，顺序即分组顺序（当前 route 的 provider 排在前）。
+export function stewardModelMenuView({
+  options = [],
+  usage = null,
+  currentModel = '',
+  defaultModel = '',
+  filter = '',
+  now = Date.now(),
+  foldOpen = false,
+} = {}) {
+  const index = usage instanceof Map ? usage : stewardModelUsageIndex(usage);
+  const needle = String(filter || '').trim().toLowerCase();
+  const current = String(currentModel || '');
+  const fallback = String(defaultModel || '');
+  const rows = [];
+  for (const option of (Array.isArray(options) ? options : [])) {
+    const id = String((option && option.id) || '');
+    if (!id) continue;                       // 空 id 那一条由「跟随全局」代表，不重复摆一行
+    const label = String((option && option.label) || id);
+    const fact = index.get(id) || null;
+    const match = modelMatch(label, id, needle);
+    rows.push({
+      id,
+      label,
+      group: String((option && option.group) || ''),
+      groupLabel: String((option && option.groupLabel) || ''),
+      nonText: looksNonTextModel(id),
+      current: id === current,
+      isDefault: Boolean(fallback) && id === fallback,
+      // 副行：没有用量就是 null —— 不出「0 回合」，那是把「不知道」说成「零」（§11.17.2）。
+      // days < 0 ＝ 有回合数但不知道上次是什么时候（lastAt 那一档为空）。
+      usage: fact && fact.turns > 0
+        ? { turns: fact.turns, lastMs: fact.lastMs, days: fact.lastMs > 0 ? Math.max(0, Math.floor((now - fact.lastMs) / DAY_MS)) : -1 }
+        : null,
+      match,
+      hit: match !== null,
+    });
+  }
+  const visible = needle ? rows.filter(row => row.hit) : rows;
+  const folded = visible.filter(row => row.nonText);
+  const groups = [];
+  for (const row of visible) {
+    if (row.nonText) continue;
+    let group = groups.find(item => item.key === row.group);
+    if (!group) groups.push(group = { key: row.group, label: row.groupLabel, rows: [] });
+    group.rows.push(row);
+  }
+  return {
+    // 门槛看的是【全部候选】而不是过滤后的那几条：搜索框不许在你打字打到只剩三条时自己消失。
+    search: rows.length > STEWARD_MODEL_SEARCH_MIN,
+    filtered: Boolean(needle),
+    // 常用：最近 30 天用过的，按最近一次使用时间倒序，最多 5 条。一条都没有时【整段不出现】
+    // （不摆一个空标题）——渲染那一半只需照抄 recent.length。
+    recent: visible
+      .filter(row => row.usage && row.usage.days >= 0 && row.usage.days <= STEWARD_MODEL_RECENT_DAYS)
+      .sort((a, b) => (b.usage.lastMs - a.usage.lastMs) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .slice(0, STEWARD_MODEL_RECENT_MAX),
+    groups,
+    // 折叠区：在搜索时【自动展开】—— 否则命中了却看不见，就成了「看不见也摸不着」的项
+    // （§11.16.4 追加③ 同一条纪律）。rows 一直在，展不展开只决定 body 的 hidden。
+    fold: { rows: folded, open: Boolean(foldOpen) || (Boolean(needle) && folded.length > 0) },
+    empty: visible.length === 0,
+  };
+}
+
+// 常用置顶要的那份事实：GET /api/usage/summary 的 byModel。一次页面生命周期只拉一次（模块级缓存，
+// 三个宿主各自 mount 出来的实例共用同一份 —— 看板给每条线程各建一个工厂实例，不共用就是一行一趟）。
+// 拉的是 range=all：「最近 30 天」跨月，而端点只有 today／week／month／all 四档，month 是【本自然月】，
+// 月初会把上个月用过的全判成没用过。失败不缓存（下次开菜单再试一次），也绝不编 —— 没有用量就是
+// 不出常用段、不出副行。这不是轮询：它只在【第一次打开模型菜单】时发生一次，chip 仍然零计时器。
+let usageRowsMemo = null;
+let usageRowsPending = null;
+export function stewardModelUsageRows() { return usageRowsMemo; }
+function loadUsageRows(api) {
+  if (usageRowsMemo) return Promise.resolve(usageRowsMemo);
+  if (!usageRowsPending) {
+    usageRowsPending = Promise.resolve()
+      .then(() => api('/api/usage/summary?range=all'))
+      // 自防：兜底分支已对齐会给 byModel，但别假设键一定在（usage-dashboard.js:80 同一写法）。
+      .then(data => { usageRowsMemo = (data && Array.isArray(data.byModel)) ? data.byModel : []; return usageRowsMemo; })
+      .catch(() => [])
+      .then(rows => { usageRowsPending = null; return rows; });
+  }
+  return usageRowsPending;
+}
+
 export function createQuickSwitchChips({
   api = async () => null,
   t = key => key,
@@ -248,8 +401,12 @@ export function createQuickSwitchChips({
   // 117j copy-P2-4/5：菜单开着时进 Esc 栈，关掉时注销并把焦点还给触发它的 chip
   // （键盘用户按完 Esc 得知道自己回到了哪里）。
   let releaseEscape = null;
+  // 117x-M2：菜单一打开就把焦点交给搜索框（有搜索框的那张菜单才有）。它必须在 hidden = false
+  // 【之后】才 focus —— 藏着的元素 focus() 不动，所以建菜单时只把节点记在这里，开完再交焦点。
+  let pendingFocus = null;
   function closeMenu() {
     if (!openMenu) return;
+    pendingFocus = null;
     openMenu.hidden = true;
     while (openMenu.firstChild) openMenu.removeChild(openMenu.firstChild);
     const owner = chips.get(openMenu.dataset.kind);
@@ -381,16 +538,56 @@ export function createQuickSwitchChips({
   }
 
   // ── 模型菜单：候选由【当前引擎】决定，来源与经典壳模型菜单同一份数据 ──────────
+  // 117x-M2 只多带两件事实：这一条候选属于哪个 provider（group）、那个 provider 印出来叫什么
+  // （groupLabel）。两者都是已经握在手里的（provider.label／引擎品牌名），不是新编的元数据。
   function modelOptions(route) {
     if (route.engine === 'openai') {
       const provider = (config().providers || []).find(item => item && item.id === route.providerId) || null;
+      const group = String(route.providerId || '');
+      const groupLabel = String((provider && (provider.label || provider.id)) || group);
       return (provider && Array.isArray(provider.models) ? provider.models : [])
-        .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || '') }))
+        .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || ''), group, groupLabel }))
         .filter(model => model.id);
     }
     const models = (state && state.status && Array.isArray(state.status.models)) ? state.status.models : [];
+    const group = 'agent:' + route.agentCliType;
+    const groupLabel = AGENT_CLI_LABELS[route.agentCliType] || AGENT_CLI_LABELS.claude;
     return models
-      .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || t('stewardShell.chips.modelDefault')) }));
+      .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || t('stewardShell.chips.modelDefault')), group, groupLabel }));
+  }
+
+  // 一行模型：主行是 label（等于 id 时就是 id —— 不改写、不美化成别的名字，用户要复制粘贴的是真 id），
+  // 命中搜索时把匹配的那一段包进 .steward-chip-hit；副行【只在真有用量时】出现，只说我们真知道的
+  // 「上次用 · N 天前 · 共 M 回合」；全局默认那一项挂一枚「默认」徽标。
+  function modelRow(row, route) {
+    const node = el('button', 'steward-chip-option');
+    node.type = 'button';
+    node.setAttribute('role', 'menuitemradio');
+    node.setAttribute('aria-checked', row.current ? 'true' : 'false');
+    node.dataset.modelId = row.id;
+    if (row.nonText) node.dataset.modelNonText = '1';
+    const label = el('span', 'steward-chip-option-label');
+    if (row.match && row.match.start >= 0) {
+      const head = row.label.slice(0, row.match.start);
+      const tail = row.label.slice(row.match.end);
+      if (head) label.appendChild(el('span', '', head));
+      label.appendChild(el('span', 'steward-chip-hit', row.label.slice(row.match.start, row.match.end)));
+      if (tail) label.appendChild(el('span', '', tail));
+    } else {
+      label.textContent = row.label;
+    }
+    node.appendChild(label);
+    if (row.isDefault) node.appendChild(el('span', 'steward-chip-badge', t('stewardShell.chips.modelDefault')));
+    if (row.usage) {
+      const when = row.usage.days === 0
+        ? t('stewardShell.chips.usedToday')
+        : t('stewardShell.chips.usedDaysAgo', { days: row.usage.days });
+      node.appendChild(el('span', 'steward-chip-option-hint', row.usage.days >= 0
+        ? t('stewardShell.chips.usageLine', { when, turns: row.usage.turns })
+        : t('stewardShell.chips.usageTurns', { turns: row.usage.turns })));
+    }
+    node.onclick = () => { closeMenu(); patchSession({ engineRoute: { ...route, model: row.id } }); };
+    return node;
   }
 
   function buildModelMenu(menu) {
@@ -406,16 +603,84 @@ export function createQuickSwitchChips({
       menu.appendChild(el('p', 'steward-chip-option-hint', t('stewardShell.chips.noModels')));
       return;
     }
-    for (const option of options) {
-      const row = el('button', 'steward-chip-option');
-      row.type = 'button';
-      row.setAttribute('role', 'menuitemradio');
-      row.setAttribute('aria-checked', String(route.model || '') === option.id ? 'true' : 'false');
-      row.dataset.modelId = option.id;
-      row.appendChild(el('span', 'steward-chip-option-label', option.label || t('stewardShell.chips.modelDefault')));
-      row.onclick = () => { closeMenu(); patchSession({ engineRoute: { ...route, model: option.id } }); };
-      menu.appendChild(row);
+    // 全局默认的那一项：只有当全局与这条会话走的是【同一个引擎／provider】时才认 —— 否则那个
+    // 默认值属于另一个端点，给同名的一行贴「默认」徽标是张冠李戴。
+    const globalRoute = resolveEngineRoute(null, config());
+    const defaultModel = routeKey(globalRoute) === routeKey(route) ? String(globalRoute.model || '') : '';
+    let filter = '';
+    let foldOpen = false;
+    const list = el('div', 'steward-chip-list');
+    const view = () => stewardModelMenuView({
+      options,
+      usage: usageRowsMemo,
+      currentModel: String(route.model || ''),
+      defaultModel,
+      filter,
+      foldOpen,
+    });
+    // 搜索框只在候选 > 8 时出现；它活在重画之外（重画只换 list 的内容），所以打字时焦点与光标不丢。
+    if (view().search) {
+      const search = el('input', 'steward-chip-search');
+      search.type = 'search';
+      search.dataset.chipSearch = 'model';
+      search.setAttribute('aria-label', t('stewardShell.chips.searchLabel'));
+      search.placeholder = t('stewardShell.chips.searchLabel');
+      search.oninput = () => { filter = String(search.value || ''); draw(); };
+      menu.appendChild(search);
+      pendingFocus = search;
     }
+    menu.appendChild(list);
+    function draw() {
+      const model = view();
+      clear(list);
+      // ① 跟随全局永远第一项：语义与权限那一枚同一条 —— 这条线程不自己定，用全局那一份。
+      //    形状上就是把会话级 engineRoute 的 model 清空（后端 configForSessionEngineRoute 对
+      //    openai 端点会回落到 provider.model；agent 端点空模型即 CLI 自己的默认）。
+      const follow = el('button', 'steward-chip-option');
+      follow.type = 'button';
+      follow.setAttribute('role', 'menuitemradio');
+      follow.setAttribute('aria-checked', route.model ? 'false' : 'true');
+      follow.dataset.modelId = '';
+      follow.dataset.modelFollow = '1';
+      follow.appendChild(el('span', 'steward-chip-option-label', t('stewardShell.chips.followGlobal')));
+      follow.onclick = () => { closeMenu(); patchSession({ engineRoute: { ...route, model: '' } }); };
+      list.appendChild(follow);
+      // ② 常用：没有用量就整段不出现（不摆一个空标题）。
+      if (model.recent.length) {
+        list.appendChild(el('p', 'steward-chip-group', t('stewardShell.chips.groupRecent')));
+        for (const row of model.recent) list.appendChild(modelRow(row, route));
+      }
+      // ③ 这个端点的全部模型（多 provider 时按 provider 分组，组标题就是它的 label）。
+      for (const group of model.groups) {
+        list.appendChild(el('p', 'steward-chip-group', group.label || t('stewardShell.chips.model')));
+        for (const row of group.rows) list.appendChild(modelRow(row, route));
+      }
+      // ④ 「看起来不是文本模型」：折叠，不是隐藏 —— 行一直在 DOM 里、点了照样能选，
+      //    标题明写「按名字猜的，可能猜错」，搜索命中时自动展开。
+      if (model.fold.rows.length) {
+        const fold = el('div', 'steward-chip-fold');
+        const toggle = el('button', 'steward-chip-fold-toggle');
+        toggle.type = 'button';
+        toggle.dataset.chipFold = 'nonText';
+        toggle.setAttribute('aria-expanded', model.fold.open ? 'true' : 'false');
+        toggle.append(
+          el('span', 'steward-chip-fold-title', t('stewardShell.chips.groupNonText')),
+          el('span', 'steward-chip-fold-count', String(model.fold.rows.length)),
+        );
+        toggle.onclick = () => { foldOpen = !model.fold.open; draw(); };
+        const body = el('div', 'steward-chip-fold-body');
+        body.hidden = !model.fold.open;
+        for (const row of model.fold.rows) body.appendChild(modelRow(row, route));
+        fold.append(toggle, body);
+        list.appendChild(fold);
+      }
+      // ⑤ 一条都没匹配上：如实说没匹配，而不是留一张空菜单让人以为坏了。
+      if (model.empty && model.filtered) list.appendChild(el('p', 'steward-chip-option-hint', t('stewardShell.chips.noMatch')));
+    }
+    draw();
+    // 用量是后到的（第一次开菜单才去拉）：到了就把 list 重画一遍。菜单已经关掉时 list 已被摘走
+    // （closeMenu 清空菜单），parentNode 为空 —— 那就什么都不做，不去动一张不在屏幕上的菜单。
+    if (!usageRowsMemo) loadUsageRows(api).then(() => { if (list.parentNode) draw(); }).catch(() => {});
   }
 
   const BUILDERS = { permission: buildPermissionMenu, model: buildModelMenu, engine: buildEngineMenu };
@@ -448,6 +713,7 @@ export function createQuickSwitchChips({
     chip.menu.hidden = false;
     chip.button.setAttribute('aria-expanded', 'true');
     openMenu = chip.menu;
+    if (pendingFocus) { const target = pendingFocus; pendingFocus = null; try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ } }
     releaseEscape = stewardEscapeStack.push(
       () => { if (!openMenu) return false; closeMenu(); return true; },
       // 菜单本体、以及打开它的那枚 chip：点这两处不算「点别处」。
@@ -500,6 +766,27 @@ export function createQuickSwitchChips({
     const menu = el('div', 'steward-chip-menu');
     menu.setAttribute('role', 'menu');
     menu.dataset.kind = kind;
+    // 117x-M2 键盘：↑↓ 在【看得见的】选项之间移动、Enter 选定（焦点还在搜索框时选第一条）。
+    // 挂在菜单本体上、且只挂这一次（菜单节点跨开合复用，挂在每次 build 里会越叠越多）。
+    // Esc 不在这里 —— 它走 stewardEscapeStack 那条栈（本文件顶部注释写了为什么是栈），不新开通道。
+    menu.onkeydown = event => {
+      const key = event && event.key;
+      if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Enter') return;
+      const items = stewardVisibleOptions(menu);
+      if (!items.length) return;
+      const at = items.indexOf(doc() ? doc().activeElement : null);
+      if (key === 'Enter') {
+        if (at >= 0) return;                       // 焦点已经在某一项上：让 button 的默认行为按下它
+        if (event.preventDefault) event.preventDefault();
+        items[0].click();
+        return;
+      }
+      if (event.preventDefault) event.preventDefault();
+      const next = key === 'ArrowDown'
+        ? (at < 0 ? 0 : Math.min(items.length - 1, at + 1))
+        : (at <= 0 ? 0 : at - 1);
+      try { items[next].focus(); } catch { /* 宿主没有 focus 的环境 */ }
+    };
     menu.hidden = true;
     wrap.append(button, menu);
     chips.set(kind, { button, value, menu });

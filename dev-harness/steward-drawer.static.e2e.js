@@ -263,10 +263,14 @@ const routes = [...new Set([
 // （13h 的 stewardRelayChannelFor：answer > permission > steer > turn），抽屉只剩一个口子。
 // 所以白名单加 /api/steward/relay、去掉 /api/steer 与 /api/chat/stream；F2 从「恰好一处 fetch」
 // 收紧成「零处 fetch」（不再需要读流，也就不再需要 authHeaders）。
+// 117x-M2 **再重钉 F1**（27 号文 §11.17）：白名单多一条【只读】的 /api/usage/summary —— 模型选择器
+// 的「常用置顶」由账本按模型的真实用量派生（M1 给这个既有端点补的第六个维度 byModel），
+// 不是浏览器本地的猜测。它仍然是「后端零新增面」：没有新路由、没有新写口，chip 只在【第一次打开
+// 模型菜单】时 GET 一次（模块级缓存，三个宿主共用），F3 的「零直调 fetch」与 C2 的「零计时器」一个字没松。
 const ALLOWED = [
   '/api/agent-runs/', '/api/chat/answer', '/api/interventions',
   '/api/missions', '/api/missions/', '/api/permission/decision', '/api/session/rewind',
-  '/api/sessions/', '/api/steward/relay', '/api/stop',
+  '/api/sessions/', '/api/steward/relay', '/api/stop', '/api/usage/summary',
 ].sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `F1 递话收成单口：白名单里有 /api/steward/relay，没有 /api/steer 与 /api/chat/stream（实测 ${JSON.stringify(routes)}）`);
@@ -733,6 +737,31 @@ ok(/下一回合/.test(String(zh['stewardShell.chips.switchTakesEffect']))
   && /next turn/i.test(String(en['stewardShell.chips.switchTakesEffect']))
   && /interrupt/i.test(String(en['stewardShell.chips.switchTakesEffect'])),
   `N4d 中英都说清两件事：下一回合生效 ＋ 不打断正在跑的回合（中「${zh['stewardShell.chips.switchTakesEffect']}」）`);
+
+// ─── N5 117x-M2 模型选择器（27 号文 §11.17）：两条设计红线 ──────────────────────────
+// 「界面里能画成什么样」由 dev-harness/unit/steward-model-menu.test.js 用假 DOM 驱动真工厂逐条钉
+// （折叠不是隐藏／搜索命中折叠区／常用的三条裁剪／副行没有用量就不出）。本段只钉那份单测【看不见】
+// 的两件事：裁剪归谁做，以及界面绝不许说出口的那几类事实。
+ok(chipsMod.STEWARD_MODEL_RECENT_DAYS === 30
+  && chipsMod.STEWARD_MODEL_RECENT_MAX === 5
+  && chipsMod.STEWARD_MODEL_SEARCH_MIN === 8,
+  `N5a 「最近 30 天／最多 5 条／候选 > 8 才出搜索框」三条裁剪都是【前端这一处】的导出常量 —— M1 交付记录写明 byModel 全量返回、后端不切片（实测 ${chipsMod.STEWARD_MODEL_RECENT_DAYS}／${chipsMod.STEWARD_MODEL_RECENT_MAX}／${chipsMod.STEWARD_MODEL_SEARCH_MIN}）`);
+// 红线二的静态一半：那张「按名字猜的」子串表【只被用来打标，不被用来筛】。判据是调用点数量 ——
+// 全文件恰好一处 looksNonTextModel(，就在算 row.nonText 的地方；多出来的第二处必然是拿它去过滤。
+ok(count(chipsCode, /looksNonTextModel\(/g) === 2
+  && /nonText: looksNonTextModel\(id\),/.test(chipsCode)
+  && /body\.hidden = !model\.fold\.open;/.test(chipsCode),
+  `N5b 子串表只用来【打标 + 折叠】：定义一处、调用一处（实测 ${count(chipsCode, /looksNonTextModel\(/g)} 处含定义），收起来靠的是 body.hidden 而不是把行删掉`);
+// 红线一：没握着的一个字都不许出现。能力矩阵是 provider 级的（provider-settings.js:842 的
+// provider.vision / provider.reasoning），不是模型级 —— 给某个模型标「支持视觉／支持工具调用」是编；
+// 上下文窗口、价格、速度同理，我们手里根本没有这些数。判据：整份 chips 剥注释后零出现这些字眼。
+for (const pattern of [/\.vision\b/, /\.reasoning\b/, /contextWindow/i, /maxTokens/i, /pricing/i, /pricePer/i, /tokensPerSecond/i]) {
+  ok(!pattern.test(chipsCode), `N5c chips 剥注释后零出现 ${pattern.source} —— 界面只说我们真握着的事实`);
+}
+ok(/Array\.isArray\(data\.byModel\)/.test(chipsCode) && /data\.byModel : \[\]/.test(chipsCode)
+  && count(chipsCode, /api\('\/api\/usage/g) === 1
+  && /'\/api\/usage\/summary\?range=all'/.test(chipsCode),
+  `N5d 「常用」的唯一数据源是账本的 byModel（M1 那个维度），读它时自防「键可能不在」（usage-dashboard.js:80 同一写法）；全文件恰好一处 GET（实测 ${count(chipsCode, /api\('\/api\/usage/g)} 处），且拉的是 range=all —— 端点只有 today／week／month／all 四档，month 是【本自然月】，用它的话月初会把上个月用过的全判成没用过`);
 
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
