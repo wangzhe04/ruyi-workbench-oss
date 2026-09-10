@@ -412,3 +412,10 @@
 - **生成器链**：forwardEdges 67、SCC 1、`build --check` 新鲜（主会话复核）。**测试**：`--fast` 70/70（主会话复跑）；17 件真浏览器 e2e 串行 17/0；全量 `--parallel 4` 三轮，末轮 323/1，唯一红 `live-full-text.browser` 是 4 路下自身 54–132 s 撞 120 s 上限，串行 4 次全绿，不算真红。
 - **顺手挖出的真 bug → K0b**：管家默认开后，`13i:762` 收件箱 tick 直接调 `getPretenderProjectionIndex()`，绕过 `13e:329-333` 的空目录守卫，把空索引持久化；boot 后才物化的会话冷读 `/api/missions` 得 0 行（影响导入、多进程写入与大量夹具）。主会话核过路径，已派 Sonnet 修在根上（`getPretenderProjectionIndex` 自带空目录判据，不落盘不缓存）＋新 e2e `mission-index-late-materialize`。
 - **登记未做**（不在 K0 范围）：118a 向导「管家用哪个模型」一步与完成页落管家视角 → 归 K7 之后的 118 补刀；`live-full-text.browser` 在 4 路下必超时 → 治抖动那批。
+
+### 13.2 K0b · 投影索引空目录守卫（Sonnet 实现，`826504c`；主会话复核）
+
+- **病根**：`13e:290`（原）索引文件从未建过时无条件 `rebuildPretenderIndexFull`，`sources` 为空也建出空索引 → `:313` 落盘并缓存 → 下次 `:279` 见 diskStamp 未变不清内存、`:284` 短路，永不再扫目录。`13i:762` 直接调 `getPretenderProjectionIndex`，不经 `warm` 的守卫。
+- **修法**：`13e:289-303` 在 `if (!disk)` 内新增早退——`currentDiskStamp === '-' && sources 为空` 时直接 `return finalizePretenderIndex([], …, 'empty_sessions_dir')`；主会话核过该 `return` 走不到 `:327-328` 的落盘与缓存；`warm` 只改注释；热路径三分支与并发去重逐字不变（diff 只有一处新增块＋一处注释）。
+- **新 e2e** `mission-index-late-materialize.e2e.js`：等第一拍 tick 跑完再物化 2 条 mission 会话 → `/api/missions` 得 2 行；反向验证（条件改 false → 红「实 total=0」→ 还原绿）。主会话复跑新件与 `pretender-index-scale` 全绿。
+- 生成器链：forwardEdges 67／SCC 1／`build --check` 新鲜（主会话复核）；e2eCount 331→332，README 与 `fixture-home.static` 两条自指锁随之更新。全量 `--parallel 4` 324/1/5，唯一红 `mcp-ops-closure` 单跑绿（并行争用），非真红。
