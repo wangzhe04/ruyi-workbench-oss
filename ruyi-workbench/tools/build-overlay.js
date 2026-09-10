@@ -70,6 +70,9 @@ const PAYLOAD_FILES = [
   'app/public/js/run-state.js',
   // 32 号文 §4（M2-a）：模态原语（2.0 动态模态 + 3.0 危险操作确认共用）搬成的叶子模块。
   'app/public/js/modal.js',
+  // 33 号文 §4（M3-a）：3.0 管家壳危险操作确认的统一件与文案键登记表（建在 modal.js 之上；
+  // 看板／抽屉／盾牌菜单／设置页四处都在用）。漏登记即离线包白屏。
+  'app/public/js/confirm-panel.js',
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',
