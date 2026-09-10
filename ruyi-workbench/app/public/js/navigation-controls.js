@@ -224,18 +224,26 @@ async function setProviderReasoningEffort(providerId, value) {
 // Write activeProvider + model in ONE POST /api/config, then refresh chip + dependent UI + meter +
 // (silently) the live model list. providerId ''(or 'claude-cli') selects the Claude engine; a provider
 // id writes the model INTO that provider's entry, Claude writes config.model.
-async function setEngineModel(providerId, modelId) {
+// 32 号文 §4（M1-b）：opts.scope === 'session' 时【只】把路由钉到当前会话（patchSession），不装配全局
+// config、不写 POST /api/config —— 会话级选择不该改「新会话的默认值」。不传 opts（2.0 的调用点）时
+// 逐字就是修前那条全局路径。
+async function setEngineModel(providerId, modelId, opts = {}) {
+  const scope = opts.scope || 'global';
   const pid = providerId || '';
   const previousRoute = state.currentSession?.engineRoute ? { ...state.currentSession.engineRoute } : null;
   const agentMeta = currentEngineMeta();
   const engineRoute = pid && pid !== 'claude-cli'
     ? { engine: 'openai', providerId: pid, model: modelId || '' }
     : { engine: 'agent', agentCliType: agentMeta.agentCliType === 'kimi' ? 'kimi' : (state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude'), model: modelId || '' };
-  const patch = { activeProvider: pid };
-  if (pid && pid !== 'claude-cli') {
-    patch.providers = (state.config.providers || []).map(p => (p.id === pid ? { ...p, model: modelId || '' } : p));
-  } else {
-    patch.model = modelId || '';
+  // 全局 config 的装配：只有 scope==='global' 才做（会话级选择只活在 engineRoute 里，不动新会话默认值）。
+  let patch = null;
+  if (scope === 'global') {
+    patch = { activeProvider: pid };
+    if (pid && pid !== 'claude-cli') {
+      patch.providers = (state.config.providers || []).map(p => (p.id === pid ? { ...p, model: modelId || '' } : p));
+    } else {
+      patch.model = modelId || '';
+    }
   }
   // Pin the choice to the opened conversation before changing the global new-session default. This makes
   // switching A→B restore B's route instead of showing/running whichever route was selected most recently.
@@ -249,14 +257,14 @@ async function setEngineModel(providerId, modelId) {
     }
   }
   // Optimistic local update so the chip/meter reflect the choice immediately.
-  Object.assign(state.config, patch);
+  if (scope === 'global') Object.assign(state.config, patch);
   state.shownUsage = null;
   const routeKey = `${pid || 'agent'}\u0000${modelId || ''}`;
   // The previous /api/status and usage row belong to the old route. Clear only the resolved denominator;
   // the numerator remains useful and ctxWindow now rejects a route-mismatched usage limit.
   if (state.status) state.status.contextWindowResolved = null;
   updateContextMeter();
-  const saved = await saveConfigPartial(patch);
+  const saved = scope === 'global' ? await saveConfigPartial(patch) : false;
   renderModelChip();
   updateEngineDependentUI();
   updateContextMeter();
@@ -307,7 +315,9 @@ function ctxLenBadge(n) {
   if (v >= 1e3) { const k = v / 1e3; return (Number.isInteger(k) ? String(k) : Math.round(k)) + 'K'; }
   return String(v);
 }
-function openModelChipPopover(anchor) {
+// 32 号文 §4（M1-b）：opts 透传给 setEngineModel（scope）与内部那两处递归重开（刷新／删除后重建同一张
+// 菜单）。2.0 的调用点传 MouseEvent 或什么都不传 —— 那时 opts 就是 {}，一切照旧。
+function openModelChipPopover(anchor, opts = {}) {
   // The model menu is shared by both shells. Preview supplies its visible engine fact as the
   // anchor; classic's direct onclick passes a MouseEvent and continues to use #modelChip.
   const chip = anchor && anchor.nodeType === 1 ? anchor : $('modelChip'); if (!chip) return;
@@ -375,13 +385,13 @@ function openModelChipPopover(anchor) {
       models: claudeModels,
       providers: providerGroups,
       current: { providerId: curPid, modelId: curModel },
-      onSelect: (pid, modelId) => { close(); setEngineModel(pid, modelId); },
+      onSelect: (pid, modelId) => { close(); setEngineModel(pid, modelId, opts); },
       opts: {
         primaryGroup: { id: '', label: engineLabel(), colorVar: 'var(--eng-claude)', emptyHint: '', deletableIds: customModelIds, appendExtra: appendClaudeEffort },
         badge: model => { const badge = ctxLenBadge(model.contextLength); return badge ? { text: badge } : null; },
-        onDelete: async modelId => { await deleteCustomModel(modelId); close(); openModelChipPopover(); },
+        onDelete: async modelId => { await deleteCustomModel(modelId); close(); openModelChipPopover(anchor, opts); },
         actions: [
-          { icon: '↻', label: t('modelMenu.refreshModels'), onClick: async () => { await refreshModels(true); close(); openModelChipPopover(); } },
+          { icon: '↻', label: t('modelMenu.refreshModels'), onClick: async () => { await refreshModels(true); close(); openModelChipPopover(anchor, opts); } },
           { icon: '⚙', label: t('modelMenu.manageProviders'), onClick: () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); } },
         ],
       },

@@ -96,7 +96,11 @@ ok(app.includes('openWorkspaceControl: anchor => pickWorkspace(anchor)')
   && app.includes('openEngineControl: anchor => openModelChipPopover(anchor)')
   && /function pickWorkspace\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(workspacePreferences)
   && /function openPermPopover\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(providerSettings)
-  && /function openModelChipPopover\(anchor\)[\s\S]{0,360}anchor\.nodeType === 1/.test(navigationControls),
+  // 32 号文 §4（M1-b 续）重钉：openModelChipPopover 多了第二个可选参数（opts 透传给 setEngineModel 与
+  // 内部递归重开），原判据逐字钉 `(anchor)` 于是假红 —— 它想守的事实（首个参数是 anchor，且用
+  // anchor.nodeType === 1 区分「真元素 / MouseEvent」）一秒都没变。改成只锁「anchor 是首个参数」，
+  // 不再锁「后面还有没有别的参数」。（反向验证过：把 anchor.nodeType === 1 那处判据改坏立刻真红。）
+  && /function openModelChipPopover\(anchor[^)]*\)[\s\S]{0,360}anchor\.nodeType === 1/.test(navigationControls),
   'C11 shared popovers anchor to the visible Preview control without duplicating authority');
 
 const zhKeys = Object.keys(zh).filter(key => key.startsWith('previewShell.')).sort();

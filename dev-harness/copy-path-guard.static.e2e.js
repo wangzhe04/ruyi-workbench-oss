@@ -318,8 +318,10 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // 是位移不是新增（同 117s-G 那次 +41 的先例）。
     // 32 号文 §4（M1-b）：浮层原语 popover/closePopover 搬进 js/popover.js，本文件再 -43 行 ——
     // 两条登记行号再次纯位移（同一条先例：内容逐条比对过，仍是那两处 ctx-pop 用量文本）。
-    405: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
-    521: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
+    // 32 号文 §4（M1-b 续）：setEngineModel 加 opts.scope、openModelChipPopover 加 opts 透传，本文件 +10
+    // 行 —— 两条登记行号再 +10（逐行 byte 比对过：415/531 与位移前的 405/521 逐字相同，纯位移）。
+    415: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
+    531: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
   },
 });
 const CJK_SCAN_TARGETS = [
@@ -355,7 +357,7 @@ const p17FixedLines = {
   'chat-stream-runtime.js': [1292, 1296, 1297, 1301, 1315],   // 117s-G 在 :529/:537 前后插了 41 行,登记行整体 +41(内容逐条核对过)
   'workbench.js': [462, 465],
   'agent-roles.js': [45],
-  'navigation-controls.js': [440, 442, 443, 466, 468, 470, 472, 473, 481],   // M1-b：再 -43（popover 原语搬走；内容逐条核对过）
+  'navigation-controls.js': [450, 452, 453, 476, 478, 480, 482, 483, 491],   // M1-b 续：再 +10（setEngineModel 加 scope / openModelChipPopover 透传 opts；逐行 byte 比对九条各 +10，内容未变）
 };
 const reintroduced = [];
 for (const [name] of CJK_SCAN_TARGETS) {
