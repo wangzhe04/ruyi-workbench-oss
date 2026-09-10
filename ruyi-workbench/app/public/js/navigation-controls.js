@@ -6,6 +6,8 @@ import { api } from './net.js';
 import { $, el, fmtTokens, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
+// 32 号文 §4：模型菜单的行/分组/当前项/键盘构造两壳共用（3.0 steward-chips.js 从同一份取行工厂）。
+import { buildModelMenuBody } from './model-menu.js';
 // 118d: 常驻帮助菜单。菜单本体是壳无关工厂,住在这里只因为 popover 原语在本域;手册阅读器与新手向导
 // 都走各自模块的「共用实例登记处」(help-viewer / onboarding-wizard),所以组合根不必再多注入两条依赖。
 import { createHelpMenuDomain } from './help-menu.js';
@@ -353,60 +355,8 @@ function openModelChipPopover(anchor) {
   // anchor; classic's direct onclick passes a MouseEvent and continues to use #modelChip.
   const chip = anchor && anchor.nodeType === 1 ? anchor : $('modelChip'); if (!chip) return;
   popover(chip, close => {
-    const wrap = el('div', 'mc-pop');
-    const rows = []; // flat list of selectable rows for keyboard nav (in visual order)
     const curPid = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
     const curModel = currentModelId();
-    // v1.0.2 (G3): 分组折叠 — 当前激活引擎组展开置顶；其它引擎组折叠(details/summary)。组头显示引擎名 + 模型数,
-    // 非当前引擎组注明「选择将切换引擎」。模型行有 contextLength 时显示紧凑徽标(128K / 1M)。当前模型 ✓ 保持。
-    // buildRows(container, pid, models, emptyHint, isActive, deletableIds) — appends model rows into `container`.
-    // deletableIds(第44波): 命中的行尾渲染 ×(span+role=button,行本身是 <button> 不可嵌套),点击删自定义模型。
-    const buildRows = (container, pid, models, emptyHint, isActive, deletableIds) => {
-      const list = (models && models.length) ? models : [];
-      if (!list.length) { container.appendChild(el('div', 'mc-row disabled', emptyHint)); return; }
-      for (const m of list) {
-        const isCur = (pid === curPid) && ((m.id || '') === (curModel || ''));
-        const row = el('button', 'mc-row' + (isCur ? ' active' : ''));
-        row.type = 'button';
-        row.append(el('span', 'mc-check', isCur ? '✓' : ''), el('span', 'mc-rlabel', m.label || m.id || t('provider.defaultModel')));
-        const badge = ctxLenBadge(m.contextLength);
-        if (badge) row.append(el('span', 'mc-ctxlen', badge));
-        if (deletableIds && m.id && deletableIds.has(m.id)) {
-          const del = el('span', 'mc-del', '×');
-          del.title = t('modelMenu.deleteCustomModel');
-          del.setAttribute('role', 'button');
-          del.onclick = async (e) => { e.stopPropagation(); await deleteCustomModel(m.id); close(); openModelChipPopover(); };
-          row.append(del);
-        }
-        row.onclick = () => { close(); setEngineModel(pid, m.id || ''); };
-        rows.push(row);
-        container.appendChild(row);
-      }
-    };
-    // Render one engine group. Active engine → open <div> with a plain group head. Non-active → collapsed
-    // <details> whose summary shows the label + model count + 「选择将切换引擎」note.
-    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds, appendExtra) => {
-      const isActive = (pid === curPid);
-      const count = (models && models.length) || 0;
-      if (isActive) {
-        const gh = el('div', 'mc-group');
-        const dot = el('span', 'mc-gdot'); dot.style.background = colorVar;
-        gh.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)));
-        wrap.appendChild(gh);
-        buildRows(wrap, pid, models, emptyHint, true, deletableIds);
-        if (appendExtra) appendExtra(wrap);
-      } else {
-        const det = el('details', 'mc-groupd');
-        const sum = el('summary', 'mc-group mc-group-sum');
-        const dot = el('span', 'mc-gdot'); dot.style.background = colorVar;
-        sum.append(dot, el('span', 'mc-glabel', label), el('span', 'mc-gcount', '· ' + tCount('modelMenu.modelCount', count)),
-          el('span', 'mc-switch-note', t('modelMenu.switchesEngine')));
-        det.appendChild(sum);
-        buildRows(det, pid, models, emptyHint, false, deletableIds);
-        if (appendExtra) appendExtra(det);
-        wrap.appendChild(det);
-      }
-    };
     // Claude CLI group (models from status.models — the claude-side offline/proxy list, includes '默认').
     // 第44波: 自定义模型(extraModels 的 id 部分 ∪ knownModels)行尾可删 —— 别名/代理 API 条目不可删。
     const customModelIds = new Set();
@@ -434,7 +384,6 @@ function openModelChipPopover(anchor) {
       control.appendChild(select);
       container.appendChild(control);
     };
-    addGroup('', engineLabel(), 'var(--eng-claude)', claudeModels, '', customModelIds, appendClaudeEffort);
     const appendProviderEffort = provider => container => {
       const control = el('label', 'mc-effort-control');
       control.appendChild(el('span', 'mc-effort-label', t('provider.reasoningEffort')));
@@ -455,31 +404,31 @@ function openModelChipPopover(anchor) {
       control.appendChild(select);
       container.appendChild(control);
     };
-    // One group per configured provider.
+    // One group per configured provider。这里只把「这一组的全部事实」收起来 —— 组头/折叠/行/当前项标记/
+    // 键盘都在 model-menu.js（3.0 管家壳的模型菜单行也是同一份）。addGroup 这个名字与七参形状就是 2.0
+    // 原来那处装配的逐字形状，别改。
+    const providerGroups = [];
+    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds, appendExtra) =>
+      providerGroups.push({ id: pid, label, colorVar, models, emptyHint, deletableIds, appendExtra });
     for (const p of (state.config.providers || [])) {
       const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });
       addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), t('modelMenu.noModelsHint'), null, appendProviderEffort(p));
     }
-    // Footer actions.
-    wrap.appendChild(el('div', 'mc-sep'));
-    const refreshRow = el('button', 'mc-row mc-action'); refreshRow.type = 'button';
-    refreshRow.append(el('span', 'mc-check', '↻'), el('span', 'mc-rlabel', t('modelMenu.refreshModels')));
-    refreshRow.onclick = async () => { await refreshModels(true); close(); openModelChipPopover(); };
-    const manageRow = el('button', 'mc-row mc-action'); manageRow.type = 'button';
-    manageRow.append(el('span', 'mc-check', '⚙'), el('span', 'mc-rlabel', t('modelMenu.manageProviders')));
-    manageRow.onclick = () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); };
-    wrap.append(refreshRow, manageRow);
-    rows.push(refreshRow, manageRow);
-    // Keyboard nav: focus the current row (or first), ↑↓ move, Enter activates focused row.
-    let idx = Math.max(0, rows.findIndex(r => r.classList.contains('active')));
-    setTimeout(() => { (rows[idx] || rows[0])?.focus(); }, 0);
-    wrap.addEventListener('keydown', e => {
-      if (e.target && e.target.tagName === 'SELECT') return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(rows.length - 1, idx + 1); rows[idx].focus(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(0, idx - 1); rows[idx].focus(); }
-      else if (e.key === 'Enter') { e.preventDefault(); (document.activeElement && rows.includes(document.activeElement) ? document.activeElement : rows[idx])?.click(); }
+    return buildModelMenuBody({
+      models: claudeModels,
+      providers: providerGroups,
+      current: { providerId: curPid, modelId: curModel },
+      onSelect: (pid, modelId) => { close(); setEngineModel(pid, modelId); },
+      opts: {
+        primaryGroup: { id: '', label: engineLabel(), colorVar: 'var(--eng-claude)', emptyHint: '', deletableIds: customModelIds, appendExtra: appendClaudeEffort },
+        badge: model => { const badge = ctxLenBadge(model.contextLength); return badge ? { text: badge } : null; },
+        onDelete: async modelId => { await deleteCustomModel(modelId); close(); openModelChipPopover(); },
+        actions: [
+          { icon: '↻', label: t('modelMenu.refreshModels'), onClick: async () => { await refreshModels(true); close(); openModelChipPopover(); } },
+          { icon: '⚙', label: t('modelMenu.manageProviders'), onClick: () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); } },
+        ],
+      },
     });
-    return wrap;
   });
 }
 

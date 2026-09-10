@@ -59,6 +59,9 @@ const PAYLOAD_FILES = [
   'app/public/js/skills-memory.js',
   'app/public/js/provider-settings.js',
   'app/public/js/agent-workflows.js',
+  // 32 号文 §4：2.0 顶栏模型弹层与 3.0 管家壳的模型菜单行【共用】的构造件 —— 两壳都在 import，
+  // 漏登记即离线包白屏（43e 同款事故）。
+  'app/public/js/model-menu.js',
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',

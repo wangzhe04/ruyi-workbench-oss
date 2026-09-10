@@ -313,8 +313,11 @@ const ALLOWED_CJK_CODE = Object.freeze({
   },
   'agent-roles.js': {},
   'navigation-controls.js': {
-    499: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
-    615: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
+    // 32 号文 §4（M1-a）：模型弹层本体搬进 model-menu.js（两壳共用），本文件整体 -51 行 —— 两条登记
+    // 行号随之下移。逐条核对过内容没变（仍是 ctx-pop 的「已用 N / 上限 M」那行与用量文本刷新点），
+    // 是位移不是新增（同 117s-G 那次 +41 的先例）。
+    448: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
+    564: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
   },
 });
 const CJK_SCAN_TARGETS = [
@@ -350,7 +353,7 @@ const p17FixedLines = {
   'chat-stream-runtime.js': [1292, 1296, 1297, 1301, 1315],   // 117s-G 在 :529/:537 前后插了 41 行,登记行整体 +41(内容逐条核对过)
   'workbench.js': [462, 465],
   'agent-roles.js': [45],
-  'navigation-controls.js': [534, 536, 537, 560, 562, 564, 566, 567, 575],
+  'navigation-controls.js': [483, 485, 486, 509, 511, 513, 515, 516, 524],   // M1-a：同 -51 位移（内容逐条核对过）
 };
 const reintroduced = [];
 for (const [name] of CJK_SCAN_TARGETS) {

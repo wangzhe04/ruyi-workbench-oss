@@ -25,6 +25,10 @@
 // keydown 从栈顶往下关一层。抽屉与看板那两处 document keydown 保留不动 —— 它们天然是最底层，
 // 而栈的监听【注册在它们之前】，所以「栈顶先关」自然成立：栈里有东西就关栈顶并 stopPropagation，
 // 栈是空的才轮到抽屉／看板自己那一路。这样既拿到逐层语义，又不必动它们已被静态锁逐字钉住的形状。
+// 32 号文 §4：模型行（button 骨架 / 当前项标记 / 标签→徽标→副行的落位）两壳共用 —— 2.0 顶栏那颗模型
+// 弹层的每一行也从这里出。只 import 本域内相对路径（抽屉静态锁 B2 钉着本模块的 import 全是 './…'）。
+import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
+
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
   // 返回一个「注销自己」的函数（调用方存起来，关闭时调一次）。同一层重复 push 会得到两个独立句柄，
@@ -204,9 +208,10 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
 // 117n-M1①（用户「查下有没有能合并的功能，比如对话输入框，通常应该都是一样的，应该要能做成
 // 复用的」走查）：DOM 基础件三兄弟 doc()/byId()/el()，外加 clear()/button()，逐字复制在
 // composer/drawer/conversation/board/classic-window/settings 六个消费方里（此前本模块自己在
-// createQuickSwitchChips 内部也重复一份）。本模块是这六个消费方【已经】在 import 的零 import 叶子，
-// 收进来不新增任何模块依赖边，也不动离线包清单。doc() 用 globalThis.document || null 是刻意的
-// （非浏览器宿主——比如 Node 里的静态契约测试——不炸），六个消费方原来的写法逐字一致，保留。
+// createQuickSwitchChips 内部也重复一份）。本模块是这六个消费方【已经】在 import 的叶子，收进来不新增
+// 他们各自的依赖边（本模块自己的 import 只有文件头那一条：model-menu.js 的模型行工厂）。doc() 用
+// globalThis.document || null 是刻意的（非浏览器宿主——比如 Node 里的静态契约测试——不炸），
+// 六个消费方原来的写法逐字一致，保留。
 export const doc = () => globalThis.document || null;
 export const byId = id => (doc() ? doc().getElementById(id) : null);
 export function el(tag, className, text) {
@@ -429,6 +434,16 @@ function loadUsageRows(api) {
   return usageRowsPending;
 }
 
+// 3.0 的行类名：只有 row / label / badge / hint 四处与 2.0 弹层不同，其余用不到也无害（公共默认值在
+// model-menu.js 的 MODEL_MENU_CLASSES —— 两壳的行【骨架】是同一份，类名才是壳自己的事）。
+const STEWARD_MODEL_ROW_CLASSES = Object.freeze({
+  ...MODEL_MENU_CLASSES,
+  row: 'steward-chip-option',
+  label: 'steward-chip-option-label',
+  badge: 'steward-chip-badge',
+  hint: 'steward-chip-option-hint',
+});
+
 export function createQuickSwitchChips({
   api = async () => null,
   t = key => key,
@@ -610,35 +625,50 @@ export function createQuickSwitchChips({
   // 一行模型：主行是 label（等于 id 时就是 id —— 不改写、不美化成别的名字，用户要复制粘贴的是真 id），
   // 命中搜索时把匹配的那一段包进 .steward-chip-hit；副行【只在真有用量时】出现，只说我们真知道的
   // 「上次用 · N 天前 · 共 M 回合」；全局默认那一项挂一枚「默认」徽标。
+  // 骨架（button / role / aria-checked / dataset / 标签→徽标→副行的落位 / onclick）与 2.0 顶栏的模型弹层
+  // 是【同一份】model-menu.js（32 号文 §4）：这里只交类名与四个挂点 —— 搜索高亮的标签节点、额外属性、
+  // 「默认」徽标、用量副行。容器、开合（closeMenu/toggleMenu）与写盘（patchSession）都不在本函数里。
   function modelRow(row, route) {
-    const node = el('button', 'steward-chip-option');
-    node.type = 'button';
-    node.setAttribute('role', 'menuitemradio');
-    node.setAttribute('aria-checked', row.current ? 'true' : 'false');
-    node.dataset.modelId = row.id;
-    if (row.nonText) node.dataset.modelNonText = '1';
-    const label = el('span', 'steward-chip-option-label');
-    if (row.match && row.match.start >= 0) {
-      const head = row.label.slice(0, row.match.start);
-      const tail = row.label.slice(row.match.end);
-      if (head) label.appendChild(el('span', '', head));
-      label.appendChild(el('span', 'steward-chip-hit', row.label.slice(row.match.start, row.match.end)));
-      if (tail) label.appendChild(el('span', '', tail));
-    } else {
-      label.textContent = row.label;
-    }
-    node.appendChild(label);
-    if (row.isDefault) node.appendChild(el('span', 'steward-chip-badge', t('stewardShell.chips.modelDefault')));
-    if (row.usage) {
-      const when = row.usage.days === 0
-        ? t('stewardShell.chips.usedToday')
-        : t('stewardShell.chips.usedDaysAgo', { days: row.usage.days });
-      node.appendChild(el('span', 'steward-chip-option-hint', row.usage.days >= 0
-        ? t('stewardShell.chips.usageLine', { when, turns: row.usage.turns })
-        : t('stewardShell.chips.usageTurns', { turns: row.usage.turns })));
-    }
-    node.onclick = () => { closeMenu(); patchSession({ engineRoute: { ...route, model: row.id } }); };
-    return node;
+    return buildModelMenuRow({
+      model: row,
+      isCurrent: Boolean(row.current),
+      onSelect: () => { closeMenu(); patchSession({ engineRoute: { ...route, model: row.id } }); },
+      opts: {
+        classNames: STEWARD_MODEL_ROW_CLASSES,
+        showCheck: false,   // 当前项由 aria-checked 表达，不摆 2.0 那颗 ✓
+        attrs: model => ({
+          role: 'menuitemradio',
+          'aria-checked': model.current ? 'true' : 'false',
+          dataset: model.nonText ? { modelId: model.id, modelNonText: '1' } : { modelId: model.id },
+        }),
+        label: model => {
+          const label = el('span', 'steward-chip-option-label');
+          if (model.match && model.match.start >= 0) {
+            const head = model.label.slice(0, model.match.start);
+            const tail = model.label.slice(model.match.end);
+            if (head) label.appendChild(el('span', '', head));
+            label.appendChild(el('span', 'steward-chip-hit', model.label.slice(model.match.start, model.match.end)));
+            if (tail) label.appendChild(el('span', '', tail));
+          } else {
+            label.textContent = model.label;
+          }
+          return label;
+        },
+        badge: model => (model.isDefault ? { className: 'steward-chip-badge', text: t('stewardShell.chips.modelDefault') } : null),
+        hint: model => {
+          if (!model.usage) return null;
+          const when = model.usage.days === 0
+            ? t('stewardShell.chips.usedToday')
+            : t('stewardShell.chips.usedDaysAgo', { days: model.usage.days });
+          return {
+            className: 'steward-chip-option-hint',
+            text: model.usage.days >= 0
+              ? t('stewardShell.chips.usageLine', { when, turns: model.usage.turns })
+              : t('stewardShell.chips.usageTurns', { turns: model.usage.turns }),
+          };
+        },
+      },
+    });
   }
 
   function buildModelMenu(menu) {
