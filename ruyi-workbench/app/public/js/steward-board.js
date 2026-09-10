@@ -8,7 +8,7 @@ import { dockToneForMissionState } from './preview-shell.js';
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
 // 连「会话级 ＞ 全局回落」都不认识，更长不出第二套。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）与轮询常量也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -60,10 +60,13 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThre
 // 焦点事件／写动作／页面重新可见这五个确定性时刻各刷一次 —— 于是管家壳在看板关着时【不多】一条
 // 后台计时器（§3.4 红线的延伸）。
 
-export const STEWARD_BOARD_POLL_MS_MIN = 5000;
+// 33 号文 §4「轮询常量收进叶子」：下限 5000／容差 250／默认 15000 这三个值原来与 steward-shell /
+// steward-drawer 两处逐字相同，现在只有 steward-chips.js 一个来源。导出的本地名字没改 —— 锁钉的
+// 是值（导出的 STEWARD_BOARD_POLL_MS_MIN 仍是 5000）与 pollTick／startPolling 的函数体。
+export const STEWARD_BOARD_POLL_MS_MIN = STEWARD_POLL_MS_MIN;
 // 同 steward-drawer.js：setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍。
-const POLL_DUE_SLACK_MS = 250;
-export const STEWARD_BOARD_POLL_MS_DEFAULT = 15000;
+const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
+export const STEWARD_BOARD_POLL_MS_DEFAULT = STEWARD_POLL_MS_DEFAULT;
 export const STEWARD_NOW_CLOSED_KEY = 'wcw.stewardNowClosed';
 export const STEWARD_NOW_MIN_WIDTH = 1000;
 // F3：右栏那两条「小行叠」的容器 id。它们【不在】 index.html 的静态骨架里（A5/A7 的纪律：

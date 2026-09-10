@@ -10,7 +10,7 @@ import { describeTurnActivity } from './turn-activity.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫与 note 写手也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫、note 写手与轮询常量也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -57,10 +57,13 @@ import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDel
 // 自由回答框），接力／三问／验收项／现场四块折进默认收起的「更多」。
 
 export const STEWARD_QUICK_REPLIES_MAX = 3;
-export const STEWARD_DRAWER_POLL_MS_MIN = 5000;
+// 33 号文 §4「轮询常量收进叶子」：下限 5000／容差 250／默认 15000 这三个值原来与 steward-shell /
+// steward-board 两处逐字相同，现在只有 steward-chips.js 一个来源。导出的本地名字一个没改 ——
+// 锁钉的是值（导出的 STEWARD_DRAWER_POLL_MS_MIN 仍是 5000）与 pollSlice 的函数体。
+export const STEWARD_DRAWER_POLL_MS_MIN = STEWARD_POLL_MS_MIN;
 // setInterval 会比标称早几毫秒回来，不留容差的话「到点该拉的那一拍」会被推迟整整一拍。
-const POLL_DUE_SLACK_MS = 250;
-export const STEWARD_DRAWER_POLL_MS_DEFAULT = 15000;
+const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
+export const STEWARD_DRAWER_POLL_MS_DEFAULT = STEWARD_POLL_MS_DEFAULT;
 export const STEWARD_LAST_SAY_SENTENCES = 3;
 export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
 // 117h：抽屉的两种挂法（一份实现，不存在第二份抽屉区块渲染）。

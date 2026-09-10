@@ -238,6 +238,16 @@ export function writeNote(id, text) {
   return target;
 }
 
+// 33 号文 §4「轮询常量收进叶子」：管家三处轮询（壳层状态、看板、抽屉）各写了一份同一组字面量 ——
+// 下限 5000（与 01-config 的 stewardPollMs 同一 clamp）、容差 250（setInterval 会比标称早几毫秒
+// 回来，不留容差就会整整推迟一拍）、默认 15000（配置还没到达时的兜底）。三者都以 chips.js 为既有
+// 依赖，收进来不新增任何模块依赖边。三处的【本地名字】刻意保留（STEWARD_DRAWER_POLL_MS_MIN 等）：
+// 三把逐字锁钉的是 startPolling／pollStewardTick／pollSlice／pollTick 的函数体与 clamp 写法，
+// 改名等于把锁全钉红；这一项收的是【值】不是名字 —— 本模块是这组数字的唯一来源。
+export const STEWARD_POLL_MS_MIN = 5000;
+export const STEWARD_POLL_MS_DEFAULT = 15000;
+export const STEWARD_POLL_DUE_SLACK_MS = 250;
+
 // 33 号文 §4「Enter/isComposing 守卫 ×3 抽 bindEnterToSubmit」：管家壳里「回车发送」的规矩原本在
 // 三处各写一遍（composer 一处、抽屉底部输入框与问答框各一处），三份逐字同形。这里收成一处判据：
 //   · Enter 且不按 Shift（Shift+Enter 在文本框里换行）；

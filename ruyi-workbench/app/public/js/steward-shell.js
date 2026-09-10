@@ -7,7 +7,7 @@ import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createStewardClassicWindow } from './steward-classic-window.js';
-import { stewardEscapeStack, byId } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点
+import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有 preview-shell.js 那一份定义，
 // byId 只有 steward-chips.js 那一份 —— 本文件两者都不再自带。跨壳取键的先例是 steward-board.js
 // 的反向 import（33 号文 §1 第 10 行登记过），这里沿用同一条路。
@@ -52,10 +52,9 @@ export const STEWARD_SHELL_SLOT_IDS = Object.freeze([
 
 // 管家状态轮询周期：跟 01-config.js 的 stewardPollMs 校验同一 clamp 下限(5000)，上限交给后端
 // (config 已经 clamp 过一次，这里只防「配置还没到达/被清空」时退回 15000 默认值)。
-const STEWARD_POLL_MS_DEFAULT = 15000;
-const STEWARD_POLL_MS_MIN = 5000;
-// setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍（与 steward-drawer/board 同一常量口径）。
-const POLL_DUE_SLACK_MS = 250;
+// 33 号文 §4「轮询常量收进叶子」：这三个值原来与 steward-board / steward-drawer 两处逐字相同，
+// 现在只有 steward-chips.js 一个来源，从上面那条已有的 import 取。本地名字一个没改 —— 锁钉的是
+// startPolling／pollStewardTick 的函数体与 clamp 写法，这一项收的是值不是名字。
 
 // 骨架齐备 = 同级容器在，且四个空位都在。纯 DOM 判定，无副作用，测试与 UI 共用同一口径。
 export function stewardShellDomReady(doc = globalThis.document) {

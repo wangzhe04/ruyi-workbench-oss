@@ -91,7 +91,12 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 117j UX-F3（重钉来源：本波交付，27 号文 §11.7 走查 P2）：白名单加第八条 —— Esc 逐层的那个栈。
   // 它住 steward-chips.js（零 import 的叶子），壳层 import 它是为了出【那一处】 document keydown。
   // 形态仍然不变：本域内相对路径、零第三方库、零裸包名。
-  "import { stewardEscapeStack, byId } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点",
+  // 33 号文 §4 再重钉（本波交付）：白名单第八条这次多带了三个名字 —— 管家三处轮询（壳层／看板／
+  // 抽屉）那一组逐字相同的常量（下限／默认／容差）收进了 steward-chips.js 叶子，壳层从【同一条】
+  // import 取，不另起第二条（本仓已登记过「同模块两条 import 行绕开锁」是债）。形态仍然不变：
+  // 本域内相对路径、零第三方库、零裸包名。反向验证过：往 steward-shell.js 里加一条
+  // `import x from 'lodash';` 立刻真红，删掉即绿。
+  "import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份",
   // 33 号文 §4 重钉（本波交付）：白名单加第九条 —— 壳模式本机偏好的那一枚键。原来 steward-shell.js
   // 自带一份 byId 与两个 'wcw.shellMode' 字面量，与 preview-shell.js:39 的 SHELL_MODE_STORAGE_KEY
   // 逐字重复；现在两样都只留一份定义（byId 归上一条 steward-chips.js）。跨壳取键的先例是
