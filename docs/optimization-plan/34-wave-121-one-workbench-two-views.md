@@ -398,3 +398,17 @@
 - E-嘴（§11.23）的「最小在场信号」由 K3 先落；E-嘴改为只做托盘通道。
 - W2（同文件夹多线程）不受影响；119 波定时任务的读面被 K7 消费。
 - F2 频道条（117t `f621288`／`9fd7628`）在本波退役；它的「只看这条」语义由左栏点击换焦点承接，不再有第二个过滤器。
+
+---
+
+## 13. 交付记录（主会话逐条亲核后才写进来）
+
+### 13.1 K0 · 默认入口翻转（Opus 实现，`effd3cd`，2026-09-10 23:12；主会话复核 23:20）
+
+- **产品改动三处**（主会话逐行看过 diff）：`index.html:68-78` 预绘制无偏好／未知值／异常一律落 `steward`，显式 `classic`／`preview` 各落各的；`src/01-config.js:295` `stewardEnabledV1` 默认 `true`（三处注释对齐、行数不增，sanitize 不动）；`public/js/steward-shell.js:349-362` 再入判据从「存了 steward」放宽成「没存过显式的非管家偏好」，fail-closed 分支一字未动。
+- **派单稿被证伪一处（记入纪律）**：只改预绘制是空转——`preview-shell.js:3645` 在 bind 期用 `normalizeShellMode`（空值→classic）把预绘制盖掉，而那一拍 `state.config` 未到、`canEnterSteward()` 恒 false；首开进哪个视角**只能**由 config 到达后 `steward-shell.js` 那一处决定。执行者拿 `pretender-shell.e2e.js` B1 照旧 PASS 作证据后越界改了 `steward-shell.js`，主会话核过 `storedMode()` 返回原始值（`:111-114`），放宽是真放宽，**裁决：越界成立**。预绘制与 `normalizeShellMode` 的兜底自此不同构（前者 steward、后者 classic），K1 搬家时统一。
+- **共用夹具不存在**：17 件真浏览器 e2e 各自 spawn，`dev-harness/lib/browser-path.js` 只返回 exe 路径。走各件 config 种子逐件写 `stewardEnabledV1:false`（13 件，全是经典壳／交办台的件）；`live-full-text.browser` 走预绘制前注入 localStorage。
+- **锁 6 把重钉**，各做反向验证（执行者报告有命令与红绿；主会话抽核复跑 `steward-config.static`、`steward-classic-window.e2e`、`pretender-shell.e2e` 全绿）。
+- **生成器链**：forwardEdges 67、SCC 1、`build --check` 新鲜（主会话复核）。**测试**：`--fast` 70/70（主会话复跑）；17 件真浏览器 e2e 串行 17/0；全量 `--parallel 4` 三轮，末轮 323/1，唯一红 `live-full-text.browser` 是 4 路下自身 54–132 s 撞 120 s 上限，串行 4 次全绿，不算真红。
+- **顺手挖出的真 bug → K0b**：管家默认开后，`13i:762` 收件箱 tick 直接调 `getPretenderProjectionIndex()`，绕过 `13e:329-333` 的空目录守卫，把空索引持久化；boot 后才物化的会话冷读 `/api/missions` 得 0 行（影响导入、多进程写入与大量夹具）。主会话核过路径，已派 Sonnet 修在根上（`getPretenderProjectionIndex` 自带空目录判据，不落盘不缓存）＋新 e2e `mission-index-late-materialize`。
+- **登记未做**（不在 K0 范围）：118a 向导「管家用哪个模型」一步与完成页落管家视角 → 归 K7 之后的 118 补刀；`live-full-text.browser` 在 4 路下必超时 → 治抖动那批。
