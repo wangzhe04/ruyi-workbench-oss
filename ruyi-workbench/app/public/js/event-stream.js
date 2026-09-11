@@ -281,6 +281,13 @@ export function createEventStream({
     }
     // 页面隐藏【不】断连（在场信号要真）；关页／前进后退缓存才收摊。
     if (globalThis.addEventListener) globalThis.addEventListener('pagehide', () => { stop(); });
+    // 治抖动那批（34 号文 §13.6 登记④）：bfcache 冻结不是关页——`pagehide` 上面那行已经
+    // `stop()` 过（`started=false`），但 JS 堆原样保留；`pageshow` 恢复时(`event.persisted`
+    // 为真)如果什么都不做，`started` 还停在 false，推送这条线就永远死着，只能刷新页面才能救回来。
+    // 直接复用既有的 `start()`（内部就是 `bind()`(已绑过，no-op) + `connect()`/退避），不写第二条。
+    if (globalThis.addEventListener) globalThis.addEventListener('pageshow', event => {
+      if (event && event.persisted) start();
+    });
     return true;
   }
 
