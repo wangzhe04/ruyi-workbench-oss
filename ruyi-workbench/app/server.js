@@ -42475,7 +42475,39 @@ const pretenderIndexRuntime = {
   fullDirty: false,
   dirtySessions: new Set(),
   usageDirty: new Set(),
+  // 121-K3(34 号文 §13.3 登记的那条竞态):上一次【真的扫过 sessions 目录】时,那个目录的 mtime,
+  // 以及那次扫描完成的时刻。两个值一起用才判得出「这次扫描可信不可信」,见下面 PRETENDER_DIR_SETTLE_MS。
+  sourcesDirStamp: '',
+  sourcesScannedAt: 0,
 };
+
+// 121-K3:目录 mtime 的「沉降窗口」。
+// 病根不是 K0b 修的那个(空目录时建出空索引并缓存),而是它的一般形式:**投影索引一旦进了进程内存,
+// buildOrLoadPretenderIndex 的 `if (!value)` 就短路掉整段「扫目录 + sameSourceMap 比对」,此后外部
+// 写进 sessions 目录的会话【永远】不被发现** —— 没有人给它们打脏页(markPretenderIndexDirty 只长在
+// 应用自己的写口上)。导入、多进程写入、以及本仓大量「boot 之后才 seed」的夹具都是这个形状;
+// 121-K1 那次全量真红(冷列表 300 条没读满)就是它。
+// 自愈判据用【目录级】指纹:一次 stat(paths.sessions) 就够(NTFS/ext4 都在增删条目时更新父目录 mtime),
+// 不必为每次读都付一遍 300 条会话 × 3 次 syscall 的全量扫描。
+// 但 mtime 有粒度:扫描如果发生在最后一次写的【同一毫秒附近】,这个指纹就还没稳定下来 ——
+// 那正是「一边写一边读」的现场。所以只信任「扫描时刻比目录 mtime 晚至少 1 秒」的那一次指纹;
+// 更年轻的指纹一律重扫。代价有界:一阵写完之后,第一次落在 1 秒之外的扫描就把指纹变成可信的,
+// 此后每次读只多一次 stat。
+const PRETENDER_DIR_SETTLE_MS = 1000;
+
+async function pretenderSessionsDirStamp() {
+  try { return String(Math.trunc((await fsp.stat(paths.sessions)).mtimeMs)); } catch { return '-'; }
+}
+function pretenderSourcesTrusted(dirStamp) {
+  if (pretenderIndexRuntime.sourcesDirStamp !== dirStamp) return false;
+  const mtime = Number(dirStamp);
+  if (!Number.isFinite(mtime)) return false;                       // 目录读不到:永远重扫(扫一次也很便宜)
+  return pretenderIndexRuntime.sourcesScannedAt - mtime >= PRETENDER_DIR_SETTLE_MS;
+}
+function pretenderNoteSourcesScan(dirStamp) {
+  pretenderIndexRuntime.sourcesDirStamp = dirStamp;
+  pretenderIndexRuntime.sourcesScannedAt = Date.now();
+}
 
 function pretenderIndexPath() {
   return path.join(paths.sessions, PRETENDER_INDEX_DIR, PRETENDER_INDEX_FILE);
@@ -42784,10 +42816,30 @@ async function buildOrLoadPretenderIndex() {
     pretenderIndexRuntime.value = null;
   }
 
+  // ── 121-K3(§13.3):目录级自愈 ───────────────────────────────────────────────────────
+  // 下面那句 `if (!value)` 是热路径的命根子(不能每次读都全量扫目录),但它同时也是 §13.3 那条
+  // 竞态的病根:索引进了内存之后,外部写进 sessions 目录的会话【永远】不被发现。
+  // 这里用一次 stat 把两件事都照顾到:目录指纹没变且已经沉降 -> 什么都不做(热路径逐字不变);
+  // 指纹变了、或者变得太新(还在一边写一边读的窗口里)-> 扫一遍目录,真有差异才按差异刷【那几片】。
+  // 注意它只在 value 已经在内存里时才跑:value 为空时下面那段本来就要扫,重复扫是白花钱。
+  const dirStamp = await pretenderSessionsDirStamp();
+  if (pretenderIndexRuntime.value && !pretenderSourcesTrusted(dirStamp)) {
+    const base = pretenderIndexRuntime.value;
+    const sources = await scanPretenderSessionSources();
+    pretenderNoteSourcesScan(dirStamp);
+    if (!sameSourceMap(base.sources, sources)) {
+      const ids = new Set([...Object.keys(base.sources || {}), ...Object.keys(sources)]);
+      const changed = new Set([...ids].filter(id => (base.sources || {})[id] !== sources[id]));
+      pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, changed, new Set(), 'sources_dir_changed');
+      pretenderIndexRuntime.persisted = false;   // 变过就得重新落盘(下面统一那一处写)
+    }
+  }
+
   let value = pretenderIndexRuntime.value;
   if (!value) {
     const disk = await readPretenderIndexDisk();
     const sources = await scanPretenderSessionSources();
+    pretenderNoteSourcesScan(dirStamp);
     const usageStamp = await pretenderUsageSourceStamp();
     if (!disk) {
       // 121-K0b(病根在此):原来的空目录守卫只长在 warmPretenderProjectionIndex 里,只护 boot 那一次

@@ -100,18 +100,22 @@ function seedScaleDataset() {
 const WB_PORT = await getFreePort();
 fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
 // 121 波 K0(34 号文 §8.4):stewardEnabledV1 默认翻成 true。本件是【投影索引】的规模档,而
-// seedScaleDataset() 刻意在 boot 之后才把 300 条 Mission 物化到盘上;管家开着时 13i 的收件箱 tick
-// 会跟 seed 抢时序。K0b(`826504c`)已经把空目录守卫收进 getPretenderProjectionIndex 自身,那条
-// 「空索引被持久化」的路确实堵死了,但【抢时序这件事本身没消失】—— tick 仍可能在 seed 写到一半时
-// 扫目录,建出一份【部分】索引。
+// seedScaleDataset() 刻意在 boot 之后才把 300 条 Mission 物化到盘上 —— 管家开着时 13i 的收件箱
+// tick 会跟 seed 抢时序,K0 因此给本件写了一行 `stewardEnabledV1:false` 的种子。
 //
-// 121-K1 实测(这段是给下一个想撤掉它的人看的):我先撤掉了这行种子,连跑 4 次串行全绿,以为 K0b
-// 已经把病根结构性堵死。随后 `--parallel 4` 全量回归里本件真红(实 838ms 那次只是性能预算,但同一
-// 轮之后的串行复验直接红在「(a) 冷列表300 Mission」——列表根本没读满 300 条),再跑又绿。
-// 也就是说:**「跑 N 次没复现」从来不是证伪竞态的证据**,而我拿它当了证据。种子还原,理由写死在
-// 这里:本件量的是【索引在规模下的读性能】,不是【tick 与 seed 的抢跑】,后者该由
-// mission-index-late-materialize.e2e.js 专门盯(那一件是 K0b 的正面见证者)。
-fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false, stewardEnabledV1: false }), 'utf8');
+// 那行种子的来路与去路(留给下一个读到这里的人,两次事故各一条):
+//   · 121-K1 撤过一次:依据是「K0b 已经把空索引持久化那条路堵死 + 串行跑 4 次全绿」。随后
+//     `--parallel 4` 全量里本件真红(「(a) 冷列表300 Mission」根本没读满),种子还原。
+//     教训写在 §13.3 上:**「跑 N 次没复现」从来不是证伪竞态的证据**。
+//   · 121-K3 再撤,这一次是因为**病根被修掉了**,不是因为又跑绿了几次。病根不在管家,在 13e:
+//     投影索引一旦进了进程内存,`buildOrLoadPretenderIndex` 的 `if (!value)` 就短路掉整段
+//     「扫目录 + sameSourceMap 比对」,此后外部写进 sessions 目录的会话【永远】不被发现
+//     (没有人给它们打脏页)。K0b 堵的是「空目录时别建空索引」,堵不住这条一般形式。
+//     K3 加了目录级自愈(stat(paths.sessions) 的 mtime 指纹 + 1 秒沉降窗口,buildReason
+//     `sources_dir_changed`),并且先用 dev-harness/mission-index-boot-race.e2e.js 把病灶
+//     **确定性地复现**出来(修前 A2 want 10 实得 2、B3 want 40 实得 1),修完那一件才转绿。
+//     本件因此不再需要把管家关掉 —— 它现在跑的是真实默认配置。
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false }), 'utf8');
 const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1' }, windowsHide: true });
 let stderr = ''; wb.stderr.on('data', d => stderr += String(d));
 
