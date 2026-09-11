@@ -36,6 +36,7 @@ import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createShellModeController } from './js/shell-mode.js'; // 121-K1
+import { createEventStream } from './js/event-stream.js'; // 121-K2b
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
@@ -795,6 +796,15 @@ async function handleDrop(e) {
   }
 }
 
+// 121-K2b（34 号文 §6.2）：事件流。组合根持【一条】连接，注入管家壳（左栏／焦点／对话流）与
+// 工作台（2.0 的「它正在跑」卡）—— 两视角共用同一条，绝不各开一条（在场信号按连接计，多开一条
+// 服务端就以为你同时坐在两个地方，§4.3 的打扰纪律会跟着错）。
+// 在场信号的两个读口：视角读 data-shell-mode（全仓唯一的视角状态源），会话读 state.currentSession。
+const eventStream = createEventStream({
+  lensProvider: () => (document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 'steward' : 'classic'),
+  sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
+});
+
 const {
   autonomyFormSync,
   buildEmptyState,
@@ -827,6 +837,7 @@ const {
   turnArtifactChips,
   turnSummaryCard,
 } = createSessionExperienceDomain({
+  eventStream, // 121-K2b：2.0「它正在跑」卡吃 thread.live；换会话时由 openSession 报新的在场信号
   apiErrText,
   renderMarkdownInto: (...args) => renderMarkdownInto(...args), highlightIn: (...args) => highlightIn(...args), // 118a-fix: 手册阅读器复用同一条已消毒 markdown 管线
   openModal: id => openModal(id),
@@ -875,6 +886,7 @@ const stewardShellDomain = createStewardShellDomain({
   api,
   state,
   t,
+  eventStream, // 121-K2b：壳层／左栏／焦点栏的推送口（同一条连接，壳层再转给看板与抽屉）
   applyShellMode,
   closeSettings: () => closeModal('settingsModal'),
   now: () => new Date(),
@@ -1124,6 +1136,12 @@ async function boot() {
     await saveConfigPartial({ locale: resolvedLocale });
     fillSettings();
   }
+  // 121-K2b（§6.2）：推送连接排在 boot 的【最后】—— 不是为了省事，而是因为连接参数就是在场信号
+  // （§4.3），而它得等两件事落定才算真：① 哪个视角 —— config 到达前 bindShellModeControl 会先 fail-closed
+  // 到工作台视角（见 34 号文 §13.1 记的那条时序），这一拍报上去就是假的；② 哪条会话 —— bootData
+  // 才把上次那条打开。抢在前面起的话，收件箱的在场门（K3 §4.3）会拿到一两百毫秒的错信号，
+  // 而且百害无一利地多建两条连接（每次在场变就重连，那是唯一的写口）。
+  eventStream.start();
 }
 // v1.5 (§1.3): boot 的「连本地服务 + 拉数据」段拆出成独立函数,供故障卡「重试连接」在不重跑 bindEvents
 // (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。

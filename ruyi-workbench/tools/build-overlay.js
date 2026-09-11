@@ -87,6 +87,9 @@ const PAYLOAD_FILES = [
   'app/public/js/thread-facts.js',
   // 121-K1:「需要你」本地提醒的纯策略层 + 设置块绑定(交办台退役后改名搬家)。
   'app/public/js/notify-policy.js',
+  // 121-K2b:事件流客户端(GET /api/events/stream 的 fetch+ReadableStream 读法)。缺文件会让离线包的
+  // app.js import 整条挂掉 —— 两个视角都起不来(同 shell-mode.js 的理由)。
+  'app/public/js/event-stream.js',
   'app/public/js/onboarding-wizard.js', // 118a
   'app/public/js/help-viewer.js', // 118a-fix
   'app/public/js/health-i18n.js', // 118b
