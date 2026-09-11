@@ -96,7 +96,10 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // import 取，不另起第二条（本仓已登记过「同模块两条 import 行绕开锁」是债）。形态仍然不变：
   // 本域内相对路径、零第三方库、零裸包名。反向验证过：往 steward-shell.js 里加一条
   // `import x from 'lodash';` 立刻真红，删掉即绿。
-  "import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份",
+  // 121-K2b（34 号文 §6.2）重钉：白名单第八条又多带一个名字 STEWARD_POLL_MS_CONNECTED —— 事件流连着时
+  // 四处兜底轮询的节拍（30 s）也收进了 steward-chips.js 那一份，壳层从【同一条】import 取。形态仍然不变：
+  // 本域内相对路径、零第三方库、零裸包名（反向验证过：往 steward-shell.js 里加一条 `import x from 'lodash';` 立刻真红）。
+  "import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源",
   // 33 号文 §4 重钉（117 波交付）：白名单加第九条 —— 视角模式本机偏好的那一枚键。原来
   // steward-shell.js 自带一份 byId 与两个 'wcw.shellMode' 字面量，与那份定义逐字重复；现在两样都
   // 只留一份定义（byId 归上一条 steward-chips.js）。

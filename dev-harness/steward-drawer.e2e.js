@@ -634,8 +634,12 @@ try {
     `B14b 跟随全局时详情栏【不印默认值但留着控件】（实测 is-default=${chA && chA.isDefault} 行画出来=${chA && chA.painted} 值画出来=${chA && chA.valuesPainted} 键画出来=${chA && chA.keysPainted}），值仍读得出「${openedA.chipValues[0]}」`);
   // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
   // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
-  ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 2,
-    `B15 抽屉自己的轮询与 avatar 轮询各一（实测 ${JSON.stringify(openedA.intervals)}）`);
+  // 121-K2b（34 号文 §6.2）重钉：「看板关着不刷」那道门删掉之后，看板那张表在【管家视角里
+  // 一直在跑】（节拍由 pollTick 判：连接正常 30 s、断开回到今天那两档）。所以数得出来的
+  // TICK_MS ms 表多了一张 —— 被钉的那件事一个字没变：每个模块仍然只有一张表、切离管家视角一张不剩
+  // （G1/H1 那一条）。反向验证：把 isBoardOpen() && 加回 steward-board.js 的 syncPolling → 本条真红。
+  ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 3,
+    `B15 抽屉、avatar、看板各一张表（121-K2b 之前看板那张要等点开才起；实测 ${JSON.stringify(openedA.intervals)}）`);
 
   // ── ⑤ 权限 chip 切「改文件不问」 ────────────────────────────────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);
@@ -1248,8 +1252,10 @@ try {
   })()`);
   ok(Boolean(closed), 'F1 Esc 关闭抽屉');
   ok(closed && closed.shellDrawer === '', 'F1b 关闭后管家壳不再让出右栏');
-  ok(closed && closed.intervals.filter(ms => ms === TICK_MS).length === 1,
-    `F2 关抽屉即停表，只剩 avatar 那一个轮询（实测 ${closed && JSON.stringify(closed.intervals)}）`);
+  // 121-K2b 重钉：剩下的是 avatar 与看板两张（后者自此在管家视角里常驻，见 B15 的注）。
+  // 被钉的那件事一个字没变：**抽屉自己那张表关抽屉即停** —— 三张变两张，差的就是它。
+  ok(closed && closed.intervals.filter(ms => ms === TICK_MS).length === 2,
+    `F2 关抽屉即停表，只剩 avatar 与看板那两张（实测 ${closed && JSON.stringify(closed.intervals)}）`);
 
   // ── ⑨ 切回经典壳：零残留定时器 ──────────────────────────────────────────────
   await cdp.evaluate(`(() => {

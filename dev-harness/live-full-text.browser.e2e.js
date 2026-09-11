@@ -308,6 +308,13 @@ try {
   await cdp.connect();
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  // 121-K2b(34 号文 §6.2):本件测的是这张气泡的【兜底那一路】—— 3000ms 表、切壳当拍停、切回来又起。
+  // K2b 之后事件流一连上,那条路就【故意】不走了(推送比 3 s 一拍快,连着时 liveTurnPollable 直接
+  // 为假,C1/C2/C3 会整组变成空断言)。所以这里把那一条路由挡掉,让本件继续钉它本来钉的那件事;
+  // 连接正常时那张卡怎么更新,由新件 event-stream-client.browser.e2e.js 的 D0/D1 负责。
+  // **只挡这一条路由**:别的请求照走,否则量到的是「整个后端没了」,兜底本身也就无从证明。
+  await cdp.send('Network.enable');
+  await cdp.send('Network.setBlockedURLs', { urls: ['*/api/events/stream*'] });
   await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
       // 121 波 K0(34 号文 §8.4):默认入口翻成管家视角,而本件 B/S/C/D 四节测的全是【经典壳】的正文、

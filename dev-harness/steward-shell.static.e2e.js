@@ -153,9 +153,19 @@ ok(setIntervalSites === 1 && clearIntervalSites === 1,
 // 自己判。「setInterval 只住在 startPolling 里」这条契约本身一个字没变，变的只是它的两个参数。
 ok(/function startPolling\(\) \{\s*if \(pollTimer\) return;\s*pollStewardState\(\);\s*pollTimer = setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\);\s*\}/.test(stewardShell),
   'C2b setInterval 只住在 startPolling 里');
-ok(/function pollStewardTick\(\) \{\s*const due = stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\);/.test(stewardShell)
+// 121-K2b（34 号文 §6.2／§6.4）**重钉 C2b2**：这一拍多了最外面一档 —— 事件流连着时它只是兜底
+// 心跳（STEWARD_POLL_MS_CONNECTED＝30 s，常量在 steward-chips.js 那一份），断开才回到今天那两档
+// （真有事在跑 5 s，否则 config.stewardPollMs）。被钉的两件事一个字没变：①「表按下限起、真要不要拉
+// 由这一拍自己判」；②后端下限没动（pollIntervalMs 仍在最里层）。反向验证：把 STEWARD_POLL_MS_CONNECTED
+// 换成 STEWARD_POLL_MS_MIN 立刻真红。
+ok(/function pollStewardTick\(\) \{\s*const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(stewardShell)
   && /if \(presenceInputs\.inflight\) return true;/.test(stewardShell),
-  'C2b2 节拍由 pollStewardTick 判：壳可见且真有事在跑才用 5s，否则仍按 config.stewardPollMs（后端下限未动）');
+  'C2b2 节拍由 pollStewardTick 判：连接时 30 s 兜底，断开时「壳可见且真有事在跑」才用 5s、否则仍按 config.stewardPollMs（后端下限未动）');
+// 121-K2b 新钉：连接状态【只改 due，不改启停】—— syncPolling 的三重门控里一个 streamConnected 都
+// 没有（否则「连着就不开表」会把兜底本身也关掉，推送漏一帧就永远追不回来）。
+ok(!/function syncPolling\(\)[\s\S]{0,200}streamConnected/.test(stewardShell)
+  && /eventStream\.on\('steward\.say', \(\) => \{ if \(isStewardMode\(\)\) pollStewardState\(\); \}\);/.test(stewardShell),
+  'C2b3 事件流只改节拍不改启停：syncPolling 的门控零 streamConnected；steward.say 到达走的是既有那一处状态拉取（零新请求路）');
 ok(/function stopPolling\(\) \{\s*if \(!pollTimer\) return;\s*clearInterval\(pollTimer\);\s*pollTimer = 0;\s*\}/.test(stewardShell),
   'C2c clearInterval 只住在 stopPolling 里');
 ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);\s*\}/.test(stewardShell),

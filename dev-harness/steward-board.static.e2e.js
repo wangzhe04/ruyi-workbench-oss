@@ -71,6 +71,9 @@ const confirmPanelMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'conf
 // 121-K1（34 号文 §8.2）：dockToneForMissionState 与 elapsedLabel 搬进叶子 js/thread-facts.js
 // （原住 preview-shell.js / preview-task-sheet.js，两者随交办台退役整文件删除）。
 const threadFactsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'thread-facts.js')).href);
+// 121-K2b（34 号文 §6.2）：轮询常量的唯一来源（F3b 要正面读 STEWARD_POLL_MS_CONNECTED 的【值】，
+// 不只看源码里那个名字 —— 名字对了值被改成 5000 的话断言必须红）。
+const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
 
 // ─── A DOM 锚点 ─────────────────────────────────────────────────────────────────
 const headerStart = html.indexOf('id="stewardHeader"');
@@ -284,8 +287,30 @@ ok(/drawer\.setOnClosed\(mount => \{ if \(mount === 'docked' && !suppressCloseRe
 ok(count(board, /setInterval\(/g) === 1 && count(board, /clearInterval\(/g) === 1,
   `F1 steward-board.js 恰好一处 setInterval 与一处 clearInterval（实测 ${count(board, /setInterval\(/g)}／${count(board, /clearInterval\(/g)}）`);
 ok(count(board, /setTimeout\(/g) === 0, 'F2 看板零 setTimeout');
-ok(/function syncPolling\(\) \{\s*if \(isBoardOpen\(\) && isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);/.test(board),
-  'F3 唯一入口 syncPolling 的门控是「看板打开 && 管家模式 && 页面可见」，任一为否即停表');
+// 121-K2b（34 号文 §6.2／§6.4）**重钉 F3**：门控从三条收成两条 —— 「看板打开」这一条【删了】。
+// 理由不是放宽而是它的前提没了：状态行那句「N 个事项 · A 条在跑，B 条等你」与右栏「现在这一件」
+// 都【一直可见】，看板收起来它们照样在屏幕上，于是那道门换来的正是 32 号文 §5 记的两笔债
+// （看板一关，状态行与紧凑行就停在关上的那一帧）。K4 之后左栏永远开着，「看不见」更不成立。
+// 省下来的请求由新的一档节拍还回去：连接正常时这一拍 30 s 才拉一次（见下面 F3b）。
+// 反向验证：把 isBoardOpen() && 加回去 → 本条与 event-stream-client.browser 的「看板收起后左栏仍
+// 在 ≤1 s 内跟上」双红。
+ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);/.test(board)
+  && !/isBoardOpen\(\) && isStewardMode\(\)/.test(boardCode),
+  'F3 唯一入口 syncPolling 的门控是「管家模式 && 页面可见」，任一为否即停表（121-K2b：「看板关着不刷」那道门已删）');
+// 121-K2b 新钉（§6.4 的三条语义之二）：兜底轮询【存在】，且事件流连着时节拍 ≥30 s。
+// 「存在」这一半与「≥30 s」这一半必须同时钉：只钉前者，改回 5 s 不会红；只钉后者，把兜底整个
+// 拿掉也不会红 —— 而推送漏一帧时兜底是唯一的自愈路（13r 的环只有 200 条，断太久就补不上）。
+ok(/const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunning\(\) \? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(board)
+  && chipsMod.STEWARD_POLL_MS_CONNECTED >= 30000
+  && /await refreshBoard\(\);/.test(boardCode),
+  `F3b 兜底轮询存在且连接时节拍 ≥30 s（实测 ${chipsMod.STEWARD_POLL_MS_CONNECTED} ms；断开时回到「有线程在跑 5 s／空闲 config.stewardPollMs」两档）`);
+// 121-K2b 新钉（§6.4 的三条语义之三）：连接时那 30 s 一拍之外，行的变化靠推送落地，而推送落地
+// 【不许】变成每帧一发请求 —— thread.live 就地改（零请求），其余五类走串行合并的那一条路。
+ok(/stream\.on\(EVENT_STREAM_LIVE_EVENT, data => \{ applyLivePush\(data\); \}\);/.test(board)
+  && /for \(const name of EVENT_STREAM_ROW_EVENTS\) \{/.test(board)
+  && /if \(pushBusy\) \{ pushAgain = true; return false; \}/.test(board)
+  && count(boardCode, /pushRefreshRows\(\)/g) === 3,
+  'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）');
 ok(/function leaveSteward\(\) \{[\s\S]*?stopPolling\(\);/.test(board)
   && /new MutationObserver\(\(\) => \{ if \(isStewardMode\(\)\) void enterSteward\(\); else leaveSteward\(\); \}\)/.test(board),
   'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算）');

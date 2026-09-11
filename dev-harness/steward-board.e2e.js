@@ -496,8 +496,12 @@ try {
     `B2c 它就是【同一个】抽屉节点被搬进 #stewardNowBody（实测 mount=${docked && docked.drawerMount} parent=${docked && docked.drawerParent}）`);
   // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
   // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
-  ok(docked && docked.intervals.filter(ms => ms === TICK_MS).length === 2,
-    `B2d 看板没打开时不多一条计时器（抽屉 + avatar 各一，实测 ${docked && JSON.stringify(docked.intervals)}）`);
+  // 121-K2b（34 号文 §6.2）重钉：「看板关着不刷」那道门删掉之后，看板那张表在【管家视角里
+  // 一直在跑】（节拍由 pollTick 判：连接正常 30 s、断开回到今天那两档）。所以数得出来的
+  // TICK_MS ms 表多了一张 —— 被钉的那件事一个字没变：每个模块仍然只有一张表、切离管家视角一张不剩
+  // （G1/H1 那一条）。反向验证：把 isBoardOpen() && 加回 steward-board.js 的 syncPolling → 本条真红。
+  ok(docked && docked.intervals.filter(ms => ms === TICK_MS).length === 3,
+    `B2d 看板没打开时也只有三张表（抽屉 + avatar + 看板各一；121-K2b 之前看板那张要等点开才起，现在左栏常开、它一直在跑，节拍改由 pollTick 判；实测 ${docked && JSON.stringify(docked.intervals)}）`);
 
   // ── ② 点开看板 → 分组、验收 a/b、等待原因、chip ────────────────────────────────
   await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
@@ -654,8 +658,10 @@ try {
   ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barNowB) && boardPaint.barNowB === boardPaint.barB,
     `C12e 右栏小行那枚最紧密度卡的色条与看板卡逐字同色（实测 小行=${boardPaint && boardPaint.barNowB} 看板=${boardPaint && boardPaint.barB}）`);
 
+  // 121-K2b 重钉：点开看板【不再多】一条 —— 那第三条在看板收起时就已经在跑了（B2d）。
+  // 钉的仍然是同一件事：看板不会因为一次开合长出第二张表。
   ok(opened.intervals.filter(ms => ms === TICK_MS).length === 3,
-    `C11 看板打开才起第三条计时器（实测 ${JSON.stringify(opened.intervals)}）`);
+    `C11 点开看板不再多一条计时器（收起时就已经是三张，121-K2b 删掉了「看板关着不刷」那道门；实测 ${JSON.stringify(opened.intervals)}）`);
 
   // ── 117l-B2 ②：看板视觉的可判定结果（用户第五轮走查 2）──────────────────────────
   const transparent = value => /rgba\(0, 0, 0, 0\)|transparent/.test(String(value));
@@ -745,9 +751,20 @@ try {
     'E2a 服务端投影里确实有它 —— 看板此刻取不到它的唯一原因是【行还没刷】');
   const boardIdsOf = snapshot => (snapshot && Array.isArray(snapshot.groups) ? snapshot.groups : [])
     .flatMap(group => group.threads.map(thread => thread.sessionId));
-  const beforeFocus = await cdp.evaluate(BOARD);
-  ok(!boardIdsOf(beforeFocus).includes(idD),
-    `E2b 派事件之前，看板手里的行【没有】这一条（实测 ${JSON.stringify(boardIdsOf(beforeFocus))}）`);
+  // 121-K2b（34 号文 §6.2）**重钉 E2b**：这一条原本断言的是「派事件之前，行里没有它」——
+  // 那是 117r-D2 造这个时序时的【前提】，不是它要守的结论。K2b 之后这个前提不成立了：
+  // `thread.created` 一到，左栏当场把那一行重拉了（§6.3 的指标 e，新件实测 ~87 ms），
+  // 而这【正是本波要的】。所以翻面钉「它已经在行里了」。
+  // 「手里那批行没有它时焦点事件照样打得开」这条路【没有失去覆盖】：E2f 派的是一条根本
+  // 不存在的 id（行里永远不会有它），钉的就是同一条路 ＋ 它的有界性。
+  // 反向验证：把 steward-board.js 的 EVENT_STREAM_ROW_EVENTS 那一圈注释掉 → 本条真红。
+  const beforeFocus = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    const ids = (Array.isArray(snapshot.groups) ? snapshot.groups : []).flatMap(g => g.threads.map(t => t.sessionId));
+    return ids.includes('${idD}') ? snapshot : null;
+  })()`) || await cdp.evaluate(BOARD);
+  ok(boardIdsOf(beforeFocus).includes(idD),
+    `E2b 线程在看板取过行【之后】才建出来，但 thread.created 推送一到左栏当场就有了它（121-K2b §6.3 指标 e；实测 ${JSON.stringify(boardIdsOf(beforeFocus))}）`);
   // 记下抽屉标题的变化轨迹：修前看板会把抽屉刚打开的那一份顶掉、换成自动挑选的【等你】那条
   // （THREAD_A），所以「中途有没有回落」是可判定的 —— 只看最终态不够（那一刷最终仍会纠回来）。
   await cdp.evaluate(`(() => {
@@ -766,7 +783,7 @@ try {
     return snapshot.nowHidden === false && snapshot.nowThread === ${JSON.stringify(THREAD_D)} ? snapshot : null;
   })()`);
   ok(Boolean(focusedNew),
-    `E2c 行里还没有它，右栏照样把这条【刚建出来的】线程打开（实测「${focusedNew && focusedNew.nowThread}」）`);
+    `E2c 右栏把这条【刚建出来的】线程打开（实测「${focusedNew && focusedNew.nowThread}」）`);
   const titleTrail = await cdp.evaluate('window.__ruyiTitleTrail || []');
   ok(Array.isArray(titleTrail) && !titleTrail.includes(THREAD_A),
     `E2d 中途【没有】回落到自动挑选的那条（修前 currentFocusId 不认这一钉，会把抽屉顶成「${THREAD_A}」；实测轨迹 ${JSON.stringify(titleTrail)}）`);
@@ -877,10 +894,21 @@ try {
   await sleep(6000);
   request(appPort, 'POST', '/api/chat/stream', { sessionId: idF, message: 'hang here', cwd: workF }, token);
   ok(Boolean(await liveOn(idF)), 'R6 线程 F 的新回合也在飞了（服务端投影 activeTurn=true）');
-  await sleep(1500);
-  const staleF = await cdp.evaluate(BOARD);
-  ok(staleF && staleF.nowState === zh['mission.state.done'] && staleF.nowLastSayHead === zh['stewardShell.drawer.lastSay'],
-    `R7 没有任何刷新的话抽屉自己【发现不了】：空闲线程走 config.stewardPollMs（本夹具 ${POLL_MS}ms，用户真机 15000ms），屏幕上还是「${zh['mission.state.done']}」＋「${zh['stewardShell.drawer.lastSay']}」（实测 state=「${staleF && staleF.nowState}」head=「${staleF && staleF.nowLastSayHead}」）`);
+  // 121-K2b（34 号文 §6.2／§6.3 指标 a）**重钉 R7**：这一条原本钉的是一笔【债】——
+  // 「看板行上的『打开』与行标题走 focusThread()，不派事件，抽屉那边一无所知，于是右栏已经
+  // 开着这条线程时它一次都不刷」。K2b 把它还清了：回合一起跑，thread.state 当场到，右栏
+  // 在 1 s 级别内翻成「进行中」＋「它正在说」，**不需要任何交互**。
+  // 紧跟的 R8（行上『打开』这一路自己也得刷）一个字没动 —— 它钉的是另一件事，而且断连时
+  // 那条路仍是唯一能救回来的眼睛。
+  // 反向验证：把 steward-drawer.js 与 steward-board.js 两处 EVENT_STREAM_ROW_EVENTS 订阅都
+  // 注释掉 → 本条回到修前那一帧（「已收工」＋「它刚说」）即红。
+  const liveF = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.nowState === ${JSON.stringify(zh['mission.state.running'])}
+      && snapshot.nowLastSayHead === ${JSON.stringify(zh['stewardShell.drawer.liveSay'])} ? snapshot : null;
+  })()`, 60);
+  ok(Boolean(liveF),
+    `R7 推送到了就【自己发现】：一次交互都没有，右栏在 3 s 内从「${zh['mission.state.done']}」＋「${zh['stewardShell.drawer.lastSay']}」翻成「${zh['mission.state.running']}」＋「${zh['stewardShell.drawer.liveSay']}」（121-K2b 还清 32 号文 §5 记的那笔债；实测 state=「${liveF && liveF.nowState}」head=「${liveF && liveF.nowLastSayHead}」）`);
   await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
   await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
   await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]')`);

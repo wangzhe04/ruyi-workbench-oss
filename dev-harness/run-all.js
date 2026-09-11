@@ -24,8 +24,13 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // Wall-clock performance gates measure the product, not contention from three unrelated Edge/server
 // tests. They still belong to the complete suite, but run alone after parallel functional buckets.
 // 121-K1: the only entry was pretender-preview-performance.e2e.js, deleted with the dispatch desk.
-// Keep the mechanism — the next wall-clock gate (the 121-K2 event stream latency budget) lands here.
-const PARALLEL_EXCLUSIVE = new Set([]);
+// 121-K2b: the event stream latency budget (34 号文 §6.3) is exactly that next wall-clock gate —
+// every one of its five assertions is "server wrote the frame → the DOM changed, ≤1 s", and its C/D
+// groups count polls inside fixed 60 s / 35 s windows. Both are unmeasurable next to three unrelated
+// Edge/server tests, so it runs alone after the parallel functional buckets.
+const PARALLEL_EXCLUSIVE = new Set([
+  'event-stream-client.browser.e2e.js',
+]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
@@ -35,6 +40,9 @@ const TIMEOUT_OVERRIDES = {
   // tools-v2: 8 子测试各自 spawn workbench,(d) group 改用独立端口(9190/9191 避 8962 TIME_WAIT),
   // 本机多轮 e2e 后资源紧张时整体 >120s(实测 240s,逻辑全 PASS)。豁免到 300s 防误杀。
   'tools-v2.e2e.js': 300000,
+  // 121-K2b: 事件流客户端的墙钟门。观察窗本身就是硬性的（§6.3 的 60 s 安静窗 ＋ 35 s 恢复窗），
+  // 再加一条真线程跑满「起跑→工具→提问→收工」四段（~40 s）与冷启动，实测 ~230 s。
+  'event-stream-client.browser.e2e.js': 420000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

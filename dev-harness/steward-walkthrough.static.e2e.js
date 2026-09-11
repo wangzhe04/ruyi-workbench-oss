@@ -194,18 +194,69 @@ const ok = (condition, label) => {
     // 或多一个 start/stop 调用点，撞上 steward-avatar.static C2a 与 steward-drawer.static C1/C3b。
     ok(/pollTimer = setInterval\(pollSlice, STEWARD_DRAWER_POLL_MS_MIN\);/.test(drawer),
       'E1 抽屉的表按 5s 下限起');
-    ok(/const due = wasLive \? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs\(\);/.test(drawer),
-      'E1b 有在跑的回合就每拍都拉，否则仍按 config.stewardPollMs');
+    // 121-K2b（34 号文 §6.2／§6.4）**重钉 E1b／E2／E3**：三处 due 都多了最外面一档 —— 事件流连着时
+    // 它们只是【兜底心跳】（STEWARD_POLL_MS_CONNECTED＝30 s，常量仍只有 steward-chips.js 那一份），
+    // 断开才回到今天那两档。被钉的事一个字没变：表按 5 s 下限起（E1／E2／E3 的前半句），真要不要拉
+    // 由每一拍自己判，而且后端下限没动（E4，pollIntervalMs 仍在最里层）。
+    // 反向验证（三条各做过）：把 STEWARD_POLL_MS_CONNECTED 换回各自的 *_POLL_MS_MIN → 本条真红。
+    ok(/const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(wasLive \? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(drawer),
+      'E1b 连接时 30 s 兜底；断开后有在跑的回合就每拍都拉，否则仍按 config.stewardPollMs');
     // 117s-B 把「真→假」那一支改成了对称的边沿判定：live 只要变了（真→假 = 刚收工，假→真 = 递话后又活了）
     // 当拍都重拉事项切片。钉的是「边沿变化那一拍重拉」这件事，不再钉旧的一行写法。
     ok(/const nowLive = isLive\(\);\s*\n\s*if \(wasLive !== nowLive\) await loadMissionSlice\(\);/.test(drawer),
       'E1c 回合刚结束（live 真→假）当拍把事项行与快照一并重拉 —— 「已收工」要立刻看见');
     ok(/pollTimer = setInterval\(\(\) => \{ void pollTick\(\); \}, STEWARD_BOARD_POLL_MS_MIN\);/.test(board)
-      && /const due = anyThreadRunning\(\) \? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs\(\);/.test(board),
+      && /const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunning\(\) \? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(board),
       'E2 看板同一条节拍纪律');
     ok(/pollTimer = setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\);/.test(shell)
-      && /const due = stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\);/.test(shell),
+      && /const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(shell),
       'E3 壳层状态轮询同一条节拍纪律');
+    // 121-K2b 新钉（§6.4 的三条语义）：四处兜底轮询的「连接时那一档」是【同一个常量】，而且它
+    // ≥30 s；四个文件仍然各自恰好一处 setInterval／一处 clearInterval（推送不许换来第二套计时）。
+    const experience = read('js/session-experience.js');
+    const chipsMod2 = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
+    const countOf = (source, re) => (source.match(re) || []).length;
+    ok(chipsMod2.STEWARD_POLL_MS_CONNECTED >= 30000
+      && [drawer, board, shell].every(src => /STEWARD_POLL_MS_CONNECTED/.test(src))
+      && countOf(read('js/steward-chips.js'), /STEWARD_POLL_MS_CONNECTED = /g) === 1,
+      `E6 连接时的兜底节拍 ≥30 s 且只有一份定义（实测 ${chipsMod2.STEWARD_POLL_MS_CONNECTED} ms，定义处 1）`);
+    ok([drawer, board, shell, experience].every(src => countOf(src, /setInterval\(/g) === 1 && countOf(src, /clearInterval\(/g) === 1),
+      `E7 四个消费者各自仍然恰好一处 setInterval／一处 clearInterval（实测 ${[drawer, board, shell, experience].map(src => `${countOf(src, /setInterval\(/g)}:${countOf(src, /clearInterval\(/g)}`).join(' ')}）`);
+    // 2.0 那张「它正在跑」卡是唯一一处【连接时连表都不开】的：它的每一次变化都有一帧 thread.live
+    // 打头（§6.1 每会话 ≥500 ms），3 s 一拍比推送慢，纯属白烧。断连即回到 3 s（C5 仍钉着那个数）。
+    ok(/if \(liveStreamConnected\) return false;/.test(experience)
+      && /const LIVE_TURN_POLL_MS = 3000;/.test(experience),
+      'E8 2.0 在途卡：连接时不开表（liveTurnPollable 第二道门），断连即回到 3 s');
+    // 121-K2b 新钉：新叶子 js/event-stream.js 的两件事 ——
+    //   ① 帧解析是【纯函数】，可 Node import 跑真值表（SSE 的四种行、多行 data、注释行心跳、
+    //      坏 JSON 不掀翻；`id` 只认真带 id 的那一帧 —— presence.ack 不带 id 是 13r 刻意的，
+    //      把它当成 Last-Event-ID 的新位置会让断线补发跳过别人没收到的帧）；
+    //   ② 它只 import net.js 的 apiRaw（零第三方库、零 token 自拼、零全局写入、零 innerHTML）。
+    const streamSrc = read('js/event-stream.js');
+    const streamMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'event-stream.js')).href);
+    const framePing = streamMod.parseEventStreamBlock(': ping');
+    const frameFull = streamMod.parseEventStreamBlock('id: 7\nevent: thread.state\ndata: {"sessionId":"s1","state":"running"}');
+    const frameMulti = streamMod.parseEventStreamBlock('event: thread.done\ndata: {"a":\ndata: 1}');
+    const frameAck = streamMod.parseEventStreamBlock('event: presence.ack\ndata: {"lens":"steward"}');
+    const frameBad = streamMod.parseEventStreamBlock('id: 9\nevent: thread.live\ndata: {oops');
+    ok(framePing === null
+      && Boolean(frameFull) && frameFull.id === '7' && frameFull.event === 'thread.state' && frameFull.data.state === 'running'
+      && Boolean(frameMulti) && frameMulti.data && frameMulti.data.a === 1
+      && Boolean(frameAck) && frameAck.id === '' && frameAck.data.lens === 'steward'
+      && Boolean(frameBad) && frameBad.event === 'thread.live' && frameBad.data === null,
+      `E9 帧解析真值表：注释行（心跳）不是帧、id/event/data 三行齐全、多行 data 按 \\n 拼、presence.ack 不带 id、坏 JSON 丢载荷保事件名（实测 ${JSON.stringify([framePing, frameFull, frameMulti, frameAck, frameBad])}）`);
+    const streamImports = [...streamSrc.matchAll(/^import .*from '([^']+)';$/gm)].map(match => match[1]);
+    // 扫的是【剥掉注释】的源码：文件头注释里逐字写着「要带 x-wcw-token 请求头」「不直调 fetch」，
+    // 不剥的话写下纪律的那几句会把自己判红（与本仓其它 static 件同一条 stripComments 纪律）。
+    const streamCode = streamSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    ok(JSON.stringify(streamImports) === JSON.stringify(['./net.js'])
+      && !/\bfetch\(/.test(streamCode) && !/authHeaders\(/.test(streamCode) && !/x-wcw-token/.test(streamCode)
+      && !/globalThis\.[A-Za-z_$][\w$]*\s*=/.test(streamCode) && !/\.innerHTML\s*=/.test(streamCode)
+      && streamMod.EVENT_STREAM_ROW_EVENTS.length === 5
+      && streamMod.EVENT_STREAM_ROW_EVENTS.includes('thread.adopted')
+      && streamMod.EVENT_STREAM_LIVE_EVENT === 'thread.live'
+      && streamMod.EVENT_STREAM_RETRY_MAX_MS === 30000,
+      `E10 新叶子只 import net.js 的 apiRaw（零裸 fetch、零 token 自拼、零全局写入、零 innerHTML）；线上事件名登记表 5+1 条、退避封顶 30 s（实测 imports=${JSON.stringify(streamImports)}）`);
     ok(/Math\.max\(STEWARD_DRAWER_POLL_MS_MIN, raw\)/.test(drawer)
       && /Math\.max\(STEWARD_BOARD_POLL_MS_MIN, raw\)/.test(board)
       && /Math\.max\(STEWARD_POLL_MS_MIN, raw\)/.test(shell),
