@@ -14877,6 +14877,7 @@
       "provides": [
         "STEWARD_STOP_REASON_MAX",
         "handleStewardRunnerApiRoutes",
+        "stewardAppendUserStop",
         "stewardImplThreadPrioritize",
         "stewardImplThreadStop",
         "stewardRunnerState"

@@ -1158,6 +1158,10 @@ function prerouteText(q, index, memory, opts) {
 //           arbiterWait(sessionId) -> {lock?}|{budget?}|{slot?}|null(喂给 06i 的 waitReasonFor,同步只读)
 //           cancelQueuedTurn(sessionId) -> boolean(/api/stop 把【还在排队】的回合也停掉)
 //           arbiterRefresh() -> boolean(POST /api/config 落盘后唤醒队列,让改上限即时生效)
+//           appendUserStop(sessionId,{stopped,queuedStopped}) -> Promise<boolean>
+//             (121-K5,34 号文 §4.4 末条 / 33 号文 §0:用户在界面上手按的停止也记一行决策日志。
+//              消费者是 13 的 POST /api/stop —— 它拼在 13h 之前,直接调 13j 的 stewardAppendDecision
+//              是前向边,所以与 cancelQueuedTurn 同款走这个命名空间。开关关时实现直接返回 false。)
 //           (插队与仲裁器快照【不】进命名空间:它们的消费者全在 13h 内部 —— 两条
 //            /api/steward/arbiter* 路由、steward_thread_prioritize 实现、并进 state 的 runnerState)
 //   117l D2 递话通道(由 13h-steward-runner.js 填充;消费者是 13g 的 steward_thread_continue ——

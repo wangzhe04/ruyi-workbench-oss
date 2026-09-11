@@ -20226,6 +20226,10 @@ function prerouteText(q, index, memory, opts) {
 //           arbiterWait(sessionId) -> {lock?}|{budget?}|{slot?}|null(喂给 06i 的 waitReasonFor,同步只读)
 //           cancelQueuedTurn(sessionId) -> boolean(/api/stop 把【还在排队】的回合也停掉)
 //           arbiterRefresh() -> boolean(POST /api/config 落盘后唤醒队列,让改上限即时生效)
+//           appendUserStop(sessionId,{stopped,queuedStopped}) -> Promise<boolean>
+//             (121-K5,34 号文 §4.4 末条 / 33 号文 §0:用户在界面上手按的停止也记一行决策日志。
+//              消费者是 13 的 POST /api/stop —— 它拼在 13h 之前,直接调 13j 的 stewardAppendDecision
+//              是前向边,所以与 cancelQueuedTurn 同款走这个命名空间。开关关时实现直接返回 false。)
 //           (插队与仲裁器快照【不】进命名空间:它们的消费者全在 13h 内部 —— 两条
 //            /api/steward/arbiter* 路由、steward_thread_prioritize 实现、并进 state 的 runnerState)
 //   117l D2 递话通道(由 13h-steward-runner.js 填充;消费者是 13g 的 steward_thread_continue ——
@@ -38303,6 +38307,15 @@ async function handleApi(req, res, pathname) {
     if (sid && typeof StewardHooks.cancelQueuedTurn === 'function') {
       try { queuedStopped = StewardHooks.cancelQueuedTurn(sid) === true; } catch { queuedStopped = false; }
     }
+    // 121-K5(34 号文 §4.4 末条;33 号文 §0 记的那条不对称):管家按的停止进决策日志,用户手按的不进 ——
+    // 于是「行动流水」上看得见模型停了哪条线程,看不见人停了哪条。这里补上,形状与 13h 的
+    // steward_thread_stop 同款(tool:'user_stop'、mayAct:'user'、basis.origin:'ui_stop')。
+    // 与 cancelQueuedTurn 同一条迟绑定纪律(13h 拼在本文件之后,直引它的符号是前向边);
+    // **只在真停下了什么之后才记**——什么都没停时那不是一次行动,不该在流水上占一行。
+    // await 它是为了让 e2e 能在响应回来之后立刻读到那一行(实现自己也是 fire-and-forget,不会抛)。
+    if ((stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
+      try { await StewardHooks.appendUserStop(sid, { stopped, queuedStopped }); } catch { /* 记账失败绝不影响停止本身 */ }
+    }
     return send(res, json({ ok: true, stopped: stopped || queuedStopped }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/compact') {
@@ -49293,6 +49306,45 @@ async function stewardImplThreadStop(args, ctx, config) {
   return { ok: true, sessionId, stopped, queuedStopped, undoRef };
 }
 
+// ── 用户手按的停止也进决策日志(121-K5;33 号文 §0 末段记的那条不对称,34 号文 §4.4 末条)────────
+// 事实:全仓只有一个停止原语(04 的 stopSession),两条路都落到它 —— 管家按的走上面那个
+// steward_thread_stop(写一行决策日志),用户按的走 POST /api/stop(什么都不写)。于是「行动流水」
+// 上看得见模型停了哪条线程,看不见人停了哪条;116-3 P1-13 当初以「全部行动经命令核心与审计」为由
+// 把「提升优先级」改走工具实现时,「停止」没照做。这里还的就是这一笔。
+//
+// 为什么住 13h:13-http-router.js 拼在 13h 【之前】,直接调 13j 的 stewardAppendDecision 是前向边
+// (32 号文 §4 纪律 1 的例 3 同一个模具)。所以走 StewardHooks 迟绑定 —— 与它旁边那个
+// cancelQueuedTurn 逐字同一个挂法:路由那一侧只认 typeof StewardHooks.x === 'function'。
+//
+// 行形状对齐上面那一条(tool/args/targetSessionId/permissionMode/mayAct/undoRef/basis):
+//   · tool = 'user_stop' —— 它不是一个管家工具,所以不叫 steward_*;读流水的人一眼分得出是谁按的;
+//   · mayAct = 'user' —— 真值表里没有这一档,因为【压根没有过权限判定】:人手按的停止不需要管家
+//     有没有资格,记的是「这一下是人做的」;
+//   · basis.origin = 'ui_stop' —— 与 revokeAllGrants(sid,'ui-stop') 同源的那句话,来路一眼可查;
+//   · undoRef 与 steward_thread_stop 那一条逐字相同(停下的回合不能原样续上,这一点与谁按的无关)。
+// 开关关时【不写】:决策日志住 stewardDir(),27 号文 §3.4 的红线是「开关关时零持久化写入」。
+// 记账失败绝不影响停止本身(stewardAppendDecision 自己就是 fire-and-forget)。
+async function stewardAppendUserStop(sessionId, facts) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return false;
+  const config = await readConfig().catch(() => null);
+  if (!config || config.stewardEnabledV1 !== true) return false;
+  const head = await stewardReadSessionHead(sid).catch(() => null);
+  if (!head || !head.id) return false;
+  if (stewardRawKind(head) === 'steward') return false;   // 管家自己那条会话不进线程流水
+  const f = (facts && typeof facts === 'object') ? facts : {};
+  stewardAppendDecision({
+    tool: 'user_stop',
+    args: { stopped: f.stopped === true, queuedStopped: f.queuedStopped === true },
+    targetSessionId: sid,
+    permissionMode: stewardThreadPermissionMode(head, config),
+    mayAct: 'user',
+    undoRef: { kind: 'none', note: '停下的回合不能原样续上;要继续用「接着办」' },
+    basis: { origin: 'ui_stop' },
+  });
+  return true;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 路由(token 级,ROUTE_AUTH 在 01b 登记)。经 13g 的 handleStewardApiRoutes 末尾转交(见那里的注释)。
 // ────────────────────────────────────────────────────────────────────────────
@@ -49501,6 +49553,9 @@ Object.assign(StewardHooks, {
   acquireTurnSlot: stewardAcquireTurnSlot,
   arbiterWait: stewardArbiterWait,
   cancelQueuedTurn: stewardCancelQueuedTurn,
+  // 121-K5:用户在界面上手按的停止也记一行决策日志(33 号文 §0 的不对称)。挂法与上一行同款,
+  // 消费者只有 13 的 POST /api/stop —— 它拼在 13h 之前,经 06i 的命名空间调,零新增前向边。
+  appendUserStop: stewardAppendUserStop,
   arbiterRefresh: stewardArbiterRefresh,
   // 116h 的第 21 个管家工具:实现住本文件(要直接调仲裁器原语),门控壳仍是 13g 的 stewardToolHandler。
   threadPrioritize: stewardToolHandler('steward_thread_prioritize', stewardImplThreadPrioritize),

@@ -813,6 +813,15 @@ async function handleApi(req, res, pathname) {
     if (sid && typeof StewardHooks.cancelQueuedTurn === 'function') {
       try { queuedStopped = StewardHooks.cancelQueuedTurn(sid) === true; } catch { queuedStopped = false; }
     }
+    // 121-K5(34 号文 §4.4 末条;33 号文 §0 记的那条不对称):管家按的停止进决策日志,用户手按的不进 ——
+    // 于是「行动流水」上看得见模型停了哪条线程,看不见人停了哪条。这里补上,形状与 13h 的
+    // steward_thread_stop 同款(tool:'user_stop'、mayAct:'user'、basis.origin:'ui_stop')。
+    // 与 cancelQueuedTurn 同一条迟绑定纪律(13h 拼在本文件之后,直引它的符号是前向边);
+    // **只在真停下了什么之后才记**——什么都没停时那不是一次行动,不该在流水上占一行。
+    // await 它是为了让 e2e 能在响应回来之后立刻读到那一行(实现自己也是 fire-and-forget,不会抛)。
+    if ((stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
+      try { await StewardHooks.appendUserStop(sid, { stopped, queuedStopped }); } catch { /* 记账失败绝不影响停止本身 */ }
+    }
     return send(res, json({ ok: true, stopped: stopped || queuedStopped }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/compact') {
