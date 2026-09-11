@@ -190,6 +190,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed,
     trigger: await stewardTriggerStamp(trigger, events).catch(() => ({ kind: trigger })),
   });
+  // 121-K2a(§6.1 第 3 条):管家刚说完一句并落了盘。**正文不进事件**(§6.1 红线;避免双写)——
+  // 前端收到这一帧再去拉一次消息面,拉到的与落盘的是同一份。
+  RUYI_EVENTS.emit('steward.say', { turnSeq: reply.turnSeq, trigger: String(trigger || '') });
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {

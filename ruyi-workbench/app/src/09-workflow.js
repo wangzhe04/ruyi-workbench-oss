@@ -1386,8 +1386,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 // 这里在活回合登记表上攒一份【只在内存、不落盘、只留最后 600 字】的尾巴,随既有的
 // GET /api/sessions/:id 下发(零新请求)。不进总览摘要、不进 steward_thread_status —— 那两处有字数预算。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
   // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
@@ -3115,6 +3117,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 下一回合默认策略又自动全启。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
   try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; } catch { /* keep in-memory */ }
   await saveSession(session);
+  // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {

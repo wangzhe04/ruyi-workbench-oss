@@ -10,9 +10,12 @@
         "BUNDLED_PYTHON_RUNTIME",
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
+        "EventStreamHooks",
         "LEGACY_API_ERROR_CODES",
         "MAX_BODY_BYTES",
         "OVERLAY_ID",
+        "RUYI_EVENTS",
+        "RUYI_EVENT_SUBSCRIBERS",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "StringDecoder",
@@ -815,6 +818,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -1299,6 +1309,7 @@
       "file": "04-permission-runtime.js",
       "layer": "foundation",
       "provides": [
+        "ACTIVE_CHILD_EVENT_TAPS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
         "BRIDGED_TOOL_TIMEOUTS",
@@ -1346,6 +1357,7 @@
         "getBridgedClient",
         "getMcpClient",
         "hasPendingQuestionForSession",
+        "installActiveChildEventFanout",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
         "isClaudeResumeMissingError",
@@ -1372,6 +1384,7 @@
         "normalizeQuestionAnswer",
         "normalizeQuestionContext",
         "normalizeUserQuestions",
+        "notifyActiveChildTaps",
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
@@ -1394,6 +1407,7 @@
         "scanMcpDropIns",
         "scanMcpSources",
         "stopSession",
+        "subscribeActiveChildEvents",
         "turnSettlers"
       ],
       "requires": [
@@ -1763,6 +1777,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -2065,6 +2086,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "installActiveChildEventFanout",
           "kinds": [
             "call"
           ]
@@ -5766,6 +5794,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -6124,6 +6159,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "installActiveChildEventFanout",
           "kinds": [
             "call"
           ]
@@ -11627,6 +11669,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -14321,6 +14370,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
           ]

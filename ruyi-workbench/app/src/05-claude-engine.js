@@ -489,8 +489,10 @@ async function runClaudeTurn({
   // the parent CLI watchdog mistakes it for an idle process.
   // 117l D4(§11.9):活回合的尾巴 —— 与 09 同一个累加器、同一份预算(见 appendLiveTail 头注)。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
   const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId
     ? watchKimiWire(session.claudeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
@@ -944,6 +946,8 @@ async function runClaudeTurn({
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   await saveSession(session);
+  // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
   // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else

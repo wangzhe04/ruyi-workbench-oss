@@ -563,6 +563,41 @@ async function buildUsageSummary(range) {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 第 121 波 K2a(34 号文 §6.1;27 号文 `:20` 预告的那一步):进程内事件总线。
+//
+// 为什么住在 00-boot:它的订阅者(13r-event-stream.js)排在最后,而生产者散落在 02/04/05/09/13i/13q
+// —— 总线必须比【所有】生产者都早,生产者才只需要一条后向引用。00-boot 是全仓第一个模块,且每一个
+// 生产者所在模块对它的依赖边【本来就存在】(见 docs/architecture/module-dependency-graph.json),
+// 所以这一步一条新边都不加,forwardEdges 不动。
+//
+// 三条纪律:
+//   ① 零订阅者时 emit 是 no-op,且【永不抛】—— 观察面绝不反噬写路径(同 logEvent 的口径);
+//   ② 订阅者自己抛的异常就地吞掉并继续派给下一个,一个坏订阅者不许拖垮生产者;
+//   ③ 总线【不落盘、不持久化、不跨进程】。它只是「谁写了什么」到「谁想知道」之间的一条线,
+//      重启即空;任何需要重启后还在的事实都必须另有落盘的权威源(会话头/NDJSON)。
+const RUYI_EVENT_SUBSCRIBERS = new Set();
+const RUYI_EVENTS = {
+  // 返回退订函数(约定同 DOM/Node 的 off 语义:重复退订无副作用)。
+  subscribe(fn) {
+    if (typeof fn !== 'function') return () => {};
+    RUYI_EVENT_SUBSCRIBERS.add(fn);
+    return () => { RUYI_EVENT_SUBSCRIBERS.delete(fn); };
+  },
+  emit(name, payload) {
+    if (!RUYI_EVENT_SUBSCRIBERS.size) return;           // 纪律①:零订阅者 = 零开销
+    for (const fn of RUYI_EVENT_SUBSCRIBERS) {
+      try { fn(String(name || ''), payload); } catch { /* 纪律②:订阅者的错不许回流到写路径 */ }
+    }
+  },
+  subscriberCount() { return RUYI_EVENT_SUBSCRIBERS.size; },
+};
+// 事件流模块(13r-event-stream.js)的延迟绑定命名空间 —— 先例是 06i 的 StewardHooks 与 06c 的
+// AgentLoopHooks。13-http-router.js 排在 13r 【之前】,直接写 handleEventStreamRoutes 会是一条
+// 新前向边;它只写 `EventStreamHooks.handleApiRoutes`(13 → 00-boot 是既有后向边),13r 加载时
+// Object.assign 填充实现。未填充(理论上不可能)时那一行是无操作。
+const EventStreamHooks = {};
+
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
   // open: 低敏读(host 门已过,无 token 需求)
@@ -4187,6 +4222,16 @@ function registerIntervention(sessionId, type, ivId, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
   const rec = { id, type, sessionId: sid, status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', interventionVersion: 0, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec); // 75a: cache complete record for settle's complete-state merge
+  // 121-K2a(§6.1 第 2 条 / §6.3 指标 c):待决产生的那一刻。不等落盘 —— 内存态(interventionRecordCache)
+  // 才是执行权威源(见 appendIntervention 头注),落盘是 best-effort;推送要的是「此刻有人在等你」。
+  // 只带 id / 类型 / 一句问题 / 选项:参数与正文不进事件面(§6.1 红线)。
+  RUYI_EVENTS.emit('thread.needs_you', {
+    sessionId: sid, interventionId: id, kind: String(type || ''),
+    question: String((extra && (extra.questionSummary || extra.planSummary || extra.task || extra.summary || extra.toolName)) || '').slice(0, 200),
+    options: Array.isArray(extra && extra.questions)
+      ? extra.questions.map(q => String((q && q.question) || '').slice(0, 120)).slice(0, 8)
+      : [],
+  });
   appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
     type: 'intervention_pending',
     cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
@@ -4940,6 +4985,7 @@ async function updateSessionMeta(id, patch) {
   // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
     await saveSession(session);
+    RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     return session;
   }
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
@@ -4958,6 +5004,7 @@ async function updateSessionMeta(id, patch) {
     if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
+    RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
     // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
     // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
@@ -6494,6 +6541,9 @@ async function createSession({ title, cwd }) {
     ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
+  // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
+  // 真正归到别的任务是后来 missionAttachThread 的事(它自己派 thread.adopted)。
+  RUYI_EVENTS.emit('thread.created', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || '') });
   return session;
 }
 
@@ -7643,6 +7693,8 @@ async function missionAttachThread(missionId, sessionId) {
     await noteMissionMembership(sid, 'attach', { missionId: id, previousMissionId });
   }
   await missionIndexAdd(id, sid);                                                       // 幂等
+  // 121-K2a(§6.1 第 4 条):线程改了归属。只在真的变过时派 —— 幂等的重复 attach 不是一件「发生的事」。
+  if (previousMissionId !== id) RUYI_EVENTS.emit('thread.adopted', { sessionId: sid, missionId: id, title: String((head && head.title) || '') });
   return { ok: true, missionId: id, sessionId: sid, changed: previousMissionId !== id, mission: await readMissionContainer(id) };
 }
 
@@ -8995,6 +9047,50 @@ function appendLiveTail(reg, evt) {
   tail.lastKind = type;
   if (!tail.startedAt) tail.startedAt = Number.isFinite(reg.startedAt) ? new Date(reg.startedAt).toISOString() : at;
   tail.updatedAt = at;
+  notifyActiveChildTaps(reg, evt);   // 121-K2a:尾巴刚变过 —— 见下面那段头注
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 第 121 波 K2a(34 号文 §6.1 第 1 条):活回合事件的【旁路订阅者】。
+//
+// 34 号文摸底把 `reg.onEvent` 写成「唯一的扇出点」。实测不是:05:9-10 与 09:1238-1239 两处头注
+// 说得很清楚 —— `reg.onEvent` 只看得见【桥接/MCP 那一路】的事件,引擎自己流出来的
+// assistant_delta / tool_use / tool_result 走的是两个引擎各自的【本地 onEvent 包装】。
+// 那个包装里两条路唯一的交汇点就是上面的 appendLiveTail(117l D4 为了「同一份口径」才抽出来的)。
+// 所以旁路订阅装在【两处】,一份订阅者名单:
+//   ① appendLiveTail 末尾 —— 尾巴真的变过之后才通知(thread.live 要的正是这份尾巴);
+//   ② installActiveChildEventFanout 包装的 reg.onEvent —— 桥接/MCP 那一路的事件。
+// 两条路对同一个事件可能各通知一次(桥接事件会先进 reg.onEvent 再落到本地包装),订阅者按会话
+// 节流,重复不产生第二条帧;宁可多通知一次,也不要因为「猜哪条路会到」而漏。
+//
+// 三条纪律:
+//   ① 引擎自己那个订阅者(05:491 / 09:1389 装的 reg.onEvent)行为【逐字不变】且【第一个收到】——
+//      旁路一律排在它后面,且不参与它的异常传播(它抛,旁路就不跑,原路径的语义一个字不变);
+//   ② 旁路订阅者抛错就地吞掉 —— 观察面绝不反噬回合;
+//   ③ 旁路只读 reg,不许改它的任何字段。
+const ACTIVE_CHILD_EVENT_TAPS = new Set();
+function subscribeActiveChildEvents(fn) {
+  if (typeof fn !== 'function') return () => {};
+  ACTIVE_CHILD_EVENT_TAPS.add(fn);
+  return () => { ACTIVE_CHILD_EVENT_TAPS.delete(fn); };
+}
+function notifyActiveChildTaps(reg, evt) {
+  if (!ACTIVE_CHILD_EVENT_TAPS.size) return;   // 零订阅者 = 零开销(同 RUYI_EVENTS.emit)
+  for (const tap of ACTIVE_CHILD_EVENT_TAPS) {
+    try { tap(reg, evt); } catch { /* 纪律②:旁路的错不许回流到回合 */ }
+  }
+}
+// 把一份【已经装好引擎订阅者】的 reg 改成多订阅者:原来那个函数原样保留并永远第一个收到,
+// 旁路名单排在它后面。两个引擎各在 `reg.onEvent = ...` 之后调一次。
+function installActiveChildEventFanout(reg) {
+  if (!reg || typeof reg.onEvent !== 'function' || reg.__eventFanout) return reg;
+  const engineSubscriber = reg.onEvent;   // 纪律①:它是第一个,也是唯一一个能影响回合的
+  reg.__eventFanout = true;
+  reg.onEvent = evt => {
+    engineSubscriber(evt);                // 原行为逐字不变(含它自己的异常传播)
+    notifyActiveChildTaps(reg, evt);
+  };
+  return reg;
 }
 // 回合 settle 登记表(第69波 rewind 竞态修复):sessionId -> { promise, resolve }。driver(chat/stream)
 // 在回合开始登记、driver finally(收尾 saveSession 已落盘后)resolve 并删除。stopSession 会立即删
@@ -11725,8 +11821,10 @@ async function runClaudeTurn({
   // the parent CLI watchdog mistakes it for an idle process.
   // 117l D4(§11.9):活回合的尾巴 —— 与 09 同一个累加器、同一份预算(见 appendLiveTail 头注)。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
   const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId
     ? watchKimiWire(session.claudeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
@@ -12180,6 +12278,8 @@ async function runClaudeTurn({
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   await saveSession(session);
+  // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
   // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
@@ -28215,8 +28315,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 // 这里在活回合登记表上攒一份【只在内存、不落盘、只留最后 600 字】的尾巴,随既有的
 // GET /api/sessions/:id 下发(零新请求)。不进总览摘要、不进 steward_thread_status —— 那两处有字数预算。
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
+  installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   activeChildren.set(session.id, reg);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
   // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
@@ -29944,6 +30046,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 下一回合默认策略又自动全启。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
   try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; } catch { /* keep in-memory */ }
   await saveSession(session);
+  // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {
@@ -43299,6 +43403,11 @@ function stewardAppendInboxRows(rows) {
     await fsp.mkdir(stewardDir(), { recursive: true });
     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
     await fsp.appendFile(file, payload, 'utf8');
+    // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
+    // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
+    for (const row of rows) {
+      RUYI_EVENTS.emit('inbox.appended', { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') });
+    }
   });
   stewardAppendChain = next.catch(() => {});
   return next;
@@ -48120,6 +48229,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed,
     trigger: await stewardTriggerStamp(trigger, events).catch(() => ({ kind: trigger })),
   });
+  // 121-K2a(§6.1 第 3 条):管家刚说完一句并落了盘。**正文不进事件**(§6.1 红线;避免双写)——
+  // 前端收到这一帧再去拉一次消息面,拉到的与落盘的是同一份。
+  RUYI_EVENTS.emit('steward.say', { turnSeq: reply.turnSeq, trigger: String(trigger || '') });
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {

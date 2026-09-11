@@ -161,6 +161,50 @@ function appendLiveTail(reg, evt) {
   tail.lastKind = type;
   if (!tail.startedAt) tail.startedAt = Number.isFinite(reg.startedAt) ? new Date(reg.startedAt).toISOString() : at;
   tail.updatedAt = at;
+  notifyActiveChildTaps(reg, evt);   // 121-K2a:尾巴刚变过 —— 见下面那段头注
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 第 121 波 K2a(34 号文 §6.1 第 1 条):活回合事件的【旁路订阅者】。
+//
+// 34 号文摸底把 `reg.onEvent` 写成「唯一的扇出点」。实测不是:05:9-10 与 09:1238-1239 两处头注
+// 说得很清楚 —— `reg.onEvent` 只看得见【桥接/MCP 那一路】的事件,引擎自己流出来的
+// assistant_delta / tool_use / tool_result 走的是两个引擎各自的【本地 onEvent 包装】。
+// 那个包装里两条路唯一的交汇点就是上面的 appendLiveTail(117l D4 为了「同一份口径」才抽出来的)。
+// 所以旁路订阅装在【两处】,一份订阅者名单:
+//   ① appendLiveTail 末尾 —— 尾巴真的变过之后才通知(thread.live 要的正是这份尾巴);
+//   ② installActiveChildEventFanout 包装的 reg.onEvent —— 桥接/MCP 那一路的事件。
+// 两条路对同一个事件可能各通知一次(桥接事件会先进 reg.onEvent 再落到本地包装),订阅者按会话
+// 节流,重复不产生第二条帧;宁可多通知一次,也不要因为「猜哪条路会到」而漏。
+//
+// 三条纪律:
+//   ① 引擎自己那个订阅者(05:491 / 09:1389 装的 reg.onEvent)行为【逐字不变】且【第一个收到】——
+//      旁路一律排在它后面,且不参与它的异常传播(它抛,旁路就不跑,原路径的语义一个字不变);
+//   ② 旁路订阅者抛错就地吞掉 —— 观察面绝不反噬回合;
+//   ③ 旁路只读 reg,不许改它的任何字段。
+const ACTIVE_CHILD_EVENT_TAPS = new Set();
+function subscribeActiveChildEvents(fn) {
+  if (typeof fn !== 'function') return () => {};
+  ACTIVE_CHILD_EVENT_TAPS.add(fn);
+  return () => { ACTIVE_CHILD_EVENT_TAPS.delete(fn); };
+}
+function notifyActiveChildTaps(reg, evt) {
+  if (!ACTIVE_CHILD_EVENT_TAPS.size) return;   // 零订阅者 = 零开销(同 RUYI_EVENTS.emit)
+  for (const tap of ACTIVE_CHILD_EVENT_TAPS) {
+    try { tap(reg, evt); } catch { /* 纪律②:旁路的错不许回流到回合 */ }
+  }
+}
+// 把一份【已经装好引擎订阅者】的 reg 改成多订阅者:原来那个函数原样保留并永远第一个收到,
+// 旁路名单排在它后面。两个引擎各在 `reg.onEvent = ...` 之后调一次。
+function installActiveChildEventFanout(reg) {
+  if (!reg || typeof reg.onEvent !== 'function' || reg.__eventFanout) return reg;
+  const engineSubscriber = reg.onEvent;   // 纪律①:它是第一个,也是唯一一个能影响回合的
+  reg.__eventFanout = true;
+  reg.onEvent = evt => {
+    engineSubscriber(evt);                // 原行为逐字不变(含它自己的异常传播)
+    notifyActiveChildTaps(reg, evt);
+  };
+  return reg;
 }
 // 回合 settle 登记表(第69波 rewind 竞态修复):sessionId -> { promise, resolve }。driver(chat/stream)
 // 在回合开始登记、driver finally(收尾 saveSession 已落盘后)resolve 并删除。stopSession 会立即删

@@ -630,6 +630,11 @@ function stewardAppendInboxRows(rows) {
     await fsp.mkdir(stewardDir(), { recursive: true });
     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
     await fsp.appendFile(file, payload, 'utf8');
+    // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
+    // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
+    for (const row of rows) {
+      RUYI_EVENTS.emit('inbox.appended', { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') });
+    }
   });
   stewardAppendChain = next.catch(() => {});
   return next;

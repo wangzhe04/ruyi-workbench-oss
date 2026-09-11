@@ -407,6 +407,16 @@ function registerIntervention(sessionId, type, ivId, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
   const rec = { id, type, sessionId: sid, status: 'pending', requestedAt: nowIso(), decidedAt: '', decidedBy: '', interventionVersion: 0, ...(extra || {}) };
   interventionRecordCache.set(ivCacheKey(sid, id), rec); // 75a: cache complete record for settle's complete-state merge
+  // 121-K2a(§6.1 第 2 条 / §6.3 指标 c):待决产生的那一刻。不等落盘 —— 内存态(interventionRecordCache)
+  // 才是执行权威源(见 appendIntervention 头注),落盘是 best-effort;推送要的是「此刻有人在等你」。
+  // 只带 id / 类型 / 一句问题 / 选项:参数与正文不进事件面(§6.1 红线)。
+  RUYI_EVENTS.emit('thread.needs_you', {
+    sessionId: sid, interventionId: id, kind: String(type || ''),
+    question: String((extra && (extra.questionSummary || extra.planSummary || extra.task || extra.summary || extra.toolName)) || '').slice(0, 200),
+    options: Array.isArray(extra && extra.questions)
+      ? extra.questions.map(q => String((q && q.question) || '').slice(0, 120)).slice(0, 8)
+      : [],
+  });
   appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
     type: 'intervention_pending',
     cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
@@ -1160,6 +1170,7 @@ async function updateSessionMeta(id, patch) {
   // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
     await saveSession(session);
+    RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     return session;
   }
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
@@ -1178,6 +1189,7 @@ async function updateSessionMeta(id, patch) {
     if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
+    RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
     // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
     // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
@@ -2714,6 +2726,9 @@ async function createSession({ title, cwd }) {
     ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
+  // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
+  // 真正归到别的任务是后来 missionAttachThread 的事(它自己派 thread.adopted)。
+  RUYI_EVENTS.emit('thread.created', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || '') });
   return session;
 }
 
@@ -3863,6 +3878,8 @@ async function missionAttachThread(missionId, sessionId) {
     await noteMissionMembership(sid, 'attach', { missionId: id, previousMissionId });
   }
   await missionIndexAdd(id, sid);                                                       // 幂等
+  // 121-K2a(§6.1 第 4 条):线程改了归属。只在真的变过时派 —— 幂等的重复 attach 不是一件「发生的事」。
+  if (previousMissionId !== id) RUYI_EVENTS.emit('thread.adopted', { sessionId: sid, missionId: id, title: String((head && head.title) || '') });
   return { ok: true, missionId: id, sessionId: sid, changed: previousMissionId !== id, mission: await readMissionContainer(id) };
 }
 
