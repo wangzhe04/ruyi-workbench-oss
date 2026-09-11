@@ -1,6 +1,6 @@
 # Traveler 4.0 概念稿：可迁移的任务旅程
 
-状态：**概念稿 v0.1（2026-08-05，基于 `v2.4.1` / HEAD `4f99608`）**。本文用于探索 Pretender 之后的下一个大版本方向，**不是 Traveler 的范围拍板、版本承诺、波次计划或发布时间表**。Pretender 3.0 的 Product Ready / Release Ready 条件仍以 [`PRETENDER-PLAN.md`](./PRETENDER-PLAN.md) 与 [`PRETENDER-METRICS.md`](./PRETENDER-METRICS.md) 为准；Traveler 的工程实施不得抢跑或稀释 Pretender 的收口。
+状态：**概念稿 v0.1（2026-08-05，基于 `v2.4.1` / HEAD `4f99608`）**。本文用于探索 Pretender 之后的下一个大版本方向，**不是 Traveler 的范围拍板、版本承诺、波次计划或发布时间表**。Pretender 3.0 的 Product Ready / Release Ready 条件仍以 [`./archive/PRETENDER-PLAN.md`](./archive/PRETENDER-PLAN.md) 与 [`./archive/PRETENDER-METRICS.md`](./archive/PRETENDER-METRICS.md) 为准；Traveler 的工程实施不得抢跑或稀释 Pretender 的收口。
 
 候选产品名：**Ruyi Traveler 4.0**
 候选副题：**可迁移的任务旅程（Portable Missions）**

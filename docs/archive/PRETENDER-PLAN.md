@@ -90,7 +90,7 @@ v2 补充:**3.0 不交付 1:N 多会话 Mission**(移 3.1,见目标 1);conflict/
 ### P1 · 领域基础收尾 + 契约与规模门(第74–75c波)
 
 **第74波 · schema 冻结文书 + 威胁模型 + 权威状态协议**
-- 交付:`docs/PRETENDER-SCHEMA.md`——覆盖 `docs/UI-VNEXT-CONCEPT.md` §9 的 Mission projection / Intervention 全字段,冻结字段类型、权威来源、可变性、事件语义、schema version 与迁移契约。missionId 按 D1 成文,明确 3.1 的1:N只保证身份不重映射,不承诺存储零升级。
+- 交付:`../MISSION-SCHEMA.md`——覆盖 `docs/UI-VNEXT-CONCEPT.md` §9 的 Mission projection / Intervention 全字段,冻结字段类型、权威来源、可变性、事件语义、schema version 与迁移契约。missionId 按 D1 成文,明确 3.1 的1:N只保证身份不重映射,不承诺存储零升级。
 - **Intervention 状态协议**:
   - 权威键=`(missionId, interventionId)`,版本=`interventionVersion`;状态转换=`pending → applying → terminal`,并定义崩溃恢复态 `indeterminate/cancelled_restart`;
   - `expectedVersion` 参与 CAS;`idempotencyKey` 是请求重试键而非业务唯一键。相同 key 返回已存响应,不同 key 命中终态返回 409;
@@ -139,12 +139,12 @@ v2 补充:**3.0 不交付 1:N 多会话 Mission**(移 3.1,见目标 1);conflict/
 - 回来摘要按 `(lastSeenRevision,currentRevision]` 的 change records 确定性呈现新增进展/失败/预算变化/待决变化/成果/rewind/run删除,每条保留原始源 cursor 供展开,零模型摘要。**档案视图**:已收工任务网格 + 搜索/筛选/置顶/归档/按状态与工作圈分组。
 - 退出条件:播种各类 change record→摘要覆盖100%、无重复、无倒退;changeSeq 缺口触发 degraded/重建而非静默漏项;UI-state 损坏只丢“已读位置”不损 Mission;档案操作 e2e;北极星系统指标首测。
 - 风险:中。依赖75a的统一变化序列;视图状态与领域事实必须严格分层。
-- **完成记录(2026-08-01)**:9 类 change record 已进入统一 append-only 流水，新增严格区间 changes API 与 gap/corrupt degraded；Preview 在 DOM 成功呈现后一帧才推进独立本机 lastSeen；档案支持终态搜索、状态筛选、置顶、归档及工作圈/状态分组。专项数据面、真实 Chromium UI 与静态契约均已覆盖；北极星首测见 [`PRETENDER-METRICS.md`](./PRETENDER-METRICS.md)。本记录不提前宣称第80波 Preview Ready 或第81波原生决策完成。
+- **完成记录(2026-08-01)**:9 类 change record 已进入统一 append-only 流水，新增严格区间 changes API 与 gap/corrupt degraded；Preview 在 DOM 成功呈现后一帧才推进独立本机 lastSeen；档案支持终态搜索、状态筛选、置顶、归档及工作圈/状态分组。专项数据面、真实 Chromium UI 与静态契约均已覆盖；北极星首测见 [`./PRETENDER-METRICS.md`](./PRETENDER-METRICS.md)。本记录不提前宣称第80波 Preview Ready 或第81波原生决策完成。
 **第80波 · 双壳回退 + 性能门复跑(C1)+ Preview 走查(终审)**
 - 交付:壳层切换迁移说明与故障回退(切壳≠数据迁移,各自独立回退);**C1 性能硬门对新壳层复跑**(含 75c 大数据集门下的首屏与切换);Preview 走查——按 §2.4 DoD 终审 + USER-GUIDE 新壳层章节 + 冻结项核查(UI/发布物无 Pretender 名/3.0 版本号)。
 - 退出条件:**C1 全绿 = Preview 公开放行闸**;回退路径 e2e;文档就位。
 - 风险:中。性能门首轮抓红是常态,预留修复余量。
-- **完成记录(2026-08-01)**:关键依赖缺失 fail-closed 与投影失败页双出口均已落地，切换只改本机布局偏好，Mission/Session 不迁移不改写；真实 Edge 在 300 Mission / 200 可见卡下 3 次冷导航最大 **1245.2ms**，30 次交办台↔档案切换 **P95 66.6ms**，长 SSE 主线程最大采样间隙 **66.8ms**。首批 40 卡同步、其余按帧补齐，未变化任务坞不再重建。中英文 USER-GUIDE 已说明双壳、回来摘要、档案和恢复边界；UI、手册、README、CHANGELOG 的内部代号/预留版本号冻结扫描全绿；1440/768/390 走查无溢出。详见 [`PRETENDER-METRICS.md`](./PRETENDER-METRICS.md)。
+- **完成记录(2026-08-01)**:关键依赖缺失 fail-closed 与投影失败页双出口均已落地，切换只改本机布局偏好，Mission/Session 不迁移不改写；真实 Edge 在 300 Mission / 200 可见卡下 3 次冷导航最大 **1245.2ms**，30 次交办台↔档案切换 **P95 66.6ms**，长 SSE 主线程最大采样间隙 **66.8ms**。首批 40 卡同步、其余按帧补齐，未变化任务坞不再重建。中英文 USER-GUIDE 已说明双壳、回来摘要、档案和恢复边界；UI、手册、README、CHANGELOG 的内部代号/预留版本号冻结扫描全绿；1440/768/390 走查无溢出。详见 [`./PRETENDER-METRICS.md`](./PRETENDER-METRICS.md)。
 
 **P2 出门闸(Preview Ready = Preview 可公开)**:C1 绿(含规模门)+ 四旅程新壳层可走完;尚未原生交付的决策/回滚由新壳准确跳转经典壳层完成真实操作,两壳终态即时一致;旧数据双壳完整交互、回退实证、文档和 Preview 人因代理证据就位。不得宣称新壳已完成全局决策或反悔闭环。
 

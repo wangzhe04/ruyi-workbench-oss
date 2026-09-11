@@ -1,7 +1,7 @@
 # 如意 Ruyi 优化路线图（当前版）
 
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节，实施方案见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)。`docs/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
+> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节，实施方案见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)。`./archive/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
 
 ---
 
@@ -25,7 +25,7 @@
 | 线 | 状态 | 依据 |
 |---|---|---|
 | **Escapade 发布线** | 当前源码与技术 tag 为 `v2.6.2`；`CHANGELOG.md` 已归档 `v2.6.2`（2026-08-27，固定预算上下文压缩与安全重播种），后续变更进入 Unreleased | `ruyi-workbench/package.json`、git tag `v2.6.2`、`CHANGELOG.md` |
-| **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
+| **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置** | `./archive/PRETENDER-PLAN.md` v4、`./archive/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
 | **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波与第 105 波总门已交付。105a–105g 均经各自采用门默认开启并保留显式回退；32K×20–28K 真实总门再次确认 105f 单发优先有净收益（实体 88.9%、跨块 87.5%、5 次调用），≤4 块 refine 无净收益保持默认关，>4 块 user 大纲因 8 块至少 9 次串行调用／真实基线超 8 分钟而撤掉，overlap 不实施。105g 保留默认开启；超长 history-24 事实表甜点门将默认上限从 16 提到 64（82.8% 实体保留，6 次调用，成本/延迟仍在可接受增量内）。**106 已开工**：#13a／13a-t 预算保护基础层＋长命令时间预算已交付（默认关闭，A 类合成门 44 项全绿）；#1 G1 保持默认关、G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启；#2a 在 4×2MB 多文件真实重复读取门中确认工具阶段耗时约降 64%，已默认开启并保留显式回退。**#3 已收口**：design-and-decide option 扇出真实配对门实测批量臂 −33% 调用／−25% 费用但深度变薄、墙钟 +10%，裁决条件性正收益、模板不翻默认。106 波至此全部收口；**2026-09-02 新增第 108–110 波（提示词自我认知／制图与交互／结构精简），107 发布批准点保留编号、执行序排在 108–110 之后** | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)、本文「第 108–110 波」节 |
 | **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
 
@@ -74,12 +74,12 @@
 - **交付记录**：先以独立 commit 完成 `preview-shell.js` 五域拆分，再落地现状头 / 结果与行动 / 可折叠过程、现场+班组合镜、速报 v2 与可解释验收项；浅色主题经 dogfood 复核改为与现有青花体系一致的清透白，移除大面积灰/米色与禁用态灰块。A1–A7、B1–B7 销号及自动化证据见 `archive/optimization-plan/08-task-sheet-ux-audit.md` §8。
 
 **第101波 · 正式人因验证 + 收口准备（⏭️ 2026-08-10 用户决定跳过，3.0 收口就此搁置）**
-- 原计划：按 `docs/PRETENDER-PLAN.md` §3 规程执行**外部受试者**人因验证（在优化后形态上）：打开任务到正确复述「离开后发生了什么」≤10s；可回滚/部分恢复/不可逆判断正确率 ≥90%；北极星四指标全测；验证发现分级（阻断项当场修复复测、非阻断项入 post-3.0 清单）；收口准备（Release Brief / 发布物正名预案 / 回滚预案）；出门 = **P3 Product Ready 正式宣告**
+- 原计划：按 `./archive/PRETENDER-PLAN.md` §3 规程执行**外部受试者**人因验证（在优化后形态上）：打开任务到正确复述「离开后发生了什么」≤10s；可回滚/部分恢复/不可逆判断正确率 ≥90%；北极星四指标全测；验证发现分级（阻断项当场修复复测、非阻断项入 post-3.0 清单）；收口准备（Release Brief / 发布物正名预案 / 回滚预案）；出门 = **P3 Product Ready 正式宣告**
 - **决定记录（2026-08-10，用户）**：跳过正式外部受试者人因验证；**产品首页保留 Escapade v2.5.0 版本号，不切 3.0.0 默认壳、不做 3.0 正名**。影响：P3 Product Ready 不正式宣告，第102波默认切换前置（101 出门）消失，3.0 收口线整体搁置。第100波三段式重构成果已随 Escapade 2.x 交付，不浪费，只是不对外唤作 3.0。本波保留为可回头记录，不删除；若未来重新立项 3.0，需从本决定重新评估。
 
 **第102波 · Pretender P4 第二切片 — 3.0.0 默认切换与发布（⏸️ 暂缓，随 101 跳过而搁置）**
 
-按 `docs/PRETENDER-PLAN.md` v4 P4 原计划：新壳层默认开（经典可切）、版本三角 bump `3.0.0`（`00-boot.js` / `package.json` / `facts.json`）、CHANGELOG / USER-GUIDE / 发布物正名（解除 §2.2 品牌冻结）、发布门同 2.2/2.3 三门（范围冻结 / 测试 / 打包）。
+按 `./archive/PRETENDER-PLAN.md` v4 P4 原计划：新壳层默认开（经典可切）、版本三角 bump `3.0.0`（`00-boot.js` / `package.json` / `facts.json`）、CHANGELOG / USER-GUIDE / 发布物正名（解除 §2.2 品牌冻结）、发布门同 2.2/2.3 三门（范围冻结 / 测试 / 打包）。
 前置条件（原）：**第101波出门**（人因验证达标）；以及 **P4 硬化终审剩余项**（安全红队终审、性能终验、双主题/双语/a11y 终审、离线升级、数据迁移与恢复演练，第86波只交付了工程硬化切片）。
 **搁置状态（2026-08-10；2026-08-27 衔接澄清）**：因第101波跳过、产品首页保留 v2.5.0，本波暂缓执行。新引擎线重新立项不自动恢复本波；是否恢复默认切壳须另行拍板并重新评估人因与切换前置。
 

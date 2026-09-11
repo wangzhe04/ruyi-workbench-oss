@@ -26,7 +26,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | Concept | Status | Scope |
 |---|---|---|
-| [Pretender 3.0](PRETENDER-PLAN.md) | **⏸️ 已搁置（2026-08-10 决定跳过人因验证，3.0 收口线整体搁置）** | 交办台新壳层；五层门 P1✅ / P2✅ / P3 工程✅（正式外部受试者人因验证待办，2026-08-10 决定跳过、3.0 收口线整体搁置）；P4 第87–91波已用于交办台/任务单 UX 打磨并随 2.4.1 发布，3.0.0 默认切换与发布因人因验证未做而暂缓。规划见 [`PRETENDER-PLAN.md`](PRETENDER-PLAN.md) v4、门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md)、本机指标见 [`PRETENDER-METRICS.md`](PRETENDER-METRICS.md) |
+| ~~Pretender 3.0~~ | **⛔ 已退役（2026-09-11，第 121 波 K1）** | 交办台壳层已整层删除（8 个 js/preview-*.js、preview-shell.css、505 个 previewShell.* 键、16 件 pretender-*.e2e.js），视角收成「管家 / 工作台」两视，见 [`optimization-plan/34-wave-121-one-workbench-two-views.md`](optimization-plan/34-wave-121-one-workbench-two-views.md) §8。它的数据契约仍在用，已改名 [`MISSION-SCHEMA.md`](MISSION-SCHEMA.md)；规划与本机指标归档为 [`archive/PRETENDER-PLAN.md`](./archive/PRETENDER-PLAN.md) v4、[`archive/PRETENDER-METRICS.md`](./archive/PRETENDER-METRICS.md)，门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md) |
 | [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
 
 ## UI 设计稿生命周期(第50波 D3 标注)
@@ -34,7 +34,7 @@ language. They are engineering records rather than normative user or deployment 
 | 设计稿 | 状态 | 说明 |
 |---|---|---|
 | [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
-| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **概念稿（Pretender 3.0 依据，3.0 已搁置）** | 「交办台」概念稿；已按 `PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓；2026-08-10 用户决定跳过人因验证、3.0 收口线整体搁置，第87–91波成果已随 2.4.1/2.5.0 交付）；2026-09-03 壳层线由管家壳继任，双壳退出时钟 2026-09-05 作废 |
+| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **概念稿（Pretender 3.0 依据，3.0 已搁置）** | 「交办台」概念稿；已按 `./archive/PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓；2026-08-10 用户决定跳过人因验证、3.0 收口线整体搁置，第87–91波成果已随 2.4.1/2.5.0 交付）；2026-09-03 壳层线由管家壳继任，双壳退出时钟 2026-09-05 作废 |
 | [optimization-plan/27-waves-115-117-steward.md](optimization-plan/27-waves-115-117-steward.md) §8 | **定稿（管家壳 3.0，2026-09-05）；第 117 波已实现（2026-09-06，默认仍是经典布局，见 §11.6）** | 管家壳 UX/UI 详细设计：话＋一行按钮、递话「输入即预判」、线程单一权限四档、事项/线程抽屉「它刚说／你可以说」、2.0 视窗与两壳长期并存；mockup: `mockups/steward-shell.html`（可交互，零依赖） |
 
 ## 归档区(`archive/`)
@@ -60,4 +60,6 @@ language. They are engineering records rather than normative user or deployment 
 | [AGENT-HARNESS-AUDIT.md](archive/AGENT-HARNESS-AUDIT.md) | — | 已归档(2026-07-31 差距审计) |
 | [UI-ESCAPADE-TURN-NARRATIVE.md](archive/UI-ESCAPADE-TURN-NARRATIVE.md) | 第54波 | 已落地(回合叙事化) |
 | [PRETENDER-GATE-REVIEW.md](archive/PRETENDER-GATE-REVIEW.md) | 第56波 | 已归档(立项门评审) |
+| [PRETENDER-PLAN.md](archive/PRETENDER-PLAN.md) | 第74–91波 | 已归档(121-K1 交办台退役；数据契约另见 MISSION-SCHEMA.md) |
+| [PRETENDER-METRICS.md](archive/PRETENDER-METRICS.md) | 第79–86波 | 已归档(交办台本机系统测量) |
 | [optimization-plan 已交付 14 份](archive/optimization-plan/README.md) | — | 已归档(01/02/03/08–19 已交付方案；见 archive/optimization-plan/README.md) |

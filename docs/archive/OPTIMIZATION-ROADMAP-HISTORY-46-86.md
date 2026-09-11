@@ -1,7 +1,7 @@
 # 优化路线图历史（第46–86波 · V2.0 封版至 Escapade 2.4 已交付）
 
 > 本文是 `docs/OPTIMIZATION-ROADMAP.md` 中第46–52波「近期交付基础」、EC-A..EC-E 候选发布桶计划、第56波 Pretender 立项门计划，以及第46–86波逐波交付详情的完整历史快照，2026-08-05 移入归档区。
-> 现行发布线、发布准入与后续计划以精简后的 `docs/OPTIMIZATION-ROADMAP.md` 为准；规划评审与门语义以 `docs/PRETENDER-PLAN.md` v4、`docs/PRETENDER-GATE-REVIEW.md` 为准；早期第1–45波历史见 `OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`。
+> 现行发布线、发布准入与后续计划以精简后的 `docs/OPTIMIZATION-ROADMAP.md` 为准；规划评审与门语义以 `./PRETENDER-PLAN.md` v4、`docs/PRETENDER-GATE-REVIEW.md` 为准；早期第1–45波历史见 `OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`。
 
 ---
 
@@ -1192,7 +1192,7 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 ## Pretender 规划拍板与四轮修订(2026-07-29–30,非波次·规划文书)
 
-第56波评审 GO(有条件4条)后,所有者拍板 Pretender 详细规划;后经外部评审、多代理对抗审判与契约/门语义复核修订至 **`docs/PRETENDER-PLAN.md` v4**。当前3.0交付线=P1 第74、75a–75c波 → P2 第76–80波 → P3 第81–85波 → P4 第86–87波,共 **16个切片**;经典壳退出移至 post-3.0 强制评审线。
+第56波评审 GO(有条件4条)后,所有者拍板 Pretender 详细规划;后经外部评审、多代理对抗审判与契约/门语义复核修订至 **`./PRETENDER-PLAN.md` v4**。当前3.0交付线=P1 第74、75a–75c波 → P2 第76–80波 → P3 第81–85波 → P4 第86–87波,共 **16个切片**;经典壳退出移至 post-3.0 强制评审线。
 
 - **D1 · mission.id 主键 = 方案 B**:引入 `missionId` 稳定主键,session 主键/文件布局不动,新会话 `missionId=sessionId` 派生(1:1),存量只读派生不回写;schema/API 从第一天以 missionId 为对外名。
 - **D2 · 叙事镜头 = 做**:P3-83 交付 v1 规则版(工具动词人话化+时间线,每句可展开原始卡,纯函数双导出;不调模型摘要)。
@@ -1213,7 +1213,7 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 ## 第74波 · Pretender P1 首切片 -- schema 冻结文书(2026-07-30)
 
-按 PRETENDER-PLAN v4 第74波交付 **`docs/PRETENDER-SCHEMA.md` v1**(冻结;约 200 行):Mission projection / Intervention 全字段级冻结(类型/权威来源/可变性/写入方,均亲验代码引用 file:line)。纯文档波,零代码改动。
+按 PRETENDER-PLAN v4 第74波交付 **`../MISSION-SCHEMA.md` v1**(冻结;约 200 行):Mission projection / Intervention 全字段级冻结(类型/权威来源/可变性/写入方,均亲验代码引用 file:line)。纯文档波,零代码改动。
 
 - **标识与主键**:missionId(D1 派生 + S5 收紧:只保证身份不重映射,不承诺 3.1 存储零升级);`mission.changeSeq`(S3:统一变化时间线,回来摘要/ETag/projectionRevision/索引失效的权威,源 cursor 降溯源证据);`interventionVersion`(S1:CAS 版本);idempotencyKey 收紧为「只标识同请求重试」。
 - **Intervention 状态协议**:权威键 `(missionId,interventionId)`;`pending → applying → terminal` + 崩溃恢复态 `indeterminate/cancelled_restart`;重启遇 applying 不自动重放,对照执行审计进诚实终态;落盘顺序与失败注入六窗口矩阵成文;决策 payload 按 type/action 联合结构(permission allow/deny+updatedInput / question answer / plan/pool approve/reject)。
@@ -1309,7 +1309,7 @@ EC-E 立项第4条:「任务结果必须包含验收状态、成果引用、未�
 
 - 回来摘要零模型调用，每条保留 change seq、源类型与原始 cursor；档案只收 `done|stopped`，支持搜索、状态筛选、置顶、归档和工作圈/状态分组。
 - 真实浏览器覆盖档案→待决任务一击可达、UI-state 跨刷新、坏本机状态只丢界面位置；数据面覆盖 9/9 类型、无重复/倒退及服务重启重读。
-- 本波新增两件 e2e，默认门 181，完整 187；完整串行门 **181 pass / 0 fail / 0 flaky / 6 live-skip**，第二次复跑同样全绿。系统基线记入 `docs/PRETENDER-METRICS.md`，没有外部人因受试者，不提前宣称 Preview Ready。
+- 本波新增两件 e2e，默认门 181，完整 187；完整串行门 **181 pass / 0 fail / 0 flaky / 6 live-skip**，第二次复跑同样全绿。系统基线记入 `./PRETENDER-METRICS.md`，没有外部人因受试者，不提前宣称 Preview Ready。
 
 ## 第80波 · P2 终审 -- 双壳回退、C1 性能与 Preview Ready（2026-08-01）
 
