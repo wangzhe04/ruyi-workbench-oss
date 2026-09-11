@@ -34,10 +34,18 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 121-K5: workbench-thread-head.browser 同理 —— 它有一组按像素比的版面断言(1200/1600/1920
 // 三档的线程头高度逐字相同 ＋ 三张截图),还要在真回合飞着的时候点停止。三个不相干的
 // Edge/服务挤在一起时这两类都量不准,所以它也排在并行功能桶之后单独跑。
+// 121-治抖动那批(34 号文 §14 末条):live-full-text.browser 同一个模具 —— fake provider 按
+// GROW_STEP_MS=2500ms 的硬节拍连吐 GROW_ROUNDS=14 轮字(§S 组「视口不许跟着页面高度乱跳」),
+// `--parallel 4` 下与另外十件浏览器/服务件同跑时实测复现:provider 子进程与 CDP 往返被挤慢,
+// S 组的「两拍必然已经长过」read 不到新内容,整件卡死在 S1/S2 直到撞 120s 硬超时(单跑无争用时
+// 只要 ~54s)。判据本身已经改成有判据的轮询(见文件内 GROW_WAIT_ATTEMPTS 注释),但硬节拍窗口
+// 本身量的是「产品多快吐字、多快跟手」,与另外几个 Edge/服务同抢 CPU 时这件事量不准,所以也排
+// 到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
   'event-stream-client.browser.e2e.js',
   'one-workbench-frame.browser.e2e.js',
   'workbench-thread-head.browser.e2e.js',
+  'live-full-text.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

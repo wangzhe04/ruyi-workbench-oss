@@ -372,9 +372,14 @@ try {
     item.querySelector('.steward-board-thread-title').click();
     return true;
   })()`);
+  // 治抖动那批附带发现(与 4 路超时同一件文件,重跑几次逮到过一次真红):`snapshot.body` 一开始
+  // 就是真值 —— 客户端在正文真正流到之前先画一句占位文案(locale `chat.liveTurn.empty`「它还没
+  // 说出正文……」),那也是【非空字符串】。原判据「有 body 就算气泡到位」在提示文案先于第一段
+  // 真内容渲染出来的那一拍会提前满足,拿到的是占位帧;B3 紧跟着断言正文含 FIRST/SECOND 就假红。
+  // 改成等【真内容】到位 —— 与 B3 判的是同一件事,不留中间的假阳性窗口。
   const live = await waitForEval(cdp, `(() => {
     const snapshot = ${SNAP};
-    return snapshot.hasCard && snapshot.body ? snapshot : null;
+    return snapshot.hasCard && (snapshot.body.includes(${JSON.stringify(FIRST)}) || snapshot.body.includes(${JSON.stringify(SECOND)})) ? snapshot : null;
   })()`);
   ok(Boolean(live), `B1 屏幕上出现了「它正在跑」那张气泡(修前这里是一片空白)`);
   if (!live) throw new Error('live card never appeared');
@@ -438,24 +443,35 @@ try {
   // 而两拍之间新长出来的正文有好几百 px(S2 把实测值打出来),真出问题时的漂移量远在这条线之上,
   // 所以 24px 既容得下亚像素取整,又不会把真跳漏过去。
   const DRIFT_MAX_PX = 24;
-  const TWO_TICKS_MS = LIVE_TICK_MS * 2 + 1500;   // 两拍 + 半拍余量:重绘一定发生过
+  // 治抖动那批(34 号文 §14 末条 · live-full-text 4 路超时):S 组原来三处都是【固定 sleep 再读一次】——
+  // 「两拍 + 半拍余量必然已经长过」这句话只在机器空闲时成立。`--parallel 4/8` 下实测过:provider
+  // 子进程与 CDP 往返都会被同跑的其它件挤慢,固定窗口读到的常是「还没来得及长」的那一帧,S2 判
+  // 空断言、S3/S4 跟着算不出真漂移(实测过一次整件卡死在这一段,最终撞 120s 硬超时)——不是断言
+  // 错,是等待方式错(等的是「时间到了没」,不是「事情发生了没」)。改成【有判据的等】:轮询到
+  // scrollHeight 真的比基线大为止,不发生就到点判负,绝不无条件多睡。本件同时进了
+  // run-all.js 的 PARALLEL_EXCLUSIVE(排在并行功能桶之后独占跑,见该文件头注新增的一条)——
+  // GROW_ROUNDS×GROW_STEP_MS 是硬性的 35s 吐字窗口,独占之后不再有跨件争用,这里的预算只需要
+  // 盖住机器自身的抖动余量,不用为「与另外几个 Edge/服务同抢 CPU」兜底。
+  const GROW_WAIT_ATTEMPTS = 500;   // 500×40ms=20s:独占跑之后的安全边际(此前空闲单跑 S1/S2/S4 均 <8s)
   // 余量下限 600px 不是拍脑袋:滚到正中间时离底就是余量的一半,必须 >120px 才不落进
   // captureScrollAnchor 的「贴底」判据 —— 否则 S3 量到的是「跟随」而不是「原地不动」,是条假题。
-  // 等待预算 350×40ms=14s:每 2.5s 才长一段、轮询又是 3s 一拍,SHORT_WAIT 的 6s 不够攒够两段。
   const tall = await waitForEval(cdp, `(() => {
     const m = ${METRICS};
     return (m && m.scrollHeight - m.clientHeight > 600) ? m : null;
-  })()`, 350);
+  })()`, GROW_WAIT_ATTEMPTS);
   ok(Boolean(tall), `S1 在途正文把【整页】撑长了(可滚动余量 ${tall ? tall.scrollHeight - tall.clientHeight : 0}px) —— 不再是窗中窗`);
   const readAt = await cdp.evaluate(`(() => {
     const box = document.getElementById('messages');
     box.scrollTop = Math.round((box.scrollHeight - box.clientHeight) / 2);
     return ${METRICS};
   })()`);
-  await sleep(TWO_TICKS_MS);
-  const readAfter = await cdp.evaluate(METRICS);
+  const baselineHeight = readAt ? readAt.scrollHeight : 0;
+  const readAfter = await waitForEval(cdp, `(() => {
+    const m = ${METRICS};
+    return (m && m.scrollHeight > ${baselineHeight}) ? m : null;
+  })()`, GROW_WAIT_ATTEMPTS);
   ok(Boolean(readAt && readAfter && readAfter.scrollHeight > readAt.scrollHeight),
-    `S2 这两拍里页面确实变高了(${readAt && readAt.scrollHeight} → ${readAfter && readAfter.scrollHeight}px) —— 否则 S3 是条空断言`);
+    `S2 页面确实变高了(${readAt && readAt.scrollHeight} → ${readAfter && readAfter.scrollHeight}px) —— 否则 S3 是条空断言`);
   const drift = (readAt && readAfter) ? Math.abs(readAfter.scrollTop - readAt.scrollTop) : -1;
   // 反向验证的实测结论(如实记在这里,免得后人高估这条):把 paintLiveTurnCard() 里那对锚点整个拿掉,
   // 这一条【仍然绿】—— 新正文全长在视口【下方】,而 replaceChildren 是一次性替换、中途不强制布局,
@@ -464,13 +480,17 @@ try {
   // 谁把整份重绘改成「先清空再插入」(中间夹一次布局就会被 clamp),或让内容在视口上方发生变化,
   // 这一条会当场红。两条一起才是完整的守门人。
   ok(drift >= 0 && drift <= DRIFT_MAX_PX,
-    `S3 滚到中间等两拍,视口原地不动(漂移 ${drift}px ≤ ${DRIFT_MAX_PX}px)`);
+    `S3 等到页面真的长高了,视口原地不动(漂移 ${drift}px ≤ ${DRIFT_MAX_PX}px)`);
   await cdp.evaluate(`(() => { const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight; return true; })()`);
-  await sleep(TWO_TICKS_MS);
-  const tailRead = await cdp.evaluate(METRICS);
+  const beforeTail = await cdp.evaluate(METRICS);
+  const beforeTailHeight = beforeTail ? beforeTail.scrollHeight : 0;
+  const tailRead = await waitForEval(cdp, `(() => {
+    const m = ${METRICS};
+    return (m && m.scrollHeight > ${beforeTailHeight}) ? m : null;
+  })()`, GROW_WAIT_ATTEMPTS) || await cdp.evaluate(METRICS);
   const gap = tailRead ? tailRead.scrollHeight - tailRead.scrollTop - tailRead.clientHeight : -1;
   ok(gap >= 0 && gap < 120,
-    `S4 在底部时继续跟着新流出来的正文走(离底 ${gap}px < 120px,与 captureScrollAnchor 的同一个判据)`);
+    `S4 等到页面再长高一段之后仍贴着底(离底 ${gap}px < 120px,与 captureScrollAnchor 的同一个判据)`);
 
   /* ═════════ C 节拍:一处表,离开经典壳当拍停 ═════════ */
   console.log('── C 节拍与零后台活动 ──');
