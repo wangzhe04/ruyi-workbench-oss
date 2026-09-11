@@ -7,7 +7,7 @@ import { dockToneForMissionState, elapsedLabel } from './thread-facts.js';
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
 // 连「会话级 ＞ 全局回落」都不认识，更长不出第二套。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）与轮询常量也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）与轮询常量也只有那一条；121-K2b：连接时的兜底节拍同源
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -36,6 +36,9 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThre
 // 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
 // 而 D4 要守的是「动作走抽屉同一段原语」这件事，不该为一次收编去动它（32 号文 §4 纪律 5）。
 import { confirmDanger } from './confirm-panel.js';
+// 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍）。名字不在本文件
+// 里各写一遍 —— 事件名 `thread.needs_you` 里那个词不是五态，不该进 B5／M6／N3 那本「五态字面量」账。
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
 // 第117波 117h：一行状态 → 看板 → 「现在这一件」（27 号文 §8.2 L1／§8.10 多线程看板与注意力预算）。
 //
@@ -988,6 +991,55 @@ export function createStewardBoard({
     return Number.isFinite(raw) && raw > 0 ? Math.max(STEWARD_BOARD_POLL_MS_MIN, raw) : STEWARD_BOARD_POLL_MS_DEFAULT;
   }
 
+  // ── 121-K2b：吃推送（§6.2／§6.3 的 a–e）────────────────────────────────────────
+  // 分两类落地，因为两类事实的【权威源】不同：
+  //   ① `thread.live` 是纯粹的透传事实（tool／iterations／updatedAt，服务端 04 的累加器原样送来），
+  //      就地写进那一行的 liveTail —— 零请求。（左栏第二行把它画出来归 K4；本刀先让数据是新的。）
+  //   ② 药丸（五态）**不就地编**：它由 mission-state.js 的 fromCard 从卡片证据派生，全仓只有那一份
+  //      判据（steward-board.static B1 钉着）。把推送里的 state 字面量写进行上等于在客户端长出第二份
+  //      派生结果，一旦 13r 与 13d 的入参哪天不同步，屏幕上就会有两个互相矛盾的药丸。所以这里做的是
+  //      【把那一行重新问一次】：一发 ETag 化的 /api/missions（本机毫秒级），判据仍然只有一份。
+  // 合并不用计时器（本模块零 setTimeout，F2 钉着）：在飞时只记一个「还要再来一趟」的位，
+  // 与 13r 的 eventStreamEmitThreadState 同一条「串行 + 合并」纪律。
+  let streamConnected = false;
+  let pushBusy = false;
+  let pushAgain = false;
+  async function pushRefreshRows() {
+    if (pushBusy) { pushAgain = true; return false; }
+    pushBusy = true;
+    // refreshRows 只刷行；紧跟一口 syncNow 是必需的 —— 焦点那一条（右栅「现在这一件」）由 focusThreadFor
+    // 按行算，不跑它的话新起的那条线程永远不会成为焦点，§6.3 的指标 d（焦点栏当前动作行）
+    // 就无从发生。轮询那一路（refreshBoard）本来就每一拍都跑 syncNow，这里只是把同一步补齐；
+    // 仲裁面（/api/steward/arbiter）故意不跟 —— 推送不该换来第二发请求。
+    try { await refreshRows(); syncNow(); } finally { pushBusy = false; }
+    if (pushAgain) { pushAgain = false; return pushRefreshRows(); }
+    return true;
+  }
+  function applyLivePush(data) {
+    const sid = String((data && data.sessionId) || '');
+    const row = sid ? rows.find(item => item && String(item.sessionId || '') === sid) : null;
+    if (!row) return false;                       // 还没进过行：交给 thread.state／created 那一路重拉
+    row.liveTail = {
+      tool: String((data && data.tool) || ''),
+      updatedAt: String((data && data.updatedAt) || ''),
+      iterations: Math.max(0, Number(data && data.iterations) || 0),
+    };
+    renderBoard();
+    return true;
+  }
+  function setEventStream(stream) {
+    if (!stream || typeof stream.on !== 'function') return false;
+    streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
+    stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    stream.on(EVENT_STREAM_LIVE_EVENT, data => { applyLivePush(data); });
+    // 五类「行本身变了」的事件同一条落点。`thread.adopted{by:'user'}`（K3：用户刚按下「交给管家盯」）
+    // 也在这里 —— 那一行的 watched 要立刻翻真，不能等兜底那一拍。
+    for (const name of EVENT_STREAM_ROW_EVENTS) {
+      stream.on(name, () => { void pushRefreshRows(); });
+    }
+    return true;
+  }
+
   // 117j W2-5（用户走查④，与抽屉同一条纪律）：表按下限（5s）走，真要不要拉由这一拍自己判 ——
   // 有线程在跑就每拍都拉（「跑完了」最多 5 秒就出现在看板与「现在这一件」上），空闲时仍按配置节拍。
   // 不动态换表的理由同抽屉：F1/F3 锁死了本模块只有一处 setInterval 与那一个 syncPolling 形状。
@@ -995,8 +1047,11 @@ export function createStewardBoard({
   function anyThreadRunning() {
     return rows.some(row => row && row.activeTurn === true);
   }
+  // 121-K2b（§6.2「三条轮询保留为兜底」）：事件流连着时这一拍不再是「怎么发现事情变了」的路 ——
+  // 行的变化由 thread.* 推送当场落地（见 bindEventStream），所以 due 统一 30 s，只当兜底心跳；
+  // 断开时立刻回到今天那两档（有线程在跑 5 s，空闲 config.stewardPollMs）。表一个字没动（F1/F3）。
   async function pollTick() {
-    const due = anyThreadRunning() ? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs();
+    const due = streamConnected ? STEWARD_POLL_MS_CONNECTED : (anyThreadRunning() ? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs());
     if (Date.now() - lastRefreshAt < due - POLL_DUE_SLACK_MS) return;
     await refreshBoard();
   }
@@ -1012,9 +1067,13 @@ export function createStewardBoard({
     // 表走下限，节拍由 pollTick 自己按「有没有在跑的线程」判（见那里的头注）。
     pollTimer = setInterval(() => { void pollTick(); }, STEWARD_BOARD_POLL_MS_MIN);
   }
-  // 唯一入口：看板打开 且 还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
+  // 唯一入口：还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
+  // 121-K2b（§6.2）：「看板关着不刷」那道门【删掉】了。它本来的道理是「看不见就别烧请求」，
+  // 代价写在 32 号文 §5：看板一关，状态行那句「N 个事项 · A 条在跑，B 条等你」与「现在这一件」
+  // 就停在关上的那一帧（两者都【一直可见】，不随看板收起）。K4 之后左栏永远开着，这道门连
+  // 「看不见」这个前提都不成立了。烧的请求也回不来：连接正常时这一拍 30 s 才拉一次（pollTick）。
   function syncPolling() {
-    if (isBoardOpen() && isStewardMode() && !(doc() && doc().hidden)) startPolling();
+    if (isStewardMode() && !(doc() && doc().hidden)) startPolling();
     else stopPolling();
   }
 
@@ -1103,6 +1162,7 @@ export function createStewardBoard({
 
   return Object.freeze({
     bindStewardBoard,
+    setEventStream, // 121-K2b：组合根那一条推送（迟绑定，与 setOnClosed／setMissionRows 同纪律）
     setBoardOpen,
     isBoardOpen,
     refreshBoard,

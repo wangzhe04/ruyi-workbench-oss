@@ -7,7 +7,7 @@ import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createStewardClassicWindow } from './steward-classic-window.js';
-import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份
+import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
 // 从 preview-shell.js 搬到叶子 js/shell-mode.js，本文件只改 import 来源，取法一个字未变。
@@ -91,6 +91,10 @@ export function createStewardShellDomain({
   // 同一条净化通道就得走同一条路。本文件只做转注入（不 import 渲染器，D2 的 import 白名单不变）。
   renderMarkdownInto = null,
   highlightIn = null,
+  // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。本文件用它三件事：①壳层状态轮询在连接时
+  // 降到 30 s 兜底；②`steward.say` 到达就拉一次状态（avatar 与对话流的追加都挂在那一处，不新开
+  // 第二条请求路）；③把同一条实例转给看板与抽屉（它们自己不建连接）。
+  eventStream = null,
 } = {}) {
   // 117n-M1：byId 从 steward-chips.js import（六个消费方零本地重复定义）；33 号文 §4 起本文件也收编 ——
   // 原来那一份 `globalThis.document ? globalThis.document.getElementById(id) : null` 与它逐字同义。
@@ -232,6 +236,8 @@ export function createStewardShellDomain({
   // 进壳前，enterVisit 已经把它画进历史了，再追加一次就重了）。
   let lastReplyAt = '';
   let lastStateAt = 0;
+  // 121-K2b：推送连着没有。断开时四处轮询各自回到今天的节奏（这就是「兜底」两个字的意思）。
+  let streamConnected = false;
 
   // 节拍：壳可见【且】真有事情在跑时用 5 秒，否则仍按配置（默认 15 秒）。「有事情在跑」= 管家自己
   // 有在途回合，或看板那份行里有线程在跑 —— 后者看板每一拍都已经算过，这里只读它的句柄。
@@ -246,8 +252,12 @@ export function createStewardShellDomain({
   }
   // 表按下限走，真要不要拉由这一拍自己判（与 steward-drawer.js／steward-board.js 逐字同一条纪律：
   // 动态换表会多一处 clearInterval 或多一个 start/stop 调用点，撞上 steward-avatar.static 的 F1/F3）。
+  // 121-K2b：事件流连着的时候这条轮询只是【兜底心跳】—— 真正让 avatar 跟上的是 steward.say 推送
+  // （见下面的 bindEventStream）。所以连接时 due 统一 30 s，断开时才回到今天那两档（5 s／配置）。
+  // 表（setInterval 的周期）一个字没动，与 117j W2-4 同一条纪律：换表要么多一处 clearInterval、
+  // 要么多一个 start/stop 调用点，两者都会撞上 steward-shell.static C2a／steward-avatar.static F1。
   function pollStewardTick() {
-    const due = stewardPollFast() ? STEWARD_POLL_MS_MIN : pollIntervalMs();
+    const due = streamConnected ? STEWARD_POLL_MS_CONNECTED : (stewardPollFast() ? STEWARD_POLL_MS_MIN : pollIntervalMs());
     if (Date.now() - lastStateAt < due - POLL_DUE_SLACK_MS) return;
     pollStewardState();
   }
@@ -286,6 +296,18 @@ export function createStewardShellDomain({
   function pollIntervalMs() {
     const raw = Number(state && state.config && state.config.stewardPollMs);
     return Number.isFinite(raw) && raw > 0 ? Math.max(STEWARD_POLL_MS_MIN, raw) : STEWARD_POLL_MS_DEFAULT;
+  }
+
+  // 121-K2b（§6.2）：把那一条事件流接到壳层。**零新请求路**：`steward.say` 到达就走既有的
+  // pollStewardState()（全文件唯一那处请求调用点，C3a/C3b 钉着），它自己会判「要不要 nudge、要不要
+  // appendSince」—— 推送只是把「什么时候拉」从「每 5–15 秒猜一次」换成「它真说完了才拉」。
+  // 连接状态只改 due（见 pollStewardTick），不改启停条件：syncPolling 的三重门控一个字没动。
+  function bindEventStream() {
+    if (!eventStream || typeof eventStream.on !== 'function') return false;
+    eventStream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    streamConnected = typeof eventStream.isConnected === 'function' ? eventStream.isConnected() === true : false;
+    eventStream.on('steward.say', () => { if (isStewardMode()) pollStewardState(); });
+    return true;
   }
 
   let pollTimer = 0;
@@ -417,6 +439,10 @@ export function createStewardShellDomain({
     onRowsChanged: () => classicWindow.renderBand(),
   });
   boardHandle = board;
+  // 121-K2b：同一条事件流转给左栏与焦点栏。走 setter 而不是构造参数 —— 抽屉那一行构造被
+  // steward-drawer.static I3 逐字钉着（新依赖一律迟绑定，与 setClassicWindow／setMissionRows 同纪律）。
+  board.setEventStream(eventStream);
+  drawer.setEventStream(eventStream);
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
   // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
   drawer.setClassicWindow(sessionId => classicWindow.openClassicWindow(sessionId));
@@ -454,6 +480,7 @@ export function createStewardShellDomain({
     const classic = byId('stewardClassicBtn');
     if (classic) classic.onclick = () => applyShellMode('classic');
     syncSettingOption();
+    bindEventStream(); // 121-K2b：推送订阅（连接状态 + steward.say）；连接本身由组合根 start()
     bindPresence(); // 117b：avatar 的输入监听 + 模式/可见性观察者，见函数头注
     composer.bindStewardComposer();      // 117c：递送目标 chip / 候选列表 /「+」占位 / Enter 直接递
     drawer.bindStewardDrawer();          // 117d：线程抽屉（接 steward:open-thread / steward:focus-thread）

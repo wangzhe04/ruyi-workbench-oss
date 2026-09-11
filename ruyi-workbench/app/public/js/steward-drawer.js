@@ -7,10 +7,12 @@ import './mission-state.js';
 import { apiErrorInfo } from './net.js';
 import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
+// 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫、note 写手与轮询常量也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫、note 写手与轮询常量也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -1166,11 +1168,14 @@ export function createStewardDrawer({
   // （默认 15s），请求数与今天一样。之所以不「动态换表」：C1/C3b 锁死了本模块只有一处 setInterval／
   // 一处 clearInterval、start/stop 只有那几个调用点，换表要么多一处 clearInterval 要么多一个调用点，
   // 两者都会撞上既有断言（本片纪律：断言只加不改）。
+  //
+  // 121-K2b（§6.2「三条轮询保留为兜底」）：事件流连着时这一拍只是兜底心跳（due 统一 30 s）——
+  // 该看见的东西由 thread.* 推送当场落地（见 bindEventStream）；断开时立刻回到上面那两档。
   let lastPollAt = 0;
   async function pollSlice() {
     const now = Date.now();
     const wasLive = isLive();
-    const due = wasLive ? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs();
+    const due = streamConnected ? STEWARD_POLL_MS_CONNECTED : (wasLive ? STEWARD_DRAWER_POLL_MS_MIN : pollIntervalMs());
     if (now - lastPollAt < due - POLL_DUE_SLACK_MS) return;
     lastPollAt = now;
     await loadThreadSlice();
@@ -1189,6 +1194,60 @@ export function createStewardDrawer({
   function pollIntervalMs() {
     const raw = Number(state && state.config && state.config.stewardPollMs);
     return Number.isFinite(raw) && raw > 0 ? Math.max(STEWARD_DRAWER_POLL_MS_MIN, raw) : STEWARD_DRAWER_POLL_MS_DEFAULT;
+  }
+
+  // ── 121-K2b：吃推送（§6.2；§6.3 的 b/c/d 三个指标落在这一栏上）────────────────────
+  // 两步走，缺一不可：
+  //   ① 【当场】把 thread.live 的三个值写进本地 liveTail 并重画 —— 「它正在说」那一行、当前工具名
+  //      与轮次立刻变（§6.3 指标 d 要的就是这个「≤1 s」，一发请求都不用）。推送的 textTail 是 240 字
+  //      上限（§6.1 载荷列），比服务端信封里那段 600 字短；屏幕上只显示末尾 ≤3 句（liveTailSentences），
+  //      所以看得见的部分不受影响。
+  //   ② 随后把那一趟切片【重问一次】（合并、串行）—— 待决清单、五态、验收快照都不在推送载荷里
+  //      （§6.1 红线：这条线不承载正文与明细），它们的权威源仍然是 /api/sessions/:id 与事项切片。
+  // 合并不用计时器（本模块零 setTimeout，C2 钉着）：在飞时只记一个「还要再来一趟」的位。
+  let streamConnected = false;
+  let pushBusy = false;
+  let pushAgain = false;
+  async function pushRefreshSlice() {
+    if (!sessionId) return false;
+    if (pushBusy) { pushAgain = true; return false; }
+    pushBusy = true;
+    const id = sessionId;
+    try {
+      await loadThreadSlice();
+      await loadMissionSlice();
+      if (id === sessionId) renderAll();
+    } finally { pushBusy = false; }
+    if (pushAgain) { pushAgain = false; return pushRefreshSlice(); }
+    return true;
+  }
+  function applyLivePush(data) {
+    const sid = String((data && data.sessionId) || '');
+    if (!sid || sid !== sessionId) return false;      // 别把 A 的活回合画到 B 上
+    liveTail = {
+      ...(liveTail && typeof liveTail === 'object' ? liveTail : {}),
+      text: String((data && data.textTail) || ''),
+      tool: String((data && data.tool) || ''),
+      updatedAt: String((data && data.updatedAt) || ''),
+    };
+    renderAll();
+    return true;
+  }
+  function setEventStream(stream) {
+    if (!stream || typeof stream.on !== 'function') return false;
+    streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
+    stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    // thread.live 【只】就地改，不顺手重问切片：它每 500 ms 一条（§6.1 节流列），每条都跟一发
+    // /api/sessions/:id ＋事项切片的话，一个长回合期间就是持续两发请求在飞 —— 比今天的 5 s 一轮更重。
+    // 回合起跑／收工／提问那三件事本来就各有一帧（thread.state／needs_you／done），重问跟着它们走。
+    stream.on(EVENT_STREAM_LIVE_EVENT, data => { applyLivePush(data); });
+    for (const name of EVENT_STREAM_ROW_EVENTS) {
+      stream.on(name, data => {
+        if (String((data && data.sessionId) || '') !== sessionId) return;
+        void pushRefreshSlice();
+      });
+    }
+    return true;
   }
 
   let pollTimer = 0;
@@ -1380,6 +1439,7 @@ export function createStewardDrawer({
     // 新依赖一律走 setter，不加构造参数）。
     setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
+    setEventStream, // 121-K2b：组合根那一条推送（同一条迟绑定纪律）
     // 33 号文 §4：事项行的那批行由看板注入（它才是唯一取数者）。传进来的形状是
     // { rows, refresh } 两个函数；缺一个就当作没注入 —— 本模块宁可手里没有行，也不自留第二处取数。
     setMissionRows: source => {

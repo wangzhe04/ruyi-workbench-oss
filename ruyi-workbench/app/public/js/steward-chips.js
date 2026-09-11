@@ -253,6 +253,12 @@ export function writeNote(id, text) {
 export const STEWARD_POLL_MS_MIN = 5000;
 export const STEWARD_POLL_MS_DEFAULT = 15000;
 export const STEWARD_POLL_DUE_SLACK_MS = 250;
+// 121-K2b（34 号文 §6.2「三条轮询保留为兜底」）：事件流连着的时候，轮询不再是「怎么知道事情变了」
+// 的路 —— 它只是【兜底心跳】（推送漏了、环补不上、ETag 口径与推送不同步时的自愈）。所以连接正常
+// 时四处统一降到 30 s，断开时各自恢复今天的节奏（5 s 下限 / config.stewardPollMs）。
+// 这个数只有这一份：四个消费者（壳层／看板／抽屉／2.0 在途卡）都从本叶子 import，不各写一遍。
+// 表（setInterval 的周期）一个字没动 —— 变的只是每一拍自己判「该不该拉」的那个 due。
+export const STEWARD_POLL_MS_CONNECTED = 30000;
 
 // 33 号文 §4「Enter/isComposing 守卫 ×3 抽 bindEnterToSubmit」：管家壳里「回车发送」的规矩原本在
 // 三处各写一遍（composer 一处、抽屉底部输入框与问答框各一处），三份逐字同形。这里收成一处判据：

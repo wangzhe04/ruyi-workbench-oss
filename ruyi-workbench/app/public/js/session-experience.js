@@ -24,8 +24,14 @@ import {
   weightedMessageTailStart,
 } from './turn-narrative.js';
 import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
+// 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
 export function createSessionExperienceDomain({
+  // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。工作台视角用它两件事：①「它正在跑」那张卡
+  // 改吃 thread.live（3 s 轮询降为断连兜底）；②换会话时报一次新的在场信号（§4.3 —— 服务端只在
+  // 连接时读 ?lens=&sessionId=，所以换会话＝重连，这是唯一的写口）。
+  eventStream = null,
   apiErrText = error => String(error && error.message || error || ''),
   // 118a-fix: 手册正文的落 DOM 与高亮。组合根透进来的就是 chat-render-primitives 那一份已消毒管线,
   // 阅读器不另造解析器,也不自己拼 HTML。
@@ -242,6 +248,7 @@ async function openSession(id) {
   syncStreamingUi();
   mountActiveTurn(id);
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
+  if (switchedSession && eventStream && typeof eventStream.sync === 'function') eventStream.sync(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
   // The global status denominator describes the new-session default. Resolve this session's pinned route
   // after every switch so the context meter and model list do not lag behind until the next completed turn.
   api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
@@ -830,6 +837,9 @@ let liveTurnSessionId = '';   // 这份活文本属于哪条会话：切会话�
 let liveTurnLive = false;     // resumable.live —— 服务端对「这条会话有没有活回合」的判定
 let liveTurnCardEls = null;   // 挂在 DOM 上的那张气泡的构件（就地刷新，不整份重绘）
 let liveTurnTimer = 0;        // 本模块唯一的 setInterval 句柄（见 syncLivePolling）
+let liveStreamConnected = false; // 121-K2b：推送连着没有（连着就不开表，见 liveTurnPollable）
+let liveTurnPushBusy = false;    // 121-K2b：推送驱动的那一趟在飞（合并、串行；本模块不加第二个计时器）
+let liveTurnPushAgain = false;
 
 function captureLiveTurn(sessionId, res) {
   liveTurnSessionId = String(sessionId || '');
@@ -852,8 +862,12 @@ function liveTurnVisible() {
 }
 // 该不该开表。在 liveTurnVisible 之上再加两道「零后台活动」的门：页面不可见不轮询；不在经典壳里
 // 不轮询（管家壳有它自己的节拍，这张气泡那时根本不在屏幕上）。
+// 121-K2b（§6.2）：第四道门 —— 事件流连着就【不开表】。这张卡的每一次变化都有一帧 thread.live
+// （§6.1 每会话 ≥500 ms 一条）或 thread.state／done 打头，推送到达时走的是同一个 refreshLiveTurn()，
+// 所以表在连接期间纯属白烧（而且它比推送慢：3 s 一拍 vs ≤1 s）。断连即回到 3 s，一个字没变。
 function liveTurnPollable() {
   if (!liveTurnVisible()) return false;
+  if (liveStreamConnected) return false;
   const doc = globalThis.document || null;
   if (!doc || doc.hidden) return false;
   const mode = (doc.documentElement && doc.documentElement.getAttribute('data-shell-mode')) || 'classic';
@@ -866,6 +880,39 @@ function syncLivePolling() {
   if (want && !liveTurnTimer) liveTurnTimer = setInterval(() => { refreshLiveTurn(); }, LIVE_TURN_POLL_MS);
   else if (!want && liveTurnTimer) { clearInterval(liveTurnTimer); liveTurnTimer = 0; }
 }
+// 121-K2b（§6.2）：推送驱动的那一拍。**走的就是上面那个 refreshLiveTurn()**，不写第二套刷新路径 ——
+// 推送改的只是「什么时候拉」（它真动了才拉，而不是每 3 秒猜一次）。三道门：
+//   · 只认当前会话（别把 A 的活文本画到 B 上，与 liveTurnVisible 同一条判据）；
+//   · 自己的流在跑时不拉（实时那一张已经在画了，与 liveTurnVisible 第三条同源）；
+//   · 只在工作台视角里拉（管家视角这张卡根本不在屏幕上，与 liveTurnPollable 第三条同源）。
+// 合并用「在飞 + 还要再来一趟」两个位，不加计时器（live-full-text.static C1/C2 钉着本模块
+// 恰好一处 setInterval／clearInterval，而那一对是 syncLivePolling 的）。
+async function pushLiveTurn(sessionId) {
+  const id = String(state.currentSession?.id || '');
+  if (!id || String(sessionId || '') !== id) return false;
+  if (activeTurns.has(id) || state.streaming) return false;
+  const doc = globalThis.document || null;
+  const mode = (doc && doc.documentElement && doc.documentElement.getAttribute('data-shell-mode')) || 'classic';
+  if (mode !== 'classic') return false;
+  if (liveTurnPushBusy) { liveTurnPushAgain = true; return false; }
+  liveTurnPushBusy = true;
+  try { await refreshLiveTurn(); } finally { liveTurnPushBusy = false; }
+  if (liveTurnPushAgain) { liveTurnPushAgain = false; return pushLiveTurn(id); }
+  return true;
+}
+function bindLiveEventStream() {
+  if (!eventStream || typeof eventStream.on !== 'function') return false;
+  liveStreamConnected = typeof eventStream.isConnected === 'function' ? eventStream.isConnected() === true : false;
+  eventStream.on('connection', payload => {
+    liveStreamConnected = Boolean(payload && payload.connected);
+    syncLivePolling();   // 断连即回到 3 s 那一档；连上即停表（唯一的开关表入口仍然只有它）
+  });
+  for (const name of [EVENT_STREAM_LIVE_EVENT, ...EVENT_STREAM_ROW_EVENTS]) {
+    eventStream.on(name, data => { void pushLiveTurn(data && data.sessionId); });
+  }
+  return true;
+}
+bindLiveEventStream();
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
