@@ -106,7 +106,11 @@ delete env.RUYI_HOME;
 const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env, windowsHide: true });
 try {
   let ready = null;
-  for (let i = 0; i < 40 && !ready; i++) { await sleep(150); ready = await health(WB_PORT); }
+  // 121-治抖动（2026-09-12 换机器实测）：这一行是「服务起得来」的门，不是性能指标。全新 HOME 首启
+  // 会走 01-config detectDesktopMcp 的三次 python 探针（python/python3/py -3 各 ~1.7 s，装了 Python
+  // 但没装 mcp 包的机器每次都慢失败）＋ claude/kimi CLI 探针，实测 6.5 s 才到 /health —— 原来 40×150ms
+  // = 6 s 的预算在这种机器上必红（基线提交同样红，不是回归）。门放到 20 s；探针本身的阻塞登记为产品债。
+  for (let i = 0; i < 134 && !ready; i++) { await sleep(150); ready = await health(WB_PORT); }
   ok(!!ready, '⑦ workbench listening（全新 HOME）');
   const status = await getJson(WB_PORT, '/api/status');
   ok(status && status.config && status.config.uiMode === 'simple', '⑦ 新装默认 simple 模式');

@@ -241,7 +241,10 @@ const FEED = `(() => {
       const last = ruyiRows[ruyiRows.length - 1] || null;
       return Boolean(avatar && last && last.contains(avatar));
     })(),
-    avatarCount: document.querySelectorAll('#stewardAvatar, .steward-avatar').length,
+    // 121-K5（34 号文 §2.5）：工作台线程头的管家条也画一颗小 avatar（#threadStewardAvatar，同一个
+    // data-state 的第二处投影，有意为之），它不是「搬」出来的那一颗，从 W2-3d／H3 的计数里排除——
+    // 这两把锁守的是【管家视角对话流里】头像是搬不是复制。
+    avatarCount: document.querySelectorAll('#stewardAvatar, .steward-avatar:not(#threadStewardAvatar)').length,
     avslots: feed.querySelectorAll('.steward-avslot').length,
     // 117l-B2 ④（用户第五轮走查 4「很多轮的看起来有点奇怪，尤其是边边那个点」）：
     // 管家那几行的分组／降噪状态。全部走公开 DOM（className、::before 的计算样式、按钮的
@@ -761,7 +764,9 @@ try {
   // 截图为证（验收②）：宽屏（真实窗口本来就是 1440×1000，≥1000px 达标，不用再 override）与窄屏
   // （390px，既有断点）各一张，长标题线程命中时的输入区。宽屏先拍，narrow 拍完立刻把 override 清掉——
   // 不然后面 R/H 两段断言会在一个被强制改过 viewport 的页面上跑，节外生枝。
-  const shotDir = 'C:\\Users\\87179\\AppData\\Local\\Temp\\claude\\C--Users-87179-Documents-Claude-Code-ruyi-workbench-oss\\a075087e-ba4c-4de8-a8ad-4961390012d1\\scratchpad';
+  // 121-治抖动（2026-09-12 换机器实测）：原来钉的是 117r 那次会话的 scratchpad 绝对路径，换台机器
+  // 目录不存在 → ENOENT 整件红。截图放进本次运行自己的临时目录（路径印在 SHOTS 行里，人要看再去拿）。
+  const shotDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-conversation-shots-'));
   const wideShot = await cdp.send('Page.captureScreenshot', { format: 'png' });
   fs.writeFileSync(path.join(shotDir, '117r-D3-wide.png'), Buffer.from(wideShot.data, 'base64'));
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });

@@ -268,7 +268,10 @@ const TOOL_VIEW_MEASURE = `(async () => {
   let browser = null;
   let cdp = null;
   try {
-    const ready = await waitFor(appPort, '/health', result => result.status === 200);
+    // 121-治抖动（2026-09-12 换机器实测）：这是「服务起得来」的门，不是本件量的指标。全新 HOME 首启在
+    // 装了 Python 但没装 mcp 包的机器上要 6.5 s（01-config detectDesktopMcp 三次 python 探针各 ~1.7 s），
+    // 默认 100 次 × (请求 + 50ms) ≈ 5–6 s 的预算必红。门放到 ~20 s；探针阻塞登记为产品债。
+    const ready = await waitFor(appPort, '/health', result => result.status === 200, 400);
     ok(Boolean(ready), 'EC-D benchmark server started');
     const executable = browserPath();
     ok(Boolean(executable), 'EC-D benchmark found Edge/Chrome');
