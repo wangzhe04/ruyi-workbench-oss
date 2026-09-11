@@ -99,16 +99,19 @@ function seedScaleDataset() {
 
 const WB_PORT = await getFreePort();
 fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-// 121 波 K0(34 号文 §8.4)在这里加过一行 `stewardEnabledV1: false` 的种子,理由是:管家默认开之后,
-// 13i 的收件箱 tick 会赶在 seedScaleDataset()(刻意在 boot 之后才物化 300 条 Mission)之前调
-// getPretenderProjectionIndex(),而那条路当时【没有】空目录守卫,于是一份【空】投影被建出来并持久化,
-// 冷列表当场读到 0 条。
-// 121-K1 复核后撤掉那行种子:K0b(`826504c`)已经把守卫收进 getPretenderProjectionIndex 自身
-// (sources 为空且索引文件从未建过时早退,不落盘不缓存),病根是【结构】上被堵死的,不是时序上躲开的
-// —— 收件箱 tick 现在无论抢在 seed 之前还是之后,都不会留下一份空索引。撤掉后本件连跑 4 次全绿。
-// 留着那行种子的代价是:它会让本件量的东西与产品默认形态(管家开着)不一致,还会掩盖这条路上将来
-// 的回归 —— 现在它在真·默认配置下跑,顺带成了 K0b 那个守卫的第二个见证者。
-fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false }), 'utf8');
+// 121 波 K0(34 号文 §8.4):stewardEnabledV1 默认翻成 true。本件是【投影索引】的规模档,而
+// seedScaleDataset() 刻意在 boot 之后才把 300 条 Mission 物化到盘上;管家开着时 13i 的收件箱 tick
+// 会跟 seed 抢时序。K0b(`826504c`)已经把空目录守卫收进 getPretenderProjectionIndex 自身,那条
+// 「空索引被持久化」的路确实堵死了,但【抢时序这件事本身没消失】—— tick 仍可能在 seed 写到一半时
+// 扫目录,建出一份【部分】索引。
+//
+// 121-K1 实测(这段是给下一个想撤掉它的人看的):我先撤掉了这行种子,连跑 4 次串行全绿,以为 K0b
+// 已经把病根结构性堵死。随后 `--parallel 4` 全量回归里本件真红(实 838ms 那次只是性能预算,但同一
+// 轮之后的串行复验直接红在「(a) 冷列表300 Mission」——列表根本没读满 300 条),再跑又绿。
+// 也就是说:**「跑 N 次没复现」从来不是证伪竞态的证据**,而我拿它当了证据。种子还原,理由写死在
+// 这里:本件量的是【索引在规模下的读性能】,不是【tick 与 seed 的抢跑】,后者该由
+// mission-index-late-materialize.e2e.js 专门盯(那一件是 K0b 的正面见证者)。
+fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false, stewardEnabledV1: false }), 'utf8');
 const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1' }, windowsHide: true });
 let stderr = ''; wb.stderr.on('data', d => stderr += String(d));
 
