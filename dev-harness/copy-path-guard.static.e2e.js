@@ -100,7 +100,7 @@ const ALLOWED_INPUT_SIDE = Object.freeze({
 // 「如意替用户打开」的真动作文案。§2 明确允许:是应用替你做,不是让你自己去做。
 const ALLOWED_REAL_ACTIONS = Object.freeze({
   'file.reveal': 'POST /api/file/reveal:如意替用户在资源管理器里定位文件',
-  'previewShell.finishArtifactExpand': '收活台产物区,同一条 reveal 真动作',
+  // 121-K1：交办台收活台那一条（previewShell.finishArtifactExpand）随它退役，键已删除，白名单一并清。
   'palette.openDataDirectory': '命令面板项,走 /api/open-path 枚举通道由服务端打开',
   'settings.advanced.openDataDirectory': '高级页按钮,同上',
   'help.menu.openDataDir': '帮助菜单项,同上',
