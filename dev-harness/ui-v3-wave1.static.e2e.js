@@ -49,10 +49,19 @@ ok(/\.workspace-picker \.wp-name\s*\{[^}]*display:\s*none/.test(css), 'A1 工作
 ok(/\.model-chip \.mc-model\s*\{[^}]*display:\s*none/.test(css), 'A1 模型 chip 降级隐藏 .mc-model');
 ok(/\.perm-chip \.pc-name\s*\{[^}]*max-width/.test(css), 'A1 安全 chip 短名截断(max-width)');
 
-// ───────────── A2 移动端首启折叠侧栏(matchMedia,不污染桌面偏好) ─────────────
-ok(/function setSidebarCollapsed\(collapsed,\s*persist\s*=\s*true\)/.test(src), 'A2 setSidebarCollapsed 增 persist 形参');
-ok(/matchMedia\('\(max-width:\s*760px\)'\)\.matches\)\s*setSidebarCollapsed\(true,\s*false\)/.test(src),
-  'A2 无偏好时 ≤760 首启折叠侧栏(persist=false,不写 localStorage)');
+// ───────────── A2 移动端首启折叠侧栏 → 121-K4 翻面 ─────────────
+// 121-K4(34 号文 §2.3／§7.3):左栏搬进外框、两视角共用同一份 DOM 之后,「折叠侧栏」这件事整条退役 ——
+// 宽度由容器查询决定(≤980 永远是 56px 图标栏,内容一个节点不少),于是不再需要一个会被记住的偏好,
+// 也不再有 ☰ / « 两枚按钮。A2 因此翻面钉住:那两个函数、那个类、那个本机偏好键都不许再出现
+// (它们留着就是一条谁都点不到、却仍在改栅格的暗路)。手机档的「首启就是窄」由 §7.3 那一档承担。
+// 扫的是【剥掉注释】的源码：那条退役说明本身要把两个函数名写清楚（否则后人看不懂为什么没有了），
+// 撞上它就是假红。
+const srcCode = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+ok(!/setSidebarCollapsed/.test(srcCode) && !/restoreSidebarCollapsed/.test(srcCode)
+  && !/wcw\.sidebarCollapsed/.test(srcCode) && !/sidebar-collapsed/.test(css),
+  'A2 折叠侧栏整条路径已退役(两个函数、.sidebar-collapsed 类、wcw.sidebarCollapsed 偏好都零残留)');
+ok(/@container frame \(max-width: 980px\)/.test(css) && /--rail-w:\s*56px/.test(css),
+  'A2b 窄档由 §7.3 的容器查询接管:≤980 左栏折成 56px 图标栏');
 
 // ───────────── A3 触屏 hover-only 操作常显 ─────────────
 ok(/@media \(hover:\s*none\)/.test(css), 'A3 存在 @media (hover:none) 块');

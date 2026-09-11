@@ -84,7 +84,8 @@ const ok = (condition, label) => {
       ['css/views/steward-drawer.css', '.steward-drawer[hidden]'],
       ['css/views/steward-drawer.css', '.steward-chip-menu[hidden]'],
       ['css/views/steward-settings.css', '.steward-shield-menu[hidden]'],
-      ['css/views/steward-board.css', '.steward-now[hidden]'],
+      // 121-K4：右栏从浮层 #stewardNow 改成外框栅格里常驻的一列 #stewardSide，守卫跟着改名（同款仍在）。
+      ['css/views/steward-board.css', '.steward-side[hidden]'],
       // 117k：用户走查「每次切进管家壳都冒出那张设置小纸」的根因 —— 头像菜单是第六处同款，
       // 建出来就 menu.hidden = true，却一直画在屏幕上盖住问候语（.steward-menu 那条 display:flex
       // 压过 UA 表的 [hidden]）。补上守卫并在这里钉住。

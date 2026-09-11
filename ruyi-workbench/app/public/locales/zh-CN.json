@@ -2555,4 +2555,13 @@
   ,"notify.on": "通知已开启；{{p1}}–{{p2}} 为免打扰时段，静默事项不会延迟补发。"
   ,"notify.denied": "浏览器已拒绝通知权限；可在站点权限中重新允许。"
   ,"notify.unsupported": "当前浏览器不支持本机通知。"
+  ,"shell.brand": "如意"
+  ,"shell.lens.label": "视角"
+  ,"shell.lens.steward": "管家"
+  ,"shell.lens.classic": "工作台"
+  ,"shell.side": "右栏"
+  ,"shell.focus": "焦点"
+  ,"rail.title": "任务"
+  ,"rail.board": "看板密度"
+  ,"rail.pocket": "口袋"
 }

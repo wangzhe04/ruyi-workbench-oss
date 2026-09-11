@@ -2555,4 +2555,13 @@
   ,"notify.on": "Notifications are on; {{p1}}–{{p2}} are quiet hours, and muted items are not delivered later."
   ,"notify.denied": "Notification permission was denied. Allow it again in the site's permissions."
   ,"notify.unsupported": "This browser does not support local notifications."
+  ,"shell.brand": "Ruyi"
+  ,"shell.lens.label": "View"
+  ,"shell.lens.steward": "Steward"
+  ,"shell.lens.classic": "Workbench"
+  ,"shell.side": "Side panel"
+  ,"shell.focus": "Focus"
+  ,"rail.title": "Tasks"
+  ,"rail.board": "Board density"
+  ,"rail.pocket": "Pocket"
 }

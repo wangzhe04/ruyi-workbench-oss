@@ -345,7 +345,9 @@ try {
     && restored.stewardDisplay !== 'none' && restored.classicDisplay === 'none',
     'E1 开关开着时管家壳偏好跨刷新恢复（bind 期的准入回退不会误删偏好）');
 
-  await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");
+  // 121-K4（34 号文 §2.2／§2.7）：切视角的入口从管家壳输入区那枚「经典模式」改成外框顶栏的
+  // 分段钮（全仓唯一入口；快捷键 Ctrl+` 是它的同一条路）。点的东西换了，钉的事一个字没变。
+  await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");
   const backToClassic = await waitForEval(cdp, `(() => {
     const snapshot = ${SHELL_SNAPSHOT};
     return snapshot.mode === 'classic' ? snapshot : null;
@@ -353,7 +355,16 @@ try {
   ok(backToClassic && backToClassic.stored === 'classic' && backToClassic.select === 'classic'
     && backToClassic.classicDisplay !== 'none' && backToClassic.stewardDisplay === 'none'
     && backToClassic.legacyPollTimers === 0,
-    'E2 管家壳内「回到工作台」落盘一致且不留轮询');
+    'E2 顶栏分段钮切到工作台视角：落盘一致且不留轮询');
+  const segAfterClassic = await cdp.evaluate(`(() => {
+    const seg = document.getElementById('lensSeg');
+    return JSON.stringify({
+      on: seg.dataset.on,
+      pressed: [...seg.querySelectorAll('[data-lens]')].map(b => b.dataset.lens + ':' + b.getAttribute('aria-pressed')),
+    });
+  })()`);
+  ok(segAfterClassic === JSON.stringify({ on: 'classic', pressed: ['steward:false', 'classic:true'] }),
+    `E2b 分段钮的样子只读 data-shell-mode（滑块与 aria-pressed 跟着实况，实得 ${segAfterClassic}）`);
   ok(backToClassic && backToClassic.stewardPollTimers === 0,
     'E2a 回到工作台后管家自己的状态轮询计时器也被清(MutationObserver 盯 data-shell-mode，立即 stopPolling)');
 

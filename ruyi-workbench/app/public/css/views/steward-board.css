@@ -386,20 +386,25 @@
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
 .steward-board-chips .steward-chip-menu { left: 0; right: auto; }
 
-/* ── ③ 「现在这几件」：≥1000px 的常驻右栏 ───────────────────────────────────── */
-.steward-now { display: none; }
-.steward-now[hidden] { display: none; }
-.steward-now-bar {
-  flex: 0 0 auto;
+/* ── ③ 管家视角的右栏（121-K4：§2.6／§7.1）─────────────────────────────────────
+   原来这里是「现在这几件」#stewardNow —— 一块 ≥1000px 时 position:fixed 的玻璃浮层，带标题条与
+   「关掉」。它退役了：右栏现在是外框栅格里真正的一列（#stewardSide，grid-column:2），与工作台
+   视角的 .tool-pane 同宽同位置，所以切视角时它只淡入淡出、不位移（§2.9 表第四行）。
+   内容仍然是【同一个】 #stewardDrawer 节点（setMount('docked')）＋ 它上下那两条小行叠；
+   改造成「焦点栏」归 K6。 */
+.steward-side {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--panel);
+  border-left: 1px solid var(--line);
 }
-.steward-now-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
-.steward-now-count { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
-.steward-now-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.steward-side[hidden] { display: none; }
+.steward-side-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
 /* F3「现在这几件」：焦点那一条【就是】那份 docked 抽屉（上面那条规则不动），其余线程按服务端
    行序在它上下叠成小行。两条 stack 各自最多吃掉三分之一高度、超出自己滚，抽屉仍然 flex:1 拿走
@@ -474,38 +479,27 @@
 .steward-now-thread[data-tone="quiet"] .steward-now-thread-main { padding-block: var(--sp-1); }
 .steward-now-thread [data-action="answer"] { flex: 0 0 auto; color: var(--gold); }
 
-@media (min-width: 1000px) {
-  .steward-now:not([hidden]) {
-    position: fixed;
-    top: var(--sp-3);
-    right: var(--sp-3);
-    bottom: var(--sp-3);
-    z-index: 30;
-    width: 390px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    color: var(--ink);
-    background: var(--glass-bg-1);
-    -webkit-backdrop-filter: var(--glass-blur-2);
-    backdrop-filter: var(--glass-blur-2);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--r-lg);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
-  }
-  /* docked 挂法：同一个 #stewardDrawer 节点被搬进 #stewardNowBody，这里只把它从 fixed 收回流内。 */
-  .steward-drawer[data-mount="docked"] {
-    position: static;
-    inset: auto;
-    width: auto;
-    flex: 1 1 auto;
-    min-height: 0;
-    border-left: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
+/* docked 挂法：同一个 #stewardDrawer 节点被搬进右栏那个挂点，这里只把它从 fixed 收回流内。
+   121-K4：这条规则原来锁在 `@media (min-width:1000px)` 里（当年右栏是一块 ≥1000px 才出现的
+   fixed 浮层）。现在右栏是栅格里的一列，docked ↔ overlay 的判定仍然只有 steward-board.js 的
+   wideEnough()（≥1000px）一处，所以这条规则不需要第二个宽度门 —— 属性选择器本身就是那个门。 */
+.steward-drawer[data-mount="docked"] {
+  position: static;
+  inset: auto;
+  width: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
+/* 121-K4：steward-drawer.css 那条「抽屉开着就把整片管家壳向右挤 390px」的补白（它是居中舞台
+   时代的让位手法）在栅格外框里是错的 —— 右栏已经是一列，中栏不该再缩一次。本层排在
+   steward-drawer.css【之后】，同特指度覆盖它一次；抽屉自己那一层一个字没动（它归 K6）。 */
+:root[data-shell-mode="steward"] .app-views > .steward-shell[data-drawer="open"] { padding-right: 0; }
 
 /* ── ④ 2.0 视窗的返回带（117g）：经典壳 main.chat-pane 的第一个子元素 ─────────── */
 .steward-return-band {

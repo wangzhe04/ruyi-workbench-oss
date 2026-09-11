@@ -407,7 +407,22 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 去读 git blob，同一份代码换数据源 —— 按 HEAD（`1519fd3`）的锁代码 + HEAD 的 blob 算 =
 // 37efa1e5…，与被替换的旧值【逐字相同】；再按工作树的锁代码 + 工作树文件算得下面这个值。
 // 反向验证：往 tool-pane.css 追加一条无关规则 → F3 与 D51 双双转红；还原后逐字节相同、回绿。
-const LEGACY_STYLES_SHA256 = '859860b3a1e48c83657a489ec4bf2bb8b7b820021f2192dfa18e1056d4ba5396';
+// 121-K4-1 续钉（前值 859860b3…）：K4-1 外框与顶栏（34 号文 §2.2／§7.1／§7.3）改三层 ——
+//   ① `css/layout.css`：新增应用外框（.app-frame 顶栏 46px ＋ .app-body 两轨 ＋ .app-views 单格）、
+//      §2.2 顶栏（品牌、视角分段钮与它的 220ms 滑块、全局状态胶囊、齿轮就地菜单）、§2.3 左栏头与
+//      口袋槽位、§7.3 三档容器查询（≥1600 右栏 440／≤1180 右栏成抽屉／≤980 左栏 56px 图标栏）；
+//      .app-shell 从三轨收成两轨、--right-w 的定义点挪到 .app-frame（两视角共用一个宽度）、
+//      侧栏折叠与 .brand/.sidebar-foot 那几条随手动折叠退役而删除；
+//   ② `css/views/steward-shell.css`：场景层＋玻璃舞台卡＋1280/800 钉宽退役，改成「中栏 ｜ 右栏」
+//      两列（列宽与 .app-shell 逐字相同）＋ 中栏读宽 880px ＋ 右栏空时 :has() 收轨；
+//   ③ `css/views/steward-board.css`：浮层「现在这几件」（fixed 玻璃 ＋ 标题条）退役，改成栅格里
+//      常驻的 .steward-side 一列，并就地覆盖抽屉那条「开着就补白 390px」的居中时代让位；
+//   ④ `css/components/tool-pane.css`：≤1180／≤760 两档里改栅格与折叠侧栏的那 9 条规则删除 ——
+//      栅格现在由外框那一层统一给（右栏收抽屉两个视角同一套开合），左栏没有「手动折叠」这回事了。
+// 算法自证（沿用 117x-M2 定下的拦截法）：拦 fs.readFileSync 让消费者自己的 readLayerPayload() 去读
+// git blob，同一份代码换数据源 —— 按 HEAD（`c8b3c3b`）算 = 859860b3…，与被替换的旧值【逐字相同】；
+// 再按工作树算得下面这个值。反向验证：往 layout.css 追加一条无关规则 → F3 与 D51 双双转红。
+const LEGACY_STYLES_SHA256 = 'bc6876b62e6807a596167add409f370d054582cd9cb5db84cb26e9a297a5c15a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

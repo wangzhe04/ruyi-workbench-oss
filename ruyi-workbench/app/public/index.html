@@ -82,45 +82,114 @@
     </script>
   </head>
   <body>
-    <div class="app-shell">
-      <!-- ============ SIDEBAR ============ -->
-      <aside class="sidebar" id="sidebar" data-testid="sidebar">
-        <div class="brand">
-          <!-- 第89波品牌主标(如意云标,~22px):24×24 单线云头 + 鎏金点,与 icons.js trace 线条语言同构;
-               颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。原 120 viewBox 旋转实心标在 22px 下糊成一团,退役。 -->
+    <!-- 第121波 K4（34 号文 §2.2／§2.3／§7.1）：一台两视的【应用外框】。两个视角是同一台工作台上的
+         两个投影，所以顶栏与左栏在外框里【只有一份】：顶栏 46px ＋ 三栏（左栏 268px ｜ 中栏 1fr ｜
+         右栏 392px）。中栏与右栏的内容随 :root[data-shell-mode] 换（.app-shell ／ #stewardShell 两个
+         同级容器，各自是「中栏 ＋ 右栏」的两列栅格 —— 两边列宽逐字相同，所以切视角时布局不跳）；
+         左栏 #sidebar 是【同一个 DOM 节点】，切换时不重画、不搬家（验收：切换前后 isSameNode 为真）。 -->
+    <div class="app-frame" id="appFrame">
+      <!-- 顶栏（§2.2）：左品牌标、中视角分段钮、右全局状态胶囊 ＋ 盾牌 ＋ 停机 ＋ 齿轮。
+           【不印】费用、线程总数、模型名 —— 那三样分别归「用量」页签、左栏组头计数与配置控件。 -->
+      <header class="app-topbar" id="appTopbar">
+        <div class="tb-left">
+          <!-- 第89波品牌主标(如意云标):24×24 单线云头 + 鎏金点,与 icons.js trace 线条语言同构;
+               颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。（§2.10.1 的云头品牌标归 K8。） -->
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
+            <svg viewBox="0 0 24 24" width="20" height="20" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
               <path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
               <circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/>
             </svg>
           </div>
-          <div class="brand-text">
-            <h1 data-i18n="brand.name">如意 Ruyi</h1>
-            <p id="statusLine" data-i18n="status.connecting">正在连接本地服务…</p>
-          </div>
-          <button id="collapseSidebarBtn" class="icon-btn" title="折叠侧栏" aria-label="折叠侧栏" data-i18n-attr="title:navigation.collapseSidebar;aria-label:navigation.collapseSidebar" data-icon="collapse" data-testid="collapseSidebarBtn"></button>
+          <strong class="app-brand-name" data-i18n="shell.brand">如意</strong>
+          <p id="statusLine" data-i18n="status.connecting">正在连接本地服务…</p>
         </div>
+        <!-- 视角切换（§2.2）：滑块式分段钮，快捷键 Ctrl+`。它是【唯一】的切换入口 —— 原来散在
+             管家壳输入区（#stewardClassicBtn）与看板顶部（#stewardBoardClassicBtn）的两枚「整体切到
+             2.0」都退役，data-shell-mode 仍只由 shell-mode.js 的 applyShellMode 一处写。 -->
+        <div class="tb-mid">
+          <div class="lens-seg" id="lensSeg" data-on="steward" role="group"
+               aria-label="视角" data-i18n-attr="aria-label:shell.lens.label">
+            <span class="lens-thumb" aria-hidden="true"></span>
+            <button type="button" class="lens-btn" data-lens="steward" data-icon="target" data-icon-size="15"
+                    aria-pressed="true"><span data-i18n="shell.lens.steward">管家</span></button>
+            <button type="button" class="lens-btn" data-lens="classic" data-icon="monitor" data-icon-size="15"
+                    aria-pressed="false"><span data-i18n="shell.lens.classic">工作台</span></button>
+          </div>
+        </div>
+        <div class="tb-right">
+          <!-- 全局状态胶囊「N 在跑 · M 等你」。文案与计数由 js/steward-board.js 的 renderStatusLine
+               现算（计数源仍然只有那一处），点一下让左栏滚到对应的那一组。没有线程时整枚隐藏。 -->
+          <button type="button" id="appStatusChip" class="app-status-chip" hidden></button>
+          <!-- 117e（§8.2／§8.6）：盾牌 = 新任务默认权限，点开四档菜单；停机键常驻且永远可点，停机后
+               同一个按钮变「唤醒」。行为住 js/steward-settings.js，本波只把这两枚从管家壳头部搬到
+               两视角共用的顶栏（§2.2）——它们管的是【全局】，不该只在一个视角里够得着。 -->
+          <div class="steward-shield-wrap">
+            <button type="button" id="stewardShieldBtn" class="steward-shield" aria-haspopup="true" aria-expanded="false"></button>
+            <div id="stewardShieldMenu" class="steward-shield-menu" role="menu" hidden></div>
+          </div>
+          <button type="button" id="stewardStopBtn" class="steward-stop-btn"></button>
+          <!-- ≤1240 右栏收成抽屉时的开合钮（§7.3）。宽屏由容器查询隐藏。 -->
+          <button type="button" id="appSideToggleBtn" class="icon-btn app-side-toggle" data-icon="sheet" data-icon-size="17"
+                  title="右栏" aria-label="右栏" aria-expanded="false"
+                  data-i18n-attr="title:shell.side;aria-label:shell.side"></button>
+          <div class="app-gear-wrap">
+            <button type="button" id="appGearBtn" class="icon-btn" data-icon="settings" data-icon-size="17"
+                    aria-haspopup="menu" aria-expanded="false" title="设置" aria-label="设置"
+                    data-i18n-attr="title:navigation.settings;aria-label:navigation.settings"></button>
+            <!-- 齿轮菜单（§2.2）：2.0 侧栏栏底四钮（清理历史／设置／帮助／快捷键）与顶栏的
+                 「⋯」一起收进来。每一枚都是【原来那个按钮本身】（id、i18n、handler 一个没动），
+                 只是换了住处 —— #themeToggle／#uiModeToggle／#capBadge 仍是「⋯」菜单的状态载体，
+                 所以留在菜单里但不显示（样式层一条规则，与原来 .topbar-actions 那条同义）。 -->
+            <div id="appGearMenu" class="app-gear-menu" role="menu" hidden>
+              <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings" role="menuitem"><span data-i18n="navigation.settings">设置</span></button>
+              <!-- 118d: 常驻帮助入口。聚合使用手册 / 管理员手册 / 重新打开引导 / 查看日志 / 打开数据目录，
+                   每一项都是应用内的真动作，不显示任何路径。旁边的 #helpBtn 仍只管快捷键弹层。 -->
+              <button id="helpMenuBtn" class="ghost btn-ic" data-icon="ledger" aria-haspopup="menu" role="menuitem" title="帮助" data-i18n-attr="title:help.menu.title"><span data-i18n="help.menu.title">帮助</span></button>
+              <button id="helpBtn" class="ghost btn-ic" data-icon="help" role="menuitem" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"><span data-i18n="navigation.shortcuts">快捷键</span></button>
+              <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash" role="menuitem"><span data-i18n="session.bulkCleanup">清理历史</span></button>
+              <button id="moreMenuBtn" class="ghost btn-ic" data-icon="more" role="menuitem" aria-haspopup="menu" title="更多" aria-label="更多" data-i18n-attr="title:common.more;aria-label:common.more"><span data-i18n="common.more">更多</span></button>
+              <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
+              <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode" data-icon="toolbox"></button>
+              <!-- v0.8-S6: capability badge. ●在线/○离线/◐未知 + count of "configured but unavailable" gaps.
+                   v1.0-S2 (IA): 只作 renderCapBadge 的状态载体 + openCapPopover 的锚点/click 复用。 -->
+              <button id="capBadge" class="cap-badge hidden" aria-haspopup="dialog" title="能力矩阵（点击查看）" data-i18n-attr="title:capability.badge.unknownTitle">
+                <span class="cap-net" aria-hidden="true">◐</span>
+                <span class="cap-gaps hidden"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-        <div class="classic-sidebar-primary-actions">
-          <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
+      <div class="app-body" id="appBody">
+      <!-- ============ 左栏：任务索引（两视角共用的同一份 DOM；§2.3） ============ -->
+      <!-- 2.0 侧栏【就是】这一栏（§2.3 末条）：节点与 id 沿用（#sidebar／#sessionSearch／
+           #newSessionBtn），品牌块搬去顶栏、栏底四钮搬进齿轮菜单、折叠钮退役（≤980 由容器查询
+           折成 56px 图标栏，不再有手动折叠）。K4-2 把 #sessionList 换成按任务归组的索引。 -->
+      <aside class="sidebar task-rail" id="sidebar" data-testid="sidebar">
+        <div class="rail-head">
+          <h2 class="rail-title"><span data-i18n="rail.title">任务</span><span id="railCount" class="rail-count num"></span></h2>
+          <button type="button" id="railBoardBtn" class="icon-btn rail-board-btn" data-icon="ledger" data-icon-size="15"
+                  aria-pressed="false" title="看板密度" aria-label="看板密度"
+                  data-i18n-attr="title:rail.board;aria-label:rail.board"></button>
         </div>
 
         <div class="search-wrap">
           <input id="sessionSearch" type="search" placeholder="搜索会话…" data-i18n-attr="placeholder:session.search" autocomplete="off" />
         </div>
 
+        <div class="classic-sidebar-primary-actions">
+          <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
+        </div>
+
         <div id="sessionList" class="session-list" data-testid="sessionList"></div>
 
-        <div class="sidebar-foot">
-          <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash"><span data-i18n="session.bulkCleanup">清理历史</span></button>
-          <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings"><span data-i18n="navigation.settings">设置</span></button>
-          <!-- 118d: 常驻帮助入口。聚合使用手册 / 管理员手册 / 重新打开引导 / 查看日志 / 打开数据目录，
-               每一项都是应用内的真动作，不显示任何路径。旁边的 #helpBtn 仍只管快捷键弹层。 -->
-          <button id="helpMenuBtn" class="ghost btn-ic" data-icon="ledger" aria-haspopup="menu" title="帮助" data-i18n-attr="title:help.menu.title"><span data-i18n="help.menu.title">帮助</span></button>
-          <button id="helpBtn" class="ghost btn-ic" data-icon="help" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"></button>
-        </div>
+        <!-- 口袋（§2.3）：定时任务／行动流水／记得的关于你／体检 · 用量四项归 K7，这里只留空槽位。 -->
+        <nav id="railPocket" class="rail-pocket" aria-label="口袋" data-i18n-attr="aria-label:rail.pocket"></nav>
       </aside>
 
+      <div class="app-views" id="appViews">
+      <div class="app-shell">
       <!-- ============ CHAT PANE ============ -->
       <main class="chat-pane" data-main-view="chat">
         <!-- 117g：「2.0 视窗」的返回带。DOM 在经典壳里（main.chat-pane 的第一个子元素，默认 hidden），
@@ -137,7 +206,8 @@
                aria-label="快切" data-i18n-attr="aria-label:stewardShell.drawer.chipsSection"></div>
         </div>
         <header class="topbar">
-          <button id="showSidebarBtn" class="icon-btn hidden" title="展开侧栏" aria-label="展开侧栏" data-i18n-attr="title:navigation.expandSidebar;aria-label:navigation.expandSidebar" data-icon="menu"></button>
+          <!-- 121-K4：「展开侧栏」退役 —— 左栏进了外框、两视角共用，≤980 由容器查询折成 56px
+               图标栏（§7.3），不再有手动折叠这回事。 -->
           <div class="topbar-title">
             <strong id="sessionTitle" data-i18n="navigation.workbench">如意工作台</strong>
             <span id="sessionMeta"></span>
@@ -171,20 +241,9 @@
               <span class="mc-model">默认</span>
               <span class="mc-caret">▾</span>
             </button>
-            <!-- v0.8-S6: capability badge. ●在线/○离线/◐未知 + count of "configured but unavailable" gaps.
-                 v1.0-S2 (IA): 移出顶栏 → 入「⋯」菜单「能力矩阵」项(display:none，只作 renderCapBadge 的状态载体
-                 + openCapPopover 的锚点/click 复用)。 -->
-            <button id="capBadge" class="cap-badge hidden" aria-haspopup="dialog" title="能力矩阵（点击查看）" data-i18n-attr="title:capability.badge.unknownTitle">
-              <span class="cap-net" aria-hidden="true">◐</span>
-              <span class="cap-gaps hidden"></span>
-            </button>
-            <!-- v0.9-S1 (C1): uiMode toggle. simple(🧸)=人人可用精简界面 / pro(🔧)=完整开发者界面. Dual title.
-                 v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「界面」项(display:none，toggleUiMode 逻辑复用)。 -->
-            <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode" data-icon="toolbox"></button>
-            <!-- v1.0-S2 (IA): 移出顶栏 → 「⋯」菜单「主题」项(display:none，toggleTheme 逻辑复用)。 -->
-            <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
-            <!-- v1.0-S2 (IA): 顶栏「⋯」更多菜单。轻量 popover：主题 / 界面 / 能力矩阵 / 快捷键。 -->
-            <button id="moreMenuBtn" class="icon-btn" title="更多" aria-label="更多" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="more"></button>
+            <!-- 121-K4（§2.2）：能力矩阵徽标、界面模式与主题三枚状态载体，连同它们的「⋯」菜单，
+                 一起搬进外框顶栏的齿轮菜单（#appGearMenu）。#toggleToolsBtn【留在这里】——
+                 它是右栏自己的折叠钮，不是全局控件（§2.2 原话）。 -->
             <button id="toggleToolsBtn" class="icon-btn" title="工具面板" aria-label="工具面板" data-i18n-attr="title:navigation.toggleTools;aria-label:navigation.toggleTools" data-icon="toolbox"></button>
           </div>
         </header>
@@ -505,20 +564,17 @@
            340/480/全屏,双击循环切档;桌面栅格档专属(窄屏由 CSS 隐藏)。JS 绑定见 initRightResize()。 -->
       <div id="rightResizeHandle" class="right-resize-handle" role="separator" aria-orientation="vertical"
            tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档"></div>
-    </div>
-    <!-- 第117波 117a：管家壳是 .app-shell 的【同级】容器（body 直系子元素）。121-K1：一台两视，
-         两个视角长期并存，显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode
-         一处写这个属性。117a 立骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区）；117b 在顶栏里填入真
-         avatar（圆＋环＋一对眼睛，data-state 由 steward-presence.js 的纯投影 derivePresence() 决定）与
-         aria-live 状态文字，对话、递话、抽屉与看板仍归 117c–h；此处不放任何轮询之外的数据读取
-         （117b 的状态轮询只在管家模式下才起 —— 见 steward-shell.js 头注）。 -->
+      </div><!-- /.app-shell（工作台视角：中栏 .chat-pane ＋ 右栏 .tool-pane 两列） -->
+    <!-- 第117波 117a：管家壳与 .app-shell 是【同级】容器。121-K1：一台两视，两个视角长期并存，
+         显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode 一处写这个属性。
+         121-K4（§7.1）：它不再是「铺满视口的场景 ＋ 居中玻璃舞台卡」—— 外框已经把顶栏与左栏拿走，
+         这里只剩「中栏 ＋ 右栏」两列，列宽与 .app-shell 逐字相同（切视角时栅格不动，只换栏内内容）。
+         117a 的骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区）仍在，avatar 七态与对话、递话、抽屉
+         仍归 117b–h；此处不放任何轮询之外的数据读取（见 steward-shell.js 头注）。 -->
     <section id="stewardShell" class="steward-shell" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
-      <!-- 117i（管家壳视觉对齐原型 docs/mockups/steward-shell.html）：唯一新增的包裹元素。原型是
-           「场景背景（.wrap）＋ 居中玻璃卡片（#app）」两层，而 #stewardShell 只有一层，所以这里在
-           既有节点【外层】加一个舞台 div：#stewardShell 变成铺满视口的场景，.steward-stage 变成
-           居中的那张卡片（头部／对话／输入／状态／看板都住在卡片里）。既有 id 与它们的先后顺序
-           一个没动；「现在这一件」与线程抽屉仍是 #stewardShell 的直系子元素（两者都是定位层，
-           且 js/steward-drawer.js 的 setMount('floating') 把抽屉挂回 #stewardShell）。 -->
+      <!-- 117i 立的这层包裹留着，语义改了：它从「居中的玻璃舞台卡」变成管家视角的【中栏】
+           （§7.1 退役场景层与钉宽；内容读宽 880px 由样式层的 .steward-stage > * 一条规则给）。
+           节点、id 与先后顺序一个没动，所以 avatar／对话流／输入区／状态区的 e2e 锚点全部有效。 -->
       <div id="stewardStage" class="steward-stage">
       <header id="stewardHeader" class="steward-header">
         <button type="button" id="stewardAvatar" class="steward-avatar" data-state="idle"
@@ -558,23 +614,16 @@
                button 里再嵌 button 是非法 HTML、读屏点不到。文案与 hidden 都由 js/steward-board.js 写。 -->
           <button type="button" id="stewardStatusNeedsYouBtn" class="steward-status-needsyou" hidden></button>
         </div>
-        <!-- 117e（§8.2「右上角只有两个常驻图标」/ §8.6）：盾牌 = 新线程默认权限，点开四档菜单；
-             停机键常驻且永远可点，停机后同一个按钮变「唤醒」。两者的行为都住 js/steward-settings.js
-             （权限档位表与全自动二次确认文案从 steward-chips.js 复用，不写第二份）。 -->
-        <div class="steward-header-actions">
-          <div class="steward-shield-wrap">
-            <button type="button" id="stewardShieldBtn" class="steward-shield" aria-haspopup="true" aria-expanded="false"></button>
-            <div id="stewardShieldMenu" class="steward-shield-menu" role="menu" hidden></div>
-          </div>
-          <button type="button" id="stewardStopBtn" class="steward-stop-btn"></button>
-        </div>
+        <!-- 117e 的盾牌与停机键（§8.2／§8.6）已搬到两视角共用的顶栏（121-K4，§2.2）：它们管的是
+             【全局】默认权限与全局停机，不该只在管家视角里够得着。行为与 id 一个字没动。 -->
       </header>
       <div id="stewardFeed" class="steward-feed" role="log" aria-live="polite" aria-label="管家对话" data-i18n-attr="aria-label:stewardShell.feedLabel"></div>
       <div id="stewardComposer" class="steward-composer">
         <label class="steward-composer-label" for="stewardComposerInput" data-i18n="stewardShell.composerLabel">对管家说</label>
         <textarea id="stewardComposerInput" class="steward-composer-input" rows="1" disabled
                   placeholder="跟如意说点什么…" data-i18n-attr="placeholder:stewardShell.compose.placeholder"></textarea>
-        <button type="button" id="stewardClassicBtn" class="steward-classic-btn" data-i18n="stewardShell.openClassic" data-i18n-attr="title:stewardShell.openClassic;aria-label:stewardShell.openClassic">经典模式</button>
+        <!-- 121-K4（§2.2／§2.7）：「经典模式」这枚钮退役 —— 视角切换只在顶栏分段钮一处（另加
+             快捷键 Ctrl+`），不再有第二个入口。 -->
         <!-- 117l D3：连发队列满时的那一行小字（「先等一等」）。平时空着，:empty 收掉高度。 -->
         <p id="stewardComposerNote" class="steward-composer-note" role="status" aria-live="polite"></p>
       </div>
@@ -604,26 +653,23 @@
                  所以取同一个 pause／monitor。data-i18n 必须挂内层 span（见抽屉底部那段注释的理由）。 -->
             <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
                     data-icon="pause" data-icon-size="12"><span data-i18n="stewardShell.board.pauseAll">全部暂停</span></button>
-            <button type="button" id="stewardBoardClassicBtn" class="steward-board-btn"
-                    data-icon="monitor" data-icon-size="12"><span data-i18n="stewardShell.classicWindow.switchWhole">整体切到 2.0</span></button>
+            <!-- 121-K4（§2.2）：「整体切到 2.0」退役 —— 视角切换只在顶栏分段钮一处。 -->
           </span>
         </div>
         <div id="stewardBoardList" class="steward-board-list"></div>
         <p id="stewardBoardNote" class="steward-board-note" role="status" aria-live="polite"></p>
       </div>
-      </div><!-- /#stewardStage（117i 舞台卡片到此为止；下面两块是定位层，留在 #stewardShell 直系） -->
+      </div><!-- /#stewardStage（管家视角的中栏到此为止） -->
 
-      <!-- 117h「现在这一件」：≥1000px 的常驻右栏。它【不渲染任何抽屉区块】—— #stewardNowBody 只是
-           一个挂点，js/steward-drawer.js 的 setMount('docked') 把【同一个】 #stewardDrawer 节点搬进来。
-           「关掉」回单列并记住本机偏好（localStorage wcw.stewardNowClosed）。 -->
-      <aside id="stewardNow" class="steward-now"
-             aria-label="现在这几件" data-i18n-attr="aria-label:stewardShell.board.now" hidden>
-        <div class="steward-now-bar">
-          <strong class="steward-now-title" data-i18n="stewardShell.board.now">现在这几件</strong>
-          <button type="button" id="stewardNowCloseBtn" class="steward-board-btn"
-                  data-icon="close" data-icon-size="12"><span data-i18n="stewardShell.board.nowClose">关掉</span></button>
-        </div>
-        <div id="stewardNowBody" class="steward-now-body"></div>
+      <!-- 121-K4（§2.6／§7.1）：管家视角的【右栏槽位】。原来的浮层「现在这几件」（#stewardNow，
+           ≥1000px 时是一块 fixed 的玻璃浮层，带标题条与「关掉」）退役 —— 右栏现在是外框栅格里
+           实实在在的一列，与工作台视角的 .tool-pane 同宽同位置，所以切视角时它只淡入淡出、不位移。
+           它【仍然不渲染任何抽屉区块】：#stewardNowBody 只是一个挂点，js/steward-drawer.js 的
+           setMount('docked') 把【同一个】 #stewardDrawer 节点搬进来（那个 id 是抽屉自己认的挂点名，
+           抽屉内部逻辑不归本刀改，故名字留着；改造成「焦点栏」连同改名归 K6）。 -->
+      <aside id="stewardSide" class="steward-side"
+             aria-label="焦点" data-i18n-attr="aria-label:shell.focus" hidden>
+        <div id="stewardNowBody" class="steward-side-body"></div>
       </aside>
 
       <!-- 117d 线程抽屉（27 号文 §8.2 L2 / §8.13）。区块顺序【就是】契约：事项行 → 线程页签 →
@@ -767,8 +813,13 @@
     </section>
 
     <!-- Sibling of .app-shell so the CSS `.app-shell.tools-open ~ .drawer-backdrop` rule can reveal it
-         on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none). -->
+         on narrow screens; JS wires the click to close the drawer. Inert on desktop (display:none).
+         121-K4：.app-shell 进了 .app-views 之后，这块必须跟着进来 —— 那条后继兄弟选择器要求两者
+         同父（它自己是 position:fixed，挂在哪儿都铺满视口）。 -->
     <div id="drawerBackdrop" class="drawer-backdrop"></div>
+      </div><!-- /.app-views（两个视角容器的槽位；显隐由 :root[data-shell-mode] 决定） -->
+      </div><!-- /.app-body（左栏 ＋ 视角槽位） -->
+    </div><!-- /.app-frame -->
 
     <!-- ============ SETTINGS MODAL ============ -->
     <div class="modal-backdrop hidden" id="settingsModal">

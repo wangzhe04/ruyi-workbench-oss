@@ -64,8 +64,12 @@ const CRITICAL_IDS = [
   'promptInput', 'sendBtn', 'attachmentTray', 'fileInput', 'composerHint', 'composerMoreBtn',
   // 上下文电量表(ctx-meter 族;Phase 2 拟抽离,契约先固化)+ 立即压缩宿主。
   'contextMeter', 'compactBtn', 'compactBtnHost',
-  // 侧栏 / 折叠(ia.e2e、perf.e2e、preview 自检依赖)。
-  'sidebar', 'collapseSidebarBtn', 'showSidebarBtn', 'newSessionBtn', 'sessionList', 'sessionSearch',
+  // 左栏(121-K4 起是外框里两视角共用的那一栏;ia.e2e、perf.e2e 依赖)。
+  // 手动折叠的两枚钮(collapseSidebarBtn / showSidebarBtn)随 §7.3 的容器查询接管而退役。
+  'sidebar', 'newSessionBtn', 'sessionList', 'sessionSearch',
+  // 121-K4 外框(§2.2/§2.3):顶栏、视角分段钮、齿轮菜单、状态胶囊、左栏头与口袋槽位。
+  'appFrame', 'appTopbar', 'appBody', 'appViews', 'lensSeg', 'appGearBtn', 'appGearMenu',
+  'appSideToggleBtn', 'appStatusChip', 'railBoardBtn', 'railCount', 'railPocket',
   // 会话主区 / 消息渲染(perf 窗口化、renderCurrentSession)。
   'messages', 'emptyState', 'sessionTitle', 'sessionMeta', 'jumpLatest',
   // 顶栏 chip / 选择器(工作文件夹、模型、权限、能力徽章)。

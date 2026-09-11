@@ -477,8 +477,8 @@ export function createStewardShellDomain({
         stewardEscapeStack.handleOutsideClick(event && event.target);
       }, true);
     }
-    const classic = byId('stewardClassicBtn');
-    if (classic) classic.onclick = () => applyShellMode('classic');
+    // 121-K4（§2.2／§2.7）：输入区那枚「经典模式」退役 —— 视角切换只在顶栏分段钮一处
+    // （js/app-frame.js 调同一个 applyShellMode，本文件因此不再有第二个切换入口）。
     syncSettingOption();
     bindEventStream(); // 121-K2b：推送订阅（连接状态 + steward.say）；连接本身由组合根 start()
     bindPresence(); // 117b：avatar 的输入监听 + 模式/可见性观察者，见函数头注

@@ -36,6 +36,7 @@ import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createShellModeController } from './js/shell-mode.js'; // 121-K1
+import { createAppFrame } from './js/app-frame.js'; // 121-K4
 import { createEventStream } from './js/event-stream.js'; // 121-K2b
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
@@ -430,9 +431,7 @@ const {
   renderModelChip,
   renderPalette,
   restoreRightWidth,
-  restoreSidebarCollapsed,
   restoreToolsCollapsed,
-  setSidebarCollapsed,
   switchSettingsTab,
   switchTab,
   syncMoreMenuLabels,
@@ -898,9 +897,13 @@ const stewardShellDomain = createStewardShellDomain({
 });
 stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;
+// 121-K4：外框（顶栏的视角分段钮与齿轮菜单、左栏的密度与 Ctrl+K、≤1180 的右栏抽屉）。
+// 它只调 applyShellMode，不写 data-shell-mode —— 唯一写者仍是 shell-mode.js。
+const { bindAppFrame } = createAppFrame({ applyShellMode });
 
 function bindEvents() {
   bindShellModeControl(); // 121-K1：视角切换控件与首屏视角判定（data-shell-mode 的唯一常规写者）
+  bindAppFrame(); // 121-K4：外框顶栏与左栏的框架动作（§2.2／§2.3／§7.3）
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   // sidebar
@@ -911,10 +914,9 @@ function bindEvents() {
   $('bulkCleanupBtn').onclick = () => openBulkCleanupModal();
   $('openSettingsBtn').onclick = () => openModal('settingsModal');
   $('helpBtn').onclick = () => openModal('helpModal');
-  initHelpEntries(); // 118d: 侧栏「帮助」菜单(手册/管理员手册/重开引导/看日志/打开数据目录)与设置页「?」
-  // v1.0.2 (F2): 折叠/展开侧栏走同一函数,状态持久化到 localStorage('wcw.sidebarCollapsed'),boot 时恢复。
-  $('collapseSidebarBtn').onclick = () => setSidebarCollapsed(true);
-  $('showSidebarBtn').onclick = () => setSidebarCollapsed(false);
+  initHelpEntries(); // 118d: 齿轮菜单里的「帮助」(手册/管理员手册/重开引导/看日志/打开数据目录)与设置页「?」
+  // 121-K4：手动折叠左栏这件事整条退役 —— 左栏进了外框、两视角共用，宽度由 §7.3 的容器查询决定
+  // （≤980 折成 56px 图标栏）。两枚按钮、两个函数与那个本机偏好都已删（见 navigation-controls.js）。
 
   // topbar
   { const chip = $('modelChip'); if (chip) chip.onclick = openModelChipPopover; }
@@ -1124,7 +1126,6 @@ async function boot() {
   bindEvents();
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
-  restoreSidebarCollapsed(); // v1.0.2 (F2): 恢复上次的折叠侧栏状态
   restoreToolsCollapsed(); // 桌面外壳首启默认收起工具面板；用户偏好优先
   restoreRightWidth(); initRightResize(); // v3 (§2.7 P2): 恢复右栏三档宽 + 绑定拖拽手柄
   restoreMainView(); // v3 P3a: 恢复中栏主视图(对话/工作台)记忆

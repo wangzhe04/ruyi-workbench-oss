@@ -147,7 +147,11 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   const builtInSkillEntries = Object.entries(en).filter(([key]) => key.startsWith('skills.builtin.'));
   assert.strictEqual(builtInSkillEntries.length, 96, 'all 48 built-in skill/command/playbook records need localized name and description metadata');
   assert.ok(builtInSkillEntries.every(([, value]) => !/[\u4e00-\u9fff]/.test(value)), 'English built-in skill metadata must not contain Chinese');
-  assert.ok(html.includes('data-i18n="brand.name"'), 'brand display name must use the catalog');
+  // 121-K4（34 号文 §2.2）：品牌标进了外框顶栏，显示名从「如意 Ruyi」（brand.name，原侧栏 h1）
+  // 收成「如意」（shell.brand）；brand.name 仍是那枚云标的可访问名（data-i18n-attr）。两个键都必须
+  // 走目录，所以这里两条一起钉。
+  assert.ok(html.includes('data-i18n="shell.brand"'), 'brand display name must use the catalog');
+  assert.ok(html.includes('data-i18n-attr="aria-label:brand.name"'), 'brand mark accessible name must use the catalog');
   assert.ok(html.includes('data-i18n="help.title"'), 'help dialog title must use the catalog');
   assert.ok(html.includes('data-i18n-attr="placeholder:palette.placeholder"'), 'palette placeholder must use the catalog');
   assert.ok(html.includes('data-i18n-attr="placeholder:skills.searchPlaceholder"'), 'skill search placeholder must use the catalog');

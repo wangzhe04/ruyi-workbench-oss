@@ -222,14 +222,23 @@ ok(!/function errorText\(error\) \{/.test(settingsCode),
 ok((settingsCode.match(/stewardErrorText\(/g) || []).length >= 2,
   'D7d call() 里两处（response.error 分支与 catch 分支）都改用了 stewardErrorText');
 
-// ─── E 壳头部两个常驻控件 + 头像菜单三项 ────────────────────────────────────────
+// ─── E 两个常驻控件（121-K4 起住在外框顶栏）+ 头像菜单三项 ──────────────────────
+// 121-K4（34 号文 §2.2）：盾牌（新任务默认权限）与一键停机从管家壳头部搬到【两视角共用的顶栏】
+// —— 它们管的是全局默认权限与全局停机，不该只在一个视角里够得着。行为与 id 一个字没动
+// （js/steward-settings.js 仍按 id 接线），所以这里改的只是「在哪一段 HTML 里找它们」。
+const topbarStart_ = html.indexOf('<header class="app-topbar"');
+const topbarEnd_ = html.indexOf('</header>', topbarStart_);
+const topbar = html.slice(topbarStart_, topbarEnd_);
 const stewardStart_ = html.indexOf('<section id="stewardShell"');
 const headerEnd = html.indexOf('</header>', stewardStart_);
 const header = html.slice(stewardStart_, headerEnd);
-ok(/id="stewardShieldBtn"[^>]*aria-haspopup="true"/.test(header) && /id="stewardShieldMenu"[^>]*role="menu"/.test(header),
-  'E1 盾牌按钮与四档菜单在 #stewardHeader 里（§8.2 右上两个常驻图标之一）');
-ok(/id="stewardStopBtn"/.test(header), 'E2 一键停机键常驻在 #stewardHeader 里');
-ok(/class="steward-header-actions"/.test(header), 'E3 两个常驻控件在同一条 actions 行里');
+ok(/id="stewardShieldBtn"[^>]*aria-haspopup="true"/.test(topbar) && /id="stewardShieldMenu"[^>]*role="menu"/.test(topbar)
+  && !/id="stewardShieldBtn"/.test(header),
+  'E1 盾牌按钮与四档菜单在外框顶栏里（两视角共用；管家壳头部不再有第二份）');
+ok(/id="stewardStopBtn"/.test(topbar) && !/id="stewardStopBtn"/.test(header),
+  'E2 一键停机键常驻在外框顶栏里（工作台视角由样式层收起 —— 它是管家专用）');
+ok(/class="tb-right"/.test(topbar) && !/class="steward-header-actions"/.test(html),
+  'E3 两个常驻控件在顶栏右侧那一组里；壳头部那条 actions 行随搬家退役');
 ok(Array.isArray(mod.STEWARD_MEMORY_KINDS) && typeof mod.createStewardSettingsDomain === 'function',
   'E4 设置域是导出的工厂函数');
 const menuSections = (await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href)).STEWARD_MENU_SECTIONS;

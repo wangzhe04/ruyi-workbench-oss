@@ -114,9 +114,13 @@ ok(appShellStart >= 0 && stewardStart > appShellStart
   'B1 #stewardShell 是 .app-shell 之后的同级后置容器，且 #previewShell 已随交办台退役（DOM 里零残留）');
 const stewardEnd = html.indexOf('</section>', stewardStart);
 const stewardMarkup = html.slice(stewardStart, stewardEnd);
-for (const id of ['stewardHeader', 'stewardFeed', 'stewardComposer', 'stewardStatus', 'stewardClassicBtn']) {
+for (const id of ['stewardHeader', 'stewardFeed', 'stewardComposer', 'stewardStatus']) {
   ok(new RegExp(`id="${id}"`).test(stewardMarkup), `B2 ${id} 空位在管家壳容器内`);
 }
+// 121-K4（34 号文 §2.2／§2.7）：输入区那枚「经典模式」（#stewardClassicBtn）退役 —— 视角切换只在
+// 外框顶栏的分段钮一处。翻面钉住它【不在】DOM 里，也【不在】壳层 JS 里（免得又长回第二个入口）。
+ok(!html.includes('id="stewardClassicBtn"') && !stewardShell.includes('stewardClassicBtn'),
+  'B2b 视角切换的第二入口已退役：#stewardClassicBtn 在 DOM 与壳层 JS 里都零残留');
 ok(/<section id="stewardShell"[^>]*tabindex="-1"/.test(html), 'B3 管家壳容器可编程获焦（tabindex=-1）');
 ok(/id="stewardFeed"[^>]*role="log"[^>]*aria-live="polite"/.test(stewardMarkup),
   'B4 对话流是 role="log" 的礼貌播报区');
@@ -210,13 +214,15 @@ ok(app.includes("from './js/shell-mode.js'") && app.includes('createShellModeCon
   'C9b 121-K1：组合根从 js/shell-mode.js 取视角控制器并统一绑定，零 preview-shell 残留');
 
 // ─── D 样式层 ────────────────────────────────────────────────────────────────────
-ok(/:root\[data-shell-mode="steward"\] body > \.app-shell \{ display: none !important; \}/.test(css),
+// 121-K4（§7.1）：两个视角容器进了外框的 .app-views 槽位（body 直系变成 .app-frame），
+// 所以这两条互斥规则的选择器从 `body > …` 改成 `.app-views > …`；「谁隐藏谁」一个字没变。
+ok(/:root\[data-shell-mode="steward"\] \.app-views > \.app-shell \{ display: none !important; \}/.test(css),
   'D1 管家视角隐藏工作台视角');
 // 121-K1：交办台整层退役 —— 隐藏它那条规则、它的样式层、它的类名，一个字都不许留在本层。
 ok(!/preview-shell|\.preview-/.test(css) && !styles.includes('preview-shell.css'),
   'D2 交办台的隐藏规则与样式层已随它退役（本层与兼容清单零残留）');
 ok(/\.steward-shell \{\s*display: none;/.test(css)
-  && /:root\[data-shell-mode="steward"\] body > \.steward-shell \{[\s\S]{0,200}display: grid/.test(css),
+  && /:root\[data-shell-mode="steward"\] \.app-views > \.steward-shell \{[\s\S]{0,260}display: grid/.test(css),
   'D3 管家壳默认不显示，只有管家模式才铺开');
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'D4 管家壳 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\)/.test(css), 'D5 reduced-motion 降级分支存在');

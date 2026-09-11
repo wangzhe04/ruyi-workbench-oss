@@ -59,11 +59,18 @@ for (const need of ['folder', 'shield', 'toolbox', 'paperclip', 'sparkles', 'sen
 
 // ═══════════ 4. chrome 层 emoji 已换 SVG(index.html + app.js) ═══════════
 // index.html 静态 chrome 按钮/徽标带 data-icon(启动时 hydrateIcons 注入 SVG)。
+// 121-K4（34 号文 §2.2／§7.3）：左栏进了外框、两视角共用，宽度由容器查询决定（≤980 折成 56px
+// 图标栏），于是手动折叠／展开侧栏的那两枚钮（data-icon="collapse" 的 #collapseSidebarBtn 与
+// data-icon="menu" 的 #showSidebarBtn）退役，这两枚字形在 index.html 里随之零引用。
+// icons.js 的表【一个字形都没删】（上面第 3 组仍逐枚钉着 menu／collapse 在表里），删的只是
+// index.html 的两个使用点 —— 字形表的增删归 K8。
 for (const [id, name] of [['workspacePicker...folder', 'folder'], ['perm...shield', 'shield'], ['tools...toolbox', 'toolbox'],
-  ['sidebar...menu', 'menu'], ['more', 'more'], ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
-  ['settings', 'settings'], ['collapse', 'collapse'], ['help', 'help'], ['close', 'close']]) {
+  ['more', 'more'], ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
+  ['settings', 'settings'], ['help', 'help'], ['close', 'close']]) {
   ok(new RegExp('data-icon="' + name + '"').test(html), '4 index.html data-icon="' + name + '" 就位');
 }
+ok(!/id="collapseSidebarBtn"/.test(html) && !/id="showSidebarBtn"/.test(html),
+  '4b 手动折叠侧栏的两枚钮随左栏进外框而退役（宽度改由 §7.3 的容器查询决定）');
 ok(/id="skillBtn"[^>]*\bbtn-ic\b/.test(html), '4 技能按钮 btn-ic(sparkles 由 app.js 重建)');
 ok(/hydrateIcons\(\)/.test(src), '4 app.js boot 调用 hydrateIcons()');
 // 顶栏/侧栏/composer/模态 chrome emoji 已从 index.html 移除(🔧/🌙 模式·主题切换态 emoji 与 importMcp 📁 属豁免)。

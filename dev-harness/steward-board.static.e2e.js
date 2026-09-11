@@ -85,25 +85,37 @@ ok(/<button type="button" id="stewardStatusLine" class="steward-status-line"/.te
 ok(/<div id="stewardBoard" class="steward-board" role="region"[\s\S]{0,240}?hidden>/.test(html),
   'A2 #stewardBoard 是默认 hidden 的 role="region" 面板');
 for (const id of ['stewardBoardMax', 'stewardBoardRunning', 'stewardBoardQueued',
-  'stewardBoardPauseAllBtn', 'stewardBoardClassicBtn', 'stewardBoardList', 'stewardBoardNote']) {
+  'stewardBoardPauseAllBtn', 'stewardBoardList', 'stewardBoardNote']) {
   ok(new RegExp(`id="${id}"`).test(html), `A3 看板骨架锚点 ${id} 静态写在 index.html 里`);
 }
+// 121-K4（34 号文 §2.2）：看板顶部那枚「整体切到 2.0」（#stewardBoardClassicBtn）退役 —— 视角切换
+// 只在顶栏分段钮一处（§2.7）。翻面钉住它【不在】骨架里，免得哪天又长回来第二个切换入口。
+ok(!html.includes('id="stewardBoardClassicBtn"') && !html.includes('id="stewardClassicBtn"'),
+  'A3b 视角切换的第二／第三入口都不在骨架里（看板顶部与输入区旁的两枚「切到 2.0」随 K4 退役）');
 ok(/<input type="number" id="stewardBoardMax"[^>]*min="1"[^>]*max="32"/.test(html)
   && mod.STEWARD_MAX_PARALLEL_MIN === 1 && mod.STEWARD_MAX_PARALLEL_MAX === 32,
   'A4 并发上限就地可改，区间 [1,32] 与 01-config 同口径（导出常量，不是散落字面量）');
-ok(/<aside id="stewardNow" class="steward-now"[\s\S]{0,240}?hidden>/.test(html)
-  && html.includes('id="stewardNowBody"') && html.includes('id="stewardNowCloseBtn"'),
-  'A5 #stewardNow 默认 hidden，带一个挂点 #stewardNowBody 与「关掉」');
+// 121-K4（34 号文 §2.6／§7.1）：右栏从浮层「现在这几件」（#stewardNow ＋ 标题条 ＋「关掉」）改成
+// 外框栅格里常驻的一列 #stewardSide。三件事跟着重钉：
+//   ① 骨架里不再有 #stewardNow／#stewardNowCloseBtn（那枚「关掉」在常驻栏里没有语义）；
+//   ② 挂点名 #stewardNowBody 【留着】—— 它是 steward-drawer.js 自己认的 docked 挂点
+//      （setMount 那一行由 D 组钉着），抽屉内部逻辑不归 K4 改，改名连同焦点栏改造归 K6；
+//   ③ 默认 hidden 仍在（syncNow 一处写它），且仍然零抽屉区块 id。
+ok(/<aside id="stewardSide" class="steward-side"[\s\S]{0,240}?hidden>/.test(html)
+  && html.includes('id="stewardNowBody"')
+  && !html.includes('id="stewardNow"')
+  && !html.includes('id="stewardNowCloseBtn"'),
+  'A5 #stewardSide 默认 hidden，带抽屉自己认的那一个挂点 #stewardNowBody；浮层时代的 #stewardNow 与「关掉」已退役');
 const shellAt = html.indexOf('id="stewardShell"');
 const boardAt = html.indexOf('id="stewardBoard"');
-const nowAt = html.indexOf('id="stewardNow"');
+const nowAt = html.indexOf('id="stewardSide"');
 const drawerAt = html.indexOf('id="stewardDrawer"');
 ok(shellAt > 0 && boardAt > shellAt && nowAt > boardAt && drawerAt > nowAt,
-  'A6 看板与「现在这一件」都住在 #stewardShell 里，且排在抽屉骨架之前');
-// 「现在这一件」只是挂点：它的静态骨架里不许出现任何抽屉区块 id（那一份只有 #stewardDrawer 有）。
+  'A6 看板与右栏都住在 #stewardShell 里，且排在抽屉骨架之前');
+// 右栏只是挂点：它的静态骨架里不许出现任何抽屉区块 id（那一份只有 #stewardDrawer 有）。
 const nowMarkup = html.slice(nowAt, html.indexOf('</aside>', nowAt));
 ok(drawerMod.STEWARD_DRAWER_BLOCK_IDS.every(id => !nowMarkup.includes(id)),
-  'A7 #stewardNow 的骨架零抽屉区块 id（内容是搬过去的同一个 #stewardDrawer 节点）');
+  'A7 #stewardSide 的骨架零抽屉区块 id（内容是搬过去的同一个 #stewardDrawer 节点）');
 
 // ─── B 不另起判据 ───────────────────────────────────────────────────────────────
 // 33 号文 §4「costText／acceptanceText／threadStateOf 三对收进 drawer 导出」**重钉 B1**（反向验证过：
@@ -170,10 +182,14 @@ ok(count(factoryBody, /focusThreadFor\(/g) === 1,
 ok(/document_\.addEventListener\(STEWARD_FOCUS_THREAD_EVENT, focusFrom\);/.test(board)
   && /document_\.addEventListener\(STEWARD_OPEN_THREAD_EVENT, focusFrom\);/.test(board),
   'C4 显式选线程（117c/117d 的两个事件）覆盖自动挑选');
-ok(mod.STEWARD_NOW_CLOSED_KEY === 'wcw.stewardNowClosed'
-  && /localStorage\.setItem\(STEWARD_NOW_CLOSED_KEY, '1'\)/.test(board)
-  && /localStorage\.removeItem\(STEWARD_NOW_CLOSED_KEY\)/.test(board),
-  'C5 「关掉」记在本机偏好里（导出常量，不是散落字面量）');
+// 121-K4（34 号文 §2.6）：右栏改成常驻的一列之后，那枚「关掉」与它记的本机偏好
+// （wcw.stewardNowClosed）一起退役 —— 常驻栏里没有那枚钮，再读那个偏好就会让存量用户的右栏
+// 永远空着，而原来把它请回来的唯一路径（行上的「打开」→ setNowClosed(false)）也随浮层一起没了。
+// 翻面钉住：模块里一个字节都不许再读写那个键（否则就是把一个不可恢复的死状态留在本机）。
+ok(mod.STEWARD_NOW_CLOSED_KEY === undefined
+  && !/stewardNowClosed/.test(boardCode)
+  && !/STEWARD_NOW_CLOSED_KEY/.test(boardCode),
+  'C5 「关掉」与它的本机偏好随浮层右栏退役：模块不再导出、不再读写 wcw.stewardNowClosed');
 ok(mod.STEWARD_NOW_MIN_WIDTH === 1000 && /min-width: \$\{STEWARD_NOW_MIN_WIDTH\}px/.test(board),
   'C6 ≥1000px 才常驻，断点是导出常量（与 CSS 那一条同一个数）');
 
@@ -390,12 +406,18 @@ ok(overlay.includes("'app/public/css/views/steward-board.css'")
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(cssCode), 'G4 看板层 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\) \{/.test(cssCode) && /transition: none;/.test(cssCode),
   'G5 reduced-motion 下过渡全关（动效可以没有，信息不能少）');
-ok(/@media \(min-width: 1000px\)/.test(cssCode) && /width: 390px;/.test(cssCode)
-  && /\.steward-drawer\[data-mount="docked"\] \{/.test(cssCode),
-  'G6 ≥1000px 才有 390px 常驻右栏，docked 那一份从 fixed 收回流内');
+// 121-K4（§2.6／§7.1）：右栏不再是 ≥1000px 才出现的 390px fixed 浮层，而是外框栅格里的一列
+// （宽度由 layout.css 的 --right-w 一处给，本层不写第二个数）。docked ↔ overlay 的判定仍然只有
+// steward-board.js 的 wideEnough()（≥1000px）一处，所以那条「从 fixed 收回流内」的规则不再需要
+// 第二个宽度门 —— 属性选择器本身就是那个门。
+ok(/\.steward-side \{/.test(cssCode) && /grid-column: 2;/.test(cssCode)
+  && /\.steward-drawer\[data-mount="docked"\] \{/.test(cssCode)
+  && !/width: 390px;/.test(cssCode)
+  && !/@media \(min-width: 1000px\)/.test(cssCode),
+  'G6 右栏是栅格里的一列（不写第二个宽度、不再有 ≥1000px 那道媒体门），docked 那一份仍从 fixed 收回流内');
 ok(/@media \(max-width: 390px\)/.test(cssCode), 'G7 390px 窄屏断点存在');
 ok(/\.steward-board\[hidden\] \{ display: none; \}/.test(cssCode)
-  && /\.steward-now\[hidden\] \{ display: none; \}/.test(cssCode),
+  && /\.steward-side\[hidden\] \{ display: none; \}/.test(cssCode),
   'G8 显隐由 [hidden] 驱动（JS 不写 display，壳模式属性也不归本层管）');
 ok(/\.steward-board-dot\[data-tone="attention"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="active"\]/.test(cssCode)

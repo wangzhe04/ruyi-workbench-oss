@@ -77,7 +77,6 @@ export const STEWARD_BOARD_POLL_MS_MIN = STEWARD_POLL_MS_MIN;
 // 同 steward-drawer.js：setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍。
 const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
 export const STEWARD_BOARD_POLL_MS_DEFAULT = STEWARD_POLL_MS_DEFAULT;
-export const STEWARD_NOW_CLOSED_KEY = 'wcw.stewardNowClosed';
 export const STEWARD_NOW_MIN_WIDTH = 1000;
 // F3：右栏那两条「小行叠」的容器 id。它们【不在】 index.html 的静态骨架里（A5/A7 的纪律：
 // #stewardNowBody 只是一个挂点），由本模块建出来并始终夹着抽屉那一份 —— 上面一条放焦点行之前的
@@ -718,7 +717,6 @@ export function createStewardBoard({
   // 它同时把「关掉」过的偏好清掉：关掉的意思是「别自己占着右栏」，而不是「以后都别给我看」——
   // 用户显式点「打开」就是要看，这也是关掉之后把「现在这一件」请回来的那条路（否则没有回头路）。
   function openThread(sessionId) {
-    setNowClosed(false);
     const id = focusThread(sessionId);
     setBoardOpen(false);
     return id;
@@ -736,18 +734,11 @@ export function createStewardBoard({
     return id;
   }
 
-  // ── ③ 「现在这几件」：≥1000px 常驻，焦点那条是同一个抽屉的 docked 挂法，其余叠成小行 ──────
-  function nowClosed() {
-    try { return localStorage.getItem(STEWARD_NOW_CLOSED_KEY) === '1'; }
-    catch { return false; }
-  }
-  function setNowClosed(closed) {
-    try {
-      if (closed) localStorage.setItem(STEWARD_NOW_CLOSED_KEY, '1');
-      else localStorage.removeItem(STEWARD_NOW_CLOSED_KEY);
-    } catch { /* 本机偏好不可用时不影响本次会话 */ }
-    return closed;
-  }
+  // ── ③ 管家视角的右栏：焦点那条是同一个抽屉的 docked 挂法，其余叠成小行 ──────────────
+  // 121-K4（§2.6／§7.1）：右栏从 ≥1000px 才出现的 fixed 玻璃浮层「现在这几件」改成外框栅格里
+  // 【常驻的一列】。随之退役的是那枚「关掉」与它记的本机偏好（wcw.stewardNowClosed）：
+  // 常驻栏里没有那枚钮了，再读那个偏好就会让存量用户的右栏永远空着、且没有任何回头路
+  // （原来的回头路是行上的「打开」→ setNowClosed(false)）。所以判据收成两条：管家视角 ＋ 够宽。
   function wideEnough() {
     if (!globalThis.matchMedia) return true;
     return globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).matches;
@@ -818,32 +809,19 @@ export function createStewardBoard({
     return item;
   }
 
-  // 头上那个数：右栏此刻叠着几条线程。文案复用既有的「N 条线程」，不新开第二套计数说法；
-  // 节点由本模块建（index.html 的静态骨架一个 slot 都没加）。
-  function renderNowCount(now, total) {
-    const bar = now.querySelector('.steward-now-bar');
-    if (!bar) return 0;
-    let count = bar.querySelector('.steward-now-count');
-    if (!count) {
-      count = el('span', 'steward-now-count');
-      const close = byId('stewardNowCloseBtn');
-      if (close && close.parentNode === bar) bar.insertBefore(count, close);
-      else bar.appendChild(count);
-    }
-    count.textContent = t('stewardShell.board.threadCount', { n: total });
-    return total;
-  }
+  // 121-K4：右栏头上那个「N 条线程」的数随 .steward-now-bar 一起退役 —— 常驻右栏没有标题条，
+  // 而那个数在顶栏的全局状态胶囊与左栏组头里已经各有一处（同一件事不印三遍）。焦点栏的头
+  // 怎么写归 K6。
 
   // 重画判据：行的「身份／五态／名字／那一句」有一处变了才重画 —— 否则用户正按着某一行时，
   // 每一拍都会把它连根拔掉（chip 菜单那条 304 纪律的同一条道理）。
   let nowSignature = '';
   function renderNow(focusId) {
-    const now = byId('stewardNow');
+    const now = byId('stewardSide');
     if (!now) return 0;
     const before = nowStack('before');
     const after = nowStack('after');
     placeNowStacks(before, after);
-    renderNowCount(now, rows.length);
     now.dataset.focusId = String(focusId || '');
     const signature = JSON.stringify([String(focusId || ''), rows.map(row => [
       String(row.sessionId || ''), threadStateOf(row), String(row.displayTitle || row.title || ''),
@@ -867,7 +845,7 @@ export function createStewardBoard({
 
   // 右栏收起时把小行也清掉（藏着的那一份不留旧行；抽屉那一份由 syncNow 自己 closeDrawer）。
   function clearNow() {
-    const now = byId('stewardNow');
+    const now = byId('stewardSide');
     const before = byId(STEWARD_NOW_STACK_IDS.before);
     const after = byId(STEWARD_NOW_STACK_IDS.after);
     if (before) clear(before);
@@ -903,10 +881,10 @@ export function createStewardBoard({
   // refreshOnce 跑完会把节拍闸清零（117s-B 的另一半），于是空闲线程也会被永久按在 5 s 一拍上 ——
   // 那是另造一个毛病，不是这一条的修法。真正该刷的时刻只有一个：有人【请求聚焦】这条线程。
   function syncNow({ focusRequest = false } = {}) {
-    const now = byId('stewardNow');
+    const now = byId('stewardSide');
     if (!now || !drawer) return false;
     const focusId = currentFocusId();
-    const show = isStewardMode() && wideEnough() && !nowClosed() && Boolean(focusId);
+    const show = isStewardMode() && wideEnough() && Boolean(focusId);
     now.hidden = !show;
     if (!show) {
       // 程序性收起（窄屏／切壳／没有可看的线程）不是用户「关掉」，不落本机偏好。
@@ -928,8 +906,9 @@ export function createStewardBoard({
     return true;
   }
 
+  // 抽屉那一份被就地关掉（×／Esc／「交回管家」）时：不再「把右栏收起来并记住」（那枚「关掉」
+  // 与它的本机偏好随 #stewardNow 一起退役），只把用户钉的焦点松开，让焦点回到自动挑选。
   function closeNow() {
-    setNowClosed(true);
     pinnedId = '';
     syncNow();
     return true;
@@ -1105,11 +1084,9 @@ export function createStewardBoard({
     if (pause) pause.onclick = () => { void pauseAll(); };
     const classic = byId('stewardBoardClassicBtn');
     if (classic) classic.onclick = () => { setBoardOpen(false); switchWholeShell(); };
-    const close = byId('stewardNowCloseBtn');
-    if (close) close.onclick = () => closeNow();
 
     if (drawer && typeof drawer.setOnClosed === 'function') {
-      // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 关掉「现在这一件」，回单列并记住。
+      // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 松开用户钉的焦点（见 closeNow 的头注）。
       drawer.setOnClosed(mount => { if (mount === 'docked' && !suppressCloseRecord) closeNow(); });
     }
     if (drawer && typeof drawer.setMissionRows === 'function') {

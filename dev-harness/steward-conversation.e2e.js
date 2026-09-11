@@ -2209,7 +2209,8 @@ try {
     `AA9 ② 的对照面没坏：「知道了」这类【表态】点完仍然整行换成灰字回执、按钮一个不剩（实测 回执 ${vDismissRow && vDismissRow.receipts} / 剩余按钮 ${vDismissRow && vDismissRow.acts.length}）`);
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
-  await cdp.evaluate("document.getElementById('stewardClassicBtn').click(); true");
+  // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
+  await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");
   const classic = await waitForEval(cdp, `(() => {
     const mode = document.documentElement.getAttribute('data-shell-mode');
     return mode === 'classic' ? ${FEED} : null;

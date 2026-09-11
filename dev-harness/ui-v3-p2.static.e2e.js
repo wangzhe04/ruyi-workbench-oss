@@ -41,9 +41,17 @@ if (dk && lk) {
 ok(/--canvas-bg:\s*#0c1119/.test(css) && /--canvas-bg:\s*#edf1f8/.test(css), '0 --canvas-bg 墨夜 #0c1119 / 月白 #edf1f8');
 
 // ═══════════ A. 右栏三档宽(§2.7)═══════════
-// CSS:第三轨走 --right-w,默认 340;右缘拖拽手柄;全屏覆盖档。
-ok(/grid-template-columns:\s*288px minmax\(420px, 1fr\) var\(--right-w\)/.test(css), 'A CSS 主栅格第三轨 = var(--right-w)');
-ok(/\.app-shell\s*\{[^}]*--right-w:\s*340px/.test(css), 'A CSS --right-w 默认 340px');
+// CSS:右栏那一轨走 --right-w;右缘拖拽手柄;全屏覆盖档。
+// 121-K4(34 号文 §2.2／§7.1):一台两视之后左栏搬进【外框】(.app-frame > .app-body 的第一轨),
+// .app-shell 因此从三轨收成两轨「中栏 ｜ 右栏」,而 --right-w 的定义点也从 .app-shell 挪到 .app-frame
+// —— 两个视角的右栏必须读【同一个】数,否则切视角就跳一次宽度(实测 340 ↔ 392 差 52px)。
+// 基准档随之从 340 改成设计稿定的 392(存量偏好 '340' 不在档位表里,由 applyRightWidth 的 fallback
+// 归一到 '392',迁移即自愈)。
+ok(/\.app-shell\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--right-w\)/.test(css),
+  'A CSS .app-shell 两轨:中栏 ｜ 右栏 var(--right-w)');
+ok(/\.app-frame\s*\{[\s\S]*?--right-w:\s*392px/.test(css), 'A CSS --right-w 定义在外框上,默认 392px');
+ok(/\.app-body\s*\{[\s\S]*?grid-template-columns:\s*var\(--rail-w\) minmax\(0, 1fr\)/.test(css),
+  'A CSS 左栏是外框的第一轨(var(--rail-w)),两视角共用');
 const handleRule = ruleOf('.right-resize-handle {');
 ok(/right:\s*var\(--right-w\)/.test(handleRule) && /cursor:\s*col-resize/.test(handleRule), 'A CSS 拖拽手柄贴 tool-pane 左缘(right:var(--right-w))+ col-resize');
 ok(/\.app-shell\.tools-fullscreen \.tool-pane\s*\{[^}]*position:\s*fixed/.test(css), 'A CSS 全屏档 tool-pane 转 fixed 覆盖中栏');
@@ -52,7 +60,10 @@ ok(/@media \(max-width:\s*1180px\)[\s\S]*?\.right-resize-handle\s*\{\s*display:\
 // HTML:手柄元素就位。
 ok(/id="rightResizeHandle"/.test(html) && /class="right-resize-handle"/.test(html), 'A HTML #rightResizeHandle 元素就位');
 // JS:三档 + 拖拽 + 双击循环 + localStorage 记忆 + Esc 退出全屏 + 软提示。
-ok(/const RIGHT_TIERS\s*=\s*\['340', '480', 'full'\]/.test(src), 'A JS RIGHT_TIERS = [340,480,full]');
+ok(/const RIGHT_TIERS\s*=\s*\['392', '480', 'full'\]/.test(src), 'A JS RIGHT_TIERS = [392,480,full]');
+ok(/const widthHost = document\.querySelector\('\.app-frame'\) \|\| shell;/.test(src)
+  && !/shell\.style\.setProperty\('--right-w'/.test(src),
+  'A JS --right-w 写在外框上(两视角共用一个宽度),不再写 .app-shell');
 ok(/function applyRightWidth\(/.test(src) && /function restoreRightWidth\(/.test(src) && /function cycleRightWidth\(/.test(src), 'A JS applyRightWidth/restoreRightWidth/cycleRightWidth 齐备');
 ok(/function initRightResize\(/.test(src) && /addEventListener\('pointerdown'/.test(src) && /setPointerCapture/.test(src), 'A JS 拖拽手柄 pointerdown + setPointerCapture');
 ok(/addEventListener\('dblclick',\s*\(\)\s*=>\s*cycleRightWidth\(\)\)/.test(src), 'A JS 双击手柄循环切档');

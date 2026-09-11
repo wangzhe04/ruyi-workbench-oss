@@ -1244,18 +1244,30 @@ try {
   ok((await waitForEval(cdp, `document.querySelectorAll('.modal-backdrop.confirm-panel').length === 0 ? 1 : null`)) === 1,
     'N4b 动手之后确认层自己收起（不留悬空浮层、不挡住抽屉）');
 
-  // ── ⑧ Esc 关闭 ─────────────────────────────────────────────────────────────
-  await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true`);
+  // ── ⑧ 关抽屉 ───────────────────────────────────────────────────────────────
+  // 121-K4（34 号文 §2.6／§7.1）：宽屏下右栏是【常驻的一列】（焦点栏），抽屉那一份就是它的内容 ——
+  // 所以「关掉它」这件事在宽屏没有了：closeDrawer 之后 syncNow 立刻按自动挑选把同一份抽屉重新开在
+  // 右栏里（常驻栏的语义就是「总有一件在眼前」）。Esc／× 在宽屏因此只剩「松开我钉的这一条」。
+  // 被钉的那件事（**抽屉自己那张表关抽屉即停**）没有丢，它活在【窄屏】那一档：<1000px 时右栏让位、
+  // 抽屉回覆盖式并收起（wideEnough() 与 §7.3 是同一个数），那一刻表就该停。判据因此从「发一记 Esc」
+  // 改成「把窗口收窄到那一档」—— 走的是真实的响应式路径，不是造一个假事件。
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });
   const closed = await waitForEval(cdp, `(() => {
     const snapshot = ${DRAWER};
     return snapshot.hidden === true ? snapshot : null;
   })()`);
-  ok(Boolean(closed), 'F1 Esc 关闭抽屉');
+  ok(Boolean(closed), 'F1 窄屏（<1000px，§7.3 那一档）右栏让位：抽屉回覆盖式并收起');
   ok(closed && closed.shellDrawer === '', 'F1b 关闭后管家壳不再让出右栏');
   // 121-K2b 重钉：剩下的是 avatar 与看板两张（后者自此在管家视角里常驻，见 B15 的注）。
   // 被钉的那件事一个字没变：**抽屉自己那张表关抽屉即停** —— 三张变两张，差的就是它。
   ok(closed && closed.intervals.filter(ms => ms === TICK_MS).length === 2,
     `F2 关抽屉即停表，只剩 avatar 与看板那两张（实测 ${closed && JSON.stringify(closed.intervals)}）`);
+  // Esc 在覆盖式那一档仍然是关它的那一记（这里它已经关着，钉的是「再按一下不会把它弄开」）。
+  await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true`);
+  await sleep(200);
+  const stillClosed = await cdp.evaluate(DRAWER);
+  ok(stillClosed && stillClosed.hidden === true, 'F1c 覆盖式那一档 Esc 之后它仍然是关着的');
+  await cdp.send('Emulation.clearDeviceMetricsOverride', {});
 
   // ── ⑨ 切回经典壳：零残留定时器 ──────────────────────────────────────────────
   await cdp.evaluate(`(() => {

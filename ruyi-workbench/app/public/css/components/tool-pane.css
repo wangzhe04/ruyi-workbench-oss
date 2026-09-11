@@ -379,25 +379,15 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 
 /* ============================ responsive ============================ */
 @media (max-width: 1180px) {
-  /* Two-column grid: the tool pane leaves the grid and becomes a right-side overlay drawer (A5) so the
-     debug/doctor panels are reachable on narrow screens (previously display:none = 🧰 did nothing). */
-  .app-shell { grid-template-columns: 260px minmax(340px,1fr); }
+  /* 121-K4(34 号文 §7.3):右栏收成抽屉这件事现在由 layout.css 的容器查询统一管(两个视角同一套开合:
+     顶栏「右栏」钮写 .app-frame.side-open),轨道也由那一层收成 0 —— 本层因此不再改栅格,只留
+     「这一栏自己」的那几条:拖拽手柄不适用、面板从 fixed 改成盖在视角槽位上(absolute 由 layout.css 给)、
+     .tools-open 仍是 2.0 那枚折叠钮自己的开合、backdrop 仍随它显隐。 */
   /* v3 (§2.7 P2): 窄屏走抽屉机制,右栏三档宽与拖拽手柄不适用 —— 隐藏手柄。 */
   .right-resize-handle { display: none; }
-  .app-shell.tools-collapsed { grid-template-columns: 260px 1fr; }
-  /* v1.0.2 (F2): 折叠侧栏必须真收起 260px 轨道 —— 否则中间宽度档(761–1180px)残留空列,内容被挤到左侧、
-     右侧一大片空白,观感=「根本没折叠」。侧栏为 display:none,轨道归 0,聊天列吃满剩余宽度。 */
-  .app-shell.sidebar-collapsed { grid-template-columns: 0 1fr; }
-  .app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 0 1fr; }
   /* Keep the pane displayed (override the base .tools-collapsed display:none) but slide it off-canvas;
-     .tools-open slides it in. It is fixed, so it no longer affects the grid columns. */
+     .tools-open slides it in. */
   .app-shell.tools-collapsed .tool-pane { display: flex; }
-  .tool-pane {
-    position: fixed; right: 0; top: 0; height: 100%; width: min(380px, 92vw);
-    transform: translateX(100%); transition: transform var(--dur-2) var(--ease);
-    z-index: 45; box-shadow: var(--shadow); border-left: 1px solid var(--line);
-  }
-  .app-shell.tools-open .tool-pane { transform: none; }
   .tool-pane-close { display: grid; place-items: center; }
   /* Backdrop: only present while the drawer is open on narrow screens. Clicking it closes the drawer
      (JS wires the click). Pure-CSS element keeps this cheap — no JS node bookkeeping. */
@@ -405,16 +395,6 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   .app-shell.tools-open ~ .drawer-backdrop { display: block; }
 }
 @media (max-width: 760px) {
-  .app-shell { grid-template-columns: 1fr; }
-  /* v1.0.2 (F2): ≤760px 侧栏是绝对定位浮层(不占栅格轨道),折叠时栅格保持单列 1fr —— 覆盖上面 ≤1180px
-     档的 `0 1fr`(那是给「侧栏是栅格列」的中宽档用的)。 */
-  .app-shell.sidebar-collapsed,
-  .app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 1fr; }
-  .sidebar { position: absolute; z-index: 40; width: 288px; height: 100%; box-shadow: var(--shadow); }
-  .app-shell.sidebar-collapsed .sidebar { display: none; }
-  /* 单列网格:chat-pane 的显式 grid-column:2 会在此档制造隐式轨(第 1 轨空、内容跑第 2 轨),覆写回第 1 轨。 */
-  .chat-pane { grid-column: 1; }
-  #showSidebarBtn { display: inline-grid; }
   .topbar-field > span { display: none; }
   /* v3 (§A1): 顶栏不再定高裁切 —— flex-basis 解锁 + 自适应高度 + 允许换行两行;任何宽度内容都不被裁出视口。 */
   .topbar { flex: 0 0 auto; height: auto; min-height: 54px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }

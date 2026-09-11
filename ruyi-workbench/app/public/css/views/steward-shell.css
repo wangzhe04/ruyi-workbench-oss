@@ -1,12 +1,16 @@
 /* 第117波 117a：管家壳（管家视角）。与 .app-shell 同级，显隐只由 :root[data-shell-mode] 决定。
-   117i（视觉对齐 115 波定稿原型 docs/mockups/steward-shell.html）：骨架从「铺满视口的四行网格」改成
-   原型的两层 —— #stewardShell 是场景（--scene-bg 铺底），#stewardStage 是居中的那张玻璃卡片
-   （min(1280px,100%)、--r-lg 圆角、--glass-* 材质），卡片里再按原型 .col 把头部／对话／输入
-   收进 800px 的中栏。功能、DOM id 与先后顺序一律未动，只改包裹与样式。 */
+   121-K4（34 号文 §7.1）：117i 那两层「铺满视口的场景 ＋ 居中的玻璃舞台卡（min(1280px,100%)、
+   内栏 800px）」【退役】—— 用户第 ④ 条「宽屏稀疏」的根就在这儿：1920 的屏上，一张 1280 的卡里
+   再套一条 800 的栏，两边各空 320px。现在两视角共用外框的三栏（见 css/layout.css 的 .app-frame），
+   本层只剩「管家视角这一格里怎么分中栏与右栏」：
+     #stewardShell   →  中栏 1fr ｜ 右栏 var(--right-w)（与 .app-shell 逐字相同，切换时栅格不动）
+     .steward-stage  →  中栏本体（四行：头部／对话／输入／状态），内容读宽 880px 居中
+   `--glass-*` 自此只给浮层与安静卡（§7.1 末句）：本层的实面改 --panel／--bg。
+   功能、DOM id 与先后顺序一律未动。 */
 
-/* 两视互斥：管家视角下工作台视角收起；管家壳默认不显示，只有管家视角才铺开。
+/* 两视互斥：管家视角下工作台视角收起，反之管家壳收起。
    这两条是本层唯一的显隐权威，JS 不写 display，只写 data-shell-mode（applyShellMode 一处）。 */
-:root[data-shell-mode="steward"] body > .app-shell { display: none !important; }
+:root[data-shell-mode="steward"] .app-views > .app-shell { display: none !important; }
 
 .steward-shell {
   display: none;
@@ -14,49 +18,44 @@
   background: var(--bg);
 }
 
-/* 场景层（原型 .wrap）：一整块 --scene-bg 的远景，卡片在它中间。仍然是 grid —— 单列单行，
-   卡片是唯一的在流子元素（看板绝对定位、「现在这一件」与抽屉是定位层）。 */
-:root[data-shell-mode="steward"] body > .steward-shell {
+/* 管家视角这一格：中栏 ＋ 右栏两列（列宽与 .app-shell 同源 —— 都读外框那一份 --right-w）。 */
+:root[data-shell-mode="steward"] .app-views > .steward-shell {
   position: relative;
-  z-index: 1;
   width: 100%;
-  height: 100vh;
+  height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  justify-items: center;
-  padding: var(--sp-3);
+  grid-template-columns: minmax(0, 1fr) var(--right-w);
   overflow: hidden;
-  background: var(--scene-bg);
-  background-attachment: fixed;
+  transition: grid-template-columns var(--dur-fast) var(--ease-out);
 }
 
-/* 卡片层（原型 #app）：玻璃面 + 远投影，四行网格＝头部／对话／输入／状态。 */
+/* 右栏那一格【没有内容时不占位】（用户第 ④ 条「宽屏稀疏」的另一半）：一条线程都没有的全新
+   机器上，右栏是空的 —— 留着 392px 空轨就是又一片「稀疏但没功能」的空白。判据只有一个：
+   右栏自己的 [hidden]（steward-board.js 的 syncNow 一处写它），不新开第二个状态。 */
+:root[data-shell-mode="steward"] .app-views > .steward-shell:has(> .steward-side[hidden]) {
+  grid-template-columns: minmax(0, 1fr) 0;
+}
+
+/* 中栏：四行网格＝头部／对话／输入／状态。 */
 .steward-stage {
   position: relative;
-  width: min(1280px, 100%);
-  height: 100%;
+  grid-column: 1;
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   padding: 0 var(--sp-6);
   overflow: hidden;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r-lg);
-  background: var(--glass-bg-1);
-  -webkit-backdrop-filter: var(--glass-blur-2);
-  backdrop-filter: var(--glass-blur-2);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
-/* 中栏（原型 .col）：头部、对话、输入、状态共用一条 800px 的量尺，宽屏下不摊成一整排。 */
+/* 中栏内容读宽（§7.1）：880px 居中，随窗口铺满，不再是居中玻璃卡。 */
 .steward-header,
 .steward-feed,
 .steward-composer,
 .steward-status {
   width: 100%;
-  max-width: 800px;
+  max-width: 880px;
   margin-inline: auto;
 }
 
@@ -180,9 +179,6 @@
   color: var(--muted);
   cursor: not-allowed;
 }
-/* 「回到经典」不再是输入区旁边的大按钮（117i 走查：它抢走了发送键的位置）。节点与它的
-   onclick 一个没动，只是从版面上收起来 —— 同一件事在头像菜单里有唯一一项。 */
-.steward-classic-btn { display: none; }
 
 /* 状态区：fail-closed 回经典时把原因说清楚（role="status"，读屏可听见）。 */
 .steward-status {
@@ -194,13 +190,7 @@
 .steward-status:empty { display: none; }
 
 @media (max-width: 390px) {
-  :root[data-shell-mode="steward"] body > .steward-shell { padding: 0; }
-  .steward-stage {
-    padding: 0 var(--sp-4);
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
+  .steward-stage { padding: 0 var(--sp-4); }
   .steward-header { padding: var(--sp-4) 0 var(--sp-2); }
   .steward-feed { padding: var(--sp-1) 0 var(--sp-3); }
   .steward-composer { margin-bottom: var(--sp-3); }
@@ -208,7 +198,7 @@
 
 /* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉：动效可以没有，信息不能少。 */
 @media (prefers-reduced-motion: reduce) {
+  :root[data-shell-mode="steward"] .app-views > .steward-shell,
   .steward-composer,
-  .steward-composer-input,
-  .steward-classic-btn { transition: none; }
+  .steward-composer-input { transition: none; }
 }

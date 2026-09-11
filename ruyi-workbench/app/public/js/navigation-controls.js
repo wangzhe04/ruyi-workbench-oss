@@ -803,29 +803,17 @@ function switchTab(tab) {
   if (tab === 'usage') openUsageDashboard();
   if (tab === 'agent-runs') loadAgentWorkflows();
   updateAgentRunsPolling(tab);
-  maybeSuggestWideRight(tab); // v3 (§2.7/§2.8): 监控/用量页签在 340px 下一次性软提示切 480
+  maybeSuggestWideRight(tab); // v3 (§2.7/§2.8): 监控/用量页签在基准档(392px)下一次性软提示切 480
 }
 
 // A5: on narrow screens (≤1180px) the tool pane is an overlay drawer toggled by `tools-open`; on the
 // desktop grid (≥1181px) it is a column shown/hidden by the `tools-collapsed` class. matchMedia picks.
 function isNarrow() { return window.matchMedia('(max-width: 1180px)').matches; }
-// v1.0.2 (F2): 折叠侧栏统一入口。加/去 .sidebar-collapsed(CSS 把侧栏栅格轨道归 0),同步 ☰ 恢复钮显隐,
-// 并持久化到 localStorage 供下次启动恢复。恢复态在 boot() 里调用(applyUiMode 之后、拉数据之前均可)。
-function setSidebarCollapsed(collapsed, persist = true) {
-  document.querySelector('.app-shell').classList.toggle('sidebar-collapsed', collapsed);
-  const showBtn = $('showSidebarBtn');
-  if (showBtn) showBtn.classList.toggle('hidden', !collapsed);
-  // v3 (§A2): 只有用户经 «/☰ 的显式选择才持久化;响应式默认(手机首启折叠)不写 localStorage,免污染桌面偏好。
-  if (persist) { try { localStorage.setItem('wcw.sidebarCollapsed', collapsed ? '1' : '0'); } catch { /* ignore */ } }
-}
-function restoreSidebarCollapsed() {
-  let v = null;
-  try { v = localStorage.getItem('wcw.sidebarCollapsed'); } catch { /* ignore */ }
-  if (v === '1') { setSidebarCollapsed(true); return; }
-  if (v === '0') return; // 用户显式选择保持展开 —— 尊重之(即便窄屏)
-  // v3 (§A2): 无用户偏好时,≤760px 手机默认收起侧栏(否则 absolute 浮层开机盖住对话区);不持久化,仅作响应式默认。
-  if (window.matchMedia('(max-width: 760px)').matches) setSidebarCollapsed(true, false);
-}
+// 121-K4(34 号文 §2.3／§7.3):手动折叠侧栏的整条路径退役 —— 左栏搬进外框、两视角共用同一份 DOM,
+// 宽度由 §7.3 的容器查询决定(≤980 折成 56px 图标栏,内容一个节点不少)。随之删掉的是
+// setSidebarCollapsed / restoreSidebarCollapsed 两个函数、它们写的 .sidebar-collapsed 类与
+// 本机偏好 wcw.sidebarCollapsed、以及 ☰ 与 « 两枚按钮(见 index.html)。
+// 「手机首启默认收起」这件事没有丢:≤980 那一档现在【永远】是图标栏,不需要一个会被记住的偏好。
 function toggleToolPane() {
   const shell = document.querySelector('.app-shell');
   if (isNarrow()) shell.classList.toggle('tools-open');
@@ -854,14 +842,23 @@ function openToolPane() {
 }
 function closeToolDrawer() { document.querySelector('.app-shell').classList.remove('tools-open'); }
 
-/* ---------------- v3 (§2.7 P2): 右栏三档宽(340/480/全屏)—— 拖拽手柄 + 双击循环 + localStorage 记忆 ---------------- */
-// 档位存 'wcw.rightWidth'(值 '340'|'480'|'full')。桌面栅格档专属;窄屏(≤1180)走既有抽屉,仅记偏好不改布局。
+/* ---------------- v3 (§2.7 P2): 右栏三档宽(392/480/全屏)—— 拖拽手柄 + 双击循环 + localStorage 记忆 ---------------- */
+// 档位存 'wcw.rightWidth'(值 '392'|'480'|'full')。桌面栅格档专属;窄屏(≤1180)走既有抽屉,仅记偏好不改布局。
 // 全屏档 = tool-pane 转 fixed 覆盖中栏(CSS .tools-fullscreen),Esc / 双击手柄退出。
-const RIGHT_TIERS = ['340', '480', 'full'];
+// 121-K4(34 号文 §7.1):两处改动,都是「一台两视共用一个右栏宽度」逼出来的 ——
+//   ① 基准档 340 → 392:设计稿定的右栏就是 392px,而这个档位是全仓唯一写 --right-w 的地方。
+//      存量偏好里的 '340' 不在表里,会被下面那句 fallback 归一到 '392'(迁移即自愈,不留死值)。
+//   ② --right-w 写在【外框】而不是 .app-shell 上:两个视角的右栏读的是同一个自定义属性,
+//      写在 .app-shell 上的话管家视角看不见它,切视角就会跳一次宽度(实测 340 ↔ 392 差 52px)。
+//      内联值同时压得住 layout.css 里 ≥1600 那条容器查询(用户拖过之后不被它改回去)。
+//      .rp-wide / .tools-fullscreen / .right-resizing 三个类仍然写在 .app-shell 上(它们只管 2.0 那一栏)。
+const RIGHT_TIERS = ['392', '480', 'full'];
 const RIGHT_FULL_THRESHOLD = 620; // 拖过此像素宽度 → 吸附到全屏档
 function applyRightWidth(tier, persist = true) {
-  if (!RIGHT_TIERS.includes(tier)) tier = '340';
+  if (!RIGHT_TIERS.includes(tier)) tier = '392';
   const shell = document.querySelector('.app-shell'); if (!shell) return;
+  // 宽度写在外框上(两视角共用);类仍写在 .app-shell 上。缺外框时退回 shell,行为与 K4 之前一致。
+  const widthHost = document.querySelector('.app-frame') || shell;
   // Chrome 无法可靠过渡「var() 驱动的 grid 轨」的变化(会卡在起始宽度);切档时抑制过渡让新轨宽即时落定。
   // 末尾强制同步重排后立即移除(不用 rAF —— 后台/空闲渲染时 rAF 可能不触发,会把过渡永久关死)。
   // (侧栏折叠的过渡不受影响 —— 它变的是【具体值】首轨 288<->0,不走此路径。)
@@ -870,10 +867,10 @@ function applyRightWidth(tier, persist = true) {
     state._preFullTier = (state._rightTier && state._rightTier !== 'full') ? state._rightTier : '480';
     shell.classList.remove('tools-collapsed'); // 全屏必然展开工具面板
     shell.classList.add('tools-fullscreen', 'rp-wide');
-    shell.style.setProperty('--right-w', '480px'); // 底层保留轨宽(被 fixed 面板覆盖,无空隙)
+    widthHost.style.setProperty('--right-w', '480px'); // 底层保留轨宽(被 fixed 面板覆盖,无空隙)
   } else {
     shell.classList.remove('tools-fullscreen');
-    shell.style.setProperty('--right-w', (tier === 'full' ? '480' : tier) + 'px');
+    widthHost.style.setProperty('--right-w', (tier === 'full' ? '480' : tier) + 'px');
     shell.classList.toggle('rp-wide', tier === '480' || tier === 'full'); // §2.8 用量瓦片三列开关
   }
   void shell.offsetWidth; // 强制同步重排,让新轨宽在无过渡下即时落定
@@ -882,23 +879,23 @@ function applyRightWidth(tier, persist = true) {
   if (persist) { try { localStorage.setItem('wcw.rightWidth', tier); } catch { /* ignore */ } }
 }
 function restoreRightWidth() {
-  let v = '340'; try { v = localStorage.getItem('wcw.rightWidth') || '340'; } catch { /* ignore */ }
+  let v = '392'; try { v = localStorage.getItem('wcw.rightWidth') || '392'; } catch { /* ignore */ }
   applyRightWidth(v, false);
 }
 function cycleRightWidth() {
-  const cur = state._rightTier || '340';
+  const cur = state._rightTier || '392';
   applyRightWidth(RIGHT_TIERS[(RIGHT_TIERS.indexOf(cur) + 1) % RIGHT_TIERS.length]);
 }
 // Esc 退出右栏全屏(回到进入前的档位)。返回是否处理了(供全局 Esc 链短路)。
 function exitRightFullscreen() {
   const shell = document.querySelector('.app-shell');
-  if (shell && shell.classList.contains('tools-fullscreen')) { applyRightWidth(state._preFullTier || '340'); return true; }
+  if (shell && shell.classList.contains('tools-fullscreen')) { applyRightWidth(state._preFullTier || '392'); return true; }
   return false;
 }
-// §2.8 软提示:切到监控/用量页签且当前 340px 时,一次性建议 480(不强切;localStorage 记忆已提示过)。
+// §2.8 软提示:切到监控/用量页签且当前是基准档(392px)时,一次性建议 480(不强切;localStorage 记忆已提示过)。
 function maybeSuggestWideRight(tab) {
   if ((tab !== 'agent-runs' && tab !== 'usage') || isNarrow()) return;
-  if ((state._rightTier || '340') !== '340') return;
+  if ((state._rightTier || '392') !== '392') return;
   try { if (localStorage.getItem('wcw.rightWidthHintShown') === '1') return; localStorage.setItem('wcw.rightWidthHintShown', '1'); } catch { /* ignore */ }
   toast(t("toast.widenPanelHint"));
 }
@@ -910,14 +907,15 @@ function initRightResize() {
     if (isNarrow() || e.button !== 0) return;
     e.preventDefault();
     const shell = document.querySelector('.app-shell');
+    const widthHost = document.querySelector('.app-frame') || shell;
     try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     shell.classList.add('right-resizing');
     shell.classList.remove('tools-fullscreen'); // 拖动即回到可变轨宽预览
-    let tier = state._rightTier === 'full' ? '480' : (state._rightTier || '340');
+    let tier = state._rightTier === 'full' ? '480' : (state._rightTier || '392');
     const onMove = ev => {
       const desired = window.innerWidth - ev.clientX;
-      if (desired > RIGHT_FULL_THRESHOLD) { tier = 'full'; shell.style.setProperty('--right-w', Math.min(desired, window.innerWidth - 360) + 'px'); }
-      else { const clamped = Math.max(300, Math.min(desired, 560)); shell.style.setProperty('--right-w', clamped + 'px'); tier = Math.abs(clamped - 480) <= Math.abs(clamped - 340) ? '480' : '340'; }
+      if (desired > RIGHT_FULL_THRESHOLD) { tier = 'full'; widthHost.style.setProperty('--right-w', Math.min(desired, window.innerWidth - 360) + 'px'); }
+      else { const clamped = Math.max(300, Math.min(desired, 560)); widthHost.style.setProperty('--right-w', clamped + 'px'); tier = Math.abs(clamped - 480) <= Math.abs(clamped - 392) ? '480' : '392'; }
     };
     const onUp = () => {
       handle.removeEventListener('pointermove', onMove);
@@ -965,10 +963,8 @@ function initRightResize() {
     renderPalette,
     refreshToolPane,
     restoreRightWidth,
-    restoreSidebarCollapsed,
-    restoreToolsCollapsed,
-    setSidebarCollapsed,
-    switchSettingsTab,
+      restoreToolsCollapsed,
+      switchSettingsTab,
     switchTab,
     syncMoreMenuLabels,
     toggleToolPane,

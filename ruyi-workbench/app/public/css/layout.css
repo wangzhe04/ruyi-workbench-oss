@@ -1,65 +1,88 @@
-/* Application shell, columns, resize handles, and sidebar. */
-/* ============================ layout ============================ */
-.app-shell {
+/* Application frame, columns, resize handles, and the task rail. */
+/* ============================ 应用外框（121-K4；34 号文 §2.2／§2.3／§7.1／§7.3） ============
+   一台两视：顶栏与左栏在外框里只有一份，中栏与右栏的内容随 :root[data-shell-mode] 换。
+     .app-frame                       顶栏 46px ＋ 主体（容器查询的基准容器）
+       > .app-topbar                  §2.2 顶栏（品牌 ｜ 视角分段钮 ｜ 状态胶囊·盾牌·停机·齿轮）
+       > .app-body                    左栏 268px ｜ 视角槽位 1fr
+           > .task-rail (#sidebar)    §2.3 任务索引 —— 两视角【同一个 DOM 节点】
+           > .app-views               单格栅格，两个视角容器叠在同一格里（非当前视角 display:none）
+               > .app-shell           工作台视角：中栏 .chat-pane ｜ 右栏 .tool-pane
+               > #stewardShell        管家视角：中栏 .steward-stage ｜ 右栏 .steward-side
+   两个视角容器的列宽【逐字相同】（都读 var(--right-w)），所以切视角时三栏栅格一动不动（§2.9）。 */
+.app-frame {
+  position: relative;
+  z-index: 1; /* 第50波:抬到 body::before 噪点层(z:0)之上 */
   height: 100vh;
   display: grid;
-  /* v3 (§2.7 P2): 右栏三档宽 —— 340(默认)/480/全屏。第三轨宽走 --right-w,由 applyRightWidth() 改写并记忆到
-     localStorage('wcw.rightWidth');全屏档见下方 .tools-fullscreen(fixed 覆盖中栏,不占轨)。 */
-  --right-w: 340px;
-  position: relative; /* 承载右栏拖拽手柄(.right-resize-handle)绝对定位锚点 */
-  z-index: 1; /* 第50波:抬到 body::before 噪点层(z:0)之上 */
-  grid-template-columns: 288px minmax(420px, 1fr) var(--right-w);
+  grid-template-rows: 46px minmax(0, 1fr);
   overflow: hidden;
-  /* v1.0.2 (F2): 折叠/展开侧栏时栅格列宽的短过渡(≤0.15s),避免瞬跳。 */
+  background: var(--bg);
+  /* §7.3 的断点以【外框】为准，不看视口：右栏收成抽屉、左栏折成图标栏都由容器查询驱动，
+     于是同一份 CSS 在窗口、离线包与截图夹具里都按同一个宽度判定。 */
+  container-type: inline-size;
+  container-name: frame;
+  /* §2.3／§7.1 定值：左栏 268px（看板密度 440px）、右栏 392px。
+     v3 (§2.7 P2) 的右栏三档宽仍在：applyRightWidth() 把 --right-w 写成【本元素的】内联值
+     （写在外框上而不是 .app-shell 上，两个视角才读到同一个数；内联值同时压得住下面 ≥1600 的
+     那条容器查询，用户拖过之后不会被它改回去）。 */
+  --rail-w: 268px;
+  --rail-board-w: 440px;
+  --right-w: 392px;
+}
+.app-frame.rail-board { --rail-w: var(--rail-board-w); }
+.app-topbar { grid-row: 1; }
+.app-body {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 0;
+  transition: grid-template-columns var(--dur-base) var(--ease-out);
+}
+.task-rail { grid-column: 1; }
+.app-views {
+  grid-column: 2;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+/* 两个视角容器都落在同一格里（同时只有一个在显示，见 steward-shell.css 那两条属性选择器）。 */
+.app-views > .app-shell,
+.app-views > .steward-shell { grid-area: 1 / 1; }
+
+.app-shell {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  position: relative; /* 承载右栏拖拽手柄(.right-resize-handle)绝对定位锚点 */
+  grid-template-columns: minmax(0, 1fr) var(--right-w);
+  overflow: hidden;
   transition: grid-template-columns var(--dur-fast) var(--ease-out); /* v3 (§C5): 收敛散写 duration 到 token */
 }
 /* 拖拽/切档瞬间去过渡,手柄跟手不拖影 */
 .app-shell.right-resizing { transition: none; }
-.app-shell.tools-collapsed { grid-template-columns: 288px minmax(420px, 1fr) 0; }
-.app-shell.sidebar-collapsed { grid-template-columns: 0 minmax(420px, 1fr) var(--right-w); }
-.app-shell.sidebar-collapsed.tools-collapsed { grid-template-columns: 0 1fr 0; }
-/* v1.0.2 收官返修(把关直修):三列【显式】落轨 —— 防轨道错位。v1.0.1「输入框消失」与本次「折叠侧栏后
-   工具面板占满全屏、退不掉」同根:位置网格 + 子元素 display:none 会让后续子元素滑进错误的轨
-   (sidebar 是第一个子元素,display:none 后 chat-pane 滑进 0px 轨、tool-pane 滑进主轨)。
-   显式 grid-column 后,任何一列隐藏都不再影响其余列的落位。(≤760px 档单列网格另行覆写 chat-pane。) */
-.sidebar { grid-column: 1; }
-.chat-pane { grid-column: 2; }
-.tool-pane { grid-column: 3; }
+.app-shell.tools-collapsed { grid-template-columns: minmax(0, 1fr) 0; }
+/* v1.0.2 收官返修(把关直修):两列【显式】落轨 —— 防轨道错位(子元素 display:none 会让后续子元素
+   滑进错误的轨)。121-K4：侧栏那一轨随左栏搬进外框而消失,故三轨收成两轨。 */
+.chat-pane { grid-column: 1; }
+.tool-pane { grid-column: 2; }
 
-.sidebar, .tool-pane {
-  /* 第50波(UI-DESIGN-V4 分档):框架族 = 玻璃二档(--glass-bg-1 + blur-2,贴边无圆角)。
-     模糊预算:框架族固定 4 面(sidebar/tool-pane/topbar/composer),滚动区不增面(模糊的是身后 scene)。 */
-  background: var(--glass-bg-1);
-  -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2);
-  box-shadow: var(--glass-highlight);
+.task-rail, .tool-pane {
+  /* 第50波(UI-DESIGN-V4 分档):框架族。121-K4（§7.1）：玻璃只留给【浮层与安静卡】——
+     外框的三栏是实面，左栏与右栏改用 --panel 实底（模糊面从 4 面减到 0 面：顶栏与输入区同批改）。 */
+  background: var(--panel);
   padding: 14px;
   overflow: auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.sidebar { border-right: 1px solid var(--glass-border); gap: 10px; }
-.classic-sidebar-primary-actions { display: grid; gap: 8px; }
-.sidebar button.classic-preview-switch {
-  min-height: 38px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
-  color: var(--accent);
-  font-weight: 650;
-  letter-spacing: .01em;
-  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-}
-.sidebar button.classic-preview-switch:hover {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
-  background: color-mix(in srgb, var(--accent) 11%, var(--panel));
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-.classic-preview-switch .ic { width: 15px; height: 15px; }
-.tool-pane { border-left: 1px solid var(--glass-border); }
-.app-shell.tools-collapsed .tool-pane,
-.app-shell.sidebar-collapsed .sidebar { display: none; }
+.task-rail { border-right: 1px solid var(--line); gap: 10px; padding: 8px 8px 0; }
+.classic-sidebar-primary-actions { display: grid; gap: 8px; flex: 0 0 auto; }
+.tool-pane { border-left: 1px solid var(--line); }
+.app-shell.tools-collapsed .tool-pane { display: none; }
 
 /* v3 (§2.7 P2): 右栏拖拽手柄 —— 4px 命中带贴在 tool-pane 左缘(right:var(--right-w)),pointer 拖动改 --right-w、
    松手吸附最近档;双击循环 340->480->全屏(见 app.js initRightResize/cycleRightWidth)。桌面栅格档专属。 */
@@ -76,28 +99,115 @@
 .right-resize-handle:focus-visible { outline: none; box-shadow: var(--ring); }
 /* 工具栏折叠时无右栏可拖 → 隐藏手柄 */
 .app-shell.tools-collapsed .right-resize-handle { display: none; }
-/* 全屏档:tool-pane 变 fixed 覆盖中栏(sidebar 保留);手柄挪到面板左缘,双击/Esc 可退出全屏。 */
+/* 全屏档:tool-pane 变 fixed 覆盖中栏(左栏保留);手柄挪到面板左缘,双击/Esc 可退出全屏。
+   121-K4：左边界从写死的 288px（原侧栏宽）改成读 --rail-w —— 看板密度把左栏加宽到 440px 时
+   全屏右栏也跟着让位，不再压在左栏上。 */
 .app-shell.tools-fullscreen .tool-pane {
-  position: fixed; top: 0; right: 0; bottom: 0; left: 288px; width: auto;
+  position: fixed; top: 46px; right: 0; bottom: 0; left: var(--rail-w); width: auto;
   z-index: 30; box-shadow: var(--elev-3); border-left: 1px solid var(--line);
 }
-.app-shell.tools-fullscreen.sidebar-collapsed .tool-pane { left: 0; }
-.app-shell.tools-fullscreen .right-resize-handle { right: auto; left: 288px; }
-.app-shell.tools-fullscreen.sidebar-collapsed .right-resize-handle { left: 0; }
+.app-shell.tools-fullscreen .right-resize-handle { right: auto; left: var(--rail-w); }
 
-/* ============================ sidebar ============================ */
-.brand { display: flex; gap: 10px; align-items: center; }
+/* ============================ 顶栏（§2.2） ============================
+   46px 定高、三格（左品牌 ｜ 中视角分段钮 ｜ 右动作组）。左右两格各 1fr，所以中间那枚分段钮
+   恒在窗口正中 —— 它是用户的锚点，不能随两侧内容长短漂。
+   【不印】费用、线程总数、模型名（§2.2 末条）：整层没有一处金额或模型名的槽位。 */
+.app-topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.app-topbar .tb-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.app-topbar .tb-mid { display: flex; justify-content: center; }
+.app-topbar .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
 .brand-mark {
-  /* v0.8-S8:承载内联如意主标 SVG(青花/鎏金,走 --brand-* 变量随主题)。去掉旧 terracotta 底,
-     改极淡底衬托品牌色(不使用 terracotta 作品牌视觉)。 */
-  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--brand-qh) 12%, transparent); flex: none;
+  /* v0.8-S8:承载内联如意主标 SVG(青花/鎏金,走 --brand-* 变量随主题)。 */
+  width: 24px; height: 24px; display: grid; place-items: center; flex: none;
 }
 .brand-mark svg { display: block; }
-.brand-text { min-width: 0; flex: 1; }
-.brand h1 { margin: 0; font-size: var(--fs-lg); letter-spacing: .2px; }
-.brand p { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-brand-name { flex: none; font-size: var(--fs-md); font-weight: 600; letter-spacing: .2px; color: var(--ink); }
+/* 连接状态（setStatus 的唯一落点）。它【不印在屏幕上】：§2.2 末条明令顶栏不印模型名，而
+   js/provider-settings.js 的 renderStatusLine() 往这里写的正是「服务商 · 模型」（命令行引擎时
+   写的还是一个可执行文件路径，§8.1 第 4 条同样不许）。节点留着，是因为它是 setStatus() 全仓唯一的
+   写入目标，且连接失败这件事另有两条【可见】的通道（#startNoticeBar 与首连失败故障卡）。
+   用视觉隐藏而不是 display:none —— 状态文字仍留在无障碍树里，读屏能问到「现在连的是什么」。 */
+.app-topbar #statusLine {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 
+/* 视角分段钮：滑块 CSS transform 220ms（§2.9 表首行：它先于内容动）。 */
+.lens-seg {
+  position: relative; display: inline-grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel-3);
+}
+.lens-seg .lens-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+  border-radius: var(--r-pill); background: var(--panel); box-shadow: var(--elev-1);
+  transition: transform 220ms var(--ease-out);
+}
+.lens-seg[data-on="classic"] .lens-thumb { transform: translateX(100%); }
+.lens-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 26px; padding: 3px 14px; border: 0; background: none; border-radius: var(--r-pill);
+  font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.lens-btn[aria-pressed="true"] { color: var(--ink); font-weight: 600; }
+.lens-btn .ic { width: 15px; height: 15px; }
+.lens-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* 全局状态胶囊「N 在跑 · M 等你」（§2.2）。点开 = 左栏滚到那一组。 */
+.app-status-chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 26px; padding: 0 11px;
+  border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel-2);
+  font: inherit; font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; white-space: nowrap;
+}
+.app-status-chip[hidden] { display: none; }
+.app-status-chip:hover { border-color: var(--line-2); background: var(--panel-3); }
+.app-status-chip .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.app-status-chip .d.run { background: var(--accent); }
+.app-status-chip .d.you { background: var(--gold); }
+
+/* 「右栏」钮只在右栏收成抽屉的那一档出现（§7.3；见文件末尾的容器查询）。 */
+.app-side-toggle { display: none; }
+/* 一键停机是【管家专用】（§2.2）：工作台视角里它不该在场 —— 那一视角的停止键是线程级的，
+   住在线程头（K5）。盾牌（新任务默认权限）是全局的，两视角都在。 */
+:root[data-shell-mode="classic"] .app-topbar #stewardStopBtn { display: none; }
+
+/* 齿轮菜单（§2.2）：2.0 侧栏栏底四钮与顶栏「⋯」收进来。它是一块就地浮层（[hidden] 开合，
+   与盾牌菜单同款），不走 popover 原语 —— 菜单里那几枚按钮自己还要开各自的浮层，
+   而 popover 原语一次只允许一个，把它做成 popover 会让「帮助」一点就把自己的锚点收掉。 */
+.app-gear-wrap { position: relative; }
+.app-gear-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  min-width: 176px; display: flex; flex-direction: column; gap: 2px; padding: 6px;
+  border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--panel);
+  box-shadow: var(--elev-2);
+}
+.app-gear-menu[hidden] { display: none; }
+.app-gear-menu > button { justify-content: flex-start; width: 100%; font-size: var(--fs-sm); }
+/* 三枚只作状态载体的按钮（renderCapBadge / toggleTheme / toggleUiMode 仍读写它们），
+   与原来 .topbar-actions 那条规则同义：在菜单里不显示，动作由「更多」那一项给。 */
+.app-gear-menu > #capBadge,
+.app-gear-menu > #themeToggle,
+.app-gear-menu > #uiModeToggle { display: none; }
+
+/* ============================ 左栏：任务索引（§2.3） ============================ */
+.rail-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 4px 0; }
+.rail-title { flex: 1; display: flex; align-items: center; gap: 6px; margin: 0;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.rail-count { color: var(--muted); font-weight: 400; font-size: var(--fs-xs); }
+.rail-board-btn[aria-pressed="true"] { color: var(--accent); background: var(--panel-3); }
+/* 口袋槽位（栏底常驻）。四项内容归 K7；空着的时候不占高度。 */
+.rail-pocket { flex: 0 0 auto; display: grid; gap: 2px; padding: 8px 0 8px; border-top: 1px solid var(--line); }
+.rail-pocket:empty { display: none; }
+
+.search-wrap { flex: 0 0 auto; }
 .search-wrap input { background: var(--panel-2); }
 .session-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: auto; }
 .session-group-label { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 3px; }
@@ -124,8 +234,6 @@
 .session-item .s-actions button:hover { background: color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); }
 .session-item .pin-badge { color: var(--accent); }
 
-.sidebar-foot { display: flex; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
-.sidebar-foot button { flex: 1; font-size: var(--fs-sm); }
 /* 118b: 「设置」按钮上的体检摘要计数。只在真有待办时挂上去,没事就整个移除(恒亮徽标很快变噪音)。 */
 .health-entry-dot { display: inline-flex; align-items: center; justify-content: center; margin-left: 5px;
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1;
@@ -135,3 +243,57 @@
    会话项是两列网格（正文列 + 悬停操作列），所以摘录显式占第一列，不去挤操作区。 */
 .session-item .s-snippet { grid-column: 1; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }
+
+/* ============================ §7.3 响应式（容器查询，以外框为准） ============================
+   内容一件不少，只改容器。三档：
+     ≥1600  右栏放宽到 440px（§7.1 末句）；用户拖过档位时内联值压住它（见 .app-frame 头注）。
+     ≤1180  右栏收成抽屉，顶栏出「右栏」钮。这个数与 js/navigation-controls.js 的 isNarrow()
+            【是同一个数】——2.0 的右栏折叠钮按它判「走抽屉还是收轨道」，两边不一致会出现一段
+            「按钮点了没反应」的宽度带。设计稿 §7.3 写的是 1240；本刀按「JS 与 CSS 只认一个数」
+            落在既有的 1180（改动它要连带 tool-pane.css／workbench.css／两把静态锁与 isNarrow
+            一起搬，归右栏那一刀 K6）。
+     ≤980   左栏折成 56px 图标栏（色点＝任务）。 */
+@container frame (min-width: 1600px) {
+  .app-frame { --right-w: 440px; }
+}
+@container frame (max-width: 1180px) {
+  /* 右栏离开栅格，变成盖在视角槽位上的滑出层。两个视角同一套开合：顶栏「右栏」钮写
+     .app-frame.side-open；2.0 自己那枚 #toggleToolsBtn 写的 .tools-open 仍然有效（两条路都能开，
+     互不打架 —— 它们分别是「全局」与「这一栏自己」的入口）。 */
+  .app-shell,
+  .app-views > .steward-shell { grid-template-columns: minmax(0, 1fr) 0; }
+  .app-shell .tool-pane,
+  .steward-side:not([hidden]) {
+    position: absolute; top: 0; right: 0; bottom: 0; width: min(392px, 92vw);
+    transform: translateX(100%); transition: transform var(--dur-slow) var(--ease-out);
+    z-index: 30; box-shadow: var(--elev-3); border-left: 1px solid var(--line);
+  }
+  .app-frame.side-open .app-shell .tool-pane,
+  .app-frame.side-open .steward-side:not([hidden]),
+  .app-shell.tools-open .tool-pane { transform: none; }
+  .app-side-toggle { display: inline-grid; }
+}
+@container frame (max-width: 980px) {
+  .app-frame { --rail-w: 56px; }
+  .app-frame.rail-board { --rail-w: 56px; }
+  /* 图标栏：只留每行那颗色点（§2.3 末条）。标题、搜索、组头、行内文字与口袋文案全部收起，
+     DOM 一个节点不少 —— 折叠是容器的事，不是内容的事。 */
+  .task-rail { padding: 8px 4px 0; gap: 6px; }
+  .task-rail .rail-title,
+  .task-rail .rail-count,
+  .task-rail .search-wrap,
+  .task-rail .session-group-label,
+  .task-rail .session-item .s-sub,
+  .task-rail .session-item .s-snippet,
+  .task-rail .session-item .s-actions,
+  .task-rail .classic-sidebar-primary-actions span { display: none; }
+  .task-rail .session-item .s-title { overflow: hidden; text-overflow: clip; }
+}
+/* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉（§2.9：动效可以没有，信息不能少）。 */
+@media (prefers-reduced-motion: reduce) {
+  .app-body,
+  .app-shell,
+  .lens-seg .lens-thumb,
+  .app-shell .tool-pane,
+  .steward-side:not([hidden]) { transition: none; }
+}
