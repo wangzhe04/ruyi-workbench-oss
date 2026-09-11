@@ -390,6 +390,23 @@ try {
   ok(!everything.includes(TOOL_SECRET), 'E1 全程没有任何一帧带出工具结果正文(§6.1 红线①)');
   ok(everything.length > 0 && !/"input"|"arguments"/.test(everything), 'E2 也不带工具入参');
 
+  /* ═════════ G 引擎订阅者仍是第一个 ═════════ */
+  // 34 号文 §9 K2a 行的验收项:「引擎单订阅者行为逐字节不变(05:493 的那一个仍第一个收到)」。
+  // 两条证据,一条行为一条静态:
+  //   G1 行为:thread.live 的 textTail 取自 reg.liveTail.text,而旁路订阅者是在 appendLiveTail
+  //      【更新完尾巴之后】才被调的 —— 收到的帧里尾巴非空、且就是模型这一回合说的话,
+  //      说明旁路看见的是引擎那一步的结果,不是它之前的空壳。旁路要是排在前面,textTail 恒为空。
+  //   G2 静态:04 的 installActiveChildEventFanout 里,engineSubscriber( 必须出现在
+  //      notifyActiveChildTaps( 之前(顺序即「谁先收到」)。
+  const liveWithText = liveSoFar.find(f => String(f.data.textTail || '').length > 0);
+  ok(Boolean(liveWithText && liveWithText.data.textTail.includes('我在看这件事')),
+    `G1 thread.live 的 textTail 是引擎这一步刚写进 liveTail 的话(实得 ${JSON.stringify(liveWithText && liveWithText.data.textTail.slice(-24))})`);
+  const src04 = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '04-permission-runtime.js'), 'utf8');
+  const fanout = src04.slice(src04.indexOf('function installActiveChildEventFanout('));
+  const iEngine = fanout.indexOf('engineSubscriber(evt)');
+  const iTaps = fanout.indexOf('notifyActiveChildTaps(reg, evt)');
+  ok(iEngine > 0 && iTaps > iEngine, `G2 04 的扇出里引擎订阅者排在旁路【之前】(engineSubscriber@${iEngine} < taps@${iTaps})`);
+
   /* ═════════ 心跳存在性(不等 25 s,只钉「连接还活着且没乱写」)═════════ */
   ok(reconnected.comments.every(c => c.text.startsWith(':')), 'F1 心跳行是 SSE 注释形态(`: ping`),不污染事件解析');
 
