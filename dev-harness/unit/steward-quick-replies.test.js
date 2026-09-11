@@ -21,7 +21,7 @@ const moduleSource = fs.readFileSync(MODULE_PATH, 'utf8');
 let modulePromise;
 function loadModule() {
   if (!modulePromise) {
-    // steward-drawer.js 顶层 import 了 mission-state / net / preview-task-sheet / turn-activity /
+    // steward-drawer.js 顶层 import 了 mission-state / net / thread-facts / turn-activity /
     // steward-chips —— 直接 import 磁盘文件即可（它们都是浏览器无关的纯 ESM，模块顶层零 DOM 触碰）。
     modulePromise = import(require('node:url').pathToFileURL(MODULE_PATH).href);
   }

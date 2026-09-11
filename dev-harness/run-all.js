@@ -23,7 +23,9 @@ const HARNESS = __dirname;
 const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 ~15s,留 8x 余量
 // Wall-clock performance gates measure the product, not contention from three unrelated Edge/server
 // tests. They still belong to the complete suite, but run alone after parallel functional buckets.
-const PARALLEL_EXCLUSIVE = new Set(['pretender-preview-performance.e2e.js']);
+// 121-K1: the only entry was pretender-preview-performance.e2e.js, deleted with the dispatch desk.
+// Keep the mechanism — the next wall-clock gate (the 121-K2 event stream latency budget) lands here.
+const PARALLEL_EXCLUSIVE = new Set([]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。

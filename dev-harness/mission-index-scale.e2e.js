@@ -7,7 +7,7 @@ const { readServerSource } = require('./src-reader');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
-const HOME = path.join(os.tmpdir(), 'wcw-pretender-75c-e2e');
+const HOME = path.join(os.tmpdir(), 'wcw-mission-index-scale-e2e');
 const SESSION_COUNT = 300, IV_PER_SESSION = 100, USAGE_ROWS = 100000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
@@ -190,6 +190,6 @@ try {
   kill(wb); await sleep(250); fs.rmSync(HOME, { recursive: true, force: true });
 }
 
-console.log('\nPRETENDER INDEX SCALE E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
+console.log('\nMISSION INDEX SCALE E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exitCode = fail ? 1 : 0;
 })().catch(err => { console.error(err.stack || err); process.exitCode = 1; });

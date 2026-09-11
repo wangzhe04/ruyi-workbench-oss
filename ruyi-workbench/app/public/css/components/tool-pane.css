@@ -123,6 +123,20 @@
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .check { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); color: var(--ink-2); cursor: pointer; }
 .check input { width: auto; }
+/* 121-K1（34 号文 §8.3 第 2 条）：「提醒」设置块。规则原样从退役的 preview-shell.css 搬来（那一层
+   随交办台整层删除），类名 preview-* → notify-*；它属于设置弹窗，所以落在本层而不是任何壳层。 */
+.notify-settings { margin: 4px 0 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 20px 8px 20px 20px; background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+.notify-settings-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); }
+.notify-settings-head h4 { margin: 0; font-size: var(--fs-sm); }
+.notify-settings-head p { margin: 4px 0 0; max-width: 62ch; }
+.notify-toggle { flex: 0 0 auto; padding: 7px 10px; border-radius: var(--r-pill); background: var(--panel); }
+.notify-quiet-grid { margin-top: var(--sp-3); }
+.notify-quiet-grid .field-block { margin-bottom: 0; }
+.notify-status { margin: var(--sp-2) 0 0; }
+@media (max-width: 560px) {
+  .notify-settings-head { flex-direction: column; gap: var(--sp-2); }
+  .notify-toggle { align-self: stretch; }
+}
 /* v2.7 workspace permissions */
 .workspace-perm-list { display: grid; gap: 6px; margin-bottom: 8px; }
 .ws-perm-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }

@@ -33,7 +33,6 @@ const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 const helpViewerPath = path.join(PUBLIC, 'js', 'help-viewer.js');
 const helpViewerSrc = fs.readFileSync(helpViewerPath, 'utf8');
 const sessionSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'session-experience.js'), 'utf8');
-const previewSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'preview-shell.js'), 'utf8');
 const settingsOpsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'settings-operations.js'), 'utf8');
 const providerSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'provider-settings.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(PUBLIC, 'app.js'), 'utf8');
@@ -81,12 +80,22 @@ ok(sessionSrc.includes("t('onboarding.wizard.start')") && sessionSrc.includes('o
   'F2 经典首跑卡有「开始引导」主按钮');
 ok(/openOnboardingWizard,\n/.test(sessionSrc) || sessionSrc.includes('    openOnboardingWizard,'),
   'F3 经典壳导出 openOnboardingWizard 供组合根分发');
-ok(previewSrc.includes('openOnboardingWizard = () => {},') && previewSrc.includes("t('onboarding.wizard.start')"),
-  'F4 预览壳首跑引导用注入的同一入口(不另建一套引导)');
+// 121-K1(34 号文 §8.1):F4 原本钉「交办台首跑引导用注入的【同一个】向导实例」。交办台退役后
+// 那第二个消费方没了 —— 判据改成反向钉:全仓不许再长出第二套引导(向导的实现只有
+// onboarding-wizard.js 一处,谁要用都从组合根拿注入)。这是收紧,不是放宽。
+const wizardImplFiles = fs.readdirSync(path.join(PUBLIC, 'js'))
+  .filter(name => name.endsWith('.js') && name !== 'onboarding-wizard.js')
+  .filter(name => /function createOnboardingWizard|onboarding\.wizard\.step/.test(fs.readFileSync(path.join(PUBLIC, 'js', name), 'utf8')));
+ok(wizardImplFiles.length === 0,
+  `F4 引导的实现只住 onboarding-wizard.js 一处，别的模块只从组合根拿注入（实测另起实现的文件 ${JSON.stringify(wizardImplFiles)}）`);
 ok(settingsOpsSrc.includes("$('reopenOnboardingBtn')") && settingsOpsSrc.includes('openOnboarding()'),
   'F5 设置页「重新打开引导」按钮由运维域接线');
-ok(appSrc.includes('openOnboardingWizard: () => openOnboardingWizard()') && appSrc.includes('openOnboarding: () => openOnboardingWizard()'),
-  'F6 组合根把同一个实例注入预览壳与设置运维域');
+// 121-K1：交办台退役后组合根只剩设置运维域这一个注入口（原来还有一条注给交办台）。判据不变 ——
+// 注进去的仍然必须是组合根自己那一个 openOnboardingWizard 实例，不是各注一个新的。
+ok(appSrc.includes('openOnboarding: () => openOnboardingWizard()')
+  && /^\s*openOnboardingWizard,$/m.test(appSrc)
+  && sessionSrc.includes('function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }'),
+  'F6 组合根把经典壳导出的那一个向导入口注入设置运维域（全仓只有这一个实例）');
 ok(indexHtml.includes('id="reopenOnboardingBtn"') && indexHtml.includes('data-i18n="onboarding.wizard.reopen"'),
   'F7 index.html 设置基础页含可重开入口且文案走 i18n');
 ok(providerSrc.includes('export function providerDraftFromPreset(')

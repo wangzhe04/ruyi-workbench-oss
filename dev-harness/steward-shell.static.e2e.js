@@ -1,21 +1,26 @@
 #!/usr/bin/env node
 'use strict';
+(async () => {
 
-// 第117波 117a 静态契约：壳模式三态（classic / preview / steward）长期并存、未知偏好回经典、
-// 管家壳是 .app-shell 与 #previewShell 的同级容器、显隐只由 data-shell-mode 这一个状态源驱动、
-// 管家壳模块零 innerHTML / 三分支 fail-closed，且新资源进入离线 overlay 与样式清单。
+// 第117波 117a 静态契约：管家壳是 .app-shell 的同级容器、显隐只由 data-shell-mode 这一个状态源
+// 驱动、管家壳模块零 innerHTML / 三分支 fail-closed，且新资源进入离线 overlay 与样式清单。
 // 117b 重钉 C2/C3（语义收紧,不是放宽）：avatar 状态轮询给本文件加了一个 timer 与一次请求，
 // 「零轮询」改判「轮询只能活在 isStewardMode() 门控里」——七态 avatar 与轮询门控的完整静态契约见
 // dev-harness/steward-avatar.static.e2e.js。
+// 121-K1 重钉 A 段（34 号文 §2.7／§8.2）：一台两视 —— 视角只剩 steward | classic，登记表与
+// applyShellMode 从退役的 js/preview-shell.js 搬进叶子 js/shell-mode.js，预绘脚本与
+// normalizeShellMode 自此【同构】（K0 交付时两边兜底一个 steward 一个 classic，见 §13.1 末尾）。
+// A3 因此从「白名单集合相等」升级成【行为同构】：同一组输入喂给两份实现，逐条比对落点。
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
 const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/')), 'utf8');
 const html = read('index.html');
 const app = read('app.js');
-const previewShell = read('js/preview-shell.js');
+const shellMode = read('js/shell-mode.js');
 const stewardShell = read('js/steward-shell.js');
 const providerSettings = read('js/provider-settings.js');
 const css = read('css/views/steward-shell.css');
@@ -30,31 +35,50 @@ const ok = (condition, label) => {
   else { fail += 1; console.log('FAIL ' + label); }
 };
 
-// ─── A 三态与唯一状态源 ──────────────────────────────────────────────────────────
-const modesMatch = previewShell.match(/export const SHELL_MODES = Object\.freeze\((\[[^\]]*\])\);/);
-const declaredModes = modesMatch ? JSON.parse(modesMatch[1].replace(/'/g, '"')) : null;
-ok(JSON.stringify(declaredModes) === JSON.stringify(['classic', 'preview', 'steward']),
-  'A1 SHELL_MODES 是冻结三态且顺序固定 classic/preview/steward');
-ok(previewShell.includes("SHELL_MODES.includes(value) ? value : 'classic'"),
-  'A2 normalizeShellMode 是显式白名单判定，未知值回 classic');
+// ─── A 两视与唯一状态源 ──────────────────────────────────────────────────────────
+const shellModeMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'shell-mode.js')).href);
+const declaredModes = shellModeMod.SHELL_MODES;
+ok(Array.isArray(declaredModes) && Object.isFrozen(declaredModes)
+  && JSON.stringify(declaredModes) === JSON.stringify(['steward', 'classic']),
+  'A1 SHELL_MODES 是冻结两值且顺序固定 steward/classic（默认在前）'
+  + `（实测 ${JSON.stringify(declaredModes)}）`);
+// A2 钉的是【归一化的落点】，不是它怎么写的。121-K1（34 号文 §2.7）：一台两视 —— 显式 classic 落
+// classic；其余一切（没存过／空串／未知值／已退役的 preview）一律落 steward。
+const NORMALIZE_TRUTH = [
+  [undefined, 'steward'], [null, 'steward'], ['', 'steward'],
+  ['classic', 'classic'], ['steward', 'steward'],
+  ['preview', 'steward'],            // 退役的交办台偏好
+  ['bogus', 'steward'], ['CLASSIC', 'steward'],
+];
+const normalizeBad = NORMALIZE_TRUTH.filter(([input, want]) => shellModeMod.normalizeShellMode(input) !== want);
+ok(normalizeBad.length === 0,
+  'A2 normalizeShellMode 的落点：显式 classic → classic，其余（无偏好／未知值／退役的 preview）一律 steward'
+  + (normalizeBad.length ? `（实测偏差 ${JSON.stringify(normalizeBad.map(([input]) => [input, shellModeMod.normalizeShellMode(input)]))}）` : ''));
+ok(shellModeMod.RETIRED_SHELL_MODES && shellModeMod.RETIRED_SHELL_MODES.preview === 'steward'
+  && !declaredModes.includes('preview'),
+  'A2b preview 只作为【退役映射】存在，不在 SHELL_MODES 里 —— 视角不许复活成三值');
 
-// 预绘脚本与白名单同构：脚本显式认得的模式 ∪ 它的默认值，必须【恰好】是 SHELL_MODES 这一集
-// （少一个 = 某个壳再也进不去；多一个 = 凭空发明了第四态）。121 波 K0（34 号文 §8.4 拍板③）把默认
-// 入口从 classic 翻成 steward，所以这里钉的是「无偏好 / 未知值 / localStorage 抛异常 → 一律 steward」。
-// 注意 A2 钉的 normalizeShellMode 兜底仍是 classic：那是 applyShellMode 显式传参的兜底（fail-closed
-// 到最小壳），与「首开进哪个视角」不是同一件事；K1 搬 applyShellMode 时再统一。
-const prePaint = html.slice(html.indexOf("localStorage.getItem('wcw.shellMode')"), html.indexOf('</script>'));
-const prePaintModes = [...prePaint.matchAll(/stored === '([a-z]+)'/g)].map(match => match[1]);
-const prePaintDefault = (prePaint.match(/\?\s*stored\s*:\s*'([a-z]+)'/) || [])[1] || '';
+// 预绘脚本与 normalizeShellMode 必须【行为同构】：把预绘那段规则从 index.html 里抠出来真跑一遍，
+// 同一组输入逐条比对两边的落点。K0 交付时两边不同构（预绘 steward / normalizeShellMode classic，
+// 见 34 号文 §13.1 末尾），K1 统一 —— 所以本条从「白名单集合相等」升级成「同一真值表两份实现」。
+const prePaintSource = html.slice(html.indexOf("localStorage.getItem('wcw.shellMode')"), html.indexOf('</script>', html.indexOf("localStorage.getItem('wcw.shellMode')")));
+const prePaintRule = (prePaintSource.match(/var shellMode = (.+);/) || [])[1] || '';
 const prePaintCatch = (html.match(/catch \(e\) \{ document\.documentElement\.setAttribute\('data-shell-mode', '([a-z]+)'\); \}/) || [])[1] || '';
-ok(prePaintDefault === 'steward' && prePaintCatch === 'steward'
-  && JSON.stringify([...prePaintModes, prePaintDefault].sort())
-     === JSON.stringify([...(declaredModes || [])].sort()),
-  'A3 index.html 预绘白名单 ∪ 默认值 = SHELL_MODES，且无偏好／未知值／异常一律落 steward（121-K0 默认入口）'
-  + `（实测 白名单 ${JSON.stringify(prePaintModes)} / 默认 '${prePaintDefault}' / 异常 '${prePaintCatch}'）`);
+// eslint-disable-next-line no-new-func -- 抠出的是预绘脚本【自己那一行】，跑它才叫同构，不是抄一遍
+const prePaintDecide = prePaintRule ? new Function('stored', `return ${prePaintRule};`) : null;
+const isoBad = prePaintDecide
+  ? NORMALIZE_TRUTH.filter(([input, want]) => prePaintDecide(input == null ? null : input) !== want)
+  : [['<rule not found>', '?']];
+ok(prePaintRule && isoBad.length === 0 && prePaintCatch === 'steward',
+  'A3 index.html 预绘脚本与 normalizeShellMode 行为同构（同一真值表两份实现），localStorage 抛异常也落 steward'
+  + `（实测 规则 '${prePaintRule}' / 异常 '${prePaintCatch}'`
+  + (isoBad.length ? ` / 偏差 ${JSON.stringify(isoBad.map(([input]) => [input, prePaintDecide && prePaintDecide(input == null ? null : input)]))}` : '')
+  + '）');
 
-// data-shell-mode 是唯一状态源：全仓写入点只有预绘脚本(2)、applyShellMode(1)、
-// recoverClassicShell(1)、recoverStewardShell(1)，别处一律不许写。
+// data-shell-mode 是唯一状态源：全仓写入点只有预绘脚本(2)、shell-mode.js 的 applyShellMode(1)、
+// steward-shell.js 的 recoverStewardShell(1)，别处一律不许写。
+// 121-K1：原来 preview-shell.js 有两处（applyShellMode + recoverClassicShell 各写一次）；搬家后
+// recoverClassicShell 改成走 applyShellMode('classic') 自己那条路，写者因此收成一处。
 function walk(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -71,24 +95,23 @@ for (const file of walk(PUBLIC)) {
   if (count) writeSites.push([path.relative(PUBLIC, file).replace(/\\/g, '/'), count]);
 }
 ok(JSON.stringify(writeSites.sort()) === JSON.stringify([
-  ['index.html', 2], ['js/preview-shell.js', 2], ['js/steward-shell.js', 1],
-]), 'A4 data-shell-mode 写入点只有预绘脚本 / applyShellMode+recoverClassicShell / recoverStewardShell'
+  ['index.html', 2], ['js/shell-mode.js', 1], ['js/steward-shell.js', 1],
+]), 'A4 data-shell-mode 写入点只有预绘脚本 / applyShellMode / recoverStewardShell'
   + `（实测 ${JSON.stringify(writeSites)}）`);
-ok(/function recoverClassicShell[\s\S]{0,200}setAttribute\('data-shell-mode', 'classic'\)|const recoverClassicShell = \(\) => \{[\s\S]{0,200}setAttribute\('data-shell-mode', 'classic'\)/.test(previewShell)
-  && /function applyShellMode\(value[\s\S]{0,700}document\.documentElement\.setAttribute\('data-shell-mode', mode\);/.test(previewShell),
-  'A5 preview-shell 的两处写入分别住在 recoverClassicShell 与 applyShellMode 里');
-ok(/if \(mode === 'steward' && !canEnterSteward\(\)\) return recoverStewardShell\(\{ persist \}\) \|\| recoverClassicShell\(\);/.test(previewShell)
-  && /canEnterSteward = \(\) => false,/.test(previewShell)
-  && /recoverStewardShell = \(\) => '',/.test(previewShell),
-  'A6 进管家壳前先过注入的准入判定，缺省注入即 fail-closed（准入恒 false）');
+ok(/function applyShellMode\(value[\s\S]{0,900}documentRef\.documentElement\.setAttribute\('data-shell-mode', mode\);/.test(shellMode)
+  && /function recoverClassicShell\(\) \{\s*return applyShellMode\('classic', \{ focus: false \}\);\s*\}/.test(shellMode),
+  'A5 shell-mode 唯一那处写入住在 applyShellMode 里，recoverClassicShell 走同一条路（不另开写口）');
+ok(/if \(mode === 'steward' && !canEnterSteward\(\)\) return recoverStewardShell\(\{ persist \}\) \|\| 'classic';/.test(shellMode)
+  && /canEnterSteward = \(\) => false,/.test(shellMode)
+  && /recoverStewardShell = \(\) => '',/.test(shellMode),
+  'A6 进管家视角前先过注入的准入判定，缺省注入即 fail-closed（准入恒 false）');
 
 // ─── B 同级容器与骨架空位 ────────────────────────────────────────────────────────
 const appShellStart = html.indexOf('<div class="app-shell">');
-const previewStart = html.indexOf('<section id="previewShell"');
-const previewEnd = html.indexOf('id="previewShellStatus"', previewStart);
 const stewardStart = html.indexOf('<section id="stewardShell"');
-ok(appShellStart >= 0 && previewStart > appShellStart && previewEnd > previewStart && stewardStart > previewEnd,
-  'B1 #stewardShell 是 .app-shell 与 #previewShell 之后的同级后置容器，两壳骨架未被包入新壳');
+ok(appShellStart >= 0 && stewardStart > appShellStart
+  && html.indexOf('previewShell') === -1,
+  'B1 #stewardShell 是 .app-shell 之后的同级后置容器，且 #previewShell 已随交办台退役（DOM 里零残留）');
 const stewardEnd = html.indexOf('</section>', stewardStart);
 const stewardMarkup = html.slice(stewardStart, stewardEnd);
 for (const id of ['stewardHeader', 'stewardFeed', 'stewardComposer', 'stewardStatus', 'stewardClassicBtn']) {
@@ -101,9 +124,18 @@ ok(/id="stewardStatus"[^>]*role="status"[^>]*aria-live="polite"/.test(stewardMar
   'B5 状态区是 role="status" 的礼貌播报区');
 ok(/<textarea id="stewardComposerInput"[\s\S]{0,200}disabled/.test(stewardMarkup),
   'B6 117a 的输入框只是禁用占位（真输入归 117c）');
-ok(/<option value="steward" data-i18n="stewardShell\.settingOption">/.test(html)
+// 121-K1：视角选择器只剩两项，管家在前、且用的是 shell.* 那套键（原 stewardShell.settingOption
+// 随「第三种壳」这个说法一起退役）。选项集合必须【恰好】等于 SHELL_MODES —— 少一项 = 某个视角
+// 再也选不到，多一项 = 凭空发明了第三视角。
+const selectorStart = html.indexOf('<select id="cfgShellMode">');
+const selectorMarkup = html.slice(selectorStart, html.indexOf('</select>', selectorStart));
+const optionValues = [...selectorMarkup.matchAll(/<option value="([a-z]+)"/g)].map(match => match[1]);
+ok(JSON.stringify(optionValues) === JSON.stringify([...declaredModes]),
+  `B7a 视角选择器的选项恰好是 SHELL_MODES 且同序（实测 ${JSON.stringify(optionValues)}）`);
+ok(/<option value="steward" data-i18n="shell\.settingSteward">/.test(selectorMarkup)
+  && /<label for="cfgShellMode" data-i18n="shell\.settingLabel">/.test(html)
   && /id="stewardShellModeHint"[^>]*data-i18n="stewardShell\.settingDisabledHint"[^>]*hidden/.test(html),
-  'B7 设置页壳模式第三项与「先打开管家」提示都在 DOM 里');
+  'B7b 管家项与「先打开管家」提示都在 DOM 里，标签与选项文案走 shell.* 那套键');
 
 // ─── C 管家壳模块：零 innerHTML、零轮询、三分支 fail-closed ─────────────────────
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(stewardShell),
@@ -161,13 +193,18 @@ ok(app.includes("from './js/steward-shell.js'") && app.includes('createStewardSh
   && app.includes('bindStewardShell();')
   && app.includes('stewardShellGuard = stewardShellDomain;')
   && providerSettings.includes('try { syncStewardShellAvailability(); } // 117a'),   // 117j classic-2 重钉：调用点没变，外面多了一层 try/catch
-  'C9 组合根只做领域组合与绑定，config 刷新点同步第三项可选性');
+  'C9 组合根只做领域组合与绑定，config 刷新点同步管家项的可选性');
+ok(app.includes("from './js/shell-mode.js'") && app.includes('createShellModeController({')
+  && app.includes('bindShellModeControl();')
+  && !app.includes('preview-shell.js'),
+  'C9b 121-K1：组合根从 js/shell-mode.js 取视角控制器并统一绑定，零 preview-shell 残留');
 
 // ─── D 样式层 ────────────────────────────────────────────────────────────────────
 ok(/:root\[data-shell-mode="steward"\] body > \.app-shell \{ display: none !important; \}/.test(css),
-  'D1 管家模式隐藏经典壳');
-ok(/:root\[data-shell-mode="steward"\] body > \.preview-shell \{ display: none !important; \}/.test(css),
-  'D2 管家模式隐藏交办台预览壳');
+  'D1 管家视角隐藏工作台视角');
+// 121-K1：交办台整层退役 —— 隐藏它那条规则、它的样式层、它的类名，一个字都不许留在本层。
+ok(!/preview-shell|\.preview-/.test(css) && !styles.includes('preview-shell.css'),
+  'D2 交办台的隐藏规则与样式层已随它退役（本层与兼容清单零残留）');
 ok(/\.steward-shell \{\s*display: none;/.test(css)
   && /:root\[data-shell-mode="steward"\] body > \.steward-shell \{[\s\S]{0,200}display: grid/.test(css),
   'D3 管家壳默认不显示，只有管家模式才铺开');
@@ -194,3 +231,4 @@ ok(styles.includes('@import url("/css/views/steward-shell.css");')
 
 console.log(`\nSTEWARD SHELL STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
+})().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

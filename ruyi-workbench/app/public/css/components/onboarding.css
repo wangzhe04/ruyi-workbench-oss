@@ -77,10 +77,9 @@
 .onboard-wiz-foot { flex-wrap: wrap; }
 .onboard-wiz-foot-spacer { flex: 1; }
 
-/* First-run entry buttons in both shells. */
+/* First-run entry buttons. */
 .onboard-start-guide { align-self: center; }
 .onboard-start-hint { margin: 0; font-size: var(--fs-xs); text-align: center; }
-.preview-first-run-guide-btn { margin-top: var(--sp-3); }
 
 @media (max-width: 520px) {
   .modal.onboard-wizard { width: 100%; max-height: calc(100vh - 16px); }

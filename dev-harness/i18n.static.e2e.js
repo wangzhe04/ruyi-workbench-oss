@@ -220,13 +220,21 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
     'client code must never read a server-dispatched .stateLabel field — user-facing state copy comes only from t(\'mission.state.*\')');
   assert.ok(!/\.fromCard\([^)]*\)\.label\b|\.fromSnapshot\([^)]*\)\.label\b|derived\.label\b|missionState\.LABELS\b|MissionState\.LABELS\b/.test(app),
     'client code must never read mission-state.js LABELS/.label — that is a mirror of the server shape, not for UI copy');
-  // 三个壳（交办台／看板／抽屉）的 stateLabel() 函数体现在应当逐字查同一个前缀 mission.state.
-  // （包装形式允许不同——preview-shell.js 原本就是箭头函数、steward-board.js／steward-drawer.js
-  // 原本就是声明式函数——本条只钉「查同一个前缀」这一件事，不强行拉齐包装语法）。
+  // 每一处 stateLabel() 函数体都必须逐字查同一个前缀 mission.state.（包装形式允许不同 ——
+  // steward-board.js／steward-drawer.js 原本就是声明式函数——本条只钉「查同一个前缀」这一件事，
+  // 不强行拉齐包装语法）。
+  // 121-K1（34 号文 §8.1）：交办台退役，它那一份 stateLabel() 随 preview-shell.js 一起删除，
+  // 计数 3 → 2。判据【收紧】成「每一个查询点都在这两个模块里」——只钉数字挡不住有人在第三个
+  // 文件里再抄一份，所以顺便钉住它们的出处。
+  const STATE_LABEL_OWNERS = ['js/steward-board.js', 'js/steward-drawer.js'];
   const stateLabelPrefixHits = [...app.matchAll(/`mission\.state\.\$\{value\}`/g)].length;
-  assert.strictEqual(stateLabelPrefixHits, 3,
-    `exactly three stateLabel() bodies (preview-shell/steward-board/steward-drawer) must query the same mission.state. prefix (found ${stateLabelPrefixHits})`);
-  console.log('PASS mission.state.* single path: no client read of server stateLabel or mission-state.js .label; three shells query the same prefix');
+  const stateLabelOwnerHits = STATE_LABEL_OWNERS.map(rel =>
+    [...fs.readFileSync(path.join(PUBLIC, ...rel.split('/')), 'utf8').matchAll(/`mission\.state\.\$\{value\}`/g)].length);
+  assert.strictEqual(stateLabelPrefixHits, 2,
+    `exactly two stateLabel() bodies (steward-board/steward-drawer) must query the mission.state. prefix (found ${stateLabelPrefixHits})`);
+  assert.deepStrictEqual(stateLabelOwnerHits, [1, 1],
+    `the two stateLabel() queries must live in ${STATE_LABEL_OWNERS.join(' / ')} (found ${JSON.stringify(stateLabelOwnerHits)})`);
+  console.log('PASS mission.state.* single path: no client read of server stateLabel or mission-state.js .label; both views query the same prefix');
   console.log('I18N STATIC E2E: ALL PASS');
 })().catch(error => {
   console.error('I18N STATIC E2E: FAIL');

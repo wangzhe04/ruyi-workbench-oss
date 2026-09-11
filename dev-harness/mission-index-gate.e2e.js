@@ -1,6 +1,7 @@
 (async () => {
 'use strict';
-// E2E(第56波 Pretender 立项门):全局「需要你」聚合 + 任务单五态派生 + 四旅程数据面 + PoC 接线。
+// E2E(第56波立项门;121-K1 交办台退役后改名保留 —— 本件测的是【后端投影索引与聚合读模型】,
+// 与已删除的交办台前端无关):全局「需要你」聚合 + 任务单五态派生 + 四旅程数据面 + PoC 接线。
 // 覆盖:
 //  (a) GET /api/interventions 全局收件箱:无 token 403;question pending 时出现(type/sessionId/live/计数);
 //      决策后消失;counts 含 pool 键。
@@ -16,7 +17,7 @@ const { readServerSource } = require('./src-reader');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
-const HOME = path.join(os.tmpdir(), 'wcw-pretender-gate-e2e');
+const HOME = path.join(os.tmpdir(), 'wcw-mission-index-gate-e2e');
 const PROVIDER_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
@@ -239,7 +240,7 @@ function spawnWb() {
     kill(wb); await new Promise(r => provider.close(r));
     await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
   }
-  console.log('\nPRETENDER GATE E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
+  console.log('\nMISSION INDEX GATE E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
   process.exitCode = fail ? 1 : 0;
 })().catch(err => { console.error(err.stack || err); process.exitCode = 1; });
 })();

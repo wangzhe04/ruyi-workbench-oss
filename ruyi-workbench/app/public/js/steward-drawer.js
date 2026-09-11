@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './preview-task-sheet.js';
+import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
@@ -46,9 +46,9 @@ import { confirmDanger } from './confirm-panel.js';
 //   ① 事项行 ② 线程页签 ③ 线程头 ④ 快切 chip ⑤ 它刚说 ⑥ 你可以说 ⑦ 接力 ⑧ 三问 ⑨ 验收项 ⑩ 现场 ⑪ 底部
 //
 // 复用而不是复制（117d 门）：
-//   · 验收项 → preview-task-sheet.js 的 acceptanceItems / activeAcceptanceIndex / taskProgress / elapsedLabel；
+//   · 验收项 → thread-facts.js 的 acceptanceItems / activeAcceptanceIndex / taskProgress / elapsedLabel；
 //   · 三问   → turn-activity.js 的 describeTurnActivity（本文件不定义同名函数）；
-//   · 五态   → mission-state.js 的 fromCard（UMD，import 后挂在 globalThis.MissionState，与 preview-shell 同款）；
+//   · 五态   → mission-state.js 的 fromCard（UMD，import 后挂在 globalThis.MissionState）；
 //   · 快切   → steward-chips.js 的 createQuickSwitchChips（117g 的 2.0 顶栏与 117h 的看板行 mount 同一个工厂）。
 //     本文件【不自己实现权限档的 PATCH】——线程权限只有 steward-chips.js 一个写口。
 //

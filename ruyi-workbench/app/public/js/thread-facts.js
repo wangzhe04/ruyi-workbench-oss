@@ -1,10 +1,53 @@
 'use strict';
 
-export function pendingCount(pending) {
-  return ['permissions', 'questions', 'plans', 'pool']
-    .reduce((sum, key) => sum + Math.max(0, Number(pending && pending[key]) || 0), 0);
+// ─────────────────────────────────────────────────────────────────────────────
+// thread-facts.js — 线程/任务的「事实折算」纯函数叶子（121 波 K1，34 号文 §8.2）。
+//
+// 这些函数 121 波之前住在 js/preview-task-sheet.js（交办台的任务单层）。交办台退役后它们的消费者
+// 只剩管家视角的看板与抽屉，以及新开任务时的验收里程碑 —— 它们本来就与任何一个壳无关：
+// 入参是 /api/missions 的行或 /api/missions/:id 的快照，出参是可直接画的数字与条目。
+// 纪律与 mission-state.js 一致：纯函数、零 DOM、零 t()、零 fetch。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 五态 → 圆点色调。原住 preview-shell.js:54。
+// 117n-M1③：settled 只在 done 且【调用方主动选它】时才出（看板的 paintDot 传 settleDone:true）；
+// 不传这个选项时的返回值一个字没变（done 仍落 quiet）。
+// 121-K1 落点交代：34 号文 §8.2 原计划把它搬进 mission-state.js（「五态的表现与五态同住」）。
+// 实测不行，两条硬理由：① mission-state.js 是 UMD（六件 Node 测试 require 它），加不了 ESM 命名导出，
+// 消费者只能改成读 globalThis.MissionState —— 而 steward-board.static.e2e.js B1 钉着「看板零直接
+// MissionState 引用」（那是「不许长出第二份五态判据」的机械保证），搬过去等于把一把真锁拆了；
+// ② steward-tools.static.e2e.js ⑥ 拿 mission-state.js 与服务端 06i 逐条机械对账，那个文件应当
+// 只住五态判据本身。而 tone 是「五态的显示事实」，与本文件的 taskProgress／elapsedLabel 同族。
+export function dockToneForMissionState(value, { settleDone = false } = {}) {
+  if (value === 'needs_you') return 'attention';
+  if (value === 'running' || value === 'dispatching') return 'active';
+  if (settleDone && value === 'done') return 'settled';
+  return 'quiet';
 }
 
+// 任务卡的重绘签名（原住 preview-dock-home.js:7）。116-3 A4：签名要覆盖【卡片真的画出来的每一样
+// 事实】。117h 第 0 步给 /api/missions 的行加了 missionTitle / goal / acceptanceItems（事项容器直出），
+// 而 acceptance.done/total 早就在画了 —— 它们都不在旧签名里。改事项标题、改目标、勾一条验收项时
+// updatedAt 不一定动（容器与会话是两份文件），签名不变 → 整块不重绘，用户看到的还是旧标题/旧进度。
+export function missionCardSignature(card, ui = {}) {
+  const pending = card && card.pending;
+  const acceptance = (card && card.acceptance) || {};
+  return [
+    card && card.missionId,
+    card && card.updatedAt,
+    (card && card.runCount) || 0,
+    card && card.activeTurn || '',
+    !!(card && card.mission && card.mission.done),
+    pending ? (pending.permissions || 0) + ':' + (pending.questions || 0) + ':' + (pending.plans || 0) + ':' + (pending.pool || 0) : '',
+    (card && card.missionTitle) || '',
+    (card && card.goal) || '',
+    (Number(acceptance.done) || 0) + '/' + (Number(acceptance.total) || 0),
+    ui.pinned ? 1 : 0,
+    ui.archived ? 1 : 0,
+  ].join('|');
+}
+
+// 验收进度。有详情快照就以快照的 acceptance 为准（容器直出的整表），否则退回卡片账本的里程碑计数。
 export function taskProgress(card, snapshot = null) {
   if (snapshot && snapshot.acceptance) {
     const total = Math.max(0, Number(snapshot.acceptance.total) || 0);
@@ -36,6 +79,10 @@ export function activeAcceptanceIndex(items) {
   return list.findIndex(item => item && item.status === 'blocked');
 }
 
+// 前端【唯一】的 mission 里程碑生产者（34 号文 §8.3 第 1 条）。
+// 服务端 POST /api/mission action:start 要求至少一条里程碑，否则账本立不起来 —— 而账本一旦为空，
+// 抽屉的验收块（steward-drawer.js）与看板的验收计数（steward-board.js）对这条新任务就永远是空的。
+// 目标（goal）保持用户原话，验收另行措辞：账本要说清「什么叫做完」，不是把任务再抄一遍。
 export function dispatchAcceptanceMilestones(prompt) {
   const source = String(prompt || '').trim();
   const chinese = /[\u3400-\u9fff]/.test(source);
@@ -79,6 +126,7 @@ export function dispatchAcceptanceMilestones(prompt) {
   ];
 }
 
+// 时长（不是「多久以前」—— 那一支走 Intl.RelativeTimeFormat，见 steward-conversation.js 的注释）。
 export function elapsedLabel(startedAt, current = new Date()) {
   const start = startedAt instanceof Date ? startedAt.getTime() : Date.parse(String(startedAt || ''));
   const end = current instanceof Date ? current.getTime() : Date.parse(String(current || ''));

@@ -25,8 +25,8 @@
   const STATES = ['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask'];
   // 117q-B3b（30 号文 §4.4）：LABELS 是服务端 06i-steward-core.js STEWARD_STATE_LABELS 那份表
   // 的抄写件镜像 —— 留着是为了让两边 derive* 返回值形状对齐（06i 的 label 字段真有人读，见服务端
-  // 那一侧）。用户可见的人话一律走 t('mission.state.*')（preview-shell.js / steward-board.js /
-  // steward-drawer.js 三个壳的 stateLabel() 都查这一组键），前端任何地方都不许读本文件 LABELS
+  // 那一侧）。用户可见的人话一律走 t('mission.state.*')（steward-board.js / steward-drawer.js
+  // 两处 stateLabel() 都查这一组键；121-K1 前还有交办台那第三处），前端任何地方都不许读本文件 LABELS
   // 或 deriveMissionState().label —— 那样会绕开 i18n，英文界面会看到中文。
   const LABELS = {
     dispatching: '交办中', running: '进行中', needs_you: '需要你',

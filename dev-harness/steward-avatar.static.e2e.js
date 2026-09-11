@@ -97,12 +97,14 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 本域内相对路径、零第三方库、零裸包名。反向验证过：往 steward-shell.js 里加一条
   // `import x from 'lodash';` 立刻真红，删掉即绿。
   "import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份",
-  // 33 号文 §4 重钉（本波交付）：白名单加第九条 —— 壳模式本机偏好的那一枚键。原来 steward-shell.js
-  // 自带一份 byId 与两个 'wcw.shellMode' 字面量，与 preview-shell.js:39 的 SHELL_MODE_STORAGE_KEY
-  // 逐字重复；现在两样都只留一份定义（byId 归上一条 steward-chips.js）。跨壳取键的先例是
-  // steward-board.js 反向 import preview-shell.js（33 号文 §1 第 10 行登记）；preview-shell.js 不
-  // import 任何 steward-* 模块，故不构成循环。形态仍然不变：相对路径、零第三方库、零裸包名。
-  "import { SHELL_MODE_STORAGE_KEY } from './preview-shell.js';",
+  // 33 号文 §4 重钉（117 波交付）：白名单加第九条 —— 视角模式本机偏好的那一枚键。原来
+  // steward-shell.js 自带一份 byId 与两个 'wcw.shellMode' 字面量，与那份定义逐字重复；现在两样都
+  // 只留一份定义（byId 归上一条 steward-chips.js）。
+  // 121-K1（34 号文 §8.2）重钉：那份定义随交办台退役从 preview-shell.js 搬进叶子 js/shell-mode.js
+  // ——【取法一个字未变】，只换来源，而且新来源是一片零 import 的叶子，连「跨壳反向 import」这笔
+  // 债都一并还了（shell-mode.js 不 import 任何 steward-* 模块，故不构成循环）。
+  // 形态仍然不变：相对路径、零第三方库、零裸包名。
+  "import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';",
 ]), `D2 steward-shell.js 的 import 只有本域内相对路径、零第三方库、零裸包名：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');

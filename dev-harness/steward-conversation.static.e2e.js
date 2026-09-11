@@ -111,8 +111,8 @@ ok(/if \(act && act\.primary === true && !primaryTaken\) \{ btn\.classList\.add\
 ok(/\.steward-act\.is-primary \{/.test(css), 'B5 CSS 里 .is-primary 是唯一的主动作视觉档');
 
 // ─── C 禁词：界面不出现系统标签，也不提前暴露内部代号 ────────────────────────────
-// locale 一侧只查 stewardShell.* 命名空间：「速问」是【交办台预览壳】(previewShell.*) 自己的产品词
-// （previewShell.quickAsk 等 5 条既有键），不是管家壳的系统标签，不该被本件连坐。
+// locale 一侧只查 stewardShell.* 命名空间：「速问」曾是交办台自己的产品词（121-K1 随它退役），
+// 不是管家的系统标签，本件不为别的命名空间连坐。
 const FORBIDDEN = [/速问/, /不立单/, /已切到档位/, /Pretender/, /3\.0/];
 for (const pattern of FORBIDDEN) {
   ok(!pattern.test(conversationCode) && !pattern.test(composerCode) && !pattern.test(cssCode),
@@ -731,9 +731,13 @@ ok(JSON.stringify(mod.stewardAgoParts('2026-09-09T11:59:40.000Z', agoNow)) === J
 ok(mod.stewardAgoParts('2026-09-10T12:00:00.000Z', agoNow) === null
   && mod.stewardAgoParts('', agoNow) === null && mod.stewardAgoParts(null, agoNow) === null,
   'Q4b 时间在未来、或根本没有时间戳时回 null（调用方据此整段不说，不猜一个「刚刚」出来）');
+// 121-K1 重钉：elapsedLabel 从 preview-task-sheet.js 搬进叶子 thread-facts.js（那个文件随交办台
+// 退役整文件删除）。判据【收紧】：既不许从新家 import 那一支，也不许 import 任何已被删掉的
+// preview-* 模块（后者是纪律 13「搬符号必 grep 引用点」的机械保证 —— 一个死 import 就是白屏）。
 ok(/new Intl\.RelativeTimeFormat\(/.test(conversationCode)
-  && !/from '\.\/preview-task-sheet\.js'/.test(conversation),
-  'Q4c 相对时间走平台的 Intl，不去抄 preview-task-sheet.js 的 elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」）');
+  && !/\belapsedLabel\b/.test(conversationCode)
+  && !/from '\.\/preview-[a-z-]+\.js'/.test(conversation),
+  'Q4c 相对时间走平台的 Intl，不去抄 thread-facts.js 的 elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」），也不留任何指向已退役 preview-* 的 import');
 
 // ② 颜色只从令牌来：本层【只有一处】把颜色算出来，四个色号规则各自只改 --thread-hue 指向哪一根，
 //    JS 一个颜色值都不写（它只写 data-thread-hue 这个序号）。

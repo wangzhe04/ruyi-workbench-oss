@@ -323,8 +323,8 @@ export function stewardThreadFacts(payload) {
 
 // 「最后动静」= 相对时间。**不自己写一套人话**：只算出 Intl.RelativeTimeFormat 要的
 // (value, unit) 两个数，人话交给平台按 documentElement.lang 去说（skills-memory.js:659 用
-// Intl.DateTimeFormat 是同一个先例）—— 于是零新增 i18n 键，也不去抄 preview-task-sheet.js 的
-// elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」，两码事）。
+// Intl.DateTimeFormat 是同一个先例）—— 于是零新增 i18n 键，也不去抄 thread-facts.js 的那一支
+// 时长格式化（它出的是【时长】「3m 20s」，不是「3 分钟前」，两码事）。
 // 拿不到时间、或时间在未来，一律回 null —— 不猜。纯函数、零 DOM。
 export function stewardAgoParts(iso, nowMs) {
   const at = Date.parse(String(iso == null ? '' : iso));

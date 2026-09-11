@@ -8,21 +8,21 @@ import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createStewardClassicWindow } from './steward-classic-window.js';
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份
-// 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有 preview-shell.js 那一份定义，
-// byId 只有 steward-chips.js 那一份 —— 本文件两者都不再自带。跨壳取键的先例是 steward-board.js
-// 的反向 import（33 号文 §1 第 10 行登记过），这里沿用同一条路。
-import { SHELL_MODE_STORAGE_KEY } from './preview-shell.js';
+// 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
+// steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
+// 从 preview-shell.js 搬到叶子 js/shell-mode.js，本文件只改 import 来源，取法一个字未变。
+import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';
 
-// 第117波 117a/117b/117c：管家壳（第三种壳模式 steward）的模式与容器骨架 + avatar 状态派生
+// 第117波 117a/117b/117c：管家壳（管家视角 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
 // 依赖注入 —— 组合根 app.js 因此净增 0 行，D45 余量未动）。
 //
-// 范式与 preview-shell.js 一致：一个注入依赖的工厂、一份冻结导出、零 innerHTML。
+// 范式：一个注入依赖的工厂、一份冻结导出、零 innerHTML。
 // 边界（117a 定的，117b 仍然遵守）：
 //   · 只负责「能不能进管家壳」「进不去时怎么体面地回经典」「avatar 现在是什么态」，不做对话／递话／
 //     抽屉／看板（117c–h）。
 //   · `data-shell-mode` 是唯一状态源；本文件写它的地方只有 recoverStewardShell 这一处 fail-closed 回退，
-//     正常进入由 preview-shell.js 的 applyShellMode 单点写入。
+//     正常进入由 shell-mode.js 的 applyShellMode 单点写入。
 //
 // fail-closed 三分支（recoverStewardShell）：
 //   ① 管家开关关（`state.config.stewardEnabledV1 !== true`）；
@@ -350,16 +350,16 @@ export function createStewardShellDomain({
       clearStatusText();   // 117k：进得去就没有「回到经典」这回事，那句话不该再留在屏幕上
       // 121 波 K0（34 号文 §8.4 拍板③「默认入口改管家视角」）：判据从「存了 steward」放宽成
       // 「没存过显式的非管家偏好」——与 index.html 预绘脚本同一条规则（没存过／未知值 = steward）。
-      // 【为什么落点在这里而不是预绘脚本】：预绘写下的属性会被 bindPreviewShell 末尾那句
-      // applyShellMode(storedShellMode()) 覆盖（preview-shell.js:3645，storedShellMode 走
-      // normalizeShellMode，空值 → classic），而那一拍 state.config 还没到、canEnterSteward()
-      // 恒 false，所以首开进哪个视角【只能】由 config 到达后的这一处决定。只改预绘是空转
-      // （实测：pretender-shell.e2e.js B1「fresh profile defaults to classic」照旧 PASS）。
-      // 判据写成「不是 classic 也不是 preview」而不是 storedMode() !== 'classic'：交办台偏好要留住
-      // （删 preview 是 K1 的事）。下面 fail-closed 那支【不动】——它仍只认显式存了 steward 的人，
-      // 于是管家关着的存量用户既不会被弹「已回到经典」的说明，也不会被写一条他没选过的本机偏好。
-      const prefersClassicOrPreview = storedMode() === 'classic' || storedMode() === 'preview';
-      if (!prefersClassicOrPreview && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
+      // 【为什么落点在这里而不是预绘脚本】：预绘写下的属性会被 bind 期那句
+      // applyShellMode(storedShellMode()) 再判一次（shell-mode.js 的 bindShellModeControl），
+      // 而那一拍 state.config 还没到、canEnterSteward() 恒 false，所以首开进哪个视角【只能】由
+      // config 到达后的这一处决定。只改预绘是空转（34 号文 §13.1 记过这次证伪）。
+      // 121-K1：'preview' 这一档随交办台退役（§8.1）—— shell-mode.js 的 readStoredShellMode 读到
+      // 老用户那份偏好时会就地改写成 'steward'，所以本条判据只剩 classic 一个值要认。下面
+      // fail-closed 那支【不动】——它仍只认显式存了 steward 的人，于是管家关着的存量用户既不会被
+      // 弹「已回到经典」的说明，也不会被写一条他没选过的本机偏好。
+      const prefersClassic = storedMode() === 'classic';
+      if (!prefersClassic && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
     }
     if (isStewardMode() || storedMode() === 'steward') return recoverStewardShell();

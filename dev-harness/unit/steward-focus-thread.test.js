@@ -19,10 +19,10 @@ const { pathToFileURL } = require('node:url');
 const MODULE_PATH = path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'steward-board.js');
 let modulePromise;
 function loadModule() {
-  // steward-board.js 顶层 import 了 mission-state / net / preview-task-sheet / preview-shell /
-  // steward-chips / steward-drawer。前五个在 Node 下直接可 import；preview-shell.js（五态点的
-  // dockToneForMissionState 住那儿，复用而不是复制）经 state.js 会在模块顶层写一次 `window.state`
-  // 的兼容层 —— 给它一个 window 别名即可，不引入任何 DOM。测出来的仍然是纯函数本身。
+  // steward-board.js 顶层 import 了 mission-state / net / thread-facts / steward-chips /
+  // steward-drawer。它们在 Node 下都可直接 import；这条链上的 state.js 会在模块顶层写一次
+  // `window.state` 的兼容层 —— 给它一个 window 别名即可，不引入任何 DOM。测出来的仍然是纯函数本身。
+  // （121-K1：dockToneForMissionState / elapsedLabel 随交办台退役搬进叶子 thread-facts.js。）
   if (!globalThis.window) globalThis.window = globalThis;
   if (!modulePromise) modulePromise = import(pathToFileURL(MODULE_PATH).href);
   return modulePromise;

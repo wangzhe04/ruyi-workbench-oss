@@ -27,7 +27,6 @@
     <link rel="stylesheet" href="/css/views/workspace.css" />
     <link rel="stylesheet" href="/css/views/usage.css" />
     <link rel="stylesheet" href="/css/views/workbench.css" />
-    <link rel="stylesheet" href="/css/views/preview-shell.css" />
     <link rel="stylesheet" href="/css/components/onboarding.css" />
     <link rel="stylesheet" href="/css/views/steward-shell.css" />
     <link rel="stylesheet" href="/css/views/steward-avatar.css" />
@@ -65,15 +64,18 @@
           document.documentElement.setAttribute('data-density', 'comfortable');
         }
       })();
-      // 第76波：新任务台 Preview 默认关闭；只恢复本机壳层偏好，不触碰 Session/Mission 事实。
-      // 第117波 117a：壳模式升为三态（classic / preview / steward），预绘只认显式白名单。
-      // 第121波 K0（34 号文 §8.4）：默认入口改管家视角 —— 没存过偏好、或存了未知值，一律落
-      // steward；显式存 classic / preview / steward 的各落各的。管家壳的准入（开关
-      // stewardEnabledV1 + 骨架齐备）仍在 config 到达后再判，判不过由 recoverStewardShell 回经典。
+      // 只恢复本机视角偏好，不触碰 Session/Mission 事实。预绘只认显式白名单。
+      // 第121波 K0/K1（34 号文 §2.7／§8.4）：一台两视 —— data-shell-mode 只剩 steward | classic。
+      // 没存过偏好、存了未知值、localStorage 抛异常，一律落 steward；显式存 classic 的落 classic；
+      // 老用户存的已退役的 'preview'（交办台）也落 steward。这三条与 js/shell-mode.js 的
+      // normalizeShellMode 必须【同构】（静态锁 steward-shell.static.e2e.js A3 钉着）；这里是同一条
+      // 规则的另一份实现，因为预绘必须跑在任何模块加载之前，没法 import。
+      // 管家的准入（开关 stewardEnabledV1 + 骨架齐备）仍在 config 到达后再判，判不过由
+      // recoverStewardShell 回工作台视角。
       (function () {
         try {
           var stored = localStorage.getItem('wcw.shellMode');
-          var shellMode = (stored === 'classic' || stored === 'preview') ? stored : 'steward';
+          var shellMode = (stored === 'classic') ? stored : 'steward';
           document.documentElement.setAttribute('data-shell-mode', shellMode);
         } catch (e) { document.documentElement.setAttribute('data-shell-mode', 'steward'); }
       })();
@@ -101,7 +103,6 @@
 
         <div class="classic-sidebar-primary-actions">
           <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
-          <button id="openPreviewBtn" type="button" class="ghost full btn-ic classic-preview-switch" data-icon="cloud" data-icon-size="15"><span data-i18n="previewShell.openPreview">交办台</span></button>
         </div>
 
         <div class="search-wrap">
@@ -505,56 +506,8 @@
       <div id="rightResizeHandle" class="right-resize-handle" role="separator" aria-orientation="vertical"
            tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档"></div>
     </div>
-
-    <!-- 第76波：新任务台 Preview 壳层是经典 .app-shell 的同级容器。经典三栏内部 DOM 不迁移；
-         两壳读取同一 Mission projection，切换仅为本机 UI 偏好。Preview 默认关闭。 -->
-    <section id="previewShell" class="preview-shell" aria-label="新任务台预览" data-i18n-attr="aria-label:previewShell.label" data-testid="previewShell">
-      <header class="preview-deskbar">
-        <div class="preview-deskbar-brand">
-          <span class="preview-deskbar-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/></svg></span>
-          <span class="preview-deskbar-name"><strong data-i18n="previewShell.brand">如意任务台</strong><span data-i18n="previewShell.previewLabel">预览</span></span>
-        </div>
-        <div class="preview-deskbar-facts" aria-label="案头事实" data-i18n-attr="aria-label:previewShell.factsLabel">
-          <button type="button" id="previewWorkspaceFact" class="preview-fact" title="切换工作圈" data-i18n-attr="title:previewShell.workspaceSettings">
-            <span class="preview-fact-label" data-i18n="previewShell.workspace">工作圈</span><span id="previewWorkspaceValue" class="preview-fact-value">—</span>
-          </button>
-          <button type="button" id="previewSafetyFact" class="preview-fact" title="调整安全档" data-i18n-attr="title:previewShell.safetySettings">
-            <span class="preview-fact-label" data-i18n="previewShell.safety">安全档</span><span id="previewSafetyValue" class="preview-fact-value">—</span>
-          </button>
-          <button type="button" id="previewEngineFact" class="preview-fact" title="切换引擎或模型" data-i18n-attr="title:previewShell.engineSettings">
-            <span class="preview-fact-label" data-i18n="previewShell.engine">引擎</span><span id="previewEngineValue" class="preview-fact-value">—</span>
-          </button>
-          <button type="button" id="previewNeedsFact" class="preview-fact preview-fact-needs" aria-haspopup="dialog" aria-expanded="false">
-            <span class="preview-needs-dot" aria-hidden="true"></span><span class="preview-fact-label" data-i18n="previewShell.needsYou">需要你</span><span id="previewNeedsValue" class="preview-fact-value">0</span>
-          </button>
-        </div>
-      </header>
-
-      <nav class="preview-dock" aria-label="任务坞" data-i18n-attr="aria-label:previewShell.dockLabel">
-        <div class="preview-dock-head">
-          <button type="button" id="previewNewMissionBtn" class="preview-new-mission" aria-label="新建任务单" title="新建任务单" data-i18n-attr="aria-label:previewShell.newMission;title:previewShell.newMission" data-icon="plus" data-icon-size="17"></button>
-          <span data-i18n="previewShell.dockTitle">任务坞</span><span id="previewDockCount" class="preview-dock-count">0</span>
-        </div>
-        <div id="previewMissionDock" class="preview-mission-dock" role="list"></div>
-        <div class="preview-dock-foot">
-          <button type="button" id="previewHomeBtn" class="preview-dock-action preview-home-action" data-icon="cloud" data-icon-size="15" data-i18n="previewShell.backHome" data-i18n-attr="title:previewShell.backHome;aria-label:previewShell.backHome">交办台</button>
-          <button type="button" id="previewArchiveBtn" class="preview-dock-action" data-icon="archive" data-icon-size="15" data-i18n="previewShell.archiveNav" data-i18n-attr="title:previewShell.archiveNav;aria-label:previewShell.archiveNav">任务档案</button>
-          <button type="button" id="previewRefreshBtn" class="preview-dock-action" data-icon="refresh" data-icon-size="15" data-i18n="previewShell.refreshNav" data-i18n-attr="title:previewShell.refreshNav;aria-label:previewShell.refreshNav">刷新状态</button>
-          <button type="button" id="previewSettingsBtn" class="preview-dock-action" data-icon="settings" data-icon-size="15" data-i18n="previewShell.settingsNav" data-i18n-attr="title:previewShell.settingsNav;aria-label:previewShell.settingsNav">偏好设置</button>
-          <button type="button" id="previewClassicBtn" class="preview-dock-action" data-icon="monitor" data-icon-size="15" data-i18n="previewShell.openClassic" data-i18n-attr="title:previewShell.openClassic;aria-label:previewShell.openClassic">经典模式</button>
-        </div>
-      </nav>
-
-      <main id="previewMain" class="preview-main" tabindex="-1" aria-label="任务台主视图" data-i18n-attr="aria-label:previewShell.mainLabel">
-        <section class="preview-empty-card"><span class="preview-eyebrow" data-i18n="previewShell.previewLabel">预览</span><h1 data-i18n="previewShell.loading">正在载入任务台…</h1></section>
-      </main>
-      <button type="button" id="previewNeedsScrim" class="preview-needs-scrim" aria-label="关闭需要你抽屉" data-i18n-attr="aria-label:previewShell.needsClose" hidden></button>
-      <aside id="previewNeedsDrawer" class="preview-needs-drawer" role="dialog" aria-modal="false" aria-label="需要你" data-i18n-attr="aria-label:previewShell.needsDrawerTitle" tabindex="-1" hidden></aside>
-      <div id="previewShellStatus" class="preview-shell-status" role="status" aria-live="polite"></div>
-    </section>
-
-    <!-- 第117波 117a：管家壳是 .app-shell 与 #previewShell 的【同级】容器（body 直系子元素）。
-         三壳长期并存，显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode
+    <!-- 第117波 117a：管家壳是 .app-shell 的【同级】容器（body 直系子元素）。121-K1：一台两视，
+         两个视角长期并存，显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode
          一处写这个属性。117a 立骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区）；117b 在顶栏里填入真
          avatar（圆＋环＋一对眼睛，data-state 由 steward-presence.js 的纯投影 derivePresence() 决定）与
          aria-live 状态文字，对话、递话、抽屉与看板仍归 117c–h；此处不放任何轮询之外的数据读取
@@ -889,35 +842,35 @@
               </div>
             </div>
             <div class="field-block">
-              <label for="cfgShellMode" data-i18n="previewShell.settingLabel">任务台布局</label>
+              <label for="cfgShellMode" data-i18n="shell.settingLabel">启动默认视角</label>
               <select id="cfgShellMode">
-                <option value="classic" data-i18n="previewShell.settingClassic">经典布局（默认）</option>
-                <option value="preview" data-i18n="previewShell.settingPreview">新任务台预览</option>
-                <!-- 117a：第三种壳。管家开关关时由 steward-shell.js 置 disabled 并显示下面那句提示。 -->
-                <option value="steward" data-i18n="stewardShell.settingOption">管家（预览）</option>
+                <!-- 121-K1（34 号文 §2.7）：一台两视，选项顺序与 SHELL_MODES 同序（默认在前）；管家开关关时由 steward-shell.js 置 disabled 并显示下面那句提示。 -->
+                <option value="steward" data-i18n="shell.settingSteward">管家（默认）</option>
+                <option value="classic" data-i18n="shell.settingClassic">经典</option>
               </select>
-              <p class="field-help muted" data-i18n="previewShell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
+              <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
             </div>
-            <section class="preview-notification-settings" aria-labelledby="previewNotificationHeading">
-              <div class="preview-notification-setting-head">
+            <!-- 121-K1（34 号文 §8.3 第 2 条）：交办台退役后这一块改名「提醒」保留，键与 id 一并改 notify.*／cfgNotify*，策略层住 js/notify-policy.js；本波只接本机偏好与系统通知授权，「什么时候真的弹」随安静卡（§4.3）归 K6。 -->
+            <section class="notify-settings" aria-labelledby="notifySettingsHeading">
+              <div class="notify-settings-head">
                 <div>
-                  <h4 id="previewNotificationHeading" data-i18n="previewShell.notificationSettingTitle">需要你时提醒我</h4>
-                  <p class="field-help muted" data-i18n="previewShell.notificationSettingHint">使用本机系统通知；默认关闭，只提醒启用后新出现的待决事项。</p>
+                  <h4 id="notifySettingsHeading" data-i18n="notify.settingTitle">需要你时提醒我</h4>
+                  <p class="field-help muted" data-i18n="notify.settingHint">使用本机系统通知；默认关闭，只提醒启用后新出现的待决事项。</p>
                 </div>
-                <label class="check preview-notification-toggle"><input type="checkbox" id="cfgPreviewNotifications" aria-describedby="previewNotificationStatus" /> <span data-i18n="previewShell.notificationSettingToggle">开启本机通知</span></label>
+                <label class="check notify-toggle"><input type="checkbox" id="cfgNotifyEnabled" aria-describedby="notifyStatus" /> <span data-i18n="notify.settingToggle">开启本机通知</span></label>
               </div>
-              <div class="field-grid preview-quiet-grid">
+              <div class="field-grid notify-quiet-grid">
                 <div class="field-block">
-                  <label for="cfgPreviewQuietStart" data-i18n="previewShell.notificationQuietStart">免打扰开始</label>
-                  <input id="cfgPreviewQuietStart" type="time" value="22:00" />
+                  <label for="cfgNotifyQuietStart" data-i18n="notify.quietStart">免打扰开始</label>
+                  <input id="cfgNotifyQuietStart" type="time" value="22:00" />
                 </div>
                 <div class="field-block">
-                  <label for="cfgPreviewQuietEnd" data-i18n="previewShell.notificationQuietEnd">免打扰结束</label>
-                  <input id="cfgPreviewQuietEnd" type="time" value="08:00" />
+                  <label for="cfgNotifyQuietEnd" data-i18n="notify.quietEnd">免打扰结束</label>
+                  <input id="cfgNotifyQuietEnd" type="time" value="08:00" />
                 </div>
               </div>
-              <p id="previewNotificationStatus" class="field-help preview-notification-status" role="status" aria-live="polite"></p>
+              <p id="notifyStatus" class="field-help notify-status" role="status" aria-live="polite"></p>
             </section>
             <div class="field-row">
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>

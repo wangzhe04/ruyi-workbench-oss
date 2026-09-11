@@ -5,9 +5,9 @@
 //
 //   agent-workflows.js 的 agentRunsPollWanted()/syncAgentRunsPolling() 此前只判「监控页签激活」∪「工作台画布
 //   视图激活」，没有 document.hidden 判定——标签页整个切到后台，2 秒一拍的 setInterval(loadAgentRuns, 2000)
-//   照常跑。另外四处轮询(preview-shell.js/session-experience.js/steward-board.js/steward-drawer.js)两个门控
+//   照常跑。另外三处轮询(session-experience.js/steward-board.js/steward-drawer.js)两个门控
 //   都有，这是「漏做一半」不是设计差异。修法只加 document.hidden 判定 + 监听 visibilitychange 重新同步，
-//   不抽公共模块(另外四处已被各自的静态锁按函数体逐字钉着，30号文已否决合并)。
+//   不抽公共模块(另外三处已被各自的静态锁按函数体逐字钉着，30号文已否决合并)。
 //
 // 本件只锁 agent-workflows.js 自己这一份的轮询生命周期(此前对它零静态锁):
 //   A 全文件恰好一处 setInterval／一处 clearInterval(轮询原语没有被复制出第二份)；

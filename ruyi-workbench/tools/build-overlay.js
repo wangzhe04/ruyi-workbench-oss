@@ -80,17 +80,13 @@ const PAYLOAD_FILES = [
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
   'app/public/js/mission-state.js',
-  // 第83波:现场纪要纯折算 + 本地通知状态策略(均为浏览器/Node 双导出)。
-  'app/public/js/preview-narrative.js',
-  'app/public/js/preview-notifications.js',
-  // 第76波:默认关闭的新任务台 Preview 壳层（与经典 app-shell 同级，读同一 Mission API）。
-  'app/public/js/preview-shell.js',
-  // 第100波:Preview 壳按 store / 坞与首页 / 任务单 / 镜头 / 收工域拆分，均为运行时依赖。
-  'app/public/js/preview-store.js',
-  'app/public/js/preview-dock-home.js',
-  'app/public/js/preview-task-sheet.js',
-  'app/public/js/preview-lenses.js',
-  'app/public/js/preview-finish.js',
+  // 121-K1:一台两视的视角登记表(data-shell-mode 的唯一常规写者)。缺文件会让离线包的 app.js
+  // import 整条挂掉 —— 两个视角都起不来。
+  'app/public/js/shell-mode.js',
+  // 121-K1:线程/任务的事实折算纯函数(看板、抽屉与新开任务的验收里程碑共用)。
+  'app/public/js/thread-facts.js',
+  // 121-K1:「需要你」本地提醒的纯策略层 + 设置块绑定(交办台退役后改名搬家)。
+  'app/public/js/notify-policy.js',
   'app/public/js/onboarding-wizard.js', // 118a
   'app/public/js/help-viewer.js', // 118a-fix
   'app/public/js/health-i18n.js', // 118b
@@ -129,7 +125,6 @@ const PAYLOAD_FILES = [
   'app/public/css/views/workspace.css',
   'app/public/css/views/usage.css',
   'app/public/css/views/workbench.css',
-  'app/public/css/views/preview-shell.css',
   'app/public/css/components/onboarding.css', // 118a
   'app/public/css/views/steward-shell.css', // 117a
   'app/public/css/views/steward-avatar.css', // 117b

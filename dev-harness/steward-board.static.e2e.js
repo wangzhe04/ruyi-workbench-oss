@@ -58,9 +58,9 @@ const ok = (condition, label) => {
 
 (async () => {
 
-// steward-board.js 经 preview-shell.js（dockToneForMissionState 住那儿，复用而不是复制）拉到
-// state.js，那个文件在模块顶层写一次 `window.state` 的兼容层。给它一个 window 别名即可 ——
-// 不引入任何 DOM，导出的仍然是纯函数与工厂本身（unit 件用的是同一个办法）。
+// steward-board.js 的传递依赖里有 state.js，那个文件在模块顶层写一次 `window.state` 的兼容层。
+// 给它一个 window 别名即可 —— 不引入任何 DOM，导出的仍然是纯函数与工厂本身（unit 件用的是同一
+// 个办法）。（121-K1 前这条链是经 preview-shell.js 拉进来的，那个文件已随交办台退役。）
 if (!globalThis.window) globalThis.window = globalThis;
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-board.js')).href);
 const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-drawer.js')).href);
@@ -68,8 +68,9 @@ const drawerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-dr
 const runStateMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'run-state.js')).href);
 // 33 号文 §4（M3-a）：确认件与其文案键登记表（D6 要正面查，不只看文本）。
 const confirmPanelMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'confirm-panel.js')).href);
-const previewShellMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'preview-shell.js')).href);
-const previewShell = read('js/preview-shell.js');
+// 121-K1（34 号文 §8.2）：dockToneForMissionState 与 elapsedLabel 搬进叶子 js/thread-facts.js
+// （原住 preview-shell.js / preview-task-sheet.js，两者随交办台退役整文件删除）。
+const threadFactsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'thread-facts.js')).href);
 
 // ─── A DOM 锚点 ─────────────────────────────────────────────────────────────────
 const headerStart = html.indexOf('id="stewardHeader"');
@@ -113,14 +114,18 @@ ok(board.includes("import './mission-state.js';")
   && drawer.includes('export function stewardThreadStateOf(card)')
   && !boardCode.includes('globalThis.MissionState')
   && drawer.includes('globalThis.MissionState') && drawer.includes('missionState.fromCard(card)'),
-  'B1 线程五态经 mission-state.js 的 fromCard（全仓唯一判据，与抽屉、交办台同源）');
+  'B1 线程五态经 mission-state.js 的 fromCard（全仓唯一判据，与抽屉同源）');
 for (const name of ['deriveMissionState', 'aggregateMissionState', 'dockToneForMissionState', 'elapsedLabel']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(boardCode),
     `B2 看板不定义同名函数 ${name}（复制即失去「同一份判据」）`);
 }
-ok(/import \{ dockToneForMissionState \} from '\.\/preview-shell\.js';/.test(board)
-  && /import \{ elapsedLabel \} from '\.\/preview-task-sheet\.js';/.test(board),
-  'B3 五态点的三档表现与耗时文案都是 import 复用（拼接读取，不是复制）');
+// 121-K1 重钉：判据不变（两样都必须 import 复用、不许复制），来源换成叶子 thread-facts.js。
+// 不再钉 import 语句的逐字形状：只要它们是【从那个叶子来的】就成立 —— 两个名字合成一行 import
+// 或分成两行都不该撞红。
+ok(/from '\.\/thread-facts\.js'/.test(board)
+  && new RegExp(`import \\{[^}]*\\bdockToneForMissionState\\b[^}]*\\} from '\\./thread-facts\\.js'`).test(board)
+  && new RegExp(`import \\{[^}]*\\belapsedLabel\\b[^}]*\\} from '\\./thread-facts\\.js'`).test(board),
+  'B3 五态点的档位表现与耗时文案都是 import 复用（来自叶子 thread-facts.js，不是复制）');
 // 聚合态：只读行上的 aggregateState，绝不在这里长出第二套「任一 needs_you 则…」的判据。
 const aggregateSites = [...boardCode.matchAll(/aggregateState/g)].length;
 ok(aggregateSites > 0 && !/aggregateMissionState/.test(boardCode)
@@ -372,19 +377,24 @@ ok(/\.steward-board-dot\[data-tone="attention"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="quiet"\]/.test(cssCode),
   'G9 五态点的颜色只经 dockToneForMissionState 的三档 data-tone');
 // 117n-M1③（用户「看板圆点看不出已完成」走查）：新增，不改 G9——加一档 settled，只在 done 且
-// 调用方主动传 settleDone:true 时才出现（默认返回值一个字不变，交办台 dock 座的三档表现零漂移）。
-ok(previewShellMod.dockToneForMissionState('done') === 'quiet'
-  && previewShellMod.dockToneForMissionState('done', { settleDone: true }) === 'settled'
-  && previewShellMod.dockToneForMissionState('running', { settleDone: true }) === 'active'
-  && previewShellMod.dockToneForMissionState('dispatching', { settleDone: true }) === 'active'
-  && previewShellMod.dockToneForMissionState('needs_you', { settleDone: true }) === 'attention'
-  && previewShellMod.dockToneForMissionState('stopped', { settleDone: true }) === 'quiet'
-  && previewShellMod.dockToneForMissionState('quick_ask', { settleDone: true }) === 'quiet',
+// 调用方主动传 settleDone:true 时才出现（默认返回值一个字不变）。
+// 121-K1 搬家复核：真值表逐条一个字没变，只是从 preview-shell.js 换成了 thread-facts.js。
+ok(threadFactsMod.dockToneForMissionState('done') === 'quiet'
+  && threadFactsMod.dockToneForMissionState('done', { settleDone: true }) === 'settled'
+  && threadFactsMod.dockToneForMissionState('running', { settleDone: true }) === 'active'
+  && threadFactsMod.dockToneForMissionState('dispatching', { settleDone: true }) === 'active'
+  && threadFactsMod.dockToneForMissionState('needs_you', { settleDone: true }) === 'attention'
+  && threadFactsMod.dockToneForMissionState('stopped', { settleDone: true }) === 'quiet'
+  && threadFactsMod.dockToneForMissionState('quick_ask', { settleDone: true }) === 'quiet',
   'G9b dockToneForMissionState 加了可选参数 settleDone：不传时 done 仍是 quiet（默认返回值零漂移），看板传 true 时 done 单独出第四档 settled，其余状态不受影响');
 ok(/dockToneForMissionState\(value, \{ settleDone: true \}\)/.test(board),
   'G9c 看板 paintDot 显式传 settleDone:true 才选出第四档（不是改了默认返回值）');
-ok(/button\.dataset\.dockTone = dockToneForMissionState\(derived\.state\);/.test(previewShell),
-  'G9d companion：交办台 renderDock 那处调用一个字没改（不传 settleDone，三档表现零漂移）');
+// 121-K1：原 G9d 钉的是交办台 renderDock 那处「不传 settleDone」的伴随调用点。交办台整层退役后
+// 全仓只剩看板一个调用点，「默认返回值零漂移」这件事改由上面 G9b 的真值表首行（done → quiet）
+// 直接钉住 —— 判据没放松，只是它的见证者从「另一个调用点」换成了「函数本身的默认返回值」。
+ok(threadFactsMod.dockToneForMissionState('done') === 'quiet'
+  && !/dockToneForMissionState/.test(read('js/steward-drawer.js')),
+  'G9d 默认返回值（不传 settleDone 时 done 仍是 quiet）零漂移；抽屉那一面仍然不碰这个函数（它走原始 state）');
 ok(/\.steward-board-dot\[data-tone="settled"\] \{ background: var\(--ok\); \}/.test(cssCode),
   'G9e 看板 CSS 补上 settled 档，复用抽屉 done 那一档同一个语义 token（--ok），不新造颜色');
 
@@ -661,7 +671,7 @@ ok(/function toneOf\(value\) \{ return dockToneForMissionState\(value, \{ settle
   && /node\.dataset\.state = value;/.test(paintDotBody)
   && /node\.dataset\.tone = toneOf\(value\);/.test(paintDotBody)
   && count(boardCode, /dockToneForMissionState\(/g) === 1
-  && /import \{ dockToneForMissionState \} from '\.\/preview-shell\.js';/.test(board),
+  && new RegExp(`import \\{[^}]*\\bdockToneForMissionState\\b[^}]*\\} from '\\./thread-facts\\.js'`).test(board),
   'N4 tone 契约一个字没变：dockToneForMissionState 全模块仍然只调一次（住在纯函数 toneOf 里，settleDone 那一档没动），四档 tone 仍是紧凑行展开／折叠的唯一判据');
 const boardGlyphNames = [
   ...[...boardCode.matchAll(/icon\('([A-Za-z]+)'/g)].map(match => match[1]),

@@ -245,24 +245,16 @@ function spawnWb() {
     ok(/id === 'delivery' && rawDesc\.trim\(\) === goal\.trim\(\)/.test(src) && /\^followup_/.test(src), 's 02 旧 delivery/followup 摘要项加载时迁移为验收式表述');
     ok(/resultHistory: Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory : \[\],/.test(src), 's 13d 快照带 resultHistory');
     ok(/archiveMissionResult\(mission\);/.test(src) && /archiveMissionResult\(m\);/.test(src), 's 02 stop/retry/next_turn/rollback + 再武装 前归档旧 result');
-    // 第97波:历史轮次验收报告全文 —— 归档不再裁 deliverableText(slice(0, 2000) 移除),preview 壳
-    // requiresTurn 分支不再跳经典壳、历史行提供应用内全文、推进按钮不再因 next_turn 不可用静默禁用。
+    // 第97波:历史轮次验收报告全文 —— 归档不再裁 deliverableText(slice(0, 2000) 移除)。
     ok(!/deliverableText\.length > 2000\) \{\s*archived\.deliverableText = archived\.deliverableText\.slice\(0, 2000\)/.test(src), 's 02 archiveMissionResult 不再裁 2000(保留完整正文)');
-    const shell = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'preview-shell.js'), 'utf8');
-    ok(shell.includes('runMissionControlTurn({ sessionId, action, prompt })') && !shell.includes("applyShellMode('classic');\n        const started = await runMissionControlTurn"), 's preview requiresTurn 分支不再跳经典壳(任务单内推进)');
-    ok(shell.includes("const openHistoryFullText = (item) =>") && shell.includes("modal-backdrop preview-history-report-backdrop")
-      && shell.includes("modal.setAttribute('aria-modal', 'true')") && !shell.includes("window.open('', '_blank')"), 's preview 历史轮次全文使用应用内阅读层（桌面端不再触发 about: 外链）');
-    ok(/submit\.disabled = Boolean\(controlBusy\) \|\| active;/.test(shell), 's preview 推进按钮仅在忙碌/活回合禁用(可点,服务端权威校验)');
-    // ── 第97波对抗复审(多 agent 审查 573daf7 的修复锁)──
-    ok(/renderMarkdownInto\(reportHost, full\);/.test(shell) && !/renderMarkdownInto\(reportHost, reportDeliveryText\(full\)\)/.test(shell), 's preview 应用内全文直接渲染原文(不经 reportDeliveryText 二次裁剪)');
-    ok(shell.includes("host.querySelector('.preview-finish-history')?.open === true") && shell.includes('section.open = historyWasOpen'), 's preview 历史轮次展开状态跨轮询重渲染保留');
-    ok(/if \(String\(item && item\.deliverableText \|\| ''\)\.trim\(\)\) \{\s*const fullButton/.test(shell), 's preview 空 deliverableText 轮次不渲染「打开全文」按钮(无死按钮)');
-    const app = fs.readFileSync(path.join(WB, 'app', 'public', 'app.js'), 'utf8');
-    ok(/await sendPrompt\(String\(prompt \|\| ''\)\.trim\(\)\);/.test(app), 's app.js runPreviewMissionControlTurn await sendPrompt(回合启动错误进 controlError,非静默)');
+    // 121-K1(34 号文 §8.1):第97波那 7 条【交办台收工页】的前端锁(requiresTurn 不跳壳、历史行应用内
+    // 全文阅读层、推进按钮禁用条件、展开状态跨轮询保留、空 deliverableText 不出死按钮、草稿清空,
+    // 以及 app.js 里 runPreviewMissionControlTurn 那条 await)随交办台一起退役 —— 它们钉的 DOM 与
+    // 函数都已不存在。服务端那一侧(本文件上下文全部 src 断言)一条没动,「归档保留完整正文」这件
+    // 用户可见的事仍由上面那条与真回合跑出来的 resultHistory 断言钉着。
     ok(/reg\.session\.mission\.result = session\.mission && session\.mission\.result \|\| null;/.test(src), 's 13 update 分支把磁盘权威 result 同步回活回合(防回合收尾覆盖丢失新章)');
     ok(/reg\.session\.mission\.resultHistory = Array\.isArray\(session\.mission && session\.mission\.resultHistory\) \? session\.mission\.resultHistory\.slice\(-10\) : \[\]\;/.test(src), 's 13 update 分支把磁盘权威 resultHistory 同步回活回合');
     ok(/if \(await maybeFinalizeMission\(session, 'driver'\)\)/.test(src), 's 10 驱动器机器验收全 done 补盖 complete 章(收工卡有验收报告)');
-    ok(/if \(!controlError\) \{ continueDraft = ''; renderMain\(\); \}/.test(shell), 's preview 回合继续完成后清空草稿并重渲染(输入框不残留旧文字)');
 
   } finally {
     kill(wb); await new Promise(r => provider.close(r));

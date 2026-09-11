@@ -777,7 +777,9 @@ try {
 
     // A4:主页卡片签名要覆盖它真的画出来的每一样事实。117h 给行加了 missionTitle/goal,
     // acceptance.done/total 早就在画了 —— 修前一个都不在签名里,改事项标题/目标/勾验收项都不重绘。
-    const dock = await import(require('url').pathToFileURL(path.join(WB, 'app', 'public', 'js', 'preview-dock-home.js')).href);
+    // 121-K1（34 号文 §8.2）：missionCardSignature 随交办台退役从 preview-dock-home.js 搬进
+    // 叶子 js/thread-facts.js。下面这张真值表一个字未变，只换了它住在哪。
+    const dock = await import(require('url').pathToFileURL(path.join(WB, 'app', 'public', 'js', 'thread-facts.js')).href);
     const base = { missionId: 'm1', updatedAt: 'T', runCount: 1, activeTurn: false, mission: { done: 1 }, pending: {}, missionTitle: '事项甲', goal: '把周报写完', acceptance: { done: 1, total: 3 } };
     const sig = card => dock.missionCardSignature(card, {});
     ok(sig(base) === sig({ ...base }), 'A4-0 同一张卡片签名稳定');

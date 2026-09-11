@@ -177,12 +177,17 @@ ok(/String\(\(option && \(option\.label \|\| option\.value\)\) \|\| ''\)/.test(d
   'D5 question 选项文案取 opt.label || opt.value（与 interaction-prompts.js 同口径）');
 
 // ─── E 拼接读取而不是复制 ────────────────────────────────────────────────────────
-ok(/import \{ acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel \} from '\.\/preview-task-sheet\.js';/.test(drawer),
-  'E1 验收项／进度／耗时 import 自 preview-task-sheet.js');
+// 121-K1（34 号文 §8.2）：这四个纯函数从 preview-task-sheet.js（随交办台退役整文件删除）搬进叶子
+// js/thread-facts.js。判据不变（四样都必须 import 复用、不许在抽屉里复制），只换来源；而且不再钉
+// import 语句的逐字顺序 —— 名字换个排列不该撞红。
+ok(/from '\.\/thread-facts\.js'/.test(drawer)
+  && ['acceptanceItems', 'activeAcceptanceIndex', 'taskProgress', 'elapsedLabel'].every(name =>
+    new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from '\\./thread-facts\\.js'`).test(drawer)),
+  'E1 验收项／进度／耗时四个纯函数 import 自叶子 thread-facts.js（不在抽屉里复制）');
 ok(/import \{ describeTurnActivity \} from '\.\/turn-activity\.js';/.test(drawer),
   'E2 三问 import 自 turn-activity.js');
 ok(/import '\.\/mission-state\.js';/.test(drawer) && /globalThis\.MissionState/.test(drawer),
-  'E3 五态经 mission-state.js（UMD，与 preview-shell.js 同款 import 后读 globalThis）');
+  'E3 五态经 mission-state.js（UMD，import 后读 globalThis）');
 // 117n-M1 重钉：drawer.js 的 chips import 那一行加了 doc/byId/el/clear（DOM 基础件去重，见 B3
 // companion）。原判据只钉 createQuickSwitchChips 这一个名字；新判据仍然要求它在场，且明确写出
 // 完整的四个新增名字——比原来更精确，不是放宽。

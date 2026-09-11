@@ -1,13 +1,12 @@
-/* 第117波 117a：管家壳（第三种壳模式）。与 .app-shell / .preview-shell 同级，显隐只由 :root[data-shell-mode] 决定。
+/* 第117波 117a：管家壳（管家视角）。与 .app-shell 同级，显隐只由 :root[data-shell-mode] 决定。
    117i（视觉对齐 115 波定稿原型 docs/mockups/steward-shell.html）：骨架从「铺满视口的四行网格」改成
    原型的两层 —— #stewardShell 是场景（--scene-bg 铺底），#stewardStage 是居中的那张玻璃卡片
    （min(1280px,100%)、--r-lg 圆角、--glass-* 材质），卡片里再按原型 .col 把头部／对话／输入
    收进 800px 的中栏。功能、DOM id 与先后顺序一律未动，只改包裹与样式。 */
 
-/* 三壳互斥：管家模式下经典壳与预览壳都收起；管家壳默认不显示，只有管家模式才铺开。
-   这三条是本层唯一的显隐权威，JS 不写 display，只写 data-shell-mode（applyShellMode 一处）。 */
+/* 两视互斥：管家视角下工作台视角收起；管家壳默认不显示，只有管家视角才铺开。
+   这两条是本层唯一的显隐权威，JS 不写 display，只写 data-shell-mode（applyShellMode 一处）。 */
 :root[data-shell-mode="steward"] body > .app-shell { display: none !important; }
-:root[data-shell-mode="steward"] body > .preview-shell { display: none !important; }
 
 .steward-shell {
   display: none;

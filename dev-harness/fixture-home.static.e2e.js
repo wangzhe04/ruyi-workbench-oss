@@ -22,11 +22,13 @@ let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
 // ── ① 静态扫 ──────────────────────────────────────────────────────────────────────────
-// 实测(2026-09-10):121 处 / 111 个文件,其中 *.e2e.js 内 117 处 / 107 个文件。
+// 实测(2026-09-11):113 处 / 95 个文件,其中 *.e2e.js 内 109 处 / 93 个文件。
 // 交接稿写的 119 处我没能复现(同一扫描器下 all-.js=120、only-e2e=116,都不是 119)。
 // 121-K0b 新增 dev-harness/mission-index-late-materialize.e2e.js(一处带 RUYI_HOME 的 spawn),
 // 120 -> 121 / 116 -> 117 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 121;
+// 121-K1(34 号文 §8.1):交办台退役删掉 16 件 pretender-*.e2e.js(另两件改名保留,spawn 点跟着走),
+// 121 -> 113 / 117 -> 109 的来路就是它 —— 删的全是 *.e2e.js,所以两个数各降 8。
+const RUYI_HOME_SPAWN_SITES = 113;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

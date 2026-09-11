@@ -35,17 +35,14 @@ import { renderMermaidBlocks } from './js/mermaid-runtime.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
-import { createPreviewShellDomain } from './js/preview-shell.js';
+import { createShellModeController } from './js/shell-mode.js'; // 121-K1
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
-import { dispatchAcceptanceMilestones } from './js/preview-task-sheet.js';
-// Chat streaming is composed before the Preview domain. Keep a narrow late-bound sink so the shared
-// runtime can mirror read-only deltas without importing the second shell or creating a second stream.
-let previewStreamSink = null;
-// 117a: the steward and Preview shells are each other's injected dependency (Preview owns the single
-// applyShellMode; the steward owns admission + fail-closed recovery). One late-bound handle opens that
-// cycle. Null handle = the steward domain never composed -> admission stays false and applyShellMode
-// falls back to the classic shell.
+import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
+// 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
+// (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
+// One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
+// stays false and applyShellMode falls back to the workbench view.
 let stewardShellGuard = null;
 const chatScrollController = createChatScrollController({
   getMessages: () => $('messages'),
@@ -322,7 +319,6 @@ const {
   el,
   engineLabel: () => engineLabel(),
   errorCard: (...args) => errorCard(...args),
-  emitSessionStream: event => previewStreamSink?.(event),
   fmtTokens,
   handleAgentWorkflowEvent: (...args) => handleAgentWorkflowEvent(...args),
   handlePermissionRequest: (...args) => handlePermissionRequest(...args),
@@ -613,7 +609,6 @@ window.addEventListener('i18n:change', () => {
   refreshLocalizedObservability();
   if (document.querySelector('.tool-tabs button.active')?.dataset.tab === 'files') void loadFileTree();
   refreshLocalizedArtifactChanges();
-  refreshPreviewShellLabels();
   if (!$('skillModal')?.classList.contains('hidden')) renderSkillList();
   if (!$('paletteModal')?.classList.contains('hidden')) renderPalette();
   if (!state.streaming) {
@@ -866,130 +861,14 @@ const {
   playbookInputLabel,
 });
 
-// 第78波：Preview 交办台与速问共用一个前端 command 入口。它只编排既有的 Session、Mission、
-// chat/stream 三条权威链；任务态仍由后端 /api/mission action:start 建立，Preview 不写第二套状态。
-async function startPreviewDispatchCommand({ kind = 'mission', prompt = '', cwd = '', permissionMode = '', autoMode = 'until-done', attachments = [] } = {}) {
-  const message = String(prompt || '').trim();
-  if (!message) throw new Error(t('previewShell.dispatchRequired'));
-  const session = await newSession({ cwd: cwd || currentWorkspace(), focus: false });
-  let mission = null;
-  if (kind === 'mission') {
-    const response = await api('/api/mission', {
-      method: 'POST',
-      body: JSON.stringify({
-        sessionId: session.id,
-        action: 'start',
-        // Mission prompt injection requires at least one milestone. Keep the goal as the user's request and
-        // seed separately worded acceptance criteria so the ledger describes what "done" means, not the task again.
-        mission: {
-          goal: message,
-          autoMode,
-          milestones: dispatchAcceptanceMilestones(message),
-        },
-      }),
-    });
-    mission = response && response.mission;
-    if (!mission) throw new Error(t('previewShell.dispatchStartFailed'));
-    if (state.currentSession?.id === session.id) {
-      state.currentSession.kind = 'mission';
-      state.currentSession.mission = mission;
-      renderMissionBar(mission);
-    }
-    await refreshSessions();
-  }
-  // 附件随首回合下发；supervised 表示“建完先暂停”，只立 Mission、不暗中启动首回合。
-  const completion = kind === 'mission' && autoMode === 'supervised' ? null : sendPrompt(message, { permissionMode, attachments });
-  return { sessionId: session.id, mission, completion };
-}
-
-// 第82波班组图的“递话”仍走 Agent Run 唯一 steer_node 动作。显式携带任务单 sessionId，避免
-// Preview 正在查看的 Mission 与经典壳当前会话不同时把消息投到错误工作圈；领域层只拿成功/失败结果。
-async function steerPreviewAgentNode({ sessionId = '', runId = '', nodeId = '', text = '' } = {}) {
-  try {
-    const response = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, {
-      method: 'POST',
-      body: JSON.stringify({ sessionId, action: 'steer_node', nodeId, text }),
-    });
-    if (!response || response.ok !== true) throw response || new Error(t('workflow.injectFailed'));
-    return { ok: true, immediate: response.live === true, queued: Number(response.queued) || 0 };
-  } catch (error) {
-    return { ok: false, error: apiErrText(error) || t('workflow.injectFailed') };
-  }
-}
-
-// 第84波:Continue/Retry 已由 Mission 控制核心完成再武装；用户的一次明确点击随后复用经典
-// sendPrompt 启动真实 provider 回合，Preview 不复制第二套流状态机。
-// 第97波对抗复审(F2/F3):await sendPrompt —— 回合真正启动前(同步前缀)抛错会 reject 进 catch →
-// {ok:false} → 前端 controlError 可达(不再静默);且 controlBusy 保持到回合结束,流式期间按钮
-// 持续禁用(不再有双击窗口)。
-async function runPreviewMissionControlTurn({ sessionId = '', prompt = '' } = {}) {
-  try {
-    await openSession(sessionId);
-    if (!state.currentSession || state.currentSession.id !== sessionId) throw new Error(t('previewShell.controlSessionFailed'));
-    await sendPrompt(String(prompt || '').trim());
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: apiErrText(error) || t('previewShell.controlTurnFailed') };
-  }
-}
-
-const {
-  applyShellMode,
-  bindPreviewShell,
-  handlePreviewStreamEvent,
-  refreshPreviewShell,
-  refreshPreviewShellLabels,
-} = createPreviewShellDomain({
+// 121-K1（34 号文 §8.2）：视角模式控制器。applyShellMode 是全仓写 data-shell-mode 的唯一常规入口，
+// 它与管家壳互为注入依赖（控制器问「进得去吗」，管家壳答并在进不去时 fail-closed 回工作台视角）。
+const shellModeController = createShellModeController({
   canEnterSteward: () => Boolean(stewardShellGuard && stewardShellGuard.canEnterSteward()),
   recoverStewardShell: options => (stewardShellGuard ? stewardShellGuard.recoverStewardShell(options) : ''),
-  api,
-  state,
-  t,
-  currentWorkspace: () => currentWorkspace(),
-  engineLabel: () => engineLabel(),
-  openSettings: tab => {
-    openModal('settingsModal');
-    switchSettingsTab(tab || 'basic', true);
-  },
   closeSettings: () => closeModal('settingsModal'),
-  openWorkspaceControl: anchor => pickWorkspace(anchor),
-  openOnboardingWizard: () => openOnboardingWizard(), // 118a
-  openSafetyControl: anchor => openPermPopover(anchor),
-  openEngineControl: anchor => openModelChipPopover(anchor),
-  dispatchCommand: request => startPreviewDispatchCommand(request),
-  openSession: id => openSession(id),
-  setClassicDraft: value => {
-    const input = $('promptInput');
-    if (!input) return;
-    input.value = String(value || '');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.focus();
-  },
-  syncClassicIntervention: async decision => {
-    resolveClassicPromptIntervention(decision);
-    resolveClassicPlanIntervention(decision);
-    await refreshSessions();
-    if (decision && state.currentSession?.id === decision.sessionId && !state.streaming) await openSession(decision.sessionId);
-  },
-  steerAgentNode: request => steerPreviewAgentNode(request),
-  runMissionControlTurn: request => runPreviewMissionControlTurn(request),
-  saveMissionAsPlaybook: (sessionId, button) => saveAsPlaybook(button, sessionId),
-  saveMissionAsMemory: (sessionId, button) => saveAsMemory(button, sessionId),
-  apiErrText,
-  pickWorkspace: () => pickWorkspaceNative(),
-  playbookName: playbook => playbookDisplayName(playbook),
-  playbookDescription: playbook => playbookDisplayDescription(playbook),
-  playbookUnavailableReason: playbook => playbookDisplayUnavailableReason(playbook),
-  renderMarkdownInto: (container, value) => renderMarkdownInto(container, value),
-  highlightIn: container => highlightIn(container),
-  renderStaticMessage: (...args) => renderStaticMessage(...args),
-  getActiveTurnLines: sessionId => {
-    const turn = activeTurns.get(sessionId);
-    if (!turn) return [];
-    return turn.eventLines.slice(Number(turn.eventHead) || 0);
-  },
 });
-previewStreamSink = handlePreviewStreamEvent;
+const { applyShellMode, bindShellModeControl } = shellModeController;
 
 // 117a：管家壳（第三种壳模式，默认关）。只组合模式与容器骨架；avatar/对话/递话/抽屉/看板归 117b–h。
 const stewardShellDomain = createStewardShellDomain({
@@ -1009,8 +888,9 @@ stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;
 
 function bindEvents() {
-  bindPreviewShell(); // 第76波：默认关闭的新任务台壳层与本机持久切换
-  bindStewardShell(); // 117a：管家壳骨架与「回到经典」
+  bindShellModeControl(); // 121-K1：视角切换控件与首屏视角判定（data-shell-mode 的唯一常规写者）
+  bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
+  bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   // sidebar
   $('newSessionBtn').onclick = () => newSession();
   // 113b: 侧栏搜索改走去抖的内容搜索（q ≥ 2 字符）；它内部会再调 renderSessions，
@@ -1249,14 +1129,6 @@ async function boot() {
 // (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。
 async function bootData() {
   await refreshStatus();
-  // Wave 80: when Preview was explicitly selected, paint its authoritative projection before doing
-  // hidden classic-shell work (large session-list DOM + opening the last chat). Classic state still
-  // hydrates immediately afterwards, so the recovery action remains complete without taxing first paint.
-  const previewFirst = document.documentElement.getAttribute('data-shell-mode') === 'preview';
-  if (previewFirst) {
-    await refreshPreviewShell();
-    refreshPreviewShellLabels();
-  }
   await refreshSessions();
   loadAgentWorkflows();
   refreshPlaybooks(); // v0.9-S2: load playbook cards for the empty state (best-effort, non-blocking)
@@ -1267,10 +1139,6 @@ async function bootData() {
   // variant appears deterministically (isFirstRun() reads the now-loaded sessions + config, not just the
   // best-effort playbook re-render).
   else renderCurrentSession();
-  if (!previewFirst) {
-    await refreshPreviewShell();
-    refreshPreviewShellLabels();
-  }
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
   updateShellPolling();
 }

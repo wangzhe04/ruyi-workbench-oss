@@ -71,9 +71,7 @@ const ignored = new Set(activityContext.IGNORED);
 const declared = new Set([...consumed, ...ignored]);
 
 const classicPath = path.join(PUBLIC, 'js', 'chat-stream-runtime.js');
-const previewPath = path.join(PUBLIC, 'js', 'preview-shell.js');
 const classicHandled = scanShellHandledTypes([classicPath]);
-const previewHandled = scanShellHandledTypes([previewPath]);
 
 // D1 登记完整性(双向)
 okList(serverTypes.filter(type => !declared.has(type)),
@@ -84,7 +82,7 @@ okList([...consumed].filter(type => ignored.has(type)).sort(),
   'D1c 同一事件不能既消费又忽略');
 
 // D2 认领覆盖
-const covered = type => consumed.has(type) || classicHandled.has(type) || previewHandled.has(type);
+const covered = type => consumed.has(type) || classicHandled.has(type);
 okList(serverTypes.filter(type => !covered(type) && !EXEMPT[type]),
   'D2 未被任何一侧认领的事件必须写明豁免理由');
 
@@ -146,16 +144,14 @@ ok(/import \{ createTurnActivity, describeTurnActivity \} from '\.\/js\/turn-act
   && /^\s*createTurnActivity,/m.test(app) && /^\s*describeTurnActivity,/m.test(app),
   'D10 组装根把状态机注入 chat-stream-runtime(该文件全篇零 import 的既有纪律)');
 
-const preview = read('ruyi-workbench/app/public/js/preview-shell.js');
-ok(preview.includes("from './turn-activity.js'") && preview.includes('turnActivity.consume(event)'),
-  'D11 Preview 壳与经典壳共用同一个状态机');
-ok(preview.includes("makeMetric('context'") && preview.includes("[data-slot=\"context\"]"),
-  'D12 Preview 壳接入上下文电量(此前完全没有)');
-ok(/if \(pending > 0\) return t\('previewShell\.activity\.needsYou'/.test(preview)
-  && preview.indexOf("previewShell.activity.needsYou") < preview.indexOf('describeTurnActivity(activity, t)'),
-  'D13 速报 v2 保留待决优先,状态机排在其后');
-ok(preview.includes('turnActivity.reset(); turnActivityPhase = ') || /turnActivity\.reset\(\);[\s\S]{0,80}turnActivityPhase/.test(preview),
-  'D14 切任务清状态机');
+// 121-K1(34 号文 §8.1):D11–D14 原本钉的是【交办台】那一侧对同一个状态机的接线(共用 turnActivity、
+// 接上下文电量、待决优先、切任务清状态机)。交办台整层退役后那一侧的消费者只剩管家抽屉,判据
+// 换成它 —— 钉的仍是同一件事:「第二个消费方复用同一个状态机,不自己抄一套」。
+const drawer = read('ruyi-workbench/app/public/js/steward-drawer.js');
+ok(drawer.includes("from './turn-activity.js'") && drawer.includes('describeTurnActivity('),
+  'D11 管家抽屉与经典壳共用同一个回合活动状态机(turn-activity.js)');
+ok(!/function describeTurnActivity\s*\(/.test(drawer) && !/function createTurnActivity\s*\(/.test(drawer),
+  'D12 抽屉不自己定义同名实现(复用而非复制;复制即失去「同一份判据」)');
 
 // ── 文案:四份 locale 同步,零裸字符串 ────────────────────────────────────────────────────────
 const LOCALES = [
@@ -177,7 +173,6 @@ const REQUIRED_KEYS = [
   'turnActivity.notice.subagentStalled', 'turnActivity.notice.adaptiveToolBudget',
   'turnActivity.tool.budgetSoft', 'turnActivity.tool.budgetHard',
   'turnActivity.subagent.stalled', 'turnActivity.subagent.budget',
-  'previewShell.contextMeter', 'previewShell.contextMeterTitle',
 ];
 const missingKeys = [];
 for (const rel of LOCALES) {

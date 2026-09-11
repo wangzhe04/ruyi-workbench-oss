@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 'use strict';
 
-// 第117波 117a/117b 真实浏览器 E2E：壳模式三态并存的准入与 fail-closed + avatar 状态。
-//   ① 管家开关关 + 本机偏好写 steward → 加载后回经典、偏好被改回 classic、设置页第三项置灰并给原因；
-//   ② 管家开关开 → 选中管家 → 三个同级容器显隐互斥、容器获焦、交办台 30s 轮询计时器被停掉；
-//   ③ 管家 → 经典 → 交办台预览全链路，data-shell-mode 与 localStorage 始终一致（刷新后仍恢复管家）；
-//   ④ 本机偏好被写成未知值 → 回经典；
-//   ⑤（117b）进入管家壳时头像态为 idle 且自己的 15s 状态轮询在跑，回经典/切预览后计时器被清；
+// 第117波 117a/117b 真实浏览器 E2E：视角准入与 fail-closed + avatar 状态。
+// 121-K1（34 号文 §2.7／§8.1）：交办台退役，`data-shell-mode` 收成两值 —— 本件随之从「三态并存」
+// 改判「两视互斥」，另加一条搬家自己带来的新事实（④：未知/退役偏好落 steward 后本机不留死值）。
+//   ① 管家开关关 + 本机偏好写 steward → 加载后回工作台视角、偏好被改回 classic、设置页管家项置灰并给原因；
+//   ② 管家开关开 → 选中管家 → 两个同级容器显隐互斥、容器获焦、零 30s 后台轮询税；
+//   ③ 管家 → 工作台 → 管家全链路，data-shell-mode 与 localStorage 始终一致（刷新后仍恢复管家）；
+//   ④ 本机偏好被写成未知值/已退役的 'preview' → 归一化成 steward 并就地改写偏好（不留死值），
+//      管家开关关时仍 fail-closed 到工作台视角；
+//   ⑤（117b）进入管家壳时头像态为 idle 且自己的 5s 状态轮询在跑，回工作台后计时器被清；
 //   ⑥（117b）输入框聚焦并输入 → listening，清空并失焦 → idle。
-// 与 pretender-shell.e2e.js 同一套 CDP 无头驱动；轮询断言用 addScriptToEvaluateOnNewDocument
-// 包住 setInterval/clearInterval，直接看「30000ms／15000ms 的活计时器还在不在」。
+// CDP 无头驱动；轮询断言用 addScriptToEvaluateOnNewDocument 包住 setInterval/clearInterval，
+// 直接看「30000ms／5000ms 的活计时器还在不在」。
 (async () => {
 const cp = require('child_process');
 const fs = require('fs');
@@ -146,7 +149,6 @@ const SHELL_SNAPSHOT = `(() => {
   const select = document.getElementById('cfgShellMode');
   const option = select && select.querySelector('option[value="steward"]');
   const classic = document.querySelector('.app-shell');
-  const preview = document.getElementById('previewShell');
   const steward = document.getElementById('stewardShell');
   return {
     mode: document.documentElement.getAttribute('data-shell-mode'),
@@ -155,11 +157,13 @@ const SHELL_SNAPSHOT = `(() => {
     stewardOptionDisabled: option ? option.disabled : null,
     hintHidden: document.getElementById('stewardShellModeHint')?.hidden ?? null,
     classicDisplay: getComputedStyle(classic).display,
-    previewDisplay: getComputedStyle(preview).display,
     stewardDisplay: getComputedStyle(steward).display,
+    previewShellPresent: Boolean(document.getElementById('previewShell')),
     status: document.getElementById('stewardStatus').textContent,
     focused: document.activeElement ? document.activeElement.id : '',
-    previewPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 30000).length,
+    // 121-K1：30s 那一档曾经是交办台自己的轮询。它随交办台退役，这个数字自此恒为 0 ——
+    // 判据从「切走后停掉」变成「全仓再没有这一档后台税」，是收紧不是放宽。
+    legacyPollTimers: (window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []).filter(ms => ms === 30000).length,
     // 117b：管家自己的状态轮询。117j W2-4 重钉：表按 5s 下限起（真要不要拉由 pollStewardTick 自己判，
     // 见 steward-shell.js 那段头注），所以「这是管家的计时器」的身份判据从 config.stewardPollMs
     // 重钉到 5000 —— 不改的话本断言恒为 0，D8 会从「轮询在跑」变成永远失败。
@@ -243,13 +247,23 @@ try {
   const bootConfig = await waitForEval(cdp, READY) && await cdp.evaluate('({ steward: window.state.config.stewardEnabledV1 })');
   ok(bootConfig && bootConfig.steward === false, 'A5 前端 state.config 直接拿到 stewardEnabledV1（后端零改动）');
 
-  // ─── ④ 未知偏好回经典 ──────────────────────────────────────────────────────────
-  await cdp.evaluate("localStorage.setItem('wcw.shellMode', 'foo'); location.reload(); true");
-  await waitForEval(cdp, READY);
-  const unknown = await cdp.evaluate(SHELL_SNAPSHOT);
-  ok(unknown && unknown.mode === 'classic' && unknown.classicDisplay !== 'none'
-    && unknown.previewDisplay === 'none' && unknown.stewardDisplay === 'none',
-    'B1 未知壳模式偏好回经典，另外两壳保持隐藏');
+  // ─── ④ 未知/退役偏好的归一化 ───────────────────────────────────────────────────
+  // 121-K1：未知值与已退役的 'preview' 都归一成 steward（与 index.html 预绘脚本同构），但这一拍
+  // 管家开关还关着，于是准入判定 fail-closed 到工作台视角 —— 最终落点仍是 classic，而本机偏好里
+  // 不再留着那个死值。两个输入各跑一遍：判据不是「某个字面量」，是「归一化 + fail-closed」。
+  ok(!(await cdp.evaluate(SHELL_SNAPSHOT)).previewShellPresent,
+    'B0 交办台容器 #previewShell 已随它退役（真浏览器里也不存在）');
+  for (const stale of ['foo', 'preview']) {
+    await cdp.evaluate(`localStorage.setItem('wcw.shellMode', ${JSON.stringify(stale)}); location.reload(); true`);
+    await waitForEval(cdp, READY);
+    const unknown = await waitForEval(cdp, `(() => {
+      const snapshot = ${SHELL_SNAPSHOT};
+      return snapshot.stored === 'classic' ? snapshot : null;
+    })()`);
+    ok(unknown && unknown.mode === 'classic' && unknown.classicDisplay !== 'none'
+      && unknown.stewardDisplay === 'none' && unknown.stored === 'classic',
+      `B1 本机偏好是 '${stale}' 时归一成 steward、准入不过再 fail-closed 到工作台视角，偏好里不留死值（实测 mode=${unknown && unknown.mode} / stored=${unknown && unknown.stored}）`);
+  }
 
   // ─── ① 开关关 + 偏好写 steward → fail-closed ─────────────────────────────────
   await cdp.evaluate("localStorage.setItem('wcw.shellMode', 'steward'); location.reload(); true");
@@ -261,13 +275,13 @@ try {
   ok(closed && closed.mode === 'classic' && closed.stored === 'classic' && closed.select === 'classic',
     'C1 管家开关关时：模式、本机偏好、设置页选择器一起回经典');
   ok(closed && closed.stewardOptionDisabled === true && closed.hintHidden === false,
-    'C2 管家开关关时设置页第三项置灰并显示「先打开管家」提示');
+    'C2 管家开关关时设置页管家项置灰并显示「先打开管家」提示');
   ok(closed && DISABLED_REASONS.includes(closed.status),
     'C3 状态区用 i18n 说明回退原因（不是空白，也不是英文兜底键名）');
   ok(closed && closed.classicDisplay !== 'none' && closed.stewardDisplay === 'none',
     'C4 回退后的经典壳完整可用，管家壳保持隐藏');
 
-  // ─── ② 开关开 → 交办台预览 → 管家：显隐互斥、获焦、轮询停摆 ───────────────────
+  // ─── ② 开关开 → 管家：显隐互斥、获焦、零后台税 ────────────────────────────────
   writeConfig(true);
   await cdp.evaluate('location.reload(); true');
   await waitForEval(cdp, READY);
@@ -276,21 +290,22 @@ try {
     return option && option.disabled === false ? ${SHELL_SNAPSHOT} : null;
   })()`);
   ok(enabled && enabled.stewardOptionDisabled === false && enabled.hintHidden === true,
-    'D1 管家开关开后第三项可选，提示收起');
-
+    'D1 管家开关开后管家项可选，提示收起');
+  // 121-K1：先显式落在工作台视角，再切管家 —— 原来这一步是「先切交办台预览」，那一档已退役。
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgShellMode');
-    select.value = 'preview';
+    select.value = 'classic';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`);
-  const previewOn = await waitForEval(cdp, `(() => {
+  const classicOn = await waitForEval(cdp, `(() => {
     const snapshot = ${SHELL_SNAPSHOT};
-    return snapshot.previewPollTimers > 0 ? snapshot : null;
+    return snapshot.mode === 'classic' ? snapshot : null;
   })()`);
-  ok(previewOn && previewOn.mode === 'preview' && previewOn.stored === 'preview'
-    && previewOn.previewDisplay !== 'none' && previewOn.classicDisplay === 'none' && previewOn.stewardDisplay === 'none',
-    'D2 交办台预览壳独占画面，30s 轮询计时器在跑');
+  ok(classicOn && classicOn.stored === 'classic'
+    && classicOn.classicDisplay !== 'none' && classicOn.stewardDisplay === 'none'
+    && classicOn.legacyPollTimers === 0,
+    'D2 工作台视角独占画面，且全仓再没有交办台那一档 30s 后台轮询');
 
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgShellMode');
@@ -304,13 +319,12 @@ try {
   })()`);
   ok(stewardOn && stewardOn.mode === 'steward' && stewardOn.stored === 'steward' && stewardOn.select === 'steward',
     'D3 切到管家壳：唯一状态源、本机偏好、选择器三者一致');
-  ok(stewardOn && stewardOn.stewardDisplay !== 'none'
-    && stewardOn.classicDisplay === 'none' && stewardOn.previewDisplay === 'none',
-    'D4 三个同级容器显隐互斥，管家壳独占画面');
+  ok(stewardOn && stewardOn.stewardDisplay !== 'none' && stewardOn.classicDisplay === 'none',
+    'D4 两个同级容器显隐互斥，管家壳独占画面');
   ok(stewardOn && stewardOn.focused === 'stewardShell', 'D5 进入管家壳后焦点落在同级容器上');
-  ok(stewardOn && stewardOn.previewPollTimers === 0,
-    'D6 管家壳不继承交办台的 30s 轮询，也不引入自己的后台税');
-  // 117b：avatar 态 + 自己的状态轮询（仅在管家模式下才起，与 D6 的「不继承交办台轮询」互补）。
+  ok(stewardOn && stewardOn.legacyPollTimers === 0,
+    'D6 管家壳不引入 30s 档的后台税（交办台那一档已随它退役）');
+  // 117b：avatar 态 + 自己的状态轮询（仅在管家模式下才起，与 D6 的「零 30s 后台税」互补）。
   ok(stewardOn && stewardOn.avatarState === 'idle',
     'D7 进入管家壳时头像态为 idle(开关开、未停机、无待决、无错误——GET /api/steward/state 的默认实况)');
   const stewardPolling = await waitForEval(cdp, `(() => {
@@ -320,7 +334,7 @@ try {
   ok(stewardPolling && stewardPolling.stewardPollTimers > 0,
     'D8 管家壳自己对 /api/steward/state 的状态轮询在跑(表按 5s 下限起,只在管家模式下才起)');
 
-  // ─── ③ 刷新恢复 + 管家 → 经典 → 预览全链路一致 ────────────────────────────────
+  // ─── ③ 刷新恢复 + 管家 → 工作台 → 管家全链路一致 ──────────────────────────────
   await cdp.evaluate('location.reload(); true');
   await waitForEval(cdp, READY);
   const restored = await waitForEval(cdp, `(() => {
@@ -338,26 +352,28 @@ try {
   })()`);
   ok(backToClassic && backToClassic.stored === 'classic' && backToClassic.select === 'classic'
     && backToClassic.classicDisplay !== 'none' && backToClassic.stewardDisplay === 'none'
-    && backToClassic.previewPollTimers === 0,
-    'E2 管家壳内「回到经典」落盘一致且不留轮询');
+    && backToClassic.legacyPollTimers === 0,
+    'E2 管家壳内「回到工作台」落盘一致且不留轮询');
   ok(backToClassic && backToClassic.stewardPollTimers === 0,
-    'E2a 回到经典后管家自己的状态轮询计时器也被清(MutationObserver 盯 data-shell-mode，立即 stopPolling)');
+    'E2a 回到工作台后管家自己的状态轮询计时器也被清(MutationObserver 盯 data-shell-mode，立即 stopPolling)');
 
+  // 121-K1：原 E3/E3a 走的是「再切回交办台预览」那一档。那一档退役后，全链路的最后一跳改回管家 ——
+  // 钉的仍是同一件事：两视之间怎么绕，data-shell-mode / localStorage / 选择器三者始终一致。
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgShellMode');
-    select.value = 'preview';
+    select.value = 'steward';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`);
-  const finalPreview = await waitForEval(cdp, `(() => {
+  const backToSteward = await waitForEval(cdp, `(() => {
     const snapshot = ${SHELL_SNAPSHOT};
-    return snapshot.mode === 'preview' ? snapshot : null;
+    return snapshot.mode === 'steward' ? snapshot : null;
   })()`);
-  ok(finalPreview && finalPreview.stored === 'preview' && finalPreview.select === 'preview'
-    && finalPreview.previewDisplay !== 'none' && finalPreview.stewardDisplay === 'none' && finalPreview.classicDisplay === 'none',
-    'E3 管家 → 经典 → 预览全链路：三态与本机偏好始终一致');
-  ok(finalPreview && finalPreview.stewardPollTimers === 0,
-    'E3a 预览壳独占画面时管家自己的状态轮询也不在跑(三态互斥，后台税不重叠)');
+  ok(backToSteward && backToSteward.stored === 'steward' && backToSteward.select === 'steward'
+    && backToSteward.stewardDisplay !== 'none' && backToSteward.classicDisplay === 'none',
+    'E3 管家 → 工作台 → 管家全链路：两视与本机偏好始终一致');
+  ok(backToSteward && backToSteward.legacyPollTimers === 0,
+    'E3a 绕一圈回来仍然零 30s 档后台税（后台税不随视角切换累积）');
 
   // ─── F 117b：输入框聚焦/输入 → listening，清空/失焦 → idle ──────────────────────
   await cdp.evaluate(`(() => {

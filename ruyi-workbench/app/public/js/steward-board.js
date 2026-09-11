@@ -2,8 +2,7 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
-import { elapsedLabel } from './preview-task-sheet.js';
-import { dockToneForMissionState } from './preview-shell.js';
+import { dockToneForMissionState, elapsedLabel } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -190,6 +189,8 @@ export function createStewardBoard({
   // 归线程色（色 ≠ 态），但「展开还是折成一行」仍然只认这四档 tone —— 提出来之前要拿 tone 必须
   // 先 paintDot 造一颗点、从 dataset 上读回来再把点扔掉。两处调用问的仍是【同一处】判定：
   // dockToneForMissionState 在本模块全文仍然只被调用这一次。
+  // 121-K1：它随交办台退役从 preview-shell.js 搬进叶子 thread-facts.js（与 elapsedLabel 同族的
+  // 「五态显示事实」），只改 import 来源，调用一个字未变。
   function toneOf(value) { return dockToneForMissionState(value, { settleDone: true }); }
   function paintDot(node, value) {
     node.dataset.state = value;

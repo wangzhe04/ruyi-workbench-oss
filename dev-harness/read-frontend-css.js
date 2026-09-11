@@ -22,7 +22,6 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   'css/views/workspace.css',
   'css/views/usage.css',
   'css/views/workbench.css',
-  'css/views/preview-shell.css',
   // 118a: onboarding wizard layer (own component sheet, appended last so it can lean on every token above).
   'css/components/onboarding.css',
   // 117a: steward shell layer (third shell mode; own sheet, appended last for the same reason).
@@ -397,7 +396,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 交付卡的折叠与其样式一字不动。算法自证照旧（拦截 fs.readFileSync 让 readLayerPayload 读 git blob）：
 // 按上一次钉的那个 commit（`12b0df1`）算 = 07e82fa0…，与被替换的旧值逐字相同；按 HEAD 算得下面这个值。
 // 反向验证：往该层追加一条无关规则 → F3 与 D51 双双转红；还原后该层与 HEAD 逐字节相同、回绿。
-const LEGACY_STYLES_SHA256 = '37efa1e5cd7e00f99b1ebcdf52b98a6c2a975fbb0b22634989a6072aaf9d3d33';
+// 121-K1 续钉（前值 37efa1e5…）：K1（34 号文 §8.1）交办台退役 —— `css/views/preview-shell.css`
+// 整层（1985 行）从路由表与载荷分组里删除，另加三处随之而来的真改动：
+//   ① `css/components/onboarding.css` 删孤儿规则 `.preview-first-run-guide-btn`（它的按钮没了）；
+//   ② `css/views/steward-shell.css` 删 `body > .preview-shell` 那条隐藏规则与头注里的「三壳」措辞；
+//   ③ `css/tokens.css` 删重新零引用的 `--sp-7`（50a 清障过一次，第90波因 preview-shell.css 才复活）；
+//   ④ `css/components/tool-pane.css` 收进「提醒」设置块那 10 条规则（原住 preview-shell.css 的
+//      `.preview-notification-*`，随设置块改名 `.notify-*`；它属于设置弹窗，不属于任何视角层）。
+// 算法自证（沿用本锁上一任定下的拦截法）：拦 fs.readFileSync 让消费者自己的 readLayerPayload()
+// 去读 git blob，同一份代码换数据源 —— 按 HEAD（`1519fd3`）的锁代码 + HEAD 的 blob 算 =
+// 37efa1e5…，与被替换的旧值【逐字相同】；再按工作树的锁代码 + 工作树文件算得下面这个值。
+// 反向验证：往 tool-pane.css 追加一条无关规则 → F3 与 D51 双双转红；还原后逐字节相同、回绿。
+const LEGACY_STYLES_SHA256 = '859860b3a1e48c83657a489ec4bf2bb8b7b820021f2192dfa18e1056d4ba5396';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
