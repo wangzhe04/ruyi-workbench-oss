@@ -48,6 +48,17 @@ export function readStoredShellMode(storage = globalThis.localStorage) {
   return mode;
 }
 
+// 121-K4（34 号文 §2.9）：切视角要走 View Transitions。两条判据每次【现问】，不在模块加载时
+// 缓存：`prefers-reduced-motion` 是用户随时能改的系统设置（e2e 也用 CDP 现场改它来验「零动画」），
+// 缓存一次等于把第一帧的答案当永久答案。
+export function prefersReducedMotion(win = globalThis) {
+  try { return Boolean(win && win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch { return false; }
+}
+export function viewTransitionsSupported(doc = globalThis.document) {
+  return Boolean(doc && typeof doc.startViewTransition === 'function');
+}
+
 export function createShellModeController({
   // 117a 起的准入契约原样搬过来：缺省值即 fail-closed（准入恒 false，永远进不去管家视角）。
   canEnterSteward = () => false,
@@ -55,6 +66,11 @@ export function createShellModeController({
   closeSettings = () => {},
   documentRef = globalThis.document,
   storage = globalThis.localStorage,
+  // 121-K4（§2.9 表第五行）：共享元素变形要在【拍下旧帧之前】给两侧那两个节点起同一个名字，
+  // 而「焦点线程是不是就是将要选中的那条线程」这件事本模块不认识（它住在管家域与组合根手里）。
+  // 所以开一个钩子：返回一个清理函数，动画收尾时调它把名字摘掉。缺省是空操作 —— 不注入就只有
+  // 中栏平移与右栏淡入淡出，不会有半个共享元素。
+  markSharedThread = () => () => {},
 } = {}) {
   const byId = id => {
     try { return documentRef?.getElementById(id) || null; } catch { return null; }
@@ -69,19 +85,63 @@ export function createShellModeController({
     try { storage?.setItem(SHELL_MODE_STORAGE_KEY, mode); } catch { /* local preference may be unavailable */ }
   }
 
+  function currentShellMode() {
+    try { return documentRef.documentElement.getAttribute('data-shell-mode') || ''; }
+    catch { return ''; }
+  }
+
+  // 121-K4（§2.9）：把「改属性」这一下包进 View Transitions。照抄原型 `transition(fn, dir)` 的逻辑
+  // （docs/mockups/one-workbench-two-views.html:794）：
+  //   · 不支持 startViewTransition、或 prefers-reduced-motion: reduce → 【即时切换、零动画】；
+  //   · 方向写在 :root 的 data-vt 上（fwd＝管家→工作台向左进入，back＝工作台→管家向右退回），
+  //     样式层只用它挑中栏那两条 keyframes；动画收尾即删（不留状态）。
+  // 时长／缓动全部走 token，命名部件与关掉 root 默认交叉淡入都在 css/layout.css 一处。
+  function runShellTransition(write, direction) {
+    const root = (() => { try { return documentRef.documentElement; } catch { return null; } })();
+    if (!root || !viewTransitionsSupported(documentRef) || prefersReducedMotion()) { write(); return false; }
+    let cleanupShared = () => {};
+    try { cleanupShared = markSharedThread() || (() => {}); } catch { cleanupShared = () => {}; }
+    try { root.dataset.vt = direction; } catch { /* 属性写不上不影响切换本身 */ }
+    const settle = () => {
+      try { delete root.dataset.vt; } catch { /* ignore */ }
+      try { cleanupShared(); } catch { /* ignore */ }
+    };
+    let transition = null;
+    try { transition = documentRef.startViewTransition(write); }
+    catch { write(); settle(); return false; }
+    if (transition && transition.finished && typeof transition.finished.then === 'function') {
+      transition.finished.then(settle, settle);
+    } else settle();
+    return true;
+  }
+
   // 全仓写 data-shell-mode 的唯一常规入口（另外两处：index.html 预绘脚本、steward-shell.js 的
   // fail-closed 回退。静态锁 steward-shell.static.e2e.js A4 钉着这张写者表）。
-  function applyShellMode(value, { persist = true, focus = true } = {}) {
+  // 各视角的落焦锚点（管家 = 同级容器，工作台 = 会话标题）。设置弹窗那条路要落在别处
+  // （工作台 = 输入框），所以锚点可以由调用方整张换掉 —— 换的是【表】，不是落焦的时机。
+  const SHELL_FOCUS_ANCHORS = Object.freeze({ steward: 'stewardShell', classic: 'sessionTitle' });
+
+  function applyShellMode(value, { persist = true, focus = true, focusAnchors = SHELL_FOCUS_ANCHORS } = {}) {
     const mode = normalizeShellMode(value);
     if (mode === 'steward' && !canEnterSteward()) return recoverStewardShell({ persist }) || 'classic';
-    try { documentRef.documentElement.setAttribute('data-shell-mode', mode); } catch { /* pre-DOM failure */ }
-    syncModeControl(mode);
+    const write = () => {
+      try { documentRef.documentElement.setAttribute('data-shell-mode', mode); } catch { /* pre-DOM failure */ }
+      syncModeControl(mode);
+      // 落焦【必须】排在写完属性之后：要落焦的那个容器是刚刚才变成可见的那一个。
+      // 121-K4-3：修前这一下挂在 requestAnimationFrame 上，而 View Transitions 的 update 回调
+      // 比【同一帧的 rAF 还晚】（规范里它发生在「更新渲染」那一步里），于是 focus() 那一刻目标
+      // 容器还在 display:none 里 —— 一次白调，焦点留在 body（steward-shell.e2e 的 D3／D5 实测）。
+      // 收进写回调之后，两条路（走动画与不走动画）的时序逐字相同：写属性 → 对控件 → 落焦。
+      if (focus) {
+        const anchor = mode === 'steward' ? focusAnchors.steward : focusAnchors.classic;
+        try { byId(anchor)?.focus?.(); } catch { /* 宿主没有 focus 的环境 */ }
+      }
+    };
+    // 真换了视角才走动画：同一个值再写一遍（bind 期对表、config 到达后的补判）不该闪一下。
+    // 切换本身不触发任何数据拉取：需要重画的子域（管家壳/看板/抽屉）各自观察属性变化。
+    if (mode === currentShellMode()) write();
+    else runShellTransition(write, mode === 'steward' ? 'back' : 'fwd');
     if (persist) setStoredShellMode(mode);
-    // 各视角的落焦锚点（管家 = 同级容器，工作台 = 会话标题）。切换本身不触发任何数据拉取：
-    // 需要重画的子域（管家壳/看板/抽屉/返回带）各自观察 data-shell-mode 的属性变化。
-    if (focus && typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => byId(mode === 'steward' ? 'stewardShell' : 'sessionTitle')?.focus?.());
-    }
     return mode;
   }
 
@@ -100,11 +160,14 @@ export function createShellModeController({
       try { current = documentRef.documentElement.getAttribute('data-shell-mode') || ''; } catch { current = ''; }
       syncModeControl(normalizeShellMode(current));
       selector.onchange = event => {
-        const mode = applyShellMode(event.target.value, { focus: false });
+        // 121-K4-3：【先】关设置弹窗，【再】切视角。关弹窗本身会动焦点（它要把焦点交回触发它的
+        // 那个控件），而落焦现在收在 applyShellMode 的写回调里 —— 次序反了的话，不走动画的那一路
+        // （reduced-motion／不支持 VT）会被关弹窗把刚落好的焦点抢走。
+        // 锚点表在这里整张换掉：设置里切过来，工作台那一侧该落在输入框（人刚说完「我要用经典」）。
         closeSettings();
-        // 设置弹窗关掉之后落焦到各视角自己的活干处（管家 = 容器，工作台 = 输入框）。
-        const anchorId = mode === 'steward' ? 'stewardShell' : 'promptInput';
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => byId(anchorId)?.focus?.());
+        return applyShellMode(event.target.value, {
+          focusAnchors: { steward: 'stewardShell', classic: 'promptInput' },
+        });
       };
     }
     // 首屏：预绘脚本已经写下属性，这里按本机偏好再过一次准入。config 还没到时 canEnterSteward()

@@ -435,7 +435,25 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ④ `css/components/tool-pane.css`：触屏常显清单里的 .session-item .s-actions → .steward-board-actions。
 // 算法自证（沿用拦截法）：按上一次钉的那个 commit（`69a505b`）算 = bc6876b6…，与被替换的旧值
 // 【逐字相同】；再按工作树算得下面这个值。反向验证：往 layout.css 追加一条无关规则 → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = '66e8d9a75e49570015740feaccc142b3434db450be28c2ffd38672e706108ca5';
+//
+// 121-K4-3 续钉（前值 66e8d9a7…）：K4-3 视角切换动效与频道条退役（§2.9／§2.4）改两层 ——
+//   ① `css/layout.css`：新增 §2.9 那一整块 View Transitions（关掉 root 默认交叉淡入、顶栏与左栏
+//      各自独立快照且不动、中栏两个方向的平移淡入淡出、右栏只淡不移、共享元素 thread-title／
+//      thread-bar 的 260ms 变形、六条 vt-* keyframes），并在既有的 prefers-reduced-motion 块里
+//      补上 ::view-transition-group/old/new(*) 的 animation:none（第二道保险；第一道是
+//      js/shell-mode.js 的 runShellTransition 直接不起过渡）；
+//   ②b `css/layout.css` 的 ≤980 图标栏那一档多一条 `.task-rail .steward-board-pill.has-icon
+//      { display: none }`：带字形的药丸自己那条 inline-flex 住在后加载的 steward-board.css 里、
+//      与原来那条同分（0,2,0），于是 56px 栏里还看得见「需要你」「已停工」两截字
+//      （one-workbench-frame.browser 的 D5c 实测）；这一条 0,3,0 压过它。
+//   ② `css/views/steward-conversation.css`：频道条那一族（.steward-channels／-scroll／-label／
+//      .steward-channel 含 -dot／-name／-state／.is-on／.steward-channels-board ＋ 那条
+//      .steward-msg.is-channel-out 过滤规则 ＋ 390px 那一档三条 ＋ :root 上只服务它的
+//      --steward-channels-max-h）整族删除；留下的是「卡头只长在段首那一行」那条规则。
+// 算法自证（同一条拦截法）：按上一次钉的那个 commit（`87a0d2f`）算 = 66e8d9a7…，与被替换的旧值
+// 【逐字相同】；再按工作树算得下面这个值。反向验证：把 vt-fade-in 那条 keyframes 改一个数字
+// → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = '4182a40fffab9ee498a1b89b253e5b749f69c0de9c49b573eacf2a58b14b81e0';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

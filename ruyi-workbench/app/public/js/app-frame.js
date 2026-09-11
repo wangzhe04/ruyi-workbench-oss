@@ -24,9 +24,18 @@
 export const LENS_FORWARD = 'classic';   // 前进方向（管家 → 工作台）：中栏向左进入
 export const LENS_BACK = 'steward';      // 返回方向（工作台 → 管家）：中栏向右退回
 
+// §2.7「视角切换不丢现场」的一半：两条对话流的滚动位置。
+// 为什么需要这一层：非当前视角的容器是 display:none —— 浏览器会把它的 scrollTop 丢掉，
+// 切回来就是滚到顶（实测两视角都这样）。而「切回管家视角时对话流滚动位置原样」是 §2.7 明写的。
+// 做法：给两条滚动区各挂一个 passive 的 scroll 监听，随时记住最后的位置；视角属性一变就把
+// 【此刻可见的】那一条恢复回去。记的是位置，不是快照 —— 内容重画过也不会错位到别人身上。
+export const APP_FRAME_SCROLL_KEEPERS = Object.freeze(['stewardFeed', 'messages']);
+
 export function createAppFrame({
   applyShellMode = () => 'classic',
   documentRef = globalThis.document,
+  // 组合根注入：两个视角此刻指的是【同一条线程】时返回它的 id，否则空串（见 markSharedThread）。
+  sharedThreadId = () => '',
 } = {}) {
   const doc = () => documentRef || null;
   const byId = id => { try { return doc()?.getElementById(id) || null; } catch { return null; } };
@@ -101,9 +110,27 @@ export function createAppFrame({
     return Boolean(host) && host.classList.contains('rail-board');
   }
 
+  // ── §2.7 现场保持：两条对话流的滚动位置 ─────────────────────────────────────
+  const scrollTops = new Map();
+  function rememberScroll(id) {
+    const node = byId(id);
+    if (!node) return;
+    node.addEventListener('scroll', () => { scrollTops.set(id, node.scrollTop); }, { passive: true });
+  }
+  function restoreScroll() {
+    for (const id of APP_FRAME_SCROLL_KEEPERS) {
+      const node = byId(id);
+      if (!node || !scrollTops.has(id)) continue;
+      // 只恢复看得见的那一条：display:none 的容器写 scrollTop 是白写（它没有滚动盒）。
+      if (!node.offsetParent && node.scrollHeight <= node.clientHeight) continue;
+      node.scrollTop = scrollTops.get(id);
+    }
+  }
+
   function bindAppFrame() {
     const document_ = doc();
     if (!document_) return '';
+    for (const id of APP_FRAME_SCROLL_KEEPERS) rememberScroll(id);
     const seg = byId('lensSeg');
     if (seg) {
       for (const button of seg.querySelectorAll('[data-lens]')) {
@@ -144,16 +171,32 @@ export function createAppFrame({
       if (event.key === 'Escape' && isGearOpen()) { event.stopPropagation(); setGearOpen(false); }
     });
 
-    // 视角由别处切走时（设置里的「启动默认视角」、fail-closed 回退、「在工作台打开」）钮跟着对一次。
+    // 视角由别处切走时（设置里的「启动默认视角」、fail-closed 回退、「在工作台打开」）钮跟着对一次，
+    // 并把这一侧对话流的滚动位置恢复回去（§2.7）。两件事同一路信号，都是「只读属性、不写属性」。
     if (globalThis.MutationObserver && document_.documentElement) {
-      new MutationObserver(syncLensSeg)
+      new MutationObserver(() => { syncLensSeg(); restoreScroll(); })
         .observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }
     return syncLensSeg();
   }
 
+  // §2.9 表第五行：共享元素变形【只在焦点线程＝将要选中的那条线程时】起名字。
+  // 本模块不认识「谁是焦点」——那是管家域（focusThreadId）与组合根（state.currentSession）
+  // 的事实，所以由组合根注入一个「这两边此刻指的是不是同一条线程」的判据（sharedThreadId）。
+  // 名字挂在两侧那两个标题节点上：管家侧是焦点卡的标题（#stewardDrawerTitle），工作台侧是线程头
+  // 的标题（#sessionTitle）。同一帧里只有一个视角在显示，所以两个名字各自唯一。
+  function markSharedThread() {
+    const shared = String(sharedThreadId() || '');
+    if (!shared) return () => {};
+    const nodes = ['stewardDrawerTitle', 'sessionTitle'].map(byId).filter(Boolean);
+    if (nodes.length < 2) return () => {};
+    for (const node of nodes) node.style.viewTransitionName = 'thread-title';
+    return () => { for (const node of nodes) node.style.viewTransitionName = ''; };
+  }
+
   return Object.freeze({
     bindAppFrame,
+    markSharedThread,
     setLens,
     toggleLens,
     syncLensSeg,

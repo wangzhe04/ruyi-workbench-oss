@@ -599,10 +599,6 @@
   --thread-hue-4: 188;   /* 秋波 */
   /* 折叠高度：交付原文与管家正文共用（≈8 行 × line-height 1.6）。 */
   --steward-clamp-h: 12.8em;
-  /* 117v-V4 ②：频道条换行之后的【高度上限】。粘条是 position:sticky，没有这个顶，线程一多就把
-     正文挤没（27 号文 §11.16.4 追加③ 第 3 条）。96px 在宽屏是 3 行（chip 26px ＋ 行距 8px），
-     在 ≤390px 窄屏是 2 行（那里 chip 的触达高度提到 44px）—— 一个数管两档，不写第二个断点。 */
-  --steward-channels-max-h: 96px;
 }
 :root[data-theme="dark"] { --thread-sat: 52%; --thread-light: 64%; }
 
@@ -758,140 +754,16 @@
   line-height: 1.5;
 }
 
-/* ── F2 频道条（27 号文 §11.14；设计稿画板「宽屏 · 线程即频道」与「窄屏」）────────────────
-   设计稿把它画在对话流【外面】：一条带下边框的横条，正文在它下面滚。这里落成 #stewardFeed 的
-   第一个子节点 ＋ position:sticky —— 观感是同一件事（钉在滚动区顶上、下面一条分隔线），但
-   **不必去改 .steward-stage 的网格行**。那条 grid-template-rows 住在 steward-shell.css，是
-   `auto minmax(0,1fr) auto auto` 四行对四个在流的子节点；从本层覆盖它就得押上「频道条永远是
-   在流的第 N 个网格项」这个假设，而它一旦被收起来（display:none 的元素根本不是网格项）整张卡
-   的行就会错位、对话区当场塌成一行。住在 feed 里没有这个雷，代价只是它落在 role=log 里 ——
-   靠 aria-live="off" ＋「组成没变就不重画」两道一起挡住读屏的重复播报（见 syncChannels 头注）。 */
-.steward-channels {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-1) 0 var(--sp-2);
-  border-bottom: 1px solid var(--glass-border);
-  /* F2 收尾：粘条必须【不透明】。--glass-bg-1 是「框架族」token（顶栏/侧栏浮在页面底色上），
-     暗色档只有 6.5% 不透明度 —— 贴在滚动正文上方时字会从背后透出来（真机截图坐实）。
-     仓里其余 position:sticky 的表头（preview-narrative-head / preview-crew-head）用的都是
-     不透明面 token，这里跟同一条 house style。
-     连带删掉 backdrop-filter：底色不透明之后它【什么都不再模糊】（背后一个像素都透不过来），
-     纯属白付一层合成；而且 ui-v4-glass.static G2 把 backdrop-filter 的使用点锁成一张封闭白名单
-     （经典框架 4 ＋ 浮层 4 ＋ 两个互斥壳 ＋ 降级块），粘条不属于其中任何一族。 */
-  background: var(--panel);
-}
-/* 117v-V4 ②（用户 2026-09-09「还有那个胶囊显示不全，一块修了吧」；27 号文 §11.16.4 追加③）：
-   这里原来是 `overflow-x:auto` ＋ `scrollbar-width:none` ＋ `::-webkit-scrollbar{height:0}` ——
-   一个【刻意隐藏了滚动条的横向滚动容器】。chip 是 flex:0 0 auto / nowrap，线程一多右边的 chip
-   就滑出可视区，而屏幕上没有任何提示：不换行、无滚动条、无渐隐、无箭头。用户看到的「显示不全」
-   就是它。三条硬要求各对一条声明：
-   ① 不许有「看不见也摸不着」的 chip —— chip 装进这个容器并【换行】，常规条数下一枚不缺全可见；
-      真到了换行也装不下的条数，超出的部分靠【可见的】滚动条到达（下面 scrollbar-width:thin ＋
-      ::-webkit-scrollbar 那两条就是那个明确的 affordance，与修前「藏起来」正好相反）；
-   ② 「全部线程」恒可达 —— 它【不在】这个容器里（JS 那侧是 bar 的直接子节点，与本容器并列），
-      所以线程再多它也不跟着滚，这是结构上的保证，不是「留够宽度」这种指望；
-   ③ 粘条占高有上限 —— --steward-channels-max-h 封顶，超出仍可滚，不会线程一多就把正文挤没。 */
-.steward-channels-scroll {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  max-height: var(--steward-channels-max-h);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-}
-.steward-channels-scroll::-webkit-scrollbar { width: 6px; }
-.steward-channels-scroll::-webkit-scrollbar-thumb {
-  background: var(--line-2);
-  border-radius: var(--r-pill);
-}
-/* 频道条插到流的最前面之后，原来那条「第一条消息不留上外边距」（:first-child）就不再命中它后面
-   那一行 —— 补一条同义的相邻选择器，间距一个像素不变。 */
-.steward-feed > .steward-channels + .steward-msg { margin-top: 0; }
-.steward-channels-label {
-  flex: 0 0 auto;
-  font-size: var(--fs-xs);
-  color: var(--muted);
-}
-/* chip 的安静档与来源小头同一族（灰字、细描边、无实底）；选中那一枚才实底。 */
-.steward-channel {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 0 var(--sp-3);
-  font: inherit;
-  font-size: var(--fs-xs);
-  line-height: 1.6;
-  color: var(--ink);
-  background: none;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-pill);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.steward-channel:hover { border-color: var(--accent); }
-.steward-channel:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-channel.is-on {
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-color: transparent;
-  font-weight: 600;
-}
-/* 117u-G1：这里原来有一组与色条同形的 .steward-channel[data-thread-hue="N"]（第二份映射）。
-   色号规则已经钉在 [data-thread-hue] 这个属性本身上（见 F1 令牌那一段），chip 写了这个属性就
-   自动拿到色，本段一条都不必再写 —— 少一份要跟着走的名单。 */
-.steward-channel-dot {
-  flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--thread-color);
-}
-.steward-channel-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.steward-channel-state { color: var(--muted); }
-.steward-channel.is-on .steward-channel-state { color: inherit; }
-.steward-channels-board {
-  flex: 0 0 auto;
-  margin-inline-start: auto;
-  min-height: 0;
-  padding: 0 0 0 var(--sp-2);
-  font: inherit;
-  font-size: var(--fs-xs);
-  line-height: 1.6;
-  color: var(--accent);
-  background: none;
-  border: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.steward-channels-board:hover { color: var(--accent-hover); }
-.steward-channels-board:focus-visible { outline: none; box-shadow: var(--ring); }
-/* 过滤掉的行：只是不显示。**DOM 里一个节点都没少** —— 这条规则是「过滤是呈现不是数据」那条
-   纪律在样式层的全部实现，JS 那边只 toggle 这一个类。 */
-.steward-msg.is-channel-out { display: none; }
-/* 过滤之后「这一段的第一行」换了人（见 resealThreads 的头注）：卡头只长在【当下】的段首那一行。
-   没过滤时这条是空转 —— 卡头本来就只挂在 is-thread-start 的行上。少了它，被过滤出来的同一条
-   线程会露出两个卡头，看着像两张卡。 */
+/* ── 121-K4-3：F2 频道条整族退役（34 号文 §2.4／§12 末条）──────────────────────────────
+   删的是 .steward-channels／-scroll／-label／.steward-channel（含 -dot／-name／-state／.is-on）／
+   .steward-channels-board ＋ 那条 .steward-msg.is-channel-out 过滤规则 ＋ 390px 那一档三条，
+   以及 :root 上那个只服务它的 --steward-channels-max-h。
+   理由写在 JS 那一侧（steward-conversation.js 对应位置）：它是【第二遍索引】，左栏常开之后
+   「只看这条」就是左栏上的一次点击。
+   **留下来的一条**是下面这个 —— 它不属于频道条：线程卡的卡头只长在「这一段的第一行」上
+   （is-thread-start），resealThreads 每次追加后按同一条规则重封一次。少了它，同一条线程会露出
+   两个卡头、看着像两张卡。 */
 .steward-msg-ruyi.is-thread:not(.is-thread-start) > .steward-thread-head { display: none; }
-
-/* 窄屏（设计稿「窄屏」画板）：chip 的触达高度提到 44px；「只看」两个字让位。
-   117v-V4 ②：原来这里写的是「频道条横向可滑」——那条已经不成立了（chip 改成换行，超顶才竖着滚），
-   注释跟着改，免得后人照着一句过时的话去找那个不存在的横滚。高度上限一个数管两档，见上面
-   --steward-channels-max-h 的头注：这里不再补第二个断点。 */
-@media (max-width: 390px) {
-  .steward-channels-label { display: none; }
-  .steward-channel { min-height: 44px; padding: 0 var(--sp-4); font-size: var(--fs-sm); }
-  .steward-channels-board { min-height: 44px; font-size: var(--fs-sm); }
-}
 
 /* ── F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行「撤回：倒计时画成环」）─────────
    ① 倒计时：按钮的文字恒是「撤回」，剩下几秒画成一圈环。JS 每秒只写 --steward-undo-left 这一个

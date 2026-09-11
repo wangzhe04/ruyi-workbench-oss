@@ -496,6 +496,11 @@ try {
     select.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`);
+  // 121-K4-3：点行之前【必须】等属性真的落到 classic —— 切视角现在走 View Transitions，
+  // 属性是在 update 回调里写的（比调用那一刻晚一帧）。而左栏行的点击语义是【现问视角】的：
+  // 属性还是 steward 时点下去＝换管家焦点，不是在中栏打开它（实测 C3/D1–D4 五条连红）。
+  // 这不是产品的时序问题（人点不了那么快），是夹具要等一下。
+  await waitForEval(cdp, `(() => document.documentElement.getAttribute('data-shell-mode') === 'classic' ? 1 : null)()`, SHORT_WAIT);
   // 切回来时 openSession 会被「2.0 视窗」那条路重走一遍;这里直接再点一次侧栏,等价且不依赖那条路。
   await cdp.evaluate(`(() => {
     const item = [...document.querySelectorAll('#railList .steward-board-thread')]

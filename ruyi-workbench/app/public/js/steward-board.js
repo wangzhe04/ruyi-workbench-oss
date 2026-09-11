@@ -1268,6 +1268,13 @@ export function createStewardBoard({
   // 抽屉那一份被就地关掉（×／Esc／「交回管家」）时：不再「把右栏收起来并记住」（那枚「关掉」
   // 与它的本机偏好随 #stewardNow 一起退役），只把用户钉的焦点松开，让焦点回到自动挑选。
   function closeNow() {
+    // 121-K4-3（§2.7 第三条）：只有【在管家视角里】就地关掉焦点栏才算用户「松开这一钉」。
+    // 出视角那一下也会走到这里 —— 抽屉自己的 data-shell-mode 观察者在离开管家视角时
+    // closeDrawer()（steward-drawer.js:1413），而它那一关是 docked 的，于是 setOnClosed 那条
+    // 回调照样落到本函数上（syncNow 里的 suppressCloseRecord 只压得住本模块自己关的那一次）。
+    // 那不是用户在说「我不看这一条了」，所以不清钉子。判据用现成的 isStewardMode()，不加状态。
+    // 本件 K6 第一轮红的真正病根就在这里（leaveSteward 里那句 pinnedId = '' 只是它的同伙）。
+    if (!isStewardMode()) { syncNow(); return false; }
     pinnedId = '';
     syncNow();
     return true;
@@ -1439,8 +1446,13 @@ export function createStewardBoard({
   // （「＋」的字变成「新线程」、选中项从焦点线程换成当前会话）。行数据在这一侧由推送与
   // session-experience 的动作（开／建／改名／删）驱动，见 setEventStream 与 renderRail 的头注。
   function leaveSteward() {
-    pinnedId = '';
-    syncNow();
+    // 121-K4-3（§2.7 第三条「每个视角记住自己的现场 —— 管家：焦点线程、滚动」）：出管家视角
+    // 【不再】把用户钉的焦点松开。修前这里第一行是 `pinnedId = ''`，于是「切到工作台看一眼再
+    // 切回来」焦点会跳到自动挑选的那一条（本件 K6 第一轮实测：钉着 A，回来成了 B）——
+    // 那正是 §2.7 要消掉的行为：两个视角各记自己的现场，互不清空。
+    // 钉子该松开的两种情形各自已有归口，不在这里：用户就地关掉焦点栏走 closeNow()（那是显式的
+    // 「松开」），而行里再也找不到它时 currentFocusId() 自己回落到自动挑选。
+    syncNow();      // 仍要跑：show 的第一个条件就是 isStewardMode()，所以这一下把右栏收起
     stopPolling();
     renderRail();
     return true;
@@ -1496,8 +1508,17 @@ export function createStewardBoard({
       });
     }
     if (globalThis.MutationObserver && document_ && document_.documentElement) {
-      new MutationObserver(() => { if (isStewardMode()) void enterSteward(); else leaveSteward(); })
-        .observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
+      // 121-K4-3：先【同步】按新视角把左栏重画一遍，再去走各视角自己那套异步。
+      // 为什么必须同步：左栏里有三样东西是【按视角】变的 —— 「＋」的两义（新任务／新线程）、
+      // 选中态（管家＝焦点线程，工作台＝当前会话）、行的点击语义。切到管家那一路原来只有
+      // enterSteward()，而它第一件事是 await refreshBoard()（一发 GET /api/missions）——于是
+      // 切过去那一瞬间左栏还写着「新线程」，要等一次网络往返才改口（本件 H0 第一轮实测到的就是
+      // 这一帧）。出壳那一路 leaveSteward() 里本来就有 renderRail，这里多跑一次是幂等的
+      // （纯重画，零请求）；放在前面是为了让两条路的【第一帧】都已经是对的。
+      new MutationObserver(() => {
+        renderRail();
+        if (isStewardMode()) void enterSteward(); else leaveSteward();
+      }).observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }
     if (globalThis.matchMedia) {
       try { globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).addEventListener('change', () => syncNow()); }

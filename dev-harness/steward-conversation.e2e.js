@@ -1481,240 +1481,25 @@ try {
     && threadRun.calls.filter(url => url === '/api/sessions/' + THREAD_B).length === 1,
     `V9 卡头零新增请求：它与同一行的交付原文 await 同一个被缓存的 promise（实测 ${JSON.stringify(threadRun.calls)}）`);
 
-  // ─── X F2 频道条（27 号文 §11.14；设计稿画板「宽屏 · 线程即频道」与「窄屏」）──────────────
-  // 三条线程（甲乙丙）＋ 一条管家本人的话 ＋ 一句用户的话，走 enterVisit() 那条【真】路径：它自己
-  // clearFeed（parkAvatar 先把头像送回头部，所以下面第 ⑥ 段的 avatarCount===1 不受影响），于是这一段
-  // 的行计数不必再跟前面几段切一刀 —— feed 里就只有本段这 8 行。
-  // 甲故意被乙、丙、管家本人隔开三次：点「只看甲」之后，四行必须重新合成【一张】卡（一个卡头、
-  // 首尾各一），这是本刀最容易写错、也最该有断言的一处。
-  const CH_A = 'sess_ch_alpha';
-  const CH_B = 'sess_ch_beta';
-  const CH_C = 'sess_ch_gamma';
-  const CH_A_TITLE = '影视板块那件事';
-  const CH_B_TITLE = '大盘怎么走';
-  const CH_C_TITLE = '周报草稿';
-  const CH_SELF_SAY = '这三条我都盯着，有动静我叫你。';
-  const CHANNELS = `(() => {
-    const feed = document.getElementById('stewardFeed');
-    const bar = feed.querySelector('.steward-channels');
-    const rows = [...feed.querySelectorAll('.steward-msg')];
-    const shown = node => getComputedStyle(node).display !== 'none';
-    const target = document.getElementById('stewardTarget');
-    const board = document.getElementById('stewardBoard');
-    const dotOf = node => {
-      const dot = node.querySelector('.steward-channel-dot');
-      return dot ? getComputedStyle(dot).backgroundColor : '';
-    };
-    return {
-      bar: Boolean(bar),
-      barFirst: Boolean(bar) && feed.firstElementChild === bar,
-      barPosition: bar ? getComputedStyle(bar).position : '',
-      barLive: bar ? (bar.getAttribute('aria-live') || '') : '',
-      barRole: bar ? (bar.getAttribute('role') || '') : '',
-      chips: bar ? [...bar.querySelectorAll('.steward-channel')].map(node => ({
-        channel: node.dataset.channel || '',
-        name: node.querySelector('.steward-channel-name').textContent,
-        state: node.querySelector('.steward-channel-state')
-          ? node.querySelector('.steward-channel-state').textContent : '',
-        hue: node.getAttribute('data-thread-hue') || '',
-        dots: node.querySelectorAll('.steward-channel-dot').length,
-        dot: dotOf(node),
-        on: node.classList.contains('is-on'),
-        pressed: node.getAttribute('aria-pressed') || '',
-      })) : [],
-      boards: bar ? bar.querySelectorAll('.steward-channels-board').length : 0,
-      // 「DOM 里一行都没少」：rows 数的是节点，shownRows 数的是【看得见】的那些。
-      rows: rows.length,
-      headNodes: feed.querySelectorAll('.steward-thread-head').length,
-      shownRows: rows.filter(shown).map(row => row.dataset.thread
-        || (row.classList.contains('steward-msg-user') ? 'user' : 'self')),
-      hiddenRows: rows.filter(row => !shown(row)).length,
-      shownHeads: rows.filter(shown)
-        .reduce((sum, row) => sum + [...row.querySelectorAll('.steward-thread-head')].filter(shown).length, 0),
-      // 可见的那几行线程段：[线程, 是不是段首, 是不是段尾]；一张卡 = 恰好一个 true 段首 + 一个 true 段尾。
-      seams: rows.filter(row => shown(row) && row.classList.contains('is-thread'))
-        .map(row => [row.dataset.thread, row.classList.contains('is-thread-start'), row.classList.contains('is-thread-end')]),
-      target: target && target.querySelector('.steward-target-label')
-        ? target.querySelector('.steward-target-label').textContent : '',
-      boardOpen: Boolean(board) && board.hidden === false,
-    };
-  })()`;
-  const channelRun = await cdp.evaluate(`(async () => {
-    const mod = await import('/js/steward-conversation.js');
-    const i18n = await import('/js/i18n.js');
-    const prims = (await import('/js/chat-render-primitives.js')).createChatRenderPrimitives({
-      el: (tag, cls, text) => {
-        const node = document.createElement(tag);
-        if (cls) node.className = cls;
-        if (text != null) node.textContent = text;
-        return node;
-      },
-      escapeHtml: value => String(value).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])),
-      marked: window.marked,
-      t: key => key,
-      toast: () => {},
-    });
-    const touched = new Date(Date.now() - 40000).toISOString();
-    const envelope = (id, title, extra, seqs) => ({
-      ok: true, displayTitle: title, ...extra,
-      session: {
-        id, turnSeq: seqs[seqs.length - 1], updatedAt: touched,
-        engineRoute: { engine: 'openai', providerId: 'fake', model: 'gpt-5-mini' },
-        messages: seqs.flatMap(seq => ([
-          { role: 'user', turnSeq: seq, createdAt: '2099-06-01T00:00:00.000Z', content: '第 ' + seq + ' 回合的问题' },
-          { role: 'assistant', turnSeq: seq, createdAt: '2099-06-01T00:00:01.000Z', content: '第 ' + seq + ' 回合的交付。' },
-        ])),
-      },
-    });
-    const envelopes = {
-      [${JSON.stringify(CH_A)}]: envelope(${JSON.stringify(CH_A)}, ${JSON.stringify(CH_A_TITLE)}, { resumable: { live: true } }, [3, 4, 5, 6]),
-      [${JSON.stringify(CH_B)}]: envelope(${JSON.stringify(CH_B)}, ${JSON.stringify(CH_B_TITLE)}, { relay: { channel: 'permission' } }, [2]),
-      [${JSON.stringify(CH_C)}]: envelope(${JSON.stringify(CH_C)}, ${JSON.stringify(CH_C_TITLE)}, {}, [1]),
-    };
-    const inbox = (id, title, seq) => ({ kind: 'inbox', sessionId: id, title, turnSeq: seq });
-    const said = (at, trigger, say) => ({ role: 'assistant', createdAt: at, content: '',
-      steward: { trigger, say, why: '', acts: [], actions: [] } });
-    const history = { session: { messages: [
-      said('2099-06-02T00:00:00.000Z', inbox(${JSON.stringify(CH_A)}, ${JSON.stringify(CH_A_TITLE)}, 3), '甲交了第三回合。'),
-      said('2099-06-02T00:00:01.000Z', inbox(${JSON.stringify(CH_B)}, ${JSON.stringify(CH_B_TITLE)}, 2), '乙这条在等你拿主意。'),
-      said('2099-06-02T00:00:02.000Z', inbox(${JSON.stringify(CH_A)}, ${JSON.stringify(CH_A_TITLE)}, 4), '甲第四回合也交了。'),
-      said('2099-06-02T00:00:03.000Z', inbox(${JSON.stringify(CH_A)}, ${JSON.stringify(CH_A_TITLE)}, 5), '甲第五回合又交了。'),
-      said('2099-06-02T00:00:04.000Z', inbox(${JSON.stringify(CH_C)}, ${JSON.stringify(CH_C_TITLE)}, 1), '丙收工了。'),
-      { role: 'user', createdAt: '2099-06-02T00:00:05.000Z', content: '知道了' },
-      said('2099-06-02T00:00:06.000Z', 'user', ${JSON.stringify(CH_SELF_SAY)}),
-      said('2099-06-02T00:00:07.000Z', inbox(${JSON.stringify(CH_A)}, ${JSON.stringify(CH_A_TITLE)}, 6), '甲第六回合。'),
-    ] } };
-    window.__ruyiChannelCalls = [];
-    const conv = mod.createStewardConversation({
-      api: async url => {
-        window.__ruyiChannelCalls.push(String(url));
-        const route = String(url).split('?')[0];
-        if (route === '/api/steward/visit') return { ok: true, newVisit: false, pending: [], visit: { startedAt: '2000-01-01T00:00:00.000Z' } };
-        if (route === '/api/sessions/steward') return history;
-        return envelopes[route.replace('/api/sessions/', '')] || null;
-      },
-      state: { config: { stewardEnabledV1: true } },
-      t: (key, params) => i18n.t(key, params || {}),
-      isStewardMode: () => true,
-      renderMarkdownInto: prims.renderMarkdownInto,
-      highlightIn: prims.highlightIn,
-    });
-    const visit = await conv.enterVisit();
-    return { ok: Boolean(visit), calls: window.__ruyiChannelCalls.slice() };
-  })()`);
-  // 卡头的事实是异步填的（与交付卡 await 同一个 promise），chip 上的状态又是从卡头读的 ——
-  // 等到三枚线程 chip 都带上状态为止。
-  const open = await waitForEval(cdp, `(() => {
-    const snapshot = ${CHANNELS};
-    const threads = snapshot.chips.filter(chip => chip.dots === 1);
-    return (threads.length === 3 && threads.every(chip => chip.state)) ? snapshot : null;
-  })()`, 400) || await cdp.evaluate(CHANNELS);
-  const shotDirX = path.join(os.tmpdir(), 'ruyi-F2-shots');
-  const shootX = async name => {
-    try {
-      fs.mkdirSync(shotDirX, { recursive: true });
-      const png = await cdp.send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(shotDirX, name), Buffer.from(png.data, 'base64'));
-      console.log(`  截图：${path.join(shotDirX, name)}`);
-    } catch { /* 证据拍不下来不改变判定 */ }
-  };
-  await cdp.evaluate(`(() => { const feed = document.getElementById('stewardFeed'); if (feed) feed.scrollTop = 0; return true; })()`);
-  await shootX('F2-channels-all.png');
-  const chipNames = (open.chips || []).map(chip => chip.name);
-  ok(Boolean(channelRun) && channelRun.ok === true && open.bar === true && open.barFirst === true,
-    `X0 频道条出现在对话流的最前面（实测 bar=${open.bar} / 第一个子节点=${open.barFirst}）`);
-  ok(open.chips.length === 5
-    && chipNames[0] === zh['stewardShell.channels.all']
-    && chipNames[1] === CH_A_TITLE && chipNames[2] === CH_B_TITLE && chipNames[3] === CH_C_TITLE
-    && chipNames[4] === zh['stewardShell.channels.steward']
-    && open.boards === 1,
-    `X1 三条线程 = 三枚 chip（按首次出现顺序）＋「全部」＋「管家本人」，右端一个「全部线程」入口（实测 ${JSON.stringify(chipNames)}）`);
-  const threadChips = open.chips.filter(chip => chip.dots === 1);
-  ok(threadChips.length === 3
-    && threadChips.every(chip => /^rgb/.test(String(chip.dot)))
-    && new Set(threadChips.map(chip => chip.dot)).size === 3
-    && new Set(threadChips.map(chip => chip.hue)).size === 3,
-    `X1b 只有线程 chip 有色点，三条三个色（色号抄自 F1 写在行上的 data-thread-hue；实测 ${JSON.stringify(threadChips.map(chip => [chip.hue, chip.dot]))}）`);
-  ok(threadChips[0].state === zh['mission.state.running']
-    && threadChips[1].state === zh['mission.state.needs_you']
-    && threadChips[2].state === zh['mission.state.done'],
-    `X1c chip 上的状态就是卡头那枚药丸的字（在跑／等你／已收工，同一个信封同一处判定；实测 ${JSON.stringify(threadChips.map(chip => chip.state))}）`);
-  ok(open.rows === 8 && open.hiddenRows === 0 && open.shownRows.length === 8
-    && open.headNodes === 5 && open.shownHeads === 5,
-    `X1d 起手八行全可见，五个卡头（甲被隔开三次故有 4 个 ＋ 乙丙各 1 个… 实测 行=${open.rows} 卡头=${open.headNodes}/${open.shownHeads}）`);
-
-  const filtered = await waitForEval(cdp, `(() => {
-    const chip = document.querySelector('#stewardFeed .steward-channel[data-channel=${JSON.stringify(CH_A)}]');
-    if (chip && !chip.classList.contains('is-on')) chip.click();
-    const snapshot = ${CHANNELS};
-    return snapshot.hiddenRows > 0 ? snapshot : null;
-  })()`, 200);
-  await shootX('F2-channels-only-alpha.png');
-  ok(Boolean(filtered) && filtered.rows === open.rows && filtered.headNodes === open.headNodes,
-    `X2 过滤是【呈现】不是数据：DOM 里的行数与卡头数一个没少（实测 行 ${open.rows}→${filtered && filtered.rows}，卡头 ${open.headNodes}→${filtered && filtered.headNodes}）`);
-  ok(Boolean(filtered) && filtered.shownRows.length === 4
-    && filtered.shownRows.every(id => id === CH_A) && filtered.hiddenRows === 4,
-    `X2b 只看甲：甲那四行看得见，另外四行（乙／丙／用户／管家本人）藏起来（实测 可见 ${JSON.stringify(filtered && filtered.shownRows)}）`);
-  ok(Boolean(filtered) && filtered.shownHeads === 1
-    && filtered.seams.length === 4
-    && filtered.seams.filter(seam => seam[1]).length === 1 && filtered.seams[0][1] === true
-    && filtered.seams.filter(seam => seam[2]).length === 1 && filtered.seams[3][2] === true,
-    `X3 被隔开三次的四行重新合成【一张】卡：一个卡头、一个段首、一个段尾（实测 卡头 ${filtered && filtered.shownHeads} / 段界 ${JSON.stringify(filtered && filtered.seams)}）`);
-  ok(Boolean(filtered) && filtered.chips.filter(chip => chip.on).length === 1
-    && filtered.chips[1].on === true && filtered.chips[1].pressed === 'true',
-    `X3b 选中那一枚 chip 是实底态，且读屏念得到（aria-pressed；实测 ${JSON.stringify((filtered && filtered.chips || []).map(chip => [chip.name, chip.on, chip.pressed]))}）`);
-  ok(Boolean(filtered)
-    && filtered.target === zh['stewardShell.compose.targetThread'].replace('{{title}}', CH_A_TITLE),
-    `X4 过滤开着时输入框的目标就是这条线程（走的是【既有的】手选态 picked，不是第二个「目标」；实测「${filtered && filtered.target}」）`);
-
-  const cleared = await waitForEval(cdp, `(() => {
-    const chip = document.querySelector('#stewardFeed .steward-channel[data-channel=${JSON.stringify(CH_A)}]');
-    if (chip && chip.classList.contains('is-on')) chip.click();
-    const snapshot = ${CHANNELS};
-    return snapshot.hiddenRows === 0 ? snapshot : null;
-  })()`, 200);
-  ok(Boolean(cleared) && cleared.rows === open.rows && cleared.shownRows.length === 8
-    && cleared.shownHeads === 5
-    && cleared.chips.filter(chip => chip.on).length === 1 && cleared.chips[0].on === true,
-    `X5 再点一次同一枚就取消：八行全回来、五个卡头全回来、实底那一枚回到「全部」（设计稿宽屏画板里它就是那枚深底 pill；实测 可见 ${cleared && cleared.shownRows.length} / 卡头 ${cleared && cleared.shownHeads} / 实底 ${JSON.stringify((cleared && cleared.chips || []).filter(chip => chip.on).map(chip => chip.name))}）`);
-  ok(Boolean(cleared) && cleared.target === zh['stewardShell.compose.targetSteward'],
-    `X5b 取消过滤，输入框的目标也回到进频道之前的样子（「${cleared && cleared.target}」）`);
-  ok(Boolean(cleared) && JSON.stringify(cleared.seams) === JSON.stringify(open.seams),
-    `X5c 取消之后每一段的段首段尾与过滤【之前】逐个相同 —— 重封用的就是 markThread 那一条判据，不是另一套（实测 ${JSON.stringify(cleared && cleared.seams)}）`);
-
-  const selfOnly = await waitForEval(cdp, `(() => {
-    const chip = document.querySelector('#stewardFeed .steward-channel[data-channel="steward:self"]');
-    if (chip && !chip.classList.contains('is-on')) chip.click();
-    const snapshot = ${CHANNELS};
-    return snapshot.hiddenRows > 0 ? snapshot : null;
-  })()`, 200);
-  ok(Boolean(selfOnly) && selfOnly.rows === open.rows
-    && JSON.stringify(selfOnly.shownRows) === JSON.stringify(['user', 'self'])
-    && selfOnly.shownHeads === 0,
-    `X6 「管家本人」这一档＝没有线程色条的那些行（用户的话与管家自己的话），一个卡头都不该出现（实测 ${JSON.stringify(selfOnly && selfOnly.shownRows)}）`);
-  ok(Boolean(selfOnly) && selfOnly.target === zh['stewardShell.compose.targetSteward'],
-    'X6b 「管家本人」不是一条线程，所以目标仍然是如意（不给一个不存在的 sessionId）');
-  const allBack = await waitForEval(cdp, `(() => {
-    const chip = document.querySelector('#stewardFeed .steward-channel[data-channel=""]');
-    if (chip && !chip.classList.contains('is-on')) chip.click();
-    const snapshot = ${CHANNELS};
-    return snapshot.hiddenRows === 0 ? snapshot : null;
-  })()`, 200);
-  ok(Boolean(allBack) && allBack.shownRows.length === 8,
-    `X7 点「全部」同样退得回来（实测 可见 ${allBack && allBack.shownRows.length} 行）`);
-  // 本段【零新增请求】：一次到访 ＋ 一份历史 ＋ 六个回合各一发信封（甲 4 乙 1 丙 1）。
-  // 上面四次点 chip 一发都没多 —— 过滤不重发任何东西。
-  ok(Array.isArray(channelRun.calls) && channelRun.calls.length === 8,
-    `X7b 频道条零新增请求：整段只有到访 1 ＋ 历史 1 ＋ 信封 6（实测 ${channelRun.calls.length} 发）`);
-  const afterClicks = await cdp.evaluate('(window.__ruyiChannelCalls || []).length');
-  ok(afterClicks === channelRun.calls.length,
-    `X7c companion：四次点 chip 之后请求数一发没变（实测 ${channelRun.calls.length} → ${afterClicks}）`);
-  // 121-K4-2：X8 原来钉的是「右端那枚『全部线程』把看板浮层拉开」。看板浮层随 K4-2 退役
-  // （行搬左栏、常开），这枚入口于是无处可去 —— 它连同整条频道条在 K4-3 一起删除（§2.4「频道条
-  // 退役」：左栏就是索引，频道条是它的第二遍）。本条断言先撤，X 组其余在 K4-3 随频道条一并撤。
-  ok(await cdp.evaluate(`!document.getElementById('stewardBoard')`),
-    'X8 那枚「全部线程」指向的看板浮层已退役（左栏取代了它；频道条本体随 K4-3 删除）');
-  await cdp.evaluate(`(() => { const line = document.getElementById('stewardStatusLine'); if (line) line.click(); return true; })()`);
+  // ─── X F2 频道条 → 121-K4-3 整段退役（34 号文 §2.4／§12 末条）─────────────────────────────
+  // 原来这里是 X0–X8 十七条真浏览器断言 ＋ 它们自己那套夹具（三条线程的信封、enterVisit 一趟）：
+  // 三枚线程 chip 的色点与状态、「只看这条」是呈现不是数据（行数与卡头数一个不少）、被隔开三次
+  // 的四行重新合成一张卡、chip 的 aria-pressed、过滤开着时输入框的目标、取消过滤后段界逐个复原、
+  // 「管家本人」那一档、整段零新增请求。它们当时都成立 —— 撤掉的理由不是写坏了，而是
+  // 【频道条本身没了】：左栏常开、按任务归组、点一行就换焦点，「只看这条」在那儿是一次点击。
+  // 退役由 steward-conversation.static 的 W 组三条正面钉住（JS 零残留／CSS 零残留／只留段界那条）。
+  // 这里在【真浏览器】里补最后一条：上面 V 组那一屏真的画过线程卡之后，整个文档里连一个频道条
+  // 节点都长不出来，而线程卡与卡头照旧在（删的是第二遍索引，不是线程卡）。
+  // 反向验证：把 paintChannels 那一段贴回 steward-conversation.js → 本条当场红。
+  const channelResidue = await cdp.evaluate(`(() => ({
+    bar: document.querySelectorAll('[class*="steward-channel"]').length,
+    filtered: document.querySelectorAll('.is-channel-out').length,
+    cards: document.querySelectorAll('#stewardFeed .steward-msg-ruyi.is-thread').length,
+    heads: document.querySelectorAll('#stewardFeed .steward-thread-head').length,
+  }))()`);
+  ok(Boolean(channelResidue) && channelResidue.bar === 0 && channelResidue.filtered === 0
+    && channelResidue.cards > 0 && channelResidue.heads > 0,
+    `X0 频道条在真浏览器里零残留（chip／滚动容器等节点 ${channelResidue && channelResidue.bar} 个、过滤类 ${channelResidue && channelResidue.filtered} 处），而线程卡照旧在（${channelResidue && channelResidue.cards} 行 ／ ${channelResidue && channelResidue.heads} 个卡头）`);
 
   // ─── X8b 117v-V4 ① 四档间距（用户第十轮追加②「每段会话离的太近了，你看图，很密」＋ 再追加①
   // 「单线程的总结回复和原文最好也中间隔些空间」；27 号文 §11.16.4 追加②／§11.16.5 追加④）──────
@@ -1766,89 +1551,13 @@ try {
   ok(Boolean(tiers) && tiers.afterCard === tiers.betweenCards,
     `X8b2 ① 卡间的两个落点算出来是同一个数：卡的第一行 ${tiers && tiers.betweenCards}px、卡后面那一行 ${tiers && tiers.afterCard}px —— 一档两处，不是两个各调各的数`);
 
-  // ─── X9 117v-V4 ② 频道条「显示不全」（用户 2026-09-09「还有那个胶囊显示不全，一块修了吧」；
-  // 27 号文 §11.16.4 追加③）───────────────────────────────────────────────────────────────
-  // 上面 X 段只有三条线程，一行就摆得下 —— 而用户报的病要在【线程条数超出一行宽度】时才现形，
-  // 所以这里按真样式量一次多线程的版面。用真 DOM ＋ 真样式表（同一个页面、同一份 CSS）造 24 枚
-  // chip，量完就把它摘掉：不碰对话流的行、不发一发请求，上面的行计数与请求计数一个都不受影响。
-  // 钉的是三条硬要求本身（不是「用哪种滚法」）：
-  //   ① 没有「看不见也摸不着」的 chip —— 要么现在就在可视区，要么在滚动内容范围内且容器真能滚；
-  //   ② 「全部线程」恒可达 —— 它不在会滚的那一段里，把容器滚到底它一个像素都不动；
-  //   ③ 粘条占高有上限 —— 24 枚 chip 也不会把正文挤没。
-  const CHIP_OVERFLOW = `(() => {
-    const feed = document.getElementById('stewardFeed');
-    const bar = document.createElement('div');
-    bar.className = 'steward-channels';
-    const scroll = document.createElement('div');
-    scroll.className = 'steward-channels-scroll';
-    for (let i = 0; i < 24; i += 1) {
-      const chip = document.createElement('button');
-      chip.className = 'steward-channel';
-      const name = document.createElement('span');
-      name.className = 'steward-channel-name';
-      name.textContent = '线程' + i + '·占位标题';
-      chip.appendChild(name);
-      scroll.appendChild(chip);
-    }
-    const board = document.createElement('button');
-    board.className = 'steward-channels-board';
-    board.textContent = '全部线程';
-    bar.appendChild(scroll);
-    bar.appendChild(board);
-    feed.insertBefore(bar, feed.firstChild);
-    const chips = [...scroll.querySelectorAll('.steward-channel')];
-    const style = getComputedStyle(scroll);
-    const barBox = bar.getBoundingClientRect();
-    const boardBox = board.getBoundingClientRect();
-    // 「摸得着」按【操作】量，不按坐标猜：逐枚把容器滚到它那一行，看它是不是真进了容器的可视框，
-    // 量完把滚动位置放回去。已经在可视区里的那几枚这一趟是空转 —— 所以这一条同时覆盖
-    // 「全部可见」与「可见地可滚」两种合格答案，不押某一种实现。
-    const viewOf = () => scroll.getBoundingClientRect();
-    const unreachable = chips.filter(chip => {
-      const before = scroll.scrollTop;
-      const rel = chip.getBoundingClientRect().top - viewOf().top + before;
-      scroll.scrollTop = Math.max(0, Math.min(rel, scroll.scrollHeight));
-      const box = chip.getBoundingClientRect();
-      const view = viewOf();
-      const seen = box.width > 0 && box.height > 0
-        && box.bottom > view.top + 0.5 && box.top < view.bottom - 0.5
-        && box.right > view.left + 0.5 && box.left < view.right - 0.5;
-      scroll.scrollTop = before;
-      return !seen;
-    }).length;
-    const boardTopBefore = board.getBoundingClientRect().top;
-    scroll.scrollTop = scroll.scrollHeight;
-    const boardMoved = Math.round(Math.abs(board.getBoundingClientRect().top - boardTopBefore));
-    const out = {
-      chips: chips.length,
-      wrap: style.flexWrap,
-      rows: new Set(chips.map(chip => Math.round(chip.getBoundingClientRect().top + scroll.scrollTop))).size,
-      unreachable,
-      scrollable: scroll.scrollHeight > scroll.clientHeight + 1,
-      scrollbar: style.scrollbarWidth,
-      gutter: Math.round(scroll.offsetWidth - scroll.clientWidth),
-      boardInScroller: scroll.contains(board),
-      boardMoved,
-      boardVisible: boardBox.width > 0 && boardBox.height > 0
-        && boardBox.top >= barBox.top - 1 && boardBox.bottom <= barBox.bottom + 1,
-      barHeight: Math.round(barBox.height),
-      feedHeight: Math.round(feed.getBoundingClientRect().height),
-    };
-    feed.removeChild(bar);
-    return out;
-  })()`;
-  const overflow = await cdp.evaluate(CHIP_OVERFLOW);
-  ok(Boolean(overflow) && overflow.chips === 24 && overflow.unreachable === 0,
-    `X9 ② 24 枚 chip 里【一枚都不是】「看不见也摸不着」：逐枚滚过去都真进了可视框（实测够不着 ${overflow && overflow.unreachable} 枚；换行摆成 ${overflow && overflow.rows} 行、wrap=${overflow && overflow.wrap}、需要滚=${overflow && overflow.scrollable}）`);
-  ok(Boolean(overflow) && overflow.scrollbar !== 'none'
-    && (overflow.scrollable === false || overflow.gutter > 0),
-    `X9b ② 而且是【看得见地】可滚：scrollbar-width=${overflow && overflow.scrollbar}（不是修前那个 none），需要滚的时候滚动条真占了 ${overflow && overflow.gutter}px 的槽 —— 修前那两条（scrollbar-width:none ＋ ::-webkit-scrollbar{height:0}）正是把这个 affordance 抹掉的东西`);
-  ok(Boolean(overflow) && overflow.boardInScroller === false
-    && overflow.boardMoved === 0 && overflow.boardVisible === true,
-    `X9c ②「全部线程」恒可达：它不在会滚的那一段里，把容器整个滚到底之后它挪了 ${overflow && overflow.boardMoved}px（＝纹丝不动）且整枚仍在粘条里 —— 逃生舱不跟着 chip 一起滚出去`);
-  ok(Boolean(overflow) && overflow.barHeight > 0 && overflow.feedHeight > 0
-    && overflow.barHeight <= overflow.feedHeight / 3,
-    `X9d ② 粘条占高有上限：24 条线程下它只有 ${overflow && overflow.barHeight}px，不到对话流可视高度 ${overflow && overflow.feedHeight}px 的三分之一 —— 换行方案没把正文挤没`);
+  // ─── X9 频道条「显示不全」→ 121-K4-3 随频道条退役 ───────────────────────────────────────
+  // 原来这里造 24 枚 chip 量三条硬要求（没有「看不见也摸不着」的 chip、「全部线程」恒可达、
+  // 粘条占高有上限）。那一排 chip 不存在了，这三条也就无处可量；它们要解决的问题（线程一多
+  // 怎么都到得了）由左栏承担 —— 常开、按任务归组、组头计数、Ctrl+K 搜索，各有自己的锁
+  // （steward-board.e2e 的 B／C 组与 one-workbench-frame.browser 的 ⑥／③ 两组）。
+  // 「不许悄悄回来」那一条留在 steward-conversation.static 的 AA4：整层不许再出现把滚动条
+  // 压成 0 的那两条声明（scrollbar-width:none ／ ::-webkit-scrollbar{height:0}）。
 
   // ─── Z F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行「撤回：倒计时画成环」）──────
   // 手法与 T/U/F1/F2 四段一样：新建一个实例 ＋ 注入按 URL 分流的假 api，走 handOff 那条【真】路径
@@ -2099,10 +1808,12 @@ try {
     const visit = await conv.enterVisit();
     return { ok: Boolean(visit), calls: window.__ruyiV1Calls.slice() };
   })()`);
-  // 卡头的事实是异步填的，chip 的名字是从卡头读的 —— 等到两枚线程 chip 都换成显示名为止。
+  // 卡头的事实是异步填的 —— 等到两条线程的卡头都换成显示名为止。
+  // 121-K4-3：判据原来看的是「两枚 chip 的名字」（chip 的名字就是从卡头读的）；频道条退役后
+  // 直接看卡头本身 —— 同一件事实，少一层转手。
   const vBefore = await waitForEval(cdp, `(() => {
     const snapshot = ${V_SHOT};
-    const named = snapshot.chips.filter(chip => chip.name === ${JSON.stringify(V_IN_TITLE)} || chip.name === ${JSON.stringify(V_ASK_TITLE)});
+    const named = (snapshot.cards || []).filter(card => card.headName === ${JSON.stringify(V_IN_TITLE)} || card.headName === ${JSON.stringify(V_ASK_TITLE)});
     return named.length === 2 ? snapshot : null;
   })()`, 400) || await cdp.evaluate(V_SHOT);
   const shotDirV = path.join(os.tmpdir(), 'ruyi-117v-V1-shots');
@@ -2120,9 +1831,13 @@ try {
   ok(Boolean(vRun) && vRun.ok === true && Boolean(vAskRow) && vAskRow.heads === 1
     && vAskRow.headName === V_ASK_TITLE && vAskRow.sources === 1,
     `AA1 ③ 回放：用户问的那一轮（trigger:'user'）只要真开出了线程，就照样长线程卡（实测 卡头 ${vAskRow && vAskRow.heads} 枚、名字「${vAskRow && vAskRow.headName}」）`);
-  const vChipsBefore = (vBefore.chips || []).map(chip => chip.channel);
-  ok(vChipsBefore.filter(id => id === V_ASK).length === 1 && vChipsBefore.filter(id => id === V_IN).length === 1,
-    `AA2 ③ 频道条上真的多了那一枚 chip（实测 ${JSON.stringify((vBefore.chips || []).map(chip => chip.name))}）`);
+  // 121-K4-3 翻面：这一条原来钉「频道条上真的多了那一枚 chip」。频道条退役后，「这一轮到底
+  // 开了哪条线程」在对话流里的唯一回执就是【那张线程卡】—— 一条线程一张卡、一枚卡头，
+  // 而且整屏零频道条节点。判据换了宿主，钉的事实一个字没变。
+  const vCardsBefore = (vBefore.cards || []).map(card => card.thread);
+  ok(vCardsBefore.filter(id => id === V_ASK).length === 1 && vCardsBefore.filter(id => id === V_IN).length === 1
+    && (vBefore.chips || []).length === 0,
+    `AA2 ③ 回放真的给这两条线程各长出一张卡（实测 ${JSON.stringify((vBefore.cards || []).map(card => card.headName))}；频道条节点 ${(vBefore.chips || []).length} 个）`);
   ok(Boolean(vInRow) && vInRow.deliverables === 1 && Boolean(vAskRow) && vAskRow.deliverables === 0,
     `AA3 ③ 的边界：交付卡【没有】跟着放出来 —— 收件箱那一行有（${vInRow && vInRow.deliverables}），刚开的线程那一行没有（${vAskRow && vAskRow.deliverables}），它这一回合还没有任何交付`);
   ok(Array.isArray(vRun.calls) && vRun.calls.length === 4
@@ -2157,16 +1872,23 @@ try {
   })()`);
   const vAfter = await waitForEval(cdp, `(() => {
     const snapshot = ${V_SHOT};
-    const named = snapshot.chips.filter(chip => chip.name === ${JSON.stringify(V_LIVE_TITLE)});
+    const named = (snapshot.cards || []).filter(card => card.headName === ${JSON.stringify(V_LIVE_TITLE)});
     return named.length === 1 ? snapshot : null;
   })()`, 400) || await cdp.evaluate(V_SHOT);
   await shootV('V1-2-live-chip.png');
-  const vChipsAfter = (vAfter.chips || []).map(chip => chip.channel);
+  // 121-K4-3 翻面（与 AA2 同一条）：「当场」的落点从「多一枚 chip」换成「多一张线程卡」。
+  // 这一条比原来更贴题 —— 它钉的本来就是「用户问、管家开线程，人还看着屏幕的那一轮
+  // 【当场】有回执」，而 chip 只是那个回执的一个转手。
+  const vCardsAfter = (vAfter.cards || []).map(card => card.thread);
   const vLiveRow = (vAfter.cards || []).filter(card => card.thread === V_LIVE)[0] || null;
-  ok(Boolean(vLiveRun) && vChipsAfter.length === vChipsBefore.length + 1
-    && vChipsAfter.filter(id => id === V_LIVE).length === 1
-    && Boolean(vLiveRow) && vLiveRow.heads === 1 && vLiveRow.headName === V_LIVE_TITLE,
-    `AA6 ③「当场」：用户问 → 管家开线程 → 频道条【就地】多一枚 chip（实测 ${vChipsBefore.length} 枚 → ${vChipsAfter.length} 枚：${JSON.stringify((vAfter.chips || []).map(chip => chip.name))}）`);
+  // 数的是【线程】不是行：同一条线程被隔开之后会有多行（headName 为空的那些就是段中的行），
+  // 而这一条问的是「多了哪一条线程」。
+  const threadsOf = list => [...new Set(list.filter(Boolean))];
+  ok(Boolean(vLiveRun) && threadsOf(vCardsAfter).length === threadsOf(vCardsBefore).length + 1
+    && vCardsAfter.filter(id => id === V_LIVE).length === 1
+    && Boolean(vLiveRow) && vLiveRow.heads === 1 && vLiveRow.headName === V_LIVE_TITLE
+    && (vAfter.chips || []).length === 0,
+    `AA6 ③「当场」：用户问 → 管家开线程 → 对话流【就地】多出那一条线程的卡（实测 ${threadsOf(vCardsBefore).length} 条 → ${threadsOf(vCardsAfter).length} 条：${JSON.stringify((vAfter.cards || []).map(card => card.headName).filter(Boolean))}）`);
 
   // ② 那枚琥珀色「看…全文」：点两次，两次都真去开线程，按钮行一次都没被消费掉。
   const vClick = `(() => {

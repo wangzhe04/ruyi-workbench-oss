@@ -158,7 +158,12 @@ export function createStewardShellDomain({
       openStewardPanel: () => '',
       settings: Object.freeze({ fillStewardSettings: () => false, openPanel: () => '', setStopped: () => false, isStopped: () => true }),
       // 117g/117h：同理给同形空壳 —— 依赖缺失时壳整体钉在经典，看板与 2.0 视窗都无处可去。
-      board: Object.freeze({ setBoardOpen: () => false, isBoardOpen: () => false, refreshBoard: async () => 0, closeNow: () => false }),
+      // 121-K4：看板浮层的开合随它退役；空壳跟着改成左栏那几个口（组合根在 setRailRenderer 与
+      // §2.9 的 sharedThreadId 两处会调 renderRail／syncRail／focusThreadId，键集必须同形）。
+      board: Object.freeze({
+        renderRail: () => 0, syncRail: () => false, refreshBoard: async () => 0,
+        closeNow: () => false, focusThreadId: () => '',
+      }),
       classicWindow: Object.freeze({ openClassicWindow: async () => '', switchWholeShell: () => 'classic', isReturning: () => false }),
     });
   }
@@ -404,8 +409,9 @@ export function createStewardShellDomain({
     // 117 走查（用户 2026-09-06）：主端点是命令行引擎时，对话区的「改用『某端点』」按钮经这里写
     // stewardProviderId（走设置域同一个 saveConfigPartial，对话区不碰 /api/config）。
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
-    // 117g：菜单末项「整体切到 2.0」——【不】设返回标记，所以经典壳里不出返回带（§5 117g 行）。
-    switchWholeShell: () => classicWindow.switchWholeShell(),
+    // 121-K4：头像菜单末项「整体切到 2.0」退役（§2.2：视角切换只在顶栏分段钮一处），
+    // 这条注入随之撤掉 —— classicWindow.switchWholeShell 本身留着，它是「整体切壳」那条既有能力，
+    // 只是自此没有界面入口（设置里的「启动默认视角」走的是另一条：cfgShellMode → applyShellMode）。
     // 117s-H：交付卡的「看全文」直接跳 2.0 视窗（与抽屉那三处同一个入口，117g）。同样是迟绑定闭包：
     // classicWindow 在下面才建，调用时它早已就位；缺席时对话区回落既有的 steward:open-thread。
     openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),

@@ -844,118 +844,35 @@ for (const key of ['mission.state.running', 'mission.state.needs_you', 'mission.
     `Q10 卡头复用的既有 locale 键 ${key} 中英齐备（本刀零新增键）`);
 }
 
-// ─── W F2 频道条（27 号文 §11.14；设计稿画板「宽屏 · 线程即频道」与「窄屏」）─────────────────
-// 钉的是「哪件事必须成立」（32 号文 §4 第 4 条）：
-//   ① 过滤是【呈现】不是数据：零 removeChild、零请求、零存储，行数在过滤前后逐个相同；
-//   ② 不建第二个判官：chip 的色号/名字/状态全从 F1 已经写在行上的那三处读；
-//   ③ 不建第二个「目标」：输入区仍然只有 picked 一个，频道条走的是手选那条既有路；
-//   ④ 过滤后的段首段尾重封，用的是 markThread 逐字同一条判据（只是「前一行」取可见的那一个）。
+// ─── W F2 频道条 → 121-K4-3 整段退役（34 号文 §2.4／§12 末条）──────────────────────────────
+// 原来这一组（W1–W11，12 条）钉的是频道条那三条纪律：过滤是呈现不是数据、不建第二个判官、
+// 不建第二个「目标」。它们当时都成立，而且是这一刀敢把整段删掉的底气：**那一段确实没有别人
+// 依赖的状态** —— 零存储、零请求、零第二份色号、输入区的目标仍然只有 picked 一个。
+// 现在的事实是：左栏（两视角共用、常开、按任务归组）就是索引，频道条是它的第二遍；
+// 「只看这条」在左栏是一次点击（点行＝换焦点）。所以整组翻面，钉【它真的不在了】：
+//   ① 两个模块级状态、八个函数、两个导出常量，一个都不许留在对话流里；
+//   ② 样式层那一族（含那条 .is-channel-out 过滤规则与只服务它的高度上限变量）一个都不许留；
+//   ③ 唯一留下来的是「卡头只长在段首那一行」那条规则与 resealThreads —— 它不属于频道条
+//      （线程卡的段界是追加时看上一行算出来的，与过滤无关）。
+// 反向验证：把 syncChannels 的调用点加回 appendThread → ① 当场红（函数不存在，扫描也会抓到）。
 const composerMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-composer.js')).href);
-const f2 = conversationCode.slice(conversationCode.indexOf('let channelFilter ='),
-  conversationCode.indexOf('const deliverableCache = new Map();'));
-ok(mod.STEWARD_PICK_CHANNEL_EVENT === 'steward:pick-channel'
-  && composerMod.STEWARD_PICK_CHANNEL_EVENT === mod.STEWARD_PICK_CHANNEL_EVENT
-  && mod.STEWARD_CHANNEL_SELF === 'steward:self',
-  `W1 两个模块各持一份【同名同值】的事件常量（steward-board.js / steward-classic-window.js 对既有那两个事件就是这么做的；实测 ${mod.STEWARD_PICK_CHANNEL_EVENT} ／ ${composerMod.STEWARD_PICK_CHANNEL_EVENT}）`);
-ok((conversation.match(/'steward:pick-channel'/g) || []).length === 1
-  && (composer.match(/'steward:pick-channel'/g) || []).length === 1
-  && /new CustomEvent\(STEWARD_PICK_CHANNEL_EVENT/.test(conversation)
-  && /addEventListener\(STEWARD_PICK_CHANNEL_EVENT/.test(composer),
-  'W1b 派发处与监听处都引用常量，字面量在两个文件里各自只出现在那一行导出声明上');
-
-// ① 过滤是呈现不是数据。
-const filterPath = conversationCode.slice(conversationCode.indexOf('function applyChannel()'),
-  conversationCode.indexOf('function resealThreads()'));
-ok(filterPath.length > 0
-  && !/removeChild|\.remove\(|innerHTML/.test(filterPath)
-  && !/\bapi\(|fetch\(/.test(filterPath)
-  && /row\.classList\.toggle\('is-channel-out', hide\);/.test(filterPath),
-  'W2 过滤这条路只 toggle 一个类：零 removeChild／零 remove()／零请求 —— 点一条 chip 之后 DOM 里的行数与点之前逐个相同');
-const f2Removes = [...f2.matchAll(/removeChild\(([^)]*)\)/g)].map(match => match[1]);
-ok(f2Removes.length === 2 && f2Removes.every(arg => arg === 'bar.firstChild' || arg === 'bar'),
-  `W2b 频道条整段里仅有的两处 removeChild 拆的都是【频道条自己】（重画 chip ／ 一条线程都没有时整条收起），没有一处碰消息行（实测 ${JSON.stringify(f2Removes)}）`);
-ok(!/localStorage|sessionStorage/.test(f2)
-  && /channelFilter = '';/.test(conversationCode.slice(conversationCode.indexOf('function clearFeed()'),
-    conversationCode.indexOf('function renderDigest')))
-  && /channelPick = null;/.test(composerCode.slice(composerCode.indexOf('function resetComposer()'))),
-  'W3 过滤【不落任何存储】，且整屏重画（clearFeed）与离开管家壳（resetComposer）各复位一次 —— 它活不过一次切壳，更活不过一次刷新');
-
-// ② 不建第二个判官。
-ok(f2.length > 0
-  // 117u-G1 重钉：闭包里那个 hueOf() 已经提成模块级的 stewardThreadHueFor()，名字换了就把新名字
-  // 一起钉上 —— 只留 hueOf 的话这条负向锁从此钉的是一个不存在的名字，形同虚设。
-  && !/hueOf\(|stewardThreadHueFor\(|stewardThreadHue\(|stewardThreadFacts\(|loadDeliverable\(/.test(f2)
-  && /row\.getAttribute\('data-thread-hue'\)/.test(f2)
-  && /head\.querySelector\('\.steward-thread-name'\)/.test(f2)
-  && /head\.querySelector\('\.steward-thread-state'\)/.test(f2),
-  'W4 chip 的色号／名字／状态全部【从对话流的行上读】（F1 的 markThread 与卡头已经写好的那三处）：本段零 hueOf、零 stewardThreadFacts、零 loadDeliverable');
-ok(count(conversationCode, /dataset\.threadHue/g) === 1 && count(f2, /data-thread-hue/g) === 2,
-  `W4b companion：色号在全文件仍然只被【算并写】一次（markThread 那一行），频道条那两处是一读一抄（getAttribute ／ setAttribute），不是第二次分配（实测 ${count(f2, /data-thread-hue/g)} 处）`);
-
-// ③ 不建第二个「目标」。
-const targetDecls = (composerCode.match(/let picked\b/g) || []).length;
-ok(targetDecls === 1
-  && /function currentTarget\(\) \{\s*return picked;/.test(composer)
-  && /if \(target\) await conversation\.handOff\(/.test(composer)
-  && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
-  `W5 输入区仍然只有【一个】目标：picked 只声明一处（实测 ${targetDecls}），currentTarget() 只回它，两条递送分支与 117l-D1 定的逐字相同 —— 频道条走的是手选那条既有路，不是新开一条`);
-ok(/channelPick = \{ sessionId: id, title: String\(title \|\| id\) \};\s*picked = channelPick;/.test(composerCode)
-  && /picked = pickedBeforeChannel;/.test(composerCode)
-  && /picked = channelPick;/.test(composerCode.slice(composerCode.indexOf('async function submit()'))),
-  'W5b 频道条写的就是那一个 picked：进频道时记下原来的手选、退出频道原样还回去；发完一句之后 finally 摆回频道那条（屏幕还只看着某条线程、输入框却已改指如意，是自相矛盾的一帧）');
-ok(!/routeHint|handOff|sendToSteward/.test(f2),
-  'W5c companion：频道条这一段完全不碰递送 —— 零 routeHint、零 handOff／sendToSteward，「无论匹配到什么都发给管家让它决定」那条铁律没被本刀动过');
-
-// ④ 重封与 markThread 同一条判据；说话人分组一个字不动。
-const markThreadRule = conversationCode.slice(conversationCode.indexOf('function markThread'),
-  conversationCode.indexOf('function agoLabel'));
-const resealRule = conversationCode.slice(conversationCode.indexOf('function resealThreads()'),
-  conversationCode.indexOf('function pickChannelTarget()'));
-ok(markThreadRule.length > 0 && resealRule.length > 0
-  && [markThreadRule, resealRule].every(source => /previous\.classList\.contains\('is-thread'\)/.test(source)
-    && /previous\.dataset\.thread === id/.test(source)
-    && /if \(sameThread\) previous\.classList\.remove\('is-thread-end'\);/.test(source)),
-  'W6 过滤后的重封与追加时的 markThread 是【同一条判据】（前一行是不是同一条线程），区别只在「前一行」取的是前一个【可见】兄弟 —— 不是第二套分段规则');
-ok(!/is-group/.test(f2),
-  'W6b 频道条这一段【不碰】说话人分组的任何一个类：藏掉同一个人的一行不会把那一段撕开，间距反而正好收成组内档 —— 过滤后的一段线程因此仍然是一张卡');
-
-// ⑤ i18n、样式层、看板入口、零新增面。
-for (const key of ['stewardShell.channels.label', 'stewardShell.channels.only', 'stewardShell.channels.all',
-  'stewardShell.channels.steward', 'stewardShell.channels.board']) {
-  ok(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0,
-    `W7 locale 键 ${key} 中英齐备`);
-}
-ok(/\.steward-msg\.is-channel-out \{ display: none; \}/.test(cssCode),
-  'W8 「过滤掉的行只是不显示」在样式层就这一条规则，JS 那边只 toggle 这一个类');
-ok(/\.steward-channels \{[\s\S]{0,240}position: sticky;/.test(cssCode) && !/\.steward-stage/.test(cssCode),
-  'W8b 频道条钉在滚动区顶上（sticky），而本层【一个字都不碰】 .steward-stage 的网格 —— 那条 grid-template-rows 住在 steward-shell.css，从本层覆盖它就得押上「频道条永远在流」这个假设，它一被收起来整张卡的行就错位');
-// 117u-G1 重钉：chip 那份专用色号映射（.steward-channel[data-thread-hue="N"] 三条）已经删了 ——
-// 映射钉在属性上之后它逐条重复。新判据把「chip 自己没有任何一条色号规则」也钉进来（这比原来
-// 「那三条在不在」更强：它同时挡住了「哪天又给 chip 补一份专用映射」）。
-ok((cssCode.match(/hsl\(/g) || []).length === 1
-  && !/\.steward-channel\[data-thread-hue/.test(cssCode)
-  && /\.steward-channel-dot \{[\s\S]{0,200}background: var\(--thread-color\);/.test(cssCode),
-  'W8c chip 的色点与色条读同一个 --thread-color，整层仍然只有一处 hsl()（Q5b 的口径没被本刀稀释）；且 chip 自己一条色号规则都没有 —— 色是 [data-thread-hue] 那一条与面无关的规则给的');
-ok(/\.steward-msg-ruyi\.is-thread:not\(\.is-thread-start\) > \.steward-thread-head \{ display: none; \}/.test(cssCode),
-  'W8d 卡头只长在【当下】的段首那一行：过滤之后段首换了人，少这一条同一条线程会露出两个卡头（看着像两张卡）');
-// 117v-V4 ② 重钉：原判据的后半句钉的是 `.steward-channels` 上的 `overflow-x: auto` —— 那正是
-// 用户报的病（一个把滚动条藏起来的横滚容器，chip 滑出去就「看不见也摸不着」）。它被 §11.16.4
-// 追加③ 判定为要修的东西，所以这一半不再钉；窄屏那一半（触达高度 ≥44px）原样留着，它仍成立。
-// 「chip 不许消失」这件事改由下面 AA 段按事实钉（换行 ＋ 可见滚动条 ＋ 「全部线程」不在滚动容器里）。
-ok(/\.steward-channel \{ min-height: 44px;/.test(cssCode.slice(cssCode.lastIndexOf('@media (max-width: 390px)'))),
-  'W8e 窄屏：chip 触达高度 ≥44px（设计稿「窄屏」画板）');
-ok(/function openBoard\(\) \{[\s\S]{0,360}byId\('stewardStatusLine'\)/.test(conversationCode)
-  && /line\.getAttribute\('aria-expanded'\) === 'true'/.test(conversationCode)
-  && !/from '\.\/steward-board\.js'/.test(conversation),
-  'W9 「全部线程」＝点【既有的那一个】看板入口（117h 的 #stewardStatusLine），不 import steward-board.js、不新增第二条通道；已经开着就不再点一下把它关上');
-ok(/bar\.setAttribute\('role', 'toolbar'\);/.test(conversationCode)
-  && /bar\.setAttribute\('aria-live', 'off'\);/.test(conversationCode)
-  && /if \(signature === channelSignature\) return bar;/.test(conversationCode)
-  && /chip\.setAttribute\('aria-pressed', on \? 'true' : 'false'\);/.test(conversationCode),
-  'W10 频道条住在 role=log 的 #stewardFeed 里：aria-live=off ＋「组成没变就不重画」两道一起挡住读屏的重复播报；选中态用 aria-pressed 说，不是只有一层颜色');
-ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED)
-  && JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  'W11 companion：频道条零新增后端面、零新增 import（要的一切都已经在对话流的行上）——名单仍是 P10 那一份');
+ok(mod.STEWARD_PICK_CHANNEL_EVENT === undefined && mod.STEWARD_CHANNEL_SELF === undefined
+  && !/channelFilter|channelSignature|function channelList|function channelChip|function paintChannels|function syncChannels|function toggleChannel|function setChannel|function applyChannel|function pickChannelTarget/.test(conversationCode)
+  && !/is-channel-out/.test(conversationCode)
+  && !/steward-channels/.test(conversationCode),
+  'W1 频道条在对话流里零残留：两个模块级状态、八个函数、两个导出常量全部退役（§2.4：左栏就是索引）');
+ok(!/steward-channel/.test(cssCode) && !/is-channel-out/.test(cssCode)
+  && !/--steward-channels-max-h/.test(cssCode),
+  'W2 样式层那一族（chip／滚动容器／过滤规则／只服务它的高度上限变量）也零残留');
+ok(/\.steward-msg-ruyi\.is-thread:not\(\.is-thread-start\) > \.steward-thread-head \{ display: none; \}/.test(cssCode)
+  && /function resealThreads\(\)/.test(conversationCode)
+  && !/is-channel-out/.test(conversationCode.slice(conversationCode.indexOf('function resealThreads()'))),
+  'W3 「卡头只长在段首那一行」那条规则与 resealThreads 留着（它不属于频道条：段界是追加时看上一行算出来的），且它自己也不再认识那个过滤类');
+// 输入区那一侧的同名常量与监听器【留着不动】（本刀不碰输入区）：自此没有生产者，K5 收工时一并清。
+// 钉住这件事本身，免得后人以为它还在工作。
+ok(composerMod.STEWARD_PICK_CHANNEL_EVENT === 'steward:pick-channel'
+  && (conversation.match(/'steward:pick-channel'/g) || []).length === 0,
+  'W4 输入区那份同名常量与监听器留着（本刀不碰输入区），但对话流这一侧再没有生产者');
 
 // ─── Y F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行）────────────────────────────
 // 用户对着「每秒把整段文字换成『撤回 9』『撤回 8』、位数一变按钮宽度跟着跳；到期又无声变成
@@ -1140,27 +1057,13 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
       `AA3 ① 四档判据挂在【已有的类】上：三条规则用到的 ${JSON.stringify(used)} 每一个都是 JS 里真在维护的段界类（陌生的: ${JSON.stringify(strangers)}）—— 没有为了间距新造第二套分组状态`);
   }
 
-  /* ② 频道条 —— 钉三条硬要求各自的机械落点（改法本身留给实现，这三件事必须成立）。 */
-  const paintRule = conversationCode.slice(conversationCode.indexOf('function paintChannels'),
-    conversationCode.indexOf('function syncChannels'));
-  const chipsInScroll = (paintRule.match(/scroll\.appendChild\(channelChip\(/g) || []).length;
-  ok(paintRule.length > 0
-    && /const scroll = el\('div', 'steward-channels-scroll'\);/.test(paintRule)
-    && chipsInScroll === 3 && !/bar\.appendChild\(channelChip\(/.test(paintRule)
-    && /bar\.appendChild\(scroll\);/.test(paintRule)
-    && /bar\.appendChild\(button\('steward-channels-board'/.test(paintRule)
-    && !/scroll\.appendChild\(button\('steward-channels-board'/.test(paintRule),
-    `AA4 ②「全部线程」恒可达是【结构】保证：chip 一枚不落全装进那个会滚的容器（实测 ${chipsInScroll} 处 appendChild，含线程那一趟循环），而看板入口是 bar 的直接子节点、与容器并列 —— 线程再多它也不在会滚的那一段里`);
-  ok(/\.steward-channels-scroll \{[\s\S]{0,320}flex-wrap: wrap;/.test(cssCode)
-    && /\.steward-channels-scroll \{[\s\S]{0,320}max-height: var\(--steward-channels-max-h\);/.test(cssCode)
-    && /\.steward-channels-scroll \{[\s\S]{0,320}overflow-y: auto;/.test(cssCode)
-    && /--steward-channels-max-h:/.test(cssCode),
-    'AA5 ② 换行 ＋ 高度上限：常规条数下 chip 全可见（不换行才会滑出去），而粘条占高有顶（超出仍可滚）—— 少了这个顶，线程一多 sticky 的频道条就把正文挤没');
-  ok(!/scrollbar-width: none/.test(cssCode)
-    && !/::-webkit-scrollbar \{ height: 0; \}/.test(cssCode)
-    && /\.steward-channels-scroll \{[\s\S]{0,320}scrollbar-width: thin;/.test(cssCode)
-    && /\.steward-channels-scroll::-webkit-scrollbar-thumb \{[\s\S]{0,160}background: var\(--/.test(cssCode),
-    'AA6 ② 不许再有「看不见也摸不着」的 chip：整层零 scrollbar-width:none、零把滚动条压成 0 —— 超出那一段靠一条【看得见】的滚动条到达（这正是修前那两条声明干的反面）');
+  /* ② 频道条那三条硬要求（AA4/AA5/AA6）随频道条本身退役 —— 121-K4-3 把整段删了（§2.4）。
+     「看不见也摸不着的 chip」这个毛病自此不可能再出现：那一排 chip 不存在了，它要解决的问题
+     （线程多了怎么都到得了）由左栏承担（常开、按任务归组、组头计数、Ctrl+K 搜索）。
+     退役本身由上面 W 组三条正面钉住（JS 零残留 ／ CSS 零残留 ／ 只留段界那一条）。
+     这里保留一条【不许悄悄回来】的负向锁：整层不许再出现把滚动条压成 0 的那两条声明。 */
+  ok(!/scrollbar-width: none/.test(cssCode) && !/::-webkit-scrollbar \{ height: 0; \}/.test(cssCode),
+    'AA4 ② 整层零「把滚动条压成 0」（修前那两条声明正是「看不见也摸不着」的病根；频道条已退役，这条锁留给后来的任何滚动区）');
 
   /* ③ 交付原文 ＝ 最后一个工具段之后的文本段 —— 真值表跑在导出的纯函数上（判据只有那一处）。 */
   const deliverableTextRule = conversationCode.slice(conversationCode.indexOf('export function stewardDeliverableText'),

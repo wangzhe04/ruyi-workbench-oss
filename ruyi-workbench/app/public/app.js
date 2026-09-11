@@ -878,6 +878,9 @@ const {
 // 121-K1（34 号文 §8.2）：视角模式控制器。applyShellMode 是全仓写 data-shell-mode 的唯一常规入口，
 // 它与管家壳互为注入依赖（控制器问「进得去吗」，管家壳答并在进不去时 fail-closed 回工作台视角）。
 const shellModeController = createShellModeController({
+  // 121-K4（§2.9）：切视角走 View Transitions，共享元素的名字在拍旧帧之前由外框那一层挂上。
+  // 迟绑定闭包（appFrame 在下面才建）：与 stewardShellGuard 同一条解环手法。
+  markSharedThread: () => (appFrame ? appFrame.markSharedThread() : () => {}),
   canEnterSteward: () => Boolean(stewardShellGuard && stewardShellGuard.canEnterSteward()),
   recoverStewardShell: options => (stewardShellGuard ? stewardShellGuard.recoverStewardShell(options) : ''),
   closeSettings: () => closeModal('settingsModal'),
@@ -905,9 +908,20 @@ const { bindStewardShell } = stewardShellDomain;
 // 121-K4（§2.3）：左栏是两视角共用的那一份 DOM，画它的只有管家域里那一处 renderRail。
 // 工作台这一侧（开／建／改名／删会话）调的仍是 renderSessions —— 那个名字现在只是这条转接口。
 setRailRenderer(() => stewardShellDomain.board.syncRail());
-// 121-K4：外框（顶栏的视角分段钮与齿轮菜单、左栏的密度与 Ctrl+K、≤1180 的右栏抽屉）。
-// 它只调 applyShellMode，不写 data-shell-mode —— 唯一写者仍是 shell-mode.js。
-const { bindAppFrame } = createAppFrame({ applyShellMode });
+// 121-K4：外框（顶栏的视角分段钮与齿轮菜单、左栏的密度与 Ctrl+K、≤1180 的右栏抽屉、
+// §2.7 的滚动位置保持、§2.9 的共享元素命名）。它只调 applyShellMode，不写 data-shell-mode ——
+// 唯一写者仍是 shell-mode.js。
+// sharedThreadId：两个视角此刻指的是不是【同一条线程】—— 管家侧问焦点栏（board.focusThreadId），
+// 工作台侧问组合根手里的当前会话。相同才给那两个标题起同一个 view-transition-name（§2.9 表第五行）。
+const appFrame = createAppFrame({
+  applyShellMode,
+  sharedThreadId: () => {
+    const focus = stewardShellGuard ? String(stewardShellGuard.board.focusThreadId() || '') : '';
+    const current = String((state.currentSession && state.currentSession.id) || '');
+    return focus && focus === current ? focus : '';
+  },
+});
+const { bindAppFrame } = appFrame;
 
 // ── 121-K4（34 号文 §2.3）：左栏那枚「＋」的两义 ──────────────────────────────────
 // 同一枚按钮（#newSessionBtn），两视角两种含义：

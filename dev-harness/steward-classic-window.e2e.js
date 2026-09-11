@@ -384,14 +384,21 @@ try {
     return view.returnMark === '' && view.bandHidden === true ? 1 : null;
   })()`)), 'E3 回到管家即结束这趟视窗：标记清掉、带子收起');
 
-  // ── ③ 头像菜单「整体切到 2.0」→ 不留返回带 ───────────────────────────────────
+  // ── ③ 整体切视角 → 不留返回带（121-K4：入口从头像菜单末项换成顶栏那枚分段钮）──────
   await cdp.evaluate(`document.getElementById('stewardAvatar').click(), true`);
   const menu = await waitForEval(cdp, `(() => {
     const view = ${VIEW};
     return view.menuItems.length ? view : null;
   })()`);
-  ok(menu && menu.menuItems.includes(zh['stewardShell.classicWindow.switchWhole']),
-    `F1 头像菜单末项是「整体切到 2.0」（实测 ${menu && JSON.stringify(menu.menuItems)}）`);
+  // 121-K4 翻面（34 号文 §2.2／§2.4「不再有『整体切到 2.0』『经典模式』两个钮」）：
+  // 视角切换只在顶栏那枚分段钮一处，头像菜单末项那个入口退役。所以这一条改钉【它不在了】，
+  // 而菜单剩下的仍然是 STEWARD_MENU_SECTIONS 那几项（「打开设置的某一段」，与切视角无关）。
+  // 能力本身（classicWindow.switchWholeShell）没删，只是没有界面入口 —— 静态锁
+  // steward-board.static 的 G0c 钉着这一点。
+  // 反向验证：把那一项贴回 steward-conversation.js 的头像菜单 → 本条当场红。
+  ok(menu && !menu.menuItems.includes(zh['stewardShell.classicWindow.switchWhole'])
+    && menu.menuItems.length >= 3,
+    `F1 头像菜单里再没有「整体切到 2.0」——视角切换只在顶栏分段钮一处（实测菜单 ${menu && JSON.stringify(menu.menuItems)}）`);
   // 117l-B2 ③ companion ①：菜单挂在 #stewardShell 上（不是顶栏、不是 body）。
   ok(menu && menu.menuHost === 'stewardShell',
     `F1b companion：菜单节点挂在 #stewardShell（绕开 #stewardStage 的 backdrop-filter 与 overflow:hidden；实测「${menu && menu.menuHost}」）`);
@@ -400,15 +407,16 @@ try {
   ok(menu && /^fixed\|aligned\|(below|above)\|(below|above)$/.test(menu.menuPlace)
     && menu.menuPlace.split('|')[2] === menu.menuPlace.split('|')[3],
     `F1c companion：fixed ＋ 左缘对齐头像 ＋ 开在头像上方或下方，且与 data-place 自述一致（实测「${menu && menu.menuPlace}」）`);
-  await cdp.evaluate(`[...document.querySelectorAll('#stewardAvatarMenu .steward-menu-item')]
-    .find(node => node.textContent.trim() === ${JSON.stringify(zh['stewardShell.classicWindow.switchWhole'])}).click(), true`);
+  // 整体切视角走顶栏分段钮（121-K4）。钉的事实一个字没变：整体切【不】是「按会话开一扇 2.0
+  // 视窗」，所以不留返回带 —— 换的只是按哪一枚钮。
+  await cdp.evaluate(`document.querySelector('#lensSeg [data-lens="classic"]').click(), true`);
   const whole = await waitForEval(cdp, `(() => {
     const view = ${VIEW};
     return view.mode === 'classic' ? view : null;
   })()`);
-  ok(Boolean(whole), 'F2 「整体切到 2.0」切到经典壳');
+  ok(Boolean(whole), 'F2 顶栏分段钮的「工作台」一点就整体切到工作台视角');
   ok(whole && whole.bandHidden === true && whole.returnMark === '',
-    'F3 整体切壳【不】留返回带（它不是「按会话开一扇 2.0 视窗」）');
+    'F3 整体切视角【不】留返回带（它不是「按会话开一扇 2.0 视窗」）');
 
   // ── ④ 刷新后仍不显示 ─────────────────────────────────────────────────────────
   await cdp.evaluate('location.reload(); true');

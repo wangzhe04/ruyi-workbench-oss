@@ -227,6 +227,54 @@
    线程，把某一条的正文摘录印在任务行上会张冠李戴。那条内容搜索本身没有丢 —— 左栏的过滤仍然读它
    命中的会话 id（见 steward-board.js 的 railFilter），摘录的展示归 K7 的 Ctrl+K 面板。 */
 
+/* ============================ §2.9 视角切换动效（View Transitions） ============================
+   照抄原型 docs/mockups/one-workbench-two-views.html:80-94 的时序与命名（那份是定稿）。
+   纪律（§2.9 末段）：所有时长走 --dur-*／--ease-* token；不加弹跳、不加模糊、不加缩放；
+   切换期间不许布局跳动（两个视角的三栏栅格逐字相同，只换栏内内容）；
+   `::view-transition-old(root)/new(root)` 关掉默认交叉淡入 —— 只让【命名的部件】动。
+   JS 那一侧：js/shell-mode.js 的 runShellTransition（不支持或 reduced-motion 时零动画）。 */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+/* 顶栏与左栏：有名字＝各自独立快照，默认动画关掉 —— **用户的锚点不能漂**（§2.9 表首行）。 */
+.app-topbar { view-transition-name: titlebar; }
+.task-rail { view-transition-name: rail; }
+::view-transition-old(titlebar),
+::view-transition-new(titlebar),
+::view-transition-old(rail),
+::view-transition-new(rail) { animation: none; }
+
+/* 中栏与右栏：名字挂在【当前视角那一个】节点上（另一个视角此刻是 display:none，不参与快照，
+   所以同一帧里这两个名字各自唯一 —— 名字撞车会让整个过渡被跳过）。 */
+:root[data-shell-mode="steward"] .steward-stage,
+:root[data-shell-mode="classic"] .chat-pane { view-transition-name: center; }
+:root[data-shell-mode="steward"] .steward-side:not([hidden]),
+:root[data-shell-mode="classic"] .tool-pane { view-transition-name: side; }
+
+/* 中栏：旧内容 140ms 淡出并平移 14px，新内容 240ms 淡入并从 18px 归位；方向随前进后退。 */
+::view-transition-old(center) { animation: vt-out-l 140ms var(--ease-inout, cubic-bezier(.65, 0, .35, 1)) both; }
+::view-transition-new(center) { animation: vt-in-r var(--dur-base) var(--ease-out) both; }
+:root[data-vt="back"]::view-transition-old(center) { animation: vt-out-r 140ms var(--ease-inout, cubic-bezier(.65, 0, .35, 1)) both; }
+:root[data-vt="back"]::view-transition-new(center) { animation: vt-in-l var(--dur-base) var(--ease-out) both; }
+/* 右栏只淡，不平移 —— 两栏同时平移会晕（§2.9 表第四行原话）。 */
+::view-transition-old(side) { animation: vt-fade-out 140ms var(--ease-inout, cubic-bezier(.65, 0, .35, 1)) both; }
+::view-transition-new(side) { animation: vt-fade-in var(--dur-base) var(--ease-out) both; }
+/* 共享元素：焦点卡的标题 ↔ 工作台线程头的标题，260ms 变形（「就是这一条」）。
+   名字由 js/shell-mode.js 的 markSharedThread 钩子在拍旧帧【之前】挂上、动画收尾摘掉，
+   且只在「焦点线程＝将要选中的那条线程」时才挂（同一帧里名字必须唯一）。
+   色条那一半（thread-bar）的两个落点分别住在焦点卡（K6）与工作台线程头（K5）里 —— 那两张卡
+   还没改造完，所以此刻只有标题这一半有生产者；时序在这里先登记好，K5／K6 把节点补上就生效。 */
+::view-transition-old(thread-title),
+::view-transition-new(thread-title),
+::view-transition-old(thread-bar),
+::view-transition-new(thread-bar) { animation-duration: 260ms; animation-timing-function: var(--ease-out); }
+@keyframes vt-out-l { to { opacity: 0; transform: translateX(-14px); } }
+@keyframes vt-in-r { from { opacity: 0; transform: translateX(18px); } }
+@keyframes vt-out-r { to { opacity: 0; transform: translateX(14px); } }
+@keyframes vt-in-l { from { opacity: 0; transform: translateX(-18px); } }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in { from { opacity: 0; } }
+
 /* ============================ §7.3 响应式（容器查询，以外框为准） ============================
    内容一件不少，只改容器。三档：
      ≥1600  右栏放宽到 440px（§7.1 末句）；用户拖过档位时内联值压住它（见 .app-frame 头注）。
@@ -283,6 +331,13 @@
   .task-rail .steward-board-tail,
   .task-rail .steward-board-empty,
   .task-rail .classic-sidebar-primary-actions span { display: none; }
+  /* 带字形的药丸要【多写一条】：`.steward-board-pill.has-icon { display: inline-flex }`
+     住在后加载的 steward-board.css 里，与上面那条 `.task-rail .steward-board-pill` 同为
+     0,2,0 —— 同分时后来的赢，于是「需要你」「已停工」两截字在 56px 栏里还看得见
+     （one-workbench-frame.browser 的 D5c 实测：断言说 0 处残留是因为第一版判据按元素数，
+     漏了「字形 span ＋ 文字」这种节点；改按文字节点量之后当场抓到）。
+     这一条 0,3,0 压过它，且只在这一档生效。 */
+  .task-rail .steward-board-pill.has-icon { display: none; }
   /* 色点＝任务（色号由 data-thread-hue 那一张登记表发，见 steward-conversation.css 的
      --thread-color —— 这一档也不新造第二种颜色）。 */
   .task-rail .steward-board-thread-head::after {
@@ -294,11 +349,18 @@
     background: var(--thread-color, var(--muted));
   }
 }
-/* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉（§2.9：动效可以没有，信息不能少）。 */
+/* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉（§2.9：动效可以没有，信息不能少）。
+   两道一起：CSS 过渡在这里关；View Transitions 那一路【根本不起】—— js/shell-mode.js 的
+   runShellTransition 先问 prefers-reduced-motion，reduce 时直接改属性、零动画（§2.9 末句的验收：
+   reduced-motion 下 getAnimations() 为空）。下面那一条 ::view-transition-* 是第二道保险：
+   万一哪天有人从别处起了一个过渡，它也不许动。 */
 @media (prefers-reduced-motion: reduce) {
   .app-body,
   .app-shell,
   .lens-seg .lens-thumb,
   .app-shell .tool-pane,
   .steward-side:not([hidden]) { transition: none; }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }

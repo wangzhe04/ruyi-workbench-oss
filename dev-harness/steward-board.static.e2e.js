@@ -348,9 +348,17 @@ ok(/stream\.on\(EVENT_STREAM_LIVE_EVENT, data => \{ applyLivePush\(data\); \}\);
   && /if \(pushBusy\) \{ pushAgain = true; return false; \}/.test(board)
   && count(boardCode, /pushRefreshRows\(\)/g) === 4,
   'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）。121-K4 多出的第四处是 syncRail：工作台视角没有兜底计时器，用户动作（开／建／改名／删）就是行最该被复核的时刻 —— 它走的是同一条串行合并的路，不是第二条');
+// 121-K4-3 重钉（前值钉的是那句一行写完的观察者回调）。改动有二，各自都是事实：
+//   ① 回调里先【同步】renderRail() 再走各视角自己那套异步 —— 左栏有三样东西是按视角变的
+//      （「＋」的两义、选中态、点击语义），而切到管家那一路第一件事是 await refreshBoard()，
+//      于是修前切过去的第一帧左栏还写着「新线程」（one-workbench-frame.browser 的 H0 实测到）；
+//   ② leaveSteward 不再清 pinnedId（§2.7「管家视角记住自己的焦点线程」）。
+// 「收摊」这件事本身一个字没松：stopPolling() 仍在 leaveSteward 里，门控仍是 F3 那一条。
+// 反向验证：把 renderRail() 从回调里去掉 → H0 红；把 pinnedId = '' 加回 leaveSteward → K6 红。
 ok(/function leaveSteward\(\) \{[\s\S]*?stopPolling\(\);/.test(board)
-  && /new MutationObserver\(\(\) => \{ if \(isStewardMode\(\)\) void enterSteward\(\); else leaveSteward\(\); \}\)/.test(board),
-  'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算）');
+  && !/function leaveSteward\(\) \{[\s\S]*?pinnedId = '';[\s\S]*?stopPolling\(\);/.test(board)
+  && /new MutationObserver\(\(\) => \{\s*renderRail\(\);\s*if \(isStewardMode\(\)\) void enterSteward\(\); else leaveSteward\(\);\s*\}\)/.test(board),
+  'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算），且切换的第一帧左栏就已经按新视角画过一遍；出视角不动用户钉的焦点');
 ok(mod.STEWARD_BOARD_POLL_MS_MIN === 5000 && /Math\.max\(STEWARD_BOARD_POLL_MS_MIN, raw\)/.test(board),
   'F5 轮询周期取 config.stewardPollMs 并按 5000 下限 clamp（导出常量）');
 ok(/if \(response\.status === 304\) return false;/.test(board)
@@ -408,9 +416,14 @@ ok(/const classicWindow = createStewardClassicWindow\(\{/.test(stewardShell)
 ok(/drawer\.setClassicWindow\(sessionId => classicWindow\.openClassicWindow\(sessionId\)\);/.test(stewardShell)
   && /openClassicWindow: sessionId => classicWindow\.openClassicWindow\(sessionId\),/.test(stewardShell),
   'G0b 抽屉与看板的「2.0」是同一个 openClassicWindow（117d 的两步做法退役）');
-ok(/switchWholeShell: \(\) => classicWindow\.switchWholeShell\(\),/.test(stewardShell)
-  && /stewardShell\.classicWindow\.switchWhole/.test(conversation),
-  'G0c 「整体切到 2.0」在看板顶部与头像菜单两处，都走同一个 switchWholeShell');
+// 121-K4（§2.2／§2.4）：「整体切到 2.0」那两个入口（看板浮层顶部、头像菜单末项）都退役 ——
+// 视角切换只在外框顶栏的分段钮一处。翻面钉住：壳层不再往对话流注入 switchWholeShell，
+// 对话流也不再引用那个文案键。能力本身（classicWindow.switchWholeShell）留着没删，
+// 它只是自此没有界面入口。
+ok(!/switchWholeShell: \(\) => classicWindow\.switchWholeShell\(\),/.test(stewardShell)
+  && !/stewardShell\.classicWindow\.switchWhole/.test(conversation)
+  && /switchWholeShell/.test(classicWindow),
+  'G0c 「整体切到 2.0」的两个界面入口都已退役（视角切换只在顶栏分段钮一处），能力本身仍在 steward-classic-window.js 里');
 const appLines = read('app.js').split(/\r?\n/).length;
 ok(appLines <= 1280, `G0d 组合根仍在 D45 护栏内（实测 ${appLines} 行）`);
 
