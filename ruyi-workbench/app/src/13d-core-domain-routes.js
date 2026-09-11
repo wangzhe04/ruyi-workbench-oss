@@ -227,7 +227,11 @@ async function handleSessionApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
-    return send(res, json({ ok: true, session: await createSession(body) }));
+    // 121-K3(§4.1「来源三值」):这条路由就是【用户自己按下「新会话」】那一下,来源恒为 'user'。
+    // 显式钉死而不是把 body 整份透传:createSession 现在认 origin 参数,透传等于让任意调用方
+    // 把自己的普通会话刷成「管家开的」—— 那正是 02 把 origin 挡在 PATCH 白名单外要防的同一件事,
+    // 只挡 PATCH 不挡建会话是把门修在窗户旁边。管家族那两条路径自己传 'steward'(13k)。
+    return send(res, json({ ok: true, session: await createSession({ ...(body && typeof body === 'object' ? body : {}), origin: 'user' }) }));
   }
   // Bulk history cleanup is intentionally narrower than the single-session DELETE endpoint: it only
   // clears unpinned sessions and can preserve the currently open session supplied by the UI.

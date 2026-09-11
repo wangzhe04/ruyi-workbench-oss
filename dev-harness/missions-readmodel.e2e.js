@@ -99,7 +99,19 @@ function spawnFake(seq, extraEnv) {
 
     const listA = await getJson(WB_PORT, '/api/missions', H(token));
     ok(listA.status === 200 && Array.isArray(listA.body.missions), '(a) GET /api/missions 列表 200(实 ' + listA.status + ')');
-    ok(!(listA.body.missions || []).some(m => m.sessionId === sidA), '(a) 纯问答会话不进任务列表');
+    // 121-K3(34 号文 §4.2「索引口径」)重钉 —— 本刀合法地把这条断言【翻了面】,逐对交代:
+    // 修前:任务列表的行集只给 `kind==='mission' || stewardWatchedThread(...)` 造卡片,于是用户
+    //       自己在 2.0 里开的普通会话【永远】不进列表(13e:150-157 的注释把它写成「刻意的,
+    //       理由是噪音」)。这条断言钉的就是那个行为。
+    // 修后:一个判据拆成两个 —— watched(管家要不要动手)与 visible(要不要进索引);噪音改用
+    //       【窗口】治(在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched)。刚建出来的会话必然「今天有动静」,
+    //       所以它【应该】在列表里 —— 这正是 §1.3 数出来的病根(「管家看不见你在 2.0 开的线程」)。
+    // 断言的意图没变(「行集是有判据的,不是谁都进」),变的是判据本身;而且这里比修前【更紧】:
+    // 修前只钉「它不在」,拦不住行上的字段乱写;现在连它的来源与 watched 态一起钉。
+    const rowA = (listA.body.missions || []).find(m => m.sessionId === sidA) || null;
+    ok(!!rowA, '(a) 121-K3:2.0 里新开的普通会话【进】任务列表(修前恒不进,那是本波要修的病根)');
+    ok(!!rowA && rowA.origin === 'user' && rowA.watched === false,
+      '(a) 121-K3:它的来源是 user、管家不盯它(origin/watched 两个判据分开;实 origin=' + (rowA && rowA.origin) + ' watched=' + (rowA && rowA.watched) + ')');
 
     // 旧会话适配:磁盘头文件【删掉 kind 字段】模拟第70波前的存量会话 → 只读派生,磁盘不被回写。
     const headA = JSON.parse(fs.readFileSync(headFile(sidA), 'utf8'));

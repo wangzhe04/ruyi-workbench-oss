@@ -315,6 +315,11 @@ function defaultConfig() {
     stewardWorkspaceRoot: path.join(os.homedir(), 'Ruyi'),
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
+    // 第 121 波 K3(34 号文 §4.1/§4.2「噪音用窗口解决,不用能力解决」):任务索引的「最近 N 条」窗口。
+    // 一条既不在途、今天也没动静、管家也不盯的旧线程,只有排在最近 N 条里才进索引 —— 几百条存量
+    // 普通会话因此不会把左栏淹掉,但它们仍在搜索里找得到。clamp [10,200],判据单点在 06i 的
+    // threadVisible(三个数也定在那里:THREAD_INDEX_RECENT_DEFAULT/MIN/MAX)。
+    threadIndexRecent: THREAD_INDEX_RECENT_DEFAULT,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
     // 117m-A1:12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」15 分钟吃光(见 13h
     // stewardCircuitCheck 的注释)。**不迁移存量配置** —— normalizeConfig 早已把 12 显式写进老用户的
@@ -497,6 +502,14 @@ const WORKSPACE_NOTE_MAX = 80;
 // 帽子只挡「表长到放不下」,不挡「派生」:13k 在派生【之前】自己算一次追加后会不会超帽,会超就
 // fail-closed 拒开线程(见 13k stewardWorkspaceTableFull),绝不允许目录建了而行落不下。
 const WORKSPACE_TABLE_CAP = 64;
+
+// 第 121 波 K3(34 号文 §4.1/§4.2):任务索引「最近 N 条」窗口的缺省与钳位区间。三个数只有这一份,
+// defaultConfig() 与下面的清洗块都读它们(stewardPollMs 那种「默认表与清洗块各写一遍字面量」的
+// 写法是本仓的旧账,新键不再复制)。判据本体在 06i 的 threadVisible —— 它只收一个算好的布尔,
+// N 在 13e 建索引时用(01 拼在 06i/13e 之前,数字放这里不制造任何前向边)。
+const THREAD_INDEX_RECENT_DEFAULT = 30;
+const THREAD_INDEX_RECENT_MIN = 10;
+const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
@@ -1017,6 +1030,15 @@ function normalizeConfig(raw) {
     const n = Number(config.stewardPollMs);
     const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
+  }
+  // 第 121 波 K3(34 号文 §4.1):任务索引「最近 N 条」窗口,非法值(非有限数)回默认 30,
+  // clamp [10,200]。三个数都取自上面那组常量,不在这里重写字面量。
+  {
+    const n = Number(config.threadIndexRecent);
+    const clamped = Number.isFinite(n)
+      ? Math.min(THREAD_INDEX_RECENT_MAX, Math.max(THREAD_INDEX_RECENT_MIN, Math.round(n)))
+      : THREAD_INDEX_RECENT_DEFAULT;
+    if (clamped !== config.threadIndexRecent) { config.threadIndexRecent = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 30
   // (117m-A1 把默认值 12 → 30,这里的兜底值与默认表同步;clamp 区间一字未动)。

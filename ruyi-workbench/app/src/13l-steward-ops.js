@@ -155,6 +155,11 @@ async function stewardImplDecide(args, ctx, config) {
   if (!head || !head.id) return stewardFail('not_found', 'mission or intervention not found');
   const current = (await readInterventions(missionId).catch(() => [])).find(iv => iv && String(iv.id) === interventionId);
   if (!current) return stewardFail('not_found', 'mission or intervention not found');
+  // 121-K3(34 号文 §4.5「管家对你正坐着的线程」):【代答路径】。用户就坐在这条线程前面时,那道提问
+  // 是当着他的面弹出来的 —— 管家替他按下去,是在抢他手里的鼠标。判据与 13k 两处工具门同一份
+  // (stewardSeatedByUser,13k -> 13l 是后向边),拒绝信封也同一个形状。
+  // 注意这道门【只挡代答】:steward_thread_read 不过门(用户问「那条在干嘛」时管家还得答得上来)。
+  if (stewardSeatedByUser(missionId)) return stewardSeatedFail(missionId);
 
   const type = String(current.type || '');
   const toolName = String(current.toolName || '');

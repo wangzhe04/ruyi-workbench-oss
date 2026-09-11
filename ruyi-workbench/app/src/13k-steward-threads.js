@@ -602,6 +602,10 @@ async function stewardImplThreadNew(args, ctx, config) {
   const session = await createSession({
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
     cwd: cwdCheck.cwd,
+    // 121-K3(§4.1 来源三值):出身在 createSession 那一次写死。与下面的 createdBy 是两个字段、
+    // 一个事实的两面 —— createdBy 是权限判据(桌面权限只开给管家自己开的线程),origin 是展示与
+    // 索引口径(界面上的来源图形)。不合并成一个:前者是布尔语义的闸,后者要三值。
+    origin: 'steward',
   });
   // 117w-W1 ②:省略 cwd → 在 Ruyi 根下派生子工作区(三态的第 ② 态)。写在 createSession 之后是为了
   // 拿到真线程 id(标题为空时 slug 要回落到它),改的是内存副本,跟着下面那一次 saveSession 一起落盘,
@@ -665,6 +669,31 @@ async function stewardImplThreadNew(args, ctx, config) {
   return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 121-K3(34 号文 §4.5「管家对你正坐着的线程」):用户此刻就坐在这条线程前面时,管家【不动手】。
+// 具体是:不代答它的提问(不主动 steward_thread_continue)、不递话、不改它的权限与模型。
+// **可以读**(steward_thread_read 不过这道门)—— 用户问「那条在干嘛」时管家还得答得上来。
+//
+// 事实源与 13e 的索引行 seatedBy 同一份:13r 的在场快照(SSE 连接自报的 lens/sessionId),
+// 经 00-boot 的延迟绑定命名空间取(13k 拼在 13r 之前,直引是前向边)。
+// 读不到一律当【没人坐着】= 修前行为:这道门管的是打扰纪律,不是权限门(那一道在别处,不受影响),
+// 所以 fail-open —— 在场信号缺席时让管家停摆,比偶尔插一句话糟得多。
+function stewardSeatedByUser(sessionId) {
+  const sid = String(sessionId || '');
+  if (!sid) return false;
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    return Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === sid);
+  } catch { return false; }
+}
+// 结构化拒绝:错误码 'seated_by_user',人话直说「你正在这条线程里,我不插手」。
+// 与 propose_required 那一族一样带 `reason`,行动流水事后能分清「管家没做」的两种原因。
+function stewardSeatedFail(sessionId) {
+  return stewardFail('seated_by_user',
+    '你正在这条线程里,我不插手 —— 等你离开它我再接手;要我现在就动手,先把这条线程留给我',
+    { sessionId: String(sessionId || ''), reason: 'seated_by_user' });
+}
+
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -674,6 +703,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
+  // 121-K3(§4.5):用户正坐在这条线程前面 -> 不递话。排在权限闸【之前】:这不是「有没有权限」的问题,
+  // 而是「现在不是时候」,先答这一句比先算一遍权限档诚实(也省一次配置读)。
+  if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
   // 117l D2(§11.9;用户第四轮走查第 1、6 条):这里原本只有一道 activeChildren.has -> steward.busy,
   // 两头都错(等回答的线程也算「忙」;没命中时 stewardLaunchTurn 又会 supersede 掉它)。现在按
   // 【目标状态】选通道,判定与执行的单点在 13h(经 StewardHooks.relayDeliver 延迟绑定,零前向边;
@@ -807,6 +839,8 @@ async function stewardImplThreadPermission(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
+  // 121-K3(§4.5):用户正坐在这条线程前面 -> 不改它的权限与模型。与递话那一处同一道门、同一条理由。
+  if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
 
   const current = stewardThreadPermissionMode(head, config);
   if (hasMode && !stewardMayTightenTo(current, target)) {
@@ -934,6 +968,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const session = await createSession({
     title: question.slice(0, STEWARD_TITLE_MAX),
     cwd: quickCwdCheck.cwd,
+    origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
   // 117w-W1 ②:与 thread_new 同一口径 —— 省略 cwd 就派生子工作区。速查线程的「标题」就是问题原话
   // 的前 N 个字,slug 自己会截到 64;答完就收工的线程也照样给它一个自己的目录(它可能下载了东西)。

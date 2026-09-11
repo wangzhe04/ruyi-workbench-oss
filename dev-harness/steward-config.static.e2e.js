@@ -112,8 +112,11 @@ ok(idxD >= 0 && idxD === idxI + 1, '06d-memory-domain.js 紧跟在 06i-steward-c
 
 const stewardSrc = fs.readFileSync(path.join(SRC, '06i-steward-core.js'), 'utf8');
 ok(/const StewardHooks = \{\};/.test(stewardSrc), '06i 声明空的延迟绑定命名空间 StewardHooks = {}');
-ok(/const STEWARD_EVENT_KINDS = Object\.freeze\(\['needs_you', 'failed', 'done', 'stalled', 'budget'\]\);/.test(stewardSrc),
-  '06i 声明 STEWARD_EVENT_KINDS 五类白名单并冻结');
+// 121-K3(34 号文 §4.4「交接」):五类 -> 六类,表尾加 adopted(用户把线程交给管家盯)。
+// 前五类的字面量与顺序仍然逐字钉住 —— 到访摘要(13q stewardVisitDigest)按本表顺序归纳,
+// 插在中间或改顺序会改既有摘要的行序,所以「表尾追加」这件事本身也要钉。
+ok(/const STEWARD_EVENT_KINDS = Object\.freeze\(\['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted'\]\);/.test(stewardSrc),
+  '06i 声明 STEWARD_EVENT_KINDS 六类白名单并冻结(121-K3 表尾加 adopted)');
 ok(/function stewardMayAct\(permissionMode, eventKind, toolTier\)/.test(stewardSrc), '06i 声明 stewardMayAct(permissionMode, eventKind, toolTier)');
 ok(/function buildStewardDigestLine\(thread\)/.test(stewardSrc), '06i 声明 buildStewardDigestLine(thread)');
 ok(!/require\(/.test(stewardSrc), '06i 零 require(纯函数层,不反向拉传输/工具层模块)');

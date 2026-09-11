@@ -97,6 +97,11 @@ const EXPECTED = {
   // 一条 confirm 门的第二条路)。这一档只能由用户在设置页里改(POST /api/config 那条路仍然通)。
   // 与 §11.9 D7 的拍板一字对应:「模型不能经 steward_config_set 改这两个键」。
   stewardThreadModels: 'forbidden',
+  // 121-K3(34 号文 §4.1/§4.2):任务索引「最近 N 条」窗口。**故意留在 forbidden**(= 不登记,
+  // 由 stewardConfigTierFor 的 fail-closed 兜底):它决定管家自己在总览里【看得见几条线程】,
+  // 让模型能改它 = 让它自己调大自己的注意力面 —— 那是一个会连锁影响每一次到访成本的旋钮,
+  // 而用户在设置页改它随时一眼看得见、一键改回。与 stewardThreadModels 同一条理由。
+  threadIndexRecent: 'forbidden',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',

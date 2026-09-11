@@ -118,8 +118,13 @@ async function stewardThreadDigestRows(config) {
     // 116h(§8.10「排队可解释」):总览行的等待原因也走 06i 的 waitReasonFor 单点 —— 管家在提示词里
     // 读到的那句话,与 steward_thread_status / 看板 / steward_missions 逐字相同。
     const wait = waitReasonFor({ pending: pendingCount }, stewardArbiterWait(sid));
+    // 121-K3(§4.5):这条线程此刻有没有人坐着。判据单点在 13k 的 stewardSeatedByUser(工具门读的
+    // 是同一份在场快照),这里只是把同一个事实带进提示词 —— 硬拦在工具层,软告知在总览行:
+    // 光有硬拦,模型会反复去试然后反复被拒,一个回合的预算就烧在互相打架上。
+    const seatedBy = stewardSeatedByUser(sid) ? 'user' : null;
     rows.push({
       sessionId: sid,
+      seatedBy,
       // 116-pre(§8.12/§11.3):递话预判的 index 行要 missionId——3.0 里等于 sessionId(见下方注释),
       // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
       // 多一个 missionId 键对总览行的拼装零影响(新增只加不改)。
@@ -135,6 +140,7 @@ async function stewardThreadDigestRows(config) {
       wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
       digest: {
         id: sid,
+        seatedBy,   // 121-K3:buildStewardDigestLine 读它,拼出「你正坐在这条线程里」那一段
         // 事项标题:116g 起,归入了【真事项】(有事项文件)的线程在总览行里带上事项自己的标题,
         // 「未归类」线程仍恒为空 —— 那种情况下事项标题就是线程标题,写两遍等于把同一句话在总览里
         // 重复一次(buildStewardDigestLine 对空段整段跳过)。

@@ -1251,6 +1251,11 @@ function defaultConfig() {
     stewardWorkspaceRoot: path.join(os.homedir(), 'Ruyi'),
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
+    // 第 121 波 K3(34 号文 §4.1/§4.2「噪音用窗口解决,不用能力解决」):任务索引的「最近 N 条」窗口。
+    // 一条既不在途、今天也没动静、管家也不盯的旧线程,只有排在最近 N 条里才进索引 —— 几百条存量
+    // 普通会话因此不会把左栏淹掉,但它们仍在搜索里找得到。clamp [10,200],判据单点在 06i 的
+    // threadVisible(三个数也定在那里:THREAD_INDEX_RECENT_DEFAULT/MIN/MAX)。
+    threadIndexRecent: THREAD_INDEX_RECENT_DEFAULT,
     // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120]。
     // 117m-A1:12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」15 分钟吃光(见 13h
     // stewardCircuitCheck 的注释)。**不迁移存量配置** —— normalizeConfig 早已把 12 显式写进老用户的
@@ -1433,6 +1438,14 @@ const WORKSPACE_NOTE_MAX = 80;
 // 帽子只挡「表长到放不下」,不挡「派生」:13k 在派生【之前】自己算一次追加后会不会超帽,会超就
 // fail-closed 拒开线程(见 13k stewardWorkspaceTableFull),绝不允许目录建了而行落不下。
 const WORKSPACE_TABLE_CAP = 64;
+
+// 第 121 波 K3(34 号文 §4.1/§4.2):任务索引「最近 N 条」窗口的缺省与钳位区间。三个数只有这一份,
+// defaultConfig() 与下面的清洗块都读它们(stewardPollMs 那种「默认表与清洗块各写一遍字面量」的
+// 写法是本仓的旧账,新键不再复制)。判据本体在 06i 的 threadVisible —— 它只收一个算好的布尔,
+// N 在 13e 建索引时用(01 拼在 06i/13e 之前,数字放这里不制造任何前向边)。
+const THREAD_INDEX_RECENT_DEFAULT = 30;
+const THREAD_INDEX_RECENT_MIN = 10;
+const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
   let s = String(value == null ? '' : value).trim();
@@ -1953,6 +1966,15 @@ function normalizeConfig(raw) {
     const n = Number(config.stewardPollMs);
     const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
+  }
+  // 第 121 波 K3(34 号文 §4.1):任务索引「最近 N 条」窗口,非法值(非有限数)回默认 30,
+  // clamp [10,200]。三个数都取自上面那组常量,不在这里重写字面量。
+  {
+    const n = Number(config.threadIndexRecent);
+    const clamped = Number.isFinite(n)
+      ? Math.min(THREAD_INDEX_RECENT_MAX, Math.max(THREAD_INDEX_RECENT_MIN, Math.round(n)))
+      : THREAD_INDEX_RECENT_DEFAULT;
+    if (clamped !== config.threadIndexRecent) { config.threadIndexRecent = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家每小时最多替用户执行的回合数,clamp [1,120],非法回默认 30
   // (117m-A1 把默认值 12 → 30,这里的兜底值与默认表同步;clamp 区间一字未动)。
@@ -4921,6 +4943,18 @@ function applySessionMetaPatch(session, patch) {
   //     里那句人话，那是渲染不是信号），而收件箱只读磁盘 —— 所以第四源要分得出
   //     done / failed，就必须有这一条落盘的账。严格归一成固定五字段，与 stewardQuick 同纪律。
   if (patch.launchedBy === 'steward') session.launchedBy = 'steward';
+  // 121-K3(34 号文 §4.4「交接」):「交给管家盯 / 别盯了」那枚开关。**只认两个布尔字面量** ——
+  // 其它任何值(字符串 'true'、1、null、对象)一律当没写,不让调用方拿它往会话头上写野值。
+  // 它是【状态】不是出身,所以进白名单(与 launchedBy 同一条理由);而它的一对孪生字段
+  //   · origin    —— 【故意不在这张白名单里】,一个分支都不给它。它记的是「这条线程是谁开的」,
+  //                  只在 createSession 写一次、此后终身不变。一旦能经 PATCH 改,任何调用方都能把
+  //                  自己的普通会话刷成「管家开的」,来源图形(环/人形/钟)就成了一句空话 ——
+  //                  与本函数上方 createdBy 那条注释是同一个模具,理由也是同一个。
+  //   · createdBy —— 见本函数上方 117z-E2 那段注释锚。
+  // 判据侧:stewardWatchedThread(06i)把 true/false 都当【显式意愿】,排在原来三条判据之前 ——
+  // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
+  if (patch.stewardWatch === true) session.stewardWatch = true;
+  else if (patch.stewardWatch === false) session.stewardWatch = false;
   if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
     const t = patch.stewardLastTurn;
     const seq = Number(t.seq);
@@ -4991,6 +5025,9 @@ async function updateSessionMeta(id, patch) {
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
     await saveSession(session);
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
+    // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
+    // 同名事件,只多一个 by:'user' 把两条来路分开(那一条是归并到事项,这一条是用户交接)。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || ''), by: 'user' });
     return session;
   }
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
@@ -5010,6 +5047,8 @@ async function updateSessionMeta(id, patch) {
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
+    // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(fresh.missionId || ''), title: String(fresh.title || ''), by: 'user' });
     // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
     // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
     // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
@@ -6516,7 +6555,7 @@ function isUntitledSessionTitle(title) {
   return !v || v === 'New session' || v === '新会话' || v === 'New chat';
 }
 
-async function createSession({ title, cwd }) {
+async function createSession({ title, cwd, origin }) {
   const id = makeId('sess');
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
@@ -6539,6 +6578,13 @@ async function createSession({ title, cwd }) {
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
+    // 第 121 波 K3(34 号文 §4.1「来源三值」):这条线程是谁开的。**只在这里写一次,此后终身不变**,
+    // 且【不在】 applySessionMetaPatch 的白名单里(理由与 createdBy 同一条,见那里的注释锚)。
+    // 三值 'steward' | 'user' | 'schedule':管家族两条建线程的路径(13k thread_new / quick_ask)显式传
+    // 'steward';119 波的定时任务落地后由它自己传 'schedule';其余一律 'user'。非法值当没传。
+    // 存量会话头没有这个字段:读侧由 06i 的 threadOriginOf 现场派生,**不回写**(索引是纯派生物,
+    // 为了补一个字段去改几百个会话文件不值得,而且那会把 sourceStamp 全体打脏)。
+    origin: (origin === 'steward' || origin === 'schedule') ? origin : 'user',
     // 116-5a(§11.8.3):建会话时就带了一个【不是占位符】的标题 = 这条线程已经有名字了,不必再花一次
     // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
     // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
@@ -15192,6 +15238,10 @@ async function runKimiAcpTurnPrepared(context) {
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     activeChildren.set(session.id, reg);
+    // 121-K3(34 号文 §13.4 登记项①):Kimi ACP 这一路在 K2a 漏了起跑/收尾两帧。形状照 05/09 逐字
+    // 一样(同一个事件名、同一个载荷键),位置也一样 —— 紧跟 activeChildren.set,此刻这条线程对
+    // 任何读 activeChildren 的判据来说都已经是「在跑」了,派晚一行就会出现「订阅者算出来还是停着」。
+    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
       const text = decodeClaudeCliText(chunk);
@@ -15518,6 +15568,10 @@ async function runKimiAcpTurnPrepared(context) {
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* ignore */ }
   }
   await saveSession(session);
+  // 121-K3(§13.4 登记项①的另一半):收尾帧。与 05/09 同位置(紧跟本回合最后一次 saveSession ——
+  // summary 这一刻已经是本回合的话)、同载荷。收尾形状与那两路不同(Kimi 这一路没有 result 早退,
+  // 整段 finally 之后才走到这里),但【派帧的时机语义】一致:回合真的结束了才派。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });   // §6.3 指标 b
   if (session.mission) await bumpMissionChangeSeq(session.id, {
     type: turnOk || wasStopped ? 'progress' : 'failure', cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: { ok: turnOk, aborted: wasStopped, errorClass: turnOk || wasStopped ? '' : 'kimi_acp_error', filesChanged: turnSummary.filesChanged.length, artifacts: turnSummary.artifacts.length, commands: Number(turnSummary.commands) || 0 },
@@ -19031,7 +19085,10 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 
 // 管家收件箱事件五类白名单(116b 起启用):等你(needs_you)/失败(failed)/收工(done)/停滞(stalled)/
 // 预算(budget)。心跳与其余事件一律不入箱。本切片只声明常量,轮询器实现在 116b。
-const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget']);
+// 121-K3(34 号文 §4.4「交接」):第六类 adopted —— 用户把一条线程【交给管家盯】(写 stewardWatch:true)。
+// 它不是「出事了」,而是一次交接:管家下一拍要回一句「好,『X』我盯着」。排在表尾,前五类的
+// 顺序与语义一个字不动(到访摘要按本表顺序归纳,插在中间会改既有摘要的行序)。
+const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted']);
 
 // 116f:管家会话的固定 id 与标题。定在这里(engine 层最早)而不是 13h,是因为 13g(收件箱轮询器)也要
 // 用它把管家会话排除在事件源之外 —— 13g 引用 13h 会是前向边,引用 06i 是后向边。
@@ -19188,6 +19245,10 @@ function buildStewardDigestLine(thread) {
     if (lead) segments.push(lead);
   }
   if (stewardHasText(t.state)) segments.push(stewardStateLabel(t.state));
+  // 121-K3(§4.5「管家对你正坐着的线程」):用户此刻就坐在这条线程前面(在场快照说 lens=classic 且
+  // sessionId 命中)。总览行上直说一句,管家读提示词那一眼就知道这条不该动手 —— 工具门(13k 的
+  // seated_by_user)是硬拦,这一句是软告知:光有硬拦,模型会反复去试然后反复被拒。
+  if (String(t.seatedBy || '') === 'user') segments.push('你正坐在这条线程里');
   if (stewardHasText(t.action)) segments.push(stewardSanitizeText(t.action));
   if (stewardHasText(t.waitReason)) segments.push(stewardSanitizeText(t.waitReason));
   if (stewardHasText(t.permissionMode)) segments.push(stewardPermissionLabel(t.permissionMode));
@@ -19834,11 +19895,67 @@ const STEWARD_DELIVERABLE_CHARS = 4000;
 // 前向边(13e 拼在 13i 之前),引用 06i 是后向边;13i->06i 与 13e->06i 两条边在依赖图里本来就存在
 // (docs/architecture/module-dependency-graph.json,direction backward),故本次搬家零新增边、
 // forwardEdges 不变。落点教训见 30 号文 §8.9(117q-B7:TOOL_TIER_RANK 放进 07 造出净新增环边)。
+//
+// 121-K3(34 号文 §4.1「两个判据取代一个」):本函数【保留原语义】,只多认一个显式开关 —— 用户在
+// 界面上按的那枚「交给管家盯」写 head.stewardWatch(PATCH /api/sessions/:id,白名单在 02)。
+//   · true  -> 恒 watched(哪怕它是用户自己在 2.0 里开的普通会话);
+//   · false -> 恒不 watched,【对管家自己开的线程也生效】= 用户接手,别再盯了(§4.4 反向那一半)。
+//   · 没写这个字段 -> 原来那三条判据,一个字不变。
+// 显式开关排在三条判据之前:它是人刚刚按下的意愿,凭什么被「这条线程当初是谁开的」盖掉。
 function stewardWatchedThread(head, sessionId, missionId) {
   if (!head || typeof head !== 'object') return false;
+  if (head.stewardWatch === true) return true;
+  if (head.stewardWatch === false) return false;
   if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
   if (head.launchedBy === 'steward') return true;
   return String(missionId || '') !== String(sessionId || '');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 121-K3(34 号文 §4.1):线程【来源】三值与线程【可见】判据。两者与上面那条 watched 各管各的:
+//   · origin   = 这条线程是谁开的(出身,终身不变)—— 界面上只画图形(环/人形/钟);
+//   · watched  = 管家要不要为它动手(状态,用户随时可改);
+//   · visible  = 它要不要出现在任务索引里(窗口,治噪音用的)。
+// 修前索引只有 watched 一条线,于是「用户在 2.0 里开的普通会话永远不上看板」(§1.3 的病根)。
+// ─────────────────────────────────────────────────────────────────────────────
+const THREAD_ORIGINS = Object.freeze(['steward', 'user', 'schedule']);
+// 「今天有动静」的窗口。24 小时而不是自然日:跨零点那一刻不该让半个索引凭空消失。
+const THREAD_VISIBLE_TODAY_MS = 24 * 60 * 60 * 1000;
+// 「最近 N 条」那一条的 N 【不在这里】:threadVisible 只收一个算好的 recent 布尔,N 是配置项
+// (config.threadIndexRecent),它的缺省与钳位区间住在 01-config(THREAD_INDEX_RECENT_*)——
+// 01 拼在 06i 之前,数字放这里会让 01 反向引用 06i,那是一条净新增前向边。
+
+// 存量会话头上没有 origin 字段(121-K3 之前建的),读侧现场派生、**不回写**:
+// 出身标 createdBy === 'steward' 是 117z-E2 立的、终身不变的那一个;launchedBy 会被递话污染
+// (管家往用户自己的会话里递一句话也会打上它),所以它只作次级证据 —— 两个都没有就是用户自己开的。
+// 定时任务(119 波)落地后由它自己在建会话时写 origin:'schedule';派生侧不猜,猜不出来就是 'user'。
+function threadOriginOf(head) {
+  if (!head || typeof head !== 'object') return 'user';
+  const declared = String(head.origin || '');
+  if (THREAD_ORIGINS.includes(declared)) return declared;
+  if (String(head.createdBy || '') === 'steward') return 'steward';
+  if (String(head.launchedBy || '') === 'steward') return 'steward';
+  return 'user';
+}
+
+// 「这条线程要不要进任务索引」。四条【并集】(§4.1):在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched。
+// 纯函数:在途与最近 N 条这两条靠调用方喂事实(活回合表与目录时序都在 06i 看不见的层),
+// 本函数只负责把四条合成一条,不另立第二套判据。
+//   input = { now, watched, inFlight, recent }
+//     · watched  —— stewardWatchedThread 的结果(调用方已经算过一次,不在这里重算);
+//     · inFlight —— 此刻有活回合 或 有未决(= 五态非 done/stopped 的那一半机器事实);
+//     · recent   —— 这条线程在「最近 N 条」窗口内(N = config.threadIndexRecent)。
+// 参数名用 head/input(与本文件既有两个纯函数同名):32 号文 §4 纪律 12 —— 裸参数名会被依赖图
+// 当跨模块符号,起个没在更早模块出现过的名字比省几个字符重要。
+function threadVisible(head, input) {
+  if (!head || typeof head !== 'object') return false;
+  const src = (input && typeof input === 'object') ? input : {};
+  if (src.watched === true) return true;
+  if (src.inFlight === true) return true;
+  if (src.recent === true) return true;
+  const stamp = Date.parse(String(head.updatedAt || ''));
+  const now = Number.isFinite(Number(src.now)) ? Number(src.now) : Date.now();
+  return Number.isFinite(stamp) && (now - stamp) <= THREAD_VISIBLE_TODAY_MS;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40470,7 +40587,11 @@ async function handleSessionApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
-    return send(res, json({ ok: true, session: await createSession(body) }));
+    // 121-K3(§4.1「来源三值」):这条路由就是【用户自己按下「新会话」】那一下,来源恒为 'user'。
+    // 显式钉死而不是把 body 整份透传:createSession 现在认 origin 参数,透传等于让任意调用方
+    // 把自己的普通会话刷成「管家开的」—— 那正是 02 把 origin 挡在 PATCH 白名单外要防的同一件事,
+    // 只挡 PATCH 不挡建会话是把门修在窗户旁边。管家族那两条路径自己传 'steward'(13k)。
+    return send(res, json({ ok: true, session: await createSession({ ...(body && typeof body === 'object' ? body : {}), origin: 'user' }) }));
   }
   // Bulk history cleanup is intentionally narrower than the single-session DELETE endpoint: it only
   // clears unpinned sessions and can preserve the currently open session supplied by the UI.
@@ -42336,7 +42457,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // 管家关心的线程现在也有卡片)。不升号的话,存量索引里这些会话的行就是 card:null,而它们的会话文件
 // 不会再变(sourceStamp 不动),增量刷新永远不碰它们 —— 用户已经有的那些速查线程会一直不出现在看板上。
 // 与 117p-S2 同一条理由:索引是纯派生物,升号的代价只是启动后第一次读时全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 5;
+// 121-K3:5 -> 6。这次卡片的【形状】与【产生条件】一起变了:行上新增 origin/watched 两个持久字段
+// (cardRevision 也把它们算进哈希),产生条件从 watched 一条线换成 threadVisible 四条并集(§4.2)。
+// 不升号的话,存量索引里用户自己在 2.0 开的那些会话仍是 card:null,而它们的会话文件不会再变
+// (sourceStamp 不动),增量刷新永远不碰它们 —— 本刀要修的那个症状会原样留在存量机器上。
+const PRETENDER_INDEX_SCHEMA = 6;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -42411,6 +42536,33 @@ async function scanPretenderSessionSources() {
   return sources;
 }
 
+// 121-K3(34 号文 §4.1 第三条「最近 N 条」):任务索引窗口里那 N 个 sessionId。
+// 按【会话文件 mtime】排,不按会话头里的 updatedAt —— 后者要把每个头都读出来解析一遍 JSON,
+// 而这一步只是为了决定「要不要给它造卡片」,一次 readdir + 每文件一次 stat 就够
+// (scanPretenderSessionSources 每条会话本来就付着更贵的 2 次 stat + 一次 readdir)。
+// 两者的偏差只在「文件写过但 updatedAt 没动」这种退化情形,而那恰恰也算「最近动过」。
+// N 取自配置(config.threadIndexRecent,清洗块已 clamp 到 [10,200]);读不到配置就用默认 30,
+// 绝不因为配置读失败把索引缩成空(fail-open:这里是可见性窗口,不是权限门)。
+async function pretenderRecentSessionIds() {
+  const config = await readConfig().catch(() => null);
+  const raw = Number(config && config.threadIndexRecent);
+  const limit = Number.isFinite(raw)
+    ? Math.min(THREAD_INDEX_RECENT_MAX, Math.max(THREAD_INDEX_RECENT_MIN, Math.round(raw)))
+    : THREAD_INDEX_RECENT_DEFAULT;
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return new Set(); }
+  const rows = [];
+  for (const file of files) {
+    if (!/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) continue;
+    let mtime = 0;
+    try { mtime = Math.trunc((await fsp.stat(path.join(paths.sessions, file))).mtimeMs); } catch { continue; }
+    rows.push([file.slice(0, -5), mtime]);
+  }
+  // 末位按 sessionId 降序兜确定性:同毫秒写入的两条会话不该因为目录枚举顺序漂移而轮流进窗口。
+  rows.sort((a, b) => b[1] - a[1] || String(b[0]).localeCompare(String(a[0])));
+  return new Set(rows.slice(0, limit).map(row => row[0]));
+}
+
 async function pretenderUsageSourceStamp() {
   let files = [];
   try { files = (await fsp.readdir(paths.usage)).filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort(); } catch { files = []; }
@@ -42455,7 +42607,7 @@ async function buildMissionUsageMap() {
   return map;
 }
 
-async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
+async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentIds) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
@@ -42469,23 +42621,42 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
   }
   const kind = head && head.id ? sessionKind(head) : 'orphan';
   const missionId = (head && sessionMissionId(head)) || sid;
-  // 117r-D1(用户第八轮走查③「管家开的速查线程在看板上根本不存在」):看板正文的唯一数据源是
-  // GET /api/missions,而那条路由的行集就是 `index.sessions.filter(row => row.card)` —— 卡片只给
-  // kind==='mission' 造,于是 steward_quick_ask 开的线程(显式 kind='quick_ask')恒无卡片、恒不进
-  // 看板;而顶部那两个数字来自仲裁器(它照常给速查回合占并发位),同一块面板上两个数字互相打脸。
-  // 判据【不新造】:用 06i 的 stewardWatchedThread —— 与收件箱第四源逐字同一份实现。它正好画出
-  // 这条线:管家的线程要进,用户自己在 2.0 里聊的几百条普通会话(missionId === sessionId、无
-  // stewardQuick、无 launchedBy)一律不进,不会把看板淹掉。
-  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— stewardWatchedThread 第一行
-  // 就挡住 head 为空的情况,不必在这里再写一道。
-  const carded = kind === 'mission' || stewardWatchedThread(head, sid, missionId);
+  // ── 卡片的产生条件(121-K3,34 号文 §4.2「索引口径」)────────────────────────────────────
+  // 117r-D1 把它从「只给 mission 造」放宽到「mission ∪ 管家关心的线程」,理由写在那一版注释里
+  // (管家开的速查线程当时在看板上根本不存在)。但那一版仍是【一个判据管两件事】:
+  // 「管家要不要动手」同时当成了「它要不要出现在索引里」,于是用户自己在 2.0 里开的普通会话
+  // (missionId === sessionId、无 stewardQuick、无 launchedBy)永远不进 /api/missions ——
+  // §1.3 数过的那条病根,而它当时被写成「刻意的,理由是噪音」。
+  //
+  // K3 把一个判据拆成两个(判据本体都在 06i,这里只消费,不新造):
+  //   · watched = stewardWatchedThread —— 管家要不要为它动手(收件箱第四源用的还是这一条);
+  //   · visible = threadVisible —— 它要不要进索引。四条并集:在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched。
+  // 噪音不再靠「把整类线程挡在门外」治,靠【窗口】治(§4.2):几百条旧会话既不在途、今天也没动静、
+  // 又排不进最近 N 条,自然不进索引;进了索引的旧线程在界面上也只落「更早」组。
+  //   · inFlight 是「五态非 done/stopped」的机器事实那一半:此刻有活回合,或挂着未决。
+  //     两者都是这里现成的(activeChildren 与刚读出来的 ivMeta),不为它多读一次盘。
+  //   · recentIds 由调用方一次算好整份(pretenderRecentSessionIds),每条会话只做一次 Set 查询。
+  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— 两个判据的第一行都挡住
+  // head 为空的情况,不必在这里再写一道。
+  const watched = stewardWatchedThread(head, sid, missionId);
+  const origin = threadOriginOf(head);
+  const inFlight = activeChildren.has(sid)
+    || (Array.isArray(ivMeta.interventions) && ivMeta.interventions.some(iv => iv && iv.status === 'pending'));
+  const carded = kind === 'mission' || threadVisible(head, {
+    now: Date.now(),
+    watched,
+    inFlight,
+    recent: recentIds instanceof Set ? recentIds.has(sid) : false,
+  });
   const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
   const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
   const usageFact = usage || emptyMissionUsage();
   const changeSeq = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
-  const cardRevision = pretenderHash({ missionId, changeSeq, card });
+  // 121-K3:origin/watched 进哈希。它们是【持久】字段(跟着切片落盘),不进哈希的话
+  // 「用户按下交给管家盯」这种只改 stewardWatch 的写会拿不到新 ETag,左栏画的还是旧标。
+  const cardRevision = pretenderHash({ missionId, changeSeq, card, origin, watched });
   const missionRevision = pretenderHash({ cardRevision, usage: usageFact });
   // Health is part of the semantic projection, but physical row/byte counts are not (compaction must keep
   // revision stable). A newly corrupt authority line therefore invalidates ETags even when valid facts match.
@@ -42494,6 +42665,10 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
     sessionId: sid,
     missionId,
     kind,
+    // 121-K3(§4.1):来源三值与「管家盯着没有」。两个都是从会话头派生的持久事实,行上直接带着 ——
+    // 消费者(左栏、总览、收件箱)零改动即能画来源图形与「交给管家盯」的开关态。
+    origin,
+    watched,
     changeSeq,
     sourceStamp,
     indexedAt: nowIso(),
@@ -42566,12 +42741,13 @@ async function persistPretenderIndex(value) {
 async function rebuildPretenderIndexFull(reason, knownSources) {
   const sources = knownSources || await scanPretenderSessionSources();
   const usageMap = await buildMissionUsageMap();
+  const recentIds = await pretenderRecentSessionIds();   // 121-K3:整份算一次,每条会话只做一次 Set 查询
   let ids = Object.keys(sources).sort(), cursor = 0;
   const sessions = [];
   const workers = Array.from({ length: Math.min(12, Math.max(1, ids.length)) }, async () => {
     while (cursor < ids.length) {
       const sid = ids[cursor++];
-      const slice = await buildPretenderSessionSlice(sid, sources[sid], usageMap.get(sid));
+      const slice = await buildPretenderSessionSlice(sid, sources[sid], usageMap.get(sid), recentIds);
       if (slice) { sources[sid] = slice.sourceStamp; sessions.push(slice); }
     }
   });
@@ -42583,13 +42759,17 @@ async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
   const sources = { ...(base.sources || {}) };
   const rows = new Map(base.sessions.map(row => [row.sessionId, row]));
   const usageMap = usageIds.size ? await buildMissionUsageMap() : null;
+  // 121-K3:增量刷新也要算一次窗口 —— 一条刚被写过的会话恰恰最可能【刚刚】挤进最近 N 条,
+  // 拿旧窗口判它等于让新会话晚一整轮才上索引。dirtyIds 为空时下面的循环不跑,这一次 readdir
+  // 也就不会白付(getPretenderProjectionIndex 只在真有脏页时才走到这里)。
+  const recentIds = await pretenderRecentSessionIds();
   for (const sid of dirtyIds) {
     const stamp = await pretenderSessionSourceStamp(sid);
     if (!fs.existsSync(sessionPath(sid)) && !fs.existsSync(interventionFilePath(sid))) { delete sources[sid]; rows.delete(sid); continue; }
     sources[sid] = stamp;
     const previous = rows.get(sid);
     const usage = usageIds.has(sid) ? usageMap.get(sid) : (previous && previous.usage);
-    const slice = await buildPretenderSessionSlice(sid, stamp, usage);
+    const slice = await buildPretenderSessionSlice(sid, stamp, usage, recentIds);
     if (slice) { sources[sid] = slice.sourceStamp; rows.set(sid, slice); } else { delete sources[sid]; rows.delete(sid); }
   }
   const usageStamp = usageIds.size ? await pretenderUsageSourceStamp() : base.usageStamp;
@@ -42721,7 +42901,26 @@ function pretenderEtag(kind, revision, page) {
 function pretenderLiveOverlayRevision(sessionId = '') {
   const sid = String(sessionId || '');
   const rows = [];
-  for (const [id] of activeChildren) if (!sid || id === sid) rows.push(['turn', id]);
+  // 121-K3:活回合这一行带上 liveTail 摘要的三个值。修前它只有 ['turn', id] —— 一个回合从起跑到
+  // 收工整段时间里 ETag 一动不动,而卡片上的「正在调什么」每几百毫秒就变一次,兜底轮询于是永远
+  // 拿 304、永远画着第一帧。overlayMissionCard 往卡片里放了什么,这里就得跟着算什么。
+  for (const [id, reg] of activeChildren) {
+    if (sid && id !== sid) continue;
+    const tail = (reg && reg.liveTail && typeof reg.liveTail === 'object') ? reg.liveTail : null;
+    rows.push(['turn', id, tail ? String(tail.tool || '') : '', tail ? String(tail.updatedAt || '') : '',
+      tail ? Math.max(0, Number(tail.iterations) || 0) : 0]);
+  }
+  // 同理:在场(§4.3 的 seatedBy)也进卡片,也就必须进这份 revision —— 用户从 X 换坐到 Y,
+  // 两行卡片的 seatedBy 都变了,ETag 不动的话左栏要等到下一次会话头写盘才更新。
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    for (const row of (Array.isArray(presence) ? presence : [])) {
+      const seated = String((row && row.sessionId) || '');
+      if (!seated || (row && row.lens) !== 'classic') continue;
+      if (sid && seated !== sid) continue;
+      rows.push(['seat', seated]);
+    }
+  } catch { /* 在场读不到就当没人坐着 —— 与 overlayMissionCard 同一条 fail-open */ }
   for (const runtime of activeAgentRuns.values()) {
     const run = runtime && runtime.run;
     if (!run || (sid && run.sessionId !== sid)) continue;
@@ -42766,8 +42965,35 @@ function overlayMissionCard(slice) {
     activeTurn,
     lastAssistantText: String(card.lastSay || ''),
   });
+  // 121-K3(§4.2「行加 liveTail 摘要」/ §5「左栏在跑组每行的第二行」):正在调什么工具、第几次、
+  // 什么时候有的输出。**摘要不带正文** —— `text`/`full` 一个字都不进来(§6.1 的红线:观察面不承载
+  // 工具输出正文;要正文的面走 GET /api/sessions/:id 的 liveTail,那里有自己的预算与门)。
+  // 没有活回合就是 null,不编一个空壳出来让消费者分不清「没在跑」与「在跑但还没输出」。
+  const liveReg = activeTurn ? activeChildren.get(slice.sessionId) : null;
+  const liveTailReg = (liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object') ? liveReg.liveTail : null;
+  const liveTail = liveTailReg ? {
+    tool: String(liveTailReg.tool || ''),
+    updatedAt: String(liveTailReg.updatedAt || ''),
+    iterations: Math.max(0, Number(liveTailReg.iterations) || 0),
+  } : null;
+  // 121-K3(§4.3/§4.5):用户此刻是不是就坐在这条线程前面。事实源是 13r 的在场快照(SSE 连接自报的
+  // lens/sessionId),经 00-boot 的延迟绑定命名空间取 —— 13e 拼在 13r 之前,直引 13r 的符号是前向边。
+  // 钩子没填充(13r 还没加载 / 事件流关着)或抛错,一律当「没人坐着」:在场信号缺席时管家照旧行事,
+  // 这是 fail-open,因为它管的是【打扰纪律】不是权限。
+  let seatedBy = null;
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    if (Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === slice.sessionId)) {
+      seatedBy = 'user';
+    }
+  } catch { seatedBy = null; }
   return {
     ...card,
+    // 121-K3:两个持久字段随卡片一起下发(切片上有,卡片上没有 —— 消费者读的是卡片)。
+    origin: String(slice.origin || 'user'),
+    watched: slice.watched === true,
+    liveTail,
+    seatedBy,
     activeTurn,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
@@ -42926,6 +43152,16 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
   //    纪律不被沉默绕过。语义由 payload(会话头上的 stewardLastTurn)决定,见 @sessionTurn 解析器。
   sessionTurn: Object.freeze({
     turn_settled: '@sessionTurn',
+  }),
+  // ④'' 第五源 threadAdopted(121-K3,34 号文 §4.4「交接」)。与上面两组同处境:没有「源码写入端的
+  //    type 字面量」可对账 —— 事实来自用户在界面上按下的那枚「交给管家盯」(PATCH /api/sessions/:id
+  //    写 stewardWatch:true,02 落盘后派一条 RUYI_EVENTS 的 thread.adopted{by:'user'})。本文件订阅
+  //    那条总线事件、排进下一拍(见 stewardQueueThreadAdopted),故【不】参与 116b 静态锁的三条双向
+  //    等集判定,只在这里登记一条,让「新信号必须有人登记一次」这条纪律不被沉默绕过。
+  //    为什么不是 needs_you:用户把活交给管家【不是】一件等着用户拿主意的事,恰恰相反。
+  //    为什么不复用 done:它也不是收工。第六类 adopted 是它自己,见 06i 的 STEWARD_EVENT_KINDS。
+  threadAdopted: Object.freeze({
+    thread_adopted: 'adopted',
   }),
   // ⑤ 只走 SSE、【故意】不落任何持久日志的进度信号(116-2b 登记)。收件箱只读三条带 seq 的持久
   //    日志,故这里的东西不可能入箱 —— 登记为 null 是为了让"新信号必须有人登记一次"这条纪律不被
@@ -43112,6 +43348,33 @@ function stewardNormalizePendingIntervention(sessionId, missionId, iv) {
 }
 
 // ④ 投影派生:mission card 的预算耗尽标记 → budget 事件 | null(每个事项一次性)
+// ⑤ 用户交接(121-K3,§4.4)-> 归一化事件 | null。来源是总线事件 thread.adopted{by:'user'},
+// 不是磁盘日志 —— 所以它没有 seq 可用,拿【交接时刻】当去重位:同一条线程反复交出去/收回来
+// 是合法的(用户改主意),两次交接必须是两行,而同一次交接重放多少遍都只有一行。
+function stewardNormalizeThreadAdopted(record) {
+  const r = (record && typeof record === 'object') ? record : {};
+  const sessionId = String(r.sessionId || '');
+  if (!sessionId) return null;
+  const kind = stewardKindFor('threadAdopted', 'thread_adopted', r);
+  if (!kind) return null;
+  const at = stewardIsoAt(r.at);
+  const title = stewardSanitizeText(r.title || '').slice(0, 120);
+  return {
+    kind,
+    sessionId,
+    missionId: String(r.missionId || sessionId),
+    runId: '',
+    seq: at,
+    at,
+    payload: {
+      source: 'threadAdopted',
+      by: 'user',
+      title,
+      summary: stewardClipSummary(title ? `用户把线程「${title}」交给你盯` : '用户把一条线程交给你盯'),
+    },
+  };
+}
+
 function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
   const c = (card && typeof card === 'object') ? card : null;
   const mission = c && c.mission && typeof c.mission === 'object' ? c.mission : null;
@@ -43283,8 +43546,87 @@ const stewardRuntime = {
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
   carry: [],
+  // 121-K3(§4.4「交接」):等着进下一拍的交接事件。来源是总线(02 落盘 stewardWatch:true 之后派的
+  // thread.adopted{by:'user'}),不是任何一本磁盘日志 —— 所以它不走「游标 + 增量读」那一套,而是
+  // 在这里排队,由下一拍 stewardCollectEvents 开头一次性取走。硬顶见 STEWARD_ADOPTED_QUEUE_MAX:
+  // 管家关着时没人来取,队列不能无限长(溢出丢【最早】的 —— 最近那次交接才是用户还记得的那次)。
+  adopted: [],
 };
+const STEWARD_ADOPTED_QUEUE_MAX = 50;
 let stewardAppendChain = Promise.resolve();
+
+// 121-K3:订阅总线。装在模块加载期,进程生命周期内不卸(同 13r 的纪律)。它【只排队,不落盘】——
+// 收件箱的写面只有 stewardTickOnce 一处,旁路事件不许绕过去重、合并、在场门三道工序。
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'thread.adopted') return;
+  const data = (payload && typeof payload === 'object') ? payload : {};
+  if (String(data.by || '') !== 'user') return;   // missionAttachThread 派的那一路是【归并到事项】,不是交接
+  stewardQueueThreadAdopted(data);
+});
+function stewardQueueThreadAdopted(data) {
+  const sid = safeSessionId(data && data.sessionId);
+  if (!sid || sid === STEWARD_SESSION_ID) return;
+  stewardRuntime.adopted.push({
+    sessionId: sid,
+    missionId: String((data && data.missionId) || sid),
+    title: String((data && data.title) || ''),
+    at: String((data && data.at) || nowIso()),
+  });
+  while (stewardRuntime.adopted.length > STEWARD_ADOPTED_QUEUE_MAX) stewardRuntime.adopted.shift();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 在场门(121-K3,34 号文 §4.3「在场信号与打扰纪律」)。
+//
+// 事实源是 13r 的在场快照(每条 SSE 连接自报的 lens 与 sessionId),经 00-boot 的延迟绑定命名空间
+// 取 —— 13i 拼在 13r 之前,直引 13r 的符号是前向边。读不到(钩子未填充 / 事件流关着 / 抛错)一律
+// 当「没人在壳里」= 今天的行为:这道门管的是【打扰纪律】,不是权限,fail-open 才对。
+//
+// 四种情形(§4.3 逐条):
+//   ① 用户在工作台、且正坐在这条线程上 -> 事件【不入箱】(索引与徽标照常更新,他自己看得见);
+//   ② 用户在工作台、但坐在别的线程     -> needs_you/failed/stalled/budget 照进箱并打 quiet:true
+//                                        (前端安静卡读它);done 不进(§4.3 明说「done 只更新左栏」);
+//   ③ 用户在管家视角                   -> 今天的行为,一个字不改;
+//   ④ 没有任何连接                     -> 累积,今天的行为。
+// ②里 stalled/budget 两类设计稿没点名:它们与 needs_you/failed 同属「有事要你知道」,按同一档处理
+// (进箱 + quiet),而不是像 done 那样丢掉 —— 丢掉它们等于用户回到管家视角时永远补不上这两类。
+// ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
+// adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
+// ────────────────────────────────────────────────────────────────────────────
+function stewardPresenceRows() {
+  try {
+    const rows = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    return Array.isArray(rows) ? rows : [];
+  } catch { return []; }
+}
+function stewardApplyPresenceGate(events) {
+  const list = Array.isArray(events) ? events : [];
+  const presence = stewardPresenceRows();
+  if (!presence.length) return list;                       // ④
+  const seated = new Set();
+  let classicPresent = false, stewardPresent = false;
+  for (const row of presence) {
+    const lens = String((row && row.lens) || '');
+    if (lens === 'steward') { stewardPresent = true; continue; }
+    if (lens !== 'classic') continue;
+    classicPresent = true;
+    const sid = String((row && row.sessionId) || '');
+    if (sid) seated.add(sid);
+  }
+  if (stewardPresent || !classicPresent) {                 // ③ 与「只有别的 lens 连着」
+    return list.filter(evt => !seated.has(String((evt && evt.sessionId) || '')) || String((evt && evt.kind) || '') === 'adopted');
+  }
+  const out = [];
+  for (const evt of list) {
+    const sid = String((evt && evt.sessionId) || '');
+    const kind = String((evt && evt.kind) || '');
+    if (kind === 'adopted') { out.push(evt); continue; }
+    if (seated.has(sid)) continue;                         // ①
+    if (kind === 'done') continue;                         // ②:收工只更新左栏
+    out.push({ ...evt, payload: { ...((evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {}), quiet: true } });
+  }
+  return out;
+}
 
 function stewardResetRuntimeState() {
   stewardRuntime.loaded = false;
@@ -43296,6 +43638,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
   stewardRuntime.carry = [];
+  stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -43555,6 +43898,15 @@ async function stewardCollectEvents() {
   const activeRunIds = [];
   const nextPending = new Set();
 
+  // ── ⑤ 用户交接(121-K3,§4.4)。取走这一拍之前排进来的全部交接事件 —— 它不读盘、不走游标,
+  //    排在最前是因为它发生得最早(用户按下开关的那一刻),排序器随后会按 at 再排一遍。
+  const adoptedQueue = stewardRuntime.adopted;
+  stewardRuntime.adopted = [];
+  for (const record of adoptedQueue) {
+    const evt = stewardNormalizeThreadAdopted(record);
+    if (evt) events.push(evt);
+  }
+
   for (const row of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
     const sid = row && safeSessionId(row.sessionId);
     if (!sid) continue;
@@ -43672,7 +44024,10 @@ async function stewardTickOnce() {
   // 116-3 P0-3:上一轮结转下来的事件排在最前(它们更早发生,游标也早已越过它们)。
   const carried = stewardRuntime.carry;
   stewardRuntime.carry = [];
-  const fresh = carried.concat(events)
+  // 121-K3(§4.3):在场门只作用于【本轮新收的】事件。结转下来的那批上一轮已经过过门了,
+  // 再过一次会拿【此刻】的在场状态去重判一件几分钟前发生的事,那是两个时刻的事实相互污染。
+  const gated = stewardApplyPresenceGate(events);
+  const fresh = carried.concat(gated)
     .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));
   // 截断改在【合并之前】、对原始事件做,超出的部分原样结转到下一轮 —— 旧写法是「合并后 slice(0,200)」,
@@ -44834,6 +45189,10 @@ async function stewardImplThreadNew(args, ctx, config) {
   const session = await createSession({
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
     cwd: cwdCheck.cwd,
+    // 121-K3(§4.1 来源三值):出身在 createSession 那一次写死。与下面的 createdBy 是两个字段、
+    // 一个事实的两面 —— createdBy 是权限判据(桌面权限只开给管家自己开的线程),origin 是展示与
+    // 索引口径(界面上的来源图形)。不合并成一个:前者是布尔语义的闸,后者要三值。
+    origin: 'steward',
   });
   // 117w-W1 ②:省略 cwd → 在 Ruyi 根下派生子工作区(三态的第 ② 态)。写在 createSession 之后是为了
   // 拿到真线程 id(标题为空时 slug 要回落到它),改的是内存副本,跟着下面那一次 saveSession 一起落盘,
@@ -44897,6 +45256,31 @@ async function stewardImplThreadNew(args, ctx, config) {
   return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 121-K3(34 号文 §4.5「管家对你正坐着的线程」):用户此刻就坐在这条线程前面时,管家【不动手】。
+// 具体是:不代答它的提问(不主动 steward_thread_continue)、不递话、不改它的权限与模型。
+// **可以读**(steward_thread_read 不过这道门)—— 用户问「那条在干嘛」时管家还得答得上来。
+//
+// 事实源与 13e 的索引行 seatedBy 同一份:13r 的在场快照(SSE 连接自报的 lens/sessionId),
+// 经 00-boot 的延迟绑定命名空间取(13k 拼在 13r 之前,直引是前向边)。
+// 读不到一律当【没人坐着】= 修前行为:这道门管的是打扰纪律,不是权限门(那一道在别处,不受影响),
+// 所以 fail-open —— 在场信号缺席时让管家停摆,比偶尔插一句话糟得多。
+function stewardSeatedByUser(sessionId) {
+  const sid = String(sessionId || '');
+  if (!sid) return false;
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    return Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === sid);
+  } catch { return false; }
+}
+// 结构化拒绝:错误码 'seated_by_user',人话直说「你正在这条线程里,我不插手」。
+// 与 propose_required 那一族一样带 `reason`,行动流水事后能分清「管家没做」的两种原因。
+function stewardSeatedFail(sessionId) {
+  return stewardFail('seated_by_user',
+    '你正在这条线程里,我不插手 —— 等你离开它我再接手;要我现在就动手,先把这条线程留给我',
+    { sessionId: String(sessionId || ''), reason: 'seated_by_user' });
+}
+
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -44906,6 +45290,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
+  // 121-K3(§4.5):用户正坐在这条线程前面 -> 不递话。排在权限闸【之前】:这不是「有没有权限」的问题,
+  // 而是「现在不是时候」,先答这一句比先算一遍权限档诚实(也省一次配置读)。
+  if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
   // 117l D2(§11.9;用户第四轮走查第 1、6 条):这里原本只有一道 activeChildren.has -> steward.busy,
   // 两头都错(等回答的线程也算「忙」;没命中时 stewardLaunchTurn 又会 supersede 掉它)。现在按
   // 【目标状态】选通道,判定与执行的单点在 13h(经 StewardHooks.relayDeliver 延迟绑定,零前向边;
@@ -45039,6 +45426,8 @@ async function stewardImplThreadPermission(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no thread permission');
+  // 121-K3(§4.5):用户正坐在这条线程前面 -> 不改它的权限与模型。与递话那一处同一道门、同一条理由。
+  if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
 
   const current = stewardThreadPermissionMode(head, config);
   if (hasMode && !stewardMayTightenTo(current, target)) {
@@ -45166,6 +45555,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const session = await createSession({
     title: question.slice(0, STEWARD_TITLE_MAX),
     cwd: quickCwdCheck.cwd,
+    origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
   // 117w-W1 ②:与 thread_new 同一口径 —— 省略 cwd 就派生子工作区。速查线程的「标题」就是问题原话
   // 的前 N 个字,slug 自己会截到 64;答完就收工的线程也照样给它一个自己的目录(它可能下载了东西)。
@@ -45449,6 +45839,11 @@ async function stewardImplDecide(args, ctx, config) {
   if (!head || !head.id) return stewardFail('not_found', 'mission or intervention not found');
   const current = (await readInterventions(missionId).catch(() => [])).find(iv => iv && String(iv.id) === interventionId);
   if (!current) return stewardFail('not_found', 'mission or intervention not found');
+  // 121-K3(34 号文 §4.5「管家对你正坐着的线程」):【代答路径】。用户就坐在这条线程前面时,那道提问
+  // 是当着他的面弹出来的 —— 管家替他按下去,是在抢他手里的鼠标。判据与 13k 两处工具门同一份
+  // (stewardSeatedByUser,13k -> 13l 是后向边),拒绝信封也同一个形状。
+  // 注意这道门【只挡代答】:steward_thread_read 不过门(用户问「那条在干嘛」时管家还得答得上来)。
+  if (stewardSeatedByUser(missionId)) return stewardSeatedFail(missionId);
 
   const type = String(current.type || '');
   const toolName = String(current.toolName || '');
@@ -46369,6 +46764,9 @@ const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
   done: n => `${n} 条线程收工了`,
   stalled: n => `${n} 条线程停住了`,
   budget: n => `${n} 条线程用完了预算`,
+  // 121-K3(34 号文 §4.4「交接」):第六类。措辞用「交给你盯」而不是「交给你」—— 交接的是注意力,
+  // 不是所有权:用户随时可以再坐回那条线程,那时 §4.5 的在场门会让管家自动松手。
+  adopted: n => `${n} 条线程刚交给你盯`,
 });
 
 // ── 可由 actions 执行的写工具 -> StewardHooks 实现键。白名单即闸门:不在表里的工具名一律拒绝
@@ -47202,8 +47600,13 @@ async function stewardThreadDigestRows(config) {
     // 116h(§8.10「排队可解释」):总览行的等待原因也走 06i 的 waitReasonFor 单点 —— 管家在提示词里
     // 读到的那句话,与 steward_thread_status / 看板 / steward_missions 逐字相同。
     const wait = waitReasonFor({ pending: pendingCount }, stewardArbiterWait(sid));
+    // 121-K3(§4.5):这条线程此刻有没有人坐着。判据单点在 13k 的 stewardSeatedByUser(工具门读的
+    // 是同一份在场快照),这里只是把同一个事实带进提示词 —— 硬拦在工具层,软告知在总览行:
+    // 光有硬拦,模型会反复去试然后反复被拒,一个回合的预算就烧在互相打架上。
+    const seatedBy = stewardSeatedByUser(sid) ? 'user' : null;
     rows.push({
       sessionId: sid,
+      seatedBy,
       // 116-pre(§8.12/§11.3):递话预判的 index 行要 missionId——3.0 里等于 sessionId(见下方注释),
       // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
       // 多一个 missionId 键对总览行的拼装零影响(新增只加不改)。
@@ -47219,6 +47622,7 @@ async function stewardThreadDigestRows(config) {
       wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
       digest: {
         id: sid,
+        seatedBy,   // 121-K3:buildStewardDigestLine 读它,拼出「你正坐在这条线程里」那一段
         // 事项标题:116g 起,归入了【真事项】(有事项文件)的线程在总览行里带上事项自己的标题,
         // 「未归类」线程仍恒为空 —— 那种情况下事项标题就是线程标题,写两遍等于把同一句话在总览里
         // 重复一次(buildStewardDigestLine 对空段整段跳过)。
@@ -49165,15 +49569,19 @@ async function eventStreamEmitThreadState(sessionId) {
     // 不是第二个计数口径。
     const wait = pending ? (Math.max(0, Number(pending.permissions) || 0) + Math.max(0, Number(pending.questions) || 0)
       + Math.max(0, Number(pending.plans) || 0) + Math.max(0, Number(pending.pool) || 0)) : 0;
+    // 121-K3:origin / watched 两个字段补齐(§4.1 的事件表)。判据【不新造】—— 与 13e 的索引行
+    // 用的是 06i 同一对函数(threadOriginOf / stewardWatchedThread),同一个会话头喂进去,
+    // 推送与索引不可能各说各话。missionId 与 watched 判据吃的是同一个值(下面这行现算的那个)。
+    const missionId = String(sessionMissionId(head) || sid);
     eventStreamPublish('thread.state', {
       sessionId: sid,
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
       updatedAt: String(head.updatedAt || ''),
       wait,
+      origin: threadOriginOf(head),
+      watched: stewardWatchedThread(head, sid, missionId),
     });
-    // origin / watched 是 K3 的字段(34 号文 §4.1):此刻会话头上还没有它们,**不带**——
-    // 现编一个默认值就是造第二份判据。K3 落地后在这里补两个字段即可。
   } finally {
     eventStreamStateBusy.delete(sid);
     if (eventStreamStateAgain.delete(sid)) void eventStreamEmitThreadState(sid);

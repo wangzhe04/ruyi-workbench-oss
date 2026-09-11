@@ -1101,6 +1101,18 @@ function applySessionMetaPatch(session, patch) {
   //     里那句人话，那是渲染不是信号），而收件箱只读磁盘 —— 所以第四源要分得出
   //     done / failed，就必须有这一条落盘的账。严格归一成固定五字段，与 stewardQuick 同纪律。
   if (patch.launchedBy === 'steward') session.launchedBy = 'steward';
+  // 121-K3(34 号文 §4.4「交接」):「交给管家盯 / 别盯了」那枚开关。**只认两个布尔字面量** ——
+  // 其它任何值(字符串 'true'、1、null、对象)一律当没写,不让调用方拿它往会话头上写野值。
+  // 它是【状态】不是出身,所以进白名单(与 launchedBy 同一条理由);而它的一对孪生字段
+  //   · origin    —— 【故意不在这张白名单里】,一个分支都不给它。它记的是「这条线程是谁开的」,
+  //                  只在 createSession 写一次、此后终身不变。一旦能经 PATCH 改,任何调用方都能把
+  //                  自己的普通会话刷成「管家开的」,来源图形(环/人形/钟)就成了一句空话 ——
+  //                  与本函数上方 createdBy 那条注释是同一个模具,理由也是同一个。
+  //   · createdBy —— 见本函数上方 117z-E2 那段注释锚。
+  // 判据侧:stewardWatchedThread(06i)把 true/false 都当【显式意愿】,排在原来三条判据之前 ——
+  // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
+  if (patch.stewardWatch === true) session.stewardWatch = true;
+  else if (patch.stewardWatch === false) session.stewardWatch = false;
   if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
     const t = patch.stewardLastTurn;
     const seq = Number(t.seq);
@@ -1171,6 +1183,9 @@ async function updateSessionMeta(id, patch) {
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
     await saveSession(session);
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
+    // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
+    // 同名事件,只多一个 by:'user' 把两条来路分开(那一条是归并到事项,这一条是用户交接)。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || ''), by: 'user' });
     return session;
   }
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
@@ -1190,6 +1205,8 @@ async function updateSessionMeta(id, patch) {
     applySessionMetaPatch(fresh, p);
     await saveSession(fresh).catch(() => {});
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
+    // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(fresh.missionId || ''), title: String(fresh.title || ''), by: 'user' });
     // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
     // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
     // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
@@ -2696,7 +2713,7 @@ function isUntitledSessionTitle(title) {
   return !v || v === 'New session' || v === '新会话' || v === 'New chat';
 }
 
-async function createSession({ title, cwd }) {
+async function createSession({ title, cwd, origin }) {
   const id = makeId('sess');
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
@@ -2719,6 +2736,13 @@ async function createSession({ title, cwd }) {
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
+    // 第 121 波 K3(34 号文 §4.1「来源三值」):这条线程是谁开的。**只在这里写一次,此后终身不变**,
+    // 且【不在】 applySessionMetaPatch 的白名单里(理由与 createdBy 同一条,见那里的注释锚)。
+    // 三值 'steward' | 'user' | 'schedule':管家族两条建线程的路径(13k thread_new / quick_ask)显式传
+    // 'steward';119 波的定时任务落地后由它自己传 'schedule';其余一律 'user'。非法值当没传。
+    // 存量会话头没有这个字段:读侧由 06i 的 threadOriginOf 现场派生,**不回写**(索引是纯派生物,
+    // 为了补一个字段去改几百个会话文件不值得,而且那会把 sourceStamp 全体打脏)。
+    origin: (origin === 'steward' || origin === 'schedule') ? origin : 'user',
     // 116-5a(§11.8.3):建会话时就带了一个【不是占位符】的标题 = 这条线程已经有名字了,不必再花一次
     // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
     // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:

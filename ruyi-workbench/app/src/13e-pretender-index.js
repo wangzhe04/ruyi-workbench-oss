@@ -13,7 +13,11 @@
 // 管家关心的线程现在也有卡片)。不升号的话,存量索引里这些会话的行就是 card:null,而它们的会话文件
 // 不会再变(sourceStamp 不动),增量刷新永远不碰它们 —— 用户已经有的那些速查线程会一直不出现在看板上。
 // 与 117p-S2 同一条理由:索引是纯派生物,升号的代价只是启动后第一次读时全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 5;
+// 121-K3:5 -> 6。这次卡片的【形状】与【产生条件】一起变了:行上新增 origin/watched 两个持久字段
+// (cardRevision 也把它们算进哈希),产生条件从 watched 一条线换成 threadVisible 四条并集(§4.2)。
+// 不升号的话,存量索引里用户自己在 2.0 开的那些会话仍是 card:null,而它们的会话文件不会再变
+// (sourceStamp 不动),增量刷新永远不碰它们 —— 本刀要修的那个症状会原样留在存量机器上。
+const PRETENDER_INDEX_SCHEMA = 6;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -88,6 +92,33 @@ async function scanPretenderSessionSources() {
   return sources;
 }
 
+// 121-K3(34 号文 §4.1 第三条「最近 N 条」):任务索引窗口里那 N 个 sessionId。
+// 按【会话文件 mtime】排,不按会话头里的 updatedAt —— 后者要把每个头都读出来解析一遍 JSON,
+// 而这一步只是为了决定「要不要给它造卡片」,一次 readdir + 每文件一次 stat 就够
+// (scanPretenderSessionSources 每条会话本来就付着更贵的 2 次 stat + 一次 readdir)。
+// 两者的偏差只在「文件写过但 updatedAt 没动」这种退化情形,而那恰恰也算「最近动过」。
+// N 取自配置(config.threadIndexRecent,清洗块已 clamp 到 [10,200]);读不到配置就用默认 30,
+// 绝不因为配置读失败把索引缩成空(fail-open:这里是可见性窗口,不是权限门)。
+async function pretenderRecentSessionIds() {
+  const config = await readConfig().catch(() => null);
+  const raw = Number(config && config.threadIndexRecent);
+  const limit = Number.isFinite(raw)
+    ? Math.min(THREAD_INDEX_RECENT_MAX, Math.max(THREAD_INDEX_RECENT_MIN, Math.round(raw)))
+    : THREAD_INDEX_RECENT_DEFAULT;
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return new Set(); }
+  const rows = [];
+  for (const file of files) {
+    if (!/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) continue;
+    let mtime = 0;
+    try { mtime = Math.trunc((await fsp.stat(path.join(paths.sessions, file))).mtimeMs); } catch { continue; }
+    rows.push([file.slice(0, -5), mtime]);
+  }
+  // 末位按 sessionId 降序兜确定性:同毫秒写入的两条会话不该因为目录枚举顺序漂移而轮流进窗口。
+  rows.sort((a, b) => b[1] - a[1] || String(b[0]).localeCompare(String(a[0])));
+  return new Set(rows.slice(0, limit).map(row => row[0]));
+}
+
 async function pretenderUsageSourceStamp() {
   let files = [];
   try { files = (await fsp.readdir(paths.usage)).filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort(); } catch { files = []; }
@@ -132,7 +163,7 @@ async function buildMissionUsageMap() {
   return map;
 }
 
-async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
+async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentIds) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
@@ -146,23 +177,42 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
   }
   const kind = head && head.id ? sessionKind(head) : 'orphan';
   const missionId = (head && sessionMissionId(head)) || sid;
-  // 117r-D1(用户第八轮走查③「管家开的速查线程在看板上根本不存在」):看板正文的唯一数据源是
-  // GET /api/missions,而那条路由的行集就是 `index.sessions.filter(row => row.card)` —— 卡片只给
-  // kind==='mission' 造,于是 steward_quick_ask 开的线程(显式 kind='quick_ask')恒无卡片、恒不进
-  // 看板;而顶部那两个数字来自仲裁器(它照常给速查回合占并发位),同一块面板上两个数字互相打脸。
-  // 判据【不新造】:用 06i 的 stewardWatchedThread —— 与收件箱第四源逐字同一份实现。它正好画出
-  // 这条线:管家的线程要进,用户自己在 2.0 里聊的几百条普通会话(missionId === sessionId、无
-  // stewardQuick、无 launchedBy)一律不进,不会把看板淹掉。
-  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— stewardWatchedThread 第一行
-  // 就挡住 head 为空的情况,不必在这里再写一道。
-  const carded = kind === 'mission' || stewardWatchedThread(head, sid, missionId);
+  // ── 卡片的产生条件(121-K3,34 号文 §4.2「索引口径」)────────────────────────────────────
+  // 117r-D1 把它从「只给 mission 造」放宽到「mission ∪ 管家关心的线程」,理由写在那一版注释里
+  // (管家开的速查线程当时在看板上根本不存在)。但那一版仍是【一个判据管两件事】:
+  // 「管家要不要动手」同时当成了「它要不要出现在索引里」,于是用户自己在 2.0 里开的普通会话
+  // (missionId === sessionId、无 stewardQuick、无 launchedBy)永远不进 /api/missions ——
+  // §1.3 数过的那条病根,而它当时被写成「刻意的,理由是噪音」。
+  //
+  // K3 把一个判据拆成两个(判据本体都在 06i,这里只消费,不新造):
+  //   · watched = stewardWatchedThread —— 管家要不要为它动手(收件箱第四源用的还是这一条);
+  //   · visible = threadVisible —— 它要不要进索引。四条并集:在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched。
+  // 噪音不再靠「把整类线程挡在门外」治,靠【窗口】治(§4.2):几百条旧会话既不在途、今天也没动静、
+  // 又排不进最近 N 条,自然不进索引;进了索引的旧线程在界面上也只落「更早」组。
+  //   · inFlight 是「五态非 done/stopped」的机器事实那一半:此刻有活回合,或挂着未决。
+  //     两者都是这里现成的(activeChildren 与刚读出来的 ivMeta),不为它多读一次盘。
+  //   · recentIds 由调用方一次算好整份(pretenderRecentSessionIds),每条会话只做一次 Set 查询。
+  // 注:orphan(只有 Intervention journal、没有会话头)天然为 false —— 两个判据的第一行都挡住
+  // head 为空的情况,不必在这里再写一道。
+  const watched = stewardWatchedThread(head, sid, missionId);
+  const origin = threadOriginOf(head);
+  const inFlight = activeChildren.has(sid)
+    || (Array.isArray(ivMeta.interventions) && ivMeta.interventions.some(iv => iv && iv.status === 'pending'));
+  const carded = kind === 'mission' || threadVisible(head, {
+    now: Date.now(),
+    watched,
+    inFlight,
+    recent: recentIds instanceof Set ? recentIds.has(sid) : false,
+  });
   const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
   const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
   const usageFact = usage || emptyMissionUsage();
   const changeSeq = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
-  const cardRevision = pretenderHash({ missionId, changeSeq, card });
+  // 121-K3:origin/watched 进哈希。它们是【持久】字段(跟着切片落盘),不进哈希的话
+  // 「用户按下交给管家盯」这种只改 stewardWatch 的写会拿不到新 ETag,左栏画的还是旧标。
+  const cardRevision = pretenderHash({ missionId, changeSeq, card, origin, watched });
   const missionRevision = pretenderHash({ cardRevision, usage: usageFact });
   // Health is part of the semantic projection, but physical row/byte counts are not (compaction must keep
   // revision stable). A newly corrupt authority line therefore invalidates ETags even when valid facts match.
@@ -171,6 +221,10 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage) {
     sessionId: sid,
     missionId,
     kind,
+    // 121-K3(§4.1):来源三值与「管家盯着没有」。两个都是从会话头派生的持久事实,行上直接带着 ——
+    // 消费者(左栏、总览、收件箱)零改动即能画来源图形与「交给管家盯」的开关态。
+    origin,
+    watched,
     changeSeq,
     sourceStamp,
     indexedAt: nowIso(),
@@ -243,12 +297,13 @@ async function persistPretenderIndex(value) {
 async function rebuildPretenderIndexFull(reason, knownSources) {
   const sources = knownSources || await scanPretenderSessionSources();
   const usageMap = await buildMissionUsageMap();
+  const recentIds = await pretenderRecentSessionIds();   // 121-K3:整份算一次,每条会话只做一次 Set 查询
   let ids = Object.keys(sources).sort(), cursor = 0;
   const sessions = [];
   const workers = Array.from({ length: Math.min(12, Math.max(1, ids.length)) }, async () => {
     while (cursor < ids.length) {
       const sid = ids[cursor++];
-      const slice = await buildPretenderSessionSlice(sid, sources[sid], usageMap.get(sid));
+      const slice = await buildPretenderSessionSlice(sid, sources[sid], usageMap.get(sid), recentIds);
       if (slice) { sources[sid] = slice.sourceStamp; sessions.push(slice); }
     }
   });
@@ -260,13 +315,17 @@ async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
   const sources = { ...(base.sources || {}) };
   const rows = new Map(base.sessions.map(row => [row.sessionId, row]));
   const usageMap = usageIds.size ? await buildMissionUsageMap() : null;
+  // 121-K3:增量刷新也要算一次窗口 —— 一条刚被写过的会话恰恰最可能【刚刚】挤进最近 N 条,
+  // 拿旧窗口判它等于让新会话晚一整轮才上索引。dirtyIds 为空时下面的循环不跑,这一次 readdir
+  // 也就不会白付(getPretenderProjectionIndex 只在真有脏页时才走到这里)。
+  const recentIds = await pretenderRecentSessionIds();
   for (const sid of dirtyIds) {
     const stamp = await pretenderSessionSourceStamp(sid);
     if (!fs.existsSync(sessionPath(sid)) && !fs.existsSync(interventionFilePath(sid))) { delete sources[sid]; rows.delete(sid); continue; }
     sources[sid] = stamp;
     const previous = rows.get(sid);
     const usage = usageIds.has(sid) ? usageMap.get(sid) : (previous && previous.usage);
-    const slice = await buildPretenderSessionSlice(sid, stamp, usage);
+    const slice = await buildPretenderSessionSlice(sid, stamp, usage, recentIds);
     if (slice) { sources[sid] = slice.sourceStamp; rows.set(sid, slice); } else { delete sources[sid]; rows.delete(sid); }
   }
   const usageStamp = usageIds.size ? await pretenderUsageSourceStamp() : base.usageStamp;
@@ -398,7 +457,26 @@ function pretenderEtag(kind, revision, page) {
 function pretenderLiveOverlayRevision(sessionId = '') {
   const sid = String(sessionId || '');
   const rows = [];
-  for (const [id] of activeChildren) if (!sid || id === sid) rows.push(['turn', id]);
+  // 121-K3:活回合这一行带上 liveTail 摘要的三个值。修前它只有 ['turn', id] —— 一个回合从起跑到
+  // 收工整段时间里 ETag 一动不动,而卡片上的「正在调什么」每几百毫秒就变一次,兜底轮询于是永远
+  // 拿 304、永远画着第一帧。overlayMissionCard 往卡片里放了什么,这里就得跟着算什么。
+  for (const [id, reg] of activeChildren) {
+    if (sid && id !== sid) continue;
+    const tail = (reg && reg.liveTail && typeof reg.liveTail === 'object') ? reg.liveTail : null;
+    rows.push(['turn', id, tail ? String(tail.tool || '') : '', tail ? String(tail.updatedAt || '') : '',
+      tail ? Math.max(0, Number(tail.iterations) || 0) : 0]);
+  }
+  // 同理:在场(§4.3 的 seatedBy)也进卡片,也就必须进这份 revision —— 用户从 X 换坐到 Y,
+  // 两行卡片的 seatedBy 都变了,ETag 不动的话左栏要等到下一次会话头写盘才更新。
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    for (const row of (Array.isArray(presence) ? presence : [])) {
+      const seated = String((row && row.sessionId) || '');
+      if (!seated || (row && row.lens) !== 'classic') continue;
+      if (sid && seated !== sid) continue;
+      rows.push(['seat', seated]);
+    }
+  } catch { /* 在场读不到就当没人坐着 —— 与 overlayMissionCard 同一条 fail-open */ }
   for (const runtime of activeAgentRuns.values()) {
     const run = runtime && runtime.run;
     if (!run || (sid && run.sessionId !== sid)) continue;
@@ -443,8 +521,35 @@ function overlayMissionCard(slice) {
     activeTurn,
     lastAssistantText: String(card.lastSay || ''),
   });
+  // 121-K3(§4.2「行加 liveTail 摘要」/ §5「左栏在跑组每行的第二行」):正在调什么工具、第几次、
+  // 什么时候有的输出。**摘要不带正文** —— `text`/`full` 一个字都不进来(§6.1 的红线:观察面不承载
+  // 工具输出正文;要正文的面走 GET /api/sessions/:id 的 liveTail,那里有自己的预算与门)。
+  // 没有活回合就是 null,不编一个空壳出来让消费者分不清「没在跑」与「在跑但还没输出」。
+  const liveReg = activeTurn ? activeChildren.get(slice.sessionId) : null;
+  const liveTailReg = (liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object') ? liveReg.liveTail : null;
+  const liveTail = liveTailReg ? {
+    tool: String(liveTailReg.tool || ''),
+    updatedAt: String(liveTailReg.updatedAt || ''),
+    iterations: Math.max(0, Number(liveTailReg.iterations) || 0),
+  } : null;
+  // 121-K3(§4.3/§4.5):用户此刻是不是就坐在这条线程前面。事实源是 13r 的在场快照(SSE 连接自报的
+  // lens/sessionId),经 00-boot 的延迟绑定命名空间取 —— 13e 拼在 13r 之前,直引 13r 的符号是前向边。
+  // 钩子没填充(13r 还没加载 / 事件流关着)或抛错,一律当「没人坐着」:在场信号缺席时管家照旧行事,
+  // 这是 fail-open,因为它管的是【打扰纪律】不是权限。
+  let seatedBy = null;
+  try {
+    const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    if (Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === slice.sessionId)) {
+      seatedBy = 'user';
+    }
+  } catch { seatedBy = null; }
   return {
     ...card,
+    // 121-K3:两个持久字段随卡片一起下发(切片上有,卡片上没有 —— 消费者读的是卡片)。
+    origin: String(slice.origin || 'user'),
+    watched: slice.watched === true,
+    liveTail,
+    seatedBy,
     activeTurn,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),

@@ -171,6 +171,9 @@
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
         "RUNTIME",
+        "THREAD_INDEX_RECENT_DEFAULT",
+        "THREAD_INDEX_RECENT_MAX",
+        "THREAD_INDEX_RECENT_MIN",
         "WORKSPACE_NOTE_MAX",
         "WORKSPACE_TABLE_CAP",
         "_agentCliPathProbe",
@@ -2640,6 +2643,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -3759,6 +3769,8 @@
         "STEWARD_WAIT_REASONS",
         "STEWARD_WORKSPACE_TABLE_MAX",
         "StewardHooks",
+        "THREAD_ORIGINS",
+        "THREAD_VISIBLE_TODAY_MS",
         "aggregateMissionState",
         "buildStewardBrief",
         "buildStewardDigestLine",
@@ -3799,6 +3811,8 @@
         "stewardToolPermanentlyExempt",
         "stewardTrimSayAtSentence",
         "stewardWatchedThread",
+        "threadOriginOf",
+        "threadVisible",
         "waitReasonFor"
       ],
       "requires": []
@@ -11382,6 +11396,7 @@
         "pretenderIndexRuntime",
         "pretenderLiveOverlayRevision",
         "pretenderNotModified",
+        "pretenderRecentSessionIds",
         "pretenderSessionSourceStamp",
         "pretenderUsageSourceStamp",
         "readPretenderIndexDisk",
@@ -11403,6 +11418,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -11472,6 +11494,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -11482,6 +11511,27 @@
           "symbol": "sessionPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "THREAD_INDEX_RECENT_DEFAULT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "THREAD_INDEX_RECENT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "THREAD_INDEX_RECENT_MIN",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11541,6 +11591,20 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "threadOriginOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "threadVisible",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -11582,6 +11646,7 @@
       "layer": "transport",
       "provides": [
         "STEWARD_ACTIVE_WINDOW_MS",
+        "STEWARD_ADOPTED_QUEUE_MAX",
         "STEWARD_CARRY_MAX_EVENTS",
         "STEWARD_CURSOR_FILE",
         "STEWARD_CURSOR_MAX_PENDING",
@@ -11610,6 +11675,7 @@
         "startStewardInbox",
         "stewardAppendChain",
         "stewardAppendInboxRows",
+        "stewardApplyPresenceGate",
         "stewardClipSummary",
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
@@ -11630,7 +11696,10 @@
         "stewardNormalizePendingIntervention",
         "stewardNormalizeRunEvent",
         "stewardNormalizeSessionTurn",
+        "stewardNormalizeThreadAdopted",
         "stewardParseInboxText",
+        "stewardPresenceRows",
+        "stewardQueueThreadAdopted",
         "stewardReadInboxRows",
         "stewardReadInboxText",
         "stewardReadTurnHead",
@@ -11646,6 +11715,13 @@
         "stopStewardInbox"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
@@ -12031,6 +12107,8 @@
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRelayAutoAllowed",
+        "stewardSeatedByUser",
+        "stewardSeatedFail",
         "stewardToolCallLine",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
@@ -12039,6 +12117,13 @@
         "stewardWorkspaceTableFull"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
@@ -13050,6 +13135,20 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardSeatedByUser",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardSeatedFail",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -13978,6 +14077,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardSeatedByUser",
           "kinds": [
             "call"
           ]
@@ -15199,6 +15305,20 @@
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "threadOriginOf",
+          "kinds": [
+            "call"
           ]
         },
         {

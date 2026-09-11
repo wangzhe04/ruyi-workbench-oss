@@ -109,15 +109,19 @@ async function eventStreamEmitThreadState(sessionId) {
     // 不是第二个计数口径。
     const wait = pending ? (Math.max(0, Number(pending.permissions) || 0) + Math.max(0, Number(pending.questions) || 0)
       + Math.max(0, Number(pending.plans) || 0) + Math.max(0, Number(pending.pool) || 0)) : 0;
+    // 121-K3:origin / watched 两个字段补齐(§4.1 的事件表)。判据【不新造】—— 与 13e 的索引行
+    // 用的是 06i 同一对函数(threadOriginOf / stewardWatchedThread),同一个会话头喂进去,
+    // 推送与索引不可能各说各话。missionId 与 watched 判据吃的是同一个值(下面这行现算的那个)。
+    const missionId = String(sessionMissionId(head) || sid);
     eventStreamPublish('thread.state', {
       sessionId: sid,
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
       updatedAt: String(head.updatedAt || ''),
       wait,
+      origin: threadOriginOf(head),
+      watched: stewardWatchedThread(head, sid, missionId),
     });
-    // origin / watched 是 K3 的字段(34 号文 §4.1):此刻会话头上还没有它们,**不带**——
-    // 现编一个默认值就是造第二份判据。K3 落地后在这里补两个字段即可。
   } finally {
     eventStreamStateBusy.delete(sid);
     if (eventStreamStateAgain.delete(sid)) void eventStreamEmitThreadState(sid);

@@ -144,6 +144,16 @@ const STEWARD_SOURCE_EVENT_MAP = Object.freeze({
   sessionTurn: Object.freeze({
     turn_settled: '@sessionTurn',
   }),
+  // ④'' 第五源 threadAdopted(121-K3,34 号文 §4.4「交接」)。与上面两组同处境:没有「源码写入端的
+  //    type 字面量」可对账 —— 事实来自用户在界面上按下的那枚「交给管家盯」(PATCH /api/sessions/:id
+  //    写 stewardWatch:true,02 落盘后派一条 RUYI_EVENTS 的 thread.adopted{by:'user'})。本文件订阅
+  //    那条总线事件、排进下一拍(见 stewardQueueThreadAdopted),故【不】参与 116b 静态锁的三条双向
+  //    等集判定,只在这里登记一条,让「新信号必须有人登记一次」这条纪律不被沉默绕过。
+  //    为什么不是 needs_you:用户把活交给管家【不是】一件等着用户拿主意的事,恰恰相反。
+  //    为什么不复用 done:它也不是收工。第六类 adopted 是它自己,见 06i 的 STEWARD_EVENT_KINDS。
+  threadAdopted: Object.freeze({
+    thread_adopted: 'adopted',
+  }),
   // ⑤ 只走 SSE、【故意】不落任何持久日志的进度信号(116-2b 登记)。收件箱只读三条带 seq 的持久
   //    日志,故这里的东西不可能入箱 —— 登记为 null 是为了让"新信号必须有人登记一次"这条纪律不被
   //    沉默绕过:下一个人加进度事件时,至少要来这张表里写一行"它是进度,不是信号"。
@@ -329,6 +339,33 @@ function stewardNormalizePendingIntervention(sessionId, missionId, iv) {
 }
 
 // ④ 投影派生:mission card 的预算耗尽标记 → budget 事件 | null(每个事项一次性)
+// ⑤ 用户交接(121-K3,§4.4)-> 归一化事件 | null。来源是总线事件 thread.adopted{by:'user'},
+// 不是磁盘日志 —— 所以它没有 seq 可用,拿【交接时刻】当去重位:同一条线程反复交出去/收回来
+// 是合法的(用户改主意),两次交接必须是两行,而同一次交接重放多少遍都只有一行。
+function stewardNormalizeThreadAdopted(record) {
+  const r = (record && typeof record === 'object') ? record : {};
+  const sessionId = String(r.sessionId || '');
+  if (!sessionId) return null;
+  const kind = stewardKindFor('threadAdopted', 'thread_adopted', r);
+  if (!kind) return null;
+  const at = stewardIsoAt(r.at);
+  const title = stewardSanitizeText(r.title || '').slice(0, 120);
+  return {
+    kind,
+    sessionId,
+    missionId: String(r.missionId || sessionId),
+    runId: '',
+    seq: at,
+    at,
+    payload: {
+      source: 'threadAdopted',
+      by: 'user',
+      title,
+      summary: stewardClipSummary(title ? `用户把线程「${title}」交给你盯` : '用户把一条线程交给你盯'),
+    },
+  };
+}
+
 function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
   const c = (card && typeof card === 'object') ? card : null;
   const mission = c && c.mission && typeof c.mission === 'object' ? c.mission : null;
@@ -500,8 +537,87 @@ const stewardRuntime = {
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
   carry: [],
+  // 121-K3(§4.4「交接」):等着进下一拍的交接事件。来源是总线(02 落盘 stewardWatch:true 之后派的
+  // thread.adopted{by:'user'}),不是任何一本磁盘日志 —— 所以它不走「游标 + 增量读」那一套,而是
+  // 在这里排队,由下一拍 stewardCollectEvents 开头一次性取走。硬顶见 STEWARD_ADOPTED_QUEUE_MAX:
+  // 管家关着时没人来取,队列不能无限长(溢出丢【最早】的 —— 最近那次交接才是用户还记得的那次)。
+  adopted: [],
 };
+const STEWARD_ADOPTED_QUEUE_MAX = 50;
 let stewardAppendChain = Promise.resolve();
+
+// 121-K3:订阅总线。装在模块加载期,进程生命周期内不卸(同 13r 的纪律)。它【只排队,不落盘】——
+// 收件箱的写面只有 stewardTickOnce 一处,旁路事件不许绕过去重、合并、在场门三道工序。
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'thread.adopted') return;
+  const data = (payload && typeof payload === 'object') ? payload : {};
+  if (String(data.by || '') !== 'user') return;   // missionAttachThread 派的那一路是【归并到事项】,不是交接
+  stewardQueueThreadAdopted(data);
+});
+function stewardQueueThreadAdopted(data) {
+  const sid = safeSessionId(data && data.sessionId);
+  if (!sid || sid === STEWARD_SESSION_ID) return;
+  stewardRuntime.adopted.push({
+    sessionId: sid,
+    missionId: String((data && data.missionId) || sid),
+    title: String((data && data.title) || ''),
+    at: String((data && data.at) || nowIso()),
+  });
+  while (stewardRuntime.adopted.length > STEWARD_ADOPTED_QUEUE_MAX) stewardRuntime.adopted.shift();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 在场门(121-K3,34 号文 §4.3「在场信号与打扰纪律」)。
+//
+// 事实源是 13r 的在场快照(每条 SSE 连接自报的 lens 与 sessionId),经 00-boot 的延迟绑定命名空间
+// 取 —— 13i 拼在 13r 之前,直引 13r 的符号是前向边。读不到(钩子未填充 / 事件流关着 / 抛错)一律
+// 当「没人在壳里」= 今天的行为:这道门管的是【打扰纪律】,不是权限,fail-open 才对。
+//
+// 四种情形(§4.3 逐条):
+//   ① 用户在工作台、且正坐在这条线程上 -> 事件【不入箱】(索引与徽标照常更新,他自己看得见);
+//   ② 用户在工作台、但坐在别的线程     -> needs_you/failed/stalled/budget 照进箱并打 quiet:true
+//                                        (前端安静卡读它);done 不进(§4.3 明说「done 只更新左栏」);
+//   ③ 用户在管家视角                   -> 今天的行为,一个字不改;
+//   ④ 没有任何连接                     -> 累积,今天的行为。
+// ②里 stalled/budget 两类设计稿没点名:它们与 needs_you/failed 同属「有事要你知道」,按同一档处理
+// (进箱 + quiet),而不是像 done 那样丢掉 —— 丢掉它们等于用户回到管家视角时永远补不上这两类。
+// ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
+// adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
+// ────────────────────────────────────────────────────────────────────────────
+function stewardPresenceRows() {
+  try {
+    const rows = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
+    return Array.isArray(rows) ? rows : [];
+  } catch { return []; }
+}
+function stewardApplyPresenceGate(events) {
+  const list = Array.isArray(events) ? events : [];
+  const presence = stewardPresenceRows();
+  if (!presence.length) return list;                       // ④
+  const seated = new Set();
+  let classicPresent = false, stewardPresent = false;
+  for (const row of presence) {
+    const lens = String((row && row.lens) || '');
+    if (lens === 'steward') { stewardPresent = true; continue; }
+    if (lens !== 'classic') continue;
+    classicPresent = true;
+    const sid = String((row && row.sessionId) || '');
+    if (sid) seated.add(sid);
+  }
+  if (stewardPresent || !classicPresent) {                 // ③ 与「只有别的 lens 连着」
+    return list.filter(evt => !seated.has(String((evt && evt.sessionId) || '')) || String((evt && evt.kind) || '') === 'adopted');
+  }
+  const out = [];
+  for (const evt of list) {
+    const sid = String((evt && evt.sessionId) || '');
+    const kind = String((evt && evt.kind) || '');
+    if (kind === 'adopted') { out.push(evt); continue; }
+    if (seated.has(sid)) continue;                         // ①
+    if (kind === 'done') continue;                         // ②:收工只更新左栏
+    out.push({ ...evt, payload: { ...((evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {}), quiet: true } });
+  }
+  return out;
+}
 
 function stewardResetRuntimeState() {
   stewardRuntime.loaded = false;
@@ -513,6 +629,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
   stewardRuntime.carry = [];
+  stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -772,6 +889,15 @@ async function stewardCollectEvents() {
   const activeRunIds = [];
   const nextPending = new Set();
 
+  // ── ⑤ 用户交接(121-K3,§4.4)。取走这一拍之前排进来的全部交接事件 —— 它不读盘、不走游标,
+  //    排在最前是因为它发生得最早(用户按下开关的那一刻),排序器随后会按 at 再排一遍。
+  const adoptedQueue = stewardRuntime.adopted;
+  stewardRuntime.adopted = [];
+  for (const record of adoptedQueue) {
+    const evt = stewardNormalizeThreadAdopted(record);
+    if (evt) events.push(evt);
+  }
+
   for (const row of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
     const sid = row && safeSessionId(row.sessionId);
     if (!sid) continue;
@@ -889,7 +1015,10 @@ async function stewardTickOnce() {
   // 116-3 P0-3:上一轮结转下来的事件排在最前(它们更早发生,游标也早已越过它们)。
   const carried = stewardRuntime.carry;
   stewardRuntime.carry = [];
-  const fresh = carried.concat(events)
+  // 121-K3(§4.3):在场门只作用于【本轮新收的】事件。结转下来的那批上一轮已经过过门了,
+  // 再过一次会拿【此刻】的在场状态去重判一件几分钟前发生的事,那是两个时刻的事实相互污染。
+  const gated = stewardApplyPresenceGate(events);
+  const fresh = carried.concat(gated)
     .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));
   // 截断改在【合并之前】、对原始事件做,超出的部分原样结转到下一轮 —— 旧写法是「合并后 slice(0,200)」,

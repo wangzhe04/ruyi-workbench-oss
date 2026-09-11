@@ -2407,6 +2407,10 @@ async function runKimiAcpTurnPrepared(context) {
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     activeChildren.set(session.id, reg);
+    // 121-K3(34 号文 §13.4 登记项①):Kimi ACP 这一路在 K2a 漏了起跑/收尾两帧。形状照 05/09 逐字
+    // 一样(同一个事件名、同一个载荷键),位置也一样 —— 紧跟 activeChildren.set,此刻这条线程对
+    // 任何读 activeChildren 的判据来说都已经是「在跑」了,派晚一行就会出现「订阅者算出来还是停着」。
+    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
       const text = decodeClaudeCliText(chunk);
@@ -2733,6 +2737,10 @@ async function runKimiAcpTurnPrepared(context) {
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* ignore */ }
   }
   await saveSession(session);
+  // 121-K3(§13.4 登记项①的另一半):收尾帧。与 05/09 同位置(紧跟本回合最后一次 saveSession ——
+  // summary 这一刻已经是本回合的话)、同载荷。收尾形状与那两路不同(Kimi 这一路没有 result 早退,
+  // 整段 finally 之后才走到这里),但【派帧的时机语义】一致:回合真的结束了才派。
+  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });   // §6.3 指标 b
   if (session.mission) await bumpMissionChangeSeq(session.id, {
     type: turnOk || wasStopped ? 'progress' : 'failure', cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: { ok: turnOk, aborted: wasStopped, errorClass: turnOk || wasStopped ? '' : 'kimi_acp_error', filesChanged: turnSummary.filesChanged.length, artifacts: turnSummary.artifacts.length, commands: Number(turnSummary.commands) || 0 },

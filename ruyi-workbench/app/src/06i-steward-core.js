@@ -17,7 +17,10 @@
 
 // 管家收件箱事件五类白名单(116b 起启用):等你(needs_you)/失败(failed)/收工(done)/停滞(stalled)/
 // 预算(budget)。心跳与其余事件一律不入箱。本切片只声明常量,轮询器实现在 116b。
-const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget']);
+// 121-K3(34 号文 §4.4「交接」):第六类 adopted —— 用户把一条线程【交给管家盯】(写 stewardWatch:true)。
+// 它不是「出事了」,而是一次交接:管家下一拍要回一句「好,『X』我盯着」。排在表尾,前五类的
+// 顺序与语义一个字不动(到访摘要按本表顺序归纳,插在中间会改既有摘要的行序)。
+const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted']);
 
 // 116f:管家会话的固定 id 与标题。定在这里(engine 层最早)而不是 13h,是因为 13g(收件箱轮询器)也要
 // 用它把管家会话排除在事件源之外 —— 13g 引用 13h 会是前向边,引用 06i 是后向边。
@@ -174,6 +177,10 @@ function buildStewardDigestLine(thread) {
     if (lead) segments.push(lead);
   }
   if (stewardHasText(t.state)) segments.push(stewardStateLabel(t.state));
+  // 121-K3(§4.5「管家对你正坐着的线程」):用户此刻就坐在这条线程前面(在场快照说 lens=classic 且
+  // sessionId 命中)。总览行上直说一句,管家读提示词那一眼就知道这条不该动手 —— 工具门(13k 的
+  // seated_by_user)是硬拦,这一句是软告知:光有硬拦,模型会反复去试然后反复被拒。
+  if (String(t.seatedBy || '') === 'user') segments.push('你正坐在这条线程里');
   if (stewardHasText(t.action)) segments.push(stewardSanitizeText(t.action));
   if (stewardHasText(t.waitReason)) segments.push(stewardSanitizeText(t.waitReason));
   if (stewardHasText(t.permissionMode)) segments.push(stewardPermissionLabel(t.permissionMode));
@@ -820,11 +827,67 @@ const STEWARD_DELIVERABLE_CHARS = 4000;
 // 前向边(13e 拼在 13i 之前),引用 06i 是后向边;13i->06i 与 13e->06i 两条边在依赖图里本来就存在
 // (docs/architecture/module-dependency-graph.json,direction backward),故本次搬家零新增边、
 // forwardEdges 不变。落点教训见 30 号文 §8.9(117q-B7:TOOL_TIER_RANK 放进 07 造出净新增环边)。
+//
+// 121-K3(34 号文 §4.1「两个判据取代一个」):本函数【保留原语义】,只多认一个显式开关 —— 用户在
+// 界面上按的那枚「交给管家盯」写 head.stewardWatch(PATCH /api/sessions/:id,白名单在 02)。
+//   · true  -> 恒 watched(哪怕它是用户自己在 2.0 里开的普通会话);
+//   · false -> 恒不 watched,【对管家自己开的线程也生效】= 用户接手,别再盯了(§4.4 反向那一半)。
+//   · 没写这个字段 -> 原来那三条判据,一个字不变。
+// 显式开关排在三条判据之前:它是人刚刚按下的意愿,凭什么被「这条线程当初是谁开的」盖掉。
 function stewardWatchedThread(head, sessionId, missionId) {
   if (!head || typeof head !== 'object') return false;
+  if (head.stewardWatch === true) return true;
+  if (head.stewardWatch === false) return false;
   if (head.stewardQuick && typeof head.stewardQuick === 'object') return true;
   if (head.launchedBy === 'steward') return true;
   return String(missionId || '') !== String(sessionId || '');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 121-K3(34 号文 §4.1):线程【来源】三值与线程【可见】判据。两者与上面那条 watched 各管各的:
+//   · origin   = 这条线程是谁开的(出身,终身不变)—— 界面上只画图形(环/人形/钟);
+//   · watched  = 管家要不要为它动手(状态,用户随时可改);
+//   · visible  = 它要不要出现在任务索引里(窗口,治噪音用的)。
+// 修前索引只有 watched 一条线,于是「用户在 2.0 里开的普通会话永远不上看板」(§1.3 的病根)。
+// ─────────────────────────────────────────────────────────────────────────────
+const THREAD_ORIGINS = Object.freeze(['steward', 'user', 'schedule']);
+// 「今天有动静」的窗口。24 小时而不是自然日:跨零点那一刻不该让半个索引凭空消失。
+const THREAD_VISIBLE_TODAY_MS = 24 * 60 * 60 * 1000;
+// 「最近 N 条」那一条的 N 【不在这里】:threadVisible 只收一个算好的 recent 布尔,N 是配置项
+// (config.threadIndexRecent),它的缺省与钳位区间住在 01-config(THREAD_INDEX_RECENT_*)——
+// 01 拼在 06i 之前,数字放这里会让 01 反向引用 06i,那是一条净新增前向边。
+
+// 存量会话头上没有 origin 字段(121-K3 之前建的),读侧现场派生、**不回写**:
+// 出身标 createdBy === 'steward' 是 117z-E2 立的、终身不变的那一个;launchedBy 会被递话污染
+// (管家往用户自己的会话里递一句话也会打上它),所以它只作次级证据 —— 两个都没有就是用户自己开的。
+// 定时任务(119 波)落地后由它自己在建会话时写 origin:'schedule';派生侧不猜,猜不出来就是 'user'。
+function threadOriginOf(head) {
+  if (!head || typeof head !== 'object') return 'user';
+  const declared = String(head.origin || '');
+  if (THREAD_ORIGINS.includes(declared)) return declared;
+  if (String(head.createdBy || '') === 'steward') return 'steward';
+  if (String(head.launchedBy || '') === 'steward') return 'steward';
+  return 'user';
+}
+
+// 「这条线程要不要进任务索引」。四条【并集】(§4.1):在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched。
+// 纯函数:在途与最近 N 条这两条靠调用方喂事实(活回合表与目录时序都在 06i 看不见的层),
+// 本函数只负责把四条合成一条,不另立第二套判据。
+//   input = { now, watched, inFlight, recent }
+//     · watched  —— stewardWatchedThread 的结果(调用方已经算过一次,不在这里重算);
+//     · inFlight —— 此刻有活回合 或 有未决(= 五态非 done/stopped 的那一半机器事实);
+//     · recent   —— 这条线程在「最近 N 条」窗口内(N = config.threadIndexRecent)。
+// 参数名用 head/input(与本文件既有两个纯函数同名):32 号文 §4 纪律 12 —— 裸参数名会被依赖图
+// 当跨模块符号,起个没在更早模块出现过的名字比省几个字符重要。
+function threadVisible(head, input) {
+  if (!head || typeof head !== 'object') return false;
+  const src = (input && typeof input === 'object') ? input : {};
+  if (src.watched === true) return true;
+  if (src.inFlight === true) return true;
+  if (src.recent === true) return true;
+  const stamp = Date.parse(String(head.updatedAt || ''));
+  const now = Number.isFinite(Number(src.now)) ? Number(src.now) : Date.now();
+  return Number.isFinite(stamp) && (now - stamp) <= THREAD_VISIBLE_TODAY_MS;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -222,7 +222,18 @@ function spawnWb() {
     const sessList = (await requestJson(WB_PORT, '/api/sessions', null, token)).json.sessions;
     ok(sessList.some(s => s.id === s3 && s.kind === 'quick_ask'), '(c) Quick Ask:会话 meta kind 显式');
     cards = (await requestJson(WB_PORT, '/api/missions', null, token)).json.missions;
-    ok(!cards.some(c => c.sessionId === s3), '(c) Quick Ask 不进 /api/missions(不制造任务收工语义)');
+    // 121-K3(34 号文 §4.2「索引口径」)重钉 —— 本刀合法地把这条断言翻了面,逐对交代:
+    // 修前:只有 mission 会话与「管家关心的」线程有卡片,所以 quick_ask 恒不进 /api/missions。
+    // 修后:进不进索引由 threadVisible 的四条并集说了算(在途 ∪ 今天有动静 ∪ 最近 N 条 ∪ watched),
+    //       s3 是这一秒刚建出来的,「今天有动静」成立,它【应该】在列表里。
+    // 原断言真正要守的东西是括号里那半句 ——「不制造任务收工语义」:进索引【不等于】它变成了一个
+    // 任务。所以重钉成:行在,但它仍然是 quick_ask、没有任务账本(mission 容器)、status 为 none。
+    // 这比原来那条更紧:原来只要它不出现就绿,现在它出现了还得证明自己没被当成任务。
+    const cardS3 = cards.find(c => c.sessionId === s3) || null;
+    ok(!!cardS3, '(c) 121-K3:Quick Ask 会话【进】/api/missions(索引口径改成 threadVisible 的四条并集)');
+    ok(!!cardS3 && cardS3.kind === 'quick_ask' && cardS3.status === 'none' && !(cardS3.mission && cardS3.mission.goal),
+      '(c) 121-K3:但它仍然不是一个任务 —— kind 仍是 quick_ask、status=none、没有任务账本(不制造任务收工语义;实 kind='
+      + (cardS3 && cardS3.kind) + ' status=' + (cardS3 && cardS3.status) + ')');
 
     // ── (d) 静态锁 ──
     console.log('\n── [d] 静态锁 ──');
