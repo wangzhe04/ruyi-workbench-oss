@@ -415,6 +415,6 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 /* v3 (§A3): 触屏(无 hover)下常显 hover-only 操作 —— 消息操作 / 会话项操作 / 文件树 @ 按钮,低透明度 .75 不喧宾夺主。 */
 @media (hover: none) {
   .msg-actions,
-  .session-item .s-actions,
+  .steward-board-actions,
   .ftree-at { opacity: .75; }
 }

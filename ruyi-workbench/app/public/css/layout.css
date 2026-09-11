@@ -22,14 +22,17 @@
   container-type: inline-size;
   container-name: frame;
   /* §2.3／§7.1 定值：左栏 268px（看板密度 440px）、右栏 392px。
-     v3 (§2.7 P2) 的右栏三档宽仍在：applyRightWidth() 把 --right-w 写成【本元素的】内联值
-     （写在外框上而不是 .app-shell 上，两个视角才读到同一个数；内联值同时压得住下面 ≥1600 的
-     那条容器查询，用户拖过之后不会被它改回去）。 */
+     两个宽度都【声明在这里、覆盖在 .app-body 上】：容器查询只能改【容器的后代】，改不了容器
+     自己（第一版把 ≤980 的 56px 写在 .app-frame 上，实测一点没生效 —— 同一个块里针对
+     .app-shell 的那几条却都生效了，正是这条规矩）。所以断点档的覆盖一律落在 .app-body。
+     v3 (§2.7 P2) 的右栏三档宽仍在：applyRightWidth() 把 --right-w 写成【.app-body 的】内联值
+     —— 两个视角容器都在它里面，于是读到同一个数；内联值又压得住 ≥1600 那条容器查询，
+     用户拖过之后不会被它改回去。 */
   --rail-w: 268px;
   --rail-board-w: 440px;
   --right-w: 392px;
 }
-.app-frame.rail-board { --rail-w: var(--rail-board-w); }
+.app-frame.rail-board .app-body { --rail-w: var(--rail-board-w); }
 .app-topbar { grid-row: 1; }
 .app-body {
   grid-row: 2;
@@ -209,40 +212,20 @@
 
 .search-wrap { flex: 0 0 auto; }
 .search-wrap input { background: var(--panel-2); }
-.session-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: auto; }
-.session-group-label { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 3px; }
-.session-item { position: relative;
-  /* 第23波: flex:none —— 会话项是 .session-list(flex column)的子项,原来会被压缩到 min-height:30px,把两行内容(≈34px)
-     挤出边框box,hover 图标也随之越到框外。不压缩 → 每项取自然高度,内容与图标都稳稳在圆角框内。 */
-  flex: none;
-  text-align: left; padding: 9px 10px; border: 1px solid transparent; background: transparent;
-  border-radius: var(--radius-sm); display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: center;
-  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); /* v3 (§C2) */
-}
-.session-item:hover { background: var(--panel-2); }
-.session-item.active { background: var(--glass-bg-3); border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: var(--glass-highlight); } /* 第50波点色化:玻璃底+点色描边 */
-.session-item.active::before { content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
-  background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
-.session-item .s-title { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 1; }
-.session-item .s-sub { grid-column: 1; color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 第23波: 会话项 hover 操作 —— 三个图标做成【紧贴框内】的紧凑组:22×22 图标钮、无独立底/边框(不做浮层药丸,免得
-   看着像框外的悬浮片),整组高度小于会话项、align-self:center 垂直居中,绝不越出会话卡的圆角框。 */
-.session-item .s-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; justify-self: end; display: flex; align-items: center; gap: 1px; opacity: 0; }
-.session-item:hover .s-actions, .session-item.active .s-actions { opacity: 1; }
-.session-item .s-actions button { width: 22px; height: 22px; min-height: 0; padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm); font-size: var(--fs-sm); background: transparent; border-color: transparent; color: var(--muted); }
-.session-item .s-actions button:hover { background: color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); }
-.session-item .pin-badge { color: var(--accent); }
+/* 121-K4（34 号文 §2.3 末条）：2.0 的会话列表（.session-list ／ .session-item 与它的
+   标题／副行／悬停三枚动作／搜索摘录）整族退役 —— 左栏画的是【任务索引】，行是三面共用的那枚
+   线程卡基元（.steward-board-thread，样式住 css/views/steward-board.css）。
+   那三枚会话级动作（置顶／重命名／删除）没有丢：它们跟着搬进行上的动作组，动作实现仍在
+   session-experience.js 一处（见那边 bindRailSessionActions 的头注）。 */
 
 /* 118b: 「设置」按钮上的体检摘要计数。只在真有待办时挂上去,没事就整个移除(恒亮徽标很快变噪音)。 */
 .health-entry-dot { display: inline-flex; align-items: center; justify-content: center; margin-left: 5px;
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: var(--fs-xs); line-height: 1;
   color: var(--panel); background: var(--warn); }
 .health-entry-dot.tone-error { background: var(--danger); }
-/* 113b: 侧栏搜索命中的正文摘录。一行、可省略、比标题弱一档 —— 它是佐证不是主角。
-   会话项是两列网格（正文列 + 悬停操作列），所以摘录显式占第一列，不去挤操作区。 */
-.session-item .s-snippet { grid-column: 1; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }
+/* 113b 的「正文摘录」（.s-snippet）随会话项退役：左栏按【任务】排行，一条任务行底下可能有好几条
+   线程，把某一条的正文摘录印在任务行上会张冠李戴。那条内容搜索本身没有丢 —— 左栏的过滤仍然读它
+   命中的会话 id（见 steward-board.js 的 railFilter），摘录的展示归 K7 的 Ctrl+K 面板。 */
 
 /* ============================ §7.3 响应式（容器查询，以外框为准） ============================
    内容一件不少，只改容器。三档：
@@ -254,7 +237,9 @@
             一起搬，归右栏那一刀 K6）。
      ≤980   左栏折成 56px 图标栏（色点＝任务）。 */
 @container frame (min-width: 1600px) {
-  .app-frame { --right-w: 440px; }
+  /* 覆盖落在 .app-body（容器改不了自己，见 .app-frame 的头注）；applyRightWidth 的内联值
+     写的也是这个元素，所以用户拖过档位之后这一条压不过他。 */
+  .app-body { --right-w: 440px; }
 }
 @container frame (max-width: 1180px) {
   /* 右栏离开栅格，变成盖在视角槽位上的滑出层。两个视角同一套开合：顶栏「右栏」钮写
@@ -274,20 +259,40 @@
   .app-side-toggle { display: inline-grid; }
 }
 @container frame (max-width: 980px) {
-  .app-frame { --rail-w: 56px; }
-  .app-frame.rail-board { --rail-w: 56px; }
-  /* 图标栏：只留每行那颗色点（§2.3 末条）。标题、搜索、组头、行内文字与口袋文案全部收起，
-     DOM 一个节点不少 —— 折叠是容器的事，不是内容的事。 */
+  /* 图标栏这一档比「看板密度」更硬：两条都写，且排在后面 —— 窄到这个份上时 440px 的密度
+     没有意义（栏里连字都不印了）。 */
+  .app-body,
+  .app-frame.rail-board .app-body { --rail-w: 56px; }
+  /* 图标栏：只留每行那颗任务色点（§2.3 末条）。标题、搜索、组头、看板栏头、行内的字与动作
+     全部收起，DOM 一个节点不少 —— 折叠是容器的事，不是内容的事。 */
   .task-rail { padding: 8px 4px 0; gap: 6px; }
   .task-rail .rail-title,
   .task-rail .rail-count,
   .task-rail .search-wrap,
-  .task-rail .session-group-label,
-  .task-rail .session-item .s-sub,
-  .task-rail .session-item .s-snippet,
-  .task-rail .session-item .s-actions,
+  .task-rail .rail-board-head,
+  .task-rail .rail-gh,
+  .task-rail .rail-origin,
+  .task-rail .rail-chev,
+  .task-rail .rail-task-count,
+  .task-rail .rail-threads,
+  .task-rail .steward-board-thread-title,
+  .task-rail .steward-board-sub,
+  .task-rail .steward-board-meta,
+  .task-rail .steward-board-pill,
+  .task-rail .steward-board-chips,
+  .task-rail .steward-board-tail,
+  .task-rail .steward-board-empty,
   .task-rail .classic-sidebar-primary-actions span { display: none; }
-  .task-rail .session-item .s-title { overflow: hidden; text-overflow: clip; }
+  /* 色点＝任务（色号由 data-thread-hue 那一张登记表发，见 steward-conversation.css 的
+     --thread-color —— 这一档也不新造第二种颜色）。 */
+  .task-rail .steward-board-thread-head::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: var(--thread-color, var(--muted));
+  }
 }
 /* 全局 reduced-motion 熔断（base.css）之外，本层自己也把过渡关掉（§2.9：动效可以没有，信息不能少）。 */
 @media (prefers-reduced-motion: reduce) {

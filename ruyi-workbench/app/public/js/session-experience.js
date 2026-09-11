@@ -148,76 +148,47 @@ function scheduleSessionSearch() {
   }, SESSION_SEARCH_DEBOUNCE_MS);
 }
 
-function renderSessions() {
-  const list = $('sessionList');
-  const q = $('sessionSearch').value.trim().toLowerCase();
-  list.innerHTML = '';
-  // 113b: 后端搜索命中时改用它的名次（带正文摘录）；否则走旧的子串过滤。
-  const searchHit = sessionSearchState.results
-    && sessionSearchState.query.toLowerCase() === q
-    && q.length >= SESSION_SEARCH_MIN_QUERY;
-  if (searchHit) {
-    const byId = new Map(state.sessions.map(s => [s.id, s]));
-    const rows = sessionSearchState.results.map(row => ({ row, session: byId.get(row.id) })).filter(x => x.session);
-    list.appendChild(el('div', 'session-group-label', t('session.searchResults', { p1: rows.length })));
-    for (const { row, session } of rows) {
-      const item = sessionItem(session);
-      if (row.snippet) {
-        const snippet = el('span', 's-snippet', row.snippet);
-        snippet.title = row.snippet;
-        item.appendChild(snippet);
-      }
-      list.appendChild(item);
-    }
-    if (!rows.length) list.appendChild(el('div', 'muted', t('session.noMatch')));
-    return;
-  }
-  const filtered = state.sessions.filter(s => !q || (s.title || '').toLowerCase().includes(q) || (s.summary || '').toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q));
-  const pinned = filtered.filter(s => s.pinned);
-  const rest = filtered.filter(s => !s.pinned);
-  const groups = [];
-  if (pinned.length) groups.push([`📌 ${t('session.pinned')}`, pinned]);
-  const byGroup = {};
-  for (const s of rest) { const g = groupKey(s.updatedAt); (byGroup[g] = byGroup[g] || []).push(s); }
-  for (const g of ['session.today', 'session.yesterday', 'session.thisWeek', 'session.earlier']) if (byGroup[g]) groups.push([t(g), byGroup[g]]);
-
-  for (const [label, items] of groups) {
-    list.appendChild(el('div', 'session-group-label', label));
-    for (const s of items) list.appendChild(sessionItem(s));
-  }
-  if (!filtered.length) {
-    // 正在搜的时候先说“搜索中”，别让用户以为真的一条都没有。
-    const empty = sessionSearchState.loading && q.length >= SESSION_SEARCH_MIN_QUERY
-      ? t('session.searching')
-      : (q ? t('session.noMatch') : t('session.empty'));
-    list.appendChild(el('div', 'muted', empty));
-  }
+// 121-K4（34 号文 §2.3 末条）：2.0 的会话列表 `#sessionList` 由左栏的【任务索引】取代 ——
+// 同一份 DOM 两视角共用，行由 js/steward-board.js 的 renderRail 画（按任务归组、按聚合五态分五组）。
+// 本函数因此只剩【一个转接口】：名字与所有调用点一个字没动（开／建／改名／删／搜索之后仍是它被调），
+// 但它自己不再画一行 —— 画行的地方全仓只剩那一处，不存在「2.0 一份、管家一份」两套列表。
+// 注入的 renderRail 缺席时（组合根没把管家域接进来）就什么都不做：那时左栏本来也没人填。
+let railRenderer = null;
+function setRailRenderer(render) {
+  railRenderer = typeof render === 'function' ? render : null;
+  return Boolean(railRenderer);
 }
-function sessionItem(s) {
-  const item = el('button', `session-item ${state.currentSession?.id === s.id ? 'active' : ''}`);
-  const title = el('span', 's-title', (s.pinned ? '📌 ' : '') + sessionDisplayTitle(s)); // 50-fix:未命名显示本地化占位
-  // 116-5b:名字被自动摘要换掉之后,用户原话仍要能看到(§11.8 红线「不改写 title」)——挂 hover。
-  // 只在真的不一样时才挂:没有摘要的会话,悬浮提示与正文一字不差地重复一遍是噪音。
-  const rawTitle = String((s && s.title) || '').trim();
-  if (rawTitle && rawTitle !== sessionDisplayTitle(s)) title.title = rawTitle;
-  const running = activeTurns.has(s.id);
-  if (running) item.classList.add('running');
-  // 116-5b:有那句概括就先说它 —— 它答的是「这条线程要干什么」,比末句摘要更能让人认出是哪条。
-  // 没有摘要的会话逐字节还是老样子(summary → cwd)。
-  const gist = String(((s && s.brief) || {}).gist || '').trim();
-  const subParts = [running ? `◐ ${t('session.running')}` : '', tCount('session.messageCount', s.messageCount || 0), gist || s.summary || s.cwd || ''].filter(Boolean);
-  const sub = el('span', 's-sub', subParts.join(' · '));
-  const actions = el('span', 's-actions');
-  const pinBtn = el('button', s.pinned ? 's-act pinned' : 's-act'); pinBtn.appendChild(icon('pin', 15)); pinBtn.title = s.pinned ? t('session.unpin') : t('session.pin'); pinBtn.setAttribute('aria-label', pinBtn.title);
-  pinBtn.onclick = e => { e.stopPropagation(); patchSession(s.id, { pinned: !s.pinned }); };
-  const renameBtn = el('button', 's-act'); renameBtn.appendChild(icon('edit', 15)); renameBtn.title = t('session.rename'); renameBtn.setAttribute('aria-label', renameBtn.title);
-  renameBtn.onclick = e => { e.stopPropagation(); openRenamePopover(renameBtn, s); };
-  const delBtn = el('button', 's-act'); delBtn.appendChild(icon('trash', 15)); delBtn.title = t('session.delete'); delBtn.setAttribute('aria-label', delBtn.title);
-  delBtn.onclick = e => { e.stopPropagation(); if (confirm(t('session.delete.confirm'))) removeSession(s.id); };
-  actions.append(pinBtn, renameBtn, delBtn);
-  item.append(title, sub, actions);
-  item.onclick = () => openSession(s.id);
-  return item;
+function renderSessions() {
+  if (!railRenderer) return false;
+  try { railRenderer(); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
+  return true;
+}
+// 113b 的内容搜索结果快照：左栏的过滤要用它（命中的是【正文】，不是标题，所以子串过滤替代不了）。
+// 请求、去抖、序号丢弃仍然只在本文件一处 —— 左栏只读这个快照，不发第二发请求。
+function sessionSearchSnapshot() {
+  return { query: sessionSearchState.query, results: sessionSearchState.results };
+}
+
+// 121-K4：左栏行上那三枚会话级动作（置顶／重命名／删除）的接线。
+// 画按钮的是 js/steward-board.js（左栏那一份渲染），动手的仍然是本文件这三份既有实现 ——
+// 一条事件委托把两边接起来，于是「会话怎么改」全仓仍然只有一处，左栏不认识 /api/sessions。
+// 委托挂在 #railList 上（不是 document）：左栏重画多少次都不用重新绑，也不会碰到别处的点击。
+function bindRailSessionActions() {
+  const host = $('railList');
+  if (!host) return false;
+  host.addEventListener('click', event => {
+    const button = event.target && event.target.closest ? event.target.closest('[data-session-action]') : null;
+    if (!button) return;
+    event.stopPropagation();
+    const id = String(button.dataset.sessionId || '');
+    if (!id) return;
+    const session = state.sessions.find(item => item && String(item.id) === id) || { id };
+    const action = String(button.dataset.sessionAction || '');
+    if (action === 'pin') { patchSession(id, { pinned: !(session && session.pinned) }); return; }
+    if (action === 'rename') { openRenamePopover(button, session); return; }
+    if (action === 'delete' && confirm(t('session.delete.confirm'))) removeSession(id);
+  });
+  return true;
 }
 
 async function refreshSessions() {
@@ -1517,6 +1488,11 @@ function buildEmptyCTA() {
     renderResumeBanner,
     renderSessions,
     renderStepBar,
+    // 121-K4：左栏是两视角共用的那一份 DOM。组合根在管家域构造好之后把「重画左栏」的口递进来
+    // （迟绑定：session-experience 比 steward-shell 先构造），本文件因此不 import 任何管家侧模块。
+    bindRailSessionActions, // 121-K4：左栏行上三枚会话级动作的委托（组合根绑一次）
+    setRailRenderer,
+    sessionSearchSnapshot, // 121-K4：左栏搜索读它（113b 的结果快照）
     scheduleSessionSearch, // 113b
     revokeAllAutonomyGrants,
     rollbackTurn,

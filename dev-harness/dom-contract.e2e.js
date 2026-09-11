@@ -66,7 +66,7 @@ const CRITICAL_IDS = [
   'contextMeter', 'compactBtn', 'compactBtnHost',
   // 左栏(121-K4 起是外框里两视角共用的那一栏;ia.e2e、perf.e2e 依赖)。
   // 手动折叠的两枚钮(collapseSidebarBtn / showSidebarBtn)随 §7.3 的容器查询接管而退役。
-  'sidebar', 'newSessionBtn', 'sessionList', 'sessionSearch',
+  'sidebar', 'newSessionBtn', 'railList', 'sessionSearch',
   // 121-K4 外框(§2.2/§2.3):顶栏、视角分段钮、齿轮菜单、状态胶囊、左栏头与口袋槽位。
   'appFrame', 'appTopbar', 'appBody', 'appViews', 'lensSeg', 'appGearBtn', 'appGearMenu',
   'appSideToggleBtn', 'appStatusChip', 'railBoardBtn', 'railCount', 'railPocket',

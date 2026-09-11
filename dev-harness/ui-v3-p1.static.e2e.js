@@ -82,7 +82,14 @@ ok(/iconTextBtn\(btn, 'sparkles'/.test(src), '4 app.js 技能徽标 sparkles SVG
 // 第40波: 锁迁移到 i18n 形状(文案键 t('common.stop')/t('chat.send'),zh-CN 解析为 停止/发送 已核验);
 // 语义不变 —— 运行态 stop 图标 + 停止文案,完成还原 send 图标 + 发送文案。
 ok(/iconTextBtn\(btn, 'stop', t\('common\.stop'\)\)/.test(src) && /iconTextBtn\(btn, 'send', t\('chat\.send'\)\)/.test(src), '4 app.js 发送⇄停止 SVG 切换');
-ok(/icon\('pin', 15\)/.test(src) && /icon\('edit', 15\)/.test(src) && /icon\('trash', 15\)/.test(src), '4 app.js 会话项操作(置顶/改名/删)SVG');
+// 121-K4：会话项那三枚动作（置顶／改名／删）随会话列表退役，搬到左栏行的动作组里 ——
+// 画按钮的是 js/steward-board.js（boardButton 给同一组字形），动作实现仍在 session-experience.js
+// 一处（bindRailSessionActions 的委托）。字形一枚没换，钉的是它们【仍然是 SVG、仍然在场】。
+{
+  const railSrc = fs.readFileSync(path.join(PUB, 'js', 'steward-board.js'), 'utf8');
+  ok(/'pin'\)\)/.test(railSrc) && /'edit'\)\)/.test(railSrc) && /'trash'\)\)/.test(railSrc),
+    '4 左栏行上的会话操作(置顶/改名/删)仍是同一组 SVG 字形');
+}
 ok(/icon\(isDesktopTool \? 'monitor' : 'wrench'/.test(src), '4 app.js 工具卡 tc-icon SVG(monitor/wrench)');
 ok(!/\? '🖥' : '🔧'/.test(src), '4 app.js 旧 tc-icon emoji 三元已清');
 ok(!/el\('button', '', '✕'\)/.test(src) && !/el\('button', 'icon-btn', '✕'\)/.test(src), '4 app.js 动态关闭 ✕ emoji 已换 close SVG');

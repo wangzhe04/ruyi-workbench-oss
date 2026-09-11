@@ -1,9 +1,11 @@
-/* 第117波 117h + 117g：一行状态 / 看板 / 「现在这一件」，以及 2.0 视窗的顶部返回带。
-   本层只拥有这四组选择器，既不碰壳模式属性（那是 117a applyShellMode 的单一写入点），
-   也不覆盖抽屉自己的区块样式 —— 「现在这一件」里那份抽屉就是【同一个】 #stewardDrawer 节点，
+/* 第117波 117h + 117g → 第121波 K4：一行状态 / 【左栏任务索引】/ 管家视角的右栏，
+   以及 2.0 视窗的顶部返回带。
+   本层只拥有这四组选择器，既不碰壳模式属性（那是 applyShellMode 的单一写入点），
+   也不覆盖抽屉自己的区块样式 —— 右栏里那份抽屉就是【同一个】 #stewardDrawer 节点，
    本层只改它 docked 挂法下的定位（.steward-drawer[data-mount="docked"]）。
-   返回带的 DOM 在经典壳的 main.chat-pane 里，样式归本层：它是管家壳的产物，不该混进经典层。
-   断点：≥1000px 才有「现在这一件」这条常驻右栏；<1000px 一律回单列（抽屉走覆盖式）。 */
+   返回带的 DOM 在工作台视角的 main.chat-pane 里，样式归本层：它是管家壳的产物，不混进经典层。
+   121-K4：看板浮层退役（行搬左栏、常开），右栏从 fixed 浮层变成外框栅格里的一列；
+   左栏的两档密度（268／440px）与 ≤980 的图标栏都由 css/layout.css 的容器查询决定，本层只画行。 */
 
 /* ── ① 一行状态：点开即看板（原型 .status）──────────────────────────────────────── */
 .steward-status-line {
@@ -58,47 +60,137 @@
 .steward-status-needsyou:hover { background: var(--gold); color: var(--panel); }
 .steward-status-needsyou:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* ── ② 看板：从状态行下拉的面板 ──────────────────────────────────────────────── */
-.steward-board {
-  position: absolute;
-  z-index: 28;
-  top: 84px;
-  left: var(--sp-6);
-  right: var(--sp-6);
-  max-height: 66%;
+/* ── ② 左栏：任务索引（121-K4，34 号文 §2.3）──────────────────────────────────────
+   117h 那块「从状态行下拉的看板浮层」（.steward-board，absolute ＋ max-height:66% ＋ 玻璃底）
+   与它顶部那条 toolbar（.steward-board-top）退役 —— 行搬到左栏、常开，「同时最多」与「全部暂停」
+   搬到左栏看板密度的栏头（.rail-board-head）。行的那一族类名（.steward-board-thread 与它的
+   卡头／药丸／chip／卡尾／动作）一个字没改：它们是三面共用的那枚线程卡基元（§11.15.3），
+   换的只是住处与外面那一层分组。 */
+.rail-list {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-1) var(--sp-3);
-  color: var(--ink);
-  background: var(--panel);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: var(--r-md);
-  box-shadow: var(--glass-shadow);
+  padding: 0 0 var(--sp-2);
 }
-.steward-board[hidden] { display: none; }
-
-/* 117l-B2 ②（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）：
-   修前这一行是一排【裸文字】——「同时最多 [5] 在跑 2 排队 0 全部暂停 整体切到 2.0」挤在一起，
-   哪个是可改的、哪个是状态、哪个是按钮，全靠猜。现在做成一条玻璃底的 toolbar：
-   左边一枚带标签的数字胶囊，中间两枚状态 pill（在跑有色点／排队安静），右边两个幽灵动作键。
-   底色用 --glass-bg-3（卡片族）而【不叠 backdrop-filter】—— 同屏模糊预算 §3.2-E 是有上限的，
-   看板本身已经坐在 #stewardStage 那面玻璃上，再叠一层既超预算也没有视觉收益。 */
-.steward-board-top {
-  display: flex;
+/* 看板密度的栏头：并发上限 ＋ 在跑／排队 ＋「全部暂停」。紧凑密度下整条收起（§2.3：268px 那一档
+   只留一行主信息；440px 才多印事实与这条栏头）。 */
+.rail-board-head {
+  display: none;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  margin: var(--sp-1) var(--sp-1) var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2);
   font-size: var(--fs-xs);
   color: var(--muted);
-  background: var(--glass-bg-3);
-  border: 1px solid var(--glass-border);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
-/* 「同时最多 ⟨5⟩」：标签与输入框合成一枚胶囊，聚焦时整枚亮起来（而不是只有那个小框） */
+.app-frame.rail-board .rail-board-head { display: flex; }
+
+/* 组（等你／在跑／排队／今天收工／更早）：组头是一行小字 ＋ 一枚计数胶囊（§2.3「组头带计数，
+   等你金色、在跑青花蓝」）。组头本身可点 —— 折叠自己那一组（「更早」默认就是折着的）。 */
+.rail-group { display: flex; flex-direction: column; }
+.rail-gh {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+}
+.rail-gh-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: left;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.rail-gh-toggle:hover { color: var(--ink-2); }
+.rail-gh-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+.rail-gh-n {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-xs);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  background: var(--panel-3);
+}
+.rail-gh-n[data-tone="needs_you"] { color: var(--gold); background: var(--gold-soft); }
+.rail-gh-n[data-tone="running"] { color: var(--accent); background: var(--accent-soft); }
+.rail-group.is-collapsed .rail-tasks { display: none; }
+.rail-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+/* 任务行（多线程任务才有）：小计数 ＋ 折角。折角转 180° 表示展开，与展开容器同一个属性驱动。 */
+.rail-task-count { flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+.rail-chev {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.rail-chev:hover { color: var(--ink-2); }
+.rail-chev:focus-visible { outline: none; box-shadow: var(--ring); }
+.rail-task.is-open .rail-chev { transform: rotate(180deg); }
+/* 展开／收起走 `grid-template-rows: 0fr → 1fr`（§2.9 表倒数第二行）：内容高度未知也能顺，
+   不需要 JS 量高度。内层那一格 overflow:hidden 才裁得住。 */
+.rail-threads {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-base) var(--ease-out);
+}
+.rail-threads.is-open { grid-template-rows: 1fr; }
+.rail-threads-inner { overflow: hidden; }
+.rail-threads .steward-board-thread { padding-inline-start: var(--sp-5); }
+
+/* 来源图形（§2.3）：管家开的＝环／我开的＝人形／定时＝钟，悬停才出字（title＋aria-label）。
+   颜色只区分「谁开的」，不说状态 —— 与色条「只说是哪个任务」是同一条纪律（F1：两套信号不混用）。 */
+.rail-origin {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.rail-origin[data-origin="steward"] { color: var(--gold); }
+.rail-origin[data-origin="user"] { color: var(--accent); }
+
+/* 行的第二行（§2.3「只在有话可说时出现」）：一行，超出省略 —— 全文在焦点栏／抽屉里。 */
+.steward-board-sub {
+  margin: 2px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-board-sub:empty { display: none; }
+
+/* 看板栏头里那枚「同时最多 ⟨n⟩」胶囊，以及三面共用的药丸与动作键。
+   121-K4：它们从退役的看板浮层 toolbar 搬到左栏的 .rail-board-head；声明一个字没改
+   （改的只是住处），只删掉「把两个动作键推到右侧」的 .steward-board-tools —— 那一排如今
+   只剩「全部暂停」一枚，不需要一个把它顶到右边的容器。 */
 .steward-board-maxwrap {
   flex: 0 0 auto;
   display: inline-flex;
@@ -124,15 +216,6 @@
   padding: 2px var(--sp-1);
 }
 .steward-board-max-input:focus-visible { outline: none; box-shadow: var(--ring); }
-/* 两个动作键推到右侧：toolbar 的左半是「现在什么情况」，右半是「你能做什么」。 */
-.steward-board-tools {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  margin-inline-start: auto;
-}
-
 .steward-board-pill {
   flex: 0 0 auto;
   font-size: var(--fs-xs);
@@ -215,9 +298,7 @@
    .steward-drawer-btn[hidden] 同一条根因）。今天没人 hidden 这一类，先把门关上。 */
 .steward-board-btn[hidden] { display: none; }
 
-/* 117l-B2 ②：事项之间从「一条细分隔线」改成「一张张卡」—— 修前每个事项与它的线程行糊在一起，
-   十来行下来分不出哪几行属于哪一件。 */
-.steward-board-list { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-1); }
+/* 空态：一句话 ＋ 一个出口（117l-B2 ②）。121-K4 起它住在左栏里。 */
 .steward-board-empty {
   display: flex;
   flex-wrap: wrap;
@@ -227,47 +308,20 @@
   padding: var(--sp-4) var(--sp-3);
   font-size: var(--fs-sm);
   color: var(--muted);
-  background: var(--glass-bg-3);
-  border: 1px dashed var(--glass-border);
+  background: var(--panel-2);
+  border: 1px dashed var(--line-2);
   border-radius: var(--r-md);
 }
 .steward-board-empty-say { margin: 0; }
 .steward-board-note { margin: 0; min-height: 1.2em; font-size: var(--fs-sm); color: var(--muted); }
 .steward-board-note:empty { display: none; }
 
-/* 事项分组：117g/117h 原型 .mh 是一条细分隔线上的一行小字；117l-B2 ② 改成一张玻璃卡
-   （用户第五轮走查 2「优化美观一下」的主体）。卡头＝状态点 ＋ 事项名 ＋ 右侧 meta ＋「＋ 线程」，
-   卡身＝缩进的线程行。同样不叠 backdrop-filter（模糊预算，见上面 toolbar 那段的理由）。 */
-.steward-board-mission {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  padding: var(--sp-3);
-  background: var(--glass-bg-3);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r-md);
-}
-.steward-board-mission-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-  padding: 0 0 var(--sp-1);
-  font-size: var(--fs-xs);
-  color: var(--muted);
-}
-.steward-board-mission-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
-/* 一串 meta 药丸连成一句小字，中间用「·」分隔 —— 各自带边框的胶囊会让这一串比它旁边的正名还重。
-   分隔符是生成内容，DOM 一个节点没加。
-   117u-G2（§11.15.3 B1／B4）：这条规则原来只服务事项头那一串三枚（线程数／验收／花费）。B1 之后
-   事项头【只剩】「事项名 · N 条」这一枚药丸，B4 把钱与验收搬去了卡尾那一行 —— 所以「·」的落点
-   跟着搬：卡尾行内是相邻药丸之间，事项头里是那唯一一枚药丸之前（紧跟在事项名后面）。
-   仍然是【同一条声明】的两个落点，不是两份实现。 */
-.steward-board-facts .steward-board-pill + .steward-board-pill,
-.steward-board-mission-head .steward-board-pill { margin-inline-start: 0; }
-.steward-board-facts .steward-board-pill + .steward-board-pill::before,
-.steward-board-mission-head .steward-board-pill::before {
+/* 121-K4（§2.3）：117l-B2 ② 那张「事项卡」（.steward-board-mission 玻璃卡 ＋ 组头）退役 ——
+   左栏把 B1 的口径反过来了：**任务是主、线程是展开项**，所以多线程任务画的是一行【任务行】
+   （.rail-task，与线程行同一枚卡基元），不再是一张把线程行裹起来的卡。
+   「一串 meta 药丸用『·』连成一句小字」那条声明留着（卡尾那一行仍然这么排）。 */
+.steward-board-facts .steward-board-pill + .steward-board-pill { margin-inline-start: 0; }
+.steward-board-facts .steward-board-pill + .steward-board-pill::before {
   content: "·";
   margin-inline-end: var(--sp-2);
   color: var(--line-2);
@@ -318,9 +372,12 @@
   border-radius: var(--r-sm);
   transition: background var(--dur-fast) var(--ease-out);
 }
-.steward-board-mission.is-grouped .steward-board-thread { margin-inline-start: var(--sp-4); }
-.steward-board-thread + .steward-board-thread { border-top: 1px solid var(--glass-border); }
+.steward-board-thread + .steward-board-thread { border-top: 1px solid var(--line); }
 .steward-board-thread:hover { background: var(--panel-2); }
+/* 选中行（§2.3 点击语义的可见回执；§2.9 表倒数第二行：背景 120ms —— 上面那条 transition 就是它）。
+   两视角各问自己的状态（管家＝焦点线程，工作台＝当前会话），判据在 steward-board.js 的
+   railSelectedId 一处；本层只上色。 */
+.steward-board-thread.is-sel { background: var(--accent-soft); }
 .steward-board-thread-head {
   display: flex;
   /* 117l-B2 ②：390px 下这一行放不开时让它换行 —— 不换的话名字（唯一可收缩的那一项）会被
@@ -356,6 +413,16 @@
 .steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-thread-head .steward-board-meta { margin-inline-start: auto; padding-inline-start: var(--sp-2); }
 .steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
+/* §2.3：多出来的那一行事实（验收 a/b · 线程数）只在【看板】密度印；紧凑密度下左栏只留主信息。 */
+.rail-list .steward-board-facts { display: none; }
+.app-frame.rail-board .rail-list .steward-board-facts { display: flex; }
+/* §2.3「悬停出一行动作」：在左栏里它必须是 display:none 而不是 opacity:0 —— 268px 宽的一栏里
+   那一排动作键会折成四五行，只要它【占着位置】，每一行就有 170px 高（实测第一版就是这样：
+   四条任务把整栏塞满，一屏看不下第五条）。看板浮层时代行宽 700+，透明占位无所谓；左栏不行。
+   触屏（hover:none）那一档仍由本层下面那条规则常显，不靠悬停。 */
+.rail-list .steward-board-actions { display: none; }
+.rail-list .steward-board-thread:hover .steward-board-actions,
+.rail-list .steward-board-thread:focus-within .steward-board-actions { display: flex; }
 .steward-board-wait { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-wait:empty { display: none; }
 /* 117u-G2 B4：卡尾一行 —— 左边是事实（等什么 · 验收 · 花了多少），右边是那排次级动作。
@@ -382,7 +449,7 @@
 }
 .steward-board-thread:hover .steward-board-actions,
 .steward-board-thread:focus-within .steward-board-actions { opacity: 1; }
-@media (hover: none) { .steward-board-actions { opacity: 1; } }
+@media (hover: none) { .steward-board-actions, .rail-list .steward-board-actions { opacity: 1; display: flex; } }
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
 .steward-board-chips .steward-chip-menu { left: 0; right: auto; }
 
@@ -534,15 +601,8 @@
 
 /* 窄屏：看板铺满、返回带换行、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
 @media (max-width: 390px) {
-  .steward-board { top: 72px; left: var(--sp-2); right: var(--sp-2); padding: var(--sp-1) 0 var(--sp-2); }
-  /* 117l-B2 ②：窄屏 toolbar 换行之后，右半那两个动作键不该还被 auto 顶到右边（会孤零零地
-     吊在第二行末尾）；线程行的缩进也收一档，390px 下每一格都要算。 */
-  .steward-board-top { gap: var(--sp-1); margin-inline: var(--sp-1); padding: var(--sp-2); }
-  .steward-board-tools { margin-inline-start: 0; }
-  .steward-board-mission { padding: var(--sp-2); }
-  /* 117u-G2 B1：缩进只属于【真分了组】的那些卡（单线程事项已经没有事项层可挂），窄屏这一档
-     跟着一起收 —— 少了这个限定，390px 下单线程那张卡会白白凹进去 8px。 */
-  .steward-board-mission.is-grouped .steward-board-thread { margin-inline-start: var(--sp-2); }
+  /* 121-K4：窄屏那几条原来在调看板浮层与事项卡的位置，两者都已退役 —— 左栏在 ≤980 那一档
+     由容器查询折成 56px 图标栏（layout.css），这里只剩「行内动作键铺满一行」这一条。 */
   .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
   .steward-return-chips { margin-left: 0; }
 }

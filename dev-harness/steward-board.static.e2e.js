@@ -79,15 +79,28 @@ const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chi
 const headerStart = html.indexOf('id="stewardHeader"');
 const headerEnd = html.indexOf('</header>', headerStart);
 const header = html.slice(headerStart, headerEnd);
+// 121-K4-2（34 号文 §2.3 末段）：看板【浮层】退役 —— 行搬到左栏、两视角共用、常开。
+// 一行状态因此不再是「点开即看板」的开关：没有 aria-expanded（它不开合任何东西了），
+// aria-controls 指向它真正的去处 #railList（点一下＝把左栏滚到最需要你的那一组）。
+const statusMarkup = header.slice(header.indexOf('id="stewardStatusLine"'), header.indexOf('id="stewardStatusNeedsYouBtn"'));
 ok(/<button type="button" id="stewardStatusLine" class="steward-status-line"/.test(header)
-  && /aria-expanded="false"/.test(header) && /aria-controls="stewardBoard"/.test(header),
-  'A1 一行状态是 #stewardHeader 里的 button，带 aria-expanded 与 aria-controls（点开即看板）');
-ok(/<div id="stewardBoard" class="steward-board" role="region"[\s\S]{0,240}?hidden>/.test(html),
-  'A2 #stewardBoard 是默认 hidden 的 role="region" 面板');
+  && !/aria-expanded/.test(statusMarkup)
+  && /aria-controls="railList"/.test(statusMarkup),
+  'A1 一行状态是 #stewardHeader 里的 button，指向左栏（看板浮层退役后它不再是开关）');
+ok(!html.includes('id="stewardBoard"') && !html.includes('id="stewardBoardList"')
+  && !/class="steward-board"/.test(html),
+  'A2 看板浮层 #stewardBoard 与它的正文容器已从骨架里删除（左栏取代了它）');
+// 浮层顶部那条 toolbar 的四件事（并发上限、在跑／排队计数、「全部暂停」、那行 note）搬到
+// 左栏【看板密度】的栏头里，id 与接线一个字没动；正文容器换成 #railList。
+const railStart = html.indexOf('id="sidebar"');
+const railEnd = html.indexOf('</aside>', railStart);
+const railMarkup = html.slice(railStart, railEnd);
 for (const id of ['stewardBoardMax', 'stewardBoardRunning', 'stewardBoardQueued',
-  'stewardBoardPauseAllBtn', 'stewardBoardList', 'stewardBoardNote']) {
-  ok(new RegExp(`id="${id}"`).test(html), `A3 看板骨架锚点 ${id} 静态写在 index.html 里`);
+  'stewardBoardPauseAllBtn', 'stewardBoardNote', 'railList', 'railCount', 'railBoardBtn', 'railPocket']) {
+  ok(new RegExp(`id="${id}"`).test(railMarkup), `A3 左栏骨架锚点 ${id} 静态写在 index.html 的左栏里`);
 }
+ok(/class="rail-board-head"/.test(railMarkup),
+  'A3c 并发上限与「全部暂停」住在左栏看板密度的栏头（§2.3 末段：浮层顶部那条 toolbar 的去处）');
 // 121-K4（34 号文 §2.2）：看板顶部那枚「整体切到 2.0」（#stewardBoardClassicBtn）退役 —— 视角切换
 // 只在顶栏分段钮一处（§2.7）。翻面钉住它【不在】骨架里，免得哪天又长回来第二个切换入口。
 ok(!html.includes('id="stewardBoardClassicBtn"') && !html.includes('id="stewardClassicBtn"'),
@@ -107,11 +120,10 @@ ok(/<aside id="stewardSide" class="steward-side"[\s\S]{0,240}?hidden>/.test(html
   && !html.includes('id="stewardNowCloseBtn"'),
   'A5 #stewardSide 默认 hidden，带抽屉自己认的那一个挂点 #stewardNowBody；浮层时代的 #stewardNow 与「关掉」已退役');
 const shellAt = html.indexOf('id="stewardShell"');
-const boardAt = html.indexOf('id="stewardBoard"');
 const nowAt = html.indexOf('id="stewardSide"');
 const drawerAt = html.indexOf('id="stewardDrawer"');
-ok(shellAt > 0 && boardAt > shellAt && nowAt > boardAt && drawerAt > nowAt,
-  'A6 看板与右栏都住在 #stewardShell 里，且排在抽屉骨架之前');
+ok(railStart > 0 && railStart < shellAt && nowAt > shellAt && drawerAt > nowAt,
+  'A6 左栏在两个视角容器【之前】（它是外框的一栏，不属于任何一个视角），右栏排在抽屉骨架之前');
 // 右栏只是挂点：它的静态骨架里不许出现任何抽屉区块 id（那一份只有 #stewardDrawer 有）。
 const nowMarkup = html.slice(nowAt, html.indexOf('</aside>', nowAt));
 ok(drawerMod.STEWARD_DRAWER_BLOCK_IDS.every(id => !nowMarkup.includes(id)),
@@ -152,10 +164,19 @@ ok(aggregateSites > 0 && !/aggregateMissionState/.test(boardCode)
 const needsYouSites = count(boardCode, /needs_you/g);
 const focusBody = boardCode.slice(boardCode.indexOf('export function focusThreadFor'),
   boardCode.indexOf('export function createStewardBoard'));
+// 121-K4：切片的下界改成 goToNeedsYou（它就排在状态行后面）—— 原来切到 renderArbiterFacts，
+// 中间夹着「N 条等你」的去处，那里有一处 jumpToGroup('needs_you')。要钉的是【状态行自己】
+// 那一处计数，切片不该把邻居算进来。
 const statusBody = boardCode.slice(boardCode.indexOf('function renderStatusLine'),
-  boardCode.indexOf('function renderArbiterFacts'));
-ok(needsYouSites === 2 && count(focusBody, /needs_you/g) === 1 && count(statusBody, /needs_you/g) === 1,
-  `B5 'needs_you' 字面量恰好两处（焦点优先级 1 ＋ 状态行计数 1，零聚合判据；实测 ${needsYouSites}）`);
+  boardCode.indexOf('function goToNeedsYou'));
+// 121-K4：左栏把「这一件该落在哪一组」也做成了纯函数（railGroupFor），于是 needs_you 这个词
+// 多出九处【映射】用法：五组登记表 1 ＋ railGroupFor 2 ＋ 组头上色 1 ＋ 默认展开 1 ＋ 第二行 1 ＋
+// 「去处理」跳组 1 ＋ 胶囊跳组 1 ＋ 焦点优先级那一处（已计入两处计算之一）。它们都不是第二份
+// 【派生】—— 入参永远是别处算好的那个字符串（aggregateState ／ threadStateOf 的返回值），本模块
+// 仍然一次都没有写「任一 needs_you 则…」这类判定。钉法跟着事实走：两处【计算】现场逐字钉死
+// （焦点优先级 1 ＋ 状态行计数 1），总数钉 11 —— 数字变了就必须重新解释一遍。
+ok(needsYouSites === 11 && count(focusBody, /needs_you/g) === 1 && count(statusBody, /needs_you/g) === 1,
+  `B5 'needs_you' 的两处【计算】现场不变（焦点优先级 1 ＋ 状态行计数 1），其余都是分组映射；总数 11（实测 ${needsYouSites}）`);
 // 等待原因单一性（§8.10「排队可解释」）：wait.label 只渲染一处，没有第二套等待文案。
 ok(count(boardCode, /wait\.label/g) === 1,
   `B6 每行只渲染 wait.label 一处（实测 ${count(boardCode, /wait\.label/g)}）`);
@@ -325,8 +346,8 @@ ok(/const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunnin
 ok(/stream\.on\(EVENT_STREAM_LIVE_EVENT, data => \{ applyLivePush\(data\); \}\);/.test(board)
   && /for \(const name of EVENT_STREAM_ROW_EVENTS\) \{/.test(board)
   && /if \(pushBusy\) \{ pushAgain = true; return false; \}/.test(board)
-  && count(boardCode, /pushRefreshRows\(\)/g) === 3,
-  'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）');
+  && count(boardCode, /pushRefreshRows\(\)/g) === 4,
+  'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）。121-K4 多出的第四处是 syncRail：工作台视角没有兜底计时器，用户动作（开／建／改名／删）就是行最该被复核的时刻 —— 它走的是同一条串行合并的路，不是第二条');
 ok(/function leaveSteward\(\) \{[\s\S]*?stopPolling\(\);/.test(board)
   && /new MutationObserver\(\(\) => \{ if \(isStewardMode\(\)\) void enterSteward\(\); else leaveSteward\(\); \}\)/.test(board),
   'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算）');
@@ -416,9 +437,10 @@ ok(/\.steward-side \{/.test(cssCode) && /grid-column: 2;/.test(cssCode)
   && !/@media \(min-width: 1000px\)/.test(cssCode),
   'G6 右栏是栅格里的一列（不写第二个宽度、不再有 ≥1000px 那道媒体门），docked 那一份仍从 fixed 收回流内');
 ok(/@media \(max-width: 390px\)/.test(cssCode), 'G7 390px 窄屏断点存在');
-ok(/\.steward-board\[hidden\] \{ display: none; \}/.test(cssCode)
-  && /\.steward-side\[hidden\] \{ display: none; \}/.test(cssCode),
-  'G8 显隐由 [hidden] 驱动（JS 不写 display，壳模式属性也不归本层管）');
+ok(/\.steward-side\[hidden\] \{ display: none; \}/.test(cssCode)
+  && !/\.steward-board\[hidden\]/.test(cssCode)
+  && !/\.steward-board \{/.test(cssCode),
+  'G8 显隐由 [hidden] 驱动（JS 不写 display）；看板浮层那一族规则随它退役');
 ok(/\.steward-board-dot\[data-tone="attention"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="active"\]/.test(cssCode)
   && /\.steward-board-dot\[data-tone="quiet"\]/.test(cssCode),
@@ -472,22 +494,29 @@ ok(/2\.0/.test(String(zh['stewardShell.classicWindow.switchWhole'])),
 // ─── I 117l-B2 ②：看板视觉（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）──────────
 // 修前顶部是一排裸文字、事项与线程行糊在一起。本组只钉【结构性的那几件】：
 // 玻璃 toolbar／状态 pill／事项卡／线程行缩进与分隔／空态有出口／不许偷偷加模糊预算。
-ok(/\.steward-board-top \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode),
-  'I1 顶部一行是一条玻璃底的 toolbar（--glass-bg-3 卡片族 + 圆角边框），不再是一排裸文字');
-ok(!/\.steward-board-top \{[^}]*backdrop-filter/.test(cssCode)
-  && !/\.steward-board-mission \{[^}]*backdrop-filter/.test(cssCode),
-  'I1b **模糊预算**：toolbar 与事项卡只用玻璃底色，不叠 backdrop-filter（ui-v4-glass G2 的白名单一个字没加）');
-ok(/<span class="steward-board-maxwrap">/.test(html)
+// 121-K4-2：117l-B2 ② 那条「玻璃底 toolbar」（.steward-board-top）随浮层退役，它的四件事搬到
+// 左栏【看板密度】的栏头 .rail-board-head：仍然是一条带边框圆角的条，只是底色从玻璃改成实面
+// （§7.1：玻璃只留浮层与安静卡），并且只在看板密度出现 —— 紧凑密度下左栏只留一行主信息。
+ok(/\.rail-board-head \{[\s\S]{0,400}background: var\(--panel-2\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode)
+  && /\.rail-board-head \{[\s\S]{0,200}display: none;/.test(cssCode)
+  && /\.app-frame\.rail-board \.rail-board-head \{ display: flex; \}/.test(cssCode),
+  'I1 并发上限那一条住在左栏看板密度的栏头（实面、带边框圆角，紧凑密度下收起）');
+ok(!/\.rail-board-head \{[^}]*backdrop-filter/.test(cssCode)
+  && !/backdrop-filter:\s*var\(--glass-blur/.test(cssCode),
+  'I1b **模糊预算**：本层一处模糊都没有（唯一出现的 backdrop-filter 是把 docked 抽屉那一份【关掉】的 none；ui-v4-glass G2 的白名单一个字没加）');
+ok(/<span class="steward-board-maxwrap">/.test(railMarkup)
   && /\.steward-board-maxwrap:focus-within \{ border-color: var\(--accent\); \}/.test(cssCode)
   && /\.steward-board-max-input \{[\s\S]{0,200}width: 48px;/.test(cssCode),
-  'I2 「同时最多 ⟨n⟩」是一枚带标签的胶囊：48px 输入框，聚焦时整枚亮起来');
-ok(/id="stewardBoardRunning" class="steward-board-pill is-live"/.test(html)
-  && /id="stewardBoardQueued" class="steward-board-pill is-quiet"/.test(html)
+  'I2 「同时最多 ⟨n⟩」仍是一枚带标签的胶囊（48px 输入框，聚焦时整枚亮起来），住在左栏的看板栏头里');
+ok(/id="stewardBoardRunning" class="steward-board-pill is-live"/.test(railMarkup)
+  && /id="stewardBoardQueued" class="steward-board-pill is-quiet"/.test(railMarkup)
   && /\.steward-board-pill\.is-live::before \{ background: var\(--accent\); \}/.test(cssCode),
-  'I3 在跑／排队是两枚状态 pill：在跑带 running 色点，排队保持安静');
-ok(/<span class="steward-board-tools">/.test(html)
-  && /\.steward-board-tools \{[\s\S]{0,200}margin-inline-start: auto;/.test(cssCode),
-  'I4 两个动作键收进右侧的 .steward-board-tools（左半是「什么情况」，右半是「你能做什么」）');
+  'I3 在跑／排队是两枚状态 pill（在跑带 running 色点，排队保持安静），住在左栏的看板栏头里');
+// 121-K4：那一排右侧动作键只剩「全部暂停」一枚（「整体切到 2.0」随视角切换收归顶栏而退役），
+// 一枚按钮不需要一个把它推到右边的容器 —— .steward-board-tools 整个删掉。翻面钉住它不在了。
+ok(!/steward-board-tools/.test(html) && !/steward-board-tools/.test(cssCode)
+  && /id="stewardBoardPauseAllBtn"/.test(railMarkup),
+  'I4 「全部暂停」直接排在栏头里（.steward-board-tools 随「整体切到 2.0」一起退役）');
 // 「全部暂停」的可点态：判据必须与 pauseAll 自己那一行 filter 逐字同源，不许借 arbiter.running
 // （仲裁面数的是占着并发位的线程，能被暂停的是有活 run 的线程，两者在「只跑对话回合」那类线程上不一样）。
 // 32 号文 §4（M2-b）**重钉**：判据本体搬进叶子 js/run-state.js（2.0 的 run 卡同一份），两处就地写的
@@ -504,9 +533,13 @@ ok(/function syncPauseAll\(\) \{/.test(boardCode)
   && typeof runStateMod.runControlAction === 'function'
   && /\.steward-board-btn:disabled \{/.test(cssCode),
   'I5 「全部暂停」只在真有可暂停的 run 时可点，判据与 pauseAll 自己那一行 filter 同源（32 号文 §4 起是 js/run-state.js 那一份共享件）');
-ok(/\.steward-board-mission \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S]{0,200}border-radius: var\(--r-md\);/.test(cssCode)
-  && !/\.steward-board-mission \{[^}]*border-top: 1px solid/.test(cssCode),
-  'I6 每个事项一张卡（此前是「一条细分隔线上的一行小字」，十来行下来分不出哪几行属于哪一件）');
+// 121-K4（§2.3）：B1 的口径在左栏反过来 —— **任务是主、线程是展开项**。所以「每个事项一张卡」
+// 这件事不再成立：多线程任务画的是一行【任务行】（.rail-task，与线程行同一枚卡基元 ＋ 小计数 ＋
+// 折角），点开才是缩进的线程行。那张玻璃事项卡（.steward-board-mission）整族删除。
+ok(!/steward-board-mission/.test(cssCode) && !/steward-board-mission/.test(boardCode)
+  && /\.rail-task\.is-open \.rail-chev \{ transform: rotate\(180deg\); \}/.test(cssCode)
+  && /\.rail-threads\.is-open \{ grid-template-rows: 1fr; \}/.test(cssCode),
+  'I6 多线程任务是一行任务行（折角＋展开），不再是一张把线程行裹起来的事项卡');
 // 117u-G2 **重钉 I6b**（B1／B4 把那一串三枚拆成了两处）：事项头只剩「事项名 · N 条」一枚药丸，
 // 钱与验收搬去了卡尾那一行。被钉的事实一个字没变 —— 「·」仍然是【生成内容】，DOM 一个节点没加，
 // 而且仍然只有【一条】声明在生产它（两个落点写在同一条规则里）。判据跟着两个落点走，并额外
@@ -515,9 +548,9 @@ ok(/\.steward-board-mission \{[\s\S]{0,400}background: var\(--glass-bg-3\);[\s\S
 // .steward-status-line::before 从 117h 起就有一个，与药丸串这件事无关（数整层会把它算进来）。
 const pillDotRules = [...cssCode.matchAll(/([^{}]*steward-board-pill[^{}]*)\{([^}]*)\}/g)]
   .filter(match => /content: "·"/.test(match[2]));
-ok(/\.steward-board-facts \.steward-board-pill \+ \.steward-board-pill::before,\s*\.steward-board-mission-head \.steward-board-pill::before \{/.test(cssCode)
+ok(/\.steward-board-facts \.steward-board-pill \+ \.steward-board-pill::before \{/.test(cssCode)
   && pillDotRules.length === 1,
-  `I6b 「·」是同一条规则生产的生成内容（事项头那枚 N 条之前、卡尾事实行相邻药丸之间两个落点），DOM 一个节点没加（实测涉及药丸的规则块 ${pillDotRules.length} 条）`);
+  `I6b 「·」仍是生成内容、仍只有一条规则在生产它（事项头那个落点随事项卡退役，只剩卡尾事实行相邻药丸之间这一处），DOM 一个节点没加（实测涉及药丸的规则块 ${pillDotRules.length} 条）`);
 // 117u-G2 **重钉 I7**（B1）：缩进的意思是「这几条挂在上面那个事项名下面」，所以它只属于【真分了
 // 组】的卡 —— 单线程事项已经不画事项层，那张卡没有可挂的名字，缩进只会让它无故凹进去。原判据
 // 钉的是「.steward-board-thread 自己带 --sp-4」，B1 之后这句话不再成立；新判据把两件事都钉死：
@@ -525,18 +558,22 @@ ok(/\.steward-board-facts \.steward-board-pill \+ \.steward-board-pill::before,\
 // 规则块里一处 margin-inline-start 都没有（否则单线程那张卡又会凹回去）。
 const bareThreadRule = cssCode.slice(cssCode.indexOf('.steward-board-thread {'),
   cssCode.indexOf('}', cssCode.indexOf('.steward-board-thread {')));
-ok(/\.steward-board-mission\.is-grouped \.steward-board-thread \{ margin-inline-start: var\(--sp-4\); \}/.test(cssCode)
-  && /\.steward-board-mission\.is-grouped \.steward-board-thread \{ margin-inline-start: var\(--sp-2\); \}/.test(cssCode)
+// 121-K4：缩进的意思没变（「这几条挂在上面那个名字下面」），换的是它挂在谁身上 —— 现在是
+// 展开容器里的线程行（.rail-threads .steward-board-thread），用 padding 而不是 margin：那一层
+// 是 grid 0fr→1fr 的动画容器，外边距会在收起的那一帧被算进去、露出一条缝。
+// 裸规则块里仍然一处 margin-inline-start 都没有（否则单线程任务那张卡又会无故凹进去）。
+ok(/\.rail-threads \.steward-board-thread \{ padding-inline-start: var\(--sp-5\); \}/.test(cssCode)
   && !/margin-inline-start/.test(bareThreadRule)
-  && /\.steward-board-thread \+ \.steward-board-thread \{ border-top: 1px solid var\(--glass-border\); \}/.test(cssCode)
+  && /\.steward-board-thread \+ \.steward-board-thread \{ border-top: 1px solid var\(--line\); \}/.test(cssCode)
   && /\.steward-board-thread:hover \{ background: var\(--panel-2\); \}/.test(cssCode),
-  'I7 缩进只属于分了组的线程卡（宽屏 --sp-4／390px --sp-2 各一条，裸规则块里零 margin-inline-start）；行间 1px 分隔线、hover 底色微亮照旧');
+  'I7 缩进只属于【展开出来的】线程行；行间 1px 分隔线、hover 底色微亮照旧（分隔线随 §7.1 从玻璃色换成实色 --line）');
 ok(/\.steward-board-thread-head \{[\s\S]{0,300}flex-wrap: wrap;/.test(cssCode)
   && /\.steward-board-thread-title \{[\s\S]{0,200}min-width: 5em;/.test(cssCode),
   'I7b 390px 下线程名不许被 pill 与时间挤成 0 宽（改前实测：整个线程名从屏幕上消失）');
-ok(/\.steward-board-pill\.is-asks-you \{[\s\S]{0,300}background: var\(--gold-soft\);/.test(cssCode)
-  && /color: var\(--gold\);/.test(cssCode),
-  'I8 「它在问你」从金色实底改成金色描边 + 极淡金底（仍是全行唯一带颜色的东西，只是不再喊）');
+const asksYouRule = cssCode.slice(cssCode.indexOf('.steward-board-pill.is-asks-you {'),
+  cssCode.indexOf('}', cssCode.indexOf('.steward-board-pill.is-asks-you {')));
+ok(/background: var\(--gold-soft\);/.test(asksYouRule) && /color: var\(--gold\);/.test(asksYouRule),
+  'I8 「它在问你」是金色描边 + 极淡金底（仍是全行唯一带颜色的东西，只是不再喊）');
 ok(/const empty = el\('div', 'steward-board-empty'\);/.test(boardCode)
   && /empty\.appendChild\(boardButton\('stewardShell\.board\.newThread', \(\) => newThread\(''\)/.test(boardCode),
   'I9 空态是「一句话 ＋ 一个出口」（＋ 线程），不是一行孤零零的灰字');
@@ -568,10 +605,13 @@ ok(/if \(ids\.length === 1\) \{[\s\S]{0,400}drawer\.focusAsk\(\)/.test(boardCode
   && /const id = openThread\(ids\[0\]\);/.test(boardCode)
   && /focusAsk,/.test(drawer),
   'J3 恰好 1 条 → 直接打开那条线程的抽屉，并把焦点送进问答卡（抽屉导出 focusAsk 供「已经开着同一条」时补一次）');
-ok(/needsYouFirst = true;\s*setBoardOpen\(true\);/.test(boardCode)
-  && /if \(!open\) needsYouFirst = false;/.test(boardCode)
-  && /group\.rows = group\.rows\.slice\(\)\.sort/.test(boardCode),
-  'J3b 多于 1 条 → 拉开看板并把等你的行排到最前；排的是渲染用的【副本】，看板一关就复位（GET /api/missions 的行序不动）');
+// 121-K4：修前这一支是「拉开看板浮层 ＋ 把等你的行临时排到最前」。左栏常开、组头本来就把
+// 等你的那几件收在一起之后，两步都不需要了 —— 滚过去就是全部。那个只活一程的临时排序
+// （needsYouFirst）随之删掉：**后端行序自此是屏幕上唯一的行序**（翻面钉住它不再出现）。
+ok(/return jumpToGroup\('needs_you'\);/.test(boardCode)
+  && !/needsYouFirst/.test(boardCode)
+  && !/group\.rows = group\.rows\.slice\(\)\.sort/.test(boardCode),
+  'J3b 多于 1 条 → 把左栏滚到「等你」那一组；行序永远是后端那一份（临时重排已随看板浮层退役）');
 ok(/\.steward-status-needsyou\[hidden\] \{ display: none; \}/.test(cssCode)
   && !/\.steward-status-needsyou \{[^}]*transition/.test(cssCode),
   'J4 新控件的显隐由 [hidden] 驱动（配 display 守卫），且没有偷偷加过渡（reduced-motion 清单一个字没动）');
@@ -621,10 +661,18 @@ ok(!/async function syncNow/.test(boardCode)
   && !/await drawer\.refreshOnce\(\)/.test(syncNowBody)
   && /drawer\.refreshOnce\(\)\.catch\(\(\) => \{\}\)/.test(syncNowBody),
   'L2 强刷是发射后不管（不 await、失败自吞）：syncNow 仍然同步返回布尔，focusThread 的回退判据与 closeNow／leaveSteward／断点回调拿到的还是真布尔');
+// 121-K4 重钉：多出【第二个】强刷点，理由与 L1 是同一条（「抽屉手里那份切片一定是旧的」），
+// 只是时刻不同 —— applyLivePush 里「这一回合的第一个字」那一刻：抽屉是在 thread.state 那一帧
+// 读的切片，那时回合刚起跑、一个字都没有，所以它画的还是上一回合的「它刚说」。
+// 门开得很窄，三条【同时】成立才补：① 从无到有那一次（!row.liveTail）；② 这条线程正是焦点；
+// ③ 抽屉真导出 refreshOnce。所以仍然不是「每条 live 跟一发请求」（那正是 K2b 拒绝的形状）：
+// 一个回合最多补一发。反向验证：把 firstTick 去掉（每条 live 都补）→ 本条立刻真红。
 ok(count(boardCode, /syncNow\(\{ focusRequest: true \}\)/g) === 1
   && /if \(!syncNow\(\{ focusRequest: true \}\) &&/.test(boardCode)
-  && count(boardCode, /drawer\.refreshOnce\(\)/g) === 1,
-  'L3 强刷只挂在【焦点请求】这一条路上（全模块唯一一处 focusRequest:true 就在 focusThread 里，而焦点／打开事件、行标题、行上的「打开」四条路都经它）—— refreshBoard 的每一拍、closeNow、leaveSteward、断点变化那几处 syncNow() 不强刷');
+  && count(boardCode, /drawer\.refreshOnce\(\)/g) === 2
+  && /const firstTick = !row\.liveTail;/.test(boardCode)
+  && /if \(firstTick && drawer && typeof drawer\.refreshOnce === 'function' && currentFocusId\(\) === sid\)/.test(boardCode),
+  'L3 强刷只有两条路：【焦点请求】（focusThread 那一处 focusRequest:true）与【这一回合的第一个字】（applyLivePush 里 firstTick ＋ 焦点相符那一次）—— refreshBoard 的每一拍、closeNow、leaveSteward、断点变化那几处 syncNow() 不强刷，thread.live 也不是每条都补');
 
 // ─── M F3（32 号文 §2.2「线程即频道」）：右栏从「现在这一件」变成「现在这几件」──────────
 // 焦点那一条【仍然是那一份 docked 抽屉】（E 组一个字没动），其余线程按服务端行序在它上下叠成
@@ -673,13 +721,16 @@ ok(/paintThreadCard\(el\('li', 'steward-now-thread'\), sessionId\)/.test(nowThre
 // 117u-G2 M5b（§11.15.3 B2「色 ≠ 态」）：看板与右栏两处线程卡上，色条与色点都【不许】读状态。
 // 可证伪的形式：paintDot（唯一那处把 data-state / data-tone 写上节点的函数）只被事项头那颗聚合点
 // 用一次 —— 线程卡这两面一次都不调它。
-ok(count(boardCode, /paintDot\(/g) === 2
-  && /head\.appendChild\(paintDot\(el\('span', 'steward-board-dot'\), group\.aggregateState\)\);/.test(boardCode)
+// 121-K4：那颗「按聚合态上色的事项点」随事项卡一起退役 —— 左栏的任务行用的是与线程行【同一枚】
+// 卡基元（色条＋色点按任务色，态由药丸说）。于是 paintDot 一个调用点都不剩：定义 1 ＋ 调用 0。
+// 被钉的事更强了：**整个模块没有一处把状态画成颜色**。
+ok(count(boardCode, /paintDot\(/g) === 1
+  && !/paintDot\(el\(/.test(boardCode)
   && !/paintDot\(/.test(nowThreadBody),
-  `M5b 色 ≠ 态：paintDot（写 data-state 的那一处）只剩事项头那颗聚合点在用（定义 1 ＋ 调用 1 = ${count(boardCode, /paintDot\(/g)} 处），两面线程卡的色条与色点一次都不读状态`);
+  `M5b 色 ≠ 态：paintDot（写 data-state/data-tone 的那一处）自此零调用点（定义 1 ＋ 调用 0 = ${count(boardCode, /paintDot\(/g)} 处），左栏与右栏的卡一次都不把状态画成颜色`);
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
-  && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
-  `M6 「展开还是折成一行」只读 paintDot 出的 data-tone（四档里的前两档），零新增五态字面量：needs_you 仍然恰好两处、'stopped' 一处、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
+  `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 11（两处计算＋九处分组映射）、'stopped' 一处、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 ok(/\.steward-now-stack \{/.test(cssCode) && /max-height: 33%;/.test(cssCode) && /overflow-y: auto;/.test(cssCode)
   && /\.steward-now-stack:empty \{ display: none; \}/.test(cssCode)
   && !/\.steward-now-(stack|thread)[^{]*\{[^}]*transition/.test(cssCode),
@@ -707,8 +758,8 @@ ok(missionStateMod.STATES.every(state => !new RegExp("'" + state + "'").test(ico
   'N2 那一枚字形是【派生】不是【查表】：icons.js 里零五态字面量、零 STATES 清单 —— 谁处在哪一态永远只由 mission-state.js 判，图标层长不出第二份枚举');
 ok(count(boardCode, /missionStateIcon\(/g) === 1
   && /import \{ icon, missionStateIcon \} from '\.\/icons\.js';/.test(board)
-  && count(boardCode, /needs_you/g) === 2 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
-  `N3 看板只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 F3 那一刀逐字相同（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
+  `N3 左栏只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 B5／M6 同账（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 // 117u-G2 **重钉 N4**：tone 从 paintDot 里提成了纯函数 toneOf —— B2 之后小行那颗点归线程色，
 // 但「展开还是折成一行」仍然只认这四档 tone，提出来之前要拿 tone 必须先造一颗点再读回来再扔掉。
 // 被钉的契约一个字没变：settleDone 那一档没动，dockToneForMissionState 在全模块【仍然只被调用
@@ -728,10 +779,10 @@ ok(boardGlyphNames.length >= 6 && boardGlyphNames.every(name => iconNameSet.has(
   `N5 看板取用的每一个字形名都在 ICONS 表里（拼错只会 console.warn，界面上静静地少一枚；实测 ${JSON.stringify([...new Set(boardGlyphNames)].sort())}）`);
 // 文案里已经画过的符号不再画第二遍：「＋ 线程」那句本身以「＋」开头，配上 plus 会渲染成
 // 「＋ ＋ 线程」（第一版就是这样，看板截图当场看出来的）。所以这两处刻意【不给】字形。
-ok(count(boardCode, /boardButton\('stewardShell\.board\.newThread'[^\n]*\)\);/g) === 2
+ok(count(boardCode, /boardButton\('stewardShell\.board\.newThread'[^\n]*\)\);/g) === 3
   && !/boardButton\('stewardShell\.board\.newThread'[^\n]*, '[a-z]+'\)\)/.test(boardCode)
   && /^＋/.test(String(zh['stewardShell.board.newThread'])),
-  'N5b 「＋ 线程」刻意不配字形：那句文案自己就带着一个「＋」，再画一枚 plus 会变成「＋ ＋ 线程」');
+  'N5b 「＋ 线程」刻意不配字形（三处：线程行卡尾、任务行卡尾、空态）：那句文案自己就带着一个「＋」，再画一枚 plus 会变成「＋ ＋ 线程」');
 ok(/function boardButton\(labelKey, handler, dataset, iconName\)/.test(boardCode)
   && /const button = el\('button', 'steward-board-btn', t\(labelKey\)\);/.test(boardCode)
   && count(boardCode, /'steward-board-btn'/g) === 1,

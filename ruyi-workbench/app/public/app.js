@@ -38,6 +38,7 @@ import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js'
 import { createShellModeController } from './js/shell-mode.js'; // 121-K1
 import { createAppFrame } from './js/app-frame.js'; // 121-K4
 import { createEventStream } from './js/event-stream.js'; // 121-K2b
+import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：左栏「＋ 新任务」派的那一条
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
@@ -806,6 +807,7 @@ const eventStream = createEventStream({
 
 const {
   autonomyFormSync,
+  bindRailSessionActions, // 121-K4：左栏行上三枚会话级动作（置顶/重命名/删除）的委托
   buildEmptyState,
   cliMissingCard,
   errorCard,
@@ -827,6 +829,8 @@ const {
   renderResumeBanner,
   renderSessions,
   scheduleSessionSearch,
+  sessionSearchSnapshot, // 121-K4：左栏搜索读 113b 的结果快照
+  setRailRenderer, // 121-K4：左栏由管家域那一份 renderRail 画（迟绑定）
   renderStepBar,
   revokeAllAutonomyGrants,
   rollbackTurn,
@@ -890,6 +894,7 @@ const stewardShellDomain = createStewardShellDomain({
   closeSettings: () => closeModal('settingsModal'),
   now: () => new Date(),
   openSession, // 117d：抽屉的「2.0 视窗」＝切经典壳 + 选中该会话
+  searchState: () => sessionSearchSnapshot(), // 121-K4：左栏搜索（Ctrl+K）读 113b 的结果快照
   saveConfigPartial, openSettingsTab: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'steward', true); }, // 117e
   // 117s-C（走查⑦「输出要支持 markdown、制图」）：全仓唯一的 markdown＋XSS 净化路径（trusted innerHTML
   // 只住在 chat-render-primitives 的 renderMarkdownInto 里）每个消费者都在【这里】注入拿到；管家壳接上
@@ -897,9 +902,47 @@ const stewardShellDomain = createStewardShellDomain({
 });
 stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;
+// 121-K4（§2.3）：左栏是两视角共用的那一份 DOM，画它的只有管家域里那一处 renderRail。
+// 工作台这一侧（开／建／改名／删会话）调的仍是 renderSessions —— 那个名字现在只是这条转接口。
+setRailRenderer(() => stewardShellDomain.board.syncRail());
 // 121-K4：外框（顶栏的视角分段钮与齿轮菜单、左栏的密度与 Ctrl+K、≤1180 的右栏抽屉）。
 // 它只调 applyShellMode，不写 data-shell-mode —— 唯一写者仍是 shell-mode.js。
 const { bindAppFrame } = createAppFrame({ applyShellMode });
+
+// ── 121-K4（34 号文 §2.3）：左栏那枚「＋」的两义 ──────────────────────────────────
+// 同一枚按钮（#newSessionBtn），两视角两种含义：
+//   管家视角「＋ 新任务」= 让如意【另起一件】—— 只把输入框的递送目标切成「→ 如意 · 另起一件」
+//     并聚焦，**不建会话**；回车之后由管家开任务与首条线程（走 13k 的 steward_thread_new）。
+//     它派的是 steward:new-thread（missionId 空串＝没有事项可挂，composer 的 markNewInMission
+//     把它落到「另起一件」那一档），与抽屉／左栏行上的「＋ 线程」同一条通道，不新起第二条。
+//   工作台视角「＋ 新线程」= 立即开一条线程（2.0 那条 createSession），**并且清空中栏现场**。
+function startFromRail() {
+  if (document.documentElement.getAttribute('data-shell-mode') === 'steward') {
+    try { document.dispatchEvent(new CustomEvent(STEWARD_NEW_THREAD_EVENT, { detail: { missionId: '', fromSessionId: '' } })); }
+    catch { /* 无 CustomEvent 的宿主 */ }
+    return null;
+  }
+  clearThreadStage();
+  return newSession();
+}
+// 「清空中栏现场」（用户 2026-09-10 晚追加，§2.3）：消息流、附件托盘、草稿、「它正在跑」卡、
+// 右栏「项目与进度」的本轮变更全部归零，不把上一条线程的任何内容带进新线程；工作区沿用
+// （那是唯一保留的上下文，newSession 自己读 state.config.defaultWorkspace）。
+//   · 消息流与空态：newSession → renderCurrentSession 已经重画（新会话没有消息）；
+//   · 「它正在跑」卡：liveTurnVisible() 的第一道门就是「手上这份活文本是不是当前会话的」，
+//     换到新会话后它自然为假（session-experience 的那处判据，不在这里抄第二份）；
+//   · 附件托盘／草稿／本轮变更这三样是【本页自己的状态】，没人替它们归零 —— 就是这里。
+function clearThreadStage() {
+  state.attachments.length = 0;
+  renderAttachments();
+  const input = $('promptInput');
+  if (input) { input.value = ''; autoGrow(input); }
+  try { localStorage.removeItem('wcw.draft'); } catch { /* 本机偏好不可用不影响本次清场 */ }
+  const hint = $('composerHint');
+  if (hint) { hint.innerHTML = ''; hint.style.display = 'none'; }
+  void loadChanges();   // 右栏「本轮变更」：新会话一条都没有，它会落回空态提示
+  return true;
+}
 
 function bindEvents() {
   bindShellModeControl(); // 121-K1：视角切换控件与首屏视角判定（data-shell-mode 的唯一常规写者）
@@ -907,7 +950,8 @@ function bindEvents() {
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   // sidebar
-  $('newSessionBtn').onclick = () => newSession();
+  $('newSessionBtn').onclick = () => { void startFromRail(); };
+  bindRailSessionActions(); // 121-K4：左栏行上「置顶／重命名／删除」的委托（会话怎么改仍在 session-experience 一处）
   // 113b: 侧栏搜索改走去抖的内容搜索（q ≥ 2 字符）；它内部会再调 renderSessions，
   // 失败/关闭/还没回来时自动回退到旧的子串过滤。
   $('sessionSearch').oninput = scheduleSessionSearch;

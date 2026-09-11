@@ -66,7 +66,7 @@ button.mini { padding: 3px 8px; font-size: var(--fs-sm); min-height: 0; } /* v3 
 }
 .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
 /* v3 (§B4/§1.3): 补挂 --tap-min 到会话项 / 工具页签 / 技能开关 / 任务池审批按钮(base button 已挂,这里强调并覆盖非-button)。 */
-.session-item, .tool-tabs button, .skill-toggle, .pool-actions button { min-height: var(--tap-min); }
+.steward-board-thread, .tool-tabs button, .skill-toggle, .pool-actions button { min-height: var(--tap-min); }
 
 /* ── UI v3 (§2.15): SVG 线性图标集 —— icons.js 构建,stroke=currentColor 随文字/引擎色走。 ── */
 .ic { flex: none; display: inline-block; vertical-align: -0.15em; }

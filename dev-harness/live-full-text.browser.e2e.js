@@ -204,9 +204,12 @@ async function waitForEval(cdp, expression, attempts = 500) {
   return null;
 }
 
+// 121-K4（34 号文 §2.3 末条）：2.0 的会话列表由左栏的任务索引取代 —— 就绪判据跟着换成
+// 「左栏 #railList 里真的画出了行」（行是 .steward-board-thread，三面共用的那枚卡基元）。
+// 钉的那件事一个字没变：页面真的载完了，而且这条线程在左栏里看得见。
 const READY = `(() => {
-  if (!document.getElementById('sessionList') || !window.state || !window.state.status || !window.state.config) return null;
-  if (!document.querySelectorAll('#sessionList .session-item').length) return null;
+  if (!document.getElementById('railList') || !window.state || !window.state.status || !window.state.config) return null;
+  if (!document.querySelectorAll('#railList .steward-board-thread').length) return null;
   return { ready: true };
 })()`;
 
@@ -361,11 +364,12 @@ try {
 
   /* ═════════ B 打开线程:气泡真的出现 ═════════ */
   console.log('── B 经典壳打开这条线程 ──');
+  // 121-K4：点的是左栏那一行（同一份 DOM 两视角共用；工作台视角点它＝openSession）。
   await cdp.evaluate(`(() => {
-    const item = [...document.querySelectorAll('#sessionList .session-item')]
+    const item = [...document.querySelectorAll('#railList .steward-board-thread')]
       .find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
     if (!item) return false;
-    item.click();
+    item.querySelector('.steward-board-thread-title').click();
     return true;
   })()`);
   const live = await waitForEval(cdp, `(() => {
@@ -494,9 +498,9 @@ try {
   })()`);
   // 切回来时 openSession 会被「2.0 视窗」那条路重走一遍;这里直接再点一次侧栏,等价且不依赖那条路。
   await cdp.evaluate(`(() => {
-    const item = [...document.querySelectorAll('#sessionList .session-item')]
+    const item = [...document.querySelectorAll('#railList .steward-board-thread')]
       .find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
-    if (item) item.click();
+    if (item) item.querySelector('.steward-board-thread-title').click();
     return true;
   })()`);
   const back = await waitForEval(cdp, `(() => {

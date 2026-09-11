@@ -193,8 +193,14 @@ ok(maskers.length === 0, '④ 没有任何一处一边说「没事实」一边�
 /* ═══════════ ⑤ 看板行上的速查徽标:身份没消失,只是搬了家 ═══════════ */
 
 const board = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'public', 'js', 'steward-board.js'), 'utf8');
-ok(/String\(row\.kind \|\| ''\) === 'quick_ask'/.test(board),
-  "⑤ 看板行按【kind】给徽标(不是按 state)");
+// 121-K4（34 号文 §13.5 末「登记 K4」②）：判据从 kind 换成行上的身份格 `row.quick`。
+// K3 放宽索引口径之后【普通会话也有卡片】，而 sessionKind() 对它们同样返回 'quick_ask'（第 70 波
+// 的那个值是【档位】不是【身份】）—— 读 kind 会给每一条手工开的会话贴一枚「速查」（K3 那一刀
+// 在真夹具里逮到过这个假徽标，见 §13.5「全量逮到的两条真红」）。`quick` 由 13d buildMissionCard
+// 与 13j stewardQuickThread 同源算出，左栏只读结果。钉的那件事一个字没变：**身份没消失，只是
+// 不再判定 state**，而且判据不许回到 kind 上。
+ok(/row\.quick === true/.test(board) && !/row\.kind \|\| ''\) === 'quick_ask'/.test(board),
+  "⑤ 左栏行按【row.quick】给徽标(不是按 state,也不再按 kind——K3 之后 kind 对普通会话同样返回 quick_ask)");
 ok(/t\('mission\.state\.quick_ask'\)/.test(board),
   '⑤ 徽标文案复用既有键 mission.state.quick_ask(不新开 locale 键)');
 // 徽标是【并列】的兄弟节点,不许替换五态信号。

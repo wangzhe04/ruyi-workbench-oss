@@ -848,17 +848,17 @@ function closeToolDrawer() { document.querySelector('.app-shell').classList.remo
 // 121-K4(34 号文 §7.1):两处改动,都是「一台两视共用一个右栏宽度」逼出来的 ——
 //   ① 基准档 340 → 392:设计稿定的右栏就是 392px,而这个档位是全仓唯一写 --right-w 的地方。
 //      存量偏好里的 '340' 不在表里,会被下面那句 fallback 归一到 '392'(迁移即自愈,不留死值)。
-//   ② --right-w 写在【外框】而不是 .app-shell 上:两个视角的右栏读的是同一个自定义属性,
-//      写在 .app-shell 上的话管家视角看不见它,切视角就会跳一次宽度(实测 340 ↔ 392 差 52px)。
-//      内联值同时压得住 layout.css 里 ≥1600 那条容器查询(用户拖过之后不被它改回去)。
+//   ② --right-w 写在【.app-body】而不是 .app-shell 上:两个视角容器都在它里面,于是读的是同一个
+//      自定义属性;写在 .app-shell 上的话管家视角看不见它,切视角就会跳一次宽度(实测 340 ↔ 392 差 52px)。
+//      内联值同时压得住 layout.css 里 ≥1600 那条容器查询(它也落在 .app-body 上,用户拖过之后不被改回去)。
 //      .rp-wide / .tools-fullscreen / .right-resizing 三个类仍然写在 .app-shell 上(它们只管 2.0 那一栏)。
 const RIGHT_TIERS = ['392', '480', 'full'];
 const RIGHT_FULL_THRESHOLD = 620; // 拖过此像素宽度 → 吸附到全屏档
 function applyRightWidth(tier, persist = true) {
   if (!RIGHT_TIERS.includes(tier)) tier = '392';
   const shell = document.querySelector('.app-shell'); if (!shell) return;
-  // 宽度写在外框上(两视角共用);类仍写在 .app-shell 上。缺外框时退回 shell,行为与 K4 之前一致。
-  const widthHost = document.querySelector('.app-frame') || shell;
+  // 宽度写在 .app-body 上(两视角共用);类仍写在 .app-shell 上。缺外框时退回 shell,行为与 K4 之前一致。
+  const widthHost = document.querySelector('.app-body') || shell;
   // Chrome 无法可靠过渡「var() 驱动的 grid 轨」的变化(会卡在起始宽度);切档时抑制过渡让新轨宽即时落定。
   // 末尾强制同步重排后立即移除(不用 rAF —— 后台/空闲渲染时 rAF 可能不触发,会把过渡永久关死)。
   // (侧栏折叠的过渡不受影响 —— 它变的是【具体值】首轨 288<->0,不走此路径。)
@@ -907,7 +907,7 @@ function initRightResize() {
     if (isNarrow() || e.button !== 0) return;
     e.preventDefault();
     const shell = document.querySelector('.app-shell');
-    const widthHost = document.querySelector('.app-frame') || shell;
+    const widthHost = document.querySelector('.app-body') || shell;
     try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     shell.classList.add('right-resizing');
     shell.classList.remove('tools-fullscreen'); // 拖动即回到可变轨宽预览

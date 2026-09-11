@@ -403,7 +403,8 @@ try {
       const row = () => {
         const title = window.__ruyiTargets.title;
         if (!title) return null;
-        const rows = [...document.querySelectorAll('#stewardBoardList .steward-board-thread')];
+        // 121-K4：行搬到左栏 #railList（看板浮层退役），类名与 data-state 一个字没变。
+        const rows = [...document.querySelectorAll('#railList .steward-board-thread')];
         return rows.find(node => {
           const label = node.querySelector('.steward-board-thread-title');
           return label && String(label.textContent || '').indexOf(title) >= 0;
@@ -555,10 +556,12 @@ try {
   ok(Boolean(bAt) && bLag <= LATENCY_BUDGET_MS,
     `B-b 指标 b：回合收工 → 左栏药丸落到收尾档 ${Number.isFinite(bLag) ? bLag : '∞'} ms ≤ ${LATENCY_BUDGET_MS}（今天是 ~5 s）`);
 
-  /* ═════════ B-f 看板【收起】时左栏照样跟得上（§6.2 删掉的那道门）═════════ */
-  await cdp.evaluate(`(() => { const line = document.getElementById('stewardStatusLine'); if (line && line.getAttribute('aria-expanded') === 'true') line.click(); return true; })()`);
-  const collapsed = await waitForEval(cdp, `document.getElementById('stewardBoard').hidden === true ? 1 : null`);
-  ok(Boolean(collapsed), 'B-f0 看板已收起（#stewardBoard hidden）');
+  /* ═════════ B-f 左栏【常开】也照样跟得上（§6.2 删掉的那道门；121-K4 连门框一起拆了）═════════ */
+  // K2b 时这一组的前提是「把看板收起来」——「看板关着不刷」那道门删掉之后，它仍是一个能立住的
+  // 前提。121-K4 把浮层整块退役：左栏是常开的一栏，连「收起」这个状态都不存在了。
+  // 所以 B-f0 翻面钉住那个前提本身已经消失，B-f 要证的事（推送到了左栏就跟得上）一个字没变。
+  const collapsed = await waitForEval(cdp, `(!document.getElementById('stewardBoard') && document.querySelectorAll('#railList .steward-board-thread').length) ? 1 : null`);
+  ok(Boolean(collapsed), 'B-f0 看板浮层已退役，左栏常开（「收起来还刷不刷」这个前提自此不存在）');
   await cdp.evaluate(`(window.__ruyiArm('f'), true)`);
   const hangRunning = waitForFrame(stream, f => f.event === 'thread.state' && f.data && f.data.sessionId === sid && f.data.state === 'running'
     && serverAtOf(f) > (doneFrame ? serverAtOf(doneFrame) : 0));
@@ -615,17 +618,18 @@ try {
   ok(Boolean(await waitForHttp(appPort, 'GET', `/api/sessions/${encodeURIComponent(sideId)}`,
     result => Boolean(result.json && result.json.liveTail && typeof result.json.liveTail === 'object'), token, 300)),
     'D-0a 侧条里那条会话上起了一个【别处发起】的活回合（浏览器没挂在它的流上 —— 管家派活就是这个形状）');
-  // 匹配【显示名或原话】两者之一：跑过回合的会话，侧条上那一行显示的是 sessionDisplayTitle
-  // （可能已被摘要换掉），原话只留在 .s-title 的 title 属性里（116-5b「不改写 title」那条）。
+  // 匹配【显示名或原话】两者之一：跑过回合的线程，行上显示的是 sessionDisplayTitle
+  // （可能已被摘要换掉），原话只留在标题按钮的 title 属性里（116-5b「不改写 title」那条）。
+  // 121-K4：点的是左栏那一行（两视角共用的同一份 DOM；工作台视角点它＝openSession）。
   const clickSession = title => cdp.evaluate(`(() => {
     const needle = ${JSON.stringify(title)};
-    const items = [...document.querySelectorAll('#sessionList .session-item')];
+    const items = [...document.querySelectorAll('#railList .steward-board-thread')];
     const hit = items.find(node => {
-      const label = node.querySelector('.s-title');
+      const label = node.querySelector('.steward-board-thread-title');
       if (!label) return false;
       return String(label.textContent || '').indexOf(needle) >= 0 || String(label.title || '').indexOf(needle) >= 0;
     });
-    if (hit) hit.click();
+    if (hit) hit.querySelector('.steward-board-thread-title').click();
     return Boolean(hit);
   })()`);
   const diag = () => cdp.evaluate(`(() => ({
@@ -633,7 +637,7 @@ try {
     current: (window.state && window.state.currentSession && window.state.currentSession.id) || '',
     hasCard: Boolean(document.querySelector('#messages [data-live="1"]')),
     intervals: window.__ruyiLiveIntervals(),
-    titles: [...document.querySelectorAll('#sessionList .session-item .s-title')].map(n => n.textContent + '|' + (n.title || '')),
+    titles: [...document.querySelectorAll('#railList .steward-board-thread-title')].map(n => n.textContent + '|' + (n.title || '')),
   }))()`).catch(() => null);
   ok(await clickSession(SIDE_TITLE) === true, `D-0b 工作台侧条里点开那条会话（${SIDE_TITLE}）`);
   const liveCard = await waitForEval(cdp, `Boolean(document.querySelector('#messages [data-live="1"]')) ? 1 : null`);

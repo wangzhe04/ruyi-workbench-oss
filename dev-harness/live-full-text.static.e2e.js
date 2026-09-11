@@ -271,13 +271,23 @@ ok(!/\btoolCard\(/.test(experienceCode) && !/\bthinkingPanel\(/.test(experienceC
 {
   // 用户原话:「我希望 3.0 的每一条线程,都能对应 2.0 的一个会话」。架构上已经成立(steward_thread_new
   // 走的就是 createSession),但从来没有断言看着它。以后谁给经典壳的会话列表加 kind 过滤,这条当场红。
-  const start = experienceCode.indexOf('function renderSessions()');
-  const body = start >= 0 ? experienceCode.slice(start, experienceCode.indexOf('\n}', start) + 2) : '';
-  ok(start >= 0 && !/\bkind\b/.test(body), 'I1 经典壳会话列表的渲染里没有任何 kind 过滤');
-  const itemStart = experienceCode.indexOf('function sessionItem(');
-  const itemBody = itemStart >= 0 ? experienceCode.slice(itemStart, experienceCode.indexOf('\n}', itemStart) + 2) : '';
-  ok(itemStart >= 0 && !/kind !==|kind ===/.test(itemBody),
-    'I2 单条会话项也不按 kind 分叉(管家开的线程与手工建的会话一视同仁)');
+  // 121-K4（34 号文 §2.3 末条）：2.0 的会话列表由左栏的任务索引取代 —— 渲染只剩那一处
+  // （js/steward-board.js 的 renderRail／renderThreadRow）。钉的那件事一个字没变，而且比修前更强：
+  // 修前钉的是「经典壳那一份不过滤」，现在钉的是「全仓唯一的那一份不过滤」。
+  const railSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'steward-board.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const railStart = railSrc.indexOf('function renderRail()');
+  const railBody = railStart >= 0 ? railSrc.slice(railStart, railSrc.indexOf('\n  }', railStart) + 4) : '';
+  ok(railStart >= 0 && !/\bkind\b/.test(railBody), 'I1 左栏（两视角共用的那一份）的渲染里没有任何 kind 过滤');
+  const rowStart = railSrc.indexOf('function renderThreadRow(');
+  const rowBody = rowStart >= 0 ? railSrc.slice(rowStart, railSrc.indexOf('\n  }', rowStart) + 4) : '';
+  ok(rowStart >= 0 && !/kind !==|kind ===/.test(rowBody),
+    'I2 单条行也不按 kind 分叉(管家开的线程与手工建的会话一视同仁；K3 之后 kind 对两者同样返回 quick_ask，身份改读 row.quick)');
+  // renderSessions 自此只是「叫左栏重画一次」的转接口：它不许自己长出第二份行渲染。
+  const bridgeStart = experienceCode.indexOf('function renderSessions()');
+  const bridgeBody = bridgeStart >= 0 ? experienceCode.slice(bridgeStart, experienceCode.indexOf('\n}', bridgeStart) + 2) : '';
+  ok(bridgeStart >= 0 && /railRenderer\(\)/.test(bridgeBody) && !/createElement|innerHTML|appendChild/.test(bridgeBody),
+    'I2b renderSessions 只剩一个转接口（调注入的左栏渲染），它自己一行都不画');
 }
 
 console.log(fail === 0 ? 'LIVE FULL TEXT STATIC: ALL PASS' : `LIVE FULL TEXT STATIC: ${fail} FAILED`);

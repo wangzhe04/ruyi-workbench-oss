@@ -422,7 +422,20 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（沿用 117x-M2 定下的拦截法）：拦 fs.readFileSync 让消费者自己的 readLayerPayload() 去读
 // git blob，同一份代码换数据源 —— 按 HEAD（`c8b3c3b`）算 = 859860b3…，与被替换的旧值【逐字相同】；
 // 再按工作树算得下面这个值。反向验证：往 layout.css 追加一条无关规则 → F3 与 D51 双双转红。
-const LEGACY_STYLES_SHA256 = 'bc6876b62e6807a596167add409f370d054582cd9cb5db84cb26e9a297a5c15a';
+// 121-K4-2 续钉（前值 bc6876b6…）：K4-2 左栏任务索引（§2.3）改四层 ——
+//   ① `css/views/steward-board.css`：看板浮层（.steward-board）与它的 toolbar／事项卡／正文容器
+//      整族删除，换成左栏那一族（.rail-list／.rail-board-head／.rail-group／.rail-gh／.rail-tasks／
+//      .rail-task-count／.rail-chev／.rail-threads 的 0fr→1fr 展开／.rail-origin／.steward-board-sub），
+//      行的基元（.steward-board-thread 与它的卡头／药丸／chip／卡尾／动作）声明一个字没改，
+//      只多了「选中行一层点色底」与「左栏里动作组 display:none 直到悬停」两条；
+//   ② `css/layout.css`：.session-list／.session-item 那一族（含 .s-title/.s-sub/.s-actions/.s-snippet）
+//      随会话列表退役；≤980 图标栏的隐藏清单改指左栏真实的类名，色点用 --thread-color；
+//      --rail-w／--right-w 的断点覆盖从 .app-frame 挪到 .app-body（容器查询改不了容器自己）；
+//   ③ `css/base.css`：触达高度清单里的 .session-item → .steward-board-thread（同一件事换宿主）；
+//   ④ `css/components/tool-pane.css`：触屏常显清单里的 .session-item .s-actions → .steward-board-actions。
+// 算法自证（沿用拦截法）：按上一次钉的那个 commit（`69a505b`）算 = bc6876b6…，与被替换的旧值
+// 【逐字相同】；再按工作树算得下面这个值。反向验证：往 layout.css 追加一条无关规则 → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = '66e8d9a75e49570015740feaccc142b3434db450be28c2ffd38672e706108ca5';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

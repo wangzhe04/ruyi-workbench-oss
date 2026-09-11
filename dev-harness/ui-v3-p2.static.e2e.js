@@ -50,6 +50,8 @@ ok(/--canvas-bg:\s*#0c1119/.test(css) && /--canvas-bg:\s*#edf1f8/.test(css), '0 
 ok(/\.app-shell\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--right-w\)/.test(css),
   'A CSS .app-shell 两轨:中栏 ｜ 右栏 var(--right-w)');
 ok(/\.app-frame\s*\{[\s\S]*?--right-w:\s*392px/.test(css), 'A CSS --right-w 定义在外框上,默认 392px');
+ok(/@container frame \(min-width: 1600px\)\s*\{[\s\S]*?\.app-body \{ --right-w: 440px; \}/.test(css),
+  'A CSS ≥1600 右栏放宽到 440px,且覆盖落在 .app-body(容器查询改不了容器自己)');
 ok(/\.app-body\s*\{[\s\S]*?grid-template-columns:\s*var\(--rail-w\) minmax\(0, 1fr\)/.test(css),
   'A CSS 左栏是外框的第一轨(var(--rail-w)),两视角共用');
 const handleRule = ruleOf('.right-resize-handle {');
@@ -61,9 +63,9 @@ ok(/@media \(max-width:\s*1180px\)[\s\S]*?\.right-resize-handle\s*\{\s*display:\
 ok(/id="rightResizeHandle"/.test(html) && /class="right-resize-handle"/.test(html), 'A HTML #rightResizeHandle 元素就位');
 // JS:三档 + 拖拽 + 双击循环 + localStorage 记忆 + Esc 退出全屏 + 软提示。
 ok(/const RIGHT_TIERS\s*=\s*\['392', '480', 'full'\]/.test(src), 'A JS RIGHT_TIERS = [392,480,full]');
-ok(/const widthHost = document\.querySelector\('\.app-frame'\) \|\| shell;/.test(src)
+ok(/const widthHost = document\.querySelector\('\.app-body'\) \|\| shell;/.test(src)
   && !/shell\.style\.setProperty\('--right-w'/.test(src),
-  'A JS --right-w 写在外框上(两视角共用一个宽度),不再写 .app-shell');
+  'A JS --right-w 写在 .app-body 上(两视角共用一个宽度;容器查询改不了容器自己,断点档的覆盖也落在它上面),不再写 .app-shell');
 ok(/function applyRightWidth\(/.test(src) && /function restoreRightWidth\(/.test(src) && /function cycleRightWidth\(/.test(src), 'A JS applyRightWidth/restoreRightWidth/cycleRightWidth 齐备');
 ok(/function initRightResize\(/.test(src) && /addEventListener\('pointerdown'/.test(src) && /setPointerCapture/.test(src), 'A JS 拖拽手柄 pointerdown + setPointerCapture');
 ok(/addEventListener\('dblclick',\s*\(\)\s*=>\s*cycleRightWidth\(\)\)/.test(src), 'A JS 双击手柄循环切档');

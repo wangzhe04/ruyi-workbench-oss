@@ -89,8 +89,16 @@ for (const [name, content] of [['zh', zh], ['en', en], ['docs-zh', dzh], ['docs-
 
 // ── G8 点色化 ──
 ok(/button\.primary \{ background: linear-gradient\(135deg, var\(--accent\), color-mix\(in srgb, var\(--accent\) 72%, var\(--accent-2\)\)\)/.test(CSS), 'G8a 主按钮青花-黛紫渐变');
-ok(!/\.session-item\.active \{ background: var\(--accent-soft\)/.test(CSS), 'G8b 侧栏选中不再 accent-soft 大片铺底');
-ok(/\.session-item\.active::before/.test(CSS), 'G8c 侧栏选中点色左条在');
+// 121-K4（34 号文 §2.3）：2.0 的会话项（.session-item）随会话列表退役，左栏画的是那枚三面共用的
+// 线程卡。「选中」的表达因此换了形状，而且比修前更省一个信号：
+//   · 选中 = 一层极淡的点色底（.is-sel，§2.9 表里那条 120ms 背景）；
+//   · 左边那道 3px 色条【一直在】，它说的是「这是哪个任务」（F1 纪律：色 ≠ 态、也 ≠ 选中），
+//     所以不需要再为选中画第二条竖线。
+ok(!/\.session-item/.test(CSS.replace(/\/\*[\s\S]*?\*\//g, '')),
+  'G8b 2.0 会话项那一族规则已随会话列表退役（扫的是剥掉注释的载荷：退役说明本身要写清那个类名）');
+ok(/\.steward-board-thread\.is-sel \{ background: var\(--accent-soft\); \}/.test(CSS)
+  && /\.steward-tcard-bar \{[\s\S]{0,200}background: var\(--thread-color\);/.test(CSS),
+  'G8c 左栏选中是一层点色底；左边那道 3px 色条仍然只说「这是哪个任务」');
 
 console.log('\nUI V4 GLASS STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

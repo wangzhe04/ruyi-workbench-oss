@@ -8,7 +8,7 @@
 //
 // v1 断言三层:
 //   (A) 静态资源完整:/ /app.js /styles.css /locales/zh-CN.json 全 200(抓 404/MIME 回归)
-//   (B) 渲染后 DOM 结构:sidebar/sessionList/messages/promptInput/sendBtn/modelChip/
+//   (B) 渲染后 DOM 结构:sidebar/railList/messages/promptInput/sendBtn/modelChip/
 //       workflowEditorBtn/newSessionBtn 在;__WCW_TOKEN__ 占位符已替换(抓 token 注入回归)
 //   (C) JS 真启动:modelChip 的 title 由 app.js 拉 /api/status 后渲染("Claude CLI · 默认"),
 //       它在静态 index.html 里不存在 —— 在 = JS boot + API 通路 + 渲染管线全活。
@@ -117,7 +117,8 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       ok(!error && status === 0 && dom.length > 50000, 'B1 dump-dom 完成 (' + dom.length + 'B, status=' + status + (error ? ', ' + error : '') + ')');
       ok(!!dom && !dom.includes('__WCW_TOKEN__'), 'B2 token 占位符已替换(__WCW_TOKEN__ 绝迹,抓 S1 注入回归)');
       ok(dom.includes('wcw-token'), 'B3 wcw-token meta 在(前端启动凭据送达)');
-      for (const id of ['sidebar', 'sessionList', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn', 'newSessionBtn']) {
+      // 121-K4：2.0 的会话列表 #sessionList 由左栏的任务索引 #railList 取代（§2.3 末条）。
+      for (const id of ['sidebar', 'railList', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn', 'newSessionBtn']) {
         ok(dom.includes('id="' + id + '"'), 'B4 结构节点 #' + id + ' 在渲染后 DOM 中');
       }
       // 48d(01 Step 1 验收#5): data-testid 语义契约--为 50 波 FE 全量拆分铺路(重构时断言不绑死文本/结构)。

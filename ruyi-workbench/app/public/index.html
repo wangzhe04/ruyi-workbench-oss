@@ -165,7 +165,11 @@
       <!-- ============ 左栏：任务索引（两视角共用的同一份 DOM；§2.3） ============ -->
       <!-- 2.0 侧栏【就是】这一栏（§2.3 末条）：节点与 id 沿用（#sidebar／#sessionSearch／
            #newSessionBtn），品牌块搬去顶栏、栏底四钮搬进齿轮菜单、折叠钮退役（≤980 由容器查询
-           折成 56px 图标栏，不再有手动折叠）。K4-2 把 #sessionList 换成按任务归组的索引。 -->
+           折成 56px 图标栏，不再有手动折叠）。
+           K4-2：#sessionList（2.0 的会话列表）由【按任务归组】的索引 #railList 取代 ——
+           单位是任务（mission），聚合五态只读行上的 aggregateState（06i 一处算出），五组
+           等你／在跑／排队／今天收工／更早，行由 js/steward-board.js 用 createElement 填（零 innerHTML）。
+           它是【两视角共用的同一份 DOM】：管家视角点行＝换焦点，工作台视角点行＝打开那条线程。 -->
       <aside class="sidebar task-rail" id="sidebar" data-testid="sidebar">
         <div class="rail-head">
           <h2 class="rail-title"><span data-i18n="rail.title">任务</span><span id="railCount" class="rail-count num"></span></h2>
@@ -179,10 +183,28 @@
         </div>
 
         <div class="classic-sidebar-primary-actions">
-          <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span data-i18n="session.new">新会话</span></button>
+          <button id="newSessionBtn" class="primary full btn-ic" data-icon="plus" data-testid="newSessionBtn"><span id="newSessionBtnLabel" data-i18n="rail.newThread">新线程</span></button>
         </div>
 
-        <div id="sessionList" class="session-list" data-testid="sessionList"></div>
+        <!-- 看板密度的栏头（§2.3 末段）：并发上限就地可调 ＋ 在跑／排队计数 ＋「全部暂停」。
+             这三样原来住在看板浮层顶部那条 toolbar 里（#stewardBoard），浮层退役后搬到这里。
+             id 与事件绑定一个字没动（renderArbiterFacts／saveMaxParallel／syncPauseAll 仍按 id 接线），
+             只有紧凑密度下由样式层收起。 -->
+        <div class="rail-board-head">
+          <span class="steward-board-maxwrap">
+            <label class="steward-board-max" for="stewardBoardMax"
+                   data-i18n="stewardShell.board.maxParallelLabel">同时最多</label>
+            <input type="number" id="stewardBoardMax" class="steward-board-max-input" min="1" max="32" step="1"
+                   data-i18n-attr="title:stewardShell.board.maxParallelHint" />
+          </span>
+          <span id="stewardBoardRunning" class="steward-board-pill is-live"></span>
+          <span id="stewardBoardQueued" class="steward-board-pill is-quiet"></span>
+          <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
+                  data-icon="pause" data-icon-size="12"><span data-i18n="stewardShell.board.pauseAll">全部暂停</span></button>
+        </div>
+
+        <div id="railList" class="rail-list" data-testid="railList"></div>
+        <p id="stewardBoardNote" class="steward-board-note" role="status" aria-live="polite"></p>
 
         <!-- 口袋（§2.3）：定时任务／行动流水／记得的关于你／体检 · 用量四项归 K7，这里只留空槽位。 -->
         <nav id="railPocket" class="rail-pocket" aria-label="口袋" data-i18n-attr="aria-label:rail.pocket"></nav>
@@ -603,13 +625,16 @@
                这一半信息 —— 颜色与 #stewardAvatar 读同一个 data-state（一处 presence，两处投影）。 -->
           <span id="stewardPresenceDot" class="steward-presence-dot" data-state="idle" aria-hidden="true"></span>
           <span id="stewardPresenceText" class="steward-presence-text" aria-live="polite"></span>
-          <!-- 117h（§8.2 L1「一行状态（点开即看板）」）：文案由 js/steward-board.js 按 /api/missions
-               的行现算（N 个事项 · A 条在跑，B 条等你），点一下把 #stewardBoard 拉下来。 -->
+          <!-- 117h 的一行状态：文案由 js/steward-board.js 按 /api/missions 的行现算。
+               121-K4-2：看板浮层退役，它不再是「点开即看板」的开关 —— 点一下把左栏滚到最需要你的
+               那一组（与顶栏那枚全局状态胶囊同一个去处）。§2.4 要把这一行收成「空闲／看着 2 条在跑」
+               那种说法，归 K6（中栏头部那一刀）。 -->
           <button type="button" id="stewardStatusLine" class="steward-status-line"
-                  aria-expanded="false" aria-controls="stewardBoard"
-                  data-i18n-attr="title:stewardShell.board.open"></button>
+                  aria-controls="railList"
+                  data-i18n-attr="title:rail.jumpGroup"></button>
           <!-- 117m-A2（用户第六轮走查⑤⑥）：「N 条等你」的去处。恰好 1 条就直接开那条线程的抽屉
-               并把问答卡送到眼前，多于 1 条就拉开看板并把等你的行排到最前。
+               并把问答卡送到眼前；多于 1 条就把左栏滚到「等你」那一组（原来是拉开看板并把等你的行
+               排到最前 —— 左栏常开之后不需要那一步了）。
                它是 #stewardStatusLine 的【兄弟】而不是它里面的一段：那一行本身就是 button，
                button 里再嵌 button 是非法 HTML、读屏点不到。文案与 hidden 都由 js/steward-board.js 写。 -->
           <button type="button" id="stewardStatusNeedsYouBtn" class="steward-status-needsyou" hidden></button>
@@ -629,36 +654,10 @@
       </div>
       <div id="stewardStatus" class="steward-status" role="status" aria-live="polite"></div>
 
-      <!-- 117h 看板（27 号文 §8.10）：从一行状态下拉的面板（绝对定位，不占壳的网格行），Esc 关。
-           顶部一行是并发上限就地可调、在跑／排队计数、「全部暂停」与「整体切到 2.0」；正文按事项
-           分组，由 js/steward-board.js 用 createElement 填（零 innerHTML）。 -->
-      <div id="stewardBoard" class="steward-board" role="region"
-           aria-label="看板" data-i18n-attr="aria-label:stewardShell.board.label" hidden>
-        <!-- 117l-B2 ②（用户第五轮走查 2「这个限制界面优化美观一下」）：顶部这一行从一排裸文字
-             变成一条玻璃底的 toolbar。id 与事件绑定一个没动，只多了两层包裹节点与两个状态修饰类：
-             .steward-board-maxwrap 把「同时最多 + 数字框」收成一枚带标签的小胶囊，
-             .steward-board-tools 把两个动作键推到右侧；在跑／排队两枚 pill 用 is-live／is-quiet
-             区分（在跑有一点颜色、排队保持安静）。 -->
-        <div class="steward-board-top">
-          <span class="steward-board-maxwrap">
-            <label class="steward-board-max" for="stewardBoardMax"
-                   data-i18n="stewardShell.board.maxParallelLabel">同时最多</label>
-            <input type="number" id="stewardBoardMax" class="steward-board-max-input" min="1" max="32" step="1"
-                   data-i18n-attr="title:stewardShell.board.maxParallelHint" />
-          </span>
-          <span id="stewardBoardRunning" class="steward-board-pill is-live"></span>
-          <span id="stewardBoardQueued" class="steward-board-pill is-quiet"></span>
-          <span class="steward-board-tools">
-            <!-- F5a：同一个动词永远同一枚字形 —— 这两枚与线程行上的「暂停」「2.0 视窗」是同一件事，
-                 所以取同一个 pause／monitor。data-i18n 必须挂内层 span（见抽屉底部那段注释的理由）。 -->
-            <button type="button" id="stewardBoardPauseAllBtn" class="steward-board-btn"
-                    data-icon="pause" data-icon-size="12"><span data-i18n="stewardShell.board.pauseAll">全部暂停</span></button>
-            <!-- 121-K4（§2.2）：「整体切到 2.0」退役 —— 视角切换只在顶栏分段钮一处。 -->
-          </span>
-        </div>
-        <div id="stewardBoardList" class="steward-board-list"></div>
-        <p id="stewardBoardNote" class="steward-board-note" role="status" aria-live="polite"></p>
-      </div>
+      <!-- 121-K4-2（34 号文 §2.3 末段）：117h 那块【从一行状态下拉的看板浮层】（#stewardBoard）退役。
+           它画的东西没有丢，是换了住处：按任务归组的行搬到左栏（两视角共用、常开，不用再点开），
+           并发上限「同时最多」与「全部暂停」搬到左栏看板密度的栏头。浮层退役的理由写在 32 号文 §5：
+           看板一关，行就停在关上的那一帧 —— 一个要点开才新鲜的面，本身就是个错的形状。 -->
       </div><!-- /#stewardStage（管家视角的中栏到此为止） -->
 
       <!-- 121-K4（§2.6／§7.1）：管家视角的【右栏槽位】。原来的浮层「现在这几件」（#stewardNow，

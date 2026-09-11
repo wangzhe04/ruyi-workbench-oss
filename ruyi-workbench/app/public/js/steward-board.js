@@ -22,7 +22,9 @@ import { runControlAction, runIsLive, runTextKeys, pausableRunsOf, hasPausableRu
 // 抽屉递 stewardShell.drawer.*），所以两面各说各的话、判据只有一处。
 // 单开一条 import（而非并入上面那行）是刻意的：steward-board.static D4 逐字钉着上面那行的写法，
 // 而 D4 要守的是「动作走抽屉同一段原语」这件事，不该为一次收编去动它（32 号文 §4 纪律 5）。
-import { stewardThreadStateOf, stewardCostText, stewardAcceptanceText } from './steward-drawer.js';
+// 121-K4（34 号文 §7.2「费用规则」）：stewardCostText 从这一行【删掉】—— 左栏（含看板密度）一律
+// 不印钱，而「少调一个函数」是拦不住的；连文案键都不 import，本模块自此长不出第二处金额。
+import { stewardThreadStateOf, stewardAcceptanceText } from './steward-drawer.js';
 // 117n-M1②（用户第六轮走查后走查「合并功能」）：failNote 原来只是 String(error.message || error)，
 // 既不解结构化信封也不特判 steward.queued 的 wait.label —— 同一种排队失败，看板上的提示比抽屉里
 // （steward-drawer.js:287 的 failNote）差。改成引用 steward-conversation.js 的权威实现，不再自己
@@ -40,35 +42,41 @@ import { confirmDanger } from './confirm-panel.js';
 // 里各写一遍 —— 事件名 `thread.needs_you` 里那个词不是五态，不该进 B5／M6／N3 那本「五态字面量」账。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
-// 第117波 117h：一行状态 → 看板 → 「现在这一件」（27 号文 §8.2 L1／§8.10 多线程看板与注意力预算）。
+// 第117波 117h → 第121波 K4：一行状态 → 【左栏任务索引】 → 管家视角的右栏
+// （34 号文 §2.2／§2.3／§2.6；原 27 号文 §8.2 L1／§8.10 的看板浮层已退役）。
 //
 // 三件事，一个模块：
-//   ① 一行状态 `#stewardStatusLine`：「N 个事项 · A 条在跑，B 条等你」，点开即看板（aria-expanded）；
+//   ① 一行状态 `#stewardStatusLine` 与顶栏那枚全局胶囊 `#appStatusChip`：「N 在跑 · M 等你」。
+//      计数只在 renderStatusLine 一处算（needsYouIds 是它的产物），点开＝把左栏滚到那一组；
 //      一条线程都没有时说 §8.9 那句「还没有任务，直接说你想做什么」。
-//   ② 看板 `#stewardBoard`：从状态行下拉的面板（role="region"，Esc 关）。顶部是并发上限就地可调、
-//      在跑／排队计数、「全部暂停」「整体切到 2.0」；正文按【事项】分组，事项行给聚合态与验收 a/b，
-//      线程行给五态点、耗时、快切 chip、单一的等待原因与悬停操作。
-//   ③ 「现在这几件」`#stewardNow`：≥1000px 常驻右栏。焦点那一条的内容就是【同一个】线程抽屉以
-//      docked 挂法挂进来（steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进
-//      #stewardNowBody）—— 不存在第二份抽屉区块渲染。焦点线程由纯函数 focusThreadFor 决定，
-//      用户显式选过就钉住。
+//   ② 左栏任务索引 `#railList`（§2.3）：**两视角共用的同一份 DOM**，常开，不再有「点开即看板」
+//      这回事（那个浮层 #stewardBoard 与它的「开合」随 K4-2 退役 —— 一个要点开才新鲜的面本身
+//      就是个错的形状，32 号文 §5 记过这笔账）。单位是【任务】：按 missionId 归组、按聚合五态分
+//      五组（等你／在跑／排队／今天收工／更早），单线程任务就是一行、多线程任务折角展开。
+//      行＝3px 色条（色号按任务）＋任务名＋聚合药丸＋来源图形＋速查徽标，第二行只在有话可说时出现。
+//      「看板」密度（440px）多印一行事实：验收 a/b · 线程数 · 只在与全局不同时印权限 —— **不印费用**。
+//   ③ 管家视角的右栏 `#stewardSide`：焦点那一条的内容就是【同一个】线程抽屉以 docked 挂法挂进来
+//      （steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进 #stewardNowBody）——
+//      不存在第二份抽屉区块渲染。焦点线程由纯函数 focusThreadFor 决定，用户显式选过就钉住。
 //      F3（32 号文 §2.2「线程即频道」）：其余在办的线程按 GET /api/missions 的【服务端行序】
 //      （117s-A 的 D1 已经在 13d 一处按「状态优先、其次 updatedAt」排好）在抽屉的上下叠成小行 ——
 //      焦点行之前的进上面那条 stack，之后的进下面那条，于是抽屉就插在它自己那一格里，右栏行序与
-//      看板、抽屉页签逐字节同源；本模块【不再排一次】，也【不复制】任何抽屉区块。
+//      左栏、抽屉页签逐字节同源；本模块【不再排一次】，也【不复制】任何抽屉区块。
 //
-// 不另起判据（§8.10 逐条）：
-//   · 事项聚合态【只读】行上的 `aggregateState`（116g 由 06i 的 aggregateMissionState 单点算出），
-//     本模块不写「任一 needs_you 则…」这类字面判定；
-//   · 线程五态经 mission-state.js 的 fromCard（全仓唯一判据，与抽屉、交办台逐字节同源）；
+// 不另起判据（§2.3 逐条）：
+//   · 任务聚合态【只读】行上的 `aggregateState`（116g 由 06i 的 aggregateMissionState 单点算出），
+//     本模块不写「任一 needs_you 则…」这类字面判定；分组只是把那个态映到组名（railGroupFor，纯函数）；
+//   · 线程五态经 mission-state.js 的 fromCard（全仓唯一判据，与抽屉逐字节同源）；
 //   · 等待原因只有 `wait.label` 一处（116h 的 waitReasonFor 单点判定），本模块没有第二套等待文案；
+//   · 「在跑时正在调什么」只读行上的 `liveTail`（13e 的叠加层，K2b 让它随推送实时），本模块不拼流；
+//   · 「这条是不是速查」只读行上的 `quick`（K3 的身份格），不读 kind —— 那是档位不是身份；
+//   · 「它从哪来」只读行上的 `origin`（K3 的 threadOriginOf 一处派生）；
 //   · 权限／模型快切经 steward-chips.js 的同一个工厂（紧凑模式），本模块不自己 PATCH 会话。
 //
-// 刷新纪律（对 27 号文 §5 117h「刷新纪律」的一处收紧，见文件尾的说明）：本模块恰好一处 setInterval
-// 与一处 clearInterval，唯一入口 syncPolling() 先判「看板打开 && 管家模式 && 页面可见」，任一为否
-// 立刻停表；「现在这一件」的内容由抽屉自己那一份轮询刷新（同一份实现），行数据在进壳／开看板／
-// 焦点事件／写动作／页面重新可见这五个确定性时刻各刷一次 —— 于是管家壳在看板关着时【不多】一条
-// 后台计时器（§3.4 红线的延伸）。
+// 刷新纪律：本模块恰好一处 setInterval 与一处 clearInterval，唯一入口 syncPolling() 先判
+// 「管家模式 && 页面可见」，任一为否立刻停表。**工作台视角里左栏靠推送与动作刷新**（thread.* 五类
+// 事件经 pushRefreshRows 落地；开／建／改名／删会话由 session-experience 调 renderRail）——
+// 不为一份共用的左栏在工作台视角再开一条后台计时器（§3.4 红线的延伸）。
 
 // 33 号文 §4「轮询常量收进叶子」：下限 5000／容差 250／默认 15000 这三个值原来与 steward-shell /
 // steward-drawer 两处逐字相同，现在只有 steward-chips.js 一个来源。导出的本地名字没改 —— 锁钉的
@@ -102,6 +110,33 @@ export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread';
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';
 
+// ── 121-K4 左栏：五组与「这一件该落在哪一组」（34 号文 §2.3）──────────────────────
+// 顺序即屏幕上的顺序（最需要你的在最上面），别重排。
+export const RAIL_GROUP_KEYS = Object.freeze(['needs_you', 'running', 'queued', 'doneToday', 'earlier']);
+// 等你那一行的问句在左栏只印前 22 字（§2.3 原话），全文在焦点栏／抽屉里。
+export const RAIL_ASK_PREVIEW_CHARS = 22;
+
+// 纯函数、零 DOM：一个任务落在哪一组。
+// **它不是第二个状态机**：入参是【已经算好的】聚合态（06i 的 aggregateMissionState 一处算出，
+// 经 13d 投影到行上的 aggregateState），本函数只回答「这个态 ＋ 这个时间 该排进哪一组」。
+//   等你 = needs_you；在跑 = running；排队 = dispatching（还没有任何执行痕迹的那一档）；
+//   其余（done / stopped / quick_ask）按【最后动静是不是今天】分「今天收工」与「更早」。
+// 「失败」（stopped）没有独立的组：它与收工同属「这件事此刻没在动」，靠行上那枚药丸区分
+// （§2.3 的五组里也没有它）—— 这一条与 mission-state.js「不自造一个 failed 态」同一条纪律。
+export function railGroupFor(aggregateState, updatedAt, now = new Date()) {
+  const state = String(aggregateState || '');
+  if (state === 'needs_you') return 'needs_you';
+  if (state === 'running') return 'running';
+  if (state === 'dispatching') return 'queued';
+  const at = updatedAt ? new Date(updatedAt) : null;
+  if (!at || Number.isNaN(at.getTime())) return 'earlier';
+  const today = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const sameDay = at.getFullYear() === today.getFullYear()
+    && at.getMonth() === today.getMonth()
+    && at.getDate() === today.getDate();
+  return sameDay ? 'doneToday' : 'earlier';
+}
+
 // ── 焦点线程：等你 ＞ 在跑 ＞ 失败 ＞ 最近更新（§8.10／§5 117h 行）──────────────────
 // 纯函数、零 DOM、零 import 依赖：dev-harness/unit/steward-focus-thread.test.js 直接 import 跑真值表。
 // 入参是【已经带好五态】的行（五态由调用方经 mission-state.js 算出，本函数不认识卡片形状，也就
@@ -123,9 +158,16 @@ export function createStewardBoard({
   isStewardMode = () => false,
   drawer = null,
   saveConfigPartial = async () => false,
-  // 117g：「整体切到 2.0」与看板每行的「2.0」都走它（切经典壳＋选中会话＋顶部返回带）。
+  // 117g：行上的「在工作台打开」走它（切工作台视角＋选中会话）。
+  // 121-K4：switchWholeShell（「整体切到 2.0」）那一路随看板浮层顶部那枚钮一起退役 —— 视角切换
+  // 只在顶栏分段钮一处（§2.2），本模块因此不再需要它。
   openClassicWindow = async () => {},
-  switchWholeShell = () => {},
+  // 121-K4（§2.3 点击语义）：工作台视角里点一行＝真的把中栏换成那条线程，所以本模块要认识
+  // openSession（组合根那一个，与抽屉的「在工作台打开」同一份实现，不另起第二条路）。
+  openSession = async () => {},
+  // 121-K4：左栏搜索（Ctrl+K）的后端内容搜索结果快照（113b 那条路由与去抖仍住 session-experience，
+  // 本模块只读它算好的 { query, results } —— 不发第二发请求，也不自己去抖）。
+  searchState = () => null,
   // 117g：行数据到手就通知返回带重画一次 —— 带上的「事项名」读的正是本模块取回来的这批行
   // （missionTitleOf）。不通知的话，进壳后立刻开 2.0 视窗会赶在第一趟取数之前，事项名那段空着。
   onRowsChanged = () => {},
@@ -141,7 +183,6 @@ export function createStewardBoard({
   // 117m-A2：状态行那一次 filter 顺手留下的名单（等你的线程 id）。它是「N 条等你」这枚按钮的去处，
   // 也是「把等你的行排到最前」的判据 —— 两处都读它，不再数第二遍，也不新开第二个计数源。
   let needsYouIds = [];
-  let needsYouFirst = false;        // 从那枚按钮跳进来的这一程才排序；关看板即复位（后端行序不动）
   const chipsBySession = new Map(); // sessionId -> chips 控件（每行一份实例，读同一份数据）
   const sessionCache = new Map();   // sessionId -> 会话（chip 补齐或 PATCH 回来的那一份）
 
@@ -168,11 +209,6 @@ export function createStewardBoard({
   // 短名 —— 全仓判五态的地方仍然只有 mission-state.js 一处，看板与抽屉读的也是同一个函数。
   const threadStateOf = stewardThreadStateOf;
   // 本界面的那一套文案键（判据共享、措辞各说各的）。
-  const COST_KEYS = Object.freeze({
-    none: 'stewardShell.board.costNone',
-    budget: 'stewardShell.board.costBudget',
-    cost: 'stewardShell.board.cost',
-  });
   const ACCEPTANCE_KEYS = Object.freeze({
     none: 'stewardShell.board.acceptanceNone',
     count: 'stewardShell.board.acceptance',
@@ -279,22 +315,27 @@ export function createStewardBoard({
     if (!views.length) {
       needsYouIds = [];
       renderNeedsYouGo();
+      renderGlobalChip(0, 0);
       line.textContent = t('stewardShell.board.statusEmpty');
       return line.textContent;
     }
     const missions = new Set(rows.map(row => String(row.missionId || row.sessionId))).size;
     const running = views.filter(view => view.state === 'running').length;
     // 计数与【名单】同一次 filter 算出来：右上那枚「去处理」要知道去哪一条，而计数源仍然只有这一处
-    // （117l 的 needsYouCount 读的也是这条状态行的同一份事实，不新开第二个计数源）。
+    // （117l 的 needsYouCount 与顶栏那枚全局胶囊读的都是这条状态行的同一份事实，不新开第二个计数源）。
     const waiting = views.filter(view => view.state === 'needs_you');
     needsYouIds = waiting.map(view => String(view.sessionId));
     renderNeedsYouGo();
+    renderGlobalChip(running, waiting.length);
     line.textContent = t('stewardShell.board.statusLine', { missions, running, needsYou: waiting.length });
     return line.textContent;
   }
 
   // 「N 条等你」按下去：恰好 1 条就直接把那条线程的抽屉打开（问答卡在那儿，焦点也落进去）；
-  // 多于 1 条就拉开看板，并把等你的那几行排到最前 —— 排的是这一次渲染用的副本，后端行序不动。
+  // 多于 1 条就把左栏滚到「等你」那一组。
+  // 121-K4：修前那一支是「拉开看板浮层 ＋ 把等你的行临时排到最前」。浮层退役、左栏常开之后，
+  // 那两步都不需要了 —— 组头本来就把等你的那几件收在一起，滚过去就是全部。于是那个只活一程的
+  // 临时排序（needsYouFirst）也随之删掉：后端行序自此是屏幕上唯一的行序。
   function goToNeedsYou() {
     const ids = needsYouIds.slice();
     if (!ids.length) return '';
@@ -305,10 +346,7 @@ export function createStewardBoard({
       if (drawer && typeof drawer.focusAsk === 'function') drawer.focusAsk();
       return id;
     }
-    needsYouFirst = true;
-    setBoardOpen(true);
-    renderBoard();
-    return '';
+    return jumpToGroup('needs_you');
   }
 
   // ── ② 看板顶部：并发上限就地可调 + 在跑／排队计数 ───────────────────────────────
@@ -355,7 +393,184 @@ export function createStewardBoard({
     return true;
   }
 
-  // ── ② 看板正文：按事项分组 ──────────────────────────────────────────────────────
+  // ── ① 左栏的登记表与小判据（§2.3）──────────────────────────────────────────────
+  // 组头计数与「点开即滚到那一组」的去处都读这一张表，不在别处写第二份组名。
+  const RAIL_GROUP_LABELS = Object.freeze({
+    needs_you: 'rail.group.needsYou',
+    running: 'rail.group.running',
+    queued: 'rail.group.queued',
+    doneToday: 'rail.group.doneToday',
+    earlier: 'rail.group.earlier',
+  });
+  // 「更早」默认折叠（§2.3）；其余四组默认展开。用户点过就记在这一程里（不落本机偏好）。
+  const railGroupClosed = new Map([['earlier', true]]);
+  const railTaskOpenById = new Map();   // missionId -> 用户显式点过的展开状态（没点过就按默认判）
+
+  function railGroupOpen(key) {
+    return railGroupClosed.get(key) !== true;
+  }
+  function railGroupHead(key, count, open) {
+    const head = el('div', 'rail-gh');
+    const toggle = el('button', 'rail-gh-toggle', t(RAIL_GROUP_LABELS[key] || key));
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.onclick = () => { railGroupClosed.set(key, open); renderRail(); };
+    head.appendChild(toggle);
+    const n = el('span', 'rail-gh-n num', String(count));
+    // 组头计数只有两档颜色（§2.3「等你金色、在跑青花蓝」），其余安静 —— 样式层读这个属性。
+    if (key === 'needs_you' || key === 'running') n.dataset.tone = key;
+    head.appendChild(n);
+    return head;
+  }
+  // 含等你／在跑的任务默认展开（§2.3）；用户显式点过就以他点的为准。
+  function railTaskOpen(group) {
+    const explicit = railTaskOpenById.get(group.missionId);
+    if (explicit !== undefined) return explicit;
+    const aggregate = String(group.aggregateState || '');
+    return aggregate === 'needs_you' || aggregate === 'running';
+  }
+  function toggleTask(missionId, open) {
+    railTaskOpenById.set(String(missionId || ''), Boolean(open));
+    renderRail();
+    return open;
+  }
+
+  // §2.3 来源图形：管家开的＝环（环心点）／我开的＝人形／定时＝钟；悬停才出字。
+  // 判据【只读】行上的 origin（K3 的 threadOriginOf 一处派生，13e 投影到行上），本模块不猜。
+  // 121-K8 会把 lensSteward／originUser／originSchedule 三枚字形补进 icons.js；本刀先用既有字形
+  // 占位（target＝双环＋实心点，与 avatar 的最简形同义；agents＝人形；bell＝提醒物）。
+  const RAIL_ORIGIN_ICONS = Object.freeze({ steward: 'target', user: 'agents', schedule: 'bell' });
+  const RAIL_ORIGIN_KEYS = Object.freeze({
+    steward: 'rail.origin.steward',
+    user: 'rail.origin.user',
+    schedule: 'rail.origin.schedule',
+  });
+  function originMark(origin) {
+    const key = String(origin || '');
+    const name = RAIL_ORIGIN_ICONS[key];
+    if (!name) return null;
+    const mark = el('span', 'rail-origin');
+    mark.dataset.origin = key;
+    const glyph = icon(name, 12);
+    if (glyph) mark.appendChild(glyph);
+    // F5a 纪律：图标永远带可访问名，且不作为唯一信号 —— 悬停出字，读屏能问到。
+    const label = t(RAIL_ORIGIN_KEYS[key]);
+    mark.title = label;
+    mark.setAttribute('aria-label', label);
+    return mark;
+  }
+
+  // §2.3「第二行只在有话可说时出现」。两态两句，都【只读】行上已有的事实：
+  //   在跑 → `工具 · N 秒前有输出`（row.liveTail：13e 的叠加层，K2b 让它随推送实时）
+  //   等你 → 问句前 22 字（row.asksYou.text：06i 的 stewardPendingOneLine 单点算出）
+  //   收工 → 不印（药丸已经说了；§2.3 原话）
+  //   排队 → 这里【也不印】：等待原因由卡尾那一行 .steward-board-wait 渲染（116h 的 wait.label
+  //     全仓只有那一处落点）。在这里再印一遍就是把同一句话印两遍，也会让「wait.label 只渲染一处」
+  //     那条锁变成两处 —— §2.3 要的「第二行是等待原因」由那一行承担，不是再画一行。
+  function railSubLine(row, state) {
+    if (state === 'running') {
+      const tail = (row && row.liveTail && typeof row.liveTail === 'object') ? row.liveTail : null;
+      const tool = String((tail && tail.tool) || '');
+      if (!tool) return '';
+      const elapsed = elapsedLabel(String(tail.updatedAt || row.updatedAt || ''), new Date());
+      return elapsed ? t('rail.liveTool', { tool, elapsed }) : tool;
+    }
+    if (state === 'needs_you') {
+      const asks = (row && row.asksYou && typeof row.asksYou === 'object') ? row.asksYou : null;
+      const text = String((asks && asks.text) || '').trim();
+      if (!text) return '';
+      return text.length > RAIL_ASK_PREVIEW_CHARS ? `${text.slice(0, RAIL_ASK_PREVIEW_CHARS)}…` : text;
+    }
+    return '';
+  }
+
+  // 搜索（Ctrl+K）：框还是 2.0 那一个（#sessionSearch），过滤在这里。
+  // 两条路合一：①「后端内容搜索」命中的会话 id 集合（113b 那条路由与去抖仍住 session-experience，
+  // 本模块只读它的结果快照）；② 没有后端命中时按标题子串过滤。判据只有这一处。
+  function railFilter() {
+    const input = byId('sessionSearch');
+    const query = String((input && input.value) || '').trim().toLowerCase();
+    if (!query) return null;
+    const snapshot = searchState() || null;
+    const hit = snapshot && Array.isArray(snapshot.results) && String(snapshot.query || '').toLowerCase() === query
+      ? new Set(snapshot.results.map(item => String((item && item.id) || '')))
+      : null;
+    return { query, ids: hit };
+  }
+  function railRowMatches(row, filter) {
+    if (!filter) return true;
+    if (filter.ids) return filter.ids.has(String(row.sessionId || ''));
+    const hay = [row.displayTitle, row.title, row.missionTitle, row.cwd]
+      .map(value => String(value || '').toLowerCase());
+    return hay.some(value => value.includes(filter.query));
+  }
+
+  // 选中谁：管家视角＝焦点线程（右栏那一份抽屉开着的那条），工作台视角＝当前会话。
+  // 两视角同一份 DOM、两套「选中」的来源 —— 但都不是本模块新开的状态（前者是 currentFocusId，
+  // 后者是组合根持有的 state.currentSession）。
+  function railSelectedId() {
+    if (isStewardMode()) return currentFocusId();
+    const current = (state && state.currentSession) || null;
+    return String((current && current.id) || '');
+  }
+
+  // §2.3「＋」两义：管家视角印「＋ 新任务」（让如意另起一件，不建会话），工作台视角印「＋ 新线程」
+  // （立即开一条线程，走 2.0 那条 createSession）。按钮【是同一枚】（#newSessionBtn），
+  // 接线住组合根（app.js 那一处判视角），本模块只管把它的字改对。
+  function syncRailPlus() {
+    const label = byId('newSessionBtnLabel');
+    if (!label) return '';
+    const key = isStewardMode() ? 'rail.newTask' : 'rail.newThread';
+    label.textContent = t(key);
+    const button = byId('newSessionBtn');
+    if (button) {
+      const hint = t(isStewardMode() ? 'rail.newTaskHint' : 'rail.newThreadHint');
+      button.title = hint;
+      button.setAttribute('aria-label', hint);
+    }
+    return key;
+  }
+
+  // 顶栏那枚全局状态胶囊「N 在跑 · M 等你」（§2.2）。计数源仍然只有 renderStatusLine 那一处
+  // （needsYouIds 就是它的产物）—— 本函数只画，不数。【不印】任务总数、不印费用、不印模型名。
+  function renderGlobalChip(running, needsYou) {
+    const chip = byId('appStatusChip');
+    if (!chip) return '';
+    const show = running > 0 || needsYou > 0;
+    chip.hidden = !show;
+    clear(chip);
+    if (!show) return '';
+    const runText = t('rail.chip.running', { n: running });
+    const youText = t('rail.chip.needsYou', { n: needsYou });
+    const runDot = el('span', 'd run');
+    runDot.setAttribute('aria-hidden', 'true');
+    const youDot = el('span', 'd you');
+    youDot.setAttribute('aria-hidden', 'true');
+    chip.appendChild(runDot);
+    chip.appendChild(el('span', 'num', runText));
+    chip.appendChild(youDot);
+    chip.appendChild(el('span', 'num', youText));
+    const label = `${runText} · ${youText}`;
+    chip.title = label;
+    chip.setAttribute('aria-label', label);
+    return label;
+  }
+
+  // 点开胶囊／点一行状态 = 把左栏滚到最需要你的那一组（§2.2「点开＝左栏滚到该组」）。
+  // 它不是第二个过滤器，也不换焦点：只是把视线送到该看的地方。
+  function jumpToGroup(key) {
+    const target = key || (needsYouIds.length ? 'needs_you' : 'running');
+    railGroupClosed.set(target, false);
+    renderRail();
+    const section = doc() && doc().querySelector(`#railList .rail-group[data-group="${target}"]`);
+    if (!section) return '';
+    if (typeof section.scrollIntoView === 'function') section.scrollIntoView({ block: 'nearest' });
+    return target;
+  }
+
+  // ── ② 左栏正文：按任务归组（§2.3「单位是任务」）─────────────────────────────────
+  // 归组键仍是 missionId（普通会话回落它自己的 sessionId）；聚合态【只读】行上的 aggregateState
+  // （06i 的 aggregateMissionState 一处算出），本模块不写第二套聚合判据。
   function groupRows() {
     const groups = new Map();
     for (const row of rows) {
@@ -370,16 +585,24 @@ export function createStewardBoard({
           acceptance: row.acceptance || { done: 0, total: 0 },
           budget: row.budget || {},
           cost: row.cost || {},
+          // 121-K4：左栏行要的三样事实。来源与「最后动静」取【领头那一条】（行序由服务端排好，
+          // 见 renderRail 的注）；这里不做任何排序，也不推第二套聚合。
+          origin: '',
+          updatedAt: '',
           rows: [],
         });
       }
-      groups.get(missionId).rows.push(row);
+      const group = groups.get(missionId);
+      group.rows.push(row);
+      const at = String(row.updatedAt || '');
+      if (at > group.updatedAt) group.updatedAt = at;
+      if (!group.origin) group.origin = String(row.origin || '');
     }
     return [...groups.values()];
   }
 
-  // 33 号文 §4：costText／acceptanceText 的正身已住 steward-drawer.js（判据一处），本模块调用点把
-  // 自己那套键（COST_KEYS／ACCEPTANCE_KEYS）与 t 一起递进去 —— 措辞仍是看板原来那五条键，一个字没变。
+  // 33 号文 §4：acceptanceText 的正身已住 steward-drawer.js（判据一处），本模块调用点把自己那套键
+  // （ACCEPTANCE_KEYS）与 t 一起递进去 —— 措辞仍是原来那两条键，一个字没变。
 
   function chipsFor(sessionId) {
     let control = chipsBySession.get(sessionId);
@@ -450,22 +673,39 @@ export function createStewardBoard({
   // 那笔「会话元数据不带 engineRoute，所以模型这一半在看板上只会少说不会说错」的账，记在被搬去的
   // 那个函数头上（同一笔账只记一处）。
 
-  // 事项级的两件事实（钱与验收）：13d 一处算好之后投影到它【每一条】线程行上，所以整件事
-  // 只许印一次 —— 单线程事项印在那唯一一张卡的卡尾，多线程事项印在事项组的组尾。一个渲染器、
+  // 任务级的事实（验收 a/b · 线程数）：13d 一处算好之后投影到它【每一条】线程行上，所以整件事
+  // 只许印一次 —— 单线程任务印在那唯一一张卡的卡尾，多线程任务印在任务行的卡尾。一个渲染器、
   // 两个落点（G1 那根色条「一份声明两个落点」的同一条道理），不是两份实现。
+  // 121-K4（34 号文 §7.2「费用规则」）：这一行【不再印钱】—— 金额只在「用量」页签、体检页与行动
+  // 流水的单条明细里出现，左栏（含看板密度）一律不印。判据不是「少调一个函数」而是：本模块自此
+  // 连费用文案的键都不认识（COST_KEYS 与 stewardCostText 的 import 一起删掉，长不出第二处）。
+  // 只在【看板密度】出现（样式层一条规则），紧凑密度下左栏只留一行主信息。
   function missionFacts(group) {
     const line = el('div', 'steward-board-facts');
-    line.appendChild(el('span', 'steward-board-pill', stewardAcceptanceText(group, t, ACCEPTANCE_KEYS)));
-    line.appendChild(el('span', 'steward-board-pill', stewardCostText(group, t, COST_KEYS)));
+    // 没有验收项就【什么都不说】（§2.3「只在有话可说时出现」的同一条纪律）：K3 放宽索引口径之后
+    // 左栏里大半是手工开的线程，逐行印一句「没有验收项」就是满栏等重灰字（§11.15.2 病 3）。
+    // 判据仍然只有 stewardAcceptanceText 那一份（验收 a/b 的措辞与口径都在它那儿）。
+    const acceptance = (group.acceptance && typeof group.acceptance === 'object') ? group.acceptance : {};
+    if (Number(acceptance.total) > 0) {
+      line.appendChild(el('span', 'steward-board-pill', stewardAcceptanceText(group, t, ACCEPTANCE_KEYS)));
+    }
+    const threads = group.rows.length > 1 ? (group.threadCount || group.rows.length) : 0;
+    if (threads > 1) line.appendChild(el('span', 'steward-board-pill', t('stewardShell.board.threadCount', { n: threads })));
     return line;
   }
 
-  // options.missionId：B5 那枚「＋ 线程」挂的事项（由 renderMissionGroup 递进来，本函数不自己
-  // 再推一次分组键）；options.facts：单线程事项的钱与验收线（多线程时为 null，落在组尾）。
+  // options.missionId：B5 那枚「＋ 线程」挂的任务（由 renderRail 递进来，本函数不自己再推一次
+  // 分组键）；options.facts：单线程任务的验收线（多线程时为 null，落在任务行上）；
+  // 121-K4 新增两个：
+  //   options.hueKey —— 色号取哪一个键（缺省＝这条线程自己的 sessionId，与对话流／线程详情栏／
+  //     右栏小行三面逐字同源）。左栏的任务行用它把色条对到【领头那条线程】上；把整张登记表改成
+  //     按任务发号是 §2.3 的最终形态，但那要四面一起改，归 K6（见 railTaskRow 的头注）。
+  //   options.selected —— 此刻选中的是哪一条（管家视角＝焦点线程，工作台视角＝当前会话）。
   function renderThreadRow(row, options = {}) {
     const sessionId = String(row.sessionId || '');
-    const item = paintThreadCard(el('li', 'steward-board-thread'), sessionId);
+    const item = paintThreadCard(el('li', 'steward-board-thread'), String(options.hueKey || sessionId));
     item.dataset.sessionId = sessionId;
+    if (options.selected && String(options.selected) === sessionId) item.classList.add('is-sel');
     const threadState = threadStateOf(row);
     // 五态原样写在卡上。修前它挂在那颗点上（paintDot 的 node.dataset.state），B2 之后点归线程色、
     // 态归药丸，而药丸在「它在问你」那种行上是让位的（见下）—— 不写在卡上，这一行现在处于什么态
@@ -481,7 +721,9 @@ export function createStewardBoard({
     const title = el('button', 'steward-board-thread-title', String(row.displayTitle || row.title || sessionId));
     if (row.title && row.displayTitle && row.title !== row.displayTitle) title.title = String(row.title);
     title.type = 'button';
-    title.onclick = () => focusThread(sessionId);
+    // §2.3 点击语义：单线程任务行／线程行 → 打开它。管家视角＝换焦点（右栏那一份抽屉），
+    // 工作台视角＝openSession（中栏那条对话）。两视角同一份 DOM、两种打开法，见 openRow。
+    title.onclick = () => openRow(sessionId);
     head.appendChild(title);
     // 117r-D5：「速查」是这条线程【是什么】(kind)，不是它【在干什么】(state)。修前它霸占着状态位，
     // 于是一条速查线程无论在跑、在等你还是三小时前就跑完了都只会说「速查中」。判据搬回 kind 之后
@@ -489,11 +731,19 @@ export function createStewardBoard({
     // 与五态那颗点【并列】给一枚徽标，不替换它。文案复用既有键 mission.state.quick_ask，不新开键。
     // 判据仍然【只读】行上的 kind(13d buildMissionCard 如实取 sessionKind(head) 的那一个)，
     // 本模块不认识 stewardQuick / launchedBy 这些会话头字段，也就长不出第二套「它算不算速查」。
-    if (String(row.kind || '') === 'quick_ask') {
+    // 121-K3 登记项②（34 号文 §13.5 末）：判据从 `kind === 'quick_ask'` 换成行上的身份格
+    // `row.quick`。理由是 K3 放宽索引口径之后【普通会话也有卡片】，而 sessionKind() 对它们同样
+    // 返回 'quick_ask'（第 70 波的那个值是【档位】不是【身份】）—— 读 kind 会给每一条手工开的
+    // 会话贴一枚「速查」。`quick` 由 13d buildMissionCard 与 13j stewardQuickThread 同源算出，
+    // 本模块仍然只读结果、不认识 stewardQuick / launchedBy 这些会话头字段。
+    if (row.quick === true) {
       const badge = el('span', 'steward-board-pill', t('mission.state.quick_ask'));
       badge.dataset.kind = 'quick_ask';
       head.appendChild(badge);
     }
+    // §2.3 来源图形：管家开的＝环（环心点）／我开的＝人形／定时＝钟，悬停才出字。
+    const mark = originMark(row.origin);
+    if (mark) head.appendChild(mark);
     // 117l D4（用户第四轮走查①）：线程真的在问你时，行上给一枚 pill —— 点它就是打开抽屉（那里有
     // 问答框）。判据【只读】行上的 asksYou（06i 的 stewardAsksYou 单点算出，与抽屉同一份），
     // 本模块不写第二套「它算不算在问你」。
@@ -507,7 +757,7 @@ export function createStewardBoard({
       // 「具体是什么」在抽屉的问答卡里说全，行上不抢那句话的位置。
       if (row.asksYou.text) pill.title = String(row.asksYou.text);
       pill.dataset.asksYou = kind;
-      pill.onclick = () => openThread(sessionId);
+      pill.onclick = () => openRow(sessionId);
       head.appendChild(pill);
       asksPill = pill;
     }
@@ -519,6 +769,13 @@ export function createStewardBoard({
     // B4：标题右侧只留「最后动静」—— 钱与验收线搬去了卡尾，不再与线程名争重心。
     if (elapsed) head.appendChild(el('span', 'steward-board-meta', t('stewardShell.board.updated', { elapsed })));
     item.appendChild(head);
+
+    // §2.3「第二行只在有话可说时出现」：在跑＝正在调什么（读 row.liveTail，K2b 已让它实时）、
+    // 等你＝问句前 22 字、排队＝等待原因、收工【不印】（药丸已经说了）。
+    // 每一格都是【只读】行上已有的事实：liveTail（13e 叠加层）／asksYou.text（06i 单点）／
+    // wait.label（116h 单点）—— 本模块不生产任何一句新事实。
+    const sub = railSubLine(row, threadState);
+    if (sub) item.appendChild(el('p', 'steward-board-sub', sub));
 
     const chipHost = el('div', 'steward-board-chips');
     const control = chipsFor(sessionId);
@@ -566,70 +823,154 @@ export function createStewardBoard({
     // 不该是每张卡右上角唯一一枚常亮的按钮。挂哪一件由 renderMissionGroup 递进来（同一个分组键，
     // 本函数不自己再推一次）；没有事项可挂时落到空串，与空态那枚是同一条路（「另起一件」）。
     actions.appendChild(boardButton('stewardShell.board.newThread', () => newThread(String(options.missionId || '')), { newThread: '1' }));
+    // 121-K4：2.0 会话项上那三枚（置顶／重命名／删除）跟着搬到这里 —— 左栏取代了会话列表，
+    // 它们是那一栏【唯一】的入口，跟着列表一起消失就是丢功能（§8.3 那条「删掉就丢功能，必须归位」
+    // 的同一条纪律）。本模块只画按钮、不动会话：真动作仍住 session-experience.js（patchSession /
+    // openRenamePopover / removeSession 三份实现一个字没改），靠 data-session-action 一条委托接线。
+    const meta = sessionForRow(row);
+    const pinned = Boolean(meta && meta.pinned);
+    actions.appendChild(boardButton(pinned ? 'session.unpin' : 'session.pin', () => {},
+      { sessionAction: 'pin', sessionId, pinned: pinned ? '1' : '' }, 'pin'));
+    actions.appendChild(boardButton('session.rename', () => {}, { sessionAction: 'rename', sessionId }, 'edit'));
+    actions.appendChild(boardButton('session.delete', () => {}, { sessionAction: 'delete', sessionId }, 'trash'));
     tail.appendChild(actions);
     item.appendChild(tail);
     return item;
   }
 
-  // B1（27 号文 §11.15.2 病 2「看板把 mission 与 thread 各画一遍」）：事项只有一条线程时
-  // 【不画事项层】—— 真机三条全是「1 事项 = 1 线程」，画了就是把同一个名字上下印两遍
-  // （截图里「季度复盘 / 季度复盘」）。≥2 条才退成一行小标题「事项名 · N 条」＋缩进的线程卡组。
+  // ── ② 左栏的行：任务行 ＋ 展开的线程行（§2.3）────────────────────────────────────
+  // B1（27 号文 §11.15.2 病 2）的口径搬到左栏【并反过来】：任务是主，线程是展开项。
+  //   · 一个任务只有一条线程时【就是一行】—— 不多画任何层级（那一行就是它的线程行）；
+  //   · ≥2 条才画任务行（任务名 ＋ 小计数 ＋ 折角 ＋ 聚合药丸 ＋ 来源图形），点开是缩进的线程行。
   // 判据只有一个：这一组里【真拿到了几条线程行】（group.rows）。刻意不用行上的 threadCount ——
-  // 那是事项的线程总数，含本次 limit 没取回来的那些，用它当判据会在截断时画出一个只有一条卡的组头。
-  function renderMissionGroup(group) {
-    const section = el('section', 'steward-board-mission');
-    section.dataset.missionId = group.missionId;
-    const grouped = group.rows.length > 1;
-    if (grouped) {
-      section.classList.add('is-grouped');
-      const head = el('header', 'steward-board-mission-head');
-      // 事项聚合态【只读】行上的 aggregateState —— 本模块不写第二套聚合判据。
-      // 这颗点仍按【态】上色：事项没有色号（色号是线程的身份）、也没有药丸，B2 那条「色 ≠ 态」
-      // 约束的是线程卡上那两个信号，不是这一枚。
-      head.appendChild(paintDot(el('span', 'steward-board-dot'), group.aggregateState));
-      head.appendChild(el('strong', 'steward-board-mission-title', group.title));
-      head.appendChild(el('span', 'steward-board-pill', t('stewardShell.board.threadCount', { n: group.threadCount || group.rows.length })));
-      section.appendChild(head);
-    }
+  // 那是任务的线程总数，含本次 limit 没取回来的那些，用它当判据会在截断时画出一个点不开的折角。
+  function railTaskRow(group, selected) {
+    // 色号：取【领头那一条线程】的号（行序由服务端排好，领头就是最该看的那一条）。
+    // §2.3 写的是「色号按任务分配、线程继承任务色」—— 那要改的是 stewardThreadHueFor 那张登记表
+    // 本身（它今天按 sessionId 发号，对话流、线程详情栏、右栏小行三面都读它）。**本刀不改它**：
+    // 改一半的后果是同一条线程在左栏与右栏同时显示两个颜色（实测 steward-board.e2e C12/C12d/C12e
+    // 三条当场红：看板=1、详情栏=4）。按任务发号连同四面一起改，归 K6（§9 K6 的验收里写着
+    // 「同一任务四面 data-thread-hue 相同」）。这里只保证：任务行的色条与它领头那条线程同色。
+    const item = paintThreadCard(el('li', 'steward-board-thread rail-task'), String((group.rows[0] || {}).sessionId || group.missionId));
+    item.dataset.missionId = group.missionId;
+    const aggregate = String(group.aggregateState || '');
+    if (aggregate) item.dataset.state = aggregate;
+    const lead = group.rows[0] || {};
+    const open = railTaskOpen(group);
+    if (open) item.classList.add('is-open');
+    if (group.rows.some(row => String(row.sessionId || '') === String(selected || ''))) item.classList.add('is-sel');
+
+    const head = el('div', 'steward-board-thread-head');
+    head.appendChild(threadDot());
+    const title = el('button', 'steward-board-thread-title', group.title);
+    title.type = 'button';
+    // 多线程任务行：点它是【展开／收起】（§2.3 点击语义第二条），不是打开某一条 —— 任务不是线程。
+    title.onclick = () => toggleTask(group.missionId, !open);
+    head.appendChild(title);
+    head.appendChild(el('span', 'rail-task-count num', String(group.threadCount || group.rows.length)));
+    head.appendChild(statePill(aggregate));
+    const mark = originMark(group.origin);
+    if (mark) head.appendChild(mark);
+    const chev = el('button', 'rail-chev');
+    chev.type = 'button';
+    chev.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const chevLabel = t(open ? 'rail.collapse' : 'rail.expand');
+    chev.title = chevLabel;
+    chev.setAttribute('aria-label', chevLabel);
+    const chevGlyph = icon('caret', 12);
+    if (chevGlyph) chev.appendChild(chevGlyph);
+    chev.onclick = () => toggleTask(group.missionId, !open);
+    head.appendChild(chev);
+    item.appendChild(head);
+
+    // 任务行的第二行读【领头那一条】的事实（行序由服务端排好，领头就是最该看的那一条）。
+    const sub = railSubLine(lead, aggregate);
+    if (sub) item.appendChild(el('p', 'steward-board-sub', sub));
+
+    const tail = el('div', 'steward-board-tail');
+    tail.appendChild(missionFacts(group));
+    const actions = el('div', 'steward-board-actions');
+    // 任务级只有一枚动作：给它加一条兄弟线程（§2.3「给已有任务加兄弟线程走行悬停『＋ 线程』」）。
+    // 线程级的暂停／继续／停止／插队／在工作台打开都在线程行上（展开后可见），不在任务行上重画。
+    actions.appendChild(boardButton('stewardShell.board.newThread', () => newThread(group.missionId), { newThread: '1' }));
+    tail.appendChild(actions);
+    item.appendChild(tail);
+    return item;
+  }
+
+  // 展开容器：`grid-template-rows: 0fr → 1fr` 的那一层（§2.9 表倒数第二行；内容高度未知也能顺）。
+  function railThreadList(group, selected) {
+    const wrap = el('div', `rail-threads${railTaskOpen(group) ? ' is-open' : ''}`);
+    wrap.dataset.missionId = group.missionId;
+    const inner = el('div', 'rail-threads-inner');
     const list = el('ul', 'steward-board-threads');
-    // B4：钱与验收是【事项】的事实，整件事只印一次 —— 单线程落在那张卡的卡尾，多线程落在组尾。
     for (const row of group.rows) {
       list.appendChild(renderThreadRow(row, {
         missionId: group.missionId,
-        facts: grouped ? null : missionFacts(group),
+        selected,
+        facts: null,   // 验收 a/b 在任务行上印过了，整件事只印一次
       }));
     }
-    section.appendChild(list);
-    if (grouped) section.appendChild(missionFacts(group));
-    return section;
+    inner.appendChild(list);
+    wrap.appendChild(inner);
+    return wrap;
   }
 
-  function renderBoard() {
+  // ── ② 左栏正文：五组 ＋ 计数 ＋ 搜索过滤（§2.3）──────────────────────────────────
+  // 行序【原样取服务端】：13d 的 D1 已经按「状态优先、其次 updatedAt」排好，左栏、右栏小行与
+  // 抽屉页签消费的是同一份序 —— 这里只把任务分进五组、组内按最后动静新的在前，不重排线程。
+  function renderRail() {
     renderStatusLine();
     renderArbiterFacts();
-    const host = clear(byId('stewardBoardList'));
+    syncRailPlus();
+    const host = clear(byId('railList'));
     if (!host) return 0;
-    const groups = groupRows();
-    // 117m-A2：从「N 条等你」跳过来时（多于 1 条那一支），把等你的行排到最前。排的是这一次渲染
-    // 用的【副本】—— rows 本身与 GET /api/missions 的行序一个字节不动，看板关掉即复位。
-    // sort 在现代 JS 里是稳定的，所以其余行的相对顺序不变。
-    if (needsYouFirst && needsYouIds.length) {
-      const waiting = new Set(needsYouIds);
-      const waits = row => Number(waiting.has(String(row && row.sessionId)));
-      for (const group of groups) group.rows = group.rows.slice().sort((a, b) => waits(b) - waits(a));
-      groups.sort((a, b) => Number(a.rows.some(waits) ? 0 : 1) - Number(b.rows.some(waits) ? 0 : 1));
-    }
+    const filter = railFilter();
+    const groups = groupRows().filter(group => group.rows.some(row => railRowMatches(row, filter)));
+    const railCount = byId('railCount');
+    if (railCount) railCount.textContent = groups.length ? String(groups.length) : '';
     if (!groups.length) {
-      // 117l-B2 ②（用户第五轮走查 2）：空态从「一句灰字」变成「一句话 ＋ 一个出口」。
-      // 文案与「＋ 线程」都是既有的键，不新开第二套说法；按钮走的也是同一个 newThread。
+      // 117l-B2 ②（用户第五轮走查 2）：空态是「一句话 ＋ 一个出口」。搜索没命中时说的是另一句
+      // （既有键 session.noMatch），不把「还没有任务」这句假话印给一个正在搜索的人。
       const empty = el('div', 'steward-board-empty');
-      empty.appendChild(el('p', 'steward-board-empty-say', t('stewardShell.board.statusEmpty')));
-      empty.appendChild(boardButton('stewardShell.board.newThread', () => newThread(''), { newThread: '1' }));
+      empty.appendChild(el('p', 'steward-board-empty-say', t(filter ? 'session.noMatch' : 'stewardShell.board.statusEmpty')));
+      if (!filter) empty.appendChild(boardButton('stewardShell.board.newThread', () => newThread(''), { newThread: '1' }));
       host.appendChild(empty);
       return 0;
     }
-    for (const group of groups) host.appendChild(renderMissionGroup(group));
-    return groups.length;
+    const selected = railSelectedId();
+    const buckets = new Map(RAIL_GROUP_KEYS.map(key => [key, []]));
+    const now = new Date();
+    for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now)).push(group);
+    let printed = 0;
+    for (const key of RAIL_GROUP_KEYS) {
+      const list = buckets.get(key);
+      if (!list.length) continue;
+      list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+      const section = el('section', 'rail-group');
+      section.dataset.group = key;
+      const open = railGroupOpen(key);
+      if (!open) section.classList.add('is-collapsed');
+      section.appendChild(railGroupHead(key, list.length, open));
+      const tasks = el('ul', 'rail-tasks');
+      for (const group of list) {
+        if (group.rows.length > 1) {
+          tasks.appendChild(railTaskRow(group, selected));
+          tasks.appendChild(railThreadList(group, selected));
+        } else {
+          // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
+          tasks.appendChild(renderThreadRow(group.rows[0], {
+            missionId: group.missionId,
+            selected,
+            facts: missionFacts(group),
+          }));
+        }
+        printed += 1;
+      }
+      section.appendChild(tasks);
+      host.appendChild(section);
+    }
+    return printed;
   }
 
   // ── 行动作（全部经 steward-drawer.js 导出的那一段原语，不复制）─────────────────
@@ -693,14 +1034,26 @@ export function createStewardBoard({
     try {
       doc().dispatchEvent(new CustomEvent(STEWARD_NEW_THREAD_EVENT, { detail: { missionId, fromSessionId: '' } }));
     } catch { /* 无 CustomEvent 的宿主 */ }
-    setBoardOpen(false);
     return missionId;
   }
 
   async function openClassic(sessionId) {
-    setBoardOpen(false);
     try { await openClassicWindow(sessionId); } catch (error) { failNote(error); }
     return sessionId;
+  }
+
+  // §2.3 点击语义：打开【这一条线程】。两视角两种「打开」——
+  //   管家视角 = 换焦点（右栏那一份抽屉开在它上面，中栏的对话流不动）；
+  //   工作台视角 = openSession（中栏真的换成这条线程的对话）。
+  // 这是「左栏是同一份 DOM、两视角各自的现场各自保持」那条原则（§2.1 第 11 条）的落点：
+  // 本模块不在两视角之间同步选中项，各视角问自己的状态（见 railSelectedId）。
+  function openRow(sessionId) {
+    const id = String(sessionId || '');
+    if (!id) return '';
+    if (isStewardMode()) return openThread(id);
+    Promise.resolve(openSession(id)).catch(() => { /* 打不开那条会话不该把左栏打回去 */ });
+    renderRail();
+    return id;
   }
 
   // 焦点线程：用户显式点过就【钉住】，之后的自动挑选不再把它换掉（换回自动要么关掉这一件、
@@ -713,13 +1066,10 @@ export function createStewardBoard({
     if (!syncNow({ focusRequest: true }) && drawer && typeof drawer.openThread === 'function') drawer.openThread(pinnedId);
     return pinnedId;
   }
-  // 「打开」= 打开抽屉那一份并把看板收起来（不然它盖着自己要看的东西）。
-  // 它同时把「关掉」过的偏好清掉：关掉的意思是「别自己占着右栏」，而不是「以后都别给我看」——
-  // 用户显式点「打开」就是要看，这也是关掉之后把「现在这一件」请回来的那条路（否则没有回头路）。
+  // 「打开」= 把右栏那一份抽屉钉到这一条上。121-K4：修前它还要把看板浮层收起来（不然浮层盖着
+  // 自己要看的东西）与清掉「关掉」偏好，两件事都随浮层右栏退役。
   function openThread(sessionId) {
-    const id = focusThread(sessionId);
-    setBoardOpen(false);
-    return id;
+    return focusThread(sessionId);
   }
 
   // F3「就地回答」：等你的那条小行按下去 = 把这条线程变成【抽屉本体】，并把光标送进抽屉自己
@@ -906,6 +1256,15 @@ export function createStewardBoard({
     return true;
   }
 
+  // 组合根这一侧（工作台开／建／改名／删会话）重画左栏的口：先按手上的行画出来（立刻有反馈），
+  // 在工作台视角再补一发 ETag 化的 /api/missions —— 那一侧没有兜底计时器（syncPolling 只在管家
+  // 视角起表），用户的这一次动作就是行最该被复核的时刻。304 时 loadMissions 直接返回、不重画。
+  function syncRail() {
+    renderRail();
+    if (!isStewardMode()) void pushRefreshRows();
+    return true;
+  }
+
   // 抽屉那一份被就地关掉（×／Esc／「交回管家」）时：不再「把右栏收起来并记住」（那枚「关掉」
   // 与它的本机偏好随 #stewardNow 一起退役），只把用户钉的焦点松开，让焦点回到自动挑选。
   function closeNow() {
@@ -914,23 +1273,10 @@ export function createStewardBoard({
     return true;
   }
 
-  // ── 看板开关 ────────────────────────────────────────────────────────────────────
-  function isBoardOpen() {
-    const board = byId('stewardBoard');
-    return Boolean(board) && board.hidden === false;
-  }
-  function setBoardOpen(open) {
-    const board = byId('stewardBoard');
-    const line = byId('stewardStatusLine');
-    if (!board) return false;
-    board.hidden = !open;
-    // 117m-A2：「等你的排最前」只活在【这一程】—— 看板一关就复位，下次点开还是后端那个行序。
-    if (!open) needsYouFirst = false;
-    if (line) line.setAttribute('aria-expanded', open ? 'true' : 'false');
-    syncPolling();
-    if (open) void refreshBoard();
-    return open;
-  }
+  // ── 121-K4：看板开关（setBoardOpen／isBoardOpen）随浮层退役 ─────────────────────
+  // 左栏常开，没有「开合」这回事了；那条 aria-expanded／aria-controls 的开关语义也一起收掉
+  // （一行状态改成「滚到那一组」，见 jumpToGroup）。轮询的门控因此少了一个变量：syncPolling
+  // 现在只看「管家模式 && 页面可见」，与 121-K2b 删掉「看板关着不刷」那道门是同一个方向。
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────────
   // 行没变（304）就不重画正文 —— 既省事，也不会在用户正开着某个 chip 菜单时把它连根拔掉。
@@ -938,7 +1284,7 @@ export function createStewardBoard({
     lastRefreshAt = Date.now();   // 117j W2-5：手动刷新也重置节拍，不让下一拍紧跟着再拉一次
     const changed = await loadMissions();
     await loadArbiter();
-    if (changed) renderBoard();
+    if (changed) renderRail();
     else { renderStatusLine(); renderArbiterFacts(); }
     syncNow();
     if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
@@ -951,7 +1297,7 @@ export function createStewardBoard({
   async function refreshRows() {
     lastRefreshAt = Date.now();   // 与刷新按钮同一条节拍纪律：刚拉过就别让下一拍紧跟着再拉一次
     const changed = await loadMissions();
-    if (changed) renderBoard();
+    if (changed) renderRail();
     return rows.length;
   }
 
@@ -998,12 +1344,44 @@ export function createStewardBoard({
     const sid = String((data && data.sessionId) || '');
     const row = sid ? rows.find(item => item && String(item.sessionId || '') === sid) : null;
     if (!row) return false;                       // 还没进过行：交给 thread.state／created 那一路重拉
+    // 「这一回合的第一个字」：行上此前没有活文本，现在有了。这一刻右栏那一份抽屉手里的切片
+    // 【一定是旧的】—— 它是在 thread.state 那一帧读的，那时回合刚起跑、一个字都还没有，所以它
+    // 画的还是上一回合的「它刚说」。补一发 refreshOnce 让它换成「它正在说」（§2.6 在跑那一段的
+    // 承诺，也是 §6.3 指标 d）。只在【从无到有】那一次补，不是每条 live 都补 —— thread.live
+    // 每 500 ms 一条，每条跟一发请求正是 K2b 明确拒绝的那件事。
+    const firstTick = !row.liveTail;
     row.liveTail = {
       tool: String((data && data.tool) || ''),
       updatedAt: String((data && data.updatedAt) || ''),
       iterations: Math.max(0, Number(data && data.iterations) || 0),
     };
-    renderBoard();
+    paintRailLive(row);
+    if (firstTick && drawer && typeof drawer.refreshOnce === 'function' && currentFocusId() === sid) {
+      drawer.refreshOnce().catch(() => { /* 一次补读没成不该把左栏打回去，下一拍还会再判 */ });
+    }
+    return true;
+  }
+  // thread.live 每条线程 ~500 ms 一发，而左栏【一直在屏幕上】—— 整栏重画一遍就是一次真实的
+  // 重排（十来行 ＋ 每行一套 chip）。121-K4 实测过这个代价：改前每一发 live 都 renderRail()，
+  // 两三条线程同时在跑时主线程被排满，右栏那一份抽屉连 3 s 的预算都吃不下
+  // （steward-board.e2e R7「推送到了就自己发现」连红两轮）。看板时代没这个问题，是因为那块面板
+  // 收着时 display:none，重画不产生布局。
+  // 所以这一路【只改那一行的第二行】：一个 textContent，零布局风暴。行还没画出来（比如任务刚
+  // 出现在推送里、整栏还没重画过）才回落整栏画一次。
+  function paintRailLive(row) {
+    const sid = String(row.sessionId || '');
+    const host = doc() && doc().querySelector(`#railList .steward-board-thread[data-session-id="${sid}"]`);
+    if (!host) { renderRail(); return true; }
+    const text = railSubLine(row, threadStateOf(row));
+    let line = host.querySelector('.steward-board-sub');
+    if (!text) { if (line) line.remove(); return true; }
+    if (!line) {
+      line = el('p', 'steward-board-sub');
+      const head = host.querySelector('.steward-board-thread-head');
+      if (head && head.nextSibling) host.insertBefore(line, head.nextSibling);
+      else host.appendChild(line);
+    }
+    line.textContent = text;
     return true;
   }
   function setEventStream(stream) {
@@ -1056,34 +1434,36 @@ export function createStewardBoard({
     else stopPolling();
   }
 
-  // 切离管家模式：看板收起、右栏收起、计时器清干净（本机的「关掉」偏好不受影响）。
+  // 切到工作台视角：右栏收起、焦点松开、计时器清干净。
+  // 121-K4：左栏【不清】—— 它是两视角共用的同一份 DOM，切过去之后要立刻按工作台的口径重画
+  // （「＋」的字变成「新线程」、选中项从焦点线程换成当前会话）。行数据在这一侧由推送与
+  // session-experience 的动作（开／建／改名／删）驱动，见 setEventStream 与 renderRail 的头注。
   function leaveSteward() {
-    const board = byId('stewardBoard');
-    if (board) board.hidden = true;
-    const line = byId('stewardStatusLine');
-    if (line) line.setAttribute('aria-expanded', 'false');
-    needsYouFirst = false;
     pinnedId = '';
     syncNow();
     stopPolling();
+    renderRail();
     return true;
   }
 
   function bindStewardBoard() {
+    // 一行状态：121-K4 起它不再是「点开即看板」的开关，而是「把左栏滚到最需要你的那一组」
+    // （与顶栏那枚全局状态胶囊同一个去处）。
     const line = byId('stewardStatusLine');
-    if (line) {
-      line.setAttribute('aria-expanded', 'false');
-      line.onclick = () => setBoardOpen(!isBoardOpen());
-    }
-    // 117m-A2：「N 条等你」的去处（恰好 1 条直接开那条线程，多于 1 条拉开看板并把它们排到最前）。
+    if (line) line.onclick = () => { jumpToGroup(''); };
+    const chip = byId('appStatusChip');
+    if (chip) chip.onclick = () => { jumpToGroup(''); };
+    // 117m-A2：「N 条等你」的去处（恰好 1 条直接开那条线程，多于 1 条滚到「等你」那一组）。
     const needsYouGo = byId('stewardStatusNeedsYouBtn');
     if (needsYouGo) { needsYouGo.hidden = true; needsYouGo.onclick = () => { goToNeedsYou(); }; }
     const max = byId('stewardBoardMax');
     if (max) max.onchange = () => { void saveMaxParallel(max.value); };
     const pause = byId('stewardBoardPauseAllBtn');
     if (pause) pause.onclick = () => { void pauseAll(); };
-    const classic = byId('stewardBoardClassicBtn');
-    if (classic) classic.onclick = () => { setBoardOpen(false); switchWholeShell(); };
+    // 搜索（Ctrl+K）：框是 2.0 那一个，去抖与后端内容搜索仍住 session-experience.js；
+    // 这里只在它变的时候把左栏重画一遍（过滤判据在 railFilter 一处）。
+    const search = byId('sessionSearch');
+    if (search) search.addEventListener('input', () => { renderRail(); });
 
     if (drawer && typeof drawer.setOnClosed === 'function') {
       // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 松开用户钉的焦点（见 closeNow 的头注）。
@@ -1110,9 +1490,6 @@ export function createStewardBoard({
       };
       document_.addEventListener(STEWARD_FOCUS_THREAD_EVENT, focusFrom);
       document_.addEventListener(STEWARD_OPEN_THREAD_EVENT, focusFrom);
-      document_.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && isBoardOpen()) { event.stopPropagation(); setBoardOpen(false); }
-      });
       document_.addEventListener('visibilitychange', () => {
         syncPolling();
         if (isStewardMode() && !document_.hidden) void refreshBoard();
@@ -1126,7 +1503,12 @@ export function createStewardBoard({
       try { globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).addEventListener('change', () => syncNow()); }
       catch { /* 老浏览器没有 addEventListener on MediaQueryList */ }
     }
+    // 进管家视角：刷行＋仲裁面并起表（enterSteward）。
+    // 121-K4：**工作台视角也要刷一次行** —— 左栏是两视角共用的同一份 DOM，行是它的全部内容；
+    // 不刷的话在工作台直接刷新页面会看到一条空的左栏（第一版实测就是这样）。只取这一次、不起表：
+    // 之后的新鲜度由推送（thread.* 五类）与用户动作（开／建／改名／删 → syncRail）给。
     if (isStewardMode()) void enterSteward();
+    else void refreshRows();
     return true;
   }
 
@@ -1140,8 +1522,10 @@ export function createStewardBoard({
   return Object.freeze({
     bindStewardBoard,
     setEventStream, // 121-K2b：组合根那一条推送（迟绑定，与 setOnClosed／setMissionRows 同纪律）
-    setBoardOpen,
-    isBoardOpen,
+    // 121-K4：左栏是两视角共用的那一份 DOM，所以「重画左栏」要能从组合根这一侧叫得动
+    // （工作台开／建／改名／删会话之后，session-experience 只调这一个口，不自己画行）。
+    syncRail,
+    renderRail,
     refreshBoard,
     enterSteward,
     closeNow,

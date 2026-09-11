@@ -1709,14 +1709,11 @@ try {
   const afterClicks = await cdp.evaluate('(window.__ruyiChannelCalls || []).length');
   ok(afterClicks === channelRun.calls.length,
     `X7c companion：四次点 chip 之后请求数一发没变（实测 ${channelRun.calls.length} → ${afterClicks}）`);
-  const boardOpened = await waitForEval(cdp, `(() => {
-    const entry = document.querySelector('#stewardFeed .steward-channels-board');
-    if (entry) entry.click();
-    const snapshot = ${CHANNELS};
-    return snapshot.boardOpen ? snapshot : null;
-  })()`, 200);
-  ok(Boolean(boardOpened) && boardOpened.boardOpen === true,
-    'X8 右端的「全部线程」把看板拉开（点的是 117h 那一个既有入口 #stewardStatusLine，不是第二条通道）');
+  // 121-K4-2：X8 原来钉的是「右端那枚『全部线程』把看板浮层拉开」。看板浮层随 K4-2 退役
+  // （行搬左栏、常开），这枚入口于是无处可去 —— 它连同整条频道条在 K4-3 一起删除（§2.4「频道条
+  // 退役」：左栏就是索引，频道条是它的第二遍）。本条断言先撤，X 组其余在 K4-3 随频道条一并撤。
+  ok(await cdp.evaluate(`!document.getElementById('stewardBoard')`),
+    'X8 那枚「全部线程」指向的看板浮层已退役（左栏取代了它；频道条本体随 K4-3 删除）');
   await cdp.evaluate(`(() => { const line = document.getElementById('stewardStatusLine'); if (line) line.click(); return true; })()`);
 
   // ─── X8b 117v-V4 ① 四档间距（用户第十轮追加②「每段会话离的太近了，你看图，很密」＋ 再追加①

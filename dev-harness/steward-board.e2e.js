@@ -59,11 +59,18 @@ const TICK_MS = 5000;
 const { findBrowserExecutable } = require('./lib/browser-path');
 const browserPath = findBrowserExecutable;
 
-function request(port, method, pathname, body, token) {
+// 121-K4 修夹具（不是修产品）：`timeoutMs` 是新加的第六个参数，默认仍是 20 s。
+// 病根：本件那几发「不 await 的回合」（provider 的 ask／hang 两支刻意不收尾，好让 A 停在等你、
+// B 一直在跑）走的就是这个 helper —— 20 s 一到 req.destroy()，服务端那一头的流断掉，回合随之
+// 结束。夹具在浏览器冷启动快的机器上刚好赶得及（K4-1 那一轮 97 条全绿），慢一点就整组塌方：
+// B1 读到「0 条在跑，0 条等你」，随后每一条都跟着红（实测三轮：A=stopped／B=stopped、
+// asksYou 为空、wait 为空 —— 全是同一个根）。这不是产品的行为，是夹具自己把回合掐了。
+// 所以：要它【活着】的那几发给 10 分钟，其余一律照旧 20 s。
+function request(port, method, pathname, body, token, timeoutMs = 20000) {
   return new Promise(resolve => {
     const raw = body == null ? '' : JSON.stringify(body);
     const req = http.request({
-      host: '127.0.0.1', port, path: pathname, method, timeout: 20000,
+      host: '127.0.0.1', port, path: pathname, method, timeout: timeoutMs,
       headers: {
         ...(raw ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) } : {}),
         ...(token ? { 'x-wcw-token': token } : {}),
@@ -219,57 +226,84 @@ const READY = `(() => {
 // 看板快照：全部走 textContent / 属性，不碰任何模块私有状态。
 const BOARD = `(() => {
   const text = id => { const node = document.getElementById(id); return node ? node.textContent.trim() : ''; };
-  const board = document.getElementById('stewardBoard');
   const now = document.getElementById('stewardSide');   // 121-K4：浮层「现在这几件」→ 栅格里常驻的右栏
   const drawer = document.getElementById('stewardDrawer');
   const line = document.getElementById('stewardStatusLine');
+  // 121-K4-2：看板浮层退役，行搬到左栏 #railList，并且【按任务】归组：
+  //   · 单线程任务 = .rail-tasks 的直系 li.steward-board-thread（不画任务层）；
+  //   · 多线程任务 = 一行 li.rail-task ＋ 紧跟的 .rail-threads（展开容器）里的那几条线程行。
+  // 探针把两种形状折成【同一个 groups 形状】，于是下面那几十条断言钉的仍是同一件事
+  // （哪一件有几条线程、验收印几次、行上有什么）—— 变的只是它们长在哪个容器里。
+  const railGroups = () => {
+    const out = [];
+    for (const section of document.querySelectorAll('#railList .rail-group')) {
+      for (const node of section.querySelector('.rail-tasks').children) {
+        if (node.classList.contains('rail-task')) {
+          const wrap = node.nextElementSibling;
+          out.push({ head: node, rows: wrap ? [...wrap.querySelectorAll('.steward-board-thread')] : [], group: section.dataset.group || '' });
+        } else if (node.classList.contains('steward-board-thread')) {
+          out.push({ head: null, rows: [node], group: section.dataset.group || '' });
+        }
+      }
+    }
+    return out;
+  };
+  const readRow = item => ({
+    sessionId: item.dataset.sessionId || '',
+    title: (item.querySelector('.steward-board-thread-title') || {}).textContent || '',
+    state: item.dataset.state || '',
+    statePillText: (item.querySelector('.steward-board-thread-head .steward-board-pill[data-state]') || { textContent: '' }).textContent.trim(),
+    hue: item.dataset.threadHue || '',
+    bars: item.querySelectorAll('.steward-tcard-bar').length,
+    stateDots: item.querySelectorAll('.steward-board-dot').length,
+    hueDots: item.querySelectorAll('.steward-tcard-dot').length,
+    wait: (item.querySelector('.steward-board-wait') || {}).textContent || '',
+    sub: (item.querySelector('.steward-board-sub') || { textContent: '' }).textContent.trim(),
+    origin: (item.querySelector('.rail-origin') || {}).dataset ? item.querySelector('.rail-origin').dataset.origin : '',
+    quick: [...item.querySelectorAll('.steward-board-pill')].some(node => node.dataset.kind === 'quick_ask'),
+    asksYou: [...item.querySelectorAll('.steward-board-pill.is-asks-you')].map(node => node.textContent.trim()),
+    chips: [...item.querySelectorAll('.steward-board-chips .steward-chip')].map(node => node.dataset.chip),
+    actions: [...item.querySelectorAll('.steward-board-actions .steward-board-btn')].map(node => node.dataset.action),
+    newThreadInTail: item.querySelectorAll('.steward-board-actions [data-new-thread]').length,
+    headMeta: [...item.querySelectorAll('.steward-board-thread-head .steward-board-meta')].map(node => node.textContent.trim()),
+  });
   return {
     statusLine: line ? line.textContent.trim() : '',
     expanded: line ? line.getAttribute('aria-expanded') : '',
-    boardHidden: board ? board.hidden : null,
-    boardRole: board ? board.getAttribute('role') : '',
+    railCount: (document.getElementById('railCount') || {}).textContent || '',
+    railGroupNames: [...document.querySelectorAll('#railList .rail-group')].map(node => node.dataset.group),
+    plusLabel: (document.getElementById('newSessionBtnLabel') || {}).textContent || '',
+    chip: (() => {
+      const node = document.getElementById('appStatusChip');
+      return node ? { hidden: node.hidden, text: node.textContent.trim() } : null;
+    })(),
     maxValue: (document.getElementById('stewardBoardMax') || {}).value || '',
     running: text('stewardBoardRunning'),
     queued: text('stewardBoardQueued'),
     note: text('stewardBoardNote'),
-    groups: [...document.querySelectorAll('#stewardBoardList .steward-board-mission')].map(group => ({
-      missionId: group.dataset.missionId || '',
-      // 117u-G2 B1：单线程事项【不画事项层】，所以这三个字段在那种组上如实为空／零 ——
-      // 判据是「有没有 .steward-board-mission-head」，不是「标题串是不是空的」。
-      grouped: group.classList.contains('is-grouped'),
-      hasHead: Boolean(group.querySelector('.steward-board-mission-head')),
-      title: (group.querySelector('.steward-board-mission-title') || {}).textContent || '',
-      // 病 2 的可数形式：整组【看得见的字】里，那个名字出现了几次（修前事项头一遍、线程行一遍）。
-      text: group.textContent || '',
-      pills: [...group.querySelectorAll('.steward-board-mission-head .steward-board-pill')].map(node => node.textContent.trim()),
-      tone: (group.querySelector('.steward-board-mission-head .steward-board-dot') || {}).dataset?.tone || '',
-      // 117u-G2 B4：钱与验收是【事项】的事实，整件事只印一次 —— 多线程落在组尾，单线程落在
-      // 那唯一一张卡的卡尾。这里数的是【整组】里的事实行，两种形状用同一个判据看。
-      facts: [...group.querySelectorAll('.steward-board-facts')].map(node => node.textContent.trim()),
-      threads: [...group.querySelectorAll('.steward-board-thread')].map(item => ({
-        sessionId: item.dataset.sessionId || '',
-        title: (item.querySelector('.steward-board-thread-title') || {}).textContent || '',
-        // 117u-G2 B2：五态从「那颗点的颜色」搬到卡上的事实 ＋ 卡头那枚药丸（色 ≠ 态）。
-        // 点自此只说「这是哪条线程」。
-        state: item.dataset.state || '',
-        statePillText: (item.querySelector('.steward-board-thread-head .steward-board-pill[data-state]') || { textContent: '' }).textContent.trim(),
-        hue: item.dataset.threadHue || '',
-        bars: item.querySelectorAll('.steward-tcard-bar').length,
-        stateDots: item.querySelectorAll('.steward-board-dot').length,
-        hueDots: item.querySelectorAll('.steward-tcard-dot').length,
-        wait: (item.querySelector('.steward-board-wait') || {}).textContent || '',
-        // 117l D4：行上那枚「它在问你」pill（只在 asksYou 非空时出现，点它＝打开抽屉）。
-        asksYou: [...item.querySelectorAll('.steward-board-pill.is-asks-you')].map(node => node.textContent.trim()),
-        chips: [...item.querySelectorAll('.steward-board-chips .steward-chip')].map(node => node.dataset.chip),
-        actions: [...item.querySelectorAll('.steward-board-actions .steward-board-btn')].map(node => node.dataset.action),
-        // 117u-G2 B5：「＋ 线程」收进卡尾那排次级动作（原来在事项头右上角常亮）。
-        newThreadInTail: item.querySelectorAll('.steward-board-actions [data-new-thread]').length,
-        // B4：标题右侧只剩「最后动静」——卡头里除药丸外没有第二串 meta。
-        headMeta: [...item.querySelectorAll('.steward-board-thread-head .steward-board-meta')].map(node => node.textContent.trim()),
-      })),
+    groups: railGroups().map(entry => ({
+      missionId: (entry.head ? entry.head.dataset.missionId : '')
+        || (entry.rows[0] ? entry.rows[0].dataset.sessionId : ''),
+      // 121-K4：B1 的口径反过来了 —— 单线程任务【不画任务层】（那一行就是它的线程行），
+      // ≥2 条才有任务行。所以 grouped/hasHead 这两个字段的意思一个字没变，只是判据换成
+      // 「有没有那一行 .rail-task」。
+      grouped: Boolean(entry.head),
+      hasHead: Boolean(entry.head),
+      title: entry.head ? (entry.head.querySelector('.steward-board-thread-title') || {}).textContent || '' : '',
+      text: (entry.head ? entry.head.textContent : '') + entry.rows.map(row => row.textContent).join(''),
+      pills: entry.head ? [...entry.head.querySelectorAll('.steward-board-thread-head .steward-board-pill')].map(node => node.textContent.trim()) : [],
+      group: entry.group,
+      open: entry.head ? entry.head.classList.contains('is-open') : null,
+      taskCount: entry.head ? (entry.head.querySelector('.rail-task-count') || {}).textContent || '' : '',
+      // 验收 a/b 仍然整件事只印一次：多线程印在任务行的卡尾，单线程印在那唯一一张卡的卡尾。
+      facts: [(entry.head ? [...entry.head.querySelectorAll('.steward-board-facts')] : [])
+        .concat(entry.rows.flatMap(row => [...row.querySelectorAll('.steward-board-facts')]))]
+        .flat().map(node => node.textContent.trim()),
+      threads: entry.rows.map(readRow),
     })),
-    // 117u-G2 B5 的另一半：事项头上不许再留那枚「＋ 线程」。
-    missionHeadNewThread: document.querySelectorAll('#stewardBoardList .steward-board-mission-head [data-new-thread]').length,
+    // 121-K4：「＋ 线程」在任务行上是【唯一】一枚动作（线程级的那几枚在线程行上），
+    // 所以这里数的是「任务行的卡头里有没有它」——卡头上仍然一枚常亮按钮都不许有。
+    missionHeadNewThread: document.querySelectorAll('#railList .rail-task .steward-board-thread-head [data-new-thread]').length,
     nowHidden: now ? now.hidden : null,
     nowThread: text('stewardDrawerTitle'),
     // 117s-B：右栏那一份抽屉的状态行与「它刚说／它正在说」——「递话进来之后屏幕上有没有变」
@@ -289,29 +323,24 @@ const BOARD = `(() => {
       return btn ? btn.disabled : null;
     })(),
     topGround: (() => {
-      const top = document.querySelector('#stewardBoard .steward-board-top');
+      const top = document.querySelector('#sidebar .rail-board-head');
       if (!top) return '';
       const style = getComputedStyle(top);
-      return style.backgroundColor + '|' + style.backdropFilter;
+      return style.backgroundColor + '|' + style.backdropFilter + '|' + style.display;
     })(),
-    missionGround: (() => {
-      const card = document.querySelector('#stewardBoardList .steward-board-mission');
-      if (!card) return '';
-      const style = getComputedStyle(card);
-      return style.backgroundColor + '|' + style.backdropFilter;
-    })(),
-    // 同一张卡里第二条线程行的上边线（分隔线）与整行的左缩进。
+    // 同一个任务下第二条线程行的上边线（分隔线）与整行的左缩进（121-K4：缩进改由 padding 给，
+    // 因为展开容器是 grid 0fr→1fr，外边距会在收起那一帧被算进去、露出一条缝）。
     threadRule: (() => {
-      const rows = [...document.querySelectorAll('#stewardBoardList .steward-board-mission')]
-        .map(card => [...card.querySelectorAll('.steward-board-thread')])
+      const rows = [...document.querySelectorAll('#railList .rail-threads')]
+        .map(wrap => [...wrap.querySelectorAll('.steward-board-thread')])
         .find(list => list.length >= 2) || [];
       if (rows.length < 2) return '';
       const first = getComputedStyle(rows[0]);
       const second = getComputedStyle(rows[1]);
-      return first.borderTopWidth + '|' + second.borderTopWidth + '|' + second.marginInlineStart;
+      return first.borderTopWidth + '|' + second.borderTopWidth + '|' + second.paddingInlineStart;
     })(),
     // 线程名在窄屏下有没有被挤没（走查 2 的返工点：0 宽 = 名字从屏幕上消失）。
-    titleWidths: [...document.querySelectorAll('#stewardBoardList .steward-board-thread-title')]
+    titleWidths: [...document.querySelectorAll('#railList .steward-board-thread-title')]
       .map(node => Math.round(node.getBoundingClientRect().width)),
   };
 })()`;
@@ -407,12 +436,12 @@ try {
 
   // A：停在 question 待决（等你）。B：回合一直挂着（在跑）。两条各自的工作文件夹不同 ——
   // 116h 的同 cwd 写互斥会把后来的那条压成「等锁」，那不是本件要测的形状。
-  request(appPort, 'POST', '/api/chat/stream', { sessionId: created.A, message: 'ask about south', cwd: workA }, token);
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: created.A, message: 'ask about south', cwd: workA }, token, 600000);
   ok(Boolean(await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
     const pending = (result.json && result.json.pending) || [];
     return pending.some(item => item && item.type === 'question' && item.sessionId === created.A);
   }, token)), 'A5 线程 A 停在 question 待决（等你）');
-  request(appPort, 'POST', '/api/chat/stream', { sessionId: created.B, message: 'hang here', cwd: workB }, token);
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: created.B, message: 'hang here', cwd: workB }, token, 600000);
   const running = await waitForHttp(appPort, 'GET', '/api/missions?limit=200', result => {
     const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === created.B);
     return Boolean(row && row.activeTurn === true);
@@ -480,8 +509,10 @@ try {
     const actual = await cdp.evaluate(BOARD);
     console.log('DEBUG statusLine=' + JSON.stringify(actual && actual.statusLine));
   }
-  ok(entered && entered.boardHidden === true && entered.expanded === 'false',
-    'B1b 看板默认收着（一行状态是它的开关）');
+  // 121-K4-2：左栏【常开】—— 没有「默认收着、点开才有」这回事了（那正是 32 号文 §5 记的那笔债：
+  // 看板一关，行就停在关上的那一帧）。B1b 因此翻面：进壳那一刻行就在屏幕上，且一行状态不再是开关。
+  ok(entered && entered.expanded === null && entered.groups.length > 0,
+    `B1b 左栏常开：进壳那一刻任务索引就在屏幕上（${entered && entered.groups.length} 件），一行状态不再是开关（无 aria-expanded）`);
 
   // ── ⑤ 「现在这一件」：≥1000px 常驻，焦点是【等你】那条 ─────────────────────────
   // 抽屉先把骨架亮出来再补内容（openThread 同步渲染 + 异步 refreshOnce），所以标题要等它落定。
@@ -503,16 +534,23 @@ try {
   ok(docked && docked.intervals.filter(ms => ms === TICK_MS).length === 3,
     `B2d 看板没打开时也只有三张表（抽屉 + avatar + 看板各一；121-K2b 之前看板那张要等点开才起，现在左栏常开、它一直在跑，节拍改由 pollTick 判；实测 ${docked && JSON.stringify(docked.intervals)}）`);
 
-  // ── ② 点开看板 → 分组、验收 a/b、等待原因、chip ────────────────────────────────
-  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
+  // ── ② 左栏：分组、验收 a/b、等待原因、chip ─────────────────────────────────────
+  // 121-K4-2：不再需要「点开」这一步 —— 左栏常开。这里只等它把两件任务都画出来。
   const opened = await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
-    return snapshot.boardHidden === false && snapshot.groups.length ? snapshot : null;
+    return snapshot.groups.length >= 2 ? snapshot : null;
   })()`);
-  ok(Boolean(opened), 'C1 点一行状态即拉开看板');
-  if (!opened) throw new Error('board did not open');
-  ok(opened.boardRole === 'region' && opened.expanded === 'true', 'C1b 看板是 role="region"，一行状态 aria-expanded=true');
-  ok(opened.groups.length === 2, `C2 按事项分成两组（实测 ${opened.groups.length}）`);
+  ok(Boolean(opened), 'C1 左栏把任务索引画出来了（常开，不用先点开）');
+  if (!opened) throw new Error('rail did not render');
+  // 一行状态点下去＝把左栏滚到最需要你的那一组（§2.2「点开＝左栏滚到该组」），不再开合任何东西。
+  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
+  const jumped = await cdp.evaluate(`(() => {
+    const section = document.querySelector('#railList .rail-group[data-group="needs_you"]');
+    return section ? JSON.stringify({ found: true, collapsed: section.classList.contains('is-collapsed') }) : JSON.stringify({ found: false });
+  })()`);
+  ok(jumped === JSON.stringify({ found: true, collapsed: false }),
+    `C1b 点一行状态＝把左栏滚到「等你」那一组（并保证那一组是展开的；实测 ${jumped}）`);
+  ok(opened.groups.length === 2, `C2 按任务分成两件（实测 ${opened.groups.length}）`);
   const groupM = opened.groups.find(group => group.missionId === missionId) || null;
   const groupC = opened.groups.find(group => group.missionId === created.C) || null;
   ok(Boolean(groupM) && groupM.title === MISSION_TITLE,
@@ -523,8 +561,9 @@ try {
   ok(Boolean(groupM) && groupM.facts.length === 1
     && groupM.facts[0].includes(fill('stewardShell.board.acceptance', { done: 1, total: 2 })),
     `C4 验收 a/b 印在卡尾那一行事实里，且整组只印一次（实测 ${groupM && JSON.stringify(groupM.facts)}）`);
-  ok(Boolean(groupM) && groupM.pills.includes(fill('stewardShell.board.threadCount', { n: 2 })),
-    'C4b 事项行显示线程数');
+  ok(Boolean(groupM) && groupM.taskCount === '2'
+    && groupM.facts.join(' ').includes(fill('stewardShell.board.threadCount', { n: 2 })),
+    `C4b 任务行显示线程数（行上一枚小计数「${groupM && groupM.taskCount}」＋卡尾事实行那一枚）`);
   // 117u-G2 **重钉 C5**（B1：单线程事项不画事项层 —— §11.15.2 病 2「标题字面重复两次」）。
   // 旧判据钉的是「自成事项的事项名回落成它自己的标题」，那句话在修前【必然】导致同一个名字上下
   // 印两遍（事项头一遍、线程行一遍）。新判据钉的是这一刀真正要保证的事：那种组根本没有事项层，
@@ -598,14 +637,14 @@ try {
       if (!bar) return '';
       return Math.round(bar.getBoundingClientRect().width) + 'px|' + getComputedStyle(bar).backgroundColor;
     };
-    const paint = id => measure('#stewardBoardList .steward-board-thread[data-session-id="' + id + '"]');
+    const paint = id => measure('#railList .steward-board-thread[data-session-id="' + id + '"]');
     return {
       barA: paint('${created.A}'),
       barB: paint('${created.B}'),
       barNowB: measure('.steward-now-thread[data-session-id="${created.B}"]'),
     };
   })()`);
-  await cdp.evaluate(`document.querySelector('#stewardBoardList .steward-board-thread[data-session-id="${created.A}"] .steward-board-pill.is-asks-you').click(), true`);
+  await cdp.evaluate(`document.querySelector('#railList .steward-board-thread[data-session-id="${created.A}"] .steward-board-pill.is-asks-you').click(), true`);
   ok(Boolean(await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
     return snapshot.drawerHidden === false && snapshot.nowThread ? snapshot : null;
@@ -619,7 +658,7 @@ try {
   // 顺带钉住「号是有效的」：四色循环发出来的号只能是 1..4，取不到会是空串或 0。
   const hueProof = await cdp.evaluate(`(async () => {
     const conv = await import('/js/steward-conversation.js');
-    const card = document.querySelector('#stewardBoardList .steward-board-thread[data-session-id="${created.A}"]');
+    const card = document.querySelector('#railList .steward-board-thread[data-session-id="${created.A}"]');
     const head = document.getElementById('stewardDrawerHead');
     const now = document.querySelector('.steward-now-thread[data-session-id="${created.B}"]');
     const paint = node => {
@@ -665,14 +704,16 @@ try {
 
   // ── 117l-B2 ②：看板视觉的可判定结果（用户第五轮走查 2）──────────────────────────
   const transparent = value => /rgba\(0, 0, 0, 0\)|transparent/.test(String(value));
-  ok(opened.topGround && !transparent(opened.topGround.split('|')[0])
-    && /^(none|)$/.test(opened.topGround.split('|')[1] || ''),
-    `V1 顶部 toolbar 有自己的玻璃底，且【没有】叠 backdrop-filter（同屏模糊预算不变；实测 ${opened.topGround}）`);
-  ok(opened.missionGround && !transparent(opened.missionGround.split('|')[0])
-    && /^(none|)$/.test(opened.missionGround.split('|')[1] || ''),
-    `V2 每个事项是一张有底的卡，同样不叠模糊（实测 ${opened.missionGround}）`);
-  ok(opened.threadRule && /^0px\|1px\|16px$/.test(opened.threadRule),
-    `V3 同一张卡里第一条线程行不画上边线、第二条画 1px 分隔线，两条都缩进 --sp-4=16px（实测 ${opened.threadRule}）`);
+  // 121-K4-2：那条 toolbar 搬进左栏的看板密度栏头 —— 紧凑密度下它【收起来】（display:none），
+  // 这正是「268px 那一档只留一行主信息」的可判定形式。
+  ok(opened.topGround && opened.topGround.split('|')[2] === 'none',
+    `V1 并发上限那一条在紧凑密度下收起（看板密度才出现；实测 ${opened.topGround}）`);
+  // V2 那张「事项卡」随 B1 口径反转而退役（多线程任务是一行任务行，不是一张裹起来的卡）——
+  // 它的可判定形式换成：任务行【真的在】，而且它与线程行是同一枚卡基元（同一个类）。
+  ok(Boolean(groupM) && groupM.hasHead === true && groupM.grouped === true,
+    'V2 多线程任务是一行任务行（与线程行同一枚卡基元），不再是一张把线程行裹起来的玻璃卡');
+  ok(opened.threadRule && /^0px\|1px\|20px$/.test(opened.threadRule),
+    `V3 同一个任务下第一条线程行不画上边线、第二条画 1px 分隔线，两条都缩进 --sp-5=20px（121-K4：缩进改由 padding 给；实测 ${opened.threadRule}）`);
   ok(Array.isArray(opened.titleWidths) && opened.titleWidths.length >= 3 && opened.titleWidths.every(width => width > 0),
     `V4 每条线程行的名字都真的占着宽度（不会被 pill 与时间挤成 0；实测 ${JSON.stringify(opened.titleWidths)}）`);
   // 本夹具里 B 只有一个活的对话回合、没有可暂停的 run（pauseAll 自己也会说「那些只能停止」），
@@ -729,16 +770,14 @@ try {
     `F1b 本机偏好里一个字都没写（wcw.stewardNowClosed 已随「关掉」退役；实测「${closed && closed.nowClosedPref}」）`);
   ok(closed && closed.drawerParent === 'stewardNowBody' && closed.drawerHidden === false,
     `F1c 抽屉那一份仍在右栏里（焦点松开了那一钉、回落到自动挑选；实测 parent=${closed && closed.drawerParent} hidden=${closed && closed.drawerHidden}）`);
-  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
-  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
   await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${created.A}"] [data-action="open"]').click(), true`);
   const reopened = await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
     return snapshot.nowHidden === false && snapshot.nowThread === ${JSON.stringify(THREAD_A)} ? snapshot : null;
   })()`);
   ok(Boolean(reopened), 'F2 行上的「打开」把右栏的焦点钉到这一条（121-K4：右栏本来就在，钉的是焦点）');
-  ok(reopened && reopened.nowClosedPref === '' && reopened.boardHidden === true,
-    'F2b 「打开」一路上不写任何本机偏好，并把看板收起（别盖着自己要看的东西）');
+  ok(reopened && reopened.nowClosedPref === '' && reopened.groups.length > 0,
+    'F2b 「打开」一路上不写任何本机偏好；左栏照旧开着（没有「盖着自己要看的东西」那回事了）');
 
   // ── ⑥b 117r-D2（用户第八轮走查①「管家新开线程之后不会自动打开线程详情页了」）──────────
   // 造的是真正出问题的那个时序：线程在看板【已经取过一趟行之后】才建出来，所以它一定不在手里
@@ -805,6 +844,16 @@ try {
   ok(Boolean(bounded) && bounded.nowHidden === false,
     `E2f 一条【不存在】的线程只被信任到那一刷跑完为止，随后交回原判据、回落自动挑选（实测「${bounded && bounded.nowThread}」）`);
 
+  // ── 收摊：把前面几组【故意挂着】的回合真停掉 ───────────────────────────────────────
+  // 121-K4 修夹具：那几发不 await 的回合原来靠 helper 的 20 s 客户端超时「自己死掉」——
+  // 一个既不可靠（机器慢一点就死得比 B1 还早，整组塌方）又有副作用（死得晚就占着并发位）的
+  // 收摊方式。现在两头都写死：要它活的给 10 分钟，不要它了就【显式停掉】。
+  // 必须停：D1 刚把「同时最多」改成 3，而 A／B 两条挂着的回合正占着两个位；不停的话下面
+  // R 组那条新回合会一直排队（实测 R6「线程 F 的新回合也在飞了」永远等不到）。
+  for (const id of [created.A, created.B]) {
+    await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
+  }
+
   // ── R 117s-B（用户第九轮走查①「递话给已有线程也不会自动打开线程详情页」／④「给已收工的
   // 线程重新递话，『它刚说』更新不够及时」）────────────────────────────────────────────────
   // 与上面 E2 那一组【互补】：E2 造的是「行里还没有它」（管家刚开的新线程），这一组造的是另一半 ——
@@ -866,9 +915,7 @@ try {
   // stopPolling，随后行上的「打开」再 startPolling，相位照样从这一刻重新起算）。
   await cdp.evaluate(`document.getElementById('stewardDrawerCloseBtn').click(), true`);
   await sleep(600);   // 同 F1：抽屉随即按自动焦点重开，不等「藏起来」那一帧
-  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
-  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
-  // 看板刚拉开时正文还是上一趟的行；先等这一条线程的行真的渲染出来再点（不然 querySelector 拿到 null）。
+  // 121-K4：左栏常开，不用先拉开。先等这一条线程的行真的渲染出来再点（不然 querySelector 拿到 null）。
   await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]')`);
   await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]').click(), true`);
   await sleep(1500);
@@ -879,7 +926,7 @@ try {
   // 递话的服务端那一半：给这条已收工的线程重新开一个回合（provider 的 hang 支只开流不收尾，
   // 于是 activeTurn 一直为真、服务端的 liveTail 里有「开工了…」）。这一刻【在强刷之后】——
   // 正是真机上「递话刚落地、回合还在排队」时强刷读到的那个时序。
-  request(appPort, 'POST', '/api/chat/stream', { sessionId: idE, message: 'hang here', cwd: workE }, token);
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idE, message: 'hang here', cwd: workE }, token, 600000);
   ok(Boolean(await liveOn(idE)), 'R3 线程 E 的新回合真的在飞（服务端投影 activeTurn=true）—— 递话的服务端那一半已经发生，且它发生在抽屉那一次强刷【之后】');
   const flippedE = await waitForDrawer(THREAD_E, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
   ok(Boolean(flippedE.snapshot) && flippedE.ms <= 12000,
@@ -900,7 +947,7 @@ try {
   // openThread 末尾那次强刷把节拍闸清零，于是随后【多一拍】—— 先把那一拍等掉（表的周期是 5 s），
   // 下面 R7 测到的才是真的空闲节拍，不是这一拍。
   await sleep(6000);
-  request(appPort, 'POST', '/api/chat/stream', { sessionId: idF, message: 'hang here', cwd: workF }, token);
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idF, message: 'hang here', cwd: workF }, token, 600000);
   ok(Boolean(await liveOn(idF)), 'R6 线程 F 的新回合也在飞了（服务端投影 activeTurn=true）');
   // 121-K2b（34 号文 §6.2／§6.3 指标 a）**重钉 R7**：这一条原本钉的是一笔【债】——
   // 「看板行上的『打开』与行标题走 focusThread()，不派事件，抽屉那边一无所知，于是右栏已经
@@ -917,8 +964,6 @@ try {
   })()`, 60);
   ok(Boolean(liveF),
     `R7 推送到了就【自己发现】：一次交互都没有，右栏在 3 s 内从「${zh['mission.state.done']}」＋「${zh['stewardShell.drawer.lastSay']}」翻成「${zh['mission.state.running']}」＋「${zh['stewardShell.drawer.liveSay']}」（121-K2b 还清 32 号文 §5 记的那笔债；实测 state=「${liveF && liveF.nowState}」head=「${liveF && liveF.nowLastSayHead}」）`);
-  await cdp.evaluate(`document.getElementById('stewardStatusLine').click(), true`);
-  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
   await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]')`);
   const clickedAt = Date.now();
   await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]').click(), true`);
@@ -975,6 +1020,11 @@ try {
   // 三条线程【就地造】，不借用上面几组留下来的那几条：跑到这里已经两三分钟，早先那两条（A 的
   // question 待决、B 的挂起回合）在真服务器上可能已经收尾或被仲裁器停掉 —— 借它们等于把本组的
   // 结论建在别组的副作用上（实测过一次：到这一组时 A 不再等你、B 已停工）。
+  // 同上：E／F 两条在 R 组里被重新点起来的回合到这里已经没人要了，显式停掉，把并发位让给 G/H/I
+  // （「同时最多」此刻是 3）。
+  for (const id of [idE, idF]) {
+    await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
+  }
   const workG = path.join(root, 'work-g');
   const workH = path.join(root, 'work-h');
   const workI = path.join(root, 'work-i');
@@ -985,7 +1035,7 @@ try {
     const id = (made && made.json && made.json.session && made.json.session.id) || '';
     if (!id) return '';
     await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: id }, token);
-    request(appPort, 'POST', '/api/chat/stream', { sessionId: id, message, cwd }, token);
+    request(appPort, 'POST', '/api/chat/stream', { sessionId: id, message, cwd }, token, 600000);
     return id;
   };
   const idG = await settleThread(THREAD_G, workG);
@@ -998,17 +1048,8 @@ try {
   const liveI = await liveOn(idI);
   ok(Boolean(idH) && Boolean(askedH) && Boolean(idI) && Boolean(liveI),
     `S1b 另外两种状态也就位：一条停在 question 待决（等你，${idH || '失败'}）、一条回合挂着（在跑，${idI || '失败'}）`);
-  // 右栏那几条小行读的是【本模块手里这批行】，而行只在文件头那五个确定性时刻刷新（进壳／开看板／
-  // 焦点事件／写动作／页面重新可见）—— F3 不加第六个时刻，更不加第二条计时器（F1 锁死一处
-  // setInterval，看板关着时管家壳不多一条后台活动）。上一组最后一步是行上的「打开」，它顺手把
-  // 看板收了（openThread → setBoardOpen(false)），表也就停了。所以这里先把看板拉开：这既是真实
-  // 交互（用户要看这几条线程本来就会开看板），也让下面「服务端行序 vs 列内顺序」比的是同一份行。
-  await cdp.evaluate(`(() => {
-    const board = document.getElementById('stewardBoard');
-    if (board && board.hidden) document.getElementById('stewardStatusLine').click();
-    return true;
-  })()`);
-  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.boardHidden === false ? 1 : null; })()`);
+  // 121-K4-2：左栏常开，不用再「先把看板拉开」这一步（那一步原来是为了让表重新起来）。
+  // 行的新鲜度由推送与那张一直在跑的兜底表给（B2d／C11 钉着它只有一张）。
   ok(Boolean(idG), `S1 第三种状态就位：一条跑完一个回合、此刻没在跑的线程（五态「${zh['mission.state.done']}」；${idG || '失败'}）`);
   // 服务端行序与列内顺序【同一时刻】各取一份再比：行序本身会随状态与 updatedAt 变，
   // 拿一份旧快照去等 DOM 追上来，等到的可能是「两边都对、只是不同时刻」的假红。
@@ -1117,8 +1158,11 @@ try {
   })()`);
   ok(Boolean(classic) && classic.intervals.filter(ms => ms === TICK_MS).length === 0,
     `H1 切回经典壳后管家侧零残留定时器（实测 ${classic && JSON.stringify(classic.intervals)}）`);
-  ok(Boolean(classic) && classic.boardHidden === true && classic.nowHidden === true,
-    'H2 看板与「现在这一件」都收起');
+  // 121-K4：左栏是两视角共用的同一份 DOM —— 切到工作台视角它【不收】，只有右栏收起。
+  // 这正是「一份数据一处控件」那条原则的可判定形式（§2.1 第 10 条）。
+  ok(Boolean(classic) && classic.nowHidden === true && classic.groups.length > 0
+    && classic.plusLabel === zh['rail.newThread'],
+    `H2 右栏收起；左栏照旧在，且「＋」改口说「${zh['rail.newThread']}」（实测「${classic && classic.plusLabel}」）`);
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

@@ -511,11 +511,15 @@ const board = read('js/steward-board.js');
 // 这一句写死的文案，于是 permission／plan／pool 三类只能顶着「它在问你」出现 —— 用户看不出
 // 点进去要干什么。现在文案由 asksYou.kind 决定（表在 STEWARD_BOARD_ASKS_YOU_KEYS），
 // 并额外钉住「看板里没有第二处写死的那句话」（比旧断言更强）。
+// 121-K4：左栏是两视角共用的那一份，所以「点它」在两视角里是两件事 —— 管家视角仍然是把抽屉
+// 开到这一条（问答卡在那儿），工作台视角是 openSession（中栏换成这条线程）。两条都经 openRow
+// 这【一个】入口，本模块没有第二条打开路径。文案由 kind 决定这件事一个字没变。
 ok(/if \(row\.asksYou && typeof row\.asksYou === 'object' && String\(row\.asksYou\.kind \|\| ''\)\) \{/.test(board)
-  && /pill\.onclick = \(\) => openThread\(sessionId\);/.test(board)
+  && /pill\.onclick = \(\) => openRow\(sessionId\);/.test(board)
+  && /if \(isStewardMode\(\)\) return openThread\(id\);/.test(board)
   && /t\(STEWARD_BOARD_ASKS_YOU_KEYS\[kind\] \|\| STEWARD_BOARD_ASKS_YOU_KEYS\.soft\)/.test(board)
   && !/t\('stewardShell\.board\.asksYou'\)/.test(board),
-  'J9 看板行 pill 的文案【由 asksYou.kind 决定】（不是写死一句），点它仍然是打开抽屉（问答卡在那儿）');
+  'J9 左栏行 pill 的文案【由 asksYou.kind 决定】（不是写死一句），点它仍然是打开那一条（管家＝抽屉开到它，工作台＝openSession；同一个 openRow 入口）');
 
 // ─── 117m-A2：问答卡吃下四类待决（用户第六轮走查⑤⑥「需要我允许的也没在线程中」）──────────
 ok(/const ASK_HEAD_KEYS = Object\.freeze\(\{[\s\S]{0,400}permission: 'stewardShell\.drawer\.asksYouPermission',[\s\S]{0,120}plan: 'stewardShell\.drawer\.asksYouApprove',[\s\S]{0,80}pool: 'stewardShell\.drawer\.asksYouApprove',/.test(drawer)

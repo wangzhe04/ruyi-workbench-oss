@@ -66,8 +66,10 @@ ok(/@container frame \(max-width: 980px\)/.test(css) && /--rail-w:\s*56px/.test(
 // ───────────── A3 触屏 hover-only 操作常显 ─────────────
 ok(/@media \(hover:\s*none\)/.test(css), 'A3 存在 @media (hover:none) 块');
 const hoverBlock = (css.match(/@media \(hover:\s*none\)\s*\{[\s\S]*?\n\}/) || [''])[0];
-ok(/\.msg-actions/.test(hoverBlock) && /\.s-actions/.test(hoverBlock) && /\.ftree-at/.test(hoverBlock),
-  'A3 hover:none 块覆盖 msg-actions / s-actions / ftree-at');
+// 121-K4：会话项那三枚 hover 动作（.s-actions）随会话列表退役，左栏行的动作组是
+// .steward-board-actions —— 触屏常显这件事跟着搬到它身上（同一条纪律、同一个 .75 透明度）。
+ok(/\.msg-actions/.test(hoverBlock) && /\.steward-board-actions/.test(hoverBlock) && /\.ftree-at/.test(hoverBlock),
+  'A3 hover:none 块覆盖 msg-actions / steward-board-actions / ftree-at');
 ok(/opacity:\s*\.75/.test(hoverBlock), 'A3 触屏常显透明度 .75');
 
 // ───────────── B1 简单模式技能入口:隐藏规则已删 + 文案 ✨ ─────────────

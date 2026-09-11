@@ -162,7 +162,12 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
     .filter(line => /[\u4e00-\u9fff]/.test(line) && !line.includes('data-i18n') && !line.includes('<!--'));
   assert.deepStrictEqual(unlocalizedSettingsLines, [], 'settings must not leave fixed Chinese copy outside i18n markup');
   assert.ok(app.includes("from './js/i18n.js'"), 'client must load the i18n runtime');
-  assert.ok(app.includes("tCount('session.messageCount'"), 'session rows must use localized pluralization');
+  // 121-K4（34 号文 §2.3）：2.0 的会话项（带「N 条消息」那一行）随会话列表退役，左栏行的第二行
+  // 只印「有话可说」的那一句（在跑正在调什么／等你问的是什么）。这条断言跟着搬到左栏自己的
+  // 计数上：组头计数、顶栏胶囊与「N 条线程」都走目录，界面上没有一处裸拼的数字加单位。
+  // （session.messageCount.* 两个键自此零引用，随 K8 的 locale 清扫一并处理。）
+  assert.ok(app.includes("t('rail.chip.running'") && app.includes("t('rail.chip.needsYou'")
+    && app.includes("t('stewardShell.board.threadCount'"), 'rail counters must use the catalog');
   assert.ok(app.includes("t('workspace.switch.success'"), 'workspace success feedback must use the catalog');
   assert.ok(app.includes("t('chat.loadEarlier'"), 'message-window controls must use the catalog');
   assert.ok(app.includes("t('onboarding.drop.title'"), 'dynamic onboarding must use the catalog');

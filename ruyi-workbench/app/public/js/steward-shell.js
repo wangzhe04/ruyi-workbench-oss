@@ -78,6 +78,9 @@ export function createStewardShellDomain({
   applyShellMode = null,
   closeSettings = () => {},
   now = () => new Date(),
+  // 121-K4：左栏搜索（Ctrl+K）的后端内容搜索结果快照（session-experience 算好的 { query, results }）。
+  // 缺省返回 null＝没有后端命中，左栏回落到按标题子串过滤（见 steward-board.js 的 railFilter）。
+  searchState = () => null,
   // 117d：抽屉的「2.0 视窗」要「切到经典壳并选中该会话」，openSession 是经典壳既有的那一个
   // （session-experience.js 导出，preview-shell 的 openSelectedInClassic 用的也是它）。
   openSession = async () => {},
@@ -434,8 +437,13 @@ export function createStewardShellDomain({
   const board = createStewardBoard({
     api, state, t, isStewardMode, drawer, saveConfigPartial,
     openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
-    switchWholeShell: () => classicWindow.switchWholeShell(),
-    // 117g：看板拿到新的一批行就让返回带重画（事项名的唯一来源就是那批行）。
+    // 121-K4（§2.3 点击语义）：左栏是两视角共用的那一份 DOM —— 工作台视角里点一行要真的把中栏
+    // 换成那条线程，所以把组合根那一个 openSession 原样递下去（与抽屉的「在工作台打开」同一份实现）。
+    openSession,
+    // 121-K4：左栏搜索（Ctrl+K）读 2.0 那条内容搜索的结果快照。去抖与请求仍住 session-experience，
+    // 这里只是把它的读口接上 —— 左栏不发第二发请求。
+    searchState,
+    // 117g：左栏拿到新的一批行就让返回带重画（事项名的唯一来源就是那批行）。
     onRowsChanged: () => classicWindow.renderBand(),
   });
   boardHandle = board;
