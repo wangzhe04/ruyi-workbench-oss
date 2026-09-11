@@ -47,6 +47,11 @@ const THREAD_D = '刚开的这一条';
 // E 钉「强刷读得太早」那一条，F 钉「看板行上的『打开』不派事件」那一条。
 const THREAD_E = '收工了又被叫醒';
 const THREAD_F = '收工了又被点开';
+// 治抖动那批（34 号文 §13.6 登记①）：R8 原来钉的是【行上「打开」这一路自己也得刷】，但它跟在
+// R7（推送已经把状态翻过来了）后面，点开的时候早就翻好了——断言写的时候以为在守门，其实门是
+// 画上去的（推送先到，click 自己的强刷从没被真正考过）。这一条【断连之后】专用，证的是同一件事
+// 在推送死了之后是否仍然成立。
+const THREAD_F2 = '断连时收工又被点开';
 // F3（S 组）：右栏「现在这几件」要同时看到三种状态，这一条专门停在「已收工」不再被叫醒。
 const THREAD_G = '这件已经收工了';
 // F3（S 组）：等你的那条与在跑的那条也就地造，不借早先那两条（跑到 S 组时它们可能已经收尾）。
@@ -359,8 +364,9 @@ const workB = path.join(root, 'work-b');
 // 与 A／B 同 cwd 会撞上 116h 的写互斥，那不是本组要测的形状。
 const workE = path.join(root, 'work-e');
 const workF = path.join(root, 'work-f');
+const workF2 = path.join(root, 'work-f2');
 const profile = path.join(root, 'profile');
-for (const dir of [home, workA, workB, workE, workF]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [home, workA, workB, workE, workF, workF2]) fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9,
   version: '2.4.0',
@@ -475,6 +481,10 @@ try {
   await cdp.connect();
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  // 治抖动那批（§13.6 登记①）：R8 要造一段真正的【事件流断连态】——Network 域留到那里才用
+  // （只挡 /api/events/stream 这一条路由 + 一次短暂离线把已经建立的那条连接真正打断），
+  // 别的请求（/api/missions、/api/sessions……）照走。
+  await cdp.send('Network.enable');
   await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
       const live = new Map();
@@ -967,14 +977,75 @@ try {
   })()`, 60);
   ok(Boolean(liveF),
     `R7 推送到了就【自己发现】：一次交互都没有，右栏在 3 s 内从「${zh['mission.state.done']}」＋「${zh['stewardShell.drawer.lastSay']}」翻成「${zh['mission.state.running']}」＋「${zh['stewardShell.drawer.liveSay']}」（121-K2b 还清 32 号文 §5 记的那笔债；实测 state=「${liveF && liveF.nowState}」head=「${liveF && liveF.nowLastSayHead}」）`);
-  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]')`);
+  // ── R8 治抖动（34 号文 §13.6 登记①）：造一段真正的【事件流断连态】，再证同一件事在推送
+  // 死了之后仍然成立 ────────────────────────────────────────────────────────────────────
+  // R7 证的是「推送到了会自己翻」；R8 原来紧跟着用同一条线程 F 测「点『打开』也会翻」——
+  // 但 F 这一刻已经被 R7 的推送翻过了，点开的时候门早就是开着的，断言从来没有真的把「点『打开』
+  // 自己会不会刷」这件事考过（写的时候以为在守门，其实门是画上去的）。换一条【全新】的线程 F2，
+  // 在事件流真的断掉之后重新走一遍同款交互，才是这条债真正要还的东西。
+  const idF2 = await settleThread(THREAD_F2, workF2);
+  ok(Boolean(idF2), `R8pre0 断连测试用的这一条【无账本、已跑完一个回合】线程就位（${idF2 || '失败'}）`);
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]')`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]').click(), true`);
+  const settledF2 = await waitForDrawer(THREAD_F2, zh['mission.state.done'], zh['stewardShell.drawer.lastSay'], '', 10000);
+  ok(Boolean(settledF2.snapshot), `R8pre1 右栏（此刻仍连着）开在线程 F2 上，是「${zh['mission.state.done']}」那一帧——断连测试的干净起点`);
+
+  // 真正断掉：只挡路由（setBlockedURLs）挡不掉【已经建立】的那条流——它是早先那次连接成功
+  // 之后一直开着的 fetch+ReadableStream，跟这一刻才生效的挡毫无关系。真正能打断它的是
+  // event-stream.js 自己的 connect()：每次重连开头都会先 abortCurrent() 把旧连接掐掉，再发
+  // 新请求——那条新请求才是挡的对象。而重连的唯一扳机是【在场信号变了】（§4.2 的 sync()），
+  // 本仓没有第二个写口。用现成的「管家｜工作台」分段钮切一下视角（lens 变了）就是这个扳机；
+  // 挡先钉住、再切一圈 classic→steward，两次重连尝试都会当场被挡撞回去。
+  await cdp.send('Network.setBlockedURLs', { urls: ['*/api/events/stream*'] });
+  const cutLens = async mode => {
+    await cdp.evaluate(`(() => { const sel = document.getElementById('cfgShellMode'); if (!sel) return false; sel.value = ${JSON.stringify(mode)}; sel.dispatchEvent(new Event('change')); return true; })()`);
+    await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === ${JSON.stringify(mode)} ? 1 : null`);
+  };
+  await cutLens('classic');
+  await sleep(700);   // 去抖 300ms + 一发被挡的请求落地
+  await cutLens('steward');   // 切回来：既是第二次撞挡的确认，也把 UI 摆回能点行的视角
+  await sleep(700);
+
+  // R8pre2：断连是真的——另建一条挂进同一事项的线程，此刻不靠任何交互，它不该在 1.2 s 内出现
+  // 在左栏（推送死了；兜底节拍拉满到 config.stewardPollMs=${POLL_MS}ms，这个窗口内轮询不可能
+  // 命中）。这条判据把「断连」从「我们相信挡住了」变成「屏幕上真的看不见它的效果」。
+  const probe = await request(appPort, 'POST', '/api/sessions', { title: '断连期间新建的探针', cwd: home }, token);
+  const probeId = probe && probe.json && probe.json.session && probe.json.session.id;
+  await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: probeId }, token);
+  await sleep(1200);
+  const probeShown = await cdp.evaluate(`!!document.querySelector('.steward-board-thread[data-session-id="${probeId}"]')`);
+  ok(Boolean(probeId) && probeShown === false,
+    `R8pre2 事件流真的断了：断连期间新挂进事项的这条线程 1.2 s 内没有出现在左栏（推送死了，兜底节拍 ${POLL_MS}ms 太慢；实测 shown=${probeShown}）`);
+
+  // 在断连的窗口里让 F2 开一个新回合（服务端投影 activeTurn=true，与 R3／R6 同一条路，
+  // 只是这次没有推送把它带上屏幕）。
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idF2, message: 'hang here', cwd: workF2 }, token, 600000);
+  ok(Boolean(await liveOn(idF2)), 'R8pre3 线程 F2 的新回合真的在飞了（服务端投影 activeTurn=true）——这一步发生在抽屉那次强刷【之后】、事件流【断连期间】');
+  await sleep(1200);
+  const staleF2 = await cdp.evaluate(BOARD);
+  ok(Boolean(staleF2) && staleF2.nowThread === THREAD_F2 && staleF2.nowState === zh['mission.state.done'],
+    `R8pre4 断连时右栏【自己不会翻】：1.2 s 过去仍是「${zh['mission.state.done']}」——这就是 R8 要救的那一帧（实测「${staleF2 && staleF2.nowState}」）`);
+
+  // R8：对着这条【右栏已经开着、事件流已经断连】的线程，再点一次行上的「打开」——
+  // focusThread() 末尾的强刷（syncNow）走一发普通 HTTP GET，不经那条被挡住的 SSE 路由，
+  // 断连时它是唯一能把这一帧救回来的路（32 号文 §5 记的那笔债的「断连」半，K2b 只还了「连着」半）。
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]')`);
   const clickedAt = Date.now();
-  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF}"] [data-action="open"]').click(), true`);
-  const flippedF = await waitForDrawer(THREAD_F, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
-  ok(Boolean(flippedF.snapshot) && Date.now() - clickedAt <= 5000,
-    `R8 对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「${zh['mission.state.done']}」变「${zh['mission.state.running']}」、「${zh['stewardShell.drawer.lastSay']}」换成「${zh['stewardShell.drawer.liveSay']}」（实测 ${Date.now() - clickedAt}ms；这一路不派事件，修前 syncNow 相等即跳过，抽屉一次都不刷）`);
-  ok(Boolean(flippedF.snapshot) && flippedF.snapshot.nowLastSay.includes('开工了'),
-    `R8b 换上来的是【新那一回合】流出来的话，不是上一回合的落盘原话（实测「${flippedF.snapshot && flippedF.snapshot.nowLastSay}」）`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]').click(), true`);
+  const flippedF2 = await waitForDrawer(THREAD_F2, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
+  ok(Boolean(flippedF2.snapshot) && Date.now() - clickedAt <= 5000,
+    `R8 断连时对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「${zh['mission.state.done']}」变「${zh['mission.state.running']}」、「${zh['stewardShell.drawer.lastSay']}」换成「${zh['stewardShell.drawer.liveSay']}」（实测 ${Date.now() - clickedAt}ms；事件流已断连，这一路走的是 syncNow 自己的 HTTP 强刷，不经推送——这才是 R8 真正要考的门）`);
+  ok(Boolean(flippedF2.snapshot) && flippedF2.snapshot.nowLastSay.includes('开工了'),
+    `R8b 换上来的是【新那一回合】流出来的话，不是上一回合的落盘原话（实测「${flippedF2.snapshot && flippedF2.snapshot.nowLastSay}」）`);
+
+  // 收摊：解除断连——清掉路由挡之后，用同一枚「切一下逼重连」的扳机再来一圈，S 组接下来
+  // 要三条新线程的状态都能在预算内上屏，全靠推送。
+  await cdp.send('Network.setBlockedURLs', { urls: [] });
+  await cutLens('classic');
+  await sleep(400);
+  await cutLens('steward');
+  const reconnected = await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 1 : null`);
+  ok(Boolean(reconnected), 'R8fin 收摊：切回管家视角重新触发连接（S 组接下来靠推送）');
 
   // ── S F3（32 号文 §2.2「线程即频道」）：右栏是「现在这几件」──────────────────────────────
   // 此刻壳里已经有三种状态的线程：A 停在 question 待决（等你）、B／E／F 的回合挂着（在跑）、
@@ -1023,9 +1094,9 @@ try {
   // 三条线程【就地造】，不借用上面几组留下来的那几条：跑到这里已经两三分钟，早先那两条（A 的
   // question 待决、B 的挂起回合）在真服务器上可能已经收尾或被仲裁器停掉 —— 借它们等于把本组的
   // 结论建在别组的副作用上（实测过一次：到这一组时 A 不再等你、B 已停工）。
-  // 同上：E／F 两条在 R 组里被重新点起来的回合到这里已经没人要了，显式停掉，把并发位让给 G/H/I
-  // （「同时最多」此刻是 3）。
-  for (const id of [idE, idF]) {
+  // 同上：E／F／F2 三条在 R 组里被重新点起来的回合到这里已经没人要了，显式停掉，把并发位
+  // 让给 G/H/I（「同时最多」此刻是 3）。
+  for (const id of [idE, idF, idF2]) {
     await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
   }
   const workG = path.join(root, 'work-g');
