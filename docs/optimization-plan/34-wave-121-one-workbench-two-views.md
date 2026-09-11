@@ -50,7 +50,7 @@
 
 ### 1.4 为什么更新不及时（用户第 ⑤ 条）
 - **没有任何服务端推送**。全仓只有两条 NDJSON 写流，都是「谁起的回合谁收」：`src/10-context-governance.js:2333-2399`（`POST /api/chat/stream`）与 `src/13h-steward-runner.js:246-309`（管家自己的回合）。没有 SSE、EventSource、WebSocket、long-poll。27 号文 `:20` 早写了「不存在进程内 pub/sub」。
-- 唯一的扇出点是 `activeChildren`（`src/04-permission-runtime.js:95`）——`sessionId → {…, onEvent}`，**单订阅者**（`src/05-claude-engine.js:493` 装、`:841-842` 卸）。这是加多订阅者最自然的钩子。
+- 扇出点是 `activeChildren`（`src/04-permission-runtime.js:95`）——`sessionId → {…, onEvent}`，**单订阅者**（`src/05-claude-engine.js:493` 装、`:841-842` 卸）。**K2a 实测修正**：`reg.onEvent` 只看得见桥接／MCP 那一路；两个引擎自己流出的 `assistant_delta/tool_use/tool_result` 走各自本地 `onEvent` 包装，唯一交汇点是 `04 appendLiveTail`——所以旁路装在两处（`04:164` 与 `04:199 installActiveChildEventFanout`）。
 - 前端三条轮询（常量 `js/steward-chips.js:253-255`：最小 5000、默认 15000）：壳（`js/steward-shell.js:300`，打 `/api/steward/state`）、看板（`js/steward-board.js:1011`，打 `/api/missions?limit=200`＋`/api/steward/arbiter`，**看板关着不跑** `:1014-1017`）、抽屉（`js/steward-drawer.js:1203`，打 `/api/sessions/:id`＋`/api/interventions`，抽屉关着不跑）。2.0 那边非发起端也是 3 秒轮询（`js/session-experience.js:815,866`）。
 - 中途动作**有**，但只在一个端点上：`reg.liveTail = {text, tool, updatedAt, iterations, tools[]}`（`04:121`）经 `GET /api/sessions/:id` 出（`13d:275-289`）；**`/api/missions` 行里没有**，看板行天生画不出「正在调什么工具」。
 - 五态服务端是即时的（`13d:660-677` 每次请求派生，`activeTurn` 读内存 `13e:414,425`），慢的全在客户端轮询与开关门。
@@ -267,7 +267,7 @@
 - 红线：事件流**不承载工具输出正文**（`steward_thread_read` 的债不在这里还）；不改任何写路径的语义，只是多一个观察者。
 
 ### 6.2 客户端
-- 组合根持**一条** `EventSource`（新叶子 `js/event-stream.js`，注入到管家壳与工作台）；三个消费者：左栏索引（`thread.*` 就地改行，不重拉）、焦点卡（`thread.live` 直接写「它正在说」）、对话流（`steward.say` 时拉一次消息）。2.0 的「它正在跑」卡（`session-experience.js:832-911`）也改吃 `thread.live`，3 s 轮询降为兜底。
+- 组合根持**一条**流连接（新叶子 `js/event-stream.js`，注入到管家壳与工作台）。**K2a 后修正**：路由走 `token-browser`（header token，与 `/api/chat/stream` 同档），`EventSource` 设不了请求头，前端用 **`fetch + ReadableStream`** 读 SSE 帧（与今天发 `/api/chat/stream` 同一种读法），自己实现 `Last-Event-ID` 重连；`presence.ack` 是连接私有帧不带 `id`；三个消费者：左栏索引（`thread.*` 就地改行，不重拉）、焦点卡（`thread.live` 直接写「它正在说」）、对话流（`steward.say` 时拉一次消息）。2.0 的「它正在跑」卡（`session-experience.js:832-911`）也改吃 `thread.live`，3 s 轮询降为兜底。
 - 三条轮询**保留为兜底**：连接断开时恢复今天的节奏；连接正常时统一降到 30 s 心跳（ETag 保留）。看板关着不刷的门（`steward-board.js:1014-1017`）删除——左栏永远开着。
 - `app.js` 今天 1279/1280 行：本波 K1 先删交办台接线（约 120 行）腾出余量，事件流的注入才放得下。
 
@@ -429,3 +429,12 @@
 - **执行者拒绝／没做到（都成立）**：① 目标 4a「新开任务后 milestones 非空」的 e2e **做不到**——交办台退役后前端零处写 `milestones`，服务端 `13k stewardImplThreadNew` 不建账本，管家开的线程本来就没有里程碑，**没有幸存界面倒退**；函数搬进 `thread-facts.js` 用 17 例真值表钉死，接线归 K4／K5「＋ 新任务」；② `durable-state-inventory` 从不登记 localStorage 键、`STRING-CATALOG.md` 是手写散文——派单稿两处前提有误；③ 「提醒」设置块投递侧零实现（全仓无 `new Notification`）——**主会话裁决：藏起来**（`index.html` 该 `<section>` 加 `hidden`，K6 接好安静卡投递再露出）；④ `shell.settingClassic` 仍叫「经典」，K8 统一；⑤ `chat-stream-runtime.js:591` 注释仍提交办台（行号表锁着，不动）。
 - **执行者自己抓的回归（记入纪律）**：它在 `6f9d3c5` 撤掉 K0 给 `mission-index-scale` 写的 `stewardEnabledV1:false` 种子，依据「K0b 已结构性堵死＋串行 4 次绿」——全量里真红（冷列表 300 条没读满）：K0b 堵的是「空索引被持久化」，tick 与 seed **抢时序**本身没消失，tick 仍可能在 seed 写到一半时扫出部分索引。`3e8e65e` 还原。「跑 N 次没复现不是证伪竞态的证据」（30 号文 §8.14 形状阶梯）再次应验。**这条竞态是真的产品债**：boot 后批量物化会话时，第一拍 tick 可能建出部分索引并持久化 → 登记给 K3（索引口径那一刀顺手治：tick 在 sessions 目录 mtime 稳定 ≥1 个 tick 前不建索引，或建后按 sources 差异自愈——K0b 的 `sameSourceMap` 分支应已覆盖「之后再变」的情况，K3 要用夹具证明）。
 - **全量**：`3990a3e` 上 306/3/7，三条红串行复验：`repo-hygiene`（端口争用）、`context-compact-v2` 绿，`mission-index-scale` 真红→`3e8e65e` 还原后串行 4 次 3 绿 1 红（性能预算 P95 445 ms，机器没凉）。最终 HEAD 未重跑全量——**主会话在 `12d05b7` 补跑**：307 pass / 2 fail / 3 flaky / 309 ran；两条红 `session-index`（起服务超时）与 `mcp-ops-closure`（连接器并发探针）串行复验全绿，**真回归 0**。
+
+### 13.4 K2a · 事件流后端（Opus 实现，`e3acedf`／`095b8fe`／`c215c06`；主会话复核）
+
+- **总线** `RUYI_EVENTS`＋延迟绑定 `EventStreamHooks` 落 `00-boot.js:580-599`（六个生产者模块对 00-boot 的边本就存在，零新前向边；13r 只有 6 条后向边、0 入边）。依赖图 49→50 模块、390→396 边、**forwardEdges 67、SCC 1**（主会话复核）。
+- **生产点八处**（派单稿写四处，执行者按事实补齐：05 与 09 两引擎各一份起跑／收工，`updateSessionMeta` 两条落盘路径各一处 `thread.state`）；`thread.state` 的五态由 13r 调 06i `deriveStewardThreadState` 现算，入参与 13d ②支逐字一致；`wait`＝四类未决之和（执行者定义，主会话认可）。
+- **摸底稿一处不实**：`reg.onEvent` 不是唯一扇出点（§1.4 已改）；旁路装 `04:164`＋`04:199`，只注释掉前者 → `thread.live` 收到 0 条（反向验证）。引擎订阅者仍第一个收到：结构（`04:199-208`，主会话看过）＋ e2e G1/G2。
+- **SSE**：`GET /api/events/stream`，`token-browser`（→ K2b 用 `fetch + ReadableStream`，§6.2 已改），心跳 25 s，环 200 条 `Last-Event-ID`，在场信号记连接对象、`stewardPresenceSnapshot()` 导出（K3 经 `EventStreamHooks` 延迟绑定取，别直引符号）。
+- **e2e** `event-stream.e2e.js` 44 条：五类事件延迟 0–1 ms、节流最小 612 ms、断线补发、无工具结果魔术串、403；七处反向验证各红。主会话复跑全绿；`--fast` 63/63；`steward-runner` 绿。全量 308/2/2，两红串行绿，真回归 0。
+- **登记**：① `05b-kimi-bridge.js` 那一路没补起跑／收工两帧（收尾形状不同）→ **K3 顺手补**；② 提交署名执行者按其模型写 Opus（拒绝假署名，成立；此后各刀署自己的模型名）。
