@@ -8,7 +8,8 @@
 //   → turn_start seq=1 / turn_kill reason:'superseded' / turn_start seq=2,
 // 第一回合几分钟的工作连同正文一起没了,界面零提示。
 //
-// 本件只测服务端那一半(浏览器那一半在 steward-classic-window.e2e.js 的 H 段):
+// 本件只测服务端那一半(浏览器那一半在 classic-window-live-steer.e2e.js 的 H 段;
+// 121-K5:原来指的 steward-classic-window.e2e.js 随「2.0 视窗」整段退役):
 //   (A) 后备闸:活回合是 source:'steward' 起的 → 同一条会话的 POST /api/chat/stream 回 409
 //       session.turn_busy_elsewhere;零 turn_kill;第一回合跑完、正文完整;会话里只有一条 user 消息。
 //   (B) 信封:活回合在跑时 GET /api/sessions/:id 带 relay:{channel:'steer'};回合一结束这个键就不在了

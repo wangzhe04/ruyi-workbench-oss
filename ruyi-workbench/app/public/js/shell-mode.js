@@ -64,6 +64,12 @@ export function createShellModeController({
   canEnterSteward = () => false,
   recoverStewardShell = () => '',
   closeSettings = () => {},
+  // 121-K5（34 号文 §2.7／§3.2）：「在工作台打开」＝切视角 ＋ 打开那条线程。修前这两步住在
+  // js/steward-classic-window.js 的 openClassicWindow 里，外带一个 sessionStorage 返回标记与一条
+  // 返回带；返回带与标记随本刀退役，剩下的两步是【视角切换的一个变体】，所以落在这片叶子上
+  // （applyShellMode 的唯一写者也在这里）。六个调用点（左栏行、焦点栏三处、对话流交付卡、
+  // 头像菜单）自此调同一个函数。缺省空操作 —— 不注入就只切视角，不会半途抛。
+  openSession = async () => {},
   documentRef = globalThis.document,
   storage = globalThis.localStorage,
   // 121-K4（§2.9 表第五行）：共享元素变形要在【拍下旧帧之前】给两侧那两个节点起同一个名字，
@@ -145,6 +151,18 @@ export function createShellModeController({
     return mode;
   }
 
+  // 121-K5（§2.7）：「在工作台打开」。它不是第二个壳、也不是第二条切换通道 —— 就是
+  // applyShellMode('classic') ＋ openSession(id) 两步，写 data-shell-mode 的地方仍然只有上面那一处。
+  // 与它成对的「切回管家」那一路（派 steward:focus-thread 让焦点落在刚看的那条线程上）住在
+  // js/app-frame.js 的分段钮里：那才是用户真正点「回管家」的那一处。
+  async function openInWorkbench(sessionId) {
+    const id = String(sessionId || '');
+    if (!id) return '';
+    applyShellMode('classic');
+    try { await openSession(id); } catch { /* 会话打不开时视角仍然切过去了，中栏由 2.0 自己报错 */ }
+    return id;
+  }
+
   // 依赖缺失（组合根没把管家壳接进来）时唯一安全的动作：把视角钉在工作台。
   // 它走的是 applyShellMode 自己那条路（mode !== 'steward'，不会递归回准入判定），
   // 所以本文件写 data-shell-mode 的地方【仍然只有一处】。
@@ -179,6 +197,7 @@ export function createShellModeController({
 
   return Object.freeze({
     applyShellMode,
+    openInWorkbench,
     bindShellModeControl,
     recoverClassicShell,
     storedShellMode: () => readStoredShellMode(storage),

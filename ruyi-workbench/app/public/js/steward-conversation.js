@@ -59,8 +59,8 @@ export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现�
 // 整段删除 —— 左栏就是索引，频道条是它的第二遍；它的「只看这条」语义由左栏点击换焦点承接
 // （§12 末条：不再有第二个过滤器）。随它一起走的两个常量：STEWARD_PICK_CHANNEL_EVENT（它的唯一
 // 生产者是 pickChannelTarget）与 STEWARD_CHANNEL_SELF（「管家本人」那一档）。
-// 输入区那一侧（js 里那片 composer 叶子）还留着一份同名常量与它的监听器：那是它自己的手选态
-// 接口，本刀不碰输入区 —— 只是自此没有生产者了，K5 收工时一并清。
+// 121-K5：输入区那一侧那份同名常量与它的监听器【也已清掉】（§13.7 登记⑧）—— 生产者一个都没有
+// 的监听器不是接口，是让后人以为它还在工作的残留。
 export const STEWARD_DETAILS_KEY = 'wcw.stewardDetails';
 // 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面」）：头像菜单与头像之间留的空隙，
 // 也是「下方还放不放得下」那个判定的余量。一处常量，两处（定位与判定）读同一个数。
@@ -445,10 +445,11 @@ export function createStewardConversation({
   openStewardPanel = null,
   // 121-K4（§2.2／§2.4）：头像菜单末项「整体切到 2.0」退役 —— 视角切换只在外框顶栏的分段钮
   // 一处（§2.4 原话「不再有『整体切到 2.0』『经典模式』两个钮」）。注入随之撤掉。
-  // 117s-H2：交付卡上的「看全文」——与抽屉标题旁那一枚走【同一个】入口：117g 的
-  // openClassicWindow(sessionId)（记返回标记 → 切经典壳 → 打开该会话 → 顶部返回带）。
-  // 抽屉拿到它是 steward-shell.js 的 drawer.setClassicWindow 那一行；本模块同样【只负责调用】，
-  // 自己不 import steward-drawer.js / steward-classic-window.js（不长出第二条切壳通道）。
+  // 117s-H2：交付卡上的「看全文」——与焦点栏标题旁那一枚走【同一个】入口：
+  // openClassicWindow(sessionId)。121-K5：那个入口的正身是 js/shell-mode.js 的 openInWorkbench
+  // （切视角 ＋ 打开该会话；117g 的返回标记与返回带整段退役）。抽屉拿到它是 steward-shell.js 的
+  // drawer.setClassicWindow 那一行；本模块同样【只负责调用】，自己不 import 那两个模块
+  // （不长出第二条切视角通道）。
   // **缺席时**（组合根还没接这根线，或 Node 里 await import 本模块）退到既有的
   // steward:open-thread —— 抽屉／「现在这一件」把那条线程打开，「看全文」就在它的标题旁边。
   openClassicWindow = null,

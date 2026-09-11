@@ -25,7 +25,10 @@ const read = relative => fs.readFileSync(path.join(PUBLIC, ...relative.split('/'
 const html = read('index.html');
 const board = read('js/steward-board.js');
 const net = read('js/net.js');
-const classicWindow = read('js/steward-classic-window.js');
+// 121-K5（34 号文 §2.5／§3）：steward-classic-window.js 整文件退役，它的位置由工作台线程头
+// （js/thread-head.js）接手。本件对它的五处钉一起翻面：G0a/G0b 的组装、G0c 的「整体切到 2.0」、
+// G3 的离线包清单、H 组的 i18n 键面，读的都换成新那一片。
+const classicWindow = read('js/thread-head.js');
 const drawer = read('js/steward-drawer.js');
 const chips = read('js/steward-chips.js');
 // 33 号文 §4（M3-a）：危险操作确认的共用件（D6 要正面查它的登记表与导出面）。
@@ -364,7 +367,7 @@ ok(mod.STEWARD_BOARD_POLL_MS_MIN === 5000 && /Math\.max\(STEWARD_BOARD_POLL_MS_M
 ok(/if \(response\.status === 304\) return false;/.test(board)
   && /'if-none-match': missionsEtag/.test(board),
   'F6 行数据带 If-None-Match 走；没变（304）就不重画（也就不会打断正开着的 chip 菜单）');
-for (const [name, source] of [['steward-board.js', boardCode], ['steward-classic-window.js', classicCode]]) {
+for (const [name, source] of [['steward-board.js', boardCode], ['thread-head.js', classicCode]]) {
   ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(source),
     `F7 ${name} 零 innerHTML/insertAdjacentHTML/document.write`);
   const imports = [...source.matchAll(/^import .*from '([^']+)';$/gm)].map(match => match[1]);
@@ -407,23 +410,29 @@ ok(net.includes('export async function apiRaw(path, options = {})')
   && /export async function api\(path, options = \{\}\) \{\s*const res = await apiRaw\(path, options\);/.test(net),
   'F11b net.js 的 403 换 token 重放只有 apiRaw 一份实现，api() 复用它（零自我重复）');
 
-// ─── 117g：2.0 视窗与返回带的组装（细契约在 pretender-shell.static） ─────────────
-ok(/const classicWindow = createStewardClassicWindow\(\{/.test(stewardShell)
+// ─── 117g→121-K5：工作台线程头与左栏的组装 ──────────────────────────────────────
+ok(/const threadHead = createThreadHead\(\{/.test(stewardShell)
   && /const board = createStewardBoard\(\{/.test(stewardShell)
-  && /classicWindow\.bindStewardClassicWindow\(\);/.test(stewardShell)
+  && /threadHead\.bindThreadHead\(\);/.test(stewardShell)
   && /board\.bindStewardBoard\(\);/.test(stewardShell),
   'G0a 两个子域都在 steward-shell.js 里组装并绑定（组合根 app.js 一行不加）');
-ok(/drawer\.setClassicWindow\(sessionId => classicWindow\.openClassicWindow\(sessionId\)\);/.test(stewardShell)
-  && /openClassicWindow: sessionId => classicWindow\.openClassicWindow\(sessionId\),/.test(stewardShell),
-  'G0b 抽屉与看板的「2.0」是同一个 openClassicWindow（117d 的两步做法退役）');
+// 121-K5（§2.7／§3.2）：「在工作台打开」的实现从 steward-classic-window.js 的 openClassicWindow
+// （它还要写一个 sessionStorage 返回标记、画一条返回带）收成 js/shell-mode.js 的 openInWorkbench
+// （切视角 ＋ openSession 两步）。钉的事实一个字没变：抽屉与左栏用的是【同一个】入口，
+// 而且壳层自己不再实现第二份。反向验证：把 drawer.setClassicWindow 那一行改回自己切壳 → 当场红。
+ok(/drawer\.setClassicWindow\(sessionId => openInWorkbench\(sessionId\)\);/.test(stewardShell)
+  && /openClassicWindow: sessionId => openInWorkbench\(sessionId\),/.test(stewardShell)
+  && /^\s*openInWorkbench,/m.test(read('app.js')),
+  'G0b 抽屉与左栏的「在工作台打开」是同一个 openInWorkbench（shell-mode.js 一处实现）');
 // 121-K4（§2.2／§2.4）：「整体切到 2.0」那两个入口（看板浮层顶部、头像菜单末项）都退役 ——
-// 视角切换只在外框顶栏的分段钮一处。翻面钉住：壳层不再往对话流注入 switchWholeShell，
-// 对话流也不再引用那个文案键。能力本身（classicWindow.switchWholeShell）留着没删，
-// 它只是自此没有界面入口。
-ok(!/switchWholeShell: \(\) => classicWindow\.switchWholeShell\(\),/.test(stewardShell)
-  && !/stewardShell\.classicWindow\.switchWhole/.test(conversation)
-  && /switchWholeShell/.test(classicWindow),
-  'G0c 「整体切到 2.0」的两个界面入口都已退役（视角切换只在顶栏分段钮一处），能力本身仍在 steward-classic-window.js 里');
+// 视角切换只在外框顶栏的分段钮一处。121-K5 再进一步：连那个能力本身（switchWholeShell）也
+// 随 steward-classic-window.js 整文件删除 —— 它是「第二条切壳通道」的最后一块残料。
+// 翻面钉住它真的不在了：壳层不注入、对话流不引用那个文案键、四份 locale 里也没有它。
+ok(!/switchWholeShell/.test(stewardShell)
+  && !/stewardShell\.classicWindow\./.test(conversation)
+  && !/switchWholeShell/.test(classicWindow)
+  && zh['stewardShell.classicWindow.switchWhole'] === undefined,
+  'G0c 「整体切到 2.0」连同它的能力与文案键整段退役（视角切换只在顶栏分段钮一处）');
 const appLines = read('app.js').split(/\r?\n/).length;
 ok(appLines <= 1280, `G0d 组合根仍在 D45 护栏内（实测 ${appLines} 行）`);
 
@@ -435,8 +444,9 @@ ok(readFrontendCss.includes("'css/views/steward-board.css',"),
   'G2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-board.css');
 ok(overlay.includes("'app/public/css/views/steward-board.css'")
   && overlay.includes("'app/public/js/steward-board.js'")
-  && overlay.includes("'app/public/js/steward-classic-window.js'"),
-  'G3 离线包清单收录 117g/117h 的三个新文件');
+  && overlay.includes("'app/public/js/thread-head.js'")
+  && !overlay.includes("'app/public/js/steward-classic-window.js'"),
+  'G3 离线包清单跟着换人：线程头进、退役的 2.0 视窗出（121-K5）');
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(cssCode), 'G4 看板层 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\) \{/.test(cssCode) && /transition: none;/.test(cssCode),
   'G5 reduced-motion 下过渡全关（动效可以没有，信息不能少）');
@@ -481,7 +491,8 @@ ok(/\.steward-board-dot\[data-tone="settled"\] \{ background: var\(--ok\); \}/.t
   'G9e 看板 CSS 补上 settled 档，复用抽屉 done 那一档同一个语义 token（--ok），不新造颜色');
 
 // ─── H i18n ──────────────────────────────────────────────────────────────────────
-for (const prefix of ['stewardShell.board.', 'stewardShell.classicWindow.']) {
+// 121-K5：stewardShell.classicWindow.* 两键随返回带退役，这里只剩看板那一族。
+for (const prefix of ['stewardShell.board.']) {
   const zhKeys = Object.keys(zh).filter(key => key.startsWith(prefix)).sort();
   const enKeys = Object.keys(en).filter(key => key.startsWith(prefix)).sort();
   ok(zhKeys.length > 0 && JSON.stringify(zhKeys) === JSON.stringify(enKeys),
@@ -501,8 +512,13 @@ for (const pattern of FORBIDDEN) {
   ok(stewardKeys.every(key => !pattern.test(String(zh[key])) && !pattern.test(String(en[key]))),
     `H4 stewardShell.* 文案零出现 ${pattern.source}`);
 }
-ok(/2\.0/.test(String(zh['stewardShell.classicWindow.switchWhole'])),
-  'H5 「整体切到 2.0」照 §5 117g 行的原话说（2.0 不是禁词，3.0 才是）');
+// 121-K5：H5 翻面 —— 「整体切到 2.0」那两条文案键随 steward-classic-window.js 一起退役，
+// 四份目录里一条都不许留（界面上已经没有任何地方说这句话了）。
+ok(zh['stewardShell.classicWindow.switchWhole'] === undefined
+  && zh['stewardShell.classicWindow.back'] === undefined
+  && en['stewardShell.classicWindow.switchWhole'] === undefined
+  && en['stewardShell.classicWindow.back'] === undefined,
+  'H5 stewardShell.classicWindow.* 两键已从四份目录里删净（121-K5：返回带整段退役）');
 
 // ─── I 117l-B2 ②：看板视觉（用户第五轮走查 2「这个限制界面（看板）优化美观一下」）──────────
 // 修前顶部是一排裸文字、事项与线程行糊在一起。本组只钉【结构性的那几件】：

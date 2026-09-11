@@ -6,7 +6,7 @@ import { createStewardComposer } from './steward-composer.js';
 import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
-import { createStewardClassicWindow } from './steward-classic-window.js';
+import { createThreadHead } from './thread-head.js';
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
@@ -84,6 +84,13 @@ export function createStewardShellDomain({
   // 117d：抽屉的「2.0 视窗」要「切到经典壳并选中该会话」，openSession 是经典壳既有的那一个
   // （session-experience.js 导出，preview-shell 的 openSelectedInClassic 用的也是它）。
   openSession = async () => {},
+  // 121-K5（§2.7／§3.2）：「在工作台打开」＝切视角 ＋ openSession，一处实现住 js/shell-mode.js。
+  // 本文件四个调用点（对话流交付卡、左栏行、焦点栏、抽屉）全部转调它 —— 退役的
+  // steward-classic-window.js 那条带返回标记的路自此不存在。缺省回落只切视角。
+  openInWorkbench = async sessionId => { if (typeof applyShellMode === 'function') applyShellMode('classic'); return String(sessionId || ''); },
+  // 121-K5（§3.1）：2.0 模型弹层独有的三件全局事（思考／推理强度、删自定义模型、刷新与管理
+  // 服务商），由组合根从 navigation-controls.js 递进来，挂在线程头那组 chip 的模型菜单尾部。
+  modelMenuExtras = null,
   // 117e：设置写口与「打开设置的某个页签」。前者是 provider-settings 既有的那一个（POST /api/config
   // 的唯一封装），后者让头像菜单三项与盾牌的二次确认能直达「管家」页签。
   saveConfigPartial = async () => false,
@@ -164,7 +171,9 @@ export function createStewardShellDomain({
         renderRail: () => 0, syncRail: () => false, refreshBoard: async () => 0,
         closeNow: () => false, focusThreadId: () => '',
       }),
-      classicWindow: Object.freeze({ openClassicWindow: async () => '', switchWholeShell: () => 'classic', isReturning: () => false }),
+      // 121-K5：117g 的 classicWindow 空壳换成线程头的空壳。「在工作台打开」不再住这儿（它进了
+      // js/shell-mode.js，由组合根注入），所以空壳只剩线程头自己那两个口。
+      threadHead: Object.freeze({ render: () => '', bandKey: () => 'threadHead.steward.seeing' }),
     });
   }
 
@@ -409,12 +418,11 @@ export function createStewardShellDomain({
     // 117 走查（用户 2026-09-06）：主端点是命令行引擎时，对话区的「改用『某端点』」按钮经这里写
     // stewardProviderId（走设置域同一个 saveConfigPartial，对话区不碰 /api/config）。
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
-    // 121-K4：头像菜单末项「整体切到 2.0」退役（§2.2：视角切换只在顶栏分段钮一处），
-    // 这条注入随之撤掉 —— classicWindow.switchWholeShell 本身留着，它是「整体切壳」那条既有能力，
-    // 只是自此没有界面入口（设置里的「启动默认视角」走的是另一条：cfgShellMode → applyShellMode）。
-    // 117s-H：交付卡的「看全文」直接跳 2.0 视窗（与抽屉那三处同一个入口，117g）。同样是迟绑定闭包：
-    // classicWindow 在下面才建，调用时它早已就位；缺席时对话区回落既有的 steward:open-thread。
-    openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
+    // 121-K4：头像菜单末项「整体切到 2.0」退役（§2.2：视角切换只在顶栏分段钮一处）。
+    // 117s-H：交付卡的「看全文」直接在工作台打开那条线程（与焦点栏那三处同一个入口）。
+    // 121-K5：那个入口从 classicWindow.openClassicWindow 换成组合根注入的 openInWorkbench
+    // （js/shell-mode.js 一处实现：切视角 ＋ openSession，不再有返回标记与返回带）。
+    openClassicWindow: sessionId => openInWorkbench(sessionId),
     // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
     renderMarkdownInto, highlightIn,
   });
@@ -431,26 +439,30 @@ export function createStewardShellDomain({
     api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi,
     syncShellAvailability: () => syncStewardShellAvailability(),
   });
-  // 117g：2.0 视窗与顶部返回带。它不发请求，只读 state 与 chips（返回带的 DOM 在经典壳里，逻辑住这边）。
-  // 事项名向 117h 看板要它已经取回来的那一行 —— 迟绑定句柄（board 在它之后才构造）。
+  // 121-K5：工作台视角的线程头（§2.5）。它接替 117g 的「2.0 视窗返回带」：不发取数请求，只读
+  // state 与左栏已经取回来的那一行（迟绑定句柄 —— board 在它之后才构造），控件是同一份 chips 工厂。
   let boardHandle = null;
-  const classicWindow = createStewardClassicWindow({
-    api, state, t, applyShellMode, openSession,
-    missionTitleOf: sessionId => (boardHandle ? boardHandle.missionTitleFor(sessionId) : ''),
+  const threadHead = createThreadHead({
+    api, state, t,
+    modelMenuExtras,
+    missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
+    refreshRows: () => (boardHandle ? boardHandle.refreshBoard() : Promise.resolve(0)),
+    presenceState: () => presenceApi.current(),
   });
   // 117h：一行状态 → 看板 → 「现在这一件」。「现在这一件」不另起抽屉，直接把 117d 那一份换成
   // docked 挂法（drawer.setMount），所以这里把 drawer 子域整个交给它。
   const board = createStewardBoard({
     api, state, t, isStewardMode, drawer, saveConfigPartial,
-    openClassicWindow: sessionId => classicWindow.openClassicWindow(sessionId),
+    openClassicWindow: sessionId => openInWorkbench(sessionId),
     // 121-K4（§2.3 点击语义）：左栏是两视角共用的那一份 DOM —— 工作台视角里点一行要真的把中栏
     // 换成那条线程，所以把组合根那一个 openSession 原样递下去（与抽屉的「在工作台打开」同一份实现）。
     openSession,
     // 121-K4：左栏搜索（Ctrl+K）读 2.0 那条内容搜索的结果快照。去抖与请求仍住 session-experience，
     // 这里只是把它的读口接上 —— 左栏不发第二发请求。
     searchState,
-    // 117g：左栏拿到新的一批行就让返回带重画（事项名的唯一来源就是那批行）。
-    onRowsChanged: () => classicWindow.renderBand(),
+    // 117g/121-K5：左栏拿到新的一批行就让线程头重画 —— 任务名、线程数、来源、管家盯没盯、
+    // 谁坐着，五样事实的唯一来源就是那批行（线程头因此零取数）。
+    onRowsChanged: () => threadHead.render(),
   });
   boardHandle = board;
   // 121-K2b：同一条事件流转给左栏与焦点栏。走 setter 而不是构造参数 —— 抽屉那一行构造被
@@ -459,7 +471,7 @@ export function createStewardShellDomain({
   drawer.setEventStream(eventStream);
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
   // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
-  drawer.setClassicWindow(sessionId => classicWindow.openClassicWindow(sessionId));
+  drawer.setClassicWindow(sessionId => openInWorkbench(sessionId));
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
@@ -505,7 +517,7 @@ export function createStewardShellDomain({
         event => composer.markNewInMission(event && event.detail && event.detail.missionId));
     }
     settings.bindStewardSettings();       // 117e：设置页控件 + 头部盾牌与常驻停机键
-    classicWindow.bindStewardClassicWindow(); // 117g：返回带（回到管家 / 会话名 / 事项名 / 同一组 chip）
+    threadHead.bindThreadHead();          // 121-K5：工作台线程头（一套 chip / 任务 › 线程 / 管家条）
     board.bindStewardBoard();             // 117h：一行状态 / 看板 / 「现在这一件」
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
@@ -534,7 +546,7 @@ export function createStewardShellDomain({
     openStewardPanel: section => settings.openPanel(section),
     // 117g/117h：看板与 2.0 视窗子域（组合根一行不加；它们的依赖全在本文件内注入）。
     board,
-    classicWindow,
+    threadHead,
     // 117d：117h「现在这一件」直接调 drawer.openThread(sessionId)，不再另起一份抽屉。
     drawer,
   });

@@ -343,7 +343,7 @@ export function createStewardDrawer({
   // 模块，也不动 steward-shell.js 里被静态锁逐字钉住的那一行构造调用）。
   let mountMode = 'overlay';      // 'overlay' | 'docked'（见 STEWARD_DRAWER_MOUNTS）
   let onClosed = () => {};        // 117h：关抽屉时告诉「现在这一件」它被关掉了
-  let openClassicWindow = null;   // 117g：统一的「2.0 视窗」入口（切经典壳＋选中会话＋顶部返回带）
+  let openClassicWindow = null;   // 117g/121-K5：统一的「在工作台打开」入口（切视角＋选中会话；返回带已退役）
   // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：那一批 200 行不再由本模块自己拉。行的那位主人
   // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
   // 新鲜时请它刷一趟。与上面三条同一纪律：不动被静态锁逐字钉住的构造调用，新依赖一律走 setter。
@@ -1087,8 +1087,9 @@ export function createStewardDrawer({
   }
 
   // ── ③/⑩ 2.0 视窗：切到经典壳并选中该会话（顶部返回带归 117g） ────────────────
-  // 117g 起，「2.0 视窗」「看全文」「看改动」三处统一调 openClassicWindow(sessionId)：切经典壳 +
-  // 选中该会话 + 显示顶部返回带。注入缺席时退回 117d 的两步做法（切壳 + 选中，只是没有返回带）。
+  // 117g 起，「在工作台打开」「看全文」「看改动」三处统一调 openClassicWindow(sessionId)。
+  // 121-K5：它现在就是 js/shell-mode.js 的 openInWorkbench —— 切视角 ＋ 选中该会话，返回带与那个
+  // sessionStorage 返回标记整段退役。注入缺席时的回落（切视角 ＋ 选中）与它逐字同义，留着不动。
   async function openClassicView() {
     const id = sessionId;
     closeDrawer();

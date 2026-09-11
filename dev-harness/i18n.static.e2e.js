@@ -198,7 +198,10 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(observability.includes("t('audit.loadFailed'"), 'audit feedback must use the catalog');
   assert.ok(app.includes("t('provider.testConnection'"), 'provider card actions must use the catalog');
   assert.ok(app.includes("tCount('modelMenu.modelCount'"), 'model menu counts must use localized pluralization');
-  assert.ok(app.includes("t('permission.mode.title'"), 'permission popover must use the catalog');
+  // 121-K5（34 号文 §3.1）：2.0 那张四档单选卡（permission.mode.title）随 #permChip 退役 ——
+  // 权限自此只有两处：线程头那一枚 chip（会话级，steward-chips.js）与顶栏盾牌（新任务默认，
+  // steward-settings.js）。钉的事实一个字没变：权限的人话仍然全部走目录，没有硬编码。
+  assert.ok(app.includes("t('stewardShell.permission.confirmTitle')"), 'permission confirm must use the catalog');
   assert.ok(app.includes("t('capability.networkAndEngine'"), 'capability popover must use the catalog');
   assert.ok(artifactChanges.includes("t('tool.artifacts.turn'"), 'artifact turn headings must use the catalog');
   assert.ok(app.includes("tCount('tool.group.completed'"), 'tool group summaries must use localized pluralization');

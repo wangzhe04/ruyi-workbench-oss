@@ -62,8 +62,26 @@ export function toast(msg, kind = '') {
   $('toastTray').appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 3200);
 }
-// 侧栏底部状态行。
-export function setStatus(text) { $('statusLine').textContent = text; }
+// 连接状态行（121-K5，34 号文 §13.7 登记⑦）。
+// 121-K4 把 #statusLine 从侧栏底部搬进外框顶栏之后只剩一个 sr-only 的藏身处 —— 理由是「§2.2 末条
+// 明令顶栏不印模型名，而往这里写的正是『服务商 · 模型』」。K5 把两件事拆开，节点搬进线程头第二行
+// 右端那个【真看得见】的位置：
+//   · setStatus(text) —— 给人看的那一句【连接状态】。签名一字未改（app.js 两处调用不动）；
+//     可选的 tone 只影响那颗点的颜色，不传就是中性。
+//   · setStatusDetail(detail) —— 「服务商 · 模型」「引擎: 可执行文件路径」这类【配置事实】
+//     只进 title：悬停与读屏问得到，扫一眼线程头看不到（§2.2 不印模型名、§8.1 第 4 条不印路径）。
+export function setStatus(text, tone = '') {
+  const node = $('statusLine');
+  if (!node) return text;
+  node.textContent = text;
+  node.dataset.tone = String(tone || '');
+  return text;
+}
+export function setStatusDetail(detail) {
+  const node = $('statusLine');
+  if (node) node.title = String(detail == null ? '' : detail);
+  return detail;
+}
 
 // composer 文本域自适应高度(≤260px)。
 export function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px'; }

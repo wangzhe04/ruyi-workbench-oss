@@ -453,7 +453,21 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（同一条拦截法）：按上一次钉的那个 commit（`87a0d2f`）算 = 66e8d9a7…，与被替换的旧值
 // 【逐字相同】；再按工作树算得下面这个值。反向验证：把 vt-fade-in 那条 keyframes 改一个数字
 // → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = '4182a40fffab9ee498a1b89b253e5b749f69c0de9c49b573eacf2a58b14b81e0';
+//
+// 121-K5 续钉（前值 4182a40f…）：K5 工作台线程头（§2.5／§3）改两层 ——
+//   ① `css/views/chat-shell.css`：新增 .topbar.thread-head 那一族（两行结构 ＋ 3px 色条 ＋
+//      「任务 › 线程」面包屑 ＋ 五态药丸／来源图形的 [hidden] 收口 ＋ 管家条 .th-steward 一族
+//      ＋ 连接态 .th-conn 的那颗点），另加两条模型菜单尾部的行样式（「设为新任务默认」上面那道
+//      分隔线、刷新／管理服务商两枚动作的次级墨色）。**两行是结构不是换行**：§13.7 登记①那条
+//      「1200 宽线程头折行」由此关闭；
+//   ② `css/layout.css`：`.app-topbar #statusLine` 那条视觉隐藏规则整条退役 —— 连接态搬进线程头
+//      第二行右端那个真看得见的位置（§13.7 登记⑦），藏起来这件事本身不再需要。
+//   ③ 第一轮 1200 实测出的两处收尾（同一刀内）：面包屑改一行读完（.th-crumb）、chip 行只收不切。
+//   注：随 #modelChip／#permChip 退役而失去消费者的 `.model-chip`／`.perm-chip`／`.perm-select-host`／
+//   `.perm-pop` 一族【本刀不删】（登记给 K8：CSS 与文案刷新那一刀独占样式层的清理，一次重钉）。
+// 算法自证（同一条拦截法）：按 HEAD（`46684b7`）算 = 4182a40f…，与被替换的旧值【逐字相同】；
+// 再按工作树算得下面这个值。反向验证：往 chat-shell.css 的 .th-conn 改一个像素 → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = 'aba7e98f3b30bfa02956f26090581ddb5754b7c229bf8bc243ee37a9aaf3df1e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

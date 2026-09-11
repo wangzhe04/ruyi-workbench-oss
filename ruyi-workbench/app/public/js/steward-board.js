@@ -161,6 +161,9 @@ export function createStewardBoard({
   // 117g：行上的「在工作台打开」走它（切工作台视角＋选中会话）。
   // 121-K4：switchWholeShell（「整体切到 2.0」）那一路随看板浮层顶部那枚钮一起退役 —— 视角切换
   // 只在顶栏分段钮一处（§2.2），本模块因此不再需要它。
+  // 121-K5：注入的实现从 steward-classic-window.js 的 openClassicWindow（带 sessionStorage 返回
+  // 标记与一条返回带）换成 js/shell-mode.js 的 openInWorkbench（只有切视角 ＋ openSession 两步）。
+  // 参数名不改：本模块问的仍然是「把这条线程在工作台打开」，谁来做是组合根的事。
   openClassicWindow = async () => {},
   // 121-K4（§2.3 点击语义）：工作台视角里点一行＝真的把中栏换成那条线程，所以本模块要认识
   // openSession（组合根那一个，与抽屉的「在工作台打开」同一份实现，不另起第二条路）。
@@ -1552,10 +1555,9 @@ export function createStewardBoard({
     closeNow,
     syncNow,
     // 117g：返回带要显示「事项名」，读的是本模块已经取回来的那一份行（不另发请求、不另存一份）。
-    missionTitleFor: sessionId => {
-      const row = rows.find(item => String(item.sessionId) === String(sessionId));
-      return row ? String(row.missionTitle || row.title || '') : '';
-    },
+    // 121-K5：返回带退役，接手的是工作台线程头 —— 它要的不止事项名（还有线程数、来源、管家盯
+    // 没盯、谁坐着），所以这个只读句柄整行奉上。仍然是【同一份行】：线程头因此零取数。
+    missionRowFor: sessionId => rows.find(item => String(item.sessionId) === String(sessionId)) || null,
     focusThreadId: () => currentFocusId(),
     // 117j W2-4：壳层的状态轮询要按「有没有线程在跑」决定节拍。这个事实看板每一拍都已经算过
     // （行上的 activeTurn），开放一个只读句柄比让壳层再拉一次 /api/missions 便宜得多。

@@ -463,6 +463,15 @@ export function createQuickSwitchChips({
   // 会话级档位与引擎路由要按需补齐。给了 hydrate 就在【打开菜单前】补一次（每个会话只补一次），
   // 没给就按宿主喂进来的那份渲染 —— 抽屉与 2.0 顶栏本来拿的就是完整会话，不需要这一步。
   hydrate = null,
+  // 121-K5（34 号文 §3.1）：2.0 顶栏那张模型弹层退役时，它【独有】的三件事（思考／推理强度、
+  // 删自定义模型、刷新与管理服务商）要有去处 —— 全部落到本菜单的尾部。它们动的是【全局配置】
+  // 而不是这条线程，实现因此仍住 navigation-controls.js（saveConfigPartial／refreshModels 都在
+  // 那边），本工厂只留一个挂点：
+  //   deletableIds() -> Set（哪些模型行尾可以带「×」）
+  //   onDelete(id)   -> Promise（删掉它，删完由本工厂重画菜单）
+  //   appendTail(menu, { route, close }) -> void（强度选择器、刷新、管理服务商…）
+  // 不注入就一件都不出现（抽屉与左栏看板密度维持原样）。
+  modelMenuExtras = null,
 } = {}) {
   let sessionId = '';
   let session = null;
@@ -525,6 +534,35 @@ export function createQuickSwitchChips({
       note(t('stewardShell.chips.changed'));
       try { onChanged(session); } catch { /* 宿主刷新失败不该把 chip 打回旧值 */ }
       return session;
+    } catch (error) {
+      note(t('stewardShell.chips.changeFailed', { error: String((error && error.message) || error) }));
+      return null;
+    }
+  }
+
+  // ── 第二个写口：POST /api/config，【只有】「设为新任务默认」这一项走它 ────────────
+  // 121-K5（34 号文 §3.1）：修前 2.0 顶栏那枚模型 chip 切一次模型会【顺带】改全局默认
+  // （navigation-controls.js 的 setEngineModel 同时 PATCH 会话与 POST /api/config），而 3.0 那枚
+  // 只改本会话 —— 同屏两枚控件两种语义，33 号文 §0 记的就是这笔账。本波把默认收成【显式一项】：
+  // 切模型永远只改这条线程（上面那个 patchSession，零 /api/config 请求），要改新任务的默认值
+  // 得在菜单里点这一项。装配形状与 setEngineModel 的全局分支逐字同源（activeProvider ＋
+  // 按端点写 providers[].model 或 config.model），不另编第二套。
+  async function setAsNewDefault(route) {
+    const pid = route.engine === 'openai' ? String(route.providerId || '') : '';
+    const model = String(route.model || '');
+    const patch = pid
+      ? { activeProvider: pid, providers: (config().providers || []).map(item => (item && item.id === pid ? { ...item, model } : item)) }
+      : { activeProvider: '', model };
+    try {
+      const response = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
+      if (!response || !response.config) {
+        note(t('stewardShell.chips.changeFailed', { error: String((response && response.error) || 'failed') }));
+        return null;
+      }
+      if (state) state.config = response.config;
+      render();
+      note(t('stewardShell.chips.defaultSaved'));
+      return response.config;
     } catch (error) {
       note(t('stewardShell.chips.changeFailed', { error: String((error && error.message) || error) }));
       return null;
@@ -653,6 +691,12 @@ export function createQuickSwitchChips({
       opts: {
         classNames: STEWARD_MODEL_ROW_CLASSES,
         showCheck: false,   // 当前项由 aria-checked 表达，不摆 2.0 那颗 ✓
+        // 121-K5：行尾「×」删自定义模型 —— 2.0 弹层独有的那一件，判据（哪些 id 可删）与动作
+        // 都由宿主注入，本工厂只把 model-menu.js 现成的那两个挂点接上（第 44 波就有的能力）。
+        ...(modelMenuExtras && typeof modelMenuExtras.onDelete === 'function' ? {
+          deletableIds: typeof modelMenuExtras.deletableIds === 'function' ? modelMenuExtras.deletableIds() : null,
+          onDelete: async id => { await modelMenuExtras.onDelete(id); closeMenu(); },
+        } : {}),
         attrs: model => ({
           role: 'menuitemradio',
           'aria-checked': model.current ? 'true' : 'false',
@@ -774,8 +818,23 @@ export function createQuickSwitchChips({
       }
       // ⑤ 一条都没匹配上：如实说没匹配，而不是留一张空菜单让人以为坏了。
       if (model.empty && model.filtered) list.appendChild(el('p', 'steward-chip-option-hint', t('stewardShell.chips.noMatch')));
+      // ⑥ 121-K5（§3.1 末条）：「设为新任务默认」—— 全菜单里【唯一】动全局的一项，所以它印在
+      //    最后、单独一档、写的是这条线程此刻生效的那条路由。其余每一次点选都只 PATCH 本会话
+      //    （零 /api/config 请求，这是本刀的反向断言面）。
+      const asDefault = el('button', 'steward-chip-option steward-chip-default-action');
+      asDefault.type = 'button';
+      asDefault.dataset.chipAction = 'setDefault';
+      asDefault.appendChild(el('span', 'steward-chip-option-label', t('stewardShell.chips.setAsDefault')));
+      asDefault.onclick = () => { closeMenu(); setAsNewDefault(route); };
+      list.appendChild(asDefault);
     }
     draw();
+    // ⑦ 121-K5：2.0 弹层独有的尾巴（思考／推理强度、刷新模型列表、管理服务商…）。宿主没注入
+    //    就整段不出现 —— 抽屉与左栏看板密度的那两份菜单一个字没变。
+    if (modelMenuExtras && typeof modelMenuExtras.appendTail === 'function') {
+      try { modelMenuExtras.appendTail(menu, { route, close: () => closeMenu() }); }
+      catch { /* 尾巴画不出来不该把整张菜单拖垮 */ }
+    }
     // 用量是后到的（第一次开菜单才去拉）：到了就把 list 重画一遍。菜单已经关掉时 list 已被摘走
     // （closeMenu 清空菜单），parentNode 为空 —— 那就什么都不做，不去动一张不在屏幕上的菜单。
     if (!usageRowsMemo) loadUsageRows(api).then(() => { if (list.parentNode) draw(); }).catch(() => {});

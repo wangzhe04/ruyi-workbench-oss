@@ -118,17 +118,23 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       ok(!!dom && !dom.includes('__WCW_TOKEN__'), 'B2 token 占位符已替换(__WCW_TOKEN__ 绝迹,抓 S1 注入回归)');
       ok(dom.includes('wcw-token'), 'B3 wcw-token meta 在(前端启动凭据送达)');
       // 121-K4：2.0 的会话列表 #sessionList 由左栏的任务索引 #railList 取代（§2.3 末条）。
-      for (const id of ['sidebar', 'railList', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn', 'newSessionBtn']) {
+      // 121-K5：顶栏那枚 #modelChip 由线程头那一组 chip（#threadChips）取代（§2.5／§3.1）。
+      for (const id of ['sidebar', 'railList', 'messages', 'promptInput', 'sendBtn', 'threadChips', 'workflowEditorBtn', 'newSessionBtn']) {
         ok(dom.includes('id="' + id + '"'), 'B4 结构节点 #' + id + ' 在渲染后 DOM 中');
       }
       // 48d(01 Step 1 验收#5): data-testid 语义契约--为 50 波 FE 全量拆分铺路(重构时断言不绑死文本/结构)。
       // testid 与 id 同值,零视觉变化;断言 testid 存在 = 解放后续搬家被文本级断言绑死。
-      for (const tid of ['sidebar', 'messages', 'promptInput', 'sendBtn', 'modelChip', 'workflowEditorBtn']) {
+      for (const tid of ['sidebar', 'messages', 'promptInput', 'sendBtn', 'workflowEditorBtn']) {
         ok(dom.includes('data-testid="' + tid + '"'), 'B5 data-testid="' + tid + '" 语义契约在(50 波拆分重构锚点)');
       }
-      // C 段: JS 真启动 —— modelChip title 是 app.js 拉 /api/status 后渲染的,静态 HTML 里没有。
-      const chip = dom.match(/id="modelChip"[^>]*title="([^"]*)"/);
-      ok(!!chip && /Claude (?:CLI|Code)/.test(chip[1]), 'C1 modelChip 已按 /api/status 渲染引擎标签(title="' + (chip && chip[1]) + '") = JS boot + API + 渲染全活');
+      // C 段: JS 真启动 —— 线程头那三枚 chip 是 js/thread-head.js 在 bind 时用 steward-chips.js
+      // 的工厂建出来的（静态 HTML 里 #threadChips 是个空 div），引擎那一枚的值由 /api/status 的
+      // 引擎路由现算。121-K5：判据从退役的 #modelChip 的 title 换成它 —— 钉的事实一个字没变：
+      // JS boot ＋ API ＋ 渲染这一整条链活着。
+      const chipHost = dom.match(/<div id="threadChips"[\s\S]*?<\/div>\s*<div id="contextMeter"/);
+      const engineChip = chipHost && chipHost[0].match(/data-chip="engine"[\s\S]*?<span class="steward-chip-value">([^<]*)</);
+      ok(!!engineChip && /Claude (?:CLI|Code)|Kimi/.test(engineChip[1]),
+        'C1 线程头那组 chip 已按 /api/status 渲染引擎标签(engine="' + (engineChip && engineChip[1]) + '") = JS boot + API + 渲染全活');
       ok(dom.includes('提示词、计划或问题') || dom.includes('placeholder="描述你要做的事') || /placeholder="[^"]{4,}"/.test(dom.match(/id="promptInput"[^>]*/)?.[0] || ''),
         'C2 输入框 placeholder 就位(i18n/静态文案管线活)');
       ok(!dom.includes('class="boot-failure"') && !dom.includes('无法连接本地服务'),

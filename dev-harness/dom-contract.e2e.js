@@ -72,8 +72,11 @@ const CRITICAL_IDS = [
   'appSideToggleBtn', 'appStatusChip', 'railBoardBtn', 'railCount', 'railPocket',
   // 会话主区 / 消息渲染(perf 窗口化、renderCurrentSession)。
   'messages', 'emptyState', 'sessionTitle', 'sessionMeta', 'jumpLatest',
-  // 顶栏 chip / 选择器(工作文件夹、模型、权限、能力徽章)。
-  'workspacePicker', 'workspaceInput', 'modelChip', 'permChip', 'permSelect', 'permSelectHost', 'capBadge',
+  // 线程头(121-K5 §2.5)：工作文件夹、能力徽章，以及线程头自己那五个挂点。
+  // #modelChip / #permChip / #permSelect / #permSelectHost 随「一份数据一处控件」退役 ——
+  // 线程的权限／模型／引擎自此只由 js/thread-head.js 用 steward-chips.js 那一份工厂画一次。
+  'workspacePicker', 'workspaceInput', 'capBadge',
+  'threadHead', 'threadChips', 'threadMission', 'threadStewardBand', 'threadStewardWatch',
   // 主题 / 界面模式切换(theme.e2e、uimode-style.e2e)。
   'themeToggle', 'uiModeToggle', 'hljs-dark', 'hljs-light',
   // 设置弹层与页签(onboard.e2e:network 页签 + 搜索后端表单;ia.e2e:设置结构)。
@@ -97,6 +100,13 @@ const CRITICAL_IDS = [
   'rawEvents', 'debugAutoscroll', 'debugClearBtn', 'debugDownloadBtn',
   // token 注入点(net.js:wcwToken 读 meta[name=wcw-token] — 非 id,但 title 注入位在 head)。
 ];
+// 121-K5（34 号文 §2.5／§3.2）：翻面钉住那四枚真的不在了 —— 只留「新 id 都在」是挡不住
+// 有人把旧控件加回来的（同屏两套线程配置正是 33 号文 §0 记的那笔账）。
+// 反向验证：把 #modelChip 那一段 HTML 加回 index.html → 本条当场红。
+const RETIRED_IDS = ['modelChip', 'permChip', 'permSelect', 'permSelectHost', 'stewardReturnBand', 'stewardReturnChips'];
+const resurrected = RETIRED_IDS.filter(id => htmlIds.has(id));
+ok(resurrected.length === 0,
+  `121-K5：顶栏那两枚 chip 与 2.0 视窗返回带已退役，index.html 零残留（实测复活: ${resurrected.join(',') || '无'}）`);
 const missingIds = CRITICAL_IDS.filter(id => !htmlIds.has(id));
 ok(missingIds.length === 0,
   `② 关键 id 契约(${CRITICAL_IDS.length} 项)均存在于 index.html` +

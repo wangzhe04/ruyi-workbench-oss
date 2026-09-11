@@ -868,11 +868,15 @@ ok(/\.steward-msg-ruyi\.is-thread:not\(\.is-thread-start\) > \.steward-thread-he
   && /function resealThreads\(\)/.test(conversationCode)
   && !/is-channel-out/.test(conversationCode.slice(conversationCode.indexOf('function resealThreads()'))),
   'W3 「卡头只长在段首那一行」那条规则与 resealThreads 留着（它不属于频道条：段界是追加时看上一行算出来的），且它自己也不再认识那个过滤类');
-// 输入区那一侧的同名常量与监听器【留着不动】（本刀不碰输入区）：自此没有生产者，K5 收工时一并清。
-// 钉住这件事本身，免得后人以为它还在工作。
-ok(composerMod.STEWARD_PICK_CHANNEL_EVENT === 'steward:pick-channel'
-  && (conversation.match(/'steward:pick-channel'/g) || []).length === 0,
-  'W4 输入区那份同名常量与监听器留着（本刀不碰输入区），但对话流这一侧再没有生产者');
+// 121-K5（34 号文 §13.7 登记⑧）：输入区那一侧的同名常量、它的监听器、以及只由它写的两支
+// 临时目标（channelPick / pickedBeforeChannel）全部清掉 —— 生产者一个都没有的监听器不是接口，
+// 是让后人以为手选态还有第二条来路。输入区的目标自此仍然只有 picked 一个。
+// 反向验证：把那条 addEventListener 加回输入区 → 本条当场红。
+const composerSrc = read('js/steward-composer.js');
+ok(composerMod.STEWARD_PICK_CHANNEL_EVENT === undefined
+  && (conversation.match(/'steward:pick-channel'/g) || []).length === 0
+  && !/channelPick|applyChannelPick|pickedBeforeChannel/.test(stripComments(composerSrc)),
+  'W4 输入区那份同名常量、监听器与两支临时目标也已清净（121-K5：频道条零残留）');
 
 // ─── Y F5b 撤回三态（32 号文 §2.2.2；设计稿「图标集」画板第二行）────────────────────────────
 // 用户对着「每秒把整段文字换成『撤回 9』『撤回 8』、位数一变按钮宽度跟着跳；到期又无声变成

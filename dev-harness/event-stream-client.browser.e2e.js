@@ -575,7 +575,8 @@ try {
   /* ═════ E 换视角／换会话 → 服务端在场快照真的变了 ═════ */
   // 判据是 K3 的 seatedBy（13e:591）：它只在【lens==='classic' 且 sessionId 对上】时才写 'user'，
   // 所以这一条同时证明「两个参数都报到了服务端」与「换视角／换会话真的重连了」。
-  // 路径走产品自己那个入口：焦点栏的「2.0 视窗」（#stewardDrawerClassicBtn → openClassicWindow）
+  // 路径走产品自己那个入口：焦点栏的「在工作台打开」（#stewardDrawerClassicBtn → openClassicWindow，
+  // 121-K5 起它的正身是 js/shell-mode.js 的 openInWorkbench：切视角 ＋ openSession，返回带已退役）
   // —— 切视角 ＋ 选中这条会话一步到位。（工作台侧条里找不到它：管家新开的线程不会把
   // 侧条刷一遍，那是 K4/K5 的活；本件不绕过它，直接走今天真存在的那个入口。）
   const rowSeated = async () => {

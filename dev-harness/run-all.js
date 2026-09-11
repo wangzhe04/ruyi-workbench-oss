@@ -31,9 +31,13 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 121-K4-4: one-workbench-frame.browser 同理 —— 它有两条墙钟门(J2「管家开线程 → 左栏出现
 // 这一行 ≤1 s」)与一组按像素比的版面断言(1920/1200/900 三档的栏宽与截图)。三个不相干的
 // Edge/服务挤在一起时这两类都量不准,所以它也排在并行功能桶之后单独跑。
+// 121-K5: workbench-thread-head.browser 同理 —— 它有一组按像素比的版面断言(1200/1600/1920
+// 三档的线程头高度逐字相同 ＋ 三张截图),还要在真回合飞着的时候点停止。三个不相干的
+// Edge/服务挤在一起时这两类都量不准,所以它也排在并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
   'event-stream-client.browser.e2e.js',
   'one-workbench-frame.browser.e2e.js',
+  'workbench-thread-head.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
@@ -51,6 +55,10 @@ const TIMEOUT_OVERRIDES = {
   // 一直在跑)、切视角六个来回、三档视口各量一遍并存两张截图、再让管家自己开一条线程,
   // 实测单跑 ~200 s(并行桶之后独占跑)。豁免到 360 s。
   'one-workbench-frame.browser.e2e.js': 360000,
+  // 121-K5: 工作台线程头件。一趟里要起三条真线程(一条停在待决 ＋ 一条一直在跑 ＋ 一条短回答)、
+  // 开合模型菜单四轮、切视角四个来回、三档视口各量一遍并存三张截图,再点停止并读决策日志,
+  // 实测单跑 ~150 s(并行桶之后独占跑)。豁免到 300 s。
+  'workbench-thread-head.browser.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

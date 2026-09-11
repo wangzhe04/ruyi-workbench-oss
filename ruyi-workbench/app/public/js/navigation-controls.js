@@ -6,8 +6,6 @@ import { api } from './net.js';
 import { $, el, fmtTokens, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
-// 32 号文 §4：模型菜单的行/分组/当前项/键盘构造两壳共用（3.0 steward-chips.js 从同一份取行工厂）。
-import { buildModelMenuBody } from './model-menu.js';
 // 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
 // 「开合」，而 3.0 不必为了它把本域的组合根（help-menu / help-viewer / onboarding-wizard）一起拉进来。
 import { popover, popoverAnchor } from './popover.js';
@@ -44,7 +42,10 @@ export function createNavigationControlsDomain({
   engineLabel = () => '',
   saveConfigPartial = async () => false,
   refreshModels = async () => {},
-  engineVisual = () => ({}),
+  // 121-K5（34 号文 §3.1）：顶栏那枚 #modelChip 退役之后，「引擎／模型／强度的全局配置刚刚变了」
+  // 这件事仍然要有人接 —— 线程头那一组 chip 里「跟随全局」的显示值就是从它读出来的。
+  // 本域原来七处 renderModelChip() 一对一换成它；缺省空操作（不注入就只是不重画，行为可退化）。
+  onEngineConfigChanged = () => {},
   updateContextMeter = () => {},
   toggleTheme = () => {},
   compactContext = async () => {},
@@ -154,30 +155,14 @@ function renderPalette() {
 // 32 号文 §4（M1-b）：原语本体已搬进 js/popover.js（叶子模块）—— 本域各弹层（模型 chip / 上下文电池 /
 // 会话改名 / 更多菜单）仍从同一条 import 取它，类的用法与 DOM/关闭路径逐字未变。
 
-/* ---------------- model chip (§4.1) ---------------- */
-// Render the topbar chip's engine/model text + dot state. Claude: "Claude CLI · {model或默认}";
-// provider: "{label} · {model}". The .mc-engine foreground is the engine color (engineVisual map).
-function renderModelChip() {
-  const chip = $('modelChip'); if (!chip) return;
-  const meta = currentEngineMeta();
-  const vis = engineVisual(meta);
-  const engEl = chip.querySelector('.mc-engine');
-  const modEl = chip.querySelector('.mc-model');
-  if (engEl) { engEl.textContent = isProviderMode() ? vis.label : engineLabel(); engEl.style.color = vis.colorVar; }
-  const provider = activeProvider();
-  const providerMode = isProviderMode();
-  const model = currentModelId() || t('provider.defaultModel');
-  const effort = providerMode ? String(provider?.reasoningEffort || '') : (state.config?.claudeThinkingEffort || '');
-  const effortLabel = effort ? t(providerMode ? `provider.reasoningEffort.${effort}` : `thinkingEffort.${effort}`) : '';
-  if (modEl) {
-    const m = currentModelId();
-    const displayedModel = providerMode ? (m || `(${t('modelMenu.unselected')})`) : model;
-    modEl.textContent = effort ? t('modelMenu.modelWithEffort', { model: displayedModel, effort: effortLabel }) : displayedModel;
-  }
-  chip.title = effort
-    ? t('modelMenu.chipTitleWithEffort', { engine: engineLabel(), model, effort: effortLabel })
-    : t('modelMenu.chipTitle', { engine: engineLabel(), model });
-}
+/* ---------------- 线程配置的两件全局事实（121-K5，34 号文 §3.1）---------------- */
+// 顶栏那枚 #modelChip 与它的弹层（renderModelChip / openModelChipPopover）整段退役：线程的
+// 权限／模型／引擎自此只有 js/steward-chips.js 那一份工厂画一次（写口恒为 PATCH /api/sessions/:id）。
+// 留在本域的是它【独有】的那几件 —— 它们动的是全局配置，不是这条线程：
+//   · 思考强度 / 推理强度（setClaudeThinkingEffort / setProviderReasoningEffort）
+//   · 删自定义模型（deleteCustomModel）
+//   · 刷新模型列表、管理服务商…
+// 三者经本文件末尾导出的 modelMenuExtras 挂进 chips 模型菜单的尾部（组合根一处接线）。
 const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
 const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 function activeProvider() {
@@ -189,14 +174,14 @@ async function setClaudeThinkingEffort(value) {
   const previous = state.config?.claudeThinkingEffort || '';
   if (effort === previous) return true;
   state.config.claudeThinkingEffort = effort;
-  renderModelChip();
+  onEngineConfigChanged();
   const saved = await saveConfigPartial({ claudeThinkingEffort: effort });
   if (!saved) {
     state.config.claudeThinkingEffort = previous;
-    renderModelChip();
+    onEngineConfigChanged();
     return false;
   }
-  renderModelChip();
+  onEngineConfigChanged();
   toast(state.streaming
     ? t('modelMenu.effortChangedNextTurn', { effort: t(`thinkingEffort.${effort || 'default'}`) })
     : t('modelMenu.effortChanged', { effort: t(`thinkingEffort.${effort || 'default'}`) }), 'ok');
@@ -209,11 +194,11 @@ async function setProviderReasoningEffort(providerId, value) {
   if (!current || String(current.reasoningEffort || '') === effort) return true;
   const providers = previousProviders.map(p => p.id === providerId ? { ...p, reasoningEffort: effort } : p);
   state.config.providers = providers;
-  renderModelChip();
+  onEngineConfigChanged();
   const saved = await saveConfigPartial({ providers });
   if (!saved) {
     state.config.providers = previousProviders;
-    renderModelChip();
+    onEngineConfigChanged();
     return false;
   }
   toast(state.streaming
@@ -265,7 +250,7 @@ async function setEngineModel(providerId, modelId, opts = {}) {
   if (state.status) state.status.contextWindowResolved = null;
   updateContextMeter();
   const saved = scope === 'global' ? await saveConfigPartial(patch) : false;
-  renderModelChip();
+  onEngineConfigChanged();
   updateEngineDependentUI();
   updateContextMeter();
   // Re-resolve after persistence so probe/manual/table values (including learned provider caps) appear
@@ -301,12 +286,9 @@ async function deleteCustomModel(modelId) {
     await saveConfigPartial(patch);
     toast(t('modelMenu.modelDeleted', { model: id }), 'ok');
   } catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
-  renderModelChip();
+  onEngineConfigChanged();
   await refreshModels(); // 静默重建 status.models
 }
-// Build + open the chip popover: grouped single-select list (Claude CLI group + one group per
-// provider), current row ✓ + highlighted, disabled placeholder for provider groups with no models,
-// footer actions (refresh / manage providers). Keyboard: ↑↓ move, Enter select, Esc close.
 // v1.0.2 (G3): compact context-length badge — >=1e6 → 「1M」, >=1e3 → 「128K」, else raw. null/0 → ''.
 function ctxLenBadge(n) {
   const v = Number(n);
@@ -315,90 +297,73 @@ function ctxLenBadge(n) {
   if (v >= 1e3) { const k = v / 1e3; return (Number.isInteger(k) ? String(k) : Math.round(k)) + 'K'; }
   return String(v);
 }
-// 32 号文 §4（M1-b）：opts 透传给 setEngineModel（scope）与内部那两处递归重开（刷新／删除后重建同一张
-// 菜单）。2.0 的调用点传 MouseEvent 或什么都不传 —— 那时 opts 就是 {}，一切照旧。
-function openModelChipPopover(anchor, opts = {}) {
-  // The model menu is shared by both shells. Preview supplies its visible engine fact as the
-  // anchor; classic's direct onclick passes a MouseEvent and continues to use #modelChip.
-  const chip = anchor && anchor.nodeType === 1 ? anchor : $('modelChip'); if (!chip) return;
-  popover(chip, close => {
-    const curPid = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
-    const curModel = currentModelId();
-    // Claude CLI group (models from status.models — the claude-side offline/proxy list, includes '默认').
-    // 第44波: 自定义模型(extraModels 的 id 部分 ∪ knownModels)行尾可删 —— 别名/代理 API 条目不可删。
-    const customModelIds = new Set();
-    for (const raw of (state.config.extraModels || [])) { const v = String(raw).split('|')[0].trim(); if (v) customModelIds.add(v); }
-    for (const id of (state.config.knownModels || [])) { const v = String(id || '').trim(); if (v) customModelIds.add(v); }
-    const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('provider.defaultModel') }];
-    const appendClaudeEffort = container => {
-      const control = el('label', 'mc-effort-control');
-      control.appendChild(el('span', 'mc-effort-label', t('modelMenu.thinkingEffort')));
-      const select = el('select', 'mc-effort-select');
-      const effortValues = state.config?.agentCliType === 'kimi' ? ['', 'low', 'medium', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI;
-      for (const value of effortValues) {
-        const option = el('option');
-        option.value = value;
-        option.textContent = t(`thinkingEffort.${value || 'default'}`);
-        select.appendChild(option);
-      }
-      select.value = effortValues.includes(state.config?.claudeThinkingEffort || '') ? (state.config?.claudeThinkingEffort || '') : '';
-      select.onchange = async () => {
-        select.disabled = true;
-        const saved = await setClaudeThinkingEffort(select.value);
-        if (saved) close();
-        else select.disabled = false;
-      };
-      control.appendChild(select);
-      container.appendChild(control);
-    };
-    const appendProviderEffort = provider => container => {
-      const control = el('label', 'mc-effort-control');
-      control.appendChild(el('span', 'mc-effort-label', t('provider.reasoningEffort')));
-      const select = el('select', 'mc-effort-select');
-      for (const value of PROVIDER_REASONING_EFFORTS_UI) {
-        const option = el('option');
-        option.value = value;
-        option.textContent = t(`provider.reasoningEffort.${value || 'default'}`);
-        select.appendChild(option);
-      }
-      select.value = PROVIDER_REASONING_EFFORTS_UI.includes(provider.reasoningEffort) ? provider.reasoningEffort : '';
-      select.onchange = async () => {
-        select.disabled = true;
-        const saved = await setProviderReasoningEffort(provider.id, select.value);
-        if (saved) close();
-        else select.disabled = false;
-      };
-      control.appendChild(select);
-      container.appendChild(control);
-    };
-    // One group per configured provider。这里只把「这一组的全部事实」收起来 —— 组头/折叠/行/当前项标记/
-    // 键盘都在 model-menu.js（3.0 管家壳的模型菜单行也是同一份）。addGroup 这个名字与七参形状就是 2.0
-    // 原来那处装配的逐字形状，别改。
-    const providerGroups = [];
-    const addGroup = (pid, label, colorVar, models, emptyHint, deletableIds, appendExtra) =>
-      providerGroups.push({ id: pid, label, colorVar, models, emptyHint, deletableIds, appendExtra });
-    for (const p of (state.config.providers || [])) {
-      const vis = engineVisual({ engine: 'openai', providerId: p.id, providerLabel: p.label || p.id });
-      addGroup(p.id, p.label || p.id, vis.colorVar, (p.models || []), t('modelMenu.noModelsHint'), null, appendProviderEffort(p));
-    }
-    return buildModelMenuBody({
-      models: claudeModels,
-      providers: providerGroups,
-      current: { providerId: curPid, modelId: curModel },
-      onSelect: (pid, modelId) => { close(); setEngineModel(pid, modelId, opts); },
-      opts: {
-        primaryGroup: { id: '', label: engineLabel(), colorVar: 'var(--eng-claude)', emptyHint: '', deletableIds: customModelIds, appendExtra: appendClaudeEffort },
-        badge: model => { const badge = ctxLenBadge(model.contextLength); return badge ? { text: badge } : null; },
-        onDelete: async modelId => { await deleteCustomModel(modelId); close(); openModelChipPopover(anchor, opts); },
-        actions: [
-          { icon: '↻', label: t('modelMenu.refreshModels'), onClick: async () => { await refreshModels(true); close(); openModelChipPopover(anchor, opts); } },
-          { icon: '⚙', label: t('modelMenu.manageProviders'), onClick: () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); } },
-        ],
-      },
-    });
-  });
+// ── 121-K5（34 号文 §3.1）：2.0 模型弹层独有的三件事，挂到 chips 模型菜单的尾部 ──────────
+// openModelChipPopover 与它的容器 #modelChip 整段退役。留下来的是它【独有】的那三件 —— 它们动的
+// 都是【全局配置】而不是这条线程，所以不能塞进 chips 那个会话级写口，只能作为菜单尾部的附加件：
+//   ① 思考强度 / 推理强度：按当前引擎选一份（命令行引擎用 thinkingEffort，provider 用 reasoningEffort）；
+//   ② 删自定义模型：行尾那枚「×」，可删集合 ＝ extraModels ∪ knownModels（代理发现的条目不可删）；
+//   ③ 刷新模型列表 ／ 管理服务商…（后者直达设置的「服务商」页签）。
+// 每一件的函数体都是原弹层里那一份（appendClaudeEffort／appendProviderEffort／actions 那两条）逐字
+// 搬过来的，只是宿主从 .popover 换成了 .steward-chip-menu，并把两个强度分支合成一个（原来两份
+// 只差键名与写回函数，合起来之后「选哪一档」这件事仍然只有一处）。
+function customModelIdSet() {
+  const ids = new Set();
+  for (const raw of (state.config.extraModels || [])) { const v = String(raw).split('|')[0].trim(); if (v) ids.add(v); }
+  for (const id of (state.config.knownModels || [])) { const v = String(id || '').trim(); if (v) ids.add(v); }
+  return ids;
 }
-
+function appendEffortControl(container, close) {
+  const providerMode = isProviderMode();
+  const provider = activeProvider();
+  if (providerMode && !provider) return;
+  const control = el('label', 'mc-effort-control');
+  control.appendChild(el('span', 'mc-effort-label', t(providerMode ? 'provider.reasoningEffort' : 'modelMenu.thinkingEffort')));
+  const select = el('select', 'mc-effort-select');
+  const values = providerMode
+    ? PROVIDER_REASONING_EFFORTS_UI
+    : (state.config?.agentCliType === 'kimi' ? ['', 'low', 'medium', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI);
+  const keyOf = value => (providerMode ? `provider.reasoningEffort.${value || 'default'}` : `thinkingEffort.${value || 'default'}`);
+  for (const value of values) {
+    const option = el('option');
+    option.value = value;
+    option.textContent = t(keyOf(value));
+    select.appendChild(option);
+  }
+  const current = providerMode ? String(provider.reasoningEffort || '') : String(state.config?.claudeThinkingEffort || '');
+  select.value = values.includes(current) ? current : '';
+  select.onchange = async () => {
+    select.disabled = true;
+    const saved = providerMode
+      ? await setProviderReasoningEffort(provider.id, select.value)
+      : await setClaudeThinkingEffort(select.value);
+    if (saved) close(); else select.disabled = false;
+  };
+  control.appendChild(select);
+  container.appendChild(control);
+}
+// 尾部动作用的是 chips 自己的行类名（.steward-chip-option）——它们因此天然进那张菜单的 ↑↓ 行序
+// （steward-chips.js 的 stewardVisibleOptions 只认这一个类名），不必在 chips 那边为它们开第二条键盘路。
+function chipMenuAction(labelKey, action, onClick) {
+  const button = el('button', 'steward-chip-option steward-chip-config-action');
+  button.type = 'button';
+  button.dataset.chipAction = action;
+  button.appendChild(el('span', 'steward-chip-option-label', t(labelKey)));
+  button.onclick = onClick;
+  return button;
+}
+const modelMenuExtras = Object.freeze({
+  // 只有命令行引擎那一组有「自定义模型」这回事（provider 的候选是端点真实清单）。
+  deletableIds: () => (isProviderMode() ? null : customModelIdSet()),
+  onDelete: async modelId => { await deleteCustomModel(modelId); },
+  appendTail: (menu, ctx) => {
+    const close = (ctx && typeof ctx.close === 'function') ? ctx.close : () => {};
+    appendEffortControl(menu, close);
+    menu.appendChild(chipMenuAction('modelMenu.refreshModels', 'refreshModels',
+      async () => { close(); await refreshModels(true); }));
+    menu.appendChild(chipMenuAction('modelMenu.manageProviders', 'manageProviders',
+      () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); }));
+  },
+});
 /* ---------------- context-meter popover (§4.6) ---------------- */
 // Click the battery → popover with used/limit + %, limit source (model-inferred / manual), preset
 // chips (64K 128K 200K 256K 512K 1M 自动) + custom input, and a 🗜 compact button. Replaces the native prompt().
@@ -952,14 +917,13 @@ function initRightResize() {
     openComposerMorePopover,
     openContextPopover,
     openModal,
-    openModelChipPopover,
     openMoreMenu,
     openPalette,
     openRenamePopover,
     openToolPane,
     popover,
     renderCapBadge,
-    renderModelChip,
+    modelMenuExtras,   // 121-K5：chips 模型菜单尾部那三件全局事（强度／删自定义模型／刷新与管理服务商）
     renderPalette,
     refreshToolPane,
     restoreRightWidth,

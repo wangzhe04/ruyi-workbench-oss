@@ -133,15 +133,11 @@
 }
 .brand-mark svg { display: block; }
 .app-brand-name { flex: none; font-size: var(--fs-md); font-weight: 600; letter-spacing: .2px; color: var(--ink); }
-/* 连接状态（setStatus 的唯一落点）。它【不印在屏幕上】：§2.2 末条明令顶栏不印模型名，而
-   js/provider-settings.js 的 renderStatusLine() 往这里写的正是「服务商 · 模型」（命令行引擎时
-   写的还是一个可执行文件路径，§8.1 第 4 条同样不许）。节点留着，是因为它是 setStatus() 全仓唯一的
-   写入目标，且连接失败这件事另有两条【可见】的通道（#startNoticeBar 与首连失败故障卡）。
-   用视觉隐藏而不是 display:none —— 状态文字仍留在无障碍树里，读屏能问到「现在连的是什么」。 */
-.app-topbar #statusLine {
-  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-}
+/* 121-K5（34 号文 §13.7 登记⑦）：连接状态 #statusLine 不在顶栏了 —— K4 把它从侧栏底部搬进顶栏
+   之后只能视觉隐藏（理由是「§2.2 末条明令顶栏不印模型名，而 renderStatusLine() 往这里写的正是
+   『服务商 · 模型』」），那只是把问题藏起来。K5 把两件事拆开：可见层只说【连上没连上】（线程头
+   第二行右端的 .th-conn，见 css/views/chat-shell.css），服务商 · 模型与命令行引擎的可执行文件路径
+   进 title（setStatusDetail）。这条视觉隐藏规则因此整条退役。 */
 
 /* 视角分段钮：滑块 CSS transform 220ms（§2.9 表首行：它先于内容动）。 */
 .lens-seg {

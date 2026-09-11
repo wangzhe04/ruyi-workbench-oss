@@ -111,8 +111,8 @@ const PAYLOAD_FILES = [
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
   'app/public/js/steward-chips.js',
-  // 117g/117h:2.0 视窗与返回带、一行状态与看板与「现在这一件」(steward-shell.js 静态 import 它们)。
-  'app/public/js/steward-classic-window.js',
+  // 117h/121-K5:工作台线程头与左栏(steward-shell.js 静态 import 它们)。
+  'app/public/js/thread-head.js',
   'app/public/js/steward-board.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',

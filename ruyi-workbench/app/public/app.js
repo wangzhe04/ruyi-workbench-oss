@@ -40,13 +40,18 @@ import { createAppFrame } from './js/app-frame.js'; // 121-K4
 import { createEventStream } from './js/event-stream.js'; // 121-K2b
 import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：左栏「＋ 新任务」派的那一条
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
-import { permissionConfirmText, permissionSwitchNeedsConfirm } from './js/steward-chips.js'; // 117j classic-1
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
 // 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
 // (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
 // One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
 // stays false and applyShellMode falls back to the workbench view.
 let stewardShellGuard = null;
+// 121-K5（34 号文 §2.5）：工作台线程头的重画口。线程头住管家域（它要左栏那批行与同一份 chips
+// 工厂），而经典壳这一侧有三个调用点（开机 bootData、全局配置写完、引擎依赖 UI 刷新）—— 走迟绑定
+// 闭包，与 markSharedThread 同一条解环手法：管家域在下面才建，调用时它早已就位；缺席时空操作。
+function renderThreadHead() {
+  return stewardShellGuard ? stewardShellGuard.threadHead.render() : '';
+}
 const chatScrollController = createChatScrollController({
   getMessages: () => $('messages'),
   getJumpLatest: () => $('jumpLatest'),
@@ -191,10 +196,8 @@ const {
   insertTemplate,
   isProviderMode,
   openPermPopover,
-  populatePermSelect,
   refreshModels,
   refreshStatus,
-  renderPermChip,
   renderProviders,
   renderStatusLine,
   saveConfigPartial,
@@ -203,7 +206,7 @@ const {
   updateSearchBackendVisibility,
 } = createProviderSettingsDomain({
   apiErrText,
-  renderModelChip: () => renderModelChip(),
+  onEngineConfigChanged: () => renderThreadHead(),   // 121-K5：全局配置变了 -> 线程头那组 chip 重画
   updateAgentTeamButton: () => updateAgentTeamButton(),
   applyTheme: theme => applyTheme(theme),
   applyUiMode: mode => applyUiMode(mode),
@@ -422,14 +425,13 @@ const {
   openComposerMorePopover,
   openContextPopover,
   openModal,
-  openModelChipPopover,
   openMoreMenu,
   openPalette,
   openRenamePopover,
   openToolPane,
   popover,
   renderCapBadge,
-  renderModelChip,
+  modelMenuExtras,   // 121-K5：chips 模型菜单尾部那三件全局事
   renderPalette,
   restoreRightWidth,
   restoreToolsCollapsed,
@@ -598,9 +600,7 @@ window.addEventListener('i18n:change', () => {
   renderResumeBanner();
   applyUiMode(document.documentElement.getAttribute('data-ui-mode') || 'pro');
   renderProviders();
-  renderModelChip();
-  populatePermSelect();
-  renderPermChip();
+  renderThreadHead();   // 121-K5：线程头那一组 chip（权限／模型／引擎）与管家条
   renderCapBadge();
   if (state.status) renderStatusLine();
   updateSkillBadge();
@@ -884,8 +884,10 @@ const shellModeController = createShellModeController({
   canEnterSteward: () => Boolean(stewardShellGuard && stewardShellGuard.canEnterSteward()),
   recoverStewardShell: options => (stewardShellGuard ? stewardShellGuard.recoverStewardShell(options) : ''),
   closeSettings: () => closeModal('settingsModal'),
+  // 121-K5（§2.7）：「在工作台打开」的第二步（openSession）。第一步是 applyShellMode 自己。
+  openSession,
 });
-const { applyShellMode, bindShellModeControl } = shellModeController;
+const { applyShellMode, openInWorkbench, bindShellModeControl } = shellModeController;
 
 // 117a：管家壳（第三种壳模式，默认关）。只组合模式与容器骨架；avatar/对话/递话/抽屉/看板归 117b–h。
 const stewardShellDomain = createStewardShellDomain({
@@ -896,7 +898,9 @@ const stewardShellDomain = createStewardShellDomain({
   applyShellMode,
   closeSettings: () => closeModal('settingsModal'),
   now: () => new Date(),
-  openSession, // 117d：抽屉的「2.0 视窗」＝切经典壳 + 选中该会话
+  openSession, // 117d：左栏行点击＝把中栏换成那条线程
+  openInWorkbench, // 121-K5：焦点栏／对话流交付卡／左栏行的「在工作台打开」（切视角＋openSession，一处实现）
+  modelMenuExtras, // 121-K5（§3.1）：2.0 模型弹层独有的三件全局事，挂线程头那组 chip 的模型菜单尾部
   searchState: () => sessionSearchSnapshot(), // 121-K4：左栏搜索（Ctrl+K）读 113b 的结果快照
   saveConfigPartial, openSettingsTab: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'steward', true); }, // 117e
   // 117s-C（走查⑦「输出要支持 markdown、制图」）：全仓唯一的 markdown＋XSS 净化路径（trusted innerHTML
@@ -920,6 +924,9 @@ const appFrame = createAppFrame({
     const current = String((state.currentSession && state.currentSession.id) || '');
     return focus && focus === current ? focus : '';
   },
+  // 121-K5（§2.7）：分段钮切回管家时，焦点落在刚才在工作台看的那条线程上（退役的
+  // steward-classic-window.js 里 backToSteward 的后半，前半那个 sessionStorage 返回标记整段删）。
+  workbenchThreadId: () => String((state.currentSession && state.currentSession.id) || ''),
 });
 const { bindAppFrame } = appFrame;
 
@@ -977,22 +984,13 @@ function bindEvents() {
   // （≤980 折成 56px 图标栏）。两枚按钮、两个函数与那个本机偏好都已删（见 navigation-controls.js）。
 
   // topbar
-  { const chip = $('modelChip'); if (chip) chip.onclick = openModelChipPopover; }
+  // 121-K5（34 号文 §3.1）：#modelChip／#permChip／隐藏的 #permSelect 三处接线随控件一起退役。
+  // 线程的权限／模型／引擎只剩线程头那一组 chip（js/thread-head.js 用同一个 chips 工厂挂的，
+  // 唯一写口 PATCH /api/sessions/:id）；新任务的两个默认值分别在外框顶栏的盾牌与模型菜单里改。
   { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
   { const cb = $('capBadge'); if (cb) cb.onclick = openCapPopover; } // v0.8-S6 capability matrix
-  $('permSelect').onchange = e => {
-    // 117j classic-1：切「全自动」一律先确认（不再只在精简界面），bypass 仍沿用 v0.9-S1 那道闸。
-    // 判据与五条人话都在 steward-chips.js 单点，经典壳与管家壳盾牌菜单逐字同源。
-    if (permissionSwitchNeedsConfirm(e.target.value, document.documentElement.getAttribute('data-ui-mode'))
-      && !confirm(permissionConfirmText(e.target.value, t))) {
-      e.target.value = state.config.permissionMode || 'bypass'; populatePermSelect(); return;
-    }
-    saveConfigPartial({ permissionMode: e.target.value, confirm: true }); state.config.permissionMode = e.target.value; populatePermSelect(); if (e.target.value === 'bypass') toast(t('permission.mode.bypass.activated'), 'err'); else if (e.target.value === 'auto') toast(t('permission.mode.auto.activated'), 'ok'); // 116-3 B1: confirm:true = 用户亲手切的(applyConfigPatch 的 409 门)
-  };
   $('themeToggle').onclick = toggleTheme;
   { const um = $('uiModeToggle'); if (um) um.onclick = toggleUiMode; } // v0.9-S1 (C1)
-  // v1.0-S2 (IA): 安全 chip 开安全弹层；「⋯」开更多菜单（主题/界面/能力矩阵/快捷键）。
-  { const pc = $('permChip'); if (pc) pc.onclick = openPermPopover; }
   { const mm = $('moreMenuBtn'); if (mm) mm.onclick = openMoreMenu; }
   { const wp = $('workspacePicker'); if (wp) wp.onclick = pickWorkspace; } // v0.9-S3 (C3)
   $('toggleToolsBtn').onclick = toggleToolPane;

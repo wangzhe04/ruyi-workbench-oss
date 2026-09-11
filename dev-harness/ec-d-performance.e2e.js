@@ -168,12 +168,14 @@ async function waitForTarget(debugPort, appUrl) {
 async function waitForInteractive(cdp, previousTimeOrigin = 0) {
   const expression = `(() => {
     const navigation = performance.getEntriesByType('navigation')[0];
-    const chip = document.getElementById('modelChip');
+    // 121-K5：#modelChip 退役 —— 「可交互」的判据换成线程头那组 chip 已经建出来了
+    // （js/thread-head.js 在 bind 时 mount 的三枚 .steward-chip，静态 HTML 里 #threadChips 是空的）。
+    const chip = document.querySelector('#threadChips .steward-chip');
     const input = document.getElementById('promptInput');
     const messages = document.getElementById('messages');
     const ready = performance.timeOrigin !== ${Number(previousTimeOrigin)}
       && document.readyState === 'complete'
-      && !!chip && !!chip.title && !!input && !input.disabled
+      && !!chip && !!input && !input.disabled
       && !!messages && messages.getAttribute('aria-busy') !== 'true';
     const resources = performance.getEntriesByType('resource');
     return {

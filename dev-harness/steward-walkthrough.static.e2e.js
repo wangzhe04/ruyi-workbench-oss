@@ -284,18 +284,28 @@ const ok = (condition, label) => {
       'F1c 收紧与常规档不问（确认闸只对「放宽」用）');
     ok(permissionConfirmText('auto', key => key).split('\n').length === 1 + chipsMod.STEWARD_CONFIRM_KEYS.length,
       'F1d 全自动的确认文案 = 一句提问 + §8.6 的五条人话（与管家壳盾牌菜单逐字同源）');
-    ok(/permissionSwitchNeedsConfirm\(e\.target\.value, document\.documentElement\.getAttribute\('data-ui-mode'\)\)/.test(app)
-      && /confirm\(permissionConfirmText\(e\.target\.value, t\)\)/.test(app),
-      'F1e 经典壳顶栏那一路读的就是这个单点（不再自己拼 confirm key）');
+    // 121-K5（34 号文 §3.1）：经典壳顶栏那条 #permSelect 下拉（连同 #permChip 与那张四档单选卡）
+    // 退役 —— 权限只剩两处：顶栏盾牌（新任务默认）与线程头那一枚 chip（这条线程）。确认闸因此
+    // 也只剩两个读点，判据仍然是 steward-chips.js 那一份（F1–F1d 逐条钉着它的真值表）。
+    // 反向验证：把 steward-settings 的 STEWARD_PERMISSION_CONFIRM_MODES 判定拆掉 → 本条当场红。
+    const stewardSettingsSrc = read('js/steward-settings.js');
+    ok(/STEWARD_PERMISSION_CONFIRM_MODES\.includes\(mode\)/.test(stewardSettingsSrc)
+      && /showPermissionConfirm\(mode, accepted => setDefaultPermission\(accepted\)/.test(stewardSettingsSrc)
+      && !/permissionSwitchNeedsConfirm\(e\.target\.value/.test(app),
+      'F1e 全自动的确认闸读的就是这个单点：盾牌那一路在（2.0 顶栏那条下拉已退役）');
     // 117s-C：组合根多了两行——把 renderMarkdownInto/highlightIn 注入管家壳（全仓唯一的 markdown+XSS 净化路径
     // 就是靠注入拿到的，经典壳六个消费面同款）。上限随之 1277→1279；frontend-domains D45 的硬顶 1280 仍在，
     // 再长一行就得拆 app.js。
     ok(app.trimEnd().split(/\r?\n/).length <= 1279,
       `F1f 组合根没有因为本片长胖（117j 纪律「app.js 不增行」；实测 ${app.trimEnd().split(/\r?\n/).length} 行）`);
 
-    // B2：权限口径同步 —— 顶栏那枚安全 chip 的刷新落在【唯一写口】里。
-    ok(/if \(patch && Object\.prototype\.hasOwnProperty\.call\(patch, 'permissionMode'\)\) renderPermChip\(\);/.test(providerSettings),
-      'F2 B2：任何一处写 permissionMode 都会刷新顶栏 chip（放在 saveConfigPartial 里 = 谁写都刷）');
+    // B2：全局配置写完就刷一次读面，落在【唯一写口】里 = 谁写都刷（当初漏掉三处就是因为
+    // 让每个调用方各补一次）。121-K5：要刷的那一面从退役的 #permChip 换成线程头那一组 chip ——
+    // 「跟随全局」的权限档与引擎路由都是从 state.config 读出来的，全局一变它就该跟上。
+    ok(/^\s*onEngineConfigChanged\(\);$/m.test(providerSettings)
+      && /state\.config = res\.config;/.test(providerSettings)
+      && !/renderPermChip/.test(providerSettings),
+      'F2 B2：任何一处写全局配置都会刷新线程头那组 chip（放在 saveConfigPartial 里 = 谁写都刷）');
 
     // UX-F2：引擎问题分两种人话，后端给了 message 就原文照登。
     ok(/const message = String\(\(info && info\.message\) \|\| ''\)\.trim\(\);\s*if \(message\) return message;/.test(conversation),
@@ -360,7 +370,8 @@ const ok = (condition, label) => {
     // 32 号文 §4（M1-b）：G4 的 chip 那一条改问 popover 原语（焦点归还搬去了那里）。
     const popoverSrc = read('js/popover.js');
     const settings = read('js/steward-settings.js');
-    const classicWindow = read('js/steward-classic-window.js');
+    // 121-K5：steward-classic-window.js 整文件退役（见下面 G9）。
+    const shellMode = read('js/shell-mode.js');
     const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
     const { stewardEscapeStack } = chipsMod;
 
@@ -448,8 +459,17 @@ const ok = (condition, label) => {
       'G8 copy-P3-4：抽屉页签支持 ←/→ 与 Home/End（它已经是正经 tablist，此前只能一个个 Tab 过去）');
 
     // classic-3 / classic-4。
-    ok(/if \(document_\.documentElement\.getAttribute\('data-shell-mode'\) !== 'classic'\) clearMark\(\);/.test(classicWindow),
-      'G9 classic-3：离开经典壳的【任何一条路】都清返回标记（修前只认「切回管家」，切到预览壳时标记会留下）');
+    // 121-K5：G9 翻面 —— 117j classic-3 修的是「返回标记残留」，而返回标记本身随
+    // steward-classic-window.js 整文件退役了（§3.2）。没有标记就没有残留：「在工作台打开」
+    // 收成 shell-mode.js 的 openInWorkbench 两步（切视角 ＋ openSession），零 sessionStorage。
+    // 反向验证：谁把 sessionStorage 写回 shell-mode.js（想再造一条返回带）→ 本条当场红。
+    // 比对【剥过注释】的源码：头注里正写着「原来外带一个 sessionStorage 返回标记」——
+    // 不剥注释就会被自己的说明文字判红（117q-B3b 踩过同一个坑的反面）。
+    const shellModeCode = shellMode.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    ok(/async function openInWorkbench\(sessionId\) \{/.test(shellModeCode)
+      && /applyShellMode\('classic'\);/.test(shellModeCode)
+      && !/sessionStorage/.test(shellModeCode),
+      'G9 classic-3：返回标记这件事整段退役（「在工作台打开」＝切视角＋openSession，零 sessionStorage）');
     ok(/if \(visit\.newVisit !== true\) \{\s*try \{ history = await api\('\/api\/sessions\/steward'\); \}/.test(conversation),
       'G10 classic-4：新到访不去拉那条还没落盘的管家会话（那一发必然 404，而 newVisit 分支压根不用 messages）');
   }

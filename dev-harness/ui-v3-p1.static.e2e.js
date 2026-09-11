@@ -10,6 +10,8 @@ const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
 const css = require('./read-frontend-css.js').readFrontendCss();
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const iconsSrc = fs.readFileSync(path.join(PUB, 'js', 'icons.js'), 'utf8');
+// 121-K5：顶栏盾牌的字形由 steward-settings.js 在运行时按档位注入（见下面第 4 组那一条）。
+const stewardSettingsSrc = fs.readFileSync(path.join(PUB, 'js', 'steward-settings.js'), 'utf8');
 const src = readFrontendSrc(); // app.js + js/**(含 icons.js)
 
 let fail = 0;
@@ -64,7 +66,14 @@ for (const need of ['folder', 'shield', 'toolbox', 'paperclip', 'sparkles', 'sen
 // data-icon="menu" 的 #showSidebarBtn）退役，这两枚字形在 index.html 里随之零引用。
 // icons.js 的表【一个字形都没删】（上面第 3 组仍逐枚钉着 menu／collapse 在表里），删的只是
 // index.html 的两个使用点 —— 字形表的增删归 K8。
-for (const [id, name] of [['workspacePicker...folder', 'folder'], ['perm...shield', 'shield'], ['tools...toolbox', 'toolbox'],
+// 121-K5（34 号文 §3.1）：顶栏那枚 #permChip（data-icon="shield"）退役 —— 权限只剩线程头那一枚
+// chip（会话级）与外框顶栏的盾牌（新任务默认）。盾牌的字形由 js/steward-settings.js 的
+// paintShieldButton 在运行时按档位注入（F5a：盾是家族标，档位画在盾里面），所以它不在
+// index.html 的静态 data-icon 清单里 —— 下面那一格因此挪出清单，改钉它真正的落点。
+ok(/paintShieldButton\(btn, permissionIconName\(mode\)/.test(stewardSettingsSrc)
+  && /icon\(iconName, 17\)/.test(stewardSettingsSrc),
+  '4 盾牌字形由 steward-settings.js 按档位注入（#permChip 的静态 shield 随它退役）');
+for (const [id, name] of [['workspacePicker...folder', 'folder'], ['tools...toolbox', 'toolbox'],
   ['more', 'more'], ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
   ['settings', 'settings'], ['help', 'help'], ['close', 'close']]) {
   ok(new RegExp('data-icon="' + name + '"').test(html), '4 index.html data-icon="' + name + '" 就位');

@@ -223,7 +223,10 @@ const wave62Domains = [
   ['skills-memory.js', skillsMemory, ['openSkillPanel', 'openMemoryPanel', 'renderSkillList']],
   ['provider-settings.js', providerSettings, ['refreshStatus', 'renderProviders', 'saveSettings']],
   ['agent-workflows.js', agentWorkflows, ['openWorkflowEditor', 'loadAgentRuns', 'loadAgentWorkflows']],
-  ['navigation-controls.js', navigation, ['switchTab', 'openModal', 'renderModelChip']],
+  // 121-K5（34 号文 §3.1）：renderModelChip 随顶栏那枚 #modelChip 一起退役 —— 线程配置在任一
+  // 视角只画一次（线程头那一组 chip）。这一格改钉 openContextPopover：它与 switchTab／openModal
+  // 同类（本域【自己】持有的弹层/页签实现），且是本域剩下的那个顶栏控件。
+  ['navigation-controls.js', navigation, ['switchTab', 'openModal', 'openContextPopover']],
   ['session-experience.js', sessionExperience, ['renderSessions', 'openSession', 'renderCurrentSession']],
   ['interaction-prompts.js', interactionPrompts, ['buildModal', 'handlePermissionRequest', 'showAskUserModal']],
   ['tool-runtime.js', toolRuntime, ['runTool', 'updateShellPolling', 'handlePlanEvent']],

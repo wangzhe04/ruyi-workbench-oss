@@ -284,8 +284,13 @@ const routes = [...new Set([
 // 那张 200 行的列表不再由抽屉自己拉（它现在只读看板取回来的那一批），抽屉这一面只剩带 id 的
 // /api/missions/（任务快照）。语义是收紧而不是放宽：这条路由一旦从抽屉里再长出来（自己发一次
 // 列表请求），收集到的路由集就与白名单不再相等，本条当场红。
+// 121-K5 **再重钉 F1**（34 号文 §3.1）：白名单多一条 /api/config —— chips 的模型菜单里新增了
+// 【显式的】「设为新任务默认」。它是这一刀的要害：修前 2.0 顶栏切一次模型会顺带 POST /api/config
+// 改全局默认（两种语义同屏，33 号文 §0），现在切模型恒为 PATCH /api/sessions/:id，只有点那一项
+// 才写 /api/config。所以这条白名单项对应的不是「多了一条写路」，而是「那条写路从隐式变显式」。
+// E6 那条「chipsCode 里 method:'PATCH' 恰好一处」仍然钉着会话级写口的唯一性。
 const ALLOWED = [
-  '/api/agent-runs/', '/api/chat/answer', '/api/interventions',
+  '/api/agent-runs/', '/api/chat/answer', '/api/config', '/api/interventions',
   '/api/missions/', '/api/permission/decision', '/api/session/rewind',
   '/api/sessions/', '/api/steward/relay', '/api/stop', '/api/usage/summary',
 ].sort();

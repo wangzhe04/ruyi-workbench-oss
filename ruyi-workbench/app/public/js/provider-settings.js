@@ -3,7 +3,7 @@
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, escapeHtml, autoGrow, setStatus, toast } from './util.js';
+import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
 import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS } from './health-i18n.js';
@@ -40,7 +40,9 @@ export function providerDraftFromPreset(preset, existingIds = []) {
 
 export function createProviderSettingsDomain({
   apiErrText = error => String(error && error.message || error || ''),
-  renderModelChip = () => {},
+  // 121-K5：顶栏那枚 #modelChip 退役，这条注入随之改名 —— 要刷的是线程头那一组 chip（会话级），
+  // 刷的理由一字未变：全局配置刚变，「跟随全局」的显示值要跟上。
+  onEngineConfigChanged = () => {},
   updateAgentTeamButton = () => {},
   applyTheme = () => {},
   applyUiMode = () => {},
@@ -73,8 +75,9 @@ async function refreshStatus() {
   applyTheme(state.config.theme || 'dark');
   applyUiMode(state.config.uiMode || 'pro'); // v0.9-S1 (C1)
   renderWorkspacePicker(); // v0.9-S3 (C3): reflect the default/session workspace once config is loaded
-  renderModelChip();
-  populatePermSelect();
+  // 121-K5：顶栏那两枚 chip（#modelChip / #permChip）与隐藏的 #permSelect 一起退役 —— 线程的
+  // 权限／模型／引擎由线程头那一组 chip 画（会话级），新任务的两个默认值在盾牌与模型菜单里改。
+  onEngineConfigChanged();
   updateEngineDependentUI();
   fillSettings();
   renderStatusLine();
@@ -209,7 +212,7 @@ function updateEngineDependentUI() {
   // A3: composer placeholder follows the active engine label.
   const ta = $('promptInput');
   if (ta) ta.placeholder = t('chat.placeholder');
-  renderModelChip();
+  onEngineConfigChanged();
   // If the empty state is currently showing, rebuild it so its engine line + CTA track the switch.
   const box = $('messages');
   if (box && box.querySelector('.empty-state') && (!state.currentSession || !(state.currentSession.messages || []).length)) {
@@ -230,7 +233,7 @@ async function refreshModels(announce) {
       } else if (state.status) {
         state.status.models = r.models; // Claude engine: status.models feeds the chip's Claude group
       }
-      renderModelChip();
+      onEngineConfigChanged();
       if (announce) toast(r.proxyCount ? tCount('modelMenu.refreshSuccessProxy', r.proxyCount) : t('modelMenu.refreshSuccessBuiltin'), 'ok');
     } else if (announce) { toast(t('modelMenu.refreshUnchanged'), ''); }
     // /api/models may have populated the server's per-model context probe cache. Pull just the freshly
@@ -284,102 +287,50 @@ function renderStartNotice() {
   const dismiss = $('startNoticeDismiss');
   if (dismiss) dismiss.onclick = () => { startNoticeDismissed = true; renderStartNotice(); };
 }
+// 121-K5（§13.7 登记⑦）：这一行从「服务商 · 模型」改回它本来该说的那件事 —— 【连上了没有】。
+// 它现在落在线程头第二行右端那个真看得见的位置（K4 之前它是侧栏底部、K4 之后是顶栏里一个 sr-only
+// 的藏身处），所以印什么就真的会被看见：模型名（§2.2 末条）与命令行引擎的可执行文件路径
+// （§8.1 第 4 条）都不许上可见层，它们进 title（setStatusDetail）——悬停与读屏照样问得到。
 function renderStatusLine() {
   if (isProviderMode()) {
     const p = activeProviderObj();
     const label = (p && (p.label || p.id)) || t('status.currentProvider');
     const model = (p && p.model) || currentModelId() || t('provider.defaultModel');
-    setStatus(`${label} · ${model}`);
+    setStatus(t('status.connected'), 'ok');
+    setStatusDetail(`${label} · ${model}`);
     return;
   }
   const ok = currentAgentCliPath();
-  setStatus(ok ? `${currentAgentCliLabel()}: ${ok}` : t('status.agentCliMissing', { engine: currentAgentCliLabel() }));
-}
-function populatePermSelect() {
-  const sel = $('permSelect'); sel.innerHTML = '';
-  for (const m of (state.status?.permissionModes || ['default','acceptEdits','plan','bypass'])) {
-    const o = el('option'); o.value = m; o.textContent = permModeOption(m); if (m === state.config.permissionMode) o.selected = true; sel.appendChild(o);
+  if (ok) {
+    setStatus(t('status.connected'), 'ok');
+    setStatusDetail(`${currentAgentCliLabel()}: ${ok}`);
+    return;
   }
-  sel.style.color = state.config.permissionMode === 'bypass' ? 'var(--danger)' : (state.config.permissionMode === 'auto' ? 'var(--accent)' : '');
-  renderPermChip(); // v1.0-S2 (IA): keep the topbar 安全 chip in sync with the mode.
+  setStatus(t('status.agentCliMissing', { engine: currentAgentCliLabel() }), 'warn');
+  setStatusDetail('');
 }
-
-/* ---------------- v1.0-S2 (IA): 安全 chip + 安全弹层（四档单选卡） ---------------- */
-// 每档：人话短名 + 一句场景描述；bypass 为警示样式。原始模式名（default/acceptEdits/…）在专家模式作小字。
-const PERM_MODE_META = {
-  default:     { optionKey: 'permission.mode.default.option', shortKey: 'permission.mode.default.short', descriptionKey: 'permission.mode.default.description' },
-  acceptEdits: { optionKey: 'permission.mode.acceptEdits.option', shortKey: 'permission.mode.acceptEdits.short', descriptionKey: 'permission.mode.acceptEdits.description' },
-  plan:        { optionKey: 'permission.mode.plan.option', shortKey: 'permission.mode.plan.short', descriptionKey: 'permission.mode.plan.description' },
-  auto:        { optionKey: 'permission.mode.auto.option', shortKey: 'permission.mode.auto.short', descriptionKey: 'permission.mode.auto.description' },
-  bypass:      { optionKey: 'permission.mode.bypass.option', shortKey: 'permission.mode.bypass.short', descriptionKey: 'permission.mode.bypass.description', danger: true },
-};
-function permModeText(mode, field) {
-  const meta = PERM_MODE_META[mode];
-  const key = meta && meta[`${field}Key`];
-  return key ? t(key) : (mode || t('common.unknown'));
-}
-function permModeOption(mode) { return permModeText(mode, 'option'); }
-function permModeShort(mode) { return permModeText(mode, 'short'); }
-function permModeDescription(mode) {
-  const meta = PERM_MODE_META[mode];
-  return meta?.descriptionKey ? t(meta.descriptionKey) : '';
-}
-// Reflect the current permissionMode on the topbar 安全 chip: 人话短名 + bypass 警示着色（沿用 bypass 红色心智）。
-function renderPermChip() {
-  const chip = $('permChip'); if (!chip) return;
-  const mode = state.config.permissionMode || 'default';
-  const nameEl = chip.querySelector('.pc-name');
-  if (nameEl) nameEl.textContent = permModeShort(mode); // textContent → 人话短名，XSS 安全
-  chip.classList.toggle('warn', mode === 'bypass');
-  chip.classList.toggle('info', mode === 'auto');
-  chip.title = t('permission.mode.chipTitle', { mode: permModeShort(mode) });
-}
-// 安全弹层：只展示一套单选卡（枚举来自 state.status.permissionModes）。点击卡片 =
-// 设置 permSelect.value + dispatch('change')，完全复用既有 onchange（持久化 / bypass 确认 / toast 全部白拿）。
-// 隐藏的 permSelect 只作为状态/事件载体，不再形成第二套可见选择器。DOM 全 createElement/textContent 构建。
-function openPermPopover(anchor) {
-  // Keep one permission selector, but allow Preview to anchor it to its visible safety fact.
-  // Classic's direct onclick supplies a MouseEvent, which intentionally uses the legacy chip.
-  const chip = anchor && anchor.nodeType === 1 ? anchor : $('permChip'); if (!chip) return;
-  const pro = document.documentElement.getAttribute('data-ui-mode') !== 'simple';
-  popover(chip, close => {
-    const wrap = el('div', 'perm-pop');
-    wrap.appendChild(el('h4', null, t('permission.mode.title')));
-    const cards = el('div', 'perm-cards'); cards.setAttribute('role', 'radiogroup');
-    const modes = (state.status && state.status.permissionModes) || ['default', 'acceptEdits', 'plan', 'bypass'];
-    const cur = state.config.permissionMode || 'default';
-    modes.forEach(mode => {
-      const meta = PERM_MODE_META[mode];
-      const card = el('button', 'perm-card' + (meta?.danger ? ' danger' : '') + (mode === cur ? ' active' : ''));
-      card.type = 'button'; card.setAttribute('role', 'radio'); card.setAttribute('aria-checked', mode === cur ? 'true' : 'false');
-      const top = el('div', 'perm-card-top');
-      top.append(el('span', 'perm-card-radio', mode === cur ? '◉' : '○'), el('span', 'perm-card-short', permModeShort(mode)));
-      card.appendChild(top);
-      card.appendChild(el('div', 'perm-card-desc', permModeDescription(mode)));
-      if (pro) card.appendChild(el('div', 'perm-card-raw', mode)); // 专家模式附原始模式名小字
-      card.onclick = () => {
-        const sel = $('permSelect');
-        if (sel && sel.value !== mode) { sel.value = mode; sel.dispatchEvent(new Event('change')); }
-        else if (sel && sel.value === mode) { /* 无变化 */ }
-        close();
-      };
-      cards.appendChild(card);
-    });
-    wrap.appendChild(cards);
-    // 信任脚注。
-    wrap.appendChild(el('div', 'perm-pop-foot', t('permission.mode.footer')));
-    return wrap;
-  });
+/* ---------------- 121-K5（34 号文 §2.5／§3.1）：权限自此只有两处 ---------------- */
+// 顶栏那枚 #permChip、它背后的隐藏载体 #permSelect／#permSelectHost 与那张四档单选卡一起退役。
+// 修前同一屏上有两套权限控件、两种语义：顶栏那一套改的是【新会话的默认值】（POST /api/config），
+// 线程 chip 改的是【这条线程】（PATCH /api/sessions/:id）—— 33 号文 §0 记下的那笔账。收法：
+//   · 新任务默认权限 → 外框顶栏的盾牌（js/steward-settings.js 的 setDefaultPermission，唯一写口）；
+//   · 这条线程的权限 → 线程头那一枚 chip（js/steward-chips.js，唯一写口）。
+// 本函数留着【名字与调用点】（命令面板的「权限」、错误恢复的「去改权限」、118a 向导），把人送到
+// 线程那一枚上 —— 「这一步被拒了」要改的是这条线程，不是以后所有的新线程。
+function openPermPopover() {
+  const chip = document.querySelector('#threadChips [data-chip="permission"]');
+  if (!chip) return false;
+  chip.click();
+  return true;
 }
 async function saveConfigPartial(patch) {
   try {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
     state.config = res.config;
-    // 117j B2（权限口径同步）：顶栏那枚安全 chip 的唯一真值来源是 state.config.permissionMode。
-    // 修前只有设置页那一路写完会 renderPermChip()，而管家壳的盾牌菜单、线程 chip、顶栏下拉走的都是
-    // 这同一个 saveConfigPartial 却各自不刷 —— 于是切完档顶栏还挂着旧的。放在【唯一写口】里 =
-    // 谁写都刷，不必给每个调用方各补一次（那正是漏掉三处的原因）。
-    if (patch && Object.prototype.hasOwnProperty.call(patch, 'permissionMode')) renderPermChip();
+    // 117j B2（权限口径同步）：谁写全局配置都在这一处刷一次读面，不必给每个调用方各补一遍
+    // （那正是当初漏掉三处的原因）。121-K5：要刷的那一面从退役的 #permChip 换成线程头那一组
+    // chip —— 权限档与引擎路由的「跟随全局」显示值都是从 state.config 读出来的。
+    onEngineConfigChanged();
     return true;
   } catch (e) {
     toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err');
@@ -1355,10 +1306,8 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
     insertTemplate,
     isProviderMode,
     openPermPopover,
-    populatePermSelect,
     refreshModels,
     refreshStatus,
-    renderPermChip,
     renderProviders,
     renderStatusLine,
     saveConfigPartial,

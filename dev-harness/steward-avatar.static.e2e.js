@@ -87,7 +87,10 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 117g／117h（重钉来源：本波交付，27 号文 §5 117g／117h 行）：白名单加第六、七条 —— 一行状态与
   // 看板与「现在这一件」、2.0 视窗与返回带。形态仍然不变：本域内相对路径、零第三方库、零裸包名。
   "import { createStewardBoard } from './steward-board.js';",
-  "import { createStewardClassicWindow } from './steward-classic-window.js';",
+  // 121-K5（34 号文 §2.5／§3）：「2.0 视窗与返回带」那一片（steward-classic-window.js）退役，
+  // 位置由工作台线程头接手（一套 chip ＋「任务 › 线程」＋ 管家条）。形态仍然不变：本域内相对
+  // 路径、零第三方库、零裸包名。
+  "import { createThreadHead } from './thread-head.js';",
   // 117j UX-F3（重钉来源：本波交付，27 号文 §11.7 走查 P2）：白名单加第八条 —— Esc 逐层的那个栈。
   // 它住 steward-chips.js（零 import 的叶子），壳层 import 它是为了出【那一处】 document keydown。
   // 形态仍然不变：本域内相对路径、零第三方库、零裸包名。

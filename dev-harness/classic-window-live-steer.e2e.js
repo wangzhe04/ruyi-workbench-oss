@@ -20,7 +20,9 @@
 //   H6  屏幕上看得到那句插话。
 //   H7  回合结束之后再打一句:relay 键没了 → 按钮回到【发送】→ 点下去正常起一个【新】回合。
 //
-// 夹具与 steward-classic-window.e2e.js 同一套 CDP 无头驱动;temp HOME、fake provider、fake 管家动作面。
+// 夹具与 workbench-thread-head.browser.e2e.js 同一套 CDP 无头驱动;temp HOME、fake provider、
+// fake 管家动作面。(121-K5:原来那句写的是 steward-classic-window.e2e.js —— 「2.0 视窗」与它的
+// 返回带已整段退役,那一件随之退役,本件的文件名与注释里的「2.0 视窗」是待还的措辞债,登记给 K8。)
 // 判定行:`CLASSIC WINDOW LIVE STEER E2E: ALL PASS`。
 (async () => {
 const cp = require('child_process');
@@ -213,7 +215,9 @@ async function waitForEval(cdp, expression, attempts = 800) {
 const READY = `(() => {
   const select = document.getElementById('cfgShellMode');
   if (!select || typeof select.onchange !== 'function') return null;
-  if (!document.getElementById('stewardReturnBand') || !window.state || !window.state.status || !window.state.config) return null;
+  // 121-K5：就绪判据从退役的返回带（#stewardReturnBand）换成线程头（#threadHead）——
+  // 两者都是「经典壳这一侧的骨架已经画完了」的同一个信号，本件测的东西一个字没变。
+  if (!document.getElementById('threadHead') || !window.state || !window.state.status || !window.state.config) return null;
   return { ready: true };
 })()`;
 
