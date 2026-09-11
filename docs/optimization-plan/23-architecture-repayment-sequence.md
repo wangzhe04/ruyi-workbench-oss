@@ -2,7 +2,7 @@
 
 > **状态（2026-09-02）**：由《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核后以 **revise-major** 结论纳入路线图；本文是实施依据，原提案保留为输入材料，不作为已批准范围。**第 103 波（103a／103b／103c）、第 104 波与第 105 波总门均已交付**。105a–105g 已逐项取证并默认开启，各项均可显式关闭回退；105 总门再次确认 105f 单发优先有净收益。4.3 后续的 ≤4 块顺序 refine 未过真实模型门，保留默认关闭；>4 块全局 user 大纲因 8 块路径至少 9 次串行调用、真实基线超时长而否决并撤掉生产实现；可选 overlap 不再实施。105c 为成本承担行为（触发修补多一次 LLM 调用），105d 回注块整体上限 2000 字符；105g 仍按其受控 A/B 证据默认开启，并经超长 history-24 甜点门将事实表默认上限提升至 64。**第 106 波已开工**：#13a／13a-t（预算保护基础层＋长命令时间预算）、#1 G1/G2（前缀缓存布局修复＋探针 S5 补测）与 #2a（受限执行结果缓存，白名单仅 file_read）已交付，G2 与 #2a 经真实 provider 门后默认开启，G1 继续默认关闭取证中。**#3 批量输出纪律限定场景试验已收口**：design-and-decide option 扇出真实配对门实测 −33% 调用／−25% 费用但槽位深度变薄、墙钟 +10%，裁决为条件性正收益、模板不翻默认（详见 §5「106 #3 Release Brief」）。
 > **性质**：第 103、104 波为零用户可见行为的结构偿还；第 105、106 波包含默认关闭、逐项取证的行为实验；第 107 波只做发布准入与批准决策，不自动恢复旧壳层 P4。
-> **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
+> **关联**：[全局路线图](../OPTIMIZATION-ROADMAP.md)、[22 号 Agent SoC 方案](22-agent-soc-microarchitecture.md)、[旧 Pretender 规划](../archive/PRETENDER-PLAN.md)、[20 号运行时优化](20-runtime-optimization-cost-benefit.md)。
 
 ---
 
