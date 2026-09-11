@@ -283,7 +283,7 @@
              时亮点标(.has-activity 显 .wb-mv-dot)。tab 点击 wire 到 switchMainView(见 app.js P3a 模块)。 -->
         <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图">
           <button id="mainViewTabChat" class="wb-mv-tab active" role="tab" aria-selected="true" data-main-view="chat" data-i18n="navigation.conversation">对话</button>
-          <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas"><span data-i18n="navigation.workbench">工作台</span><span class="wb-mv-dot" aria-hidden="true"></span></button>
+          <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas"><span data-i18n="navigation.crew">班组</span><span class="wb-mv-dot" aria-hidden="true"></span></button>
           <span class="wb-mv-spacer"></span>
         </div>
 
@@ -418,7 +418,7 @@
              P3b:.wb-main 网格承「只读 DAG 画布 + 右侧三段折叠上下文板(选中详情/任务池审批/邮箱)」;
              <1180 右板收为抽屉(#wbSide.open + #wbSideBackdrop 从右滑出)。内容全部由 app.js el()/textContent
              渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
-        <section id="workbenchView" class="wb-view" aria-label="工作台画布">
+        <section id="workbenchView" class="wb-view" aria-label="班组画布">
           <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择"></div>
           <div class="wb-main">
             <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>

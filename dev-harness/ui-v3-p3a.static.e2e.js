@@ -28,7 +28,11 @@ function fnBody(name, cap = 3000) {
 // ═══════════ 0. HTML 结构就位(中栏主 Tab + 工作台三区容器)═══════════
 ok(/<main class="chat-pane" data-main-view="chat">/.test(html), '0 HTML 中栏 .chat-pane 带 data-main-view="chat"(状态机根)');
 ok(has(html, 'wb-mainview-tabs', 'id="mainViewTabChat"', 'id="mainViewTabCanvas"'), '0 HTML 主视图 Tab(对话/工作台)就位');
-ok(/data-main-view="chat"[^>]*>对话</.test(html) && /data-main-view="canvas"[^>]*>(?:工作台|<span[^>]*>工作台<\/span>)/.test(html), '0 HTML 两 Tab 带 data-main-view=chat|canvas（工作台文案可由 i18n span 承载）');
+// 121 波（34 号文 §2.10.4，用户 2026-09-11）：多 agent 协作面板改叫「班组」（键 navigation.crew），
+// 「工作台」自此只指视角名 —— 这条页签上再出现「工作台」三个字就是撞名回潮。
+ok(/data-main-view="chat"[^>]*>对话</.test(html) && /data-main-view="canvas"[^>]*>(?:班组|<span[^>]*>班组<\/span>)/.test(html)
+  && !/data-main-view="canvas"[^>]*>(?:工作台|<span[^>]*>工作台<\/span>)/.test(html),
+  '0 HTML 两 Tab 带 data-main-view=chat|canvas（多 agent 面板叫「班组」，不叫「工作台」；文案由 i18n span 承载）');
 ok(has(html, 'class="wb-mv-dot"'), '0 HTML 工作台 Tab 亮点标 .wb-mv-dot 占位');
 ok(has(html, 'id="workbenchView"', 'class="wb-view"'), '0 HTML 工作台视图容器 #workbenchView.wb-view');
 ok(has(html, 'id="wbRunbar"', 'id="wbCanvasWrap"', 'id="wbUsage"'), '0 HTML 三区容器 run 栏 / 画布 / 用量条就位');
