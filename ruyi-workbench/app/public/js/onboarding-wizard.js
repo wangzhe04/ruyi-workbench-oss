@@ -2,8 +2,9 @@
 
 // 118a: shell-agnostic welcome wizard.
 //
-// Why a zero-import factory: both shells (classic `session-experience.js` and preview `preview-shell.js`)
-// and the settings page must be able to open the SAME wizard, and the 117 steward line has to be able to
+// Why a zero-import factory: the workbench view (`session-experience.js`) and the settings page must be
+// able to open the SAME wizard (before 121-K1 the retired dispatch desk was a third caller), and the
+// 117 steward line has to be able to
 // replay the same step definitions as a conversation. So every environment dependency (state / api / el /
 // t / toast / picker / settings opener) is injected, and the pure parts (step list, shape validators,
 // first-run gate) are plain named exports that a test or the steward can call without a DOM.

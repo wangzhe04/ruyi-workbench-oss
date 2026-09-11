@@ -881,8 +881,8 @@ export function createStewardDrawer({
   }
 
   // ── ⑧ 三问 ──────────────────────────────────────────────────────────────────
-  // 没有「拿 turnActivity 快照」的 HTTP 面：预览壳那一份是它自己的事件流喂出来的累加器
-  // （preview-shell.js 的 turnActivity.consume(event)），抽屉这一路只轮询，拿不到那条流。
+  // 没有「拿 turnActivity 快照」的 HTTP 面：经典壳那一份是 chat-stream-runtime 的事件流喂出来的
+  // 累加器（121-K1 之前退役的交办台也各喂一份），抽屉这一路只轮询，拿不到那条流。
   // 所以这里【只用权威字段】拼一个最小快照喂给同一个 describeTurnActivity：真有未决就是 waiting_you，
   // 真在等锁/等并发位/等预算（116h 的 wait）就是 waiting_resource，其余一律 idle → 显示「暂无」。
   // 绝不因为「线程在跑」就编一个 thinking（§8.1 原则 2：不知道就说不知道）。

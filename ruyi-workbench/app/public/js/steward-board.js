@@ -183,8 +183,9 @@ export function createStewardBoard({
   // 117n-M1③（用户「看板圆点看不出已完成」）：同一条线程收工之后，抽屉那颗点走六态原始 state
   // 直接判绿（steward-drawer.js:419／CSS 的 [data-state="done"]），看板这颗点却经
   // dockToneForMissionState 收成三档、done 落进 quiet 灰点 —— 用户扫看板看不出哪条线程真的完成了。
-  // 传 settleDone:true 让看板这一处主动选出第四档 settled；不传参数的默认行为（交办台的 dock 座，
-  // 见 preview-shell.js 的 renderDock）一个字不变。
+  // 传 settleDone:true 让看板这一处主动选出第四档 settled；不传参数的默认行为一个字不变
+  // （121-K1 之前那个默认行为还有第二个见证者 —— 交办台的 dock 座，它已随交办台退役；
+  // 现在由 steward-board.static 的 G9b 真值表首行直接钉住 done → quiet）。
   // 117u-G2 B2：tone 从 paintDot 里【提出来】成一个纯函数。理由是右栏那一面：小行那颗点自此
   // 归线程色（色 ≠ 态），但「展开还是折成一行」仍然只认这四档 tone —— 提出来之前要拿 tone 必须
   // 先 paintDot 造一颗点、从 dataset 上读回来再把点扔掉。两处调用问的仍是【同一处】判定：

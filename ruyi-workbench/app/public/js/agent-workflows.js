@@ -825,9 +825,10 @@ async function loadAgentRuns(force) {
 }
 // v3 P3a:轮询期望态由「监控页签激活」∪「工作台画布视图激活」共同决定 —— 画布复用同一份 2s 轮询(loadAgentRuns
 // 内联刷新画布),不新增请求。tab 参数保留兼容既有 switchTab 调用点;实际期望态从 DOM(激活页签)+ Workbench 域派生。
-// P2-17(30号文§3 总表): 页面可见性门控 —— 本文件此前是 preview-shell.js/session-experience.js/steward-board.js/
-// steward-drawer.js 五个轮询循环里唯一没判 document.hidden 的,标签页整个切到后台,2 秒一拍的定时器照常跑
-// (「漏做一半」不是设计差异)。不抽公共模块(另外四处已被静态锁按函数体逐字钉着,30 号文已否决合并),
+// P2-17(30号文§3 总表): 页面可见性门控 —— 本文件此前是当时五个轮询循环(session-experience.js/
+// steward-board.js/steward-drawer.js 与已随 121-K1 退役的交办台那一个)里唯一没判 document.hidden 的,
+// 标签页整个切到后台,2 秒一拍的定时器照常跑(「漏做一半」不是设计差异)。
+// 不抽公共模块(其余几处已被静态锁按函数体逐字钉着,30 号文已否决合并),
 // 只在本文件内补上判据 + visibilitychange 监听,与 steward-drawer.js 的 `!(doc() && doc().hidden)` 同款写法。
 function agentRunsPollWanted() {
   const tabActive = !!document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"].active');

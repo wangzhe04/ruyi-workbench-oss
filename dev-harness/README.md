@@ -15,19 +15,17 @@ node dev-harness\openai-engine.e2e.js
 
 运行时优化 shadow 有两层无外部依赖测试：`node dev-harness\runtime-shadow-benchmark.js` 用真实 native catalog 跑基础 60 条工具查询、20 条长 observation 与 30 条失败分类样本；`node dev-harness\runtime-shadow-adversarial.js` 再扩为检索误召回/歧义/typo/顺序确定性/1,000 项 catalog 压测、observation 保护误判/非法 JSON/幂等/5 MiB 载荷，以及写操作 transport ambiguity/指纹碰撞。结果分别写到被 git 忽略的 `dev-harness/ab-results/runtime-shadow-latest.json` 与 `runtime-shadow-adversarial-latest.json`。两件都不代表批准主动检索、主动 observation reducer 或自动重试；后者发现产品阻断项时仍可 exit 0，只有 shadow 行为等价、隐私或 fail-safe 不变量破坏才 exit 非零。F1 真实数据用 `node dev-harness\runtime-failure-report.js <RUYI_HOME>` 按最新分类器版本单独过门；分类器升级时可先运行 `node dev-harness\runtime-failure-replay.js <RUYI_HOME>`，它只输出新旧类别聚合和安全计数，不输出或改写原始工具结果。
 
-第79波专项门由 `pretender-return-archive.static.e2e.js`、`pretender-return-archive.e2e.js` 与扩展后的 `pretender-shell.e2e.js` 组成：前两件锁定 9 类变更流水、严格区间读取和 gap/corrupt 降级；浏览器件验证渲染后才推进 lastSeen、档案置顶/归档跨刷新、损坏 UI-state 不伤 Mission，以及档案到待决任务事实的一击/5 秒系统指标。
+> **第79–84波（交办台专项门）已于第 121 波 K1 整段退役。** 34 号文 §8.1：交办台壳层（8 个
+> `js/preview-*.js`、`css/views/preview-shell.css`、505 个 `previewShell.*` 键）整层删除，钉着它的
+> 16 件 `pretender-*.e2e.js` 随之删除；测【后端投影索引】的两件改名保留为
+> `mission-index-gate.e2e.js` 与 `mission-index-scale.e2e.js`（后端一行没删 —— 拍板⑤：
+> `src/13e-pretender-index.js` 本波不改名）。原文照旧可在 git 历史里查（`1519fd3` 及更早）。
+>
+> 那几段门里【不随界面消失】的判据已经归位：本机提醒策略层的去重/免打扰/基线（原第83波）搬进
+> `dev-harness/unit/notify-policy.test.js`；反悔柄与结果章（原第84/85波）的服务端一侧仍由
+> `mission-result.e2e.js` 覆盖；两个视角的显隐、准入与 fail-closed 归 `steward-shell.e2e.js`。
 
-第80波公开预览门新增 `pretender-preview-ready.static.e2e.js` 与 `pretender-preview-performance.e2e.js`：前者冻结双壳故障回退、无数据迁移说明、投影就绪、40→200 卡分帧呈现、双语手册及发布物内部命名；后者用真实 Edge 在 300 Mission / 200 可见卡下测三次冷导航、30 次视图切换，并走查 1440/768/390。增量长输出继续由 `pretender-task-sheet.e2e.js` 的真实 SSE/焦点/滚动/主线程间隙门负责。
-
-第81波原生决策门由 `pretender-needs-drawer.static.e2e.js` 与 `pretender-needs-drawer.e2e.js` 组成：静态件冻结统一 75b 写入口、CAS 版本/权限作用域投影、批准二次确认、typed question 零预选、同 key 重试、跨壳退场桥与停工卡诚实边界；浏览器件用真实 Provider 权限与提问回合验证经典→Preview 决策→经典续跑、390px 抽屉、停止结果章及未发送恢复草稿。
-
-第82波班组图门由 `pretender-crew-lens.static.e2e.js` 与 `pretender-crew-lens.e2e.js` 组成：静态件冻结最近六个 Run 的紧凑图投影、无第二数据流、确定性工头摘要、池提案复用全局抽屉、递话复用既有 `steer_node`、失败草稿和 390px 纵向流；浏览器件覆盖真实运行中的多 Agent、图内递话送达、拟增工序定位及窄屏无溢出。`pretender-shell.static.e2e.js` 另锁定工作圈、安全档、引擎三个案头按钮各自进入原生控制面，只有设置按钮进入设置页。
-
-第83波由 `pretender-narrative-notifications.e2e.js` 固定现场纪要与本机通知：9 类 change record 纯折算/双导出、增量 entry identity、160 条常态 DOM 窗口和每句原始凭据；通知覆盖默认关闭、权限拒绝、跨午夜免打扰边界、同 Intervention 去重、终态撤回、静默不补发及应用重启首读不补炸。静态接线同时核对三镜头、设置控件、浏览器 Notification tag/close 和 390px 值班簿布局。
-
-第84波由 `pretender-mission-control.e2e.js` 固定反悔柄与分层车钟：真实 Workbench + 假 Provider 生成两个文件 checkpoint，验证 Continue/Pause/Takeover/Stop/Retry 的冻结语义、活回合可停止、逐条与整单文件恢复、Mission 起点 rewind、归档后反悔柄禁用态和 token 鉴权；静态接线同时核对 Mission/Run/回合三层 scope、二次确认、200 行有界飞行记录纸带和 390px 重排。`pretender-task-sheet.e2e.js` 与 `pretender-crew-lens.e2e.js` 继续作为长输出和多 Agent 真实浏览器回归。
-
-第85波在既有门上扩展收工与提问闭环：`mission-result.e2e.js` 固定结果章 usage/audit，`interactive-question.e2e.js` 固定选项优先、Other 保底与提问前正文 context，`pretender-needs-drawer.e2e.js` 用真实 Edge 核对经典→交办台捷径、任务坞 `＋`、390px 上下文可见、选项垂直对齐及 Other 输入跨静默刷新不丢焦点/选区；`pretender-dispatch-home.e2e.js` 同样固定任务稿输入连续性；`usage-ledger.e2e.js` 用真实 usage details 固定同 Provider 精确模型覆盖与缓存命中计价公式。ACC `smoke_v19.py` 另复现后台后代继承输出句柄、超时与超大输出，`bridge-cancel-timeout.e2e.js` 固定参数感知的桥截止时间与杀树后重连，`streaming-responsiveness.static.e2e.js` 防工具卡在回合结束后永驻“运行中”。`acc-offline-installer.static.e2e.js` 追加默认 Full/显式 Slim、Full 命名拒绝和增量 WinSDK 自动修复契约，`desktop-mcp-smoke.e2e.js` 则固定 Full 候选优先级，并在本机真实启动 107 工具及 OCR 探针。
+第85波在既有门上扩展收工与提问闭环：`mission-result.e2e.js` 固定结果章 usage/audit，`interactive-question.e2e.js` 固定选项优先、Other 保底与提问前正文 context，`usage-ledger.e2e.js` 用真实 usage details 固定同 Provider 精确模型覆盖与缓存命中计价公式。（本段原来还点了 `pretender-needs-drawer.e2e.js` 与 `pretender-dispatch-home.e2e.js` 两件交办台浏览器门 —— 它们随交办台于 121-K1 退役，见上面那段说明。）ACC `smoke_v19.py` 另复现后台后代继承输出句柄、超时与超大输出，`bridge-cancel-timeout.e2e.js` 固定参数感知的桥截止时间与杀树后重连，`streaming-responsiveness.static.e2e.js` 防工具卡在回合结束后永驻“运行中”。`acc-offline-installer.static.e2e.js` 追加默认 Full/显式 Slim、Full 命名拒绝和增量 WinSDK 自动修复契约，`desktop-mcp-smoke.e2e.js` 则固定 Full 候选优先级，并在本机真实启动 107 工具及 OCR 探针。
 
 **离线件应 ALL PASS**(不含需真端点/真 Python 的 live 件)。每件文件头部注释都列了它断言的边界。
 需外部条件的件:`deepseek-live`/`deepseek-tools`(真 DeepSeek 密钥)、`desktop-bridge-live`(真 python 桌面 MCP)、

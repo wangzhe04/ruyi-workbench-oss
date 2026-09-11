@@ -83,6 +83,15 @@ export function activeAcceptanceIndex(items) {
 // 服务端 POST /api/mission action:start 要求至少一条里程碑，否则账本立不起来 —— 而账本一旦为空，
 // 抽屉的验收块（steward-drawer.js）与看板的验收计数（steward-board.js）对这条新任务就永远是空的。
 // 目标（goal）保持用户原话，验收另行措辞：账本要说清「什么叫做完」，不是把任务再抄一遍。
+//
+// ⚠ 121-K1 起本函数【暂无生产调用点】，这是有意保住的能力，不是忘了删的死码：
+//   · 唯一那条 POST /api/mission {action:'start'} 的路径（原 app.js 的 startPreviewDispatchCommand）
+//     住在交办台的派单输入框里，随交办台一起删了；幸存的 /api/mission 调用只剩
+//     session-experience.js 那一处 {action:'stop'}。
+//   · 服务端 13k stewardImplThreadNew 只写 session.kind='mission'，【不】建里程碑账本 ——
+//     管家自己开的线程在 121-K1 之前就没有里程碑，本刀没让任何幸存界面倒退。
+//   · 真正的接线点是 34 号文 §5 那个还没建的左栏「＋ 新任务」（K4/K5）。
+// 在那之前，它的行为由 dev-harness/unit/thread-facts.test.js 单独钉住（那是它现在唯一的守卫）。
 export function dispatchAcceptanceMilestones(prompt) {
   const source = String(prompt || '').trim();
   const chinese = /[\u3400-\u9fff]/.test(source);
