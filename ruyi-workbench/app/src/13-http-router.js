@@ -1448,6 +1448,11 @@ async function handleApi(req, res, pathname) {
   // 直接写函数名会成为新的前向边,故经 06i 的延迟绑定命名空间挂接(13 → 06i 是后向边);13g 加载时
   // Object.assign(StewardHooks, {...}) 填充实现,未填充(理论上不可能)时本行是无操作。
   if (typeof StewardHooks.handleApiRoutes === 'function') { await StewardHooks.handleApiRoutes(req, res, pathname); if (res.writableEnded) return; }
+  // 第121波 K2a(34 号文 §6.1): GET /api/events/stream 住 13r-event-stream.js(拼接顺序在本文件【之后】)。
+  // 同 StewardHooks 纪律 —— 直接写函数名会是新前向边,故经 00-boot 的延迟绑定命名空间挂接。
+  // 命中信号是 headersSent 而不是 writableEnded:SSE 连接【故意不 end】,一直开着流事件,
+  // writableEnded 永远是 false,只看它会让这条请求继续往下走、最后撞上 404 那行的二次 writeHead。
+  if (typeof EventStreamHooks.handleApiRoutes === 'function') { await EventStreamHooks.handleApiRoutes(req, res, pathname); if (res.headersSent || res.writableEnded) return; }
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);

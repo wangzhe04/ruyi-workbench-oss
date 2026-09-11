@@ -40,6 +40,11 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/agent-workflows', auth: 'token-browser' },
   { m: 'GET', p: '/api/playbooks', auth: 'token-browser' },
   { m: 'POST', p: '/api/chat/stream', auth: 'token-browser' },
+  // 第121波 K2a(34 号文 §6.1):服务端推送(SSE)。与上面那条写流【同档】—— 它下发的是同一批
+  // 会话事实(哪条线程在跑、在调什么工具、有什么等你),只是方向反过来。浏览器须带 token;
+  // 非浏览器 loopback 须同源。**后果**:`EventSource` 不能设请求头,所以客户端(K2b)要用
+  // fetch + ReadableStream 读这条流(前端本来就是这么发 /api/chat/stream 的),不用 EventSource。
+  { m: 'GET', p: '/api/events/stream', auth: 'token-browser' },
   { m: 'POST', p: '/api/upload', auth: 'token-browser' },
   // 图片/附件回显:聊天里已发送附件的原字节只读读取。内容型 GET,token 级同 /api/file/preview;
   // handler 内再做 uploads 目录 realpath 包含校验(只服务 makeAttachmentRecord 写下的文件)。

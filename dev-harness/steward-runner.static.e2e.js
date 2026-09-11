@@ -65,7 +65,13 @@ const src01b = read('01b-route-auth.js');
   ok(iFam > 0 && STEWARD_RUNNER_FAMILY.every((f, k) => files[iFam + k] === f),
     '① 13g 之后是 T2 拆出的运行器族、以 13h 收尾(' + STEWARD_RUNNER_FAMILY.join(' -> ') + ';实得 '
     + JSON.stringify(files.slice(iFam, iFam + STEWARD_RUNNER_FAMILY.length)) + ')');
-  ok(iRunner === files.indexOf('14-main.js') - 1, '① 13h 在 14-main.js 之前(组合根仍是最后一个)');
+  // 121 波 K2a 重钉:13h 与 14-main 之间插进了 13r-event-stream.js(事件流,同为 transport 层;
+  // 它必须排在【所有】管家模块之后 —— 它订阅总线、读五态与未决计数,排在前面全是前向边)。原来
+  // 钉的是「下标恰好差 1」,那钉的是当时的排布长什么样;这条判据的【用意】写在上一行注释里 ——
+  // 「运行器族整段待在组合根 14-main 之前」。故改钉这条用意本身:14-main 仍是最后一个模块,
+  // 且 13h 在它之前。反向验证:把 14-main.js 挪到 manifest 中间 -> 这两条同时红。
+  ok(files[files.length - 1] === '14-main.js', '① 14-main.js 仍是组合根(manifest 最后一个模块)');
+  ok(iRunner < files.indexOf('14-main.js'), '① 13h 在 14-main.js 之前');
   // 13g 不得继续膨胀(SPEC §2 目标 2000 行;116c 交付记录已把 116f 另起 13h 的理由写在案)。
   const lines13g = src13g.split('\n').length;
   ok(lines13g < 2000, `① 13g 不超过 SPEC 目标 2000 行(got ${lines13g};116f 另起 13h 就是为了这条)`);

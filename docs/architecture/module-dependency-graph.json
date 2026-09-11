@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 49,
-    "providedSymbols": 2094,
-    "requiredSymbols": 2293,
-    "edges": 390,
+    "modules": 50,
+    "providedSymbols": 2114,
+    "requiredSymbols": 2306,
+    "edges": 396,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -13927,15 +13927,15 @@
             1336,
             1339,
             1340,
-            1460,
-            1464,
-            1467,
-            1471,
-            1473,
+            1465,
+            1469,
+            1472,
             1476,
-            1486,
+            1478,
+            1481,
             1491,
-            1517
+            1496,
+            1522
           ]
         },
         {
@@ -13946,10 +13946,10 @@
           ],
           "lines": [
             281,
-            1584,
-            1788,
-            2197,
-            2298
+            1589,
+            1793,
+            2202,
+            2303
           ]
         },
         {
@@ -13979,12 +13979,12 @@
             "read"
           ],
           "lines": [
-            1526,
-            1544,
-            1556,
-            1563,
-            1822,
-            1920
+            1531,
+            1549,
+            1561,
+            1568,
+            1827,
+            1925
           ]
         },
         {
@@ -13994,7 +13994,7 @@
             "read"
           ],
           "lines": [
-            1784
+            1789
           ]
         },
         {
@@ -14004,7 +14004,7 @@
             "read"
           ],
           "lines": [
-            1757
+            1762
           ]
         },
         {
@@ -14014,10 +14014,20 @@
             "call"
           ],
           "lines": [
-            1703,
-            2092,
-            2193,
-            2294
+            1708,
+            2097,
+            2198,
+            2299
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            1455
           ]
         },
         {
@@ -14028,7 +14038,7 @@
           ],
           "lines": [
             287,
-            2304
+            2309
           ]
         },
         {
@@ -14040,9 +14050,9 @@
           "lines": [
             18,
             289,
-            2196,
-            2245,
-            2311
+            2201,
+            2250,
+            2316
           ]
         },
         {
@@ -14056,9 +14066,9 @@
             58,
             289,
             1291,
-            1842,
-            2201,
-            2249
+            1847,
+            2206,
+            2254
           ]
         },
         {
@@ -14083,12 +14093,12 @@
             1350,
             1357,
             1384,
-            1469,
-            1472,
-            1475,
-            1587,
-            2181,
-            2206
+            1474,
+            1477,
+            1480,
+            1592,
+            2186,
+            2211
           ]
         },
         {
@@ -14098,8 +14108,8 @@
             "read"
           ],
           "lines": [
-            1568,
-            1759
+            1573,
+            1764
           ]
         },
         {
@@ -14110,8 +14120,8 @@
           ],
           "lines": [
             290,
-            1730,
-            2303
+            1735,
+            2308
           ]
         },
         {
@@ -14276,9 +14286,9 @@
             1433,
             1436,
             1438,
-            1454,
-            1515,
-            1766
+            1459,
+            1520,
+            1771
           ]
         },
         {
@@ -14301,7 +14311,7 @@
             103,
             906,
             1076,
-            1787
+            1792
           ]
         },
         {
@@ -14312,9 +14322,9 @@
           ],
           "lines": [
             234,
-            1738,
-            2207,
-            2214
+            1743,
+            2212,
+            2219
           ]
         },
         {
@@ -14325,10 +14335,10 @@
           ],
           "lines": [
             284,
-            1770,
-            1771,
-            1787,
-            1788
+            1775,
+            1776,
+            1792,
+            1793
           ]
         },
         {
@@ -14369,19 +14379,19 @@
             1319,
             1340,
             1341,
-            1466,
-            1470,
             1471,
-            1587,
-            1606,
-            1786,
-            1836,
-            2179,
-            2180,
-            2196,
-            2245,
-            2246,
-            2311
+            1475,
+            1476,
+            1592,
+            1611,
+            1791,
+            1841,
+            2184,
+            2185,
+            2201,
+            2250,
+            2251,
+            2316
           ]
         },
         {
@@ -14401,18 +14411,18 @@
             214,
             286,
             569,
-            1469,
-            1470,
-            1471,
-            1587,
-            1786,
-            1790,
-            1836,
-            2165,
-            2180,
-            2198,
-            2305,
-            2306
+            1474,
+            1475,
+            1476,
+            1592,
+            1791,
+            1795,
+            1841,
+            2170,
+            2185,
+            2203,
+            2310,
+            2311
           ]
         },
         {
@@ -14422,7 +14432,7 @@
             "read"
           ],
           "lines": [
-            2097
+            2102
           ]
         },
         {
@@ -14433,10 +14443,10 @@
           ],
           "lines": [
             116,
-            1571,
-            1587,
-            1934,
-            2101
+            1576,
+            1592,
+            1939,
+            2106
           ]
         },
         {
@@ -14460,10 +14470,10 @@
             67,
             68,
             70,
-            2152,
-            2154,
-            2266,
-            2267
+            2157,
+            2159,
+            2271,
+            2272
           ]
         },
         {
@@ -14493,9 +14503,9 @@
             1304,
             1337,
             1405,
-            1461,
-            1761,
-            1767
+            1466,
+            1766,
+            1772
           ]
         },
         {
@@ -14506,13 +14516,13 @@
           ],
           "lines": [
             282,
-            1770,
-            1771,
-            1787,
-            1788,
+            1775,
+            1776,
+            1792,
             1793,
-            2108,
-            2299
+            1798,
+            2113,
+            2304
           ]
         },
         {
@@ -14543,8 +14553,8 @@
           ],
           "lines": [
             102,
-            1786,
-            1865
+            1791,
+            1870
           ]
         },
         {
@@ -14564,7 +14574,7 @@
             "call"
           ],
           "lines": [
-            1748
+            1753
           ]
         },
         {
@@ -14584,7 +14594,7 @@
             "call"
           ],
           "lines": [
-            1477
+            1482
           ]
         },
         {
@@ -14594,8 +14604,8 @@
             "call"
           ],
           "lines": [
-            1925,
-            1926
+            1930,
+            1931
           ]
         },
         {
@@ -14607,7 +14617,7 @@
           "lines": [
             311,
             1056,
-            2309
+            2314
           ]
         },
         {
@@ -14637,7 +14647,7 @@
             "call"
           ],
           "lines": [
-            2044
+            2049
           ]
         },
         {
@@ -14647,7 +14657,7 @@
             "call"
           ],
           "lines": [
-            1791
+            1796
           ]
         },
         {
@@ -14658,9 +14668,9 @@
           ],
           "lines": [
             314,
-            1792,
-            2195,
-            2296
+            1797,
+            2200,
+            2301
           ]
         },
         {
@@ -14670,7 +14680,7 @@
             "call"
           ],
           "lines": [
-            1766
+            1771
           ]
         },
         {
@@ -14733,7 +14743,7 @@
             "call"
           ],
           "lines": [
-            1908
+            1913
           ]
         },
         {
@@ -14781,11 +14791,11 @@
             1410,
             1422,
             1434,
-            1510,
-            1731,
-            2120,
-            2194,
-            2295
+            1515,
+            1736,
+            2125,
+            2199,
+            2300
           ]
         },
         {
@@ -14829,8 +14839,8 @@
             1134,
             1277,
             1374,
-            1452,
-            1498
+            1457,
+            1503
           ]
         },
         {
@@ -14844,8 +14854,8 @@
             866,
             882,
             1039,
-            1785,
-            2096
+            1790,
+            2101
           ]
         },
         {
@@ -14887,7 +14897,7 @@
           ],
           "lines": [
             313,
-            1906
+            1911
           ]
         },
         {
@@ -15075,21 +15085,21 @@
             1433,
             1436,
             1438,
-            1454,
-            1460,
-            1464,
-            1467,
-            1471,
-            1473,
+            1459,
+            1465,
+            1469,
+            1472,
             1476,
-            1477,
-            1486,
+            1478,
+            1481,
+            1482,
             1491,
-            1515,
-            1517,
-            1766,
-            1770,
-            1774
+            1496,
+            1520,
+            1522,
+            1771,
+            1775,
+            1779
           ]
         },
         {
@@ -15099,7 +15109,7 @@
             "call"
           ],
           "lines": [
-            1776
+            1781
           ]
         },
         {
@@ -15109,7 +15119,7 @@
             "call"
           ],
           "lines": [
-            1774
+            1779
           ]
         },
         {
@@ -15120,8 +15130,8 @@
           ],
           "lines": [
             234,
-            1738,
-            2214
+            1743,
+            2219
           ]
         },
         {
@@ -15132,8 +15142,8 @@
           ],
           "lines": [
             231,
-            1737,
-            2213
+            1742,
+            2218
           ]
         },
         {
@@ -15144,8 +15154,8 @@
           ],
           "lines": [
             237,
-            1742,
-            2215
+            1747,
+            2220
           ]
         },
         {
@@ -15158,7 +15168,7 @@
             238,
             241,
             242,
-            1743
+            1748
           ]
         },
         {
@@ -15188,7 +15198,7 @@
             1404,
             1421,
             1433,
-            1460
+            1465
           ]
         },
         {
@@ -15229,7 +15239,7 @@
           ],
           "lines": [
             340,
-            2121
+            2126
           ]
         },
         {
@@ -15282,7 +15292,7 @@
             "call"
           ],
           "lines": [
-            1802
+            1807
           ]
         },
         {
@@ -15292,7 +15302,7 @@
             "call"
           ],
           "lines": [
-            1729
+            1734
           ]
         },
         {
@@ -15337,7 +15347,7 @@
             1284,
             1343,
             1378,
-            1511
+            1516
           ]
         },
         {
@@ -15347,7 +15357,7 @@
             "call"
           ],
           "lines": [
-            1716
+            1721
           ]
         },
         {
@@ -15476,8 +15486,8 @@
           ],
           "lines": [
             1057,
-            2204,
-            2310
+            2209,
+            2315
           ]
         },
         {
@@ -15605,8 +15615,8 @@
             "call"
           ],
           "lines": [
-            1471,
-            1473
+            1476,
+            1478
           ]
         },
         {
@@ -15660,7 +15670,7 @@
             403,
             1293,
             1389,
-            2206
+            2211
           ]
         },
         {
@@ -15691,7 +15701,7 @@
             "call"
           ],
           "lines": [
-            1798
+            1803
           ]
         },
         {
@@ -15710,10 +15720,10 @@
             1295,
             1324,
             1391,
-            1735,
-            1793,
-            1812,
-            1816
+            1740,
+            1798,
+            1817,
+            1821
           ]
         },
         {
@@ -15723,7 +15733,7 @@
             "call"
           ],
           "lines": [
-            1453
+            1458
           ]
         },
         {
@@ -15733,9 +15743,9 @@
             "call"
           ],
           "lines": [
-            1922,
             1927,
-            1931
+            1932,
+            1936
           ]
         },
         {
@@ -15950,7 +15960,7 @@
           ],
           "lines": [
             348,
-            1756
+            1761
           ]
         },
         {
@@ -15990,7 +16000,7 @@
             "call"
           ],
           "lines": [
-            1761
+            1766
           ]
         },
         {
@@ -16010,7 +16020,7 @@
             "call"
           ],
           "lines": [
-            1753
+            1758
           ]
         },
         {
@@ -16132,7 +16142,7 @@
             "call"
           ],
           "lines": [
-            1734
+            1739
           ]
         },
         {
@@ -16302,7 +16312,7 @@
           ],
           "lines": [
             340,
-            2129
+            2134
           ]
         },
         {
@@ -16316,7 +16326,7 @@
             813,
             814,
             1450,
-            1798
+            1803
           ]
         },
         {
@@ -16407,7 +16417,7 @@
             "call"
           ],
           "lines": [
-            2131
+            2136
           ]
         },
         {
@@ -16427,7 +16437,7 @@
             "call"
           ],
           "lines": [
-            1723
+            1728
           ]
         },
         {
@@ -16457,7 +16467,7 @@
             "call"
           ],
           "lines": [
-            1715
+            1720
           ]
         },
         {
@@ -16588,7 +16598,7 @@
             "call"
           ],
           "lines": [
-            1483
+            1488
           ]
         },
         {
@@ -16598,7 +16608,7 @@
             "call"
           ],
           "lines": [
-            2152
+            2157
           ]
         },
         {
@@ -16618,7 +16628,7 @@
             "call"
           ],
           "lines": [
-            1798
+            1803
           ]
         },
         {
@@ -16708,7 +16718,7 @@
             "call"
           ],
           "lines": [
-            1720
+            1725
           ]
         },
         {
@@ -16719,7 +16729,7 @@
           ],
           "lines": [
             340,
-            2125
+            2130
           ]
         }
       ]
@@ -24987,8 +24997,160 @@
       ]
     },
     {
-      "file": "14-main.js",
+      "file": "13r-event-stream.js",
       "order": 48,
+      "layer": "transport",
+      "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
+      "provides": [
+        "EVENT_STREAM_HEARTBEAT_MS",
+        "EVENT_STREAM_LIVE_SESSIONS_MAX",
+        "EVENT_STREAM_LIVE_THROTTLE_MS",
+        "EVENT_STREAM_RING_MAX",
+        "EVENT_STREAM_SUMMARY_MAX",
+        "EVENT_STREAM_TEXT_TAIL",
+        "eventStreamClients",
+        "eventStreamEmitThreadState",
+        "eventStreamIsStewardSession",
+        "eventStreamLiveLastAt",
+        "eventStreamOnActiveChildEvent",
+        "eventStreamPruneLiveTable",
+        "eventStreamPublish",
+        "eventStreamRing",
+        "eventStreamSeq",
+        "eventStreamStateAgain",
+        "eventStreamStateBusy",
+        "eventStreamWriteFrame",
+        "handleEventStreamApiRoutes",
+        "stewardPresenceSnapshot"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            272
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            56,
+            231
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            166
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            225
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            87,
+            230
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionSessionHead",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            93
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            114
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            101
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "subscribeActiveChildEvents",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            211
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "deriveStewardThreadState",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            96
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            65
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "missionPendingCounts",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            95
+          ]
+        }
+      ]
+    },
+    {
+      "file": "14-main.js",
+      "order": 49,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -32285,6 +32447,7 @@
         "APP_NAME",
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
+        "EventStreamHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
         "URL",
@@ -34235,6 +34398,60 @@
         "stewardSelfServeInbox",
         "stewardStampReply",
         "stewardTriggerStamp"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "EventStreamHooks",
+        "RUYI_EVENTS",
+        "URL",
+        "nowIso"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "01-config.js",
+      "symbols": [
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "readMissionSessionHead",
+        "sessionMissionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "subscribeActiveChildEvents"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_SESSION_ID",
+        "deriveStewardThreadState"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13r-event-stream.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "missionPendingCounts"
       ],
       "direction": "backward"
     },

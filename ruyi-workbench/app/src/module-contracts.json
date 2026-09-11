@@ -8784,6 +8784,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "exePath",
           "kinds": [
             "call"
@@ -15085,6 +15092,118 @@
         {
           "provider": "13q-steward-runner-turn.js",
           "symbol": "stewardVisit",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13r-event-stream.js",
+      "layer": "transport",
+      "provides": [
+        "EVENT_STREAM_HEARTBEAT_MS",
+        "EVENT_STREAM_LIVE_SESSIONS_MAX",
+        "EVENT_STREAM_LIVE_THROTTLE_MS",
+        "EVENT_STREAM_RING_MAX",
+        "EVENT_STREAM_SUMMARY_MAX",
+        "EVENT_STREAM_TEXT_TAIL",
+        "eventStreamClients",
+        "eventStreamEmitThreadState",
+        "eventStreamIsStewardSession",
+        "eventStreamLiveLastAt",
+        "eventStreamOnActiveChildEvent",
+        "eventStreamPruneLiveTable",
+        "eventStreamPublish",
+        "eventStreamRing",
+        "eventStreamSeq",
+        "eventStreamStateAgain",
+        "eventStreamStateBusy",
+        "eventStreamWriteFrame",
+        "handleEventStreamApiRoutes",
+        "stewardPresenceSnapshot"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionSessionHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "subscribeActiveChildEvents",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "deriveStewardThreadState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "missionPendingCounts",
           "kinds": [
             "call"
           ]

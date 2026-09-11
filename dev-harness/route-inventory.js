@@ -41,6 +41,9 @@ const ROUTER_FILES = [
   '13g-steward.js',
   // 第 116 波 116f：管家回合与到访路由（13h 拼接顺序在 13g 之后，经 13g 的处理器末尾转交）。
   '13h-steward-runner.js',
+  // 第 121 波 K2a：事件流 GET /api/events/stream（13r 拼接顺序在 13 之后，经 00-boot 的
+  // EventStreamHooks 延迟绑定挂接，与 13g 的 StewardHooks 同款）。
+  '13r-event-stream.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -67,6 +70,7 @@ const DOMAIN_BY_HANDLER = [
   ['handleAgentRunApiRoutes', 'agent-run'],
   ['handleStewardApiRoutes', 'steward'],
   ['handleStewardRunnerApiRoutes', 'steward'],
+  ['handleEventStreamApiRoutes', 'event-stream'],
 ];
 const DOMAIN_BY_FILE = {
   '13-http-router.js': 'core-inline',
@@ -76,6 +80,7 @@ const DOMAIN_BY_FILE = {
   '13e-pretender-index.js': 'pretender-index',
   '13g-steward.js': 'steward',
   '13h-steward-runner.js': 'steward',
+  '13r-event-stream.js': 'event-stream',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
