@@ -219,7 +219,10 @@ async function waitForEval(cdp, expression, attempts = 800) {
 const READY = `(() => {
   const select = document.getElementById('cfgShellMode');
   if (!select || typeof select.onchange !== 'function') return null;
-  if (!document.getElementById('stewardBoard') || !window.state || !window.state.status || !window.state.config) return null;
+  // 121-K4-4:就绪判据里那个 #stewardBoard 随看板浮层一起退役了(K4-2 删的),门因此永远合不上
+  // —— waitForEval 白等满 32 s 再往下走(功能全绿,只是每跑一趟多烧半分钟)。换成左栏的行容器
+  // #railList:它是这一件从头到尾要看的那个东西。
+  if (!document.getElementById('railList') || !window.state || !window.state.status || !window.state.config) return null;
   return { ready: true };
 })()`;
 

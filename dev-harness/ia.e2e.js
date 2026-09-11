@@ -79,8 +79,21 @@ ok(/\.tool-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(3/.test(css), '④ 右
 
 const composerActions = between(html, '<div class="composer-actions">', '</div>');
 ok(!/id="compactBtn"/.test(composerActions) && /id="compactBtn"/.test(html), '⑤ 压缩控件未回潮到 composer');
+// 121-K4 重钩（前值钉的是「两枚都在 2.0 那一条 <header class="topbar"> 里」）。
+// 一台两视之后顶栏分成两层：外框那一条 .app-topbar（两视角共用，装全局的东西）与
+// 2.0 自己那一条（线程头，装本线程的东西）。于是这两枚各归各位：
+//   · 安全（#permChip）是【本线程】的权限档，留在 2.0 那一条（K5 再收进线程头）；
+//   · 「更多」（#moreMenuBtn）是【全局】入口，搬进外框顶栏的齿轮菜单 #appGearMenu。
+// 钩的事实一个字没变：两个入口都【还在】、且仍然各只有一枚（没有第二份）。
+// 反向验证：把 #moreMenuBtn 从齿轮菜单里删掉 → 本条当场红。
 const topbar = between(html, '<header class="topbar">', '</header>');
-ok(/id="permChip"/.test(topbar) && /id="moreMenuBtn"/.test(topbar), '⑥ 顶栏保留安全与更多入口');
+const appTopbar = between(html, '<header class="app-topbar" id="appTopbar">', '</header>');
+const gearMenu = between(appTopbar, '<div id="appGearMenu" class="app-gear-menu" role="menu" hidden>', '</div>');
+ok(/id="permChip"/.test(topbar) && /id="moreMenuBtn"/.test(gearMenu)
+  && (html.match(/ id="moreMenuBtn"/g) || []).length === 1
+  // 数的时候要带上前面那个空格：data-testid="permChip" 里也含着 id="permChip" 这串字。
+  && (html.match(/ id="permChip"/g) || []).length === 1,
+  '⑥ 安全与更多两个入口都在，且各只一枚：安全（#permChip）留在 2.0 那一条线程头，「更多」搬进外框顶栏的齿轮菜单（121-K4 §2.2）');
 ok(/function openPermPopover\(/.test(appjs) && /function openMoreMenu\(/.test(appjs), '⑥ 顶栏弹层处理器存在');
 
 const tempHome = path.join(os.tmpdir(), 'wcw-ia-e2e');

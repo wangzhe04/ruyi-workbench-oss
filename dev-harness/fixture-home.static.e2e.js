@@ -38,7 +38,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 121-K2b(34 号文 §6.2/§6.3):新增 dev-harness/event-stream-client.browser.e2e.js(一处带 RUYI_HOME
 // 的 spawn —— 那一发起服务;浏览器那一发 spawn 不带 RUYI_HOME,不计入),
 // 117 -> 118 / 113 -> 114 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 118;
+// 121-K4-4(34 号文 §2.2/§2.3/§2.9):新增 dev-harness/one-workbench-frame.browser.e2e.js
+// (一处带 RUYI_HOME 的 spawn —— 那一发起服务;浏览器那一发 spawn 不带 RUYI_HOME,不计入),
+// 118 -> 119 / 114 -> 115 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 119;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

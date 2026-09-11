@@ -28,8 +28,12 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // every one of its five assertions is "server wrote the frame → the DOM changed, ≤1 s", and its C/D
 // groups count polls inside fixed 60 s / 35 s windows. Both are unmeasurable next to three unrelated
 // Edge/server tests, so it runs alone after the parallel functional buckets.
+// 121-K4-4: one-workbench-frame.browser 同理 —— 它有两条墙钟门(J2「管家开线程 → 左栏出现
+// 这一行 ≤1 s」)与一组按像素比的版面断言(1920/1200/900 三档的栏宽与截图)。三个不相干的
+// Edge/服务挤在一起时这两类都量不准,所以它也排在并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
   'event-stream-client.browser.e2e.js',
+  'one-workbench-frame.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
@@ -43,6 +47,10 @@ const TIMEOUT_OVERRIDES = {
   // 121-K2b: 事件流客户端的墙钟门。观察窗本身就是硬性的（§6.3 的 60 s 安静窗 ＋ 35 s 恢复窗），
   // 再加一条真线程跑满「起跑→工具→提问→收工」四段（~40 s）与冷启动，实测 ~230 s。
   'event-stream-client.browser.e2e.js': 420000,
+  // 121-K4-4: 一台两视的外框件。一趟里要起三条真线程(一条长回答 ＋ 一条停在待决 ＋ 一条
+  // 一直在跑)、切视角六个来回、三档视口各量一遍并存两张截图、再让管家自己开一条线程,
+  // 实测单跑 ~200 s(并行桶之后独占跑)。豁免到 360 s。
+  'one-workbench-frame.browser.e2e.js': 360000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 
