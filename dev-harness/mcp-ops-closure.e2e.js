@@ -27,7 +27,12 @@ const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
 const FAKE_MCP = path.resolve(__dirname, 'fake-mcp.js');
-const HOME = path.join(os.tmpdir(), 'wcw-mcp-ops-closure');
+// 治抖动那批(34 号文 §14 末条):原来是【固定字面量目录】(不带随机后缀)——run-all 失败自动
+// 重跑一次时,第二跑开头的 rmSync+mkdirSync 会跟刚被 taskkill 掉、Windows 下未必已经真正
+// 释放文件句柄的上一跑进程撞在同一个目录上(高并行下进程收尾更慢,窗口更容易被撞开)。K 段
+// 「同 HOME 重启」要的是【同一次运行内】稳定,不是【跨运行】用同一个字面量——mkdtempSync 拿到
+// 的目录在本进程生命周期里同样稳定,且每次运行都是全新的随机目录,不再跟自己上一跑撞车。
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'wcw-mcp-ops-closure-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -116,7 +121,7 @@ function startLegacySseMcp(port, state) {
 }
 
 (async () => {
-  fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+  // HOME 已经是 mkdtempSync 刚造出来的全新目录(见上面的定义),不需要再 rm+mkdir 一遍。
   const srv = require(SERVER);
 
   // ── P 段: classifyMcpError 7 类单测 ──

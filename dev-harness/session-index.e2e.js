@@ -23,7 +23,11 @@ const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
-const HOME = path.join(os.tmpdir(), 'wcw-session-index-e2e');
+// 治抖动那批(34 号文 §14 末条):原来是【固定字面量目录】(不带随机后缀)——run-all 失败自动
+// 重跑一次时,第二跑开头的 rmSync+mkdirSync 会跟刚被 killp 掉、Windows 下未必已经真正释放
+// 文件句柄的上一跑进程撞在同一个目录上(高并行下进程收尾更慢,窗口更容易被撞开)。改用
+// mkdtempSync,每次运行都是全新的随机目录,不再跟自己上一跑撞车。
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'wcw-session-index-e2e-'));
 const SESSDIR = path.join(HOME, 'sessions');
 const IDX = path.join(SESSDIR, 'index.json');
 
@@ -71,8 +75,7 @@ const byId = arr => new Map((arr || []).map(e => [String(e.id), e]));
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-  fs.rmSync(HOME, { recursive: true, force: true });
-  fs.mkdirSync(HOME, { recursive: true });
+  // HOME 已经是 mkdtempSync 刚造出来的全新目录,不需要再 rm+mkdir 一遍。
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],

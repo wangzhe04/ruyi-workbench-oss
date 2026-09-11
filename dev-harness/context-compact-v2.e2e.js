@@ -218,11 +218,15 @@ const asst = content => ({ role: 'assistant', content });
   // ═══ [B] 45b 主回合 400 强压重试(真 WB + CONTEXT_400_ONCE) ═══
   console.log('── [B] 45b 主回合 400 强压重试 ──');
   {
-    const HOME = path.join(os.tmpdir(), 'ruyi-w45b-e2e');
+    // 治抖动那批(34 号文 §14 末条):这里原来是【固定字面量目录】(`ruyi-w45b-e2e`,不带随机后缀)——
+    // 全仓唯一一处没照抄本文件其它几组(`ruyi-w45-unit-`/`ruyi-w45-sum-`/`ruyi-ctx-route-`)的
+    // mkdtempSync 惯例。run-all 失败自动重跑一次时,第二跑的 rmSync+mkdirSync 会和刚被
+    // taskkill 掉、Windows 下未必已经真正释放文件句柄的上一跑进程撞在同一个目录上(高并行下
+    // 进程收尾更慢,窗口更容易被撞开)。改用 mkdtempSync,每次拿一个全新的随机目录,不再有
+    // 「跟自己上一跑撞车」这回事。
+    const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-w45b-e2e-'));
     const FAKE = await getFreePort();
     const PORT = await getFreePort();
-    fs.rmSync(HOME, { recursive: true, force: true });
-    fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
       // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
       stewardThreadBriefV1: false,
