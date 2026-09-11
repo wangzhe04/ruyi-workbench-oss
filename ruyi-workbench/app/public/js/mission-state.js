@@ -95,7 +95,12 @@
     const m = (card && card.mission) || {};
     const lr = (card && card.lastRun) || null;
     return deriveMissionState({
-      kind: (card && card.kind) || 'mission',
+      // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。**本行是 06i stewardThreadStateFromCard 的
+      // 抄写件**(§11.15.4 纪律,unit/thread-state-quick-kind.test.js 钉两份输出逐字相等),
+      // 服务端那一份改了这里就必须跟着改 —— 理由写在 06i 与 13d buildMissionCard 的 quick 注释里:
+      // K3 之后普通会话也有卡片,而 sessionKind 对它们同样返回 'quick_ask'(档位),
+      // 与「这是一条速查线程」(身份)分了家。kind 仍然不参与五态判定(117r-D5),只是证据那一格。
+      kind: (card && card.quick === true) ? 'quick_ask' : 'mission',
       autoMode: m.autoMode,
       budgetExhausted: m.budgetExhausted === true,
       resultStatus: (m.result && m.result.status) || '',

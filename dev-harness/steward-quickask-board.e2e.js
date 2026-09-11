@@ -131,7 +131,26 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
 
     const quickRow = rowOf(sidQuick);
     ok(!!quickRow, '③ 【有】管家开的速查线程在 /api/missions 里(' + sidQuick + ';行数 ' + rows.length + ')');
-    ok(!rowOf(sidUser), '③ 【没有】用户自己聊的普通会话(' + sidUser + ')—— 两个方向都钉:过滤器被整个删掉时这条必红');
+    // 121-K3(34 号文 §4.2「索引口径」)重钉 —— 本刀合法地把这条断言翻了面,逐对交代:
+    // 修前:卡片只给 `kind==='mission' || stewardWatchedThread(...)` 造,普通会话恒不进 /api/missions;
+    //       这条断言是 117r-D1 立的「另一个方向」,防的是「过滤器被整个删掉」。
+    // 修后:一个判据拆成两个 —— watched(管家要不要动手)与 visible(要不要进索引);普通会话【该】进,
+    //       噪音改用窗口治(§1.3 数出来的病根就是它进不去)。所以「它不在」不再是要守的事实。
+    // 原断言真正要守的东西没变,只是换了一格:**它进了索引也不能冒充管家的线程**。两个方向照钉:
+    //   · 管家开的速查线程:watched 为真、卡片上的 quick 身份为真;
+    //   · 用户自己聊的普通会话:行在,但 watched 为假、quick 为假 —— 判据被整个删掉时这条同样必红
+    //     (删了 watched 判据它会变成 true,删了 quick 身份格它会跟着 kind 一起变成速查)。
+    const userRow = rowOf(sidUser);
+    ok(!!userRow, '③ 121-K3:用户自己聊的普通会话【进】/api/missions(' + sidUser + ';行数 ' + rows.length + ')');
+    ok(!!userRow && userRow.watched === false && userRow.origin === 'user',
+      '③ 121-K3:但它 watched=false、origin=user —— 进索引不等于管家在盯它(实 watched='
+      + (userRow && userRow.watched) + ' origin=' + (userRow && userRow.origin) + ')');
+    ok(!!userRow && userRow.quick === false && !!quickRow && quickRow.quick === true,
+      '③ 121-K3:「速查线程」这个身份仍然分得开 —— 它住在卡片的 quick 格上,不再跟 kind 混为一谈'
+      + '(普通会话 quick=' + (userRow && userRow.quick) + ' / 真速查 quick=' + (quickRow && quickRow.quick) + ')');
+    ok(!!userRow && !!quickRow && userRow.kind === quickRow.kind && userRow.kind === 'quick_ask',
+      '③ 121-K3(说明为什么需要上面那一格):两者的 kind 现在【一样】都是 quick_ask'
+      + '(第 70 波的「纯问答默认档」是档位不是身份),光看 kind 区分不开');
     ok(!!rowOf(sidMission), '③ 对照组:kind=mission 的会话照旧在(既有行为零回归)');
 
     // ── 卡片必须如实,不许为了进列表把 kind 谎报成 mission ──────────────────────────────

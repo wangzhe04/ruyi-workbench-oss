@@ -257,10 +257,23 @@ function typeExpressionLiterals(text) {
     && src06i.includes('if (head.launchedBy === ' + Q + 'steward' + Q + ') return true;')
     && src06i.includes('return String(missionId || ' + Q + Q + ') !== String(sessionId || ' + Q + Q + ');'),
     "D7 「管家关心哪些会话」的三条判据单点在 06i(速查 / launchedBy / 别人事项里的线程)");
+  // 121-K3(34 号文 §4.1/§4.4)补钉:三条判据之前【多了两条显式开关】,它们是用户刚按下的意愿,
+  // 必须排在原三条之前 —— 尤其 false 那条:排到后面的话,管家自己开的线程(launchedBy 命中)
+  // 就永远收不回来,「用户接手」这半条功能会静默失效而任何既有断言都看不出来。
+  ok(src06i.includes('if (head.stewardWatch === true) return true;')
+    && src06i.includes('if (head.stewardWatch === false) return false;'),
+    'D7 121-K3:stewardWatch 两个方向都认(true 恒盯 / false 恒不盯,对管家自己开的线程也生效)');
+  ok(src06i.indexOf('if (head.stewardWatch === false) return false;')
+    < src06i.indexOf('if (head.launchedBy === ' + Q + 'steward' + Q + ') return true;'),
+    'D7 121-K3:显式开关排在原三条判据【之前】(否则写 false 收不回管家开的线程)');
   ok(!src13i.includes('function stewardWatchedThread(') && src13i.includes('stewardWatchedThread(head, sid, missionId)'),
     'D7 13i 只【消费】那份判据,不留第二份实现');
+  // 121-K3(§4.2):13e 的卡片产生条件从「只看 watched」换成 threadVisible 的四条并集,但 watched
+  // 仍然是其中一条,而且仍然是【同一份实现】—— 13e 自己不许再判一遍「管家关不关心」。
   ok(read('13e-pretender-index.js').includes('stewardWatchedThread(head, sid, missionId)'),
-    'D7 13e 的卡片产生条件消费的是同一份判据(117r-D1:看板与收件箱同一条线)');
+    'D7 13e 仍然消费同一份 watched 判据(117r-D1:看板与收件箱同一条线)');
+  ok(read('13e-pretender-index.js').includes('threadVisible(head, {'),
+    'D7 121-K3:13e 的卡片产生条件用 06i 的 threadVisible(可见与关心是两个判据,不是一个)');
   // 位置纪律:第四源必须排在「不活跃就 continue」之前 —— 速查线程没有 mission 卡片,
   // recent 恒 false,放在后面等于它只在会话首见那一轮生效。
   const collectAt = src13i.indexOf('const turnEvt = await stewardCollectSessionTurn(');

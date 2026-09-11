@@ -546,6 +546,14 @@ async function buildMissionCard(head, runs, opts = {}) {
     // (public/js/steward-board.js 读 row.kind)就靠它。谎报的后果从「状态说错」变成「身份说错」,
     // 如实取 sessionKind 这件事因此比修前更要紧,不是更松。
     sessionId: head.id, missionId: sessionMissionId(head), title: head.title || '', cwd: head.cwd || '', kind: sessionKind(head),
+    // 121-K3(34 号文 §4.2):`kind` 与「这是不是一条速查线程」**从这一刀起不再是同一件事**。
+    // 修前 13e 只给 mission 与【管家关心的】线程造卡片,于是「有卡片 + kind==='quick_ask'」恰好等价于
+    // 「管家用 steward_quick_ask 开的速查线程」—— 117r-D5 那段注释就是建立在这个巧合上的。
+    // K3 把索引口径放宽成 threadVisible 之后,用户自己在 2.0 里聊的普通会话也有卡片了,而 sessionKind
+    // 对它们同样返回 'quick_ask'(第 70 波的「纯问答默认档」,那是【档位】不是【身份】)—— 巧合破了。
+    // 所以身份单独给一格,判据与 13j 的 stewardQuickThread 逐字同源(头上有没有 stewardQuick 容器):
+    // 速查线程是管家为了回答一个问题临时开的,普通会话不是,两者在同一个 kind 里区分不开。
+    quick: !!(head.stewardQuick && typeof head.stewardQuick === 'object'),
     // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定(人起的 >
     // 生成的 > 原话),前端只读结果不再算一遍 —— 与本行已有的 stateLabel / missionTitle / wait.label
     // 同一条纪律(读模型里本来就有一批服务端算好的显示串)。title 保持原话不动。

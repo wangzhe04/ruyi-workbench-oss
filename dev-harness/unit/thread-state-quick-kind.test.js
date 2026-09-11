@@ -83,17 +83,37 @@ const cardBoth = (card, expected, label) => {
   const b = fromCardFront(card);
   ok(a.state === expected, `② ${label} -> ${expected}(got ${a.state})`);
   ok(JSON.stringify(a) === JSON.stringify(b), `② ${label}:两份 fromCard 结果逐字相等`);
-  ok(a.sources.kind === 'quick_ask' || card.kind !== 'quick_ask',
-    `② ${label}:kind 仍如实留在 sources 里当证据(身份没丢,只是不再判定 state)`);
+  // 121-K3 重钉(逐对交代):原判据是 `card.kind !== 'quick_ask'`。K3 之前「有卡片 + kind 是
+  // quick_ask」恰好等价于「管家开的速查线程」—— 因为那时只有 mission 与管家关心的线程才有卡片。
+  // K3 把索引口径放宽成 threadVisible 之后,用户自己在 2.0 里聊的普通会话也有卡片了,而
+  // sessionKind 对它们同样返回 'quick_ask'(第 70 波的「纯问答默认档」是【档位】不是【身份】),
+  // 巧合破了。身份因此单独给了一格 card.quick(13d buildMissionCard,判据与 13j stewardQuickThread
+  // 同源)。断言的意图一个字没变(「身份没丢」),只是换了读哪一格 —— 而且比修前更紧:
+  // 下面紧接着钉了反面(普通会话的卡片不许拿到这个身份),修前那条拦不住它。
+  ok(a.sources.kind === 'quick_ask' || card.quick !== true,
+    `② ${label}:身份仍如实留在 sources 里当证据(身份没丢,只是不再判定 state)`);
 };
 
-const quickCard = extra => Object.assign({ kind: 'quick_ask', status: 'none', runCount: 0 }, extra);
+// 121-K3:真速查线程的卡片两格都带 —— kind 是档位(纯问答),quick 是身份(管家开的速查)。
+const quickCard = extra => Object.assign({ kind: 'quick_ask', quick: true, status: 'none', runCount: 0 }, extra);
 cardBoth(quickCard({ activeTurn: true, turnSeq: 1 }), 'running', '在跑的速查卡片');
 cardBoth(quickCard({ lastRun: { live: true, paused: false }, turnSeq: 1 }), 'running', '有未暂停活 run 的速查卡片');
 cardBoth(quickCard({ pending: { permissions: 1 }, turnSeq: 1 }), 'needs_you', '有待决的速查卡片');
 cardBoth(quickCard({ turnSeq: 1, lastTurn: { seq: 1, ok: true, aborted: false } }), 'done', '跑完的速查卡片');
 cardBoth(quickCard({ turnSeq: 1, lastTurn: { seq: 1, ok: false, aborted: false } }), 'stopped', '末回合失败的速查卡片');
 cardBoth(quickCard({ turnSeq: 0 }), 'dispatching', '刚开的速查卡片(一回合都没跑)');
+// 121-K3 新增反面:用户自己在 2.0 里聊的普通会话,K3 之后【也有卡片】,而它的 kind 与真速查
+// 线程一模一样(都是 sessionKind 归一出来的 'quick_ask')—— 光看 kind 区分不开,这正是身份要单独
+// 给一格的理由。两份抄写件都必须拒绝把它认成速查线程。
+{
+  const plainCard = { kind: 'quick_ask', quick: false, status: 'none', runCount: 0, turnSeq: 2, lastTurn: { seq: 2, ok: true, aborted: false } };
+  const a = fromCardServer(plainCard), b = fromCardFront(plainCard);
+  ok(a.sources.kind !== 'quick_ask',
+    `② 【反面】普通会话的卡片拿不到「速查」身份(kind 同为 quick_ask 也不行;got ${a.sources.kind})`);
+  ok(JSON.stringify(a) === JSON.stringify(b), '② 【反面】普通会话的卡片:两份 fromCard 结果同样逐字相等');
+  ok(a.state === 'done', `② 【反面】它的五态照常如实(跑完就是 done;got ${a.state})`);
+}
+
 // 卡片这条路【永远】有事实,所以它一次都不会产出 quick_ask:
 ok(['running', 'needs_you', 'done', 'stopped', 'dispatching']
   .includes(fromCardServer(quickCard({ turnSeq: 1, lastTurn: { seq: 1, ok: true, aborted: false } })).state),

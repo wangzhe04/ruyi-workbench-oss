@@ -408,7 +408,12 @@ function stewardThreadStateFromCard(card) {
   const m = (card && card.mission) || {};
   const lr = (card && card.lastRun) || null;
   return deriveStewardThreadState({
-    kind: (card && card.kind) || 'mission',
+    // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。两条路径必须给同一条线程同一个答案 ——
+    // 会话头那条路(13g thread_status / 13o 总览的 else 支)写的就是
+    // `stewardQuickThread(head) ? 'quick_ask' : 'mission'`,而卡片这条路修前抄的是 sessionKind 的
+    // 【档位】。K3 把普通会话也放进索引之后,档位与身份分了家(见 13d buildMissionCard 的 quick 注释):
+    // 再抄 kind,同一条普通会话走卡片支说自己是速查、走会话头支说自己不是,两支当场打架。
+    kind: (card && card.quick === true) ? 'quick_ask' : 'mission',
     autoMode: m.autoMode,
     budgetExhausted: m.budgetExhausted === true,
     resultStatus: (m.result && m.result.status) || '',
