@@ -114,6 +114,9 @@ const PAYLOAD_FILES = [
   // 117h/121-K5:工作台线程头与左栏(steward-shell.js 静态 import 它们)。
   'app/public/js/thread-head.js',
   'app/public/js/steward-board.js',
+  // 121-K6a:安静卡(§4.3,工作台里管家的唯一打扰形态)。steward-shell.js 静态 import 它,
+  // 缺文件同 thread-head.js 的理由 —— 整条挂掉。
+  'app/public/js/quiet-card.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -138,6 +141,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/steward-drawer.css', // 117d
   'app/public/css/views/steward-settings.css', // 117e
   'app/public/css/views/steward-board.css', // 117g/117h
+  'app/public/css/views/quiet-card.css', // 121-K6a
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

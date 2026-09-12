@@ -91,6 +91,9 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 位置由工作台线程头接手（一套 chip ＋「任务 › 线程」＋ 管家条）。形态仍然不变：本域内相对
   // 路径、零第三方库、零裸包名。
   "import { createThreadHead } from './thread-head.js';",
+  // 121-K6a（34 号文 §4.3）：安静卡——工作台里管家的唯一打扰形态。形态仍然不变：本域内相对路径、
+  // 零第三方库、零裸包名。
+  "import { createQuietCard } from './quiet-card.js';",
   // 117j UX-F3（重钉来源：本波交付，27 号文 §11.7 走查 P2）：白名单加第八条 —— Esc 逐层的那个栈。
   // 它住 steward-chips.js（零 import 的叶子），壳层 import 它是为了出【那一处】 document keydown。
   // 形态仍然不变：本域内相对路径、零第三方库、零裸包名。

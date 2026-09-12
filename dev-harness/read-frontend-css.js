@@ -43,6 +43,10 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // the docked "current one" rail, and the 2.0-window return band that lives in the classic pane).
   // Appended last for the same reason.
   'css/views/steward-board.css',
+  // 121-K6a: quiet-card layer (the "one quiet card at a time" toast §4.3 relies on for the workbench
+  // lens — its own sheet since it's the one place besides floating popovers allowed to use --glass-*
+  // per §7.1's closing line). Appended last for the same reason.
+  'css/views/quiet-card.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -467,7 +471,15 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `.perm-pop` 一族【本刀不删】（登记给 K8：CSS 与文案刷新那一刀独占样式层的清理，一次重钉）。
 // 算法自证（同一条拦截法）：按 HEAD（`46684b7`）算 = 4182a40f…，与被替换的旧值【逐字相同】；
 // 再按工作树算得下面这个值。反向验证：往 chat-shell.css 的 .th-conn 改一个像素 → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = 'aba7e98f3b30bfa02956f26090581ddb5754b7c229bf8bc243ee37a9aaf3df1e';
+// 121-K6a 续钉（前值 aba7e98f…）：K6a 新增独立层 `css/views/quiet-card.css`（安静卡，§4.3／§2.6）——
+// 附加在 CSS_PAYLOAD_GROUPS 末尾（steward-board.css 之后），理由与其余「自己的样式表」层相同：
+// 它是继浮层弹层之后【第二个】允许用 --glass-* 的面（§7.1 末句），且不拥有任何经典选择器。
+// 本刀没有改动任何既有 CSS 层一个字节——16 个既有文件在工作树与 HEAD（`306fcdd`）逐字节相同，
+// 只新增一层。算法自证（同一条拦截法）：按 HEAD 的旧分组表（无 quiet-card.css）+ HEAD 的 git blob
+// 算 = aba7e98f…，与被替换的旧值【逐字相同】；再按工作树的新分组表（多一层）+ 工作树文件算得
+// 下面这个值。反向验证：往 quiet-card.css 追加一条无关规则 → F3 与 D51 双红；把新层从
+// CSS_PAYLOAD_GROUPS 里去掉 → 离线包已经在引用它、锁却读不到 → 两处失配当场红。
+const LEGACY_STYLES_SHA256 = 'f08cbe5424ffcb750bf23cc88c66e479555856d6782b4e4e234ca9766bc1956c';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

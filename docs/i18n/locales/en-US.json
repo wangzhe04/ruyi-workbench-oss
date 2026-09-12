@@ -2589,4 +2589,7 @@
   ,"threadHead.steward.watchingSeated": "Ruyi is watching, but stays hands-off while you are here"
   ,"stewardShell.chips.setAsDefault": "Make this the default for new tasks"
   ,"stewardShell.chips.defaultSaved": "Saved as the default for new tasks"
+  ,"quietCard.go": "Open"
+  ,"quietCard.later": "Later"
+  ,"quietCard.fallbackTitle": "A thread"
 }

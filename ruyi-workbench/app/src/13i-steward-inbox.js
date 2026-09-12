@@ -327,6 +327,24 @@ function stewardNormalizePendingIntervention(sessionId, missionId, iv) {
       : type === 'plan' ? String(v.planSummary || '提交了一份计划等你批')
         : String(v.task || '提了一个新任务等你批');
   payload.summary = stewardClipSummary(summary);
+  // 121-K6a(§4.3 安静卡「needs_you 印问句前 22 字」):四类待决都给一句「问句」——前端只管截前 22 字,
+  // 这里不重复截,给的是与 summary 同源的完整一句(权限/问题/计划/新任务四支择一)。
+  payload.ask = payload.summary;
+  // 只在【单问、有选项】这一种最常见形状下再加「候选答案按钮」要的两个 id 与选项表 —— 多问(≤3)
+  // 或纯文本题不带,安静卡那时只画「去看」。answerQuestionId 是子问题自己的 id(与外层 interventionId
+  // 不同,POST /api/chat/answer 的 answers[].questionId 要它)。
+  if (type === 'question' && Array.isArray(v.questions) && v.questions.length === 1) {
+    const q0 = v.questions[0] && typeof v.questions[0] === 'object' ? v.questions[0] : null;
+    const opts = q0 && Array.isArray(q0.options) ? q0.options : [];
+    if (q0 && opts.length) {
+      payload.ask = stewardClipSummary(String(q0.question || v.questionSummary || ''));
+      payload.answerQuestionId = String(q0.id || '');
+      payload.options = opts.slice(0, 6).map(o => ({
+        id: String((o && o.id) || ''),
+        label: stewardClipSummary(String((o && o.label) || '')),
+      })).filter(o => o.id && o.label);
+    }
+  }
   return {
     kind,
     sessionId: String(sessionId || ''),
@@ -350,6 +368,12 @@ function stewardNormalizeThreadAdopted(record) {
   if (!kind) return null;
   const at = stewardIsoAt(r.at);
   const title = stewardSanitizeText(r.title || '').slice(0, 120);
+  const note = stewardSanitizeText(r.note || '').slice(0, 200);
+  // 121-K6a:委托一句缝进人话里——管家下一回合读收件箱摘要时,「盯着」与「盯什么」在同一句里,
+  // 不必再去查第二个字段。没带就是老行为(一字不变)。
+  const summary = title
+    ? `用户把线程「${title}」交给你盯${note ? `,说:「${note}」` : ''}`
+    : `用户把一条线程交给你盯${note ? `,说:「${note}」` : ''}`;
   return {
     kind,
     sessionId,
@@ -361,7 +385,8 @@ function stewardNormalizeThreadAdopted(record) {
       source: 'threadAdopted',
       by: 'user',
       title,
-      summary: stewardClipSummary(title ? `用户把线程「${title}」交给你盯` : '用户把一条线程交给你盯'),
+      ...(note ? { note } : {}),
+      summary: stewardClipSummary(summary),
     },
   };
 }
@@ -561,6 +586,9 @@ function stewardQueueThreadAdopted(data) {
     sessionId: sid,
     missionId: String((data && data.missionId) || sid),
     title: String((data && data.title) || ''),
+    // 121-K6a(§4.4「委托一句」):用户交接时顺手带的一句话(02 已经 trim+≤200 字)。这里只再夹一次
+    // 防御性上限,不再改内容——它要原样出现在管家下一回合看到的人话里。
+    note: String((data && data.note) || '').slice(0, 200),
     at: String((data && data.at) || nowIso()),
   });
   while (stewardRuntime.adopted.length > STEWARD_ADOPTED_QUEUE_MAX) stewardRuntime.adopted.shift();
@@ -749,8 +777,22 @@ function stewardAppendInboxRows(rows) {
     await fsp.appendFile(file, payload, 'utf8');
     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
+    // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
+    // needs_you 是问句,failed/stalled/budget 是「一句事实」,两者在归一化函数里都已经写进
+    // payload.ask/payload.summary(与 thread.done 的 summary 同一档:构造好的短句,不是正文,
+    // §6.1 红线挡的是工具输出原文)。这里只挑一个已有字段透传,不新算一遍。
     for (const row of rows) {
-      RUYI_EVENTS.emit('inbox.appended', { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') });
+      const payload = (row && row.payload && typeof row.payload === 'object') ? row.payload : {};
+      const frame = { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') };
+      if (payload.quiet === true) frame.quiet = true;
+      const ask = payload.ask || payload.summary || '';
+      if (ask) frame.ask = String(ask).slice(0, 200);
+      // interventionId 是 POST /api/chat/answer 顶层 questionId 要的那个键(pendingQuestions 的注册键,
+      // 与子问题自己的 answerQuestionId 不是同一个 id)——安静卡「候选答案按钮」两个 id 都要,缺一不可。
+      if (payload.interventionId) frame.interventionId = String(payload.interventionId);
+      if (payload.answerQuestionId) frame.answerQuestionId = String(payload.answerQuestionId);
+      if (Array.isArray(payload.options) && payload.options.length) frame.options = payload.options;
+      RUYI_EVENTS.emit('inbox.appended', frame);
     }
   });
   stewardAppendChain = next.catch(() => {});

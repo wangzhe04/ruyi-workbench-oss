@@ -203,7 +203,21 @@ RUYI_EVENTS.subscribe((name, payload) => {
     return;
   }
   if (name === 'inbox.appended') {
-    eventStreamPublish('inbox.appended', { sessionId: String(data.sessionId || ''), kind: String(data.kind || '') });
+    // 121-K6a(34 号文 §4.3):安静卡要的最小字段——quiet(在场门②的旗)、needs_you 的 ask/options/
+    // answerQuestionId(单问有选项时才有)。任务名不在这里带:前端已经从 /api/missions 那一份行拿到
+    // title/来源/色号,再带一份等于第二个数据源(thread-head.js 那套「问左栏要,不裸发第二份」的先例)。
+    const frame = { sessionId: String(data.sessionId || ''), kind: String(data.kind || '') };
+    if (data.quiet === true) frame.quiet = true;
+    if (data.ask) frame.ask = String(data.ask).slice(0, EVENT_STREAM_SUMMARY_MAX);
+    if (data.interventionId) frame.interventionId = String(data.interventionId);
+    if (data.answerQuestionId) frame.answerQuestionId = String(data.answerQuestionId);
+    if (Array.isArray(data.options) && data.options.length) {
+      frame.options = data.options.slice(0, 6).map(o => ({
+        id: String((o && o.id) || ''),
+        label: String((o && o.label) || '').slice(0, 60),
+      })).filter(o => o.id && o.label);
+    }
+    eventStreamPublish('inbox.appended', frame);
     return;
   }
   if (name === 'steward.say') {

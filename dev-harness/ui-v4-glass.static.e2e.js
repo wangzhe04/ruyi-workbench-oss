@@ -48,6 +48,10 @@ const WHITE = ['.sidebar, .tool-pane', '.topbar', '.composer', '.modal', '.palet
   // Preview 壳开口子同一条理由）。管家壳里最多两面：居中卡片 + 右侧那一栏（抽屉与「现在这一件」
   // 本身也互斥：同一个 #stewardDrawer 节点在 docked 挂法下不叠自己的玻璃）。
   '.steward-stage', '.steward-drawer', '.steward-now',
+  // 121-K6a（34 号文 §7.1 末句「--glass-* 自此只给浮层与安静卡」）：安静卡是工作台里管家唯一的
+  // 打扰形态，与 .toast 同族——独立、悬浮、同屏顶多几张（5 分钟同线程同类合并成一张），不叠加
+  // 在任何列表卡片上，不挤占框架族/浮层族已有的模糊预算轴。
+  '.quiet-card',
   '@supports', '@media', ':root'];
 for (let i = 0; i < lines.length; i++) {
   const ln = lines[i];

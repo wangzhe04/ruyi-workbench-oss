@@ -1,0 +1,111 @@
+/* 121-K6a（34 号文 §2.6／§4.3）：安静卡——工作台里管家的唯一打扰形态。
+   挂点 #quietCardHost 是 .app-shell（工作台）里的一个常驻空位（index.html），只在管家视角下
+   由 :root[data-shell-mode="steward"] 规则整体隐藏——JS 从不为「视角」写 display，只在
+   js/quiet-card.js 判要不要出这一张卡（数据早已由服务端在场门③过滤过，这里只是双保险）。
+   玻璃面沿用 steward-drawer.css 那一份 --glass-* token（§7.1 末句：--glass-* 只给浮层与安静卡）。 */
+
+#quietCardHost {
+  position: fixed;
+  right: var(--sp-5);
+  bottom: var(--sp-5);
+  z-index: 40;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--sp-3);
+  max-width: 320px;
+  pointer-events: none; /* 容器本身不挡点击；卡片自己再开回 auto */
+}
+#quietCardHost:empty { display: none; }
+
+:root[data-shell-mode="steward"] #quietCardHost { display: none; }
+
+.quiet-card {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  background: var(--glass-bg-1);
+  -webkit-backdrop-filter: var(--glass-blur-2);
+  backdrop-filter: var(--glass-blur-2);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  animation: quiet-card-rise var(--dur-slow) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiet-card { animation: none; }
+}
+@keyframes quiet-card-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.quiet-card-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--thread-color, var(--muted));
+}
+
+.quiet-card-body { flex: 1 1 auto; min-width: 0; }
+
+.quiet-card-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quiet-card-line {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+
+.quiet-card-count {
+  margin-left: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.quiet-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.quiet-card-btn {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--panel-2);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.quiet-card-btn:hover { border-color: var(--line-2); background: var(--panel-3); }
+.quiet-card-btn-option { border-color: var(--gold-line); color: var(--gold); }
+.quiet-card-btn-option:hover { background: var(--gold-soft); }
+.quiet-card-btn-go { border-color: var(--accent); color: var(--accent); }
+
+.quiet-card-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.quiet-card-close:hover { background: var(--panel-3); color: var(--ink-2); }

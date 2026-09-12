@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="/css/views/steward-drawer.css" />
     <link rel="stylesheet" href="/css/views/steward-settings.css" />
     <link rel="stylesheet" href="/css/views/steward-board.css" />
+    <link rel="stylesheet" href="/css/views/quiet-card.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
     <link id="hljs-light" rel="stylesheet" href="/vendor/github.min.css" disabled />
     <script>
@@ -918,8 +919,8 @@
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
             </div>
             <!-- 121-K1（34 号文 §8.3 第 2 条）：交办台退役后这一块改名「提醒」保留，键与 id 一并改 notify.*／cfgNotify*，策略层住 js/notify-policy.js；本波只接本机偏好与系统通知授权，「什么时候真的弹」随安静卡（§4.3）归 K6。 -->
-            <!-- 121-K1 验收裁决（主会话）：投递侧本波零实现（全仓无 new Notification），开关打开也不会弹；藏到 K6 接好安静卡投递再露出（去掉 hidden 即可，偏好读写与单测已就绪）。 -->
-            <section class="notify-settings" hidden aria-labelledby="notifySettingsHeading">
+            <!-- 121-K6a：投递侧接好了——安静卡出现的同一时刻，开着「本机通知」就走系统通知（js/quiet-card.js 的 maybeNotify，Notification API；权限授予流程仍是 notify-policy.js 里那一套）。去掉 hidden 露出。 -->
+            <section class="notify-settings" aria-labelledby="notifySettingsHeading">
               <div class="notify-settings-head">
                 <div>
                   <h4 id="notifySettingsHeading" data-i18n="notify.settingTitle">需要你时提醒我</h4>
@@ -1639,6 +1640,9 @@
     </div>
 
     <div id="toastTray" class="toast-tray" aria-live="polite" role="status"></div>
+    <!-- 121-K6a（34 号文 §2.6／§4.3）：安静卡挂点——工作台里管家的唯一打扰形态，js/quiet-card.js
+         往这里追加/更新卡片；:root[data-shell-mode="steward"] 下由 css/views/quiet-card.css 整体隐藏。 -->
+    <div id="quietCardHost"></div>
 
     <script src="/vendor/marked.min.js"></script>
     <script src="/vendor/highlight.min.js"></script>

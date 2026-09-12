@@ -2589,4 +2589,7 @@
   ,"threadHead.steward.watchingSeated": "如意盯着这条，你坐着时它不动手"
   ,"stewardShell.chips.setAsDefault": "设为新任务默认"
   ,"stewardShell.chips.defaultSaved": "已设为新任务默认"
+  ,"quietCard.go": "去看"
+  ,"quietCard.later": "稍后"
+  ,"quietCard.fallbackTitle": "一条线程"
 }

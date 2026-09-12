@@ -7,6 +7,7 @@ import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.
 import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createThreadHead } from './thread-head.js';
+import { createQuietCard } from './quiet-card.js';
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
@@ -324,6 +325,7 @@ export function createStewardShellDomain({
     eventStream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
     streamConnected = typeof eventStream.isConnected === 'function' ? eventStream.isConnected() === true : false;
     eventStream.on('steward.say', () => { if (isStewardMode()) pollStewardState(); });
+    quietCard.bind(eventStream); // 121-K6a：安静卡订阅 inbox.appended（§4.3），零新请求路
     return true;
   }
 
@@ -465,6 +467,15 @@ export function createStewardShellDomain({
     onRowsChanged: () => threadHead.render(),
   });
   boardHandle = board;
+  // 121-K6a（34 号文 §4.3）：安静卡。与线程头同一手法——不发第二发 /api/missions，问左栏已经取回来
+  // 的那一行要任务名与色号（missionRowOf 迟绑定到 boardHandle，此刻 board 已经赋过值）；「去看」用
+  // 组合根那一个 openSession（工作台视角本就在，不必再切视角）。事件订阅见下面 bindEventStream()。
+  const quietCard = createQuietCard({
+    api, state, t,
+    shellModeOf: () => (isStewardMode() ? 'steward' : 'classic'),
+    missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
+    openSession,
+  });
   // 121-K2b：同一条事件流转给左栏与焦点栏。走 setter 而不是构造参数 —— 抽屉那一行构造被
   // steward-drawer.static I3 逐字钉着（新依赖一律迟绑定，与 setClassicWindow／setMissionRows 同纪律）。
   board.setEventStream(eventStream);
@@ -547,6 +558,9 @@ export function createStewardShellDomain({
     // 117g/117h：看板与 2.0 视窗子域（组合根一行不加；它们的依赖全在本文件内注入）。
     board,
     threadHead,
+    // 121-K6a：安静卡（真夹具直接问 cardCount()/cardFor() 断言，不必解析卡片文案）。放在 drawer
+    // 之前——steward-drawer.static I7 锚着「drawer 是导出对象的末项」，新导出一律插在它前面。
+    quietCard,
     // 117d：117h「现在这一件」直接调 drawer.openThread(sessionId)，不再另起一份抽屉。
     drawer,
   });
