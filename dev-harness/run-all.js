@@ -52,6 +52,9 @@ const PARALLEL_EXCLUSIVE = new Set([
   'workbench-thread-head.browser.e2e.js',
   'live-full-text.browser.e2e.js',
   'quiet-card.browser.e2e.js',
+  // 121-K6b：焦点栏那一件量的是「thread.live 帧 → DOM ≤100 ms」，那是一个【硬节拍】——
+  // 与别的 Edge 抢 CPU 时量不准（同 live-full-text.browser 的理由）。
+  'focus-rail.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

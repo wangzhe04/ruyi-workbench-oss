@@ -48,7 +48,7 @@
 |---|---|
 | **1 个运行产物** | 后端运行时产物是单文件 `app/server.js`(3.5 万+ 行;由 `app/build.js` 把 `app/src/` 的 30 个有序源码模块拼接而成,字节级可复现),**零 npm 运行时依赖**,只用 Node 内建模块——`node server.js` 直接跑,无需 `npm install`,政企内网过审成本最低 |
 | **90 个原生工具 · 108 个 ACC 工具** | 文件/终端/搜索/Git/联网/编排等原生工具按实际 `TOOL_HANDLERS` 可达全集计 90 个；可选 ACC 提供截图/OCR/UIA/键鼠/窗口/Office/PDF/编辑/抓取/记忆等 108 个工具。外部 MCP 另行按连接器计数，不再混入 ACC 数字 |
-| **8 套模板 · 9 种角色 · 325 项 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色。当前默认回归 318 项，另有 7 项需真实 API/桌面环境的 live probe 按需启用；另含 41 组 unit suite 与 16 组 ACC smoke |
+| **8 套模板 · 9 种角色 · 326 项 e2e** | 内置 8 套多 Agent 工作流模板与 9 种节点角色。当前默认回归 319 项，另有 7 项需真实 API/桌面环境的 live probe 按需启用；另含 41 组 unit suite 与 16 组 ACC smoke |
 
 > 原名 **Win Claude Workbench**,自 v0.8 起更名**如意 Ruyi**——去 "Claude" 化是开源发布的法务考量(商标风险 + 旧提示词曾致 provider 模型自称「我是 Claude」的身份错认)。「如意」取「称心如意、如你所愿」之意,图标为青花如意云纹。
 
@@ -147,7 +147,7 @@
 | 提示词分层注入与 i18n | system prompt 拆为逐字节稳定的锚点层 + volatile 层注入第一条 user 消息（prefix-cache 友好）；中英双语提示词按 UI 语言加载 | [§3](#3-多-agent-编排dag--质量门--图形编辑器) |
 | 分级 UI | 简易/专业双模式、深/浅/跟随系统三主题、V4 毛玻璃视觉系统 | [§9](#9-分级-ui简易专业双模式) |
 
-> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。当前共 325 项 e2e：默认运行 318 项，另有 7 项真实 API/桌面环境 probe 按需启用；另含 41 组 unit suite。迭代与发布规则见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)；面向用户的发行摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
+> 每项功能均经「实现 → 多视角对抗验证 → 修复 → 独立回归」闭环交付。当前共 326 项 e2e：默认运行 319 项，另有 7 项真实 API/桌面环境 probe 按需启用；另含 41 组 unit suite。迭代与发布规则见 [优化路线图](docs/OPTIMIZATION-ROADMAP.md)；面向用户的发行摘要见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## 功能详解
 
@@ -384,7 +384,7 @@ node .\app\server.js mcp          # 以 stdio MCP server 方式运行(供 CLI �
 ├── mcp/
 │   ├── ai-computer-control/      内置桌面控制 MCP(108 工具:截图/OCR/UIA/键鼠/窗口/浏览器/Office/PDF)
 │   └── README.md                 drop-in 连接器(文件夹即插即用)说明
-├── dev-harness/                  验证脚手架(325 项 e2e,默认 318 项,Node 直跑)
+├── dev-harness/                  验证脚手架(326 项 e2e,默认 319 项,Node 直跑)
 ├── docs/
 │   ├── screenshots/              本 README 的界面截图(演示实例拍摄)
 │   ├── branding/                 品牌图标(青花如意云纹 SVG)

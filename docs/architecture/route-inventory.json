@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-12T04:30:19.636Z",
+  "generatedAt": "2026-09-12T08:42:27.412Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1502,6 +1502,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\live-full-text.static.e2e.js",
         "dev-harness\\steward-board.e2e.js",
@@ -1603,6 +1604,7 @@
         "dev-harness\\budget-guard.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -1624,6 +1626,7 @@
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
+        "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -2084,6 +2087,7 @@
         "dev-harness\\exec-result-cache.e2e.js",
         "dev-harness\\failover.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
@@ -2600,6 +2604,7 @@
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\ia.e2e.js",
@@ -2774,6 +2779,7 @@
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\ia.e2e.js",
@@ -2917,6 +2923,7 @@
         "dev-harness\\context-compact-v2.e2e.js",
         "dev-harness\\e3-engine-switch-continuity.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\ia.e2e.js",
@@ -2994,6 +3001,7 @@
         "dev-harness\\bridged-read-noprompt.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
@@ -3046,6 +3054,7 @@
         "dev-harness\\bridged-read-noprompt.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
@@ -3341,6 +3350,7 @@
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\mission-index-gate.e2e.js",
         "dev-harness\\mission-index-scale.e2e.js",
@@ -3931,10 +3941,12 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-config-tools.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
@@ -3955,6 +3967,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\steward-board.static.e2e.js",
+        "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
     },
@@ -4075,6 +4088,7 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-pageshow.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\live-full-text.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js"

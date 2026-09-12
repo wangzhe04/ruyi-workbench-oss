@@ -46,7 +46,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 119 -> 120 / 115 -> 116 的来路就是它。
 // 121-K6a(34 号文 §4.3):新增 dev-harness/quiet-card.browser.e2e.js(一处带 RUYI_HOME 的 spawn ——
 // 那一发起服务;浏览器那一发 spawn 不带 RUYI_HOME,不计入),120 -> 121 / 116 -> 117 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 121;
+// 121-K6b(34 号文 §2.6):新增 dev-harness/focus-rail.browser.e2e.js(一处带 RUYI_HOME 的 spawn ——
+// 那一发起服务;浏览器那一发 spawn 不带 RUYI_HOME,不计入),121 -> 122 / 117 -> 118 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 122;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

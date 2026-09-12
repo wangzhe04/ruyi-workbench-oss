@@ -4,22 +4,25 @@
 // 121 波 K6a 静态契约（34 号文 §7.2「费用规则」／§13.7 K5 登记②）：管家视角与工作台线程头
 // 「不印金额」这条红线，锁在这一件 K6a 实际接触过、能保证干净的文件上：
 //   index.html（提醒设置块、安静卡挂点两处新增，右栏「用量」页签保持唯一入口）、
-//   js/quiet-card.js（新）、js/thread-head.js、js/notify-policy.js、js/model-menu.js。
+//   js/quiet-card.js（新）、js/thread-head.js、js/notify-policy.js、js/model-menu.js，
+//   ＋ 121-K6b 加进来的 js/steward-drawer.js（焦点卡那一枚 pill 删掉之后它才干净得下来）。
 //
-// 判据：`¥`／`$` 后跟数字／「费用」／独立词 `cost`（不区分大小写）四类字面量，在这五个文件里
+// 判据：`¥`／`$` 后跟数字／「费用」／独立词 `cost`（不区分大小写）四类字面量，在这六个文件里
 // 只允许两类白名单命中——① 注释里描述规则本身的话（「不印费用」这类，不是显示文本）；
 // ② index.html 里【设置弹窗】的货币单位选择器（`settings.currency.*`，选的是「用哪种货币显示
 // 估算成本」这件全局配置，不是「管家视角印了多少钱」）与「用量」页签自己（唯一允许印钱的地方）。
 // 命中行不在白名单 = 红。
 //
 // 范围说明（诚实记账，不是回避）：34 号文 §7.2 的锁名义范围是「public/ 模板与 steward-*.js／
-// thread-head.js／quiet-card.js」，但 `js/steward-drawer.js`（`stewardCostText`／
+// thread-head.js／quiet-card.js」。K6a 立锁那一刻 `js/steward-drawer.js`（`stewardCostText`／
 // `#stewardDrawerMissionCost` 那一枚事项行费用/预算 pill）、`js/steward-board.js`、
-// `js/steward-settings.js`（行动流水表的 cost 列）三个文件是本波派单表里明确的「绝不碰」——
-// K6b 正在把 steward-drawer.js 改造成焦点栏（§2.6），那一枚费用 pill 按 §2.6 的焦点卡元信息
-// 行设计（「来源图形 · 相对时间 · 只在定过时印权限」，没有费用）本就该在那一刀删掉。把它们
-// 现在也塞进这把锁只会交出一把提交时就是红的锁——所以本文件【不扫】那三个文件，改为在下面
-// 显式登记这笔债，与主会话的登记单对齐（见交付报告「登记给 K6b」一节）。
+// `js/steward-settings.js`（行动流水表的 cost 列）三个文件是它的「绝不碰」，所以先记了债。
+// **121-K6b 还了第一笔**：焦点卡的元信息一行按 §2.6 只印「来源图形 · 相对时间 · 验收 a/b」，
+// 那一枚费用 pill 连同 `stewardCostText` 与三个 cost.* 键整条退役 —— 于是
+// `js/steward-drawer.js` 自本刀起【进扫描清单】。
+// 仍然不扫的两件与理由：`js/steward-board.js` 的费用在 K4-2 就连 import 一起删了，但它还有
+// 「事项容器的 cost 桶」这类字眼的注释残留，属 K8 文案刷新那一刀；`js/steward-settings.js` 的
+// 行动流水表有一列真的 cost（那是「体检 · 用量」那一族的读面，§7.2 允许印钱的地方之一）。
 const fs = require('fs');
 const path = require('path');
 
@@ -76,6 +79,8 @@ const FILES = [
   ['js/thread-head.js', read('js/thread-head.js')],
   ['js/notify-policy.js', read('js/notify-policy.js')],
   ['js/model-menu.js', read('js/model-menu.js')],
+  // 121-K6b：焦点卡那一枚费用 pill 删掉之后，这一份也进扫描清单（§7.2「管家视角一律不印钱」）。
+  ['js/steward-drawer.js', read('js/steward-drawer.js')],
 ];
 
 let totalHits = 0;
@@ -85,7 +90,7 @@ for (const [name, content] of FILES) {
   ok(hits.length === 0,
     `A ${name} 零白名单外命中` + (hits.length ? `（实测 ${hits.length} 处：${hits.map(h => `L${h.line} "${h.text}"`).join(' | ')}）` : ''));
 }
-ok(totalHits === 0, `B 五个文件合计零白名单外命中（费用只在「用量」页签，管家视角/工作台线程头不印金额）`);
+ok(totalHits === 0, `B 六个文件合计零白名单外命中（费用只在「用量」页签，管家视角/工作台线程头不印金额）`);
 
 // 反向验证的判据本身要能被拉红：往其中一个文件塞一句真的印钱的话，正则必须逮到、且不在白名单里。
 const poison = '本条待决预计花费 ¥12.50，请确认';

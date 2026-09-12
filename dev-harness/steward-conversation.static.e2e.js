@@ -256,7 +256,16 @@ ok(/\.steward-typing/.test(css) && !/spinner|rotate\(/.test(css),
 const count = (source, pattern) => (source.match(pattern) || []).length;
 ok(count(conversation, /setInterval\(/g) === 1 && count(conversation, /clearInterval\(/g) === 1,
   'I1 steward-conversation.js 恰好一处 setInterval（撤回倒计时）与一处 clearInterval');
-ok(count(conversation, /setTimeout\(/g) === 0, 'I2 steward-conversation.js 零 setTimeout');
+// 121-K6b **重钉 I2**（原判据「零 setTimeout」）：立账本那一发要【回读 ＋ 有界重试】——
+// 管家开线程之后立刻就给它派了第一回合，我们这一发落盘时那个回合往往还没进 activeChildren，
+// 于是 13-http-router 的 C4 同步够不着它，回合收尾的 saveSession 把账本整份盖回去
+// （实测：同一件 e2e 两跑一红一绿）。收紧而不是放宽：钉「**恰好一处**，且它就在
+// ensureAcceptanceLedger 里，次数与间隔都是模块级常量」——想再加第二个临时计时器就必须先改这一条。
+ok(count(conversation, /setTimeout\(/g) === 1
+  && /const ACCEPTANCE_LEDGER_TRIES = \d+;/.test(conversation)
+  && /const ACCEPTANCE_LEDGER_RETRY_MS = \d+;/.test(conversation)
+  && /await new Promise\(resolve => setTimeout\(resolve, ACCEPTANCE_LEDGER_RETRY_MS\)\);/.test(conversation),
+  `I2 steward-conversation.js 恰好一处 setTimeout（立账本的有界重试，次数与间隔都是常量；实测 ${count(conversation, /setTimeout\(/g)} 处）`);
 ok(count(composer, /setTimeout\(/g) === 1 && count(composer, /clearTimeout\(/g) === 1,
   'I3 steward-composer.js 恰好一处 setTimeout（预判去抖）与一处 clearTimeout');
 ok(count(composer, /setInterval\(/g) === 0, 'I4 steward-composer.js 零 setInterval');

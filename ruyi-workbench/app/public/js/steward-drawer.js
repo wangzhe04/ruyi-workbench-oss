@@ -290,18 +290,19 @@ export async function stewardThreadStop({ api, sessionId }) {
 // 33 号文 §4「costText／acceptanceText／threadStateOf 三对收一处」：这三条判据此前看板与抽屉各一份、
 // 逐字重复（40 余行两份）。现在只住本模块 —— 看板 import 得到（它本来就 import 本文件的
 // stewardThreadRunAction／stewardThreadStop，方向不变、不成环）。人话的**文案键**仍按各界面自己的
-// 那一套传进来（keys）：判据一处，两面各说各的话。keys 的形状固定为 { none, budget/count, cost }。
+// 那一套传进来（keys）：判据一处，两面各说各的话。keys 的形状固定为 { none, count }（金额那两档
+// 已随 121-K6b 一起退役，本模块此后不印钱）。
 export function stewardThreadStateOf(card) {
   const missionState = globalThis.MissionState;
   if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
   return String(missionState.fromCard(card).state || '');
 }
 
-// 121-K6b（34 号文 §7.2／§2.6，§13.11 登记的那笔债）：`stewardCostText` 与它印在 ① 那一行的
-// #stewardDrawerMissionCost 整段删除 —— 「管家视角、左栏、焦点栏、工作台线程头、口袋一律不印钱」，
-// 费用只在右栏「用量」页签与体检里出现。删的是【本模块唯一那处金额渲染】，判据没有搬家也没有
-// 弱化版留下：`cost-zero.static.e2e.js` 自本刀起把 js/steward-drawer.js 也扫进去，反向塞一个 ¥ 就红。
-// 看板早在 K4-2 就把费用连 import 一起删了，所以这个导出此刻零消费方。
+// 121-K6b（34 号文 §7.2／§2.6，§13.11 登记的那笔债）：`stewardCostText` 与它印在元信息那一行的
+// #stewardDrawerMissionCost 整段退役 —— 「管家视角、左栏、焦点栏、工作台线程头、口袋一律不印钱」，
+// 金额只在右栏「用量」页签与体检里出现。删的是【本模块唯一那处金额渲染】，判据没有搬家、也没有
+// 弱化版留下：那把「金额零命中」的静态锁自本刀起把 js/steward-drawer.js 也扫进来，反向塞一个金额就红。
+// 看板早在 K4-2 就把那一族连 import 一起退役了，所以这个导出此刻零消费方。
 
 export function stewardAcceptanceText(group, translate, keys) {
   const say = typeof translate === 'function' ? translate : key => key;
@@ -671,8 +672,8 @@ export function createStewardDrawer({
   // 现在在跑时改标题为「它正在说」并显示服务端 liveTail 的【末尾】≤3 句；回合一结束 liveTail 这个键
   // 就不在了，标题与内容自动换回「它刚说」＋落盘原话的【开头】≤3 句。
   // 121-K6b（§2.6／§5）：在跑那一段的【当前动作行】——「工具 · 第 N 次调用 · N 秒前有输出」。
-  // 三样都读服务端 liveTail 上已有的字段（tool／turns／updatedAt），一个数都不推算、不显示百分比、
-  // 不显示 ETA、不显示费用（§8.1 第 6 条）。缺哪一样就少说哪一样；三样全缺整行不出（不编）。
+  // 三样都读服务端 liveTail 上已有的字段（tool／iterations／updatedAt），一个数都不推算、不印百分比、
+  // 不印 ETA、不印金额（§8.1 第 6 条）。缺哪一样就少说哪一样；三样全缺整行不出（不编）。
   // 纯拼字，DOM 只写一个 textContent。
   function actingLine() {
     if (!liveTail) return '';

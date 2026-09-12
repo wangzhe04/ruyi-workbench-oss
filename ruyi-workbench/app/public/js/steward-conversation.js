@@ -1447,20 +1447,37 @@ export function createStewardConversation({
   // 只在【账本真的空着】时才立一本（先 GET 再决定）：POST /api/mission {action:'start'} 是全量
   // 新建，撞上已有账本会把里程碑整表换掉 —— 管家自己后来 mission_update 写进去的进度不能被这一发
   // 抹掉。失败一律沉默：立不起账本不该在对话流里冒一句红字（用户没做错任何事，账本也不是他要的）。
+  //
+  // **写完要回读**（真机与 e2e 都逮到过的一个竞争，写在这里免得下一个人再花一小时）：管家开线程
+  // 之后【立刻】就给它派了第一回合（13k stewardImplThreadNew 末尾的 stewardLaunchTurn）。我们这一发
+  // 落盘时，那个回合往往还没进 activeChildren —— 于是 13-http-router 那段「把 mission 同步进在飞
+  // 回合的内存副本」（C4/75a-3）够不着它，回合收尾时的 saveSession 用一份【建账本之前】读进内存的
+  // session 把磁盘盖回去，账本整份消失。实测：同一件 e2e 两跑一红一绿。
+  // 修法是【回读 ＋ 有界重试】而不是「等回合结束再写」：后者要为此新开一路轮询去问 resumable.live，
+  // 而这件事本来就该由服务端把写口串起来（那是 src 的地界，本刀零后端 —— 登记成产品债）。
+  // 三次、每次 1.2 s：足够跨过一个短回合的收尾，又不会在真的写不进去时无限打转。
+  const ACCEPTANCE_LEDGER_TRIES = 3;
+  const ACCEPTANCE_LEDGER_RETRY_MS = 1200;
   async function ensureAcceptanceLedger(sessionId, prompt) {
     const id = String(sessionId || '');
     const goal = String(prompt || '').trim();
     if (!id || !goal) return false;
-    try {
+    const read = async () => {
       const got = await api(`/api/mission?sessionId=${encodeURIComponent(id)}`);
-      const milestones = (got && got.mission && Array.isArray(got.mission.milestones)) ? got.mission.milestones : [];
-      if (milestones.length) return false;
-      const started = await api('/api/mission', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId: id, action: 'start', goal, milestones: dispatchAcceptanceMilestones(goal) }),
-      });
-      return Boolean(started && started.ok === true);
-    } catch { return false; }
+      return (got && got.mission && Array.isArray(got.mission.milestones)) ? got.mission.milestones : [];
+    };
+    for (let attempt = 0; attempt < ACCEPTANCE_LEDGER_TRIES; attempt++) {
+      try {
+        if ((await read()).length) return attempt > 0;
+        await api('/api/mission', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: id, action: 'start', goal, milestones: dispatchAcceptanceMilestones(goal) }),
+        });
+        if ((await read()).length) return true;
+      } catch { return false; }
+      await new Promise(resolve => setTimeout(resolve, ACCEPTANCE_LEDGER_RETRY_MS));
+    }
+    return false;
   }
 
   // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）。
