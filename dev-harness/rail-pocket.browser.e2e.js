@@ -535,6 +535,50 @@ try {
   ok(hitsAfter === hitsBefore,
     `H1 12 秒静置期内 /api/scheduler/tasks 零新请求（口袋与「接下来」都不挂计时器；实测 ${hitsBefore} → ${hitsAfter}）`);
 
+  /* ═════════ J 右栏抽屉的【边界】：1181 还在栅格里，1180 就成抽屉（§7.3／§10 ⑥）═════════
+     整波验收 §10 ⑥ 写的是「1180 宽右栏成抽屉」，可 K4 那一件量的是 1200（还在栅格）与 900
+     （已经是抽屉）——**边界那一格没人钉**。补在这里：同一次页面里前后差 1px 各量一次，
+     判据是「右栏的左缘有没有被推到布局视口之外」（抽屉态 translateX(100%) 的可观测后果）
+     ＋ 顶栏那枚「右栏」钮出没出来。反向：把 layout.css 的 1180 改成 1179 → J2 当场红。 */
+  const paneAt = async width => {
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    await sleep(220);
+    return cdp.evaluate(`(() => {
+      const pane = document.getElementById('toolPane');
+      const toggle = document.getElementById('appSideToggleBtn');
+      const box = pane ? pane.getBoundingClientRect() : null;
+      return {
+        left: box ? Math.round(box.left) : -1,
+        vw: Math.round(document.documentElement.clientWidth),
+        toggle: toggle ? getComputedStyle(toggle).display : '',
+      };
+    })()`);
+  };
+  await cdp.evaluate(`(() => { document.querySelector('#lensSeg [data-lens="classic"]').click(); return true; })()`);
+  await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'classic' ? 1 : null`);
+  const at1181 = await paneAt(1181);
+  ok(Boolean(at1181) && at1181.left < at1181.vw - 100 && at1181.toggle === 'none',
+    `J1 1181：右栏仍在栅格里（left=${at1181 && at1181.left} < 视口 ${at1181 && at1181.vw}），顶栏没有「右栏」钮`);
+  // 换到抽屉态那一下 transform 是有过渡的（--dur-slow），量早了会读到半路上的位置
+  // （K7 实测：220 ms 时 left=1168，差 12px 就是那一帧还没走完）。所以这里【等到位】再判。
+  let at1180 = await paneAt(1180);
+  for (let i = 0; i < 40 && at1180 && at1180.left < at1180.vw - 1; i++) {
+    await sleep(50);
+    at1180 = await cdp.evaluate(`(() => {
+      const pane = document.getElementById('toolPane');
+      const toggle = document.getElementById('appSideToggleBtn');
+      const box = pane ? pane.getBoundingClientRect() : null;
+      return { left: box ? Math.round(box.left) : -1, vw: Math.round(document.documentElement.clientWidth),
+        toggle: toggle ? getComputedStyle(toggle).display : '' };
+    })()`);
+  }
+  ok(Boolean(at1180) && at1180.left >= at1180.vw - 1 && at1180.toggle !== 'none',
+    `J2 1180：右栏离开栅格、滑到屏幕外等着（left=${at1180 && at1180.left} ≥ 视口 ${at1180 && at1180.vw}），顶栏出「右栏」钮（display=${at1180 && at1180.toggle}）`);
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+  await sleep(220);
+  await cdp.evaluate(`(() => { document.querySelector('#lensSeg [data-lens="steward"]').click(); return true; })()`);
+  await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 1 : null`);
+
   /* ═════════ E ≤980：口袋只剩图标 ═════════ */
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });
   await sleep(250);
