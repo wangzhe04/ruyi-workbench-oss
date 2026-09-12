@@ -6,12 +6,21 @@
 .tool-pane-head h2 { margin: 0; color: var(--ink); font-size: var(--fs-lg); letter-spacing: -.015em; }
 .tool-pane-head p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.45; }
 .tool-pane-close { display: none; width: 28px; height: 28px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: var(--fs-xl); line-height: 1; }
-.tool-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
-.tool-tabs button { min-width: 0; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 5px 7px; font-size: var(--fs-sm); background: transparent; border-color: transparent; border-radius: var(--r-sm); color: var(--muted); white-space: nowrap; }
+/* 121-K7（34 号文 §13.13 K8 登记②）：七枚页签在 392px 右栏里【三列 = 三行】，占掉右栏顶上
+   一大截。§2.6「七页签不动」是前提，所以改的是布局不是枚数：四列 → ceil(7/4) = 两行。
+   四列在 392px 里放得下的算术（1920 基准档）：栏内容宽 392 − 左右各 14 内边距 = 364；
+   减去 tablist 自己的 4px 内边距 ×2 与三道 5px 间隙 = 341 / 4 ≈ 85px 一格，而一枚页签
+   ＝ 15px 字形 ＋ 5px 间隙 ＋ 两字 26px ＋ 左右 5px 内边距 ≈ 56px。最长的「工作流」三字
+   也只到 69px。真页面判据在 dev-harness/rail-pocket.browser.e2e.js（量 y 值集合 ≤2）。 */
+.tool-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--panel-2) 78%, transparent); }
+.tool-tabs button { min-width: 0; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 4px; font-size: var(--fs-sm); background: transparent; border-color: transparent; border-radius: var(--r-sm); color: var(--muted); white-space: nowrap; }
 .tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 78%, transparent); }
 .tool-tabs button.active { background: var(--panel); border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); color: var(--accent); font-weight: 650; box-shadow: var(--elev-1); }
 .tool-tab-mark { width: 15px; color: currentColor; font-size: var(--fs-xs); opacity: .82; text-align: center; }
-:root[data-ui-mode="simple"] .tool-pane .tool-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 121-K7：精简模式收起「用量」「记录」两枚（ui-modes.css），剩五枚 —— 两列会排成三行，
+   与上面同一条口径改三列（ceil(5/3) = 两行）。字号比专家档大 1px，392px 下三列每格 ~113px，
+   放得下最长的「工作流」。 */
+:root[data-ui-mode="simple"] .tool-pane .tool-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tool-section { display: none; min-width: 0; }
 .tool-section.active { display: block; animation: tool-section-in var(--dur-fast) var(--ease-out); }
 @keyframes tool-section-in { from { opacity: 0; transform: translateY(2px); } }
