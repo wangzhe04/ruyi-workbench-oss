@@ -478,6 +478,24 @@
 .steward-side[hidden] { display: none; }
 .steward-side-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
+/* 121-K7（§2.6 末条「接下来」）：右栏最底下那一段 —— 定时任务最近两条。它是 .steward-side-body
+   的【兄弟】（见 index.html 的头注：placeNowStacks 每一拍都把「其它在途」顶回 body 末尾），
+   所以高度自持、不参与上面那条 flex:1。没有定时任务时整段 [hidden]，连上边那道线也不画。 */
+.steward-upnext {
+  flex: 0 0 auto;
+  padding: var(--sp-2);
+  border-top: 1px solid var(--line);
+}
+.steward-upnext[hidden] { display: none; }
+.steward-upnext .steward-drawer-h { margin: 0 0 var(--sp-1); }
+.steward-upnext-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-1); }
+.steward-upnext-row {
+  display: grid; grid-template-columns: 13px minmax(0, 1fr); align-items: center; gap: var(--sp-1);
+  color: var(--ink-2); font-size: var(--fs-sm);
+}
+.steward-upnext-row .ic { color: var(--muted); }
+.steward-upnext-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* F3「现在这几件」：焦点那一条【就是】那份 docked 抽屉（上面那条规则不动），其余线程按服务端
    行序在它上下叠成小行。两条 stack 各自最多吃掉三分之一高度、超出自己滚，抽屉仍然 flex:1 拿走
    剩下的高度 —— 线程再多也不会把「正在看的那一件」挤出屏幕。

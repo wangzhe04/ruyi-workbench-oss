@@ -41,6 +41,10 @@ export { pausableRunOf };
 // （不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套（建在 js/modal.js 上，
 // 与本文件底部的抽屉浮层共用同一份焦点陷阱/焦点归还语义）。
 import { confirmDanger } from './confirm-panel.js';
+// 121-K7（§2.6 末条「接下来：定时任务最近两条」）：读口与排序判据只有 js/rail-pocket.js 那一份
+// —— 口袋上的那个计数与这里的两行读同一发 GET /api/scheduler/tasks、按同一条规则排序。抽屉
+// 【不自己拼那条请求】，也不写第二份「哪两条才算接下来」（同一件事一处判据的老规矩）。
+import { readScheduleTasks, upcomingSchedules, scheduleWhenLabel, UP_NEXT_LIMIT } from './rail-pocket.js';
 
 // 第117波 117d：线程抽屉（27 号文 §8.2 L2 / §8.13 逐条）。
 //
@@ -1579,12 +1583,58 @@ export function createStewardDrawer({
     if (globalThis.MutationObserver && document_ && document_.documentElement) {
       new MutationObserver(() => { if (!isStewardMode()) closeDrawer(); else syncPolling(); })
         .observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
+      // 121-K7：「接下来」只在【进管家视角】这个确定性时刻刷一次（与上面那条观察者各自独立 ——
+      // 那一条的形状被 steward-drawer.static 逐字钉着）。**刻意不挂在 refreshOnce 上**：那一支是
+      // 5–30 s 的轮询拍，挂上去就等于给 /api/scheduler/tasks 新开一条轮询（K2b／K4 的纪律：
+      // 不加第二条计时器）。定时任务表变一次是用户自己动手的事，不需要秒级新鲜。
+      new MutationObserver(() => { if (isStewardMode()) void refreshUpNext(); })
+        .observe(document_.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }
+    void refreshUpNext();   // 121-K7：绑定即刷第一次（首屏就是管家视角时也看得见）
     if (globalThis.matchMedia) {
       try { globalThis.matchMedia('(min-width: 1000px)').addEventListener('change', applyModal); }
       catch { /* 老浏览器没有 addEventListener on MediaQueryList */ }
     }
     return true;
+  }
+
+  // ── 121-K7（34 号文 §2.6 末条）：「接下来」──────────────────────────────────────
+  // 焦点栏最底下那一段（在「其它在途」之后，见 index.html 里 #stewardUpNext 的头注）：
+  // 定时任务里【下次触发最近的两条】，每行印「名字 · 相对时间」。
+  //   · 一条都没有（含后端还没落地那条路由 404 时）→ **整段不画**（§2.6 的原话就是那两条，
+  //     没有第三种形态；空标题挂在右栏底下只是噪音）。
+  //   · 判据与读口都在 js/rail-pocket.js 一处（口袋的计数与这两行同源）。
+  //   · **不加计时器**：随焦点栏的 refreshOnce 一起刷（动作刷新），并在绑定时刷第一次。
+  //   · 相对时间走 Intl.RelativeTimeFormat（scheduleWhenLabel），零新增时间文案键。
+  function renderUpNext(tasks) {
+    const section = byId('stewardUpNext');
+    const list = byId('stewardUpNextList');
+    if (!section || !list) return 0;
+    const rows = upcomingSchedules(tasks, UP_NEXT_LIMIT, Date.now());
+    clear(list);
+    section.hidden = rows.length === 0;
+    if (!rows.length) return 0;
+    const document_ = doc();
+    const lang = (document_ && document_.documentElement && document_.documentElement.lang) || '';
+    for (const task of rows) {
+      const item = el('li', 'steward-upnext-row');
+      const glyph = icon('originSchedule', 13);
+      if (glyph) item.appendChild(glyph);
+      const when = scheduleWhenLabel(task.nextRunAt, lang);
+      item.appendChild(el('span', 'steward-upnext-text',
+        when ? t('stewardShell.drawer.upNextRow', { name: task.name, when }) : task.name));
+      list.appendChild(item);
+    }
+    return rows.length;
+  }
+  // 串行合并：上一发还没回来就不再开第二发（焦点栏一拍里可能被推送连着推好几次）。
+  let upNextInflight = null;
+  function refreshUpNext() {
+    if (upNextInflight) return upNextInflight;
+    upNextInflight = readScheduleTasks(api)
+      .then(tasks => renderUpNext(tasks))
+      .finally(() => { upNextInflight = null; });
+    return upNextInflight;
   }
 
   async function submitDirect() {
@@ -1622,6 +1672,9 @@ export function createStewardDrawer({
     // 而不是输入框本身 —— 输入框与发送逻辑都只在抽屉里有一份。
     focusComposer,
     refreshOnce,
+    // 121-K7（§2.6 末条）：「接下来」那一段的刷新口。导出是为了让真夹具在造完定时任务之后有一个
+    // 确定性的时刻可以问（它平时只在绑定与进管家视角时各刷一次，没有计时器）。
+    refreshUpNext,
     chips,
   });
 }
