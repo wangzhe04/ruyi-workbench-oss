@@ -23,7 +23,9 @@ ok(/function rebuildModelOptions\(resetForeign\)/.test(src), 'A1 rebuildModelOpt
 ok(/inh\.value='';[\s\S]{0,80}t\('workflow\.canvas\.inherit'\)/.test(src) &&
   zh['workflow.canvas.inherit'] === '继承（角色/全局默认）', 'A1 模型下拉首项「继承（角色/全局默认）」(value=空+i18n)');
 ok(/cus\.value='__custom'[\s\S]{0,80}t\('common\.custom'\)/.test(src) &&
-  zh['common.custom'] === '自定义…', 'A1 模型下拉尾项「自定义…」切出文本输入');
+  // 121-K8（34 号文 §2.10.4）：按钮与选项不带省略号，「自定义…」→「自定义」。
+  // 钉的事实没变：尾项走 t('common.custom')、value 是 __custom（切出文本输入的判据在上一行的正则里）。
+  zh['common.custom'] === '自定义', 'A1 模型下拉尾项「自定义」切出文本输入');
 ok(/model\.disabled=true/.test(src) && /t\('workflow\.canvas\.engineAutoHint'\)/.test(src) &&
   /引擎为自动时不单独指定模型/.test(zh['workflow.canvas.engineAutoHint']), 'A1 engine=自动 时模型下拉禁用 + 跟随默认提示');
 ok(/t\('workflow\.canvas\.currentEffect\.node'\)/.test(src) &&
