@@ -197,7 +197,12 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(fileBrowser.includes("t('file.preview.imageTooLarge'"), 'file preview feedback must use the catalog');
   assert.ok(observability.includes("t('audit.loadFailed'"), 'audit feedback must use the catalog');
   assert.ok(app.includes("t('provider.testConnection'"), 'provider card actions must use the catalog');
-  assert.ok(app.includes("tCount('modelMenu.modelCount'"), 'model menu counts must use localized pluralization');
+  // 121-K6a（34 号文 §13.8 K5 登记②）：这句钉的是 2.0 独立模型弹层（js/model-menu.js 的
+  // buildModelMenuBody）里「· N 个模型」那一行的复数化——那颗弹层随 121-K5 的 #modelChip 退役
+  // 已经零调用点，本刀把函数体整段删掉，`tCount('modelMenu.modelCount'` 这一次调用随之消失（3.0
+  // 管家壳的模型菜单从未显示过模型数，不是新的倒退）。改钉「不存在」，反向验证：把这一行调用
+  // 写回任意一个 .js 文件 → 本条当场红（判据没有失效，只是从「必须存在」翻成「不该存在」）。
+  assert.ok(!app.includes("tCount('modelMenu.modelCount'"), 'model menu pluralized count call site is gone with the retired 2.0 popover');
   // 121-K5（34 号文 §3.1）：2.0 那张四档单选卡（permission.mode.title）随 #permChip 退役 ——
   // 权限自此只有两处：线程头那一枚 chip（会话级，steward-chips.js）与顶栏盾牌（新任务默认，
   // steward-settings.js）。钉的事实一个字没变：权限的人话仍然全部走目录，没有硬编码。

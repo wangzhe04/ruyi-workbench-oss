@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 129(精确 112 / 前缀 12 / 正则 5),ROUTE_AUTH 117 条,生成于 2026-09-11T17:58:28.556Z。
+> 判定点 129(精确 112 / 前缀 12 / 正则 5),ROUTE_AUTH 117 条,生成于 2026-09-12T04:30:19.636Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -70,7 +70,7 @@
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js:836 | — |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js:853 | — |
 | POST | `/api/todo` | exact | body-token | 13-http-router.js:869 | todo-loopback.e2e.js |
-| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js:889 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, auth-deny-default.e2e.js 等 46 件 |
+| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js:889 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, auth-deny-default.e2e.js 等 47 件 |
 | * | `/api/autonomy/grants` | exact | token self | 13-http-router.js:994 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js:1001 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:1029 | autonomy-grant.e2e.js |
@@ -90,7 +90,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1441 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1465 | vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1473 | — |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1493 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 119 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1493 | action-model-view.e2e.js, adaptive-budget.e2e.js, agent-loop.e2e.js 等 120 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1511 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1783 | — |
 
@@ -98,7 +98,7 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:228 | event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js, event-stream.e2e.js 等 6 件 |
+| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:242 | event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js, event-stream.e2e.js 等 6 件 |
 
 ## intervention(11)
 
@@ -106,9 +106,9 @@
 |---|---|---|---|---|---|
 | POST | `/api/_test/pretender-maintenance` | exact | token | 13d-core-domain-routes.js:1529 | mission-index-scale.e2e.js |
 | POST | `/api/missions/:missionId/interventions/:interventionId/decision` | regex | token | 13d-core-domain-routes.js:1543 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 21 件 |
-| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js:1568 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, event-stream-client.browser.e2e.js 等 14 件 |
+| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js:1568 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, event-stream-client.browser.e2e.js 等 15 件 |
 | GET | `/api/interventions/` | prefix | token-browser self | 13d-core-domain-routes.js:1621 | interventions-persist.e2e.js, mission-index-scale.e2e.js, steward-presence-gate.e2e.js |
-| POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js:1657 | event-stream-client.browser.e2e.js, event-stream.e2e.js, interactive-question.e2e.js 等 13 件 |
+| POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js:1657 | event-stream-client.browser.e2e.js, event-stream.e2e.js, interactive-question.e2e.js 等 14 件 |
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js:1677 | — |
 | POST | `/api/question/request` | exact | body-token | 13d-core-domain-routes.js:1687 | — |
 | POST | `/api/permission/request` | exact | body-token | 13d-core-domain-routes.js:1702 | — |
@@ -132,8 +132,8 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/missions` | exact | token-browser self | 13d-core-domain-routes.js:827 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 35 件 |
-| POST | `/api/missions` | exact | token self | 13d-core-domain-routes.js:882 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 35 件 |
+| GET | `/api/missions` | exact | token-browser self | 13d-core-domain-routes.js:827 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 36 件 |
+| POST | `/api/missions` | exact | token self | 13d-core-domain-routes.js:882 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 36 件 |
 | PATCH/POST | `/api/missions/:missionId` | regex | token self | 13d-core-domain-routes.js:889 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 21 件 |
 | POST | `/api/missions/:missionId/threads` | regex | token self | 13d-core-domain-routes.js:899 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 21 件 |
 | POST | `/api/missions/:missionId/merge` | regex | token self | 13d-core-domain-routes.js:914 | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, bridged-read-noprompt.e2e.js 等 21 件 |
@@ -153,11 +153,11 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 139 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 140 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 139 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-parent-heartbeat.e2e.js 等 140 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 67 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 68 件 |
 
 ## steer(2)
 
