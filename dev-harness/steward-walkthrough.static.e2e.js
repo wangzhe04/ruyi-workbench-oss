@@ -273,17 +273,15 @@ const ok = (condition, label) => {
     const app = read('app.js');
     const providerSettings = read('js/provider-settings.js');
     const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
-    const { permissionSwitchNeedsConfirm, permissionConfirmText } = chipsMod;
+    const chipsSrc = read('js/steward-chips.js');
 
-    // classic-1：切「全自动」一律先确认 —— 修前专家模式下一声不吭就生效了。
-    ok(permissionSwitchNeedsConfirm('auto', 'pro') === true && permissionSwitchNeedsConfirm('auto', 'simple') === true,
-      'F1 全自动在【两种界面模式】下都要确认（修前专家模式无门）');
-    ok(permissionSwitchNeedsConfirm('bypass', 'simple') === true && permissionSwitchNeedsConfirm('bypass', 'pro') === false,
-      'F1b bypass 沿用 v0.9-S1 那道闸：只在精简界面问');
-    ok(permissionSwitchNeedsConfirm('default', 'simple') === false && permissionSwitchNeedsConfirm('acceptEdits', 'pro') === false,
-      'F1c 收紧与常规档不问（确认闸只对「放宽」用）');
-    ok(permissionConfirmText('auto', key => key).split('\n').length === 1 + chipsMod.STEWARD_CONFIRM_KEYS.length,
-      'F1d 全自动的确认文案 = 一句提问 + §8.6 的五条人话（与管家壳盾牌菜单逐字同源）');
+    // 121-K6a（34 号文 §13.8 K5 登记③）：classic-1 立的 permissionSwitchNeedsConfirm／
+    // permissionConfirmText 随 121-K5 删掉的 #permSelect 一起零应用调用点，本刀删除两函数体。
+    // F1–F1d 从「钉真值表」改钉「不存在」——反向验证：把两个函数任写回一个 → 本条当场红。
+    ok(chipsMod.permissionSwitchNeedsConfirm === undefined && chipsMod.permissionConfirmText === undefined
+      && !/export function permissionSwitchNeedsConfirm/.test(chipsSrc)
+      && !/export function permissionConfirmText/.test(chipsSrc),
+      'F1 permissionSwitchNeedsConfirm／permissionConfirmText 已删（121-K5 的 #permSelect 退役后零应用调用点）');
     // 121-K5（34 号文 §3.1）：经典壳顶栏那条 #permSelect 下拉（连同 #permChip 与那张四档单选卡）
     // 退役 —— 权限只剩两处：顶栏盾牌（新任务默认）与线程头那一枚 chip（这条线程）。确认闸因此
     // 也只剩两个读点，判据仍然是 steward-chips.js 那一份（F1–F1d 逐条钉着它的真值表）。

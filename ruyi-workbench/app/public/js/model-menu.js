@@ -6,8 +6,12 @@
 // 维护成本都翻倍。本模块是那份公共件，只负责【造行与造分组】：
 //
 //   · buildModelMenuRow  —— 一行模型（两壳共用）：button 骨架、当前项标记、标签→徽标→副行→删除的落位。
-//   · buildModelMenuBody —— 弹层本体（2.0）：主组 + 各 provider 组（活动组展开、其余 details 折叠）+
-//                            页脚动作 + ↑↓/Enter 键盘 + 聚焦当前行。
+//
+// 121-K6a（34 号文 §13.8 K5 登记②）：本文件曾经导出的「弹层本体」函数（2.0 独立模型弹层，约 100
+// 行）随那颗弹层一起退役——`js/thread-head.js` 换成 `createQuickSwitchChips`（一份工厂，两视角共用）
+// 之后，`js/navigation-controls.js` 的模型弹层打开口已经删了唯一调用点（K5 交付），该函数从此零调用，
+// 本刀整段删除（验收：仓内 `public/` 对它的旧导出名零命中）。它的类名族（`.mc-pop`／`.mc-row` 一族）
+// CSS 归 K8（避免多钉一次 CSS 载荷锁），本刀不动 css/。
 //
 // 硬边界（本波红线，别越）：
 //   · 只造 DOM。写盘（onSelect / onDelete）、开合（容器显隐）、Esc / 点外收回全在调用方 —— 本模块不
@@ -20,7 +24,7 @@
 //
 // 依赖方向：util.el（节点工厂）+ i18n.js（默认文案）。两壳都在 import 本模块，故它必须登记进 overlay 载荷。
 import { el } from './util.js';
-import { t, tCount } from './i18n.js';
+import { t } from './i18n.js';
 
 // 2.0 弹层的类名表 —— 公共默认值。3.0 只需覆盖 row / label / badge / hint 四处，其余用不到也无害。
 export const MODEL_MENU_CLASSES = Object.freeze({
@@ -97,100 +101,3 @@ export function buildModelMenuRow({ model = {}, isCurrent = false, onSelect = ()
   return row;
 }
 
-// 弹层本体（2.0 那颗模型 chip 的内容）。返回根元素（类名 opts.classNames.root，默认 .mc-pop）。
-//   models     主组（当前引擎）的候选行
-//   providers  其余分组规格 [{ id, label, colorVar, models, emptyHint, deletableIds, appendExtra }]
-//   current    { providerId, modelId } —— 决定哪一组展开、哪一行是当前项
-//   onSelect(providerId, modelId) 只报结果；关弹层与写盘由调用方在回调里做
-//   opts       primaryGroup 主组事实 { id, label, colorVar, emptyHint, deletableIds, appendExtra }
-//              classNames / noModelsHint（空态兜底文案）/ switchNote（非当前组那句「选择将切换引擎」）
-//              badge / labelFor / checkGlyph / attrs（透传给每一行）/ showCheck
-//              actions [{ icon, label, onClick }]（页脚动作，也进 ↑↓ 行序）
-//              onDelete(modelId) / deleteTitle（行尾删除件）/ keyboard:false（不挂键盘）
-//
-// 分组语义（与 2.0 改前逐字一致）：活动组用 div 组头 + 直铺的行；非活动组包在 <details> 里，summary 上
-// 挂标签 + 模型数 + 「选择将切换引擎」。appendExtra(container) 是分组自带的额外件（两壳的 thinking /
-// reasoning effort 选择器就挂在这），活动组挂在行后、折叠组挂在 details 里。
-export function buildModelMenuBody({ models = [], providers = [], current = {}, onSelect = () => {}, opts = {} }) {
-  const cn = { ...MODEL_MENU_CLASSES, ...(opts.classNames || {}) };
-  const curPid = current.providerId || '';
-  const curModel = current.modelId || '';
-  const root = el('div', cn.root);
-  const rows = []; // 可聚焦行序（视觉顺序）：键盘导航只认它
-  const switchNote = textOr(opts.switchNote, t('modelMenu.switchesEngine'));
-
-  const buildRows = (container, pid, groupModels, emptyHint, deletableIds) => {
-    const list = (groupModels && groupModels.length) ? groupModels : [];
-    if (!list.length) { container.appendChild(el('div', cn.row + ' ' + cn.rowDisabled, textOr(emptyHint, opts.noModelsHint))); return; }
-    for (const model of list) {
-      const node = buildModelMenuRow({
-        model,
-        isCurrent: (pid === curPid) && ((model.id || '') === (curModel || '')),
-        onSelect: hit => onSelect(pid, hit.id || ''),
-        opts: { ...opts, classNames: cn, deletableIds },
-      });
-      rows.push(node);
-      container.appendChild(node);
-    }
-  };
-  const addGroup = (pid, label, colorVar, groupModels, emptyHint, deletableIds, appendExtra) => {
-    const count = (groupModels && groupModels.length) || 0;
-    if (pid === curPid) {
-      const head = el('div', cn.group);
-      const dot = el('span', cn.groupDot); dot.style.background = colorVar;
-      head.append(dot, el('span', cn.groupLabel, label), el('span', cn.groupCount, '· ' + tCount('modelMenu.modelCount', count)));
-      root.appendChild(head);
-      buildRows(root, pid, groupModels, emptyHint, deletableIds);
-      if (appendExtra) appendExtra(root);
-    } else {
-      const details = el('details', cn.groupDetails);
-      const summary = el('summary', cn.groupSummary);
-      const dot = el('span', cn.groupDot); dot.style.background = colorVar;
-      summary.append(dot, el('span', cn.groupLabel, label), el('span', cn.groupCount, '· ' + tCount('modelMenu.modelCount', count)),
-        el('span', cn.groupSwitchNote, switchNote));
-      details.appendChild(summary);
-      buildRows(details, pid, groupModels, emptyHint, deletableIds);
-      if (appendExtra) appendExtra(details);
-      root.appendChild(details);
-    }
-  };
-
-  const primary = opts.primaryGroup || {};
-  addGroup(primary.id || '', primary.label || '', primary.colorVar || '', models,
-    primary.emptyHint, primary.deletableIds || null, primary.appendExtra || null);
-  for (const group of (providers || [])) {
-    addGroup(group.id || '', group.label || '', group.colorVar || '', group.models || [],
-      group.emptyHint, group.deletableIds || null, group.appendExtra || null);
-  }
-
-  const actions = opts.actions || [];
-  if (actions.length) {
-    root.appendChild(el('div', cn.separator));
-    for (const action of actions) {
-      const node = el('button', cn.row + ' ' + cn.rowAction);
-      node.type = 'button';
-      node.append(el('span', cn.check, action.icon), el('span', cn.label, action.label));
-      node.onclick = () => action.onClick();
-      root.append(node);
-      rows.push(node);
-    }
-  }
-
-  if (opts.keyboard !== false) {
-    // ↑↓ 移动、Enter 激活当前焦点行（焦点不在行上时按 Enter 落在 idx 指的那一行）。SELECT 上的键
-    // （分组里那个下拉）必须原样放行，否则方向键会被吃在这里、下拉选不动。
-    let idx = Math.max(0, rows.findIndex(row => row.classList.contains(cn.rowActive)));
-    setTimeout(() => { (rows[idx] || rows[0])?.focus(); }, 0);
-    root.addEventListener('keydown', event => {
-      if (event.target && event.target.tagName === 'SELECT') return;
-      if (event.key === 'ArrowDown') { event.preventDefault(); idx = Math.min(rows.length - 1, idx + 1); rows[idx].focus(); }
-      else if (event.key === 'ArrowUp') { event.preventDefault(); idx = Math.max(0, idx - 1); rows[idx].focus(); }
-      else if (event.key === 'Enter') {
-        event.preventDefault();
-        const active = (globalThis.document || {}).activeElement;
-        (active && rows.includes(active) ? active : rows[idx])?.click();
-      }
-    });
-  }
-  return root;
-}
