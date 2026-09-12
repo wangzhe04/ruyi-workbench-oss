@@ -525,7 +525,22 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 分组表算 = b9852892aae00ab8ffd348ccc928447960ab9cfeb4872f69077e75501cdde9b7，与被替换的旧值
 // 【逐字相同】；再按本刀 CSS 全部落盘之后的 blob 算得下面这个值（两次都从 git blob 算，不从工作区
 // 算 —— 32 号文 §4 纪律 4）。反向验证：把 tool-tabs 的列数改回 3 → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = 'cc9fc48a0fe37aa618d0c3824575f62e568cba8d91b8353c7cef291d38e2b615';
+// 121 走查修复第一轮续钉（前值 cc9fc48a…）：本轮按用户 2026-09-13 走查的五条改了【四个既有层】，
+// **零新增、零删除层**（分组表一个字节没动，仍是 18 组 22 层）：
+//   ① `css/layout.css`：.app-topbar 加 position:relative + z-index:42（走查①：顶栏里那两块就地
+//      浮层被右栏盖住 —— 它们的 z-index 被关在顶栏那个 view-transition-name 造出来的层叠上下文里）；
+//      外加 #newSessionBtn[data-lens="steward"] 那一族（走查③：管家那一枚「＋」改鎏金描边次级钮）。
+//   ② `css/views/steward-board.css`：走查② —— 两条 hover 规则加 .app-frame.rail-board 前缀
+//      （悬停动作栏只属看板密度）、普通密度 .is-actions-open 的竖排浮层、行尾「⋯」一族、
+//      「浮层开着的那一行 z-index:3」与 .rail-threads-inner 的 :has() 松裁，@media (hover:none) 分档。
+//   ③ `css/views/steward-drawer.css`：走查④ —— .steward-chip-menu 的 z-index 2 → 30。
+//   ④ `css/views/chat-shell.css`：走查④ —— .topbar.thread-head 加 z-index:12（.topbar 带
+//      backdrop-filter，本来就是个 z-index:auto 的层叠上下文，菜单那一层出不了这个头）。
+// 算法自证（同一条拦截法）：按本轮开工时的 HEAD `2c8f953` 的 git blob ＋ 同一张分组表算
+// = cc9fc48a0fe37aa618d0c3824575f62e568cba8d91b8353c7cef291d38e2b615，与被替换的旧值【逐字相同】；
+// 再按五个 fix 提交全部落盘之后的 HEAD 的 blob 算得下面这个值（两次都从 git blob 算，不从工作区算
+// —— 32 号文 §4 纪律 4）。反向验证：把 .app-topbar 的 z-index 拔掉 → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = '7738fe506ee72505cfd9dda3337de5478b948a2fe58fcf2f52a98c157d11c3d7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

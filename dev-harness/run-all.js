@@ -59,6 +59,12 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 节拍」，另加两台真服务 ＋ 两个无头 Edge（第二台跑全新 HOME 的向导）。与别的 Edge 抢 CPU 时
   // 静置窗与全新 HOME 的首启探针都会被挤长，所以也排到并行功能桶之后单独跑。
   'rail-pocket.browser.e2e.js',
+  // 121 走查修复第一轮：walkthrough-round1.browser 量的全是【命中测试】—— 十来处
+  // document.elementFromPoint（哪块面盖在哪块面上）、真鼠标 hover 触发的 :hover 规则、
+  // 以及在行里逐点扫出一块「不是按钮」的地方再真点下去。与别的 Edge 抢 CPU 时，
+  // 视图过渡与浮层的开合会落在半途上被读到（第一轮实测就抓到过一次这种夹具级抖动），
+  // 所以它也排在并行功能桶之后单独跑。
+  'walkthrough-round1.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
@@ -91,6 +97,10 @@ const TIMEOUT_OVERRIDES = {
   // 首启探针一发 ~1.7 s ×3（34 号文 §13.10／ia.e2e ⑦ 的 20 s 门就是为它放的），加上两台服务两个
   // 浏览器与那 12 s 静置窗，默认值会贴边。300 s 是照 workbench-thread-head 那一档给的余量。
   'rail-pocket.browser.e2e.js': 300000,
+  // 121 走查修复第一轮：一趟里起四条真线程（一条停在待决 ＋ 一条一直在跑 ＋ 一条短回答 ＋ 一条空的）、
+  // 切视角七个来回、开合六张浮层各量三点命中、两档密度各悬停一次、再切一次模型跑一个真回合，
+  // 外加两张截图。24 核机器上实测单跑 ~120 s（独占桶里）。豁免到 300 s，与同族两件同一档。
+  'walkthrough-round1.browser.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

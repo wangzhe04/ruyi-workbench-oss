@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-12T12:53:32.957Z",
+  "generatedAt": "2026-09-12T14:59:39.071Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1646,6 +1646,7 @@
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\unit\\thread-facts.test.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -2168,6 +2169,7 @@
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\websearch.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
@@ -2699,6 +2701,7 @@
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-self-status.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
@@ -2875,6 +2878,7 @@
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-self-status.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
@@ -2981,6 +2985,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
@@ -3036,6 +3041,7 @@
         "dev-harness\\thread-brief.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3089,6 +3095,7 @@
         "dev-harness\\thread-brief.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3128,6 +3135,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3166,6 +3174,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3204,6 +3213,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3242,6 +3252,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3279,6 +3290,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3334,6 +3346,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -3366,6 +3379,7 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\unit\\steward-quick-replies.test.js",
+        "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },

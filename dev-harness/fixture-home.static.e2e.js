@@ -51,7 +51,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 121-K7(34 号文 §2.3 末段/§8.4):新增 dev-harness/rail-pocket.browser.e2e.js。它有【两处】
 // 带 RUYI_HOME 的 spawn —— 一台跑口袋与「接下来」，另一台用【全新 HOME】走向导（§8.4 拍板③）；
 // 两个无头 Edge 那两发 spawn 不带 RUYI_HOME，不计入。122 -> 124 / 118 -> 120 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 124;
+// 121 走查修复第一轮：新增 dev-harness/walkthrough-round1.browser.e2e.js（一处带 RUYI_HOME 的
+// spawn —— 那一发起服务；浏览器那一发 spawn 不带 RUYI_HOME，不计入），124 -> 125 / 120 -> 121
+// 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 125;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;
