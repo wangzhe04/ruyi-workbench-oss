@@ -575,6 +575,20 @@
 
 **316 pass / 6 fail / 2 flaky / 322 ran / 7 skipped**（e2e 总数 329，默认 322）。六红逐件经 run-all 隔离单跑：`mission-index-late-materialize`（并行下 223 ms 快败）／`agent-worktree`／`claude-context-continuity`／`responses-fake`／`websearch` **串行全绿**（8 路争用）；`observation-recall-replay` 缺 realhist-fixtures（环境）。失败尾巴里另有 `index-dedup` E3（基线名单）、`session-notes`／`observation-recall-realhistory`（环境）、`bridge-cancel-timeout`（重跑前首败，争用）。flaky 两件 `steward-shell`／`classic-window-live-steer` 重跑绿。`build --check` 新鲜、依赖图 50／398／forwardEdges 67／SCC 1（整波 K0→K7 前向边一条未增）。**121 波真回归 0，收口。** 未推送；推送前由用户拍板。
 
+### 13.17 用户走查修复第一轮（Opus 实现，`04dbae5`／`1470c79`／`019917d`／`59d60eb`／`9c93dd0`／`5828c90`，2026-09-13；主会话复核，补刀 quiet-card 静默窗）
+
+用户 2026-09-13 对着真机报五条，主会话先核事实再派单，执行者每条先真浏览器复现（`elementFromPoint`／真鼠标）再修再钉，新件 `walkthrough-round1.browser.e2e.js`（739 行）。`src/` 零改动；`app.js` 1222→1232；e2eCount 329→330；`LEGACY_STYLES_SHA256` `cc9fc48a…`→`7738fe50…`（两端 blob 复现）。
+
+- **① 顶栏浮层被右栏盖住**：病根不是派单稿写的 `layout.css:13`（那是 `.app-frame`）——`.app-topbar` 只因 `view-transition-name: titlebar` 成了 z-index:auto 的层叠上下文，盾牌菜单 z20／齿轮 z50 被关在里面，`.app-body` 后来者赢。修 `.app-topbar { position: relative; z-index: 42 }`（注释写死与 30/40/44/46/50/55/60 的关系）。钉 B1–B4；反向整条拔掉→四红；**额外发现**：改成 1 时 B1–B3 仍绿、只 B4 红——压住右栏只需「定位＋任意正 z」，B4 守的是档位。
+- **② 左栏显示太多、必须点文字**：`bindRowClick`（整行接 click，命中 `button/a/input/select/textarea/label` 让位；线程行→`openRow`、多线程任务行→展开收起）；普通密度悬停动作栏收进行尾一枚「⋯」（`popover` layer 模式开合**同一个** `.steward-board-actions` 节点，动作实现仍只在 `session-experience.js` 一处），`.rail-board` 看板密度保留悬停；**不加 `role="button"`／`tabindex`**——行里嵌着真按钮，Enter／Space 由标题按钮原生给。钉 C1–C7；反向拔 `bindRowClick`→C1/C2 红、去 `.rail-board` 前缀→C3 红。
+- **③「＋」两义看不出差别**：`syncRailPlus` 同一处写 `data-lens` 与字形（`lensSteward`／`plus`），管家侧鎏金描边次级钮，`rail.newTask`「新任务」→「另起一件」（无新键）。**派单稿证伪**：`button.primary` 底色是 `linear-gradient`，`background-color` 两边都是透明，判据改钉 `background-image`。反向拔样式→D3 红。
+- **④ chip 弹层与「对话｜班组」页签叠画**：两条病根——`.topbar` 带 `backdrop-filter` 让线程头成 z-index:auto 层叠上下文，菜单出不了头；左栏行同层＋`.rail-threads-inner` 手风琴 `overflow:hidden` 裁掉浮层。修 `.steward-chip-menu` z 2→30、`.topbar.thread-head` z 12、左栏 `:has()` 松裁＋开着的行 z 3。钉 E1–E5；反向**单拔菜单 z 仍全绿**（真正的门是宿主那一层），拔 `.topbar.thread-head` 的 12→E1 红。
+- **⑤ 切引擎／模型「似乎不直接生效」——复现定案：后端与写口全绿，断的全在前端回显与回执**。修前绿：PATCH 恰一发 200、服务端回读变了、chip 值变了、下一回合真打到新模型（fake provider 抓 `model`）、agent 路由形状写得进去；修前红：`state.currentSession.engineRoute` 没回填、空态「当前引擎：…」没变、`#statusLine` title 没变、**改完一条看得见的回执都没有**（chips 的 `note()` 写死 `#stewardDrawerNote`，工作台里 `display:none`）。修：`thread-head.js adoptSession`（只回填 `engineRoute`／`permissionMode`）＋ `noteSink: toast`；`steward-chips.js` 可选 `noteSink`（管家两处宿主一字未改）；`app.js` 接 `updateEngineDependentUI`／`updateContextMeter`／`renderStatusLine`；`provider-settings.js` 里 `(p && p.model) || currentModelId()` 次序反了顺带改。反向拔回填那一行→F3/F5/F6/F10 四红。
+- **执行者全量**（8 路）：317/6/2 flaky；六红串行：`index-dedup` E3 基线、三件 realhist 环境、`websearch` 只在 8 路红、`quiet-card.browser` 串行也红且基线同红——**主会话核**：后两条都是环境，见下。
+- **主会话复核**：六提交逐条读 stat 与关键 diff；`build --check`／依赖图 `--check` 新鲜；控制字符与 CR 扫描零；`--fast` 66/66；看过两张截图（管家视角盾牌菜单压在右栏之上；工作台 chip 菜单压在页签之上，菜单文字有横向裁切——遗留①）；串行五件全绿：`walkthrough-round1.browser` 46、`one-workbench-frame.browser` 63、`workbench-thread-head.browser` 56、`steward-board` 104、`dom-smoke` 52；**反向抽查**：`layout.css:51` 的 `.app-topbar` z-index 42→auto → B1–B4 与 B0 五红 → 还原逐字节一致。**走查第一轮真回归 0。**。
+- **两条「基线红」的真相**：① `quiet-card.browser`——安静卡按 §4.3 尊重静默时段，`notify-policy` 默认 22:00–08:00，本件从不覆盖它：白天 33 绿、夜里 A2a 起 12 红（00:18 复现）。主会话把静默窗钉到离此刻 6 小时之外（E 组自己再改成覆盖此刻），钉后 33/33。② `websearch` 8 路红——日志「Auto-imported fake／dummy-tool／stdio-hang」：真机 `~/.claude.json` **又被写进 8 条夹具**（22:50）。这次的路是**产品自己的回路**：真机数据根 `~/.win-claude-workbench/config.json` 的 `externalMcpServers` 早在某次启动时从被污染的 `~/.claude.json` 自动导入了它们，此后每次开真机 app（用户走查时 22:05／23:01）又经 `syncMcpServersToClaude`／`syncMcpServersToKimi` 同步回两份 CLI 配置。主会话把三处（Ruyi config、`~/.claude.json`、`~/.kimi-code/mcp.json`）与 Kimi sidecar 的 `managedIds` 一起清掉（各留 `.bak-<时间>`）。**产品债**：从 Claude Code 导入的条目不该再同步回 Claude Code（打来源标记），登记 122。另：run-all 一轮里所有件共用一个临时家（`fixtureHomeDir()` 按 runner 进程缓存），先跑的 `mcp-ops-closure` 让服务往临时家的 `.claude.json` 写夹具、后跑的 `websearch` 又导入——**每件一个临时家**是 122 的测试基建项。
+- **遗留**：① chip 菜单文字横向裁切（`.steward-chip-option` 是 `<button>` 继承 `base.css:49` 的 `white-space: nowrap`，`overflow-wrap` 失效；一行可修 `white-space: normal`）；② 导入→同步回路（上）；③ run-all 每件独立临时家（上）。
+
 ---
 
 ## 14. 换机器接着做（2026-09-11 晚收口；下一台机器从这里进）
@@ -601,4 +615,5 @@
 6. **产品**：`#moreMenuBtn` 与齿轮菜单四个同级兄弟重复（§13.14；牵连 `navigation-controls.js` 与 `ia.e2e ⑥`）。
 7. **文案／样式清障**：en-US「chat／session」→「thread」全量归一；`--fs-xl`／`--fs-2xl` 名字退役（onboarding／tool-pane／chat-primitives）；`model-menu.js MODEL_MENU_CLASSES` 的 `mc-*` 死字符串；非独占层 25 处 letter-spacing／9 处 uppercase；`.mc-pop` 一族已清。
 8. **锁与抖动**：`index-dedup` E3 疑似过期锁（`/compact` 后重注可能是对的，跑一次打印 t6.meta 定）；`event-stream` B-g1 本机固有；`classic-window-live-steer` 8 路下必 TIMEOUT（300 s 不够，或挪独占）；`quiet-card.browser` ①② 两句判据在单连接夹具下拦不到东西（多标签页夹具才轮到）。
-9. **环境（用户侧）**：`dev-harness/realhist-fixtures/` 从老机器拷；`~/.claude.json` 里 8 条失效的 `loca_*`。
+9. **环境（用户侧）**：`dev-harness/realhist-fixtures/`——用户在另一台电脑测（35 号文 §4 ②）；`~/.claude.json` 里 8 条失效的 `loca_*`。
+10. **走查第一轮追加（§13.17）**：① chip 菜单文字横向裁切（`.steward-chip-option { white-space: normal }` 一行）；② **产品债** 从 Claude Code 导入的 MCP 条目不该再同步回 Claude Code／Kimi（导入→同步回路会让删掉的条目复活，打来源标记）；③ **测试基建** run-all 每件独立临时家（现按 runner 进程共用一个，先跑的件让服务往临时家写 `.claude.json`、后跑的件又导入，8 路下 `websearch` 因此红）。
