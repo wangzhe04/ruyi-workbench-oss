@@ -217,9 +217,36 @@
 }
 .rail-count:empty { display: none; }
 .rail-board-btn[aria-pressed="true"] { color: var(--accent); background: var(--panel-3); }
-/* 口袋槽位（栏底常驻）。四项内容归 K7；空着的时候不占高度。 */
+/* 口袋槽位（栏底常驻）。四项由 js/rail-pocket.js 画（121-K7，§2.3 末段）；空着的时候不占高度。 */
 .rail-pocket { flex: 0 0 auto; display: grid; gap: 2px; padding: 8px 0 8px; border-top: 1px solid var(--line); }
 .rail-pocket:empty { display: none; }
+/* 一行 = 字形 ＋ 短词 ＋ （可选）计数／「新」。行高与左栏那些行对齐，圆角走胶囊（§2.10.3）。 */
+.rail-pocket-item {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; align-items: center; gap: 8px;
+  width: 100%; min-height: 30px; padding: 5px 8px;
+  font-size: var(--fs-sm); text-align: left;
+  color: var(--ink-2); background: transparent; border: 1px solid transparent; border-radius: var(--r-pill);
+}
+.rail-pocket-item:hover { color: var(--ink); background: var(--panel-2); }
+.rail-pocket-item .ic { color: var(--muted); }
+.rail-pocket-item:hover .ic { color: var(--ink-2); }
+.rail-pocket-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 计数：灰底小胶囊，与 .rail-count／.rail-gh-n 同一档（§2.10.2「计数进一枚小胶囊」）。
+   体检那一枚按 tone 换色 —— 它说的是「有几件要处理」，不是「有几个」。 */
+.rail-pocket-n {
+  min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center;
+  font-size: var(--fs-xs); border-radius: var(--r-pill); color: var(--ink-2); background: var(--panel-3);
+}
+.rail-pocket-n:empty { display: none; }
+.rail-pocket-n[data-tone="warn"] { color: var(--panel); background: var(--warn); }
+.rail-pocket-n[data-tone="error"] { color: var(--panel); background: var(--danger); }
+/* 「新」角标：鎏金（§2.10.3 —— 鎏金只给「等你」与「记得的关于你」的「新」）。 */
+.rail-pocket-new {
+  height: 18px; padding: 0 6px; display: grid; place-items: center;
+  font-size: var(--fs-xs); font-weight: 650; border-radius: var(--r-pill);
+  color: var(--gold-ink); background: var(--gold);
+}
+.rail-pocket-new:empty { display: none; }
 
 .search-wrap { flex: 0 0 auto; }
 .search-wrap input { background: var(--panel-2); }
@@ -341,7 +368,13 @@
   .task-rail .steward-board-chips,
   .task-rail .steward-board-tail,
   .task-rail .steward-board-empty,
+  /* 121-K7（§7.3）：口袋在这一档【只留图标】—— 短词、计数与「新」角标收起，四枚按钮与它们的
+     字形一个不少（可访问名仍在 title／aria-label 上，读屏与悬停都还说得出是哪一样）。 */
+  .task-rail .rail-pocket-label,
+  .task-rail .rail-pocket-n,
+  .task-rail .rail-pocket-new,
   .task-rail .classic-sidebar-primary-actions span { display: none; }
+  .task-rail .rail-pocket-item { grid-template-columns: 1fr; justify-items: center; padding: 5px 0; }
   /* 带字形的药丸要【多写一条】：`.steward-board-pill.has-icon { display: inline-flex }`
      住在后加载的 steward-board.css 里，与上面那条 `.task-rail .steward-board-pill` 同为
      0,2,0 —— 同分时后来的赢，于是「需要你」「已停工」两截字在 56px 栏里还看得见

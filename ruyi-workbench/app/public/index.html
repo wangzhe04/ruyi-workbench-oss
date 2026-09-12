@@ -692,6 +692,17 @@
       <aside id="stewardSide" class="steward-side"
              aria-label="焦点" data-i18n-attr="aria-label:shell.focus" hidden>
         <div id="stewardFocus" class="steward-side-body"></div>
+        <!-- 121-K7（§2.6 末条「接下来：定时任务最近两条」）：它是 #stewardFocus 的【兄弟】而不是
+             子节点 —— steward-board.js 的 placeNowStacks 每一拍都把「其它在途」那一叠重新
+             appendChild 回 #stewardFocus 的末尾，塞在里面的任何东西都会被顶到它上面去。
+             放在这里，屏幕上的顺序就是 §2.6 写的：焦点卡 → 其它在途 → 接下来。
+             内容由 js/steward-drawer.js 填（零 innerHTML）；没有定时任务时【整段不画】，
+             所以骨架只有一个空壳，:empty 时不占高度也不画分隔线。 -->
+        <section id="stewardUpNext" class="steward-upnext" hidden
+                 aria-labelledby="stewardUpNextHead">
+          <h3 id="stewardUpNextHead" class="steward-drawer-h" data-i18n="stewardShell.drawer.upNext">接下来</h3>
+          <ul id="stewardUpNextList" class="steward-upnext-list"></ul>
+        </section>
       </aside>
 
       <!-- 117d 线程抽屉 → 121-K6b 起是管家视角的【焦点卡】（34 号文 §2.6）。区块顺序【就是】契约，
@@ -1004,7 +1015,7 @@
           </div>
 
           <!-- ===== 117e 管家（27 号文 §5 117e 行 / §8.6 权限的界面表达 / §4 记忆面板）===== -->
-          <!-- 六个 <section>，控件 id 一律 cfgSteward* 前缀。骨架静态写死在这里； -->
+          <!-- 八个 <section>（121-K7 加了「任务索引」与「定时任务」两组），控件 id 一律 cfgSteward* 前缀。骨架静态写死在这里； -->
           <!-- js/steward-settings.js 只 createElement + textContent 填内容（零 innerHTML）。 -->
           <div class="settings-tab" id="stab-steward">
             <p id="cfgStewardNote" class="field-help steward-settings-note" role="status" aria-live="polite"></p>
@@ -1150,6 +1161,32 @@
                 </div>
               </div>
               <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>
+            </section>
+
+            <!-- ④c 任务索引（121-K7，34 号文 §13.5 登记③／§4.1「噪音用窗口解决，不用能力解决」）。 -->
+            <!-- K3 已经把 threadIndexRecent 的缺省（30）与钳位（[10,200]）落在 src/01-config.js 一处， -->
+            <!-- 判据单点在 06i 的 threadVisible —— 本刀补的只是【设置入口】那一个数字框， -->
+            <!-- 写回走与本页其余控件同一条 POST /api/config（服务端 normalizeConfig 再钳一次）。 -->
+            <section class="steward-settings-group" id="cfgStewardGroupIndex" aria-labelledby="cfgStewardIndexHeading">
+              <h4 id="cfgStewardIndexHeading" class="settings-subhead" data-i18n="settings.steward.group.index">任务索引</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.indexHint">左栏里能看见哪些线程。一条既不在途、今天也没动静、管家也不盯的旧线程，只有排在最近这么多条里才出现在左栏。</p>
+              <div class="field-block">
+                <label for="cfgStewardThreadIndexRecent" data-i18n="settings.steward.threadIndexRecent">左栏最近保留多少条线程</label>
+                <input id="cfgStewardThreadIndexRecent" type="number" min="10" max="200" step="1" />
+                <p class="field-help muted" data-i18n="settings.steward.threadIndexRecentHint">10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（Ctrl+K）。</p>
+              </div>
+            </section>
+
+            <!-- ④d 定时任务（121-K7，34 号文 §7.2 表首行）：口袋第一项与焦点栏「接下来」落到的那一面。 -->
+            <!-- **只读**：119 波的定时任务读面（GET /api/scheduler/tasks）今天还没有生产者，读不到就 -->
+            <!-- 说「还没有定时任务」——面在这里，等它落地那天不用再挪一次入口。 -->
+            <section class="steward-settings-group" id="cfgStewardGroupSchedule" aria-labelledby="cfgStewardScheduleHeading">
+              <h4 id="cfgStewardScheduleHeading" class="settings-subhead" data-i18n="settings.steward.group.schedule">定时任务</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.scheduleHint">到点自己开一条线程去办的事。这里只看，改在别处。</p>
+              <div class="steward-settings-row">
+                <button type="button" id="cfgStewardScheduleRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.refresh">刷新</button>
+              </div>
+              <ul id="cfgStewardSchedule" class="steward-schedule-list"></ul>
             </section>
 
             <!-- ⑤ 管家记得的关于你（§4「面板」）-->

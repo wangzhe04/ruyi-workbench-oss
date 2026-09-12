@@ -117,6 +117,9 @@ const PAYLOAD_FILES = [
   // 121-K6a:安静卡(§4.3,工作台里管家的唯一打扰形态)。steward-shell.js 静态 import 它,
   // 缺文件同 thread-head.js 的理由 —— 整条挂掉。
   'app/public/js/quiet-card.js',
+  // 121-K7:左栏栏底的口袋(§2.3 末段)。app.js 静态 import 它,而 steward-drawer.js 与
+  // steward-settings.js 又从它拿定时任务的读口 —— 缺文件三条链一起挂,同 quiet-card.js 的理由。
+  'app/public/js/rail-pocket.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

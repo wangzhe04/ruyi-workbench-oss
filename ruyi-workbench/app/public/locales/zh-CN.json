@@ -639,8 +639,19 @@
   "onboarding.wizard.step.language": "语言",
   "onboarding.wizard.step.provider": "密钥",
   "onboarding.wizard.step.safety": "安全",
+  "onboarding.wizard.step.steward": "管家",
   "onboarding.wizard.step.workspace": "文件夹",
   "onboarding.wizard.stepCounter": "第 {{current}} / {{total}} 步 · {{title}}",
+  "onboarding.wizard.steward.title": "管家用哪个模型",
+  "onboarding.wizard.steward.hint": "如意在后台替你盯线程时用它。跟随主端点最省事；挑一个便宜的小模型更省钱。",
+  "onboarding.wizard.steward.follow": "跟随主端点",
+  "onboarding.wizard.steward.followHint": "不另外挑，用你刚配好的那一个。",
+  "onboarding.wizard.steward.custom": "另挑一个",
+  "onboarding.wizard.steward.customHint": "填一个模型名，通常是同一个服务商里更便宜的那一档。",
+  "onboarding.wizard.steward.modelLabel": "模型名",
+  "onboarding.wizard.steward.modelPlaceholder": "比如 deepseek-chat",
+  "onboarding.wizard.steward.saved": "管家改用「{{model}}」。",
+  "onboarding.wizard.steward.savedFollow": "管家跟随主端点。",
   "onboarding.wizard.title": "欢迎向导",
   "onboarding.wizard.validate.keyEmpty": "请先填 API Key",
   "onboarding.wizard.validate.keyMasked": "这是被遮盖的旧密钥，请粘贴真实密钥",
@@ -2288,6 +2299,8 @@
   ,"stewardShell.drawer.askSend": "回答"
   ,"stewardShell.drawer.more": "更多"
   ,"stewardShell.drawer.relay": "接力关系"
+  ,"stewardShell.drawer.upNext": "接下来"
+  ,"stewardShell.drawer.upNextRow": "{{name}} · {{when}}"
   ,"stewardShell.drawer.activity": "三问"
   ,"stewardShell.drawer.activityDoing": "在干什么"
   ,"stewardShell.drawer.activityProgress": "干到哪"
@@ -2420,6 +2433,15 @@
   ,"settings.steward.threadModels.fastProvider": "简单任务 · 快速模型服务商"
   ,"settings.steward.threadModels.fastModel": "简单任务 · 快速模型"
   ,"settings.steward.threadModels.hint": "管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。"
+  ,"settings.steward.group.index": "任务索引"
+  ,"settings.steward.group.indexHint": "左栏里能看见哪些线程。一条既不在途、今天也没动静、管家也不盯的旧线程，只有排在最近这么多条里才出现在左栏。"
+  ,"settings.steward.threadIndexRecent": "左栏最近保留多少条线程"
+  ,"settings.steward.threadIndexRecentHint": "10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（Ctrl+K）。"
+  ,"settings.steward.group.schedule": "定时任务"
+  ,"settings.steward.group.scheduleHint": "到点自己开一条线程去办的事。这里只看，改在别处。"
+  ,"settings.steward.schedule.refresh": "刷新"
+  ,"settings.steward.schedule.empty": "还没有定时任务。"
+  ,"settings.steward.schedule.next": "下次 {{when}}"
   ,"settings.steward.group.memory": "管家记得的关于你"
   ,"settings.steward.group.memoryHint": "这些只进管家自己的提示词，不会进普通线程。每条都能改、能否决、能恢复。"
   ,"settings.steward.memory.refresh": "刷新"
@@ -2590,6 +2612,12 @@
   ,"rail.chip.running": "{{n}} 在跑"
   ,"rail.chip.needsYou": "{{n}} 等你"
   ,"rail.jumpGroup": "跳到最需要你的那一组"
+  ,"rail.pocket.schedule": "定时任务"
+  ,"rail.pocket.decisions": "行动流水"
+  ,"rail.pocket.memory": "记得的关于你"
+  ,"rail.pocket.doctor": "体检 · 用量"
+  ,"rail.pocket.new": "新"
+  ,"rail.pocket.newHint": "24 小时内有新写入"
   ,"status.connected": "已连上本地服务"
   ,"threadHead.chips": "线程配置"
   ,"threadHead.watch": "交给管家盯"

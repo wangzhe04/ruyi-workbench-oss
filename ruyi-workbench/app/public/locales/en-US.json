@@ -639,8 +639,19 @@
   "onboarding.wizard.step.language": "Language",
   "onboarding.wizard.step.provider": "Key",
   "onboarding.wizard.step.safety": "Safety",
+  "onboarding.wizard.step.steward": "Steward",
   "onboarding.wizard.step.workspace": "Folder",
   "onboarding.wizard.stepCounter": "Step {{current}} of {{total}} - {{title}}",
+  "onboarding.wizard.steward.title": "Which model runs the steward",
+  "onboarding.wizard.steward.hint": "Ruyi uses this while it watches your threads in the background. Following the main endpoint is simplest; a small cheap model costs less.",
+  "onboarding.wizard.steward.follow": "Follow the main endpoint",
+  "onboarding.wizard.steward.followHint": "No separate pick — use the one you just set up.",
+  "onboarding.wizard.steward.custom": "Pick another one",
+  "onboarding.wizard.steward.customHint": "Enter a model name, usually the cheaper tier from the same provider.",
+  "onboarding.wizard.steward.modelLabel": "Model name",
+  "onboarding.wizard.steward.modelPlaceholder": "e.g. deepseek-chat",
+  "onboarding.wizard.steward.saved": "The steward now uses \"{{model}}\".",
+  "onboarding.wizard.steward.savedFollow": "The steward follows the main endpoint.",
   "onboarding.wizard.title": "Welcome guide",
   "onboarding.wizard.validate.keyEmpty": "Fill in the API key first",
   "onboarding.wizard.validate.keyMasked": "That is the masked stored key. Paste the real one.",
@@ -2288,6 +2299,8 @@
   ,"stewardShell.drawer.askSend": "Answer"
   ,"stewardShell.drawer.more": "More"
   ,"stewardShell.drawer.relay": "Related chats"
+  ,"stewardShell.drawer.upNext": "Up next"
+  ,"stewardShell.drawer.upNextRow": "{{name}} · {{when}}"
   ,"stewardShell.drawer.activity": "Three questions"
   ,"stewardShell.drawer.activityDoing": "Doing what"
   ,"stewardShell.drawer.activityProgress": "How far"
@@ -2420,6 +2433,15 @@
   ,"settings.steward.threadModels.fastProvider": "Simple tasks · fast model provider"
   ,"settings.steward.threadModels.fastModel": "Simple tasks · fast model"
   ,"settings.steward.threadModels.hint": "The steward picks a tier itself by task complexity when it opens a new chat: multi-step reasoning, coding, and long writing use the strong model; quick lookups, one-line edits, and simple Q&A use the fast model. Quick-ask chats always use the fast model. Leave empty to follow the main endpoint."
+  ,"settings.steward.group.index": "Task index"
+  ,"settings.steward.group.indexHint": "Which threads the rail can show. An old thread that is not in flight, has not moved today, and is not watched only shows up if it is among this many most-recent ones."
+  ,"settings.steward.threadIndexRecent": "How many recent threads the rail keeps"
+  ,"settings.steward.threadIndexRecentHint": "Between 10 and 200. Smaller keeps the rail clean, larger keeps it complete; threads outside the window are still searchable (Ctrl+K)."
+  ,"settings.steward.group.schedule": "Scheduled tasks"
+  ,"settings.steward.group.scheduleHint": "Things that open a thread on their own when the time comes. Read-only here."
+  ,"settings.steward.schedule.refresh": "Refresh"
+  ,"settings.steward.schedule.empty": "No scheduled tasks yet."
+  ,"settings.steward.schedule.next": "Next {{when}}"
   ,"settings.steward.group.memory": "What the steward remembers about you"
   ,"settings.steward.group.memoryHint": "These only go into the steward's own prompt, never into a normal session. Every line can be edited, vetoed or restored."
   ,"settings.steward.memory.refresh": "Refresh"
@@ -2590,6 +2612,12 @@
   ,"rail.chip.running": "{{n}} running"
   ,"rail.chip.needsYou": "{{n}} waiting"
   ,"rail.jumpGroup": "Jump to the group that needs you most"
+  ,"rail.pocket.schedule": "Scheduled tasks"
+  ,"rail.pocket.decisions": "Action log"
+  ,"rail.pocket.memory": "What it remembers"
+  ,"rail.pocket.doctor": "Health · usage"
+  ,"rail.pocket.new": "New"
+  ,"rail.pocket.newHint": "Something new in the last 24 hours"
   ,"status.connected": "Connected to the local service"
   ,"threadHead.chips": "Thread settings"
   ,"threadHead.watch": "Let the steward watch"

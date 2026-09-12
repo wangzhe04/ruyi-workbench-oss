@@ -41,6 +41,7 @@ import { createEventStream } from './js/event-stream.js'; // 121-K2b
 import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：左栏「＋ 新任务」派的那一条
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
+import { bindRailPocket } from './js/rail-pocket.js'; // 121-K7：左栏栏底的口袋（§2.3 末段）
 // 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
 // (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
 // One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
@@ -840,6 +841,7 @@ const {
   turnArtifactChips,
   turnSummaryCard,
 } = createSessionExperienceDomain({
+  applyShellMode: mode => applyShellMode(mode), // 121-K7（§8.4）：向导完成页落在管家视角（迟绑定：控制器在下面才建）
   eventStream, // 121-K2b：2.0「它正在跑」卡吃 thread.live；换会话时由 openSession 报新的在场信号
   apiErrText,
   renderMarkdownInto: (...args) => renderMarkdownInto(...args), highlightIn: (...args) => highlightIn(...args), // 118a-fix: 手册阅读器复用同一条已消毒 markdown 管线
@@ -967,6 +969,7 @@ function bindEvents() {
   bindAppFrame(); // 121-K4：外框顶栏与左栏的框架动作（§2.2／§2.3／§7.3）
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
+  bindRailPocket({ api, state, t, eventStream, openStewardPanel: section => stewardShellDomain.openStewardPanel(section), openUsage: () => { openToolPane(); switchTab('usage'); }, openDoctor: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); }, isStewardMode: () => document.documentElement.getAttribute('data-shell-mode') === 'steward' }); // 121-K7：口袋四项（§2.3／§7.2；「体检 · 用量」两视角两条路）
   // sidebar
   $('newSessionBtn').onclick = () => { void startFromRail(); };
   bindRailSessionActions(); // 121-K4：左栏行上「置顶／重命名／删除」的委托（会话怎么改仍在 session-experience 一处）

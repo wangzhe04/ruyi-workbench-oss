@@ -80,11 +80,14 @@ export const STEWARD_DETAILS_KEY = 'wcw.stewardDetails';
 // 117l-B2 ③（用户第五轮走查 3「为啥点 Avatar，显示面板是在最上面」）：头像菜单与头像之间留的空隙，
 // 也是「下方还放不放得下」那个判定的余量。一处常量，两处（定位与判定）读同一个数。
 export const STEWARD_MENU_GAP = 8;
-// 117e：头像菜单里「细节」之后的三项（人话键 → 设置页里要滚到的区块）。顺序即菜单顺序。
+// 117e：头像菜单里「细节」之后的项（人话键 → 设置页里要滚到的区块）。顺序即菜单顺序。
+// 121-K7（34 号文 §2.3 末段／§2.4／§9 K7 验收「头像菜单只剩『细节』『设置』」）：
+// 「记得的关于你」与「行动流水」两项【搬进左栏栏底的口袋】（js/rail-pocket.js）—— §2.3 的原话是
+// 「这四样今天藏在头像菜单里，用户找不到」。搬走不是删：口袋里那两枚按钮走的是同一个
+// openStewardPanel('memory'／'decisions')，一个入口一处，不留第二份。
+// 菜单剩下的两项就是「细节」（本模块自己的开关）与这里的「设置」。
 export const STEWARD_MENU_SECTIONS = Object.freeze([
   ['stewardShell.menu.settings', ''],
-  ['stewardShell.menu.memory', 'memory'],
-  ['stewardShell.menu.decisions', 'decisions'],
 ]);
 // 主动作的视觉档只有这一个类名，且只有一处字面量 —— §8.4「主动作只有一个（金色或主色），其余安静」
 // 的机械保证：想再造一个「重点按钮」就必须先改这一行，静态锁看得见。
@@ -1893,8 +1896,11 @@ export function createStewardConversation({
         });
         toggle.setAttribute('aria-pressed', detailsOn ? 'true' : 'false');
         menu.appendChild(toggle);
-        // 117e：§8.2「头像本身是管家的口袋」。三项都只是「打开设置的管家页签并滚到那一段」，
-        // 注入缺席时（依赖没接上）整段不出现，菜单退回 117c 的只有「细节」。
+        // 117e：这一项只是「打开设置的管家页签」。注入缺席时（依赖没接上）整段不出现，
+        // 菜单退回 117c 的只有「细节」。
+        // 121-K7：§8.2 那句「头像本身是管家的口袋」自此由【真的口袋】兑现 —— 左栏栏底那四枚
+        // （js/rail-pocket.js）。头像菜单只剩「细节」「设置」两项（§2.4／§9 K7），
+        // 表在 STEWARD_MENU_SECTIONS 一处，循环一个字不改。
         if (typeof openStewardPanel === 'function') {
           for (const [labelKey, section] of STEWARD_MENU_SECTIONS) {
             menu.appendChild(button('steward-menu-item', t(labelKey), () => {
