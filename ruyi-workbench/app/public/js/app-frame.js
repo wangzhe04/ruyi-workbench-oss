@@ -31,20 +31,11 @@ export const LENS_BACK = 'steward';      // 返回方向（工作台 → 管家�
 // 【此刻可见的】那一条恢复回去。记的是位置，不是快照 —— 内容重画过也不会错位到别人身上。
 export const APP_FRAME_SCROLL_KEEPERS = Object.freeze(['stewardFeed', 'messages']);
 
-// 121-K5（34 号文 §2.7）：退役的 js/steward-classic-window.js 里 backToSteward 的【后半】——
-// 回到管家视角时，让焦点落在刚才在工作台看的那条线程上。它的前半（sessionStorage 返回标记与
-// 那条返回带）随本刀整段删掉；后半搬到这里，因为分段钮才是用户真正按「回管家」的那一处。
-// 常量与 steward-board.js:110／steward-conversation.js:57 那两份逐字相同（各持一份同名常量，
-// 不为一个字符串在域之间多拉一条 import 边；是否还相同由静态锁看住）。
-export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread';
-
 export function createAppFrame({
   applyShellMode = () => 'classic',
   documentRef = globalThis.document,
   // 组合根注入：两个视角此刻指的是【同一条线程】时返回它的 id，否则空串（见 markSharedThread）。
   sharedThreadId = () => '',
-  // 组合根注入：工作台此刻打开的那条线程。切回管家时拿它派 steward:focus-thread（见上）。
-  workbenchThreadId = () => '',
 } = {}) {
   const doc = () => documentRef || null;
   const byId = id => { try { return doc()?.getElementById(id) || null; } catch { return null; } };
@@ -70,23 +61,15 @@ export function createAppFrame({
   function setLens(lens) {
     const next = lens === 'steward' ? 'steward' : 'classic';
     if (next === currentMode()) return next;
-    // 121-K5：切回管家【之前】记下工作台此刻那条线程 —— 切过去之后 2.0 那一侧还在，但焦点栏
-    // 要的是「你刚才在看哪一条」，所以在同一拍取。
-    const back = next === 'steward' ? String(workbenchThreadId() || '') : '';
+    // 121-K5 复核（34 号文 §13.8）：分段钮是【全局视角开关】，不是退役的 steward-classic-window.js
+    // 那枚「回到管家（看这条）」按钮——切回管家时【不】把焦点换成工作台此刻那条线程。§2.1 第 11 条
+    // 「切回管家视角时对话流、焦点任务、滚动位置原样」与 §2.7 第三条「每个视角记住自己的现场」
+    // 是这一处的口径；§2.7 第一条里「派 steward:focus-thread」说的是 backToSteward 那枚按钮的语义，
+    // 按钮已随返回带退役。K4 的 one-workbench-frame K6 钉的就是这一条（K5 第一版在这里派过一发，
+    // 全量逮到）。
     const mode = applyShellMode(next);
     syncLensSeg();
-    if (mode === 'steward' && back) focusThreadInSteward(back);
     return mode;
-  }
-
-  // 派一条 steward:focus-thread：左栏（steward-board.js:1503）与抽屉都接它，把焦点换成这一条。
-  // 本模块只是【派】—— 谁是焦点、焦点栏画成什么样，全在管家域，外框一个字不判。
-  function focusThreadInSteward(sessionId) {
-    const document_ = doc();
-    if (!document_ || !sessionId) return '';
-    try { document_.dispatchEvent(new CustomEvent(STEWARD_FOCUS_THREAD_EVENT, { detail: { sessionId: String(sessionId) } })); }
-    catch { return ''; }   // 无 CustomEvent 的宿主
-    return String(sessionId);
   }
 
   function toggleLens() {
@@ -220,7 +203,6 @@ export function createAppFrame({
   return Object.freeze({
     bindAppFrame,
     markSharedThread,
-    focusThreadInSteward,
     setLens,
     toggleLens,
     syncLensSeg,

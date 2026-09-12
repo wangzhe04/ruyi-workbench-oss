@@ -537,18 +537,31 @@ try {
     `E4 盯着 ＋ 你不在这条线程上（切到管家视角，在场信号随之变）→ 「${zh['threadHead.steward.watching']}」`);
   await setLens('classic');
 
-  /* ═════════ ⑧ 「在工作台打开」与「切回管家」是同一条线程（§2.7）═════════
-     退役的 steward-classic-window.js 里 backToSteward 的【后半】搬到了分段钮那一处；
-     前半（sessionStorage 返回标记与返回带）整段删。反向验证：把 app-frame.js 的
-     focusThreadInSteward 调用摘掉 → F2 当场红。 */
-  ok(Boolean(await openInWorkbench(created.C)), 'F0 工作台仍在 C 上');
+  /* ═════════ ⑧ 分段钮是视角开关，不是「回到管家（看这条）」（§2.1 第 11 条／§2.7 第三条）═════════
+     K5 第一版在这里照 §2.7 第一条把退役的 backToSteward 后半搬到分段钮上（切回管家就派
+     steward:focus-thread 到工作台此刻那条线程），全量被 K4 的 one-workbench-frame K6 逮到：
+     两个视角各记自己的现场，切换不改对方的焦点。§2.7 第一条说的是那枚已退役按钮的语义。
+     这里钉的是同一条事实的工作台侧：先在管家视角把焦点钉到 A，去工作台打开 C，再切回来，
+     焦点仍是 A、不是 C。返回带的 sessionStorage 标记也没了（F3）。
+     反向验证：在 app-frame.js 的 setLens 里切回 steward 时派一发 steward:focus-thread
+     （detail 用工作台当前线程）→ F2 当场红。 */
   await setLens('steward');
-  const focusBack = await waitForEval(cdp, `(() => {
+  await cdp.evaluate(`(() => { document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(created.A)} } })); return true; })()`);
+  const pinnedA = await waitForEval(cdp, `(() => {
     const node = document.getElementById('stewardDrawerTitle');
-    return node && node.textContent && node.textContent.includes(${JSON.stringify(THREAD_C)}) ? { title: node.textContent } : null;
+    return node && node.textContent && node.textContent.includes(${JSON.stringify(THREAD_A)}) ? { title: node.textContent } : null;
   })()`);
-  ok(Boolean(focusBack),
-    `F2 顶栏分段钮切回管家 → 焦点落在刚才在工作台看的那条线程上（实测焦点卡标题「${focusBack && focusBack.title}」）`);
+  ok(Boolean(pinnedA), `F0a 管家视角先把焦点钉到 A（实测焦点卡标题「${pinnedA && pinnedA.title}」）`);
+  await setLens('classic');   // 先到工作台再点行：管家视角里点左栏那一行＝换焦点（§2.3 点击语义），那就不是本条要考的事了
+  ok(Boolean(await openInWorkbench(created.C)), 'F0b 去工作台打开 C');
+  await setLens('steward');
+  await sleep(600);   // 切换动效与任何可能的错误派发都落地之后再读（这里要证的是【没有】变化）
+  const focusKept = await cdp.evaluate(`(() => {
+    const node = document.getElementById('stewardDrawerTitle');
+    return { title: node ? String(node.textContent || '') : '' };
+  })()`);
+  ok(focusKept.title.includes(THREAD_A) && !focusKept.title.includes(THREAD_C),
+    `F2 顶栏分段钮切回管家 → 焦点【原样】还是 A，不被工作台此刻的 C 改写（实测焦点卡标题「${focusKept.title}」；§2.1 第 11 条）`);
   const noMark = await cdp.evaluate(`(() => { try { return sessionStorage.getItem('wcw.stewardReturn'); } catch { return 'ERR'; } })()`);
   ok(noMark === null, `F3 没有任何返回标记了（117g 的 sessionStorage 那一支随返回带整段退役；实测 ${JSON.stringify(noMark)}）`);
   await setLens('classic');

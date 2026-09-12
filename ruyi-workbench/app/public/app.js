@@ -924,9 +924,6 @@ const appFrame = createAppFrame({
     const current = String((state.currentSession && state.currentSession.id) || '');
     return focus && focus === current ? focus : '';
   },
-  // 121-K5（§2.7）：分段钮切回管家时，焦点落在刚才在工作台看的那条线程上（退役的
-  // steward-classic-window.js 里 backToSteward 的后半，前半那个 sessionStorage 返回标记整段删）。
-  workbenchThreadId: () => String((state.currentSession && state.currentSession.id) || ''),
 });
 const { bindAppFrame } = appFrame;
 
