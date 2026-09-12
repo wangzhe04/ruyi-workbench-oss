@@ -680,18 +680,22 @@
       <!-- 121-K4（§2.6／§7.1）：管家视角的【右栏槽位】。原来的浮层「现在这几件」（#stewardNow，
            ≥1000px 时是一块 fixed 的玻璃浮层，带标题条与「关掉」）退役 —— 右栏现在是外框栅格里
            实实在在的一列，与工作台视角的 .tool-pane 同宽同位置，所以切视角时它只淡入淡出、不位移。
-           它【仍然不渲染任何抽屉区块】：#stewardNowBody 只是一个挂点，js/steward-drawer.js 的
-           setMount('docked') 把【同一个】 #stewardDrawer 节点搬进来（那个 id 是抽屉自己认的挂点名，
-           抽屉内部逻辑不归本刀改，故名字留着；改造成「焦点栏」连同改名归 K6）。 -->
+           它【仍然不渲染任何焦点卡区块】：#stewardFocus 只是一个挂点，js/steward-drawer.js 的
+           setMount('docked') 把【同一个】 #stewardDrawer 节点搬进来。
+           121-K6b（§2.6／§13.7 ③）：挂点从 #stewardNowBody 改名成 #stewardFocus —— 浮层时代的
+           「现在这几件」已经退役两刀了，名字里再留着 Now 就是在指一块不存在的面。 -->
       <aside id="stewardSide" class="steward-side"
              aria-label="焦点" data-i18n-attr="aria-label:shell.focus" hidden>
-        <div id="stewardNowBody" class="steward-side-body"></div>
+        <div id="stewardFocus" class="steward-side-body"></div>
       </aside>
 
-      <!-- 117d 线程抽屉（27 号文 §8.2 L2 / §8.13）。区块顺序【就是】契约：事项行 → 线程页签 →
-           线程头 → 快切 chip → 它刚说 → 你可以说 → 接力 → 三问 → 验收项 → 现场 → 底部。
+      <!-- 117d 线程抽屉 → 121-K6b 起是管家视角的【焦点卡】（34 号文 §2.6）。区块顺序【就是】契约，
+           自上而下：卡头 → 元信息一行 → 线程页签 → 快切 chip → 它在问你 → 它正在说／它刚说 →
+           你可以说 → 排队在等什么 → 更多（接力／三问／验收项／现场）→ 底部动作行。
+           §2.6 的「按五态一段」是【显隐】纪律，不是第二套区块：等你出 ④，在跑／收工出 ⑥，
+           排队出 ⑧ —— 判据只有一个（mission-state.js 的五态），写在 js/steward-drawer.js 一处。
            骨架静态写死在这里（零 innerHTML：js/steward-drawer.js 只 createElement + textContent 填内容）；
-           ≥1000px 时它占右侧 390px 栏（对话区靠 padding-right 收窄），窄屏全屏覆盖并补 aria-modal。 -->
+           docked（常驻焦点栏）没有「关掉」，overlay（≤1000px 抽屉态）才有那枚 × 与 aria-modal。 -->
       <aside id="stewardDrawer" class="steward-drawer" role="dialog" aria-labelledby="stewardDrawerTitle"
              aria-label="线程抽屉" data-i18n-attr="aria-label:stewardShell.drawer.label" hidden>
         <div class="steward-drawer-bar">
@@ -699,25 +703,27 @@
                   aria-label="关闭" data-i18n-attr="aria-label:stewardShell.drawer.close;title:stewardShell.drawer.close">×</button>
         </div>
         <div class="steward-drawer-body">
-          <!-- ① 事项行：标题、验收 a/b、费用／预算 -->
-          <section id="stewardDrawerMission" class="steward-drawer-mission"
-                   aria-label="事项" data-i18n-attr="aria-label:stewardShell.drawer.missionSection">
-            <strong id="stewardDrawerMissionTitle" class="steward-drawer-mission-title"></strong>
-            <span id="stewardDrawerMissionAcceptance" class="steward-drawer-pill"></span>
-            <span id="stewardDrawerMissionCost" class="steward-drawer-pill"></span>
-          </section>
-          <!-- ② 线程页签：同事项兄弟线程 ＋「＋ 线程」 -->
-          <div id="stewardDrawerTabs" class="steward-drawer-tabs" role="tablist"
-               aria-label="同事项的线程" data-i18n-attr="aria-label:stewardShell.drawer.tabsLabel"></div>
-          <!-- ③ 线程头：标题、五态、等待原因一句、2.0 视窗 -->
+          <!-- ① 卡头（§2.6）：色条 ＋「任务 › 线程」＋ 五态药丸。色条与色点是 JS 建的纯装饰节点
+               （ensureHeadParts），面包屑 #stewardDrawerCrumb 只在多线程任务时出现。
+               「在工作台打开」不在卡头 —— 它是 ⑨ 动作行的主动作（§2.6「动作行：主＝在工作台打开」）。 -->
           <header id="stewardDrawerHead" class="steward-drawer-head">
+            <span id="stewardDrawerCrumb" class="steward-drawer-crumb" hidden></span>
             <h2 id="stewardDrawerTitle" class="steward-drawer-title"></h2>
             <span id="stewardDrawerState" class="steward-drawer-state"></span>
-            <p id="stewardDrawerWait" class="steward-drawer-wait" hidden></p>
-            <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
-                    data-icon="monitor" data-icon-size="13"
-                    data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">2.0 视窗</span></button>
           </header>
+          <!-- ② 元信息【一行】（§2.6）：来源图形 · 相对时间 · 验收 a/b。
+               **不印费用**（§7.2／§2.6「没有『今天』统计块」；cost-zero.static 扫本文件与
+               js/steward-drawer.js）。权限「只在定过时印」由 ⑤ 那一行 chip 的 .is-default 承担
+               （§11.15.8：详情栏这一行是控件不是信息，收的是值不是入口）。 -->
+          <section id="stewardDrawerMission" class="steward-drawer-mission"
+                   aria-label="元信息" data-i18n-attr="aria-label:stewardShell.drawer.metaSection">
+            <span id="stewardDrawerOrigin" class="steward-drawer-origin" hidden></span>
+            <span id="stewardDrawerAgo" class="steward-drawer-pill" hidden></span>
+            <span id="stewardDrawerMissionAcceptance" class="steward-drawer-pill"></span>
+          </section>
+          <!-- ③ 线程页签：同事项兄弟线程 ＋「＋ 线程」 -->
+          <div id="stewardDrawerTabs" class="steward-drawer-tabs" role="tablist"
+               aria-label="同事项的线程" data-i18n-attr="aria-label:stewardShell.drawer.tabsLabel"></div>
           <!-- ④ 117l D4「它在问你」（用户第四轮走查①：线程提问弹出来了，却没有 2.0 那种问答框）。
                只在 asksYou 非空时显示（[hidden] 由 JS 写，样式层配 .steward-drawer-ask[hidden]）。
                正式待决 question 走 /api/chat/answer（选项按钮＋自由回答的 otherText）；
@@ -754,6 +760,10 @@
           <section id="stewardDrawerLastSay" class="steward-drawer-block">
             <h3 id="stewardDrawerLastSayHead" class="steward-drawer-h" data-i18n="stewardShell.drawer.lastSay">它刚说</h3>
             <blockquote id="stewardDrawerLastSayText" class="steward-drawer-quote"></blockquote>
+            <!-- 121-K6b（§2.6／§5）：在跑那一段的【当前动作行】，等宽字体一行
+                 「工具 · 第 N 次调用 · N 秒前有输出」。三样都读服务端 liveTail 上已有的事实
+                 （tool／turns／updatedAt），一个数都不推算；缺哪一样就少说哪一样，整行都缺就不出。 -->
+            <p id="stewardDrawerActing" class="steward-drawer-acting num" hidden></p>
             <button type="button" id="stewardDrawerFullTextBtn" class="steward-drawer-link"
                     data-icon="sheet" data-icon-size="13"><span data-i18n="stewardShell.drawer.fullText">看全文</span></button>
           </section>
@@ -762,6 +772,20 @@
           <section id="stewardDrawerQuickReplies" class="steward-drawer-block">
             <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.quickReplies">你可以说</h3>
             <div id="stewardDrawerQuickRepliesRow" class="steward-drawer-chiprow"></div>
+          </section>
+          <!-- ⑧ 排队那一段（§2.6／§8.10「排队必须可解释」）：在等什么一句 ＋「插队」「并发上限」。
+               那一句【只读行上的 wait.label】（116h 在服务端一处算出，与左栏行、看板行同源），
+               本处不编第二句；两枚按钮走既有那两条路（/api/steward/arbiter/prioritize 与左栏栏头
+               的并发上限输入框），不新起第二个控制面。 -->
+          <section id="stewardDrawerQueue" class="steward-drawer-block" hidden>
+            <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.queueHead">在等什么</h3>
+            <p id="stewardDrawerWait" class="steward-drawer-wait" hidden></p>
+            <div class="steward-drawer-chiprow">
+              <button type="button" id="stewardDrawerJumpBtn" class="steward-drawer-btn"
+                      data-i18n="stewardShell.drawer.jumpQueue">插队</button>
+              <button type="button" id="stewardDrawerMaxBtn" class="steward-drawer-btn"
+                      data-i18n="stewardShell.drawer.maxParallel">并发上限</button>
+            </div>
           </section>
           <!-- ⑧ 117l D4「更多」（用户第四轮走查③：线程页内容太多太杂）。默认收起，
                接力／三问／验收项／现场四块原封不动搬进来 —— 内容一个字没改，只是不再常驻。 -->
@@ -797,9 +821,13 @@
             </section>
           </details>
         </div>
-        <!-- ⑪ 底部：直连输入框（不经管家）＋ 暂停／继续 ＋ 停止 ＋ 整单回退 ＋ 交回管家 -->
+        <!-- ⑨ 底部：直连输入框（不经管家）＋ 动作行三档（§2.6）：
+               主＝「在工作台打开」（金色，走 app-frame 的 openInWorkbench 那一处）；
+               次＝暂停／继续／停止／发给它；破坏性的整单回退与交回管家收进「更多」（JS 建）。
+             输入框那句提示【按五态换】：等你不出这一段（答案走 ④ 的问答框），在跑说「递给它一句」，
+             收工说「接着说」，其余仍是「直接对这条线程说」。 -->
         <div id="stewardDrawerFoot" class="steward-drawer-foot">
-          <label class="steward-drawer-foot-label" for="stewardDrawerInput"
+          <label id="stewardDrawerComposerLabel" class="steward-drawer-foot-label" for="stewardDrawerInput"
                  data-i18n="stewardShell.drawer.composerLabel">直接对这条线程说</label>
           <textarea id="stewardDrawerInput" class="steward-drawer-input" rows="2"
                     placeholder="这句话直接发给它，不经如意…"
@@ -810,6 +838,11 @@
                  applyTranslations 是 `node.textContent = value`，挂在 button 上会把刚注入的 SVG
                  一起抹掉（boot 里 hydrateIcons 之后还会再 setLocale 一次）。
                  「停止」用的是实心方块 stop（停这条线程），与头部电源符（停管家本人）不同形。 -->
+            <!-- 121-K6b：主动作从卡头搬到动作行首位（§2.6）。id／data-icon／内层 span 的 data-i18n
+                 一个字节没改，只换了住处与那身金色皮（gradeFootActions 加 .is-primary）。 -->
+            <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
+                    data-icon="monitor" data-icon-size="13"
+                    data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">2.0 视窗</span></button>
             <button type="button" id="stewardDrawerSendBtn" class="steward-drawer-btn"
                     data-icon="send" data-icon-size="13"><span data-i18n="stewardShell.drawer.send">发给它</span></button>
             <button type="button" id="stewardDrawerPauseBtn" class="steward-drawer-btn"

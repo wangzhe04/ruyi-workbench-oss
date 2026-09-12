@@ -514,9 +514,13 @@ const ok = (condition, label) => {
     ok(/function hintedThread\(\) \{[\s\S]{0,400}return \{ sessionId: String\(routeHits\[0\]\.sessionId\), title: String\(routeHits\[0\]\.displayTitle \|\| routeHits\[0\]\.title/.test(composer),
       'H3c 117k 那条纪律原样保留：chip 上的提示也用生成名，不用整句原话');
 
-    // H4 抽屉事项行：读行里的 missionTitle（116-5b 已经加了）。
-    ok(/String\(root\.missionTitle \|\| root\.displayTitle \|\| root\.title \|\| missionId\)/.test(drawer),
-      'H4 抽屉的事项行显示事项名（显式容器＝用户起的名；派生＝那条线程的显示名）');
+    // H4 抽屉的任务名：读行里的 missionTitle（116-5b 已经加了）。
+    // 121-K6b：那句回落搬进 missionName()，落点从「① 事项行」换成【卡头的面包屑】（§2.6，只在
+    // 多线程任务时出现）；末级回落从 missionId 改成空串 —— 界面上永远不该出现内部 id，读不到
+    // 名字就整段不出面包屑。判据本身一个字没松：仍然是 missionTitle > displayTitle > title。
+    ok(/String\(root\.missionTitle \|\| root\.displayTitle \|\| root\.title \|\| ''\)/.test(drawer)
+      && /function missionName\(\)/.test(drawer),
+      'H4 抽屉的任务名读行里的 missionTitle（显式容器＝用户起的名；派生＝那条线程的显示名）');
 
     // H5 抽屉第一帧不拿内部 id 冒充名字。
     // H5 **117l 微调重钉**：闸本身一个字没变，只是闸【落下的那一帧】多干一件事 —— 把焦点交给
@@ -524,9 +528,9 @@ const ok = (condition, label) => {
     // 的函数体逐字钉死，多这一步就红；companion（H5d）钉住「focus 必须在闸之后」——
     // 闸落之前还没读到待决，那时候抢焦点等于赌它在问你。
     ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
-      && /if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
+      && /if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
       'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
-    ok(drawer.indexOf('loading = false; renderAll(); focusAsk();') > drawer.indexOf('try { await refreshOnce(); }'),
+    ok(drawer.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();') > drawer.indexOf('try { await refreshOnce(); }'),
       'H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）');
     ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
       && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
@@ -576,14 +580,14 @@ const ok = (condition, label) => {
       && html.includes('id="stewardDrawerAskInput"')
       && /\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(read('css/views/steward-drawer.css')),
       'I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫');
-    ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
+    ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
       'I3b 打开线程、数据到齐之后焦点落进问答框（这就是「打开线程回答」按下去该发生的事）');
 
     // I4 ①⑥ 递话单口：抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜通道。
     ok(/api\('\/api\/steward\/relay'/.test(drawer)
       && !/api\('\/api\/steer'/.test(drawer) && !/'\/api\/chat\/stream'/.test(drawer),
       'I4 ①⑥ 「直接对这条线程说」走 /api/steward/relay 单口（修前猜错就 supersede 掉待决提问）');
-    ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed \}\)/.test(drawer),
+    ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed: ago \}\)/.test(drawer),
       'I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）');
   }
 

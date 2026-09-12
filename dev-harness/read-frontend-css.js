@@ -479,7 +479,19 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算 = aba7e98f…，与被替换的旧值【逐字相同】；再按工作树的新分组表（多一层）+ 工作树文件算得
 // 下面这个值。反向验证：往 quiet-card.css 追加一条无关规则 → F3 与 D51 双红；把新层从
 // CSS_PAYLOAD_GROUPS 里去掉 → 离线包已经在引用它、锁却读不到 → 两处失配当场红。
-const LEGACY_STYLES_SHA256 = 'f08cbe5424ffcb750bf23cc88c66e479555856d6782b4e4e234ca9766bc1956c';
+// 121-K6b 续钉（前值 f08cbe54…）：本刀按 34 号文 §2.6／§2.4 改了三个既有层，**零新增层**——
+//   ① `css/views/steward-drawer.css`：抽屉改成常驻【焦点卡】。元信息一行（nowrap 一行读完、
+//      来源图形那一枚）、卡头的「任务 › 线程」面包屑（`::after` 画 ›，分隔符不进 textContent）、
+//      在跑那一段的当前动作行（`--mono` 等宽，因为那三个数每半秒跳一次）、区块的 [hidden] 守卫；
+//      卡头的标题补一行省略号（面包屑挤进来之后长名字会把药丸顶出去）。
+//   ② `css/views/steward-conversation.css`：卡头那枚「打开」改图标钮（inline-grid 居中、次级墨），
+//      加 `.steward-thread-crumb` 面包屑一族（与 ① 同一条口径，两面各自的层各写各的皮）。
+//   ③ `css/views/steward-board.css`：一条规则 —— docked 挂法下把「关掉」那一栏收掉
+//      （常驻焦点栏不存在「关」，§13.7 ③）。
+// 算法自证（同一条拦截法）：按 HEAD（`84fee4b`）的 git blob ＋ 同一张分组表算 = f08cbe54…，
+// 与被替换的旧值【逐字相同】；再按工作树算得下面这个值。
+// 反向验证：往 steward-drawer.css 的 .steward-drawer-acting 改一个像素 → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = '690afbfd05b05e478cdf6c9431a732bce338c27e4e7e881ef26b27aa810a6126';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

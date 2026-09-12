@@ -16,7 +16,8 @@ import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindE
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
-import { missionStateIcon } from './icons.js';
+// 121-K6b（§2.6 元信息一行）：来源图形与左栏行同一批字形，所以这一行多取一个 icon()。
+import { missionStateIcon, icon } from './icons.js';
 // 117u-G1（27 号文 §11.15.3 D1「详情头换成同一枚卡头」）：线程卡的三样【共享事实】从对话区那一份
 // 拿，不在本文件另起第二份 —— 色号登记（stewardThreadHueFor：同一条线程在对话流／频道条／抽屉／
 // 看板恒是同一个号）、五态词表（stewardThreadStateKey：查得到就用共享那条键）、相对时间的人话
@@ -80,18 +81,20 @@ export const STEWARD_LAST_SAY_SENTENCES = 3;
 export const STEWARD_NEW_THREAD_EVENT = 'steward:new-thread';
 // 117h：抽屉的两种挂法（一份实现，不存在第二份抽屉区块渲染）。
 //   overlay —— 用户主动打开的那一份：<1000px 全屏覆盖并补 aria-modal，≥1000px 右侧 390px 栏；
-//   docked  —— 117h 的「现在这一件」：同一个 #stewardDrawer 节点被挪进 #stewardNowBody 常驻右栏。
+//   docked  —— 117h 的「现在这一件」：同一个 #stewardDrawer 节点被挪进 #stewardFocus 常驻右栏。
 // 挂法只影响「它挂在哪个父节点、要不要 aria-modal」，区块渲染与取数逐字节共用。
 export const STEWARD_DRAWER_MOUNTS = Object.freeze(['overlay', 'docked']);
 // 区块顺序即锁：静态件按这个数组在 index.html 里的出现顺序核对（改顺序＝改契约）。
+// 121-K6b（§2.6）：卡头排到最前、元信息一行紧随其后（原来是「事项行 → 页签 → 线程头」）。
 export const STEWARD_DRAWER_BLOCK_IDS = Object.freeze([
-  'stewardDrawerMission',
+  'stewardDrawerHead',       // ① 卡头：色条 ＋「任务 › 线程」＋ 五态药丸
+  'stewardDrawerMission',    // ② 元信息一行：来源图形 · 相对时间 · 验收 a/b（**不印费用**）
   'stewardDrawerTabs',
-  'stewardDrawerHead',
   'stewardDrawerAsk',        // 117l D4：④「它在问你」（走查①：提问弹出来了却没有问答框）
   'stewardDrawerChips',
   'stewardDrawerLastSay',
   'stewardDrawerQuickReplies',
+  'stewardDrawerQueue',      // 121-K6b：⑧ 排队那一段（在等什么 ＋ 插队 ＋ 并发上限）
   'stewardDrawerMore',       // 117l D4：⑧「更多」容器（走查③：线程页太多太杂），下面四块住在它里面
   'stewardDrawerRelay',
   'stewardDrawerActivity',
@@ -294,22 +297,11 @@ export function stewardThreadStateOf(card) {
   return String(missionState.fromCard(card).state || '');
 }
 
-export function stewardCostText(group, translate, keys) {
-  const say = typeof translate === 'function' ? translate : key => key;
-  const table = keys || {};
-  const costs = (group && group.cost && group.cost.costsByCurrency) || {};
-  const spent = Object.entries(costs)
-    .filter(([, amount]) => Number.isFinite(Number(amount)))
-    .map(([currency, amount]) => `${currency} ${Number(amount).toFixed(4)}`)
-    .join(' · ');
-  if (!spent) return say(table.none);
-  const budget = (group && group.budget) || {};
-  const maxCost = Number(budget.maxCost);
-  if (Number.isFinite(maxCost) && maxCost > 0) {
-    return say(table.budget, { cost: spent, budget: `${String(budget.currency || '')} ${maxCost}`.trim() });
-  }
-  return say(table.cost, { cost: spent });
-}
+// 121-K6b（34 号文 §7.2／§2.6，§13.11 登记的那笔债）：`stewardCostText` 与它印在 ① 那一行的
+// #stewardDrawerMissionCost 整段删除 —— 「管家视角、左栏、焦点栏、工作台线程头、口袋一律不印钱」，
+// 费用只在右栏「用量」页签与体检里出现。删的是【本模块唯一那处金额渲染】，判据没有搬家也没有
+// 弱化版留下：`cost-zero.static.e2e.js` 自本刀起把 js/steward-drawer.js 也扫进去，反向塞一个 ¥ 就红。
+// 看板早在 K4-2 就把费用连 import 一起删了，所以这个导出此刻零消费方。
 
 export function stewardAcceptanceText(group, translate, keys) {
   const say = typeof translate === 'function' ? translate : key => key;
@@ -380,11 +372,6 @@ export function createStewardDrawer({
   // 33 号文 §4：判据本体已收进本模块导出的 stewardThreadStateOf（看板 import 同一份），这里只剩短名。
   const threadStateOf = stewardThreadStateOf;
   // 本界面的文案键（判据共享、措辞各说各的）。
-  const COST_KEYS = Object.freeze({
-    none: 'stewardShell.drawer.costNone',
-    budget: 'stewardShell.drawer.costBudget',
-    cost: 'stewardShell.drawer.cost',
-  });
   const ACCEPTANCE_KEYS = Object.freeze({
     none: 'stewardShell.drawer.acceptanceNone',
     count: 'stewardShell.drawer.acceptanceCount',
@@ -459,28 +446,59 @@ export function createStewardDrawer({
     snapshot = (snapshotRes && snapshotRes.snapshot) || null;
   }
 
-  // ── ① 事项行 ────────────────────────────────────────────────────────────────
-  function renderMission() {
-    const titleNode = byId('stewardDrawerMissionTitle');
+  // ── ② 元信息【一行】（§2.6）：来源图形 · 相对时间 · 验收 a/b ─────────────────────
+  // 三样都只读【已经在手上】的事实：行上的 origin（K3 §4.1 的三值）、行/会话头的 updatedAt
+  // （经 stewardAgoLabel，与对话流卡头同一句人话）、快照的验收计数。**不印费用**（§7.2）。
+  // 任务名不在这里 —— 它在卡头的面包屑里，多线程任务才出现（同一件事不印两遍）。
+  // 字形名与人话键与左栏行【逐字同一张表】（steward-board.js 的 RAIL_ORIGIN_ICONS／_KEYS，
+  // 121-K3 §4.1 的三值）。抽屉不能 import 看板（方向反了会成环），所以这里是同一份表的第二处
+  // 抄写 —— 静态锁按「两处逐字相同」核对，改一处就必须改两处（这是本仓允许的唯一一种复制：
+  // 两个模块之间只有环这一条路时的常量表）。
+  const ORIGIN_ICONS = Object.freeze({ steward: 'target', user: 'agents', schedule: 'bell' });
+  const ORIGIN_KEYS = Object.freeze({
+    steward: 'rail.origin.steward',
+    user: 'rail.origin.user',
+    schedule: 'rail.origin.schedule',
+  });
+  function renderMeta() {
+    const originNode = byId('stewardDrawerOrigin');
+    const agoNode = byId('stewardDrawerAgo');
     const acceptanceNode = byId('stewardDrawerMissionAcceptance');
-    const costNode = byId('stewardDrawerMissionCost');
-    if (!titleNode || !acceptanceNode || !costNode) return;
-    // 117k（用户走查④）：事项【容器】的标题现在就在行里 —— 116-5b 给 GET /api/missions 的每一行
-    // 加了 missionTitle（显式容器＝用户起的名，派生事项＝那条线程的显示名）。此前这里的回落
-    // 注释还停在「容器标题不在行里」的旧世界，于是显式事项的行显示的是【本线程的整句原话】，
-    // 而同一块面板下面的页签写着生成名 —— 一块面板三个名字指同一件事。按确定性顺序回落：
-    //   ① 行里的 missionTitle（116-5b 的权威口径）；
-    //   ② 「自成事项」那条线程（sessionId === missionId）的显示名 → 原话；
-    //   ③ 一条行都没有（线程还没进投影）：读取中说「读取中…」，读完了才说「未归事项」。
-    const missionId = String((missionRow && missionRow.missionId) || '');
-    const root = missionRows.find(row => String(row.sessionId) === missionId) || missionRow || null;
-    const rootName = root ? String(root.missionTitle || root.displayTitle || root.title || missionId) : '';
-    titleNode.textContent = rootName || (loading ? t('stewardShell.drawer.loading') : t('stewardShell.drawer.missionUnfiled'));
+    if (originNode) {
+      const origin = String((missionRow && missionRow.origin) || '');
+      clear(originNode);
+      const glyph = ORIGIN_ICONS[origin] ? icon(ORIGIN_ICONS[origin], 12) : null;
+      if (glyph) {
+        originNode.appendChild(glyph);
+        originNode.dataset.origin = origin;
+        const label = t(ORIGIN_KEYS[origin]);
+        originNode.title = label;
+        originNode.setAttribute('aria-label', label);
+      }
+      originNode.hidden = !glyph;
+    }
+    if (agoNode) {
+      const ago = lastTouchLabel();
+      agoNode.textContent = ago;
+      agoNode.hidden = !ago;
+    }
+    if (!acceptanceNode) return;
     acceptanceNode.textContent = stewardAcceptanceText(missionRow, t, ACCEPTANCE_KEYS);
-    costNode.textContent = stewardCostText(missionRow, t, COST_KEYS);
   }
 
-  // ── ② 线程页签 ──────────────────────────────────────────────────────────────
+  // 117k（用户走查④）：任务【容器】的名字就在行里 —— 116-5b 给 GET /api/missions 的每一行加了
+  // missionTitle（显式容器＝用户起的名，派生任务＝那条线程的显示名）。按确定性顺序回落：
+  //   ① 行里的 missionTitle（116-5b 的权威口径）；
+  //   ② 「自成任务」那条线程（sessionId === missionId）的显示名 → 原话；
+  //   ③ 一条行都没有（线程还没进投影）：回空串，面包屑整段不出（不猜一个名字）。
+  function missionName() {
+    const missionId = String((missionRow && missionRow.missionId) || '');
+    if (!missionId) return '';
+    const root = missionRows.find(row => String(row.sessionId) === missionId) || missionRow || null;
+    return root ? String(root.missionTitle || root.displayTitle || root.title || '') : '';
+  }
+
+  // ── ③ 线程页签 ──────────────────────────────────────────────────────────────
   function renderTabs() {
     const host = clear(byId('stewardDrawerTabs'));
     if (!host) return;
@@ -541,6 +559,9 @@ export function createStewardDrawer({
   // renderHead 每一拍都跑，反复建会把用户正按着的东西连根拔掉（chip 菜单那条 304 纪律的同一条
   // 道理）。「等待原因」那一行挪到卡头【之后】：它 flex-basis:100% 会强制换行，排在「2.0 视窗」
   // 前面的话，那枚按钮就被挤下去、卡头就不再是一行。
+  // 121-K6b（§2.6）：卡头收成「色条 ＋ 色点 ＋『任务 › 线程』＋ 五态药丸」四样。
+  //   · 相对时间搬去 ② 元信息一行（`#stewardDrawerAgo`）—— 卡头不再自建 .steward-tcard-meta；
+  //   · 「等待原因」那一行搬去 ⑧ 排队那一段（`#stewardDrawerWait`，静态骨架里已经在那儿了）。
   function ensureHeadParts(head) {
     let bar = head.querySelector('.steward-tcard-bar');
     if (!bar) {
@@ -554,16 +575,7 @@ export function createStewardDrawer({
       dot.setAttribute('aria-hidden', 'true');
       head.insertBefore(dot, bar.nextSibling);
     }
-    let meta = head.querySelector('.steward-tcard-meta');
-    if (!meta) {
-      meta = el('span', 'steward-tcard-meta');
-      const state = byId('stewardDrawerState');
-      if (state && state.parentNode === head) head.insertBefore(meta, state.nextSibling);
-      else head.appendChild(meta);
-    }
-    const wait = byId('stewardDrawerWait');
-    if (wait && wait.parentNode === head && head.lastElementChild !== wait) head.appendChild(wait);
-    return meta;
+    return head;
   }
 
   // 「最后动静」= 相对时间，与对话流卡头【同一个】实现（stewardAgoLabel，人话交给平台的
@@ -580,24 +592,28 @@ export function createStewardDrawer({
     const headNode = byId('stewardDrawerHead');
     const titleNode = byId('stewardDrawerTitle');
     const stateNode = byId('stewardDrawerState');
-    const waitNode = byId('stewardDrawerWait');
-    let metaNode = null;
+    const crumbNode = byId('stewardDrawerCrumb');
     if (headNode) {
       headNode.classList.add('steward-tcard');
       // 色号问【全仓那一张登记表】要（steward-conversation.js 的 stewardThreadHueFor）：本文件
-      // 不自己算、也不自己记，所以同一条线程在这里与在对话流／频道条／看板上恒是同一色。
-      if (sessionId) headNode.dataset.threadHue = String(stewardThreadHueFor(sessionId));
+      // 不自己算、也不自己记，所以同一条线程在这里与在对话流／左栏／看板密度上恒是同一色。
+      // 121-K6b（§5）：表的键已换成 missionId，手上有行就把任务 id 一并递进去（行还没到的那一帧
+      // 退回 sessionId，登记那一刻归并，见那边的头注）。
+      if (sessionId) headNode.dataset.threadHue = String(stewardThreadHueFor(sessionId, missionRow && missionRow.missionId));
       else headNode.removeAttribute('data-thread-hue');
-      metaNode = ensureHeadParts(headNode);
+      ensureHeadParts(headNode);
     }
     if (titleNode) titleNode.classList.add('steward-tcard-name');
     if (stateNode) stateNode.classList.add('steward-tcard-state');
-    const classicNode = byId('stewardDrawerClassicBtn');
-    if (classicNode) classicNode.classList.add('steward-tcard-act');
-    if (metaNode) {
-      const ago = lastTouchLabel();
-      metaNode.textContent = ago;
-      metaNode.hidden = !ago;
+    // 121-K6b（§2.6）：面包屑「任务 › 线程」——【只在多线程任务时出现】，判据与 K5 的工作台线程头
+    // 逐字同源（row.threadCount > 1）。单线程任务的任务名逐字等于线程名，印两遍就是 §2.3 说的
+    // 「把同一个名字印两遍」。
+    if (crumbNode) {
+      const many = Number((missionRow && missionRow.threadCount) || 0) > 1;
+      const name = many ? missionName() : '';
+      crumbNode.textContent = name;
+      crumbNode.title = name;
+      crumbNode.hidden = !name;
     }
     // 116-5b:显示名优先(GET /api/sessions/:id 的信封带出的那一个,判据在 02 的 sessionDisplayTitle);
     // 拿不到就退回今天的两级回落。原话挂 hover。
@@ -624,11 +640,6 @@ export function createStewardDrawer({
       if (glyph) stateNode.appendChild(glyph);
       stateNode.appendChild(doc().createTextNode(stateLabel(stateValue)));
     }
-    if (!waitNode) return;
-    const wait = (missionRow && missionRow.wait) || null;
-    const label = wait ? String(wait.label || '') : '';
-    waitNode.textContent = label;
-    waitNode.hidden = !label;
   }
 
   // ── ⑤ 它刚说 ────────────────────────────────────────────────────────────────
@@ -659,22 +670,55 @@ export function createStewardDrawer({
   // 都不会变（活回合的文本只在发起那条 /api/chat/stream 连接上流，管家派出去的回合谁也看不见）。
   // 现在在跑时改标题为「它正在说」并显示服务端 liveTail 的【末尾】≤3 句；回合一结束 liveTail 这个键
   // 就不在了，标题与内容自动换回「它刚说」＋落盘原话的【开头】≤3 句。
+  // 121-K6b（§2.6／§5）：在跑那一段的【当前动作行】——「工具 · 第 N 次调用 · N 秒前有输出」。
+  // 三样都读服务端 liveTail 上已有的字段（tool／turns／updatedAt），一个数都不推算、不显示百分比、
+  // 不显示 ETA、不显示费用（§8.1 第 6 条）。缺哪一样就少说哪一样；三样全缺整行不出（不编）。
+  // 纯拼字，DOM 只写一个 textContent。
+  function actingLine() {
+    if (!liveTail) return '';
+    const parts = [];
+    const tool = String(liveTail.tool || '').trim();
+    if (tool) parts.push(threadToolLabel(tool));
+    // 「第 N 次调用」= 服务端 liveTail.iterations（13d:285 与 13r 推帧里【同一个】数），
+    // 不是前端自己数出来的次数。0 或缺席就不说这一节。
+    const calls = Number(liveTail.iterations);
+    if (Number.isFinite(calls) && calls > 0) parts.push(t('stewardShell.drawer.actingCalls', { n: calls }));
+    const since = String(liveTail.updatedAt || '').trim();
+    const at = since ? Date.parse(since) : NaN;
+    if (Number.isFinite(at)) {
+      const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+      parts.push(t('stewardShell.drawer.actingSince', { n: seconds }));
+    }
+    return parts.join(' · ');
+  }
+
+  function renderActing(streaming) {
+    const node = byId('stewardDrawerActing');
+    if (!node) return '';
+    const line = streaming ? actingLine() : '';
+    node.textContent = line;
+    node.hidden = !line;
+    return line;
+  }
+
   function renderLastSay() {
     const head = byId('stewardDrawerLastSayHead');
     const quote = byId('stewardDrawerLastSayText');
-    if (!quote) return;
+    if (!quote) { renderActing(false); return; }
     const tailText = String((liveTail && liveTail.text) || '').trim();
     // 判据【只看 liveTail 在不在】，不叠 isLive()：服务端只在真有活回合时才下发这个键，它比
     // isLive() 准 —— 后者拿不到 resumable.live（GET /api/sessions/:id 的 live 分支根本不回这个字段）
     // 就回落到「事项行的五态是不是 running」，而挂在提问上的回合五态是 needs_you，于是恒判成不在跑。
     const streaming = Boolean(liveTail) && Boolean(tailText);
+    renderActing(streaming);
     if (streaming) {
       if (head) head.textContent = t('stewardShell.drawer.liveSay');
-      const tool = String((liveTail && liveTail.tool) || '').trim();
-      quote.textContent = liveTailSentences(tailText)
-        + (tool ? t('stewardShell.drawer.usingTool', { tool: threadToolLabel(tool) }) : '');
+      // 121-K6b（§2.6）：正在用的那个工具从引文尾巴搬到【当前动作行】（renderActing）——
+      // 引文只放它说的话，一句话里不掺一句状态。
+      quote.textContent = liveTailSentences(tailText);
       return;
     }
+    // §2.6 收工那一段说的是「它【最后】说」（与在跑那一段的「它正在说」成对）。
     if (head) head.textContent = t('stewardShell.drawer.lastSay');
     // ④ 已经把这句问话原文摆出来了就不再重复一遍（走查③「太多太杂」：一屏两遍同一句话）。
     const ask = asksYouNow();
@@ -866,6 +910,53 @@ export function createStewardDrawer({
     }
   }
 
+  // ── ⑧ 排队那一段（121-K6b／§2.6／§8.10「排队必须可解释」）────────────────────────
+  // 「在等什么」那一句【只读行上的 wait.label】—— 116h 在服务端一处算出（等你／等锁：被谁占着／
+  // 等并发位：前面还有几条），左栏行、看板行与这里读的是同一个字段，本处不编第二句。
+  // 两枚按钮走既有那两条路：插队 = POST /api/steward/arbiter/prioritize（116h 立的，语义刻意做窄：
+  // 只有还在排队的那一条能被提到队首）；并发上限 = 把焦点送到左栏栏头那个输入框（那是全仓唯一
+  // 一处并发上限控件，K4-2 从看板浮层搬过去的），不在焦点栏里另画第二个数字输入。
+  function renderQueue(queued) {
+    const section = byId('stewardDrawerQueue');
+    const waitNode = byId('stewardDrawerWait');
+    if (waitNode) {
+      const wait = (missionRow && missionRow.wait) || null;
+      const label = wait ? String(wait.label || '') : '';
+      waitNode.textContent = label || (queued ? t('stewardShell.drawer.queueUnknown') : '');
+      waitNode.hidden = !waitNode.textContent;
+    }
+    if (section) section.hidden = !queued;
+  }
+
+  // ── 按五态一段（121-K6b／§2.6）──────────────────────────────────────────────────
+  // 这是【显隐】纪律，不是第二套区块，也不是第二套状态机：态由 mission-state.js 一处算出
+  // （threadStateOf(missionRow)，本文件仍然一个五态字面量都不认 —— 下面这张表的键就是它的返回值），
+  // 每一态该露哪几段写在这一张表里，一处可读、一处可改。
+  //   等你   → ④ 它在问你（callout ＋ 候选答案 ＋ 直接回答框）；不出 ⑥（问句已经在 ④ 里）
+  //   在跑   → ⑥「它正在说」（流式尾窗 ≤3 句）＋ 当前动作行 ＋ 底部「递给它一句」
+  //   排队   → ⑧ 在等什么 ＋ 插队／并发上限
+  //   收工   → ⑥「它最后说」＋ 底部「接着说」
+  // ④ 自己那一道判据（asksYouNow 非空）比行上的态更准（它还看得到本地待决与软问句），所以
+  // 「等你」这一段的显隐仍由 renderAsk 说了算；这里只负责另外三段与底部那句提示。
+  const FOOT_LABEL_KEYS = Object.freeze({
+    running: 'stewardShell.drawer.composerLabelLive',
+    dispatching: 'stewardShell.drawer.composerLabelLive',
+    done: 'stewardShell.drawer.composerLabelDone',
+    stopped: 'stewardShell.drawer.composerLabelDone',
+  });
+  function renderStateSections() {
+    const value = threadStateOf(missionRow);
+    // 排队那一段的判据：行上的态是 dispatching（还没有任何执行痕迹的那一档，与左栏「排队」组
+    // railGroupFor 逐字同源），或者服务端明说了它在等什么（wait.reason 非 'user'）。
+    const wait = (missionRow && missionRow.wait) || null;
+    const reason = String((wait && wait.reason) || '');
+    const queued = value === 'dispatching' || (Boolean(reason) && reason !== 'user');
+    renderQueue(queued);
+    const label = byId('stewardDrawerComposerLabel');
+    if (label) label.textContent = t(FOOT_LABEL_KEYS[value] || 'stewardShell.drawer.composerLabel');
+    return { state: value, queued };
+  }
+
   // ── ⑦ 接力关系（本波只列同事项其它线程；真正的接力图归 120） ────────────────
   function renderRelay() {
     const section = byId('stewardDrawerRelay');
@@ -910,10 +1001,14 @@ export function createStewardDrawer({
     if (!(Number(session && session.turnSeq) > 0)) return '';   // 一回合都没跑过,说「收工」是撒谎
     // 117l D4（用户第四轮走查③）：修前这里算的是【从建会话】到现在，于是真机上出现「收工 · 用时
     // 770h 35m」—— 那不是它干了 770 小时，那是这条会话建了一个月。改说「最近动过 X 前」，锚点换成
-    // updatedAt（同一处 elapsedLabel，判据不复制）。拿不到 updatedAt 就不说 —— 不猜。
-    const touched = String((missionRow && missionRow.updatedAt) || (session && session.updatedAt) || '');
-    const elapsed = touched ? elapsedLabel(touched, new Date()) : '';
-    return elapsed ? t('stewardShell.drawer.settledSince', { elapsed }) : '';
+    // updatedAt。拿不到 updatedAt 就不说 —— 不猜。
+    // 121-K6b（33 号文第 11 项／§5「『最后动静』统一用 stewardAgoLabel」）：这里原来借 elapsedLabel
+    // 出一个【时长】（「3m 20s」）当「多久以前」用 —— 抽屉里因此有两种时间写法（卡头说「3 分钟前」，
+    // 这一句说「3m 20s」）。收成一种：与 lastTouchLabel 同一处实现、同一句人话。
+    // elapsedLabel 在本文件仍有一个诚实的消费方（progressText 里「从建线程到现在的耗时」——
+    // 那真的是时长，不是「多久以前」），所以 import 不变。
+    const ago = lastTouchLabel();
+    return ago ? t('stewardShell.drawer.settledSince', { elapsed: ago }) : '';
   }
 
   function renderActivity() {
@@ -1001,12 +1096,13 @@ export function createStewardDrawer({
 
   function renderAll() {
     renderChips();
-    renderMission();
-    renderTabs();
     renderHead();
+    renderMeta();
+    renderTabs();
     renderAsk();
     renderLastSay();
     renderQuickReplies();
+    renderStateSections();
     renderRelay();
     renderActivity();
     renderAcceptance();
@@ -1139,6 +1235,32 @@ export function createStewardDrawer({
     await refreshOnce();
   }
 
+  // 121-K6b（§2.6 排队那一段的两枚按钮）。
+  // 插队走 116h 立的那条既有路由，语义刻意做窄：只有【还在排队】的那一条能被提到队首，不在队列
+  // 里不是错误、如实说一句（与看板行那一枚 prioritize 的两句回执逐字同源）。
+  async function prioritizeThread() {
+    if (!sessionId) return false;
+    try {
+      const result = await api('/api/steward/arbiter/prioritize', { method: 'POST', body: JSON.stringify({ sessionId }) });
+      if (!result || result.ok !== true) { failNote((result && result.error) || 'prioritize_failed'); return false; }
+      note(t(result.prioritized === true ? 'stewardShell.board.prioritized' : 'stewardShell.board.notQueued'));
+    } catch (error) { failNote(error); return false; }
+    await refreshOnce();
+    return true;
+  }
+  // 并发上限【不在本栏里再画一个数字框】：全仓唯一那一处控件在左栏栏头（K4-2 从看板浮层搬过去
+  // 的 #stewardBoardMax）。这枚按钮只是把光标送过去 —— 一份数据一处控件（§2.1 第 10 条）。
+  function focusMaxParallel() {
+    const input = byId('stewardBoardMax');
+    if (!input || typeof input.focus !== 'function') { note(t('stewardShell.drawer.maxParallelMissing')); return false; }
+    try {
+      if (typeof input.scrollIntoView === 'function') input.scrollIntoView({ block: 'nearest' });
+      input.focus();
+      if (typeof input.select === 'function') input.select();
+    } catch { /* 宿主没有 focus/select 的环境 */ }
+    return true;
+  }
+
   async function stopThread() {
     const stopped = await stewardThreadStop({ api, sessionId });
     if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return; }
@@ -1229,6 +1351,9 @@ export function createStewardDrawer({
       ...(liveTail && typeof liveTail === 'object' ? liveTail : {}),
       text: String((data && data.textTail) || ''),
       tool: String((data && data.tool) || ''),
+      // 121-K6b：当前动作行的「第 N 次调用」读它。13r 推帧里本来就有这个数（13r:162），
+      // 修前被这一段丢掉了，于是活回合期间那个数只能停在上一趟 HTTP 切片的值上。
+      iterations: Math.max(0, Number(data && data.iterations) || 0),
       updatedAt: String((data && data.updatedAt) || ''),
     };
     renderAll();
@@ -1274,24 +1399,29 @@ export function createStewardDrawer({
     return Boolean(drawer) && drawer.hidden === false;
   }
 
+  // 121-K6b（§2.6／§13.7 ③「抽屉内部『关掉』语义」）：docked 是【常驻焦点栏】，不存在「关」，
+  // 也就不存在模态。所以两态收成一态 —— 只有 overlay（≤1000px 的抽屉态）才补 aria-modal。
+  // 修前这里还判一次宽度：那是浮层时代留下的，docked 本来就只在宽屏成立（syncNow 的 wideEnough
+  // 是唯一那道宽度门），再判一次是第二处判据。
   function applyModal() {
     const drawer = byId('stewardDrawer');
     if (!drawer) return;
-    const narrow = Boolean(globalThis.matchMedia) && !globalThis.matchMedia('(min-width: 1000px)').matches;
-    // docked（「现在这一件」）永远是常驻栏，不是模态 —— 它只在 ≥1000px 存在，窄屏一律回 overlay。
-    if (narrow && mountMode !== 'docked') drawer.setAttribute('aria-modal', 'true');
-    else drawer.removeAttribute('aria-modal');
+    if (mountMode === 'docked') drawer.removeAttribute('aria-modal');
+    else drawer.setAttribute('aria-modal', 'true');
   }
 
   // 117h：换挂法 = 把【同一个】 #stewardDrawer 节点搬到另一个父节点下，并打上 data-mount 供样式层
-  // 改定位（docked 交给 #stewardNow 那条常驻右栏，overlay 回到管家壳自己）。区块渲染一个字节不改。
+  // 改定位。121-K6b（§2.6／§13.7 ③）：docked 的挂点从 #stewardNowBody 改名成 #stewardFocus
+  // —— 它是常驻【焦点栏】，浮层时代的「现在这几件」两刀之前就退役了。
+  // overlay 只剩一种可达情形：窄到右栏摆不下（syncNow 的 wideEnough 那一道门），此时它是模态抽屉。
+  // 区块渲染一个字节不改（一份实现、两种挂法仍然成立）。
   function setMount(mode) {
     const next = mode === 'docked' ? 'docked' : 'overlay';
     const drawer = byId('stewardDrawer');
     if (!drawer) return mountMode;
     mountMode = next;
     drawer.dataset.mount = next;
-    const host = next === 'docked' ? byId('stewardNowBody') : byId('stewardShell');
+    const host = next === 'docked' ? byId('stewardFocus') : byId('stewardShell');
     if (host && drawer.parentNode !== host) host.appendChild(drawer);
     applyModal();
     return mountMode;
@@ -1300,10 +1430,27 @@ export function createStewardDrawer({
   // 117k（用户走查⑤）：第一帧的「读取中」闸。openThread 先画一帧再去拉数据，那一帧手里
   // 什么都没有 —— 标题回落成内部 id（sess_xxxxxxxx）、事项行说「未归事项」、「它刚说」说
   // 「它还没说过话。」。三句都不是真的，只是还没读到。读到之前一律说「读取中…」。
+  // 121-K6b（§13.7 登记 ⑨）：焦点栏常驻之后，openThread 每一次「换焦点」都会把光标从用户正在打字
+  // 的地方抢走 —— 而换焦点的触发者【多数不是用户】：管家递话、推送来帧、自动挑选（syncNow 里那句
+  // `if (drawer.currentSessionId() !== focusId) drawer.openThread(focusId)`）都会走到这里，用户正在
+  // 管家输入框或 2.0 输入框里敲的字就此丢掉键位。
+  // 判据做成【白名单】而不是「当前有没有焦点」：只有真正的输入落点（textarea／input／可编辑区）
+  // 才算「用户正在打字」，页面上随便一枚按钮拿着焦点不该拦住移焦（那才是该被换掉的）。
+  function userIsTyping() {
+    const document_ = doc();
+    const active = document_ && document_.activeElement;
+    if (!active) return false;
+    const tag = String(active.tagName || '').toLowerCase();
+    if (tag === 'textarea' || tag === 'input') return true;
+    return active.isContentEditable === true;
+  }
+
   let loading = false;
-  async function openThread(nextId) {
+  // opts.focus：显式换焦点（用户点了行／页签／「打开」）时才移焦。缺省 'auto' = 只在用户没在打字时移。
+  async function openThread(nextId, opts = {}) {
     const id = String(nextId || '');
     if (!id) return;
+    const wantFocus = opts && opts.focus === true ? true : (opts && opts.focus === false ? false : !userIsTyping());
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
     if (!drawer) return;
@@ -1320,12 +1467,13 @@ export function createStewardDrawer({
     renderAll();
     syncPolling();
     const title = byId('stewardDrawerTitle');
-    if (title && typeof title.focus === 'function') { title.tabIndex = -1; title.focus(); }
+    if (title) title.tabIndex = -1;
+    if (wantFocus && title && typeof title.focus === 'function') title.focus();
     // 117l D4（用户第四轮走查①）：数据到齐、「读取中」闸落下的【那一帧】，如果「它在问你」真的
     // 在，焦点就落进那个回答框 —— 这才是「打开线程回答」按下去该发生的事（open_thread act →
     // steward:focus-thread → 抽屉）。闸落之前不抢焦点：那时候还不知道它到底有没有在问你。
     try { await refreshOnce(); } finally {
-      if (sessionId === id) { loading = false; renderAll(); focusAsk(); }
+      if (sessionId === id) { loading = false; renderAll(); if (wantFocus) focusAsk(); }
     }
   }
 
@@ -1358,8 +1506,13 @@ export function createStewardDrawer({
   // 零新增 i18n 键。搬一次就够（bindStewardDrawer 全程只跑一次，这里再加一道幂等守卫）。
   const STEWARD_DRAWER_FOOT_MORE_IDS = Object.freeze(['stewardDrawerRewindBtn', 'stewardDrawerHandBackBtn']);
   function gradeFootActions() {
+    // 121-K6b（§2.6 动作行）：主动作是「在工作台打开」，不再是「发给它」——「主 ＝ 在工作台打开，
+    // 次 ＝ 暂停／停止或继续，破坏性收进『更多』」是 §2.6 的原话。金色仍然只有一枚（同一个
+    // .is-primary 类，全仓一处字面量）。
+    const primary = byId('stewardDrawerClassicBtn');
+    if (primary) primary.classList.add('is-primary');
     const send = byId('stewardDrawerSendBtn');
-    if (send) send.classList.add('is-primary');
+    if (send) send.classList.remove('is-primary');
     const buttons = STEWARD_DRAWER_FOOT_MORE_IDS.map(byId).filter(Boolean);
     const row = buttons.length ? buttons[0].parentNode : null;
     if (!row || !row.classList || !row.classList.contains('steward-drawer-foot-actions')) return null;
@@ -1392,6 +1545,8 @@ export function createStewardDrawer({
     on('stewardDrawerResumeBtn', () => { runAction('resume'); });
     on('stewardDrawerStopBtn', () => { stopThread(); });
     on('stewardDrawerRewindBtn', () => { rewindAll(); });
+    on('stewardDrawerJumpBtn', () => { prioritizeThread(); });
+    on('stewardDrawerMaxBtn', () => { focusMaxParallel(); });
 
     // 33 号文 §4：回车发送（Enter ＋ 非 Shift ＋ 非输入法组合中）的判据收进了 steward-chips.js 的
     // bindEnterToSubmit —— 这两处与 composer 那处自此读同一个判据，不再各写一遍。

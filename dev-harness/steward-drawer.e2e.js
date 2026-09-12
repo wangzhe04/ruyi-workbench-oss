@@ -280,10 +280,11 @@ const READY = `(() => {
 const DRAWER = `(() => {
   const drawer = document.getElementById('stewardDrawer');
   // 117l D4 重钉：区块清单从 11 变 13（多了「它在问你」与「更多」容器；四块折进后者，顺序不变）。
-  const ids = ['stewardDrawerMission','stewardDrawerTabs','stewardDrawerHead','stewardDrawerAsk',
-    'stewardDrawerChips','stewardDrawerLastSay','stewardDrawerQuickReplies','stewardDrawerMore',
-    'stewardDrawerRelay','stewardDrawerActivity','stewardDrawerAcceptance','stewardDrawerScene',
-    'stewardDrawerFoot'];
+  // 121-K6b（34 号文 §2.6）：卡头排到最前、元信息一行紧随其后，多一段「排队」。
+  const ids = ['stewardDrawerHead','stewardDrawerMission','stewardDrawerTabs','stewardDrawerAsk',
+    'stewardDrawerChips','stewardDrawerLastSay','stewardDrawerQuickReplies','stewardDrawerQueue',
+    'stewardDrawerMore','stewardDrawerRelay','stewardDrawerActivity','stewardDrawerAcceptance',
+    'stewardDrawerScene','stewardDrawerFoot'];
   const nodes = ids.map(id => document.getElementById(id));
   const ordered = nodes.every((node, index) => node && (index === 0
     || (nodes[index - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0));
@@ -295,8 +296,17 @@ const DRAWER = `(() => {
     ariaModal: drawer ? drawer.getAttribute('aria-modal') : null,
     shellDrawer: document.getElementById('stewardShell') ? (document.getElementById('stewardShell').dataset.drawer || '') : '',
     ordered,
-    missionTitle: text('stewardDrawerMissionTitle'),
+    // 121-K6b（§2.6）：任务名从「① 事项行」搬到卡头的面包屑（只在多线程任务时出现），
+    // 元信息一行只剩 来源图形 · 相对时间 · 验收 a/b。
+    missionTitle: text('stewardDrawerCrumb'),
+    crumbHidden: (() => { const n = document.getElementById('stewardDrawerCrumb'); return n ? n.hidden : null; })(),
     missionAcceptance: text('stewardDrawerMissionAcceptance'),
+    ago: text('stewardDrawerAgo'),
+    // 121-K6b（§2.6／§5）：在跑那一段的当前动作行「工具 · 第 N 次调用 · N 秒前有输出」。
+    acting: text('stewardDrawerActing'),
+    actingHidden: (() => { const n = document.getElementById('stewardDrawerActing'); return n ? n.hidden : null; })(),
+    origin: (() => { const n = document.getElementById('stewardDrawerOrigin'); return n && !n.hidden ? (n.getAttribute('aria-label') || '') : ''; })(),
+    costNodes: document.querySelectorAll('#stewardDrawerMissionCost').length,
     tabs: [...document.querySelectorAll('#stewardDrawerTabs .steward-drawer-tab')].map(node => node.textContent.trim()),
     tabSelected: [...document.querySelectorAll('#stewardDrawerTabs [role="tab"]')].map(node => node.getAttribute('aria-selected')),
     tabRoles: [...document.querySelectorAll('#stewardDrawerTabs [role="tab"]')].length,
@@ -554,7 +564,7 @@ try {
   ok(openedA.role === 'dialog' && openedA.labelledby === 'stewardDrawerTitle',
     'B2 抽屉是 role="dialog" + aria-labelledby="stewardDrawerTitle"');
   // 117l D4 重钉：11 → 13（多了「它在问你」与「更多」；四块折进后者，一块没少、顺序没变）。
-  ok(openedA.ordered === true, 'B3 十三个区块的 DOM 顺序 === §11.9 D4 的契约顺序');
+  ok(openedA.ordered === true, 'B3 十四个区块的 DOM 顺序 === §2.6 焦点卡的契约顺序');
   ok(openedA.shellDrawer === 'open', 'B4 宽屏下管家壳被标为 drawer=open（对话区收窄，抽屉占右侧 390px 栏）');
   ok(openedA.ariaModal === null, 'B4b 1440px 宽屏是栏式，不加 aria-modal');
   ok(openedA.tablist === 'tablist' && openedA.tabRoles === 2,
@@ -565,8 +575,16 @@ try {
   // 的每一行加了 missionTitle（显式容器＝用户起的名，派生事项＝那条线程的显示名）。本条此前钉的是
   // 「回落到本线程标题」，那是 116-5b 之前的世界；照那条回落，同一块面板上事项行写整句原话、
   // 下面的页签写生成名 —— 一块面板三个名字指同一件事（用户走查原话：看不出这是同一件）。
-  ok(openedA.missionTitle === MISSION_TITLE,
-    `B6 事项行显示【事项容器】的名字（用户起的那个，实测「${openedA.missionTitle}」）`);
+  // 121-K6b 重钉（34 号文 §2.6）：那个名字搬到卡头的【面包屑】上，且只在多线程任务时出现 ——
+  // 本段的线程 A 恰好有两条兄弟线程（B5 刚数过 tabRoles === 2），所以它该在场。
+  ok(openedA.missionTitle === MISSION_TITLE && openedA.crumbHidden === false,
+    `B6 卡头面包屑显示【任务容器】的名字（用户起的那个，实测「${openedA.missionTitle}」，hidden=${openedA.crumbHidden}）`);
+  // 121-K6b（§7.2／§2.6「没有『今天』统计块」）：费用 pill 整个节点已经不在骨架里了。
+  ok(openedA.costNodes === 0,
+    `B6c 焦点卡里没有费用 pill（#stewardDrawerMissionCost 整个节点已删，实测 ${openedA.costNodes} 个）`);
+  // 元信息一行的另外两样：来源图形（悬停出字，读屏问得到）与相对时间。
+  ok(typeof openedA.ago === 'string' && openedA.ago.length > 0,
+    `B6d 元信息一行印相对时间（与对话流卡头同一句 stewardAgoLabel，实测「${openedA.ago}」）`);
   // companion：同一帧里线程自己的名字不许被事项名顶掉 —— 两个名字各就各位才是这条修法的完整形状。
   ok(openedA.title === THREAD_A,
     `B6b 同一帧里线程头仍是线程自己的名字（实测「${openedA.title}」）`);
@@ -1003,9 +1021,15 @@ try {
     `E6b 内容以活回合的【末尾】三句打头，不是开头（实测「${onD && onD.lastSay}」）`);
   ok(Boolean(onD) && onD.lastSay.indexOf('我先看了三个候选') < 0,
     'E6c 第一句被截掉 —— 活回合要看的是最新那几句（落盘原话那一路仍取开头，见 B10）');
-  ok(Boolean(onD) && onD.lastSay.indexOf(zh['stewardShell.drawer.tool.askYou']) > 0
-    && onD.lastSay.indexOf('request_user_input') < 0,
-    `E6d 正在用的工具说【人话】，界面上不出现工具名（实测「${onD && onD.lastSay}」）`);
+  // 121-K6b 重钉 E6d（34 号文 §2.6／§5）：工具那句话从引文尾巴搬到【当前动作行】—— 引文只放
+  // 它说的话，一句话里不掺一句状态。要钉的两件事一个字没变：说人话、界面上不出现工具名；
+  // companion 再多钉一条：引文里【确实】不再带那句了（不是两处都印）。
+  ok(Boolean(onD) && onD.actingHidden === false
+    && onD.acting.indexOf(zh['stewardShell.drawer.tool.askYou']) === 0
+    && onD.acting.indexOf('request_user_input') < 0,
+    `E6d 当前动作行里正在用的工具说【人话】，界面上不出现工具名（实测「${onD && onD.acting}」）`);
+  ok(Boolean(onD) && onD.lastSay.indexOf(zh['stewardShell.drawer.tool.askYou']) < 0,
+    `E6d2 companion：引文里不再掺那句状态（实测「${onD && onD.lastSay}」）`);
   // 117v-V2：D 此刻【回合还活着】（挂在 request_user_input 上，E6 刚验过标题是「它正在说」）。
   // 这一条与 D4 成一对：同一句说明在「在跑」与「不在跑」两种情形下都出现 —— 它是无条件为真的
   // 事实陈述（下一回合生效、不打断在跑的回合），不该依赖任何活性判断。
@@ -1106,12 +1130,12 @@ try {
   // 判据不看小行长什么样，只看两件事：整页 id 以 stewardDrawer 开头的节点【全部】在同一棵
   // #stewardDrawer 子树里；右栏的小行里一个抽屉区块 id 都没有（区块清单取自模块导出的冻结表）。
   const NOW_STACK = `(() => {
-    const body = document.getElementById('stewardNowBody');
+    const body = document.getElementById('stewardFocus');
     const drawer = document.getElementById('stewardDrawer');
     if (!body || !drawer) return null;
     const rows = [...body.querySelectorAll('.steward-now-thread')];
     const ids = ${JSON.stringify(['stewardDrawerMission', 'stewardDrawerTabs', 'stewardDrawerHead', 'stewardDrawerAsk',
-    'stewardDrawerChips', 'stewardDrawerLastSay', 'stewardDrawerQuickReplies', 'stewardDrawerMore',
+    'stewardDrawerChips', 'stewardDrawerLastSay', 'stewardDrawerQuickReplies', 'stewardDrawerQueue', 'stewardDrawerMore',
     'stewardDrawerRelay', 'stewardDrawerActivity', 'stewardDrawerAcceptance', 'stewardDrawerScene',
     'stewardDrawerFoot'])};
     return {
@@ -1122,12 +1146,21 @@ try {
       drawerParent: drawer.parentElement ? drawer.parentElement.id : '',
     };
   })()`;
+  // 121-K6b 重钉 H1（34 号文 §2.6「其它【在途】」）：小行叠自此只收非收工的线程 —— 收工的那些
+  // 在左栏里，点一下就换成焦点，摆在焦点栏里只是把「此刻该看什么」冲淡。跑到这一段时，本件那四条
+  // 线程的待决都已经在 C/D/E 段答完（全部落到 settled/quiet 两档），所以「零条小行」正是新语义的
+  // 正确结果，而不是渲染没跑：判据因此改成【与服务端行对账】—— 在途几条就该有几条小行。
+  // 反向验证：把 renderNow 里那句 `if (!inFlight(row)) return;` 拔掉 → 四条收工线程全冒出来 → 本条红。
+  const inFlightRows = (await request(appPort, 'GET', '/api/missions?limit=200', null, token));
+  const inFlightCount = ((inFlightRows && inFlightRows.json && inFlightRows.json.missions) || [])
+    .filter(row => row && ['needs_you', 'running', 'dispatching'].includes(String(row.aggregateState || row.state || ''))).length;
   const oneDrawer = await waitForEval(cdp, `(() => {
     const snapshot = ${NOW_STACK};
-    return snapshot && snapshot.rows > 0 ? snapshot : null;
+    return snapshot && snapshot.drawerParent === 'stewardFocus' ? snapshot : null;
   })()`) || await cdp.evaluate(NOW_STACK);
-  ok(Boolean(oneDrawer) && oneDrawer.rows > 0 && oneDrawer.drawerParent === 'stewardNowBody',
-    `H1 右栏叠着小行，抽屉那一份仍然是搬进 #stewardNowBody 的【同一个】节点（实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
+  ok(Boolean(oneDrawer) && oneDrawer.drawerParent === 'stewardFocus'
+    && oneDrawer.rows === Math.max(0, inFlightCount - 1),
+    `H1 焦点栏「其它在途」只叠非收工的线程，抽屉那一份仍然是搬进 #stewardFocus 的【同一个】节点（服务端在途 ${inFlightCount} 条 − 焦点自己 1 条 → 期望 ${Math.max(0, inFlightCount - 1)}，实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
   ok(oneDrawer && oneDrawer.blocksInRows === 0 && oneDrawer.inputsInRows === 0 && oneDrawer.strays === 0,
     `H1b 小行里零抽屉区块、零输入框，整页也没有第二处 #stewardDrawer* 节点（实测 区块 ${oneDrawer && oneDrawer.blocksInRows}／输入框 ${oneDrawer && oneDrawer.inputsInRows}／游离 ${oneDrawer && oneDrawer.strays}）`);
 

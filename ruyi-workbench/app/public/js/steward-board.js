@@ -32,7 +32,10 @@ import { stewardThreadStateOf, stewardAcceptanceText } from './steward-drawer.js
 // 117u-G2 B2（27 号文 §11.15.3「一枚线程卡，三种密度」）：色号问【全仓那一张登记表】要 ——
 // G1 已经把它从对话流的实例闭包提到模块级（stewardThreadHueFor），所以同一条线程在对话流／
 // 频道条／线程详情栏／看板上恒是同一个号、同一种色。本模块不自己算色、不自己记号、不新开第二张表。
-import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor } from './steward-conversation.js';
+// 121-K6b（§5）：色号的键从 sessionId 换成 missionId 之后，「这条线程属于哪个任务」这件事必须
+// 有人登记 —— 登记者只能是本模块（全仓唯一的 /api/missions 取数者），所以这一行多一个名字。
+import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor,
+  stewardRegisterThreadMission } from './steward-conversation.js';
 // 33 号文 §4（M3-a）：危险操作确认四套收一套。本看板的「停掉占用者」修前走原生 globalThis.confirm
 // （全站唯一跳出式浮层：不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套。
 // 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
@@ -56,7 +59,7 @@ import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream
 //      行＝3px 色条（色号按任务）＋任务名＋聚合药丸＋来源图形＋速查徽标，第二行只在有话可说时出现。
 //      「看板」密度（440px）多印一行事实：验收 a/b · 线程数 · 只在与全局不同时印权限 —— **不印费用**。
 //   ③ 管家视角的右栏 `#stewardSide`：焦点那一条的内容就是【同一个】线程抽屉以 docked 挂法挂进来
-//      （steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进 #stewardNowBody）——
+//      （steward-drawer.js 的 setMount('docked') 把 #stewardDrawer 节点搬进 #stewardFocus）——
 //      不存在第二份抽屉区块渲染。焦点线程由纯函数 focusThreadFor 决定，用户显式选过就钉住。
 //      F3（32 号文 §2.2「线程即频道」）：其余在办的线程按 GET /api/missions 的【服务端行序】
 //      （117s-A 的 D1 已经在 13d 一处按「状态优先、其次 updatedAt」排好）在抽屉的上下叠成小行 ——
@@ -87,7 +90,7 @@ const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
 export const STEWARD_BOARD_POLL_MS_DEFAULT = STEWARD_POLL_MS_DEFAULT;
 export const STEWARD_NOW_MIN_WIDTH = 1000;
 // F3：右栏那两条「小行叠」的容器 id。它们【不在】 index.html 的静态骨架里（A5/A7 的纪律：
-// #stewardNowBody 只是一个挂点），由本模块建出来并始终夹着抽屉那一份 —— 上面一条放焦点行之前的
+// #stewardFocus 只是一个挂点），由本模块建出来并始终夹着抽屉那一份 —— 上面一条放焦点行之前的
 // 线程，下面一条放之后的。做成导出的冻结常量而不是两个散落字面量，静态锁才钉得住。
 export const STEWARD_NOW_STACK_IDS = Object.freeze({ before: 'stewardNowStackBefore', after: 'stewardNowStackAfter' });
 // 与 01-config.js 的 stewardMaxParallelThreads 校验同一区间（[1,32]，默认 5）。
@@ -245,9 +248,11 @@ export function createStewardBoard({
   // .steward-tcard-*（G1 提上去的那一份，对话流与线程详情栏用的是同一条声明块），本模块只挂类名。
   // 色条与色点【只说这是哪条线程】，一个状态字面量都不认 —— 状态由 statePill() 那枚药丸承担
   // （F1 立的「两套信号不混用」：修前看板那颗点既是身份又是状态，一个视觉信号说两件事）。
-  function paintThreadCard(node, sessionId) {
+  // 121-K6b（§5）：第二个形参是【任务 id】。传不传都拿得到同一个号（登记表已经记下归属），
+  // 传是为了任务行那一处 —— 它画的本来就是任务，不该借领头线程的身份去问号。
+  function paintThreadCard(node, sessionId, missionId) {
     node.classList.add('steward-tcard');
-    if (sessionId) node.dataset.threadHue = String(stewardThreadHueFor(sessionId));
+    if (sessionId) node.dataset.threadHue = String(stewardThreadHueFor(sessionId, missionId));
     const bar = el('span', 'steward-tcard-bar');
     bar.setAttribute('aria-hidden', 'true');
     node.appendChild(bar);
@@ -281,6 +286,18 @@ export function createStewardBoard({
       missionsEtag = response.headers.get('etag') || '';
       const payload = await response.json();
       rows = Array.isArray(payload && payload.missions) ? payload.missions : [];
+      // 121-K6b（34 号文 §5「色号按任务」）：本模块是全仓唯一那个 /api/missions 取数者，所以
+      // 「这条线程属于哪个任务、任务叫什么、这个任务有几条线程」这三件事只有它第一手知道。
+      // 登记一次，四面（对话流卡头／焦点卡／左栏行／看板密度行）问同一张表拿同一个号，也拿到
+      // 同一份「任务 › 线程」面包屑 —— 本模块自己【不算】色号、不存第二份任务名。
+      for (const row of rows) {
+        if (!row || !row.sessionId) continue;
+        stewardRegisterThreadMission(String(row.sessionId), {
+          missionId: String(row.missionId || ''),
+          missionTitle: String(row.missionTitle || ''),
+          threadCount: Number(row.threadCount) || 0,
+        });
+      }
       return true;
     } catch { return false; }
   }
@@ -848,13 +865,11 @@ export function createStewardBoard({
   // 判据只有一个：这一组里【真拿到了几条线程行】（group.rows）。刻意不用行上的 threadCount ——
   // 那是任务的线程总数，含本次 limit 没取回来的那些，用它当判据会在截断时画出一个点不开的折角。
   function railTaskRow(group, selected) {
-    // 色号：取【领头那一条线程】的号（行序由服务端排好，领头就是最该看的那一条）。
-    // §2.3 写的是「色号按任务分配、线程继承任务色」—— 那要改的是 stewardThreadHueFor 那张登记表
-    // 本身（它今天按 sessionId 发号，对话流、线程详情栏、右栏小行三面都读它）。**本刀不改它**：
-    // 改一半的后果是同一条线程在左栏与右栏同时显示两个颜色（实测 steward-board.e2e C12/C12d/C12e
-    // 三条当场红：看板=1、详情栏=4）。按任务发号连同四面一起改，归 K6（§9 K6 的验收里写着
-    // 「同一任务四面 data-thread-hue 相同」）。这里只保证：任务行的色条与它领头那条线程同色。
-    const item = paintThreadCard(el('li', 'steward-board-thread rail-task'), String((group.rows[0] || {}).sessionId || group.missionId));
+    // 色号：**按任务**（121-K6b／§5 落地）。stewardThreadHueFor 那张登记表的键已经从 sessionId
+    // 换成 missionId，线程继承任务色 —— 所以这里直接把任务 id 递进去，不再借领头线程的身份问号。
+    // K4 在这里留的那段「本刀不改它，归 K6」的注记到此关闭。
+    const item = paintThreadCard(el('li', 'steward-board-thread rail-task'),
+      String((group.rows[0] || {}).sessionId || group.missionId), String(group.missionId || ''));
     item.dataset.missionId = group.missionId;
     const aggregate = String(group.aggregateState || '');
     if (aggregate) item.dataset.state = aggregate;
@@ -1099,7 +1114,7 @@ export function createStewardBoard({
 
   // ── F3：右栏那两条「小行叠」──────────────────────────────────────────────────────
   // 容器按需建、始终夹着抽屉那一份。搬的永远只有【自己的】这两个节点：抽屉是 setMount('docked')
-  // 挂进 #stewardNowBody 的，本模块一次都不碰它（E 组纪律：一份实现、两种挂法）。
+  // 挂进 #stewardFocus 的，本模块一次都不碰它（E 组纪律：一份实现、两种挂法）。
   // 每一趟都重新摆一次位置，是因为抽屉可能在 overlay ↔ docked 之间来回搬（窄屏／关掉／切壳），
   // 回到 docked 时它被 appendChild 到末尾 —— 那时候只要把下面那条 stack 再 append 一次就复位了。
   function nowStack(which) {
@@ -1113,7 +1128,7 @@ export function createStewardBoard({
     return list;
   }
   function placeNowStacks(before, after) {
-    const body = byId('stewardNowBody');
+    const body = byId('stewardFocus');
     if (!body) return false;
     if (body.firstChild !== before) body.insertBefore(before, body.firstChild);
     if (body.lastChild !== after) body.appendChild(after);
@@ -1168,6 +1183,15 @@ export function createStewardBoard({
 
   // 重画判据：行的「身份／五态／名字／那一句」有一处变了才重画 —— 否则用户正按着某一行时，
   // 每一拍都会把它连根拔掉（chip 菜单那条 304 纪律的同一条道理）。
+  // 121-K6b（34 号文 §2.6「其它在途：其余【非收工】线程的最紧密度行」）：焦点栏下面那一叠只留
+  // 还在路上的线程。判据【不新增】—— 复用 paintDot 那四档 tone（dockToneForMissionState 一处算），
+  // settled/quiet 两档就是「这件事此刻没在动」，与左栏「今天收工／更早」两组同一条界线。
+  // 收工的线程没有消失：它们在左栏里，点一下就换成焦点。
+  function inFlight(row) {
+    const tone = toneOf(threadStateOf(row));
+    return tone === 'attention' || tone === 'active';
+  }
+
   let nowSignature = '';
   function renderNow(focusId) {
     const now = byId('stewardSide');
@@ -1191,6 +1215,7 @@ export function createStewardBoard({
     const index = rows.findIndex(row => String(row.sessionId || '') === String(focusId || ''));
     rows.forEach((row, at) => {
       if (at === index) return;
+      if (!inFlight(row)) return;   // 121-K6b：「其它【在途】」——收工的不占焦点栏（§2.6）
       (index >= 0 && at < index ? before : after).appendChild(renderNowThread(row));
     });
     return rows.length;

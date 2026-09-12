@@ -60,7 +60,11 @@ const STEWARD_TICK_MS = 5000;        // 管家三处轮询的【表周期】（S
 const STREAM_MS = 2400;              // 第一发模型调用流多长时间的 delta（攒 thread.live）
 const HANG_MS = 120000;              // 「HANGHERE」那一支把回合挂住多久（E/D 两组要它一直活着）
 // 焦点栏「它正在说」那一行在带工具名时长什么样（键与参数都取自 locale，不在测试里写死中文）。
-const USING_TOOL_TEXT = String(zh['stewardShell.drawer.usingTool'] || '').replace('{{tool}}', String(zh['stewardShell.drawer.tool.other'] || ''));
+// 121-K6b（34 号文 §2.6／§5）：这句话搬了家 —— 工具人话从「它正在说」的引文尾巴挪到焦点卡的
+// **当前动作行**（#stewardDrawerActing：`工具 · 第 N 次调用 · N 秒前有输出`），引文只放它说的话。
+// 原来这里读的是已经删掉的 `stewardShell.drawer.usingTool`，取不到会变成空串，而
+// `indexOf('') >= 0` 恒真 —— 指标 d 会退化成「只看标题变没变」的半个假绿。改钉那一行的工具人话。
+const USING_TOOL_TEXT = String(zh['stewardShell.drawer.tool.other'] || '');
 
 function request(port, method, pathname, body, token) {
   return new Promise(resolve => {
@@ -418,7 +422,8 @@ try {
         c: () => stateOf() === 'needs_you',
         b: () => stateOf() === 'done' || stateOf() === 'stopped',
         d: () => text('stewardDrawerLastSayHead') === window.__ruyiTargets.liveSay
-              && text('stewardDrawerLastSayText').indexOf(window.__ruyiTargets.usingTool) >= 0,
+              && window.__ruyiTargets.usingTool !== ''
+              && text('stewardDrawerActing').indexOf(window.__ruyiTargets.usingTool) >= 0,
         f: () => stateOf() === 'running',
       };
       const tick = () => {
@@ -531,7 +536,7 @@ try {
   const dAt = await waitForMark(cdp, 'd', 20000);
   const dLag = dAt && toolFrame ? dAt - serverAtOf(toolFrame) : Infinity;
   ok(Boolean(dAt) && dLag <= LATENCY_BUDGET_MS,
-    `B-d 指标 d：中途工具调用 → 焦点栏「它正在说 · 正在…」${Number.isFinite(dLag) ? dLag : '∞'} ms ≤ ${LATENCY_BUDGET_MS}（今天【永远看不到】）`);
+    `B-d 指标 d：中途工具调用 → 焦点卡的「它正在说」＋当前动作行说出工具人话 ${Number.isFinite(dLag) ? dLag : '∞'} ms ≤ ${LATENCY_BUDGET_MS}（今天【永远看不到】）`);
 
   const needsFrame = await waitForFrame(stream, f => f.event === 'thread.needs_you' && f.data && f.data.sessionId === sid);
   const cAt = await waitForMark(cdp, 'c', 20000);

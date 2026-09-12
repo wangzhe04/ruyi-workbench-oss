@@ -69,21 +69,25 @@
   gap: var(--sp-3);
 }
 
-/* ① 事项行 */
+/* ② 元信息【一行】（121-K6b／34 号文 §2.6）：来源图形 · 相对时间 · 验收 a/b。
+   nowrap ＋ 溢出隐藏 = 「一行」这件事由样式层保证，不靠 JS 数字数。**不印费用**（§7.2）。 */
 .steward-drawer-mission {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1) var(--sp-2);
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
   font-size: var(--fs-xs);
   color: var(--muted);
 }
-.steward-drawer-mission-title {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
+.steward-drawer-mission > * { flex: 0 0 auto; }
+.steward-drawer-mission [hidden] { display: none; }
+/* 来源图形（环／人形／钟）：与左栏行同一批字形、同一句悬停文案，色也同一档次级墨。 */
+.steward-drawer-origin {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
 }
 .steward-drawer-pill {
   font-size: var(--fs-xs);
@@ -152,9 +156,28 @@
 }
 .steward-drawer-title {
   flex: 1 1 auto;
+  min-width: 4em;
   margin: 0;
   font-size: var(--fs-lg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+/* 121-K6b（§2.6）：「任务 › 线程」面包屑，只在多线程任务时出现。› 是 ::after 画的分隔符 ——
+   分隔符不是内容，不该进 textContent（读屏念「任务名 大于号 线程名」是噪音）。
+   与 K5 工作台线程头那一枚（.th-crumb）是同一条口径：一行读完，长了就省略号。 */
+.steward-drawer-crumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42%;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-drawer-crumb[hidden] { display: none; }
+.steward-drawer-crumb::after { content: " › "; color: var(--line-2); }
 /* F5a（§11.13.1「F 追加」）：五态各带一枚字形。字形与文字并列，不替换文字 ——
    药丸的 textContent 仍逐字是那句人话。 */
 .steward-drawer-state {
@@ -348,6 +371,22 @@
   color: var(--muted);
   font-weight: 600;
 }
+/* 121-K6b（§2.6／§5）：在跑那一段的【当前动作行】。等宽字体是刻意的 —— 那一行是三个会每半秒
+   跳一次的数（第 N 次调用 / N 秒前有输出），比例字体下每跳一次整行都在抖。`.num` 是全仓既有的
+   那一枚等宽类（左栏任务计数用的也是它），本层不新开第二处 font-family。 */
+.steward-drawer-acting {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-drawer-acting[hidden] { display: none; }
+/* ⑧ 排队那一段：整段只在排队时出现（[hidden] 由 JS 写）。 */
+.steward-drawer-block[hidden] { display: none; }
+
 .steward-drawer-quote {
   margin: 0;
   padding: var(--sp-2) var(--sp-3);

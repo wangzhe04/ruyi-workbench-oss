@@ -58,31 +58,37 @@ const BLOCKS = mod.STEWARD_DRAWER_BLOCK_IDS;
 //   ③ 「线程页内容还是太多太杂了」→ 接力／三问／验收项／现场四块折进默认收起的
 //      <details id="stewardDrawerMore">。
 // 所以清单从 11 变 13（多的两项是「问答卡」与「更多」这个容器本身）。
-// companion（A2b）：被折进去的那四块【一块没少、顺序没变】—— 这条修法是「换个地方放」，
+// 121-K6b（34 号文 §2.6「焦点卡」）：13 → 14，且【顺序变了】——
+//   · 卡头排到最前、元信息一行紧随其后（§2.6「卡头 → 元信息一行 → 按五态一段 → 动作行」；
+//     原来是「事项行 → 页签 → 线程头」，把任务名摆在线程名前面当第一眼信息，那是浮层时代
+//     「先说这是哪一件」的排法，常驻焦点栏里第一眼该是【这条线程】）；
+//   · 多的那一项是排队那一段（stewardDrawerQueue：在等什么 ＋ 插队 ＋ 并发上限）。
+// companion（A2b）：被折进「更多」的那四块【一块没少、顺序没变】—— 这条修法是「换个地方放」，
 // 不是「删掉」，静态锁必须能把「顺手删了一块」和「折起来了」分开。
-ok(Array.isArray(BLOCKS) && BLOCKS.length === 13 && Object.isFrozen(BLOCKS),
-  `A1 导出的区块顺序表是冻结的 13 项（实测 ${BLOCKS && BLOCKS.length}）`);
+ok(Array.isArray(BLOCKS) && BLOCKS.length === 14 && Object.isFrozen(BLOCKS),
+  `A1 导出的区块顺序表是冻结的 14 项（实测 ${BLOCKS && BLOCKS.length}）`);
 ok(JSON.stringify(BLOCKS) === JSON.stringify([
-  'stewardDrawerMission',      // ① 事项行
-  'stewardDrawerTabs',         // ② 线程页签
-  'stewardDrawerHead',         // ③ 线程头
+  'stewardDrawerHead',         // ① 卡头（色条＋「任务 › 线程」＋药丸）
+  'stewardDrawerMission',      // ② 元信息一行（来源图形 · 相对时间 · 验收 a/b；**不印费用**）
+  'stewardDrawerTabs',         // ③ 线程页签
   'stewardDrawerAsk',          // ④ 它在问你（117l）
   'stewardDrawerChips',        // ⑤ 快切 chip
-  'stewardDrawerLastSay',      // ⑥ 它正在说／它刚说
+  'stewardDrawerLastSay',      // ⑥ 它正在说／它最后说（含当前动作行）
   'stewardDrawerQuickReplies', // ⑦ 你可以说
-  'stewardDrawerMore',         // ⑧ 更多（容器，117l）
-  'stewardDrawerRelay',        // ⑧-1 接力关系
-  'stewardDrawerActivity',     // ⑧-2 三问
-  'stewardDrawerAcceptance',   // ⑧-3 验收项
-  'stewardDrawerScene',        // ⑧-4 现场
-  'stewardDrawerFoot',         // ⑪ 底部
-]), `A2 区块顺序逐字为 §11.9 D4 那一串（实测 ${JSON.stringify(BLOCKS)}）`);
+  'stewardDrawerQueue',        // ⑧ 排队：在等什么 ＋ 插队 ＋ 并发上限（121-K6b）
+  'stewardDrawerMore',         // ⑨ 更多（容器，117l）
+  'stewardDrawerRelay',        // ⑨-1 接力关系
+  'stewardDrawerActivity',     // ⑨-2 三问
+  'stewardDrawerAcceptance',   // ⑨-3 验收项
+  'stewardDrawerScene',        // ⑨-4 现场
+  'stewardDrawerFoot',         // ⑩ 底部动作行
+]), `A2 区块顺序逐字为 §2.6 焦点卡那一串（实测 ${JSON.stringify(BLOCKS)}）`);
 ok(JSON.stringify(mod.STEWARD_DRAWER_MORE_BLOCK_IDS)
   === JSON.stringify(['stewardDrawerRelay', 'stewardDrawerActivity', 'stewardDrawerAcceptance', 'stewardDrawerScene'])
   && mod.STEWARD_DRAWER_MORE_BLOCK_IDS.every(id => BLOCKS.includes(id)),
   'A2b companion：折进「更多」的四块一块没少、顺序没变（这条修法是换地方，不是删块）');
 const positions = BLOCKS.map(id => html.indexOf(`id="${id}"`));
-ok(positions.every(index => index > 0), 'A3 十一个区块骨架都静态写在 index.html 里（不是 JS 现搭）');
+ok(positions.every(index => index > 0), 'A3 十四个区块骨架都静态写在 index.html 里（不是 JS 现搭）');
 ok(positions.every((index, i) => i === 0 || index > positions[i - 1]),
   'A4 index.html 里的出现顺序 === 区块顺序表的顺序（DOM 顺序即锁）');
 const shellAt = html.indexOf('id="stewardShell"');
@@ -289,10 +295,17 @@ const routes = [...new Set([
 // 改全局默认（两种语义同屏，33 号文 §0），现在切模型恒为 PATCH /api/sessions/:id，只有点那一项
 // 才写 /api/config。所以这条白名单项对应的不是「多了一条写路」，而是「那条写路从隐式变显式」。
 // E6 那条「chipsCode 里 method:'PATCH' 恰好一处」仍然钉着会话级写口的唯一性。
+// 121-K6b **再重钉 F1**（34 号文 §2.6 排队那一段）：白名单多一条
+// /api/steward/arbiter/prioritize —— 「插队」。它是 116h 就立好的既有路由（看板行上那枚
+// prioritize 走的就是它），焦点栏只是多了一个调用点，**后端零新增面**这件事一个字没松；
+// 语义也刻意仍然做窄（只有还在排队的那一条能被提到队首，不在队列里如实说一句）。
+// 「并发上限」那一枚【不在这张名单里】，因为它一个请求都不发：它把光标送到左栏栏头那个既有
+// 输入框（全仓唯一一处并发上限控件），写值仍然只有看板那一条 saveConfigPartial。
 const ALLOWED = [
   '/api/agent-runs/', '/api/chat/answer', '/api/config', '/api/interventions',
   '/api/missions/', '/api/permission/decision', '/api/session/rewind',
-  '/api/sessions/', '/api/steward/relay', '/api/stop', '/api/usage/summary',
+  '/api/sessions/', '/api/steward/arbiter/prioritize', '/api/steward/relay',
+  '/api/stop', '/api/usage/summary',
 ].sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `F1 递话收成单口：白名单里有 /api/steward/relay，没有 /api/steer 与 /api/chat/stream（实测 ${JSON.stringify(routes)}）`);
@@ -448,9 +461,13 @@ ok(/const streaming = Boolean\(liveTail\) && Boolean\(tailText\);/.test(drawer)
 // （实测：E6 直接说「它还没说过话」）。服务端只在真有活回合时下发 liveTail，那才是权威判据。
 ok(!/Boolean\(liveTail\) && isLive\(\)/.test(drawer),
   'J3d 「在不在跑」只看 liveTail 在不在，不叠 isLive()');
-ok(/t\('stewardShell\.drawer\.usingTool', \{ tool: threadToolLabel\(tool\) \}\)/.test(drawer)
-  && /function threadToolLabel\(tool\) \{[\s\S]{0,200}return key \? t\(key\) : t\('stewardShell\.drawer\.tool\.other'\);/.test(drawer),
-  'J4 工具说人话（铁律：界面上永远不出现工具名），表外落到「用一个工具」');
+// 121-K6b **重钉 J4**（34 号文 §2.6／§5）：工具人话从「它正在说」的引文尾巴搬到【当前动作行】
+// （`工具 · 第 N 次调用 · N 秒前有输出`）—— 引文只放它说的话，一句话里不掺一句状态。
+// 要钉的事实一个字没变：**界面上永远不出现工具名**，表外一律落到「用一个工具」。
+ok(/parts\.push\(threadToolLabel\(tool\)\);/.test(drawer)
+  && /function threadToolLabel\(tool\) \{[\s\S]{0,200}return key \? t\(key\) : t\('stewardShell\.drawer\.tool\.other'\);/.test(drawer)
+  && !/usingTool/.test(drawer),
+  'J4 工具说人话（铁律：界面上永远不出现工具名），表外落到「用一个工具」；这句话住在当前动作行，不在引文里');
 // 117m-A2 **重钉 J5**（用户第六轮走查⑤⑥；语义是「一类放开成四类」，不是放宽）。
 // 旧断言里那一条 `asksYouFrom({ pending: { type: 'permission' } }) === null` 钉住的正是本波要修的
 // bug 本身：真机 sess_8bb0dd55d35045b0 的 14 条待决全是 permission（最后一条 02:34:57 请求、
@@ -491,8 +508,14 @@ ok(/if \(section\) section\.hidden = askOptionReplies\(\)\.length > 0;/.test(dra
   'J6 ④ 已经把选项摆出来时 ⑦「你可以说」整块隐藏（不出现两排一样的按钮）');
 ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pending: pendingForThread, t \}\)/.test(drawer),
   'J6b 选项按钮复用 quickRepliesFor（与 ⑦ 同一份判据，不另写一遍「取 label || value」）');
-ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); focusAsk\(\); \}/.test(drawer),
-  'J7 焦点在【loading 闸落下之后】才给问答框（闸落之前还不知道它有没有在问你）');
+// 121-K6b **重钉 J7**（§13.7 登记 ⑨）：焦点栏常驻之后，换焦点的触发者多数不是用户（管家递话、
+// 推送来帧、syncNow 的自动挑选），把光标从用户正在打字的地方抢走就是把键位丢掉。
+// 「闸落之后才移焦」这半句一个字没松，只是外面多了一道「用户没在打字」的门。
+ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer)
+  && /function userIsTyping\(\)/.test(drawer)
+  && /return active\.isContentEditable === true;/.test(drawer)
+  && /const wantFocus = opts && opts\.focus === true \? true : \(opts && opts\.focus === false \? false : !userIsTyping\(\)\);/.test(drawer),
+  'J7 焦点在【loading 闸落下之后】才给问答框，且只在用户没在输入框里打字时才移焦（§13.7 ⑨）');
 // 117m-A2 **重钉 J7b**（语义是「焦点从只认输入框放到第一个可操作控件」，不是放宽）。
 // 旧断言逐字钉着 `if (!section || section.hidden || !input` —— permission／plan／pool 的卡片
 // 【没有】输入框（renderAsk 把自由输入整块隐藏了：那三类是按一下的事）。只认输入框的话，
@@ -504,10 +527,17 @@ ok(/const target = \(input && !\(answer && answer\.hidden\)\)/.test(drawer)
   && /\.querySelector\('\.steward-drawer-reply'\)/.test(drawer)
   && /section\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(drawer),
   'J7c companion：焦点落在【第一个可操作控件】上（有输入框就是它，没有就是第一枚按钮），并把卡片滚进视野');
-ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed \}\)/.test(drawer)
+// 121-K6b **重钉 J8**（33 号文第 11 项／§5「最后动静统一用 stewardAgoLabel」）：锚点仍然是
+// updatedAt（那一半没变，判据收进 lastTouchLabel 一处），换掉的是【人话来源】——
+// 原来借 elapsedLabel 出一个时长「3m 20s」当「多久以前」用，抽屉里因此有两种时间写法。
+// 现在与卡头那一句是同一处实现、同一句「3 分钟前」。反向：把 lastTouchLabel() 换回
+// elapsedLabel(touched, new Date()) → 本条红。
+ok(/t\('stewardShell\.drawer\.settledSince', \{ elapsed: ago \}\)/.test(drawer)
+  && /const ago = lastTouchLabel\(\);/.test(drawer)
   && /const touched = String\(\(missionRow && missionRow\.updatedAt\) \|\| \(session && session\.updatedAt\) \|\| ''\);/.test(drawer)
+  && count(drawerCode, /stewardAgoLabel\(/g) === 1
   && !/stewardShell\.drawer\.settled'/.test(drawer),
-  'J8 「已收工 · 最近动过 X 前」锚在 updatedAt（修前锚在 createdAt，真机上说成「用时 770h 35m」）');
+  'J8 「已收工 · 最近动过 X 前」锚在 updatedAt，人话与卡头【同一处】stewardAgoLabel（抽屉里只剩一种时间写法）');
 ok(typeof zh['stewardShell.drawer.settled'] === 'undefined' && typeof en['stewardShell.drawer.settled'] === 'undefined',
   'J8b 旧键 stewardShell.drawer.settled 已随最后一个引用一起删掉（零引用键不留在目录里）');
 // 看板行那枚 pill（117l D4）：只读行上的 asksYou，点击 = 打开抽屉。
@@ -587,9 +617,11 @@ ok(drawerIconed.every(entry => !/<button[^>]*data-i18n="/.test(entry.markup)
 ok(drawerIconed.find(entry => entry.id === 'stewardDrawerStopBtn').glyph === 'stop'
   && !drawerIconed.some(entry => entry.glyph === 'power' || entry.glyph === 'powerOff'),
   'L4 线程「停止」用的是实心方块 stop；电源符只归管家本人的停机／唤醒（头部那一枚），抽屉里一次都不出现');
-const renderHeadBody = drawerCode.slice(drawerCode.indexOf('function renderHead()'), drawerCode.indexOf('function lastAssistantText()'));
+// 121-K6b：renderHead 后面那个函数从 lastAssistantText 变成 actingLine（当前动作行），切片终点
+// 跟着走；import 那一行多了一个 icon（元信息一行的来源图形与左栏行同一批字形）。
+const renderHeadBody = drawerCode.slice(drawerCode.indexOf('function renderHead()'), drawerCode.indexOf('function actingLine()'));
 ok(renderHeadBody.length > 0
-  && /import \{ missionStateIcon \} from '\.\/icons\.js';/.test(drawer)
+  && /import \{ missionStateIcon, icon \} from '\.\/icons\.js';/.test(drawer)
   && count(drawerCode, /missionStateIcon\(/g) === 1
   && count(renderHeadBody, /stateLabel\(/g) === 1
   && /stateNode\.appendChild\(doc\(\)\.createTextNode\(stateLabel\(stateValue\)\)\);/.test(renderHeadBody)
@@ -608,11 +640,22 @@ const conversationSrc = read('js/steward-conversation.js');
 const conversationCssCode = read('css/views/steward-conversation.css').replace(/\/\*[\s\S]*?\*\//g, '');
 
 // ① 色号：全仓一张登记表，抽屉只【问】不【记】。
+// 121-K6b **重钉 M1**（34 号文 §5「色号按任务」）：表的键从 sessionId 换成 missionId，线程继承
+// 任务色。四件事实：① 同一条恒同色、空 id 仍回 0（原判据两条一字未动）；② 同一个任务下的两条
+// 线程【同色】（这是本刀要的那一条，修前必然不同色）；③ 发号器是显式计数器而不是 Map.size ——
+// 归并会删临时键，读 size 就会发重号；④ 登记表仍然只有一张（一处 new Map() 给色号）。
 ok(typeof conversationMod.stewardThreadHueFor === 'function'
   && conversationMod.stewardThreadHueFor('m-a') === conversationMod.stewardThreadHueFor('m-a')
   && conversationMod.stewardThreadHueFor('') === 0
-  && count(conversationSrc, /new Map\(\);\s*\nexport function stewardThreadHueFor/g) === 1,
-  'M1 色号登记表提到了模块级并导出（同 id 恒同色、空 id 回 0），全文件只有那一处 new Map()＋导出 —— 三面问同一张表');
+  && (() => {
+    conversationMod.stewardRegisterThreadMission('k6b-t1', { missionId: 'k6b-m', threadCount: 2 });
+    conversationMod.stewardRegisterThreadMission('k6b-t2', { missionId: 'k6b-m', threadCount: 2 });
+    return conversationMod.stewardThreadHueFor('k6b-t1') === conversationMod.stewardThreadHueFor('k6b-t2');
+  })()
+  && count(conversationSrc, /const stewardThreadHues = new Map\(\);/g) === 1
+  && /let stewardHueSeq = 0;/.test(conversationSrc)
+  && !/stewardThreadHue\(stewardThreadHues\.size\)/.test(conversationSrc),
+  'M1 色号登记表在模块级、键是 missionId（同一任务两条线程同色、空 id 回 0），发号器是计数器不是 Map.size');
 // 117v-V2 **重钉 M2 的第一个合取项**（语义没变，被一次合法改动挪走了）：⑤「它刚说」的取段判据
 // 也从 steward-conversation.js 拿（stewardDeliverableText），于是同一行 import 多了第四个名字。
 // 旧断言逐字钉着三个名字的列表 —— 那是「色号只问一次、不自己算」这件事的【伴生字面量】，不是它
@@ -623,7 +666,7 @@ ok(/import \{[^}]*\bstewardThreadHueFor\b[^}]*\bstewardThreadStateKey\b[^}]*\bst
   && count(drawerCode, /stewardThreadHueFor\(/g) === 1
   && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerCode),
   `M2 抽屉的色号【只问一次、不自己算】：一处 stewardThreadHueFor(（实测 ${count(drawerCode, /stewardThreadHueFor\(/g)}），零本地登记表、零 stewardThreadHue()、零颜色字面量`);
-ok(/headNode\.dataset\.threadHue = String\(stewardThreadHueFor\(sessionId\)\);/.test(drawerCode)
+ok(/headNode\.dataset\.threadHue = String\(stewardThreadHueFor\(sessionId, missionRow && missionRow\.missionId\)\);/.test(drawerCode)
   && /else headNode\.removeAttribute\('data-thread-hue'\);/.test(drawerCode),
   'M2b 号写在详情头的 data-thread-hue 上（与对话流那一行 markThread 同一个属性），没有线程时把属性摘掉 —— 不留一根说不清是谁的色条');
 
@@ -645,7 +688,10 @@ ok(/return t\(stewardThreadStateKey\(value\) \|\| `mission\.state\.\$\{value\}`\
   `M4 抽屉的药丸人话先查共享词表、查不到才回落中性模板（dispatching／quick_ask 那两档共享表里没有）；全文件出现 mission.state. 恰好一处且是模板，没有第二份「态 → 人话键」的表（实测 ${count(drawerCode, /mission\.state\./g)} 处）`);
 
 // ③ 卡骨架的皮住在【一层】：抽屉挂类名，不重写药丸的色/形。
-for (const klass of ['steward-tcard', 'steward-tcard-name', 'steward-tcard-state', 'steward-tcard-act']) {
+// 121-K6b：名单去掉 .steward-tcard-act —— 那个基元管的是「卡头右端那枚主动作的落点」，
+// 而「在工作台打开」按 §2.6 已经从卡头搬到底部动作行的首位（金色那一枚，M7 钉着）。
+// 卡头此刻只有色条 · 色点 ·「任务 › 线程」· 药丸四样，没有动作，也就不该再挂那个类。
+for (const klass of ['steward-tcard', 'steward-tcard-name', 'steward-tcard-state']) {
   ok(new RegExp(`classList\\.add\\('${klass}'\\)`).test(drawerCode), `M5 详情头挂上共用类 .${klass}`);
 }
 ok(/\.steward-tcard-state,\s*\n\.steward-thread-state \{/.test(conversationCssCode)
@@ -664,9 +710,14 @@ ok(/\.steward-drawer-ask \{[\s\S]{0,400}?border-inline-start: 2px solid var\(--g
   'M6 「它在问你」是卡内 callout：左侧 2px --gold 强调边 ＋ --panel 面色，整块 --gold-soft 底没了（语义还是那一族色，收的是墨量）');
 
 // ⑤ D3 底部动作分级：主一枚、破坏性两枚收进「更多」，可访问名一个字没改。
-ok(/send\.classList\.add\('is-primary'\)/.test(drawerCode)
+// 121-K6b **重钉 M7**（§2.6 动作行「主＝在工作台打开」）：金色那一枚从「发给它」换成
+// 「在工作台打开」（它从卡头搬到了动作行首位）。要钉的事实没变：**主动作只有一枚**，
+// 而且旧的那一枚是被【显式摘掉】的，不是靠没人加。
+ok(/const primary = byId\('stewardDrawerClassicBtn'\);/.test(drawerCode)
+  && /if \(primary\) primary\.classList\.add\('is-primary'\);/.test(drawerCode)
+  && /if \(send\) send\.classList\.remove\('is-primary'\);/.test(drawerCode)
   && count(drawerCode, /classList\.add\('is-primary'\)/g) === 1,
-  'M7 底部只有一枚主动作（「发给它」拿 .is-primary 那身金色皮），不是六枚等重');
+  'M7 底部只有一枚主动作（「在工作台打开」拿 .is-primary 那身金色皮），不是六枚等重');
 const footMoreIds = (drawerCode.match(/STEWARD_DRAWER_FOOT_MORE_IDS = Object\.freeze\(\[([^\]]*)\]\)/) || [])[1] || '';
 ok(/'stewardDrawerRewindBtn'/.test(footMoreIds) && /'stewardDrawerHandBackBtn'/.test(footMoreIds)
   && /for \(const button of buttons\) more\.appendChild\(button\);/.test(drawerCode)

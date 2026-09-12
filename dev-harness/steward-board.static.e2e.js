@@ -114,14 +114,16 @@ ok(/<input type="number" id="stewardBoardMax"[^>]*min="1"[^>]*max="32"/.test(htm
 // 121-K4（34 号文 §2.6／§7.1）：右栏从浮层「现在这几件」（#stewardNow ＋ 标题条 ＋「关掉」）改成
 // 外框栅格里常驻的一列 #stewardSide。三件事跟着重钉：
 //   ① 骨架里不再有 #stewardNow／#stewardNowCloseBtn（那枚「关掉」在常驻栏里没有语义）；
-//   ② 挂点名 #stewardNowBody 【留着】—— 它是 steward-drawer.js 自己认的 docked 挂点
-//      （setMount 那一行由 D 组钉着），抽屉内部逻辑不归 K4 改，改名连同焦点栏改造归 K6；
+//   ② 挂点名：121-K6b 起是 #stewardFocus（原 #stewardNowBody）—— 它是 steward-drawer.js 自己认的
+//      docked 挂点（setMount 那一行由 D 组钉着）。浮层时代的「现在这几件」两刀之前就退役了，
+//      名字里再留着 Now 就是在指一块不存在的面（§13.7 登记 ③ 到此关闭）；
 //   ③ 默认 hidden 仍在（syncNow 一处写它），且仍然零抽屉区块 id。
 ok(/<aside id="stewardSide" class="steward-side"[\s\S]{0,240}?hidden>/.test(html)
-  && html.includes('id="stewardNowBody"')
+  && html.includes('id="stewardFocus"')
+  && !html.includes('id="stewardNowBody"')
   && !html.includes('id="stewardNow"')
   && !html.includes('id="stewardNowCloseBtn"'),
-  'A5 #stewardSide 默认 hidden，带抽屉自己认的那一个挂点 #stewardNowBody；浮层时代的 #stewardNow 与「关掉」已退役');
+  'A5 #stewardSide 默认 hidden，带抽屉自己认的那一个挂点 #stewardFocus；浮层时代的 #stewardNow／#stewardNowBody 与「关掉」已退役');
 const shellAt = html.indexOf('id="stewardShell"');
 const nowAt = html.indexOf('id="stewardSide"');
 const drawerAt = html.indexOf('id="stewardDrawer"');
@@ -293,8 +295,11 @@ ok(/saveConfigPartial\(\{ stewardMaxParallelThreads: value \}\)/.test(board)
 // 实现，不再自己写一份。
 // 117u-G2 **重钉 D9a**：这条 import 多了 stewardThreadHueFor（B2 色条上板要的号）。原判据只钉
 // 三个错误名，新判据逐字要求四个都在场 —— 更精确，不是放宽。
-ok(/import \{ stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor \} from '\.\/steward-conversation\.js';/.test(board),
-  'D9a board.js 的错误信封解包与线程色号都从 steward-conversation.js import，不是自己再写一份');
+// 121-K6b **再重钉 D9a**（34 号文 §5「色号按任务」）：多第五个名字 stewardRegisterThreadMission ——
+// 色号的键换成 missionId 之后，「这条线程属于哪个任务」必须有人登记，而登记者只能是本模块
+// （全仓唯一那个 /api/missions 取数者）。仍然是「不自己再写一份」：号还是那张表发的。
+ok(/import \{ stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor,\s*\n\s*stewardRegisterThreadMission \} from '\.\/steward-conversation\.js';/.test(board),
+  'D9a board.js 的错误信封解包、线程色号与任务归属登记都从 steward-conversation.js import，不是自己再写一份');
 ok(!/String\(\(error && error\.message\) \|\| error \|\| 'failed'\)/.test(boardCode),
   'D9b 旧的弱化版 failNote（裸 String(error) 拍扁结构化信封）已经不在了');
 const failNoteBody = boardCode.slice(boardCode.indexOf('function failNote'), boardCode.indexOf('function failNote') + 600);
@@ -315,11 +320,17 @@ for (const id of drawerMod.STEWARD_DRAWER_BLOCK_IDS) {
 ok(JSON.stringify(drawerMod.STEWARD_DRAWER_MOUNTS) === JSON.stringify(['overlay', 'docked'])
   && /drawer\.setMount\('docked'\);/.test(board) && /drawer\.setMount\('overlay'\);/.test(board),
   'E2 「现在这一件」= 同一个抽屉换 docked 挂法（挂法是抽屉导出的冻结枚举）');
-ok(/const host = next === 'docked' \? byId\('stewardNowBody'\) : byId\('stewardShell'\);/.test(drawer)
+ok(/const host = next === 'docked' \? byId\('stewardFocus'\) : byId\('stewardShell'\);/.test(drawer)
   && /if \(host && drawer\.parentNode !== host\) host\.appendChild\(drawer\);/.test(drawer),
   'E3 换挂法就是把【同一个】 #stewardDrawer 节点搬到另一个父节点下');
-ok(/if \(narrow && mountMode !== 'docked'\) drawer\.setAttribute\('aria-modal', 'true'\);/.test(drawer),
-  'E4 docked 是常驻栏不是模态（不补 aria-modal）');
+// 121-K6b **重钉 E4**（§2.6／§13.7 ③「抽屉内部『关掉』语义」）：两态收成一态 —— docked 是常驻
+// 焦点栏，不存在「关」也就不存在模态；overlay 只剩一种可达情形（窄到右栏摆不下，syncNow 的
+// wideEnough 是唯一那道宽度门），那一态恒是模态。原来 applyModal 里还自己判一次宽度，那是浮层
+// 时代留下的第二处判据。companion：docked 下那枚「关掉」由样式层收掉。
+ok(/if \(mountMode === 'docked'\) drawer\.removeAttribute\('aria-modal'\);\s*\n\s*else drawer\.setAttribute\('aria-modal', 'true'\);/.test(drawer)
+  && !/min-width: 1000px/.test(drawer.slice(drawer.indexOf('function applyModal'), drawer.indexOf('function applyModal') + 600))
+  && /\.steward-drawer\[data-mount="docked"\] > \.steward-drawer-bar \{ display: none; \}/.test(read('css/views/steward-board.css')),
+  'E4 docked 是常驻栏不是模态（不补 aria-modal、也没有「关掉」那枚钮）；overlay 恒是模态');
 ok(/drawer\.setOnClosed\(mount => \{ if \(mount === 'docked' && !suppressCloseRecord\) closeNow\(\); \}\);/.test(board),
   'E5 关掉 docked 那一份＝关掉「现在这一件」；程序性收起（窄屏／切壳）不记本机偏好');
 

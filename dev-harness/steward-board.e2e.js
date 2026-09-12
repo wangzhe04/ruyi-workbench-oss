@@ -536,8 +536,8 @@ try {
   ok(docked && docked.nowHidden === false, 'B2 ≥1000px 时管家视角的右栏常驻（121-K4：它是栅格里的一列，不再是 fixed 浮层）');
   ok(docked && docked.nowThread === THREAD_A,
     `B2b 焦点线程是【等你】那条（focusThreadFor：等你＞在跑＞失败＞最近；实测「${docked && docked.nowThread}」）`);
-  ok(docked && docked.drawerMount === 'docked' && docked.drawerParent === 'stewardNowBody' && docked.drawerHidden === false,
-    `B2c 它就是【同一个】抽屉节点被搬进 #stewardNowBody（实测 mount=${docked && docked.drawerMount} parent=${docked && docked.drawerParent}）`);
+  ok(docked && docked.drawerMount === 'docked' && docked.drawerParent === 'stewardFocus' && docked.drawerHidden === false,
+    `B2c 它就是【同一个】抽屉节点被搬进 #stewardFocus（实测 mount=${docked && docked.drawerMount} parent=${docked && docked.drawerParent}）`);
   // 117j W2-5：三个管家计时器统一按 5s 下限起表（真要不要拉由每一拍自己判），
   // 所以「这是管家的计时器」的身份判据从 POLL_MS 重钉到 TICK_MS —— 不改的话本断言恒真、形同虚设。
   // 121-K2b（34 号文 §6.2）重钉：「看板关着不刷」那道门删掉之后，看板那张表在【管家视角里
@@ -654,7 +654,9 @@ try {
     return {
       barA: paint('${created.A}'),
       barB: paint('${created.B}'),
-      barNowB: measure('.steward-now-thread[data-session-id="${created.B}"]'),
+      // 121-K6b（§5「色号按任务」）：C 自成一个任务，A／B 同属容器 M —— 三根色条正好把
+      //「同任务同色、不同任务不同色」这两半都量出来。
+      barC: paint('${created.C}'),
     };
   })()`);
   await cdp.evaluate(`document.querySelector('#railList .steward-board-thread[data-session-id="${created.A}"] .steward-board-pill.is-asks-you').click(), true`);
@@ -673,7 +675,9 @@ try {
     const conv = await import('/js/steward-conversation.js');
     const card = document.querySelector('#railList .steward-board-thread[data-session-id="${created.A}"]');
     const head = document.getElementById('stewardDrawerHead');
-    const now = document.querySelector('.steward-now-thread[data-session-id="${created.B}"]');
+    // 121-K6b（§5）：B 与 A 同属容器 M，C 自成一个任务。
+    const sibling = document.querySelector('#railList .steward-board-thread[data-session-id="${created.B}"]');
+    const other = document.querySelector('#railList .steward-board-thread[data-session-id="${created.C}"]');
     const paint = node => {
       const bar = node && node.querySelector('.steward-tcard-bar');
       if (!bar) return '';
@@ -683,32 +687,40 @@ try {
     return {
       board: card ? (card.dataset.threadHue || '') : '',
       drawer: head ? (head.dataset.threadHue || '') : '',
-      nowRow: now ? (now.dataset.threadHue || '') : '',
+      sibling: sibling ? (sibling.dataset.threadHue || '') : '',
+      other: other ? (other.dataset.threadHue || '') : '',
       registryA: String(conv.stewardThreadHueFor('${created.A}')),
       registryB: String(conv.stewardThreadHueFor('${created.B}')),
+      registryC: String(conv.stewardThreadHueFor('${created.C}')),
       hues: conv.STEWARD_THREAD_HUES,
       barDrawer: paint(head),
     };
   })()`);
   ok(Boolean(hueProof) && hueProof.board !== '' && hueProof.board === hueProof.drawer && hueProof.board === hueProof.registryA,
     `C12 同一条线程在【看板卡】与【线程详情栏卡头】上是同一个色号，且逐字等于那张模块级登记表发的号（实测 看板=${hueProof && hueProof.board} 详情栏=${hueProof && hueProof.drawer} 登记表=${hueProof && hueProof.registryA}）`);
-  ok(Boolean(hueProof) && hueProof.nowRow !== '' && hueProof.nowRow === hueProof.registryB,
-    `C12b 右栏那条小行（D4 的最紧密度卡）问的也是同一张表（实测 小行=${hueProof && hueProof.nowRow} 登记表=${hueProof && hueProof.registryB}）`);
-  // 号必须【真的按首次询问顺序循环发】，不是谁都拿一号：屏上只有三条线程、色表有四色，所以
-  // 两条不同的线程一定拿到两个不同的号（把 stewardThreadHueFor 换成常量，这一条立刻红）。
+  // 121-K6b **重钉 C12b**（34 号文 §5「色号按任务分配、线程继承任务色」）：原判据钉的是「右栏
+  // 小行也问同一张表」，而右栏自本刀起【只叠在途的线程】（§2.6「其它在途」），B 此刻已收工、
+  // 不在那一栏 —— 那一面的同色由 S 组（真有在途线程的那一段）与新件 focus-rail.browser 钉。
+  // 这里换钉本刀的要害：**A 与 B 同属容器 M，所以它们拿同一个号**（修前必然是两个号）。
+  // 反向验证：把 stewardThreadHueFor 的键改回 sessionId → 本条与 C12d 第三个合取项同时红。
+  ok(Boolean(hueProof) && hueProof.sibling !== '' && hueProof.sibling === hueProof.board
+    && hueProof.registryB === hueProof.registryA,
+    `C12b 同一个任务下的两条线程拿【同一个】号（线程继承任务色；实测 A=${hueProof && hueProof.board} B=${hueProof && hueProof.sibling}）`);
+  // 号必须【真的按首次询问顺序循环发】，不是谁都拿一号：C 自成一个任务，所以它与 M 那两条
+  // 一定拿到不同的号（把 stewardThreadHueFor 换成常量，这一条立刻红）。
   ok(Boolean(hueProof) && hueProof.hues === 4
-    && [hueProof.board, hueProof.nowRow].every(hue => Number(hue) >= 1 && Number(hue) <= hueProof.hues)
-    && hueProof.board !== hueProof.nowRow,
-    `C12c 发出来的号落在四色循环里且两条线程两个号（1..${hueProof && hueProof.hues}；实测 ${hueProof && JSON.stringify([hueProof.board, hueProof.nowRow])}）`);
-  // 真绘制：色条是 3px 实色、看板与详情栏同一条线程同一个颜色值、不同线程不同颜色值。
+    && [hueProof.board, hueProof.other].every(hue => Number(hue) >= 1 && Number(hue) <= hueProof.hues)
+    && hueProof.board !== hueProof.other && hueProof.registryC !== hueProof.registryA,
+    `C12c 发出来的号落在四色循环里，两个不同的【任务】两个号（1..${hueProof && hueProof.hues}；实测 M=${hueProof && hueProof.board} C=${hueProof && hueProof.other}）`);
+  // 真绘制：色条是 3px 实色、看板与详情栏同一条线程同一个颜色值。
   // 光钉 data-thread-hue 是不够的 —— 属性写对了但样式层没接上，屏幕上仍然什么都没有。
   ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barA) && /^3px\|rgb/.test(boardPaint.barB)
     && Boolean(hueProof) && boardPaint.barA === hueProof.barDrawer
-    && boardPaint.barA !== boardPaint.barB,
-    `C12d 色条真的画出来了：看板卡上 3px 实色、同一条线程在看板与详情栏是同一个颜色值、不同线程不同色（实测 A=${boardPaint && boardPaint.barA} 详情栏=${hueProof && hueProof.barDrawer} B=${boardPaint && boardPaint.barB}）`);
-  // D4 的那一面也真画出来了：同一条线程 B 在【看板卡】与【右栏小行】上是同一根 3px 同色色条。
-  ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barNowB) && boardPaint.barNowB === boardPaint.barB,
-    `C12e 右栏小行那枚最紧密度卡的色条与看板卡逐字同色（实测 小行=${boardPaint && boardPaint.barNowB} 看板=${boardPaint && boardPaint.barB}）`);
+    && boardPaint.barA === boardPaint.barB,
+    `C12d 色条真的画出来了：看板卡上 3px 实色、同一条线程在看板与详情栏同色、同一任务的两条线程同色（实测 A=${boardPaint && boardPaint.barA} 详情栏=${hueProof && hueProof.barDrawer} B=${boardPaint && boardPaint.barB}）`);
+  // 反面：另一个任务真的是另一种颜色（否则「同色」那一条可以靠「全都同色」蒙混过去）。
+  ok(Boolean(boardPaint) && /^3px\|rgb/.test(boardPaint.barC) && boardPaint.barC !== boardPaint.barA,
+    `C12e 不同任务的色条是不同的颜色值（实测 M=${boardPaint && boardPaint.barA} C=${boardPaint && boardPaint.barC}）`);
 
   // 121-K2b 重钉：点开看板【不再多】一条 —— 那第三条在看板收起时就已经在跑了（B2d）。
   // 钉的仍然是同一件事：看板不会因为一次开合长出第二张表。
@@ -781,7 +793,7 @@ try {
     `F1 抽屉的 × 不再收起右栏（常驻的一列；实测 hidden=${closed && closed.nowHidden}）`);
   ok(closed && closed.nowClosedPref === '',
     `F1b 本机偏好里一个字都没写（wcw.stewardNowClosed 已随「关掉」退役；实测「${closed && closed.nowClosedPref}」）`);
-  ok(closed && closed.drawerParent === 'stewardNowBody' && closed.drawerHidden === false,
+  ok(closed && closed.drawerParent === 'stewardFocus' && closed.drawerHidden === false,
     `F1c 抽屉那一份仍在右栏里（焦点松开了那一钉、回落到自动挑选；实测 parent=${closed && closed.drawerParent} hidden=${closed && closed.drawerHidden}）`);
   await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${created.A}"] [data-action="open"]').click(), true`);
   const reopened = await waitForEval(cdp, `(() => {
@@ -1055,10 +1067,10 @@ try {
   // （新键还没进 locale，断言结构不断言中文）。
   const NOW = `(() => {
     const now = document.getElementById('stewardSide');
-    const body = document.getElementById('stewardNowBody');
+    const body = document.getElementById('stewardFocus');
     if (!now || !body) return null;
     const focusId = now.dataset.focusId || '';
-    // 列内顺序：#stewardNowBody 的三个直系子节点按 DOM 顺序摊平 —— 两条 stack 摊成各自的行，
+    // 列内顺序：#stewardFocus 的三个直系子节点按 DOM 顺序摊平 —— 两条 stack 摊成各自的行，
     // 抽屉那一格顶上 data-focus-id。这就是「抽屉插在它自己那一格里」的可判定形式。
     const order = [];
     for (const child of body.children) {
@@ -1076,6 +1088,10 @@ try {
       drawerParent: document.getElementById('stewardDrawer') && document.getElementById('stewardDrawer').parentElement
         ? document.getElementById('stewardDrawer').parentElement.id : '',
       active: document.activeElement ? (document.activeElement.id || '') : '',
+      // 121-K6b 诊断：左栏那一面每条线程行现算出来的五态与 tone。焦点栏的「其它在途」过滤读的是
+      // 同一处判据，所以这两份对不上就说明过滤那一行错了（而不是「没有在途的线程」）。
+      railStates: [...document.querySelectorAll('#railList .steward-board-thread[data-session-id]')]
+        .map(node => [node.dataset.sessionId, node.dataset.state || '', node.dataset.tone || '']),
       rows: [...body.querySelectorAll('.steward-now-thread')].map(item => ({
         sessionId: item.dataset.sessionId || '',
         tone: item.dataset.tone || '',
@@ -1084,6 +1100,12 @@ try {
         // F5a（27 号文 §11.13.1「F 追加」）：药丸里那枚由五态【派生】出来的字形。读路径本身 ——
         // 三条不同五态的行必须给出三枚不同的字形，否则「加了图标」等于没加。
         pillGlyph: [...item.querySelectorAll('.steward-board-pill svg path')].map(node => node.getAttribute('d')).join('|'),
+        hue: item.dataset.threadHue || '',
+        bar: (() => {
+          const bar = item.querySelector('.steward-tcard-bar');
+          if (!bar) return '';
+          return Math.round(bar.getBoundingClientRect().width) + 'px|' + getComputedStyle(bar).backgroundColor;
+        })(),
         hasSay: Boolean(item.querySelector('.steward-now-thread-say')),
         say: (item.querySelector('.steward-now-thread-say') || { textContent: '' }).textContent.trim(),
         hasAnswer: Boolean(item.querySelector('[data-action="answer"]')),
@@ -1127,6 +1149,21 @@ try {
   ok(Boolean(idG), `S1 第三种状态就位：一条跑完一个回合、此刻没在跑的线程（五态「${zh['mission.state.done']}」；${idG || '失败'}）`);
   // 服务端行序与列内顺序【同一时刻】各取一份再比：行序本身会随状态与 updatedAt 变，
   // 拿一份旧快照去等 DOM 追上来，等到的可能是「两边都对、只是不同时刻」的假红。
+  // 121-K6b 重写 matchOrder（34 号文 §2.6「其它在途：其余【非收工】线程的最紧密度行」）。
+  // 修前这里比的是「列内顺序 === 服务端行序」逐字相等；焦点栏只留在途之后那条等式不再成立，
+  // 而【不能】改成「按某个字段过滤一遍再比」—— 行上只有 `aggregateState`（那是**任务**的聚合态，
+  // 同一个容器里的每条线程都是同一个值，本件那 11 条全属容器 M，照它过滤等于一条都过滤不掉；
+  // 第一版就是这么写的，实测期望 11 条、实到 1 条，白等 30 s 还把后面几条一起带红）。
+  // 每条线程自己的五态是【客户端由卡片派生】的（mission-state.js 一处），行上没有那个字段，
+  // 在测试里再抄一份就是第二个状态机。所以判据换成两条不依赖那个字段、且同样可证伪的事实：
+  //   ① **只过滤、不重排**：列内顺序是服务端行序的【子序列】；
+  //   ② **过滤的是收工**：栏里每一条的 tone 都是 attention/active（DOM 上现成的），且此刻真在途
+  //      的那两条（H 等你、I 在跑）都在场。
+  const isSubsequence = (small, big) => {
+    let at = 0;
+    for (const id of small) { at = big.indexOf(id, at) + 1; if (at === 0) return false; }
+    return true;
+  };
   const matchOrder = async budgetMs => {
     const startedAt = Date.now();
     let ids = [];
@@ -1135,7 +1172,10 @@ try {
       const projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
       ids = (((projected && projected.json) || {}).missions || []).map(row => String(row.sessionId));
       snapshot = await cdp.evaluate(NOW).catch(() => null);
-      if (snapshot && JSON.stringify(snapshot.order) === JSON.stringify(ids)) break;
+      if (snapshot && isSubsequence(snapshot.order, ids)
+        && snapshot.rows.length > 0
+        && snapshot.rows.every(row => row.tone === 'attention' || row.tone === 'active')
+        && snapshot.rows.some(row => row.sessionId === idI)) break;
       await sleep(200);
     }
     return { ids, snapshot };
@@ -1143,17 +1183,24 @@ try {
   const matched = await matchOrder(30000);
   const serverOrder = matched.ids;
   const stacked = matched.snapshot;
-  ok(stacked && JSON.stringify(stacked.order) === JSON.stringify(serverOrder),
-    `S2 右栏按【服务端行序】叠（117s-A 的状态优先序在 13d 排一次，右栏原样消费）：期望 ${JSON.stringify(serverOrder)}，实测 ${JSON.stringify(stacked && stacked.order)}`);
+  ok(stacked && isSubsequence(stacked.order, serverOrder)
+    && stacked.rows.length > 0
+    && stacked.rows.every(row => row.tone === 'attention' || row.tone === 'active'),
+    `S2 焦点栏按【服务端行序】叠在途那几条（117s-A 的状态优先序在 13d 排一次，右栏原样消费、只过滤不重排）：列内 ${JSON.stringify(stacked && stacked.order)} 是服务端 ${serverOrder.length} 条行序的子序列，且每条 tone 都在途（实测 ${JSON.stringify((stacked && stacked.rows.map(row => row.tone)) || null)}；左栏同判据 ${JSON.stringify((stacked && stacked.railStates) || null)}）`);
   ok(stacked && stacked.focusId && stacked.order.includes(stacked.focusId)
     && stacked.rows.every(row => row.sessionId !== stacked.focusId)
-    && stacked.drawerParent === 'stewardNowBody'
-    && stacked.rows.length === serverOrder.length - 1,
-    `S3 焦点那一条【就是那份抽屉】（同一个节点仍挂在 #stewardNowBody 里），它不再另画一条小行：${serverOrder.length} 行 → ${stacked && stacked.rows.length} 条小行 ＋ 1 份抽屉`);
+    && stacked.drawerParent === 'stewardFocus'
+    && stacked.rows.length === stacked.order.length - 1,
+    `S3 焦点那一条【就是那份抽屉】（同一个节点仍挂在 #stewardFocus 里），它不再另画一条小行：列内 ${stacked && stacked.order.length} 格 → ${stacked && stacked.rows.length} 条小行 ＋ 1 份抽屉`);
   const rowOf = (snapshot, id) => (snapshot && snapshot.rows.find(row => row.sessionId === id)) || null;
   const rowG = rowOf(stacked, idG);
-  ok(rowG && rowG.tone === 'settled' && rowG.hasSay === false && rowG.hasAnswer === false && rowG.blocks === 1,
-    `S4 已收工的那条折成【一行】：只有「点＋名字＋状态」这一格，没有「它刚说」，也没有回答口（实测 tone=${rowG && rowG.tone} 块数=${rowG && rowG.blocks}）`);
+  // 121-K6b 重钉 S4（34 号文 §2.6「其它【在途】：其余非收工线程的最紧密度行」）：已收工的那条
+  // 自此【不进焦点栏】—— 它在左栏里，点一下就换成焦点；摆在焦点栏里只会把「此刻该看什么」冲淡。
+  // 原判据钉的是「收工的折成一行、没有回答口」，那是它还在这一栏时的形状；现在钉的是更强的
+  // 「它根本不在这一栏」，同一条设计意图的下一步。
+  // 反向验证：把 steward-board.js renderNow 里那句 `if (!inFlight(row)) return;` 拔掉 → 它冒出来 → 本条红。
+  ok(rowG === null,
+    `S4 已收工的那条【不进焦点栏】（其它在途只叠非收工的；实测 ${rowG ? 'tone=' + rowG.tone + ' 仍在栏里' : '不在栏里'}）`);
   const nowRowH = rowOf(stacked, idH);
   ok(nowRowH && nowRowH.tone === 'attention' && nowRowH.hasSay === true && nowRowH.say.length > 0 && nowRowH.hasAnswer === true,
     `S5 等你的那条多一行「它在问你」（行上 asksYou.text，06i 单点算出）并给出就地回答口（实测「${nowRowH && nowRowH.say}」answer=${nowRowH && nowRowH.hasAnswer}）`);
@@ -1163,27 +1210,46 @@ try {
   // F5a（§11.13.1「F 追加」）：五态各【一枚】图标进状态药丸。三条行此刻分别是已收工／等你／在跑，
   // 所以三枚字形必须两两不同 —— 同一枚图标配三种文字等于没加图标；一枚都不画则是没落地。
   // 判据仍然只有一份：图标名由 icons.js 从五态值派生，五态本身仍由 mission-state.js 判。
-  const pillGlyphs = [rowG, nowRowH, nowRowI].map(row => (row && row.pillGlyph) || '');
-  ok(pillGlyphs.every(glyph => glyph.length > 0) && new Set(pillGlyphs).size === 3,
-    `S5c F5a：三条不同五态的状态药丸各带一枚【不同】的字形（已收工／等你／在跑；实测 ${JSON.stringify(pillGlyphs.map(glyph => glyph.slice(0, 24)))}）`);
+  // 121-K6b：收工那一条已经不在这一栏了（S4），所以这里剩两档可比 —— 等你与在跑的字形必须不同。
+  // 「收工那一枚也有自己的字形」由左栏那一面钉（同一份 icons.js 派生，同一处判据）。
+  // 121-K6b（§5 四面同色的右栏那一面）：在途小行的色号仍然问【同一张登记表】，色条也真画出来了。
+  // 这一条搬到 S 组是因为 C12b 那一处的 B 已经收工、不再进焦点栏（§2.6「其它在途」）；
+  // H／I 是这一段里真在途的两条，所以这里量得到。
+  const nowHueProof = await cdp.evaluate(`(async () => {
+    const conv = await import('/js/steward-conversation.js');
+    return { h: String(conv.stewardThreadHueFor('${idH}')), i: String(conv.stewardThreadHueFor('${idI}')) };
+  })()`);
+  const railRowI = rowOf(stacked, idI);
+  ok(Boolean(railRowI) && railRowI.hue !== '' && Boolean(nowHueProof) && railRowI.hue === nowHueProof.i
+    && /^3px\|rgb/.test(railRowI.bar),
+    `S5d 焦点栏那条在途小行（D4 最紧密度卡）的色号问的是同一张登记表，色条 3px 实色真画出来了（实测 小行=${railRowI && railRowI.hue} 登记表=${nowHueProof && nowHueProof.i} 色条=${railRowI && railRowI.bar}）`);
+  const pillGlyphs = [nowRowH, nowRowI].map(row => (row && row.pillGlyph) || '');
+  ok(pillGlyphs.every(glyph => glyph.length > 0) && new Set(pillGlyphs).size === 2,
+    `S5c F5a：两条不同五态的状态药丸各带一枚【不同】的字形（等你／在跑；实测 ${JSON.stringify(pillGlyphs.map(glyph => glyph.slice(0, 24)))}）`);
   // 121-K4（34 号文 §2.6）：右栏的标题条（「现在这几件」＋「关掉」＋头上那个数）随浮层一起退役 ——
   // 那个数在顶栏的全局状态胶囊与左栏组头里已经各有一处，同一件事不印三遍。翻面钉住它不在了。
   ok(stacked && stacked.count === '',
     `S6 右栏头上那个数随标题条退役（计数改由顶栏胶囊与左栏组头承担；实测「${stacked && stacked.count}」）`);
-  // ── 点一条小行 = 让它成为抽屉本体（5 s 内） ───────────────────────────────────────────
+  // ── 点一行 = 让它成为抽屉本体（5 s 内） ───────────────────────────────────────────
+  // 121-K6b 重钉：已收工的 G 自本刀起【不在焦点栏里】（S4），所以这一下改从**左栏**那一行点 ——
+  // §2.6 的原话就是「点左栏任一行可换焦点」，两条路走的是同一个 focusThread 入口（本模块唯一那个
+  // 「有人请求聚焦」的口），换掉的只是点哪一枚按钮。
   const clickedRowAt = Date.now();
-  await cdp.evaluate(`document.querySelector('.steward-now-thread[data-session-id="${idG}"] .steward-now-thread-main').click(), true`);
+  await cdp.evaluate(`document.querySelector('#railList .steward-board-thread[data-session-id="${idG}"] .steward-board-thread-title').click(), true`);
   const swapped = await waitForEval(cdp, `(() => {
     const snapshot = ${NOW};
     return snapshot && snapshot.focusId === ${JSON.stringify(idG)}
       && snapshot.drawerTitle === ${JSON.stringify(THREAD_G)} ? snapshot : null;
   })()`);
   ok(Boolean(swapped) && Date.now() - clickedRowAt <= 5000,
-    `S7 点那条已收工的小行 → 5 s 内它成为抽屉本体，抽屉里的内容【就是这条线程的】（标题「${swapped && swapped.drawerTitle}」；实测 ${Date.now() - clickedRowAt}ms）`);
+    `S7 点左栏那条已收工的行 → 5 s 内它成为抽屉本体，抽屉里的内容【就是这条线程的】（标题「${swapped && swapped.drawerTitle}」；实测 ${Date.now() - clickedRowAt}ms）`);
+  // 换焦点只换「谁是抽屉」：在途那几条小行一条不多一条不少（收工的 G 当了焦点也不会给自己补一条
+  // 小行；上一位焦点同样收工，所以它也不会冒出来）。反向：把 renderNow 的过滤拔掉 → 两边行数都
+  // 变成全量、这一条与 S4 同时红。
+  const inFlightIds = snapshot => JSON.stringify((snapshot ? snapshot.rows : []).map(row => row.sessionId));
   ok(swapped && swapped.rows.every(row => row.sessionId !== idG)
-    && swapped.rows.some(row => row.sessionId === idF)
-    && JSON.stringify(swapped.order) === JSON.stringify(stacked.order),
-    `S7b 换焦点只换「谁是抽屉」：刚才那条 F 退回小行，列内顺序一个字没动（换焦点前 ${JSON.stringify(stacked && stacked.order)}，换焦点后 ${JSON.stringify(swapped && swapped.order)}）`);
+    && inFlightIds(swapped) === inFlightIds(stacked),
+    `S7b 换焦点只换「谁是抽屉」：在途那几条小行一个没变（换焦点前 ${inFlightIds(stacked)}，换焦点后 ${inFlightIds(swapped)}）`);
   // ── 就地回答：光标【当场】落进抽屉既有的回答口，那条线程也成了抽屉本体 ─────────────────────
   // 为什么要在【同一次 evaluate 里】点完就读：抽屉自己的 openThread 末尾也会 focusAsk（117l D4），
   // 所以「过几秒之后光标在输入框里」这句话【不能证明】就地回答做了什么 —— 写这条锁时先做了反向

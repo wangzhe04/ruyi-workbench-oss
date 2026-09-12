@@ -550,6 +550,10 @@
    121-K4：这条规则原来锁在 `@media (min-width:1000px)` 里（当年右栏是一块 ≥1000px 才出现的
    fixed 浮层）。现在右栏是栅格里的一列，docked ↔ overlay 的判定仍然只有 steward-board.js 的
    wideEnough()（≥1000px）一处，所以这条规则不需要第二个宽度门 —— 属性选择器本身就是那个门。 */
+/* 121-K6b（§2.6／§13.7 ③）：常驻焦点栏【不存在「关掉」】—— 那枚 × 只属于 overlay（窄屏抽屉态，
+   Esc 与 aria-modal 也只在那一态）。收的是入口不是实现：closeDrawer 还在（切视角／窄屏收起走它），
+   只是 docked 下用户看不到一枚会把右栏变空的按钮。 */
+.steward-drawer[data-mount="docked"] > .steward-drawer-bar { display: none; }
 .steward-drawer[data-mount="docked"] {
   position: static;
   inset: auto;
