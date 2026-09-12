@@ -385,7 +385,7 @@ export function createStewardComposer({
     send.id = 'stewardComposerSend';
     send.title = t('stewardShell.compose.send');
     send.setAttribute('aria-label', t('stewardShell.compose.send'));
-    paintGlyph(send, 'go');
+    paintGlyph(send, 'send');   // 121-K8（§2.10.1 一套词汇表）：与工作台那枚发送同一个字形
     send.addEventListener('click', () => { submit(); });
 
     // 117r-D3 ②（用户第八轮走查②「最好不要和输入框放同一行，会把输入框内容挤没，要不放在输入框

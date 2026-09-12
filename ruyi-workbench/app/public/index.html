@@ -411,8 +411,13 @@
           <div id="dropHint" class="drop-hint hidden" data-i18n="onboarding.drop.title">松开：文件→附件，文件夹→设为工作目录</div>
           <div id="resumeBanner" class="resume-banner hidden"></div>
           <div id="attachmentTray" class="attachment-tray"></div>
+          <!-- 121-K8（34 号文 §2.10.2「输入框改胶囊」）：#composerHint 从 .composer-actions 里搬到
+               胶囊【上方】。它装的是插话队列卡（一条一张，可以好几行高）与计划暂停时的提示 ——
+               塞在一行 50px 的胶囊里，要么把输入框挤没、要么把胶囊撑成一个圆角很大的方盒。
+               id 一个字没动，chat-stream-runtime.js／interaction-prompts.js 仍按 id 找它。 -->
+          <span id="composerHint" class="composer-hint"></span>
           <div class="composer-box">
-            <textarea id="promptInput" rows="1" placeholder="描述你要做的事…（Enter 发送，Shift+Enter 换行）" data-i18n-attr="placeholder:chat.placeholder" data-testid="promptInput"></textarea>
+            <textarea id="promptInput" rows="1" placeholder="说你想做什么" data-i18n-attr="placeholder:chat.placeholder" data-testid="promptInput"></textarea>
             <div class="composer-actions">
               <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus" data-testid="composerMoreBtn"></button>
               <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队" data-testid="agentTeamBtn"></button>
@@ -420,9 +425,7 @@
               <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
               </label>
-              <span class="composer-spacer"></span>
-              <span id="composerHint" class="composer-hint"></span>
-              <button id="sendBtn" class="primary btn-ic" data-icon="send" data-testid="sendBtn">发送</button>
+              <button id="sendBtn" class="primary btn-ic composer-send" data-icon="send" data-testid="sendBtn">发送</button>
             </div>
           </div>
           <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。

@@ -35,11 +35,15 @@ body::before {
 
 button, input, textarea, select { font: inherit; color: inherit; }
 
+/* 121-K8（34 号文 §2.10.2「圆角：卡 10、chip／按钮／输入框 胶囊」）：按钮的基线圆角
+   从 6（--radius-sm）改成胶囊。卡片仍是 10（--r-md），只有按钮与输入框走胶囊 ——
+   两种形状分工明确：方的是「一块内容」，圆的是「一个可以按/可以填的东西」。
+   各层自己声明了 border-radius 的按钮（工作台节点、页签、工具卡…）不受影响。 */
 button {
   border: 1px solid var(--line-2);
   background: var(--panel-2);
   color: var(--ink);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-pill);
   padding: 7px 12px;
   min-height: var(--tap-min); /* v3 (§B4/§1.3): 点击区达标,随密度联动(mini/icon-btn 例外,见下) */
   white-space: nowrap; /* 第23波: 按钮文案不换行(修工具栏「编辑所选模板」等在窄容器里被挤成两行) */
@@ -62,7 +66,7 @@ button.mini { padding: 3px 8px; font-size: var(--fs-sm); min-height: 0; } /* v3 
   border: 1px solid transparent; background: transparent; color: var(--muted);
   /* v3 (§B4/§1.3): 图标钮随密度联动(comfortable 40 / compact ≥32),下限 32；min-height:0 让方形由 w/h 定。 */
   width: max(var(--tap-min), 32px); height: max(var(--tap-min), 32px); min-height: 0;
-  padding: 0; display: inline-grid; place-items: center; border-radius: var(--radius-sm);
+  padding: 0; display: inline-grid; place-items: center; border-radius: 50%;  /* 121-K8：方钮 → 圆钮（§2.10.2） */
 }
 .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
 /* v3 (§B4/§1.3): 补挂 --tap-min 到会话项 / 工具页签 / 技能开关 / 任务池审批按钮(base button 已挂,这里强调并覆盖非-button)。 */
@@ -82,17 +86,19 @@ button.mini { padding: 3px 8px; font-size: var(--fs-sm); min-height: 0; } /* v3 
 .attachment-pill .attach-x { display: inline-grid; place-items: center; padding: 0 2px; background: transparent; border: 0; color: var(--muted); min-height: 0; }
 .attachment-pill .attach-x:hover { color: var(--danger-fg); }
 
+/* 121-K8（§2.10.2）：输入框也是胶囊。多行 textarea 例外（下面一条）—— 一个五行高的文本域
+   做成 999px 圆角，四个角会啃掉第一行和最后一行的字。 */
 input, textarea, select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  border-radius: var(--r-pill);
+  padding: 8px 12px;
   background: var(--panel);
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 select { cursor: pointer; }
-textarea { resize: vertical; }
+textarea { resize: vertical; border-radius: var(--r-md); padding: 8px 10px; }  /* 121-K8：多行域走卡片圆角 */
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);

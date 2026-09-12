@@ -24,10 +24,24 @@ const pxFs = css.match(/font-size:\s*[0-9.]+px/g) || [];
 ok(pxFs.length === 2, '1.1 styles.css 裸 px 字号仅剩 2 处基线锚点(实际 ' + pxFs.length + (pxFs.length ? ':' + JSON.stringify(pxFs) : '') + ')');
 ok(/:root\s*\{[^}]*font-size:\s*14px/.test(css), '1.1 白名单:pro 基线 :root font-size:14px');
 ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*font-size:\s*15px/.test(css), '1.1 白名单:simple 基线 :root font-size:15px');
-// --fs-* 阶梯全为 rem(无 px 定义),七级 + 2xl 齐备。
-ok(!/--fs-[a-z0-9]+:\s*[0-9.]+px/.test(css), '1.1 --fs-* 阶梯无 px 定义(全 rem)');
-for (const [t, v] of [['xs', '0.786'], ['sm', '0.857'], ['md', '0.929'], ['base', '1'], ['lg', '1.143'], ['xl', '1.429'], ['2xl', '1.714']]) {
-  ok(new RegExp('--fs-' + t + ':\\s*' + v.replace('.', '\\.') + 'rem').test(css), '1.1 --fs-' + t + ' = ' + v + 'rem');
+// 121-K8（34 号文 §2.10.2）翻面：字阶从 rem 阶梯改成【五档整像素】。原来这七格钉的是
+// 「--fs-xs = 0.786rem」这一类字面量 —— 0.786rem 在 pro(14px 根)下是 11.004px、simple(15px 根)下
+// 是 11.79px，谁也说不出界面上到底几号字，两模式的差也不是 1px 而是 0.79px。
+// 现在钉三件事实：① --fs- 行里一个 rem 都没有；② 五档取值恰好是 12/13/14/15/17；
+// ③ --fs-xl／--fs-2xl 是 --fs-lg 的别名（五档之外不许有第六个字号，两个旧名字还留着只因为
+// 消费点在 onboarding/tool-pane/chat-primitives 三层，退役归后续清障）。
+// 反向：把 --fs-base 改回 1rem → ①②两格红（已实测）。
+{
+  const fsLines = (css.match(/--fs-[a-z0-9]+:[^;]+;/g) || []).join('');
+  ok(!/rem/.test(fsLines), '1.1 --fs-* 阶梯零 rem（本波改整像素五档）');
+  for (const [name, value] of [['xs', '12px'], ['sm', '13px'], ['md', '14px'], ['base', '15px'], ['lg', '17px']]) {
+    ok(new RegExp('--fs-' + name + ':\\s*' + value + '\\b').test(css), '1.1 --fs-' + name + ' = ' + value);
+  }
+  ok(/--fs-xl:\s*var\(--fs-lg\)/.test(css) && /--fs-2xl:\s*var\(--fs-lg\)/.test(css),
+    '1.1 --fs-xl / --fs-2xl 是 --fs-lg 的别名（五档之外零第六档）');
+  // simple 的 +1px：字阶改 px 之后 :root 的 font-size 带不动它，必须有一个显式覆盖块。
+  ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*--fs-base:\s*16px/.test(css),
+    '1.1 simple 模式显式 +1px（--fs-base 16px；真浏览器实测 #promptInput 15→16）');
 }
 // app.js 内联样式无 px 字号(已 → var(--fs-sm))。
 ok(!/font-size:\s*[0-9.]+px/.test(src.replace(/font-size:\s*1[45]px/g, '')), '1.1 app.js/js 内联样式无裸 px 字号');

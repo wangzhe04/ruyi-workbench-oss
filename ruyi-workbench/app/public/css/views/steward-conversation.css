@@ -149,11 +149,11 @@
 /* 117l D5（用户第四轮走查④「※号没有正确的标明标题」）：浮层里的两段各带一个小标题
    （「依据」／「已办」）。两段各自只在有内容时渲染，所以这里不需要 :empty 兜底。 */
 .steward-why-h {
+  /* 121-K8（§2.10.2）：组头／区块标题去掉英文风的 letter-spacing —— 12px 加粗次级墨色。 */
   margin: var(--sp-2) 0 var(--sp-1);
   font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--ink-2);
 }
 .steward-why-h:first-child { margin-top: 0; }
 
@@ -340,10 +340,10 @@
 .steward-composer-note:empty { display: none; }
 .steward-target {
   flex: 0 0 auto;
-  /* 117r-D3 ②：.steward-composer 现在是 flex-direction:column，交叉轴（横向）默认 stretch——
-     不挑出来的话 chip 会被拉成整行宽的大按钮（brief 明令「不要」）。align-self 只在 chip 自己
-     这条规则里生效，对 .steward-target 用在别处（目前没有）没有副作用。 */
-  align-self: flex-start;
+  /* 117r-D3 ②：不挑出来的话 chip 会被拉成整行宽的大按钮（brief 明令「不要」）。
+     121-K8：.steward-composer 从 column 改成 row wrap 的一行胶囊（§2.10.2），
+     所以 flex-start 改 center —— chip 现在是「胶囊内左」的那一枚，与输入行同一条中线。 */
+  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
@@ -419,9 +419,10 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+  /* 121-K8（§2.10.2「发送是 36px 圆钮」）：32 → 36。它本来就是纯图标圆钮（可访问名走 aria-label）。 */
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   font: inherit;
   border-radius: 50%;
   padding: 0;

@@ -365,10 +365,10 @@
 }
 .steward-drawer-block[hidden] { display: none; }
 .steward-drawer-h {
+  /* 121-K8（§2.10.2）：组头／区块标题去掉英文风的 letter-spacing —— 12px 加粗次级墨色。 */
   margin: 0;
   font-size: var(--fs-xs);
-  letter-spacing: .3px;
-  color: var(--muted);
+  color: var(--ink-2);
   font-weight: 600;
 }
 /* 121-K6b（§2.6／§5）：在跑那一段的【当前动作行】。等宽字体是刻意的 —— 那一行是三个会每半秒
@@ -549,11 +549,11 @@
 .steward-drawer-more { min-width: 0; }
 .steward-drawer-more > .steward-drawer-block { margin-top: var(--sp-3); }
 .steward-drawer-more-summary {
+  /* 121-K8（§2.10.2）：组头／区块标题去掉英文风的 letter-spacing —— 12px 加粗次级墨色。 */
   cursor: pointer;
   font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--ink-2);
   list-style: none;
 }
 .steward-drawer-more-summary::-webkit-details-marker { display: none; }

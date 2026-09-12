@@ -102,6 +102,8 @@
   gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-2) var(--sp-1);
 }
+/* 121-K8（§2.10.2「组头改 12px 加粗次级墨色」）：字号已经是 --fs-xs（本波起 = 12px），
+   把墨色从 --muted 抬到 --ink-2 —— 组头是结构，不是旁注。它本来就没有 uppercase／字距。 */
 .rail-gh-toggle {
   flex: 1 1 auto;
   min-width: 0;
@@ -109,13 +111,13 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   text-align: left;
-  color: var(--muted);
+  color: var(--ink-2);
   background: transparent;
   border: 0;
   padding: 0;
   cursor: pointer;
 }
-.rail-gh-toggle:hover { color: var(--ink-2); }
+.rail-gh-toggle:hover { color: var(--ink); }
 .rail-gh-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
 .rail-gh-n {
   flex: 0 0 auto;

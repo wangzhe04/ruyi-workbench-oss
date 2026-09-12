@@ -119,26 +119,30 @@
   scrollbar-gutter: stable;
 }
 
-/* 输入区：原型 .cbox 的胶囊 —— 递送 chip 独占第一行，第二行是输入框 +「+」+ 圆形发送键。
-   「对管家说」这行文字标签与「经典模式」大按钮都从版面上撤掉：前者只留给读屏
-   （label[for] 仍在 DOM 里），后者的动作已经在头像菜单末项「整体切到 2.0」里。
-   117r-D3 ②（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行，会把输入框内容挤没，
-   要不放在输入框上面」）：改前是单行 display:flex，chip 一长就把 .steward-composer-input 挤到
-   零宽——input 的 min-width:0 只保证「不撑破布局」，不保证「还留着能打字的宽度」。现在改成两行：
-   chip 是第一行，第二行是新增的 .steward-composer-row（装 input/plus/send，见 steward-composer.js
-   buildComposer）。默认态「→ 如意」也走这个两行骨架——位置不随文案长短跳动。 */
+/* 输入区：原型 .cbox 的胶囊 —— 递送 chip 在内左，输入框 +「+」+ 圆形发送键跟在后面。
+   「对管家说」这行文字标签从版面上撤掉，只留给读屏（label[for] 仍在 DOM 里）。
+   117r-D3 ②（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行，会把输入框内容挤没」）：
+   input 的 min-width:0 只保证「不撑破布局」，不保证「还留着能打字的宽度」——这条教训在下面
+   121-K8 的 wrap 里接着守着。 */
+/* 121-K8（34 号文 §2.10.2「输入框改胶囊」）：高 50、圆角 26，与工作台那一个（.composer-box）
+   逐字同形。改动只有三处：flex-direction column → row wrap、圆角 18 → 26、补 min-height 50。
+   【为什么留 wrap 而不是硬做单行】：117r-D3 那一笔（用户第八轮走查②）是真事故 —— 递送 chip
+   一长就把输入框挤到零宽。原型 v3 的胶囊是单行的，但它的 chip 永远只有「→ 如意」四个字；
+   这里的 chip 会长成「→ 华南 · 三月账 · 线程 2」。wrap 两头都占：宽度够就是原型那一行，
+   不够就把输入行整条落到第二行（chip 仍在胶囊里，只是换了一行），永远不会挤没输入框。 */
 .steward-composer {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;   /* 交叉轴（现在是横向）默认拉伸：第二行才能吃满宽度；chip 自己用 align-self 挑出来（steward-conversation.css .steward-target） */
-  gap: var(--sp-1);
+  flex-flow: row wrap;
+  align-items: center;
+  gap: var(--sp-2);
   min-width: 0;
+  min-height: 50px;
   margin-bottom: var(--sp-4);
   padding: 6px 6px 6px var(--sp-3);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 18px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
   background: var(--panel);
-  transition: border-color var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 /* 第二行：input + 「+」+ 发送键。刻意不给它设置 position —— #stewardTargetPicker 仍然锚定在
    .steward-composer 自己（steward-conversation.css .steward-composer{position:relative}），
@@ -148,8 +152,18 @@
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
+  /* 121-K8：宽度够就与 chip 同行，不够就整条换行（见上面 .steward-composer 的 wrap 说明）。
+     520px 这个基准是【实测定出来的】，不是拍的：steward-conversation.e2e 的 D3-2／D3-2b 钉着
+     「长标题命中时输入框仍占行宽 ≥60% 且绝对 ≥200px」。第一版写 240px —— chip 一长仍然挤在
+     同一行，输入框只剩 185px，两格当场红。520 是「输入框还能占 60% 时这一行至少要多宽」
+     倒推出来的：小于它就宁可整条换行（chip 独占第一行，回到 117r-D3 那个形状）。 */
+  flex: 1 1 520px;
 }
-.steward-composer:focus-within { border-color: var(--accent); }
+/* 121-K8（§2.10.2）：focus-within 才描主色边 —— 与工作台胶囊同一条规则、同一圈光晕。 */
+.steward-composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .steward-composer-label {
   position: absolute;
   width: 1px;
@@ -167,7 +181,8 @@
   max-height: 120px;
   resize: none;
   font: inherit;
-  line-height: 1.5;
+  font-size: var(--fs-base);   /* 121-K8（§2.10.2）：正文 15，与工作台那枚 #promptInput 同一档；必须排在 font:inherit 之后 */
+  line-height: var(--lh-list);
   color: var(--ink);
   background: transparent;
   border: 0;

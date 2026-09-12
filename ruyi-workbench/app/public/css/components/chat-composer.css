@@ -28,18 +28,55 @@
 .attachment-pill button:hover { color: var(--danger-fg); }
 .attachment-pill .attach-pill-thumb { width: 26px; height: 26px; flex: none; border-radius: 6px; object-fit: cover; }
 .attachment-pill:has(.attach-pill-thumb) { padding-left: 4px; }
-.composer-box { border: 1px solid var(--glass-border); border-radius: var(--radius); background: var(--glass-bg-3); /* 第50波:输入盒卡片档底色(不叠 blur) */ padding: 6px 8px 8px; transition: border-color var(--transition), box-shadow var(--transition); }
+/* 121-K8（34 号文 §2.10.2「输入框改胶囊」）：一行胶囊 —— 高 50、圆角 26、工具图标在内右、
+   发送在最右。原来是「输入框在上、一排按钮在下」的两层方盒（圆角 10），两个视角的输入区
+   因此长得不一样；现在两边同一个形状（管家侧见 css/views/steward-shell.css .steward-composer）。
+   描边只在 :focus-within 时上主色 —— 平时那圈青花蓝边框把输入区变成了页面上最响的东西。
+   #composerHint（插话队列卡）已经搬到胶囊之外（index.html），所以这一行永远只有一行。 */
+.composer-box {
+  display: flex; align-items: center; gap: 8px; min-height: 50px;
+  padding: 6px 6px 6px 16px;
+  border: 1px solid var(--line); border-radius: 26px;
+  background: var(--glass-bg-3); /* 第50波:输入盒卡片档底色(不叠 blur) */
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
 .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
-.composer-box textarea { border: none; background: transparent; padding: 6px; max-height: 260px; }
+.composer-box textarea {
+  flex: 1 1 auto; min-width: 0; align-self: center;
+  border: none; background: transparent; padding: 0;
+  font-size: var(--fs-base); line-height: var(--lh-list);
+  max-height: 200px; min-height: 22px;
+}
 .composer-box textarea:focus { box-shadow: none; }
-.composer-actions { display: flex; align-items: center; gap: 8px; }
+.composer-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+/* 工具键在内右：圆形、无边框，只在 hover 时出底 —— 它们是输入框的一部分，不是一排独立按钮。 */
+/* 纯图标的那几枚是 34px 圆钮；带字的（Agent 团队 / 技能）自己撑开成小胶囊 ——
+   min-width 而不是 width，否则字会溢出到胶囊外面（原型 v3 的 .tools button.txt 同一条）。 */
+.composer-actions > .file-label {
+  min-width: 34px; height: 34px; min-height: 0; padding: 0 8px; gap: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--r-pill); background: transparent; color: var(--muted);
+  font-size: var(--fs-xs); white-space: nowrap;
+}
+.composer-actions > .file-label:hover { background: var(--panel-2); color: var(--ink-2); border-color: transparent; }
+/* 发送键（§2.10.2「发送是 36px 圆钮」的落地）：高 36 的主色胶囊。这里【不】做成纯图标圆钮 ——
+   同一枚按钮会在「发送／插话／停止」三个词之间换（chat-stream-runtime.js updateSendBtn），
+   把词藏掉就违反 §2.10.1「图标不作唯一信号」。所以是圆角胶囊 + 图标 + 那个词。 */
+.composer-send {
+  flex: none; height: 36px; min-height: 36px; padding: 0 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--r-pill); font-size: var(--fs-sm);
+}
 .file-label { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 5px 9px; cursor: pointer; background: var(--panel-2); font-size: var(--fs-base); }
 .file-label:hover { border-color: var(--accent); }
 .file-label input { display: none; }
 .agent-team-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); white-space: nowrap; }
 .agent-team-btn[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); color: var(--accent); font-weight: 600; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent); }
 .agent-team-btn:disabled { cursor: not-allowed; opacity: .5; }
-.composer-hint { flex: 0 1 min(380px, 48vw); min-width: 0; font-size: var(--fs-xs); color: var(--muted); }
+/* 121-K8：#composerHint 搬到胶囊之外（插话队列卡是多行内容，塞不进一行 50px 的胶囊）。
+   它现在是 .composer 的块级子项，空着的时候自己收掉高度。 */
+.composer-hint { display: block; margin-bottom: 6px; min-width: 0; font-size: var(--fs-xs); color: var(--muted); }
+.composer-hint:empty { display: none; }
 .steer-queue { position: relative; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: var(--radius-sm); padding: 7px 8px; background: color-mix(in srgb, var(--accent) 7%, var(--panel-2));
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 72%, transparent), 0 5px 16px color-mix(in srgb, var(--canvas-bg) 38%, transparent); }
@@ -64,8 +101,7 @@
   border-radius: 50%; background: transparent; color: var(--muted); font-size: var(--fs-md); line-height: 1; }
 .steer-queue-cancel:hover { color: var(--danger-fg); background: var(--danger-bg); }
 @media (max-width: 760px) {
-  .composer-actions { flex-wrap: wrap; }
-  .composer-hint { flex: 1 1 100%; order: -1; max-width: none; }
+  .composer-actions { flex-wrap: nowrap; }
 }
 /* ≤560px composer fold (§4.3): the ＋ trigger is hidden on wide screens (buttons tiled); the media
    query below flips it — hiding 📎/⌘/🗜 and revealing ＋, which opens a popover with those three. */

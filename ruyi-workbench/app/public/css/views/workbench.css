@@ -33,8 +33,9 @@
 .wb-runbar { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
 .wb-runbar:empty { display: none; }
-.wb-rb-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--muted);
-  letter-spacing: .08em; margin-right: 4px; white-space: nowrap; flex: none; }
+/* 121-K8（§2.10.2）：组头去英文风字距，12px 加粗次级墨色。 */
+.wb-rb-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--ink-2); margin-right: 4px; white-space: nowrap; flex: none; }
 .wb-rb-cloud { width: 16px; height: 10px; flex: none; background: var(--muted); opacity: .55;
   -webkit-mask: var(--ruyi-cloud) center/contain no-repeat; mask: var(--ruyi-cloud) center/contain no-repeat; }
 .wb-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px; border-radius: var(--r-pill);
@@ -125,7 +126,7 @@
 .wb-usage-metrics { position: relative; display: flex; align-items: center; gap: var(--sp-4); }
 .wb-um { display: flex; flex-direction: column; }
 .wb-um b { font-size: var(--fs-xl); font-weight: 650; color: var(--ink); line-height: 1.15; }
-.wb-um-u { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; margin-left: 3px; letter-spacing: 0; }
+.wb-um-u { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; margin-left: 3px; }
 .wb-um-lbl { font-size: var(--fs-xs); color: var(--muted); }
 .wb-um-sep { width: 1px; height: 26px; background: var(--line-2); opacity: .7; }
 .wb-usage-link { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px;
@@ -160,7 +161,8 @@
 .wb-canvas-inner { position: relative; transform-origin: 0 0; }
 
 /* — 泳道层淡标签:落在层行上缘空隙,veil 底 + 发丝缘,避开节点(节点行居中排布,标签在行上方空隙带)。 — */
-.wb-layer-tag { position: absolute; z-index: 1; font-size: var(--fs-xs); color: var(--muted); letter-spacing: .06em;
+/* 121-K8（§2.10.2）：层标签是区块标题的一种，同样去字距。 */
+.wb-layer-tag { position: absolute; z-index: 1; font-size: var(--fs-xs); color: var(--muted);
   padding: 2px 9px; border-radius: var(--r-pill); background: var(--panel-veil); border: 1px solid var(--line);
   backdrop-filter: var(--glass-blur-1); /* 第50波:blur 走 token(G3 纪律) */ pointer-events: none; white-space: nowrap; }
 
@@ -182,8 +184,9 @@
   display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
 .wb-side-close { display: none; }
 .wb-sec { border-bottom: 1px solid var(--line); flex: none; }
+/* 121-K8（§2.10.2）：右栏区块头 —— 12px 加粗次级墨色，无字距。 */
 .wb-sec-hd { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 16px; background: none; border: none;
-  color: var(--ink-2); cursor: pointer; font-size: var(--fs-sm); font-weight: 600; letter-spacing: .02em; text-align: left; }
+  color: var(--ink-2); cursor: pointer; font-size: var(--fs-xs); font-weight: 600; text-align: left; }
 .wb-sec-hd:hover { color: var(--ink); }
 .wb-sec-hd:focus-visible { outline: none; box-shadow: var(--ring); }
 .wb-sec-caret { color: var(--muted); transition: transform var(--dur-fast) var(--ease-out); font-size: var(--fs-xs); }
