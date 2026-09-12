@@ -125,6 +125,13 @@
   flex: 0 0 auto; height: auto; min-height: 54px;
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;
   padding: 6px 14px;
+  /* 121 走查1-④：线程头是【第二行那组 chip 的宿主】，所以它自己得压得住中栏后面的东西。
+     .topbar 本来就 position:relative（承载 ::after 那道发线）又带 backdrop-filter —— 后者让它成了
+     一个 z-index:auto 的层叠上下文，于是 .steward-chip-menu 那 30 层【出不了这个头】：与它同在
+     .chat-pane 里的「对话｜班组」页签条（.wb-mv-tab，position:relative）、消息气泡、composer 的
+     .drop-hint(5) 都排在 DOM 后面、同为 0 层，后来者赢（真浏览器实测见 walkthrough-round1.browser 的 E1）。
+     12 压得住 .chat-pane 里最高的 .jump-latest(8)，又远低于 .popover(55) 与 .modal-backdrop(50)。 */
+  z-index: 12;
 }
 .thread-head .th-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; }
 .thread-head .th-row-main { min-height: 28px; }

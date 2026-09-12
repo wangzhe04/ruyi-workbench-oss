@@ -237,9 +237,19 @@
 .steward-chip-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-weight: 600; }
 .steward-chip.is-pinned { border-color: var(--accent); }
 
+/* 121 走查1-④（用户 2026-09-13 走查第 4 条）：这张菜单是【浮层】，不是抽屉里的一块内容。
+   它有三处宿主（工作台线程头 #threadChips、管家焦点卡 #stewardDrawerChips、左栏行 .steward-board-chips），
+   所以层级与底色都要【与宿主无关】：
+     · z-index 30（原 2）—— 2 只压得住抽屉内部那点东西；工作台线程头里它要压过「对话｜班组」
+       页签条（.wb-mv-tab，position:relative）、消息气泡与 composer 的 .drop-hint(5)、.msg-actions(3)。
+       真浏览器实测（walkthrough-round1.browser 的 E1）：菜单右下角那一点 elementFromPoint 落在
+       .bubble.md 上 —— 消息流叠在菜单上面。宿主那一侧还各有一条「别把它关在自己那一层里」的规则
+       （chat-shell.css 的 .topbar.thread-head、steward-board.css 的行与 .rail-threads-inner）。
+     · 底色仍是 --panel 实底（§2.10.3：--glass-* 只给浮层，而实底比玻璃更不容易让底下的字透上来；
+       walkthrough-round1.browser 的 E2 钉着 alpha ≥ .9 或带 backdrop-filter）。 */
 .steward-chip-menu {
   position: absolute;
-  z-index: 2;
+  z-index: 30;
   top: 100%;
   left: 0;
   min-width: 240px;
