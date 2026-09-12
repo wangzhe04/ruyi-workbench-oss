@@ -175,8 +175,11 @@
   place-items: center;
   color: var(--muted);
 }
-.rail-origin[data-origin="steward"] { color: var(--gold); }
-.rail-origin[data-origin="user"] { color: var(--accent); }
+/* 121-K8（34 号文 §2.10.3 那张色表）：来源三值原来是「如意开的＝鎏金、我开的＝青花蓝」。
+   两个色都是有主的 —— 鎏金只说【等你】，青花蓝只说【在跑／主动作】；同一行里再拿它们说
+   「这条是谁开的」，读者就得先猜这抹金到底是「等你」还是「如意开的」。来源的区分交给字形
+   （§2.10.1 三枚专用字形 originSteward／originUser／originSchedule，悬停出字），颜色一律次级墨色。 */
+.rail-origin[data-origin] { color: var(--muted); }
 
 /* 行的第二行（§2.3「只在有话可说时出现」）：一行，超出省略 —— 全文在焦点栏／抽屉里。 */
 .steward-board-sub {

@@ -398,10 +398,11 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   .topbar-field > span { display: none; }
   /* v3 (§A1): 顶栏不再定高裁切 —— flex-basis 解锁 + 自适应高度 + 允许换行两行;任何宽度内容都不被裁出视口。 */
   .topbar { flex: 0 0 auto; height: auto; min-height: 54px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }
-  /* 三 chip 降级紧凑态:工作台只留图标 / 安全留盾+短名截 4 字 / 模型隐藏 mono 型号只留引擎名+状态点。 */
+  /* 121-K8（34 号文 §13.8 K8 ①）：这里原来还有 .perm-chip .pc-name 与 .model-chip .mc-model
+     两条【三 chip 降级】规则。K5（§3.1）之后顶栏那两枚 chip 已经退役 —— 线程的权限／模型只在
+     线程头那一组 .steward-chip 上画一次 —— 两条规则的宿主都不存在了，随本族一起删。
+     工作台 chip（#workspacePicker）还在，它的降级留着。 */
   .workspace-picker .wp-name { display: none; }
-  .perm-chip .pc-name { max-width: 4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .model-chip .mc-model { display: none; }
 }
 /* ≤560px: fold ⌘技能/📎附件 into a single ＋ popover (§4.3 tail). sendBtn stays visible always.
    The individual buttons hide; ＋ shows and JS wires its popover to those actions.

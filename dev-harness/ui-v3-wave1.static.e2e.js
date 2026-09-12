@@ -46,8 +46,17 @@ ok(/@media \(max-width:\s*760px\)/.test(css), 'A1 存在 ≤760px 媒体查询')
 ok(/\.topbar\s*\{[^}]*height:\s*auto[^}]*min-height:\s*54px/.test(css), 'A1 ≤760 顶栏 height:auto + min-height:54px(不定高裁切)');
 ok(/\.topbar\s*\{[^}]*flex-wrap:\s*wrap/.test(css), 'A1 ≤760 顶栏允许换行(flex-wrap:wrap)');
 ok(/\.workspace-picker \.wp-name\s*\{[^}]*display:\s*none/.test(css), 'A1 工作台 chip 降级只留图标(隐藏 .wp-name)');
-ok(/\.model-chip \.mc-model\s*\{[^}]*display:\s*none/.test(css), 'A1 模型 chip 降级隐藏 .mc-model');
-ok(/\.perm-chip \.pc-name\s*\{[^}]*max-width/.test(css), 'A1 安全 chip 短名截断(max-width)');
+// 121-K8（34 号文 §13.8 K8 ①）翻面：这两格原来钉「顶栏那两枚 chip 在 ≤760 有降级规则」。
+// K5（§3.1）把 #modelChip／#permChip 收进线程头唯一那组 .steward-chip 之后，这两族 CSS 在
+// public/js、index.html、app.js 里零命中 —— 降级规则的宿主没了，规则本身也随族删除。
+// 现在钉的是【不许回来】：整份 CSS 里不再有 .model-chip／.perm-chip／.perm-pop／.perm-select-host
+// 任何一条【选择器】。扫的是剥掉注释的 CSS —— 删除说明本身要把族名写清楚（否则后人看不懂为什么
+// 没有了），撞上它就是假红（与下面 A2 同一条手法）。
+// 反向：往 chat-shell.css 追加一条 `.perm-chip { color: red; }` → 本格红（已实测）。
+const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
+ok(!/\.model-chip[\s,{.:]/.test(cssCode) && !/\.perm-chip[\s,{.:]/.test(cssCode)
+  && !/\.perm-pop[\s,{.:]/.test(cssCode) && !/\.perm-select-host[\s,{.:]/.test(cssCode),
+  'A1 顶栏 model/perm chip 两族 CSS 零残留（K5 退役、K8 清族）');
 
 // ───────────── A2 移动端首启折叠侧栏 → 121-K4 翻面 ─────────────
 // 121-K4(34 号文 §2.3／§7.3):左栏搬进外框、两视角共用同一份 DOM 之后,「折叠侧栏」这件事整条退役 ——
