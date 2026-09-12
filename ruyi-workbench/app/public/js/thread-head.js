@@ -26,12 +26,10 @@ import { icon } from './icons.js';
 // 零计时器、零 innerHTML、零 sessionStorage。
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
 // 来源三值（§4.1）→ 图形。界面上只用图形，悬停才出字（§2.3）。字形表与文案键与左栏那一份
 // 【逐字相同】（steward-board.js 的 RAIL_ORIGIN_ICONS／RAIL_ORIGIN_KEYS）：同一件事实在两面必须
 // 长同一个样子，所以不另起第二套词表（K8 把三枚专用字形补进 icons.js 时两面一起换）。
-export const THREAD_ORIGIN_ICONS = Object.freeze({ steward: 'target', user: 'agents', schedule: 'bell' });
+export const THREAD_ORIGIN_ICONS = Object.freeze({ steward: 'originSteward', user: 'originUser', schedule: 'originSchedule' });
 export const THREAD_ORIGIN_KEYS = Object.freeze({
   steward: 'rail.origin.steward',
   user: 'rail.origin.user',
@@ -81,31 +79,21 @@ export function createThreadHead({
   }
 
   // ── 小 avatar（§2.5）：与管家壳那张脸【同一套类名、同一个 data-state】───────────────
-  // 不复制那份 <defs>：渐变 id 在整篇文档里只能有一个，所以这里只画环／身／眼睛，fill 引用
-  // 管家壳里那一份（css 的 fill: url("#stewardAvatarGrad") var(--accent) 自带回落，管家壳被裁掉
-  // 的离线包里它就是一个纯色圆 —— 信息不少，只是没有渐变）。
+  // 121-K8(§13.8 K6 ④／§13.12 K8 ④「avatar 的第二份 SVG」):这里原来手建环／主体／一对眼睛,
+  // 与 index.html 里 #stewardAvatar 的内联 SVG 是同一张脸的【两份标记】—— 谁改了一处,另一处
+  // 就悄悄变成另一张脸。现在收成一处:形状的唯一定义仍是 index.html 那一份,本函数只克隆它。
+  //   · 为什么不是 <symbol> + <use>:七态是 `.steward-avatar[data-state=x] .sa-ring{…}` 这样
+  //     从祖先选进去的规则,而 <use> 的内容在影子树里,文档 CSS 选不中 —— 换成 use 会当场丢七态。
+  //   · <defs> 必须摘掉:里面那条渐变的 id 是文档级唯一,克隆一份就撞 id;.sa-body 的
+  //     fill:url(#stewardAvatarGrad) 引的仍然是原件那一份,所以摘掉之后颜色照旧。
   function buildAvatar() {
     const document_ = doc();
     if (!document_) return null;
-    const svg = document_.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.setAttribute('aria-hidden', 'true');
-    const ring = document_.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('class', 'sa-ring');
-    ring.setAttribute('cx', '50'); ring.setAttribute('cy', '50'); ring.setAttribute('r', '44');
-    const body = document_.createElementNS(SVG_NS, 'circle');
-    body.setAttribute('class', 'sa-body');
-    body.setAttribute('cx', '50'); body.setAttribute('cy', '50'); body.setAttribute('r', '31');
-    const eyes = document_.createElementNS(SVG_NS, 'g');
-    eyes.setAttribute('class', 'sa-eyes');
-    for (const cx of ['41.5', '58.5']) {
-      const eye = document_.createElementNS(SVG_NS, 'ellipse');
-      eye.setAttribute('class', 'sa-eye');
-      eye.setAttribute('cx', cx); eye.setAttribute('cy', '49');
-      eye.setAttribute('rx', '3.1'); eye.setAttribute('ry', '5.2');
-      eyes.appendChild(eye);
-    }
-    svg.append(ring, body, eyes);
+    const source = document_.querySelector('#stewardAvatar > svg');
+    if (!source) return null;
+    const svg = source.cloneNode(true);
+    svg.removeAttribute('id');
+    svg.querySelectorAll('defs').forEach(node => node.remove());
     return svg;
   }
 

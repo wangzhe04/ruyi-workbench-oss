@@ -455,7 +455,7 @@ export function createStewardDrawer({
   // 121-K3 §4.1 的三值）。抽屉不能 import 看板（方向反了会成环），所以这里是同一份表的第二处
   // 抄写 —— 静态锁按「两处逐字相同」核对，改一处就必须改两处（这是本仓允许的唯一一种复制：
   // 两个模块之间只有环这一条路时的常量表）。
-  const ORIGIN_ICONS = Object.freeze({ steward: 'target', user: 'agents', schedule: 'bell' });
+  const ORIGIN_ICONS = Object.freeze({ steward: 'originSteward', user: 'originUser', schedule: 'originSchedule' });
   const ORIGIN_KEYS = Object.freeze({
     steward: 'rail.origin.steward',
     user: 'rail.origin.user',

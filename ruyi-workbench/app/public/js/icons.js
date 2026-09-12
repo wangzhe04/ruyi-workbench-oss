@@ -2,11 +2,19 @@
 // 如意 Ruyi — SVG 线性图标集(UI v3 §2.15)。零依赖原生 ES module,无构建步。
 //
 // icon(name, size=16) → SVGElement,用 createElementNS + setAttribute 构建(不碰 innerHTML → XSS 安全)。
-// 风格基准:24×24 viewBox,stroke=currentColor(随文字色/引擎色继承),stroke-width 1.5,圆角线帽/连接,
+// 风格基准:24×24 viewBox,stroke=currentColor(随文字色/引擎色继承),圆角线帽/连接,
 // 与如意云头曲线的圆角线条呼应;青花蓝单色由使用处 color 决定,hover 由外层类切换。
-// 少数图标(sparkles / more / stop / theme)用 fill:currentColor 的实心形以求辨识度。
+//
+// 121-K8(34 号文 §2.10.1):描边【只有两档】—— 基线 1.75,五态药丸内的小字形 3。
+//   两档各只有一处字面量(下面两个常量),粗线那一档【只从 missionStateIcon 这一个取件口发出去】,
+//   因为药丸是唯一在 10–12px 尺寸上印字形的地方(1.75 在那个尺寸下糊成一团)。别处一律走基线。
+// 实心形【只有三处】(§2.10.1):线程「停止」的方块、「暂停」的双竖条、来源「如意开的」的环心点
+//   (lensSteward,与 avatar 同一个最简形)。另有两枚形状本身就没有轮廓可言的字形沿用实心:
+//   more 的三颗点(r=1.4 的点画成描边就是一团墨)与 theme 的半圆(昼夜各半是它的语义)。
 const NS = 'http://www.w3.org/2000/svg';
 const F = { fill: 'currentColor', stroke: 'none' }; // 实心形复用
+const STROKE_BASE = '1.75';  // 基线:24 网格单线
+const STROKE_PILL = '3';     // 五态药丸内的 10–12px 小字形
 
 // 每个键 = 一枚图标,值 = 形状列表 [tag, attrs]。KEY 行以「  name: [」起头(供静态测试正则计数)。
 const ICONS = {
@@ -19,9 +27,10 @@ const ICONS = {
     ['path', { d: 'M10 13v2.5h4V13' }],
   ],
   paperclip: [['path', { d: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' }]],
+  // 121-K8:原来是两枚实心星。§2.10.1 把实心收到只剩三处,这里改回单线(与原型 v3 的 spark 同形)。
   sparkles: [
-    ['path', { d: 'M11 3.5C11 7 14 10 17.5 10 14 10 11 13 11 16.5 11 13 8 10 4.5 10 8 10 11 7 11 3.5Z', ...F }],
-    ['path', { d: 'M18.7 3.2c0 1.3 1 2.3 2.3 2.3-1.3 0-2.3 1-2.3 2.3 0-1.3-1-2.3-2.3-2.3 1.3 0 2.3-1 2.3-2.3Z', ...F }],
+    ['path', { d: 'M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z' }],
+    ['path', { d: 'M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z' }],
   ],
   trace: [['path', { d: 'M3 12h4l2.2-4.2 4.1 8.4 2.3-4.2H21' }]],
   agents: [
@@ -95,31 +104,21 @@ const ICONS = {
     ['rect', { x: '2.5', y: '4', width: '19', height: '12', rx: '1.5' }],
     ['path', { d: 'M8.5 20h7M12 16v4' }],
   ],
-  // 第89波(Pretender/Escapade 图标统一):全部对齐 trace 思考标识的线条语言 —— 24×24、1.5 描边、
-  // currentColor、圆角线帽、单线无填充(仅 target 中心点用实心求辨识度)。文本字形/emoji 一律退场。
-  dispatch: [
-    ['circle', { cx: '4.5', cy: '12', r: '1.5' }],
-    ['path', { d: 'M6.4 12H13' }],
-    ['path', { d: 'M13 12c0-2.1 1.3-3.9 3.6-4.6M13 12c0 2.1 1.3 3.9 3.6 4.6' }],
-    ['circle', { cx: '19', cy: '7', r: '1.6' }],
-    ['circle', { cx: '19', cy: '17', r: '1.6' }],
-  ],
-  sheet: [
-    ['rect', { x: '4', y: '5', width: '16', height: '15.5', rx: '2' }],
-    ['path', { d: 'M9.5 5V3.5h5V5' }],
-    ['path', { d: 'M8 10.5h8M8 14h8M8 17.5h5' }],
-  ],
+  // 第89波(Pretender/Escapade 图标统一):全部对齐 trace 思考标识的线条语言 —— 24×24、单线描边、
+  // currentColor、圆角线帽。文本字形/emoji 一律退场。
+  // 121-K8(§2.10.1「删除交办台专用字形」):dispatch／sheet／takeover／dockArchive／dockPin／
+  //   ticket／narrative 七枚随交办台(K1)退役。前五枚删除前已 git grep 过零消费者;
+  //   sheet 的两处(右栏开合钮、「看全文」)与 ticket 的一处(自主性授权书条)换成了说得清是什么的
+  //   新字形(panelRight／file／shield),不是把占位挪个地方。
   resume: [
     ['circle', { cx: '12', cy: '12', r: '8.5' }],
     ['path', { d: 'M10.2 8.8 15.4 12l-5.2 3.2z' }],
   ],
+  // 121-K8:暂停 = 双竖条实心(§2.10.1 三处实心之一)。原来那枚「圆圈里两道线」在 13px 行内
+  // 与 stop 的方块读起来是同一团,分不出停的是谁。
   pause: [
-    ['circle', { cx: '12', cy: '12', r: '8.5' }],
-    ['path', { d: 'M10 9.5v5M14 9.5v5' }],
-  ],
-  takeover: [
-    ['circle', { cx: '12', cy: '7', r: '3.5' }],
-    ['path', { d: 'M5.5 20v-1.5A6.5 6.5 0 0 1 12 12a6.5 6.5 0 0 1 6.5 6.5V20' }],
+    ['rect', { x: '6', y: '5', width: '4', height: '14', rx: '1.2', ...F }],
+    ['rect', { x: '14', y: '5', width: '4', height: '14', rx: '1.2', ...F }],
   ],
   playbook: [
     ['path', { d: 'M12 6.4C10.4 5 8 4.4 5.4 4.4v13.6c2.6 0 5 .6 6.6 2 1.6-1.4 4-2 6.6-2V4.4C16 4.4 13.6 5 12 6.4z' }],
@@ -130,24 +129,10 @@ const ICONS = {
     ['path', { d: 'M4 7.5V5.2A1.7 1.7 0 0 1 5.7 3.5h12.6A1.7 1.7 0 0 1 20 5.2v2.3' }],
     ['path', { d: 'M9.8 11.5h4.4' }],
   ],
-  dockArchive: [
-    ['path', { d: 'M5 10.5h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z' }],
-    ['path', { d: 'M3.8 6.5h16.4v4H3.8z' }],
-    ['path', { d: 'M12 3.5v8M9.5 9l2.5 2.5L14.5 9' }],
-  ],
-  dockPin: [
-    ['path', { d: 'M8.5 4h7l-1 5 2.5 2.5V13H7v-1.5L9.5 9z' }],
-    ['path', { d: 'M12 13v7' }],
-  ],
   needs: [
     ['circle', { cx: '9', cy: '8', r: '3' }],
     ['path', { d: 'M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20' }],
     ['path', { d: 'M17.8 10v5.2M17.8 18.9h.01' }],
-  ],
-  narrative: [
-    ['path', { d: 'M6 3.5h8.5L19 8v11.2a1.8 1.8 0 0 1-1.8 1.8H6.8A1.8 1.8 0 0 1 5 19.2V5.3A1.8 1.8 0 0 1 6 3.5z' }],
-    ['path', { d: 'M14.5 3.5V8H19' }],
-    ['path', { d: 'M8 14c1.2-1.4 2.4 1.4 3.6 0s2.4 1.4 3.6 0' }],
   ],
   ledger: [
     ['path', { d: 'M5 4.8A1.8 1.8 0 0 1 6.8 3h11a1.7 1.7 0 0 1 1.7 1.7v14.6a1.7 1.7 0 0 1-1.7 1.7h-11A1.8 1.8 0 0 1 5 19.2z' }],
@@ -184,15 +169,8 @@ const ICONS = {
     ['path', { d: 'M4 7.5l8 5.8 8-5.8' }],
   ],
   cloud: [['path', { d: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z' }]],
-  target: [
-    ['circle', { cx: '12', cy: '12', r: '8.5' }],
-    ['circle', { cx: '12', cy: '12', r: '4.8' }],
-    ['circle', { cx: '12', cy: '12', r: '1.4', ...F }],
-  ],
-  ticket: [
-    ['path', { d: 'M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2.5 2.5 0 0 0 0-5z' }],
-    ['path', { d: 'M13.5 8.5v2M13.5 13.4v2' }],
-  ],
+  // 121-K8:三环靶心 target 删除 —— 它当过「管家视角」「如意开的」两件不相干事情的占位,
+  // 而两件事真正要的都是 avatar 的最简形(lensSteward,见下面 §2.10.1 那一组)。
   down: [
     ['path', { d: 'M12 4.5V19' }],
     ['path', { d: 'M6 13l6 6 6-6' }],
@@ -277,12 +255,65 @@ const ICONS = {
     ['path', { d: 'M6.8 12.7 12 7.5l5.2 5.2' }],
     ['path', { d: 'M5.5 4h13' }],
   ],
+  // ═══ 第121波 K8(34 号文 §2.10.1;形状逐条照 docs/mockups/one-workbench-two-views.html 的原型 v3)═══
+  // ① 两视角。分段钮左右各一枚,是这套界面里最常被看的两个字形,所以【不与任何别的意思共用】:
+  //    管家 = avatar 的最简形(环＋心点),工作台 = 三栏面板。
+  lensSteward: [
+    ['circle', { cx: '12', cy: '12', r: '8.5' }],
+    ['circle', { cx: '12', cy: '12', r: '3.5', ...F }],
+  ],
+  lensWork: [
+    ['rect', { x: '3', y: '4', width: '18', height: '16', rx: '2.5' }],
+    ['path', { d: 'M9 4v16M15 4v16' }],
+  ],
+  // ② 线程来源三值(§4.1)。「如意开的」复用上面的 lensSteward —— 同一个意思只画一次,见文件末的别名。
+  originUser: [
+    ['circle', { cx: '12', cy: '8', r: '4' }],
+    ['path', { d: 'M4 21a8 8 0 0 1 16 0' }],
+  ],
+  originSchedule: [
+    ['circle', { cx: '12', cy: '12', r: '8' }],
+    ['path', { d: 'M12 8v4l3 2' }],
+  ],
+  // ③ 任务(mission)本身。左栏与任务栏说的都是「一件事」,不是「一个会话」。
+  task: [
+    ['rect', { x: '3.5', y: '3.5', width: '17', height: '17', rx: '3' }],
+    ['path', { d: 'M8 12.2l2.7 2.7L16.5 9' }],
+  ],
+  // ④ 在跑的脉冲(§2.10.1「live」)。与 trace 的思考轨迹刻意不同形:那枚说「它在想」,这枚说「它在动」。
+  live: [['path', { d: 'M3 12h4l2-6 4 12 2-6h6' }]],
+  // ⑤ 工作台工具卡:folder 表里早就有(见文件头),补一枚 file。
+  file: [
+    ['path', { d: 'M7 3h7l5 5v13H7z' }],
+    ['path', { d: 'M14 3v5h5' }],
+  ],
+  check: [['path', { d: 'M5 12l5 5 9-10' }]],
+  play: [['path', { d: 'M7 5l12 7-12 7z' }]],
+  // ⑥ 右栏开合(≤1240 收成抽屉时那枚)与左栏看板密度。这两处 K4 借了 sheet／ledger 当占位,
+  //    §13.7 ⑥ 记着要换真字形:右栏 = 面板右侧那一栏亮着,看板密度 = 一栏拉宽成两栏。
+  panelRight: [
+    ['rect', { x: '3', y: '4', width: '18', height: '16', rx: '2.5' }],
+    ['path', { d: 'M15 4v16' }],
+  ],
+  columns: [
+    ['rect', { x: '3', y: '4.5', width: '18', height: '15', rx: '2.5' }],
+    ['path', { d: 'M9 4.5v15' }],
+    ['path', { d: 'M12.5 9.5h5.5M12.5 14h3.5' }],
+  ],
+  // ⑦ 「记得的关于你」(口袋四枚之一,K7 消费;另外三枚用表里已有的 originSchedule／ledger／stethoscope)。
+  memory: [
+    ['path', { d: 'M12 4.5a6.5 6.5 0 0 0-6.5 6.5v2L3.8 16.5H8' }],
+    ['path', { d: 'M12 4.5a6.5 6.5 0 0 1 6.5 6.5v2l1.7 3.5H16' }],
+    ['path', { d: 'M9 20.5h6' }],
+  ],
 };
 
 // F5a:五态里有两态的字形本表早就有(done 的对勾圈、quick_ask 的闪电)。别名指向【同一个形状
 // 数组】—— 派生名字拿得到,却没有第二份路径字面量(「一套词汇,不留孤本」的同一条纪律)。
 ICONS.stateDone = ICONS.done;
 ICONS.stateQuickAsk = ICONS.quickask;
+// 121-K8:来源「如意开的」与「管家视角」是同一个最简形(环＋心点)。同一条纪律 —— 别名,不抄第二份路径。
+ICONS.originSteward = ICONS.lensSteward;
 
 // 档位名 → 盾牌字形名(default → shieldDefault)。纯派生,不是查表:本文件不认识任何一个档位名,
 // 加一档只要在 ICONS 里补一枚同名盾牌即可。表里没有对应字形时退回家族标 shield(不 warn)。
@@ -301,9 +332,14 @@ export function missionStateIconName(state) {
 }
 
 // 五态字形的取件口:名字派生不出来就【什么都不画】,不猜、也不落到某个默认态。
+// 121-K8(§2.10.1):粗线那一档【只在这里】发出去 —— 药丸是全仓唯一在 10–12px 上印字形的地方,
+// 基线 1.75 到那个尺寸就糊了。别处调 icon() 一律拿基线,所以本文件的描边只有两个字面量。
 export function missionStateIcon(state, size = 12) {
   const name = missionStateIconName(state);
-  return name ? icon(name, size) : null;
+  if (!name) return null;
+  const svg = icon(name, size);
+  if (svg) svg.setAttribute('stroke-width', STROKE_PILL);
+  return svg;
 }
 
 // name → SVGElement(未知名返回 null + warn)。
@@ -316,7 +352,7 @@ export function icon(name, size = 16) {
   svg.setAttribute('height', String(size));
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '1.5');
+  svg.setAttribute('stroke-width', STROKE_BASE);
   svg.setAttribute('stroke-linecap', 'round');
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');

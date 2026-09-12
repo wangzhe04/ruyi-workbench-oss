@@ -52,7 +52,19 @@ ok(/export function icon\(/.test(iconsSrc), '3 icons.js 导出 icon()');
 ok(/export function hydrateIcons\(/.test(iconsSrc), '3 icons.js 导出 hydrateIcons()');
 ok(/createElementNS/.test(iconsSrc) && !/\.innerHTML\s*=/.test(iconsSrc), '3 icons.js 用 createElementNS 构建(无 innerHTML 赋值,XSS 安全)');
 ok(/setAttribute\('stroke', 'currentColor'\)/.test(iconsSrc), '3 icons.js stroke=currentColor(随文字/引擎色)');
-ok(/setAttribute\('stroke-width', '1\.5'\)/.test(iconsSrc), '3 icons.js stroke-width 1.5');
+// 121-K8（34 号文 §2.10.1）：描边从「全表一档 1.5」改成【只有两档】—— 基线 1.75、五态药丸内 3。
+// 这一格因此翻面钉「两个常量各只有一处字面量，且 setAttribute 只从这两个常量取值」：
+// 数的是「表里有几档」，不是「某一行长什么样」（纪律 5）。反向：把 STROKE_PILL 改成 '2.5' → 红。
+ok(/const STROKE_BASE = '1\.75';/.test(iconsSrc) && /const STROKE_PILL = '3';/.test(iconsSrc),
+  '3 icons.js 描边两档常量 1.75 / 3');
+{
+  const widthLiterals = iconsSrc.match(/stroke-?[Ww]idth['"]?\s*[:,]\s*['"][^'"]+['"]/g) || [];
+  ok(widthLiterals.length === 0,
+    '3 icons.js 字形表里零 stroke-width 字面量（描边只从两个常量出，实际残留 ' + widthLiterals.length + '）');
+  const setters = iconsSrc.match(/setAttribute\('stroke-width', ([A-Za-z_$][\w$]*)\)/g) || [];
+  ok(setters.length === 2 && setters.every(line => /STROKE_(BASE|PILL)/.test(line)),
+    '3 icons.js stroke-width 的两处写入各取一个常量（实际 ' + setters.length + ' 处）');
+}
 const iconKeys = iconsSrc.match(/^ {2}[a-z0-9]+: \[/gm) || [];
 ok(iconKeys.length >= 20, '3 icons.js 图标数 ≥20(实际 ' + iconKeys.length + ')');
 for (const need of ['folder', 'shield', 'toolbox', 'paperclip', 'sparkles', 'send', 'stop', 'settings', 'stethoscope', 'menu', 'more', 'close', 'pin', 'edit', 'trash', 'plus']) {

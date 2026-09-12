@@ -93,12 +93,14 @@
            【不印】费用、线程总数、模型名 —— 那三样分别归「用量」页签、左栏组头计数与配置控件。 -->
       <header class="app-topbar" id="appTopbar">
         <div class="tb-left">
-          <!-- 第89波品牌主标(如意云标):24×24 单线云头 + 鎏金点,与 icons.js trace 线条语言同构;
-               颜色走 CSS 变量 --brand-qh/--brand-au 随主题切换。（§2.10.1 的云头品牌标归 K8。） -->
+          <!-- 121-K8(§2.10.1「品牌标」):换成 docs/branding/ruyi-mark.svg 的【三曲瓣云头】＋一颗
+               鎏金珠,26×16。原来那枚是「圆环＋渐变球」派生的单线云朵(第89波),读起来是天气图标,
+               与如意云头没有关系;云头那条路径本来就在 tokens.css 的 --ruyi-cloud 里(空状态水印用),
+               这里用同一份形状 —— 品牌只画一次。颜色仍走 --brand-qh/--brand-au 随主题切换。 -->
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
-              <path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
-              <circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/>
+            <svg viewBox="0 0 120 70" width="26" height="16" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
+              <path class="brand-cloud" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
+              <circle class="brand-pearl" cx="60" cy="40" r="6"/>
             </svg>
           </div>
           <strong class="app-brand-name" data-i18n="shell.brand">如意</strong>
@@ -112,9 +114,9 @@
           <div class="lens-seg" id="lensSeg" data-on="steward" role="group"
                aria-label="视角" data-i18n-attr="aria-label:shell.lens.label">
             <span class="lens-thumb" aria-hidden="true"></span>
-            <button type="button" class="lens-btn" data-lens="steward" data-icon="target" data-icon-size="15"
+            <button type="button" class="lens-btn" data-lens="steward" data-icon="lensSteward" data-icon-size="15"
                     aria-pressed="true"><span data-i18n="shell.lens.steward">管家</span></button>
-            <button type="button" class="lens-btn" data-lens="classic" data-icon="monitor" data-icon-size="15"
+            <button type="button" class="lens-btn" data-lens="classic" data-icon="lensWork" data-icon-size="15"
                     aria-pressed="false"><span data-i18n="shell.lens.classic">工作台</span></button>
           </div>
         </div>
@@ -131,7 +133,7 @@
           </div>
           <button type="button" id="stewardStopBtn" class="steward-stop-btn"></button>
           <!-- ≤1240 右栏收成抽屉时的开合钮（§7.3）。宽屏由容器查询隐藏。 -->
-          <button type="button" id="appSideToggleBtn" class="icon-btn app-side-toggle" data-icon="sheet" data-icon-size="17"
+          <button type="button" id="appSideToggleBtn" class="icon-btn app-side-toggle" data-icon="panelRight" data-icon-size="17"
                   title="右栏" aria-label="右栏" aria-expanded="false"
                   data-i18n-attr="title:shell.side;aria-label:shell.side"></button>
           <div class="app-gear-wrap">
@@ -175,7 +177,7 @@
       <aside class="sidebar task-rail" id="sidebar" data-testid="sidebar">
         <div class="rail-head">
           <h2 class="rail-title"><span data-i18n="rail.title">任务</span><span id="railCount" class="rail-count num"></span></h2>
-          <button type="button" id="railBoardBtn" class="icon-btn rail-board-btn" data-icon="ledger" data-icon-size="15"
+          <button type="button" id="railBoardBtn" class="icon-btn rail-board-btn" data-icon="columns" data-icon-size="15"
                   aria-pressed="false" title="看板密度" aria-label="看板密度"
                   data-i18n-attr="title:rail.board;aria-label:rail.board"></button>
         </div>
@@ -307,7 +309,7 @@
         <!-- 第26波b: 任务账本进度条。仅当会话有活动 Mission 时显示;里程碑进度 + autoMode 状态。 -->
         <div id="missionBar" class="mission-bar hidden" role="status" aria-live="polite">
           <div class="mission-bar-head">
-            <span class="mission-bar-icon" aria-hidden="true" data-icon="target" data-icon-size="15"></span>
+            <span class="mission-bar-icon" aria-hidden="true" data-icon="task" data-icon-size="15"></span>
             <span id="missionBarSummary" class="mission-bar-summary"></span>
             <span id="missionBarMode" class="mission-bar-mode"></span>
             <button id="missionStopBtn" class="mini mission-bar-stop hidden" title="停止自动推进">停止</button>
@@ -319,7 +321,7 @@
              只把范围内的 ask 弹窗就地降为 allow;签发唯 header token,exec 纯内存进程重启即清。 -->
         <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书" data-testid="autonomyBar">
           <div class="autonomy-bar-head">
-            <span class="autonomy-bar-icon" aria-hidden="true" data-icon="ticket" data-icon-size="15"></span>
+            <span class="autonomy-bar-icon" aria-hidden="true" data-icon="shield" data-icon-size="15"></span>
             <span class="autonomy-bar-title">自主性授权书</span>
             <span id="autonomyBarCount" class="autonomy-bar-count"></span>
             <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)">+ 新建</button>
@@ -765,7 +767,7 @@
                  （tool／turns／updatedAt），一个数都不推算；缺哪一样就少说哪一样，整行都缺就不出。 -->
             <p id="stewardDrawerActing" class="steward-drawer-acting num" hidden></p>
             <button type="button" id="stewardDrawerFullTextBtn" class="steward-drawer-link"
-                    data-icon="sheet" data-icon-size="13"><span data-i18n="stewardShell.drawer.fullText">看全文</span></button>
+                    data-icon="file" data-icon-size="13"><span data-i18n="stewardShell.drawer.fullText">看全文</span></button>
           </section>
           <!-- ⑦ 你可以说：≤3 条快捷回复，来源是确定性优先级（quickRepliesFor 纯函数）。
                ④ 已经把同一批选项按钮摆出来时本区隐藏，避免一屏两排一样的按钮 -->
@@ -841,7 +843,7 @@
             <!-- 121-K6b：主动作从卡头搬到动作行首位（§2.6）。id／data-icon／内层 span 的 data-i18n
                  一个字节没改，只换了住处与那身金色皮（gradeFootActions 加 .is-primary）。 -->
             <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
-                    data-icon="monitor" data-icon-size="13"
+                    data-icon="lensWork" data-icon-size="13"
                     data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">2.0 视窗</span></button>
             <button type="button" id="stewardDrawerSendBtn" class="steward-drawer-btn"
                     data-icon="send" data-icon-size="13"><span data-i18n="stewardShell.drawer.send">发给它</span></button>

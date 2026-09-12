@@ -459,7 +459,7 @@ export function createStewardBoard({
   // 判据【只读】行上的 origin（K3 的 threadOriginOf 一处派生，13e 投影到行上），本模块不猜。
   // 121-K8 会把 lensSteward／originUser／originSchedule 三枚字形补进 icons.js；本刀先用既有字形
   // 占位（target＝双环＋实心点，与 avatar 的最简形同义；agents＝人形；bell＝提醒物）。
-  const RAIL_ORIGIN_ICONS = Object.freeze({ steward: 'target', user: 'agents', schedule: 'bell' });
+  const RAIL_ORIGIN_ICONS = Object.freeze({ steward: 'originSteward', user: 'originUser', schedule: 'originSchedule' });
   const RAIL_ORIGIN_KEYS = Object.freeze({
     steward: 'rail.origin.steward',
     user: 'rail.origin.user',
@@ -838,7 +838,7 @@ export function createStewardBoard({
     // 「停止」这一枚停的是【这条线程】，所以是实心方块；管家本人的停机在头部，那一枚是电源符。
     actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop'));
     actions.appendChild(boardButton('stewardShell.board.openThread', () => openThread(sessionId), { action: 'open' }, 'open'));
-    actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }, 'monitor'));
+    actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }, 'lensWork'));
     // B5：「＋ 线程」从事项头右上角收进卡尾这一排次级动作 —— 它与「停止／优先／打开」同一档，
     // 不该是每张卡右上角唯一一枚常亮的按钮。挂哪一件由 renderMissionGroup 递进来（同一个分组键，
     // 本函数不自己再推一次）；没有事项可挂时落到空串，与空态那枚是同一条路（「另起一件」）。

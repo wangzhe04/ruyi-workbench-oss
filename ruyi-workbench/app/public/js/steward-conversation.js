@@ -1049,7 +1049,7 @@ export function createStewardConversation({
     // openInWorkbench（这里的 fullTextOf 就是它的调用点，注入缺席时回落到「打开焦点」）。
     const openLabel = t('stewardShell.chat.openInWorkbench');
     const open = button('steward-thread-open', '', () => fullTextOf(source.sessionId));
-    open.appendChild(icon('monitor', 13));
+    open.appendChild(icon('lensWork', 13));
     open.title = openLabel;
     open.setAttribute('aria-label', openLabel);
     head.appendChild(open);

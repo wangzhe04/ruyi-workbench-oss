@@ -128,10 +128,17 @@
 .app-topbar .tb-mid { display: flex; justify-content: center; }
 .app-topbar .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
 .brand-mark {
-  /* v0.8-S8:承载内联如意主标 SVG(青花/鎏金,走 --brand-* 变量随主题)。 */
-  width: 24px; height: 24px; display: grid; place-items: center; flex: none;
+  /* v0.8-S8:承载内联如意主标 SVG(青花/鎏金,走 --brand-* 变量随主题)。
+     121-K8(§2.10.1):云头是 26×16 的横长形,槽位随之从 24 见方改成 26×16。 */
+  width: 26px; height: 16px; display: grid; place-items: center; flex: none;
 }
 .brand-mark svg { display: block; }
+/* 121-K8:三曲瓣云头 + 鎏金珠。颜色写在这里(不写进 index.html 的 SVG),两主题各自的
+   --brand-qh／--brand-au 由 css/themes/color-schemes.css 给。 */
+.brand-cloud { fill: var(--brand-qh); }
+.brand-pearl { fill: var(--brand-au); }
+/* 121-K8(§2.10.2「组头与区块标题不再用小写字母＋字距的英文风」):品牌名不是组头,
+   它是【一个名字】——「如意」两个汉字,.2px 的字距是排版微调,不是英文风的 tracking。保留。 */
 .app-brand-name { flex: none; font-size: var(--fs-md); font-weight: 600; letter-spacing: .2px; color: var(--ink); }
 /* 121-K5（34 号文 §13.7 登记⑦）：连接状态 #statusLine 不在顶栏了 —— K4 把它从侧栏底部搬进顶栏
    之后只能视觉隐藏（理由是「§2.2 末条明令顶栏不印模型名，而 renderStatusLine() 往这里写的正是
