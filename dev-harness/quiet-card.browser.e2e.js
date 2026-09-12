@@ -369,6 +369,15 @@ try {
   // （偶发：A0g 切完视角那一拍，左栏可能还没吃到第一份 /api/missions）。
   ok(Boolean(await waitForEval(cdp, `(() => document.querySelectorAll('#railList .steward-board-thread').length >= 5 ? 1 : null)()`)),
     'A0h 左栏五条线程都已渲染（后续点行操作的前提）');
+  // 主会话复核（34 号文 §13.17）：安静卡按 §4.3 尊重静默时段，而 notify-policy 的默认静默窗是
+  // 22:00–08:00——本件此前从不覆盖它，于是白天 33 全绿、夜里 A2a 起 12 条红（走查那一轮在 00:18 单跑
+  // 复现，K7 复核在傍晚绿）。A–D 组量的是「该出卡时出不出」，先把静默窗钉到离此刻 6 小时之外的
+  // 一分钟；E 组自己再改成覆盖此刻的窗口量「不该出」。
+  {
+    const quietHour = (new Date().getHours() + 6) % 24;
+    const pad = n => String(n).padStart(2, '0');
+    await cdp.evaluate(`(() => { localStorage.setItem('wcw.notifyPolicy.v1', JSON.stringify({ version: 1, enabled: false, quietStart: '${pad(quietHour)}:00', quietEnd: '${pad(quietHour)}:01' })); return true; })()`);
+  }
 
   /* ═════════ A1：坐在该线程上 → 无卡 ═════════
      先把「seated」这条线程在工作台打开，再朝它触发一个 needs_you。 */
