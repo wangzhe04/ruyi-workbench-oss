@@ -62,10 +62,13 @@ const REPLY_SEQUENCE = [
     text: JSON.stringify({
       say: STEWARD_SAY,
       why: '来自线程总览与收件箱',
+      // 121-K6b（34 号文 §2.4 文字预算「按钮 ≤2」）：剧本仍然给四枚 —— 要钉的正是「多的被丢掉」。
+      // 顺序换过：留在屏上的两枚是「知道了」（主动作，金色）与「再看看」（下面 D1/D2 点的就是它，
+      // 它是一枚真 dismiss；「改一下」走的是 isChangeAct 那条不落回执的支线，当不了落定的证人）。
       acts: [
         { label: '知道了', kind: 'dismiss', primary: true },
-        { label: '改一下', kind: 'dismiss' },
         { label: '再看看', kind: 'dismiss' },
+        { label: '改一下', kind: 'dismiss' },
         { label: '第四个', kind: 'dismiss' },
       ],
       actions: [],
@@ -490,9 +493,12 @@ try {
     return snapshot.acts.indexOf('再看看') >= 0 ? snapshot : null;
   })()`, 600);
   ok(Boolean(settledTurn) && settledTurn.typing === 0, 'C4 回合结束后「···」占位已消失');
-  const turnActs = settledTurn ? settledTurn.acts.filter(label => ['改一下', '再看看', '第四个'].includes(label)) : [];
-  ok(turnActs.length === 2 && !turnActs.includes('第四个'),
-    `C5 一行按钮 ≤3（剧本给了 4 个，本回合只渲染出 3 个：知道了/改一下/再看看，第四个被丢弃；实测 ${JSON.stringify(turnActs)}）`);
+  // 121-K6b 重钉 C5（§2.4 文字预算）：上限 3 → 2。剧本仍然给四枚，屏上只该有「知道了」与
+  // 「再看看」——「改一下」与「第四个」都被 renderActs 那一处 slice 丢掉。
+  // 只数这一回合【自己那三枚】：'知道了' 在别处（首帧的空状态按钮行）也出现，混进来数不清。
+  const turnActs = settledTurn ? settledTurn.acts.filter(label => ['再看看', '改一下', '第四个'].includes(label)) : [];
+  ok(JSON.stringify(turnActs) === JSON.stringify(['再看看']),
+    `C5 一行按钮 ≤2（剧本给了 4 个，屏上只剩「知道了」＋「再看看」，「改一下」「第四个」被丢弃；实测本回合非主动作那几枚 ${JSON.stringify(turnActs)}）`);
 
   // ─── 117j W2-3：头像跟着话走（用户 2026-09-06 第二轮走查③，推翻「固定顶部」的拍板）────────
   ok(Boolean(typing) && typing.avatarOnLastRuyi === true,
@@ -1292,6 +1298,13 @@ try {
         stateAttr: state.dataset.state || '',
         meta: meta.hidden ? '' : meta.textContent,
         opens: head.querySelectorAll('.steward-thread-open').length,
+        // 121-K6b（§2.4 文字预算）：那枚「打开」改成图标钮「在工作台打开」——屏上零文字、
+        // 可访问名与悬停文案仍在，字形是 icons.js 那一份（卡头里不许再出现第二种打开语义）。
+        openText: (head.querySelector('.steward-thread-open') || { textContent: '' }).textContent.trim(),
+        openLabel: (head.querySelector('.steward-thread-open') || { getAttribute: () => '' }).getAttribute('aria-label') || '',
+        openGlyphs: head.querySelectorAll('.steward-thread-open svg').length,
+        // 121-K6b：面包屑（只在多线程任务时出现，本件的线程都自成一件 → 恒 hidden）。
+        crumbHidden: (() => { const crumb = head.querySelector('.steward-thread-crumb'); return crumb ? crumb.hidden : null; })(),
       };
     };
     return {
@@ -1470,13 +1483,26 @@ try {
   ok(Boolean(a3) && a3.deliverables === 1 && a3.sources === 1 && a3.sourceShown === false
     && Boolean(a3.head) && a3.head.opens === 1,
     `V7 117s-H 的交付卡与来源小头照旧长在卡里：小头仍在 DOM（它的聚焦通道没动），只是让位给卡头右端的「打开」（实测 交付卡 ${a3 && a3.deliverables} / 小头 ${a3 && a3.sources} / 可见 ${a3 && a3.sourceShown}）`);
+  // 121-K6b **重钉 V8**（34 号文 §2.4「卡头只印 色点 · 任务名 · 五态药丸 · 相对时间 · 一个图标钮」）：
+  // **模型名退出卡头** —— 那是配置不是叙事，它在工作台线程头的 chip 行里有唯一那一处。
+  // 所以「最后动静 · 模型」那一格自此只剩相对时间：既要它还在（信封的 updatedAt 仍在读），
+  // 也要它【不再】带模型名。反向验证：把 fillThreadHead 的 bits 里 facts.model 加回去 → 本条红。
   ok(Boolean(a3.head) && a3.head.name.indexOf('博纳影业怎么看') === 0
     && a3.head.stateAttr === 'running' && a3.head.state === 'mission.state.running'
-    && a3.head.meta.indexOf(' · ') > 0 && a3.head.meta.indexOf('qwen3.8-flash') > 0,
-    `V8 卡头的线程名/五态/最后动静/模型全部来自那一个信封（displayTitle、resumable.live、updatedAt、engineRoute.model；实测 ${JSON.stringify(a3.head)}）`);
+    && a3.head.meta.length > 0 && a3.head.meta.indexOf(' · ') < 0 && a3.head.meta.indexOf('qwen3.8-flash') < 0,
+    `V8 卡头只剩 线程名／五态／相对时间，模型名已退出（§2.4；实测 ${JSON.stringify(a3.head)}）`);
   ok(Boolean(b2.head) && b2.head.stateAttr === 'needs_you' && b2.head.state === 'mission.state.needs_you'
-    && b2.head.meta.indexOf('gpt-5-mini') > 0,
-    `V8b 另一条线程的药丸走 relay.channel（13h 那条递话阶梯的输出）说「等你」，模型也是它自己那一份（实测 ${JSON.stringify(b2.head)}）`);
+    && b2.head.meta.length > 0 && b2.head.meta.indexOf('gpt-5-mini') < 0,
+    `V8b 另一条线程的药丸走 relay.channel（13h 那条递话阶梯的输出）说「等你」，那一格同样不印模型（实测 ${JSON.stringify(b2.head)}）`);
+  // 121-K6b：卡头右端那一枚是【图标钮】——屏上零文字、有字形、可访问名说「在工作台打开」；
+  // 面包屑在单线程任务上不出现（这两条线程各自成一件）。
+  ok(Boolean(a3.head) && a3.head.openText === '' && a3.head.openGlyphs === 1
+    // 本件这一段跑在【没装翻译表】的页上（同一份快照里五态药丸读出来的也是 mission.state.running
+    // 这样的原键，V8 钉的就是它）——所以这里认「键或它的中文值」都算，钉的是「可访问名来自 i18n
+    // 那一处、不是硬编码的字」。
+    && ['stewardShell.chat.openInWorkbench', zh['stewardShell.chat.openInWorkbench']].includes(a3.head.openLabel)
+    && a3.head.crumbHidden === true,
+    `V8c 卡头那枚「在工作台打开」是图标钮（零文字＋一枚字形＋可访问名），单线程任务不出面包屑（实测 文字「${a3.head.openText}」字形 ${a3.head.openGlyphs} 名「${a3.head.openLabel}」面包屑 hidden=${a3.head.crumbHidden}）`);
   // 本刀【零新增请求】：卡头没有自己的一发，它 await 的就是交付卡那一发（loadDeliverable 一处缓存，
   // 键仍是 117s-H2 定的 sessionId|turnSeq）。所以请求数完全由交付卡的既有行为决定 ——
   // 历史 1 发 ＋ A 的三个回合各 1 发 ＋ B 的一个回合 1 发 = 5 发，与本刀之前一模一样。

@@ -20,6 +20,9 @@ import { icon } from './icons.js';
 // 33 号文 §4：stewardShortTitle 与 STEWARD_TITLE_MAX 搬去 util.js（无状态格式化叶子）—— 两个壳
 // 共用同一份截短口径，且 2.0 侧不必为了一个纯字符串函数 import 本模块（1481 行）。函数体逐字未改。
 import { stewardShortTitle } from './util.js';
+// 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
+// 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
+import { dispatchAcceptanceMilestones } from './thread-facts.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -42,7 +45,10 @@ import { stewardShortTitle } from './util.js';
 // 起与 2.0 同宗同源：唯一一份在 net.js 的 readNdjsonStream（这里 import 它，不再「照抄」一份）。
 // 鉴权头同样复用 net.js 的 authHeaders()，不另起一套 token 读取。
 
-export const STEWARD_ACTS_MAX = 3;                       // §8.4 纪律：一次回合按钮 ≤3 个
+// §8.4 纪律原为「一次回合按钮 ≤3 个」；121-K6b 按 34 号文 §2.4 的【文字预算】收到 2
+// （「按钮 ≤2（主动作金色）」）。收的是**渲染层**：提示词层不动，后端照旧可以给三枚，
+// 多出来的那一枚在这里被切掉（renderActs 的 slice 是唯一的执行点）。
+export const STEWARD_ACTS_MAX = 2;
 // 117l D3（用户第四轮走查⑥「要能让用户连续发消息」）：管家在跑时用户还能接着说，第二句立刻上屏、
 // 标「排队中」、按序发。上限 5 条 —— 再多就不是「连着说两句」而是刷屏，超了在输入框旁如实说一句。
 export const STEWARD_SEND_QUEUE_MAX = 5;
@@ -52,7 +58,16 @@ export const STEWARD_UNDO_WINDOW_MS = 10000;             // §8.12 第 3 条：1
 // 环怎么画全在 CSS 里 —— 一个字都不重写，按钮宽度因此不跳。名字在 JS 与 CSS 各出现一次，
 // 这里导出成常量，静态锁钉「两边是同一个名字」。
 export const STEWARD_UNDO_RING_PROP = '--steward-undo-left';
-export const STEWARD_DIGEST_MAX = 5;                     // §8.9：「你不在的时候」要点 ≤5 条
+// §8.9 原为「你不在的时候」要点 ≤5 条；121-K6b 按 §2.4 文字预算收到 3 条、每条 ≤20 字。
+// 同上：只收渲染层。截断走下面那个纯函数（省略号是给人看的收尾标记，不是数据的一部分）。
+export const STEWARD_DIGEST_MAX = 3;
+export const STEWARD_DIGEST_ITEM_CHARS = 20;
+// 纯函数、零 DOM：≤20 字原样，超了切到 19 字再补一个省略号（总长仍是 20）。
+export function stewardDigestItemText(text, max = STEWARD_DIGEST_ITEM_CHARS) {
+  const clean = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+  const cap = Math.max(1, Number(max) || STEWARD_DIGEST_ITEM_CHARS);
+  return clean.length <= cap ? clean : `${clean.slice(0, cap - 1)}…`;
+}
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
 // 121-K4-3（34 号文 §2.4「频道条退役」）：F2 那条「只看 · 全部 · 各条线程 · 管家本人」的 chip 条
@@ -251,12 +266,64 @@ export function stewardThreadHue(order) {
 // 函数、拿同一个号 —— 分配仍按【首次询问顺序】（谁先问谁先占号，不是「谁先在对话流出现」），
 // 只增不清，同 id 恒同色。纯登记：不碰 DOM、不写颜色（颜色仍只由样式层那一条 hsl() 算）。
 // stewardThreadHue(order) 那个纯函数与 STEWARD_THREAD_HUES 一个字没动，本函数只是给它记住顺序。
+// 121-K6b（34 号文 §5「色号按任务」）：这张表的【键从 sessionId 换成 missionId】——「色号按任务
+// 分配，线程继承任务色」。单线程任务的 missionId 逐字等于 sessionId（mission-state.js／K3 §4.1 的
+// 口径），所以绝大多数行的号一个都没变；多线程任务的两条线程从此同色（靠线程名与色点区分，
+// 不靠颜色，§5 原话）。
+//   · 号的分配器换成一个显式计数器（原来读 Map.size）—— 下面的归并会删掉临时键，size 会倒退，
+//     再拿它当序号就会发出重号。计数器只增不减，发号顺序与修前逐字相同（首次询问顺序）。
+//   · 谁来登记「这条线程属于哪个任务」：steward-board.js 那一处 /api/missions 取数（全仓唯一的
+//     行主人）。登记之前问到的号按 sessionId 临时发一个，登记那一刻【归并】到任务键上（见
+//     stewardRegisterThreadMission），所以「先画后登记」也不会留下两个号。
 const stewardThreadHues = new Map();
-export function stewardThreadHueFor(sessionId) {
+let stewardHueSeq = 0;
+// sessionId -> { missionId, missionTitle, threadCount }。同一张登记表顺带把「任务 › 线程」面包屑
+// 要的两件事记住：对话流的卡头够不着 /api/missions（它只读 GET /api/sessions/:id 那个信封），
+// 而看板本来就 import 本模块 —— 一份登记，两处消费，不新开第二张表、不反向 import 看板。
+const stewardThreadMissions = new Map();
+
+function stewardHueNext() {
+  const hue = stewardThreadHue(stewardHueSeq);
+  stewardHueSeq += 1;
+  return hue;
+}
+
+export function stewardThreadMissionOf(sessionId) {
+  const id = String(sessionId || '');
+  return (id && stewardThreadMissions.get(id)) || null;
+}
+
+// 登记一条线程的归属。归并规则（这是「先画后登记」不留双号的全部机关）：
+//   ① 任务键已经有号 → 把这条线程临时占的那个号删掉，它此后读任务键；
+//   ② 任务键还没有号、线程键有 → 把线程那个号【搬】到任务键上（任务色 = 领头线程色，与 K4 左栏
+//      任务行今天的表现逐字一致），再删线程键。
+// 两条都只搬不发新号，所以登记本身永远不会让任何一面变色（除了多线程任务的后来者跟上领头色）。
+export function stewardRegisterThreadMission(sessionId, info) {
+  const id = String(sessionId || '');
+  if (!id) return null;
+  const missionId = String((info && info.missionId) || '') || id;
+  const next = {
+    missionId,
+    missionTitle: String((info && info.missionTitle) || ''),
+    threadCount: Math.max(1, Number(info && info.threadCount) || 1),
+  };
+  stewardThreadMissions.set(id, next);
+  if (missionId !== id && stewardThreadHues.has(id)) {
+    if (!stewardThreadHues.has(missionId)) stewardThreadHues.set(missionId, stewardThreadHues.get(id));
+    stewardThreadHues.delete(id);
+  }
+  return next;
+}
+
+// 色号：显式传 missionId 的（看板行手上就有）直接用，没传的问登记表，都没有就退回 sessionId
+// （单线程任务本来就相等；行还没到的那一帧也只是暂时按自己的 id 发号，登记那一刻归并）。
+export function stewardThreadHueFor(sessionId, missionId) {
   const id = String(sessionId || '');
   if (!id) return 0;
-  if (!stewardThreadHues.has(id)) stewardThreadHues.set(id, stewardThreadHue(stewardThreadHues.size));
-  return stewardThreadHues.get(id);
+  const known = stewardThreadMissionOf(id);
+  const key = String(missionId || (known && known.missionId) || '') || id;
+  if (!stewardThreadHues.has(key)) stewardThreadHues.set(key, stewardHueNext());
+  return stewardThreadHues.get(key);
 }
 
 // 卡头上的五态药丸用【全仓既有的那组人话键】，不新开一套词。
@@ -648,8 +715,15 @@ export function createStewardConversation({
     const doneRows = clean(doneLines);
     const trigger = button('steward-why-btn', '※');
     trigger.setAttribute('aria-expanded', 'false');
-    trigger.title = t('stewardShell.chat.whyLabel');
-    trigger.setAttribute('aria-label', t('stewardShell.chat.whyLabel'));
+    // §2.4 文字预算：屏幕上【只有一个 ※ 圆钮】（长相由 .steward-why-btn 那条 border-radius:50% 说），
+    // 「依据与回执（N）」那几个字不上屏 —— N 进悬停文案与可访问名，读屏与鼠标都问得到，
+    // 一屏的字却不多一个。浮层内容与 §8.4 的口径一个字没改。
+    const whyCount = whyLines.length + doneRows.length;
+    const whyLabel = whyCount
+      ? t('stewardShell.chat.whyLabelCount', { label: t('stewardShell.chat.whyLabel'), n: whyCount })
+      : t('stewardShell.chat.whyLabel');
+    trigger.title = whyLabel;
+    trigger.setAttribute('aria-label', whyLabel);
     const pop = el('div', 'steward-why-pop');
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', t('stewardShell.chat.whyLabel'));
@@ -949,12 +1023,20 @@ export function createStewardConversation({
     return stewardAgoLabel(iso, doc() && doc().documentElement ? doc().documentElement.lang : '');
   }
 
-  // 卡头（占位先上屏，事实随后填）：色点 · 线程名 · 五态药丸 · 最后动静 · 模型 · 打开。
-  // 药丸与「最后动静 · 模型」默认 hidden —— 信封里说不死的那几样宁可不出现，也不留空壳。
+  // 卡头（占位先上屏，事实随后填）。121-K6b 按 §2.4 文字预算收成五样，一样不多：
+  //   色点 · 任务名（多线程任务时「任务 › 线程」）· 五态药丸 · 相对时间 · 一枚图标钮「在工作台打开」。
+  // **去掉的是模型名**（原来「最后动静 · 模型」拼在一起）—— 那是配置，不是叙事（§2.4 原话）；
+  // 它在工作台线程头的 chip 行里有唯一那一处，卡头不印第二遍。
+  // 面包屑只在【多线程任务】时出现（与 K5 的工作台线程头同一条判据：row.threadCount > 1），
+  // 事实来自 steward-board.js 登记的那张表 —— 本模块不发第二发 /api/missions。
+  // 药丸、面包屑、相对时间默认 hidden —— 说不死的那几样宁可不出现，也不留空壳。
   function attachThreadHead(row, source) {
     if (!row || !row.classList.contains('is-thread-start')) return null;
     const head = el('div', 'steward-thread-head');
     head.appendChild(el('span', 'steward-thread-dot'));
+    const crumb = el('span', 'steward-thread-crumb');
+    crumb.hidden = true;
+    head.appendChild(crumb);
     const name = el('span', 'steward-thread-name', stewardShortTitle(source.title || source.sessionId));
     head.appendChild(name);
     const state = el('span', 'steward-thread-state');
@@ -963,15 +1045,18 @@ export function createStewardConversation({
     const meta = el('span', 'steward-thread-meta');
     meta.hidden = true;
     head.appendChild(meta);
-    // 「打开」与来源小头是同一个动作（steward:focus-thread），所以【共用】同一条通道与同一个词，
-    // 不新增第二条聚焦通道、不另造第二句文案。
-    const open = button('steward-thread-open', t('stewardShell.acts.open'), () => focusThread(source.sessionId));
-    open.setAttribute('aria-label', t('stewardShell.acts.open'));
+    // §2.4：卡头那一枚是【图标钮「在工作台打开」】（悬停出字），走的是 K5 收成一处的
+    // openInWorkbench（这里的 fullTextOf 就是它的调用点，注入缺席时回落到「打开焦点」）。
+    const openLabel = t('stewardShell.chat.openInWorkbench');
+    const open = button('steward-thread-open', '', () => fullTextOf(source.sessionId));
+    open.appendChild(icon('monitor', 13));
+    open.title = openLabel;
+    open.setAttribute('aria-label', openLabel);
     head.appendChild(open);
     const anchor = row.querySelector('.steward-source') || row.querySelector('.steward-say');
     if (anchor && anchor.parentNode === row) row.insertBefore(head, anchor);
     else row.appendChild(head);
-    void fillThreadHead(head, { name, state, meta }, source)
+    void fillThreadHead(head, { name, state, meta, crumb }, source)
       .catch(() => { /* 卡头绝不把异常丢回对话流 */ });
     return head;
   }
@@ -988,8 +1073,15 @@ export function createStewardConversation({
       parts.state.dataset.state = facts.state;
       parts.state.hidden = false;
     }
-    const bits = [agoLabel(facts.updatedAt), facts.model].filter(Boolean);
-    if (bits.length) { parts.meta.textContent = bits.join(' · '); parts.meta.hidden = false; }
+    // §2.4：只剩相对时间一样（模型名已退出卡头，见 attachThreadHead 的头注）。
+    const ago = agoLabel(facts.updatedAt);
+    if (ago) { parts.meta.textContent = ago; parts.meta.hidden = false; }
+    if (parts.crumb) {
+      const known = stewardThreadMissionOf(source.sessionId);
+      const many = Boolean(known) && Number(known.threadCount || 0) > 1 && Boolean(known.missionTitle);
+      parts.crumb.textContent = many ? stewardShortTitle(known.missionTitle) : '';
+      parts.crumb.hidden = !many;
+    }
     return head;
   }
 
@@ -1293,7 +1385,6 @@ export function createStewardConversation({
   }
 
   function finishReply(row, sayNode, reply, tools, sourceMessage) {
-    void sourceMessage;
     if (!row) return;
     const say = String(reply.say || '');
     // 117s-C：终态这一次带高亮（代码块的 hljs ＋ mermaid 懒加载都在 highlightIn 里，只跑这一次）。
@@ -1340,7 +1431,36 @@ export function createStewardConversation({
       // 标题留空是诚实的：这一刻前端手上只有 id，线程的显示名由卡头自己去信封里取（fillThreadHead）。
       attachThreadCard(row, { sessionId: opened, title: '' });
       focusThread(opened);
+      // 121-K6b（34 号文 §13.3 ①「里程碑不丢」）：`dispatchAcceptanceMilestones` 的接线点。
+      // 它是【前端唯一】的验收里程碑生产者（thread-facts.js 的头注写着「真正的接线点是新任务」），
+      // 121-K1 删交办台时把它唯一那个调用点（派单输入框）一起带走了，此后管家新开的线程账本恒空 ——
+      // 抽屉的验收块与看板的验收计数对它们永远显示「没有验收项」。
+      // 为什么落在这一处而不是别处：`executedThreadSessionId` 是全仓唯一那条「这一回合【真的】
+      // 开出了一条新线程」的判据（它只认 ok===true 的 steward_thread_new / quick_ask /
+      // thread_continue），而**用户那句原话**此刻就在手上（sourceMessage）—— 那正是
+      // dispatchAcceptanceMilestones 要的入参。后端 13k stewardImplThreadNew 只写 kind='mission'、
+      // 不建账本（本刀零后端，不去改它）。
+      void ensureAcceptanceLedger(opened, sourceMessage);
     }
+  }
+
+  // 只在【账本真的空着】时才立一本（先 GET 再决定）：POST /api/mission {action:'start'} 是全量
+  // 新建，撞上已有账本会把里程碑整表换掉 —— 管家自己后来 mission_update 写进去的进度不能被这一发
+  // 抹掉。失败一律沉默：立不起账本不该在对话流里冒一句红字（用户没做错任何事，账本也不是他要的）。
+  async function ensureAcceptanceLedger(sessionId, prompt) {
+    const id = String(sessionId || '');
+    const goal = String(prompt || '').trim();
+    if (!id || !goal) return false;
+    try {
+      const got = await api(`/api/mission?sessionId=${encodeURIComponent(id)}`);
+      const milestones = (got && got.mission && Array.isArray(got.mission.milestones)) ? got.mission.milestones : [];
+      if (milestones.length) return false;
+      const started = await api('/api/mission', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: id, action: 'start', goal, milestones: dispatchAcceptanceMilestones(goal) }),
+      });
+      return Boolean(started && started.ok === true);
+    } catch { return false; }
   }
 
   // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）。
@@ -1532,7 +1652,13 @@ export function createStewardConversation({
     }
     if (row && items.length) {
       const list = el('ul', 'steward-digest');
-      for (const item of items) list.appendChild(el('li', 'steward-digest-item', String((item && item.text) || '')));
+      // §2.4 文字预算：每条 ≤20 字（全文在左栏与焦点栏里，这里只是「有这几件」）。
+      for (const item of items) {
+        const full = String((item && item.text) || '');
+        const line = el('li', 'steward-digest-item', stewardDigestItemText(full));
+        if (full && line.textContent !== full) line.title = full;
+        list.appendChild(line);
+      }
       row.appendChild(list);
     }
     const acts = [];

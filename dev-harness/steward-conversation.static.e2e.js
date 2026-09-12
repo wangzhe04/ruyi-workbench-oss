@@ -99,7 +99,9 @@ ok(!/\bd:\s*'/.test(composerCode) && !/createElementNS/.test(composerCode)
 
 // ─── B 按钮行契约：≤3 且主动作唯一 ───────────────────────────────────────────────
 const mod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href);
-ok(mod.STEWARD_ACTS_MAX === 3, `B1 STEWARD_ACTS_MAX === 3（实测 ${mod.STEWARD_ACTS_MAX}）`);
+// 121-K6b 重钉：3 → 2（34 号文 §2.4 文字预算「按钮 ≤2（主动作金色）」）。收的是**渲染层**
+// 那一处 slice —— 提示词层与后端照旧可以给三枚，多的那一枚在 renderActs 里被切掉。
+ok(mod.STEWARD_ACTS_MAX === 2, `B1 STEWARD_ACTS_MAX === 2（§2.4 文字预算；实测 ${mod.STEWARD_ACTS_MAX}）`);
 ok(/const list = \(Array\.isArray\(acts\) \? acts : \[\]\)\.slice\(0, STEWARD_ACTS_MAX\);/.test(conversation),
   'B2 渲染 acts 时按 STEWARD_ACTS_MAX 截断（一行按钮永远 ≤3）');
 const primarySites = (conversation.match(/'is-primary'/g) || []).length;   // 只该出现在常量声明那一行
@@ -279,7 +281,10 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 // **13d 早就有的**那条会话信封（`GET /api/sessions/:id`，返回 { ok, session, resumable, displayTitle }，
 // session.messages 就是整份消息）。本条断言钉的是「零新增后端面」——它仍然成立：新增的是一个
 // 【既有】路由的消费者，不是一个新路由。
-const ALLOWED = ['/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
+// 121-K6b 补一条 `/api/mission`（34 号文 §13.3 ①）：管家开出一条新线程之后，前端把验收里程碑
+// 账本立起来（GET 一次看账本空不空，空才 POST {action:'start'}）。它同样是**既有**路由 ——
+// 13-http-router.js:889 那一条，交办台退役前的派单输入框走的就是它；本刀零后端。
+const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')
@@ -640,7 +645,11 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    同一时刻只允许一个浮层）搬去两壳共用的那颗浮层原语，本文件改为 import 使用 —— 借的还是【叶子】
 //    里的开合原语（chips 那一刀走的就是同一条 import），不是新借了一个域的实现。
 //    本条锁因此仍然可证伪：它钉的是「除这五条之外，本文件不许再向任何域借东西」。
-const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './popover.js', './steward-chips.js', './util.js'];
+//    121-K6b 把 './thread-facts.js' 加了进来（34 号文 §13.3 ①「里程碑不丢」）：新任务的验收里程碑
+//    生产者 dispatchAcceptanceMilestones 自 121-K1 起没有任何调用点，本刀把它接在「这一回合真开出
+//    了一条新线程」那一刻。thread-facts.js 与 util.js 同族 —— **纯函数叶子**（零 DOM、零 t()、
+//    零 fetch），借的仍然是叶子里的纯函数，不是新借了一个域的实现。
+const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './popover.js', './steward-chips.js', './thread-facts.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
   `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js 与 util.js 五个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);

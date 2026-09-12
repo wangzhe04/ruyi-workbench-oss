@@ -727,17 +727,35 @@
   flex: 0 0 auto;
   margin-inline-start: auto;
 }
+/* 121-K6b（§2.4 文字预算）：这枚从「打开」那两个字改成一枚【图标钮】（悬停出字，可访问名仍在
+   aria-label 上）——「卡头只印 色点 · 任务名 · 五态药丸 · 相对时间 · 一个图标钮」是原话。 */
 .steward-thread-open {
+  display: inline-grid;
+  place-items: center;
   min-height: 0;
   padding: 0;
   font: inherit;
   font-size: var(--fs-xs);
   line-height: 1.6;
-  color: var(--accent);
+  color: var(--muted);
   background: none;
   border: none;
   cursor: pointer;
 }
+/* 121-K6b（§2.4）：「任务 › 线程」面包屑，只在多线程任务时出现（单线程任务两个名字逐字相同，
+   印两遍就是把同一件事说两次）。› 由 ::after 画 —— 分隔符不进 textContent。 */
+.steward-thread-crumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steward-thread-crumb[hidden] { display: none; }
+.steward-thread-crumb::after { content: " › "; color: var(--line-2); }
 .steward-thread-open:hover { color: var(--accent-hover); }
 .steward-thread-open:focus-visible { outline: none; box-shadow: var(--ring); }
 
