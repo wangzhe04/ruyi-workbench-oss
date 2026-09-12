@@ -99,6 +99,26 @@
 }
 .task-rail { border-right: 1px solid var(--line); gap: 10px; padding: 8px 8px 0; }
 .classic-sidebar-primary-actions { display: grid; gap: 8px; flex: 0 0 auto; }
+/* 121 走查1-③（用户 2026-09-13 走查第 3 条：「管家的『＋ 新任务』和工作台的『＋ 新线程』看起来
+   没差别」）。§2.3 里这两义【本来就不是一回事】：工作台那一枚立刻建一条线程（createSession），
+   管家那一枚【什么都不建】，只把输入框的递送目标切成「→ 如意 · 另起一件」并聚焦。修前两义只差
+   两个字（文案与 title），字形都是 plus、底色都是主色实心 —— 于是一枚按钮看着像同一个动作。
+   现在三样都不同：文案（rail.newTask「另起一件」／rail.newThread「新线程」）、字形（lensSteward
+   环心点 ／ plus）由 js/steward-board.js 的 syncRailPlus 随 data-lens 一起写，底色由本条规则切。
+   管家那一枚是【次级】：不是一个立即生效的动作，是「把话头交给如意」，所以描边不实心，
+   用鎏金（§2.10.3：鎏金＝如意的主动作）勾边而不是铺底。判据钉在 walkthrough-round1.browser 的 D1–D3。 */
+#newSessionBtn[data-lens="steward"] {
+  background: transparent;
+  background-image: none;
+  border-color: var(--gold-line);
+  color: var(--ink);
+}
+#newSessionBtn[data-lens="steward"]:hover {
+  background: var(--gold-soft);
+  background-image: none;
+  border-color: var(--gold);
+}
+#newSessionBtn[data-lens="steward"] .ic { color: var(--gold); }
 .tool-pane { border-left: 1px solid var(--line); }
 .app-shell.tools-collapsed .tool-pane { display: none; }
 

@@ -588,6 +588,38 @@ export function createStewardBoard({
   // §2.3「＋」两义：管家视角印「＋ 新任务」（让如意另起一件，不建会话），工作台视角印「＋ 新线程」
   // （立即开一条线程，走 2.0 那条 createSession）。按钮【是同一枚】（#newSessionBtn），
   // 接线住组合根（app.js 那一处判视角），本模块只管把它的字改对。
+  // 121 走查1-③（用户 2026-09-13 走查第 3 条）：两义要【看得出来】。修前这里只换文案与 title ——
+  // 同一枚主色实心钮、同一枚 plus 字形，两个视角看着就是同一个动作。现在同一处再写两样：
+  //   · data-lens —— 底色由 css/layout.css 的 #newSessionBtn[data-lens="steward"] 切（管家那一枚
+  //     是鎏金描边的次级钮：它不建任何东西，只是把话头交给如意）；
+  //   · 字形 —— 管家那一枚是 lensSteward（环＋心点，就是 avatar 的最简形，§2.10.1），工作台仍是 plus。
+  // 写在这一处而不是给 app-frame 加第二个观察者：视角一变本函数就跑（renderRail 每拍都调它），
+  // 而「＋」的两义本来就归本模块（§2.3 那一条的落点）。
+  const RAIL_PLUS_ICONS = Object.freeze({ steward: 'lensSteward', classic: 'plus' });
+  function syncRailPlus() {
+    const label = byId('newSessionBtnLabel');
+    if (!label) return '';
+    const lens = isStewardMode() ? 'steward' : 'classic';
+    const key = lens === 'steward' ? 'rail.newTask' : 'rail.newThread';
+    label.textContent = t(key);
+    const button = byId('newSessionBtn');
+    if (button) {
+      const hint = t(lens === 'steward' ? 'rail.newTaskHint' : 'rail.newThreadHint');
+      button.title = hint;
+      button.setAttribute('aria-label', hint);
+      button.dataset.lens = lens;
+      const wanted = RAIL_PLUS_ICONS[lens];
+      if (button.dataset.icon !== wanted) {
+        const old = button.querySelector('svg.ic');
+        if (old) old.remove();
+        const glyph = icon(wanted, 16);
+        if (glyph) button.insertBefore(glyph, button.firstChild);
+        button.dataset.icon = wanted;
+        button.dataset.iconized = '1';   // hydrateIcons 幂等标记：别让它再补一枚进来
+      }
+    }
+    return key;
+  }
 
   // 顶栏那枚全局状态胶囊「N 在跑 · M 等你」（§2.2）。计数源仍然只有 renderStatusLine 那一处
   // （needsYouIds 就是它的产物）—— 本函数只画，不数。【不印】任务总数、不印费用、不印模型名。

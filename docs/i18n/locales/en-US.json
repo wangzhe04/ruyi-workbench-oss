@@ -2599,7 +2599,7 @@
   ,"rail.group.queued": "Queued"
   ,"rail.group.doneToday": "Wrapped up today"
   ,"rail.group.earlier": "Earlier"
-  ,"rail.newTask": "New task"
+  ,"rail.newTask": "Start a task"
   ,"rail.newTaskHint": "Let Ruyi start a new task"
   ,"rail.newThread": "New thread"
   ,"rail.newThreadHint": "Start one thread as its own task"
