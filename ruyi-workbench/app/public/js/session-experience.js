@@ -1062,7 +1062,7 @@ async function stopLiveTurn(btn) {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('navigation.workbench') : session.title.trim(); // v0.8-S8 品牌落地(原「本地 Claude 工作台」);50-fix 未命名回落
+  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
   $('sessionMeta').textContent = session ? (session.cwd || '') : '';
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)

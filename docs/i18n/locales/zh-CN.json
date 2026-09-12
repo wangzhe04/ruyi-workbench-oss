@@ -11,13 +11,13 @@
   "ask.introTitle": "需要你的选择",
   "ask.other": "其他，我想自己填写",
   "ask.otherDescription": "选中后输入未列出的答案",
-  "ask.otherPlaceholder": "输入其他回答…",
+  "ask.otherPlaceholder": "输入其他回答",
   "ask.placeholder": "输入回答",
   "ask.questionLabel": "问题 {{number}}",
   "ask.ready": "回答完整，可以提交",
   "ask.sending": "发送中…",
   "ask.submit": "提交回答",
-  "ask.textPlaceholder": "输入你的回答…",
+  "ask.textPlaceholder": "输入你的回答",
   "ask.title": "模型提问",
   "ask.writeAnswer": "自由输入",
   "audit.desktopUnavailable": "桌面操作审计需要 ai-computer-control 桥接",
@@ -74,7 +74,7 @@
   "changes.diffSkipped": "此条改动前的内容过大未保存快照,无法比对。",
   "changes.diffUnavailable": "无法读取改动:{{err}}",
   "changes.empty": "本次未改动任何文件",
-  "changes.emptyHint": "本会话还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。",
+  "changes.emptyHint": "本线程还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。",
   "changes.fileCount": "{{count}} 个文件",
   "changes.loadFailed": "加载变更记录失败：",
   "changes.loadingDiff": "加载改动…",
@@ -135,7 +135,7 @@
   "chat.editResend": "编辑重发",
   "chat.expandAll": "展开全部",
   "chat.loadEarlier": "加载更早的 {{count}} 条（还有 {{remaining}} 条）",
-  "chat.placeholder": "输入消息，或描述你想完成的任务…",
+  "chat.placeholder": "说你想做什么",
   "chat.resume.action": "继续",
   "chat.resume.dismiss": "关闭",
   "chat.resume.prompt": "请继续完成上一个未完成的任务。",
@@ -236,7 +236,7 @@
   "emptyState.starter.windowsStartup": "修复 Windows 下的启动问题",
   "emptyState.title": "直接开始工作",
   "error.api.actionUnknown": "请求操作无效。",
-  "error.api.agentRunRequired": "请提供会话和工作流运行标识",
+  "error.api.agentRunRequired": "请提供线程和工作流运行标识",
   "error.api.authToken": "工作台会话令牌缺失或无效",
   "error.api.checkpointNotFound": "找不到请求的变更记录",
   "error.api.checkpointReferenceInvalid": "变更记录标识无效",
@@ -250,9 +250,9 @@
   "error.api.questionNotPending": "这个问题已结束或已被回答",
   "error.api.requestFailed": "请求失败。",
   "error.api.routeNotFound": "请求的接口不存在",
-  "error.api.sessionInvalid": "会话标识无效",
-  "error.api.sessionNotFound": "找不到该会话",
-  "error.api.sessionRequired": "请先选择一个会话",
+  "error.api.sessionInvalid": "线程标识无效",
+  "error.api.sessionNotFound": "找不到该线程",
+  "error.api.sessionRequired": "请先选择一条线程",
   "error.api.steerClaudeRequiresInteractive": "当前 Claude 回合不是 interactive 模式，无法插话；请切换后在下一回合使用",
   "error.cliMissing.configureApi": "配置 API 密钥",
   "error.cliMissing.configureCli": "配置 {{engine}} 路径",
@@ -381,14 +381,14 @@
   "help.title": "快捷键",
   "mcp.copyOk": "已复制 ✓",
   "mcp.missing.title": "缺少 MCP 清单",
-  "memory.check.disabled": "记忆=当前会话已关闭",
+  "memory.check.disabled": "记忆=当前线程已关闭",
   "memory.check.done": "记忆=已检索 {{candidates}} 条候选，匹配 {{matches}} 条（项目 {{project}} / 全局 {{global}}）",
   "memory.check.unavailable": "记忆=预检暂不可用（本轮已安全降级）",
   "memory.createNew": "＋ 手写新建记忆",
   "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 3 条结果。",
   "memory.deleteConfirm": "删除记忆「{{name}}」？此操作不可撤销。",
-  "memory.disableForSession": "本会话关闭记忆",
-  "memory.draftFromSession": "✎ 从当前会话起草",
+  "memory.disableForSession": "本线程关闭记忆",
+  "memory.draftFromSession": "✎ 从当前线程起草",
   "memory.edit.body": "正文（markdown）",
   "memory.edit.create.title": "新建工作台记忆",
   "memory.edit.description": "说明（何时有用）",
@@ -412,7 +412,7 @@
   "memory.edit.typeReference": "参考资料",
   "memory.enable": "启用",
   "memory.enabled": "已启用",
-  "memory.fixedPolicyHint": "当前会话使用固定记忆选择（最多 12 条）；可恢复项目 + 全局默认检索。",
+  "memory.fixedPolicyHint": "当前线程使用固定记忆选择（最多 12 条）；可恢复项目 + 全局默认检索。",
   "memory.ghostLabel": "已失效",
   "memory.groupGlobal": "全局记忆",
   "memory.groupGlobalSub": "随工作台走",
@@ -431,12 +431,12 @@
   "memory.proposal.applied": "已应用记忆维护提议",
   "memory.proposal.applyFailed": "应用失败：{{err}}",
   "memory.restoreDefaults": "恢复默认检索",
-  "memory.sessionDisabledHint": "当前会话已关闭工作台记忆；恢复默认后，项目与全局记忆会重新参与相关性检索。",
+  "memory.sessionDisabledHint": "当前线程已关闭工作台记忆；恢复默认后，项目与全局记忆会重新参与相关性检索。",
   "memory.toast.defaultsRestored": "已恢复项目 + 全局默认记忆检索",
-  "memory.toast.excluded": "已从当前会话的默认检索中排除「{{name}}」",
+  "memory.toast.excluded": "已从当前线程的默认检索中排除「{{name}}」",
   "memory.toast.included": "已让「{{name}}」重新参与默认检索",
-  "memory.toast.sessionDisabled": "已为当前会话关闭工作台记忆",
-  "memory.needSessionHint": "新建或选择一个会话后可启用记忆。",
+  "memory.toast.sessionDisabled": "已为当前线程关闭工作台记忆",
+  "memory.needSessionHint": "新建或选择一条线程后可启用记忆。",
   "memory.scope.global": "全局",
   "memory.scope.project": "项目",
   "memory.toast.disabled": "已停用记忆：{{name}}",
@@ -509,7 +509,7 @@
   "modelMenu.deleteFailed": "删除模型失败：{{error}}",
   "modelMenu.effortChanged": "思考强度：{{effort}}",
   "modelMenu.effortChangedNextTurn": "思考强度：{{effort}}（下回合生效）",
-  "modelMenu.manageProviders": "管理 Providers…",
+  "modelMenu.manageProviders": "管理服务商",
   "modelMenu.modelWithEffort": "{{model}} · 思考 {{effort}}",
   "modelMenu.modelCount.one": "{{count}} 个模型",
   "modelMenu.modelCount.other": "{{count}} 个模型",
@@ -661,20 +661,20 @@
   "palette.dataDirectoryUnknown": "数据目录未知",
   "palette.defaultModel": "默认",
   "palette.engine": "引擎 → {{engine}} · {{model}}",
-  "palette.exportHtml": "导出会话 · HTML",
-  "palette.exportJson": "导出会话 · JSON",
-  "palette.exportMarkdown": "导出会话 · Markdown",
-  "palette.importJson": "导入会话（JSON）",
+  "palette.exportHtml": "导出线程 · HTML",
+  "palette.exportJson": "导出线程 · JSON",
+  "palette.exportMarkdown": "导出线程 · Markdown",
+  "palette.importJson": "导入线程（JSON）",
   "palette.mcpInspector": "MCP 工具检查器",
-  "palette.memories": "工作台记忆（跨会话）",
-  "palette.newSession": "新会话",
+  "palette.memories": "工作台记忆（跨线程）",
+  "palette.newSession": "新线程",
   "palette.openDataDirectory": "打开数据目录",
   "palette.openProviders": "打开 Providers 设置",
   "palette.openSettings": "打开设置",
-  "palette.placeholder": "输入命令…（会话名、模型、工具）",
+  "palette.placeholder": "输入命令（线程名、模型、工具）",
   "palette.refreshDiagnostics": "刷新体检",
   "palette.saveInputAsTemplate": "把当前输入存为模板",
-  "palette.session": "会话 → {{title}}",
+  "palette.session": "线程 → {{title}}",
   "palette.skills": "技能库（技能 / 命令 / 一键任务）",
   "palette.stopCurrentTurn": "停止当前回合",
   "palette.template": "模板 → {{name}}",
@@ -684,7 +684,7 @@
   "permission.allow": "允许",
   "permission.allowNetwork": "允许联网",
   "permission.allowPersistent": "永久允许（记入配置）",
-  "permission.allowSession": "本次会话自动允许此工具",
+  "permission.allowSession": "本次线程自动允许此工具",
   "permission.alwaysAllowed": "已永久允许「{{tool}}」",
   "permission.deny": "拒绝",
   "permission.duration.hours": "{{hours}} 小时 {{minutes}} 分钟",
@@ -740,10 +740,10 @@
   "permission.revoke": "撤销",
   "permission.revoke.failed": "撤销失败：{{reason}}",
   "permission.revokeAll": "撤销全部授权",
-  "permission.revokeAll.confirm": "撤销本会话的全部授权？进行中的单次调用不受影响，之后的调用将重新询问。",
+  "permission.revokeAll.confirm": "撤销本线程的全部授权？进行中的单次调用不受影响，之后的调用将重新询问。",
   "permission.revokeAll.success": "已撤销 {{count}} 份授权",
   "permission.scope.run": "本次运行",
-  "permission.scope.session": "会话",
+  "permission.scope.session": "线程",
   "permission.title": "安全与权限",
   "permission.uses": "{{used}}/{{max}} 次",
   "plan.awaitingApproval": "AI 在等你批准计划",
@@ -751,7 +751,7 @@
   "plan.card.approve": "批准执行",
   "plan.card.approveWithNote": "带意见批准",
   "plan.card.heading": "{{engine}} 提出了执行计划，待你批准",
-  "plan.card.notePlaceholder": "补充你的修改意见，然后批准执行…",
+  "plan.card.notePlaceholder": "补充你的修改意见，然后批准执行",
   "plan.card.reject": "放弃",
   "plan.decision.failed": "计划决策失败：{{reason}}",
   "plan.expired": "该计划已失效",
@@ -769,7 +769,7 @@
   "playbook.create.fieldTitle": "标题",
   "playbook.create.inputs": "参数：{{inputs}}",
   "playbook.create.modalTitle": "存为一键任务",
-  "playbook.create.noSession": "没有可保存的会话",
+  "playbook.create.noSession": "没有可保存的线程",
   "playbook.create.required": "标题和任务模板不能为空",
   "playbook.create.saveFailed": "保存失败：{{reason}}",
   "playbook.create.saved": "已存为一键任务",
@@ -834,29 +834,30 @@
   "provider.toggleApiKeyVisibility": "显示/隐藏密钥",
   "provider.vision": "支持视觉（能看图/截图）",
   "session.bulkCleanup": "清理历史",
-  "session.bulkCleanup.action": "清理 {{count}} 个会话",
-  "session.bulkCleanup.description": "将删除 {{count}} 个未置顶的历史会话。",
-  "session.bulkCleanup.empty": "没有可清理的历史会话",
+  "session.bulkCleanup.action": "清理 {{count}} 条线程",
+  "session.bulkCleanup.description": "将删除 {{count}} 条未置顶的历史线程。",
+  "session.bulkCleanup.empty": "没有可清理的历史线程",
   "session.bulkCleanup.failed": "清理历史失败：{{reason}}",
-  "session.bulkCleanup.note": "当前会话、置顶会话和正在运行的会话会被保留。此操作不可撤销。",
+  "session.bulkCleanup.note": "当前线程、置顶线程和正在运行的线程会被保留。此操作不可撤销。",
   "session.bulkCleanup.purgeAssociated": "同时删除关联的回滚检查点和 Agent 工作流记录",
   "session.bulkCleanup.purgeHint": "不会删除工作区中的文件。取消勾选时，只删除对话主记录。",
-  "session.bulkCleanup.success": "已清理 {{count}} 个历史会话",
+  "session.bulkCleanup.success": "已清理 {{count}} 条历史线程",
   "session.bulkCleanup.title": "批量清理历史",
   "session.delete": "删除",
-  "session.delete.confirm": "删除该会话？",
+  "session.delete.confirm": "删除该线程？",
   "session.earlier": "更早",
-  "session.empty": "暂无会话，点击“新会话”开始",
+  "session.empty": "暂无线程，点击“新线程”开始",
   "session.messageCount.one": "{{count}} 条",
   "session.messageCount.other": "{{count}} 条",
-  "session.new": "新会话",
-  "session.noMatch": "没有匹配的会话",
+  "session.new": "新线程",
+  "session.untitled": "未命名线程",
+  "session.noMatch": "没有匹配的线程",
   "session.pin": "置顶",
   "session.pinned": "置顶",
   "session.rename": "重命名",
-  "session.rename.placeholder": "会话名称",
+  "session.rename.placeholder": "线程名称",
   "session.running": "运行中",
-  "session.search": "搜索会话…",
+  "session.search": "搜索线程",
   "session.thisWeek": "本周",
   "session.today": "今天",
   "session.unpin": "取消置顶",
@@ -980,7 +981,7 @@
   "settings.engineMode.legacy": "legacy（稳定，单向）",
   "settings.externalMcpServer": "外部 MCP 服务",
   "settings.externalMcpServer.hint": "从含 ruyi-mcp.json 清单的文件夹一键导入一个外部 MCP 服务。",
-  "settings.externalMcpServer.import": "📁 从文件夹添加 MCP…",
+  "settings.externalMcpServer.import": "📁 从文件夹添加 MCP",
   "settings.extraArgs": "额外 CLI 参数（每行一个）",
   "settings.extraModels": "自定义模型（每行一个，可写 id 或 id|显示名）",
   "settings.extraModelsPlaceholder": "model-id|显示名\nmy-internal-model",
@@ -1141,9 +1142,9 @@
   "skills.details": "查看细则",
   "skills.empty": "未发现技能/命令（可在数据目录 skills/ 或项目 .ruyi/skills/ 放置 SKILL.md）",
   "skills.enable": "启用",
-  "skills.enableForSession": "本会话启用",
+  "skills.enableForSession": "本线程启用",
   "skills.enabled": "已启用",
-  "skills.enabledForSession": "本会话已启用",
+  "skills.enabledForSession": "本线程已启用",
   "skills.group.commands": "命令",
   "skills.group.commandsDescription": "斜杠触发的动作",
   "skills.group.playbooks": "一键任务",
@@ -1200,7 +1201,7 @@
   "skills.requirements.networkOffline": "需要联网（当前离线）",
   "skills.requirements.vision": "需要视觉模型（当前引擎未开启视觉）",
   "skills.resident": "已常驻",
-  "skills.searchPlaceholder": "搜索技能 / 命令 / 一键任务…",
+  "skills.searchPlaceholder": "搜索技能 / 命令 / 一键任务",
   "skills.source.builtin": "内置",
   "skills.source.project": "项目",
   "skills.source.user": "用户",
@@ -1215,7 +1216,7 @@
   "skills.toast.removedUnavailable": "已移除失效技能：{{id}}",
   "skills.toast.residentDisabled": "已取消常驻技能：{{name}}",
   "skills.toast.residentEnabled": "已设为常驻技能：{{name}}",
-  "skills.toast.selectSession": "请先新建或选择一个会话",
+  "skills.toast.selectSession": "请先新建或选择一条线程",
   "skills.toast.unavailable": "该技能当前不可用",
   "skills.toast.updateFailed": "设置技能失败：{{reason}}",
   "skills.toast.deleted": "已删除技能：{{name}}",
@@ -1227,7 +1228,7 @@
   "skills.deleteConfirm.idLabel": "技能 id",
   "skills.deleteConfirm.armed": "再次点击确认删除",
   "skills.deleteConfirm.confirm": "确认删除",
-  "skills.deleteConfirm.warning": "删除后不可恢复；如该技能被会话启用，将自动变为失效项。",
+  "skills.deleteConfirm.warning": "删除后不可恢复；如该技能被线程启用，将自动变为失效项。",
   "skills.unavailable": "当前不可用",
   "skills.unavailableReason": "此技能已不在注册表中（可能已删除，或随工作目录变化而不可见）。",
   "skills.viewTemplate": "查看模板",
@@ -1255,13 +1256,13 @@
   "storage.store.logs": "日志",
   "storage.store.memory": "记忆库",
   "storage.store.playbooks": "Playbook",
-  "storage.store.sessions": "会话",
+  "storage.store.sessions": "线程",
   "storage.store.skills": "技能",
   "storage.store.uploads": "上传附件",
   "storage.store.usage": "用量台账",
   "storage.store.webcache": "网页缓存",
   "storage.totalLabel": "数据目录总计",
-  "storage.transcriptNote": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{n}} 个文件 -- 自动清理只限本工作台发起且已无会话引用、超过保留天数的转录",
+  "storage.transcriptNote": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{n}} 个文件 -- 自动清理只限本工作台发起且已无线程引用、超过保留天数的转录",
   "storage.unavailable": "存储统计不可用",
   "thinkingEffort.default": "默认（继承 CLI 配置）",
   "thinkingEffort.high": "高",
@@ -1304,10 +1305,10 @@
   "toast.memoryPruned": "已移除失效记忆：{{p1}}",
   "toast.memorySaved": "已保存工作台记忆",
   "toast.memorySetFail": "设置记忆失败：{{err}}",
-  "toast.needSession": "请先新建或选择一个会话",
-  "toast.noSession": "无当前会话",
-  "toast.noSessionToSave": "没有可保存的会话",
-  "toast.openSessionFirst": "先打开一个会话",
+  "toast.needSession": "请先新建或选择一条线程",
+  "toast.noSession": "无当前线程",
+  "toast.noSessionToSave": "没有可保存的线程",
+  "toast.openSessionFirst": "先打开一条线程",
   "toast.permPaused": "权限请求已存档暂停,仍在等待你的决定(约 {{p1}} 分钟内有效,超时才回落拒绝)",
   "toast.pickerOpenFail": "无法打开选择器：{{err}}",
   "toast.policySaveFail": "保存策略失败：{{err}}",
@@ -1324,8 +1325,8 @@
   "toast.rollbackDone": "已回撤：{{p1}}",
   "toast.rollbackFail": "回撤失败：{{p1}}",
   "toast.saveFail": "保存失败：{{p1}}",
-  "toast.sessionEndedNoAnswer": "会话已结束，无法回答",
-  "toast.sessionImported": "已导入会话",
+  "toast.sessionEndedNoAnswer": "线程已结束，无法回答",
+  "toast.sessionImported": "已导入线程",
   "toast.shellCreated": "已新建 shell 会话 {{p1}}",
   "toast.shellEnded": "已结束 shell 会话",
   "toast.steerFail": "插话失败：{{p1}}",
@@ -1384,7 +1385,7 @@
   "tool.revertibleChanges.hint": "AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。",
   "tool.searchProject": "搜索项目",
   "tool.searchText": "搜索文本",
-  "tool.sessionArtifacts": "本会话产物",
+  "tool.sessionArtifacts": "本线程产物",
   "tool.terminal": "终端",
   "tool.workspace": "工作区",
   "tool.workspaceFolder": "工作文件夹",
@@ -1426,7 +1427,7 @@
   "usage.empty": "还没有用量记录，发起对话后这里会汇总花费。",
   "usage.group.engine": "按引擎",
   "usage.group.provider": "按服务商",
-  "usage.group.session": "按会话",
+  "usage.group.session": "按线程",
   "usage.group.summary": "{{title}}：共 {{count}} 项。{{names}}。",
   "usage.inputTokens": "输入 tokens",
   "usage.loadFailed": "加载用量失败：{{reason}}",
@@ -1434,15 +1435,15 @@
   "usage.note.cost": "成本为按量计价的等价估算，非实际扣费。",
   "usage.note.planTurns": "其中约 {{count}} 轮为计划内（订阅）计费，只计 token，未计入上方成本。",
   "usage.note.planUsage": "部分用量为计划内（订阅）计费，只计 token，未计入上方成本。",
-  "usage.openSession": "打开会话：{{title}}",
-  "usage.openSession.failed": "打开会话失败：{{reason}}",
+  "usage.openSession": "打开线程：{{title}}",
+  "usage.openSession.failed": "打开线程失败：{{reason}}",
   "usage.opsInterventions": "近 {{days}} 天人工干预 {{count}} 次",
   "usage.opsMissions": "任务 {{count}} 个 · 预算超支率 {{rate}}",
   "usage.outputTokens": "输出 tokens",
   "usage.planIncluded": "计划内计费",
   "usage.planIncluded.title": "订阅套餐，按月付费，token 不另计费。",
   "usage.provider.unknown": "未知服务商",
-  "usage.session.unnamed": "未命名会话",
+  "usage.session.unnamed": "未命名线程",
   "usage.title": "用量与成本",
   "usage.tokenCount": "{{count}} tokens",
   "usage.turns": "对话轮次",
@@ -1496,11 +1497,11 @@
   "workflow.editor.scope": "保存范围",
   "workflow.editor.title": "工作流图形编辑器",
   "workflow.elapsed": "已运行 {{duration}}",
-  "workflow.empty": "本会话还没有 Agent 工作流。",
-  "workflow.empty.goChat": "去对话交办任务",
+  "workflow.empty": "本线程还没有 Agent 工作流。",
+  "workflow.empty.goChat": "回到对话",
   "workflow.empty.runTemplate": "从模板运行",
   "workflow.empty.subtitle": "交办一个多 Agent 任务，这里会实时画出它们的协作图 —— 谁在跑、跑到哪、卡在哪。",
-  "workflow.empty.title": "本会话还没有 Agent 工作流",
+  "workflow.empty.title": "本线程还没有 Agent 工作流",
   "workflow.isolation.apply": "应用到当前工作区",
   "workflow.isolation.applyAria": "应用节点 {{node}} 的隔离工作树",
   "workflow.isolation.status": "隔离工作树：{{status}}",
@@ -1617,7 +1618,7 @@
   "workflow.steerBox.liveLabel": "插话（下一次调用前生效）",
   "workflow.steerBox.noDeterministic": "确定性质量门节点不经过模型，无法插话",
   "workflow.steerBox.noTerminal": "节点已结束，无法插话",
-  "workflow.steerBox.placeholder": "给 {{node}} 补一句指令…",
+  "workflow.steerBox.placeholder": "给 {{node}} 补一句指令",
   "workflow.steerBox.unsent": "未发送的插话内容：{{text}}",
   "workflow.stop": "停止",
   "workflow.templateSelector": "工作流模板",
@@ -1634,7 +1635,7 @@
   "workflow.viewError": "查看错误",
   "workflow.viewErrorAria": "查看节点 {{nodeId}} 的错误",
   "workflow.viewStalled": "定位到停滞节点",
-  "workspace.browse": "浏览文件夹…",
+  "workspace.browse": "浏览文件夹",
   "workspace.chooseTitle": "选择工作文件夹",
   "workspace.confirmDefault": " 同时设为默认工作区",
   "workspace.favorites": "常用工作区",
@@ -1676,7 +1677,7 @@
   "bootFailure.reason.offlineStatus": "无法连接本地服务",
   "ctx.sourceLabel.manual": "手动锁定",
   "ctx.sourceLabel.settingsFixed": "设置固定",
-  "chat.newSession": "新会话",
+  "chat.newSession": "新线程",
   "chat.thinkingProcess": "思考",
   "status.error": "出错",
   "status.done": "完成",
@@ -1730,7 +1731,7 @@
   "chat.compactUnknownError": "未知错误",
   "status.stopped": "已停止",
   "chat.noTextOutput": "（无文本输出）",
-  "chat.toolResultMissing": "回合已结束，但未收到这次工具调用的结果；可刷新会话核对最终记录。",
+  "chat.toolResultMissing": "回合已结束，但未收到这次工具调用的结果；可刷新线程核对最终记录。",
   "chat.inputPlaceholder": "输入回答",
   "chat.submit": "提交",
   "chat.userCancelled": "(用户取消，未选择)",
@@ -1758,7 +1759,7 @@
   "common.drafting": "起草中…",
   "common.noChange": "(内容未变化)",
   "common.none": "（暂无）",
-  "common.custom": "自定义…",
+  "common.custom": "自定义",
   "workflow.deleteConfirm": "删除这条 Agent 工作流记录？",
   "workflow.canvas.quickSelect": "快速选择节点",
   "workflow.canvas.arrowStartAdjusted": "已调整箭头起点",
@@ -1897,8 +1898,8 @@
   "ctx.compact.toastSet": "默认压缩模型已设为 {{model}}",
   "ctx.compact.toastReset": "已恢复当前引擎的原生压缩",
   "ctx.noUsage": "未开始",
-  "ctx.noUsageHint": "当前会话尚无上下文用量；点击可提前选择上下文上限。",
-  "session.name": "会话名称",
+  "ctx.noUsageHint": "当前线程尚无上下文用量；点击可提前选择上下文上限。",
+  "session.name": "线程名称",
   "chat.resultTooLong": "结果过长，仅显示前 100,000 个字符。",
   "chat.first200Lines": "（仅显示前 200 行）",
   "chat.claudeCliReceipt": "Claude CLI 启动回执",
@@ -2002,7 +2003,7 @@
   "settings.mcp.title": "MCP 连接器运维",
   "settings.mcp.hint": "查看全部连接器（内置桌面 / 用户导入 / drop-in 目录）的连接状态与失败原因，可重测、启停或移除，无需手改 JSON 配置。",
   "settings.mcp.refreshAll": "🔄 全部重测",
-  "settings.mcp.import": "📁 从文件夹导入 MCP…",
+  "settings.mcp.import": "📁 从文件夹导入 MCP",
   "settings.mcp.loading": "正在加载连接器清单…",
   "settings.mcp.probing": "正在重测全部连接器（可能需要几秒）…",
   "settings.mcp.count": "共 {{p1}} 个连接器",
@@ -2046,7 +2047,7 @@
   "settings.update.noBackups": "无备份",
   "settings.update.backupsCount": "{{p1}} 个备份",
   "settings.update.selectZip": "选择增量更新包(zip)",
-  "settings.update.browse": "选择 zip…",
+  "settings.update.browse": "选择 zip",
   "settings.update.selectZip.hint": "先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。",
   "settings.update.precheck": "预检",
   "settings.update.prechecking": "预检中…",
@@ -2144,16 +2145,16 @@
   ,"stewardShell.name": "如意"
   ,"stewardShell.feedLabel": "管家对话"
   ,"stewardShell.composerLabel": "对管家说"
-  ,"stewardShell.openClassic": "经典模式"
-  ,"stewardShell.settingDisabledHint": "要用管家壳，先在设置里打开管家。"
-  ,"stewardShell.recovery.disabled": "管家还没打开，已回到经典布局；在设置里打开管家后可以再选。"
-  ,"stewardShell.recovery.missingShell": "管家界面骨架不完整，已回到经典布局。"
-  ,"stewardShell.recovery.dependency": "管家壳模块没有载入，已回到经典布局。"
+  ,"stewardShell.openClassic": "在工作台打开"
+  ,"stewardShell.settingDisabledHint": "要用管家视角，先在设置里打开管家。"
+  ,"stewardShell.recovery.disabled": "管家还没打开，已回到工作台视角；在设置里打开管家后可以再选。"
+  ,"stewardShell.recovery.missingShell": "管家界面骨架不完整，已回到工作台视角。"
+  ,"stewardShell.recovery.dependency": "管家视角的模块没有载入，已回到工作台视角。"
   ,"stewardShell.avatarLabel": "如意的头像"
   ,"stewardShell.presence.idle": "空闲"
   ,"stewardShell.presence.listening": "在听"
   ,"stewardShell.presence.thinking": "正在思考"
-  ,"stewardShell.presence.working": "正在查看会话{{detail}}"
+  ,"stewardShell.presence.working": "正在查看线程{{detail}}"
   ,"stewardShell.presence.waiting_you": "等你确认{{detail}}"
   ,"stewardShell.presence.error": "上一步失败{{detail}}"
   ,"stewardShell.presence.sleeping": "管家已停机"
@@ -2162,10 +2163,10 @@
   ,"stewardShell.chat.digest": "你不在的这段时间里有 {{count}} 件事："
   ,"stewardShell.chat.digestNone": "你不在的这段时间里没有新事。"
   ,"stewardShell.chat.openFocus": "打开「{{title}}」"
-  ,"stewardShell.chat.openThread": "打开这个会话"
+  ,"stewardShell.chat.openThread": "打开这条线程"
   ,"stewardShell.chat.gotIt": "知道了"
-  ,"stewardShell.chat.intro": "我是如意。说你想做的事，我来判断该接着哪个会话做，或者另起一件。"
-  ,"stewardShell.chat.example1": "看看我有哪些会话"
+  ,"stewardShell.chat.intro": "我是如意。说你想做的事，我来判断该接着哪条线程做，或者另起一件。"
+  ,"stewardShell.chat.example1": "看看我有哪些线程"
   ,"stewardShell.chat.example2": "明天 9 点提醒我交周报"
   ,"stewardShell.chat.example3": "把下载文件夹整理一下"
   ,"stewardShell.chat.whyLabel": "依据与影响范围"
@@ -2175,8 +2176,8 @@
   ,"stewardShell.chat.whyDone": "已办"
   ,"stewardShell.chat.queued": "排队中"
   ,"stewardShell.chat.queueFull": "先等一等，前面还有几句没发出去。"
-  ,"stewardShell.chat.pendingWhy": "这个会话在等你拿主意（{{type}}）。"
-  ,"stewardShell.chat.otherCandidates": "同任务的其它会话：{{list}}"
+  ,"stewardShell.chat.pendingWhy": "这条线程在等你拿主意（{{type}}）。"
+  ,"stewardShell.chat.otherCandidates": "同任务的其它线程：{{list}}"
   ,"stewardShell.chat.actionLine": "已办：{{tool}} —— {{state}}"
   ,"stewardShell.chat.actionDone": "做成了"
   ,"stewardShell.chat.tools": "本回合调用了 {{count}} 个工具"
@@ -2188,34 +2189,34 @@
   ,"stewardShell.chat.undoCountdown": "撤回 {{seconds}}"
   ,"stewardShell.chat.switchTarget": "换一条"
   ,"stewardShell.chat.undone": "已撤回"
-  ,"stewardShell.chat.undoneFilesKept": "已撤回；改动请看 2.0 视窗。"
+  ,"stewardShell.chat.undoneFilesKept": "已撤回；改过的文件留着，在工作台看得到。"
   ,"stewardShell.chat.whoInstead": "那递给谁？"
   ,"stewardShell.chat.opened": "打开了「{{title}}」"
-  ,"stewardShell.chat.fromThread": "来自会话「{{title}}」"
+  ,"stewardShell.chat.fromThread": "来自线程「{{title}}」"
   ,"stewardShell.chat.deliverableHead": "它交付的原文 · 第 {{seq}} 回合"
   ,"stewardShell.chat.deliverableHeadPlain": "它交付的原文"
   ,"stewardShell.chat.deliverableLoading": "正在取它交付的原文…"
-  ,"stewardShell.chat.deliverableFull": "到 2.0 视窗看全文"
-  ,"stewardShell.chat.deliverableMissing": "这一次没取到原文；点「到 2.0 视窗看全文」去那边看。"
+  ,"stewardShell.chat.deliverableFull": "在工作台看全文"
+  ,"stewardShell.chat.deliverableMissing": "这一次没取到原文；点「在工作台看全文」。"
   ,"stewardShell.chat.deliverableExpand": "展开"
   ,"stewardShell.chat.deliverableCollapse": "收起"
   ,"stewardShell.chat.acked": "知道了"
   ,"stewardShell.chat.actDone": "做了：{{label}}"
   ,"stewardShell.chat.errProposeRequired": "这件事需要你在设置里亲手确认。"
   ,"stewardShell.chat.errNotFound": "没找到这一条，它可能已经变了。"
-  ,"stewardShell.chat.errBusy": "那个会话正忙着上一件，这句先没递进去；等它停了再说一次。"
-  ,"stewardShell.chat.errQueued": "那个会话还在排队（{{wait}}），这句先没递进去；等它开跑后再说一次。"
-  ,"stewardShell.chat.errQueuedPlain": "那个会话还在排队，这句先没递进去；等它开跑后再说一次。"
+  ,"stewardShell.chat.errBusy": "那条线程正忙着上一件，这句先没递进去；等它停了再说一次。"
+  ,"stewardShell.chat.errQueued": "那条线程还在排队（{{wait}}），这句先没递进去；等它开跑后再说一次。"
+  ,"stewardShell.chat.errQueuedPlain": "那条线程还在排队，这句先没递进去；等它开跑后再说一次。"
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
-  ,"stewardShell.chat.engineNotListed": "管家端点『{{provider}}』不在 Provider 列表里，所以它现在一句话也跑不了。换一个，或者去设置里把它加回来。"
+  ,"stewardShell.chat.engineNotListed": "管家端点「{{provider}}」不在 Provider 列表里，所以它现在一句话也跑不了。换一个，或者去设置里把它加回来。"
   ,"stewardShell.chat.engineUnsupported": "管家现在只能走 OpenAI 兼容端点，而你的主端点是命令行引擎。给管家单独选一个端点，就能聊了。"
-  ,"stewardShell.chat.useProvider": "改用『{{provider}}』"
-  ,"stewardShell.chat.providerSwitched": "已改用『{{provider}}』"
+  ,"stewardShell.chat.useProvider": "改用「{{provider}}」"
+  ,"stewardShell.chat.providerSwitched": "已改用「{{provider}}」"
   ,"stewardShell.chat.listSeparator": "、"
   ,"stewardShell.chat.openSettings": "去设置"
-  ,"stewardShell.compose.placeholder": "跟如意说点什么…"
-  ,"stewardShell.compose.placeholderChange": "告诉我怎么改…"
+  ,"stewardShell.compose.placeholder": "跟如意说点什么"
+  ,"stewardShell.compose.placeholderChange": "告诉我怎么改"
   ,"stewardShell.compose.targetLabel": "递给谁"
   ,"stewardShell.compose.targetSteward": "→ 如意"
   ,"stewardShell.compose.targetSteward.hint": "→ 如意 · 像是接着「{{title}}」"
@@ -2223,19 +2224,19 @@
   ,"stewardShell.compose.targetSchedule": "→ 如意 · 定时"
   ,"stewardShell.compose.targetUnsure": "→ 如意 · 会问你"
   ,"stewardShell.compose.targetNew": "→ 如意 · 另起一件"
-  ,"stewardShell.compose.pick": "挑一个会话"
+  ,"stewardShell.compose.pick": "挑一条线程"
   ,"stewardShell.compose.send": "发送"
   ,"stewardShell.compose.plus": "更多（附件与语音随后续切片到位）"
   ,"stewardShell.acts.change": "改一下"
   ,"stewardShell.acts.dismiss": "知道了"
   ,"stewardShell.acts.open": "打开"
   ,"stewardShell.chat.openInWorkbench": "在工作台打开"
-  ,"stewardShell.channels.label": "会话频道"
+  ,"stewardShell.channels.label": "线程频道"
   ,"stewardShell.channels.only": "只看"
   ,"stewardShell.channels.all": "全部"
   ,"stewardShell.channels.steward": "管家本人"
-  ,"stewardShell.channels.board": "全部会话"
-  ,"stewardShell.drawer.label": "会话抽屉"
+  ,"stewardShell.channels.board": "全部线程"
+  ,"stewardShell.drawer.label": "线程抽屉"
   ,"stewardShell.drawer.close": "关闭"
   ,"stewardShell.drawer.handBack": "交回管家"
   ,"stewardShell.drawer.missionSection": "任务"
@@ -2251,13 +2252,13 @@
   ,"stewardShell.drawer.maxParallelMissing": "并发上限在左栏栏头调"
   ,"stewardShell.drawer.actingCalls": "第 {{n}} 次调用"
   ,"stewardShell.drawer.actingSince": "{{n}} 秒前有输出"
-  ,"stewardShell.drawer.tabsLabel": "同任务的会话"
-  ,"stewardShell.drawer.newThread": "＋ 会话"
-  ,"stewardShell.drawer.newThreadHint": "在这个任务下再开一个会话"
-  ,"stewardShell.drawer.classicView": "2.0 视窗"
-  ,"stewardShell.drawer.headSection": "这个会话"
+  ,"stewardShell.drawer.tabsLabel": "同任务的线程"
+  ,"stewardShell.drawer.newThread": "＋ 线程"
+  ,"stewardShell.drawer.newThreadHint": "在这个任务下再开一条线程"
+  ,"stewardShell.drawer.classicView": "在工作台打开"
+  ,"stewardShell.drawer.headSection": "这条线程"
   ,"stewardShell.drawer.chipsSection": "快切"
-  ,"stewardShell.drawer.lastSay": "它刚说"
+  ,"stewardShell.drawer.lastSay": "它最后说"
   ,"stewardShell.drawer.liveSay": "它正在说"
   ,"stewardShell.drawer.lastSayInAsk": "就是上面那句问话。"
   ,"stewardShell.drawer.tool.read": "读文件"
@@ -2283,7 +2284,7 @@
   ,"stewardShell.drawer.askRevertible": "这一步可以撤回"
   ,"stewardShell.drawer.askIrreversible": "这一步无法自动撤销"
   ,"stewardShell.drawer.askAnswerLabel": "你的回答"
-  ,"stewardShell.drawer.askPlaceholder": "直接把答案写在这里…"
+  ,"stewardShell.drawer.askPlaceholder": "直接把答案写在这里"
   ,"stewardShell.drawer.askSend": "回答"
   ,"stewardShell.drawer.more": "更多"
   ,"stewardShell.drawer.relay": "接力关系"
@@ -2298,19 +2299,19 @@
   ,"stewardShell.drawer.scene": "现场"
   ,"stewardShell.drawer.viewChanges": "看改动"
   ,"stewardShell.drawer.footSection": "直接对它说"
-  ,"stewardShell.drawer.composerLabel": "直接对这个会话说"
+  ,"stewardShell.drawer.composerLabel": "直接对这条线程说"
   ,"stewardShell.drawer.composerLabelLive": "递给它一句"
   ,"stewardShell.drawer.composerLabelDone": "接着说"
-  ,"stewardShell.drawer.composerPlaceholder": "这句话直接发给它，不经如意…"
+  ,"stewardShell.drawer.composerPlaceholder": "这句话直接发给它，不经如意"
   ,"stewardShell.drawer.send": "发给它"
   ,"stewardShell.drawer.pause": "暂停"
   ,"stewardShell.drawer.resume": "继续"
   ,"stewardShell.drawer.stop": "停止"
   ,"stewardShell.drawer.rewindAll": "整单回退"
-  ,"stewardShell.drawer.rewindConfirm": "整单回退会把这个会话退回到第一句话之前，并撤销这期间改过的文件。要退吗？"
+  ,"stewardShell.drawer.rewindConfirm": "整单回退会把这条线程退回到第一句话之前，并撤销这期间改过的文件。要退吗？"
   ,"stewardShell.drawer.rewindDone": "已整单回退。"
-  ,"stewardShell.drawer.rewindNoTarget": "这个会话还没有可回退的回合。"
-  ,"stewardShell.drawer.noPausableRun": "这个会话没有可暂停的编排运行。"
+  ,"stewardShell.drawer.rewindNoTarget": "这条线程还没有可回退的回合。"
+  ,"stewardShell.drawer.noPausableRun": "这条线程没有可暂停的编排运行。"
   ,"stewardShell.drawer.sent": "已发给它。"
   ,"stewardShell.drawer.steered": "已插话给它。"
   ,"stewardShell.drawer.answered": "已替你回复。"
@@ -2362,37 +2363,37 @@
   ,"stewardShell.compose.targetMissionNew": "→ 如意 · 在任务下新开"
   ,"settings.steward.tab": "管家"
   ,"settings.steward.group.power": "管家总开关"
-  ,"settings.steward.group.powerHint": "打开之后，管家会在后台盯着你的会话；关掉即刻停下，不留任何后台活动。"
+  ,"settings.steward.group.powerHint": "打开之后，管家会在后台盯着你的线程；关掉即刻停下，不留任何后台活动。"
   ,"settings.steward.enabled": "打开管家"
   ,"settings.steward.openShell": "切到管家界面"
   ,"settings.steward.stop": "一键停机"
   ,"settings.steward.wake": "唤醒管家"
-  ,"settings.steward.stopHint": "停机只停管家自己的轮询与在途回合；已经在跑的会话照旧，由它们自己的权限管。"
+  ,"settings.steward.stopHint": "停机只停管家自己的轮询与在途回合；已经在跑的线程照旧，由它们自己的权限管。"
   ,"settings.steward.stateOff": "管家没打开。"
   ,"settings.steward.stateRunning": "管家在盯着。"
   ,"settings.steward.stateStopped": "管家已停机。"
   ,"settings.steward.saved": "已保存。"
   ,"settings.steward.saveFailed": "没存成，已还原成盘上的值。"
   ,"settings.steward.failed": "没做成：{{error}}"
-  ,"settings.steward.shieldTitle": "新会话默认权限：{{mode}}"
-  ,"settings.steward.group.permission": "新会话默认权限"
-  ,"settings.steward.group.permissionHint": "新开的会话用这一档；每个会话随时可以单独改。管家替你答复的范围也由这一档决定。"
+  ,"settings.steward.shieldTitle": "新线程默认权限：{{mode}}"
+  ,"settings.steward.group.permission": "新线程默认权限"
+  ,"settings.steward.group.permissionHint": "新开的线程用这一档；每条线程随时可以单独改。管家替你答复的范围也由这一档决定。"
   ,"settings.steward.defaultPermission": "默认权限"
   ,"settings.steward.permissionSaved": "保存的值：{{value}}"
   ,"settings.steward.permissionUnknown": "这一档不在四档里，只作显示，不影响已保存的值。"
   ,"settings.steward.group.auto": "管家可以自己做的事"
-  ,"settings.steward.group.autoHint": "这份清单只对「改文件不问」以上的会话生效；「每步都问」的会话一律只提议。"
+  ,"settings.steward.group.autoHint": "这份清单只对「改文件不问」以上的线程生效；「每步都问」的线程一律只提议。"
   ,"settings.steward.auto.retry": "失败自动重试一次"
-  ,"settings.steward.auto.retryHint": "会话因为临时故障停了，管家替你重试一次；再失败就来问你。"
+  ,"settings.steward.auto.retryHint": "线程因为临时故障停了，管家替你重试一次；再失败就来问你。"
   ,"settings.steward.auto.resume": "重启后自动续跑"
-  ,"settings.steward.auto.resumeFollow": "跟随会话的自动续跑设置"
+  ,"settings.steward.auto.resumeFollow": "跟随线程的自动续跑设置"
   ,"settings.steward.auto.resumeOn": "开：重启后能续的都续上"
   ,"settings.steward.auto.resumeOff": "关：重启后都等你按"
-  ,"settings.steward.auto.resumeHint": "如意被关掉又打开时，管家要不要把中断的会话接着跑下去。"
+  ,"settings.steward.auto.resumeHint": "如意被关掉又打开时，管家要不要把中断的线程接着跑下去。"
   ,"settings.steward.auto.relay": "任务内自动交接"
-  ,"settings.steward.auto.relayHint": "同一个任务里，上一个会话的结论自动交给下一个；关掉就只提议。"
-  ,"settings.steward.auto.newThread": "需要时自己新开会话"
-  ,"settings.steward.auto.newThreadHint": "定时任务到点、或接力需要一个新会话时，管家自己开一个，不再等你按。"
+  ,"settings.steward.auto.relayHint": "同一个任务里，上一条线程的结论自动交给下一条；关掉就只提议。"
+  ,"settings.steward.auto.newThread": "需要时自己新开线程"
+  ,"settings.steward.auto.newThreadHint": "定时任务到点、或接力需要一条新线程时，管家自己开一条，不再等你按。"
   ,"settings.steward.group.budget": "模型与预算"
   ,"settings.steward.group.budgetHint": "管家自己跑回合也花钱。默认跟随主端点，也可以给它换一个便宜模型。"
   ,"settings.steward.providerId": "管家用的服务商"
@@ -2404,23 +2405,23 @@
   ,"settings.steward.visitIdle": "多久没动算一次新到访（分钟）"
   ,"settings.steward.maxTurnsPerHour": "管家每小时最多跑几个回合"
   ,"settings.steward.maxCostPerDay": "管家每天最多花（USD）"
-  ,"settings.steward.maxParallelThreads": "同时最多跑几个会话"
-  ,"settings.steward.globalMaxTurnsPerHour": "全部会话每小时最多几个回合"
-  ,"settings.steward.globalMaxCostPerDay": "全部会话每天最多花（USD）"
-  ,"settings.steward.threadBrief": "自动给每个会话起名字"
-  ,"settings.steward.threadBriefHint": "每开一个新会话，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的会话列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。"
+  ,"settings.steward.maxParallelThreads": "同时最多跑几条线程"
+  ,"settings.steward.globalMaxTurnsPerHour": "全部线程每小时最多几个回合"
+  ,"settings.steward.globalMaxCostPerDay": "全部线程每天最多花（USD）"
+  ,"settings.steward.threadBrief": "自动给每条线程起名字"
+  ,"settings.steward.threadBriefHint": "每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。工作台视角的线程列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。"
   ,"settings.steward.retention": "和管家的对话保留多久"
   ,"settings.steward.retention.visit": "只保留本次打开期间（默认）"
   ,"settings.steward.retention.24h": "24 小时"
   ,"settings.steward.retention.forever": "一直保留"
-  ,"settings.steward.group.threadModels": "新开会话用什么模型"
+  ,"settings.steward.group.threadModels": "新开线程用什么模型"
   ,"settings.steward.threadModels.strongProvider": "复杂任务 · 强模型服务商"
   ,"settings.steward.threadModels.strongModel": "复杂任务 · 强模型"
   ,"settings.steward.threadModels.fastProvider": "简单任务 · 快速模型服务商"
   ,"settings.steward.threadModels.fastModel": "简单任务 · 快速模型"
-  ,"settings.steward.threadModels.hint": "管家新开会话时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查会话一律走快速模型。留空 = 跟随主端点。"
+  ,"settings.steward.threadModels.hint": "管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。"
   ,"settings.steward.group.memory": "管家记得的关于你"
-  ,"settings.steward.group.memoryHint": "这些只进管家自己的提示词，不会进普通会话。每条都能改、能否决、能恢复。"
+  ,"settings.steward.group.memoryHint": "这些只进管家自己的提示词，不会进普通线程。每条都能改、能否决、能恢复。"
   ,"settings.steward.memory.refresh": "刷新"
   ,"settings.steward.memory.export": "导出 JSON"
   ,"settings.steward.memory.clear": "清空全部"
@@ -2436,7 +2437,7 @@
   ,"settings.steward.memory.confidence": "把握 {{value}}"
   ,"settings.steward.memory.used": "用过 {{count}} 次"
   ,"settings.steward.memory.source": "来源"
-  ,"settings.steward.memory.sourceDetail": "来自会话 {{sessionId}} 的第 {{seq}} 回合"
+  ,"settings.steward.memory.sourceDetail": "来自线程 {{sessionId}} 的第 {{seq}} 回合"
   ,"settings.steward.memory.editLabel": "改这一条"
   ,"settings.steward.memory.editDone": "改好了。"
   ,"settings.steward.memory.veto": "否决"
@@ -2450,37 +2451,37 @@
   ,"settings.steward.memory.kind.focus": "当前关注"
   ,"settings.steward.memory.kind.policy": "决策倾向"
   ,"settings.steward.group.decisions": "行动流水"
-  ,"settings.steward.group.decisionsHint": "管家替你做过的每一件事：依据、目标会话、当时的会话权限、花了多少、能不能撤销。"
+  ,"settings.steward.group.decisionsHint": "管家替你做过的每一件事：依据、目标线程、当时的线程权限、花了多少、能不能撤销。"
   ,"settings.steward.decisions.refresh": "刷新"
   ,"settings.steward.decisions.more": "加载更多"
-  ,"settings.steward.decisions.filterThread": "按会话"
+  ,"settings.steward.decisions.filterThread": "按线程"
   ,"settings.steward.decisions.filterDate": "按日期"
-  ,"settings.steward.decisions.allThreads": "全部会话"
+  ,"settings.steward.decisions.allThreads": "全部线程"
   ,"settings.steward.decisions.empty": "管家还没替你做过什么。"
   ,"settings.steward.decisions.disabled": "先打开管家，才有这一份流水。"
   ,"settings.steward.decisions.col.at": "时间"
   ,"settings.steward.decisions.col.what": "做了什么"
-  ,"settings.steward.decisions.col.thread": "目标会话"
-  ,"settings.steward.decisions.col.permission": "会话权限"
+  ,"settings.steward.decisions.col.thread": "目标线程"
+  ,"settings.steward.decisions.col.permission": "线程权限"
   ,"settings.steward.decisions.col.basis": "依据"
   ,"settings.steward.decisions.col.cost": "费用"
   ,"settings.steward.decisions.col.undo": "撤销"
   ,"settings.steward.decisions.undo": "撤销"
   ,"settings.steward.decisions.details": "详情"
   ,"settings.steward.decisions.undone": "已撤销。"
-  ,"settings.steward.decisions.undoFailed": "没撤回来，改动请到经典视窗里看。"
+  ,"settings.steward.decisions.undoFailed": "没撤回来；改动还在，在工作台看得到。"
   ,"settings.steward.decisions.noUndo": "不可撤销"
   ,"settings.steward.decisions.noPermission": "跟随全局"
   ,"settings.steward.decisions.detail": "{{tool}} · 撤销锚点 {{kind}} · 入参 {{args}}"
   ,"settings.steward.decisions.basisInbox": "第 {{seq}} 条收件箱事件"
   ,"settings.steward.decisions.basisAuto": "自理动作"
   ,"settings.steward.decisions.basisMemory": "用到 {{count}} 条记忆"
-  ,"settings.steward.tool.threadNew": "新开会话"
+  ,"settings.steward.tool.threadNew": "新开线程"
   ,"settings.steward.tool.threadContinue": "接着办"
   ,"settings.steward.tool.threadRename": "改标题"
   ,"settings.steward.tool.threadPrioritize": "插到最前"
   ,"settings.steward.tool.threadNote": "插了一句话"
-  ,"settings.steward.tool.threadPermission": "改了会话权限"
+  ,"settings.steward.tool.threadPermission": "改了线程权限"
   ,"settings.steward.tool.memoryWrite": "记下"
   ,"settings.steward.tool.memoryVeto": "别记"
   ,"settings.steward.tool.memoryEdit": "改了记的内容"
@@ -2490,7 +2491,7 @@
   ,"settings.steward.tool.skillToggle": "改技能"
   ,"settings.steward.tool.decide": "替你答了待决"
   ,"settings.steward.tool.runAction": "动了班组"
-  ,"settings.steward.tool.quickAsk": "开了一个会话去查"
+  ,"settings.steward.tool.quickAsk": "开了一条线程去查"
   ,"settings.steward.tool.playbookDraft": "起草了 playbook"
   ,"stewardShell.menu.settings": "设置"
   ,"stewardShell.menu.memory": "记得的关于你"
@@ -2502,15 +2503,15 @@
   ,"stewardShell.board.needsYouGoHint": "{{n}} 条等着你，点这里直接过去"
   ,"stewardShell.board.statusEmpty": "还没有任务，直接说你想做什么"
   ,"stewardShell.board.maxParallelLabel": "同时最多"
-  ,"stewardShell.board.maxParallelHint": "同时最多几个会话在跑（1–32），改完立即生效"
+  ,"stewardShell.board.maxParallelHint": "同时最多几条线程在跑（1–32），改完立即生效"
   ,"stewardShell.board.maxParallelSaved": "同时最多 {{n}} 条，已经生效。"
   ,"stewardShell.board.maxParallelFailed": "这个数没存上，界面已经退回上一次生效的值。"
   ,"stewardShell.board.running": "在跑 {{n}}"
   ,"stewardShell.board.queued": "排队 {{n}}"
   ,"stewardShell.board.pauseAll": "全部暂停"
   ,"stewardShell.board.pauseAllDone": "暂停了 {{done}} 条；另有 {{turns}} 条只在跑对话回合，暂停不了，只能停止。"
-  ,"stewardShell.board.newThread": "＋ 会话"
-  ,"stewardShell.board.threadCount": "{{n}} 个会话"
+  ,"stewardShell.board.newThread": "＋ 线程"
+  ,"stewardShell.board.threadCount": "{{n}} 条线程"
   ,"stewardShell.board.acceptance": "验收 {{done}}/{{total}}"
   ,"stewardShell.board.acceptanceNone": "没有验收项"
   ,"stewardShell.board.cost": "已花 {{cost}}"
@@ -2527,7 +2528,7 @@
   ,"stewardShell.board.asksYou.permission": "它等你放行"
   ,"stewardShell.board.asksYou.plan": "等你批计划"
   ,"stewardShell.board.asksYou.pool": "等你批任务"
-  ,"stewardShell.board.classicView": "2.0"
+  ,"stewardShell.board.classicView": "在工作台打开"
   ,"stewardShell.board.stopBlocker": "停掉占用者"
   ,"stewardShell.board.stopBlockerConfirm": "「{{title}}」正占着这个工作文件夹。停掉它这一回合？"
   ,"stewardShell.board.stopBlockerDone": "已经停了「{{title}}」这一回合。"
@@ -2546,20 +2547,20 @@
   ,"chat.liveTurn.iter": "· 第 {{n}} 轮工具"
   ,"chat.liveTurn.truncated": "更早的内容已省略，只显示它最近说的这一段。"
   ,"chat.liveTurn.resultOffEnvelope": "（工具结果不随在途信封下发；回合结束后这里会有完整结果）"
-  ,"settings.steward.tool.threadStop": "暂停这个会话"
+  ,"settings.steward.tool.threadStop": "暂停这条线程"
   ,"chat.relayQueued": "它还在排队等着开跑，这句先没发出去；等它开跑后再说一次。"
   ,"chat.relayPermission": "它在等你批准一个动作，先去批了再跟它说话。"
   ,"shell.settingLabel": "启动默认视角"
   ,"shell.settingSteward": "管家（默认）"
-  ,"shell.settingClassic": "经典"
-  ,"shell.settingHint": "切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。"
+  ,"shell.settingClassic": "工作台"
+  ,"shell.settingHint": "切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。"
   ,"notify.settingTitle": "需要你时提醒我"
-  ,"notify.settingHint": "使用浏览器接入的本机系统通知；默认关闭，只提醒启用后新出现的待决事项。"
+  ,"notify.settingHint": "使用浏览器接入的本机系统通知；默认关闭，只提醒启用后新出现的待决。"
   ,"notify.settingToggle": "开启本机通知"
   ,"notify.quietStart": "免打扰开始"
   ,"notify.quietEnd": "免打扰结束"
-  ,"notify.off": "通知已关闭。当前待决事项不会在以后补发。"
-  ,"notify.on": "通知已开启；{{p1}}–{{p2}} 为免打扰时段，静默事项不会延迟补发。"
+  ,"notify.off": "通知已关闭。当前的待决不会在以后补发。"
+  ,"notify.on": "通知已开启；{{p1}}–{{p2}} 为免打扰时段，静默的那几条不会延迟补发。"
   ,"notify.denied": "浏览器已拒绝通知权限；可在站点权限中重新允许。"
   ,"notify.unsupported": "当前浏览器不支持本机通知。"
   ,"shell.brand": "如意"

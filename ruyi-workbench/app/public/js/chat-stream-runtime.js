@@ -679,7 +679,7 @@ export function createChatStreamRuntime(deps = {}) {
         rebindOptimisticUserRow(r.session); // 第69波:乐观行的「回溯到此处」重绑到持久化真身
         // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
         // answer a second time and causes the characteristic end-of-stream stall.
-        $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('navigation.workbench') : r.session.title.trim();
+        $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('session.untitled') : r.session.title.trim();
         $('sessionMeta').textContent = r.session?.cwd || '';
         renderStepBar(r.session && r.session.todos);
         renderMissionBar(r.session && r.session.mission);

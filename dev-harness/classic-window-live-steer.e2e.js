@@ -2,7 +2,7 @@
 'use strict';
 
 // 真实浏览器 E2E(第 117 波 117s-G · 27 号文 §11.13.1 ②):
-// **管家开的线程正在跑的时候,在「2.0 视窗」里说话不许把那个回合杀掉。**
+// **管家开的线程正在跑的时候,在【工作台视角】里说话不许把那个回合杀掉。**
 //
 // 修前(HEAD 97d072c 两次复现、字节相同):经典壳的发送门只认 `activeTurns`(本页自己起的那条流),
 // 管家经 stewardLaunchTurn 在服务端起的回合不在里面 —— 于是按发送走的是「新回合」那条路,
@@ -12,7 +12,7 @@
 //
 // 覆盖(H 段;服务端那一半在 foreign-turn-busy-guard.e2e.js):
 //   H1  管家 steward_thread_new 开一条线程,回合在服务端跑起来(fake provider 挂住 ~25s)。
-//   H2  抽屉「2.0 视窗」把经典壳按这条会话打开,「它正在跑(这一回合是在别处起的)」那张卡在屏上。
+//   H2  焦点栏「在工作台打开」把工作台视角按这条线程打开,「它正在跑(这一回合是在别处起的)」那张卡在屏上。
 //   H3  打一句话之后,发送键写的是【插话】而不是【发送】(updateSendBtn 读服务端下发的 relay)。
 //   H4  点下去走的是插话那条路:审计里有 intervention/steer;**零 turn_kill**;
 //       上游 provider 的那一发请求**没有被中止**(fake provider 自己记着 aborted 次数)。
@@ -21,8 +21,10 @@
 //   H7  回合结束之后再打一句:relay 键没了 → 按钮回到【发送】→ 点下去正常起一个【新】回合。
 //
 // 夹具与 workbench-thread-head.browser.e2e.js 同一套 CDP 无头驱动;temp HOME、fake provider、
-// fake 管家动作面。(121-K5:原来那句写的是 steward-classic-window.e2e.js —— 「2.0 视窗」与它的
-// 返回带已整段退役,那一件随之退役,本件的文件名与注释里的「2.0 视窗」是待还的措辞债,登记给 K8。)
+// fake 管家动作面。(121-K5:原来那句写的是 steward-classic-window.e2e.js —— 那枚按钮与它的返回带
+// 已整段退役,那一件随之退役。121-K8:注释与断言里的「2.0 视窗」措辞已改成「工作台视角」/
+// 「在工作台打开」;**文件名不动** —— 改名会牵连 run-all 的超时表与 route-inventory 产物,
+// 那是另一刀的账,不该混在一次措辞清理里。)
 // 判定行:`CLASSIC WINDOW LIVE STEER E2E: ALL PASS`。
 (async () => {
 const cp = require('child_process');
@@ -92,7 +94,7 @@ function killTree(child) {
 }
 
 // ── fake provider ────────────────────────────────────────────────────────────────────────────
-// 管家会话:结构化契约 JSON。线程回合:
+// 管家线程:结构化契约 JSON。线程回合:
 //   第一发(还没有 tool 消息、正文里带 SLOW)→ 先流一段,挂住 SLOW_MS,再要一次 file_read
 //     —— 要一次工具是为了让回合有【第二次模型调用】:provider 引擎的插话就是在迭代边界 drain 的,
 //        单次调用的回合里插话永远进不去,那测的就不是这条路。
@@ -311,7 +313,7 @@ try {
     if (!token) await sleep(100);
   }
   ok(Boolean(token), 'A2 runtime token 可读');
-  // 管家会话(建它的唯一合法方式)。
+  // 管家线程(建它的唯一合法方式)。
   await request(appPort, 'POST', '/api/steward/message', { message: '现在什么情况' }, token);
 
   const executable = findBrowserExecutable();
@@ -355,7 +357,7 @@ try {
   ok(Boolean(liveEnv && liveEnv.json && liveEnv.json.relay && liveEnv.json.relay.channel === 'steer'),
     `H1c 信封带出 relay.channel === 'steer'(13h 那条递话阶梯的原判;实测 ${JSON.stringify(liveEnv && liveEnv.json && liveEnv.json.relay)})`);
 
-  /* ═════════ H2 抽屉 →「2.0 视窗」═════════ */
+  /* ═════════ H2 焦点栏 →「在工作台打开」═════════ */
   await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread', { detail: { sessionId: '${sessionId}' } })), true`);
   ok(Boolean(await waitForEval(cdp, `document.getElementById('stewardDrawer') && document.getElementById('stewardDrawer').hidden === false`)),
     'H2a 抽屉按这条线程打开');
@@ -364,7 +366,7 @@ try {
     const view = ${VIEW};
     return view.mode === 'classic' && view.sessionId === ${JSON.stringify(sessionId)} && view.liveCard ? view : null;
   })()`);
-  ok(Boolean(inClassic), 'H2b 经典壳按这条会话打开,「它正在跑(这一回合是在别处起的)」那张卡在屏上');
+  ok(Boolean(inClassic), 'H2b 工作台视角按这条线程打开,「它正在跑(这一回合是在别处起的)」那张卡在屏上');
   ok(Boolean(inClassic && inClassic.relayChannel === 'steer' && inClassic.relaySession === sessionId),
     `H2c 前端把服务端那条判定收下了(实测 ${inClassic && inClassic.relayChannel}/${inClassic && inClassic.relaySession})`);
 
@@ -437,7 +439,7 @@ try {
   })()`);
   const idleTyped = await cdp.evaluate(VIEW);
   ok(Boolean(idleTyped && idleTyped.sendLabel.includes(zh['chat.send'])),
-    `H7b 空闲会话上按钮回到「${zh['chat.send']}」(实测「${idleTyped && idleTyped.sendLabel}」)`);
+    `H7b 空闲线程上按钮回到「${zh['chat.send']}」(实测「${idleTyped && idleTyped.sendLabel}」)`);
   const seqBefore = msgs.filter(m => m && m.role === 'user' && m.steered !== true).length;
   await cdp.evaluate(`document.getElementById('sendBtn').click(), true`);
   let after = [];

@@ -671,7 +671,10 @@ ok(/openClassicWindow = null,/.test(conversation)
 // 117v-V1 ⑨ 重钉（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程」）：
 // 原判据钉的是「共用抽屉那一个键」。同一屏上还有第二枚「看…全文」（管家写的 open_thread act，
 // 点下去打开线程），两个去处共用一个泛泛的词，用户只能靠猜 —— 所以交付卡这一枚改用自己的键，
-// 词里必须写清去处（中英都得出现「2.0」），且必须与抽屉那一枚的词【不同】。
+// 词里必须写清去处，且必须与抽屉那一枚的词【不同】。
+// 121-K8（§2.10.4）：去处的说法从「2.0」改成【视角名】——「2.0 视窗」是禁用词（那是壳的版本号，
+// 不是用户看得懂的地名），一台两视之后那个去处就叫「工作台」。判据本身没变：仍然是
+// 「这一枚有自己的键 ＋ 词里点名去处 ＋ 与抽屉那一枚不同 ＋ 兜底句引的是它现在的词」。
 // 锚在 deliverableActs 的函数体里：整文件匹配的话，把这一处按钮整个删掉也照样绿。
 const deliverableActsRule = conversationCode.slice(conversationCode.indexOf('function deliverableActs'),
   conversationCode.indexOf('function attachDeliverable'));
@@ -681,7 +684,7 @@ ok(deliverableActsRule.length > 0
   && !/stewardShell\.drawer\.fullText/.test(conversationCode)
   && typeof zh[FULL_KEY] === 'string' && typeof en[FULL_KEY] === 'string'
   && zh[FULL_KEY] !== zh['stewardShell.drawer.fullText'] && en[FULL_KEY] !== en['stewardShell.drawer.fullText']
-  && zh[FULL_KEY].includes('2.0') && en[FULL_KEY].includes('2.0'),
+  && zh[FULL_KEY].includes('工作台') && en[FULL_KEY].includes('Workbench'),
   `P11b 交付卡那枚「看全文」有【自己】的键且词里写明去处（zh「${zh[FULL_KEY]}」／en「${en[FULL_KEY]}」），`
   + '与抽屉那枚（打开线程的琥珀色 act 旁边那个泛泛的词）区分得开；本模块不再引 stewardShell.drawer.fullText');
 ok(zh['stewardShell.chat.deliverableMissing'].includes(zh[FULL_KEY])

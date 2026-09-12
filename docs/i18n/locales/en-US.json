@@ -11,13 +11,13 @@
   "ask.introTitle": "Your input is needed",
   "ask.other": "Other — write my own answer",
   "ask.otherDescription": "Choose this to enter an answer that is not listed",
-  "ask.otherPlaceholder": "Type another answer…",
+  "ask.otherPlaceholder": "Type another answer",
   "ask.placeholder": "Enter answer",
   "ask.questionLabel": "Question {{number}}",
   "ask.ready": "All answers are ready",
   "ask.sending": "Sending…",
   "ask.submit": "Submit answers",
-  "ask.textPlaceholder": "Type your answer…",
+  "ask.textPlaceholder": "Type your answer",
   "ask.title": "Question from the model",
   "ask.writeAnswer": "Free response",
   "audit.desktopUnavailable": "Desktop-operation audit requires the ai-computer-control bridge",
@@ -135,7 +135,7 @@
   "chat.editResend": "Edit & resend",
   "chat.expandAll": "Expand all",
   "chat.loadEarlier": "Load {{count}} earlier messages ({{remaining}} remaining)",
-  "chat.placeholder": "Type a message or describe what you want to accomplish…",
+  "chat.placeholder": "Say what you want done",
   "chat.resume.action": "Continue",
   "chat.resume.dismiss": "Dismiss",
   "chat.resume.prompt": "Please continue the previous unfinished task.",
@@ -509,7 +509,7 @@
   "modelMenu.deleteFailed": "Could not remove model: {{error}}",
   "modelMenu.effortChanged": "Thinking effort: {{effort}}",
   "modelMenu.effortChangedNextTurn": "Thinking effort: {{effort}} (takes effect next turn)",
-  "modelMenu.manageProviders": "Manage Providers…",
+  "modelMenu.manageProviders": "Manage providers",
   "modelMenu.modelWithEffort": "{{model}} · thinking {{effort}}",
   "modelMenu.modelCount.one": "{{count}} model",
   "modelMenu.modelCount.other": "{{count}} models",
@@ -671,7 +671,7 @@
   "palette.openDataDirectory": "Open data directory",
   "palette.openProviders": "Open Provider settings",
   "palette.openSettings": "Open Settings",
-  "palette.placeholder": "Search commands…",
+  "palette.placeholder": "Search commands",
   "palette.refreshDiagnostics": "Refresh diagnostics",
   "palette.saveInputAsTemplate": "Save current input as template",
   "palette.session": "Chat → {{title}}",
@@ -751,7 +751,7 @@
   "plan.card.approve": "Approve execution",
   "plan.card.approveWithNote": "Approve with feedback",
   "plan.card.heading": "{{engine}} proposed an execution plan for your approval",
-  "plan.card.notePlaceholder": "Add feedback, then approve execution…",
+  "plan.card.notePlaceholder": "Add feedback, then approve execution",
   "plan.card.reject": "Decline",
   "plan.decision.failed": "Could not submit plan decision: {{reason}}",
   "plan.expired": "This plan is no longer available",
@@ -850,13 +850,14 @@
   "session.messageCount.one": "{{count}} message",
   "session.messageCount.other": "{{count}} messages",
   "session.new": "New chat",
+  "session.untitled": "Untitled thread",
   "session.noMatch": "No matching chats",
   "session.pin": "Pin",
   "session.pinned": "Pinned",
   "session.rename": "Rename",
-  "session.rename.placeholder": "Session name",
+  "session.rename.placeholder": "Thread name",
   "session.running": "Running",
-  "session.search": "Search chats…",
+  "session.search": "Search threads",
   "session.thisWeek": "This week",
   "session.today": "Today",
   "session.unpin": "Unpin",
@@ -980,7 +981,7 @@
   "settings.engineMode.legacy": "legacy (stable, one-way)",
   "settings.externalMcpServer": "External MCP server",
   "settings.externalMcpServer.hint": "Import an external MCP server from a folder that contains a ruyi-mcp.json manifest.",
-  "settings.externalMcpServer.import": "📁 Add MCP from folder…",
+  "settings.externalMcpServer.import": "📁 Add MCP from folder",
   "settings.extraArgs": "Additional CLI arguments (one per line)",
   "settings.extraModels": "Custom models (one per line; use id or id|display name)",
   "settings.extraModelsPlaceholder": "model-id|Display name\nmy-internal-model",
@@ -1200,7 +1201,7 @@
   "skills.requirements.networkOffline": "Requires network access (currently offline)",
   "skills.requirements.vision": "Requires a vision model (vision is not enabled for the current engine)",
   "skills.resident": "Resident",
-  "skills.searchPlaceholder": "Search skills, commands, and playbooks…",
+  "skills.searchPlaceholder": "Search skills, commands, and playbooks",
   "skills.source.builtin": "Built-in",
   "skills.source.project": "Project",
   "skills.source.user": "User",
@@ -1442,7 +1443,7 @@
   "usage.planIncluded": "Subscription-billed",
   "usage.planIncluded.title": "Subscription plan: billed monthly; tokens do not incur separate charges.",
   "usage.provider.unknown": "Unknown provider",
-  "usage.session.unnamed": "Untitled chat",
+  "usage.session.unnamed": "Untitled thread",
   "usage.title": "Usage and cost",
   "usage.tokenCount": "{{count}} tokens",
   "usage.turns": "Chat turns",
@@ -1497,7 +1498,7 @@
   "workflow.editor.title": "Workflow graph editor",
   "workflow.elapsed": "Running for {{duration}}",
   "workflow.empty": "This chat has no Agent workflows yet.",
-  "workflow.empty.goChat": "Go to chat to assign a task",
+  "workflow.empty.goChat": "Back to chat",
   "workflow.empty.runTemplate": "Run from template",
   "workflow.empty.subtitle": "Assign a multi-agent task and their collaboration graph will be drawn here in real time — who's running, how far, and where they're stuck.",
   "workflow.empty.title": "No Agent workflows in this session",
@@ -1617,7 +1618,7 @@
   "workflow.steerBox.liveLabel": "Steer (applied before the next call)",
   "workflow.steerBox.noDeterministic": "Deterministic gate nodes don't call the model; cannot steer",
   "workflow.steerBox.noTerminal": "Node has finished; cannot steer",
-  "workflow.steerBox.placeholder": "Add an instruction for {{node}}…",
+  "workflow.steerBox.placeholder": "Add an instruction for {{node}}",
   "workflow.steerBox.unsent": "Steer text not sent: {{text}}",
   "workflow.stop": "Stop",
   "workflow.templateSelector": "Workflow template",
@@ -1634,7 +1635,7 @@
   "workflow.viewError": "View error",
   "workflow.viewErrorAria": "View the error for node {{nodeId}}",
   "workflow.viewStalled": "Focus the stalled node",
-  "workspace.browse": "Browse folders…",
+  "workspace.browse": "Browse folders",
   "workspace.chooseTitle": "Choose workspace",
   "workspace.confirmDefault": " Also set as default workspace",
   "workspace.favorites": "Favorite workspaces",
@@ -1758,7 +1759,7 @@
   "common.drafting": "Drafting…",
   "common.noChange": "(No changes)",
   "common.none": "(None)",
-  "common.custom": "Custom…",
+  "common.custom": "Custom",
   "workflow.deleteConfirm": "Delete this agent workflow record?",
   "workflow.canvas.quickSelect": "Quick Select Node",
   "workflow.canvas.arrowStartAdjusted": "Arrow start adjusted",
@@ -2002,7 +2003,7 @@
   "settings.mcp.title": "MCP connector operations",
   "settings.mcp.hint": "See every connector (built-in desktop / user-imported / drop-in folder) with its status and failure reasons; retest, enable/disable or remove without editing JSON config.",
   "settings.mcp.refreshAll": "🔄 Retest all",
-  "settings.mcp.import": "📁 Import MCP from folder…",
+  "settings.mcp.import": "📁 Import MCP from folder",
   "settings.mcp.loading": "Loading connectors…",
   "settings.mcp.probing": "Retesting all connectors (may take a few seconds)…",
   "settings.mcp.count": "{{p1}} connector(s)",
@@ -2046,7 +2047,7 @@
   "settings.update.noBackups": "No backups",
   "settings.update.backupsCount": "{{p1}} backup(s)",
   "settings.update.selectZip": "Select overlay update package (zip)",
-  "settings.update.browse": "Browse zip…",
+  "settings.update.browse": "Browse zip",
   "settings.update.selectZip.hint": "Precheck (path/integrity/version/idempotency) before applying. CLI rescue: Manage-Overlay.cmd apply.",
   "settings.update.precheck": "Precheck",
   "settings.update.prechecking": "Prechecking…",
@@ -2144,11 +2145,11 @@
   ,"stewardShell.name": "Ruyi"
   ,"stewardShell.feedLabel": "Steward conversation"
   ,"stewardShell.composerLabel": "Say something to the steward"
-  ,"stewardShell.openClassic": "Classic mode"
-  ,"stewardShell.settingDisabledHint": "Turn the steward on in settings before choosing the steward shell."
-  ,"stewardShell.recovery.disabled": "The steward is off, so the classic layout is back. Turn the steward on in settings to pick it again."
-  ,"stewardShell.recovery.missingShell": "The steward interface skeleton is incomplete, so the classic layout is back."
-  ,"stewardShell.recovery.dependency": "The steward shell module did not load, so the classic layout is back."
+  ,"stewardShell.openClassic": "Open in Workbench"
+  ,"stewardShell.settingDisabledHint": "Turn the Steward on in settings before choosing the Steward view."
+  ,"stewardShell.recovery.disabled": "Steward is off, so you are in the Workbench view; turn Steward on in Settings to pick it again."
+  ,"stewardShell.recovery.missingShell": "The Steward layout is incomplete; back to the Workbench view."
+  ,"stewardShell.recovery.dependency": "The Steward view failed to load; back to the Workbench view."
   ,"stewardShell.avatarLabel": "Ruyi's avatar"
   ,"stewardShell.presence.idle": "Idle"
   ,"stewardShell.presence.listening": "Listening"
@@ -2162,7 +2163,7 @@
   ,"stewardShell.chat.digest": "{{count}} things happened while you were away:"
   ,"stewardShell.chat.digestNone": "Nothing new while you were away."
   ,"stewardShell.chat.openFocus": "Open “{{title}}”"
-  ,"stewardShell.chat.openThread": "Open this chat"
+  ,"stewardShell.chat.openThread": "Open this thread"
   ,"stewardShell.chat.gotIt": "Got it"
   ,"stewardShell.chat.intro": "I'm Ruyi. Tell me what you want done and I'll work out which chat should pick it up, or start a new one."
   ,"stewardShell.chat.example1": "Show me the chats I have"
@@ -2188,15 +2189,15 @@
   ,"stewardShell.chat.undoCountdown": "Undo {{seconds}}"
   ,"stewardShell.chat.switchTarget": "Hand to another"
   ,"stewardShell.chat.undone": "Undone"
-  ,"stewardShell.chat.undoneFilesKept": "Undone; check the 2.0 window for file changes."
+  ,"stewardShell.chat.undoneFilesKept": "Undone; the file changes are kept and visible in the Workbench."
   ,"stewardShell.chat.whoInstead": "Who should get it instead?"
   ,"stewardShell.chat.opened": "Opened “{{title}}”"
   ,"stewardShell.chat.fromThread": "From chat “{{title}}”"
   ,"stewardShell.chat.deliverableHead": "What it delivered · turn {{seq}}"
   ,"stewardShell.chat.deliverableHeadPlain": "What it delivered"
   ,"stewardShell.chat.deliverableLoading": "Fetching what it delivered…"
-  ,"stewardShell.chat.deliverableFull": "Read it all in 2.0"
-  ,"stewardShell.chat.deliverableMissing": "Could not fetch the original this time; use “Read it all in 2.0”."
+  ,"stewardShell.chat.deliverableFull": "Read it all in the Workbench"
+  ,"stewardShell.chat.deliverableMissing": "Could not fetch the original this time; use \"Read it all in the Workbench\"."
   ,"stewardShell.chat.deliverableExpand": "Expand"
   ,"stewardShell.chat.deliverableCollapse": "Collapse"
   ,"stewardShell.chat.acked": "Got it"
@@ -2214,8 +2215,8 @@
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"
   ,"stewardShell.chat.listSeparator": ", "
   ,"stewardShell.chat.openSettings": "Open settings"
-  ,"stewardShell.compose.placeholder": "Say something to Ruyi…"
-  ,"stewardShell.compose.placeholderChange": "Tell me what to change…"
+  ,"stewardShell.compose.placeholder": "Say something to Ruyi"
+  ,"stewardShell.compose.placeholderChange": "Tell me what to change"
   ,"stewardShell.compose.targetLabel": "Hand to"
   ,"stewardShell.compose.targetSteward": "→ Ruyi"
   ,"stewardShell.compose.targetSteward.hint": "→ Ruyi · looks like a follow-up to “{{title}}”"
@@ -2254,10 +2255,10 @@
   ,"stewardShell.drawer.tabsLabel": "Chats in this task"
   ,"stewardShell.drawer.newThread": "+ Chat"
   ,"stewardShell.drawer.newThreadHint": "Start another chat under this task"
-  ,"stewardShell.drawer.classicView": "2.0 window"
+  ,"stewardShell.drawer.classicView": "Open in Workbench"
   ,"stewardShell.drawer.headSection": "This chat"
   ,"stewardShell.drawer.chipsSection": "Quick switch"
-  ,"stewardShell.drawer.lastSay": "It just said"
+  ,"stewardShell.drawer.lastSay": "It last said"
   ,"stewardShell.drawer.liveSay": "It's saying"
   ,"stewardShell.drawer.lastSayInAsk": "Just the question above."
   ,"stewardShell.drawer.tool.read": "reading a file"
@@ -2283,7 +2284,7 @@
   ,"stewardShell.drawer.askRevertible": "This step can be undone"
   ,"stewardShell.drawer.askIrreversible": "This step cannot be undone automatically"
   ,"stewardShell.drawer.askAnswerLabel": "Your answer"
-  ,"stewardShell.drawer.askPlaceholder": "Type your answer here…"
+  ,"stewardShell.drawer.askPlaceholder": "Type your answer here"
   ,"stewardShell.drawer.askSend": "Answer"
   ,"stewardShell.drawer.more": "More"
   ,"stewardShell.drawer.relay": "Related chats"
@@ -2301,7 +2302,7 @@
   ,"stewardShell.drawer.composerLabel": "Say it straight to this chat"
   ,"stewardShell.drawer.composerLabelLive": "Pass it a line"
   ,"stewardShell.drawer.composerLabelDone": "Keep going"
-  ,"stewardShell.drawer.composerPlaceholder": "This goes straight to the chat, not through Ruyi…"
+  ,"stewardShell.drawer.composerPlaceholder": "This goes straight to the thread, not through Ruyi"
   ,"stewardShell.drawer.send": "Send to it"
   ,"stewardShell.drawer.pause": "Pause"
   ,"stewardShell.drawer.resume": "Resume"
@@ -2408,7 +2409,7 @@
   ,"settings.steward.globalMaxTurnsPerHour": "Turns per hour across all chats"
   ,"settings.steward.globalMaxCostPerDay": "Spend per day across all chats (USD)"
   ,"settings.steward.threadBrief": "Name each chat automatically"
-  ,"settings.steward.threadBriefHint": "Each new chat costs one small call on the steward's endpoint to produce a short name and a one-line gist, instead of using your whole opening message as the title. The classic session list and search results use it too. Your original wording is never rewritten (hover still shows it in full)."
+  ,"settings.steward.threadBriefHint": "Each new thread spends one small call on the Steward endpoint to produce a short name and a one-line gist, instead of using your whole opening message as the title. The Workbench view's thread list and search results use it too. Your original wording is never rewritten (hover still shows it in full)."
   ,"settings.steward.retention": "How long to keep the steward conversation"
   ,"settings.steward.retention.visit": "Only while this session is open (default)"
   ,"settings.steward.retention.24h": "24 hours"
@@ -2468,7 +2469,7 @@
   ,"settings.steward.decisions.undo": "Undo"
   ,"settings.steward.decisions.details": "Details"
   ,"settings.steward.decisions.undone": "Undone."
-  ,"settings.steward.decisions.undoFailed": "It did not come back; check the changes in the classic view."
+  ,"settings.steward.decisions.undoFailed": "Could not undo; the changes are still there and visible in the Workbench."
   ,"settings.steward.decisions.noUndo": "cannot be undone"
   ,"settings.steward.decisions.noPermission": "Follows the global setting"
   ,"settings.steward.decisions.detail": "{{tool}} · undo anchor {{kind}} · arguments {{args}}"
@@ -2527,7 +2528,7 @@
   ,"stewardShell.board.asksYou.permission": "Waiting for your go-ahead"
   ,"stewardShell.board.asksYou.plan": "Plan needs your approval"
   ,"stewardShell.board.asksYou.pool": "Task needs your approval"
-  ,"stewardShell.board.classicView": "2.0"
+  ,"stewardShell.board.classicView": "Open in Workbench"
   ,"stewardShell.board.stopBlocker": "Stop whoever holds it"
   ,"stewardShell.board.stopBlockerConfirm": "“{{title}}” is holding this work folder. Stop its current turn?"
   ,"stewardShell.board.stopBlockerDone": "Stopped the current turn of “{{title}}”."
@@ -2551,7 +2552,7 @@
   ,"chat.relayPermission": "It is waiting for you to approve an action. Approve that first, then talk to it."
   ,"shell.settingLabel": "Default view on launch"
   ,"shell.settingSteward": "Steward (default)"
-  ,"shell.settingClassic": "Classic"
+  ,"shell.settingClassic": "Workbench"
   ,"shell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or sessions, and you can switch back at any time."
   ,"notify.settingTitle": "Notify me when I am needed"
   ,"notify.settingHint": "Uses browser-backed local system notifications. Off by default; only new decisions that appear after opt-in are notified."

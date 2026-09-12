@@ -124,8 +124,10 @@ ok(/\.wb-um b\s*\{[^}]*font-size:\s*var\(--fs-xl\)/.test(css), 'F CSS 大数字 
 ok(/function renderWorkbenchEmpty\(/.test(src), 'G 空态渲染器 renderWorkbenchEmpty 存在');
 const empty = fnBody('renderWorkbenchEmpty');
 ok(has(empty, "t('workflow.empty.title')", "t('workflow.empty.goChat')", "t('workflow.empty.runTemplate')") &&
-  zh['workflow.empty.title'] === '本会话还没有 Agent 工作流' &&
-  zh['workflow.empty.goChat'] === '去对话交办任务' &&
+  // 121-K8（34 号文 §2.10.4 术语表）：「本会话」→「本线程」；「去对话交办任务」里的「交办」是
+  // 禁用词（交办台随 K1 退役），按「按钮是动词短语 ≤4 字」改「回到对话」（对话＝中栏那个页签名）。
+  zh['workflow.empty.title'] === '本线程还没有 Agent 工作流' &&
+  zh['workflow.empty.goChat'] === '回到对话' &&
   zh['workflow.empty.runTemplate'] === '从模板运行',
   'G 空态引导卡(标题 + 两个引导按钮，代码与中文 locale 双向锁)');
 ok(has(empty, "'wb-empty-cloud'") && /\.wb-empty-cloud\s*\{[^}]*var\(--ruyi-cloud\)/.test(css), 'G 云纹水印(--ruyi-cloud mask)');

@@ -173,10 +173,13 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
     ok(typeof zh[key] === 'string' && zh[key].length > 0, `⑤ zh-CN 有 ${key}`);
     ok(typeof en[key] === 'string' && en[key].length > 0, `⑤ en-US 有 ${key}`);
   }
-  // §11.8.6:消费面一半在经典壳,所以文案里必须说清楚「管家关着它也在用」。
-  ok(/经典壳的会话列表/.test(zh['settings.steward.threadBriefHint'] || ''),
-    '⑤ 中文说明写明经典壳的会话列表也用它(它不随管家总开关)');
-  ok(/classic session list/i.test(en['settings.steward.threadBriefHint'] || ''),
+  // §11.8.6:消费面一半【不在管家这一侧】,所以文案里必须说清楚「管家关着它也在用」。
+  // 121-K8(34 号文 §2.10.4 术语表):那一半原来叫「经典壳的会话列表」—— 两个禁用词(「壳」「会话」)
+  // 挤在一句话里。一台两视之后它就叫【工作台视角的线程列表】。钉的事实一个字没变:
+  // 说明里必须点名那个【不在管家侧】的消费面,否则用户会以为关掉管家就不花这笔调用。
+  ok(/工作台视角的线程列表/.test(zh['settings.steward.threadBriefHint'] || ''),
+    '⑤ 中文说明写明工作台视角的线程列表也用它(它不随管家总开关)');
+  ok(/workbench view/i.test(en['settings.steward.threadBriefHint'] || ''),
     '⑤ 英文说明同口径');
   ok(/const b = config\.stewardThreadBriefV1 !== false;/.test(config),
     '⑤ 服务端归一同口径(默认开)');

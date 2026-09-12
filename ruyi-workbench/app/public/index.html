@@ -68,7 +68,7 @@
       // 只恢复本机视角偏好，不触碰 Session/Mission 事实。预绘只认显式白名单。
       // 第121波 K0/K1（34 号文 §2.7／§8.4）：一台两视 —— data-shell-mode 只剩 steward | classic。
       // 没存过偏好、存了未知值、localStorage 抛异常，一律落 steward；显式存 classic 的落 classic；
-      // 老用户存的已退役的 'preview'（交办台）也落 steward。这三条与 js/shell-mode.js 的
+      // 老用户存的已退役的 'preview'（117 波那个已删的第三种壳）也落 steward。这三条与 js/shell-mode.js 的
       // normalizeShellMode 必须【同构】（静态锁 steward-shell.static.e2e.js A3 钉着）；这里是同一条
       // 规则的另一份实现，因为预绘必须跑在任何模块加载之前，没法 import。
       // 管家的准入（开关 stewardEnabledV1 + 骨架齐备）仍在 config 到达后再判，判不过由
@@ -183,7 +183,7 @@
         </div>
 
         <div class="search-wrap">
-          <input id="sessionSearch" type="search" placeholder="搜索会话…" data-i18n-attr="placeholder:session.search" autocomplete="off" />
+          <input id="sessionSearch" type="search" placeholder="搜索线程" data-i18n-attr="placeholder:session.search" autocomplete="off" />
         </div>
 
         <div class="classic-sidebar-primary-actions">
@@ -239,7 +239,7 @@
                    单线程任务只印一个名）。工作区路径仍是它下面那一行（#sessionMeta）。 -->
               <span class="th-crumb">
                 <span id="threadMission" class="th-mission" hidden></span>
-                <strong id="sessionTitle" data-i18n="navigation.workbench">如意工作台</strong>
+                <strong id="sessionTitle" data-i18n="session.untitled">未命名线程</strong>
               </span>
               <span id="sessionMeta"></span>
             </div>
@@ -325,7 +325,7 @@
             <span class="autonomy-bar-title">自主性授权书</span>
             <span id="autonomyBarCount" class="autonomy-bar-count"></span>
             <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)">+ 新建</button>
-            <button id="autonomyRevokeAll" class="mini autonomy-revoke-all hidden" title="撤销本会话全部授权">全部撤销</button>
+            <button id="autonomyRevokeAll" class="mini autonomy-revoke-all hidden" title="撤销本线程全部授权">全部撤销</button>
           </div>
           <ul id="autonomyBarList" class="autonomy-bar-list"></ul>
           <!-- 签发表单(默认折叠)。反疲劳:无"全工具/全工作区/无限次"预设;exec 高危样式 + 二次确认。 -->
@@ -345,7 +345,7 @@
               <label>范围
                 <select id="agScope">
                   <option value="run">本次运行内(run)</option>
-                  <option value="session">整个会话(session)</option>
+                  <option value="session">整条线程(session)</option>
                 </select>
               </label>
             </div>
@@ -496,7 +496,7 @@
                kind icon + filename + 预览 / 打开. Preview area renders via /api/file/preview (image dataURI /
                md-rendered / csv-table / txt-pre / html in a fully-locked sandbox iframe). -->
           <div class="debug-head">
-            <label data-i18n="tool.sessionArtifacts">本会话产物</label>
+            <label data-i18n="tool.sessionArtifacts">本线程产物</label>
             <button id="artifactsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
           </div>
           <div id="artifactsList" class="artifacts-list"></div>
@@ -596,7 +596,7 @@
               <button id="usageRefreshBtn" class="mini">刷新</button>
             </div>
           </div>
-          <p class="changes-hint muted">按币种汇总各引擎 / 服务商 / 会话的用量。成本是按量计价的<strong>等价估算</strong>（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。</p>
+          <p class="changes-hint muted">按币种汇总各引擎 / 服务商 / 线程的用量。成本是按量计价的<strong>等价估算</strong>（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。</p>
           <div id="usagePanel" class="usage-panel" aria-live="polite"></div>
         </section>
 
@@ -818,7 +818,7 @@
               <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.acceptanceSection">验收项</h3>
               <ol id="stewardDrawerAcceptanceList" class="steward-drawer-list"></ol>
             </section>
-            <!-- ⑧-4 现场：本波只放「看改动」→ 2.0 视窗（changes 面板归经典壳） -->
+            <!-- ⑧-4 现场：本波只放「看改动」→ 在工作台打开（changes 面板归工作台视角） -->
             <section id="stewardDrawerScene" class="steward-drawer-block">
               <h3 class="steward-drawer-h" data-i18n="stewardShell.drawer.scene">现场</h3>
               <button type="button" id="stewardDrawerChangesBtn" class="steward-drawer-btn"
@@ -847,7 +847,7 @@
                  一个字节没改，只换了住处与那身金色皮（gradeFootActions 加 .is-primary）。 -->
             <button type="button" id="stewardDrawerClassicBtn" class="steward-drawer-btn"
                     data-icon="lensWork" data-icon-size="13"
-                    data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">2.0 视窗</span></button>
+                    data-i18n-attr="title:stewardShell.drawer.classicView"><span data-i18n="stewardShell.drawer.classicView">在工作台打开</span></button>
             <button type="button" id="stewardDrawerSendBtn" class="steward-drawer-btn"
                     data-icon="send" data-icon-size="13"><span data-i18n="stewardShell.drawer.send">发给它</span></button>
             <button type="button" id="stewardDrawerPauseBtn" class="steward-drawer-btn"
@@ -953,7 +953,7 @@
                 <option value="steward" data-i18n="shell.settingSteward">管家（默认）</option>
                 <option value="classic" data-i18n="shell.settingClassic">经典</option>
               </select>
-              <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与会话数据；可随时切回。</p>
+              <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
             </div>
             <!-- 121-K1（34 号文 §8.3 第 2 条）：交办台退役后这一块改名「提醒」保留，键与 id 一并改 notify.*／cfgNotify*，策略层住 js/notify-policy.js；本波只接本机偏好与系统通知授权，「什么时候真的弹」随安静卡（§4.3）归 K6。 -->
@@ -1123,7 +1123,7 @@
               <!-- 116-5b（§11.8.5/§11.8.6）：线程自动摘要。放在「模型与预算」段而不是「自治」段——它不是一项管家的自治权，是一笔钱：开着就会在每一条还没有名字的新线程上多打一发。 -->
               <!-- 也【不随管家总开关】：消费面一半在经典壳（会话列表与搜索结果），管家关着也该有名字。 -->
               <label class="check"><input type="checkbox" id="cfgStewardThreadBrief" /> <span data-i18n="settings.steward.threadBrief">自动给每条线程起名字</span></label>
-              <p class="field-help muted" data-i18n="settings.steward.threadBriefHint">每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的会话列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。</p>
+              <p class="field-help muted" data-i18n="settings.steward.threadBriefHint">每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的线程列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。</p>
             </section>
 
             <!-- ④b 新开线程用什么模型（117l-A3，27 号文 §11.9：新线程默认端点与模型分复杂/简单两档） -->
@@ -1155,7 +1155,7 @@
             <!-- ⑤ 管家记得的关于你（§4「面板」）-->
             <section class="steward-settings-group" id="cfgStewardGroupMemory" aria-labelledby="cfgStewardMemoryHeading">
               <h4 id="cfgStewardMemoryHeading" class="settings-subhead" data-i18n="settings.steward.group.memory">管家记得的关于你</h4>
-              <p class="muted prov-hint" data-i18n="settings.steward.group.memoryHint">这些只进管家自己的提示词，不会进普通会话。每条都能改、能否决、能恢复。</p>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.memoryHint">这些只进管家自己的提示词，不会进普通线程。每条都能改、能否决、能恢复。</p>
               <div class="steward-settings-row">
                 <button type="button" id="cfgStewardMemoryRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.memory.refresh">刷新</button>
                 <button type="button" id="cfgStewardMemoryExportBtn" class="btn btn-sm" data-i18n="settings.steward.memory.export">导出 JSON</button>
@@ -1637,7 +1637,7 @@
     <!-- ============ COMMAND PALETTE ============ -->
     <div class="modal-backdrop palette-backdrop hidden" id="paletteModal">
       <div class="palette" role="dialog" aria-modal="true" aria-label="命令面板" data-i18n-attr="aria-label:palette.title">
-        <input id="paletteInput" type="text" placeholder="输入命令…（会话名、模型、工具）" data-i18n-attr="placeholder:palette.placeholder" autocomplete="off" />
+        <input id="paletteInput" type="text" placeholder="输入命令（线程名、模型、工具）" data-i18n-attr="placeholder:palette.placeholder" autocomplete="off" />
         <div id="paletteList" class="palette-list"></div>
       </div>
     </div>
@@ -1651,11 +1651,11 @@
       </div>
     </div>
 
-    <!-- ============ WORKBENCH MEMORY PANEL (v2 跨会话记忆) ============ -->
+    <!-- ============ WORKBENCH MEMORY PANEL (v2 跨线程记忆) ============ -->
     <div class="modal-backdrop hidden" id="memoryModal">
       <div class="modal" role="dialog" aria-modal="true" aria-label="工作台记忆">
         <div class="modal-head"><h3>工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
-        <div class="memory-intro muted">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前会话。</div>
+        <div class="memory-intro muted">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。</div>
         <div class="modal-body"><div id="memoryList" class="skill-list"></div></div>
       </div>
     </div>
@@ -1669,7 +1669,7 @@
             <tr><td><kbd>Enter</kbd></td><td data-i18n="help.sendMessage">发送消息</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td data-i18n="help.newLine">换行</td></tr>
             <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td data-i18n="help.commandPalette">命令面板</td></tr>
-            <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td data-i18n="session.new">新会话</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td data-i18n="session.new">新线程</td></tr>
             <tr><td><kbd>Esc</kbd></td><td data-i18n="help.stopOrClose">停止当前回合 / 关闭弹窗</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="help.thisHelp">本帮助</td></tr>
           </table>
