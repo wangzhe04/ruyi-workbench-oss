@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 50,
-    "providedSymbols": 2134,
+    "providedSymbols": 2142,
     "requiredSymbols": 2321,
     "edges": 398,
     "forwardEdges": 67,
@@ -195,6 +195,8 @@
         "CMD_EXE_LINE_LIMIT",
         "CMD_LINE_QUOTE_MARGIN",
         "CMD_LINE_SAFE_BUDGET",
+        "DESKTOP_PYTHON_DISK_CACHE_FILE",
+        "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
         "DESKTOP_PYTHON_MISS_CACHE_MS",
         "DESKTOP_PYTHON_OK_CACHE_MS",
@@ -236,6 +238,9 @@
         "desktopMcpFromRepo",
         "desktopPythonCache",
         "desktopPythonCandidates",
+        "desktopPythonDiskCacheId",
+        "desktopPythonDiskCachePath",
+        "desktopPythonDiskEntryFresh",
         "detectAgentCliPath",
         "detectClaudePath",
         "detectClaudePathUncached",
@@ -269,6 +274,8 @@
         "readBody",
         "readConfig",
         "readConfigPrev",
+        "readDesktopPythonDiskEntries",
+        "readDesktopPythonDiskEntry",
         "readFileTail",
         "readJsonBody",
         "resolveClaudeLauncher",
@@ -290,6 +297,7 @@
         "tokenOk",
         "writeConfig",
         "writeConfigAtomic",
+        "writeDesktopPythonDiskEntry",
         "writeToChild"
       ],
       "requires": [
@@ -300,7 +308,7 @@
             "call"
           ],
           "lines": [
-            2476
+            2560
           ]
         },
         {
@@ -329,7 +337,7 @@
             1851,
             1863,
             1899,
-            2160
+            2233
           ]
         },
         {
@@ -339,7 +347,8 @@
             "read"
           ],
           "lines": [
-            1211
+            1211,
+            2128
           ]
         },
         {
@@ -349,7 +358,7 @@
             "read"
           ],
           "lines": [
-            2326
+            2410
           ]
         },
         {
@@ -362,8 +371,8 @@
             1422,
             1456,
             1599,
-            2352,
-            2380
+            2436,
+            2464
           ]
         },
         {
@@ -375,8 +384,8 @@
           "lines": [
             2061,
             2066,
-            2279,
-            2494
+            2363,
+            2578
           ]
         },
         {
@@ -396,12 +405,16 @@
             1955,
             2062,
             2067,
-            2192,
-            2207,
-            2217,
-            2239,
-            2315,
-            2495
+            2151,
+            2164,
+            2180,
+            2181,
+            2273,
+            2291,
+            2301,
+            2323,
+            2399,
+            2579
           ]
         },
         {
@@ -429,9 +442,9 @@
             1607,
             1613,
             1651,
-            2419,
-            2515,
-            2518
+            2503,
+            2599,
+            2602
           ]
         },
         {
@@ -453,7 +466,7 @@
             "read"
           ],
           "lines": [
-            2453
+            2537
           ]
         },
         {
@@ -484,7 +497,8 @@
             1669,
             1816,
             1905,
-            2264
+            2125,
+            2348
           ]
         },
         {
@@ -536,49 +550,51 @@
             2066,
             2083,
             2088,
-            2117,
-            2126,
-            2127,
-            2128,
-            2129,
-            2130,
-            2131,
-            2137,
-            2138,
-            2139,
-            2142,
-            2207,
+            2125,
+            2164,
+            2190,
+            2199,
+            2200,
+            2201,
+            2202,
+            2203,
+            2204,
+            2210,
             2211,
-            2216,
-            2238,
-            2242,
-            2243,
-            2268,
-            2279,
-            2280,
-            2281,
-            2282,
-            2283,
-            2284,
-            2285,
-            2286,
-            2290,
+            2212,
+            2215,
+            2291,
             2295,
-            2296,
-            2304,
-            2305,
-            2306,
-            2307,
-            2310,
-            2314,
-            2356,
-            2384,
-            2480,
-            2494,
-            2496,
-            2502,
-            2505,
-            2587
+            2300,
+            2322,
+            2326,
+            2327,
+            2352,
+            2363,
+            2364,
+            2365,
+            2366,
+            2367,
+            2368,
+            2369,
+            2370,
+            2374,
+            2379,
+            2380,
+            2388,
+            2389,
+            2390,
+            2391,
+            2394,
+            2398,
+            2440,
+            2468,
+            2564,
+            2578,
+            2580,
+            2586,
+            2589,
+            2671
           ]
         },
         {
@@ -594,11 +610,11 @@
             1424,
             1519,
             1602,
-            2356,
-            2367,
-            2384,
-            2393,
-            2587
+            2440,
+            2451,
+            2468,
+            2477,
+            2671
           ]
         },
         {
@@ -638,10 +654,10 @@
             1424,
             1438,
             1439,
-            2435,
-            2436,
-            2505,
-            2524
+            2519,
+            2520,
+            2589,
+            2608
           ]
         },
         {
@@ -652,7 +668,7 @@
           ],
           "lines": [
             1996,
-            2546
+            2630
           ]
         },
         {
@@ -673,7 +689,7 @@
             "read"
           ],
           "lines": [
-            2560
+            2644
           ]
         },
         {
@@ -693,7 +709,7 @@
             "call"
           ],
           "lines": [
-            2505
+            2589
           ]
         },
         {
@@ -713,7 +729,7 @@
             "read"
           ],
           "lines": [
-            2439
+            2523
           ]
         },
         {
@@ -739,7 +755,7 @@
           "lines": [
             1577,
             1616,
-            2334
+            2418
           ]
         },
         {
@@ -820,7 +836,7 @@
             "read"
           ],
           "lines": [
-            2417
+            2501
           ]
         }
       ]

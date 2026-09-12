@@ -2109,6 +2109,79 @@ const DESKTOP_PYTHON_IMPORT_PROBE = [
   "print('__RUYI_ACC_FULL__' if full else '__RUYI_ACC_CORE__')",
 ].join('\n');
 const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
+// 121 换机器实测(34 号文 §13.8/§13.10):上面这张表只活在【本进程】。这台机器 python / python3 / py -3
+// 三个候选每个要 ~1.7 s 才答得出来(系统 Python 起得慢),而本函数为了优先选 Full 会把候选【全部】探完
+// (前两个 miss、第三个 core),于是每个新进程首启都同步阻塞 ~5 s 在 listen 之前;e2e 每件各起一个服务
+// 就每件各付 5 s,8 路并发下更慢,66 件在启动预算内起不来。这里把整轮的结果(选中了谁,或整轮没有)
+// 跨进程记到 os.tmpdir() 的一个小 JSON,TTL 与进程内那张表同一对数字(肯定 5 分钟、否定 10 分钟——
+// 否定放长一点是因为「没装」比「刚装好」常见得多,进程内 15 s 的 miss TTL 到期后会再来读一次磁盘,
+// 磁盘条目过期才真探)。肯定结果只在命令是绝对路径且仍存在时才信(被卸载了就当没缓存)。
+// 键里带 PATH / PYTHON 环境、根目录、PYTHONPATH、候选清单与探针脚本原文——任何一样变了都是新键。
+// 读写都是 best-effort,坏文件/并发写丢条目的后果只是多探一次。
+// 测试口(options.probe / options.noCache)一律绕过,与进程内那张表同一条规则。
+const DESKTOP_PYTHON_DISK_MISS_CACHE_MS = 10 * 60 * 1000;
+const DESKTOP_PYTHON_DISK_CACHE_FILE = 'ruyi-desktop-python-probe.v1.json';
+function desktopPythonDiskCachePath() {
+  return path.join(os.tmpdir(), DESKTOP_PYTHON_DISK_CACHE_FILE);
+}
+function desktopPythonDiskCacheId(root, desktopEnv, candidates) {
+  const digest = crypto.createHash('sha1');
+  digest.update(JSON.stringify([
+    String(root || ''),
+    String((desktopEnv && desktopEnv.PYTHONPATH) || ''),
+    String(process.env.PATH || ''),
+    String(process.env.PYTHON || ''),
+    DESKTOP_PYTHON_IMPORT_PROBE,
+    (Array.isArray(candidates) ? candidates : []).map(candidate => [
+      String((candidate && candidate.command) || ''),
+      Array.isArray(candidate && candidate.args) ? candidate.args.map(String) : [],
+    ]),
+  ]));
+  return digest.digest('hex');
+}
+function desktopPythonDiskEntryFresh(entry, nowMs) {
+  if (!entry || typeof entry !== 'object') return false;
+  const at = Number(entry.at);
+  if (!Number.isFinite(at)) return false;
+  const ttl = entry.value ? DESKTOP_PYTHON_OK_CACHE_MS : DESKTOP_PYTHON_DISK_MISS_CACHE_MS;
+  return (nowMs - at) < ttl;
+}
+function readDesktopPythonDiskEntries() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(desktopPythonDiskCachePath(), 'utf8'));
+    return parsed && parsed.entries && typeof parsed.entries === 'object' ? parsed.entries : {};
+  } catch { return {}; }
+}
+// 返回 { value } 表示命中(value 可以是 null=整轮没有),返回 null 表示没有可信的缓存。
+function readDesktopPythonDiskEntry(cacheId) {
+  if (!cacheId) return null;
+  const entry = readDesktopPythonDiskEntries()[cacheId];
+  if (!desktopPythonDiskEntryFresh(entry, Date.now())) return null;
+  const value = entry.value && typeof entry.value === 'object' ? entry.value : null;
+  if (value) {
+    const command = String(value.command || '');
+    if (!command) return null;
+    try { if (path.isAbsolute(command) && !fs.existsSync(command)) return null; } catch { return null; }
+    return { value: { command, args: Array.isArray(value.args) ? value.args.map(String) : [], source: String(value.source || 'unknown'), capability: value.capability === 'full' ? 'full' : 'core' } };
+  }
+  return { value: null };
+}
+function writeDesktopPythonDiskEntry(cacheId, value) {
+  if (!cacheId) return false;
+  try {
+    const file = desktopPythonDiskCachePath();
+    const entries = readDesktopPythonDiskEntries();
+    const nowMs = Date.now();
+    for (const id of Object.keys(entries)) {
+      if (!desktopPythonDiskEntryFresh(entries[id], nowMs)) delete entries[id];
+    }
+    entries[cacheId] = { at: nowMs, value: value ? { command: value.command, args: value.args, source: value.source, capability: value.capability } : null };
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, entries }));
+    fs.renameSync(tmp, file);
+    return true;
+  } catch { return false; }
+}
 
 function desktopPythonCandidates(root) {
   const candidates = [];
@@ -2183,6 +2256,14 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
 
   const candidates = Array.isArray(options.candidates) ? options.candidates : desktopPythonCandidates(root);
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
+  // 跨进程缓存(见 DESKTOP_PYTHON_DISK_MISS_CACHE_MS 头注):上一轮(本进程或别的进程)已经探过同一把键、
+  // 且还在 TTL 内,就照那一轮的答案,不再把候选逐个慢探一遍。命中也写进进程内表,15 s/5 min 内连磁盘都不用读。
+  const diskCacheId = bypassCache ? '' : desktopPythonDiskCacheId(root, desktopEnv, candidates);
+  const diskHit = diskCacheId ? readDesktopPythonDiskEntry(diskCacheId) : null;
+  if (diskHit) {
+    desktopPythonCache.set(cacheKey, { at: now, value: diskHit.value });
+    return diskHit.value;
+  }
   let selected = null;
   let coreFallback = null;
   for (const raw of candidates) {
@@ -2199,7 +2280,10 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
     if (!coreFallback) coreFallback = match;
   }
   if (!selected) selected = coreFallback;
-  if (!bypassCache) desktopPythonCache.set(cacheKey, { at: now, value: selected });
+  if (!bypassCache) {
+    desktopPythonCache.set(cacheKey, { at: now, value: selected });
+    writeDesktopPythonDiskEntry(diskCacheId, selected);
+  }
   return selected;
 }
 // True when a directory looks like the ai-computer-control repo (has the src package).
