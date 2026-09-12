@@ -90,6 +90,15 @@
   font-size: var(--fs-sm);
   color: var(--muted);
 }
+/* 121-K7（§7.2 表首行）：「定时任务」只读表。空态与记忆面板的空态同一档灰字（不新造第二种）。 */
+.steward-schedule-list { margin: var(--sp-1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-1); }
+.steward-schedule-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2);
+  font-size: var(--fs-sm); color: var(--ink-2);
+}
+.steward-schedule-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steward-schedule-when { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-xs); }
+.steward-schedule-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
 .steward-memory-item {
   display: flex;
   flex-direction: column;

@@ -68,6 +68,9 @@ export function createSessionExperienceDomain({
   playbookDisplayDescription = playbook => String(playbook && playbook.desc || ''),
   playbookDisplayUnavailableReason = () => '',
   playbookInputLabel = (_playbook, input) => String(input && input.label || ''),
+  // 121-K7（§8.4）：向导完成页要落在管家视角。组合根注入 js/shell-mode.js 那一个 applyShellMode
+  // （唯一写者不变，本域只转手）；缺席时回落成「不切」，向导照常走完。
+  applyShellMode = () => 'classic',
 } = {}) {
 // 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
 // 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
@@ -91,6 +94,9 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   openPlaybook: playbook => openPlaybookModal(playbook),
   openHelpViewer: (...args) => openHelpViewer(...args), // 118a-fix: 完成页「打开手册」走应用内阅读器
   onConfigChanged: () => { updateEngineDependentUI(); renderWorkspacePicker(); },
+  // 121-K7（34 号文 §8.4「完成页落在管家视角」）：走完向导切回管家。转注入组合根那一个
+  // applyShellMode（js/shell-mode.js 仍是 data-shell-mode 的唯一写者，这里只是把它递下去）。
+  onFinished: () => applyShellMode('steward'),
 }));
 // 「开始引导」/「重新打开引导」共用的入口。设置页按钮由组合根注入本函数。
 function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }

@@ -17,7 +17,11 @@
 export const ONBOARDING_VERSION = 1;
 
 // Step ids in presentation order. The steward (117) drives the same list conversationally.
-export const ONBOARDING_STEP_IDS = Object.freeze(['language', 'engine', 'provider', 'workspace', 'safety', 'done']);
+// 121-K7（34 号文 §8.4 拍板③的代价、§13.1 登记）：`stewardEnabledV1` 默认改成 true 之后，
+// 新装的第一天管家就在后台跑回合 —— 那是要花钱的，所以向导必须问一句「管家用哪个模型」。
+// 位置排在 provider 之后：那一步刚把服务商配好，这一步才有得挑（选了 CLI 引擎跳过 provider 的
+// 用户在这里仍然能填一个模型名或留空跟随主端点）。
+export const ONBOARDING_STEP_IDS = Object.freeze(['language', 'engine', 'provider', 'steward', 'workspace', 'safety', 'done']);
 // Engine choice on step 2. 'cloud' = a hosted preset, 'local' = any OpenAI-compatible endpoint (Ollama /
 // LM Studio / an intranet gateway), 'cli' = an already installed Claude Code / Kimi Code binary.
 export const ONBOARDING_ENGINE_CHOICES = Object.freeze(['cloud', 'local', 'cli']);
@@ -93,6 +97,7 @@ const STEP_META = Object.freeze({
   language: { titleKey: 'onboarding.wizard.language.title', shortKey: 'onboarding.wizard.step.language' },
   engine: { titleKey: 'onboarding.wizard.engine.title', shortKey: 'onboarding.wizard.step.engine' },
   provider: { titleKey: 'onboarding.wizard.provider.title', shortKey: 'onboarding.wizard.step.provider' },
+  steward: { titleKey: 'onboarding.wizard.steward.title', shortKey: 'onboarding.wizard.step.steward' },
   workspace: { titleKey: 'onboarding.wizard.workspace.title', shortKey: 'onboarding.wizard.step.workspace' },
   safety: { titleKey: 'onboarding.wizard.safety.title', shortKey: 'onboarding.wizard.step.safety' },
   done: { titleKey: 'onboarding.wizard.done.title', shortKey: 'onboarding.wizard.step.done' },
@@ -125,6 +130,10 @@ export function onboardingStepsFor(config) {
     language: typeof c.locale === 'string' && c.locale !== '' && c.locale !== 'auto',
     engine: engineReady,
     provider: providers.length > 0,
+    // 121-K7：「跟随主端点」（stewardModel 留空）也是一个【做过的选择】，可它和「还没看过这一步」
+    // 在 config 里长得一模一样。所以 done 位读的是【引擎准备好了没有】—— 管家有得跑就算这一步
+    // 有着落（与 engine 同一条判据，不给「留空」硬造一个新字段来记「他真的看过了」）。
+    steward: engineReady,
     workspace: workspaceReady,
     safety: typeof c.permissionMode === 'string' && c.permissionMode !== '',
     done: Boolean(asObject(c.onboarding).completedAt),
@@ -196,6 +205,10 @@ export function createOnboardingWizardDomain({
   openSettings = () => {},
   openPlaybook = () => {},
   onConfigChanged = () => {},
+  // 121-K7（34 号文 §8.4「完成页落在管家视角」）：走完向导之后把视角切回管家。**注入**而不是
+  // import js/shell-mode.js —— data-shell-mode 的唯一写者仍是那一份 applyShellMode，向导只是调它；
+  // 而且向导本身要保持壳无关（117 管家复述同一份清单时不该顺手改视角）。缺席时什么都不做。
+  onFinished = () => {},
   doc = globalThis.document,
   // 118a-fix: 应用内手册阅读器入口(help-viewer.js)。组合根注入,向导本身仍壳无关。
   openHelpViewer = () => {},
@@ -427,6 +440,9 @@ export function createOnboardingWizardDomain({
           if (!saved) return;
           toast(t('onboarding.wizard.completed'), 'ok');
           frame.close();
+          // 121-K7（§8.4）：新装走完向导落在【管家视角】。放在 frame.close() 之后 —— 切视角会走
+          // View Transitions 拍一帧旧画面，向导还开着的话那一帧里会有它。失败不影响「已完成」这件事。
+          try { onFinished(); } catch { /* 视角切换是旁路，向导已经完成了 */ }
         };
         nodes.push(finishBtn);
       } else if (stepId !== 'provider') {
@@ -456,6 +472,7 @@ export function createOnboardingWizardDomain({
       if (stepId === 'language') return buildLanguageStep();
       if (stepId === 'engine') return buildEngineStep();
       if (stepId === 'provider') return buildProviderStep();
+      if (stepId === 'steward') return buildStewardStep();
       if (stepId === 'workspace') return buildWorkspaceStep();
       if (stepId === 'safety') return buildSafetyStep();
       return buildDoneStep();
@@ -794,6 +811,62 @@ export function createOnboardingWizardDomain({
       wrap.append(el('p', 'onboard-wiz-note muted', current
         ? t('onboarding.wizard.workspace.current', { path: current })
         : t('onboarding.wizard.workspace.none')));
+      return wrap;
+    }
+
+    /* ④ steward（121-K7；34 号文 §8.4 拍板③「118a 向导多一步『管家用哪个模型』」）*/
+    // 两张卡：跟随主端点（写空串）／另挑一个（露出一个模型名输入框，失焦即存）。
+    // 写的是 config.stewardModel —— 与设置·管家页那一个 #cfgStewardModel 是【同一个字段、同一条
+    // 写口】（persist → POST /api/config），向导不新造第二个键，也不碰 stewardProviderId
+    // （服务商在上一步已经定了；管家默认就用主端点那一个）。
+    function buildStewardStep() {
+      const wrap = el('div', 'onboard-wiz-step onboard-wiz-steward');
+      wrap.append(el('h4', 'onboard-wiz-step-title', t('onboarding.wizard.steward.title')));
+      wrap.append(el('p', 'onboard-wiz-step-hint muted', t('onboarding.wizard.steward.hint')));
+      const current = String(asObject(state.config).stewardModel || '').trim();
+      const group = el('div', 'onboard-wiz-cards onboard-wiz-steward-cards');
+      group.setAttribute('role', 'radiogroup');
+      group.setAttribute('aria-label', t('onboarding.wizard.steward.title'));
+      const follow = choiceCard({
+        selected: !current,
+        title: t('onboarding.wizard.steward.follow'),
+        description: t('onboarding.wizard.steward.followHint'),
+        onSelect: async () => {
+          if (!(await persist({ stewardModel: '' }))) return;
+          render();
+          setMessage(t('onboarding.wizard.steward.savedFollow'), 'ok');
+        },
+      });
+      follow.setAttribute('role', 'radio');
+      follow.setAttribute('aria-checked', current ? 'false' : 'true');
+      group.append(follow);
+      const custom = choiceCard({
+        selected: Boolean(current),
+        title: t('onboarding.wizard.steward.custom'),
+        description: t('onboarding.wizard.steward.customHint'),
+        // 已经填过就不清掉他填的那个（点一下只是把这张卡选中）。
+        onSelect: () => { render(); },
+      });
+      custom.setAttribute('role', 'radio');
+      custom.setAttribute('aria-checked', current ? 'true' : 'false');
+      group.append(custom);
+      wrap.append(group);
+      const input = el('input', '');
+      input.id = 'onboardStewardModel';
+      input.type = 'text';
+      input.value = current;
+      input.placeholder = t('onboarding.wizard.steward.modelPlaceholder');
+      // 失焦即存（与本向导其余控件同款：一步一存，不攒到最后一起写）。
+      input.onchange = async () => {
+        const next = String(input.value || '').trim();
+        if (next === current) return;
+        if (!(await persist({ stewardModel: next }))) return;
+        render();
+        setMessage(next
+          ? t('onboarding.wizard.steward.saved', { model: next })
+          : t('onboarding.wizard.steward.savedFollow'), 'ok');
+      };
+      wrap.append(fieldBlock(t('onboarding.wizard.steward.modelLabel'), input));
       return wrap;
     }
 

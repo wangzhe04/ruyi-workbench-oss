@@ -29,6 +29,9 @@ import { stewardErrorText } from './steward-conversation.js';
 // permissionIconName 是【纯派生】（档位名 → 盾内字形名），不是第二份四档表 —— 四档的唯一判据
 // 仍然是 steward-chips.js 的 STEWARD_PERMISSION_MODES，本文件一个档位名字面量都没有。
 import { icon, permissionIconName } from './icons.js';
+// 121-K7（§7.2 表首行／§13.5 登记③）：定时任务的读口与排序判据只有 js/rail-pocket.js 那一份
+// —— 口袋的计数、焦点栏的「接下来」与本页那张只读表读同一发、排同一序。
+import { readScheduleTasks, upcomingSchedules, scheduleWhenLabel } from './rail-pocket.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
@@ -713,6 +716,37 @@ export function createStewardSettingsDomain({
     fillProviderOptions(byId('cfgStewardFastProviderId'), fast.providerId);
   }
 
+  /* ═══════════════ ④d 定时任务（121-K7，§7.2 表首行）═══════════════ */
+  // 只读面。读口与排序判据都在 js/rail-pocket.js 一处（口袋上那个计数、焦点栏「接下来」的两行
+  // 与这张表读同一发、排同一序）—— 设置页不自己拼那条请求，也不写第二份「怎么排」。
+  // 119 波的后端还没落地，读不到就说「还没有定时任务」（不报错：定时任务是旁路）。
+  let scheduleLoaded = false;
+  function renderSchedule(tasks) {
+    const list = byId('cfgStewardSchedule');
+    if (!list) return 0;
+    clear(list);
+    const rows = upcomingSchedules(tasks, tasks.length, Date.now());
+    if (!rows.length) {
+      const empty = el('li', 'steward-schedule-empty', t('settings.steward.schedule.empty'));
+      list.appendChild(empty);
+      return 0;
+    }
+    const lang = (doc() && doc().documentElement && doc().documentElement.lang) || '';
+    for (const task of rows) {
+      const item = el('li', 'steward-schedule-row');
+      item.appendChild(el('span', 'steward-schedule-name', task.name));
+      const when = scheduleWhenLabel(task.nextRunAt, lang);
+      if (when) item.appendChild(el('span', 'steward-schedule-when', t('settings.steward.schedule.next', { when })));
+      list.appendChild(item);
+    }
+    return rows.length;
+  }
+  async function loadSchedule() {
+    const tasks = await readScheduleTasks(api);
+    scheduleLoaded = true;
+    return renderSchedule(tasks);
+  }
+
   /* ═══════════════ 填充与接线 ═══════════════ */
 
   function fillStewardSettings() {
@@ -752,6 +786,11 @@ export function createStewardSettingsDomain({
       const brief = byId('cfgStewardThreadBrief'); if (brief) brief.checked = c.stewardThreadBriefV1 !== false;
       const retention = byId('cfgStewardRetention');
       if (retention) retention.value = ['visit', '24h', 'forever'].includes(c.stewardConversationRetention) ? c.stewardConversationRetention : 'visit';
+      // 121-K7（§13.5 登记③）：「最近 N 条」窗口。缺省与钳位都在 src/01-config.js 一处
+      // （THREAD_INDEX_RECENT_DEFAULT/MIN/MAX），这里【不写第二份区间】—— 读不到就留空，
+      // 让服务端回来的那个数说话（min/max 只挂在 <input> 上给浏览器做输入提示）。
+      const indexRecent = byId('cfgStewardThreadIndexRecent');
+      if (indexRecent) indexRecent.value = Number.isFinite(Number(c.threadIndexRecent)) ? String(Number(c.threadIndexRecent)) : '';
     } finally {
       seeding = false;
     }
@@ -819,6 +858,18 @@ export function createStewardSettingsDomain({
     onChange('cfgStewardGlobalMaxTurnsPerHour', event => saveConfig({ stewardGlobalMaxTurnsPerHour: num(event.target, 120) }));
     onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 20) }));
     onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || 'visit') }));
+    // 121-K7（§13.5 登记③）：写回原样送数字，钳位由服务端 normalizeConfig 做（客户端不抄第二份
+    // [10,200]）；落盘之后 fillStewardSettings 会把钳过的值回填到框里。
+    onChange('cfgStewardThreadIndexRecent', async event => {
+      if (!await saveConfig({ threadIndexRecent: num(event.target, 30) })) return;
+      // 落盘之后把【服务端钳过的那个数】写回框里 —— 用户填 5，服务端给 10，框里就得是 10，
+      // 否则界面在说一件不成立的事。只补这一个框（不整页重播种，那会打断别处正在输入的值）。
+      const clamped = Number(config().threadIndexRecent);
+      if (Number.isFinite(clamped)) event.target.value = String(clamped);
+    });
+
+    const refreshSchedule = byId('cfgStewardScheduleRefreshBtn');
+    if (refreshSchedule) refreshSchedule.onclick = () => loadSchedule();
 
     const refreshMemory = byId('cfgStewardMemoryRefreshBtn');
     if (refreshMemory) refreshMemory.onclick = () => loadMemory();
@@ -847,17 +898,25 @@ export function createStewardSettingsDomain({
     return true;
   }
 
-  // 头像菜单三项（117c 的菜单里只有「细节」）与盾牌确认都走这一个入口：切到「管家」页签，
-  // 需要时把目标区块滚进视野，并按需拉一次面板数据。
+  // 121-K7：头像菜单只剩「细节」「设置」（§2.4／§9 K7），三样管家的东西搬进左栏栏底的口袋
+  // （js/rail-pocket.js）—— 口袋、头像菜单里的「设置」与盾牌确认走的仍是这一个入口：
+  // 切到「管家」页签，需要时把目标区块滚进视野，并按需拉一次面板数据。
+  // section 名就是下面这张表，**不在别处再列一遍**（口袋那一份表里写的是同样这几个字符串）。
+  const PANEL_SECTIONS = Object.freeze({
+    schedule: 'cfgStewardGroupSchedule',
+    memory: 'cfgStewardGroupMemory',
+    decisions: 'cfgStewardGroupDecisions',
+    index: 'cfgStewardGroupIndex',
+  });
   function openPanel(section) {
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
     refreshRunState();
     if (!memoryLoaded) loadMemory();
     if (!decisionsLoaded) loadDecisions();
-    const target = section === 'memory' ? byId('cfgStewardGroupMemory')
-      : section === 'decisions' ? byId('cfgStewardGroupDecisions')
-        : null;
+    if (!scheduleLoaded) loadSchedule();
+    const targetId = PANEL_SECTIONS[String(section || '')] || '';
+    const target = targetId ? byId(targetId) : null;
     if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
     return section || '';
   }
