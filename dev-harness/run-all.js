@@ -41,11 +41,17 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 只要 ~54s)。判据本身已经改成有判据的轮询(见文件内 GROW_WAIT_ATTEMPTS 注释),但硬节拍窗口
 // 本身量的是「产品多快吐字、多快跟手」,与另外几个 Edge/服务同抢 CPU 时这件事量不准,所以也排
 // 到并行功能桶之后单独跑。
+// 121-K6a:quiet-card.browser 同一个模具 —— 一趟里起五条真线程、连三次 request_user_input
+// 往返(候选答案/去看/合并测试各一条)、每一次「不出卡」的反向计时都要真实盖过 13i 收件箱 tick
+// 的 5s 下限(§4.3 三种在场状态各一次 6.5s 静置窗)。`--parallel 8` 下与其余功能桶同抢 CPU 时
+// 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
+// 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
   'event-stream-client.browser.e2e.js',
   'one-workbench-frame.browser.e2e.js',
   'workbench-thread-head.browser.e2e.js',
   'live-full-text.browser.e2e.js',
+  'quiet-card.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
