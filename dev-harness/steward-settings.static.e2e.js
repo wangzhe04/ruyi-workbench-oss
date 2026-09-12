@@ -62,16 +62,25 @@ ok(panelStart > 0 && panelEnd > panelStart, 'A3 管家面板在 Agent CLI 面板
 // 117l-A3 重钉：旧断言钉的是「117e 那一版」六组面板。117l-A3 在「模型与预算」之后插入第七组
 // 「新开线程用什么模型」（强/快两档，§11.9）——新契约是七组、顺序固定，不是放宽旧契约，是把新组
 // 纳入同一条「齐全且顺序固定」的判据（companion 见下面 A4b，单独钉住新组的插入位置）。
+// 121-K7 翻面重钉（34 号文 §13.5 登记③与 §7.2 表首行）：在「新开线程用什么模型」之后
+// 插入两组 ——「任务索引」（threadIndexRecent 的设置入口）与「定时任务」（口袋第一项与
+// 焦点栏「接下来」落到的那一面）。新契约是八组、顺序固定，不是放宽旧契约。
 const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPermission', 'cfgStewardGroupAuto',
-  'cfgStewardGroupBudget', 'cfgStewardGroupThreadModels', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
+  'cfgStewardGroupBudget', 'cfgStewardGroupThreadModels', 'cfgStewardGroupIndex', 'cfgStewardGroupSchedule',
+  'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
 const groupOrder = [...panel.matchAll(/<section class="steward-settings-group" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
 ok(JSON.stringify(groupOrder) === JSON.stringify(GROUP_IDS),
-  `A4 七组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+  `A4 八组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
 // A4b companion（117l-A3 新增）：新组必须紧跟在「模型与预算」之后、「管家记得的关于你」之前——
 // 不许插到别处（比如页尾或权限组旁边，那样会打散「预算相关的钱都聚在一起」这条既有阅读顺序）。
+// 121-K7 翻面：K7 的两组插在 ThreadModels 与 Memory 之间，所以 A4b 的后半从「紧挨着 Memory」
+// 改成「紧挨着 Index」，前半（紧跟 Budget）一个字不动 —— 钉的仍是那条阅读顺序：
+// 钱的三组连在一起 → 任务索引 → 定时任务 → 记忆 → 流水。
 ok(groupOrder.indexOf('cfgStewardGroupThreadModels') === groupOrder.indexOf('cfgStewardGroupBudget') + 1
-  && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupThreadModels') + 1,
-  'A4b 117l-A3：「新开线程用什么模型」紧跟在「模型与预算」之后、「管家记得的关于你」之前');
+  && groupOrder.indexOf('cfgStewardGroupIndex') === groupOrder.indexOf('cfgStewardGroupThreadModels') + 1
+  && groupOrder.indexOf('cfgStewardGroupSchedule') === groupOrder.indexOf('cfgStewardGroupIndex') + 1
+  && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupSchedule') + 1,
+  'A4b 117l-A3＋121-K7：「新开线程用什么模型」紧跟「模型与预算」，其后依次是「任务索引」「定时任务」「管家记得的关于你」');
 
 // 每一组都必须是真的 <section>（不是 div 冒充）且带 aria-labelledby（§8.8 无障碍）。
 ok(GROUP_IDS.every(id => new RegExp(`<section class="steward-settings-group" id="${id}" aria-labelledby="`).test(panel)),
@@ -241,12 +250,25 @@ ok(/class="tb-right"/.test(topbar) && !/class="steward-header-actions"/.test(htm
   'E3 两个常驻控件在顶栏右侧那一组里；壳头部那条 actions 行随搬家退役');
 ok(Array.isArray(mod.STEWARD_MEMORY_KINDS) && typeof mod.createStewardSettingsDomain === 'function',
   'E4 设置域是导出的工厂函数');
+// 121-K7 翻面重钉（34 号文 §2.3 末段／§2.4／§9 K7 验收「头像菜单只剩『细节』『设置』」）：
+// 「记得的关于你」「行动流水」搬进左栏栏底的口袋（js/rail-pocket.js），头像菜单只剩一项。
+// **两半一起钉**（否则「搬走」会退化成「删掉」）：这里钉菜单表只剩 settings，下面 E5b 钉那两个
+// section 名在口袋那张表里各出现一次、且落在同一个 openStewardPanel 上。
 const menuSections = (await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-conversation.js')).href)).STEWARD_MENU_SECTIONS;
 ok(Array.isArray(menuSections) && JSON.stringify(menuSections) === JSON.stringify([
   ['stewardShell.menu.settings', ''],
-  ['stewardShell.menu.memory', 'memory'],
-  ['stewardShell.menu.decisions', 'decisions'],
-]), `E5 头像菜单在「细节」之后加三项，顺序固定（实测 ${JSON.stringify(menuSections)}）`);
+]), `E5 头像菜单在「细节」之后只剩「设置」一项（实测 ${JSON.stringify(menuSections)}）`);
+const pocketMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'rail-pocket.js')).href);
+const pocketItems = pocketMod.RAIL_POCKET_ITEMS;
+ok(Array.isArray(pocketItems) && pocketItems.length === 4
+  && pocketItems.map(item => item.id).join(',') === 'schedule,decisions,memory,doctor'
+  && pocketItems.map(item => item.panel).join(',') === 'schedule,decisions,memory,',
+  `E5b 口袋恰四项、顺序与 section 名固定（§2.3：定时任务／行动流水／记得的关于你／体检 · 用量；实测 ${JSON.stringify(pocketItems.map(i => [i.id, i.panel]))}）`);
+const settingsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'steward-settings.js'), 'utf8');
+ok(pocketItems.filter(item => item.panel).every(item => new RegExp(`\\n    ${item.panel}: 'cfgStewardGroup`).test(settingsSrc)),
+  'E5b2 口袋那三个 section 名在 steward-settings.js 的 PANEL_SECTIONS 表里各有一条落点（deep link 不是死链）');
+ok(pocketItems.every(item => typeof pocketMod.RAIL_POCKET_ITEMS === 'object' && zh[item.labelKey] && en[item.labelKey]),
+  'E5c 口袋四项的短词四份 locale 齐');
 ok(/openStewardPanel\(section\)/.test(conversation) && /openStewardPanel = null,/.test(conversation),
   'E6 对话模块只负责调用注入的 openStewardPanel（不认识设置页的任何 id）');
 ok(/openStewardPanel: section => settings\.openPanel\(section\),/.test(stewardShell),

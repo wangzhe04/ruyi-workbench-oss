@@ -55,6 +55,10 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 121-K6b：焦点栏那一件量的是「thread.live 帧 → DOM ≤100 ms」，那是一个【硬节拍】——
   // 与别的 Edge 抢 CPU 时量不准（同 live-full-text.browser 的理由）。
   'focus-rail.browser.e2e.js',
+  // 121-K7：口袋那一件有两段墙钟窗口 —— H 组 12 s 静置量「没人给 /api/scheduler/tasks 开第二条
+  // 节拍」，另加两台真服务 ＋ 两个无头 Edge（第二台跑全新 HOME 的向导）。与别的 Edge 抢 CPU 时
+  // 静置窗与全新 HOME 的首启探针都会被挤长，所以也排到并行功能桶之后单独跑。
+  'rail-pocket.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
@@ -80,6 +84,11 @@ const TIMEOUT_OVERRIDES = {
   // 开合模型菜单四轮、切视角四个来回、三档视口各量一遍并存三张截图,再点停止并读决策日志,
   // 实测单跑 ~150 s(并行桶之后独占跑)。豁免到 300 s。
   'workbench-thread-head.browser.e2e.js': 300000,
+  // 121-K7: 口袋件。一趟里起【两台】真服务与两个无头 Edge —— 第一台量口袋四项、四条 deep link、
+  // 「新」角标（要重载一次）、「接下来」（再重载一次）、12 s 静置窗、两档视口与两张截图；第二台
+  // 用【全新 HOME】走完七步向导（首启还要付 detectDesktopMcp 那几发 python 探针）。实测单跑
+  // ~210 s（并行桶之后独占跑）。豁免到 360 s。
+  'rail-pocket.browser.e2e.js': 360000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

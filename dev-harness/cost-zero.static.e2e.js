@@ -81,6 +81,9 @@ const FILES = [
   ['js/model-menu.js', read('js/model-menu.js')],
   // 121-K6b：焦点卡那一枚费用 pill 删掉之后，这一份也进扫描清单（§7.2「管家视角一律不印钱」）。
   ['js/steward-drawer.js', read('js/steward-drawer.js')],
+  // 121-K7：口袋（§2.3 末段）。「体检 · 用量」那一枚是【入口】—— §7.2 明写「不带金额」，钱在右栏
+  // 「用量」页签与体检页里。所以这一份从第一天起就在扫描清单里（不是先欠着再补）。
+  ['js/rail-pocket.js', read('js/rail-pocket.js')],
 ];
 
 let totalHits = 0;
@@ -90,7 +93,7 @@ for (const [name, content] of FILES) {
   ok(hits.length === 0,
     `A ${name} 零白名单外命中` + (hits.length ? `（实测 ${hits.length} 处：${hits.map(h => `L${h.line} "${h.text}"`).join(' | ')}）` : ''));
 }
-ok(totalHits === 0, `B 六个文件合计零白名单外命中（费用只在「用量」页签，管家视角/工作台线程头不印金额）`);
+ok(totalHits === 0, `B ${FILES.length} 个文件合计零白名单外命中（钱只在「用量」页签，管家视角/工作台线程头/口袋一律不印金额）`);
 
 // 反向验证的判据本身要能被拉红：往其中一个文件塞一句真的印钱的话，正则必须逮到、且不在白名单里。
 const poison = '本条待决预计花费 ¥12.50，请确认';

@@ -76,7 +76,35 @@ ok(/id="toolOutput" class="tool-output hidden"/.test(html), '③ raw tool output
 const doctor = between(html, '<div class="settings-tab" id="stab-doctor">', '<!-- ===== 高级 ===== -->');
 for (const id of ['storageSummary', 'metricsPanel', 'rawEvents', 'debugDownloadBtn'])
   ok(doctor.includes(`id="${id}"`), `④ #${id} 已迁入设置体检`);
-ok(/\.tool-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(3/.test(css), '④ 右栏六视图为稳定三列布局');
+// 121-K7 翻面重钉（34 号文 §13.13 K8 登记②「右栏『项目与进度』页签 1920 下折三行，布局归 K7」）。
+// 钉的事实从「是三列」换成「**折不到第三行**」—— §2.6「七页签不动」是前提，所以能改的只有列数：
+// 列数 N 必须让 ceil(这一档看得见的枚数 / N) ≤ 2。三列（前值）在专家档就是三行，当场红。
+//
+// **前值那条正则是假绿**（K7 实测，纪律 5 的又一个样本）：`/\.tool-tabs\s*\{/` 也是
+// `:root[data-ui-mode="simple"] .tool-pane .tool-tabs {` 的后缀，把基础档改成四列之后它照旧命中
+// 精简档那一条 repeat(3) 并 PASS。所以这里改成【按整条选择器逐字取规则】，不再用后缀正则。
+const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+function cssRuleBody(selector) {
+  for (const match of cssNoComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (match[1].trim() === selector) return match[2];
+  }
+  return '';
+}
+const columnsOf = selector => {
+  const hit = cssRuleBody(selector).match(/grid-template-columns:\s*repeat\((\d+)/);
+  return hit ? Number(hit[1]) : 0;
+};
+const tabIds = [...toolTabs.matchAll(/data-tab="([a-z-]+)"/g)].map(m => m[1]);
+// 精简档收起来的那几枚由 ui-modes.css 说了算（不在这里硬写一份名单）。
+const simpleHidden = new Set([...css.matchAll(/:root\[data-ui-mode="simple"\][^{},]*\.tool-tabs button\[data-tab="([a-z-]+)"\]/g)]
+  .map(m => m[1]).filter(id => tabIds.includes(id)));
+const proCols = columnsOf('.tool-tabs');
+const simpleCols = columnsOf(':root[data-ui-mode="simple"] .tool-pane .tool-tabs');
+const simpleVisible = tabIds.length - simpleHidden.size;
+ok(proCols >= 1 && Math.ceil(tabIds.length / proCols) <= 2,
+  `④ 右栏页签在专家档 ≤2 行（${tabIds.length} 枚 / ${proCols} 列 = ${proCols ? Math.ceil(tabIds.length / proCols) : '?'} 行）`);
+ok(simpleCols >= 1 && Math.ceil(simpleVisible / simpleCols) <= 2,
+  `④ 右栏页签在精简档 ≤2 行（看得见 ${simpleVisible} 枚 / ${simpleCols} 列 = ${simpleCols ? Math.ceil(simpleVisible / simpleCols) : '?'} 行）`);
 
 const composerActions = between(html, '<div class="composer-actions">', '</div>');
 ok(!/id="compactBtn"/.test(composerActions) && /id="compactBtn"/.test(html), '⑤ 压缩控件未回潮到 composer');

@@ -246,9 +246,12 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 
   /* ② 步骤定义 */
   const steps = mod.onboardingStepsFor({});
-  ok(steps.length === 6, 'B1 步骤定义恒为 6 步');
-  ok(steps.map(s => s.id).join(',') === 'language,engine,provider,workspace,safety,done',
-    'B2 步骤次序 = 语言/引擎/密钥/文件夹/安全档/完成');
+  // 121-K7 翻面重钉（34 号文 §8.4 拍板③与 §13.1 登记）：stewardEnabledV1 默认改 true 之后，
+  // 新装的第一天管家就在后台跑回合，那是要花钱的 —— 向导因此多一步「管家用哪个模型」，
+  // 插在 provider 之后（那一步刚把服务商配好）。七步、顺序固定，不是放宽旧契约。
+  ok(steps.length === 7, `B1 步骤定义恒为 7 步（实测 ${steps.length}）`);
+  ok(steps.map(s => s.id).join(',') === 'language,engine,provider,steward,workspace,safety,done',
+    `B2 步骤次序 = 语言/引擎/密钥/管家模型/文件夹/安全档/完成（实测 ${steps.map(s => s.id).join(',')}）`);
   ok(steps.every((s, i) => s.index === i && typeof s.titleKey === 'string' && s.titleKey.startsWith('onboarding.wizard.')),
     'B3 每步带 index 与 onboarding.wizard.* 文案键(117 管家可直接复用)');
   const doneSteps = mod.onboardingStepsFor({
@@ -344,7 +347,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   ok(fakeDoc.body.children.includes(backdrop), 'D3 模态已挂载到 document.body');
   ok(typeof backdrop.__cancel === 'function' && typeof backdrop.__close === 'function',
     'D4 backdrop 暴露 __cancel/__close(全局 Esc 处理器据此把 Esc 当「以后再说」)');
-  ok(findAll(backdrop, 'onboard-wiz-rail-item').length === 6, 'D5 步骤条 6 格');
+  ok(findAll(backdrop, 'onboard-wiz-rail-item').length === 7, 'D5 步骤条 7 格（121-K7 加了「管家用哪个模型」那一步）');
   ok(host1.domain.openOnboardingWizard() === backdrop, 'D6 已有向导打开时不叠第二个');
 
   // 语言步 -> 引擎步 -> 密钥步(跳过) -> 文件夹 -> 安全 -> 完成
@@ -361,7 +364,24 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   ok(findOne(backdrop, 'onboard-wiz-skipstep') !== null, 'D11 密钥步可跳过(无 key 也能走完向导)');
   findOne(backdrop, 'onboard-wiz-skipstep').onclick();
   await flush();
-  ok(findOne(backdrop, 'onboard-wiz-drop') !== null, 'D12 第 4 步是工作文件夹拖放/选择区');
+  // 121-K7：密钥步之后先是「管家用哪个模型」（两张卡 + 一个模型名框），再是文件夹。
+  const stewardCards = findAll(backdrop, 'onboard-wiz-card');
+  const findById = (node, id) => { let hit = null; const visit = n => { for (const c of n.children) { if (c.id === id) hit = c; visit(c); } }; visit(node); return hit; };
+  const stewardInput = findById(backdrop, 'onboardStewardModel');
+  ok(findOne(backdrop, 'onboard-wiz-steward') !== null && stewardCards.length === 2 && Boolean(stewardInput),
+    'D11b 第 4 步是「管家用哪个模型」（跟随主端点 / 另挑一个 两张卡 + 一个模型名框）');
+  stewardInput.value = 'cheap-model';
+  await stewardInput.onchange();
+  await flush();
+  ok(host1.state.config.stewardModel === 'cheap-model',
+    `D11c 填模型名即落 config.stewardModel（与设置·管家页同一个字段；实测 ${host1.state.config.stewardModel}）`);
+  await findAll(backdrop, 'onboard-wiz-card')[0].onclick();
+  await flush();
+  ok(host1.state.config.stewardModel === '',
+    `D11d 「跟随主端点」写空串（实测 ${JSON.stringify(host1.state.config.stewardModel)}）`);
+  findOne(backdrop, 'onboard-wiz-next').onclick();
+  await flush();
+  ok(findOne(backdrop, 'onboard-wiz-drop') !== null, 'D12 第 5 步是工作文件夹拖放/选择区');
   await findOne(backdrop, 'onboard-wiz-pick').onclick();
   await flush();
   ok(host1.state.config.defaultWorkspace === 'C:/chosen', 'D13 「选择文件夹」走注入的原生选择器');

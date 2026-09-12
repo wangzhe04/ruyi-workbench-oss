@@ -510,7 +510,22 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // = 690afbfd05b05e478cdf6c9431a732bce338c27e4e7e881ef26b27aa810a6126，与被替换的旧值【逐字相同】；
 // 再按本刀 CSS 全部落盘之后的 HEAD（`5a6c584`）算得下面这个值（两次都从 git blob 算，不从工作区算 ——
 // 32 号文 §4 纪律 4）。反向验证：往 tokens.css 把 --fs-base 改回 1rem → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = 'b9852892aae00ab8ffd348ccc928447960ab9cfeb4872f69077e75501cdde9b7';
+// 121-K7 续钉（前值 b9852892…）：本刀按 34 号文 §2.3 末段／§7.3／§13.13 K8 登记② 改了【四个既有层】，
+// **零新增、零删除层**（分组表一个字节没动，仍是 18 组 22 层）：
+//   ① `css/layout.css`：口袋那一族（.rail-pocket-item／-label／-n／-new：一行 = 字形 ＋ 短词 ＋
+//      计数／「新」；计数与组头那几枚同一档灰底小胶囊，「新」走鎏金），外加 ≤980 那一档里
+//      把三个文字节点收起、按钮改单列居中（§7.3「口袋成图标」）。
+//   ② `css/components/tool-pane.css`：右栏七枚页签 三列 → **四列**（§2.6「七页签不动」是前提，
+//      所以改的是列数不是枚数：ceil(7/4) = 两行），精简档 两列 → 三列（那一档收起「用量」「记录」
+//      两枚，剩五枚 ceil(5/3) = 两行），按钮的内边距与间隙各收 1px 给四列腾宽。
+//   ③ `css/views/steward-board.css`：焦点栏最底下的「接下来」一族（.steward-upnext*，§2.6 末条）。
+//   ④ `css/views/steward-settings.css`：设置·管家页新增「定时任务」只读表那一族（.steward-schedule*）。
+// 算法自证（同一条拦截法）：按 K8 收口后的 HEAD `9f0222d`（本刀开工时是 `984623c`，两处 CSS 逐字节
+// 相同，两个 ref 算出来的旧值一样）的 git blob ＋ 同一张
+// 分组表算 = b9852892aae00ab8ffd348ccc928447960ab9cfeb4872f69077e75501cdde9b7，与被替换的旧值
+// 【逐字相同】；再按本刀 CSS 全部落盘之后的 blob 算得下面这个值（两次都从 git blob 算，不从工作区
+// 算 —— 32 号文 §4 纪律 4）。反向验证：把 tool-tabs 的列数改回 3 → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = 'cc9fc48a0fe37aa618d0c3824575f62e568cba8d91b8353c7cef291d38e2b615';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 129(精确 112 / 前缀 12 / 正则 5),ROUTE_AUTH 117 条,生成于 2026-09-12T08:42:27.412Z。
+> 判定点 129(精确 112 / 前缀 12 / 正则 5),ROUTE_AUTH 117 条,生成于 2026-09-12T12:24:35.576Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -29,7 +29,7 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/bootstrap` | exact | open | 13-http-router.js:262 | context-compact-v2.e2e.js, dom-smoke.e2e.js, external-code-diff.e2e.js 等 12 件 |
-| GET | `/api/status` | exact | open | 13-http-router.js:268 | audit-w23.e2e.js, auth-deny-default.e2e.js, capabilities.e2e.js 等 33 件 |
+| GET | `/api/status` | exact | open | 13-http-router.js:268 | audit-w23.e2e.js, auth-deny-default.e2e.js, capabilities.e2e.js 等 34 件 |
 | GET | `/api/capabilities` | exact | open | 13-http-router.js:345 | capabilities.e2e.js, playbooks.e2e.js |
 | GET | `/api/playbooks` | exact | token-browser | 13-http-router.js:354 | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 4 件 |
 | POST | `/api/playbooks/draft` | exact | token | 13-http-router.js:361 | playbooks.e2e.js |
@@ -39,7 +39,7 @@
 | POST | `/api/pick-folder` | exact | token | 13-http-router.js:397 | workspace-resolve.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js:401 | overlay-update-gui.static.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js:405 | claude-models-cache.e2e.js, context-window.e2e.js, kimi-agent-cli.e2e.js 等 4 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js:433 | agent-team-mode.e2e.js, claude-models-cache.e2e.js, config-providers-guard.e2e.js 等 32 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js:433 | agent-team-mode.e2e.js, claude-models-cache.e2e.js, config-providers-guard.e2e.js 等 33 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js:448 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js:461 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js:476 | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 4 件 |
@@ -175,7 +175,7 @@
 | GET | `/api/steward/state` | exact | token self | 13g-steward.js:65 | mission-index-late-materialize.e2e.js, steward-deliverable.e2e.js, steward-events.static.e2e.js 等 8 件 |
 | GET | `/api/steward/inbox` | exact | token self | 13g-steward.js:77 | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-presence-gate.e2e.js 等 4 件 |
 | GET | `/api/steward/preroute` | exact | token self | 13g-steward.js:88 | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-preroute.e2e.js |
-| GET | `/api/steward/memory` | exact | token | 13g-steward.js:110 | steward-memory.e2e.js, steward-settings.e2e.js, steward-settings.static.e2e.js |
+| GET | `/api/steward/memory` | exact | token | 13g-steward.js:110 | rail-pocket.browser.e2e.js, steward-memory.e2e.js, steward-settings.e2e.js 等 4 件 |
 | GET | `/api/steward/memory/export` | exact | token | 13g-steward.js:116 | steward-memory.e2e.js, steward-settings.static.e2e.js |
 | POST | `/api/steward/memory/edit` | exact | token | 13g-steward.js:121 | steward-memory.e2e.js, steward-settings.static.e2e.js |
 | POST | `/api/steward/memory/veto` | exact | token | 13g-steward.js:127 | steward-memory.e2e.js, steward-settings.static.e2e.js |
