@@ -92,6 +92,10 @@ export function createStewardShellDomain({
   // 121-K5（§3.1）：2.0 模型弹层独有的三件全局事（思考／推理强度、删自定义模型、刷新与管理
   // 服务商），由组合根从 navigation-controls.js 递进来，挂在线程头那组 chip 的模型菜单尾部。
   modelMenuExtras = null,
+  // 121 走查1-⑤：线程头那组 chip 改完这条线程的档之后，经典壳那一侧还有一批读面要跟着重画
+  // （空态「当前引擎：…」、#statusLine 的 title、上下文电量、引擎相关的 composer 按钮）。
+  // 它们的重画口都在组合根，本文件只做转交（与 modelMenuExtras 同一条纪律：管家域不认识那些面）。
+  onSessionMetaChanged = () => {},
   // 117e：设置写口与「打开设置的某个页签」。前者是 provider-settings 既有的那一个（POST /api/config
   // 的唯一封装），后者让头像菜单三项与盾牌的二次确认能直达「管家」页签。
   saveConfigPartial = async () => false,
@@ -447,6 +451,7 @@ export function createStewardShellDomain({
   const threadHead = createThreadHead({
     api, state, t,
     modelMenuExtras,
+    onSessionMetaChanged,
     missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
     refreshRows: () => (boardHandle ? boardHandle.refreshBoard() : Promise.resolve(0)),
     presenceState: () => presenceApi.current(),

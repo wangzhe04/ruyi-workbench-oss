@@ -465,6 +465,9 @@ export function createQuickSwitchChips({
   //   appendTail(menu, { route, close }) -> void（强度选择器、刷新、管理服务商…）
   // 不注入就一件都不出现（抽屉与左栏看板密度维持原样）。
   modelMenuExtras = null,
+  // 121 走查1-⑤：回执写到哪儿由宿主说了算（见下面 note()）。不传就是原来那条路
+  // （写 #stewardDrawerNote，管家两处宿主用的就是它）。
+  noteSink = null,
 } = {}) {
   let sessionId = '';
   let session = null;
@@ -504,8 +507,14 @@ export function createQuickSwitchChips({
     if (releaseEscape) { releaseEscape(); releaseEscape = null; }
   }
 
+  // 121 走查1-⑤（用户 2026-09-13 走查第 5 条「在线程头切换引擎和模型似乎不直接生效」的一半）：
+  // 回执落在哪儿，是【宿主】的事。修前它写死 #stewardDrawerNote —— 那个节点住在管家视角的右栏
+  // （index.html 的 <aside>），工作台视角下整块 display:none，于是在线程头改完档【一个字的回执
+  // 都看不到】（真浏览器实测 walkthrough-round1.browser 的 F7：改完 .toast-tray 与任何可见处皆空）。
+  // 管家两处宿主（焦点卡、左栏行）仍是原来那条路，形状与文案一个字没改。
   function note(text) {
-    writeNote('stewardDrawerNote', text);
+    if (typeof noteSink === 'function') { try { return noteSink(text); } catch { /* 回执写不出去不该把改动打回去 */ } }
+    return writeNote('stewardDrawerNote', text);
   }
 
   // ── 唯一的写口：PATCH /api/sessions/:id ────────────────────────────────────────

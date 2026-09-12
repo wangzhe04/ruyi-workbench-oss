@@ -6,6 +6,10 @@ import { createQuickSwitchChips, doc, byId, el, clear } from './steward-chips.js
 import { stewardThreadHueFor, stewardThreadStateKey } from './steward-conversation.js';
 import { stewardThreadStateOf } from './steward-drawer.js';
 import { icon } from './icons.js';
+// 121 走查1-⑤：工作台里「改好了」这句回执的落点。管家两处宿主写 #stewardDrawerNote（那块面
+// 在工作台视角是 display:none 的），工作台这一侧走全站那一份 toast —— 与退役前 2.0 模型弹层
+// 的收尾（navigation-controls.js setEngineModel 末尾那一发 toast）是同一个位置、同一种材质。
+import { toast } from './util.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // thread-head.js — 工作台视角的线程头（121 波 K5，34 号文 §2.5／§3／§4.4）。
@@ -57,8 +61,35 @@ export function createThreadHead({
   // 121-K5（§3.1）：2.0 模型弹层独有的三件事（强度／删自定义模型／刷新与管理服务商）挂到
   // chips 模型菜单的尾部。实现住 navigation-controls.js（它们动的是全局配置），这里只转交。
   modelMenuExtras = null,
+  // 121 走查1-⑤（用户 2026-09-13 走查第 5 条）：这条线程的权限／模型／引擎【真的改了】之后，
+  // 经典壳那一侧还有一批读面在看 state.currentSession.engineRoute（空态「当前引擎：…」那一行、
+  // #statusLine 的 title、上下文电量、composer 的引擎相关按钮）。它们的重画口都在组合根，
+  // 所以这里只发一声，具体刷什么由组合根说（app.js 注入）。不传就是空操作。
+  onSessionMetaChanged = () => {},
 } = {}) {
-  const chips = createQuickSwitchChips({ api, t, state, modelMenuExtras, onChanged: () => render() });
+  // 121 走查1-⑤：PATCH 回来的那一份是这条线程【最新】的会话头，而组合根手里那份还是打开线程
+  // 时取的 —— 修前谁也没把它对上，于是「切了没生效」：后端与 chip 都是新的，中栏与状态行是旧的
+  // （真浏览器实测 walkthrough-round1.browser 的 F3/F5/F6）。退役前 2.0 那条路（navigation-controls.js
+  // 的 setEngineModel）本来就有这一步 `state.currentSession.engineRoute = engineRoute`，K5 把控件
+  // 换成 chips 工厂时漏了它。**只回填这一次真会改的两样**，不整份替换 —— 组合根手里那份带着
+  // messages 等现场，整份换会把它们冲掉。
+  function adoptSession(next) {
+    if (!next || !state) return null;
+    const current = state.currentSession;
+    if (!current || String(current.id || '') !== String(next.id || '')) return null;
+    if ('engineRoute' in next) current.engineRoute = next.engineRoute;
+    if ('permissionMode' in next) current.permissionMode = next.permissionMode;
+    return current;
+  }
+  const chips = createQuickSwitchChips({
+    api, t, state, modelMenuExtras,
+    noteSink: text => toast(text, 'ok'),
+    onChanged: session => {
+      adoptSession(session);
+      render();
+      try { onSessionMetaChanged(session); } catch { /* 宿主刷新失败不该把 chip 打回旧值 */ }
+    },
+  });
   // chip 已经绑在哪条会话上。只在【换了会话】时重喂 —— 在 chip 上改完档之后，chip 手里那一份是
   // PATCH 响应（最新），而 state.currentSession 还是打开会话时取的那一份；无条件回喂会把刚改好的
   // 值按回旧值（117g 踩过一次，判据原样搬过来）。

@@ -295,7 +295,11 @@ function renderStatusLine() {
   if (isProviderMode()) {
     const p = activeProviderObj();
     const label = (p && (p.label || p.id)) || t('status.currentProvider');
-    const model = (p && p.model) || currentModelId() || t('provider.defaultModel');
+    // 121 走查1-⑤：两个来源的次序修前反了 —— p.model 是【新线程的默认值】（全局 config），
+    // currentModelId() 才是【正在看的这条线程】真会用的那一个（currentConversationRoute() 先读
+    // state.currentSession.engineRoute）。次序反着写时，在线程头把这条线程切到别的模型，这一行的
+    // title 仍然报全局默认那一个（真浏览器实测 walkthrough-round1.browser 的 F6）。
+    const model = currentModelId() || (p && p.model) || t('provider.defaultModel');
     setStatus(t('status.connected'), 'ok');
     setStatusDetail(`${label} · ${model}`);
     return;

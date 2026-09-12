@@ -903,6 +903,16 @@ const stewardShellDomain = createStewardShellDomain({
   openSession, // 117d：左栏行点击＝把中栏换成那条线程
   openInWorkbench, // 121-K5：焦点栏／对话流交付卡／左栏行的「在工作台打开」（切视角＋openSession，一处实现）
   modelMenuExtras, // 121-K5（§3.1）：2.0 模型弹层独有的三件全局事，挂线程头那组 chip 的模型菜单尾部
+  // 121 走查1-⑤（用户 2026-09-13 走查第 5 条）：线程头那组 chip 改完【这条线程】的引擎／模型／权限
+  // 之后要刷的经典壳读面。退役前 2.0 的 setEngineModel 末尾跑的就是这三样（navigation-controls.js
+  // 的 onEngineConfigChanged / updateEngineDependentUI / updateContextMeter），K5 换控件时漏掉了 ——
+  // 于是空态那行「当前引擎：…」、#statusLine 的 title 与上下文电量都停在旧值上，看着就像「没生效」。
+  // 线程头那组 chip 自己已经在 thread-head.js 的 onChanged 里重画过，这里【不】再调 renderThreadHead。
+  onSessionMetaChanged: () => {
+    updateEngineDependentUI();
+    updateContextMeter();
+    if (state.status) renderStatusLine();
+  },
   searchState: () => sessionSearchSnapshot(), // 121-K4：左栏搜索（Ctrl+K）读 113b 的结果快照
   saveConfigPartial, openSettingsTab: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'steward', true); }, // 117e
   // 117s-C（走查⑦「输出要支持 markdown、制图」）：全仓唯一的 markdown＋XSS 净化路径（trusted innerHTML
