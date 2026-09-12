@@ -86,9 +86,11 @@ const TIMEOUT_OVERRIDES = {
   'workbench-thread-head.browser.e2e.js': 300000,
   // 121-K7: 口袋件。一趟里起【两台】真服务与两个无头 Edge —— 第一台量口袋四项、四条 deep link、
   // 「新」角标（要重载一次）、「接下来」（再重载一次）、12 s 静置窗、两档视口与两张截图；第二台
-  // 用【全新 HOME】走完七步向导（首启还要付 detectDesktopMcp 那几发 python 探针）。实测单跑
-  // ~210 s（并行桶之后独占跑）。豁免到 360 s。
-  'rail-pocket.browser.e2e.js': 360000,
+  // 用【全新 HOME】走完七步向导（首启还要付 detectDesktopMcp 那几发 python 探针）。24 核机器上
+  // 实测单跑 28 s、独占桶里 25 s —— 默认 120 s 本来就够。**豁免仍然要留**：老机器上全新 HOME 的
+  // 首启探针一发 ~1.7 s ×3（34 号文 §13.10／ia.e2e ⑦ 的 20 s 门就是为它放的），加上两台服务两个
+  // 浏览器与那 12 s 静置窗，默认值会贴边。300 s 是照 workbench-thread-head 那一档给的余量。
+  'rail-pocket.browser.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 
