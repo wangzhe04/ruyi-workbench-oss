@@ -491,7 +491,26 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（同一条拦截法）：按 HEAD（`84fee4b`）的 git blob ＋ 同一张分组表算 = f08cbe54…，
 // 与被替换的旧值【逐字相同】；再按工作树算得下面这个值。
 // 反向验证：往 steward-drawer.css 的 .steward-drawer-acting 改一个像素 → F3 与 D51 双红。
-const LEGACY_STYLES_SHA256 = '690afbfd05b05e478cdf6c9431a732bce338c27e4e7e881ef26b27aa810a6126';
+// 121-K8 续钉（前值 690afbfd…）：本刀按 34 号文 §2.10 改了【八个既有层】，**零新增、零删除层**
+// （分组表一个字节没动，仍是 18 组 22 层）：
+//   ① `css/tokens.css`：字阶 rem → 整像素五档 12/13/14/15/17（--fs-xl/--fs-2xl 降为 --fs-lg 别名），
+//      新增 :root[data-ui-mode="simple"] 的 +1px 覆盖块与三枚行高 token（§2.10.2）。
+//   ② `css/base.css`：按钮/单行输入框圆角 → 胶囊、.icon-btn → 圆钮，多行 textarea 例外走卡片圆角。
+//   ③ `css/layout.css`：品牌槽 24 见方 → 26×16，新增 .brand-cloud/.brand-pearl 两条上色（云头品牌标）。
+//   ④ `css/components/chat-composer.css`：.composer-box 两层方盒 → 一行胶囊（高 50、圆角 26），
+//      工具键改圆钮/小胶囊，.composer-hint 移出胶囊后改块级 + :empty 收高。
+//   ⑤ `css/views/steward-shell.css`：.steward-composer column → row wrap 的同款胶囊，
+//      focus-within 描边与光晕对齐 ④。
+//   ⑥ `css/views/steward-conversation.css`／`steward-drawer.css`／`steward-board.css`／`workbench.css`：
+//      组头去 uppercase/letter-spacing 改 12px 加粗次级墨色、发送圆钮 32→36、来源图形去鎏金/青花。
+//   ⑦ `css/views/chat-shell.css`：`.model-chip`／`.perm-*` 两族与模型菜单容器 `.mc-*` 一族整段删除
+//      （§13.8 K8 ①／§13.11 K8 ①，提交前逐族 git grep 证零生产者），`.mc-del` 拆掉够不着的祖先。
+//   ⑧ `css/components/tool-pane.css`：≤760 降级块里随 ⑦ 失去宿主的两条规则删除。
+// 算法自证（同一条拦截法）：按上一波收口提交 `5c129cd` 的 git blob ＋ 同一张分组表算
+// = 690afbfd05b05e478cdf6c9431a732bce338c27e4e7e881ef26b27aa810a6126，与被替换的旧值【逐字相同】；
+// 再按本刀 CSS 全部落盘之后的 HEAD（`5a6c584`）算得下面这个值（两次都从 git blob 算，不从工作区算 ——
+// 32 号文 §4 纪律 4）。反向验证：往 tokens.css 把 --fs-base 改回 1rem → F3 与 D51 双红。
+const LEGACY_STYLES_SHA256 = 'b9852892aae00ab8ffd348ccc928447960ab9cfeb4872f69077e75501cdde9b7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
