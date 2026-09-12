@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (第51波 51a-2 / 04 Phase D): 语义 loop-guard -- 结果指纹无进展判定。
 // 与 loop-guard.e2e(同签名连击)互补:后者抓"完全相同调用(name+rawArgs)";本件抓"换参数但结果无新信息"

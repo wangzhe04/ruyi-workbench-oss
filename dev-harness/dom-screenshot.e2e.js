@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // Wave 54 visual-regression gate v2: deterministic light/dark screenshots with a tolerant pixel-grid
 // baseline. Zero npm dependencies: Edge/Chrome captures PNG; this file decodes 8-bit RGB/RGBA PNG with
 // Node's zlib and compares a 12x8 perceptual grid. Use --update only when an intentional visual change has

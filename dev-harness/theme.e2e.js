@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E for v1.0-S1「青花主题重铸」: 纯静态校验如意 Ruyi 青花瓷设计令牌迁移。零依赖、离线、node 直跑。
 //
 // 只读解析 app/public/styles.css 与 index.html —— 不起服务、不触网。断言:

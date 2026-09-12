@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 /*
  * Covers the right-side Agent workflow live-progress UX contract (v1.4.6): a run launched from the UI
  * button / resume / CLI has NO chat stream (onEvent is a no-op), so polling /api/agent-runs is its only

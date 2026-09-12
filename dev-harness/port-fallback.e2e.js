@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: start workbench A on a port, then B on the SAME port. B must kill stale A and take over.
 // 第36波(v1.7) Phase 2: 无辜旁观者防护 —— 一个【非工作台】的普通 node HTTP 服务占着端口时,
 // 新 boot 的工作台不得 taskkill 它(旧 image:node 分支会误杀任何 node.exe,违背 "never clobber

@@ -1,4 +1,5 @@
-﻿// E2E for v0.7a §5.1 message source fields. Two independent workbench instances (fresh HOME each):
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+// E2E for v0.7a §5.1 message source fields. Two independent workbench instances (fresh HOME each):
 //   (A) provider mode (fake-openai) — assert the persisted assistant message carries
 //       engine==='openai', providerId==='fake', and a non-empty model.
 //   (B) claude mode (WCW_FAKE_CLAUDE -> workbench's own tools/fake-claude.js, activeProvider empty) —

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 105j: 摘要调用策略回归。
 // [U] 已知 DeepSeek V4 选择实测锚定的 reasoning/output 候选;未知端点零控制字段。
 // [A] fake 端点拒绝参数时只兼容重试一次;命中 finish_reason=length 时只升一档,不放大到无限输出。

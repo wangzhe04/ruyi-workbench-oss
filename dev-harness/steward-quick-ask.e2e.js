@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 'use strict';
 // E2E(第 116 波 116-2e · 27 号文 §11.1 第 2 项「自答边界与速查线程」):速查线程的全生命周期。

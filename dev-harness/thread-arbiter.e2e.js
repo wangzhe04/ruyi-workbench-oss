@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E:第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「多线程看板与注意力预算」)—— 线程间仲裁。
 // 真服务(两个工作台进程)+ fake-openai 慢响应(每个回合固定 ~700ms),黑盒只经 HTTP 断言。
 //

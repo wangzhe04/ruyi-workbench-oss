@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (P1: cmd8191 根治 — npm shim → 真身 claude.exe 解析): claude.cmd 只是转发 shim,经 cmd.exe
 // 启动有 8191 字符整行硬上限(技能索引事故根因);resolveClaudeLauncher 把可解析的 npm shim 换成
 // 同目录 node_modules/@anthropic-ai/claude-code/bin/claude.exe,直启走 CreateProcess(32767)。

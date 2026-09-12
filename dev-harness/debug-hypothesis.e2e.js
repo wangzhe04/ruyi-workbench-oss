@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (M5 候选 D 波 #2): debug_hypothesis 假设/实验/证伪确定性状态机。
 // 纯函数驱动,require server.js 直调 toolCall(同 tool-dispatch B 段模式),无 provider/无网络。

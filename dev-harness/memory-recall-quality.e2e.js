@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 
 // 113a: 记忆召回质量门。离线、无服务端、无网络 —— 直接把 06h 的检索原语与 06d 的两条排序路径
 // 用 vm 抠出来跑,对同一批合成记忆做词法 vs 融合的 Recall@3 对照。

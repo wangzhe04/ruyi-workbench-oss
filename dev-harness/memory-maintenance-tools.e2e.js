@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 主回合记忆维护工具 e2e：workbench_memory_relation_propose / workbench_memory_revise / workbench_memory_relation_revoke。
 // 覆盖：提议(kind / 校验 / 单槽先到者胜) + apply(memory_revise 覆盖保留 id/createdAt、relation_propose 写 confirmed 边、
 // relation_revoke 删边)。纯函数/无网络，对齐 memory-graph-relations 模式。

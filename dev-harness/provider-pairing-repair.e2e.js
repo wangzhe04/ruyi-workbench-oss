@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: 配对铁律自愈(用户线上事故回归:DeepSeek HTTP 400 "insufficient tool messages following
 // tool_calls",会话永久卡死)。事故形状 = 持久化 providerHistory 里 assistant.tool_calls 有未应答 id
 // (进程在工具块中途被杀/崩溃,abort 路径的 skip 填充来不及跑);下一回合 runOpenAiTurn 无条件 push

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 
 // 第117波 117h 真实浏览器 E2E（27 号文 §5 117h 行 / §8.10「多线程看板与注意力预算」/ §8.2 L1）。
 // 造两个事项：M 下挂两条线程（A 停在 question 待决＝等你，B 的回合一直挂着＝在跑，两条各自的工作
@@ -1204,7 +1205,15 @@ try {
   const nowRowH = rowOf(stacked, idH);
   ok(nowRowH && nowRowH.tone === 'attention' && nowRowH.hasSay === true && nowRowH.say.length > 0 && nowRowH.hasAnswer === true,
     `S5 等你的那条多一行「它在问你」（行上 asksYou.text，06i 单点算出）并给出就地回答口（实测「${nowRowH && nowRowH.say}」answer=${nowRowH && nowRowH.hasAnswer}）`);
-  const nowRowI = rowOf(stacked, idI);
+  let nowRowI = rowOf(stacked, idI);
+  // 主会话复核（34 号文 §13.13）：matchOrder 只等到「I 进了栏且 tone 在途」就放行，而 I 的药丸从
+  // 「交办中」（dispatching）翻到「在跑」比进栏晚一拍——串行三跑一红两绿。对药丸单独再等一拍到
+  // 五秒（有判据的等，与 steward-drawer H1 同一模具），拍数用尽仍不是「在跑」才红。
+  for (let attempt = 0; attempt < 25 && !(nowRowI && nowRowI.pill === zh['mission.state.running']); attempt++) {
+    await sleep(200);
+    const again = await cdp.evaluate(NOW).catch(() => null);
+    nowRowI = rowOf(again, idI) || nowRowI;
+  }
   ok(nowRowI && nowRowI.tone === 'active' && nowRowI.pill === zh['mission.state.running'],
     `S5b 在跑的那条是展开档（tone=active）且状态药丸说的是五态人话（实测 tone=${nowRowI && nowRowI.tone}「${nowRowI && nowRowI.pill}」）`);
   // F5a（§11.13.1「F 追加」）：五态各【一枚】图标进状态药丸。三条行此刻分别是已收工／等你／在跑，

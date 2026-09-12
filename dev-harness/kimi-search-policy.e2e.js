@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 
 // Offline contract tests for the 05c Kimi native-search classifier. The fragment is loaded in a VM with
 // controlled guard/path helpers, so these tests do not start Ruyi/Kimi, do not spawn an attack command, and

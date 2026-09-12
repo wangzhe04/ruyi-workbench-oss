@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (v0.8-S1): tool suite v2 — file_read line mode, binary refusal, glob, grep v2 (context/group),
 // grep backward-compat, file_edit `closest`; (v0.8-S2fix F2) file_search pattern normalization:
 // PCRE inline-flag prefix stripped, invalid regex → literal-text fallback + patternNote.

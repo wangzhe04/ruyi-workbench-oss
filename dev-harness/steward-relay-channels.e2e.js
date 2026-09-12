@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E(第 117 波 117l-A1 · 27 号文 §11.9 D2/D3/D7 + liveTail/asksYou):
 // 「递话按目标状态选通道」的四条路 + 用户撞用户真串行 + 新线程模型分档 + liveTail/asksYou。
 //

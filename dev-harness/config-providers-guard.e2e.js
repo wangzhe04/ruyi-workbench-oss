@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 2026-09-06 事故回归锁：用户的五个 Provider（含密钥）被一次整份 POST /api/config 写成 providers: [] 清空。
 // 两道保险：
 //   ① 服务端（13-http-router applyConfigPatch）：现值有 Provider、来件把它清成空数组时，先把当前 config

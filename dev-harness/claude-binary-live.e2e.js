@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // ─────────────────────────────────────────────────────────────────────────────
 // claude-binary-live.e2e.js — 第42b波:真实 claude 二进制冒烟(LIVE,手工跑,不进全量套件)
 //

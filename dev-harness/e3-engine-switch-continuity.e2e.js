@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (E3): dual-engine continuity. The Claude CLI's native transcript (reached via --resume) only holds
 // Claude turns. When the user runs Provider (OpenAI-compat) turns AFTER a Claude turn and then switches back to

@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: 第28波「上下文与产物治理」(AUTONOMY-PLAN §28)。无端口(纯源抽取 + 静态锁,离线 Node 直跑)。
 // 覆盖:§28c 预算化上游上下文 buildUpstreamContext(取代 12000/32000 定长,两站点)· §28b 节点输出四分 deriveNodeOutputs ·
 //       §28a 子代理两级压缩 maybeCompactSubHistory(关键:const 原地 splice + 钉住 task[0] + L1/L2 分级)· §28d degradedPolicy(4 归一 + 翻译接缝)。

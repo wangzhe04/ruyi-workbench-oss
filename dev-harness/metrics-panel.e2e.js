@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (第40波): /api/metrics 性能观测面。
 //   (U) 单元(require server.js,临时 RUYI_HOME):
 //       ① normalizeMetricsPath id 归一化;  ② recordRequestMetric 分桶/环形封顶;

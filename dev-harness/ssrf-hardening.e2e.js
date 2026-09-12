@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (v0.9 F1/F2): SSRF hardening — IPv4-mapped/compatible IPv6 literals + NAT64 must be BLOCKED; public
 // mappings ALLOWED; the pre-existing SSRF allow/deny list must NOT regress. Pure-function direct test against
 // the EXPORTED ssrfCheck / embeddedIpv4FromV6 / isPrivateIpv4 — deterministic, no network. Ports 9018-9019 are

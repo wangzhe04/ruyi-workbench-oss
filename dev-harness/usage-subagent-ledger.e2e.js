@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (v1.4-OSS 用量看板「补」): Agent 工作流子代理(sub-agent)消耗入月度用量账本 usage/YYYY-MM.jsonl。
 // Before this fix only top-level CHAT turns were metered; a DAG workflow / spawn_agent sub-agent's tokens

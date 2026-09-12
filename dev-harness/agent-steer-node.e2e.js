@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 /*
  * E2E (v1 定向插话 / steer to a specific running sub-agent node). A LIVE persisted DAG workflow lets the user
  * inject a one-off instruction into ONE running/queued OpenAI-engine node; runSubAgentCore drains it at its

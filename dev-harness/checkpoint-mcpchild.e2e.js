@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (v0.8-S4a): checkpoint journal written from the MCP CHILD (Claude-engine path). The one-shot MCP
 // child does NOT write session files, but it MAY write the checkpoints dir (independent of session files,

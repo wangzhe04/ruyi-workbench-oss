@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E for v1.0-S4「git 工具族 + diff 查看器」。零依赖、离线、node 直跑;端口取空闲段(free-port)。
 // 风格参考 ia.e2e.js / tools-v2.e2e.js:临时 HOME 起 workbench,直击 POST /api/tools/<name>(token 门)。
 //

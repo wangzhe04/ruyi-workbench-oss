@@ -1,4 +1,5 @@
-﻿// 第23波审计回归锁 —— 八镜头审计确认的 3 P1 + 6 S级P2 修复的行为/契约锁。
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+// 第23波审计回归锁 —— 八镜头审计确认的 3 P1 + 6 S级P2 修复的行为/契约锁。
 // 混合三层: (A) 单元 require(server.js) 直调导出函数; (B) 源抽取 + new Function 实跑未导出逻辑; (C) 起真服务打 HTTP。
 //
 //  P1 #1 GET 鉴权(rebinding): 敏感内容型 GET(/api/sessions、/:id、/api/skills)对【浏览器调用方】补 UI token,

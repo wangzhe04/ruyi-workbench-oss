@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // LIVE-ish E2E (fully OFFLINE): real workbench (runOpenAiTurn) -> LOCAL fake Responses-API endpoint.
 // Proves the v1.7 Responses-API protocol path end-to-end WITHOUT a real key:
 //   * provider apiStyle:'responses' → engine POSTs /v1/responses with {instructions, input, tools};

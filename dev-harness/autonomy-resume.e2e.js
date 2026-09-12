@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E: 第29波「监控与运营 §29b 自动恢复分级」(AUTONOMY-PLAN §29)。端口 WB 9121(已登记,同端口串行多次 boot)。
 // [P] 纯逻辑源抽取 classifyNodeResumeRisk / classifyRunResumeTier(注入 NODE_WRITE_FAMILY):tier×证据×gate×wait×权限面 穷举。

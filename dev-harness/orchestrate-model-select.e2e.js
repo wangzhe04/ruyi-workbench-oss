@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E: 第30波「AI 自主编排按难度选模型」(含对抗轮修订)。端口 WB 9122(已登记)。
 // [S] 静态锁:config 键 + 三写入点/spawn/池 用 resolveNodeModel + propose_task model 通道 + 两引擎注入 buildModelHint

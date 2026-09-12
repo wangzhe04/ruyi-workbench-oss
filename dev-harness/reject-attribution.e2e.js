@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E for v0.9-S0 400 归因收紧 (§0.9-S0): openAiStreamOnce must attribute a tools-bearing 400 to
 // tools-rejected FIRST — even when the error wording ALSO matches the stream_options sniff
 // (/not\s*support/i etc.). The v0.8 收官遗留 bug: a provider that said "tools are not supported here"

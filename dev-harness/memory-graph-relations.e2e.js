@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // R4 Local Memory Graph e2e (docs/optimization-plan/15-r4-memory-graph.md)。
 // 纯函数驱动,确定性无网络(对齐 evidence-claims-m4-benchmark 模式)。覆盖验收 §7 七条 + 对抗边界:
 //   (1) confirmed contradicts 双向标记且两条都注入;

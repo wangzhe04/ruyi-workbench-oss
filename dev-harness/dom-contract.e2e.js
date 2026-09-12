@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // dev-harness/dom-contract.e2e.js — 前端 DOM / 函数契约护栏(v1.3-FE1 前端模块化 Phase 1)。
 //
 // 零依赖、离线、node 直跑。纯静态:只读 index.html 与聚合前端源码(public/app.js +

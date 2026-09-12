@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (第116波 116c-0 · 27 号文 §1/§3.5): 会话回合核心 runSessionTurn 与 HTTP 壳 streamChat 的等价性。
 // 背景:streamChat 原来既是 HTTP 处理器又是回合执行器;管家(116c)与定时任务(119)要在不经 HTTP 的前提下、
 // 自带 sink 地在任意会话上发起一个完整回合。本件把「HTTP 路径」与「进程内核心路径」跑同一条消息,断言两者

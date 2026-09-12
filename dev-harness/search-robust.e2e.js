@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E for v0.8-S2fix F2 (live-model finding): file_search must survive LLM regex habits.
 // A real DeepSeek run passed `(?i)pass` (PCRE inline flag) and the old `new RegExp` threw

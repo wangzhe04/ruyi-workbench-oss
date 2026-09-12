@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 第21波(多agent对抗性验证轮)修复回归锁:
 //  D-P1  结构化候选提取——完整合法的 fail 裁决不得被解析成 findings 子对象翻成 pass(包含过滤);
 //        截断输出不得降级取内层子块(截断护栏,诚实 PARSE_FAIL 交 provider 修复层)。

@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: 第27f波「权限超时→存档暂停」(AUTONOMY-PLAN §27 §6 / 红队 R2-R4)。无端口(源抽取 + 静态锁,离线 Node 直跑)。
 // [P] 源抽取 requestNativePermission 实跑两段定时:无 pause→基础超时 deny;pause→基础超时发 permission_paused+onPause+延长到 TTL→回落 deny;
 //     窗口内经 /api/permission/decision(直接 resolve entry)→按决定返回。

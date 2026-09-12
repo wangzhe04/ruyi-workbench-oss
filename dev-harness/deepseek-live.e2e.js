@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // LIVE E2E: real workbench (runOpenAiTurn) -> real DeepSeek API. Key via argv; temp config wiped after.
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');

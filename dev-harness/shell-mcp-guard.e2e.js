@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (v0.8-S2): the MCP-child guard. The Claude CLI engine runs workbench tools in a one-shot
 // `node app/server.js mcp` subprocess; a shell session's state cannot survive there, so the 5 shell_*
 // tools must (a) still be LISTED (so the CLI-side model can see them + their guiding description) but

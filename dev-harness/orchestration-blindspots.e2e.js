@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 /*
  * E2E (第46波46e): 编排盲区补测四联 —— 封版前把 roadmap §37.1 点名的四个编排盲区一次钉死。
  *

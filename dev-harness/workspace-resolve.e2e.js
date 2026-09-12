@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 const { getFreePort } = require('./free-port.js');
 // E2E for v0.9-S3 (C3 / §0.9-S3): 文件树 + 工作文件夹 + 文件夹拖拽设工作区(指纹定位).

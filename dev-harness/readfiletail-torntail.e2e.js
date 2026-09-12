@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E(117q-B6 · 30 号文 P2-10/P2-11):尾窗读原语 readFileTail + 撕裂尾修复 repairMissionChangeTornTail
 // 的字节级行为断言。不经 HTTP —— 直接 require server.js 拿导出的内部函数,可控地造真撕裂尾文件。
 //

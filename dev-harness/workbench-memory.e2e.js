@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 ﻿// E2E (v2 跨会话记忆 · 团队模式 v2 Phase 3, 设计稿 C0-C5): file-backed memory library + draft-confirm write +
 // fenced progressive injection. Fully offline. Stands up a fake OpenAI provider (request-body capture +

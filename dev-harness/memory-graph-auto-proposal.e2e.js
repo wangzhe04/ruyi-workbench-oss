@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // R4-S2 e2e (docs/optimization-plan/15-r4-memory-graph.md §9): 模型自动提议接线 + evidenceRef 内存内校验。
 // 纯函数驱动,确定性无网络(对齐 m4-benchmark 模式)。覆盖:
 //   (1) extractMemoryRelationProposals:合法提取 + 对抗过滤(非法 type/自环/坏 id/超 maxItems);

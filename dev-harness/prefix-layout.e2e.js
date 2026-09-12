@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // ─────────────────────────────────────────────────────────────────────────────
 // prefix-layout.e2e.js — 106 #1 前缀缓存布局修复(21-E4 §7.1/§7.2/§7.3)
 //

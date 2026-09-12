@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (第35波 P2 索引去重注入): Claude 引擎的「稳定索引段」(技能/记忆/编排提示)不再每轮塞进
 // --append-system-prompt,而是经 stdin <workbench-context> 块一次性注入,按内容 hash 去重:
 //   (A) 首轮: 索引经 stdin 注入(meta.indexInjected=true,带 hash);--append-system-prompt 不含技能索引。

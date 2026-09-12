@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E(第 117 波 117m-A5 · 27 号文 §11.10):「看全文」要真的看得到东西 —— 在途回合的正文。
 //
 // 用户第六轮走查①「现在点开线程的看全文,还是啥也看不到」。根因不是渲染,是【数据根本不在盘上】:

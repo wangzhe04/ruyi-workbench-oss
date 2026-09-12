@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (第51波 51b / 02 Phase B): between-tools steer 中断(配对安全)。
 // FAKE_PARALLEL_TOOLS=3 file_read(一个 assistant 消息 3 tool_call)+ STREAM_DELAY=150 拉长流窗口,

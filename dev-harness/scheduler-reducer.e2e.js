@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: 第26波c —— 调度核心纯 reducer computeSchedulerStep 组合单测。
 // 源抽取 + new Function 实跑(无需起服务,纯函数),穷举 retry×loop×gate×pause×crash×inflight 组合,
 // 锁死 26a 三铁律 + block/skip/condition/并发/依赖门语义。技术同 audit-w23 的源抽取范式。

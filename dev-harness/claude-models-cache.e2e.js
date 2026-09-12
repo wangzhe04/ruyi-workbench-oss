@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E: 第44波「Claude 模型列表 API 化 + 代理发现缓存 + 自定义模型可删」。
 // fake Anthropic 兼容代理(GET /v1/models)→ workbench(claude 引擎,modelsApiBase 指向 fake):

@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 2026-09-06 对抗审查 P0-2 回归锁：readConfig 此前把「任何读失败」当「全新安装」并立刻把默认配置写回磁盘——
 // 一次背景 GET /api/status 撞上文件被外部写坏/短暂锁住，用户的密钥/服务商/工作区就被静默冲成默认值。
 // 现在：文件确实不存在且无 .prev → 才是全新安装；JSON 损坏 → 先从 config.json.prev 恢复，没有就【降级】

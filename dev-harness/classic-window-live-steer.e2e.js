@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 
 // 真实浏览器 E2E(第 117 波 117s-G · 27 号文 §11.13.1 ②):
 // **管家开的线程正在跑的时候,在【工作台视角】里说话不许把那个回合杀掉。**

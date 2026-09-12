@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // M4 单轴消融回测 (13-r1-evidence-graph.md §7 / 12 文档红线4): Evidence Catalog claim 校验。
 // 纯函数驱动,确定性无网络。C1 硬化后证据可见性按【依赖闭包】:gate 只能引用其上游依赖节点产出的证据
 // (不能引用自己的工具结果 —— 节点自身收尾后才入图,引用自己有时序问题)。

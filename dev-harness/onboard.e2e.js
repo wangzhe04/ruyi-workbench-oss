@@ -1,4 +1,5 @@
-﻿// E2E for v1.0-S3「新手起步与设置补全」: 首跑引导 + 设置补全（联网搜索 / provider vision）+ 小白安全默认。
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+// E2E for v1.0-S3「新手起步与设置补全」: 首跑引导 + 设置补全（联网搜索 / provider vision）+ 小白安全默认。
 // 零依赖、离线、node 直跑。静态断言读 index.html/styles.css/app.js；动态断言起临时 HOME 的 workbench。
 //
 // 静态断言（读源文件）:

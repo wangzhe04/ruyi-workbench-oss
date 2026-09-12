@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // ─────────────────────────────────────────────────────────────────────────────
 // summary-fact-table.e2e.js — 105g(4.3 首项) map-reduce 全局事实表
 //   (runtimeSummaryFactTableV1,真实 history-24 配对 A/B 门通过后默认开)

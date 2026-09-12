@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (v1.9 第二波): 会话存储 v2(head JSON + append-only NDJSON 正文)+ 引擎转录 GC。
 // 三层:
 //   (A) 会话存储 v2(require server.js,临时 RUYI_HOME):

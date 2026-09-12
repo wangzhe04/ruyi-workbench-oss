@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (第41波 41b): 表驱动工具注册表的「guard 声明化」行为锁 + 分发行为直测。
 // 不靠 grep 源码形状 —— 直接 require server.js 内省 TOOL_HANDLERS 注册表(模块拆分/重排后依然有效,

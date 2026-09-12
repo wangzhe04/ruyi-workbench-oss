@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (第117波117q-B5,30号文§3 总表 P2-18): Claude 引擎两条路径此前从不写 cachedInTok —— 05-claude-engine.js
 // 的两处主回合 appendUsageLedger(:943/:952 附近)与 07-autonomy.js 的 Claude 子代理 appendUsageLedger
 // 都没传这个字段,用量看板「缓存输入 tokens」那一栏对 Claude 会话恒为空(06-provider-engine.js/08/09 走

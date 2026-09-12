@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 const fs=require('fs'),os=require('os'),path=require('path'),http=require('http'),cp=require('child_process');
 const WB=path.resolve(__dirname,'..','ruyi-workbench'),HOME=path.join(os.tmpdir(),'ruyi-multi-session-parallel'),FP=9080,WP=9081;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let failures=0;const ok=(v,l)=>{if(v)console.log('PASS '+l);else{failures++;console.error('FAIL '+l);}};

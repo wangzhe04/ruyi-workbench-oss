@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (v0.8-S2): persistent shell sessions on the native provider engine. Offline; drives the workbench
 // via the fake OpenAI server (FAKE_TOOL_SEQUENCE) for the in-turn tool loop, then hits the token-gated

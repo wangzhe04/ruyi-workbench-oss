@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E: OpenAI 兼容 provider 的自定义请求头 (extraHeaders)。
 // 后端 sanitizeProvider 已支持 extraHeaders;本轮补齐前端编辑入口 + 敏感头掩码(与 apiKey 同纪律)。
 // 这里只测纯函数掩码往返(确定性,无网络):敏感头下发掩码、保存时还原、非敏感头明文往返、用户改值直通。

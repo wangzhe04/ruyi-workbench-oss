@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (v0.8-S7): loop detection on the provider engine (fake-openai, offline). §4 A3 / §6 0.8-S7.
 // v2.6: 同签名连击 abort 现只对有副作用工具生效(file_write=edit tier)。read tier 只 warn 不 abort,

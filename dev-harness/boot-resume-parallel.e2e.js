@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (第40波): boot 中断恢复并发化 + syncRunEventSeq 尾窗化。
 //   (U) 单元(require server.js,临时 RUYI_HOME):
 //       ① mapPool 结果保序+全执行;  ② mapPool 真并发(1 < maxInFlight ≤ limit);

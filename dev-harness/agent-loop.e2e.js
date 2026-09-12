@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (v0.8-S1): agent loop over the new fake modes.
 //  Part 1 (FAKE_TOOL_SEQUENCE): three DIFFERENT tools in order (file_write -> file_read -> file_search).
 //    Asserts 3 tool_use events appear in that order, all 3 tool_result are ok, the terminal usage event

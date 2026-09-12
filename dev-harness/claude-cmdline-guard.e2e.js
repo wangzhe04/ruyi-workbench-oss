@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // E2E (cmd8191 防线): 技能索引/角色定义把 Claude CLI 命令行顶过 cmd.exe 8191 字符上限 → 「命令行太长。」
 // 事故的回归测试。三层:
 //   (A) 单元(require server.js): spawnCmdLineLength 与 batchSafeSpawn 的真实构造【严格同构】;cmdLineBudgetFor

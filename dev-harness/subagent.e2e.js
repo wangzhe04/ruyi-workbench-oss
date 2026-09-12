@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (v0.9-S6): 子代理 spawn_agent — 主回合内派子回合执行子任务,provider 引擎,离线 via fake-openai.
 // Ports 9009 (fake-openai) + 9010 (workbench). §0.9-S6 / 总纲 §4 A5 · §8 D4.

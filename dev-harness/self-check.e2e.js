@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (O3 hb360): 产物类任务完成前自检。fake-openai 跑 file_write -> 声明完成 -> O3 注入自检 user ->
 // 自检轮再次回复完成 -> selfCheckDone 阻断无限循环 -> 回合结束。断言 self_check 事件触发 + 文件真写入。
