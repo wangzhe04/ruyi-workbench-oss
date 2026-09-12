@@ -33,7 +33,22 @@
   --right-w: 392px;
 }
 .app-frame.rail-board .app-body { --rail-w: var(--rail-board-w); }
-.app-topbar { grid-row: 1; }
+/* 121 走查1-①（用户 2026-09-13 走查第 1 条）：顶栏整条【抬到 .app-body 之上】。
+   修前 .app-topbar 是 position:static、z-index:auto 的栅格项，只靠 `view-transition-name: titlebar`
+   （见本文件末 §2.9 那一段）成了一个 z-index:auto 的层叠上下文 —— 于是顶栏里那两块就地浮层
+   （#stewardShieldMenu z:20、#appGearMenu z:50）的层级【被关在顶栏自己这一层里】，而 .app-body
+   在 DOM 里排在顶栏后面、同为 0 层，后来者赢：管家视角被 #stewardDrawerTabs／#stewardStage 盖住，
+   工作台视角被 #toolPane／.pane-section-head 盖住（真浏览器 elementFromPoint 实测，
+   dev-harness/walkthrough-round1.browser.e2e.js 的 B1/B2/B3）。
+   取值 42 的理由 —— 它要压得住 .app-body 里【最高】那一层，又不许压住任何模态与浮层：
+     30  ≤1180 档右栏滑出层（本文件下面那条容器查询）／.tools-fullscreen 的 tool-pane／.steward-drawer
+     40  #quietCardHost（安静卡；它在右下角，与顶栏不重叠，抬过它无副作用）
+     ——— 42（顶栏）———
+     44  .drawer-backdrop（窄屏抽屉遮罩，tool-pane.css）
+     46  .right-resize-handle（贴在右栏左缘的 8px 命中带，与顶栏右端的菜单横向不相交）
+     50  .modal-backdrop（tool-pane.css）    55  .popover（chat-shell.css）    60  .toast-tray
+   判据钉在 walkthrough-round1.browser 的 B4（31 ≤ z < 44 且定位非 static）。 */
+.app-topbar { grid-row: 1; position: relative; z-index: 42; }
 .app-body {
   grid-row: 2;
   display: grid;
