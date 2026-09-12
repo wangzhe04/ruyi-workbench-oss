@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 /*
  * E2E (团队模式 v2 Phase 1+2：共享任务池 propose_task + Agent 邮箱 send_to_agent)。验收 = 设计稿 A5 + B4，逐条断言。
  *

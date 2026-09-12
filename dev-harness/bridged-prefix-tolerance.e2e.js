@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E (v1.4.1): 桥接工具「前缀容错路由」。部分 provider 模型(实测 qwen)会丢掉 `<serverId>__` 前缀,
 // 直接调裸名 `excel_read` —— 旧代码命不中 bridgedRoute → 内建兜底报「Unknown tool: excel_read」。
 // resolveBridge 宽容解析:精确前缀优先 / 内建名不被遮蔽 / 裸名唯一命中桥接则路由 / 歧义不猜。

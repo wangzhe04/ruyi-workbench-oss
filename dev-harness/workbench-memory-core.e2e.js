@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // Workbench Memory is the sole model-facing memory surface: ACC import, native tools, and prompt wiring.
 const fs = require('fs');
 const os = require('os');

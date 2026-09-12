@@ -1,4 +1,5 @@
-﻿// E2E (v0.8-S0): bridged-tool permission tiering under permissionMode 'default'.
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
+// E2E (v0.8-S0): bridged-tool permission tiering under permissionMode 'default'.
 //   Segment A: a READ-tier bridged tool (fake__screenshot_full — matches BRIDGED_TOOL_TIERS' read rule)
 //     must auto-allow: NO permission_request event, tool_result ok.
 //   Segment B: an EXEC-tier bridged tool (fake__echo) must prompt: a permission_request IS emitted;

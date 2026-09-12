@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // Kimi Code Agent CLI adapter contract: config selection, npm-shim escape hatch, native JSONL parsing,
 // and settings surface. This test is credential-free and does not invoke the real Kimi service.
 'use strict';

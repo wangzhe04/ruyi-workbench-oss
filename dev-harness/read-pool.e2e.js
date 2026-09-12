@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: 21-E2a bounded read worker pool. Drives a REAL workbench turn against the offline fake provider.
 //  - switch ON + 12 pure reads  -> strategy=pool_read, maxConcurrency=8, pairing closed
 //  - switch OFF + 12 pure reads -> strategy=serial (>8 falls back to serial, legacy behavior)

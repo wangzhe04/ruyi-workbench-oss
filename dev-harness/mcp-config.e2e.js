@@ -1,4 +1,5 @@
-﻿// E2E (v0.7d line 1): the generated .mcp.json for the Claude CLI must include the desktop MCP server
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
+// E2E (v0.7d line 1): the generated .mcp.json for the Claude CLI must include the desktop MCP server
 // `ai-computer-control` when desktopMcp.enabled with an explicit command; and must OMIT it (back-compat:
 // identical to pre-0.7d) when disabled. We drive it via a temp HOME + GET /api/status, and also read
 // the generated config file on disk.

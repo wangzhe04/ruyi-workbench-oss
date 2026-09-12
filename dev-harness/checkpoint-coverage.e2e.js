@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E for v1.2-B —— checkpoint 全覆盖审计(机制性防漏).
 //
 // 背景/动机:ACC v1.6 四个 Office 写族工具上线时漏进 BRIDGED_WRITE_PATH_ARGS(server.js 快照表),

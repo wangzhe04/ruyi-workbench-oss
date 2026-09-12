@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: 21-E5 meta-tool convergence — search hints (metaToolHintsV1), discoverySeq chain, todo dedupe.
 // Drives a REAL workbench turn against the offline fake provider:
 //   search → tool_load → file_read → todo_write → todo_write(same items, must be unchanged)

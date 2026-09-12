@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // v0.7d self-tests #5 (real desktop MCP smoke, best-effort) + #6 (detectDesktopMcp unit).
 // Requires server.js as a module (no server spawned) and drives McpStdioClient directly against the
 // REAL ai-computer-control python MCP. If python/deps are missing, #5 is reported as SKIP (not a fail).

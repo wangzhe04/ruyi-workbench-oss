@@ -1,4 +1,5 @@
-﻿// E2E for v0.8-S6 能力矩阵 + 分层提示词框架（含身份钉死）+ 错误类播种 + FAKE_REJECT_TOOLS.
+﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
+// E2E for v0.8-S6 能力矩阵 + 分层提示词框架（含身份钉死）+ 错误类播种 + FAKE_REJECT_TOOLS.
 //
 // Ports 8984-8985 (live server) + 8998 (dead probe port). Uses fake-openai (FAKE_CAPTURE_DIR to inspect the injected `system` message, and
 // FAKE_REJECT_TOOLS for the tools-rejected retry) + fake-mcp (bridged as ai-computer-control so the desktop

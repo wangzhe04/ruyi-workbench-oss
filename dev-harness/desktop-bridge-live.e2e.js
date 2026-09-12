@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 (async () => {
 // DECISIVE LIVE E2E: a provider model (fake-openai) calls a REAL ai-computer-control tool through the
 // workbench's native MCP bridge. Proves model -> workbench -> McpStdioClient -> real python desktop MCP

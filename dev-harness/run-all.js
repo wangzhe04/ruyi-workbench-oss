@@ -62,6 +62,10 @@ const TIMEOUT_OVERRIDES = {
   // tools-v2: 8 子测试各自 spawn workbench,(d) group 改用独立端口(9190/9191 避 8962 TIME_WAIT),
   // 本机多轮 e2e 后资源紧张时整体 >120s(实测 240s,逻辑全 PASS)。豁免到 300s 防误杀。
   'tools-v2.e2e.js': 300000,
+  // 121 换机器（34 号文 §13.8／§13.11）：classic-window-live-steer 单跑实测 32 s（24 核机器）但历史上
+  // 记录过 240 s+（老机器），8 路全量下又被挤到 TIMEOUT；它一趟里要起真线程、插话、等回合收尾，
+  // 墙钟大头在 provider 子进程。豁免到 300 s 防误杀。
+  'classic-window-live-steer.e2e.js': 300000,
   // 121-K2b: 事件流客户端的墙钟门。观察窗本身就是硬性的（§6.3 的 60 s 安静窗 ＋ 35 s 恢复窗），
   // 再加一条真线程跑满「起跑→工具→提问→收工」四段（~40 s）与冷启动，实测 ~230 s。
   'event-stream-client.browser.e2e.js': 420000,

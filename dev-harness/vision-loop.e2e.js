@@ -1,3 +1,4 @@
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 (async () => {
 // E2E (v0.9-S7): 视觉回路 + 操控规程 — provider 引擎, 离线 via fake-openai + fake-mcp. §0.9-S7 / 总纲 §7.5 · §8 D3.
 // Ports 9011 (fake-openai) + 9012 (workbench). The fake respawns per scenario on the SAME port段 (serial).

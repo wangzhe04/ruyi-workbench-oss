@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 /*
  * E2E (117n-M2): 配置写口收敛(mutateConfig)+ MCP 连接器判据合一(mutateMcpConnector)。
  *

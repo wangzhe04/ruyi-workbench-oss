@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: a quiet bridged tool stays visible/alive without model polling, then a provider steer interrupts it,
 // closes the tool-call pair, and reaches the next model iteration without waiting for the original 30s sleep.
 const fs = require('fs');

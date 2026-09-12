@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 /*
  * E2E (第55波 EC-C 55a/55b): MCP 运维闭环 -- 统一读模型 + 健康探针 + 错误归类 + 兼容矩阵 + 启停/删除持久化。
  *

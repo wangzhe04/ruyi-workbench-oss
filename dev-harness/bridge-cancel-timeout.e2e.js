@@ -1,4 +1,5 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 /*
  * E2E (第47波47b): 桥 cancel/超时契约 —— 消灭"桥先超时、ACC 僵尸执行"的契约错位。
  *
