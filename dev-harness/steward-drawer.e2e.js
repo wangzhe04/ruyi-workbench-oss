@@ -1152,7 +1152,7 @@ try {
   // 线程的待决都已经在 C/D/E 段答完（全部落到 settled/quiet 两档），所以「零条小行」正是新语义的
   // 正确结果，而不是渲染没跑：判据因此改成【与服务端行对账】—— 在途几条就该有几条小行。
   // 反向验证：把 renderNow 里那句 `if (!inFlight(row)) return;` 拔掉 → 四条收工线程全冒出来 → 本条红。
-  const oneDrawer = await waitForEval(cdp, `(() => {
+  let oneDrawer = await waitForEval(cdp, `(() => {
     const snapshot = ${NOW_STACK};
     return snapshot && snapshot.drawerParent === 'stewardFocus' ? snapshot : null;
   })()`) || await cdp.evaluate(NOW_STACK);
@@ -1163,12 +1163,24 @@ try {
   // 本件四条线程各自成一个任务（missionId === sessionId），所以行上的 aggregateState 就是它自己
   // 那条线程的态；多线程任务上这个字段是【任务】的聚合态，别照抄这一段（steward-board.e2e 的
   // S 组踩过，那边改成了「子序列 ＋ 每条 tone 在途」）。
-  const projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
+  // 主会话复核（34 号文 §13.12）：上面那一拍抓的 DOM 与下面这一拍读的服务端不是同一拍——本件跑到这里
+  // 时还有线程在收尾，服务端行上的态会在两次读之间翻面，串行三跑一绿两红。对账改成「服务端与 DOM
+  // 同一轮各读一次，不齐就等一拍再对，最多 30 拍（~6 s，盖过一次 5 s 兜底轮询）」——有判据的等；
+  // 拍数用尽仍不齐才红，红时把两边的数都印出来。
+  let projected = null;
+  let inFlightIds = [];
+  for (let attempt = 0; attempt < 30; attempt++) {
+    projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
+    const focusNow = String((oneDrawer && oneDrawer.focusId) || '');
+    inFlightIds = ((projected && projected.json && projected.json.missions) || [])
+      .filter(row => row && ['needs_you', 'running', 'dispatching'].includes(String(row.aggregateState || '')))
+      .map(row => String(row.sessionId))
+      .filter(id => id !== focusNow);
+    if (oneDrawer && oneDrawer.drawerParent === 'stewardFocus' && oneDrawer.rows === inFlightIds.length) break;
+    await sleep(200);
+    oneDrawer = await cdp.evaluate(NOW_STACK);
+  }
   const focusId = String((oneDrawer && oneDrawer.focusId) || '');
-  const inFlightIds = ((projected && projected.json && projected.json.missions) || [])
-    .filter(row => row && ['needs_you', 'running', 'dispatching'].includes(String(row.aggregateState || '')))
-    .map(row => String(row.sessionId))
-    .filter(id => id !== focusId);
   ok(Boolean(oneDrawer) && oneDrawer.drawerParent === 'stewardFocus'
     && oneDrawer.rows === inFlightIds.length,
     `H1 焦点栏「其它在途」只叠非收工的线程，抽屉那一份仍然是搬进 #stewardFocus 的【同一个】节点（服务端在途且非焦点 ${inFlightIds.length} 条，实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
