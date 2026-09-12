@@ -207,7 +207,15 @@
 .rail-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 4px 0; }
 .rail-title { flex: 1; display: flex; align-items: center; gap: 6px; margin: 0;
   font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
-.rail-count { color: var(--muted); font-weight: 400; font-size: var(--fs-xs); }
+/* 121-K8（34 号文 §2.10.2「计数进一枚小胶囊」）：栏头这枚总数与组头那几枚（.rail-gh-n）
+   长同一个样子 —— 灰底小胶囊。它是「一共几件」，不属于任何一态，所以走灰底那一档。 */
+.rail-count {
+  flex: 0 0 auto; min-width: 18px; height: 18px; padding: 0 5px;
+  display: grid; place-items: center;
+  font-weight: 400; font-size: var(--fs-xs);
+  border-radius: var(--r-pill); color: var(--ink-2); background: var(--panel-3);
+}
+.rail-count:empty { display: none; }
 .rail-board-btn[aria-pressed="true"] { color: var(--accent); background: var(--panel-3); }
 /* 口袋槽位（栏底常驻）。四项内容归 K7；空着的时候不占高度。 */
 .rail-pocket { flex: 0 0 auto; display: grid; gap: 2px; padding: 8px 0 8px; border-top: 1px solid var(--line); }
