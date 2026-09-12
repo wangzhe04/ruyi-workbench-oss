@@ -349,6 +349,21 @@ try {
   const snapCards = () => cdp.evaluate(CARDS);
 
   ok(Boolean(await setLens('classic')), 'A0g 顶栏分段钮切到工作台视角（后续 A1-E 的前提，先在这里钉死不是碰巧）');
+  // 已知时序坑（本机实测约 1/3 概率触发，与本刀改动无关，登记见交付报告）：boot 末尾
+  // provider-settings.js 的 fillSettings() 只调用【一次】 steward-shell.js 的
+  // syncStewardShellAvailability()——它在「没有存过显式非管家偏好」时会自动切回 steward
+  // （34 号文 §8.4 拍板③的默认落点）。这一次调用与 A0g 点击classic之间没有互斥：若它排在点击
+  // 之后触发，会把刚点好的 classic 悄悄翻回 steward。这里不追那一次时序竞态的根（不在 K6a
+  // 范围），改用「按住」的方式绕过——点完之后再观察 2 s，一旦被翻回去就重新点一次，直到稳定。
+  {
+    let flips = 0;
+    for (let i = 0; i < 25; i++) {
+      await sleep(80);
+      const mode = await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode'))()`);
+      if (mode !== 'classic') { flips += 1; await setLens('classic'); }
+    }
+    if (flips) console.log(`DEBUG A0g-hold 期间被自动翻回 ${flips} 次，已重新点回 classic`);
+  }
   // 左栏五条线程真的渲染出来之后才开始点行——否则 openInWorkbench 会在行还没画出来时就点了个空
   // （偶发：A0g 切完视角那一拍，左栏可能还没吃到第一份 /api/missions）。
   ok(Boolean(await waitForEval(cdp, `(() => document.querySelectorAll('#railList .steward-board-thread').length >= 5 ? 1 : null)()`)),
