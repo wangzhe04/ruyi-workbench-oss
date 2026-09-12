@@ -1144,6 +1144,7 @@ try {
       inputsInRows: rows.reduce((sum, row) => sum + row.querySelectorAll('textarea, input').length, 0),
       strays: [...document.querySelectorAll('[id^="stewardDrawer"]')].filter(node => node !== drawer && !drawer.contains(node)).length,
       drawerParent: drawer.parentElement ? drawer.parentElement.id : '',
+      focusId: (document.getElementById('stewardSide') || { dataset: {} }).dataset.focusId || '',
     };
   })()`;
   // 121-K6b 重钉 H1（34 号文 §2.6「其它【在途】」）：小行叠自此只收非收工的线程 —— 收工的那些
@@ -1151,16 +1152,26 @@ try {
   // 线程的待决都已经在 C/D/E 段答完（全部落到 settled/quiet 两档），所以「零条小行」正是新语义的
   // 正确结果，而不是渲染没跑：判据因此改成【与服务端行对账】—— 在途几条就该有几条小行。
   // 反向验证：把 renderNow 里那句 `if (!inFlight(row)) return;` 拔掉 → 四条收工线程全冒出来 → 本条红。
-  const inFlightRows = (await request(appPort, 'GET', '/api/missions?limit=200', null, token));
-  const inFlightCount = ((inFlightRows && inFlightRows.json && inFlightRows.json.missions) || [])
-    .filter(row => row && ['needs_you', 'running', 'dispatching'].includes(String(row.aggregateState || row.state || ''))).length;
   const oneDrawer = await waitForEval(cdp, `(() => {
     const snapshot = ${NOW_STACK};
     return snapshot && snapshot.drawerParent === 'stewardFocus' ? snapshot : null;
   })()`) || await cdp.evaluate(NOW_STACK);
+  // 期望条数与服务端对账：**在途的、且不是焦点自己的**那几条。焦点那一条不受这道过滤（它是抽屉
+  // 本体，用户钉住的那一条不该因为跑完了就从眼前消失），所以不能简单地减 1 —— 焦点常常本来就
+  // 不在途（本件跑到这一段时四条线程的待决都已经答完，焦点是其中一条收工的，8 路全量下实测
+  // 「在途 1 条 − 1 = 0」而屏幕上正确地有 1 条）。
+  // 本件四条线程各自成一个任务（missionId === sessionId），所以行上的 aggregateState 就是它自己
+  // 那条线程的态；多线程任务上这个字段是【任务】的聚合态，别照抄这一段（steward-board.e2e 的
+  // S 组踩过，那边改成了「子序列 ＋ 每条 tone 在途」）。
+  const projected = await request(appPort, 'GET', '/api/missions?limit=200', null, token);
+  const focusId = String((oneDrawer && oneDrawer.focusId) || '');
+  const inFlightIds = ((projected && projected.json && projected.json.missions) || [])
+    .filter(row => row && ['needs_you', 'running', 'dispatching'].includes(String(row.aggregateState || '')))
+    .map(row => String(row.sessionId))
+    .filter(id => id !== focusId);
   ok(Boolean(oneDrawer) && oneDrawer.drawerParent === 'stewardFocus'
-    && oneDrawer.rows === Math.max(0, inFlightCount - 1),
-    `H1 焦点栏「其它在途」只叠非收工的线程，抽屉那一份仍然是搬进 #stewardFocus 的【同一个】节点（服务端在途 ${inFlightCount} 条 − 焦点自己 1 条 → 期望 ${Math.max(0, inFlightCount - 1)}，实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
+    && oneDrawer.rows === inFlightIds.length,
+    `H1 焦点栏「其它在途」只叠非收工的线程，抽屉那一份仍然是搬进 #stewardFocus 的【同一个】节点（服务端在途且非焦点 ${inFlightIds.length} 条，实测 ${oneDrawer && oneDrawer.rows} 条小行，parent=${oneDrawer && oneDrawer.drawerParent}）`);
   ok(oneDrawer && oneDrawer.blocksInRows === 0 && oneDrawer.inputsInRows === 0 && oneDrawer.strays === 0,
     `H1b 小行里零抽屉区块、零输入框，整页也没有第二处 #stewardDrawer* 节点（实测 区块 ${oneDrawer && oneDrawer.blocksInRows}／输入框 ${oneDrawer && oneDrawer.inputsInRows}／游离 ${oneDrawer && oneDrawer.strays}）`);
 

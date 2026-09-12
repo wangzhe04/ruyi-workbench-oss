@@ -947,11 +947,21 @@ export function createStewardDrawer({
   });
   function renderStateSections() {
     const value = threadStateOf(missionRow);
+    const ask = asksYouNow();
+    const streaming = Boolean(liveTail) && Boolean(String(liveTail.text || '').trim());
+    // 等你那一段【只出 ④】：问答卡里问题原文与回答口都有了，同一屏再挂一条「它刚说 · 它还没
+    // 说过话。」是把一句没有信息量的话摆在最该动手的地方旁边（§2.6「按五态一段」）。
+    // 在跑时不收：那时 ⑥ 印的是「它正在说」，与问答卡是两件事（挂在提问上的活回合两样都要）。
+    const lastSaySection = byId('stewardDrawerLastSay');
+    if (lastSaySection) lastSaySection.hidden = Boolean(ask) && !streaming;
     // 排队那一段的判据：行上的态是 dispatching（还没有任何执行痕迹的那一档，与左栏「排队」组
     // railGroupFor 逐字同源），或者服务端明说了它在等什么（wait.reason 非 'user'）。
+    // 前面两态优先：有人在问你、或者它正在说，那就不是「在排队」那一段 —— 等你那一态服务端给的
+    // wait.label 恰恰就是「等你(N 条待决)」，不挡住的话等你与排队会同时出两段（实测截图逮到）。
     const wait = (missionRow && missionRow.wait) || null;
     const reason = String((wait && wait.reason) || '');
-    const queued = value === 'dispatching' || (Boolean(reason) && reason !== 'user');
+    const queued = !ask && !streaming
+      && (value === 'dispatching' || (Boolean(reason) && reason !== 'user'));
     renderQueue(queued);
     const label = byId('stewardDrawerComposerLabel');
     if (label) label.textContent = t(FOOT_LABEL_KEYS[value] || 'stewardShell.drawer.composerLabel');
