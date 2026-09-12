@@ -571,6 +571,10 @@
 | ⑨ | 切换动效 | `one-workbench-frame.browser` ④⑤（一次切换恰一次 `startViewTransition`、reduced-motion 零动画） |
 | ⑩ | 真回归 0／`build --check`／forwardEdges 不增、SCC 1 | 每刀 §13.x 各一遍；最终 HEAD 主会话全量见 §13.16 |
 
+### 13.16 最终 HEAD 全量（主会话，`e318df5`，本机 8 路，2026-09-12 深夜）
+
+**316 pass / 6 fail / 2 flaky / 322 ran / 7 skipped**（e2e 总数 329，默认 322）。六红逐件经 run-all 隔离单跑：`mission-index-late-materialize`（并行下 223 ms 快败）／`agent-worktree`／`claude-context-continuity`／`responses-fake`／`websearch` **串行全绿**（8 路争用）；`observation-recall-replay` 缺 realhist-fixtures（环境）。失败尾巴里另有 `index-dedup` E3（基线名单）、`session-notes`／`observation-recall-realhistory`（环境）、`bridge-cancel-timeout`（重跑前首败，争用）。flaky 两件 `steward-shell`／`classic-window-live-steer` 重跑绿。`build --check` 新鲜、依赖图 50／398／forwardEdges 67／SCC 1（整波 K0→K7 前向边一条未增）。**121 波真回归 0，收口。** 未推送；推送前由用户拍板。
+
 ---
 
 ## 14. 换机器接着做（2026-09-11 晚收口；下一台机器从这里进）
