@@ -110,16 +110,37 @@ export function createThreadHead({
   }
 
   // ── 管家条（§2.5／§4.4）────────────────────────────────────────────────────────
+  // 121-K6a（§4.4「委托一句」）：打开开关那一刻，composer 里有没有没发出去的草稿——有就当一句委托
+  // 随同一发 PATCH 带走（读 #promptInput，与 wcw.draft 那份持久化同一个元素）；带走之后清空，
+  // 不留在输入框里变成「发了一半的话」。关开关（next!==true）不读、不清——那不是交接动作。
+  function takeComposerDraftNote() {
+    const document_ = doc();
+    const input = document_ ? document_.getElementById('promptInput') : null;
+    const value = input && typeof input.value === 'string' ? input.value.trim() : '';
+    if (!value) return { note: '', clear: () => {} };
+    return {
+      note: value.slice(0, 200),
+      clear: () => {
+        input.value = '';
+        try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch { /* 缺 Event 构造器的环境不致命 */ }
+        try { globalThis.localStorage?.removeItem('wcw.draft'); } catch { /* 本机偏好不可用不影响本次交接 */ }
+      },
+    };
+  }
+
   async function setWatch(next) {
     const id = currentId();
     if (!id || watchBusy) return null;
+    const turningOn = next === true;
+    const draft = turningOn ? takeComposerDraftNote() : { note: '', clear: () => {} };
     watchBusy = true;
     try {
       const response = await api(`/api/sessions/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ stewardWatch: next === true }),
+        body: JSON.stringify({ stewardWatch: turningOn, ...(turningOn && draft.note ? { stewardWatchNote: draft.note } : {}) }),
       });
       if (!response || response.ok !== true) return null;
+      if (turningOn && draft.note) draft.clear();
       if (state && state.currentSession && String(state.currentSession.id) === id) {
         state.currentSession = response.session || state.currentSession;
       }

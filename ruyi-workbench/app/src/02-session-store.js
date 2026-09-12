@@ -1174,18 +1174,30 @@ function applySessionMetaPatch(session, patch) {
 // 静默延后更诚实(「不要重试,等它停」写在 schema 里),且其断言已冻结。
 const sessionMetaDeferChains = new Map(); // id -> Promise(每会话一条串行链,落盘后自清)
 const SESSION_META_DEFER_TIMEOUT_MS = 180000; // 回合真楔死时的兜底:超时后照样按【重新装载】的副本写一次
+// 121-K6a(34 号文 §4.4「交接」):委托一句。只在【同一发 PATCH 里 stewardWatch===true】时才有效——
+// 不是会话状态,是一次性的交接话,所以【不落会话头】:applySessionMetaPatch 不认它,它只活在这一次
+// 请求的 thread.adopted 事件里,管家读完这一条就完了,不会在会话头上留下第二份「委托」字段。
+const STEWARD_WATCH_NOTE_MAX = 200;
+function stewardWatchNoteFrom(p) {
+  if (!p || p.stewardWatch !== true) return '';
+  const raw = typeof p.stewardWatchNote === 'string' ? p.stewardWatchNote : '';
+  return raw.trim().slice(0, STEWARD_WATCH_NOTE_MAX);
+}
+
 async function updateSessionMeta(id, patch) {
   const session = await loadSession(id);
   if (!session) return null; // missing/corrupt — caller maps to 404
   const p = (patch && typeof patch === 'object') ? patch : {};
   applySessionMetaPatch(session, p);
+  const watchNote = stewardWatchNoteFrom(p);
   // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
     await saveSession(session);
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
     // 同名事件,只多一个 by:'user' 把两条来路分开(那一条是归并到事项,这一条是用户交接)。
-    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || ''), by: 'user' });
+    // 121-K6a:附带的一句委托话(有的话)随同一发事件带上,note 只在这一发里,不重复读取。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(session.missionId || ''), title: String(session.title || ''), by: 'user', ...(watchNote ? { note: watchNote } : {}) });
     return session;
   }
   logEvent({ kind: 'session_meta_deferred', sessionId: id, keys: Object.keys(p).slice(0, 8) });
@@ -1206,7 +1218,9 @@ async function updateSessionMeta(id, patch) {
     await saveSession(fresh).catch(() => {});
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
-    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(fresh.missionId || ''), title: String(fresh.title || ''), by: 'user' });
+    // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
+    // 那一刻说的那句,不该被延后窗口期间任何变化影响。
+    if (p.stewardWatch === true) RUYI_EVENTS.emit('thread.adopted', { sessionId: id, missionId: String(fresh.missionId || ''), title: String(fresh.title || ''), by: 'user', ...(watchNote ? { note: watchNote } : {}) });
     // 116-3 data-safety P1-3(登记项转已记录):超时兜底那条路是【明知有残留竞态】仍然写下去 ——
     // 等待窗口过了不等于收尾 save 真的落盘完成,此刻拿到的 fresh 可能还不含最新一轮消息,两边互相
     // 覆盖谁赢看时序。行为不改(拒绝会把「会丢字段」换成「用不了」,§8.6 要求 chip 点开即换),
