@@ -41,6 +41,10 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThre
 // 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
 // 而 D4 要守的是「动作走抽屉同一段原语」这件事，不该为一次收编去动它（32 号文 §4 纪律 5）。
 import { confirmDanger } from './confirm-panel.js';
+// 121 走查1-②：行尾那枚「⋯」点开的是【同一份】动作表，开合走两壳共用的浮层原语（layer 模式：
+// 不新建 .popover、不外挂 body，节点与挂载点都是行上现成的那两个）—— Esc／点外／同一时刻只允许
+// 一张菜单／焦点归还锚点全部现成，不在本模块写第二套开合。chip 菜单走的也是它（steward-chips.js）。
+import { popover, closePopover } from './popover.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍）。名字不在本文件
 // 里各写一遍 —— 事件名 `thread.needs_you` 里那个词不是五态，不该进 B5／M6／N3 那本「五态字面量」账。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -455,6 +459,53 @@ export function createStewardBoard({
     return open;
   }
 
+  // ── 121 走查1-②（用户 2026-09-13 走查第 2 条）：整行可点 ─────────────────────────────
+  // §2.3 的点击语义写的是【行】—— 「单线程任务行→打开它；多线程任务行→展开／收起；线程行→
+  // 打开它」。修前只有那枚 .steward-board-thread-title 按钮接 click，于是「必须点文字才能切」。
+  // 这里给行本身接一发，命中【任何一个真控件】时让位（按钮／链接／输入／标签，含 chip、药丸、
+  // 折角与行尾那枚「⋯」）—— 那些各自有各自的语义，行不该抢。
+  // 键盘不另开一条路：行里那枚标题按钮本来就在 Tab 序里，Enter／Space 是它的原生行为，
+  // 与这一发点击落到同一个 openRow／toggleTask（所以行不加 role="button"／tabindex —— 行里嵌着
+  // 好几枚真按钮，给行套一个 role=button 是嵌套可交互元素，读屏反而更差）。
+  const ROW_CONTROL_SELECTOR = 'button, a, input, select, textarea, label';
+  function bindRowClick(item, run) {
+    item.addEventListener('click', event => {
+      const target = event && event.target;
+      if (target && typeof target.closest === 'function' && target.closest(ROW_CONTROL_SELECTOR)) return;
+      run();
+    });
+    return item;
+  }
+
+  // ── 121 走查1-②：行尾那一枚「⋯」──────────────────────────────────────────────────
+  // 普通密度不再悬停就摊开八枚动作（那正是用户说的「显示的内容太多了」），置顶／重命名／删除
+  // 与其余次级动作全部收进这一枚。**它点开的是同一个 .steward-board-actions 节点**（同一批按钮
+  // 实例、同一批 handler）—— 本模块不写第二份动作表，动手的仍是 session-experience.js 那一处。
+  // 开合走 popover 的 layer 模式：节点已经在行里，只切 [hidden] 与行上那个类名，位置由 CSS 定。
+  function moreButton(item, actions) {
+    const button = el('button', 'icon-btn steward-board-more');
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
+    const label = t('common.more');
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    const glyph = icon('more', 13);
+    if (glyph) button.appendChild(glyph);
+    button.onclick = () => {
+      if (item.classList.contains('is-actions-open')) { closePopover(); return; }
+      // popover(layer) 会把节点先清空再让 buildContent 填回去 —— 把原来那批按钮原样放回去，
+      // 于是「同一份动作表」这件事在 DOM 层面也成立（不是重建一批同名按钮）。
+      const kept = [...actions.children];
+      popover(button, () => { for (const child of kept) actions.appendChild(child); return null; }, {
+        layer: { mount: item, node: actions },
+        onOpen: () => { item.classList.add('is-actions-open'); button.setAttribute('aria-expanded', 'true'); },
+        onClose: () => { item.classList.remove('is-actions-open'); button.setAttribute('aria-expanded', 'false'); },
+      });
+    };
+    return button;
+  }
+
   // §2.3 来源图形：管家开的＝环（环心点）／我开的＝人形／定时＝钟；悬停才出字。
   // 判据【只读】行上的 origin（K3 的 threadOriginOf 一处派生，13e 投影到行上），本模块不猜。
   // 121-K8 会把 lensSteward／originUser／originSchedule 三枚字形补进 icons.js；本刀先用既有字形
@@ -537,19 +588,6 @@ export function createStewardBoard({
   // §2.3「＋」两义：管家视角印「＋ 新任务」（让如意另起一件，不建会话），工作台视角印「＋ 新线程」
   // （立即开一条线程，走 2.0 那条 createSession）。按钮【是同一枚】（#newSessionBtn），
   // 接线住组合根（app.js 那一处判视角），本模块只管把它的字改对。
-  function syncRailPlus() {
-    const label = byId('newSessionBtnLabel');
-    if (!label) return '';
-    const key = isStewardMode() ? 'rail.newTask' : 'rail.newThread';
-    label.textContent = t(key);
-    const button = byId('newSessionBtn');
-    if (button) {
-      const hint = t(isStewardMode() ? 'rail.newTaskHint' : 'rail.newThreadHint');
-      button.title = hint;
-      button.setAttribute('aria-label', hint);
-    }
-    return key;
-  }
 
   // 顶栏那枚全局状态胶囊「N 在跑 · M 等你」（§2.2）。计数源仍然只有 renderStatusLine 那一处
   // （needsYouIds 就是它的产物）—— 本函数只画，不数。【不印】任务总数、不印费用、不印模型名。
@@ -733,6 +771,10 @@ export function createStewardBoard({
     // 事实与调试用的，不是第二个视觉信号。值仍然只来自 threadStateOf，零新增字面量。
     if (threadState) item.dataset.state = threadState;
 
+
+    // 121 走查1-②：整行可点（线程行→打开它，§2.3 点击语义第一／第三条）。命中真控件时让位。
+    bindRowClick(item, () => openRow(sessionId));
+
     const head = el('div', 'steward-board-thread-head');
     head.appendChild(threadDot());
     // 116-5b(§11.8.5):显示名由服务端一处算好(13d buildMissionCard 的 displayTitle,判据在 02 的
@@ -855,6 +897,9 @@ export function createStewardBoard({
     actions.appendChild(boardButton('session.delete', () => {}, { sessionAction: 'delete', sessionId }, 'trash'));
     tail.appendChild(actions);
     item.appendChild(tail);
+    // 121 走查1-②：行尾那一枚「⋯」（普通密度唯一的动作入口；看板密度由 CSS 收掉，那里动作已铺开）。
+    // 挂在卡头【最后】——「⋯」是这一行的收尾，不该排在名字与药丸中间。
+    head.appendChild(moreButton(item, actions));
     return item;
   }
 
@@ -877,6 +922,8 @@ export function createStewardBoard({
     const open = railTaskOpen(group);
     if (open) item.classList.add('is-open');
     if (group.rows.some(row => String(row.sessionId || '') === String(selected || ''))) item.classList.add('is-sel');
+    // 121 走查1-②：整行可点（多线程任务行→展开／收起，§2.3 点击语义第二条 —— 任务不是线程）。
+    bindRowClick(item, () => toggleTask(group.missionId, !railTaskOpen(group)));
 
     const head = el('div', 'steward-board-thread-head');
     head.appendChild(threadDot());
@@ -913,6 +960,9 @@ export function createStewardBoard({
     actions.appendChild(boardButton('stewardShell.board.newThread', () => newThread(group.missionId), { newThread: '1' }));
     tail.appendChild(actions);
     item.appendChild(tail);
+    // 121 走查1-②：任务行同样只留一枚「⋯」—— 普通密度里那枚「＋ 线程」（§2.3 给已有任务加兄弟
+    // 线程的唯一入口）就住在它点开的那份动作表里，不再是常悬的一排。
+    head.appendChild(moreButton(item, actions));
     return item;
   }
 

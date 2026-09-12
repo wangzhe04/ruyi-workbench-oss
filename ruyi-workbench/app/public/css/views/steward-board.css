@@ -424,10 +424,54 @@
 /* §2.3「悬停出一行动作」：在左栏里它必须是 display:none 而不是 opacity:0 —— 268px 宽的一栏里
    那一排动作键会折成四五行，只要它【占着位置】，每一行就有 170px 高（实测第一版就是这样：
    四条任务把整栏塞满，一屏看不下第五条）。看板浮层时代行宽 700+，透明占位无所谓；左栏不行。
-   触屏（hover:none）那一档仍由本层下面那条规则常显，不靠悬停。 */
+   121 走查1-②（用户 2026-09-13 走查第 2 条：「显示的内容太多了，很不方便」）：修前这两条 hover
+   规则【不分密度】，于是普通密度一悬停就冒出八枚动作键（优先／停止／打开／在工作台打开／线程／
+   置顶／重命名／删除）——§2.3 的原话是「悬停动作只属【看板】密度」。所以 hover 那一支加上
+   .app-frame.rail-board 前缀；普通密度改走行尾那一枚「⋯」（下面 .steward-board-more 一段），
+   点开的是【同一份】动作表（同一个 .steward-board-actions 节点、同一批按钮实例）。 */
 .rail-list .steward-board-actions { display: none; }
-.rail-list .steward-board-thread:hover .steward-board-actions,
-.rail-list .steward-board-thread:focus-within .steward-board-actions { display: flex; }
+.app-frame.rail-board .rail-list .steward-board-thread:hover .steward-board-actions,
+.app-frame.rail-board .rail-list .steward-board-thread:focus-within .steward-board-actions { display: flex; }
+/* 普通密度：「⋯」点开时那一份动作表就地变成一张竖排浮层（不是把行撑高）。 */
+.rail-list .steward-board-thread.is-actions-open .steward-board-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - var(--sp-2));
+  inset-inline-end: var(--sp-2);
+  min-width: 9em;
+  margin: 0;
+  padding: var(--sp-1);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-2);
+}
+.rail-list .steward-board-thread.is-actions-open .steward-board-actions .steward-board-btn { justify-content: flex-start; }
+/* 行尾那一枚「⋯」（≤1 枚，悬停／键盘聚焦才出；看板密度让位 —— 那里动作表已经铺开了）。
+   .icon-btn 的默认 32px 在 268px 的一栏里太占地方，这里收成 20px（行高本来就 22px 一档）。 */
+.steward-board-more {
+  flex: 0 0 auto;
+  width: 20px; height: 20px; min-height: 0;
+  margin-inline-start: 2px;
+}
+.steward-board-more .ic { width: 13px; height: 13px; }
+.rail-list .steward-board-more { display: none; }
+.rail-list .steward-board-thread:hover .steward-board-more,
+.rail-list .steward-board-thread:focus-within .steward-board-more,
+.rail-list .steward-board-thread.is-actions-open .steward-board-more { display: inline-grid; }
+.app-frame.rail-board .rail-list .steward-board-more { display: none; }
+/* 121 走查1-②／④：菜单开着的那一行要【压过后面的行】。行本来就是 position:relative（上面那条），
+   但 z-index:auto 时同为 0 层、后来者赢 —— 真浏览器实测（walkthrough-round1.browser 的 E4）：
+   A 行的 chip 菜单被它下面那一行盖住。只在「真开着」时抬，平时一层不动。 */
+.rail-list .steward-board-thread.is-actions-open,
+.rail-list .steward-board-thread:has(.steward-chip-menu:not([hidden])) { z-index: 3; }
+/* 多线程任务展开的那一层用 `grid-template-rows: 0fr→1fr` 做手风琴，必须有 overflow:hidden 才动得起来
+   （§2.9）—— 但那道裁切会把落在行下面的浮层一起裁掉。只在【真有一张浮层开着】时松开它。 */
+.rail-threads-inner:has(.steward-chip-menu:not([hidden])),
+.rail-threads-inner:has(.steward-board-thread.is-actions-open) { overflow: visible; }
 .steward-board-wait { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .steward-board-wait:empty { display: none; }
 /* 117u-G2 B4：卡尾一行 —— 左边是事实（等什么 · 验收 · 花了多少），右边是那排次级动作。
@@ -454,7 +498,14 @@
 }
 .steward-board-thread:hover .steward-board-actions,
 .steward-board-thread:focus-within .steward-board-actions { opacity: 1; }
-@media (hover: none) { .steward-board-actions, .rail-list .steward-board-actions { opacity: 1; display: flex; } }
+/* 触屏（没有 hover 这回事）：动作表常显。121 走查1-②：普通密度【不在此列】—— 那里它本来就
+   不该整排铺开，触屏用户按行尾那枚「⋯」（下面第二条把它在触屏上常显）。 */
+@media (hover: none) {
+  .steward-board-actions { opacity: 1; display: flex; }
+  .app-frame.rail-board .rail-list .steward-board-actions { opacity: 1; display: flex; }
+  .rail-list .steward-board-more { display: inline-grid; }
+  .app-frame.rail-board .rail-list .steward-board-more { display: none; }
+}
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */
 .steward-board-chips .steward-chip-menu { left: 0; right: auto; }
 
