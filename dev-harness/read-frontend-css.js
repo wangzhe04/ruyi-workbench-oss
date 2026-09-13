@@ -569,7 +569,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 得到的值与直接读工作区【逐字相同】（22 层全部走 HEAD），所以下面这个值是 HEAD 的值，不是工作区的值
 // （32 号文 §4 纪律 4）。反向验证：删掉 `.steward-chip-option` 那行 white-space → 本值与实算不符，
 // frontend-domains D51 与 live-full-text F3 双红。
-const LEGACY_STYLES_SHA256 = 'e586a9b3070474284eefb7bc3ef69dea26b3c473e2ec27da170061ead5a07268';
+// 123-M2 重钉（前值即上面那个 e586a9b3…）：**零新增、零删除层**（分组表一个字节没动，仍是 18 组
+// 22 层），只改了一个既有层 —— `css/views/steward-settings.css`（37 号文 §3.6）：设置页的定时任务
+// 块从只读改成可建可改，每行从「一行」变成「标题行 ＋ 动作行 ＋ 展开的最近几次」三层，于是
+// `.steward-schedule-row` 从 flex 一行改成竖排的卡片，原来那一行的排布逐字挪进新的
+// `.steward-schedule-head`；连带新增上次结果徽标（颜色只是冗余，文字本身就写着结果）、行内动作条、
+// 最近几次那一列与新建表单的栅格。
+// 算法自证：改动落盘（提交 a1add96）之后，在【干净工作区】上按 HEAD 的 blob 逐层重算 —— 把
+// fs.readFileSync 换成 `git show HEAD:<path>` 再跑本文件自己的 readLayerPayload() 的同一份拼接，
+// 得到的值与直接读工作区【逐字相同】（22 层全部走 HEAD），所以下面这个值是 HEAD 的值，不是工作区
+// 的值（32 号文 §4 纪律 4）。反向验证：删掉 `.steward-schedule-badge[data-outcome="unknown"]` 那条
+// 规则 → 本值与实算不符，frontend-domains D51 与 live-full-text F3 双红。
+const LEGACY_STYLES_SHA256 = '065948bd0368c73a905e5cfe4a6ef99773722b36684ea2617173c46416613326';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

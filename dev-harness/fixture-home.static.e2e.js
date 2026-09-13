@@ -70,7 +70,12 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 123-N2：新增 new-thread-engine-default.e2e.js（一处带 RUYI_HOME 的 spawn —— 那一发起服务；
 // fake provider 是本进程内的 http.createServer，不 spawn），136 -> 137（合并时合数） 的来路就是它。
 // 同刀的 new-thread-engine-default.static.e2e.js 是纯读文件的静态件，零 spawn，不计入。
-const RUYI_HOME_SPAWN_SITES = 137;
+// 123-M2（37 号文 §3.5–§3.6）：新增 quiet-card-snooze.browser.e2e.js 与 scheduler-ui.browser.e2e.js
+// 两件，各一处带 RUYI_HOME 的 spawn（那一发起服务 —— 后者一趟里起三次，但走的是同一个 spawnWb
+// 工厂那一处；无头 Edge 那发不带 RUYI_HOME，不计入），137 -> 139。同刀的
+// scheduler-steward.e2e.js 与 scheduler-ui.static.e2e.js 都是进程内 require(server.js) 的直测件，
+// 零 spawn，不计入。
+const RUYI_HOME_SPAWN_SITES = 139;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

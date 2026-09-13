@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-13T12:24:08.794Z",
+  "generatedAt": "2026-09-13T14:28:41.211Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1683,6 +1683,7 @@
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
@@ -2175,6 +2176,7 @@
         "dev-harness\\prefix-layout.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\read-pool.e2e.js",
@@ -2707,6 +2709,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
@@ -2892,6 +2895,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
@@ -3024,6 +3028,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
@@ -3109,6 +3114,7 @@
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -3163,6 +3169,7 @@
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -3448,6 +3455,7 @@
         "dev-harness\\mission-index-scale.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
         "dev-harness\\one-workbench-frame.browser.e2e.js",
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
@@ -4173,7 +4181,7 @@
       "kind": "exact",
       "path": "/api/events/stream",
       "file": "13r-event-stream.js",
-      "line": 253,
+      "line": 257,
       "handler": "handleEventStreamApiRoutes",
       "methods": [
         "GET"
@@ -4207,10 +4215,13 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
-        "dev-harness\\scheduler.e2e.js"
+        "dev-harness\\scheduler-ui.browser.e2e.js",
+        "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
       ]
     },
     {
@@ -4227,10 +4238,13 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
-        "dev-harness\\scheduler.e2e.js"
+        "dev-harness\\scheduler-ui.browser.e2e.js",
+        "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
       ]
     },
     {

@@ -5,7 +5,7 @@
 //      逐格断言(期望值是从设计文档 §3.3 真值表直接抄写的字面量表,不是对生产实现分支的镜像重写)。
 //   ② buildStewardDigestLine —— lastSay 201 字截断加省略号、整行 320 硬顶(纯截断不加省略号)、
 //      尖括号中和、换行折叠、缺字段跳段、费用两位小数。
-//   ③ STEWARD_EVENT_KINDS 冻结且恰为六类白名单(121-K3 加 adopted)。
+//   ③ STEWARD_EVENT_KINDS 冻结且恰为七类白名单(121-K3 加 adopted;123-M2 加 reminder)。
 //
 // 与既有 dev-harness/unit 件同款约定(见 session-route-ui.test.js):require server.js 前先把
 // WIN_CLAUDE_WORKBENCH_HOME 覆盖到临时目录,防止污染真实数据根;PASS/FAIL 逐条打印(见
@@ -154,9 +154,12 @@ ok(buildStewardDigestLine(null) === '', 'null 输入不抛异常且返回空字�
 ok(Object.isFrozen(STEWARD_EVENT_KINDS), 'STEWARD_EVENT_KINDS 已冻结');
 // 121-K3(34 号文 §4.4「交接」):5 -> 6,新增 adopted(用户把线程交给管家盯)。排在表尾:
 // 到访摘要按本表顺序归纳(13q stewardVisitDigest),插在中间会改既有摘要的行序。
-ok(Array.isArray(STEWARD_EVENT_KINDS) && STEWARD_EVENT_KINDS.length === 6, 'STEWARD_EVENT_KINDS 恰为 6 类');
-ok(JSON.stringify(STEWARD_EVENT_KINDS) === JSON.stringify(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted']),
-  'STEWARD_EVENT_KINDS 内容与顺序锁定(needs_you/failed/done/stalled/budget/adopted)');
+// 123-M2(37 号文 §3.5):6 -> 7,新增 reminder(定时任务到点/错过跳过/连败熔断三件事)。
+// 同样排在表尾,同样的理由 —— 而且它与前六类的语义不同:那六类都在说某条线程怎么样了,
+// 这一类是「你自己排的那件事到点了」,一句事实、不需要回答。
+ok(Array.isArray(STEWARD_EVENT_KINDS) && STEWARD_EVENT_KINDS.length === 7, 'STEWARD_EVENT_KINDS 恰为 7 类');
+ok(JSON.stringify(STEWARD_EVENT_KINDS) === JSON.stringify(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted', 'reminder']),
+  'STEWARD_EVENT_KINDS 内容与顺序锁定(needs_you/failed/done/stalled/budget/adopted/reminder)');
 
 /* ═══ ④ 117y-S1(27 号文 §11.18.2):正文天花板裁剪 stewardTrimSayAtSentence ═══ */
 // 钉的是【事实】不是实现:600 不再是运行期的刀、天花板处不许裸切、切了必须明说,

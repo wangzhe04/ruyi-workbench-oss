@@ -54,8 +54,11 @@ const ok = (condition, label) => {
     `A1 js/rail-pocket.js 零 setInterval／setTimeout（§2.3「不加第二条计时器」；实测 ${timerHits.map(h => 'L' + h.line).join(',') || '零命中'}）`);
   ok(/let inflight = null;/.test(code) && /if \(inflight\) return inflight;/.test(code),
     'A2 一发在飞时不开第二发（串行合并，替代计时器的那半条纪律）');
-  ok(/for \(const name of \['inbox\.appended', 'thread\.state'\]\)/.test(code),
-    'A3 推送只订 inbox.appended／thread.state 两类帧（不另起第三条通道）');
+  // 123-M2（37 号文 §3.6）：第三类帧 schedule.changed —— 建一条定时任务既不写收件箱也不改线程
+  // 状态，口袋上那个计数修前要等下一次打开左栏才对得上。它仍然【不是第二条通道】：与另外两类
+  // 走同一条事件流、同一处订阅、同一个串行合并的 refresh()，零计时器那条纪律一个字没动。
+  ok(/for \(const name of \['inbox\.appended', 'thread\.state', 'schedule\.changed'\]\)/.test(code),
+    'A3 推送只订 inbox.appended／thread.state／schedule.changed 三类帧（同一条流、同一处订阅）');
 
   /* ─── B 零 innerHTML ─────────────────────────────────────────────────────────── */
   ok(!/innerHTML|insertAdjacentHTML|document\.write/.test(code),
@@ -94,13 +97,21 @@ const ok = (condition, label) => {
   /* ─── F 定时任务读口只有一处 ─────────────────────────────────────────────────── */
   const literalHits = text => (stripLineComments(text).match(/'\/api\/scheduler\/tasks'/g) || []).length;
   const routeHits = [source, drawer, settings].map(literalHits);
-  ok(routeHits[0] === 1 && routeHits[1] === 0 && routeHits[2] === 0
-    && /SCHEDULE_TASKS_PATH = '\/api\/scheduler\/tasks'/.test(code),
-    `F1 那条路由的字面量只在 js/rail-pocket.js 的 SCHEDULE_TASKS_PATH 一处（抽屉与设置页 import readScheduleTasks；实测 ${JSON.stringify(routeHits)}）`);
+  // 123-M2（37 号文 §3.6）：设置页那一块从只读改成【可建可改】，于是它自己也有了一处常量 ——
+  // 那一面要的是全量任务行（describeKey / state / policy）与另一套排序（暂停的、算不出下一次的
+  // 也要在表里），而 normalizeScheduleTasks 按设计只留 K7 要的四个字段、upcomingSchedules 按设计
+  // 会把那两类滤掉。所以这条从「只许一处」改成「只许这两处、且各自都是具名常量」；抽屉仍是 0
+  // （它就是「接下来」，读口与排序判据仍在 K7 那一份）。
+  ok(routeHits[0] === 1 && routeHits[1] === 0 && routeHits[2] === 1
+    && /SCHEDULE_TASKS_PATH = '\/api\/scheduler\/tasks'/.test(code)
+    && /SCHEDULE_TASKS_PATH = '\/api\/scheduler\/tasks'/.test(stripLineComments(settings)),
+    `F1 那条路由的字面量只在两处具名常量里（口袋的读口 ＋ 设置页的写面；抽屉仍 import 口袋那一份；实测 ${JSON.stringify(routeHits)}）`);
   ok(/import \{ readScheduleTasks, upcomingSchedules, scheduleWhenLabel, UP_NEXT_LIMIT \} from '\.\/rail-pocket\.js';/.test(drawer),
     'F2 焦点栏「接下来」import 那一份读口与排序判据（不自己拼请求、不写第二份「哪两条」）');
-  ok(/import \{ readScheduleTasks, upcomingSchedules, scheduleWhenLabel \} from '\.\/rail-pocket\.js';/.test(settings),
-    'F3 设置页那张只读表同样 import 它');
+  // 123-M2：设置页只再复用「多久之后」那句人话（口袋、「接下来」与它说同一句，不各写一个
+  // Intl.RelativeTimeFormat）；取数与排序换成它自己那两支，理由见 F1 的注释。
+  ok(/import \{ scheduleWhenLabel \} from '\.\/rail-pocket\.js';/.test(settings),
+    'F3 设置页仍然复用同一句「多久之后」（不写第二个相对时间格式化器）');
 
   /* ─── G 纯函数真值表（可 Node 直跑，不起浏览器）──────────────────────────────── */
   const now = Date.UTC(2026, 8, 12, 12, 0, 0);

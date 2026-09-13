@@ -115,8 +115,10 @@ ok(/const StewardHooks = \{\};/.test(stewardSrc), '06i 声明空的延迟绑定�
 // 121-K3(34 号文 §4.4「交接」):五类 -> 六类,表尾加 adopted(用户把线程交给管家盯)。
 // 前五类的字面量与顺序仍然逐字钉住 —— 到访摘要(13q stewardVisitDigest)按本表顺序归纳,
 // 插在中间或改顺序会改既有摘要的行序,所以「表尾追加」这件事本身也要钉。
-ok(/const STEWARD_EVENT_KINDS = Object\.freeze\(\['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted'\]\);/.test(stewardSrc),
-  '06i 声明 STEWARD_EVENT_KINDS 六类白名单并冻结(121-K3 表尾加 adopted)');
+// 123-M2(37 号文 §3.5):六类 -> 七类,表尾再加 reminder(定时任务的三件事:到点提醒 / 错过跳过 /
+// 连败熔断)。同样只许追加在表尾,理由与 121-K3 逐字相同。
+ok(/const STEWARD_EVENT_KINDS = Object\.freeze\(\['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted', 'reminder'\]\);/.test(stewardSrc),
+  '06i 声明 STEWARD_EVENT_KINDS 七类白名单并冻结(121-K3 表尾加 adopted、123-M2 表尾加 reminder)');
 ok(/function stewardMayAct\(permissionMode, eventKind, toolTier\)/.test(stewardSrc), '06i 声明 stewardMayAct(permissionMode, eventKind, toolTier)');
 ok(/function buildStewardDigestLine\(thread\)/.test(stewardSrc), '06i 声明 buildStewardDigestLine(thread)');
 ok(!/require\(/.test(stewardSrc), '06i 零 require(纯函数层,不反向拉传输/工具层模块)');
