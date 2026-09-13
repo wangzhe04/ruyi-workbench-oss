@@ -125,7 +125,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); animation: wb-blink 1.8s var(--ease-out) infinite; }
 .wb-usage-metrics { position: relative; display: flex; align-items: center; gap: var(--sp-4); }
 .wb-um { display: flex; flex-direction: column; }
-.wb-um b { font-size: var(--fs-xl); font-weight: 650; color: var(--ink); line-height: 1.15; }
+.wb-um b { font-size: var(--fs-lg); font-weight: 650; color: var(--ink); line-height: 1.15; }
 .wb-um-u { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; margin-left: 3px; }
 .wb-um-lbl { font-size: var(--fs-xs); color: var(--muted); }
 .wb-um-sep { width: 1px; height: 26px; background: var(--line-2); opacity: .7; }

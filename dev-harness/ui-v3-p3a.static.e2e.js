@@ -118,7 +118,8 @@ ok(has(usage, 'runElapsedMs') || has(fnBody('wbRunMetrics'), 'runElapsedMs'), 'F
 ok(has(usage, 'fmtTokens(', 'fmtDuration('), 'F 大数字复用 fmtTokens/fmtDuration');
 ok(has(usage, "'wb-um'", "'num'"), 'F 大数字仪表列(.wb-um + .num tabular-nums)');
 ok(has(usage, "switchTab('usage')"), 'F 点击跳右栏用量看板');
-ok(/\.wb-um b\s*\{[^}]*font-size:\s*var\(--fs-xl\)/.test(css), 'F CSS 大数字 --fs-xl(仪表风)');
+// 122 波 §2.9:--fs-xl 已退役(全仓改直接引用 --fs-lg),.wb-um b 跟着改字面量。
+ok(/\.wb-um b\s*\{[^}]*font-size:\s*var\(--fs-lg\)/.test(css), 'F CSS 大数字 --fs-lg(仪表风;122 波前是 --fs-xl 别名)');
 
 // ═══════════ G. 空态(§3.3)═══════════
 ok(/function renderWorkbenchEmpty\(/.test(src), 'G 空态渲染器 renderWorkbenchEmpty 存在');

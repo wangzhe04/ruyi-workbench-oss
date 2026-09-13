@@ -51,7 +51,7 @@
 :root[data-ui-mode="simple"] .tool-card .tc-verb { display: inline; }
 :root[data-ui-mode="simple"] .tool-card .tc-detail > summary.tc-detail-sum {
   display: block; cursor: pointer; list-style: none; font-size: var(--fs-xs); color: var(--muted);
-  text-transform: uppercase; letter-spacing: .4px; margin: 2px 0 4px; user-select: none;
+  margin: 2px 0 4px; user-select: none;
 }
 :root[data-ui-mode="simple"] .tool-card .tc-detail > summary.tc-detail-sum::before { content: '▸ '; }
 :root[data-ui-mode="simple"] .tool-card .tc-detail[open] > summary.tc-detail-sum::before { content: '▾ '; }

@@ -28,17 +28,18 @@ ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*font-size:\s*15px/.test(css), '1.1 �
 // 「--fs-xs = 0.786rem」这一类字面量 —— 0.786rem 在 pro(14px 根)下是 11.004px、simple(15px 根)下
 // 是 11.79px，谁也说不出界面上到底几号字，两模式的差也不是 1px 而是 0.79px。
 // 现在钉三件事实：① --fs- 行里一个 rem 都没有；② 五档取值恰好是 12/13/14/15/17；
-// ③ --fs-xl／--fs-2xl 是 --fs-lg 的别名（五档之外不许有第六个字号，两个旧名字还留着只因为
-// 消费点在 onboarding/tool-pane/chat-primitives 三层，退役归后续清障）。
-// 反向：把 --fs-base 改回 1rem → ①②两格红（已实测）。
+// ③（122 波 §2.9 起）--fs-xl／--fs-2xl 这两个别名已退役 —— 全仓消费点已改直接引用 --fs-lg，
+// 五档之外零第六个名字（旧断言曾钉着「两个别名存在」，翻面成「两个旧名字全仓零命中」）。
+// 反向：把 --fs-base 改回 1rem → ①②两格红（已实测）；在 tokens.css 加回
+// `--fs-xl: var(--fs-lg);` → ③ 红（已实测，见 css-typography-debt.static.e2e.js 的姊妹反向）。
 {
   const fsLines = (css.match(/--fs-[a-z0-9]+:[^;]+;/g) || []).join('');
   ok(!/rem/.test(fsLines), '1.1 --fs-* 阶梯零 rem（本波改整像素五档）');
   for (const [name, value] of [['xs', '12px'], ['sm', '13px'], ['md', '14px'], ['base', '15px'], ['lg', '17px']]) {
     ok(new RegExp('--fs-' + name + ':\\s*' + value + '\\b').test(css), '1.1 --fs-' + name + ' = ' + value);
   }
-  ok(/--fs-xl:\s*var\(--fs-lg\)/.test(css) && /--fs-2xl:\s*var\(--fs-lg\)/.test(css),
-    '1.1 --fs-xl / --fs-2xl 是 --fs-lg 的别名（五档之外零第六档）');
+  ok(!/--fs-xl\b/.test(css) && !/--fs-2xl\b/.test(css),
+    '1.1 --fs-xl / --fs-2xl 两个别名已退役（122 波 §2.9；聚合 CSS 零命中，见 css-typography-debt.static 的全仓姊妹锁）');
   // simple 的 +1px：字阶改 px 之后 :root 的 font-size 带不动它，必须有一个显式覆盖块。
   ok(/:root\[data-ui-mode="simple"\]\s*\{[^}]*--fs-base:\s*16px/.test(css),
     '1.1 simple 模式显式 +1px（--fs-base 16px；真浏览器实测 #promptInput 15→16）');

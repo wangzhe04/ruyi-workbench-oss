@@ -23,7 +23,7 @@
 .wp-pop-go:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 /* v2.7.2: 常用工作区优先级(popover 列表 + 文件面板 chips) */
-.wp-fav-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.wp-fav-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
 .wp-fav-list { display: flex; flex-direction: column; gap: 3px; max-height: 34vh; overflow: auto; }
 .wp-fav-empty { padding: 6px 4px; font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
 .wp-fav-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: var(--radius-sm);
@@ -148,7 +148,7 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .workflow-help { margin: -3px 0 4px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
 /* 工作流图形编辑器 v2（第14波）：检查器四分组 / 节点卡增强 / 连线手柄 / 实时校验 / 画布悬浮控件 */
 .wf-insp-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--sp-4); }
-.wf-insp-group-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 2px 0; }
+.wf-insp-group-title { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin: 2px 0; }
 .wf-model-hint { font-size: var(--fs-xs); color: var(--muted); line-height: 1.35; margin-top: 2px; }
 .wf-model-custom { margin-top: 4px; }
 .wf-insp-advanced { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px 8px; background: color-mix(in srgb, var(--panel-3) 55%, transparent); }
@@ -337,7 +337,7 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .change-icon { flex: none; font-size: var(--fs-md); }
 .change-name { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--ink-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.change-op { flex: none; font-size: var(--fs-xs); letter-spacing: .3px; padding: 1px 6px;
+.change-op { flex: none; font-size: var(--fs-xs); padding: 1px 6px;
   border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .change-op.create { color: var(--ok-fg); background: var(--ok-bg); }
 .change-op.modify { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }

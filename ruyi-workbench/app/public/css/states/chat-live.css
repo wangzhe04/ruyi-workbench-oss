@@ -4,7 +4,7 @@
 
 /* thinking panel */
 .thinking { margin: 5px 0 2px; border: 0; border-left: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 0; background: transparent; }
-.thinking > summary { cursor: pointer; width: fit-content; max-width: 100%; min-height: 26px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; letter-spacing: .02em; user-select: none; list-style: none; transition: color var(--transition); }
+.thinking > summary { cursor: pointer; width: fit-content; max-width: 100%; min-height: 26px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; user-select: none; list-style: none; transition: color var(--transition); }
 .thinking > summary::-webkit-details-marker { display: none; }
 .thinking > summary:hover { color: var(--ink-2); }
 .thinking-icon { width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; color: color-mix(in srgb, var(--accent) 58%, var(--muted)); }
@@ -43,7 +43,7 @@
 .tool-card .tc-caret { width: 5px; height: 5px; margin: 0 1px 0 2px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg) translateY(-1px); transition: transform var(--transition); flex: none; }
 .tool-card[open] .tc-caret { transform: rotate(225deg) translate(-1px, -1px); }
 .tool-card .tc-body { margin: 1px 8px 5px 20px; border: 0; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; padding: 7px 10px; background: color-mix(in srgb, var(--panel-2) 48%, transparent); }
-.tool-card .tc-label { font-size: var(--fs-xs); color: var(--muted); margin: 6px 0 3px; text-transform: uppercase; letter-spacing: .4px; }
+.tool-card .tc-label { font-size: var(--fs-xs); color: var(--muted); margin: 6px 0 3px; }
 .tool-card .tc-pre-wrap { position: relative; }
 .tool-card pre { background: var(--code-bg); border-radius: 6px; padding: 9px 11px; margin: 0; font-family: var(--mono); font-size: var(--fs-sm); overflow-x: auto; max-height: 260px; overflow-y: auto; }
 /* per-pre copy button, reusing the .copy-code look; reveals on hover of its wrapper */
@@ -105,7 +105,7 @@
 .memory-proposal-card { margin-top: 10px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 7%, var(--panel-2)); transition: opacity .16s ease, transform .16s ease; }
 .memory-proposal-card.settled { opacity: 0; transform: translateY(-3px); }
 .memory-proposal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-.memory-proposal-kicker { color: var(--accent); font-size: var(--fs-xs); font-weight: 650; letter-spacing: .2px; }
+.memory-proposal-kicker { color: var(--accent); font-size: var(--fs-xs); font-weight: 650; }
 .memory-proposal-tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .memory-proposal-tag { padding: 1px 6px; border-radius: 999px; color: var(--muted); background: color-mix(in srgb, var(--muted) 10%, transparent); font-size: var(--fs-xs); }
 .memory-proposal-title { color: var(--ink); font-size: var(--fs-md); font-weight: 650; line-height: 1.45; overflow-wrap: anywhere; }
@@ -194,10 +194,10 @@
 /* v0.8-S3 「本轮变更」summary card: rendered at the tail of an assistant message from message.turnSummary
    (static) or the live turn_summary event. Low-key, double-theme. */
 .turn-summary { margin-top: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); overflow: hidden; }
-.turn-summary-head { padding: 6px 12px; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--line); }
+.turn-summary-head { padding: 6px 12px; font-size: var(--fs-xs); color: var(--muted); border-bottom: 1px solid var(--line); }
 .turn-summary-body { padding: 8px 12px; font-size: var(--fs-md); color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
 .turn-summary-file { display: flex; align-items: baseline; gap: 8px; line-height: 1.4; }
-.turn-summary-file .ts-op { flex: none; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .3px; padding: 1px 6px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
+.turn-summary-file .ts-op { flex: none; font-size: var(--fs-xs); padding: 1px 6px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .turn-summary-file .ts-op.create { color: var(--ok-fg); background: var(--ok-bg); }
 .turn-summary-file .ts-op.modify { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .turn-summary-file .ts-op.delete { color: var(--danger-fg); background: var(--danger-bg); }
@@ -209,7 +209,6 @@
 .turn-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ts-undo, .ts-undo-all { flex: none; padding: 1px 8px; font-size: var(--fs-xs); background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; }
 .ts-undo:hover:not(:disabled), .ts-undo-all:hover:not(:disabled) { color: var(--ink); background: var(--panel); border-color: var(--muted); }
-.ts-undo-all { text-transform: none; letter-spacing: 0; }
 .ts-undo:disabled, .ts-undo-all:disabled { cursor: default; opacity: .7; }
 .ts-undo.done, .ts-undo-all.done { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
 

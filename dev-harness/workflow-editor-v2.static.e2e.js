@@ -69,7 +69,11 @@ for (const [key, label] of [
   ['workflow.nodeIdentity', '身份'], ['workflow.nodeExecution', '执行'],
   ['workflow.nodeOrchestration', '编排'], ['workflow.nodeQuality', '质量'],
 ]) ok(src.includes(`group(t('${key}')`) && zh[key] === label, `A4 分组「${label}」存在(i18n)`);
-ok(/\.wf-insp-group-title\s*\{[^}]*var\(--muted\)[^}]*text-transform:\s*uppercase/.test(css), 'A4 .wf-insp-group-title muted 大写小字（同 skill-group-title 族）');
+// 122 波 §2.9:workspace.css 是非独占层,大写+字距的组头样式已随该波清障退役
+// （css-typography-debt.static.e2e.js 钉住允许名单,.wf-insp-group-title 不在名单内）——
+// 仍是 muted 小字,只是不再大写、不再加字距。
+ok(/\.wf-insp-group-title\s*\{[^}]*var\(--muted\)[^}]*\}/.test(css) && !/\.wf-insp-group-title\s*\{[^}]*text-transform:\s*uppercase/.test(css),
+  'A4 .wf-insp-group-title muted 小字（122 波 §2.9 起不再大写/加字距）');
 ok(/\.wf-insp-group\s*\{[^}]*margin-bottom:\s*var\(--sp-4\)/.test(css), 'A4 组间距 var(--sp-4)');
 
 // ───────────── B1 节点卡 v2：引擎徽标 + 模型名 + 质量门标 ─────────────

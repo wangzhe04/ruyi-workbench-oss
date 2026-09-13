@@ -540,6 +540,20 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // = cc9fc48a0fe37aa618d0c3824575f62e568cba8d91b8353c7cef291d38e2b615，与被替换的旧值【逐字相同】；
 // 再按五个 fix 提交全部落盘之后的 HEAD 的 blob 算得下面这个值（两次都从 git blob 算，不从工作区算
 // —— 32 号文 §4 纪律 4）。反向验证：把 .app-topbar 的 z-index 拔掉 → F3 与 D51 双红。
+// 122 波 §2.9（36 号文）待续钉（前值即下面这个 7738fe50…，本刀不重钉 —— 32 号文 §4「不重钉」纪律：
+// 主会话 cherry-pick 后按 HEAD 统一重钉）：本刀改了【八个既有层】，**零新增、零删除层**
+// （分组表一个字节没动，仍是 18 组 22 层）：
+//   ① `css/tokens.css`：删 --fs-xl／--fs-2xl 两个 --fs-lg 别名声明（连同两段引用它们的注释）。
+//   ② `css/components/chat-primitives.css`／`css/components/onboarding.css`／
+//      `css/components/tool-pane.css`／`css/views/workbench.css`：七处消费点从 --fs-xl／--fs-2xl
+//      改直接引用 --fs-lg（字面量不变,仍是 17px,纯改名）。
+//   ③ `css/components/onboarding.css`／`tool-pane.css`／`chat-primitives.css`／`workbench.css`／
+//      `workspace.css`／`layout.css`／`states/chat-live.css`／`themes/ui-modes.css`：非独占层的
+//      letter-spacing／text-transform:uppercase 22 处里删 19 处（3 处留：tool-pane 两处 ≥17px 标题
+//      负字距、workbench 一处等宽代码负字距,理由见 css-typography-debt.static.e2e.js);连带删掉
+//      `states/chat-live.css` 里因此变成死代码的 `.ts-undo-all` 覆盖规则(它原本只用来撤销
+//      `.turn-summary-head` 的 uppercase,父规则的 uppercase 已经删了)。
+// 算法自证留给主会话按本刀落盘之后的 HEAD 重算(本刀不动 LEGACY_STYLES_SHA256 本身)。
 const LEGACY_STYLES_SHA256 = '7738fe506ee72505cfd9dda3337de5478b948a2fe58fcf2f52a98c157d11c3d7';
 
 function cssSourceFiles() {

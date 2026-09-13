@@ -16,7 +16,7 @@
    极淡青花底衬托品牌色,与 .brand-mark 同一处理。 */
 .empty-logo { width: 54px; height: 54px; border-radius: 14px; background: color-mix(in srgb, var(--brand-qh) 12%, transparent); display: grid; place-items: center; margin: 0 auto 16px; }
 .empty-logo svg { display: block; }
-.empty-state h2 { font-size: var(--fs-2xl); margin: 0 0 10px; }
+.empty-state h2 { font-size: var(--fs-lg); margin: 0 0 10px; }
 .empty-state p { color: var(--muted); line-height: 1.7; }
 .empty-engine { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 12px; padding: 5px 12px;
   border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); font-size: var(--fs-md); color: var(--ink-2); }
@@ -104,7 +104,7 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
   border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--line)); border-radius: var(--r-lg);
   background: var(--panel); box-shadow: var(--elev-1); padding: var(--sp-8) var(--sp-6) var(--sp-6); }
 .boot-failure-icon { font-size: 2.429rem; /* 装饰性大 emoji,超阶梯顶,rem 保原视觉 */ line-height: 1; color: var(--danger-fg); margin-bottom: var(--sp-3); }
-.boot-failure-title { font-size: var(--fs-2xl); margin: 0 0 var(--sp-3); color: var(--ink); }
+.boot-failure-title { font-size: var(--fs-lg); margin: 0 0 var(--sp-3); color: var(--ink); }
 .boot-failure-lead { color: var(--muted); line-height: 1.7; margin: 0 auto var(--sp-5); max-width: 420px; }
 .boot-failure-reasons { list-style: none; padding: 0; margin: 0 0 var(--sp-5); text-align: left;
   display: flex; flex-direction: column; gap: var(--sp-2); }

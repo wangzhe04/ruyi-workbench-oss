@@ -24,12 +24,12 @@
        15 = 正文:如意的话/线程消息/用户气泡(--fs-base)、17 = 视角内标题:线程名/如意名(--fs-lg)。
      改 px 的理由:原来 0.786rem 这种半像素档在 pro(14px 根)下算出 11.004px、simple(15px 根)下
      11.79px —— 谁也说不出界面上到底是几号字,而「同一档在两个模式下差多少」也不是 1px 而是 0.79px。
-     --fs-xl／--fs-2xl 不再是独立档,是 --fs-lg 的别名:五档之外不许再有第六个字号。它们还留着名字
-     只因为消费点在 onboarding/tool-pane/chat-primitives 三层(不归本刀独占),名字退役归后续清障。
+     122 波 §2.9:xl／2xl 两档(--fs- 前缀 + 该后缀,此处刻意不连写以免被自家静态锁误判「未退役」)
+     曾是 --fs-lg 的别名,已退役 —— 全仓消费点(曾在 onboarding/tool-pane/chat-primitives/workbench
+     四层)已改直接引用 --fs-lg,五档之外不再留第六个名字。
      simple/pro 的 +1px:原来靠 :root font-size 14→15 带动 rem;改 px 之后由下面那个
      [data-ui-mode="simple"] 块显式 +1 —— :root 的 font-size 仍然留着(还有别处用 rem/em)。 */
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-base: 15px; --fs-lg: 17px;
-  --fs-xl: var(--fs-lg); --fs-2xl: var(--fs-lg);
   /* 行高(§2.10.2):正文 1.65(中文)、列表 1.5、标题 1.2。 */
   --lh-body: 1.65; --lh-list: 1.5; --lh-title: 1.2;
   /* radius: reuse --radius/--radius-sm; add a large one for modals/drawers */
@@ -75,7 +75,7 @@
 }
 /* 121-K8(§2.10.2):simple 模式的 +1px。字阶改 px 之后 :root 的 font-size 不再带得动它,
    所以在这里把五档各 +1 —— 分档关系(12/13/14/15/17 → 13/14/15/16/18)一格不变,
-   只是整体大一号。--fs-xl／--fs-2xl 是 --fs-lg 的别名,跟着走,不用在这里重写。
+   只是整体大一号。
    验收:真浏览器量 #promptInput 的 font-size,两模式差 1px。 */
 :root[data-ui-mode="simple"] {
   --fs-xs: 13px; --fs-sm: 14px; --fs-md: 15px; --fs-base: 16px; --fs-lg: 18px;
