@@ -65,6 +65,12 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 视图过渡与浮层的开合会落在半途上被读到（第一轮实测就抓到过一次这种夹具级抖动），
   // 所以它也排在并行功能桶之后单独跑。
   'walkthrough-round1.browser.e2e.js',
+  // 122 波 §2.8c：classic-window-live-steer 一趟里要起一条真线程、插话打断、等回合收尾，
+  // 墙钟大头压在 provider 子进程的响应节拍上（TIMEOUT_OVERRIDES 里同一件的 300 s 豁免就是
+  // 为它留的）。单跑实测 32 s（24 核机器，本波复核）；与并行功能桶里其余 Edge/服务件同抢
+  // CPU 时，插话→收尾这段时序会被挤慢，与 quiet-card/live-full-text 同一个模具，所以也排
+  // 到并行功能桶之后单独跑。
+  'classic-window-live-steer.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

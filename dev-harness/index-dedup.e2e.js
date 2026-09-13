@@ -75,6 +75,12 @@ async function turn(port, sessionId, message) {
     cwd: WB, windowsHide: true,
     env: {
       ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, USERPROFILE: HOME, HOME, RUYI_HOME: HOME,
+      // 122 波 §2.8a 实测发现:不隔离 WCW_DATA_DIR 时,启动期 migrateLegacyAccMemory() 会去扫真机
+      // %LOCALAPPDATA%/ai-computer-control/data/memory.json(与 os.homedir()/.ai-computer-control/
+      // memory.json),把真机上真实存在的 ACC 记忆条目导进本夹具的 memory/global —— 这些条目内容
+      // 因人而异、因机器而异,按查询词做相关性排序(rankMemoriesForRecall)后是否命中纯属巧合,
+      // 曾把 E3(t6)错误判成"compact 之后重注"。同款隔离写法见 workbench-memory.e2e.js:133。
+      WCW_DATA_DIR: path.join(HOME, 'isolated-acc-data'),
       WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: ARGV_CAP, WCW_FAKE_STDIN_CAPTURE: STDIN_CAP,
       WCW_FAKE_SID: 'fake-dedup-sid-0001', // resume 保真: 每轮回放同一 session id(真实 CLI --resume 的行为)
     },

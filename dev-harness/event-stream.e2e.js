@@ -327,6 +327,16 @@ try {
   const waiting = await waitForFrame(stream, f => f.event === 'thread.state' && f.data && f.data.sessionId === sessionId && f.data.state === 'needs_you', 30000);
   ok(Boolean(waiting && waiting.data.wait >= 1), `B-c3 同时来一条 thread.state needs_you(wait=${waiting && waiting.data.wait})`);
 
+  /* ═════════ inbox.appended(122 波 §2.8b)═════════ */
+  // 122 波 §2.8a 实测定案(夹具没给足条件,非本机固有):13i-steward-inbox.js 的收件箱写口只在
+  // stewardTickOnce() 的轮询周期(本夹具 stewardPollMs=5000)里、intervention 投影仍是
+  // status='pending' 时才把它归一化成一条 inbox 行(stewardNormalizePendingIntervention)。
+  // 旧写法在 needs_you 一到就立刻 POST /api/chat/answer,答完之后 pending 状态当场消失——
+  // 中间往往一次轮询都没轮到,B-g1 因此必红(实测:去掉这处等待时 inbox.appended 从未到达)。
+  // 修法:先等一条 inbox.appended 真的落到当前连接上(留 4 个轮询周期的余量),再去回答问题。
+  const inbox = await waitForFrame(stream, f => f.event === 'inbox.appended', 20000);
+  ok(Boolean(inbox && inbox.data && inbox.data.kind), `B-g1 inbox.appended(kind=${inbox && inbox.data && inbox.data.kind})`);
+
   /* ═════════ b 收工 -> thread.done(连接【不断】,延迟才测得准)═════════ */
   const answered = await request(appPort, 'POST', '/api/chat/answer', {
     sessionId, questionId: needs.data.interventionId,
@@ -380,11 +390,6 @@ try {
   const adopted = replayed.find(f => f.event === 'thread.adopted');
   ok(Boolean(adopted && adopted.data.sessionId === sessionId && adopted.data.missionId === missionId),
     `D6 断线期间发生的 thread.adopted 真的补到了(实得 ${JSON.stringify(adopted && adopted.data)};补发事件名:${[...new Set(replayed.map(f => f.event))].join(',') || '(空)'})`);
-
-  /* ═════════ inbox.appended ═════════ */
-  const inbox = (await waitForFrame(reconnected, f => f.event === 'inbox.appended', 60000))
-    || framesBeforeDrop.find(f => f.event === 'inbox.appended');
-  ok(Boolean(inbox && inbox.data && inbox.data.kind), `B-g1 inbox.appended(kind=${inbox && inbox.data && inbox.data.kind})`);
 
   /* ═════════ E 红线:不承载工具输出正文 ═════════ */
   const everything = JSON.stringify(framesBeforeDrop.concat(reconnected.frames).map(f => f.data));
