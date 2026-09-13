@@ -89,6 +89,16 @@
          同级容器，各自是「中栏 ＋ 右栏」的两列栅格 —— 两边列宽逐字相同，所以切视角时布局不跳）；
          左栏 #sidebar 是【同一个 DOM 节点】，切换时不重画、不搬家（验收：切换前后 isSameNode 为真）。 -->
     <div class="app-frame" id="appFrame">
+      <!-- 122-L1b · U05 走查（36 号文 §2.14）抓到的唯一一条：**纯键盘走不到输入框**。
+           实测（dev-harness/a11y-walkthrough.browser.e2e.js 的 B 组）从 body 起连按 Tab 要
+           【31 下】才到 #promptInput —— 分段钮 2 下、左栏第一行 10 下都在预算内，卡在中间那一段：
+           对话区里每条消息的 .msg-actions（复制／编辑重发／重试／回溯／存为 playbook／存为记忆…）
+           每一枚都在 Tab 序里，所以这个数【随对话长度无上限地长】。那批按钮本身不该退出 Tab 序
+           （它们 :focus-within 时会显出来，是真能用的键盘功能），所以修法是标准的跳转链接：
+           整个应用的**第一枚**可聚焦元素，平时收在顶栏上方（被 .app-frame 的 overflow:hidden 裁掉），
+           一拿到焦点就滑进来。点它＝把焦点送进【当前视角那一个】输入框（管家＝#stewardComposerInput，
+           工作台＝#promptInput）。它是 position:absolute，不占外框那两行栅格。 -->
+      <button type="button" id="skipToComposer" class="skip-link" data-i18n="a11y.skipToComposer">跳到输入框</button>
       <!-- 顶栏（§2.2）：左品牌标、中视角分段钮、右全局状态胶囊 ＋ 盾牌 ＋ 停机 ＋ 齿轮。
            【不印】费用、线程总数、模型名 —— 那三样分别归「用量」页签、左栏组头计数与配置控件。 -->
       <header class="app-topbar" id="appTopbar">

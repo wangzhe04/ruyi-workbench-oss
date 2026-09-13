@@ -33,6 +33,20 @@
   --right-w: 392px;
 }
 .app-frame.rail-board .app-body { --rail-w: var(--rail-board-w); }
+/* 122-L1b · U05 走查（36 号文 §2.14）：跳转链接 —— 整个应用的第一枚可聚焦元素，把焦点直送
+   当前视角的输入框。平时用 translateY 收到顶栏【上方】（.app-frame 的 overflow:hidden 把它裁掉，
+   所以既不占位、也不制造任何方向的滚动条），:focus 时滑进来。用 transform 而不是 left:-9999px：
+   后者在 RTL／高对比模式下常把水平滚动带回来，而本走查的第一条判据就是「不许有横向滚动」。 */
+.skip-link {
+  position: absolute;
+  left: var(--sp-2);
+  top: var(--sp-1);
+  z-index: 60;
+  font-size: var(--fs-sm);
+  transform: translateY(-300%);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.skip-link:focus { transform: none; }
 /* 121 走查1-①（用户 2026-09-13 走查第 1 条）：顶栏整条【抬到 .app-body 之上】。
    修前 .app-topbar 是 position:static、z-index:auto 的栅格项，只靠 `view-transition-name: titlebar`
    （见本文件末 §2.9 那一段）成了一个 z-index:auto 的层叠上下文 —— 于是顶栏里那两块就地浮层

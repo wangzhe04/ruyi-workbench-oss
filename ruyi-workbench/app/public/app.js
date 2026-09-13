@@ -997,6 +997,13 @@ function bindEvents() {
   // 121-K5（34 号文 §3.1）：#modelChip／#permChip／隐藏的 #permSelect 三处接线随控件一起退役。
   // 线程的权限／模型／引擎只剩线程头那一组 chip（js/thread-head.js 用同一个 chips 工厂挂的，
   // 唯一写口 PATCH /api/sessions/:id）；新任务的两个默认值分别在外框顶栏的盾牌与模型菜单里改。
+  // 122-L1b · U05 走查抓到的那一条（36 号文 §2.14）：跳转链接把焦点直送【当前视角】的输入框。
+  // 两个视角各有自己的输入框，判据只读 data-shell-mode（属性是唯一状态源，本处不写它）。
+  { const skip = $('skipToComposer'); if (skip) skip.onclick = () => {
+    const steward = document.documentElement.getAttribute('data-shell-mode') === 'steward';
+    const box = $(steward ? 'stewardComposerInput' : 'promptInput');
+    if (box) { try { box.scrollIntoView({ block: 'nearest' }); } catch { /* 老宿主没有它 */ } box.focus(); }
+  }; }
   { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
   // v0.8-S6 capability matrix。122-L1b：**不能直接把函数当 handler** —— onclick 会把 MouseEvent
   // 当第一个实参（openCapPopover 的 anchorOverride）递进去，popover 拿它调 getBoundingClientRect

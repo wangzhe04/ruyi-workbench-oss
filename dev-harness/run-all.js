@@ -84,6 +84,15 @@ const PARALLEL_EXCLUSIVE = new Set([
   // （CDP `Fetch` 全域拦截），另开一条并行 Node SSE 客户端做「服务端真的重放了」的对照，
   // 再靠两段 3 s 观察窗判「卡数仍为 0」。拦截与观察窗都吃调度，进独占桶。
   'event-stream-replay.browser.e2e.js',
+  // 122-L1b（§2.11–§2.13、§5.2）：walkthrough-round2 与 walkthrough-round1 同一条理由 ——
+  // 它量的是【命中测试与墙钟窗口】：真鼠标点 chip／齿轮菜单、量文字的 scrollWidth 有没有溢出、
+  // 再用 CDP `Fetch` 把 `/api/status` 扣住 1500 ms 在延迟窗里点分段钮。与别的 Edge 抢 CPU 时
+  // 菜单开合与延迟窗都会落在半途上被读到，所以排到并行功能桶之后单独跑。
+  'walkthrough-round2.browser.e2e.js',
+  // 122-L1b（§2.14 U05）：a11y-walkthrough 反复改视口（Emulation.setDeviceMetricsOverride）再量
+  // getBoundingClientRect 与容器查询的重排结果，还要连按几十下 Tab 逐站读 activeElement ——
+  // 布局重排与键盘事件的落地都吃调度，同上进独占桶。
+  'a11y-walkthrough.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
