@@ -184,3 +184,4 @@
 ## 6. 停点
 
 - **2026-09-13 傍晚 · 122 波四刀全部出门，master `6b112c5`（docs 随后一笔），未推送。** 34 号文 §14 末清单 1–10 去向已在 34 号文 §14 尾部逐条标注。下一步：发布 A 打包（§3 第 5 条，版本走 **2.7.0**——121 波把默认入口翻成管家视角并删交办台，按 107 §6「版本归属由实际行为决定」是默认行为变化，不该藏在 2.6.x）→ 123 波定时任务与承诺（35 号文 §2）。
+- **2026-09-13 傍晚 · 发布 A 已打包（release `eac1424`）**：`tools/package-offline.ps1 -SkipExeBuild` 两变体——`dist/Ruyi-v2.7.0-slim.zip` 36.07 MB（无 ACC）、`dist/Ruyi-v2.7.0-full.zip` 733.48 MB（ACC 源＋嵌入 Python＋wheel 缓存＋Chromium）。冒烟：slim 包解压到临时目录，用包内 `runtime\node\node.exe` 起 `app\server.js serve`（临时家＋临时数据根），`/health` 首轮即回 `{"ok":true,"version":"2.7.0","launchMode":"node"}`。踩坑一条：从 Bash 起 powershell 会继承 Git 的 PATH，`tar` 解析成 GNU tar → `Cannot connect to E:`，必须原生 PowerShell 起（System32 bsdtar）。**未推送**（57＋ 提交领先 origin；推送等用户拍板，方法见记忆 `ops-push-and-package`）。CHANGELOG 里 108–118 波「未发布」条目并入 2.7.0 段（2.6.2 切于 2026-08-27，之后没发过版）。
