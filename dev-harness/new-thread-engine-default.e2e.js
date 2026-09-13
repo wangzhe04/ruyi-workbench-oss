@@ -284,6 +284,23 @@ try {
     ok(String((g && g.engineRoute && g.engineRoute.model) || '') === 'model-x',
       `⑦2 显式那一份的 model 也照单收下(got ${JSON.stringify(g && g.engineRoute && g.engineRoute.model)})`);
   }
+
+  /* ═════════ ⑧ 改全局也是一次显式选择(123-N2 合并复核) ═════════ */
+  // 用户在设置里把全局引擎改成 X ——这一下必须成为「上次用的」;否则改完全局、新开一条线程,仍跟着
+  // 改之前那一路走(agent-team-mode.e2e 合并后串行必红:切回 Claude 驱动后新会话仍走上一轮的 fake 端点)。
+  console.log('── ⑧ POST /api/config 改 activeProvider ──');
+  {
+    const saved = await request('POST', '/api/config', { activeProvider: 'px' }, hdr);
+    ok(saved.status === 200, `⑧1 把全局 activeProvider 改成 X(status=${saved.status})`);
+    ok(await waitLastUsed(r => isOpenAi(r, 'px')), `⑧2 「上次用的」跟着变成 X(got ${JSON.stringify(lastUsed())})`);
+    const h = await newThread('H(改全局之后)');
+    ok(isOpenAi(h && h.engineRoute, 'px'), `⑧3 H = X(got ${JSON.stringify(h && h.engineRoute)})`);
+    const back = await request('POST', '/api/config', { activeProvider: '' }, hdr);
+    ok(back.status === 200 && await waitLastUsed(r => isAgent(r, 'kimi')),
+      `⑧4 改回 Claude/Kimi 驱动同样被记住(got ${JSON.stringify(lastUsed())})`);
+    const i2 = await newThread('I(改回全局之后)');
+    ok(isAgent(i2 && i2.engineRoute, 'kimi'), `⑧5 I 跟着回到 kimi,不再是 X(got ${JSON.stringify(i2 && i2.engineRoute)})`);
+  }
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

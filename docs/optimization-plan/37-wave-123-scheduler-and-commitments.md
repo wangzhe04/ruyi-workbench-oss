@@ -140,7 +140,8 @@
 
 - 顺序：M1（已在 master）→ N1 两笔（manifest 撞，以 HEAD 为准）→ N2 两笔（`fixture-home.static` 常量 136+1=137、`steward-config-tier` 两刀四键并存，manifest 同上）→ M3 三笔（无冲突）。
 - 重生成：build 52551 行、依赖图 52 模块／408 边／1 SCC、契约快照、路由 135 判定点／123 鉴权行、facts 346 e2e／44 unit、README 三处门面；`build --check`／depgraph `--check` 绿；8 文件控制字符零命中；`--fast` **70/70**（`f66c690`）。
-- 8 路全量：（待填）
+- **第一轮 8 路全量 302/37/7——级联，病根是 M3 的假 AppData**：签名「workbench listening」超时／ECONNRESET／`/api/status` 5 连发不全 200；串行 `perf-config-cache`／`onboard` 也红。手动起服务对照：`LOCALAPPDATA` 指每件新目录时首个 `/api/status` **6 s**，指真机时 **2.5 s**——桌面 MCP python 探针的磁盘缓存键（`desktopPythonDiskCacheId`）含 `%LOCALAPPDATA%` 派生的候选路径，每件一个新目录＝每件一个新键＝每件冷探针，凡给 `/api/status` 留 5 s 预算的件全部超时。修法 `c4fc46d`：假 AppData 改成**整机一份跨件共用**（`os.tmpdir()/ruyi-e2e-appdata`），隔离目标（不指回真机）不变，缓存键从第二个进程起命中；三件串行绿、`index-dedup` E3 仍绿、单测改钉「固定名＋不挂临时家下＋两次相同」。顺带记一条产品债：即便缓存命中，首个 `/api/status` 仍付 ≈2.5 s 同步探针——`detectDesktopMcp` async 化（36 号文 §5.3 已登记）的分量比想的重。
+- 第二轮 8 路全量：（待填）
 
 ## 6. 停点
 

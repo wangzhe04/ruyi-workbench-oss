@@ -226,6 +226,15 @@ async function applyConfigPatch(rawBody) {
   if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
     invalidateAgentCliPathCaches();
   }
+  // 123-N2 合并复核（主会话）：用户在设置里改全局引擎（activeProvider／agentCliType／model）也是一次
+  // 【显式选择】，要成为「上次用的」—— 否则改完全局、新开一条线程，仍跟着改之前的那一路走
+  // （agent-team-mode.e2e 合并后串行必红：切回 Claude 驱动后新会话仍走上一轮的 fake 端点）。
+  // 只在这三个键真的在 body 里时记；与现值相同则 rememberLastUsedEngineRoute 自己短路不落盘。
+  // 【await 而不是 void】：保存请求回 200 之前记录就得落盘——调用方（设置页、e2e）改完全局马上
+  // 新开线程是常见序列，fire-and-forget 会让那条新线程仍跟着上一路走（本机实测 agent-team-mode 就这么红）。
+  if (body && ['activeProvider', 'agentCliType', 'model'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
+    await rememberLastUsedEngineRoute(sessionEngineRouteFromConfig(next), next);
+  }
   // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
   if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
     await syncClaudeCliSettings(next);

@@ -9424,7 +9424,21 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
