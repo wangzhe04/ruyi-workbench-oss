@@ -64,7 +64,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // event-stream-replay.browser 三件，各一处带 RUYI_HOME 的 spawn（无头 Edge 那发不带，不计入），128 -> 131。
 // 122-L1b（36 号文 §2.11–§2.14）：新增 walkthrough-round2.browser 与 a11y-walkthrough.browser 两件，
 // 各一处带 RUYI_HOME 的 spawn（那一发起服务；无头 Edge 那发不带，不计入），131 -> 133。
-const RUYI_HOME_SPAWN_SITES = 133;
+// 123-M1（37 号文 §3.2–§3.4）：新增 scheduler.e2e.js／scheduler-crash.e2e.js／scheduler-api.e2e.js
+// 三件，各一处带 RUYI_HOME 的 spawn（三件都用一个 spawnWb/内联 spawn 工厂，崩溃件的四次重启与
+// API 件的两份数据根都走同一处），133 -> 136。
+const RUYI_HOME_SPAWN_SITES = 136;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

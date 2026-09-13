@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-13T07:42:57.883Z",
+  "generatedAt": "2026-09-13T09:58:28.914Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -12,16 +12,17 @@
       "ruyi-workbench/app/src/13e-pretender-index.js",
       "ruyi-workbench/app/src/13g-steward.js",
       "ruyi-workbench/app/src/13h-steward-runner.js",
-      "ruyi-workbench/app/src/13r-event-stream.js"
+      "ruyi-workbench/app/src/13r-event-stream.js",
+      "ruyi-workbench/app/src/13s-scheduler.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 117,
-    "decisionPoints": 129,
+    "routeAuthEntries": 123,
+    "decisionPoints": 135,
     "byKind": {
-      "exact": 112,
+      "exact": 114,
       "prefix": 12,
-      "regex": 5
+      "regex": 9
     },
     "authLevels": [
       "body-token",
@@ -724,6 +725,42 @@
       "p": "/api/steward/decisions",
       "auth": "token",
       "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/scheduler/tasks",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/scheduler/tasks",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/scheduler/tasks/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/scheduler/tasks/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "PATCH",
+      "p": "/api/scheduler/tasks/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/scheduler/tasks/",
+      "auth": "token",
+      "prefix": true
     },
     {
       "m": "POST",
@@ -2015,7 +2052,7 @@
       "kind": "exact",
       "path": "/api/upload",
       "file": "13-http-router.js",
-      "line": 1465,
+      "line": 1471,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2032,7 +2069,7 @@
       "kind": "exact",
       "path": "/api/upload/content",
       "file": "13-http-router.js",
-      "line": 1473,
+      "line": 1479,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2047,7 +2084,7 @@
       "kind": "exact",
       "path": "/api/chat/stream",
       "file": "13-http-router.js",
-      "line": 1493,
+      "line": 1499,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2190,7 +2227,7 @@
       "kind": "prefix",
       "path": "/api/tools/",
       "file": "13-http-router.js",
-      "line": 1511,
+      "line": 1517,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2219,7 +2256,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 1786,
+      "line": 1792,
       "handler": "startServerInner",
       "methods": [
         "*"
@@ -2672,6 +2709,7 @@
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
+        "dev-harness\\scheduler.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -2855,6 +2893,7 @@
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
+        "dev-harness\\scheduler.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -2983,6 +3022,7 @@
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
+        "dev-harness\\scheduler.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-index.e2e.js",
@@ -4125,7 +4165,7 @@
       "kind": "exact",
       "path": "/api/events/stream",
       "file": "13r-event-stream.js",
-      "line": 242,
+      "line": 253,
       "handler": "handleEventStreamApiRoutes",
       "methods": [
         "GET"
@@ -4143,6 +4183,126 @@
         "dev-harness\\live-full-text.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/scheduler/tasks",
+      "file": "13s-scheduler.js",
+      "line": 723,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/scheduler/tasks",
+      "file": "13s-scheduler.js",
+      "line": 732,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
+      ]
+    },
+    {
+      "kind": "regex",
+      "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
+      "path": "/api/scheduler/tasks/:taskId",
+      "file": "13s-scheduler.js",
+      "line": 751,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "*"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
+      ]
+    },
+    {
+      "kind": "regex",
+      "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
+      "path": "/api/scheduler/tasks/:taskId",
+      "file": "13s-scheduler.js",
+      "line": 792,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "*"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
+      ]
+    },
+    {
+      "kind": "regex",
+      "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/run-now$",
+      "path": "/api/scheduler/tasks/:taskId/run-now",
+      "file": "13s-scheduler.js",
+      "line": 806,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
+      ]
+    },
+    {
+      "kind": "regex",
+      "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/runs$",
+      "path": "/api/scheduler/tasks/:taskId/runs",
+      "file": "13s-scheduler.js",
+      "line": 830,
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\scheduler-api.e2e.js",
+        "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler.e2e.js"
       ]
     }
   ],
@@ -4186,6 +4346,11 @@
       "file": "13-http-router.js",
       "line": 1455,
       "target": "handleOverlayApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1470,
+      "target": "handleSchedulerApiRoutes"
     }
   ],
   "problems": [],

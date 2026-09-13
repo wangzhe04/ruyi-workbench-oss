@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 50,
+  "count": 52,
   "lifecycleCounts": {
-    "dedicated-exemption": 15,
+    "dedicated-exemption": 16,
     "external-exemption": 9,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 19
+    "shared-lifecycle": 20
   },
   "entries": [
     {
@@ -695,6 +695,34 @@
       "recovery": "rebuild the reverse index from the session heads that still point at this missionId (the read side reconciles file sessionIds against head missionId on every read, so a lost or quarantined file self-heals into an unclassified mission with the same threads)",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "scheduler-tasks",
+      "pattern": "<data>/scheduler/tasks-v1.json",
+      "owner": "13s-scheduler.js",
+      "anchor": "SCHEDULER_TASKS_FILE",
+      "schema": "object / schema 1 (tasks[] = 29 号文 §3 的 Commitment 形状：schedule/payload/target/autonomy/policy/state + revision)",
+      "writePrimitive": "atomicWriteJson through a per-process serialized chain (schedulerTasksChain)",
+      "corruption": "an unparsable or wrong-schema file is RENAMED to tasks-v1.json.corrupt (rename, not copy: leaving it in place would re-quarantine on every read) and the scheduler starts from an empty table with lastError set; individual rows that fail normalizeSchedulerTask are skipped rather than silently rewritten",
+      "capacity": "200 tasks (POST refuses beyond it with scheduler.capacity_exceeded); per-task maxRunsPerDay and a global 200 fires/day counter live in the same file",
+      "cache": "schedulerRuntime.tasks is the live copy for this process; every mutation writes the whole file back through the chain",
+      "recovery": "the fires ledger says what actually ran, but a lost tasks file loses the DEFINITIONS - the user re-creates them (nothing else in the workbench can reconstruct what someone promised themselves)",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+    },
+    {
+      "id": "scheduler-fires",
+      "pattern": "<data>/scheduler/fires-v1.ndjson",
+      "owner": "13s-scheduler.js",
+      "anchor": "SCHEDULER_FIRES_FILE",
+      "schema": "NDJSON fire rows / fires-v1 (seq + occurrenceKey + executionGeneration + phase registered|dispatched|running|reconciled + outcome succeeded|failed|needs_you|skipped|unknown)",
+      "writePrimitive": "repairMissionChangeTornTail + appendFile through a per-process serialized chain (the session-changes primitive, same as steward-inbox)",
+      "corruption": "torn tail truncated before append; unparsable rows and rows whose phase is outside the four-phase whitelist are skipped by readers",
+      "capacity": "append-only; four rows per fire at most, bounded by the per-task and global daily caps above",
+      "cache": "the monotonic seq and the per-occurrence attempt counter are rebuilt from the tail at load; no other in-process cache",
+      "recovery": "the ledger is the record itself: a crashed run is reconciled as outcome unknown on the next boot (never as success, never re-dispatched), and DELETE of a task deliberately leaves its rows in place",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "append-only ledger cannot use whole-file JSON replacement"
     },
     {
       "id": "pretender-index",

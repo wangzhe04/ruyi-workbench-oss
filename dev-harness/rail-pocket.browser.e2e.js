@@ -23,11 +23,12 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   I 118a 向导多一步「管家用哪个模型」（§8.4 拍板③）：**全新 HOME** 走完向导 → 落在
 //     data-shell-mode="steward"，config.stewardModel 已写、onboarding.completedAt 已写。
 //
-// 定时任务的读面（GET /api/scheduler/tasks，119 波）**今天没有生产者**（34 号文 §13.5 原话：
-// 「'schedule' 今天无生产者（119 波零实现），只留判据」）。本刀零后端，所以 D 组的五条任务由
-// 页内一层 fetch 垫片按 localStorage 里的夹具应答 —— 垫片装在预绘之前（addScriptToEvaluateOnNewDocument），
-// 与 event-stream-client.browser 那一件的手法逐字同源。**没有夹具时垫片放行**，那一路走真拒绝（实测 403），
-// 于是 D1「零任务整段不画」量的是真实缺省行为，不是被伪造出来的空。
+// 定时任务的读面（GET /api/scheduler/tasks）**123 波 M1 起有生产者了**（37 号文 §3.3：13s 的六条
+// 路由 + 01b 六条 token 档；原注写的「119 波零实现、实测 403」是 121-K7 那一刻的事实，A3 已随之翻转）。
+// 本件仍然零后端：D 组的五条任务由页内一层 fetch 垫片按 localStorage 里的夹具应答 —— 垫片装在预绘之前
+// （addScriptToEvaluateOnNewDocument），与 event-stream-client.browser 那一件的手法逐字同源。
+// **没有夹具时垫片放行**，那一路现在走真后端（一张空表），于是 D1「零任务整段不画」量的仍然是
+// 真实缺省行为，不是被伪造出来的空 —— 而且比从前更真：从前它量的是「读不到」，现在量的是「真没有」。
 //
 // 判定行：`RAIL POCKET BROWSER E2E: ALL PASS`
 (async () => {
@@ -320,9 +321,15 @@ try {
   const seedThread = await request(appPort, 'POST', '/api/sessions', { title: '夹具线程', cwd: home }, token);
   ok(Boolean(seedThread && seedThread.json && seedThread.json.session && seedThread.json.session.id),
     'A2b 造了一条线程（右栏因此有焦点可画 —— 「接下来」跟它同住一栏）');
+  // 123-M1（37 号文 §3.3）翻转：这条读面【现在有生产者了】。原来这里钉的是「今天 403，因为
+  // 01b-route-auth 的清册里没有这条路由」——那是 121-K7 那一刻的事实，不是产品意图。本波把六条
+  // 路由与 13s 的调度器接上之后，它回 200 且 tasks 是一个真数组（空表也算真数据）。
+  // D 组要量的仍然是【前端拿到数据之后怎么画】，所以下面那套 localStorage 夹具垫片一字未动
+  // （它拦在 window.fetch 上，比真后端更靠前）——本条只是把「后端有没有这个面」的事实钉住。
   const scheduleProbe = await request(appPort, 'GET', '/api/scheduler/tasks', null, token);
-  ok(Boolean(scheduleProbe) && scheduleProbe.status !== 200,
-    `A3 GET /api/scheduler/tasks 今天没有生产者（119 波零实现，§13.5 原话；实测 HTTP ${scheduleProbe && scheduleProbe.status}）`);
+  ok(Boolean(scheduleProbe) && scheduleProbe.status === 200
+    && scheduleProbe.json && scheduleProbe.json.ok === true && Array.isArray(scheduleProbe.json.tasks),
+    `A3 GET /api/scheduler/tasks 有生产者了（123 波 M1；实测 HTTP ${scheduleProbe && scheduleProbe.status}，tasks ${scheduleProbe && scheduleProbe.json && Array.isArray(scheduleProbe.json.tasks) ? scheduleProbe.json.tasks.length + ' 条' : '不是数组'}）`);
 
   const executable = findBrowserExecutable();
   ok(Boolean(executable), 'A4 Edge/Chrome found');

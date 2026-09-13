@@ -4462,6 +4462,55 @@
       ]
     },
     {
+      "file": "06j-scheduler-core.js",
+      "layer": "engine",
+      "provides": [
+        "SCHEDULER_CODE_CR",
+        "SCHEDULER_CODE_DEL",
+        "SCHEDULER_CODE_LF",
+        "SCHEDULER_CODE_SPACE",
+        "SCHEDULER_CODE_TAB",
+        "SCHEDULER_CREATORS",
+        "SCHEDULER_CRON_DAY_SCAN",
+        "SCHEDULER_DEFAULT_POLICY",
+        "SCHEDULER_DESCRIBE_KEYS",
+        "SCHEDULER_DOW_KEYS",
+        "SCHEDULER_FIRE_MODES",
+        "SCHEDULER_FORBIDDEN_PAYLOAD_KEYS",
+        "SCHEDULER_LIMITS",
+        "SCHEDULER_ON_FAILURE",
+        "SCHEDULER_ON_MISSED",
+        "SCHEDULER_OUTCOMES",
+        "SCHEDULER_PAYLOAD_KINDS",
+        "SCHEDULER_PHASES",
+        "SCHEDULER_SCHEDULE_KINDS",
+        "SCHEDULER_TARGET_MODES",
+        "SCHEDULER_TEXT_LF",
+        "SCHEDULER_TEXT_SPACE",
+        "SchedulerHooks",
+        "describeSchedule",
+        "missedOccurrence",
+        "nextFireAt",
+        "normalizeSchedulerTask",
+        "occurrenceKey",
+        "parseCronExpr",
+        "schedulerClampInt",
+        "schedulerCleanBlock",
+        "schedulerCleanLine",
+        "schedulerCronDayMatches",
+        "schedulerCronField",
+        "schedulerCronNextFireAt",
+        "schedulerDaysInMonth",
+        "schedulerFail",
+        "schedulerFindForbiddenKey",
+        "schedulerLocalMs",
+        "schedulerParseHhMm",
+        "schedulerParseYmd",
+        "schedulerStripControl"
+      ],
+      "requires": []
+    },
+    {
       "file": "07-autonomy.js",
       "layer": "orchestration",
       "provides": [
@@ -4544,6 +4593,8 @@
         "runClaudeSubAgentOnce",
         "runtimeToolBlockedReason",
         "saveProjectAgentRoles",
+        "schedulerAskWaitOverrideMs",
+        "schedulerAskWaitSessions",
         "searchToolCatalog",
         "toResponsesContent",
         "toResponsesTools",
@@ -10185,6 +10236,27 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "handleSchedulerApiRoutes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "startScheduler",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "stopScheduler",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -15368,6 +15440,291 @@
       ]
     },
     {
+      "file": "13s-scheduler.js",
+      "layer": "transport",
+      "provides": [
+        "SCHEDULER_DIR_NAME",
+        "SCHEDULER_FIRES_FILE",
+        "SCHEDULER_FIRES_FULL_READ_BYTES",
+        "SCHEDULER_FIRES_TAIL_BYTES",
+        "SCHEDULER_RUNS_LIMIT_DEFAULT",
+        "SCHEDULER_RUNS_LIMIT_MAX",
+        "SCHEDULER_TASKS_FILE",
+        "SCHEDULER_TASKS_SCHEMA",
+        "SCHEDULER_TICK_MS_DEFAULT",
+        "SCHEDULER_TICK_MS_MAX",
+        "SCHEDULER_TICK_MS_MIN",
+        "SCHEDULER_TITLE_IN_FIRE_MAX",
+        "handleSchedulerApiRoutes",
+        "schedulerAppendFire",
+        "schedulerAskWaitMs",
+        "schedulerClockNow",
+        "schedulerDayKey",
+        "schedulerDir",
+        "schedulerEmitChanged",
+        "schedulerEnabled",
+        "schedulerEnsureTimer",
+        "schedulerFireOnce",
+        "schedulerFiresChain",
+        "schedulerFiresPath",
+        "schedulerLoad",
+        "schedulerLocaleOf",
+        "schedulerMaybeCrash",
+        "schedulerMergeRuns",
+        "schedulerNotify",
+        "schedulerPermissionModeFor",
+        "schedulerPublicTask",
+        "schedulerReadFireRows",
+        "schedulerReadFiresText",
+        "schedulerReadTasksFile",
+        "schedulerRecover",
+        "schedulerRestorePersistedState",
+        "schedulerRouteGate",
+        "schedulerRuntime",
+        "schedulerRuntimeSnapshot",
+        "schedulerSaveTasks",
+        "schedulerTasksChain",
+        "schedulerTasksPath",
+        "schedulerTick",
+        "schedulerTickMs",
+        "startScheduler",
+        "stopScheduler"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "createSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "describeSchedule",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "missedOccurrence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "nextFireAt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "normalizeSchedulerTask",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "occurrenceKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_PHASES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SchedulerHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "schedulerAskWaitSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "runSessionTurn",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
@@ -17650,6 +18007,139 @@
           ]
         },
         {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "describeSchedule",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "missedOccurrence",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "nextFireAt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "normalizeSchedulerTask",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "occurrenceKey",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "parseCronExpr",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_DEFAULT_POLICY",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_DESCRIBE_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_DOW_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_FIRE_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_FORBIDDEN_PAYLOAD_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_ON_FAILURE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_ON_MISSED",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_OUTCOMES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_PAYLOAD_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_PHASES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_SCHEDULE_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_TARGET_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "adaptiveMetaToolSchemas",
           "kinds": [
@@ -18829,6 +19319,27 @@
         {
           "provider": "13q-steward-runner-turn.js",
           "symbol": "stewardVisit",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerRuntimeSnapshot",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "startScheduler",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "stopScheduler",
           "kinds": [
             "read"
           ]

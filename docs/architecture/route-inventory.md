@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 129(精确 112 / 前缀 12 / 正则 5),ROUTE_AUTH 117 条,生成于 2026-09-13T07:42:57.883Z。
+> 判定点 135(精确 114 / 前缀 12 / 正则 9),ROUTE_AUTH 123 条,生成于 2026-09-13T09:58:28.914Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -88,17 +88,17 @@
 | GET | `/api/audit` | exact | token self | 13-http-router.js:1412 | audit.e2e.js, auth-deny-default.e2e.js, autonomy-grant.e2e.js 等 6 件 |
 | GET | `/api/storage/summary` | exact | token self | 13-http-router.js:1429 | frontend-domains.static.e2e.js, metrics-panel.e2e.js, session-storage-v2.e2e.js 等 4 件 |
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1441 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
-| POST | `/api/upload` | exact | token-browser | 13-http-router.js:1465 | vision-loop.e2e.js |
-| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1473 | — |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1493 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 127 件 |
-| POST | `/api/tools/` | prefix | token | 13-http-router.js:1511 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
-| * | `/health` | exact | host-gate | 13-http-router.js:1786 | — |
+| POST | `/api/upload` | exact | token-browser | 13-http-router.js:1471 | vision-loop.e2e.js |
+| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1479 | — |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1499 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 127 件 |
+| POST | `/api/tools/` | prefix | token | 13-http-router.js:1517 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
+| * | `/health` | exact | host-gate | 13-http-router.js:1792 | — |
 
 ## event-stream(1)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:242 | event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js, event-stream-replay.browser.e2e.js 等 8 件 |
+| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:253 | event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js, event-stream-replay.browser.e2e.js 等 8 件 |
 
 ## intervention(11)
 
@@ -149,15 +149,26 @@
 | GET | `/api/overlay/status` | exact | token self | 13c-overlay-routes.js:168 | overlay-update-core.e2e.js, overlay-update-gui.static.e2e.js |
 | POST | `/api/overlay/rollback` | exact | token | 13c-overlay-routes.js:179 | overlay-update-core.e2e.js, overlay-update-gui.static.e2e.js |
 
+## scheduler(6)
+
+| 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
+|---|---|---|---|---|---|
+| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:723 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
+| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:732 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:751 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:792 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:806 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:830 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+
 ## session(5)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js 等 149 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js 等 150 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js 等 149 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js 等 150 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 74 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 75 件 |
 
 ## steer(2)
 
@@ -199,3 +210,4 @@
 - 13-http-router.js:1451 → `handleCheckpointApiRoutes`
 - 13-http-router.js:1453 → `handleSteerApiRoute`
 - 13-http-router.js:1455 → `handleOverlayApiRoutes`
+- 13-http-router.js:1470 → `handleSchedulerApiRoutes`

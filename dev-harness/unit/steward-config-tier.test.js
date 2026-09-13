@@ -102,6 +102,16 @@ const EXPECTED = {
   // 让模型能改它 = 让它自己调大自己的注意力面 —— 那是一个会连锁影响每一次到访成本的旋钮,
   // 而用户在设置页改它随时一眼看得见、一键改回。与 stewardThreadModels 同一条理由。
   threadIndexRecent: 'forbidden',
+  // 123-M1(37 号文 §3.2/§3.4):定时任务调度器的两个键。**都故意留在 forbidden**
+  // (= 不登记,由 fail-closed 兜底,与 threadIndexRecent 同一条理由):
+  //   · schedulerEnabledV1 —— 它是「管家有没有一个能守时的身体」这件事本身的总开关;
+  //     让模型能关掉它 = 让它把用户已经答应下来的每一条承诺一起静默作废。
+  //   · schedulerAskWaitMinutes —— 它是无人值守遇 ask 时【等多久再拒】的窗口。窗口本身不放行
+  //     (到时永远是拒),但让模型能把它拉到 240 分钟,等于让它自己决定「用户还有多久会看见这件事」。
+  // 两个键用户都能在设置页里改;管家要改就得说服用户去点。M2 若要把其中之一放进 free/confirm,
+  // 得在 06i 的 STEWARD_CONFIG_TIERS 里显式登记,并回来改这张表 —— 那就是一次显式的权限扩张。
+  schedulerEnabledV1: 'forbidden',
+  schedulerAskWaitMinutes: 'forbidden',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',

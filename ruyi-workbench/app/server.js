@@ -765,6 +765,20 @@ const ROUTE_AUTH = [
   // 第117波117e第0步(27号文§8.6「行动流水」): 管家决策日志的只读面。透出的是「管家替你做过什么」
   // 的全部依据(目标线程、线程权限、undoRef、费用) —— 敏感度同记忆面板,token 级(不给 token-browser)。
   { m: 'GET', p: '/api/steward/decisions', auth: 'token' },
+  // 第123波 M1(37 号文 §3.3;设计权威 29 号文 §10 红线三「任务定义只能由 token 级 API 或管家工具写入」):
+  // 定时任务六条。**一律 token,一条 body-token 都不给** —— body-token 是 MCP 子进程与跨源 loopback 的档,
+  // 那条路上的调用方是【模型驱动的子进程】;让它写得动任务定义,等于把「以后每天替我做这件事」
+  // 这种最长效的授权交给一次工具调用。读面也不给 token-browser:任务定义里带着载荷正文与目标线程,
+  // 敏感度同 /api/steward/*。
+  // 六条的形状:两条精确(裸路径的读与建)+ 四条带尾斜杠的前缀(改/删/立即运行/最近几次)。
+  // 前缀条盖不到裸路径(startsWith 带尾斜杠),所以两组不冲突,顺序也不敏感。
+  { m: 'GET', p: '/api/scheduler/tasks', auth: 'token' },
+  { m: 'POST', p: '/api/scheduler/tasks', auth: 'token' },
+  // GET 前缀 = /api/scheduler/tasks/:id/runs;POST 前缀 = /:id/run-now 与方法改写(x-http-method)双通道。
+  { m: 'GET', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'PATCH', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },
@@ -1284,6 +1298,14 @@ function defaultConfig() {
     stewardMaxParallelThreads: 5,
     stewardGlobalMaxTurnsPerHour: 120,
     stewardGlobalMaxCostPerDay: 20,
+    // 第 123 波 M1(37 号文 §3.2/§3.4;设计权威 29 号文 §4「开关」):定时任务调度器总开关。
+    // 默认【开】,但**没有任何任务时零开销**:13s 的 startScheduler 在零任务时不起 interval,
+    // 关掉(显式 false)时更是一个字节都不写 —— 不建 <data>/scheduler/ 目录、不读盘、六条路由一律 409。
+    schedulerEnabledV1: true,
+    // 第 123 波 M1 §3.2「无人值守的 ask」:定时任务派出去的回合遇到要人批准的动作时等多久(分钟),
+    // clamp [1,240]。它【只】换掉决定窗口的长度,不改判定 —— 到时仍然是拒(29 号文 §10 红线二:
+    // 无人值守遇 ask 绝不自动放行),本次记 needs_you,用户回来「立即运行」重跑。
+    schedulerAskWaitMinutes: 30,
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -2044,6 +2066,22 @@ function normalizeConfig(raw) {
     const n = Number(config.stewardGlobalMaxCostPerDay);
     const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 20;
     if (clamped !== config.stewardGlobalMaxCostPerDay) { config.stewardGlobalMaxCostPerDay = clamped; changed = true; }
+  }
+  // 第 123 波 M1:调度器总开关。与 stewardThreadBriefV1 同方向的严格布尔(!== false)——
+  // 它默认【开】,只有显式写 false 才算关;别的垃圾值一律归一成 true,这样手改坏了配置文件
+  // 不会静默丢掉一个默认开的能力。(stewardEnabledV1 那条是 === true 方向,两者刻意不同,见各自注释。)
+  {
+    const b = config.schedulerEnabledV1 !== false;
+    if (b !== config.schedulerEnabledV1) { config.schedulerEnabledV1 = b; changed = true; }
+  }
+  // 第 123 波 M1 §3.2:无人值守 ask 的等待窗口(分钟),clamp [1,240],非法回默认 30。
+  // 区间上下界与默认值的单一事实源是 06j 的 SCHEDULER_LIMITS —— 但 06j 拼在 01 【之后】,
+  // 这里引用它会是一条前向边,所以这三个数在这里写成字面量,并由 unit/scheduler-core.test.js
+  // 与 scheduler-api.e2e.js 两头对账(任何一边改了数,另一边当场红)。
+  {
+    const n = Number(config.schedulerAskWaitMinutes);
+    const clamped = Number.isFinite(n) ? Math.min(240, Math.max(1, Math.round(n))) : 30;
+    if (clamped !== config.schedulerAskWaitMinutes) { config.schedulerAskWaitMinutes = clamped; changed = true; }
   }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {
@@ -22611,6 +22649,614 @@ function inferToolResources(name, args, bridge, cwd, tier) {
 }
 
 
+// ============================================================================
+// 第 123 波 M1 §3.1(37 号文;设计权威 29 号文 §3「数据模型」与 §4「调度器」):
+// 定时任务的【纯函数】内核。
+//
+// 三条纪律(整份文件的存在理由):
+//   ① **零 I/O、零全局可变状态、零时钟读取** —— 「现在几点」永远由调用方喂进来(nowMs/fromMs)。
+//      假时钟 e2e(§3.4 的 WCW_SCHEDULER_CLOCK_FILE)与 unit/scheduler-core.test.js 都靠这一条:
+//      只要时间是入参,月末/闰日/夏令时/错过时点就都能在毫秒级里穷举,不必真等到那一天。
+//   ② **本地墙钟语义**(29 号文 §4「时区与夏令时」):at:'09:00' 表示【本地】9 点,不存 UTC 偏移;
+//      每次触发之后重算下一次,不预先缓存多次 —— 跨 DST 边界由重算自然吸收。
+//      具体后果:春季跳过的那一小时里的时点(America/New_York 3 月切换日的 02:30)由 JS 的 Date
+//      归一到 03:30(那一天真的没有 02:30);秋季重复的那一小时只落在【第一次】上(下一次从次日零点
+//      起算,不会把同一天的第二个 01:30 再触发一遍)。
+//   ③ **只算,不判定副作用**。要不要真的补跑、要不要熔断、要不要出箱,全在 13s-scheduler.js;
+//      这里只回答「下一个时点是几」「错过的那个时点在不在宽限内」「这条任务洗干净长什么样」。
+//
+// 落点(engine 层,manifest 中位于 06i-steward-core.js 之后、07-autonomy.js 之前;文件名按
+// ENGINEERING-SPEC §1 的 ^0[56][a-z]?- 正则)。本文件【不引用任何模块符号】—— 连 PERMISSION_MODES
+// 都不引:权限档的值域校验在这里只做「不是 bypass 的非空字符串就留着」,真正的白名单判定留给 13s
+// (它读得到 config,越界一律回落全局默认档)。这样本文件零入边零出边,不进任何环。
+//
+// 一条补丁纪律(32 号文 §4 纪律 11,本文件第一版真栽过):控制字符【不写转义字面量】。
+// 第一版写了 /[<U+0000>-<U+001F>]/ 这种字符类,补丁传输层把 \uXXXX 当成转义解释,真往源码里写进了
+// 裸 NUL 与 0x1F —— cat 出来一模一样,只有逐字节扫才看得见。改法见 schedulerStripControl:
+// 按 charCodeAt 逐码位判,一个转义序列都不出现。
+// ============================================================================
+
+// 调度器的【延迟绑定命名空间】。先例逐字同款:06i 的 StewardHooks(「引擎侧纯函数与延迟绑定命名
+// 空间,不实现,契约声明」)与 00-boot 的 EventStreamHooks。它住在这里而不是 13s,是因为填充方
+// (13i 的 reminder 出箱写口,M2 §3.5)在 manifest 里排在 13s 【之前】—— 直接引用 13s 的函数名会是
+// 一条新前向边;它只写 SchedulerHooks.onReminderDue,而 13i → 06j 是后向边。
+// 契约(M1 只调用,不实现;M2 填充):
+//   · onReminderDue(row)  —— reminder 载荷到点。row = { taskId, title, text, occurrenceKey, dueAt,
+//                            firedAt, mode, sourceRef? }。写一行收件箱 reminder(「一句事实,不需要回答」)。
+//   · onSchedulerNotice(row) —— 需要让用户知道、但不是 reminder 的三件事:
+//                            row.kind ∈ 'skipped'(错过且不补) | 'tripped'(连败熔断) | 'needs_you'
+//                            | 'unknown'(崩溃后结果未知);另带 taskId/title/occurrenceKey/mode/at。
+// 两个口都是【旁路】:未填充时调用是无操作,填充方抛错也绝不反噬触发本身(13s 里整段 try 包住)。
+const SchedulerHooks = {};
+
+// ── 值域与上限(单一事实源;13s 与 API 都引用这里,不各写一份字面量)────────────────────────────
+const SCHEDULER_SCHEDULE_KINDS = Object.freeze(['once', 'daily', 'weekly', 'monthly', 'cron']);
+const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt']);   // playbook/workflow → 127 波
+const SCHEDULER_TARGET_MODES = Object.freeze(['new-session', 'existing-session']);
+const SCHEDULER_ON_MISSED = Object.freeze(['run-once-late', 'skip']);
+const SCHEDULER_ON_FAILURE = Object.freeze(['notify', 'retry-once']);
+const SCHEDULER_FIRE_MODES = Object.freeze(['ontime', 'late', 'manual']);
+const SCHEDULER_PHASES = Object.freeze(['registered', 'dispatched', 'running', 'reconciled']);
+const SCHEDULER_OUTCOMES = Object.freeze(['succeeded', 'failed', 'needs_you', 'skipped', 'unknown']);
+const SCHEDULER_CREATORS = Object.freeze(['user', 'steward']);
+
+// 29 号文 §10 红线第三条:任务载荷里不得出现本地命令、密钥、环境变量与数据目录。
+// 判据是【键名】而不是值:载荷是模型能写的地方,「值看起来没问题」不是安全边界。深扫整棵载荷树,
+// 命中一个就整条拒(不静默删键 —— 静默删会让下单方以为自己那条约定生效了)。
+// cwd 也在表里:本刀的 target 不接受 cwd(见 normalizeSchedulerTask 的 target 段),载荷里出现它
+// 只可能是想绕过工作区表。
+const SCHEDULER_FORBIDDEN_PAYLOAD_KEYS = Object.freeze(['localCommand', 'env', 'apiKey', 'dataRoot', 'cwd']);
+
+const SCHEDULER_LIMITS = Object.freeze({
+  maxTasks: 200,                 // 29 号文 §3:任务定义上限
+  titleChars: 120,
+  textChars: 4000,
+  graceMinutesMin: 0,
+  graceMinutesMax: 10080,        // 7 天
+  graceMinutesDefault: 720,      // 29 号文 §3 的缺省
+  maxRunsPerDayMin: 1,
+  maxRunsPerDayMax: 200,
+  maxRunsPerDayDefault: 24,
+  timeoutMinutesMin: 1,
+  timeoutMinutesMax: 720,
+  timeoutMinutesDefault: 30,
+  globalRunsPerDay: 200,         // 29 号文 §4「上限」:全局每日触发上限
+  consecutiveFailuresTrip: 3,    // 连败 3 次熔断
+  askWaitMinutesMin: 1,          // §3.3 无人值守 ask 的等待窗口(config.schedulerAskWaitMinutes 的钳区间)
+  askWaitMinutesMax: 240,
+  askWaitMinutesDefault: 30,
+});
+
+// 缺省 policy(37 号文 §3.1 逐字)。数值全部取自 SCHEDULER_LIMITS,不在这里重写字面量。
+const SCHEDULER_DEFAULT_POLICY = Object.freeze({
+  onMissed: 'run-once-late',
+  graceMinutes: SCHEDULER_LIMITS.graceMinutesDefault,
+  maxRunsPerDay: SCHEDULER_LIMITS.maxRunsPerDayDefault,
+  timeoutMinutes: SCHEDULER_LIMITS.timeoutMinutesDefault,
+  onFailure: 'notify',
+});
+
+// ── 控制字符清洗(零转义字面量;见文件头「一条补丁纪律」)──────────────────────────────────────
+const SCHEDULER_CODE_TAB = 9;
+const SCHEDULER_CODE_LF = 10;
+const SCHEDULER_CODE_CR = 13;
+const SCHEDULER_CODE_SPACE = 32;
+const SCHEDULER_CODE_DEL = 127;
+const SCHEDULER_TEXT_SPACE = String.fromCharCode(SCHEDULER_CODE_SPACE);
+const SCHEDULER_TEXT_LF = String.fromCharCode(SCHEDULER_CODE_LF);
+// keepLines=false:整段折成单行(标题、id 这类);keepLines=true:保留换行(载荷正文)。
+// CRLF 与裸 CR 一律折成一个换行,制表折成空格,其余 C0 控制字符与 DEL 直接丢。
+function schedulerStripControl(schedTextRaw, schedKeepLines) {
+  const source = String(schedTextRaw == null ? '' : schedTextRaw);
+  let out = '';
+  for (let i = 0; i < source.length; i++) {
+    const code = source.charCodeAt(i);
+    if (code === SCHEDULER_CODE_CR) {
+      if (source.charCodeAt(i + 1) === SCHEDULER_CODE_LF) i++;
+      out += schedKeepLines ? SCHEDULER_TEXT_LF : SCHEDULER_TEXT_SPACE;
+      continue;
+    }
+    if (code === SCHEDULER_CODE_LF) { out += schedKeepLines ? SCHEDULER_TEXT_LF : SCHEDULER_TEXT_SPACE; continue; }
+    if (code === SCHEDULER_CODE_TAB) { out += SCHEDULER_TEXT_SPACE; continue; }
+    if (code < SCHEDULER_CODE_SPACE || code === SCHEDULER_CODE_DEL) continue;
+    out += source[i];
+  }
+  return out;
+}
+function schedulerCleanLine(schedTextRaw, schedMaxChars) {
+  return schedulerStripControl(schedTextRaw, false).trim().slice(0, schedMaxChars);
+}
+function schedulerCleanBlock(schedTextRaw, schedMaxChars) {
+  return schedulerStripControl(schedTextRaw, true).trim().slice(0, schedMaxChars);
+}
+
+// ── 时间小工具(全部走本地时区的 Date 构造;不做任何 UTC 偏移运算)──────────────────────────────
+// new Date(y, m + 1, 0) = 下个月的第 0 天 = 本月最后一天。闰年 2 月自动 29。
+function schedulerDaysInMonth(schedYear, schedMonth) {
+  return new Date(schedYear, schedMonth + 1, 0).getDate();
+}
+// 本地墙钟 → epoch ms。**故意不校验「这个本地时刻是否存在」**:春季跳过的那一小时里的时刻由 JS
+// 归一到跳过之后(02:30 → 03:30),这正是纪律②要的「由重算吸收」。
+function schedulerLocalMs(schedYear, schedMonth, schedDay, schedHour, schedMinute) {
+  return new Date(schedYear, schedMonth, schedDay, schedHour, schedMinute, 0, 0).getTime();
+}
+function schedulerParseHhMm(schedAtRaw) {
+  const matched = /^([01][0-9]|2[0-3]):([0-5][0-9])$/.exec(schedulerCleanLine(schedAtRaw, 8));
+  return matched ? { hour: Number(matched[1]), minute: Number(matched[2]) } : null;
+}
+// 'YYYY-MM-DD' → {year, month(0基), day};**真实性校验**:2027-02-29 不存在 → null(闰日只在闰年过得去)。
+function schedulerParseYmd(schedDateRaw) {
+  const matched = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(schedulerCleanLine(schedDateRaw, 12));
+  if (!matched) return null;
+  const year = Number(matched[1]);
+  const month = Number(matched[2]);
+  const day = Number(matched[3]);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > schedulerDaysInMonth(year, month - 1)) return null;
+  return { year, month: month - 1, day };
+}
+
+// ── cron(自写最小 5 字段解析,零依赖;29 号文 §3「parseCronExpr」)──────────────────────────────
+// 支持 *、a、a-b、a,b、*/n、a-b/n、a/n(a 到上界步进 n);不支持名字(JAN/MON)与 @reserved 别名。
+// 越界/写法不认识一律 null,由 parseCronExpr 翻成稳定的 {ok:false}。
+function schedulerCronField(schedFieldRaw, schedLo, schedHi) {
+  // 局部名【不能】叫 text:32 号文 §4 纪律 12 —— 依赖图把裸标识符当跨模块符号,
+  // `text` 命中 00-boot 的顶层 text(),会凭空生成一条 06j → 00-boot 的边(本文件第一版实测红过)。
+  const fieldText = schedulerCleanLine(schedFieldRaw, 200);
+  if (!fieldText) return null;
+  const values = new Set();
+  for (const chunk of fieldText.split(',')) {
+    const piece = chunk.trim();
+    if (!piece) return null;
+    let rangeText = piece;
+    let step = 1;
+    const slash = piece.indexOf('/');
+    if (slash >= 0) {
+      rangeText = piece.slice(0, slash);
+      const stepText = piece.slice(slash + 1);
+      if (!/^[0-9]{1,4}$/.test(stepText)) return null;
+      step = Number(stepText);
+      if (step < 1) return null;
+    }
+    let start;
+    let end;
+    if (rangeText === '*') { start = schedLo; end = schedHi; }
+    else {
+      const dash = rangeText.indexOf('-');
+      if (dash > 0) {
+        const lowText = rangeText.slice(0, dash);
+        const highText = rangeText.slice(dash + 1);
+        if (!/^[0-9]{1,4}$/.test(lowText) || !/^[0-9]{1,4}$/.test(highText)) return null;
+        start = Number(lowText); end = Number(highText);
+      } else {
+        if (!/^[0-9]{1,4}$/.test(rangeText)) return null;
+        start = Number(rangeText);
+        // 5/15 = 从 5 起按 15 步进到上界(POSIX cron 的既有语义);裸 5 就是单值。
+        end = slash >= 0 ? schedHi : start;
+      }
+    }
+    if (start < schedLo || end > schedHi || start > end) return null;
+    for (let value = start; value <= end; value += step) values.add(value);
+  }
+  return values.size ? values : null;
+}
+
+// 返回 { ok:true, expr, minute[], hour[], dom[], month[], dow[], domRestricted, dowRestricted }
+// 或 { ok:false, error }。domRestricted/dowRestricted 记录「这一列写的是不是 *」—— POSIX 的并集规则
+// (日与周同时限定时取【或】)只有靠这两个旗才判得出来。
+function parseCronExpr(schedExprRaw) {
+  const parts = schedulerCleanLine(schedExprRaw, 240).split(/\s+/).filter(Boolean);
+  if (parts.length !== 5) return { ok: false, error: 'cron 表达式必须是 5 个字段(分 时 日 月 周)' };
+  const minute = schedulerCronField(parts[0], 0, 59);
+  const hour = schedulerCronField(parts[1], 0, 23);
+  const dom = schedulerCronField(parts[2], 1, 31);
+  const month = schedulerCronField(parts[3], 1, 12);
+  const dowRaw = schedulerCronField(parts[4], 0, 7);
+  if (!minute || !hour || !dom || !month || !dowRaw) {
+    return { ok: false, error: 'cron 字段值越界或写法不认识(只支持 * , - / 与数字)' };
+  }
+  const sorted = source => [...source].sort((a, b) => a - b);
+  // 周日两种写法(0 与 7)折成同一个值,否则 0-7 会被当成 8 个不同的星期。
+  const dow = new Set(sorted(dowRaw).map(value => (value === 7 ? 0 : value)));
+  return {
+    ok: true,
+    expr: parts.join(' '),
+    minute: sorted(minute),
+    hour: sorted(hour),
+    dom: sorted(dom),
+    month: sorted(month),
+    dow: sorted(dow),
+    domRestricted: parts[2] !== '*',
+    dowRestricted: parts[4] !== '*',
+  };
+}
+
+// 某一天(本地)是否命中 cron 的日期部分。29 号文 §3:日与周同时给时按 POSIX 取【并集】。
+function schedulerCronDayMatches(schedParsed, schedYear, schedMonth, schedDay) {
+  if (!schedParsed.month.includes(schedMonth + 1)) return false;
+  const weekday = new Date(schedYear, schedMonth, schedDay).getDay();
+  const domHit = schedParsed.dom.includes(schedDay);
+  const dowHit = schedParsed.dow.includes(weekday);
+  if (schedParsed.domRestricted && schedParsed.dowRestricted) return domHit || dowHit;
+  if (schedParsed.domRestricted) return domHit;
+  if (schedParsed.dowRestricted) return dowHit;
+  return true;
+}
+
+// cron 的下一个时点。按【天】外循环、命中的那天再走 hour × minute —— 纯分钟外循环在
+// `0 0 29 2 *`(只在闰年)这种表达式上要走两百多万次,按天走最多 366×5 次。
+const SCHEDULER_CRON_DAY_SCAN = 366 * 5;   // 五年扫不到 = 这条 cron 永远不会再触发(如 0 0 30 2 *)
+function schedulerCronNextFireAt(schedParsed, schedFromMs) {
+  const cursor = new Date(schedFromMs);
+  cursor.setSeconds(0, 0);
+  cursor.setMinutes(cursor.getMinutes() + 1);   // 严格「之后」:同一分钟内不重复触发
+  let year = cursor.getFullYear();
+  let month = cursor.getMonth();
+  let day = cursor.getDate();
+  let floorHour = cursor.getHours();
+  let floorMinute = cursor.getMinutes();
+  for (let scanned = 0; scanned < SCHEDULER_CRON_DAY_SCAN; scanned++) {
+    if (schedulerCronDayMatches(schedParsed, year, month, day)) {
+      for (const hour of schedParsed.hour) {
+        if (hour < floorHour) continue;
+        for (const minute of schedParsed.minute) {
+          if (hour === floorHour && minute < floorMinute) continue;
+          const candidate = schedulerLocalMs(year, month, day, hour, minute);
+          if (candidate > schedFromMs) return candidate;
+        }
+      }
+    }
+    const nextDay = new Date(year, month, day + 1, 0, 0, 0, 0);
+    year = nextDay.getFullYear(); month = nextDay.getMonth(); day = nextDay.getDate();
+    floorHour = 0; floorMinute = 0;
+  }
+  return null;
+}
+
+// ── nextFireAt:下一个【严格晚于 fromMs】的触发时刻(epoch ms);永不再触发时返回 null ──────────
+// 五种计划共用一个出口。非法计划(时间格式坏、once 的日期不存在、weekly 没给 days …)一律 null ——
+// 归一化已经把这些挡在建任务那一步,这里的 null 是第二道网,不是给用户看的错误。
+function nextFireAt(schedPlanRaw, schedFromMs) {
+  const plan = (schedPlanRaw && typeof schedPlanRaw === 'object' && !Array.isArray(schedPlanRaw)) ? schedPlanRaw : null;
+  const from = Number(schedFromMs);
+  if (!plan || !Number.isFinite(from)) return null;
+  const kind = String(plan.kind || '');
+  if (kind === 'cron') {
+    const parsed = parseCronExpr(plan.expr);
+    return parsed.ok ? schedulerCronNextFireAt(parsed, from) : null;
+  }
+  const time = schedulerParseHhMm(plan.at);
+  if (!time) return null;
+  const base = new Date(from);
+  if (kind === 'once') {
+    const date = schedulerParseYmd(plan.date);
+    if (!date) return null;
+    const ms = schedulerLocalMs(date.year, date.month, date.day, time.hour, time.minute);
+    return ms > from ? ms : null;      // 过期的 once 不再触发(37 号文 §3.1)
+  }
+  if (kind === 'daily') {
+    // 走三天而不是两天:秋季重复的那一小时里,「今天那一刻」可能仍 <= from,得让位给明天。
+    for (let offset = 0; offset <= 2; offset++) {
+      const ms = schedulerLocalMs(base.getFullYear(), base.getMonth(), base.getDate() + offset, time.hour, time.minute);
+      if (ms > from) return ms;
+    }
+    return null;
+  }
+  if (kind === 'weekly') {
+    const days = Array.isArray(plan.days)
+      ? [...new Set(plan.days.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))]
+      : [];
+    if (!days.length) return null;
+    for (let offset = 0; offset <= 8; offset++) {
+      const probe = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset, 0, 0, 0, 0);
+      if (!days.includes(probe.getDay())) continue;
+      const ms = schedulerLocalMs(probe.getFullYear(), probe.getMonth(), probe.getDate(), time.hour, time.minute);
+      if (ms > from) return ms;
+    }
+    return null;
+  }
+  if (kind === 'monthly') {
+    const wanted = Number(plan.dayOfMonth);
+    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 31) return null;
+    let year = base.getFullYear();
+    let month = base.getMonth();
+    for (let offset = 0; offset <= 24; offset++) {
+      // **月末钳位**(37 号文 §3.1):31 号在 2 月是 28/29、在 4 月是 30。钳位不是回退到上个月,
+      // 也不是溢出到下个月 1 号 —— new Date(y, 1, 31) 会悄悄变成 3 月 3 日,那正是要避开的坑。
+      const day = Math.min(wanted, schedulerDaysInMonth(year, month));
+      const ms = schedulerLocalMs(year, month, day, time.hour, time.minute);
+      if (ms > from) return ms;
+      month += 1;
+      if (month > 11) { month = 0; year += 1; }
+    }
+    return null;
+  }
+  return null;
+}
+
+// ── occurrenceKey / missedOccurrence ─────────────────────────────────────────────────────────
+// 一次「应该发生的触发」的稳定身份(37 号文 §3.1):taskId@dueIso。
+// 重试引用同一 occurrence(executionGeneration 递增),「再跑一次」是新 occurrence(manual)。
+function occurrenceKey(schedTaskId, schedDueMs) {
+  const ms = Number(schedDueMs);
+  const iso = Number.isFinite(ms) ? new Date(ms).toISOString() : '';
+  return String(schedTaskId == null ? '' : schedTaskId) + '@' + iso;
+}
+
+// 启动恢复用:这条任务有没有一个「本该触发但没跑成」的时点,以及它在不在宽限里。
+// 事实源是任务自己的 state.nextFireAt —— 它在每次触发收尾时被重算,所以「它 <= 现在」就等价于
+// 「那一刻没人来触发」。回 null = 没错过。
+//   · withinGrace —— 距今是否 <= policy.graceMinutes;
+//   · runLate     —— withinGrace 且 onMissed === 'run-once-late'(= 该补跑一次,只补一次)。
+function missedOccurrence(schedTaskRaw, schedNowMs) {
+  const task = (schedTaskRaw && typeof schedTaskRaw === 'object' && !Array.isArray(schedTaskRaw)) ? schedTaskRaw : null;
+  const now = Number(schedNowMs);
+  if (!task || !Number.isFinite(now)) return null;
+  const state = (task.state && typeof task.state === 'object') ? task.state : {};
+  const dueMs = Date.parse(String(state.nextFireAt || ''));
+  if (!Number.isFinite(dueMs) || dueMs > now) return null;
+  const policy = (task.policy && typeof task.policy === 'object') ? task.policy : SCHEDULER_DEFAULT_POLICY;
+  const graceRaw = Number(policy.graceMinutes);
+  const graceMinutes = Number.isFinite(graceRaw) ? graceRaw : SCHEDULER_DEFAULT_POLICY.graceMinutes;
+  const withinGrace = (now - dueMs) <= graceMinutes * 60000;
+  return {
+    dueMs,
+    occurrenceKey: occurrenceKey(task.id, dueMs),
+    lateByMs: now - dueMs,
+    graceMinutes,
+    withinGrace,
+    runLate: withinGrace && String(policy.onMissed || '') === 'run-once-late',
+    mode: 'late',
+  };
+}
+
+// ── describeSchedule:结构化计划 → 【i18n 键 + 参数】(29 号文 §3;UI 与管家回读确认共用)──────
+// 纯函数【只】返回键与参数,文案住 locale 文件(M2 §3.6 补四份)。locale 入参只是回显 ——
+// 键不随语言变,把它带在返回值里是为了让调用方一眼看出「这份描述是给谁看的」。
+const SCHEDULER_DESCRIBE_KEYS = Object.freeze([
+  'scheduler.describe.once',
+  'scheduler.describe.daily',
+  'scheduler.describe.weekly',
+  'scheduler.describe.weekly.weekdays',
+  'scheduler.describe.weekly.weekend',
+  'scheduler.describe.monthly',
+  'scheduler.describe.monthly.lastDay',
+  'scheduler.describe.cron',
+  'scheduler.describe.invalid',
+]);
+const SCHEDULER_DOW_KEYS = Object.freeze([
+  'scheduler.dow.0', 'scheduler.dow.1', 'scheduler.dow.2', 'scheduler.dow.3',
+  'scheduler.dow.4', 'scheduler.dow.5', 'scheduler.dow.6',
+]);
+function describeSchedule(schedPlanRaw, schedLocaleRaw) {
+  const locale = String(schedLocaleRaw || '') === 'en' ? 'en' : 'zh';
+  const plan = (schedPlanRaw && typeof schedPlanRaw === 'object' && !Array.isArray(schedPlanRaw)) ? schedPlanRaw : null;
+  const invalid = { key: 'scheduler.describe.invalid', params: {}, locale };
+  if (!plan) return invalid;
+  const kind = String(plan.kind || '');
+  if (kind === 'cron') {
+    const parsed = parseCronExpr(plan.expr);
+    return parsed.ok ? { key: 'scheduler.describe.cron', params: { expr: parsed.expr }, locale } : invalid;
+  }
+  const time = schedulerParseHhMm(plan.at);
+  if (!time) return invalid;
+  const at = schedulerCleanLine(plan.at, 8);
+  if (kind === 'once') {
+    const date = schedulerParseYmd(plan.date);
+    if (!date) return invalid;
+    return {
+      key: 'scheduler.describe.once',
+      params: { year: date.year, month: date.month + 1, day: date.day, time: at },
+      locale,
+    };
+  }
+  if (kind === 'daily') return { key: 'scheduler.describe.daily', params: { time: at }, locale };
+  if (kind === 'weekly') {
+    const days = Array.isArray(plan.days)
+      ? [...new Set(plan.days.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))].sort((a, b) => a - b)
+      : [];
+    if (!days.length) return invalid;
+    const asText = days.join(',');
+    if (asText === '1,2,3,4,5') return { key: 'scheduler.describe.weekly.weekdays', params: { time: at }, locale };
+    if (asText === '0,6') return { key: 'scheduler.describe.weekly.weekend', params: { time: at }, locale };
+    return {
+      key: 'scheduler.describe.weekly',
+      params: { days, dayKeys: days.map(value => SCHEDULER_DOW_KEYS[value]), time: at },
+      locale,
+    };
+  }
+  if (kind === 'monthly') {
+    const wanted = Number(plan.dayOfMonth);
+    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 31) return invalid;
+    // 31 号 = 「每月最后一天」:钳位语义下它在 2 月就是 28/29、4 月就是 30,回读时必须说人话,
+    // 不能印一句「每月 31 日」然后在 2 月 28 日触发(那是回读与行为不一致)。
+    if (wanted === 31) return { key: 'scheduler.describe.monthly.lastDay', params: { time: at }, locale };
+    return { key: 'scheduler.describe.monthly', params: { day: wanted, time: at }, locale };
+  }
+  return invalid;
+}
+
+// ── normalizeSchedulerTask:把外面递进来的一坨洗成 29 号文 §3 的形状 ──────────────────────────
+// 失败一律返回 { ok:false, code, message }(稳定信封,API 直接透出);成功返回 { ok:true, task }。
+// 深扫禁止键。数组也要进(载荷里塞一个 [{env:{}}] 一样是绕过)。深度上限 8 防自引用/畸形深树。
+function schedulerFindForbiddenKey(schedValue, schedDepth) {
+  const depth = Number(schedDepth) || 0;
+  if (depth > 8 || !schedValue || typeof schedValue !== 'object') return '';
+  if (Array.isArray(schedValue)) {
+    for (const item of schedValue) {
+      const hit = schedulerFindForbiddenKey(item, depth + 1);
+      if (hit) return hit;
+    }
+    return '';
+  }
+  for (const key of Object.keys(schedValue)) {
+    if (SCHEDULER_FORBIDDEN_PAYLOAD_KEYS.includes(key)) return key;
+    const hit = schedulerFindForbiddenKey(schedValue[key], depth + 1);
+    if (hit) return hit;
+  }
+  return '';
+}
+function schedulerClampInt(schedValueRaw, schedLo, schedHi, schedFallback) {
+  const value = Number(schedValueRaw);
+  return Number.isFinite(value) ? Math.min(schedHi, Math.max(schedLo, Math.round(value))) : schedFallback;
+}
+function schedulerFail(schedCode, schedMessage) {
+  return { ok: false, code: String(schedCode), message: String(schedMessage) };
+}
+
+function normalizeSchedulerTask(schedRawTask, schedNowMs) {
+  const raw = (schedRawTask && typeof schedRawTask === 'object' && !Array.isArray(schedRawTask)) ? schedRawTask : null;
+  if (!raw) return schedulerFail('invalid_request', 'task must be an object');
+  const now = Number.isFinite(Number(schedNowMs)) ? Number(schedNowMs) : 0;
+  const nowIsoText = new Date(now).toISOString();
+
+  const title = schedulerCleanLine(raw.title, SCHEDULER_LIMITS.titleChars);
+  if (!title) return schedulerFail('invalid_request', 'title is required');
+
+  // ① 计划
+  const rawSchedule = (raw.schedule && typeof raw.schedule === 'object' && !Array.isArray(raw.schedule)) ? raw.schedule : null;
+  if (!rawSchedule) return schedulerFail('invalid_request', 'schedule is required');
+  const kind = String(rawSchedule.kind || '');
+  if (!SCHEDULER_SCHEDULE_KINDS.includes(kind)) {
+    return schedulerFail('invalid_request', 'schedule.kind must be one of ' + SCHEDULER_SCHEDULE_KINDS.join('/'));
+  }
+  const schedule = { kind };
+  if (kind === 'cron') {
+    const parsed = parseCronExpr(rawSchedule.expr);
+    if (!parsed.ok) return schedulerFail('invalid_request', parsed.error);
+    schedule.expr = parsed.expr;
+  } else {
+    const time = schedulerParseHhMm(rawSchedule.at);
+    if (!time) return schedulerFail('invalid_request', 'schedule.at must be HH:MM (24h, local wall clock)');
+    schedule.at = schedulerCleanLine(rawSchedule.at, 8);
+    if (kind === 'once') {
+      const date = schedulerParseYmd(rawSchedule.date);
+      if (!date) return schedulerFail('invalid_request', 'schedule.date must be an existing calendar day YYYY-MM-DD');
+      schedule.date = schedulerCleanLine(rawSchedule.date, 12);
+    }
+    if (kind === 'weekly') {
+      const days = Array.isArray(rawSchedule.days)
+        ? [...new Set(rawSchedule.days.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))].sort((a, b) => a - b)
+        : [];
+      if (!days.length) return schedulerFail('invalid_request', 'schedule.days must hold at least one weekday (0=Sunday..6=Saturday)');
+      schedule.days = days;
+    }
+    if (kind === 'monthly') {
+      const wanted = Number(rawSchedule.dayOfMonth);
+      if (!Number.isInteger(wanted) || wanted < 1 || wanted > 31) {
+        return schedulerFail('invalid_request', 'schedule.dayOfMonth must be an integer in [1,31] (31 = last day of every month)');
+      }
+      schedule.dayOfMonth = wanted;
+    }
+  }
+  // 时区字段只记「系统本地」这一个事实(29 号文 §3 的 tz 列);不接受用户指定别的时区(非目标)。
+  schedule.tz = 'local';
+
+  // ② 载荷
+  const rawPayload = (raw.payload && typeof raw.payload === 'object' && !Array.isArray(raw.payload)) ? raw.payload : null;
+  if (!rawPayload) return schedulerFail('invalid_request', 'payload is required');
+  const payloadKind = String(rawPayload.kind || '');
+  if (!SCHEDULER_PAYLOAD_KINDS.includes(payloadKind)) {
+    return schedulerFail('invalid_request', 'payload.kind must be one of ' + SCHEDULER_PAYLOAD_KINDS.join('/') + ' (playbook/workflow land in wave 127)');
+  }
+  const forbidden = schedulerFindForbiddenKey(rawPayload, 0);
+  if (forbidden) {
+    return schedulerFail('payload_forbidden_key',
+      'payload must not carry ' + forbidden + ' (29 号文 §10:本地命令/密钥/环境变量/数据目录一律不进任务载荷)');
+  }
+  // 同上:局部名不能叫 text(纪律 12)。
+  const payloadText = schedulerCleanBlock(rawPayload.text, SCHEDULER_LIMITS.textChars);
+  if (!payloadText) return schedulerFail('invalid_request', 'payload.text is required');
+  const payload = { kind: payloadKind, text: payloadText };
+  // sourceRef:安静卡「稍后」建的那条 once reminder 用它指回收件箱行(M2 §3.5)。只留三个标量键。
+  const rawSourceRef = (rawPayload.sourceRef && typeof rawPayload.sourceRef === 'object' && !Array.isArray(rawPayload.sourceRef)) ? rawPayload.sourceRef : null;
+  if (rawSourceRef) {
+    const inboxSeq = Number(rawSourceRef.inboxSeq);
+    payload.sourceRef = {
+      inboxSeq: Number.isSafeInteger(inboxSeq) && inboxSeq > 0 ? inboxSeq : 0,
+      sessionId: schedulerCleanLine(rawSourceRef.sessionId, 64),
+      kind: schedulerCleanLine(rawSourceRef.kind, 32),
+    };
+  }
+
+  // ③ 目标。**本刀不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
+  // engineRoute 留给 127 波。新线程的工作目录由 createSession 的既有回落决定(defaultWorkspace)。
+  const rawTarget = (raw.target && typeof raw.target === 'object' && !Array.isArray(raw.target)) ? raw.target : {};
+  const targetForbidden = schedulerFindForbiddenKey(rawTarget, 0);
+  if (targetForbidden) {
+    return schedulerFail('payload_forbidden_key', 'target must not carry ' + targetForbidden);
+  }
+  const targetMode = SCHEDULER_TARGET_MODES.includes(String(rawTarget.mode || '')) ? String(rawTarget.mode) : 'new-session';
+  const target = { mode: targetMode };
+  if (targetMode === 'existing-session') {
+    const sessionId = schedulerCleanLine(rawTarget.sessionId, 64);
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(sessionId)) {
+      return schedulerFail('invalid_request', 'target.sessionId is required when target.mode is existing-session');
+    }
+    target.sessionId = sessionId;
+  }
+  // reminder 不起回合,目标无意义 —— 归一成 new-session 但永远不会被用到(13s 的 reminder 分支不看它)。
+
+  // ④ 自治。天花板 = 全局档去掉 bypass;越界(含显式 bypass)一律回落 '' = 「跟随全局默认档」,
+  //    真正的白名单判定在 13s(它读得到 config)。29 号文 §10:任务级授权永不含 bypass。
+  const rawAutonomy = (raw.autonomy && typeof raw.autonomy === 'object' && !Array.isArray(raw.autonomy)) ? raw.autonomy : {};
+  const wantedMode = schedulerCleanLine(rawAutonomy.permissionMode, 32);
+  const permissionMode = (wantedMode && wantedMode !== 'bypass' && wantedMode !== 'bypassPermissions') ? wantedMode : '';
+  const autonomy = { permissionMode };
+
+  // ⑤ 策略
+  const rawPolicy = (raw.policy && typeof raw.policy === 'object' && !Array.isArray(raw.policy)) ? raw.policy : {};
+  const policy = {
+    onMissed: SCHEDULER_ON_MISSED.includes(String(rawPolicy.onMissed || '')) ? String(rawPolicy.onMissed) : SCHEDULER_DEFAULT_POLICY.onMissed,
+    graceMinutes: schedulerClampInt(rawPolicy.graceMinutes, SCHEDULER_LIMITS.graceMinutesMin, SCHEDULER_LIMITS.graceMinutesMax, SCHEDULER_DEFAULT_POLICY.graceMinutes),
+    maxRunsPerDay: schedulerClampInt(rawPolicy.maxRunsPerDay, SCHEDULER_LIMITS.maxRunsPerDayMin, SCHEDULER_LIMITS.maxRunsPerDayMax, SCHEDULER_DEFAULT_POLICY.maxRunsPerDay),
+    timeoutMinutes: schedulerClampInt(rawPolicy.timeoutMinutes, SCHEDULER_LIMITS.timeoutMinutesMin, SCHEDULER_LIMITS.timeoutMinutesMax, SCHEDULER_DEFAULT_POLICY.timeoutMinutes),
+    onFailure: SCHEDULER_ON_FAILURE.includes(String(rawPolicy.onFailure || '')) ? String(rawPolicy.onFailure) : SCHEDULER_DEFAULT_POLICY.onFailure,
+  };
+
+  // ⑥ 状态。**nextFireAt 在这里现算**:归一化是「洗净 + 定型」的唯一出口,让它同时算下一次,
+  //    调用方就不可能落一条「有计划但没有下次」的任务(那条任务会永远不触发,而且看不出来)。
+  const rawState = (raw.state && typeof raw.state === 'object' && !Array.isArray(raw.state)) ? raw.state : {};
+  const enabled = rawState.enabled !== false;
+  const nextMs = nextFireAt(schedule, now);
+  const state = {
+    enabled,
+    lastFiredAt: schedulerCleanLine(rawState.lastFiredAt, 40),
+    lastResult: SCHEDULER_OUTCOMES.includes(String(rawState.lastResult || '')) ? String(rawState.lastResult) : '',
+    lastMode: SCHEDULER_FIRE_MODES.includes(String(rawState.lastMode || '')) ? String(rawState.lastMode) : '',
+    nextFireAt: nextMs == null ? '' : new Date(nextMs).toISOString(),
+    inFlightRunId: schedulerCleanLine(rawState.inFlightRunId, 64),
+    consecutiveFailures: schedulerClampInt(rawState.consecutiveFailures, 0, 9999, 0),
+    runsToday: {
+      date: schedulerCleanLine(rawState.runsToday && rawState.runsToday.date, 10),
+      count: schedulerClampInt(rawState.runsToday && rawState.runsToday.count, 0, 100000, 0),
+    },
+  };
+  // once 已经过期(算不出 nextFireAt)且这是一条【新】任务 → 拒。改一条老任务时不拒:
+  // 它可能只是想改标题,把一条跑完的 once 连带删掉不是用户的意思。
+  if (!state.nextFireAt && !String(raw.id || '') && kind === 'once') {
+    return schedulerFail('invalid_request', 'schedule.date/at is already in the past');
+  }
+
+  const idRaw = String(raw.id || '');
+  const task = {
+    schema: 1,
+    id: /^[A-Za-z0-9_-]{1,64}$/.test(idRaw) ? idRaw : '',   // 空 = 由 13s 用 makeId 补(纯函数不造随机)
+    title,
+    createdAt: schedulerCleanLine(raw.createdAt, 40) || nowIsoText,
+    updatedAt: nowIsoText,
+    createdBy: SCHEDULER_CREATORS.includes(String(raw.createdBy || '')) ? String(raw.createdBy) : 'user',
+    revision: schedulerClampInt(raw.revision, 0, 1000000000, 0),
+    schedule,
+    payload,
+    target,
+    autonomy,
+    policy,
+    state,
+  };
+  return { ok: true, task };
+}
+
 // Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   const base = providerBaseWithV1(provider && provider.baseUrl);
@@ -23448,6 +24094,22 @@ function toolIsRevertible(toolName) {
   // 与内建工具同保真度:名字级承诺(实际快照仍可能因越界/超限被跳过,届时该条在变更卡上回落为不可撤销)。
   return Object.prototype.hasOwnProperty.call(BRIDGED_WRITE_PATH_ARGS, unprefixedBridgedName(n));
 }
+// ── 第 123 波 M1 §3.2「无人值守的 ask」(37 号文;29 号文 §10 红线二)────────────────────────────
+// 定时任务派出去的回合没人守着,120 s 的决定窗口对它毫无意义 —— 用户可能几小时后才回来。
+// 于是调度器(13s)在派单前后【成对】写/清这张表,把这一条会话的「等多久」换成
+// config.schedulerAskWaitMinutes(默认 30 分钟,钳 [1,240];测试旗 WCW_SCHEDULER_ASK_WAIT_MS 压到毫秒)。
+//
+// **只改「等多久」,不改「等到了怎么判」**(子集律):到时仍然走下面那条既有的
+// runAutomaticInterventionDecision(action:'deny') —— 无人值守遇 ask 永远是拒,绝不自动放行。
+// 这张表也【不】参与 nativeToolGate 的任何判定:它够不着 gate,只够得着 setTimeout 的那个数。
+// 表是进程内的,重启即空;调度器在 finally 里删,所以一条被换过窗口的会话不会把这个值带到
+// 用户后来手动发起的回合上。
+const schedulerAskWaitSessions = new Map();   // sessionId -> ms(只由 13s 写)
+function schedulerAskWaitOverrideMs(schedAskSessionId) {
+  const ms = Number(schedulerAskWaitSessions.get(String(schedAskSessionId || '')));
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
 // Ask the UI to approve a native tool call — reuses the pendingPermissions + /api/permission/decision bridge.
 // v0.8-S4b: the permission_request event now also carries `tier` (read|edit|exec) and `revertible` (bool)
 // so the popup can render a risk badge + a plain-language revertibility line without re-deriving them.
@@ -23477,7 +24139,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       resolve(decision);
     };
     const entry = { resolve: settle, sessionId, timer: null };
-    const baseMs = Math.max(5000, Number(timeoutMs) || 120000);
+    const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -23548,7 +24210,8 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
         pendingPlans.delete(planId);
         settle({ decision: 'reject', note });
       });
-    }, Math.max(5000, Number(timeoutMs) || 120000));
+      // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
+    }, schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000));
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }
@@ -39153,6 +39816,12 @@ async function handleApi(req, res, pathname) {
   // 命中信号是 headersSent 而不是 writableEnded:SSE 连接【故意不 end】,一直开着流事件,
   // writableEnded 永远是 false,只看它会让这条请求继续往下走、最后撞上 404 那行的二次 writeHead。
   if (typeof EventStreamHooks.handleApiRoutes === 'function') { await EventStreamHooks.handleApiRoutes(req, res, pathname); if (res.headersSent || res.writableEnded) return; }
+  // 第123波 M1(37 号文 §3.3): 定时任务六条域路由住 13s-scheduler.js(拼接顺序在本文件【之后】)。
+  // 接法沿 13b/13c/13d —— 直调函数名,构成一条【前向边】13 → 13s,已登记进
+  // src/module-dependency-policy.json 的 allowedForwardEdges 并附来路。为什么不走 Hooks 迟绑定:
+  // 那三条域路由的先例就是直调,路由清册的扫描器也按 `await handleXxxApiRoutes(` 这个形状认委派行;
+  // 再造一个 Hooks 只会让清册多一个看不见的入口(13g/13r 走 Hooks 是因为它们【必须】,不是偏好)。
+  await handleSchedulerApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
@@ -39498,6 +40167,11 @@ async function startServerInner(opts) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
+  // 第123波 M1(37 号文 §3.2「启动恢复」): 服务已 listen、runtime.json 已落之后才起调度器 ——
+  // 恢复那一步可能立刻补跑一个回合,而回合要用得上刚落的 RUNTIME.token(MCP 子进程回连)。
+  // schedulerEnabledV1 显式 false 时 startScheduler 立即返回,不建目录、不读盘、不起 interval、零写入;
+  // 开着但零任务时同样不起 interval(29 号文 §4「开关」)。失败绝不阻断已经开起来的服务(调度器是旁路)。
+  await startScheduler(config).catch(() => {});
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -39526,7 +40200,9 @@ async function startServerInner(opts) {
   let cleanedUp = false;
   // 第116波116b: 关服收尾一并停掉管家收件箱轮询(clearInterval + 代际自增,在途 tick 尽快退出)。
   // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
+  // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
+  // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
@@ -50069,6 +50745,17 @@ RUYI_EVENTS.subscribe((name, payload) => {
     eventStreamPublish('steward.say', { turnSeq: Math.max(0, Number(data.turnSeq) || 0), trigger: String(data.trigger || '') });
     return;
   }
+  // 123-M1(37 号文 §3.2「事件」):定时任务变了 —— 建/改/删/四段触发各派一帧。
+  // 本文件【只转发】:三个字段全是枚举与 id,标题、载荷正文、结果原文一个字都不进这条线(§6.1 红线①);
+  // 前端(M2)据此刷口袋计数、「接下来」两行与设置块,零轮询 —— 正文仍走 GET /api/scheduler/tasks。
+  if (name === 'schedule.changed') {
+    eventStreamPublish('schedule.changed', {
+      taskId: String(data.taskId || ''),
+      phase: String(data.phase || ''),
+      outcome: String(data.outcome || ''),
+    });
+    return;
+  }
   // 未知事件名:丢弃。总线是开放的,这条线不是 —— 加新事件要在这里显式登记一行。
 });
 subscribeActiveChildEvents(eventStreamOnActiveChildEvent);
@@ -50136,6 +50823,852 @@ Object.assign(EventStreamHooks, {
   handleApiRoutes: handleEventStreamApiRoutes,
   presenceSnapshot: stewardPresenceSnapshot,
 });
+
+// ============================================================================
+// 第 123 波 M1 §3.2/§3.3/§3.4(37 号文;设计权威 29 号文 §4「调度器」§5「载荷」§10「红线」):
+// 定时任务调度器 —— tick、四段触发、启动恢复、上限与熔断、六条 API。
+//
+// 落点(transport 层,manifest 中位于 13r-event-stream.js 之后、14-main.js 之前;文件名按
+// ENGINEERING-SPEC §1 的 ^13[a-z]?- 正则)。
+//
+// 依赖方向:
+//   · 本文件引用的一切(06j 的纯函数、02 的会话存储、04 的 activeChildren/stopSession、
+//     07 的 ask 等待表、10 的 runSessionTurn、13i/13j/13k 的既有原语、00-boot 的 RUYI_EVENTS)
+//     在 manifest 里都排在它【之前】,全部后向边;
+//   · 13-http-router.js 排在本文件【之前】,它那一行 `await handleSchedulerApiRoutes(...)` 是一条
+//     **前向边**(13 → 13s),与既有的 13 → 13b/13c/13d 同型 —— 已登记进
+//     src/module-dependency-policy.json 的 allowedForwardEdges 并附来路。
+//     为什么不走 Hooks 迟绑定:那三条域路由的先例就是直调,路由清册的扫描器也按这个形状认
+//     (`await handleXxxApiRoutes(`);再造一个 Hooks 只会让清册多一个看不见的入口。
+//     reminder 出箱那一头【必须】走 Hooks(SchedulerHooks,住 06j)—— 填充方 13i 排在 13s 之前。
+//
+// 红线(29 号文 §10,每条都有锁):
+//   ① 无人值守遇 ask 【绝不自动放行】。本文件只把「等多久」换成 config.schedulerAskWaitMinutes,
+//      gate 语义一个字不动 —— 到时仍然是拒(子集律:只能拒,永不放行)。
+//   ② 任务定义只能由 token 级 API 写入(01b-route-auth 六条全 token;body-token 永远够不着)。
+//   ③ 载荷禁止键在 06j 的 normalizeSchedulerTask 里整条拒。
+//   ④ 补跑只补一次,永不追赶多次;熔断优先于重试。
+//   ⑤ 关闭调度或无任务时【零后台开销、零持久化写入】—— schedulerEnabledV1 !== true 时
+//      startScheduler 立即返回(不建目录、不起 interval、不读盘);零任务时不起 interval。
+//   ⑥ 进程崩溃后那一次记 unknown,不默认成功、不盲目重发(J11)。
+// ============================================================================
+
+// ── 落盘常量 ────────────────────────────────────────────────────────────────
+const SCHEDULER_DIR_NAME = 'scheduler';
+const SCHEDULER_TASKS_FILE = 'tasks-v1.json';
+const SCHEDULER_FIRES_FILE = 'fires-v1.ndjson';
+const SCHEDULER_TASKS_SCHEMA = 1;
+
+// ── 运行常量 ────────────────────────────────────────────────────────────────
+const SCHEDULER_TICK_MS_DEFAULT = 30000;      // 29 号文 §4:30 s(任务精度是分钟级,不是秒级)
+const SCHEDULER_TICK_MS_MIN = 10;             // 只有测试旗能压到这么低
+const SCHEDULER_TICK_MS_MAX = 300000;
+const SCHEDULER_FIRES_FULL_READ_BYTES = 8 * 1024 * 1024;   // 超过它只读尾窗(同 inbox 口径)
+const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;
+const SCHEDULER_RUNS_LIMIT_DEFAULT = 5;
+const SCHEDULER_RUNS_LIMIT_MAX = 50;
+const SCHEDULER_TITLE_IN_FIRE_MAX = 120;
+
+// ── 测试旗(§3.4)────────────────────────────────────────────────────────────
+// 口径与仓里既有的测试缝逐字同款(05-claude-engine 的 WCW_FAKE_CLAUDE、06g 的
+// WCW_RESOURCE_LEASE_TIMEOUT_MS、09-workflow 的 WCW_AGENT_NODE_IDLE_MS):**只读 process.env**,
+// 默认缺省即生产行为,不进 config、不进 UI、不落盘。不带旗时下面四个函数各自回落到生产取值 ——
+// scheduler.e2e.js 的 A 组钉的就是这一条:四个旗名在整个 src/ 里【只】出现在本文件的这四个
+// process.env 读取点,且不带旗时 tickMs 读到的是生产默认 30 s、崩溃钩子一次都不触发。
+function schedulerClockNow() {
+  const file = process.env.WCW_SCHEDULER_CLOCK_FILE || '';
+  if (!file) return Date.now();
+  try {
+    const value = Number(String(fs.readFileSync(file, 'utf8')).trim());
+    if (Number.isFinite(value) && value > 0) return Math.round(value);
+  } catch { /* 假时钟文件还没写出来:回落真时钟 */ }
+  return Date.now();
+}
+function schedulerTickMs() {
+  const raw = Number(process.env.WCW_SCHEDULER_TICK_MS);
+  if (!Number.isFinite(raw)) return SCHEDULER_TICK_MS_DEFAULT;
+  return Math.min(SCHEDULER_TICK_MS_MAX, Math.max(SCHEDULER_TICK_MS_MIN, Math.round(raw)));
+}
+// ask 等待窗口。生产取 config.schedulerAskWaitMinutes(01-config 已钳 [1,240]);测试旗把它压到毫秒级。
+// **只改「等多久」,不改「等到了怎么判」** —— 到时仍是拒,见 07-autonomy 的 requestNativePermission。
+function schedulerAskWaitMs(schedConfig) {
+  const raw = Number(process.env.WCW_SCHEDULER_ASK_WAIT_MS);
+  if (Number.isFinite(raw) && raw >= 50) return Math.round(raw);
+  const minutes = Number(schedConfig && schedConfig.schedulerAskWaitMinutes);
+  const clamped = Number.isFinite(minutes)
+    ? Math.min(SCHEDULER_LIMITS.askWaitMinutesMax, Math.max(SCHEDULER_LIMITS.askWaitMinutesMin, Math.round(minutes)))
+    : SCHEDULER_LIMITS.askWaitMinutesDefault;
+  return clamped * 60000;
+}
+// 崩溃钩子:在四段边界上把服务打死(process.exit(3)),供 scheduler-crash.e2e.js 造真崩溃。
+// 四个点名与 §3.2 逐字:after-register / after-dispatch / mid-run / before-reconcile。
+function schedulerMaybeCrash(schedPoint) {
+  if (String(process.env.WCW_SCHEDULER_CRASH_AT || '') !== String(schedPoint)) return;
+  try { logEvent({ kind: 'scheduler_test_crash', point: String(schedPoint) }); } catch { /* 观测不反噬 */ }
+  process.exit(3);
+}
+
+// ── 运行时(进程内;重启即空,任何要活过重启的事实都在磁盘上)────────────────────────────────
+const schedulerRuntime = {
+  enabled: false,
+  started: false,
+  loaded: false,
+  timer: null,
+  generation: 0,        // stopScheduler 自增;在途 tick 发现代际变了就尽快退出
+  ticking: false,       // 全局并发 1 的第一道闸(第二道是 fire 循环里的 await 串行)
+  tasks: [],
+  fireSeq: 0,
+  globalRuns: { date: '', count: 0 },
+  lateQueue: [],        // [{ taskId, dueMs }] —— 启动恢复排的补跑,只排一次(29 号文 §4「只补一次」)
+  attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
+  lastError: '',
+  firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
+};
+let schedulerTasksChain = Promise.resolve();   // tasks-v1.json 的 per-process 串行写链
+let schedulerFiresChain = Promise.resolve();   // fires-v1.ndjson 的 per-process 串行 append 链
+
+function schedulerDir() { return path.join(paths.data, SCHEDULER_DIR_NAME); }
+function schedulerTasksPath() { return path.join(schedulerDir(), SCHEDULER_TASKS_FILE); }
+function schedulerFiresPath() { return path.join(schedulerDir(), SCHEDULER_FIRES_FILE); }
+function schedulerDayKey(schedMs) {
+  const d = new Date(schedMs);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function schedulerEnabled(schedConfig) { return !!(schedConfig && schedConfig.schedulerEnabledV1 === true); }
+
+// 事件:任务或 fires 变了。13r 只转发,不承载正文(§6.1 红线)—— 帧里只有「哪条任务、到了哪一段、
+// 什么结果」,标题与文案都不进这条线(前端从 GET /api/scheduler/tasks 那一份拿)。
+function schedulerEmitChanged(schedTaskId, schedPhase, schedOutcome) {
+  try {
+    RUYI_EVENTS.emit('schedule.changed', {
+      taskId: String(schedTaskId || ''),
+      phase: String(schedPhase || ''),
+      outcome: String(schedOutcome || ''),
+    });
+  } catch { /* 观测绝不反噬触发 */ }
+}
+// 旁路回调(SchedulerHooks 住 06j)。未填充 = 无操作;填充方抛错就地吞掉。
+function schedulerNotify(schedHookName, schedRow) {
+  try {
+    const hook = SchedulerHooks[schedHookName];
+    if (typeof hook === 'function') return Promise.resolve(hook(schedRow)).catch(() => null);
+  } catch { /* ignore */ }
+  return Promise.resolve(null);
+}
+
+// ── 落盘:tasks-v1.json(atomicWriteJson)────────────────────────────────────────────────────
+async function schedulerReadTasksFile() {
+  const file = schedulerTasksPath();
+  let text = '';
+  try { text = await fsp.readFile(file, 'utf8'); }
+  catch { return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true }; }
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch { parsed = null; }
+  if (!parsed || parsed.schema !== SCHEDULER_TASKS_SCHEMA || !Array.isArray(parsed.tasks)) {
+    // 隔离而不是就地丢:用户的任务定义是他自己写下的东西,坏了要留一份原件给他捞。
+    // rename 而不是 copy —— 留在原地会每次读都重新隔离一次,并且永远报「存在但读不出来」。
+    try { await fsp.rename(file, file + '.corrupt'); } catch { /* best-effort */ }
+    schedulerRuntime.lastError = 'tasks-v1.json 损坏或版本不符,已隔离为 tasks-v1.json.corrupt,本次按空表启动';
+    try { logEvent({ kind: 'scheduler_tasks_corrupt', detail: schedulerRuntime.lastError }); } catch { /* ignore */ }
+    return { tasks: [], globalRuns: { date: '', count: 0 }, missing: false };
+  }
+  const runs = (parsed.globalRuns && typeof parsed.globalRuns === 'object') ? parsed.globalRuns : {};
+  return {
+    tasks: parsed.tasks,
+    globalRuns: { date: String(runs.date || ''), count: Math.max(0, Number(runs.count) || 0) },
+    missing: false,
+  };
+}
+// 写盘。**零任务时也要写**(用户刚把最后一条删掉,那份空表就是事实);但 startScheduler 在
+// schedulerEnabledV1 关时压根不会走到这里(红线⑤:关着一个字节都不写)。
+function schedulerSaveTasks() {
+  const payload = {
+    schema: SCHEDULER_TASKS_SCHEMA,
+    updatedAt: new Date(schedulerClockNow()).toISOString(),
+    globalRuns: schedulerRuntime.globalRuns,
+    tasks: schedulerRuntime.tasks,
+  };
+  const next = schedulerTasksChain.catch(() => {}).then(async () => {
+    await fsp.mkdir(schedulerDir(), { recursive: true });
+    await atomicWriteJson(schedulerTasksPath(), payload);
+  });
+  schedulerTasksChain = next.catch(() => {});
+  return next;
+}
+
+// ── 落盘:fires-v1.ndjson(append-only;与 session-changes / inbox 同款原语)──────────────────
+function schedulerAppendFire(schedRow) {
+  schedulerRuntime.fireSeq += 1;
+  const row = { seq: schedulerRuntime.fireSeq, at: new Date(schedulerClockNow()).toISOString(), ...schedRow };
+  const file = schedulerFiresPath();
+  const payload = JSON.stringify(row) + '\n';
+  const next = schedulerFiresChain.catch(() => {}).then(async () => {
+    await fsp.mkdir(schedulerDir(), { recursive: true });
+    await repairMissionChangeTornTail(file);   // 尾部半行先截干净,再整行 append(防焊接)
+    await fsp.appendFile(file, payload, 'utf8');
+  });
+  schedulerFiresChain = next.catch(() => {});
+  return next.then(() => row);
+}
+async function schedulerReadFiresText() {
+  const file = schedulerFiresPath();
+  let size = -1;
+  try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
+  if (size <= SCHEDULER_FIRES_FULL_READ_BYTES) {
+    try { return { text: await fsp.readFile(file, 'utf8'), droppedHead: false }; } catch { return { text: '', droppedHead: false }; }
+  }
+  let fh = null;
+  try {
+    fh = await fsp.open(file, 'r');
+    const buf = Buffer.alloc(SCHEDULER_FIRES_TAIL_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, SCHEDULER_FIRES_TAIL_BYTES, size - SCHEDULER_FIRES_TAIL_BYTES);
+    return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
+  } catch { return { text: '', droppedHead: false }; }
+  finally { if (fh) await fh.close().catch(() => {}); }
+}
+// 坏行/尾部半行一律跳过(append-only 日志的既有纪律)。
+async function schedulerReadFireRows() {
+  const { text, droppedHead } = await schedulerReadFiresText();
+  const lines = String(text || '').split('\n');
+  const rows = [];
+  for (let i = droppedHead ? 1 : 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    let row = null;
+    try { row = JSON.parse(line); } catch { row = null; }
+    if (!row || typeof row !== 'object') continue;
+    if (!Number.isSafeInteger(Number(row.seq)) || !SCHEDULER_PHASES.includes(String(row.phase || ''))) continue;
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ── 装载与启动恢复 ──────────────────────────────────────────────────────────
+// 归一化会【现算】nextFireAt(见 06j 的 ⑥ 段),而启动恢复恰恰要看磁盘上那个【旧的】nextFireAt
+// (它 <= 现在 就等于「那一刻没人来触发」)。所以装载时归一化之后要把两个字段按盘上的值放回去。
+// 这一步不能省:省了就永远算不出「错过」,J10 会静默变成「从不补跑」。
+function schedulerRestorePersistedState(schedTask, schedRawTask) {
+  const rawState = (schedRawTask && schedRawTask.state && typeof schedRawTask.state === 'object') ? schedRawTask.state : {};
+  const persistedNext = Date.parse(String(rawState.nextFireAt || ''));
+  if (Number.isFinite(persistedNext)) schedTask.state.nextFireAt = new Date(persistedNext).toISOString();
+  const persistedUpdated = Date.parse(String(schedRawTask && schedRawTask.updatedAt));
+  if (Number.isFinite(persistedUpdated)) schedTask.updatedAt = new Date(persistedUpdated).toISOString();
+  return schedTask;
+}
+async function schedulerLoad() {
+  if (schedulerRuntime.loaded) return;
+  const now = schedulerClockNow();
+  const file = await schedulerReadTasksFile();
+  const tasks = [];
+  for (const rawTask of file.tasks) {
+    const normalized = normalizeSchedulerTask(rawTask, now);
+    if (!normalized.ok) continue;                       // 坏行跳过(不静默改写用户的定义)
+    if (!normalized.task.id) continue;                  // 没有 id 的行不该在盘上,跳过
+    tasks.push(schedulerRestorePersistedState(normalized.task, rawTask));
+    if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
+  }
+  schedulerRuntime.tasks = tasks;
+  schedulerRuntime.globalRuns = file.globalRuns;
+  // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
+  const rows = await schedulerReadFireRows();
+  let maxSeq = 0;
+  const attempts = new Map();
+  for (const row of rows) {
+    const seq = Number(row.seq) || 0;
+    if (seq > maxSeq) maxSeq = seq;
+    if (String(row.phase) === 'registered') {
+      const key = String(row.occurrenceKey || '');
+      if (key) attempts.set(key, (attempts.get(key) || 0) + 1);
+    }
+  }
+  schedulerRuntime.fireSeq = maxSeq;
+  schedulerRuntime.attempts = attempts;
+  schedulerRuntime.loaded = true;
+  return rows;
+}
+
+// 启动恢复(§3.2)。两件事,顺序不能反:
+//   ① 崩溃残留 —— 有 inFlightRunId 且 fires 里那个 run 没有 reconciled 行 → 补一条 unknown。
+//      **那一次 occurrence 就此消费掉**(nextFireAt 推过它),否则重启会把同一个 occurrence 再触发
+//      一遍 —— 而它上一次可能已经真的动过文件了(J11「不重发」)。
+//   ② 错过的时点 —— 必须排在 ① 之后:被崩溃消费掉的那个时点不该再算作「错过」。
+async function schedulerRecover(schedFireRows) {
+  const now = schedulerClockNow();
+  const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
+  const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
+  for (const row of rows) {
+    const runId = String(row.runId || '');
+    if (!runId) continue;
+    const entry = byRun.get(runId) || { occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
+    if (row.occurrenceKey) entry.occurrenceKey = String(row.occurrenceKey);
+    if (row.dueAt) entry.dueAt = String(row.dueAt);
+    if (row.mode) entry.mode = String(row.mode);
+    if (String(row.phase) === 'reconciled') entry.reconciled = true;
+    byRun.set(runId, entry);
+  }
+  let dirty = false;
+
+  // ① 崩溃残留
+  for (const task of schedulerRuntime.tasks) {
+    const runId = String(task.state.inFlightRunId || '');
+    if (!runId) continue;
+    const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
+    if (!entry.reconciled) {
+      await schedulerAppendFire({
+        taskId: task.id,
+        title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+        occurrenceKey: entry.occurrenceKey,
+        dueAt: entry.dueAt,
+        runId,
+        executionGeneration: schedulerRuntime.attempts.get(entry.occurrenceKey) || 1,
+        mode: entry.mode,
+        phase: 'reconciled',
+        outcome: 'unknown',
+        error: 'interrupted',
+      });
+      void schedulerNotify('onSchedulerNotice', {
+        kind: 'unknown', taskId: task.id, title: task.title,
+        occurrenceKey: entry.occurrenceKey, mode: entry.mode, at: new Date(now).toISOString(),
+      });
+      schedulerEmitChanged(task.id, 'reconciled', 'unknown');
+    }
+    task.state.inFlightRunId = '';
+    task.state.lastResult = 'unknown';
+    // 把 nextFireAt 推过那个已经消费掉的时点。dueAt 读不出来时用「现在」兜底(仍然只往前走)。
+    const consumedMs = Date.parse(entry.dueAt);
+    const fromMs = Number.isFinite(consumedMs) ? Math.max(now, consumedMs) : now;
+    const nextMs = nextFireAt(task.schedule, fromMs);
+    task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+    dirty = true;
+  }
+
+  // ② 错过的时点
+  for (const task of schedulerRuntime.tasks) {
+    if (!task.state.enabled) continue;
+    const missed = missedOccurrence(task, now);
+    if (!missed) continue;
+    if (missed.runLate) {
+      schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
+    } else {
+      await schedulerAppendFire({
+        taskId: task.id,
+        title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+        occurrenceKey: missed.occurrenceKey,
+        dueAt: new Date(missed.dueMs).toISOString(),
+        runId: '',
+        executionGeneration: 0,
+        mode: 'late',
+        phase: 'reconciled',
+        outcome: 'skipped',
+        error: missed.withinGrace ? 'policy_skip' : 'grace_expired',
+      });
+      void schedulerNotify('onSchedulerNotice', {
+        kind: 'skipped', taskId: task.id, title: task.title,
+        occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
+        reason: missed.withinGrace ? 'policy_skip' : 'grace_expired',
+      });
+      schedulerEmitChanged(task.id, 'reconciled', 'skipped');
+    }
+    // 两条路都推进 nextFireAt ——「补跑只补一次」由 lateQueue 保证,不靠「还留着旧时点」。
+    const nextMs = nextFireAt(task.schedule, now);
+    task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+    dirty = true;
+  }
+  if (dirty) await schedulerSaveTasks();
+}
+
+// ── 触发四段(§3.2)────────────────────────────────────────────────────────
+// 权限档:任务自带的档是【天花板 = 全局档去掉 bypass】。任务没给(''),或给的档不在
+// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档。这一句是 06j 那半条校验
+// (「不是 bypass 的非空字符串就留着」)的另一半:只有这里读得到 config。
+function schedulerPermissionModeFor(schedTask, schedConfig) {
+  const wanted = String((schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const globalMode = String((schedConfig && schedConfig.permissionMode) || 'default');
+  if (!wanted) return globalMode;
+  if (wanted === 'bypass' || wanted === 'bypassPermissions') return globalMode;
+  if (!PERMISSION_MODES.includes(wanted)) return globalMode;
+  return wanted;
+}
+
+// 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
+async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
+  const task = schedTask;
+  const startedMs = schedulerClockNow();
+  const day = schedulerDayKey(startedMs);
+  if (schedulerRuntime.globalRuns.date !== day) schedulerRuntime.globalRuns = { date: day, count: 0 };
+  if (!task.state.runsToday || task.state.runsToday.date !== day) task.state.runsToday = { date: day, count: 0 };
+  const occKey = occurrenceKey(task.id, schedDueMs);
+  const dueAt = new Date(schedDueMs).toISOString();
+
+  // ── 上限(29 号文 §4)。撞上限不是失败,是【这一次不跑】:记一行 skipped 并推进下一次。
+  const globalFull = schedulerRuntime.globalRuns.count >= SCHEDULER_LIMITS.globalRunsPerDay;
+  const taskFull = task.state.runsToday.count >= task.policy.maxRunsPerDay;
+  if (globalFull || taskFull) {
+    await schedulerAppendFire({
+      taskId: task.id, title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+      occurrenceKey: occKey, dueAt, runId: '', executionGeneration: 0, mode: schedMode,
+      phase: 'reconciled', outcome: 'skipped', error: globalFull ? 'global_daily_cap' : 'task_daily_cap',
+    });
+    if (schedMode !== 'manual') {
+      const bumped = nextFireAt(task.schedule, startedMs);
+      task.state.nextFireAt = bumped == null ? '' : new Date(bumped).toISOString();
+    }
+    task.state.lastResult = 'skipped';
+    task.state.lastMode = schedMode;
+    await schedulerSaveTasks();
+    schedulerEmitChanged(task.id, 'reconciled', 'skipped');
+    return 'skipped';
+  }
+
+  const runId = makeId('srun');
+  const attempts = (schedulerRuntime.attempts.get(occKey) || 0) + 1;
+  schedulerRuntime.attempts.set(occKey, attempts);
+  const fireBase = {
+    taskId: task.id,
+    title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+    occurrenceKey: occKey,
+    dueAt,
+    runId,
+    executionGeneration: attempts,
+    mode: schedMode,
+  };
+
+  // ── ① 登记(原子写 inFlightRunId + lastFiredAt,再落一行 registered)────────────────────
+  task.state.inFlightRunId = runId;
+  task.state.lastFiredAt = new Date(startedMs).toISOString();
+  task.state.lastMode = schedMode;
+  task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
+  schedulerRuntime.globalRuns = { date: day, count: schedulerRuntime.globalRuns.count + 1 };
+  await schedulerSaveTasks();
+  await schedulerAppendFire({ ...fireBase, phase: 'registered' });
+  schedulerRuntime.firedTotal += 1;
+  schedulerEmitChanged(task.id, 'registered', '');
+  schedulerMaybeCrash('after-register');
+
+  // ── ② 派单 ────────────────────────────────────────────────────────────────
+  const config = await readConfig();
+  let outcome = 'succeeded';
+  let error = '';
+  let sessionId = '';
+  let costTokens = 0;
+
+  if (task.payload.kind === 'reminder') {
+    // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
+    await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
+    schedulerEmitChanged(task.id, 'dispatched', '');
+    schedulerMaybeCrash('after-dispatch');
+    schedulerMaybeCrash('mid-run');
+    await schedulerNotify('onReminderDue', {
+      taskId: task.id, title: task.title, text: task.payload.text,
+      occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
+      ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
+    });
+  } else {
+    let session = null;
+    if (task.target.mode === 'existing-session' && task.target.sessionId) {
+      session = await loadSession(task.target.sessionId).catch(() => null);
+    }
+    if (!session) {
+      // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
+      // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
+      // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
+      session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
+      session.kind = 'mission';
+      session.launchedBy = 'steward';
+      session.createdBy = 'steward';
+      session.titleSource = 'steward';
+      await saveSession(session);
+    }
+    sessionId = session.id;
+    await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
+    schedulerEmitChanged(task.id, 'dispatched', '');
+    schedulerMaybeCrash('after-dispatch');
+    await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
+    schedulerMaybeCrash('mid-run');
+
+    // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
+    // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
+    schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
+    let permissionDenied = 0;
+    const onEvent = evt => {
+      if (!evt || typeof evt !== 'object') return;
+      if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
+      if (evt.type === 'usage' && evt.usage) {
+        const u = evt.usage;
+        costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
+          + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+      }
+    };
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
+    }, Math.max(1000, task.policy.timeoutMinutes * 60000));
+    if (timer && typeof timer.unref === 'function') timer.unref();
+    let result = null;
+    try {
+      result = await runSessionTurn({
+        sessionId,
+        message: task.payload.text,
+        cwd: session.cwd,
+        permissionMode: schedulerPermissionModeFor(task, config),
+        source: 'scheduler',
+        requestMeta: { taskId: task.id, runId },
+        onEvent,
+      });
+    } catch (e) {
+      error = String((e && e.message) || e).slice(0, 400);
+    } finally {
+      clearTimeout(timer);
+      schedulerAskWaitSessions.delete(sessionId);
+    }
+    // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
+    // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
+    const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+    const turnOk = inner ? inner.ok === true : !!(result && result.ok);
+    if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+    else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
+    else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+    else outcome = 'succeeded';
+    // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
+    // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
+    // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
+    // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
+    // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
+    // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
+    void updateSessionMeta(sessionId, {
+      launchedBy: 'steward',
+      stewardLastTurn: {
+        seq: Math.max(0, Number(result && result.turnSeq) || 0),
+        ok: outcome === 'succeeded',
+        aborted: !!(inner ? inner.aborted : (result && result.stopped)),
+        errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
+        at: nowIso(),
+      },
+    }).catch(() => null);
+  }
+
+  // ── ④ 收尾 ────────────────────────────────────────────────────────────────
+  schedulerMaybeCrash('before-reconcile');
+  const finishedMs = schedulerClockNow();
+  task.state.inFlightRunId = '';
+  task.state.lastResult = outcome;
+  task.state.consecutiveFailures = outcome === 'failed' ? (Number(task.state.consecutiveFailures) || 0) + 1 : 0;
+  let tripped = false;
+  if (task.state.consecutiveFailures >= SCHEDULER_LIMITS.consecutiveFailuresTrip) {
+    task.state.enabled = false;      // 熔断优先于重试(29 号文 §10)
+    tripped = true;
+  }
+  // manual(「再跑一次」)不动 nextFireAt:它是计划之外的一个新 occurrence,不该把日程往后推。
+  if (schedMode !== 'manual') {
+    const nextMs = nextFireAt(task.schedule, finishedMs);
+    task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+  }
+  task.updatedAt = new Date(finishedMs).toISOString();
+  await schedulerSaveTasks();
+  await schedulerAppendFire({
+    ...fireBase, phase: 'reconciled', outcome,
+    ...(error ? { error } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    durationMs: Math.max(0, finishedMs - startedMs),
+    costTokens,
+    ...(tripped ? { tripped: true } : {}),
+  });
+  schedulerEmitChanged(task.id, 'reconciled', outcome);
+  if (tripped) {
+    void schedulerNotify('onSchedulerNotice', {
+      kind: 'tripped', taskId: task.id, title: task.title,
+      occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(),
+      consecutiveFailures: task.state.consecutiveFailures,
+    });
+  } else if (outcome === 'needs_you') {
+    void schedulerNotify('onSchedulerNotice', {
+      kind: 'needs_you', taskId: task.id, title: task.title,
+      occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(), sessionId,
+    });
+  }
+  return outcome;
+}
+
+// ── tick ────────────────────────────────────────────────────────────────────
+// 全局并发 1:`ticking` 挡住重入,循环里的 await 让同一拍里到点的多条任务【串行】跑完 ——
+// 第二条落 registered 的时候第一条一定已经 reconciled 了(§3.2 判据)。
+async function schedulerTick() {
+  if (schedulerRuntime.ticking) return;
+  schedulerRuntime.ticking = true;
+  const generation = schedulerRuntime.generation;
+  try {
+    // ① 启动恢复排的补跑(只跑一次:出队即消费)
+    while (schedulerRuntime.lateQueue.length) {
+      if (generation !== schedulerRuntime.generation) return;
+      const queued = schedulerRuntime.lateQueue.shift();
+      const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
+      if (!task || !task.state.enabled || task.state.inFlightRunId) continue;
+      await schedulerFireOnce(task, 'late', queued.dueMs);
+    }
+    // ② 到点的任务。按 nextFireAt 升序 —— 同一拍里两条都到点时,先到的先跑。
+    const now = schedulerClockNow();
+    const due = schedulerRuntime.tasks
+      .filter(task => task.state.enabled && !task.state.inFlightRunId && task.state.nextFireAt
+        && Date.parse(task.state.nextFireAt) <= now)
+      .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
+    for (const task of due) {
+      if (generation !== schedulerRuntime.generation) return;
+      await schedulerFireOnce(task, 'ontime', Date.parse(task.state.nextFireAt));
+    }
+  } catch (e) {
+    schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
+    try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError }); } catch { /* ignore */ }
+  } finally {
+    schedulerRuntime.ticking = false;
+  }
+}
+
+// 红线⑤:**零任务不起 interval**。任何一次任务表变化之后都要重算一次这件事 ——
+// 建第一条任务时把表从空变成非空,那一刻才该起;删掉最后一条时立刻停。
+function schedulerEnsureTimer() {
+  if (!schedulerRuntime.enabled || !schedulerRuntime.started) return;
+  const wanted = schedulerRuntime.tasks.length > 0 || schedulerRuntime.lateQueue.length > 0;
+  if (wanted && !schedulerRuntime.timer) {
+    schedulerRuntime.timer = setInterval(() => { void schedulerTick(); }, schedulerTickMs());
+    if (schedulerRuntime.timer && typeof schedulerRuntime.timer.unref === 'function') schedulerRuntime.timer.unref();
+  } else if (!wanted && schedulerRuntime.timer) {
+    clearInterval(schedulerRuntime.timer);
+    schedulerRuntime.timer = null;
+  }
+}
+
+// ── 生命周期 ────────────────────────────────────────────────────────────────
+// schedulerEnabledV1 !== true 时【立即返回且什么都不做】:不建目录、不读盘、不起 interval(红线⑤)。
+async function startScheduler(schedConfig) {
+  if (schedulerRuntime.started) return false;
+  if (!schedulerEnabled(schedConfig)) { schedulerRuntime.enabled = false; return false; }
+  schedulerRuntime.enabled = true;
+  schedulerRuntime.started = true;
+  schedulerRuntime.generation += 1;
+  const rows = await schedulerLoad();
+  await schedulerRecover(rows);
+  schedulerEnsureTimer();
+  // 起完就先跑一拍(不等第一个 30 s):补跑队列与「服务没开着的时候刚好到点」都该立刻见效。
+  setImmediate(() => { void schedulerTick(); });
+  try { logEvent({ kind: 'scheduler_started', tasks: schedulerRuntime.tasks.length, late: schedulerRuntime.lateQueue.length }); } catch { /* ignore */ }
+  return true;
+}
+function stopScheduler() {
+  schedulerRuntime.generation += 1;      // 在途 tick 看见代际变了就尽快退出
+  if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
+  schedulerRuntime.started = false;
+}
+// e2e 的观测面(不落盘、不改状态)。「零任务零 interval」这条红线就靠 timerActive 钉。
+function schedulerRuntimeSnapshot() {
+  return {
+    enabled: schedulerRuntime.enabled,
+    started: schedulerRuntime.started,
+    timerActive: !!schedulerRuntime.timer,
+    tickMs: schedulerTickMs(),
+    taskCount: schedulerRuntime.tasks.length,
+    fireSeq: schedulerRuntime.fireSeq,
+    lateQueued: schedulerRuntime.lateQueue.length,
+    firedTotal: schedulerRuntime.firedTotal,
+    lastError: schedulerRuntime.lastError,
+  };
+}
+
+// ── API(§3.3)───────────────────────────────────────────────────────────────
+// 鉴权沿用 01b-route-auth.js 的表(六条一律 token;body-token 永远够不着写面 —— 29 号文 §10);
+// 表是权威,handler 不另写一道自查(同 /api/steward/*)。
+function schedulerPublicTask(schedTask, schedLocale) {
+  const described = describeSchedule(schedTask.schedule, schedLocale);
+  return {
+    id: schedTask.id,
+    title: schedTask.title,
+    // K7 前端(rail-pocket / steward-drawer「接下来」/ steward-settings)读的就是 nextRunAt 与 enabled。
+    // name 是它那份前向兼容读法的第二个候选键,一并给上,省得前端两处各写一个回落。
+    name: schedTask.title,
+    nextRunAt: schedTask.state.nextFireAt,
+    enabled: schedTask.state.enabled,
+    createdAt: schedTask.createdAt,
+    updatedAt: schedTask.updatedAt,
+    createdBy: schedTask.createdBy,
+    revision: schedTask.revision,
+    schedule: schedTask.schedule,
+    payload: schedTask.payload,
+    target: schedTask.target,
+    autonomy: schedTask.autonomy,
+    policy: schedTask.policy,
+    state: schedTask.state,
+    describeKey: described.key,
+    describeParams: described.params,
+  };
+}
+// fires 的多行(registered/dispatched/running/reconciled)是【同一次运行】的四段;对外按 runId 合成
+// 一行「一次运行」。同 occurrence 的多次尝试是多个 runId,各占一行(executionGeneration 区分)。
+function schedulerMergeRuns(schedRows, schedTaskId) {
+  const byRun = new Map();
+  for (const row of schedRows) {
+    if (String(row.taskId || '') !== String(schedTaskId)) continue;
+    const key = String(row.runId || '') || ('nore:' + String(row.seq));
+    const entry = byRun.get(key) || { runId: String(row.runId || ''), firedAt: String(row.at || ''), phase: '', outcome: '' };
+    entry.seq = Number(row.seq) || entry.seq || 0;
+    entry.occurrenceKey = String(row.occurrenceKey || entry.occurrenceKey || '');
+    entry.dueAt = String(row.dueAt || entry.dueAt || '');
+    entry.mode = String(row.mode || entry.mode || '');
+    entry.executionGeneration = Number(row.executionGeneration) || entry.executionGeneration || 0;
+    entry.phase = String(row.phase || entry.phase || '');
+    if (row.sessionId) entry.sessionId = String(row.sessionId);
+    if (row.outcome) entry.outcome = String(row.outcome);
+    if (row.error) entry.error = String(row.error);
+    if (row.durationMs != null) entry.durationMs = Number(row.durationMs) || 0;
+    if (row.costTokens != null) entry.costTokens = Number(row.costTokens) || 0;
+    if (row.tripped) entry.tripped = true;
+    byRun.set(key, entry);
+  }
+  return [...byRun.values()].sort((a, b) => (b.seq || 0) - (a.seq || 0));
+}
+function schedulerLocaleOf(req) {
+  const raw = String((req && req.headers && req.headers['accept-language']) || '');
+  return /^en/i.test(raw) ? 'en' : 'zh';
+}
+
+// 六条路由共用的前置:读配置 → 开关关就 409(路由清册不因开关变化,与 /api/steward/* 的
+// steward.disabled 同款)→ 装载任务表。返回 locale;返回 '' 表示已经答过了(调用方直接 return)。
+// **故意不在函数开头写 `if (!pathname.startsWith('/api/scheduler/')) return;` 这样的前缀早退守卫**:
+// 路由清册的扫描器会把它认成一个判定点,于是清册里凭空多出一条「无鉴权首配」的裸前缀死路由
+// (13r 的头注里记着同一条坑)。改成六个分支各调一次本函数,顺带也不让无关请求付一次 readConfig。
+async function schedulerRouteGate(req, res) {
+  const config = await readConfig();
+  if (!schedulerEnabled(config)) {
+    send(res, apiFailure('scheduler.disabled', {}, 'the scheduler is turned off (schedulerEnabledV1)', 409));
+    return '';
+  }
+  await schedulerLoad();
+  return schedulerLocaleOf(req);
+}
+
+async function handleSchedulerApiRoutes(req, res, pathname) {
+  if (req.method === 'GET' && pathname === '/api/scheduler/tasks') {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    return send(res, json({
+      ok: true,
+      nowMs: schedulerClockNow(),
+      tasks: schedulerRuntime.tasks.map(task => schedulerPublicTask(task, locale)),
+    }));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/scheduler/tasks') {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    let body = {};
+    try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) {
+      return send(res, apiFailure('scheduler.capacity_exceeded', { max: SCHEDULER_LIMITS.maxTasks },
+        'at most ' + SCHEDULER_LIMITS.maxTasks + ' scheduler tasks', 409));
+    }
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0 }, schedulerClockNow());
+    if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
+    normalized.task.id = makeId('sch');
+    schedulerRuntime.tasks.push(normalized.task);
+    await schedulerSaveTasks();
+    schedulerEnsureTimer();
+    schedulerEmitChanged(normalized.task.id, 'created', '');
+    return send(res, json({ ok: true, task: schedulerPublicTask(normalized.task, locale) }));
+  }
+
+  if ((req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH'))
+      && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
+    if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
+    let body = {};
+    try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    const current = schedulerRuntime.tasks[index];
+    // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
+    const merged = {
+      ...current,
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.schedule !== undefined ? { schedule: body.schedule } : {}),
+      ...(body.payload !== undefined ? { payload: body.payload } : {}),
+      ...(body.target !== undefined ? { target: body.target } : {}),
+      ...(body.autonomy !== undefined ? { autonomy: body.autonomy } : {}),
+      ...(body.policy !== undefined ? { policy: body.policy } : {}),
+      state: { ...current.state, ...(body.enabled !== undefined ? { enabled: body.enabled !== false } : {}) },
+      id: current.id,
+      createdAt: current.createdAt,
+      createdBy: current.createdBy,
+      revision: current.revision,
+    };
+    const normalized = normalizeSchedulerTask(merged, schedulerClockNow());
+    if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
+    normalized.task.revision = (Number(current.revision) || 0) + 1;
+    // 计划没变时保住盘上的 nextFireAt(改个标题不该把下一次往后推);变了才用新算的那个。
+    if (JSON.stringify(normalized.task.schedule) === JSON.stringify(current.schedule)) {
+      normalized.task.state.nextFireAt = current.state.nextFireAt;
+    }
+    normalized.task.state.inFlightRunId = current.state.inFlightRunId;
+    // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
+    if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
+    schedulerRuntime.tasks[index] = normalized.task;
+    await schedulerSaveTasks();
+    schedulerEnsureTimer();
+    schedulerEmitChanged(id, 'updated', '');
+    return send(res, json({ ok: true, task: schedulerPublicTask(normalized.task, locale) }));
+  }
+
+  if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
+      && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
+    if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
+    schedulerRuntime.tasks.splice(index, 1);
+    // **删定义不删历史回执**(37 号文 §1):fires-v1.ndjson 一个字节都不动 —— 它是 append-only 的账,
+    // 「这条任务当初真的跑过」是既成事实,不因为定义没了就该消失。
+    await schedulerSaveTasks();
+    schedulerEnsureTimer();
+    schedulerEmitChanged(id, 'deleted', '');
+    return send(res, json({ ok: true, id }));
+  }
+
+  if (req.method === 'POST' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/run-now$/)) {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    const task = schedulerRuntime.tasks.find(row => row.id === id);
+    if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
+    if (task.state.inFlightRunId) {
+      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
+    }
+    if (schedulerRuntime.ticking) {
+      return send(res, apiFailure('scheduler.busy', { id }, 'the scheduler is busy with another task (global concurrency is 1)', 409));
+    }
+    // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
+    // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
+    // 时钟是钉死的)会撞出同一个 key,那就变成「同一 occurrence 的第二次尝试」,与承诺投影的语义相反。
+    // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
+    let manualDueMs = schedulerClockNow();
+    while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
+    schedulerRuntime.ticking = true;
+    let outcome = '';
+    try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
+    finally { schedulerRuntime.ticking = false; }
+    return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
+  }
+
+  if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
+    if (!(await schedulerRouteGate(req, res))) return;
+    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    const query = new URL(req.url, 'http://127.0.0.1').searchParams;
+    // **先取原值再转数字**:`Number(query.get('limit'))` 在没带这个参数时是 Number(null) === 0,
+    // 而 0 会被 Number.isFinite 认成「用户真给了一个数」,再钳进 [1,50] 就变成 limit=1 ——
+    // 于是设置面「最近 5 次」永远只显示 1 条。同一个模具在 01c-runtime-flags 的 memoryLimit 头注里
+    // 已经被记过一次(Number(null)=0 被静默解读成「上限为 0」);本件 F6/G3 又当场抓到一次。
+    const rawLimit = query.get('limit');
+    const wanted = rawLimit == null || rawLimit === '' ? NaN : Number(rawLimit);
+    const limit = Number.isFinite(wanted) ? Math.min(SCHEDULER_RUNS_LIMIT_MAX, Math.max(1, Math.round(wanted))) : SCHEDULER_RUNS_LIMIT_DEFAULT;
+    const rows = await schedulerReadFireRows();
+    // 删掉定义之后这条仍然读得出来(回执不随定义走)—— 所以这里【不】先查 tasks 表。
+    return send(res, json({ ok: true, taskId: id, runs: schedulerMergeRuns(rows, id).slice(0, limit) }));
+  }
+}
 
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
@@ -50767,4 +52300,29 @@ module.exports = {
   buildResponsesInputItems,
   // 117q-B1(30 号文 §4.1): 子进程 NDJSON 逐行喂入器 — exposed for unit 直测(chunk 边界切开 CJK 字节不得产生 U+FFFD)。
   createNdjsonLineFeeder,
+  // 第 123 波 M1 §3.1(37 号文):定时任务纯函数内核 —— 零 I/O、时间全由入参喂,
+  //   exposed for 单测 unit/scheduler-core.test.js 与三件 scheduler*.e2e.js 的直测。
+  normalizeSchedulerTask,
+  nextFireAt,
+  parseCronExpr,
+  describeSchedule,
+  occurrenceKey,
+  missedOccurrence,
+  SCHEDULER_SCHEDULE_KINDS,
+  SCHEDULER_PAYLOAD_KINDS,
+  SCHEDULER_TARGET_MODES,
+  SCHEDULER_ON_MISSED,
+  SCHEDULER_ON_FAILURE,
+  SCHEDULER_FIRE_MODES,
+  SCHEDULER_PHASES,
+  SCHEDULER_OUTCOMES,
+  SCHEDULER_FORBIDDEN_PAYLOAD_KEYS,
+  SCHEDULER_LIMITS,
+  SCHEDULER_DEFAULT_POLICY,
+  SCHEDULER_DESCRIBE_KEYS,
+  SCHEDULER_DOW_KEYS,
+  // 第 123 波 M1 §3.2/§3.4:调度器生命周期与假时钟 —— exposed for e2e 直测与 14 的 boot 起停。
+  startScheduler,
+  stopScheduler,
+  schedulerRuntimeSnapshot,
 };
