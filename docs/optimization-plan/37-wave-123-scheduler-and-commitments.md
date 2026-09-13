@@ -146,6 +146,26 @@
 - **收官全量 335/4/5（`5cf87d7`）：真回归 0。** 4 红＝3 realhist（环境）＋`steward-board` **TIMEOUT**。串行两跑 22.9／23.1 s（默认 120 s 之内），三轮里两轮首跑失败、收官轮撞墙——8 路下每个 worker 的服务都要各付一次桌面 MCP 探针（首个 `/api/status` ≈2.5 s），八份叠起来把这类「服务多、断言多」的件挤过线。`24efb55` 给它 300 s 豁免并写明：`detectDesktopMcp` async 化之后回来复测撤销。5 件 flaky 全部重跑即绿。
 - **本波合并阶段主会话自己修的四处**：`c4fc46d` 假 AppData 整机一份、`86cdd4f` route-inventory 重生成、`4b42bd0` 改全局引擎也记「上次用的」（await）、`5cf87d7` rail-pocket D1 等右栏、`24efb55` steward-board 超时豁免。**产品债提前**：`detectDesktopMcp` 同步探针的分量比 36 号文 §5.3 登记时估计的重——它同时是「首个 `/api/status` 2.5 s」与「8 路下的整体压舱石」，建议在 M2 之后单独一刀还掉。
 
+### 5.6 M2 · 管家与界面接线（Opus 主树，`2ab76cd`／`e10fb91`／`cf2246e`／`2a86488`／`a1add96`＋合数三笔 `97c5a13`／`63e35c6`／`1193706`；主会话复核 2026-09-13 夜）
+
+- **六工具落在新模块 `13t-steward-schedule.js`（出入①，采纳）**：放 13g 会新增前向边（13g 在 manifest 排在 13s 之前）并把一批引用变成新环边；放 13s 又要它反向引用 13j/13k/13i。13t 零入边，消费者只看两个 Hooks 命名空间——**forwardEdges 仍 68、`allowedCycleEdges` 一条没加、SCC 仍 1**；门控壳仍用 13g 的 `stewardToolHandler`（13h 早有先例）。71 条判据：关着六路全 `scheduler.disabled` 且不建目录；普通会话全 `steward.forbidden`；无人值守 create/delete 只 `propose_required` 且零写入，同 ctx 下 list/pause/resume 仍可做；pause 不动 `nextRunAt`；run-now 是 manual 新 occurrence；删定义不删回执（fires 15→15）；熔断出箱一句人话。
+- **收件箱第七类 `reminder`＋两个回调**：`onReminderDue`／`onSchedulerNotice`（skipped／tripped／needs_you／unknown 四句），都带 `quiet:true` 走安静卡；13s 一个字未改（M1 已把调用点写好）。**故意不敲 `onInboxBatch`**——到点提醒不烧管家回合，只走安静卡＋下次到访摘要。
+- **回来摘要承诺三项**：`upcoming`（24 h 内）／`missed`（上次到访以来 skipped＋unknown）／`needsYou`，走第二条 fires 水位；三行用 locale 键，代价是对话流加一行「有 key 用 key，否则照旧读 text」——既有七类仍是服务端中文，登记 i18n 债。
+- **安静卡「稍后」＝真 snooze**：`POST /api/scheduler/tasks` 建 once reminder，带 `sourceRef{inboxSeq,sessionId,kind}`，**成功才收卡**，失败 toast 且卡不动；到点卡再现，文案实测「来自你 30 分钟前按的「稍后」：…」；「×」照旧不进调度器。**主会话反向抽查**（与 M2 六条不同的一处）：从 `QUIET_CARD_KINDS` 去掉 `reminder` → C1–C4 四红（`实得 undefined`），还原 ALL PASS。
+- **设置面与 K7 真数据**：定时任务块改成可建可改（列表＋人话计划＋倒计时＋结果徽标＋行内暂停/立即运行/删除＋展开最近 5 次）；口袋与「接下来」订阅 `schedule.changed`，零计时器锁不动。**J11 界面侧**徽标 `data-outcome="unknown"`、原文「结果未知，先核对 · 补跑」且逐字不含「成功」；**J10 界面侧**徽标 `data-mode="late"`、原文「成功 · 补跑」且不含「准时」。静态锁 34 条（去注释后零 innerHTML、57 键四文件、与 06j 四张值域表逐字对账、零复制路径反模式）。
+- **tier 登记落在 07 而不是 06i（出入②，采纳）**：`NATIVE_TOOL_TIER`／`NATIVE_TOOL_PACKS` 正身在 07，静态锁也按 07 对账；06i 只补契约注释。
+- **合数**：facts `nativeTools 90→96`／`e2eCount 346→350`（默认 343）／`unitSuites 44`，README 五处（含英文段早已过时的 325/318/41）；`RUYI_HOME_SPAWN_SITES` 137→139；`LEGACY_STYLES_SHA256` `e586a9b3…→065948bd…`（只改 `steward-settings.css`，按纪律 4 从干净 HEAD 的 blob 逐层重算）；依赖图 52→53 模块、408→418 边。71 个新 i18n 键 × 4 文件。
+- **全量两轮**：第一轮 337/6/5，三红是「27／90」工具数常量（`--fast` 够不着的运行时件），重钉后串行各绿；**第二轮（最终 HEAD `1193706`）338 pass／5 fail／6 flaky／343 ran，真回归 0**——5 红＝realhist ×3（环境，串行两跑同一句 ENOENT）＋`playbooks`（8 路下服务没起来的级联，串行绿）＋`subagent` (a4)（37 号文 §5.1 已登记的编排层竞态，非本波引入）。
+- **主会话收尾核**：`--fast` 71/71；`build --check`／依赖图 `--check`（53/418）／`durable-state-inventory --check`（52 面）绿；53 个改动文件控制字符零命中；`steward-conversation`／`quiet-card.browser`／`rail-pocket.browser`／`ia` 串行各 1/1 绿。
+- **M2 留下的登记项（九条，见其报告）**：摘要既有七类的 i18n 债；create 只回 `describeKey/params`；调度器开着而 `stewardEnabledV1` 关着时 reminder 无可见落点；`quietCardSnoozeMinutes` 无设置入口且与另两键同为 forbidden；设置块不订阅 `schedule.changed`；新建表单不暴露 `policy` 四项；「立即运行」无二次确认（prompt 任务会真花钱，建议后续补）；`subagent` (a4)／`playbooks` 的 8 路抖动；**`detectDesktopMcp` async 化仍未还**。
+
 ## 6. 停点
+
+**2026-09-13 深夜 · 123 波后端与管家/界面接线全部出门，收工推送（用户「M2 回来就先收尾到此为止，commit push」）。**
+
+- **进 master 的五刀**：M1 调度器地基（`06j` 纯函数＋`13s` 四段触发＋六路由＋四个测试旗）、N1（对话流重复渲染／话术分档／开线程前只问一次）、N2（新线程默认引擎＝上次用的）、M3（清障四件）、M2（六工具＋收件箱 reminder＋摘要承诺三项＋真 snooze＋设置面与 K7 真数据）。
+- **主会话在合并阶段自修六处**：假 AppData 整机一份（`c4fc46d`，第一轮 37 级联红的病根）、route-inventory 重生成（`86cdd4f`）、改全局引擎也记「上次用的」且 await（`4b42bd0`，`agent-team-mode` 串行红的真因）、`rail-pocket` D1 等右栏露出（`5cf87d7`）、`steward-board` 超时豁免（`24efb55`）、以及本次的交付记录与停点。
+- **最终账**：全量 338/5/6，**真回归 0**；5 红＝realhist ×3 环境（用户另机测）＋`playbooks` 级联＋`subagent` (a4) 既有抖动。
+- **本波未做、下次从这里进**：① **`detectDesktopMcp` async 化**——它既是「首个 `/api/status` 2.5 s」也是 8 路全量的压舱石，还完要回来撤 `steward-board` 那条 300 s 豁免；② 37 号文 §1 里排给 127 波的 `playbook`／`workflow` 两类载荷与开机自启（119f）；③ M2 九条登记里够得着的几条（「立即运行」二次确认、`quietCardSnoozeMinutes` 设置入口、设置块订阅 `schedule.changed`）；④ 然后是 **124 波 交办与交付贯通**（35 号文 §2）。
 
 （每次收工写在这里，并同步记忆 `ops-new-machine-wave121` 的停点行。）
