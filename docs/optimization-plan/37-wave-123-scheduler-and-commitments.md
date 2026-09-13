@@ -84,6 +84,13 @@
 - **定案**：① 两遍＝真显示 bug：`appendSince` 的水位 `lastRenderedAt` 只在进壳画历史时推高，用户自己发的回合直接上屏不推水位，收件箱唤醒的增量从到访起点重拉 → 重画。修：回执带落盘 `createdAt`，前端收到即推水位，`renderHistorySince` 同 createdAt 只画一次。② 话密＝提示词没有按场景分档（stable 只有 ≤600 字总预算）：rules 层加「问候／答问 ≤2 段 ≤120 字；开线程 1–2 句不复述委托书；转述交付 ≤200 字四件套；追问 1 句＋2–3 选项」。布局只松段间距。③ 澄清＝只问一次：范围／时间窗／交付形式／花费档任一维度会改变结果且无先例才问，有先例（刚做过同类）／问题具体／用户说直接办 → 直接开。「下周美股」有 A 股先例，直接开是对的。
 - **独占文件**：`06b`（rules）、`13q`（回执 createdAt）、`steward-conversation.js`／`.css`、`steward-conversation.e2e`、`steward-runner.static`、prompt 快照锁；生成物只提交 server.js／manifest，facts／route-inventory／README 数字与 `LEGACY_STYLES_SHA256` 由主会话合并时统一重生成。与 35 号文 125 波 T03（歧义追问的真实模型样本、成对盲评）的关系：本刀先落**规则**，T03 到时候只测样本不再改规则。
 
+### 3.9 插队刀 N2 · 新线程默认引擎＝上次用的（用户 2026-09-13：「新开线程默认 Kimi code cli，希望改成上一次用的或别的方式，不要设定死」；Opus 隔离 worktree）
+
+- **病根**：`createSession`（02:≈2813）缺省 `sessionEngineRouteFromConfig(config)`＝全局 `activeProvider`／`agentCliType`／`model`；管家开线程没配 `stewardThreadModels` 档时也跟它。用户机器全局是 kimi → 条条新线程 kimi。
+- **修法**：配置项 `newThreadEngine:'last'|'global'`（默认 last）＋`lastUsedEngineRoute`；记录只认**用户自己的选择**（线程头 PATCH `engineRoute`）与**用户自己发起的回合**（`runSessionTurn source==='http'` 解析后的实际路由），管家／调度器派的不记；读时「显式入参 > 导入推断 > 上次用的（端点仍在／CLI 仍 detected）> 全局」，回落记审计 `new_thread_engine_fallback`。设置面加「新线程默认引擎」下拉与「上次用的是…」一行。
+- **判据**：`new-thread-engine-default.e2e`（API 级七条：未记录跟全局／PATCH 后跟它／http 回合后跟它／steward 回合不记／global 档跟全局／端点删了回落＋审计／显式入参优先）；反向注掉 createSession 那一支与「不记 steward」各红。
+- **独占文件**：01（默认＋sanitize）、02、10（只记录几行）、`index.html` 引擎块、`provider-settings.js`、四份 locale、新 e2e、静态锁；生成物只提交 server.js／manifest。
+
 ## 4. 退出门
 
 1. 假时钟 e2e 覆盖月末／闰日／时区（DST 两向）／错过时点；崩溃窗口四段各一条不重复不误判；J10（补跑显示真实触发模式）／J11（unknown 不判成功不重发）各一件真浏览器或 API 级 e2e。
