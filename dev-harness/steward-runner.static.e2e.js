@@ -261,10 +261,18 @@ const srv = require(path.join(APP, 'server.js'));
   // ── 117y-S2:rules 的字数闸(还 117v-V3 登记的那笔债)────────────────────────────────
   // rules 每回合拼在第一条 user 消息【前缀】里,**不吃前缀缓存** —— 它比 stable 更该被看住,
   // 而修前 stable 有 ≤2500 硬闸、rules 一个数字都没人看着(117l 4 条 -> 117s 5 条 -> 117y 7 条)。
-  // 闸取 2200 的理由:**必须低于 stable 的 2500** —— 否则「stable 塞不下就往 rules 挪」就成了
-  // 绕开稳定层预算、把每回合不缓存的开销做大的后门。2200 对英文包当前 1747 字还留 ~450 字
-  // (约两三条规则)的余量,不是钉「今天恰好这么长」。
-  const RULES_BUDGET = 2200;
+  // 闸的理由:**必须低于 stable 的 2500** —— 否则「stable 塞不下就往 rules 挪」就成了
+  // 绕开稳定层预算、把每回合不缓存的开销做大的后门。
+  // 123-N1(34 号文;2026-09-13):2200 → 2480,并把上面那行陈述改成实测值。**这不是一次无痛调参,
+  // 记清楚它为什么发生**:
+  //   · 原注释写「2200 对英文包当前 1747 字还留 ~450 字(约两三条规则)的余量」——**这个数早就过期了**。
+  //     117z-E2 又往英文 rules 里加了 226 字(桌面权限那条)却没回来改这行字,于是它承诺的余量
+  //     早已花光;本刀派单稿据它写「中英各加 ≤400 字符有余量」,实测下来只剩 226。
+  //   · 本刀新增两条(分档 / 开线程前澄清),英文写成电报体之后仍要 470 字,只能抬闸。
+  //   · **英文包现在 2444/2480,是满的**:下一条英文规则塞不进来。再要加规则,修法【不是】再抬这个
+  //     数字(2500 是死顶:rules 不许比 stable 贵),而是先压缩英文行 —— 英文各行普遍是对应中文行的
+  //     2.5~4 倍(如「把话说完整」那条 en 362 / zh 122),压缩空间在那里,或者退役一条。
+  const RULES_BUDGET = 2480;
   ok(RULES_BUDGET < 2500, '③ 117y-S2 rules 闸严于 stable 闸(不缓存的那一层不许比缓存层更贵)');
   ok(typeof zh.rules === 'string' && zh.rules.length <= RULES_BUDGET,
     `③ 117y-S2 中文 rules ≤${RULES_BUDGET} 字符(got ${zh.rules && zh.rules.length})`);
@@ -281,6 +289,28 @@ const srv = require(path.join(APP, 'server.js'));
     '③ 117y-S2 英文包同步一条同义规则(finish every sentence + drop a topic)');
   ok(!/说完整/.test(zh.stable) && !/finish every sentence/i.test(en.stable),
     `③ 117y-S2 这条同样落在易变层 rules、没塞进 stable(英文 stable 仍 ${en.stable.length}/2500)`);
+
+  // ── 123-N1 ②③(34 号文;用户 2026-09-13 真机走查「管家话有点密」「不用急着自己判断直接开线程」)──
+  // 两条新规则各钉一条,钉的是【语义要素】不是字面量(容许润色):
+  //   ② 分档那条最贵的半句是「不复述委托书」—— 开线程那一轮 350 字里绝大多数是把刚发出去的
+  //      委托书又念一遍,而它就印在线程卡上。中英各用自己的关键词定位。
+  //   ③ 澄清那条的【度】只有两个要素:歧义有先例就不问、要问也只问一次。少任何一个都会退化成
+  //      「每次都问」(啰嗦)或「从不问」(修前那样)。
+  const tierRuleZh = zh.rules.split('\n').find(l => /篇幅按场景分档/.test(l)) || '';
+  const tierRuleEn = en.rules.split('\n').find(l => /length by situation/i.test(l)) || '';
+  ok(/不复述委托书/.test(tierRuleZh) && /线程卡/.test(tierRuleZh) && /追问/.test(tierRuleZh),
+    '③ 123-N1 ② 中文 rules 有「篇幅按场景分档」这一条,且写明【不复述委托书】(它在线程卡上)');
+  ok(/never restating the brief/i.test(tierRuleEn) && /thread card/i.test(tierRuleEn) && /follow-up/i.test(tierRuleEn),
+    '③ 123-N1 ② 英文包同步一条同义规则(never restating the brief + it is on the thread card)');
+  const askRuleZh = zh.rules.split('\n').find(l => /开线程前/.test(l)) || '';
+  const askRuleEn = en.rules.split('\n').find(l => /before opening a thread/i.test(l)) || '';
+  ok(/先例/.test(askRuleZh) && /只问一次/.test(askRuleZh) && /这一轮不开线程/.test(askRuleZh),
+    '③ 123-N1 ③ 中文 rules 有「开线程前先澄清」这一条,且两个要素齐全(有先例就不问 + 只问一次)');
+  ok(/precedent/i.test(askRuleEn) && /ask once/i.test(askRuleEn) && /open nothing this turn/i.test(askRuleEn),
+    '③ 123-N1 ③ 英文包同步一条同义规则(no precedent + ask once + open nothing this turn)');
+  ok(!/篇幅按场景分档/.test(zh.stable) && !/length by situation/i.test(en.stable)
+    && !/开线程前/.test(zh.stable) && !/before opening a thread/i.test(en.stable),
+    `③ 123-N1 两条新规则同样落在易变层 rules、没塞进 stable(英文 stable 仍 ${en.stable.length}/2500)`);
 }
 
 /* ═════════════ ④ 普通会话包零变化 ═════════════ */
@@ -314,6 +344,21 @@ const srv = require(path.join(APP, 'server.js'));
   ok(/stewardEnabledV1 !== true/.test(src13h), '⑤ 13h 有开关 fail-closed 判据(开关关时三条路由 409、零写入)');
   ok(/STEWARD_SESSION_ID = 'steward'/.test(src06i), '⑤ 管家会话固定 id 定在 06i(13g 与 13h 共用同一常量)');
   ok(/if \(sid === STEWARD_SESSION_ID\) continue;/.test(src13i), '⑤ 收件箱轮询排除管家会话自己(防回合自激励成环)');
+  // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带落盘时刻。
+  // 钉的是三件必须同时成立的事实,不是某一行的写法:
+  //   · 取值来自【最后一条助手消息的 createdAt】—— 与 stewardStampReply 盖章的是同一条消息,
+  //     也与 13d 那段 `?since=` 过滤用的是同一个字段(否则水位与增量不是一把尺,又会重画);
+  //   · 它进的是回执对象本身(前端 finishReply 从 steward_reply 帧上读它);
+  //   · 读不到就【不下发这个键】,老回执逐字节不变、前端自己走「对齐一发」的退路。
+  const src13q = read('13q-steward-runner-turn.js');
+  ok(/async function stewardLastAssistantCreatedAt\(\)/.test(src13q)
+    && /role === 'assistant'\) return String\(messages\[i\]\.createdAt \|\| ''\)/.test(src13q),
+    '⑤ 123-N1 ① 13q 有「最后一条助手消息的 createdAt」这个取数口径(与 stewardStampReply 同一条消息)');
+  ok(/const stampedAt = await stewardLastAssistantCreatedAt\(\);/.test(src13q)
+    && /\.\.\.\(stampedAt \? \{ createdAt: stampedAt \} : \{\}\)/.test(src13q),
+    '⑤ 123-N1 ① 回执带 createdAt,且读不到时【不下发这个键】(老回执逐字节不变)');
+  ok(/return Number\.isFinite\(at\) && at > sinceMs;/.test(src13d),
+    '⑤ 123-N1 ① 服务端 ?since= 是【严格大于】—— 水位停在本回合末尾正好把这一回合两条消息一起盖住');
 }
 
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

@@ -192,6 +192,24 @@ const PROMPT_ZH = {
       // 117z-E2(§11.21.3/§11.21.5 裁决 A):新那条轴的行为契约。**不进 stable** —— 稳定层是版本级
       // 常量、有 ≤2500 硬闸,而这是一条工具用法纪律;rules 有 2200 字闸(117y-S2),中英各加一行仍有余量。
       '· 给线程开桌面权限(steward_thread_permission 的 capabilities.desktop)只能提议:关掉我可以直接做,打开一律交给用户按,而且只能开给我自己开的线程。',
+      // 123-N1 ②(34 号文;用户 2026-09-13 真机走查「管家话有点密」):篇幅**按场景分档**。
+      // 上一条(117y-S2「把话说完整」)管的是【不许说半句】,这一条管的是【一次说几件】——
+      // 两条并列,不是替代:砍话题不砍句子的口径原样有效,只是话题预算从「一个 600」细到分档。
+      // 「绝不复述委托书」是这一条里最贵的那半句:开线程那一轮的 350 字里,绝大多数是把刚发出去的
+      // 委托书又念了一遍,而它就印在线程卡上、用户抬眼就看得见。
+      // **为什么写得这么电报体**:rules 有 ≤2480 的闸(steward-runner.static ③),而英文包在本刀之前
+      // 已经 1974 —— 派单稿以为「中英各加 ≤400 字符有余量」,实测只剩 226。分档表里那些更细的数字
+      // (问候 ≤120 字、清单每条 ≤30 字、转述交付拆成「结论/关键数字/没取到的」三行、以及
+      // 「我做不了」不解释一段)因此只留在这条注释里,没进提示词;要把它们放进去,先压缩英文行。
+      '· 篇幅按场景分档:问候、状态、答问 ≤2 段;清单最多 3 条;开线程只用一两句(线程名、用哪档、大概多久、跑完怎么告诉你),绝不复述委托书 —— 它就在线程卡上;转述交付 ≤200 字;追问 ≤60 字,配两三个 acts。',
+      // 123-N1 ③(同上;用户原话「管家或许不用急着自己判断直接开线程,可以先对话几轮对清楚需求了
+      // 再开(度难把握,太多了会啰嗦)」):度就钉在这两句上 —— **只问一次** ＋ **有先例就不问**。
+      // 「四处歧义」的全称是:范围(查哪个、哪几个)、时间窗、交付形式(一句话、一页分析、文件)、
+      // 花费档(快、强);提示词里只留四个词,展开写在这里(理由同上一条:英文包的字数闸)。
+      // 真机那一轮的反例正好在场:用户刚做完 A 股分析,接着问「那下周美股会是什么走势呢」——
+      // 交付形式、花费档、时间窗全有先例可循,所以【直接开】是对的,不该为它再问一句。
+      // 「只问一次」同时兜住另一头:追问过一轮之后,用户再答什么都直接开,不许问第二遍。
+      '· 开线程前:范围、时间窗、交付形式、花费档有一处不清又没有先例可循,就先问一句、配两三个 acts,这一轮不开线程,只问一次;否则直接开。',
     ].join('\n'),
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
@@ -390,6 +408,19 @@ const PROMPT_EN = {
       // 117z-E2: same rule as PROMPT_ZH.steward.rules' last line - it lives in the volatile layer, not
       // in `stable` (a version-level constant with a <=2500 hard gate); rules has its own 2200 gate.
       '\u00b7 Desktop access for a thread (capabilities.desktop on steward_thread_permission) is proposal-only: turning it OFF I may do myself, turning it ON always goes to the user as a button, and only ever for a thread I opened myself.',
+      // 123-N1 \u2461: same rule as PROMPT_ZH.steward.rules' length-by-situation line. It sits BESIDE the
+      // 117y-S2 rule above, not in place of it: that one forbids half a sentence, this one budgets how
+      // many things one reply covers. "Never restating the brief" is the expensive half - the brief is
+      // already printed on the thread card the user is looking at. Telegraphic on purpose: this pack
+      // was already at 1974 of the 2480 rules budget before this cut (see the Chinese comment).
+      '\u00b7 Length by situation: greeting/status/answer <=2 paragraphs; a list <=3 bullets; opening a thread <=2 sentences (name, tier, rough time, how I report back), never restating the brief - it is on the thread card; a retell <=200 chars; a follow-up <=60 chars, 2-3 acts.',
+      // 123-N1 \u2462: same rule as PROMPT_ZH.steward.rules' clarify-before-opening line. The dosage is the
+      // whole point - ask ONCE, and never when a precedent exists. Counter-example from the same
+      // walkthrough: right after an A-share analysis the user asked about next week in US equities;
+      // shape, tier and time window all had a precedent, so opening straight away was correct.
+      // The four words spell out as: scope (which one, how many), time window, deliverable shape
+      // (one sentence, a page of analysis, a file), cost tier (fast or strong).
+      '\u00b7 Before opening a thread: if scope, time window, deliverable shape or cost tier is unclear with no precedent to follow, ask once with 2-3 acts and open nothing this turn; otherwise open straight away.',
     ].join('\n'),
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
