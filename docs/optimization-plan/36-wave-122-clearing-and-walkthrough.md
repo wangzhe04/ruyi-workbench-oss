@@ -170,6 +170,17 @@
 - **8 路全量（master `9e154a7`）：331 ran，327 pass／4 fail／1 flaky。** 4 红＝realhist 三件（`observation-recall-realhistory`／`-replay`／`session-notes`，本机无夹具，用户另机测）＋`autonomy-grant` S6；flaky＝`subagent`（重跑过）。**websearch 8 路绿**（§2.7 真证据）。串行复核：`autonomy-grant` 串行仍红——S6 是字面锁，用 `async function saveSession(session) {` 定位函数体，L2 把签名改成 `(session, opts)` 后正则落空、体长 0；定位正则放宽到可选第二参（判据本身不动）→ 绿；`subagent`／`steward-conversation` 串行各 1/1 绿。**真回归 0**。L2 没跑成的 `steward-conversation`／`ec-d-performance` 在这轮全量里都绿。
 - **登记（L1b 吃）**：`app-frame.js setLens` 同值早退（§5.2）。**登记（后续波）**：`detectDesktopMcp` 改 async（§5.3）；夹具 `LOCALAPPDATA`／`APPDATA` 隔离（§5.1）；CDP 单命令看门狗推广（§5.2）。
 
+### 5.5 L1b · 走查第二轮＋管家视角向导入口＋齿轮去重＋setLens＋U05（Opus 主树，`e7763a2`／`7ee127b`／`a91187f`／`25c895f`／`f65d43d`／`fc02f1c`／`6b112c5`；主会话复核 2026-09-13 傍晚）
+
+- **§2.11**：规则住 `steward-drawer.css:270` 不是 chat-shell.css；病根是 `base.css:49` 全局 `button { white-space: nowrap }` 被 `.steward-chip-option`（`<button>`）继承。翻回 normal，9 个 label/hint 全部 `scrollWidth ≤ clientWidth`、菜单横向溢出 0；反向删规则 → C2/C3/C4 红（`sw 351 / cw 253`）。
+- **§2.12**：`#moreMenuBtn` 与 `openMoreMenu()` 整枚退役，三枚状态载体显出来当第五／六／七项（文案由 `setGearItemLabel` 每次补出 `.mm-label`——`iconTextBtn` 换图标时会清空按钮内容）；`openCapPopover` 回退锚点改 `#appGearBtn`（齿轮菜单一点开就被「点菜单外收起」收掉，`#capBadge` 那一刻不可见）；顺手修一条既有隐患：`cb.onclick = openCapPopover` 会把 MouseEvent 当 `anchorOverride`，原先 capBadge 点不到才没发作。`common.more` **未删**（composer 与左栏行尾「⋯」还在用）。ia ⑥ 改「零枚＋七项各一」；反向加回 → ⑥／⑥b 红。`dom-contract.e2e`／`ui-v3-p1.static` 两张表随之改（越界但必要）。
+- **§2.13 执行者证伪了落点**：全新 HOME 第一次进壳走 `renderFirstRun`（无待决／无焦点／摘要空 → `enterVisit` 的 `nothing` 分支），`renderDigest` 一次都不跑；两支都挂 `onboardingActs()`（判据只看 `config.onboarding` 记录本身，不用 `shouldShowOnboarding` 那道更严的自动弹窗门）。`STEWARD_ONBOARDING_ACT` 纯前端就地落定（13h 不认识它），复用 `onboarding.wizard.start` 零新键；`openOnboardingWizard` 经 steward-shell 转注入。B1–B6 绿；反向注掉两处 `renderActs` → B2/B3/B5 红。`steward-conversation.e2e` 夹具补 onboarding 已完成（它测的是老用户到访摘要）。
+- **§5.2 登记 · `setLens` 同值早退**：删掉那句早退，无条件走 `applyShellMode`（同值那一路本来就走同步支）。E 组扣住 `/api/status` 期间点「工作台」→ 偏好当场写 classic、放行 2 s 后三样都是工作台，**确定性 3/3**。**主会话反向抽查**：加回早退 → E2/E4/E5/E6 四红（`实得 steward`），还原绿。
+- **§2.14 U05**：① 640×480 两视角横向溢出 0、三枚顶栏控件全在视口内；③ 800×900 容器查询断点生效、对话区 93%——两组零条。② 键盘**抓到一条**：`#promptInput` 要 Tab **31 下**，每条消息的 `.msg-actions` 都在 Tab 序里、随对话长度无上限地长（那批按钮 `:focus-within` 显出来是真键盘功能，不该退出 Tab 序）；修法＝标准跳转链接 `#skipToComposer`（应用第一枚可聚焦元素，`translateY(-300%)` 收到顶栏上方由外框 `overflow:hidden` 裁掉，不用 `left:-9999px` 免得带回横向滚动），Enter 落进当前视角的输入框；新键 `a11y.skipToComposer` 四份 locale 同步；反向删那一行 → B3/B4/B5 红。
+- **合数**：`LEGACY_STYLES_SHA256` `f082de2e→e586a9b3`（把 `readFileSync` 换成 `git show HEAD:` 复算 22 层逐字相同）；`RUYI_HOME_SPAWN_SITES` 131→133；facts 338→340／43；`build --check`／依赖图绿；25 文件控制字符零命中；`--fast` 68/68；unit 374/374。
+- **8 路全量（`6b112c5`）：333 ran，330 pass／3 fail／3 flaky，真回归 0。** 3 红＝realhist 三件（环境）；flaky `steward-shell`／`steward-drawer`／`subagent`——主会话串行：`steward-shell` 1/1、`steward-drawer` 1/1、`one-workbench-frame.browser` 2/2、`walkthrough-round2.browser` 1/1；`subagent` 既有抖动（(a5) 桌面资源串行化，与 §5.4 同件同症状，本波未碰）。
+- **登记**：`one-workbench-frame.browser` B0「默认视角是管家（实测 classic）」串行见过一次即过——签名同 quiet-card 那 1/3（快照读在默认落点落地之前），建议它的 `before = await snap()` 前补一句「等 data-shell-mode 稳定」；`subagent` (a5) 抖动治理。
+
 ## 6. 停点
 
-（每次收工写在这里，并同步记忆 `ops-new-machine-wave121` 的停点行。）
+- **2026-09-13 傍晚 · 122 波四刀全部出门，master `6b112c5`（docs 随后一笔），未推送。** 34 号文 §14 末清单 1–10 去向已在 34 号文 §14 尾部逐条标注。下一步：发布 A 打包（§3 第 5 条，版本走 **2.7.0**——121 波把默认入口翻成管家视角并删交办台，按 107 §6「版本归属由实际行为决定」是默认行为变化，不该藏在 2.6.x）→ 123 波定时任务与承诺（35 号文 §2）。
