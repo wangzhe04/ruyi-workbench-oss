@@ -531,7 +531,9 @@ try {
     // 班组级的 run_action,普通线程没有 runId 必然 invalid_request)。重钉的同时把这条从【只数个数】
     // 换成【逐名对账】:个数对但少一个多一个的错法从此也会红。
     const stewardOffered = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).sort();
-    ok(stewardOffered.length === 27, `K1b 面 1 管家会话拿到全部 27 个(got ${stewardOffered.length})`);
+    // 123-M2 重钉 27 -> 33(六件定时任务 steward_schedule_*;理由同上:本波真的多了六个工具,
+    // 这条断言的语义仍是等号)。
+    ok(stewardOffered.length === 33, `K1b 面 1 管家会话拿到全部 33 个(got ${stewardOffered.length})`);
     const stewardRegistered = Object.keys(srv.TOOL_HANDLERS).filter(n => n.startsWith('steward_')).sort();
     ok(JSON.stringify(stewardOffered) === JSON.stringify(stewardRegistered),
       `K1c offer 出去的那一份与 12 的注册表【逐名】相同(缺: ${stewardRegistered.filter(n => !stewardOffered.includes(n)).join(',') || '无'};多: ${stewardOffered.filter(n => !stewardRegistered.includes(n)).join(',') || '无'})`);
