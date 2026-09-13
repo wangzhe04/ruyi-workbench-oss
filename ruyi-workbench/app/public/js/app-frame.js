@@ -60,7 +60,15 @@ export function createAppFrame({
 
   function setLens(lens) {
     const next = lens === 'steward' ? 'steward' : 'classic';
-    if (next === currentMode()) return next;
+    // 122-L1b（36 号文 §5.2 L1a 登记 → 本刀）：这里原先有一句 `if (next === currentMode()) return next;`
+    // 的**同值早退**，是一条真产品债。现场：开机那两秒里画面按 fail-closed 停在工作台
+    // （预绘写 steward → bindShellModeControl 那一判 config 还没到、canEnterSteward() 恒 false →
+    // 回落 classic），用户此刻点分段钮「工作台」—— 值相同，于是这一下被整个吞掉：
+    // applyShellMode 没跑、本机偏好没写；等 config 到了，syncStewardShellAvailability 看见
+    // storedMode() 不是 classic，按默认落点把画面翻成管家。用户明明点过，还是被翻走了。
+    // 修法：无条件往下走。同值那一路 applyShellMode 内部本来就走【同步支】（不进 View Transitions，
+    // 不闪一下），而这是一次**显式选择**，本来就该持久化 —— 早退省下的那点开销换来的是一次失灵。
+    // 钉在 walkthrough-round2 的 E 组（扣住 /api/status，扣住期间点「工作台」）。
     // 121-K5 复核（34 号文 §13.8）：分段钮是【全局视角开关】，不是退役的 steward-classic-window.js
     // 那枚「回到管家（看这条）」按钮——切回管家时【不】把焦点换成工作台此刻那条线程。§2.1 第 11 条
     // 「切回管家视角时对话流、焦点任务、滚动位置原样」与 §2.7 第三条「每个视角记住自己的现场」
