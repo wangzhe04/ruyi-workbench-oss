@@ -536,11 +536,13 @@ function renderCapBadge() {
   if (g > 0) { gaps.textContent = String(g); gaps.classList.remove('hidden'); }
   else { gaps.classList.add('hidden'); gaps.textContent = ''; }
 }
-// anchorOverride (v1.0-S2 IA): capBadge 移出顶栏后 display:none，从「⋯」菜单打开时锚点改用 #moreMenuBtn，
-// 免得定位到不可见元素（getBoundingClientRect 全 0）。默认仍锚在 badge（供别处直接调用/回归）。
+// anchorOverride (v1.0-S2 IA): capBadge 移出顶栏后 display:none，锚点要换一个【看得见】的元素，
+// 免得定位到不可见元素（getBoundingClientRect 全 0）。
+// 122-L1b（36 号文 §2.12）：回退锚点从退役的 #moreMenuBtn 换成齿轮钮 #appGearBtn —— 齿轮菜单
+// 一点开就会被 app-frame 的「点菜单外收起」收掉，#capBadge 那一刻已经不可见了，所以不能锚它自己。
 function openCapPopover(anchorOverride) {
   const badge = $('capBadge'); if (!badge || badge.classList.contains('hidden')) return;
-  const anchor = anchorOverride || $('moreMenuBtn') || badge;
+  const anchor = anchorOverride || $('appGearBtn') || badge;
   // Immediate refresh + poll every 60s WHILE OPEN only (spec §4). closePopover stops the poll via onClose.
   fetchCapabilities(true);
   if (_capPoll) clearInterval(_capPoll);
@@ -625,49 +627,38 @@ function openComposerMorePopover() {
   }, { placement: 'bottom-start' });
 }
 
-/* ---------------- v1.0-S2 (IA): 顶栏「⋯」更多菜单 ---------------- */
-// 轻量 popover 菜单（role="menu"）：主题切换 / 界面模式切换 / 能力矩阵 / 快捷键。Esc/点外/重点击关闭（popover
-// 原语已实现），菜单项 role="menuitem"。每项复用既有 handler（toggleTheme/toggleUiMode/openCapPopover/openModal），
-// 迁移自原顶栏控件。DOM 全 createElement/textContent 构建（F 安全红线）。
+/* ---------------- 齿轮菜单里「主题／界面」两项的文案 ---------------- */
+// 122-L1b（36 号文 §2.12）：v1.0-S2 那个顶栏「⋯」更多菜单（openMoreMenu，一层 popover 里放
+// 主题／界面／能力矩阵／快捷键）**整个退役** —— 它的四项在齿轮菜单里本来就各有一枚真控件
+// （#themeToggle／#uiModeToggle／#capBadge 三枚状态载体 ＋ 旁边的 #helpBtn 就是快捷键），
+// 「更多」只是把它们又画了一遍。留下的只有下面这两个纯文案函数：现在它们写的是**那三枚真
+// 按钮自己**的标签，不再是 popover 里的影子项。
+// 为什么标签要每次「补出来」而不是写死在 index.html 里：applyTheme／applyUiMode 用
+// iconTextBtn 换图标，那个函数第一句就是 `btn.textContent = ''` —— 写死的 span 会被它清掉。
 function themeMenuLabel() {
   // 第50波三态:菜单项显示当前偏好(含 system),不再只看有效值。
   let pref = 'dark'; try { pref = localStorage.getItem('wcw.theme') || 'dark'; } catch { /* ignore */ }
   return t('navigation.theme.' + (pref === 'light' || pref === 'system' ? pref : 'dark'));
 }
 function uiModeMenuLabel() { return document.documentElement.getAttribute('data-ui-mode') === 'simple' ? t('navigation.uiMode.simple') : t('navigation.uiMode.expert'); }
-// 菜单打开时若主题/界面被切换，更新对应项文案（无 DOM 时静默）。
-function syncMoreMenuLabels() {
-  const t = document.getElementById('mm-theme-label'); if (t) t.textContent = themeMenuLabel();
-  const u = document.getElementById('mm-uimode-label'); if (u) u.textContent = uiModeMenuLabel();
+// 把一段文案写进齿轮菜单里某枚按钮的 .mm-label 上；span 不在（被 iconTextBtn 清过）就补一枚。
+// 名字沿用原「⋯」菜单那两个 id（mm-theme-label／mm-uimode-label），别处的引用因此一个不用改。
+function setGearItemLabel(hostId, spanId, text) {
+  const host = document.getElementById(hostId);
+  if (!host) return null;
+  let span = document.getElementById(spanId);
+  if (!span || span.parentNode !== host) {
+    span = el('span', 'mm-label', '');
+    span.id = spanId;
+    host.appendChild(span);
+  }
+  span.textContent = text;
+  return span;
 }
-function openMoreMenu() {
-  const anchor = $('moreMenuBtn'); if (!anchor) return;
-  popover(anchor, close => {
-    const menu = el('div', 'more-menu'); menu.setAttribute('role', 'menu');
-    const item = (label, id, onClick, keepOpen) => {
-      const b = el('button', 'mm-item'); b.type = 'button'; b.setAttribute('role', 'menuitem');
-      const span = el('span', 'mm-label', label); if (id) span.id = id;
-      b.appendChild(span);
-      b.onclick = () => { try { onClick(); } catch { /* ignore */ } if (!keepOpen) close(); };
-      return b;
-    };
-    // 主题：切换后更新本项文案，菜单保持打开（即时看到状态）。
-    menu.appendChild(item(themeMenuLabel(), 'mm-theme-label', () => { toggleTheme(); syncMoreMenuLabels(); }, true));
-    // 界面：精简/专家。切换后更新文案，菜单保持打开。
-    menu.appendChild(item(uiModeMenuLabel(), 'mm-uimode-label', () => { toggleUiMode(); syncMoreMenuLabels(); }, true));
-    menu.appendChild(el('div', 'mm-sep'));
-    // 能力矩阵：◐/●/○ 网络点 + 缺口数。点击先关本菜单，再在下一 tick 打开既有能力矩阵 popover（避免同 tick
-    // 内「关菜单」与「开新弹层」相互抵消——popover 原语一次只允许一个）。keepOpen=true 让 item 包装不重复关闭。
-    { const caps = _caps; const online = caps && caps.network ? caps.network.online : null;
-      const netGlyph = online === true ? '●' : online === false ? '○' : '◐';
-      const g = capGapCount(caps);
-      const b = item(`${t('capability.matrix')}  ${netGlyph}${g > 0 ? ' · ' + tCount('capability.gapCount', g) : ''}`, null, () => { close(); setTimeout(() => openCapPopover($('moreMenuBtn')), 0); }, true);
-      menu.appendChild(b);
-    }
-    // 快捷键：打开既有 helpModal（modal 与 popover 不冲突，可同 tick）。
-    menu.appendChild(item(t('navigation.shortcuts'), null, () => { close(); openModal('helpModal'); }));
-    return menu;
-  });
+// 主题／界面被切换（或语言变了）之后更新两项文案（无 DOM 时静默）。
+function syncMoreMenuLabels() {
+  setGearItemLabel('themeToggle', 'mm-theme-label', themeMenuLabel());
+  setGearItemLabel('uiModeToggle', 'mm-uimode-label', uiModeMenuLabel());
 }
 
 /* ---------------- modals ---------------- */
@@ -917,7 +908,6 @@ function initRightResize() {
     openComposerMorePopover,
     openContextPopover,
     openModal,
-    openMoreMenu,
     openPalette,
     openRenamePopover,
     openToolPane,

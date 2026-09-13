@@ -426,7 +426,6 @@ const {
   openComposerMorePopover,
   openContextPopover,
   openModal,
-  openMoreMenu,
   openPalette,
   openRenamePopover,
   openToolPane,
@@ -998,10 +997,16 @@ function bindEvents() {
   // 线程的权限／模型／引擎只剩线程头那一组 chip（js/thread-head.js 用同一个 chips 工厂挂的，
   // 唯一写口 PATCH /api/sessions/:id）；新任务的两个默认值分别在外框顶栏的盾牌与模型菜单里改。
   { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
-  { const cb = $('capBadge'); if (cb) cb.onclick = openCapPopover; } // v0.8-S6 capability matrix
-  $('themeToggle').onclick = toggleTheme;
-  { const um = $('uiModeToggle'); if (um) um.onclick = toggleUiMode; } // v0.9-S1 (C1)
-  { const mm = $('moreMenuBtn'); if (mm) mm.onclick = openMoreMenu; }
+  // v0.8-S6 capability matrix。122-L1b：**不能直接把函数当 handler** —— onclick 会把 MouseEvent
+  // 当第一个实参（openCapPopover 的 anchorOverride）递进去，popover 拿它调 getBoundingClientRect
+  // 当场抛。原先 #capBadge 是 display:none 的状态载体、点不到，这条才一直没发作；现在它是齿轮
+  // 菜单里真能点的第七项，必须包一层。
+  { const cb = $('capBadge'); if (cb) cb.onclick = () => openCapPopover(); }
+  // 122-L1b（36 号文 §2.12）：这两枚现在是齿轮菜单里【看得见】的两项，切完要把自己的文案对上
+  // （applyTheme／applyUiMode 的 iconTextBtn 会清空按钮内容，syncMoreMenuLabels 负责补回来）。
+  // 「更多」#moreMenuBtn 与 openMoreMenu 已整枚退役。
+  $('themeToggle').onclick = () => { toggleTheme(); syncMoreMenuLabels(); };
+  { const um = $('uiModeToggle'); if (um) um.onclick = () => { toggleUiMode(); syncMoreMenuLabels(); }; } // v0.9-S1 (C1)
   { const wp = $('workspacePicker'); if (wp) wp.onclick = pickWorkspace; } // v0.9-S3 (C3)
   $('toggleToolsBtn').onclick = toggleToolPane;
   // v0.8-S3 step-bar: click the head to expand/collapse the full task list.

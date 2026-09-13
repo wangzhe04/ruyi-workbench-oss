@@ -232,11 +232,12 @@
 }
 .app-gear-menu[hidden] { display: none; }
 .app-gear-menu > button { justify-content: flex-start; width: 100%; font-size: var(--fs-sm); }
-/* 三枚只作状态载体的按钮（renderCapBadge / toggleTheme / toggleUiMode 仍读写它们），
-   与原来 .topbar-actions 那条规则同义：在菜单里不显示，动作由「更多」那一项给。 */
-.app-gear-menu > #capBadge,
-.app-gear-menu > #themeToggle,
-.app-gear-menu > #uiModeToggle { display: none; }
+/* 122-L1b（36 号文 §2.12）：这三枚不再是隐藏的状态载体 —— 「更多」那一层没了，它们【就是】
+   菜单的第五、六、七项。原先这里那条 `display:none`（连同它上面「动作由『更多』那一项给」
+   的注释）整条删除。#capBadge 自己还有一枚 .hidden：那是「能力探针还没回来」的态，
+   renderCapBadge 拿到结果就摘掉，与本条无关。 */
+.app-gear-menu > #capBadge { gap: 8px; }
+.app-gear-menu > #capBadge .mm-label { flex: 1; }
 
 /* ============================ 左栏：任务索引（§2.3） ============================ */
 .rail-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 4px 0; }

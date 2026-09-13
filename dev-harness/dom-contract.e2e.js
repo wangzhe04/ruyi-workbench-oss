@@ -41,8 +41,8 @@ const DYNAMIC_ID_ALLOW = new Set([
   'compactIndicator',  // app.js:updateCompactIndicator 里 el('div','compact-indicator') 后 bar.id='compactIndicator'
   'turnActivityBar',   // 112c: chat-stream-runtime.js:ensureActivityBar 里 el('div','turn-activity hidden') 后 bar.id='turnActivityBar';
                        // 与 compactIndicator 同一模式(插在 .composer 内),故不进静态 index.html
-  'mm-theme-label',    // app.js:openMoreMenu 里 item(...,'mm-theme-label',...) 动态建;syncMoreMenuLabels 用 getElementById 且 if(t) 守护
-  'mm-uimode-label',   // app.js:openMoreMenu 里 item(...,'mm-uimode-label',...) 动态建;同上 if(u) 守护
+  'mm-theme-label',    // 122-L1b: navigation-controls.js:setGearItemLabel 补在 #themeToggle 里(applyTheme 的 iconTextBtn 会清空按钮内容,所以不写死在 index.html)
+  'mm-uimode-label',   // 122-L1b: 同上,补在 #uiModeToggle 里
   'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)
 ]);
 const referencedIds = new Set();
@@ -91,8 +91,9 @@ const CRITICAL_IDS = [
   'agentRunsList', 'agentRunsRefreshBtn', 'toggleToolsBtn',
   // 成本/用量看板(usage-dashboard.e2e 依赖):用量页签面板 + 刷新 + 预算/Claude单价配置字段。
   'tab-usage', 'usagePanel', 'usageRefreshBtn', 'cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency', 'cfgClaudePriceIn', 'cfgClaudePriceOut',
-  // 命令面板 / 技能库 / 帮助 / 更多菜单。
-  'paletteModal', 'paletteInput', 'paletteList', 'skillModal', 'skillSearch', 'skillList', 'helpModal', 'helpBtn', 'moreMenuBtn',
+  // 命令面板 / 技能库 / 帮助。122-L1b(36 号文 §2.12):'moreMenuBtn' 随「更多」整枚退役 —— 齿轮菜单收成一层七项,
+  // 它点开那层里的四样在菜单里各有一枚真控件(#themeToggle/#uiModeToggle/#capBadge/#helpBtn)。ia.e2e ⑥ 钉「零枚」。
+  'paletteModal', 'paletteInput', 'paletteList', 'skillModal', 'skillSearch', 'skillList', 'helpModal', 'helpBtn',
   // 状态/通知(setStatus / toast)。
   'statusLine', 'toastTray',
   // 恢复横幅 / 计划步骤条(resumable / handlePlanEvent)。
@@ -148,8 +149,8 @@ ok(missingClasses.length === 0,
 const CRITICAL_FUNCS = [
   // onboard.e2e 断言
   'buildFirstRunState', 'isFirstRun', 'engineReadiness',
-  // ia.e2e 断言
-  'openPermPopover', 'openMoreMenu',
+  // ia.e2e 断言。122-L1b: 'openMoreMenu' 随「更多」退役(ia ⑥c 反过来钉它零残留)。
+  'openPermPopover',
   // theme.e2e 断言
   'buildRuyiLogo',
   // git.e2e 断言

@@ -113,19 +113,31 @@ ok(!/id="compactBtn"/.test(composerActions) && /id="compactBtn"/.test(html), '�
 // 位置由线程头第二行那一组 chip（#threadChips，工厂在 js/steward-chips.js）接手。于是：
 //   · 本线程的权限 → 线程头 #threadChips（一处控件、一条 PATCH /api/sessions/:id）；
 //   · 新任务的默认权限 → 外框顶栏的盾牌 #stewardShieldBtn（全局，一处写口）；
-//   · 「更多」（#moreMenuBtn）是【全局】入口，仍在外框顶栏的齿轮菜单 #appGearMenu。
-// 钩的事实还是那一条：每个入口都在、且各只有一枚（没有第二份）。
-// 反向验证：把 #permChip 那一段 HTML 加回线程头 → 「零残留」那一半当场红。
+// 122-L1b 重钉（36 号文 §2.12，34 号文 §13.14 ⑥）：「更多」#moreMenuBtn **整枚退役** ——
+// 它点开的那一层（主题／界面／能力矩阵／快捷键）里，快捷键就是它旁边的 #helpBtn，另外三个的
+// 真控件（#themeToggle／#uiModeToggle／#capBadge）本来就以隐藏态住在同一个齿轮菜单里。
+// 于是齿轮菜单收成【一层七项】，每项一枚 role="menuitem"：
+//   设置 ／ 帮助 ／ 快捷键 ／ 清理历史 ／ 主题 ／ 界面 ／ 能力矩阵。
+// 钩的事实还是那一条：每个入口都在、且各只有一枚（没有第二份）；外加「moreMenuBtn 零枚」。
+// 反向验证：把 #permChip 那一段 HTML 加回线程头 → 「零残留」那一半当场红；
+//          把 #moreMenuBtn 那一行加回齿轮菜单 → 「零枚」与「恰七项」两半一起红。
 const topbar = between(html, '<header class="topbar thread-head" id="threadHead">', '</header>');
 const appTopbar = between(html, '<header class="app-topbar" id="appTopbar">', '</header>');
 const gearMenu = between(appTopbar, '<div id="appGearMenu" class="app-gear-menu" role="menu" hidden>', '</div>');
-ok(/id="threadChips"/.test(topbar) && /id="stewardShieldBtn"/.test(appTopbar) && /id="moreMenuBtn"/.test(gearMenu)
-  && (html.match(/ id="moreMenuBtn"/g) || []).length === 1
+const gearItemIds = (gearMenu.match(/<button[^>]*\brole="menuitem"[^>]*>/g) || [])
+  .map(tag => (tag.match(/ id="([^"]+)"/) || [])[1] || '');
+const GEAR_ITEMS = ['openSettingsBtn', 'helpMenuBtn', 'helpBtn', 'bulkCleanupBtn', 'themeToggle', 'uiModeToggle', 'capBadge'];
+ok(/id="threadChips"/.test(topbar) && /id="stewardShieldBtn"/.test(appTopbar)
+  && (html.match(/ id="moreMenuBtn"/g) || []).length === 0
   && (html.match(/ id="threadChips"/g) || []).length === 1
   && (html.match(/ id="stewardShieldBtn"/g) || []).length === 1
   && !/ id="permChip"/.test(html) && !/ id="modelChip"/.test(html),
-  '⑥ 线程配置、新任务默认权限、更多三个入口各只一枚：线程头 #threadChips ／ 顶栏盾牌 ／ 齿轮菜单（121-K5 §2.5）');
-ok(/function openPermPopover\(/.test(appjs) && /function openMoreMenu\(/.test(appjs), '⑥ 顶栏弹层处理器存在');
+  `⑥ 线程配置与新任务默认权限各只一枚（线程头 #threadChips ／ 顶栏盾牌），「更多」#moreMenuBtn 零枚（实测 ${(html.match(/ id="moreMenuBtn"/g) || []).length}）`);
+ok(gearItemIds.join(',') === GEAR_ITEMS.join(',')
+  && GEAR_ITEMS.every(id => (html.match(new RegExp(' id="' + id + '"', 'g')) || []).length === 1),
+  `⑥b 齿轮菜单一层七项、顺序固定、每项一枚 role="menuitem"（实测 ${JSON.stringify(gearItemIds)}）`);
+ok(/function openPermPopover\(/.test(appjs) && !/function openMoreMenu\(/.test(appjs),
+  '⑥c 顶栏弹层处理器：openPermPopover 在场；openMoreMenu 已随「更多」一起退役（零残留）');
 
 const tempHome = path.join(os.tmpdir(), 'wcw-ia-e2e');
 fs.rmSync(tempHome, { recursive: true, force: true });

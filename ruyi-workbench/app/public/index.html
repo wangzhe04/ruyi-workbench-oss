@@ -142,8 +142,14 @@
                     data-i18n-attr="title:navigation.settings;aria-label:navigation.settings"></button>
             <!-- 齿轮菜单（§2.2）：2.0 侧栏栏底四钮（清理历史／设置／帮助／快捷键）与顶栏的
                  「⋯」一起收进来。每一枚都是【原来那个按钮本身】（id、i18n、handler 一个没动），
-                 只是换了住处 —— #themeToggle／#uiModeToggle／#capBadge 仍是「⋯」菜单的状态载体，
-                 所以留在菜单里但不显示（样式层一条规则，与原来 .topbar-actions 那条同义）。 -->
+                 只是换了住处。
+                 122-L1b（36 号文 §2.12，34 号文 §13.14 ⑥）：**齿轮菜单收成一层七项**。原先这里还有
+                 一枚 #moreMenuBtn「更多」，点开又是一层浮层（主题／界面／能力矩阵／快捷键）——
+                 而那四样里，快捷键就是旁边的 #helpBtn，另外三个的状态载体（#themeToggle／
+                 #uiModeToggle／#capBadge）本来就以 display:none 住在同一个菜单里。于是把三枚
+                 载体【显出来】当菜单项用（文案由 navigation-controls.js 的 syncMoreMenuLabels
+                 写进各自的 .mm-label），#moreMenuBtn 与 openMoreMenu() 整个退役。
+                 顺序＝设置／帮助／快捷键／清理历史／主题／界面／能力矩阵，每项一枚 role="menuitem"。 -->
             <div id="appGearMenu" class="app-gear-menu" role="menu" hidden>
               <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings" role="menuitem"><span data-i18n="navigation.settings">设置</span></button>
               <!-- 118d: 常驻帮助入口。聚合使用手册 / 管理员手册 / 重新打开引导 / 查看日志 / 打开数据目录，
@@ -151,13 +157,17 @@
               <button id="helpMenuBtn" class="ghost btn-ic" data-icon="ledger" aria-haspopup="menu" role="menuitem" title="帮助" data-i18n-attr="title:help.menu.title"><span data-i18n="help.menu.title">帮助</span></button>
               <button id="helpBtn" class="ghost btn-ic" data-icon="help" role="menuitem" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"><span data-i18n="navigation.shortcuts">快捷键</span></button>
               <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash" role="menuitem"><span data-i18n="session.bulkCleanup">清理历史</span></button>
-              <button id="moreMenuBtn" class="ghost btn-ic" data-icon="more" role="menuitem" aria-haspopup="menu" title="更多" aria-label="更多" data-i18n-attr="title:common.more;aria-label:common.more"><span data-i18n="common.more">更多</span></button>
-              <button id="themeToggle" class="icon-btn" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
-              <button id="uiModeToggle" class="icon-btn" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode" data-icon="toolbox"></button>
+              <!-- 主题／界面：图标由 applyTheme／applyUiMode 的 iconTextBtn 换（它会清空按钮内容），
+                   所以文案不写死在这里，由 syncMoreMenuLabels() 每次补出 .mm-label（见 navigation-controls.js）。 -->
+              <button id="themeToggle" class="ghost btn-ic" role="menuitem" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
+              <button id="uiModeToggle" class="ghost btn-ic" role="menuitem" title="切换到精简界面" aria-label="切换界面模式" data-i18n-attr="title:navigation.switchToSimple;aria-label:navigation.toggleUiMode" data-icon="toolbox"></button>
               <!-- v0.8-S6: capability badge. ●在线/○离线/◐未知 + count of "configured but unavailable" gaps.
-                   v1.0-S2 (IA): 只作 renderCapBadge 的状态载体 + openCapPopover 的锚点/click 复用。 -->
-              <button id="capBadge" class="cap-badge hidden" aria-haspopup="dialog" title="能力矩阵（点击查看）" data-i18n-attr="title:capability.badge.unknownTitle">
+                   v1.0-S2 (IA): 只作 renderCapBadge 的状态载体 + openCapPopover 的锚点/click 复用。
+                   122-L1b：id 与两个状态 span 一个不动（renderCapBadge 写的就是它们），只补一枚人话标签
+                   与 role="menuitem" —— 它现在是齿轮菜单里【看得见】的第七项，不再是隐藏载体。 -->
+              <button id="capBadge" class="cap-badge hidden" role="menuitem" aria-haspopup="dialog" title="能力矩阵（点击查看）" data-i18n-attr="title:capability.badge.unknownTitle">
                 <span class="cap-net" aria-hidden="true">◐</span>
+                <span class="mm-label" data-i18n="capability.matrix">能力矩阵</span>
                 <span class="cap-gaps hidden"></span>
               </button>
             </div>

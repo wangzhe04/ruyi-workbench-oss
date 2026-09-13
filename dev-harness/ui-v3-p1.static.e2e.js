@@ -12,6 +12,8 @@ const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const iconsSrc = fs.readFileSync(path.join(PUB, 'js', 'icons.js'), 'utf8');
 // 121-K5：顶栏盾牌的字形由 steward-settings.js 在运行时按档位注入（见下面第 4 组那一条）。
 const stewardSettingsSrc = fs.readFileSync(path.join(PUB, 'js', 'steward-settings.js'), 'utf8');
+// 122-L1b：'more' 字形的运行时唯一使用点（左栏行尾那枚「⋯」）。
+const boardSrc = fs.readFileSync(path.join(PUB, 'js', 'steward-board.js'), 'utf8');
 const src = readFrontendSrc(); // app.js + js/**(含 icons.js)
 
 let fail = 0;
@@ -100,11 +102,16 @@ for (const need of ['folder', 'shield', 'toolbox', 'paperclip', 'sparkles', 'sen
 ok(/paintShieldButton\(btn, permissionIconName\(mode\)/.test(stewardSettingsSrc)
   && /icon\(iconName, 17\)/.test(stewardSettingsSrc),
   '4 盾牌字形由 steward-settings.js 按档位注入（#permChip 的静态 shield 随它退役）');
+// 122-L1b（36 号文 §2.12）：'more' 挪出这张【静态 data-icon 清单】—— #moreMenuBtn 随「更多」
+// 那一层整枚退役，index.html 里因此零引用。字形表一个字形都没删（上面第 3 组仍逐枚钉着 more
+// 在表里），运行时的使用点也还在：左栏行尾那枚「⋯」由 js/steward-board.js 的 icon('more', 13) 注入。
 for (const [id, name] of [['workspacePicker...folder', 'folder'], ['tools...toolbox', 'toolbox'],
-  ['more', 'more'], ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
+  ['send', 'send'], ['plus', 'plus'], ['paperclip', 'paperclip'],
   ['settings', 'settings'], ['help', 'help'], ['close', 'close']]) {
   ok(new RegExp('data-icon="' + name + '"').test(html), '4 index.html data-icon="' + name + '" 就位');
 }
+ok(!/ id="moreMenuBtn"/.test(html) && /icon\('more', 13\)/.test(boardSrc),
+  "4c 'more' 字形从静态清单挪到运行时唯一使用点（左栏行尾那枚「⋯」，steward-board.js）");
 ok(!/id="collapseSidebarBtn"/.test(html) && !/id="showSidebarBtn"/.test(html),
   '4b 手动折叠侧栏的两枚钮随左栏进外框而退役（宽度改由 §7.3 的容器查询决定）');
 ok(/id="skillBtn"[^>]*\bbtn-ic\b/.test(html), '4 技能按钮 btn-ic(sparkles 由 app.js 重建)');
