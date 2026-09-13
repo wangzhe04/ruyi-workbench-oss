@@ -556,7 +556,20 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证留给主会话按本刀落盘之后的 HEAD 重算(本刀不动 LEGACY_STYLES_SHA256 本身)。
 // 122 波主会话重钉（L3 四提交 cherry-pick 为 956b025→c785a3e 后，按干净 HEAD 的载荷重算；与 L3 报告里
 // 「仅供核对」的 f082de2e… 逐字相同；L1a／L2 均未碰 CSS）。前值 7738fe50…。
-const LEGACY_STYLES_SHA256 = 'f082de2e2035484d6fe3cced22875dd9f530bf18830c071f6989cb5ae48e1b21';
+// 122-L1b 重钉（前值即上面那个 f082de2e…）：**零新增、零删除层**（分组表一个字节没动，仍是 18 组 22 层），
+// 只改了两个既有层：
+//   ① `css/views/steward-drawer.css`（§2.11）：`.steward-chip-option` 加 `white-space: normal`
+//      —— 它是个 <button>，继承 base.css 那条全局 `button { white-space: nowrap }`，四档权限的提示
+//      横着捅出菜单（实测 scrollWidth 351 对 clientWidth 253）。
+//   ② `css/layout.css`（§2.12＋§2.14）：删 `.app-gear-menu > #capBadge/#themeToggle/#uiModeToggle
+//      { display:none }`（齿轮菜单收成一层七项，那三枚不再是隐藏载体）、补 `.app-gear-menu > #capBadge`
+//      两条排版微调，并新增 `.skip-link`／`.skip-link:focus`（U05 走查抓到的跳转链接）。
+// 算法自证：改动全部落盘（提交 e7763a2／a91187f／f65d43d）之后，在【干净工作区】上按 HEAD 的 blob 逐层
+// 重算 —— 把 fs.readFileSync 换成 `git show HEAD:<path>` 再跑本文件自己的 readLayerPayload()，
+// 得到的值与直接读工作区【逐字相同】（22 层全部走 HEAD），所以下面这个值是 HEAD 的值，不是工作区的值
+// （32 号文 §4 纪律 4）。反向验证：删掉 `.steward-chip-option` 那行 white-space → 本值与实算不符，
+// frontend-domains D51 与 live-full-text F3 双红。
+const LEGACY_STYLES_SHA256 = 'e586a9b3070474284eefb7bc3ef69dea26b3c473e2ec27da170061ead5a07268';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
