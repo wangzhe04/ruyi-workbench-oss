@@ -62,4 +62,39 @@ describe('fixtureChildEnv({ perTest: true })', () => {
     assert.equal(typeof env.USERPROFILE, 'string', '旧签名(无 opts)必须直接返回带 USERPROFILE 的 env 对象');
     assert.equal(env.home, undefined, '旧签名返回值不应有 home 字段(不是 perTest 形状)');
   });
+
+  // 123-M3(37 号文 §3.7):LOCALAPPDATA/APPDATA 不是从 USERPROFILE 派生的独立环境变量,
+  // 换家目录时若不跟着换,子进程读到的还是真机的 —— 36 号文 §5.1 实测的泄漏根
+  // (index-dedup.e2e.js 的 migrateLegacyAccMemory() 就是扫到真机 %LOCALAPPDATA% 命中出来的)。
+  it('perTest 的 LOCALAPPDATA/APPDATA 都落在这次的临时家 home 之下,且目录已建好', () => {
+    const a = fixtureChildEnv({ perTest: true });
+    try {
+      const home = normalizeHome(a.home);
+      assert.ok(normalizeHome(a.env.LOCALAPPDATA).startsWith(home), `LOCALAPPDATA ${a.env.LOCALAPPDATA} 应落在本次 home ${a.home} 之下`);
+      assert.ok(normalizeHome(a.env.APPDATA).startsWith(home), `APPDATA ${a.env.APPDATA} 应落在本次 home ${a.home} 之下`);
+      assert.equal(a.env.LOCALAPPDATA, path.join(a.home, 'AppData', 'Local'), 'LOCALAPPDATA 是 <home>/AppData/Local');
+      assert.equal(a.env.APPDATA, path.join(a.home, 'AppData', 'Roaming'), 'APPDATA 是 <home>/AppData/Roaming');
+      assert.ok(fs.existsSync(a.env.LOCALAPPDATA), 'LOCALAPPDATA 目录必须已经 mkdir 出来(不是只写了一个不存在的路径)');
+      assert.ok(fs.existsSync(a.env.APPDATA), 'APPDATA 目录必须已经 mkdir 出来');
+    } finally {
+      fs.rmSync(a.home, { recursive: true, force: true });
+    }
+  });
+
+  it('两次 perTest 的 LOCALAPPDATA/APPDATA 都 ≠ 真机(不会指回真机家)', () => {
+    const a = fixtureChildEnv({ perTest: true });
+    const b = fixtureChildEnv({ perTest: true });
+    try {
+      const realLocal = normalizeHome(path.join(REAL_HOME, 'AppData', 'Local'));
+      const realRoaming = normalizeHome(path.join(REAL_HOME, 'AppData', 'Roaming'));
+      assert.notEqual(normalizeHome(a.env.LOCALAPPDATA), realLocal, 'a 的 LOCALAPPDATA 不许等于真机的');
+      assert.notEqual(normalizeHome(a.env.APPDATA), realRoaming, 'a 的 APPDATA 不许等于真机的');
+      assert.notEqual(normalizeHome(b.env.LOCALAPPDATA), realLocal, 'b 的 LOCALAPPDATA 不许等于真机的');
+      assert.notEqual(normalizeHome(b.env.APPDATA), realRoaming, 'b 的 APPDATA 不许等于真机的');
+      assert.notEqual(a.env.LOCALAPPDATA, b.env.LOCALAPPDATA, '两次 perTest 的 LOCALAPPDATA 也不该彼此相同(各自独立的临时家)');
+    } finally {
+      fs.rmSync(a.home, { recursive: true, force: true });
+      fs.rmSync(b.home, { recursive: true, force: true });
+    }
+  });
 });

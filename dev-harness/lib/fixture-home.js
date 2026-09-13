@@ -59,8 +59,27 @@ function fixtureHomeDirPerTest() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-'));
 }
 
-// 夹具子进程的环境:家目录一套换成临时家(USERPROFILE 管 os.homedir(),HOME 管 git/npm 一类),
-// 真机家另走 RUYI_REAL_HOME —— 守卫靠它才知道「真机家」是哪个(夹具自己已经看不见了)。
+// 123-M3(37 号文 §3.7):USERPROFILE/HOME 换了临时家,但 Windows 上 LOCALAPPDATA/APPDATA
+// 是【两个独立的环境变量】,不是从 USERPROFILE 派生的 —— 换家目录时若不跟着换,子进程读到的
+// 还是真机的 %LOCALAPPDATA%/%APPDATA%(36 号文 §5.1 实测的泄漏根:index-dedup E3 就是
+// migrateLegacyAccMemory() 扫到真机 %LOCALAPPDATA%/ai-computer-control/data/memory.json
+// 命中出来的)。这里补齐同一套映射:<home>/AppData/Local、<home>/AppData/Roaming,并且
+// mkdir 出来 —— 有些代码路径认「目录已存在」不做首次初始化,不建目录会把「目录不存在」这个
+// 事实也算进产品分支里,引入本波并未打算测的第二个变量。
+// 无头 Edge 的 --user-data-dir 是每个 *.browser.e2e.js 各自显式拼在临时家下面传的
+// (grep -rn "user-data-dir" dev-harness/*.browser.e2e.js 核过,一个不例外),不读
+// LOCALAPPDATA/APPDATA,所以这两个变量换掉不影响浏览器件的 profile 落点。
+function fakeAppDataDirs(home) {
+  const local = path.join(home, 'AppData', 'Local');
+  const roaming = path.join(home, 'AppData', 'Roaming');
+  fs.mkdirSync(local, { recursive: true });
+  fs.mkdirSync(roaming, { recursive: true });
+  return { local, roaming };
+}
+
+// 夹具子进程的环境:家目录一套换成临时家(USERPROFILE 管 os.homedir(),HOME 管 git/npm 一类,
+// LOCALAPPDATA/APPDATA 管 Windows 应用数据两个惯用目录),真机家另走 RUYI_REAL_HOME ——
+// 守卫靠它才知道「真机家」是哪个(夹具自己已经看不见了)。
 //
 // 不传 opts(或 opts.perTest 为假):沿用整轮共用的那份临时家,返回值仍是【环境对象】本身
 // (向后兼容旧签名)。传 { perTest: true }:每次调用都 mkdtemp 一份全新目录,返回
@@ -69,7 +88,12 @@ function fixtureHomeDirPerTest() {
 function fixtureChildEnv(opts) {
   const options = opts || {};
   const home = options.perTest ? fixtureHomeDirPerTest() : fixtureHomeDir();
-  const env = { ...(options.baseEnv || process.env), USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME };
+  const { local, roaming } = fakeAppDataDirs(home);
+  const env = {
+    ...(options.baseEnv || process.env),
+    USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME,
+    LOCALAPPDATA: local, APPDATA: roaming,
+  };
   return options.perTest ? { env, home } : env;
 }
 
@@ -83,4 +107,5 @@ module.exports = {
   fixtureHomeDir,
   fixtureHomeDirPerTest,
   fixtureChildEnv,
+  fakeAppDataDirs,
 };

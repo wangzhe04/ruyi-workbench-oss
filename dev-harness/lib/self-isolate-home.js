@@ -18,7 +18,7 @@
 // require——别的模块可能在加载期就读 os.homedir()）。
 const os = require('os');
 const path = require('path');
-const { REAL_HOME, isRealHome, fixtureHomeDir } = require('./fixture-home');
+const { REAL_HOME, isRealHome, fixtureHomeDir, fakeAppDataDirs } = require('./fixture-home');
 
 function selfIsolateHome() {
   const current = process.env.USERPROFILE || os.homedir();
@@ -31,6 +31,11 @@ function selfIsolateHome() {
     process.env.HOMEDRIVE = parsed.root.replace(/[\\/]+$/, '');
     process.env.HOMEPATH = home.slice(parsed.root.length - 1);
   }
+  // 123-M3（37 号文 §3.7）：与 fixtureChildEnv 同一条纪律——LOCALAPPDATA/APPDATA 不是从
+  // USERPROFILE 派生的，直跑时不换这两个就还是真机的（36 号文 §5.1 的泄漏根）。
+  const { local, roaming } = fakeAppDataDirs(home);
+  process.env.LOCALAPPDATA = local;
+  process.env.APPDATA = roaming;
   if (!process.env.RUYI_REAL_HOME) process.env.RUYI_REAL_HOME = REAL_HOME;
   return { isolated: true, home };
 }
