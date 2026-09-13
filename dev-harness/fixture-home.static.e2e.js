@@ -75,7 +75,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 工厂那一处；无头 Edge 那发不带 RUYI_HOME，不计入），137 -> 139。同刀的
 // scheduler-steward.e2e.js 与 scheduler-ui.static.e2e.js 都是进程内 require(server.js) 的直测件，
 // 零 spawn，不计入。
-const RUYI_HOME_SPAWN_SITES = 139;
+// 123-P1 ①（38 号文）：新增 dev-harness/steward-contract-guard.e2e.js（一处带 RUYI_HOME 的 spawn ——
+// 那一发起服务；fake-openai 那一发不带 RUYI_HOME，不计入），139 -> 140 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 140;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

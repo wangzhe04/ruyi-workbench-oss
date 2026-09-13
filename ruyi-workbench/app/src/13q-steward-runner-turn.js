@@ -184,6 +184,27 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 的 createdAt 更早,水位推到助手这条即把两条一起盖住。
   const stampedAt = await stewardLastAssistantCreatedAt();
   const parsedReply = stewardParseReply(finalText);
+  // 123-P1 ①(38 号文;用户 2026-09-14 真机取证):契约不完整 —— 模型没给必填的 why(判据与理由见
+  // 13o stewardParseReply 那一段头注)。这里做两件事:记一条审计(trigger / 模型给了哪些键 / say
+  // 有多长,正文一个字不进日志),以及往下把旗子带进回执与落盘的章 —— 前端据此在这条回复下面画
+  // 一句灰字系统回执,明说「这一轮它没有执行任何动作」。
+  // **诚实优先,不重试**:在同一回合里用一条纠正提示重跑一次模型这个方案评估过,不做 ——
+  // 它必然动到回合语义的四处:① 第二发 runSessionTurn 会往管家会话里【真的】写一条 user 消息
+  // (纠正提示)和第二条 assistant 消息,对话流回放时那条纠正提示会当成用户气泡上屏;
+  // ② stewardRunnerRuntime.turns 与用量台账要么漏记(一次模型调用逃过每小时熔断与日费用)、
+  // 要么多记(用户看到「一句话花了两个回合」);③ 抢占:重试把 inflight 的占用窗口拉长一倍,
+  // 用户回合抢占一个收件箱回合的时序随之改变(controller 只有一个,abort 落在哪一发也要重新定义);
+  // ④ stewardLastAssistantCreatedAt / turnSeq 取的是「最后一条助手消息」,重试后它指向第二发。
+  // 派单稿的原话是「如果会动到回合循环、预算、熔断或抢占的语义,就不做」—— 四条全中,故登记为
+  // 后续(要做得先给重试一条【不写会话正文】的旁路通道,那是 09-workflow 的地界)。
+  if (parsedReply.contractIncomplete === true) {
+    logEvent({
+      kind: 'steward_contract_incomplete',
+      trigger,
+      keys: Array.isArray(parsedReply.contractKeys) ? parsedReply.contractKeys : [],
+      sayChars: String(parsedReply.say || '').length,
+    });
+  }
   // 自理动作排在模型 actions 【前面】:它们先发生,steward_reply.actions 的顺序就该是事情发生的
   // 顺序。两者同形,故 stewardDowngradeActions 一视同仁 —— 自理侧被闸门拦下的行(propose_required)
   // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
@@ -209,11 +230,17 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     // 123-N1 ①:落盘时刻(ISO 8601 定长 UTC 串,与 GET /api/sessions/steward?since= 同一把尺)。
     // 读不到就不下发这个键 —— 前端缺省时自己走「对齐一发」的退路,老回执逐字节不变。
     ...(stampedAt ? { createdAt: stampedAt } : {}),
+    // 123-P1 ①:【缺省不写】。老回合的落盘章里读不到这个键即为 false,前端 `=== true` 判定,
+    // 一份历史都不用迁移。
+    ...(parsedReply.contractIncomplete === true ? { contractIncomplete: true } : {}),
     circuit: null,
   };
   // 117s-H4:落盘的回执带来源(对象);reply.trigger(内存态 lastReply 与 steward_reply 帧)仍是字符串。
   await stewardStampReply({
     say: reply.say, why: reply.why, acts: reply.acts, actions: reply.actions, parsed: reply.parsed,
+    // 123-P1 ①:落盘的章也带这一面 —— 回放那条路(前端 renderHistorySince)只看得到这份章,
+    // live 与刷新之后看到的必须是同一句话。同样缺省不写。
+    ...(reply.contractIncomplete === true ? { contractIncomplete: true } : {}),
     trigger: await stewardTriggerStamp(trigger, events).catch(() => ({ kind: trigger })),
   });
   // 121-K2a(§6.1 第 3 条):管家刚说完一句并落了盘。**正文不进事件**(§6.1 红线;避免双写)——

@@ -339,6 +339,10 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         acts: Array.isArray(reply.acts) ? reply.acts : [],
         actions: Array.isArray(reply.actions) ? reply.actions : [],
         parsed: reply.parsed === true,
+        // 123-P1 ①(38 号文):这一帧是【白名单】,不是整份 reply 的展开 —— 13q 往回执里加的字段
+        // 不写进这里就到不了前端。契约不完整那句灰字回执在 live 那条路(finishReply)靠的就是它。
+        // 缺省不写,与落盘章同一口径。
+        ...(reply.contractIncomplete === true ? { contractIncomplete: true } : {}),
         circuit: reply.circuit || null,
         ...(reply.ok === false && reply.error ? { error: reply.error, message: reply.message || '' } : {}),
       });

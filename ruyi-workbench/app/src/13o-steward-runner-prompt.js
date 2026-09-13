@@ -394,8 +394,23 @@ function stewardParseReply(text) {
     logEvent({ kind: 'steward_contract_unparsed', chars: raw.length });
     // 117y-S1(§11.18.2):这条兜底灌进来的是【整份原始模型输出】,所以它比解析成功那一路更需要
     // 天花板;但同样【不许裸切】—— 与下面 say 那一处走的是同一个函数、同一个天花板,不许只改一处。
-    return { parsed: false, say: stewardTrimSayAtSentence(raw.trim(), STEWARD_SAY_CEILING), why: '', acts: [], actions: [] };
+    return { parsed: false, say: stewardTrimSayAtSentence(raw.trim(), STEWARD_SAY_CEILING), why: '', acts: [], actions: [], contractIncomplete: false, contractKeys: [] };
   }
+  // 123-P1 ①(38 号文;用户 2026-09-14 真机取证):**契约完整性**。
+  // 现象:用户对管家说「下周一整周大A该怎么操作」,管家回「我把你这句话原样递给『下周A股走势分析』
+  // 那条线程了」「按钮就在这条消息下面,点『打开线程』」—— 界面上没有任何按钮,线程也从没收到那句话。
+  // 病根:真机 sessions/steward.provider.ndjson 里模型的原始输出【只有 say 一个键】,七轮无一例外
+  // (stewardProviderId=deepseek / stewardModel=deepseek-v4-flash 这个快档);落盘的七条 assistant
+  // 消息 acts=0 actions=0 parsed=true。模型一个工具都没调,却在 say 里把动作说成已完成 —— 违反
+  // 06b 稳定层纪律 6「不编造进度、不把没做的事说成做了」,而系统这一侧此前【完全没有兜底】。
+  // 判据【不猜 say 的文本】:关键词匹配「已经递了/按钮在下面」这类完成时陈述既脆弱又要维护中英
+  // 词表;契约完整性是机器可判的硬事实 —— 06b 的输出契约把 why 写成必填的「依据一句话」,连这个
+  // 键都没给就是没按契约输出。
+  // **只看键在不在,不看值空不空**:`why:''` 是「按契约给了这个键、这一轮没依据可写」(既有剧本
+  // 与线上老回合大量这么写),缺键才是「压根没按契约走」。
+  // **acts / actions 一律不当判据**:纯答问回合本来就不需要它们,拿空当判据等于给每一句寒暄都盖
+  // 一个红戳。
+  const contractIncomplete = !Object.prototype.hasOwnProperty.call(value, 'why');
   const actions = [];
   for (const item of (Array.isArray(value.actions) ? value.actions : [])) {
     if (!item || typeof item !== 'object') continue;
@@ -413,5 +428,9 @@ function stewardParseReply(text) {
     why: String(value.why == null ? '' : value.why).slice(0, STEWARD_WHY_MAX),
     acts: stewardNormalizeActs(value.acts),
     actions,
+    contractIncomplete,
+    // 审计要写的是「模型到底给了哪些键」,不是「我们最后解析出了什么」—— 所以取【原始对象】的
+    // 顶层键。8 个封顶:病态输出(几十个键)不该把一行审计撑成一屏。
+    contractKeys: Object.keys(value).slice(0, 8),
   };
 }
