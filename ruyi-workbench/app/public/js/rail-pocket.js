@@ -277,8 +277,12 @@ export function createRailPocket({
     paintHealth();
     void refresh();
     // 推送：收件箱多了东西／某条线程换了状态时顺手刷一次（§2.3 的「数据靠推送＋动作刷新」）。
+    // 123-M2（37 号文 §3.6）：第三类帧 schedule.changed —— 定时任务建/改/删/四段触发各派一帧
+    // （13r 只转发 taskId/phase/outcome 三个枚举与 id，正文不进这条线）。加它是为了让口袋上那个
+    // 计数【零轮询】地跟着变：修前只有「打开时刷一次 ＋ 收件箱有新东西时顺手刷」，而建一条定时
+    // 任务既不写收件箱也不改线程状态，那个数要等下一次打开左栏才对得上。**仍然零计时器**。
     if (eventStream && typeof eventStream.on === 'function') {
-      for (const name of ['inbox.appended', 'thread.state']) {
+      for (const name of ['inbox.appended', 'thread.state', 'schedule.changed']) {
         try { eventStream.on(name, () => { void refresh(); }); } catch { /* 推送是旁路 */ }
       }
     }

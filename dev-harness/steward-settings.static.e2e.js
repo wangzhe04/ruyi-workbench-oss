@@ -358,6 +358,11 @@ const ALLOWED = [
   '/api/session/rewind', '/api/steward/decisions', '/api/steward/memory', '/api/steward/memory/clear',
   '/api/steward/memory/edit', '/api/steward/memory/export', '/api/steward/memory/restore',
   '/api/steward/memory/veto', '/api/steward/start', '/api/steward/state', '/api/steward/stop',
+  // 123-M2(37 号文 §3.6):定时任务块从只读改成可建可改 —— 六条 /api/scheduler/tasks 里的
+  // GET/POST/PATCH/DELETE/run-now/runs 全部落在这一个前缀上(正则只抓到前缀,后面的 /:id 与
+  // ?limit= 不入表);另加 /api/missions —— 「在一条已有线程里跑」那个下拉的候选来自左栏
+  // 已经在取的那一份,不裸发第二种取数。两者都是【读/写定时任务】这件事本身要的面,不是绕道。
+  '/api/missions', '/api/scheduler/tasks',
 ].filter(route => !route.includes('not-called-here')).sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `I1 只调 116 已有的路由 + 117e 第 0 步的 /api/steward/decisions（实测 ${JSON.stringify(routes)}）`);

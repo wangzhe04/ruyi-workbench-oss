@@ -454,6 +454,9 @@ export function createStewardShellDomain({
     api, state, t, saveConfigPartial, openSettingsTab, presence: presenceApi,
     syncShellAvailability: () => syncStewardShellAvailability(),
   });
+  // 123-M2（37 号文 §3.6）：定时任务展开的最近几次里，点产出线程在【如意内】打开它（不给路径）。
+  // 迟绑定 setter —— 上面那一行构造被 steward-settings.static 逐字钉着。
+  settings.setOpenThread(sessionId => { void openSession(sessionId); });
   // 121-K5：工作台视角的线程头（§2.5）。它接替 117g 的「2.0 视窗返回带」：不发取数请求，只读
   // state 与左栏已经取回来的那一行（迟绑定句柄 —— board 在它之后才构造），控件是同一份 chips 工厂。
   let boardHandle = null;

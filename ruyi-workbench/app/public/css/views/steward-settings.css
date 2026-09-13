@@ -90,15 +90,53 @@
   font-size: var(--fs-sm);
   color: var(--muted);
 }
-/* 121-K7（§7.2 表首行）：「定时任务」只读表。空态与记忆面板的空态同一档灰字（不新造第二种）。 */
+/* 121-K7（§7.2 表首行）：「定时任务」表。空态与记忆面板的空态同一档灰字（不新造第二种）。
+   123-M2（37 号文 §3.6）：只读改成可建可改 —— 每行从一行变成「标题行 ＋ 动作行 ＋ 展开的最近几次」
+   三层，所以 .steward-schedule-row 从 flex 一行改成竖排；原来那一行的排布挪进 .steward-schedule-head
+   （逐字同款：baseline 对齐、两端撑开、同一档字号与颜色）。 */
 .steward-schedule-list { margin: var(--sp-1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-1); }
 .steward-schedule-row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2);
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  padding: var(--sp-2); background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.steward-schedule-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2);
   font-size: var(--fs-sm); color: var(--ink-2);
 }
 .steward-schedule-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steward-schedule-plan { flex: 0 0 auto; color: var(--ink-2); font-size: var(--fs-xs); }
 .steward-schedule-when { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-xs); }
 .steward-schedule-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+/* 上次结果徽标。**颜色不是唯一信号**（F5a 纪律）：文字本身就写着「成功／失败／结果未知，先核对」，
+   色调只是加一层冗余；unknown 与 failed 用同一档警示色 —— 「不知道」在运维上与「失败」一样要人看。 */
+.steward-schedule-badge {
+  flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted);
+  border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1);
+}
+.steward-schedule-badge[data-outcome="succeeded"] { color: var(--ok); border-color: var(--ok); }
+.steward-schedule-badge[data-outcome="failed"],
+.steward-schedule-badge[data-outcome="unknown"] { color: var(--warn); border-color: var(--warn); }
+.steward-schedule-badge[data-outcome="needs_you"] { color: var(--accent); border-color: var(--accent); }
+.steward-schedule-actions { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.steward-schedule-act {
+  font-size: var(--fs-xs); color: var(--ink-2); background: transparent;
+  border: 1px solid var(--line); border-radius: var(--r-sm); padding: 1px var(--sp-1); cursor: pointer;
+}
+.steward-schedule-act:hover { border-color: var(--accent); color: var(--accent); }
+.steward-schedule-del:hover { border-color: var(--warn); color: var(--warn); }
+.steward-schedule-runs { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.steward-schedule-run {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-1);
+  font-size: var(--fs-xs); color: var(--muted);
+}
+.steward-schedule-run-open {
+  font-size: var(--fs-xs); color: var(--accent); background: transparent;
+  border: 0; padding: 0; cursor: pointer; text-decoration: underline;
+}
+/* 新建表单：与设置页其余分组同一档间距，不自造第二套栅格。 */
+.steward-schedule-form { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0 0; }
+.steward-schedule-days { display: flex; flex-wrap: wrap; gap: var(--sp-2); border: 0; margin: 0; padding: 0; }
+.steward-schedule-days label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); }
 .steward-memory-item {
   display: flex;
   flex-direction: column;

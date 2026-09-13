@@ -29,9 +29,13 @@ import { stewardErrorText } from './steward-conversation.js';
 // permissionIconName 是【纯派生】（档位名 → 盾内字形名），不是第二份四档表 —— 四档的唯一判据
 // 仍然是 steward-chips.js 的 STEWARD_PERMISSION_MODES，本文件一个档位名字面量都没有。
 import { icon, permissionIconName } from './icons.js';
-// 121-K7（§7.2 表首行／§13.5 登记③）：定时任务的读口与排序判据只有 js/rail-pocket.js 那一份
-// —— 口袋的计数、焦点栏的「接下来」与本页那张只读表读同一发、排同一序。
-import { readScheduleTasks, upcomingSchedules, scheduleWhenLabel } from './rail-pocket.js';
+// 121-K7（§7.2 表首行／§13.5 登记③）：「多久之后」那句人话只有 js/rail-pocket.js 那一份
+// （口袋、焦点栏「接下来」与本页这张表说同一句话，不各写一个 Intl.RelativeTimeFormat）。
+// 123-M2：本页改成可建可改之后，列表要的是【全量】任务行（describeKey / state / policy），
+// 而 rail-pocket 的 normalizeScheduleTasks 只留 K7 要的四个字段——所以取数那一发在本文件自己发，
+// 不再复用 readScheduleTasks；排序也换成「暂停与算不出下一次的也要在表里」（upcomingSchedules
+// 按设计会把它们滤掉，那是「接下来」要的语义，不是这张表要的）。
+import { scheduleWhenLabel } from './rail-pocket.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
@@ -716,35 +720,273 @@ export function createStewardSettingsDomain({
     fillProviderOptions(byId('cfgStewardFastProviderId'), fast.providerId);
   }
 
-  /* ═══════════════ ④d 定时任务（121-K7，§7.2 表首行）═══════════════ */
-  // 只读面。读口与排序判据都在 js/rail-pocket.js 一处（口袋上那个计数、焦点栏「接下来」的两行
-  // 与这张表读同一发、排同一序）—— 设置页不自己拼那条请求，也不写第二份「怎么排」。
-  // 119 波的后端还没落地，读不到就说「还没有定时任务」（不报错：定时任务是旁路）。
+  /* ═══════════════ ④d 定时任务（121-K7 立面，123-M2 接真数据；37 号文 §3.6）═══════════════ */
+  // 121-K7 那一版是【只读】的（后端零实现，读不到就说「还没有定时任务」）。M1 把六条 API 落地
+  // 之后，这一块改成【可建可改】：列表 ＋ 行内三个动作 ＋ 展开最近 5 次 ＋ 新建表单。
+  //
+  // 三条纪律：
+  //   · 零 innerHTML —— 表单是 index.html 里的静态 DOM（五档计划各自的字段用 hidden 切换，
+  //     不重画），列表行全部 createElement + textContent；
+  //   · 无「路径 ＋ 复制」反模式（28 号 §2 / 27 号 §8.1）—— 产出线程只有一枚「打开这条线程」，
+  //     它在如意里打开，界面上一个路径字符都不印；
+  //   · 计划的人话【不在这里第二次判定】：服务端的 describeSchedule（06j 纯函数）给键与参数，
+  //     本文件只把它翻成本地语言。weekly 那一支的 dayKeys 是键的数组,逐个翻完再拼。
+  // 读列表仍走 js/rail-pocket.js 的 readScheduleTasks（口袋计数、焦点栏「接下来」与这张表同一发、
+  // 同一序），但**这张表要的是全量字段**（describeKey / state / policy），所以另存一份原始行 ——
+  // normalizeScheduleTasks 那一份只留 K7 要的四个字段，够不着徽标与展开。
+  const SCHEDULE_TASKS_PATH = '/api/scheduler/tasks';
+  const SCHEDULE_RUNS_LIMIT = 5;
+  // 五档计划各自要显示哪几个字段块（表单里的其余块 hidden）。表在这里只有一份。
+  const SCHEDULE_KIND_FIELDS = Object.freeze({
+    once: ['at', 'date'], daily: ['at'], weekly: ['at', 'days'], monthly: ['at', 'dom'], cron: ['cron'],
+  });
+  const SCHEDULE_FIELD_BLOCKS = Object.freeze({
+    at: 'cfgStewardScheduleAtBlock', date: 'cfgStewardScheduleDateBlock',
+    days: 'cfgStewardScheduleDaysBlock', dom: 'cfgStewardScheduleDomBlock', cron: 'cfgStewardScheduleCronBlock',
+  });
+  // 触发模式与结果各自的人话键。**这两张表是界面侧 J10／J11 的落点**：
+  //   · J10 —— 补跑必须显示成「补跑」，不能冒充「准时」；
+  //   · J11 —— 崩溃后那一次是「结果未知，先核对」，不能显示成「成功」。
+  const SCHEDULE_MODE_KEYS = Object.freeze({
+    ontime: 'scheduler.mode.ontime', late: 'scheduler.mode.late', manual: 'scheduler.mode.manual',
+  });
+  const SCHEDULE_OUTCOME_KEYS = Object.freeze({
+    succeeded: 'scheduler.outcome.succeeded', failed: 'scheduler.outcome.failed',
+    needs_you: 'scheduler.outcome.needs_you', skipped: 'scheduler.outcome.skipped',
+    unknown: 'scheduler.outcome.unknown',
+  });
   let scheduleLoaded = false;
+  let scheduleRows = [];        // 最近一次读到的【全量】任务行
+  let scheduleOpenRuns = '';    // 当前展开的是哪一条（同时只展开一条，省一发请求也省一屏噪音）
+  let openThreadHandler = null; // 迟绑定：点 sessionId 在【如意内】打开那条线程（不给路径）
+
+  const lang = () => (doc() && doc().documentElement && doc().documentElement.lang) || '';
+  // 06j 的 describeSchedule 只回键与参数（纯函数不认识语言）。weekly 的通用那一支带 dayKeys，
+  // 逐个翻完再用一个也走目录的连接符拼起来。
+  function scheduleDescribeText(task) {
+    const key = String((task && task.describeKey) || '');
+    if (!key) return '';
+    const params = (task && task.describeParams && typeof task.describeParams === 'object') ? task.describeParams : {};
+    if (Array.isArray(params.dayKeys)) {
+      return t(key, { ...params, days: params.dayKeys.map(dayKey => t(dayKey)).join(t('scheduler.dowJoin')) });
+    }
+    return t(key, params);
+  }
+  function scheduleResultBadge(state) {
+    const outcome = String((state && state.lastResult) || '');
+    if (!outcome) return { text: t('settings.steward.schedule.never'), outcome: '', mode: '' };
+    const mode = String((state && state.lastMode) || '');
+    const outcomeText = t(SCHEDULE_OUTCOME_KEYS[outcome] || 'scheduler.outcome.unknown');
+    const modeText = mode && SCHEDULE_MODE_KEYS[mode] ? t(SCHEDULE_MODE_KEYS[mode]) : '';
+    return { text: modeText ? `${outcomeText} · ${modeText}` : outcomeText, outcome, mode };
+  }
+
+  function scheduleRunRow(run) {
+    const item = el('li', 'steward-schedule-run');
+    const firedAt = Date.parse(String(run.firedAt || run.dueAt || ''));
+    item.appendChild(el('span', 'steward-schedule-run-when',
+      Number.isFinite(firedAt) ? new Date(firedAt).toLocaleString(lang() || undefined) : ''));
+    const badge = scheduleResultBadge({ lastResult: run.outcome, lastMode: run.mode });
+    const chip = el('span', 'steward-schedule-badge', badge.text);
+    chip.dataset.outcome = badge.outcome;
+    chip.dataset.mode = badge.mode;
+    item.appendChild(chip);
+    if (run.sessionId) {
+      // 唯一的落点：在如意里打开那条线程。**不印路径、不给复制**（28 号 §2 的 UX 红线）。
+      const open = button('steward-schedule-run-open', t('settings.steward.schedule.openThread'),
+        () => { if (typeof openThreadHandler === 'function') openThreadHandler(String(run.sessionId)); });
+      open.dataset.sessionId = String(run.sessionId);
+      item.appendChild(open);
+    }
+    return item;
+  }
+
+  async function toggleRuns(taskId, host) {
+    if (scheduleOpenRuns === taskId) { scheduleOpenRuns = ''; host.hidden = true; clear(host); return 0; }
+    scheduleOpenRuns = taskId;
+    clear(host);
+    host.hidden = false;
+    const response = await call(`${SCHEDULE_TASKS_PATH}/${encodeURIComponent(taskId)}/runs?limit=${SCHEDULE_RUNS_LIMIT}`);
+    const runs = (response && Array.isArray(response.runs)) ? response.runs : [];
+    if (!runs.length) { host.appendChild(el('li', 'steward-schedule-empty', t('settings.steward.schedule.runsEmpty'))); return 0; }
+    for (const run of runs) host.appendChild(scheduleRunRow(run));
+    return runs.length;
+  }
+
+  async function scheduleAction(pathname, options) {
+    const response = await call(pathname, options);
+    if (!response) return false;
+    await loadSchedule();
+    return true;
+  }
+
+  function scheduleTaskRow(task) {
+    const state = (task && task.state && typeof task.state === 'object') ? task.state : {};
+    const item = el('li', 'steward-schedule-row');
+    item.dataset.taskId = String(task.id || '');
+    item.dataset.enabled = state.enabled === false ? 'false' : 'true';
+    const head = el('div', 'steward-schedule-head');
+    head.appendChild(el('span', 'steward-schedule-name', String(task.title || task.name || '')));
+    const described = scheduleDescribeText(task);
+    if (described) head.appendChild(el('span', 'steward-schedule-plan', described));
+    const nextMs = Date.parse(String(task.nextRunAt || ''));
+    const when = state.enabled === false
+      ? t('settings.steward.schedule.paused')
+      : (Number.isFinite(nextMs) ? t('settings.steward.schedule.next', { when: scheduleWhenLabel(nextMs, lang()) }) : '');
+    if (when) head.appendChild(el('span', 'steward-schedule-when', when));
+    const badge = scheduleResultBadge(state);
+    const chip = el('span', 'steward-schedule-badge', badge.text);
+    chip.dataset.outcome = badge.outcome;
+    chip.dataset.mode = badge.mode;
+    head.appendChild(chip);
+    item.appendChild(head);
+
+    const actions = el('div', 'steward-schedule-actions');
+    const id = encodeURIComponent(String(task.id || ''));
+    actions.appendChild(button('steward-schedule-act',
+      t(state.enabled === false ? 'settings.steward.schedule.resume' : 'settings.steward.schedule.pause'),
+      () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ enabled: state.enabled === false }),
+      })));
+    actions.appendChild(button('steward-schedule-act', t('settings.steward.schedule.runNow'),
+      () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}/run-now`, { method: 'POST' })));
+    const runsHost = el('ul', 'steward-schedule-runs');
+    runsHost.hidden = true;
+    actions.appendChild(button('steward-schedule-act', t('settings.steward.schedule.runs'),
+      () => toggleRuns(String(task.id || ''), runsHost)));
+    actions.appendChild(button('steward-schedule-act steward-schedule-del', t('settings.steward.schedule.delete'),
+      () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, { method: 'DELETE' })));
+    item.appendChild(actions);
+    item.appendChild(runsHost);
+    return item;
+  }
+
+  // 排序：与口袋／「接下来」同一序（下次触发升序），但**暂停与算不出下一次的也要在表里**——
+  // upcomingSchedules 会把它们滤掉（那是「接下来」要的语义，不是这张表要的）。
+  function scheduleSorted(tasks) {
+    return [...tasks].sort((a, b) => {
+      const ax = Date.parse(String(a.nextRunAt || '')) || Number.MAX_SAFE_INTEGER;
+      const bx = Date.parse(String(b.nextRunAt || '')) || Number.MAX_SAFE_INTEGER;
+      return ax - bx;
+    });
+  }
+
   function renderSchedule(tasks) {
     const list = byId('cfgStewardSchedule');
     if (!list) return 0;
     clear(list);
-    const rows = upcomingSchedules(tasks, tasks.length, Date.now());
+    const rows = scheduleSorted(tasks);
     if (!rows.length) {
-      const empty = el('li', 'steward-schedule-empty', t('settings.steward.schedule.empty'));
-      list.appendChild(empty);
+      list.appendChild(el('li', 'steward-schedule-empty', t('settings.steward.schedule.empty')));
       return 0;
     }
-    const lang = (doc() && doc().documentElement && doc().documentElement.lang) || '';
-    for (const task of rows) {
-      const item = el('li', 'steward-schedule-row');
-      item.appendChild(el('span', 'steward-schedule-name', task.name));
-      const when = scheduleWhenLabel(task.nextRunAt, lang);
-      if (when) item.appendChild(el('span', 'steward-schedule-when', t('settings.steward.schedule.next', { when })));
-      list.appendChild(item);
-    }
+    for (const task of rows) list.appendChild(scheduleTaskRow(task));
     return rows.length;
   }
   async function loadSchedule() {
-    const tasks = await readScheduleTasks(api);
+    let payload = null;
+    try { payload = await api(SCHEDULE_TASKS_PATH); } catch { payload = null; }
+    scheduleRows = (payload && Array.isArray(payload.tasks)) ? payload.tasks : [];
     scheduleLoaded = true;
-    return renderSchedule(tasks);
+    scheduleOpenRuns = '';
+    return renderSchedule(scheduleRows);
+  }
+
+  /* ── 新建表单 ─────────────────────────────────────────────────────────── */
+  function scheduleFormError(message) {
+    const node = byId('cfgStewardScheduleFormError');
+    if (node) node.textContent = String(message || '');
+  }
+  // 五档各显示各自那几块。同时 prompt 载荷才有「在哪儿跑 / 哪一条线程 / 权限档」。
+  function syncScheduleForm() {
+    const kind = String((byId('cfgStewardScheduleKind') || {}).value || 'once');
+    const wanted = SCHEDULE_KIND_FIELDS[kind] || SCHEDULE_KIND_FIELDS.once;
+    for (const [field, blockId] of Object.entries(SCHEDULE_FIELD_BLOCKS)) {
+      const block = byId(blockId);
+      if (block) block.hidden = !wanted.includes(field);
+    }
+    const isPrompt = String((byId('cfgStewardSchedulePayloadKind') || {}).value || '') === 'prompt';
+    const targetBlock = byId('cfgStewardScheduleTargetBlock');
+    if (targetBlock) targetBlock.hidden = !isPrompt;
+    const permissionBlock = byId('cfgStewardSchedulePermissionBlock');
+    if (permissionBlock) permissionBlock.hidden = !isPrompt;
+    const existing = isPrompt && String((byId('cfgStewardScheduleTarget') || {}).value || '') === 'existing-session';
+    const sessionBlock = byId('cfgStewardScheduleSessionBlock');
+    if (sessionBlock) sessionBlock.hidden = !existing;
+    return kind;
+  }
+  // 「哪一条线程」的候选来自左栏已经取回来的那一份（GET /api/missions），不裸发第二份请求。
+  async function fillScheduleSessions() {
+    const select = byId('cfgStewardScheduleSessionId');
+    if (!select) return 0;
+    let rows = [];
+    try {
+      const payload = await api('/api/missions?limit=50');
+      rows = (payload && Array.isArray(payload.missions)) ? payload.missions : [];
+    } catch { rows = []; }
+    clear(select);
+    for (const row of rows) {
+      const sessionId = String((row && row.sessionId) || '');
+      if (!sessionId) continue;
+      const option = el('option', '', String(row.missionTitle || row.title || sessionId));
+      option.value = sessionId;
+      select.appendChild(option);
+    }
+    return select.options.length;
+  }
+  function scheduleFormPlan(kind) {
+    const at = String((byId('cfgStewardScheduleAt') || {}).value || '');
+    if (kind === 'cron') return { kind, expr: String((byId('cfgStewardScheduleCron') || {}).value || '') };
+    if (kind === 'once') return { kind, at, date: String((byId('cfgStewardScheduleDate') || {}).value || '') };
+    if (kind === 'weekly') {
+      const box = byId('cfgStewardScheduleDaysBlock');
+      const days = box ? [...box.querySelectorAll('input[data-dow]')].filter(node => node.checked).map(node => Number(node.dataset.dow)) : [];
+      return { kind, at, days };
+    }
+    if (kind === 'monthly') return { kind, at, dayOfMonth: Number((byId('cfgStewardScheduleDom') || {}).value || 1) };
+    return { kind, at };
+  }
+  async function submitSchedule() {
+    scheduleFormError('');
+    const kind = String((byId('cfgStewardScheduleKind') || {}).value || 'once');
+    const payloadKind = String((byId('cfgStewardSchedulePayloadKind') || {}).value || 'reminder');
+    const body = {
+      title: String((byId('cfgStewardScheduleTitle') || {}).value || '').trim(),
+      schedule: scheduleFormPlan(kind),
+      payload: { kind: payloadKind, text: String((byId('cfgStewardScheduleText') || {}).value || '').trim() },
+    };
+    if (payloadKind === 'prompt') {
+      const mode = String((byId('cfgStewardScheduleTarget') || {}).value || 'new-session');
+      body.target = mode === 'existing-session'
+        ? { mode, sessionId: String((byId('cfgStewardScheduleSessionId') || {}).value || '') }
+        : { mode };
+      const permission = String((byId('cfgStewardSchedulePermission') || {}).value || '');
+      if (permission) body.autonomy = { permissionMode: permission };
+    }
+    let response = null;
+    try { response = await api(SCHEDULE_TASKS_PATH, { method: 'POST', body: JSON.stringify(body) }); }
+    catch (error) { response = { ok: false, error }; }
+    if (!response || response.ok !== true) {
+      // 建不成【留在表单里】并把原因印在旁边（不 toast 完就把表单收掉——用户刚填的东西还在里面）。
+      scheduleFormError(t('settings.steward.schedule.form.failed', { reason: stewardErrorText((response && response.error) || response) }));
+      return false;
+    }
+    toggleScheduleForm(false);
+    await loadSchedule();
+    return true;
+  }
+  function toggleScheduleForm(open) {
+    const form = byId('cfgStewardScheduleForm');
+    if (!form) return false;
+    form.hidden = !open;
+    if (open) {
+      scheduleFormError('');
+      const date = byId('cfgStewardScheduleDate');
+      if (date && !date.value) date.value = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      syncScheduleForm();
+      void fillScheduleSessions();
+    }
+    return open;
   }
 
   /* ═══════════════ 填充与接线 ═══════════════ */
@@ -870,6 +1112,18 @@ export function createStewardSettingsDomain({
 
     const refreshSchedule = byId('cfgStewardScheduleRefreshBtn');
     if (refreshSchedule) refreshSchedule.onclick = () => loadSchedule();
+    // 123-M2（§3.6）：新建表单。计划四档＋cron 高级用同一张 SCHEDULE_KIND_FIELDS 表切字段块，
+    // 不重画表单（零 innerHTML 的另一半：DOM 是静态的，JS 只改 hidden 与 value）。
+    const newSchedule = byId('cfgStewardScheduleNewBtn');
+    if (newSchedule) newSchedule.onclick = () => toggleScheduleForm(byId('cfgStewardScheduleForm') ? byId('cfgStewardScheduleForm').hidden : true);
+    const cancelSchedule = byId('cfgStewardScheduleCancelBtn');
+    if (cancelSchedule) cancelSchedule.onclick = () => toggleScheduleForm(false);
+    const scheduleForm = byId('cfgStewardScheduleForm');
+    if (scheduleForm) scheduleForm.addEventListener('submit', event => { event.preventDefault(); void submitSchedule(); });
+    for (const id of ['cfgStewardScheduleKind', 'cfgStewardSchedulePayloadKind', 'cfgStewardScheduleTarget']) {
+      const node = byId(id);
+      if (node) node.addEventListener('change', () => syncScheduleForm());
+    }
 
     const refreshMemory = byId('cfgStewardMemoryRefreshBtn');
     if (refreshMemory) refreshMemory.onclick = () => loadMemory();
@@ -930,5 +1184,11 @@ export function createStewardSettingsDomain({
     renderShield,
     // 测试与 117g/117h 复用：当前已知的停机态（只读快照）。
     isStopped: () => stopped,
+    // 123-M2（§3.6）：定时任务展开的最近几次里，点产出线程要在【如意内】打开它。
+    // 走 setter 而不是构造参数——构造那一行被 steward-settings.static 逐字钉着（新依赖一律迟绑定，
+    // 与 drawer.setClassicWindow / setMissionRows 同一条纪律）。
+    setOpenThread: handler => { openThreadHandler = typeof handler === 'function' ? handler : null; },
+    // 真夹具的确定性刷新口（本块没有计时器：只在打开页签、按刷新、做完一个动作这三个时刻刷）。
+    loadSchedule,
   });
 }

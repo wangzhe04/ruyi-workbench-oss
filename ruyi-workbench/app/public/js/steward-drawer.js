@@ -1388,6 +1388,11 @@ export function createStewardDrawer({
         void pushRefreshSlice();
       });
     }
+    // 123-M2（37 号文 §3.6）：「接下来」那两行吃真数据之后要跟着定时任务表变。修前它只在
+    // 【进管家视角】与【绑定】两个时刻各刷一次（K7 刻意不挂在 refreshOnce 上——那是 5–30 s 的
+    // 轮询拍，挂上去等于给 /api/scheduler/tasks 新开一条轮询）。schedule.changed 是「有事发生了
+    // 才刷」，**不是第二条计时器**：建/改/删/触发各一帧，帧里只有 taskId/phase/outcome。
+    stream.on('schedule.changed', () => { void refreshUpNext(); });
     return true;
   }
 

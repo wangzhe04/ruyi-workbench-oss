@@ -1197,15 +1197,105 @@
               </div>
             </section>
 
-            <!-- ④d 定时任务（121-K7，34 号文 §7.2 表首行）：口袋第一项与焦点栏「接下来」落到的那一面。 -->
-            <!-- **只读**：119 波的定时任务读面（GET /api/scheduler/tasks）今天还没有生产者，读不到就 -->
-            <!-- 说「还没有定时任务」——面在这里，等它落地那天不用再挪一次入口。 -->
+            <!-- ④d 定时任务（121-K7 立面，123-M2 接真数据；37 号文 §3.6 / 29 号文 §8「UI」）： -->
+            <!-- 口袋第一项与焦点栏「接下来」落到的那一面，也是【不经管家也能自己建】的那条路。 -->
+            <!-- 表单是静态 DOM（零 innerHTML 的前提：JS 只 createElement 列表行，表单本身不拼字符串）； -->
+            <!-- 五档计划各自的字段用 hidden 切换，不重画。UX 红线（28 号 §2 / 27 号 §8.1）：这一面 -->
+            <!-- 不出现任何「路径 ＋ 复制」——产出线程点一下就在如意里打开。 -->
             <section class="steward-settings-group" id="cfgStewardGroupSchedule" aria-labelledby="cfgStewardScheduleHeading">
               <h4 id="cfgStewardScheduleHeading" class="settings-subhead" data-i18n="settings.steward.group.schedule">定时任务</h4>
-              <p class="muted prov-hint" data-i18n="settings.steward.group.scheduleHint">到点自己开一条线程去办的事。这里只看，改在别处。</p>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.scheduleHint">到点自己去办的事。可以在这里直接建，也可以直接对管家说。</p>
               <div class="steward-settings-row">
                 <button type="button" id="cfgStewardScheduleRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.refresh">刷新</button>
+                <button type="button" id="cfgStewardScheduleNewBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.new">新建</button>
               </div>
+              <form id="cfgStewardScheduleForm" class="steward-schedule-form" hidden>
+                <div class="field-block">
+                  <label for="cfgStewardScheduleTitle" data-i18n="settings.steward.schedule.form.title">这件事叫什么</label>
+                  <input id="cfgStewardScheduleTitle" type="text" maxlength="120" placeholder="例如：生成周报草稿" data-i18n-attr="placeholder:settings.steward.schedule.form.titlePlaceholder" />
+                </div>
+                <div class="field-grid">
+                  <div class="field-block">
+                    <label for="cfgStewardScheduleKind" data-i18n="settings.steward.schedule.form.kind">多久一次</label>
+                    <select id="cfgStewardScheduleKind">
+                      <option value="once" data-i18n="settings.steward.schedule.kind.once">只这一次</option>
+                      <option value="daily" data-i18n="settings.steward.schedule.kind.daily">每天</option>
+                      <option value="weekly" data-i18n="settings.steward.schedule.kind.weekly">每周</option>
+                      <option value="monthly" data-i18n="settings.steward.schedule.kind.monthly">每月</option>
+                      <option value="cron" data-i18n="settings.steward.schedule.kind.cron">高级（cron）</option>
+                    </select>
+                  </div>
+                  <div class="field-block" id="cfgStewardScheduleAtBlock">
+                    <label for="cfgStewardScheduleAt" data-i18n="settings.steward.schedule.form.at">几点</label>
+                    <input id="cfgStewardScheduleAt" type="time" value="09:00" />
+                  </div>
+                </div>
+                <div class="field-block" id="cfgStewardScheduleDateBlock">
+                  <label for="cfgStewardScheduleDate" data-i18n="settings.steward.schedule.form.date">哪一天</label>
+                  <input id="cfgStewardScheduleDate" type="date" />
+                </div>
+                <fieldset class="field-block steward-schedule-days" id="cfgStewardScheduleDaysBlock">
+                  <legend data-i18n="settings.steward.schedule.form.days">星期几</legend>
+                  <label><input type="checkbox" data-dow="1" checked /><span data-i18n="scheduler.dow.1">周一</span></label>
+                  <label><input type="checkbox" data-dow="2" checked /><span data-i18n="scheduler.dow.2">周二</span></label>
+                  <label><input type="checkbox" data-dow="3" checked /><span data-i18n="scheduler.dow.3">周三</span></label>
+                  <label><input type="checkbox" data-dow="4" checked /><span data-i18n="scheduler.dow.4">周四</span></label>
+                  <label><input type="checkbox" data-dow="5" checked /><span data-i18n="scheduler.dow.5">周五</span></label>
+                  <label><input type="checkbox" data-dow="6" /><span data-i18n="scheduler.dow.6">周六</span></label>
+                  <label><input type="checkbox" data-dow="0" /><span data-i18n="scheduler.dow.0">周日</span></label>
+                </fieldset>
+                <div class="field-block" id="cfgStewardScheduleDomBlock">
+                  <label for="cfgStewardScheduleDom" data-i18n="settings.steward.schedule.form.dayOfMonth">每月几号</label>
+                  <input id="cfgStewardScheduleDom" type="number" min="1" max="31" step="1" value="1" />
+                  <p class="field-help muted" data-i18n="settings.steward.schedule.form.dayOfMonthHint">填 31 表示「每月最后一天」：2 月自动是 28 或 29 号。</p>
+                </div>
+                <div class="field-block" id="cfgStewardScheduleCronBlock">
+                  <label for="cfgStewardScheduleCron" data-i18n="settings.steward.schedule.form.cron">cron 表达式</label>
+                  <input id="cfgStewardScheduleCron" type="text" placeholder="0 9 * * 1-5" />
+                  <p class="field-help muted" data-i18n="settings.steward.schedule.form.cronHint">五个字段：分 时 日 月 周。支持 * , - / 与数字，按本地时间算。</p>
+                </div>
+                <div class="field-grid">
+                  <div class="field-block">
+                    <label for="cfgStewardSchedulePayloadKind" data-i18n="settings.steward.schedule.form.payload">到点做什么</label>
+                    <select id="cfgStewardSchedulePayloadKind">
+                      <option value="reminder" data-i18n="settings.steward.schedule.payload.reminder">只提醒我（不动模型）</option>
+                      <option value="prompt" data-i18n="settings.steward.schedule.payload.prompt">让如意跑一个回合</option>
+                    </select>
+                  </div>
+                  <div class="field-block" id="cfgStewardScheduleTargetBlock">
+                    <label for="cfgStewardScheduleTarget" data-i18n="settings.steward.schedule.form.target">在哪儿跑</label>
+                    <select id="cfgStewardScheduleTarget">
+                      <option value="new-session" data-i18n="settings.steward.schedule.target.new">每次开一条新线程</option>
+                      <option value="existing-session" data-i18n="settings.steward.schedule.target.existing">在一条已有线程里</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardScheduleText" data-i18n="settings.steward.schedule.form.text">说什么</label>
+                  <textarea id="cfgStewardScheduleText" rows="3" maxlength="4000" placeholder="到点要提醒的话，或要让如意去做的那件事" data-i18n-attr="placeholder:settings.steward.schedule.form.textPlaceholder"></textarea>
+                </div>
+                <div class="field-grid">
+                  <div class="field-block" id="cfgStewardScheduleSessionBlock">
+                    <label for="cfgStewardScheduleSessionId" data-i18n="settings.steward.schedule.form.sessionId">哪一条线程</label>
+                    <select id="cfgStewardScheduleSessionId"></select>
+                  </div>
+                  <div class="field-block" id="cfgStewardSchedulePermissionBlock">
+                    <label for="cfgStewardSchedulePermission" data-i18n="settings.steward.schedule.form.permission">它能自己做到哪一步</label>
+                    <select id="cfgStewardSchedulePermission">
+                      <option value="" data-i18n="settings.steward.schedule.permission.global">跟随全局设置</option>
+                      <option value="default" data-i18n="permission.mode.default.short">每步都问</option>
+                      <option value="plan" data-i18n="permission.mode.plan.short">先计划再动手</option>
+                      <option value="acceptEdits" data-i18n="permission.mode.acceptEdits.short">小改动自动做</option>
+                      <option value="auto" data-i18n="permission.mode.auto.short">智能自动</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="field-help muted" id="cfgStewardScheduleFormError" role="status"></p>
+                <div class="steward-settings-row">
+                  <button type="submit" id="cfgStewardScheduleSubmitBtn" class="btn btn-sm btn-primary" data-i18n="settings.steward.schedule.form.submit">建这一条</button>
+                  <button type="button" id="cfgStewardScheduleCancelBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.form.cancel">取消</button>
+                </div>
+              </form>
               <ul id="cfgStewardSchedule" class="steward-schedule-list"></ul>
             </section>
 
