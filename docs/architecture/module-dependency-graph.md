@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 52 | 2235 | 2382 | 408 | 68 | 0 | 1 |
+| 52 | 2240 | 2386 | 408 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -18,9 +18,9 @@
 | 0 | `00-boot.js` | bootstrap | 56 | 5 | 4 |
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 31 | 0 | 0 |
-| 3 | `01-config.js` | foundation | 114 | 35 | 8 |
+| 3 | `01-config.js` | foundation | 115 | 35 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 5 | `02-session-store.js` | foundation | 238 | 44 | 12 |
+| 5 | `02-session-store.js` | foundation | 241 | 46 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 8 | `04-permission-runtime.js` | foundation | 100 | 29 | 7 |
@@ -44,7 +44,7 @@
 | 26 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 27 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
 | 28 | `09-workflow.js` | orchestration | 10 | 210 | 22 |
-| 29 | `10-context-governance.js` | orchestration | 126 | 67 | 14 |
+| 29 | `10-context-governance.js` | orchestration | 126 | 69 | 14 |
 | 30 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 31 | `12-tool-dispatch.js` | tools | 33 | 78 | 14 |
 | 32 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
@@ -62,7 +62,7 @@
 | 44 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
 | 45 | `13o-steward-runner-prompt.js` | transport | 14 | 44 | 12 |
 | 46 | `13p-steward-runner-actions.js` | transport | 23 | 35 | 10 |
-| 47 | `13q-steward-runner-turn.js` | transport | 17 | 57 | 15 |
+| 47 | `13q-steward-runner-turn.js` | transport | 18 | 57 | 15 |
 | 48 | `13h-steward-runner.js` | transport | 6 | 46 | 12 |
 | 49 | `13r-event-stream.js` | transport | 20 | 14 | 6 |
 | 50 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
@@ -85,7 +85,7 @@
 | `01-config.js` | `06-provider-engine.js` | forward | `normalizeStoragePolicy` |
 | `01-config.js` | `07-autonomy.js` | forward | `TOOL_PACK_DESCRIPTIONS`, `claudePermissionMode`, `getAgentRoleLibrary`, `nativeToolTier` |
 | `02-session-store.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
-| `02-session-store.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `readConfig`, `readFileTail`, `resolvePermissionMode`, `safeSessionId`, `sessionPath`, `sessionWriteChains` |
+| `02-session-store.js` | `01-config.js` | backward | `PERMISSION_MODES`, `atomicWriteJson`, `mutateConfig`, `readConfig`, `readFileTail`, `resolvePermissionMode`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `03-bridge-guard.js` | forward | `pathWithinRoot`, `realpathForContainment` |
 | `02-session-store.js` | `04-desktop-shell.js` | forward | `DesktopShell` |
 | `02-session-store.js` | `04-permission-runtime.js` | forward | `activeChildren`, `logEvent`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `stopSession`, `turnSettlers` |
@@ -237,7 +237,7 @@
 | `10-context-governance.js` | `00-boot.js` | backward | `URL`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `permissionModeFrom`, `readConfig`, `readJsonBody`, `resolvePermissionMode` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `observationRecallEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
-| `10-context-governance.js` | `02-session-store.js` | backward | `configForSessionEngineRoute`, `createSession`, `inferSessionEngineRoute`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `normalizeSessionEngineRoute`, `readSessionNotes`, `saveSession`, `withJournalWriteLock`, `writeSessionNotes` |
+| `10-context-governance.js` | `02-session-store.js` | backward | `configForSessionEngineRoute`, `createSession`, `inferSessionEngineRoute`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `normalizeSessionEngineRoute`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `saveSession`, `sessionEngineRouteFromConfig`, `withJournalWriteLock`, `writeSessionNotes` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnSettlers` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `providerBaseWithV1`, `providerResponsesBase`, `runClaudeTurn` |
 | `10-context-governance.js` | `05b-kimi-bridge.js` | backward | `kimiContextWindow` |

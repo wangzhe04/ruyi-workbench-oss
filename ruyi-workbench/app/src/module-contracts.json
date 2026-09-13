@@ -248,6 +248,7 @@
         "resolveKimiNpmEntry",
         "resolvePermissionMode",
         "safeSessionId",
+        "sanitizeLastUsedEngineRoute",
         "selectedAgentCli",
         "send",
         "sendError",
@@ -646,6 +647,7 @@
         "journalWriteChains",
         "journalWriteIndex",
         "kindForPath",
+        "lastUsedEngineRouteUsable",
         "listMissionContainerIds",
         "listMissionContainers",
         "listSessions",
@@ -679,6 +681,7 @@
         "missionSignalThrottleAt",
         "missionSplitThreads",
         "missionsDir",
+        "newSessionEngineRoute",
         "normalizeMission",
         "normalizeMissionAcceptance",
         "normalizeMissionBudget",
@@ -709,6 +712,7 @@
         "recordMissionBudgetTrippedChange",
         "recordMissionStalledChange",
         "registerIntervention",
+        "rememberLastUsedEngineRoute",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
@@ -881,6 +885,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
@@ -910,6 +921,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "selectedAgentCli",
           "kinds": [
             "call"
           ]
@@ -7686,7 +7704,21 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -14559,6 +14591,7 @@
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
+        "stewardLastAssistantCreatedAt",
         "stewardOnInboxBatch",
         "stewardPendingList",
         "stewardQueueHasQuickAnswer",
