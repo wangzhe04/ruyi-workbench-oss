@@ -66,14 +66,17 @@ describe('fixtureChildEnv({ perTest: true })', () => {
   // 123-M3(37 号文 §3.7):LOCALAPPDATA/APPDATA 不是从 USERPROFILE 派生的独立环境变量,
   // 换家目录时若不跟着换,子进程读到的还是真机的 —— 36 号文 §5.1 实测的泄漏根
   // (index-dedup.e2e.js 的 migrateLegacyAccMemory() 就是扫到真机 %LOCALAPPDATA% 命中出来的)。
-  it('perTest 的 LOCALAPPDATA/APPDATA 都落在这次的临时家 home 之下,且目录已建好', () => {
+  // 123 合并复核（主会话）：假 AppData 【整机一份、跨件共用】，住 os.tmpdir()/ruyi-e2e-appdata，
+  // 不再挂在每件独立的临时家下面 —— 桌面 MCP python 探针的磁盘缓存键含 %LOCALAPPDATA% 派生的
+  // 候选路径，每件一个新目录＝每件冷探针（首个 /api/status 6 s），8 路全量 37 红。隔离的目标只是
+  // 「不许指回真机」，共用一份假的就够（见 lib/fixture-home.js fakeAppDataDirs 头注）。
+  it('perTest 的 LOCALAPPDATA/APPDATA 落在 os.tmpdir()/ruyi-e2e-appdata 之下,固定名,且目录已建好', () => {
     const a = fixtureChildEnv({ perTest: true });
     try {
-      const home = normalizeHome(a.home);
-      assert.ok(normalizeHome(a.env.LOCALAPPDATA).startsWith(home), `LOCALAPPDATA ${a.env.LOCALAPPDATA} 应落在本次 home ${a.home} 之下`);
-      assert.ok(normalizeHome(a.env.APPDATA).startsWith(home), `APPDATA ${a.env.APPDATA} 应落在本次 home ${a.home} 之下`);
-      assert.equal(a.env.LOCALAPPDATA, path.join(a.home, 'AppData', 'Local'), 'LOCALAPPDATA 是 <home>/AppData/Local');
-      assert.equal(a.env.APPDATA, path.join(a.home, 'AppData', 'Roaming'), 'APPDATA 是 <home>/AppData/Roaming');
+      const base = path.join(os.tmpdir(), 'ruyi-e2e-appdata');
+      assert.equal(a.env.LOCALAPPDATA, path.join(base, 'Local'), 'LOCALAPPDATA 是 <tmp>/ruyi-e2e-appdata/Local');
+      assert.equal(a.env.APPDATA, path.join(base, 'Roaming'), 'APPDATA 是 <tmp>/ruyi-e2e-appdata/Roaming');
+      assert.ok(!normalizeHome(a.env.LOCALAPPDATA).startsWith(normalizeHome(a.home)), '假 AppData 不挂在每件独立的临时家下(否则探针缓存键每件都变)');
       assert.ok(fs.existsSync(a.env.LOCALAPPDATA), 'LOCALAPPDATA 目录必须已经 mkdir 出来(不是只写了一个不存在的路径)');
       assert.ok(fs.existsSync(a.env.APPDATA), 'APPDATA 目录必须已经 mkdir 出来');
     } finally {
@@ -81,7 +84,7 @@ describe('fixtureChildEnv({ perTest: true })', () => {
     }
   });
 
-  it('两次 perTest 的 LOCALAPPDATA/APPDATA 都 ≠ 真机(不会指回真机家)', () => {
+  it('两次 perTest 的 LOCALAPPDATA/APPDATA 都 ≠ 真机(不会指回真机家),且彼此相同(整机一份)', () => {
     const a = fixtureChildEnv({ perTest: true });
     const b = fixtureChildEnv({ perTest: true });
     try {
@@ -91,7 +94,7 @@ describe('fixtureChildEnv({ perTest: true })', () => {
       assert.notEqual(normalizeHome(a.env.APPDATA), realRoaming, 'a 的 APPDATA 不许等于真机的');
       assert.notEqual(normalizeHome(b.env.LOCALAPPDATA), realLocal, 'b 的 LOCALAPPDATA 不许等于真机的');
       assert.notEqual(normalizeHome(b.env.APPDATA), realRoaming, 'b 的 APPDATA 不许等于真机的');
-      assert.notEqual(a.env.LOCALAPPDATA, b.env.LOCALAPPDATA, '两次 perTest 的 LOCALAPPDATA 也不该彼此相同(各自独立的临时家)');
+      assert.equal(a.env.LOCALAPPDATA, b.env.LOCALAPPDATA, '两次 perTest 的 LOCALAPPDATA 相同(整机一份,探针缓存键才稳定)');
     } finally {
       fs.rmSync(a.home, { recursive: true, force: true });
       fs.rmSync(b.home, { recursive: true, force: true });

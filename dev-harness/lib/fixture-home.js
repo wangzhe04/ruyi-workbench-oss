@@ -69,9 +69,16 @@ function fixtureHomeDirPerTest() {
 // 无头 Edge 的 --user-data-dir 是每个 *.browser.e2e.js 各自显式拼在临时家下面传的
 // (grep -rn "user-data-dir" dev-harness/*.browser.e2e.js 核过,一个不例外),不读
 // LOCALAPPDATA/APPDATA,所以这两个变量换掉不影响浏览器件的 profile 落点。
-function fakeAppDataDirs(home) {
-  const local = path.join(home, 'AppData', 'Local');
-  const roaming = path.join(home, 'AppData', 'Roaming');
+// 123 合并复核（主会话，2026-09-13 夜）：假 AppData 【整机一份、跨件共用】，不是每件一份。
+// 第一版把它挂在每件独立的临时家下面，合并后 8 路全量 37 红——桌面 MCP 的 python 探针磁盘缓存
+// （01-config desktopPythonDiskCacheId）的键含 %LOCALAPPDATA% 派生的候选路径，每件一个新目录＝
+// 每件一个新键＝每件都冷探针（首个 /api/status 6 s，真机 LOCALAPPDATA 时 2.5 s），凡是给
+// /api/status 留 5 s 预算的件全部超时。隔离的目标只是「不许指回真机」，共用一份假的就够；
+// 目录名固定，缓存键从第二个进程起就命中。
+function fakeAppDataDirs() {
+  const base = path.join(os.tmpdir(), 'ruyi-e2e-appdata');
+  const local = path.join(base, 'Local');
+  const roaming = path.join(base, 'Roaming');
   fs.mkdirSync(local, { recursive: true });
   fs.mkdirSync(roaming, { recursive: true });
   return { local, roaming };
@@ -88,7 +95,7 @@ function fakeAppDataDirs(home) {
 function fixtureChildEnv(opts) {
   const options = opts || {};
   const home = options.perTest ? fixtureHomeDirPerTest() : fixtureHomeDir();
-  const { local, roaming } = fakeAppDataDirs(home);
+  const { local, roaming } = fakeAppDataDirs();
   const env = {
     ...(options.baseEnv || process.env),
     USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME,

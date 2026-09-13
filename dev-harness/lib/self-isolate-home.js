@@ -33,7 +33,7 @@ function selfIsolateHome() {
   }
   // 123-M3（37 号文 §3.7）：与 fixtureChildEnv 同一条纪律——LOCALAPPDATA/APPDATA 不是从
   // USERPROFILE 派生的，直跑时不换这两个就还是真机的（36 号文 §5.1 的泄漏根）。
-  const { local, roaming } = fakeAppDataDirs(home);
+  const { local, roaming } = fakeAppDataDirs();
   process.env.LOCALAPPDATA = local;
   process.env.APPDATA = roaming;
   if (!process.env.RUYI_REAL_HOME) process.env.RUYI_REAL_HOME = REAL_HOME;
