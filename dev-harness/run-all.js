@@ -145,7 +145,7 @@ const { portAuditFromDir } = require('./lib/port-audit');
 const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 // 27 号文 §11.21.7 债④:夹具 HOME 守卫。夹具拿到的家目录是【临时家】,真机家另走 RUYI_REAL_HOME;
 // 守卫以 --require 装进【每件夹具】,拦住「带了 RUYI_HOME 却没隔离家目录」的子进程(见 lib/fixture-home.js)。
-const { GUARD_FILE: FIXTURE_GUARD, fixtureChildEnv, fixtureHomeDir, REAL_HOME, REAL_HOME_SOURCE } = require('./lib/fixture-home');
+const { GUARD_FILE: FIXTURE_GUARD, fixtureChildEnv, REAL_HOME, REAL_HOME_SOURCE } = require('./lib/fixture-home');
 function portAudit() { return portAuditFromDir(HARNESS); }
 
 function listE2e() {
@@ -155,18 +155,22 @@ function listE2e() {
 }
 
 // 跑一件:spawn + 超时 taskkill /T 杀整树(Windows 孙进程兜底)。
+// 122 波 §2.7:每件一份独立临时家(perTest mkdtemp),不再整轮共用 —— 先跑的件往共用家写
+// .claude.json,后跑的件又把它当"外部已装"的 MCP 导入,是 websearch 在 8 路全量下红的真根。
+// ok 件跑完(close 之后)就地 rmSync 回收;失败件保留目录并把路径打进该件输出,便于取证。
 function runOne(file) {
   return new Promise(resolve => {
     const t0 = Date.now();
     const full = path.join(HARNESS, file);
     const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
+    const { env: childEnv, home: childHome } = fixtureChildEnv({ perTest: true });
     // --require 走 CLI 实参而不是 NODE_OPTIONS:Node 的 NODE_OPTIONS 分词器吃引号/反斜杠,
     // 本仓检出路径含空格,走 NODE_OPTIONS 必挂;CLI 实参还保证 --require 从夹具 argv 里被剔掉。
     const child = cp.spawn(process.execPath, ['--require', FIXTURE_GUARD, full], {
       cwd: HARNESS,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: fixtureChildEnv(),
+      env: childEnv,
     });
     let stdout = '', stderr = '', timedOut = false;
     child.stdout.on('data', d => (stdout += d));
@@ -187,11 +191,18 @@ function runOne(file) {
       // Edge utility processes can escape the child tree. Reap only Ruyi Temp-profile browsers before
       // the next case, otherwise a long serial run eventually exhausts process and handle resources.
       if (ownsBrowserProfile) stopRuyiTestBrowsers();
-      resolve({ file, ok: code === 0 && !timedOut, timedOut, status: code, out: stdout + stderr, ms: Date.now() - t0 });
+      const ok = code === 0 && !timedOut;
+      let out = stdout + stderr;
+      if (ok) {
+        try { fs.rmSync(childHome, { recursive: true, force: true, maxRetries: 3 }); } catch { /* 回收不了不影响结果 */ }
+      } else {
+        out += `\n[fixture home 保留取证] ${childHome}`;
+      }
+      resolve({ file, ok, timedOut, status: code, out, ms: Date.now() - t0 });
     });
     child.on('error', e => {
       clearTimeout(timer);
-      resolve({ file, ok: false, timedOut: false, status: -1, out: stdout + stderr + '\n[spawn error] ' + e, ms: Date.now() - t0 });
+      resolve({ file, ok: false, timedOut: false, status: -1, out: stdout + stderr + '\n[spawn error] ' + e + `\n[fixture home 保留取证] ${childHome}`, ms: Date.now() - t0 });
     });
   });
 }
@@ -236,7 +247,9 @@ async function main() {
   console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,${PARALLEL > 1 ? `并行(${PARALLEL}路)` : '串行(taskkill /T 杀整树)'}`);
   console.log(`# Node ${process.version}, platform ${process.platform}`);
   // 27 号文 §11.21.7 债④:夹具一律拿临时家,真机家只以 RUYI_REAL_HOME 的形式传下去(守卫的判据源)。
-  console.log(`# 夹具家目录隔离: USERPROFILE/HOME -> ${fixtureHomeDir()}`);
+  // 122 波 §2.7:不再是整轮共用一份 —— 每一件各自 mkdtemp 一份独立临时家,跑完(仅 ok 件)即删,
+  // 失败件保留目录并在该件输出里打印路径,避免先跑的件污染后跑的件(websearch 8 路红的真根)。
+  console.log(`# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证`);
   console.log(`# 夹具 HOME 守卫: --require ${path.relative(path.join(HARNESS, '..'), FIXTURE_GUARD)} 装进每件夹具(真机家来自 ${REAL_HOME_SOURCE}: ${REAL_HOME})`);
   // 第36波: 端口唯一性审计(见 stripJsComments 上方说明)。撞车即拒跑 —— 带病跑完全量也是浪费。
   const audit = portAudit();

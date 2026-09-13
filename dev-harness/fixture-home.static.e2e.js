@@ -129,7 +129,10 @@ const homeSrc = fs.readFileSync(path.join(HARNESS, 'lib', 'fixture-home.js'), 'u
 ok(/RUYI_REAL_HOME/.test(homeSrc), '判据源从 RUYI_REAL_HOME 取真机家(run-all 注入后夹具看不见真机家)');
 const runAllSrc = fs.readFileSync(path.join(HARNESS, 'run-all.js'), 'utf8');
 ok(/require\('\.\/lib\/fixture-home'\)/.test(runAllSrc), 'run-all 引入了判据源 lib/fixture-home');
-ok(/env: fixtureChildEnv\(\)/.test(runAllSrc), 'run-all 给夹具子进程注入临时家(fixtureChildEnv)');
+// 122 波 §2.7:run-all 的 spawn 处改用 fixtureChildEnv({ perTest: true })(每件独立临时家,
+// 不再整轮共用),字面调用形态从 `env: fixtureChildEnv()` 变成解构 `fixtureChildEnv({ perTest: true })`
+// —— 锁改成钉"确实用了 perTest 形态"这件事本身,而不是钉旧写法的字面文本(32 号文 §4 纪律5)。
+ok(/fixtureChildEnv\(\{\s*perTest:\s*true\s*\}\)/.test(runAllSrc), 'run-all 给夹具子进程按【每件独立】注入临时家(fixtureChildEnv({ perTest: true }))');
 ok(/'--require', FIXTURE_GUARD/.test(runAllSrc), 'run-all 以 --require 把守卫装进每件夹具');
 ok(!/NODE_OPTIONS[\s\S]{0,80}fixture-home-guard/.test(runAllSrc),
   '反向:NODE_OPTIONS 那套没被误用(它吃引号/反斜杠,本仓路径含空格必挂)');

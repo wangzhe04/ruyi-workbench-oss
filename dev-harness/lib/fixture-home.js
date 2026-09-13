@@ -52,11 +52,25 @@ function fixtureHomeDir() {
   return cachedFixtureHome;
 }
 
+// 122 波 §2.7:先跑的件往(整轮共用的)临时家写 .claude.json,后跑的件又把它导入 —— 8 路全量下
+// websearch 红的真根。修法:每一件自己一份 mkdtemp,不跨件共用。
+// 用一个新目录、跑完由调用方(run-all)自行 rmSync 回收。
+function fixtureHomeDirPerTest() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-'));
+}
+
 // 夹具子进程的环境:家目录一套换成临时家(USERPROFILE 管 os.homedir(),HOME 管 git/npm 一类),
 // 真机家另走 RUYI_REAL_HOME —— 守卫靠它才知道「真机家」是哪个(夹具自己已经看不见了)。
-function fixtureChildEnv(baseEnv) {
-  const home = fixtureHomeDir();
-  return { ...(baseEnv || process.env), USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME };
+//
+// 不传 opts(或 opts.perTest 为假):沿用整轮共用的那份临时家,返回值仍是【环境对象】本身
+// (向后兼容旧签名)。传 { perTest: true }:每次调用都 mkdtemp 一份全新目录,返回
+// { env, home } —— 调用方(run-all)拿 home 在该件跑完(仅 ok 件)时自行 rmSync 回收;
+// 失败件保留目录,便于取证。
+function fixtureChildEnv(opts) {
+  const options = opts || {};
+  const home = options.perTest ? fixtureHomeDirPerTest() : fixtureHomeDir();
+  const env = { ...(options.baseEnv || process.env), USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME };
+  return options.perTest ? { env, home } : env;
 }
 
 module.exports = {
@@ -67,5 +81,6 @@ module.exports = {
   isRealHome,
   isFakeHome,
   fixtureHomeDir,
+  fixtureHomeDirPerTest,
   fixtureChildEnv,
 };
