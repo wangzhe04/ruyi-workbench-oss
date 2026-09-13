@@ -1256,6 +1256,15 @@
               </select>
               <p id="agentCliCapabilityHint" class="field-help muted"></p>
             </div>
+            <!-- 123-N2:新线程默认引擎。上面那项是「全局用哪个 Agent CLI」,这项是「新开一条线程时先摆成哪个引擎」—— 此前是同一件事(写死跟全局),用户要求拆开。 -->
+            <div class="field-block">
+              <label for="cfgNewThreadEngine" data-i18n="settings.newThreadEngine">新线程默认引擎</label>
+              <select id="cfgNewThreadEngine">
+                <option value="last" data-i18n="settings.newThreadEngine.last">上次用的</option>
+                <option value="global" data-i18n="settings.newThreadEngine.global">跟随全局设置</option>
+              </select>
+              <p id="newThreadEngineHint" class="field-help muted"></p>
+            </div>
             <div class="field-block" data-agent-cli-path="claude">
               <label for="claudePathInput" data-i18n="settings.claudePath">Claude CLI 路径</label>
               <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" data-i18n-attr="placeholder:settings.claudePathPlaceholder" />

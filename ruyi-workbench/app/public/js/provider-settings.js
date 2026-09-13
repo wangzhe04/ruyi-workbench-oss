@@ -163,6 +163,25 @@ function updateAgentCliSettingsVisibility() {
   const hint = $('agentCliCapabilityHint');
   if (hint) hint.textContent = t(`settings.agentCli.hint.${type}`);
 }
+// 123-N2:设置页那一行说明 —— 「上次用的」现在【具体是什么】。没有这一行,那个选项就是一句
+// 无法验证的承诺(用户看不出它记住的是哪一个),而这正是用户报的那条病的反面。
+// 人话【不另起炉灶】:走本文件既有的 engineVisual(meta).label(线程头 chip、消息徽标用的同一份),
+// 模型名附在后面。零 innerHTML —— 调用点写的是 textContent。
+function lastUsedEngineText() {
+  const c = state.config || {};
+  const raw = c.lastUsedEngineRoute;
+  if (!raw || typeof raw !== 'object') return t('settings.newThreadEngine.lastNone');
+  let meta;
+  if (raw.engine === 'openai' && raw.providerId) {
+    const p = (c.providers || []).find(item => item && item.id === raw.providerId) || null;
+    meta = { engine: 'openai', providerId: String(raw.providerId), providerLabel: (p && (p.label || p.id)) || String(raw.providerId), model: String(raw.model || '') };
+  } else {
+    const type = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    meta = { engine: 'claude', agentCliType: type, agentCliLabel: AGENT_CLI_LABELS[type], model: String(raw.model || '') };
+  }
+  const label = engineVisual(meta).label;
+  return t('settings.newThreadEngine.lastIs', { p1: meta.model ? `${label} · ${meta.model}` : label });
+}
 // Human-readable name of the current engine: the provider's label (fallback id) or selected Agent CLI.
 function engineLabel() {
   const route = currentConversationRoute();
@@ -355,6 +374,9 @@ function fillSettings() {
   $('claudePathInput').value = c.claudePath || state.status?.detectedClaudePath || '';
   $('kimiPathInput').value = c.kimiPath || state.status?.detectedKimiPath || '';
   { const el0 = $('cfgAgentCliType'); if (el0 && !el0.dataset.agentCliWired) { el0.dataset.agentCliWired = '1'; el0.addEventListener('change', updateAgentCliSettingsVisibility); } }
+  // 123-N2:新线程默认引擎(last/global)＋「上次用的」现在是什么。
+  { const el0 = $('cfgNewThreadEngine'); if (el0) el0.value = c.newThreadEngine === 'global' ? 'global' : 'last'; }
+  { const el0 = $('newThreadEngineHint'); if (el0) el0.textContent = lastUsedEngineText(); }
   updateAgentCliSettingsVisibility();
   $('cfgPartial').checked = !!c.includePartialMessages;
   $('cfgBeta').checked = !!c.betaInterleavedThinking;
@@ -565,6 +587,8 @@ async function saveSettings() {
     uiMode: $('cfgUiMode') ? $('cfgUiMode').value : (state.config.uiMode || 'pro'),           // v0.9-S1 (C1)
     outputStyle: $('cfgOutputStyle') ? $('cfgOutputStyle').value : (state.config.outputStyle || 'detailed'), // v0.9-S1 (C1)
     agentCliType: $('cfgAgentCliType') ? $('cfgAgentCliType').value : (state.config.agentCliType || 'claude'),
+    // 123-N2:新线程默认引擎。后端 normalizeConfig 再钳一次白名单(非法值回落 'last')。
+    newThreadEngine: $('cfgNewThreadEngine') ? $('cfgNewThreadEngine').value : (state.config.newThreadEngine || 'last'),
     claudePath: $('claudePathInput').value.trim(),
     kimiPath: $('kimiPathInput').value.trim(),
     includePartialMessages: $('cfgPartial').checked,
