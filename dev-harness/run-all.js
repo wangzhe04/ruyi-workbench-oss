@@ -71,6 +71,19 @@ const PARALLEL_EXCLUSIVE = new Set([
   // CPU 时，插话→收尾这段时序会被挤慢，与 quiet-card/live-full-text 同一个模具，所以也排
   // 到并行功能桶之后单独跑。
   'classic-window-live-steer.e2e.js',
+  // 122-L1a（36 号文 §2.1 判据③）：这一件用 CDP `Fetch` 把 `/api/status` **扣住 1500 ms**，再在
+  // 放行前后各量一次现场。它量的是【墙钟窗口】——延迟窗里点四下分段钮、打一段草稿，放行后 2 s
+  // 收口；与别的 Edge 抢 CPU 时，那 1500 ms 里 boot 走到哪一步会飘，B 组「同一拍里两次意图」
+  // 也可能被调度切开。所以排到并行功能桶之后单独跑（同 quiet-card.browser 的理由）。
+  'shell-mode-late-config.browser.e2e.js',
+  // 122-L1a（§2.2 J04）：安静卡与长输入。判据是「卡弹出来的那一刻焦点／草稿／滚动位置一个都
+  // 没变」——`scrollTop` 与 `activeElement` 都是会被别的 Edge 抢焦点／抢渲染时序搅动的量，
+  // 同 quiet-card.browser 一样进独占桶。
+  'quiet-card-typing.browser.e2e.js',
+  // 122-L1a（§2.3 J16）：SSE 重连补发去重。一趟里要拦下浏览器自己的重连请求改写 `Last-Event-ID`
+  // （CDP `Fetch` 全域拦截），另开一条并行 Node SSE 客户端做「服务端真的重放了」的对照，
+  // 再靠两段 3 s 观察窗判「卡数仍为 0」。拦截与观察窗都吃调度，进独占桶。
+  'event-stream-replay.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
