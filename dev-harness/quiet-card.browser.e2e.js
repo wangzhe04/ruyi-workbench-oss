@@ -364,7 +364,8 @@ try {
   // steward 就重新点一次。它绕的是 J05 的真根：boot 末尾 fillSettings() → steward-shell.js 的
   // syncStewardShellAvailability() 那一次 applyShellMode('steward') 的写回调排在 View Transitions
   // 队列里，用户此刻点 classic 走的却是同步支（属性此时还是 classic），落地次序一反，刚点好的
-  // 工作台就被翻回管家（本机实测约 1/3 概率）。真根已在 shell-mode.js 用意图序号收口
+  // 工作台就被翻回管家（这条路在设置下拉上确定性复现；本件原先那 1/3 是上面说的等法问题，不是它）。
+  // 真根已在 shell-mode.js 用意图序号收口
   // （最后一次意图赢），绕道随之退役 —— 改成正面断言：**1 s 内属性稳定为 classic**。
   {
     let flips = 0;

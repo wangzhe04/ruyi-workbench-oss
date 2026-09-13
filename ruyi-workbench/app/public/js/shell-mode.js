@@ -134,7 +134,9 @@ export function createShellModeController({
   // syncStewardShellAvailability() 在「没存过显式非管家偏好」时 applyShellMode('steward')，
   // 它的 write_steward 排进了过渡队列还没落；此刻用户点分段钮选 classic —— 属性此时【还是】
   // classic，于是走同步支立刻写 classic 并持久化；随后排队的 write_steward 才落，把刚点好的
-  // 工作台视角翻回管家。quiet-card.browser 约 1/3 概率撞上（原先靠 A0g「按住 2 s 重点」绕过）。
+  // 工作台视角翻回管家。这条竞态在设置弹窗的视角下拉那条路上【确定性】复现（unit/shell-mode-intent-order）。
+  // 注：quiet-card.browser 原先那 1/3 翻回另有病根 —— 件在默认落点还没落地时就去点，被 app-frame.js
+  // setLens 的同值早退吞掉，用户其实什么都没点（L1a 定案，36 号文 §5）；那一处早退本身登记为 L1b 产品债。
   // 修法就是这一个计数器：每次 applyShellMode 领一个序号，写回调开头核一次；被更新的意图取代
   // 之后它就是空操作。**不加「用户切过」旗子** —— 已证与 storedMode() 判据冗余；
   // syncStewardShellAvailability 的条件一个字不动（那条判据本身没错，错的是两次写回调的次序）。

@@ -60,7 +60,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 那一发起服务），126 -> 127 的来路就是它。
 // 122-§2.6（L2 刀）：新增 dev-harness/mcp-import-origin.e2e.js（一处带 RUYI_HOME 的 spawn ——
 // spawnWb() 这个小工厂，四次启动都调它），127 -> 128 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 128;
+// 122-L1a（36 号文 §2.1–2.3，主会话合并时合数）：新增 shell-mode-late-config.browser／quiet-card-typing.browser／
+// event-stream-replay.browser 三件，各一处带 RUYI_HOME 的 spawn（无头 Edge 那发不带，不计入），128 -> 131。
+const RUYI_HOME_SPAWN_SITES = 131;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

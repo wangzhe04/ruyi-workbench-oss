@@ -554,7 +554,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      `states/chat-live.css` 里因此变成死代码的 `.ts-undo-all` 覆盖规则(它原本只用来撤销
 //      `.turn-summary-head` 的 uppercase,父规则的 uppercase 已经删了)。
 // 算法自证留给主会话按本刀落盘之后的 HEAD 重算(本刀不动 LEGACY_STYLES_SHA256 本身)。
-const LEGACY_STYLES_SHA256 = '7738fe506ee72505cfd9dda3337de5478b948a2fe58fcf2f52a98c157d11c3d7';
+// 122 波主会话重钉（L3 四提交 cherry-pick 为 956b025→c785a3e 后，按干净 HEAD 的载荷重算；与 L3 报告里
+// 「仅供核对」的 f082de2e… 逐字相同；L1a／L2 均未碰 CSS）。前值 7738fe50…。
+const LEGACY_STYLES_SHA256 = 'f082de2e2035484d6fe3cced22875dd9f530bf18830c071f6989cb5ae48e1b21';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
