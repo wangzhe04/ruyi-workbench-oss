@@ -370,6 +370,13 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   const stewardInput = findById(backdrop, 'onboardStewardModel');
   ok(findOne(backdrop, 'onboard-wiz-steward') !== null && stewardCards.length === 2 && Boolean(stewardInput),
     'D11b 第 4 步是「管家用哪个模型」（跟随主端点 / 另挑一个 两张卡 + 一个模型名框）');
+  // 123-P1 ③（38 号文；用户 2026-09-14 真机 bug 的上游）：那台机器配的是 deepseek-v4-flash 这个
+  // 快档，模型七轮都只回一个 say 键、一个工具都不调，却把动作说成已办。系统侧只兜得住「说清楚」，
+  // 兜不出一个能用的管家 —— 真正的修法是别在这一步挑一个守不住输出契约的模型。所以这句提示挂在
+  // 选模型的当口。**只加一句提示**：卡数、模型名框、写口与步数一个字没动（上一条 D11b 同时看着）。
+  const stewardHints = findAll(backdrop, 'onboard-wiz-step-hint').map(node => node.textContent);
+  ok(stewardHints.length === 2 && stewardHints[1] === 'onboarding.wizard.steward.contractHint',
+    `D11b-bis 这一步在既有那句提示之外，多一句「快档模型可能守不住输出契约，建议选强档」（实测 ${JSON.stringify(stewardHints)}）`);
   stewardInput.value = 'cheap-model';
   await stewardInput.onchange();
   await flush();

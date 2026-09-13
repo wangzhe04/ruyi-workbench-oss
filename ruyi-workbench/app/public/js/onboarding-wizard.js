@@ -823,6 +823,13 @@ export function createOnboardingWizardDomain({
       const wrap = el('div', 'onboard-wiz-step onboard-wiz-steward');
       wrap.append(el('h4', 'onboard-wiz-step-title', t('onboarding.wizard.steward.title')));
       wrap.append(el('p', 'onboard-wiz-step-hint muted', t('onboarding.wizard.steward.hint')));
+      // 123-P1 ③（38 号文；用户 2026-09-14 真机 bug 的上游）：那台机器配的是 deepseek-v4-flash
+      // 这个快档，模型七轮都只回一个 say 键、一个工具都不调，却在话里把动作说成已办。系统侧的
+      // 兜底（13o/13q 的契约完整性 + 那句灰字回执）只能【说清楚】，说不出一个能用的管家；
+      // 真正的修法是别在这一步挑一个守不住输出契约的模型。所以这句提示挂在选模型的当口，
+      // 而不是等出了事再在对话流里解释。**只加一句提示**：#cfgStewardModel 的写口与向导步数
+      // 一个字不动（rail-pocket.browser I3b 钉着七格步骤条）。
+      wrap.append(el('p', 'onboard-wiz-step-hint muted', t('onboarding.wizard.steward.contractHint')));
       const current = String(asObject(state.config).stewardModel || '').trim();
       const group = el('div', 'onboard-wiz-cards onboard-wiz-steward-cards');
       group.setAttribute('role', 'radiogroup');
