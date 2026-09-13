@@ -917,6 +917,7 @@ const stewardShellDomain = createStewardShellDomain({
   // 117s-C（走查⑦「输出要支持 markdown、制图」）：全仓唯一的 markdown＋XSS 净化路径（trusted innerHTML
   // 只住在 chat-render-primitives 的 renderMarkdownInto 里）每个消费者都在【这里】注入拿到；管家壳接上
   renderMarkdownInto, highlightIn,   // 同一根线（shell 转注入 conversation），不另起第二个 markdown 通道
+  openOnboardingWizard,              // 122-L1b（36 号文 §2.13）：管家问候行下那枚「开始引导」＝工作台空态那一个入口
 });
 stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;

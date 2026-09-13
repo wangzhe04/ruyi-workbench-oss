@@ -68,6 +68,21 @@ export function stewardDigestItemText(text, max = STEWARD_DIGEST_ITEM_CHARS) {
   const cap = Math.max(1, Number(max) || STEWARD_DIGEST_ITEM_CHARS);
   return clean.length <= cap ? clean : `${clean.slice(0, cap - 1)}…`;
 }
+// 122-L1b（36 号文 §2.13，34 号文 §13.14 遗留②）：管家视角的「开始引导」。
+// 现状是「首跑那枚『开始引导』只画在工作台空态」，而新装默认落【管家视角】—— 新用户于是只能
+// 齿轮 → 帮助 → 重新打开引导才找得到它。这枚 act 的 kind 只在前端流通（后端 13h 不认识它，
+// 见 runAct 里那一段头注），文案复用既有的 onboarding.wizard.start，不新起 i18n 键。
+export const STEWARD_ONBOARDING_ACT = 'onboarding';
+// 「向导还没走完」的判据：只看 config.onboarding 这条记录本身（形状由 01-config 洗净：
+// {completedAt, version, skipped}，没走过就是 null）。**不用** onboarding-wizard.js 的
+// shouldShowOnboarding —— 那一个还要求「零线程且零工作区」，是给自动弹窗用的更严的门；
+// 这里是一枚用户自己点的入口，只要没配完就该在。
+export function stewardOnboardingPending(config) {
+  const record = config && typeof config === 'object' ? config.onboarding : null;
+  if (!record || typeof record !== 'object') return true;
+  if (record.completedAt) return false;
+  return record.skipped !== true;
+}
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
 // 121-K4-3（34 号文 §2.4「频道条退役」）：F2 那条「只看 · 全部 · 各条线程 · 管家本人」的 chip 条
@@ -532,6 +547,11 @@ export function createStewardConversation({
   // 那条路必须照常走得通。
   renderMarkdownInto = null,
   highlightIn = null,
+  // 122-L1b（36 号文 §2.13）：首跑向导。**走注入不走 import** —— 全仓唯一那个入口是
+  // session-experience.js 的 openOnboardingWizard（工作台空态那枚「开始引导」点的也是它），
+  // 由 steward-shell.js 从组合根手里转下来；本模块因此不新增一条 import（A2 锁：本域内相对路径）。
+  // 缺席时那枚按钮照样不画（下面 onboardingActs 会一起判），Node 里 await import 本模块不受影响。
+  openOnboardingWizard = null,
 } = {}) {
   const feedEl = () => byId('stewardFeed');
   const setPresence = patch => { try { presence && presence.set && presence.set(patch); } catch { /* presence 是旁路 */ } };
@@ -857,6 +877,14 @@ export function createStewardConversation({
   async function runAct(act, actsRow, btn, onSettled) {
     if (!act || typeof act !== 'object') return;
     if (act.kind === 'dismiss' && isChangeAct(act)) { focusComposerForChange(); return; }
+    // 122-L1b（36 号文 §2.13）：STEWARD_ONBOARDING_ACT 是【纯前端】的一枚 —— 后端 13h stewardRunAct
+    // 只认 open_thread／dismiss／tool 三种 kind，把它发过去只会换回一条 unknown_act。所以在这里就地
+    // 落定：开向导（组合根注入的那一个，与工作台空态那枚「开始引导」是同一个入口），不发请求、
+    // 不落回执 —— 向导自己就是回执，关掉之后按钮该还在（没配完就还该有）。
+    if (act.kind === STEWARD_ONBOARDING_ACT) {
+      try { openOnboardingWizard && openOnboardingWizard(); } catch { /* 向导打不开不该掀翻对话流 */ }
+      return;
+    }
     if (btn) btn.disabled = true;
     try {
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
@@ -1690,8 +1718,23 @@ export function createStewardConversation({
         label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(visit.focus.title || visit.focus.sessionId) }),
       });
     }
+    // 122-L1b（§2.13）：向导还没走完就在问候行下多一枚「开始引导」。位置在「知道了」之前
+    // ——K6b 的 `.steward-acts ≤2` 预算由 renderActs 的 slice 执行，所以有焦点线程时被切掉的
+    // 是最后那枚「知道了」（表态可以不点，配置没配完却是新用户此刻唯一该做的事）。
+    for (const act of onboardingActs()) acts.push(act);
     acts.push({ kind: 'dismiss', label: t('stewardShell.chat.gotIt') });
     renderActs(row, acts);
+  }
+
+  // 「开始引导」那一枚（零到一枚）。两个入口共用同一份判据与同一份文案：
+  // 号文只点了 renderDigest，但**真正的新用户走的是 renderFirstRun** —— 全新 HOME 第一次进壳时
+  // 没有待决、没有焦点、摘要也是空的，enterVisit 的 `nothing` 分支画的是首跑那条自我介绍
+  // （renderDigest 一次都不会跑）。只钉 renderDigest 等于这枚按钮对新装的人不存在，
+  // 所以两处都挂（执行者证伪，见交付报告；32 号文 §4 纪律 1）。
+  function onboardingActs() {
+    if (typeof openOnboardingWizard !== 'function') return [];
+    if (!stewardOnboardingPending(state && state.config)) return [];
+    return [{ kind: STEWARD_ONBOARDING_ACT, label: t('onboarding.wizard.start') }];
   }
 
   function renderPending(pending) {
@@ -1722,6 +1765,9 @@ export function createStewardConversation({
       }));
     }
     row.appendChild(box);
+    // 122-L1b（§2.13）：全新一台机器第一次进管家壳走的就是这一支 —— 引导入口必须在这里，
+    // 否则「新装默认落管家视角」的人一辈子看不见它（见 onboardingActs 的头注）。
+    renderActs(row, onboardingActs());
   }
 
   // 只渲染 at >= visit.startedAt 的回合（§8.9「上次对话不显示，已归档进行动流水」）。会话消息带

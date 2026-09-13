@@ -106,6 +106,9 @@ export function createStewardShellDomain({
   // 同一条净化通道就得走同一条路。本文件只做转注入（不 import 渲染器，D2 的 import 白名单不变）。
   renderMarkdownInto = null,
   highlightIn = null,
+  // 122-L1b（36 号文 §2.13）：首跑向导。组合根手里那一个（session-experience.js 的
+  // openOnboardingWizard，工作台空态那枚「开始引导」点的也是它），本文件只做转注入。
+  openOnboardingWizard = null,
   // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。本文件用它三件事：①壳层状态轮询在连接时
   // 降到 30 s 兜底；②`steward.say` 到达就拉一次状态（avatar 与对话流的追加都挂在那一处，不新开
   // 第二条请求路）；③把同一条实例转给看板与抽屉（它们自己不建连接）。
@@ -435,6 +438,7 @@ export function createStewardShellDomain({
     openClassicWindow: sessionId => openInWorkbench(sessionId),
     // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
     renderMarkdownInto, highlightIn,
+    openOnboardingWizard,   // 122-L1b（36 号文 §2.13）：管家问候行下那枚「开始引导」，与工作台空态同一个入口
   });
   const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
