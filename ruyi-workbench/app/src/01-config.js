@@ -1702,7 +1702,10 @@ async function autoImportClaudeCodeMcp(config) {
     });
     if (!r.ok) return { added: 0, config: r.config };
     const next = r.config; const added = r.value;
-    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    // 122-§2.5:这里原本 `await generateMcpConfig(next.mcpCommandMode)` —— 它内部 resolveExternalMcpServers
+    // → detectDesktopMcp → pickPython 会在【listen 之前】付一整轮探针(冷缓存本机实测 ~2 s),而本函数是 boot
+    // 唯一被 await 的调用点。已挪到 13-http-router 的 listen 之后那个 setImmediate 段里统一重生成;
+    // 其余调用方(/api/status、/api/mcp、起 claude 前)本来就各自现调 generateMcpConfig,不依赖这一发。
     logEvent({ kind: 'mcp_auto_import', source: claudeJson, added: added.length, ids: added });
     return { added: added.length, ids: added, config: next };
   } catch (e) {

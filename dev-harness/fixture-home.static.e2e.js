@@ -56,7 +56,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 的来路就是它。
 // 122-§2.4（L2 刀）：新增 dev-harness/mission-start-race.e2e.js（一处带 RUYI_HOME 的 spawn ——
 // 那一发起服务；fake provider 是本进程内的 http.createServer，不 spawn），125 -> 126 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 126;
+// 122-§2.5（L2 刀）：新增 dev-harness/boot-listen-budget.e2e.js（一处带 RUYI_HOME 的 spawn ——
+// 那一发起服务），126 -> 127 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 127;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

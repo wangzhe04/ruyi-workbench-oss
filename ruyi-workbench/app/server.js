@@ -2638,7 +2638,10 @@ async function autoImportClaudeCodeMcp(config) {
     });
     if (!r.ok) return { added: 0, config: r.config };
     const next = r.config; const added = r.value;
-    await generateMcpConfig(next.mcpCommandMode).catch(() => {});
+    // 122-§2.5:这里原本 `await generateMcpConfig(next.mcpCommandMode)` —— 它内部 resolveExternalMcpServers
+    // → detectDesktopMcp → pickPython 会在【listen 之前】付一整轮探针(冷缓存本机实测 ~2 s),而本函数是 boot
+    // 唯一被 await 的调用点。已挪到 13-http-router 的 listen 之后那个 setImmediate 段里统一重生成;
+    // 其余调用方(/api/status、/api/mcp、起 claude 前)本来就各自现调 generateMcpConfig,不依赖这一发。
     logEvent({ kind: 'mcp_auto_import', source: claudeJson, added: added.length, ids: added });
     return { added: added.length, ids: added, config: next };
   } catch (e) {
@@ -39417,13 +39420,19 @@ async function startServerInner(opts) {
   // v1.4.3: sync settings, agent roles, and MCP servers to Claude CLI's own config on startup
   await syncClaudeCliSettings(config);
   await syncAgentRolesToClaude(config.defaultWorkspace || os.homedir(), config);
-  // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
-  // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐);与下方 autoImport 的竞态只影响
-  // "本次是否拉到 Claude 新增 MCP",最坏下次 boot 补齐,可接受。
-  void syncMcpServersToClaude(config).catch(() => {});
-  if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+  // 122-§2.5:syncMcpServersToClaude／syncMcpServersToKimi／getCapabilities 三处 fire-and-forget
+  // 与 MCP 配置预热【整体挪到 listen 之后】(见下方 setImmediate 段)。
+  // 病根:它们虽然是 fire-and-forget,函数体在【第一个 await 之前】仍是同步跑的 ——
+  // syncMcpServersToClaude 的同步前缀是 resolveExternalMcpServers → detectDesktopMcp → pickPython,
+  // 三个候选各一发 spawnSync。本机实测(全新 HOME、TEMP 指向全新目录,即磁盘缓存冷):
+  // python 那一发 1983 ms,整个 boot 到 listen 3.2-3.3 s,其中这一发就占了三分之二。
+  // 磁盘缓存(eb93c02)只救第二个进程,第一个进程冷启动照样要付。
   // 把本机 Claude Code 注册的 MCP(~/.claude.json mcpServers)自动映射进 Ruyi(逆向于上面的 sync)。
-  // 在 syncMcpServersToClaude 之后跑:Claude 的 user-scope 配置已是最新全量,只导入 Ruyi 还没有的 id。
+  // 它只读 ~/.claude.json、写回配置,不碰探针,故留在 listen 之前(config 要在 listen 后的段里用最新引用)。
+  // 122-§2.5 顺序变化:sync 挪后之后,本次 boot 的 import 反而排在 sync 之前 —— 原注释里
+  // "在 syncMcpServersToClaude 之后跑" 的收益(拿到 Claude 最新全量)本就被那条注释自己标为可接受的竞态
+  // ("最坏下次 boot 补齐");而 §2.6 之后从 Claude 导进来的条目一律带 origin:'claude-code' 且不再同步回去,
+  // 这个先后已经不改变任何结果。
   // 失败仅审计不阻断 boot;返回的 config 是写回后的最新引用,避免后续 generateMcpConfig 用陈旧 config。
   {
     const imp = await autoImportClaudeCodeMcp(config).catch(() => null);
@@ -39432,9 +39441,6 @@ async function startServerInner(opts) {
   }
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
-  // G1: 预热能力矩阵(网络探测/桌面 MCP 探测/二进制探测,首次可达 10s+)。fire-and-forget —— 探测慢/失败绝不
-  // 阻塞 listen;首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
-  void getCapabilities(config).catch(() => {});
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
@@ -39470,8 +39476,31 @@ async function startServerInner(opts) {
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
-  console.log(`MCP config: ${await generateMcpConfig(config.mcpCommandMode)}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
+  // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
+  //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
+  //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
+  //   · getCapabilities:能力矩阵预热(网络锚点 + 桌面 MCP + 二进制探测,首次可达 10s+);
+  //   · generateMcpConfig:同一份桌面探测的预热,顺带把生成的配置路径打到控制台(原来就在 listen 之后,
+  //     一并收进本段,让「boot 之后还要做什么」只有这一处)。
+  // 为什么是 setImmediate + 一小段起跑延迟,而不是紧跟 listen 直接调:
+  //   detectDesktopMcp → pickPython 是【同步】spawnSync(本刀不改它的签名,已登记),它跑起来会把事件循环
+  //   整个占住 —— 只 setImmediate 的话,check 阶段一进去就阻塞 2 s,此刻还没被解析完的 /health 仍要等到
+  //   探针结束才答(实测:只 setImmediate,/health 仍 3.1 s)。故再推迟 BOOT_PROBE_WARMUP_MS,把「listen 之后
+  //   最初那一两个请求(/health、首屏 GET /)」让出去。
+  //   【诚实标注】这只解决「起跑那一刻」:探针开跑之后那 2 s 里到达的请求照样要等。要彻底,得把
+  //   detectDesktopMcp/pickPython 改成 async spawn —— 36 号文 §2.5 已把它登记为本刀不做的后续项。
+  // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
+  const BOOT_PROBE_WARMUP_MS = 500;
+  setTimeout(() => setImmediate(() => {
+    // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
+    // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
+    void syncMcpServersToClaude(config).catch(() => {});
+    if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+    // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
+    void getCapabilities(config).catch(() => {});
+    void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
+  }), BOOT_PROBE_WARMUP_MS).unref();
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
   // 第116波116b: 关服收尾一并停掉管家收件箱轮询(clearInterval + 代际自增,在途 tick 尽快退出)。
