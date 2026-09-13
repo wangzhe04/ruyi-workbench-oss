@@ -1125,6 +1125,11 @@ function prerouteText(q, index, memory, opts) {
 //           quickAsk(args,ctx)(tier exec,开一条 kind:'quick_ask' 速查线程,每回合 2 次)、
 //           enrichInboxRows(rows)(基础设施:13i 每轮落盘前调,给速查会话的 done 行补 quick/answer)
 //   记忆族(tier edit): memoryWrite(args,ctx)、memoryVeto(args,ctx)、memorySearch(args,ctx)
+//   定时任务族(123-M2,37 号文 §3.5;归「如意设置」族,list 是 tier read、其余五个 edit):
+//           scheduleCreate(args,ctx)、scheduleList(args,ctx)、schedulePause(args,ctx)、
+//           scheduleResume(args,ctx)、scheduleRunNow(args,ctx)、scheduleDelete(args,ctx)
+//           —— 实现住 13t-steward-schedule.js(它排在 13s 之后才够得着调度器原语),门控壳仍是
+//           13g 的 stewardToolHandler;无人值守(stewardUnattendedByModel)时 create/delete 只提议。
 // 全部工具实现键的签名统一为 (args, ctx) 并返回稳定信封(见 13g 的 stewardToolHandler)。
 //
 // ── ctx.userPressed 的规矩(116-2e,静态锁 steward-tools.static ⑦ 机械看住)──────────────

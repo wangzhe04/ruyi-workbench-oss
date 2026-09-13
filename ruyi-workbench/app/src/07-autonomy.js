@@ -256,6 +256,13 @@ const NATIVE_TOOL_TIER = {
   // 归 edit;技能启停改的是那条线程下一回合的工具面与提示词、速查开的是一条真会动世界的线程,两者 exec。
   steward_config_get: 'read', steward_config_set: 'exec',
   steward_playbook_draft: 'edit', steward_skill_toggle: 'exec', steward_quick_ask: 'exec',
+  // 123-M2(37 号文 §3.5):定时任务六件归「如意设置」族 —— list 只读、零副作用,归 read;
+  // 另五件都改的是【如意自己账面上的一张表】(任务定义),不动文件、不动外部世界,归 edit。
+  // 特别是 run_now:它自己不动世界,真正会动世界的是那一次回合,而那一次回合走的是任务自带的
+  // permissionMode(天花板 = 全局档,永不含 bypass),边界在那儿,不在这张分档表上。
+  steward_schedule_list: 'read',
+  steward_schedule_create: 'edit', steward_schedule_pause: 'edit', steward_schedule_resume: 'edit',
+  steward_schedule_run_now: 'edit', steward_schedule_delete: 'edit',
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
@@ -365,6 +372,9 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
   steward_config_get: 'steward', steward_config_set: 'steward',              // 116-2e
   steward_playbook_draft: 'steward', steward_skill_toggle: 'steward', steward_quick_ask: 'steward',
+  // 123-M2:定时任务六件同归 steward 包(与上面 27 个同一条理由 —— 包只是目录归属的一致性声明)。
+  steward_schedule_create: 'steward', steward_schedule_list: 'steward', steward_schedule_pause: 'steward',
+  steward_schedule_resume: 'steward', steward_schedule_run_now: 'steward', steward_schedule_delete: 'steward',
 });
 
 function toolPackForName(name, bridgedRoute) {

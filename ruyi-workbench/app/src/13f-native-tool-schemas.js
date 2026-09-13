@@ -991,6 +991,82 @@ const MCP_TOOLS = [
       },
     },
   },
+  // ── 第 123 波 M2 §3.5(37 号文;设计权威 29 号文 §5「载荷」§8「UI」):定时任务六件。
+  // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
+  {
+    name: 'steward_schedule_create',
+    description: '给用户排一条定时任务(到点由如意自己触发)。**下单之前必须先用人话把计划回读一遍、等用户说对了才调**——「我给你排一条:每个工作日 18:00,在新线程里生成周报草稿,对吗?」;用户没确认就别调,排错的日程比不排更烦人。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
+      properties: {
+        title: { type: 'string', description: '任务标题(用户听得懂的一句,最多 120 字)。' },
+        schedule: {
+          type: 'object', description: '计划。kind 五选一:once 需 date(YYYY-MM-DD)+at(HH:MM);daily 需 at;weekly 需 at+days(0=周日…6=周六);monthly 需 at+dayOfMonth(1-31,31=每月最后一天);cron 需 expr(5 字段)。',
+          properties: {
+            kind: { type: 'string', enum: ['once', 'daily', 'weekly', 'monthly', 'cron'] },
+            at: { type: 'string', description: 'HH:MM,24 小时制本地墙钟。' },
+            date: { type: 'string', description: 'once 专用:YYYY-MM-DD。' },
+            days: { type: 'array', items: { type: 'integer' }, description: 'weekly 专用:0=周日 … 6=周六。' },
+            dayOfMonth: { type: 'integer', description: 'monthly 专用:1-31;31 = 每月最后一天(2 月自动是 28/29)。' },
+            expr: { type: 'string', description: 'cron 专用:5 字段「分 时 日 月 周」,支持 * , - /。' },
+          },
+        },
+        payload: {
+          type: 'object', description: '载荷。kind:reminder(到点出一条提醒,不调模型)或 prompt(到点开一个回合跑 text 这句话)。',
+          properties: {
+            kind: { type: 'string', enum: ['reminder', 'prompt'] },
+            text: { type: 'string', description: 'reminder 的提醒正文,或 prompt 到点要发的那句话(最多 4000 字)。' },
+          },
+        },
+        target: {
+          type: 'object', description: '可选,prompt 载荷的落点:mode "new-session"(默认,每次开一条新线程)或 "existing-session"(需 sessionId)。reminder 用不到。',
+          properties: {
+            mode: { type: 'string', enum: ['new-session', 'existing-session'] },
+            sessionId: { type: 'string' },
+          },
+        },
+        permissionMode: { type: 'string', description: '可选,这条任务跑回合时的权限档(天花板 = 全局档,永不含 bypass;越界或省略即跟随全局默认档)。' },
+        basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
+      },
+    },
+  },
+  {
+    name: 'steward_schedule_list',
+    description: '列出用户现有的定时任务(只读、零副作用)。每条回 {id,title,enabled,nextRunAt,payloadKind,lastResult,lastMode,describeKey,describeParams}。何时用:用户问「我都排了些什么」「周报那条还在吗」,或你要改/删某一条之前先拿到它的 id。何时别用:别把整张表念给用户听——挑他问的那几条说。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  },
+  {
+    name: 'steward_schedule_pause',
+    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。返回 {ok,task}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+    },
+  },
+  {
+    name: 'steward_schedule_resume',
+    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。返回 {ok,task}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+    },
+  },
+  {
+    name: 'steward_schedule_run_now',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 目标正在跑、或调度器正忙着别的任务时返回 {ok:false,error:"steward.busy"}(全局并发 1)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+    },
+  },
+  {
+    name: 'steward_schedule_delete',
+    description: '删掉一条定时任务的定义(历史执行回执不删——「它当初真的跑过」是既成事实)。何时用:用户明确说这件事不用再做了。何时别用:① 只是想暂时停用 -> steward_schedule_pause;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"},把它作为提议交给用户,不要重试;③ 删之前先确认是哪一条(id 拿错就删错了,而这一步没有撤销键)。返回 {ok,id,deleted,task}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+    },
+  },
   // v0.9-S6 (子代理, L): spawn a self-contained SUB-TURN to carry out a delegated task, with its OWN
   // isolated history + tool subset (toolTier) + iteration budget, returning only the final conclusion text.
   // PROVIDER-ENGINE ONLY: it needs the live provider/session/journal/onEvent closure, so it is special-cased

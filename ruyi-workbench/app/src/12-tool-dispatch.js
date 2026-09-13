@@ -418,6 +418,15 @@ const STEWARD_TOOL_HANDLERS = {
   steward_playbook_draft: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbookDraft(args, ctx) },
   steward_skill_toggle: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skillToggle(args, ctx) },
   steward_quick_ask: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.quickAsk(args, ctx) },
+  // 123-M2(37 号文 §3.5):定时任务六件。与上面 27 个同一纪律 —— 只写一行 StewardHooks.<键>(args, ctx),
+  // handler 体里零 require、零内部符号。实现在 13t-steward-schedule.js(它排在 13s 之后,才够得着
+  // 调度器的原语;门控壳仍是 13g 的 stewardToolHandler)。
+  steward_schedule_create: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.scheduleCreate(args, ctx) },
+  steward_schedule_list: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.scheduleList(args, ctx) },
+  steward_schedule_pause: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.schedulePause(args, ctx) },
+  steward_schedule_resume: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.scheduleResume(args, ctx) },
+  steward_schedule_run_now: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.scheduleRunNow(args, ctx) },
+  steward_schedule_delete: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.scheduleDelete(args, ctx) },
 };
 
 // ── 106 #2a: 受限执行结果缓存(22 号文 §6.1)─────────────────────────────────
