@@ -141,7 +141,9 @@
 - 顺序：M1（已在 master）→ N1 两笔（manifest 撞，以 HEAD 为准）→ N2 两笔（`fixture-home.static` 常量 136+1=137、`steward-config-tier` 两刀四键并存，manifest 同上）→ M3 三笔（无冲突）。
 - 重生成：build 52551 行、依赖图 52 模块／408 边／1 SCC、契约快照、路由 135 判定点／123 鉴权行、facts 346 e2e／44 unit、README 三处门面；`build --check`／depgraph `--check` 绿；8 文件控制字符零命中；`--fast` **70/70**（`f66c690`）。
 - **第一轮 8 路全量 302/37/7——级联，病根是 M3 的假 AppData**：签名「workbench listening」超时／ECONNRESET／`/api/status` 5 连发不全 200；串行 `perf-config-cache`／`onboard` 也红。手动起服务对照：`LOCALAPPDATA` 指每件新目录时首个 `/api/status` **6 s**，指真机时 **2.5 s**——桌面 MCP python 探针的磁盘缓存键（`desktopPythonDiskCacheId`）含 `%LOCALAPPDATA%` 派生的候选路径，每件一个新目录＝每件一个新键＝每件冷探针，凡给 `/api/status` 留 5 s 预算的件全部超时。修法 `c4fc46d`：假 AppData 改成**整机一份跨件共用**（`os.tmpdir()/ruyi-e2e-appdata`），隔离目标（不指回真机）不变，缓存键从第二个进程起命中；三件串行绿、`index-dedup` E3 仍绿、单测改钉「固定名＋不挂临时家下＋两次相同」。顺带记一条产品债：即便缓存命中，首个 `/api/status` 仍付 ≈2.5 s 同步探针——`detectDesktopMcp` async 化（36 号文 §5.3 已登记）的分量比想的重。
-- 第二轮 8 路全量：（待填）
+- **第二轮 333/6/4**：3 realhist（环境）＋`route-inventory.static`（「谁在测它」扫到新单测里写的 `/api/status` 字样，重生成 `86cdd4f`）＋`context-compact-v2`（串行绿，抖动）＋**`agent-team-mode` 串行必红**：它 `POST /api/config {activeProvider:''}` 切回 Claude 驱动后新开会话，而 N2 的「上次用的」里还记着上一轮的 fake 端点 → 新会话仍走 fake，假 claude 的 argv 文件从没被写出来。**这是 N2 的真缺口**：改全局引擎也是一次显式选择。修法 `4b42bd0`：`POST /api/config` 带 `activeProvider`／`agentCliType`／`model` 时 **await** 记一次（fire-and-forget 不够——改完全局马上开线程是常见序列）；N2 的 e2e 加 ⑧ 五条（改全局 → 记录跟着变 → 新线程跟它；改回来同理）。
+- **第三轮 335/4/6**：4 红＝3 realhist（环境）＋`rail-pocket.browser` D1。D1 复现并定案（`5cf87d7`）：`data-shell-mode` 写下 ≠ 右栏 `#stewardSide` 已显示，`enterSteward()` 的 `loadMissions+loadArbiter` 两趟回来才 `syncNow()`；实测只差 `sideShown` 一项（直跑 3 红 1、run-all 3 红 2），加有界等待后 4/4 绿——与 122-M3 在 `one-workbench-frame` C1b 抓到的同一个模具。6 件 flaky（websearch／agent-deadlock-watchdog／dom-screenshot／steward-board／steward-settings／session-search）重跑即绿，主会话另单跑四件各 1/1 绿。**真回归 0。**
+- 收官全量：（待填）
 
 ## 6. 停点
 
