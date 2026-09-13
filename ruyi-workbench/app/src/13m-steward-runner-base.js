@@ -133,7 +133,10 @@ const STEWARD_TOOL_LABELS = Object.freeze({
 // 到访状态本身不落盘(进程重启 = 新到访,与 §11.1 第 7 项「一次到访 = 页面重开或静默 60 分钟」一致)。
 // ────────────────────────────────────────────────────────────────────────────
 const stewardRunnerRuntime = {
-  visit: { startedAt: '', lastActivityAt: '', inboxSeq: 0, previousStartedAt: '' },
+  // 123-M2:fireSeq 是【承诺三项】的第二个水位。为什么不能复用 inboxSeq:fires-v1.ndjson 有它
+  // 自己的一条单调 seq(13s 的账本),与收件箱那条各走各的 —— 拿收件箱的行号去筛 fires 的行
+  // 会漏掉/重复算「上次到访以来跳过或结果未知的那几次」。
+  visit: { startedAt: '', lastActivityAt: '', inboxSeq: 0, fireSeq: 0, previousStartedAt: '' },
   turns: [],            // 已跑回合的时间戳(ms),滑动窗口用
   noProgress: 0,        // 连续零进展的收件箱回合数
   inflight: null,       // { kind:'user'|'inbox', promise, controller, cancelled, events }

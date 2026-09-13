@@ -1716,7 +1716,10 @@ export function createStewardConversation({
       const list = el('ul', 'steward-digest');
       // §2.4 文字预算：每条 ≤20 字（全文在左栏与焦点栏里，这里只是「有这几件」）。
       for (const item of items) {
-        const full = String((item && item.text) || '');
+        // 123-M2（37 号文 §3.5）：承诺三项带 {key, params} —— 它们是本波新加的行，从一开始就走目录。
+        // 既有六类只有服务端拼好的 text（116f 起就是那样，本刀不动它们；那笔 i18n 债单独登记），
+        // 所以这里是「有 key 用 key，没有就照旧」，不是两套渲染。
+        const full = (item && item.key) ? t(item.key, item.params || {}) : String((item && item.text) || '');
         const line = el('li', 'steward-digest-item', stewardDigestItemText(full));
         if (full && line.textContent !== full) line.title = full;
         list.appendChild(line);

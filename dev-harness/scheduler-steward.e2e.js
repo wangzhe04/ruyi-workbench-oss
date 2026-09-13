@@ -23,9 +23,12 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (I) delete 正:表里少一条、fires-v1.ndjson 一个字节没少(删定义不删回执);反:错 id -> not_found。
 //  (J) 决策日志:五个写动作各恰好一行,读工具 list 一行都不写。
 //  (K) reminder 出箱回调:run_now 一条 reminder -> 收件箱多一行 kind:'reminder' 且 payload.quiet。
+//  (L) 熔断:连败三次 -> 自动停用 + fires 带 tripped + 收件箱一行 notice:'tripped';resume 清零。
+//  (M) 无人值守遇 ask 【不放行】(红线二)+ 「回来摘要」的承诺三项(未来承诺增量、过期或结果未知
+//      按 fires 水位切、等你的是【此刻状态】不是流水),外加三行的 i18n 键与排序。
 //
 // 判定行:`SCHEDULER STEWARD E2E: ALL PASS`。
-const fs = require('fs'), os = require('os'), path = require('path');
+const fs = require('fs'), http = require('http'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -70,19 +73,52 @@ const MIN_ARGS = {
 
 function writeConfig(patch) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 7, activeProvider: 'dead', engineMode: 'interactive',
+    configSchema: 7, activeProvider: 'fake', engineMode: 'interactive',
     permissionMode: 'default', permissionTimeoutMs: 120000,
     includeWorkbenchMcp: false, defaultWorkspace: WORK, recentWorkspaces: [],
     subagentMaxPerTurn: 0,
     stewardEnabledV1: true, stewardPollMs: 120000,
     schedulerEnabledV1: true,
-    // (L) 组要的那条「注定失败」的路:端点指向一个【没人监听】的端口 -> 每次回合都是 ECONNREFUSED。
-    // 比造一个会返 500 的假服务更省:本件只需要「失败」这个事实,不需要失败的花样。
-    providers: [{ id: 'dead', label: 'Dead', type: 'openai-compat', baseUrl: `http://127.0.0.1:${DEAD_PORT}`, apiKey: 'k', model: 'dead-model', models: [{ id: 'dead-model', label: 'Dead' }] }],
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${PROVIDER_PORT}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     ...patch,
   }, null, 2), 'utf8');
 }
-const DEAD_PORT = await getFreePort();   // 取一个空闲端口【但永不监听】
+
+// ── fake OpenAI 兼容引擎(按用户消息里的暗号分叉;与 scheduler.e2e.js 同一手法)────────────────
+//   BOOM     -> HTTP 500(造 (L) 组要的连败三次)
+//   TOOLCALL -> 发起一次 file_write(edit 档,在 default 权限下 gate 判 ask ->
+//               无人值守等 WCW_SCHEDULER_ASK_WAIT_MS 之后【拒】-> outcome needs_you,29 号文 §10 红线二)
+//   其余     -> 直接回一句
+const PROVIDER_PORT = await getFreePort();
+process.env.WCW_SCHEDULER_ASK_WAIT_MS = '400';   // 只压「等多久」,不改「等到了怎么判」(13s 头注)
+const provider = http.createServer(async (req, res) => {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  if ((req.url || '').includes('/models')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end('{"data":[{"id":"fake-model"}]}');
+  }
+  let body = null;
+  try { body = JSON.parse(raw); } catch { body = null; }
+  const messages = (body && Array.isArray(body.messages)) ? body.messages : [];
+  const userText = messages.filter(m => m && m.role === 'user').map(m => String(m.content || '')).join(' ');
+  const toolDone = messages.some(m => m && m.role === 'tool');
+  if (userText.includes('BOOM')) { res.writeHead(500, { 'content-type': 'application/json' }); return res.end('{"error":{"message":"boom"}}'); }
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  const frame = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
+  frame({ id: 'x', choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
+  if (userText.includes('TOOLCALL') && !toolDone) {
+    frame({ id: 'x', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'file_write', arguments: '' } }] }, finish_reason: null }] });
+    frame({ id: 'x', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ path: path.join(WORK, 'scheduled.txt'), content: 'x' }) } }] }, finish_reason: null }] });
+    frame({ id: 'x', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+  } else {
+    frame({ id: 'x', choices: [{ index: 0, delta: { content: '好' }, finish_reason: null }] });
+    frame({ id: 'x', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+  }
+  res.write('data: [DONE]\n\n');
+  res.end();
+});
+await new Promise(r => provider.listen(PROVIDER_PORT, '127.0.0.1', r));
 fs.mkdirSync(WORK, { recursive: true });
 writeConfig({ schedulerEnabledV1: false });
 
@@ -253,10 +289,10 @@ try {
   {
     const created = await call('steward_schedule_create', {
       title: '注定失败的一条', schedule: { kind: 'daily', at: '03:00' },
-      payload: { kind: 'prompt', text: '随便说点什么' }, permissionMode: 'auto',
+      payload: { kind: 'prompt', text: 'BOOM 随便说点什么' }, permissionMode: 'auto',
     }, stewardCtx());
     const deadId = created && created.task ? created.task.id : '';
-    ok(!!deadId, 'L0 建一条 prompt 任务(端点指向一个没人监听的端口 -> 每次回合必失败)');
+    ok(!!deadId, 'L0 建一条 prompt 任务(正文带 BOOM -> 假引擎回 HTTP 500 -> 每次回合必失败)');
     let last = null;
     for (let i = 0; i < 3; i++) last = await call('steward_schedule_run_now', { id: deadId }, stewardCtx());
     ok(last && last.ok === true && last.outcome === 'failed',
@@ -295,19 +331,89 @@ try {
     ok(missing && missing.error === 'not_found', 'I4 反:错 id -> not_found');
   }
 
+  /* ═════════ (M) needs_you + 「回来摘要」的承诺三项 ═════════ */
+  console.log('── (M) 承诺三项 ──');
+  {
+    // ① 真造一次 needs_you:TOOLCALL 让假引擎发起 file_write(edit 档),任务权限档 default ->
+    //    nativeToolGate 判 ask -> 无人值守【不放行】,等 WCW_SCHEDULER_ASK_WAIT_MS 之后拒。
+    const asked = await call('steward_schedule_create', {
+      title: '要动文件的一条', schedule: { kind: 'daily', at: '04:00' },
+      payload: { kind: 'prompt', text: 'TOOLCALL 写个文件' }, permissionMode: 'default',
+    }, stewardCtx());
+    const askId = asked && asked.task ? asked.task.id : '';
+    const ran = await call('steward_schedule_run_now', { id: askId }, stewardCtx());
+    ok(ran && ran.outcome === 'needs_you',
+      `M1 无人值守遇 ask 【不放行】:等窗到时拒,本次 needs_you(29 号文 §10 红线二;实得 ${ran && ran.outcome})`);
+    ok(!fs.existsSync(path.join(WORK, 'scheduled.txt')), 'M2 被拒的那一次一个字节都没写出去');
+
+    // ② 承诺三项。upcoming 用两条【一小时后 / 两小时后】的 once,确定性地落在 24 小时窗口里
+    //    （拿 daily/weekly 会随今天是星期几而漂）。
+    const at = ms => {
+      const d = new Date(Date.now() + ms);
+      return {
+        kind: 'once',
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        at: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      };
+    };
+    // 前面几组留下的任务里也有一天之内会触发的(daily 04:00 之类),所以这里量的是【增量】
+    // 而不是绝对值 —— 绝对值会随「今天是星期几」漂。
+    const base = await srv.stewardVisitDigest(0, 0);
+    const soonA = await call('steward_schedule_create', { title: '一小时后', schedule: at(3600000), payload: { kind: 'reminder', text: 'a' } }, stewardCtx());
+    const soonB = await call('steward_schedule_create', { title: '两小时后', schedule: at(7200000), payload: { kind: 'reminder', text: 'b' } }, stewardCtx());
+    ok(soonA.ok && soonB.ok, 'M3 两条一天之内会触发的 once 建好了');
+
+    // missed 那一项数的是 fires 里的 skipped / unknown。这两种行只有【启动恢复】那条路会写
+    // (错过跳过 / 崩溃后结果未知),而崩溃钩子要真的把进程打死 —— 进程内够不着,所以这里按
+    // M1 落的【同一形状】直接往 append-only 账本上补两行,喂给读模型。
+    const maxSeq = ndjson(firesFile).reduce((m, r) => Math.max(m, Number(r.seq) || 0), 0);
+    fs.appendFileSync(firesFile, JSON.stringify({
+      seq: maxSeq + 1, at: new Date().toISOString(), taskId: askId, title: '要动文件的一条',
+      occurrenceKey: askId + '@x', dueAt: new Date().toISOString(), runId: '', executionGeneration: 0,
+      mode: 'late', phase: 'reconciled', outcome: 'skipped', error: 'grace_expired',
+    }) + '\n' + JSON.stringify({
+      seq: maxSeq + 2, at: new Date().toISOString(), taskId: askId, title: '要动文件的一条',
+      occurrenceKey: askId + '@y', dueAt: new Date().toISOString(), runId: 'srun_x', executionGeneration: 1,
+      mode: 'ontime', phase: 'reconciled', outcome: 'unknown', error: 'interrupted',
+    }) + '\n', 'utf8');
+
+    const digest = await srv.stewardVisitDigest(0, 0);
+    ok(digest && digest.commitments && (digest.commitments.upcoming - base.commitments.upcoming) === 2,
+      `M4 未来承诺:新建两条一天内触发的 once 之后,这一项【正好多 2】(前 ${digest && digest.commitments && base.commitments.upcoming} 后 ${digest && digest.commitments && digest.commitments.upcoming})`);
+    ok(digest.commitments.missed === 2,
+      `M5 过期或结果未知:上次到访以来 skipped + unknown 共 2 条(实得 ${digest.commitments.missed})`);
+    ok(digest.commitments.needsYou === 1,
+      `M6 等你的:此刻 lastResult 仍是 needs_you 的 1 条(实得 ${digest.commitments.needsYou})`);
+    const byField = Object.fromEntries((digest.items || []).filter(i => i.kind === 'commitment').map(i => [i.field, i]));
+    ok(Object.keys(byField).length === 3, `M7 摘要里三行都在(实得 ${Object.keys(byField).join(',')})`);
+    ok(byField.upcoming && byField.upcoming.key === 'stewardShell.digest.commitment.upcoming'
+      && byField.upcoming.params && byField.upcoming.params.count === digest.commitments.upcoming,
+      'M8 每行带 i18n 键与 params(前端 steward-conversation 优先按键渲染,text 只是兜底)');
+    ok((digest.items || []).findIndex(i => i.kind === 'commitment') >= (digest.items || []).filter(i => i.kind !== 'commitment').length - 1,
+      'M9 三行排在既有七类【之后】(那七类是刚发生的事,承诺是日程)');
+    ok(digest.fireSeq === maxSeq + 2, `M10 fires 的水位跟着推进(实得 ${digest.fireSeq},应为 ${maxSeq + 2})`);
+    const again = await srv.stewardVisitDigest(0, digest.fireSeq);
+    ok(again.commitments.missed === 0,
+      `M11 反:把水位喂回去 -> 同样两行不再重复计入(实得 ${again.commitments.missed})`);
+    ok(again.commitments.upcoming === digest.commitments.upcoming && again.commitments.needsYou === 1,
+      'M12 另两项是【此刻的状态】不是流水,水位对它们没有影响(同一条任务反复 needs_you 只算一条)');
+
+    for (const id of [askId, soonA.task.id, soonB.task.id]) await call('steward_schedule_delete', { id }, stewardCtx());
+  }
+
   /* ═════════ (J) 决策日志 ═════════ */
   console.log('── (J) 决策日志 ──');
   {
     // stewardAppendDecision 是 fire-and-forget(记账失败绝不回滚已经做完的动作),最后一条
     // delete 的那一行在 I 组返回时还在写链上 —— 等它落盘再数,而不是把「还没写完」当成「没写」。
-    for (let i = 0; i < 60 && decisionsFor('steward_schedule_delete').length < 2; i++) await new Promise(r => setTimeout(r, 50));
-    // 上面各动作的次数:create 3(周报 + 喝水 + 注定失败)、pause 2(D5 + F1)、resume 3(D6 + G1 + L5)、
-    // run_now 4(H1 一次 + L 三次)、delete 2(L 的那条 + I 的那条);list 一行都不该有。
-    ok(decisionsFor('steward_schedule_create').length === 3, `J1 create 恰好三行(实得 ${decisionsFor('steward_schedule_create').length})`);
+    for (let i = 0; i < 60 && decisionsFor('steward_schedule_delete').length < 5; i++) await new Promise(r => setTimeout(r, 50));
+    // 上面各动作的次数:create 6(周报/喝水/注定失败/要动文件/一小时后/两小时后)、pause 2(D5 + F1)、resume 3(D6 + G1 + L5)、
+    // run_now 5(H1 一次 + L 三次 + M 一次)、delete 5(L 一条 + M 三条 + I 一条);list 一行都不该有。
+    ok(decisionsFor('steward_schedule_create').length === 6, `J1 create 恰好六行(实得 ${decisionsFor('steward_schedule_create').length})`);
     ok(decisionsFor('steward_schedule_pause').length === 2, `J2 pause 恰好两行(实得 ${decisionsFor('steward_schedule_pause').length})`);
     ok(decisionsFor('steward_schedule_resume').length === 3, `J3 resume 恰好三行(实得 ${decisionsFor('steward_schedule_resume').length})`);
-    ok(decisionsFor('steward_schedule_run_now').length === 4, `J4 run_now 恰好四行(实得 ${decisionsFor('steward_schedule_run_now').length})`);
-    ok(decisionsFor('steward_schedule_delete').length === 2, `J5 delete 恰好两行(实得 ${decisionsFor('steward_schedule_delete').length})`);
+    ok(decisionsFor('steward_schedule_run_now').length === 5, `J4 run_now 恰好五行(实得 ${decisionsFor('steward_schedule_run_now').length})`);
+    ok(decisionsFor('steward_schedule_delete').length === 5, `J5 delete 恰好五行(实得 ${decisionsFor('steward_schedule_delete').length})`);
     ok(decisionsFor('steward_schedule_list').length === 0, 'J6 反:读工具 list 一行都不写');
     const createRow = decisionsFor('steward_schedule_create')[0] || {};
     ok(createRow.undoRef && createRow.undoRef.kind === 'schedule' && createRow.undoRef.id,
@@ -320,6 +426,7 @@ try {
   console.log('FAIL 未捕获异常: ' + (error && error.stack || error));
 }
 
+try { provider.close(); } catch { /* already closed */ }
 try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
 console.log(fail === 0 ? '\nSCHEDULER STEWARD E2E: ALL PASS' : `\nSCHEDULER STEWARD E2E: ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

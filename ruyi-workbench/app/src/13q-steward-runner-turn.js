@@ -358,8 +358,27 @@ async function stewardArchiveConversation(config, startedAt) {
   return { archived: archived.length, file: path.basename(file), kept: session.messages.length };
 }
 
-// 确定性到访摘要:自上次到访以来的收件箱事件按五类归纳成 ≤5 条人话。
-async function stewardVisitDigest(sinceSeq) {
+// 确定性到访摘要:自上次到访以来的收件箱事件按七类归纳成 ≤5 条人话,再加 123-M2 的【承诺三项】。
+//
+// 承诺三项(37 号文 §3.5)与上面那七类是【两本账】,不能合成一本:
+//   · 七类数的是「上次到访以来【发生过】什么」(收件箱流水,按 inboxSeq 切);
+//   · 三项里的「未来承诺」与「等你的」数的是【此刻的状态】(还没发生的下一次触发、仍然卡着的
+//     needs_you)—— 拿流水去数它们会把「同一条任务反复 needs_you」算成好几条。
+// 只有中间那一项(过期或结果未知)是流水,所以它单独用 fires 的 seq 当水位(见 13m 的 visit.fireSeq)。
+//
+// 读口经 06j 的 SchedulerHooks.commitmentsSince —— 实现住 13t-steward-schedule.js,它在 manifest 里
+// 排在本文件【之后】,直接写函数名会是前向边;调度器关着或钩子没填充时整段是无操作(三项全 0)。
+const STEWARD_COMMITMENT_TEXT = Object.freeze({
+  upcoming: n => `${n} 件定时任务 24 小时内要触发`,
+  missed: n => `${n} 件定时任务过期或结果未知`,
+  needsYou: n => `${n} 件定时任务等你批准`,
+});
+const STEWARD_COMMITMENT_I18N = Object.freeze({
+  upcoming: 'stewardShell.digest.commitment.upcoming',
+  missed: 'stewardShell.digest.commitment.missed',
+  needsYou: 'stewardShell.digest.commitment.needsYou',
+});
+async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
   const read = await stewardInboxRead({ since: sinceSeq, limit: 200 }).catch(() => ({ items: [], inboxSeq: 0 }));
   const counts = {};
   for (const kind of STEWARD_EVENT_KINDS) counts[kind] = 0;
@@ -371,7 +390,30 @@ async function stewardVisitDigest(sinceSeq) {
     if (items.length >= STEWARD_VISIT_DIGEST_MAX) break;
     if (counts[kind] > 0) items.push({ kind, text: STEWARD_DIGEST_KIND_TEXT[kind](counts[kind]), count: counts[kind] });
   }
-  return { items, counts, inboxSeq: Math.max(0, Number(read.inboxSeq) || 0) };
+  let commitments = { upcoming: 0, missed: 0, needsYou: 0, fireSeq: Math.max(0, Number(sinceFireSeq) || 0) };
+  if (typeof SchedulerHooks.commitmentsSince === 'function') {
+    // 旁路纪律:承诺读口出错只是少三行摘要,绝不让「打开管家」这件事失败。
+    try { commitments = (await SchedulerHooks.commitmentsSince(sinceFireSeq, Date.now())) || commitments; }
+    catch { /* 保持全 0 */ }
+  }
+  // 三项排在七类【之后】:那七类是刚发生的事(更新鲜),承诺是日程(用户自己早就知道有这回事)。
+  // 同样受 STEWARD_VISIT_DIGEST_MAX 那个 ≤5 的帽子。
+  for (const field of ['upcoming', 'missed', 'needsYou']) {
+    if (items.length >= STEWARD_VISIT_DIGEST_MAX) break;
+    const n = Math.max(0, Number(commitments[field]) || 0);
+    if (!n) continue;
+    items.push({
+      kind: 'commitment', field, count: n,
+      key: STEWARD_COMMITMENT_I18N[field], params: { count: n },
+      text: STEWARD_COMMITMENT_TEXT[field](n),
+    });
+  }
+  return {
+    items, counts,
+    commitments: { upcoming: commitments.upcoming, missed: commitments.missed, needsYou: commitments.needsYou },
+    inboxSeq: Math.max(0, Number(read.inboxSeq) || 0),
+    fireSeq: Math.max(0, Number(commitments.fireSeq) || 0),
+  };
 }
 
 // 待决列表(来自投影,不读磁盘 —— 投影本身就是可重建物化索引)。
@@ -406,6 +448,7 @@ async function stewardVisit(opts) {
   const newVisit = options.force === true || idle;
   const previousStartedAt = stewardRunnerRuntime.visit.startedAt;
   const sinceSeq = Math.max(0, Number(stewardRunnerRuntime.visit.inboxSeq) || 0);
+  const sinceFireSeq = Math.max(0, Number(stewardRunnerRuntime.visit.fireSeq) || 0);   // 123-M2 承诺三项的第二个水位
 
   // 116-3 P0-6(对抗审查):到访归档与在途管家回合会【并发】读-改-写同一份管家会话文件。
   // saveSession 的 sessionWriteChains 只序列化「落盘」这个动作本身,不合并两个调用方各自持有的
@@ -449,12 +492,16 @@ async function stewardVisit(opts) {
         startedAt: nowIso(),
         lastActivityAt: nowIso(),
         inboxSeq: sinceSeq,
+        fireSeq: sinceFireSeq,
         previousStartedAt: previousStartedAt || '',
       };
     }
   }
-  const digest = await stewardVisitDigest(sinceSeq);
-  if (visitOpened) stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
+  const digest = await stewardVisitDigest(sinceSeq, sinceFireSeq);
+  if (visitOpened) {
+    stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
+    stewardRunnerRuntime.visit.fireSeq = digest.fireSeq;     // 123-M2:fires 那本账各走各的水位
+  }
   const pending = await stewardPendingList();
   // 焦点线程:等你 > 在跑 > 失败(§8.10「现在这一件」的同一口径),没有线程时为空。
   const rows = await stewardThreadDigestRows(config).catch(() => []);
@@ -466,7 +513,7 @@ async function stewardVisit(opts) {
     since: previousStartedAt || '',
     visit: { startedAt: stewardRunnerRuntime.visit.startedAt, lastActivityAt: stewardRunnerRuntime.visit.lastActivityAt },
     archive,
-    digest: { items: digest.items, counts: digest.counts },
+    digest: { items: digest.items, counts: digest.counts, commitments: digest.commitments },
     pending,
     // 116-5b:「现在这一件」的标题走显示名(缺摘要时仍回落到原话,与旧行为逐字相同)。
     focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.displayTitle || focusRow.digest.title, state: focusRow.state } : null,

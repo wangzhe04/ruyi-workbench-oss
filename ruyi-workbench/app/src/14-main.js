@@ -653,4 +653,8 @@ module.exports = {
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
+  //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
+  SchedulerHooks,
+  stewardVisitDigest,
 };
