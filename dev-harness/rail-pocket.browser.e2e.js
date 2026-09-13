@@ -474,6 +474,13 @@ try {
   await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 1 : null`);
 
   /* ═════════ D1 「接下来」：零定时任务时整段不画 ═════════ */
+  // 123 合并复核（主会话）：`data-shell-mode` 变成 steward 只说明属性写下了，右栏（#stewardSide）
+  // 还没露出来 —— steward-board.js 的 enterSteward() 是 fire-and-forget，要 loadMissions()＋
+  // loadArbiter() 两趟往返都回来才 syncNow() 把它翻出来。此前这里读得太早，D1 的 sideShown
+  // 约 1/3 概率读到 false（本机直跑 3 次红 1 次、run-all 3 次红 2 次；实测
+  // {"exists":true,"hidden":true,"visible":false,"sideShown":false,"rows":[]} —— 另外四项都对，
+  // 只差它）。与 122-M3 在 one-workbench-frame C1b 抓到的是同一个模具：等它露出来再读。
+  await waitForEval(cdp, `(() => { const s = document.getElementById('stewardSide'); return s && s.hidden === false ? 1 : null; })()`);
   const upNextEmpty = await cdp.evaluate(UP_NEXT);
   ok(Boolean(upNextEmpty) && upNextEmpty.exists && upNextEmpty.sideShown === true
     && upNextEmpty.hidden === true && upNextEmpty.visible === false && upNextEmpty.rows.length === 0,
