@@ -165,6 +165,20 @@ const ROUTE_AUTH = [
   // 第117波117e第0步(27号文§8.6「行动流水」): 管家决策日志的只读面。透出的是「管家替你做过什么」
   // 的全部依据(目标线程、线程权限、undoRef、费用) —— 敏感度同记忆面板,token 级(不给 token-browser)。
   { m: 'GET', p: '/api/steward/decisions', auth: 'token' },
+  // 第123波 M1(37 号文 §3.3;设计权威 29 号文 §10 红线三「任务定义只能由 token 级 API 或管家工具写入」):
+  // 定时任务六条。**一律 token,一条 body-token 都不给** —— body-token 是 MCP 子进程与跨源 loopback 的档,
+  // 那条路上的调用方是【模型驱动的子进程】;让它写得动任务定义,等于把「以后每天替我做这件事」
+  // 这种最长效的授权交给一次工具调用。读面也不给 token-browser:任务定义里带着载荷正文与目标线程,
+  // 敏感度同 /api/steward/*。
+  // 六条的形状:两条精确(裸路径的读与建)+ 四条带尾斜杠的前缀(改/删/立即运行/最近几次)。
+  // 前缀条盖不到裸路径(startsWith 带尾斜杠),所以两组不冲突,顺序也不敏感。
+  { m: 'GET', p: '/api/scheduler/tasks', auth: 'token' },
+  { m: 'POST', p: '/api/scheduler/tasks', auth: 'token' },
+  // GET 前缀 = /api/scheduler/tasks/:id/runs;POST 前缀 = /:id/run-now 与方法改写(x-http-method)双通道。
+  { m: 'GET', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'PATCH', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/scheduler/tasks/', auth: 'token', prefix: true },
   // 75a-2: test-only CAS primitive probe (failure-injection matrix). token-gated (ROUTE_AUTH -> 403) AND
   // env-gated in handler (RUYI_TEST_HOOKS=1 -> 404 when off). No mutation in production. Not user-facing.
   { m: 'POST', p: '/api/_test/intervention-cas', auth: 'token' },

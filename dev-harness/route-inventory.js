@@ -44,6 +44,9 @@ const ROUTER_FILES = [
   // 第 121 波 K2a：事件流 GET /api/events/stream（13r 拼接顺序在 13 之后，经 00-boot 的
   // EventStreamHooks 延迟绑定挂接，与 13g 的 StewardHooks 同款）。
   '13r-event-stream.js',
+  // 第 123 波 M1（37 号文 §3.3）：定时任务六条 /api/scheduler/tasks（13s 拼接顺序在 13 之后，
+  // 经 handleApi 里一行 `await handleSchedulerApiRoutes(...)` 直调委派，同 13b/13c/13d）。
+  '13s-scheduler.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -56,6 +59,11 @@ const REGEX_ROUTE_SAMPLES = {
   '^\\/api\\/missions\\/([^/]+)\\/threads$': '/api/missions/:missionId/threads',
   '^\\/api\\/missions\\/([^/]+)\\/merge$': '/api/missions/:missionId/merge',
   '^\\/api\\/missions\\/([^/]+)\\/split$': '/api/missions/:missionId/split',
+  // 第 123 波 M1（37 号文 §3.3）：定时任务的三条带 :id 的路由。改/删共用第一条（PATCH 与
+  // DELETE 各一个判定点，方法改写双通道同 13d 的 /api/missions/:missionId）。
+  '^\\/api\\/scheduler\\/tasks\\/([^/]+)$': '/api/scheduler/tasks/:taskId',
+  '^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/run-now$': '/api/scheduler/tasks/:taskId/run-now',
+  '^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/runs$': '/api/scheduler/tasks/:taskId/runs',
 };
 
 // 域归属:按 handler 所在函数名归域(与 23 号方案 103a「按域分批」的批次单位一致)。
@@ -71,6 +79,7 @@ const DOMAIN_BY_HANDLER = [
   ['handleStewardApiRoutes', 'steward'],
   ['handleStewardRunnerApiRoutes', 'steward'],
   ['handleEventStreamApiRoutes', 'event-stream'],
+  ['handleSchedulerApiRoutes', 'scheduler'],
 ];
 const DOMAIN_BY_FILE = {
   '13-http-router.js': 'core-inline',
@@ -81,6 +90,7 @@ const DOMAIN_BY_FILE = {
   '13g-steward.js': 'steward',
   '13h-steward-runner.js': 'steward',
   '13r-event-stream.js': 'event-stream',
+  '13s-scheduler.js': 'scheduler',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1462,6 +1462,12 @@ async function handleApi(req, res, pathname) {
   // 命中信号是 headersSent 而不是 writableEnded:SSE 连接【故意不 end】,一直开着流事件,
   // writableEnded 永远是 false,只看它会让这条请求继续往下走、最后撞上 404 那行的二次 writeHead。
   if (typeof EventStreamHooks.handleApiRoutes === 'function') { await EventStreamHooks.handleApiRoutes(req, res, pathname); if (res.headersSent || res.writableEnded) return; }
+  // 第123波 M1(37 号文 §3.3): 定时任务六条域路由住 13s-scheduler.js(拼接顺序在本文件【之后】)。
+  // 接法沿 13b/13c/13d —— 直调函数名,构成一条【前向边】13 → 13s,已登记进
+  // src/module-dependency-policy.json 的 allowedForwardEdges 并附来路。为什么不走 Hooks 迟绑定:
+  // 那三条域路由的先例就是直调,路由清册的扫描器也按 `await handleXxxApiRoutes(` 这个形状认委派行;
+  // 再造一个 Hooks 只会让清册多一个看不见的入口(13g/13r 走 Hooks 是因为它们【必须】,不是偏好)。
+  await handleSchedulerApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
@@ -1807,6 +1813,11 @@ async function startServerInner(opts) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
+  // 第123波 M1(37 号文 §3.2「启动恢复」): 服务已 listen、runtime.json 已落之后才起调度器 ——
+  // 恢复那一步可能立刻补跑一个回合,而回合要用得上刚落的 RUNTIME.token(MCP 子进程回连)。
+  // schedulerEnabledV1 显式 false 时 startScheduler 立即返回,不建目录、不读盘、不起 interval、零写入;
+  // 开着但零任务时同样不起 interval(29 号文 §4「开关」)。失败绝不阻断已经开起来的服务(调度器是旁路)。
+  await startScheduler(config).catch(() => {});
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -1835,7 +1846,9 @@ async function startServerInner(opts) {
   let cleanedUp = false;
   // 第116波116b: 关服收尾一并停掉管家收件箱轮询(clearInterval + 代际自增,在途 tick 尽快退出)。
   // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
+  // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
+  // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
