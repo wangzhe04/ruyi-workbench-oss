@@ -3,6 +3,15 @@ function defaultConfig() {
     configSchema: CONFIG_SCHEMA,
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
+    // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
+    // 新线程的缺省引擎【不再写死跟全局】。'last' = 跟「上一次用的」(见 lastUsedEngineRoute),
+    // 'global' = 老行为(跟 activeProvider / agentCliType / model 那三项全局设置)。默认 'last'。
+    newThreadEngine: 'last',      // last | global
+    // 「上一次用的引擎路由」。**只记用户自己的选择与用户自己发起的回合**(线程头切引擎 = 02 的
+    // applySessionMetaPatch;工作台发起的回合 = 10 的 runSessionTurn source==='http'),管家/调度器
+    // 派出去的回合一概不记 —— 那不是用户的意思表示。形状与会话头上的 engineRoute 逐字一致
+    // ({engine:'openai',providerId,model} | {engine:'agent',agentCliType,model});没有记录时是 null。
+    lastUsedEngineRoute: null,
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
@@ -530,6 +539,23 @@ function normalizeWorkspacePathString(value) {
   return s.slice(0, 1000);
 }
 
+// 123-N2:config.lastUsedEngineRoute 的【形状】清洗。见 normalizeConfig 里调用点上方那段头注 ——
+// 语义判据(providerId 还在不在、CLI 还检得到吗)不在这里,那是 02 读侧的事。
+// 参数名 rawRoute 而不是 raw/route:纪律 12(依赖图把裸参数名当跨模块符号,撞上更早模块的顶层
+// 符号会凭空生出一条前向边并把本模块拽进 SCC)。
+function sanitizeLastUsedEngineRoute(rawRoute) {
+  if (!rawRoute || typeof rawRoute !== 'object' || Array.isArray(rawRoute)) return null;
+  const model = String(rawRoute.model || '').trim().slice(0, 256);
+  if (rawRoute.engine === 'openai') {
+    const providerId = String(rawRoute.providerId || '').trim().slice(0, 128);
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (rawRoute.engine === 'agent' || rawRoute.engine === 'claude') {
+    return { engine: 'agent', agentCliType: rawRoute.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+  }
+  return null;
+}
+
 // Fold older config files onto the current schema. Returns { config, changed }.
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
@@ -542,6 +568,23 @@ function normalizeConfig(raw) {
   if (!['claude', 'kimi'].includes(config.agentCliType)) {
     config.agentCliType = 'claude';
     changed = true;
+  }
+  // 123-N2:新线程缺省引擎的两个字段。
+  if (!['last', 'global'].includes(config.newThreadEngine)) {
+    config.newThreadEngine = 'last';
+    changed = true;
+  }
+  {
+    // 01 够不着 02 的 normalizeSessionEngineRoute(那是后面的模块,本仓是拼接单作用域但依赖图按
+    // 声明序判前向边),所以这里只做【形状】清洗:非对象/野 engine/超长字符串一律回落 null。
+    // 【语义】清洗仍在 02 的读侧(createSession 用 normalizeSessionEngineRoute 再过一遍),
+    // 两边不一致时以 02 为准 —— 它才是回合路由的判据。写侧(02 rememberLastUsedEngineRoute)
+    // 落盘前也已经过了同一个归一器,所以这一段在正常路径上是恒等的,它防的是手改配置文件。
+    const clean = sanitizeLastUsedEngineRoute(config.lastUsedEngineRoute);
+    if (JSON.stringify(clean) !== JSON.stringify(config.lastUsedEngineRoute ?? null)) {
+      config.lastUsedEngineRoute = clean;
+      changed = true;
+    }
   }
   for (const key of ['kimiPath']) {
     if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }

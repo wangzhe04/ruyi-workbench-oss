@@ -953,6 +953,15 @@ function defaultConfig() {
     configSchema: CONFIG_SCHEMA,
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
+    // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
+    // 新线程的缺省引擎【不再写死跟全局】。'last' = 跟「上一次用的」(见 lastUsedEngineRoute),
+    // 'global' = 老行为(跟 activeProvider / agentCliType / model 那三项全局设置)。默认 'last'。
+    newThreadEngine: 'last',      // last | global
+    // 「上一次用的引擎路由」。**只记用户自己的选择与用户自己发起的回合**(线程头切引擎 = 02 的
+    // applySessionMetaPatch;工作台发起的回合 = 10 的 runSessionTurn source==='http'),管家/调度器
+    // 派出去的回合一概不记 —— 那不是用户的意思表示。形状与会话头上的 engineRoute 逐字一致
+    // ({engine:'openai',providerId,model} | {engine:'agent',agentCliType,model});没有记录时是 null。
+    lastUsedEngineRoute: null,
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
@@ -1480,6 +1489,23 @@ function normalizeWorkspacePathString(value) {
   return s.slice(0, 1000);
 }
 
+// 123-N2:config.lastUsedEngineRoute 的【形状】清洗。见 normalizeConfig 里调用点上方那段头注 ——
+// 语义判据(providerId 还在不在、CLI 还检得到吗)不在这里,那是 02 读侧的事。
+// 参数名 rawRoute 而不是 raw/route:纪律 12(依赖图把裸参数名当跨模块符号,撞上更早模块的顶层
+// 符号会凭空生出一条前向边并把本模块拽进 SCC)。
+function sanitizeLastUsedEngineRoute(rawRoute) {
+  if (!rawRoute || typeof rawRoute !== 'object' || Array.isArray(rawRoute)) return null;
+  const model = String(rawRoute.model || '').trim().slice(0, 256);
+  if (rawRoute.engine === 'openai') {
+    const providerId = String(rawRoute.providerId || '').trim().slice(0, 128);
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (rawRoute.engine === 'agent' || rawRoute.engine === 'claude') {
+    return { engine: 'agent', agentCliType: rawRoute.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+  }
+  return null;
+}
+
 // Fold older config files onto the current schema. Returns { config, changed }.
 function normalizeConfig(raw) {
   const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
@@ -1492,6 +1518,23 @@ function normalizeConfig(raw) {
   if (!['claude', 'kimi'].includes(config.agentCliType)) {
     config.agentCliType = 'claude';
     changed = true;
+  }
+  // 123-N2:新线程缺省引擎的两个字段。
+  if (!['last', 'global'].includes(config.newThreadEngine)) {
+    config.newThreadEngine = 'last';
+    changed = true;
+  }
+  {
+    // 01 够不着 02 的 normalizeSessionEngineRoute(那是后面的模块,本仓是拼接单作用域但依赖图按
+    // 声明序判前向边),所以这里只做【形状】清洗:非对象/野 engine/超长字符串一律回落 null。
+    // 【语义】清洗仍在 02 的读侧(createSession 用 normalizeSessionEngineRoute 再过一遍),
+    // 两边不一致时以 02 为准 —— 它才是回合路由的判据。写侧(02 rememberLastUsedEngineRoute)
+    // 落盘前也已经过了同一个归一器,所以这一段在正常路径上是恒等的,它防的是手改配置文件。
+    const clean = sanitizeLastUsedEngineRoute(config.lastUsedEngineRoute);
+    if (JSON.stringify(clean) !== JSON.stringify(config.lastUsedEngineRoute ?? null)) {
+      config.lastUsedEngineRoute = clean;
+      changed = true;
+    }
   }
   for (const key of ['kimiPath']) {
     if (typeof config[key] !== 'string') { config[key] = ''; changed = true; }
@@ -5012,7 +5055,17 @@ function applySessionMetaPatch(session, patch) {
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
-    if (route) { session.engineRoute = route; sessionEngineRouteOverrides.set(id, route); }
+    if (route) {
+      session.engineRoute = route;
+      sessionEngineRouteOverrides.set(id, route);
+      // 123-N2 写入点①:用户在线程头上亲手换了引擎/模型。这条通道【只有】用户走得到 ——
+      // PATCH /api/sessions/:id(线程头 chip)与进程内改会话头的调用方;管家给新线程定档走的
+      // 是 13q stewardApplyThreadTier,它直接写 session.engineRoute,根本不经过本函数。
+      // 本函数是同步的(它有两条调用路径:立即落盘与活回合 settle 之后重放),不能 await;
+      // 记账是旁路,fire-and-forget 且内部整段 try —— 见 rememberLastUsedEngineRoute 头注第三条。
+      // 重放那条路会再记一次:同值第二次是 mutateConfig 锁内的一次 abort,无副作用。
+      void rememberLastUsedEngineRoute(route);
+    }
   }
   // 116-2a(§3.3/§8.6):线程级权限档,形状与 engineRoute 这个既有的会话级先例对齐(同端点、同覆盖表
   // 纪律)。null/''/非法值 = 清除会话级设置回落全局(白名单校验在 API 层已经把非法值挡成 400,这里
@@ -5309,6 +5362,84 @@ function sessionEngineRouteFromConfig(config) {
     return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
   }
   return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
+}
+
+// ── 123-N2「新线程默认上一次用的引擎」(用户 2026-09-13 真机原话:「现在新开线程会默认开 Kimi
+// code cli,我希望改成默认上一次用的或者别的方式,不要设定死」)────────────────────────────────
+//
+// 病根:createSession 的缺省【只有】 sessionEngineRouteFromConfig(config) 这一条路 —— 全局
+// activeProvider/agentCliType/model 三项设置。用户在线程头上把引擎切成别的,那个选择只活在
+// 那一条线程头上,下一条新线程照旧回到全局那一项(用户机器上 agentCliType 是 kimi),这就是
+// 「写死」。修法不是改全局默认值(那只是把写死换了个值),而是给新线程的缺省【加一层可选来源】。
+//
+// 记(rememberLastUsedEngineRoute)与读(newSessionEngineRoute)分两处,共用 config 上的一个字段。
+// ────────────────────────────────────────────────────────────────────────────────────────
+// 记:**两个写入点共用这一个函数**,不许各写一遍。
+//   ① 用户在线程头上换引擎/模型 → PATCH /api/sessions/:id → applySessionMetaPatch;
+//   ② 用户自己发起的回合 → 10 的 runSessionTurn 且 source === 'http'。
+// 三条纪律:
+//   · 只记【用户自己的意思表示】。管家(source 'steward')与将来的调度器(source 'scheduler')
+//     派出去的回合一概不记 —— 判据在调用点那个 if,不在这里(这里拿到的就是「该记的那一条」);
+//   · 【与现值不同才落盘】,否则每个回合都要写一次 config.json;权威比对在 mutateConfig 的锁内
+//     再做一次(锁外那一次只是拿调用方手上的现成副本做便宜短路,可能已经陈旧);
+//   · 【失败静默】。这是旁路记账 —— 写不进去最多是下一条新线程回落全局,绝不能弄坏回合或 PATCH。
+async function rememberLastUsedEngineRoute(nextRoute, knownConfig) {
+  try {
+    const clean = normalizeSessionEngineRoute(nextRoute);
+    if (!clean) return false;
+    const wanted = JSON.stringify(clean);
+    if (knownConfig && typeof knownConfig === 'object'
+      && JSON.stringify(normalizeSessionEngineRoute(knownConfig.lastUsedEngineRoute)) === wanted) return false;
+    let wrote = false;
+    await mutateConfig(async current => {
+      if (JSON.stringify(normalizeSessionEngineRoute(current.lastUsedEngineRoute)) === wanted) return { abort: 'unchanged' };
+      current.lastUsedEngineRoute = clean;
+      wrote = true;
+    });
+    return wrote;
+  } catch { return false; }
+}
+
+// 「上一次用的」现在还能不能用。只有两条判据,都对应【用户换过环境】这一件事:
+//   · openai 路由 —— 那个端点还在不在 config.providers 里。删掉端点后再开新线程必须回落,
+//     否则新线程一开口就撞 10 的「会话绑定的 Provider 不可用」,用户完全不知道发生了什么;
+//   · agent 路由 —— 那个 CLI 还检不检得到。判据【复用】01 的 selectedAgentCli(它同时看用户手填
+//     的路径与探测结果,且带缓存),不另写第二套探测 —— 第二套判据迟早与第一套判出不同答案。
+function lastUsedEngineRouteUsable(route, config) {
+  if (!route) return false;
+  if (route.engine === 'openai') {
+    return ((config && config.providers) || []).some(item => item && item.id === route.providerId);
+  }
+  const cli = selectedAgentCli({ ...(config || {}), agentCliType: route.agentCliType });
+  return Boolean(cli && cli.path);
+}
+
+// 读:新线程的缺省引擎。优先级固定四层,**第三层是本波新增的那一层**,上下两层一字未动:
+//   ① 显式入参 engineRoute(POST /api/sessions 的请求体带的,或进程内调用方指定的)——
+//      「这一条线程就要这个」压过一切;
+//   ② 从导入进来的消息里推断 —— 导入历史对话时沿用它原来的引擎(既有行为);
+//   ③ newThreadEngine === 'last' 且 lastUsedEngineRoute 【仍可用】→ 用它(本波新增);
+//   ④ 全局设置 —— 老行为,同时也是 ③ 的回落去处。
+// ③ 因「不可用」回落到 ④ 时必须留痕:用户明明设了「跟上次用的」却拿到别的引擎,不记一条
+// 审计事件就无从解释。**「还没有上一次」不算回落**(那是首次使用,不记)。
+function newSessionEngineRoute(config, explicitRoute, initialMessages, sessionId) {
+  const explicit = normalizeSessionEngineRoute(explicitRoute);
+  if (explicit) return explicit;
+  const inferred = inferSessionEngineRoute({ messages: initialMessages });
+  if (inferred) return inferred;
+  const fromGlobal = sessionEngineRouteFromConfig(config);
+  if (!config || config.newThreadEngine !== 'last') return fromGlobal;
+  const last = normalizeSessionEngineRoute(config.lastUsedEngineRoute);
+  if (!last) return fromGlobal;
+  if (lastUsedEngineRouteUsable(last, config)) return last;
+  logEvent({
+    kind: 'new_thread_engine_fallback',
+    sessionId: String(sessionId || ''),
+    reason: last.engine === 'openai' ? 'provider_missing' : 'agent_cli_missing',
+    last,
+    to: fromGlobal,
+  });
+  return fromGlobal;
 }
 
 function inferSessionEngineRoute(session) {
@@ -6770,7 +6901,7 @@ function isUntitledSessionTitle(title) {
   return !v || v === 'New session' || v === '新会话' || v === 'New chat';
 }
 
-async function createSession({ title, cwd, origin }) {
+async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
@@ -6789,7 +6920,10 @@ async function createSession({ title, cwd, origin }) {
     providerHistory: [],
     providerHistoryCursor: 0,
     attachments: [],
-    engineRoute: inferSessionEngineRoute({ messages: initialMessages }) || sessionEngineRouteFromConfig(config),
+    // 123-N2:四层优先级搬进 newSessionEngineRoute(见那里的头注)。修前这一行是
+    // `inferSessionEngineRoute({messages}) || sessionEngineRouteFromConfig(config)` —— 即今天的
+    // ②||④,新增的是最前面的 ①(显式入参)与中间的 ③(上一次用的)。
+    engineRoute: newSessionEngineRoute(config, engineRoute, initialMessages, id),
     mission: null, // 第26波b: 任务账本(见 normalizeMission)
     missionId: id, // 75a (D1 plan B): stable Mission identity, written for new sessions (== sessionId in 3.0)
     kind: 'quick_ask', // 第70波(EC-E):显式 Quick Ask 标识;mission start 时翻转 'mission'(见 13-http-router /api/mission)
@@ -33328,6 +33462,18 @@ async function runSessionTurn(input) {
   const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
   const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
   const config = configForSessionEngineRoute(permissionConfig, routeSource);
+  // 123-N2 写入点②(实现在 02 的 rememberLastUsedEngineRoute,那里有完整头注):用户【自己】发起
+  // 的这一回合实际跑在哪个引擎上,就是他「上一次用的」。记的是【解析后的实际路由】而不是请求体里
+  // 的那一份 —— routeOverride 可能为空、会话头上可能钉着别的,只有 inferSessionEngineRoute 这一次
+  // 解析的结果才是这一回合真正跑的那条(与下面 pinnedRoute 同一个判据、同一份 routeSource)。
+  // **判据是 source === 'http'**:管家(13k stewardLaunchTurn 的 'steward')与将来的调度器
+  // ('scheduler')派出去的回合不是用户的意思表示,记进去会让「上次用的」被后台活动悄悄改写 ——
+  // 用户开新线程时拿到一个自己从没选过的引擎,那比写死更糟。缺省值就是 'http'(见上面 source 那行)。
+  // 位置在两道 4xx 闸门(STEWARD_SESSION_FORBIDDEN / SESSION_TURN_BUSY_ELSEWHERE)之后:被挡回去的
+  // 那一发没有跑成任何回合,不该留下「上次用的」。旁路记账,不 await、失败静默。
+  if (source === 'http') {
+    void rememberLastUsedEngineRoute(inferSessionEngineRoute(routeSource) || sessionEngineRouteFromConfig(config), storedConfig);
+  }
   const attachments = body.attachments || [];
 
   let finished = false;

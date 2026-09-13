@@ -2173,6 +2173,18 @@ async function runSessionTurn(input) {
   const routeOverride = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
   const routeSource = routeOverride ? { ...session, engineRoute: routeOverride } : session;
   const config = configForSessionEngineRoute(permissionConfig, routeSource);
+  // 123-N2 写入点②(实现在 02 的 rememberLastUsedEngineRoute,那里有完整头注):用户【自己】发起
+  // 的这一回合实际跑在哪个引擎上,就是他「上一次用的」。记的是【解析后的实际路由】而不是请求体里
+  // 的那一份 —— routeOverride 可能为空、会话头上可能钉着别的,只有 inferSessionEngineRoute 这一次
+  // 解析的结果才是这一回合真正跑的那条(与下面 pinnedRoute 同一个判据、同一份 routeSource)。
+  // **判据是 source === 'http'**:管家(13k stewardLaunchTurn 的 'steward')与将来的调度器
+  // ('scheduler')派出去的回合不是用户的意思表示,记进去会让「上次用的」被后台活动悄悄改写 ——
+  // 用户开新线程时拿到一个自己从没选过的引擎,那比写死更糟。缺省值就是 'http'(见上面 source 那行)。
+  // 位置在两道 4xx 闸门(STEWARD_SESSION_FORBIDDEN / SESSION_TURN_BUSY_ELSEWHERE)之后:被挡回去的
+  // 那一发没有跑成任何回合,不该留下「上次用的」。旁路记账,不 await、失败静默。
+  if (source === 'http') {
+    void rememberLastUsedEngineRoute(inferSessionEngineRoute(routeSource) || sessionEngineRouteFromConfig(config), storedConfig);
+  }
   const attachments = body.attachments || [];
 
   let finished = false;

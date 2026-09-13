@@ -112,6 +112,15 @@ const EXPECTED = {
   // 得在 06i 的 STEWARD_CONFIG_TIERS 里显式登记,并回来改这张表 —— 那就是一次显式的权限扩张。
   schedulerEnabledV1: 'forbidden',
   schedulerAskWaitMinutes: 'forbidden',
+  // 123-N2:新线程的默认引擎从哪儿来('last' 跟上次用的 / 'global' 跟全局设置),以及配套的
+  // 「上次用的是哪一条路由」。两个都**故意留在 forbidden**,理由与 stewardThreadModels 逐字同一条:
+  //   · newThreadEngine 决定【下一条线程开出来跑在谁身上】,让模型能改它 = 让它自己换自己的
+  //     执行主体,而且是绕过 activeProvider / agentCliType 那两条 confirm 门的第三条路;
+  //   · lastUsedEngineRoute 不是设置,是【用户行为的记录】(02 rememberLastUsedEngineRoute 写)。
+  //     记录只该由用户自己的动作改写 —— 能经工具改它,等于让管家伪造一条「用户上次选的是我」。
+  // 两条都仍走 POST /api/config,用户在设置页里随时改得动、一眼看得见。
+  newThreadEngine: 'forbidden',
+  lastUsedEngineRoute: 'forbidden',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',
