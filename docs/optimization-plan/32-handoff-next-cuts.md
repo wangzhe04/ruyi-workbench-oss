@@ -289,6 +289,7 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
     先把本进程 USERPROFILE／HOME 换成 run-all 同款的临时家；起初只给 29 件会注册 MCP 的件装，K8 复核发现**导入方向同样污染**（直跑 `websearch` 时服务把真机 `~/.claude.json` 里剩下的 `loca_*`／`godot-ai` 导进来，工具清单被拖坏，执行者据此误判「基线红」）——于是**全部 262 件运行时 e2e 第一行都 `require` 它**（shebang 文件放第二行；run-all 跑时零动作）。新建 e2e 也要带这一行。
     全新 HOME 首启被 `detectDesktopMcp` 的 python 探针拖到 6.5 s 那笔已用磁盘缓存修掉（34 号文 §13.10）；量启动慢用 `--require`
     预载把 `spawnSync` 逐条计时，比猜快。
+16-bis. **纪律 7 第五个样本（2026-09-13，123-M1）**：补丁传输层会把源码里的 `\uXXXX` 当转义解释——`06j` 第一版的控制字符字符类真被写成了裸 NUL＋0x1F（`cat` 看不出来），commit message 同样中招（git 直接拒「NUL byte in commit log message」）。修法：源码里改用 `charCodeAt` 逐码位判，全文件零转义序列；提交前的 0x00–0x1f 扫描仍是唯一可靠的闸。
 16. **真浏览器件跨树也互斥；语法检查只用 `node --check`**（2026-09-13 122 波合并实测）。① `lib/browser-cleanup.js stopRuyiTestBrowsers()` 不传 profile 时按 `--user-data-dir=…ruyi-` 正则**杀全机所有测试浏览器**（`focus-rail.browser`／`rail-pocket.browser`／`walkthrough-round1.browser`／run-all 每件收尾都这么调）——另一棵树里正在跑的浏览器件会被连带杀掉，`cdp.evaluate` 从此永久挂住（L2 在主树跑 `steward-conversation` 时被 L1a 的件杀了 Edge，20 min 无输出）。纪律 14 的浏览器版：**并行派刀时只允许一位执行者跑真浏览器件**，其余留给主会话合并后跑。② `node -e "require('./dev-harness/run-all.js')"` 等于把全量跑起来（run-all 加载即执行）；冲突解完只用 `node --check <file>`。36 号文 §5.2／§5.4 各记了一次。
 
 ---

@@ -124,6 +124,24 @@
 - **越界但必要**：`unit/steward-config-tier.test` 两个新键分级 **forbidden**（模型不得改下一条线程用什么引擎；`lastUsedEngineRoute` 是用户行为记录不是设置）；`fixture-home.static` 133→134。
 - **登记缺口**：agent 路由的「CLI 仍 detected」那支没有 e2e（本机 Claude Code 在，断言会随环境抖）。生成物只提交 server.js／manifest。
 
+### 5.4 M1 · 调度器后端地基（Opus 主树，`be45ab9`／`2b9812c`／`e1b0ddd`／`8541685`／`12ed1f8`／`c1b8ecd`；主会话复核 2026-09-13 夜）
+
+- **§3.1**：`06j` 605 行纯函数（值域表全部冻结导出），unit 102 条：月末四例（长月不钳）、闰日合法／非法、DST 两向用 `TZ=America/New_York` 子进程且先验偏移证 TZ 生效（春季 02:30→03:30 EDT 且次日回 02:30；秋季重复只落第一个；墙钟不动跨 DST）、cron 并集、once 过期。反向注掉月末钳位 → 5 红（`实得 Wed Mar 03 2027`）。
+- **§3.2**：`13s` 772 行：零开销（关着不建目录、零任务不起 timer）、四段触发、并发 1、熔断（`tripped`＋`enabled:false`）、上限（`skipped/task_daily_cap` 零 registered）、reminder 零回合零 usage、prompt 回合 `origin:'schedule'`／`launchedBy:'steward'`；启动恢复：unknown/interrupted（J11「不判成功」）＋ lateQueue 补一次 `mode:'late'`（J10）／`skipped/grace_expired`。崩溃四段 61 条 5 次连跑全绿（`registered 恒 1 条`）。反向注掉恢复 → 25 红；lateQueue 写成 ontime → J10a 单红。
+- **无人值守 ask**：07 只加一张 `schedulerAskWaitSessions` 表（只由 13s 写）换等待窗，闸门语义不动；J2–J4 `needs_you/permission_denied`、被拒那次文件一个字节没写；`autonomy-pause.e2e` 源抽取补注入 + 四条「窗口变、判定不变」锁（`实测 1800000, 不是 120000`）。
+- **§3.3**：六路由 token；带 body-token 也 403 且零副作用；bypass 回落；五禁止键各 400；PATCH `revision+1` 且只改标题时 `nextRunAt` 不动；run-now 是 manual 新 occurrence；**删定义后 runs 仍可读**；第 201 条 409；关着 409 且不建目录。52 条。
+- **出入（四处，均采纳）**：① `origin:'schedule'`（02:2819 早为本波预留的第三值，用 steward 会让 UI 把定时线程说成管家开的）；② 不写 `aux/scheduled` 用量行（回合已记 `kind:'turn'`，再记等于同一笔钱两遍；零 token 行会被丢）→ `costTokens` 现场累计进 fires 行，台账打标登记后续；③ 不复用 13k `stewardRecordLaunchOutcome`（会把 13k/13j/13i 拽进 SCC，环边 29→7），就地 `updateSessionMeta` 同口径；④ `target` 不收 `cwd`（禁止键，显式 400）／`engineRoute`（127 波）。
+- **施工中抓到的 4 个真 bug**：`/runs?limit` 缺省 `Number(null)===0` 被钳成 1；run-now 同毫秒撞 `occurrenceKey`；**真回归** `startScheduler` 放 listen 后关键路径让 `walkthrough-round2` B1 从基线 2/18 涨到 3/10 → 挪进 boot 探针段（`c1b8ecd`）；**真语义 bug** boot 前 500 ms 建的任务被恢复逻辑认成「错过」补跑 → `loadedFromDisk` 集合把恢复范围钉死在装载那一刻盘上就有的。
+- **硬教训（补丁传输层把 `\uXXXX` 当转义解释）**：06j 第一版的控制字符类真被写成裸 NUL＋0x1F，`cat` 看不出来，commit message 同样中招（git 拒 NUL）。修法源码用 `charCodeAt` 逐码位判，全文件零转义序列。→ 32 号文纪律 7 再加一个样本。
+- **全量（M1 收工时 `c1b8ecd`）**：336 ran，331/5/5 flaky；5 红＝realhist ×3（环境）＋`budget-guard`／`context-compact-v2`（串行 2/2、4/4 绿，并行抖动）；真回归 0。`walkthrough-round2` B1 既有抖动定案：判据 `waitForEval(mode ? {mode} : null)` 只等非空，预绘期写下的正是 classic；一行修法换成 `mode && !dataset.vt`（本刀不改，留 L1b 件的治抖动）。
+- **给 M2 的接口清单**在 M1 报告原文（`06j` 导出签名、`SchedulerHooks.onReminderDue/onSchedulerNotice`、六路由形状、`schedule.changed {taskId,phase,outcome,at}`、`describeSchedule` 九键中英文案、fires 行字段）；两个新配置键当前 `forbidden`（M2 若放开须在 06i `STEWARD_CONFIG_TIERS` 登记）；调度器在 listen 后 500 ms 才起，六条 API 在 listen 即活，首屏空表不是「零任务」。
+
+### 5.5 主会话合并（2026-09-13 夜）
+
+- 顺序：M1（已在 master）→ N1 两笔（manifest 撞，以 HEAD 为准）→ N2 两笔（`fixture-home.static` 常量 136+1=137、`steward-config-tier` 两刀四键并存，manifest 同上）→ M3 三笔（无冲突）。
+- 重生成：build 52551 行、依赖图 52 模块／408 边／1 SCC、契约快照、路由 135 判定点／123 鉴权行、facts 346 e2e／44 unit、README 三处门面；`build --check`／depgraph `--check` 绿；8 文件控制字符零命中；`--fast` **70/70**（`f66c690`）。
+- 8 路全量：（待填）
+
 ## 6. 停点
 
 （每次收工写在这里，并同步记忆 `ops-new-machine-wave121` 的停点行。）
