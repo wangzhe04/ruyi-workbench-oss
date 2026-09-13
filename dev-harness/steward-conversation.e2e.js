@@ -350,6 +350,12 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   stewardPollMs: 120000,
   stewardVisitIdleMinutes: 60,
   stewardConversationRetention: 'visit',
+  // 122-L1b（36 号文 §2.13）：这台夹具机是**已经配完向导**的老用户。不写这条记录的话，
+  // 管家问候行下会多出一枚「开始引导」（新增的 onboardingActs），把 K6b 的 `.steward-acts ≤2`
+  // 预算占满、B3 那枚「知道了」被 renderActs 的 slice 切掉 —— 那不是回归，是这台夹具的身份
+  // 没说清楚（本件量的是「到访摘要那一行按钮」，与首跑引导无关）。新用户那条路由
+  // walkthrough-round2.browser 的 B 组专门钉。
+  onboarding: { completedAt: '2026-09-13T00:00:00.000Z', version: 1, skipped: false },
   providers: [{
     id: 'fake', label: 'Fake', type: 'openai-compat',
     baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model',
