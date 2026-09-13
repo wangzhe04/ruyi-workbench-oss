@@ -19,6 +19,12 @@
 //   · 类名全部可配：两壳的行类名不同（mc-row vs steward-chip-option），这里不假设任何一套；
 //     MODEL_MENU_CLASSES 是 2.0 那份，3.0 用 { ...MODEL_MENU_CLASSES, row: 'steward-chip-option' } 覆盖。
 //     绝不为「统一」去改 CSS（载荷锁钉着 CSS 的 SHA，改一处就整包红）。
+//     37 号文 §3.7（123-M3）：K8 把 2.0 那族 CSS（.mc-pop/.mc-group*/.mc-row*/.mc-switch-note/.mc-sep）
+//     整段删过之后，表里对应的 mc-* 字面量就成了「造出来但没有一条 CSS 规则认」的死字符串——`grep -rn
+//     "mc-" public/css public/js` 核过：除本文件的表定义外零命中。已删（root/group*/row/rowDisabled/
+//     rowAction/check/label/badge/hint/separator）；`buildModelMenuRow` 改成内部兜底空串，唯一调用方
+//     （steward-chips.js）逐字不变。只留两条仍有真实消费的：rowActive（'active'，全仓通用状态类）与
+//     del（'mc-del'，chat-shell.css 267/269 行还在渲染自定义模型行尾那枚 ×）。
 //   · i18n 只作【默认文案】（provider.defaultModel / modelMenu.*）；3.0 的 t 是注入的，一律经 opts
 //     覆盖，所以本模块不新增任何 locale 键，也不把注入 t 抢过来用。
 //
@@ -26,26 +32,12 @@
 import { el } from './util.js';
 import { t } from './i18n.js';
 
-// 2.0 弹层的类名表 —— 公共默认值。3.0 只需覆盖 row / label / badge / hint 四处，其余用不到也无害。
+// 2.0 弹层的类名表 —— 曾经是那颗弹层的公共默认值；它的 CSS 家族已被 K8 整段删除（见上面 123-M3 的
+// 登记），表里只留仍有真实 CSS 或全仓通用语义的两项。row / check / label / badge / hint 不再在这里给
+// 默认值——3.0（唯一调用方）逐条覆盖 row/label/badge/hint，check 由 buildModelMenuRow 内部兜底空串。
 export const MODEL_MENU_CLASSES = Object.freeze({
-  root: 'mc-pop',
-  group: 'mc-group',
-  groupDot: 'mc-gdot',
-  groupLabel: 'mc-glabel',
-  groupCount: 'mc-gcount',
-  groupSwitchNote: 'mc-switch-note',
-  groupDetails: 'mc-groupd',
-  groupSummary: 'mc-group mc-group-sum',
-  row: 'mc-row',
   rowActive: 'active',
-  rowDisabled: 'disabled',
-  rowAction: 'mc-action',
-  check: 'mc-check',
-  label: 'mc-rlabel',
-  badge: 'mc-ctxlen',
-  hint: 'mc-hint',
   del: 'mc-del',
-  separator: 'mc-sep',
 });
 
 // 分组行/取消标记等文案：null/undefined 与「空串」语义不同（2.0 的 Claude 组空态就是空串 = 什么都不写），
@@ -66,8 +58,10 @@ function textOr(value, fallback) {
 //   deletableIds/onDelete/deleteTitle              行尾删除件（2.0 的自定义模型 ×）
 // onSelect(model) 只报「选了哪一行」——关菜单、写盘都归调用方。
 export function buildModelMenuRow({ model = {}, isCurrent = false, onSelect = () => {}, opts = {} }) {
-  const cn = { ...MODEL_MENU_CLASSES, ...(opts.classNames || {}) };
-  const row = el('button', cn.row + (isCurrent ? ' ' + cn.rowActive : ''));
+  // row/check/label/badge/hint 的空串兜底跟 MODEL_MENU_CLASSES 无关——那张表已经不再假装给这几个键
+  // 配默认类名（37 号文 §3.7）；没有调用方覆盖时宁可不带 class，也不要把 undefined 拼进字符串里。
+  const cn = { row: '', check: '', label: '', badge: '', hint: '', ...MODEL_MENU_CLASSES, ...(opts.classNames || {}) };
+  const row = el('button', [cn.row, isCurrent ? cn.rowActive : null].filter(Boolean).join(' '));
   row.type = 'button';
   const attrs = typeof opts.attrs === 'function' ? opts.attrs(model, isCurrent) : null;
   if (attrs) {
