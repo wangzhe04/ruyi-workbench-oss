@@ -2515,15 +2515,24 @@ async function syncMcpServersToClaude(config) {
     // 加总预算(15s):超预算的余量丢弃 -- add-json 幂等,下次 boot 自动补齐。boot 调用点已改 fire-and-forget,
     // API/CLI 路径仍 await 也被预算兜底(最多 15s 而非 100s)。
     const SYNC_BUDGET_MS = 15000;
+    // 122-§2.6:从 Claude Code 导进来的条目【不再同步回 Claude Code】。判据取自 config.externalMcpServers
+    // 上的 origin(resolveExternalMcpServers 的输出不带这个字段,故按 id 回查),缺省视为 'ruyi'。
+    // 桌面内置连接器与 drop-in 没有 origin,照旧同步 —— 它们不是从 Claude Code 来的,不构成「删了又回来」的闭环。
+    const fromClaudeCode = new Set((Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [])
+      .filter(item => item && item.origin === 'claude-code').map(item => String(item.id)));
+    const skippedIds = [];
     const t0 = Date.now();
     for (var s of servers) {
       if (!s.id || !s.command) continue;
+      if (fromClaudeCode.has(String(s.id))) { skippedIds.push(String(s.id)); continue; }
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
       var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
       if (s.cwd) sc.cwd = s.cwd;
       try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
+    // 跳过了谁要能查:否则「为什么这个连接器没同步过去」在真机上无从定位。
+    if (skippedIds.length) logEvent({ kind: 'mcp_sync_skip_origin', origin: 'claude-code', ids: skippedIds });
   } catch { /* non-fatal */ }
 }
 
@@ -2628,7 +2637,10 @@ async function autoImportClaudeCodeMcp(config) {
         if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
         if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
         if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
-        const srv = sanitizeExternalMcpServer(raw);
+        // 122-§2.6:打来源标记。这一条是「从 Claude Code 导进来的」,syncMcpServersToClaude 据此跳过它 ——
+        // 否则用户在 Claude 里删掉一个连接器,下次启动 Ruyi 又 `claude mcp add-json` 把它写回去(§13.17 真机
+        // ~/.claude.json 被夹具污染三次,病根就是这条闭环)。import-folder / import-config 是用户主动导,不打标。
+        const srv = sanitizeExternalMcpServer({ ...raw, origin: 'claude-code' });
         if (!srv) continue;
         list.push(srv); added.push(srv.id);
       }
@@ -10503,6 +10515,9 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
     } else if (op === 'upsert') {
       const clean = sanitizeExternalMcpServer({ ...(server || {}), id: wantId });
       if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
+      // 122-§2.6:用户/工具显式 upsert = 接管这条连接器 —— 清掉来源标记,它从此算 Ruyi 自己的、照常同步回
+      // Claude Code。显式删掉(不是让 sanitize 缺省丢弃):调用方可能把读出来的整条 server 原样回传。
+      delete clean.origin;
       if (idx >= 0) list[idx] = clean; else list.push(clean);
       // 显式(再)导入覆盖撤销 —— 与 import-folder / import-config/apply 同语义。
       for (let i = dismissed.length - 1; i >= 0; i--) if (dismissed[i] === wantId) dismissed.splice(i, 1);
@@ -12917,6 +12932,12 @@ function sanitizeExternalMcpCommon(raw) {
   for (const key of ['enabledTools', 'disabledTools']) {
     if (Array.isArray(raw[key])) out[key] = raw[key].filter(value => typeof value === 'string' && value.trim()).map(value => value.trim().slice(0, 160)).slice(0, 256);
   }
+  // 122-§2.6:来源标记。只放行 'claude-code' 与 'ruyi' 两个值,其它一律丢弃(normalizeConfig 每次读配置
+  // 都会过这里,所以外部写进来的任意字符串活不过一次读写)。【缺省不补字段】—— 存量条目没有它,读侧一律
+  // 视为 'ruyi'(照旧同步回 Claude Code),行为与修前逐字节一致。谁在读:syncMcpServersToClaude 跳过
+  // 'claude-code'(那是从 Claude Code 导进来的,不能再同步回去把用户删掉的条目复活)。
+  const origin = String(raw.origin || '').trim();
+  if (origin === 'claude-code' || origin === 'ruyi') out.origin = origin;
   return out;
 }
 

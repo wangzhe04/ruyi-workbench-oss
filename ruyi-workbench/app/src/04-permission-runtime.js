@@ -1401,6 +1401,9 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
     } else if (op === 'upsert') {
       const clean = sanitizeExternalMcpServer({ ...(server || {}), id: wantId });
       if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
+      // 122-§2.6:用户/工具显式 upsert = 接管这条连接器 —— 清掉来源标记,它从此算 Ruyi 自己的、照常同步回
+      // Claude Code。显式删掉(不是让 sanitize 缺省丢弃):调用方可能把读出来的整条 server 原样回传。
+      delete clean.origin;
       if (idx >= 0) list[idx] = clean; else list.push(clean);
       // 显式(再)导入覆盖撤销 —— 与 import-folder / import-config/apply 同语义。
       for (let i = dismissed.length - 1; i >= 0; i--) if (dismissed[i] === wantId) dismissed.splice(i, 1);

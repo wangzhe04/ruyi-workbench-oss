@@ -1369,6 +1369,12 @@ function sanitizeExternalMcpCommon(raw) {
   for (const key of ['enabledTools', 'disabledTools']) {
     if (Array.isArray(raw[key])) out[key] = raw[key].filter(value => typeof value === 'string' && value.trim()).map(value => value.trim().slice(0, 160)).slice(0, 256);
   }
+  // 122-§2.6:来源标记。只放行 'claude-code' 与 'ruyi' 两个值,其它一律丢弃(normalizeConfig 每次读配置
+  // 都会过这里,所以外部写进来的任意字符串活不过一次读写)。【缺省不补字段】—— 存量条目没有它,读侧一律
+  // 视为 'ruyi'(照旧同步回 Claude Code),行为与修前逐字节一致。谁在读:syncMcpServersToClaude 跳过
+  // 'claude-code'(那是从 Claude Code 导进来的,不能再同步回去把用户删掉的条目复活)。
+  const origin = String(raw.origin || '').trim();
+  if (origin === 'claude-code' || origin === 'ruyi') out.origin = origin;
   return out;
 }
 
