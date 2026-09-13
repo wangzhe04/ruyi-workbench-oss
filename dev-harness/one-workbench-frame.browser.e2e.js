@@ -493,6 +493,27 @@ try {
     search: document.getElementById('sessionSearch'),
     firstRow: document.querySelector('#railList .steward-board-thread'),
   }, true)`);
+  // 123-M3（37 号文 §3.7 连带修正）：C1b 靠的是「刚进管家视角、焦点还没算出来」那个真实但很窄的
+  // 窗口——steward-board.js 的 enterSteward() 是 fire-and-forget，它的 refreshBoard() 要
+  // loadMissions()＋loadArbiter() 两趟网络往返都回来才会跑 syncNow() 把右栏翻出来。这张
+  // 「空右栏」快照必须在下面新加的 B0 等待【之前】就拍下来——晚一步（哪怕只是为了等 B0 的
+  // shell-mode 稳定）就足够那条 fire-and-forget 链子跑完，右栏悄悄有了焦点，C1b 就会假红
+  // （本波实测：加完 B0 的等待后 C1b 从 3/3 绿变 2/2 红，退回原始顺序复测确认二者互不相干）。
+  const emptySide = await snap();
+  // 123-M3（37 号文 §3.7）：B0 偶红的签名与 quiet-card A0g2 一致——READY 只要求 state.config 在，
+  // 而默认落点那次 applyShellMode('steward') 的写回调可能被 View Transitions 推迟一帧；快照读
+  // 在它落地之前就会撞见还没翻过来的临时值（单跑复现过一次：before.mode 读到 classic）。等
+  // data-shell-mode 连续 10 次×50 ms 采样不变，再读第一张快照——不预判它该稳定成什么，只等它
+  // 不再变（写法抄 quiet-card.browser.e2e.js 的 A0g2 段）。
+  {
+    let prev = await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode'))()`);
+    let stable = 0;
+    for (let i = 0; i < 400 && stable < 10; i++) {
+      await sleep(50);
+      const cur = await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode'))()`);
+      if (cur === prev) { stable += 1; } else { stable = 0; prev = cur; }
+    }
+  }
   const before = await snap();
   ok(before.mode === 'steward', `B0 默认视角是管家（K0 的默认入口；实测 ${before.mode}）`);
   await setLens('classic');
@@ -514,8 +535,8 @@ try {
 
   /* ═════════ ② 1920 三栏与中栏读宽（§7.1）═════════
      反向验证：把 steward-shell.css 里 .app-views > .steward-shell 的列宽从 var(--right-w) 改成
-     别的值 → C3 当场红（两个视角的栅格不再逐字相同，切换会跳一次宽度）。 */
-  const emptySide = await snap();
+     别的值 → C3 当场红（两个视角的栅格不再逐字相同，切换会跳一次宽度）。
+     emptySide 复用最上面那张【进壳即拍】的快照，不在这里重新 snap()——见上面 123-M3 的登记。 */
   ok(emptySide.topbar && emptySide.topbar.h === 46 && emptySide.topbar.y === 0,
     `C1 顶栏 46px 贴在最上面（实测 ${emptySide.topbar && emptySide.topbar.h}px @ y=${emptySide.topbar && emptySide.topbar.y}）`);
   // 右栏【空着的时候不占一条空白轨】（K4-1 那条 :has(> .steward-side[hidden]) 规则）：管家视角
