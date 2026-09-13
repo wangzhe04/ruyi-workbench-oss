@@ -49,8 +49,14 @@ const clearTimeoutF = t => { if (t) t.cleared = true; };
 const fireNext = () => { const live = timers.filter(x => !x.cleared).sort((a, b) => a.ms - b.ms); if (live[0]) { live[0].cleared = true; live[0].cb(); return true; } return false; };
 // 第71波:requestNativePermission 的 settle 内旁路调 settleIntervention(02 持久化),onEvent 后旁路调 registerIntervention。
 // 源抽取注入 noop(本件测定时器行为,不测 Intervention 持久化 -- 后者见 interventions-persist.e2e.js)。
-const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision',
-  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback());
+// 123-M1:baseMs 现在先问一句「这条会话是不是定时任务派的」(07 的 schedulerAskWaitOverrideMs,
+// 由 13s 在派单前后成对写/清)。源抽取件必须把这个新依赖也注进来 —— 71 波那条硬教训的同一个模具:
+// 改了产品代码就要回来核一遍源抽取的注入表,漏一个就是 ReferenceError 而不是断言红。
+// 这里用一张可控的表来喂它,下面 (5) 组就靠它量「换的只是等待窗口,不是判定」。
+const schedulerAskWait = new Map();
+const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision', 'schedulerAskWaitOverrideMs',
+  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback(),
+  sid => Number(schedulerAskWait.get(String(sid))) || 0);
 
 (async () => {
   const settle = p => Promise.race([p, sleep(0).then(() => '__pending__')]);
@@ -94,6 +100,28 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
     const entry = pending.get(rid); clearTimeoutF(entry.timer); pending.delete(rid); entry.resolve({ behavior: 'deny', message: 'user denied' }); // 基础超时前决定
     const d = await p;
     ok(d.behavior === 'deny' && !events.some(e => e.type === 'permission_paused'), 'P(4) 基础超时前决定→不进 pause 窗口(无 permission_paused)');
+  }
+  // (5) 123-M1(29 号文 §10 红线二):定时任务派出去的无人值守回合【只换等待窗口,不换判定】。
+  //     没登记的会话拿到的仍是 timeoutMs 那个数;登记过的会话拿到 schedulerAskWaitMinutes 折算的
+  //     毫秒数 —— 而定时器一到点,走的还是同一条 deny。**子集律:只能拒,永不放行。**
+  {
+    timers = []; const events = [];
+    const p = requestNativePermission('s5', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null);
+    ok(timers.length === 1 && timers[0].ms === 120000, `P(5a) 没登记过的会话:基础窗口仍是 timeoutMs(实测 ${timers[0] && timers[0].ms})`);
+    fireNext();
+    ok((await p).behavior === 'deny', 'P(5a) 到点仍是 deny');
+  }
+  {
+    timers = []; const events = [];
+    schedulerAskWait.set('s6', 30 * 60000);   // = config.schedulerAskWaitMinutes 默认 30 分钟
+    const p = requestNativePermission('s6', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null);
+    ok(timers.length === 1 && timers[0].ms === 1800000,
+      `P(5b) 定时任务的会话:基础窗口换成 30 分钟(实测 ${timers[0] && timers[0].ms},不是 120000)`);
+    fireNext();
+    const d = await p;
+    ok(d.behavior === 'deny' && !d.pausedTimeout,
+      'P(5b) 【子集律】窗口再长,到点仍然是 deny —— 无人值守遇 ask 绝不自动放行');
+    schedulerAskWait.delete('s6');
   }
 
   console.log('');
