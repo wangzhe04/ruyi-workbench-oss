@@ -93,7 +93,21 @@
 
 ## 5. 交付记录
 
-（每刀出门后主会话补。）
+### 5.1 M3 · 顺带清障（Sonnet 隔离 worktree，`8007352`／`fa25959`／`158ee3c`；主会话复核 2026-09-13 晚，待 cherry-pick）
+
+- **mc-\* 死串**：`grep -rn "mc-"` 证 18 项里只有 `del`（`mc-del`，chat-shell.css 267/269 还在画自定义模型行尾 ×）有 CSS；表压成 `{ rowActive:'active', del:'mc-del' }`，`buildModelMenuRow` 内部兜底空串，唯一调用方 steward-chips 逐字不变。新锁 `model-menu-classes.static` 动态 import 真模块逐类核 CSS 规则，自带反向（毒一份表 → 恰好抓到那一个）。`steward-model-menu.test` 47/47。
+- **`one-workbench-frame.browser` B0**：等 `data-shell-mode` 10×50 ms 稳定再拍快照；**连带抓到 C1b 假红**——那点等待足够 `steward-board.js enterSteward()` 的 fire-and-forget（`loadMissions`＋`loadArbiter` 回来才 `syncNow`）把右栏填上；把 C1/C1b 的「空右栏」快照挪到等待之前（两个窗口互不相干）。5/5 绿；两向反证（原顺序 3/3 绿、只加等待 2/2 红，差的 392 px 正是右栏宽）。
+- **`subagent` (a5)**：单跑 11 次 0 红，06g 租约纯事件驱动无墙钟窗口 → **不修**；同件 **(a4)「stop 请求被接受／stop 落盘 stopped」4/11 红**——级联重试与紧随的 stop 之间的编排层竞态，登记后续。
+- **夹具 `LOCALAPPDATA`／`APPDATA`**：`fakeAppDataDirs(home)` 建 `<home>/AppData/{Local,Roaming}`，`fixtureChildEnv` 两支＋`self-isolate-home` 都换；14 件浏览器件的 `--user-data-dir` 全显式传，不受影响；`index-dedup` 去掉 36 号文 §5.1 那条临时 `WCW_DATA_DIR` 后 E3 仍绿（反向只退夹具改动 → E3 复现红）；单测 +2（376/376）。
+- `--fast` 68/69：唯一红 `facts.static` e2eCount 340→341（新锁），主会话合数。
+
+### 5.2 N1 · 管家话术分档＋澄清＋对话流重复（Opus 隔离 worktree，`e80fc09`／`bc8d6a3`；主会话复核 2026-09-13 晚，待 cherry-pick）
+
+- **① 重复渲染（真 bug，反向复现了用户贴的那个病）**：`13q` 回执加 `createdAt`＝落盘那条助手消息的 createdAt（读不到时**不下发这个键**，静态锁钉）；前端 `finishReply` 推水位并给行盖 `data-created-at`，`renderHistorySince` 同身份跳过；缺键退到 `alignWatermark()`（`?since=` 只推水位不画）。新组 AB1–AB4：live 一回合后 `appendSince()` 实得 rendered 0、同文本用户气泡恰 1；按到访起点硬拉只补没盖身份的那条；再拉 0。反向去掉推水位 → `rendered 2／2 枚`（＝用户贴的现象）；去掉身份闸 → r2=3。
+- **②③ 话术分档＋只问一次**：中英 rules 各两条（原文在 06b 与 N1 报告）；stable 一字未动。**证伪派单前提**：英文 rules 已 1974/2200（117z-E2 加的 226 字没回改注释），两条电报体仍需 470 → `RULES_BUDGET` 2200→2480，`< 2500` 结构不变量仍钉；注释写明英文包已满，下一条要先压缩英文行（普遍是中文 2.5–4 倍）或退役一条。派单稿里更细的口径（≤120 字、每条 ≤30 字、四件套拆行、追问一轮后一律直接开）落在 06b 注释，未进提示词。
+- **④ CSS 不改**：`chat-narrative.css:40` 的 `.md p { margin:.72em 0 }` 已给段间 ≈10 px，补 `p + p` 8 px 反而变密；非 markdown 路径是单个 `<p>` pre-wrap，规则永不命中。**话密的真因是话术**。
+- 生成物只提交 server.js／manifest，depgraph／contracts（+`stewardLastAssistantCreatedAt`）／route-inventory／facts 留主会话重生成；`--fast` 67/68 唯一红是产物新鲜度锁。
+- **登记小债**：`13q stewardLastAssistantCreatedAt()` 与 13p `stewardLastAssistantContent()` 各读一次管家会话 → 每回合多一次 `loadSession`，合成一次读要动 13p。
 
 ## 6. 停点
 
