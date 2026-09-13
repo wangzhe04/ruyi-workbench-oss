@@ -5650,6 +5650,51 @@ async function finalizeMissionAfterTurn(session, how) {
   return maybeFinalizeMission(session, how);
 }
 
+// ── 122-§2.4:回合收尾的【落盘前合并】(mission) ───────────────────────────────────────────
+// 现象:管家开线程后立刻派第一回合,再 POST /api/mission {action:'start'};回合收尾一存,里程碑账本没了。
+// 病根:/api/mission 落盘后只在 activeChildren.get(sessionId) 命中时才把 mission 同步进活回合内存(C4)。
+// 而 09-workflow 从「路由 loadSession 出会话」到「activeChildren.set(reg)」之间隔着 providerHistory 同步、
+// 配对/参数自愈、turnSeq 落盘、onTurnStart 钩子与 captureWorkspaceTurnBaseline —— 这一整段里到达的 start
+// 已经落了盘,却谁也同步不进回合内存;回合收尾 saveSession(内存 session)把整份 mission 覆盖回「没有」。
+// 修法(与 P2-3「skills/memories 的 pre-save disk-merge」同一形状,三个引擎共用本函数):落盘前重读磁盘,
+//   ① 磁盘有账本而内存没有  → 以磁盘为准(顺带把 start 翻过的 kind:'mission' 接回来);
+//   ② 同一本账本(createdAt 相同)且磁盘 changeSeq 更高 → 以磁盘为底,把本回合内存里的增量
+//      (goal / 里程碑 status·desc·evidence)用 applyMissionUpdate 语义重放上去 —— provider 引擎的
+//      mission_update 是 in-process 改内存的(09),不重放就把本回合的进度丢了;
+//   ③ 其余情况(内存不比磁盘旧,或磁盘换了另一本账本而内存那本已被 start 顶替)保持现状/以磁盘为准。
+// 返回是否改过 session.mission(仅供调用方判断,收尾流程不依赖)。
+function mergeMissionBeforeSave(session, onDisk) {
+  if (!session) return false;
+  const disk = onDisk && onDisk.mission && typeof onDisk.mission === 'object' ? onDisk.mission : null;
+  const mem = session.mission && typeof session.mission === 'object' ? session.mission : null;
+  if (!disk) return false;                       // 磁盘没有账本 -> 内存说了算(与合并前逐字节等价)
+  if (!mem) {                                    // ① 回合中途才被 start:整份接过来
+    session.mission = disk;
+    if (onDisk.kind === 'mission') session.kind = 'mission';
+    return true;
+  }
+  const diskSeq = Number(disk.changeSeq) || 0;
+  const memSeq = Number(mem.changeSeq) || 0;
+  if (diskSeq <= memSeq) return false;           // ③ 内存不比磁盘旧
+  if (String(disk.createdAt || '') !== String(mem.createdAt || '')) {
+    // ③ 磁盘上已经是【另一本】账本(回合中途 start 全量新建):内存那本是被顶替的旧账,不许重放回去。
+    session.mission = disk;
+    if (onDisk.kind === 'mission') session.kind = 'mission';
+    return true;
+  }
+  // ② 同一本账本:以磁盘为底重放内存增量。补丁里【只带】id/status/desc/evidence,绝不带 check ——
+  // 机器验收的定义权只属于磁盘那一份(用户经 header token 设的)。trusted=false 是刻意的:它顺带挡住
+  // 「磁盘刚把 m1 判 done(action:'check' / 用户 UI),内存里那份还是 pending」被重放成回退」。
+  session.mission = applyMissionUpdate(disk, {
+    goal: mem.goal,
+    milestones: (Array.isArray(mem.milestones) ? mem.milestones : []).map(item => ({
+      id: item && item.id, status: item && item.status, desc: item && item.desc, evidence: item && item.evidence,
+    })),
+  }, false);
+  if (onDisk.kind === 'mission') session.kind = 'mission';
+  return true;
+}
+
 // ── 第84波:Mission 控制面单一 command core ───────────────────────────────────────────────
 // 74 波冻结语义在这里落成唯一状态机：pause/takeover 只停当前回合+驱动，stop 覆盖整单并请求停止
 // 同 Mission 的所有活 Run；continue/retry 只再武装，真正的新 provider 回合由 UI 在用户点击后显式发起。
@@ -6535,7 +6580,12 @@ async function loadSessionV1Backup(id) {
 // volume, so a crash mid-write leaves the previous good file intact instead of a truncated one.
 // v1.9 存储 v2(save 侧):头(小)仍 tmp+rename 原子重写;两个正文数组优先 append-only 快路径
 // (前缀逐行 hash 比对,见文件头部「会话存储 v2」块注释),任何前缀变化/状态缺失/上次失败 → 全量重写正文。
-async function saveSession(session) {
+// 122-§2.4:opts.mergeMissionFromDisk —— 落盘前在【写链内】重读磁盘头,把路由刚写的 mission 合并进来
+// (见 mergeMissionBeforeSave)。为什么必须在链内:回合起跑那一存与 POST /api/mission 的那一存是同一条
+// 写链上的两个排队者,「链外先 loadSession 再 saveSession」中间还有若干 await,路由的写可以恰好排到两者
+// 之间 —— 实测 0 ms 时点 5 轮里就有 1 轮这样丢账本。链内重读则:排在我前面的写一定已落盘(读得到),
+// 排在我后面的写一定后落盘(它自己就是权威),两个方向都不丢。只有回合引擎的起跑存传这个旗子。
+async function saveSession(session, opts) {
   await ensureDirs();
   session.updatedAt = nowIso();
   const id = session.id;
@@ -6551,24 +6601,28 @@ async function saveSession(session) {
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
-  const head = { ...session };
-  delete head.messages;
-  delete head.providerHistory;
-  head.storageVersion = SESSION_STORAGE_VERSION;
-  head.messageCount = messages.length;
-  head.providerHistoryCount = providerHistory.length;
-  // 75a-2b (S3): preserve disk-side mission.changeSeq bumps (intervention transitions write the head
-  // directly via bumpMissionChangeSeq). Take max with the in-memory high-water so this save's in-memory
-  // session object doesn't clobber an intervention's bump. No auto-bump here (bumps are explicit).
-  if (head.mission && typeof head.mission === 'object') {
-    const hw = missionChangeSeqHighWater.get(id) || 0;
-    const cur = Number(head.mission.changeSeq) || 0;
-    if (hw > cur) head.mission.changeSeq = hw;
-  }
+  const buildHeadPayload = () => {
+    const head = { ...session };
+    delete head.messages;
+    delete head.providerHistory;
+    head.storageVersion = SESSION_STORAGE_VERSION;
+    head.messageCount = messages.length;
+    head.providerHistoryCount = providerHistory.length;
+    // 75a-2b (S3): preserve disk-side mission.changeSeq bumps (intervention transitions write the head
+    // directly via bumpMissionChangeSeq). Take max with the in-memory high-water so this save's in-memory
+    // session object doesn't clobber an intervention's bump. No auto-bump here (bumps are explicit).
+    if (head.mission && typeof head.mission === 'object') {
+      const hw = missionChangeSeqHighWater.get(id) || 0;
+      const cur = Number(head.mission.changeSeq) || 0;
+      if (hw > cur) head.mission.changeSeq = hw;
+    }
+    return JSON.stringify(head, null, 2);
+  };
   // Serialize the payload and snapshot the 7 index fields in the SAME synchronous tick, so the background index
   // write reflects EXACTLY what we persist here (no drift if `session` is mutated during the awaits below).
-  const payload = JSON.stringify(head, null, 2);
-  const metaSnapshot = sessionMeta(session);
+  // 122-§2.4:mergeMissionFromDisk 命中时,链内合并后按合并结果【重算】这两份快照,两者仍然同一拍取样。
+  let payload = buildHeadPayload();
+  let metaSnapshot = sessionMeta(session);
   // 第25波 25.1: 写体收编进 atomicWriteJson(唯一 tmp 名防并发互踩 + rename 瞬时锁重试 + 失败清 tmp)。
   // 对抗轮修: 同会话并发写者(回合保存 + 节流 flush + updateSessionMeta)此前不串行 —— 加了 rename 重试后,
   // 旧载荷可在 ~680ms 退避后覆写掉新载荷(stale-overwrites-fresh 窗口从 writeFile 粒度拉宽到 680ms)。
@@ -6576,6 +6630,16 @@ async function saveSession(session) {
   // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
   const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // 122-§2.4:链内落盘前合并 mission(见本函数头注与 mergeMissionBeforeSave)。只读【头文件】就够 ——
+    // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
+    if (opts && opts.mergeMissionFromDisk) {
+      let onDiskHead = null;
+      try { onDiskHead = JSON.parse(await fsp.readFile(finalPath, 'utf8')); } catch { onDiskHead = null; }
+      if (onDiskHead && typeof onDiskHead === 'object' && mergeMissionBeforeSave(session, onDiskHead)) {
+        payload = buildHeadPayload();
+        metaSnapshot = sessionMeta(session);
+      }
+    }
     const bp = sessionBodyPaths(id);
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
     // 恢复路径也会走到这里,若允许覆盖会把「 pristine legacy 备份」冲成 v2 头,备份使命直接报废。
@@ -11576,7 +11640,8 @@ async function runClaudeTurn({
       createdAt: nowIso(),
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
     });
-    await saveSession(session);
+    // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
+    await saveSession(session, { mergeMissionFromDisk: true });
     await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
@@ -12420,8 +12485,10 @@ async function runClaudeTurn({
   // 会被本回合陈旧内存副本回滚,下一回合默认策略又自动全启,直接违背用户意图。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
   // 第72波: mission 一并回读 —— claude 引擎的 mission_update 经 MCP 子进程 loopback POST /api/mission 落【磁盘】
   // (12-tool-dispatch),本回合内存副本是旧的;不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回
-  // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。provider 引擎是 in-process 更新,不在此列(09 不回读)。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission; } catch { /* keep in-memory */ }
+  // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。
+  // 122-§2.4:mission 这一项改走三引擎共用的 mergeMissionBeforeSave —— 原地的「磁盘有就整份换」是它的
+  // ①③两支,新增的是②「同一本账本、磁盘更新时把本回合内存增量重放上去」(09 那一路必需)与 kind 接回。
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; mergeMissionBeforeSave(session, onDisk); } catch { /* keep in-memory */ }
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
@@ -15659,7 +15726,8 @@ async function runKimiAcpTurnPrepared(context) {
     if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories;
     if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit;
     if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions;
-    if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission;
+    // 122-§2.4:mission 走三引擎共用的落盘前合并(原地那句「磁盘有就整份换」是它的①③两支)。
+    mergeMissionBeforeSave(session, onDisk);
   } catch { /* keep in-memory */ }
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
@@ -28477,7 +28545,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   } else {
     session.providerHistory.push({ role: 'user', content: fullPrompt });
   }
-  await saveSession(session);
+  // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
+  // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
+  // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
+  await saveSession(session, { mergeMissionFromDisk: true });
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
@@ -30259,12 +30330,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model, traceId: activeTraceId,
   });
   session.providerHistoryCursor = session.messages.length;
-  // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
-  // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
-  if (session.__missionFinalizeHow) {
-    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
-    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
-  }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
@@ -30273,7 +30338,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
   // 下一回合默认策略又自动全启。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; } catch { /* keep in-memory */ }
+  // 122-§2.4: mission 也要落盘前合并 —— 回合的这段窗口里到达的 POST /api/mission 落了盘却同步不进
+  // 活回合内存(C4 只在 activeChildren 命中时生效),不合并则收尾这一存把整本账本盖掉。见 mergeMissionBeforeSave。
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; mergeMissionBeforeSave(session, onDisk); } catch { /* keep in-memory */ }
+  // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
+  // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
+  // 122-§2.4:这一段从「摘要之前」挪到了【落盘前合并之后】—— 章必须盖在合并后的那一本账本上,否则
+  // 合并会把刚盖好的 complete 章连同 mission 整份换掉(05/05b 的回读本来就排在盖章之前,这里补齐对齐)。
+  if (session.__missionFinalizeHow) {
+    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+  }
   await saveSession(session);
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });

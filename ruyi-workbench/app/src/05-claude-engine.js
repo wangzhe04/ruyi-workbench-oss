@@ -95,7 +95,8 @@ async function runClaudeTurn({
       createdAt: nowIso(),
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
     });
-    await saveSession(session);
+    // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
+    await saveSession(session, { mergeMissionFromDisk: true });
     await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
@@ -939,8 +940,10 @@ async function runClaudeTurn({
   // 会被本回合陈旧内存副本回滚,下一回合默认策略又自动全启,直接违背用户意图。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
   // 第72波: mission 一并回读 —— claude 引擎的 mission_update 经 MCP 子进程 loopback POST /api/mission 落【磁盘】
   // (12-tool-dispatch),本回合内存副本是旧的;不回读则收尾 save 把 loopback 的里程碑更新与结果章整份盖回
-  // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。provider 引擎是 in-process 更新,不在此列(09 不回读)。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission; } catch { /* keep in-memory */ }
+  // (与 todos 完全同型,此前 mission 不在回读清单是漏项)。
+  // 122-§2.4:mission 这一项改走三引擎共用的 mergeMissionBeforeSave —— 原地的「磁盘有就整份换」是它的
+  // ①③两支,新增的是②「同一本账本、磁盘更新时把本回合内存增量重放上去」(09 那一路必需)与 kind 接回。
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos; if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; mergeMissionBeforeSave(session, onDisk); } catch { /* keep in-memory */ }
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }

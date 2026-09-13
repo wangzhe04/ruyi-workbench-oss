@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 50 | 2144 | 2321 | 398 | 67 | 0 | 1 |
+| 50 | 2145 | 2324 | 398 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -20,13 +20,13 @@
 | 2 | `01c-runtime-flags.js` | foundation | 31 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 114 | 35 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 5 | `02-session-store.js` | foundation | 237 | 44 | 12 |
+| 5 | `02-session-store.js` | foundation | 238 | 44 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 8 | `04-permission-runtime.js` | foundation | 100 | 29 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 10 | `05-claude-engine.js` | engine | 23 | 101 | 15 |
-| 11 | `05b-kimi-bridge.js` | engine | 119 | 64 | 12 |
+| 10 | `05-claude-engine.js` | engine | 23 | 102 | 15 |
+| 11 | `05b-kimi-bridge.js` | engine | 119 | 65 | 12 |
 | 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
 | 14 | `06-provider-engine.js` | engine | 114 | 49 | 11 |
@@ -42,7 +42,7 @@
 | 24 | `08-agent-runs.js` | orchestration | 89 | 87 | 16 |
 | 25 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 26 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
-| 27 | `09-workflow.js` | orchestration | 10 | 209 | 22 |
+| 27 | `09-workflow.js` | orchestration | 10 | 210 | 22 |
 | 28 | `10-context-governance.js` | orchestration | 126 | 67 | 14 |
 | 29 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 30 | `12-tool-dispatch.js` | tools | 33 | 78 | 14 |
@@ -112,7 +112,7 @@
 | `04-visual-pipeline.js` | `00-boot.js` | backward | `fsp`, `path` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `safeJsonParse` |
 | `05-claude-engine.js` | `01-config.js` | backward | `CLAUDE_PERMISSION_MODE_MAP`, `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `RUNTIME`, `buildUserEnvelope`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `isBatchLauncher`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi`, `writeToChild` |
-| `05-claude-engine.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
+| `05-claude-engine.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `mergeMissionBeforeSave`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
 | `05-claude-engine.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `05-claude-engine.js` | `03-bridge-guard.js` | backward | `buildAttachmentPrompt`, `cwdWarning`, `normalizeCwd` |
 | `05-claude-engine.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `buildClaudeRecoveryHistory`, `claudeProviderTailSince`, `claudeResumeRouteKey`, `clearPendingPermissions`, `clearPendingQuestions`, `formatQuestionGuidance`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `isClaudeResumeMissingError`, `killChildTree`, `lastAssistantEngine`, `lastSuccessfulClaudeModel`, `logEvent`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `redact`, `registerUserQuestion`, `sameClaudeResumeCwd`, `stopSession` |
@@ -127,7 +127,7 @@
 | `05-claude-engine.js` | `13-http-router.js` | forward | `buildModelHint` |
 | `05b-kimi-bridge.js` | `00-boot.js` | backward | `MAX_BODY_BYTES`, `RUYI_EVENTS`, `StringDecoder`, `URL`, `cp`, `createNdjsonLineFeeder`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `pathToFileURL`, `paths`, `safeJsonParse`, `text` |
 | `05b-kimi-bridge.js` | `01-config.js` | backward | `RUNTIME`, `decodeClaudeCliText`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi` |
-| `05b-kimi-bridge.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `normalizeTodoItems`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
+| `05b-kimi-bridge.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `mergeMissionBeforeSave`, `normalizeTodoItems`, `reconcileWorkspaceTurnBaseline`, `saveSession` |
 | `05b-kimi-bridge.js` | `03-bridge-guard.js` | backward | `buildOpenSpawn`, `cwdWarning`, `fileAllowedRoots`, `guardFileToolPath`, `guardWorkspaceExecute`, `normalizeCwd`, `pathWithinRoot`, `realpathForContainment`, `workspaceWriteRoots` |
 | `05b-kimi-bridge.js` | `04-permission-runtime.js` | backward | `activeChildren`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `killChildTree`, `logEvent`, `redact`, `requestUserQuestion` |
 | `05b-kimi-bridge.js` | `05c-kimi-search-policy.js` | forward | `KIMI_ACP_SEARCH_BLOCKED_ENV_RE`, `classifyKimiAcpReadonlySearch` |
@@ -210,7 +210,7 @@
 | `09-workflow.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
-| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `liveSessionPermissionMode`, `loadSession`, `normalizeTodoItems`, `providerHistoryToolCalls`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `recordMissionBudgetTrippedChange`, `recordMissionStalledChange`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `sessionDesktopToolsOf`, `settleIntervention` |
+| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `liveSessionPermissionMode`, `loadSession`, `mergeMissionBeforeSave`, `normalizeTodoItems`, `providerHistoryToolCalls`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `recordMissionBudgetTrippedChange`, `recordMissionStalledChange`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `sessionDesktopToolsOf`, `settleIntervention` |
 | `09-workflow.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `buildAttachmentPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd` |
 | `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `redact`, `requestUserQuestion`, `resolveBridge`, `stopSession` |

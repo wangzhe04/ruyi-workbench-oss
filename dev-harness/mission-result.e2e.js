@@ -235,8 +235,15 @@ function spawnWb() {
     ok(/const result = await missionControlCommand\(sessionId, 'stop'\)/.test(src) && /mission\.result = await buildMissionResult\(session, \{ status: 'stopped', how: 'stop' \}\)/.test(src), 's 13 stop 复用整单控制核心盖 stopped 章');
     ok(/await maybeFinalizeMission\(session, 'check'\)/.test(src) && /await maybeFinalizeMission\(session, 'update'\)/.test(src), 's 13 check/update 接线盖章');
     ok(/Object\.defineProperty\(session, '__missionFinalizeHow'/.test(src) && /finalizeMissionAfterTurn\(session, how\)/.test(src), 's 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合交付)');
-    ok(/if \(onDisk && onDisk\.mission && typeof onDisk\.mission === 'object'\) session\.mission = onDisk\.mission;/.test(src)
-      && /async function finalizeMissionAfterTurn\(session, how\)/.test(src), 's 05 claude 收尾回读后重建当前轮 result，不再沿用上一轮交付');
+    // 122-§2.4:这条原本钉的是「05 收尾那一行长什么样」（`session.mission = onDisk.mission`）——
+    // 那句已经收编进三引擎共用的 mergeMissionBeforeSave。改钉【哪件事必须成立】（纪律 5）：
+    // 收尾落盘前先把磁盘账本合并进来，并且盖章（finalizeMissionAfterTurn）排在合并【之后】，
+    // 否则章会被合并连同 mission 整份换掉。顺序判据用切片位置，不钉行号也不钉写法。
+    const claudeTail = src.slice(src.indexOf("if (stderrText.trim()) {\n    session.messages.push({ role: 'system'"));
+    const mergeAt = claudeTail.indexOf('mergeMissionBeforeSave(session, onDisk);');
+    const stampAt = claudeTail.indexOf("if (session.__missionFinalizeHow) {");
+    ok(mergeAt > 0 && stampAt > mergeAt && /async function finalizeMissionAfterTurn\(session, how\)/.test(src),
+      's 05 claude 收尾先落盘前合并、再盖当前轮 result 章（不沿用上一轮交付，也不被合并盖掉）');
     ok(/result: \(session\.mission && session\.mission\.result\) \|\| null,/.test(src), 's 13d 快照带 result');
     ok(/const fold = foldTurnSummaries\(session\);/.test(src), 's 13d 折叠走 foldTurnSummaries(NaN bug 修复)');
     ok(/function archiveMissionResult\(mission\)/.test(src), 's 02 archiveMissionResult 归档旧 result');

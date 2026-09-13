@@ -655,6 +655,7 @@
         "markInterruptedInterventions",
         "maybeFinalizeMission",
         "mergeMissionAcceptance",
+        "mergeMissionBeforeSave",
         "missionAttachThread",
         "missionBudgetRemaining",
         "missionBudgetTripTurns",
@@ -2000,6 +2001,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "mergeMissionBeforeSave",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
           "kinds": [
             "call"
@@ -2780,6 +2788,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mergeMissionBeforeSave",
           "kinds": [
             "call"
           ]
@@ -6001,6 +6016,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mergeMissionBeforeSave",
           "kinds": [
             "call"
           ]

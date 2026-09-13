@@ -1319,7 +1319,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   } else {
     session.providerHistory.push({ role: 'user', content: fullPrompt });
   }
-  await saveSession(session);
+  // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
+  // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
+  // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
+  await saveSession(session, { mergeMissionFromDisk: true });
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
@@ -3101,12 +3104,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     engine: 'openai', providerId: provider.id, providerLabel: provider.label || provider.id, model, traceId: activeTraceId,
   });
   session.providerHistoryCursor = session.messages.length;
-  // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
-  // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
-  if (session.__missionFinalizeHow) {
-    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
-    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
-  }
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
@@ -3115,7 +3112,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
   // 下一回合默认策略又自动全启。memoriesExplicit 仅当磁盘为 boolean 才覆盖。
-  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; } catch { /* keep in-memory */ }
+  // 122-§2.4: mission 也要落盘前合并 —— 回合的这段窗口里到达的 POST /api/mission 落了盘却同步不进
+  // 活回合内存(C4 只在 activeChildren 命中时生效),不合并则收尾这一存把整本账本盖掉。见 mergeMissionBeforeSave。
+  try { const onDisk = await loadSession(session.id); if (onDisk && Array.isArray(onDisk.skills)) session.skills = onDisk.skills; if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories; if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit; if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions; mergeMissionBeforeSave(session, onDisk); } catch { /* keep in-memory */ }
+  // 第72波:回合内 mission_update 推迟的 complete 章在此刻盖 —— 本回合 turnSummary 已入 messages,
+  // 结果快照的不可逆账/变更/验收才能包含完成它的这个回合;盖章随下方 saveSession 一并落盘。
+  // 122-§2.4:这一段从「摘要之前」挪到了【落盘前合并之后】—— 章必须盖在合并后的那一本账本上,否则
+  // 合并会把刚盖好的 complete 章连同 mission 整份换掉(05/05b 的回读本来就排在盖章之前,这里补齐对齐)。
+  if (session.__missionFinalizeHow) {
+    const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
+    try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
+  }
   await saveSession(session);
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });

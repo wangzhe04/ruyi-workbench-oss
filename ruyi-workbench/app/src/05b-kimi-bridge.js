@@ -2730,7 +2730,8 @@ async function runKimiAcpTurnPrepared(context) {
     if (onDisk && Array.isArray(onDisk.memories)) session.memories = onDisk.memories;
     if (onDisk && typeof onDisk.memoriesExplicit === 'boolean') session.memoriesExplicit = onDisk.memoriesExplicit;
     if (onDisk && Array.isArray(onDisk.memoryExclusions)) session.memoryExclusions = onDisk.memoryExclusions;
-    if (onDisk && onDisk.mission && typeof onDisk.mission === 'object') session.mission = onDisk.mission;
+    // 122-§2.4:mission 走三引擎共用的落盘前合并(原地那句「磁盘有就整份换」是它的①③两支)。
+    mergeMissionBeforeSave(session, onDisk);
   } catch { /* keep in-memory */ }
   if (session.__missionFinalizeHow) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
