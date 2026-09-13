@@ -1813,11 +1813,6 @@ async function startServerInner(opts) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
-  // 第123波 M1(37 号文 §3.2「启动恢复」): 服务已 listen、runtime.json 已落之后才起调度器 ——
-  // 恢复那一步可能立刻补跑一个回合,而回合要用得上刚落的 RUNTIME.token(MCP 子进程回连)。
-  // schedulerEnabledV1 显式 false 时 startScheduler 立即返回,不建目录、不读盘、不起 interval、零写入;
-  // 开着但零任务时同样不起 interval(29 号文 §4「开关」)。失败绝不阻断已经开起来的服务(调度器是旁路)。
-  await startScheduler(config).catch(() => {});
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -1834,6 +1829,17 @@ async function startServerInner(opts) {
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
   setTimeout(() => setImmediate(() => {
+    // 第123波 M1(37 号文 §3.2「启动恢复」):调度器起在这一段的【最前面】,不在 listen 之后的
+    // 关键路径上。理由是实测出来的:第一版把 `await startScheduler(config)` 直接写在 server_start
+    // 那一行之后,walkthrough-round2 的 B1(「全新 HOME 启动落管家视角」)从 0/6 红变成 3/10 红 ——
+    // 那一件量的正是「首屏 bind 期 config 到没到」,startScheduler 里那一次 readConfig 与两次落空的
+    // 文件读把最初那一两个请求往后挤了。本段的存在理由就是「把起跑那一刻让出去」(见上面的头注),
+    // 调度器与 MCP 同步、能力矩阵预热是同一类活:都该等首屏拿到东西之后再做。
+    // 排在本段最前而不是最后:它比下面三件都轻,而且恢复那一步可能要立刻补跑一个回合,
+    // 不该排在 detectDesktopMcp 那 2 s 同步探针后面。schedulerEnabledV1 显式 false 时它立即返回,
+    // 不建目录、不读盘、不起 interval、零写入;开着但零任务时同样不起 interval(29 号文 §4「开关」)。
+    // fire-and-forget:调度器是旁路,失败绝不阻断已经开起来的服务。
+    void startScheduler(config).catch(() => {});
     // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
     // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
     void syncMcpServersToClaude(config).catch(() => {});

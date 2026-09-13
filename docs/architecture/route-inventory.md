@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 135(精确 114 / 前缀 12 / 正则 9),ROUTE_AUTH 123 条,生成于 2026-09-13T09:58:28.914Z。
+> 判定点 135(精确 114 / 前缀 12 / 正则 9),ROUTE_AUTH 123 条,生成于 2026-09-13T11:08:38.408Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -153,12 +153,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:723 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
-| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:732 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:751 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:792 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:806 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:830 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:736 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
+| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:745 | rail-pocket.browser.e2e.js, scheduler-api.e2e.js, scheduler-crash.e2e.js 等 4 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:764 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:805 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:819 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:843 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
 
 ## session(5)
 

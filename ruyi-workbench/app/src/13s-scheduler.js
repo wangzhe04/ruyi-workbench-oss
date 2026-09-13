@@ -94,6 +94,13 @@ const schedulerRuntime = {
   fireSeq: 0,
   globalRuns: { date: '', count: 0 },
   lateQueue: [],        // [{ taskId, dueMs }] —— 启动恢复排的补跑,只排一次(29 号文 §4「只补一次」)
+  // 启动恢复【只认装载那一刻盘上就有的那些任务】。为什么需要这个集合:调度器起在 boot 探针段
+  // (listen 之后 500 ms,见 13-http-router 那一行的理由),而六条 API 在 listen 那一刻就活了 ——
+  // 用户/e2e 完全可能在这 500 ms 里建一条任务并把时钟拨过它。那条任务【不是「错过」的】:
+  // 它的 nextFireAt 是刚刚按「现在」算出来的,本进程一直在跑,只是还没轮到第一拍。
+  // 不区分的话它会被 missedOccurrence 认成错过、以 mode:'late' 补跑 —— 界面上就成了「补跑」,
+  // 而事实是准时。(实测:scheduler.e2e 的 B3 当场红成「succeeded/late」。)
+  loadedFromDisk: new Set(),
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -242,6 +249,7 @@ async function schedulerLoad() {
     if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
   }
   schedulerRuntime.tasks = tasks;
+  schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
   schedulerRuntime.globalRuns = file.globalRuns;
   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
   const rows = await schedulerReadFireRows();
@@ -282,8 +290,11 @@ async function schedulerRecover(schedFireRows) {
   }
   let dirty = false;
 
+  // 只走「装载那一刻盘上就有的」那些任务(见 loadedFromDisk 的头注)。
+  const fromDisk = schedulerRuntime.tasks.filter(task => schedulerRuntime.loadedFromDisk.has(task.id));
+
   // ① 崩溃残留
-  for (const task of schedulerRuntime.tasks) {
+  for (const task of fromDisk) {
     const runId = String(task.state.inFlightRunId || '');
     if (!runId) continue;
     const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
@@ -317,7 +328,7 @@ async function schedulerRecover(schedFireRows) {
   }
 
   // ② 错过的时点
-  for (const task of schedulerRuntime.tasks) {
+  for (const task of fromDisk) {
     if (!task.state.enabled) continue;
     const missed = missedOccurrence(task, now);
     if (!missed) continue;
@@ -348,6 +359,8 @@ async function schedulerRecover(schedFireRows) {
     task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
     dirty = true;
   }
+  // 恢复只做一次:清掉集合,此后任何任务都只能走正常的 tick(mode:'ontime')。
+  schedulerRuntime.loadedFromDisk = new Set();
   if (dirty) await schedulerSaveTasks();
 }
 

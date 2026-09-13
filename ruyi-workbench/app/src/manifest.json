@@ -203,115 +203,115 @@
     {
       "file": "13-http-router.js",
       "startLine": 38355,
-      "endLine": 40750,
+      "endLine": 40756,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 40751,
-      "endLine": 41088,
+      "startLine": 40757,
+      "endLine": 41094,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 41089,
-      "endLine": 41277,
+      "startLine": 41095,
+      "endLine": 41283,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 41278,
-      "endLine": 43369,
+      "startLine": 41284,
+      "endLine": 43375,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 43370,
-      "endLine": 43986,
+      "startLine": 43376,
+      "endLine": 43992,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "13i-steward-inbox.js",
-      "startLine": 43987,
-      "endLine": 45198,
+      "startLine": 43993,
+      "endLine": 45204,
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
       "file": "13j-steward-tool-base.js",
-      "startLine": 45199,
-      "endLine": 45606,
+      "startLine": 45205,
+      "endLine": 45612,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)"
     },
     {
       "file": "13k-steward-threads.js",
-      "startLine": 45607,
-      "endLine": 46703,
+      "startLine": 45613,
+      "endLine": 46709,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)"
     },
     {
       "file": "13l-steward-ops.js",
-      "startLine": 46704,
-      "endLine": 47344,
+      "startLine": 46710,
+      "endLine": 47350,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 47345,
-      "endLine": 47703,
+      "startLine": 47351,
+      "endLine": 47709,
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)"
     },
     {
       "file": "13m-steward-runner-base.js",
-      "startLine": 47704,
-      "endLine": 47944,
+      "startLine": 47710,
+      "endLine": 47950,
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)"
     },
     {
       "file": "13n-steward-arbiter.js",
-      "startLine": 47945,
-      "endLine": 48501,
+      "startLine": 47951,
+      "endLine": 48507,
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)"
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "startLine": 48502,
-      "endLine": 48919,
+      "startLine": 48508,
+      "endLine": 48925,
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)"
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "startLine": 48920,
-      "endLine": 49472,
+      "startLine": 48926,
+      "endLine": 49478,
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)"
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "startLine": 49473,
-      "endLine": 50102,
+      "startLine": 49479,
+      "endLine": 50108,
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 50103,
-      "endLine": 50521,
+      "startLine": 50109,
+      "endLine": 50527,
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)"
     },
     {
       "file": "13r-event-stream.js",
-      "startLine": 50522,
-      "endLine": 50826,
+      "startLine": 50528,
+      "endLine": 50832,
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)"
     },
     {
       "file": "13s-scheduler.js",
-      "startLine": 50827,
-      "endLine": 51672,
+      "startLine": 50833,
+      "endLine": 51691,
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗"
     },
     {
       "file": "14-main.js",
-      "startLine": 51673,
-      "endLine": 52329,
+      "startLine": 51692,
+      "endLine": 52348,
       "note": "main()/module.exports"
     }
   ]

@@ -40167,11 +40167,6 @@ async function startServerInner(opts) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
-  // 第123波 M1(37 号文 §3.2「启动恢复」): 服务已 listen、runtime.json 已落之后才起调度器 ——
-  // 恢复那一步可能立刻补跑一个回合,而回合要用得上刚落的 RUNTIME.token(MCP 子进程回连)。
-  // schedulerEnabledV1 显式 false 时 startScheduler 立即返回,不建目录、不读盘、不起 interval、零写入;
-  // 开着但零任务时同样不起 interval(29 号文 §4「开关」)。失败绝不阻断已经开起来的服务(调度器是旁路)。
-  await startScheduler(config).catch(() => {});
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -40188,6 +40183,17 @@ async function startServerInner(opts) {
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
   setTimeout(() => setImmediate(() => {
+    // 第123波 M1(37 号文 §3.2「启动恢复」):调度器起在这一段的【最前面】,不在 listen 之后的
+    // 关键路径上。理由是实测出来的:第一版把 `await startScheduler(config)` 直接写在 server_start
+    // 那一行之后,walkthrough-round2 的 B1(「全新 HOME 启动落管家视角」)从 0/6 红变成 3/10 红 ——
+    // 那一件量的正是「首屏 bind 期 config 到没到」,startScheduler 里那一次 readConfig 与两次落空的
+    // 文件读把最初那一两个请求往后挤了。本段的存在理由就是「把起跑那一刻让出去」(见上面的头注),
+    // 调度器与 MCP 同步、能力矩阵预热是同一类活:都该等首屏拿到东西之后再做。
+    // 排在本段最前而不是最后:它比下面三件都轻,而且恢复那一步可能要立刻补跑一个回合,
+    // 不该排在 detectDesktopMcp 那 2 s 同步探针后面。schedulerEnabledV1 显式 false 时它立即返回,
+    // 不建目录、不读盘、不起 interval、零写入;开着但零任务时同样不起 interval(29 号文 §4「开关」)。
+    // fire-and-forget:调度器是旁路,失败绝不阻断已经开起来的服务。
+    void startScheduler(config).catch(() => {});
     // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
     // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
     void syncMcpServersToClaude(config).catch(() => {});
@@ -50920,6 +50926,13 @@ const schedulerRuntime = {
   fireSeq: 0,
   globalRuns: { date: '', count: 0 },
   lateQueue: [],        // [{ taskId, dueMs }] —— 启动恢复排的补跑,只排一次(29 号文 §4「只补一次」)
+  // 启动恢复【只认装载那一刻盘上就有的那些任务】。为什么需要这个集合:调度器起在 boot 探针段
+  // (listen 之后 500 ms,见 13-http-router 那一行的理由),而六条 API 在 listen 那一刻就活了 ——
+  // 用户/e2e 完全可能在这 500 ms 里建一条任务并把时钟拨过它。那条任务【不是「错过」的】:
+  // 它的 nextFireAt 是刚刚按「现在」算出来的,本进程一直在跑,只是还没轮到第一拍。
+  // 不区分的话它会被 missedOccurrence 认成错过、以 mode:'late' 补跑 —— 界面上就成了「补跑」,
+  // 而事实是准时。(实测:scheduler.e2e 的 B3 当场红成「succeeded/late」。)
+  loadedFromDisk: new Set(),
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -51068,6 +51081,7 @@ async function schedulerLoad() {
     if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
   }
   schedulerRuntime.tasks = tasks;
+  schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
   schedulerRuntime.globalRuns = file.globalRuns;
   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
   const rows = await schedulerReadFireRows();
@@ -51108,8 +51122,11 @@ async function schedulerRecover(schedFireRows) {
   }
   let dirty = false;
 
+  // 只走「装载那一刻盘上就有的」那些任务(见 loadedFromDisk 的头注)。
+  const fromDisk = schedulerRuntime.tasks.filter(task => schedulerRuntime.loadedFromDisk.has(task.id));
+
   // ① 崩溃残留
-  for (const task of schedulerRuntime.tasks) {
+  for (const task of fromDisk) {
     const runId = String(task.state.inFlightRunId || '');
     if (!runId) continue;
     const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
@@ -51143,7 +51160,7 @@ async function schedulerRecover(schedFireRows) {
   }
 
   // ② 错过的时点
-  for (const task of schedulerRuntime.tasks) {
+  for (const task of fromDisk) {
     if (!task.state.enabled) continue;
     const missed = missedOccurrence(task, now);
     if (!missed) continue;
@@ -51174,6 +51191,8 @@ async function schedulerRecover(schedFireRows) {
     task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
     dirty = true;
   }
+  // 恢复只做一次:清掉集合,此后任何任务都只能走正常的 tick(mode:'ontime')。
+  schedulerRuntime.loadedFromDisk = new Set();
   if (dirty) await schedulerSaveTasks();
 }
 
