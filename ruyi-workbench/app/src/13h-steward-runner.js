@@ -343,6 +343,12 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         // 不写进这里就到不了前端。契约不完整那句灰字回执在 live 那条路(finishReply)靠的就是它。
         // 缺省不写,与落盘章同一口径。
         ...(reply.contractIncomplete === true ? { contractIncomplete: true } : {}),
+        // 123-P1 收尾（38 号文 §4；P1 登记项①，主会话补）：`createdAt` 也漏在白名单外面。
+        // 123-N1 ① 给 13q 的回执加了它（落盘那条助手消息的 createdAt），前端 finishReply 拿它
+        // 推 `lastRenderedAt` 水位；可这一帧没带，前端读到的恒空，**主路径从未生效**，一直靠
+        // `alignWatermark()` 那条兜底活着（每回合多发一次 `?since=`）。AB 段测得绿是因为它 stub
+        // 了 fetch、直接喂带 createdAt 的回执，够不着这一帧。缺省不写，与上面两个同口径。
+        ...(reply.createdAt ? { createdAt: String(reply.createdAt) } : {}),
         circuit: reply.circuit || null,
         ...(reply.ok === false && reply.error ? { error: reply.error, message: reply.message || '' } : {}),
       });

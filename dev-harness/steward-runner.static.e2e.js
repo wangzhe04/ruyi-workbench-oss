@@ -359,6 +359,15 @@ const srv = require(path.join(APP, 'server.js'));
     '⑤ 123-N1 ① 回执带 createdAt,且读不到时【不下发这个键】(老回执逐字节不变)');
   ok(/return Number\.isFinite\(at\) && at > sinceMs;/.test(src13d),
     '⑤ 123-N1 ① 服务端 ?since= 是【严格大于】—— 水位停在本回合末尾正好把这一回合两条消息一起盖住');
+  // 123-P1 收尾（38 号文 §4）：`steward_reply` 那一帧是【白名单】，13q 往回执里加的键不写进
+  // 白名单就到不了前端。123-N1 ① 的 createdAt 就是这么断的：13q 塞了、白名单没带、前端读到恒空，
+  // 主路径从未生效（AB 段 stub 了 fetch 直接喂回执，够不着这一帧）。钉的是「13q 塞进 reply 的
+  // 每一个可选键，白名单里都有」这件事本身，不是某一行的写法 —— 将来再加字段照样挡得住。
+  const replyFrame = (src13h.match(/type: 'steward_reply',[\s\S]*?\n      \}\);/) || [''])[0];
+  ok(replyFrame.length > 100, '⑤ 123-P1 steward_reply 那一帧可定位');
+  for (const key of ['say', 'why', 'acts', 'actions', 'parsed', 'contractIncomplete', 'createdAt']) {
+    ok(replyFrame.includes(key + ':'), `⑤ 123-P1 steward_reply 白名单带 ${key}（13q 塞了就必须能到前端）`);
+  }
 }
 
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
