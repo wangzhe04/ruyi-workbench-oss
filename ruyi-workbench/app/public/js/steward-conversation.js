@@ -1417,6 +1417,20 @@ export function createStewardConversation({
 
   function finishReply(row, sayNode, reply, tools, sourceMessage) {
     if (!row) return;
+    // 123-N1 ①（34 号文；用户 2026-09-13 真机走查「同一段对话出现两遍」）：**用户自己发的回合
+    // 也要推水位**。修前水位只在 renderHistorySince（进壳画历史）里推高，runSend → appendUser /
+    // finishReply 这条路直接上屏、从不推水位 —— 于是下一条收件箱回合到达时，壳层调
+    // appendSince(lastRenderedAt || visitStartedAt) 会从到访起点重拉，把屏上已有的回合再画一遍。
+    // reply.createdAt 是 13q 回执新带的「这条助手消息落盘的时刻」，与 ?since= 同一把尺（服务端那边
+    // 是【严格大于】，所以水位停在本回合末尾正好把两条消息一起盖住）。
+    const stampedAt = String((reply && reply.createdAt) || '');
+    if (stampedAt) {
+      if (stampedAt > lastRenderedAt) lastRenderedAt = stampedAt;
+      row.dataset.createdAt = stampedAt;   // ③ 的另一半：这一行也带上身份，回放那条路才认得出它
+    } else {
+      // 老回执（升级前的服务端）或读不到落盘时刻：退到「对齐一发」—— 只推水位，不画任何东西。
+      void alignWatermark();
+    }
     const say = String(reply.say || '');
     // 117s-C：终态这一次带高亮（代码块的 hljs ＋ mermaid 懒加载都在 highlightIn 里，只跑这一次）。
     if (sayNode) { if (say) paintSay(sayNode, say); }
@@ -1788,6 +1802,10 @@ export function createStewardConversation({
       // 117j W2-4：记住「已经画到哪一条」的水位。ISO 8601 是定长 UTC 串，字典序即时间序。
       const stampAt = String(message.createdAt || '');
       if (stampAt && stampAt > lastRenderedAt) lastRenderedAt = stampAt;
+      // 123-N1 ③ 防御：同一条消息（按 createdAt 认身份）在屏上只画一次。水位是【第一道】闸，
+      // 这是第二道 —— 水位万一没推上去（老回执、对齐那一发也失败、两处增量抢跑），这里兜住，
+      // 不至于整段历史再来一遍（用户 2026-09-13 看到的就是这个）。
+      if (stampAt && feedHasCreatedAt(stampAt)) continue;
       if (message.role === 'user') {
         // 收件箱触发的回合没有「用户的话」：那条 user 消息是系统事件，落盘在 meta.origin='inbox'
         // 上（09-workflow 的 messageMeta），不是用户本人说的，不该在对话流里冒充成用户气泡。
@@ -1796,13 +1814,15 @@ export function createStewardConversation({
           inboxTurnSeq = stewardInboxTurnSeq(String(message.content || ''));   // 117s-H2：顺手取回合号
           continue;
         }
-        appendUser(String(message.content || ''));
+        const userRow = appendUser(String(message.content || ''));
+        if (userRow && stampAt) userRow.dataset.createdAt = stampAt;   // 123-N1 ③：给这一行盖上身份
         rendered += 1;
         continue;
       }
       const stamp = (message.steward && typeof message.steward === 'object') ? message.steward : null;
       const row = appendSteward(String((stamp && stamp.say) || message.content || ''), stamp ? stamp.why : '',
         stamp ? actionWhyLines(stamp.actions) : []);
+      if (row && stampAt) row.dataset.createdAt = stampAt;   // 123-N1 ③：给这一行盖上身份
       // 117s-C：只有 trigger==='inbox' 的回合才加小头。落盘的 stamp 里【没有】来源线程 id
       // （13h 只盖了 'user'/'inbox' 这一个字面量），所以来源取自上一条收件箱消息；它也没有时
       // 退到「本回合真开／真续的那条线程」（executedThreadSessionId）；两个都没有就不加。
@@ -1845,6 +1865,33 @@ export function createStewardConversation({
   // 而屏幕上一个字都不变 —— 那条回复只落在会话文件里，对话流却只在【进壳】那一刻渲染过一次历史。
   // 这里按 116-4 新加的 「?since=」 拉增量（整份拉一条长会话是几百 KB 的重复载荷），只画比已画过的
   // 最后一条更新的那些。去重口径是 createdAt：「?since=」 在服务端已按它过滤，这里只需记住水位。
+  // 123-N1 ③：这条 createdAt 的消息是不是【已经在屏上】。逐行比 dataset 而不是拼一条属性选择器
+  // ——  createdAt 是从服务端来的字符串，拼进选择器就是一处 CSS 注入面；行数本来就有界，逐行比更便宜
+  // 也更诚实。data-created-at 由 renderHistorySince 与 finishReply 两处唯一地盖上。
+  function feedHasCreatedAt(stampAt) {
+    const feed = feedEl();
+    if (!feed || !stampAt) return false;
+    for (const node of feed.querySelectorAll('.steward-msg')) {
+      if (node.dataset && node.dataset.createdAt === stampAt) return true;
+    }
+    return false;
+  }
+
+  // 123-N1 ①的退路：回执没带 createdAt（老服务端、或落盘时刻读不到）时，拉一发与 appendSince
+  // 【同一条】增量，但**只推水位不画**——本回合的话此刻就在屏上（finishReply 刚画完），再画一遍
+  // 正是要治的那个病。失败一律沉默：对不齐水位最坏只是下一次增量多画一遍，而 ③ 那道防御还在。
+  async function alignWatermark() {
+    const since = String(lastRenderedAt || visitStartedAt || '');
+    if (!since) return;
+    let payload = null;
+    try { payload = await api('/api/sessions/steward?since=' + encodeURIComponent(since)); } catch { return; }
+    const messages = (payload && payload.session && Array.isArray(payload.session.messages)) ? payload.session.messages : [];
+    for (const message of messages) {
+      const stampAt = String((message && message.createdAt) || '');
+      if (stampAt && stampAt > lastRenderedAt) lastRenderedAt = stampAt;
+    }
+  }
+
   async function appendSince(sinceIso) {
     const since = String(sinceIso || lastRenderedAt || visitStartedAt || '');
     if (!since) return 0;

@@ -1965,6 +1965,83 @@ try {
   ok(Boolean(vDismissRow) && vDismissRow.receipts === 1 && vDismissRow.acts.length === 0,
     `AA9 ② 的对照面没坏：「知道了」这类【表态】点完仍然整行换成灰字回执、按钮一个不剩（实测 回执 ${vDismissRow && vDismissRow.receipts} / 剩余按钮 ${vDismissRow && vDismissRow.acts.length}）`);
 
+  // ─── AB 123-N1 ①（34 号文；用户 2026-09-13 真机走查「同一段对话出现两遍」）────────────────────
+  // 病根：`appendSince` 用 lastRenderedAt 当水位，而水位【只在】renderHistorySince（进壳画历史）里
+  // 推高；用户自己发的回合走 runSend → appendUser / finishReply 直接上屏，从不推水位。于是下一条
+  // 收件箱回合到达时，壳层调 appendSince(lastRenderedAt || visitStartedAt) 会从到访起点重拉，把屏上
+  // 已有的回合再画一遍 —— 用户贴出来的那段对话流里「你好→四段自我汇报」「下周美股→开线程」各两遍。
+  // 手法与 T/U/F1/F2/Z/AA 六段一样：新建实例 ＋ 注入按 URL 分流的假 api，走 enterVisit / sendToSteward /
+  // appendSince 三条【真】路径。假 api 的 `?since=` 与 13d:325 逐字同规（**严格大于**），否则这一组
+  // 钉的就不是产品行为而是夹具行为。
+  const AB_USER = '那下周美股会是什么走势呢';
+  const AB_SAY = '开好了，我这就让它去查。';
+  const AB_VISIT_AT = '2098-05-05T00:00:00.000Z';
+  const AB_HELLO_AT = '2098-05-05T00:00:01.000Z';
+  const AB_USER_AT = '2098-05-05T00:00:02.000Z';
+  const AB_REPLY_AT = '2098-05-05T00:00:03.000Z';
+  const abRun = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    // 服务端此刻手上的那份消息面（进壳时只有上一轮那句问候）。
+    const server = [
+      { role: 'assistant', createdAt: ${JSON.stringify(AB_HELLO_AT)}, content: '',
+        steward: { trigger: 'user', say: '上一轮那条我盯着。', why: '', acts: [], actions: [] } },
+    ];
+    const calls = [];
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        const route = String(url).split('?')[0];
+        calls.push(String(url));
+        if (route === '/api/steward/visit') return { ok: true, newVisit: false, pending: [], visit: { startedAt: ${JSON.stringify(AB_VISIT_AT)} } };
+        if (route === '/api/sessions/steward') {
+          // 13d:325 的 ?since= 语义：Date.parse(createdAt) > sinceMs，**严格大于**。
+          const m = /[?&]since=([^&]*)/.exec(String(url));
+          const sinceMs = m ? Date.parse(decodeURIComponent(m[1])) : NaN;
+          const tail = Number.isFinite(sinceMs)
+            ? server.filter(row => Date.parse(row.createdAt) > sinceMs)
+            : server.slice();
+          return { session: { messages: tail } };
+        }
+        return null;
+      },
+      state: { config: { stewardEnabledV1: true } },
+      t: key => key,
+      isStewardMode: () => true,
+    });
+    await conv.enterVisit();
+    // 用户自己发一句：stub 掉 /api/steward/message 那条 NDJSON 流，回一条【带 createdAt】的回执。
+    const reply = { type: 'steward_reply', say: ${JSON.stringify(AB_SAY)}, why: '', acts: [], actions: [], createdAt: ${JSON.stringify(AB_REPLY_AT)} };
+    const realFetch = window.fetch;
+    window.fetch = async (url, init) => {
+      if (String(url).indexOf('/api/steward/message') >= 0) return new Response(JSON.stringify(reply) + '\\n', { status: 200 });
+      return realFetch(url, init);
+    };
+    try { await conv.sendToSteward(${JSON.stringify(AB_USER)}); } finally { window.fetch = realFetch; }
+    // 这一回合已经落盘（真机上是 09-workflow 写的；这里照抄它落下来的两条的形状）。
+    server.push({ role: 'user', createdAt: ${JSON.stringify(AB_USER_AT)}, content: ${JSON.stringify(AB_USER)} });
+    server.push({ role: 'assistant', createdAt: ${JSON.stringify(AB_REPLY_AT)}, content: '',
+      steward: { trigger: 'user', say: ${JSON.stringify(AB_SAY)}, why: '', acts: [], actions: [] } });
+    const users = () => [...document.querySelectorAll('#stewardFeed .steward-msg-user .steward-say')]
+      .filter(node => node.textContent === ${JSON.stringify(AB_USER)}).length;
+    const usersAfterSend = users();
+    // ① 收件箱回合到达时壳层就是这么调的（不传参 → 用水位）。
+    const rendered = await conv.appendSince();
+    const usersAfterAppend = users();
+    // ③ 防御：把水位撇开、按到访起点【硬拉】两次 —— 第一次只该补上没画过的那条，第二次一条都不该画。
+    const r2 = await conv.appendSince(${JSON.stringify(AB_VISIT_AT)});
+    const usersAfterR2 = users();
+    const r3 = await conv.appendSince(${JSON.stringify(AB_VISIT_AT)});
+    const usersAfterR3 = users();
+    return { usersAfterSend, rendered, usersAfterAppend, r2, usersAfterR2, r3, usersAfterR3, calls };
+  })()`);
+  ok(Boolean(abRun) && abRun.usersAfterSend === 1 && abRun.rendered === 0,
+    `AB1 ① 用户自己发的那一轮把水位推到了本回合之后：随后那一发 appendSince()（收件箱回合走的就是它）实得 rendered ${abRun && abRun.rendered}，应为 0`);
+  ok(Boolean(abRun) && abRun.usersAfterAppend === 1,
+    `AB2 ① 用户那句话在屏上恰一枚气泡（修前是两枚 —— 用户 2026-09-13 贴出来的正是它；实测 ${abRun && abRun.usersAfterAppend} 枚）`);
+  ok(Boolean(abRun) && abRun.r2 === 1 && abRun.usersAfterR2 === 2,
+    `AB3 ③ 防御的正面：按到访起点硬拉，服务端回 3 条，只有【没盖过 data-created-at】的那条用户消息被画（实测 r2=${abRun && abRun.r2}）—— 问候与刚才那条回复都被认了出来`);
+  ok(Boolean(abRun) && abRun.r3 === 0 && abRun.usersAfterR3 === abRun.usersAfterR2,
+    `AB4 ③ 同一发再来一次：三条全都盖过身份，一条都不再画（实测 r3=${abRun && abRun.r3}，用户气泡 ${abRun && abRun.usersAfterR2} → ${abRun && abRun.usersAfterR3}）`);
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
   await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");

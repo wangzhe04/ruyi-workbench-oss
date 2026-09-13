@@ -101,6 +101,21 @@ async function runStewardTurn(input) {
   }
 }
 
+// 123-N1 ①:本回合落盘的那条助手消息的 createdAt(回执带给前端当水位用,见 stewardRunClaimedTurn
+// 里的调用点)。形状照抄同族的 stewardLastAssistantContent —— 同一条消息、同一个找法(从尾往前
+// 找第一条 assistant),只是取的字段不同;读不到会话、没有助手消息、字段缺失都回空串,调用方据此
+// 退到「对齐一发」的老路。代价是每回合多一次会话读:stewardLastAssistantContent 在 13p、本刀不碰
+// 它(硬纪律的独占文件表),合并成一次读是主会话的活,登记为一笔小债。
+async function stewardLastAssistantCreatedAt() {
+  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
+  if (!session) return '';
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'assistant') return String(messages[i].createdAt || '');
+  }
+  return '';
+}
+
 // 117l D3:认领之后的回合本体。抽出来只为让「同步认领 -> try/finally 释放」这条纪律
 // 一目了然:释放必须盖住【全部】退出路径 —— 含 stewardStampReply 之后那一段。修前它跑在
 // inflight 已经清空之后,第二句用户的话于是能在正文还没盖章时插进来。
@@ -160,6 +175,14 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed });
   }
   const finalText = await stewardLastAssistantContent();
+  // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
+  // 那条助手消息的 createdAt】。前端 finishReply 拿它推 appendSince 的水位 —— 修前水位只在
+  // 「进壳画历史」那一处推高,用户自己发的回合直接上屏、从不推水位,于是下一条收件箱回合到达时
+  // 壳层按旧水位重拉增量,把屏上已有的回合又画了一遍。
+  // 取的是【同一条消息】的字段:stewardStampReply 盖章盖在「最后一条助手消息」上,这里读的也是
+  // 它(盖章只写 .steward,不动 createdAt,所以先读后盖、先盖后读拿到的是同一个值)。用户那条消息
+  // 的 createdAt 更早,水位推到助手这条即把两条一起盖住。
+  const stampedAt = await stewardLastAssistantCreatedAt();
   const parsedReply = stewardParseReply(finalText);
   // 自理动作排在模型 actions 【前面】:它们先发生,steward_reply.actions 的顺序就该是事情发生的
   // 顺序。两者同形,故 stewardDowngradeActions 一视同仁 —— 自理侧被闸门拦下的行(propose_required)
@@ -183,6 +206,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     parsed: parsedReply.parsed,
     turnSeq: Number(turn && turn.turnSeq) || 0,
     sessionId: session.id,
+    // 123-N1 ①:落盘时刻(ISO 8601 定长 UTC 串,与 GET /api/sessions/steward?since= 同一把尺)。
+    // 读不到就不下发这个键 —— 前端缺省时自己走「对齐一发」的退路,老回执逐字节不变。
+    ...(stampedAt ? { createdAt: stampedAt } : {}),
     circuit: null,
   };
   // 117s-H4:落盘的回执带来源(对象);reply.trigger(内存态 lastReply 与 steward_reply 帧)仍是字符串。
