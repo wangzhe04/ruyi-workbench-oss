@@ -100,6 +100,13 @@ const PARALLEL_EXCLUSIVE = new Set([
 const TIMEOUT_OVERRIDES = {
   // scheduler-ready-queue: 时序敏感(等调度器 tick),慢机器上偶发贴边
   'scheduler-ready-queue.e2e.js': 180000,
+  // 123 合并复核（37 号文 §5.5）：steward-board 一趟里起一台真服务并跑一百多条看板断言，
+  // 串行实测 22.9／23.1 s——远在默认 120 s 之内，问题只在 8 路下的争抢：本波三轮全量里
+  // 它两轮首跑失败重跑通过、收官那轮直接撞 120 s 墙（TIMEOUT）。同期每个 worker 的服务
+  // 都要付一次桌面 MCP 探针（首个 /api/status ≈2.5 s，见 §5.5 登记的产品债），八份叠在
+  // 一起就把这类「服务多、断言多」的件挤过线。豁免到 300 s 防误杀；真正的根治是
+  // detectDesktopMcp async 化，那条债一旦还上，这条豁免应当回来复测并考虑撤掉。
+  'steward-board.e2e.js': 300000,
   // tools-v2: 8 子测试各自 spawn workbench,(d) group 改用独立端口(9190/9191 避 8962 TIME_WAIT),
   // 本机多轮 e2e 后资源紧张时整体 >120s(实测 240s,逻辑全 PASS)。豁免到 300s 防误杀。
   'tools-v2.e2e.js': 300000,
