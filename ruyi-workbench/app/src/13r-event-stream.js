@@ -207,6 +207,10 @@ RUYI_EVENTS.subscribe((name, payload) => {
     // answerQuestionId(单问有选项时才有)。任务名不在这里带:前端已经从 /api/missions 那一份行拿到
     // title/来源/色号,再带一份等于第二个数据源(thread-head.js 那套「问左栏要,不裸发第二份」的先例)。
     const frame = { sessionId: String(data.sessionId || ''), kind: String(data.kind || '') };
+    // 123-M2:收件箱行号与定时任务 id 两个【标识】(安静卡「稍后」的 sourceRef 要 inboxSeq,
+    // 不属于任何线程的 reminder 要 taskId 当卡的身份)。两个都是序号/id,不承载正文。
+    if (Number(data.inboxSeq) > 0) frame.inboxSeq = Number(data.inboxSeq);
+    if (data.taskId) frame.taskId = String(data.taskId).slice(0, 64);
     if (data.quiet === true) frame.quiet = true;
     if (data.ask) frame.ask = String(data.ask).slice(0, EVENT_STREAM_SUMMARY_MAX);
     if (data.interventionId) frame.interventionId = String(data.interventionId);

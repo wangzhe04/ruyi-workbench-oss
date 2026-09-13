@@ -19481,7 +19481,12 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 // 121-K3(34 号文 §4.4「交接」):第六类 adopted —— 用户把一条线程【交给管家盯】(写 stewardWatch:true)。
 // 它不是「出事了」,而是一次交接:管家下一拍要回一句「好,『X』我盯着」。排在表尾,前五类的
 // 顺序与语义一个字不动(到访摘要按本表顺序归纳,插在中间会改既有摘要的行序)。
-const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted']);
+// 123-M2(37 号文 §3.5):第七类 reminder —— 定时任务的三件事(到点提醒、错过跳过、连败熔断)。
+// 它与前六类的区别是【不需要回答】:那六类都在说「某条线程怎么样了」,而这一类是「你自己排的
+// 那件事到点了」。所以它不进 needs_you 那一行的计数,也不该起一个管家回合(reminder 是事实,
+// 不是问题;13t 写这类行时故意不敲 StewardHooks.onInboxBatch)。同样排在表尾,前六类的顺序
+// 与语义一个字不动(到访摘要按本表顺序归纳)。
+const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted', 'reminder']);
 
 // 116f:管家会话的固定 id 与标题。定在这里(engine 层最早)而不是 13h,是因为 13g(收件箱轮询器)也要
 // 用它把管家会话排除在事件源之外 —— 13g 引用 13h 会是前向边,引用 06i 是后向边。
@@ -45062,6 +45067,12 @@ function stewardAppendInboxRows(rows) {
     for (const row of rows) {
       const payload = (row && row.payload && typeof row.payload === 'object') ? row.payload : {};
       const frame = { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') };
+      // 123-M2:两个【标识】字段。安静卡「稍后」要把 sourceRef 指回它是从哪一行来的
+      // (37 号文 §3.5 的 `sourceRef:{inboxSeq, sessionId, kind}`),而 reminder 那一类可以完全不
+      // 属于任何线程 —— 没有 taskId 就没有第二个身份可用,两条提醒会在前端合并成一张。
+      // 两个都是 id/序号,不是正文(§6.1 红线挡的是工具输出原文)。
+      if (Number(row && row.inboxSeq) > 0) frame.inboxSeq = Number(row.inboxSeq);
+      if (payload.taskId) frame.taskId = String(payload.taskId);
       if (payload.quiet === true) frame.quiet = true;
       const ask = payload.ask || payload.summary || '';
       if (ask) frame.ask = String(ask).slice(0, 200);
@@ -48078,6 +48089,10 @@ const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
   // 121-K3(34 号文 §4.4「交接」):第六类。措辞用「交给你盯」而不是「交给你」—— 交接的是注意力,
   // 不是所有权:用户随时可以再坐回那条线程,那时 §4.5 的在场门会让管家自动松手。
   adopted: n => `${n} 条线程刚交给你盯`,
+  // 123-M2(37 号文 §3.5):第七类。措辞是「到点了」而不是「有 N 条提醒」—— 这一类不需要用户
+  // 回答任何东西,它只是把「你自己排的那件事发生了」说一遍(到点提醒、错过跳过、连败熔断三件
+  // 都走它,共同点就是「一句事实」)。
+  reminder: n => `${n} 件定时任务到点了`,
 });
 
 // ── 可由 actions 执行的写工具 -> StewardHooks 实现键。白名单即闸门:不在表里的工具名一律拒绝
@@ -51046,6 +51061,10 @@ RUYI_EVENTS.subscribe((name, payload) => {
     // answerQuestionId(单问有选项时才有)。任务名不在这里带:前端已经从 /api/missions 那一份行拿到
     // title/来源/色号,再带一份等于第二个数据源(thread-head.js 那套「问左栏要,不裸发第二份」的先例)。
     const frame = { sessionId: String(data.sessionId || ''), kind: String(data.kind || '') };
+    // 123-M2:收件箱行号与定时任务 id 两个【标识】(安静卡「稍后」的 sourceRef 要 inboxSeq,
+    // 不属于任何线程的 reminder 要 taskId 当卡的身份)。两个都是序号/id,不承载正文。
+    if (Number(data.inboxSeq) > 0) frame.inboxSeq = Number(data.inboxSeq);
+    if (data.taskId) frame.taskId = String(data.taskId).slice(0, 64);
     if (data.quiet === true) frame.quiet = true;
     if (data.ask) frame.ask = String(data.ask).slice(0, EVENT_STREAM_SUMMARY_MAX);
     if (data.interventionId) frame.interventionId = String(data.interventionId);

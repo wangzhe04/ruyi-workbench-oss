@@ -784,6 +784,12 @@ function stewardAppendInboxRows(rows) {
     for (const row of rows) {
       const payload = (row && row.payload && typeof row.payload === 'object') ? row.payload : {};
       const frame = { sessionId: String((row && row.sessionId) || ''), kind: String((row && row.kind) || '') };
+      // 123-M2:两个【标识】字段。安静卡「稍后」要把 sourceRef 指回它是从哪一行来的
+      // (37 号文 §3.5 的 `sourceRef:{inboxSeq, sessionId, kind}`),而 reminder 那一类可以完全不
+      // 属于任何线程 —— 没有 taskId 就没有第二个身份可用,两条提醒会在前端合并成一张。
+      // 两个都是 id/序号,不是正文(§6.1 红线挡的是工具输出原文)。
+      if (Number(row && row.inboxSeq) > 0) frame.inboxSeq = Number(row.inboxSeq);
+      if (payload.taskId) frame.taskId = String(payload.taskId);
       if (payload.quiet === true) frame.quiet = true;
       const ask = payload.ask || payload.summary || '';
       if (ask) frame.ask = String(ask).slice(0, 200);

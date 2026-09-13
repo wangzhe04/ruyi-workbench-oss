@@ -20,7 +20,12 @@
 // 121-K3(34 号文 §4.4「交接」):第六类 adopted —— 用户把一条线程【交给管家盯】(写 stewardWatch:true)。
 // 它不是「出事了」,而是一次交接:管家下一拍要回一句「好,『X』我盯着」。排在表尾,前五类的
 // 顺序与语义一个字不动(到访摘要按本表顺序归纳,插在中间会改既有摘要的行序)。
-const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted']);
+// 123-M2(37 号文 §3.5):第七类 reminder —— 定时任务的三件事(到点提醒、错过跳过、连败熔断)。
+// 它与前六类的区别是【不需要回答】:那六类都在说「某条线程怎么样了」,而这一类是「你自己排的
+// 那件事到点了」。所以它不进 needs_you 那一行的计数,也不该起一个管家回合(reminder 是事实,
+// 不是问题;13t 写这类行时故意不敲 StewardHooks.onInboxBatch)。同样排在表尾,前六类的顺序
+// 与语义一个字不动(到访摘要按本表顺序归纳)。
+const STEWARD_EVENT_KINDS = Object.freeze(['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted', 'reminder']);
 
 // 116f:管家会话的固定 id 与标题。定在这里(engine 层最早)而不是 13h,是因为 13g(收件箱轮询器)也要
 // 用它把管家会话排除在事件源之外 —— 13g 引用 13h 会是前向边,引用 06i 是后向边。

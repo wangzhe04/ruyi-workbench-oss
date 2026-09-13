@@ -32,10 +32,22 @@ export const QUIET_CARD_MERGE_WINDOW_MS = 5 * 60 * 1000; // §4.3：5 分钟同�
 export const QUIET_CARD_HOST_ID = 'quietCardHost';
 // done 永不出卡（§4.3 明说）；服务端的在场门②本来就不会给 done 打 quiet:true，这里再挡一次
 // 双保险——反向验证（拔掉这道过滤）在 quiet-card.browser.e2e.js 里钉。
-export const QUIET_CARD_KINDS = Object.freeze(['needs_you', 'failed', 'stalled', 'budget']);
+// 123-M2（37 号文 §3.5）：第五类 reminder —— 定时任务到点／错过跳过／连败熔断。它与前四类的
+// 不同在于**它可以不属于任何一条线程**：「明天九点提醒我交周报」那条 reminder 没有 sessionId，
+// 而前四类恒有（它们都在说某条线程怎么样了）。所以下面 isEligible 对它松一格，卡的身份改用
+// quietCardIdentity（无线程时退到 taskId）。
+export const QUIET_CARD_KINDS = Object.freeze(['needs_you', 'failed', 'stalled', 'budget', 'reminder']);
 
 export function quietCardKey(sessionId, kind) {
   return `${String(sessionId || '')}|${String(kind || '')}`;
+}
+// 一张卡的身份：有线程就是线程，没有线程（只可能是 reminder）就是那条定时任务。
+// **不能只用 kind**：那样两条不同的提醒会互相合并成一张，第二条的正文把第一条顶掉。
+export function quietCardIdentity(frame) {
+  const sessionId = String((frame && frame.sessionId) || '');
+  if (sessionId) return sessionId;
+  const taskId = String((frame && frame.taskId) || '');
+  return taskId ? `task:${taskId}` : '';
 }
 
 // needs_you 印问句前 22 字；failed/stalled/budget 印一句事实（同一个 ask 字段，见 13i 头注）。
@@ -80,9 +92,12 @@ export function createQuietCard({
     if (!frame || frame.quiet !== true) return false;
     if (!QUIET_CARD_KINDS.includes(String(frame.kind || ''))) return false;
     const sessionId = String(frame.sessionId || '');
-    if (!sessionId) return false;
+    // 123-M2：reminder 允许没有线程（「九点提醒我交周报」不属于任何线程），但仍要有一个身份
+    // ——否则两条提醒会合并成一张。其余四类必须有 sessionId（它们讲的就是某条线程的事）。
+    if (!quietCardIdentity(frame)) return false;
+    if (!sessionId && String(frame.kind || '') !== 'reminder') return false;
     if (shellModeOf() !== 'classic') return false;          // 只在工作台
-    if (sessionId === currentSessionId()) return false;      // 不是当前坐着的那条（双保险）
+    if (sessionId && sessionId === currentSessionId()) return false; // 不是当前坐着的那条（双保险）
     return true;
   }
 
@@ -129,10 +144,14 @@ export function createQuietCard({
         wrap.appendChild(button);
       }
     }
-    const goButton = el('button', 'quiet-card-btn quiet-card-btn-go', t('quietCard.go'));
-    goButton.type = 'button';
-    goButton.onclick = () => { void openSession(entry.sessionId); removeCard(entry.key); };
-    wrap.appendChild(goButton);
+    // 「去看」只在真有线程可看时才画（123-M2：不属于任何线程的 reminder 没有落点，
+    // 画一枚按下去什么都不发生的按钮比不画更糟）。
+    if (entry.sessionId) {
+      const goButton = el('button', 'quiet-card-btn quiet-card-btn-go', t('quietCard.go'));
+      goButton.type = 'button';
+      goButton.onclick = () => { void openSession(entry.sessionId); removeCard(entry.key); };
+      wrap.appendChild(goButton);
+    }
     const laterButton = el('button', 'quiet-card-btn quiet-card-btn-later', t('quietCard.later'));
     laterButton.type = 'button';
     laterButton.onclick = () => removeCard(entry.key);
@@ -195,7 +214,7 @@ export function createQuietCard({
 
   function upsert(frame) {
     dismissStale();
-    const key = quietCardKey(frame.sessionId, frame.kind);
+    const key = quietCardKey(quietCardIdentity(frame), frame.kind);
     const existing = cards.get(key);
     const nowMs = now();
     if (existing && (nowMs - existing.updatedAt) <= QUIET_CARD_MERGE_WINDOW_MS) {
