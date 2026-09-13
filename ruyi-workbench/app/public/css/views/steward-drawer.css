@@ -273,6 +273,12 @@
   flex-direction: column;
   gap: 2px;
   text-align: start;
+  /* 122-L1b（36 号文 §2.11，用户走查第二轮①「chip 菜单文字横向裁切」）：选项是 <button>，
+     而 base.css 那条全局 `button { white-space: nowrap }`（第 23 波为工具栏按钮加的）被它继承 ——
+     四档权限的【提示】那一行（「任何改动前都先当面问你。最安全，也最训点」这种整句）于是不折行，
+     直接横着捅出菜单的右边界。这里把它翻回 normal：标签与提示各自折行，菜单宽度由
+     .steward-chip-menu 的 min-width/max-width 说了算。反向删这一行 → walkthrough-round2 的 C 组红。 */
+  white-space: normal;
   font-size: var(--fs-sm);
   color: var(--ink);
   background: transparent;
