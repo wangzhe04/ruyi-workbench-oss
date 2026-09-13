@@ -2637,5 +2637,9 @@
   ,"stewardShell.chips.defaultSaved": "已设为新任务默认"
   ,"quietCard.go": "去看"
   ,"quietCard.later": "稍后"
+  ,"quietCard.dismiss": "收起这张卡"
+  ,"quietCard.snooze.title": "稍后再说：{{title}}"
+  ,"quietCard.snooze.text": "来自你 {{minutes}} 分钟前按的「稍后」：{{ask}}"
+  ,"quietCard.snooze.failed": "没能排上「稍后」，这张卡先留着"
   ,"quietCard.fallbackTitle": "一条线程"
 }

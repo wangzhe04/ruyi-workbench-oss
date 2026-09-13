@@ -93,6 +93,13 @@ const PARALLEL_EXCLUSIVE = new Set([
   // getBoundingClientRect 与容器查询的重排结果，还要连按几十下 Tab 逐站读 activeElement ——
   // 布局重排与键盘事件的落地都吃调度，同上进独占桶。
   'a11y-walkthrough.browser.e2e.js',
+  // 123-M2（37 号文 §3.5/§3.6）：两件定时任务的真浏览器件，与 quiet-card.browser 同一条理由 ——
+  // 它们量的都是【墙钟窗口】：安静卡的「稍后」要等 13i 那一拍（5 s 下限）把 needs_you 写进箱子、
+  // 再把假时钟拨过 30 分钟等调度器那一拍把 reminder 推回来；设置面那件还要等 schedule.changed
+  // 帧到达之后口袋角标从 2 变 1。与别的 Edge 抢 CPU 时这些窗口都会被挤长，所以排到并行功能桶
+  // 之后单独跑。
+  'quiet-card-snooze.browser.e2e.js',
+  'scheduler-ui.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

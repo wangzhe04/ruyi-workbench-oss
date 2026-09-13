@@ -8,6 +8,7 @@ import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard } from './steward-board.js';
 import { createThreadHead } from './thread-head.js';
 import { createQuietCard } from './quiet-card.js';
+import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
@@ -488,6 +489,10 @@ export function createStewardShellDomain({
     shellModeOf: () => (isStewardMode() ? 'steward' : 'classic'),
     missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
     openSession,
+    // 123-M2（37 号文 §3.5）：「稍后」＝真 snooze。推迟多少分钟只有服务端那一份（01-config 已钳
+    // [1,1440]，客户端不抄第二份）；建不成时 toast 一句、卡不动（成功才收卡）。
+    snoozeMinutesOf: () => (state && state.config ? state.config.quietCardSnoozeMinutes : undefined),
+    notifyFailure: message => toast(message, 'err'),
   });
   // 121-K2b：同一条事件流转给左栏与焦点栏。走 setter 而不是构造参数 —— 抽屉那一行构造被
   // steward-drawer.static I3 逐字钉着（新依赖一律迟绑定，与 setClassicWindow／setMissionRows 同纪律）。

@@ -2637,5 +2637,9 @@
   ,"stewardShell.chips.defaultSaved": "Saved as the default for new tasks"
   ,"quietCard.go": "Open"
   ,"quietCard.later": "Later"
+  ,"quietCard.dismiss": "Dismiss this card"
+  ,"quietCard.snooze.title": "Later: {{title}}"
+  ,"quietCard.snooze.text": "From the \"Later\" you tapped {{minutes}} minutes ago: {{ask}}"
+  ,"quietCard.snooze.failed": "Could not schedule \"Later\" — keeping this card"
   ,"quietCard.fallbackTitle": "A thread"
 }

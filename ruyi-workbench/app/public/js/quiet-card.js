@@ -57,10 +57,30 @@ export function quietCardHeadline(kind, ask) {
   return kind === 'needs_you' && text.length > 22 ? text.slice(0, 22) + '…' : text;
 }
 
+// 123-M2（37 号文 §3.5）：「稍后」＝真 snooze。它建的是一条【真的】 once reminder，
+// 而不是把卡藏起来——修前按下去只是 removeCard()，那件事从此再也不会回来，「稍后」在说谎。
+export const QUIET_CARD_SNOOZE_PATH = '/api/scheduler/tasks';
+export const QUIET_CARD_SNOOZE_MINUTES_DEFAULT = 30;   // 与 01-config 的 quietCardSnoozeMinutes 出厂值同数
+// 本地墙钟的 {date, at}：29 号文 §4「只存本地时区语义」——不能拿 toISOString()（那是 UTC）。
+export function quietCardSnoozeSchedule(atMs) {
+  const when = new Date(Number(atMs));
+  const p2 = n => String(n).padStart(2, '0');
+  return {
+    kind: 'once',
+    date: `${when.getFullYear()}-${p2(when.getMonth() + 1)}-${p2(when.getDate())}`,
+    at: `${p2(when.getHours())}:${p2(when.getMinutes())}`,
+  };
+}
+
 export function createQuietCard({
   t = key => key,
   state = null,
   api = async () => null,
+  // 稍后失败时的一句提示（组合根注入 util.js 的 toast；缺席时静默——卡本来就没收，用户看得见）。
+  notifyFailure = () => {},
+  // 推迟多少分钟：唯一事实源是服务端的 config.quietCardSnoozeMinutes（01-config 已钳 [1,1440]），
+  // 客户端不抄第二份钳位，读不到就用出厂值。
+  snoozeMinutesOf = () => QUIET_CARD_SNOOZE_MINUTES_DEFAULT,
   // 当前视角：唯一状态源是 documentElement 的 data-shell-mode（js/shell-mode.js 写），本文件不
   // 缓存第二份、只读。
   shellModeOf = () => { const d = doc(); return d ? String(d.documentElement.dataset.shellMode || '') : ''; },
@@ -154,9 +174,45 @@ export function createQuietCard({
     }
     const laterButton = el('button', 'quiet-card-btn quiet-card-btn-later', t('quietCard.later'));
     laterButton.type = 'button';
-    laterButton.onclick = () => removeCard(entry.key);
+    // 「稍后」＝真 snooze：**成功才收卡**。建不成（调度器关着 / 断网 / 200 条上限）就 toast 一句、
+    // 卡不动——收了卡又没排上，那件事就真的消失了。按下去期间禁用按钮，防连点建出两条。
+    laterButton.onclick = () => {
+      laterButton.disabled = true;
+      void snooze(entry).finally(() => { laterButton.disabled = false; });
+    };
     wrap.appendChild(laterButton);
     return wrap;
+  }
+
+  // 建一条 now + N 分钟 的 once reminder，sourceRef 指回它是从哪一行收件箱来的。
+  // 正文整句在【这里】拼（i18n 在客户端做，服务端只把 payload.text 原样当那句事实印出来）。
+  async function snooze(entry) {
+    const minutes = Math.max(1, Math.min(1440, Math.round(Number(snoozeMinutesOf()) || QUIET_CARD_SNOOZE_MINUTES_DEFAULT)));
+    const frame = entry.frame || {};
+    const row = missionRowOf(entry.sessionId) || {};
+    const title = String(row.missionTitle || row.title || '').trim() || t('quietCard.fallbackTitle');
+    const ask = quietCardHeadline(entry.kind, frame.ask) || title;
+    let response = null;
+    try {
+      response = await api(QUIET_CARD_SNOOZE_PATH, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: t('quietCard.snooze.title', { title }),
+          schedule: quietCardSnoozeSchedule(now() + minutes * 60000),
+          payload: {
+            kind: 'reminder',
+            text: t('quietCard.snooze.text', { minutes, ask }),
+            sourceRef: { inboxSeq: Number(frame.inboxSeq) || 0, sessionId: entry.sessionId, kind: entry.kind },
+          },
+        }),
+      });
+    } catch { response = null; }
+    if (!response || response.ok !== true) {
+      notifyFailure(t('quietCard.snooze.failed'));
+      return false;
+    }
+    removeCard(entry.key);
+    return true;
   }
 
   function renderInto(entry) {
@@ -179,8 +235,10 @@ export function createQuietCard({
     node.appendChild(body);
     const closeButton = el('button', 'quiet-card-close');
     closeButton.type = 'button';
-    closeButton.setAttribute('aria-label', t('quietCard.later'));
-    closeButton.title = t('quietCard.later');
+    // 「×」与「稍后」是两件事（123-M2）：「稍后」排一条真的提醒，「×」只是把这张卡收起来、
+    // 不进调度器。所以它有自己的可访问名——共用「稍后」那一句会让读屏用户以为按了会再提醒。
+    closeButton.setAttribute('aria-label', t('quietCard.dismiss'));
+    closeButton.title = t('quietCard.dismiss');
     const closeGlyph = icon('close', 13);
     if (closeGlyph) closeButton.appendChild(closeGlyph);
     closeButton.onclick = () => removeCard(entry.key);

@@ -346,6 +346,10 @@ function defaultConfig() {
     stewardVisitIdleMinutes: 60,
     // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
     stewardConversationRetention: 'visit',
+    // 第 123 波 M2(37 号文 §3.5):安静卡「稍后」推迟多少分钟,clamp [1,1440]。
+    // 它建的是一条【真的】 once reminder(而不是把卡藏起来),所以这个数就是「多久之后再提醒我」;
+    // 上限 24 小时:再长就不该由一枚「稍后」来表达了,那是一条新的定时任务。
+    quietCardSnoozeMinutes: 30,
     // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10「并发上限就地可调」;用户 2026-09-03 拍板默认 5):
     // 线程间仲裁的三个全局闸。**只在 stewardEnabledV1 开时生效**(关时 runSessionTurn 根本不问仲裁器),
     // 121 波 K0 之前总开关默认关,所以对存量用户(配置里已显式落 false)仍是纯形状扩张;新装默认开即生效。
@@ -1137,6 +1141,12 @@ function normalizeConfig(raw) {
     const n = Number(config.stewardVisitIdleMinutes);
     const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(5, Math.round(n))) : 60;
     if (clamped !== config.stewardVisitIdleMinutes) { config.stewardVisitIdleMinutes = clamped; changed = true; }
+  }
+  // 第 123 波 M2(37 号文 §3.5):安静卡「稍后」的推迟分钟数,clamp [1,1440],非法回默认 30。
+  {
+    const n = Number(config.quietCardSnoozeMinutes);
+    const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(1, Math.round(n))) : 30;
+    if (clamped !== config.quietCardSnoozeMinutes) { config.quietCardSnoozeMinutes = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit(默认,到访重置即清)|24h|forever,非法回默认。
   {

@@ -121,6 +121,11 @@ const EXPECTED = {
   // 两条都仍走 POST /api/config,用户在设置页里随时改得动、一眼看得见。
   newThreadEngine: 'forbidden',
   lastUsedEngineRoute: 'forbidden',
+  // 123-M2(37 号文 §3.5):安静卡「稍后」推迟多少分钟。**也故意留在 forbidden**(fail-closed 兜底)——
+  // 它决定「一件已经打扰过用户的事,多久之后再打扰他一次」。让模型能把它拉到 1440,等于让管家
+  // 自己决定用户还有多久会再看见这件事(与 schedulerAskWaitMinutes 同一条理由)。用户在设置页
+  // 与那枚按钮上都一眼看得见,要改自己改。
+  quietCardSnoozeMinutes: 'forbidden',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',
