@@ -116,6 +116,14 @@
 - 生成物只提交 server.js／manifest，depgraph／contracts（+`stewardLastAssistantCreatedAt`）／route-inventory／facts 留主会话重生成；`--fast` 67/68 唯一红是产物新鲜度锁。
 - **登记小债**：`13q stewardLastAssistantCreatedAt()` 与 13p `stewardLastAssistantContent()` 各读一次管家会话 → 每回合多一次 `loadSession`，合成一次读要动 13p。
 
+### 5.3 N2 · 新线程默认引擎＝上次用的（Opus 隔离 worktree，`6c8968d`／`29ea483`；主会话复核 2026-09-13 夜，待 cherry-pick）
+
+- **后端**：01 默认 `newThreadEngine:'last'`＋`lastUsedEngineRoute:null`（01 只做形状洗净，02 读侧再过真归一器——01 够不着 02，两处注释互指、02 为权威）；02 `rememberLastUsedEngineRoute`（与现值不同才 `mutateConfig`）挂在 `applySessionMetaPatch` 写 `engineRoute` 处与 10 `runSessionTurn` 的 `source==='http'`（两处 4xx 门之后，fire-and-forget）；`newSessionEngineRoute`：显式 > 导入推断 > 上次用的（openai 端点仍在 providers；agent 用 `selectedAgentCli(...).path`）> 全局，回落记 `new_thread_engine_fallback{reason:provider_missing|agent_cli_missing}`；`createSession` 多收 `engineRoute` 入参。依赖图零新边（只加宽 02→01、10→02 两条既有后向边）。
+- **设置面**：`#cfgNewThreadEngine`「上次用的／跟随全局设置」＋「上次用的是 …」一行；5 键 × 4 份 locale 逐字节同步。
+- **判据**：`new-thread-engine-default.e2e` 七条全绿（③ 显式带路由建的会话本身不记、只有回合才记；④ steward 回合 3 s 窗口后仍不记；⑥ 恰一条回落审计）；反向注掉「上次用的」那一支 → ②③ 红，把 `source==='http'` 门放开 → ①④ 红（管家自己的回合把记录弄脏，正是那道门挡的）。静态锁 18 条。`workbench-thread-head.browser`／`steward-settings`／`dom-contract`／9 件 `session-*` 全绿。
+- **越界但必要**：`unit/steward-config-tier.test` 两个新键分级 **forbidden**（模型不得改下一条线程用什么引擎；`lastUsedEngineRoute` 是用户行为记录不是设置）；`fixture-home.static` 133→134。
+- **登记缺口**：agent 路由的「CLI 仍 detected」那支没有 e2e（本机 Claude Code 在，断言会随环境抖）。生成物只提交 server.js／manifest。
+
 ## 6. 停点
 
 （每次收工写在这里，并同步记忆 `ops-new-machine-wave121` 的停点行。）
