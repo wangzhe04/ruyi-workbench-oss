@@ -86,6 +86,10 @@ export function createEventStream({
   let started = false;                  // start() 过、还没 stop()
   let connected = false;
   let lastEventId = '';                 // 只记【带 id】的帧（presence.ack 不带 id，见 13r 的环头注）
+  // 122-L1a（36 号文 §2.3；J16）：断线补发的去重水位与「补发段」的门。见 dispatchFrame 头注。
+  let lastSeenSeq = 0;                  // 已经派发过的最高帧 id（13r 的 eventStreamSeq 是单调整数）
+  let replayWindow = false;             // 本连接是否还在补发段（presence.ack 之前的那一截）
+  let replayed = 0;                     // 丢掉的重放帧计数（只读实况，给 e2e 与诊断）
   let retryMs = EVENT_STREAM_RETRY_MIN_MS;
   let retryTimer = 0;
   let presenceTimer = 0;
@@ -175,10 +179,27 @@ export function createEventStream({
   }
 
   // 一帧到手：先记 Last-Event-ID（只认带 id 的），再派给订阅者。
+  //
+  // 122-L1a（36 号文 §2.3；J16「SSE 重连重放去重」）：重连时我们把 `Last-Event-ID` 带上去，
+  // 13r 就把环里 id 更大的帧【整段重发】一遍。断线那一刻已经派发过的帧因此会再来一次 ——
+  // 修前它们照样往下派：多出第二张安静卡、已经回复过的 needs_you 复活、系统通知重响。
+  // 去重的水位就是 `lastSeenSeq`（13r 的 id 是单调整数，见它的环头注）。
+  //
+  // 【为什么只在补发段里当闸门，而不是无条件 `id <= lastSeenSeq 就丢`】：13r 的 `eventStreamSeq`
+  // 随进程走，服务重启后从 1 重新数。无条件水位会让「浏览器标签页活过一次服务重启」变成
+  // 推送永久失聪（新帧 id 全都小于旧水位），那比本条要修的重复更严重。而重放【只可能】发生在
+  // 补发段：13r 的连接处理里，从 `eventStreamClients.add(client)` 到写出 `presence.ack` 那一段
+  // 是同步的（中间没有 await），所以补发的帧一定排在本连接的 `presence.ack` 之前，之后的都是
+  // 现场直播。于是闸门只开在 presence.ack 之前那一截，重启后第一帧（在 presence.ack 之后）
+  // 照常派发并把水位重置回去 —— 自愈。
   function dispatchFrame(frame) {
     if (!frame) return false;
-    if (frame.id) lastEventId = String(frame.id);
     frames += 1;
+    const seq = Number(frame.id || 0);
+    if (replayWindow && Number.isFinite(seq) && seq > 0 && seq <= lastSeenSeq) { replayed += 1; return false; }
+    // presence.ack 是连接私有帧、不带 id（13r 环头注）：它就是补发段的收尾标记。
+    if (frame.event === 'presence.ack') replayWindow = false;
+    if (frame.id) { lastEventId = String(frame.id); if (Number.isFinite(seq)) lastSeenSeq = seq; }
     if (!frame.event) return false;
     emit(frame.event, frame.data);
     return true;
@@ -241,6 +262,8 @@ export function createEventStream({
       return false;
     }
     retryMs = EVENT_STREAM_RETRY_MIN_MS;  // 连上了就把退避打回底
+    // 每条新连接都从「补发段」开始：13r 先把 Last-Event-ID 之后的帧重发，再写 presence.ack。
+    replayWindow = true;
     setConnected(true);
     try { await readLoop(response, gen); }
     catch { /* 断了：与正常收尾同一条路 */ }
@@ -319,6 +342,6 @@ export function createEventStream({
     off,
     isConnected: () => connected === true,
     // 只读实况（给 e2e 与诊断用；不挂全局、不给写口）。
-    stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs }),
+    stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs, lastSeenSeq, replayed, replayWindow }),
   });
 }
