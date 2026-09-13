@@ -86,7 +86,9 @@ ok(subCore.length > 1000, 'S5 runSubAgentCore 可定位');
 ok(!/consumeGrant/.test(subCore), 'S5 子代理执行体【无】consumeGrant(R-P1-1:不消耗父授权)');
 
 // S6 exec 永不持久:saveSession / normalizeConfig 体内【不】触碰 autonomyGrants。
-const saveSessionBody = (src.match(/async function saveSession\(session\) \{[\s\S]*?\n\}/) || [''])[0];
+// 122 波合并（36 号文 §5.4）：saveSession 的签名从 (session) 变成 (session, opts)（§2.4 写链内合并旗子），
+// 定位正则放宽到可选第二参；判据本身（体内不触碰 autonomyGrants）一个字不动。
+const saveSessionBody = (src.match(/async function saveSession\(session(?:, opts)?\) \{[\s\S]*?\n\}/) || [''])[0];
 ok(saveSessionBody.length > 100 && !/autonomyGrants/.test(saveSessionBody), 'S6 saveSession 不落 autonomyGrants(不进会话文件)');
 const normConfigBody = (src.match(/function normalizeConfig\(raw\) \{[\s\S]*?\n\}\nfunction/) || [''])[0];
 ok(!/autonomyGrants/.test(normConfigBody), 'S6 normalizeConfig 不含 autonomyGrants(不进 config)');

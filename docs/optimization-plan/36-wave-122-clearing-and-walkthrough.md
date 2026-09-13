@@ -136,7 +136,39 @@
 
 ## 5. 交付记录
 
-（每刀出门后由主会话补：提交清单、逐条判据实得、反向抽查、串行数、登记项。）
+### 5.1 L3 · 测试基建与样式清障（Sonnet 隔离 worktree，cherry-pick 为 `956b025`／`e4275b3`／`71bffd2`／`c785a3e`；主会话复核 2026-09-13 中午）
+
+- **§2.7**：`fixtureChildEnv({ perTest: true })` 每件一份 mkdtemp，ok 件 `close` 后 `rmSync`，失败件保留并把路径打进该件输出；新单测 4/4。**主会话反向抽查**：把 perTest 退化成共用目录 → 单测 3 过 1 红，还原 4/4。
+- **§2.8 三件定案（两条都推翻了「本机固有」的猜测）**：① `index-dedup` E3——打印 `t6.meta` 见 `indexInjected:true`、hash 变了，差异是多出一段 `<workbench-memory>`：启动期 `migrateLegacyAccMemory()` 没被 `WCW_DATA_DIR` 隔离，扫到了**真机** `%LOCALAPPDATA%/ai-computer-control/data/memory.json` 并按查询词相关性恰好命中；补 `WCW_DATA_DIR` 后 E3 原样绿（E1/E2 slash 契约全绿，**不是** compact 后重注的产品问题；反向去掉隔离 → E3 复现红）。② `event-stream` B-g1——收件箱写口只在 `stewardTickOnce()` 5 s 轮询到 intervention 仍 pending 时落盘，旧写法 needs_you 一到立刻回答，几乎不给轮询窗口；等待挪到回答之前、留 4 个周期（反向挪回 → 首跑即 `kind=undefined` 红）。③ `classic-window-live-steer` 进 `PARALLEL_EXCLUSIVE` 末尾（单跑 32 s，300 s 覆盖保留）。
+- **§2.9**：`--fs-xl/--fs-2xl` 消费点实测 **7 处**（号文写 5，tool-pane 内 3 处），全部改 `--fs-lg`，别名与注释删；非独占八层 22 处 letter-spacing／uppercase 删 19 留 3（tool-pane 两处 ≥17 px 标题负字距、workbench 一处等宽代码），连带删 `chat-live.css .ts-undo-all` 死覆盖；新锁 `css-typography-debt.static`（允许名单原文存在且仅一次＋挖掉名单后零残留）。两把旧锁改「全仓零命中」。
+- **§2.10**：en-US 144 个含 chat/session 的值改 134、允许 10（`session token`／Kimi ACP native session／engine session／`Chat Completions`／`deepseek-chat`／`/chat/completions` 等，逐键理由在 `i18n-en-terms.static`）；`settings.resumeClaude` 把原文错用的 chats 改成 sessions。zh-CN 零改动；`docs/i18n/locales/en-US.json` 同步（`i18n.static` 要求两份逐字节相等）。
+- **越界但认可**：改了三把不在独占表里的字面锁（`fixture-home.static` 的 `env: fixtureChildEnv()`、`workflow-editor-v2.static` A4 的 uppercase、`i18n.static` 的 New chat）——都是随本刀必然假红的「钉文本」锁，改成钉行为。
+- **登记**：夹具家目录只换了 USERPROFILE／HOME，`LOCALAPPDATA`／`APPDATA` 仍指真机（E3 泄漏的根）；本波不动（改了会牵动无头 Edge 的 user-data-dir 口径），记产品债。
+
+### 5.2 L1a · 现场保护 J04／J05／J16（Opus 隔离 worktree，cherry-pick 为 `57c12fb`／`93d7e87`／`aa1b775`／`1e4181a`；主会话复核 2026-09-13 下午）
+
+- **§2.1 真根修正（执行者证伪了号文的一半）**：`applyShellMode` 意图序号照做（`shell-mode.js`，写回调开头核号，被取代即空操作），单测 `unit/shell-mode-intent-order` 7/7，反向注掉守卫 4 红。但 **quiet-card 那 1/3 翻回不是这条竞态**：READY 只等 `state.config` 在，而 `refreshStatus → fillSettings → syncStewardShellAvailability → applyShellMode('steward')` 的写回调被 View Transitions 推迟一帧；那 ~30 ms 里属性还是 classic，件里的 `setLens('classic')` 撞上 `app-frame.js setLens` 的同值早退（`if (next === currentMode()) return next`）**一次都没点**，随后默认落点把画面翻成管家——用户什么都没点，落到默认管家本来就对。修法：A0g 先等默认落点落地再点（显式选择），A0g2 改成「1 s 内 20 次采样稳定为 classic」正面断言，10/10 绿。号文描述的乱序在**设置弹窗的视角下拉**（`bindShellModeControl` onchange 无条件调 `applyShellMode`）上确定性复现，J05 件 B 组照它复现（反向注掉守卫 → 5/5 次 4 红，确定性）。
+- **§2.1 判据③ 出入**：`/api/config` 只有 POST，config 随 `GET /api/status` 下来 → 拦 `*/api/status*`；滚动位置在延迟窗里对话区还是空的（恒 0，假绿）→ 拆到页面满载后的 B 组，先钉静置基线稳定再量（1217→1217）。32 条 3/3。
+- **§2.2 J04**：新件 24 条 3/3，**产品零改动**（焦点／69 字草稿／光标／会话／视角／浮层 0→0／`#messages.scrollTop` 834→834）；反向在出卡处加 `.focus()` → D1／D7 红。fake 引擎造不出 `kind='failed'`（13i 的 failure 要线程真有账本），实到 needs_you 卡，判据只要求「卡真的出现」。
+- **§2.3 J16**：`event-stream.js` 去重水位 `lastSeenSeq`，**闸门只开在补发段**（presence.ack 之前）而不是无条件 `id <= lastSeenSeq` 丢弃——13r 的 `eventStreamSeq` 随进程走，服务重启后从 1 重数，无条件水位会让活过一次重启的标签页永久失聪；补发只可能排在本连接 presence.ack 之前（13r 从 `eventStreamClients.add` 到写 ack 之间无 await）。新件 24 条 3/3：C0 并行 Node 客户端带 `Last-Event-ID:1` 证明服务端真重放 17 帧；D 组拦重连改写 17→1 后 3 s 卡数 0；E 组已回复 needs_you 不复活。反向注掉去重 → D2／E2 红（实得 1 张卡）。
+- **登记（→ L1b）**：`app-frame.js setLens` 的同值早退是独立产品债——config 到达那一拍用户点「工作台」会被早退吞掉、随后翻成管家；修法：`setLens` 无条件调 `applyShellMode`（同值那一路本来就走同步支不闪）。
+- **登记（→ 32 号文纪律 16）**：`lib/browser-cleanup.js stopRuyiTestBrowsers()` 不传 profile 时按 `--user-data-dir=…ruyi-` 正则**杀全机所有测试浏览器**，含另一棵树正在跑的——L2 在主树跑 `steward-conversation`／`ec-d-performance` 时被 L1a 的浏览器件杀掉 Edge、`cdp.evaluate` 永久挂住（20 min 无输出）。**跨树并行时真浏览器件同样互斥**，这是纪律 14 的浏览器版。三个新件各装了 CDP 单命令 90 s 看门狗，是否推广到既有骨架待议。
+
+### 5.3 L2 · 后端三件＋导入来源标记（Opus 主树，`60a1a9d`／`f863284`／`4c18c16`；主会话复核 2026-09-13 下午）
+
+- **§2.4 真根修正**：探针实测 `turnSeq` 落盘与 `activeChildren.set` 都在 chat 请求后 ≈39 ms、相距 <3 ms，号文写的窗口（`captureWorkspaceTurnBaseline` 那一段）几乎打不中（反向只注掉收尾合并 → 五组全绿）；真正丢账本的是 **0–39 ms「路由把会话读进内存 → 起跑那一存」**，起跑存把刚落盘的账本当场抹掉，磁盘上再无那本账。修法：`02-session-store.js mergeMissionBeforeSave`（三支：磁盘有内存无→接过来；同一本且磁盘 changeSeq 更高→以磁盘为底用 `applyMissionUpdate(…, trusted=false)` 重放本回合 goal／里程碑 status·desc·evidence，不带 check；磁盘换了另一本→以磁盘为准），`saveSession(session, { mergeMissionFromDisk })` **在写链内**重读磁盘头（链外 load→save 之间的 await 里路由那一存能插进来，实测 1/5 就这么丢），09／05 两处起跑存传旗子，09／05／05b 三处收尾存共用同一函数；09 的 `__missionFinalizeHow` 盖章挪到合并之后（否则合并把刚盖的章连 mission 整份换掉；05／05b 本来就是这个次序）。新件 `mission-start-race` 0／10／25／50／200 ms 各 5 轮 25/25 连跑 3 遍；反向去掉起跑存旗子 → `实得 3/5`（4 次里 2 次红，单轮 ~40%）。共用函数落 02 而非 05：落 05 会新增 `05b→05` 循环边；落 02 图零变化（398 边、1 SCC）。`mission-result.e2e` 一条钉「05 收尾那一行长什么样」的锁改钉「先合并再盖章」的顺序。
+- **§2.5**：三处 fire-and-forget＋`generateMcpConfig` 预热收进 listen 后 `setTimeout(500) → setImmediate` 一段（只 `setImmediate` 不够：`pickPython` 是同步 `spawnSync`，check 阶段一进去就占住事件循环 2 s，`/health` 仍 3.1 s）；`01-config autoImportClaudeCodeMcp` 里那个 boot 唯一被 await 的 `generateMcpConfig` 也挪走。冷启动 `/health` **3.30–3.35 s → 1.19–1.35 s**。**号文的 python.cmd 垫片方案不成立**：`probeDesktopPython` 走 `cp.spawnSync('python')` 不带 shell，Node 在 Windows 上对 PATH 里的 `.cmd` 直接 ENOENT，垫片永远不会被 spawn → 新件 `boot-listen-budget` 直接量真机真探针（≤2.5 s）＋8 条与机器无关的形状锁；反向把探针段挪回 listen 前 → `实得 3298 ms` 红＋形状锁红。**诚实标注**：只解决起跑那一刻，探针开跑后 2 s 内到达的请求照样等；根治是 `detectDesktopMcp` 改 async，登记。
+- **§2.6**：`autoImportClaudeCodeMcp` 打 `origin:'claude-code'`；`sanitizeExternalMcpCommon`（住 05）只放行 `claude-code`／`ruyi`、缺省不补字段（存量条目读侧视为 ruyi，行为与修前逐字节一致）；`syncMcpServersToClaude` 按 id 回查跳过并记 `mcp_sync_skip_origin` 审计；`mutateMcpConnector` upsert `delete clean.origin`。HTTP 面没有 upsert 路由，行为判据改用用户真正可达的 `/api/mcp/import-config/apply`。新件 `mcp-import-origin` ①打标 ②第二次启动日志无 `add-json origin-x` 而用户自写的 Y 照常 ③显式再导入清标 ④第四次启动 X 回来；反向注掉跳过 → 日志出现 `add-json|origin-x` 红。Kimi 同步不动（裁决：它不是来源，sidecar 所有权表可干净撤回）。
+- **执行者没跑成的两件**：`steward-conversation`／`ec-d-performance`（真浏览器）被另一棵树的浏览器件互杀挡住（见 §5.2 登记），留给主会话全量核。
+
+### 5.4 主会话合并（`9e154a7`，2026-09-13 下午）
+
+- 顺序 L2（已在 master）→ cherry-pick L3 四笔 → cherry-pick L1a 四笔（`run-all.js PARALLEL_EXCLUSIVE` 一处冲突：L3 的 `classic-window-live-steer` 与 L1a 三件都追加在末尾，两边全留）。
+- 合数：`LEGACY_STYLES_SHA256` 按干净 HEAD 重算 `7738fe50…→f082de2e…`（与 L3 报告「仅供核对」值逐字相同）；`RUYI_HOME_SPAWN_SITES` 128→131；facts `e2eCount` 333→338、`unitSuites` 41→43，README 三处门面数字跟上；route-inventory 重生成（三个新浏览器件进「谁在测它」）；`build --check`／依赖图 `--check`（50/398/1 SCC）绿；改动 8 文件控制字符零命中；`--fast` **68/68**。
+- 两处注释按 L1a 定案改正（shell-mode.js 与 quiet-card.browser 原先都把 quiet-card 那 1/3 归给过渡乱序）。
+- **误操作记一笔**：合并冲突后用 `node -e "require('./dev-harness/run-all.js')"` 做语法检查，等于把全量跑起来了（run-all 加载即执行）；10 s 内 `taskkill /T` 杀掉，未污染结果。语法检查只用 `node --check`。
+- **8 路全量（master `9e154a7`）：331 ran，327 pass／4 fail／1 flaky。** 4 红＝realhist 三件（`observation-recall-realhistory`／`-replay`／`session-notes`，本机无夹具，用户另机测）＋`autonomy-grant` S6；flaky＝`subagent`（重跑过）。**websearch 8 路绿**（§2.7 真证据）。串行复核：`autonomy-grant` 串行仍红——S6 是字面锁，用 `async function saveSession(session) {` 定位函数体，L2 把签名改成 `(session, opts)` 后正则落空、体长 0；定位正则放宽到可选第二参（判据本身不动）→ 绿；`subagent`／`steward-conversation` 串行各 1/1 绿。**真回归 0**。L2 没跑成的 `steward-conversation`／`ec-d-performance` 在这轮全量里都绿。
+- **登记（L1b 吃）**：`app-frame.js setLens` 同值早退（§5.2）。**登记（后续波）**：`detectDesktopMcp` 改 async（§5.3）；夹具 `LOCALAPPDATA`／`APPDATA` 隔离（§5.1）；CDP 单命令看门狗推广（§5.2）。
 
 ## 6. 停点
 
