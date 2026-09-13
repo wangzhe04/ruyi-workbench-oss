@@ -645,6 +645,7 @@
   "onboarding.wizard.stepCounter": "第 {{current}} / {{total}} 步 · {{title}}",
   "onboarding.wizard.steward.title": "管家用哪个模型",
   "onboarding.wizard.steward.hint": "如意在后台替你盯线程时用它。跟随主端点最省事；挑一个便宜的小模型更省钱。",
+  "onboarding.wizard.steward.contractHint": "但别挑得太弱：如意要调工具、还要按固定格式回话，快档小模型常常守不住——只回一句话、动作一个都不做，看着像办了其实没办。拿不准就选强的那一档。",
   "onboarding.wizard.steward.follow": "跟随主端点",
   "onboarding.wizard.steward.followHint": "不另外挑，用你刚配好的那一个。",
   "onboarding.wizard.steward.custom": "另挑一个",
@@ -2200,6 +2201,7 @@
   ,"stewardShell.chat.otherCandidates": "同任务的其它线程：{{list}}"
   ,"stewardShell.chat.actionLine": "已办：{{tool}} —— {{state}}"
   ,"stewardShell.chat.actionDone": "做成了"
+  ,"stewardShell.chat.contractIncomplete": "这一轮它没有执行任何动作，话里提到的「已经…」不作数。"
   ,"stewardShell.chat.tools": "本回合调用了 {{count}} 个工具"
   ,"stewardShell.chat.detailsToggle": "细节"
   ,"stewardShell.chat.retry": "重试"

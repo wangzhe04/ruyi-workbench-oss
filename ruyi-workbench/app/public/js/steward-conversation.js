@@ -835,6 +835,20 @@ export function createStewardConversation({
     actsRow.parentNode.replaceChild(receipt, actsRow);
   }
 
+  // 123-P1 ①（38 号文；用户 2026-09-14 真机取证）：契约不完整那一轮的**系统回执**。
+  // 后端 13o/13q 判出「模型没给必填的 why」时在回执与落盘章上盖 contractIncomplete，这里把它
+  // 说给用户听：那一轮它一个动作都没做，话里「我已经递过去了／按钮就在下面」全部不作数。
+  // 形状用既有的 .steward-receipt（settleRow 那一族的同一件灰字），**不是按钮**——用户此刻没有
+  // 任何可点的东西，给一枚按钮反而是第二次撒谎。与 settleRow 的区别只有一个：它替换的是一整行
+  // 按钮，而这里压根没有按钮行可替换，所以是直接追加。
+  function appendContractReceipt(row) {
+    if (!row) return null;
+    const receipt = el('p', 'steward-receipt', t('stewardShell.chat.contractIncomplete'));
+    receipt.dataset.receipt = 'contract';   // 判据面：与「点完落定」那种回执分得开
+    row.appendChild(receipt);
+    return receipt;
+  }
+
   // ── 一行按钮（≤3，主动作唯一）──────────────────────────────────────────────
   function renderActs(row, acts, onSettled) {
     const list = (Array.isArray(acts) ? acts : []).slice(0, STEWARD_ACTS_MAX);
@@ -1464,6 +1478,10 @@ export function createStewardConversation({
     }
     setPresence({ lastError: '' });
     renderActs(row, reply.acts);
+    // 123-P1 ①：live 那条路的灰字系统回执（回放那条路在 renderHistorySince 里，同一句话）。
+    // 排在按钮之后：契约不完整时 acts 本来就是空的，万一模型给了 acts 又漏了 why，回执也该
+    // 收在最后一行，而不是插在话与按钮中间。
+    if (reply && reply.contractIncomplete === true) appendContractReceipt(row);
     // W2-1：回合结束即展示管家刚开的那条线程（宽屏切「现在这一件」，窄屏开抽屉——两者都接
     // steward:focus-thread）。管家的话后面仍然保留「打开」按钮，只是不必再点了。
     const opened = executedThreadSessionId(reply.actions);
@@ -1858,7 +1876,18 @@ export function createStewardConversation({
       }
       inboxSource = null;
       inboxTurnSeq = 0;
-      if (stamp) renderActs(row, stamp.acts);
+      // 123-P1 ②（38 号文；与 ① 同一次真机走查翻出来的伴生 bug，独立存在）：回放**只画导航类**。
+      // 修前这里是 `renderActs(row, stamp.acts)` —— 落盘的 acts 整份重画。而落盘的章里【没有】
+      // 「这一枚点过没有」的记录，于是「知道了」这类表态、以及 tool 那种一次性动作，用户点完
+      // 已经落成灰字回执了，刷新一次页面或切一次视角，它们全部原样复活，看上去像从没点过。
+      // 裁决出处是 117v-V1 ②（上面 isNavigationAct 的头注，用户第十轮走查②）：**导航不是表态**
+      // —— open_thread 没有任何副作用、从 2.0 视窗回来还要再点同一枚，它本来就该反复点；
+      // dismiss／tool 是一次性的，点完这一枚就该消失。同一条裁决在 runAct 里管「点完落不落回执」，
+      // 在这里管「回放要不要重画」，判据是同一个 isNavigationAct，不新造第二张表。
+      if (stamp) renderActs(row, (Array.isArray(stamp.acts) ? stamp.acts : []).filter(isNavigationAct));
+      // 123-P1 ①：契约不完整那一轮的灰字系统回执，回放这条路也要有（live 在 finishReply 里）。
+      // 用户刷新一次页面就看不见「这一轮它什么都没做」，等于兜底只兜了一半。
+      if (stamp && stamp.contractIncomplete === true) appendContractReceipt(row);
       rendered += 1;
     }
     return rendered;

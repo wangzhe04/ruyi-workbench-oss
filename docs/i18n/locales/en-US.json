@@ -645,6 +645,7 @@
   "onboarding.wizard.stepCounter": "Step {{current}} of {{total}} - {{title}}",
   "onboarding.wizard.steward.title": "Which model runs the steward",
   "onboarding.wizard.steward.hint": "Ruyi uses this while it watches your threads in the background. Following the main endpoint is simplest; a small cheap model costs less.",
+  "onboarding.wizard.steward.contractHint": "Do not go too small, though: Ruyi has to call tools and answer in a fixed format, and fast lightweight models often fail to hold it — they reply with prose only and take no action at all, which reads as done but is not. When in doubt, pick the stronger tier.",
   "onboarding.wizard.steward.follow": "Follow the main endpoint",
   "onboarding.wizard.steward.followHint": "No separate pick — use the one you just set up.",
   "onboarding.wizard.steward.custom": "Pick another one",
@@ -2200,6 +2201,7 @@
   ,"stewardShell.chat.otherCandidates": "Other threads under the same task: {{list}}"
   ,"stewardShell.chat.actionLine": "Done: {{tool}} — {{state}}"
   ,"stewardShell.chat.actionDone": "succeeded"
+  ,"stewardShell.chat.contractIncomplete": "It took no action this turn — anything above that sounds already done did not happen."
   ,"stewardShell.chat.tools": "{{count}} tools were called this turn"
   ,"stewardShell.chat.detailsToggle": "Details"
   ,"stewardShell.chat.retry": "Retry"

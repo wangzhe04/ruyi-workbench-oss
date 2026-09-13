@@ -2042,6 +2042,105 @@ try {
   ok(Boolean(abRun) && abRun.r3 === 0 && abRun.usersAfterR3 === abRun.usersAfterR2,
     `AB4 ③ 同一发再来一次：三条全都盖过身份，一条都不再画（实测 r3=${abRun && abRun.r3}，用户气泡 ${abRun && abRun.usersAfterR2} → ${abRun && abRun.usersAfterR3}）`);
 
+  // ─── AC 123-P1 ①②（38 号文；用户 2026-09-14 真机走查）────────────────────────────────────
+  // ② 回放这条路（renderHistorySince）此前把落盘的 stamp.acts **整份重画**。而落盘的章里没有
+  //   「这一枚点过没有」的记录 —— 于是「知道了」这类表态、以及 tool 那种一次性动作，用户点完
+  //   已经落成灰字回执了，刷新一次页面或切一次视角，它们全部原样复活。裁决出处是 117v-V1 ②
+  //   （AA 段钉的就是它的 live 侧）：**导航不是表态** —— open_thread 没有副作用、本来就该反复点，
+  //   dismiss / tool 点完这一枚就该消失。所以回放只画导航类。
+  // ① 契约不完整（模型没给必填的 why，13o/13q 判的）那一轮，回放侧也要有那句灰字系统回执 ——
+  //   只在 live 画等于兜底只兜了一半。
+  // 手法与 T/U/F1/F2/Z/AA/AB 七段一样：新建实例 ＋ 注入假 api，走 appendSince / enterVisit 两条
+  //   【真】回放路径（两者都汇进 renderHistorySince，但入口各钉一次：AB 那次事故正是「只钉了一个
+  //   入口，另一个入口的水位从没被推过」）。
+  const AC_THREAD = 'sess_p1contract01';
+  const AC_NAV_LABEL = '打开线程';
+  const AC_DISMISS_LABEL = '知道了';
+  const AC_A_AT = '2097-03-03T00:00:01.000Z';
+  const AC_B_AT = '2097-03-03T00:00:02.000Z';
+  const AC_MESSAGES = [
+    {
+      role: 'assistant', createdAt: AC_A_AT, content: '',
+      steward: {
+        trigger: 'user', say: '那条线程我开好了。', why: '来自你刚才那句话',
+        acts: [
+          { kind: 'open_thread', label: AC_NAV_LABEL, sessionId: AC_THREAD, primary: true },
+          { kind: 'dismiss', label: AC_DISMISS_LABEL },
+        ],
+        actions: [],
+      },
+    },
+    {
+      role: 'assistant', createdAt: AC_B_AT, content: '',
+      // 照用户真机那一份的形状：只有一句完成时陈述，acts / actions 全空，后端盖了 contractIncomplete。
+      steward: {
+        trigger: 'user', say: '我把你这句话原样递给「下周A股走势分析」那条线程了，按钮就在下面。',
+        why: '', acts: [], actions: [], contractIncomplete: true,
+      },
+    },
+  ];
+  // 只看【本段这两条】画出来的行（按 data-created-at 认身份）：前面几段的行还在屏上，全局计数会
+  // 把它们一起数进来，那样钉的就不是本段的行为。
+  const AC_SHOT = `(() => {
+    const stamps = ${JSON.stringify([AC_A_AT, AC_B_AT])};
+    const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')]
+      .filter(node => node.dataset && stamps.indexOf(node.dataset.createdAt) >= 0);
+    return rows.map(node => ({
+      at: node.dataset.createdAt,
+      acts: [...node.querySelectorAll('.steward-act')].map(btn => btn.textContent),
+      receipts: [...node.querySelectorAll('.steward-receipt')].map(p => ({ text: p.textContent, kind: (p.dataset && p.dataset.receipt) || '' })),
+    }));
+  })()`;
+  const acAppend = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    const conv = mod.createStewardConversation({
+      api: async () => ({ session: { messages: ${JSON.stringify(AC_MESSAGES)} } }),
+      t: key => key,
+      isStewardMode: () => true,
+    });
+    const rendered = await conv.appendSince('2000-01-01T00:00:00.000Z');
+    return { rendered, rows: ${AC_SHOT} };
+  })()`);
+  const acRowA = (acAppend && acAppend.rows || []).find(row => row.at === AC_A_AT) || null;
+  const acRowB = (acAppend && acAppend.rows || []).find(row => row.at === AC_B_AT) || null;
+  ok(Boolean(acAppend) && acAppend.rendered === 2 && Boolean(acRowA) && Boolean(acRowB),
+    `AC0 两条历史都上屏了（实测 rendered ${acAppend && acAppend.rendered}，认出 ${(acAppend && acAppend.rows || []).length} 行）`);
+  ok(Boolean(acRowA) && acRowA.acts.length === 1 && acRowA.acts[0] === AC_NAV_LABEL,
+    `AC1 ② 回放只画【导航】那一枚（实测 ${JSON.stringify(acRowA && acRowA.acts)}，应为 ["${AC_NAV_LABEL}"]）—— 修前是把落盘的 acts 整份重画`);
+  ok(Boolean(acRowA) && acRowA.acts.indexOf(AC_DISMISS_LABEL) < 0,
+    `AC2 ② 同一行里那枚【表态】不重画（117v-V1 ②「导航不是表态」；它点过一次就落了灰字回执，而落盘的章里没有「点过没有」这个记录，重画等于让它复活）`);
+  ok(Boolean(acRowA) && acRowA.receipts.length === 0,
+    `AC3 契约完整那一行不出系统回执（实测 ${JSON.stringify(acRowA && acRowA.receipts)}）—— 旗子缺省不写，老回合读不到即为 false`);
+  ok(Boolean(acRowB) && acRowB.receipts.length === 1
+    && acRowB.receipts[0].kind === 'contract'
+    && acRowB.receipts[0].text === 'stewardShell.chat.contractIncomplete',
+    `AC4 ① 契约不完整那一行画出灰字系统回执（实测 ${JSON.stringify(acRowB && acRowB.receipts)}）—— 用的是既有 .steward-receipt 那一族，不是按钮`);
+  ok(Boolean(acRowB) && acRowB.acts.length === 0,
+    `AC5 ① 那一行一枚按钮都没有（实测 ${JSON.stringify(acRowB && acRowB.acts)}）—— 话里说的「按钮就在下面」本来就不存在，回执要说的正是这件事`);
+  // enterVisit 那个入口（进壳 / 切一次视角走的是它）：同一份历史、同一条判据，再钉一次。
+  const acVisit = await cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        const route = String(url).split('?')[0];
+        if (route === '/api/steward/visit') return { ok: true, newVisit: false, pending: [], visit: { startedAt: '2000-01-01T00:00:00.000Z' } };
+        if (route === '/api/sessions/steward') return { session: { messages: ${JSON.stringify(AC_MESSAGES)} } };
+        return null;
+      },
+      state: { config: { stewardEnabledV1: true } },
+      t: key => key,
+      isStewardMode: () => true,
+    });
+    await conv.enterVisit();
+    return { rows: ${AC_SHOT} };
+  })()`);
+  const acVisitA = (acVisit && acVisit.rows || []).find(row => row.at === AC_A_AT) || null;
+  const acVisitB = (acVisit && acVisit.rows || []).find(row => row.at === AC_B_AT) || null;
+  ok(Boolean(acVisitA) && acVisitA.acts.length === 1 && acVisitA.acts[0] === AC_NAV_LABEL,
+    `AC6 ② enterVisit 那个入口同样只画导航（实测 ${JSON.stringify(acVisitA && acVisitA.acts)}）—— 进壳与切视角走的是它，AB 那次事故的教训是「只钉一个入口不够」`);
+  ok(Boolean(acVisitB) && acVisitB.receipts.length === 1 && acVisitB.receipts[0].kind === 'contract',
+    `AC7 ① enterVisit 这条路上灰字回执也在（实测 ${JSON.stringify(acVisitB && acVisitB.receipts)}）`);
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
   await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");
