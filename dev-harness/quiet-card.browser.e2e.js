@@ -349,21 +349,32 @@ try {
   };
   const snapCards = () => cdp.evaluate(CARDS);
 
+  // 122-L1a：**先等 config 到达后的那一次自动落点尘埃落定，再点**。
+  // 理由（第一版这里踩过）：READY 只要求 `state.config` 在，而 provider-settings.js 的
+  // refreshStatus() 是「拿到 status → 写 state.config → fillSettings() → syncStewardShellAvailability()」
+  // 一串同步动作 —— 那一下 applyShellMode('steward') 的写回调被 View Transitions 推迟约一帧才落。
+  // 于是 READY 刚成立的那 ~30 ms 里属性还是 classic，下面 setLens 的「已经是 classic 就直接返回」
+  // 会**一次都不点**，随后排队的写才把画面翻成管家 —— 本机实测约 1/3 概率。那不是竞态（用户什么
+  // 都没点，落到默认的管家视角本来就对，34 号文 §8.4 拍板③），是这一件的等法不对。
+  // 等到默认落点真的落下来（≤1.6 s），再点一下工作台 —— 这才是一次【显式选择】。
+  await waitForEval(cdp, `(() => document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 1 : null)()`, 40);
+  await sleep(300);
   ok(Boolean(await setLens('classic')), 'A0g 顶栏分段钮切到工作台视角（后续 A1-E 的前提，先在这里钉死不是碰巧）');
-  // 已知时序坑（本机实测约 1/3 概率触发，与本刀改动无关，登记见交付报告）：boot 末尾
-  // provider-settings.js 的 fillSettings() 只调用【一次】 steward-shell.js 的
-  // syncStewardShellAvailability()——它在「没有存过显式非管家偏好」时会自动切回 steward
-  // （34 号文 §8.4 拍板③的默认落点）。这一次调用与 A0g 点击classic之间没有互斥：若它排在点击
-  // 之后触发，会把刚点好的 classic 悄悄翻回 steward。这里不追那一次时序竞态的根（不在 K6a
-  // 范围），改用「按住」的方式绕过——点完之后再观察 2 s，一旦被翻回去就重新点一次，直到稳定。
+  // 122-L1a（36 号文 §2.1 判据②）：这里原本有一段「按住 2 s」的绕道 —— 25×80 ms 循环，一旦被翻回
+  // steward 就重新点一次。它绕的是 J05 的真根：boot 末尾 fillSettings() → steward-shell.js 的
+  // syncStewardShellAvailability() 那一次 applyShellMode('steward') 的写回调排在 View Transitions
+  // 队列里，用户此刻点 classic 走的却是同步支（属性此时还是 classic），落地次序一反，刚点好的
+  // 工作台就被翻回管家（本机实测约 1/3 概率）。真根已在 shell-mode.js 用意图序号收口
+  // （最后一次意图赢），绕道随之退役 —— 改成正面断言：**1 s 内属性稳定为 classic**。
   {
     let flips = 0;
-    for (let i = 0; i < 25; i++) {
-      await sleep(80);
-      const mode = await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode'))()`);
-      if (mode !== 'classic') { flips += 1; await setLens('classic'); }
+    let last = '';
+    for (let i = 0; i < 20; i++) {
+      await sleep(50);
+      last = await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode'))()`);
+      if (last !== 'classic') flips += 1;
     }
-    if (flips) console.log(`DEBUG A0g-hold 期间被自动翻回 ${flips} 次，已重新点回 classic`);
+    ok(flips === 0, `A0g2 点完工作台视角后 1 s 内属性稳定为 classic（20 次采样里 ${flips} 次不是；末次实得 ${last}）—— §2.1 意图序号的正面证据`);
   }
   // 左栏五条线程真的渲染出来之后才开始点行——否则 openInWorkbench 会在行还没画出来时就点了个空
   // （偶发：A0g 切完视角那一拍，左栏可能还没吃到第一份 /api/missions）。

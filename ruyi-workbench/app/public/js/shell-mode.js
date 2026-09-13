@@ -127,10 +127,28 @@ export function createShellModeController({
   // （工作台 = 输入框），所以锚点可以由调用方整张换掉 —— 换的是【表】，不是落焦的时机。
   const SHELL_FOCUS_ANCHORS = Object.freeze({ steward: 'stewardShell', classic: 'sessionTitle' });
 
+  // 122-L1a（36 号文 §2.1；J05 的真根）：**最后一次意图赢**。
+  // 修前：真换视角走 runShellTransition(write)，而 write 是被 document.startViewTransition
+  // 【异步】调用的（规范里它跑在「更新渲染」那一步里，比同一帧的 rAF 还晚）；同值再写则走同步
+  // write()。于是开机那两秒里有一条真实竞态：boot 末尾 fillSettings() → steward-shell.js 的
+  // syncStewardShellAvailability() 在「没存过显式非管家偏好」时 applyShellMode('steward')，
+  // 它的 write_steward 排进了过渡队列还没落；此刻用户点分段钮选 classic —— 属性此时【还是】
+  // classic，于是走同步支立刻写 classic 并持久化；随后排队的 write_steward 才落，把刚点好的
+  // 工作台视角翻回管家。quiet-card.browser 约 1/3 概率撞上（原先靠 A0g「按住 2 s 重点」绕过）。
+  // 修法就是这一个计数器：每次 applyShellMode 领一个序号，写回调开头核一次；被更新的意图取代
+  // 之后它就是空操作。**不加「用户切过」旗子** —— 已证与 storedMode() 判据冗余；
+  // syncStewardShellAvailability 的条件一个字不动（那条判据本身没错，错的是两次写回调的次序）。
+  let intentSeq = 0;
+
   function applyShellMode(value, { persist = true, focus = true, focusAnchors = SHELL_FOCUS_ANCHORS } = {}) {
     const mode = normalizeShellMode(value);
+    // 准入不过时直接把控制权交出去（recoverStewardShell 内部走 recoverClassicShell → 本函数，
+    // 那一趟自己会领新序号）：这一支没有写回调，故意【不】领号，免得白白作废一次在飞的意图。
     if (mode === 'steward' && !canEnterSteward()) return recoverStewardShell({ persist }) || 'classic';
+    const seq = ++intentSeq;
     const write = () => {
+      // 被更新的意图取代 → 空操作（属性、控件、落焦一个都不做）。
+      if (seq !== intentSeq) return;
       try { documentRef.documentElement.setAttribute('data-shell-mode', mode); } catch { /* pre-DOM failure */ }
       syncModeControl(mode);
       // 落焦【必须】排在写完属性之后：要落焦的那个容器是刚刚才变成可见的那一个。

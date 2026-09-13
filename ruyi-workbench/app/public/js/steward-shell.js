@@ -403,6 +403,10 @@ export function createStewardShellDomain({
       // 老用户那份偏好时会就地改写成 'steward'，所以本条判据只剩 classic 一个值要认。下面
       // fail-closed 那支【不动】——它仍只认显式存了 steward 的人，于是管家关着的存量用户既不会被
       // 弹「已回到经典」的说明，也不会被写一条他没选过的本机偏好。
+      // 122-L1a（36 号文 §2.1）：这一句与用户在开机那两秒里点分段钮之间曾有一条真竞态
+      // （本处的写回调排在 View Transitions 队列里，用户那一次却走同步支，落地次序反过来 →
+      // 刚点好的工作台被翻回管家）。真根在 shell-mode.js 的 applyShellMode，已由那里的意图
+      // 序号（`intentSeq`）收口：**最后一次意图赢**。本处判据一个字不动 —— 它没错。
       const prefersClassic = storedMode() === 'classic';
       if (!prefersClassic && !isStewardMode()) return applyShellMode('steward', { persist: false, focus: false });
       return isStewardMode() ? 'steward' : 'classic';
