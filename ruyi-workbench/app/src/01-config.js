@@ -348,6 +348,14 @@ function defaultConfig() {
     stewardMaxParallelThreads: 5,
     stewardGlobalMaxTurnsPerHour: 120,
     stewardGlobalMaxCostPerDay: 20,
+    // 第 123 波 M1(37 号文 §3.2/§3.4;设计权威 29 号文 §4「开关」):定时任务调度器总开关。
+    // 默认【开】,但**没有任何任务时零开销**:13s 的 startScheduler 在零任务时不起 interval,
+    // 关掉(显式 false)时更是一个字节都不写 —— 不建 <data>/scheduler/ 目录、不读盘、六条路由一律 409。
+    schedulerEnabledV1: true,
+    // 第 123 波 M1 §3.2「无人值守的 ask」:定时任务派出去的回合遇到要人批准的动作时等多久(分钟),
+    // clamp [1,240]。它【只】换掉决定窗口的长度,不改判定 —— 到时仍然是拒(29 号文 §10 红线二:
+    // 无人值守遇 ask 绝不自动放行),本次记 needs_you,用户回来「立即运行」重跑。
+    schedulerAskWaitMinutes: 30,
     // v1.4.4: max nodes a persisted Agent 工作流 DAG may have (both a fresh /api/agent-workflow/launch and
     // a resumed run). Previously the fresh-launch path wrongly reused subagentMaxPerTurn (a per-CHAT-TURN
     // ad hoc fan-out budget) as the DAG's node-count ceiling — a 4-node default rejected any real pipeline
@@ -1108,6 +1116,22 @@ function normalizeConfig(raw) {
     const n = Number(config.stewardGlobalMaxCostPerDay);
     const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 20;
     if (clamped !== config.stewardGlobalMaxCostPerDay) { config.stewardGlobalMaxCostPerDay = clamped; changed = true; }
+  }
+  // 第 123 波 M1:调度器总开关。与 stewardThreadBriefV1 同方向的严格布尔(!== false)——
+  // 它默认【开】,只有显式写 false 才算关;别的垃圾值一律归一成 true,这样手改坏了配置文件
+  // 不会静默丢掉一个默认开的能力。(stewardEnabledV1 那条是 === true 方向,两者刻意不同,见各自注释。)
+  {
+    const b = config.schedulerEnabledV1 !== false;
+    if (b !== config.schedulerEnabledV1) { config.schedulerEnabledV1 = b; changed = true; }
+  }
+  // 第 123 波 M1 §3.2:无人值守 ask 的等待窗口(分钟),clamp [1,240],非法回默认 30。
+  // 区间上下界与默认值的单一事实源是 06j 的 SCHEDULER_LIMITS —— 但 06j 拼在 01 【之后】,
+  // 这里引用它会是一条前向边,所以这三个数在这里写成字面量,并由 unit/scheduler-core.test.js
+  // 与 scheduler-api.e2e.js 两头对账(任何一边改了数,另一边当场红)。
+  {
+    const n = Number(config.schedulerAskWaitMinutes);
+    const clamped = Number.isFinite(n) ? Math.min(240, Math.max(1, Math.round(n))) : 30;
+    if (clamped !== config.schedulerAskWaitMinutes) { config.schedulerAskWaitMinutes = clamped; changed = true; }
   }
   // v1.4.4: agentWorkflowMaxNodes — persisted Agent 工作流 DAG node-count ceiling (see defaultConfig())。第23波上限 32→64。
   {

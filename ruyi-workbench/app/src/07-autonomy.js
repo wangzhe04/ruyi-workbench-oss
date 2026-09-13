@@ -835,6 +835,22 @@ function toolIsRevertible(toolName) {
   // 与内建工具同保真度:名字级承诺(实际快照仍可能因越界/超限被跳过,届时该条在变更卡上回落为不可撤销)。
   return Object.prototype.hasOwnProperty.call(BRIDGED_WRITE_PATH_ARGS, unprefixedBridgedName(n));
 }
+// ── 第 123 波 M1 §3.2「无人值守的 ask」(37 号文;29 号文 §10 红线二)────────────────────────────
+// 定时任务派出去的回合没人守着,120 s 的决定窗口对它毫无意义 —— 用户可能几小时后才回来。
+// 于是调度器(13s)在派单前后【成对】写/清这张表,把这一条会话的「等多久」换成
+// config.schedulerAskWaitMinutes(默认 30 分钟,钳 [1,240];测试旗 WCW_SCHEDULER_ASK_WAIT_MS 压到毫秒)。
+//
+// **只改「等多久」,不改「等到了怎么判」**(子集律):到时仍然走下面那条既有的
+// runAutomaticInterventionDecision(action:'deny') —— 无人值守遇 ask 永远是拒,绝不自动放行。
+// 这张表也【不】参与 nativeToolGate 的任何判定:它够不着 gate,只够得着 setTimeout 的那个数。
+// 表是进程内的,重启即空;调度器在 finally 里删,所以一条被换过窗口的会话不会把这个值带到
+// 用户后来手动发起的回合上。
+const schedulerAskWaitSessions = new Map();   // sessionId -> ms(只由 13s 写)
+function schedulerAskWaitOverrideMs(schedAskSessionId) {
+  const ms = Number(schedulerAskWaitSessions.get(String(schedAskSessionId || '')));
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
 // Ask the UI to approve a native tool call — reuses the pendingPermissions + /api/permission/decision bridge.
 // v0.8-S4b: the permission_request event now also carries `tier` (read|edit|exec) and `revertible` (bool)
 // so the popup can render a risk badge + a plain-language revertibility line without re-deriving them.
@@ -864,7 +880,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       resolve(decision);
     };
     const entry = { resolve: settle, sessionId, timer: null };
-    const baseMs = Math.max(5000, Number(timeoutMs) || 120000);
+    const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -935,7 +951,8 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
         pendingPlans.delete(planId);
         settle({ decision: 'reject', note });
       });
-    }, Math.max(5000, Number(timeoutMs) || 120000));
+      // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
+    }, schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000));
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }

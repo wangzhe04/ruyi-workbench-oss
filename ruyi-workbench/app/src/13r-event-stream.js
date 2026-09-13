@@ -224,6 +224,17 @@ RUYI_EVENTS.subscribe((name, payload) => {
     eventStreamPublish('steward.say', { turnSeq: Math.max(0, Number(data.turnSeq) || 0), trigger: String(data.trigger || '') });
     return;
   }
+  // 123-M1(37 号文 §3.2「事件」):定时任务变了 —— 建/改/删/四段触发各派一帧。
+  // 本文件【只转发】:三个字段全是枚举与 id,标题、载荷正文、结果原文一个字都不进这条线(§6.1 红线①);
+  // 前端(M2)据此刷口袋计数、「接下来」两行与设置块,零轮询 —— 正文仍走 GET /api/scheduler/tasks。
+  if (name === 'schedule.changed') {
+    eventStreamPublish('schedule.changed', {
+      taskId: String(data.taskId || ''),
+      phase: String(data.phase || ''),
+      outcome: String(data.outcome || ''),
+    });
+    return;
+  }
   // 未知事件名:丢弃。总线是开放的,这条线不是 —— 加新事件要在这里显式登记一行。
 });
 subscribeActiveChildEvents(eventStreamOnActiveChildEvent);
