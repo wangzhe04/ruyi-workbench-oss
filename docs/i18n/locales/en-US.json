@@ -74,7 +74,7 @@
   "changes.diffSkipped": "The pre-change content was too large and no snapshot was saved; diff is unavailable.",
   "changes.diffUnavailable": "Cannot read diff: {{err}}",
   "changes.empty": "No files were changed in this turn",
-  "changes.emptyHint": "No revertible file changes in this session yet. AI file tools or ACC writes will appear here.",
+  "changes.emptyHint": "No revertible file changes in this thread yet. AI file tools or ACC writes will appear here.",
   "changes.fileCount": "{{count}} files",
   "changes.loadFailed": "Failed to load changes: ",
   "changes.loadingDiff": "Loading diff…",
@@ -236,7 +236,7 @@
   "emptyState.starter.windowsStartup": "Fix the Windows startup issue",
   "emptyState.title": "Start working right away",
   "error.api.actionUnknown": "The requested action is invalid.",
-  "error.api.agentRunRequired": "Provide both the chat and workflow-run identifiers",
+  "error.api.agentRunRequired": "Provide both the thread and workflow-run identifiers",
   "error.api.authToken": "The workbench session token is missing or invalid",
   "error.api.checkpointNotFound": "The requested change record was not found",
   "error.api.checkpointReferenceInvalid": "The change-record identifier is invalid",
@@ -250,9 +250,9 @@
   "error.api.questionNotPending": "This question has ended or was already answered",
   "error.api.requestFailed": "The request failed.",
   "error.api.routeNotFound": "The requested API route was not found",
-  "error.api.sessionInvalid": "The chat identifier is invalid",
-  "error.api.sessionNotFound": "The chat was not found",
-  "error.api.sessionRequired": "Choose a chat first",
+  "error.api.sessionInvalid": "The thread identifier is invalid",
+  "error.api.sessionNotFound": "The thread was not found",
+  "error.api.sessionRequired": "Choose a thread first",
   "error.api.steerClaudeRequiresInteractive": "This Claude turn is not interactive and cannot be steered; switch modes for the next turn",
   "error.cliMissing.configureApi": "Configure API key",
   "error.cliMissing.configureCli": "Configure {{engine}} path",
@@ -296,8 +296,8 @@
   "health.item.claude-cli.hint.ok": "A usable command-line engine was found.",
   "health.item.claude-cli.label": "Command-line AI engine",
   "health.item.claude-cli.next.bad": "Open the Providers tab, add a model provider and fill in its key.",
-  "health.item.data-writable.hint.bad": "Ruyi cannot write to its own data folder, so chats and settings will not be saved.",
-  "health.item.data-writable.hint.ok": "Chats and settings can be saved normally.",
+  "health.item.data-writable.hint.bad": "Ruyi cannot write to its own data folder, so threads and settings will not be saved.",
+  "health.item.data-writable.hint.ok": "Threads and settings can be saved normally.",
   "health.item.data-writable.label": "Saving your data",
   "health.item.data-writable.next.bad": "Open the FAQ chapter of the manual and follow the steps there to grant write access to the data folder.",
   "health.item.desktop-control.hint.disabled": "Turned off. Nothing else is affected; the AI just cannot operate your desktop.",
@@ -346,7 +346,7 @@
   "help.doc.lang.zh-CN": "Chinese",
   "help.doc.loadFailed": "The manual could not be opened: {{reason}}",
   "help.doc.loading": "Opening the manual…",
-  "help.doc.missingBody": "This slim package ships without the manual files. You do not need to hunt for them: just ask me how to use Ruyi in the chat below and I will walk you through it step by step.",
+  "help.doc.missingBody": "This slim package ships without the manual files. You do not need to hunt for them: just ask me how to use Ruyi in the conversation below and I will walk you through it step by step.",
   "help.doc.missingTitle": "The manual files are not installed on this machine",
   "help.doc.open": "Open the manual",
   "help.doc.title": "User manual",
@@ -381,14 +381,14 @@
   "help.title": "Keyboard shortcuts",
   "mcp.copyOk": "Copied ✓",
   "mcp.missing.title": "Missing MCP manifest",
-  "memory.check.disabled": "Memory=disabled for this session",
+  "memory.check.disabled": "Memory=disabled for this thread",
   "memory.check.done": "Memory=checked {{candidates}} candidates, matched {{matches}} (project {{project}} / global {{global}})",
   "memory.check.unavailable": "Memory=preflight unavailable (safely degraded for this turn)",
   "memory.createNew": "＋ Write a new memory",
   "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most 3 matches per turn.",
   "memory.deleteConfirm": "Delete memory \"{{name}}\"? This cannot be undone.",
-  "memory.disableForSession": "Disable for this session",
-  "memory.draftFromSession": "✎ Draft from current session",
+  "memory.disableForSession": "Disable for this thread",
+  "memory.draftFromSession": "✎ Draft from current thread",
   "memory.edit.body": "Body (markdown)",
   "memory.edit.create.title": "New workbench memory",
   "memory.edit.description": "Description (when is it useful)",
@@ -412,7 +412,7 @@
   "memory.edit.typeReference": "Reference material",
   "memory.enable": "Enable",
   "memory.enabled": "Enabled",
-  "memory.fixedPolicyHint": "This session uses a fixed memory selection (up to 12 entries); you can restore default project + global retrieval.",
+  "memory.fixedPolicyHint": "This thread uses a fixed memory selection (up to 12 entries); you can restore default project + global retrieval.",
   "memory.ghostLabel": "Stale",
   "memory.groupGlobal": "Global memories",
   "memory.groupGlobalSub": "Travels with the workbench",
@@ -431,12 +431,12 @@
   "memory.proposal.applied": "Memory maintenance proposal applied",
   "memory.proposal.applyFailed": "Apply failed: {{err}}",
   "memory.restoreDefaults": "Restore default retrieval",
-  "memory.sessionDisabledHint": "Workbench memory is disabled for this session. Restoring defaults lets project and global memories participate in relevance retrieval again.",
+  "memory.sessionDisabledHint": "Workbench memory is disabled for this thread. Restoring defaults lets project and global memories participate in relevance retrieval again.",
   "memory.toast.defaultsRestored": "Restored default project + global memory retrieval",
-  "memory.toast.excluded": "Excluded \"{{name}}\" from this session's default retrieval",
+  "memory.toast.excluded": "Excluded \"{{name}}\" from this thread's default retrieval",
   "memory.toast.included": "Included \"{{name}}\" in default retrieval again",
-  "memory.toast.sessionDisabled": "Disabled workbench memory for this session",
-  "memory.needSessionHint": "Create or select a session to enable memory.",
+  "memory.toast.sessionDisabled": "Disabled workbench memory for this thread",
+  "memory.needSessionHint": "Create or select a thread to enable memory.",
   "memory.scope.global": "Global",
   "memory.scope.project": "Project",
   "memory.toast.disabled": "Memory disabled: {{name}}",
@@ -527,7 +527,7 @@
   "modelMenu.thinkingEffort": "Thinking effort",
   "modelMenu.unselected": "No model selected",
   "navigation.collapseSidebar": "Collapse sidebar",
-  "navigation.conversation": "Chat",
+  "navigation.conversation": "Conversation",
   "navigation.crew": "Crew",
   "navigation.doctor": "Diagnostics",
   "navigation.expandSidebar": "Expand sidebar",
@@ -672,20 +672,20 @@
   "palette.dataDirectoryUnknown": "Data directory is unknown",
   "palette.defaultModel": "Default",
   "palette.engine": "Engine → {{engine}} · {{model}}",
-  "palette.exportHtml": "Export chat · HTML",
-  "palette.exportJson": "Export chat · JSON",
-  "palette.exportMarkdown": "Export chat · Markdown",
-  "palette.importJson": "Import chat (JSON)",
+  "palette.exportHtml": "Export thread · HTML",
+  "palette.exportJson": "Export thread · JSON",
+  "palette.exportMarkdown": "Export thread · Markdown",
+  "palette.importJson": "Import thread (JSON)",
   "palette.mcpInspector": "MCP tool inspector",
-  "palette.memories": "Workbench memories (across chats)",
-  "palette.newSession": "New chat",
+  "palette.memories": "Workbench memories (across threads)",
+  "palette.newSession": "New thread",
   "palette.openDataDirectory": "Open data directory",
   "palette.openProviders": "Open Provider settings",
   "palette.openSettings": "Open Settings",
   "palette.placeholder": "Search commands",
   "palette.refreshDiagnostics": "Refresh diagnostics",
   "palette.saveInputAsTemplate": "Save current input as template",
-  "palette.session": "Chat → {{title}}",
+  "palette.session": "Thread → {{title}}",
   "palette.skills": "Skills library (skills / commands / playbooks)",
   "palette.stopCurrentTurn": "Stop current turn",
   "palette.template": "Template → {{name}}",
@@ -695,7 +695,7 @@
   "permission.allow": "Allow",
   "permission.allowNetwork": "Allow network access",
   "permission.allowPersistent": "Always allow (save to settings)",
-  "permission.allowSession": "Auto-allow this tool for this chat",
+  "permission.allowSession": "Auto-allow this tool for this thread",
   "permission.alwaysAllowed": "Always allowed: {{tool}}",
   "permission.deny": "Deny",
   "permission.duration.hours": "{{hours}} h {{minutes}} min",
@@ -751,10 +751,10 @@
   "permission.revoke": "Revoke",
   "permission.revoke.failed": "Could not revoke: {{reason}}",
   "permission.revokeAll": "Revoke all grants",
-  "permission.revokeAll.confirm": "Revoke all grants for this chat? A call already in progress is not affected; future calls will ask again.",
+  "permission.revokeAll.confirm": "Revoke all grants for this thread? A call already in progress is not affected; future calls will ask again.",
   "permission.revokeAll.success": "Revoked {{count}} grants",
   "permission.scope.run": "This run",
-  "permission.scope.session": "Chat",
+  "permission.scope.session": "Thread",
   "permission.title": "Safety and permissions",
   "permission.uses": "{{used}}/{{max}} uses",
   "plan.awaitingApproval": "AI is waiting for your plan approval",
@@ -780,7 +780,7 @@
   "playbook.create.fieldTitle": "Title",
   "playbook.create.inputs": "Inputs: {{inputs}}",
   "playbook.create.modalTitle": "Save as playbook",
-  "playbook.create.noSession": "There is no chat to save",
+  "playbook.create.noSession": "There is no thread to save",
   "playbook.create.required": "A title and task template are required",
   "playbook.create.saveFailed": "Could not save the playbook: {{reason}}",
   "playbook.create.saved": "Saved as a playbook",
@@ -845,24 +845,24 @@
   "provider.toggleApiKeyVisibility": "Show/hide API key",
   "provider.vision": "Vision support (can analyze images/screenshots)",
   "session.bulkCleanup": "Clean up history",
-  "session.bulkCleanup.action": "Clean up {{count}} chats",
-  "session.bulkCleanup.description": "This will delete {{count}} unpinned historical chats.",
-  "session.bulkCleanup.empty": "There are no historical chats to clean up",
+  "session.bulkCleanup.action": "Clean up {{count}} threads",
+  "session.bulkCleanup.description": "This will delete {{count}} unpinned historical threads.",
+  "session.bulkCleanup.empty": "There are no historical threads to clean up",
   "session.bulkCleanup.failed": "Could not clean up history: {{reason}}",
-  "session.bulkCleanup.note": "Your current chat, pinned chats, and running chats will be kept. This cannot be undone.",
+  "session.bulkCleanup.note": "Your current thread, pinned threads, and running threads will be kept. This cannot be undone.",
   "session.bulkCleanup.purgeAssociated": "Also delete associated rollback checkpoints and Agent workflow records",
-  "session.bulkCleanup.purgeHint": "Workspace files are never deleted. Clear this option to delete only the primary chat records.",
-  "session.bulkCleanup.success": "Cleaned up {{count}} historical chats",
+  "session.bulkCleanup.purgeHint": "Workspace files are never deleted. Clear this option to delete only the primary thread records.",
+  "session.bulkCleanup.success": "Cleaned up {{count}} historical threads",
   "session.bulkCleanup.title": "Bulk history cleanup",
   "session.delete": "Delete",
-  "session.delete.confirm": "Delete this chat?",
+  "session.delete.confirm": "Delete this thread?",
   "session.earlier": "Earlier",
-  "session.empty": "No chats yet. Select New chat to begin.",
+  "session.empty": "No threads yet. Select New thread to begin.",
   "session.messageCount.one": "{{count}} message",
   "session.messageCount.other": "{{count}} messages",
-  "session.new": "New chat",
+  "session.new": "New thread",
   "session.untitled": "Untitled thread",
-  "session.noMatch": "No matching chats",
+  "session.noMatch": "No matching threads",
   "session.pin": "Pin",
   "session.pinned": "Pinned",
   "session.rename": "Rename",
@@ -881,8 +881,8 @@
   "settings.advanced.savedValue": "Saved: {value}",
   "settings.advanced.subagentConcurrency": "Subagent concurrency per stage",
   "settings.advanced.subagentConcurrency.hint": "How many subagents can run simultaneously in a stage. Range: 1–8; default and upper limit: 8.",
-  "settings.advanced.subagentPerTurn": "Subagents per chat turn",
-  "settings.advanced.subagentPerTurn.hint": "Combined spawn_agent/orchestrate_agents limit for one chat turn. Set 0 to disable subagents.",
+  "settings.advanced.subagentPerTurn": "Subagents per turn",
+  "settings.advanced.subagentPerTurn.hint": "Combined spawn_agent/orchestrate_agents limit for one turn. Set 0 to disable subagents.",
   "settings.advanced.subagentPreferredModel": "Subagent preferred model",
   "settings.advanced.subagentPreferredModel.automatic": "Automatic (role / tier / main model)",
   "settings.advanced.subagentPreferredModel.hint": "Default model id for subagents; empty = fall back to role / tier / main model.",
@@ -910,7 +910,7 @@
   "settings.agentRoles.scope.global": "Global roles",
   "settings.agentRoles.scope.project": "Current project",
   "settings.agents": "Agents",
-  "settings.anthropicEndpoint.hint": "The endpoint, key, and model configured here are injected into the Claude CLI child process for real chats; no manual setx is needed. You can switch models from the top bar.",
+  "settings.anthropicEndpoint.hint": "The endpoint, key, and model configured here are injected into the Claude CLI child process to drive real conversations; no manual setx is needed. You can switch models from the top bar.",
   "settings.anthropicEndpoint.title": "Third-party Anthropic-compatible endpoint (Coding Plan)",
   "settings.apiKey": "API key",
   "settings.apiKeyPlaceholder": "Leave blank to keep the saved key unchanged",
@@ -930,8 +930,8 @@
   "settings.browserTarget.custom": "Custom Chromium executable",
   "settings.browserTarget.hint": "System mode opens a new tab/window in the real user browser and never navigates, reuses, or closes the current Workbench. It operates through screenshots and UIA/OCR; choose managed, CDP, or bundled mode only when DOM-level browser_* tools are needed.",
   "settings.browserTarget.managed": "Installed default Chromium browser (DOM automation; separate window)",
-  "settings.browserTarget.system": "System default browser (recommended; preserve Workbench and reuse user session)",
-  "settings.chatEngine": "Chat engine",
+  "settings.browserTarget.system": "System default browser (recommended; preserve Workbench and reuse your sign-in)",
+  "settings.chatEngine": "Conversation engine",
   "settings.agentCli.tab": "Agent CLI",
   "settings.agentCli.driver": "Agent CLI driver",
   "settings.agentCli.hint.claude": "Full support: live streaming, interactive steering, permission bridge, native agents, and per-turn MCP configuration.",
@@ -1027,9 +1027,9 @@
   "settings.pricing.unavailablePlaceholder": "Leave blank to skip cost estimates",
   "settings.providers": "Model providers",
   "settings.providers.add": "+ Add Provider",
-  "settings.providers.hint": "After you select a Provider in the top bar, chats connect directly to its streaming /chat/completions endpoint. Keys are stored only in local config.json.",
-  "settings.resumeClaude": "Automatically resume Claude chats",
-  "settings.resumeAgentCli": "Automatically resume Agent CLI chats",
+  "settings.providers.hint": "After you select a Provider in the top bar, conversations connect directly to its streaming /chat/completions endpoint. Keys are stored only in local config.json.",
+  "settings.resumeClaude": "Automatically resume Claude sessions",
+  "settings.resumeAgentCli": "Automatically resume Agent CLI sessions",
   "settings.search.bing": "Bing Search API",
   "settings.search.bocha": "Bocha (Chinese Search API)",
   "settings.search.brave": "Brave Search API",
@@ -1153,9 +1153,9 @@
   "skills.details": "View guide",
   "skills.empty": "No skills or commands found. Place SKILL.md files in the data-directory skills/ folder or project .ruyi/skills/ folder.",
   "skills.enable": "Enable",
-  "skills.enableForSession": "Enable for chat",
+  "skills.enableForSession": "Enable for this thread",
   "skills.enabled": "Enabled",
-  "skills.enabledForSession": "Enabled for chat",
+  "skills.enabledForSession": "Enabled for this thread",
   "skills.group.commands": "Commands",
   "skills.group.commandsDescription": "Actions triggered with slash commands",
   "skills.group.playbooks": "Playbooks",
@@ -1227,7 +1227,7 @@
   "skills.toast.removedUnavailable": "Removed unavailable skill: {{id}}",
   "skills.toast.residentDisabled": "Resident skill disabled: {{name}}",
   "skills.toast.residentEnabled": "Resident skill enabled: {{name}}",
-  "skills.toast.selectSession": "Create or select a chat first",
+  "skills.toast.selectSession": "Create or select a thread first",
   "skills.toast.unavailable": "This skill is currently unavailable",
   "skills.toast.updateFailed": "Could not update skills: {{reason}}",
   "skills.toast.deleted": "Deleted skill: {{name}}",
@@ -1239,7 +1239,7 @@
   "skills.deleteConfirm.idLabel": "Skill id",
   "skills.deleteConfirm.armed": "Click again to confirm",
   "skills.deleteConfirm.confirm": "Delete permanently",
-  "skills.deleteConfirm.warning": "This cannot be undone. If the skill is enabled in any session, it will become an unavailable entry.",
+  "skills.deleteConfirm.warning": "This cannot be undone. If the skill is enabled in any thread, it will become an unavailable entry.",
   "skills.unavailable": "Unavailable",
   "skills.unavailableReason": "This skill is no longer in the registry (it may have been deleted or become hidden after the workspace changed).",
   "skills.viewTemplate": "View template",
@@ -1267,13 +1267,13 @@
   "storage.store.logs": "Logs",
   "storage.store.memory": "Memory",
   "storage.store.playbooks": "Playbooks",
-  "storage.store.sessions": "Sessions",
+  "storage.store.sessions": "Threads",
   "storage.store.skills": "Skills",
   "storage.store.uploads": "Uploads",
   "storage.store.usage": "Usage ledger",
   "storage.store.webcache": "Web cache",
   "storage.totalLabel": "Data directory total",
-  "storage.transcriptNote": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{n}} files -- auto-cleanup only covers transcripts this workbench spawned, with no live session refs, past retention",
+  "storage.transcriptNote": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{n}} files -- auto-cleanup only covers transcripts this workbench spawned, with no live thread refs, past retention",
   "storage.unavailable": "Storage stats unavailable",
   "thinkingEffort.default": "Default (inherit CLI configuration)",
   "thinkingEffort.high": "High",
@@ -1316,10 +1316,10 @@
   "toast.memoryPruned": "Pruned stale memory: {{p1}}",
   "toast.memorySaved": "Memory saved",
   "toast.memorySetFail": "Failed to set memory: {{err}}",
-  "toast.needSession": "Create or select a session first",
-  "toast.noSession": "No active session",
-  "toast.noSessionToSave": "No session to save",
-  "toast.openSessionFirst": "Open a session first",
+  "toast.needSession": "Create or select a thread first",
+  "toast.noSession": "No active thread",
+  "toast.noSessionToSave": "No thread to save",
+  "toast.openSessionFirst": "Open a thread first",
   "toast.permPaused": "Permission request archived-paused; still awaiting your decision (valid ~{{p1}} min, falls back to deny on timeout)",
   "toast.pickerOpenFail": "Could not open picker: {{err}}",
   "toast.policySaveFail": "Failed to save policy: {{err}}",
@@ -1336,10 +1336,10 @@
   "toast.rollbackDone": "Rolled back: {{p1}}",
   "toast.rollbackFail": "Rollback failed: {{p1}}",
   "toast.saveFail": "Save failed: {{p1}}",
-  "toast.sessionEndedNoAnswer": "Session ended; cannot answer",
-  "toast.sessionImported": "Session imported",
-  "toast.shellCreated": "Shell session created: {{p1}}",
-  "toast.shellEnded": "Shell session ended",
+  "toast.sessionEndedNoAnswer": "Thread ended; cannot answer",
+  "toast.sessionImported": "Thread imported",
+  "toast.shellCreated": "Shell created: {{p1}}",
+  "toast.shellEnded": "Shell ended",
   "toast.steerFail": "Steer failed: {{p1}}",
   "toast.steerInjected": "Steer injected (immediate)",
   "toast.steerQueued": "Steer queued (applied next step)",
@@ -1380,7 +1380,7 @@
   "tool.artifacts.empty": "No artifacts yet — files generated by AI will appear here.",
   "tool.artifacts.turn": "Turn {{turn}}",
   "tool.activity": "Activity",
-  "tool.askRuyiForFiles": "Need to find content or read a file? Ask Ruyi in chat and it will choose the right tool automatically.",
+  "tool.askRuyiForFiles": "Need to find content or read a file? Ask Ruyi in conversation and it will choose the right tool automatically.",
   "tool.closePanel": "Close workspace",
   "tool.debug": "Debug",
   "tool.desktop": "Desktop",
@@ -1393,10 +1393,10 @@
   "tool.read": "Read",
   "tool.readFile": "Read file",
   "tool.revertibleChanges": "Revertible file changes",
-  "tool.revertibleChanges.hint": "Files written by AI file tools or desktop control appear here. Use the Changes in this turn card in Chat to revert an entire turn.",
+  "tool.revertibleChanges.hint": "Files written by AI file tools or desktop control appear here. Use the Changes in this turn card in the conversation to revert an entire turn.",
   "tool.searchProject": "Search project",
   "tool.searchText": "Search text",
-  "tool.sessionArtifacts": "Artifacts from this chat",
+  "tool.sessionArtifacts": "Artifacts from this thread",
   "tool.terminal": "Terminal",
   "tool.workspace": "Workspace",
   "tool.workspaceFolder": "Workspace folder",
@@ -1435,10 +1435,10 @@
   "usage.dailyTrend": "Daily trend",
   "usage.dailyTrend.point": "{{date}}: {{tokens}}",
   "usage.dailyTrend.summary": "Daily token trend across {{count}} days; peak about {{tokens}} ({{date}}).",
-  "usage.empty": "No usage records yet. Start a chat to see a cost summary here.",
+  "usage.empty": "No usage records yet. Start a conversation to see a cost summary here.",
   "usage.group.engine": "By engine",
   "usage.group.provider": "By provider",
-  "usage.group.session": "By chat",
+  "usage.group.session": "By thread",
   "usage.group.summary": "{{title}}: {{count}} items. {{names}}.",
   "usage.inputTokens": "Input tokens",
   "usage.loadFailed": "Could not load usage: {{reason}}",
@@ -1446,8 +1446,8 @@
   "usage.note.cost": "Cost is an equivalent estimate based on usage, not an actual charge.",
   "usage.note.planTurns": "About {{count}} turns are subscription-billed; their tokens are not included in the cost above.",
   "usage.note.planUsage": "Some usage is subscription-billed; only tokens are shown and not included in the cost above.",
-  "usage.openSession": "Open chat: {{title}}",
-  "usage.openSession.failed": "Could not open chat: {{reason}}",
+  "usage.openSession": "Open thread: {{title}}",
+  "usage.openSession.failed": "Could not open thread: {{reason}}",
   "usage.opsInterventions": "{{count}} manual interventions in the last {{days}} days",
   "usage.opsMissions": "{{count}} missions · {{rate}} budget-overrun rate",
   "usage.outputTokens": "Output tokens",
@@ -1457,7 +1457,7 @@
   "usage.session.unnamed": "Untitled thread",
   "usage.title": "Usage and cost",
   "usage.tokenCount": "{{count}} tokens",
-  "usage.turns": "Chat turns",
+  "usage.turns": "Conversation turns",
   "usage.turns.aux": "{{count}} auxiliary calls",
   "usage.turns.estimated": "includes {{count}} estimated turns",
   "usage.turns.subagent": "includes {{count}} workflow subagent turns",
@@ -1508,11 +1508,11 @@
   "workflow.editor.scope": "Save scope",
   "workflow.editor.title": "Workflow graph editor",
   "workflow.elapsed": "Running for {{duration}}",
-  "workflow.empty": "This chat has no Agent workflows yet.",
-  "workflow.empty.goChat": "Back to chat",
+  "workflow.empty": "This thread has no Agent workflows yet.",
+  "workflow.empty.goChat": "Back to conversation",
   "workflow.empty.runTemplate": "Run from template",
   "workflow.empty.subtitle": "Assign a multi-agent task and their collaboration graph will be drawn here in real time — who's running, how far, and where they're stuck.",
-  "workflow.empty.title": "No Agent workflows in this session",
+  "workflow.empty.title": "No Agent workflows in this thread",
   "workflow.isolation.apply": "Apply to current workspace",
   "workflow.isolation.applyAria": "Apply node {{node}}'s isolated worktree",
   "workflow.isolation.status": "Isolated worktree: {{status}}",
@@ -1688,7 +1688,7 @@
   "bootFailure.reason.offlineStatus": "Cannot connect to local service",
   "ctx.sourceLabel.manual": "Manual lock",
   "ctx.sourceLabel.settingsFixed": "Settings fixed",
-  "chat.newSession": "New Session",
+  "chat.newSession": "New Thread",
   "chat.thinkingProcess": "Reasoning",
   "status.error": "Error",
   "status.done": "Done",
@@ -1742,7 +1742,7 @@
   "chat.compactUnknownError": "Unknown error",
   "status.stopped": "Stopped",
   "chat.noTextOutput": "(No text output)",
-  "chat.toolResultMissing": "The turn ended before this tool result arrived. Refresh the session to verify the final record.",
+  "chat.toolResultMissing": "The turn ended before this tool result arrived. Refresh the thread to verify the final record.",
   "chat.inputPlaceholder": "Type a response",
   "chat.submit": "Submit",
   "chat.userCancelled": "(User cancelled, nothing selected)",
@@ -1901,7 +1901,7 @@
   "ctx.compact.defaultProvider": "Default (current Provider model)",
   "ctx.compact.defaultKimi": "Default (Kimi native compaction)",
   "ctx.compact.defaultClaude": "Default (Claude native /compact)",
-  "ctx.compact.windowNote": "Compaction input is safely segmented to the {{window}} window; the limit above still reflects the current chat model.",
+  "ctx.compact.windowNote": "Compaction input is safely segmented to the {{window}} window; the limit above still reflects the current conversation model.",
   "ctx.compact.hintDefault": "Default uses the native compaction capability of the current access mode.",
   "ctx.compact.hintRisky1b": "Not recommended: in local testing 1B models omit and fabricate key facts.{{windowNote}}",
   "ctx.compact.hintLossy2b": "Usable but lossy: a small window auto-summarizes in segments; review the summary for important tasks.{{windowNote}}",
@@ -1910,7 +1910,7 @@
   "ctx.compact.toastReset": "Reverted to the current engine's native compaction",
   "ctx.noUsage": "Not started",
   "ctx.noUsageHint": "This conversation has no context usage yet. Click to choose its context limit in advance.",
-  "session.name": "Session Name",
+  "session.name": "Thread Name",
   "chat.resultTooLong": "Result too long, showing first 100,000 characters only.",
   "chat.first200Lines": "(Showing first 200 lines)",
   "chat.claudeCliReceipt": "Claude CLI Start Receipt",
@@ -1923,7 +1923,7 @@
   "chat.nativeAgentInterrupted": "⚠ Interrupted",
   "workflow.nativeClaude.runTitle": "Claude Native Agents",
   "workflow.spawnAgent.runTitle": "Ad-hoc Agents",
-  "workflow.nativeClaude.parentRole": "Claude Parent Chat",
+  "workflow.nativeClaude.parentRole": "Claude Parent Conversation",
   "workflow.nativeClaude.parentTask": "Current Claude CLI turn",
   "workflow.nativeClaude.parentStarted": "Parent turn started",
   "workflow.nativeClaude.parentCompleted": "Parent turn integrated the child results",
@@ -2165,7 +2165,7 @@
   ,"stewardShell.presence.idle": "Idle"
   ,"stewardShell.presence.listening": "Listening"
   ,"stewardShell.presence.thinking": "Thinking"
-  ,"stewardShell.presence.working": "Checking a chat{{detail}}"
+  ,"stewardShell.presence.working": "Checking a thread{{detail}}"
   ,"stewardShell.presence.waiting_you": "Waiting on you{{detail}}"
   ,"stewardShell.presence.error": "Last step failed{{detail}}"
   ,"stewardShell.presence.sleeping": "The steward is stopped"
@@ -2176,8 +2176,8 @@
   ,"stewardShell.chat.openFocus": "Open “{{title}}”"
   ,"stewardShell.chat.openThread": "Open this thread"
   ,"stewardShell.chat.gotIt": "Got it"
-  ,"stewardShell.chat.intro": "I'm Ruyi. Tell me what you want done and I'll work out which chat should pick it up, or start a new one."
-  ,"stewardShell.chat.example1": "Show me the chats I have"
+  ,"stewardShell.chat.intro": "I'm Ruyi. Tell me what you want done and I'll work out which thread should pick it up, or start a new one."
+  ,"stewardShell.chat.example1": "Show me the threads I have"
   ,"stewardShell.chat.example2": "Remind me at 9 tomorrow to file the weekly report"
   ,"stewardShell.chat.example3": "Tidy up my downloads folder"
   ,"stewardShell.chat.whyLabel": "Grounds and scope"
@@ -2187,8 +2187,8 @@
   ,"stewardShell.chat.whyDone": "Done"
   ,"stewardShell.chat.queued": "Queued"
   ,"stewardShell.chat.queueFull": "Hold on a moment — a few lines are still waiting to go out."
-  ,"stewardShell.chat.pendingWhy": "This chat is waiting on your call ({{type}})."
-  ,"stewardShell.chat.otherCandidates": "Other chats under the same task: {{list}}"
+  ,"stewardShell.chat.pendingWhy": "This thread is waiting on your call ({{type}})."
+  ,"stewardShell.chat.otherCandidates": "Other threads under the same task: {{list}}"
   ,"stewardShell.chat.actionLine": "Done: {{tool}} — {{state}}"
   ,"stewardShell.chat.actionDone": "succeeded"
   ,"stewardShell.chat.tools": "{{count}} tools were called this turn"
@@ -2203,7 +2203,7 @@
   ,"stewardShell.chat.undoneFilesKept": "Undone; the file changes are kept and visible in the Workbench."
   ,"stewardShell.chat.whoInstead": "Who should get it instead?"
   ,"stewardShell.chat.opened": "Opened “{{title}}”"
-  ,"stewardShell.chat.fromThread": "From chat “{{title}}”"
+  ,"stewardShell.chat.fromThread": "From thread “{{title}}”"
   ,"stewardShell.chat.deliverableHead": "What it delivered · turn {{seq}}"
   ,"stewardShell.chat.deliverableHeadPlain": "What it delivered"
   ,"stewardShell.chat.deliverableLoading": "Fetching what it delivered…"
@@ -2215,9 +2215,9 @@
   ,"stewardShell.chat.actDone": "Done: {{label}}"
   ,"stewardShell.chat.errProposeRequired": "This one needs you to confirm it yourself in settings."
   ,"stewardShell.chat.errNotFound": "I couldn't find it — it may have changed."
-  ,"stewardShell.chat.errBusy": "That chat is still busy with the previous one, so this line did not go through. Say it again once it stops."
-  ,"stewardShell.chat.errQueued": "That chat is still in the queue ({{wait}}), so this line did not go through. Say it again once it starts running."
-  ,"stewardShell.chat.errQueuedPlain": "That chat is still in the queue, so this line did not go through. Say it again once it starts running."
+  ,"stewardShell.chat.errBusy": "That thread is still busy with the previous one, so this line did not go through. Say it again once it stops."
+  ,"stewardShell.chat.errQueued": "That thread is still in the queue ({{wait}}), so this line did not go through. Say it again once it starts running."
+  ,"stewardShell.chat.errQueuedPlain": "That thread is still in the queue, so this line did not go through. Say it again once it starts running."
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
   ,"stewardShell.chat.engineNotListed": "The steward endpoint \"{{provider}}\" is not in your provider list, so it cannot run a single turn. Switch to another one, or add it back in settings."
@@ -2234,20 +2234,20 @@
   ,"stewardShell.compose.targetThread": "→ {{title}}"
   ,"stewardShell.compose.targetSchedule": "→ Ruyi · scheduled"
   ,"stewardShell.compose.targetUnsure": "→ Ruyi · will ask you"
-  ,"stewardShell.compose.targetNew": "→ Ruyi · new chat"
-  ,"stewardShell.compose.pick": "Pick a chat"
+  ,"stewardShell.compose.targetNew": "→ Ruyi · new thread"
+  ,"stewardShell.compose.pick": "Pick a thread"
   ,"stewardShell.compose.send": "Send"
   ,"stewardShell.compose.plus": "More (attachments and voice arrive in a later slice)"
   ,"stewardShell.acts.change": "Change it"
   ,"stewardShell.acts.dismiss": "Got it"
   ,"stewardShell.acts.open": "Open"
   ,"stewardShell.chat.openInWorkbench": "Open in the workbench"
-  ,"stewardShell.channels.label": "Chat channels"
+  ,"stewardShell.channels.label": "Thread channels"
   ,"stewardShell.channels.only": "Only"
   ,"stewardShell.channels.all": "All"
   ,"stewardShell.channels.steward": "Ruyi itself"
-  ,"stewardShell.channels.board": "All chats"
-  ,"stewardShell.drawer.label": "Chat drawer"
+  ,"stewardShell.channels.board": "All threads"
+  ,"stewardShell.drawer.label": "Thread drawer"
   ,"stewardShell.drawer.close": "Close"
   ,"stewardShell.drawer.handBack": "Hand back to Ruyi"
   ,"stewardShell.drawer.missionSection": "Task"
@@ -2263,11 +2263,11 @@
   ,"stewardShell.drawer.maxParallelMissing": "The parallel limit lives in the task rail header"
   ,"stewardShell.drawer.actingCalls": "call #{{n}}"
   ,"stewardShell.drawer.actingSince": "output {{n}}s ago"
-  ,"stewardShell.drawer.tabsLabel": "Chats in this task"
-  ,"stewardShell.drawer.newThread": "+ Chat"
-  ,"stewardShell.drawer.newThreadHint": "Start another chat under this task"
+  ,"stewardShell.drawer.tabsLabel": "Threads in this task"
+  ,"stewardShell.drawer.newThread": "+ Thread"
+  ,"stewardShell.drawer.newThreadHint": "Start another thread under this task"
   ,"stewardShell.drawer.classicView": "Open in Workbench"
-  ,"stewardShell.drawer.headSection": "This chat"
+  ,"stewardShell.drawer.headSection": "This thread"
   ,"stewardShell.drawer.chipsSection": "Quick switch"
   ,"stewardShell.drawer.lastSay": "It last said"
   ,"stewardShell.drawer.liveSay": "It's saying"
@@ -2298,7 +2298,7 @@
   ,"stewardShell.drawer.askPlaceholder": "Type your answer here"
   ,"stewardShell.drawer.askSend": "Answer"
   ,"stewardShell.drawer.more": "More"
-  ,"stewardShell.drawer.relay": "Related chats"
+  ,"stewardShell.drawer.relay": "Related threads"
   ,"stewardShell.drawer.upNext": "Up next"
   ,"stewardShell.drawer.upNextRow": "{{name}} · {{when}}"
   ,"stewardShell.drawer.activity": "Three questions"
@@ -2312,7 +2312,7 @@
   ,"stewardShell.drawer.scene": "Worksite"
   ,"stewardShell.drawer.viewChanges": "See the changes"
   ,"stewardShell.drawer.footSection": "Talk to it directly"
-  ,"stewardShell.drawer.composerLabel": "Say it straight to this chat"
+  ,"stewardShell.drawer.composerLabel": "Say it straight to this thread"
   ,"stewardShell.drawer.composerLabelLive": "Pass it a line"
   ,"stewardShell.drawer.composerLabelDone": "Keep going"
   ,"stewardShell.drawer.composerPlaceholder": "This goes straight to the thread, not through Ruyi"
@@ -2320,11 +2320,11 @@
   ,"stewardShell.drawer.pause": "Pause"
   ,"stewardShell.drawer.resume": "Resume"
   ,"stewardShell.drawer.stop": "Stop"
-  ,"stewardShell.drawer.rewindAll": "Rewind the whole chat"
-  ,"stewardShell.drawer.rewindConfirm": "Rewinding takes this chat back to before its first message and undoes the files it changed since. Go ahead?"
-  ,"stewardShell.drawer.rewindDone": "Rewound the whole chat."
-  ,"stewardShell.drawer.rewindNoTarget": "This chat has no turn to rewind yet."
-  ,"stewardShell.drawer.noPausableRun": "This chat has no orchestration run to pause."
+  ,"stewardShell.drawer.rewindAll": "Rewind the whole thread"
+  ,"stewardShell.drawer.rewindConfirm": "Rewinding takes this thread back to before its first message and undoes the files it changed since. Go ahead?"
+  ,"stewardShell.drawer.rewindDone": "Rewound the whole thread."
+  ,"stewardShell.drawer.rewindNoTarget": "This thread has no turn to rewind yet."
+  ,"stewardShell.drawer.noPausableRun": "This thread has no orchestration run to pause."
   ,"stewardShell.drawer.sent": "Sent to it."
   ,"stewardShell.drawer.steered": "Slipped it in mid-turn."
   ,"stewardShell.drawer.answered": "Answered for you."
@@ -2365,7 +2365,7 @@
   ,"stewardShell.permission.plan.hint": "It only writes a plan and touches nothing; Ruyi only proposes too."
   ,"stewardShell.permission.auto.label": "Smart auto"
   ,"stewardShell.permission.auto.hint": "It stops asking and reports back when done; the permanently exempt actions still stop and wait for you."
-  ,"stewardShell.permission.confirmTitle": "Switch this chat to smart auto?"
+  ,"stewardShell.permission.confirmTitle": "Switch this thread to smart auto?"
   ,"stewardShell.permission.confirm1": "It can change files and run commands while you are away."
   ,"stewardShell.permission.confirm2": "Ruyi will answer its questions on your behalf."
   ,"stewardShell.permission.confirm3": "The permanently exempt actions stay off limits: sending things out, payments, installing or removing software, changing system settings."
@@ -2373,40 +2373,40 @@
   ,"stewardShell.permission.confirm5": "The stop switch stays there, always one click away."
   ,"stewardShell.permission.confirmCancel": "Not for now"
   ,"stewardShell.permission.confirmOk": "Use smart auto"
-  ,"stewardShell.compose.targetMissionNew": "→ Ruyi · new chat in this task"
+  ,"stewardShell.compose.targetMissionNew": "→ Ruyi · new thread in this task"
   ,"settings.steward.tab": "Steward"
   ,"settings.steward.group.power": "Steward switch"
-  ,"settings.steward.group.powerHint": "Once on, the steward watches your chats in the background. Turn it off and it stops at once, leaving no background activity."
+  ,"settings.steward.group.powerHint": "Once on, the steward watches your threads in the background. Turn it off and it stops at once, leaving no background activity."
   ,"settings.steward.enabled": "Turn the steward on"
   ,"settings.steward.openShell": "Switch to the steward view"
   ,"settings.steward.stop": "Stop the steward"
   ,"settings.steward.wake": "Wake the steward"
-  ,"settings.steward.stopHint": "Stopping only halts the steward's own polling and in-flight turns. Chats already running carry on under their own permission."
+  ,"settings.steward.stopHint": "Stopping only halts the steward's own polling and in-flight turns. Threads already running carry on under their own permission."
   ,"settings.steward.stateOff": "The steward is off."
   ,"settings.steward.stateRunning": "The steward is watching."
   ,"settings.steward.stateStopped": "The steward is stopped."
   ,"settings.steward.saved": "Saved."
   ,"settings.steward.saveFailed": "Not saved; the field was restored from disk."
   ,"settings.steward.failed": "That did not go through: {{error}}"
-  ,"settings.steward.shieldTitle": "Default permission for new chats: {{mode}}"
-  ,"settings.steward.group.permission": "Default permission for new chats"
-  ,"settings.steward.group.permissionHint": "New chats start on this setting, and each chat can be changed on its own at any time. It also decides how much the steward may answer for you."
+  ,"settings.steward.shieldTitle": "Default permission for new threads: {{mode}}"
+  ,"settings.steward.group.permission": "Default permission for new threads"
+  ,"settings.steward.group.permissionHint": "New threads start on this setting, and each thread can be changed on its own at any time. It also decides how much the steward may answer for you."
   ,"settings.steward.defaultPermission": "Default permission"
   ,"settings.steward.permissionSaved": "Saved value: {{value}}"
   ,"settings.steward.permissionUnknown": "This value is outside the four settings; it is shown as-is and nothing was rewritten."
   ,"settings.steward.group.auto": "What the steward may do on its own"
-  ,"settings.steward.group.autoHint": "This list only applies to chats at “Edit files without asking” or above. Chats that ask every step only ever get a suggestion."
+  ,"settings.steward.group.autoHint": "This list only applies to threads at “Edit files without asking” or above. Threads that ask every step only ever get a suggestion."
   ,"settings.steward.auto.retry": "Retry once after a failure"
-  ,"settings.steward.auto.retryHint": "When a chat stops on a transient fault, the steward retries once; a second failure comes to you."
+  ,"settings.steward.auto.retryHint": "When a thread stops on a transient fault, the steward retries once; a second failure comes to you."
   ,"settings.steward.auto.resume": "Resume after a restart"
-  ,"settings.steward.auto.resumeFollow": "Follow the chat's own auto-resume setting"
+  ,"settings.steward.auto.resumeFollow": "Follow the thread's own auto-resume setting"
   ,"settings.steward.auto.resumeOn": "On: resume everything that can be resumed"
   ,"settings.steward.auto.resumeOff": "Off: wait for you after a restart"
-  ,"settings.steward.auto.resumeHint": "Whether the steward picks interrupted chats back up when the app is closed and reopened."
+  ,"settings.steward.auto.resumeHint": "Whether the steward picks interrupted threads back up when the app is closed and reopened."
   ,"settings.steward.auto.relay": "Hand off within a task"
-  ,"settings.steward.auto.relayHint": "Within one task, the previous chat's conclusion is handed to the next one; off means it only suggests."
-  ,"settings.steward.auto.newThread": "Open a new chat when needed"
-  ,"settings.steward.auto.newThreadHint": "When a scheduled task fires or a hand-off needs a fresh chat, the steward opens one instead of waiting for you."
+  ,"settings.steward.auto.relayHint": "Within one task, the previous thread's conclusion is handed to the next one; off means it only suggests."
+  ,"settings.steward.auto.newThread": "Open a new thread when needed"
+  ,"settings.steward.auto.newThreadHint": "When a scheduled task fires or a hand-off needs a fresh thread, the steward opens one instead of waiting for you."
   ,"settings.steward.group.budget": "Model and budget"
   ,"settings.steward.group.budgetHint": "The steward's own turns cost money too. It follows your main endpoint by default, and you can give it a cheaper model."
   ,"settings.steward.providerId": "Provider for the steward"
@@ -2418,21 +2418,21 @@
   ,"settings.steward.visitIdle": "Idle time that starts a new visit (minutes)"
   ,"settings.steward.maxTurnsPerHour": "Steward turns per hour"
   ,"settings.steward.maxCostPerDay": "Steward spend per day (USD)"
-  ,"settings.steward.maxParallelThreads": "Chats running at once"
-  ,"settings.steward.globalMaxTurnsPerHour": "Turns per hour across all chats"
-  ,"settings.steward.globalMaxCostPerDay": "Spend per day across all chats (USD)"
-  ,"settings.steward.threadBrief": "Name each chat automatically"
+  ,"settings.steward.maxParallelThreads": "Threads running at once"
+  ,"settings.steward.globalMaxTurnsPerHour": "Turns per hour across all threads"
+  ,"settings.steward.globalMaxCostPerDay": "Spend per day across all threads (USD)"
+  ,"settings.steward.threadBrief": "Name each thread automatically"
   ,"settings.steward.threadBriefHint": "Each new thread spends one small call on the Steward endpoint to produce a short name and a one-line gist, instead of using your whole opening message as the title. The Workbench view's thread list and search results use it too. Your original wording is never rewritten (hover still shows it in full)."
   ,"settings.steward.retention": "How long to keep the steward conversation"
-  ,"settings.steward.retention.visit": "Only while this session is open (default)"
+  ,"settings.steward.retention.visit": "Only for this visit (default)"
   ,"settings.steward.retention.24h": "24 hours"
   ,"settings.steward.retention.forever": "Keep it"
-  ,"settings.steward.group.threadModels": "Model for new chats"
+  ,"settings.steward.group.threadModels": "Model for new threads"
   ,"settings.steward.threadModels.strongProvider": "Complex tasks · strong model provider"
   ,"settings.steward.threadModels.strongModel": "Complex tasks · strong model"
   ,"settings.steward.threadModels.fastProvider": "Simple tasks · fast model provider"
   ,"settings.steward.threadModels.fastModel": "Simple tasks · fast model"
-  ,"settings.steward.threadModels.hint": "The steward picks a tier itself by task complexity when it opens a new chat: multi-step reasoning, coding, and long writing use the strong model; quick lookups, one-line edits, and simple Q&A use the fast model. Quick-ask chats always use the fast model. Leave empty to follow the main endpoint."
+  ,"settings.steward.threadModels.hint": "The steward picks a tier itself by task complexity when it opens a new thread: multi-step reasoning, coding, and long writing use the strong model; quick lookups, one-line edits, and simple Q&A use the fast model. Quick-ask threads always use the fast model. Leave empty to follow the main endpoint."
   ,"settings.steward.group.index": "Task index"
   ,"settings.steward.group.indexHint": "Which threads the rail can show. An old thread that is not in flight, has not moved today, and is not watched only shows up if it is among this many most-recent ones."
   ,"settings.steward.threadIndexRecent": "How many recent threads the rail keeps"
@@ -2443,7 +2443,7 @@
   ,"settings.steward.schedule.empty": "No scheduled tasks yet."
   ,"settings.steward.schedule.next": "Next {{when}}"
   ,"settings.steward.group.memory": "What the steward remembers about you"
-  ,"settings.steward.group.memoryHint": "These only go into the steward's own prompt, never into a normal session. Every line can be edited, vetoed or restored."
+  ,"settings.steward.group.memoryHint": "These only go into the steward's own prompt, never into a normal thread. Every line can be edited, vetoed or restored."
   ,"settings.steward.memory.refresh": "Refresh"
   ,"settings.steward.memory.export": "Export JSON"
   ,"settings.steward.memory.clear": "Clear all"
@@ -2459,7 +2459,7 @@
   ,"settings.steward.memory.confidence": "Confidence {{value}}"
   ,"settings.steward.memory.used": "Used {{count}} times"
   ,"settings.steward.memory.source": "Source"
-  ,"settings.steward.memory.sourceDetail": "From session {{sessionId}}, turn {{seq}}"
+  ,"settings.steward.memory.sourceDetail": "From thread {{sessionId}}, turn {{seq}}"
   ,"settings.steward.memory.editLabel": "Edit this line"
   ,"settings.steward.memory.editDone": "Updated."
   ,"settings.steward.memory.veto": "Veto"
@@ -2473,18 +2473,18 @@
   ,"settings.steward.memory.kind.focus": "Current focus"
   ,"settings.steward.memory.kind.policy": "Decision leanings"
   ,"settings.steward.group.decisions": "Action log"
-  ,"settings.steward.group.decisionsHint": "Everything the steward did for you: what it went on, which chat, that chat's permission at the time, what it cost, and whether it can be undone."
+  ,"settings.steward.group.decisionsHint": "Everything the steward did for you: what it went on, which thread, that thread's permission at the time, what it cost, and whether it can be undone."
   ,"settings.steward.decisions.refresh": "Refresh"
   ,"settings.steward.decisions.more": "Load more"
-  ,"settings.steward.decisions.filterThread": "By chat"
+  ,"settings.steward.decisions.filterThread": "By thread"
   ,"settings.steward.decisions.filterDate": "By date"
-  ,"settings.steward.decisions.allThreads": "All chats"
+  ,"settings.steward.decisions.allThreads": "All threads"
   ,"settings.steward.decisions.empty": "The steward has not done anything for you yet."
   ,"settings.steward.decisions.disabled": "Turn the steward on to see this log."
   ,"settings.steward.decisions.col.at": "Time"
   ,"settings.steward.decisions.col.what": "What it did"
-  ,"settings.steward.decisions.col.thread": "Chat"
-  ,"settings.steward.decisions.col.permission": "Chat permission"
+  ,"settings.steward.decisions.col.thread": "Thread"
+  ,"settings.steward.decisions.col.permission": "Thread permission"
   ,"settings.steward.decisions.col.basis": "Went on"
   ,"settings.steward.decisions.col.cost": "Cost"
   ,"settings.steward.decisions.col.undo": "Undo"
@@ -2498,12 +2498,12 @@
   ,"settings.steward.decisions.basisInbox": "Inbox event #{{seq}}"
   ,"settings.steward.decisions.basisAuto": "Acted on its own"
   ,"settings.steward.decisions.basisMemory": "Used {{count}} remembered lines"
-  ,"settings.steward.tool.threadNew": "Opened a chat"
+  ,"settings.steward.tool.threadNew": "Opened a thread"
   ,"settings.steward.tool.threadContinue": "Carried on"
   ,"settings.steward.tool.threadRename": "Renamed it"
   ,"settings.steward.tool.threadPrioritize": "Moved it to the front"
   ,"settings.steward.tool.threadNote": "Added a note"
-  ,"settings.steward.tool.threadPermission": "Changed chat permissions"
+  ,"settings.steward.tool.threadPermission": "Changed thread permissions"
   ,"settings.steward.tool.memoryWrite": "Noted it"
   ,"settings.steward.tool.memoryVeto": "Dropped a note"
   ,"settings.steward.tool.memoryEdit": "Edited a note"
@@ -2513,7 +2513,7 @@
   ,"settings.steward.tool.skillToggle": "Changed the skills"
   ,"settings.steward.tool.decide": "Answered a pending decision"
   ,"settings.steward.tool.runAction": "Acted on a crew run"
-  ,"settings.steward.tool.quickAsk": "Opened a chat to look it up"
+  ,"settings.steward.tool.quickAsk": "Opened a thread to look it up"
   ,"settings.steward.tool.playbookDraft": "Drafted a playbook"
   ,"stewardShell.menu.settings": "Settings"
   ,"stewardShell.menu.memory": "What it remembers"
@@ -2525,15 +2525,15 @@
   ,"stewardShell.board.needsYouGoHint": "{{n}} waiting on you — go straight there"
   ,"stewardShell.board.statusEmpty": "Nothing on yet — just tell me what you want done"
   ,"stewardShell.board.maxParallelLabel": "At most"
-  ,"stewardShell.board.maxParallelHint": "How many chats may run at once (1-32). Takes effect immediately."
+  ,"stewardShell.board.maxParallelHint": "How many threads may run at once (1-32). Takes effect immediately."
   ,"stewardShell.board.maxParallelSaved": "At most {{n}} at a time — in effect now."
   ,"stewardShell.board.maxParallelFailed": "That number did not save; the field is back to the value in effect."
   ,"stewardShell.board.running": "Running {{n}}"
   ,"stewardShell.board.queued": "Queued {{n}}"
   ,"stewardShell.board.pauseAll": "Pause everything"
   ,"stewardShell.board.pauseAllDone": "Paused {{done}}. Another {{turns}} are only mid-turn — those can be stopped, not paused."
-  ,"stewardShell.board.newThread": "+ Chat"
-  ,"stewardShell.board.threadCount": "{{n}} chats"
+  ,"stewardShell.board.newThread": "+ Thread"
+  ,"stewardShell.board.threadCount": "{{n}} threads"
   ,"stewardShell.board.acceptance": "Done {{done}}/{{total}}"
   ,"stewardShell.board.acceptanceNone": "No acceptance items"
   ,"stewardShell.board.cost": "Spent {{cost}}"
@@ -2569,13 +2569,13 @@
   ,"chat.liveTurn.iter": "· tool round {{n}}"
   ,"chat.liveTurn.truncated": "Earlier output omitted; showing only the most recent stretch."
   ,"chat.liveTurn.resultOffEnvelope": "(Tool results are not sent while the turn is in flight; the full result lands here once it ends.)"
-  ,"settings.steward.tool.threadStop": "Pause this chat"
+  ,"settings.steward.tool.threadStop": "Pause this thread"
   ,"chat.relayQueued": "It is still queued and has not started yet, so this message was not sent. Say it again once it starts running."
   ,"chat.relayPermission": "It is waiting for you to approve an action. Approve that first, then talk to it."
   ,"shell.settingLabel": "Default view on launch"
   ,"shell.settingSteward": "Steward (default)"
   ,"shell.settingClassic": "Workbench"
-  ,"shell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or sessions, and you can switch back at any time."
+  ,"shell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or threads, and you can switch back at any time."
   ,"notify.settingTitle": "Notify me when I am needed"
   ,"notify.settingHint": "Uses browser-backed local system notifications. Off by default; only new decisions that appear after opt-in are notified."
   ,"notify.settingToggle": "Enable local notifications"

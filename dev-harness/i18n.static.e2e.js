@@ -77,7 +77,8 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   global.fetch = async url => ({ ok: true, json: async () => String(url).includes('en-US') ? en : zh });
   await i18n.setLocale('en-US');
   assert.strictEqual(global.document.documentElement.lang, 'en-US');
-  assert.strictEqual(translatedNode.textContent, 'New chat');
+  // 122 波 §2.10:en-US.json 的 session.new 从「New chat」归一成「New thread」(线程只叫 thread)。
+  assert.strictEqual(translatedNode.textContent, 'New thread');
   assert.deepStrictEqual(attributes, { title: 'Settings', 'aria-label': 'Settings' });
   assert.strictEqual(i18n.tCount('session.messageCount', 1), '1 message');
   assert.strictEqual(i18n.tCount('session.messageCount', 2), '2 messages');
@@ -118,7 +119,7 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
     'settings.monthlyBudget.title': 'Monthly cost budget (optional)',
     'tool.files': 'Files',
     'tool.artifacts': 'Artifacts',
-    'tool.sessionArtifacts': 'Artifacts from this chat',
+    'tool.sessionArtifacts': 'Artifacts from this thread', // 122 波 §2.10:chat -> thread 归一
   };
   for (const [key, value] of Object.entries(englishCriticalUi)) {
     assert.strictEqual(en[key], value, `English catalog must translate ${key}`);
