@@ -77,6 +77,27 @@
 
 35 号文 §2 给 124 的退出门是「J01／J06／J08／J15」，**这四条的原文在仓外那份方案 §9 里，本机没有这个文件**（`docs/` 与用户 Documents 下都搜过）。上面 §5 的判据是按本波的产品缺口自己写的，**编号对不对得上还没核**。开工前请用户把 §9 里 J01／J06／J08／J15 四条贴回来，对不上的以那四条为准（123 波对 J10／J11 就是这么钉的，37 号文 §3.2／§5.3）。
 
+## 6-bis. P0 交付记录（2026-09-14，主树）
+
+三件都落了，另外**修回来一个自己碰坏的东西**（见 ③）。
+
+**① 两枚不可逆动作的二次确认**：`confirm-panel.js` 的登记表加 `scheduleRunNow`／`scheduleDelete` 两条（33 号文 §4「四套收一套」的纪律：文案键在表里，调用点不拼键、不用原生 `confirm`）；`steward-settings.js` 两枚按钮改成 `if (!await confirmDanger({...})) return false;`。派单稿只写了「立即运行」，**执行时把「删除」一起补了**——同一族、同一个 `scheduleAction`、比 runNow 更不可逆（`:858` 那枚 DELETE 今天也是点了就没）。文案说清后果：「不是预演：它会真的起一个回合，可能产生费用，也可能对外做事」。
+
+**② `quietCardSnoozeMinutes` 设置入口**：放在定时任务组（按下「稍后」建的就是这张表里的东西）。与 `threadIndexRecent` 同一个模具——送原样数字、钳位 `[1,1440]` 只由服务端做、落盘之后把**服务端钳过的那个数**回填进框里。
+
+**③ 定时任务块订阅 `schedule.changed`**：走 `settings.setEventStream(stream)` 迟绑定（构造那一行被 `steward-settings.static` F4 逐字钉着，与 `board`／`drawer` 同纪律）；只订这一帧、没打开过这一块就不刷、**仍然零计时器**。
+- **它碰坏了一件事，被 `scheduler-ui.browser` 的 B3／B4 逮住**：整张表是重画的，用户展开着的「最近几次」会被推送刷新连根扔掉——**而且不只是测试问题**：真人展开着看，别处一有动静那一格就自己收起来。
+- 两处都修：`refreshScheduleFromPush()` 记住展开的是哪一条、重画完展开回来；`toggleRuns` 取回 runs 之后**落点重新找一次**（`liveRunsHost`——手上那个 host 可能已经脱离文档，往里 append 等于画给空气看）。第二处才是真因：第一处只挡得住「推送在点击之前」那一半。
+- 关掉订阅做过对照实验：B1b 红、B3 绿 → 订阅确实是那两条红的来源，不是环境。
+
+**判据**：`steward-settings.static` 加 L1–L4f 共 14 条（登记表两条、两个调用点各先 await 确认、两条路各只有一处入口、入口与钳位回填、两条新键中英各一、订阅只一帧且有 `scheduleLoaded` 门、组合根递流、零计时器、runs 画进活落点）；`scheduler-ui.browser` 新增 B1b「不按刷新自己变」。**反向三处真做**（拔确认 → L2 红；拔输入框 → L3 红；拔 `settings.setEventStream` → L4c 红），逐条对上。
+
+**新键四条**（`settings.steward.quietSnoozeMinutes`／`…Hint`／`schedule.runNowConfirm`／`schedule.deleteConfirm`），四份 locale 逐字节同步。**写这四条时踩了一次**：先写成 `{title}`，而本仓 `t()` 的插值是 `{{name}}`——单花括号会原样上屏。改的时候又用 `split("{title}").join("{{title}}")` 全文替换，把 18 处既有的 `{{title}}` 变成了 `{{{title}}}`（`{{title}}` 里含 `{title}`）；`git diff` 当场看见，四份文件回退重做。**教训**：locale 批量替换必须先看 `git diff --stat` 的行数对不对得上预期（预期 4 行，实得 40 行）。
+
+**这一刀零 `src/` 改动**（纯前端），所以不跑生成器链；`--fast` 71/71、`steward-settings`／`steward-shell`／`steward-drawer`／`steward-board`／`quiet-card-snooze.browser`／`scheduler-ui.browser` 逐件串行绿（`scheduler-ui.browser` 连跑 10 次 9 绿 1 红，那一红没抓到失败行，留给全量定性）。
+
+**全量（4 路）：344 ran，344 pass／0 fail／2 flaky —— 真回归 0，也是这三轮里最干净的一轮**（前两轮 6 与 7 件 flaky，本轮只剩 `agent-workflow-ui-progress`／`steward-conversation`）。本刀撞过的四件在全量里都是首跑即过：`steward-settings.static` 0.19 s、`steward-settings` 27.7 s、`quiet-card-snooze.browser` 9.1 s、**`scheduler-ui.browser` 10.8 s**（单跑那一次红没有在独占阶段复现，按 exclusive 件的既有抖动记，不改判据）。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
