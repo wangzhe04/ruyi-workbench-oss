@@ -95,9 +95,16 @@ const BULK_RECENT_MAX = 5;
 const BULK_USED_NON_TEXT_ID = 'bulk-audio-preview-2026-04-01';
 const BULK_USED_IDS = [...BULK_TEXT_IDS.slice(0, 2), BULK_USED_NON_TEXT_ID, ...BULK_TEXT_IDS.slice(2, 6)];
 const BULK_RECENT_TOP5 = BULK_USED_IDS.slice(0, BULK_RECENT_MAX);
-// 有账的文本 id：它们在「常用」与 provider 分组里【各印一行】（同一个东西的两条路）；那个有账的
-// 非文本 id 只印一行 —— 分组段本来就不收非文本，折叠区又去了重。副行条数因此是确定的。
+// 124 走查②（`589cdb1`，用户 2026-09-14「模型菜单里选择的高亮和行没对上」）：同一个模型在同一屏
+// 只许出现一行 ——「常用」赢。这条去重原来【只】落在折叠区头上，普通 provider 分组漏了，于是最近
+// 用过的模型在「常用」与分组里各画一行：当前项的描边画在上面那一份、指针停在下面同名那一行上。
+// 判据自此对两处同时成立，本件下面两条断言随之重钉（口径变的是实现，不是本件的判据强度：
+// 分组段少的正是已经在「常用」露过面的那几个 id，副行也因此每个 id 只剩一条）。
 const BULK_USED_TEXT_IDS = BULK_USED_IDS.filter(id => !BULK_NON_TEXT_IDS.includes(id));
+// 分组段该印的：全部文本 id 去掉已经在「常用」露过面的那几个（不是抄一份常量，是从同一条去重规则推的）。
+const BULK_GROUP_IDS = BULK_TEXT_IDS.filter(id => !BULK_RECENT_TOP5.includes(id));
+// 分组段里还带副行的：有账的文本 id 里，没在「常用」露过面的那几个。
+const BULK_GROUP_USED_TEXT_IDS = BULK_USED_TEXT_IDS.filter(id => !BULK_RECENT_TOP5.includes(id));
 // 真正折进去的：没在「常用」露过面的那些非文本 id（不是抄一份常量，是从「有没有账」推出来的）。
 const BULK_FOLDED_IDS = BULK_NON_TEXT_IDS.filter(id => !BULK_RECENT_TOP5.includes(id));
 
@@ -850,17 +857,18 @@ try {
   ok(Boolean(bulkMenu) && JSON.stringify(bulkMenu.sections[0].ids) === JSON.stringify(['']),
     `M5b 第一段只有「跟随全局」那一项（data-model-id 为空串），它永远排头（实测 ${bulkMenu && JSON.stringify(bulkMenu.sections[0].ids)}）`);
   const groupSection = sectionOf(bulkMenu, BULK_PROVIDER_LABEL);
-  ok(Boolean(groupSection) && JSON.stringify(groupSection.ids) === JSON.stringify(BULK_TEXT_IDS),
-    `M5c 按 provider 分组、组标题就是它的 label，段里是 ${BULK_TEXT_IDS.length} 项文本候选（非文本的四项不在这里）（实测 ${groupSection && groupSection.ids.length} 项）`);
+  ok(Boolean(groupSection) && JSON.stringify(groupSection.ids) === JSON.stringify(BULK_GROUP_IDS),
+    `M5c 按 provider 分组、组标题就是它的 label，段里是 ${BULK_GROUP_IDS.length} 项文本候选（非文本的四项不在这里；已经在「常用」露过面的 ${BULK_TEXT_IDS.length - BULK_GROUP_IDS.length} 项也不在这里 —— 124 走查②「同一屏只印一行」）（实测 ${groupSection && groupSection.ids.length} 项）`);
 
-  // ⑤ 副行只长在有账的行上：五条常用 ＋ 分组里那六条【文本】的，其余行一条副行都没有，
+  // ⑤ 副行只长在有账的行上：五条常用 ＋ 分组里【剩下的】那两条有账文本（其余四条已经在「常用」
+  //    露过面，124 走查②之后分组段不再重复印），其余行一条副行都没有，
   //    整张菜单里也不许出现「0 回合」（把「不知道」说成「零」）。那个有账的非文本 id 只在
   //    「常用」里印一次（分组段本来就不收非文本，折叠区又去了重），所以它只贡献一条副行。
   const hintUnique = bulkMenu ? [...new Set(bulkMenu.hintIds)] : [];
   ok(Boolean(bulkMenu) && sameSet(hintUnique, BULK_USED_IDS)
-    && bulkMenu.hintIds.length === BULK_RECENT_MAX + BULK_USED_TEXT_IDS.length
+    && bulkMenu.hintIds.length === BULK_RECENT_MAX + BULK_GROUP_USED_TEXT_IDS.length
     && bulkMenu.hintTexts.every(text => !text.includes('0 回合')),
-    `M6 只有真有账的 ${BULK_USED_IDS.length} 个 id 带副行（常用里 ${BULK_RECENT_MAX} 行＋分组里 ${BULK_USED_TEXT_IDS.length} 行＝${BULK_RECENT_MAX + BULK_USED_TEXT_IDS.length} 条），没账的 ${BULK_MODELS.length - BULK_USED_IDS.length} 行一条都没有，且没有「0 回合」（实测 ${bulkMenu && bulkMenu.hintIds.length} 条／唯一 id ${JSON.stringify(hintUnique)}）`);
+    `M6 只有真有账的 ${BULK_USED_IDS.length} 个 id 带副行，且每个 id 只带一条（124 走查②去重之后：常用里 ${BULK_RECENT_MAX} 行＋分组里剩下的 ${BULK_GROUP_USED_TEXT_IDS.length} 行＝${BULK_RECENT_MAX + BULK_GROUP_USED_TEXT_IDS.length} 条），没账的 ${BULK_MODELS.length - BULK_USED_IDS.length} 行一条都没有，且没有「0 回合」（实测 ${bulkMenu && bulkMenu.hintIds.length} 条／唯一 id ${JSON.stringify(hintUnique)}）`);
   ok(Boolean(bulkMenu) && bulkMenu.hintTexts.some(text => text.includes(zh['stewardShell.chips.usedToday']))
     && bulkMenu.hintTexts.some(text => text.includes('1 天前')),
     `M6b 副行说的是我们真知道的那点事（「今天」「1 天前」都在，实测 ${bulkMenu && JSON.stringify(bulkMenu.hintTexts.slice(0, 3))}）`);
