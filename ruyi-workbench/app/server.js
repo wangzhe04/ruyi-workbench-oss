@@ -39209,8 +39209,26 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/models') {
     // Live-enriched model list. For an active native provider: its models ∪ live GET /models.
     // Otherwise the Claude path: proxy ∪ offline. Read-only, best-effort; never throws.
+    // 124（用户 2026-09-14 走查①「刷新模型列表失效了，无论 kimi code 还是 Provider」）：这份列表要按
+    // 【正在看的这条会话】的引擎路由派生，与上面 GET /api/status 同一个判据（configForSessionEngineRoute：
+    // 会话级 engineRoute 优先，agent 路由会把 activeProvider 清空）。修前这里只读全局 config —— 线程头把
+    // 这条线程切到 Kimi Code 或另一个 provider 之后，全局 activeProvider 仍是老那一个，于是刷新的是
+    // 【全局那条路由】的模型：前端把它们折回 providers[全局] / status.models，而 chip 菜单读的是
+    // 【这条会话这条路由】的那一份（steward-chips.js 的 modelOptions）—— 按下 ↻、toast 也说
+    // 「模型已刷新（代理 N 个）」，屏幕上的列表一个字没变。真机实测（本机 8765）：
+    //   GET /api/status?sessionId=<kimi 路由的会话> → models = kimi 那两条
+    //   GET /api/models（无会话）                  → engine=openai provider=deepseek 的 4 条
+    // 两个端点各说一套，正是这条不对齐。
     const config = await readConfig();
-    const provider = activeOpenAiProvider(config);
+    let modelsConfig = config;
+    try {
+      const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
+      if (requestedSessionId) {
+        const modelsSession = await loadSession(requestedSessionId);
+        if (modelsSession) modelsConfig = configForSessionEngineRoute(config, modelsSession);
+      }
+    } catch { /* 无效或读不到的 sessionId：与 status 同样退回全局新任务默认值 */ }
+    const provider = activeOpenAiProvider(modelsConfig);
     if (provider) {
       const live = await fetchOpenAiModels(provider).catch(() => ({ models: [] }));
       const seen = new Map();
@@ -39228,11 +39246,11 @@ async function handleApi(req, res, pathname) {
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }
-    if (config.agentCliType === 'kimi') {
-      const discovered = await discoverKimiModels(config);
+    if (modelsConfig.agentCliType === 'kimi') {
+      const discovered = await discoverKimiModels(modelsConfig);
       return send(res, json({ ...discovered, engine: 'claude', agentCliType: 'kimi', proxyCount: discovered.discoveredCount || 0 }));
     }
-    return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }));
+    return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(modelsConfig)) }));
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);

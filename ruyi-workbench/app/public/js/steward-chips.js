@@ -396,6 +396,12 @@ export function stewardModelMenuView({
   const groups = [];
   for (const row of visible) {
     if (row.nonText) continue;
+    // 124（用户 2026-09-14 走查②「模型菜单里选择的高亮和行没对上」）：同一个模型在同一屏只许出现
+    // 一行 —— 这条判据原来【只】落在折叠区头上（上面那行 inRecent），普通分组段漏了，于是最近用过的
+    // 那个模型在【常用】与【provider 分组】里各画一行：当前项的描边（aria-checked → border-accent）
+    // 画在上面那一份，用户指针停在下面同名那一行上，整段还常被「常用」那几行往下顶一格 —— 看起来就
+    // 是「高亮偏了一行 / 和行对不上」。这里补上同一条去重（「常用」赢，与 §11.17.8 的裁决同向）。
+    if (inRecent.has(row.group + '\n' + row.id)) continue;
     let group = groups.find(item => item.key === row.group);
     if (!group) groups.push(group = { key: row.group, label: row.groupLabel, rows: [] });
     group.rows.push(row);
@@ -839,7 +845,18 @@ export function createQuickSwitchChips({
     }
     // 用量是后到的（第一次开菜单才去拉）：到了就把 list 重画一遍。菜单已经关掉时 list 已被摘走
     // （closeMenu 清空菜单），parentNode 为空 —— 那就什么都不做，不去动一张不在屏幕上的菜单。
-    if (!usageRowsMemo) loadUsageRows(api).then(() => { if (list.parentNode) draw(); }).catch(() => {});
+    // 124（用户走查②「高亮和行没对上」的第二处来源，与上面那条去重同一个观感毛病）：还有一类
+    // 【不许】重画 —— 指针正停在菜单里、或焦点落在菜单某一行上的时候。「常用」那几行是在用量到货这一
+    // 刻才插进列表顶部的，整段会往下挪，而浏览器要到下一次 mousemove 才重算 :hover —— 屏幕上被点亮的
+    // 还是原来那一行，读起来正是「高亮整体偏了一行」。这一拍没刷出来的「常用」不丢：usageRowsMemo 已经
+    // 到货，下一次打开菜单就正常画出来（与本文件顶部那条「chip 不轮询、数据由宿主喂进来」的纪律一致）。
+    if (!usageRowsMemo) loadUsageRows(api).then(() => {
+      if (!list.parentNode) return;
+      const active = doc() ? doc().activeElement : null;
+      if (typeof menu.matches === 'function' && menu.matches(':hover')) return;
+      if (active && menu.contains(active)) return;
+      draw();
+    }).catch(() => {});
   }
 
   const BUILDERS = { permission: buildPermissionMenu, model: buildModelMenu, engine: buildEngineMenu };

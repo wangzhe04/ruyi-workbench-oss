@@ -291,6 +291,16 @@ export function createChatStreamRuntime(deps = {}) {
   function mountActiveTurn(sessionId) {
     const turn = activeTurns.get(sessionId);
     if (!turn || state.currentSession?.id !== sessionId) return;
+    // 124（用户 2026-09-14 走查③「从管家线切回工作台，同一个回合出现两张 AI 输出框」）：
+    // 这一只壳【只属于这个回合】。组合根的 openSession 是「先 renderCurrentSession() 再
+    // mountActiveTurn(id)」，而 renderCurrentSession 会把已经挂在屏上的那一只实时壳原样 append 回来
+    // （它头上的 `activeRow.isConnected` 那两行）；切视角走的正是「在工作台打开」= applyShellMode +
+    // openSession(同一条会话)，于是这里又造一只【新壳】并按 eventLines 全量重放：旧壳从此不再收到
+    // 增量、冻在切走那一刻的次数上，新壳按切回来的时刻重新打时间戳、把这一回合重画一遍 —— 屏幕上就
+    // 是同一个回合两张卡（实测截图里那两张：10 次工具·3 段思考 与 17 次工具·6 段思考）。
+    // 壳还在屏上就什么都不做：真正的「重建」只发生在它不在屏上时（换回来的是另一条会话、或整块被
+    // 重画掉了），那一条路下面全量重放的逻辑一个字没动。
+    if (turn.main?.isConnected || turn.live?.narrative?.isConnected) return;
     const box = $('messages');
     box.querySelector('.empty-state')?.remove();
     const persistedUser = activeTurnUserIsPersisted(state.currentSession?.messages, turn);

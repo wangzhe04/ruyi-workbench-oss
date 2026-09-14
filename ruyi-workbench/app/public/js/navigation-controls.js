@@ -115,12 +115,21 @@ function paletteActions() {
   for (const template of getTemplates()) acts.push({ label: t('palette.template', { name: template.name }), hint: 'template', run: () => insertTemplate(template.text) });
   // Engine/model actions across ALL engines (C4): Claude CLI group + every provider. Each row switches
   // engine AND model in one setEngineModel call. Label reads "引擎 → {engineLabel} · {model}".
-  const curPid = isProviderMode() ? state.config.activeProvider : '';
+  // 124（用户 2026-09-14 走查「前后端还没完全对上」的第三处，与前两处同族）：这一组列的【永远】是
+  // Agent CLI 的候选（点它 = setEngineModel('', id) = 把这条线程切到 CLI 路由），可修前印的名字用的是
+  // engineLabel() —— 那个函数跟着【这条会话的路由】走。于是线程头把这条线程切到某个 provider 之后，
+  // 这里长出「引擎 → Qwen · kimi-code/k3-256k」这种话：名字是 Qwen 的，id 是 Kimi 的，点下去还会把线程
+  // 从 Qwen 切回 CLI。名字改成按【服务端造这份列表时用的那个 CLI】印（/api/status 的判据是
+  // conversationConfig.agentCliType，provider 路由不改它 = 全局那一个）；顺带把 curPid 也从
+  // 「全局 activeProvider」改成「这条会话路由到的 provider」—— 修前线程切到 B 而全局是 A 时，
+  // 下面 provider 那一组的「当前」标记要么标错要么一个都不标（与 121 走查1-⑤ 修状态行 title 同一条账）。
+  const curPid = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
   const curModel = currentModelId();
+  const cliGroupLabel = String(currentEngineMeta().agentCliLabel || '') || engineLabel();
   const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('palette.defaultModel') }];
   for (const m of claudeModels) {
     const isCur = curPid === '' && (m.id || '') === (curModel || '');
-    acts.push({ label: t('palette.engine', { engine: engineLabel(), model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
+    acts.push({ label: t('palette.engine', { engine: cliGroupLabel, model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
   for (const p of (state.config.providers || [])) {
     for (const m of (p.models || [])) {

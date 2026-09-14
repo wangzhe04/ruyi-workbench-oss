@@ -194,8 +194,8 @@ function engineLabel() {
 function currentEngineMeta() {
   const route = currentConversationRoute();
   const p = activeProviderObj();
-  if (p) return { engine: 'openai', providerId: p.id, providerLabel: p.label || p.id, model: route.model || p.model || '' };
-  if (isProviderMode()) return { engine: 'openai', providerId: route.providerId, providerLabel: route.providerId, model: route.model };
+  if (p) return { engine: 'openai', providerId: p.id, providerLabel: p.label || p.id, agentCliLabel: currentAgentCliLabel(), model: route.model || p.model || '' };
+  if (isProviderMode()) return { engine: 'openai', providerId: route.providerId, providerLabel: route.providerId, agentCliLabel: currentAgentCliLabel(), model: route.model };
   return { engine: 'claude', agentCliType: route.agentCliType, agentCliLabel: currentAgentCliLabel(), model: route.model };
 }
 // Map an engine meta -> { letter, colorVar, label } for the avatar + badge (§3). Providers are keyed
@@ -242,24 +242,38 @@ function updateEngineDependentUI() {
 // provider). Best-effort. For a provider it also folds the fresh models into that provider's config
 // entry so the chip popover shows them. `announce` shows a toast (used by the popover's ↻ action).
 async function refreshModels(announce) {
+  // 124（用户 2026-09-14 走查①的前端那一半，与 GET /api/models 的服务端改动成对）：刷新要打在
+  // 【正在看的这条会话】的引擎路由上 —— 服务端现在认 ?sessionId=（与 GET /api/status 同一个判据），
+  // 不带会话时才退回「新任务默认值」那条全局路由。中途换了会话则这一趟作废：别把 A 的列表写进 B 的槽位。
+  const routeSessionId = String(state.currentSession?.id || '');
+  const routeQuery = routeSessionId ? `?sessionId=${encodeURIComponent(routeSessionId)}` : '';
   try {
-    const r = await api('/api/models');
-    if (r && r.ok === false) throw new Error(r.error || t('modelMenu.refreshUnchanged'));
-    if (r && Array.isArray(r.models) && r.models.length) {
+    const r = await api('/api/models' + routeQuery);
+    const fresh = r && Array.isArray(r.models) ? r.models : [];
+    // ok:false 只说明【探测那一步】没成（典型：Kimi Code CLI 没检测到），载荷里的 models 仍是这个端点
+    // 自己的离线兜底清单 —— 有货就照样折回列表，只有「既没成也没货」才算刷新失败。
+    if (r && r.ok === false && !fresh.length) throw new Error(r.error || t('modelMenu.refreshUnchanged'));
+    if (routeSessionId && state.currentSession?.id !== routeSessionId) return;
+    if (fresh.length) {
       if (r.engine === 'openai' && r.provider) {
-        // Fold the live list into the active provider's models so the chip popover reflects it.
-        state.config.providers = (state.config.providers || []).map(p => (p.id === r.provider ? { ...p, models: r.models } : p));
+        // Fold the live list into the ROUTED provider's models so the chip popover reflects it.
+        // 修前 r.provider 是【全局 activeProvider】那一个，折回的也就是全局那一份；线程头把这条线程切到
+        // 别的 provider 之后，菜单读的是自己那条路由的 providers[].models —— 两边永不见面。
+        state.config.providers = (state.config.providers || []).map(p => (p.id === r.provider ? { ...p, models: fresh } : p));
       } else if (state.status) {
-        state.status.models = r.models; // Claude engine: status.models feeds the chip's Claude group
+        state.status.models = fresh; // Claude/Kimi 引擎：status.models 就是 chip 那一组的候选来源
       }
       onEngineConfigChanged();
       if (announce) toast(r.proxyCount ? tCount('modelMenu.refreshSuccessProxy', r.proxyCount) : t('modelMenu.refreshSuccessBuiltin'), 'ok');
     } else if (announce) { toast(t('modelMenu.refreshUnchanged'), ''); }
     // /api/models may have populated the server's per-model context probe cache. Pull just the freshly
     // resolved limit so the context meter does not keep the pre-refresh table/fallback value.
+    // 这一发也要带 sessionId：不带拿回来的是【新任务默认值】那条路由的分母，会把这条线程刚对齐好的
+    // 电量分母又盖回全局那一个（session-experience.js 换会话时用的正是带 sessionId 的同一条路）。
     try {
-      const fresh = await api('/api/status');
-      if (state.status && fresh) state.status.contextWindowResolved = fresh.contextWindowResolved;
+      const status = await api('/api/status' + routeQuery);
+      if (routeSessionId && state.currentSession?.id !== routeSessionId) return;
+      if (state.status && status) state.status.contextWindowResolved = status.contextWindowResolved;
       updateContextMeter();
     } catch { /* model discovery still succeeded; keep the previous best-effort denominator */ }
   } catch (e) { if (announce) toast(t('modelMenu.refreshFailed', { error: apiErrText(e) }), 'err'); }
