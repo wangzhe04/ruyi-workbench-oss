@@ -463,6 +463,17 @@
 .steward-drawer-list li.is-active { color: var(--accent); }
 .steward-drawer-list li[data-status="done"] { color: var(--muted); text-decoration: line-through; }
 .steward-drawer-list li[data-status="blocked"] { color: var(--warn); }
+/* 124-P1：验收项旁边那枚来源徽标（机器检查／人工复核／自报完成）。inline-block 是要紧的 ——
+   done 那一档给整行画了 line-through，行内子节点会被贯穿，牌子上的字读不成；block 化的子节点
+   不继承这条装饰。配色全 token：安静档 --muted，只有「机器检查」那一档借 --ok（与看板圆点第四档
+   同一个语义 token，不新造颜色）。零 transition，故 reduced-motion 的关闭清单一个字没加。 */
+.steward-drawer-list li .steward-acc-src {
+  display: inline-block;
+  margin-inline-start: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.steward-drawer-list li[data-provenance="machine"] .steward-acc-src { color: var(--ok); }
 .steward-drawer-dl {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);

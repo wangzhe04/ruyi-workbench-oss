@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, activeAcceptanceIndex, taskProgress, elapsedLabel } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -586,11 +586,18 @@ export function createStewardDrawer({
   // 「最后动静」= 相对时间，与对话流卡头【同一个】实现（stewardAgoLabel，人话交给平台的
   // Intl.RelativeTimeFormat）。锚点沿用本文件既有那一处判据（missionRow.updatedAt ＞
   // session.updatedAt —— settledHead 读的就是这两个），算不出来整段不说，不猜。
+  // iso → 人话「多久以前」的【唯一】出口（J8 锁数的就是它）：算不出来就返回空串，由调用方决定
+  // 「整段不说」——不吐一串 ISO 给人读（124-P1 的验收徽标与这一行的「最近动过」共用它）。
+  function agoLabel(iso) {
+    const at = String(iso || '');
+    if (!at) return '';
+    const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
+    return stewardAgoLabel(at, page);
+  }
   function lastTouchLabel() {
     const touched = String((missionRow && missionRow.updatedAt) || (session && session.updatedAt) || '');
     if (!touched) return '';
-    const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
-    return stewardAgoLabel(touched, page);
+    return agoLabel(touched);
   }
 
   function renderHead() {
@@ -1044,6 +1051,10 @@ export function createStewardDrawer({
     const parts = [];
     const bar = taskProgress(null, snapshot);
     if (bar.total > 0) parts.push(t('stewardShell.drawer.acceptanceCount', { done: bar.done, total: bar.total }));
+    // 124-P1（41 号方案 §9 J15）：一条没有账本、也没有事项验收项的线程，此前这一行只剩耗时 ——
+    // 问「做到哪了」得到的是沉默。沉默会被读成「没进展」，0/0 会被读成「一条都没做完」，
+    // 而真相是【没人记过】。判据在 thread-facts.acceptanceRecorded（服务端 ledger 直出），不在这里猜。
+    else if (!acceptanceRecorded(snapshot)) parts.push(t('stewardShell.drawer.acceptanceUnrecorded'));
     const started = (snapshot && snapshot.createdAt) || (session && session.createdAt) || '';
     const elapsed = started ? elapsedLabel(started, new Date()) : '';
     if (elapsed) parts.push(elapsed);
@@ -1051,19 +1062,61 @@ export function createStewardDrawer({
   }
 
   // ── ⑨ 验收项 ────────────────────────────────────────────────────────────────
+  // 124-P1：一条验收项旁边那枚来源徽标。四态【一个字都不在这里算】——provenance 与 checkState 由
+  // 服务端投影给（02 的 buildMissionAcceptanceProjection 是全仓唯一判据），本函数只把它们翻成人话。
+  // 「自报完成」那一档要分三种说法，因为它们对用户是三件事（41 号方案 §9 J08）：
+  //   · 压根没有机器检查 → 「自报完成」；
+  //   · 有机器检查、一次没跑过 → 「自报完成 · 机器检查没跑过」；
+  //   · 有机器检查、最近一次没通过 → 「自报完成 · 机器检查没通过」（产物生成了但测试红／文件后来没了
+  //     就是这一格，它此前与「机器检查通过」在界面上长得一模一样）。
+  // 时间说的是人话:与「最后动静」同一个实现（stewardAgoLabel → Intl.RelativeTimeFormat），
+  // 算不出来就整条不说（同 lastTouchLabel 那条纪律：不吐一串 ISO 给人读）。
+  function checkedAgo(item) {
+    return item ? agoLabel(item.checkedAt) : '';
+  }
+  function acceptanceSourceBadge(item) {
+    if (!item || !item.provenance || item.provenance === 'open') return null;
+    const ago = checkedAgo(item);
+    if (item.provenance === 'machine') {
+      return {
+        label: t('stewardShell.drawer.provenanceMachine'),
+        title: ago ? t('stewardShell.drawer.provenanceCheckedAt', { when: ago, detail: item.checkDetail || '' }) : '',
+      };
+    }
+    if (item.provenance === 'human') return { label: t('stewardShell.drawer.provenanceHuman'), title: '' };
+    if (item.checkState === 'never') return { label: t('stewardShell.drawer.provenanceSelfCheckNever'), title: '' };
+    if (item.checkState === 'fail') {
+      return {
+        label: t('stewardShell.drawer.provenanceSelfCheckFailed'),
+        title: ago ? t('stewardShell.drawer.provenanceCheckedAt', { when: ago, detail: item.checkDetail || '' }) : '',
+      };
+    }
+    return { label: t('stewardShell.drawer.provenanceSelf'), title: '' };
+  }
+
   function renderAcceptance() {
     const list = clear(byId('stewardDrawerAcceptanceList'));
     if (!list) return;
     const items = acceptanceItems(snapshot);
     const active = activeAcceptanceIndex(items);
     if (!items.length) {
-      const empty = el('li', 'steward-drawer-scene-empty', t('stewardShell.drawer.acceptanceEmpty'));
+      // 「还没写」（有账本，里程碑还没定）与「没记过」（压根没有账本，也没有事项验收项）是两回事：
+      // 前者是任务单的正常中间态，后者是「这个问题在这条线程上答不出来」。
+      const empty = el('li', 'steward-drawer-scene-empty',
+        acceptanceRecorded(snapshot) ? t('stewardShell.drawer.acceptanceEmpty') : t('stewardShell.drawer.acceptanceUnrecorded'));
       list.appendChild(empty);
       return;
     }
     items.forEach((item, index) => {
       const row = el('li', index === active ? 'is-active' : '', item.desc);
       row.dataset.status = item.status;
+      if (item.provenance) row.dataset.provenance = item.provenance;
+      const badge = acceptanceSourceBadge(item);
+      if (badge) {
+        const tag = el('span', 'steward-acc-src', badge.label);
+        if (badge.title) tag.title = badge.title;
+        row.appendChild(tag);
+      }
       if (index === active) row.title = t('stewardShell.drawer.acceptanceActive');
       list.appendChild(row);
     });

@@ -48,10 +48,15 @@ export function missionCardSignature(card, ui = {}) {
 }
 
 // 验收进度。有详情快照就以快照的 acceptance 为准（容器直出的整表），否则退回卡片账本的里程碑计数。
+// 124-P1：快照自此带 acceptance.merged（会话账本里程碑 ＋ 事项容器里那些不与账本重文案的验收项，
+// 判据单点在服务端 buildMissionAcceptanceProjection）。有它就用它 —— 界面上画的是哪几条，a/b 就该数
+// 哪几条；没有它（老快照 / 只喂了 done|total 的调用点）退回既有口径，一个字不变。
 export function taskProgress(card, snapshot = null) {
   if (snapshot && snapshot.acceptance) {
-    const total = Math.max(0, Number(snapshot.acceptance.total) || 0);
-    const done = Math.min(total, Math.max(0, Number(snapshot.acceptance.done) || 0));
+    const merged = snapshot.acceptance.merged;
+    const source = (merged && typeof merged === 'object') ? merged : snapshot.acceptance;
+    const total = Math.max(0, Number(source.total) || 0);
+    const done = Math.min(total, Math.max(0, Number(source.done) || 0));
     return { total, done, percent: total ? Math.round(done * 100 / total) : 0 };
   }
   const mission = card && card.mission || {};
@@ -60,16 +65,64 @@ export function taskProgress(card, snapshot = null) {
   return { total, done, percent: total ? Math.round(done * 100 / total) : 0 };
 }
 
+// 124-P1（40 号文 §2 ①）：一条验收项现在还带着「这条是谁判的」。四态的判据【全在服务端】
+// （02 的 buildMissionAcceptanceProjection，一处），本函数只归一化成界面用的形状，不在前端补第二套
+// 推导 —— 前端一旦自己按 checkType 推「机器检查」，服务端那条「有检查 ≠ 跑过检查」的判据就白钉了。
+//   provenance: 'machine' 机器检查落过通过的章 ｜ 'self' 账本上自报完成 ｜ 'human' 事项验收项里人勾的
+//               ｜ 'open' 还没完成
+//   checkState: 'none' 没有机器检查 ｜ 'never' 有检查但一次没跑过 ｜ 'pass' ｜ 'fail'（最近一次）
+// 事项容器那一套（人工复核）只在【这条线程没有自己的账本】时才接到清单后面：事项级验收项属于整个
+// 事项，挂到每条线程上会把同一份账印好几遍；而一条没有账本的线程此前在这一块里只有「暂无」——
+// 那是 40 号文 §1 结论 3 说的「问不出答案」。有账本时「人工复核」仍然出得来：服务端把【逐字同文
+// 且用户已勾】的容器验收项接到对应的里程碑上（buildMissionAcceptanceProjection 的 humanCheckedTexts）。
 export function acceptanceItems(snapshot) {
-  const source = Array.isArray(snapshot && snapshot.acceptance && snapshot.acceptance.items)
-    ? snapshot.acceptance.items : [];
-  return source.map((item, index) => ({
+  const acceptance = (snapshot && snapshot.acceptance) || null;
+  const source = Array.isArray(acceptance && acceptance.items) ? acceptance.items : [];
+  const rows = source.map((item, index) => ({
     id: String(item && item.id || `item-${index + 1}`),
     desc: String(item && item.desc || '').trim(),
     status: ['done', 'blocked', 'pending'].includes(String(item && item.status)) ? String(item.status) : 'pending',
     evidence: String(item && item.evidence || '').trim(),
     checkType: String(item && item.checkType || 'none'),
+    provenance: ['machine', 'self', 'human', 'open'].includes(String(item && item.provenance)) ? String(item.provenance) : '',
+    checkState: ['none', 'never', 'pass', 'fail'].includes(String(item && item.checkState)) ? String(item.checkState) : 'none',
+    checkedAt: String(item && item.checkedAt || ''),
+    checkDetail: String(item && item.checkDetail || ''),
+    source: 'ledger',
   }));
+  const containerRows = (acceptance && acceptance.ledger !== true && Array.isArray(acceptance.container && acceptance.container.items))
+    ? acceptance.container.items : [];
+  for (const row of containerRows) {
+    if (row && row.duplicate === true) continue;
+    const text = String(row && row.text || '').trim();
+    if (!text) continue;
+    rows.push({
+      id: String(row && row.id || `acc-${rows.length + 1}`),
+      desc: text,
+      status: row && row.done === true ? 'done' : 'pending',
+      evidence: '',
+      checkType: 'none',
+      provenance: row && row.done === true ? 'human' : 'open',
+      checkState: 'none',
+      checkedAt: String(row && row.doneAt || ''),
+      checkDetail: '',
+      source: 'container',
+    });
+  }
+  return rows;
+}
+
+// 「这条线程有没有验收记录」。判据不是 items.length —— 立了账本还没定里程碑的 2.0 任务单也是 0 条，
+// 但那是「还没写」不是「没记过」。ledger 由服务端按【与 06i ledgerless 同一条判据】（会话头有没有
+// mission 容器）给出；容器里有验收项同样算有记录。两者都没有 → 界面说「未记录验收」，不说 0/0
+// （0/0 会被读成「一条都没做完」—— 41 号方案 §9 J15「从真实记录答复，不靠猜」）。
+export function acceptanceRecorded(snapshot) {
+  const acceptance = (snapshot && snapshot.acceptance) || null;
+  if (!acceptance) return false;
+  if (acceptance.ledger === true) return true;
+  const containerItems = (acceptance.container && Array.isArray(acceptance.container.items))
+    ? acceptance.container.items : [];
+  return containerItems.length > 0;
 }
 
 export function activeAcceptanceIndex(items) {

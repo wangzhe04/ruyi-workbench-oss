@@ -988,21 +988,28 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
-    const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId)) : '';
+    // 124-P1:详情自此带着【事项容器】那一套验收项(「人工复核」那一档),容器是另一份文件,
+    // 它变了不会动会话投影的 revision —— 指纹不带上它,勾完验收项的下一拍就是 304 + 陈旧验收。
+    // 容器是小 JSON,304 这条路上多读它一次,换的是不说谎(指纹判据单点住在 02)。
+    // 未归类线程(missionId === sessionId)天然没有事项文件 —— 事项 id 一律 `mission_<hex>`(02 的
+    // safeMissionId 头注),与 `sess_` 分家,所以那一档连读都不用读(抽屉是轮询的,省的是每一拍一次
+    // ENOENT)。归类过的才去读那份小 JSON。
+    const containerId = (indexed && indexed.missionId && indexed.missionId !== sessionId) ? indexed.missionId : '';
+    const container = containerId ? await readMissionContainer(containerId).catch(() => null) : null;
+    const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId) + '-' + missionContainerAcceptanceStamp(container)) : '';
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const runs = await listAgentRuns(sessionId).catch(() => []);
 
-    // 验收投影:里程碑计数 + 逐项状态(机器验收证据随行)。
-    const ms = (session.mission && Array.isArray(session.mission.milestones)) ? session.mission.milestones : [];
-    const acceptance = {
-      total: ms.length,
-      done: ms.filter(x => x && x.status === 'done').length,
-      blocked: ms.filter(x => x && x.status === 'blocked').length,
-      pending: ms.filter(x => !x || x.status === 'pending').length,
-      items: ms.map(x => ({ id: x && x.id, desc: x && x.desc, status: (x && x.status) || 'pending', checkType: (x && x.check && x.check.type) || 'none', evidence: (x && x.evidence) || '' })),
-    };
+    // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
+    // 实情(没跑过 / 最近一次没通过 —— J08)、事项容器那一套(人工复核)与「有没有账本」。判据单点
+    // 住在 02 的 buildMissionAcceptanceProjection,本路由只负责把两份数据喂进去。
+    // indexed 缺失(会话还没进投影索引)时上面那次容器读不到,这里按会话头里的 missionId 补一次。
+    const headMissionId = sessionMissionId(session);
+    const acceptanceContainer = container
+      || (headMissionId && headMissionId !== sessionId ? await readMissionContainer(headMissionId).catch(() => null) : null);
+    const acceptance = buildMissionAcceptanceProjection(session.mission, acceptanceContainer);
 
     // 变更/产物聚合:跨回合 turnSummary 折叠(02 foldTurnSummaries 单一实现,与 buildMissionResult 共用) ——
     // filesChanged 按 path 后写胜(最新 op/revertible 为当前态),artifacts 按 path 先去重(首次产出记回合)。

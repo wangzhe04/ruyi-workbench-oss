@@ -51,7 +51,9 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     for (const ms of m.milestones) {
       if (ms.status === 'done') continue;
       const r = await evaluateMissionCheck(ms.check, cwd);
-      if (r) { checkedAny = true; if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
+      // 124-P1:跑过就落章(02 的 recordMissionCheckResult 是全仓唯一写入口)。驱动器语义一个字不变 ——
+      // 标 done 的条件仍然只有 r.pass,落章只是把「机器真的跑过、结果是什么」如实记下来给界面。
+      if (r) { checkedAny = true; recordMissionCheckResult(ms, r); if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
     }
     if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
 

@@ -5758,6 +5758,35 @@ function normalizeMissionCheck(raw, trusted) {
   else if (type === 'file_exists') check.path = String(o.path == null ? '' : o.path).slice(0, 500);
   return check;
 }
+// ── 124-P1(40 号文 §2 ①):机器验收的【落章】与验收四态的【唯一】判据 ────────────────────
+// 派单稿 §4 的裁决是「一个字段都不加,四态现算」,推导是:② 里 check.type!=='none' 且跑过 ⇒ 机器检查。
+// 取证之后这条推导在【机器】那一档不成立,所以本刀只在这一处证伪它:机器检查的【定义权】确实只属于
+// 可信来源(normalizeMissionCheck 的 trusted 门,本刀一个字不动),但里程碑的 status 模型改得动 ——
+// applyMissionUpdate 只挡 done→pending(P3),不挡 pending→done。于是「用户定义了 check 的里程碑」
+// 被模型一句 mission_update{status:'done'} 标完成时,按 check.type 推出来的标签会说「机器检查」,
+// 而机器一次都没跑过 —— 那正是 41 号方案 §9 J08 要挡的谎(「产物生成但测试失败/文件随后缺失」
+// 却声称验收通过)。「跑过没有、结果是什么」今天全仓没有任何地方落盘:driver 与 action:'check'
+// 都只把 pass 的结果写进 evidence(自由文本,模型同样写得动),HTTP 回执里那份 results 不落盘。
+// 故补一枚【只有机器写得了】的章:
+//   · 写入口只有 recordMissionCheckResult 一个函数,调用点只有两处跑检查的地方(06e 驱动器每轮、
+//     /api/mission action:'check');
+//   · 任何输入侧都进不来 —— normalizeMission 只从 prev 深拷里按 id 捞,applyMissionUpdate 不认
+//     uo.lastCheck,start 全量新建一律清空(新账本没有旧章);
+//   · 于是「机器检查」这块牌子只可能由真跑过的机器挂上,模型与 loopback 都伪造不了。
+function normalizeMissionLastCheck(raw) {
+  const o = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : null;
+  if (!o) return null;
+  const at = String(o.at == null ? '' : o.at).slice(0, 40);
+  if (!at) return null;   // 没有时间 = 不是章(J08:宁可说「没跑过」,不许说一个说不出时间的「通过」)
+  return { at, pass: o.pass === true, detail: String(o.detail == null ? '' : o.detail).slice(0, 200) };
+}
+// 机器验收结果的【唯一】写入口(静态锁 acceptance-provenance.e2e.js 按「全仓只有这里写 lastCheck」钉)。
+// 不 pass 的结果同样落章:J08 要的是「显示实际验证状态」,一次失败的检查比没有检查更该被说出来。
+function recordMissionCheckResult(milestone, result) {
+  if (!milestone || typeof milestone !== 'object' || !result || typeof result !== 'object') return false;
+  milestone.lastCheck = normalizeMissionLastCheck({ at: nowIso(), pass: result.pass === true, detail: result.detail });
+  return true;
+}
 // trusted 默认 true:内部深拷(applyMissionUpdate 的 normalizeMission({}, prev))必须原样保留 prev 里【已在可信
 // 来源校验过】的检查;仅当里程碑来自【新输入 o.milestones】时才按调用方 trusted 门控(见 fromRaw 判定)。
 function normalizeMission(raw, prev, trusted = true) {
@@ -5767,6 +5796,11 @@ function normalizeMission(raw, prev, trusted = true) {
   const goal = String(o.goal != null ? o.goal : (p.goal || '')).slice(0, 2000);
   const fromRaw = Array.isArray(o.milestones);
   const rawMs = fromRaw ? o.milestones : (Array.isArray(p.milestones) ? p.milestones : []);
+  // 124-P1:机器验收的章只从【prev】按 id 捞 —— 深拷那条路 mo 本身就是 prev 的里程碑(原样带走),
+  // 新输入那条路(start / 全量替换)一律查 prev,查不到就是没有章。输入里带 lastCheck 的一律无视:
+  // 这个字段不是输入面的东西(见 recordMissionCheckResult 的头注)。
+  const prevMilestoneById = new Map((Array.isArray(p.milestones) ? p.milestones : [])
+    .map(item => [String((item && item.id) || ''), item]));
   const seen = new Set();
   const milestones = rawMs.slice(0, MISSION_MAX_MILESTONES).map((m, i) => {
     const mo = (m && typeof m === 'object') ? m : {};
@@ -5778,7 +5812,8 @@ function normalizeMission(raw, prev, trusted = true) {
       ? followupAcceptanceCriterion(rawDesc, false)
       : (/^followup_/.test(id) ? followupAcceptanceCriterion(rawDesc, true) : rawDesc);
     // 新输入的 check 按 trusted 门控;prev 深拷的 check 视为已可信(原样保留)。
-    return { id, desc, status, check: normalizeMissionCheck(mo.check, fromRaw ? trusted : true), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+    const lastCheck = normalizeMissionLastCheck(fromRaw ? ((prevMilestoneById.get(id) || {}).lastCheck) : mo.lastCheck);
+    return { id, desc, status, check: normalizeMissionCheck(mo.check, fromRaw ? trusted : true), evidence: mo.evidence ? String(mo.evidence).slice(0, MISSION_MAX_TEXT) : '', ...(lastCheck ? { lastCheck } : {}) };
   });
   const budgetIn = (o.budget && typeof o.budget === 'object') ? o.budget : (p.budget || {});
   const maxAutoTurns = Math.max(1, Math.min(50, Math.round(Number(budgetIn.maxAutoTurns) || MISSION_DEFAULT_MAX_TURNS)));
@@ -5856,6 +5891,91 @@ function applyMissionUpdate(prev, patch, trusted = false) {
 function missionProgressDigest(mission) {
   if (!mission || !Array.isArray(mission.milestones)) return '';
   return mission.milestones.map(m => m.id + ':' + m.status + ':' + Math.floor(String(m.evidence || '').length / 20)).join(' ');
+}
+
+// ── 124-P1:验收只读投影(三套数据面接起来,零改写) ────────────────────────────────────────
+// 今天「验收」有三套数据面各写各的(40 号文 §1):① 事项容器验收项(唯一写入口是 13d 那条 UI token
+// 的 PATCH —— 勾上 = 人工复核)、② 会话账本里程碑(模型自报 status / 机器落章)、③ 结果快照。
+// 本函数【只读】前两套,把「这条是谁判的」算出来给界面,一处判据,谁都不回写谁:
+//   · 'machine' 自报完成之外的唯一一档:有可信机器检查【且】有通过的章(recordMissionCheckResult);
+//   · 'self'    模型/用户在账本上标的 done —— 带 checkState 说清「有检查但没跑过/没通过」(J08);
+//   · 'human'   事项容器里用户亲手勾的那一条;
+//   · 'open'    还没完成。
+// 「这条线程有没有账本」用的是【与 06i ledgerless 同一条判据】(会话头有没有 mission 容器),
+// 不是 milestones.length —— 后者会把「立了单还没定里程碑」的 2.0 任务单误判成无账本线程。
+function missionAcceptanceItemView(milestone, humanCheckedTexts) {
+  const m = (milestone && typeof milestone === 'object') ? milestone : {};
+  const status = (m.status === 'done' || m.status === 'blocked') ? m.status : 'pending';
+  const checkType = (m.check && m.check.type) || 'none';
+  const stamp = normalizeMissionLastCheck(m.lastCheck);
+  const machine = status === 'done' && checkType !== 'none' && !!stamp && stamp.pass === true;
+  // 「人工复核」这一档是【接】出来的,不是猜的:事项容器里有一条【逐字同文】且用户已勾的验收项 ——
+  // 那条勾只可能出自 13d 那条 UI header token 的 PATCH(全仓唯一写入口),所以它是真人看过的证据。
+  // 文本逐字相等才算,不做模糊匹配:宁可这条牌子少出现一次,不许把两条不同的验收当成一条。
+  const humanChecked = status === 'done' && !!(humanCheckedTexts && humanCheckedTexts.has(String(m.desc || '').trim()));
+  return {
+    id: m.id, desc: m.desc, status, checkType, evidence: m.evidence || '',
+    // 强弱序 machine > human > self:三者都可能同时为真,牌子只印最硬的那一份证据。
+    provenance: status === 'done' ? (machine ? 'machine' : (humanChecked ? 'human' : 'self')) : 'open',
+    // 机器检查这一格的实情:没有检查 / 有检查但一次没跑过 / 最近一次通过 / 最近一次没通过。
+    checkState: checkType === 'none' ? 'none' : (!stamp ? 'never' : (stamp.pass ? 'pass' : 'fail')),
+    checkedAt: stamp ? stamp.at : '',
+    checkDetail: stamp ? stamp.detail : '',
+  };
+}
+// 事项容器里【与验收有关的那部分】的指纹。给详情 ETag 用:容器是另一份文件,它变了不会动会话
+// 投影的 revision —— 不把它写进 ETag,勾完验收项再带 If-None-Match 来读就会拿到 304 + 陈旧验收
+// (与 /api/missions 列表当年那条教训同一个模具,见 buildMissionAggregateRows 的 stamp 注释)。
+function missionContainerAcceptanceStamp(container) {
+  if (!container || typeof container !== 'object') return '-';
+  const rows = Array.isArray(container.acceptance) ? container.acceptance : [];
+  return String(container.updatedAt || '') + ':' + rows.length + ':'
+    + rows.map(row => String((row && row.id) || '') + ((row && row.done) ? '1' : '0')).join(',').slice(0, 400);
+}
+function buildMissionAcceptanceProjection(mission, container) {
+  const ledger = !!(mission && typeof mission === 'object');
+  const ms = (ledger && Array.isArray(mission.milestones)) ? mission.milestones : [];
+  const rows = (container && Array.isArray(container.acceptance)) ? container.acceptance : [];
+  const humanCheckedTexts = new Set(rows
+    .filter(row => row && row.done === true)
+    .map(row => String((row && row.text) || '').trim())
+    .filter(Boolean));
+  const items = ms.map(milestone => missionAcceptanceItemView(milestone, humanCheckedTexts));
+  // 同一句话在两套面上各写一遍是常态(事项验收项与账本里程碑本来就可能同文案),界面不印两遍:
+  // 判据是去掉首尾空白后的文本逐字相等 —— 不做模糊匹配(宁可多印一条,不许悄悄合并两条不同的验收)。
+  const ledgerTexts = new Set(items.map(item => String(item.desc || '').trim()).filter(Boolean));
+  const containerItems = rows.map(row => {
+    const text = String((row && row.text) || '');
+    return {
+      id: String((row && row.id) || ''), text, done: !!(row && row.done === true),
+      doneAt: String((row && row.doneAt) || ''), provenance: 'human',
+      duplicate: !!text.trim() && ledgerTexts.has(text.trim()),
+    };
+  });
+  const extra = containerItems.filter(row => !row.duplicate);
+  const byProvenance = { machine: 0, self: 0, human: 0, open: 0 };
+  for (const item of items) byProvenance[item.provenance] += 1;
+  for (const row of extra) byProvenance[row.done ? 'human' : 'open'] += 1;
+  const done = items.filter(item => item.status === 'done').length;
+  // 界面上画的是哪几条,a/b 就数哪几条(merged):
+  //   · 线程有自己的账本 → 数账本(事项级验收项是【整个事项】的,挂到每条线程上会一份账印好几遍);
+  //   · 线程没有账本 → 退到事项级那一套 —— 这正是 40 号文 §1 结论 3 那种「普通线程问不出答案」的处境:
+  //     此前它只能说「暂无」,现在至少说得出「这个事项定了 N 条,你勾过 M 条」。
+  return {
+    // 既有五个键的形状与口径一个字不动(消费者:抽屉验收块、mission-state.js fromSnapshot、既有 e2e)。
+    total: ms.length,
+    done,
+    blocked: items.filter(item => item.status === 'blocked').length,
+    pending: items.filter(item => item.status === 'pending').length,
+    items,
+    // 124-P1 新增的只读投影:
+    ledger,
+    container: container ? { total: containerItems.length, done: containerItems.filter(row => row.done).length, items: containerItems } : null,
+    merged: ledger
+      ? { total: items.length, done }
+      : { total: containerItems.length, done: containerItems.filter(row => row.done).length },
+    byProvenance,
+  };
 }
 
 // ── 第72波(EC-E 切片三):任务结果模型 ─────────────────────────────────────────────────────
@@ -22436,7 +22556,9 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     for (const ms of m.milestones) {
       if (ms.status === 'done') continue;
       const r = await evaluateMissionCheck(ms.check, cwd);
-      if (r) { checkedAny = true; if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
+      // 124-P1:跑过就落章(02 的 recordMissionCheckResult 是全仓唯一写入口)。驱动器语义一个字不变 ——
+      // 标 done 的条件仍然只有 r.pass,落章只是把「机器真的跑过、结果是什么」如实记下来给界面。
+      if (r) { checkedAny = true; recordMissionCheckResult(ms, r); if (r.pass) { ms.status = 'done'; ms.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); } }
     }
     if (checkedAny) { m.updatedAt = nowIso(); await saveSession(session).catch(() => {}); emit({ type: 'mission', mission: m }); }
 
@@ -39742,6 +39864,7 @@ async function handleApi(req, res, pathname) {
       const results = [];
       for (const m of ((session.mission && session.mission.milestones) || [])) {
         const r = await evaluateMissionCheck(m.check, cwd);
+        if (r) recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
         results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
         if (r && r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
         if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
@@ -42759,21 +42882,28 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
-    const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId)) : '';
+    // 124-P1:详情自此带着【事项容器】那一套验收项(「人工复核」那一档),容器是另一份文件,
+    // 它变了不会动会话投影的 revision —— 指纹不带上它,勾完验收项的下一拍就是 304 + 陈旧验收。
+    // 容器是小 JSON,304 这条路上多读它一次,换的是不说谎(指纹判据单点住在 02)。
+    // 未归类线程(missionId === sessionId)天然没有事项文件 —— 事项 id 一律 `mission_<hex>`(02 的
+    // safeMissionId 头注),与 `sess_` 分家,所以那一档连读都不用读(抽屉是轮询的,省的是每一拍一次
+    // ENOENT)。归类过的才去读那份小 JSON。
+    const containerId = (indexed && indexed.missionId && indexed.missionId !== sessionId) ? indexed.missionId : '';
+    const container = containerId ? await readMissionContainer(containerId).catch(() => null) : null;
+    const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId) + '-' + missionContainerAcceptanceStamp(container)) : '';
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const runs = await listAgentRuns(sessionId).catch(() => []);
 
-    // 验收投影:里程碑计数 + 逐项状态(机器验收证据随行)。
-    const ms = (session.mission && Array.isArray(session.mission.milestones)) ? session.mission.milestones : [];
-    const acceptance = {
-      total: ms.length,
-      done: ms.filter(x => x && x.status === 'done').length,
-      blocked: ms.filter(x => x && x.status === 'blocked').length,
-      pending: ms.filter(x => !x || x.status === 'pending').length,
-      items: ms.map(x => ({ id: x && x.id, desc: x && x.desc, status: (x && x.status) || 'pending', checkType: (x && x.check && x.check.type) || 'none', evidence: (x && x.evidence) || '' })),
-    };
+    // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
+    // 实情(没跑过 / 最近一次没通过 —— J08)、事项容器那一套(人工复核)与「有没有账本」。判据单点
+    // 住在 02 的 buildMissionAcceptanceProjection,本路由只负责把两份数据喂进去。
+    // indexed 缺失(会话还没进投影索引)时上面那次容器读不到,这里按会话头里的 missionId 补一次。
+    const headMissionId = sessionMissionId(session);
+    const acceptanceContainer = container
+      || (headMissionId && headMissionId !== sessionId ? await readMissionContainer(headMissionId).catch(() => null) : null);
+    const acceptance = buildMissionAcceptanceProjection(session.mission, acceptanceContainer);
 
     // 变更/产物聚合:跨回合 turnSummary 折叠(02 foldTurnSummaries 单一实现,与 buildMissionResult 共用) ——
     // filesChanged 按 path 后写胜(最新 op/revertible 为当前态),artifacts 按 path 先去重(首次产出记回合)。

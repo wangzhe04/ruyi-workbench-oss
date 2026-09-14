@@ -625,7 +625,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 123-S4 续钉（前值即上面那个 2f033d2d…）：零新增、零删除层，只改 `css/views/settings.css`
 // 一行 —— .settings-nav-label 补 justify-content:flex-start，卸掉从 .tool-tabs button 漏进来的
 // justify-content:center（2026-09-14 用户走查：组头居中、与子钮左缘不齐，展开后很丑）。
-const LEGACY_STYLES_SHA256 = 'fdaa46468b370d111235d813fdc9813d5992ec422106920a1b6da552efa1a041';
+// 124-P1 续钉（前值即上面那个 fdaa4646…）：零新增、零删除层，只往【已注册的】所有权层
+// `css/views/steward-drawer.css` 加两条规则 —— 验收项旁边那枚来源徽标（机器检查／人工复核／
+// 自报完成，40 号文 §2 ①）：
+//   · `.steward-drawer-list li .steward-acc-src` —— inline-block（done 那一档的 line-through 会贯穿
+//     行内子节点，牌子上的字读不成）＋ --sp-2 起始外边距 ＋ --fs-xs ＋ --muted；
+//   · `.steward-drawer-list li[data-provenance="machine"] .steward-acc-src` —— 只有「机器检查」那一档
+//     借 --ok（与看板圆点第四档同一个语义 token），不新造颜色。
+// 无新样式层、零 transition（reduced-motion 关闭清单一个字没加）、link/@import/overlay 顺序不变。
+// 算法自证：改 CSS 【之前】在工作区按本文件自己的 readLayerPayload() 重算 = fdaa4646…，与被替换的
+// 旧值逐字相同（先自证再替换，不是替换完再解释）；改完再算得下面这个值。
+// 反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51 双双转红；还原后逐字节相同、回绿。
+const LEGACY_STYLES_SHA256 = 'c9f61a470bc1d8a10ff24c7d2a199d6e0f5434cc9f87c5060cf8e33e6b29a975';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

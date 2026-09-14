@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-14T10:30:29.337Z",
+  "generatedAt": "2026-09-14T14:39:37.499Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1644,6 +1644,7 @@
       "domain": "core-inline",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
@@ -1702,7 +1703,7 @@
       "kind": "exact",
       "path": "/api/autonomy/grants",
       "file": "13-http-router.js",
-      "line": 1028,
+      "line": 1029,
       "handler": "handleApi",
       "methods": [
         "*"
@@ -1719,7 +1720,7 @@
       "kind": "exact",
       "path": "/api/autonomy/grant",
       "file": "13-http-router.js",
-      "line": 1035,
+      "line": 1036,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1736,7 +1737,7 @@
       "kind": "exact",
       "path": "/api/autonomy/revoke",
       "file": "13-http-router.js",
-      "line": 1063,
+      "line": 1064,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1753,7 +1754,7 @@
       "kind": "exact",
       "path": "/api/agent-workflow/launch",
       "file": "13-http-router.js",
-      "line": 1076,
+      "line": 1077,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1797,7 +1798,7 @@
       "kind": "exact",
       "path": "/api/usage/summary",
       "file": "13-http-router.js",
-      "line": 1130,
+      "line": 1131,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1820,7 +1821,7 @@
       "kind": "exact",
       "path": "/api/ops/metrics",
       "file": "13-http-router.js",
-      "line": 1145,
+      "line": 1146,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1837,7 +1838,7 @@
       "kind": "exact",
       "path": "/api/checkpoints",
       "file": "13-http-router.js",
-      "line": 1154,
+      "line": 1155,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1865,7 +1866,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/open-external",
       "file": "13-http-router.js",
-      "line": 1175,
+      "line": 1176,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1882,7 +1883,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/diff",
       "file": "13-http-router.js",
-      "line": 1246,
+      "line": 1247,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1901,7 +1902,7 @@
       "kind": "exact",
       "path": "/api/help/doc",
       "file": "13-http-router.js",
-      "line": 1288,
+      "line": 1289,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1919,7 +1920,7 @@
       "kind": "exact",
       "path": "/api/open-path",
       "file": "13-http-router.js",
-      "line": 1318,
+      "line": 1319,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1937,7 +1938,7 @@
       "kind": "exact",
       "path": "/api/logs/tail",
       "file": "13-http-router.js",
-      "line": 1345,
+      "line": 1346,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1954,7 +1955,7 @@
       "kind": "exact",
       "path": "/api/file/preview",
       "file": "13-http-router.js",
-      "line": 1378,
+      "line": 1379,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1977,7 +1978,7 @@
       "kind": "exact",
       "path": "/api/file/reveal",
       "file": "13-http-router.js",
-      "line": 1415,
+      "line": 1416,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1997,7 +1998,7 @@
       "kind": "exact",
       "path": "/api/audit",
       "file": "13-http-router.js",
-      "line": 1446,
+      "line": 1447,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2019,7 +2020,7 @@
       "kind": "exact",
       "path": "/api/storage/summary",
       "file": "13-http-router.js",
-      "line": 1463,
+      "line": 1464,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2039,7 +2040,7 @@
       "kind": "exact",
       "path": "/api/metrics",
       "file": "13-http-router.js",
-      "line": 1475,
+      "line": 1476,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2057,7 +2058,7 @@
       "kind": "exact",
       "path": "/api/upload",
       "file": "13-http-router.js",
-      "line": 1505,
+      "line": 1506,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2074,7 +2075,7 @@
       "kind": "exact",
       "path": "/api/upload/content",
       "file": "13-http-router.js",
-      "line": 1513,
+      "line": 1514,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2089,7 +2090,7 @@
       "kind": "exact",
       "path": "/api/chat/stream",
       "file": "13-http-router.js",
-      "line": 1533,
+      "line": 1534,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2234,7 +2235,7 @@
       "kind": "prefix",
       "path": "/api/tools/",
       "file": "13-http-router.js",
-      "line": 1551,
+      "line": 1552,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2263,7 +2264,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 1826,
+      "line": 1827,
       "handler": "startServerInner",
       "methods": [
         "*"
@@ -2620,6 +2621,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
@@ -2806,6 +2808,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
@@ -3086,6 +3089,7 @@
       "domain": "mission",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3141,6 +3145,7 @@
       "domain": "mission",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3198,6 +3203,7 @@
       "domain": "mission",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3237,6 +3243,7 @@
       "domain": "mission",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3276,6 +3283,7 @@
       "domain": "mission",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3315,6 +3323,7 @@
       "domain": "mission",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3353,6 +3362,7 @@
       "domain": "mission",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3381,7 +3391,7 @@
       "kind": "exact",
       "path": "/api/_test/pretender-maintenance",
       "file": "13d-core-domain-routes.js",
-      "line": 1529,
+      "line": 1536,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3399,7 +3409,7 @@
       "pattern": "^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$",
       "path": "/api/missions/:missionId/interventions/:interventionId/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1543,
+      "line": 1550,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3409,6 +3419,7 @@
       "domain": "intervention",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\agent-workflow-replan-approve.e2e.js",
         "dev-harness\\agent-workflow-replan-review.e2e.js",
         "dev-harness\\bridged-read-noprompt.e2e.js",
@@ -3437,7 +3448,7 @@
       "kind": "exact",
       "path": "/api/interventions",
       "file": "13d-core-domain-routes.js",
-      "line": 1568,
+      "line": 1575,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3473,7 +3484,7 @@
       "kind": "prefix",
       "path": "/api/interventions/",
       "file": "13d-core-domain-routes.js",
-      "line": 1621,
+      "line": 1628,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "GET"
@@ -3492,7 +3503,7 @@
       "kind": "exact",
       "path": "/api/chat/answer",
       "file": "13d-core-domain-routes.js",
-      "line": 1657,
+      "line": 1664,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3523,7 +3534,7 @@
       "kind": "exact",
       "path": "/api/question/heartbeat",
       "file": "13d-core-domain-routes.js",
-      "line": 1677,
+      "line": 1684,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3538,7 +3549,7 @@
       "kind": "exact",
       "path": "/api/question/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1687,
+      "line": 1694,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3553,7 +3564,7 @@
       "kind": "exact",
       "path": "/api/permission/request",
       "file": "13d-core-domain-routes.js",
-      "line": 1702,
+      "line": 1709,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3568,7 +3579,7 @@
       "kind": "exact",
       "path": "/api/permission/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1796,
+      "line": 1803,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3591,7 +3602,7 @@
       "kind": "exact",
       "path": "/api/plan/decision",
       "file": "13d-core-domain-routes.js",
-      "line": 1815,
+      "line": 1822,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3612,7 +3623,7 @@
       "kind": "exact",
       "path": "/api/_test/intervention-cas",
       "file": "13d-core-domain-routes.js",
-      "line": 1836,
+      "line": 1843,
       "handler": "handleInterventionApiRoutes",
       "methods": [
         "POST"
@@ -3630,7 +3641,7 @@
       "kind": "exact",
       "path": "/api/agent-runs",
       "file": "13d-core-domain-routes.js",
-      "line": 1943,
+      "line": 1950,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3674,7 +3685,7 @@
       "path": "/api/agent-runs/",
       "suffix": "/events",
       "file": "13d-core-domain-routes.js",
-      "line": 1982,
+      "line": 1989,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -3706,7 +3717,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 1993,
+      "line": 2000,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "POST"
@@ -3738,7 +3749,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 2051,
+      "line": 2058,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "DELETE"
@@ -3770,7 +3781,7 @@
       "kind": "prefix",
       "path": "/api/agent-runs/",
       "file": "13d-core-domain-routes.js",
-      "line": 2071,
+      "line": 2078,
       "handler": "handleAgentRunApiRoutes",
       "methods": [
         "GET"
@@ -4349,32 +4360,32 @@
     },
     {
       "file": "13-http-router.js",
-      "line": 1153,
+      "line": 1154,
       "target": "handleAgentRunApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1441,
+      "line": 1442,
       "target": "handleMcpApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1485,
+      "line": 1486,
       "target": "handleCheckpointApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1487,
+      "line": 1488,
       "target": "handleSteerApiRoute"
     },
     {
       "file": "13-http-router.js",
-      "line": 1489,
+      "line": 1490,
       "target": "handleOverlayApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1504,
+      "line": 1505,
       "target": "handleSchedulerApiRoutes"
     }
   ],

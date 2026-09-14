@@ -607,6 +607,7 @@
         "asResultObject",
         "boundedChangeText",
         "bridgedWriteRelativePathArg",
+        "buildMissionAcceptanceProjection",
         "buildMissionResult",
         "buildTurnSummary",
         "bulkDeleteUnpinnedSessions",
@@ -676,6 +677,7 @@
         "maybeFinalizeMission",
         "mergeMissionAcceptance",
         "mergeMissionBeforeSave",
+        "missionAcceptanceItemView",
         "missionAttachThread",
         "missionBudgetRemaining",
         "missionBudgetTripTurns",
@@ -683,6 +685,7 @@
         "missionChangeSeqHighWater",
         "missionChangeWriteChains",
         "missionClipText",
+        "missionContainerAcceptanceStamp",
         "missionContainerChains",
         "missionContainerFail",
         "missionContainerPath",
@@ -706,6 +709,7 @@
         "normalizeMissionChangePayload",
         "normalizeMissionCheck",
         "normalizeMissionContainer",
+        "normalizeMissionLastCheck",
         "normalizeSession",
         "normalizeSessionDesktopTools",
         "normalizeSessionEngineRoute",
@@ -728,6 +732,7 @@
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
+        "recordMissionCheckResult",
         "recordMissionStalledChange",
         "registerIntervention",
         "rememberLastUsedEngineRoute",
@@ -4294,6 +4299,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "missionProgressDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionCheckResult",
           "kinds": [
             "call"
           ]
@@ -9463,6 +9475,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "recordMissionCheckResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "rememberLastUsedEngineRoute",
           "kinds": [
             "call"
@@ -10924,6 +10943,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "buildMissionAcceptanceProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "bulkDeleteUnpinnedSessions",
           "kinds": [
             "call"
@@ -11015,6 +11041,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "missionContainerAcceptanceStamp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "missionControlCommand",
           "kinds": [
             "call"
@@ -11065,6 +11098,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionChangesWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
           "kinds": [
             "call"
           ]

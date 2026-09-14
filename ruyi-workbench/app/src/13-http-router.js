@@ -942,6 +942,7 @@ async function handleApi(req, res, pathname) {
       const results = [];
       for (const m of ((session.mission && session.mission.milestones) || [])) {
         const r = await evaluateMissionCheck(m.check, cwd);
+        if (r) recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
         results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
         if (r && r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
         if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
