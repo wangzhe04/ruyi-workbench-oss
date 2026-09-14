@@ -142,3 +142,4 @@
 2. **`steward-board` 的 300 s 豁免**：根因已还，撤销复测要在 24 核那台跑一轮 8 路全量（39 号文 §8 ①，`run-all.js` 注释里也写了）。
 3. 127 波的 `playbook`／`workflow` 两类载荷与开机自启（37 号文 §6 ②）。
 4. 38 号文 §7 的四条（同回合纠正重试要先有「不写会话正文」的旁路通道、`walkthrough-round1.browser` 抖动、13p／13q 每回合两次读同一份会话可合并、契约判据下一档结构化）。
+5. **realhist 三件的可移植性**（2026-09-14 复查后新登记）。`dev-harness/realhist-fixtures/` 是 288 个文件、7.3 MB 的**真实会话 checkpoint**，`.gitignore:41` 早就按「含会话内容，不入库」拒了——这条**不翻案**：本仓是 `-oss` 且有远端，那等于把用户真实对话发出去。现状是 8 个夹具消费者里 5 个（`estimate-buckets`／`session-notes-inject`／`session-notes-merge`／`summary-fact-table`／…）都有 `existsSync` 守卫会 SKIP，**只有 realhist 三件**（`observation-recall-realhistory`／`-replay`／`session-notes`）没有守卫，于是在没夹具的机器上必红。**要还的话有两条路**：① 给那三件补同款 SKIP 守卫（小、立刻能做，代价是那三件在没夹具的机器上等于不跑）；② 造一份**形状等价的合成夹具**入库（真实历史值钱的是 token／段落分布这些形状，不是字面内容），三件从此人人可跑。推荐 ②，但它是独立一刀，不塞进 124 波。

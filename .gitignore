@@ -39,6 +39,10 @@ Thumbs.db
 /dev-harness/ab-results/
 # 105波真实历史实测:本机历史记录的只读副本(含会话内容,不入库)
 /dev-harness/realhist-fixtures/
+# 本机跑产品时的数据根(config.json / sessions / logs / memory / 生成物)——与上一条同理:
+# 是【运行数据】不是源码,而且含真实会话与本机配置。此前它一直以未跟踪状态挂在 git status 里,
+# 每次收工都要人肉确认一遍「这不是漏提交」,列进来省掉这道噪音。
+/.ruyi-runtime/
 
 # Desktop shell build outputs (source in ruyi-workbench/desktop/)
 /.tmp-csc-probe/
