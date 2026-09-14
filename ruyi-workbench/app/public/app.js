@@ -929,12 +929,17 @@ setRailRenderer(() => stewardShellDomain.board.syncRail());
 // 唯一写者仍是 shell-mode.js。
 // sharedThreadId：两个视角此刻指的是不是【同一条线程】—— 管家侧问焦点栏（board.focusThreadId），
 // 工作台侧问组合根手里的当前会话。相同才给那两个标题起同一个 view-transition-name（§2.9 表第五行）。
+// 「在工作台打开」那一拍：openSession 还没落，currentSession 不是焦点线程，但【将要打开的】就是
+// 焦点线程 —— 这一半由控制器在切视角那一拍里提供（pendingOpenThreadId，拍旧帧前同步问、问完即清），
+// 否则管家→工作台的主路径上标题共享元素永远挂不上名（用户 2026-09-14 走查）。
 const appFrame = createAppFrame({
   applyShellMode,
   sharedThreadId: () => {
     const focus = stewardShellGuard ? String(stewardShellGuard.board.focusThreadId() || '') : '';
+    if (!focus) return '';
     const current = String((state.currentSession && state.currentSession.id) || '');
-    return focus && focus === current ? focus : '';
+    const pending = shellModeController.pendingOpenThreadId ? shellModeController.pendingOpenThreadId() : '';
+    return focus === current || (pending && focus === pending) ? focus : '';
   },
 });
 const { bindAppFrame } = appFrame;

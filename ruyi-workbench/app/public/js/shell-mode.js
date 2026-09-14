@@ -73,7 +73,8 @@ export function createShellModeController({
   documentRef = globalThis.document,
   storage = globalThis.localStorage,
   // 121-K4（§2.9 表第五行）：共享元素变形要在【拍下旧帧之前】给两侧那两个节点起同一个名字，
-  // 而「焦点线程是不是就是将要选中的那条线程」这件事本模块不认识（它住在管家域与组合根手里）。
+  // 而「焦点线程是不是就是将要选中的那条线程」这件事本模块不认识（它住在管家域与组合根手里；
+  // 「在工作台打开」那一拍的答案由本模块自己的 pendingOpenThreadId 提供，见 openInWorkbench）。
   // 所以开一个钩子：返回一个清理函数，动画收尾时调它把名字摘掉。缺省是空操作 —— 不注入就只有
   // 中栏平移与右栏淡入淡出，不会有半个共享元素。
   markSharedThread = () => () => {},
@@ -175,10 +176,19 @@ export function createShellModeController({
   // applyShellMode('classic') ＋ openSession(id) 两步，写 data-shell-mode 的地方仍然只有上面那一处。
   // 与它成对的「切回管家」那一路（派 steward:focus-thread 让焦点落在刚看的那条线程上）住在
   // js/app-frame.js 的分段钮里：那才是用户真正点「回管家」的那一处。
+  // §2.9 挂名判据的另一半：「将要选中的线程」。openInWorkbench 是【先切视角、后 openSession】，
+  // 拍旧帧那一刻 state.currentSession 还不是焦点线程 —— 于是「在工作台打开」这条主路径上
+  // 标题共享元素永远挂不上名（用户 2026-09-14 走查：管家切工作台时线程名过渡缺失）。
+  // markSharedThread 在 applyShellMode 里【同步】被问一次，所以这个值只需活到 applyShellMode
+  // 返回；openSession 落地之后，判据自然回落到「焦点＝当前会话」那一半。
+  let pendingOpenThreadId = '';
+
   async function openInWorkbench(sessionId) {
     const id = String(sessionId || '');
     if (!id) return '';
-    applyShellMode('classic');
+    pendingOpenThreadId = id;
+    try { applyShellMode('classic'); }
+    finally { pendingOpenThreadId = ''; }
     try { await openSession(id); } catch { /* 会话打不开时视角仍然切过去了，中栏由 2.0 自己报错 */ }
     return id;
   }
@@ -222,5 +232,7 @@ export function createShellModeController({
     recoverClassicShell,
     storedShellMode: () => readStoredShellMode(storage),
     syncModeControl,
+    // 组合根的 sharedThreadId 判据在拍旧帧那一拍问它：非「在工作台打开」的切换里恒为空串。
+    pendingOpenThreadId: () => pendingOpenThreadId,
   });
 }

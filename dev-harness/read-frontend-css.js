@@ -580,7 +580,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 得到的值与直接读工作区【逐字相同】（22 层全部走 HEAD），所以下面这个值是 HEAD 的值，不是工作区
 // 的值（32 号文 §4 纪律 4）。反向验证：删掉 `.steward-schedule-badge[data-outcome="unknown"]` 那条
 // 规则 → 本值与实算不符，frontend-domains D51 与 live-full-text F3 双红。
-const LEGACY_STYLES_SHA256 = '065948bd0368c73a905e5cfe4a6ef99773722b36684ea2617173c46416613326';
+// 2026-09-14 重钉（前值即上面那个 065948bd…；用户走查「管家切工作台时线程名过渡缺失／重影」）：
+// **零新增、零删除层**（分组表一个字节没动，仍是 18 组 22 层），只改了一个既有层 ——
+// `css/layout.css` 的 §2.9 共享元素时序：
+//   ① `::view-transition-group(thread-title)`／`(thread-bar)` 补上 260ms ease-out —— 修前 group
+//      吃 UA 默认 0.25s ease，与 old/new 的 260ms ease-out 不同步（位置飞到了、透明还在走）；
+//   ② old/new 从等权交叉叠化改成错开淡变（旧快照前 40% 出净、新快照 45% 才进场）—— 两张
+//      字号／宽度不同的文字位图等权叠化就是重影；新增 vt-shared-out／vt-shared-in 两条 keyframes。
+// 反向验证：把 vt-shared-in 那条 keyframes 改一个数字 → 本值与实算不符，frontend-domains D51
+// 与 live-full-text F3 双红。
+const LEGACY_STYLES_SHA256 = '38f82119cff967bf10711f36a6eeed48df38e091fc82854d3eb44ca1298e2bf5';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

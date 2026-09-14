@@ -350,18 +350,27 @@
 /* 共享元素：焦点卡的标题 ↔ 工作台线程头的标题，260ms 变形（「就是这一条」）。
    名字由 js/shell-mode.js 的 markSharedThread 钩子在拍旧帧【之前】挂上、动画收尾摘掉，
    且只在「焦点线程＝将要选中的那条线程」时才挂（同一帧里名字必须唯一）。
+   group（位移／尺寸）与 old/new（淡变）必须吃同一张时长缓动表 —— 修前 group 没写、吃 UA 默认的
+   0.25s ease，淡变却是 260ms ease-out：位置飞到了、透明还在走，肉眼就是「先跳位再闪字」
+   （用户 2026-09-14 走查）。
+   淡变刻意【不等权】：旧快照前 40% 出净、新快照 45% 才进场 —— 两张字号／宽度不同的文字位图
+   等权叠化就是重影；错开之后中途只剩位置在动，屏幕上始终只有一颗字。
    色条那一半（thread-bar）的两个落点分别住在焦点卡（K6）与工作台线程头（K5）里 —— 那两张卡
    还没改造完，所以此刻只有标题这一半有生产者；时序在这里先登记好，K5／K6 把节点补上就生效。 */
+::view-transition-group(thread-title),
+::view-transition-group(thread-bar) { animation-duration: 260ms; animation-timing-function: var(--ease-out); }
 ::view-transition-old(thread-title),
+::view-transition-old(thread-bar) { animation: vt-shared-out 260ms var(--ease-out) both; }
 ::view-transition-new(thread-title),
-::view-transition-old(thread-bar),
-::view-transition-new(thread-bar) { animation-duration: 260ms; animation-timing-function: var(--ease-out); }
+::view-transition-new(thread-bar) { animation: vt-shared-in 260ms var(--ease-out) both; }
 @keyframes vt-out-l { to { opacity: 0; transform: translateX(-14px); } }
 @keyframes vt-in-r { from { opacity: 0; transform: translateX(18px); } }
 @keyframes vt-out-r { to { opacity: 0; transform: translateX(14px); } }
 @keyframes vt-in-l { from { opacity: 0; transform: translateX(-18px); } }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-fade-in { from { opacity: 0; } }
+@keyframes vt-shared-out { 0% { opacity: 1; } 40%, 100% { opacity: 0; } }
+@keyframes vt-shared-in { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
 
 /* ============================ §7.3 响应式（容器查询，以外框为准） ============================
    内容一件不少，只改容器。三档：

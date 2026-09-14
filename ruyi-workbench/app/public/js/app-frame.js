@@ -204,6 +204,12 @@ export function createAppFrame({
     if (!shared) return () => {};
     const nodes = ['stewardDrawerTitle', 'sessionTitle'].map(byId).filter(Boolean);
     if (nodes.length < 2) return () => {};
+    // 兜底（用户 2026-09-14 走查）：两边印的不是同一串字时不挂名。管家侧印的是服务端算好的
+    // displayTitle（steward-drawer.js 的 renderHead），工作台侧印的是 session.title 原话
+    // （session-experience.js 的 renderCurrentSession）—— 两串不同的字按「同一个东西」变形叠化，
+    // 中途换人比不飞更糟；退回中栏整体的淡入淡出即可。
+    const [from, to] = nodes;
+    if (String(from.textContent || '').trim() !== String(to.textContent || '').trim()) return () => {};
     for (const node of nodes) node.style.viewTransitionName = 'thread-title';
     return () => { for (const node of nodes) node.style.viewTransitionName = ''; };
   }
