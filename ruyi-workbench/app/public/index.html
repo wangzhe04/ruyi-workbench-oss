@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="/css/views/steward-conversation.css" />
     <link rel="stylesheet" href="/css/views/steward-drawer.css" />
     <link rel="stylesheet" href="/css/views/steward-settings.css" />
+    <link rel="stylesheet" href="/css/views/settings.css" />
     <link rel="stylesheet" href="/css/views/steward-board.css" />
     <link rel="stylesheet" href="/css/views/quiet-card.css" />
     <link id="hljs-dark" rel="stylesheet" href="/vendor/github-dark.min.css" />
@@ -99,23 +100,15 @@
            一拿到焦点就滑进来。点它＝把焦点送进【当前视角那一个】输入框（管家＝#stewardComposerInput，
            工作台＝#promptInput）。它是 position:absolute，不占外框那两行栅格。 -->
       <button type="button" id="skipToComposer" class="skip-link" data-i18n="a11y.skipToComposer">跳到输入框</button>
-      <!-- 顶栏（§2.2）：左品牌标、中视角分段钮、右全局状态胶囊 ＋ 盾牌 ＋ 停机 ＋ 齿轮。
+      <!-- 顶栏（§2.2）：中视角分段钮、右全局状态胶囊 ＋ 盾牌 ＋ 停机 ＋ 齿轮。
            【不印】费用、线程总数、模型名 —— 那三样分别归「用量」页签、左栏组头计数与配置控件。 -->
       <header class="app-topbar" id="appTopbar">
         <div class="tb-left">
-          <!-- 121-K8(§2.10.1「品牌标」):换成 docs/branding/ruyi-mark.svg 的【三曲瓣云头】＋一颗
-               鎏金珠,26×16。原来那枚是「圆环＋渐变球」派生的单线云朵(第89波),读起来是天气图标,
-               与如意云头没有关系;云头那条路径本来就在 tokens.css 的 --ruyi-cloud 里(空状态水印用),
-               这里用同一份形状 —— 品牌只画一次。颜色仍走 --brand-qh/--brand-au 随主题切换。 -->
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 120 70" width="26" height="16" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
-              <path class="brand-cloud" d="M60 62 C46 55 30 44 30 32 A13 13 0 0 1 53 24 A7.5 7.5 0 1 1 67 24 A13 13 0 0 1 90 32 C90 44 74 55 60 62 Z"/>
-              <circle class="brand-pearl" cx="60" cy="40" r="6"/>
-            </svg>
-          </div>
-          <strong class="app-brand-name" data-i18n="shell.brand">如意</strong>
-          <!-- 121-K5（§13.7 登记⑦）：连接态 #statusLine 搬到线程头第二行右端那个【真看得见】的
-               位置（见下面 .thread-head 里那一条）。顶栏这里不再有它，也就不再需要那条视觉隐藏规则。 -->
+          <!-- 123-S3（2026-09-14 用户走查）：品牌标（121-K8 云头 ＋「如意」字）从顶栏撤下 —— 窗口
+               标题栏已印「如意工作台 Ruyi Workbench」，顶栏再印一遍属重复。云头形状仍在
+               tokens.css 的 --ruyi-cloud（空状态水印）与引导页 48px 品牌标（下方 data-i18n-attr=
+               aria-label:brand.name 那枚）里服役；shell.brand 键留在词表备用。.tb-left 槽位保留，
+               维持顶栏三列栅格。连接态 #statusLine 仍在线程头第二行右端（121-K5）。 -->
         </div>
         <!-- 视角切换（§2.2）：滑块式分段钮，快捷键 Ctrl+`。它是【唯一】的切换入口 —— 原来散在
              管家壳输入区（#stewardClassicBtn）与看板顶部（#stewardBoardClassicBtn）的两枚「整体切到
@@ -412,7 +405,7 @@
 
         <section id="messages" class="messages" data-testid="messages" role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="对话" data-i18n-attr="aria-label:chat.conversationAria">
           <div class="empty-state" id="emptyState">
-            <!-- 第89波:如意云标(48px),与侧栏 .brand-mark 同一 24×24 几何,随主题走 --brand-* 变量。 -->
+            <!-- 第89波:如意云标(48px),24×24 几何,随主题走 --brand-* 变量(123-S3 后顶栏品牌标已撤,它是硕果仅存的一枚)。 -->
             <div class="empty-logo" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="48" height="48" role="img" aria-label="如意 Ruyi" data-i18n-attr="aria-label:brand.name">
                 <path fill="none" stroke="var(--brand-qh)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
@@ -910,26 +903,51 @@
     <div class="modal-backdrop hidden" id="settingsModal">
       <div class="modal" role="dialog" aria-modal="true" aria-label="设置" data-i18n-attr="aria-label:settings.title">
         <div class="modal-head"><h3 data-i18n="settings.title">设置</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-i18n-attr="aria-label:common.close" data-icon="close"></button></div>
-        <div class="modal-body" id="settingsBody">
+        <!-- 123-S1 设置弹窗重设计：左侧竖排分组导航（#settingsTabs）＋ 右侧内容面板（#settingsBody），包进 .settings-main。 -->
+        <!-- 布局规则全部在新层 css/views/settings.css，旧规则一处没动；页签仍是 button[data-stab]、11 个面板仍在 #settingsBody， -->
+        <!-- 页签接线（navigation-controls.js switchSettingsTab）与简易模式隐藏（ui-modes.css）的契约不变。 -->
+        <!-- 123-S2：五枚分组标签升级为可折叠二级菜单 —— 每组一个 <section class="settings-nav-group">，组头是 -->
+        <!-- button.settings-nav-label（带 aria-expanded 与 chevron，【没有】data-stab，不是页签）；默认只展开「通用」， -->
+        <!-- 切页签自动展开其所在组，折叠态存 localStorage（wcw.settingsNavGroups），JS 全部纯新增在 navigation-controls.js。 -->
+        <div class="settings-main">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
-            <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
-            <!-- 117e：管家页签排在「基础」之后、「Agent CLI」之前（27 号文 §5 117e 行）。 -->
-            <button type="button" data-stab="steward" data-i18n="settings.steward.tab">管家</button>
-            <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
-            <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
-            <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
-            <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
-            <button type="button" data-stab="mcp" data-i18n="settings.mcp.tab">MCP 运维</button>
-            <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
-            <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
-            <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
-            <button type="button" data-stab="update" data-i18n="settings.update">更新中心</button>
+            <section class="settings-nav-group is-open" data-group="general">
+              <button type="button" class="settings-nav-label" data-group="general" aria-expanded="true"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.general">通用</span></button>
+              <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
+            </section>
+            <section class="settings-nav-group" data-group="steward">
+              <button type="button" class="settings-nav-label" data-group="steward" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.steward">管家</span></button>
+              <!-- 117e：管家页签排在「基础」之后、「Agent CLI」之前（27 号文 §5 117e 行）。 -->
+              <button type="button" data-stab="steward" data-i18n="settings.steward.tab">管家</button>
+            </section>
+            <section class="settings-nav-group" data-group="models">
+              <button type="button" class="settings-nav-label" data-group="models" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.models">模型与服务</span></button>
+              <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
+              <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
+              <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
+              <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
+            </section>
+            <section class="settings-nav-group" data-group="integrations">
+              <button type="button" class="settings-nav-label" data-group="integrations" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.integrations">集成</span></button>
+              <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
+              <button type="button" data-stab="mcp" data-i18n="settings.mcp.tab">MCP 运维</button>
+            </section>
+            <section class="settings-nav-group" data-group="system">
+              <button type="button" class="settings-nav-label" data-group="system" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.system">系统</span></button>
+              <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
+              <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
+              <button type="button" data-stab="update" data-i18n="settings.update">更新中心</button>
+            </section>
             <!-- 118d: 上下文帮助。没有 data-stab，所以不参与页签接线与 active 切换；点击按当前页签打开应用内手册的对应小节（锚点表见 js/help-menu.js 的 SETTINGS_TAB_HELP_ANCHORS）。 -->
             <button type="button" id="settingsHelpBtn" class="settings-tab-help" title="这一页怎么用？" aria-label="这一页怎么用？" data-i18n-attr="title:help.tabHelp;aria-label:help.tabHelp">?</button>
           </div>
+          <div class="modal-body" id="settingsBody">
 
           <!-- ===== 基础 ===== -->
           <div class="settings-tab active" id="stab-basic">
+            <!-- 123-S2：基础页 10 个 field-block 归成 4 个可折叠分组（默认全展开），控件 id 与 data-i18n 一个没动。 -->
+            <details class="settings-fold" id="settingsFoldWorkspace" open>
+            <summary><span data-i18n="settings.fold.workspace">工作区</span></summary>
             <div class="field-block">
               <label for="workspaceInput" data-i18n="settings.defaultWorkspace">默认工作文件夹</label>
               <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
@@ -946,12 +964,9 @@
               </div>
               <p class="field-help muted" data-i18n="settings.workspacePerm.hint">工作区按优先级排序（首项为默认工作区）；每个工作区可单独开关读/写/执行权限。</p>
             </div>
-            <!-- 118a: 新手引导可跳过，所以必须有一个永久可见的重开入口。 -->
-            <div class="field-block">
-              <label data-i18n="onboarding.wizard.settingsLabel">新手引导</label>
-              <button type="button" id="reopenOnboardingBtn" class="btn btn-sm" data-i18n="onboarding.wizard.reopen">重新打开引导</button>
-              <p class="field-help muted" data-i18n="onboarding.wizard.reopenHint">忘了怎么配？随时可以再走一遍新手引导。</p>
-            </div>
+            </details>
+            <details class="settings-fold" id="settingsFoldInterface" open>
+            <summary><span data-i18n="settings.fold.interface">界面与语言</span></summary>
             <div class="field-block">
               <label for="cfgLocale" data-i18n="settings.language">语言</label>
               <select id="cfgLocale">
@@ -987,6 +1002,9 @@
               <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
             </div>
+            </details>
+            <details class="settings-fold" id="settingsFoldReminders" open>
+            <summary><span data-i18n="settings.fold.reminders">提醒</span></summary>
             <!-- 121-K1（34 号文 §8.3 第 2 条）：交办台退役后这一块改名「提醒」保留，键与 id 一并改 notify.*／cfgNotify*，策略层住 js/notify-policy.js；本波只接本机偏好与系统通知授权，「什么时候真的弹」随安静卡（§4.3）归 K6。 -->
             <!-- 121-K6a：投递侧接好了——安静卡出现的同一时刻，开着「本机通知」就走系统通知（js/quiet-card.js 的 maybeNotify，Notification API；权限授予流程仍是 notify-policy.js 里那一套）。去掉 hidden 露出。 -->
             <section class="notify-settings" aria-labelledby="notifySettingsHeading">
@@ -1009,6 +1027,15 @@
               </div>
               <p id="notifyStatus" class="field-help notify-status" role="status" aria-live="polite"></p>
             </section>
+            </details>
+            <details class="settings-fold" id="settingsFoldOther" open>
+            <summary><span data-i18n="settings.fold.other">其他</span></summary>
+            <!-- 118a: 新手引导可跳过，所以必须有一个永久可见的重开入口。 -->
+            <div class="field-block">
+              <label data-i18n="onboarding.wizard.settingsLabel">新手引导</label>
+              <button type="button" id="reopenOnboardingBtn" class="btn btn-sm" data-i18n="onboarding.wizard.reopen">重新打开引导</button>
+              <p class="field-help muted" data-i18n="onboarding.wizard.reopenHint">忘了怎么配？随时可以再走一遍新手引导。</p>
+            </div>
             <div class="field-row">
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>
               <label class="check"><input type="checkbox" id="cfgKillPort" /> <span data-i18n="settings.takeOverPort">启动时接管被旧实例占用的端口</span></label>
@@ -1032,6 +1059,7 @@
                 </select>
               </div>
             </div>
+            </details>
           </div>
 
           <!-- ===== 117e 管家（27 号文 §5 117e 行 / §8.6 权限的界面表达 / §4 记忆面板）===== -->
@@ -1789,8 +1817,12 @@
             </div>
           </div>
         </div>
+        </div><!-- /.settings-main（左导航 ＋ 右面板） -->
         <div class="modal-foot">
-          <span id="settingsStatus" class="muted"></span>
+          <div class="settings-foot-status">
+            <span id="settingsStatus" class="muted"></span>
+            <p class="settings-save-hint muted" data-i18n="settings.saveHint">管家、主题与提醒即时生效；其余更改在点击「保存设置」后生效。</p>
+          </div>
           <span class="composer-spacer"></span>
           <button data-close-modal data-i18n="common.cancel">取消</button>
           <button id="saveConfigBtn" class="primary" data-i18n="common.save">保存</button>

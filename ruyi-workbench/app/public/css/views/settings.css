@@ -1,0 +1,234 @@
+/* 123-S1 设置弹窗重设计：左侧竖排分组导航 ＋ 右侧内容面板。本层是这批样式的唯一家 ——
+   纪律与前几波相同：只新增【覆盖】规则，不改动 tool-pane.css / chat-shell.css / onboarding.css /
+   ui-modes.css 里的任何旧规则（更高特指度选择器 ＋ 本层后加载取胜）；取值全部走
+   tokens.css / color-schemes.css 的 token 与 color-mix，零硬编码色值。
+   123-S2：五枚分组标签升级为可折叠二级菜单（section.settings-nav-group ＋ 组头
+   button.settings-nav-label ＋ chevron 旋转与子钮淡入，reduced-motion 在末尾媒体查询关），
+   长面板顶部新增段内锚点 chip 条（.settings-jumplist，JS 现建现换），stab-basic 十个
+   field-block 归成四个 details.settings-fold 折叠分组（默认全开）。
+   契约（静态锁钉着）：#settingsTabs 里页签仍是 button[data-stab]、11 个面板仍是
+   .settings-tab#stab-* 且住在 #settingsBody 里；简易模式的隐藏规则在 ui-modes.css 原处。 */
+
+/* ── 弹窗加宽：720 → 920（与 tool-pane.css 的 #settingsModal .modal 同特指度，本层后加载取胜） ── */
+#settingsModal .modal { width: min(920px, 94vw); }
+
+/* ── 骨架：左导航 ＋ 右面板。`.modal` 是 column flex，本行吃掉头部与页脚之间的全部高度。 ── */
+#settingsModal .settings-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+/* ── 侧导航：覆盖 .tool-tabs 的四列网格（display 改 flex 后 grid-template-columns 自然失效）
+   与 chat-shell.css 的 .settings-tabs 下外边距；`#settingsTabs.settings-tabs` 比特指的
+   `.tool-tabs` / `.settings-tabs` 都高，旧规则一处没动。 ── */
+#settingsTabs.settings-tabs {
+  flex: 0 0 176px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-2);
+  border: none;
+  border-inline-end: 1px solid var(--line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+  overflow-y: auto;
+}
+
+/* 123-S2 可折叠二级菜单：每组一个 section.settings-nav-group；组头是一枚真 button
+   （aria-expanded 说状态，不是页签，不带 data-stab），children 是原来的页签钮。
+   折叠＝藏掉组内子钮（display:none，读屏与键盘同样够不着）；展开时子钮淡入下移 2px。 */
+#settingsTabs .settings-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-top: var(--sp-3);
+}
+#settingsTabs .settings-nav-group:first-of-type { margin-top: var(--sp-1); }
+/* 组头：按钮重置（base.css 的描边/底/胶囊圆角全部卸掉），一行小字 ＋ 左侧 chevron。 */
+#settingsTabs .settings-nav-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 123-S4：卸 .tool-tabs button 的 justify-content:center —— 组头靠左，与子钮同一左缘 */
+  gap: var(--sp-1);
+  width: 100%;
+  min-height: 0;
+  margin: 0 0 var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: var(--lh-title);
+  text-align: start;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+#settingsTabs .settings-nav-label:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 82%, transparent); }
+#settingsTabs .settings-nav-chevron {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+#settingsTabs .settings-nav-chevron::before { content: "▸"; }
+#settingsTabs .settings-nav-group.is-open .settings-nav-chevron { transform: rotate(90deg); }
+/* 折叠：组内子钮整排收起；展开：统一一次淡入（reduced-motion 在文件末尾的媒体查询里关）。 */
+#settingsTabs .settings-nav-group:not(.is-open) button[data-stab] { display: none; }
+#settingsTabs .settings-nav-group.is-open button[data-stab] { animation: settings-nav-in var(--dur-fast) var(--ease-out); }
+@keyframes settings-nav-in { from { opacity: 0; transform: translateY(-2px); } }
+/* 子钮比组头多退一级，父子层级一眼可辨。 */
+#settingsTabs .settings-nav-group button[data-stab] {
+  width: calc(100% - var(--sp-3));
+  margin-inline-start: var(--sp-3);
+}
+
+/* 导航钮：整行宽、左对齐、文字可截断。hover/active 与 .tool-tabs 的旧口径同族
+   （hover 微亮、active 青花字色 ＋ accent-soft 底），active 多一道 2px 左缘点色；
+   过渡只挂 fast 档，reduced-motion 由 base.css 的全局块统一收敛。 */
+#settingsTabs button[data-stab] {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--sp-1) var(--sp-3);
+  text-align: start;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+#settingsTabs button[data-stab]:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+#settingsTabs button[data-stab].active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 650;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* 「?」：钉在导航列底部的幽灵图标钮。皮（24px 描边小胶囊）仍由 onboarding.css 的
+   .settings-tab-help 出，这里只管落点 —— 顺手把那条 margin-left:auto 归零
+   （竖排里它会把按钮推到右缘）。 */
+#settingsTabs .settings-tab-help {
+  align-self: flex-start;
+  margin: auto 0 0;
+}
+
+/* ── 右侧面板区：吃掉导航之外的宽度，自身滚动（.modal-body 的 overflow:auto 原样生效） ── */
+#settingsModal .settings-main > .modal-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── 页脚：状态行上面一行、生效提示下面一行，两枚动作键垂直居中不变 ── */
+#settingsModal .settings-foot-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+#settingsModal .settings-save-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+/* ── ≤640px：导航折叠为顶部一条横向滚动条。分组头在横排里只剩占位作用，藏起；
+   组头一藏「折叠」就无入口，所以这一档强制全部组展开（回到 123-S1 的平排 11 枚）；
+   active 的点色从左缘改到下缘（同一枚 token，换一条边）。 ── */
+@media (max-width: 640px) {
+  #settingsModal .settings-main { flex-direction: column; }
+  #settingsTabs.settings-tabs {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: var(--sp-2);
+    border-inline-end: none;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  #settingsTabs .settings-nav-group { flex-direction: row; margin-top: 0; }
+  #settingsTabs .settings-nav-label { display: none; }
+  #settingsTabs .settings-nav-group:not(.is-open) button[data-stab] { display: inline-flex; }
+  #settingsTabs .settings-nav-group.is-open button[data-stab] { animation: none; }
+  #settingsTabs button[data-stab] { width: auto; flex: 0 0 auto; }
+  #settingsTabs .settings-nav-group button[data-stab] { margin-inline-start: 0; }
+  #settingsTabs button[data-stab].active { box-shadow: inset 0 -2px 0 var(--accent); }
+  #settingsTabs .settings-tab-help { align-self: center; margin: 0; }
+}
+
+/* ── 123-S2 段内锚点 chip 条（长面板顶部，JS 按段标题现建现换，文案取自已翻译的 DOM） ── */
+#settingsModal .settings-jumplist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+}
+#settingsModal .settings-jump-chip {
+  min-height: 0;
+  padding: 2px var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+#settingsModal .settings-jump-chip:hover { color: var(--ink); border-color: var(--glass-border-strong); }
+#settingsModal .settings-jump-chip:focus-visible { outline: none; box-shadow: var(--ring); }
+@media (max-width: 640px) {
+  #settingsModal .settings-jumplist { flex-wrap: nowrap; overflow-x: auto; }
+  #settingsModal .settings-jump-chip { flex: 0 0 auto; }
+}
+
+/* ── 123-S2 面板内折叠分组（stab-basic 的四个 details.settings-fold，默认全开） ── */
+#settingsModal .settings-fold {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel-2) 45%, transparent);
+}
+#settingsModal .settings-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  list-style: none;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+#settingsModal .settings-fold > summary::-webkit-details-marker { display: none; }
+#settingsModal .settings-fold > summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+#settingsModal .settings-fold[open] > summary::before { transform: rotate(90deg); }
+#settingsModal .settings-fold[open] > summary { margin-bottom: var(--sp-2); }
+#settingsModal .settings-fold > summary:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+/* reduced-motion：折叠/展开的瞬间动效全关（状态变化本身保留，信息不减）。 */
+@media (prefers-reduced-motion: reduce) {
+  #settingsTabs .settings-nav-chevron,
+  #settingsModal .settings-fold > summary::before { transition: none; }
+  #settingsTabs .settings-nav-group.is-open button[data-stab] { animation: none; }
+}

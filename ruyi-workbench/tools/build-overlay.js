@@ -143,6 +143,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/steward-conversation.css', // 117c
   'app/public/css/views/steward-drawer.css', // 117d
   'app/public/css/views/steward-settings.css', // 117e
+  'app/public/css/views/settings.css', // 123-S1
   'app/public/css/views/steward-board.css', // 117g/117h
   'app/public/css/views/quiet-card.css', // 121-K6a
   'app/public/styles.css',

@@ -39,6 +39,11 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 117e: steward settings layer (the settings modal's 管家 tab — six groups, memory panel, action-log
   // table — plus the shell header's shield and always-on stop button). Appended last for the same reason.
   'css/views/steward-settings.css',
+  // 123-S1: settings modal redesign layer (left grouped nav + right content panel, wider dialog,
+  // save-hint footer, ≤640px horizontal-nav collapse). Override-only: it owns the new
+  // .settings-main/.settings-nav-label selectors and higher-specificity #settingsTabs overrides;
+  // no existing layer's rules were touched. Appended right after the layer it visually extends.
+  'css/views/settings.css',
   // 117g/117h: steward board layer (the one-line status, the drop-down board with its per-mission groups,
   // the docked "current one" rail, and the 2.0-window return band that lives in the classic pane).
   // Appended last for the same reason.
@@ -589,7 +594,38 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      字号／宽度不同的文字位图等权叠化就是重影；新增 vt-shared-out／vt-shared-in 两条 keyframes。
 // 反向验证：把 vt-shared-in 那条 keyframes 改一个数字 → 本值与实算不符，frontend-domains D51
 // 与 live-full-text F3 双红。
-const LEGACY_STYLES_SHA256 = '38f82119cff967bf10711f36a6eeed48df38e091fc82854d3eb44ca1298e2bf5';
+// 123-S1 重钉（前值即上面那个 38f82119…）：本刀做了两件事 ——
+//   ① **新增一层** `css/views/settings.css`（设置弹窗重设计：左侧竖排分组导航 ＋ 右侧内容面板、
+//      弹窗 720→920、页脚生效提示、≤640px 导航折叠为横向滚动条），登记在 steward-settings.css
+//      之后（分组表 18 组 22 层 → 18 组 23 层），index.html 直链 / styles.css @import /
+//      build-overlay.js 离线清单四处同步；覆盖式写法，八个既有层一个字节没动。
+//   ② 改两个既有层：`css/themes/ui-modes.css` 在既有简易模式隐藏规则旁加一条「隐藏集成组标签」
+//      （该组两枚页签在简易模式下全被藏掉，组头不能留空壳）；`css/views/steward-conversation.css`
+//      四处打磨（用户气泡加细描边与内边距、.steward-say 行高 1.65→1.7 ＋ .md 段落 .8em、
+//      .steward-deliverable 从左描边引用升级为 --panel 面板、.steward-act 高度下限改跟 --tap-min）。
+// 算法自证：改动全部落盘后在【工作区】按本文件自己的 readLayerPayload() 重算（分组表已含新层）；
+// 反向验证：把 #settingsTabs.settings-tabs 的 flex-basis 改一个像素 → 本值与实算不符，
+// frontend-domains D51 与 live-full-text F3 双红。
+// 123-S2 续钉（前值即上面那个 a5c2acb5…）：**零新增、零删除层**（分组表一个字节没动，仍是
+// 18 组 23 层），只改了两个既有层 ——
+//   ① `css/views/settings.css`：五枚分组标签升级为可折叠二级菜单（.settings-nav-group 容器、
+//      组头按钮化 ＋ chevron 旋转 ＋ 子钮缩进与淡入、窄屏强制全组展开、reduced-motion 关动效），
+//      新增段内锚点 chip 条（.settings-jumplist）与 stab-basic 折叠分组（details.settings-fold）两族；
+//   ② `css/themes/ui-modes.css`：简易模式「集成」组隐藏规则从瞄 label 改瞄新的组容器
+//      （.settings-nav-group[data-group="integrations"]），语义一个字没变。
+// 123-S3 续钉（前值即上面那个 2cbb9335…）：**零新增、零删除层**（仍是 18 组 23 层），只改了
+// 两个既有层 ——
+//   ① `css/layout.css`：顶栏品牌标五条规则（.brand-mark/.brand-mark svg/.brand-cloud/
+//      .brand-pearl/.app-brand-name）随 index.html 顶栏品牌区撤下而退役（2026-09-14 用户走查：
+//      窗口标题栏已印全名，顶栏再印属重复）；
+//   ② `css/components/chat-primitives.css`：空状态品牌标注释里对 .brand-mark 的过时引用改写，
+//      规则本身一个字没动。
+// 算法自证：改动全部落盘后在【工作区】按本文件自己的 readLayerPayload() 重算；
+// 反向验证：frontend-domains D51 与 live-full-text F3 复跑转绿。
+// 123-S4 续钉（前值即上面那个 2f033d2d…）：零新增、零删除层，只改 `css/views/settings.css`
+// 一行 —— .settings-nav-label 补 justify-content:flex-start，卸掉从 .tool-tabs button 漏进来的
+// justify-content:center（2026-09-14 用户走查：组头居中、与子钮左缘不齐，展开后很丑）。
+const LEGACY_STYLES_SHA256 = 'fdaa46468b370d111235d813fdc9813d5992ec422106920a1b6da552efa1a041';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

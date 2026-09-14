@@ -42,6 +42,11 @@
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"],
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="mcp"],
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="advanced"] { display: none; }
+/* 123-S2 设置弹窗分组导航升级为可折叠二级菜单：简易模式下「集成」组的两枚页签
+   （integrations / mcp）都被上面那条藏掉，整个组容器一并隐藏 —— 否则竖排导航里会留下
+   一枚没有任何页签的空组头。其余四组在简易模式下各有可见页签（模型与服务组留
+   providers/network，系统组留 doctor/update），组头照常可用。 */
+:root[data-ui-mode="simple"] #settingsTabs .settings-nav-group[data-group="integrations"] { display: none; }
 /* Composer advanced buttons: 技能 折叠；#compactBtn 已移出 composer（入上下文弹层），此处不再需要藏它。
    📎 附件 和 发送 stay. */
 /* v3 (§B1): 简易模式技能入口【显示】—— 原先那条把简易模式技能按钮设为不可见的规则已删除。

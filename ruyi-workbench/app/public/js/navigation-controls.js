@@ -760,12 +760,104 @@ function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop'
 // 而管家总开关只住在管家页，于是「第一次把管家打开」在出厂默认（uiMode='simple'）下无路可走。
 // 互补关系由 uimode-style 的 S1b 机械看住（新增页签时忘了这里，那条断言会红）。
 const SETTINGS_SIMPLE_TABS = new Set(['basic', 'steward', 'providers', 'network', 'doctor', 'update']);
+// 123-S2 设置弹窗左侧导航：五枚分组升级为可折叠二级菜单。全部纯新增 ——
+// 折叠态存 localStorage（wcw.* 前缀，与 stewardDetails 同一惯例），缺省只展开「通用」；
+// 切页签（含 openModal 恢复上次页签）自动展开其所在组并落盘；组头点击走一次事件委托，
+// 零定时器、不改任何既有函数签名。组头没有 data-stab，页签接线与简易模式隐藏的规则不受影响。
+const SETTINGS_NAV_STORE_KEY = 'wcw.settingsNavGroups';
+function readSettingsNavOpen() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SETTINGS_NAV_STORE_KEY) || 'null');
+    return Array.isArray(value) ? value.filter(item => typeof item === 'string') : null;
+  } catch { return null; }
+}
+function persistSettingsNavOpen() {
+  const open = [...document.querySelectorAll('#settingsTabs .settings-nav-group.is-open')]
+    .map(group => group.dataset.group).filter(Boolean);
+  try { localStorage.setItem(SETTINGS_NAV_STORE_KEY, JSON.stringify(open)); } catch { /* ignore */ }
+}
+function setSettingsNavGroup(group, open, persist) {
+  if (!group) return;
+  group.classList.toggle('is-open', open);
+  const head = group.querySelector('.settings-nav-label');
+  if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (persist) persistSettingsNavOpen();
+}
+function syncSettingsNavFromStore() {
+  const stored = readSettingsNavOpen();
+  document.querySelectorAll('#settingsTabs .settings-nav-group').forEach(group => {
+    const open = stored ? stored.includes(group.dataset.group) : group.dataset.group === 'general';
+    setSettingsNavGroup(group, open, false);
+  });
+}
+function openSettingsNavGroupFor(stabName) {
+  const tab = document.querySelector(`#settingsTabs button[data-stab="${stabName}"]`);
+  const group = tab && tab.closest ? tab.closest('.settings-nav-group') : null;
+  if (group && !group.classList.contains('is-open')) setSettingsNavGroup(group, true, true);
+}
+let _settingsNavWired = false;
+function ensureSettingsNavWiring() {
+  if (_settingsNavWired) return;
+  const tabs = document.getElementById('settingsTabs');
+  if (!tabs) return;
+  _settingsNavWired = true;
+  syncSettingsNavFromStore();
+  tabs.addEventListener('click', event => {
+    const head = event.target && event.target.closest ? event.target.closest('.settings-nav-label') : null;
+    if (!head || !tabs.contains(head)) return;
+    const group = head.closest('.settings-nav-group');
+    if (group) setSettingsNavGroup(group, !group.classList.contains('is-open'), true);
+  });
+}
+// 123-S2 长面板段内锚点 chip 条：从【已翻译的】段标题现取文案（零新增 i18n 键），每次切页签
+// 重建（语言切换后标签不会留在旧语言）。候选段：basic 的四个折叠分组 / steward 的九张
+// section / claude 的两枚段标题；缺 id 的段标题按「面板 id-sec-N」补一个确定性 id。
+const SETTINGS_JUMP_PANELS = Object.freeze({
+  'stab-basic': 'details.settings-fold',
+  'stab-steward': 'section.steward-settings-group',
+  'stab-claude': 'h4.settings-subhead',
+});
+function jumpTargetLabel(node) {
+  if (node.matches('details.settings-fold')) return node.querySelector('summary')?.textContent.trim() || '';
+  if (node.matches('section.steward-settings-group')) return node.querySelector('h4')?.textContent.trim() || '';
+  return node.textContent.trim();
+}
+function buildSettingsJumpList(panelId) {
+  const panel = document.getElementById(panelId);
+  const selector = SETTINGS_JUMP_PANELS[panelId];
+  if (!panel || !selector) return;
+  panel.querySelector('.settings-jumplist')?.remove();
+  const targets = [...panel.querySelectorAll(selector)]
+    .map((node, index) => {
+      if (!node.id) node.id = `${panelId}-sec-${index + 1}`;
+      return { id: node.id, label: jumpTargetLabel(node) };
+    })
+    .filter(item => item.label);
+  if (targets.length < 2) return;
+  const nav = document.createElement('nav');
+  nav.className = 'settings-jumplist';
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  for (const item of targets) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'settings-jump-chip';
+    chip.textContent = item.label;
+    chip.addEventListener('click', () => {
+      document.getElementById(item.id)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    });
+    nav.appendChild(chip);
+  }
+  panel.insertBefore(nav, panel.firstChild);
+}
 // Settings tab switcher (§4.5): toggles the tab-bar button + the matching .settings-tab panel.
 // v1.5 (§1.2): 简易模式下,非白名单页签一律落回「基础」;force=true 供明确的开发者入口(如引导页
 // 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
 function switchSettingsTab(name, force) {
   if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
+  ensureSettingsNavWiring();        // 123-S2：首挂事件委托 ＋ 按 localStorage 还原各组折叠态
+  openSettingsNavGroupFor(name);    // 123-S2：切到哪个页签就展开它所在的组（含 openModal 恢复上次页签）
+  buildSettingsJumpList(`stab-${name}`); // 123-S2：长面板顶部重建段内锚点 chip 条（无候选段的面板自动跳过）
   document.querySelectorAll('#settingsTabs button[data-stab]').forEach(b => b.classList.toggle('active', b.dataset.stab === name)); // 118d: 排尾的「?」不是页签
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();

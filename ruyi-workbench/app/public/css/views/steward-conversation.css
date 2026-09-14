@@ -49,7 +49,8 @@
   align-self: flex-end;
   align-items: flex-end;
   max-width: 520px;
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
   background: var(--accent-soft);
 }
@@ -104,7 +105,7 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--ink);
 }
 .steward-msg-user .steward-say { color: var(--ink); }
@@ -178,8 +179,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  height: 32px;
-  min-height: 32px;
+  /* 123-S1：高度下限跟密度 token 走（comfortable 40 / compact 30），不再写死 32px。 */
+  min-height: var(--tap-min);
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -500,6 +501,8 @@
 .steward-say.md .mermaid-block,
 .steward-say.md .mermaid-view { max-width: 100%; }
 .steward-say.md img { max-width: 100%; height: auto; }
+/* 123-S1：中文长文可读性 —— 段落间距比 .md 的全站档（.72em）略松半档，与 1.7 的行高配套。 */
+.steward-say.md p { margin: .8em 0; }
 
 /* 来源小头：收件箱触发的那条回复才有（用户自己问的那条不加）。点它 = steward:focus-thread。
    安静档 —— 灰字、细描边、无实底，不跟话本身抢眼；零 transition，故 reduced-motion 的关闭清单
@@ -525,13 +528,16 @@
 .steward-source:focus-visible { outline: none; box-shadow: var(--ring); }
 
 /* ── 117s-H2 交付卡（27 号文 §11.13.3 H2「用户看原件，管家只加批注」）─────────────────────
-   收件箱触发的那条回复里，管家的话上面是来源小头、下面是【线程自己交付的原文】。卡本身仍然
-   不是一个盒子（§8.1「少一个盒子」）：只有一条左描边把原文与按语分开 —— 引用的观感，不是卡片的。
-   取值全部沿用既有 token，零新配色、零 transition（故 reduced-motion 的关闭清单一个字没加）。 */
+   收件箱触发的那条回复里，管家的话上面是来源小头、下面是【线程自己交付的原文】。
+   123-S1：从「只有一条左描边的引用」升级成一张立得住的小面板 —— 面板底 --panel、细边框 --line、
+   圆角 --r-md，让它在对话流里与管家本人的按语一眼分开（取值全是既有 token，零新配色、
+   零 transition／零 animation，故 reduced-motion 的关闭清单一个字没加）。 */
 .steward-deliverable {
   min-width: 0;   /* .steward-msg 是 flex 列：宽内容要能收窄，才谈得上「只在气泡里横滚」 */
-  padding-inline-start: var(--sp-3);
-  border-inline-start: 2px solid var(--line-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
 }
 .steward-deliverable-head {
   margin: 0 0 var(--sp-1);

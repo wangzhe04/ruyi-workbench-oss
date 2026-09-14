@@ -69,11 +69,15 @@ function between(hay, startNeedle, endNeedle) {
   // ════════════ ① 联网搜索页签 + searchBackend 表单控件 ════════════
   const settingsTabs = between(html, '<div class="tool-tabs settings-tabs" id="settingsTabs">', '</div>');
   ok(/data-stab="network"/.test(settingsTabs), '① 设置有 data-stab="network" 页签');
-  // 页签顺序：network 在 integrations 之后、advanced 之前。
+  // 页签顺序（123-S1 翻面重钉，2026-09-14）：设置弹窗分组重设计把 network 有意归入「模型与服务」组
+  // （claude/providers/agents/network），整组排在「集成」组之前 —— 这是新契约，不是回归。
+  // 旧钉「network 在 integrations 之后、advanced 之前」由此翻面为「network 在同组 agents 之后、
+  // integrations 之前，advanced 仍居末组」，语义强度不变（仍是严格的索引序钉，只是指向新契约）。
+  const gIdx = settingsTabs.indexOf('data-stab="agents"');
   const iIdx = settingsTabs.indexOf('data-stab="integrations"');
   const nIdx = settingsTabs.indexOf('data-stab="network"');
   const aIdx = settingsTabs.indexOf('data-stab="advanced"');
-  ok(iIdx >= 0 && nIdx > iIdx && aIdx > nIdx, '① network 页签插在 集成/MCP 之后、高级 之前');
+  ok(gIdx >= 0 && nIdx > gIdx && iIdx > nIdx && aIdx > iIdx, '① network 页签归入「模型与服务」组（agents 之后）、集成/MCP 之前；高级 仍在最后');
   const netPanel = between(html, 'id="stab-network"', 'id="stab-advanced"');
   ok(!!netPanel, '① 找到 #stab-network 面板');
   ok(/id="cfgSearchType"/.test(netPanel), '① 面板含类型 select #cfgSearchType');
