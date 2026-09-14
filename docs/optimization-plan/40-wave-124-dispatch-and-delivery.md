@@ -162,9 +162,18 @@
 
 ## 8. 停点（2026-09-14 收工；下次从这里进）
 
-**master `56ef6dc`，未推远端。** 工作树只有两个本机杂物（`.ruyi-runtime/`、`dev-harness/summary-provider-matrix-live.js`），不入库。
+**master `4060d77`，未推远端。** 工作树只剩一个本机杂物 `failed-c.txt`（48 行的失败件清单，某次跑批留下的），不入库、也没人读它——顺手删掉或加 `.gitignore` 都行，本刀不替用户决定。
 
-### 8.1 本次会话进了什么
+### 8.0 P1 之后的状态（2026-09-14 夜）
+
+| 提交 | 是什么 |
+|---|---|
+| `6a56808` | **清障**：HEAD 上两条既有红的判据漂移（`copy-path-guard` 白名单行号 +10；`steward-drawer` 的 M5c／M6 —— 124 走查②给分组补了「常用赢」去重之后，两条断言还钉着旧的「各印一行」）。两条都做了真反向 |
+| `4060d77` | **124-P1 四态标签与只读投影**（§6-ter）。含对派单稿 §4 的一处证伪与那枚只有机器写得了的章 |
+
+**本轮全量（12 核 / 34 GB，4 路）**：`345 ran / 342 pass / 3 fail / 2 flaky`。**三条红全是 realhist 夹具缺失那三件**（`observation-recall-realhistory`／`-replay`／`session-notes`）——用 `git worktree` 检出 HEAD 逐条复现过，与本刀无关，登记在 §8.4 ⑤；**真回归 0**。另有 `long-tool-liveness-steer` 在 4 路里红、串行复跑即过（并行争抢，不是回归），flaky 名单 `agent-deadlock-watchdog`／`steward-board`。
+
+### 8.1 上一轮会话进了什么
 
 | 提交 | 是什么 |
 |---|---|
@@ -175,7 +184,12 @@
 
 **这台机器（12 核 / 34 GB）的三轮全量**：344/0/7 → 344/0/2 → （P0 轮）**344 pass / 0 fail / 2 flaky**。三轮 flaky 名单只有部分重合，都是并行争抢，不是回归。
 
-### 8.2 卡在哪（用户去找那份文件）
+### 8.2 ~~卡在哪（用户去找那份文件）~~ —— **已解除（2026-09-14）**
+
+41 号方案已入库（`6aad25e`），§9.3 就是那张 16 条验收场景表，四条原文与本波的对应关系见 **§6-bis-J**：范围不缺，唯一差额是 **J06 本波不过门**（属 T02，35 号文已裁决不立项）。下面这段留着，是为了让下一个人看得见「当时不确定的是什么、按什么判断先开工的」。
+
+<details><summary>当时的判断（原文保留）</summary>
+
 
 **P1 开工前要拿到仓外 `ruyi-personal-workbench-iteration-plan.md` 的 §9 里 J01／J06／J08／J15 四条原文**（本机 `docs/` 与用户 Documents 下都搜过，没有；多半在另一台机器上，或当初贴在对话里）。
 
@@ -184,13 +198,26 @@
 - **真影响两件**：① 退出门的**逐字文案锁**写不准（123 波的 J10／J11 最后钉到了「原文不含『成功』」这种字面判据上）；② **可能漏一件**——四个 J 覆盖整波，若某条描述的处境本文没规划到，会一路建完到退出门才发现，返工落在 P1–P3。
 - **拿不到怎么办**：按 §5 现有判据直接开 P1，号文里如实标「J 编号未核」。范围大概率不缺（35 号文 §2 那一行是从同一份文档抄的），缺的是场景措辞。
 
-### 8.3 下一刀 P1 的开工三步
+</details>
+
+### 8.3 ~~下一刀 P1 的开工三步~~ → **下一刀 P2「委托书与原件」的开工三步**
+
+1. **核基线**：`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边）、`node dev-harness/run-all.js --fast`（**71/71**，白名单那条红已在 `6a56808` 清掉）。
+2. **重 grep 两处落点**（派单稿行号会过期，纪律 1）：`public/js/thread-head.js` 的线程头装配点、`public/js/steward-conversation.js` 里按 `sessionId+turnSeq` 定位的那个入口（35 号文 §1 对 C05 的抽查确认过这个口径在仓里成立）。
+3. **先确定「第一条」的判据再写渲染**：§5 的 P2 反向是「把委托书插到第二条 → 红」，所以那条静态锁要钉的是**位置**，不是「存在」。
+
+**P1 留给 P2 的两件现成东西**：① 详情快照的 `acceptance` 里已经有 `provenance`／`checkState`／`container`／`merged`，委托书要印「验收怎么算」时直接读，不要再去 `session.mission` 里自己算一遍；② 抽屉里 iso → 人话的唯一出口是 `agoLabel()`（`steward-drawer.static` 的 J8 按「只有一处调平台实现」计数，委托书要印时间就走它或同款收口，别再开第二处）。
+
+<details><summary>P1 当时的开工三步（原文保留）</summary>
+
 
 1. **核基线**：`git pull`（若换机器）；`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边／1 SCC）、`node dev-harness/run-all.js --fast`（71/71）。
 2. **重 grep 一遍 §1 那张表的四条落点**（派单稿的行号会过期，纪律 1）：`02-session-store.js` 的 `normalizeMissionAcceptance`／`normalizeMission`／`buildMissionResult`、`13d-core-domain-routes.js` 的 `/api/missions/:id` 详情投影与那条「唯一写入口」PATCH。
 3. **先写「单写入口」静态锁再写投影**（§4 末段）：那把锁是四态推导能成立的前提，先有锁，投影才不会哪天悄悄开始说谎。
 
-**并行度**：本机 4 路（`node dev-harness/run-all.js --parallel 4 > log 2>&1`，别用 `| tail`，会吞退出码）。整台机器同一时刻只许一个回归在跑（纪律 14）。改了前端 JS 必须跑真浏览器件（纪律 13）；P1 会碰 `src/`，**改完整条生成器链重跑**（纪律 10）。
+</details>
+
+**并行度**：本机 4 路（`node dev-harness/run-all.js --parallel 4 > log 2>&1`，别用 `| tail`，会吞退出码）。整台机器同一时刻只许一个回归在跑（纪律 14）。改了前端 JS 必须跑真浏览器件（纪律 13）；碰 `src/` 就**整条生成器链重跑**（纪律 10：`module-dependency-graph.js --write` → `build.js` → 动了件数还要 `facts-generate.js`、动了 13 系路由还要 `route-inventory.js`）。
 
 ### 8.4 队列里还压着的
 
