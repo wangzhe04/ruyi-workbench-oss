@@ -60,6 +60,20 @@ export const CONFIRM_TEXT = Object.freeze({
     okKey: 'common.confirm',
     cancelKey: 'common.cancel',
   }),
+  // 定时任务两枚不可逆动作（123-M2 登记①／40 号文 P0）。「立即运行」不是预览:它真的起一个回合,
+  // 花钱、而且可能对外做事;「删除」是彻底没了。两条都从这张表取键,调用点不拼键。
+  scheduleRunNow: Object.freeze({
+    titleKey: 'settings.steward.schedule.runNow',
+    bodyKey: 'settings.steward.schedule.runNowConfirm',
+    okKey: 'common.confirm',
+    cancelKey: 'common.cancel',
+  }),
+  scheduleDelete: Object.freeze({
+    titleKey: 'settings.steward.schedule.delete',
+    bodyKey: 'settings.steward.schedule.deleteConfirm',
+    okKey: 'common.confirm',
+    cancelKey: 'common.cancel',
+  }),
   // 权限切「全自动」：chips 菜单内与设置页两处共用（那两处保持就地形态，理由见各自文件）。
   permissionAuto: Object.freeze({
     titleKey: 'stewardShell.permission.confirmTitle',

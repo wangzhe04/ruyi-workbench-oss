@@ -36,6 +36,9 @@ import { icon, permissionIconName } from './icons.js';
 // 不再复用 readScheduleTasks；排序也换成「暂停与算不出下一次的也要在表里」（upcomingSchedules
 // 按设计会把它们滤掉，那是「接下来」要的语义，不是这张表要的）。
 import { scheduleWhenLabel } from './rail-pocket.js';
+// 40 号文 P0①：危险动作的确认件与文案键都住 js/confirm-panel.js（33 号文 §4「四套收一套」的那一份）。
+// 本文件只调，不自己拼键、更不用 globalThis.confirm（119 波已把原生框清零）。
+import { confirmDanger } from './confirm-panel.js';
 
 // 第117波 117e：管家设置（27 号文 §5 117e 行 / §8.6「权限的界面表达」/ §4「面板」/ §11.1 拍板 6·7）。
 //
@@ -801,15 +804,29 @@ export function createStewardSettingsDomain({
     return item;
   }
 
+  // 40 号文 P0③：取回 runs 的这一趟里，整张表可能被一帧 schedule.changed 重画过 —— 那时手上这个
+  // host 已经脱离文档，往里 append 等于画给空气看（scheduler-ui.browser 的 B3 就是这么红的）。
+  // 认「用户要看的是哪一条」这件事，落点重新找一次。
+  function liveRunsHost(taskId, host) {
+    if (host && host.isConnected) return host;
+    const root = doc();
+    const row = root ? root.querySelector(`#cfgStewardSchedule .steward-schedule-row[data-task-id="${CSS.escape(String(taskId))}"]`) : null;
+    return row ? row.querySelector('.steward-schedule-runs') : null;
+  }
   async function toggleRuns(taskId, host) {
     if (scheduleOpenRuns === taskId) { scheduleOpenRuns = ''; host.hidden = true; clear(host); return 0; }
     scheduleOpenRuns = taskId;
     clear(host);
     host.hidden = false;
     const response = await call(`${SCHEDULE_TASKS_PATH}/${encodeURIComponent(taskId)}/runs?limit=${SCHEDULE_RUNS_LIMIT}`);
+    const live = liveRunsHost(taskId, host);
+    if (!live) return 0;                 // 那一条整个没了（被删）：没有落点，也就没什么可画
+    scheduleOpenRuns = taskId;           // 重画把它清空过，重新认回来
+    clear(live);
+    live.hidden = false;
     const runs = (response && Array.isArray(response.runs)) ? response.runs : [];
-    if (!runs.length) { host.appendChild(el('li', 'steward-schedule-empty', t('settings.steward.schedule.runsEmpty'))); return 0; }
-    for (const run of runs) host.appendChild(scheduleRunRow(run));
+    if (!runs.length) { live.appendChild(el('li', 'steward-schedule-empty', t('settings.steward.schedule.runsEmpty'))); return 0; }
+    for (const run of runs) live.appendChild(scheduleRunRow(run));
     return runs.length;
   }
 
@@ -848,14 +865,23 @@ export function createStewardSettingsDomain({
       () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, {
         method: 'PATCH', body: JSON.stringify({ enabled: state.enabled === false }),
       })));
+    // 40 号文 P0①：「立即运行」与「删除」两枚不可逆动作先问一句。confirmDanger 的契约是
+    // 「返回 false 一律表示没得到允许」（取消／✕／Esc／点背影／键写错都算），所以必须 await 之后再动手。
+    const taskTitle = String(task.title || task.name || '');
     actions.appendChild(button('steward-schedule-act', t('settings.steward.schedule.runNow'),
-      () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}/run-now`, { method: 'POST' })));
+      async () => {
+        if (!await confirmDanger({ name: 'scheduleRunNow', bodyParams: { title: taskTitle } })) return false;
+        return scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}/run-now`, { method: 'POST' });
+      }));
     const runsHost = el('ul', 'steward-schedule-runs');
     runsHost.hidden = true;
     actions.appendChild(button('steward-schedule-act', t('settings.steward.schedule.runs'),
       () => toggleRuns(String(task.id || ''), runsHost)));
     actions.appendChild(button('steward-schedule-act steward-schedule-del', t('settings.steward.schedule.delete'),
-      () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, { method: 'DELETE' })));
+      async () => {
+        if (!await confirmDanger({ name: 'scheduleDelete', bodyParams: { title: taskTitle } })) return false;
+        return scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, { method: 'DELETE' });
+      }));
     item.appendChild(actions);
     item.appendChild(runsHost);
     return item;
@@ -882,6 +908,18 @@ export function createStewardSettingsDomain({
     }
     for (const task of rows) list.appendChild(scheduleTaskRow(task));
     return rows.length;
+  }
+  // 40 号文 P0③：推送来的刷新与「按刷新键」不是一回事 —— 用户展开着某一条的「最近几次」时，
+  // 别处（管家建了一条／到点跑完了）派来的一帧不该把他正看着的那一格收起来。loadSchedule 会把
+  // scheduleOpenRuns 清空并重建整张表，所以这里记住展开的是哪一条，重画完再把它展开回来。
+  async function refreshScheduleFromPush() {
+    const openId = scheduleOpenRuns;
+    await loadSchedule();
+    if (!openId) return 0;
+    const row = doc() && doc().querySelector(`#cfgStewardSchedule .steward-schedule-row[data-task-id="${CSS.escape(openId)}"]`);
+    const host = row ? row.querySelector('.steward-schedule-runs') : null;
+    if (!host) return 0;      // 那一条被删了：没什么可展开的
+    return toggleRuns(openId, host);
   }
   async function loadSchedule() {
     let payload = null;
@@ -1033,6 +1071,9 @@ export function createStewardSettingsDomain({
       // 让服务端回来的那个数说话（min/max 只挂在 <input> 上给浏览器做输入提示）。
       const indexRecent = byId('cfgStewardThreadIndexRecent');
       if (indexRecent) indexRecent.value = Number.isFinite(Number(c.threadIndexRecent)) ? String(Number(c.threadIndexRecent)) : '';
+      // 40 号文 P0②：安静卡「稍后」推迟多久。同一手法——服务端那个数说话,客户端不抄第二份钳位。
+      const snoozeMinutes = byId('cfgStewardQuietSnoozeMinutes');
+      if (snoozeMinutes) snoozeMinutes.value = Number.isFinite(Number(c.quietCardSnoozeMinutes)) ? String(Number(c.quietCardSnoozeMinutes)) : '';
     } finally {
       seeding = false;
     }
@@ -1107,6 +1148,12 @@ export function createStewardSettingsDomain({
       // 落盘之后把【服务端钳过的那个数】写回框里 —— 用户填 5，服务端给 10，框里就得是 10，
       // 否则界面在说一件不成立的事。只补这一个框（不整页重播种，那会打断别处正在输入的值）。
       const clamped = Number(config().threadIndexRecent);
+      if (Number.isFinite(clamped)) event.target.value = String(clamped);
+    });
+    // 40 号文 P0②：与上面那一条同一个模具（送原样数字、服务端钳 [1,1440]、把钳过的写回框里）。
+    onChange('cfgStewardQuietSnoozeMinutes', async event => {
+      if (!await saveConfig({ quietCardSnoozeMinutes: num(event.target, 30) })) return;
+      const clamped = Number(config().quietCardSnoozeMinutes);
       if (Number.isFinite(clamped)) event.target.value = String(clamped);
     });
 
@@ -1188,6 +1235,17 @@ export function createStewardSettingsDomain({
     // 走 setter 而不是构造参数——构造那一行被 steward-settings.static 逐字钉着（新依赖一律迟绑定，
     // 与 drawer.setClassicWindow / setMissionRows 同一条纪律）。
     setOpenThread: handler => { openThreadHandler = typeof handler === 'function' ? handler : null; },
+    // 40 号文 P0③：定时任务块订阅 schedule.changed（13r 那条帧只转发 taskId/phase/outcome 与 id，
+    // 正文不进这条线）。口袋（rail-pocket）与焦点栏「接下来」（steward-drawer）早就订了，这一块没订
+    // ——于是「管家自己建了一条」「到点跑完了」这两件事，在设置页要手动按刷新才看得见，而用户刚在
+    // 这一页上盯着它。**仍然零计时器**：只是把「做完一个动作才刷」扩成「别处改了也刷」。
+    // 没打开过这一块（scheduleLoaded 假）就不刷：不为一个没人看的列表发请求。
+    setEventStream: stream => {
+      if (!stream || typeof stream.on !== 'function') return false;
+      try { stream.on('schedule.changed', () => { if (scheduleLoaded) void refreshScheduleFromPush(); }); }
+      catch { return false; }   // 推送是旁路：订不上也不能影响这一页能用
+      return true;
+    },
     // 真夹具的确定性刷新口（本块没有计时器：只在打开页签、按刷新、做完一个动作这三个时刻刷）。
     loadSchedule,
   });

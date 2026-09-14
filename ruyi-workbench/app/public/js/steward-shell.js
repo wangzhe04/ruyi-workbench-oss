@@ -501,6 +501,9 @@ export function createStewardShellDomain({
   // steward-drawer.static I3 逐字钉着（新依赖一律迟绑定，与 setClassicWindow／setMissionRows 同纪律）。
   board.setEventStream(eventStream);
   drawer.setEventStream(eventStream);
+  // 40 号文 P0③：设置页的定时任务块也订同一条流（只听 schedule.changed）—— 口袋与焦点栏早就订了，
+  // 独独这一块要手动按刷新才看得见别处的改动。同一条迟绑定纪律：构造那一行被 F4 逐字钉着。
+  settings.setEventStream(eventStream);
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
   // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
   drawer.setClassicWindow(sessionId => openInWorkbench(sessionId));

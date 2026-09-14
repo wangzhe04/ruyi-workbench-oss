@@ -453,6 +453,61 @@ ok(/releaseShieldEscape = stewardEscapeStack\.push\(/.test(settingsCode)
   && /if \(STEWARD_PERMISSION_CONFIRM_MODES\.includes\(mode\)\) \{/.test(settingsCode.slice(settingsCode.indexOf('function toggleShield()'))),
   'K8 换了外形没换行为：菜单仍进同一个 Esc 栈（连「点别处算不算我的」那份判据一起）、四档仍是 menuitemradio ＋ aria-checked ＋ aria-controls，需要二次确认的那一档仍先过确认');
 
+// ─── L 40 号文 P0 三小件（123-M2 登记里够得着的那三条）────────────────────────
+// L1 两枚不可逆动作的确认文案键住【登记表】，不在调用点拼键（33 号文 §4「四套收一套」的纪律）。
+// 读的是导出的对象本身，不是源码文本 —— 钉的是「这两条确认存在且指向这几个键」这件事。
+{
+  const table = confirmPanelMod.CONFIRM_TEXT || {};
+  ok(table.scheduleRunNow && table.scheduleRunNow.titleKey === 'settings.steward.schedule.runNow'
+    && table.scheduleRunNow.bodyKey === 'settings.steward.schedule.runNowConfirm'
+    && table.scheduleDelete && table.scheduleDelete.titleKey === 'settings.steward.schedule.delete'
+    && table.scheduleDelete.bodyKey === 'settings.steward.schedule.deleteConfirm',
+  'L1 定时任务两枚不可逆动作的确认键在 confirm-panel 的登记表里（scheduleRunNow / scheduleDelete）');
+}
+for (const key of ['settings.steward.schedule.runNowConfirm', 'settings.steward.schedule.deleteConfirm']) {
+  ok(typeof zh[key] === 'string' && zh[key].includes('{{title}}')
+    && typeof en[key] === 'string' && en[key].includes('{{title}}'),
+  `L1b ${key} 中英各一条，且带 {{title}} 占位（i18n 的插值是双花括号——单花括号会原样上屏）`);
+}
+// L2 调用点：两枚都必须先 await 确认再动手。confirmDanger 的契约是「false = 没得到允许」，
+// 少一个 await 就等于点了直接执行 —— 这正是修前的样子。
+ok(/async \(\) => \{\s*if \(!await confirmDanger\(\{ name: 'scheduleRunNow', bodyParams: \{ title: taskTitle \} \}\)\) return false;\s*return scheduleAction\(`\$\{SCHEDULE_TASKS_PATH\}\/\$\{id\}\/run-now`/.test(settingsCode),
+  'L2 「立即运行」先过确认再发 run-now');
+ok(/async \(\) => \{\s*if \(!await confirmDanger\(\{ name: 'scheduleDelete', bodyParams: \{ title: taskTitle \} \}\)\) return false;\s*return scheduleAction\(`\$\{SCHEDULE_TASKS_PATH\}\/\$\{id\}`, \{ method: 'DELETE' \}\)/.test(settingsCode),
+  'L2b 「删除」先过确认再发 DELETE');
+ok((settingsCode.match(/\/run-now`/g) || []).length === 1
+  && (settingsCode.match(/method: 'DELETE'/g) || []).length === 1,
+  'L2c 这两条路各只有一处 —— 不存在绕过确认的第二个入口');
+// L3 安静卡「稍后」推迟多久：设置里有入口，钳位仍然只由服务端做（客户端不抄第二份）。
+ok(/id="cfgStewardQuietSnoozeMinutes" type="number" min="1" max="1440" step="1"/.test(html)
+  && /data-i18n="settings\.steward\.quietSnoozeMinutes"/.test(html),
+  'L3 定时任务组里有「稍后推迟多久」的入口（min/max 只是浏览器输入提示）');
+ok(/snoozeMinutes\.value = Number\.isFinite\(Number\(c\.quietCardSnoozeMinutes\)\)/.test(settingsCode)
+  && /onChange\('cfgStewardQuietSnoozeMinutes', async event => \{\s*if \(!await saveConfig\(\{ quietCardSnoozeMinutes: num\(event\.target, 30\) \}\)\) return;/.test(settingsCode)
+  && /const clamped = Number\(config\(\)\.quietCardSnoozeMinutes\);/.test(settingsCode),
+  'L3b 读服务端的数、写回服务端、再把【服务端钳过的】那个数回填（与 threadIndexRecent 同一个模具）');
+ok(typeof zh['settings.steward.quietSnoozeMinutes'] === 'string' && typeof en['settings.steward.quietSnoozeMinutes'] === 'string'
+  && typeof zh['settings.steward.quietSnoozeMinutesHint'] === 'string' && typeof en['settings.steward.quietSnoozeMinutesHint'] === 'string',
+  'L3c 两条新键中英各一');
+// L4 定时任务块订阅推送：口袋与焦点栏早就订了，这一块修前只有「打开／按刷新／做完一个动作」三个时刻。
+ok(/setEventStream: stream => \{[\s\S]{0,400}?stream\.on\('schedule\.changed', \(\) => \{ if \(scheduleLoaded\) void refreshScheduleFromPush\(\); \}\);/.test(settingsCode),
+  'L4 设置域订 schedule.changed，且没打开过这一块（scheduleLoaded 假）就不刷');
+// 推送刷新与「按刷新键」不是一回事：前者不许把用户正展开着的那一格收起来（改这条之前
+// scheduler-ui.browser 的 B3/B4 真红过——整张表重画把展开的 runs 一起扔了）。
+ok(/async function refreshScheduleFromPush\(\) \{[\s\S]{0,400}?const openId = scheduleOpenRuns;[\s\S]{0,200}?await loadSchedule\(\);[\s\S]{0,400}?return toggleRuns\(openId, host\);/.test(settingsCode),
+  'L4e 推送刷新记住展开的是哪一条，重画完展开回来（按刷新键仍然是「收起来重来」，那是用户自己按的）');
+ok((settingsCode.match(/stream\.on\(/g) || []).length === 1,
+  'L4b 只订这一帧 —— 设置页不是第二个事件消费中心');
+// 取 runs 的那一趟里表可能被重画：落点必须重新找一次，不能往脱离文档的节点上画（B3 的真因）。
+ok(/const live = liveRunsHost\(taskId, host\);/.test(settingsCode)
+  && /function liveRunsHost\(taskId, host\) \{\s*if \(host && host\.isConnected\) return host;/.test(settingsCode)
+  && !/for \(const run of runs\) host\.appendChild/.test(settingsCode),
+'L4f runs 一律画进【还在文档里】的那个落点（host 脱离了就按 taskId 重新找）');
+ok(/settings\.setEventStream\(eventStream\);/.test(stewardShell),
+  'L4c 组合根把同一条流递给它（迟绑定 setter，构造那一行仍被 F4 逐字钉着）');
+ok(!/setInterval\(/.test(settingsCode) && !/setTimeout\([^)]*loadSchedule/.test(settingsCode),
+  'L4d 仍然零计时器：推送只是多了一个刷新时刻，不是轮询');
+
 console.log(`\nSTEWARD SETTINGS STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

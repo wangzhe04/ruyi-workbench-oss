@@ -1205,6 +1205,14 @@
             <section class="steward-settings-group" id="cfgStewardGroupSchedule" aria-labelledby="cfgStewardScheduleHeading">
               <h4 id="cfgStewardScheduleHeading" class="settings-subhead" data-i18n="settings.steward.group.schedule">定时任务</h4>
               <p class="muted prov-hint" data-i18n="settings.steward.group.scheduleHint">到点自己去办的事。可以在这里直接建，也可以直接对管家说。</p>
+              <!-- 123-M2 登记②（40 号文 P0②）：安静卡的「稍后」按下去会【真的排一条 once 提醒】， -->
+              <!-- 推迟多久此前只有服务端 config.quietCardSnoozeMinutes 一个出厂值、界面上没有入口。 -->
+              <!-- 放在定时任务这一组：那一按建的就是这一张表里的东西。钳位 [1,1440] 由服务端做。 -->
+              <div class="field-block">
+                <label for="cfgStewardQuietSnoozeMinutes" data-i18n="settings.steward.quietSnoozeMinutes">安静卡「稍后」推迟多久（分钟）</label>
+                <input id="cfgStewardQuietSnoozeMinutes" type="number" min="1" max="1440" step="1" />
+                <p class="field-help muted" data-i18n="settings.steward.quietSnoozeMinutesHint">1 到 1440 分钟。按下「稍后」会按这个间隔排一条真的提醒，到点它会自己回来找你。</p>
+              </div>
               <div class="steward-settings-row">
                 <button type="button" id="cfgStewardScheduleRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.refresh">刷新</button>
                 <button type="button" id="cfgStewardScheduleNewBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.new">新建</button>

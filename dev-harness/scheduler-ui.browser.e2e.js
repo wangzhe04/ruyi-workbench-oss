@@ -331,7 +331,13 @@ try {
     const node = document.querySelector('#railPocket [data-pocket="schedule"] .rail-pocket-n');
     return node && node.textContent === '1' ? 1 : null;
   })()`, 500)), 'B1 schedule.changed 帧到达之后口袋角标变 1（零轮询：本件全程不等任何定时刷新）');
-  // 设置块要按一下「刷新」——它没有计时器，也不订阅推送（§3.6：只在打开页签/按刷新/做完一个动作时刷）。
+  // 40 号文 P0③：设置块【现在订推送了】——不按刷新它也该自己变（修前只在打开页签/按刷新/做完
+  // 一个动作这三个时刻刷，而用户此刻正盯着这一页）。先不按键，验它自己更新；再按一次键，验
+  // 手动那条路没被推送替掉。仍然零计时器。
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const row = document.querySelector('#cfgStewardSchedule .steward-schedule-row[data-task-id="${firstId}"] .steward-schedule-badge');
+    return row && row.dataset.outcome === 'succeeded' ? 1 : null;
+  })()`)), 'B1b 不按刷新，设置块自己跟着 schedule.changed 变（P0③）');
   await cdp.evaluate(`(() => { document.getElementById('cfgStewardScheduleRefreshBtn').click(); return true; })()`);
   ok(Boolean(await waitForEval(cdp, `(() => {
     const row = document.querySelector('#cfgStewardSchedule .steward-schedule-row[data-task-id="${firstId}"] .steward-schedule-badge');
