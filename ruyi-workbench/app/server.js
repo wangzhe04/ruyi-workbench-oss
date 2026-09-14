@@ -3285,106 +3285,186 @@ function probeDesktopPython(candidate, cwd, desktopEnv) {
   } catch { return ''; }
 }
 
-// Returns the first Full candidate; if none exists, returns the first candidate that can at least import
-// the FastMCP server. `options.probe` is a deterministic test seam and may return true/false or full/core.
-function pickPython(repoRoot, desktopEnv, options = {}) {
+// 39 号文:同步探针的异步孪生 —— 同一发 python、同一套超时/解析口径,只是不占住事件循环。
+// 用 execFile 而不是 spawn:它与上面那发 spawnSync 一样【不过 shell】(Windows 上对 PATH 里的 .cmd
+// 同样 ENOENT,两条路的答案不会分家),而且原生支持 timeout/maxBuffer/encoding,三个口径逐字对齐。
+function probeDesktopPythonAsync(candidate, cwd, desktopEnv) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = probed => { if (!settled) { settled = true; resolve(probed); } };
+    try {
+      cp.execFile(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+        cwd: cwd || undefined,
+        env: { ...process.env, ...(desktopEnv || {}) },
+        windowsHide: true,
+        timeout: DESKTOP_PYTHON_PROBE_TIMEOUT_MS,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024,
+      }, (err, stdout) => {
+        if (err) return finish('');            // 非 0 退出/超时/ENOENT —— 与 spawnSync 那支同判
+        finish(String(stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core');
+      });
+    } catch { finish(''); }
+  });
+}
+
+// 下面三件是同步/异步两条选路【共用】的判断,单独抽出来是为了不让两条路在语义上悄悄分家
+// (33 号文的老主题:第二份实现迟早与第一份不一样)。
+// ① 候选归一 + 「要求存在」那道门;返回 null 表示这个候选直接跳过。
+function normalizeDesktopPythonCandidate(raw) {
+  const candidate = raw && typeof raw === 'object' ? raw : { command: String(raw || ''), args: [], source: 'unknown', requireExisting: true };
+  if (!candidate.command) return null;
+  if (candidate.requireExisting !== false) {
+    try { if (!fs.existsSync(candidate.command)) return null; } catch { return null; }
+  }
+  return candidate;
+}
+// ② 「优先 Full、core 兜底、拿到 Full 就收工」这条挑人规则的唯一实现。offer 返回 true = 可以收工。
+function desktopPythonPicker() {
+  let selected = null;
+  let coreFallback = null;
+  return {
+    offer(candidate, probed) {
+      const capability = probed === 'core' ? 'core' : (probed ? 'full' : '');
+      if (!capability) return false;
+      const match = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown', capability };
+      if (capability === 'full') { selected = match; return true; }
+      if (!coreFallback) coreFallback = match;
+      return false;
+    },
+    result() { return selected || coreFallback; },
+  };
+}
+// ③ 两张缓存的读(命中就不必探)与写。跨进程那张见 DESKTOP_PYTHON_DISK_MISS_CACHE_MS 头注:上一轮
+// (本进程或别的进程)探过同一把键且还在 TTL 内,就照那一轮的答案;命中也写进进程内表,15 s/5 min
+// 内连磁盘都不用读。测试口(options.probe / options.noCache)一律绕过两张表。
+function desktopPythonSelectionPlan(repoRoot, desktopEnv, options = {}) {
   const root = String(repoRoot || '');
   const bypassCache = options.noCache === true || typeof options.probe === 'function';
   const cacheKey = root + '\n' + String((desktopEnv && desktopEnv.PYTHONPATH) || '');
   const cached = !bypassCache && desktopPythonCache.get(cacheKey);
   const now = Date.now();
   const ttl = cached && cached.value ? DESKTOP_PYTHON_OK_CACHE_MS : DESKTOP_PYTHON_MISS_CACHE_MS;
-  if (cached && (now - cached.at) < ttl) return cached.value;
+  if (cached && (now - cached.at) < ttl) return { hit: true, value: cached.value };
 
   const candidates = Array.isArray(options.candidates) ? options.candidates : desktopPythonCandidates(root);
-  const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
-  // 跨进程缓存(见 DESKTOP_PYTHON_DISK_MISS_CACHE_MS 头注):上一轮(本进程或别的进程)已经探过同一把键、
-  // 且还在 TTL 内,就照那一轮的答案,不再把候选逐个慢探一遍。命中也写进进程内表,15 s/5 min 内连磁盘都不用读。
   const diskCacheId = bypassCache ? '' : desktopPythonDiskCacheId(root, desktopEnv, candidates);
   const diskHit = diskCacheId ? readDesktopPythonDiskEntry(diskCacheId) : null;
   if (diskHit) {
     desktopPythonCache.set(cacheKey, { at: now, value: diskHit.value });
-    return diskHit.value;
+    return { hit: true, value: diskHit.value };
   }
-  let selected = null;
-  let coreFallback = null;
-  for (const raw of candidates) {
-    const candidate = raw && typeof raw === 'object' ? raw : { command: String(raw || ''), args: [], source: 'unknown', requireExisting: true };
-    if (!candidate.command) continue;
-    if (candidate.requireExisting !== false) {
-      try { if (!fs.existsSync(candidate.command)) continue; } catch { continue; }
-    }
-    const probed = probe(candidate, root, desktopEnv);
-    const capability = probed === 'core' ? 'core' : (probed ? 'full' : '');
-    if (!capability) continue;
-    const match = { command: candidate.command, args: Array.isArray(candidate.args) ? candidate.args : [], source: candidate.source || 'unknown', capability };
-    if (capability === 'full') { selected = match; break; }
-    if (!coreFallback) coreFallback = match;
-  }
-  if (!selected) selected = coreFallback;
-  if (!bypassCache) {
-    desktopPythonCache.set(cacheKey, { at: now, value: selected });
-    writeDesktopPythonDiskEntry(diskCacheId, selected);
-  }
+  return { hit: false, value: null, root, candidates, cacheKey, diskCacheId, bypassCache, at: now };
+}
+function desktopPythonSelectionStore(selectionPlan, selected) {
+  if (selectionPlan.bypassCache) return selected;
+  desktopPythonCache.set(selectionPlan.cacheKey, { at: selectionPlan.at, value: selected });
+  writeDesktopPythonDiskEntry(selectionPlan.diskCacheId, selected);
   return selected;
+}
+
+// Returns the first Full candidate; if none exists, returns the first candidate that can at least import
+// the FastMCP server. `options.probe` is a deterministic test seam and may return true/false or full/core.
+function pickPython(repoRoot, desktopEnv, options = {}) {
+  const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
+  if (selectionPlan.hit) return selectionPlan.value;
+  const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
+  const picker = desktopPythonPicker();
+  for (const raw of selectionPlan.candidates) {
+    const candidate = normalizeDesktopPythonCandidate(raw);
+    if (!candidate) continue;
+    if (picker.offer(candidate, probe(candidate, selectionPlan.root, desktopEnv))) break;
+  }
+  return desktopPythonSelectionStore(selectionPlan, picker.result());
+}
+// 与 pickPython 逐行同形的异步版:同一张计划、同一个 picker、同一处写缓存,只有「怎么问那发 python」
+// 不同。写进的缓存就是同步那支读的那两张,所以预热一趟之后同步调用者一发探针都不用付。
+async function pickPythonAsync(repoRoot, desktopEnv, options = {}) {
+  const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
+  if (selectionPlan.hit) return selectionPlan.value;
+  const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPythonAsync;
+  const picker = desktopPythonPicker();
+  for (const raw of selectionPlan.candidates) {
+    const candidate = normalizeDesktopPythonCandidate(raw);
+    if (!candidate) continue;
+    if (picker.offer(candidate, await probe(candidate, selectionPlan.root, desktopEnv))) break;
+  }
+  return desktopPythonSelectionStore(selectionPlan, picker.result());
 }
 // True when a directory looks like the ai-computer-control repo (has the src package).
 function isDesktopMcpRepo(dir) {
   try { return !!dir && fs.existsSync(path.join(dir, 'src', 'ai_computer_control', 'server.py')); }
   catch { return false; }
 }
-function desktopMcpFromRepo(repoRoot) {
-  const src = path.join(repoRoot, 'src');
-  const desktopEnv = { PYTHONPATH: src, PYTHONUTF8: '1' };
+// 环境与产出形状同样是同步/异步共用的单一 owner(见 normalizeDesktopPythonCandidate 头注)。
+function desktopMcpRepoEnv(repoRoot) {
+  const desktopEnv = { PYTHONPATH: path.join(repoRoot, 'src'), PYTHONUTF8: '1' };
   // Offline releases keep Playwright's browser payload beside the embedded Python runtime. Without
   // this variable Playwright falls back to the user's cache and reports Chromium missing even though
   // the package contains it.
   const bundledBrowsers = path.join(repoRoot, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
-  const python = pickPython(repoRoot, desktopEnv);
-  if (!python) return null;
-  return {
-    command: python.command,
-    args: [...python.args, '-X', 'utf8', '-m', 'ai_computer_control.server'],
-    cwd: repoRoot,
-    env: desktopEnv,
-    via: 'python-module',
-    pythonSource: python.source,
-    pythonCapability: python.capability || 'core',
-  };
+  return desktopEnv;
 }
-
-// The bundled ACC installer writes this layout to %LOCALAPPDATA%\ai-computer-control. It contains an
-// installed package rather than a checkout with src/, so it needs its own recognizer.
-function desktopMcpFromInstalledRoot(installRoot, options = {}) {
-  const root = String(installRoot || '').trim();
-  if (!root) return null;
-  const desktopEnv = { PYTHONUTF8: '1' };
-  const bundledBrowsers = path.join(root, 'playwright_browsers');
-  try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
-  catch { /* optional payload; browser tools will degrade gracefully */ }
-  const installedCandidates = [
-    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
-    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
-  ];
-  const selected = pickPython(root, desktopEnv, {
-    candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
-    probe: typeof options.probe === 'function' ? options.probe : undefined,
-    noCache: options.noCache === true,
-  });
+function desktopMcpEntryFor(selected, cwd, desktopEnv) {
   if (!selected) return null;
   return {
     command: selected.command,
     args: [...selected.args, '-X', 'utf8', '-m', 'ai_computer_control.server'],
-    cwd: root,
+    cwd,
     env: desktopEnv,
     via: 'python-module',
     pythonSource: selected.source,
     pythonCapability: selected.capability || 'core',
   };
 }
-function detectDesktopMcp() {
+function desktopMcpFromRepo(repoRoot) {
+  const desktopEnv = desktopMcpRepoEnv(repoRoot);
+  return desktopMcpEntryFor(pickPython(repoRoot, desktopEnv), repoRoot, desktopEnv);
+}
+async function desktopMcpFromRepoAsync(repoRoot) {
+  const desktopEnv = desktopMcpRepoEnv(repoRoot);
+  return desktopMcpEntryFor(await pickPythonAsync(repoRoot, desktopEnv), repoRoot, desktopEnv);
+}
+
+// The bundled ACC installer writes this layout to %LOCALAPPDATA%\ai-computer-control. It contains an
+// installed package rather than a checkout with src/, so it needs its own recognizer.
+function desktopMcpInstalledEnv(root) {
+  const desktopEnv = { PYTHONUTF8: '1' };
+  const bundledBrowsers = path.join(root, 'playwright_browsers');
+  try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
+  catch { /* optional payload; browser tools will degrade gracefully */ }
+  return desktopEnv;
+}
+function desktopMcpInstalledPickOptions(root, options) {
+  const installedCandidates = [
+    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+  ];
+  return {
+    candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
+    probe: typeof options.probe === 'function' ? options.probe : undefined,
+    noCache: options.noCache === true,
+  };
+}
+function desktopMcpFromInstalledRoot(installRoot, options = {}) {
+  const root = String(installRoot || '').trim();
+  if (!root) return null;
+  const desktopEnv = desktopMcpInstalledEnv(root);
+  return desktopMcpEntryFor(pickPython(root, desktopEnv, desktopMcpInstalledPickOptions(root, options)), root, desktopEnv);
+}
+async function desktopMcpFromInstalledRootAsync(installRoot, options = {}) {
+  const root = String(installRoot || '').trim();
+  if (!root) return null;
+  const desktopEnv = desktopMcpInstalledEnv(root);
+  return desktopMcpEntryFor(await pickPythonAsync(root, desktopEnv, desktopMcpInstalledPickOptions(root, options)), root, desktopEnv);
+}
+// 39 号文:(a)(b)(c) 三段【看哪些根目录、按什么顺序看】—— 纯枚举,只碰 fs.existsSync,一发探针都不放。
+// 同步 detectDesktopMcp 与异步孪生 detectDesktopMcpAsync 走同一份,免得两条路在「先看谁」上分家:
+// 预热那趟暖热的必须正好是同步那趟会问的那几把缓存键,否则预热白做。
+function desktopMcpRootPlan() {
+  const steps = [];
   try {
     const env = process.env;
     const home = os.homedir();
@@ -3392,8 +3472,8 @@ function detectDesktopMcp() {
     const envHome = env.AI_COMPUTER_CONTROL_HOME && String(env.AI_COMPUTER_CONTROL_HOME).trim();
     if (envHome) {
       const root = path.resolve(envHome);
-      if (isDesktopMcpRepo(root)) { const detected = desktopMcpFromRepo(root); if (detected) return detected; }
-      const installed = desktopMcpFromInstalledRoot(root); if (installed) return installed;
+      if (isDesktopMcpRepo(root)) steps.push({ kind: 'repo', root });
+      steps.push({ kind: 'installed', root });
     }
     // (b) common repo locations. Bundled monorepo copies come first (release layout ships the MCP
     // at <repo>/mcp/ai-computer-control with python_embed beside it and the app at
@@ -3413,18 +3493,23 @@ function detectDesktopMcp() {
     ].filter(Boolean);
     for (const dir of repoCandidates) {
       if (!isDesktopMcpRepo(dir)) continue;
-      const detected = desktopMcpFromRepo(path.resolve(dir));
-      if (detected) return detected;
+      steps.push({ kind: 'repo', root: path.resolve(dir) });
     }
     // (c) ACC's verified offline installer writes runtime\python; older releases used venv\Scripts.
     const installedRoots = [
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'ai-computer-control'),
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'ai-computer-control'),
     ].filter(Boolean);
-    for (const root of installedRoots) {
-      const detected = desktopMcpFromInstalledRoot(root);
-      if (detected) return detected;
-    }
+    for (const root of installedRoots) steps.push({ kind: 'installed', root });
+  } catch { /* never throw */ }
+  return steps;
+}
+
+// (d) 最后一段:PATH 与常见安装目录里的控制台脚本(不需要 checkout)。纯 fs,同步/异步共用。
+function desktopMcpConsoleScript() {
+  try {
+    const env = process.env;
+    const home = os.homedir();
     // (d) a console script on PATH or common install dirs (no repo checkout needed).
     const scriptDirs = [
       env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'ai-computer-control'),
@@ -3444,6 +3529,54 @@ function detectDesktopMcp() {
     }
   } catch { /* never throw */ }
   return null;
+}
+
+// 同步签名【保留】(39 号文 §2 的拍板):它的调用方是 resolveExternalMcpServers 一族,那一族散在 8 个模块
+// 12 处、连静态件都同步调,全改 async 是一次跨模块大手术,而要治的病(探针占住事件循环)靠「预热走异步、
+// 同步这支只吃缓存」就治得掉。冷缓存时它仍会同步探一轮 —— 那是兜底路径,不是正常路径。
+function detectDesktopMcp() {
+  try {
+    for (const step of desktopMcpRootPlan()) {
+      const detected = step.kind === 'repo' ? desktopMcpFromRepo(step.root) : desktopMcpFromInstalledRoot(step.root);
+      if (detected) return detected;
+    }
+    return desktopMcpConsoleScript();
+  } catch { /* never throw */ }
+  return null;
+}
+// 异步孪生:同一份根目录计划、同一套挑人规则,只是每发探针都让出事件循环。它写进的两张缓存
+// 正是同步那支要读的,所以预热跑完之后,同步调用者一发 spawnSync 都不用付。
+async function detectDesktopMcpAsync() {
+  try {
+    for (const step of desktopMcpRootPlan()) {
+      const detected = step.kind === 'repo' ? await desktopMcpFromRepoAsync(step.root) : await desktopMcpFromInstalledRootAsync(step.root);
+      if (detected) return detected;
+    }
+    return desktopMcpConsoleScript();
+  } catch { /* never throw */ }
+  return null;
+}
+// 只有「会走 autodetect」的配置才值得预热:显式 command 覆盖、或整块停用时,两条读路
+// (resolveExternalMcpServers 与 buildMcpConnectorInventory)本来就一发探针都不放 ——
+// 预热更不该放(04 的 55a 注释:「禁用时不应阻塞 GET 清单」)。两条读路的门一严一松
+// (一处 `dm.enabled`、一处 `dm.enabled !== false`),这里取松的那个,才不会漏热。
+function desktopMcpAutodetectWanted(config) {
+  const dm = config && config.desktopMcp;
+  if (!dm || dm.enabled === false) return false;
+  if (String(dm.command || '').trim()) return false;
+  return !!dm.autodetect;
+}
+// 唯一一处「主动去探」的入口。并发调用共用同一趟(启动预热与首个 /api/status 常常撞在一起)。
+// 缓存还热时它连 spawn 都不会发生,所以可以随手 await,不必自己判「该不该预热了」。
+// 拿不到 config 时一律不预热:退回旧的同步兜底,绝不因为「没人告诉我」就多探一轮。
+let desktopMcpWarmInFlight = null;
+function ensureDesktopMcpWarm(config) {
+  if (!desktopMcpAutodetectWanted(config)) return Promise.resolve(null);
+  if (desktopMcpWarmInFlight) return desktopMcpWarmInFlight;
+  desktopMcpWarmInFlight = detectDesktopMcpAsync()
+    .catch(() => null)
+    .then(detected => { desktopMcpWarmInFlight = null; return detected; });
+  return desktopMcpWarmInFlight;
 }
 
 // Runtime coordinates for loopback callbacks (permission bridge). Set in startServer().
@@ -3477,6 +3610,12 @@ function addExternalMcpServersToMap(mcpServers, config) {
 async function generateMcpConfig(mode) {
   await ensureDirs();
   const cfg = await readConfig().catch(() => null);
+  // 39 号文:本函数下面 addExternalMcpServersToMap → resolveExternalMcpServers → detectDesktopMcp 是
+  // 【同步】的,冷缓存时会把整个进程钉住一轮探针。它自己是 async,所以先等那趟异步预热——
+  // 实测就是这一处:只在 /api/status 的 desktopMcp 那一段等预热不够,mcpConfigPath 排在它【前面】,
+  // 同一个响应里先被这一处堵住(boot-listen-budget 的「探针在飞时 /health 秒答」因此偶红)。
+  // 排在 readConfig 之后,是因为「该不该预热」要看 config(停用/显式覆盖时一发都不放)。
+  await ensureDesktopMcpWarm(cfg);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
   const configPath = path.join(paths.generated, 'workbench.mcp.json');
@@ -11006,6 +11145,9 @@ function safeUrlForDisplay(urlStr) {
 // enabled/builtIn/capabilities。probe 时复用 resolveExternalMcpServers 取真实 entry(含完整 env,无漂移)。
 // env 值经 maskKey 掩码(防 token 类泄漏);command/url 不掩(配置面非密钥,UI 需识别连接器)。
 async function buildMcpConnectorInventory(config, opts = {}) {
+  // 39 号文:本函数下面两处(resolveExternalMcpServers 与第 1 段的 autodetect)在冷缓存时会同步探针。
+  // 它是 async,所以先等那趟异步预热 —— 缓存热时零开销,冷时也不再把事件循环钉住。
+  await ensureDesktopMcpWarm(config);
   const doProbe = !!(opts && opts.probe);
   const probeTimeoutMs = Math.max(2000, Number(opts && opts.probeTimeoutMs) || 10000);
   const resolvedById = new Map();
@@ -37273,6 +37415,10 @@ const DESKTOP_CONTROL_DETAILS = Object.freeze({
 });
 
 async function computeHealth(config) {
+  // 39 号文:下面 desktopControlState → resolveExternalMcpServers → detectDesktopMcp 是【同步】的,
+  // 冷缓存时一轮探针把整个进程钉住 ~2.4 s(实测就是这一处最先撞上:/api/status 的 health 字段排在
+  // desktopMcp 与 mcpConfigPath 【前面】)。本函数是 async,先等那趟异步预热,缓存热时零开销。
+  await ensureDesktopMcpWarm(config);
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
@@ -38969,7 +39115,10 @@ async function handleApi(req, res, pathname) {
       mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
       // (null when not found); `resolved` is what would actually be launched (honors explicit overrides).
-      desktopMcp: (() => {
+      desktopMcp: await (async () => {
+        // 39 号文:先等那趟异步预热。缓存热时它是个已决 Promise(零开销);冷时若不等,下面两行会
+        // 同步 spawnSync 逐个探候选,把整个进程钉住 ~2 s —— e2e 每件的首个 /api/status 正是这一处。
+        await ensureDesktopMcpWarm(config);
         const enabled = !!(config.desktopMcp && config.desktopMcp.enabled);
         const detected = detectDesktopMcp();
         const resolved = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null;
@@ -40479,7 +40628,10 @@ async function startServerInner(opts) {
   //   整个占住 —— 只 setImmediate 的话,check 阶段一进去就阻塞 2 s,此刻还没被解析完的 /health 仍要等到
   //   探针结束才答(实测:只 setImmediate,/health 仍 3.1 s)。故再推迟 BOOT_PROBE_WARMUP_MS,把「listen 之后
   //   最初那一两个请求(/health、首屏 GET /)」让出去。
-  //   【诚实标注】这只解决「起跑那一刻」:探针开跑之后那 2 s 里到达的请求照样要等。要彻底,得把
+  //   【39 号文之后】上面这段「探针开跑之后那 2 s 里到达的请求照样要等」已经不成立:预热改走
+  //   ensureDesktopMcpWarm()(execFile 异步),整段不再占事件循环;起跑延迟保留,理由从「别阻塞」
+  //   变成「首屏那一两个请求优先」。下面这条历史记录留着,是为了说明这段延迟当初为什么长这样。
+  //   【诚实标注·旧】这只解决「起跑那一刻」:探针开跑之后那 2 s 里到达的请求照样要等。要彻底,得把
   //   detectDesktopMcp/pickPython 改成 async spawn —— 36 号文 §2.5 已把它登记为本刀不做的后续项。
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
@@ -40497,11 +40649,16 @@ async function startServerInner(opts) {
     void startScheduler(config).catch(() => {});
     // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
     // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
-    void syncMcpServersToClaude(config).catch(() => {});
-    if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
-    // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
-    void getCapabilities(config).catch(() => {});
-    void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
+    // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
+    // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
+    // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
+    void ensureDesktopMcpWarm(config).then(() => {
+      void syncMcpServersToClaude(config).catch(() => {});
+      if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+      // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
+      void getCapabilities(config).catch(() => {});
+      void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
+    });
   }), BOOT_PROBE_WARMUP_MS).unref();
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
@@ -52663,6 +52820,10 @@ module.exports = {
   pickPython,
   desktopPythonCandidates,
   desktopMcpFromInstalledRoot,
+  // 39 号文:异步孪生与预热闸门 — 单测直接拿它们量「探针不占事件循环」与「预热之后同步那支零探针」。
+  detectDesktopMcpAsync,
+  pickPythonAsync,
+  ensureDesktopMcpWarm,
   resolveExternalMcpServers,
   safeMcpInventory,
   configureMcpFromTool,

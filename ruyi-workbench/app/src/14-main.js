@@ -166,6 +166,10 @@ module.exports = {
   pickPython,
   desktopPythonCandidates,
   desktopMcpFromInstalledRoot,
+  // 39 号文:异步孪生与预热闸门 — 单测直接拿它们量「探针不占事件循环」与「预热之后同步那支零探针」。
+  detectDesktopMcpAsync,
+  pickPythonAsync,
+  ensureDesktopMcpWarm,
   resolveExternalMcpServers,
   safeMcpInventory,
   configureMcpFromTool,

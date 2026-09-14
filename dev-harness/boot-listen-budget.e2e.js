@@ -16,7 +16,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ① 墙钟判据:spawn → /health 200 ≤ 2.5 s（本机真探针 ~2 s，修前必然超）；
 //   ② /api/status 仍在 15 s 内返回且 desktopMcp 字段形状不变（首个请求付一次探针，是号文接受的）；
 //   ③ 形状锁:三处 fire-and-forget 与 generateMcpConfig 预热都排在 listenWithFallback 之【后】、
-//      在延迟 setImmediate 段里，且 detectDesktopMcp 仍是同步签名（本刀不改）。
+//      在延迟 setImmediate 段里，且 detectDesktopMcp 仍是同步签名（39 号文的拍板：签名保留，
+//      预热改走异步孪生 ensureDesktopMcpWarm()，形状锁跟着钉住「三处 fire-and-forget 排在它的 .then 里」）；
+//   ④ 39 号文：探针在飞的时候 /health 不该被挡住（同步 spawnSync 会把整个进程钉住 ~2 s）。
 //      —— ① 在「本机没装任何 python」的机器上会变弱（探针本来就不慢），③ 是与机器无关的那一半。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
@@ -30,6 +32,7 @@ const SHIM = path.join(BASE, 'shim');
 const WB_PORT = 8732;                            // 本件固定端口(端口审计:跨文件零撞车)
 const HEALTH_BUDGET_MS = 2500;
 const STATUS_BUDGET_MS = 15000;
+const HEALTH_DURING_PROBE_BUDGET_MS = 800;   // 39 号文 ④:探针在飞时另一个请求的天花板(同步版实测 ~2 s)
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
@@ -83,9 +86,19 @@ function getJson(pathname, token, timeoutMs) {
     for (let i = 0; i < 300; i++) { try { token = JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { /* not yet */ } if (token) break; await sleep(50); }
     ok(!!token, 'runtime token available');
 
+    // 39 号文 ④:趁 /api/status 那一发探针还在飞,横插一个 /health。同步 spawnSync 那版会把整个进程
+    // 钉住 ~2 s(此刻 token 刚落盘,离 listen 只有几十毫秒,启动预热的 500 ms 延迟还没到,所以这一发
+    // /api/status 就是那趟探针的发起者)。本机没装 python 的话探针本来就快,这条会变弱但不会假红。
     const s0 = Date.now();
-    const status = await getJson('/api/status', token, STATUS_BUDGET_MS);
+    const statusPending = getJson('/api/status', token, STATUS_BUDGET_MS);
+    await sleep(50);
+    const h0 = Date.now();
+    const healthyDuringProbe = await health();
+    const healthDuringProbeMs = Date.now() - h0;
+    const status = await statusPending;
     const statusMs = Date.now() - s0;
+    ok(healthyDuringProbe && healthDuringProbeMs <= HEALTH_DURING_PROBE_BUDGET_MS,
+      `探针在飞时 /health 仍然秒答(实得 ${healthDuringProbeMs} ms ≤ ${HEALTH_DURING_PROBE_BUDGET_MS}；同一时刻 /api/status 用了 ${Date.now() - s0} ms)`);
     ok(status && status.status === 200 && status.json && status.json.ok !== false, `/api/status 在 ${STATUS_BUDGET_MS} ms 内返回（实得 ${statusMs} ms）`);
     const dm = status && status.json ? status.json.desktopMcp : undefined;
     const dmKeys = dm && typeof dm === 'object' ? Object.keys(dm).sort().join(',') : String(dm);
@@ -113,7 +126,15 @@ function getJson(pathname, token, timeoutMs) {
     ok(/^\s*const imp = await autoImportClaudeCodeMcp\(config\)/m.test(beforeListen),
       's autoImportClaudeCodeMcp 仍留在 listen 之前（它只读 ~/.claude.json，不碰探针）');
     ok(/function detectDesktopMcp\(\)/.test(src) && !/async function detectDesktopMcp\(\)/.test(src),
-      's detectDesktopMcp 保持同步签名（本刀不改，已登记）');
+      's detectDesktopMcp 保持同步签名（39 号文 §2 的拍板：它的调用方 resolveExternalMcpServers 一族散在 8 个模块，改 async 是跨模块大手术）');
+    // ── 39 号文的三把形状锁 ──
+    ok(/async function detectDesktopMcpAsync\(\)/.test(src) && /async function pickPythonAsync\(/.test(src),
+      's 异步孪生 detectDesktopMcpAsync／pickPythonAsync 都在');
+    ok(/function probeDesktopPythonAsync\(/.test(src) && /cp\.execFile\(candidate\.command/.test(src),
+      's 异步探针走 cp.execFile（不过 shell，与 spawnSync 那支同口径）');
+    const warmAt = afterListen.indexOf('void ensureDesktopMcpWarm(config).then(() => {');
+    ok(warmAt > 0 && warmAt < afterListen.indexOf('syncMcpServersToClaude(config)'),
+      's boot 段先 ensureDesktopMcpWarm()，三处 fire-and-forget 排在它的 .then 里（预热之后它们的同步前缀全部吃缓存）');
   } finally {
     kill(wb);
     await sleep(300);

@@ -200,19 +200,34 @@
         "contentTypeFor",
         "decodeClaudeCliText",
         "defaultConfig",
+        "desktopMcpAutodetectWanted",
+        "desktopMcpConsoleScript",
+        "desktopMcpEntryFor",
         "desktopMcpFromInstalledRoot",
+        "desktopMcpFromInstalledRootAsync",
         "desktopMcpFromRepo",
+        "desktopMcpFromRepoAsync",
+        "desktopMcpInstalledEnv",
+        "desktopMcpInstalledPickOptions",
+        "desktopMcpRepoEnv",
+        "desktopMcpRootPlan",
+        "desktopMcpWarmInFlight",
         "desktopPythonCache",
         "desktopPythonCandidates",
         "desktopPythonDiskCacheId",
         "desktopPythonDiskCachePath",
         "desktopPythonDiskEntryFresh",
+        "desktopPythonPicker",
+        "desktopPythonSelectionPlan",
+        "desktopPythonSelectionStore",
         "detectAgentCliPath",
         "detectClaudePath",
         "detectClaudePathUncached",
         "detectDesktopMcp",
+        "detectDesktopMcpAsync",
         "detectKimiPath",
         "effectiveAnthropicEnv",
+        "ensureDesktopMcpWarm",
         "externalServerJs",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
@@ -229,13 +244,16 @@
         "mutateConfig",
         "normalizeAgentRole",
         "normalizeConfig",
+        "normalizeDesktopPythonCandidate",
         "normalizeWorkspacePathString",
         "originOk",
         "permissionModeFrom",
         "pickPython",
+        "pickPythonAsync",
         "prepareAgentCliSpawn",
         "probeAgentCliLauncher",
         "probeDesktopPython",
+        "probeDesktopPythonAsync",
         "quoteWinArg",
         "readBody",
         "readConfig",
@@ -1565,6 +1583,13 @@
         {
           "provider": "01-config.js",
           "symbol": "detectDesktopMcp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ensureDesktopMcpWarm",
           "kinds": [
             "call"
           ]
@@ -8321,6 +8346,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ensureDesktopMcpWarm",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "externalServerJs",
           "kinds": [
             "call"
@@ -9131,6 +9163,13 @@
         {
           "provider": "01-config.js",
           "symbol": "effectiveAnthropicEnv",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ensureDesktopMcpWarm",
           "kinds": [
             "call"
           ]
@@ -16137,6 +16176,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "detectDesktopMcpAsync",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "detectKimiPath",
           "kinds": [
             "read"
@@ -16145,6 +16191,13 @@
         {
           "provider": "01-config.js",
           "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ensureDesktopMcpWarm",
           "kinds": [
             "read"
           ]
@@ -16208,6 +16261,13 @@
         {
           "provider": "01-config.js",
           "symbol": "pickPython",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "pickPythonAsync",
           "kinds": [
             "read"
           ]

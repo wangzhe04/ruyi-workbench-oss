@@ -1710,6 +1710,9 @@ function safeUrlForDisplay(urlStr) {
 // enabled/builtIn/capabilities。probe 时复用 resolveExternalMcpServers 取真实 entry(含完整 env,无漂移)。
 // env 值经 maskKey 掩码(防 token 类泄漏);command/url 不掩(配置面非密钥,UI 需识别连接器)。
 async function buildMcpConnectorInventory(config, opts = {}) {
+  // 39 号文:本函数下面两处(resolveExternalMcpServers 与第 1 段的 autodetect)在冷缓存时会同步探针。
+  // 它是 async,所以先等那趟异步预热 —— 缓存热时零开销,冷时也不再把事件循环钉住。
+  await ensureDesktopMcpWarm(config);
   const doProbe = !!(opts && opts.probe);
   const probeTimeoutMs = Math.max(2000, Number(opts && opts.probeTimeoutMs) || 10000);
   const resolvedById = new Map();

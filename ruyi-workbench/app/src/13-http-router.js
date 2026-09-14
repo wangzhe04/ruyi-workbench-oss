@@ -323,7 +323,10 @@ async function handleApi(req, res, pathname) {
       mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
       // (null when not found); `resolved` is what would actually be launched (honors explicit overrides).
-      desktopMcp: (() => {
+      desktopMcp: await (async () => {
+        // 39 号文:先等那趟异步预热。缓存热时它是个已决 Promise(零开销);冷时若不等,下面两行会
+        // 同步 spawnSync 逐个探候选,把整个进程钉住 ~2 s —— e2e 每件的首个 /api/status 正是这一处。
+        await ensureDesktopMcpWarm(config);
         const enabled = !!(config.desktopMcp && config.desktopMcp.enabled);
         const detected = detectDesktopMcp();
         const resolved = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null;
@@ -1833,7 +1836,10 @@ async function startServerInner(opts) {
   //   整个占住 —— 只 setImmediate 的话,check 阶段一进去就阻塞 2 s,此刻还没被解析完的 /health 仍要等到
   //   探针结束才答(实测:只 setImmediate,/health 仍 3.1 s)。故再推迟 BOOT_PROBE_WARMUP_MS,把「listen 之后
   //   最初那一两个请求(/health、首屏 GET /)」让出去。
-  //   【诚实标注】这只解决「起跑那一刻」:探针开跑之后那 2 s 里到达的请求照样要等。要彻底,得把
+  //   【39 号文之后】上面这段「探针开跑之后那 2 s 里到达的请求照样要等」已经不成立:预热改走
+  //   ensureDesktopMcpWarm()(execFile 异步),整段不再占事件循环;起跑延迟保留,理由从「别阻塞」
+  //   变成「首屏那一两个请求优先」。下面这条历史记录留着,是为了说明这段延迟当初为什么长这样。
+  //   【诚实标注·旧】这只解决「起跑那一刻」:探针开跑之后那 2 s 里到达的请求照样要等。要彻底,得把
   //   detectDesktopMcp/pickPython 改成 async spawn —— 36 号文 §2.5 已把它登记为本刀不做的后续项。
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
@@ -1851,11 +1857,16 @@ async function startServerInner(opts) {
     void startScheduler(config).catch(() => {});
     // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
     // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
-    void syncMcpServersToClaude(config).catch(() => {});
-    if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
-    // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
-    void getCapabilities(config).catch(() => {});
-    void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
+    // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
+    // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
+    // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
+    void ensureDesktopMcpWarm(config).then(() => {
+      void syncMcpServersToClaude(config).catch(() => {});
+      if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+      // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
+      void getCapabilities(config).catch(() => {});
+      void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
+    });
   }), BOOT_PROBE_WARMUP_MS).unref();
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;

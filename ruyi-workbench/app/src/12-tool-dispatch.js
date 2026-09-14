@@ -1478,6 +1478,10 @@ const DESKTOP_CONTROL_DETAILS = Object.freeze({
 });
 
 async function computeHealth(config) {
+  // 39 号文:下面 desktopControlState → resolveExternalMcpServers → detectDesktopMcp 是【同步】的,
+  // 冷缓存时一轮探针把整个进程钉住 ~2.4 s(实测就是这一处最先撞上:/api/status 的 health 字段排在
+  // desktopMcp 与 mcpConfigPath 【前面】)。本函数是 async,先等那趟异步预热,缓存热时零开销。
+  await ensureDesktopMcpWarm(config);
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
