@@ -103,3 +103,42 @@
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
 2. **不碰** `normalizeMissionCheck` 的 `trusted` 门。那道门是防提示注入拿到无提示 shell 执行的唯一闸（`02-session-store.js:1577` 的头注），本波只**读**它的结论。
 3. 「意图修订 intentRevision」（T02）仍不立项（35 号文 §1 对 §5.1 的裁决）。
+
+## 8. 停点（2026-09-14 收工；下次从这里进）
+
+**master `56ef6dc`，未推远端。** 工作树只有两个本机杂物（`.ruyi-runtime/`、`dev-harness/summary-provider-matrix-live.js`），不入库。
+
+### 8.1 本次会话进了什么
+
+| 提交 | 是什么 |
+|---|---|
+| `1b489d3` | **39 号刀 · 桌面 MCP 探针异步预热**（同步签名保留＋异步孪生＋预热闸门；同一时刻的 `/health` 2389 ms → **2 ms**；全量 344/0/7 真回归 0） |
+| `2fcbb3c` | 39 号文交付记录 ＋ **本文（124 波派单稿）**；32 号文地图推进 |
+| `fde1fc1` | **124-P0 三小件**（立即运行／删除二次确认、`quietCardSnoozeMinutes` 设置入口、定时任务块订阅 `schedule.changed`）＋ 连带修回「推送刷新把用户展开的那一格收起来」；全量 344/0/2 真回归 0 |
+| `94d2978`／`56ef6dc` | §6-bis 交付记录、地图推进到 P1；后一笔是补回被反引号吃掉的提交号 |
+
+**这台机器（12 核 / 34 GB）的三轮全量**：344/0/7 → 344/0/2 → （P0 轮）**344 pass / 0 fail / 2 flaky**。三轮 flaky 名单只有部分重合，都是并行争抢，不是回归。
+
+### 8.2 卡在哪（用户去找那份文件）
+
+**P1 开工前要拿到仓外 `ruyi-personal-workbench-iteration-plan.md` 的 §9 里 J01／J06／J08／J15 四条原文**（本机 `docs/` 与用户 Documents 下都搜过，没有；多半在另一台机器上，或当初贴在对话里）。
+
+**它影响什么、不影响什么**（按 122 波的先例判断：36 号文 §2.2 那一行「触发：Codex 方案 §9 J04」，J 给的是**用户触发场景**，不是判据本身）：
+- **不影响**：§1 的三套数据面取证、§4「一个字段都不加」的裁决、「单写入口」静态锁、P0（已出门）。这些是 grep 出来的事实。
+- **真影响两件**：① 退出门的**逐字文案锁**写不准（123 波的 J10／J11 最后钉到了「原文不含『成功』」这种字面判据上）；② **可能漏一件**——四个 J 覆盖整波，若某条描述的处境本文没规划到，会一路建完到退出门才发现，返工落在 P1–P3。
+- **拿不到怎么办**：按 §5 现有判据直接开 P1，号文里如实标「J 编号未核」。范围大概率不缺（35 号文 §2 那一行是从同一份文档抄的），缺的是场景措辞。
+
+### 8.3 下一刀 P1 的开工三步
+
+1. **核基线**：`git pull`（若换机器）；`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边／1 SCC）、`node dev-harness/run-all.js --fast`（71/71）。
+2. **重 grep 一遍 §1 那张表的四条落点**（派单稿的行号会过期，纪律 1）：`02-session-store.js` 的 `normalizeMissionAcceptance`／`normalizeMission`／`buildMissionResult`、`13d-core-domain-routes.js` 的 `/api/missions/:id` 详情投影与那条「唯一写入口」PATCH。
+3. **先写「单写入口」静态锁再写投影**（§4 末段）：那把锁是四态推导能成立的前提，先有锁，投影才不会哪天悄悄开始说谎。
+
+**并行度**：本机 4 路（`node dev-harness/run-all.js --parallel 4 > log 2>&1`，别用 `| tail`，会吞退出码）。整台机器同一时刻只许一个回归在跑（纪律 14）。改了前端 JS 必须跑真浏览器件（纪律 13）；P1 会碰 `src/`，**改完整条生成器链重跑**（纪律 10）。
+
+### 8.4 队列里还压着的
+
+1. **`listen()` 之前 1.19 s 的同步 spawn**：`normalizeConfig → defaultConfig → detectClaudePath／detectKimiPath`（实测 189＋156＋**844** ms）。这是「打开工作台等半天」剩下的大头，排在 listen 之前谁都挡不住；39 号刀那套修法（异步预热＋缓存会合）可以照搬。
+2. **`steward-board` 的 300 s 豁免**：根因已还，撤销复测要在 24 核那台跑一轮 8 路全量（39 号文 §8 ①，`run-all.js` 注释里也写了）。
+3. 127 波的 `playbook`／`workflow` 两类载荷与开机自启（37 号文 §6 ②）。
+4. 38 号文 §7 的四条（同回合纠正重试要先有「不写会话正文」的旁路通道、`walkthrough-round1.browser` 抖动、13p／13q 每回合两次读同一份会话可合并、契约判据下一档结构化）。
