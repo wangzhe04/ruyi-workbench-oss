@@ -466,9 +466,10 @@ export function createQuickSwitchChips({
   // 删自定义模型、刷新与管理服务商）要有去处 —— 全部落到本菜单的尾部。它们动的是【全局配置】
   // 而不是这条线程，实现因此仍住 navigation-controls.js（saveConfigPartial／refreshModels 都在
   // 那边），本工厂只留一个挂点：
-  //   deletableIds() -> Set（哪些模型行尾可以带「×」）
-  //   onDelete(id)   -> Promise（删掉它，删完由本工厂重画菜单）
-  //   appendTail(menu, { route, close }) -> void（强度选择器、刷新、管理服务商…）
+  //   deletableIds(route) -> Set（哪些模型行尾可以带「×」；provider 那一组＝这个端点的候选清单）
+  //   onDelete(id, route) -> Promise（删掉它；删完由本工厂【就地重画】菜单，不关）
+  //   appendTail(menu, { route, close, redraw }) -> void（强度选择器、刷新、管理服务商…；
+  //   redraw 供「刷新模型列表」使用：候选来源换了就在原菜单上重画，不把选择界面关掉）
   // 不注入就一件都不出现（抽屉与左栏看板密度维持原样）。
   modelMenuExtras = null,
   // 121 走查1-⑤：回执写到哪儿由宿主说了算（见下面 note()）。不传就是原来那条路
@@ -480,6 +481,11 @@ export function createQuickSwitchChips({
   let host = null;
   let openMenu = null;                 // 同一时刻只允许一个 chip 菜单展开
   const chips = new Map();             // kind -> { button, value, menu }
+
+  // 121-K5 尾部那两件（刷新模型列表／行尾「×」）换掉的是【候选来源】而不是这条线程：数据一变，菜单要
+  // 就地重画，而不是关掉让用户重新点开（用户走查①「点刷新会直接把选择界面关掉，得重开再切模型」）。
+  // buildModelMenu 每次开菜单把重画口登记在这里，forgetOpenMenu 摘掉 —— 菜单不在屏幕上时重画是空转。
+  let redrawModelMenu = null;
 
   function config() { return (state && state.config) || {}; }
 
@@ -503,6 +509,7 @@ export function createQuickSwitchChips({
   // 焦点归还由 popover 自己做（锚点就是那颗 chip），不必在这里再来一次。
   function forgetOpenMenu() {
     pendingFocus = null;
+    redrawModelMenu = null;   // 菜单已收：重画口跟着作废，别让迟到的回调去动一张不在屏幕上的菜单
     const menu = openMenu;
     openMenu = null;
     if (menu) {
@@ -674,9 +681,13 @@ export function createQuickSwitchChips({
       const provider = (config().providers || []).find(item => item && item.id === route.providerId) || null;
       const group = String(route.providerId || '');
       const groupLabel = String((provider && (provider.label || provider.id)) || group);
+      // 这一端点【已被用户删掉】的模型：服务端 GET /api/models 在合并点挡过一次，这里再挡一次 ——
+      // 折回之前那份 config 里的陈旧清单（可能仍留着已删的 id）不该在菜单上闪一下。
+      const hidden = new Set((provider && Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
+        .map(v => String(v || '').trim()).filter(Boolean));
       return (provider && Array.isArray(provider.models) ? provider.models : [])
         .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || ''), group, groupLabel }))
-        .filter(model => model.id);
+        .filter(model => model.id && !hidden.has(model.id));
     }
     const models = (state && state.status && Array.isArray(state.status.models)) ? state.status.models : [];
     const group = 'agent:' + route.agentCliType;
@@ -699,11 +710,15 @@ export function createQuickSwitchChips({
       opts: {
         classNames: STEWARD_MODEL_ROW_CLASSES,
         showCheck: false,   // 当前项由 aria-checked 表达，不摆 2.0 那颗 ✓
-        // 121-K5：行尾「×」删自定义模型 —— 2.0 弹层独有的那一件，判据（哪些 id 可删）与动作
-        // 都由宿主注入，本工厂只把 model-menu.js 现成的那两个挂点接上（第 44 波就有的能力）。
+        // 121-K5：行尾「×」删模型 —— 2.0 弹层独有的那一件，判据（哪些 id 可删）与动作都由宿主注入，
+        // 本工厂只把 model-menu.js 现成的那两个挂点接上（第 44 波就有的能力）。判据与动作都带上【这一张
+        // 菜单自己的路由】：命令行引擎那组删的是自定义条目（extraModels ∪ knownModels），provider 那组
+        // 删的是这个端点候选清单里的一行（两者都在 navigation-controls.js 的 modelMenuExtras 里分岔）。
         ...(modelMenuExtras && typeof modelMenuExtras.onDelete === 'function' ? {
-          deletableIds: typeof modelMenuExtras.deletableIds === 'function' ? modelMenuExtras.deletableIds() : null,
-          onDelete: async id => { await modelMenuExtras.onDelete(id); closeMenu(); },
+          deletableIds: typeof modelMenuExtras.deletableIds === 'function' ? (modelMenuExtras.deletableIds(route) || null) : null,
+          deleteTitle: t(route && route.engine === 'openai' ? 'modelMenu.deleteEndpointModel' : 'modelMenu.deleteCustomModel'),
+          // 删完就地重画，不关菜单：那一行当场消失，「常用」/折叠计数/「默认」徽标跟着重算，用户接着往下选。
+          onDelete: async id => { await modelMenuExtras.onDelete(id, route); if (redrawModelMenu) redrawModelMenu(); },
         } : {}),
         attrs: model => ({
           role: 'menuitemradio',
@@ -741,22 +756,31 @@ export function createQuickSwitchChips({
   }
 
   function buildModelMenu(menu) {
-    const route = resolveEngineRoute(session, config());
+    redrawModelMenu = null;   // 这张菜单自己的重画口，登记在下面（draw() 就位之后）
+    let route = resolveEngineRoute(session, config());
     // 紧凑模式：引擎收进模型菜单的第一段（同一份 engineOptions，不写第二套判据）。
     if (compact) {
       menu.appendChild(el('p', 'steward-chip-group', t('stewardShell.chips.engine')));
       buildEngineMenu(menu);
       menu.appendChild(el('p', 'steward-chip-group', t('stewardShell.chips.model')));
     }
-    const options = modelOptions(route);
+    let options = [];
+    let defaultModel = '';
+    // 候选来源（providers[].models ／ status.models）会被尾部的「刷新模型列表」与行尾的「×」就地换掉，
+    // 所以 route／options／「默认」那一项每次重画都重算一遍，不是建菜单时的一次性快照。
+    function syncCandidates() {
+      route = resolveEngineRoute(session, config());
+      options = modelOptions(route);
+      // 全局默认的那一项：只有当全局与这条会话走的是【同一个引擎／provider】时才认 —— 否则那个
+      // 默认值属于另一个端点，给同名的一行贴「默认」徽标是张冠李戴。
+      const globalRoute = resolveEngineRoute(null, config());
+      defaultModel = routeKey(globalRoute) === routeKey(route) ? String(globalRoute.model || '') : '';
+    }
+    syncCandidates();
     if (!options.length) {
       menu.appendChild(el('p', 'steward-chip-option-hint', t('stewardShell.chips.noModels')));
       return;
     }
-    // 全局默认的那一项：只有当全局与这条会话走的是【同一个引擎／provider】时才认 —— 否则那个
-    // 默认值属于另一个端点，给同名的一行贴「默认」徽标是张冠李戴。
-    const globalRoute = resolveEngineRoute(null, config());
-    const defaultModel = routeKey(globalRoute) === routeKey(route) ? String(globalRoute.model || '') : '';
     let filter = '';
     let foldOpen = false;
     const list = el('div', 'steward-chip-list');
@@ -837,10 +861,20 @@ export function createQuickSwitchChips({
       list.appendChild(asDefault);
     }
     draw();
+    // 就地重画（尾部的「刷新模型列表」与行尾的「×」用）：只换 list 的内容，搜索框、尾部那三件、焦点
+    // 一概不动。菜单已经关掉时 list 已被摘走 —— 与下面用量到货那条同一判据，什么都不做。
+    // 注意这里【不】套用下面那条「指针停在菜单里就不重画」的守卫：那是防用量迟到把行序悄悄挪走；
+    // 这两件是用户自己按下的，正停在这一行上，必须当场重画。
+    redrawModelMenu = () => {
+      if (!list.parentNode) return;
+      syncCandidates();
+      draw();
+    };
     // ⑦ 121-K5：2.0 弹层独有的尾巴（思考／推理强度、刷新模型列表、管理服务商…）。宿主没注入
-    //    就整段不出现 —— 抽屉与左栏看板密度的那两份菜单一个字没变。
+    //    就整段不出现 —— 抽屉与左栏看板密度的那两份菜单一个字没变。ctx 里多带一个 redraw：
+    //    刷新换的是【候选来源】，重画在原菜单上进行，不关菜单（用户走查①）。
     if (modelMenuExtras && typeof modelMenuExtras.appendTail === 'function') {
-      try { modelMenuExtras.appendTail(menu, { route, close: () => closeMenu() }); }
+      try { modelMenuExtras.appendTail(menu, { route, close: () => closeMenu(), redraw: () => { if (redrawModelMenu) redrawModelMenu(); } }); }
       catch { /* 尾巴画不出来不该把整张菜单拖垮 */ }
     }
     // 用量是后到的（第一次开菜单才去拉）：到了就把 list 重画一遍。菜单已经关掉时 list 已被摘走
@@ -854,7 +888,11 @@ export function createQuickSwitchChips({
       if (!list.parentNode) return;
       const active = doc() ? doc().activeElement : null;
       if (typeof menu.matches === 'function' && menu.matches(':hover')) return;
-      if (active && menu.contains(active)) return;
+      // 只有焦点【落在某一行选项上】时才不重画 —— 那时整段下挪会把 :hover/键盘高亮错位成「偏一行」。
+      // 焦点在搜索框里不算：菜单一打开就把焦点交给搜索框（117x-M2），把它也当成「落在菜单里」，
+      // 用量到货这一拍就永远不重画 —— 候选 > 8 的那张菜单第一次打开永远看不到「常用」段。
+      const inSearchBox = Boolean(active && active.dataset && typeof active.dataset.chipSearch === 'string');
+      if (active && !inSearchBox && menu.contains(active)) return;
       draw();
     }).catch(() => {});
   }

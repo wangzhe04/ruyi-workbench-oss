@@ -324,8 +324,14 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // #modelChip 一起退役，换进来的是 modelMenuExtras（68 行）—— 本文件净 -35 行，两条登记行号
     // 随之 415→380、531→496（逐行 byte 比对过：内容仍是那两处 ctx-pop 的「已用 N / 上限 M」文本，
     // 是位移不是新增，同 M1-a／M1-b 两次的先例）。
-    380: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
-    496: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
+    // 124 走查（用户 2026-09-14 两条小修）：本文件在 300 行前后插入 deleteProviderModel／
+    // providerModelIdSet（+45）、modelMenuExtras 的 route 分岔与「刷新不关菜单」（+15）、两段说明
+    // （+3），合计 +63 行 —— 两条登记行号随之整体 +63（逐行 byte 比对过：内容仍是那两处 ctx-pop
+    // 的「已用 N / 上限 M」文本，是位移不是新增，同 M1-a／M1-b 与 117s-G 的先例）。
+    // 顺带修正一处陈旧：HEAD 上这两个键（380/496）就已比真实命中（389/505）小 9 行，本波按当前
+    // 源码逐条重钉为 452/568（判据本身一个字没改）。
+    452: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
+    568: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
   },
 });
 const CJK_SCAN_TARGETS = [
@@ -361,7 +367,7 @@ const p17FixedLines = {
   'chat-stream-runtime.js': [1292, 1296, 1297, 1301, 1315],   // 117s-G 在 :529/:537 前后插了 41 行,登记行整体 +41(内容逐条核对过)
   'workbench.js': [462, 465],
   'agent-roles.js': [45],
-  'navigation-controls.js': [450, 452, 453, 476, 478, 480, 482, 483, 491],   // M1-b 续：再 +10（setEngineModel 加 scope / openModelChipPopover 透传 opts；逐行 byte 比对九条各 +10，内容未变）
+  'navigation-controls.js': [513, 515, 516, 539, 541, 543, 545, 546, 554],   // 124 走查：本波在它们之前插入 63 行 —— 九条各 +63（逐行 byte 比对过，内容未变；上一档 M1-b 续的 +10 已含在旧数里）
 };
 const reintroduced = [];
 for (const [name] of CJK_SCAN_TARGETS) {

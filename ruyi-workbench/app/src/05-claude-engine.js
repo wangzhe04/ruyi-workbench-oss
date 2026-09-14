@@ -1162,6 +1162,13 @@ function sanitizeProvider(raw) {
       : (m && typeof m === 'object' ? { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim() } : null)))
       .filter(m => m && m.id).slice(0, 100)
     : [];
+  // 模型候选「已移除」名单（provider 级）：线程头模型菜单行尾那枚「×」删一行 = 在这里记下那个 id。
+  // GET /api/models 把「saved 清单 ∪ live 发现」合并成候选时一律跳过名单里的项 —— 否则 ↻ 刷新会把
+  // 刚删掉的那一行原样还回来，删除就成了只活一次画面的装饰。
+  // 与 pricing 同款「可加不加」：空名单不落字段，存量 config.json 逐字节零漂移。
+  const hiddenModels = Array.isArray(raw.hiddenModels)
+    ? [...new Set(raw.hiddenModels.map(v => String(v || '').trim().slice(0, 120)).filter(Boolean))].slice(0, 100)
+    : [];
   const extraHeaders = {};
   if (raw.extraHeaders && typeof raw.extraHeaders === 'object') {
     for (const [k, v] of Object.entries(raw.extraHeaders)) {
@@ -1212,6 +1219,7 @@ function sanitizeProvider(raw) {
     apiKey: str(raw.apiKey, 400),
     model: str(raw.model, 120).trim(),
     models,
+    ...(hiddenModels.length ? { hiddenModels } : {}),
     reasoning: raw.reasoning === true,
     reasoningEffort: providerReasoningEffort(raw),
     // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or

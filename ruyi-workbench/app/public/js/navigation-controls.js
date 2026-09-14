@@ -169,7 +169,7 @@ function renderPalette() {
 // 权限／模型／引擎自此只有 js/steward-chips.js 那一份工厂画一次（写口恒为 PATCH /api/sessions/:id）。
 // 留在本域的是它【独有】的那几件 —— 它们动的是全局配置，不是这条线程：
 //   · 思考强度 / 推理强度（setClaudeThinkingEffort / setProviderReasoningEffort）
-//   · 删自定义模型（deleteCustomModel）
+//   · 删模型行（deleteCustomModel ／ deleteProviderModel）
 //   · 刷新模型列表、管理服务商…
 // 三者经本文件末尾导出的 modelMenuExtras 挂进 chips 模型菜单的尾部（组合根一处接线）。
 const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -298,6 +298,50 @@ async function deleteCustomModel(modelId) {
   onEngineConfigChanged();
   await refreshModels(); // 静默重建 status.models
 }
+// provider 那一组（引擎 = OpenAI 兼容端点）：候选清单就是这个端点自己的 providers[].models（手填 ∪
+// 测试连接／刷新发现）。删一行 = 从这份清单里去掉，并把 id 记进 providers[].hiddenModels —— 服务端
+// GET /api/models 在【合并点】按它过滤，于是 ↻ 刷新也不会把刚删掉的那一行原样还回来（这是本波与
+// 命令行那一组的唯一差别：那一组删的是用户自己的条目，端点清单不归我们删）。
+// 删掉的正好是这个端点的默认模型时，默认跟着挪到剩下的第一条（一条不剩就清空）—— 否则「默认」会
+// 指着列表里已经不存在的模型。这条线程此刻正在用哪个模型不受影响（那是会话级路由，不是本行的账）。
+async function deleteProviderModel(providerId, modelId) {
+  const id = String(modelId || '').trim();
+  const pid = String(providerId || '').trim();
+  if (!id || !pid) return;
+  const current = (Array.isArray(state.config?.providers) ? state.config.providers : []).find(p => p && p.id === pid) || null;
+  if (!current) return;
+  const modelIdOf = m => String((m && m.id) || m || '').trim();
+  const models = (Array.isArray(current.models) ? current.models : []).filter(m => modelIdOf(m) && modelIdOf(m) !== id);
+  const hidden = [...new Set([
+    ...(Array.isArray(current.hiddenModels) ? current.hiddenModels : []).map(v => String(v || '').trim()).filter(Boolean),
+    id,
+  ])];
+  const next = {
+    ...current,
+    models,
+    hiddenModels: hidden,
+    model: String(current.model || '') === id ? (models.length ? modelIdOf(models[0]) : '') : String(current.model || ''),
+  };
+  const patch = { providers: (state.config.providers || []).map(p => (p && p.id === pid ? next : p)) };
+  Object.assign(state.config, patch); // 乐观更新，失败由 toast 告知（下次刷新会回弹真实值）
+  try {
+    await saveConfigPartial(patch);
+    toast(t('modelMenu.modelRemoved', { model: id }), 'ok');
+  } catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  onEngineConfigChanged();
+}
+// provider 那一组里「哪些行有 ×」：就是这个端点当前候选清单上的全部 id（含这一回合刚折回来的发现项）。
+function providerModelIdSet(providerId) {
+  const pid = String(providerId || '').trim();
+  const provider = (Array.isArray(state.config?.providers) ? state.config.providers : []).find(p => p && p.id === pid) || null;
+  if (!provider) return null;
+  const ids = new Set();
+  for (const row of (Array.isArray(provider.models) ? provider.models : [])) {
+    const v = String((row && row.id) || row || '').trim();
+    if (v) ids.add(v);
+  }
+  return ids;
+}
 // v1.0.2 (G3): compact context-length badge — >=1e6 → 「1M」, >=1e3 → 「128K」, else raw. null/0 → ''.
 function ctxLenBadge(n) {
   const v = Number(n);
@@ -310,7 +354,8 @@ function ctxLenBadge(n) {
 // openModelChipPopover 与它的容器 #modelChip 整段退役。留下来的是它【独有】的那三件 —— 它们动的
 // 都是【全局配置】而不是这条线程，所以不能塞进 chips 那个会话级写口，只能作为菜单尾部的附加件：
 //   ① 思考强度 / 推理强度：按当前引擎选一份（命令行引擎用 thinkingEffort，provider 用 reasoningEffort）；
-//   ② 删自定义模型：行尾那枚「×」，可删集合 ＝ extraModels ∪ knownModels（代理发现的条目不可删）；
+//   ② 删模型行：行尾那枚「×」——命令行引擎删 extraModels ∪ knownModels（代理发现的条目不可删），
+//      provider 那一组删这个端点候选清单里的一行，并记进 providers[].hiddenModels（见下面两个函数）；
 //   ③ 刷新模型列表 ／ 管理服务商…（后者直达设置的「服务商」页签）。
 // 每一件的函数体都是原弹层里那一份（appendClaudeEffort／appendProviderEffort／actions 那两条）逐字
 // 搬过来的，只是宿主从 .popover 换成了 .steward-chip-menu，并把两个强度分支合成一个（原来两份
@@ -361,14 +406,32 @@ function chipMenuAction(labelKey, action, onClick) {
   return button;
 }
 const modelMenuExtras = Object.freeze({
-  // 只有命令行引擎那一组有「自定义模型」这回事（provider 的候选是端点真实清单）。
-  deletableIds: () => (isProviderMode() ? null : customModelIdSet()),
-  onDelete: async modelId => { await deleteCustomModel(modelId); },
+  // 「×」的判据按【这张菜单自己的路由】分岔（宿主 chips 把 route 递进来）：
+  //   · 命令行引擎那一组 —— 只有用户自己加的条目（extraModels ∪ knownModels）可删，代理发现的条目
+  //     是端点真实清单、不是用户数据（第 44 波那条口径，一字未改）；
+  //   · provider 那一组 —— 这个端点候选清单上的每一行都可删，删完记进 providers[].hiddenModels。
+  // 宿主没给 route（旧调用形状）时退回原口径：全局是 provider 就不给删。
+  deletableIds: route => {
+    if (route && route.engine === 'openai') return providerModelIdSet(route.providerId);
+    if (route && route.engine) return customModelIdSet();
+    return isProviderMode() ? null : customModelIdSet();
+  },
+  onDelete: async (modelId, route) => {
+    if (route && route.engine === 'openai') await deleteProviderModel(route.providerId, modelId);
+    else await deleteCustomModel(modelId);
+  },
   appendTail: (menu, ctx) => {
     const close = (ctx && typeof ctx.close === 'function') ? ctx.close : () => {};
+    const redraw = () => { if (ctx && typeof ctx.redraw === 'function') ctx.redraw(); };
     appendEffortControl(menu, close);
-    menu.appendChild(chipMenuAction('modelMenu.refreshModels', 'refreshModels',
-      async () => { close(); await refreshModels(true); }));
+    // 用户走查①：「刷新模型列表」不该把选择界面关掉 —— 关完还得重开一次才能切到刚刷出来的那个模型。
+    // 现在：数据刷完就地重画这张菜单（新出现的行当场可点），期间把这一行禁用，防连点发两发请求。
+    menu.appendChild(chipMenuAction('modelMenu.refreshModels', 'refreshModels', async event => {
+      const button = event && event.currentTarget ? event.currentTarget : null;
+      if (button) button.disabled = true;
+      try { await refreshModels(true); } finally { if (button) button.disabled = false; }
+      redraw();
+    }));
     menu.appendChild(chipMenuAction('modelMenu.manageProviders', 'manageProviders',
       () => { close(); openModal('settingsModal'); switchSettingsTab('providers'); }));
   },

@@ -881,6 +881,12 @@ function providerCard(p, idx) {
       models.push({ id, label: id });
     }
     p.models = models;
+    // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
+    // 就是 providers[].hiddenModels，而菜单里没有反方向的「恢复」按钮 —— 这条是唯一的回头路。
+    if (Array.isArray(p.hiddenModels) && p.hiddenModels.length) {
+      p.hiddenModels = p.hiddenModels.filter(v => !seen.has(String(v || '').trim()));
+      if (!p.hiddenModels.length) delete p.hiddenModels;
+    }
     if (!p.model && models.length) p.model = models[0].id;
   };
   modelListB.append(modelListI, el('p', 'field-help muted', t('provider.manualModelsHint')));

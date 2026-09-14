@@ -159,7 +159,7 @@ const fill = (text, params) => {
 
 // 每个场景都 import 一份【新的】模块实例：用量缓存是模块级的（三个宿主共用一份），
 // 不隔离的话「没有用量」那一档会读到上一个场景拉回来的数据。
-async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'gpt-x-pro', compact = false }) {
+async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'gpt-x-pro', compact = false, extras = null }) {
   const document = makeDocument();
   globalThis.document = document;
   // popover 还往 window 上挂 resize／scroll（layer 模式下那两个是空转，但「注册」这件事真发生）。
@@ -182,7 +182,7 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
       providers: [{ id: 'p1', label: '厂商甲', model: 'gpt-x-mini', models }],
     },
   };
-  const chips = mod.createQuickSwitchChips({ api, t, state, compact });
+  const chips = mod.createQuickSwitchChips({ api, t, state, compact, modelMenuExtras: extras });
   const host = makeNode(document, 'div');
   chips.mount(host);
   chips.setSession({ id: 's1', engineRoute: { engine: 'openai', providerId: 'p1', model: sessionModel } });
@@ -193,7 +193,7 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
   const menu = walk(host, node => node.dataset && node.dataset.kind === 'model')[0];
   const search = walk(menu, node => node.dataset && node.dataset.chipSearch === 'model')[0] || null;
   const type = value => { search.value = value; search.oninput(); };
-  return { mod, document, chips, menu, search, type, calls, missingKeys, host };
+  return { mod, document, chips, menu, search, type, calls, missingKeys, host, state };
 }
 
 (async () => {
@@ -376,6 +376,69 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
     const list = walk(s.menu, byClass('steward-chip-list'))[0];
     ok(Boolean(list) && list.children[0].dataset.modelFollow === '1',
       '⑤b 模型那一半的第一项仍是「跟随全局」（引擎段在它之前，两段各归各的）');
+  }
+
+  // ── ⑦ 124 走查（用户 2026-09-14 两条）：刷新不关菜单、provider 那一组能删行 ──────────
+  // 这两件各是【两半】：判据与动作住宿主（navigation-controls.js 的 modelMenuExtras），
+  // 「删完／刷完就地重画、不把菜单关掉」住本工厂。这里注入一份形状正确的宿主夹具，钉工厂这一半
+  // （真 DOM 驱动，不读源码字符串）；宿主那一半在 ⑦b 用源码锁钉 —— 那个模块在 Node 里拉不起来
+  // （它 import 组合根那一串浏览器依赖）。
+  {
+    const seen = [];
+    let s;
+    let redraw = null;
+    const extras = {
+      deletableIds: route => {
+        seen.push(['deletableIds', route && route.engine, route && route.providerId]);
+        return new Set(['gpt-x-pro']);
+      },
+      onDelete: async (id, route) => {
+        seen.push(['onDelete', id, route && route.engine]);
+        // 模拟宿主真把这一行从候选来源里拿掉（provider 那一组 ＝ providers[].models）。
+        s.state.config.providers[0].models = s.state.config.providers[0].models.filter(m => m.id !== id);
+      },
+      appendTail: (menu, ctx) => {
+        redraw = ctx && ctx.redraw;
+        seen.push(['appendTail', typeof redraw === 'function']);
+      },
+    };
+    s = await scenario({ tag: 'extras', extras });
+    ok(seen.some(entry => entry[0] === 'deletableIds' && entry[1] === 'openai' && entry[2] === 'p1'),
+      `⑦ 判据拿到的是【这张菜单自己的路由】，不是全局那一份（实测 ${JSON.stringify(seen[0])}）`);
+    ok(seen.some(entry => entry[0] === 'appendTail' && entry[1] === true),
+      '⑦ 尾部拿到 redraw 挂点（刷新换的是候选来源，重画要在原菜单上）');
+    const row = rowOf(s.menu, 'gpt-x-pro');
+    const del = row ? walk(row, byClass('mc-del'))[0] || null : null;
+    ok(Boolean(del), '⑦ provider 那一组的行尾真的有「×」（修前 isProviderMode() 一律返回 null，整组一行都删不掉）');
+    if (del) await del.onclick({ stopPropagation: () => {} });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    ok(s.menu.children.length > 0 && Boolean(walk(s.menu, byClass('steward-chip-list'))[0]),
+      '⑦ 删完菜单【还开着】（修前 onDelete 之后紧跟 closeMenu()，用户得重新点开一次才能继续选）');
+    ok(rowOf(s.menu, 'gpt-x-pro') === null && Boolean(rowOf(s.menu, 'gpt-x-mini')),
+      '⑦ 删掉的那一行当场消失，其余行还在（就地重画，不是把旧画面照抄一遍）');
+    // 刷新那一半：宿主把新清单写进候选来源之后调 redraw。
+    s.state.config.providers[0].models = [...s.state.config.providers[0].models, { id: 'brand-new-model', label: 'brand-new-model' }];
+    if (typeof redraw === 'function') redraw();
+    ok(Boolean(rowOf(s.menu, 'brand-new-model')) && s.menu.children.length > 0,
+      '⑦ redraw 之后新出现的模型当场可点，菜单一个字没关（用户走查①）');
+    // 菜单关掉之后迟到的 redraw 不许把已摘走的 list 再画一遍（也不该抛）。
+    s.chips.closeMenu();
+    if (typeof redraw === 'function') redraw();
+    ok(s.missingKeys.length === 0, `⑦ 这张菜单用到的键逐个在 zh-CN 里解析得出（缺 ${JSON.stringify(s.missingKeys)}）`);
+  }
+
+  // ── ⑦b 宿主那一半（navigation-controls.js 的 modelMenuExtras）：源码锁 ────────────────
+  {
+    const navSrc = fs.readFileSync(path.join(PUBLIC_JS, 'navigation-controls.js'), 'utf8');
+    const from = navSrc.indexOf("chipMenuAction('modelMenu.refreshModels'");
+    const to = navSrc.indexOf("chipMenuAction('modelMenu.manageProviders'");
+    const refreshBlock = from >= 0 && to > from ? navSrc.slice(from, to) : '';
+    ok(refreshBlock.length > 0 && /await refreshModels\(true\)/.test(refreshBlock) && !/\bclose\(\)/.test(refreshBlock),
+      `⑦b「刷新模型列表」不再 close()，改为刷完重画（宿主那一半；实测片段 ${JSON.stringify(refreshBlock.slice(0, 40))}…）`);
+    ok(/deletableIds: route =>/.test(navSrc) && /providerModelIdSet\(route\.providerId\)/.test(navSrc),
+      '⑦b provider 那一组的可删判据按 route 走（修前 isProviderMode() 一律 null，列表里删不掉任何一行）');
+    ok(/hiddenModels/.test(navSrc),
+      '⑦b 删 provider 的模型时写的是 providers[].hiddenModels（刷新不会把那行还回来）');
   }
 
   // ── ⑥ 子串表只有一处 ───────────────────────────────────────────────────────────

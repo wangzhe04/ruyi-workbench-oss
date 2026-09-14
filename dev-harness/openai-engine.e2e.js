@@ -25,6 +25,10 @@ const config = {
     id: 'fake', label: 'Fake', type: 'openai-compat',
     baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'test-key',
     model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }], reasoning: true,
+    // 124 走查②（用户 2026-09-14「现在似乎没法在列表里删掉特定的模型了」）：provider 那一组删一行
+    // = 把 id 记进 hiddenModels。fake-openai 的 live /models 永远返回 fake-model 与 fake-reasoner，
+    // 于是这一条正好钉住「服务端在合并点挡掉，↻ 刷新不会把刚删的那一行还回来」。
+    hiddenModels: ['fake-reasoner'],
   }],
   activeProvider: 'fake',
 };
@@ -76,6 +80,10 @@ function postStream(port, payload) {
     ok(models && models.engine === 'openai', 'GET /api/models engine=openai (got ' + (models && models.engine) + ')');
     ok(models && Array.isArray(models.models) && models.models.some(m => m.id === 'fake-model'), 'models include fake-model');
     ok(models && models.proxyCount >= 1, 'live /models fetched (proxyCount=' + (models && models.proxyCount) + ')');
+    // 上一条先证明 live 真的到货（否则「清单里没有 fake-reasoner」只是「没发现」），这一条才问得成：
+    // providers[].hiddenModels 里的那一个必须被合并点挡掉 —— 线程头模型菜单删掉的行，↻ 刷新不回来。
+    ok(models && Array.isArray(models.models) && !models.models.some(m => m.id === 'fake-reasoner'),
+      'GET /api/models 跳过 providers[].hiddenModels（live 仍返回它，但删过的那行不该被刷新还回来）');
 
     const events = await postStream(WB_PORT, { message: 'hi there' });
     const types = events.map(e => e.type);

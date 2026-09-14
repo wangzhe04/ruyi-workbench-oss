@@ -13049,6 +13049,13 @@ function sanitizeProvider(raw) {
       : (m && typeof m === 'object' ? { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim() } : null)))
       .filter(m => m && m.id).slice(0, 100)
     : [];
+  // 模型候选「已移除」名单（provider 级）：线程头模型菜单行尾那枚「×」删一行 = 在这里记下那个 id。
+  // GET /api/models 把「saved 清单 ∪ live 发现」合并成候选时一律跳过名单里的项 —— 否则 ↻ 刷新会把
+  // 刚删掉的那一行原样还回来，删除就成了只活一次画面的装饰。
+  // 与 pricing 同款「可加不加」：空名单不落字段，存量 config.json 逐字节零漂移。
+  const hiddenModels = Array.isArray(raw.hiddenModels)
+    ? [...new Set(raw.hiddenModels.map(v => String(v || '').trim().slice(0, 120)).filter(Boolean))].slice(0, 100)
+    : [];
   const extraHeaders = {};
   if (raw.extraHeaders && typeof raw.extraHeaders === 'object') {
     for (const [k, v] of Object.entries(raw.extraHeaders)) {
@@ -13099,6 +13106,7 @@ function sanitizeProvider(raw) {
     apiKey: str(raw.apiKey, 400),
     model: str(raw.model, 120).trim(),
     models,
+    ...(hiddenModels.length ? { hiddenModels } : {}),
     reasoning: raw.reasoning === true,
     reasoningEffort: providerReasoningEffort(raw),
     // v1.7: apiStyle — protocol preference for this provider: 'chat' (default, OpenAI Chat Completions) or
@@ -39235,8 +39243,12 @@ async function handleApi(req, res, pathname) {
       // v1.0.2-S2: 每个模型对象带 contextLength(有则带)。探测(live)条目自带; 无探测时回退探测缓存;
       // 再无探测则使用版本化名称表，让离线 Provider 模型列表也能显示当前默认值；
       // 已有条目在 live 补到 contextLength 时就地补齐(only-add, 不改既有字段语义)。
+      // 用户在模型菜单里删过的那一行（providers[].hiddenModels）在这【一个】合并点挡掉：saved 清单与
+      // live 发现两条来源都过同一个 add，所以 ↻ 刷新不会把刚删掉的模型还回来。
+      const hidden = new Set((Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
+        .map(v => String(v || '').trim()).filter(Boolean));
       const add = (id, label, contextLength) => {
-        const k = String(id || ''); if (!k) return;
+        const k = String(id || ''); if (!k || hidden.has(k)) return;
         const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
           : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
         if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }

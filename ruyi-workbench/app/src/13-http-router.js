@@ -443,8 +443,12 @@ async function handleApi(req, res, pathname) {
       // v1.0.2-S2: 每个模型对象带 contextLength(有则带)。探测(live)条目自带; 无探测时回退探测缓存;
       // 再无探测则使用版本化名称表，让离线 Provider 模型列表也能显示当前默认值；
       // 已有条目在 live 补到 contextLength 时就地补齐(only-add, 不改既有字段语义)。
+      // 用户在模型菜单里删过的那一行（providers[].hiddenModels）在这【一个】合并点挡掉：saved 清单与
+      // live 发现两条来源都过同一个 add，所以 ↻ 刷新不会把刚删掉的模型还回来。
+      const hidden = new Set((Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
+        .map(v => String(v || '').trim()).filter(Boolean));
       const add = (id, label, contextLength) => {
-        const k = String(id || ''); if (!k) return;
+        const k = String(id || ''); if (!k || hidden.has(k)) return;
         const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
           : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
         if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }
