@@ -1185,6 +1185,41 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
     'AA12 ③ 判据只有一处：挑段全在 stewardDeliverableText 里，stewardDeliverableFrom 自己不再碰 message.content（不留第二份取段口径）；两支都还是零 DOM、零请求的纯函数');
 }
 
+
+/* ═══ AB 124-P3（40 号文 §2 ③ A01）：回执才算数 —— 徽标的数据源只有 actions ═══
+   38 号文 §7 ④ 已经裁决：下一档不该是关键词表（匹配「已经递了／按钮在下面」这类完成时陈述
+   既脆弱又要维护中英词表），而是让「我做了什么」结构化到 actions 里再判。本组把那条裁决
+   钉成机器判据：**画回执的那三段里，一个 say 字样都不许有。**
+   行为面由 steward-conversation.e2e 的 W 组跑（W1 就是「只说不做那一轮零徽标」）。 */
+{
+  const sliceBetween = (name, end) => {
+    const at = conversationCode.indexOf(name);
+    if (at < 0) return '';
+    const stop = conversationCode.indexOf(end, at + name.length);
+    return stop < 0 ? conversationCode.slice(at) : conversationCode.slice(at, stop);
+  };
+  const judge = sliceBetween('export function stewardActionReceiptState(', '\n}');
+  const receipts = sliceBetween('function actionReceipts(', '\n  }');
+  const append = sliceBetween('function appendActionReceipts(', '\n  }');
+  ok(judge.length > 40 && receipts.length > 40 && append.length > 40,
+    `AB0 三段都切得到（切不到 = 本组静默失效；实得 ${judge.length}/${receipts.length}/${append.length}）`);
+  ok(judge.length > 40 && !/\bsay\b/.test(judge) && !/content/.test(judge),
+    'AB1 三态判据只看 result，一个 say 字样都没有（不是关键词表）');
+  ok(receipts.length > 40 && !/\bsay\b/.test(receipts),
+    'AB2 装配回执的那一段也不碰 say');
+  ok(append.length > 40 && !/\bsay\b/.test(append),
+    'AB3 画到可见层的那一段同样不碰 say');
+  ok(judge.includes("if (result && result.ok === true) return 'done';")
+    && judge.includes("if (result && result.ok === false) return 'failed';")
+    && judge.includes("return 'no_receipt';"),
+    'AB4 三态齐备且顺序固定（done / failed / 其余一律 no_receipt —— 修前那条两值判据把第三格算成了 done）');
+  ok(conversationCode.includes('.map(receipt => receipt.text)')
+    && (conversationCode.match(/function actionReceipts\(/g) || []).length === 1,
+    'AB5 ※ 浮层与可见徽标读的是【同一份】actionReceipts()（一个判据，两处渲染）');
+  ok(append.includes("line.dataset.receipt = 'action';") && append.includes('line.dataset.receiptState = receipt.state;'),
+    'AB6 每条徽标都带 kind 与态（判据面按 data-* 读，不必去抠文案）');
+}
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

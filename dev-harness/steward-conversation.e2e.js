@@ -1271,6 +1271,75 @@ try {
     `U10 取不到原文时画一句兜底＋只留「看全文」，回复本身照常上屏（实测「${failed.text}」，按钮 ${JSON.stringify(failed.acts)}）`);
   await shootH('117s-H-deliverable-fallback.png');
 
+  // ─── W 124-P3（40 号文 §2 ③ A01「它说已安排／已发送，真发了吗？」）：回执才算数 ─────────
+  // 用户的处境（38 号文那次真机 bug 的同一个模具）：管家在 say 里说「已经发给你同事了」，而系统
+  // 这一侧根本没有任何回执 —— 修前那句话就是屏幕上唯一的说法，回执只住在 ※ 浮层里（默认收起）。
+  //
+  // 本段钉三件事，**判据全在 `actions` 上，say 里那句话一个字都不看**（38 号文 §7 ④ 的裁决：
+  // 下一档不是关键词表，而是让「我做了什么」结构化到 actions 里再判）：
+  //   W1 **只说不做的那一轮 → 界面零回执徽标**（哪怕 say 里把话说得再满）；
+  //   W2 真回执 → 徽标出现，且三态各说各的话（done / failed / no_receipt）；
+  //   W3 **no_receipt 那一格**：落盘的老章里那一行压根没有 `result` —— 修前它被算成「做成了」。
+  // 手法与 T/U 两段一样：注入历史 ＋ 走 appendSince 那条真回放路径（回执在 live 与回放两条路上
+  // 都画，这里验的是回放那一条 —— 也正是 no_receipt 唯一到得了的那条）。
+  const RECEIPTS = `(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    return rows.map(row => [...row.querySelectorAll('.steward-receipt[data-receipt="action"]')]
+      .map(node => ({ state: node.dataset.receiptState || '', text: node.textContent || '' })));
+  })()`;
+  const receiptCase = await cdp.evaluate(`${deliverRig}({
+    threadId: ${JSON.stringify(DELIVER_THREAD)},
+    deliverable: ${JSON.stringify(DELIVERABLE_MD)},
+    messages: [
+      // ① 只说不做：say 把话说满，actions 空。
+      { role: 'assistant', createdAt: '2099-05-01T00:00:01.000Z', content: '',
+        steward: { trigger: 'user', say: '已经发给你同事了，也帮你排上了。', why: '', acts: [], actions: [] } },
+      // ② 三态各一行。第三行【故意不给 result】—— 落盘的老章就是这个形状。
+      { role: 'assistant', createdAt: '2099-05-01T00:00:02.000Z', content: '',
+        steward: { trigger: 'user', say: '这一轮我动了三下。', why: '', acts: [], actions: [
+          { tool: 'steward_thread_new', label: '新开线程', result: { ok: true, sessionId: 'sess_w' } },
+          { tool: 'steward_thread_continue', label: '接着办', result: { ok: false, error: 'not_found' } },
+          { tool: 'steward_schedule_create', label: '排上' },
+        ] } },
+    ],
+  })`);
+  const receipts = await cdp.evaluate(RECEIPTS);
+  ok(Boolean(receiptCase) && receiptCase.rendered === 2 && Array.isArray(receipts) && receipts.length === 2,
+    `W0 前置：两条回放行都画出来了（实得 rendered=${receiptCase && receiptCase.rendered}，行数 ${receipts && receipts.length}）`);
+  ok(Array.isArray(receipts) && receipts[0] && receipts[0].length === 0,
+    `W1 只说不做那一轮【零】回执徽标 —— say 里说得再满，系统一个字都不替它背书（实得 ${JSON.stringify(receipts && receipts[0])}）`);
+  const states = (receipts && receipts[1] || []).map(r => r.state);
+  ok(JSON.stringify(states) === JSON.stringify(['done', 'failed', 'no_receipt']),
+    `W2 三态逐行对上（done / failed / no_receipt；实得 ${JSON.stringify(states)}）`);
+  const third = (receipts && receipts[1] || [])[2];
+  // 态只从 data-receipt-state 读，不去抠文案 —— 本夹具注入的 `t` 返回的是【键名】，三态的文案
+  // 在这里长得一模一样，拿文字去分它们是一条走不通的路（也正是「判据不要钉文本」那条纪律）。
+  ok(Boolean(third) && third.state === 'no_receipt',
+    `W3 落盘老章里没有 result 的那一行判成 no_receipt，不是 done（修前它被算成做成了；实得「${third && third.state}」）`);
+  // W4 一份数据两处渲染、但只有【一个】判据：※ 浮层里的「已办」行数与可见徽标数逐条相等。
+  const whyDoneCount = await cdp.evaluate(`(() => {
+    const feed = document.getElementById('stewardFeed');
+    const rows = [...feed.querySelectorAll('.steward-msg')].slice(window.__ruyiDeliverFrom || 0);
+    const row = rows[1];
+    if (!row) return -1;
+    const btn = row.querySelector('.steward-why-btn');
+    if (btn) btn.click();
+    const pop = row.querySelector('.steward-why-pop');
+    if (!pop) return -1;
+    const heads = [...pop.querySelectorAll('.steward-why-h')].map(n => n.textContent || '');
+    const doneAt = heads.indexOf('stewardShell.chat.whyDone');
+    if (doneAt < 0) return 0;
+    // 「已办」小标题之后的那几行就是回执行（浮层里两段各自带一个小标题）。
+    const kids = [...pop.children];
+    const start = kids.findIndex(n => n.classList.contains('steward-why-h') && (n.textContent || '') === 'stewardShell.chat.whyDone');
+    let n = 0;
+    for (let i = start + 1; i < kids.length && kids[i].classList.contains('steward-why-line'); i += 1) n += 1;
+    return n;
+  })()`);
+  ok(whyDoneCount === states.length,
+    `W4 ※ 浮层里的「已办」行数与可见徽标数相等（同一份 actionReceipts() 两处渲染，不是两份判据；实得 ${whyDoneCount} vs ${states.length}）`);
+
   // ─── F1 线程卡 ＋ F4 回复定型（27 号文 §11.13.1「线程即频道」；设计稿两块画板）─────────────
   // 同一条线程连着的几条管家的话合成【一张卡】（3px 色条 ＋ 一行卡头：线程名 · 五态 · 最后动静 ·
   // 模型 · 打开）；管家【本人】说的话没有色条、没有卡。四色按首次出现顺序循环，同一条线程恒用同一色。
@@ -1774,7 +1843,11 @@ try {
         fulls: [...row.querySelectorAll('.steward-deliverable-full')].map(node => node.textContent),
         acts: [...row.querySelectorAll('.steward-act')].map(node => node.textContent),
         disabled: [...row.querySelectorAll('.steward-act')].map(node => node.disabled === true),
-        receipts: row.querySelectorAll('.steward-receipt').length,
+        // 124-P3：steward-receipt 这一族现在有三种 —— 点完落定那一种（settleRow，无 data-receipt）、
+        // 契约不完整那一条（data-receipt=contract）、以及本波新加的动作回执（data-receipt=action）。
+        // AA7／AA9 数的一直是【点完落定】那一种，所以这里把选择器收窄到「没有 kind 的那一族」——
+        // 判据的含义一个字没改，只是把原来靠「当时只有一种」撑着的那半句写明白。
+        receipts: row.querySelectorAll('.steward-receipt:not([data-receipt])').length,
         say: text(row, '.steward-say'),
       })),
     };

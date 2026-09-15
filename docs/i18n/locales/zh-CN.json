@@ -2212,6 +2212,7 @@
   ,"stewardShell.chat.pendingWhy": "这条线程在等你拿主意（{{type}}）。"
   ,"stewardShell.chat.otherCandidates": "同任务的其它线程：{{list}}"
   ,"stewardShell.chat.actionLine": "已办：{{tool}} —— {{state}}"
+  ,"stewardShell.chat.actionNoReceipt": "我发起了，但没拿到回执"
   ,"stewardShell.chat.actionDone": "做成了"
   ,"stewardShell.chat.contractIncomplete": "这一轮它没有执行任何动作，话里提到的「已经…」不作数。"
   ,"stewardShell.chat.tools": "本回合调用了 {{count}} 个工具"

@@ -255,6 +255,50 @@ P2 出门当天用户报了两件（①②），另有一件是 P2 自己的实�
 
 **全量（4 路）**：`347 ran / 347 pass / 0 fail / 5 flaky` —— 真回归 0。
 
+## 6-sexies. P3 交付记录（2026-09-15，主树）：回执才算数（A01）
+
+**派单稿的落点表被证伪了一半：这一刀零 `src/` 改动。** §3 把 P3 的独占文件写成「`13p`（回执白名单）＋`13q`（帧字段）＋前端渲染」。取证之后后端那两处一个字都不用动——
+
+| 事实 | 出处（本刀写作时的 HEAD 实得） |
+|---|---|
+| `reply.actions` 里每一行**本来就带 `result`**，且 live 与落盘的章是同一份（`stewardStampReply` 把 `actions` 原样盖上去） | `13q` 的 `reply` 装配、`13p:505` |
+| 13p 的两处 `executed.push` **都保证给 `row.result` 赋值**（闸门拒 → `stewardFail`；跑了 → hook 返回；抛了 → catch 里 `stewardFail`） | `13p:290/316`、`13p:96–133` |
+| 「模型只说不做」那一轮，`acts/actions` 恒空——**这条已经被 123-P1 那一刀锁住了** | `steward-contract-guard.e2e` 的 (B)(C) 两段 |
+
+**于是谎不在后端，在前端那条两值判据上**：
+
+```js
+const okFlag = !(result && result.ok === false);   // 修前
+```
+
+`result` 压根不在时 `okFlag` 为真 → 牌子写「做成了」。**系统手上没有任何回执，却替模型把话说圆了**——这正是 A01 要挡的那种谎。
+
+**修法**（全在 `public/js/steward-conversation.js`）：
+
+1. **三态判据提成模块级导出的纯函数** `stewardActionReceiptState(result)`：`ok === true` → `done`／`ok === false` → `failed`（含 `propose_required`：降级成按钮＝还没做）／**其余一律 `no_receipt`**。严格 `=== true`，不吃 `1`／`'true'`。
+2. **回执上可见层**：新 `appendActionReceipts(row, actions)` 在 say 之后、按钮行之前追加 `.steward-receipt[data-receipt="action"][data-receipt-state=…]`（沿用 123-P1 ① 那条灰字的材质，**不是按钮**——用户此刻没有可点的东西，给一枚按钮反而是第二次撒谎）。修前回执只住在 ※ 浮层里（默认收起），屏幕上唯一说「已经发给你同事了」的仍然是模型那句话。
+3. **live 与回放两条路都画**（与 123-P1 ① 同一条纪律：刷一次页面就看不见等于兜底只兜一半）。
+4. ※ 浮层那一段改成 `actionReceipts(actions).map(r => r.text)`——**一个判据、两处渲染**，不是两份判据。
+
+**第三态 `no_receipt` 为什么不是死代码**：在途回合今天走不到它（13p 两处都赋了 `result`），它是给**回放**留的——落盘的章是历史数据，老回合／被截断的行都可能没有这个键，而回放与 live 走同一个渲染入口。宁可在那一格说「我发起了，但没拿到回执」，也不许默认说成功。判据里它是**真被走到的**：`steward-conversation.e2e` 的 W 组注入了一行故意不给 `result` 的章。
+
+**判据三处**：
+- **新 unit** `unit/steward-action-receipts.test.js`（8 例真值表，含「`ok:1`／`ok:'true'` 不算回执」与「落盘老行没有 result 键」两组）；
+- **`steward-conversation.e2e` 新 W 组**（真浏览器、走 `appendSince` 那条真回放路径）：**W1 只说不做那一轮界面零徽标**（§5 的 P3 判据逐字）／W2 三态逐行对上／W3 没有 `result` 的那一行判成 `no_receipt`／**W4 ※ 里的「已办」行数与可见徽标数相等**（一个判据两处渲染）；
+- **`steward-conversation.static` 新 AB 组**（七条）：把 38 号文 §7 ④ 的裁决钉成机器判据——**画回执的那三段里一个 `say` 字样都不许有**，三态齐备且顺序固定，`actionReceipts` 全仓恰一处。
+
+**反向两处真做**：① 把三态判据改回两值 `(result && result.ok === false) ? 'failed' : 'done'` → unit **四条红**；② 让徽标读 `say` 文本（`say` 里出现「已经」就伪造一条 `ok:true` 的回执）→ **W1 红，实得 `[{"state":"done"}]`**——那正是 §5 写的那条反向。
+
+**连带**：新 locale 键 `stewardShell.chat.actionNoReceipt` 四份同步；`facts` 的 `unitSuites` 46 → **47**，README 两处随之刷新。
+
+**两处踩了又爬起来的**（都记下来）：
+1. `.steward-receipt` 这一族此前只有两种（settleRow 那种无 `data-receipt`、契约那条 `contract`），本刀加了第三种，`steward-conversation.e2e` 的 **AA7／AA9 当场红**——它们数的一直是「点完落定」那一种，只是当时靠「只有一种」撑着。选择器收窄到 `.steward-receipt:not([data-receipt])`，**判据含义一个字没改**，只是把那半句写明白了。
+2. 给那个收窄加注释时在**模板字符串里写了反引号**，就地把模板截断，报 `ReferenceError: receipt is not defined`。模板字符串里的注释不许出现反引号。
+
+**本轮全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 3 flaky` —— **真回归 0**。flaky 名单 `steward-conversation`／`foreign-turn-busy-guard`／`dom-screenshot`，**三件逐件串行复跑全绿**（28.7 s／27.2 s／8.5 s，`0 flaky`）：并行争抢，不是回归。**其中 `steward-conversation` 正是本刀动过的那件，所以没拿「重跑通过」当交代**——并行日志是交错的，`PASS [flaky]` 那一行的标题属于**刚跑完那件**而不是行首那个文件名，只有汇总末尾的名单作数。
+
+另：`--fast` **72/72**、全部 unit **399/399**、`build freshness: 产物与 src 一致`（本刀零 `src/` 改动，生成器链免跑）、四份 locale 成对逐字节相同。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
@@ -265,12 +309,14 @@ P2 出门当天用户报了两件（①②），另有一件是 P2 自己的实�
 
 **未推远端。** 工作树干净。
 
-### 8.0 P2 与走查两件之后的状态（2026-09-15）
+### 8.0 P2／走查三件／P3 之后的状态（2026-09-15，本波收尾）
 
 | 提交 | 是什么 |
 |---|---|
 | `1de6252` | **124-P2 委托书与原件**（§6-quater）。零 `src/` 改动；含对派单稿命名的一处证伪（`threadBrief` 撞了 116-5b 的线程自动摘要，界面侧整族改名 `commission`） |
-| （本轮第二笔） | **124 走查两件**（§6-quinquies）：act 白名单补五条＋机械锁 ①e；焦点线程第三档改成「最近发生的」 |
+| `e759106` | **124 走查①②**（§6-quinquies）：act 白名单补五条＋机械锁 ①e；焦点线程第三档改成「最近发生的」 |
+| `8cba7fc` ＋ `1562f17` | **124 走查③**（§6-quinquies）：委托书线程的第一条消息折成一行，另存两张实拍（折叠态／展开态） |
+| （本轮末笔） | **124-P3 回执才算数**（§6-sexies）。零 `src/` 改动；把派单稿的落点表证伪了一半——谎在前端那条两值判据上 |
 
 **P2 那一轮全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 3 flaky` —— **真回归 0**，也是这四轮里最干净的一轮。flaky 名单 `auth-deny-default`／`steward-deliverable`／`tool-loading`，都是并行争抢。
 
@@ -318,13 +364,18 @@ P2 出门当天用户报了两件（①②），另有一件是 P2 自己的实�
 
 </details>
 
-### 8.3 ~~下一刀 P2 的开工三步~~ → **下一刀 P3「回执才算数」（A01）的开工三步**
+### 8.3 ~~下一刀 P3 的开工三步~~ → **124 波四刀全收；下一波是 125「说得准与失败恢复」**
 
-1. **核基线**：`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边）、`node dev-harness/run-all.js --fast`（**72/72**，P2 新加了一把静态锁）。
-2. **重 grep 三处落点**（派单稿行号会过期，纪律 1）：`src/13p-steward-runner-actions.js` 的回执白名单、`src/13q-steward-runner-turn.js` 的帧字段（`reply` 那一坨的装配点在 `stewardRunClaimedTurn` 末段）、`public/js/steward-conversation.js` 里画回执的那一处。
-3. **先把「什么算回执」写成一张表再写渲染**：§5 的 P3 反向是「让徽标读 `say` 文本 → 红」，所以锁要钉的是**徽标的数据源**（只认 handler 回执字段），不是文案。**P3 要碰 `src/`** —— 整条生成器链重跑（纪律 10），与 P2 那一刀「零 src 改动」不同。
+**124 波 P0／P1／P2／P3 全部出门**（§6-bis／§6-ter／§6-quater／§6-sexies），外加走查三件（§6-quinquies）。退出门 **J01／J08／J15 过门**，**J06 如实不过门**（属 T02，35 号文已裁决不立项）。
 
-**P2 留给 P3 的三件现成东西**：① 「拿不到落点就把控件整枚 `hidden`，不画一枚点了没反应的」这条做法（线程头那枚「看原件」），P3 的「我发起了，但没拿到回执」是同一族处境的另一半；② 真管家线程的确定性夹具口径 —— 走 `POST /api/steward/act` 的 `steward_thread_new`，**不需要假管家模型**，且 **cwd 要省掉**（给它自己的派生工作区，别与管家会话同目录，否则回合一直等 cwd 写锁，实测 409 `session.turn_busy_elsewhere`）；③ `thread-commission.browser` 里那套「先等管家递的那一回合真跑完（A6b）再往下做」的等法。
+**下一波 125（35 号文 §2）**：说得准与失败恢复（A02／E01／T03）——普通研究交付的来源时效与主张支持度、失败分类到管家反馈的消费链、歧义追问的真实模型样本。退出门 J02／J07／J09；**网络失败零自动付费升档、主动停止后零自动重启**。开波前先写 125 号文（用户触发→现状→期望→独占文件／绝不碰→可证伪判据→反向验证）。
+
+**开波前先还的两笔**（都在 §8.5，且都比 125 便宜）：① 看板也要说「未记录验收」（要给 `/api/missions` 列表路由同一套投影）；② 焦点线程前后端两处口径收成一处。
+
+**124 波留给后面的三件现成东西**：
+1. **真管家线程的确定性夹具口径**：走 `POST /api/steward/act` 的 `steward_thread_new`，不需要假管家模型；**cwd 必须省掉**（让 13k 派生子工作区——与管家会话同目录会一直等 cwd 写锁，实测 409 `session.turn_busy_elsewhere`）；开工前先等管家递的那一回合真跑完。
+2. **注入历史章 ＋ `appendSince` 那条真回放路径**（`steward-conversation.e2e` 的 deliverRig）：要验「落盘的老数据长什么样」只有这条路走得到，P3 的 `no_receipt` 就是靠它验的。
+3. **实拍**：DOM 断言证得了「字对不对」，证不了「这一带在真版面里长什么样」——走查③ 那件 34 条断言一条没红，是看图那一眼发现的。新带界面的刀都该存一张。
 
 <details><summary>P2 当时的开工三步（原文保留）</summary>
 

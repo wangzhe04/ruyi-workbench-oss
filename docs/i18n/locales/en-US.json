@@ -2212,6 +2212,7 @@
   ,"stewardShell.chat.pendingWhy": "This thread is waiting on your call ({{type}})."
   ,"stewardShell.chat.otherCandidates": "Other threads under the same task: {{list}}"
   ,"stewardShell.chat.actionLine": "Done: {{tool}} — {{state}}"
+  ,"stewardShell.chat.actionNoReceipt": "I started it, but got no receipt"
   ,"stewardShell.chat.actionDone": "succeeded"
   ,"stewardShell.chat.contractIncomplete": "It took no action this turn — anything above that sounds already done did not happen."
   ,"stewardShell.chat.tools": "{{count}} tools were called this turn"

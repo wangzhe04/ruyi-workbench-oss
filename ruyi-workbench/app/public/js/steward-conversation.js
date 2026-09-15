@@ -437,6 +437,17 @@ export function stewardAgoLabel(iso, lang) {
 
 // 33 号文 §4：STEWARD_TITLE_MAX / stewardShortTitle 已搬 util.js（无状态格式化叶子），本文件 import 使用。
 
+// 124-P3（40 号文 §2 ③ A01）：**一条 action 的回执是哪一态。** 纯函数、零 DOM、零 i18n ——
+// dev-harness/unit/steward-action-receipts.test.js 直接 import 跑真值表。
+// 判据只看 `result`，`say` 里那句话一个字都不看（38 号文 §7 ④ 的裁决：下一档不是关键词表，
+// 而是让「我做了什么」结构化到 actions 里再判）。第三态是本刀补出来的那一格，见下面调用点的头注。
+export const STEWARD_RECEIPT_STATES = Object.freeze(['done', 'failed', 'no_receipt']);
+export function stewardActionReceiptState(result) {
+  if (result && result.ok === true) return 'done';
+  if (result && result.ok === false) return 'failed';
+  return 'no_receipt';
+}
+
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
 const STEWARD_ACT_ERROR_KEYS = Object.freeze({
@@ -1458,6 +1469,9 @@ export function createStewardConversation({
     const node = row.querySelector('.steward-say');
     finishSay(row, node);   // F4：与 appendSteward 同一处定型（流式那一路只在终态跑这一次）
     if (node) row.appendChild(attachWhy(node, reply.why, actionWhyLines(reply.actions)));
+    // 124-P3：回执上可见层。排在 ※ 之后、按钮行之前 —— 它说的是【已经发生的事】，
+    // 按钮说的是【你还可以做的事】，先读完发生了什么再看还能做什么。
+    appendActionReceipts(row, reply.actions);
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
     if (reply.circuit || reply.error) {
@@ -1543,23 +1557,67 @@ export function createStewardConversation({
     return false;
   }
 
-  // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）。
+  // actions 已由后端执行或降级：不渲染为按钮，但把 executed 的回执放进 ※ 里（§8.4 表头脚注）
+  // **以及 124-P3 之后的那条可见灰字**（见下面 appendActionReceipts）。两处读的是同一份
+  // actionReceipts()，不是两份判据。
   function actionWhyLines(actions) {
+    return actionReceipts(actions).map(receipt => receipt.text);
+  }
+
+  // 124-P3（40 号文 §2 ③ A01「它说已安排／已发送，真发了吗？」）：**回执才算数。**
+  //
+  // 判据表（只看 `row.result`，`say` 里那句话一个字都不看 —— 38 号文 §7 ④ 已经裁决过：
+  // 下一档不该是关键词表，而是让「我做了什么」结构化到 actions 里再判）：
+  //   · `result.ok === true`  → done        「做成了」
+  //   · `result.ok === false` → failed      那句错误人话（含 propose_required：降级成按钮＝还没做）
+  //   · 其余（result 缺席／不是对象）→ no_receipt 「我发起了，但没拿到回执」
+  //
+  // **修前这里是两值的**：`okFlag = !(result && result.ok === false)` —— 第三格被算进了「做成了」。
+  // 那正是 A01 要挡的那种谎：系统手上没有任何回执，牌子却替模型把话说圆了。
+  // 第三格今天在【在途回合】里走不到（13p 的两处 executed.push 都保证给 row.result 赋值），
+  // 它是给**回放**留的：落盘的章是历史数据，老回合／被截断的行都可能没有这个键，而回放那条路
+  // 与 live 走同一个渲染入口。宁可在那一格说「没拿到回执」，也不许默认说成功。
+  function actionReceipts(actions) {
     const out = [];
     for (const row of (Array.isArray(actions) ? actions : [])) {
       if (!row || !row.tool) continue;
-      const result = row.result;
-      const okFlag = !(result && result.ok === false);
-      out.push(t('stewardShell.chat.actionLine', {
-        // 116-3 copy P1-1（§8.1 原则 7）：优先用后端给的人话标签（13h 的 stewardActLabel，与「行动流水」
-        // 同一批口径）。117j 补上第二道：后端没给 label 时（116-3 之前落盘的历史回合就没有），
-        // 回落到【前端那份 i18n 表】而不是工具 id —— 界面上永远不该出现 `steward_thread_continue`
-        // 这种内部标识符。两道都落空（表外的新工具）才用 id，那是最后的诚实兜底。
-        tool: toolLabelOf(row),
-        state: okFlag ? t('stewardShell.chat.actionDone') : stewardErrorText(result && result.error),
-      }));
+      const state = stewardActionReceiptState(row.result);
+      out.push({ state, text: receiptText(row, state) });
     }
     return out;
+  }
+  function receiptText(row, state) {
+    const result = row.result;
+    // 三态各自的那半句。failed 那一档仍然把后端的错误人话原样带出来（诚实优先，不归一成一句）。
+    const stateText = state === 'done' ? t('stewardShell.chat.actionDone')
+      : state === 'failed' ? stewardErrorText(result && result.error)
+        : t('stewardShell.chat.actionNoReceipt');
+    return t('stewardShell.chat.actionLine', {
+      // 116-3 copy P1-1（§8.1 原则 7）：优先用后端给的人话标签（13h 的 stewardActLabel，与「行动流水」
+      // 同一批口径）。117j 补上第二道：后端没给 label 时（116-3 之前落盘的历史回合就没有），
+      // 回落到【前端那份 i18n 表】而不是工具 id —— 界面上永远不该出现 `steward_thread_continue`
+      // 这种内部标识符。两道都落空（表外的新工具）才用 id，那是最后的诚实兜底。
+      tool: toolLabelOf(row),
+      state: stateText,
+    });
+  }
+
+  // 124-P3：回执上【可见层】。修前它只住在 ※ 浮层里（默认收起），于是屏幕上唯一说「已经发给
+  // 你同事了」的仍然是模型那句话 —— 系统手上明明有回执，却不肯把它说出口。
+  // 形状沿用 123-P1 ① 那条 `.steward-receipt` 灰字（同一件材质、不是按钮：用户此刻没有可点的
+  // 东西，给一枚按钮反而是第二次撒谎）。`data-receipt="action"` 与那条 `contract` 分得开，
+  // `data-receipt-state` 让判据面能逐条读三态而不必去抠文案。
+  // **零 actions 就一行都不画** —— 模型只说不做的那一轮，界面上不该有任何系统背书（§5 的 P3 判据）。
+  function appendActionReceipts(row, actions) {
+    const receipts = actionReceipts(actions);
+    if (!row || !receipts.length) return 0;
+    for (const receipt of receipts) {
+      const line = el('p', 'steward-receipt', receipt.text);
+      line.dataset.receipt = 'action';
+      line.dataset.receiptState = receipt.state;
+      row.appendChild(line);
+    }
+    return receipts.length;
   }
 
   // 117j copy-P1-1：一条 action 在 ※ 里该显示什么名字。后端标签 > 前端 i18n 表 > 工具 id。
@@ -1843,6 +1901,10 @@ export function createStewardConversation({
       const stamp = (message.steward && typeof message.steward === 'object') ? message.steward : null;
       const row = appendSteward(String((stamp && stamp.say) || message.content || ''), stamp ? stamp.why : '',
         stamp ? actionWhyLines(stamp.actions) : []);
+      // 124-P3：回放这条路也要有可见回执 —— 刷新一次页面就看不见「它到底做成了没有」，
+      // 等于兜底只兜了一半（与 123-P1 ① 那条 contractIncomplete 回执同一条纪律）。
+      // 落盘的章正是第三态 no_receipt 的用武之地：老回合／被截断的行可能压根没有 result。
+      if (stamp) appendActionReceipts(row, stamp.actions);
       if (row && stampAt) row.dataset.createdAt = stampAt;   // 123-N1 ③：给这一行盖上身份
       // 117s-C：只有 trigger==='inbox' 的回合才加小头。落盘的 stamp 里【没有】来源线程 id
       // （13h 只盖了 'user'/'inbox' 这一个字面量），所以来源取自上一条收件箱消息；它也没有时
