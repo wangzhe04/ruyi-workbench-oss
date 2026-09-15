@@ -14809,6 +14809,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_DIGEST_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EVENT_KINDS",
           "kinds": [
             "read"

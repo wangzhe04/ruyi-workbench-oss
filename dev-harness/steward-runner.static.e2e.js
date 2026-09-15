@@ -370,5 +370,62 @@ const srv = require(path.join(APP, 'server.js'));
   }
 }
 
+
+// ── ⑥ 124 还债④(40 号文 §8.5 ④):焦点线程只有【一处】判据 ──────────────────────────
+// 修前 13q 的 stewardVisit 自己挑一条「现在这一件」回在 visit.focus 里,而界面那一份
+// (public/js/thread-facts.js 的 focusThreadFor)判的是同一个问题、第三档却不一样 ——
+// 上面 stewardThreadDigestRows 的行序把 dispatching 顶在「其余」之前,于是一条排队中的线程
+// 会赢过刚刚做完的那条。同一个问题两处判,迟早各说各话(124 走查② 改了界面那一份,服务端没跟)。
+//
+// 收法:服务端只投影 threads(事实),挑哪一条由前端那一份纯函数判。本组钉的是
+// **「服务端再没有第二条挑选式」这件事本身**,不是某一行的写法 —— 将来谁想在这儿再挑一次,
+// 不管写成 find 还是 sort 还是 filter,只要落回这几个片段就会红。
+{
+  // 只看【代码】,不看注释:本刀的注释里原样引了修前那条挑选式(要讲清楚谎在哪,就得把它抄出来),
+  // 下一个人解释这段历史时同样会抄。所以整行注释一律先剔掉 —— 锁要钉的是「代码里没有第二条
+  // 挑选式」,不是「这几个字不许出现在文件里」。行尾注释不剔:那种位置上写 rows[0] 本来就可疑。
+  const codeOnly = text => String(text).split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
+  const src13qFocus = read('13q-steward-runner-turn.js');
+  const at = src13qFocus.indexOf('async function stewardVisit(opts) {');
+  const end = at < 0 ? -1 : src13qFocus.indexOf('\n}\n', at);
+  const visitBody = at < 0 ? '' : (end < 0 ? src13qFocus.slice(at) : src13qFocus.slice(at, end));
+  ok(visitBody.length > 400,
+    `⑥ stewardVisit 函数体切得到(切不到 = 本组静默失效;实得 ${visitBody.length})`);
+  ok(visitBody.includes('const threads = rows.slice(0, STEWARD_DIGEST_LIMITS.maxThreads).map('),
+    '⑥ 到访只投影 threads,帽子读 06i 的 STEWARD_DIGEST_LIMITS.maxThreads(不另立第二个数字)');
+  ok(/\n    threads,\n/.test(codeOnly(visitBody)),
+    '⑥ threads 真的进了到访响应体');
+  ok(!codeOnly(visitBody).includes('focusRow') && !/\n\s*focus:/.test(codeOnly(visitBody)),
+    '⑥ 到访响应里再没有 focus 这个键,也没有 focusRow 这个中间量');
+  for (const fragment of ["state === 'needs_you'", "state === 'running'", 'rows[0]', 'rows.find(']) {
+    ok(!codeOnly(visitBody).includes(fragment),
+      `⑥ stewardVisit 里不许再出现挑选式片段 ${JSON.stringify(fragment)}(挑哪一条不归服务端判)`);
+  }
+  // 投影只带前端那份纯函数用得上的四个键:多带一个键,就多一条「服务端顺手也算了点什么」的路。
+  const projection = visitBody.slice(visitBody.indexOf('const threads = rows.slice('));
+  const projectionEnd = projection.indexOf('}));');
+  const keys = (projectionEnd < 0 ? projection : projection.slice(0, projectionEnd))
+    .split('\n').map(line => (line.match(/^\s*([A-Za-z]+):/) || [])[1]).filter(Boolean);
+  ok(JSON.stringify(keys) === JSON.stringify(['sessionId', 'title', 'state', 'updatedAt']),
+    `⑥ threads 行恰好四个键 sessionId/title/state/updatedAt(实得 ${JSON.stringify(keys)})`);
+
+  // 界面侧:判据住在叶子,看板与管家对话都读它,谁都不许抄第二份。
+  const PUB = path.join(APP, 'public', 'js');
+  const readPub = f => fs.readFileSync(path.join(PUB, f), 'utf8');
+  const leaf = readPub('thread-facts.js');
+  const board = readPub('steward-board.js');
+  const conv = readPub('steward-conversation.js');
+  ok(leaf.includes('export function focusThreadFor(rows) {'),
+    '⑥ 判据本体住在叶子 thread-facts.js(零 import / 零 DOM,看板与管家对话都够得着)');
+  ok(!board.includes('export function focusThreadFor(rows) {') && board.includes('export { focusThreadFor };'),
+    '⑥ steward-board.js 只 re-export,没有第二份函数体(导出名不变,既有的 C1/C3 与 focus-rail B1 照常)');
+  ok(conv.includes("from './thread-facts.js'") && conv.includes('function visitFocusOf(visit) {'),
+    '⑥ 管家对话经 visitFocusOf 读同一份纯函数');
+  ok((conv.match(/focusThreadFor\(/g) || []).length === 1,
+    `⑥ 管家对话里只有一处调用 focusThreadFor(焦点没有第二条路;实得 ${(conv.match(/focusThreadFor\(/g) || []).length})`);
+  ok(!codeOnly(conv).includes('visit.focus'),
+    '⑥ 管家对话不再读 visit.focus(那个键已经不存在了,读它等于悄悄回到两处判)');
+}
+
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exit(fail ? 1 : 0);

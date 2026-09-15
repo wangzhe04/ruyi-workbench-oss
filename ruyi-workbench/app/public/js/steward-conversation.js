@@ -22,7 +22,7 @@ import { icon } from './icons.js';
 import { stewardShortTitle } from './util.js';
 // 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
 // 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
-import { dispatchAcceptanceMilestones } from './thread-facts.js';
+import { dispatchAcceptanceMilestones, focusThreadFor } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -1777,6 +1777,15 @@ export function createStewardConversation({
     while (feed.firstChild) feed.removeChild(feed.firstChild);
   }
 
+  // 124 还债④（40 号文 §8.5 ④）：问候语那枚「打开这一件」挑哪一条，与右栏「现在这一件」是**同一个
+  // 问题**，所以走**同一份纯函数** —— thread-facts.js 的 focusThreadFor（等你 ＞ 在跑 ＞ 最近发生的
+  // 那一件；unit 真值表 ＋ focus-rail B1 两道锁）。服务端 13q 修前自己也挑一条回在 `visit.focus` 里，
+  // 且第三档与这边不一样（它的行序把 dispatching 顶在「其余」之前），现在它只投影 `visit.threads`。
+  // 本文件恰有【一处】调用它：下面 renderDigest 与 enterVisit 的「什么都没有」判据都读这个出口。
+  function visitFocusOf(visit) {
+    return focusThreadFor(visit && Array.isArray(visit.threads) ? visit.threads : []);
+  }
+
   function renderDigest(visit) {
     const items = (visit.digest && Array.isArray(visit.digest.items) ? visit.digest.items : []).slice(0, STEWARD_DIGEST_MAX);
     // 一句问候 ＋ 「你不在的这段时间里有 N 件事」（§8.9「每次打开」；确定性文案，不调模型）。
@@ -1803,12 +1812,13 @@ export function createStewardConversation({
       row.appendChild(list);
     }
     const acts = [];
-    if (visit.focus && visit.focus.sessionId) {
+    const focus = visitFocusOf(visit);
+    if (focus && focus.sessionId) {
       acts.push({
-        kind: 'open_thread', sessionId: String(visit.focus.sessionId), primary: true,
+        kind: 'open_thread', sessionId: String(focus.sessionId), primary: true,
         // UX-F5：按钮全文与线程名分开带 —— 回执读后者。
-        sessionTitle: String(visit.focus.title || visit.focus.sessionId),
-        label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(visit.focus.title || visit.focus.sessionId) }),
+        sessionTitle: String(focus.title || focus.sessionId),
+        label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(focus.title || focus.sessionId) }),
       });
     }
     // 122-L1b（§2.13）：向导还没走完就在问候行下多一枚「开始引导」。位置在「知道了」之前
@@ -2028,7 +2038,7 @@ export function createStewardConversation({
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
       let rendered = 0;
       if (visit.newVisit === true) {
-        const nothing = !pending.length && !visit.focus
+        const nothing = !pending.length && !visitFocusOf(visit)
           && !((visit.digest && Array.isArray(visit.digest.items) ? visit.digest.items : []).length);
         if (nothing) renderFirstRun();
         else { renderDigest(visit); renderPending(pending); }

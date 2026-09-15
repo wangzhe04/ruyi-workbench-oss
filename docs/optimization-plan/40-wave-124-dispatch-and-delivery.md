@@ -299,6 +299,41 @@ const okFlag = !(result && result.ok === false);   // 修前
 
 另：`--fast` **72/72**、全部 unit **399/399**、`build freshness: 产物与 src 一致`（本刀零 `src/` 改动，生成器链免跑）、四份 locale 成对逐字节相同。
 
+## 6-septies. 还债④ 交付记录（2026-09-15，主树）：焦点线程收成一处
+
+§8.5 ④ 登记的那笔。124 走查② 把**界面**那一份焦点判据改成「等你 ＞ 在跑 ＞ 最近发生的那一件」时，服务端 13q 的 `stewardVisit` 里还留着**它自己那一份**：
+
+```js
+rows.find(r => r.state === 'needs_you') || rows.find(r => r.state === 'running') || rows[0] || null
+```
+
+**两处判的是同一个问题，第三档却不一样。** 13o `stewardThreadDigestRows` 的行序是「等你 ＞ 在跑 ＞ **排队中** ＞ 其余」，所以服务端那条 `rows[0]` 会让一条**排队中**的线程赢过**刚刚做完**的那条；界面那一份则是「最近发生的赢」。右栏「现在这一件」指一条、问候语那枚「打开这一件」指另一条 —— 走查② 修的是前者，后者没跟。
+
+**取证先确认了「服务端那一份到底喂给谁」**：`stewardVisit` 只有一个调用方（13h 的 `POST /api/steward/visit`），响应里的 `focus` 只被前端 `steward-conversation.js` 读两处（问候语那枚钮 ＋「什么都没有」那一判）。**它不进模型上下文**（模型读的是 `stewardOverviewBlock` 拼的总览行，那是另一条路）。所以「服务端不再自己挑」不会让管家少知道任何事 —— 这是能收成一处的前提。
+
+**修法**（§8.5 ④ 写的口径逐字落地：服务端只投影事实、挑哪一条由前端那一份纯函数判）：
+
+1. **判据搬进叶子** `public/js/thread-facts.js`（原住 `steward-board.js`）。它零 `import`、零 DOM、零 `t()`、零 `fetch`，而**看板与管家对话本来就都 import 它** —— 不新增任何模块边（53 模块／418 边，与搬家前逐字相同）。与 121-K1 把 `dockTone` 一族搬进来同一条理由。
+2. **`steward-board.js` 按原名 re-export**（`export { focusThreadFor };`，并进原 import 行 —— 33 号文 §4 对 D4 的口径）。既有的 `steward-board.static` C1/C3 与 `focus-rail.browser` B1 那份页面真值表**一个字都没改**。
+3. **13q 只投影** `threads`（`sessionId` / `title` / `state` / `updatedAt` 四个键），帽子复用总览那一个常量 `STEWARD_DIGEST_LIMITS.maxThreads = 40`，**不另起旋钮**；`focus` 这个键整个消失。
+4. **`steward-conversation.js` 经 `visitFocusOf(visit)` 一处出口**读同一份纯函数，问候语那枚钮与「什么都没有」那一判都走它。
+
+**判据四处**：
+- **unit 身份锁**（`steward-focus-thread.test.js` 新增一例）：**看板导出的必须是叶子那一个函数对象本身**，不是抄的第二份。这条钉的不是「两处都有这个名字」——真值表那 11 条在「抄一份回去」时全都照绿，只有它红；
+- **`steward-runner.static` 新 ⑥ 组**（13 条）：`stewardVisit` 里不许再出现 `rows.find(` / `rows[0]` / `state === 'needs_you'` / `state === 'running'` 任一片段，响应里不许有 `focus` 键，投影恰好四个键，帽子必须是 06i 那个常量；界面侧钉「判据本体在叶子、看板零函数体、管家对话恰一处调用且不再读 `visit.focus`」；
+- **`steward-runner.e2e` G5／G5b／G5c**（翻面 ＋ 两条新的）：到访响应**必须有 `threads`、必须没有 `focus`**；
+- **`steward-conversation.e2e` 新 AD 组**（三条，真浏览器）：**这枚钮修前一条行为断言都没有**（`walkthrough-round2` 还特意不建线程好落到 `renderFirstRun` 那一支）。AD2 就是分叉的正面 —— 一条**更旧的排队中** ＋ 一条**更新的刚做完**，钮必须指后者。
+
+**真反向三处**：① 看板把函数体**抄一份**回去（真值表 11 条**全绿**）→ **unit 身份锁单红** ＋ `steward-board.static` B5／M6／N3 三条同账红；② 叶子的第三档改回**给 `dispatching` 插队** → **AD2 红，实得「排队中的」**（正是用户真机那个形状）；③ 13q 把 `focus` 挑选式加回去 → `steward-runner.static` ⑥ **五条红**。三处都按字节还原，还原后各自复绿。
+
+**连带重钉三处，全是「搬家引起的计数漂移」，判据含义一个字没松**：`steward-board.static` 的 **B5／M6／N3** 三条同账 —— `'needs_you'` 字面量 11 → **10**，因为那**一处计算现场搬去了叶子**而不是消失了。所以 B5 不是把数字调小了事：它现在**同时钉住叶子那一处**（`focusBody` 取自 `thread-facts.js`）并加钉「看板零函数体 ＋ 必须 re-export」，**两个文件加起来仍然恰好两处计算现场**。
+
+**踩了一处，值得记**：新写的 ⑥ 组第一遍**逮住了我自己的注释** —— 我在 13q 与 `steward-conversation.js` 的注释里原样引了修前那条挑选式（要讲清楚谎在哪就得把它抄出来），于是 `rows[0]`／`rows.find(`／`visit.focus` 三条当场红。这不是噪声而是设计问题：锁要钉的是**代码里**没有第二条挑选式，注释里解释历史反而该允许。修法是给 ⑥ 组加一道 `codeOnly()`（整行注释一律先剔掉，行尾注释不剔 —— 那种位置上写 `rows[0]` 本来就可疑），与 `steward-board.static` 的 `stripComments` 同一条口径。
+
+**本轮全量（12 核 / 34 GB，4 路）**：`347 ran / 346 pass / 1 fail / 2 flaky`。**真回归 0** —— 那一红是 `walkthrough-round1.browser`（38 号文 §7 ② 登记在案的并行抖动件），连同两件 flaky（`steward-conversation`／`dom-screenshot`）**三件逐件串行复跑全绿**（17.1 s／24.6 s／8.5 s，`0 fail 0 flaky`）。没拿「它在抖动登记里」当免死金牌：`steward-conversation` 是本刀动过的件，必须自己跑一遍才算数。
+
+另：`--fast` **72/72**、unit **ALL PASS**（含本刀新增的身份锁）、生成器链整条重跑后 `build --check` 与 `module-dependency-graph --check` 均自洽（**53 模块／418 边，与搬家前逐字相同** —— 判据搬进的是两边都已 import 的叶子，零新增模块边）。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
@@ -370,7 +405,7 @@ const okFlag = !(result && result.ok === false);   // 修前
 
 **下一波 125（35 号文 §2）**：说得准与失败恢复（A02／E01／T03）——普通研究交付的来源时效与主张支持度、失败分类到管家反馈的消费链、歧义追问的真实模型样本。退出门 J02／J07／J09；**网络失败零自动付费升档、主动停止后零自动重启**。开波前先写 125 号文（用户触发→现状→期望→独占文件／绝不碰→可证伪判据→反向验证）。
 
-**开波前先还的两笔**（都在 §8.5，且都比 125 便宜）：① 看板也要说「未记录验收」（要给 `/api/missions` 列表路由同一套投影）；② 焦点线程前后端两处口径收成一处。
+**开波前先还的两笔**（都在 §8.5，且都比 125 便宜）：~~② 焦点线程前后端两处口径收成一处~~ → **已还（§6-septies）**；剩 **① 看板也要说「未记录验收」**（要给 `/api/missions` 列表路由同一套投影）。
 
 **124 波留给后面的三件现成东西**：
 1. **真管家线程的确定性夹具口径**：走 `POST /api/steward/act` 的 `steward_thread_new`，不需要假管家模型；**cwd 必须省掉**（让 13k 派生子工作区——与管家会话同目录会一直等 cwd 写锁，实测 409 `session.turn_busy_elsewhere`）；开工前先等管家递的那一回合真跑完。
@@ -414,4 +449,4 @@ const okFlag = !(result && result.ok === false);   // 修前
 1. **看板也要说「未记录验收」**（P1 §6-ter 末段登记）。左栏看板的验收块今天读的是①（事项容器验收项），那条 a/b 单一来源、不会说谎，但它答不出「这条线程没有账本」。要让看板也说「未记录验收」，得先给 `/api/missions` **列表路由**同一套投影 —— 独立一刀，不塞进 124 波。
 2. **「原件」的第二种口径**（P2 §6-quater 末段登记）。本刀的「看原件」跳的是**这条线程的第 1 回合**（管家真正递过去的那一整段，41 号方案 §9 C05 的 `sessionId+turnSeq` 口径）。若用户本意是**跳回管家对话里下单的那一轮**，那是另一件事：`session.brief` 今天不记管家会话的 `turnSeq`，要补得在 13k 落盘时多写一笔（`brief.origin = {sessionId, turnSeq}`）。**先问用户再动**——多一个字段就多一处会烂掉的地方，§4 的纪律在这儿同样适用。
 3. **`session.brief` 与 `session.threadBrief` 的同名**（P2 §6-quater 开头那张表）。界面侧已经靠改名躲开了，但**服务端那两个字段仍然同名**，而 02 的 `sessionBriefOf()` 两个都认（先 `threadBrief` 后 `brief`）—— 今天不出事只是因为委托书那份没有 `title`／`gist` 两个键，于是 `sessionBriefOf` 回 null、索引条目里就没有它。**哪天谁给委托书加一个 `title`，线程列表的名字会突然变成委托书的一段。** 要还的话是给其中一个改名（`session.commission`），那是一次会动到落盘形状的迁移，单独一刀。
-4. **焦点线程的两处口径**（124 走查 ② 记进来）。前端 `steward-board.js` 的 `focusThreadFor` 已经改成「等你 ＞ 在跑 ＞ 最近发生的」；服务端 13q `stewardStateSnapshot` 里还留着自己那一份（`rows.find(needs_you) || rows.find(running) || rows[0]`，且 `dispatching` 还排在 `rows[0]` 之前）。它只驱动问候语里那枚「打开这一件」按钮、不参与右栏自动切换，所以没跟着改 —— 但**同一个问题两处判**迟早会各说各话。要收就收成一处（服务端只投影事实、挑哪一条由前端那一份纯函数判），那是一次会动 `src/` 与整条生成器链的独立小刀。
+4. ~~**焦点线程的两处口径**~~ → **已还（2026-09-15，见 §6-septies）**。以下为当时的登记原文：（124 走查 ② 记进来）前端 `steward-board.js` 的 `focusThreadFor` 已经改成「等你 ＞ 在跑 ＞ 最近发生的」；服务端 13q `stewardStateSnapshot` 里还留着自己那一份（`rows.find(needs_you) || rows.find(running) || rows[0]`，且 `dispatching` 还排在 `rows[0]` 之前）。它只驱动问候语里那枚「打开这一件」按钮、不参与右栏自动切换，所以没跟着改 —— 但**同一个问题两处判**迟早会各说各话。要收就收成一处（服务端只投影事实、挑哪一条由前端那一份纯函数判），那是一次会动 `src/` 与整条生成器链的独立小刀。

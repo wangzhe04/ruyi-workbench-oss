@@ -166,9 +166,16 @@ ok(aggregateSites > 0 && !/aggregateMissionState/.test(boardCode)
 // needs_you 在本模块只允许出现在两处，两处都【不是】聚合判据：
 //   ① focusThreadFor 的焦点优先级（先看哪一条）；② 状态行里「B 条等你」的计数。
 // 事项的聚合态永远只读行上的 aggregateState —— 多出第三处就说明有人在这里重写判据了。
+// 124 还债④（40 号文 §8.5 ④）：**焦点优先级那一处【计算】现场搬去了叶子 thread-facts.js**，
+// 不是消失了。服务端 13q 修前也自己挑一条「现在这一件」（与这一份的第三档不一样），收成一处的
+// 办法是服务端只投影事实、挑哪一条由这一份纯函数判 —— 而管家对话（steward-conversation.js）与
+// 看板都要读它，它就得住在两边都够得着的叶子里。于是本模块的两处计算变成【一处】（状态行计数），
+// 总数 11 → 10；焦点那一处跟着钉在叶子上，**两个文件加起来仍然恰好两处计算现场**。
+// 本模块对外仍按原名 re-export（C1/C3 与 focus-rail B1 一个字都没改）。
 const needsYouSites = count(boardCode, /needs_you/g);
-const focusBody = boardCode.slice(boardCode.indexOf('export function focusThreadFor'),
-  boardCode.indexOf('export function createStewardBoard'));
+const factsCode = stripComments(read('js/thread-facts.js'));
+const focusAt = factsCode.indexOf('export function focusThreadFor');
+const focusBody = focusAt < 0 ? '' : factsCode.slice(focusAt, factsCode.indexOf('\n}', focusAt));
 // 121-K4：切片的下界改成 goToNeedsYou（它就排在状态行后面）—— 原来切到 renderArbiterFacts，
 // 中间夹着「N 条等你」的去处，那里有一处 jumpToGroup('needs_you')。要钉的是【状态行自己】
 // 那一处计数，切片不该把邻居算进来。
@@ -180,8 +187,9 @@ const statusBody = boardCode.slice(boardCode.indexOf('function renderStatusLine'
 // 【派生】—— 入参永远是别处算好的那个字符串（aggregateState ／ threadStateOf 的返回值），本模块
 // 仍然一次都没有写「任一 needs_you 则…」这类判定。钉法跟着事实走：两处【计算】现场逐字钉死
 // （焦点优先级 1 ＋ 状态行计数 1），总数钉 11 —— 数字变了就必须重新解释一遍。
-ok(needsYouSites === 11 && count(focusBody, /needs_you/g) === 1 && count(statusBody, /needs_you/g) === 1,
-  `B5 'needs_you' 的两处【计算】现场不变（焦点优先级 1 ＋ 状态行计数 1），其余都是分组映射；总数 11（实测 ${needsYouSites}）`);
+ok(needsYouSites === 10 && count(focusBody, /needs_you/g) === 1 && count(statusBody, /needs_you/g) === 1
+  && !/export function focusThreadFor/.test(boardCode) && /export \{ focusThreadFor \};/.test(boardCode),
+  `B5 'needs_you' 的两处【计算】现场一处不多一处不少（叶子 thread-facts.js 的焦点优先级 1 ＋ 本模块状态行计数 1），本模块其余都是分组映射；本模块总数 10（实测 ${needsYouSites}，焦点体 ${count(focusBody, /needs_you/g)}）`);
 // 等待原因单一性（§8.10「排队可解释」）：wait.label 只渲染一处，没有第二套等待文案。
 ok(count(boardCode, /wait\.label/g) === 1,
   `B6 每行只渲染 wait.label 一处（实测 ${count(boardCode, /wait\.label/g)}）`);
@@ -769,8 +777,8 @@ ok(count(boardCode, /paintDot\(/g) === 1
   && !/paintDot\(/.test(nowThreadBody),
   `M5b 色 ≠ 态：paintDot（写 data-state/data-tone 的那一处）自此零调用点（定义 1 ＋ 调用 0 = ${count(boardCode, /paintDot\(/g)} 处），左栏与右栏的卡一次都不把状态画成颜色`);
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
-  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
-  `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 11（两处计算＋九处分组映射）、'stopped' 零处（124 走查后本模块零五态字面量）、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+  && count(boardCode, /needs_you/g) === 10 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
+  `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 10（一处计算＋九处分组映射；焦点那一处已随判据搬去叶子 thread-facts.js，见 B5）、'stopped' 零处（124 走查后本模块零五态字面量）、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 ok(/\.steward-now-stack \{/.test(cssCode) && /max-height: 33%;/.test(cssCode) && /overflow-y: auto;/.test(cssCode)
   && /\.steward-now-stack:empty \{ display: none; \}/.test(cssCode)
   && !/\.steward-now-(stack|thread)[^{]*\{[^}]*transition/.test(cssCode),
@@ -798,7 +806,7 @@ ok(missionStateMod.STATES.every(state => !new RegExp("'" + state + "'").test(ico
   'N2 那一枚字形是【派生】不是【查表】：icons.js 里零五态字面量、零 STATES 清单 —— 谁处在哪一态永远只由 mission-state.js 判，图标层长不出第二份枚举');
 ok(count(boardCode, /missionStateIcon\(/g) === 1
   && /import \{ icon, missionStateIcon \} from '\.\/icons\.js';/.test(board)
-  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
+  && count(boardCode, /needs_you/g) === 10 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
   `N3 左栏只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 B5／M6 同账（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 // 117u-G2 **重钉 N4**：tone 从 paintDot 里提成了纯函数 toneOf —— B2 之后小行那颗点归线程色，
 // 但「展开还是折成一行」仍然只认这四档 tone，提出来之前要拿 tone 必须先造一颗点再读回来再扔掉。

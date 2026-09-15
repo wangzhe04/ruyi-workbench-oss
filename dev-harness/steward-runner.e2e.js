@@ -258,7 +258,19 @@ try {
     ok(visit.json && visit.json.newVisit === true, 'G2 force:true -> 新到访');
     ok(visit.json && visit.json.digest && Array.isArray(visit.json.digest.items) && visit.json.digest.items.length <= 5, 'G3 digest 条数 ≤5(确定性归纳,不调模型)');
     ok(visit.json && Array.isArray(visit.json.pending), 'G4 待决列表随到访一起下发');
-    ok(visit.json && 'focus' in visit.json && 'visit' in visit.json, 'G5 返回 focus 与 visit 时间戳');
+    // 124 还债④（40 号文 §8.5 ④）：修前这里钉的是「返回 focus」—— 服务端自己挑一条「现在这一件」。
+    // 那一份与界面的 focusThreadFor 判的是同一个问题、第三档却不一样（它的行序把 dispatching 顶在
+    // 「其余」之前），同一个问题两处判。现在服务端只投影事实，挑哪一条由前端那一份纯函数判，
+    // 所以这条断言跟着翻面：**必须有 threads、且必须没有 focus**。
+    ok(visit.json && Array.isArray(visit.json.threads) && 'visit' in visit.json,
+      'G5 返回 threads 投影与 visit 时间戳');
+    ok(visit.json && !('focus' in visit.json),
+      'G5b 到访响应里【没有】focus —— 服务端不再替界面挑「现在这一件」（§8.5 ④）');
+    // 形状的主锁在 steward-runner.static ⑥（按源码钉四个键）；这里是行为面的复核。
+    // 行数一起打印：这个夹具此刻可能一条线程都没有，那样它就是空转 —— 空转要看得见，不能装绿。
+    const g5rows = (visit.json && visit.json.threads) || [];
+    ok(g5rows.every(row => Object.keys(row).sort().join(',') === 'sessionId,state,title,updatedAt'),
+      `G5c threads 行恰好四个键 sessionId/title/state/updatedAt（本夹具此刻 ${g5rows.length} 行）`);
     ok(countFiles(visitsDir) === 1, `G6 归档文件出现在 <data>/steward/visits/(got ${countFiles(visitsDir)})`);
     const head = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', 'steward.json'), 'utf8'));
     ok(head.messageCount === 0, `G7 retention:'visit' -> 归档后管家历史清空(messageCount ${head.messageCount})`);

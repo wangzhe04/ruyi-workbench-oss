@@ -21,6 +21,8 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const MODULE_PATH = path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'steward-board.js');
+// 124 还债④：判据本体搬到了叶子里；看板仍按原名 re-export，所以上面那一行一个字没改。
+const LEAF_PATH = path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'thread-facts.js');
 let modulePromise;
 function loadModule() {
   // steward-board.js 顶层 import 了 mission-state / net / thread-facts / steward-chips /
@@ -137,5 +139,19 @@ describe('focusThreadFor —— 焦点线程优先级', () => {
     const { focusThreadFor } = await loadModule();
     const wanted = row('b', 'running', '2026-09-06T09:00:00.000Z');
     assert.equal(focusThreadFor([row('a', 'done', '2026-09-06T10:00:00.000Z'), wanted]), wanted);
+  });
+  // ── 124 还债④（40 号文 §8.5 ④）：判据搬家之后的身份锁 ──────────────────────────
+  // 服务端 13q 修前自己也挑一条焦点（`rows.find(needs_you) || rows.find(running) || rows[0]`）回在
+  // visit.focus 里，与这一份的第三档不一样 —— 同一个问题两处判。收法是服务端只投影 threads，
+  // 管家对话（steward-conversation.js）与看板都读这一份纯函数；它因此从 steward-board.js 搬进了
+  // 两边都够得着的叶子 thread-facts.js。
+  //
+  // 这条用例钉的不是「两处都有这个名字」，而是**两处是同一个函数对象** —— 哪天有人在看板里
+  // 抄一份回去（而不是 re-export），上面那整张真值表仍然全绿，只有这一条会红。
+  it('124 还债④：判据住在叶子 thread-facts.js，看板导出的是【同一个函数对象】而不是抄的第二份', async () => {
+    const board = await loadModule();
+    const leaf = await import(pathToFileURL(LEAF_PATH).href);
+    assert.equal(typeof leaf.focusThreadFor, 'function', 'thread-facts.js 必须导出 focusThreadFor');
+    assert.equal(board.focusThreadFor, leaf.focusThreadFor, '看板导出的必须就是叶子那一个（re-export，不是副本）');
   });
 });

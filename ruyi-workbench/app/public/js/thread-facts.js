@@ -202,3 +202,35 @@ export function elapsedLabel(startedAt, current = new Date()) {
   if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, '0')}s`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 }
+
+// 124 还债④（40 号文 §8.5 ④）：这个函数原住 steward-board.js。走查② 把右栏那一份改成「最近发生的
+// 那一件」之后，服务端 13q stewardVisit 里还留着自己那一份挑选式（`rows.find(needs_you) ||
+// rows.find(running) || rows[0]`，且 rows 的排序把 dispatching 顶到了「其余」之前）—— **同一个问题
+// 两处判**：右栏挑一条、问候语那枚「打开这一件」挑另一条，迟早各说各话。
+// 收法：服务端**不再挑**（只投影 threads 事实），挑哪一条由这一份纯函数判。于是它得住在
+// **看板与管家对话都够得着的叶子**里 —— 本文件零 import、零 DOM、零 t()、零 fetch，正是这个位置
+// （与 121-K1 把 dockTone 一族搬进来同一条理由）。steward-board.js 仍按原名 re-export，既有的
+// C1/C3 静态锁与 focus-rail B1 那份页面真值表一个字都不用改。
+//
+// ── 焦点线程：等你 ＞ 在跑 ＞ 最近发生的那一件（§8.10／§5 117h 行）──────────────────
+// 纯函数、零 DOM、零 import 依赖：dev-harness/unit/steward-focus-thread.test.js 直接 import 跑真值表。
+// 入参是【已经带好五态】的行（五态由调用方经 mission-state.js 算出，本函数不认识卡片形状，也就
+// 不可能在这里长出第二套五态判据）。
+//
+// 124 走查（用户 2026-09-15 真机：「每次线程跑完了都会切到同一个线程」）：第三档原来是
+// **已停工**（`pick('stopped')`，「失败要看得见」），但它**没有时效尺** —— 一条昨天停工的线程
+// 会永远赢过今天刚做完的那条，于是每有一条线程跑完，右栏「现在这一件」就被拽回那条旧的停工
+// 线程。用户报的那条美股线程正是这个形状（已停工、昨天、一句话都没说过）。
+//
+// 拍板（用户 2026-09-15）：**第三档改成「最近发生的那一件」，不分 done/stopped。**
+// 理由是这一栏回答的问题是「此刻最该看的是哪一条」，那只可能是刚刚发生的那一条；失败的可见性
+// 由左栏的五态药丸与收工卡承担，不靠把一条旧的失败永久钉在右栏来实现。
+// 于是实现就是把 `pick('stopped')` 那一档整个去掉 —— 最后那条「最近更新的赢」本来就在，
+// 它自然接住 done 与 stopped 两种收工态。
+export function focusThreadFor(rows) {
+  const list = (Array.isArray(rows) ? rows : []).filter(row => row && row.sessionId);
+  if (!list.length) return null;
+  const newest = (a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  const pick = state => list.filter(row => row.state === state).sort(newest)[0] || null;
+  return pick('needs_you') || pick('running') || list.slice().sort(newest)[0] || null;
+}

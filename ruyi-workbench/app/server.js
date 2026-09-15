@@ -50675,9 +50675,27 @@ async function stewardVisit(opts) {
     stewardRunnerRuntime.visit.fireSeq = digest.fireSeq;     // 123-M2:fires 那本账各走各的水位
   }
   const pending = await stewardPendingList();
-  // 焦点线程:等你 > 在跑 > 失败(§8.10「现在这一件」的同一口径),没有线程时为空。
+  // 124 还债④(40 号文 §8.5 ④):**服务端不再自己挑「现在这一件」**,只把行投影出去。
+  //
+  // 修前这里有自己的一条挑选式:
+  //     rows.find(needs_you) || rows.find(running) || rows[0]
+  // 而界面那一份(public/js/thread-facts.js 的 focusThreadFor,124 走查② 之后是「等你 > 在跑 >
+  // 最近发生的那一件」)判的是同一个问题:右栏「现在这一件」挑一条,问候语那枚「打开这一件」挑
+  // 另一条。两处的第三档修前本来就不一样 —— 上面 stewardThreadDigestRows 的排序把 dispatching
+  // 顶在「其余」之前,于是一条排队中的线程会赢过刚刚做完的那条。同一个问题两处判,迟早各说各话。
+  //
+  // 收法:这里只投影事实(id / 名字 / 五态 / 最后动静),挑哪一条由前端那一份纯函数判 —— 它有
+  // unit 真值表与 focus-rail B1 两道锁,而本文件里再没有第二条挑选式(steward-runner.static 钉着)。
+  // 帽子复用总览那一个(STEWARD_DIGEST_LIMITS.maxThreads = 40),不另起旋钮;行序保持
+  // stewardThreadDigestRows 的优先序,所以裁掉的只可能是【既不等你也不在跑】的那些。
   const rows = await stewardThreadDigestRows(config).catch(() => []);
-  const focusRow = rows.find(r => r.state === 'needs_you') || rows.find(r => r.state === 'running') || rows[0] || null;
+  const threads = rows.slice(0, STEWARD_DIGEST_LIMITS.maxThreads).map(row => ({
+    sessionId: row.sessionId,
+    // 116-5b:名字走显示名(缺摘要时回落到原话),与修前 focus.title 逐字同源。
+    title: row.displayTitle || row.digest.title,
+    state: row.state,
+    updatedAt: row.updatedAt,
+  }));
   return {
     ok: true,
     // 116-3 P2-14:归档失败时如实说「这次到访没真正开始」—— 时间戳没推进,下一次调用会立刻再试一次。
@@ -50687,8 +50705,9 @@ async function stewardVisit(opts) {
     archive,
     digest: { items: digest.items, counts: digest.counts, commitments: digest.commitments },
     pending,
-    // 116-5b:「现在这一件」的标题走显示名(缺摘要时仍回落到原话,与旧行为逐字相同)。
-    focus: focusRow ? { sessionId: focusRow.sessionId, title: focusRow.displayTitle || focusRow.digest.title, state: focusRow.state } : null,
+    // 124 还债④:不再回 focus —— 挑哪一条由前端那一份 focusThreadFor 判(§8.5 ④)。
+    // 行里的名字仍走显示名(116-5b),与修前 focus.title 逐字同源。
+    threads,
   };
 }
 

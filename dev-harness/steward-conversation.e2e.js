@@ -2214,6 +2214,57 @@ try {
   ok(Boolean(acVisitB) && acVisitB.receipts.length === 1 && acVisitB.receipts[0].kind === 'contract',
     `AC7 ① enterVisit 这条路上灰字回执也在（实测 ${JSON.stringify(acVisitB && acVisitB.receipts)}）`);
 
+  // ─── AD 124 还债④（40 号文 §8.5 ④）：问候语那枚「打开这一件」与右栏同一个判据 ──────────
+  // 修前服务端 13q 自己挑一条回在 `visit.focus` 里，前端原样画。**那一份与界面的 focusThreadFor
+  // 判的是同一个问题、第三档却不一样**：13o 的行序把 dispatching 顶在「其余」之前，于是一条排队
+  // 中的线程会赢过刚刚做完的那条 —— 右栏「现在这一件」指一条、问候语这枚钮指另一条。
+  // 收法：服务端只投影 `visit.threads`（事实），挑哪一条由前端那一份纯函数判。
+  //
+  // 这一组是**这一刀唯一的行为面判据**（修前这枚钮一条断言都没有：walkthrough-round2 还特意
+  // 不建线程好落到 renderFirstRun 那一支）。AD2 就是「两处各说各话」那个形状的正面。
+  // t() 在这里把 title 参数回显出来，好让断言读得到究竟挑中了哪一条。
+  const AD_AT = ts => `2099-0${ts}-01T00:00:00.000Z`;
+  const adPick = async threads => cdp.evaluate(`(async () => {
+    const mod = await import('/js/steward-conversation.js');
+    const conv = mod.createStewardConversation({
+      api: async url => {
+        const route = String(url).split('?')[0];
+        if (route === '/api/steward/visit') {
+          return { ok: true, newVisit: true, pending: [], visit: { startedAt: '2099-01-01T00:00:00.000Z' },
+            digest: { items: [] }, threads: ${JSON.stringify(threads)} };
+        }
+        return null;
+      },
+      state: { config: { stewardEnabledV1: true } },
+      t: (key, params) => (params && params.title ? key + '|' + params.title : key),
+      isStewardMode: () => true,
+    });
+    await conv.enterVisit();
+    const labels = [...document.querySelectorAll('#stewardFeed .steward-act')].map(node => node.textContent);
+    const focusLabel = labels.filter(text => text.indexOf('openFocus') >= 0)[0] || '';
+    return { focusLabel, picked: focusLabel.split('|')[1] || '', buttons: labels.length };
+  })()`);
+
+  const adNeedsYou = await adPick([
+    { sessionId: 's_run', title: '在跑的', state: 'running', updatedAt: AD_AT(9) },
+    { sessionId: 's_ask', title: '等你的', state: 'needs_you', updatedAt: AD_AT(1) },
+  ]);
+  ok(Boolean(adNeedsYou) && adNeedsYou.picked === '等你的',
+    `AD1 第一档照旧：等你的那条赢过在跑的（哪怕它更旧；实得「${adNeedsYou && adNeedsYou.picked}」）`);
+
+  // ★ 这一条是收口的正面：dispatching 更旧、done 更新。服务端修前的行序会挑 dispatching，
+  //   而右栏那一份挑 done —— 现在只有一份判据，两处必然说同一条。
+  const adThird = await adPick([
+    { sessionId: 's_queue', title: '排队中的', state: 'dispatching', updatedAt: AD_AT(2) },
+    { sessionId: 's_done', title: '刚做完的', state: 'done', updatedAt: AD_AT(8) },
+  ]);
+  ok(Boolean(adThird) && adThird.picked === '刚做完的',
+    `AD2 第三档是「最近发生的那一件」，不给 dispatching 插队 —— 与右栏逐字同一份判据（实得「${adThird && adThird.picked}」）`);
+
+  const adNone = await adPick([]);
+  ok(Boolean(adNone) && adNone.focusLabel === '',
+    `AD3 一条线程都没有时不编一枚「打开这一件」出来（实得「${adNone && adNone.focusLabel}」）`);
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
   await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");
