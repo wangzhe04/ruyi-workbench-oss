@@ -1118,6 +1118,13 @@ function renderCurrentSession() {
     const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
     if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
+    // 124 走查 B：委托书线程的【第一条】消息折成一行（见 revealOriginalMessage 的头注）。
+    // 用 toggle 而不是 add：行是按 renderSignature 复用的，上一拍展开过的那一份会原样再进来。
+    // 提示文案挂在行上，样式层 ::after 用 attr() 取 —— 折叠是【显示】层的事，消息本身一个字没动。
+    const foldOriginal = i === 0 && m.role === 'user' && shouldFoldOriginal(session);
+    row.classList.toggle('is-original-folded', foldOriginal);
+    if (foldOriginal) row.dataset.foldedHint = t('threadCommission.originalFolded');
+    else if (row.dataset.foldedHint) delete row.dataset.foldedHint;
     fragment.appendChild(row);
   }
   const optimisticPersisted = activeTurnUserIsPersisted(msgs, liveForSession);
@@ -1195,16 +1202,49 @@ function expandMessageWindowFully() {
 // 三条纪律：① 流式回合期间不重画（与「加载更早」同一条守卫：renderCurrentSession 会抹掉在途的
 // 流式 row，那是既有的信任观感事故）；② 已经全画开时一次都不重画（省掉一次整屏重建）；
 // ③ 高亮用 CSS 动画 ＋ animationend 摘类，**零计时器**（谁也不该为一次闪烁留一个 setTimeout）。
+// 124 走查（用户 2026-09-15 在三个选项里选了 B）：**有委托书带时，第一条用户消息折成一行。**
+// 病灶在实拍里一眼可见：委托书带展开之后，它印的那两段与紧挨着的第一条用户消息是【同一段话】
+// —— 那条消息本来就是管家递过去的原件（原话 ＋ 围栏）。两份并排等于把同一句话说两遍。
+// 折的是【第一条消息】而不是委托书带：带是常驻的答案（目标／验收口径／谁在跑／什么时候），
+// 原件是「要看才看」的证据，所以让证据退到一行、由带上那枚「看原件」把它请出来。
+//
+// 三条纪律：
+//   ① **只折第一条，且只在真有委托书时折**（`session.brief.userText` 非空 —— 用户自己开的线程
+//      没有委托书，一个字都不该被折）；
+//   ② **展开状态按线程记**（`originalUnfoldedIn` 是一张 sessionId 表）：你在哪条线程上把原件
+//      请出来过，那条线程上它就一直展开着，换走再换回来也还开着 —— 用户是【明确要求】看它的，
+//      再给他折回去就是跟他对着干。与委托书带本身「换线程收回折叠态」**刻意不同**：带是常驻的
+//      答案、收起来只花一次点击，而原件是用户专门点开的证据。用表不用单个字符串：后者是
+//      「最后展开的那一条赢」，在两条线程之间来回切会莫名其妙地把先前那条折回去。
+//      只在内存、不落盘 —— 刷新页面回到默认折起，与其它「读法」类状态同一条纪律；
+//   ③ **折的是显示，不是数据**：`session.messages` 一个字没动，回退／检查点／复制路径读的仍是
+//      同一条消息（判据由 thread-commission.browser 的 B9 组看着）。
+function threadCommissionOriginalText(session) {
+  const brief = (session && session.brief && typeof session.brief === 'object') ? session.brief : null;
+  return String((brief && brief.userText) || '').trim();
+}
+// 用户在哪几条线程上把原件请出来过。表、不是单个游标（理由见上面 ②）。
+const originalUnfoldedIn = new Set();
+// 第一条消息该不该折：有委托书、且用户这一趟还没把它展开过。
+function shouldFoldOriginal(session) {
+  return Boolean(threadCommissionOriginalText(session)) && !originalUnfoldedIn.has(String((session && session.id) || ''));
+}
+
 function revealOriginalMessage() {
   const box = $('messages');
-  const msgs = (state.currentSession && Array.isArray(state.currentSession.messages)) ? state.currentSession.messages : [];
+  const session = state.currentSession;
+  const msgs = (session && Array.isArray(session.messages)) ? session.messages : [];
   if (!box || !msgs.length) return false;
+  // 先记「这条线程的原件已被展开」，再重画 —— 反过来的话 renderCurrentSession 会照旧把它折回去。
+  originalUnfoldedIn.add(String((session && session.id) || ''));
   if (windowStartFor(msgs) > 0) {
     if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return false; }
     expandMessageWindowFully();
   }
   const row = box.querySelector('[data-message-key]');
   if (!row) return false;
+  row.classList.remove('is-original-folded');   // 窗口没重画那一支：就地展开
+  if (row.dataset.foldedHint) delete row.dataset.foldedHint;
   try { row.scrollIntoView({ block: 'start' }); } catch { /* 无 scrollIntoView 的宿主：高亮照旧 */ }
   row.classList.remove('is-revealed');        // 连点两下也要能再闪一次（动画要重新起跑）
   void row.offsetWidth;                        // 强制重排，否则同一帧内摘了又加等于没动

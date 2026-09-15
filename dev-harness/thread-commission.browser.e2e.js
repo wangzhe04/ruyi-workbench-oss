@@ -20,6 +20,12 @@ require('./lib/self-isolate-home.js'); // 换机器：直跑时家目录自隔�
 //   B6 用户自己开的线程（没有 brief）整条带不出现 —— 不画「暂无委托书」那种等重灰字；
 //   B7 换线程回来时收回折叠态（展开与否是【那一条】线程的读法，不跟着人跑）。
 //
+// 124 走查 B（用户 2026-09-15 三选一）追加 **B9 组**：委托书带展开之后，它印的那两段与紧挨着
+// 的第一条用户消息是【同一段话】（那条消息本来就是管家递过去的原件），两份并排等于把同一句话
+// 说两遍。现在第一条默认折成一行，点「看原件」才展开。B9c 钉的是最要紧的那一条：**折的是显示、
+// 不是数据** —— state 里那条消息仍是整段原件（回退／检查点／复制读的都是它）。
+// B9e 钉「按线程记」：在这条线程上请出来过的原件，换走再换回来还开着（与带本身刻意不同）。
+//
 // 反向（交付报告里逐条记实得）：
 //   · 把 index.html 里 #threadCommission 整段挪到 #missionBar 之后 → B3 红；
 //   · 把 goal.textContent 改成 threadCommissionGist(brief.userText) → B1 红；
@@ -404,6 +410,28 @@ try {
   ok(opened.runnerHidden === false && opened.runner.includes('如意管家'),
     `B4d 「谁在跑」说得出来（「${opened.runner}」）`);
 
+  /* ═════════ B9 124 走查 B：原件默认折成一行 ═════════
+     用户 2026-09-15 三选一选了 B。病灶在 B4-shot 那张实拍里一眼可见：委托书带展开之后，
+     它印的那两段与紧挨着的第一条用户消息是同一段话。现在第一条默认折起，点「看原件」才展开。 */
+  const folded = await cdp.evaluate(`(() => {
+    const row = document.querySelector('#messages [data-message-key]');
+    if (!row) return null;
+    const bubble = row.querySelector('.bubble');
+    return {
+      hasClass: row.classList.contains('is-original-folded'),
+      hint: row.dataset.foldedHint || '',
+      bubbleShown: bubble ? getComputedStyle(bubble).display !== 'none' : null,
+      // 折的是显示不是数据：这条消息的正文在 state 里一个字都没少。
+      storedChars: ((window.state.currentSession.messages || [])[0] || {}).content.length,
+    };
+  })()`);
+  ok(Boolean(folded) && folded.hasClass === true && folded.bubbleShown === false,
+    `B9a 第一条消息默认折起来了（气泡不显示；实得 ${JSON.stringify(folded)}）`);
+  ok(Boolean(folded) && folded.hint.length > 0,
+    `B9b 折起来那一行有话说，不是一片空白（实得「${folded && folded.hint}」）`);
+  ok(Boolean(folded) && folded.storedChars > USER_TEXT.length,
+    `B9c **折的是显示、不是数据**：state 里那条消息仍是整段原件（${folded && folded.storedChars} 字 > 原话 ${USER_TEXT.length} 字）`);
+
   /* ═════════ B5 看原件 ═════════ */
   ok(opened.originalHidden === false, 'B5a 「看原件」按钮在场（落点注入链通了）');
   await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);
@@ -417,6 +445,15 @@ try {
     'B5c 原件里有用户原话逐字');
   ok(Boolean(revealed) && revealed.text.includes('<steward-brief added-by="steward">'),
     'B5d 原件里有管家补充那道围栏 —— 它才是真正递给线程的那一整段（委托书带印的是拆开的两段）');
+  // B9d：点完「看原件」，那一行真的展开了。**必须量计算样式**——textContent 不认 CSS，
+  // 上面 B5c/B5d 在折叠态下也会绿，拿它们证不了「展开了」。
+  const unfolded = await cdp.evaluate(`(() => {
+    const row = document.querySelector('#messages [data-message-key]');
+    const bubble = row && row.querySelector('.bubble');
+    return row ? { hasClass: row.classList.contains('is-original-folded'), bubbleShown: bubble ? getComputedStyle(bubble).display !== 'none' : null } : null;
+  })()`);
+  ok(Boolean(unfolded) && unfolded.hasClass === false && unfolded.bubbleShown === true,
+    `B9d 点完「看原件」那一行真的展开了（气泡显示；实得 ${JSON.stringify(unfolded)}）`);
 
   /* ═════════ B6 没有委托书的线程整条带不出现 ═════════ */
   // 换线程【留在工作台视角】点左栏行 —— 同一次点击在管家视角下是「打开抽屉」
@@ -429,6 +466,14 @@ try {
   /* ═════════ B7 换回来时收回折叠态 ═════════ */
   ok(Boolean(await openThread(idS)), `B7a 换回管家开的那条（${idS}）`);
   const back = await cdp.evaluate(BAND);
+  // B9e：展开状态按【线程】记 —— 在这条线程上请出来过的原件，换走再换回来还开着。
+  // 与委托书带本身【刻意不同】（带换线程会收回折叠态）：带是常驻的答案，原件是用户专门点开的证据，
+  // 再给他折回去就是跟他对着干。这条同时也钉住「不是全局布尔」——它是按 sessionId 记的。
+  const refolded = await cdp.evaluate(`(() => {
+    const row = document.querySelector('#messages [data-message-key]');
+    return row ? row.classList.contains('is-original-folded') : null;
+  })()`);
+  ok(refolded === false, `B9e 换走再换回来，这条线程上已请出来的原件仍然开着（实得 folded=${refolded}）`);
   ok(back.hidden === false && back.bodyHidden === true && back.expanded === 'false' && back.sessionId === idS,
     `B7 换线程回来时委托书收回折叠态（实得 hidden=${back.hidden} bodyHidden=${back.bodyHidden} expanded=${back.expanded}，当前线程 ${back.sessionId}）`);
   /* ═════════ B8 长会话：委托书带还在，「看原件」仍然到得了第一条 ═════════

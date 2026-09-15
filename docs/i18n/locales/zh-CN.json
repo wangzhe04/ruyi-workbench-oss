@@ -2730,6 +2730,7 @@
   ,"threadCommission.bySteward": "如意管家"
   ,"threadCommission.runner": "由{{by}}交办"
   ,"threadCommission.runnerModel": "由{{by}}交办 · 执行模型 {{model}}"
+  ,"threadCommission.originalFolded": "原件已折起 —— 它就是上面那份委托书，点「看原件」展开"
   ,"threadCommission.runnerModelOnly": "执行模型 {{model}}"
   ,"threadHead.chips": "线程配置"
   ,"threadHead.watch": "交给管家盯"

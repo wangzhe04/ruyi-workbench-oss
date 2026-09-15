@@ -2730,6 +2730,7 @@
   ,"threadCommission.bySteward": "the Ruyi steward"
   ,"threadCommission.runner": "handed over by {{by}}"
   ,"threadCommission.runnerModel": "handed over by {{by}} · running on {{model}}"
+  ,"threadCommission.originalFolded": "Original folded — it is the brief above; use “See original” to expand"
   ,"threadCommission.runnerModelOnly": "running on {{model}}"
   ,"threadHead.chips": "Thread settings"
   ,"threadHead.watch": "Let the steward watch"

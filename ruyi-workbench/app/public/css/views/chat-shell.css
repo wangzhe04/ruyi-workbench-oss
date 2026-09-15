@@ -249,6 +249,19 @@
 .thread-commission .tc-runner { margin: 0; color: var(--muted); font-size: var(--fs-xs); }
 .thread-commission .tc-runner[hidden] { display: none; }
 
+/* 124 走查 B：委托书线程的第一条消息折成一行 —— 它与委托书带印的是同一段话（带里是拆开的
+   两段、这里是原件），两份并排等于把同一句话说两遍。气泡整个收起，留一行虚线提示；
+   文案由 session-experience.js 写进 data-folded-hint（i18n 在 JS 一侧，样式层只取 attr）。
+   .message 是 `grid-template-columns: 32px minmax(0,1fr)`，所以这一行要显式落在第二列上，
+   跟气泡对齐（落在第一列会挤在头像那一格里）。 */
+#messages .message.is-original-folded .bubble { display: none; }
+#messages .message.is-original-folded::after {
+  content: attr(data-folded-hint);
+  grid-column: 2; justify-self: start;
+  color: var(--muted); font-size: var(--fs-xs); line-height: 1.5;
+  border: 1px dashed var(--line); border-radius: var(--radius-sm); padding: 4px 10px;
+}
+
 /* 「看原件」落地时那一下闪烁（session-experience.js 的 revealOriginalMessage 加 .is-revealed，
    animationend 自己摘 —— 零计时器）。只描边不改底色：底色一变，用户会以为那条消息被选中了。 */
 @keyframes ruyi-reveal-flash {
