@@ -2635,6 +2635,7 @@
   ,"stewardShell.board.threadCount": "{{n}} threads"
   ,"stewardShell.board.acceptance": "Done {{done}}/{{total}}"
   ,"stewardShell.board.acceptanceNone": "No acceptance items"
+  ,"stewardShell.board.acceptanceUnrecorded": "Acceptance not recorded"
   ,"stewardShell.board.cost": "Spent {{cost}}"
   ,"stewardShell.board.costBudget": "Spent {{cost}} · budget {{budget}}"
   ,"stewardShell.board.costNone": "Nothing spent yet"

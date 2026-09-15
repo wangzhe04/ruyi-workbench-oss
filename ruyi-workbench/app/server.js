@@ -42586,9 +42586,17 @@ async function buildMissionAggregateRows(options = {}) {
     //      聚合仍落 stopped),变的只是【为什么】短路 —— 从「它是速查」变成「我不知道它在干什么」。
     //      对应地:①支里的速查线程(D1 之后它有卡片、有事实)不再被这条守卫劫走,走完整五态。
     let derived;
-    if (card) derived = stewardThreadStateFromCard(card);
+    // 124 还债①（40 号文 §8.5 ①）：这条线程有没有【自己的验收账本】（`session.mission`）。
+    // 判据与 13g `thread_status` / 13h 总览同一条：卡片侧 `card.status === 'none'` ⇔ 头上没有
+    // mission 容器（§6-ter 的 `ledgerless` 写的就是这两句的两种写法），不许拿
+    // `milestonesTotal === 0` 之类的近似顶替。
+    // 第三支（普通会话）刻意不读会话头以省 I/O —— 而 mission 账本只可能挂在 mission 会话上，
+    // 所以那一支恒为 false：这不是猜，是定义。
+    let threadLedger = false;
+    if (card) { derived = stewardThreadStateFromCard(card); threadLedger = String(card.status || '') !== 'none'; }
     else if (meta.kind === 'mission') {
       const head = await readMissionSessionHead(meta.id);
+      threadLedger = !!(head && head.mission);
       derived = deriveStewardThreadState({
         kind: 'mission',
         autoMode: head && head.mission && head.mission.autoMode,
@@ -42603,6 +42611,11 @@ async function buildMissionAggregateRows(options = {}) {
         lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
+    // 124 还债①：组级两个事实在这一处累计（前端不再自己推）——
+    //   · anyLedger：组里任一条线程带账本；
+    //   · anyMission：这一组里有真正的【事项线程】（未归类事项没有容器，只能靠它认出来）。
+    group.anyLedger = group.anyLedger === true || threadLedger;
+    group.anyMission = group.anyMission === true || meta.kind === 'mission';
     group.threads.push({
       sessionId: meta.id,
       title: stewardSanitizeText(meta.title || ''),
@@ -42657,6 +42670,24 @@ async function buildMissionAggregateRows(options = {}) {
         done: acceptanceItems.filter(item => item.done).length,
         total: acceptanceItems.length,
         items: acceptanceItems,
+        // ── 124 还债①（40 号文 §8.5 ①）：让【看板】也答得出「未记录验收」───────────────
+        // 修前这一块只有 done/total/items 三个数，都来自事项容器。容器里的 done 按定义只可能是
+        // 用户勾的，所以那条 a/b 单一来源、不会说谎 —— 但它**答不出「这一件压根没人记过验收」**：
+        // `total === 0` 既可能是「记过、是空的」，也可能是「从来没记过」，看板只能两者都当没话说。
+        // 详情路由（/api/missions/:id）走的是 02 的 buildMissionAcceptanceProjection，那边有
+        // `ledger`；列表这一侧没有，于是抽屉说得出「未记录验收」而看板说不出。这两个键就是把
+        // 同一套事实补到列表行上 —— **判据仍然只有前端 thread-facts.acceptanceRecorded 一处**，
+        // 这里只负责把它需要的事实如实投影出来。
+        //   · ledger  —— 组里【任一条】线程带自己的验收账本（`session.mission`）。组级口径：
+        //     事项是按组显示的，组里只要有一条记过，这一件就不算「没人记过」。
+        //   · tracked —— 这一组是不是【一件活】：有事项容器，或组里有 mission 线程（未归类事项
+        //     没有容器文件，只能靠后者认出来）。
+        //     为什么要它：左栏自 121-K3 放宽索引口径后大半是用户手工开的普通会话，它们的聚合态
+        //     恒落 stopped、也从来没有验收记录 —— 不带这个门，「收工却没记过」会把整栏刷成等重
+        //     灰字（§2.3「只在有话可说时出现」，正是 P1 当初刻意不碰看板的那条理由）。
+        //     普通聊天会话本来就没有验收这回事，对它说「未记录验收」是噪声，不是诚实。
+        ledger: group.anyLedger === true,
+        tracked: Boolean(container) || group.anyMission === true,
       },
       budget: container ? container.budget : {},
       cost: group.cost,
@@ -42707,7 +42738,11 @@ function overlayMissionAggregateFields(card, row) {
     const derived = stewardThreadStateFromCard(card);
     return Object.assign(card, {
       aggregateState: aggregateMissionState([derived.state]),
-      threadCount: 1, acceptance: { done: 0, total: 0 }, budget: {}, cost: emptyMissionCostBucket(), derived: true,
+      threadCount: 1,
+      // 124 还债①：退化支（没有聚合行）也得如实说 —— 没有容器就没有容器验收项，
+      // 账本与「是不是一件活」仍然只读卡片上那两条既有事实，不另编。
+      acceptance: { done: 0, total: 0, ledger: String(card.status || '') !== 'none', tracked: String(card.kind || '') === 'mission' },
+      budget: {}, cost: emptyMissionCostBucket(), derived: true,
       // 117h 第 0 步:没有聚合行 = 没有容器,事项标题就是这条线程自己的标题,目标与验收项如实为空。
       missionTitle: String(card.displayTitle || card.title || ''), goal: '', acceptanceItems: [],
       wait: waitReasonFor(
@@ -42719,7 +42754,9 @@ function overlayMissionAggregateFields(card, row) {
   return Object.assign(card, {
     aggregateState: row.aggregateState,
     threadCount: row.threadCount,
-    acceptance: { done: row.acceptance.done, total: row.acceptance.total },
+    // 124 还债①：ledger / tracked 跟着 done/total 一起上行 —— 看板按组取【领头那一行】的
+    // acceptance（groupRows 里 `acceptance: row.acceptance`），而这两个是组级事实，同组每一行都一样。
+    acceptance: { done: row.acceptance.done, total: row.acceptance.total, ledger: row.acceptance.ledger === true, tracked: row.acceptance.tracked === true },
     budget: row.budget,
     cost: row.cost,
     derived: row.derived,

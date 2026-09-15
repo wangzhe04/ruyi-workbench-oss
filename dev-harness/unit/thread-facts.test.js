@@ -180,3 +180,75 @@ describe('dispatchAcceptanceMilestones —— 前端唯一的 mission 里程碑�
     assert.equal(descOf('分析并修复这个 bug'), research, '同时命中时按调研档出（判定顺序不许被重排）');
   });
 });
+
+// ── 124 还债①（40 号文 §8.5 ①）：让【看板】也答得出「未记录验收」───────────────────────
+// 被钉的是一句话：**「没有验收项」（记过、是空的）与「未记录验收」（压根没人记过）不是一回事。**
+// 抽屉从 124-P1 起就分得开（它读详情投影里的 `ledger`）；看板修前分不开，因为列表行
+// （GET /api/missions）上只有容器那三个数。13d 现在把 `ledger` / `tracked` 两个组级事实一起
+// 投影下来，判据仍然只有 acceptanceRecorded 这一处 —— 下面这一组守的就是「同一个函数吃两种
+// 入参形状、答案都对」。
+describe('acceptanceRecorded —— 记过验收没有（详情快照 ／ 列表行 两种形状）', () => {
+  it('详情形状：有账本 → 记过', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { ledger: true, items: [{}], container: { items: [] } } }), true);
+  });
+  it('详情形状：无账本、容器也没验收项 → 没记过', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { ledger: false, items: [], container: { items: [] } } }), false);
+  });
+  it('详情形状：无账本但容器里有验收项 → 记过', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { ledger: false, items: [], container: { items: [{ text: 'a' }] } } }), true);
+  });
+  // ── 列表行那一形状（本刀新加的那半句）──────────────────────────────────────────
+  // 列表行没有第二层 container，事项验收项就直接躺在 acceptance.items 里。
+  it('列表形状：组里有账本 → 记过（哪怕一条验收项都没有）', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { done: 0, total: 0, items: [], ledger: true, tracked: true } }), true);
+  });
+  it('列表形状：没账本、也没验收项 → 没记过（这一格才配说「未记录验收」）', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { done: 0, total: 0, items: [], ledger: false, tracked: true } }), false);
+  });
+  it('列表形状：没账本但有事项验收项 → 记过', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { done: 0, total: 1, items: [{ text: 'a', done: false }], ledger: false, tracked: true } }), true);
+  });
+  // 回落到 items 为什么安全：详情那边 ledger===false 时里程碑必为空（items 由 mission.milestones
+  // 来，没账本就没里程碑），所以回落读到的不可能是里程碑。这一条把那个前提也钉住。
+  it('回落不会误读详情的里程碑：无账本时详情的 items 恒空，这条前提被钉住', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded({ acceptance: { ledger: false, items: [], container: { items: [] } } }), false);
+    // 有 container 键时一律以 container 为准，items 再怎么填也不看
+    assert.equal(acceptanceRecorded({ acceptance: { ledger: false, items: [{ desc: 'x' }], container: { items: [] } } }), false);
+  });
+  it('空入参不编答案', async () => {
+    const { acceptanceRecorded } = await loadModule();
+    assert.equal(acceptanceRecorded(null), false);
+    assert.equal(acceptanceRecorded({}), false);
+    assert.equal(acceptanceRecorded({ acceptance: null }), false);
+  });
+});
+
+// missionStateSettled：「这一件收工了没有」。它不判五态，只对算好的字符串做一次折算。
+// 住在这片叶子而不是 steward-board.js —— 看板的 M6／N3 钉着「本模块零 'done'／'stopped' 字面量」，
+// 那是「不许在看板里长出第二套五态判据」的机械保证（第一版写在看板里，两条当场转红）。
+describe('missionStateSettled —— 收工了没有', () => {
+  it('done / stopped 是收工', async () => {
+    const { missionStateSettled } = await loadModule();
+    assert.equal(missionStateSettled('done'), true);
+    assert.equal(missionStateSettled('stopped'), true);
+  });
+  it('在动的三态都不是收工', async () => {
+    const { missionStateSettled } = await loadModule();
+    for (const state of ['needs_you', 'running', 'dispatching']) assert.equal(missionStateSettled(state), false);
+  });
+  it('quick_ask 不算 —— 它不是一件交办出去的活，由调用方的 tracked 门挡，不在这里替它下定义', async () => {
+    const { missionStateSettled } = await loadModule();
+    assert.equal(missionStateSettled('quick_ask'), false);
+  });
+  it('空值与未知串不编答案', async () => {
+    const { missionStateSettled } = await loadModule();
+    for (const value of ['', null, undefined, 'DONE', 'finished', 0]) assert.equal(missionStateSettled(value), false);
+  });
+});

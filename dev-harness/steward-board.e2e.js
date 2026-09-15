@@ -41,6 +41,9 @@ const fill = (key, params) => String(zh[key]).replace(/{{\s*([\w.-]+)\s*}}/g, (m
 const MISSION_TITLE = '季度收尾';
 const THREAD_A = '等华南的表';
 const THREAD_B = '跑批处理';
+// 124 还债①：那件「收工了却没人记过验收」的活与它那条无账本线程。
+const EMPTY_MISSION_TITLE = '没人记过验收的那件';
+const THREAD_UNREC = '它底下那条';
 const THREAD_C = '选个框架';
 // 117r-D2：这一条【故意】等浏览器已经取过一趟行之后才建，专用来造「行还没刷到就派焦点事件」的时序。
 const THREAD_D = '刚开的这一条';
@@ -361,13 +364,14 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-board-'));
 const home = path.join(root, 'home');
 const workA = path.join(root, 'work-a');
 const workB = path.join(root, 'work-b');
+const workUnrec = path.join(root, 'work-unrec');   // 124 还债①：那条无账本线程自己的目录（避开 116h 的同 cwd 写互斥）
 // 117s-B：线程 E 自己的工作文件夹 —— 它要连跑两个回合（一个收尾、一个挂着），
 // 与 A／B 同 cwd 会撞上 116h 的写互斥，那不是本组要测的形状。
 const workE = path.join(root, 'work-e');
 const workF = path.join(root, 'work-f');
 const workF2 = path.join(root, 'work-f2');
 const profile = path.join(root, 'profile');
-for (const dir of [home, workA, workB, workE, workF, workF2]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [home, workA, workB, workUnrec, workE, workF, workF2]) fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9,
   version: '2.4.0',
@@ -434,6 +438,20 @@ try {
     await request(appPort, 'POST', `/api/missions/${encodeURIComponent(missionId)}/threads`, { action: 'attach', sessionId: id }, token);
   }
 
+  // ── 124 还债①（40 号文 §8.5 ①；用户 2026-09-15 拍板「只在收工了却没人记过时印」）──────
+  // 造一件**收工了却没人记过验收**的活：事项容器【不带任何验收项】，底下挂一条【没有账本】的线程
+  // （只 POST /api/sessions，不 POST /api/mission start，所以头上没有 mission 容器），也没跑过回合
+  // → 聚合态落收工档。这正是 41 号方案 §9 J08 要挡的那一格：收工了，却没有任何验收记录。
+  // 上面 A／B／C 三条都 `mission start` 过、都带账本，所以碰不到这一支 —— 这一刀之前，
+  // 这个形状在整套夹具里一次都没出现过。
+  const emptyContainer = await request(appPort, 'POST', '/api/missions', { title: EMPTY_MISSION_TITLE }, token);
+  const emptyMissionId = emptyContainer && emptyContainer.json && emptyContainer.json.mission && emptyContainer.json.mission.missionId;
+  const threadD = await request(appPort, 'POST', '/api/sessions', { title: THREAD_UNREC, cwd: workUnrec }, token);
+  const createdD = threadD && threadD.json && threadD.json.session && threadD.json.session.id;
+  ok(Boolean(emptyMissionId && createdD), `A4c 空验收事项与它那条无账本线程已建（${emptyMissionId || '失败'} / ${createdD || '失败'}）`);
+  const attachD = await request(appPort, 'POST', `/api/missions/${encodeURIComponent(emptyMissionId)}/threads`, { action: 'attach', sessionId: createdD }, token);
+  ok(Boolean(attachD && attachD.json && attachD.json.ok === true), `A4d 那条无账本线程挂进了空验收事项（实测 ${attachD && attachD.status} ${JSON.stringify(attachD && attachD.json)}）`);
+
   // 117u-G2 B3（27 号文 §11.15.3「事实降级」）：把线程 C 的权限档【钉成会话级】，A／B 留着
   // 跟随全局 —— 于是「与全局不同才印那两枚 chip」这条判据在同一屏里两侧都验得到（只验一侧的话，
   // 把判据写成恒假也能绿）。走的是 chips 自己那条唯一写口（PATCH /api/sessions/:id），
@@ -459,8 +477,18 @@ try {
   ok(Boolean(running), 'A6 线程 B 的回合一直在飞（在跑）');
 
   const rowsNow = (await request(appPort, 'GET', '/api/missions?limit=200', null, token)).json.missions || [];
-  ok(rowsNow.length === 3 && rowsNow.filter(row => row.missionId === missionId).length === 2,
-    `A7 三条线程都进了投影，其中两条挂在同一个事项下（实测 ${rowsNow.length} 行）`);
+  // 124 还债①：多了线程 D（挂在空验收事项下的无账本线程），行数 3 → 4。
+  // 124 还债①：那条无账本线程要真的【收工】—— 没跑过回合的线程是「交办中」（dispatching），
+  // 而用户拍板的口径是【只在收工了却没人记过时】才印。跑一个普通回合到完（fake provider
+  // 只有 ask/hang 两个剧本会停住，其余直接答完），它就落到收工档。
+  await request(appPort, 'POST', '/api/chat/stream', { sessionId: createdD, message: 'wrap up', cwd: workUnrec }, token, 600000);
+  const settledD = await waitForHttp(appPort, 'GET', '/api/missions?limit=200', result => {
+    const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === createdD);
+    return Boolean(row && (row.aggregateState === 'done' || row.aggregateState === 'stopped'));
+  }, token);
+  ok(Boolean(settledD), `A7c 那条无账本线程跑到了收工档（实测 ${Boolean(settledD)}）`);
+  ok(rowsNow.length === 4 && rowsNow.filter(row => row.missionId === missionId).length === 2,
+    `A7 四条线程都进了投影，其中两条挂在同一个事项下（实测 ${rowsNow.length} 行）`);
   ok(rowsNow.every(row => typeof row.missionTitle === 'string' && Array.isArray(row.acceptanceItems)),
     'A7b 117h 第 0 步的字段真的在行上（missionTitle / acceptanceItems）');
 
@@ -513,7 +541,9 @@ try {
     return true;
   })()`);
   await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'steward'`);
-  const expectedLine = fill('stewardShell.board.statusLine', { missions: 2, running: 1, needsYou: 1 });
+  // 124 还债①：多了「没人记过验收的那件」（空验收容器 ＋ 一条无账本线程），任务数 2 → 3。
+  // 在跑／等你那两个数不动 —— 新那一件既没跑回合也没待决，它落的就是收工档。
+  const expectedLine = fill('stewardShell.board.statusLine', { missions: 3, running: 1, needsYou: 1 });
   const entered = await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
     return snapshot.statusLine === ${JSON.stringify(expectedLine)} ? snapshot : null;
@@ -564,7 +594,8 @@ try {
   })()`);
   ok(jumped === JSON.stringify({ found: true, collapsed: false }),
     `C1b 点一行状态＝把左栏滚到「等你」那一组（并保证那一组是展开的；实测 ${jumped}）`);
-  ok(opened.groups.length === 2, `C2 按任务分成两件（实测 ${opened.groups.length}）`);
+  // 124 还债①：多了「没人记过验收的那件」，分组 2 → 3。
+  ok(opened.groups.length === 3, `C2 按任务分成三件（实测 ${opened.groups.length}）`);
   const groupM = opened.groups.find(group => group.missionId === missionId) || null;
   const groupC = opened.groups.find(group => group.missionId === created.C) || null;
   ok(Boolean(groupM) && groupM.title === MISSION_TITLE,
@@ -578,6 +609,28 @@ try {
   ok(Boolean(groupM) && groupM.taskCount === '2'
     && groupM.facts.join(' ').includes(fill('stewardShell.board.threadCount', { n: 2 })),
     `C4b 任务行显示线程数（行上一枚小计数「${groupM && groupM.taskCount}」＋卡尾事实行那一枚）`);
+  // ── C4c 124 还债①（40 号文 §8.5 ①）：看板也说得出「未记录验收」──────────────────────
+  // 修前这一格是【沉默】的：列表行上只有容器那三个数，`total === 0` 既可能是「记过、是空的」，
+  // 也可能是「压根没人记过」，看板两者都当没话说 —— 而沉默会被读成「没进展」。
+  // 抽屉从 124-P1 起就分得开（它读详情投影里的 ledger），看板这一刀才补上。
+  // 用户 2026-09-15 拍板的口径：**只在收工了却没人记过时印**（还在跑／等你时不说）。
+  // 按【标题】定位而不是按 missionId：attach 已经写了 session.missionId（聚合行那一侧当场就跟上了，
+  // 这一组的 acceptance 读的就是它），但左栏归组用的是【卡片上】那个 missionId，而卡片来自投影索引、
+  // 这一拍可能还没赶上 —— 于是它暂时自成一组。那是存量行为（与本刀无关），而本条判据要钉的
+  // 是「这一格到底说不说话」，不该被归组的时序绑架。
+  const groupUnrec = opened.groups.find(group => String(group.text || '').includes(THREAD_UNREC)) || null;
+  ok(Boolean(groupUnrec),
+    `C4c 那件「没人记过验收」的活在左栏里（找 ${emptyMissionId}，屏上有 ${JSON.stringify(opened.groups.map(g => g.missionId))}）`);
+  ok(Boolean(groupUnrec) && groupUnrec.facts.join(' ').includes(zh['stewardShell.board.acceptanceUnrecorded']),
+    `C4c 它印的是「${zh['stewardShell.board.acceptanceUnrecorded']}」（修前这里什么都不说；实测 ${groupUnrec && JSON.stringify(groupUnrec.facts)}）`);
+  // 同屏对照两条，缺一不可 —— 只验正面的话，把判据写成「恒印」也能绿：
+  //   · 记过的那件（M 有两条容器验收项）仍然印 a/b，不许被新分支抢走；
+  //   · C 自己带账本（mission start 过），所以它【记过】—— 一个字都不该说。
+  ok(Boolean(groupM) && !groupM.facts.join(' ').includes(zh['stewardShell.board.acceptanceUnrecorded']),
+    `C4d 记过验收的那件仍然印 a/b，不印「未记录验收」（实测 ${groupM && JSON.stringify(groupM.facts)}）`);
+  ok(Boolean(groupC) && !groupC.facts.join(' ').includes(zh['stewardShell.board.acceptanceUnrecorded']),
+    `C4e 自带账本的那条【记过】，看板闭嘴（实测 ${groupC && JSON.stringify(groupC.facts)}）`);
+
   // 117u-G2 **重钉 C5**（B1：单线程事项不画事项层 —— §11.15.2 病 2「标题字面重复两次」）。
   // 旧判据钉的是「自成事项的事项名回落成它自己的标题」，那句话在修前【必然】导致同一个名字上下
   // 印两遍（事项头一遍、线程行一遍）。新判据钉的是这一刀真正要保证的事：那种组根本没有事项层，

@@ -840,6 +840,42 @@ ok(/\.steward-board-pill\.has-icon \{ display: inline-flex;/.test(cssCode)
   && /\.steward-board-btn\[hidden\] \{ display: none; \}/.test(cssCode),
   'N7 只有【真取到字形】的药丸才换成 inline-flex（事项头那串纯文字药丸的「·」分隔规则不受影响），:empty 隐藏规则仍在；动作键给了 display 就补上 [hidden] 守卫');
 
+// ─── P 124 还债①（40 号文 §8.5 ①）：看板也说得出「未记录验收」───────────────────────────
+// 用户 2026-09-15 拍板：**只在收工了却没人记过时印**。两道门缺一不可，本组把它们钉成机器判据 ——
+// 少任何一道，左栏就会变成满栏等重灰字（§2.3「只在有话可说时出现」，正是 P1 当初刻意不碰看板的
+// 那条理由），而那正是这一刀最容易走偏的地方。
+{
+  const facts = boardCode.slice(boardCode.indexOf('function missionFacts('),
+    boardCode.indexOf('function renderThreadRow('));
+  ok(facts.length > 200, `P0 missionFacts 切得到（切不到 = 本组静默失效；实得 ${facts.length}）`);
+  // **切出那条门表达式本身来钉**，不是只看「这几个字在文件里出现过」——
+  // 第一版就是后者：反向把 `settled` 从门里拿掉、只留下那行没人用的 `const settled = …`，
+  // P2 照绿。锁写松了当场收紧，这一条记在号文里。
+  const gateAt = facts.indexOf('const unrecordedWorthSaying =');
+  const gate = gateAt < 0 ? '' : facts.slice(gateAt, facts.indexOf(';', gateAt));
+  ok(gate.length > 40, `P0b 那条门切得到（实得 ${gate.length}）`);
+  ok(/acceptance\.tracked === true/.test(gate),
+    'P1 第一道门在【门里】：这一组得是【一件活】（tracked）—— 普通聊天会话没有验收这回事，对它说「未记录验收」是噪声');
+  ok(/\bsettled\b/.test(gate) && /const settled = missionStateSettled\(group\.aggregateState\);/.test(facts),
+    'P2 第二道门在【门里】：收工了才说（还在跑／等你时说「未记录验收」没有意义）');
+  ok(/!acceptanceRecorded\(group\)/.test(gate),
+    'P3 判据走共享的 acceptanceRecorded（与抽屉同一个函数），不在看板里另推一份');
+  ok(/if \(Number\(acceptance\.total\) > 0 \|\| unrecordedWorthSaying\) \{/.test(facts),
+    'P3b 这条门真的挂在画药丸那一处（不是算完就扔）');
+  ok(count(boardCode, /acceptanceRecorded\(/g) === 1,
+    `P4 全模块只有一处调用它（没有第二条路；实得 ${count(boardCode, /acceptanceRecorded\(/g)}）`);
+  ok(/unrecorded: 'stewardShell\.board\.acceptanceUnrecorded'/.test(boardCode)
+    && typeof zh['stewardShell.board.acceptanceUnrecorded'] === 'string'
+    && typeof en['stewardShell.board.acceptanceUnrecorded'] === 'string',
+    'P5 措辞键在 ACCEPTANCE_KEYS 里登记，中英双份齐备（判据共享、措辞各说各的）');
+  // 「收工了没有」这条折算必须住在叶子 thread-facts.js —— 写在看板里会长出 'done'／'stopped'
+  // 两个五态字面量，M6／N3 那两条「本模块零五态字面量」的锁会当场红（第一版就是这么红的）。
+  const factsLeaf = stripComments(read('js/thread-facts.js'));
+  ok(/export function missionStateSettled\(value\) \{/.test(factsLeaf)
+    && !/function missionStateSettled\(/.test(boardCode),
+    'P6 missionStateSettled 的正身住在叶子里，看板只 import 不实现');
+}
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

@@ -397,6 +397,74 @@ if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideTe
 
 **全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 2 flaky` —— **真回归 0**。flaky 名单 `steward-conversation`／`dom-screenshot`，两件都不是本刀碰过的件（已连着三轮出现在名单里），仍逐件**串行复跑全绿**（24.7 s／11.5 s，`0 flaky`）。`--fast` **72/72**、unit **ALL PASS**、生成器链整条重跑后 `build --check` 与 `module-dependency-graph --check` 自洽（53 模块／418 边不变）。
 
+## 6-nonies. 还债① 交付记录（2026-09-15，主树）：看板也说得出「未记录验收」
+
+§8.5 ① 登记的最后一笔，也是开 125 波前的最后一件。
+
+**问题是「分不清」，不是「少个字段」。** 抽屉从 124-P1 起就分得开两件事：
+
+- **「没有验收项」**＝记过，是空的；
+- **「未记录验收」**＝压根没人记过（线程没账本、事项也没验收项）。
+
+看板分不开 —— 列表行（`GET /api/missions`）上只有事项容器那三个数（`done`／`total`／`items`），于是 `total === 0` 这一格两种情形长得一模一样，**只能两者都当没话说**。详情路由（`/api/missions/:id`）走的是 02 的 `buildMissionAcceptanceProjection`，那边有 `ledger`；列表这一侧没有。这正是 P1 当时刻意不碰看板、把它登记成独立一刀的原因。
+
+### 拍板（用户 2026-09-15）：**只在收工了却没人记过时印**
+
+这是这一刀唯一的真决策，因为「无差别地印」会复活 P1 当初刻意回避的那个病：左栏自 121-K3 放宽索引口径后**大半是用户手工开的普通会话**，逐行印一句灰字就是满栏等重噪声（§2.3「只在有话可说时出现」）。
+
+于是两道门，缺一不可：
+
+| 门 | 判据 | 为什么 |
+|---|---|---|
+| **tracked** | 有事项容器，或组里有 mission 线程 | 普通聊天会话本来就没有验收这回事，对它说「未记录验收」是噪声，不是诚实。未归类事项没有容器文件，只能靠后者认出来 |
+| **收工了** | `missionStateSettled(aggregateState)`（done／stopped） | 还在跑／等你时说「未记录验收」没有意义（活还没干完，本来就没到验收的时候）；**收工了却没人记过，才是 41 号方案 §9 J08「不声称完成全部验收」要挡的那一格** |
+
+### 落点
+
+- **`13d` 列表路由**：组级两个事实在**一处**算出并投影 —— `acceptance.ledger`（组里任一条线程带账本）与 `acceptance.tracked`（这一组是不是一件活）。账本判据与 13g `thread_status` / 13h 总览同一条（`card.status === 'none'` ⇔ 头上没有 mission 容器）；第三支（普通会话）刻意不读会话头，而 mission 账本只可能挂在 mission 会话上，**那一支恒 false 不是猜、是定义**。退化支（没有聚合行）同样如实填，不留一个假的 `{done:0,total:0}`。
+- **`thread-facts.js`**：`acceptanceRecorded` 多认一种入参形状（列表行没有第二层 `container`，事项验收项直接躺在 `acceptance.items`）。**判据仍然只有这一处** —— 看板与抽屉读的是同一个函数。新增纯函数 `missionStateSettled`。
+- **`steward-board.js`**：`missionFacts` 加那条门；`ACCEPTANCE_KEYS` 加 `unrecorded`；**import 并进原行**（33 号文 §4 对 D4 的口径）。
+- **`steward-drawer.js`** 的 `stewardAcceptanceText`：`total === 0` 时分岔到 `unrecorded`。**调用方没给这个键时行为逐字不变**，既有调用面不受影响。
+- 四份 locale 各加一条 `stewardShell.board.acceptanceUnrecorded`（成对逐字节相同）。
+
+### 判据四处
+
+- **unit** `thread-facts.test.js` 新增两组 11 例：`acceptanceRecorded` 吃**两种入参形状**答案都对（含「回落不会误读详情的里程碑」那条前提 —— 详情侧 `ledger === false` 时里程碑必为空）；`missionStateSettled` 真值表（含 `quick_ask` 不算：它不是一件交办出去的活，由调用方的 `tracked` 门挡，这里不越权替它下定义）。
+- **`acceptance-provenance.e2e` 新 (g)(g2) 段**（真 HTTP，八条）：有账本 → `ledger=true`；挂在容器下 → `tracked=true`；**同组另一条（自己没账本）拿到的是同一份组级事实**（看板按组取领头那一行，行与行不一致就会随行序说出不同的话）；**一条谁都不挂的普通会话 `tracked=false`** —— 那正是「不带 tracked 就会满栏灰字」的形状。
+- **`steward-board.e2e` 新 C4c/C4d/C4e**（真浏览器）：新造一件**收工了却没人记过验收**的活（空验收容器 ＋ 一条无账本线程，跑一个回合到收工）——**这个形状在整套夹具里此前一次都没出现过**（A／B／C 三条都 `mission start` 过、都带账本，所以碰不到这一支）。同屏两条反面对照：记过的那件仍印 a/b、自带账本的那条闭嘴。
+- **`steward-board.static` 新 P 组**（九条）：把两道门钉成机器判据。
+
+### 真反向四处
+
+| 反向 | 实得 |
+|---|---|
+| 服务端行上撤掉 `ledger`／`tracked` | (g) 四条红（实得 `undefined`）＋ **C4c 红，实测 `[""]`** —— 看板退回修前那种沉默 |
+| 拆掉 `tracked` 那道门 | P1 红 |
+| 把 `settled` 从门里拿掉（那行 `const` 仍留着） | **第一版 P2 照绿 —— 锁写松了**，见下 |
+| 拿掉 `acceptanceRecorded` 的列表形状回落 | unit 红一条 |
+
+**踩到并当场收紧的一处**：P 组第一版把 `settled` 写成「这几个字在 `missionFacts` 里出现过」，于是反向把 `settled` 从门里拿掉、只留下那行没人用的 `const settled = …`，**P2 照绿**。改成**切出那条门表达式本身**（`const unrecordedWorthSaying = …` 那一句）再逐项钉，三条门都在里面才算数；重跑反向，P2 如期转红。
+
+**另一处踩了又爬起来的**：`missionStateSettled` 第一版直接写在 `steward-board.js` 里（`=== 'done' || === 'stopped'`），`steward-board.static` 的 **M6／N3 当场转红** —— 那两条钉的是「本模块零 `'done'`／`'stopped'` 字面量」，也就是「不许在看板里长出第二套五态判据」的机械保证。**那一红是对的**：判据搬进叶子 `thread-facts.js`（与 `dockToneForMissionState` 同族的「五态显示事实」），看板只 import 不实现，两条锁一个字都不用改。
+
+### 如实登记一处
+
+列表行里 `total === items.length` 恒成立，而看板只在 `total === 0` 时问「记过没有」—— 所以对**看板这个调用点**而言，`acceptanceRecorded` 的那条 `items` 回落等价于直接读 `ledger`，**今天不吃劲**。保留它是为了让这个共享判据对两种形状都**答得对**（否则下一个拿列表行来问的人会拿到一个错的 false），unit 里那条用例守的就是它。
+
+### 连带
+
+`steward-board.e2e` 三处计数随新夹具重钉：一行状态的任务数 2 → **3**、分组 2 → **3**、投影行数 3 → **4**。都是新增一件事项引起的机械漂移，判据含义一个字没改。另：`THREAD_D` 这个名字在该文件里已被占用，新常量取名 `THREAD_UNREC`（`node --check` 当场逮住）。
+
+### 本轮读数
+
+**全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 3 flaky` —— **真回归 0**。flaky 名单 `steward-conversation`／`foreign-turn-busy-guard`／`dom-screenshot`，三件都不是本刀碰过的路。
+
+**其中 `foreign-turn-busy-guard` 在串行复跑的第一遍也红了一次**，如实记下来：那一遍它排在 `steward-conversation`（真浏览器件）之后，红行没落进日志尾；随后**又跑了四遍全绿**（两遍 run-all ＋ 两遍直跑），另两件串行也各自绿。按抖动登记 —— 它在今天四轮全量里出现过三次，属 38 号文 §7 ② 那一类，**下一波该治**（登记在 §8.4）。
+
+另：`--fast` **72/72**、unit **ALL PASS**（含本刀新增的 11 例）、生成器链整条重跑后 `build --check` 与 `module-dependency-graph --check` 自洽（53 模块／418 边不变）、四份 locale 成对逐字节相同。
+
+**中途踩到一次生成器链没跑全**：改完 13d 之后只重跑了图与 build、漏了 `route-inventory`，`--fast` 里 `route-inventory.static` 当场红（它按行号对账，13d 插了行就会漂）。补跑即绿 —— 纪律 10 的「整条重跑」是整条，不是两步。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
@@ -468,7 +536,7 @@ if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideTe
 
 **下一波 125（35 号文 §2）**：说得准与失败恢复（A02／E01／T03）——普通研究交付的来源时效与主张支持度、失败分类到管家反馈的消费链、歧义追问的真实模型样本。退出门 J02／J07／J09；**网络失败零自动付费升档、主动停止后零自动重启**。开波前先写 125 号文（用户触发→现状→期望→独占文件／绝不碰→可证伪判据→反向验证）。
 
-**开波前先还的两笔**（都在 §8.5，且都比 125 便宜）：~~② 焦点线程前后端两处口径收成一处~~ → **已还（§6-septies）**；剩 **① 看板也要说「未记录验收」**（要给 `/api/missions` 列表路由同一套投影）。
+**开波前先还的两笔**（都在 §8.5，且都比 125 便宜）：~~② 焦点线程前后端两处口径收成一处~~ → **已还（§6-septies）**；~~① 看板也要说「未记录验收」~~ → **已还（§6-nonies）**。**两笔都清了，125 可以开波。**
 
 **124 波留给后面的三件现成东西**：
 1. **真管家线程的确定性夹具口径**：走 `POST /api/steward/act` 的 `steward_thread_new`，不需要假管家模型；**cwd 必须省掉**（让 13k 派生子工作区——与管家会话同目录会一直等 cwd 写锁，实测 409 `session.turn_busy_elsewhere`）；开工前先等管家递的那一回合真跑完。
@@ -509,7 +577,7 @@ if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideTe
 
 ### 8.5 本波自己欠下的（P1／P2 记进来的）
 
-1. **看板也要说「未记录验收」**（P1 §6-ter 末段登记）。左栏看板的验收块今天读的是①（事项容器验收项），那条 a/b 单一来源、不会说谎，但它答不出「这条线程没有账本」。要让看板也说「未记录验收」，得先给 `/api/missions` **列表路由**同一套投影 —— 独立一刀，不塞进 124 波。
+1. ~~**看板也要说「未记录验收」**~~ → **已还（2026-09-15，见 §6-nonies）**。以下为当时的登记原文：（P1 §6-ter 末段登记）左栏看板的验收块今天读的是①（事项容器验收项），那条 a/b 单一来源、不会说谎，但它答不出「这条线程没有账本」。要让看板也说「未记录验收」，得先给 `/api/missions` **列表路由**同一套投影 —— 独立一刀，不塞进 124 波。
 2. **「原件」的第二种口径**（P2 §6-quater 末段登记）。本刀的「看原件」跳的是**这条线程的第 1 回合**（管家真正递过去的那一整段，41 号方案 §9 C05 的 `sessionId+turnSeq` 口径）。若用户本意是**跳回管家对话里下单的那一轮**，那是另一件事：`session.brief` 今天不记管家会话的 `turnSeq`，要补得在 13k 落盘时多写一笔（`brief.origin = {sessionId, turnSeq}`）。**先问用户再动**——多一个字段就多一处会烂掉的地方，§4 的纪律在这儿同样适用。
 3. **`session.brief` 与 `session.threadBrief` 的同名**（P2 §6-quater 开头那张表）。界面侧已经靠改名躲开了，但**服务端那两个字段仍然同名**，而 02 的 `sessionBriefOf()` 两个都认（先 `threadBrief` 后 `brief`）—— 今天不出事只是因为委托书那份没有 `title`／`gist` 两个键，于是 `sessionBriefOf` 回 null、索引条目里就没有它。**哪天谁给委托书加一个 `title`，线程列表的名字会突然变成委托书的一段。** 要还的话是给其中一个改名（`session.commission`），那是一次会动到落盘形状的迁移，单独一刀。
 4. ~~**焦点线程的两处口径**~~ → **已还（2026-09-15，见 §6-septies）**。以下为当时的登记原文：（124 走查 ② 记进来）前端 `steward-board.js` 的 `focusThreadFor` 已经改成「等你 ＞ 在跑 ＞ 最近发生的」；服务端 13q `stewardStateSnapshot` 里还留着自己那一份（`rows.find(needs_you) || rows.find(running) || rows[0]`，且 `dispatching` 还排在 `rows[0]` 之前）。它只驱动问候语里那枚「打开这一件」按钮、不参与右栏自动切换，所以没跟着改 —— 但**同一个问题两处判**迟早会各说各话。要收就收成一处（服务端只投影事实、挑哪一条由前端那一份纯函数判），那是一次会动 `src/` 与整条生成器链的独立小刀。

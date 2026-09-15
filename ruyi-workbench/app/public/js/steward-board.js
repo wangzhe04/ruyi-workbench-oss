@@ -2,7 +2,7 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
-import { dockToneForMissionState, elapsedLabel, focusThreadFor } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -214,6 +214,8 @@ export function createStewardBoard({
   const ACCEPTANCE_KEYS = Object.freeze({
     none: 'stewardShell.board.acceptanceNone',
     count: 'stewardShell.board.acceptance',
+    // 124 还债①：「压根没人记过」那一格的措辞（判据与抽屉共享，措辞各说各的）。
+    unrecorded: 'stewardShell.board.acceptanceUnrecorded',
   });
   // 117q-B3b：五态人话统一走中性的 mission.state.*（原来那组仅抽屉专属命名的键已并入，
   // 与看板、抽屉、交办台三个壳共用同一组键，见 30 号文 §4.4），不再开第二套五态文案。
@@ -768,7 +770,19 @@ export function createStewardBoard({
     // 左栏里大半是手工开的线程，逐行印一句「没有验收项」就是满栏等重灰字（§11.15.2 病 3）。
     // 判据仍然只有 stewardAcceptanceText 那一份（验收 a/b 的措辞与口径都在它那儿）。
     const acceptance = (group.acceptance && typeof group.acceptance === 'object') ? group.acceptance : {};
-    if (Number(acceptance.total) > 0) {
+    // 124 还债①（40 号文 §8.5 ①；用户 2026-09-15 拍板「只在收工了却没人记过时印」）：
+    // 「没有验收项」（记过、是空的）与「未记录验收」（压根没人记过）不是一回事 —— 抽屉早就分得开，
+    // 看板修前分不开，因为列表行上只有容器那三个数。13d 现在把 ledger / tracked 两个组级事实一起
+    // 投影下来，判据仍然只有 thread-facts.acceptanceRecorded 一处。
+    // 两道门缺一不可：
+    //   · tracked —— 这一组得是【一件活】（有事项容器，或组里有 mission 线程）。左栏自 121-K3
+    //     放宽索引口径后大半是用户手工开的普通会话，它们恒落 stopped、也从来没有验收记录；
+    //     不带这道门就是满栏等重灰字（§2.3「只在有话可说时出现」，正是 P1 当初刻意不碰看板的理由）。
+    //   · 收工了才说 —— 还在跑／等你时说「未记录验收」没有意义（活还没干完，本来就没到验收的时候）；
+    //     收工了却没人记过，才是 41 号方案 §9 J08「不声称完成全部验收」要挡的那一格。
+    const settled = missionStateSettled(group.aggregateState);
+    const unrecordedWorthSaying = acceptance.tracked === true && settled && !acceptanceRecorded(group);
+    if (Number(acceptance.total) > 0 || unrecordedWorthSaying) {
       line.appendChild(el('span', 'steward-board-pill', stewardAcceptanceText(group, t, ACCEPTANCE_KEYS)));
     }
     const threads = group.rows.length > 1 ? (group.threadCount || group.rows.length) : 0;

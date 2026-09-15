@@ -185,6 +185,53 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
     ok(accPlain2.merged && accPlain2.merged.total === 3 && accPlain2.merged.done === 3,
       '(e2) 没有账本时 a/b 数的就是事项那一套(实 ' + JSON.stringify(accPlain2.merged) + ')');
 
+    // ============ (g) 124 还债①：【列表路由】也得答得出「记过验收没有」============
+    // 40 号文 §8.5 ① 登记的那笔。详情路由从 P1 起就有 `ledger`，所以抽屉说得出「未记录验收」；
+    // 列表行（GET /api/missions）上只有容器那三个数，于是看板分不清「记过、是空的」与
+    // 「压根没人记过」—— `total === 0` 两种情形长得一模一样，只能两者都当没话说。
+    // 现在 13d 把两个【组级】事实一起投影下来：
+    //   · ledger  —— 组里任一条线程带自己的验收账本；
+    //   · tracked —— 这一组是不是一件活（有事项容器，或组里有 mission 线程）。
+    // 前端判据仍然只有 thread-facts.acceptanceRecorded 一处，这里只钉「事实投影得对不对」。
+    const listRows = async () => {
+      const res = await getJson(WB_PORT, '/api/missions', H(token));
+      return (res.body && res.body.missions) || [];
+    };
+    const rowOf = (list, id) => list.find(row => String(row.sessionId || '') === String(id)) || null;
+    const gList = await listRows();
+    const gMission = rowOf(gList, sid);        // 有账本、挂在事项下的那条
+    const gPlain = rowOf(gList, plainId);      // 没账本、也挂在同一个事项下的那条
+    ok(Boolean(gMission) && Boolean(gPlain),
+      '(g) 两条线程都在列表里（实 mission=' + Boolean(gMission) + ' plain=' + Boolean(gPlain) + '）');
+    ok(gMission && gMission.acceptance && gMission.acceptance.ledger === true,
+      '(g) 有账本的线程：ledger=true（实 ' + (gMission && gMission.acceptance && gMission.acceptance.ledger) + '）');
+    ok(gMission && gMission.acceptance && gMission.acceptance.tracked === true,
+      '(g) 挂在事项容器下 → tracked=true（实 ' + (gMission && gMission.acceptance && gMission.acceptance.tracked) + '）');
+    // **组级口径**：这两条线程同属一个事项，所以【同组每一行的 ledger/tracked 都一样】——
+    // 看板按组取领头那一行的 acceptance（groupRows 里 `acceptance: row.acceptance`），
+    // 行与行之间不一致的话，看板会随行序说出不同的话。
+    ok(gPlain && gPlain.acceptance && gPlain.acceptance.ledger === true
+      && gPlain.acceptance.tracked === true,
+      '(g) 同组另一条（自己没账本）拿到的是【同一份组级事实】（实 ledger='
+        + (gPlain && gPlain.acceptance && gPlain.acceptance.ledger) + ' tracked='
+        + (gPlain && gPlain.acceptance && gPlain.acceptance.tracked) + '）');
+
+    // (g2) 一条谁都不挂的普通会话：没账本、不是一件活 —— 两个门都得关上。
+    // 这一条正是「不带 tracked 就会满栏灰字」的那个形状：左栏自 121-K3 之后大半是这种行，
+    // 它们聚合态恒落 stopped、也从来没有验收记录。
+    const loose = await postJson(WB_PORT, '/api/sessions', { title: '谁都不挂的一条', cwd: HOME });
+    const looseId = loose.body.session && loose.body.session.id;
+    let gLoose = null;
+    for (let i = 0; i < 40 && !gLoose; i++) { gLoose = rowOf(await listRows(), looseId); if (!gLoose) await sleep(100); }
+    ok(Boolean(gLoose), '(g2) 那条普通会话进了列表（实 ' + Boolean(gLoose) + '）');
+    ok(gLoose && gLoose.acceptance && gLoose.acceptance.ledger === false,
+      '(g2) 没账本 → ledger=false（实 ' + (gLoose && gLoose.acceptance && gLoose.acceptance.ledger) + '）');
+    ok(gLoose && gLoose.acceptance && gLoose.acceptance.tracked === false,
+      '(g2) **不是一件活 → tracked=false** —— 看板据此闭嘴，不对普通聊天会话说「未记录验收」（实 '
+        + (gLoose && gLoose.acceptance && gLoose.acceptance.tracked) + '）');
+    ok(gLoose && gLoose.acceptance && gLoose.acceptance.total === 0,
+      '(g2) 验收项如实为空（实 ' + (gLoose && gLoose.acceptance && gLoose.acceptance.total) + '）');
+
     // ============ (f) 静态锁 ============
     const readSrc = name => fs.readFileSync(path.join(WB, 'app', 'src', name), 'utf8');
     const readPub = name => fs.readFileSync(path.join(WB, 'app', 'public', 'js', name), 'utf8');

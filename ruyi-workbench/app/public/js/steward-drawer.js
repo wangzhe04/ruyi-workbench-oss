@@ -313,7 +313,11 @@ export function stewardAcceptanceText(group, translate, keys) {
   const table = keys || {};
   const acceptance = (group && group.acceptance) || null;
   const total = Math.max(0, Number(acceptance && acceptance.total) || 0);
-  if (!total) return say(table.none);
+  // 124 还债①（40 号文 §8.5 ①）：一条验收项都没有时，**「记过、是空的」与「压根没人记过」不是
+  // 一回事**。后者此前在看板上只能沉默（沉默会被读成「没进展」），抽屉里早就说得出来。
+  // 判据只有 thread-facts 的 acceptanceRecorded 一处 —— 与抽屉那一行同一个函数，不在这里另推。
+  // 调用方没给 `unrecorded` 这个键时行为逐字不变（既有调用面不受影响）。
+  if (!total) return say((table.unrecorded && !acceptanceRecorded(group)) ? table.unrecorded : table.none);
   return say(table.count, { done: Math.max(0, Number(acceptance && acceptance.done) || 0), total });
 }
 

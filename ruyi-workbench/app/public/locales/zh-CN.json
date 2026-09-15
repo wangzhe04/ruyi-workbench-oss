@@ -2635,6 +2635,7 @@
   ,"stewardShell.board.threadCount": "{{n}} 条线程"
   ,"stewardShell.board.acceptance": "验收 {{done}}/{{total}}"
   ,"stewardShell.board.acceptanceNone": "没有验收项"
+  ,"stewardShell.board.acceptanceUnrecorded": "未记录验收"
   ,"stewardShell.board.cost": "已花 {{cost}}"
   ,"stewardShell.board.costBudget": "已花 {{cost}} · 预算 {{budget}}"
   ,"stewardShell.board.costNone": "还没花钱"

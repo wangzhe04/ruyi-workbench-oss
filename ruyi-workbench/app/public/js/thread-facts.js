@@ -120,8 +120,18 @@ export function acceptanceRecorded(snapshot) {
   const acceptance = (snapshot && snapshot.acceptance) || null;
   if (!acceptance) return false;
   if (acceptance.ledger === true) return true;
+  // 两种入参形状读的是【同一件事实】：
+  //   · 详情快照（/api/missions/:id → 02 的 buildMissionAcceptanceProjection）把事项验收项放在
+  //     `acceptance.container.items`，而 `acceptance.items` 那一层是【账本里程碑】；
+  //   · 列表行（/api/missions → 13d 的 buildMissionAggregateRows）没有第二层，事项验收项就直接
+  //     放在 `acceptance.items`。
+  // 先看 container、没有再回落 items 是安全的：详情那边 `ledger === false` 时里程碑必为空
+  // （`ms` 由 `mission.milestones` 来，没账本就没里程碑），所以回落读到的不可能是里程碑。
+  // 124 还债①：这条回落就是让【看板】也能用上这一个判据的那半句 —— 全仓判「记过验收没有」
+  // 仍然只有本函数一处。
   const containerItems = (acceptance.container && Array.isArray(acceptance.container.items))
-    ? acceptance.container.items : [];
+    ? acceptance.container.items
+    : (Array.isArray(acceptance.items) ? acceptance.items : []);
   return containerItems.length > 0;
 }
 
@@ -201,6 +211,18 @@ export function elapsedLabel(startedAt, current = new Date()) {
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, '0')}s`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+}
+
+// 124 还债①（40 号文 §8.5 ①）：这一件「收工了没有」。
+// 与上面的 dockToneForMissionState 同族 —— 它**不判五态**，只对调用方已经算好的那个字符串做一次
+// 折算（五态的正身仍然只有 mission-state.js 一处）。
+// **为什么放在这里而不是 steward-board.js**：看板那边的 M6／N3 两条静态锁钉着「本模块零
+// 'done'／'stopped' 字面量」，那正是「不许在看板里长出第二套五态判据」的机械保证 —— 不该为了
+// 一行便利把它拆了（第一版就是写在看板里，M6／N3 当场转红，那一红是对的）。
+// 只认 done／stopped：quick_ask 虽然同属「此刻没在动」，但它不是一件交办出去的活，
+// 调用方那一侧的 tracked 门本来就把它挡在外面，这里不越权替它下定义。
+export function missionStateSettled(value) {
+  return value === 'done' || value === 'stopped';
 }
 
 // 124 还债④（40 号文 §8.5 ④）：这个函数原住 steward-board.js。走查② 把右栏那一份改成「最近发生的
