@@ -452,10 +452,19 @@ async function main() {
     for (const f of flakyFiles) console.log('#   ' + f);
   }
   if (failed.length) {
-    console.log(`\n# 失败件 tail(各取末 25 行):`);
+    console.log(`\n# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场`);
     for (const r of failed) {
       console.log(`\n=== ${r.file} (${r.timedOut ? 'TIMEOUT' : 'exit=' + r.status}) ===`);
       const lines = String(r.out || '').split(/\r?\n/).filter(Boolean);
+      // 125 顺带还的债(40 号文 §8.4 ⓪ 的第一步「先把失败行落盘」):此前这里只给末 25 行,而断言
+      // 往往红在中间 —— 三件常客 flaky 每次上榜都只留下一串 PASS 加一行「FAIL (1)」,到底哪一条红的
+      // 查不到,于是「先定机制」这一步永远迈不出去。FAIL 行封顶 40 条(再多也是同一个根因的连坐)。
+      const failLines = lines.filter(line => /^\s*FAIL\b/.test(line));
+      if (failLines.length) {
+        console.log(`--- FAIL 行 ${failLines.length} 条${failLines.length > 40 ? '(只列前 40)' : ''} ---`);
+        console.log(failLines.slice(0, 40).join('\n'));
+        console.log(`--- 末 25 行 ---`);
+      }
       console.log(lines.slice(-25).join('\n'));
     }
   }
