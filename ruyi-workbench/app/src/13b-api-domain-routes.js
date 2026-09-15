@@ -244,6 +244,28 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
 //   { kind: 'failure', code, detail, message, status }  → 路由 send(res, apiFailure(...))
 //   { kind: 'json', body }                              → 路由 send(res, json(body))
 // 这样路由的两种应答形态(apiFailure 与裸 json)都保住,调用方(13g)则只看 body.ok。
+// 124 真机 bug（用户 2026-09-15）：插话的每一种拒绝理由都要有【稳定码】。
+//
+// 修前它们全是遗留字符串（{ok:false, error:'当前没有进行中的回合'}）。00-boot 的
+// normalizeApiErrorPayload 对不在 LEGACY_API_ERROR_CODES 表里的字符串一律派兜底码
+// api.request_failed，真话只剩在 message 里；而前端组合根的 apiErrText 是【码优先】的，
+// 于是屏幕上只剩一句「请求失败。」—— 服务端明明说的是「当前 Kimi 回合正在收尾，请作为下一条
+// 消息发送」，那句话把该怎么做都告诉用户了，却被抹掉。
+//
+// 有码之后两件事才立得住：① 前端能按码兜底（回合已经结束 → 当新回合发出去），而不是去匹配
+// 中文句子（38 号文 §7 ④ 已经裁决过不许搞关键词表）；② 文案不再被归一吞掉。
+// 形状用 {code, params, message}：与 apiFailure 的错误对象同形，且因为 error 不再是 string，
+// normalizeApiErrorPayload 原样放行（既有消费者读 error.message，逐字不变）。
+const STEER_REFUSAL = Object.freeze({
+  noLiveTurn: { code: 'steer.no_live_turn', message: '当前没有进行中的回合' },
+  kimiSettling: { code: 'steer.kimi_settling', message: '当前 Kimi 回合正在收尾，请作为下一条消息发送' },
+  queueFull: { code: 'steer.queue_full', message: '插话队列已满' },
+  turnLimit: { code: 'steer.queue_full', message: '本回合插话已达上限(3 条)' },
+  answerPending: { code: 'steer.answer_pending', message: '请先回答当前提问,再插话(避免插话被误收为答案)' },
+  engineUnsupported: { code: 'steer.engine_unsupported', message: '当前引擎不支持插话' },
+  injectFailed: { code: 'steer.inject_failed', message: '注入失败:子进程输入通道已关闭' },
+});
+const steerRefusal = which => ({ kind: 'json', body: { ok: false, error: { ...STEER_REFUSAL[which], params: {} } } });
 async function steerSessionCore(input) {
   const o = (input && typeof input === 'object') ? input : {};
   const sessionId = safeSessionId(o.sessionId); // F4
@@ -251,14 +273,14 @@ async function steerSessionCore(input) {
   if (!sessionId) return { kind: 'failure', code: 'session.id_invalid', detail: {}, message: 'invalid sessionId', status: 400 };
   if (!text) return { kind: 'failure', code: 'request.field_required', detail: { field: 'text' }, message: 'text is required', status: 400 };
   const reg = activeChildren.get(sessionId);
-  if (!reg) return { kind: 'json', body: { ok: false, error: '当前没有进行中的回合' } };
+  if (!reg) return steerRefusal('noLiveTurn');
   if (reg.kind === 'kimi-acp') {
     // Kimi ACP 0.37.x has no native mid-prompt steering method. Keep the ACP process/session alive and
     // enqueue a follow-up session/prompt immediately after the active prompt settles. This preserves native
     // session continuity and is explicitly reported as queued (and therefore remains retractable).
-    if (reg.acceptingSteer === false) return { kind: 'json', body: { ok: false, error: '当前 Kimi 回合正在收尾，请作为下一条消息发送' } };
+    if (reg.acceptingSteer === false) return steerRefusal('kimiSettling');
     if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
-    if (reg.steerQueue.length >= STEER_QUEUE_MAX) return { kind: 'json', body: { ok: false, error: '插话队列已满' } };
+    if (reg.steerQueue.length >= STEER_QUEUE_MAX) return steerRefusal('queueFull');
     reg.steerQueue.push(text);
     logEvent({ kind: 'intervention', source: 'steer', protocol: 'kimi-acp-followup', sessionId });
     return { kind: 'json', body: { ok: true, queued: reg.steerQueue.length, immediate: false, protocol: 'kimi-acp-followup' } };
@@ -274,11 +296,11 @@ async function steerSessionCore(input) {
         status: 409,
       };
     }
-    if (hasPendingQuestionForSession(sessionId)) return { kind: 'json', body: { ok: false, error: '请先回答当前提问,再插话(避免插话被误收为答案)' } };
+    if (hasPendingQuestionForSession(sessionId)) return steerRefusal('answerPending');
     reg.claudeSteerCount = Number(reg.claudeSteerCount) || 0;
-    if (reg.claudeSteerCount >= STEER_QUEUE_MAX) return { kind: 'json', body: { ok: false, error: '本回合插话已达上限(3 条)' } };
+    if (reg.claudeSteerCount >= STEER_QUEUE_MAX) return steerRefusal('turnLimit');
     const injected = writeToChild(sessionId, buildUserEnvelope('[用户插话] ' + text));
-    if (!injected) return { kind: 'json', body: { ok: false, error: '注入失败:子进程输入通道已关闭' } };
+    if (!injected) return steerRefusal('injectFailed');
     reg.claudeSteerCount += 1;
     // 持久呈现(与 provider drain 同形):插话入会话正文 + steered 事件,静态重渲染可见、刷新不丢。
     if (reg.session) {
@@ -289,9 +311,9 @@ async function steerSessionCore(input) {
     logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
     return { kind: 'json', body: { ok: true, injected: true } };
   }
-  if (reg.kind !== 'openai') return { kind: 'json', body: { ok: false, error: '当前引擎不支持插话' } };
+  if (reg.kind !== 'openai') return steerRefusal('engineUnsupported');
   if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
-  if (reg.steerQueue.length >= STEER_QUEUE_MAX) return { kind: 'json', body: { ok: false, error: '插话队列已满' } };
+  if (reg.steerQueue.length >= STEER_QUEUE_MAX) return steerRefusal('queueFull');
   reg.steerQueue.push(text);
   // Wake an interruptible long-running tool immediately. This is event-driven (no model polling and no
   // extra tokens); the provider loop preserves tool-call pairing, then drains the queued steer next.

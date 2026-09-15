@@ -573,7 +573,7 @@ export function createChatStreamRuntime(deps = {}) {
     // 117s-G:判据从 activeTurns(只有本页自己起的流)换成 sessionAcceptsSteer(本页的流 ∪ 服务端说
     // 别处起的回合在跑)。修前管家起的回合在这里判成空闲,一路走到 09:1347 被 supersede 杀掉。
     const selectedId = state.currentSession?.id || '';
-    if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText);
+    if (selectedId && !options.skipSteer && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText, options);
     const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
     const hasAttachments = Array.isArray(options.attachments) ? options.attachments.length > 0 : state.attachments.length > 0;
     if (!message && !hasAttachments) return;
@@ -585,7 +585,7 @@ export function createChatStreamRuntime(deps = {}) {
     try { await syncContextWindowManual(); }
     catch (e) { toast(apiErrText(e), 'err'); return; }
     // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
-    if (state.currentSession?.id && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText);
+    if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText, options);
     if (!state.currentSession) await newSession();
 
     const turnSessionId = state.currentSession.id;
@@ -711,10 +711,24 @@ export function createChatStreamRuntime(deps = {}) {
       api(`/api/sessions/${turnSessionId}`).then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
     } finally {
       activeTurns.delete(turnSessionId);
+      // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
+      // **回合一结束，这条会话那份 relay 快照的依据就没了**，必须当场作废。
+      // 它全仓只有一个写入口 —— session-experience 的 captureLiveTurn（跟着 GET /api/sessions/:id
+      // 回来）；而推送驱动的那次重取 pushLiveTurn 有一道门「本页自己在跑流就不拉」
+      // （!activeTurns.has(id) && !state.streaming）—— 本页自己起的回合，整个回合期间那道门都关着，
+      // 而 thread.done 恰恰在这一刻到达，于是没人接。此后这条线程再无推送（它已经空闲），
+      // 快照就永远停在 'steer' 上：发送门把用户之后的每一句话都路由到 /api/steer，
+      // 服务端如实回「当前没有进行中的回合」，话卡在框里发不出去。
+      // 用户当时是按了「交给管家盯」才恢复的 —— 那个 PATCH 顺带派了一条推送，
+      // 碰巧补上了这里本该发生的那一次刷新。
+      // 作废是安全的：一条会话同一时刻只有一个回合（09 的 supersede 就是在保这条），
+      // 刚结束的正是它；真有新回合（比如管家接着起一条），下一次 GET 会把它重新写回来。
+      if (state.sessionRelay && state.sessionRelay.sessionId === turnSessionId) state.sessionRelay = null;
       if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
       notifySessionStream({ type: 'settled', sessionId: turnSessionId });
       syncStreamingUi();
       renderSessions();
+      updateSendBtn();   // 同上：判据刚变，按钮要在同一拍从「插话」回到「发送」
     }
   }
 
@@ -808,13 +822,25 @@ export function createChatStreamRuntime(deps = {}) {
     renderSteerQueue();
   };
 
-  async function steerPrompt(overrideText) {
+  async function steerPrompt(overrideText, options = {}) {
     const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
     if (!text) return;
     if (!state.currentSession?.id) return;
     if (!activeTurnSteerCapability().ok) { showClaudeSteerSetup(); return; }
     try {
       const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
+      // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
+      // **服务端才是权威。** 它说这条线程此刻没有在途回合，就说明我们手上那份「可以插话」的信念
+      // 已经过期（它唯一的来源是一次 GET 带回的 relay 快照）。这时把用户的话卡在框里、只弹一句
+      // 「插话失败」是最坏的处理 —— 用户按发送想做的事很清楚：**把这句话发出去**。
+      // 所以：作废那份信念，按普通回合重发一次。判据是【码】不是中文句子（38 号文 §7 ④ 的裁决）。
+      // skipSteer 兜住极端情形下的来回弹跳：这一发只许走普通回合那条路，不许再回到插话。
+      if (r && r.ok !== true && String((r.error && r.error.code) || '') === 'steer.no_live_turn') {
+        const sid = state.currentSession.id;
+        if (state.sessionRelay && state.sessionRelay.sessionId === sid) state.sessionRelay = null;
+        updateSendBtn();
+        return sendPrompt(overrideText, { ...options, skipSteer: true });
+      }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
       if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
       steeredSeen.push({ text, ts: Date.now() });

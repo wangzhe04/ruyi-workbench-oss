@@ -89,8 +89,18 @@ const API_ERROR_I18N = {
   'question.delivery_failed': 'error.api.questionDeliveryFailed',
   'steer.claude_requires_interactive': 'error.api.steerClaudeRequiresInteractive',
 };
+// 124 真机 bug（用户 2026-09-15）：**api.request_failed 是「没有稳定码」的兜底码，按它翻译等于把
+// 服务端刚说清楚的原因抹掉。** 00-boot 的 normalizeApiErrorPayload 对任何不在 LEGACY_API_ERROR_CODES
+// 表里的遗留字符串错误一律派这个码，真话全留在 message 里；这里若先查表，屏幕上就只剩一句
+// 「请求失败。」。用户那次看到的正是它 —— 服务端说的是「当前 Kimi 回合正在收尾，请作为下一条
+// 消息发送」，该怎么做都写在里面了，却被吞掉。
+// 所以这个码【单独】走 message 优先。其余码都是真码（服务端明确选的），仍然按表翻译，
+// 因为那才是能本地化的那一半。
+// provider-settings.js 的 mcpErrText 早就为同一个坑就地打过一块（它的注释写的是同一个诊断）。
+// 上游收口之后那一块已经是冗余的，但删它是另一处回归面，本刀不顺手动：登记在号文里。
 function apiErrText(error) {
   const info = apiErrorInfo(error);
+  if (info.code === 'api.request_failed' && info.message) return info.message;
   const key = API_ERROR_I18N[info.code];
   return key ? t(key, info.params) : rawApiErrText(error);
 }

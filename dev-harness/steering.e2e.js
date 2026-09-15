@@ -114,6 +114,13 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     // ⑤ No active turn yet → steer is rejected.
     const noTurn = await postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT }, { 'x-wcw-token': token });
     ok(noTurn.body && noTurn.body.ok === false && /进行中的回合/.test(errorText(noTurn.body.error)), '(no-turn) steer rejected — 当前没有进行中的回合 (got ' + JSON.stringify(noTurn.body) + ')');
+    // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）:
+    // 这一拒必须带【稳定码】。修前它是遗留字符串，被 normalizeApiErrorPayload 派成兜底码
+    // api.request_failed，前端组合根的 apiErrText 又是码优先 —— 屏幕上只剩「请求失败。」。
+    // 前端那条兜底（回合已经结束 → 把这句话当新回合发出去）按的就是这个码，不是中文句子
+    // （38 号文 §7 ④：不许搞关键词表）。message 仍在，所以上面那条断言一个字没改。
+    ok(noTurn.body && noTurn.body.error && noTurn.body.error.code === 'steer.no_live_turn',
+      '(no-turn) 这一拒带稳定码 steer.no_live_turn（前端兜底按码判；实得 ' + JSON.stringify(noTurn.body && noTurn.body.error && noTurn.body.error.code) + '）');
 
     // ⑥ No token → 403.
     const noTok = await postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT });

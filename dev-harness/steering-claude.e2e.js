@@ -100,8 +100,37 @@ async function getToken(port) {
   const steerRouteSrc = src.slice(src.indexOf('async function steerSessionCore'), src.indexOf('async function steerSessionCore') + 12000);
   ok(steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") > 0
     && steerRouteSrc.indexOf("reg.kind === 'kimi-acp'") < steerRouteSrc.indexOf("reg.kind === 'claude'")
-    && steerRouteSrc.indexOf("reg.kind === 'claude'") < steerRouteSrc.indexOf('当前引擎不支持插话'),
+    && steerRouteSrc.indexOf("reg.kind === 'claude'") < steerRouteSrc.indexOf("steerRefusal('engineUnsupported')"),
   'S10 Kimi ACP/Claude 分派均先于通用 fallthrough(不再一刀切)');
+  // ── 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）────────
+  // 三层各钉一条。根因是第三条：**发送门的信念会过期，而且没有自纠正。**
+  //
+  // ① 拒绝理由要有稳定码。修前全是遗留字符串，00-boot 的 normalizeApiErrorPayload 一律派兜底码
+  //    api.request_failed，前端 apiErrText 码优先 → 屏幕上只剩「请求失败。」。服务端说的
+  //    「当前 Kimi 回合正在收尾，请作为下一条消息发送」把该怎么做都写了，却被吞掉。
+  const steerCoreSrc = src.slice(src.indexOf('async function steerSessionCore'), src.indexOf('async function steerSessionCore') + 12000);
+  ok(src.includes("noLiveTurn: { code: 'steer.no_live_turn'") && src.includes("kimiSettling: { code: 'steer.kimi_settling'"),
+    'S31 插话拒绝理由有稳定码表 STEER_REFUSAL（no_live_turn / kimi_settling 两条至少在）');
+  ok(!/error: '[^']+' \} \};/.test(steerCoreSrc.slice(0, steerCoreSrc.indexOf('\n}\n'))),
+    'S32 steerSessionCore 里不再有遗留字符串错误（每一处拒绝都走 steerRefusal，否则真原因会被归一抹平）');
+  // ② 服务端权威：回合已经结束时，前端不许把用户的话卡在框里 —— 当新回合发出去。
+  //    判据是【码】不是中文句子（38 号文 §7 ④ 已裁决不搞关键词表）。
+  ok(app.includes("=== 'steer.no_live_turn'") && app.includes('skipSteer: true'),
+    'S33 前端按码兜底：服务端说没有在途回合 → 作废信念、按普通回合重发（skipSteer 防来回弹跳）');
+  ok(!/steerFail[\s\S]{0,400}进行中的回合/.test(app),
+    'S34 兜底不靠匹配中文句子');
+  // ③ 根因：state.sessionRelay 全仓只有一个写入口（session-experience 的 captureLiveTurn，跟着
+  //    GET /api/sessions/:id 回来），而推送驱动的重取 pushLiveTurn 在【本页自己跑流】期间被门掉
+  //    （!activeTurns.has(id) && !state.streaming）—— thread.done 恰在这一刻到达，没人接。
+  //    于是回合结束后快照永远停在 'steer'，之后每一句话都被路由到 /api/steer。
+  //    修法：本页那条流的 finally 里当场作废这条会话的快照，并让按钮在同一拍回到「发送」。
+  ok(/activeTurns\.delete\(turnSessionId\);[\s\S]{0,1600}state\.sessionRelay = null;/.test(app),
+    'S35 回合末作废 relay 快照（根因：信念的依据没了就不许继续用）');
+  ok(/state\.sessionRelay = null;[\s\S]{0,600}updateSendBtn\(\);/.test(app),
+    'S36 作废之后同一拍刷新发送键（否则按钮还写着「插话」，直到用户再敲一个字）');
+  // ④ 兜底码不许再吞掉服务端原话（app.js 组合根那一处）。
+  ok(/info\.code === 'api\.request_failed' && info\.message\) return info\.message;/.test(app),
+    'S37 api.request_failed 这个【兜底码】走 message 优先 —— 它本身不带信息，真话全在 message 里');
   // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
   ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
   // 117s-G：插话态不再只看「本页自己在流式」(state.streaming)，改看 live = 本页在流 或 服务端说这条会话有别处起的活回合

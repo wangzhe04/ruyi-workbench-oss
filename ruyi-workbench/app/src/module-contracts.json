@@ -10368,9 +10368,11 @@
       "file": "13b-api-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "STEER_REFUSAL",
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
+        "steerRefusal",
         "steerSessionCore"
       ],
       "requires": [

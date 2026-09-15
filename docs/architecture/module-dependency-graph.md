@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2283 | 2433 | 418 | 68 | 0 | 1 |
+| 53 | 2285 | 2433 | 418 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -49,7 +49,7 @@
 | 31 | `12-tool-dispatch.js` | tools | 33 | 79 | 14 |
 | 32 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 33 | `13-http-router.js` | transport | 64 | 209 | 24 |
-| 34 | `13b-api-domain-routes.js` | transport | 4 | 37 | 7 |
+| 34 | `13b-api-domain-routes.js` | transport | 6 | 37 | 7 |
 | 35 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 36 | `13d-core-domain-routes.js` | transport | 43 | 115 | 14 |
 | 37 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |

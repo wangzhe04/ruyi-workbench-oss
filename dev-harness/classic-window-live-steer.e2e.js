@@ -453,6 +453,99 @@ try {
   ok(after.filter(m => m && m.role === 'user' && m.steered !== true).length > seqBefore
     && after.some(m => m && m.role === 'assistant' && /ZZ9/.test(String(m.content || ''))),
     'H7c 空闲时照旧起一个【新回合】(这条路一个字没改)');
+
+  /* ═════════ H8 124 真机 bug：本页【自己】起的回合结束之后，还能不能发出话去 ═════════
+     用户 2026-09-15 报的形状：「回合结束后新发送东西，却显示插话且插话失败」（截图上那句
+     「插话失败：请求失败。」），把「交给管家盯」关掉就又能发了 —— 那个 PATCH 顺带派了一条推送，
+     碰巧补上了缺失的那一次刷新。
+
+     H7 钉的是【管家在服务端起的】回合结束后按钮回到「发送」，它一直是绿的；**本页自己起的
+     回合是另一半，修前没有任何人覆盖** —— 这正是它能发布出去的原因。
+
+     写这一段时在 CDP 上装了 setter 探针抓 state.sessionRelay 的每一次写入与调用栈，抓到的事实是：
+     回合末本页把自己那份快照作废之后，一条迟到的推送会把 pushLiveTurn 唤醒（此时 activeTurns
+     已空，那道门开了），**它那一发 GET 与服务端释放 activeChildren 之间存在竞态，读回来的可能
+     仍是 'steer'**；而线程此后空闲、再没有推送来纠正它，于是那份错的信念就永久留下了。
+     结论：**客户端不可能靠自己拿准这件事，服务端才是权威。**
+     所以这一段钉的是【保证】而不是那个会抖的中间态 ——
+     **哪怕信念是错的，用户按下发送，这句话也必须真的发出去。**
+     代码层「回合末当场作废自己那份快照」另由 steering-claude 的 S35/S36 两条静态锁钉住。
+
+     **先把管家关掉**：这套夹具里管家会在线程收工后接着动手（收件箱去抖 5 s），于是「点下发送」
+     那一刻服务端可能又忙起来、插话理应被受理 —— 判据不许和它赛跑。关掉之后空闲是确定性的。 */
+  const h8Cfg = JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8'));
+  const h8Off = await request(appPort, 'POST', '/api/config', { ...h8Cfg, stewardEnabledV1: false }, token);
+  ok(Boolean(h8Off) && h8Off.status === 200,
+    `H8pre 管家已关（把「收工后管家接着动手」这个变量从判据里消掉；实测 ${h8Off && h8Off.status}）`);
+  const H8_TEXT = '本页自己跑完之后再问一句 YY8';
+  const h8UsersBefore = sessionMessages(sessionId).filter(m => m && m.role === 'user' && m.steered !== true).length;
+  // ① 从 composer 自己起一个回合（这一发让本页进 activeTurns / state.streaming）
+  await cdp.evaluate(`(() => {
+    const ta = document.getElementById('promptInput');
+    ta.value = '慢慢想一会儿 YY8-run';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('sendBtn').click();
+    return true;
+  })()`);
+  const h8Streaming = await waitForEval(cdp, `(() => (window.state && window.state.streaming) ? ${VIEW} : null)()`);
+  ok(Boolean(h8Streaming), 'H8a 本页自己起的回合跑起来了（state.streaming）');
+  // ② 回合期间那份 relay 快照。真来路是【回合期间的任意一发 GET /api/sessions/:id】——
+  //    捕获点只有 captureLiveTurn 一处（openSession 与 refreshLiveTurn 都汇到它），此刻服务端
+  //    activeChildren 里确实有这条会话，所以它回的就是 steer。这里直接把那个形状放好，
+  //    不去依赖「究竟是哪一个 UI 动作触发了那一发 GET」—— 被测的不变式是**回合结束时这份快照
+  //    必须作废**，而不是它从哪个入口写进来的。
+  await cdp.evaluate(`(() => {
+    window.state.sessionRelay = { sessionId: ${JSON.stringify(sessionId)}, channel: 'steer', wait: null };
+    return true;
+  })()`);
+  const h8Snap = await cdp.evaluate(VIEW);
+  ok(Boolean(h8Snap) && h8Snap.relayChannel === 'steer' && h8Snap.relaySession === sessionId,
+    `H8b 前置：回合期间这条会话的快照是 steer（实测 ${h8Snap && h8Snap.relayChannel}/${h8Snap && h8Snap.relaySession}）`);
+  // ③ 等回合自己跑完
+  const h8Idle = await waitForEval(cdp, `(() => (window.state && !window.state.streaming) ? ${VIEW} : null)()`, 1200);
+  ok(Boolean(h8Idle), 'H8c 回合自己跑到收尾');
+  // ③b **等服务端真的释放了这条会话**（relay 键消失）。这一步不能省：回合末那一小段里服务端
+  //    可能还握着 activeChildren，此刻发出去的插话会被【真的受理】—— 判据不许和它赛跑。
+  const h8Released = await waitForHttp(appPort, 'GET', `/api/sessions/${encodeURIComponent(sessionId)}`,
+    result => result.json && result.json.ok === true && !result.json.relay, token, 300);
+  ok(Boolean(h8Released), 'H8d 服务端已经释放这条会话（GET 信封里不再有 relay 键）');
+
+  // ④ **把那份过期的信念种回去** —— 这就是用户遇到的形状：服务端早已空闲，浏览器手上那份
+  //    快照还停在 'steer'。实测（CDP 上装 setter 探针抓到写入栈）它确实会这样：回合末本页
+  //    activeTurns 一空，pushLiveTurn 那道门就开了，它那一发 GET 与服务端释放 activeChildren
+  //    之间存在竞态，读回来的可能仍是 'steer'；而线程此后空闲、再没有推送来纠正它。
+  //    **客户端因此不可能靠自己拿准这件事，服务端才是权威** —— 所以这一段钉的是【保证】：
+  //    哪怕信念是错的，用户按下发送，这句话也必须真的发出去。
+  //    代码层「回合末当场作废自己那份快照」另由 steering-claude 的 S35/S36 静态锁钉住。
+  await cdp.evaluate(`(() => {
+    window.state.sessionRelay = { sessionId: ${JSON.stringify(sessionId)}, channel: 'steer', wait: null };
+    const ta = document.getElementById('promptInput');
+    ta.value = ${JSON.stringify(H8_TEXT)};
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  const h8Stale = await cdp.evaluate(VIEW);
+  ok(Boolean(h8Stale) && h8Stale.relayChannel === 'steer' && h8Stale.sendLabel.includes(zh['chat.steer']),
+    `H8e 前置成形：信念过期时按钮写的正是「${zh['chat.steer']}」（用户截图里那一枚；实测「${h8Stale && h8Stale.sendLabel}」）`);
+
+  // ⑤ 按下去：服务端回 steer.no_live_turn → 前端作废信念、按普通回合重发。
+  const h8SteerBefore = auditRows().filter(r => r && r.kind === 'intervention' && r.source === 'steer' && r.sessionId === sessionId).length;
+  await cdp.evaluate(`document.getElementById('sendBtn').click(), true`);
+  let h8After = [];
+  for (let i = 0; i < 400; i++) {
+    h8After = sessionMessages(sessionId);
+    if (h8After.some(m => m && m.role === 'user' && m.steered !== true && String(m.content || '').includes(H8_TEXT))) break;
+    await sleep(100);
+  }
+  ok(h8After.some(m => m && m.role === 'user' && m.steered !== true && String(m.content || '').includes(H8_TEXT)),
+    'H8f 这句话真的发出去了，而且是一条【普通】用户消息（修前它被路由到 /api/steer，服务端拒了，一个字都没落盘 —— 用户看到的就是那句「插话失败：请求失败。」）');
+  ok(h8After.filter(m => m && m.role === 'user' && m.steered !== true).length > h8UsersBefore,
+    'H8g 用户消息条数真的涨了（起的是一个新回合，不是往一个已经没了的回合里递话）');
+  ok(auditRows().filter(r => r && r.kind === 'intervention' && r.source === 'steer' && r.sessionId === sessionId).length === h8SteerBefore,
+    'H8h 这一发【没有】走插话那条路（审计里 intervention/source:steer 一条都没新增）');
+  const h8Settled = await cdp.evaluate(VIEW);
+  ok(Boolean(h8Settled) && h8Settled.relayChannel === '',
+    `H8i 自纠正把那份过期信念清掉了（实测「${h8Settled && h8Settled.relayChannel}」）`);
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

@@ -334,6 +334,69 @@ rows.find(r => r.state === 'needs_you') || rows.find(r => r.state === 'running')
 
 另：`--fast` **72/72**、unit **ALL PASS**（含本刀新增的身份锁）、生成器链整条重跑后 `build --check` 与 `module-dependency-graph --check` 均自洽（**53 模块／418 边，与搬家前逐字相同** —— 判据搬进的是两边都已 import 的叶子，零新增模块边）。
 
+## 6-octies. 124 走查④（2026-09-15，用户真机）：回合结束后发不出话去
+
+**用户报的形状**：「回合结束后新发送东西，却显示插话且插话失败」，截图上是一枚写着**插话**的按钮和一句 **「插话失败：请求失败。」**；第二句补充是决定性的 —— **「我把交给管家盯给关了，就能发了」**。
+
+### 取证（没靠读码猜，翻了那台机器上这次事故的日志）
+
+线程是 `sess_710188c7aaf683f5`「今日 A 股买卖点方案」，`engineRoute = {engine:'agent', agentCliType:'kimi', model:'kimi-code/k3'}`。`~/.win-claude-workbench/logs/workbench-2026-09-15.ndjson` 给了三条硬事实：
+
+| 事实 | 说明 |
+|---|---|
+| **16 次 `turn_start` 对 16 次 `turn_end`** | 服务端没有悬空回合 —— 不是「回合没结束」 |
+| **全天零 `intervention` 事件** | 插话一次都没成功过（成功才记一条） |
+| 最后一个回合 `05:57:55 → 05:59:50 turn_end`，**之后再无任何事件** | 用户那几次失败的发送在服务端一个字都没留下 |
+
+**「交给管家盯」在前端完全不参与发送路由**（`chat-stream-runtime` / `session-experience` 里一处都没读 `stewardWatch` 或 `watched`）。所以它能改变结果，只可能是它那一发 `PATCH /api/sessions/:id` **顺带派出的推送**产生了副作用 —— 那条推送触发了一次本该发生、却没发生的重取。
+
+### 根因：**发送门的信念会过期，而且没有自纠正**
+
+经典壳的发送门是这一句：
+
+```js
+if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText);
+```
+
+`sessionAcceptsSteer` 读 `state.sessionRelay` —— 一份**由 `GET /api/sessions/:id` 带回来的快照**，全仓只有一个写入口（`session-experience` 的 `captureLiveTurn`）。
+
+写这一刀时在 CDP 上给 `state.sessionRelay` 装了 setter 探针抓每一次写入与调用栈，抓到的事实是：**回合末本页把自己那份快照作废之后，一条迟到的推送会把 `pushLiveTurn` 唤醒**（此时 `activeTurns` 已空，那道「本页自己在跑流就不拉」的门开了），**它那一发 GET 与服务端释放 `activeChildren` 之间存在竞态，读回来的可能仍是 `steer`**；而线程此后空闲、再没有推送来纠正它 —— 那份错的信念就永久留下了。
+
+**结论：客户端不可能靠自己拿准这件事，服务端才是权威。**
+
+### 三层都修
+
+1. **兜底（真正的保证）**：`/api/steer` 回 `steer.no_live_turn` 时，**不再把用户的话卡在框里** —— 作废那份信念、按普通回合把这句话重发出去（`skipSteer` 防来回弹跳）。这正是服务端那句话让用户做的事。
+2. **稳定错误码**：`steerSessionCore` 的八处拒绝全部改走 `steerRefusal()`（`STEER_REFUSAL` 表：`no_live_turn` / `kimi_settling` / `queue_full` / `answer_pending` / `engine_unsupported` / `inject_failed`）。修前它们是遗留字符串，`normalizeApiErrorPayload` 一律派兜底码 `api.request_failed`。**有码，兜底才能按码判而不是去匹配中文句子**（38 号文 §7 ④ 的裁决）。形状用 `{code, params, message}`，`error` 不再是 string，归一器原样放行，既有消费者读 `error.message` 逐字不变。
+3. **文案不再被吞**：`app.js` 的 `apiErrText` 对 `api.request_failed` 这个**兜底码**改走 message 优先。它是「没有稳定码」的占位，按它翻译等于把服务端刚说清楚的原因抹成「请求失败。」—— 用户看到的正是它，而服务端原话是「当前 Kimi 回合正在收尾，请作为下一条消息发送」，**该怎么做都写在里面了**。（`provider-settings.js` 的 `mcpErrText` 早就为同一个坑就地打过一块，它的注释写的是同一个诊断；上游收口之后那一块已经冗余，删它是另一处回归面，本刀不顺手动 —— 登记在 §8.5 ⑤。）
+
+另加一条最小的**回合末自清**：本页那条流的 `finally` 里把这条会话的快照当场作废并刷新按钮。它挡不住上面那个竞态（所以不是保证），但常见路径上省掉一次错判。
+
+### 判据四处
+
+- **`steering.e2e`（真 HTTP）**：空闲会话上 `POST /api/steer` → `error.code === 'steer.no_live_turn'`。既有那条按 message 匹配的断言**一个字没改**（message 仍在）。
+- **`steering-claude.e2e` 新 S31–S37**（七条静态锁）：错误码表在／`steerSessionCore` 里零遗留字符串错误／前端按码兜底且**不匹配中文句子**／回合末作废快照并同拍刷新按钮／兜底码 message 优先。
+- **`classic-window-live-steer.e2e` 新 H8 段**（真浏览器，十条）：**H7 钉的是「管家在服务端起的」回合结束后按钮回到发送，它一直是绿的；本页自己起的回合是另一半，修前没有任何人覆盖 —— 这正是它能发布出去的原因。**
+- 判据不许带竞态：H8 里**先把管家关掉**（这套夹具里管家会在线程收工后接着动手，收件箱去抖 5 s，于是点下发送那一刻服务端可能又忙起来、插话理应被受理），再**等服务端真的释放**（GET 信封里 relay 键消失），然后**把那份过期信念种回去** —— 那才是用户遇到的确定性形状。
+
+### 真反向三处
+
+| 反向 | 实得 |
+|---|---|
+| 拆掉兜底（`if (false)`） | **H8f 红**（话根本没发出去，一个字没落盘）＋ **H8i 红**（信念永远停在 `steer`）—— 正是用户遇到的形状 |
+| 把一处拒绝改回遗留字符串 | `steering.e2e` 新断言红，**实得 `"api.request_failed"`**（把「归一吞掉真原因」当场印出来）＋ S32 红 |
+| 撤掉 `apiErrText` 的 message 优先 | S37 红 |
+
+三处都按字节还原，还原后各自复绿。
+
+### 连带
+
+`copy-path-guard.static` 的中文白名单是**按行号登记**的，本刀两处共插入 26 行，九条登记整体 **+26**；按该锁既有先例**逐行 byte 比对**确认是位移不是新增（对照 `git show HEAD:` 的原文，九条逐字相同）。
+
+### 本轮读数
+
+**全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 2 flaky` —— **真回归 0**。flaky 名单 `steward-conversation`／`dom-screenshot`，两件都不是本刀碰过的件（已连着三轮出现在名单里），仍逐件**串行复跑全绿**（24.7 s／11.5 s，`0 flaky`）。`--fast` **72/72**、unit **ALL PASS**、生成器链整条重跑后 `build --check` 与 `module-dependency-graph --check` 自洽（53 模块／418 边不变）。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
@@ -450,3 +513,4 @@ rows.find(r => r.state === 'needs_you') || rows.find(r => r.state === 'running')
 2. **「原件」的第二种口径**（P2 §6-quater 末段登记）。本刀的「看原件」跳的是**这条线程的第 1 回合**（管家真正递过去的那一整段，41 号方案 §9 C05 的 `sessionId+turnSeq` 口径）。若用户本意是**跳回管家对话里下单的那一轮**，那是另一件事：`session.brief` 今天不记管家会话的 `turnSeq`，要补得在 13k 落盘时多写一笔（`brief.origin = {sessionId, turnSeq}`）。**先问用户再动**——多一个字段就多一处会烂掉的地方，§4 的纪律在这儿同样适用。
 3. **`session.brief` 与 `session.threadBrief` 的同名**（P2 §6-quater 开头那张表）。界面侧已经靠改名躲开了，但**服务端那两个字段仍然同名**，而 02 的 `sessionBriefOf()` 两个都认（先 `threadBrief` 后 `brief`）—— 今天不出事只是因为委托书那份没有 `title`／`gist` 两个键，于是 `sessionBriefOf` 回 null、索引条目里就没有它。**哪天谁给委托书加一个 `title`，线程列表的名字会突然变成委托书的一段。** 要还的话是给其中一个改名（`session.commission`），那是一次会动到落盘形状的迁移，单独一刀。
 4. ~~**焦点线程的两处口径**~~ → **已还（2026-09-15，见 §6-septies）**。以下为当时的登记原文：（124 走查 ② 记进来）前端 `steward-board.js` 的 `focusThreadFor` 已经改成「等你 ＞ 在跑 ＞ 最近发生的」；服务端 13q `stewardStateSnapshot` 里还留着自己那一份（`rows.find(needs_you) || rows.find(running) || rows[0]`，且 `dispatching` 还排在 `rows[0]` 之前）。它只驱动问候语里那枚「打开这一件」按钮、不参与右栏自动切换，所以没跟着改 —— 但**同一个问题两处判**迟早会各说各话。要收就收成一处（服务端只投影事实、挑哪一条由前端那一份纯函数判），那是一次会动 `src/` 与整条生成器链的独立小刀。
+5. **`provider-settings.js` 的 `mcpErrText` 已经冗余了**（124 走查④ 记进来）。它是为「兜底码 `api.request_failed` 把服务端原话吞掉」就地打的一块，而那一点本刀已经在 `app.js` 的 `apiErrText` 上游收口。删它是另一处回归面（MCP 导入那条路有自己的夹具），不顺手混在一刀里。

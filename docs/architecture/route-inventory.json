@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-15T05:30:39.442Z",
+  "generatedAt": "2026-09-15T06:53:55.190Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1040,6 +1040,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-models-cache.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\config-read-safety.e2e.js",
@@ -2491,7 +2492,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 310,
+      "line": 332,
       "handler": "handleSteerApiRoute",
       "methods": [
         "POST"
@@ -2502,6 +2503,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\steer-interrupt.e2e.js",
@@ -2515,7 +2517,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 319,
+      "line": 341,
       "handler": "handleSteerApiRoute",
       "methods": [
         "DELETE"
@@ -2526,6 +2528,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\steer-interrupt.e2e.js",
