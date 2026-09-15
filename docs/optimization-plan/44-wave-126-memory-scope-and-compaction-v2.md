@@ -99,4 +99,36 @@
 
 ## 7. 交付记录
 
-（逐刀出门后在此追加：现状 → 改了什么 → 判据读数 → 反向做了什么 → 生成器链与回归读数。）
+### ① B-111a · L1 蒸发边界改 token 预算（2026-09-15）
+
+**改了什么**（`runtimeEvaporateBudgetBoundaryV1`，默认关）：
+
+- 判据口一处：`01c-runtime-flags.js` 的 `evaporateBudgetBoundaryEnabled(config)`。
+- 两个新原语落 `10-context-governance.js`：`historyUnitStarts()`（单元起点＝`role !== 'tool'` 的那些下标；tool 消息按配对铁律永远紧跟发起它的 assistant，所以「不是 tool 的那一条」就是单元头，这样切出来的边界**永远不会把 assistant 与它的 tool 回复劈开**）与 `evaporateBudgetBoundary()`。
+- 保护区三个数全部落 `context-governance-rules.json` 的 `compactionPlan`：`l1ProtectRatio: 0.25`、`l1ProtectMinTokens: 4000`、`l1ProtectMaxTokens: 32000`（**值域唯一**，代码里不写死）。
+- 调用点两处：主回合自动压缩（`maybeAutoCompact`）与子代理自动压缩（`maybeCompactSubHistory`）。
+
+**三处与 25 号文 §1.2 派单稿不同的地方，逐条给理由**（改派单稿要说出为什么）：
+
+1. **没有 bump `rules.schema`。** 派单稿写「版本号 +1」，但这份文件自己的先例（105e `estimation`／105g `factTable`／105h `refine`）全是 additive 不 bump；`schema !== 1` 那道闸拦的是**结构不兼容**，新增可选键不是。
+2. **开关不在 `evaporateHistory` 里读，在调用点读。** 第一版写在函数体里，`runtime-optimization.static` 当场炸 —— 那件会把这段源码**原样切出来 `new Function` 跑**，函数体里一旦出现跨模块符号就是 `ReferenceError`。改成调用点传**已经过门的** `boundaryBudget`，函数体保持无开关、可切片。**并补一把机械锁**（F1）：src 里每一处 `boundaryBudget:` 赋值都必须与 `evaporateBudgetBoundaryEnabled(` 同行，否则有人写个裸预算就把开关架空了。
+3. **forced-400 两条路（`09-workflow`／`08-agent-runs`）保持老边界。** 那里没有现成的 `budget`，而派单稿的 111a 只要求主回合与子代理两条自动压缩路径，forced-400 属 111b 的范围。这是**有意留的边界，不是漏**。
+4. **没有扩 `measureObservationReductionShadow`（C 类影子）。** 派单稿要它「同时输出两种边界的可释放 token」，但那条影子路的门是 `runtimeOptimizationShadowV1===true && runtimeObservationReducerV1!==true`，而 reducer **默认是 true** —— 这条路在生产里等于不跑，扩了也量不到东西。两种边界的对照改由 A 类夹具直接给（见下面 B2 读数）。
+
+**判据读数**（新件 `dev-harness/unit/evaporate-budget-boundary.test.js`，28 条）：
+
+| 组 | 读数 |
+|---|---|
+| A 开关关 | 缺省／显式 `false`／字符串 `"true"` 一律不生效；**开关关的结果与今天不带 opts 的调法逐字节相同**；老边界确实只护住最后一条观测（蒸发 5/6） |
+| B 开关开 | 夹具按生产真实前置搭（历史 34511 tokens > 预算 24157）。单 user 回合连 60 次工具调用：**老边界蒸发 59/60（只护住 1 条观测），新边界蒸发 50/60（护住 10 条）**。预算单调性：2000／20000／120000 三档实得蒸发 25 ≥ 23 ≥ 0 |
+| C 铁律 | 单元起点上没有一条是 tool；五档预算下边界全部落在非 tool 上；蒸发后 `tool_call` 配对零孤儿；不删消息不改长度；第二遍零蒸发（幂等） |
+
+**反向三处，每一处都点名了被动过的那一处**：① 拔掉「最近一次观测无条件护住」→ C3c 红；② 单元起点把 tool 也算进去 → C1／C1b 红；③ 子代理那处不经开关把门直接给裸预算 → 静态锁 F1 红并把那一行原样打出来。三处还原后 sha256 逐字节相同。
+
+**一次真正的反向收获（写下来，因为它证伪的是我自己）**：第一版反向「拔掉最后一个单元的保护」**没红** —— 夹具里每个单元只有 ~2000 token，而保护区被 `l1ProtectMinTokens=4000` 托底，那条保护**从来没被触发过**。改成「单个工具结果就 13503 tokens」的夹具后，新加的 C3c 在**实现没动**的情况下**直接红了**：我护住的是「最后一个**单元**」，而当最后一个单元是一条纯文本 assistant（回合刚收尾）时，它前面那条刚拿到的 tool 结果照样落进蒸发区 —— **注释里声称的不变量，代码当时并没有兑现**。于是补了第二条无条件保护（最近一次观测），并把这段经过写进函数头注。这正是 [42 号文 §5-quinquies](42-wave-125-truthfulness-and-recovery.md) 那条纪律的又一次兑现：**反向如果没被实现拦住，屏上会有什么不同？**
+
+**两处沙箱要注真函数**（不是另写假的 —— 判据只有一处这条纪律在沙箱里也得成立）：`unit/compact-marker-merge.test.js` 与 `context-governance.e2e.js` 都用 `new Function`／`vm` 切源码实跑，缺了 `evaporateBudgetBoundaryEnabled` 会 `ReferenceError` 被被测函数自己的 `try/catch` 吞成「没压缩」，表现为「该触发却没触发」（实测分别红了 2 条与 10 条）。两处都注入 `require(SERVER)` 导出的**那一个**函数。
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／419 边／1 SCC，与改前同）→ `build.js`（53805 行）→ `facts-generate.js` → `route-inventory.js`（135 判定点，告警 0）→ **`architecture-contract-snapshots.js --write`**（rules 改了就必须重跑这一条）→ `--fast` 72/72 → 压缩族六件串行 6/6。计数锁重钉一处：unit suite 47→48（英文 README 那处原本写着 46，一并对齐）。控制字符扫描干净（server.js 里那 5 个 U+FEFF 在 HEAD 里也是 5 个，是给 PowerShell 临时脚本**故意**加的 BOM）。
+
+**全量回归**：第一轮 348 pass / 1 fail / 3 flaky —— 唯一的红是 `dom-smoke`，红在 `B1 dump-dom 完成 (0B, status=4294967295)`，是 **Edge 启动退 -1**，与我这一刀（引擎侧、默认关）无关；两件单跑各两次全绿。就地把那一族治了（42 号文 §5-decies：一次性启动浏览器的两件补进独占桶＋加锁），收口重跑：**349 pass / 0 fail / 349 ran，真回归 0**，唯一 flaky 是 `steward-board`（没留下断言红，属已登记 300 s 豁免的超时族）。

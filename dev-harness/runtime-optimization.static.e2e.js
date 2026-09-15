@@ -206,6 +206,23 @@ ok(/session\.actionAudit\.length > 200/.test(src), 'E3 audit capped (no unbounde
 ok(/status: isErr \? 'failed' : 'completed'/.test(src), 'E3 failed actions never projected');
 ok(!/actionArgumentModelViewV1: true/.test(src), 'E3 action model view is not defaulted on');
 
+console.log('\n── [F1] 126-111a · L1 蒸发边界改 token 预算 ──');
+ok(/runtimeEvaporateBudgetBoundaryV1: false/.test(src), 'F1 开关默认关');
+ok(!/runtimeEvaporateBudgetBoundaryV1: true/.test(src), 'F1 没有在别处被默认翻开');
+ok(/function evaporateBudgetBoundaryEnabled\(config\)/.test(src), 'F1 判定函数存在(唯一判定口)');
+ok(/function historyUnitStarts\(history\)/.test(src) && /role !== 'tool'/.test(src), 'F1 单元起点判据存在(不会把 assistant 与它的 tool 回复劈开)');
+ok(/l1ProtectRatio/.test(src) && /l1ProtectMinTokens/.test(src) && /l1ProtectMaxTokens/.test(src), 'F1 保护区三个数来自规则文件(值域唯一,代码里不写死)');
+{
+  // **机械锁**:`boundaryBudget` 是「已经过开关把门的」预算 —— evaporateHistory 自己不读开关
+  // (它要能被上面 [C1] 那段 new Function 原样切出来跑)。这条推导一旦有人绕过去写个裸预算,
+  // 开关就形同虚设。判据:src 里每一处 `boundaryBudget:` 的**赋值**都必须和判定函数同一行。
+  // 与 125 波那三把锁同一个模具:判据唯一/表唯一/值域唯一。
+  const lines = src.split(/\r?\n/).filter(line => /\bboundaryBudget\s*:/.test(line));
+  const ungated = lines.filter(line => !/evaporateBudgetBoundaryEnabled\s*\(/.test(line));
+  ok(lines.length >= 2, `F1 扫得到 boundaryBudget 赋值点（实得 ${lines.length} 处；扫不到 = 本条静默失效）`);
+  ok(ungated.length === 0, `F1 每一处 boundaryBudget 都由 evaporateBudgetBoundaryEnabled 把门${ungated.length ? '；实得没把门的：' + ungated.map(s => s.trim()).join(' ⏐ ') : ''}`);
+}
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

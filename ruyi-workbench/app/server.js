@@ -792,6 +792,13 @@ function observationRecallEnabled(config) {
   return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
 }
 
+// 126-111a: L1 蒸发边界改 token 预算的生效条件 —— 单开关,不依赖 reducer/recall(它换的是
+// 「哪些观测算冷」的边界,不是「冷了之后怎么缩」)。**唯一判定口**:挂钩点与 e2e 共用本函数;
+// 显式 false / 缺省保证 evaporateHistory 逐字节等价 assistantsSeen===2 的老边界。
+function evaporateBudgetBoundaryEnabled(config) {
+  return !!(config && config.runtimeEvaporateBudgetBoundaryV1 === true);
+}
+
 // 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
@@ -1057,6 +1064,9 @@ function defaultConfig() {
     runtimeOptimizationShadowV1: true,
     runtimeToolRetrievalV1: false,
     runtimeObservationReducerV1: true,
+    // 126-111a(25 号文 §1.2): L1 蒸发的边界从「倒数第 2 条 assistant」改为【token 预算】。
+    // 默认关;显式 false / 缺省 = 逐字节等价今天的 assistantsSeen===2 边界。
+    runtimeEvaporateBudgetBoundaryV1: false,
     // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
     // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);真实历史门后默认开启。
     runtimeObservationRecallV1: true,
@@ -1708,7 +1718,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -31797,7 +31807,12 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
         prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。只输出修订后的完整摘要。',
       },
     },
-    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1 },
+    // 126-111a: L1 保护区的三个数(比例、下限、上限)与 context-governance-rules.json 的
+    // compactionPlan 块逐字同构(additive)。**没有 bump schema** —— 本文件自己的先例(105e
+    // estimation / 105g factTable / 105h refine)都是 additive 不 bump;`schema` 那道闸拦的是
+    // 结构不兼容,新增可选键不是。25 号文 §1.2 写的是「版本号 +1」,这里显式按仓内既成惯例走,
+    // 理由记在 44 号文 §7。
+    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000 },
     // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
     // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
     // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
@@ -32246,6 +32261,58 @@ async function rehydrateObservation(sessionId, rawRef) {
 // stays warm. Already-evaporated messages (content starts with EVAPORATED_PREFIX) are skipped so a repeat
 // pass is a no-op (idempotent) and doesn't re-smash an already-cold prefix.
 // Returns the number of tool messages evaporated on this pass (0 = nothing to do).
+// 126-111a: 历史的【单元起点】—— 一个单元 = 一条非 tool 消息 ＋ 紧随其后的全部 tool 回复。
+// 判据写成「role !== 'tool'」而不是枚举 user/assistant:tool 消息按 OpenAI 的配对铁律永远紧跟
+// 在发起它的那条 assistant 之后,所以「不是 tool 的那一条」就是单元头。这样切出来的边界天然
+// 既落在 user 起点上,也落在「assistant(tool_calls)＋其全部 tool 回复」的起点上 —— 永远不会
+// 把一条 assistant 与它的 tool 回复劈开(劈开 = 下一次请求 400)。111b 的 L2 尾部单元边界复用它。
+function historyUnitStarts(history) {
+  const idx = [];
+  for (let i = 0; i < history.length; i++) if (history[i] && history[i].role !== 'tool') idx.push(i);
+  return idx;
+}
+
+// 126-111a: 按 token 预算算 L1 边界。老边界数的是「倒数第 2 条 assistant」—— 一个与上下文窗口
+// 完全无关的常数:窗口 32K 和 1M 的模型护住的观测一样多,而一条 assistant 回合可能带 1 个工具
+// 结果也可能带 60 个。改成:护住区 = clamp(l1ProtectMinTokens, l1ProtectRatio×budget,
+// l1ProtectMaxTokens),从尾部按单元往回装,装不下就停,边界落在最后一个装得下的单元起点。
+// 两条无条件的保护(都比上限优先):
+//   ① 最后一个单元无条件护住(kept 为 0 时不看上限);
+//   ② **最近一次观测无条件护住** —— 再紧也不能把【模型刚拿到、正要据此决定下一步】的那个工具
+//      结果蒸发掉。①单独是不够的:当最后一个单元是一条纯文本 assistant(回合刚收尾)时,①护住的
+//      是那句话,而它前面那条 tool 照样落进蒸发区 —— 这个洞是 C3c 那条判据**在实现写完之后**
+//      逮到的(注释里声称的不变量,代码当时并没有兑现)。
+// 两条保护合起来,让新边界在任何预算下都不比老边界更冒进(老边界护住最近 2 条 assistant,
+// 必然含最近一次观测);极端情形(最近一次观测本身就撑爆预算)下两者行为一致 —— 都让 L1 释放
+// 不了多少,于是正常升级到 L2 摘要重播种。
+function evaporateBudgetBoundary(history, budget) {
+  const rules = CONTEXT_GOVERNANCE_RULES.compactionPlan;
+  const protectCap = Math.min(
+    rules.l1ProtectMaxTokens,
+    Math.max(rules.l1ProtectMinTokens, Math.floor(budget * rules.l1ProtectRatio)),
+  );
+  const starts = historyUnitStarts(history);
+  if (!starts.length) return 0;
+  const unitEnd = i => starts[i + 1] || history.length;
+  const unitHasTool = i => {
+    for (let k = starts[i]; k < unitEnd(i); k++) if (history[k] && history[k].role === 'tool') return true;
+    return false;
+  };
+  let boundary = history.length, kept = 0, keptObservation = false;
+  for (let i = starts.length - 1; i >= 0; i--) {
+    const unitTokens = estimateHistoryTokens(history.slice(starts[i], unitEnd(i)));
+    const hasTool = unitHasTool(i);
+    // 上限只对「已经护住了东西、而且已经护住过一次观测」之后的单元生效 —— 见上面 ①②。
+    if (kept > 0 && keptObservation && kept + unitTokens > protectCap) break;
+    kept += unitTokens;
+    keptObservation = keptObservation || hasTool;
+    boundary = starts[i];
+    // 没有任何观测的历史(纯对话)不该为了②把整段都护住:一圈下来没见过 tool 就按上限收口。
+    if (!keptObservation && kept > protectCap) break;
+  }
+  return boundary;
+}
+
 function evaporateHistory(history, opts) {
   if (!Array.isArray(history) || !history.length) return 0;
   // Find the index of the 2nd-most-recent assistant message. Tool messages at or after it are within the
@@ -32255,6 +32322,16 @@ function evaporateHistory(history, opts) {
     const m = history[i];
     if (m && m.role === 'assistant') { assistantsSeen++; if (assistantsSeen === 2) { boundary = i; break; } }
   }
+  // 126-111a: `boundaryBudget` 是【已经过开关把门的】预算 —— 本函数**不自己读开关**。
+  // 判定口只有一个:01c 的 evaporateBudgetBoundaryEnabled(),由两个调用点各调一次。这么分是
+  // 有理由的:runtime-optimization.static 会把本段源码原样切出来 new Function 跑,函数体里一旦
+  // 出现跨模块符号,那件就炸(第一版就是这么红的)——**让它保持无开关、可切片**,顺带也保证了
+  // 「开关关时 boundaryBudget 恒为 0、走的就是上面那条老边界」这件事在调用点一眼可查。
+  // 给不出预算的两个调用点是 forced-400 那两条(09-workflow 主回合、08-agent-runs 子代理):
+  // 那里没有现成的 budget,而 25 号文 §1.2 的 111a 只要求主回合与子代理的自动压缩两条路,
+  // forced-400 属 111b 的范围。这是有意留的边界,不是漏。
+  const boundaryBudget = Number(opts && opts.boundaryBudget);
+  if (Number.isFinite(boundaryBudget) && boundaryBudget > 0) boundary = evaporateBudgetBoundary(history, boundaryBudget);
   const useReducer = !!(opts && opts.config && opts.config.runtimeObservationReducerV1 === true && opts.rawRefPrefix);
   const toolNames = useReducer ? observationToolNames(history) : null;
   let count = 0;
@@ -33535,7 +33612,9 @@ async function maybeCompactSubHistory(opts) {
     const before = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a):校准后估算判预算(45f P3-3:子代理实际带 tools,估算口径必须含)
     if (before <= budget) return false;                          // append-only 到下次跨阈,与主回合同
     // L1 蒸发(逐字复用):把最近 2 个 assistant 回合之前的 role:'tool' 内容改写为占位。原地、幂等、配对安全。
-    const evaporated = evaporateHistory(subHistory);
+    // 126-111a:开关开时改按 token 预算算保护区(与主回合同一个判据口、同一份规则数)。子代理这条路
+    // 25 号文 §1.2 明写「同步」,所以和主回合一起改;开关关时 opts 里这两个字段一点作用都没有。
+    const evaporated = evaporateHistory(subHistory, { config, boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0 });
     const after1 = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a) 同上含 tools
     const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
     if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
@@ -33660,6 +33739,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
     const evaporated = evaporateHistory(history, {
       config, rawRefPrefix,
+      boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
       onReduced: meta => {
         onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
         logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
@@ -53092,6 +53172,12 @@ module.exports = {
   chunkHistoryByBudget,
   recentTurnsBoundary,
   CompactionPlan,
+  // 126-111a: L1 蒸发与它的两个新原语 — exposed for e2e 白盒契约(开关关时逐字节等价老边界、
+  // 开关开时按 token 预算护住尾部、边界永不落在 tool 上)。
+  evaporateHistory,
+  evaporateBudgetBoundary,
+  historyUnitStarts,
+  evaporateBudgetBoundaryEnabled,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

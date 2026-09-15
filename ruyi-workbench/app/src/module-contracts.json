@@ -121,6 +121,7 @@
         "coreMemoryCharBudget",
         "coreMemoryMaxItems",
         "estimateBucketsEnabled",
+        "evaporateBudgetBoundaryEnabled",
         "execResultCacheEnabled",
         "execResultCacheMaxEntries",
         "memoryFixedSelectionMax",
@@ -7425,12 +7426,14 @@
         "ctxProbeKey",
         "economicsShadowEnabledCached",
         "estimateFactor",
+        "evaporateBudgetBoundary",
         "evaporateHistory",
         "extractContextLength",
         "extractSessionNotes",
         "extractSummaryEntities",
         "fitHistoryForSummary",
         "historyStartsWithCompactionSummary",
+        "historyUnitStarts",
         "isContextOverflowError",
         "lastAssistantTextOf",
         "lastSessionContextTokens",
@@ -7612,6 +7615,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "evaporateBudgetBoundaryEnabled",
           "kinds": [
             "call"
           ]
@@ -16524,6 +16534,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "evaporateBudgetBoundaryEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "execResultCacheEnabled",
           "kinds": [
             "read"
@@ -19240,6 +19257,20 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "evaporateBudgetBoundary",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "evaporateHistory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "extractContextLength",
           "kinds": [
             "read"
@@ -19269,6 +19300,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "historyUnitStarts",
           "kinds": [
             "read"
           ]

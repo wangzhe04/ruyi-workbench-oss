@@ -42,6 +42,12 @@ module.exports = {
   chunkHistoryByBudget,
   recentTurnsBoundary,
   CompactionPlan,
+  // 126-111a: L1 蒸发与它的两个新原语 — exposed for e2e 白盒契约(开关关时逐字节等价老边界、
+  // 开关开时按 token 预算护住尾部、边界永不落在 tool 上)。
+  evaporateHistory,
+  evaporateBudgetBoundary,
+  historyUnitStarts,
+  evaporateBudgetBoundaryEnabled,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

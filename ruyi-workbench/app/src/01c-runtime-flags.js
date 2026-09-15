@@ -5,6 +5,13 @@ function observationRecallEnabled(config) {
   return !!(config && config.runtimeObservationRecallV1 === true && config.runtimeObservationReducerV1 === true);
 }
 
+// 126-111a: L1 蒸发边界改 token 预算的生效条件 —— 单开关,不依赖 reducer/recall(它换的是
+// 「哪些观测算冷」的边界,不是「冷了之后怎么缩」)。**唯一判定口**:挂钩点与 e2e 共用本函数;
+// 显式 false / 缺省保证 evaporateHistory 逐字节等价 assistantsSeen===2 的老边界。
+function evaporateBudgetBoundaryEnabled(config) {
+  return !!(config && config.runtimeEvaporateBudgetBoundaryV1 === true);
+}
+
 // 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {

@@ -121,6 +121,11 @@ function autoCompactHarness(estimates) {
       reseed: () => [],
     },
     calibratedEstimate: () => estimates.shift() ?? estimates.at(-1),
+    // 126-111a:maybeAutoCompact 现在会问一声「L1 边界要不要按 token 预算算」。注进来的是
+    // **真函数**(srv 导出的那一个),不是这里另写一份假的 —— 判据只有一处,这条纪律在沙箱里
+    // 也得成立。沙箱里缺了它会 ReferenceError,被 maybeAutoCompact 自己的 try/catch 吞成
+    // 「没压缩」,于是本文件两条断言红成「该触发却没触发」(实测就是这么红的)。
+    evaporateBudgetBoundaryEnabled: srv.evaporateBudgetBoundaryEnabled,
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
     evaporateHistory: history => {
       let n = 0;

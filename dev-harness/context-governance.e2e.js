@@ -118,10 +118,14 @@ let recordCalls = 0; const recordCompactUsage = () => { recordCalls++; };
 const calibratedEstimate = (p, m, h) => estimateHistoryTokens(h);
 const resolveCompactionProvider = (config, provider) => ({ provider, model: provider && provider.model });
 const CompactionPlan = require(SERVER).CompactionPlan;
+// 126-111a:maybeCompactSubHistory 现在会问一声「L1 边界要不要按 token 预算算」。注**真函数**,
+// 不在这儿另写一份假的(判据只有一处,沙箱里也得成立)。开关默认关,所以本文件的判据逐字节不变;
+// 缺了它会 ReferenceError 被 maybeCompactSubHistory 的 try/catch 吞成「没压缩」,A 组十条全红。
+const evaporateBudgetBoundaryEnabled = require(SERVER).evaporateBudgetBoundaryEnabled;
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled',
   mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled);
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。

@@ -152,6 +152,9 @@ const EXPECTED = {
   bridgeExternalToolsToProvider: 'forbidden', toolLoadingMode: 'forbidden', toolCatalogCacheTtlMs: 'forbidden',
   runtimeOptimizationShadowV1: 'forbidden', runtimeToolRetrievalV1: 'forbidden',
   runtimeObservationReducerV1: 'forbidden', runtimeObservationRecallV1: 'forbidden',
+  // 126-111a:L1 蒸发边界改 token 预算。与同族每一个 runtime*V1 一样 forbidden —— 它改的是
+  // 「模型看得见哪些观测」,属于引擎行为,管家不该有权在对话里把它拨开。
+  runtimeEvaporateBudgetBoundaryV1: 'forbidden',
   runtimeSessionNotesV1: 'forbidden', runtimeSessionNotesInjectV1: 'forbidden',
   runtimeSessionNotesMergeV1: 'forbidden', runtimeSummaryEntityCheckV1: 'forbidden',
   runtimeEstimateBucketsV1: 'forbidden', runtimeSummarySingleShotV1: 'forbidden',
