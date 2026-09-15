@@ -451,6 +451,12 @@ export function createChatRenderPrimitives(deps = {}) {
     // Duration slot: filled now for static cards that carry durationMs; streaming fills it on tool_result.
     const dur = el('span', 'tc-dur'); if (settled && Number.isFinite(tc.durationMs)) dur.textContent = `· ${(tc.durationMs / 1000).toFixed(1)}s`;
     sum.appendChild(dur);
+    // 125-P2(42 号文 §1 ③):抓不到时 web_fetch 会回落磁盘缓存,并且【仍然回 ok:true】—— 旧正文就这么
+    // 进了模型与用户眼里,而 fromCache / ts 两个字段一直摆在返回值里没人读。徽标挂在【摘要行】上
+    // (不展开就看得见),内容由结构化字段算出来,一个关键词都不匹配(同 124-P3 回执徽标的模具)。
+    const staleHost = el('span', 'tc-stale');
+    sum.appendChild(staleHost);
+    if (settled && tc.result !== undefined) renderStaleBadgeInto(staleHost, tc.name, tc.result);
     const status = el('span', 'tc-status', settled ? (isError ? t('status.error') : t('status.done')) : t('status.running'));
     if (settled) status.classList.add(isError ? 'err' : 'ok');
     sum.appendChild(status);
@@ -484,7 +490,31 @@ export function createChatRenderPrimitives(deps = {}) {
     body.appendChild(imageHost);
     if (settled && !isError && tc.result !== undefined) renderToolImageInto(imageHost, tc.name, tc.result);
     d.appendChild(body);
-    return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, imageHost, nameEl, verbEl, name: tc.name };
+    return { d, status, inp, resPre, statusbar, dur, argEl, diffHost, imageHost, staleHost, nameEl, verbEl, name: tc.name };
+  }
+  // 125-P2:「这份资料是哪天抓的」由工作台印,不靠模型自觉。
+  // 判据只看两个【结构化字段】:web_fetch 自己回的 fromCache 与 ts。返回 null = 不该印
+  // (不是 web_fetch、或这次真的是现抓的);-1 = 是缓存但没记时间(如实说不知道多久,不瞎猜)。
+  // 天数按【渲染时刻】算:回放一条三个月前的回合,那份缓存确实就是三个月前抓的 —— live 与回放
+  // 两条路上这句话都成立,不必落盘第二个字段。
+  function staleCacheDays(name, result) {
+    if (name !== 'web_fetch') return null;
+    const r = (result && typeof result === 'object') ? result : null;
+    if (!r || r.fromCache !== true) return null;
+    const at = Date.parse(String(r.ts || ''));
+    if (!Number.isFinite(at)) return -1;
+    return Math.max(0, Math.floor((Date.now() - at) / 86400000));
+  }
+  // 幂等(先清空 + 去掉标记):流式路径拿到结果后再调一次也不会画两枚。
+  function renderStaleBadgeInto(host, name, result) {
+    if (!host) return;
+    host.textContent = '';
+    delete host.dataset.stale;
+    const days = staleCacheDays(name, result);
+    if (days == null) return;
+    host.dataset.stale = 'cache';
+    host.textContent = days < 0 ? t('tool.staleCache.unknown') : t('tool.staleCache', { days: String(days) });
+    host.title = t('tool.staleCache.hint');
   }
   // v1.0-S4: fill a tool card's diff-host with the colorized diff view IFF this is a git_diff result carrying
   // non-empty diff text. Idempotent (clears the host first) so the streaming path can call it after the result
@@ -1033,6 +1063,8 @@ export function createChatRenderPrimitives(deps = {}) {
     renderMarkdown,
     renderMarkdownInto,
     renderToolImageInto,
+    renderStaleBadgeInto,
+    staleCacheDays,
     saveAsPlaybook,
     safeStringify,
     setCtxWindowManual,

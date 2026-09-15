@@ -646,7 +646,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ③ 班组视角要把委托书带跟着对话三件套一起收，主视图状态机那一处（workbench.css）加一个
 //      选择器 → 1c6bdbfa…；
 //   ④ 124 走查 B（用户三选一选了 B）：委托书线程的第一条消息折成一行 → 下面这个终值。
-const LEGACY_STYLES_SHA256 = 'a6f79e65627ad4648187a55155a49f3e46b0f4908f4342b693858796d269d002';
+//   ⑤ 125-P2:工具卡摘要行上的缓存徽标(.tc-stale,chat-live.css)—— 没有 data-stale 时整枚
+//      display:none,其余工具卡逐像素不变 → 下面这个终值。
+const LEGACY_STYLES_SHA256 = '81eb86da712df6d03f7e40570c4c7b3b5b09e5f2ebe8dba97fa66a90ee84451d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

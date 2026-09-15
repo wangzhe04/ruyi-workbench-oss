@@ -80,7 +80,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 124-P2（40 号文 §2 ②）：新增 dev-harness/thread-commission.browser.e2e.js（一处带 RUYI_HOME 的
 // spawn —— 那一发起服务；无头 Edge 与进程内的 fake provider 都不带 RUYI_HOME，不计入），
 // 140 -> 141 的来路就是它。同刀的 thread-commission.static.e2e.js 是纯读文件的静态件，零 spawn。
-const RUYI_HOME_SPAWN_SITES = 141;
+// 125-P2(42 号文 §1 ③):新增 dev-harness/stale-source-badge.browser.e2e.js(一处带 RUYI_HOME 的
+// spawn —— 那一发起服务;无头 Edge 与 fake-openai 那两发都不带 RUYI_HOME,不计入),
+// 141 -> 142 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 142;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

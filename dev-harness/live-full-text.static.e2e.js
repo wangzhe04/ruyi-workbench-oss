@@ -290,5 +290,33 @@ ok(!/\btoolCard\(/.test(experienceCode) && !/\bthinkingPanel\(/.test(experienceC
     'I2b renderSessions 只剩一个转接口（调注入的左栏渲染），它自己一行都不画');
 }
 
+// ── J 125-P2(42 号文 §5 P2):缓存徽标的数据源只有结构化字段,两条路都画 ──────────────────
+// 这枚徽标要说的是「这一段不是刚抓的」。它一旦开始猜(去正文里找关键词、或按 staleReason 的
+// 措辞判断),就会在两个方向上说谎:该印的不印、不该印的乱印。与 124-P3 的回执徽标同一条纪律 ——
+// **判回执／判时效的那几段里,一个正文字段都不许读。**
+{
+  const streamRuntime = read(path.join(PUBLIC, 'js', 'chat-stream-runtime.js'));
+  const codeOnly = text => String(text).split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
+  const at = primitives.indexOf('function staleCacheDays(name, result) {');
+  const end = at < 0 ? -1 : primitives.indexOf('\n  }', at);
+  const judge = at < 0 ? '' : (end < 0 ? primitives.slice(at) : primitives.slice(at, end));
+  ok(judge.length > 120, `J0 staleCacheDays 函数体切得到(切不到 = 本组静默失效;实得 ${judge.length})`);
+  ok(/r\.fromCache !== true/.test(judge) && /Date\.parse\(String\(r\.ts \|\| ''\)\)/.test(judge),
+    'J1 判据只读 fromCache 与 ts 两个结构化字段');
+  for (const forbidden of ['.text', 'staleReason', 'includes(', 'match(', 'indexOf(']) {
+    ok(!codeOnly(judge).includes(forbidden), `J2 判据里不出现 ${forbidden}(它一读正文就开始猜)`);
+  }
+  ok(/name !== 'web_fetch'/.test(judge), 'J3 只认 web_fetch 这一个工具(别的工具没有「缓存」这回事)');
+  // 两条路都画:回放那支在 toolCard() 里,live 那支在流式 tool_result 里,少一支就有一条路不说话。
+  ok(/if \(settled && tc\.result !== undefined\) renderStaleBadgeInto\(staleHost, tc\.name, tc\.result\);/.test(primitives),
+    'J4 回放路径(toolCard)画它');
+  ok(/renderStaleBadgeInto\(card\.staleHost, card\.name, evt\.content\);/.test(streamRuntime),
+    'J5 live 路径(流式 tool_result)画它');
+  ok(!/isError \?[^\n]*renderStaleBadgeInto|if \(!evt\.isError\) renderStaleBadgeInto/.test(streamRuntime),
+    'J6 live 那一支【不】按 isError 分叉 —— 回落缓存时 web_fetch 回的正是 ok:true,按错误分叉等于永远不画');
+  ok(/\.tool-card \.tc-stale \{ display: none; \}/.test(chatLive) && /\.tc-stale\[data-stale\]/.test(chatLive),
+    'J7 样式落在已注册的所有权层 chat-live.css,且没有 data-stale 时整枚不占位(其余工具卡逐像素不变)');
+}
+
 console.log(fail === 0 ? 'LIVE FULL TEXT STATIC: ALL PASS' : `LIVE FULL TEXT STATIC: ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

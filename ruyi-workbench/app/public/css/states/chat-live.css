@@ -37,6 +37,15 @@
 .tool-card .tc-name { font-family: var(--mono); font-weight: 600; flex: none; }
 .tool-card .tc-arg { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .tool-card .tc-dur { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+/* 125-P2:缓存徽标。空的时候整枚不占位(没有 data-stale 就不显示),于是绝大多数工具卡的摘要行
+   逐像素不变;只有「这次没连上、用的是本地缓存」那一枚才亮出来,用告警色而不是灰色 ——
+   它要说的是「这不是刚抓的」,不是一句补充说明。 */
+.tool-card .tc-stale { display: none; }
+.tool-card .tc-stale[data-stale] {
+  display: inline-block; flex: none; font-size: var(--fs-xs); line-height: 1.6;
+  padding: 0 6px; border-radius: 999px; white-space: nowrap;
+  color: var(--warn-fg, var(--danger-fg)); background: color-mix(in srgb, var(--warn-fg, var(--danger-fg)) 12%, transparent);
+}
 .tool-card .tc-status { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); flex: none; }
 .tool-card .tc-status.err { color: var(--danger-fg); }
 .tool-card .tc-status.ok { color: var(--ok-fg); }

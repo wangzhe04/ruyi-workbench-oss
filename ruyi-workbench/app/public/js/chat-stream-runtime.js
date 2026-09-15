@@ -93,6 +93,9 @@ export function createChatStreamRuntime(deps = {}) {
     renderMissionBar,
     // 109b: 工具产出图内联缩略图,tool_result 到达后与 renderGitDiffInto 同一趟补渲染(见下方 case 'tool_result')。
     renderToolImageInto = () => {},
+    // 125-P2:缓存徽标。与上面那两个补渲染同一个模具 —— 摘要行的徽标位在 tool_use 阶段是空的,
+    // 结果到达才知道这次是不是回落了缓存。
+    renderStaleBadgeInto = () => {},
     renderResumeBanner,
     renderSessions,
     renderStaticMessage,
@@ -1204,6 +1207,9 @@ export function createChatStreamRuntime(deps = {}) {
           // 109b: 工具产出图内联缩略图。tool_use 阶段 toolCard() 还没有 result,这里补一次(imageHost
           // 上的 dataset 闸门保证不会跟任何其它调用路径重复请求)。
           if (!evt.isError) renderToolImageInto(card.imageHost, card.name, evt.content);
+          // 125-P2(42 号文 §1 ③):这次到底是现抓的还是回落了缓存,只有结果里那两个字段知道。
+          // 不判 isError:web_fetch 回落缓存时【回的是 ok:true】—— 那正是这一刀要说破的事。
+          renderStaleBadgeInto(card.staleHost, card.name, evt.content);
           card.status.textContent = evt.isError ? t('status.error') : t('status.done');
           card.status.classList.remove('ok', 'err'); card.status.classList.add(evt.isError ? 'err' : 'ok');
           // Status bar: running → ok/err.

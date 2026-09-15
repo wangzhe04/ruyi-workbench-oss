@@ -257,6 +257,7 @@ const {
   renderMarkdown,
   renderMarkdownInto,
   renderToolImageInto,
+  renderStaleBadgeInto,
   saveAsPlaybook,
   safeStringify,
   setCtxWindowManual,
@@ -368,6 +369,7 @@ const {
   refreshToolPane: () => refreshToolPane(),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   renderToolImageInto, // 109b: 工具产出图内联缩略图,tool_result 到达后补渲染。
+  renderStaleBadgeInto, // 125-P2:缓存徽标,同一趟补渲染(判据只看结构化字段 fromCache/ts)。
   renderSessions: (...args) => renderSessions(...args),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   renderStepBar: (...args) => renderStepBar(...args),
