@@ -197,6 +197,15 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
   steward_memory_panel_edit: 'settings.steward.tool.memoryEdit',
   steward_memory_panel_restore: 'settings.steward.tool.memoryRestore',
   steward_memory_panel_clear: 'settings.steward.tool.memoryClear',
+  // 124 走查：五个写类定时任务工具随 13m 的 STEWARD_ACTION_HOOKS 一起登记进来。漏了这里 =
+  // steward-settings.static H5 红，且「行动流水」那一列把 steward_schedule_create 这个内部 id
+  // 原样显给用户（§8.1 原则 7：界面不出现系统内部词）—— 与上面 thread_stop／thread_permission
+  // 两条注释记的是同一笔账，这已经是第三次。
+  steward_schedule_create: 'settings.steward.tool.scheduleCreate',
+  steward_schedule_pause: 'settings.steward.tool.schedulePause',
+  steward_schedule_resume: 'settings.steward.tool.scheduleResume',
+  steward_schedule_run_now: 'settings.steward.tool.scheduleRunNow',
+  steward_schedule_delete: 'settings.steward.tool.scheduleDelete',
 });
 
 // 117n-M1①（用户「查下有没有能合并的功能，比如对话输入框，通常应该都是一样的，应该要能做成

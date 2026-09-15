@@ -112,6 +112,20 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   // 生产形状是「管家说要开桌面,按钮出来,按了报错」。与 config_set / skill_toggle 同一个「须确认」
   // 模具:只有 13q 那条路置 ctx.userPressed = true,13k 只在 desktop:true 那一支上读它。
   steward_thread_permission: 'threadPermission',
+  // 124 走查(用户 2026-09-15 真机:「就按这个排」按下去 —— 没做成: steward_schedule_create
+  // 不能作为 act 执行)。123-M2 新增六个定时任务工具时登记了 schema(13f)/handler(12)/tier 与
+  // pack(07)【三处】,漏了这第四处 —— 而 create 与 delete 自己在无人值守时就回 propose_required,
+  // 被 stewardDowngradeActions 降级成按钮,按下去必然 not_allowed。**同一个坑这是第三次**
+  // (thread_stop 117m-A4、thread_permission 117z-E2b),所以这一刀连带加了一把机械锁:
+  // steward-tools.static ①e —— 实现里会回 propose_required 的管家工具必须在本表里。
+  // 五个【写类】都进表(list 是只读,按表头那条纪律「读类工具没有出现在这里的理由」不进):
+  // pause/resume/run_now 不回 propose_required,锁不要求它们,但模型照样能把它们提成一枚按钮
+  // (acts 不经这张表过滤),不进表就是同一种「按了报错」。
+  steward_schedule_create: 'scheduleCreate',
+  steward_schedule_pause: 'schedulePause',
+  steward_schedule_resume: 'scheduleResume',
+  steward_schedule_run_now: 'scheduleRunNow',
+  steward_schedule_delete: 'scheduleDelete',
 });
 
 // 降级成按钮时的人话标签(§8.4「话＋一行按钮」:按钮上写用户要做的那件事,不写工具名)。
@@ -126,6 +140,9 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   // 117z-E2b 提交①:这是行动流水与兜底用的总称;真正降级成按钮的只有 capabilities.desktop === true
   // 那一支,13o 的 stewardActLabel 按 args 把它写成「给它开桌面」(按钮上写用户要做的那件事,§8.4)。
   steward_thread_permission: '改线程权限',
+  // 124 走查:降级按钮与 ※ 脚注上写用户要做的那件事,不吐 steward_schedule_* 这些内部 id。
+  steward_schedule_create: '排上', steward_schedule_pause: '先停一停', steward_schedule_resume: '继续排',
+  steward_schedule_run_now: '现在就跑一次', steward_schedule_delete: '删掉这条定时',
 });
 
 // ────────────────────────────────────────────────────────────────────────────

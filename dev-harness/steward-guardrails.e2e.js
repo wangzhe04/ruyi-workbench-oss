@@ -411,6 +411,42 @@ try {
     ok(pr && pr.undoRef && pr.undoRef.kind === 'desktop' && pr.undoRef.previous === null,
       `Q6 undoRef.kind === 'desktop' 且带旧值 null(got ${JSON.stringify(pr && pr.undoRef)})`);
   }
+  /* ═════════ (S) 124 走查:定时任务的五个写工具能被按钮按到(真服务面) ═════════ */
+  // 用户 2026-09-15 真机:管家提了「就按这个排」,按下去 —— **没做成: steward_schedule_create
+  // 不能作为 act 执行**。病根与上面 (L) 那一段【同一个】:123-M2 新增六个定时任务工具时登记了
+  // schema(13f)/handler(12)/tier 与 pack(07) 三处,漏了 13m 的 STEWARD_ACTION_HOOKS —— 而
+  // schedule_create 自己在无人值守时就回 propose_required,被降级成一枚按钮,按下去必然 404 白名单。
+  // 这一段验的还是【端到端】:用户亲手按那枚按钮,任务真的排上了。
+  // 机械锁另有一把(steward-tools.static ①e:凡会回 propose_required 的工具必须在表里),本段是
+  // 它的行为面 —— 锁看住「别再漏登记」,这里看住「登记了真的能按」。
+  console.log('── (S) 124 定时任务的 act 面 ──');
+  {
+    const sched = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_schedule_create', args: {
+      title: '博纳影业收盘位',
+      schedule: { kind: 'weekly', at: '14:40', days: [1, 2, 3, 4, 5] },
+      payload: { kind: 'reminder', text: '看一眼尾盘' },
+    } } }, hdr);
+    ok(sched.status === 200 && sched.json && sched.json.ok === true && sched.json.kind === 'tool',
+      `S1 steward_schedule_create 能作为按钮执行(修前 not_allowed「不能作为 act 执行」;got ${sched.status} ${sched.json && sched.json.error && sched.json.error.code})`);
+    const task = sched.json && sched.json.result && sched.json.result.task;
+    ok(sched.json && sched.json.result && sched.json.result.ok === true && task && task.id,
+      `S2 任务真的排上了(回 {ok,task};got ${JSON.stringify(sched.json && sched.json.result && sched.json.result.error)})`);
+    // 另外四个写类同样按得到。用 list 的返回核实 pause 真落到了那条任务上,不只看 HTTP 200。
+    const paused = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_schedule_pause', args: { id: task && task.id } } }, hdr);
+    ok(paused.status === 200 && paused.json && paused.json.ok === true
+      && paused.json.result && paused.json.result.ok === true && paused.json.result.task
+      && paused.json.result.task.enabled === false,
+      `S3 steward_schedule_pause 按得到,且那条任务真的停了(enabled:false;got ${JSON.stringify(paused.json && paused.json.result && paused.json.result.error)})`);
+    for (const tool of ['steward_schedule_resume', 'steward_schedule_run_now', 'steward_schedule_delete']) {
+      const res = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool, args: { id: task && task.id } } }, hdr);
+      ok(res.status === 200 && res.json && res.json.ok === true,
+        `S4 ${tool} 也在 act 白名单里(got ${res.status} ${res.json && res.json.error && res.json.error.code})`);
+    }
+    // 对照组(与 L6 同款):只读的那一个仍然进不了白名单 —— 补登记补的是【写类】,不是把闸拆了。
+    const listAct = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_schedule_list', args: {} } }, hdr);
+    ok(listAct.status === 400 && listAct.json && listAct.json.error && listAct.json.error.code === 'not_allowed',
+      `S5 对照组:只读的 steward_schedule_list 仍进不了 act 白名单(got ${listAct.status} ${listAct.json && listAct.json.error && listAct.json.error.code})`);
+  }
 } finally {
   kill(wb);
   wb = null;
@@ -1121,6 +1157,7 @@ try {
       `R5b tool_invoke_exec 对它的档校验(12:100)是同档放行:mouse_click 的目录档 = 'exec'(got ${clickItem && clickItem.tier})`);
     writeConfig({});
   }
+
 } finally {
   try { providerServer.close(); } catch { /* ignore */ }
 }

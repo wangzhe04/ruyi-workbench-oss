@@ -144,18 +144,27 @@ export function railGroupFor(aggregateState, updatedAt, now = new Date()) {
   return sameDay ? 'doneToday' : 'earlier';
 }
 
-// ── 焦点线程：等你 ＞ 在跑 ＞ 失败 ＞ 最近更新（§8.10／§5 117h 行）──────────────────
+// ── 焦点线程：等你 ＞ 在跑 ＞ 最近发生的那一件（§8.10／§5 117h 行）──────────────────
 // 纯函数、零 DOM、零 import 依赖：dev-harness/unit/steward-focus-thread.test.js 直接 import 跑真值表。
 // 入参是【已经带好五态】的行（五态由调用方经 mission-state.js 算出，本函数不认识卡片形状，也就
 // 不可能在这里长出第二套五态判据）。
-// 「失败」在五态里没有独立枚举 —— mission-state.js 的诚实说法是 `stopped`（已停工：活没在干），
-// 所以第三优先级取 stopped，不自造一个 failed 态。
+//
+// 124 走查（用户 2026-09-15 真机：「每次线程跑完了都会切到同一个线程」）：第三档原来是
+// **已停工**（`pick('stopped')`，「失败要看得见」），但它**没有时效尺** —— 一条昨天停工的线程
+// 会永远赢过今天刚做完的那条，于是每有一条线程跑完，右栏「现在这一件」就被拽回那条旧的停工
+// 线程。用户报的那条美股线程正是这个形状（已停工、昨天、一句话都没说过）。
+//
+// 拍板（用户 2026-09-15）：**第三档改成「最近发生的那一件」，不分 done/stopped。**
+// 理由是这一栏回答的问题是「此刻最该看的是哪一条」，那只可能是刚刚发生的那一条；失败的可见性
+// 由左栏的五态药丸与收工卡承担，不靠把一条旧的失败永久钉在右栏来实现。
+// 于是实现就是把 `pick('stopped')` 那一档整个去掉 —— 最后那条「最近更新的赢」本来就在，
+// 它自然接住 done 与 stopped 两种收工态。
 export function focusThreadFor(rows) {
   const list = (Array.isArray(rows) ? rows : []).filter(row => row && row.sessionId);
   if (!list.length) return null;
   const newest = (a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
   const pick = state => list.filter(row => row.state === state).sort(newest)[0] || null;
-  return pick('needs_you') || pick('running') || pick('stopped') || list.slice().sort(newest)[0] || null;
+  return pick('needs_you') || pick('running') || list.slice().sort(newest)[0] || null;
 }
 
 export function createStewardBoard({

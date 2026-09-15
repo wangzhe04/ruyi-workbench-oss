@@ -200,17 +200,69 @@
 
 **如实登记一处口径不确定**：派单稿 §2 ② 写的是「原件可跳（`sessionId+turnSeq` 定位到**管家那一回合**的原文）」。本刀按 41 号方案 §9 C05 的口径实现——那里 `sourceKey = sessionId + turnSeq` 指的是**线程**与**线程的回合**（既有的交付卡读的就是这一份），且 13k 自己的注释写着「新建会话 turnSeq 恒为 0，故委托书是第 1 回合」。**若用户本意是跳回管家对话里下单的那一轮**，那是另一件事（管家会话的 `turnSeq`，`session.brief` 今天不记它，得在 13k 落盘时补一笔），本刀不顺手扩围，登记在 §8.5。
 
+## 6-quinquies. 124 走查两件（2026-09-15，用户真机）
+
+P2 出门当天用户报了两件，都不在派单稿里，都是既有行为的缺口。
+
+### ① 「就按这个排」按下去报错 —— act 白名单漏登记（同一个坑第三次）
+
+**用户看到的**：管家建议排一条定时任务、给了一枚「就按这个排」，按下去底下一行灰字：`没做成: steward_schedule_create 不能作为 act 执行`。
+
+**取证**：`steward_schedule_*` 六个工具是 123-M2 加的，那一刀登记了 **schema（13f）／handler（12）／tier 与 pack（07）三处，漏了第四处** `STEWARD_ACTION_HOOKS`（13m）。而 `schedule_create` 与 `schedule_delete` 自己在无人值守时就回 `propose_required`（13t:71／:182）→ `stewardDowngradeActions` 把它降级成一枚按钮 → 用户按下去走 `POST /api/steward/act` → `13q stewardRunAct` 查不到实现 → `not_allowed`。**这正是 `thread_stop`（117m-A4）与 `thread_permission`（117z-E2b）各踩过一次的同一个坑**，两次都只留下了「盯住那一个工具」的单点断言（①c／①d）。
+
+**用户问的「默认管家的工具都可以 act 是不是也是种处理方式」—— 评估后否了**，理由两条：① 那张表同时是**模型自己能不能发起这个动作**的闸（13p:96 走同一张表，表头写着「读类工具没有出现在这里的理由」）；② act 这条路是 `ctx.userPressed = true` 的**唯一来源**，而 `config_set`／`skill_toggle`／开桌面权限三处的「须确认」分支读的就是它 —— 全开等于以后任何新写工具一写出来就自动可被按钮触发，**而没人做过这个决定**。用户 2026-09-15 拍板：补 5 条 ＋ 加机械锁。
+
+**修法**：
+- `13m` 的 `STEWARD_ACTION_HOOKS` 补五个**写类**（create／pause／resume／run_now／delete；`list` 是只读，不进），`STEWARD_TOOL_LABELS` 与前端 `STEWARD_TOOL_LABEL_KEYS` 同刀补人话标签 —— 后者漏了会被 `steward-settings.static` **H5** 逮住（它本来就在逐名对账），而那条红的生产形状是「行动流水那一列把 `steward_schedule_create` 这个内部 id 原样显给用户」。**H5 真的红过一次**，是它提醒我补的前端那一半。
+- **机械锁 `steward-tools.static ①e`**：凡是**实现里会回 `propose_required`** 的管家工具（＝一定会被降级成按钮的那些），必须是 `STEWARD_ACTION_HOOKS` 的键。推导链全在源码里、没有第二份名单：`stewardToolHandler('steward_xxx', stewardImplYyy)` 给出工具名 → 实现名（注册点与实现常不在同一文件：13g 注册、13k/13l 实现，所以函数体要全仓找），再看函数体里有没有 `'propose_required'`。实测 33 个注册、10 个 proposer，修前漏的恰是 create 与 delete 两个。
+  - **有意不按 07 的 tier 推**：试过，写类 21 个里有 9 个不在表里（`memory_search`／`playbook_draft`／`quick_ask`／`thread_note` 是写类但本来就不该被按钮触发）。按 tier 推会逼着把它们一并放进来 —— 那正是上面否掉「全开」的同一个理由：**放宽这道闸必须是有人决定的，不能是一条锁顺手带进来的**。
+  - 如实记一处边界：`thread_stop` 不回 `propose_required`，①e 覆盖不到它，①c 仍是它的看守。
+- **行为面判据**：`steward-guardrails.e2e` 新增 (S) 段七条（与 (L) 段 117m-A4 同一条路子：真服务、真按钮）。S1–S3 把用户那次按钮从头走一遍（任务真排上了、pause 真让 `enabled:false`），S4 覆盖另外三个，**S5 是对照组**：只读的 `schedule_list` 仍然 `400 not_allowed` —— 补登记补的是写类，不是把闸拆了。
+
+**反向两处真做**：拔掉 `steward_schedule_create` 那一行 → 静态 ①e／①f 双红（实得 `["steward_schedule_create"]`）；重建产物再跑行为面 → **S1 实得 `400 not_allowed`，与用户真机那句灰字逐字同源**。还原后 `build --check` 新鲜、依赖图 53／418 不变。
+
+### ② 每有线程跑完，右栏就被拽回同一条旧线程
+
+**用户看到的**：「管家层似乎每次线程跑完了都会切到同一个线程」，截图里是一条**昨天的、已停工的、一句话都没说过的**「帮忙分析一下美股走势」。
+
+**取证**：`steward-board.js` 的 `focusThreadFor` 判据是 `等你 ＞ 在跑 ＞ 已停工 ＞ 最近更新`，**第三档没有时效尺**。于是一条昨天停工的线程会永远赢过今天刚做完的那条 —— 单测里就钉着这个形状（`stopped@13:00` 赢 `done@14:00`）。这一档当初写成 stopped 是为了「失败要看得见」（§8.10 的『失败』），方向没错，缺的是时效。
+
+**拍板（用户 2026-09-15）**：第三档改成**「最近发生的那一件」**，不分 done／stopped。这一栏回答的问题是「此刻最该看的是哪一条」，那只可能是刚刚发生的那一条；失败的可见性由左栏五态药丸与收工卡承担，不靠把一条旧的失败永久钉在右栏来实现。
+
+**修法**：把 `pick('stopped')` 那一档整个去掉 —— 最后那条「最近更新的赢」本来就在，它自然接住 done 与 stopped 两种收工态。**一行改动**。
+
+**判据**：`unit/steward-focus-thread.test.js` 把旧的「stopped 赢」那条用例**翻面**（同一组数据，修前挑 b＝更早的 stopped，修后挑 a＝刚做完的），并**补一条反向保护**：停工**就是**最近发生的那一件时它照样拿焦点 —— 第三档不是「排除 stopped」，是「不再给它加塞」。11/11 绿。**反向真做**：把 `pick('stopped')` 放回去 → 翻面那条当场红。
+
+**连带重钉**：`steward-board.static` 的 **M6／N3** 两条计数锁（`'stopped'` 字面量 1 → 0）。**这条断言的语义没松，反而更强**：它钉的是「本模块不自造第二套五态判据」，0 比 1 更强 —— 左栏五态字面量一个都不剩，谁处在哪一态永远只由 `mission-state.js` 判。
+
+**登记一处没动的分叉**：服务端 13q 的 `stewardStateSnapshot` 里还有一份自己的焦点挑法（`rows.find(needs_you) || rows.find(running) || rows[0]`），它驱动的是问候语里那枚「打开这一件」按钮，**不参与右栏自动切换**，所以本刀没碰它（碰它要动 `src/` 与整条生成器链）。两处口径今天已经不完全一致（那边 `dispatching` 还排在 `rows[0]` 之前），登记在 §8.5 ④。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
 2. **不碰** `normalizeMissionCheck` 的 `trusted` 门。那道门是防提示注入拿到无提示 shell 执行的唯一闸（`02-session-store.js:1577` 的头注），本波只**读**它的结论。
 3. 「意图修订 intentRevision」（T02）仍不立项（35 号文 §1 对 §5.1 的裁决）。
 
-## 8. 停点（2026-09-14 收工；下次从这里进）
+## 8. 停点（2026-09-15 收工；下次从这里进）
 
-**master `4060d77`，未推远端。** 工作树只剩一个本机杂物 `failed-c.txt`（48 行的失败件清单，某次跑批留下的），不入库、也没人读它——顺手删掉或加 `.gitignore` 都行，本刀不替用户决定。
+**未推远端。** 工作树干净。
 
-### 8.0 P1 之后的状态（2026-09-14 夜）
+### 8.0 P2 与走查两件之后的状态（2026-09-15）
+
+| 提交 | 是什么 |
+|---|---|
+| `1de6252` | **124-P2 委托书与原件**（§6-quater）。零 `src/` 改动；含对派单稿命名的一处证伪（`threadBrief` 撞了 116-5b 的线程自动摘要，界面侧整族改名 `commission`） |
+| （本轮第二笔） | **124 走查两件**（§6-quinquies）：act 白名单补五条＋机械锁 ①e；焦点线程第三档改成「最近发生的」 |
+
+**P2 那一轮全量（12 核 / 34 GB，4 路）**：`347 ran / 347 pass / 0 fail / 3 flaky` —— **真回归 0**，也是这四轮里最干净的一轮。flaky 名单 `auth-deny-default`／`steward-deliverable`／`tool-loading`，都是并行争抢。
+
+**走查那一轮全量**：第一遍 `347 ran / 345 pass / 2 fail`，两条各有各的来路，**都不是真回归**：
+- `focus-rail.browser` **B1** —— 它是焦点真值表的**第二份**（unit 之外，按页面真加载的那个 `focusThreadFor` 再跑一遍）。判据随口径翻面，与 unit 那条同刀改：`stoppedNext:'c'` → `stoppedLoses:'d'`，另补 `stoppedWinsWhenNewest:'c'` 作反向保护。改完串行复跑 ALL PASS。**这一红是对的** —— 它正是「同一件事不许只改一处」那道锁在起作用。
+- `walkthrough-round1.browser` F1–F8 —— 串行复跑 **ALL PASS**（exit 0）。并行争抢，不是回归；它本来就在 38 号文 §7 ② 的抖动登记里。
+
+改完之后**再跑一整轮确认**：`347 ran / 347 pass / 0 fail / 4 flaky` —— 真回归 0。flaky 名单 `steward-conversation`／`foreign-turn-busy-guard`／`perm-v2`／`scheduler-ui.browser`，与前几轮只部分重合，都是并行争抢。
+
+### 8.0-bis P1 之后的状态（2026-09-14 夜，原文保留）
 
 | 提交 | 是什么 |
 |---|---|
@@ -228,7 +280,9 @@
 | `fde1fc1` | **124-P0 三小件**（立即运行／删除二次确认、`quietCardSnoozeMinutes` 设置入口、定时任务块订阅 `schedule.changed`）＋ 连带修回「推送刷新把用户展开的那一格收起来」；全量 344/0/2 真回归 0 |
 | `94d2978`／`56ef6dc` | §6-bis 交付记录、地图推进到 P1；后一笔是补回被反引号吃掉的提交号 |
 
-**这台机器（12 核 / 34 GB）的三轮全量**：344/0/7 → 344/0/2 → （P0 轮）**344 pass / 0 fail / 2 flaky**。三轮 flaky 名单只有部分重合，都是并行争抢，不是回归。
+**这台机器（12 核 / 34 GB）的历轮全量**：344/0/7 → 344/0/2 →（P0 轮）344/0/2 →（P1 轮）345 ran / 342 pass / 3 fail（三条全是 realhist 夹具缺失，与刀无关）→（P2 轮）**347 ran / 347 pass / 0 fail / 3 flaky** →（走查轮）347 ran / 345 pass / 2 fail（一条判据随口径翻面已同刀改，一条串行即过）。flaky 名单每轮只部分重合，都是并行争抢，不是回归。
+
+**件数**：P2 加了两件（`thread-commission.static` / `thread-commission.browser`），e2e 352 → **354**、默认 344 → **347**；走查那一刀零新件（判据加在既有的 `steward-tools.static` ①e／①f 与 `steward-guardrails` (S) 段里）。
 
 ### 8.2 ~~卡在哪（用户去找那份文件）~~ —— **已解除（2026-09-14）**
 
@@ -291,3 +345,4 @@
 1. **看板也要说「未记录验收」**（P1 §6-ter 末段登记）。左栏看板的验收块今天读的是①（事项容器验收项），那条 a/b 单一来源、不会说谎，但它答不出「这条线程没有账本」。要让看板也说「未记录验收」，得先给 `/api/missions` **列表路由**同一套投影 —— 独立一刀，不塞进 124 波。
 2. **「原件」的第二种口径**（P2 §6-quater 末段登记）。本刀的「看原件」跳的是**这条线程的第 1 回合**（管家真正递过去的那一整段，41 号方案 §9 C05 的 `sessionId+turnSeq` 口径）。若用户本意是**跳回管家对话里下单的那一轮**，那是另一件事：`session.brief` 今天不记管家会话的 `turnSeq`，要补得在 13k 落盘时多写一笔（`brief.origin = {sessionId, turnSeq}`）。**先问用户再动**——多一个字段就多一处会烂掉的地方，§4 的纪律在这儿同样适用。
 3. **`session.brief` 与 `session.threadBrief` 的同名**（P2 §6-quater 开头那张表）。界面侧已经靠改名躲开了，但**服务端那两个字段仍然同名**，而 02 的 `sessionBriefOf()` 两个都认（先 `threadBrief` 后 `brief`）—— 今天不出事只是因为委托书那份没有 `title`／`gist` 两个键，于是 `sessionBriefOf` 回 null、索引条目里就没有它。**哪天谁给委托书加一个 `title`，线程列表的名字会突然变成委托书的一段。** 要还的话是给其中一个改名（`session.commission`），那是一次会动到落盘形状的迁移，单独一刀。
+4. **焦点线程的两处口径**（124 走查 ② 记进来）。前端 `steward-board.js` 的 `focusThreadFor` 已经改成「等你 ＞ 在跑 ＞ 最近发生的」；服务端 13q `stewardStateSnapshot` 里还留着自己那一份（`rows.find(needs_you) || rows.find(running) || rows[0]`，且 `dispatching` 还排在 `rows[0]` 之前）。它只驱动问候语里那枚「打开这一件」按钮、不参与右栏自动切换，所以没跟着改 —— 但**同一个问题两处判**迟早会各说各话。要收就收成一处（服务端只投影事实、挑哪一条由前端那一份纯函数判），那是一次会动 `src/` 与整条生成器链的独立小刀。

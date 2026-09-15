@@ -481,7 +481,12 @@ try {
 
   /* ═════════ B 焦点选择真值表 ═════════ */
   // 纯函数那一份：页面加载的就是 steward-board.js 那一个 focusThreadFor（真值表 unit 已跑过，
-  // 这里只证「页面用的是它」并把四条优先级各走一遍）。
+  // 这里只证「页面用的是它」并把三条优先级各走一遍）。
+  //
+  // 124 走查（用户 2026-09-15 拍板）：第三档从「已停工」改成「最近发生的那一件」——
+  // 修前 stopped 没有时效尺，一条昨天停工的线程永远赢过今天刚做完的，右栏于是被钉在旧线程上。
+  // 下面 stoppedLoses 那一条就是翻过来的那条（C 停工 2030 / D 做完 2031 → 挑 D），
+  // 另加 stoppedWinsWhenNewest 作反向保护：停工【就是】最近那一件时它照样该被挑中。
   const truth = await cdp.evaluate(`(async () => {
     const board = await import('/js/steward-board.js');
     const pick = rows => { const hit = board.focusThreadFor(rows); return hit ? hit.sessionId : ''; };
@@ -492,14 +497,16 @@ try {
     return {
       needsYouWins: pick([D, C, B, A]),
       runningNext: pick([D, C, B]),
-      stoppedNext: pick([D, C]),
+      stoppedLoses: pick([D, C]),
+      stoppedWinsWhenNewest: pick([{ sessionId: 'f', state: 'done', updatedAt: '2029-01-01T00:00:00.000Z' }, C]),
       newestLast: pick([{ sessionId: 'e', state: 'done', updatedAt: '2029-01-01T00:00:00.000Z' }, D]),
       empty: pick([]),
     };
   })()`);
   ok(Boolean(truth) && truth.needsYouWins === 'a' && truth.runningNext === 'b'
-    && truth.stoppedNext === 'c' && truth.newestLast === 'd' && truth.empty === '',
-    `B1 焦点真值表（等你 ＞ 在跑 ＞ 失败 ＞ 最近动静）在页面加载的那一份 focusThreadFor 上成立（实测 ${JSON.stringify(truth)}）`);
+    && truth.stoppedLoses === 'd' && truth.stoppedWinsWhenNewest === 'c'
+    && truth.newestLast === 'd' && truth.empty === '',
+    `B1 焦点真值表（等你 ＞ 在跑 ＞ 最近发生的那一件）在页面加载的那一份 focusThreadFor 上成立（实测 ${JSON.stringify(truth)}）`);
 
   // 真页面那一条：等你的那条线程一出现，焦点栏就落到它身上。
   await request(appPort, 'POST', '/api/chat/stream', { sessionId: askId, message: 'ASKME 用哪个框架', cwd: askWork }, token);

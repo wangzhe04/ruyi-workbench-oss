@@ -769,8 +769,8 @@ ok(count(boardCode, /paintDot\(/g) === 1
   && !/paintDot\(/.test(nowThreadBody),
   `M5b 色 ≠ 态：paintDot（写 data-state/data-tone 的那一处）自此零调用点（定义 1 ＋ 调用 0 = ${count(boardCode, /paintDot\(/g)} 处），左栏与右栏的卡一次都不把状态画成颜色`);
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
-  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
-  `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 11（两处计算＋九处分组映射）、'stopped' 一处、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
+  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
+  `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 11（两处计算＋九处分组映射）、'stopped' 零处（124 走查后本模块零五态字面量）、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 ok(/\.steward-now-stack \{/.test(cssCode) && /max-height: 33%;/.test(cssCode) && /overflow-y: auto;/.test(cssCode)
   && /\.steward-now-stack:empty \{ display: none; \}/.test(cssCode)
   && !/\.steward-now-(stack|thread)[^{]*\{[^}]*transition/.test(cssCode),
@@ -798,7 +798,7 @@ ok(missionStateMod.STATES.every(state => !new RegExp("'" + state + "'").test(ico
   'N2 那一枚字形是【派生】不是【查表】：icons.js 里零五态字面量、零 STATES 清单 —— 谁处在哪一态永远只由 mission-state.js 判，图标层长不出第二份枚举');
 ok(count(boardCode, /missionStateIcon\(/g) === 1
   && /import \{ icon, missionStateIcon \} from '\.\/icons\.js';/.test(board)
-  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 1 && count(boardCode, /'done'/g) === 0,
+  && count(boardCode, /needs_you/g) === 11 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
   `N3 左栏只把 threadStateOf() 的返回值【原样】递给 missionStateIcon（恰好一处调用），五态字面量计数与 B5／M6 同账（${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
 // 117u-G2 **重钉 N4**：tone 从 paintDot 里提成了纯函数 toneOf —— B2 之后小行那颗点归线程色，
 // 但「展开还是折成一行」仍然只认这四档 tone，提出来之前要拿 tone 必须先造一颗点再读回来再扔掉。

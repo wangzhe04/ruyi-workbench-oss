@@ -140,6 +140,69 @@ ok(/steward_thread_stop: 'threadStop'/.test(hooksBlock),
 ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
   '①d STEWARD_TOOL_LABELS 有它的人话标签(※ 脚注与降级按钮不许吐 steward_thread_stop 这个内部 id)');
 
+/* ═════════════ ①e act 表的机械锁(124 走查;同一个坑第三次)═════════════
+   用户 2026-09-15 真机:管家提的「就按这个排」按下去 —— 没做成: steward_schedule_create
+   不能作为 act 执行。病根不是这一个工具,是**这张表是手维护的第四处登记**:123-M2 加六个
+   定时任务工具时登记了 schema(13f)/handler(12)/tier 与 pack(07),漏了它;而 create 与 delete
+   自己在无人值守时就回 propose_required -> stewardDowngradeActions 把它降级成一枚按钮 ->
+   13q stewardRunAct 查不到实现 -> not_allowed。117m-A4(thread_stop)、117z-E2b(thread_permission)
+   已经各踩过一次,①c/①d 是那两次留下的【单点】断言 —— 单点断言只看得住已经出过事的那一个。
+
+   本条把它变成一条【推导出来的】不变量:
+     凡是实现里会回 'propose_required' 的管家工具(＝一定会被降级成按钮的那些),
+     都必须是 STEWARD_ACTION_HOOKS 的键。
+   推导链全在源码里,没有第二份名单:stewardToolHandler('steward_xxx', stewardImplYyy) 给出
+   工具名 -> 实现名的对应(注册点与实现常常不在同一个文件:13g 注册、13k/13l 实现,所以函数体
+   要全仓找),再看那个函数体里有没有 'propose_required'。
+
+   **有意不按 07 的 tier 推**(试过:写类 21 个里有 9 个不在表里)—— memory_search / playbook_draft
+   / quick_ask / thread_note 是写类但本来就不该被按钮触发,按 tier 推会逼着把它们一并放进来,
+   而 act 这条路是 ctx.userPressed = true 的唯一来源(见下面 ⑦)。**放宽这道闸必须是有人决定的,
+   不能是一条锁顺手带进来的。**
+   如实记一处边界:thread_stop 不回 propose_required,本条覆盖不到它 —— ①c 仍然是它的看守。 */
+{
+  const toolFns = [];
+  for (const f of srcFiles) {
+    for (const m of read(f).matchAll(/stewardToolHandler\(\s*'([A-Za-z0-9_]+)'\s*,\s*([A-Za-z0-9_]+)\s*\)/g)) {
+      toolFns.push({ tool: m[1], fn: m[2] });
+    }
+  }
+  ok(toolFns.length === STEWARD_TOOLS.length,
+    `①e0 每个管家工具都经 stewardToolHandler 注册恰一次(got ${toolFns.length} / 期望 ${STEWARD_TOOLS.length})`);
+  const bodyOf = fn => {
+    for (const f of srcFiles) {
+      const s = read(f);
+      const at = s.search(new RegExp('(?:async )?function ' + fn + '\\('));
+      if (at < 0) continue;
+      const rest = s.slice(at);
+      const end = rest.indexOf('\n}\n');
+      return end < 0 ? rest : rest.slice(0, end);
+    }
+    return '';
+  };
+  const noBody = toolFns.filter(row => !bodyOf(row.fn)).map(row => row.fn);
+  ok(noBody.length === 0, `①e1 每个实现函数体都找得到(找不到 = 本条静默失效;got ${JSON.stringify(noBody)})`);
+  const proposers = toolFns.filter(row => bodyOf(row.fn).includes("'propose_required'")).map(row => row.tool);
+  ok(proposers.length >= 8,
+    `①e2 会回 propose_required 的管家工具至少 8 个(推导链没断;got ${proposers.length})`);
+  const unreachable = proposers.filter(tool => !new RegExp('\\b' + tool + ':').test(hooksBlock));
+  ok(unreachable.length === 0,
+    `①e 凡会回 propose_required 的工具都在 STEWARD_ACTION_HOOKS 里(否则「管家提了按钮、按下去报错」;got ${JSON.stringify(unreachable)})`);
+}
+
+/* ①f 124 走查:五个【写类】定时任务工具都能被按钮按到,steward_schedule_list 是只读、不进表
+   (表头那条纪律:「只有写类管家工具可以;只读工具请在回合里直接调用」)。
+   pause/resume/run_now 不回 propose_required,①e 覆盖不到它们 —— 但模型照样能把它们提成一枚
+   act 按钮(acts 不经这张表过滤),所以它们要的是这条显式断言。 */
+{
+  const writeSchedule = ['create', 'pause', 'resume', 'run_now', 'delete'].map(s => 'steward_schedule_' + s);
+  const missing = writeSchedule.filter(tool => !new RegExp('\\b' + tool + ':').test(hooksBlock));
+  ok(missing.length === 0, `①f 五个写类定时任务工具都在 act 表里(got missing ${JSON.stringify(missing)})`);
+  ok(!/\bsteward_schedule_list:/.test(hooksBlock), '①f2 只读的 steward_schedule_list 不进 act 表');
+  const noLabel = writeSchedule.filter(tool => !new RegExp(tool + ": '").test(src13m));
+  ok(noLabel.length === 0, `①f3 五个都有人话标签(按钮上不吐内部 id;got ${JSON.stringify(noLabel)})`);
+}
+
 /* ═════════════ ② handler 纪律:paths:null + guardNote + 只调 StewardHooks ═════════════ */
 
 let badPaths = [], badNote = [], badBody = [], badHook = [];

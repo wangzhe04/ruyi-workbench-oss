@@ -6,8 +6,12 @@
 // 零磁盘写、零 DOM、每条用例只构造字面量。
 //
 // 断的是这条优先级，一格都不许错位：
-//   等你（needs_you） ＞ 在跑（running） ＞ 失败（五态里的 stopped，mission-state.js 没有 failed 态）
-//     ＞ 最近更新
+//   等你（needs_you） ＞ 在跑（running） ＞ 最近发生的那一件（不分 done / stopped）
+//
+// 124 走查（用户 2026-09-15 真机拍板）：第三档原来是「失败（stopped）」，**没有时效尺** ——
+// 一条昨天停工的线程会永远赢过今天刚做完的那条，于是每有一条线程跑完，右栏就被拽回那条旧的。
+// 现在第三档就是「最近发生的」；失败的可见性由左栏五态药丸与收工卡承担，不靠把一条旧的失败
+// 永久钉在右栏来实现。下面第三条用例因此从「stopped 赢」翻面成「更晚更新的赢」。
 // 同一档里【更晚更新的赢】；空数组 → null；纯函数（不改入参，不读 DOM，不认识卡片形状 ——
 // 五态由调用方经 mission-state.js 算好后喂进来，所以这里长不出第二套五态判据）。
 
@@ -44,7 +48,7 @@ describe('focusThreadFor —— 焦点线程优先级', () => {
     assert.equal(focusThreadFor([{ state: 'needs_you', updatedAt: '2026-09-06T10:00:00.000Z' }]), null);
   });
 
-  it('等你压过在跑、失败与最近更新', async () => {
+  it('等你压过在跑、已停工与最近更新', async () => {
     const { focusThreadFor } = await loadModule();
     const picked = focusThreadFor([
       row('a', 'running', '2026-09-06T12:00:00.000Z'),
@@ -65,12 +69,25 @@ describe('focusThreadFor —— 焦点线程优先级', () => {
     assert.equal(picked.sessionId, 'b');
   });
 
-  it('没有等你、没有在跑时「失败」（stopped）赢', async () => {
+  // 124 走查的正身：同一组数据，修前挑 b（那条更早的 stopped），修后挑 a（刚做完的那条）。
+  // 「昨天停工的那条永远赢过今天刚做完的」在这条用例里就是 b 与 a 的关系。
+  it('没有等你、没有在跑时，最近发生的赢 —— 已停工不再压过刚做完的', async () => {
     const { focusThreadFor } = await loadModule();
     const picked = focusThreadFor([
       row('a', 'done', '2026-09-06T14:00:00.000Z'),
       row('b', 'stopped', '2026-09-06T09:00:00.000Z'),
       row('c', 'dispatching', '2026-09-06T13:00:00.000Z'),
+    ]);
+    assert.equal(picked.sessionId, 'a');
+  });
+
+  // 反过来也要成立：停工【就是】最近发生的那一件时，它照样该被看见（第三档不是「排除 stopped」，
+  // 是「不再给它加塞」）。
+  it('停工就是最近发生的那一件时，它仍然拿焦点', async () => {
+    const { focusThreadFor } = await loadModule();
+    const picked = focusThreadFor([
+      row('a', 'done', '2026-09-06T09:00:00.000Z'),
+      row('b', 'stopped', '2026-09-06T14:00:00.000Z'),
     ]);
     assert.equal(picked.sessionId, 'b');
   });
