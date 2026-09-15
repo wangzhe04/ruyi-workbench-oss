@@ -58,6 +58,43 @@ function emitText(res, id, text) {
 const fileA = () => path.join(HOME, 'resA.txt');
 const fileB = () => path.join(HOME, 'resB.txt');
 const sockets = new Set();
+
+// ── 125 治抖（43 号文 §3）：让「跨访问真的撞上」成为确定的，而不是碰巧的 ─────────────────
+// Section 2 要的是两条节点【同时】各握着自己的节点级租约，再去写对方的资源 —— 只有这样才会
+// 形成等待环。修前没有任何东西保证这个「同时」：节点级租约是在调 provider 之前拿的，所以只要
+// beta 还没起跑，alpha 写 fileB 就畅通无阻，两次写都不撞 —— 于是「等待资源」「工具返回 错误」
+// 双双落空，而「跑到终态」那条照样绿。2026-09-15 那轮全量里本件首跑红成的正是这个形状
+// （靠 125 波新加的 flaky 首跑诊断才看见红在哪两条）。
+// 装一个**会合点**：round-0 的两发请求都到齐了才一起放行。一发 round-0 请求到达，就蕴含发它的
+// 那条节点已经握住了自己的节点租约 —— 所以「都到齐」＝「两把租约都握住」，跨访问必撞。
+// 这不是 sleep：等的是【事件】不是时间。真的只等到一发时按 RENDEZVOUS_FALLBACK_MS 放行，并把
+// 这件事记进 fellBack，断言标签里原样打出来 —— 绝不假装撞上过。
+const RENDEZVOUS_FALLBACK_MS = 1200; // < IDLE_MS(3000)：即便回落也踩不到节点空转看门狗
+const rendezvous = { pending: new Map(), timer: null, fellBack: false, arrivals: [] };
+function rendezvousRelease() {
+  if (rendezvous.timer) { clearTimeout(rendezvous.timer); rendezvous.timer = null; }
+  const fires = [...rendezvous.pending.values()];
+  rendezvous.pending.clear();
+  for (const fire of fires) fire();
+}
+function rendezvousJoin(who, fire) {
+  const firstAt = rendezvous.arrivals.length ? rendezvous.arrivals[0].at : Date.now();
+  rendezvous.arrivals.push({ who, at: Date.now(), ms: Date.now() - firstAt });
+  const stale = rendezvous.pending.get(who);
+  if (stale) stale(); // 同一条节点重复到达(provider 层重试)：旧的那发立刻放掉,免得永远挂在那儿
+  rendezvous.pending.set(who, fire);
+  if (rendezvous.pending.size >= 2) return rendezvousRelease();
+  if (!rendezvous.timer) {
+    rendezvous.timer = setTimeout(() => { rendezvous.fellBack = true; rendezvous.timer = null; rendezvousRelease(); }, RENDEZVOUS_FALLBACK_MS);
+  }
+  return undefined;
+}
+function rendezvousNote() {
+  const seen = rendezvous.arrivals.map(a => `${a.who}+${a.ms}ms`).join('／') || '一发都没到';
+  return rendezvous.fellBack
+    ? `会合点回落:${seen},等不到第二发,${RENDEZVOUS_FALLBACK_MS}ms 后单发放行`
+    : `会合点到齐:${seen}`;
+}
 const fake = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.includes('/v1/models')) {
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -84,8 +121,10 @@ const fake = http.createServer((req, res) => {
       // blocks (the other node holds it as its node-level lease). After the tool result (the timeout failure)
       // arrives, conclude so the node recovers rather than looping.
       if (done === 0 && (utext.includes('ALPHA_NODE') || utext.includes('BETA_NODE'))) {
-        const target = utext.includes('ALPHA_NODE') ? fileB() : fileA();
-        return emitToolCall(res, id, 'call_x', 'file_write', { path: target, content: 'deadlock probe' });
+        const who = utext.includes('ALPHA_NODE') ? 'alpha' : 'beta';
+        const target = who === 'alpha' ? fileB() : fileA();
+        // 125 治抖：不立刻发,先进会合点(见上)。两发 round-0 都到齐 = 两把节点租约都握住了。
+        return rendezvousJoin(who, () => emitToolCall(res, id, 'call_x', 'file_write', { path: target, content: 'deadlock probe' }));
       }
       return emitText(res, id, 'node concluded after resource wait');
     });
@@ -233,8 +272,8 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
       const nodes = dlRun.nodes || [];
       ok(nodes.length === 2 && nodes.every(n => isTerminal(n.status)), 'both deadlock nodes reached a terminal state');
       const allProg = nodes.flatMap(n => (n.progressLog || []).map(e => e.text || ''));
-      ok(allProg.some(t => /等待资源/.test(t)), 'a node recorded a resource wait (the cross-access actually contended)');
-      ok(allProg.some(t => /工具返回 错误/.test(t)), 'a node recorded a failed tool result (the deadlock victim was rejected by cycle detection)');
+      ok(allProg.some(t => /等待资源/.test(t)), `a node recorded a resource wait (the cross-access actually contended)（${rendezvousNote()}）`);
+      ok(allProg.some(t => /工具返回 错误/.test(t)), `a node recorded a failed tool result (the deadlock victim was rejected by cycle detection)（${rendezvousNote()}）`);
       console.log('  deadlock run status:', dlRun.status, '| node statuses:', nodes.map(n => n.id + '=' + n.status).join(','));
     }
 

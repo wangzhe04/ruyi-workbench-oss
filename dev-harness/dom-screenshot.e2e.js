@@ -25,6 +25,7 @@ const ok = (condition, label) => {
 };
 
 const { findBrowserExecutable } = require('./lib/browser-path');
+const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
 const browserPath = findBrowserExecutable;
 function health(port) {
   return new Promise(resolve => {
@@ -35,7 +36,11 @@ function health(port) {
     req.on('timeout', () => { req.destroy(); resolve(false); });
   });
 }
-function capture(browser, url, output, profile) {
+// 125 治抖（40 号文 §8.4 ⓪）：这一发【为什么】没成,修前一个字都不说 —— `ok(status===0 && 存在 && >10000)`
+// 把「浏览器没起来」「90 s 超时」「文件没落地」「文件太小」四种结局压成同一行 FAIL,于是它每次上榜
+// 都只留下「dark screenshot captured」这一句。本轮全量里它首跑红的正是这一条(靠新的 flaky 首跑
+// 诊断才看见),再不分开就永远定不了机制。
+function captureOnce(browser, url, output, profile) {
   const edgeCompat = /msedge\.exe$/i.test(browser) ? ['--edge-skip-compat-layer-relaunch'] : [];
   return cp.spawnSync(browser, [
     ...edgeCompat,
@@ -45,6 +50,33 @@ function capture(browser, url, output, profile) {
     '--window-size=1440,1000', '--virtual-time-budget=10000',
     '--user-data-dir=' + profile, '--screenshot=' + output, url,
   ], { encoding: 'utf8', timeout: 90000, windowsHide: true });
+}
+// 一发的结局分成四类,并把证据带出来(stderr 只取末 200 字:Edge 的启动噪声很长,但真正的原因在末尾)。
+function captureVerdict(result, output) {
+  if (!result) return { ok: false, why: 'spawn 没有返回结果' };
+  if (result.error) return { ok: false, why: `进程起不来:${result.error.code || result.error.message}` };
+  if (result.signal) return { ok: false, why: `被信号打断:${result.signal}(多半是 90 s 超时)` };
+  if (result.status !== 0) {
+    const tail = String(result.stderr || '').trim().split(/\r?\n/).slice(-2).join(' | ').slice(-200);
+    return { ok: false, why: `退出码 ${result.status}${tail ? '；stderr 末尾:' + tail : '；stderr 为空'}` };
+  }
+  if (!fs.existsSync(output)) return { ok: false, why: '退出码 0 但 PNG 没落地(Edge 静默失败,通常是并发下的 profile 抢占)' };
+  const size = fs.statSync(output).size;
+  if (size <= 10000) return { ok: false, why: `PNG 只有 ${size} 字节(判为没画完)` };
+  return { ok: true, why: `${size} 字节` };
+}
+// 抓不到就换一个全新 profile 再来一发。**这不是「失败了就重试」那种掩盖**:上面四类结局里,
+// 只有「起不来／没落地／太小」这三种是启动期的环境抢占,重试一次能把它与「产品真的画错了」分开 ——
+// 后者(PNG 拿到了、但像素比对不过)在下面是另一条断言,一次都不重试。
+function capture(browser, url, output, profile) {
+  const first = captureOnce(browser, url, output, profile);
+  const verdict = captureVerdict(first, output);
+  if (verdict.ok) return { verdict, attempts: 1 };
+  try { fs.rmSync(output, { force: true }); } catch { /* 没落地就没得删 */ }
+  const retryProfile = profile + '-retry';
+  const second = captureOnce(browser, url, output, retryProfile);
+  const retryVerdict = captureVerdict(second, output);
+  return { verdict: retryVerdict, attempts: 2, firstWhy: verdict.why };
 }
 function paeth(a, b, c) {
   const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
@@ -150,8 +182,9 @@ function compare(actual, expected) {
     const actual = { generatedAt: new Date().toISOString(), viewport: '1440x1000', themes: {} };
     for (const theme of ['dark', 'light']) {
       const output = path.join(root, theme + '.png');
-      const result = capture(browser, `http://127.0.0.1:${port}/?theme=${theme}`, output, path.join(root, 'profile-' + theme));
-      ok(result.status === 0 && fs.existsSync(output) && fs.statSync(output).size > 10000, `${theme} screenshot captured`);
+      const shot = capture(browser, `http://127.0.0.1:${port}/?theme=${theme}`, output, path.join(root, 'profile-' + theme));
+      ok(shot.verdict.ok, `${theme} screenshot captured（${shot.verdict.why}${shot.attempts > 1 ? `；首发没成:${shot.firstWhy}，换新 profile 重来一发` : ''}）`);
+      if (!shot.verdict.ok) throw new Error(`${theme} 截图两发都没成:${shot.firstWhy || ''} / ${shot.verdict.why}`);
       actual.themes[theme] = signature(output);
       actual.themes[theme].sha256 = crypto.createHash('sha256').update(fs.readFileSync(output)).digest('hex');
     }
@@ -173,6 +206,15 @@ function compare(actual, expected) {
   } finally {
     if (server.pid) {
       try { cp.execFileSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    }
+    // 125 治抖（40 号文 §8.4 ⓪）：**本件是全仓唯一不收尸的浏览器夹具** —— 117q 那次普查把 10 件漏调
+    // stopRuyiTestBrowsers 的补齐了，唯独它因为走 spawnSync（同步、以为「回来了就没了」）被漏掉。
+    // 而 Chromium 的 renderer/GPU/crashpad 是会活过父进程的：它一趟开两个 profile（dark/light，失败
+    // 重来还多一个），攒下的断头 Edge 正是「冷启动 4s → 86s」那条记忆里的病因，也解释了本件的症状
+    // 恰恰是「截图这一步没成」。两件事在这儿对上了，所以补收尸不是顺手，是对因下药。
+    for (const theme of ['dark', 'light']) {
+      try { stopRuyiTestBrowsers(path.join(root, 'profile-' + theme)); } catch { /* best effort */ }
+      try { stopRuyiTestBrowsers(path.join(root, 'profile-' + theme + '-retry')); } catch { /* best effort */ }
     }
     await sleep(250);
     try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock; harmless */ }

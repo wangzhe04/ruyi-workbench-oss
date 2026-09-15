@@ -329,6 +329,31 @@ try {
   await cdp.send('Runtime.enable');
   ok(Boolean(await waitForEval(cdp, READY)), 'A0g 首屏就绪（config 到达、安静卡挂点已在 DOM 里）');
 
+  // ── 125 治抖（40 号文 §8.4 ⓪）：视角翻转记录仪 ──────────────────────────────────────────
+  // 本件在 2026-09-15 的全量里首跑红过一次：B0「切到工作台视角」明明过了，随后 B1b／B2／B2b 全红，
+  // D4 明说「data-shell-mode 仍是 classic（实得 steward）」、焦点在 stewardDrawerTitle —— 也就是
+  // 视角在 B0 之后【被谁翻回去了】，于是后面每一条都在错的壳里判。谁翻的、第几毫秒翻的，修前一个
+  // 字都没有。装一个 MutationObserver 把每一次翻转连同当时的调用栈记下来，失败时原样打出来 ——
+  // 与 124 走查④ 那次 CDP setter 探针同一个手法：先让现场自己说话，再谈修。
+  await cdp.evaluate(`(() => {
+    if (window.__lensFlips) return true;
+    window.__lensFlips = [];
+    const t0 = performance.now();
+    const root = document.documentElement;
+    window.__lensFlips.push({ at: 0, to: root.getAttribute('data-shell-mode') || '', note: '初始' });
+    new MutationObserver(records => {
+      for (const record of records) {
+        if (record.attributeName !== 'data-shell-mode') continue;
+        window.__lensFlips.push({ at: Math.round(performance.now() - t0), to: root.getAttribute('data-shell-mode') || '' });
+      }
+    }).observe(root, { attributes: true, attributeFilter: ['data-shell-mode'] });
+    return true;
+  })()`);
+  const lensFlips = async () => {
+    try { return await cdp.evaluate('JSON.stringify(window.__lensFlips || [])'); }
+    catch { return '[]'; }
+  };
+
   // 静默时段（notify-policy 默认 22:00–08:00）会让安静卡整个不出 —— 34 号文 §13.17 记过这一笔
   // （121 走查那一轮夜里跑 quiet-card.browser 12 条红就是撞了它）。先把静默窗钉到离此刻 6 小时之外。
   {
@@ -338,15 +363,30 @@ try {
   }
 
   // 工作台视角（安静卡只在这个视角出）。
+  // 125 治抖：切过去还不算数,要它【待得住】。修前这个循环一看见属性等于目标就返回,而 config 到达
+  // 之后 syncStewardShellAvailability 还会补判一次视角 —— 于是「切到工作台」过了,下一拍又被翻回管家,
+  // 后面每一条都在错的壳里判(2026-09-15 全量里首跑红的就是这个形状)。改成:切到之后再盯 HOLD_MS,
+  // 中途被翻走就当没切成、接着点。**这不是加 sleep 掩盖**:翻转本身仍被上面那台记录仪原样记下来,
+  // 失败时连时刻一起打出来。
+  const LENS_HOLD_MS = 700;
+  const isLens = async lens => Boolean(await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode') === '${lens}')()`));
   const setLens = async lens => {
     for (let i = 0; i < 40; i++) {
-      if (await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode') === '${lens}')()`)) return 1;
+      if (await isLens(lens)) {
+        let held = true;
+        for (let waited = 0; waited < LENS_HOLD_MS; waited += 100) {
+          await sleep(100);
+          if (!(await isLens(lens))) { held = false; break; }
+        }
+        if (held) return 1;
+      }
       await cdp.evaluate(`(() => { const b = document.querySelector('#lensSeg [data-lens="${lens}"]'); if (b) b.click(); return Boolean(b); })()`);
       await sleep(80);
     }
     return null;
   };
-  ok(Boolean(await setLens('classic')), 'B0 顶栏分段钮切到工作台视角（安静卡只在这个视角出）');
+  const lensSettled = Boolean(await setLens('classic'));
+  ok(lensSettled, `B0 顶栏分段钮切到工作台视角且待得住（安静卡只在这个视角出；视角变迁 ${await lensFlips()}）`);
 
   // 坐进「seated」那条线程（点左栏那一行 = openSession）。
   const openInWorkbench = async sessionId => {
@@ -408,7 +448,7 @@ try {
     `D2b 光标位置也没被动过（前 ${before.selectionStart} → 后 ${after.selectionStart}）`);
   ok(after.currentSessionId === created.seated,
     `D3 没被换会话：state.currentSession.id 仍是「seated」（实得 ${after.currentSessionId}）`);
-  ok(after.mode === 'classic', `D4 没被切视角：data-shell-mode 仍是 classic（实得 ${after.mode}）`);
+  ok(after.mode === 'classic', `D4 没被切视角：data-shell-mode 仍是 classic（实得 ${after.mode}${after.mode === 'classic' ? '' : '；整趟视角变迁 ' + await lensFlips()}）`);
   ok(before.popovers === 0 && before.modals === 0 && after.popovers === 0 && after.modals === 0,
     `D5 没有新开的浮层／弹窗，而且【本来就一个都没开】（屏幕上可见的 popover ${before.popovers}→${after.popovers}、modal ${before.modals}→${after.modals}）`);
   ok(after.scrollTop === before.scrollTop,

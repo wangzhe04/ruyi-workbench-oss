@@ -222,5 +222,54 @@ try {
   try { fs.rmSync(fakeHome, { recursive: true, force: true }); } catch { /* 同上 */ }
 }
 
+// ── 125 治抖（40 号文 §8.4 ⓪）：开浏览器的夹具必须收尸 ──────────────────────────────────
+// 117q 那次普查逮到 10 件漏调 stopRuyiTestBrowsers,补完就散了 —— 没留锁。于是 dom-screenshot
+// 一直漏着（它走 spawnSync,「回来了就没了」的直觉是错的:Chromium 的 renderer/GPU/crashpad 活过
+// 父进程），而它恰恰就是那件老抖的、症状是「截图这一步没成」的件。断头 Edge 攒起来把冷启动从 4 s
+// 拖到 86 s 是有记录的老账。本锁按机械判据钉住:凡是自己开浏览器的夹具(命令行里有
+// --user-data-dir),就必须调 stopRuyiTestBrowsers。
+{
+  const harnessDir = __dirname;
+  // 静态件按定义不开进程（它们只读文件），本件自己就是其中之一 —— 不剔掉的话，它因为注释里写着
+  // `--user-data-dir` 而把自己算成「开了浏览器却没收尸」（第一版实测就是这么自己红的）。
+  const files = fs.readdirSync(harnessDir).filter(name => name.endsWith('.e2e.js') && !name.includes('.static.'));
+  const owners = [];
+  const missing = [];
+  for (const name of files) {
+    const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
+    if (!text.includes('--user-data-dir')) continue;
+    owners.push(name);
+    // 判【调用】而不是「这几个字出现过」:第一版写成 includes(名字),把它改名成 XXX 之后锁照样绿
+    // —— 反向当场逮到这把松锁(本会话第三次同一族:锁要钉行为,不钉字符串出现过)。
+    if (!/\bstopRuyiTestBrowsers\s*\(/.test(text)) missing.push(name);
+  }
+  ok(owners.length >= 15, `开浏览器的夹具扫得到（实得 ${owners.length} 件；扫不到 = 本条静默失效）`);
+  ok(missing.length === 0, `每一件都收尸（stopRuyiTestBrowsers）—— 漏的会攒断头 Edge，把后面所有件的冷启动拖慢${missing.length ? '；实得漏了：' + missing.join('、') : ''}`);
+}
+
+// ── 125 治抖（43 号文 §3）：自己算 P95 的夹具必须排进独占桶 ────────────────────────────
+// run-all 的 PARALLEL_EXCLUSIVE 是逐件按事故补起来的，16 个成员全是真浏览器件 —— 于是两件
+// 【自己算百分位】的墙钟性能门一直漏在并行桶里，而 2026-09-15 那轮全量唯二上榜的就是它们：
+// mission-index-scale 的「(e) 详情冷P95≤800ms」红在 1101 ms（空闲单跑 617／535／538，同件的
+// 低配×2 判据在那一跑里是绿的 —— 产品没退化，是闸在负载下量不准）；ec-d-performance 首跑
+// 连 CDP 都没挂上。判据取机械形状：**文件里出现 percentile 调用**（实得 2 件，零误报）。
+// 宁可宽一点：万一某件只是提了一嘴，代价也只是多排进独占桶（墙钟），不会误判对错。
+// 与上一条同一个教训 —— 补完要留锁，不然下一个漏网的还是这么漏。
+{
+  const runAll = fs.readFileSync(path.join(HARNESS, 'run-all.js'), 'utf8');
+  const block = /const PARALLEL_EXCLUSIVE = new Set\(\[([\s\S]*?)\]\);/.exec(runAll);
+  ok(Boolean(block), 'run-all 的 PARALLEL_EXCLUSIVE 名单扫得到（扫不到 = 本条静默失效）');
+  const listed = new Set(block ? [...block[1].matchAll(/'([^']+\.e2e\.js)'/g)].map(m => m[1]) : []);
+  const timed = [];
+  const notExclusive = [];
+  for (const name of fs.readdirSync(HARNESS).filter(n => n.endsWith('.e2e.js') && !n.includes('.static.'))) {
+    if (!/percentile\w*\s*\(/.test(fs.readFileSync(path.join(HARNESS, name), 'utf8'))) continue;
+    timed.push(name);
+    if (!listed.has(name)) notExclusive.push(name);
+  }
+  ok(timed.length >= 2, `自己算 P95 的夹具扫得到（实得 ${timed.length} 件；扫不到 = 本条静默失效）`);
+  ok(notExclusive.length === 0, `每一件都排进独占桶 —— 墙钟判据在并行桶里量的是调度噪声，不是产品${notExclusive.length ? '；实得漏了：' + notExclusive.join('、') : ''}`);
+}
+
 console.log('\nFIXTURE HOME STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
