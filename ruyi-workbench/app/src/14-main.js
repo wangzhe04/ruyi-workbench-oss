@@ -328,6 +328,10 @@ module.exports = {
   STEWARD_EVENT_KINDS,
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
+  // 125-P0/P1:被停下来的目标判据(06i)与失败类别的取话口(13m)—— exposed for 单测
+  //   (unit/steward-inbox-core.test.js 直测两者的真值表与「未知类别」诚实回退)。
+  stewardStoppedTarget,
+  stewardFailureExplain,
   buildStewardDigestLine,
   // 第117波117y-S1(27号文§11.18.2): 管家正文的天花板裁剪(句界 + 诚实标记)与它【绝不能被误伤】的
   // 那个同名邻居 stewardClipSay(总览行/待决一行话的 200 字 + 省略号)—— 两个都 exposed for

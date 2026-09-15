@@ -484,5 +484,45 @@ const srv = require(path.join(APP, 'server.js'));
     `⑦f2 自理只会「重试」与「续跑」两种意图 —— 不许长出「换个更贵的模型再试一次」(实得 ${JSON.stringify(intents)})`);
 }
 
+// ── ⑧ 125-P1(42 号文 §4 第二把锁):失败原因只有一张表、只有一个取话口 ──────────────────────
+// 管家侧此前一处都不消费 ERROR_CLASSES(errorClass 在 13o/13p/13m 与管家前端 grep 零命中),
+// 模型看见的是裸机器词。接上之后最容易长出来的坏东西是「管家自己再写一张人话表」——
+// 那样 2.0 的错误卡与管家的说法迟早各说各话。本组把「一张表、一个口」钉死。
+{
+  const codeOnly = text => String(text).split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
+  const src13i = read('13i-steward-inbox.js');
+  const src13m = read('13m-steward-runner-base.js');
+  const src13p = read('13p-steward-runner-actions.js');
+
+  ok((src13m.match(/function stewardFailureExplain\(/g) || []).length === 1,
+    '⑧a 取话口 stewardFailureExplain 的函数体恰一处,且在 13m(它读 06 是干净的后向边;放 06i 会造循环边)');
+  for (const [name, text] of [['13i-steward-inbox.js', src13i], ['13p-steward-runner-actions.js', src13p]]) {
+    ok(!/function stewardFailureExplain\(/.test(text), `⑧a2 ${name} 没有自己那一份取话口`);
+    ok(!/ERROR_CLASSES/.test(codeOnly(text)), `⑧b ${name} 不直接翻那张表(只能经取话口;直接翻 = 迟早长出第二套口径)`);
+  }
+  ok((src13m.match(/ERROR_CLASSES/g) || []).length >= 1, '⑧b2 13m 确实引用了 06 的既有表(而不是自己抄一张)');
+  ok(!/zh: '/.test(codeOnly(src13i)) && !/zh: '/.test(codeOnly(src13p)) ,
+    '⑧c 管家侧零第二张「机器类 → 人话」表');
+
+  // 事件行只有一处调用:两处调用就意味着两种拼法,用户会在不同地方看到不同措辞。
+  ok((codeOnly(src13p).match(/stewardFailureExplain\(/g) || []).length === 1,
+    `⑧d 事件行里只有一处取话(实得 ${(codeOnly(src13p).match(/stewardFailureExplain\(/g) || []).length})`);
+  const lineAt = src13p.indexOf('function stewardEventLine(row, titleOf) {');
+  const lineEnd = lineAt < 0 ? -1 : src13p.indexOf('\n}\n', lineAt);
+  const lineBody = lineAt < 0 ? '' : (lineEnd < 0 ? src13p.slice(lineAt) : src13p.slice(lineAt, lineEnd));
+  ok(lineBody.length > 200 && codeOnly(lineBody).includes('stewardFailureExplain(payload.errorClass)'),
+    `⑧d2 取话就长在事件行那个函数体里(切不到 = 本条静默失效;实得 ${lineBody.length})`);
+
+  // 三处摘要不再把机器词拼进括号 —— 机器词留在 payload 上(去重/取证/前端要它),不进模型的那一行。
+  ok(!codeOnly(src13i).includes("payload.errorClass ? '(' + payload.errorClass"),
+    '⑧e 13i 的三处 failed 摘要都不再把 errorClass 拼进括号');
+  ok((src13i.match(/payload\.errorClass = /g) || []).length >= 2,
+    '⑧e2 但 payload.errorClass 本身仍然照写(锁的是「给模型看的那一行」,不是把事实删掉)');
+
+  // 「不知道就说不知道」:未知类别那句话也只有一处。
+  ok((src13m.match(/未知类别/g) || []).length === 1,
+    `⑧f 「未知类别」只有一处写法(实得 ${(src13m.match(/未知类别/g) || []).length})`);
+}
+
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exit(fail ? 1 : 0);

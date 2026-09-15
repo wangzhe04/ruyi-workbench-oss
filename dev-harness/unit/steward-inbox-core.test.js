@@ -293,5 +293,35 @@ ok(stewardMergeInboxEvents(null, 5000).length === 0, '非数组入参 -> 空数�
   ok(stewardInboxRowDedupeKeys(null).length === 0, '坏行 -> 零键');
 }
 
+// ── 125-P0/P1:两个新判据的真值表 ──────────────────────────────────────────────────────────
+// P0「被停下来的目标」:只读既有落盘事实(班组 status / 会话头那条账),且账要盖得住当前回合。
+{
+  const t = srv.stewardStoppedTarget;
+  ok(t(null, { status: 'stopped' }) === 'run', 'P0 班组终态 stopped -> run');
+  ok(t(null, { status: 'failed' }) === '', 'P0 班组是自己挂的(failed)-> 不算被停');
+  ok(t({ turnSeq: 3, stewardLastTurn: { seq: 3, aborted: true } }, null) === 'thread', 'P0 末回合被停且账盖得住 -> thread');
+  ok(t({ turnSeq: 3, stewardLastTurn: { seq: 3, ok: false, aborted: false } }, null) === '',
+    'P0 末回合是自己挂的(ok:false 但没 aborted)-> 不算被停,照旧可自理重试');
+  ok(t({ turnSeq: 5, stewardLastTurn: { seq: 2, aborted: true } }, null) === '',
+    'P0 账过期(seq 2 < turnSeq 5)-> 不算数;否则被停过一次的线程会被永久挡住');
+  ok(t({ turnSeq: 0, stewardLastTurn: { seq: 0, aborted: true } }, null) === 'thread', 'P0 零回合边界:账与回合都为 0 仍算盖得住');
+  ok(t(null, null) === '' && t({}, {}) === '' && t(undefined, undefined) === '', 'P0 没有事实就不拦(空入参一律 \'\')');
+  ok(t({ turnSeq: 1, stewardLastTurn: { seq: 1, aborted: true } }, { status: 'failed' }) === 'thread',
+    'P0 两面各说各话时:班组没被停、线程被停 -> 仍然算被停(任一面成立即拦)');
+}
+// P1「失败说得出原因」:取话口只有一处,查的是 06 那张既有 ERROR_CLASSES;查不到如实说未知。
+{
+  const e = srv.stewardFailureExplain;
+  ok(e('idle_timeout') === srv.ERROR_CLASSES.idle_timeout.zh + ' · 下一步:' + srv.ERROR_CLASSES.idle_timeout.next,
+    'P1 表里有的类:人话 + 下一步,逐字来自 ERROR_CLASSES(不是第二份文案)');
+  ok(e('') === '' && e(null) === '' && e(undefined) === '', 'P1 没带类别 -> 空串(调用方据此整段不出现)');
+  ok(e('totally_made_up') === '未知类别(totally_made_up)',
+    'P1 表里没有的类:如实说未知并带上原词 —— 不许编一个听起来像那么回事的原因');
+  for (const cls of ['timeout', 'network', 'subagent_failed']) {
+    ok(/下一步:/.test(e(cls)), `P1 ${cls}(classifyNodeErrorText 的默认出口,最常见的那几类)已在表里`);
+  }
+  ok(Object.keys(srv.ERROR_CLASSES).length >= 32, `P1 表补全后不少于 32 条(实得 ${Object.keys(srv.ERROR_CLASSES).length})`);
+}
+
 console.log(fail === 0 ? 'STEWARD INBOX CORE UNIT: ALL PASS' : `STEWARD INBOX CORE UNIT: ${fail} FAILED`);
 process.exit(fail ? 1 : 0);

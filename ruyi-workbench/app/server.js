@@ -17154,6 +17154,30 @@ const ERROR_CLASSES = {
   vote_contract_failed: { zh: '投票节点输入格式不正确', next: '让每个投票前序明确输出 verdict 与 confidence' },
   dependency_cycle: { zh: '依赖图存在真实环或悬空依赖', next: '检查节点依赖方向和引用的节点 ID' },
   gate_rejected: { zh: '质量门给出不通过裁决', next: '查看 verdict、confidence 和 findings 后决定修复或接受' },
+  // 125-P1(42 号文 §5-ter):把「能走到用户/管家面前的机器类」补齐。数过一遍才发现,修前表里 12 条,
+  // 而 08 的 classifyNodeErrorText 三个默认出口(timeout / network / subagent_failed)—— 也就是**最常见
+  // 的那几类** —— 一条都不在表里,于是管家只能说「未知类别(subagent_failed)」,并不比原始机器词强。
+  // 既有 12 条一个字节不动(2.0 错误卡读的是同一张表,改它等于改那张卡的文案)。
+  timeout: { zh: '这一步超时了', next: '稍后重试;或把这一步拆小一点再跑' },
+  network: { zh: '网络访问失败', next: '检查网络后重试;暂时不通就先做不依赖联网的部分' },
+  subagent_failed: { zh: '子代理没能完成这一步', next: '打开节点详情看它最后的输出,再决定重跑还是改任务' },
+  no_progress: { zh: '连着几轮没有新进展,已停下', next: '换个做法或把任务拆开,原地重试解决不了' },
+  semantic_stall: { zh: '反复产出相同结果,判为原地打转', next: '补上缺的信息,或换一种分解方式' },
+  node_exception: { zh: '节点执行时抛了异常', next: '看错误详情,多半是参数或环境问题' },
+  scheduler_error: { zh: '调度器兜底异常(节点没能正常收尾)', next: '这类多半是工作台自身的问题,留一条取证给开发者' },
+  degraded_fail: { zh: '只拿到降级输出,按策略判失败', next: '重跑这个节点,或把质量门放宽' },
+  worktree_error: { zh: '隔离工作树收尾失败', next: '看工作区是不是被占用,再重跑' },
+  blocked: { zh: '被前面失败的节点挡住了', next: '先把前一步修好,它好了这一步会自己继续' },
+  cancelled: { zh: '已被停止', next: '要接着做就自己按「继续」——工作台不会替你重开' },
+  interrupted: { zh: '被中断了(插话或停止)', next: '先确认当时改到哪一步,再决定接着做还是重来' },
+  propagate_cycle: { zh: '依赖传播时发现环', next: '检查节点之间的依赖方向' },
+  gate_uncovered: { zh: '质量门要求的检查没覆盖到', next: '补上门要求的检查项再跑' },
+  gate_unverified: { zh: '质量门的结论缺少验证', next: '让节点真的跑一次验证再下结论' },
+  gate_unpropagated: { zh: '质量门结论没有传到下游', next: '检查下游节点有没有声明依赖' },
+  claude_cli_error: { zh: 'Claude CLI 这一回合非正常退出', next: '看会话里最后的输出;多为 CLI 侧问题,可以重发' },
+  kimi_acp_error: { zh: 'Kimi 这一回合非正常退出', next: '看会话里最后的输出;可以重发' },
+  cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },
+  launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -19936,6 +19960,7 @@ function stewardStoppedRefusal(which) {
   const key = String(which || '');
   return Object.prototype.hasOwnProperty.call(STEWARD_STOPPED_SAY, key) ? STEWARD_STOPPED_SAY[key] : '';
 }
+
 
 // 到访总览一行摘要(§11.2 到访层):纯文本拼装,不做模型改写(「诚实」纪律要求 lastSay 是原话)。
 // 入参 thread: { id, missionTitle, title, state, action, lastSay, waitReason, permissionMode, cost }。
@@ -44941,6 +44966,11 @@ function stewardEventDedupeKey(evt) {
   return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join('\u0000');
 }
 
+// 125-P1(42 号文 §1 ②):下面三处 failed 摘要不再把 errorClass 拼进括号。机器词仍然原样落在
+// payload.errorClass 上(去重、取证、前端都要它),但【给模型看的那一行】由 13p 的
+// stewardEventLine 统一补上人话与下一步(取话口是 06i 的 stewardFailureExplain,查的是 06
+// 那张既有 ERROR_CLASSES)。修前模型拿到的是 `会话第 3 回合失败(idle_timeout)` 这串原始
+// 机器词,「这是什么意思、该怎么办」只能它自己编 —— 而工作台自己就有写好的答案。
 // ① Mission Change Ledger 的一条 change record → 归一化事件 | null
 function stewardNormalizeMissionChange(record) {
   const r = (record && typeof record === 'object') ? record : {};
@@ -44968,7 +44998,7 @@ function stewardNormalizeMissionChange(record) {
       : r.type === 'budget_tripped'
         ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
         : kind === 'failed'
-          ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+          ? `回合失败`
           : `任务结果章:${payload.resultStatus || ''}`);
   return {
     kind,
@@ -45001,7 +45031,7 @@ function stewardNormalizeRunEvent(sessionId, missionId, runId, evt) {
   if (data.limit != null) payload.limit = Number(data.limit) || 0;
   payload.summary = stewardClipSummary(
     kind === 'done' ? `班组 ${runId} 收工(${payload.runStatus || ''})`
-      : kind === 'failed' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+      : kind === 'failed' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}失败`
         : kind === 'budget' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}用完了工具迭代预算(${payload.limit} 轮)`
           : `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}停滞(${payload.eventType}${payload.reason ? ' · ' + payload.reason : ''}${payload.tool ? ' · ' + payload.tool : ''})`);
   return {
@@ -45143,7 +45173,7 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   if (last && last.errorClass) payload.errorClass = stewardClipSummary(last.errorClass);
   if (last && last.aborted === true) payload.aborted = true;
   payload.summary = stewardClipSummary(kind === 'failed'
-    ? `会话第 ${seq} 回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+    ? `会话第 ${seq} 回合失败`
     : `会话第 ${seq} 回合跑完了${payload.aborted ? '(被停止)' : ''}`);
   return {
     kind,
@@ -48555,6 +48585,30 @@ const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
 
 // ── 可由 actions 执行的写工具 -> StewardHooks 实现键。白名单即闸门:不在表里的工具名一律拒绝
 //    (读类工具没有出现在这里的理由 —— 模型要读就自己在回合里调工具,不该经 actions 绕一圈)。
+// ── 125-P1(42 号文 §1 ②):失败的原因与下一步,由工作台给,不由模型编 ────────────────────────
+// 取证:`errorClass` 在 13o(提示词)、13p(动作)、13m(共享面)与整个管家前端里 grep 零命中 ——
+// 它唯一的去处是收件箱事件那句摘要里的一个括号,于是模型看见的是 `会话第 3 回合失败(idle_timeout)`
+// 这串原始机器词,「这是什么意思、该怎么办」全靠它自己编。而工作台自己有一张写好了「下一步」的
+// 表(06 的 ERROR_CLASSES,已经上 /api/status 给 2.0 的错误卡用),就在隔壁。
+//
+// 本函数是管家侧唯一的取话口:查既有表,查不到就【如实说未知】并把原词带上 —— 不许在这里
+// 编第二套解释,也不许把不认识的类悄悄说成「执行失败」(那是把不知道说成知道)。
+// 返回 '' 表示这条事件根本没带类别(不是「不知道」,是「没这回事」),调用方据此整段不出现。
+function stewardFailureExplain(errorClass) {
+  const raw = stewardSanitizeText(errorClass);
+  if (!raw) return '';
+  const row = (ERROR_CLASSES && Object.prototype.hasOwnProperty.call(ERROR_CLASSES, raw)) ? ERROR_CLASSES[raw] : null;
+  // 「表里没这一条」与「表里有但没写人话」是同一件事:我们说不出它是什么。合成一个出口,
+  // 于是这句话在全仓只有一种写法(静态锁 ⑧f 按「恰一处」数它)。
+  const zh = row ? stewardSanitizeText(row.zh) : '';
+  if (!zh) return `未知类别(${raw})`;
+  const next = row ? stewardSanitizeText(row.next) : '';
+  return next ? `${zh} · 下一步:${next}` : zh;
+}
+
+// 落点说明:本函数原想放在 06i(管家纯函数都住那儿),但 06i 排在 06 之前 —— 06/07/09/10/13* 都依赖
+// 06i,让 06i 反过来读 06 的 ERROR_CLASSES 会造出一圈循环边(依赖图 --check 当场报了 7 条)。
+// 于是落在 13m 这个「管家运行器共享面」:它本来就是回合层文本表的家,读 06 是干净的后向边。
 const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_new: 'threadNew',
   steward_thread_continue: 'threadContinue',
@@ -50141,7 +50195,11 @@ function stewardEventLine(row, titleOf) {
   const count = Math.max(1, Number(row && row.count) || 1);
   const title = stewardSanitizeText((typeof titleOf === 'function' ? titleOf(sid) : '') || '');
   const who = title ? `线程「${title}」(${sid})` : `线程 ${sid}`;
-  const line = `- [${Number(row && row.inboxSeq) || 0}] ${kind} · ${who}${count > 1 ? ` · 同类 ${count} 条` : ''} · ${summary}`;
+  // 125-P1(42 号文 §1 ②):失败的原因与下一步由工作台补,模型只负责说人话。取话口只有 06i 的
+  // stewardFailureExplain 一处(查 06 的既有 ERROR_CLASSES),本文件不自己写第二张表;表里没有的
+  // 类如实说「未知类别(原词)」—— 宁可说不知道,也不能替它编一个听起来像那么回事的原因。
+  const why = stewardFailureExplain(payload.errorClass);
+  const line = `- [${Number(row && row.inboxSeq) || 0}] ${kind} · ${who}${count > 1 ? ` · 同类 ${count} 条` : ''} · ${summary}${why ? ' · ' + why : ''}`;
   return line.slice(0, STEWARD_INBOX_EVENT_CHARS);
 }
 
@@ -53320,6 +53378,10 @@ module.exports = {
   STEWARD_EVENT_KINDS,
   STEWARD_DIGEST_LIMITS,
   stewardMayAct,
+  // 125-P0/P1:被停下来的目标判据(06i)与失败类别的取话口(13m)—— exposed for 单测
+  //   (unit/steward-inbox-core.test.js 直测两者的真值表与「未知类别」诚实回退)。
+  stewardStoppedTarget,
+  stewardFailureExplain,
   buildStewardDigestLine,
   // 第117波117y-S1(27号文§11.18.2): 管家正文的天花板裁剪(句界 + 诚实标记)与它【绝不能被误伤】的
   // 那个同名邻居 stewardClipSay(总览行/待决一行话的 200 字 + 省略号)—— 两个都 exposed for

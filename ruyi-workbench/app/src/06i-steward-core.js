@@ -196,6 +196,7 @@ function stewardStoppedRefusal(which) {
   return Object.prototype.hasOwnProperty.call(STEWARD_STOPPED_SAY, key) ? STEWARD_STOPPED_SAY[key] : '';
 }
 
+
 // 到访总览一行摘要(§11.2 到访层):纯文本拼装,不做模型改写(「诚实」纪律要求 lastSay 是原话)。
 // 入参 thread: { id, missionTitle, title, state, action, lastSay, waitReason, permissionMode, cost }。
 // 缺字段的段整段跳过,不留孤立分隔符;lastSay 截到 STEWARD_DIGEST_LIMITS.lastSayChars(超出加「…」);

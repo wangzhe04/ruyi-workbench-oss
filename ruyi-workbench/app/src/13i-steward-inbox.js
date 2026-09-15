@@ -234,6 +234,11 @@ function stewardEventDedupeKey(evt) {
   return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join('\u0000');
 }
 
+// 125-P1(42 号文 §1 ②):下面三处 failed 摘要不再把 errorClass 拼进括号。机器词仍然原样落在
+// payload.errorClass 上(去重、取证、前端都要它),但【给模型看的那一行】由 13p 的
+// stewardEventLine 统一补上人话与下一步(取话口是 06i 的 stewardFailureExplain,查的是 06
+// 那张既有 ERROR_CLASSES)。修前模型拿到的是 `会话第 3 回合失败(idle_timeout)` 这串原始
+// 机器词,「这是什么意思、该怎么办」只能它自己编 —— 而工作台自己就有写好的答案。
 // ① Mission Change Ledger 的一条 change record → 归一化事件 | null
 function stewardNormalizeMissionChange(record) {
   const r = (record && typeof record === 'object') ? record : {};
@@ -261,7 +266,7 @@ function stewardNormalizeMissionChange(record) {
       : r.type === 'budget_tripped'
         ? `回合 token 预算触顶(已用 ${payload.spent}/${payload.budget})`
         : kind === 'failed'
-          ? `回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+          ? `回合失败`
           : `任务结果章:${payload.resultStatus || ''}`);
   return {
     kind,
@@ -294,7 +299,7 @@ function stewardNormalizeRunEvent(sessionId, missionId, runId, evt) {
   if (data.limit != null) payload.limit = Number(data.limit) || 0;
   payload.summary = stewardClipSummary(
     kind === 'done' ? `班组 ${runId} 收工(${payload.runStatus || ''})`
-      : kind === 'failed' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+      : kind === 'failed' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}失败`
         : kind === 'budget' ? `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}用完了工具迭代预算(${payload.limit} 轮)`
           : `班组 ${runId} ${payload.nodeId ? '节点 ' + payload.nodeId + ' ' : ''}停滞(${payload.eventType}${payload.reason ? ' · ' + payload.reason : ''}${payload.tool ? ' · ' + payload.tool : ''})`);
   return {
@@ -436,7 +441,7 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   if (last && last.errorClass) payload.errorClass = stewardClipSummary(last.errorClass);
   if (last && last.aborted === true) payload.aborted = true;
   payload.summary = stewardClipSummary(kind === 'failed'
-    ? `会话第 ${seq} 回合失败${payload.errorClass ? '(' + payload.errorClass + ')' : ''}`
+    ? `会话第 ${seq} 回合失败`
     : `会话第 ${seq} 回合跑完了${payload.aborted ? '(被停止)' : ''}`);
   return {
     kind,

@@ -91,6 +91,30 @@ const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
 
 // ── 可由 actions 执行的写工具 -> StewardHooks 实现键。白名单即闸门:不在表里的工具名一律拒绝
 //    (读类工具没有出现在这里的理由 —— 模型要读就自己在回合里调工具,不该经 actions 绕一圈)。
+// ── 125-P1(42 号文 §1 ②):失败的原因与下一步,由工作台给,不由模型编 ────────────────────────
+// 取证:`errorClass` 在 13o(提示词)、13p(动作)、13m(共享面)与整个管家前端里 grep 零命中 ——
+// 它唯一的去处是收件箱事件那句摘要里的一个括号,于是模型看见的是 `会话第 3 回合失败(idle_timeout)`
+// 这串原始机器词,「这是什么意思、该怎么办」全靠它自己编。而工作台自己有一张写好了「下一步」的
+// 表(06 的 ERROR_CLASSES,已经上 /api/status 给 2.0 的错误卡用),就在隔壁。
+//
+// 本函数是管家侧唯一的取话口:查既有表,查不到就【如实说未知】并把原词带上 —— 不许在这里
+// 编第二套解释,也不许把不认识的类悄悄说成「执行失败」(那是把不知道说成知道)。
+// 返回 '' 表示这条事件根本没带类别(不是「不知道」,是「没这回事」),调用方据此整段不出现。
+function stewardFailureExplain(errorClass) {
+  const raw = stewardSanitizeText(errorClass);
+  if (!raw) return '';
+  const row = (ERROR_CLASSES && Object.prototype.hasOwnProperty.call(ERROR_CLASSES, raw)) ? ERROR_CLASSES[raw] : null;
+  // 「表里没这一条」与「表里有但没写人话」是同一件事:我们说不出它是什么。合成一个出口,
+  // 于是这句话在全仓只有一种写法(静态锁 ⑧f 按「恰一处」数它)。
+  const zh = row ? stewardSanitizeText(row.zh) : '';
+  if (!zh) return `未知类别(${raw})`;
+  const next = row ? stewardSanitizeText(row.next) : '';
+  return next ? `${zh} · 下一步:${next}` : zh;
+}
+
+// 落点说明:本函数原想放在 06i(管家纯函数都住那儿),但 06i 排在 06 之前 —— 06/07/09/10/13* 都依赖
+// 06i,让 06i 反过来读 06 的 ERROR_CLASSES 会造出一圈循环边(依赖图 --check 当场报了 7 条)。
+// 于是落在 13m 这个「管家运行器共享面」:它本来就是回合层文本表的家,读 06 是干净的后向边。
 const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_new: 'threadNew',
   steward_thread_continue: 'threadContinue',

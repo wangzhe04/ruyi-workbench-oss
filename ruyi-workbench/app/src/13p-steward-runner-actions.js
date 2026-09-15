@@ -418,7 +418,11 @@ function stewardEventLine(row, titleOf) {
   const count = Math.max(1, Number(row && row.count) || 1);
   const title = stewardSanitizeText((typeof titleOf === 'function' ? titleOf(sid) : '') || '');
   const who = title ? `线程「${title}」(${sid})` : `线程 ${sid}`;
-  const line = `- [${Number(row && row.inboxSeq) || 0}] ${kind} · ${who}${count > 1 ? ` · 同类 ${count} 条` : ''} · ${summary}`;
+  // 125-P1(42 号文 §1 ②):失败的原因与下一步由工作台补,模型只负责说人话。取话口只有 06i 的
+  // stewardFailureExplain 一处(查 06 的既有 ERROR_CLASSES),本文件不自己写第二张表;表里没有的
+  // 类如实说「未知类别(原词)」—— 宁可说不知道,也不能替它编一个听起来像那么回事的原因。
+  const why = stewardFailureExplain(payload.errorClass);
+  const line = `- [${Number(row && row.inboxSeq) || 0}] ${kind} · ${who}${count > 1 ? ` · 同类 ${count} 条` : ''} · ${summary}${why ? ' · ' + why : ''}`;
   return line.slice(0, STEWARD_INBOX_EVENT_CHARS);
 }
 

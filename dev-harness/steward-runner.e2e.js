@@ -458,6 +458,7 @@ try {
       kind: 'preference', text: '用户喜欢一页纸摘要', sourceRef: { sessionId: 'steward', turnSeq: Number(userTurn && userTurn.turnSeq) || 0 },
     }, stewardCtx());
     ok(write2 && write2.ok === true, `E5 同一会话里用户【本人】那一回合仍是合法来源(got ${write2 && write2.error})`);
+
   }
 
   /* ═════════ (F) 用户消息抢占在途收件箱回合 ═════════ */
@@ -561,6 +562,37 @@ try {
     ok(asInbox && asInbox.kind === 'turns_per_hour' && asInbox.limit === 1, 'H9b stewardCircuitCheck(cfg,\'inbox\') 命中 turns_per_hour 且回报 limit');
     ok(asOther && asOther.kind === 'turns_per_hour', "H9c 未知 trigger(非 'user')按【自主回合】处理 —— 白名单式放行,新调用面不会误当成用户");
     writeConfig({ stewardMaxTurnsPerHour: 100 });
+  }
+
+  /* ═════════ (L) 125-P1:失败说得出原因 ═════════ */
+  // 放在【最后】而不是插在 (E) 里:这一段要自己跑两发收件箱回合,而收件箱回合会动无进展计数、
+  // 小时窗与该目标的自理 attempts —— 插在中间会把 (F) 抢占与 (D-3) 自理清单那几条的前提悄悄改掉
+  // (第一版就是这么红的:E 全绿,F2/F3/D11/D12 无辜转红)。夹具里「我这一段借了全局状态」这件事,
+  // 要么还回去,要么排到没人再用它之后。
+  {
+    writeConfig({ stewardMaxTurnsPerHour: 100 });
+    // ── 125-P1(42 号文 §1 ②):失败的原因与下一步,由工作台给,不由模型编 ──────────────────
+    // 判的是【真的喂进模型的那条消息】(origin:inbox 的 user 消息正文),不是某个中间函数的返回值。
+    const explained = await srv.runStewardTurn({ trigger: 'inbox', events: [{
+      inboxSeq: 31, kind: 'failed', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 31,
+      at: new Date().toISOString(), payload: { summary: '会话第 31 回合失败', errorClass: 'idle_timeout' }, count: 1,
+    }] });
+    ok(explained && explained.ok === true, `E6 带 errorClass 的收件箱回合跑通(got ${explained && explained.error})`);
+    const rows2 = fs.readFileSync(path.join(HOME, 'sessions', 'steward.messages.ndjson'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+    const injected = String(([...rows2].reverse().find(m => m && m.role === 'user' && m.meta && m.meta.origin === 'inbox') || {}).content || '');
+    ok(injected.includes(srv.ERROR_CLASSES.idle_timeout.zh), `E7 事件行带上人话原因(逐字来自 ERROR_CLASSES;实得 ${JSON.stringify(injected.slice(-160))})`);
+    ok(injected.includes('下一步:' + srv.ERROR_CLASSES.idle_timeout.next), 'E8 连「下一步」一起给 —— 修前这半句模型根本看不见');
+    ok(!injected.includes('idle_timeout'), 'E9 裸机器词不再进模型的回合层(它留在 payload 里,给去重与取证用)');
+
+    const unknown = await srv.runStewardTurn({ trigger: 'inbox', events: [{
+      inboxSeq: 32, kind: 'failed', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 32,
+      at: new Date().toISOString(), payload: { summary: '会话第 32 回合失败', errorClass: 'totally_made_up' }, count: 1,
+    }] });
+    ok(unknown && unknown.ok === true, `E10 表里没有的类照样跑通(got ${unknown && unknown.error})`);
+    const rows3 = fs.readFileSync(path.join(HOME, 'sessions', 'steward.messages.ndjson'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+    const injected2 = String(([...rows3].reverse().find(m => m && m.role === 'user' && m.meta && m.meta.origin === 'inbox') || {}).content || '');
+    ok(injected2.includes('未知类别(totally_made_up)'),
+      `E11 查不到就如实说未知并带上原词 —— 宁可说不知道,也不编一个听起来像那么回事的原因(实得 ${JSON.stringify(injected2.slice(-120))})`);
   }
   /* ═════════ (I) 上下文预算分叉 ═════════ */
   console.log('── (I) 预算分叉 ──');

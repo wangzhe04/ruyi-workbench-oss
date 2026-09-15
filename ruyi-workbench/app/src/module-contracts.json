@@ -13871,6 +13871,7 @@
         "STEWARD_WHY_MAX",
         "ensureStewardSession",
         "stewardAbortInflight",
+        "stewardFailureExplain",
         "stewardResolveRoute",
         "stewardResumeRunner",
         "stewardRunnerRuntime",
@@ -13941,6 +13942,13 @@
           ]
         },
         {
+          "provider": "06-provider-engine.js",
+          "symbol": "ERROR_CLASSES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PERMISSION_MODE",
           "kinds": [
@@ -13959,6 +13967,13 @@
           "symbol": "STEWARD_SESSION_TITLE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
           ]
         }
       ]
@@ -14720,6 +14735,13 @@
           "symbol": "STEWARD_TURN_WINDOW_MS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardFailureExplain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18420,6 +18442,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedTarget",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
           "kinds": [
             "read"
@@ -19731,6 +19760,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_SAY_TARGET",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardFailureExplain",
           "kinds": [
             "read"
           ]
