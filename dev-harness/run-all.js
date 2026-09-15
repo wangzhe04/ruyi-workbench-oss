@@ -113,6 +113,17 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 那种退化是数量级的，不会被 2 倍的调度噪声淹没；把闸放宽才是掩盖。
   'mission-index-scale.e2e.js',
   'ec-d-performance.e2e.js',
+  // 125 治抖第三批（42 号文 §5-decies）：**一次性启动浏览器**的那两件。它们用 spawnSync 把
+  // Edge 连同 `--dump-dom` / `--screenshot=` 一起拉起来，**把启动结果本身当断言** —— 没有 CDP
+  // 那条「连不上就重连」的重试面，所以是全仓对启动期抢占最敏感的形状。
+  // 连着两轮全量的读数把这件事钉死了：两轮里唯一的红/flaky 都出自这两件，而且**退出码一模一样**
+  // ——`4294967295`(-1)，`result.signal` 为空(不是 spawnSync 的 90 s 超时，是 Edge 自己退的)，
+  // stderr 只有 Chromium 的 task-provider 噪声。两件分别单跑各两次全绿（7.0 s / 14.7 s）。
+  // 顺带排除掉一个诱人的错理论：当时机器上残留的 7 个 msedge 全是**用户自己的** Edge 后台进程
+  // （真机 profile ＋ `--no-startup-window --win-session-start`），不是夹具泄漏 —— 补收尸治的是
+  // 另一件事，治不了这一条。
+  'dom-screenshot.e2e.js',
+  'dom-smoke.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

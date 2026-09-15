@@ -269,6 +269,22 @@ try {
   }
   ok(timed.length >= 2, `自己算 P95 的夹具扫得到（实得 ${timed.length} 件；扫不到 = 本条静默失效）`);
   ok(notExclusive.length === 0, `每一件都排进独占桶 —— 墙钟判据在并行桶里量的是调度噪声，不是产品${notExclusive.length ? '；实得漏了：' + notExclusive.join('、') : ''}`);
+
+  // 同一把锁的第二条判据（第三批）：**一次性启动浏览器**的夹具也必须进独占桶。
+  // 判据形状：spawnSync ＋（`--dump-dom` 或 `--screenshot=`）—— 这类件把【启动结果本身】当断言，
+  // 没有 CDP 那条「连不上就重连」的重试面。连着两轮全量里唯一的红/flaky 都出自这 2 件，退出码
+  // 一模一样(-1)，分别单跑全绿。实得 2 件、零误报。
+  const oneShot = [];
+  const oneShotMissing = [];
+  for (const name of fs.readdirSync(HARNESS).filter(n => n.endsWith('.e2e.js') && !n.includes('.static.'))) {
+    const text = fs.readFileSync(path.join(HARNESS, name), 'utf8');
+    if (!/\bspawnSync\s*\(/.test(text)) continue;
+    if (!/'--dump-dom'|--screenshot=/.test(text)) continue;
+    oneShot.push(name);
+    if (!listed.has(name)) oneShotMissing.push(name);
+  }
+  ok(oneShot.length >= 2, `一次性启动浏览器的夹具扫得到（实得 ${oneShot.length} 件；扫不到 = 本条静默失效）`);
+  ok(oneShotMissing.length === 0, `每一件都排进独占桶 —— 把启动结果当断言的件对启动期抢占最敏感${oneShotMissing.length ? '；实得漏了：' + oneShotMissing.join('、') : ''}`);
 }
 
 console.log('\nFIXTURE HOME STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

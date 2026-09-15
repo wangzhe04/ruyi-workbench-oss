@@ -70,7 +70,17 @@
 | `dom-screenshot.e2e.js` | 两发都是 **Edge 启动直接退 -1**，换新 profile 那一发也没救回来 → 不是 profile 坏了，是机器级启动抢占。补收尸治的是它自己的泄漏，治不了别人同一时刻留下的 | 进独占桶（一趟开两个无头 Edge，与桶里那批同一条理由） |
 | `walkthrough-round2.browser.e2e.js` | **它的第一份病历**：`B1 全新 HOME 启动落【管家视角】（实得 classic）` —— 视角还没落定就被读了。与 `quiet-card-typing` 是同一模具的**镜像**（那件切过去又被翻回，这件是还没翻过来）。它已在独占桶里，所以独占治不了它 | 等**落定**再判，并把落定耗时打进标签 |
 
-**仍未拿到病历的两件**（`steward-conversation`／`foreign-turn-busy-guard`）：这两轮都没再上榜，所以还是没有病历。**不猜着改**。107 出门时若仍有件拿不到病历，如实记进 Release Brief 的「未完成项」，不粉饰。
+### 第三批：126-111a 的收口全量把 Edge 启动族又顶了出来（同日）
+
+**348 pass / 1 fail / 3 flaky。** 唯一的红是 `dom-smoke`，`B1 dump-dom 完成 (0B, status=4294967295)` —— 和同轮 `dom-screenshot` 的 flaky **退出码一模一样**，`signal` 为空（不是 spawnSync 超时，是 Edge 自己退的）；两件分别单跑各两次全绿。
+
+判据形状又是干净的：全仓非 static 夹具里，同时满足「`spawnSync`」＋「`--dump-dom` 或 `--screenshot=`」的**正好 2 件、正好就是这两件** —— 它们把**启动结果本身**当断言，没有 CDP 的重连面。两件补进独占桶，并把这条钉成 `fixture-home.static` 那把锁的第二条（反向：拿掉 `dom-smoke` → 锁红并点名它）。
+
+**排除掉一个诱人的错理论**：当时机器上残留的 7 个 `msedge.exe` 全是**用户自己的** Edge 后台进程（真机 profile ＋ `--no-startup-window`），不是夹具泄漏 —— 第一批补的收尸锁治的是另一件事。
+
+同轮另外两件 flaky 的病历也留下了，**不治**：`scheduler-ui.browser`（`mode` 实得 `undefined` 且文案直接印 `"undefined"` —— **可能根本不是 flaky 而是产品 bug**，下次再红先分清）、`steer-interrupt`（诊断如实说「没抓到 FAIL 行」，是超时/被杀不是断言红）。
+
+**仍未拿到病历的两件**（`steward-conversation`／`foreign-turn-busy-guard`）：三轮都没再上榜，所以还是没有病历。**不猜着改**。107 出门时若仍有件拿不到病历，如实记进 Release Brief 的「未完成项」，不粉饰。
 
 ## 4. 三件要拍板的（推荐已写在括号里，不回按推荐走）
 
