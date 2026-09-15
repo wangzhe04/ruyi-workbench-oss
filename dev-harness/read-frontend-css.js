@@ -636,7 +636,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证：改 CSS 【之前】在工作区按本文件自己的 readLayerPayload() 重算 = fdaa4646…，与被替换的
 // 旧值逐字相同（先自证再替换，不是替换完再解释）；改完再算得下面这个值。
 // 反向验证：往 steward-drawer.css 追加一条无关规则 → F3 与 D51 双双转红；还原后逐字节相同、回绿。
-const LEGACY_STYLES_SHA256 = 'c9f61a470bc1d8a10ff24c7d2a199d6e0f5434cc9f87c5060cf8e33e6b29a975';
+// 124-P2（委托书带 .thread-brief ＋「看原件」落地那一下闪烁 #messages .message.is-revealed，
+// 两处都在 css/views/chat-shell.css）。同款自证：改 CSS 【之前】把 chat-shell.css 从 HEAD 检出、
+// 按本文件自己的 readLayerPayload() 重算 = c9f61a47…，与被替换的旧值逐字相同（先自证再替换）；
+// 换回本刀的 CSS 再算得这个值。**本刀里它动了三次**，如实记下来免得下一个人以为哪一步算错了：
+//   ① 第一版类名叫 .thread-brief → dedef49c…；
+//   ② 为躲开 116-5b 线程自动摘要那一族的同名（session.threadBrief / settings.steward.threadBrief /
+//      thread-brief.static.e2e.js）整族改名 commission，CSS 跟着改 → 0e57c341…；
+//   ③ 班组视角要把委托书带跟着对话三件套一起收，主视图状态机那一处（workbench.css）加一个
+//      选择器 → 下面这个终值。
+const LEGACY_STYLES_SHA256 = '1c6bdbfa7a584cff58e777f658f37403c0e5c4305f1d9d3ca513bd2402a39a6a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

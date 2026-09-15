@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-14T14:39:37.499Z",
+  "generatedAt": "2026-09-15T02:28:25.406Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2216,6 +2216,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
+        "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\tool-loading.e2e.js",
         "dev-harness\\tools-v2.e2e.js",
@@ -2757,6 +2758,8 @@
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
+        "dev-harness\\thread-commission.browser.e2e.js",
+        "dev-harness\\thread-commission.static.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -2944,6 +2947,8 @@
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
+        "dev-harness\\thread-commission.browser.e2e.js",
+        "dev-harness\\thread-commission.static.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -3064,6 +3069,8 @@
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
+        "dev-harness\\thread-commission.browser.e2e.js",
+        "dev-harness\\thread-commission.static.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -4137,6 +4144,7 @@
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
+        "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js"
       ]
     },

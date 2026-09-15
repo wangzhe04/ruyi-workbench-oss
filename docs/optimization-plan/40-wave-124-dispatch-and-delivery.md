@@ -154,6 +154,52 @@
 
 **另外四件收尾**：① 徽标上的时间改说人话（`stewardAgoLabel`），但**不是**加第二种时间写法——把抽屉里那一处调用收进 `agoLabel()` 一个出口，`lastTouchLabel` 与徽标共用，`steward-drawer.static` 的 J8「抽屉里只剩一种时间写法」那条计数锁因此仍然是 1、含义一个字没松（第一版实现直接调了第二次，J8 当场红——**那一红是对的**）；② 未归类线程（`missionId === sessionId`）天然没有事项文件，详情路由那一拍连读都不读（抽屉是轮询的，省的是每一拍一次 ENOENT）；③ 门面数字按 `facts-generate.js` 重算（e2e 351 → **352**，默认 344 → **345**），README 四处随之刷新；④ `route-inventory.json/md` 重新生成（本刀在 13d 插了行，清单里那些行号会漂）。
 
+## 6-quater. P2 交付记录（2026-09-15，主树）：委托书与原件
+
+**先说派单稿被证伪的那一处命名。** §3 的独占文件表把这一带叫「委托书」，实现时顺手把界面侧命名成 `#threadBrief`／`.thread-brief`／`threadBrief.*` —— **撞了**：仓里早有一族叫这个名字的东西，而且不是一回事。
+
+| 名字 | 是什么 | 谁写的 | 现有的锁 |
+|---|---|---|---|
+| `session.brief` | **委托书**（本刀要画的） | 13k `steward_thread_new` | 本刀新加的单写入口锁 |
+| `session.threadBrief` | 116-5b 的**线程自动摘要** `{title, gist}`（「自动给每条线程起名字」） | 06 摘要块经 `updateSessionMeta` | `thread-brief.static.e2e.js`、设置键 `settings.steward.threadBrief` |
+
+02 的 `sessionBriefOf()` **两个都认**（先 `threadBrief` 后 `brief`），所以名字上再多一处含糊都是债。界面侧因此整族改名 **commission**（`#threadCommission` / `.thread-commission` / `threadCommission.*` / `thread-commission.static.e2e.js`），只有读那个字段时才写 `session.brief`。**改名时误伤了两处存量**（全局替换的老毛病，124-P0 那条 locale 教训的同一个模具）：`data-i18n="settings.steward.threadBrief*"` 与 `class="tb-left/mid/right"`（顶栏那三段）被一起改掉，`thread-brief.static` ⑤ 与 `steward-settings.static` E3 当场红 —— 两条红都是对的，逐处还原，并给新锁补了 ⑦a2「116-5b 那一族的控件与文案键原样还在（改名不许误伤它）」。
+
+**这一刀零 `src/` 改动、零新字段、零新路由、零新请求。** 委托书早就在会话头上（13k 落的 `session.brief`，13d 的 `GET /api/sessions/:id` 一行 `json({ok:true, session, …})` 原样带出），缺的只是没人画。
+
+**形状**：
+
+- **位置即语义**：`#threadCommission` 排在 `#missionBar`／`#autonomyBar`／`#stepBar`／`#messages` **全部之前**（§5 的 P2 反向钉的就是位置）。**不做成流内第一条消息**——取证之后否掉的：中栏默认只画尾窗（`windowStartFor`／`MESSAGE_WINDOW_RENDER_BUDGET`），流内第一条在长会话里根本不画，而「我当初交办的是什么」恰恰是长任务才会问的问题（41 号方案 §9 的 **J15**）。
+- **默认折叠**：一行「委托书 · 原话摘录 · 多久以前交办 · 看原件」。它排在所有进度条之前，默认展开等于每打开一条管家线程都要先翻过一屏交办书。
+- **展开后三格**：目标＝`brief.userText` **逐字**（`textContent` 直赋，零改写）；管家补充＝`brief.supplement` **原样**（`<pre>`）；「谁在跑」＝管家交办 ＋ 这条线程**自己定过**的模型（`session.engineRoute` 在场时才印，跟随全局时不印——§11.15.2 病 3「印默认值等于没印」）。
+- **「验收怎么算」不另起一份解析**：`supplement` 就是 06i `buildStewardBrief` 拼好的「目标：」「验收项：」「约束：」那几行，界面原样印。在前端拿正则把它拆回字段就是第二份解析器——本仓在「线程/会话」那条正则上已经记过这笔账（`steward-conversation.js` 的 `STEWARD_INBOX_*` 头注）；**那边是读历史不得不认，这边没有任何不得不**。
+- **「看原件」＝ 跳这条线程的第一条消息**（管家真正递过去的那一整段：原话 ＋ `<steward-brief added-by="steward">` 围栏）。落点住 `session-experience.js` 的新函数 `revealOriginalMessage`，它是 `expandMessageWindowFully` 的**第一个真实调用方**——那个函数的头注早就写着自己是「jump-to-message／search 流的指定回落」，本刀不另造第二条到达路径。注入链：会话域冻结导出 → 组合根 1 行 → 管家壳 1 行转交 → 线程头；拿不到落点时按钮整枚 `hidden`，不画一枚点了没反应的。
+- **班组视角一起收**：`data-main-view="canvas"` 时 `#messages` 是 `display:none`，留着带、藏着落点就是一枚死按钮。规则加在**主视图状态机那一处**（`workbench.css` 既有的那张选择器表），不在 `chat-shell.css` 开第二份。
+- **换线程收回折叠态**：共用 `boundChipId` 这一个「换没换会话」的事实，不另记第二个游标。
+
+**落点**：`index.html`（骨架 31 行）、`public/js/thread-head.js`（＋136 行：两个可单测的导出纯函数 `threadCommissionOf`／`threadCommissionGist` ＋ 渲染）、`public/js/session-experience.js`（＋30 行：`revealOriginalMessage` 与冻结导出一行）、`public/js/steward-shell.js`／`public/app.js`（各转交一行）、`css/views/chat-shell.css`（＋58 行：带 ＋ 落地那一下闪烁；闪烁用 CSS 动画 ＋ `animationend` 摘类，**零计时器**）、`css/views/workbench.css`（主视图状态机 ＋1 个选择器）、四份 locale（九条新键，`git diff --stat` 实得每份 +9 = 预期）。
+
+**判据**：新件两个。`thread-commission.static.e2e.js` **25 条**（位置、班组一起收、零二次解析、原话逐字、单一时间出口、零请求、委托书写入口全仓恰一处、与 116-5b 那一族零交叉且不误伤、九键四 locale ＋ 插值一律 `{{name}}`、「看原件」注入链五段）；`thread-commission.browser.e2e.js` **34 条**真浏览器（B1–B8）。夹具：线程 S 走既有的 `POST /api/steward/act` → `steward_thread_new`（**不需要假管家模型**），线程 U 由用户自建作对照。
+
+**反向三处真做**（每处都改源码、跑完再还原，还原后逐字节相同）：
+
+| 反向 | 实得 |
+|---|---|
+| 把 `#threadCommission` 整段挪到 `#missionBar` 之后 | 静态 ①c ＋ 浏览器 B3 双红（实得「排在 #missionBar 之后」） |
+| 目标那一格改印摘录 `threadCommissionGist(brief.userText)` | 静态 ③a ＋ B1 红（实得 44 字 / 期望 48），**连带 B8d 也红** |
+| 拔掉 `revealOriginalMessage` 里的 `expandMessageWindowFully()` | 静态 ⑨a ＋ **B8 红，而 B5b 仍绿** —— 这一对正是 B8 存在的理由：短会话上第一条本来就画着，只有窗口真起作用时那一步才是必需的 |
+
+**夹具上踩的两处（都记下来，下一个人别再踩）**：
+
+1. **B2b 修前是「判据对、尺子错」**：原话里放了一个 `📊`，实现（`threadCommissionGist`）按**码点**切是对的，而断言用 `.length`（UTF-16 码元）量，42＋省略号被数成 44。改的是断言的尺子，不是实现。
+2. **灌水那 8 发一开始全是 409 `session.turn_busy_elsewhere`**：线程 S 当时给的 `cwd` 是数据根 `home`，而**管家会话的 cwd 就是 `home`** —— cwd 写锁按目录串行，它的回合一直排在管家后面等锁。改成**省掉 cwd**（13k `stewardValidateCwd` 三态之①，在 Ruyi 根下派生子工作区）；不能自己编一个临时目录，表外的 cwd 会被直接拒。另补一条 A6b：开工前先等管家递的那一回合真跑完。
+
+**连带重钉四处**（都是「加了件／改了名」引起的机械漂移，不是判据松动）：`read-frontend-css.js` 的 CSS 载荷哈希（**本刀动了三次**：`.thread-brief` 版 → 改名 commission → 班组那条选择器；每次都先自证旧值再替换，第一次自证 `c9f61a47…` 与锁上的值逐字相同）、`fixture-home.static` 的 `RUYI_HOME_SPAWN_SITES` 140→141（新浏览器件那一发起服务）、`route-inventory.json/md`（清册按文件名收录 harness 件）、`facts.json` 与 README 四处（e2e 352→**354**，默认 345→**347**）。
+
+**J 对表**：本刀落在 **J01** 的「可打开交付」那半句（原件可跳）与 **J15** 的「回来问『做到哪、还差什么』」的前半（当初交办的是什么，长会话里也说得出）。**J08** 仍归 P1 那一刀，本刀不宣称。
+
+**如实登记一处口径不确定**：派单稿 §2 ② 写的是「原件可跳（`sessionId+turnSeq` 定位到**管家那一回合**的原文）」。本刀按 41 号方案 §9 C05 的口径实现——那里 `sourceKey = sessionId + turnSeq` 指的是**线程**与**线程的回合**（既有的交付卡读的就是这一份），且 13k 自己的注释写着「新建会话 turnSeq 恒为 0，故委托书是第 1 回合」。**若用户本意是跳回管家对话里下单的那一轮**，那是另一件事（管家会话的 `turnSeq`，`session.brief` 今天不记它，得在 13k 落盘时补一笔），本刀不顺手扩围，登记在 §8.5。
+
 ## 7. 不做的（登记）
 
 1. **不新造** `TaskIntentView`／`DeliverableView` 的持久层——它们在本波只是读投影的名字，不落盘（35 号文 §1 对 v1.1「撤回成只读投影」的裁决）。
@@ -200,7 +246,16 @@
 
 </details>
 
-### 8.3 ~~下一刀 P1 的开工三步~~ → **下一刀 P2「委托书与原件」的开工三步**
+### 8.3 ~~下一刀 P2 的开工三步~~ → **下一刀 P3「回执才算数」（A01）的开工三步**
+
+1. **核基线**：`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边）、`node dev-harness/run-all.js --fast`（**72/72**，P2 新加了一把静态锁）。
+2. **重 grep 三处落点**（派单稿行号会过期，纪律 1）：`src/13p-steward-runner-actions.js` 的回执白名单、`src/13q-steward-runner-turn.js` 的帧字段（`reply` 那一坨的装配点在 `stewardRunClaimedTurn` 末段）、`public/js/steward-conversation.js` 里画回执的那一处。
+3. **先把「什么算回执」写成一张表再写渲染**：§5 的 P3 反向是「让徽标读 `say` 文本 → 红」，所以锁要钉的是**徽标的数据源**（只认 handler 回执字段），不是文案。**P3 要碰 `src/`** —— 整条生成器链重跑（纪律 10），与 P2 那一刀「零 src 改动」不同。
+
+**P2 留给 P3 的三件现成东西**：① 「拿不到落点就把控件整枚 `hidden`，不画一枚点了没反应的」这条做法（线程头那枚「看原件」），P3 的「我发起了，但没拿到回执」是同一族处境的另一半；② 真管家线程的确定性夹具口径 —— 走 `POST /api/steward/act` 的 `steward_thread_new`，**不需要假管家模型**，且 **cwd 要省掉**（给它自己的派生工作区，别与管家会话同目录，否则回合一直等 cwd 写锁，实测 409 `session.turn_busy_elsewhere`）；③ `thread-commission.browser` 里那套「先等管家递的那一回合真跑完（A6b）再往下做」的等法。
+
+<details><summary>P2 当时的开工三步（原文保留）</summary>
+
 
 1. **核基线**：`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边）、`node dev-harness/run-all.js --fast`（**71/71**，白名单那条红已在 `6a56808` 清掉）。
 2. **重 grep 两处落点**（派单稿行号会过期，纪律 1）：`public/js/thread-head.js` 的线程头装配点、`public/js/steward-conversation.js` 里按 `sessionId+turnSeq` 定位的那个入口（35 号文 §1 对 C05 的抽查确认过这个口径在仓里成立）。
@@ -208,12 +263,16 @@
 
 **P1 留给 P2 的两件现成东西**：① 详情快照的 `acceptance` 里已经有 `provenance`／`checkState`／`container`／`merged`，委托书要印「验收怎么算」时直接读，不要再去 `session.mission` 里自己算一遍；② 抽屉里 iso → 人话的唯一出口是 `agoLabel()`（`steward-drawer.static` 的 J8 按「只有一处调平台实现」计数，委托书要印时间就走它或同款收口，别再开第二处）。
 
+**这两件里第二件用上了、第一件没用上**：委托书印的是「当初交办时验收怎么算」（`brief.supplement` 里那几行原话），而详情快照的 `acceptance` 说的是「现在判成什么样」—— 那是 P1 已经画在抽屉里的东西，两者不是一回事，委托书去读它反而会把「当初」说成「现在」。
+
 <details><summary>P1 当时的开工三步（原文保留）</summary>
 
 
 1. **核基线**：`git pull`（若换机器）；`node ruyi-workbench/app/build.js --check`、`node dev-harness/module-dependency-graph.js --check`（期望 53 模块／418 边／1 SCC）、`node dev-harness/run-all.js --fast`（71/71）。
 2. **重 grep 一遍 §1 那张表的四条落点**（派单稿的行号会过期，纪律 1）：`02-session-store.js` 的 `normalizeMissionAcceptance`／`normalizeMission`／`buildMissionResult`、`13d-core-domain-routes.js` 的 `/api/missions/:id` 详情投影与那条「唯一写入口」PATCH。
 3. **先写「单写入口」静态锁再写投影**（§4 末段）：那把锁是四态推导能成立的前提，先有锁，投影才不会哪天悄悄开始说谎。
+
+</details>
 
 </details>
 
@@ -226,3 +285,9 @@
 3. 127 波的 `playbook`／`workflow` 两类载荷与开机自启（37 号文 §6 ②）。
 4. 38 号文 §7 的四条（同回合纠正重试要先有「不写会话正文」的旁路通道、`walkthrough-round1.browser` 抖动、13p／13q 每回合两次读同一份会话可合并、契约判据下一档结构化）。
 5. **realhist 三件的可移植性**（2026-09-14 复查后新登记）。`dev-harness/realhist-fixtures/` 是 288 个文件、7.3 MB 的**真实会话 checkpoint**，`.gitignore:41` 早就按「含会话内容，不入库」拒了——这条**不翻案**：本仓是 `-oss` 且有远端，那等于把用户真实对话发出去。现状是 8 个夹具消费者里 5 个（`estimate-buckets`／`session-notes-inject`／`session-notes-merge`／`summary-fact-table`／…）都有 `existsSync` 守卫会 SKIP，**只有 realhist 三件**（`observation-recall-realhistory`／`-replay`／`session-notes`）没有守卫，于是在没夹具的机器上必红。**要还的话有两条路**：① 给那三件补同款 SKIP 守卫（小、立刻能做，代价是那三件在没夹具的机器上等于不跑）；② 造一份**形状等价的合成夹具**入库（真实历史值钱的是 token／段落分布这些形状，不是字面内容），三件从此人人可跑。推荐 ②，但它是独立一刀，不塞进 124 波。
+
+### 8.5 本波自己欠下的（P1／P2 记进来的）
+
+1. **看板也要说「未记录验收」**（P1 §6-ter 末段登记）。左栏看板的验收块今天读的是①（事项容器验收项），那条 a/b 单一来源、不会说谎，但它答不出「这条线程没有账本」。要让看板也说「未记录验收」，得先给 `/api/missions` **列表路由**同一套投影 —— 独立一刀，不塞进 124 波。
+2. **「原件」的第二种口径**（P2 §6-quater 末段登记）。本刀的「看原件」跳的是**这条线程的第 1 回合**（管家真正递过去的那一整段，41 号方案 §9 C05 的 `sessionId+turnSeq` 口径）。若用户本意是**跳回管家对话里下单的那一轮**，那是另一件事：`session.brief` 今天不记管家会话的 `turnSeq`，要补得在 13k 落盘时多写一笔（`brief.origin = {sessionId, turnSeq}`）。**先问用户再动**——多一个字段就多一处会烂掉的地方，§4 的纪律在这儿同样适用。
+3. **`session.brief` 与 `session.threadBrief` 的同名**（P2 §6-quater 开头那张表）。界面侧已经靠改名躲开了，但**服务端那两个字段仍然同名**，而 02 的 `sessionBriefOf()` 两个都认（先 `threadBrief` 后 `brief`）—— 今天不出事只是因为委托书那份没有 `title`／`gist` 两个键，于是 `sessionBriefOf` 回 null、索引条目里就没有它。**哪天谁给委托书加一个 `title`，线程列表的名字会突然变成委托书的一段。** 要还的话是给其中一个改名（`session.commission`），那是一次会动到落盘形状的迁移，单独一刀。

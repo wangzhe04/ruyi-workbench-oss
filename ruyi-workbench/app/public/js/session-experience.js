@@ -1183,6 +1183,35 @@ function expandMessageWindowFully() {
   state.msgWindowStart = 0;
   renderCurrentSession();
 }
+// 124-P2（40 号文 §2 ②「原件可跳」）：委托书那枚「看原件」的落点 —— 这条线程的【第一条】消息。
+// 它就是管家 `steward_thread_new` 递进来的那一整段（用户原话逐字 ＋ [steward-brief] 围栏，
+// 13k 的 stewardLaunchTurn 递的就是 buildStewardBrief 的 composedText；13k:658 注明「新建会话
+// turnSeq 恒为 0，故委托书是第 1 回合」）。委托书带里印的是【拆开的两段】，这里给的是【原件本身】。
+//
+// 为什么这一步必须住在本文件：长会话默认只画尾窗（windowStartFor），第一条极可能根本不在 DOM 里。
+// `expandMessageWindowFully` 的头注早就写着它是「jump-to-message／search 流的指定回落」——
+// 本函数就是它的第一个真实调用方，**不另造第二条到达路径**。
+//
+// 三条纪律：① 流式回合期间不重画（与「加载更早」同一条守卫：renderCurrentSession 会抹掉在途的
+// 流式 row，那是既有的信任观感事故）；② 已经全画开时一次都不重画（省掉一次整屏重建）；
+// ③ 高亮用 CSS 动画 ＋ animationend 摘类，**零计时器**（谁也不该为一次闪烁留一个 setTimeout）。
+function revealOriginalMessage() {
+  const box = $('messages');
+  const msgs = (state.currentSession && Array.isArray(state.currentSession.messages)) ? state.currentSession.messages : [];
+  if (!box || !msgs.length) return false;
+  if (windowStartFor(msgs) > 0) {
+    if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return false; }
+    expandMessageWindowFully();
+  }
+  const row = box.querySelector('[data-message-key]');
+  if (!row) return false;
+  try { row.scrollIntoView({ block: 'start' }); } catch { /* 无 scrollIntoView 的宿主：高亮照旧 */ }
+  row.classList.remove('is-revealed');        // 连点两下也要能再闪一次（动画要重新起跑）
+  void row.offsetWidth;                        // 强制重排，否则同一帧内摘了又加等于没动
+  row.classList.add('is-revealed');
+  row.addEventListener('animationend', () => row.classList.remove('is-revealed'), { once: true });
+  return true;
+}
 // v1.0-S3 (A): 首跑引导触发条件 —— 会话列表为空 && config.recentWorkspaces 为空数组。纯派生状态，无持久化
 // 标记；一旦选了文件夹（recentWorkspaces 非空）或建了会话，条件不再满足，自动回到常规空状态。
 function isFirstRun() {
@@ -1494,6 +1523,7 @@ function buildEmptyCTA() {
     renderResumeBanner,
     renderSessions,
     renderStepBar,
+    revealOriginalMessage, // 124-P2：委托书「看原件」的落点（组合根递给线程头，本文件不 import 管家侧模块）
     // 121-K4：左栏是两视角共用的那一份 DOM。组合根在管家域构造好之后把「重画左栏」的口递进来
     // （迟绑定：session-experience 比 steward-shell 先构造），本文件因此不 import 任何管家侧模块。
     bindRailSessionActions, // 121-K4：左栏行上三枚会话级动作的委托（组合根绑一次）

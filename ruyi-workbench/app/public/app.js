@@ -832,6 +832,7 @@ const {
   sessionSearchSnapshot, // 121-K4：左栏搜索读 113b 的结果快照
   setRailRenderer, // 121-K4：左栏由管家域那一份 renderRail 画（迟绑定）
   renderStepBar,
+  revealOriginalMessage, // 124-P2：委托书「看原件」的落点（管家域只转交，实现在会话域）
   revokeAllAutonomyGrants,
   rollbackTurn,
   stopMission,
@@ -912,6 +913,7 @@ const stewardShellDomain = createStewardShellDomain({
     updateContextMeter();
     if (state.status) renderStatusLine();
   },
+  revealOriginalMessage, // 124-P2：委托书「看原件」→ 滚到这条线程的第一条消息（管家递进来的那份原件）
   searchState: () => sessionSearchSnapshot(), // 121-K4：左栏搜索（Ctrl+K）读 113b 的结果快照
   saveConfigPartial, openSettingsTab: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'steward', true); }, // 117e
   // 117s-C（走查⑦「输出要支持 markdown、制图」）：全仓唯一的 markdown＋XSS 净化路径（trusted innerHTML
