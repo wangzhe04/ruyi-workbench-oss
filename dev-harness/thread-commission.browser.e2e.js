@@ -253,6 +253,10 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   }],
 }), 'utf8');
 
+// 截图落点：默认在夹具临时目录，设了 RUYI_SHOT_DIR 就落到那里（交付报告与走查要贴这两张）。
+const shotDir = process.env.RUYI_SHOT_DIR && fs.existsSync(process.env.RUYI_SHOT_DIR) ? process.env.RUYI_SHOT_DIR : root;
+const shots = {};
+
 let provider = null;
 let server = null;
 let browser = null;
@@ -362,6 +366,9 @@ try {
   })()`)), 'A11 委托书带已上屏');
 
   const collapsed = await cdp.evaluate(BAND);
+  shots.collapsed = path.join(shotDir, 'thread-commission-collapsed.png');
+  fs.writeFileSync(shots.collapsed, Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  ok(fs.statSync(shots.collapsed).size > 8000, `B2-shot 折叠态实拍已存（${shots.collapsed}）`);
 
   /* ═════════ B1 目标逐字 ═════════ */
   ok(collapsed.goal === USER_TEXT,
@@ -386,6 +393,9 @@ try {
   /* ═════════ B4 展开：管家补充逐字 ═════════ */
   await cdp.evaluate(`document.getElementById('threadCommissionToggle').click(), true`);
   const opened = await cdp.evaluate(BAND);
+  shots.opened = path.join(shotDir, 'thread-commission-open.png');
+  fs.writeFileSync(shots.opened, Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  ok(fs.statSync(shots.opened).size > 8000, `B4-shot 展开态实拍已存（${shots.opened}）`);
   ok(opened.bodyHidden === false && opened.expanded === 'true' && opened.open === '1', 'B4a 点一下就展开');
   ok(opened.supplementHidden === false && opened.supplement === supplementOnDisk,
     `B4b 管家补充逐字等于服务端落盘的那一份（${opened.supplement.length} 字 / 期望 ${supplementOnDisk.length}）`);
@@ -461,6 +471,7 @@ try {
   })()`);
   ok(Boolean(reachedLong),
     'B8 长会话里「看原件」仍然到得了第一条（窗口先全展开再滚过去）—— 拔掉 expandMessageWindowFully 这一条红');
+  console.log(`SHOTS ${shots.collapsed} ${shots.opened}`);
 } catch (error) {
   fail += 1;
   console.log('FAIL 未预期异常: ' + (error && error.message ? error.message : String(error)));
