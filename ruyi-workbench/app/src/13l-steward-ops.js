@@ -342,6 +342,13 @@ async function stewardImplRunAction(args, ctx, config) {
 
 // 来源校验:sourceRef 指向的那个回合里必须真有一条【用户】消息。工具输出/助手消息来源确定性拒绝
 // (§11.3「工具输出来源确定性拒绝」)—— 否则管家会把自己或工具说的话当成用户的偏好记下来。
+// 126-M01:来源那条会话的工作目录 —— 作用域键的唯一来路。读不出就回空串(落全局)。
+async function stewardSourceCwd(sourceRef) {
+  const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
+  if (!sessionId) return '';
+  const session = await loadSession(sessionId).catch(() => null);
+  return String((session && session.cwd) || '');
+}
 async function stewardSourceIsUserMessage(sourceRef) {
   const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
   if (!sessionId) return false;
@@ -382,6 +389,12 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
   //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
   const expiresAt = cleanMemoryDate(args && args.expiresAt);
+  // 126-M01:作用域。模型只说「这条是不是项目级的」,**键由服务端从来源那条会话的 cwd 推出来** ——
+  // 让模型自己填项目键 = 让它推断「这条管得着谁」,正是 31 号文 §2.6 的红线禁止的。
+  // 来源会话读不出 cwd(或模型没说 project)时落全局:宁可多用一条,不可凭空把它锁进某个项目。
+  const scope = String(args && args.scope || '') === 'project'
+    ? stewardMemoryScopeOf(await stewardSourceCwd(sourceRef))
+    : '';
   const terms = stewardMemoryTerms(text);
   return stewardMutateMemory(async store => {
     // 被否决过的同义内容拒绝写回(§4 第 ⑤ 条:vetoed 之后同义不再自动写回)。
@@ -406,6 +419,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       // 126-M02 合并时的时效:给了新到期日就用新的;**没给而旧的已经过期,就把到期日清掉** ——
       // 用户又说了一遍,这条事实就是当下有效的。不这么写会留一个陷阱:合并成功、
       // 却因为继承了过去的到期日而仍然不进提示词块(写了等于没写)。
+      if (scope) existing.scope = scope; // 126-M01:只有显式说了 project 才改;没说就不动(作用域不会"到期",不该被悄悄改)
       if (expiresAt) existing.expiresAt = expiresAt;
       else if (memoryIsExpired(existing)) existing.expiresAt = '';
       const undoRef = { kind: 'memory', id: existing.id, prev: null };
@@ -430,6 +444,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       state: 'active',
       mergedFrom: [],
       expiresAt, // 126-M02:空串 = 不过期(绝大多数条目就该是空的)
+      scope,     // 126-M01:空串 = 全局(绝大多数条目也该是空的)
     };
     store.entries.push(entry);
     const undoRef = { kind: 'memory', id: entry.id, prev: null };
@@ -466,6 +481,9 @@ async function stewardImplMemorySearch(args) {
   // 与 116 波「否决条目不换说法复活」同一条理由 —— 删掉的话同一条会被原样重写一遍)。
   // 判据不在本文件:调 06d 的 memoryIsExpired,与工作台库同一口径(44 号文 §1.2)。
   const includeExpired = args.includeExpired === true;
+  // 126-M01:可选按作用域筛。**不传就不筛** —— 管家本来就是跨项目的看护者,把项目记忆整个藏掉
+  // 是信息损失;真正的错是把它当成全局(那一半由提示词块标出项目名来治,见 13o)。
+  const scopeWanted = stewardNormalizeMemoryScope(args && args.scope);
   const nowMs = Date.now();
   const store = await stewardReadMemoryStore();
   const terms = q ? stewardMemoryTerms(q) : null;
@@ -473,6 +491,7 @@ async function stewardImplMemorySearch(args) {
   const rows = store.entries
     .filter(e => (includeVetoed || e.state === 'active') && (!kind || e.kind === kind))
     .filter(e => includeExpired || !memoryIsExpired(e, nowMs))
+    .filter(e => stewardMemoryScopeMatches(e, scopeWanted))
     .map(e => ({
       entry: e,
       score: terms ? Math.max(stewardTermJaccard(terms, e.text), e.text.toLowerCase().includes(needle) ? 0.9 : 0) : 0,

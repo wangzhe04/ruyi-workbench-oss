@@ -564,6 +564,29 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     `⑫ 管家族不许自己解析 expiresAt —— 判据只有 06d 的 memoryIsExpired 一处${offenders.length ? '；实得：' + offenders.join(' ⏐ ') : ''}`);
 }
 
+// ── ⑬ 126-M01:「作用域算不算数」也只许有一个判据口 ─────────────────────────────────
+// 与 ⑫ 同一个模具:归一与匹配都在 13j 的 stewardNormalizeMemoryScope / stewardMemoryScopeMatches,
+// 管家族别处不许自己算项目键(那会造出第二套口径)。判据住 13j 而不是 06i 是被依赖图逼出来的:
+// 实测 manifest 里 06i@18 排在 06d@19 之前,06i 引用 06d 的 projectKeyForCwd 是前向边且连带
+// 造出 7 条循环边 —— 与 125-P1「06i 读 06 会造 7 条循环边」是同一个坑、同一个文件。
+{
+  const scopeFiles = fs.readdirSync(SRC).filter(n => /^(06i|13[fgjklmo])-/.test(n) && n.endsWith('.js'));
+  const offenders2 = [];
+  let matchers = 0;
+  for (const name of scopeFiles) {
+    const text = fs.readFileSync(path.join(SRC, name), 'utf8');
+    if (/\bstewardMemoryScopeMatches\s*\(/.test(text)) matchers++;
+    if (name === '13j-steward-tool-base.js') continue;   // 判据本身住这儿
+    for (const line of text.split(/\r?\n/)) {
+      if (/^\s*(\/\/|\*)/.test(line)) continue;          // 注释里怎么写都行
+      if (/projectKeyForCwd\s*\(/.test(line)) offenders2.push(`${name}: ${line.trim().slice(0, 90)}`);
+    }
+  }
+  ok(matchers >= 1, `⑬ 管家族里真的在用那一个作用域判据 stewardMemoryScopeMatches（实得 ${matchers} 个文件；一个都没有 = 过滤被摘掉了）`);
+  ok(offenders2.length === 0,
+    `⑬ 管家族不许自己算项目键 —— 键只由 13j 那一处从 06d 的 projectKeyForCwd 推${offenders2.length ? '；实得：' + offenders2.join(' ⏐ ') : ''}`);
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD TOOLS STATIC E2E: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD TOOLS STATIC E2E: ALL PASS');

@@ -286,6 +286,58 @@ async function stewardDecisionsRead(opts) {
   return { ok: true, rows: matched.slice(0, limit), total: matched.length, limit };
 }
 
+// **住在 13j 不住在 06i**:实测 manifest 里 06i@18 排在 06d@19 【之前】—— 06i 引用 06d 的
+// projectKeyForCwd 是前向边,而且会连带造出 7 条循环边(依赖图 --check 当场报)。这与 125-P1
+// 「06i 读 06 会造 7 条循环边」是同一个坑、同一个文件:**06i 之后的 06 系模块,06i 一律够不着。**
+// 13j@39 在 06d 之后、在 13l/13g/13o 之前,是这组函数唯一站得住的落点。
+// ── 126-M01(44 号文 §1.2 / §6 ①):记忆的作用域 ──────────────────────────────────────
+// 取值两态:空串 = 全局;`project:<16 位十六进制>` = 只在那个项目里成立。键复用工作台库的
+// projectKeyForCwd(06d,后向边)—— **两库同一口径**,与 M02 复用 memoryIsExpired 是同一条理由。
+//
+// **键永远由服务端从一条真实会话的 cwd 推出来,模型只说「这条是不是项目级的」**。这一条是故意的:
+// 31 号文 §2.6 的红线要的是「用户自己说的稳定事实」,让模型自己填一个项目键 = 让它推断
+// 「这条管得着谁」,正是那条红线禁止的事。
+//
+// 非法值一律回落全局 —— **绝不静默当成某个项目**(那会让一条本该到处成立的偏好凭空消失一半)。
+const STEWARD_SCOPE_PROJECT_PREFIX = 'project:';
+function stewardMemoryScopeOf(cwd) {
+  const key = cwd ? projectKeyForCwd(cwd) : '';
+  return key ? STEWARD_SCOPE_PROJECT_PREFIX + key : '';
+}
+function stewardNormalizeMemoryScope(raw) {
+  const value = String(raw || '');
+  if (!value.startsWith(STEWARD_SCOPE_PROJECT_PREFIX)) return '';
+  const key = value.slice(STEWARD_SCOPE_PROJECT_PREFIX.length);
+  return /^[0-9a-f]{16}$/.test(key) ? value : '';
+}
+// 「这条记忆在这个作用域里算不算数」的**唯一判据口**。全局条目到处算数;项目条目只在同一个
+// 项目里算数。scope 传空 = 不按作用域筛(管家本来就是跨项目的看护者,见 §7 ④ 的拍板)。
+function stewardMemoryScopeMatches(entry, scope) {
+  const own = stewardNormalizeMemoryScope(entry && entry.scope);
+  if (!own) return true;
+  const want = stewardNormalizeMemoryScope(scope);
+  return !want ? true : own === want;
+}
+// **住在 06i 不住在 13o**:拼接序是 06i -> 13f -> 13j -> 13k -> 13l -> 13g -> 13m -> 13o,
+// 13g 的面板行也要用它 —— 放 13o 就成了 13g 引用它后面的符号(前向边),steward-runner.static ②
+// 当场把这条逮了出来。这类「新函数该住哪一层」的判断,机械锁比直觉靠谱。
+// 126-M01:把作用域键翻成人看得懂的项目名。**纯展示派生,不是第二套判据** —— 判据在 06i 的
+// stewardMemoryScopeMatches,本函数只负责「这一条该怎么说出来」。配置里的工作区表能对上就报名字,
+// 对不上就报键的前 8 位(绝不编一个名字出来)。
+function stewardMemoryScopeLabel(scope, config) {
+  const normalized = stewardNormalizeMemoryScope(scope);
+  if (!normalized) return '';
+  const rows = [...(Array.isArray(config && config.workspaces) ? config.workspaces : []),
+    ...(Array.isArray(config && config.recentWorkspaces) ? config.recentWorkspaces : [])];
+  for (const row of rows) {
+    const cwd = typeof row === 'string' ? row : String((row && row.cwd) || '');
+    if (cwd && stewardMemoryScopeOf(cwd) === normalized) {
+      return `,只在「${stewardSanitizeText(cwd.split(/[\\/]/).filter(Boolean).pop() || cwd)}」里成立`;
+    }
+  }
+  return `,只在某个项目里成立(${normalized.slice('project:'.length, 'project:'.length + 8)})`;
+}
+
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
 const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
 let stewardMemoryChain = Promise.resolve();
@@ -314,6 +366,9 @@ function stewardNormalizeMemoryEntry(raw) {
     // 这就是本波说的「两库职责划分」:两套存储,一套「什么叫过期」的判据。
     // 老条目没有这个字段 -> 读成空串 -> 永不过期,与今天逐字节同义(存量零迁移,同 mergedFrom 的模具)。
     expiresAt: cleanMemoryDate(raw.expiresAt),
+    // 126-M01:作用域。空串 = 全局;非法值一律回落全局(绝不静默当成某个项目)。判据与归一都在 06i,
+    // 本文件不自己解析 —— 与 expiresAt 同一条纪律。老条目没有这个字段 -> 读成空串 = 全局,存量零迁移。
+    scope: stewardNormalizeMemoryScope(raw.scope),
     // 116-2e(§4 ⑥ 去重合并):被并进本条的来源 ref,最多 5 个(先进先出)。老条目没有这个字段,
     // 读成空数组 —— 存量零迁移。
     mergedFrom: Array.isArray(raw.mergedFrom)

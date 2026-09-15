@@ -207,7 +207,7 @@ function stewardToolHandler(toolName, impl) {
 // ── 记忆面板(六条 token 级路由的域实现;不是工具,模型碰不到)─────────────────────────────
 // 「新」标 isNew 是【纯派生】:createdAt 距今 < 24 小时。不落任何新字段 —— 否则 24 小时后还得有人
 // 回来把它擦掉,而那个「有人」在真实系统里从来不存在。
-function stewardMemoryPanelRow(entry, now) {
+function stewardMemoryPanelRow(entry, now, panelConfig) {
   const createdMs = Date.parse(String(entry.createdAt || ''));
   return {
     ...entry,
@@ -215,6 +215,8 @@ function stewardMemoryPanelRow(entry, now) {
     // 126-M02:面板【照常列出】过期条目,只是带上标记 —— 时效是过滤不是删除(44 号文 §6 ②)。
     // 判据仍然只有一处:06d 的 memoryIsExpired,本文件不自己解析日期。
     expired: memoryIsExpired(entry, now),
+    // 126-M01:作用域的人话标签(纯派生;scope 本身随 ...entry 已经带出)。
+    scopeLabel: stewardMemoryScopeLabel(entry.scope, panelConfig).replace(/^,/, ''),
   };
 }
 
@@ -224,6 +226,8 @@ async function stewardMemoryPanelList(kindArg) {
     return stewardFail('invalid_request', `kind must be one of ${STEWARD_MEMORY_KINDS.join('/')}`);
   }
   const store = await stewardReadMemoryStore();
+  // 126-M01:作用域标签要认工作区表。面板是冷路径,读一次配置不心疼。
+  const panelConfig = await readConfig().catch(() => ({}));
   const now = Date.now();
   const groups = {};
   for (const k of STEWARD_MEMORY_KINDS) if (!kind || k === kind) groups[k] = [];
@@ -233,7 +237,7 @@ async function stewardMemoryPanelList(kindArg) {
     if (entry.state === 'vetoed') vetoed += 1; else active += 1;
     if (kind && entry.kind !== kind) continue;
     if (!Object.prototype.hasOwnProperty.call(groups, entry.kind)) continue;
-    const row = stewardMemoryPanelRow(entry, now);
+    const row = stewardMemoryPanelRow(entry, now, panelConfig);
     if (row.isNew) isNewCount += 1;
     groups[entry.kind].push(row);
   }
@@ -275,7 +279,7 @@ async function stewardMemoryPanelEdit(body) {
     entry.sourceSeq = 0;
     entry.updatedAt = nowIso();
     stewardAppendDecision({ tool: 'steward_memory_panel_edit', args: { id, chars: text.length, kind: entry.kind }, targetSessionId: '', permissionMode: '', mayAct: 'user', undoRef: { kind: 'memory', id, prev: null }, basis: { memoryIds: [id] } });
-    return { persist: true, result: { ok: true, entry: stewardMemoryPanelRow(entry, Date.now()) } };
+    return { persist: true, result: { ok: true, entry: stewardMemoryPanelRow(entry, Date.now(), await readConfig().catch(() => ({}))) } };
   });
 }
 

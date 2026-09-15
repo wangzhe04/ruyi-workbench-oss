@@ -228,7 +228,7 @@ try {
     ok(!/api[_ -]?key\s*[:=]/i.test(dumped) && !/NOT-A-REAL-CREDENTIAL/.test(dumped), 'C7d(E2)export 里零密钥形状字符串');
     const fields = new Set();
     for (const e of r.body.entries) for (const k of Object.keys(e)) fields.add(k);
-    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom', 'expiresAt']); // 126-M02 新增(锁按设计拦住了:加字段必须回来登记)
+    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom', 'expiresAt', 'scope']); // 126-M02/M01 新增(这把锁两次都按设计拦住了:加字段必须回来登记)
     const extra = [...fields].filter(f => !allowed.has(f));
     ok(extra.length === 0, 'C7e export 只含条目本身的字段' + (extra.length ? ' → 多出: ' + extra.join(',') : ''));
   }
@@ -304,6 +304,57 @@ try {
     const srcG6 = await makeUserTurn('报告给我写成中文的哈');
     const gNone = await call('steward_memory_write', { kind: 'preference', text: '用户要求报告写成中文哈', sourceRef: srcG6 });
     ok((readStore().entries.find(e => e.id === gNone.id) || {}).expiresAt === '', 'G10 不给到期日 = 空串(绝大多数条目就该是这样)');
+  }
+
+  /* ═════════ (H) 126-M01 作用域(scope)═════════ */
+  console.log('── (H) 作用域 scope ──');
+  {
+    // 来源会话的 cwd 就是 HOME(makeUserTurn 建会话时传的),所以 project 档推出来的键是 HOME 的键。
+    const srcH = await makeUserTurn('这个仓用 pnpm 不用 npm');
+    const hProject = await call('steward_memory_write', { kind: 'policy', text: '用户在这个仓里用 pnpm 不用 npm', sourceRef: srcH, scope: 'project' });
+    ok(hProject && hProject.ok === true, 'H1 project 档写入成功');
+    const projectEntry = readStore().entries.find(e => e.id === hProject.id) || {};
+    ok(/^project:[0-9a-f]{16}$/.test(String(projectEntry.scope || '')),
+      `H1b 作用域键由**服务端**从来源会话的 cwd 推出来(实得 ${projectEntry.scope})`);
+
+    const srcH2 = await makeUserTurn('报告都写成中文');
+    const hGlobal = await call('steward_memory_write', { kind: 'preference', text: '用户要求所有报告写成中文', sourceRef: srcH2 });
+    ok((readStore().entries.find(e => e.id === hGlobal.id) || {}).scope === '', 'H2 不说就是全局(空串)');
+
+    // 模型编一个键进来 —— 一律回落全局,绝不静默把它锁进某个项目。
+    const srcH3 = await makeUserTurn('随便写点什么');
+    const hBad = await call('steward_memory_write', { kind: 'habit', text: '用户习惯早上处理邮件', sourceRef: srcH3, scope: 'project:deadbeefdeadbeef' });
+    ok((readStore().entries.find(e => e.id === hBad.id) || {}).scope === '',
+      'H3 **模型自己填的键不算数** —— scope 只认 global/project 两个词,键永远服务端推(31 号文 §2.6 红线)');
+
+    // 检索:不传 scope 不筛(管家是跨项目的看护者);传了就只剩「全局 + 那个项目」。
+    const all = await call('steward_memory_search', { limit: 50 });
+    const allIds = (all.entries || []).map(e => e.id);
+    ok(allIds.includes(hProject.id) && allIds.includes(hGlobal.id), 'H4 不传 scope = 不筛(项目条目照常拿得到)');
+    const scoped = await call('steward_memory_search', { limit: 50, scope: projectEntry.scope });
+    const scopedIds = (scoped.entries || []).map(e => e.id);
+    ok(scopedIds.includes(hProject.id) && scopedIds.includes(hGlobal.id), 'H5 传本项目 = 全局 ＋ 本项目都在');
+    const other = await call('steward_memory_search', { limit: 50, scope: 'project:0123456789abcdef' });
+    const otherIds = (other.entries || []).map(e => e.id);
+    ok(!otherIds.includes(hProject.id), 'H6 传【别的】项目 -> 本项目那条不出现');
+    ok(otherIds.includes(hGlobal.id), 'H6b 但全局那条仍然在(全局到处算数)');
+
+    // 面板:scope 原样带出,另有人话标签。
+    const panelH = await req('GET', '/api/steward/memory', undefined, token);
+    const rowsH = Object.values((panelH.body && panelH.body.groups) || {}).flat();
+    const panelProject = rowsH.find(r => r.id === hProject.id);
+    const panelGlobal = rowsH.find(r => r.id === hGlobal.id);
+    ok(panelProject && panelProject.scope === projectEntry.scope, 'H7 面板把 scope 原样带出');
+    ok(panelProject && typeof panelProject.scopeLabel === 'string' && panelProject.scopeLabel.length > 0,
+      `H7b 面板另给一句人话(实得「${panelProject && panelProject.scopeLabel}」)`);
+    ok(panelGlobal && panelGlobal.scopeLabel === '', 'H7c 全局那条没有标签(不是所有条目都印)');
+
+    // 合并:没重新表态就不改作用域(与 expiresAt 那条的不对称是有意的 —— 作用域不会「到期」)。
+    const srcH4 = await makeUserTurn('这个仓还是用 pnpm');
+    const hMerge = await call('steward_memory_write', { kind: 'policy', text: '用户在这个仓里用 pnpm 不用 npm 的', sourceRef: srcH4 });
+    ok(hMerge && hMerge.merged === true, 'H8 同义写入合并');
+    ok((readStore().entries.find(e => e.id === hProject.id) || {}).scope === projectEntry.scope,
+      'H8b 没重新表态 -> 作用域【不动】(它不会「到期」,不该被悄悄改)');
   }
 
   /* ═════════ (F) 开关关 ═════════ */

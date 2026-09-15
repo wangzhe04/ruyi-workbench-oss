@@ -20533,6 +20533,7 @@ function stewardTrimSayAtSentence(value, ceiling) {
 
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
+
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
 // 分词:拉丁按词切,中日韩按 2-gram 切(与 07-autonomy 的 tokenizeToolSearchText 同一思路,但这里必须
 // 自足 —— 06i 不引用任何外部符号)。
@@ -38890,6 +38891,7 @@ const MCP_TOOLS = [
         kind: { type: 'string', enum: ['profile', 'preference', 'habit', 'focus', 'policy'], description: '记忆类别。' },
         text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
+        scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
@@ -46395,6 +46397,58 @@ async function stewardDecisionsRead(opts) {
   return { ok: true, rows: matched.slice(0, limit), total: matched.length, limit };
 }
 
+// **住在 13j 不住在 06i**:实测 manifest 里 06i@18 排在 06d@19 【之前】—— 06i 引用 06d 的
+// projectKeyForCwd 是前向边,而且会连带造出 7 条循环边(依赖图 --check 当场报)。这与 125-P1
+// 「06i 读 06 会造 7 条循环边」是同一个坑、同一个文件:**06i 之后的 06 系模块,06i 一律够不着。**
+// 13j@39 在 06d 之后、在 13l/13g/13o 之前,是这组函数唯一站得住的落点。
+// ── 126-M01(44 号文 §1.2 / §6 ①):记忆的作用域 ──────────────────────────────────────
+// 取值两态:空串 = 全局;`project:<16 位十六进制>` = 只在那个项目里成立。键复用工作台库的
+// projectKeyForCwd(06d,后向边)—— **两库同一口径**,与 M02 复用 memoryIsExpired 是同一条理由。
+//
+// **键永远由服务端从一条真实会话的 cwd 推出来,模型只说「这条是不是项目级的」**。这一条是故意的:
+// 31 号文 §2.6 的红线要的是「用户自己说的稳定事实」,让模型自己填一个项目键 = 让它推断
+// 「这条管得着谁」,正是那条红线禁止的事。
+//
+// 非法值一律回落全局 —— **绝不静默当成某个项目**(那会让一条本该到处成立的偏好凭空消失一半)。
+const STEWARD_SCOPE_PROJECT_PREFIX = 'project:';
+function stewardMemoryScopeOf(cwd) {
+  const key = cwd ? projectKeyForCwd(cwd) : '';
+  return key ? STEWARD_SCOPE_PROJECT_PREFIX + key : '';
+}
+function stewardNormalizeMemoryScope(raw) {
+  const value = String(raw || '');
+  if (!value.startsWith(STEWARD_SCOPE_PROJECT_PREFIX)) return '';
+  const key = value.slice(STEWARD_SCOPE_PROJECT_PREFIX.length);
+  return /^[0-9a-f]{16}$/.test(key) ? value : '';
+}
+// 「这条记忆在这个作用域里算不算数」的**唯一判据口**。全局条目到处算数;项目条目只在同一个
+// 项目里算数。scope 传空 = 不按作用域筛(管家本来就是跨项目的看护者,见 §7 ④ 的拍板)。
+function stewardMemoryScopeMatches(entry, scope) {
+  const own = stewardNormalizeMemoryScope(entry && entry.scope);
+  if (!own) return true;
+  const want = stewardNormalizeMemoryScope(scope);
+  return !want ? true : own === want;
+}
+// **住在 06i 不住在 13o**:拼接序是 06i -> 13f -> 13j -> 13k -> 13l -> 13g -> 13m -> 13o,
+// 13g 的面板行也要用它 —— 放 13o 就成了 13g 引用它后面的符号(前向边),steward-runner.static ②
+// 当场把这条逮了出来。这类「新函数该住哪一层」的判断,机械锁比直觉靠谱。
+// 126-M01:把作用域键翻成人看得懂的项目名。**纯展示派生,不是第二套判据** —— 判据在 06i 的
+// stewardMemoryScopeMatches,本函数只负责「这一条该怎么说出来」。配置里的工作区表能对上就报名字,
+// 对不上就报键的前 8 位(绝不编一个名字出来)。
+function stewardMemoryScopeLabel(scope, config) {
+  const normalized = stewardNormalizeMemoryScope(scope);
+  if (!normalized) return '';
+  const rows = [...(Array.isArray(config && config.workspaces) ? config.workspaces : []),
+    ...(Array.isArray(config && config.recentWorkspaces) ? config.recentWorkspaces : [])];
+  for (const row of rows) {
+    const cwd = typeof row === 'string' ? row : String((row && row.cwd) || '');
+    if (cwd && stewardMemoryScopeOf(cwd) === normalized) {
+      return `,只在「${stewardSanitizeText(cwd.split(/[\\/]/).filter(Boolean).pop() || cwd)}」里成立`;
+    }
+  }
+  return `,只在某个项目里成立(${normalized.slice('project:'.length, 'project:'.length + 8)})`;
+}
+
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
 const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
 let stewardMemoryChain = Promise.resolve();
@@ -46423,6 +46477,9 @@ function stewardNormalizeMemoryEntry(raw) {
     // 这就是本波说的「两库职责划分」:两套存储,一套「什么叫过期」的判据。
     // 老条目没有这个字段 -> 读成空串 -> 永不过期,与今天逐字节同义(存量零迁移,同 mergedFrom 的模具)。
     expiresAt: cleanMemoryDate(raw.expiresAt),
+    // 126-M01:作用域。空串 = 全局;非法值一律回落全局(绝不静默当成某个项目)。判据与归一都在 06i,
+    // 本文件不自己解析 —— 与 expiresAt 同一条纪律。老条目没有这个字段 -> 读成空串 = 全局,存量零迁移。
+    scope: stewardNormalizeMemoryScope(raw.scope),
     // 116-2e(§4 ⑥ 去重合并):被并进本条的来源 ref,最多 5 个(先进先出)。老条目没有这个字段,
     // 读成空数组 —— 存量零迁移。
     mergedFrom: Array.isArray(raw.mergedFrom)
@@ -47972,6 +48029,13 @@ async function stewardImplRunAction(args, ctx, config) {
 
 // 来源校验:sourceRef 指向的那个回合里必须真有一条【用户】消息。工具输出/助手消息来源确定性拒绝
 // (§11.3「工具输出来源确定性拒绝」)—— 否则管家会把自己或工具说的话当成用户的偏好记下来。
+// 126-M01:来源那条会话的工作目录 —— 作用域键的唯一来路。读不出就回空串(落全局)。
+async function stewardSourceCwd(sourceRef) {
+  const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
+  if (!sessionId) return '';
+  const session = await loadSession(sessionId).catch(() => null);
+  return String((session && session.cwd) || '');
+}
 async function stewardSourceIsUserMessage(sourceRef) {
   const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
   if (!sessionId) return false;
@@ -48012,6 +48076,12 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
   //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
   const expiresAt = cleanMemoryDate(args && args.expiresAt);
+  // 126-M01:作用域。模型只说「这条是不是项目级的」,**键由服务端从来源那条会话的 cwd 推出来** ——
+  // 让模型自己填项目键 = 让它推断「这条管得着谁」,正是 31 号文 §2.6 的红线禁止的。
+  // 来源会话读不出 cwd(或模型没说 project)时落全局:宁可多用一条,不可凭空把它锁进某个项目。
+  const scope = String(args && args.scope || '') === 'project'
+    ? stewardMemoryScopeOf(await stewardSourceCwd(sourceRef))
+    : '';
   const terms = stewardMemoryTerms(text);
   return stewardMutateMemory(async store => {
     // 被否决过的同义内容拒绝写回(§4 第 ⑤ 条:vetoed 之后同义不再自动写回)。
@@ -48036,6 +48106,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       // 126-M02 合并时的时效:给了新到期日就用新的;**没给而旧的已经过期,就把到期日清掉** ——
       // 用户又说了一遍,这条事实就是当下有效的。不这么写会留一个陷阱:合并成功、
       // 却因为继承了过去的到期日而仍然不进提示词块(写了等于没写)。
+      if (scope) existing.scope = scope; // 126-M01:只有显式说了 project 才改;没说就不动(作用域不会"到期",不该被悄悄改)
       if (expiresAt) existing.expiresAt = expiresAt;
       else if (memoryIsExpired(existing)) existing.expiresAt = '';
       const undoRef = { kind: 'memory', id: existing.id, prev: null };
@@ -48060,6 +48131,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       state: 'active',
       mergedFrom: [],
       expiresAt, // 126-M02:空串 = 不过期(绝大多数条目就该是空的)
+      scope,     // 126-M01:空串 = 全局(绝大多数条目也该是空的)
     };
     store.entries.push(entry);
     const undoRef = { kind: 'memory', id: entry.id, prev: null };
@@ -48096,6 +48168,9 @@ async function stewardImplMemorySearch(args) {
   // 与 116 波「否决条目不换说法复活」同一条理由 —— 删掉的话同一条会被原样重写一遍)。
   // 判据不在本文件:调 06d 的 memoryIsExpired,与工作台库同一口径(44 号文 §1.2)。
   const includeExpired = args.includeExpired === true;
+  // 126-M01:可选按作用域筛。**不传就不筛** —— 管家本来就是跨项目的看护者,把项目记忆整个藏掉
+  // 是信息损失;真正的错是把它当成全局(那一半由提示词块标出项目名来治,见 13o)。
+  const scopeWanted = stewardNormalizeMemoryScope(args && args.scope);
   const nowMs = Date.now();
   const store = await stewardReadMemoryStore();
   const terms = q ? stewardMemoryTerms(q) : null;
@@ -48103,6 +48178,7 @@ async function stewardImplMemorySearch(args) {
   const rows = store.entries
     .filter(e => (includeVetoed || e.state === 'active') && (!kind || e.kind === kind))
     .filter(e => includeExpired || !memoryIsExpired(e, nowMs))
+    .filter(e => stewardMemoryScopeMatches(e, scopeWanted))
     .map(e => ({
       entry: e,
       score: terms ? Math.max(stewardTermJaccard(terms, e.text), e.text.toLowerCase().includes(needle) ? 0.9 : 0) : 0,
@@ -48519,7 +48595,7 @@ function stewardToolHandler(toolName, impl) {
 // ── 记忆面板(六条 token 级路由的域实现;不是工具,模型碰不到)─────────────────────────────
 // 「新」标 isNew 是【纯派生】:createdAt 距今 < 24 小时。不落任何新字段 —— 否则 24 小时后还得有人
 // 回来把它擦掉,而那个「有人」在真实系统里从来不存在。
-function stewardMemoryPanelRow(entry, now) {
+function stewardMemoryPanelRow(entry, now, panelConfig) {
   const createdMs = Date.parse(String(entry.createdAt || ''));
   return {
     ...entry,
@@ -48527,6 +48603,8 @@ function stewardMemoryPanelRow(entry, now) {
     // 126-M02:面板【照常列出】过期条目,只是带上标记 —— 时效是过滤不是删除(44 号文 §6 ②)。
     // 判据仍然只有一处:06d 的 memoryIsExpired,本文件不自己解析日期。
     expired: memoryIsExpired(entry, now),
+    // 126-M01:作用域的人话标签(纯派生;scope 本身随 ...entry 已经带出)。
+    scopeLabel: stewardMemoryScopeLabel(entry.scope, panelConfig).replace(/^,/, ''),
   };
 }
 
@@ -48536,6 +48614,8 @@ async function stewardMemoryPanelList(kindArg) {
     return stewardFail('invalid_request', `kind must be one of ${STEWARD_MEMORY_KINDS.join('/')}`);
   }
   const store = await stewardReadMemoryStore();
+  // 126-M01:作用域标签要认工作区表。面板是冷路径,读一次配置不心疼。
+  const panelConfig = await readConfig().catch(() => ({}));
   const now = Date.now();
   const groups = {};
   for (const k of STEWARD_MEMORY_KINDS) if (!kind || k === kind) groups[k] = [];
@@ -48545,7 +48625,7 @@ async function stewardMemoryPanelList(kindArg) {
     if (entry.state === 'vetoed') vetoed += 1; else active += 1;
     if (kind && entry.kind !== kind) continue;
     if (!Object.prototype.hasOwnProperty.call(groups, entry.kind)) continue;
-    const row = stewardMemoryPanelRow(entry, now);
+    const row = stewardMemoryPanelRow(entry, now, panelConfig);
     if (row.isNew) isNewCount += 1;
     groups[entry.kind].push(row);
   }
@@ -48587,7 +48667,7 @@ async function stewardMemoryPanelEdit(body) {
     entry.sourceSeq = 0;
     entry.updatedAt = nowIso();
     stewardAppendDecision({ tool: 'steward_memory_panel_edit', args: { id, chars: text.length, kind: entry.kind }, targetSessionId: '', permissionMode: '', mayAct: 'user', undoRef: { kind: 'memory', id, prev: null }, basis: { memoryIds: [id] } });
-    return { persist: true, result: { ok: true, entry: stewardMemoryPanelRow(entry, Date.now()) } };
+    return { persist: true, result: { ok: true, entry: stewardMemoryPanelRow(entry, Date.now(), await readConfig().catch(() => ({}))) } };
   });
 }
 
@@ -49562,7 +49642,11 @@ async function stewardMemoryBlock(session, config, pack) {
     const rows = entries.filter(e => e && e.kind === kind && e.state !== 'vetoed');
     for (const row of rows) {
       const source = row.sourceSessionId ? `来源 ${stewardSanitizeText(row.sourceSessionId)}` : '来源未记';
-      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次)`);
+      // 126-M01(44 号文 §7 ④ 的拍板):管家**不在**任何一个项目里 —— 它是跨项目的看护者,
+      // 所以这里【不按作用域过滤】,而是把项目条目**标出来**。把它们整个藏掉是信息损失;
+      // 把它们当成到处成立才是今天的 bug。标出项目名,两头都不占。
+      const scopeNote = stewardMemoryScopeLabel(row.scope, config);
+      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次${scopeNote})`);
     }
   }
   if (!lines.length) return pack.steward.memoryHeader + '\n' + pack.steward.memoryEmpty;

@@ -42,7 +42,11 @@ async function stewardMemoryBlock(session, config, pack) {
     const rows = entries.filter(e => e && e.kind === kind && e.state !== 'vetoed');
     for (const row of rows) {
       const source = row.sourceSessionId ? `来源 ${stewardSanitizeText(row.sourceSessionId)}` : '来源未记';
-      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次)`);
+      // 126-M01(44 号文 §7 ④ 的拍板):管家**不在**任何一个项目里 —— 它是跨项目的看护者,
+      // 所以这里【不按作用域过滤】,而是把项目条目**标出来**。把它们整个藏掉是信息损失;
+      // 把它们当成到处成立才是今天的 bug。标出项目名,两头都不占。
+      const scopeNote = stewardMemoryScopeLabel(row.scope, config);
+      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次${scopeNote})`);
     }
   }
   if (!lines.length) return pack.steward.memoryHeader + '\n' + pack.steward.memoryEmpty;

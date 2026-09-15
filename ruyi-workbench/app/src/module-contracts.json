@@ -12175,6 +12175,7 @@
         "STEWARD_READ_TAIL_DEFAULT",
         "STEWARD_READ_TAIL_MAX",
         "STEWARD_RUNS_MAX",
+        "STEWARD_SCOPE_PROJECT_PREFIX",
         "STEWARD_SEARCH_LIMIT_DEFAULT",
         "STEWARD_SEARCH_LIMIT_MAX",
         "STEWARD_STEER_TEXT_MAX",
@@ -12195,8 +12196,12 @@
         "stewardMaskDecisionArgs",
         "stewardMemoryChain",
         "stewardMemoryPath",
+        "stewardMemoryScopeLabel",
+        "stewardMemoryScopeMatches",
+        "stewardMemoryScopeOf",
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
+        "stewardNormalizeMemoryScope",
         "stewardQuickClosed",
         "stewardQuickThread",
         "stewardRawKind",
@@ -12305,6 +12310,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "cleanMemoryDate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "projectKeyForCwd",
           "kinds": [
             "call"
           ]
@@ -13015,6 +13027,7 @@
         "stewardImplUsage",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
+        "stewardSourceCwd",
         "stewardSourceIsUserMessage"
       ],
       "requires": [
@@ -13405,7 +13418,28 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryScopeMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryScopeOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardMutateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardNormalizeMemoryScope",
           "kinds": [
             "call"
           ]
@@ -13666,6 +13700,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryScopeLabel",
           "kinds": [
             "call"
           ]
@@ -14380,6 +14421,13 @@
         {
           "provider": "13e-pretender-index.js",
           "symbol": "overlayMissionCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryScopeLabel",
           "kinds": [
             "call"
           ]
