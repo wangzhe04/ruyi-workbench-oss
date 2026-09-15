@@ -12303,6 +12303,13 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "cleanMemoryDate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_CONFIG_SECRET_PATTERN",
           "kinds": [
@@ -13118,6 +13125,20 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "cleanMemoryDate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "memoryProposalLooksSensitive",
           "kinds": [
             "call"
@@ -13530,6 +13551,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
           "kinds": [
             "call"
           ]

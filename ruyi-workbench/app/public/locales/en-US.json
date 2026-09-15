@@ -2558,6 +2558,8 @@
   ,"settings.steward.memory.empty": "The steward has not noted anything about you yet."
   ,"settings.steward.memory.disabled": "Turn the steward on to see this list."
   ,"settings.steward.memory.new": "New"
+  ,"settings.steward.memory.expired": "Expired"
+  ,"settings.steward.memory.expiredHint": "Past its expiry ({{at}}); no longer used. It stays here — clear the expiry to renew it, or veto it."
   ,"settings.steward.memory.confidence": "Confidence {{value}}"
   ,"settings.steward.memory.used": "Used {{count}} times"
   ,"settings.steward.memory.source": "Source"

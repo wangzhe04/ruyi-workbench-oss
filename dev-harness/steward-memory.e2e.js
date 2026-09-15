@@ -228,7 +228,7 @@ try {
     ok(!/api[_ -]?key\s*[:=]/i.test(dumped) && !/NOT-A-REAL-CREDENTIAL/.test(dumped), 'C7d(E2)export 里零密钥形状字符串');
     const fields = new Set();
     for (const e of r.body.entries) for (const k of Object.keys(e)) fields.add(k);
-    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom']);
+    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom', 'expiresAt']); // 126-M02 新增(锁按设计拦住了:加字段必须回来登记)
     const extra = [...fields].filter(f => !allowed.has(f));
     ok(extra.length === 0, 'C7e export 只含条目本身的字段' + (extra.length ? ' → 多出: ' + extra.join(',') : ''));
   }
@@ -241,6 +241,69 @@ try {
     const done = await req('POST', '/api/steward/memory/clear', { confirm: 'clear' }, token);
     ok(done.status === 200 && done.body && done.body.removed === 2, `C9 confirm:'clear' 清空(removed ${done.body && done.body.removed})`);
     ok((readStore().entries || []).length === 0, 'C9b 库真的空了');
+  }
+
+  /* ═════════ (G) 126-M02 时效(expiresAt)═════════ */
+  // 放在 (C) 之后、(F) 之前:那时库刚被 clear 清空(C9b),本段因此自成一体;而 (F) 只判六条路由的
+  // 状态码,不看库里有什么,所以新增本段不会扰动它(125 波那次「新断言插在中段扰动后面的件」的教训)。
+  console.log('── (G) 时效 expiresAt ──');
+  {
+    const past = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const future = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const srcG = await makeUserTurn('这两周在赶 A 项目');
+
+    const gExpired = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 A 项目', sourceRef: srcG, expiresAt: past });
+    ok(gExpired && gExpired.ok === true, 'G1 带过期时间的写入成功');
+    ok((readStore().entries.find(e => e.id === gExpired.id) || {}).expiresAt === past, 'G1b expiresAt 原样落盘');
+
+    const srcG2 = await makeUserTurn('下个月要交季度总结');
+    const gLive = await call('steward_memory_write', { kind: 'focus', text: '用户下个月要交季度总结', sourceRef: srcG2, expiresAt: future });
+    ok(gLive && gLive.ok === true, 'G2 带未来到期日的写入成功');
+
+    // 读取口过滤:过期的那条不出现在检索结果里(提示词块走的就是这一口)。
+    const found = await call('steward_memory_search', { limit: 50 });
+    const ids = (found.entries || []).map(e => e.id);
+    ok(!ids.includes(gExpired.id), `G3 过期条目【不出现】在检索结果里(实得 ${ids.length} 条)`);
+    ok(ids.includes(gLive.id), 'G4 未过期的照常出现');
+
+    const all = await call('steward_memory_search', { limit: 50, includeExpired: true });
+    ok((all.entries || []).map(e => e.id).includes(gExpired.id), 'G5 显式 includeExpired 时能拿到过期条目(是过滤,不是删除)');
+
+    // 面板照常列出,并带上标记 —— 用户看得见「它过期了」,可以续期或删除。
+    const panel = await req('GET', '/api/steward/memory', undefined, token);
+    const rows = Object.values((panel.body && panel.body.groups) || {}).flat();
+    const panelExpired = rows.find(r => r.id === gExpired.id);
+    const panelLive = rows.find(r => r.id === gLive.id);
+    ok(!!panelExpired, 'G6 过期条目仍在面板上列着(时效是过滤不是删除)');
+    ok(panelExpired && panelExpired.expired === true, 'G6b 面板给它打了 expired 标');
+    ok(panelLive && panelLive.expired === false, 'G6c 没过期的那条 expired:false');
+
+    // 最要紧的一条:合并进一条【已经过期】的条目而没给新到期日 -> 到期日必须被清掉。
+    // 不这么做会留一个陷阱:合并成功、却因为继承了过去的到期日而仍然不进提示词块(写了等于没写)。
+    const srcG3 = await makeUserTurn('这两周还在赶 A 项目');
+    const gMerge = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 A 项目呢', sourceRef: srcG3 });
+    ok(gMerge && gMerge.merged === true && gMerge.id === gExpired.id, 'G7 同义写入合并进那条已过期的条目');
+    ok((readStore().entries.find(e => e.id === gExpired.id) || {}).expiresAt === '',
+      'G7b **合并时旧的已过期且没给新到期日 -> 到期日被清掉**(用户又说了一遍,这条就是当下有效的)');
+    const after = await call('steward_memory_search', { limit: 50 });
+    ok((after.entries || []).map(e => e.id).includes(gExpired.id), 'G7c 于是它重新出现在检索结果里(写了不等于没写)');
+
+    // 给了新到期日就用新的。
+    const srcG4 = await makeUserTurn('A 项目再延一周');
+    // 注意:这里要用与当前条目【逐字相同】的 text。第一版写成只差末字的另一句,双字组 Jaccard
+    // 只有 0.778(阈值 0.8),于是它另开了一条新条目 —— 夹具错了,不是实现错了(实测两句的
+    // terms 分别是 ...|项目|目呢 与 ...|项目|目啊,九个双字组里差了两个)。
+    const gMerge2 = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 A 项目呢', sourceRef: srcG4, expiresAt: future });
+    ok(gMerge2 && gMerge2.merged === true, 'G8 再次同义写入仍然合并');
+    ok((readStore().entries.find(e => e.id === gExpired.id) || {}).expiresAt === future, 'G8b 给了新到期日就用新的');
+
+    // 非法/缺省一律清洗成空串 = 永不过期(存量条目没有这个字段,读成空串,与今天逐字节同义)。
+    const srcG5 = await makeUserTurn('我用的是 Windows');
+    const gBad = await call('steward_memory_write', { kind: 'profile', text: '用户用的是 Windows 系统', sourceRef: srcG5, expiresAt: '明天' });
+    ok((readStore().entries.find(e => e.id === gBad.id) || {}).expiresAt === '', 'G9 非法到期日清洗成空串(= 永不过期,绝不静默当成已过期)');
+    const srcG6 = await makeUserTurn('报告给我写成中文的哈');
+    const gNone = await call('steward_memory_write', { kind: 'preference', text: '用户要求报告写成中文哈', sourceRef: srcG6 });
+    ok((readStore().entries.find(e => e.id === gNone.id) || {}).expiresAt === '', 'G10 不给到期日 = 空串(绝大多数条目就该是这样)');
   }
 
   /* ═════════ (F) 开关关 ═════════ */

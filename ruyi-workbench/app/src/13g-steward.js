@@ -212,6 +212,9 @@ function stewardMemoryPanelRow(entry, now) {
   return {
     ...entry,
     isNew: Number.isFinite(createdMs) && (now - createdMs) < STEWARD_MEMORY_NEW_WINDOW_MS,
+    // 126-M02:面板【照常列出】过期条目,只是带上标记 —— 时效是过滤不是删除(44 号文 §6 ②)。
+    // 判据仍然只有一处:06d 的 memoryIsExpired,本文件不自己解析日期。
+    expired: memoryIsExpired(entry, now),
   };
 }
 

@@ -434,6 +434,14 @@ export function createStewardSettingsDomain({
 
     const meta = el('div', 'steward-memory-meta');
     if (entry.isNew === true) meta.appendChild(el('span', 'steward-memory-new', t('settings.steward.memory.new')));
+    // 126-M02：过期条目**照常列在面板上**（时效是过滤不是删除），只是带一枚标 —— 用户看得见
+    // 「它到期了」，可以改掉到期日续期、也可以直接否决。判据是服务端算好的 expired，
+    // 前端不自己解析日期（与 isNew 同一个模具：可见层不造第二套判据）。
+    if (entry.expired === true) {
+      const badge = el('span', 'steward-memory-expired', t('settings.steward.memory.expired'));
+      badge.title = t('settings.steward.memory.expiredHint', { at: String(entry.expiresAt || '') });
+      meta.appendChild(badge);
+    }
     meta.appendChild(el('span', '', t('settings.steward.memory.confidence', { value: Number(entry.confidence || 0).toFixed(2) })));
     meta.appendChild(el('span', '', t('settings.steward.memory.used', { count: Number(entry.useCount || 0) })));
     // 来源悬停（§8.7「使用可解释」）：会话与 seq 走 title，不占版面。

@@ -178,6 +178,15 @@
   background: var(--accent);
   border-radius: var(--r-pill);
 }
+/* 126-M02：已过期的条目仍然列着，只是标出来（时效是过滤，不是删除）。用中性的「已停用」色，
+   不抢 .steward-memory-new 那枚强调色 —— 过期不是错误，是这条事实到点了。 */
+.steward-memory-expired {
+  padding: 0 var(--sp-1);
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+}
 .steward-memory-btn {
   font: inherit;
   font-size: var(--fs-xs);

@@ -710,6 +710,43 @@ try {
   const record = await waitForHttp(wizardPort, 'GET', '/api/status',
     r => Boolean(r.json && r.json.config && r.json.config.onboarding && r.json.config.onboarding.completedAt), wizardToken, 60);
   ok(Boolean(record), 'I8 onboarding.completedAt 已写（向导真的走完了，不是被跳过）');
+
+  /* ═════════ K 126-M02 记忆面的「已过期」标（真浏览器）═════════ */
+  // **放在最末**：本组会重写记忆库，而 C 组的「新」角标判据读的是同一个库 —— 插在中段会把 C 组
+  // 搅了（125 波那次「新断言插在中段扰动后面的件」的教训）。用主浏览器 cdp／主服务，不是向导那台。
+  // 纪律 13：前端 JS 改了就要有真浏览器件 —— 这一组量的就是「用户到底看不看得见它过期了」。
+  {
+    const pastIso = new Date(Date.now() - DAY_MS).toISOString();
+    const futureIso = new Date(Date.now() + DAY_MS).toISOString();
+    fs.writeFileSync(path.join(home, 'steward', 'memory-v1.json'), memoryStore([
+      { ...memoryEntry('expired-one', 3 * DAY_MS), expiresAt: pastIso },
+      { ...memoryEntry('live-one', 3 * DAY_MS), expiresAt: futureIso },
+    ]), 'utf8');
+    const onMemoryExpiry = await clickPocket('memory');
+    ok(Boolean(onMemoryExpiry) && onMemoryExpiry.memoryGroup, 'K1 记忆组打开');
+    const painted = await waitForEval(cdp, `(() => {
+      const rowOf = id => document.querySelector('#cfgStewardGroupMemory .steward-memory-item[data-memory-id="' + id + '"]');
+      const expiredRow = rowOf('expired-one'), liveRow = rowOf('live-one');
+      if (!expiredRow || !liveRow) return null;
+      const badge = node => node.querySelector('.steward-memory-expired');
+      return {
+        rows: document.querySelectorAll('#cfgStewardGroupMemory .steward-memory-item').length,
+        expiredBadge: badge(expiredRow) ? badge(expiredRow).textContent : '',
+        expiredVisible: badge(expiredRow) ? badge(expiredRow).offsetParent !== null : false,
+        expiredTitle: badge(expiredRow) ? badge(expiredRow).title : '',
+        liveBadge: badge(liveRow) ? '有' : '没有',
+      };
+    })()`, 200);
+    ok(Boolean(painted) && painted.rows === 2,
+      `K2 两条都列在面板上 —— **过期的没被删掉**（实测 ${painted && painted.rows} 行）`);
+    ok(Boolean(painted) && painted.expiredBadge === '已过期' && painted.expiredVisible === true,
+      `K3 过期那条画出了「已过期」标且真的在屏上（实测「${painted && painted.expiredBadge}」，可见 ${painted && painted.expiredVisible}）`);
+    ok(Boolean(painted) && painted.liveBadge === '没有',
+      `K4 没过期的那条【没有】这枚标（实测 ${painted && painted.liveBadge}）—— 不是所有条目都印`);
+    ok(Boolean(painted) && String(painted.expiredTitle).includes(pastIso),
+      `K5 悬停说得出到期时刻（实测 ${String((painted && painted.expiredTitle) || '').slice(0, 60)}）`);
+    await closeSettings();
+  }
 } catch (error) {
   fail += 1;
   console.log('ERROR ' + (error && error.stack ? error.stack : error));

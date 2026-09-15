@@ -2558,6 +2558,8 @@
   ,"settings.steward.memory.empty": "管家还没记下关于你的任何事。"
   ,"settings.steward.memory.disabled": "先打开管家，才有这一份记录。"
   ,"settings.steward.memory.new": "新"
+  ,"settings.steward.memory.expired": "已过期"
+  ,"settings.steward.memory.expiredHint": "这条已过到期日({{at}}),不再被用上;仍留在这里,可以改掉到期日续期,也可以否决"
   ,"settings.steward.memory.confidence": "把握 {{value}}"
   ,"settings.steward.memory.used": "用过 {{count}} 次"
   ,"settings.steward.memory.source": "来源"

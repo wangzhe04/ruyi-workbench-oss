@@ -540,6 +540,30 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     '⑪ quick_ask 的帽检查同样挂在「省略 cwd」那一支下');
 }
 
+// ── ⑫ 126-M02:「什么叫过期」只许有一个判据口 ─────────────────────────────────────────
+// 管家记忆补了 expiresAt(44 号文 §1.2)。判据**没有**在管家族里另写一份 —— 复用工作台库
+// 06d 已有的 memoryIsExpired(它只读 .expiresAt,与条目形状无关)。这就是本波说的「两库职责
+// 划分」:两套存储,一套判据。这把锁钉住这件事,否则哪天有人在某个读取口里顺手写一句
+// `Date.parse(e.expiresAt) < Date.now()`,两处判据就开始各说各话(与 125 波「判据唯一」同一个模具)。
+{
+  const stewardFiles = fs.readdirSync(SRC).filter(n => /^(06i|13[fgjklmo])-/.test(n) && n.endsWith('.js'));
+  const offenders = [];
+  let callers = 0;
+  for (const name of stewardFiles) {
+    const text = fs.readFileSync(path.join(SRC, name), 'utf8');
+    if (/\bmemoryIsExpired\s*\(/.test(text)) callers++;
+    for (const line of text.split(/\r?\n/)) {
+      if (!/expiresAt/.test(line)) continue;
+      if (/^\s*(\/\/|\*)/.test(line)) continue;                 // 注释里怎么写都行
+      if (/Date\.parse\s*\(|new Date\s*\(/.test(line)) offenders.push(`${name}: ${line.trim().slice(0, 100)}`);
+    }
+  }
+  ok(stewardFiles.length >= 6, `⑫ 扫得到管家族文件（实得 ${stewardFiles.length} 个；扫不到 = 本条静默失效）`);
+  ok(callers >= 2, `⑫ 管家族里真的在用那一个判据 memoryIsExpired（实得 ${callers} 个文件；一个都没有 = 过滤被摘掉了）`);
+  ok(offenders.length === 0,
+    `⑫ 管家族不许自己解析 expiresAt —— 判据只有 06d 的 memoryIsExpired 一处${offenders.length ? '；实得：' + offenders.join(' ⏐ ') : ''}`);
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD TOOLS STATIC E2E: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD TOOLS STATIC E2E: ALL PASS');

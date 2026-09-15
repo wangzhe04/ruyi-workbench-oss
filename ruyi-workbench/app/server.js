@@ -38890,6 +38890,7 @@ const MCP_TOOLS = [
         kind: { type: 'string', enum: ['profile', 'preference', 'habit', 'focus', 'policy'], description: '记忆类别。' },
         text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
+        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
           description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。会被服务端核对角色。',
@@ -46417,6 +46418,11 @@ function stewardNormalizeMemoryEntry(raw) {
     lastUsedAt: String(raw.lastUsedAt || ''),
     useCount: Math.max(0, Number(raw.useCount) || 0),
     state: raw.state === 'vetoed' ? 'vetoed' : 'active',
+    // 126-M02(44 号文 §1.2):条目的时效。清洗与判据【都不在这儿】—— 复用工作台库
+    // (06d)已有的 cleanMemoryDate / memoryIsExpired,那两个原语只读 .expiresAt,与条目形状无关。
+    // 这就是本波说的「两库职责划分」:两套存储,一套「什么叫过期」的判据。
+    // 老条目没有这个字段 -> 读成空串 -> 永不过期,与今天逐字节同义(存量零迁移,同 mergedFrom 的模具)。
+    expiresAt: cleanMemoryDate(raw.expiresAt),
     // 116-2e(§4 ⑥ 去重合并):被并进本条的来源 ref,最多 5 个(先进先出)。老条目没有这个字段,
     // 读成空数组 —— 存量零迁移。
     mergedFrom: Array.isArray(raw.mergedFrom)
@@ -48002,6 +48008,10 @@ async function stewardImplMemoryWrite(args, ctx, config) {
     return stewardFail('sensitive_rejected', 'the text looks like a credential/secret and will never be stored in steward memory');
   }
 
+  // 126-M02:时效。清洗复用 06d 的 cleanMemoryDate(非法/缺省 -> 空串 = 不过期)。
+  // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
+  //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
+  const expiresAt = cleanMemoryDate(args && args.expiresAt);
   const terms = stewardMemoryTerms(text);
   return stewardMutateMemory(async store => {
     // 被否决过的同义内容拒绝写回(§4 第 ⑤ 条:vetoed 之后同义不再自动写回)。
@@ -48023,6 +48033,11 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       existing.sourceSessionId = String(sourceRef.sessionId || '');
       existing.sourceSeq = Math.max(0, Number(sourceRef.turnSeq) || 0);
       existing.updatedAt = at;
+      // 126-M02 合并时的时效:给了新到期日就用新的;**没给而旧的已经过期,就把到期日清掉** ——
+      // 用户又说了一遍,这条事实就是当下有效的。不这么写会留一个陷阱:合并成功、
+      // 却因为继承了过去的到期日而仍然不进提示词块(写了等于没写)。
+      if (expiresAt) existing.expiresAt = expiresAt;
+      else if (memoryIsExpired(existing)) existing.expiresAt = '';
       const undoRef = { kind: 'memory', id: existing.id, prev: null };
       stewardAppendDecision({ tool: 'steward_memory_write', args: { kind, chars: text.length, merged: true }, targetSessionId: String(sourceRef.sessionId || ''), permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [existing.id] } });
       return { persist: true, result: { ok: true, id: existing.id, merged: true, undoRef } };
@@ -48044,6 +48059,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       useCount: 0,
       state: 'active',
       mergedFrom: [],
+      expiresAt, // 126-M02:空串 = 不过期(绝大多数条目就该是空的)
     };
     store.entries.push(entry);
     const undoRef = { kind: 'memory', id: entry.id, prev: null };
@@ -48074,11 +48090,19 @@ async function stewardImplMemorySearch(args) {
   const kind = STEWARD_MEMORY_KINDS.includes(String(args.kind || '')) ? String(args.kind) : '';
   const limit = stewardClampInt(args.limit, 1, STEWARD_MEMORY_LIMITS.searchLimit, 20);
   const includeVetoed = args.includeVetoed === true;
+  // 126-M02:过期条目默认**不出现在读取结果里** —— 提示词块(13o)与模型自己的检索都走这一口,
+  // 所以「过期就不再被用上」这件事在这一处就够了,不必散到调用方去。
+  // 时效是**过滤,不是删除**:条目仍在库里、仍在面板上可见并带「已过期」标(§6 ② 的拍板;
+  // 与 116 波「否决条目不换说法复活」同一条理由 —— 删掉的话同一条会被原样重写一遍)。
+  // 判据不在本文件:调 06d 的 memoryIsExpired,与工作台库同一口径(44 号文 §1.2)。
+  const includeExpired = args.includeExpired === true;
+  const nowMs = Date.now();
   const store = await stewardReadMemoryStore();
   const terms = q ? stewardMemoryTerms(q) : null;
   const needle = q.toLowerCase();
   const rows = store.entries
     .filter(e => (includeVetoed || e.state === 'active') && (!kind || e.kind === kind))
+    .filter(e => includeExpired || !memoryIsExpired(e, nowMs))
     .map(e => ({
       entry: e,
       score: terms ? Math.max(stewardTermJaccard(terms, e.text), e.text.toLowerCase().includes(needle) ? 0.9 : 0) : 0,
@@ -48500,6 +48524,9 @@ function stewardMemoryPanelRow(entry, now) {
   return {
     ...entry,
     isNew: Number.isFinite(createdMs) && (now - createdMs) < STEWARD_MEMORY_NEW_WINDOW_MS,
+    // 126-M02:面板【照常列出】过期条目,只是带上标记 —— 时效是过滤不是删除(44 号文 §6 ②)。
+    // 判据仍然只有一处:06d 的 memoryIsExpired,本文件不自己解析日期。
+    expired: memoryIsExpired(entry, now),
   };
 }
 

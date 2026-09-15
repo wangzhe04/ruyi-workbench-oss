@@ -648,7 +648,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ④ 124 走查 B（用户三选一选了 B）：委托书线程的第一条消息折成一行 → 下面这个终值。
 //   ⑤ 125-P2:工具卡摘要行上的缓存徽标(.tc-stale,chat-live.css)—— 没有 data-stale 时整枚
 //      display:none,其余工具卡逐像素不变 → 下面这个终值。
-const LEGACY_STYLES_SHA256 = '81eb86da712df6d03f7e40570c4c7b3b5b09e5f2ebe8dba97fa66a90ee84451d';
+//   ⑥ 126-M02:管家记忆面的「已过期」标(.steward-memory-expired,views/steward-settings.css)——
+//      新增一条中性色 pill 规则,只在服务端算出 expired:true 时才渲染出这个元素,其余条目逐像素不变 -> 下面这个终值。
+const LEGACY_STYLES_SHA256 = '07031c43b3d64660af65702cdee19f294d6a4a8c762fbb10100db691a7006ef8';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

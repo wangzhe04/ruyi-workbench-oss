@@ -309,6 +309,11 @@ function stewardNormalizeMemoryEntry(raw) {
     lastUsedAt: String(raw.lastUsedAt || ''),
     useCount: Math.max(0, Number(raw.useCount) || 0),
     state: raw.state === 'vetoed' ? 'vetoed' : 'active',
+    // 126-M02(44 号文 §1.2):条目的时效。清洗与判据【都不在这儿】—— 复用工作台库
+    // (06d)已有的 cleanMemoryDate / memoryIsExpired,那两个原语只读 .expiresAt,与条目形状无关。
+    // 这就是本波说的「两库职责划分」:两套存储,一套「什么叫过期」的判据。
+    // 老条目没有这个字段 -> 读成空串 -> 永不过期,与今天逐字节同义(存量零迁移,同 mergedFrom 的模具)。
+    expiresAt: cleanMemoryDate(raw.expiresAt),
     // 116-2e(§4 ⑥ 去重合并):被并进本条的来源 ref,最多 5 个(先进先出)。老条目没有这个字段,
     // 读成空数组 —— 存量零迁移。
     mergedFrom: Array.isArray(raw.mergedFrom)
