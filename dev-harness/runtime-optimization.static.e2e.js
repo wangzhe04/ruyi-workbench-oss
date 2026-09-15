@@ -268,6 +268,25 @@ ok(/function summaryPromptWithGuidance\(config\)/.test(src), 'F3 取话口带 co
     'F3 归一之后按【行首】匹配 —— 正文里顺嘴提一句不算数');
 }
 
+console.log('\n── [F4] 126-111b · L2 尾部单元边界＋桥接 ──');
+ok(/runtimeReseedTailUnitsV1: false/.test(src), 'F4 开关默认关');
+ok(!/runtimeReseedTailUnitsV1: true/.test(src), 'F4 没有在别处被默认翻开');
+ok(/function reseedTailUnitsEnabled\(config\)/.test(src), 'F4 判定函数存在(唯一判定口)');
+ok(/function recentTurnsBoundary\(history, maxTailTokens, byUnits\)/.test(src), 'F4 边界函数带 byUnits(已过门的布尔,函数体不读开关)');
+ok(/if \(byUnits === true && boundary === history\.length && history\.length\)/.test(src),
+  'F4 **只在「一个 user 回合都装不下」时才退化** —— 装得下时逐字节走老路');
+ok(/historyUnitStarts\(history\)/.test(src), 'F4 退化时用的是 111a 那个单元起点原语(切口永远不落在 tool 上)');
+ok(/以下为摘要之后保留的最近工具往来/.test(src), 'F4 桥接文案在场');
+{
+  // 与 F1／F2 同一把机械锁:byUnits 只能由判定函数把门。
+  const lines = src.split(/\r?\n/).filter(line => /recentTurnsBoundary\(history, tailBudget/.test(line));
+  ok(lines.length === 1, `F4 扫得到 CompactionPlan 里那唯一的边界调用（实得 ${lines.length} 处）`);
+  ok(lines.every(line => /reseedTailUnitsEnabled\s*\(/.test(line)),
+    `F4 那一处由 reseedTailUnitsEnabled 把门${lines.length ? '；实得：' + lines.map(s => s.trim()).join(' ⏐ ') : ''}`);
+  const nets = src.split(/\r?\n/).filter(line => /repairProviderHistoryPairing\(/.test(line) && /reseedTailUnitsEnabled\s*\(/.test(line));
+  ok(nets.length === 2, `F4 两处 reseed 出口都挂了配对安全网且都由开关把门（实得 ${nets.length} 处）`);
+}
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

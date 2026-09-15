@@ -19,6 +19,12 @@ function historyReadDedupEnabled(config) {
   return !!(config && config.runtimeHistoryReadDedupV1 === true);
 }
 
+// 126-111b: L2 尾部按单元保留的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
+// recentTurnsBoundary 与 CompactionPlan.reseed 逐字节等价今天(最新一整回合放不下就一条不留)。
+function reseedTailUnitsEnabled(config) {
+  return !!(config && config.runtimeReseedTailUnitsV1 === true);
+}
+
 // 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
 // 摘要 prompt 逐字节仍是今天那份中文。
 function summaryPromptI18nEnabled(config) {

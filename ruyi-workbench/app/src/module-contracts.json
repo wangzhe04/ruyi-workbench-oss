@@ -131,6 +131,7 @@
         "memoryRelevanceMax",
         "memoryVectorRecallEnabled",
         "observationRecallEnabled",
+        "reseedTailUnitsEnabled",
         "sessionNotesEnabled",
         "sessionNotesInjectEnabled",
         "sessionNotesMergeEnabled",
@@ -7649,6 +7650,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "reseedTailUnitsEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesEnabled",
           "kinds": [
             "call"
@@ -7776,6 +7784,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "repairProviderHistoryPairing",
           "kinds": [
             "call"
           ]
@@ -16653,6 +16668,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "historyReadDedupEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "reseedTailUnitsEnabled",
           "kinds": [
             "read"
           ]

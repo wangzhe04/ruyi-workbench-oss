@@ -264,3 +264,35 @@
 **生成器链与门**：整条重跑（依赖图 420 边／1 SCC，抄写件落地后零新增边）；`--fast` 72/72；摘要族八件串行 8/8；计数锁重钉 unit suite 49→50（三处）；控制字符扫描干净。
 
 **收口全量**：**348 pass / 1 fail / 1 flaky**。唯一的红是 `budget-guard.e2e.js` 的 `E30 零触发路径请求体与全关基线逐字节一致`。**不是这一刀**，而且这次有一个比「stash 掉再跑」更硬的证据：**同一条判据在上一刀 M01 的收口全量里就已经以 flaky 出现过**（那时 111d 还没落地）。它比较的是【两台真服务】跑完真回合之后抓到的请求体逐字节，除 `elapsedMs` 外的墙钟派生字段没归一全，在并行负载下就会差开；本刀单跑两发全绿（54.4 s／56.8 s）。**归第四批**，病历两份已经攒齐，下次动它时从「`normalizeCapText` 还漏了哪些墙钟字段」进。
+
+### ⑥ B-111b · L2 尾部单元边界＋桥接（2026-09-16）
+
+**今天的毛病**：`recentTurnsBoundary` 只在 user 回合边界上切，**最新一整个 user 回合放不下时一条都不留**（`boundary` 停在 `history.length` → `kept = []`）。而一个 user 回合里带几十个工具往来是常态 —— 于是「摘要 ＋ 一句收到」之后模型手里什么都没有，它刚做过的事全靠摘要转述。
+
+**改了什么**（`runtimeReseedTailUnitsV1`，默认关）：
+
+- `recentTurnsBoundary(history, maxTailTokens, byUnits)`：**只在「一个 user 回合都装不下」时才退化**为按单元从尾部装（`boundary === history.length` 才进这一支），装得下时逐字节走老路。单元起点用 **111a 那个 `historyUnitStarts`**（非 tool 的那一条）—— 切口天然落在「assistant(tool_calls) ＋ 其全部 tool 回复」的头上，**永远不劈开配对**。
+- `CompactionPlan.reseed`：保留段以 assistant 打头时插一条桥接 user（避免 `[assistant(收到), assistant(tool_calls)]` 两条连续 assistant 破部分 provider 的交替契约）。
+- 两处 reseed 出口挂**配对安全网**（`repairProviderHistoryPairing`），开关开时才调。它按设计**应当一条都修不到** —— 真修到了说明边界算错了，而修掉孤儿比让下一次请求 400 强。
+
+**一处与派单稿不同**：桥接文案**写在 `reseed` 里而不是 06b 提示词注册表**（25 号文 §1.2 原文是 registry）。理由与 111d 同一条：**`10 → 06b` 是循环边**；而且 `reseed` 里另外三处文案本来也都是内联的。
+
+**判据读数**（新件 `dev-harness/unit/reseed-tail-units.test.js`，16 条）：A 组开关关＝今天的行为（一条不留、重播种就两条、显式 false 与缺省逐字节相同）；B 组开关开时装不下才退化（实得 kept 5 条、至少留住一次完整工具往来），**装得下时开关开也走老路且逐字节相同**；C 组配对铁律；D 组桥接该插时插、不该插时不插。
+
+**反向三处**：① 单元起点换成「每一条都能当起点」→ C0 红并点名具体档位；② 摘掉桥接 → D1／D2 红（出现两条连着的 assistant）；③ 去掉「只在装不下时才退化」这道条件 → D3／D4／D4b 红（装得下的那一档也被改了行为）。三处还原后 sha256 逐字节相同。
+
+**反向第四次逮到我的判据不是承重的，而且这次花了两轮才咬住**：
+
+1. 第一版 C1 只看**一个**预算档下的边界，而那个档碰巧落在 assistant 上 → 反向①绿。
+2. 改成**逐档扫 28 个尾预算**之后仍然绿 —— 因为夹具的形状（工具结果大、assistant 文本小）决定了从尾部往回装总是「大块 tool 撑爆预算」而断在 assistant 上。
+3. 补上**第二种形状**（assistant 文本大、工具结果小）后才咬住：反向①当场红并点名 `文本大/300->20`、`工具大/22692->8` 等具体档位。
+
+教训写进判据注释：**扫一段区间还不够，形状也要换一种**；单一形状的遍历只是「同一个陷阱走了 96 遍」。
+
+**沙箱第三次要注真函数**：`maybeCompactSubHistory` 的 reseed 出口新增了两个跨模块调用，`context-governance.e2e.js` 的 `new Function` 沙箱缺了它们会 `ReferenceError` 被**被测函数自己的 try/catch** 吞成「没压缩」，A 组六条红而真因在别处。另外那件的 `recentTurnsBoundary` 抽取式写死了旧签名，签名一变就 `match` 到 `null`，报错（`null[0]`）离真因隔着十万八千里 —— 抽取式跟着放宽成 `(?:, byUnits)?`。
+
+**我自己收紧的 README 计数锁第二次拦住我自己**（unit suite 50→51）。
+
+**生成器链与门**：整条重跑（依赖图 420 边／1 SCC，零新增边）；`--fast` 72/72；压缩族六件串行 6/6；控制字符扫描干净。
+
+**收口全量**：**348 pass / 1 fail / 5 flaky**。红的仍是 `walkthrough-round1.browser`（F 组四条 ＋ C2），**不是本刀**：M02 那一轮已经做过控制对照 —— 我的树 3 跑 FAIL／flaky／FAIL，**HEAD 3 跑全红**；它是 UI 走查件，与压缩一行都不沾。**但这一轮的读数本身要打折看**：五件 flaky 每轮换一批名字（`mission-threads`／`thread-arbiter`／`session-index`／`ec-d-performance`／`workbench-thread-head`），全是浏览器与墙钟那一族 —— **长会话后期这台机器已经明显变噪**，同一棵树早些时候连着两轮是 349/0/0。所以本刀的把握不建立在这一轮上，而建立在：压缩族六件串行 6/6、新件 16 条、`--fast` 72/72、三处反向各自点名。

@@ -806,6 +806,12 @@ function historyReadDedupEnabled(config) {
   return !!(config && config.runtimeHistoryReadDedupV1 === true);
 }
 
+// 126-111b: L2 尾部按单元保留的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
+// recentTurnsBoundary 与 CompactionPlan.reseed 逐字节等价今天(最新一整回合放不下就一条不留)。
+function reseedTailUnitsEnabled(config) {
+  return !!(config && config.runtimeReseedTailUnitsV1 === true);
+}
+
 // 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
 // 摘要 prompt 逐字节仍是今天那份中文。
 function summaryPromptI18nEnabled(config) {
@@ -1087,6 +1093,10 @@ function defaultConfig() {
     // 126-111d(25 号文 §1.2): 摘要 prompt 双语。开关开且 locale 是 en-US 时用英文那份
     // (判据与 06b 的 getPromptPack 同一条,不另立第二套语言口径)。默认关 = 逐字节仍是中文。
     runtimeSummaryPromptI18nV1: false,
+    // 126-111b(25 号文 §1.2): L2 尾部按【单元】保留 —— 最新一整个 user 回合放不下时,不再一条不留,
+    // 而是按「assistant(tool_calls)＋其全部 tool 回复」这样的完整单元从尾部装;保留段以 assistant
+    // 打头时插一条桥接 user 消息。默认关 = 逐字节等价今天(装不下就 kept=[])。
+    runtimeReseedTailUnitsV1: false,
     // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
     // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);真实历史门后默认开启。
     runtimeObservationRecallV1: true,
@@ -1738,7 +1748,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -33632,7 +33642,7 @@ function upsertCompactMarker(session, o) {
 // history is represented by the structured summary. A kept slice always starts at role:'user', so it cannot
 // orphan an assistant tool_call or its tool result. If the newest whole user turn alone exceeds the cap,
 // return history.length: it remains in the summary instead of violating the fixed-tail budget.
-function recentTurnsBoundary(history, maxTailTokens) {
+function recentTurnsBoundary(history, maxTailTokens, byUnits) {
   if (!Array.isArray(history)) return 0;
   const cap = Math.max(0, Math.floor(Number(maxTailTokens == null ? COMPACT_RESEED_TAIL_MAX_TOKENS : maxTailTokens) || 0));
   if (!cap) return history.length;
@@ -33644,6 +33654,26 @@ function recentTurnsBoundary(history, maxTailTokens) {
     if (keptTokens + turnTokens > cap) break;
     keptTokens += turnTokens;
     boundary = begin;
+  }
+  // 126-111b:**最新一整个 user 回合放不下时,今天一条都不留**(boundary 停在 history.length ->
+  // kept = [])。一个 user 回合里带几十个工具往来是常态,于是「摘要 + 一句收到」之后模型手里
+  // 什么都没有 —— 它刚做过的事全靠摘要转述。
+  //
+  // 开关开时退化为**按单元**从尾部装:单元起点＝非 tool 的那一条(historyUnitStarts,与 111a 同一个
+  // 原语),所以切口天然落在「assistant(tool_calls) ＋ 其全部 tool 回复」的头上,**永远不劈开配对**。
+  // 只在「一个 user 回合都装不下」这一种情况下才退化 —— 装得下时逐字节走上面那条老路。
+  // `byUnits` 是【已经过开关把门的】布尔(判定口在 01c 的 reseedTailUnitsEnabled),本函数不读开关:
+  // 与 111a 的 boundaryBudget 同一个模具,也是为了让静态件能把它原样切出来跑。
+  if (byUnits === true && boundary === history.length && history.length) {
+    const unitStarts = historyUnitStarts(history);
+    let unitKept = 0;
+    for (let i = unitStarts.length - 1; i >= 0; i--) {
+      const begin = unitStarts[i], end = unitStarts[i + 1] || history.length;
+      const unitTokens = estimateHistoryTokens(history.slice(begin, end));
+      if (unitKept > 0 && unitKept + unitTokens > cap) break;
+      unitKept += unitTokens;
+      boundary = begin;
+    }
   }
   return boundary;
 }
@@ -33668,7 +33698,8 @@ const CompactionPlan = (() => {
       COMPACT_RESEED_TAIL_MAX_TOKENS,
       Math.floor(budget * defaults.tailBudgetRatio)
     ));
-    const boundary = recentTurnsBoundary(history, tailBudget);
+    // 126-111b:开关在这儿把门(与 111a 的 boundaryBudget 同一个模具)。
+    const boundary = recentTurnsBoundary(history, tailBudget, reseedTailUnitsEnabled(options.config));
     const task = history.find(message => message && message.role === 'user') || history[0] || null;
     return Object.freeze({
       schema: 1,
@@ -33690,10 +33721,20 @@ const CompactionPlan = (() => {
     const acknowledgement = subagent
       ? '已了解原任务与以上摘要,继续推进。'
       : (forced ? '收到,已基于摘要继续。' : '收到，已基于摘要继续。');
+    const kept = (plan && plan.kept) || [];
+    // 126-111b:按单元退化保留时,kept 可能以 assistant 打头(「assistant(tool_calls) ＋ 其 tool 回复」
+    // 就是一个完整单元)。直接拼上去会出现 [assistant(收到), assistant(tool_calls)] 两条连续 assistant,
+    // 破部分 provider 的交替契约 —— 所以插一条桥接 user 消息把话头接回来。
+    // **文案写在这儿而不是 06b 提示词注册表**(25 号文 §1.2 原本写的是 registry):10 引用 06b 是
+    // **循环边**(依赖图 --check 报过,111d 那一刀已经撞过一次)。本函数里另外三处文案本来也都是
+    // 内联的,所以这是跟着文件自己的写法走,不是图省事。
+    const bridged = kept.length && kept[0] && kept[0].role === 'assistant'
+      ? [{ role: 'user', content: '以下为摘要之后保留的最近工具往来,接续执行。' }, ...kept]
+      : kept;
     return [
       { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') },
       { role: 'assistant', content: acknowledgement },
-      ...((plan && plan.kept) || []),
+      ...bridged,
     ];
   }
   function snapshot(plan) {
@@ -33747,6 +33788,10 @@ async function maybeCompactSubHistory(opts) {
     // 钉住原始 task【并入】摘要 user 消息(而非单列)——避免 [task0-user, summary-user] 两条连续 user 破坏部分 provider 的
     // 交替契约;kept 以 user 边界起切,故 reseed 天然 user→assistant→user… 交替。
     const reseeded = CompactionPlan.reseed(plan, sc.summary);
+    // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
+    // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
+    // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
+    if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
     subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
     emit('summary', estimateHistoryTokens(withSys(subHistory)));
     try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc); } catch { /* 记账失败不阻断 */ }
@@ -33891,6 +33936,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     // 压完仍旧超管家自己的线)。stewardBudget === 0 时这个键不传,与本切片之前逐字节一致。
     const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) });
     session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
+    // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
+    // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
+    // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
+    if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(session.providerHistory); } catch { /* 同上 */ } }
     const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
     onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
     upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: before2, afterTokens: after2 });
@@ -53406,6 +53455,9 @@ module.exports = {
   // 126-111d: 摘要 prompt 双语 — exposed for e2e(开关判定/语言选择/标题容错)。
   summaryPromptI18nEnabled,
   summaryPromptWithGuidance,
+  // 126-111b: L2 尾部按单元保留 — exposed for e2e 白盒契约(边界不落 tool / 桥接 / 配对安全网)。
+  reseedTailUnitsEnabled,
+  repairProviderHistoryPairing,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

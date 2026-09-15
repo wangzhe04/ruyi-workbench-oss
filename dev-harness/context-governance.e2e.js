@@ -99,7 +99,9 @@ ok(!!mm, 'A 源抽取 maybeCompactSubHistory');
 // 抽真 evaporateHistory + recentTurnsBoundary(保真);其余注入桩。
 const em = src.match(/function evaporateHistory\(history(?:, opts)?\) \{[\s\S]*?\n\}/);
 const evaporateHistory = new Function('EVAPORATED_PREFIX', em[0] + '\nreturn evaporateHistory;')('[已省略:'); // 注入模块级常量
-const rm = src.match(/function recentTurnsBoundary\(history, maxTailTokens\) \{[\s\S]*?\n\}/);
+// 126-111b:签名多了第三个形参 byUnits(已过门的布尔)。抽取式跟着放宽 —— 写死旧签名的话,
+// 一改签名这里就 match 到 null,而 null[0] 的报错离真因隔着十万八千里(实测就是这么炸的)。
+const rm = src.match(/function recentTurnsBoundary\(history, maxTailTokens(?:, byUnits)?\) \{[\s\S]*?\n\}/);
 // 桩:窗口 1000 token;估算 = 各消息 content 长度/4 + 40/条;摘要内核可控 ok/summary。
 const providerContextWindow = () => 1000;
 const estimateHistoryTokens = h => (Array.isArray(h) ? h : []).reduce((t, m) => t + 40 + Math.ceil(String((m && m.content) || '').length / 4), 0);
@@ -108,8 +110,12 @@ const userBlockStarts = history => {
   for (let i = 0; i < history.length; i++) if (history[i] && history[i].role === 'user') idx.push(i);
   return idx;
 };
-const recentTurnsBoundary = new Function('estimateHistoryTokens', 'userBlockStarts', 'COMPACT_RESEED_TAIL_MAX_TOKENS', rm[0] + '\nreturn recentTurnsBoundary;')(
-  estimateHistoryTokens, userBlockStarts, 16000
+// 126-111b:退化那一支要用 historyUnitStarts(与 111a 同一个原语)。从源码里【抽真的那一份】注进来,
+// 不在这儿另写一遍 —— 判据只有一处这条纪律在沙箱里也得成立(与 evaporateBudgetBoundaryEnabled 同理)。
+const um = src.match(/function historyUnitStarts\(history\) \{[\s\S]*?\n\}/);
+const historyUnitStarts = new Function(um[0] + '\nreturn historyUnitStarts;')();
+const recentTurnsBoundary = new Function('estimateHistoryTokens', 'userBlockStarts', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'historyUnitStarts', rm[0] + '\nreturn recentTurnsBoundary;')(
+  estimateHistoryTokens, userBlockStarts, 16000, historyUnitStarts
 );
 let summaryOk = true;
 const providerSummaryCall = async () => (summaryOk ? { ok: true, summary: 'SUMMARY', usage: null } : { ok: false, error: 'boom' });
@@ -123,10 +129,15 @@ const CompactionPlan = require(SERVER).CompactionPlan;
 // 缺了它会 ReferenceError 被 maybeCompactSubHistory 的 try/catch 吞成「没压缩」,A 组十条全红。
 const evaporateBudgetBoundaryEnabled = require(SERVER).evaporateBudgetBoundaryEnabled;
 const historyReadDedupEnabled = require(SERVER).historyReadDedupEnabled; // 126-111e:同上
+// 126-111b:maybeCompactSubHistory 的 reseed 出口现在会问一声「要不要按单元退化」并过一遍配对安全网。
+// **第三次**了:往这个函数里加任何跨模块调用,都要回来补这处沙箱,否则 ReferenceError 被它自己的
+// try/catch 吞成「没压缩」,A 组一片红而真因在别处。
+const reseedTailUnitsEnabled = require(SERVER).reseedTailUnitsEnabled;
+const repairProviderHistoryPairing = require(SERVER).repairProviderHistoryPairing;
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled', 'reseedTailUnitsEnabled', 'repairProviderHistoryPairing',
   mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled, reseedTailUnitsEnabled, repairProviderHistoryPairing);
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。

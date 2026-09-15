@@ -159,6 +159,8 @@ const EXPECTED = {
   runtimeHistoryReadDedupV1: 'forbidden',
   // 126-111d:摘要 prompt 双语。同族同档。
   runtimeSummaryPromptI18nV1: 'forbidden',
+  // 126-111b:L2 尾部单元边界＋桥接。同族同档。
+  runtimeReseedTailUnitsV1: 'forbidden',
   runtimeSessionNotesV1: 'forbidden', runtimeSessionNotesInjectV1: 'forbidden',
   runtimeSessionNotesMergeV1: 'forbidden', runtimeSummaryEntityCheckV1: 'forbidden',
   runtimeEstimateBucketsV1: 'forbidden', runtimeSummarySingleShotV1: 'forbidden',
