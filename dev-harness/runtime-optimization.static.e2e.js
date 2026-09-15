@@ -28,7 +28,9 @@ ok(/runtimeSummarySingleShotV1: true/.test(src), 'S runtimeSummarySingleShotV1 d
 ok(/'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1'/.test(src), 'S runtimeSummarySingleShotV1 入严格布尔 sanitize 表(105e 邻接不动;105g 顺排其后)');
 ok(/function summarySingleShotEnabled\(config\)/.test(src), 'S summarySingleShotEnabled 唯一判定点存在');
 ok(/summarySingleShotMaxTokensV1: 32768/.test(src) && /Math\.min\(131072, Math\.max\(8192, Math\.round\(n\)\)\) : 32768/.test(src), 'S 单发上限默认 32768 且 sanitize 钳位 [8192,131072](无无限档)');
-ok(/function summarySingleShotCap\(config, provider, model\)/.test(src) && /function summarySingleShotReserveTokens\(\)/.test(src), 'S 105f 上限解析(provider/model/style 覆盖) + reserve 预算助手存在');
+// 126-111d 重钉签名:reserve 的预算里含「摘要 prompt 有多长」,而 prompt 从此分中英两份 ——
+// 它必须知道这次用的是哪一份,否则英文那份的长度会按中文的算(估算偏差直接进单发预算)。
+ok(/function summarySingleShotCap\(config, provider, model\)/.test(src) && /function summarySingleShotReserveTokens\(config\)/.test(src), 'S 105f 上限解析(provider/model/style 覆盖) + reserve 预算助手存在(126-111d 起带 config)');
 ok(/singleShotReserve: \{ systemTokens: 1200, expectedOutputTokens: 6144, calibrationMarginTokens: 2048 \}/.test(src) && /singleShotCap: \{ default: 32768, min: 8192, max: 131072 \}/.test(src), 'S rules singleShotReserve/singleShotCap 块在产物 fallback 内(expectedOutputTokens 随 c7d2507 摘要策略 2048->6144 重钉)');
 ok(/if \(sc\.ok \|\| !singleOn \|\| !isContextOverflowError\(sc\.error\)\) return sc;/.test(src), 'S 105f 仅可识别上下文超窗 400 才降级,其余失败原样上浮');
 ok(/degradedFromSingle: true/.test(src), 'S 105f 降级标记落 mapReduce 元数据(失败调用成本可归因)');
@@ -237,6 +239,33 @@ ok(/rawRef=\$\{rawRefPrefix\}/.test(src), 'F2 指针带 rawRef —— 换掉的�
   const ungated = lines.filter(line => !/historyReadDedupEnabled\s*\(/.test(line));
   ok(lines.length >= 2, `F2 扫得到 dedupeReads 赋值点（实得 ${lines.length} 处；扫不到 = 本条静默失效）`);
   ok(ungated.length === 0, `F2 每一处 dedupeReads 都由 historyReadDedupEnabled 把门${ungated.length ? '；实得没把门的：' + ungated.map(s => s.trim()).join(' ⏐ ') : ''}`);
+}
+
+console.log('\n── [F3] 126-111d · 摘要 prompt 双语与标题容错 ──');
+ok(/runtimeSummaryPromptI18nV1: false/.test(src), 'F3 开关默认关');
+ok(!/runtimeSummaryPromptI18nV1: true/.test(src), 'F3 没有在别处被默认翻开');
+ok(/function summaryPromptI18nEnabled\(config\)/.test(src), 'F3 判定函数存在(唯一判定口)');
+{
+  // F3 语言判据是 06b getPromptPack 的**抄写件**(10 → 06b 是循环边，调不得；见实现处注释)。
+  // 机械对账：两处必须是同一条规则的同一种写法 —— `.trim().toLowerCase() === 'en-us'`。
+  // 改了一边另一边就红，抄写件不会悄悄长成第二套口径（与 steward-tools.static ⑥ 同一个模具）。
+  const RULE = /\.trim\(\)\.toLowerCase\(\) === 'en-us'/g;
+  const hits = (src.match(RULE) || []).length;
+  ok(hits === 2, `F3 「什么算英文界面」全仓恰好两处同样的写法（06b 的 getPromptPack ＋ 10 的抄写件；实得 ${hits} 处）`);
+  ok(/function getPromptPack\(locale\)[\s\S]{0,160}\.trim\(\)\.toLowerCase\(\) === 'en-us'/.test(src),
+    'F3 其中一处就在 06b 的 getPromptPack 里（抄的是它，不是凭空一条）');
+  ok(/function summaryPromptIsEnglish\(config\)[\s\S]{0,220}\.trim\(\)\.toLowerCase\(\) === 'en-us'/.test(src),
+    'F3 另一处在 summaryPromptIsEnglish 里，且仍然先过 summaryPromptI18nEnabled 这道开关');
+}
+ok(/SUMMARY_PROMPT_EN = CONTEXT_GOVERNANCE_RULES\.summary\.promptEn \|\| SUMMARY_PROMPT/.test(src),
+  'F3 英文那份缺失时回落中文(rules 缺键不静默变成空 prompt)');
+ok(/function summaryPromptWithGuidance\(config\)/.test(src), 'F3 取话口带 config(否则拿不到 locale)');
+{
+  // 标题容错那一半**故意不挂开关**(见实现处注释):判据锚在行首,只会让本来就正确的摘要更容易过。
+  const lines = src.split(/\r?\n/).filter(line => /const normHead = /.test(line));
+  ok(lines.length === 1, `F3 标题归一只有一处写法（实得 ${lines.length}）`);
+  ok(/headLines\.some\(line => line\.startsWith\(n\)\)/.test(src),
+    'F3 归一之后按【行首】匹配 —— 正文里顺嘴提一句不算数');
 }
 
 console.log('');

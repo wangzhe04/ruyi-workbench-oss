@@ -52,6 +52,9 @@ module.exports = {
   dedupeRepeatedReads,
   fileReadDedupKey,
   historyReadDedupEnabled,
+  // 126-111d: 摘要 prompt 双语 — exposed for e2e(开关判定/语言选择/标题容错)。
+  summaryPromptI18nEnabled,
+  summaryPromptWithGuidance,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

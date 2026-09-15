@@ -830,9 +830,9 @@ const SUMMARY_SINGLE_SHOT_MAX_EST = CONTEXT_GOVERNANCE_RULES.summary.singleShotM
 // 运行时估算(跟随 SUMMARY_PROMPT 实际文本,不抄死数字);其余分量在 rules 的 summary.singleShotReserve。
 const SUMMARY_SINGLE_SHOT_RESERVE = CONTEXT_GOVERNANCE_RULES.summary.singleShotReserve || {};
 const SUMMARY_SINGLE_SHOT_CAP_RULE = CONTEXT_GOVERNANCE_RULES.summary.singleShotCap || { default: 32768, min: 8192, max: 131072 };
-function summarySingleShotReserveTokens() {
+function summarySingleShotReserveTokens(config) {
   return (Number(SUMMARY_SINGLE_SHOT_RESERVE.systemTokens) || 0)
-    + estimateTextTokens(summaryPromptWithGuidance())
+    + estimateTextTokens(summaryPromptWithGuidance(config))
     + (Number(SUMMARY_SINGLE_SHOT_RESERVE.expectedOutputTokens) || 0)
     + (Number(SUMMARY_SINGLE_SHOT_RESERVE.calibrationMarginTokens) || 0);
 }
@@ -989,10 +989,24 @@ async function mapSummaryWithLimit(items, limit, fn, failCtrl) {
 // 组中间切开，避免把协议历史重播成孤儿。
 const COMPACT_RESEED_TAIL_MAX_TOKENS = CONTEXT_GOVERNANCE_RULES.summary.reseedTailMaxTokens;
 const SUMMARY_PROMPT = CONTEXT_GOVERNANCE_RULES.summary.prompt;
-function summaryPromptWithGuidance() {
+// 126-111d:英文那份。**读的那一半早就双语了** —— summary.sections 里的 `## Goal`／`## Decisions`
+// …与 stateLabels 里的 Done／In progress／Blocked／Next step 都是登记过的别名;缺的只有写的这一头。
+const SUMMARY_PROMPT_EN = CONTEXT_GOVERNANCE_RULES.summary.promptEn || SUMMARY_PROMPT;
+// 语言判据是 06b `getPromptPack` 的**抄写件,不是第二套口径**。第一版写的是直接调它,依赖图
+// `--check` 当场报 `10 → 06b` 是**循环边**(06b 自己引用 10 的符号),所以只能抄 —— 与 06i 里
+// 那份五态判据的处境逐字相同(见 steward-tools.static ⑥「服务端副本是抄写件」)。
+// 规则:**locale 恰是 `en-us` 才切英文,其余(含 `auto`)跟中文**。
+// 两处逐字一致由 runtime-optimization.static 的 F3 机械钉住:改了一边另一边就红。
+function summaryPromptIsEnglish(config) {
+  return summaryPromptI18nEnabled(config)
+    && String((config && config.locale) || '').trim().toLowerCase() === 'en-us';
+}
+function summaryPromptWithGuidance(config) {
+  const base = summaryPromptIsEnglish(config) ? SUMMARY_PROMPT_EN : SUMMARY_PROMPT;
   const guidance = String(SUMMARY_CALL_POLICY_RULE.promptGuidance || '').trim();
-  if (!guidance || String(SUMMARY_PROMPT || '').includes(guidance)) return SUMMARY_PROMPT;
-  return SUMMARY_PROMPT + '\n' + guidance;
+  // 英文那份自己已经带了同义的一句(见 rules.summary.promptEn 末两行),不再把中文 guidance 拼上去。
+  if (!guidance || summaryPromptIsEnglish(config) || String(base || '').includes(guidance)) return base;
+  return base + '\n' + guidance;
 }
 
 function validateStructuredSummary(summary) {
@@ -1000,12 +1014,24 @@ function validateStructuredSummary(summary) {
   // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
   // 故英文变体用独立标题词,避免与正文内容误匹配)。
   const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
-  const found = sections.filter(sec => sec.some(s => summary.includes(s))).length;
+  // 126-111d 标题容错:模型常把 `## Goal` 写成 `**Goal**`／`# Goal:`／`- Goal —`,含义一样但
+  // `includes(别名)` 认不出来。归一之后按【行首】匹配:去掉行首的 #／*／>／-／空白与
+  // 【】[],去掉行尾的冒号,大小写不敏感。
+  //
+  // **这一半故意不挂开关**:它只会让本来就正确的摘要更容易通过,不会让错的通过 —— 判据锚在
+  // 行首,正文里顺嘴提一句 "goal" 不算数(下面 D 组有一条专门反着验这件事)。挂开关反而会让
+  // 「开关关时英文模型的合法摘要被判不合格」这个老毛病留着。
+  const normHead = s => String(s || '').toLowerCase()
+    .replace(/^[\s#*>\-]+/, '').replace(/[【】[\]]/g, '').replace(/[:：]\s*$/, '').trim();
+  const headLines = summary.split(/\r?\n/).map(normHead).filter(Boolean);
+  const hasSection = sec => sec.some(s => summary.includes(s))
+    || sec.some(s => { const n = normHead(s); return !!n && headLines.some(line => line.startsWith(n)); });
+  const found = sections.filter(hasSection).length;
   // 当前执行状态是交接摘要的关键部分，不能再用“任意三节”放行；否则模型
   // 漏掉状态节时，下一轮会失去“已完成/进行中/阻塞/下一步”的恢复依据。
   const stateLabels = CONTEXT_GOVERNANCE_RULES.summary.stateLabels;
   const statusSection = sections[CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex];
-  const statePresent = statusSection.some(s => summary.includes(s));
+  const statePresent = hasSection(statusSection);   // 126-111d:状态节也走同一把归一,否则五节里四节认得、偏偏状态那节认不出
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
   return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
 }
@@ -1379,9 +1405,9 @@ function summaryResponseFailureDetail(payload) {
 
 // 105j: summary call policy-aware implementation. It keeps the historical six-argument signature while all
 // callers gain the same bounded reasoning/output policy and one-shot compatibility fallback.
-async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal) {
+async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance();
+  const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
   const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
   const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
   const headers = { 'content-type': 'application/json' };
@@ -1526,7 +1552,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const singleOn = summarySingleShotEnabled(opts && opts.config);
   const summaryWindow = providerContextWindow(provider, model);
   const budget = Math.max(4000, singleOn
-    ? summaryWindow - summarySingleShotReserveTokens()
+    ? summaryWindow - summarySingleShotReserveTokens(opts && opts.config)
     : Math.floor(summaryWindow * SUMMARY_INPUT_BUDGET_RATIO));
   const fitted = fitHistoryForSummary(history, budget);
   // 22-S0 摘要归属上下文:econ 标志读一次,身份字段由调用方经 opts.auxCtx 提供(缺失→不落 sessionId/turnSeq)。
@@ -1551,7 +1577,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const forceChunks = !fitted.needsMapReduce && singleEstimate > singleCap; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
   let degradedFromSingle = false;
   if (!fitted.needsMapReduce && !forceChunks) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     // 105f:仅【可识别的上下文超窗 400】(isContextOverflowError 共现语义,宁可漏判不误判)自动降级
@@ -1565,7 +1591,7 @@ async function providerSummaryCallCore(provider, history, opts) {
     ? Math.min(budget, Math.max(4000, Math.floor(singleCap * 0.75))) // 22-S0:肥单发分块时压低每组目标;105f 400 降级同目标(单发已证明该量级越窗)
     : budget);
   if (chunks.length <= 1) {
-    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined);
+    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
@@ -1584,7 +1610,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const refineCalls = [];
   let refineFailure = '';
   if (refineOn) {
-    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' });
+    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' }, undefined, undefined, opts && opts.config);
     refineCalls.push(current);
     if (!current.ok) refineFailure = 'request';
     else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
@@ -1595,6 +1621,8 @@ async function providerSummaryCallCore(provider, history, opts) {
         model,
         { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'refine' },
         String(SUMMARY_REFINE_RULES.prompt || SUMMARY_PROMPT),
+        undefined,
+        opts && opts.config,
       );
       refineCalls.push(current);
       if (!current.ok) refineFailure = 'request';
@@ -1620,7 +1648,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const failCtrl = typeof AbortController === 'function' ? new AbortController() : null;
   const summaryConcurrency = summaryMaxConcurrent(opts && opts.config, provider, model);
   const rememberCall = async (messages, context, signal) => {
-    const r = await singleSummaryCall(provider, messages, model, context, undefined, signal);
+    const r = await singleSummaryCall(provider, messages, model, context, undefined, signal, opts && opts.config);
     calls.push(r);
     return r;
   };

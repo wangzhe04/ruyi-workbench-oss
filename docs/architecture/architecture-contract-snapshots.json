@@ -324,7 +324,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "24be9ceabdf6b176297889ffb488a4fe0ac88858ba1cfa87786212b76b7a11a2"
+    "rulesSha256": "b313d5fbad659b0bf27e7224f0ee4ec38dc0c13076346fe64da40a09ab53c9ed"
   },
   "permission": {
     "modes": [

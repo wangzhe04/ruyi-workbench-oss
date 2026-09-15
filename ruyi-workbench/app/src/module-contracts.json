@@ -138,6 +138,7 @@
         "summaryEntityCheckEnabled",
         "summaryFactTableCap",
         "summaryFactTableEnabled",
+        "summaryPromptI18nEnabled",
         "summaryRefineEnabled",
         "summarySingleShotEnabled",
         "toolByteBudgetShadowBytes",
@@ -7399,6 +7400,7 @@
         "SUMMARY_MAX_CONCURRENT_RULE",
         "SUMMARY_POLICY_STAGES",
         "SUMMARY_PROMPT",
+        "SUMMARY_PROMPT_EN",
         "SUMMARY_REFINE_RULES",
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
@@ -7481,6 +7483,7 @@
         "summaryMaxConcurrent",
         "summaryModelPolicy",
         "summaryPolicyTiers",
+        "summaryPromptIsEnglish",
         "summaryPromptWithGuidance",
         "summaryResponseFailureDetail",
         "summaryResponseIncomplete",
@@ -7682,6 +7685,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "summaryFactTableEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "summaryPromptI18nEnabled",
           "kinds": [
             "call"
           ]
@@ -16691,6 +16701,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "summaryPromptI18nEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "summaryRefineEnabled",
           "kinds": [
             "read"
@@ -19576,6 +19593,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "summaryMaxConcurrent",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "summaryPromptWithGuidance",
           "kinds": [
             "read"
           ]

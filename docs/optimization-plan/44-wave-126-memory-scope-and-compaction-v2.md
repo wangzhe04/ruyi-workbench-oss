@@ -240,3 +240,27 @@
 **生成器链与门**：整条重跑（依赖图仍 420 边／1 SCC —— 新判据住对层之后**零新增边**）；`--fast` 72/72；管家族六件串行 6/6（一件 flaky 是 `rail-pocket` 的 F2 版面行数，与本刀加的 (K) 组无关）。
 
 **收口全量**：**349 pass / 0 fail / 349 ran，真回归 0**。三件 flaky 病历都留下了（`stale-source-badge.browser`「browser target available」＋ CDP 起不来、`budget-guard` E30 请求体逐字节、`one-workbench-frame` K6 焦点卡还停在「读取中…」）——**全是浏览器起不来或墙钟窗口那一族**，每轮换名字，机制各自独立，归第四批。
+
+### ⑤ B-111d · 摘要 prompt 双语与标题容错（2026-09-16）
+
+**补的是一条现成的产品缺陷，不是「顺手做的双语」**：`config.locale` 支持 `en-US`，而摘要 prompt 一直是中文硬编码 —— **英文界面的用户拿到的压缩摘要是中文的**。而**读的那一半早就双语了**：`summary.sections` 里 `## Goal`／`## Decisions`／`## Open`／`## Current Status`／`## Files`，`stateLabels` 里 Done／In progress／Blocked／Next step，全是登记过的别名。缺的只有写的这一头。
+
+**改了什么**（`runtimeSummaryPromptI18nV1`，默认关）：`rules.summary.promptEn` 新增英文那份（逐节与中文一一对应，标题**只用别名表里已登记的写法** —— 判据里有一条专门机械核对这件事）；`summaryPromptWithGuidance(config)` 按 locale 选；`summarySingleShotReserveTokens(config)` 跟着带 config（reserve 预算里含「prompt 有多长」，两份长度不同，不带就会拿中文的长度去算英文那份）；`singleSummaryCall` 第 7 个实参 `config`，五个调用点各传一次。
+
+**语言判据踩了架构墙，落成「抄写件 ＋ 机械锁」**：第一版直接调 06b 的 `getPromptPack`（「不另立第二套口径」），依赖图 `--check` 当场报 **`10 → 06b` 是循环边**（06b 自己引用 10 的符号）。只能抄 —— 与 `06i` 里那份五态判据的处境逐字相同。于是把规则抄进 `summaryPromptIsEnglish`，并补 F3 三条机械对账：**全仓恰好两处 `.trim().toLowerCase() === 'en-us'`**，一处必须在 `getPromptPack` 里、一处必须在 `summaryPromptIsEnglish` 里且仍先过开关。改了一边另一边就红。
+
+**标题容错这一半故意不挂开关**：模型常把 `## Goal` 写成 `**Goal**`／`# Goal:`／`- Goal`。归一（去行首 `#*>-`、去 `【】[]`、去行尾冒号、大小写不敏感）之后按**行首**匹配。不挂开关的理由是：它只会让**本来就正确**的摘要更容易通过，不会让错的通过 —— 挂了开关反而把「开关关时英文模型的合法摘要被判不合格」这个老毛病留着。状态节也走同一把归一，否则会出现「五节里四节认得、偏偏状态那节认不出」。
+
+**判据读数**（新件 `dev-harness/unit/summary-prompt-i18n.test.js`，20 条）：A 组开关关时四种 locale 全走中文、与不传 config 逐字节相同；B 组只有 `en-US` 切英文（**`auto` 跟中文**）、英文 prompt 要求的每一节与状态四项**都在别名表里登记过**、照它写出来的摘要校验过得了；C 组四种标题写法都认得，**外加一条反着验**。
+
+**反向三处**：① 容错从「行首」放宽成「行内含有」→ C5 红；② 另立一套语言口径（非 `zh-CN` 就当英文）→ B3 与静态锁 F3 双红；③（架构面）直接调 `getPromptPack` → 依赖图 `--check` 报循环边。三处还原后 sha256 逐字节相同。
+
+**反向第三次逮到我的判据不是承重的**（这一条比结论本身更值钱）：C5 第一版把状态四项写成小写 `in progress`，于是它判不合格的**真实原因是状态标签对不上**，不是「标题锚在行首」—— 把实现从 `startsWith` 放宽成 `includes`，那条断言**照样绿**。改成状态四项按登记大小写写全之后，**唯一还拦着它的就是行首那道锚**，反向才咬住。本会话三次同一族：**反向不红，先怀疑判据，别先怀疑实现**。
+
+**两把锁按设计拦住了我**：① `runtime-optimization.static` 钉着 `summarySingleShotReserveTokens()` 的**确切签名** —— 加了参数必须回来重钉并写明理由；② **我自己上一刀收紧的那把 README 计数锁**这次拦住了我自己（unit suite 49→50）。
+
+**一次 shell 又吃转义**（本会话第三次）：`typeof promptOverride === 'string'` 的引号被 `node -e` 里的单引号串吃掉，变成 `=== string` → `ReferenceError: string is not defined`，摘要族当场炸。**补丁不走 shell 字面量**这条纪律又一次自证。
+
+**生成器链与门**：整条重跑（依赖图 420 边／1 SCC，抄写件落地后零新增边）；`--fast` 72/72；摘要族八件串行 8/8；计数锁重钉 unit suite 49→50（三处）；控制字符扫描干净。
+
+**收口全量**：**348 pass / 1 fail / 1 flaky**。唯一的红是 `budget-guard.e2e.js` 的 `E30 零触发路径请求体与全关基线逐字节一致`。**不是这一刀**，而且这次有一个比「stash 掉再跑」更硬的证据：**同一条判据在上一刀 M01 的收口全量里就已经以 flaky 出现过**（那时 111d 还没落地）。它比较的是【两台真服务】跑完真回合之后抓到的请求体逐字节，除 `elapsedMs` 外的墙钟派生字段没归一全，在并行负载下就会差开；本刀单跑两发全绿（54.4 s／56.8 s）。**归第四批**，病历两份已经攒齐，下次动它时从「`normalizeCapText` 还漏了哪些墙钟字段」进。

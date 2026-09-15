@@ -157,6 +157,8 @@ const EXPECTED = {
   runtimeEvaporateBudgetBoundaryV1: 'forbidden',
   // 126-111e:历史内重复读取去重。同族同档 —— 它改的也是「模型看得见什么」。
   runtimeHistoryReadDedupV1: 'forbidden',
+  // 126-111d:摘要 prompt 双语。同族同档。
+  runtimeSummaryPromptI18nV1: 'forbidden',
   runtimeSessionNotesV1: 'forbidden', runtimeSessionNotesInjectV1: 'forbidden',
   runtimeSessionNotesMergeV1: 'forbidden', runtimeSummaryEntityCheckV1: 'forbidden',
   runtimeEstimateBucketsV1: 'forbidden', runtimeSummarySingleShotV1: 'forbidden',

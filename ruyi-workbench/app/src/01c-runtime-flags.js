@@ -19,6 +19,12 @@ function historyReadDedupEnabled(config) {
   return !!(config && config.runtimeHistoryReadDedupV1 === true);
 }
 
+// 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
+// 摘要 prompt 逐字节仍是今天那份中文。
+function summaryPromptI18nEnabled(config) {
+  return !!(config && config.runtimeSummaryPromptI18nV1 === true);
+}
+
 // 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
