@@ -19899,6 +19899,44 @@ function stewardMayAct(permissionMode, eventKind, toolTier) {
   return 'propose';
 }
 
+// ── 125-P0(42 号文 §1 ①):被【停】下来的目标,管家不自动重开 ──────────────────────────────
+// 用户按停一条线程或一个班组之后,收件箱里常常还会迟到一条 failed ——在飞节点带着中断错误落定、
+// 结果章 stopped 带错误、run_end partial 都会走到那一格。而 116-2b 确定性自理拿到 failed 的默认
+// 处置就是【重开】(班组 retry_node、线程一句「继续」),它那几道闸问的是「勾没勾、够不够权限、
+// 这小时做过几次」,没有一道问「这东西是不是刚被停下来的」—— 于是用户按下的停,被管家撤销了。
+//
+// 判据只读两处【既有】落盘事实,不加任何字段:
+//   · 班组快照的终态 status === 'stopped'(09-workflow 收尾时写;班组被重新拉起时它自然翻新);
+//   · 会话头上 stewardLastTurn.aborted === true(13k 在回合 settle 之后落的账)。**并且这条账要
+//     盖得住当前回合**(last.seq >= head.turnSeq)—— 与 13i 收集第四源时「账没盖到当前回合就当它
+//     还没结束」同一条纪律:账过期了就不算数,否则一条很久以前被停过的线程会被永久挡住。
+//
+// 「被停」不等于「用户按的停」:superseded / disconnected / steward-stop / scheduler_timeout 都会
+// 落 aborted。这是刻意的 —— 本判据要分的是【自己挂了】与【被停下来】:前者可以自理重试,后者一律
+// 只提议。谁停的都一样,停是一次明确的意思表示,管家不该替任何人撤销它。
+//
+// 返回 '' | 'run' | 'thread'(当布尔用也成立)。三处调用点(13k 递话、13l 班组动作、13p 自理预闸)
+// 都只在【用户不在跟前】时判,拿到结果一律转成 propose_required —— 降级成一枚按钮,用户自己按仍然
+// 照做。这一刀是「不自动重开」,不是「不许重开」。
+function stewardStoppedTarget(head, run) {
+  if (run && typeof run === 'object' && String(run.status || '') === 'stopped') return 'run';
+  const h = (head && typeof head === 'object') ? head : null;
+  const last = (h && h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  if (!last || last.aborted !== true) return '';
+  const covered = Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(h.turnSeq) || 0);
+  return covered ? 'thread' : '';
+}
+// 三处调用点共用的两句话(表唯一:别处不许再写第三句)。拒绝理由要自己说清「按钮还在」,
+// 因为用户看见的就是这一句 —— propose_required 的 message 会原样进降级后的那枚按钮旁边。
+const STEWARD_STOPPED_SAY = Object.freeze({
+  run: '这条班组是被停下来的,管家不会自动把它重新拉起来;要接着跑,按这枚按钮',
+  thread: '这条线程上一回合是被停下来的,管家不会自动往里递话;要接着做,按这枚按钮',
+});
+function stewardStoppedRefusal(which) {
+  const key = String(which || '');
+  return Object.prototype.hasOwnProperty.call(STEWARD_STOPPED_SAY, key) ? STEWARD_STOPPED_SAY[key] : '';
+}
+
 // 到访总览一行摘要(§11.2 到访层):纯文本拼装,不做模型改写(「诚实」纪律要求 lastSay 是原话)。
 // 入参 thread: { id, missionTitle, title, state, action, lastSay, waitReason, permissionMode, cost }。
 // 缺字段的段整段跳过,不留孤立分隔符;lastSay 截到 STEWARD_DIGEST_LIMITS.lastSayChars(超出加「…」);
@@ -47006,6 +47044,17 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 【目标状态】选通道,判定与执行的单点在 13h(经 StewardHooks.relayDeliver 延迟绑定,零前向边;
   // 四条通道各自的理由写在那里的头注),POST /api/steward/relay 走的是同一个实现。
 
+  // 125-P0(42 号文 §1 ①):上一回合是被【停】下来的,就别自动往里递话 —— 用户按的停也好、别处
+  // 掐的也好,那是一次明确的意思表示。判据在 06i 一处(本文件不自己算),排在权限闸【之前】:与上面
+  // 那条「用户正坐在这条线程前面」同理,这不是「有没有权限」,是「这件事刚被停下来,不该由管家替他
+  // 撤销」。条件是用户不在跟前 —— /api/steward/relay 与 /api/steward/act 都给 trigger:'user',
+  // 用户自己按那枚按钮照旧递得进去。
+  if (stewardTriggerOf(ctx) !== 'user' && stewardStoppedTarget(head, null) === 'thread') {
+    return stewardFail('propose_required', stewardStoppedRefusal('thread'), {
+      reason: 'target_stopped', sessionId, stopped: 'thread',
+    });
+  }
+
   // 116-3 P0-2:无人值守(收件箱)触发的递话要过两道闸 —— 自理清单勾选 + 目标线程权限档
   // (§3.5 工具面表格:线程族按目标线程权限,「每步都问」「只做计划」一律提议)。判据与
   // stewardImplDecide / stewardImplRunAction 同一写法:先算 mayAct,不是 'auto' 就 propose_required。
@@ -47640,6 +47689,16 @@ const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'f
 // 会被自动续跑。判据的【唯一权威点】按 §3.3 的既定纪律在 13g 工具内部,故函数搬到这里;13h 的自理
 // 预闸仍调它(13h -> 13g 是后向边),两处共用同一份判定,不再各写一份。
 // 读不到快照一律按不安全处理('unknown' ≠ 'auto_resumable')。
+//
+// 125-P0:班组快照的另一个读点。它与上面那道分级读的是【同一份文件】,但两者的「读不到」语义不同 ——
+// 分级要分 ENOENT('missing',没有这条班组可续,不是安全问题)与其它 IO 错('unknown',按不安全处理),
+// 所以那个函数一个字节不动;这里只回快照本身,读不到回 null,由 06i 的判据决定怎么办(读不到 = 不知道
+// 它被停没停 -> stewardStoppedTarget 只看 head 那一半,不凭空拦)。执行序上这道闸排在分级【之前】,
+// 拦下了就不会再读第二次。
+async function stewardReadRunSnapshot(sessionId, runId) {
+  try { return safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); }
+  catch { return null; }
+}
 async function stewardRunResumeTier(sessionId, runId, config) {
   let raw = null;
   try {
@@ -47670,6 +47729,19 @@ async function stewardImplRunAction(args, ctx, config) {
     return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「智能自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
+  }
+  // 125-P0(42 号文 §1 ①):被停下来的班组,管家不自动重开。判据在 06i 一处(本文件不自己算),
+  // 位置在 mayAct 之后、续跑分级之前 —— 分级读的是同一份快照,先问这一句,拦下了就省掉那次读。
+  // 条件是【用户不在跟前】:POST /api/steward/act 与 /api/steward/relay 都给 trigger:'user',于是
+  // 「降级成按钮、用户自己按」那条路照旧走得通;没有 trigger 的调用面(工具循环里模型直接调、
+  // 进程内直调)按 fail-closed 一并拦下 —— 那些面上做决定的仍然是模型,不是人。
+  if (STEWARD_RUN_ADVANCING.includes(action) && stewardTriggerOf(ctx) !== 'user') {
+    const stoppedWhich = stewardStoppedTarget(head, await stewardReadRunSnapshot(sessionId, runId));
+    if (stoppedWhich) {
+      return stewardFail('propose_required', stewardStoppedRefusal(stoppedWhich), {
+        reason: 'target_stopped', sessionId, runId, action, permissionMode, stopped: stoppedWhich,
+      });
+    }
   }
   // 116-3 P0-4:第六道闸。放在 mayAct 之后、真正下发命令之前 —— 权限档允许不代表这条班组
   // 「重启后自动跑起来」是安全的(那是 run 快照自己的分级,与线程权限档正交)。
@@ -49819,6 +49891,9 @@ function stewardDowngradeActions(executed, acts) {
 //   ① 停机 / 熔断      —— 由 runStewardTurn 的 stewardCircuitCheck 在更外层挡掉(停机时根本不到这里);
 //   ② 小时窗           —— 自理动作与管家回合【计入同一个】 stewardMaxTurnsPerHour 窗口;
 //   ③ 无进展熔断       —— 同一目标连续 2 次自理动作后仍在报问题 -> 停自动,只提议;
+//   ③b 被停下来的目标   —— 125-P0:班组快照 status:'stopped' 或会话头上那条账说末回合 aborted ->
+//                          不自动重开,只提议。判据在 06i 一处(13k / 13l 的工具内部各调了一次,
+//                          那是权威点;这里是预闸 —— 拦在配额与计数【之前】,省掉一次小时窗名额);
 //   ④ 自理清单勾选     —— retry / resume(resume 为 null 时跟随既有 autonomyAutoResume);
 //   ⑤ 目标线程权限     —— stewardMayAct(mode,'failed','exec'),续跑按 failed 档口径(§3.3);
 //   ⑥ 续跑另加一道     —— classifyRunResumeTier 必须判 auto_resumable(权限面不可证明就不自动);
@@ -49889,6 +49964,14 @@ async function stewardSelfServeGate(plan, config) {
   if (entry.attempts >= STEWARD_SELF_SERVE_ATTEMPT_MAX) {
     return { allowed: false, reason: `这条线程已经自动处置过 ${entry.attempts} 次仍未好转,不再自动动手,只提议` };
   }
+  // ③b 125-P0:目标是被【停】下来的 -> 不自动重开。判据在 06i 一处,本文件只调用;工具内部
+  // (13k 递话 / 13l 班组动作)还会各判一次 —— 那两处是权威点,这里只是预闸:排在配额与计数之前,
+  // 被停的目标不该白占一个小时窗名额,也不该把 attempts 记成「自理过一次」。
+  const stoppedWhich = stewardStoppedTarget(
+    await stewardReadSessionHead(plan.sessionId).catch(() => null),
+    plan.runId ? await stewardReadRunSnapshot(plan.sessionId, plan.runId) : null,
+  );
+  if (stoppedWhich) return { allowed: false, reason: stewardStoppedRefusal(stoppedWhich) };
   const mode = await stewardTargetPermission(plan.args, config);
   if (plan.intent === 'retry') {
     if (auto.retry !== true) return { allowed: false, reason: '「失败自动重试」没有勾选,只能提议' };

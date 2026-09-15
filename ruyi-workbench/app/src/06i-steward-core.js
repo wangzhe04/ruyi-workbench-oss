@@ -158,6 +158,44 @@ function stewardMayAct(permissionMode, eventKind, toolTier) {
   return 'propose';
 }
 
+// ── 125-P0(42 号文 §1 ①):被【停】下来的目标,管家不自动重开 ──────────────────────────────
+// 用户按停一条线程或一个班组之后,收件箱里常常还会迟到一条 failed ——在飞节点带着中断错误落定、
+// 结果章 stopped 带错误、run_end partial 都会走到那一格。而 116-2b 确定性自理拿到 failed 的默认
+// 处置就是【重开】(班组 retry_node、线程一句「继续」),它那几道闸问的是「勾没勾、够不够权限、
+// 这小时做过几次」,没有一道问「这东西是不是刚被停下来的」—— 于是用户按下的停,被管家撤销了。
+//
+// 判据只读两处【既有】落盘事实,不加任何字段:
+//   · 班组快照的终态 status === 'stopped'(09-workflow 收尾时写;班组被重新拉起时它自然翻新);
+//   · 会话头上 stewardLastTurn.aborted === true(13k 在回合 settle 之后落的账)。**并且这条账要
+//     盖得住当前回合**(last.seq >= head.turnSeq)—— 与 13i 收集第四源时「账没盖到当前回合就当它
+//     还没结束」同一条纪律:账过期了就不算数,否则一条很久以前被停过的线程会被永久挡住。
+//
+// 「被停」不等于「用户按的停」:superseded / disconnected / steward-stop / scheduler_timeout 都会
+// 落 aborted。这是刻意的 —— 本判据要分的是【自己挂了】与【被停下来】:前者可以自理重试,后者一律
+// 只提议。谁停的都一样,停是一次明确的意思表示,管家不该替任何人撤销它。
+//
+// 返回 '' | 'run' | 'thread'(当布尔用也成立)。三处调用点(13k 递话、13l 班组动作、13p 自理预闸)
+// 都只在【用户不在跟前】时判,拿到结果一律转成 propose_required —— 降级成一枚按钮,用户自己按仍然
+// 照做。这一刀是「不自动重开」,不是「不许重开」。
+function stewardStoppedTarget(head, run) {
+  if (run && typeof run === 'object' && String(run.status || '') === 'stopped') return 'run';
+  const h = (head && typeof head === 'object') ? head : null;
+  const last = (h && h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  if (!last || last.aborted !== true) return '';
+  const covered = Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(h.turnSeq) || 0);
+  return covered ? 'thread' : '';
+}
+// 三处调用点共用的两句话(表唯一:别处不许再写第三句)。拒绝理由要自己说清「按钮还在」,
+// 因为用户看见的就是这一句 —— propose_required 的 message 会原样进降级后的那枚按钮旁边。
+const STEWARD_STOPPED_SAY = Object.freeze({
+  run: '这条班组是被停下来的,管家不会自动把它重新拉起来;要接着跑,按这枚按钮',
+  thread: '这条线程上一回合是被停下来的,管家不会自动往里递话;要接着做,按这枚按钮',
+});
+function stewardStoppedRefusal(which) {
+  const key = String(which || '');
+  return Object.prototype.hasOwnProperty.call(STEWARD_STOPPED_SAY, key) ? STEWARD_STOPPED_SAY[key] : '';
+}
+
 // 到访总览一行摘要(§11.2 到访层):纯文本拼装,不做模型改写(「诚实」纪律要求 lastSay 是原话)。
 // 入参 thread: { id, missionTitle, title, state, action, lastSay, waitReason, permissionMode, cost }。
 // 缺字段的段整段跳过,不留孤立分隔符;lastSay 截到 STEWARD_DIGEST_LIMITS.lastSayChars(超出加「…」);

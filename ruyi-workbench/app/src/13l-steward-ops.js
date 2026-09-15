@@ -248,6 +248,16 @@ const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'f
 // 会被自动续跑。判据的【唯一权威点】按 §3.3 的既定纪律在 13g 工具内部,故函数搬到这里;13h 的自理
 // 预闸仍调它(13h -> 13g 是后向边),两处共用同一份判定,不再各写一份。
 // 读不到快照一律按不安全处理('unknown' ≠ 'auto_resumable')。
+//
+// 125-P0:班组快照的另一个读点。它与上面那道分级读的是【同一份文件】,但两者的「读不到」语义不同 ——
+// 分级要分 ENOENT('missing',没有这条班组可续,不是安全问题)与其它 IO 错('unknown',按不安全处理),
+// 所以那个函数一个字节不动;这里只回快照本身,读不到回 null,由 06i 的判据决定怎么办(读不到 = 不知道
+// 它被停没停 -> stewardStoppedTarget 只看 head 那一半,不凭空拦)。执行序上这道闸排在分级【之前】,
+// 拦下了就不会再读第二次。
+async function stewardReadRunSnapshot(sessionId, runId) {
+  try { return safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); }
+  catch { return null; }
+}
 async function stewardRunResumeTier(sessionId, runId, config) {
   let raw = null;
   try {
@@ -278,6 +288,19 @@ async function stewardImplRunAction(args, ctx, config) {
     return stewardFail('propose_required', `「${stewardSanitizeText(action)}」是推进类动作,当前线程权限「${stewardPermissionLabel(permissionMode)}」不允许管家直接执行(续跑/重试需「改文件不问」以上,改指令需「智能自动」)——把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', sessionId, runId, action, permissionMode,
     });
+  }
+  // 125-P0(42 号文 §1 ①):被停下来的班组,管家不自动重开。判据在 06i 一处(本文件不自己算),
+  // 位置在 mayAct 之后、续跑分级之前 —— 分级读的是同一份快照,先问这一句,拦下了就省掉那次读。
+  // 条件是【用户不在跟前】:POST /api/steward/act 与 /api/steward/relay 都给 trigger:'user',于是
+  // 「降级成按钮、用户自己按」那条路照旧走得通;没有 trigger 的调用面(工具循环里模型直接调、
+  // 进程内直调)按 fail-closed 一并拦下 —— 那些面上做决定的仍然是模型,不是人。
+  if (STEWARD_RUN_ADVANCING.includes(action) && stewardTriggerOf(ctx) !== 'user') {
+    const stoppedWhich = stewardStoppedTarget(head, await stewardReadRunSnapshot(sessionId, runId));
+    if (stoppedWhich) {
+      return stewardFail('propose_required', stewardStoppedRefusal(stoppedWhich), {
+        reason: 'target_stopped', sessionId, runId, action, permissionMode, stopped: stoppedWhich,
+      });
+    }
   }
   // 116-3 P0-4:第六道闸。放在 mayAct 之后、真正下发命令之前 —— 权限档允许不代表这条班组
   // 「重启后自动跑起来」是安全的(那是 run 快照自己的分级,与线程权限档正交)。

@@ -427,5 +427,62 @@ const srv = require(path.join(APP, 'server.js'));
     '⑥ 管家对话不再读 visit.focus(那个键已经不存在了,读它等于悄悄回到两处判)');
 }
 
+// ── ⑦ 125-P0(42 号文 §4 三把锁):被停下来的目标不自动重开 —— 判据唯一 / 表唯一 / 值域唯一 ──────
+// 这三把锁是那一刀「零新字段」能成立的前提:判据是【现算】的(读 run.status 与 stewardLastTurn.aborted),
+// 现算的东西一旦长出第二份、或者那句话被别处抄走、或者自理意图表里冒出个「换个模型再试」,
+// 它就会悄悄开始说谎而没人发现。
+{
+  const codeOnly = text => String(text).split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
+  const src13p = read('13p-steward-runner-actions.js');
+  const famStop = [['06i-steward-core.js', src06i], ['13k-steward-threads.js', src13k],
+    ['13l-steward-ops.js', src13l], ['13p-steward-runner-actions.js', src13p]];
+
+  // (a) 判据唯一:函数体只有一处,且在 06i。
+  ok((src06i.match(/function stewardStoppedTarget\(/g) || []).length === 1,
+    '⑦a 判据 stewardStoppedTarget 的函数体恰一处,且在 06i(现算的判据不许有第二份)');
+  for (const [name, text] of famStop) {
+    if (name === '06i-steward-core.js') continue;
+    ok(!/function stewardStoppedTarget\(/.test(text), `⑦a2 ${name} 没有自己那一份判据(只调,不抄)`);
+  }
+  // (b) 三处调用点都在,且都只调不抄。
+  for (const [name, text] of famStop.slice(1)) {
+    ok(codeOnly(text).includes('stewardStoppedTarget('), `⑦b ${name} 真的调了那个判据(掉了 = 那条路上的停被无视)`);
+  }
+  // (c) 表唯一:两句话只有 06i 那一份,调用点一律走 stewardStoppedRefusal()。
+  ok((src06i.match(/const STEWARD_STOPPED_SAY = Object\.freeze\(\{/g) || []).length === 1
+    && /run: '/.test(src06i) && /thread: '/.test(src06i),
+    '⑦c 拒绝话术表恰一处(班组一句、线程一句)');
+  for (const [name, text] of famStop.slice(1)) {
+    ok(!text.includes('管家不会自动'), `⑦c2 ${name} 不自己抄那句话(表唯一;要改文案只改 06i)`);
+    ok(codeOnly(text).includes('stewardStoppedRefusal('), `⑦c3 ${name} 经 stewardStoppedRefusal() 取话`);
+  }
+  // (d) 一个 reason 码:三处拒绝都写 'target_stopped',前端与夹具按码认,不按中文认。
+  for (const [name, text] of famStop.slice(1)) {
+    if (name === '13p-steward-runner-actions.js') continue;   // 预闸回的是 {allowed:false,reason:<人话>},码由工具那两处发
+    ok(text.includes("reason: 'target_stopped'"), `⑦d ${name} 用同一个稳定码 target_stopped`);
+  }
+  // (e) 预闸真的长在闸门函数体里,且排在【配额与计数之前】——切函数体来判,不是「这几个字出现过」。
+  const gateAt = src13p.indexOf('async function stewardSelfServeGate(plan, config) {');
+  const gateEnd = gateAt < 0 ? -1 : src13p.indexOf('\n}\n', gateAt);
+  const gateBody = gateAt < 0 ? '' : (gateEnd < 0 ? src13p.slice(gateAt) : src13p.slice(gateAt, gateEnd));
+  ok(gateBody.length > 400, `⑦e stewardSelfServeGate 函数体切得到(切不到 = 本组静默失效;实得 ${gateBody.length})`);
+  const gateCode = codeOnly(gateBody);
+  const atStop = gateCode.indexOf('stewardStoppedTarget(');
+  const atRetryFlag = gateCode.indexOf("auto.retry !== true");
+  ok(atStop > 0 && atRetryFlag > 0 && atStop < atRetryFlag,
+    `⑦e2 ③b 排在自理清单与配额计数之前(被停的目标不该白占一个小时窗名额;实得 ${atStop}/${atRetryFlag})`);
+  ok(gateCode.includes('stewardReadRunSnapshot(') && gateCode.includes('stewardReadSessionHead('),
+    '⑦e3 预闸两面都读:班组快照与会话头(只读一面就会漏掉另一半的停)');
+
+  // (f) 值域唯一:自理意图表只产出 retry / resume —— 替 42 号文 §1 ④「自动升档今天靠没实现」上保险。
+  const planAt = src13p.indexOf('function stewardSelfServePlan(evt) {');
+  const planEnd = planAt < 0 ? -1 : src13p.indexOf('\n}\n', planAt);
+  const planBody = planAt < 0 ? '' : (planEnd < 0 ? src13p.slice(planAt) : src13p.slice(planAt, planEnd));
+  ok(planBody.length > 200, `⑦f stewardSelfServePlan 函数体切得到(实得 ${planBody.length})`);
+  const intents = [...new Set((codeOnly(planBody).match(/intent: '([a-z_]+)'/g) || []).map(s => s.slice(9, -1)))].sort();
+  ok(intents.length === 2 && intents[0] === 'resume' && intents[1] === 'retry',
+    `⑦f2 自理只会「重试」与「续跑」两种意图 —— 不许长出「换个更贵的模型再试一次」(实得 ${JSON.stringify(intents)})`);
+}
+
 console.log(`\nSTEWARD RUNNER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exit(fail ? 1 : 0);

@@ -136,15 +136,62 @@ if (cached) return { ok: true, url: ..., text: ..., fromCache: true, ts: cached.
 - **P2**：新件 `stale-source-badge.e2e.js`。预置一条 `ts` 为 30 天前的 webcache 条目 → 抓一个连不上的 host → 工具返回 `fromCache:true` 且可见层徽标逐字含「30 天」；在线抓取成功 → **零徽标**（别把每次抓取都染成「旧」）。**真反向**：把徽标数据源换成正文关键词匹配 → 红（同 124-P3 的 AB 组纪律：判回执的那几段里一个 `say` 字样都不许有）。
 - **三把静态锁**各自反向拔一处。
 
+## 5-bis. P0 交付记录（2026-09-15，主树）：喊停就是喊停
+
+**落点四处，零新字段、零新模块边（53 模块 418 边不变）：**
+
+| 处 | 干了什么 |
+|---|---|
+| `06i-steward-core.js`（`stewardMayAct` 之后） | 新判据 `stewardStoppedTarget(head, run)` → `'' \| 'run' \| 'thread'`，只读两处既有落盘事实；同屋一张两句话的表 `STEWARD_STOPPED_SAY` ＋ 取话口 `stewardStoppedRefusal()` |
+| `13l-steward-ops.js` | 新读点 `stewardReadRunSnapshot()`（与续跑分级读同一份文件，但那一处的 `missing`／`unknown` 语义一个字节没动）；`stewardImplRunAction` 里推进类动作在 `mayAct` 之后、续跑分级之前加一道闸 |
+| `13k-steward-threads.js` | `stewardImplThreadContinue` 在权限闸之前加同一道闸（自动递话那条路） |
+| `13p-steward-runner-actions.js` | 自理闸门加 ③b，排在配额与计数之前 |
+
+**三处调用点的条件都是 `stewardTriggerOf(ctx) !== 'user'`** —— `POST /api/steward/act`（用户亲手按按钮）与 `POST /api/steward/relay`（抽屉里直接说）都给 `trigger:'user'`，所以**降级成按钮、用户自己按那条路照旧走得通**。没有 trigger 的调用面（工具循环里模型直接调、进程内直调）按 fail-closed 一并拦下 —— 那些面上做决定的仍然是模型，不是人。
+
+**判据：新件 `dev-harness/steward-stop-respected.e2e.js`（20 条，纯进程内直调，不起服务、不开浏览器）** ＋ `steward-runner.static.e2e.js` 新增 ⑦ 组（判据唯一／表唯一／值域唯一，含切函数体判顺序），全件读数 128 PASS。
+
+**四处真反向（每一处都改源码、确认转红、再逐字节还原）：**
+
+| # | 反向 | 实得 |
+|---|---|---|
+| 1 | 把 06i 的判据恒回 `''` | **9 条行为断言转红**（A1／A1b／A2／B1／B1b／E1／E2／E4／E5），而「用户自己按仍然照做」「自己挂了照旧能自理」那 6 条**全绿** —— 证明这道闸只拦自动、不拦人 |
+| 2 | **只**拔掉 13p 那道预闸（工具层两道留着） | **恰 1 条红：E2**（被停的目标白占了一个小时窗名额）。E1／E3／E4／E5 仍绿 —— 两层防御各有各的用：工具层保证「不会真动手」，预闸保证「连配额都不该花」 |
+| 3 | 把 ③b 整块移到自理清单那道闸【之后】（仍在同一个函数体内） | **恰 ⑦e2 红**（935 > 835）—— 顺序锁是紧的，不是「这几个字出现过就算数」 |
+| 4 | 自理意图表里加一个 `intent:'upgrade'`；同时把那句话抄进 13k | **⑦f2／⑦c2／⑦c3 三条红** |
+
+**如实登记三处：**
+
+1. **「被停」不等于「用户按的停」。** `aborted` 是 `stopSession()` 的共同产物，`superseded`（用户在同一条线程里又发了一句）、`disconnected`、`steward-stop`（管家自己按优先级停的）、`scheduler_timeout` 都会落它。判据**刻意**不去分辨是谁停的 —— 它要分的是**「自己挂了」与「被停下来」**：前者可以自理重试，后者一律只提议。谁停的都一样，停是一次明确的意思表示。
+2. **账过期不算数。** 头上那条 `stewardLastTurn` 只在管家发起的回合 settle 时才翻新，用户自己跑的回合不写它。所以判据加了一道 `last.seq >= head.turnSeq`（与 13i 收集第四源时「账盖不住当前回合就当它还没结束」同一条纪律）—— 否则一条很久以前被停过的线程会被**永久**挡住自理。夹具 C1 钉着这一条。
+3. **我自己的第一次反向做错了，而它看起来是绿的。** 反向 3 第一版用 4 个空格的 `if (auto.retry !== true)` 当锚点做字符串替换，结果匹配进了另一个函数里 6 个空格那一行（`String.replace` 找的是子串，不认行首），代码块落到了 `stewardSelfServeAllows` 里 —— 锁照样红，但红的**理由是错的**（块离开了闸门，而不是顺序变了）。改成先切出闸门函数体、只在体内替换，才真正证到「块还在闸门里、只是排到了 ④ 后面」。**做错的反向会给你一个假的安心**，与 124-P3 那次「锁写松了」同族。
+
+**这一刀没碰的**：13i 的事件分类口径（洞不在那儿）、`13d:1954` 的 HTTP 面（用户自己打 `retry_node` 照旧）、09-workflow 的停止收尾。
+
+## 5-ter. P1 开工前的覆盖率实测（2026-09-15，P0 回归等待期做的只读取证）
+
+把**能走到管家面前**的 `errorClass` 全表数了一遍（`08-agent-runs.js:180 classifyNodeErrorText` 的四个 ＋ `src/` 里所有 `errorClass = '...'` 赋值 ＋ 三个引擎的回合级类）：
+
+| 覆盖状况 | 机器类 |
+|---|---|
+| **表里有**（12 条，`06:62`） | `provider_misconfigured`／`network_down`／`permission_denied`／`tool_error`／`idle_timeout`／`tool_loop`／`plan_rejected`／`schema_failed`／`evidence_missing`／`vote_contract_failed`／`dependency_cycle`／`gate_rejected` |
+| **表里没有**（实得 15 条以上） | `timeout`／`network`／`subagent_failed`（`classifyNodeErrorText` 的三个默认出口，**最常见的那几类反而不在表里**）／`no_progress`／`semantic_stall`／`node_exception`／`scheduler_error`／`degraded_fail`／`worktree_error`／`blocked`／`cancelled`／`interrupted`／`propagate_cycle`／`gate_uncovered`／`gate_unverified`／`gate_unpropagated`／`claude_cli_error`／`kimi_acp_error`／`cli_missing`／`launch_error` |
+
+**于是 P1 的范围要改一处**：§3 原写「`06:62` 那张表只读不改」。**实测不成立** —— 光接消费链、不补表，用户会看到一大片「未知类别（subagent_failed）」，那不比现在的裸机器词好多少。P1 改成：**表按缺口补全（只加键，既有 12 条一个字节不动）**，补的每条都要有「这是什么」与「下一步」两句；2.0 线程错误卡跟着白捡覆盖（它未命中本地 i18n 时就回落这张服务端表，见 `session-experience.js:560`）。
+
 ## 6. 三件要用户拍板的（**推荐已写在括号里，不回也按推荐走**）
 
 1. **P0 的「最近」有多近**：`aborted`／`stopped` 是终态标记，不带「多久以前」。要么**只要目标处在停止终态就一律不自动动手**（推荐：简单、没有时间窗要调、也符合「停了就是停了」的直觉），要么加一个时间窗（比如 10 分钟内按停才拦）—— 后者需要一个「什么时候停的」的时间戳，班组有（`pauseRequestedAt`），线程头没有，就要加字段，与 §4 冲突。
 2. **P2 的徽标印在哪**：2.0 线程的工具卡（推荐：用户最常看见的地方，且 124-P3 的徽标模具现成）／管家转述里也印一份（推荐：**本波只钉负向锁**「管家转述不许把缓存说成最新」，正向徽标等 P2 落稳再说）／两处都做完整版（费两倍，不推荐）。
-3. **J09 与 T03 本波做到哪**：J09（摘要压缩后分歧仍可回查）与 T03（歧义追问的真实模型盲评）都要**真模型成对样本**，是花钱的评测而不是代码。推荐：**本波只做 J09 确定性那一半**（P3，取证之后定），T03 与 J09 的真模型样本登记成独立一刀（见 §7 ①）—— 理由是 41 号方案 §9.2 自己写着「不以 fake 模型证明语义质量」，而真模型盲评一旦塞进本波，三刀都会被它拖住。
+3. **J09 与 T03 本波做到哪** —— ~~推荐本波只做确定性那一半、真模型样本另立一刀~~ → **用户 2026-09-15 拍板：真模型盲评就在本波做，直接调本机已配好的端点 —— provider `deepseek`（`https://api.deepseek.com`）、模型 `deepseek-flash`。** 于是 T03 与 J09 的真模型那一半回到本波范围，成为 **P4**：成对任务、重复运行、盲评；密钥从本机 `config.json` 现读现用（不落进夹具、不进日志、不进提交），夹具仍走 `self-isolate-home` 的临时家。
+
+**P4 的端点已当场探过（2026-09-15，两发实调，密钥不落盘不入日志）**：`POST https://api.deepseek.com/chat/completions`，`model: "deepseek-flash"` → HTTP 200、595 ms。**一个坑先记下来：它是带思维链的模型** —— 第一发给 `max_tokens: 16`，16 个 token 全进了 `reasoning_tokens`，`content` **恒为空字符串**；给到 600 才拿到正文，返回体里 `content` 与 `reasoning_content` 两个字段并存。P4 的盲评夹具据此定两条：① 每发预算按「思维链 ＋ 正文」给，不按正文长度给；② 判分只读 `content`，`reasoning_content` 一律不入盲评样本（它是过程，不是答案）。
+
+**前两条按推荐落定**（用户同上「按你推荐的来」）：① 停止判据**不加时间窗** —— 只要目标处在停止终态就不自动动手；线程侧那条账随下一回合落定自然翻新、班组侧随重新拉起翻新，都不粘手（已由 P0 的 C1 钉住）；② 时效徽标先印 2.0 线程工具卡，管家转述面本波只钉负向锁。
 
 ## 7. 不做的（登记，别在本波长出来）
 
-1. **T03 歧义追问的真实模型样本**（成对任务、重复运行、盲评）＋ **J09 的真模型那一半** —— 独立一刀，要先定样本集与费用口径（41 §9.2 第 2 层）。
+1. ~~**T03 歧义追问的真实模型样本** ＋ **J09 的真模型那一半** —— 独立一刀~~ → **已作废（用户 2026-09-15 拍板本波就做，走 `deepseek-flash`，见 §6 ③）**，落成 P4。
 2. **三张失败表收成一张** —— `ERROR_CLASSES`（回合／节点层）与 `classifyRuntimeToolFailure`（单次工具调用层）是**两个层的两套词汇**，不是重复造轮子；前端那 6 条是 `ERROR_CLASSES` 的子集。本波只接管家这条断链，**统一词汇是另一件事**，要先有「同一次失败被两套词各叫一次」的真样本再说。
 3. **`runtimeFailureTelemetryV1` 翻默认** —— 那是遥测开关，翻它要有本机样本与费用读数（20 号文那套证据门），不搭本波便车。
 4. **自动升档／自动切模型**（E02）—— 35 号文已排到 128+，本波只加锁不开路。

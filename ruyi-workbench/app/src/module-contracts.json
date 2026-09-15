@@ -3835,6 +3835,7 @@
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
         "STEWARD_STATE_LABELS",
+        "STEWARD_STOPPED_SAY",
         "STEWARD_THREAD_STATES",
         "STEWARD_THREAD_STATE_ORDER",
         "STEWARD_TOOL_PREFIX",
@@ -3877,6 +3878,8 @@
         "stewardSanitizeBlock",
         "stewardSanitizeText",
         "stewardStateLabel",
+        "stewardStoppedRefusal",
+        "stewardStoppedTarget",
         "stewardTermJaccard",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
@@ -12655,6 +12658,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedTarget",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
           "kinds": [
             "call"
@@ -12968,6 +12985,7 @@
         "stewardImplSelfStatus",
         "stewardImplSkillToggle",
         "stewardImplUsage",
+        "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceIsUserMessage"
       ],
@@ -13143,6 +13161,20 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardStateLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedTarget",
           "kinds": [
             "call"
           ]
@@ -13381,6 +13413,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardSeatedFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardTriggerOf",
           "kinds": [
             "call"
           ]
@@ -14544,6 +14583,20 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardStoppedTarget",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
           "kinds": [
@@ -14560,6 +14613,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardReadRunSnapshot",
           "kinds": [
             "call"
           ]

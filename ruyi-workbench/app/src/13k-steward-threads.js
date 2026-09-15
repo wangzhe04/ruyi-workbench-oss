@@ -711,6 +711,17 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 【目标状态】选通道,判定与执行的单点在 13h(经 StewardHooks.relayDeliver 延迟绑定,零前向边;
   // 四条通道各自的理由写在那里的头注),POST /api/steward/relay 走的是同一个实现。
 
+  // 125-P0(42 号文 §1 ①):上一回合是被【停】下来的,就别自动往里递话 —— 用户按的停也好、别处
+  // 掐的也好,那是一次明确的意思表示。判据在 06i 一处(本文件不自己算),排在权限闸【之前】:与上面
+  // 那条「用户正坐在这条线程前面」同理,这不是「有没有权限」,是「这件事刚被停下来,不该由管家替他
+  // 撤销」。条件是用户不在跟前 —— /api/steward/relay 与 /api/steward/act 都给 trigger:'user',
+  // 用户自己按那枚按钮照旧递得进去。
+  if (stewardTriggerOf(ctx) !== 'user' && stewardStoppedTarget(head, null) === 'thread') {
+    return stewardFail('propose_required', stewardStoppedRefusal('thread'), {
+      reason: 'target_stopped', sessionId, stopped: 'thread',
+    });
+  }
+
   // 116-3 P0-2:无人值守(收件箱)触发的递话要过两道闸 —— 自理清单勾选 + 目标线程权限档
   // (§3.5 工具面表格:线程族按目标线程权限,「每步都问」「只做计划」一律提议)。判据与
   // stewardImplDecide / stewardImplRunAction 同一写法:先算 mayAct,不是 'auto' 就 propose_required。

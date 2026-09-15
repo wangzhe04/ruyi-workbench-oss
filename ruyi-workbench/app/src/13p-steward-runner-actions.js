@@ -168,6 +168,9 @@ function stewardDowngradeActions(executed, acts) {
 //   ① 停机 / 熔断      —— 由 runStewardTurn 的 stewardCircuitCheck 在更外层挡掉(停机时根本不到这里);
 //   ② 小时窗           —— 自理动作与管家回合【计入同一个】 stewardMaxTurnsPerHour 窗口;
 //   ③ 无进展熔断       —— 同一目标连续 2 次自理动作后仍在报问题 -> 停自动,只提议;
+//   ③b 被停下来的目标   —— 125-P0:班组快照 status:'stopped' 或会话头上那条账说末回合 aborted ->
+//                          不自动重开,只提议。判据在 06i 一处(13k / 13l 的工具内部各调了一次,
+//                          那是权威点;这里是预闸 —— 拦在配额与计数【之前】,省掉一次小时窗名额);
 //   ④ 自理清单勾选     —— retry / resume(resume 为 null 时跟随既有 autonomyAutoResume);
 //   ⑤ 目标线程权限     —— stewardMayAct(mode,'failed','exec'),续跑按 failed 档口径(§3.3);
 //   ⑥ 续跑另加一道     —— classifyRunResumeTier 必须判 auto_resumable(权限面不可证明就不自动);
@@ -238,6 +241,14 @@ async function stewardSelfServeGate(plan, config) {
   if (entry.attempts >= STEWARD_SELF_SERVE_ATTEMPT_MAX) {
     return { allowed: false, reason: `这条线程已经自动处置过 ${entry.attempts} 次仍未好转,不再自动动手,只提议` };
   }
+  // ③b 125-P0:目标是被【停】下来的 -> 不自动重开。判据在 06i 一处,本文件只调用;工具内部
+  // (13k 递话 / 13l 班组动作)还会各判一次 —— 那两处是权威点,这里只是预闸:排在配额与计数之前,
+  // 被停的目标不该白占一个小时窗名额,也不该把 attempts 记成「自理过一次」。
+  const stoppedWhich = stewardStoppedTarget(
+    await stewardReadSessionHead(plan.sessionId).catch(() => null),
+    plan.runId ? await stewardReadRunSnapshot(plan.sessionId, plan.runId) : null,
+  );
+  if (stoppedWhich) return { allowed: false, reason: stewardStoppedRefusal(stoppedWhich) };
   const mode = await stewardTargetPermission(plan.args, config);
   if (plan.intent === 'retry') {
     if (auto.retry !== true) return { allowed: false, reason: '「失败自动重试」没有勾选,只能提议' };
