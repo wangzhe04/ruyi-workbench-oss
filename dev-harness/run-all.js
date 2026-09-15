@@ -262,11 +262,17 @@ async function runWithRetry(file) {
   const first = await runOne(file);
   if (first.ok || KNOWN_FAILURE[file]) return { r: first, flaky: false };
   const second = await runOne(file);
-  if (second.ok) return { r: { ...second, ms: first.ms + second.ms }, flaky: true };
+  // 125:首跑那次的 FAIL 行【留住】。修前 flaky 件的首跑输出整份丢掉,于是汇总只说得出「这件抖」,
+  // 说不出「抖在哪一条」—— 本轮全量 4 件 flaky、零诊断,40 号文 §8.4 ⓪ 想治的正是这个。
+  if (second.ok) return { r: { ...second, ms: first.ms + second.ms, firstFail: failLines(first.out) }, flaky: true };
   return { r: { ...second, out: `[retry] 首跑 tail:\n${tailLines(first.out, 8)}\n[retry] 重跑 tail:\n${second.out}`, ms: first.ms + second.ms }, flaky: false };
 }
 function tailLines(s, n) {
   return String(s || '').split(/\r?\n/).filter(Boolean).slice(-n).join('\n');
+}
+// 一次运行的输出里所有 FAIL 行(封顶 12 条;再多也是同一个根因的连坐)。失败件与 flaky 件共用它。
+function failLines(s) {
+  return String(s || '').split(/\r?\n/).filter(line => /^\s*FAIL\b/.test(line)).slice(0, 12);
 }
 
 async function main() {
@@ -353,7 +359,7 @@ async function main() {
       const tag = isFast(f) ? '[fast]' : '[main]';
       process.stdout.write(`(${String(i + 1).padStart(3)}/${files.length}) ${tag} ${f} ... `);
       const { r, flaky } = await runWithRetry(f);
-      results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, ms: r.ms });
+      results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, ms: r.ms, firstFail: r.firstFail });
       const known = KNOWN_FAILURE[f];
       if (r.ok) {
         pass++;
@@ -391,7 +397,7 @@ async function main() {
         const { r, flaky } = await runWithRetry(f);
         // Preserve the captured output in parallel mode too. Without it the final failure heading could name
         // the right file but print an empty/misleading tail, making a load flake needlessly hard to diagnose.
-        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms });
+        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail });
         const known = KNOWN_FAILURE[f];
         if (r.ok) {
           if (flaky) console.log(`${prefix} PASS [flaky: 重跑通过] (${r.ms}ms)`);
@@ -427,7 +433,7 @@ async function main() {
     for (const f of exclusiveFiles) {
       process.stdout.write(`[exclusive] ([performance]) ${f} ... `);
       const { r, flaky } = await runWithRetry(f);
-      const row = { file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms };
+      const row = { file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail };
       results.push(row);
       const known = KNOWN_FAILURE[f];
       if (r.ok) {
@@ -449,7 +455,14 @@ async function main() {
   console.log(`\n# 汇总: ${pass} pass / ${fail} fail / ${knownFail} known-fail / ${unexpectedPass} unexpected-pass / ${flakyCount} flaky / ${files.length} ran / ${SKIP.size} skipped`);
   if (flakyFiles.length) {
     console.log(`# [flaky] 名单(首跑失败重跑通过,时序可疑,建议后续波治理):`);
-    for (const f of flakyFiles) console.log('#   ' + f);
+    for (const f of flakyFiles) {
+      console.log('#   ' + f);
+      // 125:把首跑那次的 FAIL 行一并打出来。只报件名等于只说「它抖」,而治它要的是「抖在哪一条」。
+      const row = results.find(x => x && x.file === f) || null;
+      const lines = (row && Array.isArray(row.firstFail)) ? row.firstFail : [];
+      if (lines.length) for (const line of lines) console.log('#     [首跑] ' + line.trim());
+      else console.log('#     [首跑] (没抓到 FAIL 行:多半是超时或进程被杀,不是断言红)');
+    }
   }
   if (failed.length) {
     console.log(`\n# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场`);
