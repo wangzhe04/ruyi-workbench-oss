@@ -148,7 +148,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     // estimation / 105g factTable / 105h refine)都是 additive 不 bump;`schema` 那道闸拦的是
     // 结构不兼容,新增可选键不是。25 号文 §1.2 写的是「版本号 +1」,这里显式按仓内既成惯例走,
     // 理由记在 44 号文 §7。
-    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000 },
+    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000, reattachRatio: 0.1, reattachMaxTokens: 8000, reattachHeadLines: 40, reattachMaxFiles: 8 },
     // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
     // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
     // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
@@ -1983,6 +1983,50 @@ function recentTurnsBoundary(history, maxTailTokens, byUnits) {
   return boundary;
 }
 
+// 126-111c: 重播种后重附最近读过的文件。
+//
+// 现状:L2 把整段历史换成「摘要 user ＋ 一句收到 ＋ 尾部」。摘要里也许写着「改了 a.js 的第 40 行」,
+// 但**文件长什么样已经不在上下文里了** —— 模型下一步要么凭记忆改、要么把同一个文件再读一遍。
+//
+// 做法:重播种那一刻【完整历史还在手里】,尾部那些 file_read 的全文就在里面 —— 直接从它取。
+// **零磁盘读取**(派单稿原写的是从 105a 快照 rehydrateObservation 取 —— 那等于把手里已经有的东西
+// 再从盘上读一遍;而且压缩是热路径,能不碰盘就不碰)。取不到全文的(已被蒸发成占位/缩减视图)
+// 直接跳过 —— 它本来就已经不在模型眼前了,重附它不是「接着用」,是凭空塞回来。
+//
+// 有界:按 path 去重取最新一次,每个文件只带头部若干行,整块过 reattach 预算与文件数上限;
+// 三个数全在 rules.compactionPlan 里(值域唯一)。
+function recentFileReads(history, budgetTokens) {
+  const rules = CONTEXT_GOVERNANCE_RULES.compactionPlan;
+  const cap = Math.max(0, Math.min(rules.reattachMaxTokens, Math.floor(Number(budgetTokens) * rules.reattachRatio)));
+  if (!Array.isArray(history) || !history.length || !cap) return [];
+  const byPath = new Map();   // path -> { path, head }(后写覆盖前写 = 取最新一次)
+  for (const m of history) {
+    if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
+    if (m.content.startsWith(EVAPORATED_PREFIX) || m.content.startsWith(READ_DEDUP_PREFIX)) continue;
+    let parsed = null;
+    try { parsed = JSON.parse(m.content); } catch { continue; }
+    if (!parsed || parsed.ok !== true) continue;
+    const filePath = typeof parsed.path === 'string' ? parsed.path : '';
+    const body = typeof parsed.content === 'string' ? parsed.content : '';
+    if (!filePath || !body) continue;
+    // 先 delete 再 set:`Map.set` 对**已存在**的键不会把它挪到末尾 —— 不删的话「同一个文件又读了
+    // 一遍」在插入序里仍停在老位置,于是下面 reverse 出来的「最近优先」是假的(判据 B3 当场逮到)。
+    byPath.delete(filePath);
+    byPath.set(filePath, { path: filePath, head: body.split(/\r?\n/).slice(0, rules.reattachHeadLines).join('\n') });
+  }
+  // 最近读的排前面(Map 保插入序,后写的在后 —— 反过来即最近优先)。
+  const ordered = [...byPath.values()].reverse().slice(0, rules.reattachMaxFiles);
+  const picked = [];
+  let used = 0;
+  for (const file of ordered) {
+    const cost = estimateTextTokens(file.path + '\n' + file.head);
+    if (picked.length && used + cost > cap) break;   // 至少带一个,否则预算一紧整块消失
+    used += cost;
+    picked.push(file);
+  }
+  return picked;
+}
+
 // 第104波：所有自动压缩入口共享同一份不可变计划语义。计划只计算预算、完整回合尾部与
 // 重播种形状；摘要执行、持久化和事件仍由各 owner 负责，因此不会把副作用重新揉成一团。
 const CompactionPlan = (() => {
@@ -2017,6 +2061,8 @@ const CompactionPlan = (() => {
       boundary,
       task,
       kept: boundary <= 0 ? [] : history.slice(boundary),
+      // 126-111c:开关在这儿把门(与 111a/111b 同一个模具)。关时恒为空数组 -> reseed 零注入。
+      recentFiles: reseedReattachFilesEnabled(options.config) ? recentFileReads(history, budget) : [],
     });
   }
   function reseed(plan, summary) {
@@ -2036,8 +2082,17 @@ const CompactionPlan = (() => {
     const bridged = kept.length && kept[0] && kept[0].role === 'assistant'
       ? [{ role: 'user', content: '以下为摘要之后保留的最近工具往来,接续执行。' }, ...kept]
       : kept;
+    // 126-111c:最近读过的文件有界重附。**并进摘要那一条 user,不单列一条** —— 单列会造成
+    // 两条连续 user(它后面跟着的要么是桥接 user、要么是 kept 的首条 user),破部分 provider 的
+    // 交替契约;本函数上方那条注释早就为「钉住原始 task」踩过同一个坑,做法逐字相同。
+    // 开关关时 recentFiles 恒为空数组 -> 这一段整个不出现,reseed 逐字节不变。
+    const files = (plan && plan.recentFiles) || [];
+    const fileBlock = files.length
+      ? '\n\n【最近读过的文件(节选,供接续参考;需要全文请重新读)】\n'
+        + files.map(f => '--- ' + f.path + ' ---\n' + f.head).join('\n\n')
+      : '';
     return [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') },
+      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];

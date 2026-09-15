@@ -25,6 +25,12 @@ function reseedTailUnitsEnabled(config) {
   return !!(config && config.runtimeReseedTailUnitsV1 === true);
 }
 
+// 126-111c: 重播种后重附最近读过的文件的生效条件 —— 单开关。**唯一判定口**;显式 false /
+// 缺省保证 CompactionPlan.create 不扫历史、reseed 不注入任何东西(逐字节不变)。
+function reseedReattachFilesEnabled(config) {
+  return !!(config && config.runtimeReseedReattachFilesV1 === true);
+}
+
 // 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
 // 摘要 prompt 逐字节仍是今天那份中文。
 function summaryPromptI18nEnabled(config) {

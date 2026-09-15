@@ -425,7 +425,11 @@
     "minimumTailTokens": 1,
     "l1ProtectRatio": 0.25,
     "l1ProtectMinTokens": 4000,
-    "l1ProtectMaxTokens": 32000
+    "l1ProtectMaxTokens": 32000,
+    "reattachRatio": 0.1,
+    "reattachMaxTokens": 8000,
+    "reattachHeadLines": 40,
+    "reattachMaxFiles": 8
   },
   "estimation": {
     "sampleChars": 2048,

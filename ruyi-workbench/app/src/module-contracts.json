@@ -131,6 +131,7 @@
         "memoryRelevanceMax",
         "memoryVectorRecallEnabled",
         "observationRecallEnabled",
+        "reseedReattachFilesEnabled",
         "reseedTailUnitsEnabled",
         "sessionNotesEnabled",
         "sessionNotesInjectEnabled",
@@ -7465,6 +7466,7 @@
         "providerConversationContextWindow",
         "providerSummaryCall",
         "providerSummaryCallCore",
+        "recentFileReads",
         "recentTurnsBoundary",
         "recordCompactUsage",
         "reduceObservationContent",
@@ -7644,6 +7646,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "reseedReattachFilesEnabled",
           "kinds": [
             "call"
           ]
@@ -16674,6 +16683,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "reseedReattachFilesEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "reseedTailUnitsEnabled",
           "kinds": [
             "read"
@@ -19552,6 +19568,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "providerSummaryCall",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "recentFileReads",
           "kinds": [
             "read"
           ]

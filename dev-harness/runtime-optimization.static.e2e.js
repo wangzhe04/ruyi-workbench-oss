@@ -287,6 +287,30 @@ ok(/以下为摘要之后保留的最近工具往来/.test(src), 'F4 桥接文�
   ok(nets.length === 2, `F4 两处 reseed 出口都挂了配对安全网且都由开关把门（实得 ${nets.length} 处）`);
 }
 
+console.log('\n── [F5] 126-111c · 重播种后重附最近读过的文件 ──');
+ok(/runtimeReseedReattachFilesV1: false/.test(src), 'F5 开关默认关');
+ok(!/runtimeReseedReattachFilesV1: true/.test(src), 'F5 没有在别处被默认翻开');
+ok(/function reseedReattachFilesEnabled\(config\)/.test(src), 'F5 判定函数存在(唯一判定口)');
+ok(/reattachRatio/.test(src) && /reattachMaxTokens/.test(src) && /reattachHeadLines/.test(src) && /reattachMaxFiles/.test(src),
+  'F5 四个界都来自规则文件(值域唯一,代码里不写死)');
+{
+  const lines = src.split(/\r?\n/).filter(line => /\brecentFiles\s*:/.test(line));
+  ok(lines.length === 1, `F5 扫得到 recentFiles 的那唯一赋值点（实得 ${lines.length} 处）`);
+  ok(lines.every(line => /reseedReattachFilesEnabled\s*\(/.test(line)),
+    `F5 它由 reseedReattachFilesEnabled 把门${lines.length ? '；实得：' + lines.map(s => s.trim()).join(' ⏐ ') : ''}`);
+}
+{
+  // **重附不许碰盘**：内容只能来自手里这份历史。压缩是热路径，而且 rehydrate 那条路要解压快照、
+  // 校两道哈希 —— 为了「把已经在手里的东西再读一遍」付这个代价没有道理。这条只有机械判据钉得住：
+  // 扫 recentFileReads 的函数体，出现任何文件系统调用即红。
+  const body = (src.match(/function recentFileReads\(history, budgetTokens\) \{[\s\S]*?\n\}/) || [''])[0];
+  ok(body.length > 200, `F5 扫得到 recentFileReads 的函数体（实得 ${body.length} 字；扫不到 = 本条静默失效）`);
+  const io = body.split(/\r?\n/).filter(line => /\bfsp\.|\bfs\.|readFile|rehydrateObservation|zlib|gunzip/.test(line));
+  ok(io.length === 0, `F5 **重附零磁盘读取** —— 内容只取自手里这份历史${io.length ? '；实得：' + io.map(s => s.trim()).join(' ⏐ ') : ''}`);
+}
+ok(/byPath\.delete\(filePath\);/.test(src),
+  'F5 同一个文件再读一遍要先 delete 再 set —— 否则「最近优先」是假的(Map.set 不挪已存在的键)');
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

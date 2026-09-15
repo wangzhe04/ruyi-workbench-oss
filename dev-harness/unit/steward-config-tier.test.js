@@ -161,6 +161,8 @@ const EXPECTED = {
   runtimeSummaryPromptI18nV1: 'forbidden',
   // 126-111b:L2 尾部单元边界＋桥接。同族同档。
   runtimeReseedTailUnitsV1: 'forbidden',
+  // 126-111c:重播种后重附最近读过的文件。同族同档。
+  runtimeReseedReattachFilesV1: 'forbidden',
   runtimeSessionNotesV1: 'forbidden', runtimeSessionNotesInjectV1: 'forbidden',
   runtimeSessionNotesMergeV1: 'forbidden', runtimeSummaryEntityCheckV1: 'forbidden',
   runtimeEstimateBucketsV1: 'forbidden', runtimeSummarySingleShotV1: 'forbidden',
