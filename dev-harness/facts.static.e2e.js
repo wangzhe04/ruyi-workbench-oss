@@ -93,13 +93,28 @@ ok(accClaimsOk, `README 无过时 ACC 工具数口径(99/98 绝迹;现行 ${fact
 // 而实测 README 已经漂到「89 个原生工具 / 243 项 e2e / 15 组 unit」，真值是 90 / 318 / 30 ——
 // 漂了好几波没人发现，因为没有任何机器在看。这三条只要求「真值在 README 里出现过」，
 // 不钉句式（README 改排版不该把门弄红）；数字一变而 README 没跟，这里就红。
-const readmeNums = new Set((readme.match(/[0-9]+/g) || []).map(Number));
-ok(readmeNums.has(facts.nativeTools),
-  'README 提到的原生工具数与 facts 一致(现行 ' + facts.nativeTools + ')');
-ok(readmeNums.has(facts.e2eCount),
-  'README 提到的 e2e 总数与 facts 一致(现行 ' + facts.e2eCount + ')');
-ok(readmeNums.has(facts.unitSuites),
-  'README 提到的 unit suite 数与 facts 一致(现行 ' + facts.unitSuites + ')');
+// 126-111e 顺手收紧的一把松锁:这三条原本写成 `readmeNums.has(n)` —— 只问「这个数字在 README 里
+// 【某处】出现过没有」。README 里到处都是别的数字(版本号、别的计数、表格里的数),于是它几乎永远
+// 是绿的:实测 README 写着「48 组 unit suite」而 facts 已经是 49,这三条照样全过。锁写松了比没有锁
+// 更糟 —— 它给的是假的把握。收紧成:**数字必须贴着它声称在数的那个词**,而且每一处都要对上。
+// (本会话第四次同一族:锁要钉住判据本身,不是「这几个字/这个数出现过」。)
+function readmeCounts(label, patterns) {
+  const hits = [];
+  for (const re of patterns) for (const m of readme.matchAll(re)) hits.push({ text: m[0].trim(), n: Number(m[1]) });
+  ok(hits.length > 0, `README 里扫得到「${label}」的说法（实得 ${hits.length} 处；扫不到 = 本条静默失效）`);
+  return hits;
+}
+for (const [label, value, patterns] of [
+  ['原生工具数', facts.nativeTools, [/([0-9]+)\s*个原生工具/g, /\*\*([0-9]+) native built-in tools\*\*/g]],
+  ['e2e 总数', facts.e2eCount, [/([0-9]+)\s*项\s*e2e/g, /\*\*([0-9]+) e2e cases\*\*/g]],
+  ['unit suite 数', facts.unitSuites, [/([0-9]+)\s*组\s*unit suite/g, /plus ([0-9]+) unit suites/g]],
+]) {
+  const hits = readmeCounts(label, patterns);
+  const wrong = hits.filter(h => h.n !== value);
+  ok(wrong.length === 0,
+    `README 里每一处「${label}」都与 facts 一致(现行 ${value}，实得 ${hits.length} 处)` +
+    (wrong.length ? `；对不上的：${wrong.map(h => h.text).join('、')}` : ''));
+}
 
 
 console.log('\nFACTS STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

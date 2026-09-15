@@ -48,6 +48,10 @@ module.exports = {
   evaporateBudgetBoundary,
   historyUnitStarts,
   evaporateBudgetBoundaryEnabled,
+  // 126-111e: 历史内重复读取去重 — exposed for e2e 白盒契约(键零误报/最新一次留全文/幂等)。
+  dedupeRepeatedReads,
+  fileReadDedupKey,
+  historyReadDedupEnabled,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

@@ -223,6 +223,22 @@ ok(/l1ProtectRatio/.test(src) && /l1ProtectMinTokens/.test(src) && /l1ProtectMax
   ok(ungated.length === 0, `F1 每一处 boundaryBudget 都由 evaporateBudgetBoundaryEnabled 把门${ungated.length ? '；实得没把门的：' + ungated.map(s => s.trim()).join(' ⏐ ') : ''}`);
 }
 
+console.log('\n── [F2] 126-111e · 历史内重复读取去重 ──');
+ok(/runtimeHistoryReadDedupV1: false/.test(src), 'F2 开关默认关');
+ok(!/runtimeHistoryReadDedupV1: true/.test(src), 'F2 没有在别处被默认翻开');
+ok(/function historyReadDedupEnabled\(config\)/.test(src), 'F2 判定函数存在(唯一判定口)');
+ok(/function fileReadDedupKey\(raw\)/.test(src) && /createHash\('sha256'\)\.update\(body\)/.test(src),
+  'F2 去重键 = 路径 ＋ 文件正文的哈希（不是「路径＋mtime＋size」那种版本推断 → 零误报）');
+ok(/const READ_DEDUP_PREFIX = /.test(src) && /startsWith\(READ_DEDUP_PREFIX\)/.test(src), 'F2 指针有独立前缀且被跳过(幂等)');
+ok(/rawRef=\$\{rawRefPrefix\}/.test(src), 'F2 指针带 rawRef —— 换掉的是重复不是信息,原件一直回查得到');
+{
+  // 与 F1 同一把机械锁：`dedupeReads` 也是「已经过开关把门的」布尔，evaporateHistory 自己不读开关。
+  const lines = src.split(/\r?\n/).filter(line => /\bdedupeReads\s*:/.test(line));
+  const ungated = lines.filter(line => !/historyReadDedupEnabled\s*\(/.test(line));
+  ok(lines.length >= 2, `F2 扫得到 dedupeReads 赋值点（实得 ${lines.length} 处；扫不到 = 本条静默失效）`);
+  ok(ungated.length === 0, `F2 每一处 dedupeReads 都由 historyReadDedupEnabled 把门${ungated.length ? '；实得没把门的：' + ungated.map(s => s.trim()).join(' ⏐ ') : ''}`);
+}
+
 console.log('');
 if (fail) { console.log(`RUNTIME-OPTIMIZATION E2E: FAIL (${fail})`); process.exit(1); }
 console.log('RUNTIME-OPTIMIZATION E2E: ALL PASS');

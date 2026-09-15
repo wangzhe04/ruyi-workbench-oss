@@ -12,6 +12,13 @@ function evaporateBudgetBoundaryEnabled(config) {
   return !!(config && config.runtimeEvaporateBudgetBoundaryV1 === true);
 }
 
+// 126-111e: 历史内重复读取去重的生效条件 —— 单开关,不依赖 111a(它去的是【受保护的尾部】里
+// 那几份重复全文,与边界怎么算无关)。**唯一判定口**:挂钩点与 e2e 共用本函数;显式 false /
+// 缺省保证 evaporateHistory 对历史零额外改写。
+function historyReadDedupEnabled(config) {
+  return !!(config && config.runtimeHistoryReadDedupV1 === true);
+}
+
 // 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {

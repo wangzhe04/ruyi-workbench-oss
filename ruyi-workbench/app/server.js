@@ -799,6 +799,13 @@ function evaporateBudgetBoundaryEnabled(config) {
   return !!(config && config.runtimeEvaporateBudgetBoundaryV1 === true);
 }
 
+// 126-111e: 历史内重复读取去重的生效条件 —— 单开关,不依赖 111a(它去的是【受保护的尾部】里
+// 那几份重复全文,与边界怎么算无关)。**唯一判定口**:挂钩点与 e2e 共用本函数;显式 false /
+// 缺省保证 evaporateHistory 对历史零额外改写。
+function historyReadDedupEnabled(config) {
+  return !!(config && config.runtimeHistoryReadDedupV1 === true);
+}
+
 // 105b: session-notes.md 状态外置生效条件 —— 单开关,不依赖 reducer/recall。
 // 挂钩点与 e2e 共用本判定；显式 false 保证可完整回退为零文件读写。
 function sessionNotesEnabled(config) {
@@ -1067,6 +1074,10 @@ function defaultConfig() {
     // 126-111a(25 号文 §1.2): L1 蒸发的边界从「倒数第 2 条 assistant」改为【token 预算】。
     // 默认关;显式 false / 缺省 = 逐字节等价今天的 assistantsSeen===2 边界。
     runtimeEvaporateBudgetBoundaryV1: false,
+    // 126-111e(25 号文 §1.2): 历史内重复读取去重 —— 同一份文件内容在受保护的尾部里躺着好几份
+    // 全文时,较早那几份换成指针(指向后文那一条,并带 rawRef 可回查原件),最新一次留全文。
+    // 默认关;显式 false / 缺省 = 零改写。
+    runtimeHistoryReadDedupV1: false,
     // 105a: observation_recall 工具外壳 —— 让模型按缩减视图内嵌的 rawRef 回读原始工具结果。
     // 仅在 runtimeObservationReducerV1 同时开启时生效(rawRef 只由 reducer 产生);真实历史门后默认开启。
     runtimeObservationRecallV1: true,
@@ -1718,7 +1729,7 @@ function normalizeConfig(raw) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -32313,6 +32324,58 @@ function evaporateBudgetBoundary(history, budget) {
   return boundary;
 }
 
+// 126-111e: 历史内重复读取去重。
+//
+// 现状:#2a 的 execResultCacheLookup 命中之后**仍然把全文展开写进历史** —— 同一个文件在一条
+// 线程里读三次,历史里就躺着三份一模一样的正文。L1 把 boundary 之前的都缩过了,所以这几份全文
+// 真正还在占位置的地方是**受保护的尾部**;这里去的就是那一段。
+//
+// 去重键 = `路径` ＋ **文件正文的 sha256**,不是「路径＋mtime＋size」那种版本推断:
+//   · 正文逐字节相同 -> 必然是同一份内容的同一个窗口,换成指针零信息损失;
+//   · 读的窗口不同(第 1-100 行 vs 第 100-200 行)-> 正文不同 -> 各留各的;
+//   · 文件改过之后再读 -> 正文不同 -> **两份都留着**,「我的改动生效了吗」这种对照不会被吃掉。
+// 也就是说这把键**零误报**。不拿整条 content 做哈希是因为缓存命中那一发会多带一个
+// `cacheHit:{cachedAt,ageMs}`,ageMs 每次都不一样 —— 拿整条比就永远比不上。
+const READ_DEDUP_PREFIX = '[重复读取:';
+function fileReadDedupKey(raw) {
+  if (typeof raw !== 'string' || raw.charCodeAt(0) !== 123) return ''; // 123 = '{'
+  let parsed = null;
+  try { parsed = JSON.parse(raw); } catch { return ''; }
+  if (!parsed || parsed.ok !== true) return '';
+  const filePath = typeof parsed.path === 'string' ? parsed.path : '';
+  const body = typeof parsed.content === 'string' ? parsed.content : '';
+  if (!filePath || !body) return '';
+  return filePath + '\u0000' + crypto.createHash('sha256').update(body).digest('hex');
+}
+// 从 from 起(= L1 的边界,也就是受保护的尾部起点)扫一遍:同一把键的**最新一次留全文**,
+// 较早那几次换成指针。指针里带后文那一条的 tool_call_id(模型在历史里看得见它)与 rawRef
+// (有快照前缀时),所以「要原文」这条路一直通着 —— 换掉的是重复,不是信息。
+function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix) {
+  const newest = new Map();
+  for (let i = Math.max(0, from); i < history.length; i++) {
+    const m = history[i];
+    if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
+    if (toolNames && toolNames.get(String(m.tool_call_id || '')) !== 'file_read') continue;
+    const key = fileReadDedupKey(m.content);
+    if (key) newest.set(key, i);
+  }
+  let count = 0;
+  for (let i = Math.max(0, from); i < history.length; i++) {
+    const m = history[i];
+    if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
+    if (m.content.startsWith(READ_DEDUP_PREFIX) || m.content.startsWith(EVAPORATED_PREFIX)) continue; // 幂等
+    if (toolNames && toolNames.get(String(m.tool_call_id || '')) !== 'file_read') continue;
+    const key = fileReadDedupKey(m.content);
+    if (!key || newest.get(key) === i) continue; // 最新那一次留全文
+    const laterId = String(history[newest.get(key)].tool_call_id || '');
+    const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
+    const ref = rawRefPrefix ? `,原件 rawRef=${rawRefPrefix}:${i}:${contentHash}` : '';
+    m.content = `${READ_DEDUP_PREFIX}这次读到的内容与后文那次完全相同(tool_call_id=${laterId}),全文见那一条${ref}]`;
+    count++;
+  }
+  return count;
+}
+
 function evaporateHistory(history, opts) {
   if (!Array.isArray(history) || !history.length) return 0;
   // Find the index of the 2nd-most-recent assistant message. Tool messages at or after it are within the
@@ -32333,7 +32396,12 @@ function evaporateHistory(history, opts) {
   const boundaryBudget = Number(opts && opts.boundaryBudget);
   if (Number.isFinite(boundaryBudget) && boundaryBudget > 0) boundary = evaporateBudgetBoundary(history, boundaryBudget);
   const useReducer = !!(opts && opts.config && opts.config.runtimeObservationReducerV1 === true && opts.rawRefPrefix);
-  const toolNames = useReducer ? observationToolNames(history) : null;
+  // 126-111e:`dedupeReads` 与 `boundaryBudget` 同一个模具 —— 是【已经过开关把门的】布尔,
+  // 判定口在 01c 的 historyReadDedupEnabled(),由调用点各调一次;本函数仍然不读任何开关。
+  const dedupeReads = !!(opts && opts.dedupeReads === true);
+  // toolNames 原本只在 reducer 开着时才算;去重也要用它(只认 file_read),所以两者有一个要就算。
+  // 都不要时仍然是 null —— 与改前逐字节同义。
+  const toolNames = (useReducer || dedupeReads) ? observationToolNames(history) : null;
   let count = 0;
   for (let i = 0; i < boundary; i++) {
     const m = history[i];
@@ -32357,6 +32425,10 @@ function evaporateHistory(history, opts) {
     m.content = EVAPORATED_PREFIX + m.content.slice(0, 120) + ']';
     count++;
   }
+  // 126-111e:上面那一趟只动 boundary 之前(冷区,已经缩过)。重复读取真正还在占位置的地方是
+  // 【受保护的尾部】—— 从 boundary 起再扫一遍。返回值把两者加在一起:它的语义是「L1 这一趟
+  // 一共缩了几条观测」,调用方拿它判「L1 做没做事」,两种缩法都算数。
+  if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix);
   return count;
 }
 
@@ -33614,7 +33686,7 @@ async function maybeCompactSubHistory(opts) {
     // L1 蒸发(逐字复用):把最近 2 个 assistant 回合之前的 role:'tool' 内容改写为占位。原地、幂等、配对安全。
     // 126-111a:开关开时改按 token 预算算保护区(与主回合同一个判据口、同一份规则数)。子代理这条路
     // 25 号文 §1.2 明写「同步」,所以和主回合一起改;开关关时 opts 里这两个字段一点作用都没有。
-    const evaporated = evaporateHistory(subHistory, { config, boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0 });
+    const evaporated = evaporateHistory(subHistory, { config, boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, dedupeReads: historyReadDedupEnabled(config) });
     const after1 = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a) 同上含 tools
     const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
     if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
@@ -33740,6 +33812,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     const evaporated = evaporateHistory(history, {
       config, rawRefPrefix,
       boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
+      dedupeReads: historyReadDedupEnabled(config), // 126-111e:同上,开关在调用点把门
       onReduced: meta => {
         onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
         logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
@@ -53178,6 +53251,10 @@ module.exports = {
   evaporateBudgetBoundary,
   historyUnitStarts,
   evaporateBudgetBoundaryEnabled,
+  // 126-111e: 历史内重复读取去重 — exposed for e2e 白盒契约(键零误报/最新一次留全文/幂等)。
+  dedupeRepeatedReads,
+  fileReadDedupKey,
+  historyReadDedupEnabled,
   COMPACT_RESEED_TAIL_MAX_TOKENS,
   resolveCompactionProvider,
   // 105b: session-notes.md 状态外置 — exposed for e2e 白盒契约(确定性切节/写读回环/显式关闭门)。

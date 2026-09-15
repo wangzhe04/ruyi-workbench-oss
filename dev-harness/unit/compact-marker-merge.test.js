@@ -126,6 +126,7 @@ function autoCompactHarness(estimates) {
     // 也得成立。沙箱里缺了它会 ReferenceError,被 maybeAutoCompact 自己的 try/catch 吞成
     // 「没压缩」,于是本文件两条断言红成「该触发却没触发」(实测就是这么红的)。
     evaporateBudgetBoundaryEnabled: srv.evaporateBudgetBoundaryEnabled,
+    historyReadDedupEnabled: srv.historyReadDedupEnabled, // 126-111e:同上,注真函数
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
     evaporateHistory: history => {
       let n = 0;

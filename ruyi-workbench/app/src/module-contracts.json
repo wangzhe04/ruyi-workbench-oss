@@ -124,6 +124,7 @@
         "evaporateBudgetBoundaryEnabled",
         "execResultCacheEnabled",
         "execResultCacheMaxEntries",
+        "historyReadDedupEnabled",
         "memoryFixedSelectionMax",
         "memoryIndexCharCap",
         "memoryLimit",
@@ -7384,6 +7385,7 @@
         "OBSERVATION_REDUCE_MIN",
         "OBSERVATION_TEXT_HEAD",
         "OBSERVATION_TEXT_TAIL",
+        "READ_DEDUP_PREFIX",
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
@@ -7424,6 +7426,7 @@
         "contextWindowFromTable",
         "contextWindowOverrideKey",
         "ctxProbeKey",
+        "dedupeRepeatedReads",
         "economicsShadowEnabledCached",
         "estimateFactor",
         "evaporateBudgetBoundary",
@@ -7431,6 +7434,7 @@
         "extractContextLength",
         "extractSessionNotes",
         "extractSummaryEntities",
+        "fileReadDedupKey",
         "fitHistoryForSummary",
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
@@ -7622,6 +7626,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "evaporateBudgetBoundaryEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "historyReadDedupEnabled",
           "kinds": [
             "call"
           ]
@@ -16555,6 +16566,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "historyReadDedupEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "sessionNotesEnabled",
           "kinds": [
             "read"
@@ -19250,6 +19268,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "dedupeRepeatedReads",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "read"
@@ -19286,6 +19311,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "extractSummaryEntities",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "fileReadDedupKey",
           "kinds": [
             "read"
           ]
