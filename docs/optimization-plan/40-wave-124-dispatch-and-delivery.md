@@ -569,6 +569,8 @@ if (selectedId && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideTe
 
 ### 8.4 队列里还压着的
 
+0. **三件常客 flaky 该治了**（124 还债① 记进来）：`steward-conversation`／`foreign-turn-busy-guard`／`dom-screenshot` 在 2026-09-15 的四轮全量里反复上榜（前两件各三次），而且 `foreign-turn-busy-guard` 有一次是【串行】红的（随后四遍全绿、没抓到失败行）—— 串行也能红就不再是「并行争抢」能打发的。治法：先把失败行落盘（这三件都是真浏览器件，疑似与 Edge 进程残留有关，见「浏览器 e2e 漏 Edge 进程」那条），再定机制。
+
 1. **`listen()` 之前 1.19 s 的同步 spawn**：`normalizeConfig → defaultConfig → detectClaudePath／detectKimiPath`（实测 189＋156＋**844** ms）。这是「打开工作台等半天」剩下的大头，排在 listen 之前谁都挡不住；39 号刀那套修法（异步预热＋缓存会合）可以照搬。
 2. **`steward-board` 的 300 s 豁免**：根因已还，撤销复测要在 24 核那台跑一轮 8 路全量（39 号文 §8 ①，`run-all.js` 注释里也写了）。
 3. 127 波的 `playbook`／`workflow` 两类载荷与开机自启（37 号文 §6 ②）。
