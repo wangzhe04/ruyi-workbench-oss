@@ -73,6 +73,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/tools/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/config', auth: 'token' },
   { m: 'POST', p: '/api/provider/test', auth: 'token' },
+  // 127-114b(26 号文 §3): ASR 语音转写 —— 全波唯一出网面(用户音频字节出网到所配 ASR 端点),
+  // 写面且内容敏感,一律 token 级(不给 token-browser,与 /api/steward/* 同一档)。
+  { m: 'POST', p: '/api/audio/transcribe', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)

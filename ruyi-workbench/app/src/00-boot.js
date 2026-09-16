@@ -29,6 +29,10 @@ const VERSION = '2.7.0'; // Escapade 2.7.0: 一台两视（121）＋清障与走
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
+// 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
+// (同一请求流里先撞哪条闸,决定 26 MB 夹具拿到的是 413 还是放行;反向:把本常量换成 MAX_BODY_BYTES
+// 或把判定挪到 readBody 之后,asr-transcribe.e2e.js 的 24.9/26 MB 返回码对照当场红)。
+const ASR_MAX_BODY_BYTES = 25 * 1024 * 1024;
 const CONFIG_SCHEMA = 11; // v2.8: selectable Agent CLI driver (Claude Code / Kimi Code)
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;

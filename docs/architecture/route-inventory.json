@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-16T04:23:24.123Z",
+  "generatedAt": "2026-09-16T07:04:42.338Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,10 +17,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 123,
-    "decisionPoints": 135,
+    "routeAuthEntries": 124,
+    "decisionPoints": 136,
     "byKind": {
-      "exact": 114,
+      "exact": 115,
       "prefix": 12,
       "regex": 9
     },
@@ -315,6 +315,12 @@
     {
       "m": "POST",
       "p": "/api/provider/test",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/audio/transcribe",
       "auth": "token",
       "prefix": false
     },
@@ -818,6 +824,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\boot-listen-budget.e2e.js",
@@ -1040,6 +1047,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-models-cache.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
@@ -2059,7 +2067,7 @@
       "kind": "exact",
       "path": "/api/upload",
       "file": "13-http-router.js",
-      "line": 1506,
+      "line": 1508,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2076,7 +2084,7 @@
       "kind": "exact",
       "path": "/api/upload/content",
       "file": "13-http-router.js",
-      "line": 1514,
+      "line": 1516,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2091,7 +2099,7 @@
       "kind": "exact",
       "path": "/api/chat/stream",
       "file": "13-http-router.js",
-      "line": 1534,
+      "line": 1536,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2237,7 +2245,7 @@
       "kind": "prefix",
       "path": "/api/tools/",
       "file": "13-http-router.js",
-      "line": 1552,
+      "line": 1554,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2266,7 +2274,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 1827,
+      "line": 1829,
       "handler": "startServerInner",
       "methods": [
         "*"
@@ -2536,6 +2544,23 @@
         "dev-harness\\steering.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/audio/transcribe",
+      "file": "13b-api-domain-routes.js",
+      "line": 397,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\asr-transcribe.e2e.js"
       ]
     },
     {
@@ -4396,11 +4421,16 @@
     {
       "file": "13-http-router.js",
       "line": 1490,
+      "target": "handleAudioApiRoutes"
+    },
+    {
+      "file": "13-http-router.js",
+      "line": 1492,
       "target": "handleOverlayApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1505,
+      "line": 1507,
       "target": "handleSchedulerApiRoutes"
     }
   ],

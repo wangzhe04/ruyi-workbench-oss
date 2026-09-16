@@ -83,7 +83,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 125-P2(42 号文 §1 ③):新增 dev-harness/stale-source-badge.browser.e2e.js(一处带 RUYI_HOME 的
 // spawn —— 那一发起服务;无头 Edge 与 fake-openai 那两发都不带 RUYI_HOME,不计入),
 // 141 -> 142 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 142;
+// 127-114b(45 号文 §2 ②):新增 dev-harness/asr-transcribe.e2e.js(一处带 RUYI_HOME 的 spawn ——
+// spawnWB 那一发起服务;fake-openai 那一发不带 RUYI_HOME,不计入),142 -> 143 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 143;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

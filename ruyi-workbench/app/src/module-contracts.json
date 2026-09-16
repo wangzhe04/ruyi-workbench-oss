@@ -7,6 +7,7 @@
       "layer": "bootstrap",
       "provides": [
         "APP_NAME",
+        "ASR_MAX_BODY_BYTES",
         "BUNDLED_PYTHON_RUNTIME",
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
@@ -10333,6 +10334,13 @@
         },
         {
           "provider": "13b-api-domain-routes.js",
+          "symbol": "handleAudioApiRoutes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13b-api-domain-routes.js",
           "symbol": "handleCheckpointApiRoutes",
           "kinds": [
             "call"
@@ -10429,9 +10437,12 @@
       "layer": "transport",
       "provides": [
         "STEER_REFUSAL",
+        "handleAudioApiRoutes",
+        "handleAudioTranscribe",
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
+        "readAudioBody",
         "steerRefusal",
         "steerSessionCore"
       ],
@@ -10439,6 +10450,27 @@
         {
           "provider": "00-boot.js",
           "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "appendUsageLedger",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ASR_MAX_BODY_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "computeProviderCost",
           "kinds": [
             "call"
           ]
@@ -10656,6 +10688,20 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "maskKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveProvider",
           "kinds": [
             "call"
           ]

@@ -323,10 +323,51 @@ async function emitOneToolCall(res, id, callId, name, args, index = 0) {
 }
 
 const server = http.createServer((req, res) => {
+  // 127-114b: ASR 转写桩。multipart 是二进制,不能用下面的字符串拼接(utf8 解码会毁掉字节计数),
+  // 这条路由单独收集 Buffer 块;其余路由行为零变化。
+  const isAsr = req.method === 'POST' && String(req.url || '').includes('/audio/transcriptions');
   let body = '';
-  req.on('data', c => (body += c));
+  const asrChunks = [];
+  req.on('data', c => { if (isAsr) asrChunks.push(c); else body += c; });
   req.on('end', () => {
     const url = req.url || '';
+    // 127-114b(26 号文 §3): /v1/audio/transcriptions 桩 —— 回显收到的 model/filename/字节数 + 固定文本,
+    // 不带 usage(驱动工作台走 estimated:true 估算路径)。filename 或 model 含 'upstream500' 时回 500,
+    // 供「上游 5xx 统一信封」断言。latin1 转换是字节保持的,boundary 切分安全。
+    if (isAsr) {
+      const raw = Buffer.concat(asrChunks).toString('latin1');
+      const ct = String(req.headers['content-type'] || '');
+      const bm = ct.match(/boundary=(.+)$/);
+      const fields = {};
+      if (bm) {
+        const boundary = bm[1].trim();
+        for (const part of raw.split('--' + boundary)) {
+          const headEnd = part.indexOf('\r\n\r\n');
+          if (headEnd < 0) continue;
+          const head = part.slice(0, headEnd);
+          const content = part.slice(headEnd + 4).replace(/\r\n$/, '');
+          const nm = head.match(/name="([^"]+)"/);
+          if (!nm) continue;
+          const fm = head.match(/filename="([^"]*)"/);
+          fields[nm[1]] = { value: content, filename: fm ? fm[1] : '' };
+        }
+      }
+      const model = fields.model ? fields.model.value : '';
+      const fileField = fields.file || { value: '', filename: '' };
+      const filename = fileField.filename || String((url.match(/[?&]filename=([^&]*)/) || [])[1] || '');
+      const byteLen = Buffer.byteLength(fileField.value, 'latin1');
+      if (model.includes('upstream500') || filename.includes('upstream500')) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'fake asr exploded', type: 'fake_error', code: 500 } }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        text: '[fake-asr] model=' + model + ' filename=' + filename + ' bytes=' + byteLen,
+        ...(fields.language && fields.language.value ? { language: fields.language.value } : {}),
+      }));
+      return;
+    }
     // v1.0-S6 (B): request-count probe for the sticky-endpoint failover test. Never touches streaming state.
     if (req.method === 'GET' && url.includes('/__count')) {
       res.writeHead(200, { 'content-type': 'application/json' });

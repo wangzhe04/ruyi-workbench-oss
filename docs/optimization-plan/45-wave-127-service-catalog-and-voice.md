@@ -255,3 +255,29 @@
 
 **全量回归（①）**：**350 pass / 0 fail / 1 flaky / 350 ran（7 skipped 为既有 live probe），真回归 0**。唯一 flaky 是 `steward-conversation.e2e.js`（首跑红在 G4「线程回退到递话前」，重跑绿）——管家族递话/回退时序族，与本刀的配置归一化与设置页选择器路径零交集；如实登记，不归功于也不归咎于本刀。
 
+### ② B-114b · 转写端点与零依赖 multipart（2026-09-16）
+
+**改了什么**（全波唯一出网面）：
+
+- `POST /api/audio/transcribe`（ROUTE_AUTH `token` 级，不给 token-browser——用户音频字节出网，与 `/api/steward/*` 同一档）落 `13b-api-domain-routes.js` 的 `handleAudioApiRoutes`，委派行在 `13-http-router.js` steer 之后（13→13b 既有边，**依赖图 53 模块 420 边零新增**）。
+- 入站：`Content-Type: audio/*` raw body（否则 400 `asr.content_type`），query `filename`（纯 basename 清洗，穿越形态回落 `audio.<按 content-type 的扩展名>`）／`language`（截 40）／`prompt?`（截 4000）；**25 MB 专用闸（`ASR_MAX_BODY_BYTES`，00-boot 与 128 MB 总闸并排）Content-Length 预检＋流式累计双道**，超限 413 `asr.too_large`（`maxBytes` 入 params）。
+- 出站：Node 内置 `FormData`＋`Blob` 拼 multipart 到 `providerBaseWithV1(audioBaseUrl || baseUrl) + '/audio/transcriptions'`（`model=asrModel`、`response_format=json`、可选 language/prompt、file 字段带清洗后文件名），`Authorization: Bearer`（有 key 才发）＋ provider `extraHeaders`，`AbortSignal.timeout(120s)`。
+- 返回 `{ ok, text, language?, durationMs, providerId, model, estimated }`；未配置/服务商失踪 409，空体 400，上游不可达/超时 502 `asr.upstream_unreachable`，上游非 2xx 502 `asr.upstream`（`params.status` 带上游码，回显消毒裁 1000），上游缺 text 字段 502 `asr.bad_response`。
+- 记账 `kind:'aux', note:'asr'`：上游带 usage 用真值；否则 `inTok=ceil(字节/1024)`、`outTok=ceil(文本长/4)` 保守估算并 `estimated:true`——估算同时保证这条支出不被 `appendUsageLedger` 的零 token 跳行规则吃掉（那规则会静默丢掉「花了钱但无 usage」的 aux 调用）。`costTrusted = cost != null`（无定价时 tokens-only、`cost:null`，照 Claude 未定价先例）。
+
+**与派单稿不同的三处，逐条给理由**：
+
+1. **判据里的「鉴权 401」落地为 403。** 仓里 token 级鉴权失败一律 `apiFailure('auth.token_invalid', …, 403)`（`handleApi` 顶部 `authorizeRoute` 块，全 ROUTE_AUTH 表同一个码）；为新路由单独立 401 反而破统一信封。e2e 断言 403＋`auth.token_invalid`，此条在此显式改判。
+2. **§4 ② 第二条反向（「audioBaseUrl 绕过 URL 校验 → 私网红」）不适用**，§1.6 已实证那套「与 baseUrl 相同的 URL 校验」不存在——同等对待＝无准入，没有可绕过的闸。替代反向取「摘掉 `estimated` 标记 → 记账断言红」（见下）。
+3. **判定点形状踩了一次路由清册扫描器**：handler 第一版写成 `pathname !== '...' return false` 反向 guard，`route-inventory.js` 只认 `pathname === '...'` 肯定形，当场报「ROUTE_AUTH 死行」。拆成 `handleAudioApiRoutes`（肯定形判定点）＋`handleAudioTranscribe`（实现体）两函数。
+
+**一次 e2e 逮住的真问题（写细，因为第一版诊断全错）**：chunked 26MB 在流式闸处拿 413 后，**下一发请求 ECONNRESET**。第一轮判成「整机 crash」（spawn 的 `exit code=1` 似乎佐证），加了 `req.on('error')` 守卫后依旧；改把 stderr 落文件才发现零异常、零日志，进程**根本没死**——`exit code=1` 是我自己的 finally 用 taskkill /F 打的（Windows 强杀就报 1）。50 行最小复现看清真相：**413 早判＋客户端续传 13MB，服务端经历一次几百毫秒级的瞬态接受停顿（内核清理在途字节），之后自己恢复**。修法治两端：服务端注释记实（不再误传「 crash」），e2e 在 E2 后钉一条 `waitForHttp`「瞬态停顿后服务恢复（不死）」——把停顿从「隐性时序坑」变成「被断言钉住的行为」。
+
+**判据读数**（新件 `asr-transcribe.e2e.js`，24 条）：403 鉴权／409 未配置／400 非 audio/*／400 空体／200 成功（fake 回显 model/filename/字节数、language 透传、响应形状含 `estimated:true`）／502 上游 5xx 统一信封（`params.status=500`）／502 `audioBaseUrl` 指死端口证优先序（还原后 baseUrl 兜底照常）／25MB±1B 对照（200 vs 413）／chunked 无 Content-Length 26MB 流式闸 413＋恢复断言／记账行形状（`kind:aux, note:asr, estimated:true, inTok=2, cost:null, costTrusted:false`）／filename 穿越回落。
+
+**反向两处**：① 派单稿指定形状——`ASR_MAX_BODY_BYTES` 换 `MAX_BODY_BYTES`（晚于总闸）→ E1/E2 两条从 413 变 200，红；② 摘 `estimated` 标记 → C2 记账断言红并打出 `estimated:false` 现形。两处均按 sha256 逐字节还原（`ef250a0d…` OK）后复绿。（本轮改用**文件备份还原**——上一刀 `git checkout --` 误抹未提交改动的教训已记住。）
+
+**生成器链与门**：依赖图 `--write`（53/420/1，零新增边——新符号全落既有边）→ `build.js`（54329 行）→ `facts-generate.js`（e2eCount 357→358，README 四处 357→358／350→351）→ `route-inventory.js`（**136 判定点＝+1**，ROUTE_AUTH 124 条，告警 0）→ `architecture-contract-snapshots.js --write`（src 变了就必须重跑，--fast 第一次红的就是它）。`build --check` ✓、依赖图 `--check` ✓、`--fast` 73/73、控制字符 0、FFFD 新增为零。计数锁重钉两处：fixture-home spawn 处数 142→143（已注明来路）、README 四处口径。`fake-openai.js` 的 ASR 桩是**纯增量分支**（isAsr 才收 Buffer，其余路由零变化），其全体消费件由全量回归背书。
+
+**全量回归（②）**：350 pass / **1 fail** / 1 flaky / 351 ran（7 skipped 为既有 live probe）。唯一 fail 是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言）——本刀与该件文件零交集（调度器 SSE/口袋角标 vs 音频转写），**单跑 10 秒全绿**，按既有时序族如实登记，不归功于也不归咎于本刀；flaky 为 `walkthrough-round1.browser`（回归内重跑自复绿，亦浏览器时序族）。
+

@@ -357,3 +357,132 @@ async function handleSteerApiRoute(req, res, pathname) {
   }
   return false;
 }
+
+// ── audio 域:/api/audio/transcribe(127-114b,26 号文 §3/§4 冻结边界,45 号文 §2 ②派单)──────────
+// 全波【唯一出网面】:用户音频字节出网到所配 ASR 端点。ROUTE_AUTH token 级(不给 token-browser)。
+// 判据(45 号文 §4 ②):未配置 409 / 非 audio/* 400 / 超 25 MB 413(早于 128 MB 总闸)/ 成功 200 /
+// 上游 5xx 统一信封 502;记账 kind:'aux', note:'asr',上游无 usage 时 estimated:true。
+// 威胁模型(26 号文 §4):目标 URL 只来自配置(providers[].audioBaseUrl || baseUrl),绝不接受请求体里的
+// URL;filename/language/prompt 全部截断清洗;上游错误回显裁到 1000 字符(apiKey 永不出本进程——
+// Authorization 只往所配 provider 自己那里发)。audioBaseUrl 与 baseUrl【同等对待】:45 号文 §1.6 实证
+// baseUrl 今天没有任何 URL 准入校验,本刀不凭空发明一道(独立安全决定,两条出网面要收一起收,107 记档)。
+// 25 MB 专用闸的读法:Content-Length 预检 + 流式累计双道,任一超 ASR_MAX_BODY_BYTES 即 413,
+// 不经 readBody(那条是 128 MB 总闸)——「早于总闸」是可观测行为,不是注释(见 00-boot 该常量注释)。
+async function readAudioBody(req) {
+  // 吞掉「提前结束响应」之后 req 上可能再发的 error/aborted(25MB 处判 413 时客户端往往还在续传,
+  // 服务端随即拆除这条连接)。挂上空接即可,读取语义不变。
+  // 实测备注(127-114b e2e):413 之后新连接会有【瞬态】接受停顿(几百毫秒级,内核清理在途字节),
+  // 服务本身不死 —— 客户端侧的正确姿势是等它回来(e2e 里有专门一条断言钉住「服务撑得住」)。
+  req.on('error', () => {});
+  const declared = Number(req.headers['content-length'] || 0);
+  if (declared > ASR_MAX_BODY_BYTES) {
+    const err = new Error('audio body too large'); err.statusCode = 413; err.code = 'asr.too_large';
+    throw err;
+  }
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > ASR_MAX_BODY_BYTES) {
+      const err = new Error('audio body too large'); err.statusCode = 413; err.code = 'asr.too_large';
+      throw err;
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+async function handleAudioApiRoutes(req, res, pathname) {
+  // 判定点必须是「方法 + pathname === '...'」肯定形 —— 路由清册扫描器只认这个形状(route-inventory.js
+  // 扫 pathname ===),反向 guard(!== 提前 return)会被判成「ROUTE_AUTH 死行」;已实现路由分裂踩过一次。
+  if (req.method === 'POST' && pathname === '/api/audio/transcribe') {
+    return await handleAudioTranscribe(req, res);
+  }
+  return false;
+}
+async function handleAudioTranscribe(req, res) {
+  const config = await readConfig();
+  const asrProviderId = String(config.asrProviderId || '').trim();
+  const asrModel = String(config.asrModel || '').trim();
+  // 未配置 = 409(判据原文;未配置时前端根本不渲染麦克风,能打到这里的都是手工/旧客户端)。
+  if (!asrProviderId || !asrModel) {
+    return send(res, apiFailure('asr.not_configured', {}, '语音识别未配置(asrProviderId/asrModel 为空)', 409));
+  }
+  const provider = resolveProvider(config, asrProviderId);
+  if (!provider) {
+    return send(res, apiFailure('asr.provider_missing', { providerId: asrProviderId }, '语音识别所选服务商不存在', 409));
+  }
+  const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (!contentType.startsWith('audio/')) {
+    return send(res, apiFailure('asr.content_type', { contentType }, 'Content-Type 必须是 audio/*', 400));
+  }
+  const q = new URL(req.url, 'http://x').searchParams;
+  // filename 只许纯 basename(与 /api/upload/content 同域),缺省按 content-type 给个正经扩展名。
+  const rawName = String(q.get('filename') || '').trim();
+  const filename = (rawName && rawName.length <= 255 && rawName === path.basename(rawName) && rawName !== '.' && rawName !== '..')
+    ? rawName : ('audio' + ({ 'audio/webm': '.webm', 'audio/wav': '.wav', 'audio/wave': '.wav', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/ogg': '.ogg', 'audio/flac': '.flac' }[contentType] || '.bin'));
+  const language = String(q.get('language') || '').trim().slice(0, 40);
+  const hint = String(q.get('prompt') || '').slice(0, 4000);
+  let audio;
+  try {
+    audio = await readAudioBody(req);
+  } catch (err) {
+    if (err && err.statusCode === 413) {
+      return send(res, apiFailure('asr.too_large', { maxBytes: ASR_MAX_BODY_BYTES }, '音频超过 25 MB 上限', 413));
+    }
+    throw err;
+  }
+  if (!audio.length) return send(res, apiFailure('asr.empty', {}, '空音频体', 400));
+  // 出站:multipart(Node 内置 FormData+Blob)到 audioBaseUrl || baseUrl 的 /v1/audio/transcriptions。
+  const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
+  if (!base) return send(res, apiFailure('asr.not_configured', {}, '语音识别端点 baseUrl 为空', 409));
+  const form = new FormData();
+  form.append('model', asrModel);
+  form.append('response_format', 'json');
+  if (language) form.append('language', language);
+  if (hint) form.append('prompt', hint);
+  form.append('file', new Blob([audio], { type: contentType }), filename);
+  const headers = { ...(provider.extraHeaders || {}) };
+  if (provider.apiKey) headers.authorization = `Bearer ${provider.apiKey}`;
+  const t0 = Date.now();
+  let upstream = null, upstreamText = '';
+  try {
+    upstream = await fetch(base + '/audio/transcriptions', { method: 'POST', headers, body: form, signal: AbortSignal.timeout(120000) });
+    // 上游回体只读 8 KB(错误回显裁 1000 字符;成功体的 text 字段自有限度——恶意巨体不伺候)。
+    upstreamText = await upstream.text();
+    if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
+  } catch (err) {
+    const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    return send(res, apiFailure('asr.upstream_unreachable', {}, isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), 502));
+  }
+  const durationMs = Date.now() - t0;
+  if (!upstream.ok) {
+    const snippet = upstreamText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]+/g, ' ').slice(0, 1000);
+    return send(res, apiFailure('asr.upstream', { status: upstream.status }, 'ASR 上游返回 ' + upstream.status + ': ' + snippet, 502));
+  }
+  const parsed = safeJsonParse(upstreamText, null);
+  if (!parsed || typeof parsed.text !== 'string') {
+    return send(res, apiFailure('asr.bad_response', {}, 'ASR 上游响应缺少 text 字段', 502));
+  }
+  const text = parsed.text;
+  const outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
+  // 记账(26 号文 §1):kind:'aux', note:'asr'。上游带 usage 用真值;否则按字节/文本长度保守估算并
+  // 标 estimated:true(估算只是让这条 aux 在看板里有个量级,不是精确账单 —— appendUsageLedger 会
+  // 跳过零 token 行,估算同时保证这条支出不凭空消失)。
+  const u = parsed.usage && typeof parsed.usage === 'object' ? parsed.usage : null;
+  const realIn = u && Number.isFinite(Number(u.input_tokens)) ? Math.round(Number(u.input_tokens)) : 0;
+  const realOut = u && Number.isFinite(Number(u.output_tokens)) ? Math.round(Number(u.output_tokens)) : 0;
+  const hasUsage = (realIn + realOut) > 0;
+  const inTok = hasUsage ? realIn : Math.max(1, Math.ceil(audio.length / 1024));
+  const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(text.length / 4));
+  const { cost, currency } = computeProviderCost(provider, inTok, outTok, 0, asrModel);
+  appendUsageLedger({
+    sessionId: '', engine: 'openai', provider: provider.id, model: asrModel,
+    inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null,
+    estimated: !hasUsage, kind: 'aux', note: 'asr',
+  });
+  return send(res, json({
+    ok: true, text,
+    ...(outLanguage ? { language: outLanguage } : {}),
+    durationMs, providerId: provider.id, model: asrModel, estimated: !hasUsage,
+  }));
+}
