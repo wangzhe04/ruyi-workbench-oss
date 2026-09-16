@@ -1142,6 +1142,21 @@ function providerReasoningEffort(provider) {
   const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
   return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
 }
+// 114a(45 号文 §7): PROVIDER_MODEL_CAPS —— models[].caps 的取值白名单。【模型能力标签】:这个模型
+// 会什么(asr=可语音识别 / embedding=可向量化)。它与 06-provider-engine 的 getCapabilities()【运行
+// 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
+// 取值域】,仅仅同名 caps。两处白名单【不许互相引用】,asr-config-ui.static.e2e.js 钉死这条隔离。
+// 清洗口径:非字符串/空白/白名单外一律静默丢弃,去重,保序;空结果由调用方「可加不加」不落字段。
+const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding']);
+function providerModelCaps(rawCaps) {
+  if (!Array.isArray(rawCaps)) return [];
+  const out = [];
+  for (const v of rawCaps) {
+    const s = (typeof v === 'string' ? v : '').trim().toLowerCase().slice(0, 40);
+    if (s && PROVIDER_MODEL_CAPS.has(s) && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
 function applyProviderReasoningEffort(body, provider, apiStyle) {
   const effort = providerReasoningEffort(provider);
   if (!effort || !body || typeof body !== 'object') return body;
@@ -1157,10 +1172,14 @@ function sanitizeProvider(raw) {
   if (!id) return null;
   const str = (v, max) => (typeof v === 'string' ? v : '').slice(0, max);
   const models = Array.isArray(raw.models)
-    ? raw.models.map(m => (typeof m === 'string'
-      ? { id: m.trim(), label: m.trim() }
-      : (m && typeof m === 'object' ? { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim() } : null)))
-      .filter(m => m && m.id).slice(0, 100)
+    ? raw.models.map(m => {
+      if (typeof m === 'string') return { id: m.trim(), label: m.trim() };
+      if (!m || typeof m !== 'object') return null;
+      // 114a: 可选模型能力标签(PROVIDER_MODEL_CAPS 白名单外静默丢弃+去重)。
+      // 与 hiddenModels/pricing 同款「可加不加」:空就不落字段,存量 config.json 逐字节零漂移。
+      const caps = providerModelCaps(m.caps);
+      return { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim(), ...(caps.length ? { caps } : {}) };
+    }).filter(m => m && m.id).slice(0, 100)
     : [];
   // 模型候选「已移除」名单（provider 级）：线程头模型菜单行尾那枚「×」删一行 = 在这里记下那个 id。
   // GET /api/models 把「saved 清单 ∪ live 发现」合并成候选时一律跳过名单里的项 —— 否则 ↻ 刷新会把
@@ -1205,6 +1224,12 @@ function sanitizeProvider(raw) {
       if (extraBaseUrls.length >= 3) break;
     }
   }
+  // 114a(45 号文 §7＋§1.6): audioBaseUrl —— 可选 ASR 转写端点(114b 的消费方;未配置=零行为)。
+  // 与 baseUrl【同等对待】:trim + 截 400,不解析、不查协议、不查主机 —— 45 号文 §1.6 实证 baseUrl
+  // 今天就没有任何 URL 准入校验(内置 ollama/lmstudio 预设本来就是 127.0.0.1 私网),不为这一个字段
+  // 凭空发明一道 provider 级 URL 准入(那是独立安全决定,两条出网面要收一起收,已记 107 未完成项)。
+  // localCommand 本波【不加】—— 唯一消费方 114d 已后置 128+,持久字段不养闲人(35 号文 §2 退出门)。
+  const audioBaseUrl = str(raw.audioBaseUrl, 400).trim();
   // v1.4-OSS 用量看板: optional pricing for provider-engine cost calc. {inputPerM, outputPerM, currency} —
   // per-MILLION-token prices (non-negative) + a short currency code. Kept only when at least one price parses
   // AND a currency is present; otherwise dropped (the ledger then records tokens with cost null). ADDITIVE +
@@ -1216,6 +1241,7 @@ function sanitizeProvider(raw) {
     type: 'openai-compat',
     baseUrl: mainBase,
     extraBaseUrls, // v1.0-S6 (B): failover 备用端点 (≤3, cleansed)
+    ...(audioBaseUrl ? { audioBaseUrl } : {}), // 114a: 可选 ASR 端点(空不落字段,存量 config 零漂移)
     apiKey: str(raw.apiKey, 400),
     model: str(raw.model, 120).trim(),
     models,

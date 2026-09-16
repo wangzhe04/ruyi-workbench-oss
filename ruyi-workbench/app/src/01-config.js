@@ -78,6 +78,11 @@ function defaultConfig() {
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
     providers: [],                // [{ id,label,type:'openai-compat',baseUrl,apiKey,model,models,reasoning,systemPrompt,temperature,extraHeaders }]
+    // 114a(45 号文 §7): 语音识别(ASR)端点选择 —— provider id + 模型 id。两值皆非空才算「已配置」
+    // (26 号文冻结边界:未配置=麦克风不可见)。纯增量 + normalizeConfig 消毒形状,CONFIG_SCHEMA 故意
+    // 不 bump(45 号文 §6.1 对 26 号文的显式改判:无旧值要改写,读回空串即「未配置」)。
+    asrProviderId: '',
+    asrModel: '',
     openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
@@ -715,6 +720,18 @@ function normalizeConfig(raw) {
   if (typeof config.activeProvider !== 'string') { config.activeProvider = ''; changed = true; }
   if (config.activeProvider && config.activeProvider !== 'claude-cli' && !config.providers.some(p => p.id === config.activeProvider)) {
     config.activeProvider = ''; changed = true;
+  }
+  // 114a(45 号文 §7): asrProviderId/asrModel —— 与 compactProviderId 同口径(下方 :914-925 那段):
+  // 字符串形状消毒(trim + 截 400);指向的 provider 没了就清成「未配置」(两个都空 = 麦克风不可见),
+  // 不静默改指别的端点。单有 asrModel 没有 asrProviderId 时保留原值(惰性,不构成「已配置」)。
+  for (const key of ['asrProviderId', 'asrModel']) {
+    const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
+    if (clean !== config[key]) { config[key] = clean; changed = true; }
+  }
+  if (config.asrProviderId && !config.providers.some(p => p && p.id === config.asrProviderId)) {
+    config.asrProviderId = '';
+    config.asrModel = '';
+    changed = true;
   }
   {
     const mi = Number(config.openaiMaxToolIterations);

@@ -1749,6 +1749,7 @@
       "provides": [
         "CLAUDE_ENDPOINT_PRESETS",
         "KEY_MASK_PREFIX",
+        "PROVIDER_MODEL_CAPS",
         "PROVIDER_PRESETS",
         "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
@@ -1760,6 +1761,7 @@
         "maskProviders",
         "maskSecrets",
         "providerBaseWithV1",
+        "providerModelCaps",
         "providerReasoningEffort",
         "providerResponsesBase",
         "resolveProvider",

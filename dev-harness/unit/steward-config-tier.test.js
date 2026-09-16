@@ -90,6 +90,10 @@ const EXPECTED = {
   // 116-5a:开着就在每一条新线程上花一次钱,且记的是 aux 不进 stewardMaxCostPerDay ——
   // 管家自己把它打开 = 给自己开一条不受管家日预算约束的花钱通道,故 confirm 而不是 free。
   stewardThreadBriefV1: 'confirm',
+  // 114a(45 号文 §2 ①):语音识别端点选择 —— 决定【用户的声音】送去哪个端点转写(改道语音数据 +
+  // 每次转写都花钱,记 aux),与 compactProviderId/compactModel 同族同档:confirm,用户亲手按一下
+  // 才算数;不放 forbidden —— 经确认后让管家把语音配上是正当诉求。
+  asrProviderId: 'confirm', asrModel: 'confirm',
 
   // ── forbidden(117l D7 新键,只加不改)────────────────────────────────────
   // stewardThreadModels = 管家新开线程默认用哪个端点/哪个模型。**故意不进 free 也不进 confirm**:

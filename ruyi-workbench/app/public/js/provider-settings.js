@@ -458,6 +458,10 @@ function fillSettings() {
   { const b = c.usageBudget || {}; const m = $('cfgUsageBudgetMonthly'); if (m) m.value = (b.monthly === 0 || b.monthly) ? String(b.monthly) : ''; const cur = $('cfgUsageBudgetCurrency'); if (cur) cur.value = b.currency || 'CNY'; }
   { const cpr = c.claudePricing || {}; const pi = $('cfgClaudePriceIn'); if (pi) pi.value = (cpr.inputPerM === 0 || cpr.inputPerM) ? String(cpr.inputPerM) : ''; const po = $('cfgClaudePriceOut'); if (po) po.value = (cpr.outputPerM === 0 || cpr.outputPerM) ? String(cpr.outputPerM) : ''; const pc = $('cfgClaudePriceCurrency'); if (pc) pc.value = cpr.currency || 'CNY'; }
   populateProviderPresets();
+  // 114a: 「语音识别」选择器随 config 重渲染(有可语音识别模型才出现;纯读 state.config,不碰 providers 草稿)。
+  // 与 117j 管家旁路同款保护:这里抛错不该带走后面的草稿播种与 renderProviders()。
+  try { renderAsrSettings(); }
+  catch (error) { console.warn('[asr] renderAsrSettings failed', error); }
   // 117j classic-2（经典壳回归审查 P1）：这两条是【管家壳的】旁路，谁抛错都不该把它后面的
   // 草稿播种与 renderProviders() 一起带走 —— 那两样是经典壳设置页的正事。各自包一层，只 warn。
   try { syncStewardShellAvailability(); } // 117a: 壳模式第三项（管家）随 stewardEnabledV1 置灰/放开
@@ -490,6 +494,64 @@ function fillSettings() {
     state.providersDraftSeeded = Array.isArray(c.providers);
     renderProviders();
   }
+}
+// 114a(45 号文 §2 ①/§7): 设置页「语音识别」选择器 —— 服务商页签内,provider+模型一对,选中即存
+// (saveConfigPartial 部分补丁,与 compactProviderId 选择器同模具)。只列 models[].caps 含 'asr' 的模型;
+// 一个候选都没有时【整块不渲染】(未配置=不可见:无 asr 模型的存量配置,设置页 DOM 逐字节零变化),
+// 所以这里没有任何静态标记,节点全由本函数动态建/拆。判据(26 号文冻结边界):asrProviderId 与
+// asrModel 皆非空才算「已配置」。
+// 分隔符照 compactProviderId 选择器的 \u001f 模具,但按 32 号文 §16-bis 纪律用 fromCharCode 构造
+// (源码零控制字符、零转义序列 —— 补丁传输层会把 \uXXXX 当转义解释落成裸字节,那次事故的修法)。
+const ASR_VALUE_SEP = String.fromCharCode(31);
+let asrSettingsBlock = null;
+function asrCapableOptions() {
+  const out = [];
+  for (const p of (state.config && state.config.providers) || []) {
+    if (!p || !p.id) continue;
+    for (const m of (Array.isArray(p.models) ? p.models : [])) {
+      if (!m || typeof m !== 'object') continue;
+      const caps = Array.isArray(m.caps) ? m.caps : [];
+      if (!caps.includes('asr')) continue;
+      const id = String(m.id || '').trim(); if (!id) continue;
+      out.push({ providerId: p.id, providerLabel: p.label || p.id, modelId: id, modelLabel: String(m.label || id) });
+    }
+  }
+  return out;
+}
+function renderAsrSettings() {
+  const host = $('stab-providers');
+  if (!host) return;
+  const options = asrCapableOptions();
+  if (!options.length) {
+    if (asrSettingsBlock) { asrSettingsBlock.remove(); asrSettingsBlock = null; }
+    return;
+  }
+  if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
+  asrSettingsBlock.textContent = '';
+  const sep = el('hr', 'settings-sep');
+  const block = el('div', 'field-block');
+  const label = el('label', '', t('settings.asr.title'));
+  const select = el('select');
+  const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
+  select.appendChild(opt(t('settings.asr.disabled'), ''));
+  for (const o of options) select.appendChild(opt(`${o.providerLabel} / ${o.modelLabel}`, o.providerId + ASR_VALUE_SEP + o.modelId));
+  const curP = String(state.config && state.config.asrProviderId || ''), curM = String(state.config && state.config.asrModel || '');
+  const curValue = (curP && curM) ? curP + ASR_VALUE_SEP + curM : '';
+  select.value = curValue;
+  if (select.value !== curValue) select.value = ''; // 候选里已没有当初那一对 → 如实回落「不启用」
+  const hint = el('p', 'field-help muted', select.value ? t('settings.asr.hintSet') : t('settings.asr.hintUnset'));
+  select.onchange = async () => {
+    const [asrProviderId = '', asrModel = ''] = select.value.split(ASR_VALUE_SEP);
+    select.disabled = true;
+    const saved = await saveConfigPartial({ asrProviderId, asrModel });
+    select.disabled = false;
+    if (saved) {
+      hint.textContent = select.value ? t('settings.asr.hintSet') : t('settings.asr.hintUnset');
+      toast(t(asrProviderId ? 'settings.asr.toastSet' : 'settings.asr.toastReset'), 'ok');
+    }
+  };
+  block.append(label, select, hint);
+  asrSettingsBlock.append(sep, block);
 }
 // v1.0-S3 (B1): 按搜索服务类型联动显隐相关字段。searxng/custom → 显 Base URL；bing/brave → 显 API 密钥；
 // none → 都藏。不改任何值，只切 .hidden。

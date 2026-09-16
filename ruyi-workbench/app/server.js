@@ -1060,6 +1060,11 @@ function defaultConfig() {
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
     providers: [],                // [{ id,label,type:'openai-compat',baseUrl,apiKey,model,models,reasoning,systemPrompt,temperature,extraHeaders }]
+    // 114a(45 号文 §7): 语音识别(ASR)端点选择 —— provider id + 模型 id。两值皆非空才算「已配置」
+    // (26 号文冻结边界:未配置=麦克风不可见)。纯增量 + normalizeConfig 消毒形状,CONFIG_SCHEMA 故意
+    // 不 bump(45 号文 §6.1 对 26 号文的显式改判:无旧值要改写,读回空串即「未配置」)。
+    asrProviderId: '',
+    asrModel: '',
     openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
@@ -1697,6 +1702,18 @@ function normalizeConfig(raw) {
   if (typeof config.activeProvider !== 'string') { config.activeProvider = ''; changed = true; }
   if (config.activeProvider && config.activeProvider !== 'claude-cli' && !config.providers.some(p => p.id === config.activeProvider)) {
     config.activeProvider = ''; changed = true;
+  }
+  // 114a(45 号文 §7): asrProviderId/asrModel —— 与 compactProviderId 同口径(下方 :914-925 那段):
+  // 字符串形状消毒(trim + 截 400);指向的 provider 没了就清成「未配置」(两个都空 = 麦克风不可见),
+  // 不静默改指别的端点。单有 asrModel 没有 asrProviderId 时保留原值(惰性,不构成「已配置」)。
+  for (const key of ['asrProviderId', 'asrModel']) {
+    const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
+    if (clean !== config[key]) { config[key] = clean; changed = true; }
+  }
+  if (config.asrProviderId && !config.providers.some(p => p && p.id === config.asrProviderId)) {
+    config.asrProviderId = '';
+    config.asrModel = '';
+    changed = true;
   }
   {
     const mi = Number(config.openaiMaxToolIterations);
@@ -13198,6 +13215,21 @@ function providerReasoningEffort(provider) {
   const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
   return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
 }
+// 114a(45 号文 §7): PROVIDER_MODEL_CAPS —— models[].caps 的取值白名单。【模型能力标签】:这个模型
+// 会什么(asr=可语音识别 / embedding=可向量化)。它与 06-provider-engine 的 getCapabilities()【运行
+// 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
+// 取值域】,仅仅同名 caps。两处白名单【不许互相引用】,asr-config-ui.static.e2e.js 钉死这条隔离。
+// 清洗口径:非字符串/空白/白名单外一律静默丢弃,去重,保序;空结果由调用方「可加不加」不落字段。
+const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding']);
+function providerModelCaps(rawCaps) {
+  if (!Array.isArray(rawCaps)) return [];
+  const out = [];
+  for (const v of rawCaps) {
+    const s = (typeof v === 'string' ? v : '').trim().toLowerCase().slice(0, 40);
+    if (s && PROVIDER_MODEL_CAPS.has(s) && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
 function applyProviderReasoningEffort(body, provider, apiStyle) {
   const effort = providerReasoningEffort(provider);
   if (!effort || !body || typeof body !== 'object') return body;
@@ -13213,10 +13245,14 @@ function sanitizeProvider(raw) {
   if (!id) return null;
   const str = (v, max) => (typeof v === 'string' ? v : '').slice(0, max);
   const models = Array.isArray(raw.models)
-    ? raw.models.map(m => (typeof m === 'string'
-      ? { id: m.trim(), label: m.trim() }
-      : (m && typeof m === 'object' ? { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim() } : null)))
-      .filter(m => m && m.id).slice(0, 100)
+    ? raw.models.map(m => {
+      if (typeof m === 'string') return { id: m.trim(), label: m.trim() };
+      if (!m || typeof m !== 'object') return null;
+      // 114a: 可选模型能力标签(PROVIDER_MODEL_CAPS 白名单外静默丢弃+去重)。
+      // 与 hiddenModels/pricing 同款「可加不加」:空就不落字段,存量 config.json 逐字节零漂移。
+      const caps = providerModelCaps(m.caps);
+      return { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim(), ...(caps.length ? { caps } : {}) };
+    }).filter(m => m && m.id).slice(0, 100)
     : [];
   // 模型候选「已移除」名单（provider 级）：线程头模型菜单行尾那枚「×」删一行 = 在这里记下那个 id。
   // GET /api/models 把「saved 清单 ∪ live 发现」合并成候选时一律跳过名单里的项 —— 否则 ↻ 刷新会把
@@ -13261,6 +13297,12 @@ function sanitizeProvider(raw) {
       if (extraBaseUrls.length >= 3) break;
     }
   }
+  // 114a(45 号文 §7＋§1.6): audioBaseUrl —— 可选 ASR 转写端点(114b 的消费方;未配置=零行为)。
+  // 与 baseUrl【同等对待】:trim + 截 400,不解析、不查协议、不查主机 —— 45 号文 §1.6 实证 baseUrl
+  // 今天就没有任何 URL 准入校验(内置 ollama/lmstudio 预设本来就是 127.0.0.1 私网),不为这一个字段
+  // 凭空发明一道 provider 级 URL 准入(那是独立安全决定,两条出网面要收一起收,已记 107 未完成项)。
+  // localCommand 本波【不加】—— 唯一消费方 114d 已后置 128+,持久字段不养闲人(35 号文 §2 退出门)。
+  const audioBaseUrl = str(raw.audioBaseUrl, 400).trim();
   // v1.4-OSS 用量看板: optional pricing for provider-engine cost calc. {inputPerM, outputPerM, currency} —
   // per-MILLION-token prices (non-negative) + a short currency code. Kept only when at least one price parses
   // AND a currency is present; otherwise dropped (the ledger then records tokens with cost null). ADDITIVE +
@@ -13272,6 +13314,7 @@ function sanitizeProvider(raw) {
     type: 'openai-compat',
     baseUrl: mainBase,
     extraBaseUrls, // v1.0-S6 (B): failover 备用端点 (≤3, cleansed)
+    ...(audioBaseUrl ? { audioBaseUrl } : {}), // 114a: 可选 ASR 端点(空不落字段,存量 config 零漂移)
     apiKey: str(raw.apiKey, 400),
     model: str(raw.model, 120).trim(),
     models,
@@ -20639,6 +20682,12 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 那条判据上。它与同族的 stewardProviderId/stewardModel(free)不同:那两个只是换管家自己用哪个
   // 端点,花的还是管家自己那份预算。
   'stewardThreadBriefV1',
+  // 114a(45 号文 §2 ①):语音识别(ASR)端点选择。它决定【用户的声音】被送去哪个端点转写 —— 改它
+  // 等于把语音数据改道送去另一个端点,且每次转写都花钱(aux 记账),正落在本档「改动会花钱、改变
+  // 数据去向」那条判据上,故 confirm 而非 free;不进 forbidden —— 经用户亲手按一下确认后,让管家
+  // 帮忙把语音识别配好是正当诉求(与 compactProviderId/compactModel 同族:都是「内容路由到哪个
+  // 模型端点」)。
+  'asrProviderId', 'asrModel',
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把

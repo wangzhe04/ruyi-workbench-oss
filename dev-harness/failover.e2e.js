@@ -151,6 +151,47 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
     const { config: c0 } = mod.normalizeConfig({ providers: [{ id: 'q', baseUrl: 'https://m.com', apiKey: 'k', model: 'm' }] });
     ok(Array.isArray(c0.providers[0].extraBaseUrls) && c0.providers[0].extraBaseUrls.length === 0, '(B) absent extraBaseUrls → [] (behavior = 现状)');
   }
+  // (C) 114a(45 号文 §4 ①) models[].caps 白名单清洗:白名单外一律静默丢弃(含「rm -rf」这种脏东西,也含
+  //     能力矩阵那一域的 'vision' —— 同名不同物,不许串域)、小写归一、去重、保序;字符串形态与无 caps 的
+  //     对象形态【不落 caps 字段】(存量 config 逐字节零漂移)。
+  {
+    const { config } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x', apiKey: 'k', model: 'm', models: [
+      { id: 'm1', caps: ['asr', 'rm -rf', 'ASR', 'embedding', '', 'vision', 123, 'asr'] },
+      'plain',
+      { id: 'm2' },
+    ] }] });
+    const [m1, m2, m3] = config.providers[0].models;
+    ok(JSON.stringify(m1.caps) === '["asr","embedding"]', '(C) caps 白名单+小写归一+去重 (' + JSON.stringify(m1.caps) + ')');
+    ok(!('caps' in m2) && !('caps' in m3), '(C) 字符串/无 caps 条目不落 caps 字段(零漂移)');
+  }
+  // (D) 114a audioBaseUrl:与 baseUrl 同待遇(trim + 截 400,不解析不查协议 —— 45 号文 §1.6);缺省不落字段。
+  {
+    const { config } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x', audioBaseUrl: '  https://asr.example.com ' }] });
+    ok(config.providers[0].audioBaseUrl === 'https://asr.example.com', '(D) audioBaseUrl trim 生效 (' + config.providers[0].audioBaseUrl + ')');
+    const long = 'https://' + 'a'.repeat(500);
+    const { config: c1 } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x', audioBaseUrl: long }] });
+    ok(c1.providers[0].audioBaseUrl.length === 400, '(D) audioBaseUrl 截 400 (' + c1.providers[0].audioBaseUrl.length + ')');
+    const { config: c2 } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x' }] });
+    ok(!('audioBaseUrl' in c2.providers[0]), '(D) 缺省 audioBaseUrl 不落字段(零漂移)');
+  }
+  // (E) 114a asrProviderId/asrModel:trim + 截 400;provider 在则留,不在则两个一起清成「未配置」
+  //     (不静默改指别的端点,与 compactProviderId 同口径);缺省两空 = 未配置 = 麦克风不可见。
+  {
+    const { config } = mod.normalizeConfig({ asrProviderId: ' p ', asrModel: ' whisper-1 ', providers: [{ id: 'p', baseUrl: 'https://x' }] });
+    ok(config.asrProviderId === 'p' && config.asrModel === 'whisper-1', '(E) asr 选择 trim 后保留');
+    const { config: c2 } = mod.normalizeConfig({ asrProviderId: 'gone', asrModel: 'whisper-1', providers: [{ id: 'p', baseUrl: 'https://x' }] });
+    ok(c2.asrProviderId === '' && c2.asrModel === '', '(E) provider 没了 → asr 两个一起清空(不静默改指)');
+    const { config: c3 } = mod.normalizeConfig({});
+    ok(c3.asrProviderId === '' && c3.asrModel === '', '(E) 缺省 = 未配置(两空)');
+  }
+  // (F) 114a 零漂移(45 号文 §4 ①):不含 caps/audioBaseUrl 的存量 provider 形状,经 normalizeConfig 后
+  //     114a 不新增任何字段(判据:逐字节零变化的【114a 部分】;extraBaseUrls 等更早字段的既有行为不动)。
+  {
+    const legacy = { id: 'p', label: 'P', type: 'openai-compat', baseUrl: 'https://x', apiKey: 'k', model: 'm', models: [{ id: 'm1', label: 'M1' }, 'm2'] };
+    const { config } = mod.normalizeConfig({ providers: [legacy] });
+    const p = config.providers[0];
+    ok(!('audioBaseUrl' in p) && p.models.every(mm => !('caps' in mm)), '(F) 存量形状 114a 零新增字段');
+  }
   // (A) webSearch tavily + bocha parse against local fake search server (baseUrl override → TRUSTED, not SSRF).
   const searchSrv = await startFakeSearch(SEARCH_PORT);
   try {

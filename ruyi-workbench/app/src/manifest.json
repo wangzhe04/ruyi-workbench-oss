@@ -23,301 +23,301 @@
     {
       "file": "01-config.js",
       "startLine": 983,
-      "endLine": 3905,
+      "endLine": 3922,
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH"
     },
     {
       "file": "02c-turn-segments.js",
-      "startLine": 3906,
-      "endLine": 4220,
+      "startLine": 3923,
+      "endLine": 4237,
       "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)"
     },
     {
       "file": "02-session-store.js",
-      "startLine": 4221,
-      "endLine": 8506,
+      "startLine": 4238,
+      "endLine": 8523,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 8507,
-      "endLine": 9502,
+      "startLine": 8524,
+      "endLine": 9519,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "04-visual-pipeline.js",
-      "startLine": 9503,
-      "endLine": 9604,
+      "startLine": 9520,
+      "endLine": 9621,
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 9605,
-      "endLine": 11789,
+      "startLine": 9622,
+      "endLine": 11806,
       "note": "pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "04-desktop-shell.js",
-      "startLine": 11790,
-      "endLine": 12056,
+      "startLine": 11807,
+      "endLine": 12073,
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 12057,
-      "endLine": 13521,
+      "startLine": 12074,
+      "endLine": 13564,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "05b-kimi-bridge.js",
-      "startLine": 13522,
-      "endLine": 16285,
+      "startLine": 13565,
+      "endLine": 16328,
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强"
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "startLine": 16286,
-      "endLine": 16923,
+      "startLine": 16329,
+      "endLine": 16966,
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器"
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "startLine": 16924,
-      "endLine": 17128,
+      "startLine": 16967,
+      "endLine": 17171,
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 17129,
-      "endLine": 19026,
+      "startLine": 17172,
+      "endLine": 19069,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 19027,
-      "endLine": 19487,
+      "startLine": 19070,
+      "endLine": 19530,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 19488,
-      "endLine": 19647,
+      "startLine": 19531,
+      "endLine": 19690,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "06h-retrieval-index.js",
-      "startLine": 19648,
-      "endLine": 19814,
+      "startLine": 19691,
+      "endLine": 19857,
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用"
     },
     {
       "file": "06i-steward-core.js",
-      "startLine": 19815,
-      "endLine": 21046,
+      "startLine": 19858,
+      "endLine": 21095,
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)"
     },
     {
       "file": "06d-memory-domain.js",
-      "startLine": 21047,
-      "endLine": 22618,
+      "startLine": 21096,
+      "endLine": 22667,
       "note": "第104波：跨会话记忆、提议、关系图与检索"
     },
     {
       "file": "06e-mission-domain.js",
-      "startLine": 22619,
-      "endLine": 22727,
+      "startLine": 22668,
+      "endLine": 22776,
       "note": "第104波：Mission 提示摘要与 until-done 驱动"
     },
     {
       "file": "06f-autonomy-grants.js",
-      "startLine": 22728,
-      "endLine": 23019,
+      "startLine": 22777,
+      "endLine": 23068,
       "note": "第104波：自治授权签发、消费、撤销与预检"
     },
     {
       "file": "06g-resource-leases.js",
-      "startLine": 23020,
-      "endLine": 23221,
+      "startLine": 23069,
+      "endLine": 23270,
       "note": "第104波：Agent 资源归一化、冲突检测与租约"
     },
     {
       "file": "06j-scheduler-core.js",
-      "startLine": 23222,
-      "endLine": 23829,
+      "startLine": 23271,
+      "endLine": 23878,
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 23830,
-      "endLine": 25907,
+      "startLine": 23879,
+      "endLine": 25956,
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 25908,
-      "endLine": 28187,
+      "startLine": 25957,
+      "endLine": 28236,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09b-replan-ledger.js",
-      "startLine": 28188,
-      "endLine": 28363,
+      "startLine": 28237,
+      "endLine": 28412,
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)"
     },
     {
       "file": "09d-token-estimation.js",
-      "startLine": 28364,
-      "endLine": 28493,
+      "startLine": 28413,
+      "endLine": 28542,
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 28494,
-      "endLine": 31704,
+      "startLine": 28543,
+      "endLine": 31753,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 31705,
-      "endLine": 34372,
+      "startLine": 31754,
+      "endLine": 34421,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 34373,
-      "endLine": 36434,
+      "startLine": 34422,
+      "endLine": 36483,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 36435,
-      "endLine": 38135,
+      "startLine": 36484,
+      "endLine": 38184,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "startLine": 38136,
-      "endLine": 39291,
+      "startLine": 38185,
+      "endLine": 39340,
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 39292,
-      "endLine": 41736,
+      "startLine": 39341,
+      "endLine": 41785,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 41737,
-      "endLine": 42096,
+      "startLine": 41786,
+      "endLine": 42145,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 42097,
-      "endLine": 42285,
+      "startLine": 42146,
+      "endLine": 42334,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 42286,
-      "endLine": 44421,
+      "startLine": 42335,
+      "endLine": 44470,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 44422,
-      "endLine": 45038,
+      "startLine": 44471,
+      "endLine": 45087,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "13i-steward-inbox.js",
-      "startLine": 45039,
-      "endLine": 46261,
+      "startLine": 45088,
+      "endLine": 46310,
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
       "file": "13j-steward-tool-base.js",
-      "startLine": 46262,
-      "endLine": 46729,
+      "startLine": 46311,
+      "endLine": 46778,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)"
     },
     {
       "file": "13k-steward-threads.js",
-      "startLine": 46730,
-      "endLine": 47837,
+      "startLine": 46779,
+      "endLine": 47886,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)"
     },
     {
       "file": "13l-steward-ops.js",
-      "startLine": 47838,
-      "endLine": 48538,
+      "startLine": 47887,
+      "endLine": 48587,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 48539,
-      "endLine": 48904,
+      "startLine": 48588,
+      "endLine": 48953,
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)"
     },
     {
       "file": "13m-steward-runner-base.js",
-      "startLine": 48905,
-      "endLine": 49193,
+      "startLine": 48954,
+      "endLine": 49242,
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)"
     },
     {
       "file": "13n-steward-arbiter.js",
-      "startLine": 49194,
-      "endLine": 49750,
+      "startLine": 49243,
+      "endLine": 49799,
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)"
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "startLine": 49751,
-      "endLine": 50191,
+      "startLine": 49800,
+      "endLine": 50240,
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)"
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "startLine": 50192,
-      "endLine": 50759,
+      "startLine": 50241,
+      "endLine": 50808,
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)"
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "startLine": 50760,
-      "endLine": 51508,
+      "startLine": 50809,
+      "endLine": 51557,
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 51509,
-      "endLine": 51937,
+      "startLine": 51558,
+      "endLine": 51986,
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)"
     },
     {
       "file": "13r-event-stream.js",
-      "startLine": 51938,
-      "endLine": 52246,
+      "startLine": 51987,
+      "endLine": 52295,
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)"
     },
     {
       "file": "13s-scheduler.js",
-      "startLine": 52247,
-      "endLine": 53105,
+      "startLine": 52296,
+      "endLine": 53154,
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗"
     },
     {
       "file": "13t-steward-schedule.js",
-      "startLine": 53106,
-      "endLine": 53464,
+      "startLine": 53155,
+      "endLine": 53513,
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环"
     },
     {
       "file": "14-main.js",
-      "startLine": 53465,
-      "endLine": 54150,
+      "startLine": 53514,
+      "endLine": 54199,
       "note": "main()/module.exports"
     }
   ]

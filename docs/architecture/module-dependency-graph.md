@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2309 | 2474 | 420 | 68 | 0 | 1 |
+| 53 | 2311 | 2474 | 420 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -25,7 +25,7 @@
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 8 | `04-permission-runtime.js` | foundation | 100 | 30 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 10 | `05-claude-engine.js` | engine | 23 | 102 | 15 |
+| 10 | `05-claude-engine.js` | engine | 25 | 102 | 15 |
 | 11 | `05b-kimi-bridge.js` | engine | 119 | 65 | 12 |
 | 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |

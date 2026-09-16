@@ -225,3 +225,33 @@
 ## 8. 交付记录
 
 （每一刀出门后按 44 号文 §7 的格式补：今天的毛病 → 与派单稿不同之处 → 判据读数 → 反向 → 生成器链与门。）
+
+### ① B-114a · 配置与模型能力标签（2026-09-16）
+
+**改了什么**（未配置时零行为）：
+
+- `05-claude-engine.js`：`PROVIDER_MODEL_CAPS = new Set(['asr','embedding'])`＋`providerModelCaps()`（白名单外静默丢弃、小写归一、去重、保序）；`models[]` 归一化挂上 `...(caps.length ? { caps } : {})`（空不落字段）；`audioBaseUrl` 与 `baseUrl` 同待遇（trim＋截 400，**不发明 URL 校验**——§1.6 的实情）。`localCommand` 按 §7 显式不加（唯一消费方 114d 已后置 128+）。
+- `01-config.js`：`asrProviderId`／`asrModel` 默认值两空＋清洗（trim＋截 400；provider 没了两个一起清成「未配置」，与 `compactProviderId` 同口径，不静默改指别的端点）。`CONFIG_SCHEMA` **不 bump**（§6.1 拍板①的推荐：纯增量＋normalize 消毒，无旧值要改写）。
+- 设置页「语音识别」选择器（§2 ① 的地基清单含它，§7 落点表只摸了后端）：**零静态标记**，`provider-settings.js` 纯 JS 动态渲染——只列 `caps` 含 `asr` 的模型，**一个候选都没有就连节点都不建**（未配置＝不可见不是「藏起来」，是「结构上不存在」，存量配置的设置页 DOM 因此逐字节零变化，不需要任何快照豁免）。选中即存 `saveConfigPartial` 部分补丁（`compactProviderId` 选择器同模具）；候选里没了当初那一对时如实回落「不启用」。双语各 6 键，运行时与 `docs/i18n/locales/` 文档源同步。
+- `06i-steward-core.js`：`asrProviderId`／`asrModel` 经 `steward-config-tier` 机械锁拦下要求显式分级——判 **confirm**（它决定【用户的声音】送去哪个端点转写＝改道语音数据＋每次转写都花钱记 aux，与 `compactProviderId`/`compactModel` 同族；不放 forbidden——经用户亲手确认后让管家把语音配上是正当诉求）。这是 §1.7 五把锁之外实际顶动的第六把，补登记在此。
+
+**与派单稿（26 号文）不同的两处，逐条给理由**：
+
+1. **`workbench_self_status` config 段与 `GET /api/status` asr 摘要本刀没做**（26 号文 §3 列了，45 号文 §2 ① 地基清单与 §7 落点表都不含）。选择器要的数据（`providers[].models[].caps`＋`asrProviderId`/`asrModel`）本来就随 `/api/status` 的 config 下发，单独立一份摘要是重复事实源；self-status 段等 ② 的端点真有了运行态可报再补。**显式收窄，不是漏做。**
+2. **`CONFIG_SCHEMA` 11→12 不做**（§6.1 已对 26 号文显式改判），并由新静态锁把 `= 11` 钉死——以后谁 bump 都得先回来读文档。
+
+**判据读数**：
+
+- `failover.e2e.js` 并入（C）（D）（E）（F）共 9 条：`caps:['asr','rm -rf','ASR','embedding','','vision',123,'asr']` → 实得 `["asr","embedding"]`；字符串/无 caps 条目不落字段；`audioBaseUrl` trim＋截 400＋缺省不落字段；asr 选择 trim 后保留、provider 没了两个一起清空、缺省两空；存量 provider 形状零新增字段。
+- 新静态锁 `dev-harness/asr-config-ui.static.e2e.js`：两个 caps 取值域不相交且互不引用（06 连 `'asr'` 字面量都不许有；05 只允许那行 §1.2 点名的隔离注释提到 `PLAYBOOK_REQUIRES` 一次——第一版锁写宽成「05 不许出现」被自己的注释当场咬到，收紧成「注释可点名一次、代码不许引用」）；`CONFIG_SCHEMA=11`；后端三处落点锚；前端五处落点锚；双语 6 键；index.html 零静态 asr 标记；`provider-settings.js` 零控制字符。
+- 零行为三处：prompt-snapshot（--fast 内含）、`config-read-safety`（/api/status 读路）、`dom-smoke`＋`dom-contract`（DOM）全绿，无需改一处既有断言。
+- `steward-config-tier` 全键矩阵复绿（新增两键已显式分级）。
+
+**纪律 7 第六个样本**：选择器分隔符照 `compactProviderId` 模具用 `\u001f`，第一版被补丁传输层落成**裸 0x1F** 进源码（`cat -A` 现形 `^_`）。按 32 号文 §16-bis 修法改 `String.fromCharCode(31)` 构造（源码零控制字符、零转义序列），静态锁钉住这个构造方式。
+
+**反向一处（§4 ① 指定形状）**：摘掉 `PROVIDER_MODEL_CAPS.has(s)` → `failover.e2e` (C) 当场红并打出实得数组 `["asr","rm -rf","embedding","vision"]`——**连能力矩阵那域的 `'vision'` 也一并漏进**，顺手实证了 §1.2 域隔离不是摆设。还原经 sha256 逐字节校验（`4822665d…` OK）后双绿。（插曲：`git checkout --` 还原的是 HEAD 不是工作区，一度把整刀的 05 改动抹掉，按对话里的原始编辑逐字节重做后 sha256 才对上——教训：反向还原前先确认基准是哪一个。）
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC）→ `build.js`（54193 行）→ `facts-generate.js`（e2eCount 356→357，README 四处口径 356→357／349→350）→ `route-inventory.js`（135 判定点，告警 0，仅时间戳动——本刀零新路由）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**（新锁第 5 位跑进默认道）、行为件九件（failover／i18n／i18n.static／facts.static／config-read-safety／workbench-self-status／provider-custom-headers／perf-config-cache／dom-smoke／ia／steward-config-tier）全绿。控制字符扫描 20 个改动文件 **0**；U+FFFD 扫描仅 HEAD 既有的一处故意字面（GBK 解码注释里的示例），本刀新增为零。
+
+**全量回归（①）**：**350 pass / 0 fail / 1 flaky / 350 ran（7 skipped 为既有 live probe），真回归 0**。唯一 flaky 是 `steward-conversation.e2e.js`（首跑红在 G4「线程回退到递话前」，重跑绿）——管家族递话/回退时序族，与本刀的配置归一化与设置页选择器路径零交集；如实登记，不归功于也不归咎于本刀。
+

@@ -825,6 +825,12 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 那条判据上。它与同族的 stewardProviderId/stewardModel(free)不同:那两个只是换管家自己用哪个
   // 端点,花的还是管家自己那份预算。
   'stewardThreadBriefV1',
+  // 114a(45 号文 §2 ①):语音识别(ASR)端点选择。它决定【用户的声音】被送去哪个端点转写 —— 改它
+  // 等于把语音数据改道送去另一个端点,且每次转写都花钱(aux 记账),正落在本档「改动会花钱、改变
+  // 数据去向」那条判据上,故 confirm 而非 free;不进 forbidden —— 经用户亲手按一下确认后,让管家
+  // 帮忙把语音识别配好是正当诉求(与 compactProviderId/compactModel 同族:都是「内容路由到哪个
+  // 模型端点」)。
+  'asrProviderId', 'asrModel',
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把
