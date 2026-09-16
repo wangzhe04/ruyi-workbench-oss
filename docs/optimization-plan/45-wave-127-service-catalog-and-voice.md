@@ -80,7 +80,17 @@
 
 **探针顺带逮到 26 号文一处半错的设计**：`MediaRecorder.isTypeSupported('audio/wav')` 在这版 Edge 上实测 **`false`**。26 号文 §3 写的「不支持 `audio/webm;codecs=opus` 时回退 `audio/wav` 经 `AudioContext`」——**回退那一半用 `MediaRecorder` 走不通**，真要 wav 得自己从 `AudioContext` 的 PCM 手工封 WAV 头。而实测 `audio/webm;codecs=opus` **是支持的**（A、B 两组都 `true`）。→ **本波按「webm/opus 为唯一录制格式、不支持就不渲染麦克风按钮」实现**，不写一条跑不通的回退路径。
 
-### 1.6 会被顶动的计数锁（提前登记，免得第四次被自己的锁拦住）
+### 1.6 26 号文威胁模型里那套「与 `baseUrl` 相同的 URL 校验」**并不存在**
+
+26 号文 §3／§4 两处都写：`audioBaseUrl` 必须通过与 provider `baseUrl` **相同的 URL 校验**（协议白名单、禁私网除本地 shim、禁凭据内嵌）。**实读之下，`baseUrl` 今天没有任何这样的校验**：
+
+- `sanitizeProvider`（`05:1154`）对 `baseUrl` 只做 `trim` ＋ 长度截到 400，**不解析、不查协议、不查主机**。
+- 全仓唯一对 provider 主机做词法判断的是 `providerIsLocal`（`03:478`），而它的用途是**放宽**工作区外读文件的闸（本机模型不会把文件外传），**不是**一道准入校验。
+- 而且内置预设 `ollama`／`lmstudio` 的 `baseUrl` 本来就是 `http://127.0.0.1:…` —— **私网不但没禁，还是出厂配置**。
+
+**结论**：「与 `baseUrl` 相同的校验」＝**没有校验**。本波按这条实情办：`audioBaseUrl` 与 `baseUrl` **同等对待**（用户自己配的端点，工作台不替他判断），**不在本波凭空发明一道 provider 级 URL 准入** —— 那是独立的安全决定，会顺带改掉现有本机预设的行为，远超「加个语音端点」的范围。**如实记进 107 的 Release Brief「未完成项」**：ASR 出网面与主 provider 出网面共享同一条（不存在的）校验，要收紧就得两条一起收。
+
+### 1.7 会被顶动的计数锁（提前登记，免得第四次被自己的锁拦住）
 
 | 锁 | 现值 | 本波会怎么动 |
 |---|---|---|
@@ -153,6 +163,23 @@
 3. **代码任务／定时汇总／变化守望三类空缺怎么补** —— 推荐 **本波只补「定时汇总」一个模板，另两类如实标「暂无模板」**。理由：定时汇总的运行基座（123 波调度器）**已经落地**，补一个模板就能跑通一条完整成功路径；而「变化守望」缺的是守望基座（41 号文写明依赖 119），「代码任务」摊子最大（一个像样的代码模板要绑工作区权限与工具族）——两类都不是「填个 JSON」能了的，**硬补出来的模板跑不通，比空着更坏**。
 4. **麦克风先验若不通过** —— 推荐 **按 §4 ⑦ 的降级形状出门，并在交付记录里写明「这一件没有真麦克风覆盖」**。理由：纪律 13 要的是「前端 JS 必须有真浏览器件」，不是「必须有真硬件」；假装有覆盖比承认没有更危险。**备选**（不推荐）：把 ⑦ 整刀推到 128+ —— 但那样 127 波的用户故事（「能开口说」）就断在半路。
 
-## 7. 交付记录
+## 7. 下一个 agent 从这里进（① 114a 的落点已摸好，别重摸）
+
+**本波零 `src/` 改动，工作从 ① 开始。** 下面是 2026-09-16 已实读的落点与可照抄的模具：
+
+| 要做的 | 落点 | 照哪个现成模具 |
+|---|---|---|
+| `models[].caps` | `sanitizeProvider`（`05-claude-engine.js:1154`）里 `models` 那段 map（`:1159-1164`），条目今天是 `{id,label}` | **`hiddenModels`（`05:1169`）与 `pricing`（`05:1211`）那个「可加不加」模具**：`...(caps.length ? { caps } : {})` —— 空就不落字段，**存量 `config.json` 逐字节零漂移**。注释里两处都写明了这个理由，照抄 |
+| `caps` 白名单 | 与 `PROVIDER_REASONING_EFFORTS`（`05:1143`）并排放一个 `PROVIDER_MODEL_CAPS = new Set(['asr','embedding'])` | 同文件同款：**一张表被规范化与请求构造共用**，注释原话「Keep this allowlist shared by…」 |
+| `audioBaseUrl` | 同 `sanitizeProvider`，与 `baseUrl`／`extraBaseUrls`（`:1192`）并排 | **按 §1.6 的实情：与 `baseUrl` 同等对待**（`trim` ＋ 截 400），**不发明新校验** |
+| `localCommand` | **本波不加** —— 它唯一的消费方是 114d，43 号文 §2 已后置到 128+。加一个没人读的持久字段违反 124 波留下的纪律（35 号文 §2 退出门）。**这是显式收窄，不是漏做** | —— |
+| `asrProviderId`／`asrModel` | `01-config.js` 默认值区（`:79-80` `activeProvider`／`providers` 那一段旁），清洗放 `:703` 那个 providers 块之后 | `compactProviderId` 的「provider 没了也保留，不静默改用户的选择」（`01:915-921`）——ASR 选择该用同一口径 |
+| 未配置＝不可见 | 无开关。判据＝`asrProviderId` 与 `asrModel` 皆非空 | 26 号文冻结边界原话；**不要**为它新造 `runtime*V1` 开关 |
+
+**三个已实测的数字**（别再重数）：`CONFIG_SCHEMA=11`（`00-boot.js:32`）、`facts.json.nativeTools=96`、`i18n.static.e2e.js:149` 钉着 `skills.builtin.*` 共 96 键。
+
+**麦克风先验的复现方式**（探针是一次性的，不在仓里，但读数在 §1.5）：起一个 `127.0.0.1` 的页面（`file://` 不是安全上下文，`getUserMedia` 会直接拒），Edge 启动参数在常规无头那套之外加 `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`，页面里 `getUserMedia({audio:true})` → `MediaRecorder('audio/webm;codecs=opus')` 录 1.2 s。**对照组（不加开关）必须跑**，它是 `NotFoundError`——没有对照组就证明不了那两个开关是承重的。
+
+## 8. 交付记录
 
 （每一刀出门后按 44 号文 §7 的格式补：今天的毛病 → 与派单稿不同之处 → 判据读数 → 反向 → 生成器链与门。）
