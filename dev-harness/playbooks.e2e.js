@@ -20,6 +20,8 @@ const { getFreePort } = require('./free-port.js');
 //      proof that an assembled prompt reaches the fake (FAKE_CAPTURE_DIR) via /api/chat/stream.
 //   ⑥ 45号文③ A-S01 service 分类 — 每条带 service;15 条内置映射 + 新增 scheduled-digest 与 §1.4 实盘表
 //      逐条相同;六类计数(含 coding/watch=0);未分类两条空且 available 不受影响;编造的一类被钳成 ''。
+//   ⑦ 45号文⑥ A-S02 服务入口 — POST /api/playbooks/service-match:query → 六类匹配;可用引导 0 条;
+//      双缺失夹具引导硬顶 1(dropped=1);no_template;无关/单字 → null;承诺词扫描 0;无 token 403。
 'use strict';
 const cp = require('child_process');
 const http = require('http');
@@ -264,6 +266,38 @@ const DRAFT_JSON = JSON.stringify({
     ok(okEntry && okEntry.service === 'research', '⑥ 合法 service:"research" 用户模板保留(实得 ' + JSON.stringify(okEntry && okEntry.service) + ')');
     await reqJson(WB_PORT, 'POST', '/api/playbooks/test-fake-service', {}, { ...hdr, 'x-http-method': 'DELETE' });
     await reqJson(WB_PORT, 'POST', '/api/playbooks/test-ok-service', {}, { ...hdr, 'x-http-method': 'DELETE' });
+
+    // ── ⑦ 45号文⑥ A-S02:自然语言 → 服务入口(六类匹配,≤1 次必要配置引导,无成功承诺) ─────────
+    // 判据(45号文§4⑥):可用服务配置引导 ≤1 次(计数断言);不可用服务不出现成功承诺(承诺词扫描)。
+    // 反向闸:双缺失夹具(离线+无桌面)不封顶会出 2 条引导 —— 本刀反向就把上限提到 2,此条实得变 2 → 红。
+    const postMatch = (query, headers) => reqJson(WB_PORT, 'POST', '/api/playbooks/service-match', { query }, headers || hdr);
+    const noAuth = await reqJson(WB_PORT, 'POST', '/api/playbooks/service-match', { query: '整理' }, { Origin: 'http://127.0.0.1:' + WB_PORT });
+    ok(noAuth.status === 403, '⑦ service-match browser-context without token → 403(token-browser 档:浏览器须 token)');
+    const mAvail = (await postMatch('帮我整理下载文件夹')).json;
+    ok(mAvail && mAvail.ok && mAvail.match && mAvail.match.service === 'organize' && mAvail.match.state === 'available', '⑦ 「整理下载」→ organize/available');
+    ok(mAvail.match.guidance.length === 0 && mAvail.match.guidanceDropped === 0, '⑦ 可用服务配置引导 0 条(≤1 判据)');
+    ok(mAvail.match.playbooks.length === 7 && mAvail.match.playbooks[0].available === true, '⑦ organize 类 7 条模板可用在前');
+    // needs_config 双缺失夹具:coding 用户模板 requires[network,vision],本夹具离线(死 probe)+fake 无视觉
+    // → 缺两类(注意 desktopMcp 在本夹具 present:true,不能拿它凑第二个缺失 —— ② 的 ocr-scan 行可证)。
+    const codePb = { id: 'test-nl-coding', title: '代码任务甲', icon: '🧪', desc: 'x', inputs: [], promptTemplate: '做 {q}', requires: ['network', 'vision'], uiMode: 'both', service: 'coding' };
+    const saveCode = await reqJson(WB_PORT, 'POST', '/api/playbooks', { playbook: codePb }, hdr);
+    ok(saveCode.status === 200 && saveCode.json && saveCode.json.ok, '⑦ POST coding user playbook ok');
+    const mCfg = (await postMatch('帮我写代码修 bug')).json;
+    ok(mCfg && mCfg.match && mCfg.match.service === 'coding' && mCfg.match.state === 'needs_config', '⑦ 「写代码修 bug」→ coding/needs_config');
+    ok(mCfg.match.guidance.length === 1 && mCfg.match.guidanceDropped === 1, '⑦ 双缺失夹具引导硬顶 1 条(dropped=1;实得 ' + mCfg.match.guidance.length + '+' + mCfg.match.guidanceDropped + ' ' + JSON.stringify(mCfg.match.guidance) + ')');
+    ok(mCfg.match.guidance[0] === 'network' || mCfg.match.guidance[0] === 'vision', '⑦ 引导带结构化能力键(前端 i18n 出人话)');
+    const mNone = (await postMatch('帮我守望这个文件夹的变化')).json;
+    ok(mNone && mNone.match && mNone.match.service === 'watch' && mNone.match.state === 'no_template' && mNone.match.guidance.length === 0, '⑦ 「守望变化」→ watch/no_template,引导 0 条(配不出不存在的模板)');
+    const mNull = (await postMatch('zzzqx 无关')).json;
+    ok(mNull && mNull.ok && mNull.match === null, '⑦ 无关查询 → match:null(零行为)');
+    const mShort = (await postMatch('整')).json;
+    ok(mShort && mShort.match === null, '⑦ 单字查询 → null(防误吸)');
+    // 承诺词扫描(判据第二半):不可用/暂无模板服务的返回文案不得出现成功承诺词。
+    const PROMISE_WORDS = ['保证', '一定能', '帮你完成', '可以帮你', '包你', '放心', '确保'];
+    const scanTarget = JSON.stringify(mCfg.match) + JSON.stringify(mNone.match);
+    const promised = PROMISE_WORDS.filter(w => scanTarget.includes(w));
+    ok(promised.length === 0, '⑦ 不可用/暂无模板服务零成功承诺词' + (promised.length ? ' — 命中: ' + promised.join(',') : ''));
+    await reqJson(WB_PORT, 'POST', '/api/playbooks/test-nl-coding', {}, { ...hdr, 'x-http-method': 'DELETE' });
   } finally {
     killp(wb); killp(fake);
     await sleep(300);

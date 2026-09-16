@@ -368,6 +368,14 @@ async function handleApi(req, res, pathname) {
     const playbooks = await listPlaybooksWithAvailability(config);
     return send(res, json({ ok: true, playbooks }));
   }
+  // 127-A-S02(41 号文 §5.9):自然语言 → 服务入口匹配。read-only 计算(评既有清单,零持久化),
+  // 鉴权在 ROUTE_AUTH 按 token-browser 档(与 GET 同);匹配逻辑与引导上限全在 06 的 matchServiceEntry。
+  if (req.method === 'POST' && pathname === '/api/playbooks/service-match') {
+    const body = await readJsonBody(req);
+    const config = await readConfig();
+    const playbooks = await listPlaybooksWithAvailability(config);
+    return send(res, json({ ok: true, match: matchServiceEntry(body && body.query, playbooks) }));
+  }
   // POST /api/playbooks/draft {sessionId} — 让当前引擎从会话起草一个 playbook 草稿(token-gated above).
   // Must come BEFORE the generic POST /api/playbooks handler so the /draft suffix isn't swallowed.
   if (req.method === 'POST' && pathname === '/api/playbooks/draft') {

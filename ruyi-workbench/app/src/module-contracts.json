@@ -3296,6 +3296,8 @@
         "PROJECT_MEMORY_CAP",
         "REQ_METRICS",
         "REQ_METRICS_RECENT_MAX",
+        "SERVICE_GUIDANCE_MAX",
+        "SERVICE_INTENT_KEYWORDS",
         "STORAGE_ARCHIVE_TERMINAL",
         "STORAGE_STEWARD",
         "STORAGE_TREND_MAX",
@@ -3355,6 +3357,7 @@
         "listPlaybooksWithAvailability",
         "loadAllPlaybooks",
         "markNetworkOnline",
+        "matchServiceEntry",
         "maybeRecordStorageTrend",
         "maybeWriteThreadBrief",
         "metricsBucketIndex",
@@ -9897,6 +9900,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "matchServiceEntry",
           "kinds": [
             "call"
           ]

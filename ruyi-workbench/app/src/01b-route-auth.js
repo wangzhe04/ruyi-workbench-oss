@@ -96,6 +96,9 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/mcp/connectors/toggle', auth: 'token' },
   { m: 'DELETE', p: '/api/mcp/connectors', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
+  // 127-A-S02:自然语言服务入口匹配 —— 只读计算(评既有清单,零持久化),与 GET /api/playbooks 同档
+  // token-browser;必须排在下一条 /api/playbooks/ 前缀 token 规则【之前】,否则被它抢先吞成 token 级。
+  { m: 'POST', p: '/api/playbooks/service-match', auth: 'token-browser' },
   { m: 'POST', p: '/api/playbooks', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/', auth: 'token', prefix: true },
   { m: 'DELETE', p: '/api/playbooks/', auth: 'token', prefix: true },

@@ -195,8 +195,50 @@ async function openSkillPanel() {
   catch { skillRegistry = []; }
   renderSkillList();
 }
+// ── 127-A-S02(41 号文 §5.9「将自然语言与既有模板入口接通」):技能库搜索框兼做服务入口 ——
+// 查询命中六类服务时,列表顶部给一条服务条(可用数 / 一次配置引导 / 暂无模板)。不常驻、
+// 无匹配不建节点(① 模具);「≤1 次引导」的硬顶在后端 matchServiceEntry,这里只渲染结论。
+let svcMatchCache = { query: '', match: null };
+let svcMatchTimer = 0;
+function scheduleServiceMatch(q) {
+  if (svcMatchCache.query === q) return;
+  svcMatchCache = { query: q, match: null };
+  clearTimeout(svcMatchTimer);
+  if (q.length < 2) return;
+  svcMatchTimer = setTimeout(async () => {
+    try {
+      const r = await api('/api/playbooks/service-match', { method: 'POST', body: JSON.stringify({ query: q }) });
+      if (svcMatchCache.query !== q) return; // 查询已改,丢弃过期响应
+      svcMatchCache = { query: q, match: (r && r.match) || null };
+    } catch { /* 拉取失败 = 无服务条,零行为 */ }
+    renderSkillList();
+  }, 220);
+}
+function serviceMatchStrip() {
+  const m = svcMatchCache.match;
+  if (!m || !m.service) return null;
+  const service = t('skills.service.' + m.service);
+  let text = '';
+  if (m.state === 'available') {
+    const n = (m.playbooks || []).filter(p => p.available).length;
+    text = t('skills.serviceMatch.available', { service, count: n });
+  } else if (m.state === 'needs_config') {
+    const cap = (m.guidance || [])[0] || '';
+    text = t('skills.serviceMatch.needsConfig', { service, guidance: cap ? t('skills.serviceMatch.guidance.' + cap) : '' });
+    if (m.guidanceDropped > 0) text += ' ' + t('skills.serviceMatch.more', { count: m.guidanceDropped });
+  } else if (m.state === 'no_template') {
+    text = t('skills.serviceMatch.noTemplate', { service });
+  }
+  if (!text) return null;
+  // sk-reason 既有样式(灰底小字),sk-svc-match 只做稳定选择器 —— 零 CSS 新增。
+  const strip = el('div', 'sk-reason sk-svc-match');
+  strip.setAttribute('role', 'note');
+  strip.textContent = text;
+  return strip;
+}
 function renderSkillList() {
   const q = $('skillSearch').value.trim().toLowerCase();
+  scheduleServiceMatch(q);
   const all = skillRegistry || [];
   const match = s => skillMatchesQuery(s, q);
   const skills = all.filter(s => s.kind === 'skill' && match(s));
@@ -205,6 +247,9 @@ function renderSkillList() {
   skillFiltered = [...skills, ...commands, ...playbooks]; // 拍平的显示顺序(与 .skill-item DOM 顺序一致)
   if (skillIndex >= skillFiltered.length) skillIndex = Math.max(0, skillFiltered.length - 1);
   const list = $('skillList'); list.innerHTML = '';
+  // 127-A-S02:服务条永远排在列表最前(它不是一条技能,不进 skillFiltered,键盘导航自然够不到)。
+  const svcStrip = serviceMatchStrip();
+  if (svcStrip) list.appendChild(svcStrip);
   const enabledIds = enabledSkillIds();
   const enabled = new Set(enabledIds);
   const resident = new Set(residentSkillIds());

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-16T10:21:51.298Z",
+  "generatedAt": "2026-09-16T14:57:30.209Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,10 +17,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 124,
-    "decisionPoints": 136,
+    "routeAuthEntries": 125,
+    "decisionPoints": 137,
     "byKind": {
-      "exact": 115,
+      "exact": 116,
       "prefix": 12,
       "regex": 9
     },
@@ -424,6 +424,12 @@
       "m": "POST",
       "p": "/api/playbooks/draft",
       "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/playbooks/service-match",
+      "auth": "token-browser",
       "prefix": false
     },
     {
@@ -907,9 +913,26 @@
     },
     {
       "kind": "exact",
-      "path": "/api/playbooks/draft",
+      "path": "/api/playbooks/service-match",
       "file": "13-http-router.js",
       "line": 373,
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\playbooks.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/playbooks/draft",
+      "file": "13-http-router.js",
+      "line": 381,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -926,7 +949,7 @@
       "kind": "exact",
       "path": "/api/playbooks",
       "file": "13-http-router.js",
-      "line": 380,
+      "line": 388,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -946,7 +969,7 @@
       "kind": "prefix",
       "path": "/api/playbooks/",
       "file": "13-http-router.js",
-      "line": 389,
+      "line": 397,
       "handler": "handleApi",
       "methods": [
         "DELETE",
@@ -965,7 +988,7 @@
       "kind": "exact",
       "path": "/api/workspace/resolve",
       "file": "13-http-router.js",
-      "line": 398,
+      "line": 406,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -982,7 +1005,7 @@
       "kind": "exact",
       "path": "/api/pick-folder",
       "file": "13-http-router.js",
-      "line": 409,
+      "line": 417,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -999,7 +1022,7 @@
       "kind": "exact",
       "path": "/api/pick-file",
       "file": "13-http-router.js",
-      "line": 413,
+      "line": 421,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1016,7 +1039,7 @@
       "kind": "exact",
       "path": "/api/models",
       "file": "13-http-router.js",
-      "line": 417,
+      "line": 425,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1036,7 +1059,7 @@
       "kind": "exact",
       "path": "/api/config",
       "file": "13-http-router.js",
-      "line": 467,
+      "line": 475,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1090,7 +1113,7 @@
       "kind": "exact",
       "path": "/api/agent-roles",
       "file": "13-http-router.js",
-      "line": 482,
+      "line": 490,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1110,7 +1133,7 @@
       "kind": "exact",
       "path": "/api/agent-roles",
       "file": "13-http-router.js",
-      "line": 495,
+      "line": 503,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1130,7 +1153,7 @@
       "kind": "exact",
       "path": "/api/agent-workflows",
       "file": "13-http-router.js",
-      "line": 510,
+      "line": 518,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1150,7 +1173,7 @@
       "kind": "exact",
       "path": "/api/agent-workflows",
       "file": "13-http-router.js",
-      "line": 515,
+      "line": 523,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1170,7 +1193,7 @@
       "kind": "prefix",
       "path": "/api/agent-workflows/",
       "file": "13-http-router.js",
-      "line": 522,
+      "line": 530,
       "handler": "handleApi",
       "methods": [
         "DELETE",
@@ -1188,7 +1211,7 @@
       "kind": "exact",
       "path": "/api/provider/test",
       "file": "13-http-router.js",
-      "line": 527,
+      "line": 535,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1208,7 +1231,7 @@
       "kind": "exact",
       "path": "/api/skills",
       "file": "13-http-router.js",
-      "line": 557,
+      "line": 565,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1227,7 +1250,7 @@
       "kind": "exact",
       "path": "/api/session/skills",
       "file": "13-http-router.js",
-      "line": 582,
+      "line": 590,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1248,7 +1271,7 @@
       "kind": "exact",
       "path": "/api/skills",
       "file": "13-http-router.js",
-      "line": 592,
+      "line": 600,
       "handler": "handleApi",
       "methods": [
         "DELETE"
@@ -1267,7 +1290,7 @@
       "kind": "exact",
       "path": "/api/session/memories",
       "file": "13-http-router.js",
-      "line": 613,
+      "line": 621,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1284,7 +1307,7 @@
       "kind": "exact",
       "path": "/api/memory",
       "file": "13-http-router.js",
-      "line": 663,
+      "line": 671,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1305,7 +1328,7 @@
       "kind": "exact",
       "path": "/api/memory/item",
       "file": "13-http-router.js",
-      "line": 677,
+      "line": 685,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1322,7 +1345,7 @@
       "kind": "exact",
       "path": "/api/memory/proposal",
       "file": "13-http-router.js",
-      "line": 690,
+      "line": 698,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1339,7 +1362,7 @@
       "kind": "exact",
       "path": "/api/memory/proposal/decision",
       "file": "13-http-router.js",
-      "line": 697,
+      "line": 705,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1356,7 +1379,7 @@
       "kind": "exact",
       "path": "/api/memory/proposal/apply",
       "file": "13-http-router.js",
-      "line": 706,
+      "line": 714,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1371,7 +1394,7 @@
       "kind": "exact",
       "path": "/api/memory/draft",
       "file": "13-http-router.js",
-      "line": 717,
+      "line": 725,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1388,7 +1411,7 @@
       "kind": "exact",
       "path": "/api/memory/migrate",
       "file": "13-http-router.js",
-      "line": 724,
+      "line": 732,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1405,7 +1428,7 @@
       "kind": "exact",
       "path": "/api/memory/metadata",
       "file": "13-http-router.js",
-      "line": 735,
+      "line": 743,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1420,7 +1443,7 @@
       "kind": "exact",
       "path": "/api/memory",
       "file": "13-http-router.js",
-      "line": 753,
+      "line": 761,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1441,7 +1464,7 @@
       "kind": "exact",
       "path": "/api/memory/relations",
       "file": "13-http-router.js",
-      "line": 775,
+      "line": 783,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1459,7 +1482,7 @@
       "kind": "exact",
       "path": "/api/memory/maintenance",
       "file": "13-http-router.js",
-      "line": 788,
+      "line": 796,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1476,7 +1499,7 @@
       "kind": "exact",
       "path": "/api/memory/relations/propose",
       "file": "13-http-router.js",
-      "line": 801,
+      "line": 809,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1493,7 +1516,7 @@
       "kind": "exact",
       "path": "/api/memory/relations/confirm",
       "file": "13-http-router.js",
-      "line": 810,
+      "line": 818,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1510,7 +1533,7 @@
       "kind": "prefix",
       "path": "/api/memory/relations/",
       "file": "13-http-router.js",
-      "line": 818,
+      "line": 826,
       "handler": "handleApi",
       "methods": [
         "DELETE",
@@ -1528,7 +1551,7 @@
       "kind": "prefix",
       "path": "/api/memory/",
       "file": "13-http-router.js",
-      "line": 827,
+      "line": 835,
       "handler": "handleApi",
       "methods": [
         "DELETE",
@@ -1549,7 +1572,7 @@
       "kind": "exact",
       "path": "/api/stop",
       "file": "13-http-router.js",
-      "line": 837,
+      "line": 845,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1575,7 +1598,7 @@
       "kind": "exact",
       "path": "/api/provider/compact",
       "file": "13-http-router.js",
-      "line": 861,
+      "line": 869,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1595,7 +1618,7 @@
       "kind": "exact",
       "path": "/api/agent/compact",
       "file": "13-http-router.js",
-      "line": 870,
+      "line": 878,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1610,7 +1633,7 @@
       "kind": "exact",
       "path": "/api/kimi/status",
       "file": "13-http-router.js",
-      "line": 887,
+      "line": 895,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1625,7 +1648,7 @@
       "kind": "exact",
       "path": "/api/todo",
       "file": "13-http-router.js",
-      "line": 903,
+      "line": 911,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1642,7 +1665,7 @@
       "kind": "exact",
       "path": "/api/mission",
       "file": "13-http-router.js",
-      "line": 923,
+      "line": 931,
       "handler": "handleApi",
       "methods": [
         "GET",
@@ -1712,7 +1735,7 @@
       "kind": "exact",
       "path": "/api/autonomy/grants",
       "file": "13-http-router.js",
-      "line": 1029,
+      "line": 1037,
       "handler": "handleApi",
       "methods": [
         "*"
@@ -1729,7 +1752,7 @@
       "kind": "exact",
       "path": "/api/autonomy/grant",
       "file": "13-http-router.js",
-      "line": 1036,
+      "line": 1044,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1746,7 +1769,7 @@
       "kind": "exact",
       "path": "/api/autonomy/revoke",
       "file": "13-http-router.js",
-      "line": 1064,
+      "line": 1072,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1763,7 +1786,7 @@
       "kind": "exact",
       "path": "/api/agent-workflow/launch",
       "file": "13-http-router.js",
-      "line": 1077,
+      "line": 1085,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1807,7 +1830,7 @@
       "kind": "exact",
       "path": "/api/usage/summary",
       "file": "13-http-router.js",
-      "line": 1131,
+      "line": 1139,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1830,7 +1853,7 @@
       "kind": "exact",
       "path": "/api/ops/metrics",
       "file": "13-http-router.js",
-      "line": 1146,
+      "line": 1154,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1847,7 +1870,7 @@
       "kind": "exact",
       "path": "/api/checkpoints",
       "file": "13-http-router.js",
-      "line": 1155,
+      "line": 1163,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1875,7 +1898,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/open-external",
       "file": "13-http-router.js",
-      "line": 1176,
+      "line": 1184,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1892,7 +1915,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/diff",
       "file": "13-http-router.js",
-      "line": 1247,
+      "line": 1255,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1911,7 +1934,7 @@
       "kind": "exact",
       "path": "/api/help/doc",
       "file": "13-http-router.js",
-      "line": 1289,
+      "line": 1297,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1929,7 +1952,7 @@
       "kind": "exact",
       "path": "/api/open-path",
       "file": "13-http-router.js",
-      "line": 1319,
+      "line": 1327,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -1947,7 +1970,7 @@
       "kind": "exact",
       "path": "/api/logs/tail",
       "file": "13-http-router.js",
-      "line": 1346,
+      "line": 1354,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1964,7 +1987,7 @@
       "kind": "exact",
       "path": "/api/file/preview",
       "file": "13-http-router.js",
-      "line": 1379,
+      "line": 1387,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -1987,7 +2010,7 @@
       "kind": "exact",
       "path": "/api/file/reveal",
       "file": "13-http-router.js",
-      "line": 1416,
+      "line": 1424,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2007,7 +2030,7 @@
       "kind": "exact",
       "path": "/api/audit",
       "file": "13-http-router.js",
-      "line": 1447,
+      "line": 1455,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2029,7 +2052,7 @@
       "kind": "exact",
       "path": "/api/storage/summary",
       "file": "13-http-router.js",
-      "line": 1464,
+      "line": 1472,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2049,7 +2072,7 @@
       "kind": "exact",
       "path": "/api/metrics",
       "file": "13-http-router.js",
-      "line": 1476,
+      "line": 1484,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2067,7 +2090,7 @@
       "kind": "exact",
       "path": "/api/upload",
       "file": "13-http-router.js",
-      "line": 1508,
+      "line": 1516,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2084,7 +2107,7 @@
       "kind": "exact",
       "path": "/api/upload/content",
       "file": "13-http-router.js",
-      "line": 1519,
+      "line": 1527,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2101,7 +2124,7 @@
       "kind": "exact",
       "path": "/api/chat/stream",
       "file": "13-http-router.js",
-      "line": 1539,
+      "line": 1547,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2247,7 +2270,7 @@
       "kind": "prefix",
       "path": "/api/tools/",
       "file": "13-http-router.js",
-      "line": 1557,
+      "line": 1565,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2276,7 +2299,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 1832,
+      "line": 1840,
       "handler": "startServerInner",
       "methods": [
         "*"
@@ -4387,52 +4410,52 @@
   "delegations": [
     {
       "file": "13-http-router.js",
-      "line": 551,
+      "line": 559,
       "target": "handleSessionApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 553,
+      "line": 561,
       "target": "handleMissionsApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 902,
+      "line": 910,
       "target": "handleInterventionApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1154,
+      "line": 1162,
       "target": "handleAgentRunApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1442,
+      "line": 1450,
       "target": "handleMcpApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1486,
+      "line": 1494,
       "target": "handleCheckpointApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1488,
+      "line": 1496,
       "target": "handleSteerApiRoute"
     },
     {
       "file": "13-http-router.js",
-      "line": 1490,
+      "line": 1498,
       "target": "handleAudioApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1492,
+      "line": 1500,
       "target": "handleOverlayApiRoutes"
     },
     {
       "file": "13-http-router.js",
-      "line": 1507,
+      "line": 1515,
       "target": "handleSchedulerApiRoutes"
     }
   ],

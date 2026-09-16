@@ -403,3 +403,26 @@
 **生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**——迁家策略的直接收益；05 顶层符号 25→27、13b 12→10）→ `build.js`（54457 行）→ `architecture-contract-snapshots.js --write`（src 变了必跑）→ `facts-generate.js`（96→97，README 两处同步）→ `route-inventory.js`（仅时间戳——本刀零新路由）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符与 U+FFFD 扫描 17 个改动文件 **0**。行为件七件全绿：tool-dispatch（B5＋L 全锁）、asr-transcribe（24 条，迁家回归网）、vision-loop（④ 附件路径同背书）、workbench-self-status、facts.static、capabilities（身份守卫）、steward-tools.static。
 
 **全量回归（⑤）**：**351 pass / 0 fail / 0 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0、flaky 也 0**——本波目前最干净的一次。
+
+### ⑥ A-S02 · 自然语言服务入口与一次配置引导（2026-09-16）
+
+**改了什么**：
+
+- `06-provider-engine.js`：`matchServiceEntry`（六类意图词表中文优先、命中词数最多者胜、零命中返回 null 零行为；状态三态 `available`／`needs_config`／`no_template`）＋ **`SERVICE_GUIDANCE_MAX = 1`**（判据计数闸，反向就提它）。`evalPlaybookAvailability` 增 **`missingCaps`** 结构化数组（纯增量——`unavailableReason` 只报第一个缺失是「卡片一行人话」的既有行为，服务引导要按【全部】缺失能力去重计数；① 模具「空不落字段」不适用此场景：available 时给空数组，形状稳定）。
+- `POST /api/playbooks/service-match`（ROUTE_AUTH **token-browser**，与 GET 同档；条目排在 `/api/playbooks/` 前缀 token 规则**之前**，否则被抢先吞成 token 级）：read-only 计算，返回 `{service, playbooks(可用在前), state, guidance(≤1 结构化能力键), guidanceDropped}`。引导只带能力键，人话由前端 i18n 出。
+- **技能库搜索框兼做服务入口**（41 号文 §5.9「将自然语言与既有模板入口接通」，不新建目录引擎/探针/DSL）：键入命中六类 → 列表顶部一条服务条（可用数／一次配置引导／暂无模板）；220ms 防抖、过期响应丢弃、**无匹配不建节点**（① 模具：零行为是「结构上不存在」）、清空即消失（不常驻，41 号文「不常驻占据主界面」）。双语各 13 键＋`docs/i18n/locales/` 同步；复用 `sk-reason` 既有样式，零 CSS 新增。
+- e2e：`playbooks.e2e.js` ⑦ 块 13 条（判据全套＋双缺失夹具＋承诺词扫描＋403）；新件 `service-match.browser.e2e.js` 10 条（真浏览器 CDP：`#skillBtn` 真实入口开库、B1 可用条／B2 暂无模板条／B3 无关词零行为／B4 复现后清空消失）。
+
+**与派单稿不同的三处，逐条给理由（两处是自己先踩后判）**：
+
+1. 判据「必要配置引导 ≤1 次」落地为 **needs_config 态 guidance 数组硬顶 1 条＋`guidanceDropped` 如实带出**：可用服务本来就 0 条引导，计数的牙齿全在需配置态。「≤1」锁在数组长度上，谁改上限谁红——不是文案断言。
+2. ⑦ 的 403 断言第一版写「无 token → 403」**被自己判错**：token-browser 的语义是「浏览器须 token，loopback 非浏览器须同源」（`01:2903/2917`），裸 http 无 Origin 走同源放行——改判为「带 Origin 的浏览器上下文、无 token → 403」。这是 token-browser 档在本仓的第一次实测记录。
+3. 双缺失夹具第一版配 `requires:['network','desktopMcp']`，实得 `1+0`——**本机夹具 `desktopMcp.present=true`**（② 的 ocr-scan 行可证），第二个缺失根本不存在；改 `['network','vision']`（fake provider 无视觉）夹具才成立。教训写进 ⑦ 注释：凑夹具缺失，先看本机能力矩阵里真缺什么。
+
+**判据读数**（`playbooks.e2e.js` ⑦，13 条全绿）：浏览器上下文无 token → 403；「整理下载」→ `organize/available`、引导 0 条、7 条模板可用在前；「写代码修 bug」→ `coding/needs_config`、引导硬顶 1 条 `dropped=1`（实得 `1+1 ["network"]`）；「守望变化」→ `watch/no_template`、引导 0 条（配不出不存在的模板）；无关词／单字 → `match:null`（零行为防误吸）；承诺词扫描 7 词（保证/一定能/帮你完成/可以帮你/包你/放心/确保）0 命中。浏览器件实测三态文案：「资料整理：7 个模板可直接用」「变化守望：这类还没有模板」、无关词无节点、清空消失。
+
+**反向一处（§4⑥ 指定形状）**：`SERVICE_GUIDANCE_MAX` 1→2 → ⑦ 双缺失断言红并打出实得 `2+0 ["network","vision"]`。文件备份 sha256 逐字节还原（06 与 server.js 双 OK，`4722d834…`／`36883774…`）后复绿。
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**；06 +3 顶层符号，13→06 引用 +1 皆在既有边上）→ `build.js`（54514 行）→ `route-inventory.js`（**137 判定点（+1）**、ROUTE_AUTH 125 条、告警 0）→ `architecture-contract-snapshots.js --write` → `facts-generate.js`（e2eCount 358→359，README 四处 358→359／351→352）→ fixture-home spawn 处数 **143→144**（新浏览器件，带来路注释）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符与 U+FFFD 扫描 22 个改动文件 **0**。行为件七件全绿：playbooks（⑦ 全断言传动）、service-match.browser（新件 10 条）、i18n、i18n.static、facts.static、fixture-home.static、route-inventory.static。插曲：`playbooks.e2e.js` 首跑又现 ③ 登记过的启动竞争（① GET null `:128` 崩 TypeError），重跑连绿——同一老件既有脆性，与本刀零交集，不归功于也不归咎于本刀。
+
+**全量回归（⑥）**：**352 pass / 0 fail / 1 flaky / 352 ran（7 skipped 为既有 live probe），真回归 0**。唯一 flaky 是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言——②③④ 已登记同一条，本刀与该件文件零交集），回归内重跑自复绿，按既有时序族如实登记。

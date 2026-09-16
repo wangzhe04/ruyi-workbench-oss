@@ -894,22 +894,26 @@ async function loadAllPlaybooks() {
   return [...merged.values()];
 }
 
-// Evaluate a playbook's requires against the capability matrix → { available, unavailableReason }.
+// Evaluate a playbook's requires against the capability matrix → { available, unavailableReason, missingCaps }.
 // Unknown/empty requires → available (fail-open, mirrors toolRequirementsMet). A specific中文原因 for each
-// unmet requirement so the greyed card can explain itself (C2: 不隐藏,给一行原因).
+// unmet requirement so the greyed card can explain itself (C2: 不隐藏,给一行原因)。
+// 127-A-S02:新增 missingCaps(全部缺失能力的结构化数组,available 时为空)——unavailableReason 只报
+// 第一个缺失(卡片一行人话),服务入口的「≤1 次配置引导」要按【全部】缺失能力去重计数;纯增量字段。
 function evalPlaybookAvailability(pb, caps) {
   const req = Array.isArray(pb.requires) ? pb.requires : [];
+  const missingCaps = [];
+  let reason = '';
   for (const r of req) {
     if (r === 'network') {
       // online===false 才算明确不可用;null(未知/无 provider 探测目标)不拦(fail-open,避免误灰)。
-      if (caps && caps.network && caps.network.online === false) return { available: false, unavailableReason: '需要联网(当前离线)' };
+      if (caps && caps.network && caps.network.online === false) { missingCaps.push('network'); if (!reason) reason = '需要联网(当前离线)'; }
     } else if (r === 'desktopMcp') {
-      if (!caps || !caps.desktopMcp || !caps.desktopMcp.present) return { available: false, unavailableReason: '需要桌面控制(未检测到 ai-computer-control)' };
+      if (!caps || !caps.desktopMcp || !caps.desktopMcp.present) { missingCaps.push('desktopMcp'); if (!reason) reason = '需要桌面控制(未检测到 ai-computer-control)'; }
     } else if (r === 'vision') {
-      if (!caps || !caps.provider || caps.provider.vision !== true) return { available: false, unavailableReason: '需要视觉模型(当前引擎未开启视觉)' };
+      if (!caps || !caps.provider || caps.provider.vision !== true) { missingCaps.push('vision'); if (!reason) reason = '需要视觉模型(当前引擎未开启视觉)'; }
     }
   }
-  return { available: true, unavailableReason: '' };
+  return { available: !reason, unavailableReason: reason, missingCaps };
 }
 
 // The public listing: every playbook, each annotated with available + unavailableReason from the current caps.
@@ -917,6 +921,48 @@ async function listPlaybooksWithAvailability(config) {
   const list = await loadAllPlaybooks();
   const caps = await getCapabilities(config).catch(() => null);
   return list.map(pb => ({ ...pb, ...evalPlaybookAvailability(pb, caps) }));
+}
+
+// ── 127-A-S02(41 号文 §5.9「将自然语言与既有模板入口接通」)─────────────────────────────────
+// 自然语言 → 服务入口匹配。不新建目录引擎/探针/DSL:服务 = ③ 的 service 六类,匹配 = 关键词表(中文优先),
+// 可用性直接读 listPlaybooksWithAvailability 的既有结论。配置引导硬顶 SERVICE_GUIDANCE_MAX=1 条 ——
+// 「必要配置引导 ≤1 次」(45 号文 §4⑥ 计数判据;反向:提到 2,双缺失夹具实得 2 → 红)。
+const SERVICE_GUIDANCE_MAX = 1;
+// 六类意图词表:命中词数最多的类胜出(需 ≥1 命中,否则零行为返回 null);平手按表序。词都是 playbook
+// 标题/描述里真实出现或用户嘴边真实会说的;宁缺毋滥 —— 多写冷门词只会把不相关的话也吸进服务。
+const SERVICE_INTENT_KEYWORDS = Object.freeze({
+  research: ['对比', '比较', '研究', '调研', '竞品', '摘要', 'pdf'],
+  organize: ['整理', '归档', '重命名', '清洗', '清理', '盘点', '合并', '识别', 'ocr', '表格', '下载'],
+  writing: ['撰写', '周报', '报告', '纪要', '会议', '大纲', '翻译', '汇报', '文章'],
+  coding: ['代码', '编程', 'bug', '修复', '重构', '开发', '报错'],
+  scheduled: ['定时', '定期', '每天', '每日', '每周', '汇总', '自动跑'],
+  watch: ['守望', '监控', '盯着', '变化', '提醒'],
+});
+// query → { service, playbooks(可用在前), state, guidance, guidanceDropped } | null。
+// state: available(类下有可用模板,引导 0 条) / needs_config(全不可用,引导 = 去重缺失能力,硬顶 MAX)
+// / no_template(类下零模板,如实说没有,不给成功承诺也不给配置引导 —— 配不出一个不存在的模板)。
+function matchServiceEntry(query, playbooks) {
+  const q = String(query || '').trim().toLowerCase();
+  if (q.length < 2) return null;
+  let best = '', bestScore = 0;
+  for (const [service, words] of Object.entries(SERVICE_INTENT_KEYWORDS)) {
+    let score = 0;
+    for (const w of words) { if (q.includes(w.toLowerCase())) score++; }
+    if (score > bestScore) { bestScore = score; best = service; }
+  }
+  if (!best) return null;
+  const mine = (Array.isArray(playbooks) ? playbooks : []).filter(p => p && p.service === best);
+  const ordered = [...mine.filter(p => p.available !== false), ...mine.filter(p => p.available === false)]
+    .map(p => ({ id: p.id, title: p.title, available: p.available !== false, unavailableReason: String(p.unavailableReason || '') }));
+  if (!mine.length) return { service: best, playbooks: [], state: 'no_template', guidance: [], guidanceDropped: 0 };
+  if (ordered.some(p => p.available)) return { service: best, playbooks: ordered, state: 'available', guidance: [], guidanceDropped: 0 };
+  const missing = [];
+  for (const p of mine) {
+    for (const cap of (Array.isArray(p.missingCaps) ? p.missingCaps : [])) {
+      if (!missing.includes(cap)) missing.push(cap);
+    }
+  }
+  return { service: best, playbooks: ordered, state: 'needs_config', guidance: missing.slice(0, SERVICE_GUIDANCE_MAX), guidanceDropped: Math.max(0, missing.length - SERVICE_GUIDANCE_MAX) };
 }
 
 // Persist a user playbook atomically (tmp+rename). Built-in ids are allowed to be overridden by a same-id
