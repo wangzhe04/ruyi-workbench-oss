@@ -1254,6 +1254,33 @@ const CODE_TOOL_HANDLERS = {
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);
   } },
+  // 127-114c③(26 号文 §3):audio_transcribe —— 读本地音频(guardFileToolPath 与 file_read 同闸)→
+  // 经 114b 同一支出站体(05 的事实源)转写。tier exec(用户文件出网),pack files_read;返回值标
+  // untrusted:true(26 号文 §4:转写文本一律不可信)。扩展名白名单与 ④ 附件同一张,25 MB 与 ASR 闸同源。
+  audio_transcribe: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const p = path.resolve(String(args.path || ''));
+      { const g = await guardFileToolPath(p, ctx, { tool: 'audio_transcribe', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
+      if (!/\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(p)) {
+        return { ok: false, error: '不支持的音频扩展名(仅 wav/mp3/m4a/webm/ogg/flac)', path: p };
+      }
+      let audio = null;
+      try { audio = await fsp.readFile(p); }
+      catch (e) {
+        if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+        throw e;
+      }
+      if (!audio.length) return { ok: false, error: '空音频文件', path: p };
+      if (audio.length > ASR_MAX_BODY_BYTES) return { ok: false, error: '音频超过 25 MB 上限', path: p, maxBytes: ASR_MAX_BODY_BYTES };
+      const config = await readConfig();
+      const resolved = resolveAsrProvider(config);
+      if (resolved.failure) return { ok: false, error: resolved.failure.message, code: resolved.failure.code };
+      const ext = p.toLowerCase().match(/\.([a-z0-9]+)$/);
+      const mime = { wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', webm: 'audio/webm', ogg: 'audio/ogg', flac: 'audio/flac' }[(ext && ext[1]) || ''] || 'application/octet-stream';
+      const language = String(args.language || '').trim().slice(0, 40);
+      const result = await transcribeAudioViaProvider(resolved.provider, resolved.asrModel, { audio, contentType: mime, filename: path.basename(p), language, prompt: '' });
+      if (result.failure) return { ok: false, error: result.failure.message, code: result.failure.code };
+      return { ok: true, text: result.text, ...(result.outLanguage ? { language: result.outLanguage } : {}), durationMs: result.durationMs, providerId: result.providerId, model: result.model, estimated: result.estimated, untrusted: true };
+  } },
   data_profile: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
       const g = await guardFileToolPath(p, ctx, { tool: 'data_profile', write: false });

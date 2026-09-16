@@ -385,3 +385,21 @@
 **生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**；13b 顶层符号 9→12，13 引用 210→211，全库 2316→2319）→ `build.js`（54407 行）→ `route-inventory.js`（136 判定点不变、告警 0；`/api/upload/content` 的 coveredBy 从 [] → [vision-loop]，uncoveredPoints 9→8）；`facts-generate.js` 不动（无新 e2e 件，e2eCount 358 保持）；README 无口径要动。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符扫描 13 个改动文件 **0**（裸字节修复后）、U+FFFD 新增为零。行为件三件全绿：vision-loop（(a)–(f) 全场景）、asr-transcribe（24 条，重构回归网）、kimi-prompt-parts。
 
 **全量回归（④）**：**351 pass / 0 fail / 2 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0**。两个 flaky 均首跑红重跑绿的既有时序族、与本刀文件零交集：`foreign-turn-busy-guard` A11（回合正文落盘时序）、`walkthrough-round2.browser` B1（管家视角启动落档，③ 已登记同件）。如实登记，不归功于也不归咎于本刀。
+
+### ⑤ B-114c-③ · `audio_transcribe` 原生工具（2026-09-16）
+
+**改了什么**：
+
+- 四处代码登记（26 号文「第 49 波入库全部门」在今日的实处）：`13f` schema（`{path, language?}`，description 写明 exec tier 出网与 untrusted 语义）；`12` TOOL_HANDLERS（`paths:'read'`，guardFileToolPath 与 file_read 同闸 → 扩展名白名单 → 25 MB 闸 → 读盘 → 出站）；`07` NATIVE_TOOL_TIER `'exec'`（用户文件出网）；`07` NATIVE_TOOL_PACKS `'files_read'`。
+- **共用出站体迁家（13b → 05-claude-engine）**：④ 落 13b 时路由是唯一消费方；⑤ 多了 12 工具派发这个消费方，而 12→13b 会是一条**新增前向边**，12/13b→05 都有既有边（resolveProvider／providerBaseWithV1 本就住 05）——迁过去**依赖图 420 边零新增**。函数体经一次性手术脚本逐字节搬运（含转义序列的消毒正则——纪律 7 新教训的直接应用：这类搬运不走文本编辑），13b 两个调用方零行变化，② 的 24 条 e2e 原样全绿背书零行为变化。
+- 返回值 `{ok, text, language?, durationMs, providerId, model, estimated, untrusted:true}`（26 号文 §4：转写文本一律不可信）；失败一律规整 `ok:false`（not_configured／扩展名／空文件／超 25 MB／上游），越界与 file_read 同闸 `not-allowed`；记账走共享体同一支 `kind:'aux', note:'asr'`。
+- **与派单稿不同的一处（显式改判，给理由）**：§4⑤ 的「`13m` act 白名单」对本工具**不适用**——`STEWARD_ACTION_HOOKS`（13m）的推导源是 `stewardToolHandler('steward_*',…)` 注册，`audio_transcribe` 不是管家工具、不经该注册点；它永不回 `propose_required`（exec tier 走 nativeToolGate 权限门，不经管家 act 按钮通道）；管家工具面按 `isStewardToolName` 过滤，「管家提了按钮、按下去 not_allowed」对本工具在结构上不存在——机械锁 ①e 的推导链（注册点 → 实现体 → propose_required → HOOKS 键）**每一环都够不到它**。「能力身份守卫」由 capabilities.e2e.js 身份钉死件保持全绿（无工具级锁要动）。**替代反向**取「抽 `NATIVE_TOOL_PACKS` 登记 → tool-dispatch L4 红」——与 ①e 同一「登记漂移」族的机械锁，验的正是本工具真实会被漏的那种登记。
+- 计数锁重钉五处：facts.json 96→97（facts-generate 重算）、tool-dispatch L1（带来路注释）、workbench-self-status 两处、README 两处（96→97）、**steward-tools.static ① 总数锁 96→97**（§1.7 登记表外实际顶动的又一把，如实登记；①e 本身不动）。
+
+**判据读数**（`tool-dispatch.e2e.js` B5，7 条新断言全绿）：未配置 → `asr.not_configured` 规整失败不抛；真实分发成功（进程内迷你 ASR 桩回显文本）；**`untrusted:true`**（§4⑤ 判据原文）；回执带 model 与 `estimated:true`；工具路径记账 `kind:aux, note:asr`；非音频扩展名规整拒；越界 `not-allowed` 与 file_read 同闸。L1/L1b 97 与 facts 同源、L4 键集一致、steward-tools.static ① 97 全绿。
+
+**反向一处（替代形状，理由见上）**：抽 `NATIVE_TOOL_PACKS` 的 `audio_transcribe` 登记 → L4 当场红并点名 `reg-only:audio_transcribe`。文件备份 sha256 逐字节还原（07 与 server.js 双 OK，`44c3bd43…`／`c589241e…`）后复绿。
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**——迁家策略的直接收益；05 顶层符号 25→27、13b 12→10）→ `build.js`（54457 行）→ `architecture-contract-snapshots.js --write`（src 变了必跑）→ `facts-generate.js`（96→97，README 两处同步）→ `route-inventory.js`（仅时间戳——本刀零新路由）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符与 U+FFFD 扫描 17 个改动文件 **0**。行为件七件全绿：tool-dispatch（B5＋L 全锁）、asr-transcribe（24 条，迁家回归网）、vision-loop（④ 附件路径同背书）、workbench-self-status、facts.static、capabilities（身份守卫）、steward-tools.static。
+
+**全量回归（⑤）**：**351 pass / 0 fail / 0 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0、flaky 也 0**——本波目前最干净的一次。

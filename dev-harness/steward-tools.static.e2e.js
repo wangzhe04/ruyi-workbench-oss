@@ -130,7 +130,7 @@ ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_P
 // 按「断言只加不改」的纪律,重钉的同时补两条【更强】的伴随断言(下面 ①b/①c):新增的这一个必须
 // 恰好是决策族里【唯一】的线程级停止原语,且必须真的登记进了 13h 的 STEWARD_ACTION_HOOKS ——
 // 只钉总数会让「加错了一个工具」也照样过。
-ok(Object.keys(srv.TOOL_HANDLERS).length === 96, `① 注册表总数 96(63 + 33;123-M2 增六件定时任务;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
+ok(Object.keys(srv.TOOL_HANDLERS).length === 97, `① 注册表总数 97(63 + 33 steward_* + 1 audio_transcribe;123-M2 增六件定时任务 90→96,127-114c③ 增 audio_transcribe 96→97;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
 const stopPrimitives = expected.filter(n => /_stop$/.test(n));
 ok(JSON.stringify(stopPrimitives) === JSON.stringify(['steward_thread_stop']),
   `①b 决策族里恰好【一个】线程级停止原语(多一个 = 两条停机路径,少一个 = 管家又只能拿 run_action 凑;got ${JSON.stringify(stopPrimitives)})`);

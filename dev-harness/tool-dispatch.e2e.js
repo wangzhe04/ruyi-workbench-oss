@@ -42,7 +42,7 @@ for (const n of names) {
     if (!/guardFileToolPath\(|guardDownloadDest\(/.test(src)) l3Bad.push(n);
   }
 }
-ok(names.length === 96, `L1 注册表 90 个工具(got ${names.length}; 第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96)`);
+ok(names.length === 97, `L1 注册表 97 个工具(got ${names.length}; 第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97)`);
 // 117m-A4 伴随断言(重钉一个数就补一条更强的):这个数必须与 facts.json 里现算的那一份【同源】,
 // 免得下一波只改一处数字就把三处锁哄过去(facts.json 由 facts-generate 从 TOOL_HANDLERS 重算)。
 ok(names.length === require(path.join(__dirname, '..', 'facts.json')).nativeTools,
@@ -117,6 +117,48 @@ for (const tn of ['codebase_symbol_search', 'dependency_inventory', 'code_review
       : (tn === 'data_profile' ? { path: OUTSIDE + '/x.csv' } : { root: OUTSIDE }));
   const r = await S.toolCall(tn, body, ctxRemote);
   ok(r && r.ok === false && r.code === 'not-allowed', 'B4 ' + tn + ' 越界读(远端 provider)被 guard 拒');
+}
+
+// ── B5 127-114c③: audio_transcribe 真实分发(进程内迷你 ASR 桩) ──
+// 判据(45号文§4⑤):读本地音频(guardFileToolPath 同闸)→ 114b 同一支出站体 → 返回值标 untrusted:true。
+// 反向闸形状也在此:未配置/非音频扩展名/越界,三条都必须是规整的 ok:false,不抛。
+{
+  const asrSrv = require('http').createServer((req, res) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ text: '[b5-asr] bytes=' + Buffer.concat(chunks).length }));
+    });
+  });
+  await new Promise(r => asrSrv.listen(0, '127.0.0.1', r));
+  const asrPort = asrSrv.address().port;
+  const cfgFile = path.join(UNIT_DATA, 'config.json');
+  const writeAsrCfg = (withAsr) => fs.writeFileSync(cfgFile, JSON.stringify({
+    providers: [{ id: 'p', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + asrPort, apiKey: 'k', model: 'm' }],
+    activeProvider: 'p', defaultWorkspace: WS,
+    ...(withAsr ? { asrProviderId: 'p', asrModel: 'fake-asr-v1' } : {}),
+  }));
+  const audioFile = path.join(WS, 'meeting.webm');
+  fs.writeFileSync(audioFile, Buffer.from('1a45dfa39f4286810123456789abcdef', 'hex'));
+  writeAsrCfg(false);
+  const t0 = await S.toolCall('audio_transcribe', { path: audioFile }, ctxRemote);
+  ok(t0 && t0.ok === false && t0.code === 'asr.not_configured', 'B5 未配置 → asr.not_configured(规整失败不抛)');
+  writeAsrCfg(true);
+  const t1 = await S.toolCall('audio_transcribe', { path: audioFile }, ctxRemote);
+  ok(t1 && t1.ok === true && typeof t1.text === 'string' && t1.text.includes('[b5-asr]'), 'B5 audio_transcribe 成功返回转写文本 — got ' + JSON.stringify(t1 && t1.text));
+  ok(t1 && t1.untrusted === true, 'B5 返回值标 untrusted:true(26 号文 §4 判据原文)');
+  ok(t1 && t1.model === 'fake-asr-v1' && t1.estimated === true, 'B5 回执带 model 与 estimated:true 估算标记');
+  await new Promise(r => setTimeout(r, 300));
+  let b5Ledger = '';
+  try { for (const fn of fs.readdirSync(path.join(UNIT_DATA, 'usage'))) { if (fn.endsWith('.jsonl')) b5Ledger += fs.readFileSync(path.join(UNIT_DATA, 'usage', fn), 'utf8'); } } catch { /* ignore */ }
+  ok(b5Ledger.includes('"note":"asr"') && b5Ledger.includes('"kind":"aux"'), 'B5 工具路径转写也记账 kind:aux note:asr');
+  const t2 = await S.toolCall('audio_transcribe', { path: path.join(WS, 'a.js') }, ctxRemote);
+  ok(t2 && t2.ok === false && /扩展名/.test(String(t2 && t2.error || '')), 'B5 非音频扩展名被白名单规整拒');
+  fs.writeFileSync(path.join(OUTSIDE, 'secret.webm'), 'x');
+  const t3 = await S.toolCall('audio_transcribe', { path: path.join(OUTSIDE, 'secret.webm') }, ctxRemote);
+  ok(t3 && t3.ok === false && t3.code === 'not-allowed', 'B5 越界 audio_transcribe 被 guard 拒(与 file_read 同闸)');
+  await new Promise(r => asrSrv.close(r));
 }
 
 console.log(fail ? `\nTOOL-DISPATCH E2E: ${fail} FAIL` : '\nTOOL-DISPATCH E2E: ALL PASS');

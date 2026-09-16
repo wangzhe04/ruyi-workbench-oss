@@ -1488,3 +1488,73 @@ function resolveProvider(config, id) {
 function activeOpenAiProvider(config) {
   return resolveProvider(config, config && config.activeProvider);
 }
+
+// 127-114c②/④/⑤:ASR 服务商解析与出站转写【一份事实源】—— ② 的转写路由(13b)、④ 的附件管线(13b)、
+// ⑤ 的 audio_transcribe 原生工具(12)三方共用。apiKey 不出本进程、120s 超时、回体 8KB 上限、无 usage
+// 保守估算标 estimated,这套纪律抄第二份迟早分叉(一边补了超时一边没补)。落在 05 是因为两个消费面
+// (12 工具派发、13b 域路由)都【已有】到 05 的依赖边 —— 落这里零新增模块边(12→13b 反而是一条新增
+// 前向边);且 resolveProvider/providerBaseWithV1 本就住本文件。两函数不碰 req/res,失败回 { failure }。
+function resolveAsrProvider(config) {
+  const asrProviderId = String(config.asrProviderId || '').trim();
+  const asrModel = String(config.asrModel || '').trim();
+  // 未配置 = 409(判据原文;未配置时前端根本不渲染麦克风,能打到这里的都是手工/旧客户端)。
+  if (!asrProviderId || !asrModel) {
+    return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别未配置(asrProviderId/asrModel 为空)', status: 409 } };
+  }
+  const provider = resolveProvider(config, asrProviderId);
+  if (!provider) {
+    return { failure: { code: 'asr.provider_missing', params: { providerId: asrProviderId }, message: '语音识别所选服务商不存在', status: 409 } };
+  }
+  return { provider, asrModel };
+}
+async function transcribeAudioViaProvider(provider, asrModel, { audio, contentType, filename, language, prompt }) {
+  // 出站:multipart(Node 内置 FormData+Blob)到 audioBaseUrl || baseUrl 的 /v1/audio/transcriptions。
+  const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
+  if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
+  const form = new FormData();
+  form.append('model', asrModel);
+  form.append('response_format', 'json');
+  if (language) form.append('language', language);
+  if (prompt) form.append('prompt', prompt);
+  form.append('file', new Blob([audio], { type: contentType }), filename);
+  const headers = { ...(provider.extraHeaders || {}) };
+  if (provider.apiKey) headers.authorization = `Bearer ${provider.apiKey}`;
+  const t0 = Date.now();
+  let upstream = null, upstreamText = '';
+  try {
+    upstream = await fetch(base + '/audio/transcriptions', { method: 'POST', headers, body: form, signal: AbortSignal.timeout(120000) });
+    // 上游回体只读 8 KB(错误回显裁 1000 字符;成功体的 text 字段自有限度——恶意巨体不伺候)。
+    upstreamText = await upstream.text();
+    if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
+  } catch (err) {
+    const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    return { failure: { code: 'asr.upstream_unreachable', params: {}, message: isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), status: 502 } };
+  }
+  const durationMs = Date.now() - t0;
+  if (!upstream.ok) {
+    const snippet = upstreamText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]+/g, ' ').slice(0, 1000);
+    return { failure: { code: 'asr.upstream', params: { status: upstream.status }, message: 'ASR 上游返回 ' + upstream.status + ': ' + snippet, status: 502 } };
+  }
+  const parsed = safeJsonParse(upstreamText, null);
+  if (!parsed || typeof parsed.text !== 'string') {
+    return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text 字段', status: 502 } };
+  }
+  const text = parsed.text;
+  const outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
+  // 记账(26 号文 §1):kind:'aux', note:'asr'。上游带 usage 用真值;否则按字节/文本长度保守估算并
+  // 标 estimated:true(估算只是让这条 aux 在看板里有个量级,不是精确账单 —— appendUsageLedger 会
+  // 跳过零 token 行,估算同时保证这条支出不凭空消失)。
+  const u = parsed.usage && typeof parsed.usage === 'object' ? parsed.usage : null;
+  const realIn = u && Number.isFinite(Number(u.input_tokens)) ? Math.round(Number(u.input_tokens)) : 0;
+  const realOut = u && Number.isFinite(Number(u.output_tokens)) ? Math.round(Number(u.output_tokens)) : 0;
+  const hasUsage = (realIn + realOut) > 0;
+  const inTok = hasUsage ? realIn : Math.max(1, Math.ceil(audio.length / 1024));
+  const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(text.length / 4));
+  const { cost, currency } = computeProviderCost(provider, inTok, outTok, 0, asrModel);
+  appendUsageLedger({
+    sessionId: '', engine: 'openai', provider: provider.id, model: asrModel,
+    inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null,
+    estimated: !hasUsage, kind: 'aux', note: 'asr',
+  });
+  return { ok: true, text, outLanguage, durationMs, providerId: provider.id, model: asrModel, estimated: !hasUsage };
+}

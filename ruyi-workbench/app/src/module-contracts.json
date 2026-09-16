@@ -1765,12 +1765,14 @@
         "providerModelCaps",
         "providerReasoningEffort",
         "providerResponsesBase",
+        "resolveAsrProvider",
         "resolveProvider",
         "runClaudeTurn",
         "sanitizeExternalMcpCommon",
         "sanitizeExternalMcpServer",
         "sanitizeProvider",
         "stripUrlUserinfo",
+        "transcribeAudioViaProvider",
         "unmaskProviders",
         "unmaskSecrets"
       ],
@@ -1785,6 +1787,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "claudeCostFields",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "computeProviderCost",
           "kinds": [
             "call"
           ]
@@ -1857,6 +1866,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10452,10 +10468,8 @@
         "handleSteerApiRoute",
         "maybeTranscribeAudioAttachment",
         "readAudioBody",
-        "resolveAsrProvider",
         "steerRefusal",
-        "steerSessionCore",
-        "transcribeAudioViaProvider"
+        "steerSessionCore"
       ],
       "requires": [
         {
@@ -10467,23 +10481,9 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "appendUsageLedger",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "ASR_MAX_BODY_BYTES",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "computeProviderCost",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -10705,14 +10705,7 @@
         },
         {
           "provider": "05-claude-engine.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "resolveProvider",
+          "symbol": "resolveAsrProvider",
           "kinds": [
             "call"
           ]
@@ -10720,6 +10713,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "sanitizeExternalMcpServer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "transcribeAudioViaProvider",
           "kinds": [
             "call"
           ]
