@@ -3,6 +3,7 @@
   "title": "PDF 文本汇总",
   "icon": "📄",
   "desc": "把一个文件夹里的多份 PDF 提取文本,逐份摘要并汇总成一份总览",
+  "service": "research",
   "inputs": [
     { "key": "folder", "label": "PDF 所在文件夹", "type": "folder" },
     { "key": "output", "label": "汇总结果保存文件名(.md)", "type": "text" }

@@ -3,6 +3,7 @@
   "title": "写周报草稿",
   "icon": "📝",
   "desc": "把这一周的零散记录整理成一份条理清晰的周报草稿",
+  "service": "writing",
   "inputs": [
     { "key": "notes", "label": "本周做的事(随手记,越全越好)", "type": "text" },
     { "key": "output", "label": "周报保存文件名(.md)", "type": "text" }

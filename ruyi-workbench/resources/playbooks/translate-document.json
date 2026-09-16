@@ -3,6 +3,7 @@
   "title": "翻译一份文档",
   "icon": "🌐",
   "desc": "翻译文档并保持标题、列表、表格、数字和专有名词结构",
+  "service": "writing",
   "inputs": [
     { "key": "file", "label": "源文档完整路径", "type": "file" },
     { "key": "language", "label": "目标语言与语气", "type": "text" },

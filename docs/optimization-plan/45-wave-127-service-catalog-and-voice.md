@@ -330,3 +330,27 @@
 
 **全量回归（②）**：350 pass / **1 fail** / 1 flaky / 351 ran（7 skipped 为既有 live probe）。唯一 fail 是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言）——本刀与该件文件零交集（调度器 SSE/口袋角标 vs 音频转写），**单跑 10 秒全绿**，按既有时序族如实登记，不归功于也不归咎于本刀；flaky 为 `walkthrough-round1.browser`（回归内重跑自复绿，亦浏览器时序族）。
 
+
+### ③ A-S01 · 服务分类字段＋六类映射＋缺项模板（2026-09-16）
+
+**改了什么**（拍板项 2／3 的推荐形）：
+
+- `06-provider-engine.js` `normalizePlaybook`：`PLAYBOOK_SERVICES = ['research','organize','writing','coding','scheduled','watch']` 六类白名单（与 `PLAYBOOK_REQUIRES` 并排、同模具）＋ `service` 字段枚举钳制——白名单外／缺失静默丢成 `''`（未分类），每条 playbook 都带此字段。注释钉死两条裁决：**允许为空是关键**（§1.4 实盘：desktop-open-app／web-form-fill 是「动作」不是「完成一件事」，硬塞会让分类变成谎）；**未分类 ≠ 不可用**（`service` 不参与 `available` 评估）。
+- 13 个既有模板各落一个 `service`，与 §1.4 实盘表逐条相同：研究比较 compare-documents／pdf-summarize（2）、资料整理 archive-by-content／batch-rename／clean-csv／clean-downloads／folder-inventory／merge-excel／ocr-scan（7）、产物撰写 weekly-report／meeting-minutes／presentation-outline／translate-document（4）。**两个动作类模板不落字段**（normalize 运行时补 `''`），desktop-open-app.json／web-form-fill.json 逐字节零漂移——与「caps 空不落字段」同一模具。
+- 缺项模板 `scheduled-digest.json`（拍板项 3 只补「定时汇总」）：`service:'scheduled'`，folder＋output 两个 inputs，promptTemplate 走「按修改时间扫新改动 → 按主题归纳并注明出处 → 绝不编造 → 写 Markdown 并在对话展示」的可验收形状，挂得上 123 波调度器。coding／watch 两类如实留空（守望基座依赖 119、像样的代码模板要绑工作区权限与工具族——硬补出来跑不通，比空着更坏）。
+- 前端接线：`skills-memory.js` 登记 1 组 name/desc i18n id＋2 个 input 标签键；双语 locale 各 +4 键，`docs/i18n/locales/` 文档源与运行时同步。`module-contracts.json` 补 `PLAYBOOK_SERVICES` 导出。
+- e2e：`playbooks.e2e.js` 加 ⑥ 块 8 条（判据全套＋编造类钳制＋合法用户值保留，POST/DELETE 都落在隔离 HOME，收尾自清）；`i18n.static.e2e.js` 键锁 96→98（48→49 条，§1.7 已登记这把锁会动）。
+
+**与派单稿不同的一处口径，给理由**：
+
+- §4③「六类计数与 §1.4 实盘表**逐条相同**」落地为「§1.4 实盘表 **＋ 本刀新增定时汇总模板**」：§1.4 的 scheduled=0 是 15 模板的实盘，而 §6.3 拍板本波补一个模板——两处文字合并读，期望计数 scheduled=1（总数 15→16）。这是派单稿内部口径的合并，不是改判；e2e 注释与断言文案均写明「§1.4 实盘表 + 新增模板」。
+
+**判据读数**（`playbooks.e2e.js` ⑥，8 条全绿）：每条带 `service`（string）；16 条 id→类映射与 §1.4＋新模板逐条相同；计数 research=2／organize=7／writing=4／scheduled=1／coding=0／watch=0／未分类=2；未分类两条 `service===''` 且 `available` 为 boolean 不受影响；`service:'编造的一类'` 被钳成 `''`（实得 `""`）；用户模板合法值 `'research'` 保留（拍板项 2：用户 playbook 可选填）。
+
+**反向一处（§4③ 指定形状）**：摘掉枚举钳制（`PLAYBOOK_SERVICES.includes(raw.service) ? raw.service : ''` → `String(raw.service || '')`）→ ⑥ 编造类断言当场红并打出实得 `"编造的一类"` 原样穿透。按文件备份逐字节还原，06 与 server.js 双 sha256 校验 OK（`79a9c223…`／`1bed4b3b…`）后复绿。
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**；06 顶层符号 114→115，全库 2315→2316）→ `build.js`（54346 行）→ `route-inventory.js`（136 判定点不变、告警 0，仅时间戳——本刀零新路由，`POST /api/playbooks` 是既有路由）；`facts-generate.js` 不动（无新 e2e 文件，e2eCount 358 保持，facts.static 绿）；README 无 playbook 计数口径要动（「8 套模板」是工作流模板，与 playbook 无关）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符扫描 29 个改动文件 **0**、U+FFFD 新增为零。行为件十件全绿：playbooks（⑥ 全断言传动）、i18n、i18n.static（98 键锁）、i18n-en-terms、skills-registry、frontend-domains、memory-toolbox、facts.static、route-inventory.static、module-dependency-graph.static。
+
+**插曲（如实登记）**：`playbooks.e2e.js` 与四件静态件并行首跑时，① 的 GET 在启动窗口内拿到 null 并于 `:126` 崩 TypeError；单独重跑起三连绿（含还原后一次）。`:126` 对 null 不容错直接崩是这件老件的既有脆性（崩溃点在 ① 不在 ⑥，与本刀改动零交集），不归功于也不归咎于本刀。
+
+**全量回归（③）**：**350 pass / 1 fail / 1 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0**。唯一 fail 又是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言——② 的回归已登记同一条）——本刀与该件文件零交集（playbook 分类字段 vs 调度器 SSE／口袋角标），**单跑全绿（B1 在内）**，按既有时序族如实登记，不归功于也不归咎于本刀；flaky 为 `walkthrough-round2.browser`（回归内重跑自复绿，浏览器时序族）。

@@ -3,6 +3,7 @@
   "title": "扫描件 OCR 转文字",
   "icon": "🔍",
   "desc": "把扫描件图片或扫描版 PDF 通过 OCR 识别成可编辑文字",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "扫描件所在文件夹", "type": "folder" },
     { "key": "output", "label": "识别结果保存文件名(.md)", "type": "text" }

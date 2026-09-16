@@ -3,6 +3,7 @@
   "title": "清洗 CSV 数据",
   "icon": "🧹",
   "desc": "按明确规则清洗 CSV，并输出变更统计和异常清单",
+  "service": "organize",
   "inputs": [
     { "key": "file", "label": "要清洗的 CSV 完整路径", "type": "file" },
     { "key": "rules", "label": "清洗规则(去重、日期格式、空值等)", "type": "text" },

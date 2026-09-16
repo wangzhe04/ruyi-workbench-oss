@@ -18,6 +18,8 @@ const { getFreePort } = require('./free-port.js');
 //      POST /api/playbooks/draft {sessionId} returns a draft with all fields present.
 //   ⑤ form assembly — the pure {key} substitution logic (assemblePlaybookPrompt mirror) + an end-to-end
 //      proof that an assembled prompt reaches the fake (FAKE_CAPTURE_DIR) via /api/chat/stream.
+//   ⑥ 45号文③ A-S01 service 分类 — 每条带 service;15 条内置映射 + 新增 scheduled-digest 与 §1.4 实盘表
+//      逐条相同;六类计数(含 coding/watch=0);未分类两条空且 available 不受影响;编造的一类被钳成 ''。
 'use strict';
 const cp = require('child_process');
 const http = require('http');
@@ -219,6 +221,49 @@ const DRAFT_JSON = JSON.stringify({
     await sleep(300);
     const caps = readCaptures(CAP_DIR);
     ok(caps.some(b => lastUserTextOf(b).includes('PLAYBOOK-ASSEMBLED')), '⑤ assembled prompt reaches the provider via /api/chat/stream');
+
+    // ── ⑥ 45号文③ A-S01:service 分类字段(六类白名单 + 空) ─────────────────────────────────
+    // 判据(45号文§4③):GET 每条带 service;六类计数与 §1.4 实盘表 + 本刀新增定时汇总模板逐条相同;
+    // 未分类两条 service 为空且 available 不受影响;编造的一类被枚举钳制丢成 ''(反向闸)。
+    list = (await getJson(WB_PORT, '/api/playbooks')).json;
+    const pbs = list.playbooks || [];
+    ok(pbs.length > 0 && pbs.every(p => typeof p.service === 'string'), '⑥ every playbook carries a service field (string)');
+    const svcById = new Map(pbs.map(p => [p.id, p.service]));
+    const expectedSvc = {
+      'compare-documents': 'research', 'pdf-summarize': 'research',
+      'archive-by-content': 'organize', 'batch-rename': 'organize', 'clean-csv': 'organize',
+      'clean-downloads': 'organize', 'folder-inventory': 'organize', 'merge-excel': 'organize', 'ocr-scan': 'organize',
+      'weekly-report': 'writing', 'meeting-minutes': 'writing', 'presentation-outline': 'writing', 'translate-document': 'writing',
+      'scheduled-digest': 'scheduled',
+      'desktop-open-app': '', 'web-form-fill': '',
+    };
+    const svcMismatch = Object.entries(expectedSvc).filter(([id, s]) => svcById.get(id) !== s)
+      .map(([id, s]) => id + '(期望"' + s + '",实得"' + svcById.get(id) + '")');
+    ok(svcMismatch.length === 0, '⑥ 六类映射与 §1.4 实盘表 + 新增模板逐条相同' + (svcMismatch.length ? ' — 不符: ' + svcMismatch.join(', ') : ''));
+    const counts = {};
+    for (const p of pbs) counts[p.service] = (counts[p.service] || 0) + 1;
+    const expectCounts = { research: 2, organize: 7, writing: 4, scheduled: 1, coding: 0, watch: 0 };
+    const countBad = Object.entries(expectCounts).filter(([k, v]) => (counts[k] || 0) !== v).map(([k, v]) => k + '=' + (counts[k] || 0) + '(期望' + v + ')');
+    ok(countBad.length === 0 && (counts[''] || 0) === 2, '⑥ 六类计数 research=2 organize=7 writing=4 scheduled=1 coding=0 watch=0 未分类=2' + (countBad.length ? ' — 不符: ' + countBad.join(', ') : ''));
+    const unclassified = pbs.filter(p => p.id === 'desktop-open-app' || p.id === 'web-form-fill');
+    ok(unclassified.length === 2 && unclassified.every(p => p.service === '' && typeof p.available === 'boolean'),
+      '⑥ 未分类两条 service 为空且 available 不受影响');
+    // 枚举钳制:编造的一类 → ''(本刀反向就摘这道钳制,此条应变红并打出实得值)。
+    const fakeSvc = { id: 'test-fake-service', title: '分类钳制测试', icon: '🧪', desc: 'x', inputs: [], promptTemplate: '做 {q}', requires: [], uiMode: 'both', service: '编造的一类' };
+    const saveFake = await reqJson(WB_PORT, 'POST', '/api/playbooks', { playbook: fakeSvc }, hdr);
+    ok(saveFake.status === 200 && saveFake.json && saveFake.json.ok, '⑥ POST fabricated-service user playbook ok');
+    list = (await getJson(WB_PORT, '/api/playbooks')).json;
+    const fakeEntry = (list.playbooks || []).find(p => p.id === 'test-fake-service');
+    ok(fakeEntry && fakeEntry.service === '', '⑥ service:"编造的一类" 被枚举钳制丢成 ""(实得 ' + JSON.stringify(fakeEntry && fakeEntry.service) + ')');
+    // 合法值保留(用户 playbook 可选填分类,拍板项 2)。
+    const okSvc = { id: 'test-ok-service', title: '分类保留测试', icon: '🧪', desc: 'x', inputs: [], promptTemplate: '做 {q}', requires: [], uiMode: 'both', service: 'research' };
+    const saveOk = await reqJson(WB_PORT, 'POST', '/api/playbooks', { playbook: okSvc }, hdr);
+    ok(saveOk.status === 200 && saveOk.json && saveOk.json.ok, '⑥ POST valid-service user playbook ok');
+    list = (await getJson(WB_PORT, '/api/playbooks')).json;
+    const okEntry = (list.playbooks || []).find(p => p.id === 'test-ok-service');
+    ok(okEntry && okEntry.service === 'research', '⑥ 合法 service:"research" 用户模板保留(实得 ' + JSON.stringify(okEntry && okEntry.service) + ')');
+    await reqJson(WB_PORT, 'POST', '/api/playbooks/test-fake-service', {}, { ...hdr, 'x-http-method': 'DELETE' });
+    await reqJson(WB_PORT, 'POST', '/api/playbooks/test-ok-service', {}, { ...hdr, 'x-http-method': 'DELETE' });
   } finally {
     killp(wb); killp(fake);
     await sleep(300);

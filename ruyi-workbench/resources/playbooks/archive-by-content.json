@@ -3,6 +3,7 @@
   "title": "按内容归档文件",
   "icon": "🗂️",
   "desc": "读懂一堆杂乱文件的内容,自动分类到有意义的子文件夹里",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "要整理的文件夹", "type": "folder" }
   ],

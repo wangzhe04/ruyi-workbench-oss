@@ -3,6 +3,7 @@
   "title": "生成汇报大纲",
   "icon": "🎯",
   "desc": "把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑",
+  "service": "writing",
   "inputs": [
     { "key": "topic", "label": "汇报主题、听众和目标", "type": "text" },
     { "key": "materials", "label": "可用素材或素材文件路径", "type": "text" },

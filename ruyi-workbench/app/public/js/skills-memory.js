@@ -74,6 +74,7 @@ const BUILTIN_SKILL_I18N_IDS = Object.freeze({
   'playbook:pb:clean-csv': 'playbook.cleanCsv',
   'playbook:pb:translate-document': 'playbook.translateDocument',
   'playbook:pb:presentation-outline': 'playbook.presentationOutline',
+  'playbook:pb:scheduled-digest': 'playbook.scheduledDigest',
 });
 const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
   '需要联网(当前离线)': 'skills.requirements.networkOffline',
@@ -113,6 +114,8 @@ const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
   'presentation-outline:topic': 'skills.playbook.inputs.presentationOutline.topic',
   'presentation-outline:materials': 'skills.playbook.inputs.presentationOutline.materials',
   'presentation-outline:output': 'skills.playbook.inputs.presentationOutline.output',
+  'scheduled-digest:folder': 'skills.playbook.inputs.scheduledDigest.folder',
+  'scheduled-digest:output': 'skills.playbook.inputs.scheduledDigest.output',
 });
 function builtinSkillTextKey(entry, field) {
   if (!entry || entry.source !== 'builtin') return '';

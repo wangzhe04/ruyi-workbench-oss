@@ -3,6 +3,7 @@
   "title": "清理下载文件夹",
   "icon": "🧹",
   "desc": "找出下载文件夹里的安装包、重复文件和陈旧文件,给出清理建议",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "下载文件夹(或其它要清理的目录)", "type": "folder" }
   ],

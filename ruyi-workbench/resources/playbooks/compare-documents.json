@@ -3,6 +3,7 @@
   "title": "对比两份文档",
   "icon": "🔍",
   "desc": "按主题对比两份文档，列出新增、删除、冲突与影响",
+  "service": "research",
   "inputs": [
     { "key": "fileA", "label": "第一份文档的完整路径", "type": "file" },
     { "key": "fileB", "label": "第二份文档的完整路径", "type": "file" },

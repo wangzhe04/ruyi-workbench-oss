@@ -3,6 +3,7 @@
   "title": "批量重命名文件",
   "icon": "🏷️",
   "desc": "按统一规则给一个文件夹里的文件重新命名(加前缀、编号、日期等)",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "要处理的文件夹", "type": "folder" },
     { "key": "rule", "label": "重命名规则(用大白话描述)", "type": "text" }

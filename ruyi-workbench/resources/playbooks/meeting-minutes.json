@@ -3,6 +3,7 @@
   "title": "整理会议纪要",
   "icon": "📋",
   "desc": "把录音转写或零散笔记整理成结论、行动项和待定问题",
+  "service": "writing",
   "inputs": [
     { "key": "notes", "label": "会议转写或零散笔记", "type": "text" },
     { "key": "output", "label": "纪要保存文件名(.md)", "type": "text" }

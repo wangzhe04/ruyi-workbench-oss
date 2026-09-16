@@ -820,10 +820,16 @@ const PLAYBOOK_INPUT_TYPES = ['text', 'folder', 'file'];
 // requires只认这三种能力键;其余(typo / 恶意)在 normalize 时静默丢弃,再由 toolRequirementsMet 式的
 // 评估映射到 available。desktopMcp=需要桌面控制;network=需要联网;vision=需要视觉模型。
 const PLAYBOOK_REQUIRES = ['network', 'desktopMcp', 'vision'];
+// 45号文③(A-S01) 六类服务的机器键:research=研究比较 organize=资料整理 writing=产物撰写
+// coding=代码任务 scheduled=定时汇总 watch=变化守望。与 requires 同模具:白名单钳制,未知/缺失 →
+// ''(未分类)。允许为空是关键——45号文§1.4 实盘证实六类盖不住现有模板(desktop-open-app/web-form-fill
+// 是「动作」不是「完成一件事」),硬塞会让分类变成谎。未分类 ≠ 不可用(service 不参与 available 评估)。
+const PLAYBOOK_SERVICES = ['research', 'organize', 'writing', 'coding', 'scheduled', 'watch'];
 
 // Cleanse an arbitrary object into a valid playbook, or null if it can't be one. Missing id/title/
 // promptTemplate → invalid (dropped). inputs是数组、类型钳到枚举(未知→'text')、缺 key 的项丢弃;
-// requires只保留白名单键;uiMode钳到 'simple'|'pro'|'both'(默认 both)。builtin标记不入盘,仅运行时附加。
+// requires只保留白名单键;uiMode钳到 'simple'|'pro'|'both'(默认 both);service钳到 PLAYBOOK_SERVICES
+// 六类白名单(未知→''未分类,每条都带此字段)。builtin标记不入盘,仅运行时附加。
 function normalizePlaybook(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = String(raw.id || '').trim();
@@ -843,6 +849,8 @@ function normalizePlaybook(raw) {
   }
   const requires = Array.isArray(raw.requires) ? [...new Set(raw.requires.filter(r => PLAYBOOK_REQUIRES.includes(r)))] : [];
   const uiMode = (raw.uiMode === 'simple' || raw.uiMode === 'pro') ? raw.uiMode : 'both';
+  // 枚举钳制:编造的一类静默丢成 ''(未分类)。摘掉这道钳制,`service:'编造的一类'` 会原样穿透。
+  const service = PLAYBOOK_SERVICES.includes(raw.service) ? raw.service : '';
   return {
     id,
     title: title.slice(0, 120),
@@ -853,6 +861,7 @@ function normalizePlaybook(raw) {
     requires,
     engineHint: String(raw.engineHint || '').slice(0, 60),
     uiMode,
+    service,
   };
 }
 

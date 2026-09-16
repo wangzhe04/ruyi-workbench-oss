@@ -3,6 +3,7 @@
   "title": "合并多个 Excel 表格",
   "icon": "📊",
   "desc": "把一个文件夹里的多个 xlsx 表格按列对齐合并成一个总表",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "表格所在文件夹", "type": "folder" },
     { "key": "output", "label": "合并后保存的文件名", "type": "text" }

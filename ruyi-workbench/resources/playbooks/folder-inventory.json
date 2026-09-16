@@ -3,6 +3,7 @@
   "title": "生成文件夹清单表",
   "icon": "📋",
   "desc": "把一个文件夹的内容清点成一张表格(文件名/类型/大小/修改时间)",
+  "service": "organize",
   "inputs": [
     { "key": "folder", "label": "要清点的文件夹", "type": "folder" },
     { "key": "output", "label": "清单保存文件名(.csv)", "type": "text" }
