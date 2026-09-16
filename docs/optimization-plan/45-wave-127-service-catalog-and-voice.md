@@ -159,6 +159,55 @@
 - **反向**：㈠ 把第 1 处改完但**故意不验第 2 处** → ② 应当红（若不红，说明内容扫描压根没收到 input，**这正是本刀最该逮住的东西**）；㈡ 把类别名从 `message` 里摘掉 → ④ 红。
 - **纪律不变**：这张清单的口径是「**宁可误判成「要人按」，不可漏判成「自动执行」**」（注释原话，**它的失守没有 checkpoint 可回滚**）。第 1 处是**在证明另一道闸接得住之后**才收窄，不是因为嫌它烦。
 
+## 2-ter. 用户真机走查带进来的第二刀（2026-09-16）：**定时任务把线程的属性丢了**
+
+> **用户触发**：14:00 的定时巡检「没触发」—— 实际是**触发了但卡在等锁**（同一个工作文件夹被另一条线程占着）。用户随后要求「指定用 DeepSeek 跑定时任务」，管家答做不到。用户提了两问：**「① 管家应该要能有在开线程时指派模型的能力；② 为啥不能同时开多条 Kimi CLI 的线程并行跑」**。只读排查结论如下 —— **两问同源，而且第二问跟 Kimi 无关**。
+
+### 取证 ①：指派模型的能力**线程工具早就有，定时任务这条路没接上**
+
+`steward_thread_new` 有档位参数（`13f-native-tool-schemas.js:782`）：`tier: enum ['strong','fast']`，缺省 `strong`。它落到 `stewardApplyThreadTier`（`13q-steward-runner-turn.js:575`）→ 读 `config.stewardThreadModels[strong|fast]` 拿 `{providerId, model}` → 写**会话级 `engineRoute`**，且**写死 `engine:'openai'`** —— 也就是说**选档会把这条线程切到原生 provider 引擎上，不跟全局那个 Agent CLI 驱动走**。
+
+**所以「让某条线程用 DeepSeek 而不动全局」今天是做得到的**：把 strong（或 fast）那一档指到 DeepSeek provider，管家开线程时选那一档即可。管家说「那张表我连读都读不到」也属实 —— `stewardThreadModels` 不在它可写键里，这是 [31 号文](31-steward-empowerment.md) 红线 2 的有意安排，**不要改**。
+
+**断点在定时任务**：`steward_schedule_create` 的参数只有 `title／schedule／payload／target／permissionMode／basis` —— **有权限档、没有模型档**；触发时 `13s-scheduler.js:462` 直接 `createSession({title, origin:'schedule'})`，**根本不经过 `stewardApplyThreadTier`**，必然继承全局引擎。
+
+**这不是疏漏，是排期 —— 而且点名的就是本波**。调度器自己的代码写着：
+
+```js
+// 06j-scheduler-core.js:532
+// ③ 目标。**本刀不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
+// engineRoute 留给 127 波。新线程的工作目录由 createSession 的既有回落决定(defaultWorkspace)。
+```
+
+同文件 `:43` 还有一条：`SCHEDULER_PAYLOAD_KINDS = ['reminder','prompt']  // playbook/workflow → 127 波`。**123 波做调度器时就把这两件事留给了 127**。
+
+### 取证 ②：并行卡的是**按工作文件夹的写互斥**，与引擎无关
+
+`05b-kimi-bridge.js` 里**没有任何并发限制**（grep 零命中）。真正卡住的是仲裁器的锁，资源名 `cwd-write:<hash>`（`13n-steward-arbiter.js:93`）：路径 `realpath` 归一 → Windows 折大小写 → sha1 前 12 位。**同一个真实目录 = 同一把锁，跟用哪个引擎完全无关。**
+
+两条设计把它放大了，**都写在注释里**：
+
+1. **每一个回合都按「写」处理**（`13n:182`）：「一个回合会不会写文件在开始时无法预知（模型还没说话），按只读乐观放行的代价是两条线程真的一起改同一棵树。**只读回合的识别与放宽留后续波**。」→ 纯巡检回合一个字不写，照样占锁。
+2. **定时任务开的线程全落在同一个文件夹**：`06j:532` 那句「工作目录由 createSession 的既有回落决定（**defaultWorkspace**）」，而定时任务**不接受 `cwd`**（禁止键，安全上是有意的）。→ **所有定时任务天然互抢同一把锁**，还要跟任何一条也在 defaultWorkspace 的手工线程抢。
+
+**结论**：多条 Kimi CLI 线程**可以真并行**（上限 `stewardMaxParallelThreads`，默认 5、可调到 32，`01-config.js:383`），**前提是它们在不同的工作文件夹**。用户撞上的是「都在默认文件夹」这一个具体原因。
+
+### 这一刀做什么（两处进本波，第三处记债）
+
+| | 做什么 | 为什么归这儿 |
+|---|---|---|
+| **S-a** | `steward_schedule_create`／`_update` 补 `tier`（与 `steward_thread_new` **同一个枚举、同一个 `stewardApplyThreadTier`**，不新造第二条通路）；`13s` 触发分支在 `createSession` 之后套用它 | `06j:532` 点名的那件事，模具现成 |
+| **S-b** | 定时任务的工作目录：**照搬 `steward_thread_new` 省略 `cwd` 时的既有行为** —— 在 Ruyi 根下按标题给这条任务开自己的文件夹并加进工作区候选表。**不开放自由填 `cwd`**（那道禁止键是安全线，保留） | 直接解掉「等锁」，且不碰安全边界 |
+| **S-c** | **只读回合放宽锁** —— **不进本波，记债**。要先能判定一个回合会不会写（模型还没说话时判不准），收益也最不确定；S-a／S-b 落地后这条大概率不急 | `13n:182` 自己写着「留后续波」 |
+
+### 可证伪判据与反向
+
+- **S-a**：① 带 `tier:'fast'` 的定时任务触发后，那条线程的 `session.engineRoute` 与手工 `steward_thread_new({tier:'fast'})` **逐字段相同**；② 该档没配时**跟随全局**且落一条 `steward_thread_model_fallback` 审计（与既有行为同）；③ 不传 `tier` 时**与今天逐字节等价**。
+  **反向**：在 `13s` 触发分支里摘掉套用 → ① 红并打出实得 `engineRoute`。
+- **S-b**：① 两条定时任务**同时到点**，各自拿到不同的 `cwdKey`，**都能跑**（不再是一条等锁）；② 新目录进了工作区候选表；③ `target` 仍然**拒收** `cwd`（禁止键不变）。
+  **反向**：让两条任务共用 defaultWorkspace → ① 红并报出 `等锁：同一个文件夹被「…」占着`（**这一条同时证明判据咬的是锁，不是别的**）。
+- **纪律**：S-b **不得**顺手放开 `cwd` 入参。`06j:532` 写明它是「绕过工作区表的唯一入口」—— 解锁问题用「自动给个新文件夹」，不用「让模型自己填路径」。
+
 ## 3. 独占文件与「绝不碰」
 
 | | A 道吃 | B 道吃 |
