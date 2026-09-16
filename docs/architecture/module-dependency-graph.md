@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2316 | 2480 | 420 | 68 | 0 | 1 |
+| 53 | 2319 | 2481 | 420 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -48,8 +48,8 @@
 | 30 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 31 | `12-tool-dispatch.js` | tools | 33 | 79 | 14 |
 | 32 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 33 | `13-http-router.js` | transport | 64 | 210 | 24 |
-| 34 | `13b-api-domain-routes.js` | transport | 9 | 42 | 7 |
+| 33 | `13-http-router.js` | transport | 64 | 211 | 24 |
+| 34 | `13b-api-domain-routes.js` | transport | 12 | 42 | 7 |
 | 35 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 36 | `13d-core-domain-routes.js` | transport | 43 | 115 | 14 |
 | 37 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
@@ -286,7 +286,7 @@
 | `13-http-router.js` | `09-workflow.js` | backward | `runAgentWorkflow` |
 | `13-http-router.js` | `10-context-governance.js` | backward | `agentConversationContextMeta`, `cachedContextLength`, `configuredConversationWindow`, `contextWindowFromTable`, `learnedWindowCap`, `resolveContextWindow`, `runAgentExternalCompact`, `runProviderCompact`, `streamChat`, `truncateToolResult` |
 | `13-http-router.js` | `11-native-tools.js` | backward | `hasRg`, `killAllShellSessions` |
-| `13-http-router.js` | `13b-api-domain-routes.js` | forward | `handleAudioApiRoutes`, `handleCheckpointApiRoutes`, `handleMcpApiRoutes`, `handleSteerApiRoute` |
+| `13-http-router.js` | `13b-api-domain-routes.js` | forward | `handleAudioApiRoutes`, `handleCheckpointApiRoutes`, `handleMcpApiRoutes`, `handleSteerApiRoute`, `maybeTranscribeAudioAttachment` |
 | `13-http-router.js` | `13c-overlay-routes.js` | forward | `handleOverlayApiRoutes` |
 | `13-http-router.js` | `13d-core-domain-routes.js` | forward | `handleAgentRunApiRoutes`, `handleInterventionApiRoutes`, `handleMissionsApiRoutes`, `handleSessionApiRoutes` |
 | `13-http-router.js` | `13e-pretender-index.js` | forward | `warmPretenderProjectionIndex` |

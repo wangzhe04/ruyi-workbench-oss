@@ -10362,6 +10362,13 @@
           ]
         },
         {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "maybeTranscribeAudioAttachment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13c-overlay-routes.js",
           "symbol": "handleOverlayApiRoutes",
           "kinds": [
@@ -10443,9 +10450,12 @@
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
+        "maybeTranscribeAudioAttachment",
         "readAudioBody",
+        "resolveAsrProvider",
         "steerRefusal",
-        "steerSessionCore"
+        "steerSessionCore",
+        "transcribeAudioViaProvider"
       ],
       "requires": [
         {

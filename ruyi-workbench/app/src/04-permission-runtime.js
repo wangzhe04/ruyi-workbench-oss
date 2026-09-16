@@ -25,6 +25,9 @@ async function makeAttachmentRecord(input) {
   if (textLike && buffer.length <= 256 * 1024) {
     textPreview = buffer.toString('utf8').slice(0, 12000);
   }
+  // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
+  // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
+  const audioLike = /\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(safeName);
   return {
     id,
     name: safeName,
@@ -32,6 +35,7 @@ async function makeAttachmentRecord(input) {
     size: buffer.length,
     createdAt: nowIso(),
     textPreview,
+    ...(audioLike ? { kind: 'audio' } : {}),
   };
 }
 

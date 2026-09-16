@@ -354,3 +354,34 @@
 **插曲（如实登记）**：`playbooks.e2e.js` 与四件静态件并行首跑时，① 的 GET 在启动窗口内拿到 null 并于 `:126` 崩 TypeError；单独重跑起三连绿（含还原后一次）。`:126` 对 null 不容错直接崩是这件老件的既有脆性（崩溃点在 ① 不在 ⑥，与本刀改动零交集），不归功于也不归咎于本刀。
 
 **全量回归（③）**：**350 pass / 1 fail / 1 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0**。唯一 fail 又是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言——② 的回归已登记同一条）——本刀与该件文件零交集（playbook 分类字段 vs 调度器 SSE／口袋角标），**单跑全绿（B1 在内）**，按既有时序族如实登记，不归功于也不归咎于本刀；flaky 为 `walkthrough-round2.browser`（回归内重跑自复绿，浏览器时序族）。
+
+### ④ B-114c-② · 音频附件转写＋围栏中和（2026-09-16）
+
+**改了什么**：
+
+- `04-permission-runtime.js` `makeAttachmentRecord`：音频扩展名白名单（wav/mp3/m4a/webm/ogg/flac）→ `kind:'audio'`；**非音频不落此字段**（与 hiddenModels/caps「空不落字段」同模具，存量记录形状零漂移）。
+- `13b-api-domain-routes.js`：② 的出站转写抽成两个共用函数——`resolveAsrProvider`（配置两空／provider 失踪两个 409 形状）与 `transcribeAudioViaProvider`（base 检查→FormData→120s 超时→回体 8KB→记账 estimated 全口径）；`handleAudioTranscribe` 瘦成纯 HTTP 壳，判定点顺序逐行不变（② 的 24 条 e2e 原样全绿背书重构零行为变化）。抽函数理由写进注释：apiKey 不出进程／超时／记账口径**抄第二份迟早分叉**。新增 `maybeTranscribeAudioAttachment`（尽力转写：**未配置零行为**——连 `transcribeError` 都不落；超 25 MB／配置缺腿／上游失败只落 `transcribeError` 代码；**绝不 throw、绝不挡上传**——文件已落盘可下载，转写是增量；`transcript` 裁 12000 同 textPreview 上限）。
+- `13-http-router.js` 上传路由：`makeAttachmentRecord` 后接 `maybeTranscribeAudioAttachment`（13→13b 既有边，依赖图 420 边零新增）。
+- `03-bridge-guard.js` `buildAttachmentPrompt`：textPreview 与 transcript **全量尖括号中和**（`<>`→`[]`，playbook 索引那道更严的模具），transcript 进 `<attachment kind="audio-transcript" untrusted>` 围栏（26 号文 §3 指定形状）。**这是 26 号文 §1 点名的「buildAttachmentPrompt 未做同款中和」现成缺口，本刀顺带补齐**（既补音频转写，也补既存 `<preview>` 路径）。name/path 行不需要中和——safeName 已按 `sanitizeFsSegmentName` 消掉尖括号，注释写明理由。
+- **前端零改动**：record 新字段（kind/transcript/transcribeError）随既有 attachments 信道往返（app.js 整存整发、10 号 `body.attachments` 不白名单化字段）；附件丸只显 name/size，转写文本不进 UI（composer 是 ⑦ 的地界）。
+
+**与派单稿不同的两处，逐条给理由**：
+
+1. 26 号文 §3 只写「上传后服务端转写」，未配置／失败时的形状没写——本刀定为**尽力转写**：未配置＝零行为（与 ① 同口径，连错误字段都不落）；失败只落 `transcribeError` 代码（可观测但不挡上传、不回显上游细节）。理由：附件上传的主路径是「文件落盘可下载」，ASR 故障不该打翻它；且 26 号文 §3 自己写「原文件保留可下载」。
+2. 判据「转写后进提示词必须带围栏且经尖括号中和」落地为 **record.transcript 存原文、中和发生在提示词构造时**——record 是数据不是提示词（UI 不渲染它），与 textPreview 的处理口径一致（原文存、进提示词才中和）。
+
+**纪律 7 第七个样本**：把 ② 的出站块搬进共用函数时，上游回显消毒正则 `[\u0000-\u0008…]` 经编辑传输层落成**裸控制字节**（U+0000 进文件，Read 工具当场拒读「containing NUL bytes」）——与 ① 的 U+001F 同族。修法：一次性 node 手术脚本用 `String.fromCharCode` 构造查找串、替换回转义序列文本，验收全文件零裸控制字符后自删。**新教训：搬移含转义序列的既有代码，传输层会把转义落成裸字节——这类搬运直接上手术脚本，不走文本编辑。**
+
+**判据读数**（`vision-loop.e2e.js` (f)，16 条新断言全绿）：
+
+- f2：`kind:'audio'`（白名单）；`record.transcript` 存原文（含真 `</attachment>` 载荷）；音频无 textPreview；提示词带 `<attachment kind="audio-transcript" untrusted>` 指定围栏；中和后形态 `[/attachment] [script]alert(1)[/script]`；破栏序列不穿透；全文 `</attachment>` 恰好 1 处（合法闭合）。
+- f1：textPreview 同款中和（`[/preview][injected]yes[/injected]`），破栏序列不穿透。
+- f3：原文件经 `/api/upload/content` 逐字节取回（200＋bytes 相等）——顺带把这个既存未覆盖判定点盖进清册。
+- f4：附件路径的转写也记账（`kind:'aux', note:'asr', estimated:true` ≥1 行）——与 ② 路由同一支共享出站体。
+- f5：未配置零行为（kind 之外零字段）。f6：上游 5xx 不挡上传（`ok:true`、无 transcript、`transcribeError:'asr.upstream'`）。
+
+**反向一处（§4④ 指定形状）**：摘掉中和（fence 变恒等）→ **5 条红**：f2 三条（中和缺失、破栏序列原样穿透、`</attachment>` 计数 1→2 现形）＋ f1 两条（preview 缺口）。文件备份 sha256 逐字节还原（03 与 server.js 双 OK，`b682d0a2…`／`d2fb6a42…`）后复绿。
+
+**生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**；13b 顶层符号 9→12，13 引用 210→211，全库 2316→2319）→ `build.js`（54407 行）→ `route-inventory.js`（136 判定点不变、告警 0；`/api/upload/content` 的 coveredBy 从 [] → [vision-loop]，uncoveredPoints 9→8）；`facts-generate.js` 不动（无新 e2e 件，e2eCount 358 保持）；README 无口径要动。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符扫描 13 个改动文件 **0**（裸字节修复后）、U+FFFD 新增为零。行为件三件全绿：vision-loop（(a)–(f) 全场景）、asr-transcribe（24 条，重构回归网）、kimi-prompt-parts。
+
+**全量回归（④）**：**351 pass / 0 fail / 2 flaky / 351 ran（7 skipped 为既有 live probe），真回归 0**。两个 flaky 均首跑红重跑绿的既有时序族、与本刀文件零交集：`foreign-turn-busy-guard` A11（回合正文落盘时序）、`walkthrough-round2.browser` B1（管家视角启动落档，③ 已登记同件）。如实登记，不归功于也不归咎于本刀。

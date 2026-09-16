@@ -1508,6 +1508,9 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
     const file = await makeAttachmentRecord(body);
+    // 127-114c②:音频附件尽力转写(函数内部绝不 throw —— 未配置零行为,失败只落 transcribeError,
+    // 文件已落盘可下载,转写是增量)。13→13b 既有边,委派行形状同下楼几条域路由。
+    await maybeTranscribeAudioAttachment(file);
     return send(res, json({ ok: true, file }));
   }
   // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。

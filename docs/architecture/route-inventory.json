@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-16T08:34:36.126Z",
+  "generatedAt": "2026-09-16T10:21:51.298Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -31,7 +31,7 @@
       "token",
       "token-browser"
     ],
-    "uncoveredPoints": 9,
+    "uncoveredPoints": 8,
     "problems": 0,
     "warnings": 0
   },
@@ -2084,7 +2084,7 @@
       "kind": "exact",
       "path": "/api/upload/content",
       "file": "13-http-router.js",
-      "line": 1516,
+      "line": 1519,
       "handler": "handleApi",
       "methods": [
         "GET"
@@ -2093,13 +2093,15 @@
       "methodOverride": false,
       "domain": "core-inline",
       "auth": "token",
-      "coveredBy": []
+      "coveredBy": [
+        "dev-harness\\vision-loop.e2e.js"
+      ]
     },
     {
       "kind": "exact",
       "path": "/api/chat/stream",
       "file": "13-http-router.js",
-      "line": 1536,
+      "line": 1539,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2245,7 +2247,7 @@
       "kind": "prefix",
       "path": "/api/tools/",
       "file": "13-http-router.js",
-      "line": 1554,
+      "line": 1557,
       "handler": "handleApi",
       "methods": [
         "POST"
@@ -2274,7 +2276,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 1829,
+      "line": 1832,
       "handler": "startServerInner",
       "methods": [
         "*"
