@@ -873,7 +873,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_decide',
-    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)在任何权限档都返回 propose_required。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
+    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 1000 字,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令太长/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
@@ -882,6 +882,7 @@ const MCP_TOOLS = [
         action: { type: 'string', enum: ['allow', 'deny', 'answer', 'approve', 'reject'], description: 'permission 用 allow/deny;question 用 answer;plan/pool 用 approve/reject。' },
         payload: { type: 'object', description: '按类型的附加内容:question 需要 {answer:{answers:[...]}};plan 可带 {feedback};permission 不带附加内容 —— 你只能按线程原样放行或拒绝,payload 里的 updatedInput 与 scope 会被丢弃(回执里的 ignoredPayloadKeys 会列出来),要改命令就让线程自己重新发起。' },
         expectedVersion: { type: 'integer', minimum: 0, description: '可选。乐观并发版本;省略则读当前值。' },
+        riskNote: { type: 'string', maxLength: 200, description: '只在代批永久豁免命令时需要:一句写给用户看的理由(≤200 字),说清这条命令为什么是任务本身要做的、动的是哪里、风险为什么低。会原样进回执与行动流水,不要写命令原文里的密钥。其他待决不用填。' },
       },
     },
   },

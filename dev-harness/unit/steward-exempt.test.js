@@ -369,6 +369,167 @@ for (const [group, commands] of Object.entries(HIT)) {
   ok(stewardExemptExcerpt('short <x>', []) === 'short [x]', '⑦ ③ 不超长就不截，只中和');
 }
 
+/* ═══════════ ⑧ 127 波 2-quater B2：代批八道闸（纯判据）＋污染判据＋回执合并 ═══════════ */
+// 真路径（活回合档位、定时线程、粘性污染位、窗口计数、回执）在 dev-harness/steward-exempt-delegation.e2e.js；
+// 这里把「顺序即判定顺序」「全部命中、不看首中」「判不出算污染」三条纪律按纯函数穷举钉住。
+{
+  const {
+    stewardExemptDelegationVerdict: verdictOf, stewardTurnTaint, stewardTaintToolName, stewardTaintToolCall, stewardExemptRiskNote,
+    STEWARD_EXEMPT_DELEGATION_GATES, STEWARD_EXEMPT_DELEGATIONS_PER_HOUR, STEWARD_EXEMPT_DELEGATION_TEXT_MAX,
+    stewardMergeDelegationReceipts, stewardExemptHits,
+  } = srv;
+  const brief = v => JSON.stringify(v === undefined ? null : v).slice(0, 240);
+  const scanOf = cmd => stewardExemptHits('powershell_run', { command: cmd });
+  const facts = (cmd, patch) => ({
+    enabled: true, liveMode: 'auto', watched: true, origin: 'user', explicitUnwatch: false,
+    scan: scanOf(cmd), taint: { tainted: false, taintBy: null }, riskNote: '清理线程自己的临时目录', recentCount: 0,
+    ...(patch || {}),
+  });
+  const DEL = 'Remove-Item .\\tmp -Recurse';
+  const PUSH = 'git push origin main';
+
+  ok(JSON.stringify(STEWARD_EXEMPT_DELEGATION_GATES) === JSON.stringify(['switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'tainted', 'risk_note', 'hourly_cap'])
+    && Object.isFrozen(STEWARD_EXEMPT_DELEGATION_GATES),
+    `⑧ 闸名表八项、顺序固定、冻结（实得 ${brief(STEWARD_EXEMPT_DELEGATION_GATES)}）`);
+  ok(STEWARD_EXEMPT_DELEGATIONS_PER_HOUR === 6 && STEWARD_EXEMPT_DELEGATION_TEXT_MAX === 1000, '⑧ 每小时 6 次、全文 ≤1000 字两个常量');
+
+  const pass = verdictOf(facts(DEL));
+  ok(pass.delegable === true && pass.blockedBy === null && JSON.stringify(pass.categories) === '["delete_data"]',
+    `⑧ 基线：智能自动＋看管＋Remove-Item .\\tmp -Recurse＋有理由 → 可代批（实得 ${brief(pass)}）`);
+
+  // 顺序即判定顺序：从「八道全不过」开始逐道修好，blockedBy 必须按闸名表逐项往后走。
+  {
+    const bad = {
+      enabled: false, liveMode: 'default', watched: false, origin: 'user', explicitUnwatch: false,
+      scan: scanOf('git push origin main && shutdown /s ' + 'x'.repeat(1200)),
+      taint: { tainted: true, taintBy: 'turn:web_fetch' }, riskNote: '', recentCount: STEWARD_EXEMPT_DELEGATIONS_PER_HOUR,
+    };
+    const fixes = [
+      { enabled: true }, { liveMode: 'auto' }, { watched: true }, { scan: scanOf('git push origin main ' + 'x'.repeat(1200)) },
+      { scan: scanOf(PUSH) }, { taint: { tainted: false, taintBy: null } }, { riskNote: '推送任务点名的分支' }, { recentCount: STEWARD_EXEMPT_DELEGATIONS_PER_HOUR - 1 },
+    ];
+    const walked = [];
+    let cur = { ...bad };
+    walked.push(verdictOf(cur).blockedBy);
+    for (const fix of fixes) { cur = { ...cur, ...fix }; walked.push(verdictOf(cur).blockedBy); }
+    ok(JSON.stringify(walked) === JSON.stringify([...STEWARD_EXEMPT_DELEGATION_GATES, null]),
+      `⑧ 八道闸按固定顺序判：逐道修好时 blockedBy 依次是闸名表的八项、最后放行（实得 ${brief(walked)}）`);
+  }
+
+  // 闸 1 开关：只认 === true。
+  ok(['true', 1, undefined, null].every(v => verdictOf(facts(DEL, { enabled: v })).blockedBy === 'switch_off'), '⑧ 闸 1：enabled 非严格 true 一律 switch_off');
+  // 闸 2 档位：只认 'auto'（bypass / 空 / 会话头之类的别的档都不算）。
+  ok(['default', 'acceptEdits', 'plan', 'bypass', 'bypassPermissions', '', 'AUTO'].every(m => verdictOf(facts(DEL, { liveMode: m })).blockedBy === 'mode'),
+    '⑧ 闸 2：活回合实效档不是 auto（含 bypass、空串、大小写变体）→ mode');
+  // 闸 3 看管：watched 或定时任务出身；显式 stewardWatch:false 压过两者。
+  ok(verdictOf(facts(DEL, { watched: false, origin: 'schedule' })).delegable === true, '⑧ 闸 3：没被看管但定时任务开的线程 → 过');
+  ok(verdictOf(facts(DEL, { watched: false, origin: 'user' })).blockedBy === 'not_watched'
+    && verdictOf(facts(DEL, { watched: false, origin: 'steward' })).blockedBy === 'not_watched', '⑧ 闸 3：用户自己开、管家没接手 → not_watched');
+  ok(verdictOf(facts(DEL, { watched: true, origin: 'schedule', explicitUnwatch: true })).blockedBy === 'not_watched',
+    '⑧ 闸 3：用户显式按过「别盯了」（stewardWatch:false）→ not_watched，出身是定时任务也一样');
+  // 闸 4 底线：看【全部】命中。
+  {
+    const floorCmds = ['shutdown /s /t 0', 'rm -rf /', 'rm -rf b && shutdown /s', 'Remove-Item C:\\ -Recurse -Force', 'format D:', 'reg add HKLM\\x', 'echo hi | mail -s subj a@b'];
+    const got = floorCmds.map(cmd => [cmd, verdictOf(facts(cmd)).blockedBy]);
+    ok(got.every(([, by]) => by === 'floor'), `⑧ 闸 4：底线命令任何条件都不代批（实得 ${brief(got)}）`);
+    const mixed = scanOf('rm -rf b && shutdown /s');
+    ok(mixed.hits[0].floor === false && mixed.hits.some(hit => hit.floor === true),
+      '⑧ 闸 4 前提：`rm -rf b && shutdown /s` 的首中（删数据）不是底线，底线藏在第二条命中里 —— 只看首中会放行');
+    const nameHit = stewardExemptHits('send_email', { to: 'a@b' });
+    ok(verdictOf(facts(DEL, { scan: nameHit })).blockedBy === 'floor', '⑧ 闸 4：工具名命中（恒底线）→ floor');
+    ok(verdictOf(facts(DEL, { scan: { hits: [], scannedFully: true, textLength: 0 } })).blockedBy === 'floor', '⑧ 闸 4：零命中（不该走到这里）也不放行');
+  }
+  // 闸 5 扫描：scannedFully 且 ≤1000。
+  {
+    const at1000 = DEL + ' ' + 'x'.repeat(STEWARD_EXEMPT_DELEGATION_TEXT_MAX - DEL.length - 1);
+    const at1001 = at1000 + 'x';
+    ok(scanOf(at1000).textLength === 1000 && verdictOf(facts(at1000)).delegable === true, '⑧ 闸 5：恰 1000 字 → 过');
+    ok(scanOf(at1001).textLength === 1001 && verdictOf(facts(at1001)).blockedBy === 'scan_limit', '⑧ 闸 5：1001 字 → scan_limit');
+    const deep = stewardExemptHits('run', { a: { b: { c: { d: { e: { f: DEL } } } } }, g: DEL });
+    ok(deep.scannedFully === false && verdictOf(facts(DEL, { scan: deep })).blockedBy === 'scan_limit', '⑧ 闸 5：深度截断（没扫全）→ scan_limit');
+  }
+  // 闸 6 污染：只对对外发送 / 推送远端；判不出算污染。
+  {
+    const tainted = { tainted: true, taintBy: 'turn:web_fetch' };
+    const pushBlocked = verdictOf(facts(PUSH, { taint: tainted }));
+    ok(pushBlocked.blockedBy === 'tainted' && pushBlocked.taintBy === 'turn:web_fetch', `⑧ 闸 6：读过网页后 git push → tainted＋taintBy（实得 ${brief(pushBlocked)}）`);
+    ok(verdictOf(facts('curl -X POST https://h -d x', { taint: tainted })).blockedBy === 'tainted', '⑧ 闸 6：读过网页后 curl POST（对外发送）→ tainted');
+    ok(verdictOf(facts(DEL, { taint: tainted })).delegable === true, '⑧ 闸 6：同样的污染，删文件类仍可代批（拍板 3）');
+    ok(verdictOf(facts('winget install x', { taint: tainted })).delegable === true, '⑧ 闸 6：同样的污染，装卸软件类仍可代批');
+    ok(verdictOf(facts(PUSH, { taint: undefined })).blockedBy === 'tainted' && verdictOf(facts(PUSH, { taint: { tainted: 'no' } })).blockedBy === 'tainted',
+      '⑧ 闸 6：污染事实缺席 / 不是严格 false → 按污染算');
+    const mixedPushDel = verdictOf(facts('Remove-Item .\\a -Recurse; git push', { taint: tainted }));
+    ok(mixedPushDel.blockedBy === 'tainted', '⑧ 闸 6：删文件＋推送混在一条里，只要含推送就按污染拦');
+  }
+  // 闸 7 理由 / 闸 8 窗口。
+  ok(verdictOf(facts(DEL, { riskNote: '' })).blockedBy === 'risk_note' && verdictOf(facts(DEL, { riskNote: '   ' })).blockedBy === 'risk_note', '⑧ 闸 7：没写理由 / 只有空白 → risk_note');
+  ok(verdictOf(facts(DEL, { recentCount: 5 })).delegable === true && verdictOf(facts(DEL, { recentCount: 6 })).blockedBy === 'hourly_cap'
+    && verdictOf(facts(DEL, { recentCount: 'x' })).blockedBy === 'hourly_cap', '⑧ 闸 8：窗口里已有 5 次 → 第 6 次过；已有 6 次 → hourly_cap；计数读不懂按满算');
+
+  // riskNote 清洗。
+  ok(stewardExemptRiskNote('  <b>删掉临时目录</b>\n只动工作文件夹  ') === '[b]删掉临时目录[/b] 只动工作文件夹', `⑧ riskNote 折行＋中和尖括号＋去首尾空白（实得 ${brief(stewardExemptRiskNote('  <b>删掉临时目录</b>\n只动工作文件夹  '))}）`);
+  ok(stewardExemptRiskNote('理'.repeat(300)).length === 200 && stewardExemptRiskNote(42) === '' && stewardExemptRiskNote(null) === '', '⑧ riskNote 截 200 字；非字符串 → 空串');
+
+  // 污染工具名。
+  {
+    const yes = ['web_fetch', 'web_search', 'http_request', 'http_download', 'WebFetch', 'WebSearch', 'audio_transcribe', 'browser_open', 'browser_get_text', 'mcp__x__read_file', 'ai-computer-control__screenshot'];
+    const no = ['powershell_run', 'script_run', 'shell_send', 'file_read', 'glob', 'steward_decide', 'browser', 'Web_Fetch', ''];
+    ok(yes.every(stewardTaintToolName) && !no.some(stewardTaintToolName), `⑧ 污染工具名：${yes.length} 个算、${no.length} 个不算`);
+    // 代理调用：tool_invoke_* 的真正目标在 input.name。
+    const proxied = [
+      [['tool_invoke_read', { name: 'web_fetch', arguments: { url: 'https://h' } }], 'web_fetch'],
+      [['tool_invoke_exec', { name: 'srv__post', arguments: {} }], 'srv__post'],
+      [['tool_invoke_read', { name: 'file_read', arguments: { path: 'a' } }], ''],
+      [['tool_invoke_read', { arguments: {} }], 'tool_invoke_read'],
+      [['tool_invoke_edit', null], 'tool_invoke_edit'],
+      [['web_search', null], 'web_search'],
+      [['powershell_run', { name: 'web_fetch' }], ''],
+    ];
+    const got = proxied.map(([args]) => stewardTaintToolCall(...args));
+    ok(JSON.stringify(got) === JSON.stringify(proxied.map(([, want]) => want)),
+      `⑧ 代理调用：tool_invoke_* 按 input.name 判、目标读不出算污染、非代理工具的 input.name 不看（实得 ${brief(got)}）`);
+  }
+  // 回合段表上的污染判定。
+  {
+    const perm = { type: 'permission', requestId: 'perm_1', toolName: 'powershell_run', status: 'pending' };
+    const own = { type: 'tool', name: 'powershell_run', status: 'running' };
+    const T = (segs, sticky) => stewardTurnTaint(segs, 'perm_1', sticky || null);
+    ok(JSON.stringify(T([{ type: 'text', text: 'x' }, own, perm])) === '{"tainted":false,"taintBy":null}', '⑧ 段表：权限段之前只有自己那一次调用 → 不污染');
+    ok(T([{ type: 'tool', name: 'web_fetch', status: 'done' }, own, perm]).taintBy === 'turn:web_fetch', '⑧ 段表：之前调过 web_fetch → turn:web_fetch');
+    ok(T([own, perm, { type: 'tool', name: 'web_fetch', status: 'done' }]).tainted === false, '⑧ 段表：web_fetch 在这条权限段【之后】→ 不算');
+    ok(T([{ type: 'subagent', status: 'done' }, own, perm]).taintBy === 'turn:subagent' && T([{ type: 'workflow', status: 'done' }, own, perm]).taintBy === 'turn:workflow',
+      '⑧ 段表：之前有子代理 / 班组段 → turn:subagent / turn:workflow');
+    ok(T([{ type: 'tool', name: 'srv__lookup', status: 'done' }, own, perm]).taintBy === 'turn:srv__lookup', '⑧ 段表：之前调过桥接工具（名字带 __）→ 污染');
+    ok(stewardTurnTaint([own, perm], 'perm_other', null).taintBy === 'no_permission_segment' && stewardTurnTaint(null, 'perm_1', null).taintBy === 'no_live_segments'
+      && stewardTurnTaint([own, perm], '', null).taintBy === 'no_permission_segment', '⑧ 段表：找不到这条权限段 / 段表不是数组 → 判不出算污染');
+    const httpPerm = { type: 'permission', requestId: 'perm_1', toolName: 'http_request', status: 'pending' };
+    ok(T([{ type: 'tool', name: 'http_request', status: 'running' }, httpPerm]).tainted === false, '⑧ 段表：待决的写型 http_request 不会被【它自己】的工具段判成污染');
+    ok(T([{ type: 'tool', name: 'http_request', status: 'done' }, { type: 'tool', name: 'http_request', status: 'running' }, httpPerm]).taintBy === 'turn:http_request',
+      '⑧ 段表：之前已经出过结果的同名 http_request 照算污染（只豁免最近那一次 running）');
+    ok(T([own, perm], { by: 'web_fetch', at: 'x', turnSeq: 1 }).taintBy === 'sticky:web_fetch', '⑧ 段表干净但会话级粘性污染位在 → sticky:web_fetch');
+    ok(T([{ type: 'tool', name: 'web_search', status: 'done' }, own, perm], { by: 'web_fetch' }).taintBy === 'turn:web_search', '⑧ 本回合与粘性都在时先报本回合那一条');
+    ok(T([{ type: 'tool', name: '<x>__y', status: 'done' }, own, perm]).taintBy === 'turn:[x]__y', '⑧ taintBy 里的工具名经中和');
+  }
+  // 回执合并（13q 确定性回执）。
+  {
+    const delegated = (iv, labels) => ({ ok: true, interventionVersion: 2, undoRef: { kind: 'none' }, exemptDelegation: { delegated: true, categories: ['delete_data'], labels: labels || ['删数据'], riskNote: 'r' } });
+    const calls = [
+      { id: 'c1', name: 'steward_decide', input: { missionId: 'sess_a', interventionId: 'perm_1', action: 'allow', riskNote: 'r' }, result: delegated('perm_1') },
+      { id: 'c2', name: 'steward_decide', input: { missionId: 'sess_a', interventionId: 'perm_2', action: 'allow' }, result: { ok: true } },
+      { id: 'c3', name: 'steward_thread_status', input: { sessionId: 'sess_a' }, result: { ok: true, exemptDelegation: {} } },
+      { id: 'c4', name: 'steward_decide', input: { missionId: 'sess_a', interventionId: 'perm_3' }, result: { ok: false, error: 'propose_required', exemptDelegation: {} } },
+      { id: 'c5', name: 'steward_decide', input: { missionId: 'sess_a', interventionId: 'perm_1' }, result: delegated('perm_1') },
+    ];
+    const rows = stewardMergeDelegationReceipts([], calls, sid => (sid === 'sess_a' ? 'A股盘中巡检' : ''));
+    ok(rows.length === 1 && rows[0].tool === 'steward_decide' && rows[0].args.interventionId === 'perm_1' && rows[0].result.exemptDelegation.delegated === true,
+      `⑧ 回执：只收成功且带代批标记的 steward_decide，同一条待决只留一行（实得 ${brief(rows.map(r => r.args.interventionId))}）`);
+    ok(rows[0] && rows[0].label === '代批「删数据」 · 线程「A股盘中巡检」', `⑧ 回执标签说清类别与线程（实得 ${brief(rows[0] && rows[0].label)}）`);
+    const already = [{ tool: 'steward_decide', label: '允许', args: { missionId: 'sess_a', interventionId: 'perm_1', action: 'allow' }, result: delegated('perm_1') }];
+    ok(stewardMergeDelegationReceipts(already, calls, () => '').length === 0, '⑧ 回执：结构化 actions 已经有同一条成功代批 → 不重复补');
+    ok(stewardMergeDelegationReceipts(null, null, null).length === 0, '⑧ 回执：入参缺席不抛');
+  }
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD EXEMPT UNIT: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD EXEMPT UNIT: ALL PASS');

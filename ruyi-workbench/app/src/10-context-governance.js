@@ -2439,6 +2439,14 @@ async function runSessionTurn(input) {
   if (source === 'http') {
     void rememberLastUsedEngineRoute(inferSessionEngineRoute(routeSource) || sessionEngineRouteFromConfig(config), storedConfig);
   }
+  // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b)「会话级粘性污染位」)清除点:用户【亲发】的下一条消息。
+  // 污染位堵的是「上一回合读网页埋话、这一回合执行」——读进来的内容会一直留在这条线程的历史里,所以不能只看
+  // 本回合;而用户自己开口说下一句,是唯一能说明「接下来要做什么由人重新定过」的事件。判据同上面那一块:
+  // source === 'http'(管家派的 'steward'、调度器的 'scheduler' 都不是用户的意思表示,不清)。
+  // 位置:两道 4xx 闸门之后(被挡回去的那一发没有跑成任何回合),引擎分派之前 —— 清的是内存里这一份会话,
+  // 随回合起手那一次 saveSession 落盘(09 runOpenAiTurn 推入用户消息之后、第一次调模型之前),所以这一回合里任何一条权限待决
+  // 出现时,盘上与活回合里读到的都已经是清过的。插话(/api/steer)不清:它进的是正在跑的那一回合。
+  if (source === 'http' && session.stewardTaint) delete session.stewardTaint;
   const attachments = body.attachments || [];
 
   let finished = false;
@@ -2465,6 +2473,9 @@ async function runSessionTurn(input) {
   // result 事件),不参与任何判定,也不改变事件流。
   const usageTotals = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, frames: 0 };
   let lastResult = null;
+  // 127 波 2-quater B2 返工:本回合里「调了读外部内容的工具、结果还没回来」的那几条(键 = subagentId + 工具调用 id,
+  // 值 = 算污染的那个工具名)。只活在这一次 runSessionTurn 里;结果回来就删,见 emit 里粘性污染位的写入点。
+  const stewardTaintInFlight = new Map();
   const emit = evt => {
     if (evt && evt.type === 'usage' && evt.usage) {
       const u = evt.usage;
@@ -2478,6 +2489,46 @@ async function runSessionTurn(input) {
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
     if (evt && evt.type === 'result') lastResult = evt;
+    // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b))写入点:这条线程读过外部内容 → 会话头落一个粘性污染位
+    // stewardTaint:{by, at, turnSeq}(空不落字段:没读过外部内容的会话一个字节不多)。挂在这里而不是 09 的
+    // 工具循环里:runSessionTurn 是三个引擎的唯一汇合点,Claude CLI 的 WebFetch、桥接的 mcp__x__y、子代理与
+    // 班组的起始事件都从这一个 emit 过 —— 一条线程换过引擎,上一回合读的网页照样记得住。
+    // 判据是 06i stewardTaintToolCall(与管家那一侧读回合段表的 stewardTaintToolName 同一张名单,多认一层
+    // tool_invoke_* 代理的 input.name —— 段表上没有 input,代理调用只能在这里判准)。
+    // **写在工具【结果】回来那一刻,不写在 tool_use**(主会话复核抓到的缺陷):外部内容是随结果进线程的,而原生回合
+    // 先发 tool_use 再过权限闸(09 发 tool_use → requestNativePermission)。修前在 tool_use 就置位,一条停在待决上的
+    // 写型 http_request 会先把【自己】写进粘性位,管家再去判它时恒为 tainted / sticky:http_request —— 拍板 1「写型
+    // http_request 交给管家判断」在真路径上永远做不到;tool_invoke_* 代理调这几个工具同理。所以 tool_use(以及 Kimi
+    // 改名改参的 tool_use_update)只把「这条调用会带外部内容回来」记进本回合的 stewardTaintInFlight;同一条调用的
+    // tool_result 到了才置位 —— 不看 isError(被拒、出错也照算,保守:判不清它有没有读到东西)。三个引擎的
+    // tool_result 都与自己的 tool_use 同 id(09 `{type:'tool_result', id: tc.id}`、05 `id: ev.id`、05b ACP `id` /
+    // 子会话 `kimi:<child>:<tool>`),子代理的调用带 subagentId,键里一起算,父子两边的 id 撞不到一起。
+    // 子代理只认 start、班组任一事件都算(它们在自己的循环里读什么,父回合看不见),这两条照旧在事件到达时置位。
+    // 只写内存里这一份会话,随引擎既有的 saveSession 落盘(09 每批工具之后都存一次:读进来的内容进 providerHistory
+    // 与这个位落盘是同一次写)。活回合里管家读的也是这同一个会话对象(13k stewardExemptLiveTurn 经登记表的
+    // reg.session),所以结果一回来就生效。已经置过就不再改:记的是「第一次读外部内容的那一步」,清除只由用户
+    // 亲发消息做(见上面 source === 'http' 那一行)。
+    let taintedBy = '';
+    if (evt && (evt.type === 'tool_use' || evt.type === 'tool_use_update') && evt.id) {
+      const inFlightKey = String(evt.subagentId || '') + '\u0000' + String(evt.id);
+      const inFlightName = stewardTaintToolCall(evt.name, evt.input);
+      // 改名改参之后不算了,也不撤掉先前那一次的记号(保守:它先前被判成会读外部内容)。
+      if (inFlightName) stewardTaintInFlight.set(inFlightKey, inFlightName);
+    } else if (evt && evt.type === 'tool_result' && evt.id) {
+      const inFlightKey = String(evt.subagentId || '') + '\u0000' + String(evt.id);
+      taintedBy = stewardTaintInFlight.get(inFlightKey) || '';
+      stewardTaintInFlight.delete(inFlightKey);
+    }
+    if (evt && session && !session.stewardTaint
+        && (taintedBy
+          || (evt.type === 'subagent' && evt.state === 'start')
+          || evt.type === 'agent_workflow')) {
+      session.stewardTaint = {
+        by: taintedBy ? taintedBy.slice(0, 80) : (evt.type === 'subagent' ? 'subagent' : 'workflow'),
+        at: nowIso(),
+        turnSeq: Math.max(0, Number(session.turnSeq) || 0),
+      };
+    }
     onEvent(evt);
   };
   // 第27波:本次回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。

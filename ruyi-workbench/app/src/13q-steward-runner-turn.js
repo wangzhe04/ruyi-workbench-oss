@@ -116,6 +116,58 @@ async function stewardLastAssistantCreatedAt() {
   return '';
 }
 
+// 127 波 2-quater B2(45 号文 §2-quater.1 取证 6 / §2-quater.2「确定性回执」):管家回合里模型【直调】
+// steward_decide 代批了一条永久豁免命令,修前回执(executed)只收自理行与结构化 actions —— 代批了,用户却
+// 不一定知道(要看模型自己在 say 里提不提)。这里把本回合管家助手消息的 toolCalls 扫一遍:成功、且结果上
+// 带 13l 的 exemptDelegation 标记的 steward_decide,每条补一行回执,与结构化 actions 那一行同形
+// ({tool,label,args,result}),前端 appendActionReceipts 照常画成「已办:…」灰字、落盘的章也带着它。
+// 纯函数与装载分开:合并规则(去重)单测可直接喂数组。
+// 去重键 = interventionId:同一条待决只会被成功代批一次(第二次核心层回 already_terminal),
+// 所以「executed 里已经有一行成功的代批」就不再补 —— 结构化 actions 与工具直调撞在同一条上时只留一行。
+function stewardDelegationReceiptLabel(result, title) {
+  const labels = (result && result.exemptDelegation && Array.isArray(result.exemptDelegation.labels))
+    ? result.exemptDelegation.labels.map(stewardSanitizeText).filter(Boolean) : [];
+  const kinds = labels.length ? `「${labels.join('」「')}」` : '';
+  const where = title ? ` · 线程「${stewardSanitizeText(title).slice(0, 24)}」` : '';
+  return `代批${kinds}${where}`;
+}
+function stewardMergeDelegationReceipts(executedRows, delegationToolCalls, titleOf) {
+  const rows = Array.isArray(executedRows) ? executedRows : [];
+  const delegatedId = row => {
+    const r = row && row.result;
+    if (!row || row.tool !== 'steward_decide' || !r || r.ok !== true || !r.exemptDelegation) return '';
+    return String((row.args && row.args.interventionId) || '');
+  };
+  const seen = new Set(rows.map(delegatedId).filter(Boolean));
+  const extra = [];
+  for (const call of (Array.isArray(delegationToolCalls) ? delegationToolCalls : [])) {
+    if (!call || String(call.name || '') !== 'steward_decide') continue;
+    const args = (call.input && typeof call.input === 'object' && !Array.isArray(call.input)) ? call.input : {};
+    const row = { tool: 'steward_decide', label: '', args, result: call.result };
+    const id = delegatedId(row);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const sid = safeSessionId(args.missionId || args.sessionId);
+    row.label = stewardDelegationReceiptLabel(call.result, typeof titleOf === 'function' ? titleOf(sid) : '');
+    extra.push(row);
+  }
+  return extra;
+}
+async function stewardDelegationToolCalls(turnSeq) {
+  const want = Math.max(0, Number(turnSeq) || 0);
+  if (!want) return [];
+  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  const out = [];
+  for (const m of messages) {
+    if (!m || m.role !== 'assistant' || Number(m.turnSeq) !== want || !Array.isArray(m.toolCalls)) continue;
+    for (const call of m.toolCalls) {
+      if (call && call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation) out.push(call);
+    }
+  }
+  return out;
+}
+
 // 117l D3:认领之后的回合本体。抽出来只为让「同步认领 -> try/finally 释放」这条纪律
 // 一目了然:释放必须盖住【全部】退出路径 —— 含 stewardStampReply 之后那一段。修前它跑在
 // inflight 已经清空之后,第二句用户的话于是能在正文还没盖章时插进来。
@@ -160,10 +212,23 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   entry.run = run;
   const turn = await run;
   stewardRunnerRuntime.visit.lastActivityAt = nowIso();
+  // 127 波 2-quater B2:回合里工具直调的代批(见 stewardMergeDelegationReceipts 头注)在三条出口【之前】取出来 ——
+  // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
+  // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
+  const delegationCalls = await stewardDelegationToolCalls(turn && turn.turnSeq);
+  const delegationTitles = new Map();
+  for (const call of delegationCalls) {
+    const sid = safeSessionId(call && call.input && (call.input.missionId || call.input.sessionId));
+    if (!sid || delegationTitles.has(sid)) continue;
+    const delegatedHead = await stewardReadSessionHead(sid).catch(() => null);
+    delegationTitles.set(sid, delegatedHead ? String(delegatedHead.title || '') : '');
+  }
+  const delegationTitleOf = sid => delegationTitles.get(sid) || '';
 
   if (entry.cancelled) {
     logEvent({ kind: 'steward_turn_cancelled', reason: entry.cancelled, trigger });
-    return stewardFail('steward.cancelled', `steward turn cancelled: ${entry.cancelled}`, { trigger });
+    const cancelledReceipts = stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf);
+    return stewardFail('steward.cancelled', `steward turn cancelled: ${entry.cancelled}`, { trigger, ...(cancelledReceipts.length ? { actions: cancelledReceipts } : {}) });
   }
 
   // 回合本身失败(端点不通/被停/装载抛错)时【不能】去读「最后一条助手消息」—— 那是【上一个】回合
@@ -172,7 +237,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     const detail = String(turn.error || '').slice(0, 300);
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -210,9 +275,13 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
   // 116-3 P2-11:自理侧【真的动过】的目标带进 actions 侧,两边合起来数同一个 3 —— 不是各数各的。
   const selfServeTargets = selfServe.executed.filter(row => row && row.acted === true).map(row => row.sessionId);
-  const executed = selfServe.executed.concat(parsedReply.actions.length
+  const actionRows = parsedReply.actions.length
     ? await stewardExecuteActions(parsedReply.actions, session, config, trigger, selfServeTargets)
-    : []);
+    : [];
+  // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
+  // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
+  const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
+  const executed = selfServe.executed.concat(delegationRows, actionRows);
   const acts = stewardDowngradeActions(executed, parsedReply.acts);
   // 117l D5:say/why 在【这里】过一遍人话化 —— 于是 steward_reply 帧、落盘的 meta、/api/steward/state
   // 的 lastReply 三处拿到的是【同一份】文字(修前 ※ 里满是 sess_/question_)。acts/actions 不动。

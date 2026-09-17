@@ -442,6 +442,24 @@ function stewardTurnQuotaTake(bucket, ctx, max) {
   return true;
 }
 
+// 127 波 2-quater B2(45 号文 §2-quater.2 闸 8):代批的滚动一小时窗口。上限数字住 06i
+// (STEWARD_EXEMPT_DELEGATIONS_PER_HOUR),窗口住这里 —— 13l 的 steward_decide 要读它,而 13m 的
+// stewardRunnerRuntime 对 13l 是前向边。只在内存:进程重启 = 重新开始数,与 13m 自理动作账
+// (stewardRunnerRuntime.selfServe)同一立场。**只记八道闸全过的那一次**(被拦下的不占名额);
+// 记在进核心之前 —— 过了闸就算用掉一次,哪怕随后 decideIntervention 回 version_conflict(宁可少代批)。
+const stewardExemptDelegationTimes = [];
+function stewardExemptDelegationsInWindow(windowNowMs) {
+  const now = Number(windowNowMs) || Date.now();
+  while (stewardExemptDelegationTimes.length && now - stewardExemptDelegationTimes[0] >= STEWARD_EXEMPT_DELEGATION_WINDOW_MS) {
+    stewardExemptDelegationTimes.shift();
+  }
+  return stewardExemptDelegationTimes.length;
+}
+function stewardExemptDelegationRecord(windowNowMs) {
+  stewardExemptDelegationTimes.push(Number(windowNowMs) || Date.now());
+  while (stewardExemptDelegationTimes.length > 64) stewardExemptDelegationTimes.shift();
+}
+
 // 已收工的速查会话:总览与线程搜索默认把它排除(includeClosed 可要回来)。判据单点在这里,
 // 13g 的 threads_search 与 13h 的 stewardThreadDigestRows 都调它。
 //

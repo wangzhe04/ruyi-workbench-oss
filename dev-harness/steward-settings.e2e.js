@@ -12,7 +12,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ⑤ 并发上限改 3 → GET /api/steward/arbiter 立即生效（116h：仲裁器每次唤醒重读配置）；
 //   ⑥ 记忆面板：夹具两条 → 按 kind 分组显示、「新」标 → 否决 → 恢复 → 就地编辑保存 →
 //      导出的 JSON 里含该条 → 清空必须逐字输入 clear；
+//      （127 波 2-quater B2：同组「管家可以按规则替我批」默认勾着，取消 → stewardExemptDelegationV1:false 落盘）
 //   ⑦ 行动流水：夹具两条决策 → 表格出现、按线程过滤只剩一条；
+//      （127 波 2-quater B2：代批那条的「依据」列画类别人话＋理由，纯文本上屏）
 //   ⑧ 头部常驻停机键 → GET /api/steward/state 的 stopped===true 且头像 data-state="sleeping"
 //      → 再按一次唤醒 → stopped===false 且头像不再 sleeping；
 //   ⑨（117l-A3）新开线程用什么模型：强/快两档各自的服务商 select + 模型名 input 分别改动 →
@@ -182,6 +184,7 @@ const PANEL = `(() => {
     autoRelay: checked('cfgStewardAutoRelay'),
     autoNewThread: checked('cfgStewardAutoNewThread'),
     autoResume: val('cfgStewardAutoResume'),
+    exemptDelegation: checked('cfgStewardExemptDelegation'),
     parallel: val('cfgStewardMaxParallelThreads'),
     retention: val('cfgStewardRetention'),
     poll: val('cfgStewardPollMs'),
@@ -199,6 +202,7 @@ const PANEL = `(() => {
     decisionRows: [...document.querySelectorAll('#cfgStewardDecisions tbody tr')].map(node => node.dataset.thread),
     decisionCells: [...document.querySelectorAll('#cfgStewardDecisions tbody tr td')].map(node => node.textContent.trim()),
     decisionHead: [...document.querySelectorAll('#cfgStewardDecisions thead th')].map(node => node.textContent.trim()),
+    decisionBasis: [...document.querySelectorAll('#cfgStewardDecisions tbody td.steward-decision-basis')].map(node => ({ text: node.textContent, elements: node.children.length })),
     threadFilter: [...document.querySelectorAll('#cfgStewardDecisionsThread option')].map(node => node.value),
     note: text('cfgStewardNote'),
     runState: text('cfgStewardRunState'),
@@ -263,7 +267,9 @@ fs.writeFileSync(path.join(home, 'steward', 'memory-v1.json'), JSON.stringify({
 // 决策夹具：两条，分属两条线程；第一条带撤回锚点（表格给「撤销」），第二条不带（给「详情」）。
 fs.writeFileSync(path.join(home, 'steward', 'decisions-v1.ndjson'), [
   JSON.stringify({ seq: 1, at: '2026-09-06T01:00:00.000Z', tool: 'steward_thread_continue', args: { sessionId: SID_A }, targetSessionId: SID_A, permissionMode: 'acceptEdits', mayAct: 'auto', undoRef: { kind: 'turn', sessionId: SID_A, turnSeq: 2, rewindTargetTurnSeq: 3 }, basis: { inboxSeq: 7, auto: true } }),
-  JSON.stringify({ seq: 2, at: '2026-09-06T02:00:00.000Z', tool: 'steward_decide', args: { type: 'permission', action: 'allow' }, targetSessionId: SID_B, permissionMode: 'auto', mayAct: 'auto', undoRef: { kind: 'none', note: '不可撤销' }, basis: { interventionId: 'iv_1' } }),
+  // 127 波 2-quater B2:第二条是一次管家代批 —— basis.delegation 带类别与理由;理由里故意写一对尖括号,
+  // 证明它只当纯文本上屏(G7)。
+  JSON.stringify({ seq: 2, at: '2026-09-06T02:00:00.000Z', tool: 'steward_decide', args: { type: 'permission', action: 'allow' }, targetSessionId: SID_B, permissionMode: 'auto', mayAct: 'auto', undoRef: { kind: 'none', note: '不可撤销' }, basis: { interventionId: 'iv_1', delegation: { categories: ['delete_data', 'push_remote'], exemptBy: 'command_text', commandExcerpt: 'Remove-Item .\\tmp -Recurse', riskNote: '只清 <b>临时</b> 目录', tainted: false, taintBy: null } } }),
 ].join('\n') + '\n', 'utf8');
 
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
@@ -475,6 +481,31 @@ try {
   const autoActions = (await cfg()).stewardAutoActions;
   ok(autoActions.retry === true && autoActions.newThread === true && autoActions.resume === null,
     `E2 其余三项不被顺手改掉（retry/newThread 仍 true、resume 仍三态 null；实测 ${JSON.stringify(autoActions)}）`);
+  // 127 波 2-quater B2：管家代批开关。默认开（缺字段 = 开）；取消勾选落盘 false，是独立顶层键、不碰 stewardAutoActions。
+  {
+    const before = await cdp.evaluate(PANEL);
+    ok(before.exemptDelegation === true, `E2b 「管家可以按规则替我批」默认勾着（实测 ${before.exemptDelegation}）`);
+    await cdp.evaluate(`(() => {
+      const box = document.getElementById('cfgStewardExemptDelegation');
+      box.checked = false;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    const off = await waitForHttp(appPort, 'GET', '/api/status',
+      result => result.json && result.json.config && result.json.config.stewardExemptDelegationV1 === false, token);
+    const offCfg = await cfg();
+    ok(Boolean(off) && JSON.stringify(offCfg.stewardAutoActions) === JSON.stringify(autoActions),
+      `E2c 取消勾选 → stewardExemptDelegationV1 === false 落盘，stewardAutoActions 一个字没动（实测 ${JSON.stringify(offCfg.stewardAutoActions)}）`);
+    await cdp.evaluate(`(() => {
+      const box = document.getElementById('cfgStewardExemptDelegation');
+      box.checked = true;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    const on = await waitForHttp(appPort, 'GET', '/api/status',
+      result => result.json && result.json.config && result.json.config.stewardExemptDelegationV1 === true, token);
+    ok(Boolean(on), 'E2d 再勾上 → stewardExemptDelegationV1 === true');
+  }
 
   /* ═════════ ⑤ 并发上限 ═════════ */
   console.log('── ⑤ 并发上限即时生效 ──');
@@ -577,6 +608,15 @@ try {
   ok(log && log.decisionCells.includes(zh['settings.steward.decisions.undo'])
     && log.decisionCells.includes(zh['settings.steward.decisions.details']),
     'G5 有撤回锚点的给「撤销」，没有的给「详情」');
+  // 127 波 2-quater B2：代批那一行的「依据」列画出类别人话与理由；理由里的尖括号是字，不是元素。
+  {
+    const expected = zh['settings.steward.decisions.basisDelegation']
+      .replace('{{categories}}', `${zh['settings.steward.decisions.exemptCategory.deleteData']}、${zh['settings.steward.decisions.exemptCategory.pushRemote']}`)
+      .replace('{{note}}', '只清 <b>临时</b> 目录');
+    const cell = log && log.decisionBasis.find(item => item.text.includes('iv_1'));
+    ok(Boolean(cell) && cell.text === `iv_1 · ${expected}` && cell.elements === 0,
+      `G7 代批行「依据」= 类别人话＋理由，经 textContent 上屏（格内 0 个子元素；实测 ${JSON.stringify(cell)}）`);
+  }
   await cdp.evaluate(`(() => {
     const select = document.getElementById('cfgStewardDecisionsThread');
     select.value = ${JSON.stringify(SID_B)};

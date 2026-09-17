@@ -93,7 +93,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 127-2-quater B1(45 号文 §2-quater.2):新增 dev-harness/steward-exempt-no-swap.e2e.js(一处带 RUYI_HOME 的
 // spawn —— 那一发起服务;fake provider 是本进程内的 http.createServer,taskkill 那一发不带 RUYI_HOME,不计入),
 // 145 -> 146 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 146;
+// 127-2-quater B2(45 号文 §2-quater.2):新增 dev-harness/steward-exempt-delegation.e2e.js(一处带 RUYI_HOME 的
+// spawn —— startInstance 那一发起服务,两个实例共用这一个调用点;fake provider 是本进程内的 http.createServer,
+// taskkill 那一发不带 RUYI_HOME,不计入),146 -> 147 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 147;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

@@ -26,6 +26,9 @@ import { t } from './i18n.js';
 import { buildModal } from './modal.js';
 
 // §8.6 那条「切全自动」弹窗必须逐条写明的五件事（键名即顺序，测试按这个顺序核对）。
+// 127 波 2-quater B2（45 号文 §2-quater.2「文案会变假的几处」）：confirm3 的意思变了 —— 修前是「永久豁免的动作
+// 仍然不做」，放开管家代批之后改成「底线项永远等你按；删文件／装卸软件／推送／对外请求管家可按规则带理由代批，
+// 读过网页后不替你推送或外发」。键名不动，只改四份 locale 里的那一句。
 // 117d 起这五条住在 steward-chips.js；M3-a 把确认文案键统一收进本文件，chips 就地改成
 // re-export（`export { STEWARD_CONFIRM_KEYS }`），所以那边的调用面一个字都不用动。
 const PERMISSION_CONFIRM_BODY_KEYS = Object.freeze([

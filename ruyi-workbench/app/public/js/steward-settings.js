@@ -562,6 +562,15 @@ export function createStewardSettingsDomain({
     const key = permissionLabelKey(String(mode || ''));
     return key ? t(key) : (String(mode || '') || t('settings.steward.decisions.noPermission'));
   }
+  // 127 波 2-quater B2：代批账本里的类别键 → 人话键。表内写死五个（与 06i STEWARD_EXEMPT_CATEGORY_LABELS 同一组键）：
+  // t() 是扁平查找，拼出来的键不在表里会渲染成 [key]，所以不拼键；表外的类别原样显示机器键（诚实兜底）。
+  const EXEMPT_CATEGORY_KEYS = Object.freeze({
+    delete_data: 'settings.steward.decisions.exemptCategory.deleteData',
+    system_change: 'settings.steward.decisions.exemptCategory.systemChange',
+    install: 'settings.steward.decisions.exemptCategory.install',
+    outbound_send: 'settings.steward.decisions.exemptCategory.outboundSend',
+    push_remote: 'settings.steward.decisions.exemptCategory.pushRemote',
+  });
   function basisText(row) {
     const basis = (row && row.basis) || {};
     const parts = [];
@@ -571,6 +580,15 @@ export function createStewardSettingsDomain({
     if (basis.interventionId) parts.push(String(basis.interventionId));
     if (Array.isArray(basis.memoryIds) && basis.memoryIds.length) {
       parts.push(t('settings.steward.decisions.basisMemory', { count: basis.memoryIds.length }));
+    }
+    // 127 波 2-quater B2：代批的类别与管家写的理由。整格经 el() 的 textContent 上屏（本文件零 innerHTML），
+    // 理由是模型写的字、服务端已中和截 200，这里仍只当纯文本。
+    const delegation = (basis.delegation && typeof basis.delegation === 'object') ? basis.delegation : null;
+    if (delegation) {
+      const categories = (Array.isArray(delegation.categories) ? delegation.categories : [])
+        .map(key => (EXEMPT_CATEGORY_KEYS[String(key)] ? t(EXEMPT_CATEGORY_KEYS[String(key)]) : String(key)))
+        .filter(Boolean);
+      parts.push(t('settings.steward.decisions.basisDelegation', { categories: categories.join('、'), note: String(delegation.riskNote || '') }));
     }
     return parts.join(' · ');
   }
@@ -1072,6 +1090,8 @@ export function createStewardSettingsDomain({
       const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 20));
       // 116-5b:默认开(缺字段 = 开),所以判的是 !== false 而不是 === true。
       const brief = byId('cfgStewardThreadBrief'); if (brief) brief.checked = c.stewardThreadBriefV1 !== false;
+      // 127 波 2-quater B2：管家代批。默认开（缺字段 = 开），与上面那一格同方向：判 !== false。
+      const exemptDelegation = byId('cfgStewardExemptDelegation'); if (exemptDelegation) exemptDelegation.checked = c.stewardExemptDelegationV1 !== false;
       const retention = byId('cfgStewardRetention');
       if (retention) retention.value = ['visit', '24h', 'forever'].includes(c.stewardConversationRetention) ? c.stewardConversationRetention : 'visit';
       // 121-K7（§13.5 登记③）：「最近 N 条」窗口。缺省与钳位都在 src/01-config.js 一处
@@ -1126,6 +1146,9 @@ export function createStewardSettingsDomain({
     }
 
     onChange('cfgStewardThreadBrief', event => saveConfig({ stewardThreadBriefV1: event.target.checked === true }));
+    // 127 波 2-quater B2：走用户自己的 POST /api/config（与上面同一条 saveConfig），不经管家 —— 这个键在 06i 是
+    // forbidden 档，steward_config_set 碰不到它。
+    onChange('cfgStewardExemptDelegation', event => saveConfig({ stewardExemptDelegationV1: event.target.checked === true }));
     onChange('cfgStewardProviderId', event => saveConfig({ stewardProviderId: String(event.target.value || '') }));
     onChange('cfgStewardModel', event => saveConfig({ stewardModel: String(event.target.value || '').trim() }));
     // 117l-A3：强/快两档各自的服务商与模型。四个控件都在「当前 config 里的 stewardThreadModels」

@@ -180,6 +180,21 @@ async function stewardImplDecide(args, ctx, config) {
   // 127 波 2-quater B1 ③:tier 口径搬进 06i 的 stewardExemptScanInput(13k 的收件箱摘录读同一个函数),行为逐字不变。
   const exemptInput = stewardExemptScanInput(tier, current.input);
   const exemptHit = stewardExemptReason(toolName, exemptInput);
+  // 127 波 2-quater B2(45 号文 §2-quater.2 B2):豁免命中不再是「一律提议」,而是先过八道代批闸
+  // (06i stewardExemptDelegationVerdict,顺序即判定顺序)。任何一道不过 → 与修前【同形】的 propose_required
+  // (message 与既有 details 逐字不变),details 只多 delegable:false 与 blockedBy(闸 6 拦下时再多一个 taintBy)。
+  // 全过 → delegation 非空,落到下面同一条 decideIntervention 路径(B1 的 updatedInput/scope 剥离照旧生效)。
+  // 事实来源逐条:
+  //   闸 1 开关   —— config.stewardExemptDelegationV1(forbidden 档,管家自己改不了);
+  //   闸 2 档位   —— 13k stewardExemptLiveTurn 读活回合登记表上的实效档,【不是】上面那个 permissionMode(会话头);
+  //   闸 3 看管   —— 会话头:stewardWatchedThread / threadOriginOf === 'schedule' / 显式 stewardWatch:false;
+  //   闸 4/5      —— stewardExemptHits 的全部命中(不看首中)与 scannedFully / textLength;
+  //   闸 6 污染   —— 13k stewardExemptLiveTurn(活回合段表 + 粘性污染位;判不出算污染);
+  //   闸 7 理由   —— args.riskNote 经 06i stewardExemptRiskNote 中和截断;
+  //   闸 8 窗口   —— 13j 的滚动一小时计数。
+  // 不读 ctx.userPressed:用户按下管家给的按钮(/api/steward/act)与模型直调走同一套闸 —— 永久豁免那一格
+  // 从来不因为「用户点了一下管家的按钮」而放宽(06i 契约;用户要亲自批,在线程里按)。
+  let delegation = null;
   if (type === 'permission' && exemptHit) {
     const safeTool = stewardSanitizeText(toolName);
     const categoryLabel = exemptHit.category ? (STEWARD_EXEMPT_CATEGORY_LABELS[exemptHit.category] || exemptHit.category) : '';
@@ -188,12 +203,44 @@ async function stewardImplDecide(args, ctx, config) {
       : (exemptHit.by === 'structured_write'
         ? `工具 ${safeTool} 这次是写型网络请求,命中了永久豁免清单的「${categoryLabel}」类`
         : `工具 ${safeTool} 这次要执行的命令命中了永久豁免清单的「${categoryLabel}」类`);
-    return stewardFail('propose_required', `${because}(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
-      reason: 'permanently_exempt', exemptBy: exemptHit.by, exemptCategory: exemptHit.category,
-      missionId, interventionId, type, toolName, permissionMode,
+    const exemptScan = stewardExemptHits(toolName, exemptInput);
+    const liveTurn = stewardExemptLiveTurn(missionId, interventionId, head);
+    const riskNote = stewardExemptRiskNote(args.riskNote);
+    const windowNow = Date.now();
+    const verdict = stewardExemptDelegationVerdict({
+      enabled: config && config.stewardExemptDelegationV1 === true,
+      liveMode: liveTurn.live ? liveTurn.mode : '',
+      watched: stewardWatchedThread(head, String(head.id), String(head.missionId || head.id)),
+      origin: threadOriginOf(head),
+      explicitUnwatch: head.stewardWatch === false,
+      scan: exemptScan,
+      taint: liveTurn.taint,
+      riskNote,
+      recentCount: stewardExemptDelegationsInWindow(windowNow),
     });
+    if (!verdict.delegable) {
+      return stewardFail('propose_required', `${because}(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
+        reason: 'permanently_exempt', exemptBy: exemptHit.by, exemptCategory: exemptHit.category,
+        missionId, interventionId, type, toolName, permissionMode,
+        delegable: false, blockedBy: verdict.blockedBy, ...(verdict.taintBy ? { taintBy: verdict.taintBy } : {}),
+      });
+    }
+    stewardExemptDelegationRecord(windowNow);
+    delegation = {
+      categories: verdict.categories,
+      exemptBy: exemptHit.by,
+      // 摘录与收件箱 / thread_status 同一个生产者(13k):04 redact 脱敏 → 06i stewardExemptExcerpt 中和 + 截 300 字。
+      commandExcerpt: (stewardExemptPendingSummary(current) || {}).commandExcerpt || '',
+      riskNote,
+      liveMode: liveTurn.mode,
+      windowCount: stewardExemptDelegationsInWindow(windowNow),
+    };
   }
-  const mayAct = stewardMayAct(permissionMode, type === 'permission' ? 'permission' : type, tier);
+  // 代批那一支按【活回合实效档】算 mayAct(闸 2 已钉死它是 'auto',于是恒为 'auto'):会话头档位与回合实效档
+  // 可以不一致 —— 会话头 auto、回合 default 已被闸 2 拦下;反过来会话头 default、回合按请求级 auto 在跑
+  // (定时任务的 autonomy.permissionMode),线程此刻确实是「智能自动」,拿会话头去判会把一条合规的代批说成
+  // 「档位不够」。非代批的待决口径一个字不变。
+  const mayAct = stewardMayAct(delegation ? delegation.liveMode : permissionMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
     return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
@@ -241,11 +288,41 @@ async function stewardImplDecide(args, ctx, config) {
       permissionMode,
       mayAct,
       undoRef,
-      basis: { interventionId, interventionVersion: Number(body.interventionVersion) || 0 },
+      basis: {
+        interventionId, interventionVersion: Number(body.interventionVersion) || 0,
+        // 127 波 2-quater B2:代批的依据整份进账本(行动流水 UI 读它画类别与理由)。tainted 恒 false ——
+        // 走到这里说明闸 6 已经放行(命中不含两类外联时闸 6 根本不问,也记 false:这条命令不在污染规则的范围里)。
+        ...(delegation ? {
+          delegation: {
+            categories: delegation.categories, exemptBy: delegation.exemptBy,
+            commandExcerpt: delegation.commandExcerpt, riskNote: delegation.riskNote,
+            tainted: false, taintBy: null,
+          },
+        } : {}),
+      },
     });
+    if (delegation) {
+      stewardExemptDelegatedLog({
+        sessionId: missionId, interventionId, toolName, categories: delegation.categories, exemptBy: delegation.exemptBy,
+        riskNoteChars: delegation.riskNote.length, windowCount: delegation.windowCount,
+      });
+    }
     // 127 波 2-quater B1 ①:剥掉了什么如实回给模型(没剥就不落这个键,既有回执逐字节不变)——
     // 否则它会以为改过的命令已经按它的意思跑了。
-    return { ...body, undoRef, ...(ignoredPayloadKeys.length ? { ignoredPayloadKeys } : {}) };
+    // 127 波 2-quater B2:代批落定时多带 exemptDelegation(非代批的决定不落这个键)。它同时是 13q 确定性回执的
+    // 识别标记 —— 管家回合里模型直调工具代批了,不靠它自己在 say 里提,回执照样出一行。
+    return {
+      ...body, undoRef,
+      ...(ignoredPayloadKeys.length ? { ignoredPayloadKeys } : {}),
+      ...(delegation ? {
+        exemptDelegation: {
+          delegated: true, categories: delegation.categories,
+          labels: delegation.categories.map(key => STEWARD_EXEMPT_CATEGORY_LABELS[key] || key),
+          riskNote: delegation.riskNote,
+          note: `已按代批规则替用户放行这条「${delegation.categories.map(key => STEWARD_EXEMPT_CATEGORY_LABELS[key] || key).join('」「')}」类命令;工作台会给用户出一行回执,并把理由记进行动流水`,
+        },
+      } : {}),
+    };
   }
   // 失败按 decideIntervention 的稳定 reason 原样回传(version_conflict / not_found / already_terminal /
   // delivery_unavailable …)。用 body.reason 而不是 error.code:reason 是命令核心的机器码,

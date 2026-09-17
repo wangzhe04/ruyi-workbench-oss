@@ -332,6 +332,10 @@ function defaultConfig() {
     // 2026-09-07 拍板,§11.8.10 第 1 条):消费面一半在经典壳(侧栏会话列表、113b 会话搜索),
     // 管家关着也该有名字。关掉 = 零调用、零字段、零记账。
     stewardThreadBriefV1: true,
+    // 第 127 波 2-quater B2(45 号文 §2-quater.2 B2 / §2-quater.3 拍板 2):管家代批。「智能自动」档里线程因为命令
+    // 正文命中永久豁免而停下来问时,管家在八道闸(06i stewardExemptDelegationVerdict)全过、并写下理由的前提下
+    // 替用户放行。**默认开**(用户拍板),设置页可关;管家自己改不了(06i 的 forbidden 档,不是 confirm)。
+    stewardExemptDelegationV1: true,
     // 第 117 波 117l(27 号文 §11.9 D7;用户 2026-09-07 走查第 7 条「设置的管家页里可以默认配置新开线程
     // 的端点和模型:一个针对复杂任务的强模型、一个简单任务的快速模型」):管家新开线程时按 tier 选端点。
     // 两档都留空 = 全部跟随全局主端点(= 116a 起的既有行为,存量用户零变化)。判定单点在 06i 的
@@ -1098,6 +1102,12 @@ function normalizeConfig(raw) {
   {
     const b = config.stewardThreadBriefV1 !== false;
     if (b !== config.stewardThreadBriefV1) { config.stewardThreadBriefV1 = b; changed = true; }
+  }
+  // 第 127 波 2-quater B2:代批开关。默认开,与 stewardThreadBriefV1 同方向的严格布尔(!== false):只有显式写
+  // false 才算关,垃圾值一律归一成 true —— 规范化之后恒为布尔,13l 那一侧按 === true 判(读到非布尔就当关,fail-closed)。
+  {
+    const b = config.stewardExemptDelegationV1 !== false;
+    if (b !== config.stewardExemptDelegationV1) { config.stewardExemptDelegationV1 = b; changed = true; }
   }
   // 第 117 波 117l(27 号文 §11.9 D7):新开线程的两档端点/模型。形状归一 —— 缺键补空、非对象整体回默认、
   // 未知键丢弃;providerId ≤120、model ≤160(与 stewardProviderId/stewardModel 同一口径),两者都 trim。

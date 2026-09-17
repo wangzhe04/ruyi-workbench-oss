@@ -664,3 +664,95 @@
 **顺带治掉 `walkthrough-round2.browser` B1（本波第五次登记，这次按机制定性而不是按次数）**：主会话单跑一度连红三次「实得 classic」，而 2-bis 复核时它连绿——**不能拿次数当证据**（交替跑 HEAD／工作树，工作树 7 次红 4 次、HEAD 4 次全绿，样本太小且本条在 HEAD 的回归里也红过）。改用探针：拷一份件，在 READY 之后连续 3 s、每 50 ms 记 `data-shell-mode|data-vt` 的变化序列，六次里一次逮到 `classic|back`(48 ms) → `steward|back`(110 ms) → `steward|`(370 ms)，其余五次 `steward|back` → `steward|`。**机制**：config 到达那一拍的 `applyShellMode('steward')` 排在 View Transitions 队列里，READY 后立刻读会读到过渡落定之前的 classic；**产品最终确实落管家视角，是断言读早了**，与 B1 零交集（本刀零前端改动）。修法：B1 改为等过渡落定（`data-vt` 清空，与同文件 `setLens` 同一个判据）再读。**反向**：夹具 `stewardEnabledV1: true` → `false`（产品真落 classic）→ B1 红「实得 classic」、不挂起；文件备份还原 sha256 OK（`09019c08…`）。修后连跑 5 次 48/48。单独一个 test 提交（`2112abb`）。
 
 **纪律 7 第八个样本（主会话自己踩的）**：本段第一版用 `node -e "…"` 追加，双引号里的反引号被 bash 当命令替换吃掉，残文随 `3d02d96` 入库（代码文件不受影响，只有本段文字）。已用 Edit 工具补回。**教训**：往文档里写含反引号的中文段落，一律走 Edit／Write，不走 shell 字符串。
+
+### 2-quater B2 · 管家代批（2026-09-17）
+
+**改了什么**（§2-quater.2 B2；建在 B1 的 `stewardExemptHits`／`stewardExemptScanInput`／`stewardExemptPendingSummary`／剥离之上）：
+
+- **开关**：`01-config.js` 顶层键 `stewardExemptDelegationV1`（默认 `true`，`:338`；规范化 `!== false` 严格布尔，`:1109`）。`06i` 的 `STEWARD_CONFIG_TIER_FORBIDDEN_NOTE` 点名留账（`:1128`，判据仍是 fail-closed，不进 free／confirm，不进 `stewardAutoActions`）。
+- **八道闸的纯判据**（`06i-steward-core.js :504-621`，零 require、零外部符号）：常量 `STEWARD_EXEMPT_DELEGATION_TEXT_MAX=1000`、`STEWARD_EXEMPT_RISK_NOTE_CHARS=200`、`STEWARD_EXEMPT_DELEGATIONS_PER_HOUR=6`、窗口 1 h、污染只管的两类、污染工具名表、闸名表 `STEWARD_EXEMPT_DELEGATION_GATES`；`stewardTaintToolName`（`:530`）、`stewardTaintToolCall`（`:541`，多认 `tool_invoke_*` 代理的 `input.name`）、`stewardTurnTaint`（`:559`，活回合段表＋粘性位）、`stewardExemptRiskNote`（`:585`）、`stewardExemptDelegationVerdict`（`:603`，八道闸按序 `:609-619`）。
+- **回合实效档位**（`09-workflow.js :1997-2008`）：`gateWithLiveMode` 里那段「请求级 → 快照；会话级本回合没改过 → 快照；改过 → 此刻会话级」抽成 `effectivePermissionModeNow()`，闸门与管家读同一个函数，并挂到活回合登记表 `reg.effectivePermissionMode`（只读函数引用，零新增状态）。`gateWithLiveMode` 改成「实效档 === 快照档就用快照判定」—— 与修前两条路逐字等价（改过但改回同一档时修前也是判定不变、不记事件）。Claude CLI／Kimi 的登记表上没有它 → 管家那一侧判不出档位。
+- **粘性污染位**（`10-context-governance.js`）：写入点在 `runSessionTurn` 的 `emit`（`:2478` 本回合在途表、`:2511-2531` 写入）—— 读外部内容的工具调用**结果回来时**（`tool_use`／`tool_use_update` 命中 `stewardTaintToolCall` 只记进在途表，同 id 的 `tool_result` 到了才置位；首版写在 `tool_use`，是主会话复核抓到的缺陷，见下「返工」段）、`subagent start`、任一 `agent_workflow` 事件 → 内存会话对象上置 `stewardTaint:{by,at,turnSeq}`（空不落字段，已置不改），随引擎既有 `saveSession` 落盘；清除点（`:2449`）：`source === 'http'` 的回合起手时删掉，位置在两道 4xx 闸门之后、引擎分派之前（09 推入用户消息后那一次 `saveSession` 把清过的头落盘，早于第一次调模型）。`durable-state-inventory` 的 session-head 行登记了这个字段。
+- **活回合事实**（`13k-steward-threads.js :1086` `stewardExemptLiveTurn`）：从 `activeChildren` 读 `effectivePermissionMode()` 与 `liveSegments.snapshot()`（**完整段表**，不是有三重硬顶、会丢头部的 `liveSnapshot()`）；粘性位先读活回合里的那一份会话对象、再兜底盘上会话头。无登记表 `no_live_turn`、无 `liveSegments` `no_live_segments`（Kimi）一律算污染。`stewardExemptDelegatedLog`（`:1100`）只写元数据。两个都放 13k 的理由同 B1：`activeChildren`／`logEvent` 在 04，13k→04 是既有边、13l→04 不是。
+- **窗口**（`13j-steward-tool-base.js :450-461`）：内存数组，滚动一小时；只记八道闸全过的那一次，记在进核心之前；重启归零。
+- **闸序的落点**（`13l-steward-ops.js stewardImplDecide`）：豁免分支里依次取事实（`:206-209`）→ `stewardExemptDelegationVerdict`（`:210-220`：开关 `:211`／活回合档 `:212`／看管＋出身＋显式不盯 `:213-215`／全部命中 `:216`／污染 `:217`／理由 `:218`／窗口 `:219`）→ 不过：与 B1 同形的 `propose_required`，details 只多 `delegable:false, blockedBy`（闸 6 再多 `taintBy`）；过：记窗口（`:228`）、组 `delegation`（摘录走 13k `stewardExemptPendingSummary` = 04 `redact` → 06i `stewardExemptExcerpt`）→ `mayAct` 按活回合档算（`:243`）→ 同一条 `decideIntervention`（B1 剥离照旧）。落定后账本 `basis.delegation{categories,exemptBy,commandExcerpt,riskNote,tainted:false,taintBy:null}`、`undoRef` 沿用 `{kind:'none',note:'不可撤销'}`、审计 `steward_exempt_delegated`、工具结果多 `exemptDelegation{delegated,categories,labels,riskNote,note}`。
+- **确定性回执**（`13q-steward-runner-turn.js`）：`stewardDelegationToolCalls(turnSeq)`（`:156`）读管家会话里本回合助手消息的 `toolCalls`，`stewardMergeDelegationReceipts`（`:134`，按 interventionId 去重、与 executed 里已有的成功代批去重）补成与 actions 同形的行，标签「代批「删数据」 · 线程「标题」」；顺序 = 自理 → 回合里的工具调用 → 结构化 actions（`:283`）。被抢占／回合失败的两条出口也带上这几行（`:218` 起在三条出口之前取出）。
+- **文案**：`13f` `steward_decide` 描述重写（代批条件、只在「明显是线程受托的事、只动它自己的工作文件夹、不碰凭据、推送／发送目标是任务点名的那个」时代批、拿不准交给用户、`blockedBy` 八个值各是什么、不要改写 riskNote 重试），新参数 `riskNote`（`:885`）；`13p stewardExemptCommandBlock`（`:480`）头行分两种：含底线或开关关 → 与 B1 逐字相同「只能由用户亲自按」，否则说明可按代批规则判断、带 riskNote、规则不满足工具会拒；`06b` 规则 1 中文「只提议」→「默认提议」、英文「Always」→「Normally」各一个词；四份 locale 的 `stewardShell.permission.auto.hint`／`confirm3` 改写，`confirm-panel.js` 在五条键表旁注明 confirm3 意思变了。
+- **设置页**：`index.html` 自理组（「管家可以自己做的事」）加 `cfgStewardExemptDelegation` 勾选框＋说明；`steward-settings.js` 照 `cfgStewardThreadBrief` 模具填值（`!== false`）与绑定（走用户自己的 `POST /api/config`）；行动流水 `basisText` 画「代批「类别」：理由」，类别人话走写死的五键表（t() 扁平查找，不拼键），经 `el()` 的 textContent 上屏（本文件零 innerHTML，grep 核过）。四份 locale 新增 8 键（开关两句、basisDelegation、五个类别）。
+- `14-main.js` 导出八个判据／常量与 `stewardMergeDelegationReceipts`。
+- **测试**：新件 `dev-harness/steward-exempt-delegation.e2e.js`（首版 46 条，返工后 50 条）；`unit/steward-exempt.test.js` ⑧ 段；`unit/steward-config-tier.test.js` EXPECTED 加 `stewardExemptDelegationV1:'forbidden'`；真浏览器件 `steward-settings.e2e.js` 加 E2b–E2d（开关默认勾、取消落盘 false、`stewardAutoActions` 不动）与 G7（代批行依据列 = 类别人话＋理由，理由里的 `<b>` 是字、格内 0 个子元素）；`steward-settings.static` CONTROL_IDS 加新控件；`fixture-home.static` 146→147。
+
+**定时线程头的真实形状**（只读 `~/.win-claude-workbench/sessions/sess_db44265bbf19b51e.json`，用户卡住的那条）：`kind:'mission'`、`origin:'schedule'`、`launchedBy:'steward'`、`createdBy:'steward'`、`titleSource:'steward'`，**头上没有 `permissionMode`、没有 `stewardWatch`**；`engineRoute` openai/deepseek。该机五条定时任务 `autonomy.permissionMode` 全是 `''` → 回合请求级档 = 全局档（该机全局 `auto`）。即：这类线程 `stewardWatchedThread` 本来就为真（`launchedBy`），`origin:'schedule'` 那一半只在用户显式按过别盯了或调度器往既有会话里跑时才起作用。夹具 R03 用真调度器建出同形的头。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **闸 3 多一条：`stewardWatch === false` 一律不过**，出身是定时任务也一样。派单稿是「watched 或 origin schedule」，而定时线程本来就 watched（见上），「或 schedule」唯一新放行的就是用户按过「别盯了」的那一类 —— 那正是 §2-quater.3 末条「用户自己盯着的事照旧问」。
+2. **代批那一支的 `mayAct` 按活回合档算**（13l `:243`）。派单稿写「过了就走既有路径」，而既有 `mayAct` 读会话头：会话头 default、回合按请求级 auto 跑（定时任务 `autonomy.permissionMode:'auto'` 而全局不是 auto）时，闸 2 已判定线程此刻就是智能自动，再拿会话头判会把合规代批说成「档位不够」（D12 真回合钉住）。账本的 `permissionMode` 仍如实记会话头（D99）。反向 ㈢ 时这一行成了第二道：闸 2 被改读会话头后，D10 仍没执行（`reason:'permission_mode'`），两处各自承重。
+3. **粘性位的写入点在 10 的 `emit`，不在 09 工具循环**：`runSessionTurn` 是三个引擎的唯一汇合点，线程换过引擎（上一回合 CLI 的 `WebFetch`／`mcp__x__y`）照样记得住；持久化选「会话头、空不落字段」而不是内存 —— 内存方案在重启后遇到的是一个**有**活回合登记表的新回合，读不到上一回合的污染，而历史里的网页内容还在。
+4. **污染判据多认 `tool_invoke_*` 代理**（派单稿名单里没有）：自适应装载下模型经 `tool_invoke_read{name:'web_fetch'}` 调网页，事件名是代理名 —— 只看名字就漏过去了。段表上没有 input，所以代理那一半由同一回合里就已置上的粘性位接住（D75：`taintBy:'sticky:web_fetch'`）；代理目标读不出一律算污染。
+5. **段表扫描跳过这条权限「自己」的工具段**（权限段之前最近一个同名、仍 running 的段）：09 先发 `tool_use` 再过闸，不跳过的话一条待决的写型 `http_request` 会被它自己的名字判成读过外部内容；已经出过结果的同名调用照算（单测钉住）。
+6. **13p 头行也看开关**：开关关时说「可以代批」是假话，所以关着与含底线一样逐字回到 B1 的句子。
+7. **回执也进被抢占／回合失败的信封**：代批已经落定，回合出了事不该把回执一起吞掉（没有代批时三条出口逐字节同修前）。
+8. **拦下时 message 一律不变**（不只开关关时），机器键 `blockedBy` 说原因；`taintBy` 只在闸 6 拦下时出现 —— 判据 ④「除 delegable/blockedBy 外逐字节同形」因此在开关关时成立（D42 逐键同序同值）。
+9. **清除只认 `source === 'http'`**：管家递话（13q 递话通道的 turn 走 `stewardLaunchTurn`，回合 source 是 `steward`；steer 走 `steerSessionCore`）与插话（`/api/steer`，进的是正在跑的那一回合）都不清 —— 宁可多污染一回合，这只影响推送／外发两类。
+10. **写型 `http_request`（`structured_write`）同样可代批**：派单稿正文写「命令正文命中」，而拍板 1 明列「写型 http_request 交给管家判断」；它归「对外发送」非底线，受污染闸约束。
+11. **不新建事件唤醒**（按派单稿）。延迟见下。
+
+**判据读数**（`steward-exempt-delegation.e2e.js` 首版 46/46，返工后 50/50 —— 拍板 1 真路径那四条见「返工」段；R 段真调度器＋真收件箱轮询，D 段真原生回合停在真待决上、从 `/api/steward/act` 调）：
+
+- ① R10–R12：定时线程（请求级智能自动）对 `Remove-Item .\tmp -Recurse` 停下来问 → 没有任何人按，15 s 轮询 → 管家收件箱回合（假管家先 `steward_thread_status` 拿 id 再 `steward_decide` 带理由）→ `status:allowed, decidedBy:steward`、tmp 真被删；工具结果 `exemptDelegation.categories:["delete_data"]`、note 含「删数据」。R30 账本两行 `basis.delegation` 键序 `[categories,exemptBy,commandExcerpt,riskNote,tainted,taintBy]`，摘录 `Remove-Item .\tmp -Recurse C:\…\work `，`tainted:false, taintBy:null`，`undoRef.kind:none`、`mayAct:auto`。R31 审计两行只有 `categories／exemptBy／riskNoteChars:33／windowCount`，行内不含命令也不含理由。R32 回执：假管家回复的 `actions` 恒空、say 不提代批，两回合落盘的章里各一行「代批「删数据」 · 线程「A股盘中巡检(B2 夹具)」」。D90–D91：管家用户回合里模型直调代批，`steward_reply.actions` 恰一行「代批「删数据」 · 线程「B2 看管线程」」。
+- ② R21：同一回合先 `web_fetch` 再 `git push` → `blockedBy:tainted, taintBy:turn:web_fetch, exemptCategory:push_remote`，夹具拒掉、标记文件不在（R24）；R23：同样污染下 `Remove-Item .\tmp2 -Recurse` → 代批、tmp2 被删。D50／D51 在决定层复现同一对。D52 会话头 `stewardTaint:{by:"web_fetch",turnSeq:6}`；D60 下一回合由管家递话起（非用户亲发）只 push → `taintBy:sticky:web_fetch`；D70 用户亲发下一句后待决出现时盘上头已无 `stewardTaint`，D71 同样的 push → 代批（`push_remote`、标记文件在）；D75 经 `tool_invoke_read` 代理调 web_fetch 再 push → `tainted`（`sticky:web_fetch`）。
+- ③ D20：`Write-Output f1 # shutdown /s /t 0`／`… # rm -rf /`／`… # rm -rf b && shutdown /s` 带理由 → 三条都 `blockedBy:floor`（类别分别 system_change／delete_data／delete_data —— 第三条首中不是底线）。单测 ⑧ 另钉七条底线命令与「零命中也不放行」。
+- ④ D40–D42：用户经 `POST /api/config` 关开关 → 信封键 `[ok,error,message,reason,exemptBy,exemptCategory,missionId,interventionId,type,toolName,permissionMode,delegable,blockedBy]`，去掉后两键与 B1 逐键同序，message 逐字相同，`blockedBy:switch_off`，d4 仍在。既有锁原样绿：steward-guardrails 193/0、steward-exempt-shell-send 21/0（P1／P5）、steward-exempt-no-swap 41/0、steward-tools 185/0、interventions-snapshot 40/0 —— **一条既有断言都没改**。
+- ⑤ D95–D97：本实例到此恰好代批 5 次 → 第 6 次代批、第 7 次 `blockedBy:hourly_cap`、c7 仍在；D98 账本六行全带 `basis.delegation`，被拦下的零行。
+- ⑥ D30–D31：不带 `riskNote`／只有空白 → `risk_note`；同一条补上理由再批 → 代批。
+- ⑦ D10–D11：会话头 auto（PATCH 回读 `auto`）、`/api/chat/stream` 请求级 default → `blockedBy:mode`、d1 仍在；对照 D12：会话头 default、请求级 auto → 代批。
+- ⑧ D41／D44：从按钮入口（`userPressed`）调 `steward_config_set{stewardExemptDelegationV1:true}` → `steward.forbidden, keys:["stewardExemptDelegationV1"]`，盘上仍 false；unit steward-config-tier 84/0。
+- 看管对照 D80：用户自己开、没交给管家的线程 → `not_watched`。单测 ⑧（105 条的那一份）：从「八道全不过」逐道修好时 `blockedBy` 依次走完闸名表八项再放行；闸 5 恰 1000 字过、1001 字与深度截断拦；riskNote 折行／中和／截 200；污染工具名 11 算 9 不算；代理调用 7 样本；回执合并去重。
+
+**反向（最终代码上各做一次：改源码 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠ 摘掉污染判定**（06i verdict 删闸 6 那四行）→ unit 5 条红（如「读过网页后 git push」实得 `{"delegable":true,"blockedBy":null,"categories":["push_remote"]}`）；e2e 13 条红：R21 实得 `ok:true … "categories":["push_remote"]`（**管家替用户批了读过网页之后的推送**）、R24 被批的那条真跑了（注释前的 Set-Content 写出了标记）、D50／D60 实得 `ok:true`（本回合与粘性两条都放行），其余是计数级联（D75 实得 `hourly_cap`）。
+- **㈡ 底线只看首中**（`hitList.some(...)` → `hitList[0]`）→ unit 实得 `["rm -rf b && shutdown /s",null]`；e2e D20 第三条实得 `{"ok":true}`（被代批，执行的只是注释前的 Write-Output），D96 计数级联。
+- **㈢ 闸 2 改读会话头**（13l `liveMode: permissionMode`）→ D10 实得 `reason:"permission_mode"`（闸 2 放过了，被 `:243` 按活回合算的 mayAct 兜住，d1 仍在 —— 见不同之处 2）、D12 实得 `blockedBy:"mode"`（合规代批被拦），D95／D98／D99 级联（D99 实得 `permissionMode:"auto"`）。
+- 三次均按文件备份还原 `06i-steward-core.js`／`13l-steward-ops.js`／`manifest.json`／`server.js`，`sha256sum -c` 四个 OK（`920a4fa3…`／`f7771eea…`／`7b4fd574…`／`5c8309ad…`），`build --check` 新鲜。（此前在加 `stewardTaintToolCall` 之前的代码上做过同样三次，结论相同，也逐个 sha256 还原过。）
+
+**延迟实测**（R 段，「权限请求出现（待决行 `requestedAt`）→ 代批落定（终态行 `decidedAt`）」；出厂值轮询 15 s、去抖 5 s；假模型 ≈0 s）：代批 ① 12.5／17.5／17.6／15.4／17.3／17.5／15.0 s（7 次；另一次读早了拿到 NaN，是改夹具之前的那个「读到 applying 就当落定」的缺陷，不计）、④ 14.8–14.9 s（8 次）；被拒的 ② 从请求到管家判下 14.2–14.6 s（8 次）。样本来自八次直跑（不含反向那几轮）。对照 `permissionTimeoutMs=120000`：一个数量级以内；定时线程的等待是 `schedulerAskWaitMinutes`（默认 30 min），余量更大。**已知限制**：真模型要多付三次调用（thread_status → decide → 回复）；管家被节流时（`stewardMaxTurnsPerHour` 默认 12、无进展退避、用户回合抢占收件箱回合）非定时线程可能等过 120 s 被超时拒掉 —— 本刀不做事件唤醒，**登记为债「needs_you 事件唤醒」**（同 §2-quater.1 取证 9）。
+
+**生成器链与门**：`module-dependency-graph --write`（**53 模块／420 边／1 SCC／前向边 68，零新增边**；全库提供符号 2337→2357；06i 105→117、13j 66→69、13k 32→34、13q 20→23；新符号全落在既有边上：10→06i、13j→06i、13k→06i、13l→06i／13j／13k、13q→13j、14→06i／13q）→ `build.js`（55207 行）→ `architecture-contract-snapshots.js --write` → `facts-generate.js`（e2eCount **361→362**，README 四处 361→362／354→355）→ `route-inventory.js`（137 判定点不变、告警 0）；另跑 `durable-state-inventory.js --write`（session-head 描述补 `stewardTaint`）。计数锁重钉：`fixture-home.static` 146→147（带来路注释）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、改动 38 个文件（含本文与新件）控制字符／CR／NUL 扫描 0，U+FFFD 仅 `server.js` 2 处与 HEAD 相同。逐件单跑（最终代码）：unit steward-exempt 105／permission-ceiling 12／steward-inbox-core 115／steward-config-tier 84；fixture-home.static 24、steward-tools.static 113、steward-runner.static 139、prompt-snapshot.static 72、steward-settings.static 102、i18n.static 7、module-dependency-graph.static 13、architecture-contract-snapshots.static 14、route-inventory.static 12、durable-state-inventory.static 6、facts.static 24；steward-exempt-no-swap 41、steward-exempt-shell-send 21、steward-guardrails 193、steward-tools 185、interventions-snapshot 40、steward-runner 125、steward-settings（真浏览器）73、i18n ALL PASS、dom-smoke 53、session-permission-mode 90、steward-decisions 25、thread-brief.static 40，全部 0 fail。
+
+**全量回归（2-quater B2，第一轮，返工之前）**：`run-all.js --parallel 4` 退出码 1，**354 pass / 1 fail / 3 flaky / 355 ran（7 skipped 为既有 live probe），unit 全绿**。红件与 flaky 逐件串行单跑复验：
+
+| 件 | 回归首跑 | 串行单跑 | 归类 |
+|---|---|---|---|
+| `steward-exempt-delegation.e2e.js`（新件） | TIMEOUT(>120 s)，失败尾巴末 25 行全是 PASS、停在 D75 之后 | 修夹具后 run-all 单件 **46/46，62.7 s** | **夹具缺陷，本刀自己的**：D 段 `turn()` 按脚本条数等待决，而 `web_fetch`／`tool_invoke_read` 那两步不会停下来问 → 两个场景各白等一个 30 s 超时（打点实测：串行单跑 123 s，两段 30 s 空等）。修法：本机流结束就不再等下一条待决（管家递话起的回合流立刻返回，仍按条数等）。没有加超时豁免 —— 根因去掉后单跑 63 s（R 段约 52 s 是 15 s 轮询节拍本身，不随负载放大）。件内加了墙钟打点 |
+| `budget-guard.e2e.js` | flaky：E30「零触发路径请求体与全关基线逐字节一致」首跑红、回归内重跑绿 | 57/57（56 s） | 负载时序族（同件两次运行逐字节比对，两边跑的是同一份代码；件内不涉及管家／豁免判据） |
+| `scheduler-ui.browser.e2e.js` | flaky：B1 口袋角标（同 ②③④、2-bis 已登记同一条） | 34/34（11 s） | 浏览器时序族；本刀前端改动只在设置页管家组 |
+| `walkthrough-round1.browser.e2e.js` | flaky：F1–F8 切模型（首跑实测 PATCH 为空） | 46/46（18 s） | 浏览器时序族（独占桶内首跑） |
+
+每件浏览器件单跑后都调了 `stopRuyiTestBrowsers()`。新件是在这一轮之后改的（只改夹具、零 `src` 改动），当时只经 run-all 单件模式与直跑复验；第二轮全量见返工段之后。
+
+**返工（主会话复核抓到的缺陷，2026-09-17）：粘性污染位写早了，一条待决的写型 `http_request` 会把自己算成污染**
+
+- **缺陷**：首版在 10 的 `emit` 里一见 `tool_use` 就置粘性位，而原生回合先发 `tool_use` 再过权限闸（09 发 `tool_use` → `requestNativePermission`）。于是一条停在待决上的写型 `http_request`（POST，`structured_write`／「对外发送」）在任何人决定之前就先写下 `stewardTaint:{by:'http_request'}`；`stewardExemptLiveTurn` 读到它，代批恒被拦成 `tainted`／`sticky:http_request`。06i `stewardTurnTaint` 段表那一半的「跳过自己那个工具段」救不了它，粘性那一半照样触发 —— **拍板 1「写型 http_request 交给管家判断」在真路径上永远做不到**；经 `tool_invoke_*` 代理调这几个工具同理。首版对此只有 unit ⑧ 的段表样本，不经 10，所以没抓到。
+- **修法**（`10-context-governance.js`）：外部内容是随工具**结果**进线程的，所以置位挪到结果上。`runSessionTurn` 里加一张本回合在途表 `stewardTaintInFlight`（`:2478`，键 = `subagentId` ＋ 调用 id）：`tool_use`／`tool_use_update` 命中 `stewardTaintToolCall` 只记「这条调用会带外部内容回来」（改名改参后不算了也不撤先前的记号，保守）；同 id 的 `tool_result` 到了才置位（`:2517` 起），**不看 `isError`**（被拒、出错照算，保守）；形状仍是 `{by,at,turnSeq}`、已置不改。子代理 start／`agent_workflow` 照旧在事件到达时置位。三个引擎的 `tool_result` 与自己的 `tool_use` 同 id 逐个核过：09 `{type:'tool_result', id: tc.id}`（含服务端 `web_search` 的 `stc.id`）、05 `:743` `id: ev.id`、05b ACP `:2283` 与 `:2261` 同一个 `id`、05b 子会话 `kimi:<child>:<tool>` 两边都带 `subagentId`；08 子代理的调用也带 `subagentId`，键里一起算，父子两边的 id 撞不到一起。06i（`stewardTaintToolCall`／`stewardTurnTaint` 头注）、13k（`stewardExemptLiveTurn` 头注）与 `durable-state-inventory` 的 session-head 描述同步改成「结果回来时写」。
+- **顺手抓到的第九个补丁损坏样本**（纪律 7／11）：这次用 Edit 写进 10 的键分隔符 `'\u0000'` 落成了两个裸 NUL 字节（运行时字符串相同，所以测试照绿），交付前的逐字节扫描抓到 `nul: 2`，用 node 把裸 NUL 换回六个字符的转义文本，重跑生成器链；server.js NUL 0。写本段时同一个转义在本文里又被 Edit 落成一个裸 NUL，交付前扫描再次抓到、同法换回（本文 NUL 0）。
+- **新判据**（`steward-exempt-delegation.e2e.js` D 段，同一条看管线程，此前只有 `powershell_run`，这一回合又是用户亲发的）：线程发 `http_request{method:'POST'}` 到夹具自己的本机接口 `/post-sink` → 停在豁免待决上 → `steward_decide` 带理由。
+  - D46：待决 `toolName:http_request, tier:exec`，此刻会话头 `stewardTaint` 为 null。
+  - D47：代批落定，实得 `ok=true, categories=["outbound_send"]`（**不是** `sticky:http_request`）。
+  - D48：那条 POST 真的到了夹具接口（`method:POST`、正文 `{"report":"B2 巡检结果"}`）。
+  - D49：调用返回后会话头 `stewardTaint:{by:"http_request",turnSeq:6}`。
+  - D49b：紧跟着的 `git push` → `blockedBy:tainted, taintBy:turn:http_request`，命令没跑。
+  - 连带：本实例代批次数多一次，⑤ 的前提改为「到此恰 6 次（第 6 次就是 D90 那条回执代批）」→ 下一条 `blockedBy:hourly_cap`（原 D96 并入 D95）；D98 账本仍是六行。
+- **反向**：把置位挪回 `tool_use`（在途表那一行后面顺手 `taintedBy = inFlightName`）→ D47 红，实得 `ok=false blockedBy=tainted taintBy=sticky:http_request categories=null`；D48 红（POST 没发出去，实得 `[]`）；D95／D97 计数级联。按文件备份还原 `10-context-governance.js`／`manifest.json`／`server.js`，`sha256sum -c` 三个 OK（`dc8ab5eb…`／`0f66d55b…`／`a343789d…`），`build --check` 新鲜。反向做在裸 NUL 修正之前的那一版上（两版运行时逐字节等价，差别只在源码里那两个分隔符的写法）。
+- **生成器链与门**（返工后）：`module-dependency-graph --write`（53 模块／420 边／1 SCC／前向边 68，**零新增边**；提供符号 2357 不变 —— 在途表是函数内局部量）→ `build.js`（55232 行）→ `architecture-contract-snapshots.js --write` → `facts-generate.js`（e2eCount 362 不变）→ `route-inventory.js`（137 判定点、告警 0）；`durable-state-inventory.js --write`。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、改动 38 个文件控制字符／CR／NUL 扫描 0（U+FFFD 仅 `server.js` 既有 2 处）。逐件单跑：unit steward-exempt 105/0、steward-exempt-delegation **50/0**（65 s）、steward-exempt-no-swap 41/0、steward-exempt-shell-send 21/0、steward-guardrails 193/0、steward-runner 125/0。
+
+**全量回归（2-quater B2，第二轮，返工之后）**：`run-all.js --parallel 4` 退出码 **0**，**355 pass / 0 fail / 3 flaky / 355 ran（7 skipped 为既有 live probe），unit 全绿**；新件 `steward-exempt-delegation` 首跑即绿（默认 120 s 单件超时，不在 flaky 名单）。三件 flaky 逐件串行单跑复验（三件里只有 steward-settings 碰到本刀的改动面 —— 本刀给它加了 E2b–E2d／G7；另两件对 `stewardTaint`／豁免判据／`steward_decide` 零引用，grep 过）：
+
+| 件 | 回归首跑 | 串行单跑 | 归类 |
+|---|---|---|---|
+| `orchestration-blindspots.e2e.js` | S4「事件流 run_resumed 恰 +1」实得 +0，回归内重跑绿 | 36/36（6 s） | 事件计数读早了的负载时序（10 的 `emit` 改动只多记一张表，所有事件照旧原样转发） |
+| `steward-settings.e2e.js` | 无 FAIL 行（4 路负载下超时／被杀），回归内重跑绿 | 73/73（13 s，含本刀新加的 E2b–E2d／G7） | 真浏览器件负载超时（2-bis 已登记同形） |
+| `thread-arbiter.e2e.js` | ①「开关关：总耗时 5854 ms 低于串行下界 5400 ms」，回归内重跑绿 | 103/103（41 s） | 墙钟串行下界断言的负载时序 |
+
+浏览器件单跑后调了 `stopRuyiTestBrowsers()`。如实登记，不归功于也不归咎于本刀。

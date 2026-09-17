@@ -1150,6 +1150,9 @@
               <p class="field-help muted" data-i18n="settings.steward.auto.relayHint">同一件事里，上一条线程的结论自动交给下一条；关掉就只提议。</p>
               <label class="check"><input type="checkbox" id="cfgStewardAutoNewThread" /> <span data-i18n="settings.steward.auto.newThread">需要时自己新开线程</span></label>
               <p class="field-help muted" data-i18n="settings.steward.auto.newThreadHint">定时任务到点、或接力需要一条新线程时，管家自己开一条，不再等你按。</p>
+              <!-- 127 波 2-quater B2（45 号文 §2-quater.2）：管家代批。独立顶层键 stewardExemptDelegationV1（forbidden 档，管家自己改不了），不进 stewardAutoActions（那一格是 confirm 档）。 -->
+              <label class="check"><input type="checkbox" id="cfgStewardExemptDelegation" /> <span data-i18n="settings.steward.auto.exemptDelegation">线程停下来问永久豁免的动作时，管家可以按规则替我批</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.auto.exemptDelegationHint">只对「智能自动」档、管家在看管或定时任务开的线程生效。支付、关机格式化、改注册表、发邮件这些底线项永远等你按；线程读过网页后不替你推送或外发；每小时最多 6 次，每次都要写理由、出回执、记进行动流水。这一项管家自己改不了。</p>
             </section>
 
             <!-- ④ 模型与预算 -->

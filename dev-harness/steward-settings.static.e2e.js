@@ -91,6 +91,8 @@ const CONTROL_IDS = [
   'cfgStewardDefaultPermission', 'cfgStewardPermissionHint', 'cfgStewardPermissionConfirm',
   'cfgStewardPermissionConfirmList', 'cfgStewardPermissionCancel', 'cfgStewardPermissionOk',
   'cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread',
+  // 127 波 2-quater B2：管家代批开关（顶层键 stewardExemptDelegationV1，住「管家可以自己做的事」组）。
+  'cfgStewardExemptDelegation',
   'cfgStewardProviderId', 'cfgStewardModel', 'cfgStewardPollMs', 'cfgStewardVisitIdle',
   'cfgStewardMaxTurnsPerHour', 'cfgStewardMaxCostPerDay', 'cfgStewardMaxParallelThreads',
   'cfgStewardGlobalMaxTurnsPerHour', 'cfgStewardGlobalMaxCostPerDay', 'cfgStewardRetention',

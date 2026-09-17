@@ -3838,6 +3838,10 @@
         "STEWARD_EVENT_KINDS",
         "STEWARD_EXEMPT_CATEGORY_LABELS",
         "STEWARD_EXEMPT_CONTENT_GROUPS",
+        "STEWARD_EXEMPT_DELEGATIONS_PER_HOUR",
+        "STEWARD_EXEMPT_DELEGATION_GATES",
+        "STEWARD_EXEMPT_DELEGATION_TEXT_MAX",
+        "STEWARD_EXEMPT_DELEGATION_WINDOW_MS",
         "STEWARD_EXEMPT_EXCERPT_CHARS",
         "STEWARD_EXEMPT_FLOOR_DELETE_TARGET",
         "STEWARD_EXEMPT_FLOOR_DELETE_VERBS",
@@ -3845,6 +3849,8 @@
         "STEWARD_EXEMPT_INPUT_DEPTH",
         "STEWARD_EXEMPT_NAME_CARVEOUTS",
         "STEWARD_EXEMPT_READ_METHODS",
+        "STEWARD_EXEMPT_RISK_NOTE_CHARS",
+        "STEWARD_EXEMPT_TAINT_CATEGORIES",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_ID_OPAQUE_RE",
         "STEWARD_ID_SESSION_RE",
@@ -3869,6 +3875,7 @@
         "STEWARD_SESSION_TITLE",
         "STEWARD_STATE_LABELS",
         "STEWARD_STOPPED_SAY",
+        "STEWARD_TAINT_TOOL_NAMES",
         "STEWARD_THREAD_STATES",
         "STEWARD_THREAD_STATE_ORDER",
         "STEWARD_TOOL_PREFIX",
@@ -3889,10 +3896,12 @@
         "stewardClipSay",
         "stewardConfigTierFor",
         "stewardExemptCatastrophicDelete",
+        "stewardExemptDelegationVerdict",
         "stewardExemptExcerpt",
         "stewardExemptHits",
         "stewardExemptInputText",
         "stewardExemptReason",
+        "stewardExemptRiskNote",
         "stewardExemptScanInput",
         "stewardExemptStructuredWrite",
         "stewardHasText",
@@ -3918,12 +3927,15 @@
         "stewardStateLabel",
         "stewardStoppedRefusal",
         "stewardStoppedTarget",
+        "stewardTaintToolCall",
+        "stewardTaintToolName",
         "stewardTermJaccard",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
         "stewardThreadStateRank",
         "stewardToolPermanentlyExempt",
         "stewardTrimSayAtSentence",
+        "stewardTurnTaint",
         "stewardWatchedThread",
         "threadOriginOf",
         "threadVisible",
@@ -7996,6 +8008,13 @@
           "symbol": "StewardHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12304,6 +12323,9 @@
         "stewardDecisionsRead",
         "stewardEmptyMemoryStore",
         "stewardEngineOf",
+        "stewardExemptDelegationRecord",
+        "stewardExemptDelegationTimes",
+        "stewardExemptDelegationsInWindow",
         "stewardFail",
         "stewardLastAssistantText",
         "stewardMaskDecisionArgs",
@@ -12443,6 +12465,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_DELEGATION_WINDOW_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_KINDS",
           "kinds": [
             "read"
@@ -12484,6 +12513,8 @@
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
         "stewardEnrichInboxRows",
+        "stewardExemptDelegatedLog",
+        "stewardExemptLiveTurn",
         "stewardExemptPendingSummary",
         "stewardFoldWorkspacePath",
         "stewardImplQuickAsk",
@@ -12869,6 +12900,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardTurnTaint",
           "kinds": [
             "call"
           ]
@@ -13350,7 +13388,28 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptDelegationVerdict",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptHits",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptReason",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptRiskNote",
           "kinds": [
             "call"
           ]
@@ -13414,6 +13473,20 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "threadOriginOf",
           "kinds": [
             "call"
           ]
@@ -13581,6 +13654,20 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardExemptDelegationRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardExemptDelegationsInWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
           "kinds": [
             "call"
@@ -13645,6 +13732,27 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardExemptDelegatedLog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardExemptLiveTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardExemptPendingSummary",
           "kinds": [
             "call"
           ]
@@ -15048,7 +15156,10 @@
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
+        "stewardDelegationReceiptLabel",
+        "stewardDelegationToolCalls",
         "stewardLastAssistantCreatedAt",
+        "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
         "stewardPendingList",
         "stewardQueueHasQuickAnswer",
@@ -15208,7 +15319,8 @@
           "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -15284,6 +15396,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
           "kinds": [
             "call"
           ]
@@ -18608,6 +18727,27 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_DELEGATION_GATES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_DELEGATION_TEXT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_DELEGATIONS_PER_HOUR",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EXEMPT_NAME_CARVEOUTS",
           "kinds": [
             "read"
@@ -18727,6 +18867,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptDelegationVerdict",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptExcerpt",
           "kinds": [
             "read"
@@ -18742,6 +18889,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptReason",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptRiskNote",
           "kinds": [
             "read"
           ]
@@ -18811,6 +18965,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardTaintToolName",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
           "kinds": [
             "read"
@@ -18847,6 +19015,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTrimSayAtSentence",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardTurnTaint",
           "kinds": [
             "read"
           ]
@@ -20241,6 +20416,13 @@
         {
           "provider": "13q-steward-runner-turn.js",
           "symbol": "runStewardTurn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardMergeDelegationReceipts",
           "kinds": [
             "read"
           ]

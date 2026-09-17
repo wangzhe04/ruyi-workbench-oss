@@ -1074,6 +1074,46 @@ function stewardExemptPendingSummary(iv) {
   return { categories, floor: verdict.hits.some(hit => hit.floor === true), commandExcerpt };
 }
 
+// 127 波 2-quater B2(45 号文 §2-quater.2 闸 2 / 闸 6):代批要的两件【活回合】事实,从活回合登记表上现读。
+// 为什么住 13k 而不是 13l:activeChildren 与 logEvent 都在 04,13k→04 是既有边、13l→04 不是(13l 今天一个 04
+// 符号都不引用)—— 与 B1 把 stewardExemptPendingSummary 放在这里是同一个理由,零新增依赖边。
+//   mode  —— 活回合此刻的实效档位:09 在 runOpenAiTurn 里挂到登记表上的 effectivePermissionMode(与闸门
+//            gateWithLiveMode 读同一个函数)。没有活回合 / 登记表上没有这个函数(Claude CLI、Kimi)/ 调用抛错
+//            → 空串,闸 2 据此拦下(判不出档位就不代批)。**不读会话头** —— 那正是要堵的错位。
+//   taint —— 06i stewardTurnTaint 在活回合段表上判(a),再叠会话级粘性污染位(b)。判不出一律算污染(c):
+//            没有活回合 'no_live_turn';登记表没有 liveSegments(Kimi 的就没有)'no_live_segments'。
+//            粘性位优先读活回合里那一份会话对象(10 的 emit 写的就是它,比盘上新),盘上的会话头兜底。
+//            10 只在读外部内容的那条工具调用【结果回来】时置位 —— 这条待决自己(还没执行、没有结果)不会把自己算进去。
+function stewardExemptLiveTurn(liveSessionId, liveInterventionId, liveHead) {
+  const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
+  if (!liveReg) return { live: false, mode: '', taint: { tainted: true, taintBy: 'no_live_turn' } };
+  let mode = '';
+  try { mode = typeof liveReg.effectivePermissionMode === 'function' ? String(liveReg.effectivePermissionMode() || '') : ''; } catch { mode = ''; }
+  const sticky = (liveReg.session && liveReg.session.stewardTaint) || (liveHead && liveHead.stewardTaint) || null;
+  let taint = { tainted: true, taintBy: 'no_live_segments' };
+  if (liveReg.liveSegments && typeof liveReg.liveSegments.snapshot === 'function') {
+    try { taint = stewardTurnTaint(liveReg.liveSegments.snapshot(), liveInterventionId, sticky); } catch { taint = { tainted: true, taintBy: 'no_live_segments' }; }
+  }
+  return { live: true, mode, taint };
+}
+// 代批落定之后的审计行。**只放元数据**:类别、判据来源、有没有写理由、窗口里第几次 —— 命令摘录与 riskNote
+// 正文都不进日志(日志会被 /api/audit 与导出面读走;摘录与理由只进决策账本与回执)。
+function stewardExemptDelegatedLog(delegatedMeta) {
+  const m = (delegatedMeta && typeof delegatedMeta === 'object') ? delegatedMeta : {};
+  try {
+    logEvent({
+      kind: 'steward_exempt_delegated',
+      sessionId: String(m.sessionId || ''),
+      interventionId: String(m.interventionId || ''),
+      toolName: String(m.toolName || '').slice(0, 120),
+      categories: Array.isArray(m.categories) ? m.categories.slice(0, 5) : [],
+      exemptBy: String(m.exemptBy || ''),
+      riskNoteChars: Math.max(0, Number(m.riskNoteChars) || 0),
+      windowCount: Math.max(0, Number(m.windowCount) || 0),
+    });
+  } catch { /* 审计旁路:写不进去不反噬已经落定的决定 */ }
+}
+
 async function stewardEnrichInboxRows(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const heads = new Map();

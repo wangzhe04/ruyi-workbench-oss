@@ -130,6 +130,10 @@ const EXPECTED = {
   // 自己决定用户还有多久会再看见这件事(与 schedulerAskWaitMinutes 同一条理由)。用户在设置页
   // 与那枚按钮上都一眼看得见,要改自己改。
   quietCardSnoozeMinutes: 'forbidden',
+  // 127 波 2-quater B2(45 号文 §2-quater.3 拍板 2「默认开,设置可关,管家自己改不了」):管家代批开关。
+  // **必须 forbidden,不能 confirm**:confirm 档管家可以提一枚按钮、用户随手一按就翻了 —— 那等于管家能
+  // 劝用户替它扩权。06i 的 STEWARD_CONFIG_TIER_FORBIDDEN_NOTE 点名留了账;判据仍是 fail-closed。
+  stewardExemptDelegationV1: 'forbidden',
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',

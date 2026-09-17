@@ -1989,18 +1989,34 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // liveSessionPermissionMode 对 '' (用户清除会话级设置)返回 null → 落回快照,不在活回合里替用户猜。
   const permissionModeAtTurnStart = liveSessionPermissionMode(session.id);
   let permissionModeLiveLogged = false;
-  const gateWithLiveMode = (gateTier, gateToolName, gateInput) => {
-    const snapshotGate = nativeToolGate(config.permissionMode, gateTier, gateToolName, gateInput);
+  // 127 波 2-quater B2(45 号文 §2-quater.2 闸 2):「这个回合此刻真正按哪一档在跑」抽成一个函数,闸门与
+  // 管家代批读同一份。修前这段判断只长在 gateWithLiveMode 里面;管家那边能拿到的只有会话头 / 全局
+  // (13j stewardThreadPermissionMode),而定时任务与请求级 permissionMode 的回合走的是请求级
+  // (13s:501 → 10 resolvePermissionMode),两者可以不一致 —— 代批要看的恰恰是这一个。
+  // 口径与修前逐字相同:带了请求级档 → 快照;会话级在本回合里没被改过 → 快照;改过 → 此刻的会话级档。
+  const effectivePermissionModeNow = () => {
     // 117m-A6（审查报回 P0-1）：这一单带了请求级档时，会话级中途改动不得接管。
     // 否则 request > session 这条契约在回合中途会被静默推翻（请求级 plan 本该全程 block）。
-    if (config.permissionModeFromRequest === true) return snapshotGate;
+    if (config.permissionModeFromRequest === true) return config.permissionMode;
     const live = liveSessionPermissionMode(session.id);
-    if (!live || live === permissionModeAtTurnStart) return snapshotGate;
-    const liveGate = nativeToolGate(live, gateTier, gateToolName, gateInput);
+    if (!live || live === permissionModeAtTurnStart) return config.permissionMode;
+    return live;
+  };
+  // 挂到活回合登记表上(只读的一个函数引用,零新增状态):13k stewardExemptLiveTurn 经 activeChildren 调它。
+  // Claude CLI / Kimi 的登记表上没有它 —— 管家那一侧读不到就按「判不出档位」拦下(那两个引擎在 auto 档
+  // 本来就不经这道闸问人,45 号文 §2-quater.1 取证 10)。
+  reg.effectivePermissionMode = effectivePermissionModeNow;
+  const gateWithLiveMode = (gateTier, gateToolName, gateInput) => {
+    const snapshotGate = nativeToolGate(config.permissionMode, gateTier, gateToolName, gateInput);
+    const effectiveMode = effectivePermissionModeNow();
+    // 实效档与快照档相同 = 判定必然相同(同一个纯函数同一组入参),直接用快照的判定 —— 与修前
+    // 「请求级 / 没改过 → 快照」以及「改过但改回同一档 → 判定不变、不记事件」两条路逐字等价。
+    if (effectiveMode === config.permissionMode) return snapshotGate;
+    const liveGate = nativeToolGate(effectiveMode, gateTier, gateToolName, gateInput);
     // 只在换档【真的改变了这一步的判定】时记一条观测事件,每回合最多一条(方便下次对账,不刷屏)。
     if (liveGate !== snapshotGate && !permissionModeLiveLogged) {
       permissionModeLiveLogged = true;
-      try { logEvent({ kind: 'permission_mode_live', sessionId: session.id, from: config.permissionMode, to: live }); } catch { /* 遥测绝不阻断 */ }
+      try { logEvent({ kind: 'permission_mode_live', sessionId: session.id, from: config.permissionMode, to: effectiveMode }); } catch { /* 遥测绝不阻断 */ }
     }
     return liveGate;
   };

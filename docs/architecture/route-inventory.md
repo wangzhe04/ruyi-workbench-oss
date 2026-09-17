@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-17T03:32:57.739Z。
+> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-17T06:14:56.697Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -40,7 +40,7 @@
 | POST | `/api/pick-folder` | exact | token | 13-http-router.js:417 | workspace-resolve.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js:421 | overlay-update-gui.static.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js:425 | claude-models-cache.e2e.js, context-window.e2e.js, kimi-agent-cli.e2e.js 等 4 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js:475 | agent-team-mode.e2e.js, asr-transcribe.e2e.js, classic-window-live-steer.e2e.js 等 38 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js:475 | agent-team-mode.e2e.js, asr-transcribe.e2e.js, classic-window-live-steer.e2e.js 等 39 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js:490 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js:503 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js:518 | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 4 件 |
@@ -91,7 +91,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1484 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1516 | vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1527 | vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1547 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 132 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1547 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 133 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1565 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1840 | — |
 
@@ -113,7 +113,7 @@
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js:1721 | — |
 | POST | `/api/question/request` | exact | body-token | 13d-core-domain-routes.js:1731 | — |
 | POST | `/api/permission/request` | exact | body-token | 13d-core-domain-routes.js:1746 | — |
-| POST | `/api/permission/decision` | exact | token-browser | 13d-core-domain-routes.js:1840 | autonomy-pause.e2e.js, claude-binary-live.e2e.js, intervention-mission-gate.e2e.js 等 9 件 |
+| POST | `/api/permission/decision` | exact | token-browser | 13d-core-domain-routes.js:1840 | autonomy-pause.e2e.js, claude-binary-live.e2e.js, intervention-mission-gate.e2e.js 等 10 件 |
 | POST | `/api/plan/decision` | exact | token | 13d-core-domain-routes.js:1859 | intervention-mission-gate.e2e.js, interventions-snapshot.e2e.js, plan-mode.e2e.js 等 5 件 |
 | POST | `/api/_test/intervention-cas` | exact | token self | 13d-core-domain-routes.js:1880 | interventions-cas.e2e.js, interventions-changeseq.e2e.js |
 
@@ -160,22 +160,22 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:736 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 7 件 |
-| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:745 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 7 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:764 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:805 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:819 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
-| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:843 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js |
+| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:736 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 8 件 |
+| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:745 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 8 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:764 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js 等 4 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:805 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js 等 4 件 |
+| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:819 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js 等 4 件 |
+| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:843 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler.e2e.js 等 4 件 |
 
 ## session(5)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 157 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 158 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 157 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 158 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 81 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 82 件 |
 
 ## steer(2)
 
@@ -203,9 +203,9 @@
 | GET | `/api/steward/arbiter` | exact | token self | 13h-steward-runner.js:193 | focus-rail.browser.e2e.js, net-token-replay.static.e2e.js, steward-board.e2e.js 等 9 件 |
 | POST | `/api/steward/arbiter/prioritize` | exact | token self | 13h-steward-runner.js:202 | steward-board.static.e2e.js, steward-drawer.static.e2e.js, thread-arbiter.e2e.js |
 | POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js:224 | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-runner.e2e.js 等 4 件 |
-| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js:236 | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 19 件 |
+| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js:236 | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 20 件 |
 | POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js:253 | foreign-turn-busy-guard.e2e.js, new-thread-engine-default.e2e.js, steward-board.static.e2e.js 等 8 件 |
-| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js:285 | classic-window-live-steer.e2e.js, event-stream.e2e.js, foreign-turn-busy-guard.e2e.js 等 13 件 |
+| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js:285 | classic-window-live-steer.e2e.js, event-stream.e2e.js, foreign-turn-busy-guard.e2e.js 等 14 件 |
 
 ## 域路由委派(handleApi → 域 handler)
 

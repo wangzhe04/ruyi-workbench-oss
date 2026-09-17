@@ -500,6 +500,129 @@ function stewardExemptExcerpt(redactedText, hits, maxChars = STEWARD_EXEMPT_EXCE
   return '…' + body.slice(start, start + middle) + '…';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 127 波 2-quater B2(45 号文 §2-quater.2 B2 / §2-quater.3 三件拍板):管家代批。
+// 用户原话「停下来问的话,管家如果判断风险不高或者合理,应该要能带我批准」。「智能自动」档里线程停下来问的,
+// 只剩命令正文命中永久豁免的那一类(07 nativeToolGate 只对命中才问),本节是「这一条管家能不能替用户批」的
+// 【纯判据】:八道闸按固定顺序判,第一道不过就报它的名字(blockedBy),13l steward_decide 据此决定是照旧回
+// propose_required,还是进 decideIntervention。事实由调用方喂(活回合档位、线程看管、污染、窗口计数都在
+// 06i 看不见的层),本节只负责把它们按顺序合成一个结论 —— 与本文件其余判据同一条纪律:零 require、零外部符号。
+// ─────────────────────────────────────────────────────────────────────────────
+// 闸 5:命令全文上限。代批只给【一眼看得完】的命令:超过 1000 字的脚本管家看的是 300 字摘录,判不了全貌。
+const STEWARD_EXEMPT_DELEGATION_TEXT_MAX = 1000;
+// 闸 7:riskNote(管家写给用户看的代批理由)的硬顶。中和后只进决策日志与回执,不进审计日志。
+const STEWARD_EXEMPT_RISK_NOTE_CHARS = 200;
+// 闸 8:每小时代批上限。计数窗口住在 13j(内存,重启归零 —— 与 13m 自理动作账同一立场),数字只住这里。
+const STEWARD_EXEMPT_DELEGATIONS_PER_HOUR = 6;
+const STEWARD_EXEMPT_DELEGATION_WINDOW_MS = 60 * 60 * 1000;
+// 闸 6 只对这两类生效(拍板 3):线程读过外部内容时,「对外发送」「推送远端」不代批;删文件、装卸软件仍可。
+const STEWARD_EXEMPT_TAINT_CATEGORIES = Object.freeze(['outbound_send', 'push_remote']);
+// 「读过外部内容」的工具名(拍板 3 的机器判据)。另有两条形状规则写在 stewardTaintToolName 里:
+// `browser_` 前缀整族、名字里带 `__` 的一律算(原生引擎的桥接 MCP 恒为 `<serverId>__<工具名>`,CLI 恒为
+// `mcp__<server>__<工具名>` —— 外部服务器返回什么内容工作台管不着,按最坏情况算)。
+const STEWARD_TAINT_TOOL_NAMES = Object.freeze([
+  'web_fetch', 'web_search', 'http_request', 'http_download', 'WebFetch', 'WebSearch', 'audio_transcribe',
+]);
+// 八道闸的机器名,顺序即判定顺序(信封 details.blockedBy 取其一;单测按这张表逐条造反例)。
+const STEWARD_EXEMPT_DELEGATION_GATES = Object.freeze([
+  'switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'tainted', 'risk_note', 'hourly_cap',
+]);
+function stewardTaintToolName(taintToolName) {
+  const name = String(taintToolName == null ? '' : taintToolName);
+  if (!name) return false;
+  return STEWARD_TAINT_TOOL_NAMES.includes(name) || name.startsWith('browser_') || name.includes('__');
+}
+// 一次【工具调用】算不算「读外部内容」,返回算污染的那个工具名(不算就是空串)。比只看名字多认一层代理:
+// 自适应工具装载下模型可以经 `tool_invoke_read/edit/exec {name, arguments}` 调任意目录里的工具
+// (12 invokeAdaptiveMcpTool),事件上的名字是 tool_invoke_read,真正跑的是 input.name —— 只看名字,
+// 一次代理调的 web_fetch 就从污染判据下面漏过去了。代理的目标读不出来(缺 name / 不是字符串)一律算污染。
+// 10 的粘性污染位写入点用它:tool_use 时按它记下「这条调用会带外部内容回来」,同一条调用的 tool_result
+// 到了才置位(不在 tool_use 就置 —— 原生回合先发 tool_use 再过权限闸,一条停在待决上的写型 http_request
+// 否则会先把自己写进粘性位,管家判它时恒为污染)。回合段表上没有 input,只能按名字判;代理调用那一半由
+// 粘性位兜住(代理调用的结果一回来就在同一个会话对象上置位,下一条待决出现之前已经生效)。
+function stewardTaintToolCall(taintToolName, taintToolInput) {
+  const name = String(taintToolName == null ? '' : taintToolName);
+  if (stewardTaintToolName(name)) return name;
+  if (!name.startsWith('tool_invoke_')) return '';
+  const target = (taintToolInput && typeof taintToolInput === 'object' && typeof taintToolInput.name === 'string') ? taintToolInput.name : '';
+  if (!target) return name;
+  return stewardTaintToolName(target) ? target : '';
+}
+// 闸 6 的回合内那一半(a)＋粘性那一半(b)。入参是活回合 liveSegments.snapshot() 的段表、这条待决的 id
+// (= 原生回合 permission_request 的 requestId)、会话级粘性污染位(没有就传 null)。
+// 判不出一律算污染(c):段表不是数组、找不到这条待决对应的权限段 —— 看不见它之前发生过什么,就按最坏情况算。
+// 只看【这条权限段之前】的段:它之后才发生的读网页不可能影响它要执行的命令。
+// 例外只有一条:这条权限【自己】的那个工具段(原生回合先发 tool_use 再过闸,09 的 tool_use 早于
+// requestNativePermission)—— 否则一条待决的写型 http_request 会被它自己的名字判成「读过外部内容」。
+// 认「自己」的口径取最保守的:权限段之前【最近的】一个同名、且仍是 running(还没出结果)的工具段;
+// 已经出过结果的同名调用是真读过东西的那一次,照算污染。粘性位那一半(taintSticky)不需要这条例外:
+// 10 只在工具结果回来时置位,停在待决上的那一条调用还没有结果,写不进去。
+// 返回 { tainted, taintBy }:taintBy ∈ 'no_live_segments' / 'no_permission_segment' / 'turn:<工具名>' /
+// 'turn:subagent' / 'turn:workflow' / 'sticky:<工具名>' / null。工具名经中和并截 80 字(它会进信封与决策日志)。
+function stewardTurnTaint(taintSegments, taintRequestId, taintSticky) {
+  if (!Array.isArray(taintSegments)) return { tainted: true, taintBy: 'no_live_segments' };
+  const wanted = String(taintRequestId == null ? '' : taintRequestId);
+  const at = wanted ? taintSegments.findIndex(seg => seg && seg.type === 'permission' && String(seg.requestId || '') === wanted) : -1;
+  if (at < 0) return { tainted: true, taintBy: 'no_permission_segment' };
+  const ownName = String(taintSegments[at].toolName || '');
+  let own = -1;
+  for (let j = at - 1; j >= 0; j--) {
+    const seg = taintSegments[j];
+    if (seg && seg.type === 'tool' && seg.status === 'running' && String(seg.name || '') === ownName) { own = j; break; }
+  }
+  for (let i = 0; i < at; i++) {
+    const seg = taintSegments[i];
+    if (i === own || !seg || typeof seg !== 'object') continue;
+    if (seg.type === 'subagent') return { tainted: true, taintBy: 'turn:subagent' };
+    if (seg.type === 'workflow') return { tainted: true, taintBy: 'turn:workflow' };
+    if (seg.type === 'tool' && stewardTaintToolName(seg.name)) {
+      return { tainted: true, taintBy: 'turn:' + stewardSanitizeText(seg.name).slice(0, 80) };
+    }
+  }
+  if (taintSticky && typeof taintSticky === 'object') {
+    return { tainted: true, taintBy: 'sticky:' + (stewardSanitizeText(taintSticky.by).slice(0, 80) || 'unknown') };
+  }
+  return { tainted: false, taintBy: null };
+}
+// 闸 7 的清洗:折行、中和尖括号、首尾去空白、截 200 字。结果为空串即「没写理由」。
+function stewardExemptRiskNote(riskNoteRaw) {
+  if (typeof riskNoteRaw !== 'string') return '';
+  return stewardSanitizeText(riskNoteRaw).trim().slice(0, STEWARD_EXEMPT_RISK_NOTE_CHARS).trim();
+}
+// 八道闸的合成。delegationFacts:
+//   enabled      —— config.stewardExemptDelegationV1 === true(闸 1);
+//   liveMode     —— 【活回合】此刻的实效档位(闸 2;没有活回合 / 读不到就是空串)。**不是会话头的档位**:
+//                   会话头与回合实效档可以不一致(定时任务与请求级 permissionMode 走请求级,45 号文 §2-quater.1
+//                   取证 2),判「能不能代批」必须看线程此刻真正按哪一档在跑。只认 'auto'(智能自动);
+//                   bypass 从来不停下来问,也就没有东西可代批。
+//   watched / origin / explicitUnwatch —— 闸 3:管家看管(stewardWatchedThread)或定时任务开的线程
+//                   (threadOriginOf === 'schedule');但用户显式按过「别盯了」(stewardWatch === false)
+//                   一律不过 —— 那是用户说「这条我自己看着」,出身是定时任务也一样。
+//   scan         —— stewardExemptHits 的完整返回(闸 4 看【全部】命中有没有底线,闸 5 看扫没扫全与全文长度);
+//   taint        —— stewardTurnTaint 的返回(或调用方就地给的「判不出」);只在命中含两类外联时才问(闸 6);
+//   riskNote     —— stewardExemptRiskNote 之后的串(闸 7);
+//   recentCount  —— 滚动一小时窗口里已经代批过的次数(闸 8)。
+// 返回 { delegable, blockedBy, categories, taintBy }:categories 是去重保序的类别键;taintBy 只在闸 6 拦下时非空。
+function stewardExemptDelegationVerdict(delegationFacts) {
+  const f = (delegationFacts && typeof delegationFacts === 'object') ? delegationFacts : {};
+  const scanned = (f.scan && typeof f.scan === 'object') ? f.scan : { hits: [], scannedFully: false, textLength: 0 };
+  const hitList = Array.isArray(scanned.hits) ? scanned.hits : [];
+  const categories = [...new Set(hitList.map(hit => hit && hit.category).filter(Boolean))];
+  const blocked = gate => ({ delegable: false, blockedBy: gate, categories, taintBy: null });
+  if (f.enabled !== true) return blocked('switch_off');
+  if (String(f.liveMode == null ? '' : f.liveMode) !== 'auto') return blocked('mode');
+  if (f.explicitUnwatch === true || !(f.watched === true || String(f.origin || '') === 'schedule')) return blocked('not_watched');
+  if (!hitList.length || hitList.some(hit => !hit || hit.floor !== false)) return blocked('floor');
+  if (scanned.scannedFully !== true || !(Number(scanned.textLength) <= STEWARD_EXEMPT_DELEGATION_TEXT_MAX)) return blocked('scan_limit');
+  if (categories.some(key => STEWARD_EXEMPT_TAINT_CATEGORIES.includes(key))) {
+    const taint = (f.taint && typeof f.taint === 'object') ? f.taint : { tainted: true, taintBy: 'unknown' };
+    if (taint.tainted !== false) return { ...blocked('tainted'), taintBy: String(taint.taintBy || 'unknown') };
+  }
+  if (!stewardHasText(f.riskNote)) return blocked('risk_note');
+  if (!(Number(f.recentCount) < STEWARD_EXEMPT_DELEGATIONS_PER_HOUR)) return blocked('hourly_cap');
+  return { delegable: true, blockedBy: null, categories, taintBy: null };
+}
+
 // 委托书(§3.5「委派」/§11.1 第 9 项)。中和与 stewardSanitizeText 同源,区别只有一条:保留换行
 // (委托书补充是多行结构化文本,折行会毁掉可读性)。尖括号 -> 方括号,防伪造围栏标记。
 function stewardSanitizeBlock(value) {
@@ -1002,6 +1125,10 @@ const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
   'claudePath', 'kimiPath', 'extraClaudeArgs', 'appendSystemPrompt',   // 数据根/围栏/命令行与提示词注入
   'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers',
   'mcpCommandMode', 'permissionBridge', 'autonomyAutoResume', 'agentRoleOverrides', 'usageBudget',
+  // 127 波 2-quater B2(拍板 2「默认开,设置可关,管家自己改不了」):代批开关。**不是 confirm** —— confirm 档
+  // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权;它也【不】塞进 stewardAutoActions(那一格
+  // 是 confirm 档)。判据仍是 fail-closed 的「不在 free/confirm 两张表里」,这里只是点名留账。
+  'stewardExemptDelegationV1',
 ]);
 
 const STEWARD_CONFIG_TIERS = Object.freeze({
