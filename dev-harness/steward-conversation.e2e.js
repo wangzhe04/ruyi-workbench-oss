@@ -2265,6 +2265,95 @@ try {
   ok(Boolean(adNone) && adNone.focusLabel === '',
     `AD3 一条线程都没有时不编一枚「打开这一件」出来（实得「${adNone && adNone.focusLabel}」）`);
 
+  // ─── S1 ④（46 号文 §5 ⑦b H1「一枚按钮就是 confirm 档的钥匙」）────────────────
+  // 修前：模型自造的 act 里 label 优先用它自己写的那句、args 原样保留，前端 runAct 把整个 act
+  // 原样 POST 给 /api/steward/act，服务端据此置 userPressed —— 一枚写着「好，我知道了」的按钮
+  // 可以是 steward_config_set{externalMcpServers:[…任意 stdio 命令…]}。
+  // 本段量的是【前端这一半】：带 confirmItems 的 act 按下去先弹确认面板、不确认一个请求都不发；
+  // 服务端那一半（丢掉模型标签、派生说明、挂 confirmItems）在 unit/steward-config-tier.test.js ⑥。
+  // 走的是本文件既有的 Z0 模具：真浏览器、真模块、真 DOM，只把 api 换成探针（网络层之外全是真的）。
+  {
+    const S1_CONFIG_ACT = {
+      label: '改设置:permissionMode=auto', kind: 'tool', tool: 'steward_config_set',
+      args: { patch: { permissionMode: 'auto' } }, confirmItems: ['permissionMode = auto'], primary: true,
+    };
+    const S1_OPEN_ACT = { label: `打开「${THREAD_TITLE}」`, kind: 'open_thread', sessionId: threadId };
+    const S1_PANEL = `(() => {
+      const back = document.querySelector('.modal-backdrop.confirm-panel');
+      const head = back ? back.querySelector('.modal-head h3') : null;
+      return {
+        open: Boolean(back),
+        title: head ? head.textContent : '',
+        body: back ? [...back.querySelectorAll('.confirm-body p')].map(node => node.textContent) : [],
+        items: back ? [...back.querySelectorAll('.confirm-list li')].map(node => node.textContent) : [],
+        itemChildren: back ? [...back.querySelectorAll('.confirm-list li')].reduce((n, li) => n + li.children.length, 0) : -1,
+        calls: window.__s1.calls.map(one => one.url),
+        bodies: window.__s1.calls.map(one => one.body),
+        actA: [...window.__s1.rowA.querySelectorAll('.steward-act')].map(btn => ({ text: btn.textContent, disabled: btn.disabled })),
+        receipts: window.__s1.rowA.querySelectorAll('.steward-receipt').length,
+      };
+    })()`;
+    const s1Boot = await cdp.evaluate(`(async () => {
+      const mod = await import('/js/steward-conversation.js');
+      window.__s1 = { calls: [] };
+      const conv = mod.createStewardConversation({
+        api: async (url, init) => {
+          window.__s1.calls.push({ url: String(url), body: String((init && init.body) || '') });
+          return { result: { ok: true } };
+        },
+        t: key => key,
+        isStewardMode: () => true,
+      });
+      window.__s1.rowA = conv.appendSteward('这一条要改设置。', '');
+      conv.renderActs(window.__s1.rowA, ${JSON.stringify([S1_CONFIG_ACT])});
+      window.__s1.rowB = conv.appendSteward('这一条只是打开线程。', '');
+      conv.renderActs(window.__s1.rowB, ${JSON.stringify([S1_OPEN_ACT])});
+      return { a: [...window.__s1.rowA.querySelectorAll('.steward-act')].map(b => b.textContent),
+               b: [...window.__s1.rowB.querySelectorAll('.steward-act')].map(b => b.textContent) };
+    })()`);
+    ok(Boolean(s1Boot) && JSON.stringify(s1Boot.a) === JSON.stringify([S1_CONFIG_ACT.label]) && JSON.stringify(s1Boot.b) === JSON.stringify([S1_OPEN_ACT.label]),
+      `S1-0 两枚按钮就位：按钮上写的是服务端派生的说明（实测 ${JSON.stringify(s1Boot && [s1Boot.a, s1Boot.b])}）`);
+
+    // ① 按下 confirm 族那一枚 → 弹面板、**零请求**。
+    // 等待条件写成「面板开了【或者】请求已经发出去了」：摘掉确认那一步时，等的是后者 ——
+    // 于是反向验证红在「实测 ['/api/steward/act']」上，而不是红在一个等不到的 null 上
+    // （reverse-check-can-be-wrong：没被拦住的话屏上会有什么不同，要先说得出来）。
+    await cdp.evaluate("window.__s1.rowA.querySelectorAll('.steward-act')[0].click(); true");
+    const opened = await waitForEval(cdp, `(() => { const s = ${S1_PANEL}; return (s.open || s.calls.length) ? s : null; })()`);
+    ok(Boolean(opened) && opened.open === true && opened.calls.length === 0,
+      `S1-1 面板弹出之前**一个请求都没发**（实测 open=${opened && opened.open} calls=${JSON.stringify(opened && opened.calls)}）`);
+    ok(Boolean(opened) && opened.title === zh['stewardShell.acts.confirmTitle']
+      && opened.body.includes(zh['stewardShell.acts.confirmBody']),
+      `S1-2 面板的标题与引子取自 locale（实测 ${JSON.stringify(opened && { t: opened.title, b: opened.body })}）`);
+    ok(Boolean(opened) && JSON.stringify(opened.items) === JSON.stringify(['permissionMode = auto']) && opened.itemChildren === 0,
+      `S1-3 面板逐条列出「键 = 新值」，且是纯文本（li 里零子元素 = 零 innerHTML；实测 ${JSON.stringify(opened && [opened.items, opened.itemChildren])}）`);
+    ok(Boolean(opened) && JSON.stringify(opened.actA.map(x => x.disabled)) === JSON.stringify([true]),
+      `S1-3b 面板开着时那一枚按钮是置灰的（点不出第二张面板；实测 ${JSON.stringify(opened && opened.actA)}）`);
+
+    // ② 取消 → 仍然零请求，按钮恢复可点。
+    await cdp.evaluate("document.querySelector('.modal-backdrop.confirm-panel [data-confirm=\"cancel\"]').click(); true");
+    const cancelled = await waitForEval(cdp, `(() => { const s = ${S1_PANEL}; return s.open ? null : s; })()`);
+    ok(Boolean(cancelled) && cancelled.calls.length === 0 && cancelled.receipts === 0,
+      `S1-4 取消 → **一个请求都没发**、也没落回执（实测 ${JSON.stringify(cancelled && { calls: cancelled.calls, receipts: cancelled.receipts })}）`);
+    ok(Boolean(cancelled) && JSON.stringify(cancelled.actA.map(x => x.disabled)) === JSON.stringify([false]),
+      `S1-4b 取消之后按钮恢复可点（用户可以再想想；实测 ${JSON.stringify(cancelled && cancelled.actA)}）`);
+
+    // ③ 再按一次 → 确认 → 这一次才 POST，且发出去的就是那个 act。
+    await cdp.evaluate("window.__s1.rowA.querySelectorAll('.steward-act')[0].click(); true");
+    ok(Boolean(await waitForEval(cdp, `(() => { const s = ${S1_PANEL}; return s.open ? s : null; })()`)), 'S1-5 面板再次弹出');
+    await cdp.evaluate("document.querySelector('.modal-backdrop.confirm-panel [data-confirm=\"ok\"]').click(); true");
+    const confirmed = await waitForEval(cdp, `(() => { const s = ${S1_PANEL}; return s.calls.length ? s : null; })()`);
+    ok(Boolean(confirmed) && JSON.stringify(confirmed.calls) === JSON.stringify(['/api/steward/act'])
+      && String(confirmed.bodies[0] || '').includes('steward_config_set') && String(confirmed.bodies[0] || '').includes('permissionMode'),
+      `S1-6 确认之后才 POST 一发 /api/steward/act，载荷就是那个 act（实测 ${JSON.stringify(confirmed && { calls: confirmed.calls, body: String(confirmed.bodies[0] || '').slice(0, 120) })}）`);
+
+    // ④ 非 confirm 族（open_thread）逐字不变：不弹面板、按下去直接发。
+    await cdp.evaluate("window.__s1.rowB.querySelectorAll('.steward-act')[0].click(); true");
+    const opened2 = await waitForEval(cdp, `(() => { const s = ${S1_PANEL}; return s.calls.length >= 2 ? s : null; })()`);
+    ok(Boolean(opened2) && opened2.open === false && JSON.stringify(opened2.calls) === JSON.stringify(['/api/steward/act', '/api/steward/act']),
+      `S1-7 open_thread 那一枚行为一个字没变：零面板、按下去直接发（实测 ${JSON.stringify(opened2 && { open: opened2.open, calls: opened2.calls })}）`);
+  }
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
   await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");

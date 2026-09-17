@@ -362,8 +362,10 @@ async function handleSteerApiRoute(req, res, pathname) {
 // 判据(45 号文 §4 ②):未配置 409 / 非 audio/* 400 / 超 25 MB 413(早于 128 MB 总闸)/ 成功 200 /
 // 上游 5xx 统一信封 502;记账 kind:'aux', note:'asr',上游无 usage 时 estimated:true。
 // 威胁模型(26 号文 §4):目标 URL 只来自配置(providers[].audioBaseUrl || baseUrl),绝不接受请求体里的
-// URL;filename/language/prompt 全部截断清洗;上游错误回显裁到 1000 字符(apiKey 永不出本进程——
-// Authorization 只往所配 provider 自己那里发)。audioBaseUrl 与 baseUrl【同等对待】:45 号文 §1.6 实证
+// URL;filename/language/prompt 全部截断清洗;上游错误回显【先过 04 redact 再】裁到 1000 字符
+// (107-S1 ⑦:会回显请求头的端点能把 Authorization 原样送回来 —— 脱敏落在生产者 05
+// transcribeAudioViaProvider 那一处,本路由与 audio_transcribe 工具两个消费面一起生效)。
+// apiKey 永不出本进程 —— Authorization 只往所配 provider 自己那里发。audioBaseUrl 与 baseUrl【同等对待】:45 号文 §1.6 实证
 // baseUrl 今天没有任何 URL 准入校验,本刀不凭空发明一道(独立安全决定,两条出网面要收一起收,107 记档)。
 // 25 MB 专用闸的读法:Content-Length 预检 + 流式累计双道,任一超 ASR_MAX_BODY_BYTES 即 413,
 // 不经 readBody(那条是 128 MB 总闸)——「早于总闸」是可观测行为,不是注释(见 00-boot 该常量注释)。

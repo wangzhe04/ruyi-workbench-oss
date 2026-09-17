@@ -279,6 +279,78 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace']) {
     '⑤ 加了 note 不影响 rwx 三个标志(反向保护)');
 }
 
+/* ═══════ ⑥ 107-S1 ④（46 号文 §5 ⑦b H1）：confirm 族的 act 不许由模型命名 ═══════ */
+// 判据【从这张分档表派生】，不是另一张手攒的工具名单 —— 所以它住在这份单测里：
+// 上面那一段刚刚证过「默认表的每个键都落到三级之一、新增键默认 forbidden」，
+// 下面这一段证「confirm 那一档一旦被 patch 命中，按钮就归服务端命名、并带确认清单」。
+// 真浏览器那一半（面板弹出、不按不发请求、取消也不发）在 dev-harness/steward-conversation.e2e.js (S1) 段。
+{
+  const { stewardActConfirmSpec, stewardActLabel, stewardNormalizeAct } = srv;
+  const brief = v => JSON.stringify(v === undefined ? null : v).slice(0, 240);
+  const MODEL_LABEL = '好，我知道了';
+
+  // ① 判据与 13l:701 同源：patch 里有 confirm 档的键才进本族。
+  const confirmKey = STEWARD_CONFIG_TIERS.confirm[0];
+  const freeKey = STEWARD_CONFIG_TIERS.free[0];
+  ok(stewardConfigTierFor(confirmKey) === 'confirm' && stewardConfigTierFor(freeKey) === 'free', '⑥ 前提：两个样本键的档位如预期');
+  const specConfirm = stewardActConfirmSpec('steward_config_set', { patch: { [confirmKey]: 'x' } });
+  const specFree = stewardActConfirmSpec('steward_config_set', { patch: { [freeKey]: 'x' } });
+  ok(specConfirm && JSON.stringify(specConfirm.keys) === JSON.stringify([confirmKey]) && specFree === null,
+    `⑥ confirm 档的键进本族、free 档的不进（实得 ${brief([specConfirm, specFree])}）`);
+  // 整份原子：confirm 键触发之后，清单给【整份 patch】，free 与 forbidden 的键也在里面（用户按下去时看到的是整份）。
+  const mixed = stewardActConfirmSpec('steward_config_set', { patch: { [confirmKey]: 'x', [freeKey]: 'y', modelsApiKey: 'sk-' + 'a'.repeat(40) } });
+  ok(mixed && mixed.items.length === 3 && mixed.keys.length === 1 && mixed.items.some(i => i.tier === 'forbidden'),
+    `⑥ 清单给整份 patch（含 free / forbidden 的键），但只有 confirm 那些算触发键（实得 ${brief(mixed)}）`);
+
+  // ② 标签：丢掉模型写的那句，改用服务端按 args 派生的说明（键＋新值）。
+  const act = stewardNormalizeAct({ kind: 'tool', tool: 'steward_config_set', label: MODEL_LABEL, args: { patch: { permissionMode: 'auto' } } });
+  ok(act && act.label === '改设置:permissionMode=auto' && act.label !== MODEL_LABEL,
+    `⑥ 模型标签被丢掉，按钮上写的是「改设置:键=值」（实得 ${brief(act && act.label)}）`);
+  ok(act && Array.isArray(act.confirmItems) && JSON.stringify(act.confirmItems) === JSON.stringify(['permissionMode = auto']),
+    `⑥ act 带确认清单（纯文本「键 = 值」，前端只 textContent）（实得 ${brief(act && act.confirmItems)}）`);
+
+  // ③ 密钥永不进标签与清单：forbidden 档的值只出 ••••（04 redact 另有一道，这是第一道）。
+  const secret = 'sk-' + 'b'.repeat(40);
+  // 【口径】只看给人看的那两处(标签与清单):act.args 里仍是模型原样给的 patch —— 它是执行用的载荷,
+  // 掩了就写不进去了,而且那份 args 修前修后逐字节相同(S1 没有新增这一面)。
+  const keyAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_config_set', label: MODEL_LABEL, args: { patch: { permissionMode: 'auto', modelsApiKey: secret } } });
+  const keyShown = JSON.stringify([keyAct && keyAct.label, keyAct && keyAct.confirmItems]);
+  ok(keyAct && !keyShown.includes(secret) && keyAct.confirmItems.some(line => line === 'modelsApiKey = ••••'),
+    `⑥ forbidden 档的值在标签与清单里都只剩 ••••（实得 ${brief(keyAct && keyAct.confirmItems)}）`);
+  // 值也过一遍 04 的 redact：confirm 档的键带着密钥形态的值时同样不许原样打出来。
+  const embedded = stewardNormalizeAct({ kind: 'tool', tool: 'steward_config_set', label: MODEL_LABEL, args: { patch: { modelsApiBase: 'https://u:' + 'p'.repeat(12) + '@h/v1', permissionMode: 'auto' } } });
+  const embeddedShown = JSON.stringify([embedded && embedded.label, embedded && embedded.confirmItems]);
+  ok(embedded && !embeddedShown.includes('p'.repeat(12)) && embeddedShown.includes('«redacted»'),
+    `⑥ confirm 档键的值也过 redact（URL 里的 user:pass 没了）（实得 ${brief(embedded && embedded.confirmItems)}）`);
+
+  // ④ 另外两支：技能开关恒进本族；线程权限只在放宽桌面那一支进，且标签一个字没动（guardrails Q2c 钉着它）。
+  const skillAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_skill_toggle', label: MODEL_LABEL, args: { sessionId: 'sess_a', skills: [{ id: 'web' }] } });
+  ok(skillAct && skillAct.label !== MODEL_LABEL && skillAct.label.startsWith('改技能:') && JSON.stringify(skillAct.confirmItems) === JSON.stringify(['skills = ["web"]']),
+    `⑥ 改技能:模型标签被丢掉、清单列出技能（实得 ${brief(skillAct)}）`);
+  const deskAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_thread_permission', label: MODEL_LABEL, args: { sessionId: 'sess_a', capabilities: { desktop: true } } });
+  ok(deskAct && deskAct.label === '给它开桌面' && JSON.stringify(deskAct.confirmItems) === JSON.stringify(['capabilities.desktop = true']),
+    `⑥ 给它开桌面:标签逐字未改、另带确认清单（实得 ${brief(deskAct)}）`);
+  const tightenAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_thread_permission', label: MODEL_LABEL, args: { sessionId: 'sess_a', permissionMode: 'default' } });
+  ok(tightenAct && tightenAct.label === MODEL_LABEL && !('confirmItems' in tightenAct),
+    `⑥ 收紧档位那一支不在本族（不出按钮，也不改既有行为）（实得 ${brief(tightenAct)}）`);
+
+  // ⑤ 其余 act 逐字节不变：模型标签仍然优先，零 confirmItems。
+  const others = [
+    ['tool', { kind: 'tool', tool: 'steward_decide', label: '允许', args: { action: 'allow' } }, '允许'],
+    ['open_thread', { kind: 'open_thread', label: '打开「A」', sessionId: 'sess_abc' }, '打开「A」'],
+    ['dismiss', { kind: 'dismiss', label: MODEL_LABEL }, MODEL_LABEL],
+    ['thread_new', { kind: 'tool', tool: 'steward_thread_new', label: '我去办', args: { text: 'x' } }, '我去办'],
+  ];
+  const drifted = others.filter(([, raw, want]) => { const a = stewardNormalizeAct(raw); return !a || a.label !== want || ('confirmItems' in a); });
+  ok(drifted.length === 0, `⑥ 其余 ${others.length} 种 act 的标签仍由模型说了算、零 confirmItems`
+    + (drifted.length ? ' → 漂移: ' + drifted.map(([n, raw]) => n + '=' + brief(stewardNormalizeAct(raw))).join(' | ') : ''));
+  // 模型自己在 args 外塞 confirmItems 不作数(与 userPressed 同一条纪律:归一化只从零重建)。
+  const forged = stewardNormalizeAct({ kind: 'tool', tool: 'steward_decide', label: '允许', args: { action: 'allow' }, confirmItems: ['随便'] });
+  ok(forged && !('confirmItems' in forged), `⑥ 模型伪造的 confirmItems 进不来（实得 ${brief(forged)}）`);
+  ok(stewardActLabel('steward_config_set', {}) === '改设置' && stewardActLabel('steward_config_set', { patch: {} }) === '改设置',
+    '⑥ 没有 patch / 空 patch 时标签回落到既有总称「改设置」');
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD CONFIG TIER UNIT: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD CONFIG TIER UNIT: ALL PASS');

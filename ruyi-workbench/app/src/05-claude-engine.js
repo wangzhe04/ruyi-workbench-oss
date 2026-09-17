@@ -1662,7 +1662,12 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   }
   const durationMs = Date.now() - t0;
   if (!upstream.ok) {
-    const snippet = upstreamText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]+/g, ' ').slice(0, 1000);
+    // 107-S1 ⑦(46 号文 §5 ⑦b L1a):上游错误体【先脱敏再裁】。这一段会进 API 失败信封
+    // (13b:458-461,下发给浏览器)与 audio_transcribe 的工具结果(12:1284,交给模型并落盘)——
+    // 会回显请求头的端点能把 `Authorization: Bearer <真 key>` 原样送回这两处。
+    // redact 住在 04,05→04 是既有边(本文件多处在用),零新增依赖;顺序与 S0 的教训一致:
+    // 先裁 1000 字会把密钥切成半截,正则一条都咬不到。控制字符仍在 redact 之前压掉(不改既有形状)。
+    const snippet = redact(upstreamText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]+/g, ' ')).slice(0, 1000);
     return { failure: { code: 'asr.upstream', params: { status: upstream.status }, message: 'ASR 上游返回 ' + upstream.status + ': ' + snippet, status: 502 } };
   }
   const parsed = safeJsonParse(upstreamText, null);

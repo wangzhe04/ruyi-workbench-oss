@@ -419,7 +419,7 @@ module.exports = {
   redact,
   stewardInboxMessage,
   stewardDowngradeActions,
-  // 127 波 2-quater B2:代批八道闸的纯判据 / 污染判据(工具名 + 活回合段表)/ riskNote 清洗 / 闸名表与小时上限,
+  // 127 波 2-quater B2:代批十道闸的纯判据 / 污染判据(工具名 + 活回合段表)/ riskNote 清洗 / 闸名表与小时上限,
   // 以及 13q 的确定性回执合并 —— 单测直测(13k 的活回合读取经 steward_decide 真路径触达,不另开导出面)。
   stewardExemptDelegationVerdict,
   stewardTurnTaint,
@@ -430,6 +430,15 @@ module.exports = {
   STEWARD_EXEMPT_DELEGATIONS_PER_HOUR,
   STEWARD_EXEMPT_DELEGATION_TEXT_MAX,
   stewardMergeDelegationReceipts,
+  // 107-S1(46 号文 §5 S1):①②③④ 的四个新纯判据 —— 摘录长度常量(闸 5 绑在它上面)、间接构造、
+  // 删数据的绝对目标、confirm 族的确认清单。单测直测;act 的服务端标签与确认行经 stewardNormalizeAct
+  // 的真路径(管家回合 / 降级按钮)在 e2e 里读。
+  STEWARD_EXEMPT_EXCERPT_CHARS,
+  stewardExemptIndirectConstruction,
+  stewardExemptAbsoluteDeleteTarget,
+  stewardActConfirmSpec,
+  stewardNormalizeAct,
+  stewardActLabel,
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,

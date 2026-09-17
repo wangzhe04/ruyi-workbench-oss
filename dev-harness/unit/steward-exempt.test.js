@@ -473,6 +473,7 @@ for (const [group, commands] of Object.entries(HIT)) {
   const {
     stewardExemptDelegationVerdict: verdictOf, stewardTurnTaint, stewardTaintToolName, stewardTaintToolCall, stewardExemptRiskNote,
     STEWARD_EXEMPT_DELEGATION_GATES, STEWARD_EXEMPT_DELEGATIONS_PER_HOUR, STEWARD_EXEMPT_DELEGATION_TEXT_MAX,
+    STEWARD_EXEMPT_EXCERPT_CHARS,
     stewardMergeDelegationReceipts, stewardExemptHits,
   } = srv;
   const brief = v => JSON.stringify(v === undefined ? null : v).slice(0, 240);
@@ -485,10 +486,15 @@ for (const [group, commands] of Object.entries(HIT)) {
   const DEL = 'Remove-Item .\\tmp -Recurse';
   const PUSH = 'git push origin main';
 
-  ok(JSON.stringify(STEWARD_EXEMPT_DELEGATION_GATES) === JSON.stringify(['switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'tainted', 'risk_note', 'hourly_cap'])
+  // 107-S1 ①②③ 重钉：闸名表由八项变十项（scan_limit 之后插 indirect_command / absolute_target），
+  // 全文上限由 1000 降到摘录长度 300。两条都是【锁跟着判据走】，不是判据跟着锁走：
+  // 46 号文 §5 ⑦b 的 E3 实测 927 字命令 delegable:true 而管家只看得见 300 字。
+  ok(JSON.stringify(STEWARD_EXEMPT_DELEGATION_GATES) === JSON.stringify(['switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'indirect_command', 'absolute_target', 'tainted', 'risk_note', 'hourly_cap'])
     && Object.isFrozen(STEWARD_EXEMPT_DELEGATION_GATES),
-    `⑧ 闸名表八项、顺序固定、冻结（实得 ${brief(STEWARD_EXEMPT_DELEGATION_GATES)}）`);
-  ok(STEWARD_EXEMPT_DELEGATIONS_PER_HOUR === 6 && STEWARD_EXEMPT_DELEGATION_TEXT_MAX === 1000, '⑧ 每小时 6 次、全文 ≤1000 字两个常量');
+    `⑧ 闸名表十项、顺序固定、冻结（实得 ${brief(STEWARD_EXEMPT_DELEGATION_GATES)}）`);
+  ok(STEWARD_EXEMPT_DELEGATIONS_PER_HOUR === 6 && STEWARD_EXEMPT_DELEGATION_TEXT_MAX === 300
+    && STEWARD_EXEMPT_DELEGATION_TEXT_MAX === STEWARD_EXEMPT_EXCERPT_CHARS,
+    `⑧ 每小时 6 次；全文上限【就是摘录长度】（实得 ${brief([STEWARD_EXEMPT_DELEGATIONS_PER_HOUR, STEWARD_EXEMPT_DELEGATION_TEXT_MAX, STEWARD_EXEMPT_EXCERPT_CHARS])}）`);
 
   const pass = verdictOf(facts(DEL));
   ok(pass.delegable === true && pass.blockedBy === null && JSON.stringify(pass.categories) === '["delete_data"]',
@@ -503,6 +509,9 @@ for (const [group, commands] of Object.entries(HIT)) {
     };
     const fixes = [
       { enabled: true }, { liveMode: 'auto' }, { watched: true }, { scan: scanOf('git push origin main ' + 'x'.repeat(1200)) },
+      // 107-S1 ②③：修好长度这一道之后，接着依次露出间接构造与绝对删除目标那两道。
+      { scan: scanOf("git push origin main; & ('a' + 'b')") },
+      { scan: scanOf('git push origin main; rm -rf /home/me/notes') },
       { scan: scanOf(PUSH) }, { taint: { tainted: false, taintBy: null } }, { riskNote: '推送任务点名的分支' }, { recentCount: STEWARD_EXEMPT_DELEGATIONS_PER_HOUR - 1 },
     ];
     const walked = [];
@@ -510,7 +519,7 @@ for (const [group, commands] of Object.entries(HIT)) {
     walked.push(verdictOf(cur).blockedBy);
     for (const fix of fixes) { cur = { ...cur, ...fix }; walked.push(verdictOf(cur).blockedBy); }
     ok(JSON.stringify(walked) === JSON.stringify([...STEWARD_EXEMPT_DELEGATION_GATES, null]),
-      `⑧ 八道闸按固定顺序判：逐道修好时 blockedBy 依次是闸名表的八项、最后放行（实得 ${brief(walked)}）`);
+      `⑧ 十道闸按固定顺序判：逐道修好时 blockedBy 依次是闸名表的十项、最后放行（实得 ${brief(walked)}）`);
   }
 
   // 闸 1 开关：只认 === true。
@@ -536,32 +545,111 @@ for (const [group, commands] of Object.entries(HIT)) {
     ok(verdictOf(facts(DEL, { scan: nameHit })).blockedBy === 'floor', '⑧ 闸 4：工具名命中（恒底线）→ floor');
     ok(verdictOf(facts(DEL, { scan: { hits: [], scannedFully: true, textLength: 0 } })).blockedBy === 'floor', '⑧ 闸 4：零命中（不该走到这里）也不放行');
   }
-  // 闸 5 扫描：scannedFully 且 ≤1000。
+  // 闸 5 扫描：scannedFully、≤摘录长度、且真交给管家的那段摘录没被截。
   {
-    const at1000 = DEL + ' ' + 'x'.repeat(STEWARD_EXEMPT_DELEGATION_TEXT_MAX - DEL.length - 1);
-    const at1001 = at1000 + 'x';
-    ok(scanOf(at1000).textLength === 1000 && verdictOf(facts(at1000)).delegable === true, '⑧ 闸 5：恰 1000 字 → 过');
-    ok(scanOf(at1001).textLength === 1001 && verdictOf(facts(at1001)).blockedBy === 'scan_limit', '⑧ 闸 5：1001 字 → scan_limit');
+    const atMax = DEL + ' ' + 'x'.repeat(STEWARD_EXEMPT_DELEGATION_TEXT_MAX - DEL.length - 1);
+    const overMax = atMax + 'x';
+    ok(scanOf(atMax).textLength === 300 && verdictOf(facts(atMax)).delegable === true, '⑧ 闸 5：恰 300 字（＝摘录长度）→ 过');
+    ok(scanOf(overMax).textLength === 301 && verdictOf(facts(overMax)).blockedBy === 'scan_limit', '⑧ 闸 5：301 字 → scan_limit');
     const deep = stewardExemptHits('run', { a: { b: { c: { d: { e: { f: DEL } } } } }, g: DEL });
     ok(deep.scannedFully === false && verdictOf(facts(DEL, { scan: deep })).blockedBy === 'scan_limit', '⑧ 闸 5：深度截断（没扫全）→ scan_limit');
+    // 107-S1 ①：摘录长度这一个合取。脱敏会把短值撑长（`PGPASSWORD=pgsecret` 19→21），所以
+    // 300 字以内的原文照样可能在摘录里被截；摘录触到上限即视为「截过了」（保守方向）。
+    ok(verdictOf(facts(DEL, { excerptChars: STEWARD_EXEMPT_EXCERPT_CHARS })).blockedBy === 'scan_limit'
+      && verdictOf(facts(DEL, { excerptChars: STEWARD_EXEMPT_EXCERPT_CHARS - 1 })).delegable === true
+      && verdictOf(facts(DEL, { excerptChars: undefined })).delegable === true,
+      '⑧ 闸 5（107-S1 ①）：摘录长度触到 300 → scan_limit；299 → 过；事实缺席（老调用方）行为与修前一致');
   }
-  // 闸 6 污染：只对对外发送 / 推送远端；判不出算污染。
+  /* ══ 107-S1 ①②③（46 号文 §5 ⑦b 的三个实验，逐条复现在这里）══ */
+  {
+    const { stewardExemptExcerpt: excerptOf, redact: redactOf, stewardExemptReason: reasonOf } = srv;
+    const excerptCharsOf = cmd => excerptOf(redactOf(cmd), scanOf(cmd).hits).length;
+    const factsWithExcerpt = cmd => facts(cmd, { excerptChars: excerptCharsOf(cmd) });
+
+    // ① E3 的形状：首 300 字含 `rm -rf ./build`，尾部藏拼接关机，全长 927。
+    const HEAD = 'rm -rf ./build ' + 'a'.repeat(300 - 15);
+    const LONG = HEAD + " ; & ('shut' + 'down') /s /t 0 " + 'b'.repeat(927 - 300 - 31);
+    const longScan = scanOf(LONG);
+    const longVerdict = verdictOf(factsWithExcerpt(LONG));
+    ok(LONG.length === 927 && longScan.textLength === 927 && longScan.scannedFully === true
+      && longVerdict.delegable === false && longVerdict.blockedBy === 'scan_limit',
+      `⑧ S1 ① 927 字命令（首 300 字看得见、尾部藏拼接关机）→ 不代批 scan_limit（实得 ${brief({ len: LONG.length, n: longScan.textLength, full: longScan.scannedFully, v: longVerdict })}）`);
+    // 同形状但 ≤300 字 → 照旧可代批（判据不是「越长越保守」，而是「看得见的才算」）。
+    const SHORT = 'rm -rf ./build ' + 'a'.repeat(300 - 16);
+    const shortVerdict = verdictOf(factsWithExcerpt(SHORT));
+    ok(SHORT.length === 299 && shortVerdict.delegable === true,
+      `⑧ S1 ① 同形状 299 字 → 仍可代批（实得 ${brief({ len: SHORT.length, excerpt: excerptCharsOf(SHORT), v: shortVerdict })}）`);
+
+    // ② E2 的两条：单独一条 & ('shut'+'down') 一个判据都不命中（所以是 floor：零命中不放行），
+    //    与 rm -rf ./build 混在一起时修前 delegable:true —— 现在报 indirect_command。
+    const OBF = "& ('shut' + 'down') /s /t 0";
+    const MIXED = "rm -rf ./build; " + OBF;
+    ok(scanOf(OBF).indirect === true && verdictOf(factsWithExcerpt(OBF)).delegable === false
+      && scanOf(MIXED).indirect === true && verdictOf(factsWithExcerpt(MIXED)).blockedBy === 'indirect_command',
+      `⑧ S1 ② 拼接构造：单独一条不代批、与 rm -rf ./build 混在一起 → indirect_command（实得 ${brief([verdictOf(factsWithExcerpt(OBF)), verdictOf(factsWithExcerpt(MIXED))])}）`);
+    // **豁免判据本身逐字节不变**（钉住今天的输出：②「不改什么算豁免」的全部含义就在这两行）。
+    ok(JSON.stringify(reasonOf('powershell_run', { command: OBF })) === 'null'
+      && stewardToolPermanentlyExempt('powershell_run', { command: OBF }) === false
+      && JSON.stringify(scanOf(OBF).hits) === '[]',
+      `⑧ S1 ② stewardExemptReason 对这条【仍然】是 null、布尔仍是 false、hits 仍是空（实得 ${brief([reasonOf('powershell_run', { command: OBF }), scanOf(OBF).hits])}）`);
+    ok(JSON.stringify(reasonOf('powershell_run', { command: MIXED })) === JSON.stringify({ by: 'command_text', category: 'delete_data' })
+      && JSON.stringify(scanOf(MIXED).hits) === JSON.stringify([{ by: 'command_text', category: 'delete_data', floor: false }]),
+      `⑧ S1 ② 混在一起那条的 stewardExemptReason／hits 也逐字节不变（实得 ${brief([reasonOf('powershell_run', { command: MIXED }), scanOf(MIXED).hits])}）`);
+    const MORE_INDIRECT = ['rm -rf ./build; iex $c', 'rm -rf ./build; Invoke-Expression $c',
+      'rm -rf ./build && powershell -enc aGVsbG8gd29ybGQgaGVsbG8=', 'rm -rf ./build; cmd /c sh^utdown /s',
+      "rm -rf ./build; [char]0x72 -join ''", 'rm -rf ./build; & ([Convert]::FromBase64String($b))',
+      "rm -rf ./build; . ('sh' + 'ut')"];
+    const indirectMiss = MORE_INDIRECT.filter(cmd => verdictOf(factsWithExcerpt(cmd)).blockedBy !== 'indirect_command');
+    ok(indirectMiss.length === 0, `⑧ S1 ② 另外 ${MORE_INDIRECT.length} 种间接构造写法全部 indirect_command`
+      + (indirectMiss.length ? ' → 漏: ' + indirectMiss.map(c => c + '=' + brief(verdictOf(factsWithExcerpt(c)))).join(' | ') : ''));
+    const INDIRECT_SAFE = ['Remove-Item .\\tmp -Recurse', 'rm -rf ./build', 'git push origin main', 'winget install x',
+      'curl -X POST https://h -d x', 'Remove-Item .\\a -Recurse; git push'];
+    const indirectFalse = INDIRECT_SAFE.filter(cmd => scanOf(cmd).indirect !== false);
+    ok(indirectFalse.length === 0, `⑧ S1 ② ${INDIRECT_SAFE.length} 条日常命令零误判（indirect:false）`
+      + (indirectFalse.length ? ' → 误判: ' + indirectFalse.join(' | ') : ''));
+
+    // ③ E1 的四条：删数据类的绝对／家目录目标一律不代批；相对目标照旧可代批。
+    const ABS = ['Remove-Item C:\\Users -Recurse -Force', 'rm -rf /home/me/notes',
+      'Remove-Item $env:USERPROFILE\\Documents -Recurse', 'rm -rf %USERPROFILE%\\x'];
+    const absMiss = ABS.filter(cmd => verdictOf(factsWithExcerpt(cmd)).blockedBy !== 'absolute_target');
+    ok(absMiss.length === 0, `⑧ S1 ③ ${ABS.length} 条绝对／家目录删除目标 → absolute_target`
+      + (absMiss.length ? ' → 漏: ' + absMiss.map(c => c + '=' + brief(verdictOf(factsWithExcerpt(c)))).join(' | ') : ''));
+    const REL = ['Remove-Item .\\tmp -Recurse -Force', 'rm -rf ./build', 'del /s /q .\\build', 'rm -r ../outside'];
+    const relWrong = REL.filter(cmd => verdictOf(factsWithExcerpt(cmd)).delegable !== true);
+    ok(relWrong.length === 0, `⑧ S1 ③ ${REL.length} 条相对目标仍可代批（词法判据证不出「在不在工作夹里」，那一层由执行闸兜）`
+      + (relWrong.length ? ' → 不符: ' + relWrong.map(c => c + '=' + brief(verdictOf(factsWithExcerpt(c)))).join(' | ') : ''));
+    // 按【叶子】判而不是按摊平整段判：powershell_run 常态带一个绝对 cwd，拿整段判会把
+    // 「线程清自己的临时目录」全判成绝对目标（B2 的主用例）。
+    const withCwd = stewardExemptHits('powershell_run', { command: 'Remove-Item .\\tmp -Recurse', cwd: 'C:\\Users\\me\\work', timeoutMs: 30000 });
+    ok(withCwd.absoluteDeleteTarget === false && verdictOf(facts(DEL, { scan: withCwd })).delegable === true,
+      `⑧ S1 ③ 同一个 input 里的绝对 cwd 不算删除目标（按叶子判；实得 ${brief(withCwd)}）`);
+    // 命中是跨叶子拼出来的（argv 形态）→ 判不出目标在哪个词上 → fail-closed。
+    const argv = stewardExemptHits('Bash', { args: ['Remove-Item', 'C:\\Users', '-Recurse'] });
+    ok(argv.hits.length === 1 && argv.absoluteDeleteTarget === true
+      && verdictOf(facts(DEL, { scan: argv })).blockedBy === 'absolute_target',
+      `⑧ S1 ③ argv 形态（一个叶子都复现不出删数据命中）→ 按最坏情况算（实得 ${brief(argv)}）`);
+    // 两个标记【只给代批闸看】：删数据命中之外的类别不问绝对目标。
+    ok(scanOf('git push origin main').absoluteDeleteTarget === false
+      && scanOf('curl -X POST https://h/a/b -d x').absoluteDeleteTarget === false,
+      '⑧ S1 ③ 非删数据类不问绝对目标（推送、对外发送里的 URL 路径不误伤）');
+  }
+  // 闸 8 污染：只对对外发送 / 推送远端；判不出算污染。
   {
     const tainted = { tainted: true, taintBy: 'turn:web_fetch' };
     const pushBlocked = verdictOf(facts(PUSH, { taint: tainted }));
-    ok(pushBlocked.blockedBy === 'tainted' && pushBlocked.taintBy === 'turn:web_fetch', `⑧ 闸 6：读过网页后 git push → tainted＋taintBy（实得 ${brief(pushBlocked)}）`);
-    ok(verdictOf(facts('curl -X POST https://h -d x', { taint: tainted })).blockedBy === 'tainted', '⑧ 闸 6：读过网页后 curl POST（对外发送）→ tainted');
-    ok(verdictOf(facts(DEL, { taint: tainted })).delegable === true, '⑧ 闸 6：同样的污染，删文件类仍可代批（拍板 3）');
-    ok(verdictOf(facts('winget install x', { taint: tainted })).delegable === true, '⑧ 闸 6：同样的污染，装卸软件类仍可代批');
+    ok(pushBlocked.blockedBy === 'tainted' && pushBlocked.taintBy === 'turn:web_fetch', `⑧ 闸 8：读过网页后 git push → tainted＋taintBy（实得 ${brief(pushBlocked)}）`);
+    ok(verdictOf(facts('curl -X POST https://h -d x', { taint: tainted })).blockedBy === 'tainted', '⑧ 闸 8：读过网页后 curl POST（对外发送）→ tainted');
+    ok(verdictOf(facts(DEL, { taint: tainted })).delegable === true, '⑧ 闸 8：同样的污染，删文件类仍可代批（拍板 3）');
+    ok(verdictOf(facts('winget install x', { taint: tainted })).delegable === true, '⑧ 闸 8：同样的污染，装卸软件类仍可代批');
     ok(verdictOf(facts(PUSH, { taint: undefined })).blockedBy === 'tainted' && verdictOf(facts(PUSH, { taint: { tainted: 'no' } })).blockedBy === 'tainted',
-      '⑧ 闸 6：污染事实缺席 / 不是严格 false → 按污染算');
+      '⑧ 闸 8：污染事实缺席 / 不是严格 false → 按污染算');
     const mixedPushDel = verdictOf(facts('Remove-Item .\\a -Recurse; git push', { taint: tainted }));
-    ok(mixedPushDel.blockedBy === 'tainted', '⑧ 闸 6：删文件＋推送混在一条里，只要含推送就按污染拦');
+    ok(mixedPushDel.blockedBy === 'tainted', '⑧ 闸 8：删文件＋推送混在一条里，只要含推送就按污染拦');
   }
-  // 闸 7 理由 / 闸 8 窗口。
-  ok(verdictOf(facts(DEL, { riskNote: '' })).blockedBy === 'risk_note' && verdictOf(facts(DEL, { riskNote: '   ' })).blockedBy === 'risk_note', '⑧ 闸 7：没写理由 / 只有空白 → risk_note');
+  // 闸 9 理由 / 闸 10 窗口。
+  ok(verdictOf(facts(DEL, { riskNote: '' })).blockedBy === 'risk_note' && verdictOf(facts(DEL, { riskNote: '   ' })).blockedBy === 'risk_note', '⑧ 闸 9：没写理由 / 只有空白 → risk_note');
   ok(verdictOf(facts(DEL, { recentCount: 5 })).delegable === true && verdictOf(facts(DEL, { recentCount: 6 })).blockedBy === 'hourly_cap'
-    && verdictOf(facts(DEL, { recentCount: 'x' })).blockedBy === 'hourly_cap', '⑧ 闸 8：窗口里已有 5 次 → 第 6 次过；已有 6 次 → hourly_cap；计数读不懂按满算');
+    && verdictOf(facts(DEL, { recentCount: 'x' })).blockedBy === 'hourly_cap', '⑧ 闸 10：窗口里已有 5 次 → 第 6 次过；已有 6 次 → hourly_cap；计数读不懂按满算');
 
   // riskNote 清洗。
   ok(stewardExemptRiskNote('  <b>删掉临时目录</b>\n只动工作文件夹  ') === '[b]删掉临时目录[/b] 只动工作文件夹', `⑧ riskNote 折行＋中和尖括号＋去首尾空白（实得 ${brief(stewardExemptRiskNote('  <b>删掉临时目录</b>\n只动工作文件夹  '))}）`);

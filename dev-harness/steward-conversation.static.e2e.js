@@ -658,10 +658,15 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    生产者 dispatchAcceptanceMilestones 自 121-K1 起没有任何调用点，本刀把它接在「这一回合真开出
 //    了一条新线程」那一刻。thread-facts.js 与 util.js 同族 —— **纯函数叶子**（零 DOM、零 t()、
 //    零 fetch），借的仍然是叶子里的纯函数，不是新借了一个域的实现。
-const CONVERSATION_IMPORTS = ['./icons.js', './net.js', './popover.js', './steward-chips.js', './thread-facts.js', './util.js'];
+//    107-S1 ④（46 号文 §5 ⑦b H1）把 './confirm-panel.js' 加了进来：confirm 族的 act 在 POST 之前
+//    要先得到用户明确的「是」，而「你确定吗」这件事全仓只有一套（33 号文 §4「四套收一套」：背影／
+//    Tab 焦点陷阱／焦点归还／Esc／点背影都在 confirmDanger 里）。借的仍然是那颗【共用原语】——
+//    steward-board / steward-drawer / steward-settings / steward-chips 四个消费方走的是同一条 import，
+//    不是新借了一个域的实现；本文件不自己搭第二个模态（那正是这条锁要挡住的事）。
+const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './thread-facts.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js 与 util.js 五个本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js、util.js、thread-facts.js 与 confirm-panel.js 七条本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)

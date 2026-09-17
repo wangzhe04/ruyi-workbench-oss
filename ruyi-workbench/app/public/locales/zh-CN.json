@@ -2296,6 +2296,8 @@
   ,"stewardShell.acts.change": "改一下"
   ,"stewardShell.acts.dismiss": "知道了"
   ,"stewardShell.acts.open": "打开"
+  ,"stewardShell.acts.confirmTitle": "要按下这个改动吗？"
+  ,"stewardShell.acts.confirmBody": "如意要替你改下面这几项。按下「确认」才会生效："
   ,"stewardShell.chat.openInWorkbench": "在工作台打开"
   ,"stewardShell.channels.label": "线程频道"
   ,"stewardShell.channels.only": "只看"

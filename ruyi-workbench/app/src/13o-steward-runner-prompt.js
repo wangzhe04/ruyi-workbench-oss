@@ -331,6 +331,28 @@ function stewardVisitNotesPrompt(config) {
 // 解析,合法 JSON 永远走原文 parse 分支)。解析失败不是错误:say 取原文、acts/actions 空、记一条
 // logEvent —— 模型没按契约说话时,把它的话原样端给用户,好过丢掉。
 // ────────────────────────────────────────────────────────────────────────────
+// 107-S1 ④(46 号文 §5 ⑦b H1):confirm 族的值渲染。两道掩码,一个都不能少:
+//   ① tier === 'forbidden' 的键(06i 那道 apiKey|token|secret|password 兜底正则命中的全在内)
+//      连值都不渲染,直接出 `••••` —— 这一族的值恒被 steward_config_set 整份拒绝,把它打在按钮上
+//      没有任何收益,却多一处明文下发面;
+//   ② 其余值过一次 04 的 redact(与 B1 立的「命令原文先 redact」同一张表、同一个单点),再裁 40 字。
+// 【永不把密钥写进标签】:标签会进对话流 DOM、行动流水与落盘回执三处,那是三份长期留存的明文面。
+const STEWARD_ACT_CONFIRM_MASK = '••••';
+function stewardActConfirmValueText(item) {
+  if (item && item.tier === 'forbidden') return STEWARD_ACT_CONFIRM_MASK;
+  const value = item ? item.value : undefined;
+  let text;
+  if (value === undefined) text = '(没给值)';
+  else if (typeof value === 'string') text = value;
+  else { try { text = JSON.stringify(value); } catch { text = String(value); } }
+  const shown = redact(stewardSanitizeText(text)).slice(0, STEWARD_ACT_CONFIRM_VALUE_CHARS).trim();
+  return shown || '(空)';
+}
+// 确认面板逐条要显示的纯文本行(前端只负责 textContent,不拼字、不解析)。
+function stewardActConfirmLines(spec) {
+  const items = (spec && Array.isArray(spec.items)) ? spec.items : [];
+  return items.map(item => `${stewardSanitizeText(item && item.key)} = ${stewardActConfirmValueText(item)}`);
+}
 function stewardActLabel(tool, args) {
   const a = (args && typeof args === 'object') ? args : {};
   if (tool === 'steward_decide') {
@@ -347,7 +369,21 @@ function stewardActLabel(tool, args) {
   // 「给它开桌面」;其余(收紧档位 / 关桌面)不出按钮,回落到 STEWARD_TOOL_LABELS 的总称「改线程权限」。
   if (tool === 'steward_thread_permission') {
     const permCaps = (a.capabilities && typeof a.capabilities === 'object' && !Array.isArray(a.capabilities)) ? a.capabilities : null;
+    // 这一支本来就是服务端按 args 派生的、且已经写清了用户要做的那件事,107-S1 ④ 一个字不改
+    // (steward-guardrails Q2c/Q2d 逐字钉着它);它要补的只是确认清单,见 stewardNormalizeAct。
     if (permCaps && permCaps.desktop === true) return '给它开桌面'.slice(0, STEWARD_ACT_LABEL_MAX);
+  }
+  // 107-S1 ④:改设置 / 改技能这两支的标签必须写清【要改哪个键、改成什么】——「改设置」三个字
+  // 谁也看不出按下去会注册一个任意 stdio MCP 命令。键与值由 06i 的 stewardActConfirmSpec 从
+  // args 派生(config_set 的判据就是那张 confirm 分档表),不读模型写的任何一个字。
+  {
+    const confirmSpec = stewardActConfirmSpec(tool, args);
+    if (confirmSpec && (tool === 'steward_config_set' || tool === 'steward_skill_toggle')) {
+      const base = STEWARD_TOOL_LABELS[tool] || '去做';
+      const first = confirmSpec.items.find(item => item.key === confirmSpec.keys[0]) || confirmSpec.items[0] || null;
+      const more = confirmSpec.items.length > 1 ? ` 等 ${confirmSpec.items.length} 项` : '';
+      if (first) return `${base}:${stewardSanitizeText(first.key)}=${stewardActConfirmValueText(first)}${more}`.slice(0, STEWARD_ACT_CONFIRM_LABEL_MAX);
+    }
   }
   return (STEWARD_TOOL_LABELS[tool] || '去做').slice(0, STEWARD_ACT_LABEL_MAX);
 }
@@ -360,12 +396,22 @@ function stewardNormalizeAct(raw) {
     ? kindRaw
     : (tool ? 'tool' : 'dismiss');
   if (kind === 'tool' && !isStewardToolName(tool)) return null;  // 只认 steward_*(动世界的工具永远进不来)
-  const label = stewardSanitizeText(raw.label).slice(0, STEWARD_ACT_LABEL_MAX)
-    || (kind === 'tool' ? stewardActLabel(tool, raw.args) : (kind === 'open_thread' ? '打开' : '知道了'));
+  // 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的按钮不许由模型命名**。修前这一行 label 优先用
+  // `raw.label` —— 模型写「好,我知道了」,args 里是 steward_config_set{externalMcpServers:[…]},
+  // 用户按下去就是用户「亲手按了」(13q 据此置那一位),而 args 一个字都没被校验过。
+  // 于是这一族:① 丢掉模型的标签,恒用服务端按 args 派生的说明(写清键与新值);
+  //             ② 把整份清单随 act 带给前端(confirmItems,纯文本),前端 POST 之前弹确认面板逐条列出。
+  // 其余 act 一个字节不变(仍然是模型标签优先)——「知道了」这种表态按钮没有二次确认的必要。
+  const confirmSpec = kind === 'tool' ? stewardActConfirmSpec(tool, raw.args) : null;
+  const label = confirmSpec
+    ? stewardActLabel(tool, raw.args)
+    : (stewardSanitizeText(raw.label).slice(0, STEWARD_ACT_LABEL_MAX)
+      || (kind === 'tool' ? stewardActLabel(tool, raw.args) : (kind === 'open_thread' ? '打开' : '知道了')));
   const act = { label, kind };
   if (kind === 'tool') {
     act.tool = tool;
     act.args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
+    if (confirmSpec) act.confirmItems = stewardActConfirmLines(confirmSpec);
   }
   const sessionId = raw.sessionId ? safeSessionId(raw.sessionId) : '';
   if (sessionId) act.sessionId = sessionId;

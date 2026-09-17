@@ -352,6 +352,22 @@ try {
       'F1 thread_read 正向返回回合原话行 + 配额账面');
     ok(okRead && okRead.rows.every(r => r.role !== 'tool' || /→ \d+ 字符|不可序列化/.test(r.text)),
       'F1b 工具调用只给一行摘要与结果长度(不给工具输出全文)');
+    // F1c 107-S1 ⑥(46 号文 §5 ⑦b M4):工具调用那一行的入参提示【先脱敏再裁 160 字】。
+    // 修前是 JSON.stringify(input) 原样裁,而这一行既进管家提示词、又随管家回合落盘 ——
+    // 与 B1 立的「命令原文先 redact」分叉。假 key 运行时拼出(源码里不留密钥形态长串,与 S0 同口径)。
+    {
+      const FAKE = 'sk' + '-' + 'z9y8x7w6'.repeat(6);
+      const s = await srv.loadSession(threadId);
+      s.messages.push({
+        role: 'assistant', content: '跑了一条命令。', turnSeq: Math.max(1, Number(s.turnSeq) || 1), createdAt: new Date().toISOString(),
+        toolCalls: [{ id: 'call_s1', name: 'powershell_run', input: { command: 'curl -H "Authorization: Bearer ' + FAKE + '" https://h/v1/x' }, result: 'ok' }],
+      });
+      await srv.saveSession(s);
+      const read = await call('steward_thread_read', { sessionId: threadId, tail: 20, maxChars: 12000 }, stewardCtx('steward-redact'));
+      const toolRow = (read && Array.isArray(read.rows) ? read.rows : []).find(r => r && r.role === 'tool' && String(r.text || '').includes('powershell_run'));
+      ok(!!toolRow && !JSON.stringify(read).includes(FAKE) && String(toolRow.text).includes('«redacted»'),
+        `F1c 入参提示已脱敏:整份结果搜不到明文 key、那一行留着「Authorization: Bearer «redacted»」的形状(got ${JSON.stringify(String((toolRow && toolRow.text) || '').slice(0, 140))})`);
+    }
     // 配额:同一 ctx(同会话 + 同回合键)第 7 次必红。
     let quota = null;
     for (let i = 0; i < 6; i++) quota = await call('steward_thread_read', { sessionId: threadId, tail: 1, maxChars: 1000 }, stewardCtx('steward-quota'));

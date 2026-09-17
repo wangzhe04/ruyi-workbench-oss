@@ -20,7 +20,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // (D) 决定层 · 真活回合 × /api/steward/act:每个场景都先起一个真原生回合停在真待决上,再从管家的按钮入口
 //     调 steward_decide —— 八道闸里除「轮询」之外的每一道都在这里逐条造反例(收件箱轮询拉到 120 s,不跑收件箱回合):
 //       ⑦ 会话头 auto、回合请求级 default → mode;对照:会话头 default、回合请求级 auto → 代批(闸 2 读的是活回合);
-//       ③ 三条底线命令 → floor;⑥ 缺 riskNote → risk_note,补上理由再批 → 代批;
+//       ③ 三条底线命令 → floor;107-S1 的四条(拼接构造 / 两个绝对删除目标 / 927 字)→ indirect_command /
+//          absolute_target / scan_limit;⑥ 缺 riskNote → risk_note,补上理由再批 → 代批;
 //       ④ 开关关 → switch_off 且信封与 B1 逐键同形;⑧ steward_config_set 翻开关 → steward.forbidden;
 //       拍板 1 真路径:写型 http_request(POST 到夹具接口)停在待决上 → 代批落定(不被自己判成 sticky:http_request)、
 //          POST 真的发出去;调用返回后粘性位 = http_request,紧跟着的 git push → tainted;
@@ -457,6 +458,25 @@ try {
     const got = out.map(o => o.r.json && o.r.json.result && o.r.json.result.blockedBy);
     ok(out.length === 3 && got.every(by => by === 'floor'),
       `D20 ③ shutdown /s、rm -rf /、rm -rf b && shutdown /s 带理由也一律不代批 blockedBy:floor(实得 ${brief(out.map(o => [o.pending.input && o.pending.input.command, o.r.json && o.r.json.result && { blockedBy: o.r.json.result.blockedBy, ok: o.r.json.result.ok, cat: o.r.json.result.exemptCategory }]))})`);
+  }
+  // 107-S1 ①②③(46 号文 §5 ⑦b 的三个高危实验,信封这一端)。四条都被拦下,所以【不占】每小时窗口的名额
+  //(stewardExemptDelegationRecord 只在十道闸全过之后才记),下面 D95 的「恰好 6 次」前提不受影响。
+  // 危险词一律写在 PowerShell 注释里(与 D20 同一条回归机纪律):闸门被摘掉时真跑的也只是前半句 Write-Output。
+  {
+    const LONG = 'Write-Output g4 # Remove-Item .\\tmp -Recurse ' + 'x'.repeat(927 - 45);
+    const cmds = [
+      "Write-Output g1 # Remove-Item .\\tmp -Recurse; & ('shut' + 'down') /s /t 0",
+      'Write-Output g2 # Remove-Item C:\\Users -Recurse -Force',
+      'Write-Output g3 # rm -rf /home/me/notes',
+      LONG,
+    ];
+    const { out } = await turn(T, 'S1 三条', 'auto', cmds.map(ps), p => act(T, p.id, { riskNote: RISK_NOTE }));
+    const got = out.map(o => o.r.json && o.r.json.result && o.r.json.result.blockedBy);
+    ok(out.length === 4 && JSON.stringify(got) === JSON.stringify(['indirect_command', 'absolute_target', 'absolute_target', 'scan_limit']),
+      `D21 107-S1:拼接构造 → indirect_command;C:\\Users 与 /home/me/notes 两个绝对删除目标 → absolute_target;${LONG.length} 字 → scan_limit(实得 ${brief(out.map(o => [String((o.pending.input && o.pending.input.command) || '').slice(0, 42), o.r.json && o.r.json.result && { blockedBy: o.r.json.result.blockedBy, ok: o.r.json.result.ok, cat: o.r.json.result.exemptCategory }]))})`);
+    ok(out.every(o => o.r.json && o.r.json.result && o.r.json.result.ok === false && o.r.json.result.error === 'propose_required'
+      && o.r.json.result.reason === 'permanently_exempt' && o.r.json.result.delegable === false),
+      'D21b 四条的信封仍是 B1 那一份 propose_required(只是 blockedBy 换了名字)');
   }
   // ⑥ 缺 riskNote → risk_note;补上理由再批同一条 → 代批
   {

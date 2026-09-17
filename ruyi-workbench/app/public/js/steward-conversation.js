@@ -23,6 +23,10 @@ import { stewardShortTitle } from './util.js';
 // 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
 // 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
 import { dispatchAcceptanceMilestones, focusThreadFor } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
+// 107-S1 ④（46 号文 §5 ⑦b H1）：管家给的 confirm 族按钮（改设置／改技能／给线程开桌面）在 POST 之前
+// 必须先得到用户明确的「是」。确认件走全仓那一份 confirmDanger（背影／Tab 焦点陷阱／焦点归还／Esc／
+// 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
+import { confirmDanger } from './confirm-panel.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -910,7 +914,16 @@ export function createStewardConversation({
       try { openOnboardingWizard && openOnboardingWizard(); } catch { /* 向导打不开不该掀翻对话流 */ }
       return;
     }
+    // 107-S1 ④（46 号文 §5 ⑦b H1）：**confirm 族按下去之前先问一次**。判据是服务端挂的
+    // act.confirmItems（13o／13p 由 06i stewardActConfirmSpec 派生，模型碰不到它）——
+    // 不是按 label 文字、也不是按工具名在前端另立一张表。清单是纯文本，面板只 textContent。
+    // 取消／✕／Esc／点背影一律回 false：**一个请求都不发**（这一枚按钮就是 confirm 档的钥匙）。
+    // 先置灰再问：面板开着的时候这一枚不该还能再按出第二张面板；取消后恢复可点（用户可以再想想）。
     if (btn) btn.disabled = true;
+    if (Array.isArray(act.confirmItems) && act.confirmItems.length) {
+      const agreed = await confirmDanger({ name: 'stewardActConfirm', listItems: act.confirmItems });
+      if (!agreed) { if (btn) btn.disabled = false; return; }
+    }
     try {
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
       const result = response && response.result;

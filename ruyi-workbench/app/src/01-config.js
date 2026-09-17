@@ -333,7 +333,7 @@ function defaultConfig() {
     // 管家关着也该有名字。关掉 = 零调用、零字段、零记账。
     stewardThreadBriefV1: true,
     // 第 127 波 2-quater B2(45 号文 §2-quater.2 B2 / §2-quater.3 拍板 2):管家代批。「智能自动」档里线程因为命令
-    // 正文命中永久豁免而停下来问时,管家在八道闸(06i stewardExemptDelegationVerdict)全过、并写下理由的前提下
+    // 正文命中永久豁免而停下来问时,管家在十道闸(06i stewardExemptDelegationVerdict)全过、并写下理由的前提下
     // 替用户放行。**默认开**(用户拍板),设置页可关;管家自己改不了(06i 的 forbidden 档,不是 confirm)。
     stewardExemptDelegationV1: true,
     // 第 117 波 117l(27 号文 §11.9 D7;用户 2026-09-07 走查第 7 条「设置的管家页里可以默认配置新开线程

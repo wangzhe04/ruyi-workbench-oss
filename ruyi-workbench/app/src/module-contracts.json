@@ -3865,6 +3865,7 @@
         "STEWARD_DELIVERABLE_CHARS",
         "STEWARD_DIGEST_LIMITS",
         "STEWARD_EVENT_KINDS",
+        "STEWARD_EXEMPT_ABSOLUTE_TARGET",
         "STEWARD_EXEMPT_CATEGORY_LABELS",
         "STEWARD_EXEMPT_CONTENT_GROUPS",
         "STEWARD_EXEMPT_DELEGATIONS_PER_HOUR",
@@ -3874,6 +3875,7 @@
         "STEWARD_EXEMPT_EXCERPT_CHARS",
         "STEWARD_EXEMPT_FLOOR_DELETE_TARGET",
         "STEWARD_EXEMPT_FLOOR_DELETE_VERBS",
+        "STEWARD_EXEMPT_INDIRECT_PATTERNS",
         "STEWARD_EXEMPT_INPUT_CHARS",
         "STEWARD_EXEMPT_INPUT_DEPTH",
         "STEWARD_EXEMPT_NAME_CARVEOUTS",
@@ -3920,14 +3922,17 @@
         "deriveStewardThreadState",
         "isStewardToolName",
         "prerouteText",
+        "stewardActConfirmSpec",
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardClipSay",
         "stewardConfigTierFor",
+        "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptCatastrophicDelete",
         "stewardExemptDelegationVerdict",
         "stewardExemptExcerpt",
         "stewardExemptHits",
+        "stewardExemptIndirectConstruction",
         "stewardExemptInputText",
         "stewardExemptReason",
         "stewardExemptRiskNote",
@@ -14247,6 +14252,8 @@
         "STEWARD_ACTIONS_MAX",
         "STEWARD_ACTION_HOOKS",
         "STEWARD_ACTS_MAX",
+        "STEWARD_ACT_CONFIRM_LABEL_MAX",
+        "STEWARD_ACT_CONFIRM_VALUE_CHARS",
         "STEWARD_ACT_LABEL_MAX",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
@@ -14536,8 +14543,11 @@
       "file": "13o-steward-runner-prompt.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_ACT_CONFIRM_MASK",
         "_stewardPrerouteCache",
         "buildStewardSystemPrompt",
+        "stewardActConfirmLines",
+        "stewardActConfirmValueText",
         "stewardActLabel",
         "stewardContextBudget",
         "stewardMemoryBlock",
@@ -14616,6 +14626,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06b-prompt-registry.js",
           "symbol": "getPromptPack",
           "kinds": [
@@ -14683,6 +14700,13 @@
           "symbol": "STEWARD_WORKSPACE_TABLE_MAX",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardActConfirmSpec",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -14788,6 +14812,20 @@
           "symbol": "stewardSeatedByUser",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACT_CONFIRM_LABEL_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACT_CONFIRM_VALUE_CHARS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14899,7 +14937,8 @@
         "stewardStampReply",
         "stewardTargetPermission",
         "stewardTriggerStamp",
-        "stewardTurnsInWindow"
+        "stewardTurnsInWindow",
+        "stewardUntrustedSummaryNote"
       ],
       "requires": [
         {
@@ -14977,6 +15016,13 @@
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardActConfirmSpec",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15173,6 +15219,13 @@
           "symbol": "stewardRunnerRuntime",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardActConfirmLines",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18829,6 +18882,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_EXCERPT_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EXEMPT_NAME_CARVEOUTS",
           "kinds": [
             "read"
@@ -18927,6 +18987,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardActConfirmSpec",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYou",
           "kinds": [
             "read"
@@ -18948,6 +19015,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptAbsoluteDeleteTarget",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptDelegationVerdict",
           "kinds": [
             "read"
@@ -18963,6 +19037,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptHits",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptIndirectConstruction",
           "kinds": [
             "read"
           ]
@@ -20461,7 +20542,21 @@
         },
         {
           "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardActLabel",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
           "symbol": "stewardContextBudget",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardNormalizeAct",
           "kinds": [
             "read"
           ]

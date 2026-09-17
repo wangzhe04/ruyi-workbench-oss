@@ -77,6 +77,16 @@ export const CONFIRM_TEXT = Object.freeze({
     okKey: 'common.confirm',
     cancelKey: 'common.cancel',
   }),
+  // 107-S1 ④（46 号文 §5 ⑦b H1）：管家给的按钮属于 confirm 族（改设置／改技能／给线程开桌面）时，
+  // 按下去之前先把「要改哪些键、改成什么」逐条摆出来。**清单是服务端派生的纯文本**（act.confirmItems，
+  // 13o stewardActConfirmLines：键名 + 已脱敏并裁剪的值），所以这张表只有标题与引子两个文案键，
+  // 正文由 listItems 传进来 —— 模型写的任何一个字都进不了这张面板。
+  stewardActConfirm: Object.freeze({
+    titleKey: 'stewardShell.acts.confirmTitle',
+    bodyKey: 'stewardShell.acts.confirmBody',
+    okKey: 'common.confirm',
+    cancelKey: 'common.cancel',
+  }),
   // 权限切「全自动」：chips 菜单内与设置页两处共用（那两处保持就地形态，理由见各自文件）。
   permissionAuto: Object.freeze({
     titleKey: 'stewardShell.permission.confirmTitle',
@@ -93,12 +103,16 @@ export { PERMISSION_CONFIRM_BODY_KEYS as STEWARD_CONFIRM_KEYS };
 // 单一确认件。两种用法：
 //   confirmDanger({ name: 'stopBlocker', bodyParams: { title } })   ← 键从登记表取（推荐）
 //   confirmDanger({ titleKey, bodyKey, okKey, cancelKey })          ← 显式键（登记表没有的一次性确认）
+// 107-S1 ④：listItems 是【已经是人话的纯文本】清单（与 listKeys 的「locale 键清单」并列，两者可同时给）。
+//   它存在的理由：管家那一族要列的是服务端按 args 派生的「键 = 新值」，不可能预先做成 locale 键。
+//   渲染一律走 el('li', '', text)（textContent），零 innerHTML —— 与本文件其余部分同一条纪律。
 export function confirmDanger({
   name = '',
   titleKey = '',
   bodyKey = '',
   bodyParams = null,
   listKeys = null,
+  listItems = null,
   okKey = 'common.confirm',
   cancelKey = 'common.cancel',
 } = {}) {
@@ -118,6 +132,13 @@ export function confirmDanger({
     if (listKeysFinal && listKeysFinal.length) {
       const list = el('ul', 'confirm-list');
       for (const key of listKeysFinal) list.appendChild(el('li', '', t(key)));
+      body.appendChild(list);
+    }
+    // 107-S1 ④：纯文本清单（服务端派生的「键 = 新值」）。与上面那一段同一个 <ul class="confirm-list"> 样式，
+    // 只是文案不过 t() —— 它本来就不是 locale 键。
+    if (Array.isArray(listItems) && listItems.length) {
+      const list = el('ul', 'confirm-list');
+      for (const item of listItems) list.appendChild(el('li', '', String(item == null ? '' : item)));
       body.appendChild(list);
     }
     const foot = el('div', 'confirm-foot');

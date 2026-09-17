@@ -361,6 +361,14 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: { message: 'fake asr exploded', type: 'fake_error', code: 500 } }));
         return;
       }
+      // 107-S1 ⑦(46 号文 §5 ⑦b L1a)夹具(纯增量分支):filename 含 'secretecho' 时回 500,
+      // 并把【收到的 Authorization 头】原样写进错误体 —— 真实世界里回显请求头的上游就是这么干的。
+      // 工作台那一侧必须在把这段话放进失败信封与工具结果之前脱敏;摘掉那一次 redact,下面那条断言当场红。
+      if (filename.includes('secretecho')) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'rejected request, echoing headers: authorization=' + String(req.headers.authorization || ''), type: 'fake_error', code: 500 } }));
+        return;
+      }
       // 127-114c② 围栏夹具(纯增量分支):filename 含 'fencepayload' 时文本带真 </attachment>/<script>
       // 载荷,供「转写文本进提示词必须尖括号中和」断言 —— 摘掉中和,这组破栏序列就原样穿透进提示词。
       if (filename.includes('fencepayload')) {

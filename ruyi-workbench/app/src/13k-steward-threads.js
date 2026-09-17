@@ -415,7 +415,12 @@ function stewardToolCallLine(call) {
   let inputHint = '';
   try {
     const raw = JSON.stringify((call && call.input) || {});
-    inputHint = stewardSanitizeText(raw).slice(0, 160);
+    // 107-S1 ⑥(46 号文 §5 ⑦b M4):入参提示【先脱敏再裁】。修前这里是 `JSON.stringify(input)` 原样裁 160 字
+    // 交给管家模型并落盘(steward_thread_read 的结果进提示词、也进那一轮的会话文件)——
+    // 而同一个文件里 B1 的摘录管线(:1073)早就立了「命令原文先 redact」,两处分叉。
+    // redact 住在 04,13k→04 是既有边(:1073 用的就是它),零新增依赖。
+    // 顺序照 S0 的教训:redact 在裁剪【之前】—— 先裁 160 字会把密钥切成半截,正则一条都咬不到。
+    inputHint = stewardSanitizeText(redact(raw)).slice(0, 160);
   } catch { inputHint = '{…}'; }
   let resultChars = 0;
   try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
@@ -1074,7 +1079,7 @@ function stewardExemptPendingSummary(iv) {
   return { categories, floor: verdict.hits.some(hit => hit.floor === true), commandExcerpt };
 }
 
-// 127 波 2-quater B2(45 号文 §2-quater.2 闸 2 / 闸 6):代批要的两件【活回合】事实,从活回合登记表上现读。
+// 127 波 2-quater B2(45 号文 §2-quater.2 闸 2 / 闸 8):代批要的两件【活回合】事实,从活回合登记表上现读。
 // 为什么住 13k 而不是 13l:activeChildren 与 logEvent 都在 04,13k→04 是既有边、13l→04 不是(13l 今天一个 04
 // 符号都不引用)—— 与 B1 把 stewardExemptPendingSummary 放在这里是同一个理由,零新增依赖边。
 //   mode  —— 活回合此刻的实效档位:09 在 runOpenAiTurn 里挂到登记表上的 effectivePermissionMode(与闸门

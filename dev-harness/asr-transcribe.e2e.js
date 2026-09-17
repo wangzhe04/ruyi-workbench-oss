@@ -24,6 +24,9 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
 
 let WB_PORT = 0, ASR_PORT = 0, TOKEN = '';
 const ASR_MAX = 25 * 1024 * 1024;
+// 107-S1 ⑦:夹具用的假 key【运行时拼出来】,源码里不留密钥形态长串(repo-hygiene (b) 的全仓扫描会误报,
+// 与 S0 的口径一致)。形状取「sk- 后跟 48 位字母数字」——04 REDACT_PATTERNS 里那条裸 sk- 咬得到它。
+const ASR_FAKE_KEY = 'sk' + '-' + 'a1b2c3d4'.repeat(6);
 
 function writeConfig(extra) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify(Object.assign({
@@ -95,7 +98,7 @@ function readUsageRows() {
 
     // ═══ 第二靴:配置齐全(fake ASR 经 baseUrl 兜底) ═══
     writeConfig({
-      providers: [{ id: 'asr-p', label: 'ASR', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + ASR_PORT, apiKey: 'k', model: 'whisper-1', models: [{ id: 'whisper-1', label: 'whisper-1', caps: ['asr'] }] }],
+      providers: [{ id: 'asr-p', label: 'ASR', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + ASR_PORT, apiKey: ASR_FAKE_KEY, model: 'whisper-1', models: [{ id: 'whisper-1', label: 'whisper-1', caps: ['asr'] }] }],
       asrProviderId: 'asr-p', asrModel: 'whisper-1',
     });
     wb = spawnWB();
@@ -129,6 +132,18 @@ function readUsageRows() {
     r = await reqAsr('?filename=upstream500.webm', audio1234, 'audio/webm');
     ok(r.status === 502 && r.json && r.json.ok === false && r.json.error && r.json.error.code === 'asr.upstream' && r.json.error.params && r.json.error.params.status === 500,
       'D1 上游 5xx → 502 统一信封(params.status=500) (status ' + r.status + ' code ' + (r.json && r.json.error && r.json.error.code) + ')');
+
+    // D1b 107-S1 ⑦(46 号文 §5 ⑦b L1a):上游把请求头回显进错误体 → 信封里那 1000 字必须已经脱敏。
+    // 修前这一段是 `upstreamText.slice(0,1000)` 原样进 failure.message,而这条路的两个消费面分别是
+    // 浏览器(本路由的 502 信封)与模型 ＋ 会话文件(audio_transcribe 的工具结果)。
+    r = await reqAsr('?filename=secretecho.webm', audio1234, 'audio/webm');
+    {
+      const whole = String(r.text || '');
+      const message = String((r.json && r.json.error && r.json.error.message) || '');
+      ok(r.status === 502 && r.json && r.json.error && r.json.error.code === 'asr.upstream'
+        && message.includes('echoing headers') && !whole.includes(ASR_FAKE_KEY) && message.includes('«redacted»'),
+        'D1b 上游回显的 Authorization 在失败信封里已脱敏(整个响应体搜不到明文 key,原文其余部分还在) (message ' + JSON.stringify(message.slice(0, 160)) + ')');
+    }
 
     // E1 25 MB 专用闸(早于 128 MB 总闸):上限-1 放行、上限+1 413
     r = await reqAsr('?filename=big.webm', Buffer.alloc(ASR_MAX - 1, 1), 'audio/webm');

@@ -180,18 +180,19 @@ async function stewardImplDecide(args, ctx, config) {
   // 127 波 2-quater B1 ③:tier 口径搬进 06i 的 stewardExemptScanInput(13k 的收件箱摘录读同一个函数),行为逐字不变。
   const exemptInput = stewardExemptScanInput(tier, current.input);
   const exemptHit = stewardExemptReason(toolName, exemptInput);
-  // 127 波 2-quater B2(45 号文 §2-quater.2 B2):豁免命中不再是「一律提议」,而是先过八道代批闸
+  // 127 波 2-quater B2(45 号文 §2-quater.2 B2):豁免命中不再是「一律提议」,而是先过十道代批闸
   // (06i stewardExemptDelegationVerdict,顺序即判定顺序)。任何一道不过 → 与修前【同形】的 propose_required
-  // (message 与既有 details 逐字不变),details 只多 delegable:false 与 blockedBy(闸 6 拦下时再多一个 taintBy)。
+  // (message 与既有 details 逐字不变),details 只多 delegable:false 与 blockedBy(闸 8 拦下时再多一个 taintBy)。
   // 全过 → delegation 非空,落到下面同一条 decideIntervention 路径(B1 的 updatedInput/scope 剥离照旧生效)。
   // 事实来源逐条:
   //   闸 1 开关   —— config.stewardExemptDelegationV1(forbidden 档,管家自己改不了);
   //   闸 2 档位   —— 13k stewardExemptLiveTurn 读活回合登记表上的实效档,【不是】上面那个 permissionMode(会话头);
   //   闸 3 看管   —— 会话头:stewardWatchedThread / threadOriginOf === 'schedule' / 显式 stewardWatch:false;
-  //   闸 4/5      —— stewardExemptHits 的全部命中(不看首中)与 scannedFully / textLength;
-  //   闸 6 污染   —— 13k stewardExemptLiveTurn(活回合段表 + 粘性污染位;判不出算污染);
-  //   闸 7 理由   —— args.riskNote 经 06i stewardExemptRiskNote 中和截断;
-  //   闸 8 窗口   —— 13j 的滚动一小时计数。
+  //   闸 4/5      —— stewardExemptHits 的全部命中(不看首中)、scannedFully / textLength 与【交给管家那段摘录的长度】;
+  //   闸 6/7      —— 107-S1:同一份 stewardExemptHits 里的 indirect / absoluteDeleteTarget 两个形状标记;
+  //   闸 8 污染   —— 13k stewardExemptLiveTurn(活回合段表 + 粘性污染位;判不出算污染);
+  //   闸 9 理由   —— args.riskNote 经 06i stewardExemptRiskNote 中和截断;
+  //   闸 10 窗口  —— 13j 的滚动一小时计数。
   // 不读 ctx.userPressed:用户按下管家给的按钮(/api/steward/act)与模型直调走同一套闸 —— 永久豁免那一格
   // 从来不因为「用户点了一下管家的按钮」而放宽(06i 契约;用户要亲自批,在线程里按)。
   let delegation = null;
@@ -204,6 +205,11 @@ async function stewardImplDecide(args, ctx, config) {
         ? `工具 ${safeTool} 这次是写型网络请求,命中了永久豁免清单的「${categoryLabel}」类`
         : `工具 ${safeTool} 这次要执行的命令命中了永久豁免清单的「${categoryLabel}」类`);
     const exemptScan = stewardExemptHits(toolName, exemptInput);
+    // 107-S1 ①(46 号文 §5 ⑦b):摘录提前到【判之前】算 —— 闸 5 要的不只是「原文多长」,还要
+    // 「真正交给管家的那一段有没有被截」(脱敏会把短值撑长,300 字以内的原文照样可能截)。
+    // 生产者与修前逐字相同(13k stewardExemptPendingSummary,收件箱 / thread_status 同一个),
+    // 只是位置提前,代批落定时原样复用这一份,不再算第二遍。
+    const exemptExcerpt = String((stewardExemptPendingSummary(current) || {}).commandExcerpt || '');
     const liveTurn = stewardExemptLiveTurn(missionId, interventionId, head);
     const riskNote = stewardExemptRiskNote(args.riskNote);
     const windowNow = Date.now();
@@ -214,6 +220,7 @@ async function stewardImplDecide(args, ctx, config) {
       origin: threadOriginOf(head),
       explicitUnwatch: head.stewardWatch === false,
       scan: exemptScan,
+      excerptChars: exemptExcerpt.length,
       taint: liveTurn.taint,
       riskNote,
       recentCount: stewardExemptDelegationsInWindow(windowNow),
@@ -230,7 +237,8 @@ async function stewardImplDecide(args, ctx, config) {
       categories: verdict.categories,
       exemptBy: exemptHit.by,
       // 摘录与收件箱 / thread_status 同一个生产者(13k):04 redact 脱敏 → 06i stewardExemptExcerpt 中和 + 截 300 字。
-      commandExcerpt: (stewardExemptPendingSummary(current) || {}).commandExcerpt || '',
+      // 107-S1 ①:就是上面喂给闸 5 的那一份(同一个值,不再算第二遍)。
+      commandExcerpt: exemptExcerpt,
       riskNote,
       liveMode: liveTurn.mode,
       windowCount: stewardExemptDelegationsInWindow(windowNow),
@@ -291,7 +299,7 @@ async function stewardImplDecide(args, ctx, config) {
       basis: {
         interventionId, interventionVersion: Number(body.interventionVersion) || 0,
         // 127 波 2-quater B2:代批的依据整份进账本(行动流水 UI 读它画类别与理由)。tainted 恒 false ——
-        // 走到这里说明闸 6 已经放行(命中不含两类外联时闸 6 根本不问,也记 false:这条命令不在污染规则的范围里)。
+        // 走到这里说明闸 8 已经放行(命中不含两类外联时闸 8 根本不问,也记 false:这条命令不在污染规则的范围里)。
         ...(delegation ? {
           delegation: {
             categories: delegation.categories, exemptBy: delegation.exemptBy,

@@ -354,6 +354,63 @@ function stewardExemptCatastrophicDelete(scanText) {
   }
   return false;
 }
+// 107-S1 ②(46 号文 §5 ⑦b H2 实验 E2):**间接构造一律不代批**。
+// 实测 `& ('shut' + 'down') /s /t 0` 一条判据都不命中(关机那条正则找的是字面 `shutdown`),
+// 与 `rm -rf ./build` 混在一起时 `delegable:true` —— 也就是说只要把关键词拆开拼,代批闸的四、六两道
+// 就都绕过去了。字面正则治不了这一类(要治就得实现一个 shell 求值器),所以反过来判【构造手法本身】:
+// 命令里出现拼接 / 求值 / 编码这些「字面量不等于真正要跑的东西」的形状,就不代批。
+// 【只拦代批,不改什么算豁免】:本表不进 STEWARD_EXEMPT_CONTENT_GROUPS —— stewardExemptReason 与
+// stewardToolPermanentlyExempt 的输出逐字节不变(单测按样本钉住),它只让 stewardExemptDelegationVerdict
+// 多报一个 blockedBy:'indirect_command'。理由:豁免命中 = 「这条命令属于那五类动作」,而间接构造说的是
+// 「我判不出它属于哪一类」—— 把后者塞进前者会让「命中类别」这个概念失真(用户会看到「删数据」的帽子
+// 扣在一条其实要关机的命令上),而且会连带改变原生闸门(07 nativeToolGate)对所有档位的停问行为。
+// 误判方向:拼接、`-join`、`[char]` 这些在正常脚本里也出现 —— 代价是那种线程的这一条要用户亲自按。
+const STEWARD_EXEMPT_INDIRECT_PATTERNS = Object.freeze([
+  /\biex\b/i, /\binvoke-expression\b/i,                // PowerShell 求值:iex 是 Invoke-Expression 的别名
+  /(?:^|[^&])&(?!&)[ \t]*\(/,                          // & (…) 调用运算符作用在括号表达式上(`&& (…)` 是管道链,不算)
+  /(?:^|[\s;(])\.[ \t]*\(/,                            // . (…) 点源运算符(`.\tmp`、`x.map(` 都不是这个形状)
+  /\(\s*(['"])[^'"\n]*\1\s*\+/,                        // 括号里以字符串拼接开头:('shut' + 'down')
+  /(['"])[^'"\n]*\1[ \t]*\+[ \t]*(?:['"]|\$)/,         // 字符串 + 字符串 / 字符串 + 变量(拼在括号外也算)
+  /\bfrombase64string\b/i,                             // base64 解码后执行
+  /\[\s*char\s*\]/i, /-join\b/i,                       // [char]0x72 / -join 逐字拼装
+  /\bcmd\b[^\n]{0,40}?\/c[^\n]{0,200}?\^/i,            // cmd /c 里用 ^ 转义把关键词打断
+  /-e(?:nc|ncodedcommand)?\s+[A-Za-z0-9+/=]{16,}/i,    // powershell -enc <base64>
+]);
+// 局部量【不叫 text】:依赖图扫描器按顶层符号名认引用,00-boot 提供一个叫 text 的符号 ——
+// 叫它 text 会给 06i 凭空造出一条 06i -> 00 的边,而 06i 的红线正是「零 require、零外部符号、零出边」。
+function stewardExemptIndirectConstruction(scanText) {
+  const scanBody = String(scanText == null ? '' : scanText);
+  if (!scanBody) return false;
+  return STEWARD_EXEMPT_INDIRECT_PATTERNS.some(pattern => pattern.test(scanBody));
+}
+// 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
+// 实测 `Remove-Item C:\Users -Recurse -Force`、`rm -rf /home/me/notes`、
+// `Remove-Item $env:USERPROFILE\Documents -Recurse` 全是 `delete_data / floor:false` 且可代批 ——
+// 修前那八道闸里没有一道看路径,而灾难性删除那张表只认【整段就是根】的目标(`C:\`、`~`、`/`),
+// `C:\Users` 后面还跟着路径字符,所以它一条都不咬。
+// 这条判据【是词法的、保守的】:06i 零 require,拿不到 path 模块、拿不到会话 cwd、拿不到工作区表,
+// 所以它【证不出「删的东西在工作夹里」】—— 它只能证「这条命令没有写出任何绝对或家目录起点的目标」。
+// 相对路径仍可能经 `..` 爬出工作夹,那一层由执行闸(03 guardWorkspaceExecute)兜;这里要的只是
+// 「管家不准替用户批一条把绝对路径写在脸上的删除」。
+// 【按叶子判,不按摊平后的整段判】:摊平文本把 input 的【所有】字符串值用空格接起来,而
+// `powershell_run{command:'Remove-Item .\tmp -Recurse', cwd:'C:\…\work'}` 是常态 —— 拿整段判会把
+// 每一条「线程清自己临时目录」都误判成绝对目标(B2 的主用例),那是把判据做成了「谁传 cwd 谁不许代批」。
+// 所以:逐个叶子串看,只有【自己就命中删数据正则】的那个叶子里的绝对形态才算目标。
+// 一个叶子都没能复现删数据命中(命中是跨叶子拼出来的 argv 形态,如 ['Remove-Item','C:\Users','-Recurse'])
+// → 判不出目标在哪个词上,按最坏情况算(fail-closed)。
+const STEWARD_EXEMPT_ABSOLUTE_TARGET = /(?:[a-z]:[\\/]|\\\\[a-z0-9._$-]|(?:^|[\s"'(=;|])\/(?:[a-z0-9._-]{2,}|[a-z0-9._-]*\/)|(?:^|[\s"'(=;|])~(?:[\\/]|$)|\$env:|\$home\b|%[a-z_][a-z0-9_]*%)/i;
+function stewardExemptAbsoluteDeleteTarget(scanParts) {
+  const parts = (Array.isArray(scanParts) ? scanParts : []).filter(part => typeof part === 'string' && part !== '');
+  const deletes = part => STEWARD_EXEMPT_CONTENT_GROUPS
+    .some(group => group.category === 'delete_data' && group.patterns.some(pattern => pattern.test(part)));
+  let located = false;
+  for (const part of parts) {
+    if (!deletes(part)) continue;
+    located = true;
+    if (STEWARD_EXEMPT_ABSOLUTE_TARGET.test(part)) return true;
+  }
+  return !located;
+}
 const STEWARD_EXEMPT_INPUT_CHARS = 4000;   // 命令文本扫描的硬顶(超长 input 不该让判据变慢)
 const STEWARD_EXEMPT_INPUT_DEPTH = 4;
 // 把待决 input 里的【全部字符串值】摊平成一段文本。不按键名白名单取:命令可能藏在 command/script/args/
@@ -361,18 +418,25 @@ const STEWARD_EXEMPT_INPUT_DEPTH = 4;
 // 127 波 2-quater B1 ②:第三个参数 scanNote 是可选的「截断回执」—— 传一个对象进来,凡是触发过字数 break
 // 或深度截断(超过深度的非空字符串 / 对象被静默跳过),就在它上面置 truncated:true。返回的文本一个字不变;
 // 不传就与修前逐字节相同。深度截断按保守口径记:超深的那一层哪怕是空对象也算「没扫全」。
-function stewardExemptInputText(input, depth = 0, scanNote = null) {
+// 107-S1 ③:第四个参数 scanParts 是可选的【叶子收集器】—— 传一个数组进来,摊平时经过的每一个非空字符串值
+// 原样推进去(顺序即遍历顺序)。返回的文本仍然一个字不变;不传就与修前逐字节相同。给
+// stewardExemptAbsoluteDeleteTarget 用:它要判「绝对目标写在哪个词上」,而摊平后的整段分不出
+// `command` 与 `cwd` 的边界(头注里那条误判)。
+function stewardExemptInputText(input, depth = 0, scanNote = null, scanParts = null) {
   if (input == null) return '';
   if (depth > STEWARD_EXEMPT_INPUT_DEPTH) {
     if (scanNote && (typeof input === 'string' ? input !== '' : typeof input === 'object')) scanNote.truncated = true;
     return '';
   }
-  if (typeof input === 'string') return input;
+  if (typeof input === 'string') {
+    if (scanParts && input !== '') scanParts.push(input);
+    return input;
+  }
   if (typeof input === 'number' || typeof input === 'boolean') return '';
   if (Array.isArray(input)) {
     const parts = [];
     for (const item of input) {
-      parts.push(stewardExemptInputText(item, depth + 1, scanNote));
+      parts.push(stewardExemptInputText(item, depth + 1, scanNote, scanParts));
       if (parts.join(' ').length > STEWARD_EXEMPT_INPUT_CHARS) { if (scanNote) scanNote.truncated = true; break; }
     }
     return parts.join(' ');
@@ -380,7 +444,7 @@ function stewardExemptInputText(input, depth = 0, scanNote = null) {
   if (typeof input === 'object') {
     const parts = [];
     for (const value of Object.values(input)) {
-      parts.push(stewardExemptInputText(value, depth + 1, scanNote));
+      parts.push(stewardExemptInputText(value, depth + 1, scanNote, scanParts));
       if (parts.join(' ').length > STEWARD_EXEMPT_INPUT_CHARS) { if (scanNote) scanNote.truncated = true; break; }
     }
     return parts.join(' ');
@@ -432,7 +496,10 @@ function stewardToolPermanentlyExempt(toolName, input) {
 //                  底线 / 非底线子组合并成一条,floor 取「任一命中的子组是底线」;工具名命中恒为底线;
 //                  删数据那一条再经 stewardExemptCatastrophicDelete 判一次,删的是整个盘 / 家目录就升成底线。
 //   scannedFully —— 摊平时没有触发截断,且摊平后的文本没有超过 STEWARD_EXEMPT_INPUT_CHARS(超出的那截判据看不到);
-//   textLength   —— 摊平后文本的全长(截断之前)。
+//   textLength   —— 摊平后文本的全长(截断之前);
+//   indirect     —— 107-S1 ②:命令里有间接构造(拼接 / 求值 / 编码),判不出真正要跑的是什么;
+//   absoluteDeleteTarget —— 107-S1 ③:删数据命中,且那个叶子里写着绝对 / 家目录起点的目标(或命中是跨叶子拼的)。
+// 后两个【只给代批闸看】,不进 hits、不影响 floor。
 // 判定口径与 stewardExemptReason 完全同源(同一组正则、同一个 4000 字切片、同一条结构化判据),它不改变任何
 // 「算不算豁免」的结论:hits 非空 ⇔ stewardExemptReason 非 null。
 function stewardExemptHits(toolName, input) {
@@ -444,8 +511,11 @@ function stewardExemptHits(toolName, input) {
   if (input == null) return { hits, scannedFully: true, textLength: 0 };
   if (stewardExemptStructuredWrite(input)) hits.push({ by: 'structured_write', category: 'outbound_send', floor: false });
   const scanNote = { truncated: false };
-  const full = stewardExemptInputText(input, 0, scanNote);
+  const scanParts = [];
+  const full = stewardExemptInputText(input, 0, scanNote, scanParts);
   const composed = full.slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+  let indirect = false;
+  let absoluteDeleteTarget = false;
   if (composed) {
     const byCategory = new Map();
     for (const group of STEWARD_EXEMPT_CONTENT_GROUPS) {
@@ -458,8 +528,15 @@ function stewardExemptHits(toolName, input) {
     }
     const deleting = byCategory.get('delete_data');
     if (deleting && !deleting.floor && stewardExemptCatastrophicDelete(composed)) deleting.floor = true;
+    // 107-S1 ②③:两条【只给代批闸看】的形状判据。算在这里是因为摊平文本与叶子表只在本函数里有;
+    // 它们不进 hits、不改 floor —— 什么算豁免逐字节不变(上面那几行就是全部判据)。
+    indirect = stewardExemptIndirectConstruction(composed);
+    absoluteDeleteTarget = !!deleting && stewardExemptAbsoluteDeleteTarget(scanParts);
   }
-  return { hits, scannedFully: !scanNote.truncated && full.length <= STEWARD_EXEMPT_INPUT_CHARS, textLength: full.length };
+  return {
+    hits, scannedFully: !scanNote.truncated && full.length <= STEWARD_EXEMPT_INPUT_CHARS, textLength: full.length,
+    indirect, absoluteDeleteTarget,
+  };
 }
 // 127 波 2-quater B1 ③:「按 tier 决定把不把 input 交给判据」的唯一一处。read/edit 档只看工具名(那两档本来就
 // 不碰系统面;而且 file_write 的 input 是整份文件正文,拿它去扫命令正则只会误伤);其余(exec 与档位缺失)连
@@ -504,18 +581,30 @@ function stewardExemptExcerpt(redactedText, hits, maxChars = STEWARD_EXEMPT_EXCE
 // 127 波 2-quater B2(45 号文 §2-quater.2 B2 / §2-quater.3 三件拍板):管家代批。
 // 用户原话「停下来问的话,管家如果判断风险不高或者合理,应该要能带我批准」。「智能自动」档里线程停下来问的,
 // 只剩命令正文命中永久豁免的那一类(07 nativeToolGate 只对命中才问),本节是「这一条管家能不能替用户批」的
-// 【纯判据】:八道闸按固定顺序判,第一道不过就报它的名字(blockedBy),13l steward_decide 据此决定是照旧回
+// 【纯判据】:十道闸按固定顺序判,第一道不过就报它的名字(blockedBy),13l steward_decide 据此决定是照旧回
 // propose_required,还是进 decideIntervention。事实由调用方喂(活回合档位、线程看管、污染、窗口计数都在
 // 06i 看不见的层),本节只负责把它们按顺序合成一个结论 —— 与本文件其余判据同一条纪律:零 require、零外部符号。
 // ─────────────────────────────────────────────────────────────────────────────
-// 闸 5:命令全文上限。代批只给【一眼看得完】的命令:超过 1000 字的脚本管家看的是 300 字摘录,判不了全貌。
-const STEWARD_EXEMPT_DELEGATION_TEXT_MAX = 1000;
-// 闸 7:riskNote(管家写给用户看的代批理由)的硬顶。中和后只进决策日志与回执,不进审计日志。
+// 闸 5:命令全文上限。代批只给【管家真看得完】的命令。
+// 107-S1 ①(46 号文 §5 ⑦b H2 实验 E3):修前这里是 1000,而管家拿到的摘录恒为 STEWARD_EXEMPT_EXCERPT_CHARS
+// = 300 字(以首个命中为中心截)—— 927 字的命令实测 `scannedFully:true`、`delegable:true`,尾部 627 字
+// 【没有任何可达路径】(13i 归一化 needs_you 恒不带 iv.input;13k 的 thread_read 只读已落盘的 toolCalls,
+// 停在待决上的这一条还没落盘)。于是常量直接绑到摘录长度上:两个数字只许有一份,将来改摘录长度闸 5 跟着走,
+// 不会再漂移出「看得见 300、批得了 1000」这个缺口。
+// 【为什么还不够,于是闸 5 多一个合取】:textLength 量的是【脱敏前】的摊平全长,而摘录是
+// `redact() → 中和 → 截 300` 的产物 —— redact 把命中的值换成 `«redacted»`(10 字)并留下标签,
+// 短值上会把文本【撑长】(`PGPASSWORD=pgsecret` 19 字 → 21 字)。于是 300 字以内的原文仍可能在摘录里被截。
+// 调用方(13l)把它实际交给管家的那段摘录的长度一并喂进来(excerptChars),等于摘录长度上限即视为「截过了」——
+// 恰好 300 字的摘录可能一个字没丢,这一格【宁可误判成要人按】,与本文件其余判据同一条纪律。
+// 报的仍是 scan_limit:两者说的是同一件事(管家没看全),blockedBy 多一个名字只会让 13f 的工具描述与
+// 用户手册多一条用户分不清的分支。
+const STEWARD_EXEMPT_DELEGATION_TEXT_MAX = STEWARD_EXEMPT_EXCERPT_CHARS;
+// 闸 9:riskNote(管家写给用户看的代批理由)的硬顶。中和后只进决策日志与回执,不进审计日志。
 const STEWARD_EXEMPT_RISK_NOTE_CHARS = 200;
-// 闸 8:每小时代批上限。计数窗口住在 13j(内存,重启归零 —— 与 13m 自理动作账同一立场),数字只住这里。
+// 闸 10:每小时代批上限。计数窗口住在 13j(内存,重启归零 —— 与 13m 自理动作账同一立场),数字只住这里。
 const STEWARD_EXEMPT_DELEGATIONS_PER_HOUR = 6;
 const STEWARD_EXEMPT_DELEGATION_WINDOW_MS = 60 * 60 * 1000;
-// 闸 6 只对这两类生效(拍板 3):线程读过外部内容时,「对外发送」「推送远端」不代批;删文件、装卸软件仍可。
+// 闸 8 只对这两类生效(拍板 3):线程读过外部内容时,「对外发送」「推送远端」不代批;删文件、装卸软件仍可。
 const STEWARD_EXEMPT_TAINT_CATEGORIES = Object.freeze(['outbound_send', 'push_remote']);
 // 「读过外部内容」的工具名(拍板 3 的机器判据)。另有两条形状规则写在 stewardTaintToolName 里:
 // `browser_` 前缀整族、名字里带 `__` 的一律算(原生引擎的桥接 MCP 恒为 `<serverId>__<工具名>`,CLI 恒为
@@ -523,9 +612,13 @@ const STEWARD_EXEMPT_TAINT_CATEGORIES = Object.freeze(['outbound_send', 'push_re
 const STEWARD_TAINT_TOOL_NAMES = Object.freeze([
   'web_fetch', 'web_search', 'http_request', 'http_download', 'WebFetch', 'WebSearch', 'audio_transcribe',
 ]);
-// 八道闸的机器名,顺序即判定顺序(信封 details.blockedBy 取其一;单测按这张表逐条造反例)。
+// 十道闸的机器名,顺序即判定顺序(信封 details.blockedBy 取其一;单测按这张表逐条造反例)。
+// 107-S1 ②③ 新增的两道【排在 scan_limit 之后】:它们判的是摊平后的命令文本,而「扫没扫全」正是
+// 「这段文本能不能代表整条命令」的前提 —— 反过来排的话,尾部藏着拼接的那种命令会被报成
+// indirect_command(听起来像是判过了),或者更糟:没扫到的那半里的拼接根本没被看过。
 const STEWARD_EXEMPT_DELEGATION_GATES = Object.freeze([
-  'switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'tainted', 'risk_note', 'hourly_cap',
+  'switch_off', 'mode', 'not_watched', 'floor', 'scan_limit', 'indirect_command', 'absolute_target',
+  'tainted', 'risk_note', 'hourly_cap',
 ]);
 function stewardTaintToolName(taintToolName) {
   const name = String(taintToolName == null ? '' : taintToolName);
@@ -548,7 +641,7 @@ function stewardTaintToolCall(taintToolName, taintToolInput) {
   if (!target) return name;
   return stewardTaintToolName(target) ? target : '';
 }
-// 闸 6 的回合内那一半(a)＋粘性那一半(b)。入参是活回合 liveSegments.snapshot() 的段表、这条待决的 id
+// 闸 8 的回合内那一半(a)＋粘性那一半(b)。入参是活回合 liveSegments.snapshot() 的段表、这条待决的 id
 // (= 原生回合 permission_request 的 requestId)、会话级粘性污染位(没有就传 null)。
 // 判不出一律算污染(c):段表不是数组、找不到这条待决对应的权限段 —— 看不见它之前发生过什么,就按最坏情况算。
 // 只看【这条权限段之前】的段:它之后才发生的读网页不可能影响它要执行的命令。
@@ -584,12 +677,12 @@ function stewardTurnTaint(taintSegments, taintRequestId, taintSticky) {
   }
   return { tainted: false, taintBy: null };
 }
-// 闸 7 的清洗:折行、中和尖括号、首尾去空白、截 200 字。结果为空串即「没写理由」。
+// 闸 9 的清洗:折行、中和尖括号、首尾去空白、截 200 字。结果为空串即「没写理由」。
 function stewardExemptRiskNote(riskNoteRaw) {
   if (typeof riskNoteRaw !== 'string') return '';
   return stewardSanitizeText(riskNoteRaw).trim().slice(0, STEWARD_EXEMPT_RISK_NOTE_CHARS).trim();
 }
-// 八道闸的合成。delegationFacts:
+// 十道闸的合成。delegationFacts:
 //   enabled      —— config.stewardExemptDelegationV1 === true(闸 1);
 //   liveMode     —— 【活回合】此刻的实效档位(闸 2;没有活回合 / 读不到就是空串)。**不是会话头的档位**:
 //                   会话头与回合实效档可以不一致(定时任务与请求级 permissionMode 走请求级,45 号文 §2-quater.1
@@ -599,10 +692,10 @@ function stewardExemptRiskNote(riskNoteRaw) {
 //                   (threadOriginOf === 'schedule');但用户显式按过「别盯了」(stewardWatch === false)
 //                   一律不过 —— 那是用户说「这条我自己看着」,出身是定时任务也一样。
 //   scan         —— stewardExemptHits 的完整返回(闸 4 看【全部】命中有没有底线,闸 5 看扫没扫全与全文长度);
-//   taint        —— stewardTurnTaint 的返回(或调用方就地给的「判不出」);只在命中含两类外联时才问(闸 6);
-//   riskNote     —— stewardExemptRiskNote 之后的串(闸 7);
-//   recentCount  —— 滚动一小时窗口里已经代批过的次数(闸 8)。
-// 返回 { delegable, blockedBy, categories, taintBy }:categories 是去重保序的类别键;taintBy 只在闸 6 拦下时非空。
+//   taint        —— stewardTurnTaint 的返回(或调用方就地给的「判不出」);只在命中含两类外联时才问(闸 8);
+//   riskNote     —— stewardExemptRiskNote 之后的串(闸 9);
+//   recentCount  —— 滚动一小时窗口里已经代批过的次数(闸 10)。
+// 返回 { delegable, blockedBy, categories, taintBy }:categories 是去重保序的类别键;taintBy 只在闸 8 拦下时非空。
 function stewardExemptDelegationVerdict(delegationFacts) {
   const f = (delegationFacts && typeof delegationFacts === 'object') ? delegationFacts : {};
   const scanned = (f.scan && typeof f.scan === 'object') ? f.scan : { hits: [], scannedFully: false, textLength: 0 };
@@ -613,7 +706,13 @@ function stewardExemptDelegationVerdict(delegationFacts) {
   if (String(f.liveMode == null ? '' : f.liveMode) !== 'auto') return blocked('mode');
   if (f.explicitUnwatch === true || !(f.watched === true || String(f.origin || '') === 'schedule')) return blocked('not_watched');
   if (!hitList.length || hitList.some(hit => !hit || hit.floor !== false)) return blocked('floor');
-  if (scanned.scannedFully !== true || !(Number(scanned.textLength) <= STEWARD_EXEMPT_DELEGATION_TEXT_MAX)) return blocked('scan_limit');
+  // 闸 5(107-S1 ①):扫全了、全文不超过摘录长度、且真正交给管家的那段摘录没有被截。
+  // excerptChars 缺席(老调用方 / 纯函数单测)时 Number(undefined) = NaN,NaN >= 300 为 false —— 行为与修前一致。
+  if (scanned.scannedFully !== true || !(Number(scanned.textLength) <= STEWARD_EXEMPT_DELEGATION_TEXT_MAX)
+    || Number(f.excerptChars) >= STEWARD_EXEMPT_EXCERPT_CHARS) return blocked('scan_limit');
+  // 闸 6/7(107-S1 ②③,排在 scan_limit 之后):间接构造一律不代批;删数据类的目标必须是相对路径。
+  if (scanned.indirect === true) return blocked('indirect_command');
+  if (scanned.absoluteDeleteTarget === true) return blocked('absolute_target');
   if (categories.some(key => STEWARD_EXEMPT_TAINT_CATEGORIES.includes(key))) {
     const taint = (f.taint && typeof f.taint === 'object') ? f.taint : { tainted: true, taintBy: 'unknown' };
     if (taint.tainted !== false) return { ...blocked('tainted'), taintBy: String(taint.taintBy || 'unknown') };
@@ -1146,6 +1245,49 @@ function stewardConfigTierFor(key) {
   if (STEWARD_CONFIG_TIER_FREE.includes(name)) return 'free';
   if (STEWARD_CONFIG_TIER_CONFIRM.includes(name)) return 'confirm';
   return 'forbidden';                                                  // fail-closed:未登记 = 禁止
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的 act 不许是「模型自己命名的那枚按钮」**。
+// 主会话逐点核实过的链:13o stewardNormalizeAct 对模型自造的 act 只校验 kind 与 steward_ 前缀,
+// args 原样保留、label【优先用模型自己写的那句】;前端 runAct 把整个 act 原样 POST 给
+// /api/steward/act;13q 据此置 userPressed:true,而 steward_config_set 就在 STEWARD_ACTION_HOOKS 里、
+// confirm 档的唯一判据正是这一位。于是一枚写着「好,我知道了」的按钮可以是
+// steward_config_set{externalMcpServers:[…任意 stdio 命令…]}。
+// 本函数是这一族的【唯一判据】,给两侧共用:13o 用它决定「丢掉模型的标签、改用服务端派生的说明」,
+// 前端用它(经 act.confirmItems)决定「按下去之前先弹确认面板逐条列出要改什么」。
+// **不另立一张工具名单**:三支各自【照抄那一支实现自己的那道门】,门在哪儿变了这里就该跟着变 ——
+//   · steward_config_set    —— 13l:`keys.filter(k => stewardConfigTierFor(k) === 'confirm')` 非空;
+//                              判据就是上面那张 confirm 分档表本身,新增 confirm 键自动进本族;
+//   · steward_skill_toggle  —— 13l 无条件要求用户亲手按,所以恒进本族;
+//   · steward_thread_permission —— 13k 只在 capabilities.desktop === true(放宽方向)那一支上要求,
+//                              收紧档位那几支不进本族(它们本来就不出按钮)。
+// 返回 { keys, items }:keys 是「哪些键触发了确认」(config_set 才可能多于一个),
+// items 是给用户逐条看的 [{key, value, tier}] —— config_set 给【整份 patch】(那个工具是整份原子:
+// 半份生效的配置最难解释,用户按下去时看到的必须是整份),其余两支给它们自己那一件事。
+// 纯函数:值原样带出,不在这里拼人话、不脱敏(脱敏表住 04,本文件零外部引用)—— 渲染与掩码由 13o 做。
+function stewardActConfirmSpec(tool, args) {
+  const name = String(tool == null ? '' : tool);
+  const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  if (name === 'steward_config_set') {
+    const patch = (a.patch && typeof a.patch === 'object' && !Array.isArray(a.patch)) ? a.patch : null;
+    if (!patch) return null;
+    const items = Object.keys(patch).slice(0, 32).map(key => ({ key, value: patch[key], tier: stewardConfigTierFor(key) }));
+    const keys = items.filter(item => item.tier === 'confirm').map(item => item.key);
+    return keys.length ? { keys, items } : null;
+  }
+  if (name === 'steward_skill_toggle') {
+    const skills = Array.isArray(a.skills) ? a.skills : null;
+    if (!skills) return null;
+    const ids = skills.map(one => String((one && typeof one === 'object' ? one.id : one) || '')).filter(Boolean).slice(0, 8);
+    return { keys: ['skills'], items: [{ key: 'skills', value: ids, tier: 'confirm' }] };
+  }
+  if (name === 'steward_thread_permission') {
+    const caps = (a.capabilities && typeof a.capabilities === 'object' && !Array.isArray(a.capabilities)) ? a.capabilities : null;
+    if (!caps || caps.desktop !== true) return null;
+    return { keys: ['capabilities.desktop'], items: [{ key: 'capabilities.desktop', value: true, tier: 'confirm' }] };
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

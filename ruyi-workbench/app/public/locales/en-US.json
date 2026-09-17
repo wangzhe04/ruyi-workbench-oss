@@ -2296,6 +2296,8 @@
   ,"stewardShell.acts.change": "Change it"
   ,"stewardShell.acts.dismiss": "Got it"
   ,"stewardShell.acts.open": "Open"
+  ,"stewardShell.acts.confirmTitle": "Apply this change?"
+  ,"stewardShell.acts.confirmBody": "Ruyi wants to change the following for you. Nothing happens until you confirm:"
   ,"stewardShell.chat.openInWorkbench": "Open in the workbench"
   ,"stewardShell.channels.label": "Thread channels"
   ,"stewardShell.channels.only": "Only"

@@ -51,6 +51,13 @@ const STEWARD_SAY_TARGET = 600;               // say 的提示词目标(不是�
 const STEWARD_SAY_CEILING = 4000;             // say 的病态载荷天花板(触顶按句界裁剪并明说)
 const STEWARD_WHY_MAX = 400;
 const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
+// 107-S1 ④(46 号文 §5 ⑦b H1):confirm 族(改设置 / 改技能 / 给线程开桌面)的按钮【另有一个天花板】。
+// 12 字是「按钮上写用户要做的那件事」的预算,装不下「改设置:permissionMode=auto」—— 而这一族的整个修法
+// 就是「按钮上必须写清要改哪个键、改成什么」,不能让模型自己命名它。32 字够一条「键=值」,
+// 多于一个键时按钮只写第一个键＋「等 N 项」,整份清单在确认面板里逐条列(值另有 40 字的裁剪)。
+// 只对这一族生效:其余 act 的标签口径与预算逐字节不变。
+const STEWARD_ACT_CONFIRM_LABEL_MAX = 32;     // confirm 族按钮文字 ≤32 字(要写得下「键=值」)
+const STEWARD_ACT_CONFIRM_VALUE_CHARS = 40;   // 确认面板里每个值的裁剪长度
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个
 const STEWARD_ACTIONS_MAX = 5;                // 一次回合最多执行 5 条 action(其余丢弃并如实标注)
 const STEWARD_DEBOUNCE_MS = 5000;             // 收件箱去抖窗口
