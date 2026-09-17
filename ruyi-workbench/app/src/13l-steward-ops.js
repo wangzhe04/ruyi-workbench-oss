@@ -170,17 +170,25 @@ async function stewardImplDecide(args, ctx, config) {
   // 116-3 P0-1:read/edit 档只看工具名(那两档本来就不碰系统面);其余(exec 与档位缺失)连
   // 命令文本一起看 —— `Bash`/`PowerShell`/`run_command` 这类通用执行工具的名字什么关键词都不含,
   // 只看名字等于对 `rm -rf` / `winget uninstall` / `curl -X POST` / `git push` 完全不设防。
-  // 两问分开写(而不是一次带 input 的调用):① 工具名本身就在清单里;② 名字看不出来,但命令文本
-  // 命中了那五类动作。分开的好处是信封能说清楚「因为哪一条被降级」,审计与人话都更实在。
+  // 信封要说清楚「因为哪一条被降级」:① 工具名本身就在清单里;② 名字看不出来,但命令文本命中了那五类动作;
+  // ③ 结构化入参里是写型网络请求。
+  // 127 波 2-bis ③(45 号文 §2-bis):以前两问分开调布尔判据,只说得出「命中了清单」—— 用户真机上管家只能答
+  // 「命令原文我这边看不到」,讲不出是哪条规则咬的。现在一次问 06i 的 stewardExemptReason(布尔判据
+  // stewardToolPermanentlyExempt 就是由它派生的,同一个单点):【哪一类】进 message(人话,「删数据」之类)
+  // 与 exemptCategory(机器键);exemptBy 如实三分 —— 117m-A3 那道结构化对外写以前被并进 command_text
+  // 报,可它根本不是命令文本。
   const exemptInput = (tier === 'read' || tier === 'edit') ? null : current.input;
-  const exemptByName = stewardToolPermanentlyExempt(toolName);
-  const exemptByCommand = !exemptByName && stewardToolPermanentlyExempt(toolName, exemptInput);
-  if (type === 'permission' && (exemptByName || exemptByCommand)) {
-    const because = exemptByName
-      ? `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单`
-      : `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令命中了永久豁免清单`;
+  const exemptHit = stewardExemptReason(toolName, exemptInput);
+  if (type === 'permission' && exemptHit) {
+    const safeTool = stewardSanitizeText(toolName);
+    const categoryLabel = exemptHit.category ? (STEWARD_EXEMPT_CATEGORY_LABELS[exemptHit.category] || exemptHit.category) : '';
+    const because = exemptHit.by === 'tool_name'
+      ? `工具 ${safeTool} 属于永久豁免清单`
+      : (exemptHit.by === 'structured_write'
+        ? `工具 ${safeTool} 这次是写型网络请求,命中了永久豁免清单的「${categoryLabel}」类`
+        : `工具 ${safeTool} 这次要执行的命令命中了永久豁免清单的「${categoryLabel}」类`);
     return stewardFail('propose_required', `${because}(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
-      reason: 'permanently_exempt', exemptBy: exemptByName ? 'tool_name' : 'command_text',
+      reason: 'permanently_exempt', exemptBy: exemptHit.by, exemptCategory: exemptHit.category,
       missionId, interventionId, type, toolName, permissionMode,
     });
   }

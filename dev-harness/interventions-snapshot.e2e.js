@@ -275,7 +275,8 @@ try {
     "(S2) 13d 审计标签 switch 有 source==='steward' -> 'steward_decision' 分支(管家代答一眼可辨)");
   ok(/decidedBy: 'steward'/.test(src) && /source: 'steward'/.test(src) && /contractRequest: true/.test(src),
     "(S2) 管家决策以 {source:'steward', decidedBy:'steward', contractRequest:true} 进核心(与 UI 同一条契约路径)");
-  ok(/stewardToolPermanentlyExempt\(toolName\)/.test(src) && /reason: 'permanently_exempt'/.test(src),
+  // 127 波 2-bis ③:13l 改为一次问 stewardExemptReason(布尔判据由它派生,仍是 06i 同一个单点),两种写法都认。
+  ok(/stewardToolPermanentlyExempt\(toolName\)|stewardExemptReason\(toolName, exemptInput\)/.test(src) && /reason: 'permanently_exempt'/.test(src),
     '(S2) 永久豁免清单在真正下决定【之前】拦截,任何权限档都降级为提议');
 
   console.log(fail ? `\nINTERVENTIONS SNAPSHOT E2E: FAIL (${fail})` : '\nINTERVENTIONS SNAPSHOT E2E: ALL PASS');

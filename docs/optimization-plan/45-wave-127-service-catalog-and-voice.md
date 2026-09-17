@@ -426,3 +426,61 @@
 **生成器链与门**：`module-dependency-graph --write`（53 模块／420 边／1 SCC **零新增边**；06 +3 顶层符号，13→06 引用 +1 皆在既有边上）→ `build.js`（54514 行）→ `route-inventory.js`（**137 判定点（+1）**、ROUTE_AUTH 125 条、告警 0）→ `architecture-contract-snapshots.js --write` → `facts-generate.js`（e2eCount 358→359，README 四处 358→359／351→352）→ fixture-home spawn 处数 **143→144**（新浏览器件，带来路注释）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符与 U+FFFD 扫描 22 个改动文件 **0**。行为件七件全绿：playbooks（⑦ 全断言传动）、service-match.browser（新件 10 条）、i18n、i18n.static、facts.static、fixture-home.static、route-inventory.static。插曲：`playbooks.e2e.js` 首跑又现 ③ 登记过的启动竞争（① GET null `:128` 崩 TypeError），重跑连绿——同一老件既有脆性，与本刀零交集，不归功于也不归咎于本刀。
 
 **全量回归（⑥）**：**352 pass / 0 fail / 1 flaky / 352 ran（7 skipped 为既有 live probe），真回归 0**。唯一 flaky 是 `scheduler-ui.browser.e2e.js` B1（schedule.changed 帧后口袋角标变 1，零轮询时序断言——②③④ 已登记同一条，本刀与该件文件零交集），回归内重跑自复绿，按既有时序族如实登记。
+
+### 2-bis · 永久豁免把 shell_send 误判成「对外发送」（2026-09-17）
+
+**改了什么**（§2-bis 三处，第 2 处先做）：
+
+- `06i-steward-core.js`：
+  - **精确名出口** `STEWARD_EXEMPT_NAME_CARVEOUTS = ['shell_send', 'keyboard_send_keys']`，紧挨着工具名正则放；**正则本身一个字不动**。只认精确全名、大小写敏感，注释写明为什么前缀形态不放（见下「名字形态取证」）与 `keyboard_send_keys` 的接受代价。
+  - **五类分桶**：扁平的 `STEWARD_EXEMPT_CONTENT_PATTERNS`（21 条）改成 `STEWARD_EXEMPT_CONTENT_GROUPS`（`delete_data`／`system_change`／`install`／`outbound_send`／`push_remote` 五组，对应原数组的五段注释），人话表 `STEWARD_EXEMPT_CATEGORY_LABELS`（删数据／改系统／装卸载／对外发送／推送远端）。**组内 21 条正则逐字未动**，只是右移两格——`git diff -w` 里非注释的 `-`/`+` 行不含任何一条正则（重缩进用一次性 node 脚本按行加前缀，不重打正则字符）。
+  - **唯一判据** `stewardExemptReason(toolName, input)` → `null` 或 `{by, category}`（`by` ∈ `tool_name`／`command_text`／`structured_write`；工具名命中 `category:null`，结构化对外写归 `outbound_send`；双命中报组序靠前的那一类）。`stewardToolPermanentlyExempt` 改为「原因非空」——07 `nativeToolGate` 只吃布尔，一行没改。06i 仍零 require、零外部符号引用（依赖图 06i 出边 0）。
+- `13l-steward-ops.js` `stewardImplDecide`：一次问 `stewardExemptReason(toolName, exemptInput)`（`exemptInput` 的 tier 口径不变：read/edit 档传 null）；`message` 带「X」类人话，details 多 `exemptCategory` 机器键，`exemptBy` 如实三分。
+- `14-main.js`：导出 `stewardExemptReason`／`STEWARD_EXEMPT_NAME_CARVEOUTS`／`STEWARD_EXEMPT_CATEGORY_LABELS`（单测与 e2e 直测）。
+- 测试：新件 `dev-harness/steward-exempt-shell-send.e2e.js`（真服务＋进程内 fake provider＋真 PowerShell 会话；停服后进程内直调 `steward_decide`）；`unit/steward-exempt.test.js` 加 ⑥ 段；`unit/permission-ceiling.test.js` 笛卡尔积加五条样本＋ P3 三条。
+
+**名字形态取证（逐条引擎路径，2026-09-17 实读）**：
+
+| 路径 | 闸门拿到的 toolName | 依据 |
+|---|---|---|
+| 原生引擎主回合 | 裸名 `shell_send` | `09-workflow.js:2735` `gateWithLiveMode(tier, tc.name, args)` → `07-autonomy.js:830`；**真机数据只读佐证**：`~/.win-claude-workbench/sessions/sess_db44265bbf19b51e`（「A股盘中巡检（工作日11:20上午收口）」，`engineRoute` openai/deepseek，`origin:schedule`）6 行 `toolName:"shell_send"`、`tier:"exec"`、`input` 键 `shellId/input/timeoutMs`；该数据目录全部 permission 待决都来自 openai 路由（script_run 42／powershell_run 12／shell_send 6／http_request 3），没有 CLI 桥形态的样本 |
+| 原生引擎里的外部 MCP | 恒为 `<sanitizeServerId(id)>__<工具名>` | `04-permission-runtime.js:1565-1568`；`resolveBridge` 内建名优先（`04:1813`），裸名 `shell_send` 永远落到内建实现；子代理同一个 `resolveBridge`（`08-agent-runs.js:889/918`） |
+| Claude CLI 权限桥 | `mcp__win-claude-workbench__shell_send` | `12-tool-dispatch.js:244` 原样转 CLI 的 `tool_name` → `13d-core-domain-routes.js:1767`；server id 是写死的常量（`01-config.js:2710/2737`、`05-claude-engine.js:162`），外部条目不能覆盖（`01-config.js:2678`），自动导入保留该 id（`01-config.js:1788`）。**但**：auto 档根本不挂这座桥（`05-claude-engine.js:144` `usePermissionBridge` 排除 auto），且 shell 族在 MCP 子进程里只回引导性报错（`12-tool-dispatch.js:1073`） |
+| Kimi ACP | ACP `tool_call.title`（夹具形态 `mcp__<server>__<tool>`） | `05b-kimi-bridge.js:1006` 直接 `requestNativePermission`，**不经** `nativeToolGate`；title 来自 `05b:2249/912`；形态只有夹具佐证（`kimi-agent-cli.e2e.js:465/512`），**未在真 Kimi 上核实** |
+
+**前缀形态不放的理由**：判据拿不到引擎上下文，而 `mcp__win-claude-workbench__shell_send` 这串字在**原生引擎**里能被外部服务器凑出来——id 为 `mcp`、工具名为 `win-claude-workbench__shell_send`，拼出来逐字相同（`04:1568`）；CLI 两条路上放它又没有收益（上表）。**外部服务器能不能把裸名 `shell_send` 递到闸门**：原生引擎不能（恒带 `__` 前缀＋内建优先）；Claude CLI 不能（恒 `mcp__` 前缀）；Kimi 按夹具形态也不能，但未真机核实——出口因此只放裸名。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **不改写成整词清单，改为保留正则＋精确名出口**（主会话决定）。派单稿第 1 处写「钉住真正对外发送的那几个整词」；但未知外部 MCP 的 `slack_send`／`send_message` 必须仍按名字拦（「宁可误判成要人按」），整词清单天然漏它们。判据 ③ 的 225 条真夹具读数就是这条的背书。
+2. **`keyboard_send_keys` 放出——用户拍板**。主会话先提议**保留豁免**（它往前台窗口敲键：聊天软件里一个 Enter 就是真的发出去了，命令文本扫描判不了「前台是什么窗口」）；**用户 2026-09-17 在对话里推翻了这条提议**：「放出来吧，估计有很多操作也是要按键盘的」。接受的代价原样写进 06i 注释；内容扫描仍作用于 `keys` 入参。连带：判据 ③ 不再含 `keyboard_send_keys`；既有 `session-permission-mode.e2e.js` ⑪ 拿它当「名字命中 send」的样本，被这条拍板直接推翻，换成 `slack_send`（带来路注释）。
+3. **`keyboard_send_keys` 不跑真回合**。放行那一支会把按键真的敲进跑回归那台机器的前台窗口；它只走进程内 `steward_decide`（不执行工具）＋判据单测＋`nativeToolGate` 单测。
+4. **`{ENTER}` 类 SendKeys 记号的实测**（按要求只记不放宽）：记号贴在词首/词尾不破坏 `\b`——`git push{ENTER}`／`{HOME}git push~`／`rm -rf C:\x{ENTER}`／`shutdown /s /t 0~`／`g{BS}git push` 全部命中；**记号顶替词间空白时不命中**——`git{TAB}push`、`git{SPACE}push`、`rm{SPACE}-rf C:\x` 返回 null（正则要的是字面空白 `\s+`）。本刀不放宽正则。
+5. **类别名**：派单稿第 3 处写「git push」，落为「推送远端」（与另四类同为动作类名）；机器键五个见上。
+6. **`exemptBy` 从二分变三分**：117m-A3 的结构化对外写（`http_request{method:'POST'}`）以前被并进 `command_text` 报，可它不是命令文本——现在如实报 `structured_write`（类别「对外发送」）。仓内无任何 `exemptBy` 读方（grep 过 `src/` 与 `public/`），只是信封更诚实。
+7. **反向 ㈠ 拆成 ㈠a（原生闸门）／㈠b（管家路径）两次**：两条路径各自的断言都要证明是承重的；合成一次的话 ㈠a 让 H4 留不下 pending 待决，P1 会被级联红，读不出 ㈠b 的真实返回值。
+8. **既有源码锁跟着调用形改一处**：`interventions-snapshot.e2e.js` (S2) 钉的是 `stewardToolPermanentlyExempt(toolName)` 字面量，13l 改成一次问原因后改为两种写法都认（注释注明）；「在真正下决定之前拦截」的语义由新件 P1 的真夹具读数背书。
+
+**前提（第 2 处）读数——先证，再放**：
+
+- **修前基线**（HEAD 代码跑新件，复现用户的毛病）：H1 无害 `shell_send` 弹权限 1 次、命令没跑；P1 真回合留下的 `rm -rf` 待决被拦但 `exemptBy:"tool_name"`——**名字短路在前，内容判据根本没被问到**；P2／P3① 无害输入照样 `permanently_exempt`。11 条红。
+- **只加出口、未做第 3 处**：H2 在全自动档仍弹权限且事件 `input.input` 就是那行 `… # rm -rf C:\somewhere`；P1 同一条真待决 → `propose_required`＋`exemptBy:"command_text"`。**两条路径的内容扫描都收到了 `shell_send` 的 input，前提成立，第 1 处保留。** 剩余 5 条红全是第 3 处的类别断言。
+
+**判据读数**（`steward-exempt-shell-send.e2e.js` 21 条全绿）：
+
+- ① H1：全自动 + `shell_send` 无害输入（`Get-ChildItem -Name; Set-Content …; Write-Output HARMLESS_DONE`）→ 弹权限 **0 次**，标记文件在、输出含 `HARMLESS_DONE`（命令真在那个 PowerShell 会话里跑了）；P2：同一条真行形状换成无害命令 → 管家不再以永久豁免拒（实得 `delivery_unavailable`——越过豁免，进程内没有活的权限消费者）；P3①：`keyboard_send_keys{keys:"Hello{ENTER}"}` 同上。
+- ② H2：`shell_send` 带 `rm -rf`（写在 PowerShell 注释里，真跑也不删东西）→ 弹权限 **1 次**；H3 冲刷回合拿到 `FLUSH_DONE` 后 `risky-ran.txt` **不存在**（被拒那行没写进 stdin）；P1：**真回合留下的 pending 待决**（`status:pending, tier:exec`）→ `propose_required`、`exemptBy:"command_text"`；P3②：`keyboard_send_keys` 的 `git push origin main{ENTER}`／`git push{ENTER}`／`rm -rf C:\x{ENTER}` 仍拦（`command_text`＋`push_remote`／`delete_data`）。
+- ③ P4：15 个名字（`send_email`／`slack_send`／`send_message`／`mcp__x__send_message`／`post_message`／`sms_send`／`pay_invoice`／`mcp_configure`＋出口的前缀／大小写／包含变体 `mcp__win-claude-workbench__shell_send`／`mcp__x__shell_send`／`x__shell_send`／`Shell_Send`／`shell_send_email`／`mcp__win-claude-workbench__keyboard_send_keys`／`Keyboard_Send_Keys`）× 5 档 × 3 tier = **225 条全部** `propose_required`（`tool_name`）。
+- ④ P1：message「工具 shell_send 这次要执行的命令命中了永久豁免清单的「删数据」类（…）」＋`exemptCategory:"delete_data"`；P5：五类命令＋`http_request POST` 共 6 条，`exemptBy`／`exemptCategory`／message 里的「类别」逐条对得上。
+- 单测：`steward-exempt` ⑥ 13 条（出口恰两个且冻结、正则未动、①②③④、双命中报「删数据」、布尔 ≡ 原因非空 58 样本零漂移）全绿；`permission-ceiling` P1（越权 0）／P2（高风险全进豁免，含新五样本）／P3 全绿。
+
+**反向（改源码 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠a 原生闸门不给扫描 input**（`07` `stewardToolPermanentlyExempt(toolName, input)` → `(toolName, null)`，出口保留）→ H2 红：弹权限 **0 次**、`input=undefined`；H3 红：`risky-ran.txt 存在=true`——**那行带 rm -rf 的命令真的被执行了**；H4／P1 级联红（没有待决可留）。8 条红。
+- **㈠b 管家路径不给扫描 input**（`13l` `exemptInput = null`）→ H 段全绿；P1② 红，真 pending 的 `rm -rf` 待决实得 `{"error":"delivery_unavailable","message":"permission consumer is not live"}`——**管家越过豁免去替用户批了**；P3②／P5 同样红。6 条红。
+- **㈡ 把类别从 message 里摘掉**（13l 两处模板去掉「${categoryLabel}」类）→ P1④ 红，实得 message「工具 shell_send 这次要执行的命令命中了永久豁免清单(不可撤销且外溢的动作)…」（`exemptCategory` 仍在，只有人话丢了）；P5 红。2 条红。
+- 三次均按文件备份还原 `07-autonomy.js`／`13l-steward-ops.js`／`server.js`／`manifest.json`，`sha256sum -c` 四个 OK（`44c3bd43…`／`ee848751…`／`0867949e…`／`9b843fc7…`），`build --check` 新鲜，新件复绿。
+
+**生成器链与门**：`module-dependency-graph --write`（**53 模块／420 边／1 SCC，零新增边**；06i 顶层符号 95→98，13l 跨模块引用 67→68，14-main 535→538，全库 2322→2325）→ `build.js`（54572 行）→ `architecture-contract-snapshots.js --write`（无变化）→ `facts-generate.js`（e2eCount **359→360**，README 四处 359→360／352→353）→ `route-inventory.js`（137 判定点不变，告警 0）。计数锁重钉：`fixture-home.static` spawn 处数 **144→145**（带来路注释）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符／CR／NUL 扫描 19 个改动文件 **0**；U+FFFD 仅 `server.js` 2 处，与 HEAD 逐数相同（`04-desktop-shell.js` 那处故意字面），本刀新增为零。行为件逐件单跑全绿：steward-exempt-shell-send（新件）、steward-guardrails、steward-tools、session-permission-mode（⑪ 重钉后）、interventions-snapshot、steward-tools.static、shell-session、unit steward-exempt／permission-ceiling／steward-core。
+
+**全量回归（2-bis）**：**353 pass / 0 fail / 5 flaky / 353 ran（7 skipped 为既有 live probe），退出码 0，真回归 0**。主会话逐件串行单跑复核五件 flaky：`steward-quick-ask`（首跑 I3 turnSeq 起手时序）64/0、`steward-settings`（首跑超时）69/0、`foreign-turn-busy-guard`（首跑 A11，④ 已登记同条）20/0、`service-match.browser`（首跑超时）10/0 均一次绿；`walkthrough-round2.browser`（首跑 B1，③④ 已登记同条）单跑第一次在 4 s 处报 `CDP socket closed`（浏览器起手竞争，非断言红），随后连跑两次 48/0。前两件是管家族、与本刀的决策路径相邻，故单列复核而非直接归入时序族——单跑全绿且断言点（回合起手 turnSeq／设置页启动）与永久豁免判据零交集。主会话另独立复跑：新件 21/0、steward-guardrails 193/0、steward-tools 185/0、session-permission-mode 90/0、interventions-snapshot 40/0、steward-tools.static 113/0、facts.static 24/0、fixture-home.static 24/0、unit steward-exempt＋permission-ceiling 2/2；`build --check` 新鲜、依赖图 `--check` 53/420；并用 HEAD 对照逐条比对分桶前后的正则列表（27 条逐字相同）。

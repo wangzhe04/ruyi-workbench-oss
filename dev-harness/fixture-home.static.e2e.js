@@ -87,7 +87,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // spawnWB 那一发起服务;fake-openai 那一发不带 RUYI_HOME,不计入),142 -> 143 的来路就是它。
 // 127-A-S02(45 号文 §2 ⑥):新增 dev-harness/service-match.browser.e2e.js(一处带 RUYI_HOME 的
 // spawn —— spawnWb 那一发起服务;headless Edge 那一发不带 RUYI_HOME,不计入),143 -> 144 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 144;
+// 127-2-bis(45 号文 §2-bis):新增 dev-harness/steward-exempt-shell-send.e2e.js(一处带 RUYI_HOME 的
+// spawn —— 那一发起服务;fake provider 是本进程内的 http.createServer,taskkill 那几发不带 RUYI_HOME,不计入),
+// 144 -> 145 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 145;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

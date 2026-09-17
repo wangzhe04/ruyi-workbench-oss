@@ -406,6 +406,10 @@ module.exports = {
   // exposed for 单测与 e2e 直测;工具实现本身经 StewardHooks 与 TOOL_HANDLERS 触达,不另开导出面。
   STEWARD_EXEMPT_TOOL_PATTERNS,
   stewardToolPermanentlyExempt,
+  // 127 波 2-bis:豁免原因(单点判据,布尔由它派生)/ 精确名出口 / 类别人话表 —— 单测与 e2e 直测。
+  stewardExemptReason,
+  STEWARD_EXEMPT_NAME_CARVEOUTS,
+  STEWARD_EXEMPT_CATEGORY_LABELS,
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,

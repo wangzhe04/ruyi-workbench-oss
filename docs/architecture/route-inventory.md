@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-16T14:57:30.209Z。
+> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-17T02:29:43.306Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -91,7 +91,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1484 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1516 | vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1527 | vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1547 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 130 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1547 | a11y-walkthrough.browser.e2e.js, action-model-view.e2e.js, adaptive-budget.e2e.js 等 131 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1565 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 13 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1840 | — |
 
@@ -113,7 +113,7 @@
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js:1721 | — |
 | POST | `/api/question/request` | exact | body-token | 13d-core-domain-routes.js:1731 | — |
 | POST | `/api/permission/request` | exact | body-token | 13d-core-domain-routes.js:1746 | — |
-| POST | `/api/permission/decision` | exact | token-browser | 13d-core-domain-routes.js:1840 | autonomy-pause.e2e.js, claude-binary-live.e2e.js, intervention-mission-gate.e2e.js 等 7 件 |
+| POST | `/api/permission/decision` | exact | token-browser | 13d-core-domain-routes.js:1840 | autonomy-pause.e2e.js, claude-binary-live.e2e.js, intervention-mission-gate.e2e.js 等 8 件 |
 | POST | `/api/plan/decision` | exact | token | 13d-core-domain-routes.js:1859 | intervention-mission-gate.e2e.js, interventions-snapshot.e2e.js, plan-mode.e2e.js 等 5 件 |
 | POST | `/api/_test/intervention-cas` | exact | token self | 13d-core-domain-routes.js:1880 | interventions-cas.e2e.js, interventions-changeseq.e2e.js |
 
@@ -171,11 +171,11 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 155 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 156 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 155 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js, agent-deadlock-watchdog.e2e.js 等 156 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 79 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 80 件 |
 
 ## steer(2)
 

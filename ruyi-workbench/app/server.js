@@ -20264,6 +20264,23 @@ function isStewardToolName(name) {
 // (install/uninstall)、系统设置与注册表(registry/system_setting)、关机与格式化(shutdown/format)。
 // 宁可误判成「要人按」,不可漏判成「自动执行」—— 这条清单的失守没有 checkpoint 可回滚。
 const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format|mcp_configure/i;
+// 127 波 2-bis(45 号文 §2-bis,用户真机走查):上面那条正则是裸子串,工作台自己的两个本机工具只因名字里有
+// send 就被当成「对外发送」进了永久豁免 —— 于是全自动线程每递一行 shell_send 都得用户亲手按,而同族的
+// powershell_run/run_command 名字不命中、走的是下面的命令文本扫描。方向是反的。这里只放出【精确全名】,
+// 正则本身一个字不动:外部 MCP 的 slack_send/send_message 之类照样按名字拦(宁可误判成「要人按」)。
+//   · shell_send —— 往本进程已起的 PowerShell 会话递一行字。危险全在那行字里,与 powershell_run 同族,
+//     交给命令文本扫描判。前提已用真夹具证过:两条路径(原生闸门 / steward_decide)都把它的 input 交到了
+//     扫描手里(dev-harness/steward-exempt-shell-send.e2e.js H2/P1)。
+//   · keyboard_send_keys —— 用户 2026-09-17 拍板放出(「放出来吧，估计有很多操作也是要按键盘的」)。
+//     【接受的代价】它往当前前台窗口敲键:聊天软件里一个 {ENTER} 就是真的发出去了,而命令文本扫描判不了
+//     「前台是什么窗口」;扫描仍然作用于它的 keys 入参(敲的是 rm -rf / git push 照样拦)。
+// 为什么只认精确全名、大小写敏感:原生引擎里外部 MCP 工具恒为 `<serverId>__<工具名>`(04 collectBridgedTools),
+// 且 resolveBridge 内建名优先(裸名 shell_send 永远落到内建实现);CLI 引擎恒为 `mcp__<server>__<工具名>`。
+// 所以裸名只可能是工作台自己的那两个工具。前缀形态【不】放 —— 判据拿不到引擎上下文,而
+// `mcp__win-claude-workbench__shell_send` 在原生引擎里能被一个 id 为 mcp 的外部服务器凑出来
+// (serverId=mcp + 工具名 win-claude-workbench__shell_send);CLI 那两条路上 shell 族在 MCP 子进程里本就是
+// 引导性报错(12 shellMcpChildGuard),放它没有收益。
+const STEWARD_EXEMPT_NAME_CARVEOUTS = Object.freeze(['shell_send', 'keyboard_send_keys']);
 
 // 116-3 P0-1(对抗审查):只匹配 toolName 字面量的判据在【通用执行工具】面前形同虚设 ——
 // `Bash`/`PowerShell`/`run_command`/`delete_file`/`kill_process`/`git_push` 一个都不命中上面那条正则,
@@ -20271,29 +20288,45 @@ const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|tr
 // 都会被 steward_decide 自动放行。修法:对【不是 read/edit 档】的待决,除了工具名之外还要看命令文本
 // (调用方按 tier 决定传不传 input,见 13g stewardImplDecide),命中任一条即降级为提议。
 // 纪律与上面那条正则同源:宁可误判成「要人按」,不可漏判成「自动执行」—— 这五类动作没有 checkpoint 可回滚。
-const STEWARD_EXEMPT_CONTENT_PATTERNS = Object.freeze([
+// 127 波 2-bis ③:命中时要说得出【是哪一类】—— 用户真机上管家只能说「命令原文我这边看不到」,讲不出是哪条
+// 规则咬的。于是五组按类别分桶:类别键给机器(steward_decide 的 exemptCategory),人话在下面的标签表。
+// 组内正则逐字未动,只是分了桶;组序即报告优先级(一条命令同时命中两类时,报排在前面的那一类)。
+const STEWARD_EXEMPT_CATEGORY_LABELS = Object.freeze({
+  delete_data: '删数据', system_change: '改系统', install: '装卸载', outbound_send: '对外发送', push_remote: '推送远端',
+});
+const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
   // ① 删除数据 / 格式化(不判「在不在工作夹里」:开始跑之前判不准,一律按最坏情况算)
-  /\brm\s+-[a-z]*r/i, /\brmdir\b/i, /\bdel\s+\/[sq]/i,
-  /\bremove-item\b[^\n]{0,200}?-(recurse|force)/i,
-  /\bformat\s+[a-z]:/i, /\bdiskpart\b/i, /\bmkfs\b/i,
+  Object.freeze({ category: 'delete_data', patterns: Object.freeze([
+    /\brm\s+-[a-z]*r/i, /\brmdir\b/i, /\bdel\s+\/[sq]/i,
+    /\bremove-item\b[^\n]{0,200}?-(recurse|force)/i,
+    /\bformat\s+[a-z]:/i, /\bdiskpart\b/i, /\bmkfs\b/i,
+  ]) }),
   // ② 修改系统设置 / 注册表 / 关机
-  /\breg\s+(add|delete)\b/i, /\bregedit\b/i,
-  /\b(set|new|remove)-itemproperty\b[^\n]{0,200}?hk(lm|cu)/i,
-  /\bnetsh\b/i, /\bshutdown\b/i, /\bbcdedit\b/i,
-  /\b(restart|stop)-computer\b/i,
+  Object.freeze({ category: 'system_change', patterns: Object.freeze([
+    /\breg\s+(add|delete)\b/i, /\bregedit\b/i,
+    /\b(set|new|remove)-itemproperty\b[^\n]{0,200}?hk(lm|cu)/i,
+    /\bnetsh\b/i, /\bshutdown\b/i, /\bbcdedit\b/i,
+    /\b(restart|stop)-computer\b/i,
+  ]) }),
   // ③ 安装卸载软件
-  /\b(apt|apt-get|yum|dnf|pacman|brew|choco|winget|scoop)\s+(install|remove|uninstall|purge)\b/i,
-  /\bpacman\s+-[SR]/,                       // pacman 用短选项装/卸,不写 install/remove(大小写敏感:-S/-R 是它自己的语法)
-  /\bpip3?\s+(install|uninstall)\b/i,
-  /\bnpm\s+(install|uninstall|i)\b[^\n]{0,200}?(-g\b|--global\b)/i,
-  /\bmsiexec\b/i, /\b(install|uninstall)-(package|module)\b/i,
+  Object.freeze({ category: 'install', patterns: Object.freeze([
+    /\b(apt|apt-get|yum|dnf|pacman|brew|choco|winget|scoop)\s+(install|remove|uninstall|purge)\b/i,
+    /\bpacman\s+-[SR]/,                       // pacman 用短选项装/卸,不写 install/remove(大小写敏感:-S/-R 是它自己的语法)
+    /\bpip3?\s+(install|uninstall)\b/i,
+    /\bnpm\s+(install|uninstall|i)\b[^\n]{0,200}?(-g\b|--global\b)/i,
+    /\bmsiexec\b/i, /\b(install|uninstall)-(package|module)\b/i,
+  ]) }),
   // ④ 对外发送(带请求体的外联写、邮件)
-  /\bcurl\b[^\n]{0,300}?(-x\s*(post|put|patch|delete)\b|--data\b|\s-d\s)/i,
-  /\bwget\b[^\n]{0,300}?--post/i,
-  /\binvoke-(webrequest|restmethod)\b[^\n]{0,300}?(-method\s*(post|put|patch|delete)\b|-body\b)/i,
-  /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i,
+  Object.freeze({ category: 'outbound_send', patterns: Object.freeze([
+    /\bcurl\b[^\n]{0,300}?(-x\s*(post|put|patch|delete)\b|--data\b|\s-d\s)/i,
+    /\bwget\b[^\n]{0,300}?--post/i,
+    /\binvoke-(webrequest|restmethod)\b[^\n]{0,300}?(-method\s*(post|put|patch|delete)\b|-body\b)/i,
+    /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i,
+  ]) }),
   // ⑤ 把改动推出去(git push 不可撤销地外溢到远端)
-  /\bgit\s+push\b/i,
+  Object.freeze({ category: 'push_remote', patterns: Object.freeze([
+    /\bgit\s+push\b/i,
+  ]) }),
 ]);
 const STEWARD_EXEMPT_INPUT_CHARS = 4000;   // 命令文本扫描的硬顶(超长 input 不该让判据变慢)
 const STEWARD_EXEMPT_INPUT_DEPTH = 4;
@@ -20336,14 +20369,27 @@ function stewardExemptStructuredWrite(input) {
   if (!method) return false;
   return !STEWARD_EXEMPT_READ_METHODS.includes(method);
 }
-function stewardToolPermanentlyExempt(toolName, input) {
+// 127 波 2-bis ③:永久豁免的【唯一】判据。返回 null(不豁免)或 { by, category }:
+//   by       —— 'tool_name'(名字就在清单里)/ 'structured_write'(结构化入参里的写型 HTTP 方法)/
+//               'command_text'(命令文本命中上面五组之一);
+//   category —— STEWARD_EXEMPT_CATEGORY_LABELS 的键;工具名命中时为 null(名字本身就说明了是什么动作,
+//               消息里直接点名工具)。结构化对外写归「对外发送」。
+// stewardToolPermanentlyExempt 由它派生:07 nativeToolGate 只要布尔,13l steward_decide 还要说清原因 ——
+// 布尔与原因各写一份判据必然漂移,所以布尔只是「原因非空」。
+function stewardExemptReason(toolName, input) {
   const name = String(toolName == null ? '' : toolName);
-  if (name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name)) return true;
-  if (input == null) return false;
-  if (stewardExemptStructuredWrite(input)) return true;
+  if (name !== '' && STEWARD_EXEMPT_TOOL_PATTERNS.test(name) && !STEWARD_EXEMPT_NAME_CARVEOUTS.includes(name)) {
+    return { by: 'tool_name', category: null };
+  }
+  if (input == null) return null;
+  if (stewardExemptStructuredWrite(input)) return { by: 'structured_write', category: 'outbound_send' };
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
-  if (!composed) return false;
-  return STEWARD_EXEMPT_CONTENT_PATTERNS.some(pattern => pattern.test(composed));
+  if (!composed) return null;
+  const hitGroup = STEWARD_EXEMPT_CONTENT_GROUPS.find(group => group.patterns.some(pattern => pattern.test(composed)));
+  return hitGroup ? { by: 'command_text', category: hitGroup.category } : null;
+}
+function stewardToolPermanentlyExempt(toolName, input) {
+  return stewardExemptReason(toolName, input) !== null;
 }
 
 // 委托书(§3.5「委派」/§11.1 第 9 项)。中和与 stewardSanitizeText 同源,区别只有一条:保留换行
@@ -48371,17 +48417,25 @@ async function stewardImplDecide(args, ctx, config) {
   // 116-3 P0-1:read/edit 档只看工具名(那两档本来就不碰系统面);其余(exec 与档位缺失)连
   // 命令文本一起看 —— `Bash`/`PowerShell`/`run_command` 这类通用执行工具的名字什么关键词都不含,
   // 只看名字等于对 `rm -rf` / `winget uninstall` / `curl -X POST` / `git push` 完全不设防。
-  // 两问分开写(而不是一次带 input 的调用):① 工具名本身就在清单里;② 名字看不出来,但命令文本
-  // 命中了那五类动作。分开的好处是信封能说清楚「因为哪一条被降级」,审计与人话都更实在。
+  // 信封要说清楚「因为哪一条被降级」:① 工具名本身就在清单里;② 名字看不出来,但命令文本命中了那五类动作;
+  // ③ 结构化入参里是写型网络请求。
+  // 127 波 2-bis ③(45 号文 §2-bis):以前两问分开调布尔判据,只说得出「命中了清单」—— 用户真机上管家只能答
+  // 「命令原文我这边看不到」,讲不出是哪条规则咬的。现在一次问 06i 的 stewardExemptReason(布尔判据
+  // stewardToolPermanentlyExempt 就是由它派生的,同一个单点):【哪一类】进 message(人话,「删数据」之类)
+  // 与 exemptCategory(机器键);exemptBy 如实三分 —— 117m-A3 那道结构化对外写以前被并进 command_text
+  // 报,可它根本不是命令文本。
   const exemptInput = (tier === 'read' || tier === 'edit') ? null : current.input;
-  const exemptByName = stewardToolPermanentlyExempt(toolName);
-  const exemptByCommand = !exemptByName && stewardToolPermanentlyExempt(toolName, exemptInput);
-  if (type === 'permission' && (exemptByName || exemptByCommand)) {
-    const because = exemptByName
-      ? `工具 ${stewardSanitizeText(toolName)} 属于永久豁免清单`
-      : `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令命中了永久豁免清单`;
+  const exemptHit = stewardExemptReason(toolName, exemptInput);
+  if (type === 'permission' && exemptHit) {
+    const safeTool = stewardSanitizeText(toolName);
+    const categoryLabel = exemptHit.category ? (STEWARD_EXEMPT_CATEGORY_LABELS[exemptHit.category] || exemptHit.category) : '';
+    const because = exemptHit.by === 'tool_name'
+      ? `工具 ${safeTool} 属于永久豁免清单`
+      : (exemptHit.by === 'structured_write'
+        ? `工具 ${safeTool} 这次是写型网络请求,命中了永久豁免清单的「${categoryLabel}」类`
+        : `工具 ${safeTool} 这次要执行的命令命中了永久豁免清单的「${categoryLabel}」类`);
     return stewardFail('propose_required', `${because}(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定`, {
-      reason: 'permanently_exempt', exemptBy: exemptByName ? 'tool_name' : 'command_text',
+      reason: 'permanently_exempt', exemptBy: exemptHit.by, exemptCategory: exemptHit.category,
       missionId, interventionId, type, toolName, permissionMode,
     });
   }
@@ -54234,6 +54288,10 @@ module.exports = {
   // exposed for 单测与 e2e 直测;工具实现本身经 StewardHooks 与 TOOL_HANDLERS 触达,不另开导出面。
   STEWARD_EXEMPT_TOOL_PATTERNS,
   stewardToolPermanentlyExempt,
+  // 127 波 2-bis:豁免原因(单点判据,布尔由它派生)/ 精确名出口 / 类别人话表 —— 单测与 e2e 直测。
+  stewardExemptReason,
+  STEWARD_EXEMPT_NAME_CARVEOUTS,
+  STEWARD_EXEMPT_CATEGORY_LABELS,
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,

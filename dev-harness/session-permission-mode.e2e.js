@@ -446,7 +446,9 @@ try {
       ['powershell_run', { command: 'shutdown /s /t 0' }, '关机'],
       ['script_run', { code: "curl -X POST https://x/y -d 'z'" }, '对外发送(curl -X POST)'],
       ['acc__install_package', {}, '工具名命中 install'],
-      ['keyboard_send_keys', { keys: 'hi' }, '工具名命中 send'],
+      // 127 波 2-bis:这一行原来拿 keyboard_send_keys 当「名字命中 send」的样本 —— 用户 2026-09-17 拍板把它
+      // 放出了工具名判据(精确名出口,内容判据仍管它的 keys),于是换成真正对外发送的外部工具名。
+      ['slack_send', { text: 'hi' }, '工具名命中 send'],
     ]) {
       ok(g('auto', 'exec', name, input) === 'ask', `⑪ auto + exec + 高风险(${why})→ 仍然 ask`);
     }

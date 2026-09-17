@@ -3836,9 +3836,11 @@
         "STEWARD_DELIVERABLE_CHARS",
         "STEWARD_DIGEST_LIMITS",
         "STEWARD_EVENT_KINDS",
-        "STEWARD_EXEMPT_CONTENT_PATTERNS",
+        "STEWARD_EXEMPT_CATEGORY_LABELS",
+        "STEWARD_EXEMPT_CONTENT_GROUPS",
         "STEWARD_EXEMPT_INPUT_CHARS",
         "STEWARD_EXEMPT_INPUT_DEPTH",
+        "STEWARD_EXEMPT_NAME_CARVEOUTS",
         "STEWARD_EXEMPT_READ_METHODS",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_ID_OPAQUE_RE",
@@ -3884,6 +3886,7 @@
         "stewardClipSay",
         "stewardConfigTierFor",
         "stewardExemptInputText",
+        "stewardExemptReason",
         "stewardExemptStructuredWrite",
         "stewardHasText",
         "stewardHumanizeIds",
@@ -13262,6 +13265,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_CATEGORY_LABELS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_KINDS",
           "kinds": [
             "read"
@@ -13284,6 +13294,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardConfigTierFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptReason",
           "kinds": [
             "call"
           ]
@@ -13340,13 +13357,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTermJaccard",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardToolPermanentlyExempt",
           "kinds": [
             "call"
           ]
@@ -18516,6 +18526,20 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_CATEGORY_LABELS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_NAME_CARVEOUTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EXEMPT_TOOL_PATTERNS",
           "kinds": [
             "read"
@@ -18622,6 +18646,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardConfigTierFor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptReason",
           "kinds": [
             "read"
           ]
