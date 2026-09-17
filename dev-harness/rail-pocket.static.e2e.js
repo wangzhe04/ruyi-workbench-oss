@@ -54,6 +54,12 @@ const ok = (condition, label) => {
     `A1 js/rail-pocket.js 零 setInterval／setTimeout（§2.3「不加第二条计时器」；实测 ${timerHits.map(h => 'L' + h.line).join(',') || '零命中'}）`);
   ok(/let inflight = null;/.test(code) && /if \(inflight\) return inflight;/.test(code),
     'A2 一发在飞时不开第二发（串行合并，替代计时器的那半条纪律）');
+  // 127-F6：合并不许把那一帧丢掉 —— 在飞那一发的读发生在帧之前，返回的是旧事实；本模块零计时器、
+  // 除了推送没有第二条通道，丢掉就是永远不纠正（scheduler-ui.browser B1 的真因：角标停在旧值）。
+  // 判据钉行为：在飞期间来过帧要记一笔，并且在那一发落地之后补刷一次。
+  ok(/if \(inflight\) missedWhileInflight = true;/.test(code)
+    && /if \(missedWhileInflight\) \{ missedWhileInflight = false; void refresh\(\); \}/.test(code),
+    'A2b 在飞期间到达的帧不丢：记一笔，等这一发落地之后补刷一次（收敛，仍然零计时器）');
   // 123-M2（37 号文 §3.6）：第三类帧 schedule.changed —— 建一条定时任务既不写收件箱也不改线程
   // 状态，口袋上那个计数修前要等下一次打开左栏才对得上。它仍然【不是第二条通道】：与另外两类
   // 走同一条事件流、同一处订阅、同一个串行合并的 refresh()，零计时器那条纪律一个字没动。

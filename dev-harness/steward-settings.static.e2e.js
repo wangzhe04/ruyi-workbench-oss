@@ -492,12 +492,22 @@ ok(typeof zh['settings.steward.quietSnoozeMinutes'] === 'string' && typeof en['s
   && typeof zh['settings.steward.quietSnoozeMinutesHint'] === 'string' && typeof en['settings.steward.quietSnoozeMinutesHint'] === 'string',
   'L3c 两条新键中英各一');
 // L4 定时任务块订阅推送：口袋与焦点栏早就订了，这一块修前只有「打开／按刷新／做完一个动作」三个时刻。
-ok(/setEventStream: stream => \{[\s\S]{0,400}?stream\.on\('schedule\.changed', \(\) => \{ if \(scheduleLoaded\) void refreshScheduleFromPush\(\); \}\);/.test(settingsCode),
+ok(/setEventStream: stream => \{[\s\S]{0,400}?stream\.on\('schedule\.changed', \(\) => \{ if \(scheduleLoaded\) void loadSchedule\(\); \}\);/.test(settingsCode),
   'L4 设置域订 schedule.changed，且没打开过这一块（scheduleLoaded 假）就不刷');
-// 推送刷新与「按刷新键」不是一回事：前者不许把用户正展开着的那一格收起来（改这条之前
-// scheduler-ui.browser 的 B3/B4 真红过——整张表重画把展开的 runs 一起扔了）。
-ok(/async function refreshScheduleFromPush\(\) \{[\s\S]{0,400}?const openId = scheduleOpenRuns;[\s\S]{0,200}?await loadSchedule\(\);[\s\S]{0,400}?return toggleRuns\(openId, host\);/.test(settingsCode),
-  'L4e 推送刷新记住展开的是哪一条，重画完展开回来（按刷新键仍然是「收起来重来」，那是用户自己按的）');
+// 重画不许把用户正展开着的那一格扔掉（改这条之前 scheduler-ui.browser 的 B3/B4 真红过——整张表
+// 重画把展开的 runs 一起扔了）。127-F6 把判据收成一处：**「展开着哪一条」必须读在重画这一刻**
+// （读在这一趟起跑时就漏掉「在飞期间才展开的」那一条，那正是 F6 抓到的真红），而且推送、按刷新键、
+// 做完一个动作三条路都走 loadSchedule 这一处，不许哪条路自己再判一遍。
+{
+  const body = (settingsCode.split('async function loadSchedule() {')[1] || '').split('\n  }')[0];
+  ok(/await api\(SCHEDULE_TASKS_PATH\)[\s\S]*const openId = scheduleOpenRuns;[\s\S]*scheduleOpenRuns = '';[\s\S]*renderSchedule\(scheduleRows\)[\s\S]*if \(openId\) void reopenRuns\(openId\)/.test(body),
+    'L4e 重画那一刻才读「展开着哪一条」，重画完展开回来（在飞期间展开的也护得住）');
+  // 只此一处：别再长出第二个「重画完自己判一遍」的入口（两处判据分家就是 F6 那个缝的来路）。
+  const reopens = (settingsCode.match(/void reopenRuns\(/g) || []).length;
+  const clears = (settingsCode.match(/(?<!let )scheduleOpenRuns = '';/g) || []).length;   // 不数那一行声明
+  ok(reopens === 1 && clears === 2,
+    `L4e2 展开态只由 loadSchedule 与 toggleRuns 两处清空（实得 reopenRuns 调用 ${reopens} 处、清空 ${clears} 处）`);
+}
 ok((settingsCode.match(/stream\.on\(/g) || []).length === 1,
   'L4b 只订这一帧 —— 设置页不是第二个事件消费中心');
 // 取 runs 的那一趟里表可能被重画：落点必须重新找一次，不能往脱离文档的节点上画（B3 的真因）。

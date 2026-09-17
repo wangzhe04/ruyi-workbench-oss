@@ -935,25 +935,32 @@ export function createStewardSettingsDomain({
     for (const task of rows) list.appendChild(scheduleTaskRow(task));
     return rows.length;
   }
-  // 40 号文 P0③：推送来的刷新与「按刷新键」不是一回事 —— 用户展开着某一条的「最近几次」时，
-  // 别处（管家建了一条／到点跑完了）派来的一帧不该把他正看着的那一格收起来。loadSchedule 会把
-  // scheduleOpenRuns 清空并重建整张表，所以这里记住展开的是哪一条，重画完再把它展开回来。
-  async function refreshScheduleFromPush() {
-    const openId = scheduleOpenRuns;
-    await loadSchedule();
-    if (!openId) return 0;
-    const row = doc() && doc().querySelector(`#cfgStewardSchedule .steward-schedule-row[data-task-id="${CSS.escape(openId)}"]`);
-    const host = row ? row.querySelector('.steward-schedule-runs') : null;
-    if (!host) return 0;      // 那一条被删了：没什么可展开的
-    return toggleRuns(openId, host);
+  // 重画之后把用户展开着的那一格展开回来。**落点重新找**（重画换了节点），那一条被删了就什么都不做。
+  function reopenRuns(taskId) {
+    const host = liveRunsHost(taskId, null);
+    if (!host) return Promise.resolve(0);     // 那一条被删了：没什么可展开的
+    return toggleRuns(taskId, host);
   }
+  // 40 号文 P0③：推送来的刷新不该把用户正看着的那一格收起来 —— 别处（管家建了一条／到点跑完了）
+  // 派来的一帧会重建整张表。
+  //
+  // 127-F6：那一版把「记住展开的是哪一条」记在【这一趟起跑时】，于是只护住了「按下这一帧之前
+  // 就展开着的」那一条；**在这一发在飞的那几百毫秒里展开的，照样被扔掉**，而本块零计时器、
+  // 再也没有下一次纠正。真红的形状（scheduler-ui.browser B3/B4，探针实测）：按了刷新键（一发
+  // GET /api/scheduler/tasks 在飞）、紧接着点「最近几次」，两发的答复差 3 ms 回来 —— runs 那一行
+  // 先画上、随即被这次重画整张表扔掉，「最近几次」从此恒空，B4 于是拿着空对象打出 mode=undefined。
+  // 修法：把「展开着哪一条」读在【重画这一刻】，并且只在 loadSchedule 这一处判 —— 推送、按刷新键、
+  // 做完一个动作三条路从此同一个口径（原来推送一条路自己判一遍，正是两处判据分家的那个缝）。
   async function loadSchedule() {
     let payload = null;
     try { payload = await api(SCHEDULE_TASKS_PATH); } catch { payload = null; }
     scheduleRows = (payload && Array.isArray(payload.tasks)) ? payload.tasks : [];
     scheduleLoaded = true;
+    const openId = scheduleOpenRuns;    // 读在重画这一刻：这一发在飞期间展开的那一条也算
     scheduleOpenRuns = '';
-    return renderSchedule(scheduleRows);
+    const rows = renderSchedule(scheduleRows);
+    if (openId) void reopenRuns(openId);
+    return rows;
   }
 
   /* ── 新建表单 ─────────────────────────────────────────────────────────── */
@@ -1279,7 +1286,7 @@ export function createStewardSettingsDomain({
     // 没打开过这一块（scheduleLoaded 假）就不刷：不为一个没人看的列表发请求。
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return false;
-      try { stream.on('schedule.changed', () => { if (scheduleLoaded) void refreshScheduleFromPush(); }); }
+      try { stream.on('schedule.changed', () => { if (scheduleLoaded) void loadSchedule(); }); }
       catch { return false; }   // 推送是旁路：订不上也不能影响这一页能用
       return true;
     },

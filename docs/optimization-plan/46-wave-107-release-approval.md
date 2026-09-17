@@ -410,3 +410,79 @@
 **主会话独立复核（⓪＋② 提交前）**：ListAgents 确认实现 agent 已 completed；`git stash list` 为空（施工期 A/B 用过 stash，已 pop 并按哈希核过）、`app/src` 零改动、`dist/overlay` 93 个文件已原样放回。独立复跑 16 件：fixture-home.static 28/0（含新墙钟窗口锁）、overlay-payload-lock.static 13/0、facts.static 24/0、route-inventory.static 12/0、agent-deadlock-watchdog 27/0、budget-guard 57/0、perm-v2 24/0、thread-arbiter 103/0、agent-loop 25/0、boot-resume-parallel 15/0、bridge-cancel-timeout 20/0、long-tool-liveness-steer 15/0、session-permission-mode 90/0、steward-guardrails 193/0、summary-parallel-cap 17/0、workspace-resolve 37/0；20 个改动文件控制字节 0。**主会话自做反向（第一发做错了，如实记）**：第一发按「第一处出现 `scheduled-digest.json` 的行」删——删到的是 `build-overlay.js:167` 的注释，锁照样绿；这是 [反向验证本身会做错] 的又一个样本（锚点匹配到了错位置）。第二发精确匹配清单条目那一行（`:182`）删 → overlay-payload-lock.static 退出码 1，点名「漏登记: resources/playbooks/scheduled-digest.json」；备份还原 sha256 OK、复跑 ALL PASS。
 
 **回归里唯一的红 `scheduler-ui.browser`**：施工 agent 在 HEAD 上直跑 6 次红 3 次（B1 一次、B3/B4 `mode=undefined` 两次），与本刀无关；它的对照「去掉 `mcp/` 的 HEAD 副本 3/3 绿」与 ⓪ 里 budget-guard E30 的机制同形（每个栈自动桥接真机桌面 MCP、负载下连不齐）。**这是 107 退出门「全量真回归 0」剩下的唯一阻碍，下一刀先按机制取证**，不按次数处置。
+
+### F6 · scheduler-ui.browser 病历（2026-09-18）
+
+⓪ F5 收尾时留下的唯一阻碍（本文 §5 ⓪ 末条：「107 退出门『全量真回归 0』剩下的唯一阻碍，下一刀先按机制取证」）。本刀**按机制取证、不按次数处置**；结论是**两个真产品竞态**，所以改的是产品（`app/public/js` 两片叶子），**夹具判据一个字没动** —— 它等的那两件事，产品该做到而没做到。`src/`／`app/src/` 零改动。
+
+**症状（HEAD `e533f76`，主树空闲直跑 5 跑 3 红）**：两个形状，正是 42 号文 §5-decies 与 45 号文 §9.3 登记过的那两个 ——
+
+- `FAIL B1 schedule.changed 帧到达之后口袋角标变 1`（2 跑）；
+- `FAIL B3 展开「最近几次」出恰好一行` ＋ `FAIL B4 那一行的触发模式是「准时」（实得 mode=undefined 文案「undefined」）`（1 跑）。
+
+绿的一跑 12 s、B1 红 34 s、B3 红 48–50 s —— 差的正好是那两条 `waitForEval` 的预算：**红的不是「慢」，是它等的那件事永远不会发生**。
+
+**负载怎么造的**：三路常驻循环**直跑** 18 件非浏览器服务件（A steward-guardrails／steward-tools／steward-runner／scheduler-steward／workbench-memory／subagent，B autonomy-grant／team-pool-mailbox／failover／mission-threads／event-stream／session-search，C context-compact-v2／tools-v3／checkpoint／mcp-config／usage-ledger／steward-decisions；共跑 95 趟、全部退出码 0），CPU 37–90%。**不用 `run-all` 造负载**：它 `main()` 开头无条件 `stopRuyiTestBrowsers()`，每起一轮就把候选件的 Edge 一起杀了（F5 那批全是非浏览器件才没踩到）。负载下 HEAD 8 跑 2 红（两发都是 B1）—— **空闲比负载下更红**，因为这两个窗口是毫秒级的**次序**窗口，负载只是把次序整体挪开。
+
+**探针**（scratchpad 临时副本，跑完已删）：A＋B 段原样，外加三样仪器 ——
+
+- 页内录音机：包 `fetch` 记每一发的起止／状态；把 `/api/events/stream` 的响应 `clone()` 出来逐帧打时间戳；每 50 ms 采一次 DOM（口袋文本／表行徽标／runs 行数／「接下来」行数），只记变化；
+- node 侧：`/health` 每 100 ms、`/api/status` 每 1 s 记延迟；一条常驻 PowerShell 循环每 300 ms 列服务进程的子进程（桌面 MCP 的 python 在不在）；
+- **受控阶梯**：`--delay-memory=N`／`--delay-tasks=N` 只推迟【消费者看到答复】那一刻（不碰服务端、不碰请求），把「两条答复谁先回来」从抖动变成受控变量。
+
+**形状 ①（B1，两跑一字不差）**：一次到点派四帧 —— `registered` 383 ms／`dispatched` 395／`inbox.appended` 410／`reconciled` 653。口袋在第一帧开的那一发：`GET /api/scheduler/tasks` 382→408（读到的是 reconcile 之前的事实，两条都还有下次触发）→ `GET /api/steward/memory` 408→654。**`reconciled` 那一帧落在这一发里**（帧 653、那条读 654，差 1 ms），被 `refresh()` 的串行合并并进在飞那一发 → 丢掉。此后再没有帧：**口袋在整段 19 s 等待里恒是「2」**，而同一时刻设置块徽标已经是 `succeeded/ontime`、焦点栏「接下来」已经 2→1、服务端只剩 1 条有下次触发。另一跑同形（帧 296、memory 的 fetch 295 回来 —— `res.json()` 还没读完，仍在飞）。
+
+**形状 ②（B3/B4，两跑同形）**：B2 按下刷新键（一发 `GET /api/scheduler/tasks` 在飞）→ 紧接着点「最近几次」（`GET …/runs`）。一跑：tasks 313→334、runs 316→331 —— **runs 的答复早 3 ms 回来**，那一行画上，随即被 tasks 那一发的整表重画扔掉；另一跑同形、窗口 200 ms（tasks 443→645、runs 445→641）。绿的那跑次序正好相反（tasks 18988、runs 18990），`liveRunsHost` 那一半兜住了。**B4 打出来的 `mode=undefined 文案「undefined」` 是夹具自己的空对象兜底**（`runs[0] || {}`）—— 42 号文 §5-decies 留的第二个可能「这条路本来就会渲染 undefined」**不成立**：界面从来没渲染过 `undefined`，它是**压根没有那一行**。
+
+**机制分类：两条都是真产品竞态**（不是「测试读早了」、不是墙钟、不是连不上）——
+
+1. `rail-pocket.js` 的 `refresh()` 串行合并**丢更新**：在飞那一发的两条读都发生在帧之前，把帧的答复交给它等于交旧事实；本模块零计时器、除推送没有第二条通道 ⇒ 丢掉就**永远不纠正**。
+2. `steward-settings.js` 的整表重画**扔掉在飞期间的展开**：40 号文 P0③ 只把「展开着哪一条」记在 `loadSchedule` **起跑时**，护住的是「按下这一帧之前就展开着的」；在飞那几百毫秒里展开的照样被扔，而 `liveRunsHost` 只兜住相反的次序。
+
+**桌面 MCP 那条假设：证伪**（A/B 交替、同树同机、探针各 6 跑）：A 臂（配置照原样）**3 红**（B1×2、B3×1）；B 臂（`desktopMcp` 钉死关）**4 红（全是 B1）**。B 臂确实关住了：服务进程零 python 子进程、`/api/capabilities` 的 `desktopMcp.present=false`；A 臂每跑在 2.2–2.9 s 起一个 python ACC、`toolCount=104`。两臂 `/api/status` 延迟 200–460 ms（A 臂那发 3.58 s 的离群值出现在一跑**绿的**里）、`/health` 峰值 249–591 ms，**分不出来**。⓪ F5 末条那句「不含 `mcp/` 的 HEAD 副本 3/3 绿」是小样本巧合，budget-guard E30 的机制在这一件上不适用。
+
+**治法（产品侧两处，判据各只一处）**：
+
+- `ruyi-workbench/app/public/js/rail-pocket.js:265-283`：加 `missedWhileInflight` —— 在飞期间来过帧就记一笔，等这一发落地之后补刷一次；帧连着来也只补一次（收敛，不成风暴）。`let inflight = null;` 与 `if (inflight) return inflight;` 两行原样保留，**零计时器纪律一个字没动**。
+- `ruyi-workbench/app/public/js/steward-settings.js:939-963`、`:1289`：`loadSchedule` 把「展开着哪一条」**读在重画这一刻**、重画完 `reopenRuns()` 展开回来；`refreshScheduleFromPush` 删掉（它就是第二处判据），推送、按刷新键、做完一个动作三条路都走 `loadSchedule` 这一处。**顺带改了一处行为，明说**：按刷新键时展开着的那一格现在**不收起来了** —— 40 号文 P0③ 当初把「按刷新键＝收起来重来」记成可接受，把判据收成一处的代价就是这个，方向上也是用户要的（刷新键是「把数据刷新」，不是「把我正看的收走」）。
+- 锁跟着改（都钉行为、不钉文本）：`dev-harness/rail-pocket.static.e2e.js:58-63` 新增 **A2b**（在飞期间到达的帧要记一笔并在落地后补刷）；`dev-harness/steward-settings.static.e2e.js:495-510` **L4** 改口（订阅直接走 `loadSchedule`）、**L4e** 改成钉「`await` 之后才读 openId ＋ 重画完 `reopenRuns`」、新增 **L4e2** 钉「展开态只有 `loadSchedule` 与 `toggleRuns` 两处清空」（防再长出第二处判据）。
+
+**反向（都做在最终文件上，按文件备份还原、核 sha256；没用 `git checkout --`）**：
+
+- **R1（受控，口袋）**：探针 `--lostupdate --delay-memory=2000` —— 先建第三条（口袋先变「3」，证明那一发已经读完任务表、正卡在被按住的那条读上），250 ms 后建第四条（帧必然落在在飞期间）。HEAD `rail-pocket.js`：等满 10 s，**实得口袋「3」而服务端 4 条**；换回修后：**实得「4」**。
+- **R2（受控，设置块）**：`--delay-tasks=150`（runs 的答复必然早回来）。HEAD `steward-settings.js`：终态 **`runRows=0`**（服务端 1 条 run）；修后：**`runRows=1、mode=ontime`**。
+- **R3（真件，统计）**：只把 `steward-settings.js` 换回 HEAD（口袋保持修后），空闲 4 跑 **2 红、逐字是登记的那句** `FAIL B4 那一行的触发模式是「准时」（实得 mode=undefined 文案「undefined」）`，2 绿。
+- sha256：修后 `a240ea0c…`（rail-pocket.js）／`8ec113e9…`（steward-settings.js）；HEAD 基线 `bc022ab3…`／`95cce1bc…`。三次换回与三次还原后都逐字节核过。
+
+**稳定**：空闲 **8/8 ALL PASS**（12–14 s／跑）；上面那三路负载下 **6/6 ALL PASS**（13–16 s／跑）。同一负载下 HEAD 8 跑 2 红、同一台机器空闲 HEAD 5 跑 3 红。
+
+**生成器链与门**：`src/`／`app/src/` **零改动**（改的是 `app/public/js` 两片叶子与两个静态件）→ 依赖图 `--write`／`build.js`／契约快照／`facts-generate`／`route-inventory` 都不跑。`build --check` 新鲜、依赖图 `--check` PASS（53 模块／420 边）、`--fast` **73/73**（7 skipped 为既有 live probe）。改动的 4 个文件 0x00–0x1f（除 LF／TAB）／CR／U+FFFD 扫描全 **0**。
+
+**逐件直跑（派单点名的六件＋两把改过的锁，空闲、逐件收尸）**：scheduler-ui.static 38/0、scheduler-steward 100/0、scheduler-api 52/0、steward-settings 73/0、rail-pocket.browser 53/0（**含 H1「12 秒静置期内 `/api/scheduler/tasks` 零新请求」** —— 补刷那一笔不会变成第二条节拍）、dom-smoke 53/0、rail-pocket.static 22/0（含新 A2b）、steward-settings.static 103/0（含改口的 L4／L4e 与新 L4e2）。
+
+**全量回归（主树、修后未提交，`--parallel 4`，02:30:06 → 02:56，约 26 min）**：退出码 **0**，**356 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 2 flaky / 356 ran / 7 skipped**。开跑前 CPU 6%、三路负载循环已停、调过 `stopRuyiTestBrowsers()`；回归期间没改任何文件、没跑别的件。**`scheduler-ui.browser` 在独占桶里首跑即过（12119 ms）**；`rail-pocket.browser`（29941 ms）、`steward-settings`、`dom-smoke`、`scheduler-api`／`scheduler-steward`／`scheduler-ready-queue`／`scheduler-ui.static` 也全是首跑即过。
+
+| 件 | 回归里 | 串行复跑与对照 | 归类 |
+|---|---|---|---|
+| `steward-conversation.e2e.js`（flaky） | 首跑「没抓到 FAIL 行（多半是超时或进程被杀）」、重跑过（那一趟 146 s） | 修后串行 **10 跑 1 红**：`FAIL G4 线程回退到递话前（这句话视为没发出去，剩余消息 2 条）`；**换回 HEAD 前端两文件 4 跑 0 红**（样本太小，不足以归因） | 既有时序族，两个形状都与本刀改的两片叶子零交集：① 回归里那一发属 45 号文 §9.3 第 4 条的超时族（本件从 121 波起就在 flaky 名单上）；② G4 那一发是「撤回 vs 在途回合收尾」的次序 —— 45 号文 §9.5 ② 登记的那条真产品竞态（`activeChildren.delete` → 推助手消息 → `saveSession`），rewind 落定之后在途那一发又把消息写回来 |
+| `steward-quick-ask.e2e.js`（flaky） | 首跑「没抓到 FAIL 行」、重跑过 | 串行复跑 **64/0 ALL PASS** | 同一超时族，与本刀零交集 |
+
+**真回归 0。**
+
+**(c) harness 级默认值的评估（派单要求只评估、本刀不实施）**：
+
+- 起服的运行时 e2e **228 件**：**23 件**已把 `desktopMcp` 钉死关；**2 件**显式开着但接的是**假** ACC（`capabilities` → `fake-mcp.js`、`kimi-agent-cli` → `fake-acc-server.js`）；**203 件**留着 autodetect，其中 **19 件**是 `.browser`。这 203 件每起一个栈都会从仓里的 `mcp/ai-computer-control` 桥接真 ACC（本机实测：python 子进程在 spawn 后 2.2–2.9 s 出现、104 个工具）。
+- **一件都不需要真 ACC**：读 `desktopMcp.present/detected/toolCount` 的 6 个文件里，`playbooks` ② 判的是「ocr-scan 可用性与 caps 一致」（关了照样一致）、`boot-listen-budget` 只钉字段形状（`detected,enabled,resolved`）、`vision-loop`／`capabilities`／`kimi-agent-cli` 用的是假 ACC、两个 static 件喂的是合成 caps。
+- **代价**：F5 ③ 实测九栈的 budget-guard 约 76 s → 约 52 s；本刀**单栈** A/B 在 `/api/status`／`/health` 延迟上看不出差别，代价主要是**每栈一个 python 进程**（4 路并行回归 ⇒ 同时多到 4 个）。
+- **落地方式没有便宜的**：`AI_COMPUTER_CONTROL_HOME` 覆盖**关不掉**（`01-config.js` `desktopMcpRootPlan` 的 (a) 之后仍扫 (b) 的仓内候选），`run-all` 的临时家也不下发 config.json（每件自己写自己的）—— 要么加一个共享的夹具配置口再 codemod 203 件（外加一把「没钉的件数」计数锁，否则下一个新件照样漏），要么加产品侧开关。
+- **建议：不翻全局默认，也不要顺手一刀翻**。今天的证据说真 ACC 不是这一件的因；值得钉的只有两类件 —— ① **逐字节比能力文本**的（budget-guard 那一族，F5 已钉）、② **一趟起 ≥3 个栈**的。要翻全局就单开一刀，并在翻前后各跑一轮全量记墙钟与 python 进程峰值。
+
+**登记（发现但没治）**：
+
+1. `steward-drawer.js:1694-1700` 的 `refreshUpNext` 是**同一个模具**（`if (upNextInflight) return upNextInflight;`）：它只有一条读、窗口窄，本刀 12 跑采样里焦点栏「接下来」每次都收敛到 1 —— **没复现，不改**（它哪天红了，这份病历直接能用）。
+2. `run-all` 的 `runWithRetry` 在「重跑仍红」时只留首跑末 8 行（F5 登记的第 5 条）：本刀能把两个形状分清全靠**直跑**，不靠回归日志。
+3. 探针那条常驻 PowerShell 在仓根留下过一个 `Microsoft/Windows/PowerShell/ModuleAnalysisCache`（隔离家目录下 `%LOCALAPPDATA%` 解析失败时它退回 cwd）—— 已删，记着：**在仓根 spawn PowerShell 会往树里掉东西**。
+
+**主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed；工作区零未跟踪文件（仓根无 `Microsoft/` 残留）、`app/src` 零改动、改动只在两个前端文件与两把静态锁。审过两处修法：角标那处保留「在飞就合并」的原语义、只多记一笔并在落地后补刷一次（帧连着来也只补一次，零新增计时器）；设置页那处把「展开着哪一条」改成在**重画这一刻**读、并把判据收成 `loadSchedule` 一处（推送、按刷新键、做完动作三条路同口径），`refreshScheduleFromPush` 整个删掉。独立复跑：`build --check` 新鲜；**`scheduler-ui.browser` 空闲连跑 5 次 39/0 ×5**（施工前主会话在同一台机器上也见过 3 连红，见 45 号文 §9.5 那条被推翻的「环境问题」定性）；rail-pocket.browser 53/0、rail-pocket.static 22/0、steward-settings 73/0、steward-settings.static 103/0、scheduler-ui.static 38/0、scheduler-steward 100/0、scheduler-api 52/0、steward-board 111/0、dom-smoke 53/0；5 个改动文件控制字节 0。
+
+**一条行为变化如实登记**：按下「刷新」时，正展开着的「最近几次」不再收起来（40 号文 P0③ 当初接受的是「按刷新键会收起」）。理由：那条口径要区分「推送来的帧」与「用户按的键」，而两处判据分家正是 B3/B4 的缝；收成一处之后，两者都保留展开。

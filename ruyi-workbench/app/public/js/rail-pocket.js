@@ -254,8 +254,18 @@ export function createRailPocket({
 
   // 一发刷新 = 两条读（定时任务、管家记忆）＋ 一次本地重算（体检）。**串行合并**：上一发还没回来
   // 就不再开第二发（推送连着来时不至于把口袋变成一条轮询）。
+  //
+  // 127-F6：合并【不等于】可以把那一帧丢掉。在飞那一发的两条读都发生在这一帧之前，读回来的是
+  // 帧之前的旧事实；而本模块零计时器、除了推送没有第二条通道 —— 丢掉就是永远不纠正。真红的形状
+  // （scheduler-ui.browser B1，探针实测）：定时任务到点派四帧 registered→dispatched→
+  // inbox.appended→reconciled，第一帧开的那一发在 /api/steward/memory 上停了 246 ms，reconciled
+  // 那一帧正落在这个窗口里（帧 653 ms、那一发 654 ms 回来，差 1 ms）→ 角标停在「2」不再动，
+  // 界面与服务端从此长期不一致。修法：在飞期间来过帧就记一笔，等这一发落地之后补刷一次；帧连着来
+  // 也只补一次（收敛，不成风暴），仍然一个计时器都不加。
   let inflight = null;
+  let missedWhileInflight = false;
   function refresh() {
+    if (inflight) missedWhileInflight = true;
     if (inflight) return inflight;
     inflight = (async () => {
       build();
@@ -267,7 +277,10 @@ export function createRailPocket({
       try { memory = await api(STEWARD_MEMORY_PATH); } catch { memory = null; }
       paintMemory(memoryIsNewCount(memory));
       return { schedule: scheduleCount, memoryNew: memoryIsNewCount(memory) };
-    })().finally(() => { inflight = null; });
+    })().finally(() => {
+      inflight = null;
+      if (missedWhileInflight) { missedWhileInflight = false; void refresh(); }
+    });
     return inflight;
   }
 
