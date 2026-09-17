@@ -1014,3 +1014,57 @@
 5. 置灰行被点时的 toast 仍报 `unavailableReason` 原文（离线时是「需要联网（当前离线）」），没换成降级文案。
 
 **主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed。逐行审 06／12／13-http-router 的 diff：`fact()` 只累加 rank、`available`／`unavailableReason`／`missingCaps` 三行判定原样未动；核了 `matchServiceEntry` 唯一调用点（`13-http-router` `POST /api/playbooks/service-match`）的入参来自 `listPlaybooksWithAvailability`，每条都经 `evalPlaybookAvailability` 展开，`status` 必在（不会因缺字段把整类误判成 unknown）。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、21 个改动文件控制字节 0；service-match.browser 25/0、skills-registry 44/0、capabilities 56/0、prompt-snapshot.static 72/0、frontend-domains.static 136/0、i18n ALL PASS、i18n.static 7/0、i18n-en-terms.static 8/0、memory-toolbox.static ALL PASS、dom-smoke 53/0、facts.static 24/0、route-inventory.static 12/0、module-dependency-graph.static 13/0、steward-conversation.static 246/0、steward-walkthrough.static 120/0、live-full-text.static 91/0；`playbooks` 首跑又撞 ① 启动竞争（`:132` GET 拿到 null），随后连跑三次 84/0。**① 启动竞争本波已是第三次登记（③⑥⑧）**，列入收波的 flaky 治理候选：要按「连不上／超时／真空值」先把那个 null 分类（`getJson` 在服务 health 通过后首个 GET 拿到的到底是什么），再定修法，不按次数拍脑袋加等待。
+
+## 9. 收波状态（2026-09-17）
+
+**127 波全部出门**。A 道（服务目录）三刀、B 道（语音）五刀，外加用户真机走查带进来的三刀（2-bis、2-quater B1/B2、2-ter）。每一刀都是「实现 agent 主树施工 → 主会话逐行审 diff ＋ 独立复跑 ＋ 至少一处亲自反向 → 提交」，没有一刀是照报告直接提交的。
+
+| 刀 | 提交 | 一句话 | 全量回归 |
+|---|---|---|---|
+| ① 114a | `60938e8` | ASR 配置与 `models[].caps`，未配置零行为 | 350/0/1 |
+| ② 114b | `71c80be` | `POST /api/audio/transcribe`，全波唯一出网面 | 350/1/1（B1 时序族） |
+| ③ S01 | `336afd4` | playbook `service` 六类白名单＋定时汇总模板 | 350/1/1（同上） |
+| ④ 114c-② | `3571556` | 音频附件尽力转写＋附件文本围栏中和 | 351/0/2 |
+| ⑤ 114c-③ | `71f1ef6` | `audio_transcribe` 原生工具（96→97） | 351/0/0 |
+| ⑥ S02 | `c2bc658` | 自然语言服务入口，配置引导 ≤1 次 | 352/0/1 |
+| 2-bis | `1ddc7ec` | `shell_send`／`keyboard_send_keys` 不再按名字永久豁免；命中说得出类别 | 353/0/5 |
+| 2-quater B1 | `3d02d96` | 堵「批 A 跑 B」（管家 allow 剥 `updatedInput`/`scope`）；全命中＋底线；摘录可见；死按钮 | 352/2/1（三件单跑绿） |
+| 2-quater B2 | `f4db5ab` | 管家代批八道闸（返工：粘性污染位改在工具结果回来才置位） | 355/0/3（返工后） |
+| 2-ter | `ef3bd57` | 定时任务带档位＋每条任务固定文件夹 | 355/0/0 |
+| ⑦ 114c-① | `7d10312` | 两个视角的麦克风回填，插在光标处、永不自动发送 | 356/0/1 |
+| ⑧ F01 | `a9b1c13` | 服务状态四态，未知不再被并进可用／不可用 | 356/0/2 |
+
+另有 `2112abb`（walkthrough-round2 B1 按机制治掉：View Transitions 落定前读早了）与三个 docs 提交（`8e44b1e`、`f124d28`，以及本节）。
+
+**推送**：本波 2-bis 之后的提交**均未推远端**（远端停在 `c2bc658`）。推不推是用户的决定。
+
+### 9.1 本波改了的一条红线
+
+31 号文 §2.5「永久豁免的动作不进代批名单」按用户 2026-09-17 的要求部分放开（§2-quater；31 号文 §2.5 已加改判指向）。底线项（钱、格式化分区、关机、改注册表与防火墙、注册 MCP、名字就是发消息的工具与 `sendmail`）仍永远等用户按。
+
+### 9.2 合并后的债（登记不做，按来源刀）
+
+| 来源 | 债 |
+|---|---|
+| 2-bis | SendKeys 记号顶替词间空白（`git{SPACE}push`）时内容正则不命中；Kimi 真机上的工具名形态未核实；CLI 引擎里带前缀的 `keyboard_send_keys` 仍会停下来问 |
+| B1 | 模型自己写的「允许」按钮（非降级来的）对豁免待决仍是死按钮；`-u` 脱敏会误抹 `docker run -u 1000:1000` 的展示副本 |
+| B2 | needs_you 无事件唤醒，真模型下非定时线程可能逼近 120 s 权限超时；真模型延迟未量；Kimi／Claude CLI 线程在代批路上一律「判不出档位」拦下 |
+| 2-ter | 等锁期间 `ticking` 卡住整个调度器、超时不出队排队条目；已有任务改档位无界面；管家读不到任务的档位与文件夹；派生文件夹不回收；S-c 只读回合放锁 |
+| ⑦ | 桌面壳麦克风权限（114e，128+）未验；真 ASR 端点一次没跑；真读屏未听 |
+| ⑧ | desktopMcp 探针出错与「没装」分不出；`05:301-303` 冷缓存喂模型 `{available:true}`；技能条目无 `status`；置灰行 toast 未换降级文案 |
+| 26 号文 §1.6 | ASR 出网面与主 provider 出网面共享同一条（不存在的）URL 准入校验——要收紧得两条一起收，记进 107 Release Brief「未完成项」 |
+
+### 9.3 flaky 治理候选（107 前置项「并行回归偶发治理」的续篇）
+
+本波回归里反复上榜、但**都没有病历**的：
+
+1. **`playbooks.e2e.js` ① 启动竞争**（③⑥⑧ 三次）：health 通过后首个 `GET /api/playbooks` 拿到 null。先按「连不上／超时／真空值」把这个 null 分类，再定修法。
+2. **`foreign-turn-busy-guard` A11**（④、2-bis、B1、⑦ 四次）：回合正文落盘时序。43 号文 §3 已记「三轮没病历，不猜着改」，本波四次上榜仍只有断言文字没有机制。
+3. **`thread-arbiter` ① 墙钟下界**（B2、⑧）：并行负载下 6.2 s 越过 5.4 s 串行下界——墙钟窗口类断言，按 42 号文 perm-v2 那条思路应进独占桶或改判据。
+4. `scheduler-ui.browser` B1、`steward-settings`（超时）、`steward-relay-channels` F3、`budget-guard` E30、`orchestration-blindspots` S4：各一两次，单跑全绿。
+
+已按机制治掉的：`walkthrough-round2.browser` B1（`2112abb`）。
+
+### 9.4 下一步
+
+按 [43 号文 §2](43-merge-114-111-107-into-product-line.md)，127 之后是 **107 发布批准点**：演练六类通用发布门、冻结 Release Brief（默认启用清单含 111 五开关与本波语音／代批的实测读数、适用任务族、收益阈值、未知场景回退、配置迁移与回滚）、离线包精简＋完整两变体打包演练、版本号由实际行为决定。前置项是 §9.3 的 flaky 治理。43 号文 §4 有两件待拍板：默认启用清单口径（推荐「有实测读数且默认开的进必交，默认关的标实验」）、要不要做 3.0 正名（推荐不与 107 一起做）。
