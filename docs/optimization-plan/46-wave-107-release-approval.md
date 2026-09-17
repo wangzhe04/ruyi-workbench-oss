@@ -676,3 +676,107 @@
 | 6 | 归因（非本刀） | `~\.claude.json` 在跑动期间变了一次（+234 B），**是 Claude Code 宿主的 6 小时自写节拍**；证伪：全文搜不到本刀四个 sim 目录名 | E1.0 |
 
 **收尾**：五开关那一件不起服务、不开端口；代批那一件两个实例都 `taskkill /T /F` 收掉，收尾**三小时内启动的 `node` 进程 0 个**（在跑的 27 个全是宿主与用户自己的）。本刀**零浏览器件**：收尾时 7 个 `msedge` 都启动于 9/17 23:58–23:59、3 个 `explorer` 启动于 9/16–9/17 17:57，**全部早于本刀开工（9/18 03:15）**，一个都不是本刀起的。两个带 key 的副本配置已删，**所有 `ruyi-e1*` 目录整体复扫真 key 全串 → 0 命中**；指纹 ④ 证明代批那两个真服务实例跑完之后真机四个文件仍旧没动。证据目录保留在 `%TEMP%\ruyi-e1-20260918\`（`evidence\readings.json`／`delegation-latency.json`／`asr-endpoints.json`）与 `…-c2`／`…-c3`，**里面没有密钥**。
+
+### D1 · 文档与迁移（2026-09-18）
+
+> **性质**：纯文档刀。`ruyi-workbench/app/`、`dev-harness/`、`ruyi-workbench/tools/` **零改动**，`facts.json`／生成物／locale 一个字节没碰 —— 所以**不跑生成器链、不跑全量回归**（这一条按派单要求显式写出来）。改动 5 个文档 ＋ 本节。
+> **一处派单要求没做，给理由**：§1.4 让「顺手改 `CONFIG_SCHEMA = 11` 注释里那个会被误读的『v2.8』措辞」—— 那是 `app/src/00-boot.js:36` 的代码注释，改它就破「零代码改动」这条硬约束，**留给 R1 那一刀**（它本来就要动版本三角，同一刀里顺手改最省一轮门）。本轮改为在文档里把这件事说清：ARCHITECTURE 头注与管理员手册 §7.4 都写明「`CONFIG_SCHEMA` 自 2.7.0 未变（11），2.8.0 **不 bump**」。
+
+#### 改了什么（逐文件一句话）
+
+| 文件 | 改动 |
+|---|---|
+| `CHANGELOG.md` | 「未发布」节里写进 **2.8.0 候选**的完整条目（中英各 17 条），覆盖 123–127 波用户可见变化 ＋ 107 波的 S0／S0b／F6；**发布日期留白**：节首一行「未发布 · 发布日期待填」＋一条 HTML 注释写明 R1／R2 各该填什么、标题该改成什么形状。2.7.0 条目**原文一字不改**，在它标题下加一条「更正（2026-09-18 补记）」双语提示，指向 2.8.0 节末那两条更正 |
+| `ruyi-workbench/docs/manuals/USER-GUIDE_CN.md` | ① 新增 `## 9. 语音输入 / 定时任务 / 服务入口 / 管家替你批`，四小节一律「怎么做 → 你会看到什么 → 不成的时候怎么办」，含两张失败对照表；② 修掉 §5「管家」页签那句**已经过时的「默认关着」**（第 121 波起默认开）。**没有重排任何 `##` 编号** —— 理由见下「为什么新开 §9 而不是插在中间」 |
+| `ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md` | ① §3.4「密钥掩码」按 S0／S0b 重写（新进掩码面的两类、`env`／`headers` 全遮的口径与代价、「同一启动目标才还原」那道闸、sanitize 兜底、**仍已知未掩的两处**）；② 新增 §3.9「2.8.0 的其余安全改动与已知缺口」（执行 cwd、脱敏表补齐 ＋ 六条债）；③ 新增 §7「2.8.0 默认启用清单、升级与回滚」：7.1 引擎已交付表、7.2 产品已交付表、7.3 实验表（含 E1 五个开关的逐条读数与结论）、7.4 升级、**7.5 回滚最小步骤** |
+| `ruyi-workbench/docs/ARCHITECTURE_CN.md` | 头注版本基线 `2.5.0/configSchema 9` → **`configSchema 11` / 2.8.0 候选**，并列出四处结构性变化；「界面」注补「一台两视」；「模块化构建」17 → **53 模块**并按编号层序逐族说明（**13 族 20 个文件**单独点名）；原生工具 52 → **97** 并写明 63＋33＋1 的构成与单一事实源；新增「v2.6–v2.8 新增的路由族」概览表（七族 ＋ `GET /api/status` 是 `open` 档这件事）；工具清单补 `audio_transcribe`；数据目录补 `steward/*` 与 `scheduler/*` 两个新持久面 |
+| `docs/OPTIMIZATION-ROADMAP.md` | 「当前状态」由 **09-02 / v2.6.2** 改到 **09-18**，四行：Escapade 发布线（2.8.0 候选冻结中、tag 仍在 v2.6.2）、2.7.0 之后已交付的五波、**第 107 波逐刀进度**（已出门七刀／在排五刀）、回归基线；顺带修掉发布线表里「CHANGELOG 最后归档条目为 v2.6.2」与两处「107 排在 108–110 之后」的过期说法 |
+
+#### 每条可能被质疑的事实，出处在哪
+
+**版本与门**
+- 版本号 **2.8.0**、代批默认开（含升级用户）、111 只报不翻：本文 §3 的 2026-09-17 用户拍板逐条原话。
+- `CONFIG_SCHEMA = 11` 且本波不 bump：`ruyi-workbench/app/src/00-boot.js:36` 实读 ＋ 本文 §1.4。
+- `package.json` 仍是 `2.7.0`：`ruyi-workbench/package.json:3` 实读。
+- **没有 `v2.7.0` 标签**：`git tag` 实跑，最新是 `v2.6.2`（与本文 §1.1 ② 一致）。
+- 回归基线 356/0/2flaky、真回归 0：本文 §5 F6 的「全量回归」段。`--fast` 73/73：本轮亲自跑（见下「门读数」）。
+- 路由判定点 137、`ROUTE_AUTH` 125：`docs/architecture/route-inventory.json` 实读（`decisionPoints` 137、`routeAuth` 125）。
+- 53 模块 / 420 边：`ls app/src/*.js` 实数 53 ＋ 本文 §5 各刀的依赖图读数。
+- 原生工具 **97 = 63 ＋ 33 steward_* ＋ 1 audio_transcribe**：`facts.json:nativeTools` 实读 ＋ `dev-harness/steward-tools.static.e2e.js:133` 那条锁的断言原文（**这一条我先写成「另有 26 个 steward 工具、不计入这一轴」，两处都错，按锁的原文改正**）。
+- ACC 108 工具 / v1.9.1：`facts.json` ＋ `mcp/.../server.py:45` `VERSION = "1.9.1"`（meta-guard C 段就是对这两处的）。
+
+**默认值（全部逐行实读 `app/src/01-config.js`）**
+- `stewardEnabledV1: true`（`:326`）、`schedulerEnabledV1: true`（`:393`）、`stewardExemptDelegationV1: true`（`:338`）、`newThreadEngine: 'last'`（`:9`）、`asrProviderId`／`asrModel` 两空（`:84-85`）、`runtimeMemoryVectorRecallV1: true`（`:228`）、111 五个开关全 `false`（`:117`／`:121`／`:124`／`:128`／`:131`）、`stewardPollMs: 15000` 钳 [5000,120000]（`:352`＋`:1127-1131`）、`stewardMaxTurnsPerHour: 30`（`:362`）。
+- 引擎那一批默认开的读数（−81.0%、88.9%/¥0.1352 对 77.8%/¥0.1945、+56.2pp 与总门混合 66.7 对 77.8、+23.9pp、311→112 ms、+17–24pp、Recall@3 90→95）：本文 §1.3 那张表 ＋ `01-config.js` 各开关的行内注释（两处互相对得上）。
+- 调度器两个窗口：`askWaitMinutesDefault: 30`、`graceMinutesDefault: 720`（**12 小时**）—— `app/src/06j-scheduler-core.js:94`／`:83` 实读。用户手册那句「出厂 12 小时」就是这一条。
+- 代批每小时 6 次、八道闸、底线项清单、「读过网页不代批对外发送/推送」：45 号文 §2-quater.2 B2 ＋ 运行时文案 `locales/zh-CN.json:2472-2473`（设置页那一项的原文，手册里「开关在哪儿」逐字引它）。
+
+**语音那一条（最需要说准的）**
+- 只走 OpenAI 形 `/audio/transcriptions`：45 号文 §8 ② 的出站描述 ＋ 本文 §1.5 ①。
+- **四个端点全 404**：本文 §5 E1.8 的表（`asr-endpoint-probe-live.js` 直连上游实测）＋ 45 号文 §9.6.3（经产品路由那一端的同一件事）。CHANGELOG 与两本手册都写成「**开发者自己那台机器上实测的四个候选模型全部 404**」，**不对任何服务商作可用性承诺**。
+- 25 MB 闸、120 s 超时、`kind:'aux', note:'asr'` 记账与 `estimated` 标记：45 号文 §8 ②。
+- 3 分钟上限、插在光标处、永不自动发送、失败七种文案：45 号文 §8 ⑦ 的判据读数 ＋ `locales/zh-CN.json:2797-2813` 逐条对照（手册里的失败表就是这张键表的人话版）。
+- 桌面壳麦克风**没验过**：45 号文 §8 ⑦「已知限制」1（`RuyiDesktop.cs:210-211` 只声明槽位、没注册处理器）。手册写的是「**还没有验证过**……如果点下去走的是『没有拿到麦克风权限』那一条，改用浏览器」，**没有断言桌面壳一定不行**。
+
+**服务目录**
+- 六类白名单与 13＋1 个模板的归类、`service` 允许为空：45 号文 §8 ③。
+- 「最多一条配置引导」＝ `SERVICE_GUIDANCE_MAX = 1` 硬顶数组长度、超出记 `guidanceDropped`：45 号文 §8 ⑥。
+- 四态与「未知就说未知」：45 号文 §8 ⑧ ＋ `app/public/js/skills-memory.js:164-175`（`playbookStatusText`）与 `:225-245`（服务条计数）实读；手册里那四句原文取自 `locales/zh-CN.json:1251-1262`。
+
+**安全三条 ＋ MCP 掩码**
+- `GET /api/status` 是 `open` 档（只有 host 门）：`app/src/01b-route-auth.js:4`（本文 §5 S0b 的坐标，本轮复核仍对）。
+- 掩码面、「同一启动目标才还原」、sanitize 兜底、`env`/`headers` 全遮的口径与代价（`PYTHONUTF8=1` → `••••1`）：本文 §5 S0b「改了什么」与「口径决定」。
+- 仍未掩的两处（`import-config/scan`、远程 `url`）：本文 §5 S0b「发现但没修」1／2。
+- 执行 cwd 解析链与「会话 cwd 被删 → fail-closed 但报错是 spawn 原话」：本文 §5 S0「改了什么」② ＋「发现但没修」4。
+- 脱敏表补齐的两类与三条已知边界（PEM 只抹第一段、>4096 字尾部不抹、单引号收口）：本文 §5 S0 ③ ＋「发现但没修」3。
+- git 族仍落家目录、管家决策日志不回溯清洗、providers 还原没有启动向量闸、界面没有 MCP env 编辑器：本文 §5 S0「发现但没修」2 与 S0b「发现但没修」3／4／5。
+
+**两条债（派单点名要写进管理员手册的）**
+- **ASR 出网面没有 URL 准入校验**：45 号文 §1.6（那套「与 `baseUrl` 相同的校验」**并不存在**）＋ §9.2 末行（26 号文 §1.6 记进 107 Brief 的那一条）。手册里显式把它与 `web_fetch` 的 `ssrfCheck` 分开说 —— 一个收的是管理员配的端点，一个收的是模型给的不可信 url。
+- **没有每会话并发上限**：本文 §3 拍板 4 (b)。
+- **`needs_you` 无事件唤醒**：45 号文 §9.2（B2 行）＋ 本文 §5 E1.7 的三档延迟读数（5 s 档 17.7/30.6 s、15 s 档 31.5/42.7 s、§9.6 那个 37.0 s），并照实写明「**这组读数是在管家没被节流时取的**」（E1.10 ③ 登记的「没量到」）。
+
+**回滚那一节（派单要求的最小步骤）**
+- 会被抹掉的四类字段与机制：本文 §1.1 ④。本轮**另做了两处实读复核**，把手册的措辞收紧：
+  1. `git show eac1424:app/src/05-claude-engine.js` 里 `sanitizeProvider` 是**白名单重建**，`models[]` 只留 `{id,label}`，且 `hiddenModels`／`audioBaseUrl` 在 2.7.0 的源码里**整个不存在**（grep 零命中）→ 这两个**嵌套**字段确实会被抹。
+  2. `git show eac1424:app/src/01-config.js:526` 的 `normalizeConfig` 是 `{ ...defaultConfig(), ...raw }` —— **顶层未知键原样留着**。所以「`asrProviderId`／`asrModel`／`stewardExemptDelegationV1` 会被 normalize 丢掉」是**错的**（我第一版就这么写了，实读后当场改掉）。手册现在明确区分：**被抹的只有 providers 的嵌套字段与管家记忆的 `expiresAt`／`scope`**，顶层键只是「没人读」。
+- 2.7.0 里**没有调度器**（`git ls-tree eac1424 app/src/` 里 `06j`／`13s` 零命中）→ 手册写明降级期间 `scheduler/` 原样留盘、一次都不触发。
+- `config.json.prev` 只留一代：`app/src/01-config.js:1515` 的注释与实现。
+- `steward/` 下的文件名 `memory-v1.json`／`decisions-v1.ndjson`：`app/src/13j-steward-tool-base.js:44-45`、目录名 `13i-steward-inbox.js:35`。
+
+**E1 五个开关的读数**：全部取自本文 §5 E1.2–E1.6 与机读 `107-e1-readings.json`，逐条照抄不改口径 —— 包括三条「不好看」的：111d 那条门「达标但不辨别」、111b 的**摘要费用 +60%**、111a 的**方向反 +32.0%**、111c 的**读数带污染所以是「量不出来」**。管理员手册 §7.3 把这四句原样写进表里。
+
+#### 为什么新开 §9 而不是插在中间（一条会咬人的约束，登记）
+
+用户手册的 `##` 编号**不能重排**：`locales/{zh-CN,en-US}.json` 里有四个锚点键按**标题原文**跳章节 —— `help.anchor.settings`＝「5. 设置指南（用户视角）」、`help.anchor.power`＝「6. 用得更顺手（…）」、`help.anchor.faq`＝「7. 常见问题」、`help.anchor.localModels`＝「8. 用本机模型（Ollama / LM Studio）」，另有 `health.anchor.faq` 同值（`zh-CN.json:290`／`:340-343`）。把新内容插在 §6 之后再顺延编号，会让**体检项的「怎么办」按钮与设置页各分区的「?」跳空**，而改锚点键就是改 locale＝改代码。所以新内容一律**追加成 §9**，前八节的标题一个字没动。`manuals.e2e` (b) 还要求 USER-GUIDE_CN 里存在「任务台布局／不是数据迁移／返回经典布局」三串（§5 那一段），本轮也没碰它们。
+
+#### 门读数（本轮亲自跑，逐件直跑，`tail` 判定行）
+
+| 件 | 读数 |
+|---|---|
+| `eol-policy.static` | **ALL PASS** —— 928 个跟踪文本文件全部符合声明的 EOL（5 个改动文件都是纯 LF） |
+| `copy-terms.static` | **ALL PASS** |
+| `i18n.static` | **ALL PASS** |
+| `i18n-en-terms.static` | **ALL PASS** |
+| `facts.static` | **ALL PASS**（README 的门面数字与 `facts.json` 仍一致 —— 本轮没动任何计数） |
+| `manuals.e2e` | **ALL PASS**（两手册 ≥4000 字节、关键词齐、无密钥形态／旧品牌／`TODO`／`待补`、README 双链接可达） |
+| `meta-guard.e2e` | **ALL PASS**（含 C 段「ADMIN-GUIDE 引用的 ACC 版本 === `server.py` VERSION」——本轮没新写任何 `ACC vX.Y.Z`） |
+| `repo-hygiene.e2e` | **ALL PASS**（含 (b) 全仓密钥形态零命中与「活文档无真实用户名」；`ARCHITECTURE_CN.md` 在那张活文档表里） |
+| `help-viewer.e2e` | **ALL PASS**（手册经 `GET /api/help/doc` 真读得出来、`bytes` 与磁盘一致、未超 512 KB 上限、`##` 目录取材面仍在） |
+| `run-all.js --fast` | **73 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 73 ran（7 skipped 为既有 live probe）** |
+| 控制字节扫描（node，5 个改动文件） | `NUL 0 / CR 0 / 其它 0x00–0x1f 0`；`U+FFFD` 仅 `OPTIMIZATION-ROADMAP.md` **1 处**，**与 HEAD 逐字相同**（它是 106 波那条「中文被管道切两半」病历里故意写的样本，不是新增） |
+
+**没跑全量回归**：这一刀零代码改动（`app/`／`dev-harness/`／`tools/` 一个字节没碰，`git status` 里只有 5 个 `.md` ＋ 本文），全量回归的输入面完全没变。冻结树上那一轮由 **⑦ Q1** 跑。
+
+#### 故意留给后面几刀的
+
+1. **发布日期与版本三角** → **R1**：`CHANGELOG.md` 的「未发布」节首与那条 HTML 注释里写明了要改成什么形状；`package.json`／`00-boot.js`／`facts.json`／README 版本行都没动。**顺带把 `00-boot.js:36` 那句会被误读的「v2.8」注释改掉**（本节开头那条理由）。
+2. **Release Brief 一页纸** → **D2**：22 号文 §8 四项 ＋ 路线图 :47 四问。本轮的管理员手册 §7 是**给部署者看的操作面**（怎么关、怎么升、怎么退），**不是 Brief**；Brief 要的「完整开关清单从 `01-config.js` 默认值区逐条核对」（本文 §1.3 末行点名的那件事）也**没做** —— 手册 §7 开头已写明「这一节只列 2.8.0 要点名的那些，不是默认值区的全表」。另：43 号文 §2 给 126／127 的退出门 J12／J13／J03 仍**没有人报过读数**（本文 §4 点名由 D2 补），本轮没替它补。
+3. **111 三项是否翻默认** → **D2／用户拍板**：E1 只报不翻，手册 §7.3 写的是「建议默认开」「再看」，**没有把任何一个写成已交付**。
+4. **英文手册**（`USER-GUIDE_EN.md`／`ADMIN-GUIDE_EN.md`／`ARCHITECTURE_EN.md`）**没同步**：本轮只动中文三本（派单点名的就是 CN 三本；`manuals.e2e` 对 EN 只要求 §5 那三串仍在，仍绿）。英文手册因此落后一个版本，**登记，交主会话定是否单开一刀**。
+5. **打包与覆盖升级的文档面**：管理员手册 §1.3 的 overlay 套用步骤本轮没改；P0 那一刀把覆盖包从 154 条补到 203 条（加了 playbook／内置技能／内置命令），**覆盖升级的老用户拿不到新模板**这件事只写进了路线图与本文，**没有写进手册的 overlay 一节** —— 等 **⑧ P1** 真跑完覆盖与回滚演练，拿到实际读数再写，免得写成推测。
+
+#### 本轮自己抓到的两处错（照实记）
+
+1. **「另有 26 个 steward 工具、不计入 97 这一轴」** —— 两处都错。26 是第 116 波后半的历史数字，今天是 **33**；而且它们**就在** `TOOL_HANDLERS` 里、**计入** 97。按 `dev-harness/steward-tools.static.e2e.js:133` 那条锁的断言原文（`97(63 + 33 steward_* + 1 audio_transcribe)`）改正。教训与 [手攒的名单要配机械锁] 同族：**门面数字别照抄老 CHANGELOG，去读那把锁**。
+2. **「降级后 `asrProviderId`／`asrModel` 会被 normalize 丢掉」** —— 错。2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，顶层未知键原样留着（`eac1424:01-config.js:526` 实读）。真正会被抹的只有 **providers 的嵌套字段**与**管家记忆的两个字段**。这一条直接决定用户该备份什么，**写错了就是让人白备份或漏备份** —— 所以回滚那一节的每一条都回到 2.7.0 的源码上读过一遍，而不是照 §1.1 ④ 的摘要转述。

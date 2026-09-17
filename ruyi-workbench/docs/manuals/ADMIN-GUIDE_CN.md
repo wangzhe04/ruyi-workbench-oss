@@ -362,9 +362,28 @@ v2.0 起 token 不再明文嵌入 HTML：浏览器在页面加载后经 `POST /a
 
 **关键区分**：**搜索后端 baseUrl 是管理员配置的可信端点，出站不过 SSRF**（管理员可能合法地把 web_search 指向内网 SearXNG 或企业搜索代理）。代码里对这两类做了显式注释区分——只有 web_fetch 的不可信 url 受限，搜索后端的受信端点放行。
 
-### 3.4 密钥掩码
+### 3.4 密钥掩码（2.8.0 扩面）
 
-`providers[].apiKey` 与 `searchBackend.apiKey` 在响应里掩为 `••••<后4位>`（`maskSecrets`）。**响应永不回明文**。保存时 `unmaskSecrets`：若上送的 payload 是掩码形态，则**从当前已存 config 还原真 key**——即**把掩码原样回存不会覆盖真实密钥**；只有上送真正的新明文 key 才更新磁盘。
+**掩码的形状**：`••••<后4位>`（`maskSecrets`／`maskKey`）。**响应永不回明文。** 保存时 `unmaskSecrets`：上送的值仍以掩码前缀开头 → **从磁盘上那一份还原真 key**，即**把掩码原样回存不会覆盖真实密钥**；只有上送真正的新明文才更新磁盘，上送空串则清空。
+
+**2.8.0 之前的掩码面**：`providers[].apiKey` 与 `searchBackend.apiKey`。
+
+**2.8.0 新进掩码面的两类**（都是真实存在过的本机泄密面，见下）：
+
+- `modelsApiKey`（Agent CLI 的模型接口密钥，顶层键）。设置页那个框与 `providers[].apiKey` 同一模具：播种掩码、原样回传、保存时还原。
+- `externalMcpServers[].env` 与远程条目的 `headers` —— **每一个值**都掩，**不按键名挑**。理由照实记：MCP 的 env 变量名由各家服务自己起（`GITHUB_PERSONAL_ACCESS_TOKEN`／`X_KEY`／`DB_URL`／…），而这一格的常态恰恰是「值就是凭据」，按名字挑一定漏。代价也照实记：非密钥值也看不见了（`PYTHONUTF8=1` 显示成 `••••1`），远程头里的 `${VAR}` 引用也被遮成 `••••KEN}`（往返照常还原）。**键名全部可见**，运维与管家仍看得出配了哪几个变量；换值 = 回传新明文。
+- 同一批还给 `externalMcpServers[].args` 加了**显示脱敏**（走 `redact()`，`--token <值>` 与 `postgres://user:pw@host` 这类会被抹成 `«redacted»`）。
+
+**还原的额外一道闸（只对 MCP）**：按 id 找到磁盘那一条之后，还要求**启动目标没变**才还原 —— stdio 比 `command`＋`cwd`，`args` 整串也要相同才还原 `env`；远程比 `url`。**这是为了堵「看不见密钥也能把它改接到别的程序／端点上」**：否则一份回传的掩码就成了把手（管家提议一份换掉 `command`、`env` 仍是掩码的 patch，用户随手一按，密钥跟着去了新程序）。**代价**：同一次保存里改了命令／参数／地址，那几个值要重填。`providers` 那一套**没有**这道闸（登记在下面 §3.9）。
+
+**最后一道闸**：`sanitizeExternalMcpServer` 里，仍是掩码的值、仍带脱敏标记的 arg **一律清空**。sanitize 落在每次读／写配置、文件夹导入、`import-config/apply`、`mcp_configure upsert`、Claude Code 自动导入与 drop-in 运行时合并上，所以**掩码到不了** `config.json`、`generated/*.mcp.json`、Claude／Kimi 同步产物和 MCP 子进程的 env。
+
+**这一处修的是什么（照实写）**：`GET /api/status` 的鉴权档是 **`open`——只有 host 门、不要 UI token**。2.8.0 之前，本机任何一个进程不带 token 一个请求就能读到 `modelsApiKey` 与全部外部 MCP 的 `env`／`headers`／命令行参数。Claude Code 自动导入（`autoImportClaudeCodeMcp` 默认开）会把 `~/.claude.json` 里带 token 的 env 原样搬进来，所以真机上这是实在的暴露面。掩码一处生效多处：`GET /api/status`、`POST /api/config` 回包、`steward_config_get`、`mcp_list`／`mcp_configure` 回包、文件夹导入回包与管家决策日志的 `before`／`applied` 都经同一支。
+
+**仍然已知未掩的两处（登记，运维要知道）**：
+
+- `POST /api/mcp/import-config/scan`（token 档）**原样回显** `~/.claude.json`／`~/.codex/config.toml` 里的 env 与 headers。没掩是因为 scan → apply 的契约是「客户端把 scan 拿到的整条原样交给 apply」，扫描结果一掩 apply 就得回头重读源文件——要改契约。前端今天没有调用方（只有 e2e）。
+- **远程 MCP 条目的 `url` 不掩**。`https://user:pass@…` 与 `?api_key=…` 这两种形态会经 `GET /api/status`、`steward_config_get`、`mcp_list` 明文下发（`GET /api/mcp/connectors` 用 `safeUrlForDisplay` 只剥 userinfo）。要掩得先定一件事：`url` 是远程条目活过 sanitize 的必备字段，「无匹配清空」会让整条连接器静默消失。**运维口径：远程 MCP 的凭据放 `headers`，不要塞进 url。**
 
 ### 3.5 审计日志
 
@@ -387,6 +406,23 @@ v1.5 新增的技能、工作台记忆、节点间消息都可能来自**不可�
 - **来源锁定防调包**：会话启用的技能/记忆存 `{id, scope[, projectKey]}`，使用时来源不一致则**跳过注入并提示**，防换工作目录后同名恶意条目静默顶替。
 - **最小授权**：Claude 引擎为记忆展开追加 `--add-dir` 时，只授权**已启用条目所在的组目录**（global / 当前项目组），不暴露整棵记忆树与其它项目的绝对路径。
 - **人工确认写入**：工作台记忆一律「起草 → 用户确认 → 入库」，无静默自动写入（投毒防线）。存储位置 `dataRoot/memory/{global,project/<projectKey>}`，`projectKey` = 规范化（win32 小写化）cwd 的 sha256 截断，防大小写分裂。
+
+### 3.9 2.8.0 的其余安全改动与已知缺口（部署者要知道）
+
+**改掉的两处**：
+
+- **执行工具「判的与跑的」不再是两个目录。** `powershell_run`／`script_run`／`shell_start` 不传 `cwd` 时以前跑在**家目录**，而执行闸判的是**会话的工作目录** —— 模型以为自己在工作夹里，相对路径实际落在家里（`Remove-Item .\tmp -Recurse` 就删到家目录去了）。授权书的 `grantRoot` 判据也只在**显式**给了 `cwd` 时才核「须在 grantRoot 内」。2.8.0 起解析链是「显式 cwd → 请求级工作目录 → 会话 cwd → `defaultWorkspace` → 家目录」，由执行闸算出来并**把结果交回给分发**，三个工具只用闸交回的那一个。副作用照实记：会话 cwd 指向一个**已被删掉**的目录时，三个工具现在会在那个不存在的目录上起进程并失败（fail-closed，但报错是 spawn 的原话，不是人话）。
+- **脱敏表补齐。** `REDACT_PATTERNS`（管着审计响应、管家看到的命令摘录、会话搜索摘录三处）此前漏掉两类：① 带引号的标签＋值形态（`"apiKey": "…"`、`'token': '…'`、YAML／TOML／`.env`／PowerShell `$env:`，以及会话文件里一层与三层转义的 JSON）；② 分段形的 `sk-` 键（在第一个 `-` 处断掉，整把漏过）。**已知边界仍在**：PEM 私钥（值里带空格与转义换行）只抹得到第一段；单个值超过 4096 字时尾部不抹；`"password": "it's…"` 这类值里带单引号的会在单引号处收口。
+
+**已知缺口（登记，2.8.0 不修）**：
+
+- **语音转写的出网面没有 URL 准入校验。** 它与主 provider 出网面共享同一条（**实际并不存在**的）URL 校验：`audioBaseUrl` 与 `baseUrl` 同等对待——trim 加截断，没有私网／回环拒绝。也就是说**管理员把 `audioBaseUrl` 指到内网任何地址都会照打**（与 `web_fetch` 的 `ssrfCheck` 是两码事：后者收的是模型给的不可信 url，这里收的是管理员自己配的端点）。要收紧得两条一起收，否则只堵一条等于把主端点的内网用法也一起废掉。
+- **语音转写没有并发上限。** 设计里那条「每会话 ≤1 / 队列 3」今天不存在。单次有 25 MB 专用闸与 120 s 超时，但**一个持了 UI token 的页面可以连着发**。本机单用户、token 门后面，风险评估为低；多人共用一台机器时请自行评估。
+- **`needs_you` 没有事件唤醒。** 管家链路是「轮询 ＋ 防抖 ＋ 排队 ＋ 模型」，没有「有待决了立刻叫醒管家」这条边。实测代批端到端延迟：轮询 5 s 档均值 17.7 s、最大 30.6 s；轮询 15 s 档（**出厂值**）均值 31.5 s、最大 42.7 s —— 都远低于 `permissionTimeoutMs`（120 s），余量 2.8–11.8 倍。**但这组读数是在管家没被节流的条件下取的**：`stewardMaxTurnsPerHour` 触顶、或管家排在别的回合后面时，非定时线程有可能把 120 s 等满然后自动拒绝。定时任务线程的等待另有更长的窗口。**运维口径**：把 `stewardPollMs`（出厂 **15000**，钳位内可调小到 5000）调小 —— 5 s 档的读数明显更好；并给 `stewardMaxTurnsPerHour`（出厂 **30**）留够余量，触顶时管家自己也跑不了回合。
+- **git 族工具缺省 `cwd` 仍是家目录**（它们不过执行闸，不属于上面那一类「判的与跑的不一致」）。
+- **管家决策日志不回溯清洗**：2.8.0 之前若管家用 `steward_config_set` 改过 `externalMcpServers`，`steward/decisions-v1.ndjson` 里已有明文，`GET /api/steward/decisions` 原样下发 `undoRef`。需要的话手工清理那个文件。
+- **`providers` 的密钥还原没有「启动目标没变」那道闸**：同一次保存里改了 `baseUrl`、`apiKey` 仍是掩码，照样还原真 key（与 §3.4 给 MCP 关上的是同一类口子）。
+- **界面上今天没有 MCP `env`／`headers` 的编辑器**：设置页的运维面板只显示 `commandOrUrl`。「看见键名、换掉值」目前只能经 `POST /api/config`、管家 `steward_config_set` 或模型的 `mcp_configure`。
 
 ---
 
@@ -451,6 +487,87 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 | **PDF 字体 / CID 回退** | `write_pdf`（ACC 工具）在无微软雅黑 / 宋体的机器上会回退到内置 `STSong-Light`（CID，零外部文件，阅读器侧渲染中文），属**预期行为**；返回的 `font` 字段标明实际所用字体。reportlab 缺失则整个 `write_pdf` 优雅降级（不影响其它工具）。 |
 | **性能 / 大会话** | 长会话渲染 v1.0-S7 已做消息虚拟化 / 分页；上下文接近窗口上限时自动 / 手动压缩（`autoCompactThreshold` 默认 0.8 × `contextWindow`），压缩前把 providerHistory 快照存 `checkpoints/<sid>/history-*.json.gz`。 |
 | **权限弹窗超时** | 权限 / 提问弹窗默认 `permissionTimeoutMs`（120000ms）后**自动拒绝**（不替用户放权）；需要更长思考时间可调此配置。 |
+
+---
+
+## 7. 2.8.0 默认启用清单、升级与回滚
+
+> **归类口径**：**有实测读数、且出厂默认开 → 已交付**；**出厂默认关 → 实验**。「默认关」的含义是显式 `false` 或缺省时**与上一版逐字节等价**。证据只来自假端点（fake provider／假时钟）的条目打 ⚠。
+> **改法**：全部是数据目录 `config.json` 的**顶层键**，写 `false` 即关；改完重启服务（少数开关下一回合即生效）。这一节只列 2.8.0 要点名的那些，不是 `01-config.js` 默认值区的全表。
+
+### 7.1 已交付 · 引擎与上下文（出厂默认开）
+
+| 开关 | 是什么 | 读数 | 关掉 |
+|---|---|---|---|
+| `runtimeObservationReducerV1` ＋ `runtimeObservationRecallV1` | 观察结果缩减，模型可按内嵌 `rawRef` 回读原件 | 真实历史上下文占用 **−81.0%**，回读逐字节一致，召回采纳 5/5 | 两个都写 `false` |
+| `runtimeSessionNotesV1`／`runtimeSessionNotesInjectV1`／`runtimeSessionNotesMergeV1` | 会话笔记外置到旁车文件并回注 | ⚠ 定性＋假端点端到端 | 逐个 `false` |
+| `runtimeSummaryEntityCheckV1` | L2 摘要后确定性抽检路径／版本／数字／日期／代号，缺失时**恰好一次**定向修补 | 修复后漏实体 0 | `false` |
+| `runtimeSummarySingleShotV1`（＋`summarySingleShotMaxTokensV1`，出厂 32768） | 摘要单发优先，只在上游真报超窗才降级 map-reduce | 总门 **88.9% / ¥0.1352**，对照 map-reduce 77.8% / ¥0.1945 | `false` |
+| `runtimeEstimateBucketsV1` | token 估算按 JSON／代码／散文分桶 | 只有确定性读数（无真模型 A/B） | `false` |
+| `runtimeSummaryFactTableV1`（＋`summaryFactTableMaxSamplesV1`，出厂 64） | map-reduce 时注入全局事实表，零新增模型调用 | 单项实体保留 **+56.2pp**；**同一轮总门是混合读数：66.7% 对 77.8%** —— 照实写明，不粉饰 | `false` |
+| `runtimeAppendOnlyToolSchemasV1` | tools schema 会话内冻结顺序、只追加 | 真实 A/B cached-input **+23.9pp**，质量 4/4 | `false` |
+| `runtimeExecResultCacheV1`（＋`execResultCacheMaxEntriesV1`，出厂 200） | `file_read` 只读结果按会话缓存，命中前先重新验权、重新 stat 比对 | 命中 **+17–24pp**；工具阶段耗时约 311 ms → 112 ms（**约 −64%**），12/12 正确 | `false` 或把上限设 0 |
+| `runtimeMemoryVectorRecallV1` | 记忆召回的离线向量层与词法层 RRF 融合 | 合成门 Recall@3 90% → 95%（**+5pp，未达当初预设的 +10pp 自动翻默认线；2026-09-04 用户拍板照开**） | `false`（回到纯词法排序） |
+| `sessionSearchIndexV1` | 侧栏搜索能搜会话正文 | 功能性，旧子串过滤作回退 | `false` |
+
+> 以上前八条**在 2.7.0 里就已经默认开着**，只是 2.7.0 的发行说明漏写；2.8.0 的 CHANGELOG 里补记了。
+
+### 7.2 已交付 · 产品功能（出厂默认开）
+
+| 开关 | 是什么 | 读数 | 关掉 |
+|---|---|---|---|
+| `stewardEnabledV1` | 管家总开关（第 121 波起**默认开**，新装直接落管家视角） | e2e ＋ 人工走查 | `false`（会退回经典布局，零后台活动） |
+| `schedulerEnabledV1` | 定时任务 | ⚠ 假时钟 e2e | `false`（无任务时本来就零轮询） |
+| `newThreadEngine: 'last'` | 新线程跟随**上次用的**引擎 | ⚠ API 级 e2e；**改变了存量用户的默认行为** | 设成 `'global'` |
+| `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（八道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 都远低于 `permissionTimeoutMs` 120 s | `false`（设置页「管家」→「它可以自己做的事」同一个键；**管家自己改不了它**） |
+| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；**功能本身在开发机上不可用**：四个候选 ASR 端点全部 404，见 §7.5 | 语音识别选「不启用」，或把两个键清空 |
+| 记忆条目的到期日与作用域 | 管家记忆 `expiresAt`／`scope` | e2e；纯增量字段 | 无开关（不填＝永久有效、到处有效，与 2.7.0 行为相同） |
+
+### 7.3 实验（出厂默认关，要开自己写 `true`）
+
+**第 126 波压缩 v2 五个开关** —— 2026-09-18 用真模型逐开关跑过配对 A/B（`deepseek-v4-flash` @ `api.deepseek.com`，每开关 **6 对**、111c 共 18 对，窗口等比缩小到 30000 以控成本，进程内直调产品自己的压缩原语、开关在产品自己的判定函数上把门）。**本轮只报读数，一个默认值都没翻**：
+
+| 开关 | 是什么 | 门与实测 | 结论 |
+|---|---|---|---|
+| `runtimeSummaryPromptI18nV1` | 摘要 prompt 双语（`locale` 是 en-US 时用英文那份） | 门「EN 校验通过率 ≥ ZH」达标但**不辨别**（三臂都 1.000）。真正的差别是**摘要语言**：关臂 **6/6** 给英文界面的用户发中文摘要，开臂 6/6 英文；事实保留 **10/10** 对关臂 9.33，墙钟 10.6 s 对 19.6 s，费用 ¥0.132 对 ¥0.167 | **建议默认开**（修的是实打实的缺陷，各项非劣信号都不差）。翻默认的代价只有一条：`locale=en-US` 的存量用户从此拿到英文摘要（`auto` 与 `zh-CN` 逐字节不变） |
+| `runtimeHistoryReadDedupV1` | 受保护尾部里同一份文件的多份全文换成指针 | 门「释放 token +10%」**达标且远超**：旧边界子案 **+70.0%**（7076 → 12030），与 111a 同开的子案 **+40.8%**（8090 → 11393）；B 类非劣 12/12 都答出被指针指走的那两个事实 | **建议默认开** |
+| `runtimeReseedTailUnitsV1` | L2 尾部按完整单元（assistant＋其全部 tool 回复）保留 | 门「空尾比例 −80%」实测 **−100%**：关臂 11 次重播种 **11 次尾部为空**，开臂 21 次 **0 次**；配对孤儿两臂都是 0 | **建议默认开**，但**费用代价要写进发布说明**：L2 次数 1.83 → 3.50，摘要费用 **+60%** |
+| `runtimeEvaporateBudgetBoundaryV1` | L1 蒸发边界从「倒数第 2 条 assistant」改成 token 预算 | 门「L2 次数 −20%」**不达标，而且方向是反的：+32.0%**（4.17 → 5.50，6 对里 5 对开臂 ≥ 关臂）；费用 **+36%**；L1 释放总量两臂相同（32150 对 31818，在噪声内）；质量非劣 | **再看**。机制是自洽的（护住尾部 → L1 少蒸发 → 更常兜到 L2），**是当初给它挑的这条指标与它的机制方向相反**。要翻默认得先换一条能说清「护住尾部观测」收益的指标 |
+| `runtimeReseedReattachFilesV1` | 重播种后把最近读过的文件有界地重附回去 | 结构面 **12/12 全绿**（开臂注入 11/11、头 40 行带着事实、关臂一次都没注入）；行为面门「压缩后首个动作是重读已知文件的比率 −50%」实测 **0%**（两臂 83.3%／83.3%）。**读数带已知污染**：真模型写的摘要会把它读过的常量原文抄进【关键文件与上下文】，于是关臂手上也有答案 | **再看**。结论是**「量不出来」而不是「量出来没用」** —— 要一个干净读数，得换一条既是任务必需、又不会被摘要抄走的事实 |
+
+**其余默认关的**（都按「没过门」或「只有合成读数」留在实验档，本版不动）：`runtimeToolRetrievalV1`、`runtimeVolatileTailLayoutV1`（#1 G1，前缀缓存探针未过门）、`runtimeSummaryRefineV1`（≤4 块顺序 refine，105 总门无净收益）、`runtimeBudgetGuardV1`＋`budgetGuardTurnTokensV1`、`runtimeToolTimeBudgetShadowV1`／`runtimeToolTimeBudgetV1`＋两个毫秒阈值（只有合成读数）、`runtimeFailureTelemetryV1`、`boundedReadSchedulerV1`、`metaToolHintsV1`、`actionArgumentModelViewV1`。
+
+### 7.4 从 2.7.0 升级
+
+- **`CONFIG_SCHEMA` 仍是 11，2.8.0 不 bump**，没有配置迁移脚本：新键在首次读配置时取默认值并回写。
+- 因此**升级用户会自动获得三件**，都不经确认：
+  1. **管家代批默认开**（`stewardExemptDelegationV1`）—— 2.7.0 里配着「智能自动」的线程从此可能被管家代批。不想要就按 §7.2 关掉。
+  2. **定时任务默认开**（`schedulerEnabledV1`）—— 没有任务时零轮询、零写入。
+  3. **新线程跟随上次用的引擎**（`newThreadEngine: 'last'`）—— 要回到「永远跟全局」就设 `'global'`。
+- 语音识别**不会**被自动打开：`asrProviderId`／`asrModel` 出厂两空，未配置时麦克风连节点都不建。
+- 定时任务的数据面是新建的（`<dataRoot>/scheduler/tasks-v1.json` 与 `fires-v1.ndjson`），不动任何 2.7.0 的文件。
+
+### 7.5 回滚到 2.7.0：**先备份，否则会静默丢字段**
+
+**为什么必须备份**（两条都在 2.7.0 的代码里实读确认过）：
+
+1. 2.7.0 的 `sanitizeProvider` 把 `providers[].models[]` **重建**成 `{id, label}`，而且**首次读配置就回写 `config.json`** —— 于是 2.8.0 写下的 `models[].caps`（语音／向量能力标签）、`providers[].audioBaseUrl`、`hiddenModels` **一次启动就没了**。
+2. 2.7.0 的管家记忆规范化**不认** `expiresAt` 与 `scope`，下一次写记忆就整库回写，两个字段一起丢（条目本身不丢）。
+
+`config.json.prev` **只留最近一代**，兜不住这个。
+
+**最小步骤**：
+
+1. **停服**：关掉桌面壳／`Ctrl+C`／结束 `Ruyi.exe serve` 进程，确认没有在跑的回合与定时任务。
+2. **备份两样，拷到数据目录之外**：`<dataRoot>\config.json`（连同 `config.json.prev`）与 `<dataRoot>\steward\` **整个目录**（`memory-v1.json`、`decisions-v1.ndjson` 等）。想更保险就整个 `<dataRoot>` 拷一份。
+3. 装 2.7.0（或套回旧的 overlay 包）。
+4. **要回到 2.8.0 时顺序不能反**：先把 2.8.0 装回去，**再**把备份的 `config.json` 与 `steward\` 拷回覆盖，**然后**才启动。先启动再拷，会被启动期那一轮 normalize 写过一遍。
+5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对与 `audioBaseUrl` 要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
+
+**另外两件降级时会发生的事，先知道**：
+
+- **定时任务在 2.7.0 里整块不存在**（调度器是 2.7.0 之后才有的）。`scheduler\` 目录留在盘上不动，升回来任务还在、只是这段时间一次都没触发过。
+- **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。
 
 ---
 

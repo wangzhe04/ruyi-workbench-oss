@@ -1,6 +1,8 @@
 # 如意 Ruyi 架构(原 Win Claude Workbench)
 
-> 版本基线:`app/server.js` `VERSION 2.5.0` / `configSchema 9` / 会话 `schemaVersion 1`。v2.5.0 加入 WinForms + WebView2 原生桌面壳、面向任务的六入口工具箱、长工具插话与后台子 Agent DAG，并修正 ripgrep 降级与 ACC 工具计数口径；`toolLoadingMode:'full'` 保留全部常驻行为。其余架构延续 v2.4 的任务台、v2.1 的安全更新中心与 MCP 运维闭环，以及 v1.5–v2.0 的多引擎、检查点、Agent 工作流、Skills、用量看板和桌面/Office MCP 桥接能力。
+> 版本基线:`configSchema 11` / 会话 `schemaVersion 1` / 当前树为 **2.8.0 候选**(`package.json` 的版本行由第 107 波 R1 那一刀 bump,在那之前磁盘上仍写着 2.7.0;`CONFIG_SCHEMA` 自 2.7.0 未变,2.8.0 **不 bump**)。**自 v2.5.0 以来的结构性变化,集中在四处**:① 源码从 17 个模块拆到 **53 个**,其中 13 号 HTTP 路由族一家分出 20 个文件(见「模块化构建」);② 原生工具 **52 → 97**(`TOOL_HANDLERS` 轴,单一事实源是根 `facts.json`);③ 新增管家(steward)、定时任务调度器、SSE 事件流、语音转写四组路由,路由判定点 **137** 个、`ROUTE_AUTH` 声明 **125** 条(生成物见 `docs/architecture/route-inventory.{json,md}`);④ 前端从「经典布局 ＋ 交办台」改为**一台两视**(工作台视角与管家视角共用同一台工作台,顶栏分段钮切换)。v2.5.0 那一批(WinForms + WebView2 原生桌面壳、面向任务的六入口工具箱、长工具插话与后台子 Agent DAG)仍然有效;`toolLoadingMode:'full'` 保留全部常驻行为。其余架构延续 v2.4 的任务台、v2.1 的安全更新中心与 MCP 运维闭环,以及 v1.5–v2.0 的多引擎、检查点、Agent 工作流、Skills、用量看板和桌面/Office MCP 桥接能力。
+>
+> **本文是基线文档**:只写「今天这棵树长什么样」。逐版本的用户可见变化看根 `CHANGELOG.md`,波次级的设计与取证看 `docs/optimization-plan/`。
 >
 > **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(至少保留一个大版本);默认目录仍 `~/.win-claude-workbench`。**以下存量兼容标识有意保持不变(v2.0 仍保持不变(存量兼容))**:MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`(存量 `.mcp.json` 兼容)。子进程 MCP 配置注入的是旧变量名(值=已解析 dataRoot),故老 `.mcp.json` 照常工作。
 
@@ -21,7 +23,8 @@ flowchart LR
   MCPext --> ACC["ai-computer-control(108 桌面工具, v1.9.1)等外部 MCP"]
 ```
 
-> **界面**:上图 UI 节点标「原生 JS 三栏」为后端视角称谓；当前右侧工作区固定为 6 个任务入口 [文件|产物|变更|Agent 工作流|用量|活动]。终端、桌面、MCP、搜索与读取保留为模型能力，不提供手动运行器；连接器运维在设置的「集成 / MCP」，诊断、存储、性能和原始日志集中到「体检」。界面延续青花主题、简易(默认)/专家双模(**新装默认 `uiMode simple`**)与新手起步引导。细节以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 为准。
+> **界面**:上图 UI 节点标「原生 JS 三栏」为后端视角称谓；当前右侧工作区固定为 6 个任务入口 [文件|产物|变更|Agent 工作流|用量|活动]。终端、桌面、MCP、搜索与读取保留为模型能力，不提供手动运行器；连接器运维在设置的「集成 / MCP」，诊断、存储、性能和原始日志集中到「体检」。界面延续青花主题、简易(默认)/专家双模(**新装默认 `uiMode simple`**)与新手起步引导。
+> **一台两视(第 121 波起)**:同一台工作台有两个视角 —— **工作台视角**(上面那套三栏)与**管家视角**(管家壳:头像＋状态行、对话流、输入框，右侧线程抽屉，状态行点开是看板)，顶栏一枚分段钮切换，左栏线程索引两边共用，两边读同一份数据。旧的「交办台」已整体退役。管家总开关 `stewardEnabledV1` **出厂默认开**，新装落在管家视角。两个视角的输入框共用同一枚麦克风组件(`public/js/composer-voice.js`，配了语音识别才建节点)。细节以 `docs/manuals/{USER-GUIDE_CN,ADMIN-GUIDE_CN}.md` 为准。
 
 ## 引擎(v0.5+ 多引擎)
 
@@ -83,9 +86,25 @@ flowchart LR
 
 > token 门:`/api/tools/*`、`/api/checkpoints/*`(回滚,UI 调用)、`/api/session/rewind`(回溯,UI 调用)、`/api/steer`(插话,UI 调用)、`/api/config`、`/api/provider/test`、`/api/playbooks`(+`/api/playbooks/*`,v0.9-S2)、`/api/workspace/resolve`、`/api/pick-folder`(v0.9-S3)、`/api/file/preview`(v0.9-S4)、`/api/plan/decision`(v0.9-S5)、`/api/audit`(v0.9-S8)需要注入 UI 的本地 header token(阻断同机其它进程),并校验同源;`/api/permission/request` 与 `/api/todo` 例外——由子进程 loopback 调用,改用 **body token** 校验(见各端点)。`GET /api/checkpoints` 只读,同源门即可。`GET /api/file/preview` 与 `GET /api/audit` 虽是 GET 但含文件内容/路径命令,故进 token 门(GET 不走 mutating 块,均在 handler 内显式 `tokenOk` 再查;preview 额外走允许根闸)。**`/api/bootstrap` 为 open 级(host 门挡 DNS rebinding),浏览器经它获取 token 存 sessionStorage;HTML 不再明文下发 token,非浏览器仍走明文注入兼容。****新增 token 门端点必须显式扩 needsToken 白名单表达式(该表达式不自动覆盖新路径,S0 教训)。**
 
+### v2.6–v2.8 新增的路由族(概览;逐条权威口径在 `01b-route-auth.js` 的 `ROUTE_AUTH` 表与 `docs/architecture/route-inventory.md`)
+
+上面那张清单写的是 v2.5 基线。此后新增的**成族**路由不在这里逐条重抄,只记「有哪几族、各在哪一档门」:
+
+| 族 | 鉴权档 | 做什么 |
+|---|---|---|
+| `/api/steward/*`(约 20 条) | **token**(不给 token-browser) | 管家:起停、状态、收件箱、到访摘要、递话与消息、`act` 动作按钮、递话预判、仲裁器与插队、记忆面板(读/编辑/否决/恢复/清空/导出)、决策流水 |
+| `/api/scheduler/tasks*`(GET/POST/PATCH/DELETE ＋前缀) | **token** | 定时任务 CRUD、`/:id/runs` 执行记录、`/:id/run-now` 立即运行 |
+| `GET /api/events/stream` | **token-browser** | 一条 SSE 事件流,替掉原来的 5／15 秒轮询(线程状态、收件箱、任务进度) |
+| `POST /api/audio/transcribe` | **token** | 语音转写。**本版唯一的新出网面**:25 MB 专用闸(Content-Length 预检 ＋ 流式累计双道)、120 s 超时、按 OpenAI 形拼 multipart 打 `audioBaseUrl \|\| baseUrl` 的 `/audio/transcriptions`;记账 `kind:'aux', note:'asr'`,上游不报 usage 时保守估算并标 `estimated:true` |
+| `GET /api/missions`、`/api/missions/:id`(读)／`POST`、`PATCH`(写) | 读 **token-browser**、写 **token** | 事项容器与验收项的聚合只读投影(验收项的四态来源标签是**现算**的,零新持久字段;唯一的例外是只有机器写得了的 `milestone.lastCheck`) |
+| `POST /api/playbooks/service-match` | **token-browser** | 自然语言 → 六类服务的只读匹配,返回 `{service, playbooks, state, guidance(≤1), guidanceDropped}` |
+| `GET /api/help/doc` | **token** | 应用内读用户/管理员手册(白名单 id ＋白名单 lang,请求串永不进 `path.join`) |
+
+**`GET /api/status` 的档是 `open`** —— 只有 host 门,不要 UI token。因此它下发的 config **必须逐字段掩码**:`providers[].apiKey`、`searchBackend.apiKey`、`modelsApiKey`,以及 `externalMcpServers[].env`／远程条目 `headers` 的**每一个值**与 `args` 的显示脱敏;保存路径按「同一个启动目标」还原真值,`sanitizeExternalMcpServer` 作最后一道闸保证掩码到不了磁盘与子进程 env。细节与仍未掩的两处见 `docs/manuals/ADMIN-GUIDE_CN.md` §3.4。
+
 ## Workbench 自身 MCP 工具
 
-`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **52 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
+`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **97 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数 —— 这个数字的**单一事实源是根 `facts.json` 的 `nativeTools`**(由 `dev-harness/facts-generate.js` 机械生成、`facts.static.e2e.js` 重算比对),文档里再出现别的数就是漂移。**97 的构成**(`steward-tools.static.e2e.js` ① 钉住):通用原生工具 **63** ＋ 只在管家会话可见的 `steward_*` **33**(普通会话与子代理永远看不到) ＋ 语音转写 `audio_transcribe` **1**。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
 
 - 权限桥接:`permission_prompt`(interactive + 权限桥接时把权限询问路由回 UI)。
 - 执行:`powershell_run`(一次性)、`script_run`。
@@ -94,6 +113,7 @@ flowchart LR
 - **打包/解压(v1.1+,tier edit)**:`archive_zip`(文件打包 .zip,deflate,可回滚)、`archive_unzip`(.zip 解压,Zip Slip 防护,可回滚)。
 - **下载(v1.1+,tier edit)**:`http_download`(http(s)下载到工作区,SSRF 防护,可回滚)。
 - 交接:`browser_open`、`office_open`、`desktop_screenshot`、`keyboard_send_keys`。
+- **语音转写(第 127 波新增,tier exec —— 用户文件出网)**:`audio_transcribe{path, language?}`,与 `file_read` 同一道路径闸 → 扩展名白名单 → 25 MB 闸 → 读盘 → 经 `05-claude-engine` 的共享出站体打服务商的 `/audio/transcriptions`。返回值带 **`untrusted:true`**(转写文本一律不可信);未配置／越界／超限／上游失败一律规整成 `ok:false`,不抛。
 - 工程:`project_snapshot`、`git_status`、`git_diff`、`git_log`、`git_commit`(**v1.0-S4 git 工具族**:`git_status`/`git_diff`/`git_log` 为 read 档恒放行零弹窗、`git_commit` 为 exec 档[commit 触发 `.git/hooks` 任意代码];均 `execFile` 无 shell + `--` 防旗标走私)、`dependency_inventory`、`code_review_scan`、`frontend_audit`、`claude_md_audit`、`docs_search`。
 - 网络:`http_request`。
 - **联网检索(v0.9-S9 新增,tier read,能力矩阵门控)**:`web_search{query,maxResults=5}`(requires `network`+`searchBackend`:离线或 `searchBackend.type==='none'` → 不 offer + 能力层「当前不可用」;`searchBackend.type` 七枚举 `none/searxng/bing/brave/tavily/bocha/custom`,按 `type` 分流(v1.0-S6 增 tavily / 博查 bocha,`baseUrl` 可覆写)→ `{results:[{title,url,snippet}]}`;**搜索后端 baseUrl 是管理员配的可信端点,出站不过 SSRF**)、`web_fetch{url,maxChars=20000}`(requires `network`;http/https GET → 零依赖自写正文抽取 → `dataRoot/webcache` 缓存离线复用[`fromCache`])。**`web_fetch` 的 SSRF 硬防御**:url 是模型/网页给的**不可信**输入,`ssrfCheck` 按字面 host 拒 loopback/私网(`10.`/`172.16-31.`/`192.168.`)/link-local·云元数据(`169.254.169.254`)/IPv6 ULA·link-local/`.local`·`.internal`,仅 http/https,重定向逐跳复验(≤3)。**v0.9 F1**:补 IPv4-mapped/compatible IPv6 字面量(`::ffff:127.0.0.1`、hex 形 `::ffff:7f00:1`、`::ffff:a9fe:a9fe` 等)——`embeddedIpv4FromV6` 抽出内嵌 v4 交 `isPrivateIpv4` 判,私网即拒,公网映射(`::ffff:8.8.8.8`)放行;`64:ff9b::/96` NAT64 前缀整段拒;`::ffff:` 开头但解不出 v4 者按可疑拒。**v0.9 F2**:`httpGetGuarded` 逐跳在发起连接前 `dns.lookup(host,{all:true})`,任一解析地址落私网/回环即拒(reason `解析到内网地址`),关掉 `127.0.0.1.nip.io` 这类 DNS 重绑定(lookup 失败不拦,让后续 fetch 自然失败)。**搜索后端 baseUrl 仍为管理员配的可信端点,不走 DNS 校验**。**D6 主动检索**:web_search 被 offer 且在线时,能力层渲染「对时效性/外部事实应主动检索后再答」。
@@ -133,7 +153,17 @@ v0.8-S4a 检查点 journal 与文件回滚(信任层核心,纯加法,零 npm—�
 
 ## 模块化构建
 
-产物为单文件 `app/server.js`;源码在 `app/src/` 共 17 个模块(见 `app/src/manifest.json`),`app/build.js` 按依赖顺序拼接。改代码时改 `src/` 下的模块,产物由 `node app/build.js` 重建。
+产物为单文件 `app/server.js`;源码在 `app/src/` 共 **53 个模块**(权威清单是 `app/src/manifest.json`),`app/build.js` 按依赖顺序拼接。改代码时改 `src/` 下的模块,产物由 `node app/build.js` 重建(`node app/build.js --check` 判新鲜度)。
+
+**模块编号即依赖层序**(前缀数字小的在下层;`module-dependency-policy.json` 声明允许的边,`dev-harness/module-dependency-graph.js --check` 把它钉住:当前 **53 模块 / 420 边 / 1 个 SCC**,生成物在 `docs/architecture/module-dependency-graph.{json,md}`):
+
+- **00–02** 启动与持久层:`00-boot`(常量、`CONFIG_SCHEMA`、`SESSION_SCHEMA`、端口预算)、`01-config`(默认值区与 `normalizeConfig`)、`01b-route-auth`(`ROUTE_AUTH` 声明表,deny-by-default)、`01c-runtime-flags`、`02-session-store`、`02c-turn-segments`(有序回合协议)。
+- **03–04** 闸门与外设:`03-bridge-guard`(附件提示词、执行闸与有效工作目录解析)、`04-permission-runtime`(权限、脱敏表 `REDACT_PATTERNS`、MCP 连接器写口)、`04-desktop-shell`、`04-visual-pipeline`。
+- **05** 引擎 A 与 CLI 桥:`05-claude-engine`(Claude CLI 回合、`maskSecrets`/`unmaskSecrets`、语音转写出站体)、`05b-kimi-bridge`＋`05c`／`05d`(Kimi Code CLI 引擎)。
+- **06** 引擎 B 与各领域纯函数:`06-provider-engine`(原生工具循环、能力矩阵、`ERROR_CLASSES`、playbook 与服务分类)、`06b-prompt-registry`(两份提示词包)、`06c`–`06h`(Agent 钩子、记忆、事项、授权书、资源租约、检索索引)、`06i-steward-core`(管家纯函数:档位、永久豁免判据、代批闸)、`06j-scheduler-core`(调度器纯函数:计划解析、补跑与崩溃恢复)。
+- **07–12** 回合与工具:`07-autonomy`(工具 tier 与权限门)、`08-agent-runs`、`09-workflow`＋`09b`／`09d`、`10-context-governance`(两级自动压缩、111 五个开关的判定点)、`11-native-tools`、`12-tool-dispatch`(`TOOL_HANDLERS` 派发注册表)。
+- **13 族(20 个文件)** HTTP 与管家运行器:`13-http-router` 是唯一的请求入口与分派点,按域委派给 `13b`(API 域路由,含 `POST /api/audio/transcribe`)、`13c`(overlay)、`13d`(核心域)、`13e`、`13f`(原生工具 schema);管家一侧从 `13g` 一直排到 `13t`(工具面 `13g`/`13j`/`13k`/`13l`、收件箱 `13i`、运行器 `13h`/`13m`/`13o`/`13p`/`13q`、仲裁器 `13n`、定时任务 `13s`/`13t`),`13r-event-stream` 是那条 SSE 事件流。**这一族是全树最容易长出「同一件事两处判据」的地方**,新增管家动作要同时登记的那几处见 `dev-harness/steward-tools.static.e2e.js` 与 `tool-dispatch.e2e.js` 的计数锁。
+- **14-main** 只做导出与入口分派。
 
 ## 团队模式 v2 与 Skills / 记忆 / 用量(历史引入:v1.4→v1.5;当前 v2.0.0)
 
@@ -181,6 +211,8 @@ v1.5 团队模式(历史引入:v1.5;当前 v2.0.0)
 - `usage/YYYY-MM.jsonl`(v1.5 用量台账 append-only:每回合 / 子代理 / 辅助调用一行 `{engine,provider,model,inTok,outTok,cost,currency,costTrusted,estimated,kind}`)
 - `skills/<id>/SKILL.md`(v1.5 用户级技能;项目级在 `<cwd>/.ruyi/skills/`;内置随 `resources/plugins/.../offline-toolkit/skills/` 发)
 - `memory/{global,project/<projectKey>}/<id>.md`(v1.5 跨会话工作台记忆:frontmatter + 正文;组 `meta.json` 存明文路径反查)
+- `steward/*`(管家自己的持久面:`memory-v1.json` 是「管家记得的关于你」——条目带 `expiresAt`／`scope`;`decisions-v1.ndjson` 是行动流水,每行带依据与撤销指针 `undoRef`。**降级到 2.7.0 会丢 `expiresAt`／`scope`**,备份步骤见 ADMIN-GUIDE §7.5)
+- `scheduler/*`(定时任务:`tasks-v1.json` 即承诺本体、带 `revision`;`fires-v1.ndjson` 即每次执行的回执,带 `occurrenceKey`／`executionGeneration`／`phase`／`outcome`。删任务不删历史回执;崩溃后看见无终态的 `inFlightRunId` 即记 `outcome:'unknown'`,不默认成功也不盲目重发)
 
 可通过环境变量覆盖:
 
