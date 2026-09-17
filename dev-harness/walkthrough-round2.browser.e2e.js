@@ -352,9 +352,14 @@ try {
   /* ═════════ B 管家视角的向导入口（36 号文 §2.13）═════════
      反向验证：把 renderFirstRun／renderDigest 里那两句 renderActs(row, onboardingActs()) 注掉
                → B2 与 B5 双红。 */
+  // 127 波（45 号文 2-quater B1 交付记录）：B1 在本波回归里四次首跑红「实得 classic」。探针连续 3 秒逐 50 ms
+  // 记 data-shell-mode|data-vt 的变化序列，逮到的形状是 `classic|back`(48 ms) → `steward|back`(110 ms) →
+  // `steward|`(370 ms)：config 到达后那一拍的 applyShellMode('steward') 排在 View Transitions 里，READY 之后
+  // 立刻读会读到过渡前的 classic —— 产品最终确实落管家视角，是断言读早了。所以等【过渡落定】（data-vt 清空，
+  // 与本文件 setLens 同一个判据）再读；落定后仍是 classic 才是真红。
   const landed = await waitForEval(cdp, `(() => {
     const mode = document.documentElement.getAttribute('data-shell-mode') || '';
-    return mode ? { mode } : null;
+    return (mode && !document.documentElement.dataset.vt) ? { mode } : null;
   })()`);
   ok(Boolean(landed) && landed.mode === 'steward',
     `B1 全新 HOME（没存过视角偏好）启动落【管家视角】—— 这枚入口要救的就是这批人（实得 ${landed && landed.mode}）`);
