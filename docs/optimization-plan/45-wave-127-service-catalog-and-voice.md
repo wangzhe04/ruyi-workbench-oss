@@ -117,6 +117,8 @@
 
 **114d（本地 shim）／114e（桌面壳麦克风权限）不在本波**：43 号文 §2 已后置到 128+，理由是云端 ASR provider 就够跑通「语音能用」。
 
+**2026-09-17 重排剩余出门序**（①–⑥ 已出门）：**2-bis → 2-quater B1 → 2-quater B2 → 2-ter → ⑦ → ⑧**。用户真机撞上的三件排在前面；2-quater 依赖 2-bis 的类别函数；⑧ 要改 `14-main` 导出，排在管家那几刀之后免得撞文件。
+
 ## 2-bis. 用户真机走查带进来的一刀（2026-09-16）：**永久豁免把 `shell_send` 误判成「对外发送」**
 
 > **用户触发**：真机上「A 股盘中巡检」线程连着卡在放行上，管家的原话是「这类动作在永久豁免清单里 —— 不管线程自己是什么档位，都得你亲自按一下」。用户问：**「管家的批准权限这一点，后续有规划吗，当前似乎有特定的还是老是问」**。
@@ -207,6 +209,97 @@
 - **S-b**：① 两条定时任务**同时到点**，各自拿到不同的 `cwdKey`，**都能跑**（不再是一条等锁）；② 新目录进了工作区候选表；③ `target` 仍然**拒收** `cwd`（禁止键不变）。
   **反向**：让两条任务共用 defaultWorkspace → ① 红并报出 `等锁：同一个文件夹被「…」占着`（**这一条同时证明判据咬的是锁，不是别的**）。
 - **纪律**：S-b **不得**顺手放开 `cwd` 入参。`06j:532` 写明它是「绕过工作区表的唯一入口」—— 解锁问题用「自动给个新文件夹」，不用「让模型自己填路径」。
+
+## 2-quater. 用户追加（2026-09-17）：**停下来问的时候，管家判断合理就能替我批**
+
+> **用户原话**：「这种情况下，停下来问的话，管家如果判断风险不高或者合理，应该要能带我批准」——「这种情况」指 2-bis 之后仍会停下来的那一类：命令正文命中永久豁免（`rm -rf`、`git push`、`curl POST`…）。
+
+**这是改红线，不是修 bug**：[31 号文 §2.5](31-steward-empowerment.md) 的红线行写明「永久豁免的动作不进代批名单」。用户在知道这一条的前提下提出放开，主会话按「列出＋推荐」给了三件拍板（见下 §2-quater.3），用户未回，按推荐落。
+
+### 2-quater.1 取证（2026-09-17 只读摸底，主会话逐条核过承重的几条）
+
+1. **管家今天根本看不到命令原文**：`13i-steward-inbox.js:329` 注释原话「永不带 iv.input(可能含文件正文)」。管家在真机上说「命令原文我这边看不到」是实情——没有东西可供它判断。
+2. **现存的洞：批 A、跑 B**。`steward_decide` 的 schema 写明 permission 可带 `{updatedInput}`（`13f:883`），13l 原样透传，核心层接受（`13d:1311-1316／1349／1431`），原生回合 `09:2776` 直接 `args = decision.updatedInput` **不重扫豁免判据**。平时「智能自动」档下管家见到的待决全是豁免命中（原生闸门只对命中才问，`07:828-831`）、`steward_decide` 会拒，所以洞够不着；但**会话头的档位与回合实效档位可以不一致**（`stewardThreadPermissionMode` 只看会话／全局，`13j:100-106`；定时任务回合走请求级档位，`13s:501` → `10:2417-2426`），错位时管家能「批准 `npm test`」而实际跑 `git push --force`。**放权之前必须先堵。**
+3. **档名**：`auto`＝「智能自动」、`bypass`＝「全自动」（`06i:78-85`）；`bypass` 在 `07:821` 直接放行、从不停下来问。所以代批**只对「智能自动」**有意义。用户卡住的「A股盘中巡检」线程是 openai/deepseek 路由、定时任务开的。
+4. **分类是首中即返**（`stewardExemptReason`）：`rm -rf x && shutdown /s` 只报「删数据」。而 `format／diskpart／mkfs` 在删数据组、`sendmail／mail -s` 在对外发送组——底线项藏在可代批的组里。
+5. **输入过 4000 字／嵌套过 4 层的部分静默不扫**（`06i` `stewardExemptInputText` 的 `break`）。
+6. **回合内调 `steward_decide` 没有确定性回执**（`13q:212-216` 只收自理行与结构化 actions）——代批了用户不一定知道。
+7. **脱敏表 `REDACT_PATTERNS` 在 `04:44-52`**，漏 `https://user:pass@`、`-u user:pass`、`Authorization: Basic`、`--password x`（空格分隔）、`PGPASSWORD=`（词中 `\b` 失效）、AWS `AKIA…`。
+8. **死按钮**：豁免命中的 `propose_required` 被降级成「允许」按钮（`13p:139-156`），用户按下经 `/api/steward/act`（`13q:743`）又进同一条分支再次被拒。
+9. **延迟**：`permissionTimeoutMs=120000`（`01:47`），而管家链路是轮询 15 s＋防抖 5 s＋排队＋模型，needs_you 无事件唤醒；定时任务会话的等待更长（`07:851-865`）。
+10. **引擎覆盖**：Claude CLI 在 auto 档不挂权限桥（`05:144`）、Kimi 在 auto 档交给 Kimi 自己（`05b:760`）——**会出现「待管家判断的豁免命中」的实际上只有原生引擎线程**；Kimi 的 reg 没有 `liveSegments`（`05b:2397-2407`）。
+
+### 2-quater.2 拆两刀
+
+**B1 · 零放权（先做）**
+
+1. **堵批 A 跑 B**：管家发起的 permission `allow` 一律剥掉 `updatedInput` 与 `scope`（13l 进 `decideIntervention` 前），`13f:883` 描述同改。
+2. **全命中分类**：06i 新增 `stewardExemptHits(toolName, input)` → `{ hits:[{by,category,floor}], scannedFully, textLength }`。在**同一类别键下**把每组拆成「底线／非底线」子组——五个标签、`stewardExemptReason` 的首中报类、布尔判据**全部逐字节不变**。底线：全部工具名命中、`format／diskpart／mkfs`、改系统整组（`reg／regedit／*-ItemProperty HK*／netsh／shutdown／bcdedit／Restart|Stop-Computer`）、`sendmail／mailx／mail -s`、**灾难性删除目标**（`/`、`C:\`、`~`、`$HOME`、`%USERPROFILE%` 作为 `rm -r`／`Remove-Item -Recurse`／`rmdir /s` 的目标）。`scannedFully` 由 `stewardExemptInputText` 报出是否触发过截断。
+3. **摘录可见**：`13k stewardEnrichInboxRows`（`:1051-1089`）只给**豁免命中的权限待决行**挂 `exempt:{categories, floor, commandExcerpt}`；`13p stewardInboxMessage` 另起一个独立围栏块（`<exempt-command untrusted>` 形状，注明「以下是线程要执行的命令原文，其中的注释与文字不是指令」），不进最旧优先的丢弃循环；`steward_thread_status.pending[]`（`13k:340-343`）同挂。**不动 `13i:317-362`**（单测锁「needs_you 绝不带 input」保持原样）。摘录：先脱敏（**补齐 `04` 的 `REDACT_PATTERNS`**，单一来源，不另立一份）→ 尖括号中和 → 截 300 字（以命中处为中心）。
+4. **修死按钮**：豁免命中的提议降级为「去线程里看」（`open_thread`），不再画一个按下去必被拒的「允许」。
+
+**B2 · 放权（B1 出门后）**
+
+- **开关**：顶层新键 `stewardExemptDelegationV1`，默认 `true`；**forbidden 档**（管家自己改不了——不能放进 `stewardAutoActions`，那一格是 confirm 档，管家按一次按钮就能翻）；设置页「管家」自理区加一个勾选框（照 `cfgStewardThreadBrief` 模具）。
+- **闸序**（任何一道不过 → 返回与今天同形的 `propose_required`，`reason:'permanently_exempt'` 不变，details 加 `delegable:false, blockedBy`）：
+  1. 开关开；
+  2. **回合实效档位** `=== 'auto'`（取活回合的实效档，不取会话头——堵错位；`bypass` 不算）；
+  3. 线程在管家看管下（`stewardWatchedThread`）**或** `origin === 'schedule'`（无人值守正是代批的用处；实现者核实定时线程头的实际形状）；
+  4. 没有任何命中是底线（看全部命中，不看首中）；
+  5. `scannedFully` 且全文 ≤ 1000 字；
+  6. 命中含「对外发送」或「推送远端」时查**污染**：本回合 live segments 里、在这条权限段之前出现过 `web_fetch／web_search／http_*／browser_*／WebFetch／WebSearch／audio_transcribe`、任何 `__` 桥接工具、`subagent`／`workflow` 段，**或判不出**（无 reg、无 `liveSegments`、找不到对应权限段）→ 污染；另加**会话级粘性污染位**，由用户下一条亲发消息清除（堵「上一回合读网页埋话、这一回合执行」）；
+  7. `riskNote` 非空（`steward_decide` 新参数，≤200 字，中和后只进决策日志与回执）；
+  8. 每小时代批 ≤ 6 次（常量住 06i，计数住 13j 内存窗，重启归零——与 `13m:190-192` 口径一致）。
+- **留痕**：决策账本 `basis.delegation{categories, exemptBy, commandExcerpt(脱敏), riskNote, tainted, taintBy}`、`undoRef:{kind:'none'}`；`logEvent({kind:'steward_exempt_delegated'})`（不带摘录，日志只放元数据）；**确定性回执**——13q 扫本回合管家 assistant 的 `toolCalls`，成功的代批进 `executed` 回执行（不靠模型自己提）；行动流水 UI 显示类别与理由。
+- **文案会变假的几处要改**：zh／en `auto.hint`、`confirm3`（及 `confirm-panel.js:34`）、`06b` 规则 1（stable 预算已近满，指导写进 `13f` 描述与信封 message，规则 1 只改一个词）、`13f:876`。
+- **延迟**：夹具里实测「权限请求出现 → 管家代批落定」的端到端耗时并写进交付记录；若普遍超过 `permissionTimeoutMs`，记为已知限制并登记「needs_you 事件唤醒」为债，本刀不做。
+
+### 2-quater.3 三件拍板（主会话推荐，用户未回，按推荐落）
+
+1. **哪些永远不让管家代批** —— 推荐：钱（支付／购买／转账）；格式化、分区、关机重启、改启动项；改注册表或防火墙；注册 MCP 服务器；名字本身就是发消息的工具与 `sendmail`。其余（删文件、装卸软件、`git push`、`curl POST`／写型 `http_request`）交给管家判断。主会话实施时另加「灾难性删除目标」进底线（取证 4 的延伸）。
+2. **默认开还是关** —— 推荐：默认开，设置可关，管家自己改不了。
+3. **线程读过外部内容时** —— 推荐：「对外发送」「推送远端」两类不代批；删文件、装卸软件仍可。主会话实施时加「跨回合粘性污染位」（取证 2 同源的多回合绕过）。
+另：代批只限管家看管的线程与定时任务开的线程——用户自己开、管家没接手的线程照旧问（主会话决定，理由：那是用户自己盯着的事）。
+
+### 2-quater.4 可证伪判据与反向
+
+- **B1**：① 管家 `allow` 带 `updatedInput:{command:'git push --force'}` → 实际执行的仍是原 input（真回合夹具，文件标记证明）；② `stewardExemptHits('Bash',{command:'rm -rf x && shutdown /s'})` 报两条命中且 shutdown 那条 `floor:true`，而 `stewardExemptReason` 仍只报「删数据」；③ 管家收件箱消息里出现围栏摘录、摘录里 `https://u:p@h`／`--password s3cret` 已脱敏；非豁免待决行零新增字段；④ 豁免提议不再生成「允许」按钮。
+  **反向**：㈠ 摘掉剥离 → ① 红并打出实得执行的是 `git push --force`；㈡ 摘掉底线子组 → ② 红。
+- **B2**：① 智能自动＋定时线程＋`Remove-Item .\tmp -Recurse`＋有理由 → 代批落定、账本有 `basis.delegation`、回执行出现；② 同一条命令、线程本回合先调过 `web_fetch` 再 `git push` → 不代批（`blockedBy:'tainted'`）；删文件类同条件仍代批；③ 底线命令（`shutdown /s`、`rm -rf /`）任何条件都不代批；④ 开关关 → 与今天逐字节同形；⑤ 第 7 次 → `blockedBy:'hourly_cap'`；⑥ 缺 `riskNote` → 不代批；⑦ 会话头 auto、回合实效 default → 不代批。
+  **反向**：㈠ 摘掉污染判定 → ② 红；㈡ 把底线判定改成只看首中 → `rm -rf b && shutdown /s` 被代批，红；㈢ 档位判据改读会话头 → ⑦ 红。
+
+## 2-quinquies. 剩余三刀的开工前摸底（2026-09-17，只读，主会话抽查承重条）
+
+派单稿里的坐标与三处设计已被今天的树推翻，**以本节为准**；落点表的完整行号清单由施工 agent 开工时按本节重核。
+
+### 2-ter（S-a／S-b）三处改判
+
+1. **`steward_schedule_update` 不存在**。定时任务工具只有六个（create／list／pause／resume／run_now／delete，`13f:1012-1085`、`13t:346-351`）。→ **只给 create 加 `tier`**；已有任务经 `PATCH /api/scheduler/tasks/:id` 整替 `target` 顺带可改（`13s:773-786`），零新工具。
+2. **两条定时任务永远不会同时跑**：`schedulerTick` 逐条 `await schedulerFireOnce`，全局并发 1（`13s:581-605`）。→ §2-ter S-b 判据①「两条同时到点各拿 cwdKey」与其反向**在定时任务之间红不了**。改为：**定时线程 vs 默认文件夹里正跑慢回合的手工线程**——正向：定时线程拿到不同 cwdKey、手工线程未完它已 reconciled；反向：摘掉钩子 → `arbiterWait` 读出 `等锁：同一个文件夹被「…」占着`。
+3. **照抄 `steward_thread_new` 的「按次派生文件夹」会越积越多**：每日任务第二次触发就开 `-2` 目录并再追加一行候选表（上限 64 行，与管家线程共用；表满时派生返回空、静默回落默认文件夹，等锁问题复发）。→ **按任务固定**：首次触发派生，路径写进服务端自有字段 `task.workdir`（不叫 `cwd`；HTTP 新建／PATCH、管家工具入参一律剥掉，禁止键表不动）；之后每次先 `stewardValidateCwd` 确认仍在候选表，在就复用、不在重派生；派生失败或表满 → 回落默认文件夹＋`logEvent`，不让触发失败。
+
+其余定案：`tier` 存 `target.tier`（空不落字段；只在 new-session＋prompt 时有意义，existing-session 静默丢）；06j 零引用规则下抄 `['strong','fast']` 字面量并配「两处相等」锁；13t 填 `SchedulerHooks` 新键接到 13s（**零新增依赖边**——13s 直调 13k 会把 13k 拉进 SCC）；**不传 `tier` 就不调 `stewardApplyThreadTier`**（`thread_new` 缺省按 strong 套，这里照抄会破判据③「与今天逐字节等价」）；S-b 只在 `stewardEnabledV1` 开时做（锁只在那时存在，关着跑的三件调度器 e2e 逐字节不变）；设置页新建表单加档位下拉（照权限下拉模具）；夹具要把 `stewardWorkspaceRoot` 钉到临时 HOME。
+**债**（登记不做）：等锁期间 `ticking=true` 卡住整个调度器，超时计时器调的 `stopSession` 只认活回合、不把排队条目出队（`13s:490-493`）——S-b 能大幅缓解，根治另立。`playbook` 载荷类型本波不做：13s 只特判 reminder、其余一律当 prompt 跑，只加 kind 不加分支会把 playbook 静默当 prompt 执行。
+
+### ⑦ 114c-① 麦克风：落点定案
+
+- **新模块** `public/js/composer-voice.js`（工厂形）：`app.js` 离行数锁只剩 15 行（最紧 `steward-walkthrough.static:297` ≤1279）；`steward-composer.js` 有「恰好 1 处 setTimeout」锁——录音计时器不能放那里。
+- 两个壳各挂一个独立麦克风键在发送键前；管家壳 `+` 键文案「附件与语音随后续切片到位」随之改掉（四份 locale）。
+- 显示判据：`asrProviderId && asrModel`＋安全上下文＋`MediaRecorder.isTypeSupported('audio/webm;codecs=opus')`；**零静态标记**，未配置不建节点（dom-smoke／a11y 等夹具逐字节不变）。
+- 交互：点一下开始、再点停止；Space／Enter 可达、Esc 取消、`aria-pressed`；录音 3 分钟自动停（主会话定的工程默认）；模块自带 `.sr-only` 播报节点。插入照 `file-browser.js` `mentionFile` 的光标处拼接（不是追加到末尾），插完派发 `input` 事件。
+- 调接口必须覆盖 `apiRaw` 默认的 JSON content-type（否则 400 `asr.content_type`）。
+- 发送计数：页面内包一层 `window.fetch`，数 `/api/(chat/stream|steer|steward/(message|act))`。
+- 媒体开关静态锁并进 `asr-config-ui.static`；新浏览器件登记 `PARALLEL_EXCLUSIVE` 与打包表 `build-overlay.js PAYLOAD_FILES`。
+- 已知限制照记：桌面壳麦克风权限是 114e（后置 128+），按钮可能渲染但 `getUserMedia` 被拒——必须播报、不能崩。
+
+### ⑧ F01 服务状态：今天「未知」被并进了两个相反的方向
+
+- **联网**：无探测目标时 `online:null`，可用性只在 `=== false` 时拦（`06:909`）→ **未知被当成可用**。
+- **桌面控制**：探针出错走 catch 返回 `present:false`（`06:189-221`），与「真没装」分不出 → **未知被当成不可用**。
+- 内置模板只有三个要求 `desktopMcp`、零个要求 `network`／`vision`——「网络未知」只影响用户自建模板。
+
+定案：**只加 `status` 一个字段**（`available／needs_config／unavailable／unknown`），`available`／`unavailableReason`／`missingCaps` 逐字节不变（它们有五六处消费方：注册表开关、提示词索引、服务入口…）；未知＝结构性缺失（null／undefined／非布尔），**不动探针**（41 号文「不新建探针」，且 `capabilities.e2e` 钉着矩阵形状）；离线归 `unavailable`＋降级文案，服务入口引导仍是 `network`（⑦ 块断言不红）；服务入口整体序：可用 > 需配置 > **未知（新，引导 0 条）** > 暂无模板；CLI 引擎下视觉 provider 为 null 仍算需配置（配置层已知事实，不是探针结果）。`12-tool-dispatch.js` 技能注册表逐字段拷贝处补 `status`，`14-main` 补导出 `matchServiceEntry`。
+**债**（登记不做）：`05:301-303` 缓存冷时把能力写死 `{available:true}` 喂给模型——模型侧，不是用户文案。
 
 ## 3. 独占文件与「绝不碰」
 
@@ -483,4 +576,16 @@
 
 **生成器链与门**：`module-dependency-graph --write`（**53 模块／420 边／1 SCC，零新增边**；06i 顶层符号 95→98，13l 跨模块引用 67→68，14-main 535→538，全库 2322→2325）→ `build.js`（54572 行）→ `architecture-contract-snapshots.js --write`（无变化）→ `facts-generate.js`（e2eCount **359→360**，README 四处 359→360／352→353）→ `route-inventory.js`（137 判定点不变，告警 0）。计数锁重钉：`fixture-home.static` spawn 处数 **144→145**（带来路注释）。`build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**、控制字符／CR／NUL 扫描 19 个改动文件 **0**；U+FFFD 仅 `server.js` 2 处，与 HEAD 逐数相同（`04-desktop-shell.js` 那处故意字面），本刀新增为零。行为件逐件单跑全绿：steward-exempt-shell-send（新件）、steward-guardrails、steward-tools、session-permission-mode（⑪ 重钉后）、interventions-snapshot、steward-tools.static、shell-session、unit steward-exempt／permission-ceiling／steward-core。
 
-**全量回归（2-bis）**：**353 pass / 0 fail / 5 flaky / 353 ran（7 skipped 为既有 live probe），退出码 0，真回归 0**。主会话逐件串行单跑复核五件 flaky：`steward-quick-ask`（首跑 I3 turnSeq 起手时序）64/0、`steward-settings`（首跑超时）69/0、`foreign-turn-busy-guard`（首跑 A11，④ 已登记同条）20/0、`service-match.browser`（首跑超时）10/0 均一次绿；`walkthrough-round2.browser`（首跑 B1，③④ 已登记同条）单跑第一次在 4 s 处报 `CDP socket closed`（浏览器起手竞争，非断言红），随后连跑两次 48/0。前两件是管家族、与本刀的决策路径相邻，故单列复核而非直接归入时序族——单跑全绿且断言点（回合起手 turnSeq／设置页启动）与永久豁免判据零交集。主会话另独立复跑：新件 21/0、steward-guardrails 193/0、steward-tools 185/0、session-permission-mode 90/0、interventions-snapshot 40/0、steward-tools.static 113/0、facts.static 24/0、fixture-home.static 24/0、unit steward-exempt＋permission-ceiling 2/2；`build --check` 新鲜、依赖图 `--check` 53/420；并用 HEAD 对照逐条比对分桶前后的正则列表（27 条逐字相同）。
+**全量回归（2-bis）**：`run-all.js --parallel 4` 退出码 0，**353 pass / 0 fail / 5 flaky / 353 ran（7 skipped 为既有 live probe），unit 全绿，真回归 0**。五个 flaky 逐件串行单跑复验（件内对 `steward_decide`／豁免判据／`shell_send`／`keyboard_send_keys`／`permission_request` 零引用——`steward-settings` 那一处只是决策日志夹具里的一行字面量）：
+
+| 件 | 回归首跑 | 串行单跑 | 归类 |
+|---|---|---|---|
+| `foreign-turn-busy-guard.e2e.js` | A11「回合正文完整落盘」got `""` | 20/20 绿 | 回合正文落盘时序族（④ 已登记同一条） |
+| `steward-quick-ask.e2e.js` | I3「会话头 turnSeq === 1」got 0 | 64/64 绿 | 回合起手落盘时序 |
+| `steward-settings.e2e.js` | 无 FAIL 行（4 路负载下超时／被杀） | 69/69 绿，12 s | 负载超时 |
+| `service-match.browser.e2e.js` | 无 FAIL 行（超时／被杀） | 10/10 绿 | 浏览器件负载超时 |
+| `walkthrough-round2.browser.e2e.js` | B1 启动落管家视角，实得 classic | 第 1 次单跑紧跟上一件浏览器件：CDP socket closed；清 Edge 后第 2 次：CDP 命令 90 s 超时（「浏览器多半已经没了」，此前 45 条绿、B1 绿）；第 3 次 **48/48 绿** | 浏览器时序／CDP 基础设施族（③④ 已登记同一条 B1）；本刀零前端改动 |
+
+新件 `steward-exempt-shell-send.e2e.js` 在回归内首跑即绿、不在 flaky 名单。收尾核过：残留的 ruyi 测试 Edge 进程 0。如实登记，不归功于也不归咎于本刀。
+
+**主会话独立复核（提交前）**：五件 flaky 另行逐件串行单跑，四件一次绿；`walkthrough-round2.browser` 第一次 `CDP socket closed`，事后查明当时实现 agent 在同机并行跑同一件浏览器件、两边的 Edge 收尸脚本互杀，随后连跑两次 48/0。另独立复跑：新件 21/0、steward-guardrails 193/0、steward-tools 185/0、session-permission-mode 90/0、interventions-snapshot 40/0、steward-tools.static 113/0、facts.static 24/0、fixture-home.static 24/0、unit steward-exempt＋permission-ceiling 2/2；`build --check` 新鲜、依赖图 `--check` 53/420；分桶前后的正则列表与 HEAD 逐条比对（27 条逐字相同）。**教训**：实现 agent 结束回合不等于停手——它被自己的回归通知唤醒后会继续跑浏览器件；主会话复核浏览器件前先确认子代理已停。
