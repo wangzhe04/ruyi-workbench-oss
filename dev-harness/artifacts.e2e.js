@@ -304,6 +304,25 @@ const PNG_1x1 = Buffer.from(
     // ④ 合法(工作区内已存在的 report.md)→ ok:true(spawn explorer, 不真验证弹窗)。
     const revOk = await postJson(WB_PORT, '/api/file/reveal', { sessionId: sid, path: mdPath, mode: 'select' }, hdr);
     ok(revOk.status === 200 && revOk.json && revOk.json.ok === true, '(f) reveal 合法路径 → ok:true');
+    // 107 前置（45 号文 §9.5 插曲）：④ 是真的会开资源管理器的 —— 产品经 PowerShell 助手 Start-Process explorer 并提到前台
+    // （04-desktop-shell revealInExplorer）。修前本件从不收这个窗口：收尾删掉 HOME 之后窗口退到上一级停在 Temp，
+    // 每个挂着的窗口持续占 0.15–0.2 核刷新 Temp；负载循环连跑三十次攒下 29 个、吃掉 12 核里约 4 核，整轮回归被拖成
+    // 347/9/25（mission-index-scale 独占桶里 3922 ms 越过 1500 ms 门）。每轮全量回归都会漏一个、跨轮累积。
+    // 收尸：按【本件独有的工作区目录】精确匹配窗口并 Quit（绝不碰用户自己开的窗口）；目录经环境变量传进脚本，不拼进
+    // 脚本文本。窗口是 fire-and-forget 的（~1 s 后才出现），所以有界轮询等它出现。判据是「收尾之后一个都不剩」——
+    // 无头／非交互环境里窗口压根不出现时 closed=0 left=0，同样成立。
+    const revealSweep = cp.spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', [
+      "$dir = $env:RUYI_TEST_REVEAL_DIR.TrimEnd('\\')",
+      "$sh = New-Object -ComObject Shell.Application",
+      "function Match($w) { $u = $null; try { $u = $w.LocationURL } catch {}; if (-not $u) { return $false }; try { return (([Uri]$u).LocalPath.TrimEnd('\\') -ieq $dir) } catch { return $false } }",
+      "$closed = 0; $deadline = (Get-Date).AddSeconds(15)",
+      "do { foreach ($w in @($sh.Windows())) { if (Match $w) { try { $w.Quit(); $closed++ } catch {} } }; if ($closed -gt 0) { break }; Start-Sleep -Milliseconds 250 } while ((Get-Date) -lt $deadline)",
+      "Start-Sleep -Milliseconds 400",
+      "$left = @(@($sh.Windows()) | Where-Object { Match $_ }).Count",
+      "Write-Output ('closed=' + $closed + ' left=' + $left)",
+    ].join('; ')], { env: { ...process.env, RUYI_TEST_REVEAL_DIR: WS }, encoding: 'utf8', timeout: 30000, windowsHide: true });
+    const revealSweepOut = String(revealSweep.stdout || '').trim();
+    ok(/\bleft=0\b/.test(revealSweepOut), `(f) reveal 打开的资源管理器窗口已收尸,不留在桌面上拖慢后续回归(实得 ${JSON.stringify(revealSweepOut || String(revealSweep.stderr || '').slice(0, 200))})`);
 
     // ── (g) v1.5-W1.5 (T3/T4):ACC 写族 bridged 工具 → 产物收割 + 检查点 + 回撤 ─────────────────────────────
     // 单独起一套 workbench(带 fake-mcp 桥)+ fake-openai, 用 FAKE_TOOL_SEQUENCE 让 provider 调

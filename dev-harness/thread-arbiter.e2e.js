@@ -7,7 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 判定行:`THREAD ARBITER E2E: ALL PASS`。
 //
 // 十一条判定(与交付物清单逐条对应):
-//   ① 开关关:6 条不同 cwd 的会话并发跑,全部立即开始(总耗时远小于串行)、事件流零 agent_resource、
+//   ① 开关关:6 条不同 cwd 的会话并发跑,全部立即开始(六发 provider 请求同时在途,按首段正文的次序判)、事件流零 agent_resource、
 //      两条仲裁路由一律 409 steward.disabled;
 //   ② 开 + stewardMaxParallelThreads=2:6 条不同 cwd -> 同时最多 2 条在跑,其余 wait.reason='slot'、
 //      ahead 逐条递增且随队伍前进而递减,放行顺序是先到先得(FIFO);
@@ -195,7 +195,18 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       ok(runs.every(r => r.events.some(e => e.type === 'result' && e.ok === true)), '① 开关关:6 条并发回合全部正常收尾');
       ok(runs.every(r => r.events.every(e => e.type !== 'agent_resource')), '① 开关关:事件流里零 agent_resource(根本没问过仲裁器)');
       ok(peakOverlap(runs) === 6, `① 开关关:6 条回合真的同时在跑(重叠峰值 ${peakOverlap(runs)},没有任何并发上限)`);
-      ok(elapsed < TURN_MS * 6, `① 开关关:总耗时 ${elapsed}ms 低于串行下界 ${TURN_MS * 6}ms`);
+      // 107 前置 flaky 治理第四批（45 号文 §9.5 ③）：这条原来是 `elapsed < TURN_MS * 6` 的墙钟门，负载下两轮
+      // 首跑红（6199 ms）。探针在双负载下 8 次里红 3 次（6495／5971／7505 ms），同时逮到的形状是：六条的第一帧都在
+      // 起跑后 47–688 ms 内、六条【首段正文】到达的跨度只有 6–154 ms、重叠峰值恒为 6 —— 产品确实是并发的；
+      // 漂的是六条【一起】等的那段共用起跑成本（冷能力探测／桌面 MCP 桥接，3.5–5.7 s），它与「有没有并发上限」无关。
+      // 所以改判【次序】而不是墙钟：fake 对每一发请求都是「到达后睡 TURN_MS 再吐正文」，于是每条的请求发出时刻
+      // ≤ 它的首段正文时刻 − TURN_MS。六条首段正文的跨度 < TURN_MS ⇒ 最早那条正文到达之前，六发请求已经全部在途
+      // （串行时跨度至少 5×TURN_MS，上限 2 时至少 2×TURN_MS）。不用 peakOverlap 顶替它的理由见 ⑫ 的注释：
+      // `session` 帧在申请并发位之前就发了。总耗时留在标签里只作读数。
+      const firstDeltaAt = runs.map(r => Date.parse(((r.events.find(e => e.type === 'assistant_delta') || {}).ts) || ''));
+      const deltaSpan = firstDeltaAt.every(Number.isFinite) ? Math.max(...firstDeltaAt) - Math.min(...firstDeltaAt) : NaN;
+      ok(Number.isFinite(deltaSpan) && deltaSpan < TURN_MS,
+        `① 开关关:6 发 provider 请求同时在途 —— 六条首段正文到达的跨度 ${deltaSpan}ms 小于一个回合的 provider 延迟 ${TURN_MS}ms(串行至少 ${TURN_MS * 5}ms;总耗时 ${elapsed}ms 只作读数)`);
       const st = await req(WP, 'GET', '/api/steward/arbiter', undefined, hdr);
       ok(st.status === 409 && st.body && st.body.error && st.body.error.code === 'steward.disabled', '① 开关关:GET /api/steward/arbiter 409 steward.disabled');
       const pr = await req(WP, 'POST', '/api/steward/arbiter/prioritize', { sessionId: ids[0] }, hdr);

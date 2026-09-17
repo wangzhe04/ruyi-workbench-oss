@@ -216,12 +216,24 @@ try {
 
     const endedEnv = await waitLive(sidA, false);
     ok(!!endedEnv, 'A9 第一个回合自己跑到收尾');
-    const msgs = sessionMessages(sidA);
+    // 107 前置 flaky 治理第四批（45 号文 §9.5 ②）：A11 此前四次首跑红「got ""」，从没留下机制。
+    // 采样探针（负载下每 10 ms 读 messages.ndjson、每 15 ms 读信封）逮到的形状：信封先报 live:false
+    // （09-workflow 回合收尾先 activeChildren.delete，再 await 基线对账／journal／回读，最后才 saveSession
+    // 把助手消息落盘；05/05b 两个引擎同一个次序），这段窗口里文件只有 user 一条，10 ms 到 262 ms 之后
+    // 助手消息才落盘；20 次里有 1 次原断言那一刻读到 0 条助手消息 —— 正是「got ""」。
+    // 所以「回合不在跑了」不等于「正文已落盘」：等的是【助手消息落盘】这件事本身（有界轮询，不是 sleep），
+    // 并把「live 翻 false 那一刻有几条助手消息、多久之后落盘」打进标签。真没落盘／被截断照样红。
+    // 窗口里信封同时报 resumable.dangling:true kind:'user'（产品侧竞态，登记在 45 号文 §9.5 ②，本件不治）。
+    const liveOffAt = Date.now();
+    const assistantAtLiveOff = sessionMessages(sidA).filter(m => m && m.role === 'assistant').length;
+    let msgs = sessionMessages(sidA);
+    for (let i = 0; i < 200 && !msgs.some(m => m && m.role === 'assistant'); i++) { await sleep(50); msgs = sessionMessages(sidA); }
+    const landedAfterMs = Date.now() - liveOffAt;
     const userMsgs = msgs.filter(m => m && m.role === 'user');
     const assistant = msgs.filter(m => m && m.role === 'assistant');
     ok(userMsgs.length === 1, `A10 会话里只有管家那一条 user 消息(被拒的那句一个字都没落盘;got ${userMsgs.length})`);
     ok(assistant.some(m => /慢慢来-第一段-第二段-收尾/.test(String(m.content || ''))),
-      `A11 那个回合的正文【完整】落盘(got ${JSON.stringify((assistant[0] || {}).content || '').slice(0, 80)})`);
+      `A11 那个回合的正文【完整】落盘(got ${JSON.stringify((assistant[0] || {}).content || '').slice(0, 80)};live 翻 false 那一刻助手消息 ${assistantAtLiveOff} 条,${landedAfterMs} ms 时读到 ${assistant.length} 条)`);
     const kills = killsOf(sidA);
     ok(kills.length === 0, `A12 全程零 turn_kill(got ${JSON.stringify(kills.map(k => k.reason))})`);
   }
@@ -260,8 +272,15 @@ try {
     ok(!!(killed && killed.reason === 'superseded'),
       `C2 同一个发起面(source 都是 'http')照旧 supersede —— 这条既有语义没被动过(got ${killed && killed.reason})`);
     ok(!!(await waitLive(sidC, false)), 'C3 第二个回合跑完');
-    ok(sessionMessages(sidC).some(m => m && m.role === 'assistant' && /记下了/.test(String(m.content || ''))),
-      'C4 第二句的正文落盘(顶替是成功的,不是双双失败)');
+    // 107 前置第四批（45 号文 §9.5 ②）：与 A11 同一个窗口 —— 探针 8 次里 2 次在这里读到的只有被顶掉那回合的
+    // aborted 消息、第二句的正文 16 ms 后才落盘；修 A11 那一跑里 C4 也真红过一次。同一个修法：等落盘这件事本身。
+    const c4Wanted = m => m && m.role === 'assistant' && /记下了/.test(String(m.content || ''));
+    const c4LiveOffAt = Date.now();
+    const c4AtLiveOff = sessionMessages(sidC).filter(c4Wanted).length;
+    let c4Msgs = sessionMessages(sidC);
+    for (let i = 0; i < 200 && !c4Msgs.some(c4Wanted); i++) { await sleep(50); c4Msgs = sessionMessages(sidC); }
+    ok(c4Msgs.some(c4Wanted),
+      `C4 第二句的正文落盘(顶替是成功的,不是双双失败;live 翻 false 那一刻 ${c4AtLiveOff} 条,${Date.now() - c4LiveOffAt} ms 时助手消息 ${JSON.stringify(c4Msgs.filter(m => m && m.role === 'assistant').map(m => String(m.content || '').slice(0, 12)))})`);
   }
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));

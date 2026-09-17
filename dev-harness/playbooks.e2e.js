@@ -45,12 +45,25 @@ const srv = require(path.join(WB, 'app', 'server.js'));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
-function getJson(port, p, headers) {
+// 107 前置 flaky 治理第四批（45 号文 §9.5 ①）：服务起来后【第一个】要读能力矩阵的请求，合法地要付一整趟冷探测 ——
+// getCapabilities → probeDesktopMcp → collectBridgedTools → resolveExternalMcpServers → detectDesktopMcp。
+// python 探针的磁盘缓存（os.tmpdir() 下 ruyi-desktop-python-probe.v1.json，肯定结果 TTL 5 分钟）过期时，这一路走的是
+// 【同步】兜底 pickPython → spawnSync（实测 2.5–2.7 s 钉住事件循环，13-http-router 启动段注释里写明「首个请求最多付
+// 一次探针,这是接受的」），之后还要起 ai-computer-control 的 python MCP、listTools、调一发 diagnostics。空闲时
+// 这个首请求实测 4.5 s，并行负载下越过旧的 5 s 客户端超时 → 这里收到 status 0、json null → 原 :132 TypeError。
+//「距上一次跑 e2e 超过 5 分钟」正是「改完 server.js 重建后的第一跑」，所以三次都落在那一跑上。
+// 探针取证：负载下冷缓存首请求 kind=timeout 5004／5011 ms，紧接着的重试 195／608 ms 拿到 200 ＋ 完整清单。
+// 所以首请求给启动预算（等的是【这一发的答复】，不是 sleep），其余请求命中 60 s 能力缓存，仍按 5 s。
+// 超时／连不上／非 JSON 三种结局分开记在 err 与 ms 上，断言标签原样打出来，下次再红自己说得出是哪一种。
+const FIRST_CAPS_REQUEST_TIMEOUT_MS = 30000;
+function getJson(port, p, headers, timeoutMs) {
   return new Promise(resolve => {
-    const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 5000, headers: headers || {} }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b }); }); });
-    r.on('error', () => resolve({ status: 0, json: null, raw: '' })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '' }); });
+    const t0 = Date.now();
+    const r = http.get({ host: '127.0.0.1', port, path: p, timeout: timeoutMs || 5000, headers: headers || {} }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b, err: j === null ? 'non-json' : '', ms: Date.now() - t0 }); }); });
+    r.on('error', e => resolve({ status: 0, json: null, raw: '', err: 'error:' + ((e && e.code) || 'unknown'), ms: Date.now() - t0 })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '', err: 'timeout', ms: Date.now() - t0 }); });
   });
 }
+const shapeOf = r => `status=${r.status}${r.err ? ' ' + r.err : ''} ${r.ms}ms`;
 function reqJson(port, method, p, payload, headers) {
   return new Promise(resolve => {
     const data = JSON.stringify(payload || {});
@@ -127,9 +140,10 @@ const DRAFT_JSON = JSON.stringify({
     const hdr = { 'x-wcw-token': token };
 
     // ── ① GET list: 8 built-ins, complete schema ─────────────────────────────────────────────────────
-    let list = (await getJson(WB_PORT, '/api/playbooks')).json;
-    ok(list && list.ok && Array.isArray(list.playbooks), '① GET /api/playbooks returns a list');
-    const byId = new Map((list.playbooks || []).map(p => [p.id, p]));
+    const firstList = await getJson(WB_PORT, '/api/playbooks', {}, FIRST_CAPS_REQUEST_TIMEOUT_MS);
+    let list = firstList.json;
+    ok(list && list.ok && Array.isArray(list.playbooks), '① GET /api/playbooks returns a list（首请求 ' + shapeOf(firstList) + '）');
+    const byId = new Map(((list && list.playbooks) || []).map(p => [p.id, p]));
     const expected8 = ['merge-excel', 'batch-rename', 'pdf-summarize', 'ocr-scan', 'archive-by-content', 'weekly-report', 'clean-downloads', 'folder-inventory'];
     ok(expected8.every(id => byId.has(id)), '① all 8 built-in playbooks present (' + [...byId.keys()].length + ' total)');
     const merge = byId.get('merge-excel');
@@ -407,8 +421,10 @@ const DRAFT_JSON = JSON.stringify({
       ok(!!h2, '⑧ 第二实例(未知网络)listening');
       const token2 = await getToken(WB2_PORT);
       const hdr2 = { 'x-wcw-token': token2 };
-      const caps2 = (await getJson(WB2_PORT, '/api/capabilities')).json;
-      ok(caps2 && caps2.network && caps2.network.online === null, '⑧ 夹具前提:network.online === null(实得 ' + JSON.stringify(caps2 && caps2.network && caps2.network.online) + ')');
+      // 第二实例的首个能力请求付的是同一趟冷探测（见 getJson 头注），同一份启动预算。
+      const firstCaps2 = await getJson(WB2_PORT, '/api/capabilities', {}, FIRST_CAPS_REQUEST_TIMEOUT_MS);
+      const caps2 = firstCaps2.json;
+      ok(caps2 && caps2.network && caps2.network.online === null, '⑧ 夹具前提:network.online === null(实得 ' + JSON.stringify(caps2 && caps2.network && caps2.network.online) + ';首请求 ' + shapeOf(firstCaps2) + ')');
       const unkPb = { id: 'test-f01-unknown', title: '联网代码体检', icon: '🧪', desc: 'x', inputs: [], promptTemplate: '做 {q}', requires: ['network'], uiMode: 'both', service: 'coding' };
       const saveUnk = await reqJson(WB2_PORT, 'POST', '/api/playbooks', { playbook: unkPb }, hdr2);
       ok(saveUnk.status === 200 && saveUnk.json && saveUnk.json.ok, '⑧ POST 要联网的 coding 用户模板 ok');

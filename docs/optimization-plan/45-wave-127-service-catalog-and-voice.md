@@ -1068,3 +1068,77 @@
 ### 9.4 下一步
 
 按 [43 号文 §2](43-merge-114-111-107-into-product-line.md)，127 之后是 **107 发布批准点**：演练六类通用发布门、冻结 Release Brief（默认启用清单含 111 五开关与本波语音／代批的实测读数、适用任务族、收益阈值、未知场景回退、配置迁移与回滚）、离线包精简＋完整两变体打包演练、版本号由实际行为决定。前置项是 §9.3 的 flaky 治理。43 号文 §4 有两件待拍板：默认启用清单口径（推荐「有实测读数且默认开的进必交，默认关的标实验」）、要不要做 3.0 正名（推荐不与 107 一起做）。
+
+### 9.5 107 前置 · flaky 治理第四批（2026-09-17）
+
+§9.3 前三件，**每件都先在负载下复现、拿到失败那一刻的真实形状、分了类才动手**；三件都改的是夹具判据，**`src/` 零改动**（所以不跑生成器链），不加机械锁（理由逐件写在下面）。改动文件：`dev-harness/playbooks.e2e.js`、`dev-harness/foreign-turn-busy-guard.e2e.js`、`dev-harness/thread-arbiter.e2e.js`。
+
+**负载怎么造的**：后台循环 `run-all --parallel 3` 跑 12 件非浏览器服务件（steward-guardrails／steward-tools／steward-runner／scheduler-steward／workbench-memory／subagent／autonomy-grant／team-pool-mailbox／artifacts／failover／mission-threads／event-stream），候选件同时单跑 ＝ 4 路，CPU 均值 54%（下称「单负载」）；②③ 取证时再叠一路同形循环（另 10 件），CPU 82%（「双负载」）。探针都是 scratchpad 里的临时副本，用完已删。**全程没跑浏览器件**，免得收尸杀掉别人的 Edge。
+
+#### ① `playbooks.e2e.js` ① 启动竞争 —— 分类：**超时／慢**（首请求合法地慢，客户端 5 s 超时先到）
+
+- **症状**：health 过、token 抓到，首个 `GET /api/playbooks` 的 `json === null`，`:132` TypeError。主会话 ⑧ 那次首跑的日志还在：`FAIL ①` 之后直接崩，**没有一行 `[wb!]`**；旁证是 python 探针磁盘缓存 `ruyi-desktop-python-probe.v1.json` 写于 18:24:02.785，失败日志最后一笔在 18:24:05.12 —— 正好差一个 5 s 客户端超时。
+- **复现**：探针复刻起服段，首请求把「超时／连不上／非 JSON」分开记，同时每 200 ms 打一发 `/health` 看事件循环。「冷缓存」的造法是给服务进程的 PATH 追加一段不存在的目录（PATH 在缓存键里 → 换新键），不碰缓存文件本身。
+- **形状**：空闲冷缓存首请求 200，但要 **4521／4652 ms**，期间 `/health` 被钉 **2094／2198 ms**；单负载热缓存 2315–2889 ms；**单负载冷缓存 `kind=timeout` 5004／5011 ms，紧接着的重试 195／608 ms 拿到 200 ＋ 完整清单**。`--require` 预载包 `spawnSync` 追到的慢栈：`probeDesktopPython spawnSync 2496／2673 ms ← pickPython ← desktopMcpFromRepo ← detectDesktopMcp ← resolveExternalMcpServers ← collectBridgedTools ← probeDesktopMcp ← getCapabilities`，之后才起 ai-computer-control 的 python MCP。**原件在单负载＋冷缓存下 2/2 红，签名与登记的一字不差**（`FAIL ①` ＋ `:132` TypeError）。
+- **机制**：启动段的异步预热 `ensureDesktopMcpWarm` 在 listen＋500 ms 才开跑，而 `GET /api/playbooks` 不等它 —— 首个要读能力矩阵的请求走同步兜底（`13-http-router` 启动段注释明写「首个请求最多付一次探针,这是接受的」）。磁盘缓存肯定结果 TTL 5 分钟，**「改完 server.js 重建后的第一跑」＝「距上次跑 e2e 超过 5 分钟」**，三次都落在那一跑上就是这个原因。**产品答复是对的，只是慢**，不算错响应。
+- **治法**（`playbooks.e2e.js:48-66`、`:143-146`、`:425-427`）：`getJson` 加可选超时并把结局记成 `err`（`timeout`／`error:<code>`／`non-json`）＋ `ms`；**首个读能力矩阵的请求**（① 的 `GET /api/playbooks`、⑧ 第二实例的 `GET /api/capabilities`）给 `FIRST_CAPS_REQUEST_TIMEOUT_MS = 30000` 启动预算 —— 等的是这一发的答复，不是 sleep；其余请求命中 60 s 能力缓存仍按 5 s。断言标签打出 `首请求 status=… … ms`；`:132` 改成 null 安全，红了不再崩掉后面整段。
+- **反向**：把预算改回 5000，单负载＋冷缓存 → `FAIL ① GET /api/playbooks returns a list（首请求 status=0 timeout 4001ms）`，后面 6 条连坐、**不再 TypeError**，`PLAYBOOKS E2E: FAIL (7)`；从备份还原，sha256 `5c5fb74d…8144cc` 逐字节相同。
+- **稳定**：单负载＋每跑换一把冷缓存键 **5/5 ALL PASS（84/0）**，首请求 **5661／5113／5544／4788／5609 ms —— 5 次里 4 次越过旧的 5 s**；⑧ 第二实例首请求 2335–3244 ms。空闲单跑：冷缓存 PASS（首请求 **5020 ms**，空闲也越线了）、热缓存 PASS（2468 ms）。
+- **登记的产品债（本批不治）**：`/api/playbooks`、`/api/capabilities`、`/api/playbooks/service-match` 冷缓存时经 `getCapabilities` 走同步 `detectDesktopMcp`，钉住事件循环 2.5–2.7 s，没像 `/api/status` 那样先 `await ensureDesktopMcpWarm`。
+- **不加锁**：「客户端超时短于首请求冷成本」没有干净的机械形状；本件的收获是标签从此自报结局。
+
+#### ② `foreign-turn-busy-guard.e2e.js` A11（＋同形的 C4）—— 分类：**测试读早了**，读在一个**真产品竞态**的窗口里
+
+- **症状**：④、2-bis、B1、⑦ 四次 `A11 … (got "")`。B1 那轮两发都红：A9（回合跑到收尾）过、A10（1 条 user）过、A11 读到空。
+- **复现**：探针在 `waitLive(sidA, false)` 两侧装采样器 —— 每 10 ms 读 `messages.ndjson`、每 15 ms 读信封（`live`／`resumable`／`session.messages`），并在**原断言的读点**记一份快照。单负载 9 次、双负载 20 次。
+- **形状**：信封先报 `live:false`，**同一时刻** `resumable` 是 `{dangling:true, kind:"user", historyLength:1}`、`session.messages` 只有 user 一条、文件里也没有助手消息；助手消息 **10–262 ms 之后**才落盘（双负载读数：8926→8936、9108→9341、9208→9470、9055→9110 ms）。双负载 20 次里 12 次信封逮到这个 dangling 窗口，其中 9 次文件同刻无助手消息；**第 23 次原断言读点读到 0 条助手消息（正是 `got ""`），15 ms 后落盘**。
+- **机制**：回合收尾**先** `activeChildren.delete`、**再**推助手消息、**最后** `saveSession` —— `09-workflow.js` 3089 → 3111 → 3149（中间还 await 基线对账／journal／回读）；`05-claude-engine.js` 845 → 902 → 951、`05b-kimi-bridge.js` 2689 → 2717 → 2740 同一个次序。于是「回合不在跑了」≠「正文已落盘」。
+- **分类与取舍**：A11 的本意是「那个回合没被顶掉、正文完整落盘」，拿 `live` 翻 false 当落盘的代理 —— **测试读早了**。但窗口里信封自相矛盾（不在跑＋判悬挂 kind:user＋无助手消息），**这是真产品竞态**：界面在这 10–260 ms 里读信封可能闪一下「未正常结束」。**产品侧本批不治**：修法要动三个引擎的回合收尾次序，牵涉 supersede／`stopSession`／409 忙闸／递话阶梯对 `activeChildren` 的读法，不是窄修；**登记给主会话拍板**。
+- **C4 同形**：做 A11 反向那一跑里 C4 真红了一次（C 段的 SLOW 回合在最后一段之前就被顶掉，那处编辑够不着 C 段）。探针在 C3 之后装同样的采样，单负载 8 次里 **2 次原读点只有被顶掉那回合的 `aborted` 消息**，第二句的正文 16 ms 后落盘（例：229 ms live:false → 245 ms 落盘）；`kills` k0→k1 期间 `live` 一直是 true，排除了「顶替间隙里 live 先掉」。
+- **治法**（`foreign-turn-busy-guard.e2e.js:218-236`、`:274-283`）：A11／C4 都**等落盘这件事本身**（有界轮询 200×50 ms），标签打出「live 翻 false 那一刻几条、几 ms 时读到几条」。真没落盘、被截断照样红。
+- **反向**（在最终文件上做）：fake 的 `'-收尾'` 改空、`'好的,记下了。'` 改 `'好的,收到了。'` → `FAIL A11 …(got "慢慢来-第一段-第二段";live 翻 false 那一刻助手消息 1 条,2 ms 时读到 1 条)`、`FAIL C4 …(live 翻 false 那一刻 0 条,13951 ms 时助手消息 ["好的,收到了。"])`；还原后 sha256 `161e62b1…1536` 逐字节相同。
+- **稳定**：双负载 **6/6 ALL PASS**，而且标签当场证明修法在干活：run 5 A11「那一刻 0 条，201 ms 时读到 1 条」、C4 run 2「0 条，60 ms」、run 5「0 条，463 ms」—— **旧写法 6 次里会红 2 次**。空闲单跑 PASS。
+- **不加锁**：「等 live 翻 false 就读落盘」散在很多件里，形状不唯一；产品竞态修好之后这类读法自然成立。
+
+#### ③ `thread-arbiter.e2e.js` ① 墙钟下界 —— 分类：**墙钟界在并行负载下太紧**，而且它量的主要是共用的冷起跑成本，不是并发
+
+- **症状**：B2、⑧ 两次 `① 开关关:总耗时 5854ms／6199ms 低于串行下界 5400ms`。
+- **复现**：探针跑完 ① 就退出，逐条打出客户端起止、第一帧／首段正文／result 的服务端 ts。双负载 8 次 **红 3 次**（6495／5971／7505 ms）。
+- **形状**：六条第一帧都在起跑后 47–688 ms 内；**六条首段正文到达的跨度只有 6–154 ms**；重叠峰值恒为 6。每条「第一帧 → 首段正文」2.3–6.6 s，而且**六条一样长** —— 是 provider 请求之前那段共用成本（冷能力探测／桥接 MCP，与 ① 同一条路）一起漂，不是被串行了。
+- **独占桶还是改判据**：选**改判据**。① 这条的本意是「开关关时没有并发上限」，墙钟只是代理；42 号文 perm-v2 那条「写死秒数窗口进独占桶」管的是**墙钟本身就是被测量**的件（那件测的就是「等满 ~6 s 权限超时」）。何况独占也救不全：空闲单跑总耗时 3652 ms，一旦撞上 ① 那条冷缓存同步探针（2.5 s），独占跑也会过 5400。**`peakOverlap` 顶替不了它**：同文件 ⑫ 的注释写着 `session` 帧在申请并发位之前就发了 —— 反向当场证实，上限 1 时重叠峰值照样是 6。
+- **新判据**（`thread-arbiter.e2e.js:198-209`）：fake 对每发请求都是「到达后睡 `TURN_MS` 再吐正文」，所以每条请求发出时刻 ≤ 它的首段正文时刻 − `TURN_MS`。**六条首段正文的跨度 < `TURN_MS` ⇒ 最早那条正文到达之前，六发请求已全部在途**（串行时跨度 ≥ 5×`TURN_MS`，上限 2 时 ≥ 2×`TURN_MS`）。总耗时留在标签里只作读数。
+- **反向**：主进程改成 `stewardEnabledV1:true, stewardMaxParallelThreads:1` → `FAIL ① 开关关:6 发 provider 请求同时在途 —— 六条首段正文到达的跨度 11841ms 小于一个回合的 provider 延迟 900ms(…总耗时 20550ms 只作读数)`；**同一跑里 `重叠峰值 6` 那条是 PASS**。还原后 sha256 `83cdba87…ce68` 逐字节相同。
+- **稳定**：① 这条 **10/10 PASS**（双负载 5 次跨度 54／304／124／81／16 ms，单负载 5 次 28／332／5／91／107 ms）；**同样 10 次旧界会红 9 次**（总耗时 5661／6206／6111／7473／6422／6539／6286／4926／5825／6104 ms）。空闲单跑 ALL PASS（跨度 16 ms、总耗时 3652 ms）。
+- **整件稳定性照实记**：双负载下整件 1/5 ALL PASS —— 别的段红了：④ `pendElapsed < TURN_MS*2`（2006／2806 ms，同形墙钟上界）、⑦（2 在跑／1 在等）、⑤ 五条连坐、⑭ 三条；还有一跑进程在 ⑤ 之后中途没了（无 `finally` 输出、退出码 1，**未归类**）。单负载下整件 3/5，两次红都是 ⑤ 五条连坐 —— ⑤ 靠 `sleep(120)` 排先后，标签不打实得队列。④⑤⑦⑭ **全仓回归史里从没上过榜**（上过的只有 ①），我的双负载比 `--parallel 4` 重；没有病历，**不动**。
+- **不加锁**：考虑过「总耗时上界断言必须进独占桶」。机械扫 `ok(… elapsed < …)` 实得 8 件（bridge-cancel-timeout／long-tool-liveness-steer／perm-v2／session-permission-mode／steward-guardrails／summary-parallel-cap／thread-arbiter／workspace-resolve），紧的代理门和宽的防挂死门混在一起，没有零误报的形状。
+
+#### 顺带发现：`artifacts.e2e.js` 每跑一次在桌面上留一个资源管理器窗口 —— **本批那轮全量因此作废**
+
+`artifacts.e2e.js` (f) ④ 调真的 `POST /api/file/reveal`（合法路径），服务端 `cp.spawn('explorer.exe', ['/select,…'])`（`04-desktop-shell.js:173／180`）真开一个窗口且没人关。每个窗口停在「Temp - 文件资源管理器」上，Temp 被夹具不停增删，它就一直刷新：**每个按累计 CPU 折算平均约 0.15 核，采样时 0.2 核**。我的负载循环把 artifacts 跑了约 30 次，**攒下 29 个**（创建时刻与负载轮次一一对上：每轮开跑后约 50 s 一个），全量回归开跑时约 4 核被它们吃掉。关掉之后 CPU 回到 16%。本批开跑前已有 2 个同形窗口（9/16 14:37、今天 17:57），不是本会话开的，没动。**这是夹具的真实桌面副作用**，正常一轮全量留 1–2 个，积在开发机上会一轮比一轮慢；要治得让 (f) ④ 不真起 explorer（本批不做，登记）。
+
+#### 全量回归（主树，`--parallel 4`，退出码 1）
+
+**`347 pass / 9 fail / 0 known-fail / 25 flaky / 356 ran / 7 skipped`**。机器被上面那 27 个窗口拖着跑：独占桶里的 `mission-index-scale` 列表冷门实得 **3922 ms**（门 1500、空闲约 600），`ec-d-performance` 首次可交互 3052／4106 ms，`boot-listen-budget` 4672 ms（门 2500）。**本批改的三件在这轮里**：`playbooks` 与 `foreign-turn-busy-guard` 首跑即过；`thread-arbiter` ① 过，**⑩ 两发都红**（`/api/stop 对排队中的回合返回 stopped:true` 等三条）。
+
+关掉窗口后，把 34 件（9 红＋25 flaky）用 `run-all <34 件>` **串行重跑：33 件首跑即过，0 flaky**；唯一的红是 `scheduler-ui.browser`。
+
+| 类 | 件（回合里的病历） | 串行重跑 |
+|---|---|---|
+| 连不上：服务起不来 | claude-cmdline-guard、file-guard、session-turn-core（ECONNREFUSED）、codebase-symbol-search、responses-fake、steer-interrupt、artifacts (g)、capabilities、checkpoint-mcpchild、loop-guard-read-exempt、usage-ledger、usage-subagent-ledger（以上 flaky）；bridged-read-noprompt、usage-accum（红） | 全部首跑过 |
+| 超时 | i18n（红：`request timeout`）；steward-settings、thread-commission.browser（flaky，没抓到 FAIL 行） | 全部首跑过 |
+| 墙钟界（机器被拖慢） | boot-listen-budget、mission-index-scale（flaky）；ec-d-performance（红） | 全部首跑过 |
+| 断言级、争用下单条红 | agent-workflow-ui-progress、metrics-panel B5、steward-board R8pre2、summary-single-shot A6、context-compact-v2 D6、mission-start-race（4/5）、steward-drawer E1–E3 连坐、steward-guardrails F5、tool-loading 20-T1（flaky）；summary-fact-table H2、service-match.browser D0（`online` 实得 null）、thread-arbiter ⑩、walkthrough-round1 E3/E4（红） | 全部首跑过；**没逐件取机制** |
+| **空闲串行复现的红** | `scheduler-ui.browser`：全量里红 B3/B4（`mode=undefined`）；串行重跑两发都红 **B1**「口袋角标变 1」，空闲单跑第三次还是 B1 红 | **3/3 红，不是负载抖动**。它今天 c7、c8 两轮都绿；本批没碰它和 `src/`，调度器源码里也没有走 `os.tmpdir()` 的共享状态。**机制未查**，需要单开病历 |
+
+**给主会话的结论**：这轮全量不能当基线用（作废原因见上）。三件治的在这轮里都没再以原病历上榜；`scheduler-ui.browser` 的空闲三连红要在干净机器上先确认是不是 HEAD 本身就红。
+
+#### 没查的
+
+§9.3 第 4 条那五件（`scheduler-ui.browser` B1、`steward-settings` 超时、`steward-relay-channels` F3、`budget-guard` E30、`orchestration-blindspots` S4）**本批没有取证、没有改**。`scheduler-ui.browser` 在上面重跑里变成了空闲可复现，是下一批最该先拿病历的一件。
+
+#### 主会话复核与补刀（提交前）
+
+- **`scheduler-ui.browser`「空闲三连红」不成立**：主会话在施工 agent 收尸（关掉它自己漏的 29 个资源管理器窗口）之后、机器 CPU 回到 17% 时直跑两次，**39/0 ×2**。那三连红发生在机器仍被残留窗口拖着的时候，按「机器被拖慢」归类，不单开病历；它仍留在 §9.3 第 4 条的观察名单里。
+- **三件测试改动逐行审过**：都是「等真正要的那件事发生（有界轮询）」而非 sleep；超时／连不上／真空值分开打进标签；thread-arbiter ① 从墙钟改判次序（六条首段正文跨度 < `TURN_MS`，串行至少 5×`TURN_MS`）。
+- **补刀：`artifacts.e2e.js` (f)④ 的资源管理器窗口收尸**（施工 agent 发现、未修）。④ 真的会经 PowerShell 助手开资源管理器并提前台（`04-desktop-shell` `revealInExplorer`），本件从不收；收尾删掉 HOME 后窗口退到 Temp 挂着，每轮全量回归漏一个、跨轮累积（主会话开工时桌面上就有 9/16 与本日各一个）。修法只动测试：④ 之后用 PowerShell `Shell.Application` 有界轮询（≤15 s）等窗口出现，**按本件独有的工作区目录精确匹配**后 `Quit()`（目录经环境变量传入，不拼进脚本；绝不碰用户窗口），断言「收尾后一个都不剩」（无头环境窗口不出现时 `closed=0 left=0` 同样成立）。读数：实得 `closed=1 left=0`，跑前跑后桌面窗口数 3→3。**反向**：去掉 `Quit()` → 红，实得 `closed=1 left=1`，漏出的那个窗口按「跑前 HWND 表之外的新窗口」精确关掉；文件备份还原 sha256 一致。
+- **全量回归仍欠一轮干净基线**：本批那轮作废。主会话随本提交之后在干净机器上重跑一轮全量，读数补在下一条提交里。
