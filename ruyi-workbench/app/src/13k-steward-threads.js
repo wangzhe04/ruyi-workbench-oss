@@ -338,9 +338,14 @@ async function stewardImplThreadStatus(args, ctx, config) {
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');
+  // 127 波 2-quater B1 ③:豁免命中的权限待决多挂一个 exempt(类别 / 底线 / 脱敏摘录),与收件箱行同一个生产者;
+  // 没命中的待决一个字段都不多。
   const interventions = rawPending
     .slice(0, STEWARD_PENDING_SUMMARY_MAX)
-    .map(iv => ({ id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0 }));
+    .map(iv => {
+      const exempt = stewardExemptPendingSummary(iv);
+      return { id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0, ...(exempt ? { exempt } : {}) };
+    });
 
   const session = await loadSession(sessionId).catch(() => null);
   const usage = (slice && slice.usage) || null;
@@ -1048,10 +1053,43 @@ async function stewardImplQuickAsk(args, ctx, config) {
 // 为什么在这里而不是在 13i:13i 只认三条 seq 日志,不读会话正文;而交付正文与本回合的文件账都要装载
 // 会话。放在 13g 并经命名空间回调,13i 就不需要认识 13g 的任何符号(前向边红线)。
 // 旁路纪律:抛错绝不反噬轮询器 —— 13i 那边整段包在 try 里,补不上就是少几个字段。
+// 127 波 2-quater B1 ③(45 号文 §2-quater.1 取证 1):管家今天根本看不到命令原文 —— 13i 归一化 needs_you 时
+// 「永不带 iv.input」(那条单测锁不动)。可豁免命中的权限待决偏偏是管家要讲给用户听的那一类:用户真机上它只能
+// 说「命令原文我这边看不到」。所以只给【豁免命中的权限待决】补一份经过三道处理的摘录,其余待决零新增字段:
+//   ① 按 06i stewardExemptScanInput 的 tier 口径决定看不看 input(read/edit 档只看工具名 —— 摘录为空串);
+//   ② stewardExemptHits 判全部命中:没有命中就返回 null(调用方据此一个字段都不挂);
+//   ③ 摘录 = 04 redact(REDACT_PATTERNS 单一来源)→ 06i stewardExemptExcerpt(尖括号中和 + 以命中处为中心截 300 字)。
+// 返回 { categories(类别键,去重保序;纯工具名命中时为空数组), floor(任一命中是底线), commandExcerpt }。
+// 收件箱行(stewardEnrichInboxRows)与 steward_thread_status.pending[] 读的是这同一个函数。
+function stewardExemptPendingSummary(iv) {
+  const v = (iv && typeof iv === 'object') ? iv : null;
+  if (!v || String(v.type || '') !== 'permission' || String(v.status || '') !== 'pending') return null;
+  const scanInput = stewardExemptScanInput(v.tier, v.input);
+  const verdict = stewardExemptHits(String(v.toolName || ''), scanInput);
+  if (!verdict.hits.length) return null;
+  const categories = [...new Set(verdict.hits.map(hit => hit.category).filter(Boolean))];
+  const commandExcerpt = scanInput == null
+    ? ''
+    : stewardExemptExcerpt(redact(stewardExemptInputText(scanInput).slice(0, STEWARD_EXEMPT_INPUT_CHARS)), verdict.hits);
+  return { categories, floor: verdict.hits.some(hit => hit.floor === true), commandExcerpt };
+}
+
 async function stewardEnrichInboxRows(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const heads = new Map();
+  const pendingBySession = new Map();
   for (const row of list) {
+    // 127 波 2-quater B1 ③:豁免命中的权限待决行补 exempt。只读待决旁路账(同一批同一线程只读一次),
+    // 不装载会话;待决已经不是 pending(刚被答掉)就不挂 —— 摘录只描述「此刻还在等的那一条」。
+    if (row && row.kind === 'needs_you' && row.payload && row.payload.interventionType === 'permission' && row.payload.interventionId) {
+      const pendingSid = safeSessionId(row.sessionId);
+      if (!pendingSid) continue;
+      if (!pendingBySession.has(pendingSid)) pendingBySession.set(pendingSid, await readInterventions(pendingSid).catch(() => []));
+      const iv = (pendingBySession.get(pendingSid) || []).find(item => item && String(item.id) === String(row.payload.interventionId));
+      const exempt = stewardExemptPendingSummary(iv);
+      if (exempt) row.payload = { ...row.payload, exempt };
+      continue;
+    }
     if (!row || row.kind !== 'done') continue;
     const sid = safeSessionId(row.sessionId);
     if (!sid) continue;

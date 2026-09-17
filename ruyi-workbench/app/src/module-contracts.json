@@ -3838,6 +3838,9 @@
         "STEWARD_EVENT_KINDS",
         "STEWARD_EXEMPT_CATEGORY_LABELS",
         "STEWARD_EXEMPT_CONTENT_GROUPS",
+        "STEWARD_EXEMPT_EXCERPT_CHARS",
+        "STEWARD_EXEMPT_FLOOR_DELETE_TARGET",
+        "STEWARD_EXEMPT_FLOOR_DELETE_VERBS",
         "STEWARD_EXEMPT_INPUT_CHARS",
         "STEWARD_EXEMPT_INPUT_DEPTH",
         "STEWARD_EXEMPT_NAME_CARVEOUTS",
@@ -3885,8 +3888,12 @@
         "stewardAsksYouForThread",
         "stewardClipSay",
         "stewardConfigTierFor",
+        "stewardExemptCatastrophicDelete",
+        "stewardExemptExcerpt",
+        "stewardExemptHits",
         "stewardExemptInputText",
         "stewardExemptReason",
+        "stewardExemptScanInput",
         "stewardExemptStructuredWrite",
         "stewardHasText",
         "stewardHumanizeIds",
@@ -12477,6 +12484,7 @@
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
         "stewardEnrichInboxRows",
+        "stewardExemptPendingSummary",
         "stewardFoldWorkspacePath",
         "stewardImplQuickAsk",
         "stewardImplThreadContinue",
@@ -12685,6 +12693,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "sanitizeFsSegmentName",
           "kinds": [
             "call"
@@ -12707,6 +12722,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_DELIVERABLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_INPUT_CHARS",
           "kinds": [
             "read"
           ]
@@ -12749,6 +12771,34 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardClipSay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptExcerpt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptHits",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptInputText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptScanInput",
           "kinds": [
             "call"
           ]
@@ -13301,6 +13351,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptReason",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptScanInput",
           "kinds": [
             "call"
           ]
@@ -14670,6 +14727,9 @@
       "file": "13p-steward-runner-actions.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_EXEMPT_FENCE_CLOSE",
+        "STEWARD_EXEMPT_FENCE_OPEN",
+        "STEWARD_EXEMPT_OPEN_THREAD_LABEL",
         "STEWARD_ROUTE_HINT_MAX",
         "STEWARD_ROUTE_HINT_REASON_CHARS",
         "stewardCircuitCheck",
@@ -14679,6 +14739,7 @@
         "stewardDowngradeActions",
         "stewardEventLine",
         "stewardExecuteActions",
+        "stewardExemptCommandBlock",
         "stewardHumanizeSay",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
@@ -14756,6 +14817,13 @@
           "symbol": "getPromptPack",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EXEMPT_CATEGORY_LABELS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17525,6 +17593,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
           "kinds": [
             "read"
@@ -18652,7 +18727,28 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptExcerpt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptHits",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptReason",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardExemptScanInput",
           "kinds": [
             "read"
           ]
@@ -20124,6 +20220,20 @@
         {
           "provider": "13p-steward-runner-actions.js",
           "symbol": "stewardCircuitCheck",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardDowngradeActions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardInboxMessage",
           "kinds": [
             "read"
           ]

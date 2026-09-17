@@ -49,6 +49,15 @@ const REDACT_PATTERNS = [
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\b/g, // JWT
   /\b((?:api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key)\s*[:=]\s*)([^\s"']{6,})/gi,
   /\b([A-Fa-f0-9]{40,})\b/g, // long hex blobs
+  // 127 波 2-quater B1 ③(45 号文 §2-quater.1 取证 7):管家的豁免命令摘录也走这张表(单一来源,不另立一份),
+  // 而命令行里的凭据长得和日志里的不一样 —— 下面六种修前全漏。都是「标签 + 值」两组或「整段」一组,沿用上面
+  // redact() 按组数决定留不留标签的既有口径;量词都有界或以分隔符收口,长文本上不回溯爆炸。
+  /\b([a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@\/]{1,256}:)([^\s@\/]{1,256})(?=@)/gi, // URL 里的 userinfo:https://user:pass@host
+  /((?:^|\s)(?:-u|-U|--user|--proxy-user)\s*["']?[^\s:"'@]{2,256}:)([^\s"';&|]+)/g, // curl -u user:pass(用户名至少 2 字:`python -u C:\x.py` 的盘符不算)
+  /\b(authorization\s*[:=]\s*basic\s+)([A-Za-z0-9+/=._~-]{4,})/gi, // Authorization: Basic xxx
+  /((?:^|\s)--?(?:password|passwd|pwd|pass|token|secret|api[_-]?key)\s+["']?)([^\s"';&|]+)/gi, // --password xxx(空格分隔;值在命令分隔符处收口)
+  /((?<=[A-Za-z0-9_])(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\s*[:=]\s*)([^\s"'&;|]+)/gi, // 词中:PGPASSWORD= / DB_PASSWORD= / OPENAI_API_KEY=(上面那条的 \b 在词中失效)
+  /\b(AKIA[0-9A-Z]{16})\b/g, // AWS access key id
 ];
 function redact(input) {
   let s = String(input == null ? '' : input);

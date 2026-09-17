@@ -880,7 +880,7 @@ const MCP_TOOLS = [
         missionId: { type: 'string', description: '待决所属事项/线程 id(收件箱事件里的 missionId)。' },
         interventionId: { type: 'string', description: '待决 id。' },
         action: { type: 'string', enum: ['allow', 'deny', 'answer', 'approve', 'reject'], description: 'permission 用 allow/deny;question 用 answer;plan/pool 用 approve/reject。' },
-        payload: { type: 'object', description: '按类型的附加内容:question 需要 {answer:{answers:[...]}};plan 可带 {feedback};permission 可带 {updatedInput}。' },
+        payload: { type: 'object', description: '按类型的附加内容:question 需要 {answer:{answers:[...]}};plan 可带 {feedback};permission 不带附加内容 —— 你只能按线程原样放行或拒绝,payload 里的 updatedInput 与 scope 会被丢弃(回执里的 ignoredPayloadKeys 会列出来),要改命令就让线程自己重新发起。' },
         expectedVersion: { type: 'integer', minimum: 0, description: '可选。乐观并发版本;省略则读当前值。' },
       },
     },

@@ -177,7 +177,8 @@ async function stewardImplDecide(args, ctx, config) {
   // stewardToolPermanentlyExempt 就是由它派生的,同一个单点):【哪一类】进 message(人话,「删数据」之类)
   // 与 exemptCategory(机器键);exemptBy 如实三分 —— 117m-A3 那道结构化对外写以前被并进 command_text
   // 报,可它根本不是命令文本。
-  const exemptInput = (tier === 'read' || tier === 'edit') ? null : current.input;
+  // 127 波 2-quater B1 ③:tier 口径搬进 06i 的 stewardExemptScanInput(13k 的收件箱摘录读同一个函数),行为逐字不变。
+  const exemptInput = stewardExemptScanInput(tier, current.input);
   const exemptHit = stewardExemptReason(toolName, exemptInput);
   if (type === 'permission' && exemptHit) {
     const safeTool = stewardSanitizeText(toolName);
@@ -202,10 +203,23 @@ async function stewardImplDecide(args, ctx, config) {
   const expectedVersion = Number.isInteger(args.expectedVersion) && args.expectedVersion >= 0
     ? args.expectedVersion
     : Math.max(0, Number(current.interventionVersion) || 0);
+  // 127 波 2-quater B1 ①(45 号文 §2-quater.1 取证 2「批 A、跑 B」):管家发起的 permission 决定一律剥掉
+  // updatedInput 与 scope。修前 payload 原样透传,核心层接受 updatedInput(13d decideIntervention),原生回合
+  // 拿到就 `args = decision.updatedInput` 直接执行、不再过一遍豁免判据 —— 而上面那道豁免判据看的是【待决里存的
+  // 原 input】。会话头档位与回合实效档位错位时(定时任务 / 请求级 permissionMode),管家就能「批准 npm test」而
+  // 实际跑 `git push --force`。scope:'session' 同理:一次放行被升格成整条会话的放行,那也不是这一条待决的内容。
+  // 管家能做的只有「按线程原样放行 / 拒绝」;要改命令,只能让线程自己重新发起、重新过闸。
+  // 这里是管家决定进核心的【唯一】入口:模型直调工具、回合结构化 actions(13p)、用户按下管家给的按钮
+  // (/api/steward/act,13q)三条路都经 StewardHooks.decide 落到本函数。用户自己在线程里点「允许」走的是
+  // 13d 的干预路由,不经这里,updatedInput 照旧可用。
+  const rawPayload = (args.payload && typeof args.payload === 'object' && !Array.isArray(args.payload)) ? args.payload : {};
+  const ignoredPayloadKeys = type === 'permission' ? ['updatedInput', 'scope'].filter(key => Object.prototype.hasOwnProperty.call(rawPayload, key)) : [];
+  const decisionPayload = { action, ...rawPayload };
+  for (const key of ignoredPayloadKeys) delete decisionPayload[key];
   const result = await decideIntervention({
     missionId,
     interventionId,
-    payload: { action, ...(args.payload && typeof args.payload === 'object' && !Array.isArray(args.payload) ? args.payload : {}) },
+    payload: decisionPayload,
     expectedVersion,
     idempotencyKey: makeId('stew'),
     source: 'steward',
@@ -229,7 +243,9 @@ async function stewardImplDecide(args, ctx, config) {
       undoRef,
       basis: { interventionId, interventionVersion: Number(body.interventionVersion) || 0 },
     });
-    return { ...body, undoRef };
+    // 127 波 2-quater B1 ①:剥掉了什么如实回给模型(没剥就不落这个键,既有回执逐字节不变)——
+    // 否则它会以为改过的命令已经按它的意思跑了。
+    return { ...body, undoRef, ...(ignoredPayloadKeys.length ? { ignoredPayloadKeys } : {}) };
   }
   // 失败按 decideIntervention 的稳定 reason 原样回传(version_conflict / not_found / already_terminal /
   // delivery_unavailable …)。用 body.reason 而不是 error.code:reason 是命令核心的机器码,

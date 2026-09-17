@@ -410,6 +410,15 @@ module.exports = {
   stewardExemptReason,
   STEWARD_EXEMPT_NAME_CARVEOUTS,
   STEWARD_EXEMPT_CATEGORY_LABELS,
+  // 127 波 2-quater B1:全部命中 + 底线 + 扫没扫全 / tier 口径单点 / 命令摘录(中和 + 截 300)/ 摘录上游的脱敏,
+  // 以及收件箱消息装配与降级按钮 —— 单测与 e2e 直测(13k 的摘要生产者经 StewardHooks.enrichInboxRows 与
+  // steward_thread_status 触达,不另开导出面:14-main -> 13k 会是一条新边)。
+  stewardExemptHits,
+  stewardExemptScanInput,
+  stewardExemptExcerpt,
+  redact,
+  stewardInboxMessage,
+  stewardDowngradeActions,
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,
