@@ -1359,6 +1359,16 @@
                       <option value="auto" data-i18n="permission.mode.auto.short">智能自动</option>
                     </select>
                   </div>
+                  <!-- 127 波 2-ter S-a：档位下拉（照上面权限档的模具）。只在「让如意跑一个回合 + 每次开一条新线程」时显示 -->
+                  <div class="field-block" id="cfgStewardScheduleTierBlock">
+                    <label for="cfgStewardScheduleTier" data-i18n="settings.steward.schedule.form.tier">用哪一档模型</label>
+                    <select id="cfgStewardScheduleTier">
+                      <option value="" data-i18n="settings.steward.schedule.tier.global">跟随全局主端点</option>
+                      <option value="strong" data-i18n="settings.steward.schedule.tier.strong">复杂任务 · 强模型</option>
+                      <option value="fast" data-i18n="settings.steward.schedule.tier.fast">简单任务 · 快速模型</option>
+                    </select>
+                    <p class="field-help muted" data-i18n="settings.steward.schedule.form.tierHint">两档各用哪个端点，在上面「新开线程用什么模型」里定；那一档没配就跟随全局。</p>
+                  </div>
                 </div>
                 <p class="field-help muted" id="cfgStewardScheduleFormError" role="status"></p>
                 <div class="steward-settings-row">

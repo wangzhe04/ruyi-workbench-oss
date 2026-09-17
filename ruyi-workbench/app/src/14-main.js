@@ -698,10 +698,16 @@ module.exports = {
   SCHEDULER_DEFAULT_POLICY,
   SCHEDULER_DESCRIBE_KEYS,
   SCHEDULER_DOW_KEYS,
+  // 127 波 2-ter S-a:档位值域 —— exposed for unit/scheduler-core ⑧ 与 13f steward_thread_new 枚举的相等锁。
+  SCHEDULER_THREAD_TIERS,
   // 第 123 波 M1 §3.2/§3.4:调度器生命周期与假时钟 —— exposed for e2e 直测与 14 的 boot 起停。
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 127 波 2-ter S-b:六条路由的处理函数本体 —— exposed for scheduler-steward.e2e.js 在进程内挂一个 http 壳直测
+  //   「HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份」(workdir 只在管家开着且真触发过之后才有,
+  //   而那件是进程内夹具;鉴权表是另一件事,由 scheduler-api.e2e.js 经真服务钉着)。
+  handleSchedulerApiRoutes,
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
   SchedulerHooks,

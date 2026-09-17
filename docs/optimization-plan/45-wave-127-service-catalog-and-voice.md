@@ -756,3 +756,78 @@
 | `thread-arbiter.e2e.js` | ①「开关关：总耗时 5854 ms 低于串行下界 5400 ms」，回归内重跑绿 | 103/103（41 s） | 墙钟串行下界断言的负载时序 |
 
 浏览器件单跑后调了 `stopRuyiTestBrowsers()`。如实登记，不归功于也不归咎于本刀。
+
+### 2-ter · 定时任务带档位＋每条任务自己的文件夹（2026-09-17）
+
+**改了什么**（§2-ter S-a／S-b，以 §2-quinquies 的三处改判为准；§2-quinquies 的坐标开工前逐条重核过：13f 六个定时工具 `:1012-1085`、13s 触发分支 `:462/:467`、`:500` 传 `session.cwd`、PATCH `:773-786`、POST `:753`、06j 契约 `:32-39` 与 `:531-532`、13t 注册 `:354-358`、13k 派生三件 `:94-229`、13q `stewardApplyThreadTier`（今天在 `:644`，派单稿写 `:575` 已过期）、10 的锁 `:2554`（派单稿写 `:2503`）、01 `stewardWorkspaceRoot` 缺省 `:350`（派单稿写 `:346`））：
+
+- **S-a 档位**
+  - `06j-scheduler-core.js`：值域 `SCHEDULER_THREAD_TIERS = ['strong','fast']`（`:65`，06j 零引用，抄 13f 的字面量）；`normalizeSchedulerTask` ③ 段（`:571-574`）只在 **prompt 载荷＋new-session＋值域内** 时落 `target.tier`，空值／值域外／existing-session／reminder 一律静默丢、不落键；`:549` 那句「engineRoute 留给 127 波」改写成现状。
+  - `13f-native-tool-schemas.js` `steward_schedule_create` 新参数 `tier`（`:1045-1047`），与 `steward_thread_new` 同一枚举；描述写明省略＝跟随全局（**不是** thread_new 的缺省 strong）、reminder／existing-session 会被忽略、已建任务管家改不了档位、prompt 任务有自己固定的工作文件夹且不接受指定路径。
+  - `13t-steward-schedule.js` 工具实现（`:81-111`）：顶层 `tier` 合进 target（`args.target.tier` 也认，顶层优先）；**有** tier 时决策日志 args 与工具返回各多一个 `tier` 键，没有时逐字节同修前。
+  - 钩子：06j `SchedulerHooks` 契约加第四个键 `prepareThread`（头注 `:38-49`）；13t `schedulerPrepareThread`（`:370-410`，注册 `:429`）**只在 `task.target.tier` 非空时**调 `StewardHooks.applyThreadTier`（= 13q `stewardApplyThreadTier`，thread_new 用的同一个函数；13t→13q 不是既有边，走 06i 命名空间）；13s 触发分支在 createSession 与三个身份字段之后、`saveSession` 之前 `await schedulerNotify('prepareThread', { session, task, config })`（`:474-486`）。
+  - 设置页：`index.html` 新建表单加 `cfgStewardScheduleTierBlock`／`cfgStewardScheduleTier`（`:1362-1371`，照权限下拉模具：跟随全局主端点／复杂任务 · 强模型／简单任务 · 快速模型＋一句提示）；`steward-settings.js` `syncScheduleForm` 只在 prompt＋new-session 时显示（`:980-982`），`submitSchedule` 选了才带 `target.tier`（`:1030-1032`，块内零 `cwd` 字面量）；四份 locale 各加 5 个扁平键（`settings.steward.schedule.tier.global|strong|fast`、`settings.steward.schedule.form.tier|tierHint`）。
+- **S-b 每条任务自己的文件夹**
+  - 06j ⑦ 段（`:634-641`）：服务端自有字段 `task.workdir` 由 `normalizeSchedulerTask` 原样携带（装载与 PATCH 走的都是这一个出口）、清控制字符、截 1000 字、空不落键；`SCHEDULER_FORBIDDEN_PAYLOAD_KEYS` 一字没动。
+  - 入口剥离：13s POST 显式 `workdir: ''`（`:777`）；PATCH 只合并白名单键，并显式 `workdir: String(current.workdir || '')`（`:812`）；13t 工具入参逐字段构造，没有 workdir。
+  - 13t `schedulerPrepareThread` S-b 段（`:387-409`）：只在 `config.stewardEnabledV1 === true` 时做。`task.workdir` 经 `stewardValidateCwd` 仍在候选表 → `fsp.mkdir(recursive)`（目录在＝无操作）后复用；否则按序 `stewardWorkspaceTableFull` → `fallback('table_full')`、根不可用 → `no_root`、`stewardDeriveThreadCwd`（13k 的「建目录＋登记」一件事）返回空 → `derive_failed`、意外异常 → `error`；派生成功写 `session.cwd` 与 `task.workdir`。S-a、S-b 各自 try，哪件出错哪件回落，不连累另一件。
+  - 13s（`:476-486`）：钩子回 `workdir:'fallback'` 时记 `logEvent({ kind:'scheduler_workdir_fallback', taskId, sessionId, reason })`；`task.workdir` 变了当场 `schedulerSaveTasks()`。`:509-512` 登记债（见下）。
+  - `14-main.js` 导出 `SCHEDULER_THREAD_TIERS`（`:702`）与 `handleSchedulerApiRoutes`（`:710`）。
+  - `durable-state-inventory.js`：scheduler-tasks 行补 `target.tier`／`workdir` 两个字段，steward-workspace-derived 行补「定时任务按任务派生一次、记进 workdir」。
+- **测试**：`unit/scheduler-core.test.js` ⑧ 段 17 条；`scheduler-steward.e2e.js` 加 (T) 11 条＋(W) 19 条（排在 (J) 之后，不动 (J) 的计数），writeConfig 钉 `stewardWorkspaceRoot` 到临时 HOME，假引擎加 `SLOW` 暗号（带工具的模型请求睡 8 s）；`scheduler-ui.browser.e2e.js` 加 E 段 5 条（真表单、真提交）；`scheduler-ui.static.e2e.js` FORM_IDS 加两个控件。**零新 e2e 文件**（e2eCount 362 不变）、零新 spawn。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **复用分支多一步 mkdir**：表里还在、磁盘上被人删了 → 原地把空文件夹建回再复用（W7）。派单稿只写「在表里就复用、不在就重派生」。不建的话线程工具全在一个不存在的目录里失败；路径只可能是这里派生过、表里授权过的那一个。
+2. **回落日志写在 13s，不写在 13t**：`logEvent` 住 04，13t→04 不是既有边、13s→04 是；钩子只回 `{workdir:'fallback', fallbackReason}`。
+3. **首次派生后 13s 当场写回任务表**，不等回合收尾：回合可能跑半小时，期间进程没了，下一次会因为目录已非空而派生出 `-2`、再占一行。管家关着／复用时不多写。
+4. **值域外的 tier（如 `deepseek`）与 reminder＋tier 也静默丢**：派单稿只写了空值与 existing-session；与权限档「越界回落跟随全局」同口径，不整条拒。
+5. **13t 认两种写法**：顶层 `tier`（与 thread_new 同名）与 `target.tier`，顶层优先 —— 落点是 `target.tier`，模型照 schema 写的是顶层。
+6. **有 tier 时决策日志与工具返回多一个 `tier` 键**（审计看得出这条任务选了档）；没有 tier 逐字节同修前（T7／T8 钉）。
+7. **14-main 多导出 `handleSchedulerApiRoutes`**：判据 ④「HTTP 写不进 workdir、PATCH 保住服务端那一份」要一条**已经有** workdir 的任务，而 workdir 只在管家开着且真触发过之后才有 —— 那是 scheduler-steward 的进程内夹具。管家关着的三件（scheduler／scheduler-crash／scheduler-api）**一行没改**，鉴权表仍由 scheduler-api 经真服务钉着；进程内挂 http 壳直调处理函数，零新增 spawn（fixture-home.static 计数不动）。
+8. **设置页下拉在 existing-session 时也隐藏**（与服务端丢弃同口径）。原先没有任何浏览器件提交过这张新建表单，E 段是第一条。
+9. **判据之外多钉四条行为**：表里删行 → 重派生重登记（W9）；磁盘删目录 → 建回（W7）；表满 → 回落＋日志、触发照常成功（W11／W12）；带 tier 的 target 仍拒 cwd（unit ⑧）。
+10. **M1／M2 没改**：M1 的 `file_write` 写的是绝对路径 `WORK/scheduled.txt`，线程 cwd 换成派生目录后闸门照样判 ask、无人值守照样拒（仍 needs_you），M2 查的也是那个绝对路径。(W) 开始前候选表 6 行 = WORK ＋ (L)(M)(T) 派生出的 5 个文件夹，说明 M1 那条确实跑在派生目录上。
+11. **PATCH 那一行显式 `workdir` 单独不承重**：`...current` 本来就带着它、body 不在白名单里 —— 承重的是白名单；写出来是为了不靠展开顺序。POST 那一处承重（反向 ㈣）。
+
+**判据读数**（`scheduler-steward.e2e.js` 直跑 100/100；配置 strong → `fake/strong-model`、fast → `fast-ep`＋空模型、全局 `fake/fake-model`）：
+
+- **S-a ①** T2：定时线程 `{"engine":"openai","providerId":"fast-ep","model":"fast-model"}`，手工 `steward_thread_new({tier:'fast'})` 同值逐字段相同。
+- **S-a ②** T3／T4：fast 档没配 → `{"engine":"openai","providerId":"fake","model":"fake-model"}`，这条线程无 fallback 审计；T5／T6：fast 指向已删的 `ghost-ep` → 同样全局，审计 `{"kind":"steward_thread_model_fallback","tier":"fast","providerId":"ghost-ep","sessionId":<这条定时线程>}`。
+- **S-a ③** T7：落盘 target 逐字 `{"mode":"new-session"}`、工具返回无 `tier` 键；T8：决策日志 args `{"id","title","scheduleKind","payloadKind"}`（带 fast 的那条多 `"tier":"fast"`）；T9：engineRoute 是全局那条，strong 档配着 `strong-model` 也没被套上。unit ⑧：不带／空串／`deepseek` 都没有 tier 键；两处枚举 `["strong","fast"]` 逐项相等（从管家工具表真产物里取）。
+- **S-a ④** T10：existing-session＋tier → 落盘 `{"mode":"existing-session","sessionId":…}`，无 tier；unit ⑧ 同。
+- **S-b ①** W0：手工线程在 WORK 上跑慢回合（模型那一步睡 8 s）；W2（最终版断言，回归后连跑 5 次全绿）：定时线程 cwdKey `e42b5a176d2e` vs 手工 `1fc4054695c5`，定时那次 reconciled 时手工回合**未完**（true），run_now 全程每 20 ms 采样 `arbiterWait`，**lock 0 次**，outcome succeeded（5 次里有 1 次另采到 1 次「等并发位：下一个就是它」，见下「夹具返工」）；W5：手工回合随后跑完。
+- **S-b ②** W3：`task.workdir` = `<HOME>\Ruyi\A股盘中巡检(2-ter 夹具)` = 线程 cwd；W4：候选表 6 → 7 行，目录真的建了。
+- **S-b ③** W6：第二次触发 cwd 相同、`-2` 不存在、表仍 7 行；W7：删掉目录 → 建回、表仍 7 行；W9：从表里删掉那一行 → 重派生、重登记；W11／W12：表填满 64 行 → cwd = WORK、任务无 workdir、outcome succeeded、日志 `{"kind":"scheduler_workdir_fallback","reason":"table_full",…}`。
+- **S-b ④** W13：POST 带 `workdir` → 落盘没有、`target.tier:"fast"` 照收；W14：PATCH 带 `workdir` → 原值保住；W15：PATCH 整替 target 改档位成功、target 里夹带的 workdir 不落；W16：POST／PATCH 带 `target.cwd` 都 400 `scheduler.payload_forbidden_key`；W17：那个目录从头到尾没建；unit ⑧：禁止键表逐字 `["localCommand","env","apiKey","dataRoot","cwd"]`。
+- **S-b ⑤** W18：管家关着 → run-now succeeded、cwd = WORK、无 workdir、表不多一行、没建目录。
+- **浏览器** E1–E4（`scheduler-ui.browser` 直跑全绿）：档位块 reminder 隐／prompt＋new-session 显／existing-session 隐；选项 `["","strong","fast"]`、标签「用哪一档模型」；真提交选快速模型 → 服务端 `{"mode":"new-session","tier":"fast"}`，留跟随全局 → `{"mode":"new-session"}`。
+- **2-quater 代批件** `steward-exempt-delegation` 直跑 50/50、一条断言没改：R 段定时线程现在跑在派生目录上，`powershell_run` 显式带 cwd，闸 3 看 `launchedBy`／`origin` 不看 cwd。
+
+**反向（改源码 → build → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验 → `build --check` 新鲜）**：
+
+- **㈠ S-a：13s 触发分支摘掉钩子调用**（`const prepared = await schedulerNotify('prepareThread', …)` → `const prepared = null;`）→ 12 条红。T2 实得 定时 `{"engine":"openai","providerId":"fake","model":"fake-model"}` vs 手工 `fast-ep/fast-model`；T6 审计 null；W2 cwdKey `ef5e8d911b59` vs `ef5e8d911b59`、reconciled 时手工已完（false）、`arbiterWait` 采到 **lock 256 次**，`waitReasonFor` 读出「等锁：同一个文件夹被「手工慢线程」占着」；W3–W16 是 workdir 为空的级联。
+- **㈡ S-b：13t 摘掉文件夹那一半**（`if (config.stewardEnabledV1 !== true) return outcome;` 加 `|| true`）→ 10 条红，**T2 保持绿**（档位不受影响）。W2 cwdKey 同为 `5db7f3bb1fb0`、reconciled 时手工已完、**lock 257 次**、同一句「等锁：同一个文件夹被「手工慢线程」占着」—— **判据咬的是锁**；W3–W16 级联。
+- ㈠㈡ 各做了两遍：首遍在 W2 旧断言（「arbiterWait 全程为空」）上（12／10 条红，lock 256／255 次，同一句等锁人话），夹具返工后在最终断言上重做一遍，读数如上。
+- **㈢ 判据 ③：不传 tier 也照 thread_new 套**（`if (wantedTier)` → `if (true)`）→ 恰 1 条红：T9 实得 `{"engine":"openai","providerId":"fake","model":"strong-model"}`。
+- **㈣ 判据 ④：HTTP 新建不剥 workdir**（去掉 `workdir: ''`）→ 恰 1 条红：W13 实得落盘 `"workdir":"<HOME>\\evil"`。
+- 四次均按文件备份还原 `13s-scheduler.js`／`13t-steward-schedule.js`／`manifest.json`／`server.js`，逐个 sha256 OK（`abd39cd2…`／`ac75ae97…`／`2094bea8…`／`200d5364…`），每次还原后 `build --check` 新鲜。
+
+**生成器链与门**：`module-dependency-graph --write`（**53 模块／420 边／1 SCC／前向边 68，零新增边**；提供符号 2357 → 2360：06j +2、13t +1；06j 出边仍 0；新引用全落在既有边上：13t→13k `stewardValidateCwd`／`stewardDeriveThreadCwd`／`stewardWorkspaceTableFull`／`stewardCanonWorkspacePath`、13t→00-boot `fsp`、13t→06i `StewardHooks`（已有）、14→06j `SCHEDULER_THREAD_TIERS`、14→13s `handleSchedulerApiRoutes`）→ `build.js`（55377 行）→ `architecture-contract-snapshots.js --write`（无变化）→ `facts-generate.js`（e2eCount 362 不变，只动了 generatedAt，已还原 facts.json）→ `route-inventory.js`（137 判定点、告警 0；13s 六条路由 handler 行号下移、覆盖件多出 scheduler-steward）→ `durable-state-inventory.js --write`（52 个持久面，两行描述变）。计数锁重钉：**无**（没有新 e2e、没有新 spawn；`scheduler-ui.static` FORM_IDS 多两个控件 id，不是计数锁）。`build --check` ✓、依赖图 `--check` ✓（53/420）、`--fast` **73/73**、改动 25 个文件控制字符／CR／NUL 扫描 0（U+FFFD 仅 `server.js` 2 处，与 HEAD 相同）。逐件串行（`run-all` 列名，unit 快通道 ALL PASS）**21/21**：scheduler-steward、scheduler、scheduler-crash、scheduler-api、scheduler-ready-queue、scheduler-reducer、scheduler-ui.static、scheduler-ui.browser、thread-arbiter、steward-tools、steward-tools.static、steward-guardrails、steward-settings（真浏览器）、steward-settings.static、i18n.static、i18n、dom-smoke、steward-exempt-delegation、steward-relay-channels、durable-state-inventory.static、route-inventory.static。
+
+**全量回归（2-ter）**：`run-all.js --parallel 4` 退出码 **0**，**355 pass / 0 fail / 0 flaky / 355 ran（7 skipped 为既有 live probe），unit 全绿、build freshness 一致**。没有红件、没有 flaky，无需串行复验。回归期间没有改 `src/`、没跑别的件（只在 docs 里写本段）；回归后调过 `stopRuyiTestBrowsers()`。
+
+**夹具返工（回归之后直跑抓到的，本刀自己的量具缺陷，零 `src` 改动）**：回归后为取最终读数直跑 `scheduler-steward` 一次，W2 红了一条：`arbiterWait 采样 1 次非空:["等并发位：下一个就是它"]`，其余全绿（cwdKey 不同、手工未完已 reconciled）。**机制**（读 `13n stewardAcquireTurnSlot`）：每个新回合都先入队、再由 drain 在同一个同步段里判准入，入队到 drain 之间挂一个同步算出来的临时原因 —— 没有同 cwd 的锁就是 `{slot:{ahead:0}}`；20 ms 采样偶尔会落进这个窗口。**判据 ① 问的是「不在等锁」**，首版写成「arbiterWait 全程为空」是量具过严。修法：只数 `wait.lock` 的采样，其余非空采样照打印（`scheduler-steward.e2e.js` W2）。修后直跑 5 次 100/100（其中第 2 次又采到 1 次同一个临时 slot 原因，佐证机制）、`run-all` 单件 1/1；㈠㈡ 两条反向在新断言上重做仍红（lock 256／257 次）。这一处改动发生在全量回归之后，只经上述直跑与单件复验，未再跑全量。
+
+**债**（登记不做）：
+
+1. **等锁期间整个调度器停摆**：`schedulerFireOnce` 在 `runSessionTurn` 上 await，回合在仲裁器里排队时 `schedulerRuntime.ticking` 一直是 true，别的任务到点也不触发；超时计时器调的 `stopSession` 只认活回合（`04:1831-1851`，`activeChildren` 里没有就直接返回），**排队中的条目不出队**。S-b 解掉了「定时线程与 defaultWorkspace 上的手工线程抢同一把锁」这一个来源，并发位满、预算触顶仍会这样等。已在 `13s:509-512` 写注释。
+2. **S-c 只读回合放宽锁**（`13n:182`）不进本波（§2-ter 原判）。
+3. **`playbook` 载荷类型**本波不做（§2-quinquies 原判）。
+4. **已有任务改档位没有界面**：设置页只有新建表单能选；PATCH 能改但没有编辑界面，管家也没有 update 工具（§2-quinquies 定案）—— 用户要改只能删了重建或调 API。
+5. **管家读不到任务的档位与文件夹**：`steward_schedule_list` 的工具行被 E3 锁在九个字段；`GET /api/scheduler/tasks` 的 `schedulerPublicTask` 也不含 `workdir`，界面上看不到这条任务的文件夹在哪。
+6. **派生文件夹不回收**：删掉任务后，它的文件夹与候选表那一行都留着（与 thread_new 同一纪律：工作台不删用户目录）；两条同标题任务首次触发，第二条按既有撞名规则落到 `-2`（按任务固定之后不再增长）。
+
+**插曲**：本刀实现途中实现 agent 撞上 API 会话额度被中断（停在「补单测」之前，工作树留 20 个文件的半成品、无测试在跑）；额度重置后原 agent 带着上下文续做，续做前先重读 diff 并扫控制字节（0）。
+
+**主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed、无 e2e 进程。逐行审 06j／13s／13t 的 diff，重点核了一处时序：13s 经 `schedulerNotify` 调异步的 `prepareThread`，`schedulerNotify` 返回 `Promise.resolve(hook(row))` 且 13s `await` 了它 —— 换档位、换文件夹一定发生在 `saveSession` 与起回合之前。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、26 个改动文件控制字节 0；unit scheduler-core 1/1；scheduler-steward 连跑两次 100/0、scheduler 51/0、scheduler-crash 67/0、scheduler-api 52/0、scheduler-ui.static 38/0、scheduler-ui.browser 39/0、thread-arbiter 103/0、steward-tools 185/0、steward-tools.static 113/0、steward-guardrails 193/0、steward-settings 73/0、steward-settings.static 102/0、i18n.static 7/0、facts.static 24/0、durable-state-inventory.static 6/0、steward-exempt-delegation 50/0、dom-smoke 53/0。**因为 W2 断言改在全量回归之后，主会话自己重做一次反向**：13t `prepareThread` 的 S-b 段改成直接返回 → rebuild → scheduler-steward 10 红，W2 实得「cwdKey 相同（`0c4cf2687820` vs 手工 `0c4cf2687820`）、手工未完时未 reconciled、arbiterWait 采样到 lock 256 次『等锁：同一个文件夹被「手工慢线程」占着』」；文件备份还原三件 sha256 OK、`build --check` 新鲜、复跑 100/0。

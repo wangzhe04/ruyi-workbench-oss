@@ -78,11 +78,16 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     return stewardFail('scheduler.capacity_exceeded',
       `定时任务最多 ${SCHEDULER_LIMITS.maxTasks} 条,先删掉几条再来`, { max: SCHEDULER_LIMITS.maxTasks });
   }
+  // 127 波 2-ter S-a:tier 是与 permissionMode 平级的顶层入参(与 steward_thread_new 同一个参数名、同一个
+  // 枚举),落进 target.tier —— 值域与「只在 prompt + new-session 时留下」由 06j 判。args.target 里自带的
+  // tier 也认(顶层给了就以顶层为准)。workdir 不在这张逐字段清单里:服务端自有字段,模型写不进来。
+  const rawTarget = (args.target && typeof args.target === 'object' && !Array.isArray(args.target)) ? args.target : null;
+  const target = args.tier !== undefined ? { ...(rawTarget || {}), tier: args.tier } : args.target;
   const normalized = normalizeSchedulerTask({
     title: args.title,
     schedule: args.schedule,
     payload: args.payload,
-    target: args.target,
+    target,
     autonomy: { permissionMode: args.permissionMode },
     createdBy: 'steward',
     id: '',
@@ -95,14 +100,15 @@ async function stewardImplScheduleCreate(args, ctx, config) {
   schedulerEnsureTimer();
   schedulerEmitChanged(normalized.task.id, 'created', '');
   const row = schedulerToolRow(normalized.task);
+  const tier = String(normalized.task.target.tier || '');
   stewardAppendDecision({
     tool: 'steward_schedule_create',
-    args: { id: row.id, title: row.title, scheduleKind: normalized.task.schedule.kind, payloadKind: row.payloadKind },
+    args: { id: row.id, title: row.title, scheduleKind: normalized.task.schedule.kind, payloadKind: row.payloadKind, ...(tier ? { tier } : {}) },
     targetSessionId: '', permissionMode: String(normalized.task.autonomy.permissionMode || ''), mayAct: 'user',
     undoRef: { kind: 'schedule', id: row.id, prev: null },
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams };
+  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}) };
 }
 
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
@@ -339,6 +345,70 @@ async function schedulerCommitmentsSince(schedSinceFireSeq, schedNowMs) {
   return { upcoming, missed, needsYou, fireSeq };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 127 波 2-ter(45 号文 §2-ter,以 §2-quinquies 的改判为准):定时任务开线程时的两件事 ——
+// SchedulerHooks.prepareThread 的实现。13s 在 createSession 之后、saveSession 之前调它(契约见 06j 头注),
+// 本函数只改内存里的 session 与 task 两份对象,落盘由 13s 接着做。
+//
+// S-a 档位:task.target.tier 非空才动 —— 经 StewardHooks.applyThreadTier(= 13q stewardApplyThreadTier,
+//   steward_thread_new 用的【同一个】函数:那一档没配 → 不写 engineRoute、跟随全局;配了但端点已删 → 同样
+//   回落并记 steward_thread_model_fallback)。**空就一个字都不碰**:thread_new 不传 tier 时按 strong 套,
+//   这里照抄会让「没选档位的任务」悄悄换引擎,破判据 ③「不传 tier 与今天逐字节等价」。
+// S-b 工作文件夹:只在 stewardEnabledV1 === true 时做 —— 同文件夹写锁只在那时存在(10 的回合入口),
+//   管家关着时三件调度器 e2e 逐字节不变。
+//   · task.workdir 仍在工作区候选表里(stewardValidateCwd,与 thread_new 的 cwd 同一道校验)→ 复用;
+//     表里有、磁盘上被人删了 → 原地把这个空文件夹建回来再复用(路径本来就是这里派生、表里授权过的那一个;
+//     不建的话线程的工具全在一个不存在的目录里失败);
+//   · 否则(首次触发 / 用户把那一行从表里删了)→ 照 thread_new 省略 cwd 的既有行为派生:在 Ruyi 根下按
+//     任务标题开文件夹并登记进候选表(stewardDeriveThreadCwd,建目录与登记是一件事),路径记进 task.workdir。
+//     **按任务固定,不按次派生**:每日任务第二次触发不会长出 `-2` 目录、也不会再占一行候选表(上限 64 行,
+//     与管家线程共用 —— 表满时派生返回空,等锁问题就复发了);
+//   · 表满 / 根不可用 / 派生失败 / 意外异常 → session.cwd 保持 createSession 落的 defaultWorkspace,回
+//     workdir:'fallback' 让 13s 记一条日志,触发本身照跑。
+// 为什么住这里:13s 直调 13k 会把 13k 拉进环;13t → 13k / 06i / 00-boot 都是既有的后向边,零新增边。
+// ────────────────────────────────────────────────────────────────────────────
+async function schedulerPrepareThread(schedRow) {
+  const raw = (schedRow && typeof schedRow === 'object') ? schedRow : {};
+  const session = (raw.session && typeof raw.session === 'object') ? raw.session : null;
+  const task = (raw.task && typeof raw.task === 'object') ? raw.task : null;
+  const config = (raw.config && typeof raw.config === 'object') ? raw.config : {};
+  const outcome = { tier: '', workdir: '' };
+  if (!session || !task) return outcome;
+
+  // ── S-a ──
+  const wantedTier = String((task.target && task.target.tier) || '');
+  if (wantedTier) {
+    try {
+      const applied = StewardHooks.applyThreadTier(session, wantedTier, config);
+      outcome.tier = String((applied && applied.tier) || '');
+    } catch { /* 套不上 = 跟随全局;不连累下面的文件夹,也不反噬触发 */ }
+  }
+
+  // ── S-b ──
+  if (config.stewardEnabledV1 !== true) return outcome;
+  const fallback = reason => ({ ...outcome, workdir: 'fallback', fallbackReason: reason });
+  try {
+    const kept = String(task.workdir || '');
+    if (kept) {
+      const check = stewardValidateCwd(kept, config);
+      if (check.ok && check.cwd) {
+        await fsp.mkdir(check.cwd, { recursive: true });   // 已存在 = 无操作
+        session.cwd = check.cwd;
+        return { ...outcome, workdir: 'reused' };
+      }
+    }
+    if (stewardWorkspaceTableFull(config)) return fallback('table_full');
+    if (!stewardCanonWorkspacePath(config.stewardWorkspaceRoot)) return fallback('no_root');
+    const derived = await stewardDeriveThreadCwd(task.title, session.id, config);
+    if (!derived) return fallback('derive_failed');
+    session.cwd = derived;
+    task.workdir = derived;
+    return { ...outcome, workdir: 'derived' };
+  } catch {
+    return fallback('error');
+  }
+}
+
 // ── 延迟绑定注册(先例:13g / 13h 各自往 StewardHooks 上填自己那一份)────────────────────────
 // 六个工具沿 13g 的 stewardToolHandler 门控壳(开关 -> 身份 -> 实现 -> 异常兜底);12-tool-dispatch
 // 的 handler 仍然只写一行 `StewardHooks.<键>(args, ctx)`,与既有 27 个逐字同型。
@@ -350,9 +420,11 @@ Object.assign(StewardHooks, {
   scheduleRunNow: stewardToolHandler('steward_schedule_run_now', stewardImplScheduleRunNow),
   scheduleDelete: stewardToolHandler('steward_schedule_delete', stewardImplScheduleDelete),
 });
-// 06j 的两个旁路口(M1 只调用、不实现)在这里落地;第三个键是 13q 的承诺三项读口。
+// 06j 的两个旁路口(M1 只调用、不实现)在这里落地;第三个键是 13q 的承诺三项读口;
+// 第四个键是 127 波 2-ter 的开线程前置(档位 + 任务自己的工作文件夹),消费者是 13s 的触发分支。
 Object.assign(SchedulerHooks, {
   onReminderDue: schedulerOnReminderDue,
   onSchedulerNotice: schedulerOnSchedulerNotice,
   commitmentsSince: schedulerCommitmentsSince,
+  prepareThread: schedulerPrepareThread,
 });

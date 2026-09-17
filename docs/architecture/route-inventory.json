@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-17T06:14:56.697Z",
+  "generatedAt": "2026-09-17T07:50:31.518Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -4304,7 +4304,7 @@
       "kind": "exact",
       "path": "/api/scheduler/tasks",
       "file": "13s-scheduler.js",
-      "line": 736,
+      "line": 759,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "GET"
@@ -4318,6 +4318,7 @@
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
@@ -4328,7 +4329,7 @@
       "kind": "exact",
       "path": "/api/scheduler/tasks",
       "file": "13s-scheduler.js",
-      "line": 745,
+      "line": 768,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "POST"
@@ -4342,6 +4343,7 @@
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
@@ -4353,7 +4355,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
       "path": "/api/scheduler/tasks/:taskId",
       "file": "13s-scheduler.js",
-      "line": 764,
+      "line": 788,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "*"
@@ -4365,6 +4367,7 @@
       "coveredBy": [
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js"
       ]
@@ -4374,7 +4377,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
       "path": "/api/scheduler/tasks/:taskId",
       "file": "13s-scheduler.js",
-      "line": 805,
+      "line": 832,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "*"
@@ -4386,6 +4389,7 @@
       "coveredBy": [
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js"
       ]
@@ -4395,7 +4399,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/run-now$",
       "path": "/api/scheduler/tasks/:taskId/run-now",
       "file": "13s-scheduler.js",
-      "line": 819,
+      "line": 846,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "POST"
@@ -4407,6 +4411,7 @@
       "coveredBy": [
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js"
       ]
@@ -4416,7 +4421,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/runs$",
       "path": "/api/scheduler/tasks/:taskId/runs",
       "file": "13s-scheduler.js",
-      "line": 843,
+      "line": 870,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "GET"
@@ -4428,6 +4433,7 @@
       "coveredBy": [
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
+        "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js"
       ]

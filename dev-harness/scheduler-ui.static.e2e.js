@@ -65,6 +65,8 @@ const FORM_IDS = [
   'cfgStewardScheduleTargetBlock', 'cfgStewardScheduleTarget', 'cfgStewardScheduleText',
   'cfgStewardScheduleSessionBlock', 'cfgStewardScheduleSessionId',
   'cfgStewardSchedulePermissionBlock', 'cfgStewardSchedulePermission',
+  // 127 波 2-ter S-a:档位下拉(照权限档的模具,静态 DOM)。
+  'cfgStewardScheduleTierBlock', 'cfgStewardScheduleTier',
   'cfgStewardScheduleFormError', 'cfgStewardScheduleSubmitBtn', 'cfgStewardScheduleCancelBtn',
 ];
 const missingIds = FORM_IDS.filter(id => !html.includes(`id="${id}"`));

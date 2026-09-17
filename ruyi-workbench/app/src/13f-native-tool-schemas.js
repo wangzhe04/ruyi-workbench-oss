@@ -1042,6 +1042,9 @@ const MCP_TOOLS = [
           },
         },
         permissionMode: { type: 'string', description: '可选,这条任务跑回合时的权限档(天花板 = 全局档,永不含 bypass;越界或省略即跟随全局默认档)。' },
+        // 127 波 2-ter S-a(45 号文 §2-quinquies):与 steward_thread_new 的 tier 同一个枚举(06j SCHEDULER_THREAD_TIERS
+        // 抄了一份字面量,unit/scheduler-core ⑧ 钉着两处相等)。缺省【不是】strong —— 省略 = 跟随全局,与修前逐字节同。
+        tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,只对 prompt 载荷 + 每次开新线程有意义(reminder、existing-session 会被忽略)。到点开的线程用哪一档模型,两档具体是哪个端点/模型由用户在设置里定、你改不了;用户点名「用快的/用 DeepSeek 跑」而那一档正好配成它时就选那一档。省略 = 跟随全局主端点(与 steward_thread_new 不同,这里不默认 strong);那一档没配也跟随全局。已经建好的任务你改不了档位,要改就如实告诉用户。每条 prompt 任务开的线程都在 Ruyi 根下有这条任务自己固定的工作文件夹(第一次触发时建、之后复用),不与别的线程抢同一个文件夹,也不接受你指定路径。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },

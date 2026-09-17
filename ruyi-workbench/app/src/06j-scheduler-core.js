@@ -35,7 +35,18 @@
 //   · onSchedulerNotice(row) —— 需要让用户知道、但不是 reminder 的三件事:
 //                            row.kind ∈ 'skipped'(错过且不补) | 'tripped'(连败熔断) | 'needs_you'
 //                            | 'unknown'(崩溃后结果未知);另带 taskId/title/occurrenceKey/mode/at。
-// 两个口都是【旁路】:未填充时调用是无操作,填充方抛错也绝不反噬触发本身(13s 里整段 try 包住)。
+//   · prepareThread(row)  —— 127 波 2-ter(45 号文 §2-quinquies):prompt 载荷【新开】线程时,13s 在
+//                            createSession 之后、saveSession 之前调一次。row = { session, task, config }。
+//                            填充方(13t)只改内存里的两份对象:① task.target.tier 非空 → 经管家那一条
+//                            applyThreadTier 给 session 写 engineRoute(S-a,空就一个字都不碰);
+//                            ② stewardEnabledV1 === true → session.cwd 换成这条任务自己固定的工作文件夹,
+//                            首次派生时把路径记进服务端自有字段 task.workdir(S-b)。返回
+//                            { tier, workdir:'reused'|'derived'|'fallback'|'', fallbackReason? },
+//                            13s 据此决定要不要补写任务表、记一条回落日志。13s 直调 13k 会把 13k 拉进环,
+//                            所以走这个口(13t → 13k/06i 都是既有的后向边)。
+// 口都是【旁路】:未填充时调用是无操作,填充方抛错也绝不反噬触发本身(13s 里整段 try 包住)——
+// prepareThread 未填充 = 这一次既不套档位也不换文件夹,与修前逐字节同路;填充方把两件各自包住,
+// 哪件出错哪件回落,不连累另一件。
 const SchedulerHooks = {};
 
 // ── 值域与上限(单一事实源;13s 与 API 都引用这里,不各写一份字面量)────────────────────────────
@@ -48,6 +59,13 @@ const SCHEDULER_FIRE_MODES = Object.freeze(['ontime', 'late', 'manual']);
 const SCHEDULER_PHASES = Object.freeze(['registered', 'dispatched', 'running', 'reconciled']);
 const SCHEDULER_OUTCOMES = Object.freeze(['succeeded', 'failed', 'needs_you', 'skipped', 'unknown']);
 const SCHEDULER_CREATORS = Object.freeze(['user', 'steward']);
+// 127 波 2-ter S-a:定时任务开的线程用哪一档模型。**与 13f steward_thread_new 的 tier 枚举是同一份值域**,
+// 这里抄字面量而不引用 —— 本文件零引用(见文件头),而 13f 在 manifest 里排在后面。两处相等由
+// unit/scheduler-core.test.js 的 ⑧ 段对真产物逐项钉住(13f 那一份从 buildOpenAiTools 的管家工具表里取)。
+const SCHEDULER_THREAD_TIERS = Object.freeze(['strong', 'fast']);
+// 127 波 2-ter S-b:task.workdir(服务端自有,见 normalizeSchedulerTask 的 ⑦ 段)的长度上限,
+// 与 01-config normalizeWorkspacePathString 截断工作区路径的 1000 同一个数。
+const SCHEDULER_WORKDIR_CHARS = 1000;
 
 // 29 号文 §10 红线第三条:任务载荷里不得出现本地命令、密钥、环境变量与数据目录。
 // 判据是【键名】而不是值:载荷是模型能写的地方,「值看起来没问题」不是安全边界。深扫整棵载荷树,
@@ -528,8 +546,11 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     };
   }
 
-  // ③ 目标。**本刀不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
-  // engineRoute 留给 127 波。新线程的工作目录由 createSession 的既有回落决定(defaultWorkspace)。
+  // ③ 目标。**仍然不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
+  // engineRoute 不给自由填 —— 127 波 2-ter 接上的是【档位】target.tier(S-a,值域 SCHEDULER_THREAD_TIERS,
+  // 到点经管家那一条 applyThreadTier 落成 engineRoute);工作目录也不给填,改成每条任务在 Ruyi 根下
+  // 自己固定一个文件夹(S-b,见 ⑦ 段的 workdir 与 13t schedulerPrepareThread)。管家关着时新线程的
+  // 工作目录仍由 createSession 的既有回落决定(defaultWorkspace)。
   const rawTarget = (raw.target && typeof raw.target === 'object' && !Array.isArray(raw.target)) ? raw.target : {};
   const targetForbidden = schedulerFindForbiddenKey(rawTarget, 0);
   if (targetForbidden) {
@@ -543,6 +564,13 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
       return schedulerFail('invalid_request', 'target.sessionId is required when target.mode is existing-session');
     }
     target.sessionId = sessionId;
+  }
+  // 档位只在「prompt 载荷 + 每次开新线程」时有意义:既有线程有它自己的引擎,reminder 不起回合。
+  // 其余情形【静默丢】,空值与值域外的值同样不落字段 —— 不带 tier 的任务与修前逐字节同形
+  // (判据 ③:没有 tier 键,13s 也就不会去碰 engineRoute)。与权限档「越界回落跟随全局」同一口径。
+  const wantedTier = schedulerCleanLine(rawTarget.tier, 16);
+  if (payloadKind === 'prompt' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
+    target.tier = wantedTier;
   }
   // reminder 不起回合,目标无意义 —— 归一成 new-session 但永远不会被用到(13s 的 reminder 分支不看它)。
 
@@ -603,5 +631,13 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     policy,
     state,
   };
+  // ⑦ 这条任务自己固定的工作文件夹(127 波 2-ter S-b)。**服务端自有字段**:只由 13t 的 prepareThread
+  //    在首次触发时写进内存副本,这里负责把它【从盘上 / 从 current】原样带过去(装载与 PATCH 都经本函数)。
+  //    **一切外部入参入口都必须在喂进来之前剥掉它**:HTTP 新建(13s)剥 body.workdir、PATCH 只合并
+  //    白名单键、管家工具(13t)逐字段构造 —— 模型与 API 调用方永远写不进来。它不是 cwd 的另一个名字:
+  //    到点时 13t 仍要拿工作区候选表核一遍(不在表里就重新派生),所以盘上被人手改过也越不过那张表。
+  //    空值不落字段:管家关着、或还没触发过的任务与修前逐字节同形。
+  const workdir = schedulerCleanLine(raw.workdir, SCHEDULER_WORKDIR_CHARS);
+  if (workdir) task.workdir = workdir;
   return { ok: true, task };
 }

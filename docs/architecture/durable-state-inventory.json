@@ -677,7 +677,7 @@
       "writePrimitive": "fsp.mkdir({recursive:true}); the workspaces[] row that records it goes through mutateConfig -> writeConfig",
       "corruption": "a collision with an existing NON-EMPTY directory takes the next -N suffix; an existing EMPTY directory is reused (reopening the same task must not grow a second empty shell); a same-named plain file or an unreadable entry skips to the next suffix; after 50 tries derivation gives up and the thread keeps the pre-117w defaultWorkspace fallback",
       "capacity": "slug capped at 64 characters; 50 collision suffixes per title; the workspaces[] table that records the row caps at 64 rows (117w-W1 4th cut, 01-config WORKSPACE_TABLE_CAP); a derivation that would overflow that cap is refused BEFORE the directory is created (13k stewardWorkspaceTableFull -> invalid_request/workspace_table_full), so the table never ends up with a directory it does not record",
-      "cache": "none: the path is written into the session head and never cached",
+      "cache": "none: the path is written into the session head and never cached (127 2-ter: a prompt scheduler task derives ONE such folder on its first steward-on trigger through the same 13k primitives, remembers it as tasks-v1.json workdir and reuses it while its workspaces[] row survives, so a daily task never grows -2 folders or extra rows)",
       "recovery": "nothing rebuilds it - the files inside are user work products a thread produced, and the workbench never regenerates user content",
       "lifecycle": "external-exemption",
       "exemptionReason": "the workbench creates the directory but owns nothing inside it: threads write there under their own permission and the workbench never reads it back, rewrites it or deletes it"
@@ -701,7 +701,7 @@
       "pattern": "<data>/scheduler/tasks-v1.json",
       "owner": "13s-scheduler.js",
       "anchor": "SCHEDULER_TASKS_FILE",
-      "schema": "object / schema 1 (tasks[] = 29 号文 §3 的 Commitment 形状：schedule/payload/target/autonomy/policy/state + revision)",
+      "schema": "object / schema 1 (tasks[] = 29 号文 §3 的 Commitment 形状：schedule/payload/target/autonomy/policy/state + revision; 127 2-ter: optional target.tier strong|fast (absent = follow global, kept only for prompt + new-session) and optional server-owned workdir = the folder derived for this task on its first steward-on trigger, never accepted from HTTP/tool input and re-checked against workspaces[] on every trigger)",
       "writePrimitive": "atomicWriteJson through a per-process serialized chain (schedulerTasksChain)",
       "corruption": "an unparsable or wrong-schema file is RENAMED to tasks-v1.json.corrupt (rename, not copy: leaving it in place would re-quarantine on every read) and the scheduler starts from an empty table with lastError set; individual rows that fail normalizeSchedulerTask are skipped rather than silently rewritten",
       "capacity": "200 tasks (POST refuses beyond it with scheduler.capacity_exceeded); per-task maxRunsPerDay and a global 200 fires/day counter live in the same file",

@@ -464,7 +464,26 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       session.launchedBy = 'steward';
       session.createdBy = 'steward';
       session.titleSource = 'steward';
+      // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
+      // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
+      // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
+      // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
+      // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
+      // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
+      // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
+      const workdirBefore = String(task.workdir || '');
+      const prepared = await schedulerNotify('prepareThread', { session, task, config });
+      // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
+      // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
+      if (prepared && prepared.workdir === 'fallback') {
+        try {
+          logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
+        } catch { /* 观测不反噬触发 */ }
+      }
       await saveSession(session);
+      // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
+      // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
+      if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
     }
     sessionId = session.id;
     await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
@@ -487,6 +506,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       }
     };
     let timedOut = false;
+    // 已知债(127 波 2-ter 登记,不在本刀修):回合在仲裁器里等锁/等并发位时,这里的 await 一直挂着,
+    // schedulerRuntime.ticking 也就一直是 true —— 整个调度器跟着停摆(别的任务到点也不触发);而超时
+    // 计时器调的 stopSession 只认活回合,【排队中】的那一条不会被出队。S-b 让定时线程不再与
+    // defaultWorkspace 上的手工线程抢同一把锁,大幅缓解但没有根治(并发位满 / 预算触顶仍会这样等)。
     const timer = setTimeout(() => {
       timedOut = true;
       try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
@@ -750,7 +773,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
       return send(res, apiFailure('scheduler.capacity_exceeded', { max: SCHEDULER_LIMITS.maxTasks },
         'at most ' + SCHEDULER_LIMITS.maxTasks + ' scheduler tasks', 409));
     }
-    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0 }, schedulerClockNow());
+    // workdir 是服务端自有字段(127 波 2-ter S-b,见 06j ⑦ 段):新建时一律剥掉,调用方写不进来。
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
     normalized.task.id = makeId('sch');
     schedulerRuntime.tasks.push(normalized.task);
@@ -770,6 +794,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
     const current = schedulerRuntime.tasks[index];
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
+    // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
+    // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
     const merged = {
       ...current,
       ...(body.title !== undefined ? { title: body.title } : {}),
@@ -783,6 +809,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
       createdAt: current.createdAt,
       createdBy: current.createdBy,
       revision: current.revision,
+      workdir: String(current.workdir || ''),
     };
     const normalized = normalizeSchedulerTask(merged, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));

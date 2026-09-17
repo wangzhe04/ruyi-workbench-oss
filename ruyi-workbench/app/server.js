@@ -23762,7 +23762,18 @@ function inferToolResources(name, args, bridge, cwd, tier) {
 //   · onSchedulerNotice(row) —— 需要让用户知道、但不是 reminder 的三件事:
 //                            row.kind ∈ 'skipped'(错过且不补) | 'tripped'(连败熔断) | 'needs_you'
 //                            | 'unknown'(崩溃后结果未知);另带 taskId/title/occurrenceKey/mode/at。
-// 两个口都是【旁路】:未填充时调用是无操作,填充方抛错也绝不反噬触发本身(13s 里整段 try 包住)。
+//   · prepareThread(row)  —— 127 波 2-ter(45 号文 §2-quinquies):prompt 载荷【新开】线程时,13s 在
+//                            createSession 之后、saveSession 之前调一次。row = { session, task, config }。
+//                            填充方(13t)只改内存里的两份对象:① task.target.tier 非空 → 经管家那一条
+//                            applyThreadTier 给 session 写 engineRoute(S-a,空就一个字都不碰);
+//                            ② stewardEnabledV1 === true → session.cwd 换成这条任务自己固定的工作文件夹,
+//                            首次派生时把路径记进服务端自有字段 task.workdir(S-b)。返回
+//                            { tier, workdir:'reused'|'derived'|'fallback'|'', fallbackReason? },
+//                            13s 据此决定要不要补写任务表、记一条回落日志。13s 直调 13k 会把 13k 拉进环,
+//                            所以走这个口(13t → 13k/06i 都是既有的后向边)。
+// 口都是【旁路】:未填充时调用是无操作,填充方抛错也绝不反噬触发本身(13s 里整段 try 包住)——
+// prepareThread 未填充 = 这一次既不套档位也不换文件夹,与修前逐字节同路;填充方把两件各自包住,
+// 哪件出错哪件回落,不连累另一件。
 const SchedulerHooks = {};
 
 // ── 值域与上限(单一事实源;13s 与 API 都引用这里,不各写一份字面量)────────────────────────────
@@ -23775,6 +23786,13 @@ const SCHEDULER_FIRE_MODES = Object.freeze(['ontime', 'late', 'manual']);
 const SCHEDULER_PHASES = Object.freeze(['registered', 'dispatched', 'running', 'reconciled']);
 const SCHEDULER_OUTCOMES = Object.freeze(['succeeded', 'failed', 'needs_you', 'skipped', 'unknown']);
 const SCHEDULER_CREATORS = Object.freeze(['user', 'steward']);
+// 127 波 2-ter S-a:定时任务开的线程用哪一档模型。**与 13f steward_thread_new 的 tier 枚举是同一份值域**,
+// 这里抄字面量而不引用 —— 本文件零引用(见文件头),而 13f 在 manifest 里排在后面。两处相等由
+// unit/scheduler-core.test.js 的 ⑧ 段对真产物逐项钉住(13f 那一份从 buildOpenAiTools 的管家工具表里取)。
+const SCHEDULER_THREAD_TIERS = Object.freeze(['strong', 'fast']);
+// 127 波 2-ter S-b:task.workdir(服务端自有,见 normalizeSchedulerTask 的 ⑦ 段)的长度上限,
+// 与 01-config normalizeWorkspacePathString 截断工作区路径的 1000 同一个数。
+const SCHEDULER_WORKDIR_CHARS = 1000;
 
 // 29 号文 §10 红线第三条:任务载荷里不得出现本地命令、密钥、环境变量与数据目录。
 // 判据是【键名】而不是值:载荷是模型能写的地方,「值看起来没问题」不是安全边界。深扫整棵载荷树,
@@ -24255,8 +24273,11 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     };
   }
 
-  // ③ 目标。**本刀不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
-  // engineRoute 留给 127 波。新线程的工作目录由 createSession 的既有回落决定(defaultWorkspace)。
+  // ③ 目标。**仍然不接受 cwd / engineRoute**:cwd 在禁止键表里(绕过工作区表的唯一入口),
+  // engineRoute 不给自由填 —— 127 波 2-ter 接上的是【档位】target.tier(S-a,值域 SCHEDULER_THREAD_TIERS,
+  // 到点经管家那一条 applyThreadTier 落成 engineRoute);工作目录也不给填,改成每条任务在 Ruyi 根下
+  // 自己固定一个文件夹(S-b,见 ⑦ 段的 workdir 与 13t schedulerPrepareThread)。管家关着时新线程的
+  // 工作目录仍由 createSession 的既有回落决定(defaultWorkspace)。
   const rawTarget = (raw.target && typeof raw.target === 'object' && !Array.isArray(raw.target)) ? raw.target : {};
   const targetForbidden = schedulerFindForbiddenKey(rawTarget, 0);
   if (targetForbidden) {
@@ -24270,6 +24291,13 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
       return schedulerFail('invalid_request', 'target.sessionId is required when target.mode is existing-session');
     }
     target.sessionId = sessionId;
+  }
+  // 档位只在「prompt 载荷 + 每次开新线程」时有意义:既有线程有它自己的引擎,reminder 不起回合。
+  // 其余情形【静默丢】,空值与值域外的值同样不落字段 —— 不带 tier 的任务与修前逐字节同形
+  // (判据 ③:没有 tier 键,13s 也就不会去碰 engineRoute)。与权限档「越界回落跟随全局」同一口径。
+  const wantedTier = schedulerCleanLine(rawTarget.tier, 16);
+  if (payloadKind === 'prompt' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
+    target.tier = wantedTier;
   }
   // reminder 不起回合,目标无意义 —— 归一成 new-session 但永远不会被用到(13s 的 reminder 分支不看它)。
 
@@ -24330,6 +24358,14 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     policy,
     state,
   };
+  // ⑦ 这条任务自己固定的工作文件夹(127 波 2-ter S-b)。**服务端自有字段**:只由 13t 的 prepareThread
+  //    在首次触发时写进内存副本,这里负责把它【从盘上 / 从 current】原样带过去(装载与 PATCH 都经本函数)。
+  //    **一切外部入参入口都必须在喂进来之前剥掉它**:HTTP 新建(13s)剥 body.workdir、PATCH 只合并
+  //    白名单键、管家工具(13t)逐字段构造 —— 模型与 API 调用方永远写不进来。它不是 cwd 的另一个名字:
+  //    到点时 13t 仍要拿工作区候选表核一遍(不在表里就重新派生),所以盘上被人手改过也越不过那张表。
+  //    空值不落字段:管家关着、或还没触发过的任务与修前逐字节同形。
+  const workdir = schedulerCleanLine(raw.workdir, SCHEDULER_WORKDIR_CHARS);
+  if (workdir) task.workdir = workdir;
   return { ok: true, task };
 }
 
@@ -39780,6 +39816,9 @@ const MCP_TOOLS = [
           },
         },
         permissionMode: { type: 'string', description: '可选,这条任务跑回合时的权限档(天花板 = 全局档,永不含 bypass;越界或省略即跟随全局默认档)。' },
+        // 127 波 2-ter S-a(45 号文 §2-quinquies):与 steward_thread_new 的 tier 同一个枚举(06j SCHEDULER_THREAD_TIERS
+        // 抄了一份字面量,unit/scheduler-core ⑧ 钉着两处相等)。缺省【不是】strong —— 省略 = 跟随全局,与修前逐字节同。
+        tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,只对 prompt 载荷 + 每次开新线程有意义(reminder、existing-session 会被忽略)。到点开的线程用哪一档模型,两档具体是哪个端点/模型由用户在设置里定、你改不了;用户点名「用快的/用 DeepSeek 跑」而那一档正好配成它时就选那一档。省略 = 跟随全局主端点(与 steward_thread_new 不同,这里不默认 strong);那一档没配也跟随全局。已经建好的任务你改不了档位,要改就如实告诉用户。每条 prompt 任务开的线程都在 Ruyi 根下有这条任务自己固定的工作文件夹(第一次触发时建、之后复用),不与别的线程抢同一个文件夹,也不接受你指定路径。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },
@@ -53769,7 +53808,26 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       session.launchedBy = 'steward';
       session.createdBy = 'steward';
       session.titleSource = 'steward';
+      // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
+      // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
+      // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
+      // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
+      // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
+      // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
+      // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
+      const workdirBefore = String(task.workdir || '');
+      const prepared = await schedulerNotify('prepareThread', { session, task, config });
+      // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
+      // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
+      if (prepared && prepared.workdir === 'fallback') {
+        try {
+          logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
+        } catch { /* 观测不反噬触发 */ }
+      }
       await saveSession(session);
+      // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
+      // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
+      if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
     }
     sessionId = session.id;
     await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
@@ -53792,6 +53850,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       }
     };
     let timedOut = false;
+    // 已知债(127 波 2-ter 登记,不在本刀修):回合在仲裁器里等锁/等并发位时,这里的 await 一直挂着,
+    // schedulerRuntime.ticking 也就一直是 true —— 整个调度器跟着停摆(别的任务到点也不触发);而超时
+    // 计时器调的 stopSession 只认活回合,【排队中】的那一条不会被出队。S-b 让定时线程不再与
+    // defaultWorkspace 上的手工线程抢同一把锁,大幅缓解但没有根治(并发位满 / 预算触顶仍会这样等)。
     const timer = setTimeout(() => {
       timedOut = true;
       try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
@@ -54055,7 +54117,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
       return send(res, apiFailure('scheduler.capacity_exceeded', { max: SCHEDULER_LIMITS.maxTasks },
         'at most ' + SCHEDULER_LIMITS.maxTasks + ' scheduler tasks', 409));
     }
-    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0 }, schedulerClockNow());
+    // workdir 是服务端自有字段(127 波 2-ter S-b,见 06j ⑦ 段):新建时一律剥掉,调用方写不进来。
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
     normalized.task.id = makeId('sch');
     schedulerRuntime.tasks.push(normalized.task);
@@ -54075,6 +54138,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
     const current = schedulerRuntime.tasks[index];
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
+    // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
+    // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
     const merged = {
       ...current,
       ...(body.title !== undefined ? { title: body.title } : {}),
@@ -54088,6 +54153,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
       createdAt: current.createdAt,
       createdBy: current.createdBy,
       revision: current.revision,
+      workdir: String(current.workdir || ''),
     };
     const normalized = normalizeSchedulerTask(merged, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
@@ -54242,11 +54308,16 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     return stewardFail('scheduler.capacity_exceeded',
       `定时任务最多 ${SCHEDULER_LIMITS.maxTasks} 条,先删掉几条再来`, { max: SCHEDULER_LIMITS.maxTasks });
   }
+  // 127 波 2-ter S-a:tier 是与 permissionMode 平级的顶层入参(与 steward_thread_new 同一个参数名、同一个
+  // 枚举),落进 target.tier —— 值域与「只在 prompt + new-session 时留下」由 06j 判。args.target 里自带的
+  // tier 也认(顶层给了就以顶层为准)。workdir 不在这张逐字段清单里:服务端自有字段,模型写不进来。
+  const rawTarget = (args.target && typeof args.target === 'object' && !Array.isArray(args.target)) ? args.target : null;
+  const target = args.tier !== undefined ? { ...(rawTarget || {}), tier: args.tier } : args.target;
   const normalized = normalizeSchedulerTask({
     title: args.title,
     schedule: args.schedule,
     payload: args.payload,
-    target: args.target,
+    target,
     autonomy: { permissionMode: args.permissionMode },
     createdBy: 'steward',
     id: '',
@@ -54259,14 +54330,15 @@ async function stewardImplScheduleCreate(args, ctx, config) {
   schedulerEnsureTimer();
   schedulerEmitChanged(normalized.task.id, 'created', '');
   const row = schedulerToolRow(normalized.task);
+  const tier = String(normalized.task.target.tier || '');
   stewardAppendDecision({
     tool: 'steward_schedule_create',
-    args: { id: row.id, title: row.title, scheduleKind: normalized.task.schedule.kind, payloadKind: row.payloadKind },
+    args: { id: row.id, title: row.title, scheduleKind: normalized.task.schedule.kind, payloadKind: row.payloadKind, ...(tier ? { tier } : {}) },
     targetSessionId: '', permissionMode: String(normalized.task.autonomy.permissionMode || ''), mayAct: 'user',
     undoRef: { kind: 'schedule', id: row.id, prev: null },
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams };
+  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}) };
 }
 
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
@@ -54503,6 +54575,70 @@ async function schedulerCommitmentsSince(schedSinceFireSeq, schedNowMs) {
   return { upcoming, missed, needsYou, fireSeq };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 127 波 2-ter(45 号文 §2-ter,以 §2-quinquies 的改判为准):定时任务开线程时的两件事 ——
+// SchedulerHooks.prepareThread 的实现。13s 在 createSession 之后、saveSession 之前调它(契约见 06j 头注),
+// 本函数只改内存里的 session 与 task 两份对象,落盘由 13s 接着做。
+//
+// S-a 档位:task.target.tier 非空才动 —— 经 StewardHooks.applyThreadTier(= 13q stewardApplyThreadTier,
+//   steward_thread_new 用的【同一个】函数:那一档没配 → 不写 engineRoute、跟随全局;配了但端点已删 → 同样
+//   回落并记 steward_thread_model_fallback)。**空就一个字都不碰**:thread_new 不传 tier 时按 strong 套,
+//   这里照抄会让「没选档位的任务」悄悄换引擎,破判据 ③「不传 tier 与今天逐字节等价」。
+// S-b 工作文件夹:只在 stewardEnabledV1 === true 时做 —— 同文件夹写锁只在那时存在(10 的回合入口),
+//   管家关着时三件调度器 e2e 逐字节不变。
+//   · task.workdir 仍在工作区候选表里(stewardValidateCwd,与 thread_new 的 cwd 同一道校验)→ 复用;
+//     表里有、磁盘上被人删了 → 原地把这个空文件夹建回来再复用(路径本来就是这里派生、表里授权过的那一个;
+//     不建的话线程的工具全在一个不存在的目录里失败);
+//   · 否则(首次触发 / 用户把那一行从表里删了)→ 照 thread_new 省略 cwd 的既有行为派生:在 Ruyi 根下按
+//     任务标题开文件夹并登记进候选表(stewardDeriveThreadCwd,建目录与登记是一件事),路径记进 task.workdir。
+//     **按任务固定,不按次派生**:每日任务第二次触发不会长出 `-2` 目录、也不会再占一行候选表(上限 64 行,
+//     与管家线程共用 —— 表满时派生返回空,等锁问题就复发了);
+//   · 表满 / 根不可用 / 派生失败 / 意外异常 → session.cwd 保持 createSession 落的 defaultWorkspace,回
+//     workdir:'fallback' 让 13s 记一条日志,触发本身照跑。
+// 为什么住这里:13s 直调 13k 会把 13k 拉进环;13t → 13k / 06i / 00-boot 都是既有的后向边,零新增边。
+// ────────────────────────────────────────────────────────────────────────────
+async function schedulerPrepareThread(schedRow) {
+  const raw = (schedRow && typeof schedRow === 'object') ? schedRow : {};
+  const session = (raw.session && typeof raw.session === 'object') ? raw.session : null;
+  const task = (raw.task && typeof raw.task === 'object') ? raw.task : null;
+  const config = (raw.config && typeof raw.config === 'object') ? raw.config : {};
+  const outcome = { tier: '', workdir: '' };
+  if (!session || !task) return outcome;
+
+  // ── S-a ──
+  const wantedTier = String((task.target && task.target.tier) || '');
+  if (wantedTier) {
+    try {
+      const applied = StewardHooks.applyThreadTier(session, wantedTier, config);
+      outcome.tier = String((applied && applied.tier) || '');
+    } catch { /* 套不上 = 跟随全局;不连累下面的文件夹,也不反噬触发 */ }
+  }
+
+  // ── S-b ──
+  if (config.stewardEnabledV1 !== true) return outcome;
+  const fallback = reason => ({ ...outcome, workdir: 'fallback', fallbackReason: reason });
+  try {
+    const kept = String(task.workdir || '');
+    if (kept) {
+      const check = stewardValidateCwd(kept, config);
+      if (check.ok && check.cwd) {
+        await fsp.mkdir(check.cwd, { recursive: true });   // 已存在 = 无操作
+        session.cwd = check.cwd;
+        return { ...outcome, workdir: 'reused' };
+      }
+    }
+    if (stewardWorkspaceTableFull(config)) return fallback('table_full');
+    if (!stewardCanonWorkspacePath(config.stewardWorkspaceRoot)) return fallback('no_root');
+    const derived = await stewardDeriveThreadCwd(task.title, session.id, config);
+    if (!derived) return fallback('derive_failed');
+    session.cwd = derived;
+    task.workdir = derived;
+    return { ...outcome, workdir: 'derived' };
+  } catch {
+    return fallback('error');
+  }
+}
+
 // ── 延迟绑定注册(先例:13g / 13h 各自往 StewardHooks 上填自己那一份)────────────────────────
 // 六个工具沿 13g 的 stewardToolHandler 门控壳(开关 -> 身份 -> 实现 -> 异常兜底);12-tool-dispatch
 // 的 handler 仍然只写一行 `StewardHooks.<键>(args, ctx)`,与既有 27 个逐字同型。
@@ -54514,11 +54650,13 @@ Object.assign(StewardHooks, {
   scheduleRunNow: stewardToolHandler('steward_schedule_run_now', stewardImplScheduleRunNow),
   scheduleDelete: stewardToolHandler('steward_schedule_delete', stewardImplScheduleDelete),
 });
-// 06j 的两个旁路口(M1 只调用、不实现)在这里落地;第三个键是 13q 的承诺三项读口。
+// 06j 的两个旁路口(M1 只调用、不实现)在这里落地;第三个键是 13q 的承诺三项读口;
+// 第四个键是 127 波 2-ter 的开线程前置(档位 + 任务自己的工作文件夹),消费者是 13s 的触发分支。
 Object.assign(SchedulerHooks, {
   onReminderDue: schedulerOnReminderDue,
   onSchedulerNotice: schedulerOnSchedulerNotice,
   commitmentsSince: schedulerCommitmentsSince,
+  prepareThread: schedulerPrepareThread,
 });
 
 async function main() {
@@ -55221,10 +55359,16 @@ module.exports = {
   SCHEDULER_DEFAULT_POLICY,
   SCHEDULER_DESCRIBE_KEYS,
   SCHEDULER_DOW_KEYS,
+  // 127 波 2-ter S-a:档位值域 —— exposed for unit/scheduler-core ⑧ 与 13f steward_thread_new 枚举的相等锁。
+  SCHEDULER_THREAD_TIERS,
   // 第 123 波 M1 §3.2/§3.4:调度器生命周期与假时钟 —— exposed for e2e 直测与 14 的 boot 起停。
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 127 波 2-ter S-b:六条路由的处理函数本体 —— exposed for scheduler-steward.e2e.js 在进程内挂一个 http 壳直测
+  //   「HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份」(workdir 只在管家开着且真触发过之后才有,
+  //   而那件是进程内夹具;鉴权表是另一件事,由 scheduler-api.e2e.js 经真服务钉着)。
+  handleSchedulerApiRoutes,
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
   SchedulerHooks,

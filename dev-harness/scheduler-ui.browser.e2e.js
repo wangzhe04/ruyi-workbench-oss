@@ -17,6 +17,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   C J11 —— 崩溃钩子（WCW_SCHEDULER_CRASH_AT=after-register）让服务在登记之后死掉，重启后
 //     那一条的徽标是「结果未知，先核对」，**且逐字不等于「成功」那一句**；
 //   D J10 —— 错过一个时点之后重启，补跑那一次的徽标带「补跑」，**且不是「准时」**。
+//   E 127 波 2-ter S-a —— 新建表单的档位下拉只在「跑一个回合 + 每次开新线程」时出现；真表单提交选「快速模型」
+//     → 服务端那一份 target.tier=fast，留「跟随全局」→ target 里没有 tier 键。
 //
 // 反向（已本机独立跑一遍，先破坏 → 看真红 → 还原；不在本文件里自动做，理由同 quiet-card.browser）：
 //   把 steward-settings.js 的 scheduleResultBadge 里 SCHEDULE_OUTCOME_KEYS 那一次查表改成恒取
@@ -411,6 +413,63 @@ try {
     `D2 J10 界面侧：徽标原文带「${zh['scheduler.mode.late']}」（实得「${rowL.badge}」）`);
   ok(!String(rowL.badge).includes(zh['scheduler.mode.ontime']),
     `D3 J10 界面侧：**不冒充**「${zh['scheduler.mode.ontime']}」（实得「${rowL.badge}」）`);
+
+  /* ═════════ E 127 波 2-ter S-a：新建表单的档位下拉（真表单、真提交，读服务端落盘的那一份）═════════ */
+  // 放在最后：前面 A–D 数的是行数与角标，这里多建的两条不能挤进那些计数里。
+  const formState = `(() => {
+    const block = document.getElementById('cfgStewardScheduleTierBlock');
+    const select = document.getElementById('cfgStewardScheduleTier');
+    return { hidden: block ? block.hidden : null, options: select ? [...select.options].map(o => o.value) : [],
+      label: (block && block.querySelector('label')) ? block.querySelector('label').textContent : '' };
+  })()`;
+  const setField = (id, value) => `(() => {
+    const node = document.getElementById(${JSON.stringify(id)});
+    if (!node) return false;
+    node.value = ${JSON.stringify(value)};
+    node.dispatchEvent(new Event('change', { bubbles: true }));
+    return node.value === ${JSON.stringify(value)};
+  })()`;
+  ok(Boolean(await cdp.evaluate(`(() => {
+    const form = document.getElementById('cfgStewardScheduleForm');
+    if (form && form.hidden) document.getElementById('cfgStewardScheduleNewBtn').click();
+    return form && !form.hidden;
+  })()`)), 'E0 点「新建」打开表单');
+  await cdp.evaluate(setField('cfgStewardSchedulePayloadKind', 'reminder'));
+  const eReminder = await cdp.evaluate(formState);
+  await cdp.evaluate(setField('cfgStewardSchedulePayloadKind', 'prompt'));
+  await cdp.evaluate(setField('cfgStewardScheduleTarget', 'new-session'));
+  const ePrompt = await cdp.evaluate(formState);
+  await cdp.evaluate(setField('cfgStewardScheduleTarget', 'existing-session'));
+  const eExisting = await cdp.evaluate(formState);
+  await cdp.evaluate(setField('cfgStewardScheduleTarget', 'new-session'));
+  ok(eReminder.hidden === true && ePrompt.hidden === false && eExisting.hidden === true,
+    `E1 档位只在「跑一个回合 + 每次开新线程」时出现（实得 reminder=${eReminder.hidden} prompt/new=${ePrompt.hidden} existing=${eExisting.hidden}）`);
+  ok(JSON.stringify(ePrompt.options) === JSON.stringify(['', 'strong', 'fast']) && ePrompt.label === zh['settings.steward.schedule.form.tier'],
+    `E2 三个选项（跟随全局 / strong / fast）与标签走目录（实得 ${JSON.stringify(ePrompt.options)}「${ePrompt.label}」）`);
+  const submitWith = async (title, tier) => {
+    await cdp.evaluate(`(() => {
+      const form = document.getElementById('cfgStewardScheduleForm');
+      if (form && form.hidden) document.getElementById('cfgStewardScheduleNewBtn').click();
+      return true;
+    })()`);
+    await cdp.evaluate(setField('cfgStewardScheduleTitle', title));
+    await cdp.evaluate(setField('cfgStewardScheduleKind', 'daily'));
+    await cdp.evaluate(setField('cfgStewardScheduleAt', '09:30'));
+    await cdp.evaluate(setField('cfgStewardSchedulePayloadKind', 'prompt'));
+    await cdp.evaluate(setField('cfgStewardScheduleTarget', 'new-session'));
+    await cdp.evaluate(setField('cfgStewardScheduleText', title + '：按计划做一次'));
+    await cdp.evaluate(setField('cfgStewardScheduleTier', tier));
+    await cdp.evaluate(`(() => { document.getElementById('cfgStewardScheduleSubmitBtn').click(); return true; })()`);
+    const listed = await waitForHttp(appPort, 'GET', '/api/scheduler/tasks',
+      result => ((result.json && result.json.tasks) || []).some(item => item.title === title), token);
+    return listed ? (listed.json.tasks.find(item => item.title === title) || null) : null;
+  };
+  const fastRow = await submitWith('表单选了快档', 'fast');
+  ok(Boolean(fastRow) && fastRow.target && fastRow.target.mode === 'new-session' && fastRow.target.tier === 'fast',
+    `E3 表单选「简单任务 · 快速模型」提交 → 服务端那一份 target.tier=fast（实得 ${JSON.stringify(fastRow && fastRow.target)}）`);
+  const plainRow = await submitWith('表单跟随全局', '');
+  ok(Boolean(plainRow) && JSON.stringify(plainRow.target) === '{"mode":"new-session"}',
+    `E4 表单留「跟随全局主端点」→ target 里没有 tier 键（与修前逐字节同形；实得 ${JSON.stringify(plainRow && plainRow.target)}）`);
 
   const shot = path.join(shotDir, 'scheduler-ui-final.png');
   fs.writeFileSync(shot, Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));

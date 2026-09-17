@@ -977,6 +977,9 @@ export function createStewardSettingsDomain({
     const existing = isPrompt && String((byId('cfgStewardScheduleTarget') || {}).value || '') === 'existing-session';
     const sessionBlock = byId('cfgStewardScheduleSessionBlock');
     if (sessionBlock) sessionBlock.hidden = !existing;
+    // 127 波 2-ter S-a：档位只对「开新线程」有意义（既有线程有它自己的引擎）——与服务端 06j 同一口径。
+    const tierBlock = byId('cfgStewardScheduleTierBlock');
+    if (tierBlock) tierBlock.hidden = !(isPrompt && !existing);
     return kind;
   }
   // 「哪一条线程」的候选来自左栏已经取回来的那一份（GET /api/missions），不裸发第二份请求。
@@ -1024,6 +1027,9 @@ export function createStewardSettingsDomain({
       body.target = mode === 'existing-session'
         ? { mode, sessionId: String((byId('cfgStewardScheduleSessionId') || {}).value || '') }
         : { mode };
+      // 选了档位才带 tier；「跟随全局」不落键（与不传 tier 的任务逐字节同形）。
+      const tier = mode === 'existing-session' ? '' : String((byId('cfgStewardScheduleTier') || {}).value || '');
+      if (tier) body.target.tier = tier;
       const permission = String((byId('cfgStewardSchedulePermission') || {}).value || '');
       if (permission) body.autonomy = { permissionMode: permission };
     }

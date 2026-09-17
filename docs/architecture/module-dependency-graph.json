@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 53,
-    "providedSymbols": 2357,
-    "requiredSymbols": 2523,
+    "providedSymbols": 2360,
+    "requiredSymbols": 2530,
     "edges": 420,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -7338,6 +7338,8 @@
         "SCHEDULER_TARGET_MODES",
         "SCHEDULER_TEXT_LF",
         "SCHEDULER_TEXT_SPACE",
+        "SCHEDULER_THREAD_TIERS",
+        "SCHEDULER_WORKDIR_CHARS",
         "SchedulerHooks",
         "describeSchedule",
         "missedOccurrence",
@@ -26490,17 +26492,17 @@
             "call"
           ],
           "lines": [
-            728,
-            748,
-            750,
-            754,
-            768,
-            770,
-            788,
-            809,
-            823,
-            825,
-            828
+            751,
+            771,
+            773,
+            778,
+            792,
+            794,
+            815,
+            836,
+            850,
+            852,
+            855
           ]
         },
         {
@@ -26537,12 +26539,12 @@
             "call"
           ],
           "lines": [
-            738,
-            760,
-            801,
-            816,
-            840,
-            856
+            761,
+            784,
+            828,
+            843,
+            867,
+            883
           ]
         },
         {
@@ -26553,7 +26555,7 @@
           ],
           "lines": [
             410,
-            755
+            779
           ]
         },
         {
@@ -26563,7 +26565,7 @@
             "call"
           ],
           "lines": [
-            533
+            556
           ]
         },
         {
@@ -26619,7 +26621,7 @@
             "call"
           ],
           "lines": [
-            846
+            873
           ]
         },
         {
@@ -26650,7 +26652,7 @@
           ],
           "lines": [
             436,
-            726
+            749
           ]
         },
         {
@@ -26660,8 +26662,8 @@
             "call"
           ],
           "lines": [
-            748,
-            770
+            771,
+            794
           ]
         },
         {
@@ -26671,23 +26673,23 @@
             "call"
           ],
           "lines": [
-            728,
-            738,
-            748,
-            750,
-            754,
-            760,
-            768,
-            770,
-            788,
-            801,
-            809,
-            816,
-            823,
-            825,
+            751,
+            761,
+            771,
+            773,
+            778,
+            784,
+            792,
+            794,
+            815,
             828,
-            840,
-            856
+            836,
+            843,
+            850,
+            852,
+            855,
+            867,
+            883
           ]
         },
         {
@@ -26727,7 +26729,7 @@
             "call"
           ],
           "lines": [
-            467
+            483
           ]
         },
         {
@@ -26737,7 +26739,7 @@
             "call"
           ],
           "lines": [
-            526
+            549
           ]
         },
         {
@@ -26749,8 +26751,9 @@
           "lines": [
             81,
             153,
-            608,
-            641
+            480,
+            631,
+            664
           ]
         },
         {
@@ -26760,7 +26763,7 @@
             "call"
           ],
           "lines": [
-            492
+            515
           ]
         },
         {
@@ -26770,7 +26773,7 @@
             "call"
           ],
           "lines": [
-            668
+            691
           ]
         },
         {
@@ -26793,7 +26796,7 @@
             325,
             358,
             400,
-            551
+            574
           ]
         },
         {
@@ -26804,8 +26807,8 @@
           ],
           "lines": [
             245,
-            753,
-            787
+            777,
+            814
           ]
         },
         {
@@ -26817,7 +26820,7 @@
           "lines": [
             300,
             387,
-            835
+            862
           ]
         },
         {
@@ -26831,10 +26834,10 @@
             74,
             249,
             391,
-            545,
-            749,
-            750,
-            751
+            568,
+            772,
+            773,
+            774
           ]
         },
         {
@@ -26864,8 +26867,8 @@
             "read"
           ],
           "lines": [
-            478,
-            510
+            497,
+            533
           ]
         },
         {
@@ -26875,7 +26878,7 @@
             "call"
           ],
           "lines": [
-            497
+            520
           ]
         }
       ]
@@ -26894,6 +26897,7 @@
         "schedulerInboxAppend",
         "schedulerOnReminderDue",
         "schedulerOnSchedulerNotice",
+        "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
         "schedulerToolRow",
@@ -26908,12 +26912,22 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            395
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
           ],
           "lines": [
-            92
+            97
           ]
         },
         {
@@ -26923,8 +26937,8 @@
             "call"
           ],
           "lines": [
-            231,
-            237
+            237,
+            243
           ]
         },
         {
@@ -26934,8 +26948,8 @@
             "read"
           ],
           "lines": [
-            248,
-            250
+            254,
+            256
           ]
         },
         {
@@ -26945,8 +26959,8 @@
             "call"
           ],
           "lines": [
-            218,
-            316
+            224,
+            322
           ]
         },
         {
@@ -26956,7 +26970,8 @@
             "read"
           ],
           "lines": [
-            345
+            382,
+            415
           ]
         },
         {
@@ -26966,12 +26981,12 @@
             "call"
           ],
           "lines": [
-            121,
-            155,
-            189,
-            248,
-            249,
-            283
+            127,
+            161,
+            195,
+            254,
+            255,
+            289
           ]
         },
         {
@@ -26991,7 +27006,7 @@
             "call"
           ],
           "lines": [
-            81
+            86
           ]
         },
         {
@@ -27001,7 +27016,7 @@
             "call"
           ],
           "lines": [
-            164
+            170
           ]
         },
         {
@@ -27022,7 +27037,7 @@
             "read"
           ],
           "lines": [
-            354
+            425
           ]
         },
         {
@@ -27032,12 +27047,12 @@
             "call"
           ],
           "lines": [
-            346,
-            347,
-            348,
-            349,
-            350,
-            351
+            416,
+            417,
+            418,
+            419,
+            420,
+            421
           ]
         },
         {
@@ -27047,7 +27062,7 @@
             "call"
           ],
           "lines": [
-            235
+            241
           ]
         },
         {
@@ -27057,8 +27072,8 @@
             "call"
           ],
           "lines": [
-            248,
-            284
+            254,
+            290
           ]
         },
         {
@@ -27068,7 +27083,7 @@
             "call"
           ],
           "lines": [
-            236
+            242
           ]
         },
         {
@@ -27078,8 +27093,8 @@
             "call"
           ],
           "lines": [
-            254,
-            289
+            260,
+            295
           ]
         },
         {
@@ -27089,7 +27104,7 @@
             "call"
           ],
           "lines": [
-            220
+            226
           ]
         },
         {
@@ -27099,10 +27114,10 @@
             "read"
           ],
           "lines": [
-            221,
-            223,
-            236,
-            237
+            227,
+            229,
+            242,
+            243
           ]
         },
         {
@@ -27112,10 +27127,10 @@
             "call"
           ],
           "lines": [
-            98,
-            133,
-            169,
-            195
+            104,
+            139,
+            175,
+            201
           ]
         },
         {
@@ -27128,13 +27143,33 @@
             37,
             71,
             78,
-            91,
-            121,
-            155,
-            158,
+            96,
+            127,
             161,
-            182,
-            189
+            164,
+            167,
+            188,
+            195
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardCanonWorkspacePath",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            401
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardDeriveThreadCwd",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            402
           ]
         },
         {
@@ -27145,7 +27180,27 @@
           ],
           "lines": [
             70,
-            181
+            187
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardValidateCwd",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            393
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardWorkspaceTableFull",
+          "kinds": [
+            "call"
+          ],
+          "lines": [
+            400
           ]
         },
         {
@@ -27155,10 +27210,10 @@
             "call"
           ],
           "lines": [
-            90,
-            129,
-            163,
-            319
+            95,
+            135,
+            169,
+            325
           ]
         },
         {
@@ -27168,9 +27223,9 @@
             "call"
           ],
           "lines": [
-            96,
-            132,
-            194
+            101,
+            138,
+            200
           ]
         },
         {
@@ -27181,7 +27236,7 @@
           ],
           "lines": [
             36,
-            317
+            323
           ]
         },
         {
@@ -27191,9 +27246,9 @@
             "call"
           ],
           "lines": [
-            95,
-            131,
-            193
+            100,
+            137,
+            199
           ]
         },
         {
@@ -27203,7 +27258,7 @@
             "call"
           ],
           "lines": [
-            167
+            173
           ]
         },
         {
@@ -27214,11 +27269,11 @@
           ],
           "lines": [
             76,
-            111,
-            119,
-            153,
-            187,
-            318
+            117,
+            125,
+            159,
+            193,
+            324
           ]
         },
         {
@@ -27228,7 +27283,7 @@
             "call"
           ],
           "lines": [
-            331
+            337
           ]
         },
         {
@@ -27241,14 +27296,14 @@
             62,
             63,
             77,
-            93,
-            112,
-            160,
-            164,
-            165,
-            168,
-            191,
-            322
+            98,
+            118,
+            166,
+            170,
+            171,
+            174,
+            197,
+            328
           ]
         },
         {
@@ -27258,9 +27313,9 @@
             "call"
           ],
           "lines": [
-            94,
-            130,
-            192
+            99,
+            136,
+            198
           ]
         }
       ]
@@ -30962,12 +31017,22 @@
         },
         {
           "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_THREAD_TIERS",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            702
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
           "symbol": "SchedulerHooks",
           "kinds": [
             "read"
           ],
           "lines": [
-            707
+            713
           ]
         },
         {
@@ -32779,7 +32844,17 @@
             "read"
           ],
           "lines": [
-            708
+            714
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "handleSchedulerApiRoutes",
+          "kinds": [
+            "read"
+          ],
+          "lines": [
+            710
           ]
         },
         {
@@ -32789,7 +32864,7 @@
             "read"
           ],
           "lines": [
-            704
+            706
           ]
         },
         {
@@ -32799,7 +32874,7 @@
             "read"
           ],
           "lines": [
-            702
+            704
           ]
         },
         {
@@ -32809,7 +32884,7 @@
             "read"
           ],
           "lines": [
-            703
+            705
           ]
         }
       ]
@@ -37385,6 +37460,7 @@
       "from": "13t-steward-schedule.js",
       "to": "00-boot.js",
       "symbols": [
+        "fsp",
         "makeId",
         "nowIso",
         "text"
@@ -37454,7 +37530,11 @@
       "from": "13t-steward-schedule.js",
       "to": "13k-steward-threads.js",
       "symbols": [
-        "stewardUnattendedByModel"
+        "stewardCanonWorkspacePath",
+        "stewardDeriveThreadCwd",
+        "stewardUnattendedByModel",
+        "stewardValidateCwd",
+        "stewardWorkspaceTableFull"
       ],
       "direction": "backward"
     },
@@ -37966,6 +38046,7 @@
         "SCHEDULER_PHASES",
         "SCHEDULER_SCHEDULE_KINDS",
         "SCHEDULER_TARGET_MODES",
+        "SCHEDULER_THREAD_TIERS",
         "SchedulerHooks",
         "describeSchedule",
         "missedOccurrence",
@@ -38273,6 +38354,7 @@
       "from": "14-main.js",
       "to": "13s-scheduler.js",
       "symbols": [
+        "handleSchedulerApiRoutes",
         "schedulerRuntimeSnapshot",
         "startScheduler",
         "stopScheduler"

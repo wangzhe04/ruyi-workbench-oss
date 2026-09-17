@@ -4595,6 +4595,8 @@
         "SCHEDULER_TARGET_MODES",
         "SCHEDULER_TEXT_LF",
         "SCHEDULER_TEXT_SPACE",
+        "SCHEDULER_THREAD_TIERS",
+        "SCHEDULER_WORKDIR_CHARS",
         "SchedulerHooks",
         "describeSchedule",
         "missedOccurrence",
@@ -16359,6 +16361,7 @@
         "schedulerInboxAppend",
         "schedulerOnReminderDue",
         "schedulerOnSchedulerNotice",
+        "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
         "schedulerToolRow",
@@ -16371,6 +16374,13 @@
         "stewardImplScheduleRunNow"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "makeId",
@@ -16513,7 +16523,35 @@
         },
         {
           "provider": "13k-steward-threads.js",
+          "symbol": "stewardCanonWorkspacePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardDeriveThreadCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
           "symbol": "stewardUnattendedByModel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardValidateCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardWorkspaceTableFull",
           "kinds": [
             "call"
           ]
@@ -19168,6 +19206,13 @@
         },
         {
           "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_THREAD_TIERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
           "symbol": "SchedulerHooks",
           "kinds": [
             "read"
@@ -20437,6 +20482,13 @@
         {
           "provider": "13q-steward-runner-turn.js",
           "symbol": "stewardVisitDigest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "handleSchedulerApiRoutes",
           "kinds": [
             "read"
           ]

@@ -15,6 +15,8 @@
 //   ⑥ describeSchedule:只回键与参数;中英各 7 句逐字(期望文案是本文件里的【显式表】,
 //      即交给 M2 的 locale 建议稿,不是对生产实现的镜像重写)
 //   ⑦ normalizeSchedulerTask:缺省 policy、bypass 回落、禁止键整条拒、上限钳位、target 校验
+//   ⑧ 127 波 2-ter:target.tier 值域与 13f 两处 tier 枚举逐项相等、只在 prompt + new-session 时留下、
+//      不带就没有这个键;服务端自有的 workdir 原样带过去、空不落键、清控制字符、截 1000 字
 //
 // 与既有 dev-harness/unit 件同款约定(见 steward-core.test.js):require server.js 前先把
 // WIN_CLAUDE_WORKBENCH_HOME / RUYI_HOME 覆盖到临时目录,防止污染真实数据根;PASS/FAIL 逐条打印,
@@ -312,6 +314,60 @@ const render = (described, lang) => TEXT[lang][described.key](described.params);
   }, now);
   ok(ctrl.ok === true && ctrl.task.title === 'ab c', '⑦ 标题里的控制字符被清掉(NUL 丢、TAB 折空格)');
   ok(normalizeSchedulerTask(null, now).ok === false && normalizeSchedulerTask('x', now).ok === false, '⑦ 非对象入参被拒');
+}
+
+/* ═══════════════════ ⑧ 127 波 2-ter:target.tier(S-a)与服务端自有的 workdir(S-b) ═══════════════════ */
+{
+  const now = at(2026, 5, 4, 8, 0);
+  const base = { title: 't', schedule: { kind: 'daily', at: '09:00' }, payload: { kind: 'prompt', text: 'x' } };
+  // 两处值域相等:06j 抄的字面量 vs 13f 里 steward_thread_new / steward_schedule_create 的 tier 枚举(真产物内省,
+  // 从管家会话能拿到的工具表里取 —— 不 grep 源码形状)。
+  const tools = srv.buildOpenAiTools({ subagentMaxPerTurn: 0 }, null, { stewardSession: true });
+  const enumOf = name => {
+    const tool = tools.find(item => item && item.function && item.function.name === name);
+    const tier = tool && tool.function.parameters && tool.function.parameters.properties && tool.function.parameters.properties.tier;
+    return tier && Array.isArray(tier.enum) ? tier.enum : null;
+  };
+  const tiers = Array.isArray(srv.SCHEDULER_THREAD_TIERS) ? [...srv.SCHEDULER_THREAD_TIERS] : null;
+  ok(tiers && JSON.stringify(tiers) === JSON.stringify(enumOf('steward_thread_new')),
+    '⑧ 06j SCHEDULER_THREAD_TIERS 与 13f steward_thread_new 的 tier 枚举逐项相等(实得 ' + JSON.stringify(tiers) + ' vs ' + JSON.stringify(enumOf('steward_thread_new')) + ')');
+  ok(tiers && JSON.stringify(tiers) === JSON.stringify(enumOf('steward_schedule_create')),
+    '⑧ steward_schedule_create 的 tier 枚举与之同一份(实得 ' + JSON.stringify(enumOf('steward_schedule_create')) + ')');
+  ok(Object.isFrozen(srv.SCHEDULER_THREAD_TIERS), '⑧ 值域常量是冻结的');
+
+  for (const tier of ['strong', 'fast']) {
+    const r = normalizeSchedulerTask({ ...base, target: { mode: 'new-session', tier } }, now);
+    ok(r.ok === true && r.task.target.tier === tier && JSON.stringify(Object.keys(r.task.target)) === '["mode","tier"]',
+      '⑧ prompt + new-session 带 tier:' + tier + ' -> 落进 target.tier(实得 ' + JSON.stringify(r.task && r.task.target) + ')');
+  }
+  const none = normalizeSchedulerTask({ ...base, target: { mode: 'new-session' } }, now);
+  ok(none.ok === true && !('tier' in none.task.target) && JSON.stringify(none.task.target) === '{"mode":"new-session"}',
+    '⑧ 判据 ③:不带 tier -> target 里【没有】tier 键(与修前逐字节同形;实得 ' + JSON.stringify(none.task && none.task.target) + ')');
+  const empty = normalizeSchedulerTask({ ...base, target: { mode: 'new-session', tier: '' } }, now);
+  ok(empty.ok === true && !('tier' in empty.task.target), '⑧ 空串 tier 不落字段');
+  const bogus = normalizeSchedulerTask({ ...base, target: { mode: 'new-session', tier: 'deepseek' } }, now);
+  ok(bogus.ok === true && !('tier' in bogus.task.target), '⑧ 值域外的 tier(deepseek)静默丢,不拒整条(与权限档越界回落同口径)');
+  const existingTier = normalizeSchedulerTask({ ...base, target: { mode: 'existing-session', sessionId: 'sess_abc123', tier: 'fast' } }, now);
+  ok(existingTier.ok === true && !('tier' in existingTier.task.target) && existingTier.task.target.sessionId === 'sess_abc123',
+    '⑧ 判据 ④:existing-session 带 tier -> 静默丢(既有线程有它自己的引擎;实得 ' + JSON.stringify(existingTier.task && existingTier.task.target) + ')');
+  const reminderTier = normalizeSchedulerTask({ ...base, payload: { kind: 'reminder', text: 'x' }, target: { mode: 'new-session', tier: 'fast' } }, now);
+  ok(reminderTier.ok === true && !('tier' in reminderTier.task.target), '⑧ reminder 载荷带 tier -> 静默丢(不起回合)');
+  const cwdStill = normalizeSchedulerTask({ ...base, target: { mode: 'new-session', tier: 'fast', cwd: 'C:\\somewhere' } }, now);
+  ok(cwdStill.ok === false && cwdStill.code === 'payload_forbidden_key', '⑧ 判据 ④:带了 tier 的 target 仍然拒 cwd(禁止键表不动)');
+  ok(JSON.stringify([...SCHEDULER_FORBIDDEN_PAYLOAD_KEYS]) === JSON.stringify(['localCommand', 'env', 'apiKey', 'dataRoot', 'cwd']),
+    '⑧ 禁止键表逐字没动(workdir 不是靠禁止键挡的,是靠入口剥离 + 到点再核候选表)');
+
+  // workdir:服务端自有字段。本函数只负责把它原样带过去(装载 / PATCH 都经这里);入口剥离在 13s/13t,由
+  // scheduler-steward.e2e 的 W 段对真路由钉。
+  const kept = normalizeSchedulerTask({ ...base, workdir: 'C:\\Users\\me\\Ruyi\\巡检' }, now);
+  ok(kept.ok === true && kept.task.workdir === 'C:\\Users\\me\\Ruyi\\巡检', '⑧ 带着 workdir 的盘上任务 -> 原样带过去(实得 ' + JSON.stringify(kept.task && kept.task.workdir) + ')');
+  ok(!('workdir' in none.task), '⑧ 没有 workdir 的任务不落这个键(管家关着 / 还没触发过的任务与修前同形)');
+  const blank = normalizeSchedulerTask({ ...base, workdir: '   ' }, now);
+  ok(blank.ok === true && !('workdir' in blank.task), '⑧ 只有空白的 workdir 不落键');
+  const dirty = normalizeSchedulerTask({ ...base, workdir: 'C:\\a' + String.fromCharCode(0) + 'b' + String.fromCharCode(10) + 'c' }, now);
+  ok(dirty.ok === true && dirty.task.workdir === 'C:\\ab c', '⑧ workdir 里的控制字符同样清掉(实得 ' + JSON.stringify(dirty.task && dirty.task.workdir) + ')');
+  const long = normalizeSchedulerTask({ ...base, workdir: 'C:\\' + 'x'.repeat(2000) }, now);
+  ok(long.ok === true && long.task.workdir.length === 1000, '⑧ workdir 截到 1000 字(与工作区路径同一个上限;实得 ' + (long.task && long.task.workdir.length) + ')');
 }
 
 /* ═══════════════════ ③ DST 两向(TZ=America/New_York 子进程) ═══════════════════ */
