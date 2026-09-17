@@ -64,4 +64,41 @@ assert.ok(!indexHtml.includes('settings.asr') && !/id="[^"]*asr/i.test(indexHtml
 const bad = [...providersJs].findIndex(ch => { const code = ch.charCodeAt(0); return code < 32 && code !== 9 && code !== 10 && code !== 13; });
 assert.equal(bad, -1, 'provider-settings.js 含控制字符 @' + bad);
 
+// ⑥ 127-⑦ B-114c-①（45 号文 §4 ⑦ / §1.5）：输入框麦克风。
+//   ⑥a 真浏览器件的无头 Edge 启动参数【必须】带两个假媒体开关 —— §1.5 A 组实证：不加就是
+//      NotFoundError（拿不到设备），以后谁「顺手清理启动参数」都会把那件清成永远红，而且红得像产品坏了。
+//      判的是 spawn 浏览器那一个参数数组本身（不是文件里哪儿出现过这两个词），并点名文件。
+//   ⑥b 显示判据四件（asr 两字段／安全上下文／mediaDevices／webm-opus）、3 分钟上限、上传覆盖 content-type、
+//      零静态标记、模块引用的每个 composer.voice.* 键四份 locale 都能解析、模块零控制字符。
+// 反向：从 composer-voice.browser.e2e.js 的启动参数里删掉任一开关 → ⑥a 当场红并打出文件名与实得数组。
+const HARNESS = __dirname;
+const VOICE_E2E = 'composer-voice.browser.e2e.js';
+const voiceE2e = fs.readFileSync(path.join(HARNESS, VOICE_E2E), 'utf8');
+const browserSpawn = voiceE2e.match(/browser = cp\.spawn\(executable, \[([\s\S]*?)\], \{/);
+assert.ok(browserSpawn, VOICE_E2E + ': 找不到 `browser = cp.spawn(executable, [...]` 那一处启动参数数组（锁的扫描面失效）');
+const launchArgs = [...browserSpawn[1].matchAll(/'(--[^']+)'/g)].map(m => m[1]);
+assert.ok(launchArgs.includes('--headless=new') && launchArgs.length >= 8, VOICE_E2E + ': 启动参数数组读不全（实得 ' + JSON.stringify(launchArgs) + '）');
+for (const flag of ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']) {
+  assert.ok(launchArgs.includes(flag), VOICE_E2E + ' 的无头 Edge 启动参数缺 ' + flag + '（45 号文 §1.5：不加就是 NotFoundError）；实得 ' + JSON.stringify(launchArgs));
+}
+const voiceJs = fs.readFileSync(path.join(APP, 'public', 'js', 'composer-voice.js'), 'utf8');
+assert.match(voiceJs, /export const COMPOSER_VOICE_MIME = 'audio\/webm;codecs=opus';/, 'composer-voice: 唯一录制格式 webm/opus（§1.5：wav 录不了）');
+assert.match(voiceJs, /export const COMPOSER_VOICE_MAX_MS = 3 \* 60 \* 1000;/, 'composer-voice: 录满 3 分钟自动结束');
+assert.match(voiceJs, /String\(config\.asrProviderId \|\| ''\)\.trim\(\) \|\| !String\(config\.asrModel \|\| ''\)\.trim\(\)/, 'composer-voice: 显示判据含 asrProviderId && asrModel');
+assert.match(voiceJs, /env\.isSecureContext !== true/, 'composer-voice: 显示判据含安全上下文');
+assert.match(voiceJs, /nav\.mediaDevices/, 'composer-voice: 显示判据含 navigator.mediaDevices');
+assert.match(voiceJs, /Recorder\.isTypeSupported\(COMPOSER_VOICE_MIME\)/, 'composer-voice: 显示判据含 isTypeSupported(webm/opus)');
+assert.match(voiceJs, /headers: \{ 'content-type': COMPOSER_VOICE_UPLOAD_TYPE \}/, 'composer-voice: 上传覆盖 apiRaw 默认的 JSON content-type（否则 400 asr.content_type）');
+assert.ok(!/composerVoice|composer-voice/.test(indexHtml), 'index.html 零静态麦克风标记（未配置 DOM 零漂移）');
+const voiceKeys = [...new Set([...voiceJs.matchAll(/'(composer\.voice\.[a-zA-Z.]+)'/g)].map(m => m[1]))];
+const docsZh = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
+const docsEn = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'i18n', 'locales', 'en-US.json'), 'utf8'));
+assert.ok(voiceKeys.length >= 15, 'composer-voice 引用的 composer.voice.* 键扫得到（实得 ' + voiceKeys.length + '）');
+for (const [name, dict] of [['app zh-CN', zh], ['app en-US', en], ['docs zh-CN', docsZh], ['docs en-US', docsEn]]) {
+  const holes = voiceKeys.filter(k => typeof dict[k] !== 'string' || !dict[k]);
+  assert.deepEqual(holes, [], name + ' 缺 composer.voice.* 键');
+}
+const voiceBad = [...voiceJs].findIndex(ch => { const code = ch.charCodeAt(0); return code < 32 && code !== 9 && code !== 10; });
+assert.equal(voiceBad, -1, 'composer-voice.js 含控制字符／CR @' + voiceBad);
+
 console.log('ASR CONFIG UI STATIC E2E: ALL PASS');

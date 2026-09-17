@@ -650,7 +650,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      display:none,其余工具卡逐像素不变 → 下面这个终值。
 //   ⑥ 126-M02:管家记忆面的「已过期」标(.steward-memory-expired,views/steward-settings.css)——
 //      新增一条中性色 pill 规则,只在服务端算出 expired:true 时才渲染出这个元素,其余条目逐像素不变 -> 下面这个终值。
-const LEGACY_STYLES_SHA256 = '07031c43b3d64660af65702cdee19f294d6a4a8c762fbb10100db691a7006ef8';
+// 127-⑦ B-114c-① 续钉（前值 07031c43…）：零新增、零删除层（分组表一个字节没动），只改两个既有层 ——
+//   ① `css/components/chat-composer.css`：输入框麦克风 .composer-voice 一族（两个视角共用；空闲／录音
+//      危险色＋呼吸／转写中主色／失败危险色；reduced-motion 关动效），外加 ≤560px 下
+//      `.composer-box:has(> .composer-actions > .composer-voice)` 折成两行（390px 实测：胶囊里多这一枚
+//      输入框只剩 16px、录音态 0px）。节点只在语音识别配好时才由 JS 建，所以未配置时这些规则一条都命中不到；
+//   ② `css/views/steward-conversation.css`：`.steward-plus` 头注「附件／语音归后续波」改成事实（只改注释）。
+// 算法自证（沿用 117x-M2 的拦截法）：拦 fs.readFileSync 让本文件自己的 readLayerPayload() 去读 HEAD
+// （`ef3bd57`）的 git blob = 07031c43…，与被替换的旧值逐字相同；再按工作区算得下面这个值。
+// 反向验证：改 CSS 之后、重钉之前 frontend-domains D51 与 live-full-text F3 双红（实测）。
+const LEGACY_STYLES_SHA256 = 'f762f373b69b63984bfb6fff6936498c2f205b1f964e6544544eccfcbaa20045';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

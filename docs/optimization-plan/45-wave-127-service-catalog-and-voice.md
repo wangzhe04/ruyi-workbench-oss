@@ -831,3 +831,62 @@
 **插曲**：本刀实现途中实现 agent 撞上 API 会话额度被中断（停在「补单测」之前，工作树留 20 个文件的半成品、无测试在跑）；额度重置后原 agent 带着上下文续做，续做前先重读 diff 并扫控制字节（0）。
 
 **主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed、无 e2e 进程。逐行审 06j／13s／13t 的 diff，重点核了一处时序：13s 经 `schedulerNotify` 调异步的 `prepareThread`，`schedulerNotify` 返回 `Promise.resolve(hook(row))` 且 13s `await` 了它 —— 换档位、换文件夹一定发生在 `saveSession` 与起回合之前。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、26 个改动文件控制字节 0；unit scheduler-core 1/1；scheduler-steward 连跑两次 100/0、scheduler 51/0、scheduler-crash 67/0、scheduler-api 52/0、scheduler-ui.static 38/0、scheduler-ui.browser 39/0、thread-arbiter 103/0、steward-tools 185/0、steward-tools.static 113/0、steward-guardrails 193/0、steward-settings 73/0、steward-settings.static 102/0、i18n.static 7/0、facts.static 24/0、durable-state-inventory.static 6/0、steward-exempt-delegation 50/0、dom-smoke 53/0。**因为 W2 断言改在全量回归之后，主会话自己重做一次反向**：13t `prepareThread` 的 S-b 段改成直接返回 → rebuild → scheduler-steward 10 红，W2 实得「cwdKey 相同（`0c4cf2687820` vs 手工 `0c4cf2687820`）、手工未完时未 reconciled、arbiterWait 采样到 lock 256 次『等锁：同一个文件夹被「手工慢线程」占着』」；文件备份还原三件 sha256 OK、`build --check` 新鲜、复跑 100/0。
+
+### ⑦ B-114c-① · 麦克风回填（2026-09-17）
+
+**改了什么**（§2-quinquies「⑦ 落点定案」逐条落地；定案里的坐标开工前重核过：`app.js` 1264 行、最紧的行数锁 `steward-walkthrough.static:297` ≤1279；`steward-composer.js` I3/I4 在 `steward-conversation.static:269-271`；`onEngineConfigChanged` 在 `app.js:220`；i18n 重画口在 `app.js:602`；`mentionFile` 在 `file-browser.js:232-249`；`apiRaw` 在 `net.js:61-71`；管家壳 `+` 注释在 `steward-composer.js:376`）。**零 `src/` 改动**：
+
+- **新模块** `public/js/composer-voice.js`（工厂形，375 行）：
+  - 显示判据 `composerVoiceAvailable`（`:59`）＝`asrProviderId && asrModel`（trim 后非空）＋`isSecureContext === true`＋`navigator.mediaDevices.getUserMedia`＋`MediaRecorder.isTypeSupported('audio/webm;codecs=opus')`；**零静态标记**，`sync()`（`:354`）不满足就拆掉按钮与播报节点、满足才建（插在发送键前，播报节点挂同一容器末尾）。模块自带一张实例表，`syncComposerVoices()` 逐个重判；`i18n:change` 由模块自己订一次、逐个重画（`app.js:602` 那段一行没加）。
+  - 交互：原生 `<button>`（Space／Enter 天然可达）点一下开始、再点结束；`aria-pressed` 跟「开始中／录音中」；**可访问名恒定**「语音输入」（切换按钮的名字不随按下态变），`title` 与可见文字随阶段变（录音 `m:ss`、转写 `…`、失败短词「未成功」）；录音中 Esc＝取消（丢弃、不转写）；一拍 500 ms 的 `setInterval` 同时管计时显示与「满 `COMPOSER_VOICE_MAX_MS = 3 * 60 * 1000` 自动结束」；自带 `.sr-only` `role=status` `aria-live=polite` 节点播报录音中／转写中／已填入／已取消／失败。
+  - 转写：`apiRaw('/api/audio/transcribe?filename=voice.webm', { method:'POST', body: blob, headers: { 'content-type': 'audio/webm' } })` —— 覆盖默认 JSON content-type。**403 换 token 重放对 Blob 体安全**：`apiRaw` 两次 `fetch` 拿的是同一个 Blob，Blob 可重复读（不是一次性的 ReadableStream），`res.clone().text()` 只在非 2xx 探一次。失败码 → 人话键一张表（`asr.not_configured/provider_missing` → 未配置，`asr.too_large` → 太长，`asr.upstream/upstream_unreachable/bad_response` → 上游，表外与网络异常 → 通用）。
+  - 回填 `insertAtCursor`（`:304`）照 `mentionFile`：`selectionStart/End` 拼接（替换选区）→ `setSelectionRange` → `focus` → 派发 `input`（自适应高度、草稿保存、发送键状态、管家预判都挂在各自输入框的 input 监听上，这里不抄第二份）。**永不自动发送**。
+  - 失败（拿不到麦克风按 `err.name` 分拒绝／无设备／其它；转写 4xx/5xx；转写为空）：只 `fail(key)` —— 置错误态＋播报，输入框一个字不动，不抛。
+- **挂载**：`app.js:45` import、`:221` `onEngineConfigChanged` 里加 `syncComposerVoices()`、`:1064` 建工作台那一枚（`#composerVoiceBtn`，锚 `#sendBtn`）—— **app.js 1264 → 1266 行**。`steward-composer.js:33` import、`:96` 建管家那一枚（`#stewardComposerVoice`，锚 `#stewardComposerSend`）、`:408` 装配完调一次 `sync()`、`:439` `resetComposer` 里 `voice.cancel()`（排在 `prerouteSeq += 1` 之后 —— I7 逐字钉着前两句相邻）；`:381` 占位注释改成「附件归后续波（语音由 127-⑦ 那枚独立麦克风键接手）」。I3/I4（恰好一处 setTimeout、零 setInterval）一个字没动。
+- **字形**：`icons.js:311` 加 `mic`（胶囊话筒＋托架＋立杆，单线）。
+- **样式**：`css/components/chat-composer.css:70-103` `.composer-voice` 一族（两视角共用；管家行 36px、工作台 34px；录音危险色＋呼吸、转写主色、失败危险色；reduced-motion 关动效）＋ ≤560px 两行折叠（见「不同之处」1）；`steward-conversation.css:417` 头注改成事实。`LEGACY_STYLES_SHA256` 重钉 `07031c43…` → `f762f373…`（`read-frontend-css.js:653-662`；算法自证：拦 `fs.readFileSync` 让锁自己的 `readLayerPayload()` 读 HEAD `ef3bd57` 的 blob = `07031c43…` 与旧值逐字相同；改 CSS 后、重钉前 D51／F3 实测双红）。
+- **文案**：四份 locale 各加 17 个扁平键 `composer.voice.*`；`stewardShell.compose.plus` 改成「更多（附件随后续切片到位）」／「More (attachments arrive in a later slice)」。
+- **登记**：`build-overlay.js:125` `PAYLOAD_FILES`；`run-all.js:106` `PARALLEL_EXCLUSIVE`；`fixture-home.static` spawn 处数 147 → 148（`:99-102` 注来路）。
+- **测试**：新件 `dev-harness/composer-voice.browser.e2e.js`（首行 self-isolate-home；Edge 启动参数带两个假媒体开关）；静态锁并进 `asr-config-ui.static.e2e.js` ⑥（`:67` 起）；`fake-openai.js:371-377` ASR 桩加纯增量分支 `model` 含 `emptytext` → 回空白 text（空转写判据要它；文件名固定 voice.webm，所以按 model 分支）。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **≤560px 工作台胶囊多了一条「有麦克风才折两行」**（`chat-composer.css:99-103`，`.composer-box:has(> .composer-actions > .composer-voice)`）。派单稿要求「390px 验证输入框没被挤没」—— **验出来是挤没了**：390px 胶囊一行里「＋／Agent 团队（98px 文字钮）／麦克风／发送」四件，输入框空闲 **16px**、录音态（多出 m:ss）**0px**；没有麦克风时原排布也只有 **54px**（H4 实测）。只在真有麦克风时折行，未配置的排布逐像素不变（H4 钉：`rowH 50 / nowrap / inputW 54`）。
+2. **Esc 用「录音期间才挂」的 window 捕获阶段监听，并 `stopImmediatePropagation`**：否则同一下 Esc 还会被 `app.js` 的全局 Esc 拿去关抽屉／停回合、被管家壳的 Esc 栈拿去关浮层。录音一结束就摘。
+3. **两处防偷录**（派单稿没写）：管家 `resetComposer`（离开管家壳）取消在录的那段；模块每拍查按钮是否还在屏上（`isConnected`＋`checkVisibility()`），不在就取消。另：授权框迟迟不回（开始中）时再点一下＝取消。
+4. **i18n 重画不在 `app.js:602` 加行**，模块自订一次 `i18n:change`（app.js 净增压到 2 行）。
+5. **可访问名恒定、状态走 `aria-pressed`**（派单稿只写了 aria-pressed；按切换按钮命名规则，名字不随按下态变）。
+6. **判据之外多钉三条行为**：录满 3 分钟自动结束（D1：把页面 `performance.now` 拨快 181 s，不点第二下，自己结束→转写→回填、播报「已录满 3 分钟，自动结束」）；转写为空（E2，靠上面那条 fake 分支）；麦克风被拒（E3，页面里把 `getUserMedia` 换成 `NotAllowedError` 拒绝 —— 桌面壳没放行麦克风走的是同一条路）。
+7. **`route-inventory.json` 重算了**（派单稿说 src 不动就不跑）：清册按文本记「哪件 e2e 覆盖哪条路由」，新件打 `/api/audio/transcribe` → 该行 `coveredBy` 多一件，`--fast` 第一次就红在这里。判定点 137 不变、告警 0。
+8. **CSS 载荷锁重钉**：派单稿没提 CSS，但按钮四态与 390px 折行只能写进样式层，写了就得按拦截法自证再重钉。
+9. **e2e 夹具返工一处**：第一版切视角后立刻真鼠标点麦克风，**第一下点空**（mousedown 只把焦点摘到 body、click 不发生，第二下才开始录）—— 视角切换的 View Transition 动画期间整页命中测试落在过渡层。`clickCenter` 改成先等「中心点命中的就是它、且没有进行中的 view-transition 动画」再按。首轮 21 条红全是这一个根因的连坐。
+
+**判据读数**（`composer-voice.browser.e2e.js` 直跑 83 PASS／0 FAIL；`run-all` 单件 41.5 s；Edge `isSecureContext:true`、`webm/opus:true`、`audio/wav:false` 与 §1.5 一致）：
+
+- **① 工作台**（B1–B3）：麦克风是 `.composer-actions` 里紧挨 `#sendBtn` 的 `<button>`、`aria-label`「语音输入」、`svg.ic` 字形、`.sr-only role=status aria-live=polite`。「前缀 后缀」光标 3 → 真鼠标点 → `{"state":"recording","pressed":"true"}` → 1.5 s 时可见计时「0:01」→ 再点 → 恰好一发请求 `{"url":"/api/audio/transcribe?filename=voice.webm","contentType":"audio/webm","size":16830,"magic":"1a45dfa3"}` → 回显 `bytes=16830`（与请求体相等）→ 值 `"前缀 [fake-asr] model=whisper-1 filename=voice.webm bytes=16830后缀"`、caret 61（期望 61）、焦点回输入框、`aria-pressed=false` → **发送计数 0**；草稿 `wcw.draft` 等于新值（input 事件真派发了）；播报 `["正在录音…","正在转成文字…","已填入输入框，看一眼再发送"]`。
+- **② 管家视角**（F1–F2）：麦克风在 `.steward-composer-row` 里紧挨 `#stewardComposerSend`；同一流程读数同上（`bytes=16830`、caret 61、发送计数 0 —— 数的包括 `/api/steward/(message|act)`）。
+- **③ 键盘**（C1–C8）：从输入框 Tab 3 下到麦克风；Space → recording／`aria-pressed=true`；1.3 s 后 Space → 回填 `"键盘路径[fake-asr] … bytes=13932"`、`aria-pressed=false`、发送增量 0、播报三句齐；再 Tab 回麦克风 Space 开始、0.7 s 后 Esc → idle／`aria-pressed=false`，等 2 s：**转写请求增量 0、输入框逐字不变**，播报末句「已取消录音，输入框没有改动」。
+- **④ 未配置**（H0–H4）：设置页 ASR 选择器切「不启用」→ `.composer-voice` 0 个、两个播报节点都没了、两枚发送键都在；重载冷启动 `{"buttons":0,"wbStatus":false,"stStatus":false,"asr":["",""]}`；390px 下未配置的工作台胶囊 `{"rowH":50,"rowW":302,"inputW":54,"wrap":"nowrap"}`。既有夹具（dom-smoke／dom-contract／a11y-walkthrough／walkthrough-round1/2）一条断言没改、单跑全绿。
+- **⑤ 双主题 × 390px**（G0–G6，四个组合读数相同）：整页横向溢出 0。工作台：mic `{l:251,r:285,w:34,h:34}`、send `{l:289,r:367,w:78}`、中心命中 true、**输入框 278px**（胶囊 302×81，两行）；录音态 mic 58px、输入框仍 278px。管家：mic `{l:291,r:327,w:36,h:36}`、send `{l:331,r:367}`、**输入框 162px**（行 282px）；录音态 mic 58px、输入框 140px。下限 120px（一句 8 个汉字×15px）。两主题 idle 字形色 dark `rgb(143,160,184)` ／ light `rgb(95,108,133)`（走 token）。
+- **⑥ 失败**（E1–E4）：上游 5xx → 错误态、`title`＝播报末句＝「转写服务这次没有成功，稍后再试；输入框没有改动」、可见「未成功」、输入框 `"原样保留 不许动"` 不变、发出 1 发请求、发送 0；转写为空 → 「没有听出文字，输入框没有改动」，同上；麦克风被拒 → 「没有拿到麦克风权限，输入框没有改动」、**0 发请求**；三种失败全程 CDP `exceptionThrown` 增量 `[]`、页面 error/unhandledrejection 增量 `[]`；全程 composer-voice 零未捕获异常（Z1）。
+- **3 分钟自动结束**（D1）：播报 `["正在录音…","已录满 3 分钟，自动结束","正在转成文字…","已填入输入框，看一眼再发送"]`，回填、请求 +1、发送 0。
+
+**反向（改源码／夹具 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠ 回填后自动发送**（`finish()` 插入之后加一句点发送键）→ 8 条红，承重的两条：`B2g 不自动发送：发送计数 1（["/api/chat/stream"]）`、`F2g … 发送计数 1（["/api/steward/message"]）`；其余是发送清空输入框的连坐（C3／C5／D1／F2d–f）。还原 `composer-voice.js` sha256 `09d977ec…` OK。
+- **㈡ 启动参数拿掉 `--use-fake-device-for-media-stream`** → `asr-config-ui.static` 退出码 1：`composer-voice.browser.e2e.js 的无头 Edge 启动参数缺 --use-fake-device-for-media-stream（45 号文 §1.5：不加就是 NotFoundError）；实得 [...,"--use-fake-ui-for-media-stream",...]`。还原 e2e sha256 `ba89f094…` OK。
+- **㈢ 回填改成追加到末尾**（`start/end = value.length`）→ 6 条红：`B2e 回填在光标处：「前缀 」＋转写＋「后缀」（实得 "前缀 后缀[fake-asr] … bytes=16830"）`、`B2f … caret=63 期望 3`，管家侧 F2e/F2f 同形（B2d/F2d 是同一个值没切出转写的连坐）。还原 sha256 `09d977ec…` OK。
+
+**生成器链与门**：`src/` 零改动 → 不跑依赖图 `--write`／`build.js`／契约快照；`build --check` 新鲜、依赖图 `--check` 53/420。`facts-generate.js`：e2eCount 362 → 363；README 四处口径 362→363／355→356。`route-inventory.js`：137 判定点、告警 0，`POST /api/audio/transcribe` 的覆盖件多 `composer-voice.browser.e2e.js`。计数锁重钉：`fixture-home.static` 147→148、`LEGACY_STYLES_SHA256`。`--fast` **73/73**（首跑红在 route-inventory 漂移，重算后复绿）。改动 22 个文件（含本段与两个新文件）控制字节／CR／NUL／U+FFFD 扫描 0。逐件串行（`run-all` 列名）**23/23**：composer-voice.browser、asr-config-ui.static、asr-transcribe、overlay-payload-lock.static、steward-conversation.static、steward-walkthrough.static、frontend-domains.static、ec-d-closure.static、steward-board.static、steward-drawer.static、steward-settings.static、dom-smoke、dom-contract、a11y-walkthrough.browser、walkthrough-round1.browser、walkthrough-round2.browser、i18n、i18n.static、i18n-en-terms.static、facts.static、fixture-home.static、live-full-text.static、route-inventory.static。
+
+**全量回归（⑦）**：`run-all.js --parallel 4` 退出码 **0**，**356 pass / 0 fail / 1 flaky / 356 ran（7 skipped 为既有 live probe）**；新件 `composer-voice.browser` 在独占桶里 41.5 s 绿。唯一 flaky 是 `foreign-turn-busy-guard.e2e.js`（首跑红在 `A11 那个回合的正文【完整】落盘(got "")`，回归内重跑绿）—— 它测的是服务端「别处起的回合不许被一句新话顶掉」，provider 是件内自己的 `http.createServer`（不用本刀动过的 fake-openai.js），与麦克风／composer 零交集；回归后串行直跑 3 次 **20/20 ×3**（A11 实得 `"慢慢来-第一段-第二段-收尾"`），按「并行负载下的回合落盘时序」登记，不归功于也不归咎于本刀。（日志里 `help-viewer.e2e.js ... [B1] PASS [flaky]` 那一行是交错输出，flaky 属于 B1 刚跑完的那件，以结尾名单为准。）回归期间没有改 `src/`、没跑别的件（只在 docs 里写本段）；回归前后各调过一次 `stopRuyiTestBrowsers()`。
+
+**已知限制**：
+
+1. **桌面壳麦克风权限是 114e（已后置 128+）**：`RuyiDesktop.cs:210-211` 只在 WebView2 接口表里声明了 `add_PermissionRequested` 槽位，**没有注册任何处理器**。桌面壳里 WebView2 对麦克风请求实际给不给、弹不弹框，本刀**没有在桌面壳里验过**。按钮在桌面壳里照常渲染（判据只看配置与浏览器能力）；`getUserMedia` 被拒时走 E3 那条路 —— 播报「没有拿到麦克风权限」、不崩。
+2. 真 ASR 端点（云端／本地 shim）一次都没跑，全部判据走 fake-openai 桩；Release Brief 的实机转写读数仍欠。
+3. 没有用真读屏软件听过：播报只证明 `aria-live` 节点的文字按序变了；连续两次同文案（比如同一种失败连着两次）部分读屏可能不重读。
+4. 3 分钟上限的行为判据靠拨快 `performance.now`，没有真录满 3 分钟。
+5. 录音格式只有 webm/opus（§1.5 定案）；不支持的浏览器不出按钮，没有回退。
+
+**主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed。通读 `composer-voice.js` 全文（375 行）：零 `innerHTML`、录音只在内存走一趟请求、按钮离屏即取消（防偷录）、失败只播报不动输入框、Esc 只在录音中截获；核了 `LEGACY_STYLES_SHA256` 续钉——那把锁本来就是「每次改 CSS 写明理由再钉」的形制（注释里已有 ①–⑥ 前例），本次理由与 HEAD 算法自证齐全。独立复跑：`build --check` 新鲜；22 个改动文件控制字节 0；composer-voice.browser 83/0、asr-config-ui.static ALL PASS、asr-transcribe 24/0、overlay-payload-lock.static 10/0、steward-conversation.static 246/0、steward-walkthrough.static 120/0、frontend-domains.static 136/0、ec-d-closure.static 9/0、steward-board.static 165/0、steward-drawer.static 182/0、steward-settings.static 102/0、live-full-text.static 91/0、i18n ALL PASS、i18n.static 7/0、i18n-en-terms.static ALL PASS、facts.static 24/0、fixture-home.static 24/0、route-inventory.static 12/0、dom-smoke 53/0、dom-contract 20/0、a11y-walkthrough.browser 25/0、walkthrough-round1.browser 46/0、walkthrough-round2.browser 48/0。**主会话自做反向 ㈡**：新件启动参数里的 `--use-fake-ui-for-media-stream` 换成 `--mute-audio` → asr-config-ui.static 退出码 1，点名「composer-voice.browser.e2e.js 的无头 Edge 启动参数缺 --use-fake-ui-for-media-stream」并打出实得参数表；文件备份还原 sha256 OK、复跑 ALL PASS。

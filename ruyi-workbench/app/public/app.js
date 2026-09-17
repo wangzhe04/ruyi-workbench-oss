@@ -42,6 +42,7 @@ import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：�
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
 import { bindRailPocket } from './js/rail-pocket.js'; // 121-K7：左栏栏底的口袋（§2.3 末段）
+import { createComposerVoice, syncComposerVoices } from './js/composer-voice.js'; // 127-⑦：输入框麦克风（语音识别配好才建节点，45 号文 §2-quinquies）
 // 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
 // (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
 // One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
@@ -217,7 +218,7 @@ const {
   updateSearchBackendVisibility,
 } = createProviderSettingsDomain({
   apiErrText,
-  onEngineConfigChanged: () => renderThreadHead(),   // 121-K5：全局配置变了 -> 线程头那组 chip 重画
+  onEngineConfigChanged: () => { renderThreadHead(); syncComposerVoices(); },   // 121-K5：全局配置变了 -> 线程头那组 chip 重画；127-⑦：两枚麦克风按 ASR 配置重判建／拆
   updateAgentTeamButton: () => updateAgentTeamButton(),
   applyTheme: theme => applyTheme(theme),
   applyUiMode: mode => applyUiMode(mode),
@@ -1060,6 +1061,7 @@ function bindEvents() {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendPrompt(); }
   });
   $('sendBtn').onclick = () => sendPrompt();
+  createComposerVoice({ state, t, id: 'composerVoiceBtn', input: () => $('promptInput'), anchor: () => $('sendBtn') }); // 127-⑦：只回填不发送
   $('agentTeamBtn').onclick = toggleAgentTeamTurn;
   bindSkillsMemory(); // EC-D：技能按钮与搜索键盘交互由技能/记忆领域自持
   // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。

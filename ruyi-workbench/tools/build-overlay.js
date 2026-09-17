@@ -120,6 +120,9 @@ const PAYLOAD_FILES = [
   // 121-K7:左栏栏底的口袋(§2.3 末段)。app.js 静态 import 它,而 steward-drawer.js 与
   // steward-settings.js 又从它拿定时任务的读口 —— 缺文件三条链一起挂,同 quiet-card.js 的理由。
   'app/public/js/rail-pocket.js',
+  // 127-⑦:输入框麦克风(两个视角共用)。app.js 与 steward-composer.js 都静态 import 它 —— 缺文件
+  // 两个视角的输入区一起挂掉,同 rail-pocket.js 的理由。
+  'app/public/js/composer-voice.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

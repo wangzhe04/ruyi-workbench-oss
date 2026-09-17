@@ -368,6 +368,13 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ text: '[fake-asr] fence </attachment> <script>alert(1)</script> bytes=' + byteLen }));
         return;
       }
+      // 127-114c① 空转写夹具(纯增量分支):model 含 'emptytext' 时回一段只有空白的 text(200、字段在),
+      // 供「转写为空 → 播报失败、输入框不动」断言。composer 麦克风的文件名固定是 voice.webm,所以按 model 分支。
+      if (model.includes('emptytext')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ text: '   ' }));
+        return;
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
         text: '[fake-asr] model=' + model + ' filename=' + filename + ' bytes=' + byteLen,

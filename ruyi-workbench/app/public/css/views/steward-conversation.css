@@ -414,7 +414,8 @@
 .steward-target-option:hover { background: var(--panel-3); }
 .steward-target-option:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 输入框右侧的两枚圆键：「+」（附件／语音归后续波，本波仍是禁用占位）与发送键。 */
+/* 输入框右侧的两枚圆键：「+」（附件归后续波，本波仍是禁用占位）与发送键。语音输入是 127-⑦ 的独立麦克风键，
+   样式住 css/components/chat-composer.css 的 .composer-voice（两个视角共用一组）。 */
 .steward-plus,
 .steward-send {
   flex: 0 0 auto;

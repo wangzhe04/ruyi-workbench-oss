@@ -100,6 +100,10 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 之后单独跑。
   'quiet-card-snooze.browser.e2e.js',
   'scheduler-ui.browser.e2e.js',
+  // 127-⑦（45 号文 §4 ⑦）：输入框麦克风的真浏览器件。它量的是【真录音的墙钟】—— 假设备录 1.2–1.5 s、
+  // 录到一半按 Esc 之后等 2 s 确认「没有转写请求」、把 performance.now 拨快等下一拍自动结束，外加 390px
+  // 反复改视口量 getBoundingClientRect。与别的 Edge 抢 CPU 时录音时长与观察窗都会被挤歪，同上进独占桶。
+  'composer-voice.browser.e2e.js',
   // 125 治抖（43 号文 §3）：以上 16 件全是真浏览器件，逐件按事故补进来的 —— 于是这张名单
   // 漏掉了**两件自己算 P95 的墙钟性能门**，而它们恰恰是 2026-09-15 那轮全量里唯二上榜的：
   //   · mission-index-scale：`(e) 详情冷P95≤800ms` 红在 1101 ms；同一台机器空闲单跑三次

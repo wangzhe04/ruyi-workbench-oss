@@ -28,6 +28,9 @@ import { icon } from './icons.js';
 // 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
 // 33 号文 §4：那份实现的落点从 steward-conversation.js 搬到 util.js（无状态格式化叶子），函数体逐字未改。
 import { stewardShortTitle } from './util.js';
+// 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
+// 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
+import { createComposerVoice } from './composer-voice.js';
 
 // 121-K5（34 号文 §13.7 登记⑧）：F2 频道条那条 steward:pick-channel 的常量与监听器已删。
 // K4-3 删掉了频道条与它【唯一】的生产者（steward-conversation.js 的 pickChannelTarget），此后
@@ -89,6 +92,8 @@ export function createStewardComposer({
   // 发完一句之后的那一行因此逐字回到修前的 `picked = null;`（当初的注释自己写明了这一点）。
   // 目标仍然只有 picked 一个（currentTarget() 一个字没改）。
   const recent = [];             // 见过的线程回忆池（@ 列表里「最近线程」那一半）
+  // 127-⑦：麦克风只回填不发送 —— 它手里没有 submit，填完只派发 input（预判照常跟着走）。
+  const voice = createComposerVoice({ state, t, id: 'stewardComposerVoice', input: () => byId('stewardComposerInput'), anchor: () => byId('stewardComposerSend') });
 
   function rememberHits(hits) {
     for (const hit of (Array.isArray(hits) ? hits : [])) {
@@ -373,7 +378,7 @@ export function createStewardComposer({
     const plus = el('button', 'steward-plus');
     plus.type = 'button';
     plus.id = 'stewardComposerPlus';
-    plus.disabled = true;                                     // 附件／语音归后续波，本波只占位
+    plus.disabled = true;                                     // 附件归后续波，本波只占位（语音由 127-⑦ 那枚独立麦克风键接手）
     plus.title = t('stewardShell.compose.plus');
     plus.setAttribute('aria-label', t('stewardShell.compose.plus'));
     paintGlyph(plus, 'plus');
@@ -400,6 +405,7 @@ export function createStewardComposer({
     inputRow.appendChild(input);
     inputRow.appendChild(plus);
     inputRow.appendChild(send);
+    voice.sync();   // 127-⑦：此刻 config 多半还没到，不建；到了由组合根的 syncComposerVoices() 再判
 
     input.disabled = false;
     input.placeholder = t('stewardShell.compose.placeholder');
@@ -430,6 +436,7 @@ export function createStewardComposer({
   function resetComposer() {
     cancelPreroute();
     prerouteSeq += 1;
+    voice.cancel();   // 127-⑦：离开管家壳时还在录的那一段直接丢弃（不转写、不回填）
     closePicker();
     picked = null;
     routeKind = 'steward';

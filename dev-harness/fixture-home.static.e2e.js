@@ -96,7 +96,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 127-2-quater B2(45 号文 §2-quater.2):新增 dev-harness/steward-exempt-delegation.e2e.js(一处带 RUYI_HOME 的
 // spawn —— startInstance 那一发起服务,两个实例共用这一个调用点;fake provider 是本进程内的 http.createServer,
 // taskkill 那一发不带 RUYI_HOME,不计入),146 -> 147 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 147;
+// 127-⑦ B-114c-①(45 号文 §4 ⑦):新增 dev-harness/composer-voice.browser.e2e.js(一处带 RUYI_HOME 的 spawn ——
+// spawnWb 那一发起服务;fake-openai 那一发只 spread process.env 不带 RUYI_HOME、headless Edge 那一发不带 env,都不计入),
+// 147 -> 148 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 148;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;

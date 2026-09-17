@@ -67,6 +67,40 @@
   display: inline-flex; align-items: center; gap: 6px;
   border-radius: var(--r-pill); font-size: var(--fs-sm);
 }
+/* 127-⑦（45 号文 §2-quinquies「114c-① 麦克风」）：发送键前那枚麦克风，两个视角共用这一组规则。
+   节点只在语音识别配好时才由 js/composer-voice.js 建（零静态标记），所以没配置时这组规则一条都命中不到。
+   形状跟着所在的那一行走：工作台是 34px 的工具圆钮（与 .composer-actions > .file-label 同档），管家输入行
+   是 36px（与 .steward-plus/.steward-send 同档）。录音时字形变成危险色并呼吸、右侧多出 m:ss 计时；
+   转写中是主色 +「…」；失败是危险色 + 一个短词（完整原因在 title 与播报里）。≤560px 的工具折叠【不】收它
+   （tool-pane.css 那条只点名技能与附件两枚），录音时它变宽，输入框的 flex 收缩兜底（min-width:0）。 */
+.composer-voice {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 34px; height: 34px; min-height: 0; padding: 0 8px;
+  border: 0; border-radius: var(--r-pill); background: transparent; color: var(--muted);
+  font: inherit; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.steward-composer-row > .composer-voice { min-width: 36px; height: 36px; }
+.composer-voice:hover { background: var(--panel-2); color: var(--ink-2); }
+.composer-voice:focus-visible { outline: none; box-shadow: var(--ring); }
+.composer-voice-text:empty { display: none; }
+.composer-voice[data-state="recording"] { color: var(--danger-fg); background: var(--danger-bg); }
+.composer-voice[data-state="recording"] .ic { animation: breathe 1.4s ease-in-out infinite; }
+.composer-voice[data-state="transcribing"] { color: var(--accent); cursor: progress; }
+.composer-voice[data-state="error"] { color: var(--danger-fg); }
+@media (prefers-reduced-motion: reduce) {
+  .composer-voice { transition: none; }
+  .composer-voice[data-state="recording"] .ic { animation: none; }
+}
+/* 127-⑦ 390px 实测：≤560px 的工作台胶囊里一行要塞「＋／Agent 团队／麦克风／发送」四件，输入框只剩 16px，
+   录音态（麦克风多出 m:ss）直接被挤到 0。没有麦克风时原排布是 54px —— 本来就窄，这枚第五件是压垮它的那一下。
+   所以【只在胶囊里真有麦克风时】（:has，没配置语音识别的排布逐像素不变）让胶囊折成两行：输入框独占第一行，
+   工具键与发送键靠右落在第二行。 */
+@media (max-width: 560px) {
+  .composer-box:has(> .composer-actions > .composer-voice) { flex-wrap: wrap; row-gap: 4px; padding-top: 10px; }
+  .composer-box:has(> .composer-actions > .composer-voice) > textarea { flex-basis: 100%; }
+  .composer-box:has(> .composer-actions > .composer-voice) > .composer-actions { margin-left: auto; }
+}
 .file-label { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 5px 9px; cursor: pointer; background: var(--panel-2); font-size: var(--fs-base); }
 .file-label:hover { border-color: var(--accent); }
 .file-label input { display: none; }
