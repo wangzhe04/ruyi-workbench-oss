@@ -98,6 +98,7 @@ function pidAlive(pid) {
     ok(steerResponse && steerResponse.body && steerResponse.body.ok === true, 'steer accepted while tool is running');
     ok(events.some(event => event.type === 'tool_progress' && event.name === 'fake__slow_task'), 'quiet tool emits transport-only liveness heartbeats');
     ok(!events.some(event => event.type === 'stderr' && /turn idle/.test(event.text || '')), 'heartbeats prevent the turn idle watchdog from firing');
+    // 墙钟上界豁免：防挂死宽界；插话在工具开始后 750 ms 发出，双负载实得 1197 ms，界 10000 ms（8 倍）；失败形态是等满慢工具的 30 s。
     ok(elapsedMs < 10000, `turn continues promptly after steer (${elapsedMs}ms, not 30s)`);
     const interrupted = events.find(event => event.type === 'tool_result' && event.content && event.content.steerInterrupted === true);
     ok(Boolean(interrupted), 'tool_result records the steer interruption');
@@ -131,6 +132,7 @@ function pidAlive(pid) {
     for (let i = 0; i < 30 && !nativeSteer; i++) await sleep(50);
     const nativeElapsedMs = Date.now() - nativeStartedAt;
     ok(nativeSteer && nativeSteer.body && nativeSteer.body.ok === true, 'steer accepted during native PowerShell tool');
+    // 墙钟上界豁免：防挂死宽界；插话在命令开始后 750 ms 发出，双负载实得 1064 ms，界 10000 ms（9 倍）；失败形态是等满 Start-Sleep 30 s。
     ok(nativeElapsedMs < 10000, `native command is interrupted promptly (${nativeElapsedMs}ms, not 30s)`);
     ok(nativeEvents.some(event => event.type === 'tool_result' && event.content && event.content.steerInterrupted === true && event.content.interrupted === true), 'native tool_result confirms process interruption');
     ok(nativeEvents.some(event => event.type === 'steered' && event.text === 'interrupt the command and continue'), 'native-tool steer reaches the next model iteration');

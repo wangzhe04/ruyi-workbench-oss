@@ -205,6 +205,7 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       // `session` 帧在申请并发位之前就发了。总耗时留在标签里只作读数。
       const firstDeltaAt = runs.map(r => Date.parse(((r.events.find(e => e.type === 'assistant_delta') || {}).ts) || ''));
       const deltaSpan = firstDeltaAt.every(Number.isFinite) ? Math.max(...firstDeltaAt) - Math.min(...firstDeltaAt) : NaN;
+      // 墙钟上界豁免：次序判据，不是窗口 —— 串行时跨度至少 5×TURN_MS；45 号文 §9.5 双负载 10 次实得 5–332 ms，本批 16 ms。
       ok(Number.isFinite(deltaSpan) && deltaSpan < TURN_MS,
         `① 开关关:6 发 provider 请求同时在途 —— 六条首段正文到达的跨度 ${deltaSpan}ms 小于一个回合的 provider 延迟 ${TURN_MS}ms(串行至少 ${TURN_MS * 5}ms;总耗时 ${elapsed}ms 只作读数)`);
       const st = await req(WP, 'GET', '/api/steward/arbiter', undefined, hdr);
@@ -308,10 +309,20 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       const t0 = Date.now();
       const ppend = await stream(WP, { sessionId: pending, message: '我有待决', cwd: cwds.b }, hdr);
       const pendElapsed = Date.now() - t0;
-      await pblock;
+      const rblock = await pblock;
       await s.stop();
       ok(ppend.events.some(e => e.type === 'result' && e.ok === true), '④ 有待决的会话回合正常跑完');
-      ok(pendElapsed < TURN_MS * 2, `④ 它没有等并发位(耗时 ${pendElapsed}ms,占位者还没跑完)`);
+      // 107-F5（46 号文 §5 ⓪）：这里原来是 `pendElapsed < TURN_MS * 2`（1800 ms），与 ① 修前同一个毛病 —— 量的是
+      // 墙钟、界又离正常值太近：本批双负载 6 跑实得 951–989 ms，叠一路再跑实得 1608 ms（只剩 1.1 倍）；45 号文
+      // §9.5 的双负载里红过 2006／2806 ms。改判【次序】，与 ① 同一个推理：fake 对每发请求都是「到达后睡 TURN_MS 再吐
+      // 正文」。假如它等了并发位，位子要到占位者回合收尾才放，而收尾不早于占位者的首段正文，于是它的请求不早于那一刻、
+      // 它的首段正文至少晚 TURN_MS；没等的话只晚起跑那 150 ms 左右。所以「它的首段正文比占位者晚不到 TURN_MS」就
+      // 蕴含「它的请求在占位者还占着位子时就已经在途」。耗时留在标签里只作读数。
+      const firstDeltaTs = r => Date.parse(((r.events.find(e => e.type === 'assistant_delta') || {}).ts) || '');
+      const pendLag = firstDeltaTs(ppend) - firstDeltaTs(rblock);
+      // 墙钟上界豁免：次序判据，不是窗口 —— 等位的话至少晚 TURN_MS=900 ms，没等只晚起跑的 150 ms 上下（同 ① 的推理与读数）。
+      ok(Number.isFinite(pendLag) && pendLag < TURN_MS,
+        `④ 它没有等并发位 —— 它的首段正文只比占位者晚 ${pendLag}ms,小于一个回合的 provider 延迟 ${TURN_MS}ms(等位的话至少晚 ${TURN_MS}ms;耗时 ${pendElapsed}ms 只作读数)`);
       ok(ppend.events.every(e => e.type !== 'agent_resource'), '④ 它连一条等待事件都没发(不入队、不占位)');
       ok(!queueOf(s.frames, pending), '④ 它从没进过仲裁队列');
       ok(s.frames.every(f => !runningIds(f).includes(pending)), '④ 它也从不占用并发位(并发上限只管「等你」之外的线程)');

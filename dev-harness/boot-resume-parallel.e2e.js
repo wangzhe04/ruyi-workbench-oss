@@ -45,6 +45,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await srv.mapPool(items, 4, async () => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await sleep(40); inFlight--; });
     const wall = Date.now() - t0;
     ok(maxInFlight > 1 && maxInFlight <= 4, 'U2 mapPool 并发度 1 < max(' + maxInFlight + ') ≤ 4');
+    // 墙钟上界豁免：进程内两波 40 ms 定时器、不经服务与 I/O；双负载实得 92 ms，界 280 ms（3 倍）；失败形态是串行 ≥320 ms，真判据是上一条 maxInFlight。
     ok(wall < 280, 'U2 mapPool wall ' + wall + 'ms < 280ms(顺序需 ≥320ms,证明非串行)');
   }
   // ③-⑥ syncRunEventSeq
@@ -137,6 +138,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     let up = false; for (let i = 0; i < 120 && !up; i++) { await sleep(250); up = await health(); }
     const bootMs = Date.now() - t0;
     ok(up, 'L1 workbench up on :' + WB_PORT + '(boot ' + bootMs + 'ms)');
+    // 墙钟上界豁免：防挂死宽界；双负载实得 2100 ms，界 30000 ms（14 倍，且等于上面轮询的总预算）；失败形态是 listen 前的 await 卡死、永远起不来。
     ok(bootMs < 30000, 'L1 boot 防卡死上界(' + bootMs + 'ms < 30s;markInterrupted 是 listen 前 await)');
     // L1: run_interrupted 经 appendAgentRunEvent 异步写链落盘(markInterrupted 不 await 它);且 autoResume
     // 随后会在同一文件追加 run_auto_resume 等事件 —— 断言对象是【尾部窗口里的 run_interrupted 行】而非最后一行。

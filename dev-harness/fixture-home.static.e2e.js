@@ -301,6 +301,64 @@ try {
   }
   ok(oneShot.length >= 2, `一次性启动浏览器的夹具扫得到（实得 ${oneShot.length} 件；扫不到 = 本条静默失效）`);
   ok(oneShotMissing.length === 0, `每一件都排进独占桶 —— 把启动结果当断言的件对启动期抢占最敏感${oneShotMissing.length ? '；实得漏了：' + oneShotMissing.join('、') : ''}`);
+
+  // 同一把锁的第三条判据（107-F5，46 号文 §5 ⓪；42 号文 §5-undecies 留给 107 的那件）：**断言里写死了墙钟上界**的件。
+  // 形状由 lib/wallclock-window-scan.js 机械认（头注写全了：量＝时钟减法得来的时长，界＝不含任何量出来的值；
+  // 下界不算，负载只会把耗时拉长）。每一处必须二选一：
+  //   · 所在文件进独占桶 —— 墙钟【本身就是被测量】的件（性能预算、产品节拍：perf、boot-listen-budget、event-stream、
+  //     steward-board，以及桶里原有那批）；
+  //   · 就地写 `墙钟上界豁免：<理由>` 注释（断言那一行，或紧挨着它上面的注释行）—— 防挂死的宽上界、或墙钟只是
+  //     读数而真判据是次序的。理由里写清「正常实得多少、界多少、失败形态是多长」，别只写「够宽」。
+  // 墙钟只是代理的紧界（perm-v2 ④、thread-arbiter ④）不走豁免，已改判因果／次序（见各件注释）。
+  // 反过来也锁：豁免注释必须挂在一处真被扫到的断言上 —— 断言改掉之后留下的孤儿豁免当场红，免得一句旧理由
+  // 替一条新的紧界背书。
+  const { scanWallclockWindows } = require('./lib/wallclock-window-scan');
+  // 件数锁定（与本文件 ① 同一个做法：扫到的【文件】数钉成常量，增删要改常量并写来路）。
+  // 107-F5 首钉：扫描器首跑实得 22 件 43 处；perm-v2 ④ 改判因果后该件不再有这个形状 → 21 件 42 处。
+  // thread-arbiter ④ 改判次序后仍是「时间戳差 < TURN_MS」的形状（与 ① 同形），所以仍计入、就地豁免。
+  // 其中 11 件（15 处）就地豁免，10 件（27 处）所在文件在独占桶。
+  const WALLCLOCK_OWNER_FILES = 21;
+  const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
+  const owners = [];
+  const unclassified = [];
+  const orphanExemptions = [];
+  let siteCount = 0;
+  for (const name of fs.readdirSync(HARNESS).filter(n => n.endsWith('.e2e.js') && !n.includes('.static.')).sort()) {
+    const text = fs.readFileSync(path.join(HARNESS, name), 'utf8');
+    const lines = text.split('\n');
+    const sites = scanWallclockWindows(text);
+    // 豁免注释的挂载窗：断言调用那一行本身，以及紧挨着它上面、连续的纯注释行（空行即断）。
+    const attached = new Set();
+    const exemptionAt = line => {
+      const found = [];
+      if (EXEMPT_MARK.test(lines[line - 1] || '')) found.push(line);
+      for (let k = line - 1; k >= 1; k--) {
+        const raw = lines[k - 1] || '';
+        if (!/^\s*\/\//.test(raw)) break;
+        if (EXEMPT_MARK.test(raw)) found.push(k);
+      }
+      return found;
+    };
+    if (sites.length) {
+      owners.push(name);
+      siteCount += sites.length;
+    }
+    for (const site of sites) {
+      const found = exemptionAt(site.line);
+      for (const k of found) attached.add(k);
+      if (!listed.has(name) && !found.length) unclassified.push(`${name}:${site.line}「${site.expr.slice(0, 60)}」`);
+    }
+    lines.forEach((raw, i) => {
+      if (/墙钟上界豁免/.test(raw) && !attached.has(i + 1)) orphanExemptions.push(`${name}:${i + 1}`);
+    });
+  }
+  ok(owners.length >= 15, `写死墙钟上界的夹具扫得到（实得 ${owners.length} 件 ${siteCount} 处；扫不到 = 本条静默失效）`);
+  ok(owners.length === WALLCLOCK_OWNER_FILES,
+    `件数锁定：${owners.length} 件 == 常量 ${WALLCLOCK_OWNER_FILES}（新增／改判后请同步常量并注明来路；实得 ${owners.join('、')}）`);
+  ok(unclassified.length === 0,
+    `每一处要么所在文件进独占桶，要么就地写了「墙钟上界豁免：理由」—— 写死的秒数窗口在并行桶里量的是调度噪声${unclassified.length ? '；实得没归类：' + unclassified.join('；') : ''}`);
+  ok(orphanExemptions.length === 0,
+    `没有孤儿豁免（每句「墙钟上界豁免」都挂在一处真被扫到的断言上，理由至少 12 个字）${orphanExemptions.length ? '；实得：' + orphanExemptions.join('、') : ''}`);
 }
 
 console.log('\nFIXTURE HOME STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

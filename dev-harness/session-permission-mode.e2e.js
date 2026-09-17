@@ -260,6 +260,7 @@ try {
     const patched = await reqJson('PATCH', '/api/sessions/' + C, { permissionMode: 'plan' });
     const elapsed = Date.now() - t0;
     ok(patched.status === 200 && patched.json.sessionMeta.permissionMode === 'plan', '⑥ 活回合期间 PATCH 照样 200(不拒绝、不返回 session.busy)');
+    // 墙钟上界豁免：双负载实得 11 ms，界 1500 ms（上百倍）；失败形态是 PATCH 排在在飞回合后面，要等 provider 那 2500 ms 延迟放行。
     ok(elapsed < 1500, '⑥ PATCH 没有被在飞回合阻塞(耗时 ' + elapsed + 'ms < 1500ms)');
     const live = await reqJson('GET', '/api/sessions/' + C);
     ok(live.status === 200 && live.json.session && live.json.session.permissionMode === 'plan',

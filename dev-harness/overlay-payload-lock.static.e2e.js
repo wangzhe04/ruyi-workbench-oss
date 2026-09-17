@@ -64,15 +64,50 @@ function walk(dir) {
   }
   return out;
 }
-const sensitiveDirs = ['app/public/js', 'app/public/locales', 'app/public/vendor', 'app/src'];
+// 107-P0(46 号文 §1.1 ③):修前只扫 app/public/js|locales|vendor 与 app/src —— 于是 resources/playbooks 整目录
+// 漏发(127-S01 改的 13 个模板与新增的 scheduled-digest.json 覆盖升级拿不到),app/public/css 也在盲区里。
+// 现在:app/public 整棵扫(静态服务器把这棵树整个对外,css 与将来新增的子目录一并进判据),外加服务端运行时
+// 从 resources/ 读的三个目录。
+const RESOURCE_DIRS = [
+  'resources/playbooks',                                              // 06 builtinPlaybooksDir:整目录 *.json
+  'resources/plugins/win-workbench-offline/offline-toolkit/skills',   // 12 loadSkillRegistry:<id>/SKILL.md
+  'resources/plugins/win-workbench-offline/offline-toolkit/commands', // 12 loadSkillRegistry:*.md
+];
+const sensitiveDirs = ['app/public', 'app/src', ...RESOURCE_DIRS];
 const unregistered = [];
+const scannedCount = {};
 for (const d of sensitiveDirs) {
-  for (const abs of walk(path.join(ROOT, d))) {
+  const files = walk(path.join(ROOT, d));
+  scannedCount[d] = files.length;
+  for (const abs of files) {
     const rel = path.relative(ROOT, abs).replace(/\\/g, '/');
     if (!payload.has(rel) && !optional.has(rel)) unregistered.push(rel);
   }
 }
-ok(unregistered.length === 0, '③ 敏感目录(js/locales/vendor/src)无未登记文件' + (unregistered.length ? '(漏登记: ' + unregistered.join(', ') + ')' : ''));
+// 先钉住「扫得到东西」,免得目录改名后这条对一个空目录恒绿。
+ok(sensitiveDirs.every(d => scannedCount[d] > 0), '③ 每个敏感目录都扫到了文件(实得 ' + sensitiveDirs.map(d => d + '=' + scannedCount[d]).join('、') + ')');
+ok(unregistered.length === 0, '③ 敏感目录(app/public 整棵、app/src、resources 下运行时读的三个目录)无未登记文件' + (unregistered.length ? '(漏登记: ' + unregistered.join(', ') + ')' : ''));
+
+// ③b 107-P0:上面那张目录表本身也是手攒的,所以再对一次账 —— 服务端源码里每一处
+// `path.join(externalRoot(), 'resources', …)` 读口,要么是登记过的单个文件,要么落在 ③ 在扫的目录里
+// (或它下面有 ③ 在扫的子目录)。下次服务端新开一个 resources 读口而没人来这里补,本条当场红并点名。
+{
+  const srcText = srcModules.map(rel => fs.readFileSync(path.join(ROOT, rel), 'utf8')).join('\n');
+  const readPoints = new Set();
+  for (const m of srcText.matchAll(/path\.join\(\s*externalRoot\(\)\s*,\s*'resources'((?:\s*,\s*'[^']+')*)\s*\)/g)) {
+    const parts = [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
+    readPoints.add(['resources', ...parts].join('/'));
+  }
+  // 'resources' 根本身只出现在 doctor 的 resourcesRoot 字段(13-http-router 打印路径,不读内容),不算读口。
+  readPoints.delete('resources');
+  ok(readPoints.size >= 4, `③b 服务端 resources 读口扫得到(实得 ${readPoints.size} 处:${[...readPoints].join('、')})`);
+  const uncovered = [...readPoints].filter(rp => {
+    const abs = path.join(ROOT, rp);
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) return !payload.has(rp);
+    return !sensitiveDirs.some(d => d === rp || d.startsWith(rp + '/') || rp.startsWith(d + '/'));
+  });
+  ok(uncovered.length === 0, '③b 每个服务端 resources 读口都有载荷覆盖(文件已登记／目录在 ③ 扫描里)' + (uncovered.length ? '(没覆盖: ' + uncovered.join(', ') + ')' : ''));
+}
 
 console.log('\nOVERLAY PAYLOAD LOCK STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

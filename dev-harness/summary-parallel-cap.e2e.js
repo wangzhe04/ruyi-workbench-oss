@@ -131,6 +131,7 @@ function maxInFlightFromLog(file) {
       ok(!r.ok && /HTTP 500/.test(String(r.error)), 'B1 首个失败(注入 500)原样上浮: ' + String(r.error).slice(0, 60));
       const files = fs.readdirSync(SUMDIR).filter(f => f.startsWith('sum-')).length;
       ok(files >= 1 && files <= 8, 'B2 失败后未派发的块不再发出(到达 fake 的请求=' + files + '/9,仅第一波)');
+      // 墙钟上界豁免：进程内调用、fake 每块延迟 800 ms；双负载实得 26 ms，界 5000 ms；失败形态是不取消、等满 9 块 × 800 ms。
       ok(elapsed < 5000, 'B3 快速止损(取消在飞请求,不等待 800ms×N,' + elapsed + 'ms)');
     } finally { kill(fake); await sleep(200); fs.rmSync(SUMDIR, { recursive: true, force: true }); }
   }

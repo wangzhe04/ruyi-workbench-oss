@@ -272,6 +272,7 @@ try {
 
     const streamRes = await streaming;
     const elapsed = Date.now() - t0;
+    // 墙钟上界豁免：双负载实得 194 ms，界 STALL=6000 ms（30 倍）；失败形态是回合没被掐掉、等 provider 卡满 6000 ms 后自然跑完。
     ok(elapsed < STALL, `L3 那条 /api/chat/stream 在 provider 吐第一个字之前就收尾了 —— 回合是被【掐掉】的,不是自然跑完(${elapsed}ms < ${STALL}ms;status ${streamRes.status})`);
 
     // 停完之后会话回到非 live:同一枚按钮再按一次只能拿到 not_running + 人话,绝不是 invalid_request。

@@ -295,3 +295,118 @@
 6. **（主会话复核补记）管家配置改动的 `undoRef.before` 现在是掩码**：全仓没有任何代码自动消费 `{kind:'config'}` 的 undoRef（前端 `undoHandOff` 只处理递话回退），它只是给管家「照着改回去」的参考。于是有一个窄场景：管家删掉一条带密钥的连接器、之后再照 `before` 手动加回来——掩码按 id 在当前配置里找不到原值，env／headers 会被清成空串。换来的是决策日志与回给模型的结果不再带明文；要两全得把 `before` 的明文另存在只落盘不下发的位置，本刀不做。
 
 **主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed；工作区零未跟踪文件（反向 ㈡b 期间落进仓里的 `••••json` 已删、复查无残留）。实读确认 `GET /api/status` 的 ROUTE_AUTH 是 `open`（`01b-route-auth.js:4`，只有 host 门）——修前本机任何进程不带 token 就能读到全部 MCP 密钥与 `modelsApiKey`，**本刀与 S0 合起来关掉的是一个无鉴权的本机泄密面**。审 `05` 新增的掩码／还原与「同一启动目标才还原」判据、`13l` 的 before／applied 掩码，并按上面第 6 条核了 undoRef 的消费面。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、19 个改动文件控制字节 0；repo-hygiene 66/0、steward-config-tools 60/0、config-mutate-mcp-parity 32/0、mcp-import-config 33/0、mcp-config 37/0、mcp-bridge 9/0、mcp-import-origin 17/0、mcp-ops-closure 101/0、mcp-ops-gui.static 54/0、mcp-remote-transport 23/0、config-read-safety 18/0、provider-custom-headers 23/0、workbench-self-status 47/0、dom-smoke 53/0、steward-settings 73/0、checkpoint 38/0（回归里的 flaky 件）、steward-guardrails 193/0。
+
+### ⓪ F5 · flaky 第五批（2026-09-17）
+
+**只动测试与 `run-all.js`**：`src/` 零改动，`ruyi-workbench/app/src/` 一个字节没碰。三件每件都**先在负载下复现、拿到失败那一刻的形状、分了类才动手**（45 号文 §9.5 的纪律）；反向都做在最终文件上，按文件备份还原并核 sha256。
+
+**负载怎么造的**：两路常驻 `run-all --parallel 3` 循环 —— A 路 12 件（steward-guardrails／steward-tools／steward-runner／scheduler-steward／workbench-memory／subagent／autonomy-grant／team-pool-mailbox／failover／mission-threads／event-stream／session-search，跑了 40 轮）、B 路 10 件（context-compact-v2／steward-board／tools-v3／checkpoint／mcp-config／repo-hygiene／usage-ledger／capabilities／steward-decisions／shell-session，28 轮）；候选件同时单跑作第三路（下称「双负载」，CPU 采样 17–96%）。「冷能力缓存」＝每跑给服务进程的 PATH 追加一段不存在的目录换一把缓存键（§9.5 同法，不碰缓存文件）。探针都是 scratchpad 里的临时副本，不进仓。
+
+#### ① `agent-deadlock-watchdog.e2e.js` Section 2 —— 分类：**前提没成立**（不是「会合点回落」）：冷能力探针钉住事件循环，本件给 Section 3 用的 3 s 节点看门狗先把两条节点杀了
+
+- **病历先重读**：42 号文 §5-undecies 那份病历的原文是「会合点到齐:一发都没到」。修前 `rendezvousNote()` 只分「回落／到齐」两支，**一发都没到的时候也打「到齐」**；那一节把它读成「会合点在如实报告它回落了」是读反了 —— 会合点根本没被碰到。
+- **复现**：探针只跑 Section 1/1b/2，逐发记 provider 到达、打出两条节点的终态与进度。单负载 5/5 绿（「获得资源 → 子代理初始化中」约 2 s）。**双负载＋冷缓存 6 跑 5 红，签名与登记的一字不差**；再交替跑 5 对：原件 4/5 红，「起跑前先等预热」的变体 5/5 绿。
+- **形状**（红的那 9 跑一模一样）：`fellBack=false`、provider **一发请求都没收到**；两条节点都是 `failed/idle_timeout`、`节点空闲超时（>3秒无进展）`；进度（例）：两条「获得资源」27.307／27.370 → **7.0 s 空白** → 两条「子代理初始化中」落在**同一毫秒** 34.353（解钉后同一拍）→「子 Agent 启动」34.843／34.846 →「子 Agent 失败 · 0 字」。红的那几跑空白 5.1–12.6 s；也有一跑空白 6.0 s 却没被杀 —— 解钉后看门狗与初始化心跳谁先跑是时序决定的。
+- **机制**：子代理初始化里第一发 `getCapabilities`（`08-agent-runs.js:518`）冷缓存时同步 spawnSync 探桌面 python，把事件循环钉住（§9.5 ① 登记的同一笔产品债，双负载下从 2.5 s 拉到 5–12 s）；本件设了 `WCW_AGENT_NODE_IDLE_MS=3000`（给 Section 3 的挂死节点用），解钉后节点看门狗那一拍（`09-workflow.js:284`）跑在初始化心跳前面，两条节点在发 provider 请求之前就被判空闲杀掉。生产上节点看门狗下限 60 s，这个钉住杀不到人 —— 是本件测试缝太紧。
+- **治法**（`agent-deadlock-watchdog.e2e.js`）：
+  - `:73-99` 会合点加 `paired`（两发 round-0 真的凑成过一对才置位），`rendezvousNote()` 分三支：回落／到齐／**没凑齐**。
+  - `:258-274` Section 2 起跑前先 `GET /api/status`（它 `await ensureDesktopMcpWarm`，异步探针不占事件循环），答复回来＝冷探针已付完；等的是这一发答复，60 s 只是它自己的防挂死预算，耗时打进日志。
+  - `:296-307` 两条争用断言**只在 `paired` 时照常判**；没凑成对时打 `SKIP 不适用 <标签>（前提没成立,两把节点租约没有同时握住:<会合点现场>；节点 alpha=…，beta=…）`，不报红、不假装撞上过。「跑到终态」那条不受这个前提约束，照判。
+- **反向**：
+  - R1 去掉预热（其余不动），双负载＋冷缓存 5 跑：**3 跑打 `SKIP 不适用 …（…会合点没凑齐:一发都没到；节点 alpha=failed/idle_timeout，beta=failed/idle_timeout）`**、2 跑凑成对照常 PASS；5 跑退出码全 0 —— 登记的那个形状现在如实报「不适用」。
+  - R2 `subagentMaxConcurrent: 1`（强制回落）2 跑：两条都是 `SKIP 不适用 …（…会合点回落:alpha+0ms／beta+1247ms,等不到第二发,1200ms 后单发放行；节点 alpha=succeeded，beta=succeeded）`。
+  - R3（**凑成对时照样咬**）：只改构建产物 `app/server.js`（`resourceBlockers` 开头插 `return [];`，租约永不冲突；`src/` 不动），空闲跑：`FAIL a node recorded a resource wait …（会合点到齐:alpha+0ms／beta+0ms）`、`FAIL a node recorded a failed tool result …（会合点到齐:…）`，连带 Section 1/1b 五条红，`FAIL (7)`。还原后 `server.js` sha256 `06e5ce45…` 逐字节相同、`build --check` 新鲜。
+  - 测试文件在 R1／R2 后按备份还原，sha256 `b21976c8…` 逐字节相同（之后只加了 2 行豁免注释，diff 已核）。
+- **稳定**：双负载＋冷缓存 **8/8 ALL PASS，8 跑全部凑成对**（预热 3.3–11.6 s）；空闲直跑 27 PASS。
+
+#### ② 写死墙钟窗口的件 —— 机械锁 ＋ 逐件分类（42 号文 §5-undecies 留给 107 的第二件）
+
+- **扫描形状**（`dev-harness/lib/wallclock-window-scan.js`，新 lib 模块，不是 e2e）：`ok(…)`／`assert(…)` 的条件里有**上界**比较（`量 < 界`、`量 <= 界` 或镜像），「量」是时钟减法得来的时长（就地的 `Date.now()／performance.now()／process.hrtime／Date.parse(` 减法，或本文件里由它赋值、再沿赋值传下去的名字，含 `function latencyMs(f)` 这种），「界」里不再出现任何量出来的值（两边都是量出来的算相对／次序判据，不算）。下界不算（负载只会把耗时拉长）。注释、字符串、模板串、正则字面量先抹成空白再扫。**首跑 22 件 43 处，静态件 0 处误报**；§9.5 手扫的「`elapsed <` 8 件」全在其中。
+- **逐件分类**（读数是双负载实得，括号里是空闲直跑）：
+  - **墙钟本身就是被测量 → 进独占桶（6 件，`run-all.js:131-150`）**：`perf`（冷启动 1526 ms／门 7500、会话加载 14.4 ms／门 2000 —— 性能预算，108 波红过）；`boot-listen-budget`（spawn → /health **2287 ms／门 2500**，离门 9%）；`event-stream`（八条延迟 0–1 ms／门 1000 —— 34 号文 §6.3 的预算本身，与已在桶里的 event-stream-client.browser 同理由）；`steward-board`（R4「下一拍复核 ≤ 12 s」量的是 5 s 节拍，R8／S7 点一下 ≤ 5 s，真 Edge＋CDP，123／125 两波上过榜）；`scheduler-ready-queue`（总时长 **7905 ms／门 15000，只剩 1.9 倍**）；`autonomy-durability`（MTTR **12264 ms／门 30000**，产品 SLO）。
+  - **已在桶里（4 件）**：event-stream-client.browser（7 处）、focus-rail.browser、one-workbench-frame.browser、mission-index-scale。
+  - **墙钟只是代理的紧界 → 改判（2 处）**：
+    - `perm-v2.e2e.js:150-161` ④：原 `elapsed < 5000` 代理「是被拦下的、不是问了没人答」（S0 全量 5683 ms、125 干净基线 6152 ms 两次首跑红；双负载 3943 ms，空闲 2384 ms）。探针打出两条路的事件流：① 问的那条是 `tool_use → permission_request → permission_decision(deny) → tool_result{ok:false,"permission prompt timed out"}`；④ 拦下的那条是 `tool_use → tool_result{ok:false,"计划模式:…"}`，两个 permission 事件都没有。新判据＝**tool_use 之后是一条 ok:false 的工具结果、且全流没有 permission_decision**；耗时只进标签。反向 P1（④ 的 PATCH 改成 `default`，走问的那条路）→ 新判据红，实得 `got {"ok":false,"error":"permission prompt timed out"}; elapsed 9014ms`。稳定：双负载 5/5（④ 读数 2540–2878 ms）、空闲 24 PASS。
+    - `thread-arbiter.e2e.js:315-325` ④：原 `pendElapsed < TURN_MS*2`（1800 ms），双负载 5 跑 951–989 ms、收读数那一跑（又叠了一路）**1608 ms（1.1 倍）**，§9.5 红过 2006／2806。改判次序，与 ① 同一推理：等了并发位的话，它的首段正文至少比占位者晚 `TURN_MS`；判「晚不到 900 ms」。**反向 A1**（不写那条待决干预，让它真去排队）→ 新判据红「只比占位者晚 **936ms**」，**同一跑耗时 1740 ms —— 旧界 1800 在这一跑里照样是绿的**，旧判据根本没咬住「等了位」。稳定：双负载 5/5（晚 141–171 ms）、空闲 103 PASS（172 ms）。
+  - **防挂死宽界、或次序判据本身 → 就地「墙钟上界豁免」（11 件 15 处）**：agent-deadlock-watchdog ×2（305／0 ms，界 3000／300，进程内原语）、agent-loop（34 ms（28），界 500；标签补了读数）、boot-resume-parallel ×2（U2 92 ms（91）／280、L1 2100（1561）／30000）、bridge-cancel-timeout（2330（1967）／25000）、budget-guard E18（5587（5444）／25000）、long-tool-liveness-steer ×2（1197／1064（1141／982）／10000）、session-permission-mode ⑥（11（8）／1500）、steward-guardrails L3（194（176）／6000）、summary-parallel-cap B3（26（19）／5000）、thread-arbiter ①④（次序判据：跨度 16（5）ms、晚 141–171（172）ms，界 900）、workspace-resolve ⑦（1015（1009）／4000）。每句豁免写「正常实得／界／失败形态多长」。
+- **锁**（`fixture-home.static.e2e.js:305-363`，与 percentile、一次性浏览器两条同一块）：
+  - 先钉 owner：扫到的**文件数钉成常量 21**（首跑 22，perm-v2 ④ 改判后该件不再有这个形状），另加「≥ 15 件」下限；
+  - 每一处：所在文件在 `PARALLEL_EXCLUSIVE`（照既有写法从 run-all 源码里抠名单）**或**断言行／紧挨着的上方注释行里有 `墙钟上界豁免：<≥12 字理由>`；
+  - **反向也锁**：每句「墙钟上界豁免」都必须挂在一处真被扫到的断言上，孤儿当场红（断言改掉后留下的旧理由不能替新紧界背书）。
+- **锁的反向**（静态，逐次备份还原、sha256 全 OK）：L1 从桶里拿掉 `event-stream.e2e.js` → 红并逐条点名 `event-stream.e2e.js:290「latencyMs(say) <= 1000」…`；L2 删掉 workspace-resolve 那句豁免 → 红点名 `workspace-resolve.e2e.js:138「elapsed < 4000」`；L3 在 perm-v2 一条非墙钟断言上加豁免 → 孤儿红点名 `perm-v2.e2e.js:161`；L4 把 perm-v2 换回 HEAD → 件数 22≠21 红 ＋ 点名 `perm-v2.e2e.js:150「elapsed < 5000」`；L5 让扫描器 `Date.now()` 那一支失明 → 下限红（实得 6 件 20 处）、件数红、15 句豁免全成孤儿。
+- **`thread-arbiter` ⑩（派单点名）没改**：双负载下 11 跑（收读数 1 ＋ 专跑 5 ＋ 稳定性 5）⑩ 全绿，**没复现**；§9.5 那两发红在 27 个资源管理器窗口拖慢的作废轮里。它的窗口是 `sleep(150)`／`sleep(200)` 之后假设「B 已经在排队」—— 这类「睡固定毫秒后假设某事已发生」没有零误报的机械形状，扫描器头注里登记为扫不到，下次再红先拿病历。
+- **扫不到的（登记）**：经 CDP 字符串带回来的时长（ec-d-performance，已由 percentile 那条钉进桶）；自己算百分位的（同）；sleep 窗口（上一条）。
+
+#### ③ `budget-guard.e2e.js` E30 —— 分类：**两台服务的环境不同**，不是 44 号文猜的「normalizeCapText 漏了墙钟字段」
+
+- **复现**：探针＝原件＋「E30／E4 不等时把两份归一化请求体落盘、打出首个差异」。**双负载 6 跑：4 红 E30、1 红 E4、1 绿。**
+- **形状**：两份请求体逐行比，**唯一的差别**是易变层第一行 `当前能力：在线；桌面操控工具 0 个；…` 对 `… 104 个；…`（哪个栈是 0 每跑不同）；`tools` 两边都是 24 个，其余逐字节相同。
+- **机制**：`launchStack` 的配置没关桌面 MCP，九个栈每个都从仓里自动探到真的 ai-computer-control（python）并桥接（`probeDesktopMcp → collectBridgedTools`，`06-provider-engine.js:186-201`）；负载下哪个栈在回合时没连完，它的 `deskN` 就是 0。与预算保护无关。
+- **治法**（`budget-guard.e2e.js:50-56`）：`launchStack` 配置里钉 `desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false }`（同 `bridge-cancel-timeout.e2e.js` 的写法）。**不放宽逐字节比较、不动 `normalizeCapText`**。
+- **反向**：删掉那一行、双负载 4 跑 → 3 红（E4 ×2、E30 ×1）；按备份还原 sha256 `dcb0e95b…` 逐字节相同（之后只加了 E18 那句豁免）。
+- **稳定**：双负载 **6/6 ALL PASS，每跑 E4／E30 都 identical**；空闲直跑 57 PASS。顺带：九个栈不再各起一个 python ACC，同档负载下单件约 76 s → 约 52 s（逐跑起始时刻差）。
+
+**生成器链与门**：
+
+- `src/` 零改动 → 依赖图 `--write`／`build.js`／`architecture-contract-snapshots` 不跑；`build --check` 新鲜、依赖图 `--check` 53/420、`syntax-gate` 582/0。
+- **零新 e2e 文件**（`lib/wallclock-window-scan.js` 不计 e2eCount）→ `facts-generate.js` 不跑、README 计数不动、fixture-home ① 的 spawn 锁仍 148（`facts.static` ALL PASS）。
+- **`route-inventory.js` 重生成**：`--fast` 首跑 `route-inventory.static` 红 —— agent-deadlock-watchdog 新出现 `/api/status` 字面量，覆盖列 41 → 42 件；重生成后 json／md 只动这一格与 `generatedAt`，`--check` OK。
+- `--fast` **73/73**；改动 20 个文件（含新 lib、route-inventory 两件与本文）NUL／CR／0x00–0x1f 扫描 0、U+FFFD 0。
+- **逐件直跑（空闲）12/12**：agent-deadlock-watchdog 27、agent-loop 25、boot-resume-parallel 15、bridge-cancel-timeout 20、budget-guard 57、long-tool-liveness-steer 15、perm-v2 24、session-permission-mode 90、steward-guardrails 193、summary-parallel-cap 17、thread-arbiter 103、workspace-resolve 37（1 SKIP 为既有「pick-folder 真对话框」）；**静态件 run-all 列名 17/17**：fixture-home（28 PASS）、overlay-payload-lock（13 PASS）、facts、route-inventory、module-dependency-graph，以及读 `build-overlay.js` 的 copy-path-guard／desktop-dpi／frontend-domains／health-i18n／mermaid-render／onboarding／steward-avatar／steward-board／steward-conversation／steward-drawer／steward-settings／steward-shell。
+
+**全量回归（⓪＋② 合跑，主树 `c94dc7a`＋本批未提交改动）**：`run-all.js --parallel 4` 退出码 **1**，**355 pass / 1 fail / 0 known-fail / 1 flaky / 356 ran / 7 skipped**；unit 全绿、build 新鲜、端口审计零撞车；独占桶 27 件；用时约 24.5 min（09-18 01:08:40 → 01:33:17）。开跑前 CPU 3%、负载循环已停、调过 `stopRuyiTestBrowsers()`；回归期间没改 e2e／src、没跑别的件（只在 scratchpad 起草本段）。**本批动过的件全部首跑即过**（结尾 flaky 名单是权威）；新进独占桶的六件首跑即过：autonomy-durability 29.0 s、boot-listen-budget 4.5 s、event-stream 8.2 s、perf 2.1 s、scheduler-ready-queue 11.8 s、steward-board 24.3 s。
+
+| 件 | 回归里 | 串行复跑与对照 | 归类 |
+|---|---|---|---|
+| `scheduler-ui.browser.e2e.js`（红；本来就在独占桶） | 首跑红（首跑那次只留末 8 行，红在哪一条没留下）；重跑红 `B1 schedule.changed 帧到达之后口袋角标变 1` | 主树直跑 3 跑 2 红（B1）、再 3 跑 1 红（B1）。**对照：`git stash -u` 掉本批改动、主树回到 HEAD，直跑 6 跑 3 红**（B1 ×1；B3＋B4「实得 mode=undefined 文案「undefined」」×2 —— 42 号文 §5-decies 登记过的同一个形状）；`stash pop` 后 19 个文件 sha256 逐字节相同。`run-all` 列名串行 1 跑过。另：`git archive c94dc7a` 解到 scratchpad（不含 `mcp/`）直跑 3/3 过 | **既有，与本批无关**：HEAD 在这台机器的主树上约一半红；它读的文件本批一个没碰。「不含 `mcp/` 的树 3/3 过」只是线索（真 ACC 在不在会改变启动期时序），没证 |
+| `steward-settings.e2e.js`（flaky） | 首跑没抓到 FAIL 行（超时或被杀），重跑过 | 直跑 3/3（`A5 browser target available` 过），`run-all` 列名 1 跑过 | 既有超时族（45 号文 §9.3 第 4 条），与本批改动零交集 |
+
+**真回归 0**。回归前后各调过一次 `stopRuyiTestBrowsers()`；复跑的浏览器件跑完也收过。`scheduler-ui.browser` 这一回拿到了「HEAD 在空闲主树上 6 跑 3 红」的读数 —— 45 号文 §9.5 主会话复核那次「39/0 ×2」不能再当它好了的证据，应单开病历。
+
+**发现但没修（登记，交主会话定）**：
+
+1. **冷能力缓存下子代理初始化钉住事件循环**：双负载 5–12 s（§9.5 ① 同一笔债在子代理入口的读数）。解钉后节点看门狗与初始化心跳谁先跑是时序决定的；生产下限 60 s 今天兜得住，但「解钉后看门狗先判」这个次序本身没人保证。
+2. **能力行在桌面 MCP 没连完时如实说「0 个」**：模型读到的是确定的「0」而不是「未知」—— 与 45 号文 §9.2 ⑧「未知被并进确定值」同族，这次出现在提示词易变层。
+3. **agent-deadlock-watchdog 的第二条标签写「rejected by cycle detection」，判据只看「有一条工具失败」**：按源码推断，环检测坏了时 1500 ms 超时兜底同样会产出「工具返回 错误」让它绿（本批没为此跑反向，如实记）。
+4. **扫描器的已知盲区**：见 ② 末条。
+5. **`run-all` 重跑仍红时，首跑只留末 8 行**（`runWithRetry` 的 `tailLines(first.out, 8)`）：本轮 scheduler-ui 首跑红在哪一条因此丢了。flaky 件已经留全部 FAIL 行（125 波），「重跑仍失败」这一支没跟上。
+6. **`scheduler-ui.browser` 在 HEAD 上空闲约一半红**（见上表），两个形状（B1 角标、B3/B4 `mode=undefined`）。
+
+### ② P0 · 覆盖包补 playbook（2026-09-17）
+
+**开工前重核的坐标**（HEAD `c94dc7a`，全对）：`tools/build-overlay.js` 的 `PAYLOAD_FILES` 里 `resources/playbooks` **0 条**；`06-provider-engine.js:868` `builtinPlaybooksDir()` → `readPlaybooksFromDir` 整目录 readdir `*.json`；`overlay-payload-lock.static` ③ 的 `sensitiveDirs` 只有 `app/public/js|locales|vendor`、`app/src` 四项。
+
+**普查**：服务端 `path.join(externalRoot(), 'resources', …)` 读口 5 处 —— `kimi-acp-compat-register.mjs`（`05b:2177`，已登记）、`playbooks`（`06:868`，**漏**）、`plugins/win-workbench-offline/offline-toolkit`（`12:1637`，其下 `skills/<id>/SKILL.md`（`:1641`）与 `commands/*.md`（`:1671`）建技能库，**漏**）、`scripts/install-workbench.ps1`（`13:2320`，已登记）、`resources` 根（`13:2435`，doctor 的 `resourcesRoot` 只打印路径，不读）。同插件下 `agents/*.md` 与 `.claude-plugin/*.json` 服务端不读（只有 `install-workbench.ps1` 把整个 marketplace 交给 Claude CLI），`scripts/launch-workbench.ps1` 全仓零引用、`resources/offline-manifest.json` 是打包说明 —— 这三样不加。
+
+**改了什么**：
+
+- `build-overlay.js:165-222`：`PAYLOAD_FILES` +49 条 —— 16 个 playbook、20 个内置技能 `SKILL.md`、13 个内置命令；**154 → 203**。逐条列、不按目录收：锁 ③ 扫这些目录，新文件忘登记当场红；按目录收会让 ③ 对这几个目录恒真，目录里混进一个临时文件也会被静默发出去。
+- `overlay-payload-lock.static.e2e.js:67-110`：
+  - ③ 扫描面改成 **`app/public` 整棵**（替掉原来的 js／locales／vendor 三项，css 与将来新增的子目录一并进判据）＋ `app/src` ＋ `resources` 下运行时读的三个目录；先断言每个目录都扫到了文件（实得 app/public 87、app/src 57、playbooks 16、skills 20、commands 13），防目录改名后对空目录恒绿。
+  - **③b**（那张目录表本身也是手攒的，所以对账）：从 `srcModules` 抠出所有 `path.join(externalRoot(), 'resources', …)` 读口（实得 4 处，`resources` 根按上条剔除），每一处要么是已登记的单文件、要么落在 ③ 在扫的目录上／下。服务端下次新开一个 resources 读口而没人来补，本条红并点名。
+
+**与派单稿不同之处**：
+
+1. **多补了技能与命令**：派单稿只点名 playbook；普查发现 `loadSkillRegistry` 同一个漏法（这两个目录最近一次改动是 `0aa48ee`，2026-07-16 —— 下次改就会漏发）。
+2. **③ 扫 `app/public` 整棵，不是只加 `app/public/css`**：css 24 个文件里 23 个是 `index.html` 直接 `<link>` 的、① 本来就看得见；**`css/views/chat.css` 是兼容路由（`read-frontend-css.js:57`）、`index.html` 不引用**，修前 ①③ 都看不见它 —— 见反向 (b′)。整棵扫把这类一并收进来。
+3. **加了 ③b**。
+
+**判据读数与反向**（静态件，逐次按备份还原，`build-overlay.js` `e6488162…`、锁 `661b7026…` sha256 全 OK）：
+
+- 修后 ALL PASS（13 PASS）。
+- (a) 删掉 `'resources/playbooks/scheduled-digest.json'` → `FAIL ③ …(漏登记: resources/playbooks/scheduled-digest.json)`。
+- (b) 删掉 `'app/public/css/views/quiet-card.css'` → ① 与 ③ 双红点名它。
+- (b′) 删掉 `'app/public/css/views/chat.css'` → 新锁 ③ 红点名它；**同一份 build-overlay 拿 HEAD 版的锁跑是 ALL PASS**（修前的盲区实证）。
+- (c) 从锁的 `RESOURCE_DIRS` 里删掉 `resources/playbooks` → ③ 仍绿（文件都登记了），**③b 红**：`没覆盖: resources/playbooks`。
+- (d) `build-overlay.js` 换回 HEAD → ③ 红，漏登记 49 条（playbook 16、技能 20、命令 13，别的 0）。
+
+**真打包**：`build-overlay.js` **没有输出目录参数**（`outRoot` 写死 `dist/overlay`，开跑先 `rmSync` 整个目录；`argv[2]` 不校验，谁传 `--check` 就把它当版本号）。仓里已有一份 `dist/overlay`（2026-08-11，93 个文件，manifest 版本号就是 `"--check"`）—— 先整目录挪到 `dist/overlay.bak-f5p0-20260918`，再 `node tools/build-overlay.js 0.0.0-f5p0`：`build --check` 新鲜，`Payload files: 203 (+0 optional)`，`Wrote update-manifest.json: 203 files`。核对（scratchpad 脚本）：manifest 203 条全量 sha256 对账 **mismatch 0／missing 0**，payload 盘上 203 个文件全在 manifest 里；**playbooks 16/16、skills 20/20、commands 13/13、css 24/24 在 manifest 里且与源文件逐字节相同**；`scheduled-digest.json` `93771dbb…` 1269 字节；`minHostVersion` 2.7.0。之后删掉这次打出来的 `dist/overlay`、把原目录挪回 —— 93 个文件的 sha256 清单与挪走前逐字节相同，`dist/` 条目数 91 不变；manifest 副本只留在 scratchpad。**没跑 `Manage-Overlay.ps1 apply/rollback`**（那是 ⑧ P1 的活）。
+
+**发现但没修**：
+
+1. `build-overlay.js` 没有输出目录参数、`argv[2]` 不校验（`dist/overlay` 里那份「版本 `--check`」就是这么来的）；`release-dryrun.js` 也写同一个 `dist/overlay`。⑧ 打包演练前值得补一个 `--out` 并拒收 `-` 开头的版本号。
+2. `offline-toolkit/agents/*.md` 与 `.claude-plugin/*.json` 不在覆盖包里（服务端不读，见普查）；它们一改，覆盖升级用户重跑 `install-workbench.ps1` 装到的还是旧插件。
+
+**主会话独立复核（⓪＋② 提交前）**：ListAgents 确认实现 agent 已 completed；`git stash list` 为空（施工期 A/B 用过 stash，已 pop 并按哈希核过）、`app/src` 零改动、`dist/overlay` 93 个文件已原样放回。独立复跑 16 件：fixture-home.static 28/0（含新墙钟窗口锁）、overlay-payload-lock.static 13/0、facts.static 24/0、route-inventory.static 12/0、agent-deadlock-watchdog 27/0、budget-guard 57/0、perm-v2 24/0、thread-arbiter 103/0、agent-loop 25/0、boot-resume-parallel 15/0、bridge-cancel-timeout 20/0、long-tool-liveness-steer 15/0、session-permission-mode 90/0、steward-guardrails 193/0、summary-parallel-cap 17/0、workspace-resolve 37/0；20 个改动文件控制字节 0。**主会话自做反向（第一发做错了，如实记）**：第一发按「第一处出现 `scheduled-digest.json` 的行」删——删到的是 `build-overlay.js:167` 的注释，锁照样绿；这是 [反向验证本身会做错] 的又一个样本（锚点匹配到了错位置）。第二发精确匹配清单条目那一行（`:182`）删 → overlay-payload-lock.static 退出码 1，点名「漏登记: resources/playbooks/scheduled-digest.json」；备份还原 sha256 OK、复跑 ALL PASS。
+
+**回归里唯一的红 `scheduler-ui.browser`**：施工 agent 在 HEAD 上直跑 6 次红 3 次（B1 一次、B3/B4 `mode=undefined` 两次），与本刀无关；它的对照「去掉 `mcp/` 的 HEAD 副本 3/3 绿」与 ⓪ 里 budget-guard E30 的机制同形（每个栈自动桥接真机桌面 MCP、负载下连不齐）。**这是 107 退出门「全量真回归 0」剩下的唯一阻碍，下一刀先按机制取证**，不按次数处置。

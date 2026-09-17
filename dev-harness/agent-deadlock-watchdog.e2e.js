@@ -70,7 +70,8 @@ const sockets = new Set();
 // 这不是 sleep：等的是【事件】不是时间。真的只等到一发时按 RENDEZVOUS_FALLBACK_MS 放行，并把
 // 这件事记进 fellBack，断言标签里原样打出来 —— 绝不假装撞上过。
 const RENDEZVOUS_FALLBACK_MS = 1200; // < IDLE_MS(3000)：即便回落也踩不到节点空转看门狗
-const rendezvous = { pending: new Map(), timer: null, fellBack: false, arrivals: [] };
+// paired：两发 round-0 是不是真的【凑成过一对】一起放行 —— 这是「跨访问必撞」这个前提成立的唯一证据。
+const rendezvous = { pending: new Map(), timer: null, fellBack: false, paired: false, arrivals: [] };
 function rendezvousRelease() {
   if (rendezvous.timer) { clearTimeout(rendezvous.timer); rendezvous.timer = null; }
   const fires = [...rendezvous.pending.values()];
@@ -83,17 +84,18 @@ function rendezvousJoin(who, fire) {
   const stale = rendezvous.pending.get(who);
   if (stale) stale(); // 同一条节点重复到达(provider 层重试)：旧的那发立刻放掉,免得永远挂在那儿
   rendezvous.pending.set(who, fire);
-  if (rendezvous.pending.size >= 2) return rendezvousRelease();
+  if (rendezvous.pending.size >= 2) { rendezvous.paired = true; return rendezvousRelease(); }
   if (!rendezvous.timer) {
     rendezvous.timer = setTimeout(() => { rendezvous.fellBack = true; rendezvous.timer = null; rendezvousRelease(); }, RENDEZVOUS_FALLBACK_MS);
   }
   return undefined;
 }
+// 107-F5：修前这里只分「回落／到齐」两支，于是一发都没到的时候也打「会合点到齐:一发都没到」——
+// 42 号文 §5-undecies 那份病历就是被这句读反的（记成了「回落」，其实会合点根本没被碰到，见 Section 2 注释）。
 function rendezvousNote() {
   const seen = rendezvous.arrivals.map(a => `${a.who}+${a.ms}ms`).join('／') || '一发都没到';
-  return rendezvous.fellBack
-    ? `会合点回落:${seen},等不到第二发,${RENDEZVOUS_FALLBACK_MS}ms 后单发放行`
-    : `会合点到齐:${seen}`;
+  if (rendezvous.fellBack) return `会合点回落:${seen},等不到第二发,${RENDEZVOUS_FALLBACK_MS}ms 后单发放行`;
+  return rendezvous.paired ? `会合点到齐:${seen}` : `会合点没凑齐:${seen}`;
 }
 const fake = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.includes('/v1/models')) {
@@ -186,6 +188,7 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
   catch (e) { timedOut = true; code = e && e.code; }
   const waited = Date.now() - t0;
   ok(timedOut && code === 'RESOURCE_TIMEOUT', 'blocked lease rejects with RESOURCE_TIMEOUT instead of hanging forever');
+  // 墙钟上界豁免：进程内租约原语、不经服务与 I/O；显式 300 ms 超时，双负载实得 305 ms，界 3000 ms（10 倍）；失败形态是「永远挂住」。
   ok(waited >= 250 && waited < 3000, 'timeout fires near the configured window (got ' + waited + 'ms)');
   const otherTok = await server.acquireResourceLease('other', rY, null, null, 300);
   ok(!!otherTok, 'a non-conflicting lease still acquires immediately (timeout does not affect the happy path)');
@@ -210,6 +213,7 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
   catch (e) { dlCode = e && e.code; }
   const dlWaited = Date.now() - tDl;
   ok(dlCode === 'RESOURCE_DEADLOCK', 'a real wait-for cycle is rejected with RESOURCE_DEADLOCK (not RESOURCE_TIMEOUT)');
+  // 墙钟上界豁免：进程内同步环检测、不经服务与 I/O；双负载实得 0 ms，界 300 ms；失败形态是等满 30 min 兜底超时。
   ok(dlWaited < 300, 'the cycle is rejected IMMEDIATELY, not after the backstop timeout (got ' + dlWaited + 'ms)');
   server.releaseResourceLease(cB);            // B releases rY -> A's parked wait can now drain
   const aTokY = await aWaitsY;
@@ -252,6 +256,22 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     const sid = created.session.id;
 
     // -------- Section 2: cross-resource deadlock is broken by the tool-level lease timeout --------
+    // 107-F5（46 号文 §5 ⓪）：42 号文 §5-undecies 那份病历「会合点到齐:一发都没到」＋ 两条争用断言红，
+    // 在双负载 ＋ 冷能力缓存下复现了（交替跑 5 对：原件 4/5 红、先等预热的 5/5 过）。形状：两条节点都
+    // 「获得资源」之后事件循环被钉住 5–12 s（子代理初始化里第一发 getCapabilities 冷缓存时同步 spawnSync
+    // 探桌面 python，45 号文 §9.5 ① 登记的那笔产品债），解钉后本件给的 3 s 节点看门狗（WCW_AGENT_NODE_IDLE_MS，
+    // 那是给 Section 3 用的）先于初始化心跳跑到，把两条节点都判成 idle_timeout 杀掉 —— provider 一发请求都没
+    // 收到，会合点根本没被碰到。生产上节点看门狗下限 60 s，这个钉住杀不到人；是本件的 3 s 测试缝太紧。
+    // 所以起跑前先 GET /api/status：它 await ensureDesktopMcpWarm（异步探针，不占事件循环），答复回来 = 冷
+    // 探针已经付完。等的是这一发的答复，不是 sleep；预算 60 s 只是防它自己挂死。
+    const warmStarted = Date.now();
+    const warm = await new Promise(resolve => {
+      const r = http.get({ host: '127.0.0.1', port: WP, path: '/api/status', timeout: 60000, headers: hdr }, res => {
+        res.resume(); res.on('end', () => resolve(res.statusCode)); res.on('error', () => resolve(0));
+      });
+      r.on('error', () => resolve(0)); r.on('timeout', () => { r.destroy(); resolve('timeout'); });
+    });
+    console.log(`  capability warm-up before Section 2: GET /api/status -> ${warm} in ${Date.now() - warmStarted}ms`);
     const dl = await post(WP, '/api/agent-workflow/launch', {
       token, sessionId: sid, async: true,
       nodes: [
@@ -272,8 +292,18 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
       const nodes = dlRun.nodes || [];
       ok(nodes.length === 2 && nodes.every(n => isTerminal(n.status)), 'both deadlock nodes reached a terminal state');
       const allProg = nodes.flatMap(n => (n.progressLog || []).map(e => e.text || ''));
-      ok(allProg.some(t => /等待资源/.test(t)), `a node recorded a resource wait (the cross-access actually contended)（${rendezvousNote()}）`);
-      ok(allProg.some(t => /工具返回 错误/.test(t)), `a node recorded a failed tool result (the deadlock victim was rejected by cycle detection)（${rendezvousNote()}）`);
+      // 107-F5（42 号文 §5-undecies 留给 107 的判据缺口）：下面两条【只有两把节点租约同时握住时】才成立。
+      // 前提成立与否本件自己看得见：会合点凑成过一对（paired）。凑成过 → 照常判、照常咬；没凑成（回落放单发、
+      // 或节点在发 provider 请求之前就没了）→ 报「不适用」并把现场打出来，不报红，也绝不假装撞上过。
+      // 「跑到终态」那条（上面）不受这个前提约束，任何情况下都照判。
+      const nodeFacts = nodes.map(n => `${n.id}=${n.status}${n.errorClass ? '/' + n.errorClass : ''}`).join('，');
+      const contended = (verdict, label) => {
+        if (rendezvous.paired) return ok(verdict, `${label}（${rendezvousNote()}）`);
+        console.log(`SKIP 不适用 ${label}（前提没成立,两把节点租约没有同时握住:${rendezvousNote()}；节点 ${nodeFacts}）`);
+        return undefined;
+      };
+      contended(allProg.some(t => /等待资源/.test(t)), 'a node recorded a resource wait (the cross-access actually contended)');
+      contended(allProg.some(t => /工具返回 错误/.test(t)), 'a node recorded a failed tool result (the deadlock victim was rejected by cycle detection)');
       console.log('  deadlock run status:', dlRun.status, '| node statuses:', nodes.map(n => n.id + '=' + n.status).join(','));
     }
 

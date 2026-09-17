@@ -122,6 +122,7 @@ function pidAlive(pid) {
     const t0 = Date.now();
     const events = await postStream(WP, { sessionId: sid, message: '先跑慢任务再说', cwd: HOME });
     const elapsed = Date.now() - t0;
+    // 墙钟上界豁免：防挂死宽界；慢工具超时被覆盖成 1500 ms，双负载实得 2330 ms，界 25000 ms（10 倍）；失败形态是等满慢工具自己的 30 s。
     ok(elapsed < 25000, '回合在远小于 30s 内结束(慢工具被超时中止,没等满) (' + elapsed + 'ms)');
 
     const slowTool = events.find(e => e.type === 'tool_use' && e.name === 'fake__slow_task');

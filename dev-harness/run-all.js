@@ -128,6 +128,25 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 另一件事，治不了这一条。
   'dom-screenshot.e2e.js',
   'dom-smoke.e2e.js',
+  // 107-F5（46 号文 §5 ⓪；42 号文 §5-undecies 留给 107 的第二件）：**断言里写死了墙钟上界、而墙钟本身就是被测量**
+  // 的件。fixture-home.static 的第三条判据（lib/wallclock-window-scan.js）机械扫出 22 件 43 处，逐件分了三类：
+  // 墙钟是产品承诺 → 进这里；墙钟只是代理的紧界 → 改判因果／次序（perm-v2 ④、thread-arbiter ④）；防挂死的宽界
+  // → 就地写「墙钟上界豁免」。下面六件是第一类，读数取自本批双负载（两路 run-all --parallel 3 常驻）：
+  //   · perf：冷启动 < 7500 ms、会话加载延迟 < 2000 ms —— 性能预算本身（108 波首跑红过「冷启动 5.3 s > 5 s」）；
+  //   · boot-listen-budget：spawn → /health ≤ 2500 ms、探针在飞时 /health ≤ 800 ms —— 双负载实得 2287 ms，
+  //     离门 9%（45 号文 §9.5 那轮作废的全量里实得 4672 ms 红过）；
+  //   · event-stream：八条「服务端写帧 → 客户端收到 ≤ 1000 ms」是 34 号文 §6.3 的延迟预算，与已在桶里的
+  //     event-stream-client.browser 同一条理由（双负载实得 0–1 ms，但被测的就是这个数）；
+  //   · steward-board：R4「强刷读到旧帧后，下一拍（5 s 下限那一档）真的去复核 ≤ 12 s」量的是产品节拍，R8／S7
+  //     「点一下 ≤ 5 s 换帧」同件，外加真 Edge ＋ CDP（123／125 两波都以超时与 R8pre2 上过榜）；
+  //   · scheduler-ready-queue：「A 总时长 < 15000 ms、无调度停滞」量的是调度器本身，双负载实得 7905 ms，只剩 1.9 倍；
+  //   · autonomy-durability：「§5 MTTR < 30 s（崩溃 → 重启 → 续跑完成）」是产品 SLO，双负载实得 12264 ms，2.4 倍。
+  'perf.e2e.js',
+  'boot-listen-budget.e2e.js',
+  'event-stream.e2e.js',
+  'steward-board.e2e.js',
+  'scheduler-ready-queue.e2e.js',
+  'autonomy-durability.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,

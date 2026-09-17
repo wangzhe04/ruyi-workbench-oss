@@ -135,6 +135,7 @@ function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID',
       clearInterval(ticker);
       ok(rSlow && rSlow.ok === true, '⑦ (PF3) resolver returns despite a hung candidate dir');
       ok(slowCalls >= 1, '⑦ (PF3) the hung dir was actually read (stub hit ' + slowCalls + 'x)');
+      // 墙钟上界豁免：进程内解析、读目录被桩成 5000 ms 才回；双负载实得 1015 ms（逐目录超时），界 4000 ms（3.9 倍）；失败形态是等满桩的 5000 ms。
       ok(elapsed < 4000, '⑦ (PF3) hung dir abandoned at the per-dir timeout — elapsed ' + elapsed + 'ms << 5000ms stub delay');
       ok(ticks >= 2, '⑦ (PF3) event loop kept ticking during the resolve (not synchronously blocked; ticks=' + ticks + ')');
       // PF3 FIX: pre-fix, a readdir timeout collapsed to an empty child set → Jaccard 0 → the known workspace was

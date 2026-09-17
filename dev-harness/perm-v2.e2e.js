@@ -147,7 +147,17 @@ async function withWb(allowRules, fn) {
       const ev = await postStream(WB_PORT, { sessionId: sid, message: 'write the file', cwd: HOME });
       const elapsed = Date.now() - t0;
       ok(!ev.find(e => e.type === 'permission_request'), '④ session-level plan → gate is block, NOT ask (no permission_request at all)');
-      ok(elapsed < 5000, '④ turn did NOT wait out the ~6s permission timeout (elapsed ' + elapsed + 'ms) — it was blocked, not prompted');
+      // 107-F5（46 号文 §5 ⓪；42 号文 §5-undecies 点名的那条）：这里原来是 `elapsed < 5000`，拿「没等满 ~6 s 权限超时」
+      // 当「是被拦下的、不是问了没人答」的代理。并行负载下两次首跑红（S0 全量 5683 ms、125 干净基线 6152 ms），
+      // 空闲实得 ~2.4 s、本批双负载 3943 ms —— 冷起跑成本一抬就越线，量的是调度，不是闸。
+      // 改判【因果】：问的那条路（① 就是它）必然先发 permission_request、超时后再发一条 permission_decision(deny)，
+      // 工具结果是「permission prompt timed out」；拦下的那条路两条事件都没有，tool_use 之后直接是一条 ok:false 的
+      // 工具结果。事件流里这三件事与负载无关。耗时留在标签里只作读数。
+      const toolUse4 = ev.findIndex(e => e.type === 'tool_use' && e.name === 'file_write');
+      const toolResult4 = toolUse4 >= 0 ? ev.slice(toolUse4 + 1).find(e => e.type === 'tool_result') : null;
+      ok(toolResult4 && toolResult4.content && toolResult4.content.ok === false && !ev.some(e => e.type === 'permission_decision'),
+        '④ it was blocked, not prompted: tool_use is answered by an ok:false tool_result with NO permission_decision (the ask path always emits one when it times out; ' +
+        `got ${toolResult4 ? JSON.stringify(toolResult4.content).slice(0, 80) : 'no tool_result'}; elapsed ${elapsed}ms is a reading only)`);
       ok(!fs.existsSync(target4), '④ file NOT written under session-level plan');
     });
     killp(f4); await waitFakeDown();

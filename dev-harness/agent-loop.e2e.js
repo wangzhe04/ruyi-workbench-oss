@@ -76,7 +76,9 @@ function writeConfig(home, fakePort) {
       hookApi.registerAgentLoopHook({ id: 'e2e-timeout', timeoutMs: 25, beforeModelCall: () => new Promise(() => {}) });
       const timeoutStarted = Date.now();
       const timed = await hookApi.dispatchAgentLoopHooks('beforeModelCall', { traceId: 'trace_timeout' });
-      ok(timed.failed === 1 && Date.now() - timeoutStarted < 500, 'hooks: timeout is bounded and fail-open');
+      const timedOutAfterMs = Date.now() - timeoutStarted;
+      // 墙钟上界豁免：进程内钩子派发、不经服务；钩子超时 25 ms，双负载实得 34 ms，界 500 ms（14 倍）；失败形态是永不 resolve 的钩子把派发挂死。
+      ok(timed.failed === 1 && timedOutAfterMs < 500, 'hooks: timeout is bounded and fail-open (' + timedOutAfterMs + 'ms)');
       hookApi.unregisterAgentLoopHook('e2e-timeout');
       let invalidRejected = false;
       try { await hookApi.dispatchAgentLoopHooks('not-a-phase', {}); } catch { invalidRejected = true; }

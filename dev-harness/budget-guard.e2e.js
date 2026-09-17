@@ -47,6 +47,13 @@ async function launchStack(tag, flags, fakeEnv, wbEnv) {
   fs.writeFileSync(path.join(EHOME, 'config.json'), JSON.stringify({
     // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
     stewardThreadBriefV1: false,
+    // 107-F5(46 号文 §5 ⓪):E30/E4 的病历。双负载下原件 6 跑 4 红 E30、1 红 E4,两份请求体落盘逐行比,
+    // 唯一的差别在易变层第一行「当前能力：在线；桌面操控工具 0 个」对「… 104 个」(两个栈谁是 0 每跑不同)——
+    // 不是 44 号文猜的「normalizeCapText 漏了别的墙钟字段」。来路:每个栈都会从仓里自动探到真的
+    // ai-computer-control(python)并桥接,负载下这一趟连不上/没连完的那个栈回合里就是 0 个。它与预算
+    // 保护无关,是两台服务【环境】不同;所以这里把环境钉死(同 bridge-cancel-timeout.e2e.js 的写法),
+    // 不去放宽逐字节比较。钉死后两个栈的这一行恒为 0 个,逐字节比较照旧咬「开关改没改请求体」。
+    desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'test-key', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }], contextWindow: 40000 }],
     activeProvider: 'fake',
@@ -197,6 +204,7 @@ function normalizeCapText(raw) {
       const t0 = Date.now();
       const ev = await postStream(T1.WB_PORT, { message: '跑个慢命令' });
       const wall = Date.now() - t0;
+      // 墙钟上界豁免：防挂死宽界；硬终态 5000 ms，双负载实得 5587 ms，界 25000 ms（4.5 倍）；失败形态是等满命令自己的 30 s。
       ok(wall < 25000, 'E18 硬终态在 ~5s 杀树(墙钟 ' + wall + 'ms,远小于命令自身 30s)');
       ok(ev.some(e => e.type === 'tool_progress' && e.state === 'budget_soft'), 'E19 软警告 tool_progress(budget_soft)已发');
       ok(ev.some(e => e.type === 'tool_progress' && e.state === 'budget_hard'), 'E20 硬终态 tool_progress(budget_hard)已发');
