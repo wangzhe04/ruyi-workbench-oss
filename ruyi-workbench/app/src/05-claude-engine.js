@@ -1297,6 +1297,120 @@ function maskExtraHeaders(headers) {
   }
   return out;
 }
+// 107-S0b(46 号文 §5 S0 记录「发现但没修」第 1 条):外部 MCP 连接器的密钥面。
+// externalMcpServers[].env(stdio)与远程条目的 headers 里装的常是 GitHub PAT、Authorization、服务密钥;修前
+// maskSecrets 不碰这一键,GET /api/status、POST /api/config 回包、steward_config_get 原样下发。
+// 口径:env／headers 的【每一个值】都走同一条 maskKey,不按键名挑 —— 键名是用户随手起的(GITHUB_PERSONAL_ACCESS_TOKEN、
+// X_KEY、DB_URL……),名字白名单一定漏;按值猜「像不像密钥」同样猜不准(providers 的 extraHeaders 按名字挑,是因为
+// 那一格绝大多数是 X-Organization 这类非密钥头,MCP 的 env 恰好反过来)。键名照常可见,看得出配了哪几个变量。
+// args 可能带 `--token xyz`、`postgres://user:pass@host` 这类值:只做【显示】脱敏,用 04 的 redact 表(审计、会话搜索、
+// 管家命令摘录共用的那一张);旗标与值分在两个元素里时把前一个元素接上一起过表。command／url／cwd／id／label／enabled 原样。
+const MCP_ARG_REDACTED_MARK = '«redacted»';   // 与 04 redact() 的替换标记逐字相同;那边改了这里必须跟着改(repo-hygiene (f) 的往返断言会红)
+function mcpArgsForDisplay(argList) {
+  if (!Array.isArray(argList)) return argList;
+  return argList.map((arg, i) => {
+    if (typeof arg !== 'string') return arg;
+    const own = redact(arg);
+    const prevArg = i > 0 ? argList[i - 1] : null;
+    if (typeof prevArg !== 'string') return own;
+    const head = redact(prevArg) + ' ';
+    const pair = redact(prevArg + ' ' + arg);
+    if (pair === head + own) return own;
+    if (!pair.startsWith(head)) return MCP_ARG_REDACTED_MARK;   // 表里的某条跨过了两个元素的边界,切不回去 —— 整个元素按脱敏处理
+    const tail = pair.slice(head.length);
+    return tail === arg ? own : tail;
+  });
+}
+function maskMcpSecretValues(valueMap) {
+  const out = {};
+  for (const [name, value] of Object.entries(valueMap)) out[name] = maskKey(value == null ? '' : String(value));
+  return out;
+}
+function maskExternalMcpServerForDisplay(mcpEntry) {
+  if (!mcpEntry || typeof mcpEntry !== 'object') return mcpEntry;
+  const out = { ...mcpEntry };
+  if (mcpEntry.env && typeof mcpEntry.env === 'object') out.env = maskMcpSecretValues(mcpEntry.env);
+  if (mcpEntry.headers && typeof mcpEntry.headers === 'object') out.headers = maskMcpSecretValues(mcpEntry.headers);
+  if (Array.isArray(mcpEntry.args)) out.args = mcpArgsForDisplay(mcpEntry.args);
+  return out;
+}
+// 保存路径的逆操作。来件里的值仍以掩码前缀开头(env／headers)或仍带脱敏标记(args)= 调用方没动它 → 取磁盘上
+// 【同 id】那一条同一个键的真值;新填的明文直通;来件里没有的键自然就删掉了。
+// 比 providers 那一套多一道闸:**启动向量没变才还原** —— stdio 比 command 与 cwd(args 先逐个还原再整串比),
+// 远程比 url。不然一份回传的掩码就是「看不见密钥也能把它改接到另一个程序／端点上」的把手(管家提议一份改了
+// command 的 patch、用户随手一按;模型经 mcp_configure upsert 同一个 id)。
+// 没有匹配(新 id、改了 id、改了启动向量)一律按清空处理,与 providers「无匹配 → 空」同口径。
+function mcpEntryIsRemote(mcpEntry) {
+  const kind = String((mcpEntry && (mcpEntry.type || mcpEntry.transport)) || 'stdio').toLowerCase();
+  return kind === 'sse' || kind === 'http' || kind === 'streamable-http';
+}
+function mcpEntryTrimmed(mcpEntry, field, cap) {
+  return (mcpEntry && typeof mcpEntry[field] === 'string' ? mcpEntry[field] : '').trim().slice(0, cap);
+}
+function mcpEntryArgStrings(argList) {
+  return Array.isArray(argList) ? argList.filter(arg => typeof arg === 'string').slice(0, 50) : [];
+}
+function restoreMcpSecretValues(valueMap, prevValueMap) {
+  if (!valueMap || typeof valueMap !== 'object' || Array.isArray(valueMap)) return valueMap;
+  const prevMap = (prevValueMap && typeof prevValueMap === 'object') ? prevValueMap : {};
+  const out = {};
+  for (const [name, value] of Object.entries(valueMap)) {
+    if (typeof value === 'string' && value.startsWith(KEY_MASK_PREFIX)) {
+      const prevValue = Object.prototype.hasOwnProperty.call(prevMap, name) ? prevMap[name] : undefined;
+      out[name] = (typeof prevValue === 'string' || typeof prevValue === 'number') ? String(prevValue) : '';
+    } else out[name] = value;
+  }
+  return out;
+}
+function restoreMcpArgs(argList, prevArgList) {
+  if (!Array.isArray(argList)) return argList;
+  const prevRaw = Array.isArray(prevArgList) ? prevArgList : [];
+  const prevShown = mcpArgsForDisplay(prevRaw);
+  const redactedAt = prevRaw.map((arg, j) => typeof arg === 'string' && prevShown[j] !== arg);
+  return argList.map((arg, i) => {
+    if (typeof arg !== 'string' || !arg.includes(MCP_ARG_REDACTED_MARK)) return arg;
+    if (i < prevRaw.length && (prevRaw[i] === arg || (redactedAt[i] && prevShown[i] === arg))) return prevRaw[i];   // 原位没动
+    // 挪了位置:显示形唯一对得上才还原;对不上或有歧义(两个都显示成同一串)→ 清空,不猜
+    const hits = prevShown.map((shown, j) => (redactedAt[j] && shown === arg ? j : -1)).filter(j => j >= 0);
+    return hits.length === 1 ? prevRaw[hits[0]] : '';
+  });
+}
+function restoreExternalMcpServerSecrets(mcpEntry, prevEntry) {
+  if (!mcpEntry || typeof mcpEntry !== 'object') return mcpEntry;
+  const remote = mcpEntryIsRemote(mcpEntry);
+  const sameTarget = !!prevEntry && typeof prevEntry === 'object' && mcpEntryIsRemote(prevEntry) === remote
+    && (remote
+      ? mcpEntryTrimmed(mcpEntry, 'url', 2000) === mcpEntryTrimmed(prevEntry, 'url', 2000)
+      : (mcpEntryTrimmed(mcpEntry, 'command', 1000) === mcpEntryTrimmed(prevEntry, 'command', 1000)
+        && mcpEntryTrimmed(mcpEntry, 'cwd', 1000) === mcpEntryTrimmed(prevEntry, 'cwd', 1000)));
+  const out = { ...mcpEntry };
+  if (Array.isArray(mcpEntry.args)) out.args = restoreMcpArgs(mcpEntry.args, sameTarget ? prevEntry.args : null);
+  const sameArgs = sameTarget && JSON.stringify(mcpEntryArgStrings(out.args)) === JSON.stringify(mcpEntryArgStrings(prevEntry.args));
+  const valuesFrom = sameArgs ? prevEntry : null;
+  if (mcpEntry.env && typeof mcpEntry.env === 'object') out.env = restoreMcpSecretValues(mcpEntry.env, valuesFrom && valuesFrom.env);
+  if (mcpEntry.headers && typeof mcpEntry.headers === 'object') out.headers = restoreMcpSecretValues(mcpEntry.headers, valuesFrom && valuesFrom.headers);
+  return out;
+}
+function mcpEntryIdKey(mcpEntry) {
+  return String((mcpEntry && mcpEntry.id) || '').trim().slice(0, 64);   // 与 sanitizeExternalMcpServer 的 id 归一同口径
+}
+function restoreExternalMcpServersSecrets(incomingList, currentList) {
+  if (!Array.isArray(incomingList)) return incomingList;
+  const byId = new Map();
+  for (const prevEntry of (Array.isArray(currentList) ? currentList : [])) {
+    if (prevEntry && typeof prevEntry === 'object') byId.set(mcpEntryIdKey(prevEntry), prevEntry);
+  }
+  return incomingList.map(mcpEntry => ((mcpEntry && typeof mcpEntry === 'object')
+    ? restoreExternalMcpServerSecrets(mcpEntry, byId.get(mcpEntryIdKey(mcpEntry)) || null)
+    : mcpEntry));
+}
+// 最后一道闸(sanitizeExternalMcpServer 每次读、写配置都过):仍是掩码的 env／headers 值、仍带脱敏标记的 arg
+// 都不是真值 —— 能还原的上面已经还原了,走到这里还剩下的一律清空。写 externalMcpServers 的每一个口子
+// (POST /api/config、steward_config_set、mcp_configure、import-folder、import-config/apply、Claude Code 自动导入)
+// 与 drop-in 运行时合并都经 sanitize,所以掩码到不了磁盘、.mcp.json、Claude／Kimi 同步产物和 MCP 子进程的 env。
+function mcpSecretValueOrCleared(value) {
+  return value.startsWith(KEY_MASK_PREFIX) ? '' : value;
+}
 // v0.9-S9: single mask helper covering ALL config secrets that leave the process in an API response:
 // every providers[].apiKey AND searchBackend.apiKey. Returns a shallow-enough copy so mutating the mask
 // never touches the on-disk config. providers[] additionally gets a `hasKey` boolean (UI "key present"
@@ -1320,6 +1434,8 @@ function maskSecrets(config) {
   // POST /api/config 的回包把它明文下发。同一条 maskKey 规则;不加 has… 布尔 —— 设置页那个输入框与
   // providers[].apiKey 同一模具(掩码原样播种、原样回传,保存路径的 unmaskSecrets 还原),用不上它。
   if (typeof config.modelsApiKey === 'string') out.modelsApiKey = maskKey(config.modelsApiKey);
+  // 107-S0b:外部 MCP 连接器 —— env／headers 的值全遮、args 显示脱敏(口径见上面 maskExternalMcpServerForDisplay)。
+  if (Array.isArray(config.externalMcpServers)) out.externalMcpServers = config.externalMcpServers.map(maskExternalMcpServerForDisplay);
   return out;
 }
 // F2: reverse of the mask on the SAVE path. The UI echoes the masked apiKey (`••••abcd`) straight back on
@@ -1366,6 +1482,10 @@ function unmaskSecrets(incoming, current) {
   // 107-S0:modelsApiKey 同口径 —— 仍是掩码(用户没动那个框)就取磁盘上的真值;新填的明文、清成空串都直通。
   if (typeof incoming.modelsApiKey === 'string' && incoming.modelsApiKey.startsWith(KEY_MASK_PREFIX)) {
     out.modelsApiKey = (current && typeof current.modelsApiKey === 'string') ? current.modelsApiKey : '';
+  }
+  // 107-S0b:externalMcpServers 按 id＋键名还原,且只在启动向量没变时还原(见 restoreExternalMcpServerSecrets)。
+  if (Array.isArray(incoming.externalMcpServers)) {
+    out.externalMcpServers = restoreExternalMcpServersSecrets(incoming.externalMcpServers, current && current.externalMcpServers);
   }
   return out;
 }
@@ -1433,7 +1553,7 @@ function sanitizeExternalMcpServer(raw) {
     const headers = {};
     if (raw.headers && typeof raw.headers === 'object') {
       for (const [k, v] of Object.entries(raw.headers)) {
-        if (typeof k === 'string' && typeof v === 'string') headers[k.slice(0, 120)] = v.slice(0, 2048);
+        if (typeof k === 'string' && typeof v === 'string') headers[k.slice(0, 120)] = mcpSecretValueOrCleared(v.slice(0, 2048));   // 107-S0b 最后一道闸
       }
     }
     const bearerTokenEnvVar = typeof raw.bearerTokenEnvVar === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(raw.bearerTokenEnvVar.trim())
@@ -1445,11 +1565,12 @@ function sanitizeExternalMcpServer(raw) {
   }
   const command = (typeof raw.command === 'string' ? raw.command : '').trim().slice(0, 1000);
   if (!command) return null;
-  const args = Array.isArray(raw.args) ? raw.args.filter(a => typeof a === 'string').slice(0, 50) : [];
+  // 107-S0b 最后一道闸:仍带脱敏标记的 arg 与仍是掩码的 env 值清空(见 mcpSecretValueOrCleared 头注)。
+  const args = Array.isArray(raw.args) ? raw.args.filter(a => typeof a === 'string').slice(0, 50).map(a => (a.includes(MCP_ARG_REDACTED_MARK) ? '' : a)) : [];
   const env = {};
   if (raw.env && typeof raw.env === 'object') {
     for (const [k, v] of Object.entries(raw.env)) {
-      if (typeof k === 'string' && (typeof v === 'string' || typeof v === 'number')) env[k.slice(0, 120)] = String(v).slice(0, 2048);
+      if (typeof k === 'string' && (typeof v === 'string' || typeof v === 'number')) env[k.slice(0, 120)] = mcpSecretValueOrCleared(String(v).slice(0, 2048));
     }
   }
   return {

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2362 | 2531 | 420 | 68 | 0 | 1 |
+| 53 | 2375 | 2534 | 420 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -23,9 +23,9 @@
 | 5 | `02-session-store.js` | foundation | 246 | 46 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 72 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 8 | `04-permission-runtime.js` | foundation | 100 | 30 | 7 |
+| 8 | `04-permission-runtime.js` | foundation | 100 | 32 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 10 | `05-claude-engine.js` | engine | 27 | 104 | 15 |
+| 10 | `05-claude-engine.js` | engine | 40 | 104 | 15 |
 | 11 | `05b-kimi-bridge.js` | engine | 119 | 65 | 12 |
 | 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
@@ -56,7 +56,7 @@
 | 38 | `13i-steward-inbox.js` | transport | 68 | 24 | 7 |
 | 39 | `13j-steward-tool-base.js` | transport | 69 | 21 | 6 |
 | 40 | `13k-steward-threads.js` | transport | 34 | 93 | 11 |
-| 41 | `13l-steward-ops.js` | transport | 26 | 79 | 16 |
+| 41 | `13l-steward-ops.js` | transport | 26 | 80 | 16 |
 | 42 | `13g-steward.js` | transport | 11 | 57 | 9 |
 | 43 | `13m-steward-runner-base.js` | transport | 38 | 14 | 5 |
 | 44 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
@@ -108,7 +108,7 @@
 | `04-permission-runtime.js` | `00-boot.js` | backward | `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `04-permission-runtime.js` | `01-config.js` | backward | `batchSafeSpawn`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
 | `04-permission-runtime.js` | `02-session-store.js` | backward | `registerIntervention`, `settleIntervention` |
-| `04-permission-runtime.js` | `05-claude-engine.js` | forward | `maskKey`, `sanitizeExternalMcpServer` |
+| `04-permission-runtime.js` | `05-claude-engine.js` | forward | `maskKey`, `mcpArgsForDisplay`, `restoreExternalMcpServerSecrets`, `sanitizeExternalMcpServer` |
 | `04-permission-runtime.js` | `06d-memory-domain.js` | forward | `legacyAccMemoryMigrationComplete` |
 | `04-permission-runtime.js` | `13d-core-domain-routes.js` | forward | `decideIntervention` |
 | `04-permission-runtime.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
@@ -296,7 +296,7 @@
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `rewindSession`, `saveSession` |
 | `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `activeChildren`, `buildMcpConnectorInventory`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `resolveExternalMcpServers`, `scanMcpSources` |
-| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `maskKey`, `resolveAsrProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
+| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `maskExternalMcpServerForDisplay`, `resolveAsrProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
 | `13b-api-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns` |
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `json`, `path` |
@@ -373,7 +373,7 @@
 | `13l-steward-ops.js` | `00-boot.js` | backward | `fsp`, `makeId`, `nowIso`, `readUsageRows`, `safeJsonParse`, `text`, `usageDayKey` |
 | `13l-steward-ops.js` | `01-config.js` | backward | `PERMISSION_MODES_REQUIRING_CONFIRM`, `normalizeConfig`, `safeSessionId` |
 | `13l-steward-ops.js` | `02-session-store.js` | backward | `loadSession`, `readInterventions` |
-| `13l-steward-ops.js` | `05-claude-engine.js` | backward | `maskProviders` |
+| `13l-steward-ops.js` | `05-claude-engine.js` | backward | `maskProviders`, `unmaskSecrets` |
 | `13l-steward-ops.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession` |
 | `13l-steward-ops.js` | `06d-memory-domain.js` | backward | `cleanMemoryDate`, `memoryIsExpired`, `memoryProposalLooksSensitive` |
 | `13l-steward-ops.js` | `06i-steward-core.js` | backward | `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `stewardConfigTierFor`, `stewardExemptDelegationVerdict`, `stewardExemptHits`, `stewardExemptReason`, `stewardExemptRiskNote`, `stewardExemptScanInput`, `stewardMayAct`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSanitizeText`, `stewardStateLabel`, `stewardStoppedRefusal`, `stewardStoppedTarget`, `stewardTermJaccard`, `stewardWatchedThread`, `threadOriginOf` |

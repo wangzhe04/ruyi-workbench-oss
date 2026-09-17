@@ -50,9 +50,8 @@ async function handleMcpApiRoutes(req, res, pathname) {
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
-    const maskedEnv = {};
-    for (const [k, v] of Object.entries(cleaned.env || {})) maskedEnv[k] = maskKey(String(v));
-    const serverEcho = { ...cleaned, env: maskedEnv };
+    // 107-S0b:改用与 GET /api/status 同一个 MCP 掩码 —— 修前只遮 env,远程清单的 headers 与 args 里的 `--token xyz` 原样回显。
+    const serverEcho = maskExternalMcpServerForDisplay(cleaned);
     return send(res, json({ ok: true, ...(updated ? { updated: true } : { added: true }), server: serverEcho }));
   }
   // 48c: MCP 配置导入器 v1 -- 从 Claude Code / Codex 配置导入(03 §4.1)。两步:scan(发现+冲突检测) -> apply(勾选写回)。

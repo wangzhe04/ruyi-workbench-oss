@@ -18,6 +18,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *   T9 内置 ai-computer-control 仍被挡(零回归)
  *   T10 未知 id 的 remove / set-enabled 仍是「未找到」(零回归)
  *   T11 upsert 显式再导入 -> 把该 id 从 dismissedMcpIds 移除(与 import-folder/import-config 同语义)
+ *   T12 107-S0b:工具面读到的是掩码(mcp_list 的 args 显示脱敏、upsert 回包零明文);模型把掩码原样 upsert 回来
+ *       -> 同 id 同启动向量才还原真值;改了 command 的 upsert 带着掩码 -> 清空,不把密钥改接到别的程序上、也不落掩码
  *  C 段 配置「读-改-写」临界区(修前红:9 处绕过 applyConfigPatch 各自裸 readConfig->writeConfig,
  *      configWriteChain 只串行化物理写,后写者静默吞掉先写者的字段):
  *   C1 5 个并发 toggle(5 个不同 id)全部落盘
@@ -155,6 +157,30 @@ const baseConfig = extra => ({
   ok(rUnk2 && rUnk2.ok === false && /未找到/.test(errText(rUnk2)), 'T10b 未知 id set-enabled -> 未找到');
   // tool-b 全程没被碰过(无关连接器不受影响)
   ok((readCfg(HOME).externalMcpServers || []).some(s => s && s.id === 'tool-b' && s.enabled !== false), 'T10c 无关连接器 tool-b 不受影响');
+
+  // T12(107-S0b):带密钥的连接器经工具面往返。假值运行时拼出,失败信息不打明文。
+  const T12_GH = 'ghp_' + 'ToolFace' + 'S0b0123456789QRSTU';
+  const T12_ARG = 'toolArg' + 'S0b' + 'Secret778899';
+  const secretServer = { id: 'tool-s', label: 'S', command: process.execPath, args: [FAKE_MCP, '--token', T12_ARG], env: { GITHUB_TOKEN: T12_GH } };
+  const rS0 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: secretServer });
+  const plainT12 = t => [T12_GH, T12_ARG].some(s => String(t).includes(s));
+  ok(rS0 && rS0.ok === true && !plainT12(JSON.stringify(rS0)) && rS0.server.args[2] === '«redacted»', 'T12a 明文 upsert 成功,回包 args 显示脱敏、零明文');
+  const diskS = () => (readCfg(HOME).externalMcpServers || []).find(s => s && s.id === 'tool-s') || null;
+  const realS = JSON.stringify(diskS());
+  ok(realS.includes(T12_GH) && realS.includes(T12_ARG), 'T12b 磁盘上是真值');
+  const inv = srv.safeMcpInventory(readCfg(HOME)).find(e => e.id === 'tool-s');
+  ok(inv && inv.args[2] === '«redacted»' && !plainT12(JSON.stringify(inv)), 'T12c mcp_list(safeMcpInventory)args 显示脱敏、零明文');
+  const maskedS = srv.maskSecrets(readCfg(HOME)).externalMcpServers.find(s => s.id === 'tool-s');
+  const rS1 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: { ...maskedS, label: 'S relabeled' } });
+  const afterS1 = diskS();
+  ok(rS1 && rS1.ok === true && afterS1 && afterS1.label === 'S relabeled'
+    && JSON.stringify({ ...afterS1, label: 'S' }) === realS, 'T12d 掩码原样 upsert 回来(只改 label)-> 真值逐字节还原');
+  const rS2 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: { ...maskedS, command: path.join(HOME, 'other-launcher.exe') } });
+  const afterS2 = diskS();
+  const textS2 = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
+  ok(rS2 && rS2.ok === true && afterS2 && afterS2.env.GITHUB_TOKEN === '' && afterS2.args[2] === '' && !plainT12(textS2) && !textS2.includes('••••') && !textS2.includes('«redacted»'),
+    'T12e 改了 command 的 upsert 带着掩码 -> 清空(不改接、不落掩码)');
+  await cfgTool()({ operation: 'remove', id: 'tool-s' });
 
   // ────────────────────────────── C 段: 并发丢失更新(HTTP 真身)────────────────────────────────
   console.log('── C 段: 配置读-改-写临界区(并发丢失更新)──');

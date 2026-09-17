@@ -1657,6 +1657,20 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "mcpArgsForDisplay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "restoreExternalMcpServerSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "sanitizeExternalMcpServer",
           "kinds": [
             "call"
@@ -1751,6 +1765,7 @@
       "provides": [
         "CLAUDE_ENDPOINT_PRESETS",
         "KEY_MASK_PREFIX",
+        "MCP_ARG_REDACTED_MARK",
         "PROVIDER_MODEL_CAPS",
         "PROVIDER_PRESETS",
         "PROVIDER_REASONING_EFFORTS",
@@ -1758,16 +1773,28 @@
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
         "isSensitiveHeaderName",
+        "maskExternalMcpServerForDisplay",
         "maskExtraHeaders",
         "maskKey",
+        "maskMcpSecretValues",
         "maskProviders",
         "maskSecrets",
+        "mcpArgsForDisplay",
+        "mcpEntryArgStrings",
+        "mcpEntryIdKey",
+        "mcpEntryIsRemote",
+        "mcpEntryTrimmed",
+        "mcpSecretValueOrCleared",
         "providerBaseWithV1",
         "providerModelCaps",
         "providerReasoningEffort",
         "providerResponsesBase",
         "resolveAsrProvider",
         "resolveProvider",
+        "restoreExternalMcpServerSecrets",
+        "restoreExternalMcpServersSecrets",
+        "restoreMcpArgs",
+        "restoreMcpSecretValues",
         "runClaudeTurn",
         "sanitizeExternalMcpCommon",
         "sanitizeExternalMcpServer",
@@ -10741,7 +10768,7 @@
         },
         {
           "provider": "05-claude-engine.js",
-          "symbol": "maskKey",
+          "symbol": "maskExternalMcpServerForDisplay",
           "kinds": [
             "call"
           ]
@@ -13316,6 +13343,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "maskProviders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "unmaskSecrets",
           "kinds": [
             "call"
           ]

@@ -202,3 +202,96 @@
 2. **git 族工具缺省 cwd 仍是家目录**（`11:559` `resolveGitCwd`，注释写的是「session/home workspace」）。它们不过执行闸，不是「判的与跑的不一致」这一类，本刀没动。
 3. **脱敏的已知边界**：PEM 私钥（值里带空格与转义换行）只抹得到第一段；单个值超过 4096 字时尾部不抹；值里带单引号的双引号串（`"password": "it's…"`）在单引号处收口、短于 6 字就不抹。
 4. **会话 cwd 指向已被删掉的目录时**：三个执行工具现在会在那个不存在的目录上起进程并失败（修前落家目录「成功」）。这是 fail-closed，但报错是 spawn 的原话，不是人话。
+
+### S0b · MCP 服务器密钥掩码（2026-09-17）
+
+**开工前重核的坐标**（HEAD `8201336`，全对）：`maskSecrets` 在 `05-claude-engine.js:1304-1324`、`unmaskSecrets` 在 `:1329-1371`、`maskKey`／`KEY_MASK_PREFIX` 在 `:1280-1286`、`sanitizeExternalMcpServer` 在 `:1424-1464`；保存路径的还原在 `13-http-router.js:193-201`。另核出三件派单稿没写、但决定修法形状的事实：
+
+- **`GET /api/status` 的鉴权档是 `open`**（`01b-route-auth.js:4`）——修前本机任何进程不带 UI token 一个 `curl` 就拿到全部 MCP 密钥，不只是浏览器。
+- **管家侧两处回显**：`steward_config_get`（`13l:652`）经 `maskProviders` 下发，`externalMcpServers` 是 confirm 档所以**连值带密钥**回给管家模型；`steward_config_set`（`13l:673`）把 `before`／`applied` 原样写进 `undoRef` —— 决策日志（`steward/decisions-v1.ndjson`，`GET /api/steward/decisions` 原样下发 `undoRef`，`13j:280`）与模型的工具结果各一份明文。
+- **能力探测会先把连接器拉起来**：`workbench_self_status` 的 counts → `getCapabilities` → `probeDesktopMcp` → `collectBridgedTools`（`06:189`）启动全部外部 MCP；判据 ③「经正常路径起一个子进程看 env」必须先让活客户端失效，否则看到的是保存之前起的那个。
+
+**改了什么**：
+
+- **① 掩码**（`05-claude-engine.js:1300-1413` 一段新 helper，`maskSecrets` 在 `:1437-1438` 调它）
+  - `maskExternalMcpServerForDisplay`（`:1329`）：`env` 与 `headers` 的**每一个值**走 `maskKey`（`maskMcpSecretValues`，`:1324`）；键名原样。`args` 走 `mcpArgsForDisplay`（`:1309`）做**显示脱敏**；`command`／`url`／`cwd`／`id`／`label`／`enabled` 原样。
+  - `mcpArgsForDisplay` 用 04 的 `redact()` —— **零新边**：`05 → 04` 这条边早就存在且符号表里本来就有 `redact`。旗标与值分在两个元素里（`'--token'`,`'xyz'`）时把前一个元素接上一起过表再切回来；某条规则跨过了两个元素的边界切不回去时，整个元素按脱敏处理（`'Bearer'`,`'<长串>'` 就是这种）。`postgres://user:pw@host` 这类由表里的 URL userinfo 那条抹掉。
+- **② 保存路径还原**（`unmaskSecrets` `:1486-1489` → `restoreExternalMcpServersSecrets` `:1397`；`13-http-router.js:195-204` 进入条件加 `Array.isArray(body.externalMcpServers)` 并写回 `merged.externalMcpServers`）
+  - 按 **id**（与 sanitize 同口径 trim＋截 64，`mcpEntryIdKey` `:1394`）找磁盘上那一条；`env`／`headers` 里仍以 `••••` 开头的值取**同一个键**的真值（`restoreMcpSecretValues` `:1353`）；新明文直通；来件里没有的键自然删掉；没有匹配 → `''`。
+  - `args` 里仍带 `«redacted»` 的元素：原位显示形对得上 → 取原位真值；挪了位置 → 显示形**唯一**对得上才取，歧义或对不上 → `''`（`restoreMcpArgs` `:1365`）。
+  - **启动向量闸**（`restoreExternalMcpServerSecrets` `:1378`，见「与派单稿不同之处」1）：stdio 的 `command`＋`cwd` 相同才还原 `args`，还原后的 `args` 整串也相同才还原 `env`；远程比 `url`。
+- **③ 最后一道闸**（`mcpSecretValueOrCleared` `:1411`，`sanitizeExternalMcpServer` 里 `headers` `:1556`、`args` `:1569`、`env` `:1573`）：仍是掩码的值、仍带脱敏标记的 arg 一律清空。sanitize 在每次读／写配置（`01:775`）、`import-folder`（`13b:30`）、`import-config/apply`（`13b:84`）、`mcp_configure upsert`（`04:1429`）、Claude Code 自动导入（`01:1828`）、drop-in 运行时合并（`04:1129`）上都过一遍，所以掩码到不了磁盘、`.mcp.json`、Claude／Kimi 同步产物与子进程 env。
+- **④ 其它写口与回显面**
+  - `04-permission-runtime.js:1427-1429` `mutateMcpConnector` 的 upsert 先按同一条规则还原再 sanitize（模型把 `mcp_list`／`steward_config_get` 读到的掩码原样 upsert 回来时不抹密钥；改了启动向量就清空）。
+  - `04:1349` `safeMcpInventory`（`mcp_list`）与 `04:1483` `mcp_configure` 回包的 `args` 显示脱敏（修前原样）。
+  - `13b-api-domain-routes.js:52-54` `import-folder` 回包改用同一个 `maskExternalMcpServerForDisplay`（修前只遮 env，远程清单的 `headers` 原样回显）。
+  - `13l-steward-ops.js:711-716` `steward_config_set` 的 sanitize 探针先 `unmaskSecrets` 再比（否则管家原样回传掩码会被 ③ 清空、误判成「没活过 sanitize」而整份拒绝）；`:721-725`／`:735-737` `before`／`applied` 过 `maskProviders`。
+  - 同步目标核过、不用改：`applyConfigPatch` 调 `syncMcpServersToClaude(next)`／`syncMcpServersToKimi(next)` 时的 `next` 是 `mutateConfig` 落盘后的那份（已还原、已 normalize）；启动期同步（`13:1909-1910`）、`generateMcpConfig`（`01:2706`）、子进程 `resolveExternalMcpServers` 都从 `readConfig` 读盘。
+- **测试**（**零新文件**，e2eCount 不变）：
+  - `repo-hygiene.e2e.js` 新增 (f) 段（`:256` 起，独立实例＋假 `claude.cmd` 记实参＋`KIMI_CODE_HOME` 指进夹具＋进程内假远程 MCP 记 `Authorization`），`postJson` 加可选超时参数。
+  - `steward-config-tools.e2e.js` 新增 (I) 段（`:172` 起；夹具加一个**停用**的带密钥 MCP，停用＝不起子进程不同步、掩码照样要盖住）。
+  - `config-mutate-mcp-parity.e2e.js` T12（`:161` 起，工具面 upsert 往返）；`mcp-import-config.e2e.js` H13；`mcp-config.e2e.js` import-folder 段加远程清单两条（`:122` 起）。
+  - `fake-mcp.js:74-82` 加可选 env 捕获（`FAKE_MCP_ENV_CAPTURE`＋`FAKE_MCP_ENV_CAPTURE_KEYS`，启动时写一行 JSON；工具表不变）。
+  - 假值全部运行时拼出，失败信息只打前 6 个字符，沿用 S0 口径。
+
+**口径决定：env／headers 全遮，不按键名挑**。名字白名单一定漏：MCP 的 env 名是各家服务自己起的（`GITHUB_PERSONAL_ACCESS_TOKEN`、`X_KEY`、`DB_URL`、`NOTION_INTEGRATION`……），而且 MCP 这一格的常态恰恰是「值就是凭据」——与 `providers[].extraHeaders` 反过来（那里绝大多数是 `X-Organization` 这类非密钥头，所以 S0 之前那份按名字挑）。按值猜「像不像密钥」同样不可靠（S0 的脱敏表 27／16 形状就是为此攒的，仍有已知边界）。代价，照实记：非密钥值也看不见了（`PYTHONUTF8=1` 显示成 `••••1`——`maskKey` 的「末四位」对 ≤4 字的值等于全显，与 providers 同规则，这么短的不是凭据）；远程头里的 `${VAR}` 引用也被遮成 `••••KEN}`（往返照常还原）。键名全可见，用户与管家看得出配了哪几个变量；换值 = 回传新明文。**界面上今天没有 MCP env／headers 的编辑器**（设置页运维面板只显示 `commandOrUrl`，`settings-operations.js`），所以「看见键、换值」目前只经 API（`POST /api/config`）或管家 `steward_config_set`／模型 `mcp_configure`。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **还原多了一道「启动向量没变」的闸**。派单稿只要求「同 id＋同键」。只按 id 还原的话，一份回传的掩码就成了「**看不见密钥也能把它改接到别的程序／端点上**」的把手：管家提议一份把 `command` 换掉、`env` 仍是掩码的 patch，用户随手一按；或普通线程的模型经 `mcp_configure` upsert 同一个 id（exec 档，全自动下不问）——密钥跟着去了新程序。`npx -y <包名>` 这类启动器下只比 `command` 不够，所以 `args` 也要整串相同。代价：同一次保存里改了命令／参数／地址，就得重填那几个值。providers 那一套没有这道闸（见「发现但没修」3）。
+2. **加了 sanitize 那道闸（③）**，派单稿没要求。写 `externalMcpServers` 的口子有六个、还有 drop-in 与每次读配置，逐个补「清空」就是又一份手攒名单；放在 sanitize 里一处全覆盖，将来新增写口也逃不掉。它的副作用有两个，都照实处理了：`steward_config_set` 的探针必须先还原再比（改了 `13l`）；反向 ㈡ 只摘还原时磁盘上看到的是 `''` 不是掩码——另做了 ㈡b（连闸一起摘）才看到掩码落盘。
+3. **两个导入口不还原、只清空**（`import-folder`、`import-config/apply`）。它们的值来自外部清单或客户端，不存在「合法地回传掩码」的流程（设置页那张「一键应用」卡发的是 `env: {}`），闸 ③ 清空即可；`mcp_configure upsert` 会还原（模型读到掩码再写回同一条是常态）。
+4. **多修了派单稿没点名的回显面**：`steward_config_set` 的 `applied`／`undoRef`（进决策日志与模型）、`import-folder` 回包的 `headers`、`mcp_list` 与 `mcp_configure` 回包的 `args`。
+5. **判据 ③ 的子进程**：测试里先 `connectors/toggle` 停用再启用（同一个 `invalidateMcpRuntime` 杀活客户端）再 `connectors/health`，理由见上面坐标第三条。
+6. **`url` 按派单稿原样不掩**，但它确实能带密钥，记进「发现但没修」2。
+
+**判据读数**（`<头6字>…` 为失败信息口径；假值形如 `ghp_S0…`、`fakeBe…`）：
+
+- **① 下发面**（`repo-hygiene.e2e.js` 直跑 ALL PASS，66 PASS）
+  - `GET /api/status` 全文搜四个假值（stdio 的 `GITHUB_TOKEN`、远程的 Bearer、args 里 `--token` 的值、postgres 口令）**0 处**；`env` 键名 `["GITHUB_TOKEN","FAKE_MCP_ENV_CAPTURE","FAKE_MCP_ENV_CAPTURE_KEYS","DROP_ME"]` 全可见、四个值全是 `••••` 开头（`GITHUB_TOKEN` 实得 `••••WX…`）；远程 `headers.Authorization` 实得 `••••xy…`；`args` 实得 `["--token","«redacted»","postgres://svc:«redacted»@127.0.0.1/db"]`；`id`／`command`／`url`／`enabled` 原样。
+  - `POST /api/config` 回包、`GET /api/mcp/connectors`、`/api/tools/workbench_self_status`、`/api/tools/mcp_list`（`args[2]` 为 `«redacted»`）全文 **0 处**。
+  - `steward_config_get`（`steward-config-tools.e2e.js` 直跑 ALL PASS，60 PASS）：`env.GITHUB_TOKEN` 实得 `••••MN…`、`args[3]` 为 `«redacted»`、返回体 0 处明文。
+- **② 保存往返**
+  - 把 status 拿到的掩码数组原样 `POST /api/config` → 200，磁盘 `externalMcpServers` 与启动后 normalize 的那份 **`JSON.stringify` 逐字节相等**。
+  - 同一份里把 `GITHUB_TOKEN` 换成新明文、删掉 `DROP_ME` → 磁盘是新值（`ghp_S0…` 新串）、`DROP_ME` 没了、其余掩码值与 `args` 还原成真值；回包不含新明文。
+  - 追加一个带别人掩码的新 id `hyg-new`、一个改了 id 的远程 `hyg-remote-renamed` → 磁盘 `env.GITHUB_TOKEN` 实得 `""`、两个脱敏 arg 实得 `""`、`Authorization` 实得 `""`；原条目同一次保存里仍是真值；`config.json` 全文无 `••••`／`«redacted»`。
+  - 同 id 改 `command`／`url` 回传掩码 → `env` 实得 `""`、header 实得 `""`，磁盘不含任何假值。
+  - 管家：`steward_config_set` 原样回传掩码（`userPressed`）→ `ok`，磁盘逐字节不变；`applied`／`undoRef` 与磁盘决策日志里 0 处明文。工具面（`config-mutate-mcp-parity.e2e.js` 直跑 ALL PASS，32 PASS）：只改 label 的掩码 upsert → 真值逐字节还原；改 `command` 的 → 清空、无掩码落盘。导入口：`import-config/apply` 收到 `••••abcd`／`«redacted»` → 值清空（`mcp-import-config.e2e.js` 直跑 33 PASS）；`import-folder` 远程清单回包 `Authorization` 为掩码、磁盘真值、清单里残留的 `••••abcd` 被清空（`mcp-config.e2e.js` 直跑 37 PASS）。
+- **③ 掩码到不了的地方**（repo-hygiene (f)，都是「掩码回传保存」之后、先清掉启动期产物再看）
+  - `config.json` 无掩码无标记；重生成的 `generated/workbench.mcp.json` 里 `env.GITHUB_TOKEN`／`args[2]`／`headers.Authorization` 是真值。
+  - Kimi 同步（这次保存重写的 `KIMI_CODE_HOME/mcp.json`）三处真值、无掩码。
+  - 假 `claude.cmd` 记下的 `mcp add-json hyg-stdio …`（1 次）实参里含真 token、真 arg、真口令。
+  - `connectors/health` 新起的 fake-mcp 子进程自报 `GITHUB_TOKEN` 实得 `ghp_S0…`（真值）、`DROP_ME` 在；远程探测 3 个请求全部带真 `Authorization`（实得 `Bearer…`）。
+
+**反向（改源码 → 重建 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠ 摘掉 env 掩码那一行**（`maskExternalMcpServerForDisplay` 里的 `out.env = …`）→ `repo-hygiene` 6 红：`(f①) GET /api/status body has 0 plaintext MCP secrets (leaked GH)`、`every env value masked (got "ghp_S0…")`、`POST /api/config response … (leaked GH)`，以及三条 ② 连带红（回显变成明文后回传的就是明文，按「新明文照存」走——新 id 与改了 command 的条目实得 `ghp_S0…`，正说明这两条判据咬的是掩码）；`steward-config-tools` 4 红：I2（实得 `ghp_St…`）、I3、I6、I7。
+- **㈡a 摘掉 `applyConfigPatch` 里写回 `merged.externalMcpServers` 那一行** → 8 红，头一条 `(f②) disk externalMcpServers byte-identical after masked round-trip (GITHUB_TOKEN "")`——**一次保存把真密钥抹成了空**（闸 ③ 把残留掩码清了）；③ 的 `.mcp.json`／Kimi／`add-json`／子进程（实得 `undefined`：捕获文件里没有新行——捕获路径 `FAKE_MCP_ENV_CAPTURE` 本身也是一个被回传成掩码、再被清空的 env 值）／远程头（实得 `null`）全红。
+- **㈡b 在 ㈡a 基础上再摘掉闸 ③** → 12 红，`(f②) … byte-identical … (GITHUB_TOKEN "••••WX…")`——**掩码写进了 `config.json`**，`(f③) config.json contains no mask` 红；新 id 实得 `••••QR…`、header 实得 `••••xy…`。插曲：这一轮 fake-mcp 的 `FAKE_MCP_ENV_CAPTURE` 也成了掩码，子进程在工作目录里建了一个名叫 `••••json` 的文件、内容 `{"env":{"••••P_ME":null}}`——掩码一路流进子进程 env 的现场样本；已删。
+- **㈢ 摘掉启动向量闸**（`sameTarget` 只看有没有同 id 条目、`sameArgs` 恒等于它）→ `repo-hygiene` 恰 1 红：`(f②) same id but changed command/url → … NOT re-attached (env "ghp_S0…", header "Bearer…")`——密钥跟着改了 command／url 的条目走了；`config-mutate-mcp-parity` 恰 1 红：T12e。
+- **㈣ 只摘闸 ③**（还原保留）→ `mcp-import-config` 恰 1 红 H13、`mcp-config` 恰 1 红（远程清单残留掩码）；进程内读 sanitize 实得 `{"env":{"TOKEN":"••••abcd"},"args":["x.js","--token","«redacted»"],"headers":{"Authorization":"••••wxyz"}}`；`repo-hygiene` **仍 ALL PASS**——`/api/config` 那条路由还原自己兜得住，闸 ③ 钉的是导入口，各钉各的。
+- **㈤a `steward_config_set` 探针改回拿原样 patch 比** → I4 红（实得 `invalid_request`，管家原样回传掩码被整份拒绝）、I7 连带红（没写就没有决策行）。**㈤b `before`／`applied` 改回不掩** → 恰 I6、I7 红（明文进了回包与磁盘决策日志）。
+- 七次均按文件备份整组还原（`04`／`05`／`13`／`13b`／`13l`／`manifest.json`／`server.js`），`sha256sum -c` 全 OK：`05` `28b31c4a…`、`04` `a8898b95…`、`13` `ff880b63…`、`13b` `e1b23dad…`、`13l` `56a1290a…`、`server.js` `06e5ce45…`、`manifest.json` `73ae1460…`。
+
+**生成器链与门**：
+
+- `module-dependency-graph --write`：53 模块／**420 边**／1 SCC，**零新增边**（逐边集合比对 HEAD：added `[]`、removed `[]`）；顶层符号 2362 → 2375（05 +13）；三条既有边的符号表变了：`04→05` +`mcpArgsForDisplay`／`restoreExternalMcpServerSecrets`，`13b→05` +`maskExternalMcpServerForDisplay` −`maskKey`，`13l→05` +`unmaskSecrets`。
+- `build.js`：55574 行。`architecture-contract-snapshots.js --write`：无变化（`--check` current）。
+- `facts-generate.js` **不跑**：零新 e2e 文件。
+- `route-inventory.js`：137 判定点、ROUTE_AUTH 125、告警 0；只有 13 路由行号下移。
+- `build --check` ✓、依赖图 `--check` ✓（53/420）、`route-inventory --check` ✓、`--fast` **73/73**。
+- 19 个改动文件（含本文）NUL／CR／0x00–0x1f 扫描 0；U+FFFD 仅 `server.js` 2 处，与 HEAD 相同。
+- 逐件串行（`run-all` 列名，unit 快通道 ALL PASS、build 新鲜）**28/28、0 flaky**：repo-hygiene、steward-config-tools、config-mutate-mcp-parity、mcp-config、mcp-import-config、mcp-import-origin、mcp-ops-closure、mcp-remote-transport、mcp-bridge、fake-mcp-contract、checkpoint-mcpchild、shell-mcp-guard、config-read-safety、provider-custom-headers、workbench-self-status、dom-smoke、steward-settings（真浏览器）、steward-decisions、kimi-agent-cli、capabilities、tools-v3、desktop-mcp-smoke、bridged-read-noprompt、bridged-prefix-tolerance、config-providers-guard、steward-tools、mcp-ops-gui.static、browser-mcp.static。跑完无残留测试 Edge／node。
+
+**全量回归（S0b）**：`run-all.js --parallel 4` 退出码 **0**，**356 pass / 0 fail / 1 flaky / 356 ran（7 skipped 为既有 live probe），真回归 0**，unit 全绿、build freshness 一致，用时约 21.5 min（23:30:02 → 23:51:39）。唯一 flaky 是 `checkpoint.e2e.js`：首跑红在 (c) 段两条——`(c) rollback turn 3 ok` 与紧跟的 `(c) after rolling back turn 3, a.txt content = the turn-2 version (v2-recreated)`；同段前面「journal 有 turn-2 create／turn-3 modify 两条」没红，件内 `postJson` 不设超时、解析失败才抛，所以首跑是**真拿到了一个 `ok !== true` 的回滚回包**、文件随之没回到 v2（run-all 只留标题，首跑回包原文没保留，具体错误码无从得知，如实记）。回归内重跑绿；回归后串行直跑 3 次 **38/38 ×3**。与本刀零交集：该件夹具不配 `externalMcpServers`、不调 `/api/config`，走的是 `/api/tools` 的 `file_write`／`file_edit` 与 `/api/checkpoints/rollback`，不经掩码、还原与 sanitize 闸。按「并行负载下的回滚时序」登记，不归功于也不归咎于本刀。回归期间没有改 `src/`、没跑别的件（只在 docs 里写本段）；回归前后各调过一次 `stopRuyiTestBrowsers()`。
+
+**发现但没修（登记，交主会话定）**：
+
+1. **`POST /api/mcp/import-config/scan` 仍原样回显 `~/.claude.json`／`~/.codex/config.toml` 里的 env 与 headers**（`13b:61-72`，token 档）。不在本刀：scan → apply 的契约是客户端把 scan 拿到的整条原样交给 apply，扫描结果一掩，apply 就得回头按 `source` 重读源文件才拿得到真值——要改契约；前端今天没有调用方（只有 e2e）。
+2. **远程条目的 `url` 不掩**（按派单稿）。`https://user:pass@…` 与 `?api_key=…` 形态会经 `GET /api/status`、`steward_config_get`、`mcp_list` 明文下发（`/api/mcp/connectors` 用 `safeUrlForDisplay` 只剥 userinfo）。要掩得先定一件事：`url` 是远程条目活过 sanitize 的必备字段，「无匹配清空」会让整条连接器静默消失。
+3. **providers 的还原没有启动向量闸**：同一次保存里改了 `baseUrl`、`apiKey` 仍是掩码，照样还原真 key（`05` `unmaskSecrets` 的 providers 段、`unmaskProviders`）——与本刀给 MCP 关上的是同一类口子。
+4. **本刀之前写下的管家决策日志不回溯清洗**：若管家曾用 `steward_config_set` 改过 `externalMcpServers`，`steward/decisions-v1.ndjson` 里已有明文，`GET /api/steward/decisions` 原样下发 `undoRef`。
+5. **没有 MCP env／headers 的界面编辑器**（见「口径决定」），「看见键、换值」只经 API／管家／模型工具。
+6. **（主会话复核补记）管家配置改动的 `undoRef.before` 现在是掩码**：全仓没有任何代码自动消费 `{kind:'config'}` 的 undoRef（前端 `undoHandOff` 只处理递话回退），它只是给管家「照着改回去」的参考。于是有一个窄场景：管家删掉一条带密钥的连接器、之后再照 `before` 手动加回来——掩码按 id 在当前配置里找不到原值，env／headers 会被清成空串。换来的是决策日志与回给模型的结果不再带明文；要两全得把 `before` 的明文另存在只落盘不下发的位置，本刀不做。
+
+**主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed；工作区零未跟踪文件（反向 ㈡b 期间落进仓里的 `••••json` 已删、复查无残留）。实读确认 `GET /api/status` 的 ROUTE_AUTH 是 `open`（`01b-route-auth.js:4`，只有 host 门）——修前本机任何进程不带 token 就能读到全部 MCP 密钥与 `modelsApiKey`，**本刀与 S0 合起来关掉的是一个无鉴权的本机泄密面**。审 `05` 新增的掩码／还原与「同一启动目标才还原」判据、`13l` 的 before／applied 掩码，并按上面第 6 条核了 undoRef 的消费面。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、19 个改动文件控制字节 0；repo-hygiene 66/0、steward-config-tools 60/0、config-mutate-mcp-parity 32/0、mcp-import-config 33/0、mcp-config 37/0、mcp-bridge 9/0、mcp-import-origin 17/0、mcp-ops-closure 101/0、mcp-ops-gui.static 54/0、mcp-remote-transport 23/0、config-read-safety 18/0、provider-custom-headers 23/0、workbench-self-status 47/0、dom-smoke 53/0、steward-settings 73/0、checkpoint 38/0（回归里的 flaky 件）、steward-guardrails 193/0。

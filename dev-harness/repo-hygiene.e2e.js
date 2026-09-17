@@ -13,6 +13,11 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     ① GET /api/status 响应里 apiKey 为 ••••<后4位> 且 hasKey:true、全响应不含明文 key;
 //     ② 把 status 拿到的(掩码)providers 原样 POST /api/config → 磁盘 config.json 真 key 完好;
 //     ③ POST /api/config 换新明文 key → 磁盘更新为新值。
+//  f) 107-S0b 外部 MCP 连接器密钥(stdio 的 env、远程的 headers、args 里的 `--token xyz`／URL userinfo):
+//     ① GET /api/status 与其它回显面(POST /api/config 回包、/api/mcp/connectors、workbench_self_status、mcp_list)全文零明文,
+//        env／headers 键名可见、值是 ••••<后4位>,args 显示脱敏;
+//     ② 掩码原样回传 → 磁盘逐字节不变;改一个 env 为新明文 → 照存;删一个键 → 删掉;新 id／改名／改了启动向量 → 清空不落掩码;
+//     ③ 磁盘、.mcp.json、Kimi 的 mcp.json、`claude mcp add-json` 的实参、MCP 子进程 env、远程请求头拿到的都是真值。
 'use strict';
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
@@ -31,10 +36,10 @@ function getJson(port, p, headers) {
     r.on('error', () => resolve({ status: 0, json: null, raw: '' })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '' }); });
   });
 }
-function postJson(port, p, payload, headers) {
+function postJson(port, p, payload, headers, timeoutMs) {
   return new Promise(resolve => {
     const data = JSON.stringify(payload || {});
-    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', timeout: 4000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(headers || {}) } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b }); }); });
+    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', timeout: timeoutMs || 4000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), ...(headers || {}) } }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b }); }); });
     req.on('error', () => resolve({ status: 0, json: null, raw: '' })); req.on('timeout', () => { req.destroy(); resolve({ status: 0, json: null, raw: '' }); });
     req.write(data); req.end();
   });
@@ -246,6 +251,193 @@ function walk(dir, acc, skip) {
       ok(save5.status === 200 && disk5.modelsApiKey === '', '(e⑥) POST modelsApiKey:"" clears it (got ' + keyHead(disk5.modelsApiKey) + ')');
     } catch (e) { console.log('ERROR(e) ' + (e && e.stack || e)); fail++; }
     finally { killp(wb); await sleep(300); fs.rmSync(F2_HOME, { recursive: true, force: true }); }
+  }
+
+  // ============ (f) 107-S0b:外部 MCP 连接器的 env／headers／args 不明文下发,回传不抹、不落掩码 ============
+  {
+    const MCP_HOME = path.join(os.tmpdir(), 'wcw-hygiene-mcp-secrets');
+    fs.rmSync(MCP_HOME, { recursive: true, force: true });
+    fs.mkdirSync(MCP_HOME, { recursive: true });
+    const cfgPath = path.join(MCP_HOME, 'config.json');
+    const KIMI_HOME = path.join(MCP_HOME, 'kimi-code');
+    const KIMI_FILE = path.join(KIMI_HOME, 'mcp.json');
+    const CLAUDE_LOG = path.join(MCP_HOME, 'claude-argv.log');
+    const ENV_CAPTURE = path.join(MCP_HOME, 'mcp-env-capture.ndjson');
+    const GEN_FILE = path.join(MCP_HOME, 'generated', 'workbench.mcp.json');
+    const FAKE_MCP = path.join(HERE, 'fake-mcp.js');
+    const PORT_F = await getFreePort(), PORT_REMOTE = await getFreePort();
+    // 假密钥全部运行时拼出((b) 的全仓扫描不误报);失败信息只打前 6 个字符,与 (e) 同口径。
+    const GH = 'ghp_' + 'S0bFake' + 'Token1234567890abcdWXYZ';
+    const GH_NEW = 'ghp_' + 'S0bRotated' + '0987654321zyxwQRST';
+    const BEARER_VAL = 'fake' + 'Bearer' + 'S0b0123456789ABCDEFxyzw';
+    const ARG_TOKEN = 'argTok' + 'S0b' + 'MnOpQrStUv987';
+    const DB_PW = 'dbPw' + 'S0b' + '4455';
+    const SECRETS = { GH, BEARER_VAL, ARG_TOKEN, DB_PW };
+    const MASK = '••••', REDACTED = '«redacted»';
+    const keyHead = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
+    const leaks = text => Object.entries(SECRETS).filter(([, v]) => String(text || '').includes(v)).map(([k]) => k);
+    const readDisk = () => JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    const findIn = (list, id) => (Array.isArray(list) ? list : []).find(s => s && s.id === id) || null;
+    const readText = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
+    const safeParse = t => { try { return JSON.parse(t); } catch { return null; } };
+
+    // 假 claude:把整行实参追加进日志(quoteWinArg 用 "" 转义,JSON 整段在 cmd 眼里始终在引号内,echo %* 原样落盘)。
+    const fakeClaude = path.join(MCP_HOME, 'claude.cmd');
+    fs.writeFileSync(fakeClaude, '@echo off\r\n>>"' + CLAUDE_LOG + '" echo %*\r\nexit /b 0\r\n', 'utf8');
+    // 假远程 MCP(streamable HTTP,只回 JSON):记下每个请求带来的 Authorization。
+    const remoteAuth = [];
+    const remote = http.createServer((req, res) => {
+      let b = ''; req.on('data', c => (b += c));
+      req.on('end', () => {
+        remoteAuth.push(req.headers['authorization'] || null);
+        let msg = null; try { msg = JSON.parse(b || '{}'); } catch { /* ignore */ }
+        if (!msg || !msg.method) { res.writeHead(400); return res.end(); }
+        if (msg.id == null) { res.writeHead(202); return res.end(); }
+        const result = msg.method === 'initialize'
+          ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'hyg-remote', version: '1.0' } }
+          : msg.method === 'tools/list' ? { tools: [{ name: 'remote_echo', description: 'echo', inputSchema: { type: 'object', properties: {} } }] } : {};
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result }));
+      });
+    }).listen(PORT_REMOTE, '127.0.0.1');
+
+    const STDIO = {
+      id: 'hyg-stdio', label: 'Hyg stdio', command: process.execPath,
+      args: [FAKE_MCP, '--token', ARG_TOKEN, 'postgres://svc:' + DB_PW + '@127.0.0.1/db'],
+      cwd: '', enabled: true,
+      env: { GITHUB_TOKEN: GH, FAKE_MCP_ENV_CAPTURE: ENV_CAPTURE, FAKE_MCP_ENV_CAPTURE_KEYS: 'GITHUB_TOKEN,DROP_ME', DROP_ME: 'drop-me-value' },
+    };
+    const REMOTE = { id: 'hyg-remote', label: 'Hyg remote', type: 'http', url: 'http://127.0.0.1:' + PORT_REMOTE + '/mcp', headers: { Authorization: 'Bearer ' + BEARER_VAL }, enabled: true };
+    fs.writeFileSync(cfgPath, JSON.stringify({
+      configSchema: 11, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, enableMcpDropIn: false,
+      desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
+      claudePath: fakeClaude, agentCliType: 'kimi', includeWorkbenchMcp: true,
+      stewardEnabledV1: false, stewardThreadBriefV1: false,
+      externalMcpServers: [STDIO, REMOTE],
+    }, null, 2));
+    const fenv = { ...process.env }; delete fenv.RUYI_HOME;
+    fenv.WIN_CLAUDE_WORKBENCH_HOME = MCP_HOME; fenv.KIMI_CODE_HOME = KIMI_HOME;
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT_F)], { cwd: WB, env: fenv, windowsHide: true });
+    wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
+    try {
+      let h = null; for (let i = 0; i < 200 && !h; i++) { await sleep(150); h = await health(PORT_F); }
+      ok(!!h, '(f) MCP-secrets workbench up on :' + PORT_F);
+      const token = await getToken(PORT_F);
+      ok(!!token, '(f) UI token scraped');
+      const hdr = { 'x-wcw-token': token };
+      // 启动期的两路同步是 fire-and-forget:等它们各落一次,再清掉产物,之后看到的就只属于「掩码回传」那一次保存。
+      for (let i = 0; i < 100 && !(/add-json hyg-stdio/.test(readText(CLAUDE_LOG)) && fs.existsSync(KIMI_FILE)); i++) await sleep(150);
+      await sleep(1000);
+      const diskBase = readDisk();   // 启动时 normalize 过的那一份才是「磁盘真值」基线
+      const baseStdio = findIn(diskBase.externalMcpServers, 'hyg-stdio');
+      const baseRemote = findIn(diskBase.externalMcpServers, 'hyg-remote');
+      ok(baseStdio && baseStdio.env.GITHUB_TOKEN === GH && baseRemote && baseRemote.headers.Authorization === 'Bearer ' + BEARER_VAL, '(f) fixture on disk carries the real env/header values');
+
+      // ① GET /api/status:全文零明文;键名可见;值是掩码;args 显示脱敏;结构字段原样。
+      const st = await getJson(PORT_F, '/api/status');
+      const sStdio = st.json && st.json.config ? findIn(st.json.config.externalMcpServers, 'hyg-stdio') : null;
+      const sRemote = st.json && st.json.config ? findIn(st.json.config.externalMcpServers, 'hyg-remote') : null;
+      ok(st.status === 200 && leaks(st.raw).length === 0, '(f①) GET /api/status body has 0 plaintext MCP secrets' + (leaks(st.raw).length ? ' (leaked ' + leaks(st.raw).join(',') + ')' : ''));
+      ok(sStdio && JSON.stringify(Object.keys(sStdio.env)) === JSON.stringify(['GITHUB_TOKEN', 'FAKE_MCP_ENV_CAPTURE', 'FAKE_MCP_ENV_CAPTURE_KEYS', 'DROP_ME']), '(f①) env key names visible (got ' + (sStdio && JSON.stringify(Object.keys(sStdio.env || {}))) + ')');
+      ok(sStdio && sStdio.env.GITHUB_TOKEN === MASK + GH.slice(-4) && Object.values(sStdio.env).every(v => v.startsWith(MASK)), '(f①) every env value masked ••••<last4> (got ' + keyHead(sStdio && sStdio.env.GITHUB_TOKEN) + ')');
+      ok(sRemote && sRemote.headers && sRemote.headers.Authorization === MASK + BEARER_VAL.slice(-4), '(f①) remote headers.Authorization masked (got ' + keyHead(sRemote && sRemote.headers && sRemote.headers.Authorization) + ')');
+      ok(sStdio && sStdio.args[0] === FAKE_MCP && sStdio.args[1] === '--token' && sStdio.args[2] === REDACTED && sStdio.args[3] === 'postgres://svc:' + REDACTED + '@127.0.0.1/db',
+        '(f①) args redacted for display (--token value, URL userinfo) (got ' + (sStdio && JSON.stringify(sStdio.args.slice(1)).slice(0, 80)) + ')');
+      ok(sStdio && sStdio.command === process.execPath && sStdio.id === 'hyg-stdio' && sStdio.enabled === true && sRemote && sRemote.url === REMOTE.url,
+        '(f①) structural fields (id/command/url/enabled) unmasked');
+
+      // ② 掩码原样回传 → 磁盘逐字节不变,回包零明文。先清掉启动期的同步产物,③ 看到的只属于这一次保存。
+      fs.rmSync(CLAUDE_LOG, { force: true }); fs.rmSync(KIMI_FILE, { force: true });
+      const echoed = st.json.config.externalMcpServers;
+      const save1 = await postJson(PORT_F, '/api/config', { externalMcpServers: echoed }, hdr, 20000);
+      ok(save1.status === 200 && save1.json && save1.json.ok === true, '(f②) POST /api/config with masked MCP echo ok (status ' + save1.status + ')');
+      const disk1 = readDisk();
+      ok(JSON.stringify(disk1.externalMcpServers) === JSON.stringify(diskBase.externalMcpServers),
+        '(f②) disk externalMcpServers byte-identical after masked round-trip (GITHUB_TOKEN ' + keyHead(findIn(disk1.externalMcpServers, 'hyg-stdio') && findIn(disk1.externalMcpServers, 'hyg-stdio').env.GITHUB_TOKEN) + ')');
+      ok(leaks(save1.raw).length === 0, '(f①) POST /api/config response has 0 plaintext MCP secrets' + (leaks(save1.raw).length ? ' (leaked ' + leaks(save1.raw).join(',') + ')' : ''));
+
+      // ① 其它回显面。
+      const conn = await getJson(PORT_F, '/api/mcp/connectors', hdr);
+      ok(conn.status === 200 && conn.json && conn.json.ok === true && leaks(conn.raw).length === 0, '(f①) GET /api/mcp/connectors has 0 plaintext MCP secrets' + (leaks(conn.raw).length ? ' (leaked ' + leaks(conn.raw).join(',') + ')' : ''));
+      const self = await postJson(PORT_F, '/api/tools/workbench_self_status', {}, hdr, 20000);
+      ok(self.status === 200 && self.json && self.json.ok === true && leaks(self.raw).length === 0, '(f①) workbench_self_status has 0 plaintext MCP secrets');
+      const list = await postJson(PORT_F, '/api/tools/mcp_list', {}, hdr, 20000);
+      const lStdio = list.json && list.json.result ? findIn(list.json.result.servers, 'hyg-stdio') : null;
+      ok(list.status === 200 && lStdio && leaks(list.raw).length === 0, '(f①) mcp_list has 0 plaintext MCP secrets (args redacted: ' + (lStdio && lStdio.args[2] === REDACTED) + ')' + (leaks(list.raw).length ? ' (leaked ' + leaks(list.raw).join(',') + ')' : ''));
+
+      // ③ 没有任何掩码到盘上／同步产物／子进程,而且那几处拿到的都是真值。
+      const cfgText = readText(cfgPath);
+      ok(!cfgText.includes(MASK) && !cfgText.includes(REDACTED), '(f③) config.json contains no mask / redaction marker');
+      await getJson(PORT_F, '/api/status');   // 它会重生成 .mcp.json
+      const gen = safeParse(readText(GEN_FILE));
+      const gStdio = gen && gen.mcpServers && gen.mcpServers['hyg-stdio'];
+      const gRemote = gen && gen.mcpServers && gen.mcpServers['hyg-remote'];
+      ok(gStdio && gStdio.env.GITHUB_TOKEN === GH && gStdio.args[2] === ARG_TOKEN && gRemote && gRemote.headers.Authorization === 'Bearer ' + BEARER_VAL
+        && !readText(GEN_FILE).includes(MASK) && !readText(GEN_FILE).includes(REDACTED), '(f③) generated workbench.mcp.json carries real values, no masks');
+      const kimi = safeParse(readText(KIMI_FILE));
+      const kStdio = kimi && kimi.mcpServers && kimi.mcpServers['hyg-stdio'];
+      const kRemote = kimi && kimi.mcpServers && kimi.mcpServers['hyg-remote'];
+      ok(kStdio && kStdio.env.GITHUB_TOKEN === GH && kStdio.args[2] === ARG_TOKEN && kRemote && kRemote.headers.Authorization === 'Bearer ' + BEARER_VAL
+        && !readText(KIMI_FILE).includes(MASK) && !readText(KIMI_FILE).includes(REDACTED), '(f③) Kimi sync (mcp.json written by this save) carries real values, no masks (exists=' + fs.existsSync(KIMI_FILE) + ')');
+      const addJsonLines = readText(CLAUDE_LOG).split(/\r?\n/).filter(l => /add-json hyg-stdio/.test(l));
+      ok(addJsonLines.length >= 1 && addJsonLines.every(l => l.includes(GH) && l.includes(ARG_TOKEN) && l.includes(DB_PW)),
+        '(f③) claude mcp add-json from this save got the real env/args (' + addJsonLines.length + ' call(s))');
+      // 子进程:能力探测(workbench_self_status 的 counts → getCapabilities → collectBridgedTools)早就把连接器拉起来了,
+      // 活客户端复用、不会重新 spawn。先停用再启用(同一条 invalidateMcpRuntime 杀掉活客户端),保证下面这一发是
+      // 「掩码回传保存之后」新起的子进程。
+      for (const id of ['hyg-stdio', 'hyg-remote']) {
+        const off = await postJson(PORT_F, '/api/mcp/connectors/toggle', { id, enabled: false }, hdr, 20000);
+        const on = await postJson(PORT_F, '/api/mcp/connectors/toggle', { id, enabled: true }, hdr, 20000);
+        ok(off.status === 200 && on.status === 200 && on.json && on.json.ok === true, '(f③) toggle ' + id + ' off→on to drop the live client');
+      }
+      fs.rmSync(ENV_CAPTURE, { force: true });
+      const hStdio = await postJson(PORT_F, '/api/mcp/connectors/health', { id: 'hyg-stdio', timeoutMs: 15000 }, hdr, 25000);
+      const capLine = readText(ENV_CAPTURE).split(/\r?\n/).filter(Boolean).map(safeParse).filter(Boolean).pop();
+      ok(hStdio.json && hStdio.json.ok === true && capLine && capLine.env && capLine.env.GITHUB_TOKEN === GH && capLine.env.DROP_ME === 'drop-me-value',
+        '(f③) MCP child spawned via connectors/health received the real env (GITHUB_TOKEN ' + keyHead(capLine && capLine.env && capLine.env.GITHUB_TOKEN) + ', health ' + (hStdio.json && hStdio.json.health && hStdio.json.health.status) + ')');
+      remoteAuth.length = 0;
+      const hRemote = await postJson(PORT_F, '/api/mcp/connectors/health', { id: 'hyg-remote', timeoutMs: 15000 }, hdr, 25000);
+      ok(hRemote.json && hRemote.json.ok === true && remoteAuth.length > 0 && remoteAuth.every(a => a === 'Bearer ' + BEARER_VAL),
+        '(f③) remote MCP requests carried the real Authorization header (' + remoteAuth.length + ' request(s), first ' + keyHead(remoteAuth[0]) + ')');
+
+      // ② 改一个 env 为新明文 → 照存(其余掩码值照常还原);删一个键 → 删掉。
+      const rotated = JSON.parse(JSON.stringify(echoed));
+      findIn(rotated, 'hyg-stdio').env.GITHUB_TOKEN = GH_NEW;
+      delete findIn(rotated, 'hyg-stdio').env.DROP_ME;
+      const save2 = await postJson(PORT_F, '/api/config', { externalMcpServers: rotated }, hdr, 20000);
+      const d2 = findIn(readDisk().externalMcpServers, 'hyg-stdio');
+      ok(save2.status === 200 && d2 && d2.env.GITHUB_TOKEN === GH_NEW, '(f②) a new plaintext env value is stored (got ' + keyHead(d2 && d2.env.GITHUB_TOKEN) + ')');
+      ok(d2 && !Object.prototype.hasOwnProperty.call(d2.env, 'DROP_ME') && d2.env.FAKE_MCP_ENV_CAPTURE === ENV_CAPTURE && JSON.stringify(d2.args) === JSON.stringify(baseStdio.args),
+        '(f②) a deleted env key is removed; the untouched masked env/args are restored (keys ' + (d2 && JSON.stringify(Object.keys(d2.env))) + ')');
+      ok(leaks(save2.raw).length === 0 && !save2.raw.includes(GH_NEW), '(f②) the save response does not echo the new plaintext value');
+
+      // ② 新 id／改了 id 的条目带着别人的掩码 → 没有匹配 → 清空,不落掩码。
+      const st3 = await getJson(PORT_F, '/api/status');
+      const cur = st3.json.config.externalMcpServers;
+      const newbie = { ...JSON.parse(JSON.stringify(findIn(cur, 'hyg-stdio'))), id: 'hyg-new', label: 'new' };
+      const renamed = { ...JSON.parse(JSON.stringify(findIn(cur, 'hyg-remote'))), id: 'hyg-remote-renamed' };
+      const save3 = await postJson(PORT_F, '/api/config', { externalMcpServers: [...cur, newbie, renamed] }, hdr, 20000);
+      const disk3 = readDisk();
+      const n3 = findIn(disk3.externalMcpServers, 'hyg-new'), r3 = findIn(disk3.externalMcpServers, 'hyg-remote-renamed');
+      ok(save3.status === 200 && n3 && n3.env.GITHUB_TOKEN === '' && n3.args[2] === '' && n3.args[3] === '' && r3 && r3.headers.Authorization === '',
+        '(f②) new/renamed server with masked values and no match → cleared (env ' + keyHead(n3 && n3.env.GITHUB_TOKEN) + ', header ' + keyHead(r3 && r3.headers.Authorization) + ')');
+      ok(findIn(disk3.externalMcpServers, 'hyg-stdio').env.GITHUB_TOKEN === GH_NEW && findIn(disk3.externalMcpServers, 'hyg-remote').headers.Authorization === 'Bearer ' + BEARER_VAL,
+        '(f②) the original servers keep their real values in the same save');
+      const text3 = readText(cfgPath);
+      ok(!text3.includes(MASK) && !text3.includes(REDACTED), '(f③) still no mask / redaction marker anywhere in config.json');
+
+      // ② 启动向量变了(同 id,改 command／url)→ 回传的掩码不跟过去,按清空处理。
+      const st4 = await getJson(PORT_F, '/api/status');
+      const moved = JSON.parse(JSON.stringify(st4.json.config.externalMcpServers.filter(s => s.id === 'hyg-stdio' || s.id === 'hyg-remote')));
+      findIn(moved, 'hyg-stdio').command = path.join(MCP_HOME, 'other-launcher.exe');
+      findIn(moved, 'hyg-remote').url = 'http://127.0.0.1:1/elsewhere';
+      const save4 = await postJson(PORT_F, '/api/config', { externalMcpServers: moved }, hdr, 20000);
+      const disk4 = readDisk();
+      const m4 = findIn(disk4.externalMcpServers, 'hyg-stdio'), mr4 = findIn(disk4.externalMcpServers, 'hyg-remote');
+      ok(save4.status === 200 && m4 && m4.env.GITHUB_TOKEN === '' && m4.args[2] === '' && mr4 && mr4.headers.Authorization === '' && leaks(readText(cfgPath)).length === 0 && !readText(cfgPath).includes(GH_NEW),
+        '(f②) same id but changed command/url → masked values are NOT re-attached (env ' + keyHead(m4 && m4.env.GITHUB_TOKEN) + ', header ' + keyHead(mr4 && mr4.headers.Authorization) + ')');
+    } catch (e) { console.log('ERROR(f) ' + (e && e.stack || e)); fail++; }
+    finally { killp(wb); remote.close(); await sleep(300); fs.rmSync(MCP_HOME, { recursive: true, force: true }); }
   }
 
   // Verdict line follows the harness convention (dev-harness/README.md): "<NAME> E2E: ALL PASS" —

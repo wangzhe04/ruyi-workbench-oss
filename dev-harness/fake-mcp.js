@@ -71,6 +71,15 @@ let OPTIONAL = { ocr: true, uia: true, cv2: false, playwright: false };
 try { const v = process.env.FAKE_MCP_OPTIONAL; if (v) { const o = JSON.parse(v); if (o && typeof o === 'object') OPTIONAL = { ocr: !!o.ocr, uia: !!o.uia, cv2: !!o.cv2, playwright: !!o.playwright }; } } catch { /* ignore */ }
 // 47b:pid 捕获(追加,一行一个)—— 让 e2e 能断言"第一个 fake-mcp 超时后确实被杀、重连的新 pid 活着"。
 if (process.env.FAKE_MCP_PID_CAPTURE) { try { fs.appendFileSync(process.env.FAKE_MCP_PID_CAPTURE, String(process.pid) + '\n', 'utf8'); } catch { /* ignore */ } }
+// 107-S0b:env 捕获 —— 让 e2e 断言「经正常路径起的 MCP 子进程收到的是磁盘上的真值,不是掩码」。
+// FAKE_MCP_ENV_CAPTURE=文件路径,FAKE_MCP_ENV_CAPTURE_KEYS=逗号分隔的变量名;启动时把这几个变量的值写成一行 JSON。纯加法。
+if (process.env.FAKE_MCP_ENV_CAPTURE) {
+  const seen = {};
+  for (const name of String(process.env.FAKE_MCP_ENV_CAPTURE_KEYS || '').split(',').map(s => s.trim()).filter(Boolean)) {
+    seen[name] = Object.prototype.hasOwnProperty.call(process.env, name) ? process.env[name] : null;
+  }
+  try { fs.appendFileSync(process.env.FAKE_MCP_ENV_CAPTURE, JSON.stringify({ pid: process.pid, env: seen }) + '\n', 'utf8'); } catch { /* ignore */ }
+}
 
 function send(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 

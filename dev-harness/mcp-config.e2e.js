@@ -119,6 +119,18 @@ async function runImportFolder(port) {
     ok(r3.status === 200 && r3.json && r3.json.ok === false && r3.json.error?.code === 'api.request_failed' && /缺少有效/.test(r3.json.error?.message || ''), '③ 缺清单 → 结构化错误');
     ok(r3.json && r3.json.template && r3.json.template.id && r3.json.template.command, '③ 报错附 template 示例对象');
 
+    // 107-S0b:远程清单的 headers 在回包里也要盖住(修前只遮 env);清单里残留的掩码不是值,落盘前清空。
+    // 放在 ② 之后:这一条会让清单数变成 2,⑤ 的「填到 10」按实际余量填,不受影响。
+    const RFOLDER = path.join(HOME, 'remote-mcp');
+    fs.mkdirSync(RFOLDER, { recursive: true });
+    const R_BEARER = 'importFolder' + 'S0b' + 'Bearer0123456789';
+    fs.writeFileSync(path.join(RFOLDER, 'ruyi-mcp.json'), JSON.stringify({ id: 'remote-mcp', type: 'http', url: 'http://127.0.0.1:1/mcp', headers: { Authorization: 'Bearer ' + R_BEARER, Stale: '••••abcd' } }, null, 2));
+    const rr = await postJson(port, '/api/mcp/import-folder', { path: RFOLDER }, hdr);
+    ok(rr.status === 200 && rr.json && rr.json.ok === true && rr.json.server && rr.json.server.headers && rr.json.server.headers.Authorization === '••••' + R_BEARER.slice(-4)
+      && !JSON.stringify(rr.json).includes(R_BEARER), '① 远程清单导入回包 headers 值被掩码(不回明文)');
+    const diskR = (JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')).externalMcpServers || []).find(s => s.id === 'remote-mcp');
+    ok(diskR && diskR.headers.Authorization === 'Bearer ' + R_BEARER && diskR.headers.Stale === '', '① 磁盘 headers 存真值、清单里残留的掩码被清空(107-S0b)');
+
     // ⑤ 超 10 条被拒:填满到 10(含 demo-mcp), 再导入第 11 个不同 id → 拒。
     // 直接写 config 到 10 条, 重启不便;改为连续导入 9 个新文件夹凑到 10, 第 11 个拒。
     for (let i = 0; i < 9; i++) {

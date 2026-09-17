@@ -1346,7 +1346,7 @@ async function scanMcpSources(filePaths, config) {
 
 function safeMcpInventory(config) {
   return resolveExternalMcpServers(config).map(entry => ({
-    id: entry.id, label: entry.label || entry.id, command: entry.command, args: entry.args || [],
+    id: entry.id, label: entry.label || entry.id, command: entry.command, args: mcpArgsForDisplay(entry.args || []),   // 107-S0b:args 显示脱敏(`--token xyz` 一类)
     cwd: entry.cwd || '', envKeys: Object.keys(entry.env || {}),
     // 49c:远程条目无 command,回显 transport+url(headers 键名可见,值永不回显)。
     ...(entry.transport ? { transport: entry.transport, url: entry.url || '', headerKeys: Object.keys(entry.headers || {}) } : {}),
@@ -1424,7 +1424,9 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
       // (normalizeConfig 去重;用户经 import-folder/import-config/upsert 显式再导入会从 dismissed 移除。)
       if (!dismissed.includes(wantId)) dismissed.push(wantId);
     } else if (op === 'upsert') {
-      const clean = sanitizeExternalMcpServer({ ...(server || {}), id: wantId });
+      // 107-S0b:模型可能把读到的掩码(env／headers 的 ••••、args 的脱敏标记)原样回传 —— 与 POST /api/config 同一条
+      // 还原规则:同 id 且启动向量(command／cwd／args,远程为 url)没变才取磁盘真值,否则 sanitize 那道闸清空。
+      const clean = sanitizeExternalMcpServer(restoreExternalMcpServerSecrets({ ...(server || {}), id: wantId }, idx >= 0 ? list[idx] : null));
       if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
       // 122-§2.6:用户/工具显式 upsert = 接管这条连接器 —— 清掉来源标记,它从此算 Ruyi 自己的、照常同步回
       // Claude Code。显式删掉(不是让 sanitize 缺省丢弃):调用方可能把读出来的整条 server 原样回传。
@@ -1478,7 +1480,7 @@ async function configureMcpFromTool(args, currentConfig) {
   if (!r.ok) return { ok: false, operation, id, error: r.error };
   const saved = r.server;
   return { ok: true, operation, id, removed: r.removed, ...(r.warning ? { warning: r.warning } : {}),
-    server: saved ? { id: saved.id, label: saved.label, command: saved.command, args: saved.args, cwd: saved.cwd, enabled: saved.enabled, envKeys: Object.keys(saved.env || {}) } : null,
+    server: saved ? { id: saved.id, label: saved.label, command: saved.command, args: mcpArgsForDisplay(saved.args), cwd: saved.cwd, enabled: saved.enabled, envKeys: Object.keys(saved.env || {}) } : null,   // 107-S0b:args 显示脱敏
     note: '配置已原子保存并刷新工具目录；若工具仍不可用，请读取 MCP 列表与启动诊断。' };
 }
 

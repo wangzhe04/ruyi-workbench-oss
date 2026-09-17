@@ -192,12 +192,15 @@ async function applyConfigPatch(rawBody) {
     // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
     // 107-S0:modelsApiKey 也在 GET /api/status 里掩码下发了,设置页把掩码原样回传 —— 同一处还原,否则一次保存就把
     // 真密钥写成「••••末四位」。
+    // 107-S0b:externalMcpServers 的 env／headers／args 也在 GET /api/status(与 steward_config_get)里掩码下发了 ——
+    // 调用方原样回传时同一处按 id＋键名还原;不还原的话残留掩码会被 sanitize 那道闸清空,等于一次保存抹掉连接器密钥。
     if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
-      || (body && typeof body.modelsApiKey === 'string')) {
+      || (body && typeof body.modelsApiKey === 'string') || (body && Array.isArray(body.externalMcpServers))) {
       const restored = unmaskSecrets(body, current);
       if (Array.isArray(body.providers)) merged.providers = restored.providers;
       if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
       if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
+      if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
     }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {

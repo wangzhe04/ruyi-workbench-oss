@@ -166,6 +166,18 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
     ok(!!ex2 && ex2.command === 'updated.exe', 'H10 撞名条目 command 已更新');
     ok((cfg2.externalMcpServers || []).filter(s => s.id === 'existing').length === 1, 'H11 撞名未产生重复条目');
 
+    // 107-S0b:apply 收到掩码(别处回显出来的 ••••／«redacted»)→ 那不是值,清空,绝不落盘。
+    const apMask = await post(WP, '/api/mcp/import-config/apply', { servers: [
+      { id: 'masked-stdio', label: 'm', command: 'node', args: ['x.js', '--token', '«redacted»'], env: { TOKEN: '••••abcd' }, cwd: '' },
+      { id: 'masked-remote', type: 'http', url: 'http://x', headers: { Authorization: '••••wxyz' }, command: '' },
+    ] }, hdr);
+    const cfgM = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const ms = (cfgM.externalMcpServers || []).find(s => s.id === 'masked-stdio');
+    const mr = (cfgM.externalMcpServers || []).find(s => s.id === 'masked-remote');
+    const cfgMText = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
+    ok(apMask && apMask.json && apMask.json.ok === true && ms && ms.env.TOKEN === '' && ms.args[2] === '' && mr && mr.headers.Authorization === ''
+      && !cfgMText.includes('••••') && !cfgMText.includes('«redacted»'), 'H13 apply 带掩码的条目 -> 值清空、磁盘零掩码(107-S0b)');
+
     // apply ≤10 上限(先填到 10,再 apply 新 id -> skip)
     const fill = Array.from({ length: 8 }, (_, i) => ({ id: 'fill-' + i, label: 'f', command: 'f.exe', args: [], env: {}, cwd: '' }));
     await post(WP, '/api/mcp/import-config/apply', { servers: fill }, hdr);

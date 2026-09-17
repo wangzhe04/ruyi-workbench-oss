@@ -708,14 +708,21 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 校验整份 patch 走【与 POST /api/config 同一条】normalize/sanitize:先合进当前配置跑一遍
   // normalizeConfig,再逐键比对 —— 被 sanitize 清洗掉(非法值静默回落)的键当场拒绝,而不是写进去
   // 之后让用户在设置页里发现「我改的没生效」。
-  const probe = normalizeConfig({ ...config, ...patch }).config;
-  const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(patch[k]));
+  // 107-S0b:steward_config_get 下发的 externalMcpServers 是掩码过的,管家原样回传很正常 —— 先按落盘路径
+  // (applyConfigPatch → unmaskSecrets)同一条规则还原再探:sanitize 那道闸会清空残留掩码,拿原样 patch 比就会把
+  // 「原样回传」误判成「没活过 sanitize」。
+  const restoredPatch = unmaskSecrets(patch, config);
+  const probe = normalizeConfig({ ...config, ...restoredPatch }).config;
+  const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(restoredPatch[k]));
   if (rejected.length) {
     return stewardFail('invalid_request', `these values did not survive config sanitize (illegal value or out of range): ${rejected.join(', ')}`, { keys: rejected });
   }
 
+  // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——
+  // 与 steward_config_get 同一个掩码,修前改 externalMcpServers 一次就把全部连接器密钥明文写进这三处。
+  const maskedBefore = maskProviders(config);
   const before = {};
-  for (const key of keys) before[key] = config[key];
+  for (const key of keys) before[key] = maskedBefore[key];
   // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
   // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
   // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
@@ -725,8 +732,9 @@ async function stewardImplConfigSet(args, ctx, config) {
   // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
   patch.confirm = true;
   const next = await applyConfigPatch(patch);
+  const maskedNext = maskProviders(next);
   const applied = {};
-  for (const key of keys) applied[key] = next[key];
+  for (const key of keys) applied[key] = maskedNext[key];
   // undoRef 内联在决策日志行里({kind:'config', before:{key:oldValue}}),不新增任何持久化面。
   const undoRef = { kind: 'config', before };
   stewardAppendDecision({

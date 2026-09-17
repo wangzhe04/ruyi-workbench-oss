@@ -23,6 +23,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (G) 同一个落盘函数:改 stewardMaxParallelThreads 后 GET /api/steward/arbiter 的上限即时变了
 //      (arbiterRefresh 挂在 applyConfigPatch 上,管家另开一条路就会漏掉它)。
 //  (H) args 里的 userPressed 被门控壳剥掉:模型自称「用户按了」不算数。
+//  (I) 107-S0b:externalMcpServers 是 confirm 档 —— get 回的 env／args 是掩码;把掩码原样 set 回去(用户按了)
+//      磁盘真值逐字节不变;applied／undoRef／决策日志里零明文。
 //
 // 判定行:`STEWARD CONFIG TOOLS E2E: ALL PASS`。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -39,12 +41,17 @@ function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', 
 
 const WB_PORT = await getFreePort();
 const configFile = path.join(HOME, 'config.json');
+// 107-S0b (I):一个【停用】的外部 MCP(停用 = 不起子进程、不同步,掩码照样要盖住它)。假值运行时拼出。
+const MCP_GH = 'ghp_' + 'StewardS0b' + 'Fake0123456789LMNOP';
+const MCP_ARG = 'stewArg' + 'S0b' + 'Tok445566';
 fs.mkdirSync(HOME, { recursive: true });
 fs.writeFileSync(configFile, JSON.stringify({
   configSchema: 7, engineMode: 'interactive', permissionMode: 'default', locale: 'zh-CN',
   includeWorkbenchMcp: false, defaultWorkspace: HOME, recentWorkspaces: [], subagentMaxPerTurn: 0,
   stewardEnabledV1: true, stewardPollMs: 120000, stewardMaxParallelThreads: 5,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'super-secret-key', model: 'm', models: [{ id: 'm', label: 'm' }] }],
+  autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
+  externalMcpServers: [{ id: 'stew-mcp', label: 'Steward MCP', command: 'node', args: ['-e', '0', '--token', MCP_ARG], cwd: '', env: { GITHUB_TOKEN: MCP_GH }, enabled: false }],
 }, null, 2), 'utf8');
 
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
@@ -159,6 +166,33 @@ try {
     ok(empty && empty.error === 'invalid_request', 'F5 空 patch -> invalid_request');
     const notObj = await call('steward_config_set', { patch: [1, 2] });
     ok(notObj && notObj.error === 'invalid_request', 'F6 patch 不是对象 -> invalid_request');
+  }
+
+  /* ═════════ (I) 107-S0b:externalMcpServers 掩码往返 ═════════ */
+  console.log('── (I) externalMcpServers 掩码往返 ──');
+  {
+    const plain = t => ![MCP_GH, MCP_ARG].some(s => String(t).includes(s));
+    const diskServers = () => JSON.stringify(onDisk().externalMcpServers);
+    const before = diskServers();
+    ok(before.includes(MCP_GH) && before.includes(MCP_ARG), 'I0 夹具:磁盘上是真值');
+    const g = await call('steward_config_get', { keys: ['externalMcpServers'] });
+    const srvView = g && g.values && Array.isArray(g.values.externalMcpServers) ? g.values.externalMcpServers.find(s => s.id === 'stew-mcp') : null;
+    ok(g && g.ok === true && g.tiers.externalMcpServers === 'confirm', 'I1 externalMcpServers 是 confirm 档、get 能读到');
+    ok(srvView && srvView.env && srvView.env.GITHUB_TOKEN === '••••' + MCP_GH.slice(-4) && srvView.args[3] === '«redacted»',
+      `I2 get 回的 env 值是掩码、args 显示脱敏(got env=${srvView && JSON.stringify(String(srvView.env && srvView.env.GITHUB_TOKEN).slice(0, 6))})`);
+    ok(plain(JSON.stringify(g)), 'I3 get 返回体里零明文');
+    const s = await call('steward_config_set', { patch: { externalMcpServers: g.values.externalMcpServers } }, ctxPressed);
+    ok(s && s.ok === true, `I4 把掩码原样 set 回去(用户按了)-> ok(got ${s && (s.error || 'ok')};非 invalid_request 说明 sanitize 探针先还原再比)`);
+    ok(diskServers() === before, 'I5 磁盘 externalMcpServers 逐字节不变(掩码没有落盘、真值没有被抹)');
+    ok(plain(JSON.stringify(s)), 'I6 applied／undoRef 里零明文');
+    const decisionsFile = path.join(HOME, 'steward', 'decisions-v1.ndjson');
+    let decisions = '';
+    for (let i = 0; i < 40; i++) {
+      try { decisions = fs.readFileSync(decisionsFile, 'utf8'); } catch { decisions = ''; }
+      if (/"keys":\["externalMcpServers"\]/.test(decisions)) break;
+      await sleep(50);
+    }
+    ok(/"keys":\["externalMcpServers"\]/.test(decisions) && plain(decisions), 'I7 决策日志(磁盘)记下了这一次,且零明文');
   }
 
   /* ═════════ (G) arbiterRefresh 副作用(真服务)═════════ */
