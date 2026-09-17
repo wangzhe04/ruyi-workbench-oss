@@ -8,6 +8,13 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 路线照 scheduler-ui.browser 模具:spawn workbench + 系统 Edge headless(--remote-debugging-port),
 // 零依赖 CDP(WebSocket 直连)驱动页面;READY 后走真实入口(#skillBtn 点击开技能库)。
+//
+// 127-⑧ A-F01(45 号文 §4⑧)追加 C 段:服务状态「未知」的前端半。夹具无 provider、无探测地址、
+// WCW_TEST_NO_NET_ANCHORS=1 → network.online === null;HOME 里预置两条要联网的用户模板(coding 一条独占该类、
+// research 一条与两条可用内置同类)＋一条要视觉的(无 provider → 需配置)。判据:未知模板在服务条与技能库行上说「未知」、绝不说「可用」;
+// 混合类的「可直接用」只数 status===available;首页任务卡状态行只出现在非可用模板上;需配置卡「需要配置」+原因。
+// D 段:同一 HOME 改死探测地址重启 → 离线;离线卡/行只一句降级文案(要联网、现在离线、下一步),服务条仍引导查网络。
+// 反向:① 后端把未知并进可用 → C1/C2/C4 红;② 服务条可用数改回按 p.available 数 → C3 红(实得 3)。
 (async () => {
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
@@ -128,10 +135,20 @@ fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   permissionMode: 'default', theme: 'dark', uiMode: 'pro', locale: 'zh-CN',
   defaultWorkspace: work, includeWorkbenchMcp: false,
 }), 'utf8');
+// 127-⑧:两条要联网的用户模板 + 一条要视觉的(数据根 = RUYI_HOME,用户模板目录是 <数据根>/playbooks)。
+fs.mkdirSync(path.join(home, 'playbooks'), { recursive: true });
+const F01_PLAYBOOKS = [
+  { id: 'f01-unknown-coding', title: '代码体检联网版', icon: '🧪', desc: '夹具:要联网的代码任务', inputs: [], promptTemplate: '检查 {q}', requires: ['network'], uiMode: 'both', service: 'coding' },
+  { id: 'f01-unknown-research', title: '对比联网资料', icon: '🧪', desc: '夹具:要联网的研究比较', inputs: [], promptTemplate: '对比 {q}', requires: ['network'], uiMode: 'both', service: 'research' },
+  // 无 provider(CLI 引擎)→ vision 是配置层已知缺失 → needs_config;不归类,免得影响 B/C 段的服务条。
+  { id: 'f01-needs-vision', title: '看图夹具', icon: '🧪', desc: '夹具:要视觉模型', inputs: [], promptTemplate: '看 {q}', requires: ['vision'], uiMode: 'both' },
+];
+for (const pb of F01_PLAYBOOKS) fs.writeFileSync(path.join(home, 'playbooks', pb.id + '.json'), JSON.stringify(pb), 'utf8');
 
 const spawnWb = () => cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
   cwd: WB,
-  env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
+  // 127-⑧:WCW_TEST_NO_NET_ANCHORS=1 + 无 provider + 无探测地址 → online:null(真未知);B 段只用无 requires 的内置模板,不受影响。
+  env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home, WCW_TEST_NO_NET_ANCHORS: '1' },
   windowsHide: true,
 });
 
@@ -205,6 +222,116 @@ try {
   ok(Boolean(await cdp.evaluate(`${TYPE_AND_STRIP}('帮我整理下载文件夹')`)), 'B4 再次键入服务条复现');
   await cdp.evaluate(`(() => { const s = document.getElementById('skillSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); })()`, false);
   ok(Boolean(await cdp.evaluate(STRIP_GONE)), 'B4 清空查询 → 服务条消失(不常驻)');
+
+  // ── C 段 · 127-⑧ A-F01:能力未知时如实显示「未知」,不经文案升级成「可用」 ─────────────────────────
+  const capsNow = await request(appPort, 'GET', '/api/capabilities');
+  const onlineNow = capsNow && capsNow.json && capsNow.json.network ? capsNow.json.network.online : 'missing';
+  ok(onlineNow === null, 'C0 夹具前提:network.online === null(实得 ' + JSON.stringify(onlineNow) + ')');
+  const pbList = await request(appPort, 'GET', '/api/playbooks');
+  const pbRows = (pbList && pbList.json && pbList.json.playbooks) || [];
+  const f01Status = F01_PLAYBOOKS.map(pb => (pbRows.find(p => p.id === pb.id) || {}).status);
+  ok(JSON.stringify(f01Status) === '["unknown","unknown","needs_config"]', 'C0 夹具模板 status = 两条联网 unknown + 一条视觉 needs_config(实得 ' + JSON.stringify(f01Status) + ')');
+  const researchAvail = pbRows.filter(p => p.service === 'research' && p.status === 'available').length;
+  // C1 独占一类的未知模板 → 服务条说「未知」、不说「可用」。
+  const c1 = await cdp.evaluate(`${TYPE_AND_STRIP}('帮我写代码修 bug')`);
+  const c1Text = (c1 && c1.text) || '';
+  ok(/代码任务/.test(c1Text) && /未知/.test(c1Text) && !/可用|可直接用/.test(c1Text), 'C1 「写代码修 bug」服务条 = 代码任务·状态未知、不含「可用」 — 实得 ' + JSON.stringify(c1Text));
+  // C2 同一条模板在技能库行上:状态行说「未知」,行里不出现「可用」,且照旧可点(未知不改放行)。
+  const c2 = await cdp.evaluate(`(async () => {
+    const s = document.getElementById('skillSearch');
+    s.value = '代码体检'; s.dispatchEvent(new Event('input', { bubbles: true }));
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) {
+      const row = [...document.querySelectorAll('#skillList .skill-item')].find(r => (r.querySelector('.sk-id') || {}).textContent === 'pb:f01-unknown-coding');
+      if (row) {
+        const st = row.querySelector('.sk-status');
+        return { status: st ? st.textContent : null, dataStatus: st ? st.dataset.status : null, rowText: row.textContent, greyed: row.classList.contains('unavailable') };
+      }
+      await new Promise(r => setTimeout(r, 60));
+    }
+    return null;
+  })()`);
+  ok(c2 && /未知/.test(c2.status || '') && c2.dataStatus === 'unknown' && !/可用|可直接用/.test(c2.rowText || '') && c2.greyed === false,
+    'C2 技能库行 pb:f01-unknown-coding:状态行「未知」、整行不含「可用」、未置灰 — 实得 ' + JSON.stringify(c2));
+  // C3 混合类(两条可用内置 + 一条未知):「可直接用」只数 status===available,未知的单独说。
+  const c3 = await cdp.evaluate(`${TYPE_AND_STRIP}('对比')`);
+  const c3Text = (c3 && c3.text) || '';
+  const c3Count = Number((c3Text.match(/(\d+) 个模板可直接用/) || [])[1]);
+  ok(researchAvail === 2 && c3Count === researchAvail && /1 个状态未知/.test(c3Text),
+    'C3 研究比较服务条可直接用数 = ' + researchAvail + '(status===available),未知 1 条单独说 — 实得 ' + JSON.stringify(c3Text));
+  // C4 首页任务卡:状态行只长在非可用模板上;未知卡说「未知」且仍是可点的 <button>。
+  await cdp.evaluate(`(() => { const s = document.getElementById('skillSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); })()`, false);
+  const c4 = await waitForEval(cdp, `(() => {
+    const pbs = (window.state && window.state.playbooks) || [];
+    const mode = document.documentElement.getAttribute('data-ui-mode') === 'simple' ? 'simple' : 'pro';
+    const visible = pbs.filter(pb => pb && (pb.uiMode === 'both' || pb.uiMode === mode || !pb.uiMode));
+    const cards = [...document.querySelectorAll('.pb-card')];
+    if (!visible.length || cards.length !== visible.length) return null;
+    const pick = title => {
+      const card = cards.find(c => (c.querySelector('.pb-card-title') || {}).textContent === title);
+      const st = card && card.querySelector('.pb-card-status');
+      const reason = card && card.querySelector('.pb-card-reason');
+      return card ? { tag: card.tagName, status: st ? st.textContent : null, reason: reason ? reason.textContent : null, text: card.textContent } : null;
+    };
+    return {
+      cards: cards.length,
+      statusLines: document.querySelectorAll('.pb-card .pb-card-status').length,
+      expectedLines: visible.filter(pb => pb.status !== 'available').length,
+      availableWithLine: [...document.querySelectorAll('.pb-card-status')].filter(n => n.dataset.status === 'available').length,
+      unknownCard: pick('代码体检联网版'),
+      visionCard: pick('看图夹具'),
+    };
+  })()`, 150);
+  ok(c4 && c4.unknownCard && c4.unknownCard.tag === 'BUTTON' && /未知/.test(c4.unknownCard.status || '') && !/可用|可直接用/.test(c4.unknownCard.text || ''),
+    'C4 首页未知卡:状态行「未知」、整卡不含「可用」、仍是可点的 button — 实得 ' + JSON.stringify(c4 && c4.unknownCard));
+  ok(c4 && c4.statusLines === c4.expectedLines && c4.availableWithLine === 0,
+    'C4 状态行只长在非可用模板上(可用卡零新增节点)— 实得 ' + JSON.stringify(c4 && { cards: c4.cards, statusLines: c4.statusLines, expectedLines: c4.expectedLines, availableWithLine: c4.availableWithLine }));
+  ok(c4 && c4.visionCard && c4.visionCard.tag === 'DIV' && c4.visionCard.status === '需要配置' && /视觉/.test(c4.visionCard.reason || ''),
+    'C5 首页需配置卡:状态行「需要配置」+ 原有 ⛔ 原因行、置灰不可点 — 实得 ' + JSON.stringify(c4 && c4.visionCard));
+
+  // ── D 段 · 127-⑧ 离线降级:同一 HOME 换成死探测地址重启(同一个 spawnWb 调用点)→ online:false ──────
+  killTree(server);
+  await sleep(300);
+  const deadPort = await getFreePort();
+  const cfgPath = path.join(home, 'config.json');
+  const cfgNow = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  fs.writeFileSync(cfgPath, JSON.stringify({ ...cfgNow, capabilityProbeUrl: 'http://127.0.0.1:' + deadPort }), 'utf8');
+  server = spawnWb();
+  ok(Boolean(await waitForHttp(appPort, 'GET', '/health', r => r.status === 200)), 'D0 以死探测地址重启 workbench');
+  const capsOff = await request(appPort, 'GET', '/api/capabilities');
+  ok(capsOff && capsOff.json && capsOff.json.network && capsOff.json.network.online === false, 'D0 夹具前提:network.online === false(实得 ' + JSON.stringify(capsOff && capsOff.json && capsOff.json.network && capsOff.json.network.online) + ')');
+  await cdp.evaluate('location.reload()', false);
+  await sleep(300);
+  ok(Boolean(await waitForEval(cdp, READY)), 'D1 页面重载后启动完成');
+  const d2 = await waitForEval(cdp, `(() => {
+    const card = [...document.querySelectorAll('.pb-card')].find(c => (c.querySelector('.pb-card-title') || {}).textContent === '对比联网资料');
+    if (!card) return null;
+    const st = card.querySelector('.pb-card-status');
+    return { tag: card.tagName, status: st ? st.textContent : null, dataStatus: st ? st.dataset.status : null, reasons: card.querySelectorAll('.pb-card-reason').length };
+  })()`, 300);
+  ok(d2 && d2.tag === 'DIV' && d2.dataStatus === 'unavailable' && /联网/.test(d2.status || '') && /离线/.test(d2.status || '') && /本地|恢复/.test(d2.status || '') && d2.reasons === 0,
+    'D2 首页离线卡:一句降级文案(要联网、现在离线、下一步)替掉 ⛔ 原因行、置灰 — 实得 ' + JSON.stringify(d2));
+  await cdp.evaluate(`document.getElementById('skillBtn').click()`, false);
+  ok(Boolean(await waitForEval(cdp, `(() => { const m = document.getElementById('skillModal'); return m && !m.classList.contains('hidden') && document.querySelector('#skillList .sk-group, #skillList .muted') ? true : null; })()`)), 'D3 重开技能库');
+  const d3 = await cdp.evaluate(`(async () => {
+    const s = document.getElementById('skillSearch');
+    s.value = '对比联网'; s.dispatchEvent(new Event('input', { bubbles: true }));
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) {
+      const row = [...document.querySelectorAll('#skillList .skill-item')].find(r => (r.querySelector('.sk-id') || {}).textContent === 'pb:f01-unknown-research');
+      if (row) {
+        const st = row.querySelector('.sk-status');
+        return { status: st ? st.textContent : null, reasons: row.querySelectorAll('.sk-reason').length, greyed: row.classList.contains('unavailable') };
+      }
+      await new Promise(r => setTimeout(r, 60));
+    }
+    return null;
+  })()`);
+  ok(d3 && /联网/.test(d3.status || '') && /离线/.test(d3.status || '') && d3.reasons === 1 && d3.greyed === true,
+    'D3 技能库离线行:只一行降级文案(不叠同义原因)、置灰 — 实得 ' + JSON.stringify(d3));
+  const d4 = await cdp.evaluate(`${TYPE_AND_STRIP}('帮我写代码修 bug')`);
+  ok(d4 && /代码任务/.test(d4.text || '') && /网络/.test(d4.text || '') && !/未知|可直接用/.test(d4.text || ''),
+    'D4 离线时代码任务服务条 = 需配置·引导查网络(离线引导仍是 network)— 实得 ' + JSON.stringify(d4 && d4.text));
 
   console.log('\nSERVICE-MATCH BROWSER E2E: ' + (fail === 0 ? 'ALL PASS' : `FAIL (${fail})`));
 } catch (e) {

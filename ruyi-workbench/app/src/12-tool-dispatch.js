@@ -1676,7 +1676,8 @@ async function loadSkillRegistry(cwd, config, caps) {
     out.push({
       id: 'pb:' + pb.id, name: pb.title || pb.id, description: pb.desc || '', kind: 'playbook',
       source: pb.builtin ? 'builtin' : 'user', dir: '', insert: '', requires: Array.isArray(pb.requires) ? pb.requires : [],
-      available: avail.available, unavailableReason: avail.unavailableReason, playbook: pb,
+      // 127-⑧:status(可用/需配置/不可用/未知)随行拷过去 —— 技能库行靠它说「未知」,available 仍管能不能点。
+      available: avail.available, unavailableReason: avail.unavailableReason, status: avail.status, playbook: pb,
     });
   }
   // 稳定排序: kind(skill<command<playbook) 再 name,供 UI 与断言确定性。

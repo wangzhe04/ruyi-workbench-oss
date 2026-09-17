@@ -22,6 +22,10 @@ const { getFreePort } = require('./free-port.js');
 //      逐条相同;六类计数(含 coding/watch=0);未分类两条空且 available 不受影响;编造的一类被钳成 ''。
 //   ⑦ 45号文⑥ A-S02 服务入口 — POST /api/playbooks/service-match:query → 六类匹配;可用引导 0 条;
 //      双缺失夹具引导硬顶 1(dropped=1);no_template;无关/单字 → null;承诺词扫描 0;无 token 403。
+//   ⑧ 45号文⑧ A-F01 服务状态 — evalPlaybookAvailability 每条带 status 四态(进程内单测:未知/离线/需配置/可用
+//      与多项取最重);available/unavailableReason/missingCaps 与 HEAD 7d10312 的旧实现在能力形状矩阵上逐字节相同;
+//      matchServiceEntry 整体序(可用 > 需配置 > 未知 > 暂无模板);第二个实例(无 provider、无探测地址、
+//      WCW_TEST_NO_NET_ANCHORS=1 → online:null)里要联网的用户模板 status=unknown、服务入口 state=unknown、引导 0 条、零承诺词。
 'use strict';
 const cp = require('child_process');
 const http = require('http');
@@ -158,6 +162,9 @@ const DRAFT_JSON = JSON.stringify({
     list = (await getJson(WB_PORT, '/api/playbooks')).json;
     const net = (list.playbooks || []).find(p => p.id === 'test-net');
     ok(net && net.available === false && /联网|离线/.test(net.unavailableReason || ''), '② requires:[network] + dead probe → available:false + reason');
+    // 127-⑧:每条都带 status;离线的联网模板是 unavailable(不是 needs_config —— 改配置补不回网)。
+    ok((list.playbooks || []).every(p => ['available', 'needs_config', 'unavailable', 'unknown'].includes(p.status)), '② (⑧) 每条 playbook 都带 status 四态之一');
+    ok(net && net.status === 'unavailable', '② (⑧) requires:[network] + 离线 → status:unavailable(实得 ' + JSON.stringify(net && net.status) + ')');
 
     // ── ③ user round-trip / override / delete / built-in delete 403 / no-token 403 ───────────────────
     // POST without token → 403.
@@ -298,6 +305,134 @@ const DRAFT_JSON = JSON.stringify({
     const promised = PROMISE_WORDS.filter(w => scanTarget.includes(w));
     ok(promised.length === 0, '⑦ 不可用/暂无模板服务零成功承诺词' + (promised.length ? ' — 命中: ' + promised.join(',') : ''));
     await reqJson(WB_PORT, 'POST', '/api/playbooks/test-nl-coding', {}, { ...hdr, 'x-http-method': 'DELETE' });
+
+    // ── ⑧ 45号文⑧ A-F01:服务状态四态(可用/需配置/不可用/未知)与离线降级 ─────────────────────────
+    // 判据(45号文§4⑧,41号文§5.9):能力未知时如实给 unknown,不得并进 available;反向 = 把未知并进可用 → 本块红并打出实得。
+    const ev = (requires, caps) => srv.evalPlaybookAvailability({ requires }, caps);
+    const stOf = (requires, caps) => { const r = ev(requires, caps); return r.status + '/' + r.available; };
+    ok(stOf(['network'], { network: { online: undefined } }) === 'unknown/true', '⑧ network online:undefined → status unknown 且 available 仍 true(实得 ' + stOf(['network'], { network: { online: undefined } }) + ')');
+    ok(stOf(['network'], { network: { online: null } }) === 'unknown/true', '⑧ network online:null → unknown/true(实得 ' + stOf(['network'], { network: { online: null } }) + ')');
+    ok(stOf(['network'], { network: { online: false } }) === 'unavailable/false', '⑧ network online:false → unavailable/false(实得 ' + stOf(['network'], { network: { online: false } }) + ')');
+    ok(stOf(['network'], { network: { online: true } }) === 'available/true', '⑧ network online:true → available/true(实得 ' + stOf(['network'], { network: { online: true } }) + ')');
+    ok(stOf(['network'], null) === 'unknown/true' && stOf(['network'], {}) === 'unknown/true', '⑧ caps 为 null / 缺 network 子对象 → unknown(实得 ' + stOf(['network'], null) + ' ' + stOf(['network'], {}) + ')');
+    ok(stOf(['desktopMcp'], { desktopMcp: { present: false } }) === 'needs_config/false', '⑧ desktopMcp present:false → needs_config(实得 ' + stOf(['desktopMcp'], { desktopMcp: { present: false } }) + ')');
+    ok(stOf(['desktopMcp'], { network: { online: true } }) === 'unknown/false' && stOf(['desktopMcp'], null) === 'unknown/false',
+      '⑧ desktopMcp 子对象缺席 / caps null → unknown(available 照旧 false,不改放行)(实得 ' + stOf(['desktopMcp'], { network: { online: true } }) + ' ' + stOf(['desktopMcp'], null) + ')');
+    ok(stOf(['desktopMcp'], { desktopMcp: { present: true } }) === 'available/true', '⑧ desktopMcp present:true → available');
+    ok(stOf(['vision'], { provider: null }) === 'needs_config/false' && stOf(['vision'], { provider: { vision: false } }) === 'needs_config/false',
+      '⑧ vision:provider null(CLI 引擎,配置层事实)/ vision:false → needs_config(实得 ' + stOf(['vision'], { provider: null }) + ' ' + stOf(['vision'], { provider: { vision: false } }) + ')');
+    ok(stOf(['vision'], { provider: { vision: true } }) === 'available/true' && stOf(['vision'], null) === 'unknown/false' && stOf(['vision'], {}) === 'unknown/false',
+      '⑧ vision:true → available;caps null / provider 缺席 → unknown(实得 ' + stOf(['vision'], null) + ' ' + stOf(['vision'], {}) + ')');
+    ok(stOf([], null) === 'available/true' && stOf([], { network: { online: false } }) === 'available/true', '⑧ 无 requires → available(caps null 或离线都一样)');
+    // 多项取最重:unavailable > needs_config > unknown > available。
+    ok(stOf(['network', 'desktopMcp'], { network: { online: null }, desktopMcp: { present: false } }) === 'needs_config/false', '⑧ 未知+需配置 → needs_config(实得 ' + stOf(['network', 'desktopMcp'], { network: { online: null }, desktopMcp: { present: false } }) + ')');
+    ok(stOf(['vision', 'network'], { network: { online: false }, provider: null }) === 'unavailable/false', '⑧ 需配置+离线 → unavailable(实得 ' + stOf(['vision', 'network'], { network: { online: false }, provider: null }) + ')');
+    ok(stOf(['desktopMcp', 'network'], { network: { online: null }, desktopMcp: { present: true } }) === 'unknown/true', '⑧ 可用+未知 → unknown,绝不是 available(实得 ' + stOf(['desktopMcp', 'network'], { network: { online: null }, desktopMcp: { present: true } }) + ')');
+    // 逐字节锁:三个老字段与 HEAD 7d10312 的旧实现(下面原样抄录)在能力形状矩阵上逐一相同 —— status 是纯增量。
+    const legacyEval = (pb, caps) => {
+      const req = Array.isArray(pb.requires) ? pb.requires : [];
+      const missingCaps = [];
+      let reason = '';
+      for (const r of req) {
+        if (r === 'network') {
+          if (caps && caps.network && caps.network.online === false) { missingCaps.push('network'); if (!reason) reason = '需要联网(当前离线)'; }
+        } else if (r === 'desktopMcp') {
+          if (!caps || !caps.desktopMcp || !caps.desktopMcp.present) { missingCaps.push('desktopMcp'); if (!reason) reason = '需要桌面控制(未检测到 ai-computer-control)'; }
+        } else if (r === 'vision') {
+          if (!caps || !caps.provider || caps.provider.vision !== true) { missingCaps.push('vision'); if (!reason) reason = '需要视觉模型(当前引擎未开启视觉)'; }
+        }
+      }
+      return { available: !reason, unavailableReason: reason, missingCaps };
+    };
+    const shapes = [null, undefined, {}];
+    for (const online of ['absent', true, false, null, undefined, 'yes']) for (const present of ['absent', true, false, undefined, 1]) for (const provider of ['absent', null, { vision: true }, { vision: false }, {}, 'x']) {
+      const c = {};
+      if (online !== 'absent') c.network = { online };
+      if (present !== 'absent') c.desktopMcp = { present };
+      if (provider !== 'absent') c.provider = provider;
+      shapes.push(c);
+    }
+    const combos = [[], ['network'], ['desktopMcp'], ['vision'], ['network', 'desktopMcp'], ['vision', 'network'], ['desktopMcp', 'vision'], ['network', 'desktopMcp', 'vision']];
+    const legacyDrift = [];
+    const statusSeen = new Set();
+    let unknownLeak = 0;
+    for (const caps of shapes) for (const requires of combos) {
+      const now = ev(requires, caps);
+      const { status, ...rest } = now;
+      statusSeen.add(status);
+      if (JSON.stringify(rest) !== JSON.stringify(legacyEval({ requires }, caps))) legacyDrift.push(JSON.stringify({ requires, caps }));
+      const allTrue = requires.every(r => caps && (r === 'network' ? caps.network && caps.network.online === true
+        : r === 'desktopMcp' ? caps.desktopMcp && caps.desktopMcp.present === true
+          : caps.provider && typeof caps.provider === 'object' && caps.provider.vision === true));
+      if (status === 'available' && !allTrue) unknownLeak++;
+    }
+    ok(legacyDrift.length === 0, '⑧ available/unavailableReason/missingCaps 与 HEAD 旧实现在 ' + (shapes.length * combos.length) + ' 个形状上逐字节相同' + (legacyDrift.length ? ' — 漂移: ' + legacyDrift.slice(0, 3).join(' ') : ''));
+    ok(unknownLeak === 0 && statusSeen.size === 4, '⑧ 矩阵里 status=available 只出现在所需能力全是布尔 true 时(越界 ' + unknownLeak + ' 处;见到的状态 ' + JSON.stringify([...statusSeen].sort()) + ')');
+    // 服务入口整体序(进程内):未知类不许被数成可用;有需配置就引导,只剩未知就零引导。
+    const pbRow = (id, service, requires, caps) => ({ id, title: id, service, ...ev(requires, caps) });
+    const capsNull = { network: { online: null }, desktopMcp: { present: false }, provider: { vision: false } };
+    const onlyUnknown = srv.matchServiceEntry('帮我写代码', [pbRow('u1', 'coding', ['network'], capsNull)]);
+    ok(onlyUnknown && onlyUnknown.state === 'unknown' && onlyUnknown.guidance.length === 0 && onlyUnknown.guidanceDropped === 0,
+      '⑧ 类下只有未知模板 → state unknown、引导 0 条(实得 ' + JSON.stringify(onlyUnknown && [onlyUnknown.state, onlyUnknown.guidance, onlyUnknown.guidanceDropped]) + ')');
+    const mixedAvail = srv.matchServiceEntry('帮我写代码', [pbRow('u1', 'coding', ['network'], capsNull), pbRow('a1', 'coding', [], capsNull)]);
+    ok(mixedAvail && mixedAvail.state === 'available' && mixedAvail.playbooks.filter(p => p.status === 'available').length === 1 && mixedAvail.playbooks.every(p => typeof p.status === 'string'),
+      '⑧ 可用+未知 → available,条目带 status、可用数 1(实得 ' + JSON.stringify(mixedAvail && mixedAvail.playbooks.map(p => p.status)) + ')');
+    const cfgOverUnknown = srv.matchServiceEntry('帮我写代码', [pbRow('u1', 'coding', ['network'], capsNull), pbRow('d1', 'coding', ['desktopMcp', 'network'], capsNull)]);
+    ok(cfgOverUnknown && cfgOverUnknown.state === 'needs_config' && JSON.stringify(cfgOverUnknown.guidance) === '["desktopMcp"]',
+      '⑧ 需配置+未知 → needs_config,引导只取需配置那条的缺项(实得 ' + JSON.stringify(cfgOverUnknown && [cfgOverUnknown.state, cfgOverUnknown.guidance]) + ')');
+    const offlineCaps = { network: { online: false }, desktopMcp: { present: true }, provider: { vision: false } };
+    const offlineDouble = srv.matchServiceEntry('帮我写代码', [pbRow('o1', 'coding', ['network', 'vision'], offlineCaps)]);
+    ok(offlineDouble && offlineDouble.playbooks[0].status === 'unavailable' && offlineDouble.state === 'needs_config' && JSON.stringify(offlineDouble.guidance) === '["network"]' && offlineDouble.guidanceDropped === 1,
+      '⑧ 离线双缺失(status unavailable)→ 服务入口仍 needs_config、引导 network、dropped 1(⑦ 形状不变;实得 ' + JSON.stringify(offlineDouble && [offlineDouble.state, offlineDouble.guidance, offlineDouble.guidanceDropped]) + ')');
+    // 新文案零承诺词,且「未知」那几句不含「可用」(不经文案升级)。
+    const zhCatalog = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
+    const f01Keys = ['skills.status.unknown', 'skills.status.needsConfig', 'skills.status.offline', 'skills.serviceMatch.unknown', 'skills.serviceMatch.unknownMore'];
+    const f01Copy = f01Keys.map(k => String(zhCatalog[k] || ''));
+    ok(f01Copy.every(Boolean) && PROMISE_WORDS.every(w => !f01Copy.join('|').includes(w)), '⑧ 新增状态文案 ' + f01Keys.length + ' 条齐全且零承诺词');
+    ok(/未知/.test(zhCatalog['skills.status.unknown']) && /未知/.test(zhCatalog['skills.serviceMatch.unknown']) && ![zhCatalog['skills.status.unknown'], zhCatalog['skills.serviceMatch.unknown'], zhCatalog['skills.serviceMatch.unknownMore']].some(s => /可用|可直接用/.test(s)),
+      '⑧ 未知文案说「未知」、不含「可用」');
+    ok(/联网/.test(zhCatalog['skills.status.offline']) && /离线/.test(zhCatalog['skills.status.offline']) && /本地|恢复/.test(zhCatalog['skills.status.offline']),
+      '⑧ 离线降级文案:说要联网、现在离线,并给下一步(本地文件/恢复网络)');
+
+    // 第二个实例:无 provider、无 capabilityProbeUrl、WCW_TEST_NO_NET_ANCHORS=1 → network.online === null(真未知)。
+    const HOME2 = path.join(os.tmpdir(), 'wcw-playbooks-e2e-unknown');
+    fs.rmSync(HOME2, { recursive: true, force: true });
+    fs.mkdirSync(HOME2, { recursive: true });
+    fs.writeFileSync(path.join(HOME2, 'config.json'), JSON.stringify({ configSchema: 6, version: '1.0.0', permissionMode: 'bypass', activeProvider: '' }, null, 2));
+    const WB2_PORT = await getFreePort();
+    const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB2_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME2, WCW_TEST_NO_NET_ANCHORS: '1' }, windowsHide: true });
+    wb2.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb2!] ' + l.trim())));
+    try {
+      let h2 = null; for (let i = 0; i < 200 && !h2; i++) { await sleep(150); h2 = await health(WB2_PORT); }
+      ok(!!h2, '⑧ 第二实例(未知网络)listening');
+      const token2 = await getToken(WB2_PORT);
+      const hdr2 = { 'x-wcw-token': token2 };
+      const caps2 = (await getJson(WB2_PORT, '/api/capabilities')).json;
+      ok(caps2 && caps2.network && caps2.network.online === null, '⑧ 夹具前提:network.online === null(实得 ' + JSON.stringify(caps2 && caps2.network && caps2.network.online) + ')');
+      const unkPb = { id: 'test-f01-unknown', title: '联网代码体检', icon: '🧪', desc: 'x', inputs: [], promptTemplate: '做 {q}', requires: ['network'], uiMode: 'both', service: 'coding' };
+      const saveUnk = await reqJson(WB2_PORT, 'POST', '/api/playbooks', { playbook: unkPb }, hdr2);
+      ok(saveUnk.status === 200 && saveUnk.json && saveUnk.json.ok, '⑧ POST 要联网的 coding 用户模板 ok');
+      const list2 = (await getJson(WB2_PORT, '/api/playbooks')).json;
+      const rows2 = (list2 && list2.playbooks) || [];
+      ok(rows2.length > 0 && rows2.every(p => ['available', 'needs_config', 'unavailable', 'unknown'].includes(p.status)), '⑧ 第二实例 GET 每条带 status(' + rows2.length + ' 条)');
+      const unkRow = rows2.find(p => p.id === 'test-f01-unknown');
+      ok(unkRow && unkRow.status === 'unknown' && unkRow.available === true && unkRow.unavailableReason === '' && JSON.stringify(unkRow.missingCaps) === '[]',
+        '⑧ 网络未知的模板:status unknown,available/unavailableReason/missingCaps 照旧 true/""/[](实得 ' + JSON.stringify(unkRow && [unkRow.status, unkRow.available, unkRow.unavailableReason, unkRow.missingCaps]) + ')');
+      const mUnk = (await reqJson(WB2_PORT, 'POST', '/api/playbooks/service-match', { query: '帮我写代码修 bug' }, hdr2)).json;
+      ok(mUnk && mUnk.match && mUnk.match.service === 'coding' && mUnk.match.state === 'unknown',
+        '⑧ 「写代码修 bug」→ coding/unknown(实得 ' + JSON.stringify(mUnk && mUnk.match && [mUnk.match.service, mUnk.match.state]) + ')');
+      ok(mUnk && mUnk.match && mUnk.match.guidance.length === 0 && mUnk.match.guidanceDropped === 0, '⑧ 未知服务引导 0 条(不知道缺什么就不教人去配)');
+      const promisedUnk = PROMISE_WORDS.filter(w => JSON.stringify(mUnk && mUnk.match).includes(w));
+      ok(promisedUnk.length === 0, '⑧ 未知服务返回零承诺词' + (promisedUnk.length ? ' — 命中: ' + promisedUnk.join(',') : ''));
+      const skills2 = (await getJson(WB2_PORT, '/api/skills')).json;
+      const regRow = ((skills2 && skills2.skills) || []).find(s => s.id === 'pb:test-f01-unknown');
+      ok(regRow && regRow.status === 'unknown' && regRow.available === true, '⑧ /api/skills 注册表 playbook 行同样带 status unknown(实得 ' + JSON.stringify(regRow && [regRow.status, regRow.available]) + ')');
+      ok(((skills2 && skills2.skills) || []).filter(s => s.kind !== 'playbook').every(s => !('status' in s)), '⑧ 技能/命令条目形状不变(不带 status)');
+    } finally {
+      killp(wb2);
+      await sleep(300);
+      fs.rmSync(HOME2, { recursive: true, force: true });
+    }
   } finally {
     killp(wb); killp(fake);
     await sleep(300);

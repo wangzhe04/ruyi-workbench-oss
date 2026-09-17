@@ -581,6 +581,8 @@ async function handleApi(req, res, pathname) {
       ...(e.kind === 'command' ? { prompt: e.prompt || '' } : {}),
       // Playbook 条目带上完整 playbook 对象(前端「技能库」的 Playbook 项直接走 openPlaybookModal 流程)。
       ...(e.kind === 'playbook' && e.playbook ? { playbook: e.playbook } : {}),
+      // 127-⑧:Playbook 条目的服务状态(四态,技能库行说「未知」靠它);技能/命令条目形状不变。
+      ...(e.kind === 'playbook' ? { status: e.status } : {}),
     }));
     return send(res, json({ ok: true, skills }));
   }

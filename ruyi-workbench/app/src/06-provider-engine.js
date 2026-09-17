@@ -899,21 +899,36 @@ async function loadAllPlaybooks() {
 // unmet requirement so the greyed card can explain itself (C2: 不隐藏,给一行原因)。
 // 127-A-S02:新增 missingCaps(全部缺失能力的结构化数组,available 时为空)——unavailableReason 只报
 // 第一个缺失(卡片一行人话),服务入口的「≤1 次配置引导」要按【全部】缺失能力去重计数;纯增量字段。
+// 127-⑧ A-F01(41 号文 §5.9「能力未知时如实显示未知,不能经文案升级成已验证可用」):每条必带 status 四态。
+// available/unavailableReason/missingCaps 逐字节不变(注册表开关、提示词索引、05 冷缓存、09 主回合、服务入口在吃);
+// status 只陈述事实、不改放行 —— 未知的卡照旧能点,只是文案说「未知」。不动任何探针。逐项:
+//   network    online true 通过 / false → unavailable(离线,改配置补不回来) / 其余(null、缺席、非布尔)→ unknown
+//   desktopMcp present true 通过 / false → needs_config(探针说没检测到;探针出错也折成 false、分不出,记债) / 其余 → unknown
+//   vision     provider===null → needs_config(没配兼容 provider,CLI 引擎,配置层事实) / vision true 通过 /
+//              vision false → needs_config / 其余(caps 或 provider 缺席、非对象、非布尔)→ unknown
+// 多项取最重:unavailable > needs_config > unknown > available —— 有一项未知就绝不会是 available。
+const PLAYBOOK_STATUS_RANK = ['available', 'unknown', 'needs_config', 'unavailable'];
 function evalPlaybookAvailability(pb, caps) {
   const req = Array.isArray(pb.requires) ? pb.requires : [];
   const missingCaps = [];
   let reason = '';
+  let rank = 0;
+  const fact = (value, onFalse) => { rank = Math.max(rank, value === true ? 0 : PLAYBOOK_STATUS_RANK.indexOf(value === false ? onFalse : 'unknown')); };
   for (const r of req) {
     if (r === 'network') {
       // online===false 才算明确不可用;null(未知/无 provider 探测目标)不拦(fail-open,避免误灰)。
       if (caps && caps.network && caps.network.online === false) { missingCaps.push('network'); if (!reason) reason = '需要联网(当前离线)'; }
+      fact(caps && caps.network ? caps.network.online : undefined, 'unavailable');
     } else if (r === 'desktopMcp') {
       if (!caps || !caps.desktopMcp || !caps.desktopMcp.present) { missingCaps.push('desktopMcp'); if (!reason) reason = '需要桌面控制(未检测到 ai-computer-control)'; }
+      fact(caps && caps.desktopMcp ? caps.desktopMcp.present : undefined, 'needs_config');
     } else if (r === 'vision') {
       if (!caps || !caps.provider || caps.provider.vision !== true) { missingCaps.push('vision'); if (!reason) reason = '需要视觉模型(当前引擎未开启视觉)'; }
+      const p = caps ? caps.provider : undefined;
+      fact(p === null ? false : (p && typeof p === 'object' ? p.vision : undefined), 'needs_config');
     }
   }
-  return { available: !reason, unavailableReason: reason, missingCaps };
+  return { available: !reason, unavailableReason: reason, missingCaps, status: PLAYBOOK_STATUS_RANK[rank] };
 }
 
 // The public listing: every playbook, each annotated with available + unavailableReason from the current caps.
@@ -941,6 +956,9 @@ const SERVICE_INTENT_KEYWORDS = Object.freeze({
 // query → { service, playbooks(可用在前), state, guidance, guidanceDropped } | null。
 // state: available(类下有可用模板,引导 0 条) / needs_config(全不可用,引导 = 去重缺失能力,硬顶 MAX)
 // / no_template(类下零模板,如实说没有,不给成功承诺也不给配置引导 —— 配不出一个不存在的模板)。
+// 127-⑧:可用只数 status==='available'(未知的 available 照旧为 true,按它数就把未知升级成可用);整体序
+// available > needs_config(类下有 needs_config/unavailable 模板,引导只取它们的 missingCaps —— 离线仍引导 network)
+// > unknown(新:其余全是未知,引导 0 条 —— 不知道缺什么就不教人去配) > no_template。
 function matchServiceEntry(query, playbooks) {
   const q = String(query || '').trim().toLowerCase();
   if (q.length < 2) return null;
@@ -953,11 +971,13 @@ function matchServiceEntry(query, playbooks) {
   if (!best) return null;
   const mine = (Array.isArray(playbooks) ? playbooks : []).filter(p => p && p.service === best);
   const ordered = [...mine.filter(p => p.available !== false), ...mine.filter(p => p.available === false)]
-    .map(p => ({ id: p.id, title: p.title, available: p.available !== false, unavailableReason: String(p.unavailableReason || '') }));
+    .map(p => ({ id: p.id, title: p.title, available: p.available !== false, unavailableReason: String(p.unavailableReason || ''), status: p.status }));
   if (!mine.length) return { service: best, playbooks: [], state: 'no_template', guidance: [], guidanceDropped: 0 };
-  if (ordered.some(p => p.available)) return { service: best, playbooks: ordered, state: 'available', guidance: [], guidanceDropped: 0 };
+  if (mine.some(p => p.status === 'available')) return { service: best, playbooks: ordered, state: 'available', guidance: [], guidanceDropped: 0 };
+  const blocked = mine.filter(p => p.status === 'needs_config' || p.status === 'unavailable');
+  if (!blocked.length) return { service: best, playbooks: ordered, state: 'unknown', guidance: [], guidanceDropped: 0 };
   const missing = [];
-  for (const p of mine) {
+  for (const p of blocked) {
     for (const cap of (Array.isArray(p.missingCaps) ? p.missingCaps : [])) {
       if (!missing.includes(cap)) missing.push(cap);
     }

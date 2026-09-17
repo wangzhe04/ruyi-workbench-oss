@@ -161,6 +161,17 @@ function playbookDisplayUnavailableReason(playbook) {
   const raw = String(playbook?.unavailableReason || '');
   return BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw] ? t(BUILTIN_SKILL_AVAILABILITY_I18N_KEYS[raw]) : raw;
 }
+// 127-⑧ A-F01(41 号文 §5.9):服务状态一句话 —— 未知就说未知,绝不经文案升级成「可用」。
+// available → ''(不建节点,可用卡逐字节不变);needs_config/unknown 各一句;unavailable 今天只由离线产生
+// (06 evalPlaybookAvailability),缺的是 network 就给离线降级文案,否则回落那条原因。缺 status 也当未知。
+function playbookStatusText(entry) {
+  const status = entry?.status;
+  if (status === 'available') return '';
+  if (status === 'needs_config') return t('skills.status.needsConfig');
+  if (status !== 'unavailable') return t('skills.status.unknown');
+  const caps = Array.isArray(entry.missingCaps) ? entry.missingCaps : (Array.isArray(entry.requires) ? entry.requires : []);
+  return caps.includes('network') ? t('skills.status.offline') : (playbookDisplayUnavailableReason(entry) || t('skills.unavailable'));
+}
 function playbookInputLabel(pb, input) {
   const raw = String(input?.label || input?.key || '');
   if (!pb?.builtin) return raw;
@@ -220,8 +231,13 @@ function serviceMatchStrip() {
   const service = t('skills.service.' + m.service);
   let text = '';
   if (m.state === 'available') {
-    const n = (m.playbooks || []).filter(p => p.available).length;
+    // 127-⑧:可用数只数 status==='available' —— 状态未知的模板 available 照旧为 true,按它数就把未知说成「可直接用」。
+    const n = (m.playbooks || []).filter(p => p.status === 'available').length;
     text = t('skills.serviceMatch.available', { service, count: n });
+    const unknown = (m.playbooks || []).filter(p => p.status === 'unknown').length;
+    if (unknown > 0) text += t('skills.serviceMatch.unknownMore', { count: unknown });
+  } else if (m.state === 'unknown') {
+    text = t('skills.serviceMatch.unknown', { service, count: (m.playbooks || []).length });
   } else if (m.state === 'needs_config') {
     const cap = (m.guidance || [])[0] || '';
     text = t('skills.serviceMatch.needsConfig', { service, guidance: cap ? t('skills.serviceMatch.guidance.' + cap) : '' });
@@ -511,7 +527,10 @@ function buildPlaybookRow(s, i) {
   const description = skillDisplayDescription(s);
   if (description) it.appendChild(el('div', 'sk-desc', description));
   const unavailableReason = skillDisplayUnavailableReason(s);
-  if (unavailable && unavailableReason) it.appendChild(el('div', 'sk-reason', unavailableReason));
+  // 127-⑧:状态行(未知/需配置/离线降级)在原因之上;离线那句已含「需要联网」,不再叠一行同义原因。
+  const statusText = playbookStatusText(s);
+  if (statusText) it.appendChild(el('div', 'sk-reason sk-status', statusText)).dataset.status = s.status || 'unknown';
+  if (unavailable && unavailableReason && s.status !== 'unavailable') it.appendChild(el('div', 'sk-reason', unavailableReason));
   it.onmouseenter = () => { skillIndex = i; updateSkillSel(); };
   it.onclick = () => {
     if (unavailable) { toast(unavailableReason || t('skills.toast.unavailable'), 'err'); return; }
@@ -1192,6 +1211,7 @@ async function openMemoryEditModal(m) {
     playbookDisplayName,
     playbookDisplayUnavailableReason,
     playbookInputLabel,
+    playbookStatusText,
     renderSkillList,
     saveAsMemory,
     suggestMemoryFromTurn,

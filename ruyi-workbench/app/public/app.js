@@ -175,6 +175,7 @@ const {
   playbookDisplayName,
   playbookDisplayUnavailableReason,
   playbookInputLabel,
+  playbookStatusText,
   renderSkillList,
   saveAsMemory,
   suggestMemoryFromTurn,
@@ -888,6 +889,7 @@ const {
   playbookDisplayDescription,
   playbookDisplayUnavailableReason,
   playbookInputLabel,
+  playbookStatusText,
 });
 
 // 121-K1（34 号文 §8.2）：视角模式控制器。applyShellMode 是全仓写 data-shell-mode 的唯一常规入口，

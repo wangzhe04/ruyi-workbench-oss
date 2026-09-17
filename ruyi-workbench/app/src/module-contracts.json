@@ -3293,6 +3293,7 @@
         "PLAYBOOK_INPUT_TYPES",
         "PLAYBOOK_REQUIRES",
         "PLAYBOOK_SERVICES",
+        "PLAYBOOK_STATUS_RANK",
         "PROJECT_MEMORY_CAP",
         "REQ_METRICS",
         "REQ_METRICS_RECENT_MAX",
@@ -18220,6 +18221,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "matchServiceEntry",
           "kinds": [
             "read"
           ]

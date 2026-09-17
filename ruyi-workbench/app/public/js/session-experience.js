@@ -67,6 +67,7 @@ export function createSessionExperienceDomain({
   playbookDisplayName = playbook => String(playbook && playbook.title || ''),
   playbookDisplayDescription = playbook => String(playbook && playbook.desc || ''),
   playbookDisplayUnavailableReason = () => '',
+  playbookStatusText = () => '', // 127-⑧:状态一句话(skills-memory 那一份);缺席时不出状态行
   playbookInputLabel = (_playbook, input) => String(input && input.label || ''),
   // 121-K7（§8.4）：向导完成页要落在管家视角。组合根注入 js/shell-mode.js 那一个 applyShellMode
   // （唯一写者不变，本域只转手）；缺席时回落成「不切」，向导照常走完。
@@ -1444,7 +1445,10 @@ function buildPlaybookCard(pb) {
   card.appendChild(head);
   const description = playbookDisplayDescription(pb);
   if (description) card.appendChild(el('div', 'pb-card-desc', description));
-  if (!available) card.appendChild(el('div', 'pb-card-reason', playbookDisplayUnavailableReason(pb) || t('skills.unavailable')));
+  // 127-⑧:未知/需配置/离线降级一句话(可用 → 不建节点);离线那句已含原因,不再叠 ⛔ 原因行。
+  const statusText = playbookStatusText(pb);
+  if (statusText) card.appendChild(el('div', 'muted pb-card-status', statusText)).dataset.status = pb.status || 'unknown';
+  if (!available && !(statusText && pb.status === 'unavailable')) card.appendChild(el('div', 'pb-card-reason', playbookDisplayUnavailableReason(pb) || t('skills.unavailable')));
   if (available) card.onclick = () => openPlaybookModal(pb);
   return card;
 }

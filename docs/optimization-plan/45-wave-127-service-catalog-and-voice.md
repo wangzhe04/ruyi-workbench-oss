@@ -890,3 +890,127 @@
 5. 录音格式只有 webm/opus（§1.5 定案）；不支持的浏览器不出按钮，没有回退。
 
 **主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed。通读 `composer-voice.js` 全文（375 行）：零 `innerHTML`、录音只在内存走一趟请求、按钮离屏即取消（防偷录）、失败只播报不动输入框、Esc 只在录音中截获；核了 `LEGACY_STYLES_SHA256` 续钉——那把锁本来就是「每次改 CSS 写明理由再钉」的形制（注释里已有 ①–⑥ 前例），本次理由与 HEAD 算法自证齐全。独立复跑：`build --check` 新鲜；22 个改动文件控制字节 0；composer-voice.browser 83/0、asr-config-ui.static ALL PASS、asr-transcribe 24/0、overlay-payload-lock.static 10/0、steward-conversation.static 246/0、steward-walkthrough.static 120/0、frontend-domains.static 136/0、ec-d-closure.static 9/0、steward-board.static 165/0、steward-drawer.static 182/0、steward-settings.static 102/0、live-full-text.static 91/0、i18n ALL PASS、i18n.static 7/0、i18n-en-terms.static ALL PASS、facts.static 24/0、fixture-home.static 24/0、route-inventory.static 12/0、dom-smoke 53/0、dom-contract 20/0、a11y-walkthrough.browser 25/0、walkthrough-round1.browser 46/0、walkthrough-round2.browser 48/0。**主会话自做反向 ㈡**：新件启动参数里的 `--use-fake-ui-for-media-stream` 换成 `--mute-audio` → asr-config-ui.static 退出码 1，点名「composer-voice.browser.e2e.js 的无头 Edge 启动参数缺 --use-fake-ui-for-media-stream」并打出实得参数表；文件备份还原 sha256 OK、复跑 ALL PASS。
+
+### ⑧ A-F01 · 服务状态含「未知」（2026-09-17）
+
+**今天的毛病**（§2-quinquies「⑧」逐条重核过，坐标全对）：`evalPlaybookAvailability`（`06:902-917`）只给 `available`，把「未知」并进了两个相反方向——联网 `online:null` 只在 `=== false` 时拦（`06:909`），**未知被当成可用**；桌面控制探针出错走 catch 返回 `present:false`（`06:189-221`），**未知被当成不可用**。服务入口（`06:944-966`）与技能库服务条（`skills-memory.js:223`）都按 `p.available` 数「可直接用」，于是一条网络未知的模板会被说成「可直接用」。
+
+**改了什么**（§2-quinquies 定案逐条落地）：
+
+- `06-provider-engine.js`：
+  - `PLAYBOOK_STATUS_RANK`（`:910`）＋ `evalPlaybookAvailability`（`:911-932`）每条必带 `status`。三个老字段的判定行一个字没动，每项后面各跟一行 `fact(...)` 取最重（`:916`）。**不动任何探针**。
+  - `matchServiceEntry`（`:959-985`）：可用只数 `status==='available'`；新增 `unknown` 态（`:977-978`，引导 0 条）；needs_config 的引导只取 needs_config／unavailable 模板的 `missingCaps`；条目带 `status`。
+  - 06 行数 1952 → 1972（离 ~2000 目标还剩 28 行）；只加 `status` 一个字段，没加 `unknownCaps`。
+- `12-tool-dispatch.js:1679-1680`：注册表 playbook 条目逐字段拷贝补 `status`。
+- **`13-http-router.js:584-585`（派单稿没列）**：`GET /api/skills` 在路由里**又按字段白名单拷了一遍**，只改 12 到不了前端。见「不同之处」1。只给 `kind==='playbook'` 补 `status`，技能／命令条目形状不变（e2e 钉）。
+- `14-main.js:513`：导出 `matchServiceEntry`（进程内单测用）。
+- 前端（**零 CSS**，`LEGACY_STYLES_SHA256` 不动）：
+  - `skills-memory.js:164-175` `playbookStatusText`：available → `''`，不建节点；needs_config → 「需要配置」；unavailable 且缺 network → 离线降级文案；其余一律「状态未知…」。
+  - 服务条（`:233-241`）按 status 计数；混合类追加「，另有 N 个状态未知」；新 `unknown` 态一句话。
+  - 技能库行（`:530-533`）加 `.sk-reason.sk-status` 状态行。
+  - 首页卡（`session-experience.js:1448-1451`）加 `.muted.pb-card-status` 状态行；经组合根注入（`app.js:178/892`，1266 → 1268 行，锁 ≤1279）；session-experience 1582 → 1586 行。
+- 文案：四份 locale 各 +5 个扁平键——`skills.status.{unknown,needsConfig,offline}`、`skills.serviceMatch.{unknown,unknownMore}`。
+
+**状态语义**（未知＝该能力的事实结构性缺失：caps／子对象缺席，或该是布尔的位置不是布尔）：
+
+| 所需能力 | 事实 | status | available（不变） |
+|---|---|---|---|
+| network | `online === true` | 通过 | true |
+| network | `online === false` | **unavailable**（离线，改配置补不回来） | false |
+| network | `null`／`undefined`／缺席／非布尔／caps null | **unknown** | true（fail-open 照旧，卡照旧能点） |
+| desktopMcp | `present === true` | 通过 | true |
+| desktopMcp | `present === false` | **needs_config**（探针说没检测到；探针出错也折成 false，见债 2） | false |
+| desktopMcp | 缺席／非布尔／caps null | **unknown** | false（照旧不能点，只是文案说未知） |
+| vision | `provider === null`（CLI 引擎） | **needs_config**（配置层已知事实） | false |
+| vision | `provider.vision === true`／`false` | 通过／**needs_config** | true／false |
+| vision | provider 缺席、非对象、vision 非布尔、caps null | **unknown** | false |
+| （无 requires） | —— | available | true |
+
+**多项取最重：unavailable > needs_config > unknown > available**——有一项未知就绝不会是 available。
+
+**服务入口整体序：available > needs_config > unknown（新，引导 0 条）> no_template**：
+
+- 类下有 status available 的模板 → available。
+- 否则有 needs_config／unavailable 的模板 → needs_config。离线模板的 missingCaps 仍是 `network`，所以 ⑦ 的「离线双缺失 → needs_config、引导 network、dropped 1」形状逐字不变。
+- 否则只剩未知 → unknown。
+- 类下一个模板都没有 → no_template。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **消费方比摸底多一处**：`GET /api/skills` 路由（`13:577-587`）把注册表条目按字段白名单重拷。只改 12 的第一版，HEAD 对照脚本实测 `/api/skills` 的 21 条 playbook 行**一条都没带 status**。补在路由的 playbook 分支上。
+2. **可用卡／可用行零新增节点**：状态行只长在非可用模板上，未改的卡逐字节不变（C4 钉「状态行数 = 非可用模板数、data-status=available 的状态行 0 个」）。理由：给 16 张可用卡都挂「可用」会整屏噪声，且会改动既有走查夹具的 DOM。
+3. **离线那句替掉 ⛔ 原因行**：卡与行都一样。降级文案本身就含「需要联网、现在离线」，再叠一行「需要联网（当前离线）」是同义重复。needs_config 保留原因行（「需要配置」下面那行说清缺的是哪一项）。
+4. **零 CSS**：卡的状态行借 `.muted`，行借 `.sk-reason`。没借 `.pb-card-reason` 是因为它的 `::before` 带 ⛔，会把「未知」画成「被拦」。`pb-card-status`／`sk-status` 只做稳定选择器，与 ⑥ 的 `sk-svc-match` 同一做法。
+5. **未知且 available:false 的组合如实存在**：desktopMcp／vision 的事实缺席时 available 照旧 false（放行不改），status 说 unknown。卡置灰，显示「状态未知…」＋ ⛔ 原因。这是「available 逐字节不变」与「如实说未知」两条定案叠出来的，不是遗漏。
+6. **判据 ③ 落在 `playbooks.e2e.js` ⑧ 的第二个实例上**：无 provider、无探测地址、`WCW_TEST_NO_NET_ANCHORS=1`。只带 `WIN_CLAUDE_WORKBENCH_HOME`，不计入 fixture-home 的 RUYI_HOME spawn 锁，148 不动。浏览器件 D 段离线重启复用同一个 `spawnWb` 调用点，锁也不动。
+7. **浏览器件多钉了派单稿没要求的两段**：C5 需配置卡、D 段离线降级（卡／行／服务条）。三个前端分支各有真浏览器覆盖（纪律 13）。
+8. **「逐字节不变」做了两份证据**：
+   - **一次性 HEAD 对照**（脚本不进仓）：改源码**之前**在 HEAD `7d10312` 上 dump 三类读数，改完再 dump 同一套。
+     - 进程内 2682 个能力形状 × requires 组合；
+     - 离线／未知两个真实例的 `GET /api/playbooks`，21 行＝16 内置＋5 用户；
+     - 同两个实例 `GET /api/skills` 的 21 条 playbook 行。
+     - 三个老字段 **diff 0**。
+   - **永久锁**：⑧ 里原样抄录 HEAD 旧实现，在 1464 个形状上逐一比对。
+
+**判据读数**：
+
+- **① 单元**（`playbooks.e2e.js` ⑧，进程内 `srv`）：
+  - `{online:undefined}` → `unknown/true`；`online:null` → `unknown/true`；`online:false` → `unavailable/false`；`online:true` → `available/true`。
+  - caps null／缺 network 子对象 → `unknown/true`。
+  - desktopMcp：`present:false` → `needs_config/false`；子对象缺席／caps null → `unknown/false`；`present:true` → available。
+  - vision：provider null／`vision:false` → `needs_config/false`；`vision:true` → available；caps null／provider 缺席 → `unknown/false`。
+  - 无 requires → available（caps null 或离线都一样）。
+  - 混合：未知＋需配置 → `needs_config/false`；需配置＋离线 → `unavailable/false`；可用＋未知 → `unknown/true`。
+  - 老三字段与 HEAD 旧实现 1464 形状逐字节相同。矩阵里 status=available 只出现在所需能力全是布尔 true 时，越界 0；四态都见到。
+  - `matchServiceEntry`：只有未知 → `["unknown",[],0]`；可用＋未知 → available、条目 status `["unknown","available"]`；需配置＋未知 → `["needs_config",["desktopMcp"]]`；离线双缺失 → `["needs_config",["network"],1]`。
+  - 新文案 5 条零承诺词（⑦ 同一张 7 词表）；未知文案含「未知」、不含「可用」；离线文案含联网／离线／下一步。
+- **② GET**：offline 夹具每条带 status，`test-net` → `"unavailable"`。16 内置的三个老字段与 HEAD 逐字节相同（见上 8）。
+- **③ service-match**（第二实例，前提实测 `network.online === null`）：
+  - 要联网的 coding 用户模板 `["unknown",true,"",[]]`；
+  - 「写代码修 bug」→ `["coding","unknown"]`，引导 0 条，零承诺词；
+  - `/api/skills` 该行 `["unknown",true]`，技能／命令条目不带 status。
+- **④ 真浏览器**（`service-match.browser.e2e.js`，直跑 25 PASS／0 FAIL；前提 `online:null`，三条夹具 `["unknown","unknown","needs_config"]`）：
+  - C1 服务条「服务「代码任务」：状态未知，1 个模板要用的能力还没检测过」。
+  - C2 技能库行状态行「状态未知：这张卡要用的能力还没检测过」、`data-status=unknown`、整行无「可用」、未置灰。
+  - C3「服务「研究比较」：2 个模板可直接用，另有 1 个状态未知」。
+  - C4 首页未知卡是 `BUTTON`、状态行同上；状态行 3 = 非可用模板 3，available 状态行 0。
+  - C5 需配置卡 `DIV`、「需要配置」＋「需要视觉模型（当前引擎未开启视觉）」。
+  - D0 死探测重启 `online:false`。D2 离线卡 `DIV`、「需要联网，现在离线：可以先改用本地文件处理，或等网络恢复后再打开」、⛔ 原因行 0。D3 技能库离线行只一行 `.sk-reason`、置灰。D4 离线时「服务「代码任务」：需要先检查网络连接」。
+- **⑤ 既有件**：B1–B4 原样全绿。`playbooks` ②⑥⑦ 原样全绿（⑦ 离线双缺失仍 `1+1 ["network"]`）。串行 24 件全绿，见下。
+
+**反向（改源码 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠ 把未知并进可用**：`status: PLAYBOOK_STATUS_RANK[rank]` → `[rank === 1 ? 0 : rank]`，重建产物。
+  - `playbooks.e2e.js` 13 条红，例：`⑧ network online:null → unknown/true(实得 available/true)`、`越界 717 处;见到的状态 ["available","needs_config","unavailable"]`、`「写代码修 bug」→ coding/unknown(实得 ["coding","available"])`、`类下只有未知模板 → state unknown(实得 ["available",[],0])`。
+  - `service-match.browser` 5 条红：`C1 … 实得 "服务「代码任务」：1 个模板可直接用"`（**正是本刀要堵的升级**）、C2／C4 状态行 `null`、C3 `"3 个模板可直接用"`、C0。
+  - 还原 06／server.js／manifest.json／skills-memory.js 四文件 sha256 OK（`6dd4f219…`／`62789cb0…`／`9586c8fa…`／`910da98c…`），`build --check` 新鲜。
+- **㈡ 服务条可用数改回按 `p.available` 数**：`service-match.browser` C3 红，实得 `"服务「研究比较」：3 个模板可直接用，另有 1 个状态未知"`（自相矛盾的一句），其余全绿。还原四文件 sha256 OK。
+- 插曲：㈠ 的 playbooks 第一跑与本刀第一次直跑，都撞上 ③⑥ 已登记的 ① 启动竞争（`:132` GET 拿到 null → TypeError，崩在 ① 不在 ⑧），重跑即过。两次都是刚重建 server.js 后的第一跑，如实登记，不归功于也不归咎于本刀。
+
+**生成器链与门**：
+
+- `module-dependency-graph --write`：53 模块／**420 边**／1 SCC，**零新增边**；06 顶层符号 118 → 119（`PLAYBOOK_STATUS_RANK`），全库 2360 → 2361，14 引用 555 → 556。
+- `build.js`：55401 行。`architecture-contract-snapshots.js --write`：零漂移。
+- `facts-generate.js` 不跑：无新 e2e 文件，e2eCount 不变，facts.static 绿。
+- `route-inventory.js`：137 判定点、ROUTE_AUTH 125、告警 0；浏览器件新打的 `/api/capabilities`／`/api/playbooks` 各多一件覆盖。
+- 计数锁：**零重钉**。fixture-home 148 不动（理由见不同之处 6）；`LEGACY_STYLES_SHA256` 不动（零 CSS）；i18n 键数锁只钉 `skills.builtin.*`，本刀新键不在其内。
+- `build --check` ✓、依赖图 `--check` ✓、`--fast` **73/73**。
+- 20 个改动文件控制字节／CR／NUL 扫描 0。U+FFFD 仅 server.js 2 处，HEAD 同为 2（`04-desktop-shell.js` 既有），新增 0。
+- 逐件串行（`run-all` 列名）**24/24、0 flaky**：playbooks、service-match.browser、skills-registry、capabilities、prompt-snapshot.static、frontend-domains.static、i18n、i18n.static、i18n-en-terms.static、memory-toolbox.static、dom-smoke、facts.static、route-inventory.static、module-dependency-graph.static、steward-conversation.static、live-full-text.static、architecture-contract-snapshots.static、fixture-home.static、auth-deny-default、meta-guard、dom-contract、a11y-walkthrough.browser、walkthrough-round1.browser、walkthrough-round2.browser。
+
+**全量回归（⑧）**：`run-all.js --parallel 4` 退出码 **0**，**356 pass / 0 fail / 2 flaky / 356 ran（7 skipped 为既有 live probe），真回归 0**，用时约 21.5 min（17:56 → 18:18）。两个 flaky 回归后各串行直跑 2 次，全绿，与本刀文件零交集（grep 两件 playbook／skills／service-match／capabilit 零命中）：
+
+- `thread-arbiter.e2e.js`：首跑红在 `① 开关关:总耗时 6199ms 低于串行下界 5400ms`，是并行负载下的墙钟上限断言。串行 3677 ms／3547 ms，103 PASS ×2。
+- `steward-settings.e2e.js`：首跑没抓到 FAIL 行（超时或被杀），真浏览器设置页走查。串行 74 PASS ×2，ALL PASS。
+
+两件都按「并行负载下的时序族」登记。回归期间没改 `src/`、没跑别的件；回归前调过一次 `stopRuyiTestBrowsers()`。
+
+**债（登记不做）**：
+
+1. `05:301-303` 缓存冷时把能力写死 `{available:true}` 喂给模型提示词索引（§2-quinquies 已登记）。本刀没给那条补 status——它是模型侧、不是用户文案。
+2. **desktopMcp 探针出错与「真没装」仍分不出**：`probeDesktopMcp` 的 catch 返回 `present:false`（`06:220`）。本刀按定案把 `present:false` 判 needs_config，所以探针出错时用户看到的是「需要配置」，不是「未知」。要分开只能改探针，而 41 号文「不新建探针」、`capabilities.e2e` 钉着矩阵形状。
+3. 内置 16 个模板零个要求 network／vision：今天「未知」只会出现在用户自建模板上（§2-quinquies 原话），真机上默认看不到这个状态。
+4. **技能（kind skill）条目没带 status**：`SKILL.md` 的 `requires` 同样经 `evalPlaybookAvailability` 评估，网络未知时照旧无声放行。它们不是六类服务，本刀没扩过去。
+5. 置灰行被点时的 toast 仍报 `unavailableReason` 原文（离线时是「需要联网（当前离线）」），没换成降级文案。
+
+**主会话独立复核（提交前）**：ListAgents 确认实现 agent 已 completed。逐行审 06／12／13-http-router 的 diff：`fact()` 只累加 rank、`available`／`unavailableReason`／`missingCaps` 三行判定原样未动；核了 `matchServiceEntry` 唯一调用点（`13-http-router` `POST /api/playbooks/service-match`）的入参来自 `listPlaybooksWithAvailability`，每条都经 `evalPlaybookAvailability` 展开，`status` 必在（不会因缺字段把整类误判成 unknown）。独立复跑：`build --check` 新鲜、依赖图 `--check` 53/420、21 个改动文件控制字节 0；service-match.browser 25/0、skills-registry 44/0、capabilities 56/0、prompt-snapshot.static 72/0、frontend-domains.static 136/0、i18n ALL PASS、i18n.static 7/0、i18n-en-terms.static 8/0、memory-toolbox.static ALL PASS、dom-smoke 53/0、facts.static 24/0、route-inventory.static 12/0、module-dependency-graph.static 13/0、steward-conversation.static 246/0、steward-walkthrough.static 120/0、live-full-text.static 91/0；`playbooks` 首跑又撞 ① 启动竞争（`:132` GET 拿到 null），随后连跑三次 84/0。**① 启动竞争本波已是第三次登记（③⑥⑧）**，列入收波的 flaky 治理候选：要按「连不上／超时／真空值」先把那个 null 分类（`getJson` 在服务 health 通过后首个 GET 拿到的到底是什么），再定修法，不按次数拍脑袋加等待。
