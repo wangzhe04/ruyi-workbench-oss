@@ -60,6 +60,7 @@ function shellStart(args, config) {
   } else {
     do { shellId = genShellId(); } while (shellSessions.has(shellId));
   }
+  // 107-S0:工具分发(12 shell_start)总是传入执行闸解析好的 cwd;家目录兜底只留给没有 cwd 的直接调用方。
   const cwd = args.cwd ? path.resolve(String(args.cwd)) : os.homedir();
   const name = args.name ? String(args.name).slice(0, 80) : shellId;
   let child;

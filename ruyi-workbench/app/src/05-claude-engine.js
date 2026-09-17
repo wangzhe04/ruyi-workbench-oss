@@ -1315,6 +1315,11 @@ function maskSecrets(config) {
     const key = typeof config.searchBackend.apiKey === 'string' ? config.searchBackend.apiKey : '';
     out.searchBackend = { ...config.searchBackend, apiKey: maskKey(key), hasKey: key.length > 0 };
   }
+  // 107-S0(46 号文 §1.5 ②):modelsApiKey 是 Claude CLI 引擎的认证覆盖值(buildClaudeCliEnv 把它交给子进程当
+  // ANTHROPIC_AUTH_TOKEN／ANTHROPIC_API_KEY),真机上非空。修前本函数只盖上面两处,GET /api/status 与
+  // POST /api/config 的回包把它明文下发。同一条 maskKey 规则;不加 has… 布尔 —— 设置页那个输入框与
+  // providers[].apiKey 同一模具(掩码原样播种、原样回传,保存路径的 unmaskSecrets 还原),用不上它。
+  if (typeof config.modelsApiKey === 'string') out.modelsApiKey = maskKey(config.modelsApiKey);
   return out;
 }
 // F2: reverse of the mask on the SAVE path. The UI echoes the masked apiKey (`••••abcd`) straight back on
@@ -1357,6 +1362,10 @@ function unmaskSecrets(incoming, current) {
       const prev = current && current.searchBackend && typeof current.searchBackend === 'object' ? current.searchBackend : null;
       out.searchBackend = { ...incoming.searchBackend, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
     }
+  }
+  // 107-S0:modelsApiKey 同口径 —— 仍是掩码(用户没动那个框)就取磁盘上的真值;新填的明文、清成空串都直通。
+  if (typeof incoming.modelsApiKey === 'string' && incoming.modelsApiKey.startsWith(KEY_MASK_PREFIX)) {
+    out.modelsApiKey = (current && typeof current.modelsApiKey === 'string') ? current.modelsApiKey : '';
   }
   return out;
 }

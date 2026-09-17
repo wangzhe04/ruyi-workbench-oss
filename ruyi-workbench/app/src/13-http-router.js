@@ -190,10 +190,14 @@ async function applyConfigPatch(rawBody) {
     // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
     // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
     // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
-    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
+    // 107-S0:modelsApiKey 也在 GET /api/status 里掩码下发了,设置页把掩码原样回传 —— 同一处还原,否则一次保存就把
+    // 真密钥写成「••••末四位」。
+    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
+      || (body && typeof body.modelsApiKey === 'string')) {
       const restored = unmaskSecrets(body, current);
       if (Array.isArray(body.providers)) merged.providers = restored.providers;
       if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
+      if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
     }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {

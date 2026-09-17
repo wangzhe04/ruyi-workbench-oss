@@ -642,9 +642,23 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 // Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec
 // tools are NOT otherwise contained by the workspace boundary). Only consults the per-workspace execute flag;
 // sensitive/autoexec path checks remain the file guard's responsibility.
+// 107-S0(46 号文 §1.5 ②):执行类工具的【有效工作目录】单点解析,闸与执行共用。修前闸在这里按「显式 cwd → 会话
+// cwd → defaultWorkspace → 家目录」判,而 shell_start／powershell_run／script_run 缺省 cwd 时直接起在家目录 ——
+// 闸判一个目录、命令跑在另一个:模型以为在线程工作夹里,相对路径实际落在家目录(45 号文 §9.6.4 真模型实测),
+// 授权书「cwd 须在 grantRoot 内」也因为不传 cwd 就被绕开。现在 guardWorkspaceExecute 把解析结果随 ok 一并
+// 交回(cwd 字段),三个工具只用交回的这一个值,不各自再推一遍。
+// ctx.workingDir 排在会话 cwd 前:原生回合把它注入 ctx(09 runOpenAiTurn:请求级 cwd,缺省会话 cwd),提示词里的
+// 「工作目录」、文件工具根(12 resolveFileToolRoot)、资源租约(06g)用的都是它;没有它的调用方(Kimi 桥、
+// /api/tools 直调、MCP 子进程)逐字节同修前的判法。
+function resolveExecCwd(cwd, ctx, config) {
+  const session = ctx && ctx.session ? ctx.session : null;
+  const effective = cwd || (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  return path.resolve(String(effective));
+}
 async function guardWorkspaceExecute(cwd, ctx) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  const abs = resolveExecCwd(cwd, ctx, config);
   const list = (config && Array.isArray(config.workspaces)) ? config.workspaces : [];
   const deny = [];
   for (const w of list) {
@@ -652,17 +666,14 @@ async function guardWorkspaceExecute(cwd, ctx) {
       try { deny.push(path.resolve(w.path.trim())); } catch { /* skip unresolvable */ }
     }
   }
-  if (!deny.length) return { ok: true };
-  const session = ctx && ctx.session ? ctx.session : null;
-  const effective = cwd || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
-  const abs = path.resolve(String(effective || ''));
+  if (!deny.length) return { ok: true, cwd: abs };
   const real = await realpathForContainment(abs);
   const realDeny = await Promise.all(deny.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realDeny)) {
     logEvent({ kind: 'workspace_boundary', tool: 'exec', op: 'execute', decision: 'deny-workspace-exec', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启' };
   }
-  return { ok: true };
+  return { ok: true, cwd: abs };
 }
 // v1.0.2-S3: build the explorer.exe argv for /api/file/reveal WITHOUT touching a shell (路径含用户可控字符,
 // shell 拼接 = 命令注入)。绝不走 cmd.exe:调用方用 cp.spawn('explorer.exe', args, {detached,stdio:'ignore'}).unref()。

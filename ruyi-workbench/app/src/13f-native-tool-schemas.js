@@ -129,7 +129,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'working directory (defaults to home)' },
+        cwd: { type: 'string', description: 'working directory (defaults to the current working folder of this conversation)' },
         name: { type: 'string', description: 'human-readable label' },
         shellId: { type: 'string', description: 'optional deterministic id ([a-zA-Z0-9_-]{1,32}); auto-generated if omitted' },
       },

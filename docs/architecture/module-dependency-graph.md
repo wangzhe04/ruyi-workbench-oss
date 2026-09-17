@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2361 | 2531 | 420 | 68 | 0 | 1 |
+| 53 | 2362 | 2531 | 420 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -21,7 +21,7 @@
 | 3 | `01-config.js` | foundation | 133 | 35 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 5 | `02-session-store.js` | foundation | 246 | 46 | 12 |
-| 6 | `03-bridge-guard.js` | foundation | 71 | 20 | 5 |
+| 6 | `03-bridge-guard.js` | foundation | 72 | 20 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 8 | `04-permission-runtime.js` | foundation | 100 | 30 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |

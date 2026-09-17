@@ -176,8 +176,13 @@ function walk(dir, acc, skip) {
     fs.mkdirSync(F2_HOME, { recursive: true });
     const cfgPath = path.join(F2_HOME, 'config.json');
     const REAL_KEY = 'sk-test-1234abcd';
+    // 107-S0(46 号文 §1.5 ②):Claude CLI 引擎的认证覆盖值,修前 maskSecrets 不盖它、GET /api/status 明文下发。
+    // 失败信息只打前 6 个字符(本件的假 key 也按真 key 的口径对待)。
+    const REAL_MODELS_KEY = 'mk-test-5566wxyz';
+    const keyHead = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
     fs.writeFileSync(cfgPath, JSON.stringify({
       configSchema: 6, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false,
+      modelsApiBase: 'http://127.0.0.1:1', modelsApiKey: REAL_MODELS_KEY,
       providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: REAL_KEY, model: 'm', models: [{ id: 'm', label: 'M' }] }],
       activeProvider: 'fake',
     }, null, 2));
@@ -214,6 +219,31 @@ function walk(dir, acc, skip) {
       const disk2 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
       const dp2 = disk2.providers.find(p => p.id === 'fake');
       ok(dp2 && dp2.apiKey === NEW_KEY, '(e③) disk config.json updated to the new key (got ' + (dp2 && dp2.apiKey) + ')');
+
+      // ④ 107-S0:modelsApiKey 在 GET /api/status 里是掩码,整个响应体里找不到明文。
+      const st2 = await getJson(PORT_C, '/api/status');
+      const maskedModelsKey = st2.json && st2.json.config ? st2.json.config.modelsApiKey : undefined;
+      ok(maskedModelsKey === '••••wxyz', '(e④) GET /api/status config.modelsApiKey masked to ••••wxyz (got ' + keyHead(maskedModelsKey) + ')');
+      ok(st2.raw && !st2.raw.includes(REAL_MODELS_KEY), '(e④) full /api/status response contains NO plaintext modelsApiKey' + (st2.raw && st2.raw.includes(REAL_MODELS_KEY) ? ' (leaked ' + keyHead(REAL_MODELS_KEY) + ')' : ''));
+
+      // ⑤ 设置页的保存形状:把掩码原样回传(连同掩码过的 providers)→ 磁盘上的真值逐字节不变,回包也不带明文。
+      const save3 = await postJson(PORT_C, '/api/config', { modelsApiBase: 'http://127.0.0.1:1', modelsApiKey: maskedModelsKey, providers: st2.json.config.providers }, { 'x-wcw-token': token });
+      ok(save3.status === 200 && save3.json && save3.json.ok === true, '(e⑤) POST /api/config (masked modelsApiKey echo) ok');
+      const disk3 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      ok(disk3.modelsApiKey === REAL_MODELS_KEY, '(e⑤) disk modelsApiKey byte-identical after masked round-trip (got ' + keyHead(disk3.modelsApiKey) + ')');
+      ok((disk3.providers.find(p => p.id === 'fake') || {}).apiKey === NEW_KEY, '(e⑤) provider key intact in the same save');
+      ok(save3.raw && !save3.raw.includes(REAL_MODELS_KEY), '(e⑤) POST /api/config response contains NO plaintext modelsApiKey');
+
+      // ⑥ 真新填的明文照存;清成空串照清(掩码还原只认掩码前缀)。
+      const NEW_MODELS_KEY = 'mk-live-7788abcd';
+      const save4 = await postJson(PORT_C, '/api/config', { modelsApiKey: NEW_MODELS_KEY }, { 'x-wcw-token': token });
+      const disk4 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      ok(save4.status === 200 && disk4.modelsApiKey === NEW_MODELS_KEY, '(e⑥) POST a new plaintext modelsApiKey → disk updated (got ' + keyHead(disk4.modelsApiKey) + ')');
+      ok(save4.raw && !save4.raw.includes(NEW_MODELS_KEY) && save4.json && save4.json.config && save4.json.config.modelsApiKey === '••••abcd',
+        '(e⑥) the save response echoes the NEW key masked, not plaintext (got ' + keyHead(save4.json && save4.json.config && save4.json.config.modelsApiKey) + ')');
+      const save5 = await postJson(PORT_C, '/api/config', { modelsApiKey: '' }, { 'x-wcw-token': token });
+      const disk5 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      ok(save5.status === 200 && disk5.modelsApiKey === '', '(e⑥) POST modelsApiKey:"" clears it (got ' + keyHead(disk5.modelsApiKey) + ')');
     } catch (e) { console.log('ERROR(e) ' + (e && e.stack || e)); fail++; }
     finally { killp(wb); await sleep(300); fs.rmSync(F2_HOME, { recursive: true, force: true }); }
   }

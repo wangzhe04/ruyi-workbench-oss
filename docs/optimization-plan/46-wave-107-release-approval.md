@@ -118,3 +118,87 @@
 - **23 号文 §6**：107 的内容不变；「六类通用发布门」的出处补记为路线图 :40-45。
 - **43 号文 §2**：107 行的退出门「全量真回归 0；并行回归偶发治理已收；离线包启动冒烟；Release Brief 一页纸落盘」原样沿用；本文 §2 ⓪ 与 ⑧ 分别兑现后两条。另：**43 号文 §2 给 126／127 的退出门 J12／J13／J03 在 44／45 号文里都没报过**——D2 那一刀补读。
 - **45 号文 §9**：本波的「未完成项」直接取它的债表（§9.2）与 flaky 候选（§9.3），不重抄。
+
+## 5. 交付记录
+
+### S0 · 安全修三处（2026-09-17）
+
+**开工前重核的坐标**（HEAD `c406961`，全对）：`maskSecrets` 在 `05-claude-engine.js:1304-1319`、`unmaskSecrets` 紧跟其后 `:1324-1362`；保存路径的还原在 `13-http-router.js:193-197`（`applyConfigPatch`）；`shell_start` 缺省 cwd 在 `11-native-tools.js:63`；执行闸的有效目录在 `03-bridge-guard.js:657`；`REDACT_PATTERNS` 在 `04-permission-runtime.js:44-61`。
+
+**改了什么**：
+
+- **① `modelsApiKey` 明文下发**
+  - `05-claude-engine.js:1318-1322` `maskSecrets` 补一行：`modelsApiKey` 走同一个 `maskKey`（`••••末四位`）。**没加 `has…` 布尔**——设置页那个框（`index.html:1513` `#cfgModelsApiKey`，`type=password`）与 `providers[].apiKey` 同一模具：`provider-settings.js:409` 原样播种掩码、`:684` 原样回传，用不上它；多一个顶层键反而会进 `steward_config_get` 的键表。
+  - `05-claude-engine.js:1366-1369` `unmaskSecrets`：来件仍以掩码前缀开头 → 取磁盘真值；新明文、空串直通。
+  - `13-http-router.js:193-201` `applyConfigPatch`：进入还原分支的条件加 `typeof body.modelsApiKey === 'string'`，并把还原值写回 `merged.modelsApiKey`。
+  - 其它下发面逐个核过：`GET /api/status`（`13:304`）与 `POST /api/config` 回包（`13:492`）都经 `maskProviders`＝`maskSecrets`，一处修两处生效；`steward_config_get`（`13l:653`）也经它，且 `modelsApiKey` 是 forbidden 档、连掩码都不回；`workbench_self_status`（`12:368-380`）只回白名单标量；`GET /api/config` 不存在。顶层配置键里像密钥的只有 `modelsApiKey` 一个（`claudeAuthMode` 是枚举）。
+- **② 执行工具缺省 cwd 落家目录**
+  - `03-bridge-guard.js:645-676`：新增 `resolveExecCwd(cwd, ctx, config)`（`:653`），链为「显式 cwd → `ctx.workingDir` → 会话 cwd → `defaultWorkspace` → 家目录」；`guardWorkspaceExecute` 先解析、再判，**把解析结果随 `ok` 一并交回**（`{ ok: true, cwd }`，`:669`／`:676`）。
+  - `12-tool-dispatch.js:1018-1073`：`powershell_run`（`:1021`）、`script_run` 三种语言（`:1049`／`:1054`／`:1059`）、`shell_start`（`:1073`，`shellStart({ ...args, cwd: g.cwd }, cfg)`）一律只用闸交回的 `g.cwd`，不各自再推一遍。
+  - `13f-native-tool-schemas.js:132`：`shell_start.cwd` 的描述从「defaults to home」改成「defaults to the current working folder of this conversation」（不改就是对模型说假话）。
+  - `11-native-tools.js:63` 只加一行注释：家目录兜底只剩「不经分发的直接调用方」（仓内没有）。
+  - MCP 子进程路径核过：`shell_*` 先过闸、再回引导错误（`12:1069` 不变），闸里没有 session/workingDir 时按 `defaultWorkspace` 判，与修前一致；`powershell_run` 在子进程里现在跑在它被判的那个目录（修前判 `defaultWorkspace`、跑家目录）。Kimi 桥（`05b:1526`）传显式 cwd，不受影响。
+- **③ 引号键值脱敏漏网**
+  - `04-permission-runtime.js:45-47`：`sk-` 那条放宽为 `sk-` 后跟 `[A-Za-z0-9][A-Za-z0-9_-]{15,}`——修前在第一个 `-` 处断，`sk-proj-…`／`sk-ant-api03-…` 这类分段真 key 整把漏（§9.6 发现 5 点名的「含非字母数字字符的那一把」）。
+  - `04-permission-runtime.js:63-72`：新增一条「值带引号的标签＋值」，两组（标签留、值抹），沿用 `redact()` 的组数口径。标签＝以 `api key／access key／secret key／private key／secret／token／password／passwd／authorization` **结尾**的键，词后紧跟（可选反斜杠＋）引号或直接 `:`／`=`，所以 `"maxTokens"`／`"tokenCount"`／`"token_type"` 不算；值必须以引号开头（数字、null、对象不碰），`Bearer／Basic／Token ` 前缀留在标签里；值只收可打印 ASCII、不含空格／引号／反斜杠——一层、三层转义的 JSON（会话文件里 `file_read` 结果的样子）都在转义引号处收口，中文文案值不误伤。量词全部有界（反斜杠 ≤8、空白 ≤8、值 6–4096），值之后没有需要回溯的成分。
+- **测试**（**零新文件**，e2eCount 不变）：
+  - `repo-hygiene.e2e.js` (e) 加 ④⑤⑥（`:179-185` 夹具、`:223-246` 断言）；失败只打前 6 个字符。
+  - `shell-session.e2e.js`：(a) 的序列改成 `shell_start` **不传 cwd**、回合 cwd＝`SESS_CWD`、打 `(Get-Location).Path` 整行比对（8.3 短名经 `realpathSync.native` 展开）；新增 (f) 段 f1–f7（`:151-184`）；配置加 `workspaces`（WORK 首行＝defaultWorkspace，`no-exec` 行 `execute:false`）。
+  - `unit/steward-exempt.test.js` ⑦ 段、B1 脱敏表之后（`:360-455`）：27 种正形状、16 条负形状、三段计时。假 key 全部运行时拼出，不在源码里留长串。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **② 修了三个工具，不只 `shell_start`**。派单稿让「对照 `powershell_run`／`script_run` 的缺省值、复用那份单点解析」——实读发现**那两个也是 `args.cwd || os.homedir()`**（`12:1020` 经 `04-desktop-shell.js:105`、`12:1048/1053/1058`），与 `shell_start` 同一个「判一个目录、跑另一个」，并不存在可复用的解析。三个工具共用同一个闸调用，只修一个等于把洞留在更常用的那个上（`Remove-Item .\tmp -Recurse` 走 `powershell_run` 不传 cwd，一样删到家目录）。另一个佐证：授权书的 `grantRoot` 判据（`06f:183`）只在**显式**给 cwd 时核「须在 grantRoot 内」，不传 cwd 就放行——修前这条命令实际跑在家目录。f3／f4 与反向 ㈡b 专门钉这两个。
+2. **解析链多了 `ctx.workingDir`（排在会话 cwd 前）**。原生回合把它注入 ctx（`09:1245`：请求级 cwd，缺省会话 cwd），提示词里的「工作目录」、文件工具根（`12:78-92`）、资源租约（`06g:189`）用的都是它；闸不认它的话，请求级 cwd 与会话头不同时判的又是另一个目录。没有 `workingDir` 的调用方（Kimi 桥、`/api/tools` 直调、MCP 子进程）判法逐字节同修前。
+3. **闸交回 `cwd` 而不是导出一个解析函数给三处各调**：派单稿说「reuse the single resolution rather than re-deriving it」——闸在 `ctx.config` 缺席时自己 `readConfig()`，三处再调一次解析就可能拿到另一份配置；直接用闸算出来的那个值，判的就一定是跑的。
+4. **③ 同时放宽了 `sk-` 那条**：派单稿列的是带标签的形态；§9.6 发现 5 明说漏网的里有一把「含非字母数字字符的 `sk-` key」，裸出现时新标签式咬不到它。
+5. **① 没加 `hasModelsApiKey`**：见上，界面用不上。
+6. **判据 ① 的「设置页输入框」没有现成件可跑**：仓里没有任何件打开设置弹窗点「保存」（`saveConfigBtn` 只在 `dom-contract.e2e.js:84` 的 id 清单里查存在、不点）。另做了一次**不进仓**的真浏览器探针（无头 Edge、真按钮），读数见下；没有为它新建 e2e（会顶 e2eCount 与 fixture-home 的 spawn 锁，而服务端往返已由 repo-hygiene (e) 钉住）。
+
+**判据读数**：
+
+- **① modelsApiKey**（`repo-hygiene.e2e.js` 直跑 ALL PASS，36 PASS）：夹具 key 形如 `mk-tes…`（16 字）。
+  - ④ `GET /api/status` → `config.modelsApiKey` 实得 `••••wx…`；整个响应体搜明文 **0 处**。
+  - ⑤ 设置页形状回传 `{modelsApiBase, modelsApiKey: 掩码, providers: 掩码过的}` → 200；磁盘 `modelsApiKey` 与原值**逐字节相等**；同一次保存里 provider key 也在；回包无明文。
+  - ⑥ 回传新明文 `mk-liv…` → 磁盘更新；回包是 `••••ab…`（新值的掩码）；回传 `""` → 磁盘清空。
+  - 真浏览器探针（不进仓，13 PASS）：`window.state.config.modelsApiKey` 到达即 `••••wx…`；设置页 Agent CLI 页签 `#cfgModelsApiKey` 播种为同一个掩码、`type=password`；**不动那个框按真「保存」** → 状态栏 ✓、磁盘 key 逐字节不变、provider key 也在；清空后 `Input.insertText` 输入新值再按保存 → 磁盘是新值、`state.config` 刷新成 `••••98…`、`JSON.stringify(window.state)` 里新旧明文都搜不到。
+- **② 执行 cwd**（`shell-session.e2e.js` 直跑 ALL PASS，29 PASS；四个目录两两不同：会话 cwd `…\wcw-shell-session-e2e\sess-cwd`、显式 `…\explicit-cwd`、`defaultWorkspace`＝`…\work`、家目录＝自隔离临时家 `…\Temp\ruyi-e2e-home-*`）：
+  - (a) 原生回合（fake provider 真工具回合）`shell_start{shellId:'s1'}` 不传 cwd → 工具结果 `cwd` 与 `(Get-Location).Path` 整行都是 `…\sess-cwd`。
+  - f1 `/api/tools/shell_start` 带 `sessionId`、不传 cwd → `cwd`＝会话 cwd，`(Get-Location).Path` 同；f2 显式 `cwd` → 打出 `…\explicit-cwd`。
+  - f3 `powershell_run` 不传 cwd → stdout `…\sess-cwd`；f4 `script_run`（node，`process.cwd()`）→ 同；f5 `powershell_run` 显式 cwd → `…\explicit-cwd`。
+  - f6 会话 cwd 就是 `execute:false` 的工作区 → `shell_start` 实得 `{"ok":false,…,"code":"not-allowed"}`、`powershell_run` 同拒、`shell_list` 里没有 `s8`；f7 允许的会话里显式把 cwd 指进该工作区 → 同拒。
+- **③ 脱敏**（`unit/steward-exempt.test.js` 直跑 ALL PASS，111 PASS）：
+  - 正形状 **27/27** 全抹且标签留着：JSON `apiKey`／`api_key`（无空格）／`token`（JWT）／`password`／`secret`／`authorization: Bearer`（长、短各一）／`accessToken`／`client_secret`／`x-api-key`／`refresh_token`／`secretKey`／`private_key`／`passwd`；Python dict 单引号；JS 字面量单、双引号；YAML；TOML／Python 赋值；`.env` 词中带引号；PowerShell `$env:… = '…'`；会话文件一层、三层转义；整份 provider 配置（两把 key 都没了）；裸 `sk-proj-…`、裸 `sk-ant-api03-…`、裸 48 位 `sk-`。假值覆盖 48 位字母数字、JWT、32／64 位十六进制、带 `+/=` 的 base64、带 `&` 的口令。
+  - 负形状 **16/16** 逐字节不变：`"maxTokens": 4096`、`tokenCount／inputTokens`、usage 块、含 token／password 字样的散文、`token_type`、空值与 `hasKey`、null 与数字值、中文文案值（`"settings.endpointApiKey": "端点密钥…"`）、schema 里的键名数组、嵌套对象值、普通 provider JSON、`tokenizer`、`secretary`、`password_hint`、短值（`none`／`abc`）、`max_tokens=4096`。
+  - 计时（上界 3000 ms）：1.00 MB JSON 味文本 **24 ms**（真形状全抹、数字字段原样）；0.74 MB 近似标签对抗串（`token` + 8 反斜杠 + 引号 + 8 空格 + `=` + 8 空格 + 8 反斜杠，重复 2 万次）**9 ms**；1.00 MB 超长值 **6 ms**，开头 4096 字被抹。
+  - 既有件原样全绿：B1 脱敏表 8 种、不误伤 5 条（同文件）；`audit`、`session-search`、`steward-exempt-no-swap`、`steward-exempt-shell-send`（见下串行表）。
+
+**反向（改源码 → 重建 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠a 摘掉 `maskSecrets` 那一行** → `repo-hygiene` 4 红：`(e④) … masked to ••••wxyz (got "mk-tes…")`、`(e④) full /api/status response contains NO plaintext modelsApiKey (leaked "mk-tes…")`、`(e⑤) POST /api/config response contains NO plaintext modelsApiKey`、`(e⑥) … echoes the NEW key masked, not plaintext (got "mk-liv…")`。
+- **㈠b 摘掉 `applyConfigPatch` 里写回还原值那一行**（掩码照下发、保存不还原）→ 恰 1 红：`(e⑤) disk modelsApiKey byte-identical after masked round-trip (got "••••wx…")`——**真密钥被写成了掩码**，正是派单稿要防的那一下。
+- **㈡a `shell_start` 分发改回 `shellStart(args, cfg)`**（家目录缺省）→ `shell-session` 4 红：(a)／f1 的 `cwd` 实得 `…\Temp\ruyi-e2e-home-j64HUY`，`(Get-Location).Path` 实得同一个家目录；f3／f4 保持绿（证明各钉各的）。
+- **㈡b `powershell_run`／`script_run` 改回 `args.cwd`／`args.cwd || os.homedir()`**（`shell_start` 保持修后）→ 恰 2 红：f3 `powershell_run` 实得 `…\ruyi-e2e-home-BMrFvI`、f4 `script_run` 实得同。
+- **㈢a 删掉新的引号键值那一条** → unit 3 红：正形状表点名漏 **17 种**（JSON apiKey｜api_key 无空格｜password｜secret｜Authorization Bearer 短｜accessToken｜client_secret｜x-api-key｜secretKey｜passwd｜Python dict｜JS 单引号｜JS 双引号｜YAML｜一层转义｜三层转义｜整份 provider 配置），1 MB 计时件的「真形状全抹」红，超长值那条红。其余 10 种保持绿是因为旧表别的条目本来就咬得到（JWT、≥40 位十六进制、≥16 字 Bearer、`sk-`）——如实记，不算判据不承重。
+- **㈢b `sk-` 那条改回纯字母数字** → unit 恰 1 红，点名 `裸 sk-proj(分段) | 裸 sk-ant-api03(分段)`。
+- 六次均按文件备份整组还原（`04`／`05`／`12`／`manifest.json`／`server.js`，㈠b 起加 `13`），`sha256sum -c` 全 OK：`04` `3bf7246b…`、`05` `3e5d8e80…`、`12` `09e7672b…`、`13` `947f2d29…`、`manifest.json` `58debb53…`、`server.js` `37f9976f…`；还原后 `build --check` 新鲜、unit 复跑 ALL PASS。插曲：㈢b 第一次用 `node -e` 带反斜杠的字符串做替换，Git Bash 吃掉一层反斜杠、匹配 0 处、文件未变（sha256 当场核过全 OK）——纪律 7 又一例，改用 Edit 工具重做。
+
+**生成器链与门**：
+
+- `module-dependency-graph --write`：53 模块／**420 边**／1 SCC，**零新增边**（逐边集合比对 HEAD：added `[]`、removed `[]`）；顶层符号 2361 → 2362（03 +1 `resolveExecCwd`）；`module-contracts.json` 03 提供表 +1。
+- `build.js`：55441 行（manifest 行区间回填 47 处漂移）。`architecture-contract-snapshots.js --write`：无变化。
+- `facts-generate.js` **不跑**：零新 e2e 文件，e2eCount 不变。
+- `route-inventory.js`：137 判定点、ROUTE_AUTH 125、告警 0；只有 13 路由行号下移。
+- 计数锁重钉：**无**（零新件、零新 spawn、零 CSS、零前端 JS）。
+- `build --check` ✓、依赖图 `--check` ✓（53/420）、`--fast` **73/73**（unit 快通道 ALL PASS）。
+- 17 个改动文件 NUL／CR／0x00–0x1f 扫描 0；U+FFFD 仅 `server.js` 2 处，与 HEAD 相同。
+- 逐件串行（`run-all` 列名，unit 快通道 ALL PASS）**27/27、0 flaky**：repo-hygiene、shell-session、audit、audit-w23、session-search、tool-dispatch、steward-exempt-no-swap、steward-exempt-shell-send、steward-exempt-delegation、config-read-safety、provider-custom-headers、workbench-self-status、dom-smoke、steward-settings（真浏览器）、shell-mcp-guard、autonomy-grant、tools-v3、session-permission-mode、budget-guard、todo-summary、mission-result、websearch、steward-config-tools、steward-decisions、config-providers-guard、steward-presence-gate、kimi-agent-cli。
+
+**全量回归（S0）**：`run-all.js --parallel 4` 退出码 **0**，**356 pass / 0 fail / 1 flaky / 356 ran（7 skipped 为既有 live probe），真回归 0**，unit 全绿、build freshness 一致，用时约 22.5 min（22:30:14 → 22:52:46）。唯一 flaky 是 `perm-v2.e2e.js`：首跑红在 `④ turn did NOT wait out the ~6s permission timeout (elapsed 5683ms)`——④ 那条会话级 plan 档把 `file_write` 判成 block，run-all 打出的首跑 FAIL 行只有这一条（同段「无 `permission_request`」「文件没写」两条没红），红的是「5000 ms 以内返回」这条墙钟上限；回归内重跑绿。回归后串行直跑 3 次 **24/24 ×3**，④ elapsed 2370／2374／2372 ms、① 8468／8414／8419 ms。与本刀零交集：④ 走 edit 档 `file_write` 的 block 门，不经执行闸、不碰掩码；件内 `powershell_run` 只出现在 ③ 的 `toolAllowRules` 规范化。按「并行负载下的墙钟上限断言」登记，不归功于也不归咎于本刀。回归期间没有改 `src/`、没跑别的件（只在 docs 里写本段）；回归前后各调过一次 `stopRuyiTestBrowsers()`。
+
+**发现但没修（登记，交主会话定）**：
+
+1. **`externalMcpServers[].env` 与远程条目的 `headers` 在 `GET /api/status` 里原样下发**：`maskSecrets` 不碰 `externalMcpServers`。进程内实测 `maskSecrets({externalMcpServers:[{…,env:{GITHUB_TOKEN:<假值>}},{…,headers:{Authorization:'Bearer <假值>'}}]})` 两个值原样返回。MCP 运维页的连接器清单（`04:1752`、`13b:54`）早就把 env 全掩了，只有 `/api/status` 的 config 这一份没掩。不在本刀：它不是顶层键，修法要在保存路径按 id＋键名还原（两种形状），前端不回传这一键、今天没有写回风险；Claude Code 自动导入（`autoImportClaudeCodeMcp` 默认开）会把 `~/.claude.json` 里带 token 的 env 原样搬进来，所以真机上是实在的暴露面。
+2. **git 族工具缺省 cwd 仍是家目录**（`11:559` `resolveGitCwd`，注释写的是「session/home workspace」）。它们不过执行闸，不是「判的与跑的不一致」这一类，本刀没动。
+3. **脱敏的已知边界**：PEM 私钥（值里带空格与转义换行）只抹得到第一段；单个值超过 4096 字时尾部不抹；值里带单引号的双引号串（`"password": "it's…"`）在单引号处收口、短于 6 字就不抹。
+4. **会话 cwd 指向已被删掉的目录时**：三个执行工具现在会在那个不存在的目录上起进程并失败（修前落家目录「成功」）。这是 fail-closed，但报错是 spawn 的原话，不是人话。

@@ -1015,9 +1015,10 @@ const ARCHIVE_TOOL_HANDLERS = {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
+      // 107-S0:三个执行工具一律跑在闸交回的 g.cwd(03 resolveExecCwd)—— 判的目录就是跑的目录;修前缺省 cwd 落家目录。
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      return DesktopShell.runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
+      return DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
@@ -1045,17 +1046,17 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess('python', [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
       await fsp.writeFile(p, String(args.code || ''), 'utf8');
       return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
-        cwd: args.cwd || os.homedir(),
+        cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
         signal: ctx && ctx.signal,
       });
@@ -1067,7 +1068,9 @@ const SHELL_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
-      return shellStart(args, cfg);
+      // 107-S0(45 号文 §9.6 发现 3):shell 起在闸判过的那个目录(显式 cwd → 回合工作目录 → 会话 cwd → defaultWorkspace
+      // → 家目录),不再缺省落家目录。
+      return shellStart({ ...args, cwd: g.cwd }, cfg);
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();

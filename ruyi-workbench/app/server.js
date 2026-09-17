@@ -9185,9 +9185,23 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 // Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec
 // tools are NOT otherwise contained by the workspace boundary). Only consults the per-workspace execute flag;
 // sensitive/autoexec path checks remain the file guard's responsibility.
+// 107-S0(46 号文 §1.5 ②):执行类工具的【有效工作目录】单点解析,闸与执行共用。修前闸在这里按「显式 cwd → 会话
+// cwd → defaultWorkspace → 家目录」判,而 shell_start／powershell_run／script_run 缺省 cwd 时直接起在家目录 ——
+// 闸判一个目录、命令跑在另一个:模型以为在线程工作夹里,相对路径实际落在家目录(45 号文 §9.6.4 真模型实测),
+// 授权书「cwd 须在 grantRoot 内」也因为不传 cwd 就被绕开。现在 guardWorkspaceExecute 把解析结果随 ok 一并
+// 交回(cwd 字段),三个工具只用交回的这一个值,不各自再推一遍。
+// ctx.workingDir 排在会话 cwd 前:原生回合把它注入 ctx(09 runOpenAiTurn:请求级 cwd,缺省会话 cwd),提示词里的
+// 「工作目录」、文件工具根(12 resolveFileToolRoot)、资源租约(06g)用的都是它;没有它的调用方(Kimi 桥、
+// /api/tools 直调、MCP 子进程)逐字节同修前的判法。
+function resolveExecCwd(cwd, ctx, config) {
+  const session = ctx && ctx.session ? ctx.session : null;
+  const effective = cwd || (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  return path.resolve(String(effective));
+}
 async function guardWorkspaceExecute(cwd, ctx) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  const abs = resolveExecCwd(cwd, ctx, config);
   const list = (config && Array.isArray(config.workspaces)) ? config.workspaces : [];
   const deny = [];
   for (const w of list) {
@@ -9195,17 +9209,14 @@ async function guardWorkspaceExecute(cwd, ctx) {
       try { deny.push(path.resolve(w.path.trim())); } catch { /* skip unresolvable */ }
     }
   }
-  if (!deny.length) return { ok: true };
-  const session = ctx && ctx.session ? ctx.session : null;
-  const effective = cwd || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
-  const abs = path.resolve(String(effective || ''));
+  if (!deny.length) return { ok: true, cwd: abs };
   const real = await realpathForContainment(abs);
   const realDeny = await Promise.all(deny.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realDeny)) {
     logEvent({ kind: 'workspace_boundary', tool: 'exec', op: 'execute', decision: 'deny-workspace-exec', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启' };
   }
-  return { ok: true };
+  return { ok: true, cwd: abs };
 }
 // v1.0.2-S3: build the explorer.exe argv for /api/file/reveal WITHOUT touching a shell (路径含用户可控字符,
 // shell 拼接 = 命令注入)。绝不走 cmd.exe:调用方用 cp.spawn('explorer.exe', args, {detached,stdio:'ignore'}).unref()。
@@ -9694,7 +9705,9 @@ async function makeAttachmentRecord(input) {
 // --- Secret redaction (unconditional, CLI-independent). Redacts DISPLAY copy only, never the
 // executed string. Purpose-built patterns, not the quoted-only code_review_scan regex. ---
 const REDACT_PATTERNS = [
-  /\b(sk-[A-Za-z0-9]{16,})\b/g,
+  // 107-S0(45 号文 §9.6 发现 5):sk- 之后允许 `_`／`-`。修前只认纯字母数字,`sk-proj-…`／`sk-ant-api03-…` 这类
+  // 带分段的真 key 在第一个 `-` 处就断到不足 16 字,整把漏掉(真机会话文件里就有一把这样漏的)。
+  /\b(sk-[A-Za-z0-9][A-Za-z0-9_-]{15,})/g,
   /\b(gh[pousr]_[A-Za-z0-9]{20,})\b/g,
   /\b(xox[baprs]-[A-Za-z0-9-]{10,})\b/g,
   /\bBearer\s+([A-Za-z0-9._~+/-]{16,}=*)/gi,
@@ -9710,6 +9723,16 @@ const REDACT_PATTERNS = [
   /((?:^|\s)--?(?:password|passwd|pwd|pass|token|secret|api[_-]?key)\s+["']?)([^\s"';&|]+)/gi, // --password xxx(空格分隔;值在命令分隔符处收口)
   /((?<=[A-Za-z0-9_])(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\s*[:=]\s*)([^\s"'&;|]+)/gi, // 词中:PGPASSWORD= / DB_PASSWORD= / OPENAI_API_KEY=(上面那条的 \b 在词中失效)
   /\b(AKIA[0-9A-Z]{16})\b/g, // AWS access key id
+  // 107-S0(45 号文 §9.6 发现 5:真机会话文件里 58 处真 key 值,旧表 redact 后仍剩 39 处):值带引号的「标签 + 值」。
+  // 上面那条标签式要求值紧跟在 `:`／`=` 后、且不以引号开头,于是 JSON `"apiKey": "…"`、JS `apiKey: '…'`、
+  // Python／TOML／.env／PowerShell `api_key = "…"` 全漏;模型 file_read 过 config.json 之后,会话文件里存的还是
+  // 转义过的 `\"apiKey\": \"…\"`(再嵌一层就是 `\\\"`)。
+  //   - 标签:以这几个词【结尾】的键(`accessToken`／`client_secret`／`x-api-key`／`OPENAI_API_KEY` 都算),词后面
+  //     紧跟(可选的反斜杠＋)引号或直接 `:`／`=` —— 所以 `"maxTokens"`／`"tokenCount"`／`"token_type"` 不算;
+  //   - 值:必须以引号开头(数字、null、对象、数组都不碰),`"Bearer ／Basic ／Token "` 前缀留在标签里;
+  //   - 值只收可打印 ASCII 且不含空格、引号、反斜杠 —— 遇到转义引号就收口;中文文案(locale 里 `"…ApiKey": "端点密钥…"`)不误伤。
+  // 量词全部有界,值之后没有任何需要回溯的成分,长文本线性。
+  /((?:api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|secret|token|password|passwd|authorization)\\{0,8}["']?\s{0,8}[:=]\s{0,8}\\{0,8}["'](?:(?:bearer|basic|token)\s{1,8})?)([!#-&(-\[\]-~]{6,4096})/gi,
 ];
 function redact(input) {
   let s = String(input == null ? '' : input);
@@ -13432,6 +13455,11 @@ function maskSecrets(config) {
     const key = typeof config.searchBackend.apiKey === 'string' ? config.searchBackend.apiKey : '';
     out.searchBackend = { ...config.searchBackend, apiKey: maskKey(key), hasKey: key.length > 0 };
   }
+  // 107-S0(46 号文 §1.5 ②):modelsApiKey 是 Claude CLI 引擎的认证覆盖值(buildClaudeCliEnv 把它交给子进程当
+  // ANTHROPIC_AUTH_TOKEN／ANTHROPIC_API_KEY),真机上非空。修前本函数只盖上面两处,GET /api/status 与
+  // POST /api/config 的回包把它明文下发。同一条 maskKey 规则;不加 has… 布尔 —— 设置页那个输入框与
+  // providers[].apiKey 同一模具(掩码原样播种、原样回传,保存路径的 unmaskSecrets 还原),用不上它。
+  if (typeof config.modelsApiKey === 'string') out.modelsApiKey = maskKey(config.modelsApiKey);
   return out;
 }
 // F2: reverse of the mask on the SAVE path. The UI echoes the masked apiKey (`••••abcd`) straight back on
@@ -13474,6 +13502,10 @@ function unmaskSecrets(incoming, current) {
       const prev = current && current.searchBackend && typeof current.searchBackend === 'object' ? current.searchBackend : null;
       out.searchBackend = { ...incoming.searchBackend, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
     }
+  }
+  // 107-S0:modelsApiKey 同口径 —— 仍是掩码(用户没动那个框)就取磁盘上的真值;新填的明文、清成空串都直通。
+  if (typeof incoming.modelsApiKey === 'string' && incoming.modelsApiKey.startsWith(KEY_MASK_PREFIX)) {
+    out.modelsApiKey = (current && typeof current.modelsApiKey === 'string') ? current.modelsApiKey : '';
   }
   return out;
 }
@@ -35064,6 +35096,7 @@ function shellStart(args, config) {
   } else {
     do { shellId = genShellId(); } while (shellSessions.has(shellId));
   }
+  // 107-S0:工具分发(12 shell_start)总是传入执行闸解析好的 cwd;家目录兜底只留给没有 cwd 的直接调用方。
   const cwd = args.cwd ? path.resolve(String(args.cwd)) : os.homedir();
   const name = args.name ? String(args.name).slice(0, 80) : shellId;
   let child;
@@ -38081,9 +38114,10 @@ const ARCHIVE_TOOL_HANDLERS = {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
+      // 107-S0:三个执行工具一律跑在闸交回的 g.cwd(03 resolveExecCwd)—— 判的目录就是跑的目录;修前缺省 cwd 落家目录。
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      return DesktopShell.runPowerShell(String(args.command || ''), args.cwd, args.timeoutMs, ctx && ctx.signal);
+      return DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal);
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
@@ -38111,17 +38145,17 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess('python', [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess('python', [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: args.cwd || os.homedir(), timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
       await fsp.writeFile(p, String(args.code || ''), 'utf8');
       return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
-        cwd: args.cwd || os.homedir(),
+        cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
         signal: ctx && ctx.signal,
       });
@@ -38133,7 +38167,9 @@ const SHELL_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
-      return shellStart(args, cfg);
+      // 107-S0(45 号文 §9.6 发现 3):shell 起在闸判过的那个目录(显式 cwd → 回合工作目录 → 会话 cwd → defaultWorkspace
+      // → 家目录),不再缺省落家目录。
+      return shellStart({ ...args, cwd: g.cwd }, cfg);
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
@@ -38924,7 +38960,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'working directory (defaults to home)' },
+        cwd: { type: 'string', description: 'working directory (defaults to the current working folder of this conversation)' },
         name: { type: 'string', description: 'human-readable label' },
         shellId: { type: 'string', description: 'optional deterministic id ([a-zA-Z0-9_-]{1,32}); auto-generated if omitted' },
       },
@@ -40158,10 +40194,14 @@ async function applyConfigPatch(rawBody) {
     // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
     // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
     // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
-    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')) {
+    // 107-S0:modelsApiKey 也在 GET /api/status 里掩码下发了,设置页把掩码原样回传 —— 同一处还原,否则一次保存就把
+    // 真密钥写成「••••末四位」。
+    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
+      || (body && typeof body.modelsApiKey === 'string')) {
       const restored = unmaskSecrets(body, current);
       if (Array.isArray(body.providers)) merged.providers = restored.providers;
       if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
+      if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
     }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {

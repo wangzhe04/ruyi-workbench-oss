@@ -42,7 +42,9 @@ async function makeAttachmentRecord(input) {
 // --- Secret redaction (unconditional, CLI-independent). Redacts DISPLAY copy only, never the
 // executed string. Purpose-built patterns, not the quoted-only code_review_scan regex. ---
 const REDACT_PATTERNS = [
-  /\b(sk-[A-Za-z0-9]{16,})\b/g,
+  // 107-S0(45 号文 §9.6 发现 5):sk- 之后允许 `_`／`-`。修前只认纯字母数字,`sk-proj-…`／`sk-ant-api03-…` 这类
+  // 带分段的真 key 在第一个 `-` 处就断到不足 16 字,整把漏掉(真机会话文件里就有一把这样漏的)。
+  /\b(sk-[A-Za-z0-9][A-Za-z0-9_-]{15,})/g,
   /\b(gh[pousr]_[A-Za-z0-9]{20,})\b/g,
   /\b(xox[baprs]-[A-Za-z0-9-]{10,})\b/g,
   /\bBearer\s+([A-Za-z0-9._~+/-]{16,}=*)/gi,
@@ -58,6 +60,16 @@ const REDACT_PATTERNS = [
   /((?:^|\s)--?(?:password|passwd|pwd|pass|token|secret|api[_-]?key)\s+["']?)([^\s"';&|]+)/gi, // --password xxx(空格分隔;值在命令分隔符处收口)
   /((?<=[A-Za-z0-9_])(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\s*[:=]\s*)([^\s"'&;|]+)/gi, // 词中:PGPASSWORD= / DB_PASSWORD= / OPENAI_API_KEY=(上面那条的 \b 在词中失效)
   /\b(AKIA[0-9A-Z]{16})\b/g, // AWS access key id
+  // 107-S0(45 号文 §9.6 发现 5:真机会话文件里 58 处真 key 值,旧表 redact 后仍剩 39 处):值带引号的「标签 + 值」。
+  // 上面那条标签式要求值紧跟在 `:`／`=` 后、且不以引号开头,于是 JSON `"apiKey": "…"`、JS `apiKey: '…'`、
+  // Python／TOML／.env／PowerShell `api_key = "…"` 全漏;模型 file_read 过 config.json 之后,会话文件里存的还是
+  // 转义过的 `\"apiKey\": \"…\"`(再嵌一层就是 `\\\"`)。
+  //   - 标签:以这几个词【结尾】的键(`accessToken`／`client_secret`／`x-api-key`／`OPENAI_API_KEY` 都算),词后面
+  //     紧跟(可选的反斜杠＋)引号或直接 `:`／`=` —— 所以 `"maxTokens"`／`"tokenCount"`／`"token_type"` 不算;
+  //   - 值:必须以引号开头(数字、null、对象、数组都不碰),`"Bearer ／Basic ／Token "` 前缀留在标签里;
+  //   - 值只收可打印 ASCII 且不含空格、引号、反斜杠 —— 遇到转义引号就收口;中文文案(locale 里 `"…ApiKey": "端点密钥…"`)不误伤。
+  // 量词全部有界,值之后没有任何需要回溯的成分,长文本线性。
+  /((?:api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|secret|token|password|passwd|authorization)\\{0,8}["']?\s{0,8}[:=]\s{0,8}\\{0,8}["'](?:(?:bearer|basic|token)\s{1,8})?)([!#-&(-\[\]-~]{6,4096})/gi,
 ];
 function redact(input) {
   let s = String(input == null ? '' : input);
