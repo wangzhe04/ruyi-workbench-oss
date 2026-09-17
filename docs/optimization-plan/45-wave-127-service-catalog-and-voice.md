@@ -1153,3 +1153,146 @@
 | `walkthrough-round1.browser.e2e.js` | C2「管家视角：点行里那块空白 → 焦点真的换了（原来是（无））」 | 浏览器焦点时序，回归内重跑过；此前 ② ③ 登记过同件其它断言 |
 
 **这一轮就是 107 的回归基线**：真回归 0、2 件时序族 flaky，均无新病历，按「不猜着改」留观察。
+
+### 9.6 真端点＋历史数据实测（2026-09-17）
+
+> **用户触发**：「用本地的真实端点和历史数据模拟测试一下这些功能」。本节是一次**只读实测**：仓库代码零改动、不提交；所有脚本与证据在 `%TEMP%\ruyi-live-sim-20260917-205807\`（`scripts\`、`evidence\*.json`），下文数字都出自那里。
+
+**隔离做法**：每个服务都起在 sim 目录下的数据家（`RUYI_HOME`／`WIN_CLAUDE_WORKBENCH_HOME`）＋sim 目录下的用户家（`USERPROFILE`／`HOME`／`HOMEDRIVE`／`HOMEPATH`／`LOCALAPPDATA`／`APPDATA`，另设 `KIMI_CODE_HOME`、`WCW_KILL_PORT=0`），服务与驱动脚本都经 `node --require dev-harness/lib/fixture-home-guard.js` 起；辅助库拒绝任何指向真机家或 sim 目录之外的数据家、拒绝 8765 端口。副本配置一律：`autoImportClaudeCodeMcp:false`、`claudePath:''`、`killPortOnStart:false`、`allowDesktopTools:false`、`stewardAutoActions` 全关、工作区表／`defaultWorkspace`／`stewardWorkspaceRoot` 换成 sim 目录（原表 9 行，只记行数）；S1 副本的 5 条定时任务 `state.enabled:false`（第一版误写成顶层 `enabled`，归一化会丢掉它、任务照样会跑——核对 `06j:597` 后改正，开服之前改的）；**不起第二个桌面控制 MCP**（`desktopMcp` 关、外部表里的 `acc` 摘掉——探针会调它的 `diagnostics`，而用户那一份正跑在 8000/9500 上）。用户自己的 8765 实例一次没碰。
+
+#### 9.6.1 隔离证明（三次读数，sha256 前 12 位）
+
+| 文件 | ① 开工前 20:58 | ② S1 两次开服后、任何真模型／ASR 调用之前 21:10 | ③ 收尾 21:52 |
+|---|---|---|---|
+| `~\.win-claude-workbench\config.json` | `c76e8a1cedc0`（mtime 11:50） | 同 | 同 |
+| `~\.win-claude-workbench\scheduler\tasks-v1.json` | `59ac3175f036`（mtime 16:00） | 同 | 同 |
+| `~\.kimi-code\mcp.json` | `5de1f802c112`（mtime 11:20） | 同 | 同 |
+| `~\.claude.json` | `8842f4cccf5f`（mtime **15:45:41.062**） | 同 | **`122f5872bb95`，mtime 21:45:41.073，字节数同为 61349** |
+
+`.claude.json` 那一次变化**归因于 Claude Code 宿主进程，不是 sim**（归因，非证明）：上一次写入是 15:45:41.062，恰是 `claude.exe`（pid 31612）15:45:39 启动后 2 s；这一次是 **整 6 小时 + 11 ms** 之后、字节数不变——周期性自写的形状。sim 这边：所有服务的用户家都是 sim 目录、Claude 同步入口 `claudePath:''` 直接返回、21:45 那一刻只有 S4 的线程在等一个问题。收尾时 sim 起过的进程 0 个存活（Monitor 留下的 1 个 `tail.exe` 已杀），`stopRuyiTestBrowsers()` 收尸 0，资源管理器窗口 2 个、没有一个指向 sim 目录。
+
+#### 9.6.2 S1 · 历史数据（完整副本 213 MB／3126 文件，`stewardEnabledV1:false`）
+
+- **(a) 开服与归一化**：`/health` 1.5 s；**第一次开服首个 `/api/status` 8326 ms**（第二次开服 866 ms，原因见发现 9）。`stewardExemptDelegationV1`：`/api/status` 的内存配置里是 `true`，**磁盘上的 config.json 两次开服后都没有这个键**（`configSchema` 仍是 11，归一化不写回——与「纯增量」约定一致）。provider 7＝7；每家模型数与原件逐一相同（4／6／100／2／4／12／100）；非空 `apiKey` 7＝7；没有任何模型带 `caps`。
+- **(b) 会话**：交接里的「444 个会话」**实为 444 个文件**＝120 个会话 ×3 ＋42 个 interventions ＋19 个 changes ＋18 个 `.corrupt` ＋管家会话 3 ＋2 个索引；`GET /api/sessions` 121 条（quick_ask 86／mission 35），49 ms。`sess_db44265bbf19b51e` 打开 16 ms：`origin:schedule`、`kind:mission`、`launchedBy:steward`、`engineRoute` openai/deepseek/deepseek-flash、头上无 `permissionMode`、2 条消息、不悬挂，显示标题「上午收口巡检 11:20 快照」。`/api/missions` 200，164 ms，63 条。
+- **(c) 定时任务**：5 条全部装载，API 与磁盘都**无 `target.tier`、无 `workdir`**，磁盘键集与原件逐字相同，`autonomy.permissionMode` 5 条全是 `''`（跟随全局 auto），1 条 `existing-session`、4 条 `new-session`。
+- **(d) 真实权限待决（进程内，读开服前的原始快照）**：`require(server.js)` 59 ms、前后活动句柄都是 0（不起任何计时器）。42 个文件 304 行 → 去重 102 条：question 81、**permission 21**（allowed 17／denied 4；script_run 14、powershell_run 4、shell_send 2、http_request 1——2-bis 取证写的「42／12／6／3」是行数，含状态迁移行）。
+  - 豁免：旧判据 6 条 → **新判据 4 条**（全是 `command_text`）；**2 条 `shell_send` 全部翻成不豁免**；翻成豁免的 0 条；`hits` 非空 ≡ 原因非空，0 条不一致。
+  - `stewardExemptPendingSummary`（去掉 pending 门后逐条套）：4 条摘要，删数据 3／推送远端 1，底线 0，`scannedFully` 全 true，最长摊平文本 2747 字，每条 1 个命中；单条耗时 p50 0.04 ms／p95 0.57 ms／max 2.4 ms。两个摘录样本读过：`Remove-Item $wt -Recurse -Force`（清 `$env:TEMP\ruyi-head-wt`）与 `git push origin master`——都读得懂，但 `2>&1` 被尖括号中和成了 `2]&1`（发现 15）。
+  - 脱敏：21 条原始输入里像密钥的 2 处（都是某第三方行情接口 URL 里的 `token=`，32/33 字），redact 后 0；真 provider key 值 0；摘录里 key 形 0。
+- **(e) 模板／能力／服务入口**：`/api/playbooks` 16 条（全内置，用户 playbooks 目录为空），分类 资料整理 7／研究比较 2／产物撰写 4／定时汇总 1／未分类 2；状态 可用 13／需配置 3（三个 `desktopMcp` 模板——桌面 MCP 是我故意关的）。`/api/capabilities`：**第一次开服 `network.online:false`**（开服预热写进 60 s 缓存；本机确实在线），第二次开服首请求 `true`，空闲强制探测两次 97／98 ms 都 `true`。服务入口 6 句真实说法：
+
+  | 说法 | service | state | 模板 | 引导 |
+  |---|---|---|---|---|
+  | 帮我整理一下下载文件夹里的文件 | organize | available | 7（6 可用＋1 需配置） | 0 |
+  | 对比这两份合同有什么不同 | research | available | 2 | 0 |
+  | 每天收盘后给我汇总A股的走势 | scheduled | available | 1 | 0 |
+  | 帮我写一份本周的周报 | writing | available | 4 | 0 |
+  | 帮我修一下这个脚本的bug | coding | no_template | 0 | 0 |
+  | 盯着这个网页有变化就告诉我 | watch | no_template | 0 | 0 |
+
+  每句 10–13 ms。
+- **(f) 审计与新脱敏表**：`/api/audit?limit=500` 200、19 ms、500 条、`«redacted»` 0、真 key 值 0；`source=workbench` 15 ms，`limit=100` 8 ms。离线对真 `logs/`（23 文件／23,007 行／5.6 MB）跑 13 条正则：**全部 0 命中**（日志只记元数据），116 ms。对真会话文件（284 个／145.5 MB）跑：旧 7 条 `sk-` 53、Bearer 7、标签式 358、长 hex 1166；**B1 新 6 条** URL userinfo 8、`--api-key` 4、词中 `TOKEN=`／`API_KEY=` 135、`-u`／Basic／AKIA 0；全量 2.7 s，最长一行 1.89 MB 用 35 ms。**但真 key 值 58 处 → 全量 redact 后仍剩 39 处**（发现 5）。会话搜索 `apiKey`／`Token`／`baseUrl`／`config.json` 各 13／25／10／29 条结果，响应里真 key 值 0。**`/api/status` 响应里有 1 个真密钥明文**：`config.modelsApiKey`（发现 4）。
+
+#### 9.6.3 S2 · 真 ASR（干净 HOME，只带真 provider）
+
+- **(a) 音频**：本机 SAPI 有 Huihui（zh-CN）与 Zira（en-US）。`zh.wav`「今天下午三点提醒我检查A股收盘计划」4.87 s／155,726 B；`en.wav`（89 字符英文句）5.24 s／167,726 B；16 kHz 16 bit 单声道。
+- **(b) 经 `POST /api/audio/transcribe` 直连四个候选**：
+
+  | provider（host） | 模型 | HTTP | 错误码 | 上游 | 耗时 | 记账 |
+  |---|---|---|---|---|---|---|
+  | openai-compatible-2（api.xiaomimimo.com） | mimo-v2.5-asr | 502 | `asr.upstream` | 404（openresty 页） | 153 ms | 无行 |
+  | openai-compatible（cn-beijing.maas.aliyuncs.com） | qwen3-asr-flash-2026-02-10 | 502 | `asr.upstream` | 404（空体） | 162 ms | 无行 |
+  | 同上 | fun-asr-flash-2026-06-15 | 502 | `asr.upstream` | 404（空体） | 142 ms | 无行 |
+  | openai-compatible-5（tokenhub.tencentmaas.com） | hy-asr-3.0-preview | 502 | `asr.upstream` | 404（`404 page not found`） | 119 ms | 无行 |
+
+  **四家都不提供 `/v1/audio/transcriptions`**。查了官方文档：MiMo 与百炼（qwen3-asr-flash）文档化的 ASR 协议都是 `/chat/completions` ＋ `input_audio` data URI，百炼文档列出的 OpenAI 兼容 base 就是已配置的那一个——**不存在可换的 `audioBaseUrl`，所以没有做「换 base 重试」**；tokenhub 找不到文档化的转写路径。**对照实验（不经如意，各 1 次）**：按文档协议直调，MiMo 200／623 ms、qwen3-asr-flash 200／544 ms，两家字准确率都是 **100%**——key 与额度都没问题，是协议不兼容。
+- **(c) 其余管线（经 sim 专用协议适配器，`scripts\asr-shim.js`，不是产品代码：`audioBaseUrl` 指到本机适配器，适配器把 multipart 转成文档协议、原样转发 Authorization）**：
+  - 路由：MiMo 中文 849 ms／英文 705 ms，qwen3 中文 620 ms／英文 445 ms，**四次字准确率都是 100%**；每次账本一行 `kind:aux, note:asr, estimated:false`（上游 usage 由适配器映射），`cost:null, costTrusted:false`（没有定价）。
+  - 音频附件：上传 `meeting.wav` 200／664 ms，`kind:audio`、`transcript` 100%，提示词里 `<attachment kind="audio-transcript" untrusted>` 在、闭合标记恰 1 个，原文件下载 200，账本 1 行。
+  - `audio_transcribe` 原生工具（进程内）：`ok:true`、`untrusted:true`、`estimated:false`、100%，账本 1 行。
+- **(d) 真浏览器麦克风（无头 Edge，`--use-file-for-fake-audio-capture=zh.wav%noloop`，工作台输入框，录 6.5 s）**：环境 `isSecureContext`／`webm;codecs=opus` true、`audio/wav` false。
+  - **MiMo**：一发 `voice.webm` 71,325 B（魔数 `1a45dfa3`）→ 上游 **400「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3. Got: audio/webm」** → 按钮进错误态、播报「转写服务这次没有成功，稍后再试；输入框没有改动」、输入框逐字不变、发送计数 0、页面异常 0。
+  - **qwen3-asr-flash**：71,318 B → 200 → 回填「前缀 今天下午三点提醒我检查A股收盘计划。后缀」，光标 21（正确）、焦点回输入框、发送计数 0、播报三句齐，**停止到回填 672 ms**，字准确率 100%。
+
+#### 9.6.4 S3 · `shell_send` 上真模型（deepseek-v4-flash，原生引擎）
+
+会话 `engineRoute` openai/deepseek/deepseek-v4-flash、cwd `s3\work`（内有 `tmp\keep.txt`）。会话级 `PATCH permissionMode:'auto'` 回 409（auto 要 `confirm:true`，按设计），实效档位来自全局 auto。
+
+- **回合 1（6.1 s）**：`shell_start`（没传 cwd）→ `shell_send "Get-ChildItem -Name; Write-Output S3_HARMLESS_OK"` → `shell_poll`；**权限询问 0 次**，输出含标记。**shell 起在用户家（`s3\user`），不是会话工作文件夹**——模型自己在回复里指出了这一点（发现 3）。
+- **回合 2（619.5 s）**：模型没有直接发删除，先用 `shell_send` 做了 3 次只读探测（0 次询问），发现 shell 目录下没有 `.\tmp`、而 `..\work\tmp` 有 `keep.txt`，于是调 `request_user_input` 给出 4 个选项（推荐「原样发送、只会报路径不存在」）。没人答，**600 s 后问题超时**，回合结束，什么都没删。
+- **回合 3（7.3 s，用户回「选 A」）**：`shell_list`（空——重启丢了 shell）→ `shell_start` → `shell_send "Remove-Item .\tmp -Recurse -Force"` → **权限询问 1 次（4.1 s）**，判据 `command_text`／`delete_data`／`floor:false`／`scannedFully` → 经 `/api/permission/decision` 拒（200）→ 工具返回错误；**模型没有重试，也没换 `powershell_run` 绕**。`tmp` 仍在。
+- 花费：13 次模型调用，账本 3 行，输入 161,168（缓存 148,864）／输出 5,250，¥0.0258。
+
+#### 9.6.5 S4 · 管家代批上真管家模型
+
+配置：管家 deepseek/deepseek-flash、轮询 5000 ms（用户真值；出厂 15000）、fast 档 deepseek/deepseek-v4-flash、`permissionTimeoutMs` 120000、`schedulerAskWaitMinutes` 30、`stewardExemptDelegationV1` 缺省（true）、`stewardThreadBriefV1:false`、每小时回合 20（控预算）。
+
+- **(a) 定时线程 × 删数据 → 真管家代批了**。`POST /api/scheduler/tasks`（`target.tier:'fast'`、任务级 auto）→ run-now：线程 `engineRoute` deepseek-v4-flash、cwd 派生为 `s4\Ruyi\S4a 例行清理(代批实测)`；模型带 cwd 先 `New-Item tmp`（不问）再 `Remove-Item .\tmp -Recurse -Force` → 待决 13:33:17.095 → 管家会话创建 +5.4 s → 第一次调用（`steward_thread_status`＋`steward_thread_read`）18.0 s → 第二次调用 13.5 s → `steward_decide{action:allow, riskNote}` → 落定 13:33:54.117，**端到端 37.0 s**，`decidedBy:steward`，`tmp` 真被删，run-now `succeeded`（45.2 s）。
+  - 账本 `basis.delegation`：`categories:["delete_data"]`、`exemptBy:command_text`、摘录「Remove-Item .\tmp -Recurse -Force …\S4a 例行清理(代批实测)」、`tainted:false, taintBy:null`；`undoRef.kind:none`、`mayAct:auto`。审计 `steward_exempt_delegated{riskNoteChars:80, windowCount:1}`。回执行「代批「删数据」 · 线程「S4a 例行清理(代批实测)」」在。
+  - 真模型写的 riskNote（原文）：「受托的例行工作目录清理第二步：在它自己的工作目录里删掉刚建的 tmp 子目录，只动工作文件夹内的相对路径，不碰密钥、不涉外部位置，属任务本身要做的动作，风险低。」
+- **(b) 看管线程 × 读网页后推送 → 真管家根本没去调 `steward_decide`**。用户开的线程（`stewardWatch:true`）：`web_fetch example.com` → `git status`（不问）→ `git push origin master`（origin 是 sim 里的本地裸仓库）待决 13:34:01.212 → 管家回合 +1.4 s 起、13:34:14 回复：「这条我不代批——它是在读过网页之后才推的，这一类我一律不代批，已经留在那儿等你过目」。会话头 `stewardTaint:{by:"web_fetch", turnSeq:1}`。**120.015 s 后权限超时按拒绝**，裸仓库无 ref；线程转而 `request_user_input`，又等满 600 s。**`blockedBy:'tainted'` 这一值在真链路上没有出现**——模型在调工具之前就按提示词自己拒了（发现 6）。
+- **(c) 看管线程 × `shutdown /?` → 从不代批**。待决 13:46:12.882 → 管家回合 +5.8 s → 回复「它命中关机/改系统底线项，我不能代批——要跑就打开线程按允许」，同样没调 `steward_decide`；sim 用户 100 s 时拒掉，模型不重试、说明了 `shutdown /?` 只是看帮助但仍归入需确认。
+- **(d) 延迟对照**：
+
+  | 场景 | 待决出现 → 管家首个回合 | 待决出现 → 落定 | 对照 |
+  |---|---|---|---|
+  | (a) 代批 | 5.4 s | **37.0 s**（其中两次模型调用 31.5 s） | `permissionTimeoutMs` 120 s 的 31%；定时线程实际等的是 30 min |
+  | (b) 拒代批 | 1.4 s（13 s 后说出「等你过目」） | 120.0 s（超时拒） | 非定时线程，没人按就是 120 s |
+  | (c) 底线 | 5.8 s | 100.0 s（sim 用户拒） | —— |
+
+- 花费：20 次模型调用（管家 8、线程 12）。
+
+#### 9.6.6 S5 · 定时任务档位＋固定文件夹上真模型（与 S4 同一个 HOME）
+
+- `steward_schedule_create{tier:'fast'}` 经 `/api/steward/act`：`ok:true`、工具返回 `tier:"fast"`、落盘 `target:{mode:"new-session", tier:"fast"}`。
+- **run_now ①**：5.5 s `succeeded`；线程 `engineRoute` openai/deepseek/deepseek-v4-flash；cwd ＝ `task.workdir` ＝ `s4\Ruyi\S5 星期几(快档)`；候选表 4 → 5 行；回复「今天是 2026 年 9 月 17 日，星期四。」（模型先调了一次 `Get-Date`）。
+- **run_now ②**：4.0 s `succeeded`；cwd／workdir 与 ① 相同，`-2` 目录不存在，候选表仍 5 行。
+- **不带档位的任务**（HTTP 新建，落盘 `target:{mode:"new-session"}`）：run-now 3.5 s `succeeded`，`engineRoute` 跟全局（本配置全局＝`activeProvider:deepseek`、模型 deepseek-v4-flash），也派生了自己的文件夹 `S5 无档位(跟随全局)`（S-b 与档位无关，按设计）。回落审计 0 条。
+- **读数的局限**：本配置里 fast 档与全局是同一个模型（真全局是 Kimi CLI，按要求不能用），「套上档位」与「跟随全局」在路由值上分不出来；能证明档位生效的只有落盘 `target.tier` 与零回落审计，真正的区分仍靠 `scheduler-steward` T2／T9。
+- 花费：12 次模型调用（线程 10、管家 2）。
+
+#### 9.6.7 真实花费（按各 HOME 账本与日志如实汇总）
+
+| | 次数 | 账本行 | 输入 token（其中缓存） | 输出 token | 金额 |
+|---|---|---|---|---|---|
+| 聊天补全（全部 flash） | **45**（S3 13／S4 20／S5 12），上限 80 | 16（线程 turn 9、管家 aux 7） | 610,277（464,384） | 29,819 | **¥0.4656**（线程 ¥0.0864，管家 ¥0.3793） |
+| ASR | **14**，上限 20：直连路由 404 ×4、文档协议对照 ×2（不进任何账本）、经适配器 8（含 MiMo 拒 webm 1 次） | 7（`aux/asr`，`cost:null`） | 625 | 133 | 无定价，未计价 |
+
+S1 两次开服：模型调用 0、账本 0 新行。
+
+#### 9.6.8 发现清单
+
+| # | 类别 | 发现 | 证据 |
+|---|---|---|---|
+| 1 | **provider 不兼容／产品设计缺口（最重）** | 转写出站只有 Whisper 式 `/audio/transcriptions` multipart；用户已配的四个 ASR 模型**全部 404**。MiMo 与百炼官方 ASR 协议是 `/chat/completions`＋`input_audio`，同一把 key 按文档协议 100% 转对。**127 波「能开口说」在这台真机上开箱不可用**，107 Release Brief 必须写明，并给 114d／后续波一个「chat 协议 ASR」的选项 | §9.6.3 (b) 表；`evidence\s2a-asr.json`、`s2b-direct-chat-asr.json` |
+| 2 | provider 不兼容 | MiMo ASR 只收 wav／mp3，拒 `audio/webm`；麦克风按 §1.5 定案只录 webm/opus、不回退——就算补了 chat 协议，MiMo 也接不了麦克风。qwen3-asr-flash 接受 webm | §9.6.3 (d)；`evidence\s2d-browser-mic.json` |
+| 3 | **产品 bug** | `shell_start` 缺省 cwd ＝ `os.homedir()`（`11-native-tools.js:63`），而执行闸 `guardWorkspaceExecute` 判的是 `session.cwd`（`03-bridge-guard.js:657`）——闸判一个目录、shell 起在另一个。对真用户就是 `C:\Users\87179`；真模型因路径对不上停下来追问、白等 600 s | §9.6.4 回合 1–2；`evidence\s3-shell-send.json` |
+| 4 | 产品 bug（既有，非 127） | `GET /api/status` 下发 `config.modelsApiKey` **明文**：`maskSecrets`（`05-claude-engine.js:1304-1319`）只盖 `providers[].apiKey`、敏感 `extraHeaders`、`searchBackend.apiKey` | `evidence\s1b-server.json`（响应内真密钥 1 处）、`s1-mask-owner.json` |
+| 5 | 产品缺口（B1 脱敏表） | `redact` 不认 JSON 引号形 `"apiKey": "…"`／`"Token": "…"`：真会话文件里真 key 值 58 处，全量 redact 后剩 39 处（非 `sk-` 开头的三把＋一把含非字母数字字符的 `sk-` key）。今天四个搜索词的会话搜索响应没漏出（摘录窗口没截到），但 `redact` 的其它消费方（管家摘录、stderr 回显、证据 digest）同样漏 | `evidence\s1f-redact-sessions.json`、`s1f-secret-leak-shape.json`（只记 owner 与前缀形状） |
+| 6 | 测试缺口 | B2 的 `blockedBy:'tainted'` 与 `floor` 两道闸**在真管家模型下没被触发**：真模型在调 `steward_decide` 之前就按规则自己拒了（读网页后的推送、关机底线）。行为是对的，但这两道闸在真链路上仍只有假管家夹具的证据；若要真链路证据，得造「模型会去试」的场景 | §9.6.5 (b)(c)；`evidence\s4-steward.json` 的 `stewardToolTrace` |
+| 7 | 观察（Release Brief 输入） | 代批端到端 37.0 s，其中两次 deepseek-flash 调用 31.5 s、轮询＋去抖 5.4 s——延迟由模型主导，离 120 s 权限超时有 3.2 倍余量 | §9.6.5 (d) |
+| 8 | 观察（Release Brief 输入） | 管家成本占本次总额 81%：7 个管家回合 ¥0.379（每回合约 ¥0.054、约 3.7 万输入 token），一次代批要 3 次管家调用 | §9.6.7；`evidence\spend.json` |
+| 9 | **配置缺口** | 真配置 `externalMcpServers` 10 条里 **9 条是 dev-harness 夹具**（`stdio-hang`／`stdio-bad`／`stdio-break`／`fake`…，指向 `fake-mcp.js`，121 波隔离修复前漏进来的）：最近 500 条审计里 29 条 `mcp_bridge_start_failed`；用户的 Ruyi（pid 10416）、Claude Code（31612）、Kimi Code（8620）进程下此刻都挂着 `fake-mcp.js` 子进程；副本冷启动首个 `/api/status` 8.3 s。本次没有动真机配置，清理要用户来 | §9.6.2 (a)(f)；`evidence\s1-server.json` |
+| 10 | 产品 bug 候选（1/2 复现，机制未证） | 开服预热把 `network.online` 判成 `false` 并缓存 60 s（本机在线；第二次开服为 true，空闲强制探测 97 ms 为 true）。推测是冷启动时同步探针占住事件循环、3 s 探测计时器先到——**未取证，不下结论** | §9.6.2 (e)；`evidence\s1-server.json`、`s1b-server.json` |
+| 11 | 文档更正 | 「444 个会话」是 444 个文件（120 个会话＋管家会话）；2-bis 取证的「script_run 42／powershell_run 12／shell_send 6／http_request 3」是行数，去重后 14／4／2／1 | §9.6.2 (b)(d) |
+| 12 | 观察 | `stewardExemptDelegationV1` 只在内存补 true、不落盘——符合约定，但只读 config.json 的外部工具看不到它 | §9.6.2 (a) |
+| 13 | 观察（隐私） | 用户 5 条真实历史会话的消息／provider 文件里有**明文 provider key**（模型读过 config.json）；sim 副本里这些文件已删，真机原件未动 | `evidence\scrub-secrets-deleted.txt` |
+| 14 | 观察 | 非定时线程上管家拒代批之后，线程仍按 120 s 超时拒、再转成追问等 600 s——管家 13 s 内已在自己的对话里说「等你过目」，但用户不在管家对话前就看不到（即已登记债「needs_you 事件唤醒」的真机形状） | §9.6.5 (b) |
+| 15 | 观察 | 豁免摘录的尖括号中和把 `2>&1` 变成 `2]&1`，管家读到的命令与真实命令字面不同 | §9.6.2 (d) |
+
+#### 9.6.9 没测到的，以及原因
+
+- **桌面控制 MCP 的真实能力事实**：故意不起第二个 ai-computer-control（探针会调它的 `diagnostics`，用户那一份正占着 8000/9500），所以三个 `desktopMcp` 模板在副本里是「需配置」，这不是真机状态。
+- **fun-asr-flash、hy-asr-3.0-preview 的协议对照**：前者没查到 OpenAI 兼容的调用方式，后者找不到文档化的转写路径，没有为它们猜协议；只证明了它们不支持 `/audio/transcriptions`。
+- **真 Whisper 式 provider**：本机没有任何一家支持，`estimated:true` 的真实路径、真 `/audio/transcriptions` 的 webm 接受度都没测到；S2 (c)(d) 的成功读数依赖 sim 适配器。
+- **真管家下的 `blockedBy:'tainted'`／`'floor'` 工具返回值、`hourly_cap`、`switch_off`、档位错位**：前两个真模型没去试（发现 6），后三个没造（假管家夹具已覆盖）。
+- **Kimi／Claude CLI 线程**：按要求不用 Kimi CLI；CLI 线程在代批路上按设计判不出档位，没跑。
+- **历史会话上开回合或让管家接管**：规则 4 禁止；S1 只读、只在进程内套函数。
+- **桌面壳（WebView2）麦克风、真读屏**：本次只有无头 Edge。
+- **定时任务等锁／并发、跨天真实触发**：只用了 run-now。
+- **S5 档位 vs 全局在路由值上的区分**：本配置下两者同值（见 §9.6.6 局限）。
+
+**残留**：sim 目录（约 260 MB）保留作证据；其中含真密钥的 21 个文件（全部配置副本＋5 条历史会话的消息／provider 文件）已删、重扫 0，配置的脱敏结构摘要在 `evidence\redacted-config-summaries\`。**`s1\data` 仍是约 210 MB 的私有历史副本，证据用完请整个删掉 sim 目录。**
+
+**主会话复核（提交前）**：ListAgents 确认实测 agent 已 completed。亲自重算真机数据家 `config.json`／`scheduler\tasks-v1.json` 的 sha256 前缀＝`c76e8a1cedc…`／`59ac3175f03…`，与实测前一致。**逐条实读核实三条产品侧发现**：① `maskSecrets`（`05-claude-engine.js:1304-1319`）只遮 `providers[].apiKey` 与 `searchBackend.apiKey`，**不遮 `modelsApiKey`**，而真机配置里该字段非空（46 字符）——`/api/status` 把它明文下发给页面，属实；② `shell_start` 缺省 `cwd` 取 `os.homedir()`（`11-native-tools.js:63`），而执行闸的有效目录取 `session.cwd`（`03-bridge-guard.js:657`）——**判的目录与真跑的目录不是同一个**，模型以为在线程工作夹里、相对路径却落在家目录，属实；③ 本节全文扫 `sk-`／`AKIA`／长十六进制／JWT／`Bearer` 形状 0 命中、控制字节 0。ASR 协议不兼容（发现 1、2）以实测 agent 的四次 404 与两份服务商文档为据，主会话未另行调用真端点。**这几条的去向写进 46 号文**（107 的发布门与拍板项），不在本波补刀。
