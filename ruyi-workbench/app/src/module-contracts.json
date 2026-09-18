@@ -656,6 +656,7 @@
         "followupAcceptanceCriterion",
         "healStalePendingSegments",
         "inferSessionEngineRoute",
+        "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
         "interventionRecordCache",
@@ -738,6 +739,7 @@
         "normalizeSessionPermissionMode",
         "normalizeTodoItems",
         "noteMissionMembership",
+        "overlayUnflushedSessionIndex",
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
@@ -779,6 +781,7 @@
         "sessionIndexChain",
         "sessionIndexFlushTimer",
         "sessionIndexPath",
+        "sessionIndexRetireSeq",
         "sessionKind",
         "sessionLineHash",
         "sessionMeta",
@@ -17357,6 +17360,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "detectDanglingTurn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "flushSessionIndexSync",
           "kinds": [
             "read"
           ]

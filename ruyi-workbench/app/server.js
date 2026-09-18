@@ -5239,6 +5239,19 @@ async function withSessionIndexLock(work) {
 const SESSION_TOMBSTONE = Symbol('session-deleted');
 const SESSION_INDEX_FLUSH_MS = 200;
 let pendingSessionIndex = new Map(); // id -> meta entry | SESSION_TOMBSTONE (last write per id wins)
+// 107-F9a: the IN-FLIGHT table. flushSessionIndex takes the pending batch before it does the I/O (so saves made
+// during the write queue up for the next flush); before F9a that batch was then visible NOWHERE until the rename
+// landed — not in pendingSessionIndex any more, not on disk yet — and a listSessions landing in those few ms read
+// the old index. User-visible (F8, measured): a second split within ~200 ms of the first built a duplicate empty
+// mission (split's idempotency check reads listSessions), and a just-attached thread flashed back to "unfiled" in
+// the mission list. Every read therefore overlays disk -> in-flight -> pending (newest last); a flush retires its
+// entries only after its write settled (landed, dropped or invalidated), and only the entries that are still ITS
+// OWN — a later flush may have taken a newer value for the same id, which must stay visible until it lands too.
+// Entry shape: id -> { val, flush } where `flush` is the identity token of the flush that owns it.
+let inflightSessionIndex = new Map();
+// Bumped every time a flush retires its in-flight entries. listSessions compares it across its disk read: a retire
+// in between means the file it read may predate the write whose entries just left the table (see listSessions).
+let sessionIndexRetireSeq = 0;
 let sessionIndexFlushTimer = null;
 function scheduleSessionIndexUpdate(id, valueOrTombstone) {
   pendingSessionIndex.set(String(id), valueOrTombstone);
@@ -5250,31 +5263,55 @@ function scheduleSessionIndexUpdate(id, valueOrTombstone) {
 // we drop the batch (listSessions rebuilds from truth); on any error we invalidate so the next read falls back.
 async function flushSessionIndex() {
   if (!pendingSessionIndex.size) return;
-  const batch = pendingSessionIndex; pendingSessionIndex = new Map(); // take-and-clear so saves during the I/O queue up
-  return withSessionIndexLock(async () => {
-    try {
-      const index = await readSessionIndex();
-      if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
-      const map = new Map(index.map(e => [String(e && e.id), e]));
-      for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
-      await writeSessionIndex([...map.values()]);
-    } catch { await invalidateSessionIndex(); }
-  }).catch(() => {});
+  // Take the batch so saves made during the I/O queue up for the NEXT flush — but move it into the in-flight table
+  // in the same synchronous step, so there is no instant at which a read can miss it (107-F9a, see the table's note).
+  const batch = pendingSessionIndex; pendingSessionIndex = new Map();
+  const flush = {};   // identity token: which in-flight entries are this flush's to retire
+  for (const [id, val] of batch) inflightSessionIndex.set(id, { val, flush });
+  try {
+    await withSessionIndexLock(async () => {
+      try {
+        const index = await readSessionIndex();
+        if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+        const map = new Map(index.map(e => [String(e && e.id), e]));
+        for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+        await writeSessionIndex([...map.values()]);
+      } catch { await invalidateSessionIndex(); }
+    }).catch(() => {});
+  } finally {
+    // The write has settled: it landed (disk now carries the batch), or there was no index to update / the index
+    // was invalidated (both send the next listSessions to the authoritative file scan). Either way the entries are
+    // no longer needed for read-your-writes. Retire only the ones still owned by THIS flush.
+    for (const id of batch.keys()) {
+      const entry = inflightSessionIndex.get(id);
+      if (entry && entry.flush === flush) inflightSessionIndex.delete(id);
+    }
+    sessionIndexRetireSeq++;
+  }
+}
+// Apply the not-yet-durable index changes onto a map built from the disk index, oldest first: in-flight (taken by a
+// running flush) and then pending (not taken yet, therefore newer). Last write per id wins, tombstones delete.
+function overlayUnflushedSessionIndex(map) {
+  for (const [id, entry] of inflightSessionIndex) { if (entry.val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, entry.val); }
+  for (const [id, val] of pendingSessionIndex) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+  return map;
 }
 // PF2 fix: SYNCHRONOUS flush for the exit path. process.exit() (the SIGINT/SIGTERM handlers, uncaughtException)
 // runs 'exit' listeners synchronously, so the async debounced flushSessionIndex above can never complete there —
 // a graceful shutdown would silently drop the last ~200ms of metadata updates. Persist the pending batch with
 // fs.*Sync using the SAME tmp+rename atomic discipline. Best-effort: on a missing/corrupt index or any error we
 // bail (the boot-time invalidateSessionIndex + fallback file scan rebuild from truth regardless).
+// 107-F9a: the IN-FLIGHT batch is persisted too. Exiting while an async flush is mid-write abandons that write (its
+// rename never runs), and before F9a that batch was already gone from pendingSessionIndex — so it was silently lost.
+// Neither table is cleared here: this is a pure "persist everything not yet durable" step, idempotent against the
+// async flush that owns the in-flight entries (if the process somehow keeps running, that flush lands the same values).
 function flushSessionIndexSync() {
   try {
-    if (!pendingSessionIndex.size) return;
-    const batch = pendingSessionIndex; pendingSessionIndex = new Map();
+    if (!pendingSessionIndex.size && !inflightSessionIndex.size) return;
     let index = null;
     try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
     if (!index) return; // no valid index → don't fabricate a partial one; boot rebuild + fallback scan self-heal
-    const map = new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id));
-    for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+    const map = overlayUnflushedSessionIndex(new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id)));
     // 25.1: 这是全文件唯一豁免 atomicWriteJson 的 JSON 写点 —— exit 监听器里只能同步 I/O(async 版永远跑不完)。
     // tmp 名仍按统一纪律取唯一名(pid+随机),防与并行的 async 写者互踩;失败清 tmp。
     const finalPath = sessionIndexPath();
@@ -5293,20 +5330,32 @@ async function listSessions() {
   const all = await fsp.readdir(paths.sessions).catch(() => []);
   const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE);
   const diskIds = new Set(files.map(f => f.slice(0, -5))); // strip '.json'
-  const index = await readSessionIndex();
-  if (index) {
-    // PF2 fix: overlay the not-yet-flushed in-memory batch onto the disk index BEFORE trusting it. The index
-    // write is debounced ~200ms, so a read landing inside that window would otherwise serve a stale title /
-    // messageCount / pin (or miss a brand-new session, or still show a just-deleted one). The pending batch is
-    // exactly the data the flush will persist (last-write-per-id already applied), so merging it makes a live
-    // read never staler than the most recent saveSession/deleteSession — closing the debounce dirty-read window.
-    const map = new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id));
-    for (const [id, val] of pendingSessionIndex) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
+  // PF2 fix + 107-F9a: overlay everything not yet durable onto the disk index BEFORE trusting it. The index write
+  // is debounced ~200ms, so without the overlay a read would serve a stale title / messageCount / pin / missionId
+  // (or miss a brand-new session, or still show a just-deleted one). Two tables, because a batch lives in two
+  // places before it is on disk: PENDING (queued, debounce not fired yet) and IN-FLIGHT (taken by a flush whose
+  // write has not landed). PF2 overlaid only the first, so for the few ms of every flush's write the batch was in
+  // neither and reads went stale — the ~200 ms-after-a-save window F8 measured. Overlaying both, and doing it in the
+  // same synchronous step as the check below, is what makes a live read never staler than the most recent
+  // saveSession/deleteSession that completed before it began.
+  // The check: a flush retires its in-flight entries right after its write settles. If that happened while our
+  // readFile was in progress we cannot tell whether we got the file from before or after that write, and the
+  // entries that would have covered the difference are gone — so read again (a few times; racing flushes that
+  // long means the index is being rewritten continuously, and the authoritative file scan below is the answer).
+  let map = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const retireSeq = sessionIndexRetireSeq;
+    const index = await readSessionIndex();
+    if (retireSeq !== sessionIndexRetireSeq) continue;
+    if (index) map = overlayUnflushedSessionIndex(new Map(index.map(e => [e && String(e.id), e]).filter(([id]) => id)));
+    break;
+  }
+  if (map) {
     const indexIds = new Set(map.keys());
     if (indexIds.size === diskIds.size && [...diskIds].every(id => indexIds.has(id))) {
       // 116f: 管家会话【只】在返回值里被滤掉,索引本身仍然收录它 —— 否则上面这个「索引 id 集 == 磁盘
       // id 集」的漂移判据永远不成立,每次 listSessions 都会退化成全量扫盘重建。
-      return sortSessionMetas([...map.values()].map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // trust cache+pending: id-set matches disk exactly
+      return sortSessionMetas([...map.values()].map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // trust cache+in-flight+pending: id-set matches disk exactly
     }
   }
   // Index missing / corrupt / drifted from disk → authoritative scan of the real files, then rebuild the index.
@@ -55947,6 +55996,7 @@ module.exports = {
   deleteSession,
   listSessions,
   rewindSession, // 107-F7b: exposed for unit(撤回代数闸:撤回之前攥在手里的副本写不回去、之后新读的照常落盘)
+  flushSessionIndexSync, // 107-F9a: exposed for unit(退出时的同步刷写要把「在途」那一批也写进去,不许随被放弃的异步写一起丢)
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
   getPretenderProjectionIndex,
   warmPretenderProjectionIndex,
