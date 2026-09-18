@@ -6,6 +6,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *   B) a Provider node that ignores the steer is aborted after the grace period, while its sibling succeeds;
  *   C) a Claude workflow node receives the same automatic steer live through stream-json stdin.
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -96,7 +97,7 @@ async function waitFor(fn, tries = 100, gap = 100) {
 }
 function findRun(payload, runId) { return payload && Array.isArray(payload.runs) && payload.runs.find(run => run.id === runId); }
 function isTerminal(status) { return ['succeeded', 'failed', 'partial', 'stopped', 'cancelled'].includes(status); }
-function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} }
 
 (async () => {
   const FP = await getFreePort(), WP = await getFreePort();

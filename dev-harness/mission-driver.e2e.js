@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  D) 预算:maxAutoTurns=2 但 5 里程碑 → 2 个自动回合后 state:'budget_exhausted' + supervised(非报错)。
 //  E) 非账本会话零行为变化:无 mission 的普通会话仍是单回合(无 mission 事件)。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -22,7 +23,7 @@ const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function req(method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

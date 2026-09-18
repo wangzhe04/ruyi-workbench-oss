@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // E2E: safe bulk history cleanup. It proves the endpoint clears only unpinned, non-current chats
 // and, when requested, purges the per-session checkpoint / Agent-run directories as well.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -15,7 +16,7 @@ const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'ruyi-session-bulk-cleanup-e2e');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-function kill(child) { if (child?.pid) try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(child) { if (child?.pid) try { killOwnTree(child); } catch {} }
 function request(method, pathname, body, headers = {}) {
   return new Promise(resolve => {
     const text = JSON.stringify(body || {});

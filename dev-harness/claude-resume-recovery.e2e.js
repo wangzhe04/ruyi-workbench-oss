@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   A) an existing --resume target disappears -> retry the same logical turn once without duplicating it;
 //   B) model switch -> proactively detach the old native transcript;
 //   C) cwd switch -> proactively detach because Claude stores transcripts in cwd-scoped project buckets.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -31,7 +32,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function stop(child) {
   if (!child || !child.pid) return;
   try {
-    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (process.platform === 'win32') killOwnTree(child);
     else child.kill('SIGKILL');
   } catch {}
 }

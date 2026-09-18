@@ -9,6 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (宽阈值 8),第 9 次(noProgressRun=8)>=8 -> loopWarning("无新信息"). 第 1-8 次不 warn(0-7<8).
 // B 段(正常探索不误伤): file_read 读 3 个【不同内容】的文件. 结果内容不同->指纹变->reset->不 warn.
 //   验证"换路径读不同内容"的正常探索不被误伤(04 Phase D 验收:正常探索不误伤).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -113,7 +114,7 @@ function writeConfig(home, fakePort) {
     ok(!!result1, 'turn1: result emitted');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSEMANTIC LOOP-GUARD E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

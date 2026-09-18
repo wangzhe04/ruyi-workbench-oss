@@ -30,6 +30,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 判定行:`LIVE FULL TEXT E2E: ALL PASS`。
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -39,7 +40,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-live-full-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* gone */ } } }
 
 // 工具【参数】与工具【结果】各埋一个可辨认的记号。信封里出现任何一个都算泄密。
 const ARG_MARKER = 'SECRET-ARG-MARKER';

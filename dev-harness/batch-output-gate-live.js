@@ -18,6 +18,7 @@
 //   env: RUYI_REAL_CONFIG（provider 来源，默认 ~/.win-claude-workbench/config.json）
 //        RUYI_REAL_MODEL（模型覆盖）  RUYI_BATCH_REPS（每臂重复次数，默认 2）
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -123,7 +124,7 @@ function health(port) {
 function kill(proc) {
   if (!proc || !proc.pid) return;
   try {
-    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (process.platform === 'win32') killOwnTree(proc);
     else proc.kill('SIGTERM');
   } catch { /* already exited */ }
 }

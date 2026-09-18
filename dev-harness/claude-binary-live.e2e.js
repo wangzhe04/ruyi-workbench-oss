@@ -18,6 +18,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ④ 权限桥端到端:workbench(permissionMode=default)+ 真 CLI → Bash 触发 permission_request
 //     → /api/permission/decision 批准 → 回合完成且 echo 结果可见
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -33,7 +34,7 @@ let failures = 0;
 let skipped = false;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
 const skip = l => { skipped = true; console.log('SKIP ' + l); };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 
 function spawnCollect(cmd, args, opts = {}) {
   return new Promise(resolve => {

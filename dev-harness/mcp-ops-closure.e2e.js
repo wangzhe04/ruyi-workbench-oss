@@ -22,6 +22,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/mcp-ops-closure.e2e.js
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -238,7 +239,7 @@ function startLegacySseMcp(port, state) {
     for (let attempt = 0; attempt < 3; attempt++) {
       child = spawnWb();
       if (await up(WP)) return { child, started: true };
-      try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+      try { killOwnTree(child); } catch {}
       await sleep(200);
       WP = await getFreePort();
     }
@@ -416,7 +417,7 @@ function startLegacySseMcp(port, state) {
 
     // ── K 段(55b): 重启一致性 -- 同 HOME 重启,停用仍停用、删除不复活、无关条目在(退出条件#3)──
     console.log('── K 段: 重启一致性 ──');
-    try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    try { killOwnTree(wb); } catch { /* ignore */ }
     await sleep(500);
     WP = await getFreePort();
     boot = await bootWb();
@@ -435,7 +436,7 @@ function startLegacySseMcp(port, state) {
     ok(hDis && hDis.status === 404, 'K6 重启后停用条目仍不可探针(不自动重连)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     try { srv401.close(); } catch { /* ignore */ }
     try { sseServer.close(); } catch { /* ignore */ }
     try { srv.killAllMcpClients(); } catch { /* ignore */ }

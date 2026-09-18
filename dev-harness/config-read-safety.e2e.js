@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 现在：文件确实不存在且无 .prev → 才是全新安装；JSON 损坏 → 先从 config.json.prev 恢复，没有就【降级】
 // （默认值只供本次请求、不落盘，writeConfig 拒绝），文件恢复可读后自动解除降级。writeConfigAtomic 每次覆盖前
 // 把上一版留成 config.json.prev。判定行：`CONFIG READ SAFETY E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -14,7 +15,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-config-read-safety-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 (async () => {
 const WB_PORT = await getFreePort();

@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  Part 2: a BARE mcp child (NO WCW_SESSION_ID) file_write still succeeds, but adds NO new journal entry
 //    (no session context → journaling gracefully no-ops; the tool runs regardless).
 // 手法 copied from todo-loopback (mcp child driver) + search-robust (token scrape).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -38,7 +39,7 @@ function mcpChild(env) {
   const rpc = (method, params) => new Promise((resolve, reject) => { const id = ++idc; const t = setTimeout(() => { pending.delete(id); reject(new Error('rpc timeout: ' + method)); }, 10000); pending.set(id, m => { clearTimeout(t); resolve(m); }); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); });
   return { child, rpc };
 }
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function parseCall(call) { const t = (call.result && call.result.content && call.result.content[0] && call.result.content[0].text) || ''; try { return JSON.parse(t); } catch { return {}; } }
 
 (async () => {

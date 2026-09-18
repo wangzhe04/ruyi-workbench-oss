@@ -5,6 +5,7 @@
 //   (B) claude mode (WCW_FAKE_CLAUDE -> workbench's own tools/fake-claude.js, activeProvider empty) —
 //       assert the persisted assistant message carries engine==='claude'.
 // Fully offline. Mirrors the postStream/getJson skeleton from openai-engine.e2e.js.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -52,7 +53,7 @@ function lastAssistant(session) {
 }
 async function waitHealth(port) { // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await health(port); } return h; }
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

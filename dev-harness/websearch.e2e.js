@@ -17,6 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (f) apiKey mask: searchBackend.apiKey='bing-secret-key-123456' → GET /api/status + POST /api/config responses
 //       mask it to ••••3456; a masked round-trip SAVE does NOT wipe the real key on disk.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -67,7 +68,7 @@ function systemOf(body) {
   else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
   return (sys ? String(sys.content || '') : '') + '\n' + userText;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // A tiny local "searxng" JSON endpoint: GET /search?q=&format=json → {results:[{title,url,content}]}. It is
 // 127.0.0.1, but web_search's backend baseUrl is TRUSTED → NOT SSRF-checked, so this is reachable by design.

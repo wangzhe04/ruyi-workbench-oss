@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/steering-claude.e2e.js
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -33,7 +34,7 @@ const STEER_CAPTURE = path.join(HOME, 'steer-capture.jsonl');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
 // 服务器把 {ok:false,error:'str'} 规范成 {error:{code,message}} 包络 —— 两种形状都取文本。
 const errText = v => typeof v === 'string' ? v : String(v && (v.message || v.code) || '');
 

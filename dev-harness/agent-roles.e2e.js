@@ -1,6 +1,7 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -26,7 +27,7 @@ const {
 let failures = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failures += 1; console.error('FAIL ' + label); } };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch {} } }
 function health(port) { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, res => { let b=''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); }); }); }
 function getJson(port, pathname) { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port, path: pathname, timeout: 3000 }, res => { let b=''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); }); }); }
 function stream(port, body) { return new Promise((resolve, reject) => { const raw=JSON.stringify(body); const req=http.request({host:'127.0.0.1',port,path:'/api/chat/stream',method:'POST',headers:{'content-type':'application/json','content-length':Buffer.byteLength(raw)}},res=>{let buf='',events=[];res.on('data',c=>{buf+=c;let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);try{if(line.trim())events.push(JSON.parse(line));}catch{}}});res.on('end',()=>resolve(events));});req.on('error',reject);req.write(raw);req.end(); }); }

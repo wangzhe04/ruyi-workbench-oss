@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (e) section:'health'/'counts'/'config' 各自只返回对应段 + 身份字段。
 //   (f) 注册表侧:tier=read、pack=core(经 require(server.js) 直读 NATIVE_TOOL_TIER/NATIVE_TOOL_PACKS)。
 // 全程离线,临时 HOME + 健康轮询 + finally taskkill 清理,PASS/FAIL 逐条,exit(fail?1:0)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -46,7 +47,7 @@ async function selfStatus(port, token, sid, extra) {
   const r = await postJson(port, '/api/tools/workbench_self_status', body, { 'x-wcw-token': token });
   return r.body && r.body.result;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

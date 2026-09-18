@@ -13,6 +13,7 @@
 //   node run.js --after     # 跑所有 seed,与 baseline 对比 diff(无差异=未漂移)
 //
 // 非回归件(无 .e2e.js 后缀):判定 DONE,不 fail(CI 不阻断)。判据见 seeds.json pass_criteria(机械可判)。
+const { killOwnTree } = require('../lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const HERE = __dirname, DEV = path.join(HERE, '..'), ROOT = path.join(DEV, '..'), WB = path.join(ROOT, 'ruyi-workbench'), SERVER = path.join(WB, 'app', 'server.js');
 const { getFreePorts } = require(path.join(DEV, 'free-port.js'));
@@ -39,7 +40,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // 起 fake-openai(按 seed.fake_script 剧本回工具)+ workbench(provider 指向 fake),发 task,收集 events + CAPTURE 请求体。
 async function runSeedFake(seed) {

@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ① 无人值守完成率 ≥2/3   ② 人工干预 ≤1 次/任务   ③ 无进展自动暂停触发率 100%   ④ token 不破预算
 // 纪律:复用第26波b mission-driver 的 fake SSE + /api/mission 基建;验收主会话亲自实跑。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -20,7 +21,7 @@ const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function req(method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 (async () => {
 ﻿// E2E: start a fake OpenAI-compatible server, start the REAL workbench with a config whose
 // activeProvider points at it, then drive /api/chat/stream and /api/models. Fully offline.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -105,7 +106,7 @@ function postStream(port, payload) {
     ok(/Hello, world/.test(text2), 'second turn streams ("' + text2.slice(0, 30) + '")');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     console.log('\nOPENAI-ENGINE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;

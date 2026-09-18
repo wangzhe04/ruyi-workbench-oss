@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       offer 门生效 + 稳定信封(invalid_ref)经 HTTP 链路回传 + 配对铁律
 //       (真实 rawRef 回读成功见 observation-recall-realhistory.e2e.js)
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -35,7 +36,7 @@ const { getFreePort } = require('./free-port.js');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function get(port, p) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 3000 }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
 function postStream(port, payload) { return new Promise(resolve => { const data = JSON.stringify(payload); const req = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', timeout: 120000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, res => { let buf = ''; const events = []; res.on('data', c => { buf += c; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()) { try { events.push(JSON.parse(line)); } catch { /* ignore */ } } } }); res.on('end', () => resolve(events)); }); req.on('error', () => resolve(events)); req.on('timeout', () => { req.destroy(); resolve(events); }); req.write(data); req.end(); }); }
 

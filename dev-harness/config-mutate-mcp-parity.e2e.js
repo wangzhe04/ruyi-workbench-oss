@@ -29,6 +29,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/config-mutate-mcp-parity.e2e.js
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -196,7 +197,7 @@ const baseConfig = extra => ({
   for (let attempt = 0; attempt < 3 && !started; attempt++) {
     wb = spawnWb();
     if (await up(WP)) { started = true; break; }
-    try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    try { killOwnTree(wb); } catch { /* ignore */ }
     await sleep(200); WP = await getFreePort();
   }
   try {
@@ -225,7 +226,7 @@ const baseConfig = extra => ({
     const hasToggle = after2 && (after2.externalMcpServers || []).some(x => x && x.id === 'c1' && x.enabled === true);
     ok(hasPolicy && hasRole && hasToggle, 'C2 三路并发的三个字段都活(policy=' + !!hasPolicy + ' role=' + !!hasRole + ' toggle=' + !!hasToggle + ')');
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
   }
 
   // ────────────────────────────── S 段: 静态锁 ─────────────────────────────────────────────────

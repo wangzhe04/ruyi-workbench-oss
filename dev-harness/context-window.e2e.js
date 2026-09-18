@@ -1,5 +1,6 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { getFreePort } = require('./free-port.js');
 // E2E for v1.0.2-S2「上下文窗口三级自适应」. 零依赖、离线、node 直跑。
 // 解析链(优先级从高到低):manual(provider.contextWindow) > probe(/v1/models context_length, 缓存 10min)
@@ -37,7 +38,7 @@ function getJson(port, p, headers) {
     r.on('error', () => resolve({ status: 0, json: null, raw: '' })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '' }); });
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

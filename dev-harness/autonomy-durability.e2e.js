@@ -11,6 +11,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     events.ndjson: seq 严格单调,含 run_created/node_start/run_interrupted/run_resumed/node_settled/run_end。
 //  D) 崩溃注入·杀点2(node_start 后、0 个工具完成前强杀):resume 不注入【断点续跑】,run 照常完成。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后 persistenceDegraded 横幅搬到 js/agent-workflows.js
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
@@ -26,7 +27,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function httpReq(port, method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

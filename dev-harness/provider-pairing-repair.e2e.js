@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      存量毒历史自愈、现场截断当场收口,断言【假 provider 实际收到的请求体】arguments 全能 parse。
 'use strict';
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -43,7 +44,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 let wb2 = null, fake2 = null; // [L2] 第二组进程(参数铁律),与第一组【串行】起停
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function health(port) {
   return new Promise(res => {
     const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => {

@@ -1,5 +1,6 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { getFreePort } = require('./free-port.js');
 // E2E for v0.9-S3 (C3 / §0.9-S3): 文件树 + 工作文件夹 + 文件夹拖拽设工作区(指纹定位).
 // Ports 9003 (fake-openai) + 9004 (workbench).
@@ -48,7 +49,7 @@ function reqJson(port, method, p, payload, headers) {
   });
 }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

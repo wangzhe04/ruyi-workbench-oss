@@ -14,6 +14,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 末行判定固定为 `GIT E2E: ALL PASS`(任何失败打印明细并以非零码退出)。finally 清临时 HOME/仓库。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const cp = require('child_process');
 const http = require('http');
@@ -31,7 +32,7 @@ const SERVER_JS = path.join(WB, 'app', 'server.js');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // POST a tool call; returns the parsed tool RESULT object (unwraps { ok, result }). Never throws.
 function callTool(port, token, name, args) {

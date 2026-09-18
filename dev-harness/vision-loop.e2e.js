@@ -24,6 +24,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      <attachment kind="audio-transcript" untrusted> 围栏＋尖括号中和(fake fencepayload 真载荷) +
 //      textPreview 同款中和补齐 + 原文件可下载 + 记账 aux/asr + 未配置零行为 + 上游失败不挡上传。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -79,7 +80,7 @@ function writeConfig(vision, bridgeMcp, asr) {
     ...(asr ? { asrProviderId: 'fake', asrModel: 'fake-asr-v1' } : {}),
   }, null, 2));
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function spawnFake(env) { const p = cp.spawn(NODE, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_CAPTURE_DIR: CAP_DIR, ...env }, windowsHide: true }); p.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim())); return p; }
 function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/v1/models', timeout: 800 }, resp => { resp.resume(); res(true); }); r.on('error', () => res(false)); r.on('timeout', () => { r.destroy(); res(false); }); }); }
 function clearCapture() { try { fs.rmSync(CAP_DIR, { recursive: true, force: true }); } catch { /* ignore */ } try { fs.mkdirSync(CAP_DIR, { recursive: true }); } catch { /* ignore */ } }

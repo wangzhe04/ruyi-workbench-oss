@@ -1,5 +1,6 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -14,7 +15,7 @@ const FAKE_PORT = 9073, WB_PORT = 9074;
 let failures = 0;
 const ok = (c,l) => { if(c) console.log('PASS '+l); else { failures++; console.error('FAIL '+l); } };
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
-function kill(c){if(c&&c.pid){try{cp.execFileSync('taskkill',['/PID',String(c.pid),'/T','/F'],{stdio:'ignore'});}catch{}}}
+function kill(c){if(c&&c.pid){try{killOwnTree(c);}catch{}}}
 function health(port){return new Promise(resolve=>{const q=http.get({host:'127.0.0.1',port,path:'/health',timeout:800},r=>{let b='';r.on('data',c=>b+=c);r.on('end',()=>{try{resolve(JSON.parse(b));}catch{resolve(null);}})});q.on('error',()=>resolve(null));q.on('timeout',()=>{q.destroy();resolve(null);});});}
 function stream(body){return new Promise((resolve,reject)=>{const raw=JSON.stringify(body);const q=http.request({host:'127.0.0.1',port:WB_PORT,path:'/api/chat/stream',method:'POST',headers:{'content-type':'application/json','content-length':Buffer.byteLength(raw)}},r=>{let b='',events=[];r.on('data',c=>{b+=c;let i;while((i=b.indexOf('\n'))>=0){const line=b.slice(0,i);b=b.slice(i+1);try{if(line.trim())events.push(JSON.parse(line));}catch{}}});r.on('end',()=>resolve(events));});q.on('error',reject);q.write(raw);q.end();});}
 

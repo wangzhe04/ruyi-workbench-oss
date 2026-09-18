@@ -25,6 +25,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  ⑨ engineRoute 显式覆盖:不传时与搬家前等价(走会话推断);显式传 openai 路由时同样跑通同一 provider。
 // 判定行(exact): SESSION-TURN-CORE E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -84,7 +85,7 @@ function writeConfig(home, fakePort) {
     activeProvider: 'fake',
   }, null, 2));
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 // 事件类型游程序列:合并相邻同类型,抹平 HTTP 壳的 50ms delta 合批(纯传输层优化),留下真正的顺序骨架。
 function typeRuns(events) {
   const out = [];

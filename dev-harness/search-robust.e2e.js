@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 'Invalid group'. normalizeSearchPattern now (1) strips a leading inline-flag group, folding m/s
 // into JS flags, and (2) falls back to LITERAL search with patternNote when the pattern still
 // doesn't compile. Drives /api/tools/file_search directly (UI-token path, no provider needed).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -79,7 +80,7 @@ function tool(port, token, name, body) {
     ok(d && Array.isArray(d.matches) && d.matches.length >= 1, 'docs_search (?i) query finds the seeded line');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSEARCH-ROBUST E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

@@ -6,6 +6,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // kind 'user'; complete user→assistant → false; tail role:'tool' with all tool_calls answered (the
 // persisted shape of Stop-mid-tool-loop) → dangling true kind 'tool_calls'.
 // No provider/turn needed (detection is pure file inspection). Offline.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -98,7 +99,7 @@ function postJson(port, p, payload) {
     ok(getC.json && getC.json.resumable && getC.json.resumable.kind === 'tool_calls', "tail role:tool resumable.kind === 'tool_calls'");
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nRESUME-DANGLING E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

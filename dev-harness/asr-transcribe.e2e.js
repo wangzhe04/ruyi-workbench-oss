@@ -17,6 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (浏览器端转 WAV 的理由) / H4 回体解析不出文本 → 与 Whisper 分支同一个 asr.bad_response。
 //   反向:把 05 的协议分叉改成永远走 transcriptions → H2 红(回显来自 chat 支的桩,Whisper 支给不出)。
 // 判定行:`ASR TRANSCRIBE E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -26,7 +27,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-asr-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 let WB_PORT = 0, ASR_PORT = 0, TOKEN = '';
 const ASR_MAX = 25 * 1024 * 1024;

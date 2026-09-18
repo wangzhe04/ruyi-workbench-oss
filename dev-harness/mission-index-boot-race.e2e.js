@@ -23,6 +23,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     它是那条真实路径的见证者。两支一起看才是证据。
 //
 // 判定行:`MISSION INDEX BOOT RACE E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -33,7 +34,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch {} } }
 function request(pathname, token, opts = {}) {
   return new Promise(resolve => {
     const raw = opts.body == null ? '' : JSON.stringify(opts.body);

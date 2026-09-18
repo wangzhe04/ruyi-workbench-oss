@@ -18,6 +18,7 @@
 //   f) FAKE_REJECT_TOOLS: the tools-rejected retry branch fires (meta reports tools>0, but the turn still
 //      completes ok and the second captured request carries no `tools`).
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -212,7 +213,7 @@ function systemOf(body) {
     // (handled in PART F below with its own ports to keep capture dirs separate)
   } catch (e) { console.log('ERROR(A) ' + (e && e.stack || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
   }
 
@@ -245,7 +246,7 @@ function systemOf(body) {
       ok(capsB && capsB.engine === 'claude', '(B) no provider → engine==="claude"');
       ok(capsB && capsB.provider === null, '(B) no provider → provider:null');
     } catch (e) { console.log('ERROR(B) ' + (e && e.stack || e)); fail++; }
-    finally { if (wbB.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wbB.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } await sleep(300); fs.rmSync(HOME_B, { recursive: true, force: true }); }
+    finally { if (wbB.pid) { try { killOwnTree(wbB); } catch { /* ignore */ } } await sleep(300); fs.rmSync(HOME_B, { recursive: true, force: true }); }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -289,7 +290,7 @@ function systemOf(body) {
       const sysE = systemOf(body0);
       ok(/当前不可用：.*http_request/.test(sysE), '(E) system 「当前不可用」 line names http_request (' + (sysE.match(/当前不可用：[^\n]*/) || ['<none>'])[0] + ')');
     } catch (e) { console.log('ERROR(E) ' + (e && e.stack || e)); fail++; }
-    finally { for (const c of [wbE, fakeE]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } } await sleep(300); fs.rmSync(HOME_E, { recursive: true, force: true }); }
+    finally { for (const c of [wbE, fakeE]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } } await sleep(300); fs.rmSync(HOME_E, { recursive: true, force: true }); }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -333,7 +334,7 @@ function systemOf(body) {
       const hadNoTools = capsF.some(b => !b.tools || b.tools.length === 0);
       ok(hadTools && hadNoTools, '(F) captured bodies go from tools→no-tools (retry dropped tools)');
     } catch (e) { console.log('ERROR(F) ' + (e && e.stack || e)); fail++; }
-    finally { for (const c of [wbF, fakeF]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } } await sleep(300); fs.rmSync(HOME_F, { recursive: true, force: true }); }
+    finally { for (const c of [wbF, fakeF]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } } await sleep(300); fs.rmSync(HOME_F, { recursive: true, force: true }); }
   }
 
   // 118b PART G - desktop-control health states. Part A already pinned `ready`; here are the two states a
@@ -379,7 +380,7 @@ function systemOf(body) {
           + ' (' + JSON.stringify(desk) + ')');
       } catch (e) { console.log('ERROR(G/' + item.tag + ') ' + (e && e.stack || e)); fail++; }
       finally {
-        if (wbG && wbG.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wbG.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+        if (wbG && wbG.pid) { try { killOwnTree(wbG); } catch { /* ignore */ } }
         await sleep(300); fs.rmSync(HOME_G, { recursive: true, force: true });
       }
     }

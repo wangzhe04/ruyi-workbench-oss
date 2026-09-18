@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       ≥8 chunk 历史下默认 8 路的在飞峰值;失败注入时快速上浮且未派发块不再发出;
 //       summaryMaxConcurrentV1:1 退化为串行。
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -31,7 +32,7 @@ const { getFreePort } = require('./free-port.js');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function fakeUp(port, env) { const p = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(port)], { env: { ...process.env, FAKE_OPENAI_PORT: String(port), ...env }, windowsHide: true }); p.stdout.on('data', () => {}); p.stderr.on('data', () => {}); return p; }
 const user = content => ({ role: 'user', content });
 // 用真实估算器反推文本长度,避免把字符/token 比假定写死(同 summary-single-shot)。

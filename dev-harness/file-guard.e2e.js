@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // PART B — integration (real workbench on :9042) proving the guard is wired into the live /api/tools/ path:
 //   remote/no-provider config → in-bounds read+write ok; out-of-bounds read+write DENIED (no file written);
 //   flip config to a LOCAL provider → out-of-bounds read now ALLOWED (provider-sensitive, live).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -202,7 +203,7 @@ function post(port, p, payload, headers) {
     ok(routLocal.json && routLocal.json.result && routLocal.json.result.ok === true && /OUTSIDE-SECRET/.test(routLocal.json.result.content || ''), 'B: out-of-bounds file_read now ALLOWED under a local provider');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     fs.rmSync(UNIT_DATA, { recursive: true, force: true });

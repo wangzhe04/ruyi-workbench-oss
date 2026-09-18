@@ -22,6 +22,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      不存在的 id 丢弃、截 8、source 从注册表带上)。
 //
 // 判定行:`STEWARD CONTENT TOOLS E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -32,7 +33,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-content-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const PROVIDER_PORT = await getFreePort();
 const WB_PORT = await getFreePort();

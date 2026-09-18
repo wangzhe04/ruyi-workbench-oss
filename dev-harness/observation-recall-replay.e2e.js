@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 硬约束:原历史记录(.win-claude-workbench/checkpoints)零写入;deepseek 密钥只从本机 config
 // 复制进临时 HOME,绝不打印。
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), fs = require('fs'), os = require('os'), path = require('path'),
   http = require('http'), zlib = require('zlib');
 const HERE = __dirname, WB = path.resolve(HERE, '..', 'ruyi-workbench');
@@ -35,7 +36,7 @@ let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function getFreePort() { return new Promise(res => { const s = require('net').createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); }); }
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { } }
 function get(port, p) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 5000 }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); }); }
 function postStream(port, payload, timeoutMs) {
   return new Promise(resolve => {

@@ -16,6 +16,7 @@
 //
 // 每场景记录:tool_use 序列、tool_result 错误数、error 事件数、最终文本达标、耗时、usage 累计。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -44,7 +45,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // 起一个带独立 HOME/工作区的 workbench;setup(work) 先布置工作区文件。
 async function withServer(tag, setup, fn) {

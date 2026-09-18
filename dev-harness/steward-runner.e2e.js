@@ -30,6 +30,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (J) CLI 引擎主端点 -> steward.unsupported_engine。
 //
 // 端口全部 getFreePort() 动态取。判定行:`STEWARD RUNNER E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -41,7 +42,7 @@ const CAPTURE = path.join(HOME, 'capture');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const PROVIDER_PORT = await getFreePort();
 const WB_PORT = await getFreePort();

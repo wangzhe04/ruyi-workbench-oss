@@ -25,6 +25,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     historical row (model already on the line) aggregates without any new collection.
 // Judgement line (exact): USAGE-LEDGER E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -88,7 +89,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('stream timeout')); }); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function patchSessionRoute(id, route, headers) {
   return reqJson(WB_PORT, 'POST', '/api/sessions/' + encodeURIComponent(id), { engineRoute: route }, { ...(headers || {}), 'x-http-method': 'PATCH' });
 }

@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // End-to-end contract for request_user_input on both engines:
 //   Claude native compatibility event -> text user envelope -> confirmed delivery
 //   OpenAI-compatible function call -> awaited UI answer -> role:tool result -> continuation
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -45,7 +46,7 @@ const ok = (condition, label) => { if (condition) console.log('PASS ' + label); 
 
 function kill(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+  try { killOwnTree(child); } catch {}
 }
 function readToken() {
   try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; }

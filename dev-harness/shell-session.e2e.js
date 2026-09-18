@@ -18,6 +18,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      shell_start／powershell_run／script_run 缺省 cwd 却起在家目录。经 /api/tools 带 sessionId(进程内分发,
 //      ctx.session 是那条会话):不传 cwd → 会话 cwd(≠ defaultWorkspace ≠ 家目录);传 cwd → 就用它;
 //      会话 cwd 落在 execute:false 的工作区里 → 照样拒,且没有起 shell。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -185,7 +186,7 @@ function postStream(port, payload) {
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     // Kill the workbench tree (reaps its shell children too), then the fake.
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSHELL-SESSION E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

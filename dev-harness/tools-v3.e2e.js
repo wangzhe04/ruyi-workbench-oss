@@ -1,5 +1,6 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { getFreePort } = require('./free-port.js');
 // E2E (v1.1-W2 T1): tool suite v3 — the five new built-in tools (file_move / file_copy / archive_zip /
 // archive_unzip / http_download) + their trust-layer wiring (checkpoint journal + rollback).
@@ -44,7 +45,7 @@ async function tool(port, token, sid, name, args) {
   const r = await postJson(port, '/api/tools/' + name, { sessionId: sid, ...args }, { 'x-wcw-token': token });
   return r.body && r.body.result;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

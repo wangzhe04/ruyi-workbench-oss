@@ -32,6 +32,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      —— 二者必居其一,不许「目录建了、行没了」;25 行的表经得过清洗,折叠句因此生产可达。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -42,7 +43,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-tools-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const STEWARD_TOOLS = [
   'steward_self_status', 'steward_threads_search', 'steward_thread_status', 'steward_thread_read',
@@ -564,13 +565,20 @@ try {
     const mcpOut = await new Promise(resolve => {
       const child = cp.spawn(process.execPath, [SERVER, 'mcp'], { cwd: path.join(WB, 'app'), env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
       let out = '';
-      const timer = setTimeout(() => { kill(child); resolve(out); }, 25000);
+      // 128c:修前判「输出里出现 "tools"」—— initialize 的回包 capabilities 里就有 "tools",于是 K3 在 tools/list
+      // 发出去之前就算过了、子进程被杀,800 ms 那一发再往死进程的 stdin 里写。killOwnTree 同步取进程表会占住
+      // 事件循环几百毫秒,那一写落在子进程退出事件被处理之前,变成异步 EPIPE 'error' 事件,没人接就把整件带崩。
+      // 现在等的是 tools/list 自己的回包(id 2),定时器在收尾时一并清掉,stdin 的错误有人接。
+      child.stdin.on('error', () => { /* 子进程已被收尸,迟到的写入无所谓 */ });
+      let listTimer = null;
+      const finish = () => { clearTimeout(timer); clearTimeout(listTimer); kill(child); resolve(out); };
+      const timer = setTimeout(finish, 25000);
       child.stdout.on('data', d => {
         out += String(d);
-        if (out.includes('"tools"')) { clearTimeout(timer); kill(child); resolve(out); }
+        if (/"id"\s*:\s*2\b/.test(out) && out.includes('"tools"')) finish();
       });
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
-      setTimeout(() => { try { child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }) + '\n'); } catch {} }, 800);
+      listTimer = setTimeout(() => { try { child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }) + '\n'); } catch {} }, 800);
     });
     ok(mcpOut.includes('"tools"'), 'K3 面 2 MCP 子进程返回 tools/list');
     ok(mcpOut.includes('"tools"') && !mcpOut.includes('steward_'), 'K3b 面 2 MCP tools/list(未注入 WCW_SESSION_KIND)零 steward_*');

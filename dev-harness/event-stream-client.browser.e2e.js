@@ -29,6 +29,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 拉满(120 s)的话 D 组恒真、形同虚设;设成 5 s 的话 C 组量不出连接与断连的差别。
 // 判定行:`EVENT STREAM CLIENT BROWSER E2E: ALL PASS`。
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -98,7 +99,7 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
 function killTree(child) {
   if (!child || !child.pid) return;
   try {
-    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (process.platform === 'win32') killOwnTree(child);
     else child.kill('SIGKILL');
   } catch { /* already exited */ }
 }
@@ -255,6 +256,9 @@ class CdpClient {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      // 128c:socket 已关时 WebSocket.send() 按规范静默丢弃 —— 这个 Promise 就永远不 settle,测试挂到 run-all 超时、
+      // 连一条 FAIL 都没有(F8 那批「只是超时」的偶发件就是这个形状:别的车道收尸杀了浏览器)。当场拒绝,带上方法名。
+      if (!this.socket || this.socket.readyState !== 1) { const p = this.pending.get(id); this.pending.delete(id); (p ? p.reject : reject)(new Error('CDP socket not open (readyState=' + (this.socket ? this.socket.readyState : 'none') + '): ' + method)); return; }
       this.socket.send(JSON.stringify({ id, method, params }));
     });
   }

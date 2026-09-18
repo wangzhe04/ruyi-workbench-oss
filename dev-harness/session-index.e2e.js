@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  ⑥ DELETE a session over HTTP → index drops it; list stays correct.
 // Judgement line (exact): SESSION-INDEX E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -58,7 +59,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('stream timeout')); }); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // Read the on-disk index (array) or null. Read the truth from the actual session files (the 7 meta fields).
 function readIndexFile() { try { const a = JSON.parse(fs.readFileSync(IDX, 'utf8')); return Array.isArray(a) ? a : null; } catch { return null; } }

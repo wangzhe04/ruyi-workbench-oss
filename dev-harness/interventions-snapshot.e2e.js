@@ -19,6 +19,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 边界(不重复锁定,只引用):question 契约级混合并发/持久化行序 = interventions-persist.e2e.js (j);
 // CAS 六窗崩溃恢复 = interventions-cas.e2e.js;pool 活 run 成功/提案已处理 = interventions-pool.e2e.js;
 // plan 批准/拒绝真流程 = plan-mode.e2e.js。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -46,7 +47,7 @@ function snap(label, resp, status, body) {
   ok(statusOk && bodyOk, `${label} -> ${status} 快照${statusOk && bodyOk ? '' : ` :: 实得 ${gotStatus} ${canon(gotBody)}`}`);
 }
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 // opts: { token, origin(模拟浏览器), method }
 function requestJson(pathname, body, opts = {}) {

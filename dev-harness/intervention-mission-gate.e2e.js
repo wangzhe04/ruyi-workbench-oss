@@ -23,6 +23,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      容器 id(没有会话文件)同样 not_found;两次越权尝试都没把待决消费掉,自身 id 仍答得进。
 //
 // 端口用 getFreePort()。判定行:`INTERVENTION MISSION GATE E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -33,7 +34,7 @@ const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 function req(method, pathname, body, token) {
   return new Promise(resolve => {

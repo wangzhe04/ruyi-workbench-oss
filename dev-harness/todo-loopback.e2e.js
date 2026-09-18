@@ -9,6 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //    session.todos.length === 2 (proving the loopback persisted through the serve process).
 //  Part 2: a BARE mcp child (no WCW_* env) calling todo_write returns the guiding error (independent MCP
 //    mode has no workbench session context).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -37,7 +38,7 @@ function mcpChild(env) {
   const rpc = (method, params) => new Promise((resolve, reject) => { const id = ++idc; const t = setTimeout(() => { pending.delete(id); reject(new Error('rpc timeout: ' + method)); }, 10000); pending.set(id, m => { clearTimeout(t); resolve(m); }); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); });
   return { child, rpc };
 }
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

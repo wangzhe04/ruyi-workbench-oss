@@ -14,6 +14,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //        after_terminal (terminal) -> 不变(已终态,boot 不动)。
 //  (e) 静态锁:transitionInterventionState / INTERVENTION_TERMINAL / indeterminate / test 端点在 server.js。
 // 测试端点 /api/_test/intervention-cas 由 RUYI_TEST_HOOKS=1 env 门控(生产 404)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -26,7 +27,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function requestJson(port, pathname, body, token) {
   return new Promise((resolve, reject) => {

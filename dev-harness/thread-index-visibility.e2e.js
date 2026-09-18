@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 夹具:temp HOME + 假 OpenAI 兼容 provider(同 event-stream.e2e.js 那一套),不开浏览器。
 // 判定行:`THREAD INDEX VISIBILITY E2E: ALL PASS`。
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -81,7 +82,7 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
 function killTree(child) {
   if (!child || !child.pid) return;
   try {
-    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (process.platform === 'win32') killOwnTree(child);
     else child.kill('SIGKILL');
   } catch { /* already exited */ }
 }

@@ -27,6 +27,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      磁盘真值逐字节不变;applied／undoRef／决策日志里零明文。
 //
 // 判定行:`STEWARD CONFIG TOOLS E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -37,7 +38,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-cfgtools-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const WB_PORT = await getFreePort();
 const configFile = path.join(HOME, 'config.json');

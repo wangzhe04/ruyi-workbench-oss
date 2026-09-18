@@ -6,6 +6,7 @@
 //     with no UI answering it times out (permissionTimeoutMs 6000) and the tool_result is a denial,
 //     and the turn still finishes cleanly.
 // Two independent workbench+fake pairs keep the two provider configs isolated. Fully offline.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
@@ -134,7 +135,7 @@ async function runSegment({ label, wbPort, fakePort, home, toolName, toolArgs, p
     }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(400);
     for (const d of ['wcw-bridged-read-a', 'wcw-bridged-read-b', 'wcw-bridged-read-c']) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true });
     console.log('\nBRIDGED-READ-NOPROMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

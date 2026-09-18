@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 验证: f1 真实执行 + f2/f3 refusal("用户插话中断") + 配对块连续(3 tool_call -> 3 role:tool 不劈)
 // + 插话在配对块后。与 steering.e2e ⑦(测配对块后注入,断言不区分真实/refusal)互补: 本件明确断言
 // between-tools 中断的 refusal 标志。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -117,7 +118,7 @@ function checkToolBlockContiguity(ph) {
     ok(batchIdx >= 0 && steerIdx === batchIdx + 4, '插话在配对块后 (assistant(3 tc)+3 tool replies+插话, batch@' + batchIdx + ' steer@' + steerIdx + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSTEER-INTERRUPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

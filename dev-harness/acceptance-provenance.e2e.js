@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 反向(本件写作时逐条真做过):把 provenance 恒写 'self' → (a)(c)(d) 红;把「机器检查」的判据换回
 // 「有 check.type 就算」→ (b) 红;拔掉 ETag 里的容器指纹 → (d) 的条件 GET 拿到 304 → 红;
 // 在 13k 里加一处 patchMissionContainer → (f) 单写入口锁红。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -35,7 +36,7 @@ function sendJson(port, method, p, payload, headers) {
 }
 const postJson = (port, p, payload, headers) => sendJson(port, 'POST', p, payload, headers);
 const patchJson = (port, p, payload, headers) => sendJson(port, 'PATCH', p, payload, headers);
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   let fail = 0;

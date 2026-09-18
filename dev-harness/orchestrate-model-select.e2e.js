@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // [H] Live:哑 provider 起 DAG,验证节点 model 在【物化(执行前)】即:显式(合法/未知都尊重原样)/ inherit→空 / 省略→空。
 // 第44波增补:[S]/[P] 锁模型列表 API 化(版本型号去硬编码 + 代理发现 sidecar 缓存 + Claude 组/tier 池引擎归属含缓存)。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
@@ -19,7 +20,7 @@ const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function req(method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/token-bootstrap-csp.e2e.js
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -108,7 +109,7 @@ async function up() { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.
     ok(r2.body.includes("object-src 'none'") && r2.body.includes("script-src 'self'"), 'S3b CSP object-src none + script-src self(排外域)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch {} }
     await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nTOKEN BOOTSTRAP+CSP E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exit(fail ? 1 : 0);

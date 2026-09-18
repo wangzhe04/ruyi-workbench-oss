@@ -11,6 +11,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (d) 只读派生 + 鉴权:GET /api/interventions/:sid 无 token -> 403;有 token -> 200 + counts;
 //      GET 不改磁盘(读前后 NDJSON 一致)。
 //  (e) 静态锁:02 helper、13d 路由+missionPendingCounts async、01-config ROUTE_AUTH、13-http-router boot、04/07 注册/决策点。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -23,7 +24,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function requestJson(port, pathname, body, token) {
   return new Promise((resolve, reject) => {

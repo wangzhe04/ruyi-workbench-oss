@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      预热改走异步孪生 ensureDesktopMcpWarm()，形状锁跟着钉住「三处 fire-and-forget 排在它的 .then 里」）；
 //   ④ 39 号文：探针在飞的时候 /health 不该被挡住（同步 spawnSync 会把整个进程钉住 ~2 s）。
 //      —— ① 在「本机没装任何 python」的机器上会变弱（探针本来就不慢），③ 是与机器无关的那一半。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
 
@@ -37,7 +38,7 @@ const HEALTH_DURING_PROBE_BUDGET_MS = 800;   // 39 号文 ④:探针在飞时另
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 function health() {
   return new Promise(resolve => {
     const r = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health', timeout: 3000 }, res => { res.resume(); resolve(res.statusCode === 200); });

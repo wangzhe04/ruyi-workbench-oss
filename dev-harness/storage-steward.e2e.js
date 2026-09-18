@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       /api/storage/policy clamp 回显并持久; /api/storage/clean target 校验; POST 无 token → 403。
 // Judgement line (exact): STORAGE-STEWARD E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -75,7 +76,7 @@ async function startServer(port) {
   let h = null; for (let i = 0; i < 300 && !(h && h.body && h.body.ok); i++) { await sleep(150); h = await getJson(port, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   return { wb, h };
 }
-async function stopServer(wb) { if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } await sleep(300); }
+async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } } await sleep(300); }
 
 (async () => {
   let fail = 0;

@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      resurrected with identical content.
 //  (e) POST rollback with NO UI token → 403.
 // Token手法 copied from search-robust; direct tool calls carry sessionId so they journal under the session.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -65,7 +66,7 @@ function spawnFake(seq) {
   fake.stdout.on('data', () => {});
   return fake;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 // The fake-openai has no /health route; probe raw TCP connectivity instead. `fakeReachable` true once
 // something accepts a connection on FAKE_PORT; false once the previous fake has fully released it.
 function fakeReachable() { return new Promise(resolve => { const net = require('net'); const s = net.connect({ host: '127.0.0.1', port: FAKE_PORT }, () => { s.destroy(); resolve(true); }); s.on('error', () => resolve(false)); s.setTimeout(500, () => { s.destroy(); resolve(false); }); }); }

@@ -19,6 +19,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      reproducible offline (the fake only rejects tools-bearing requests), so §0.9-S0 permits
 //      code-review coverage here — this asserts the exact guard text.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const cp = require('child_process');
 const http = require('http');
@@ -105,7 +106,7 @@ async function runRejectScenario({ label, wording, ok }) {
     // so a 2nd tools request would stream normally — but then `hadNoTools` would be false). The no-tools
     // retry is the only shape that both completes ok AND drops tools.
   } finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
   }

@@ -1,6 +1,7 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // LIVE E2E: real workbench (runOpenAiTurn) -> real DeepSeek API. Key via argv; temp config wiped after.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -53,7 +54,7 @@ function postStream(port, payload) {
     ok(result && result.ok === true, 'result ok=true' + (errEvt ? ' ERR=' + JSON.stringify(errEvt.error) : ''));
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true }); // wipe temp config (contains the key)
     console.log('\nDEEPSEEK-LIVE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

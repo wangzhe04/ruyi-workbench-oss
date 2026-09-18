@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // Kimi Code Agent CLI adapter contract: config selection, npm-shim escape hatch, native JSONL parsing,
 // and settings surface. This test is credential-free and does not invoke the real Kimi service.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const cp = require('child_process');
 const http = require('http');
@@ -696,7 +697,7 @@ async function verifyKimiPlanFilePathGuard() {
     }
   } finally {
     if (child?.pid) {
-      try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already exited */ }
+      try { killOwnTree(child); } catch { /* already exited */ }
     }
     await sleep(200);
     fs.rmSync(home, { recursive: true, force: true });

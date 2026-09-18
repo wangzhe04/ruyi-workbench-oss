@@ -21,6 +21,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (I) 关开关后再起服务:inbox 文件字节数不再增长(即便期间又造了新的任务账本变更)。
 //
 // 端口:全部 getFreePort() 动态取,不带内字面量端口(run-all 端口审计口径)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -34,7 +35,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 // listen 与 runtime.json 落盘之间有一个短窗口(健康探针先通),握手文件要轮询等一下。
 async function waitToken() { // 117q:预算 60×100ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)

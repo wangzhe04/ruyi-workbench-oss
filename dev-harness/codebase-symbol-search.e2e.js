@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (c) kind 过滤:definition-only / reference-only
 //   (d) files[] 文件级聚合
 //   (e) note 诚实标注 grep 级
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -129,7 +130,7 @@ function tool(port, token, name, body) {
     ok(f2 && f2.ok === false && /kind/.test(f2.error || ''), '(f) 非法 kind 被人话拒绝');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nCODEBASE-SYMBOL-SEARCH E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

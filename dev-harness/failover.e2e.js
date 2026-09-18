@@ -14,6 +14,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 末行判定固定为 `FAILOVER E2E: ALL PASS`。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -52,7 +53,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function fakeCount(port) { return getJson(port, '/__count', {}).then(j => (j && j.count) || 0).catch(() => 0); }
 
 // A tiny 401-returning "OpenAI" endpoint (no streaming) — the auth-error primary for ③. Kept as a plain http

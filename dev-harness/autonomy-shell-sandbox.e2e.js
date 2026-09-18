@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ✓ L1 file_edit/file_delete 对称
 //   ✓ L1 .git/config/config.worktree 被拒（可用 core.hooksPath 重定向 hook）
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -23,7 +24,7 @@ const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function req(method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

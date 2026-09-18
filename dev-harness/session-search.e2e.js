@@ -11,6 +11,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 不是引擎。这样也让「正文里有什么」完全可控(脱敏断言需要一个确定的假密钥)。
 
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -27,7 +28,7 @@ const PORT_OFF = await getFreePort();
 let failed = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failed += 1; console.error('FAIL ' + label); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch { /* already gone */ } } }
 
 function get(port, route, headers = {}) {
   return new Promise(resolve => {

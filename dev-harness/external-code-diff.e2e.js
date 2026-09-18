@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 'use strict';
 // Native code-editor diff + turn workspace baseline. Offline and desktop-safe: the route runs with a
 // test-only capture seam, so no real IDE window is opened.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -209,7 +210,7 @@ try {
     ok(openCurrent.status === 200 && capturedOpen.mode === 'open' && capturedOpen.args.length === 1 && samePath(capturedOpen.args[0], source),
       'open action uses the current code file in the preferred editor');
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch {} }
     await sleep(250);
   }
 } catch (error) {

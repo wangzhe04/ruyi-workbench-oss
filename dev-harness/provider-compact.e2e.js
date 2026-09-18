@@ -8,6 +8,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   - a follow-up chat turn still streams (compaction didn't break the engine)
 // fake-openai's stream:false branch returns a fixed non-stream reply, used for the summary call.
 // Fully offline. Skeleton mirrors openai-engine.e2e.js.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -118,7 +119,7 @@ function postStream(port, payload) {
     ok(result2 && result2.ok === true, 'post-compact turn result ok=true');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nPROVIDER-COMPACT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

@@ -17,6 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 收尾【本来就】回读磁盘 mission(它们的 mission_update 走 MCP 子进程 loopback 落盘),这条竞态在那两路
 // 天然不成立,拿它们测只会永远绿。真正漏的是 09(provider 引擎 in-process 改内存、收尾整份覆盖),
 // 所以这里用一个「慢回合」的 fake provider 把窗口撑开。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
 
@@ -38,7 +39,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function requestJson(port, pathname, body, token) {
   return new Promise((resolve, reject) => {

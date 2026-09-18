@@ -21,6 +21,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   I 开关   —— schedulerEnabledV1:false 的另一份数据根:六条路由仍在,但一律 409 scheduler.disabled。
 //
 // 载荷一律 reminder:本件量的是 API 面,不该把模型端点的不确定性叠进来。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -35,7 +36,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch { /* already gone */ } } }
 function readToken(home) { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function request(port, method, pathname, body, token) {
   return new Promise((resolve, reject) => {

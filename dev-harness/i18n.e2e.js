@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 (async () => {
 // i18n integration E2E: packaged static catalogs and persisted locale configuration over the real HTTP API.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const assert = require('assert');
 const cp = require('child_process');
 const fs = require('fs');
@@ -51,7 +52,7 @@ async function waitForHealth() { // 117q:预算 40×150ms=6s 小于本机冷启�
 function kill(child) {
   if (!child?.pid) return;
   try {
-    if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (process.platform === 'win32') killOwnTree(child);
     else child.kill('SIGKILL');
   } catch { /* already stopped */ }
 }

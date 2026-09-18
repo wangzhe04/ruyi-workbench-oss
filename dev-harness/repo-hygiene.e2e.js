@@ -19,6 +19,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     ② 掩码原样回传 → 磁盘逐字节不变;改一个 env 为新明文 → 照存;删一个键 → 删掉;新 id／改名／改了启动向量 → 清空不落掩码;
 //     ③ 磁盘、.mcp.json、Kimi 的 mcp.json、`claude mcp add-json` 的实参、MCP 子进程 env、远程请求头拿到的都是真值。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const { getFreePort } = require('./free-port.js');
@@ -45,7 +46,7 @@ function postJson(port, p, payload, headers, timeoutMs) {
   });
 }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // Spawn the workbench with a specific env override map (env vars NOT listed are cleared re: the two HOME
 // vars so precedence is deterministic — we start from the parent env, then delete both, then apply overrides).

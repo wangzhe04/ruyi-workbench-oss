@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // tools must (a) still be LISTED (so the CLI-side model can see them + their guiding description) but
 // (b) return a guiding error with isError:true when actually called. Drives the child over stdio
 // JSON-RPC (same handshake as the real MCP client), no HTTP server involved. Offline.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), path = require('path'), os = require('os'), fs = require('fs');
 const SERVER = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
 const HOME = path.join(os.tmpdir(), 'wcw-shell-mcp-guard-e2e');
@@ -58,7 +59,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-shell-mcp-guard-e2e');
     ok(ps.result && ps.result.isError === false && psOut.includes('OK123'), 'powershell_run still works in MCP child (guard is shell-specific)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    try { if (child.pid) cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    try { if (child.pid) killOwnTree(child); } catch { /* ignore */ }
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSHELL-MCP-GUARD E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     setTimeout(() => process.exit(fail ? 1 : 0), 300);

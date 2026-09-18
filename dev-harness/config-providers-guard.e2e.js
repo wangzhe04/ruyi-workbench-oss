@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ② 前端（provider-settings.js saveSettings）：providersDraft 没被 config 播种过就不上传 providers 键
 //      （providersDraftSeeded），服务端 {...current, ...body} 因此保留现值。这里用源码锚锁住。
 // 判定行：`CONFIG PROVIDERS GUARD E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -16,7 +17,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-providers-guard-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 (async () => {
 const WB_PORT = await getFreePort();

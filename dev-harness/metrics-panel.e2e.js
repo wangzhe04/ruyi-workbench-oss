@@ -9,6 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       ⑤ metrics 调用后 storage-trend.json 落盘且再调不重复追点。
 // Judgement line (exact): METRICS-PANEL E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -114,7 +115,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(n1 >= 1 && n2 === n1, 'B6 趋势节流(再调不追点,' + n1 + ' → ' + n2 + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     fs.rmSync(HOME2, { recursive: true, force: true });

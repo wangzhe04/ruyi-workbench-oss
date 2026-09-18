@@ -29,6 +29,7 @@ require('./lib/self-isolate-home.js');
 // 花费：每个候选 2 发（关臂上游 404 不计费）。四个候选 ≈ 4 次真转写，分币级。
 // ─────────────────────────────────────────────────────────────────────────────
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -89,7 +90,7 @@ function synthWav() {
 
 // ── 服务：临时家目录里起一台 ───────────────────────────────────────────────
 let child = null, PORT = 0, TOKEN = '';
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* 已经没了 */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* 已经没了 */ } } }
 
 function writeFixtureConfig(cand, protocol) {
   const src = realProviders.find(p => p && p.id === cand.providerId);

@@ -33,6 +33,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       ⑤ 本实例第 7 次 → hourly_cap(第 6 次是回执那一条)。
 //
 // 端口全部 getFreePort()。判定行:`STEWARD EXEMPT DELEGATION E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -42,7 +43,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const brief = v => String(JSON.stringify(v === undefined ? null : v)).slice(0, 420);
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 async function waitFor(pred, ms, step = 100) { const end = Date.now() + ms; for (;;) { const v = await pred(); if (v) return v; if (Date.now() > end) return null; await sleep(step); } }
 const psQuote = p => "'" + String(p).replace(/'/g, "''") + "'";
 // 墙钟打点:本件走默认 120 s 单件超时(R 段约 52 s 是 15 s 轮询节拍本身),各段耗时打出来,贴边时一眼看出是哪一段变慢了。

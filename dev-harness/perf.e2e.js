@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  ④ FUNCTIONAL: the API layer surfaces all 400 (proves windowing didn't leak into the server / load path).
 // Judgement line (exact): PERF E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -28,7 +29,7 @@ const COLD_START_BUDGET_MS = 7500;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
 function getJson(port, p) { return new Promise((resolve, reject) => { const t0 = process.hrtime.bigint(); const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 20000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const ms = Number(process.hrtime.bigint() - t0) / 1e6; try { resolve({ status: resp.statusCode, ms, body: JSON.parse(b) }); } catch (e) { reject(new Error('bad json: ' + b.slice(0, 200))); } }); }); r.on('error', reject); r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); }); }); }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // Build the 400-message fixture directly in HOME/sessions in the session-file format server.js expects.
 // Mix: 200 dialogue (100 user/assistant pairs) + 150 tool-card assistant msgs (~1KB result JSON each) +

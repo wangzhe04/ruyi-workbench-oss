@@ -6,6 +6,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  2) the parent executes an independent todo_write while the child is still live;
 //  3) wait_agents collects the result; and
 //  4) the same ad-hoc spawn is persisted in /api/agent-runs for the Workbench DAG.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -18,7 +19,7 @@ const HERE = __dirname;
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-spawn-background-dag');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-function killp(child) { if (!child || !child.pid) return; try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function killp(child) { if (!child || !child.pid) return; try { killOwnTree(child); } catch {} }
 function health() { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health', timeout: 800 }, res => { let body = ''; res.on('data', c => (body += c)); res.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve(null); } }); }); req.on('error', () => resolve(null)); req.on('timeout', () => { req.destroy(); resolve(null); }); }); }
 function token() { return new Promise(resolve => { const req = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/', timeout: 5000 }, res => { let body = ''; res.on('data', c => (body += c)); res.on('end', () => resolve((body.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1] || '')); }); req.on('error', () => resolve('')); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
 function jsonRequest(method, route, body, headers) {

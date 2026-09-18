@@ -22,6 +22,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ⑩ /api/stop 停掉【还在排队】的回合:出队、不占位、流里是 process/stopped 而不是 error;
 //   ⑪ 三处 wait 形状一致(GET /api/steward/arbiter 的 queue、GET /api/missions 的线程行、
 //      steward_thread_prioritize 的返回),外加「四个展示面都走 06i 的 waitReasonFor」的源码单点锁。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,7 +42,7 @@ const STARVE_MS = 600;    // 第二个进程的饥饿阈值(整个覆盖,不受�
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { fail++; console.log('FAIL ' + label); } };
-function kill(p) { if (p && p.pid) { try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function kill(p) { if (p && p.pid) { try { killOwnTree(p); } catch { /* ignore */ } } }
 
 function req(port, method, p, body, headers) {
   return new Promise(resolve => {

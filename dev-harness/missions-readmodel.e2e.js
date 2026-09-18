@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      buildPretenderSessionSlice 没有 try、rebuildPretenderIndexFull 的 Promise.all 整份 reject,
 //      于是 GET /api/missions、/api/missions/<id>、GET /api/interventions 一起 500,管家收件箱
 //      每轮 tick 抛 "Cannot read properties of null (reading 'goal')" 三个源全停摆。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -45,7 +46,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function fakeReachable() { return new Promise(resolve => { const net = require('net'); const s = net.connect({ host: '127.0.0.1', port: FAKE_PORT }, () => { s.destroy(); resolve(true); }); s.on('error', () => resolve(false)); s.setTimeout(500, () => { s.destroy(); resolve(false); }); }); }
 async function waitFakeUp() { for (let i = 0; i < 50; i++) { if (await fakeReachable()) return true; await sleep(100); } return false; }
 async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeReachable()) return true; await sleep(100); } return false; }

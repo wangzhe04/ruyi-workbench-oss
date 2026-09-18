@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // D 段:同一 HOME 改死探测地址重启 → 离线;离线卡/行只一句降级文案(要联网、现在离线、下一步),服务条仍引导查网络。
 // 反向:① 后端把未知并进可用 → C1/C2/C4 红;② 服务条可用数改回按 p.available 数 → C3 红(实得 3)。
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const { findBrowserExecutable } = require('./lib/browser-path');
@@ -67,7 +68,7 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
 }
 function killTree(child) {
   if (!child || !child.pid) return;
-  try { if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); else child.kill('SIGKILL'); }
+  try { if (process.platform === 'win32') killOwnTree(child); else child.kill('SIGKILL'); }
   catch { /* already exited */ }
 }
 
@@ -97,6 +98,9 @@ class CdpClient {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      // 128c:socket 已关时 WebSocket.send() 按规范静默丢弃 —— 这个 Promise 就永远不 settle,测试挂到 run-all 超时、
+      // 连一条 FAIL 都没有(F8 那批「只是超时」的偶发件就是这个形状:别的车道收尸杀了浏览器)。当场拒绝,带上方法名。
+      if (!this.socket || this.socket.readyState !== 1) { const p = this.pending.get(id); this.pending.delete(id); (p ? p.reject : reject)(new Error('CDP socket not open (readyState=' + (this.socket ? this.socket.readyState : 'none') + '): ' + method)); return; }
       this.socket.send(JSON.stringify({ id, method, params }));
     });
   }

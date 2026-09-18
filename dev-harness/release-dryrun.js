@@ -10,6 +10,7 @@
  *
  * Run: node dev-harness/release-dryrun.js [--pkg]
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), fs = require('fs'), path = require('path'), http = require('http'), crypto = require('crypto');
 const { getFreePort } = require('./free-port.js');
 
@@ -106,7 +107,7 @@ const NPM_RUN = process.platform === 'win32'
         if (!healthy) await new Promise(r => setTimeout(r, 500));
       }
       ok(healthy, '④ Ruyi.exe serve 冒烟(/health 200)');
-      try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+      try { killOwnTree(child); } catch { /* ignore */ }
       fs.rmSync(HOME, { recursive: true, force: true });
     } catch (e) { ok(false, '④ pkg 冒烟失败: ' + ((e.message || '') + '').slice(0, 300)); }
   } else {

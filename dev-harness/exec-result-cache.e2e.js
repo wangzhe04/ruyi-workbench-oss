@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       开关开:第二次调用命中(exec_result_cache hit/store 事件 + 配对 tool 消息仅差
 //       cacheHit 标记);开关关:零缓存事件、两条 tool 消息逐字节一致(现状基线)。
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -30,7 +31,7 @@ const { getFreePort } = require('./free-port.js');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function postStream(port, payload) { return new Promise(resolve => { const events = []; const data = JSON.stringify(payload); const req = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', timeout: 120000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, res => { let buf = ''; res.on('data', c => { buf += c; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()) { try { events.push(JSON.parse(line)); } catch { /* ignore */ } } } }); res.on('end', () => resolve(events)); }); req.on('error', () => resolve(events)); req.on('timeout', () => { req.destroy(); resolve(events); }); req.write(data); req.end(); }); }
 
 // 起一套 fake-openai + workbench;flags 写进 config.json;fakeEnv 追加环境变量。

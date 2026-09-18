@@ -14,6 +14,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   `mcp add-json X`;对 X 做一次 upsert → 第三次启动日志里【有】。
 //   外加 A0:同一次启动里,一个【不是】从 Claude Code 来的连接器(Y,直接写在 config 里)必须照常同步 ——
 //   否则「跳过」可能是把整条同步弄坏了，而不是按来源跳过。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
 
@@ -26,7 +27,7 @@ const LOG = path.join(HOME, 'claude-argv.log');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 function request(method, pathname, body, token) {
   return new Promise(resolve => {
     const raw = body == null ? '' : JSON.stringify(body);

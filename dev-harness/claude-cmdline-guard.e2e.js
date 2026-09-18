@@ -8,6 +8,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       团队模式政策压力)下 —— 回合正常完成;整行(按 cmd 公式重建)≤ 预算;append 以用户 MARKER 开头、以
 //       </response-language-policy> 收尾;所有围栏开闭配对(无悬空开标签);降级经 stderr 事件与 meta.cmdlineGuard 告知。
 //   (C) 对照(无测试缝): 同样配置不触发任何降级 —— 哨兵不改变预算内行为(append 完整、--agents 在、无守卫事件)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -71,7 +72,7 @@ async function startServer(port, extraEnv) {
   let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(port); }
   return { wb, h };
 }
-async function stopServer(wb) { if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } await sleep(300); }
+async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } } await sleep(300); }
 // 与服务端 spawnCmdLineLength 的 cmd 公式严格同构(测试缝开启时服务端对 node 直启也用此公式)。
 function cmdLineOf(argvAfterFake) {
   const comspec = process.env.ComSpec || 'cmd.exe';

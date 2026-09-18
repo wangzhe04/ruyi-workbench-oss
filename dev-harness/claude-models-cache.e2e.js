@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   c) 代理挂掉、重启 workbench 后,/api/models 与 /api/status 仍含缓存模型(离线兜底,proxyCount=0 佐证非 live)
 //   d) POST /api/config 清空 extraModels/knownModels(= 前端行内 × 的后端半)→ 自定义条目消失、缓存条目保留
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -16,7 +17,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-claude-models-e2e');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function req(port, method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;

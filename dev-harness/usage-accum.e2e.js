@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // TWO API calls in one turn (call 1 requests file_read; call 2 echoes the result), each reporting the
 // same usage frame. Asserts the `usage` event's input_tokens equals the SUM of both prompt_tokens and
 // that calls === 2 (old behavior was last-write-wins → would have reported a single call's tokens).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -69,7 +70,7 @@ function postStream(port, payload) {
     ok(result && result.ok === true, 'result ok=true');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nUSAGE-ACCUM E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

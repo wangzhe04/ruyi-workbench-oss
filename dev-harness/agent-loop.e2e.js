@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //    reports calls===4 (3 tool rounds + 1 echo finish) with input_tokens === sum of 4 frames, result ok.
 //  Part 2 (FAKE_PARALLEL_TOOLS): two tools emitted in ONE assistant message. Asserts both tool_use land
 //    in the same assistant round, both tool_result are present, and the turn finishes normally.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
@@ -47,7 +48,7 @@ function writeConfig(home, fakePort) {
     procs.push(fake, wb);
     return { fake, wb };
   };
-  const killPair = pair => { for (const c of [pair.wb, pair.fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } } };
+  const killPair = pair => { for (const c of [pair.wb, pair.fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } } };
   const waitHealthy = async (port) => { let h = null; for (let i = 0; i < 300 && !h; i++) { await sleep(150); h = await health(port); } return h; }; // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
 
   try {
@@ -155,7 +156,7 @@ function writeConfig(home, fakePort) {
     }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     fs.rmSync(HOOK_HOME, { recursive: true, force: true });

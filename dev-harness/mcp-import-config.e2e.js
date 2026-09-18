@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/mcp-import-config.e2e.js
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -185,7 +186,7 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
     ok(ap3.json && ap3.json.skipped.some(s => s.id === 'overflow' && /上限/.test(s.reason)), 'H12 apply 超 10 上限 -> skip 带原因');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch {} }
     await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nMCP IMPORT CONFIG E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exit(fail ? 1 : 0);

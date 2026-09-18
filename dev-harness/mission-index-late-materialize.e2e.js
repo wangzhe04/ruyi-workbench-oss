@@ -19,6 +19,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 反向验证见文末 REVERSE VERIFICATION 注释块:把 13e-pretender-index.js 里新加的空目录早退分支
 // 临时改成 `if (false && ...)` 后单跑本件,必须 FAIL(page.total === 0);跑完照原样改回来。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -30,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch {} } }
 function runtimeToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function request(pathname, token, opts = {}) {
   return new Promise((resolve, reject) => {

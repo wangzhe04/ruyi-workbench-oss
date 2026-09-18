@@ -1,6 +1,7 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: the live Provider loop extends a small standard budget only after distinct successful progress.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -49,7 +50,7 @@ function postStream(port, payload) {
 
 function killTree(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); }
+  try { killOwnTree(child); }
   catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
 }
 

@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 105j: 摘要调用策略回归。
 // [U] 已知 DeepSeek V4 选择实测锚定的 reasoning/output 候选;未知端点零控制字段。
 // [A] fake 端点拒绝参数时只兼容重试一次;命中 finish_reason=length 时只升一档,不放大到无限输出。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -25,7 +26,7 @@ function fakeUp(port, env) {
 }
 function kill(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+  try { killOwnTree(child); } catch { /* ignore */ }
 }
 function bodies(dir) {
   return fs.readdirSync(dir).filter(name => name.startsWith('sum-')).sort().map(name => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));

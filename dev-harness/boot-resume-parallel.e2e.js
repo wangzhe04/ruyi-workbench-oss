@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //          失败不影响护栏已落盘的观测)。
 // Judgement line (exact): BOOT-RESUME-PARALLEL E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -175,7 +176,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       'L2b run_auto_resume 事件已 append(got ' + (autoEvt && autoEvt.type) + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     fs.rmSync(HOME2, { recursive: true, force: true });

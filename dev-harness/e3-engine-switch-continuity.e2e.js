@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // "the previous assistant turn ran on the provider engine" and force-injects just the trailing Provider turns
 // into the Claude recovery history. Sequence exercised here: Claude(A) -> Provider(B) -> Claude(C), asserting
 // C's Claude prompt re-injects B's work but NOT A's (A is already in the CLI transcript).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -165,7 +166,7 @@ function latestProviderRequest() {
     ok(persisted.providerHistoryCursor === persistedMsgCount, 'Provider/display history cursor is persisted at the shared tail');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nE3-ENGINE-SWITCH-CONTINUITY E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

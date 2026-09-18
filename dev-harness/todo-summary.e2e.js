@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       (only powershell_run — todo_write/file_write are NOT commands), turnSeq is a number;
 //    ③ GET the session: session.todos.length === 3 and the last assistant message carries turnSummary.
 //  Turn 2 (no tools): the collapsing turn_summary has filesChanged empty + commands 0 (reassurance-line data).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -108,7 +109,7 @@ function writeConfig(home, fakePort) {
     ok(ts2 && ts2.commands === 0, 'turn2: commands === 0 (got ' + (ts2 && ts2.commands) + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nTODO-SUMMARY E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

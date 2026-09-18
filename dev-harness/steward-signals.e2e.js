@@ -25,6 +25,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (H) 开关关时:账本照写,但收件箱与自理零动作零写入。
 //
 // 端口全部 getFreePort() 动态取。判定行:`STEWARD SIGNALS E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -35,7 +36,7 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-signals-'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const TOOL_PORT = await getFreePort();
 const STEER_PORT = await getFreePort();

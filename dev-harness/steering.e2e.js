@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ⑦ PARALLEL-batch segment (FAKE_PARALLEL_TOOLS: 2 tool_calls in ONE assistant message + steer mid-turn):
 //      contiguity holds AND the interjection sits AFTER the complete tool block (assistant→tool→tool→user)
 //      — regression pin for the removed mid-batch drain (a steer must never split a tool block).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -189,7 +190,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     // Respawn the fake on the SAME port with FAKE_PARALLEL_TOOLS (2 tool_calls in ONE assistant message)
     // + the stream delay. Regression pin for the removed mid-batch drain: a steer arriving while the
     // batch streams must be injected only AFTER the complete tool block, never between tool₁ and tool₂.
-    try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+    try { killOwnTree(fake); } catch { /* ignore */ }
     await sleep(300);
     const par = JSON.stringify([{ name: 'file_read', args: { path: f1 } }, { name: 'file_read', args: { path: f2 } }]);
     const fake2 = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_PARALLEL_TOOLS: par, FAKE_STREAM_DELAY_MS: '150' }, windowsHide: true });
@@ -230,7 +231,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(batchIdx >= 0 && steerIdx2 === batchIdx + 3, '⑦ interjection at assistant(tc×2)+3 — after BOTH tool replies, not inside the block (batch@' + batchIdx + ', steer@' + steerIdx2 + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSTEERING E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

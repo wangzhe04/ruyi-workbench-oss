@@ -19,6 +19,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      拉法)拿全量 93+ 工具名 → auditBridgedWriteCoverage → 断言 uncovered 为空。ACC 拉不起来 / stdio SDK
 //      只回 <80 工具(已知构建坑)/ 无 python 环境 → SKIP(不 fail),回落 (A) 的静态清单兜底。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -67,7 +68,7 @@ function postStream(port, payload) {
   });
 }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 // ───────────────────────────────────────────────────────────────────────────────────────────────
 // 固化清单:ACC in-process 全量工具名冻结 (v1.8=97 → v1.8.1 +browser_list_tabs/browser_switch_tab=99)。用途=(A) 的离线兜底 +

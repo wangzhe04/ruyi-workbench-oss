@@ -8,6 +8,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       假 exe 用 node.exe 副本 —— `--version` 退出 0,探测即通过。
 //   (B) 集成: config.json 的 claudePath 指向假 shim → GET /api/status 的 config.claudePath 与健康
 //       详情均为解析后的 exe 路径(全部消费方经 normalizeConfig 咽喉点一致受益)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
@@ -58,7 +59,7 @@ async function startServer(port) {
   let h = null; for (let i = 0; i < 300 && !(h && h.body && h.body.ok); i++) { await sleep(150); h = await getJson(port, '/health'); } // 117q:预算 40×150ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   return { wb, h };
 }
-async function stopServer(wb) { if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } await sleep(300); }
+async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } } await sleep(300); }
 
 (async () => {
   let fail = 0;

@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (C) 启用技能集变化 → hash 变 → 重新注入(新旧技能都在,hash 变)。
 //   (D) 再次稳定 → 恢复去重跳过。
 //   (E) slash 命令轮: 不注入(必须占 stdin 首 token)且不污染 hash —— 下一轮普通消息仍按去重跳过。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -136,7 +137,7 @@ async function turn(port, sessionId, message) {
     ok(t6.meta.indexInjected === false && t6.meta.indexHash === t3.meta.indexHash, '(E3) slash 轮未污染 hash —— 后续普通轮仍按去重跳过');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nINDEX-DEDUP E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

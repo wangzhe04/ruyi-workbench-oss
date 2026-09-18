@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // E2E (O3 hb360): 产物类任务完成前自检。fake-openai 跑 file_write -> 声明完成 -> O3 注入自检 user ->
 // 自检轮再次回复完成 -> selfCheckDone 阻断无限循环 -> 回合结束。断言 self_check 事件触发 + 文件真写入。
 // 离线: fake-openai + workbench, 无外网。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -57,7 +58,7 @@ try {
   ok(selfCheckCount === 1, 'O3: self_check fires exactly once (no infinite loop, selfCheckDone guards)');
 } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
 finally {
-  for (const c of children) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+  for (const c of children) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
   await sleep(300);
   fs.rmSync(HOME, { recursive: true, force: true });
   console.log('\nSELF-CHECK E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

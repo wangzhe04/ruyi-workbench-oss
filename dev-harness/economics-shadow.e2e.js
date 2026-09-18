@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // asserts the five economics events are persisted to the NDJSON log with a coherent ID chain and
 // without raw query/args leakage. No real model, no network, no HB360 dependency.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -47,7 +48,7 @@ function postStream(port, payload) {
 
 function killTree(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
+  try { killOwnTree(child); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
 }
 
 (async () => {

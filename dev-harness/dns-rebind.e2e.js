@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (5) Host: 127.0.0.1:PORT, no Origin, no token → 200 ok (the offline harness / CLI stays exempt).
 // Connection always targets 127.0.0.1:PORT; only the Host HEADER is spoofed (exactly the rebinding shape).
 // Uses port 9041. No fake provider needed — /api/sessions only touches config + the sessions dir.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -74,7 +75,7 @@ function postSessions(port, headers) {
     ok(r6.status === 403, '(6) rebinding page (Host+Origin both evil, even WITH stolen token) rejected 403 (got ' + r6.status + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nDNS-REBIND E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

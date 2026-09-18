@@ -8,6 +8,7 @@
 //
 // Usage: node dev-harness/deepseek-ws-probe.js <API_KEY> ["query"]
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -128,7 +129,7 @@ async function partB() {
     console.log(`估算成本: ¥${cost.toFixed(4)}`);
     return { ok: true, wallMs, hits, firstHit: firstHit ? String(firstHit.title).slice(0, 60) : null, usage, text: text.slice(0, 300) };
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300); fs.rmSync(home, { recursive: true, force: true });
   }
 }

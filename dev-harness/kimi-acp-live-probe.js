@@ -6,6 +6,7 @@
 // native tools are not faked. Every mutable path is below a per-run mkdtemp
 // root and is removed only after child-process cleanup and containment checks.
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c
 const fs = require('fs');
 const fsp = fs.promises;
 const cp = require('child_process');
@@ -678,7 +679,7 @@ function appendBounded(current, chunk, limit = 12000) {
 async function stopChildTree(child) {
   if (!child || child.exitCode != null) return;
   if (process.platform === 'win32' && child.pid) {
-    try { await execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 10000, maxBuffer: 20000 }); } catch { /* process may already have exited */ }
+    killOwnTree(child);   // 128c:只杀自己的树(核创建时间),取代 taskkill /T
   } else {
     try { child.kill('SIGTERM'); } catch { /* already exited */ }
     await Promise.race([waitForChild(child), sleep(3000)]);

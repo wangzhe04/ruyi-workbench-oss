@@ -1,6 +1,7 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -21,7 +22,7 @@ const ok = (condition, label) => { if (condition) console.log('PASS ' + label); 
 
 function kill(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+  try { killOwnTree(child); } catch {}
 }
 async function stop(child) {
   if (!child) return;

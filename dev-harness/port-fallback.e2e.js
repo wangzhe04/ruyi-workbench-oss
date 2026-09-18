@@ -10,6 +10,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 契约里真正要守的两条(不误杀旁观者 / 原端口继续服务旁观者)一字未改,仍在下面逐条断言;
 // 第三条按新口径翻转为「工作台还活着,并且在 port+1 上正常服务」。相关行为面另见
 // dev-harness/start-error-surface.e2e.js。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -65,7 +66,7 @@ function alive(pid) { try { process.kill(pid, 0); return true; } catch { return 
     ok(B && alive(B.pid), 'B (pid ' + (B && B.pid) + ') is running');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    for (const c of [A, B]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+    for (const c of [A, B]) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
     await sleep(300);
   }
 
@@ -111,7 +112,7 @@ function alive(pid) { try { process.kill(pid, 0); return true; } catch { return 
     ok(still, 'P2: :' + PORT2 + ' still serves the innocent service');
   } catch (e) { console.log('ERROR(P2) ' + e.message); fail++; }
   finally {
-    for (const c of [C, innocent]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+    for (const c of [C, innocent]) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
     try { fs.rmSync(INNOCENT_SRC, { force: true }); } catch {}
     try { fs.rmSync(HOME2, { recursive: true, force: true }); } catch {}
     await sleep(300);

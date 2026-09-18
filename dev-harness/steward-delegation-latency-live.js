@@ -35,6 +35,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // 花费:每次代批 = 2–3 次真管家调用(§9.6.7 实测约 ¥0.054/回合),3+2 次约 ¥0.5;`--budget-cny` 是硬闸。
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -58,7 +59,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const brief = v => String(JSON.stringify(v === undefined ? null : v)).slice(0, 300);
 async function waitFor(pred, ms, step = 150) { const end = Date.now() + ms; for (;;) { const v = await pred(); if (v) return v; if (Date.now() > end) return null; await sleep(step); } }
 const psQuote = p => "'" + String(p).replace(/'/g, "''") + "'";
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* gone */ } } }
 
 const REAL_HOME = process.env.RUYI_REAL_HOME || os.homedir();
 const realConfig = JSON.parse(fs.readFileSync(path.join(REAL_HOME, '.win-claude-workbench', 'config.json'), 'utf8'));

@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 (async () => {
 // LIVE tool-loop E2E: real DeepSeek v4-pro must call file_read (function calling) on a real temp file
 // and report its secret marker. Proves real function-calling through the workbench agent loop.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -62,7 +63,7 @@ function postStream(port, payload) {
     ok(think.length >= 0, 'reasoning chars=' + think.length);
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true }); // wipe temp config (contains the key)
     console.log('\nDEEPSEEK-TOOLS E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

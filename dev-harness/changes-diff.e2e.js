@@ -8,6 +8,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (d) 不存在的 entry → 404。
 // 零依赖、离线、node 直跑。判定行:`CHANGES-DIFF E2E: ALL PASS`。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os'), zlib = require('zlib');
 const { getFreePort } = require('./free-port.js');
 
@@ -69,7 +70,7 @@ function getJson(port, p, headers) { return new Promise(resolve => { const r = h
     ok(miss.status === 404, '(d) 不存在的 entry → 404');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch {} }
     await sleep(300); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nCHANGES-DIFF E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;

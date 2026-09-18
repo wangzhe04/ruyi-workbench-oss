@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (a) startup sync writes settings.json WITHOUT an appendSystemPrompt key, but WITH the supported keys;
 //   (b) a pre-existing stale appendSystemPrompt key is stripped while unrelated keys are preserved;
 //   (c) the --append-system-prompt flag IS still passed to the (fake) Claude spawn with the configured value.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -89,7 +90,7 @@ function postStream(port, payload) {
     ok(settings2.model === 'user-hand-written-model', '(d1) hand-written settings.model STILL survives after a turn');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
   }
@@ -121,7 +122,7 @@ function postStream(port, payload) {
       ok(sc2 && sc2.model === null, '(d2) sidecar updated to model:null after cleanup');
     } catch (e) { console.log('ERROR(d2) ' + (e && e.stack || e.message || e)); fail++; }
     finally {
-      if (wb2 && wb2.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb2.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+      if (wb2 && wb2.pid) { try { killOwnTree(wb2); } catch { /* ignore */ } }
       await sleep(300);
       fs.rmSync(HOME2, { recursive: true, force: true });
       console.log('\nE2-APPEND-SYSTEM-PROMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

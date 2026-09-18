@@ -3,6 +3,7 @@
 // surface tool_use('web_search') with a serverSide result (NO local execution) and still answer.
 // Usage: node dev-harness/deepseek-ws-ruyi-live.js <DEEPSEEK_API_KEY> ["query"]
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -55,7 +56,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(result && result.ok === true, 'result ok=true');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(home, { recursive: true, force: true });
     console.log('\nDEEPSEEK-WS-RUYI-LIVE: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

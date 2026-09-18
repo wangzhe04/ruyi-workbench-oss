@@ -26,6 +26,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * 离线、零依赖。内联 fake-openai(9107) + workbench(9108)。判定行(exact): JUDGE-JSON-REPAIR E2E: ALL PASS
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -46,7 +47,7 @@ const IN_PER_M = 1, OUT_PER_M = 2, CUR = 'CNY';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
 
 // ---------- the exact production failure sample (markdown tables + trailing ```json fence + unescaped inner quotes) ----------
 const BADFIX_SAMPLE = [

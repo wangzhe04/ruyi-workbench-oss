@@ -8,6 +8,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      断言:回合后 mission.changeSeq >= 1(若 clobber 会回到 0)。
 //  (b) 单调:连续 transition(CAS 原语)每次推进 changeSeq;POST /api/mission update 后保留(不回写旧值)。
 //  (c) 静态锁:bumpMissionChangeSeq / missionChangeSeqHighWater / changeSeq 字段在 server.js。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -20,7 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function requestJson(port, pathname, body, token) {
   return new Promise((resolve, reject) => {

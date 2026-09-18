@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   C) /api/status carries the errorClasses table top-level (the error-humanization UI's source of truth),
 //      with the expected keys + {zh,next} shape.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -76,7 +77,7 @@ function systemOf(reqBody) {
   else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
   return ((sys && typeof sys.content === 'string') ? sys.content : '') + '\n' + userText;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function seedConfig(home, extra) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',

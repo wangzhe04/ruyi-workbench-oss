@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (f) Regression: a session with NO skills enabled → provider system has no skill section + tools has no skill_read.
 //   (g) P2-2 source lock: a skill enabled from the original cwd (source=builtin) is NOT injected after a turn runs
 //       in a different cwd where a same-id PROJECT skill shadows it (source mismatch → injection skipped).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const { getFreePort } = require('./free-port.js');
@@ -118,7 +119,7 @@ function startFake(extraEnv) {
     setTimeout(resolve, 400);
   });
 }
-function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 250); }); }
+function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { killOwnTree(fake); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 250); }); }
 
 (async () => {
   let fail = 0;
@@ -295,7 +296,7 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     await stopFake();
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSKILLS-REGISTRY E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

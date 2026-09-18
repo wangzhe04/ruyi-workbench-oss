@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       → turn2 成功(带压缩痕迹)= CLI 自管;报错(prompt too long 类)= 工作台须自己做 44c 兜底
 // 成本:haiku,输入 ~230K tokens + 若干小回合,一次 ≈ $0.2-0.3。【非回归件,结果写进路线图即使命完成】
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -23,7 +24,7 @@ const cp = require('child_process');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const srv = require(path.join(WB, 'app', 'server.js'));
 
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function runCli(exe, args, cwd, timeoutMs, stdinText) {
   return new Promise(resolve => {
     const child = cp.spawn(exe, args, { windowsHide: true, cwd, env: process.env });

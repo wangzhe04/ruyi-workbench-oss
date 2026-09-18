@@ -25,6 +25,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     priced from the provider pricing (11/7 tokens), and totals.auxCalls === 1.
 // Judgement line (exact): USAGE-SUBAGENT-LEDGER E2E: ALL PASS
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -90,7 +91,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('stream timeout')); }); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/).filter(l => l.trim()); } catch { return []; } }
 function readRecs() { return readLedgerLines().map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
 const runOf = (r, runId) => r && Array.isArray(r.runs) && r.runs.find(x => x.id === runId);

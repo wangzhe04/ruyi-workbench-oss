@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // [H] Live:digest 轻量视图字段、events afterSeq 补播(幂等重放)+ limit/hasMore + 坏行免疫 + 鉴权 403 + 跨会话空、
 //     【验收锁】增量模式传输字节 ≤ 全量模式 20%(忠实模拟客户端算法 N tick)、run.metrics 干预计数、ops 指标端点、单 run GET live 叠加。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后前端增量缓存逻辑搬到 js/ 域文件,单读 app.js 9 条 S 锁恒红
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
@@ -18,7 +19,7 @@ const WS = path.join(HOME, 'ws');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function req(method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {

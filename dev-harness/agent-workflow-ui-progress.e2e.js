@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  * - (C) A Claude-engine node (fake-claude long-text fixture) persists a "生成中 · N 字" streamed-text
  *       milestone, and the final "子 Agent 完成" entry appends independently without overwriting it.
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -30,7 +31,7 @@ const SLOW_TOOL_ROUNDS = 3; // enough tool rounds (each delayed) to keep the Ope
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
-function kill(p) { if (p && p.pid) try { cp.execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
 function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
 async function emitText(res, id, text) {
   sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });

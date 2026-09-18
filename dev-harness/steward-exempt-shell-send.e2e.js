@@ -23,6 +23,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 它只在进程内走 steward_decide 与判据本身 —— 这两处不执行工具。
 //
 // 端口全部 getFreePort()。判定行:`STEWARD EXEMPT SHELL_SEND E2E: ALL PASS`。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -34,7 +35,7 @@ const sessionsDir = path.join(HOME, 'sessions');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 const PROVIDER_PORT = await getFreePort();
 const WB_PORT = await getFreePort();

@@ -14,6 +14,7 @@
 //  P2 #8 saveSession/writeConfigAtomic 唯一 tmp 名(pid+随机),不再固定 '.tmp' 被并发写者互踩成 .corrupt。 —— 源(B)
 //  P2 #9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染,残缺结果不再当干净成功)。 —— 源(B)
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const fs = require('fs');
 const path = require('path');
@@ -268,7 +269,7 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
     failures++; console.log('ERROR(C) ' + (e && e.stack || e));
     if (wbLog.length) console.log('--- wb log tail ---\n' + wbLog.slice(-15).join('\n'));
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     try { fake401.close(); } catch { /* ignore */ }
     await sleep(300);
   }

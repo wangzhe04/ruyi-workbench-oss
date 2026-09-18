@@ -9,6 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       token-browser(浏览器须 token;loopback 非浏览器须同源,无需 token),与 sessions/skills 同纪律。
 //   (D) 回归:各鉴权级别语义不变——open(status)/token-browser(sessions,loopback 豁免)/token(agent-runs,始终须 token)。
 // 连接始终打 127.0.0.1:PORT,仅 Host/Origin/token 头手工构造。端口 9126。无需 fake provider。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -119,7 +120,7 @@ function probe(port, method, p, headers, body) {
     }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nAUTH-DENY-DEFAULT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

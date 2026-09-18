@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     * the fake server (no server-side web_search here) answers with plain text — no tool invoked.
 // Run: node dev-harness/responses-websearch-fake.e2e.js
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePorts } = require('./free-port.js');
@@ -137,7 +138,7 @@ async function runPhase(serverWebSearch, label) {
     const first = servedBodies[0] || {};
     return { events, toolUses, toolResults, text, result, first, servedCount: servedBodies.length };
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -176,7 +177,7 @@ try {
   ok(b.result && b.result.ok === true, 'B: result ok=true');
 } catch (e) { console.log('ERROR ' + e.message); fail++; }
 finally {
-  for (const wb of wbs) { if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+  for (const wb of wbs) { if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } } }
   await sleep(300);
   try { server.close(); } catch { /* ignore */ }
   console.log('\nRESPONSES-WEBSEARCH-FAKE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

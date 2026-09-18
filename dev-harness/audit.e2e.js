@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      plaintext secret NEVER appears anywhere in the response body).
 //  (f) limit clamp: limit=9999 → server clamps to ≤500 (asserted via entries.length ≤ 500).
 // Token手法 copied from checkpoint.e2e.js (meta scrape). Direct tool calls carry sessionId so they journal.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -58,7 +59,7 @@ function spawnFake() {
   fake.stdout.on('data', () => {});
   return fake;
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function fakeReachable() { return new Promise(resolve => { const net = require('net'); const s = net.connect({ host: '127.0.0.1', port: FAKE_PORT }, () => { s.destroy(); resolve(true); }); s.on('error', () => resolve(false)); s.setTimeout(500, () => { s.destroy(); resolve(false); }); }); }
 async function waitFakeUp() { for (let i = 0; i < 50; i++) { if (await fakeReachable()) return true; await sleep(100); } return false; }
 

@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  - switch OFF + 12 pure reads -> strategy=serial (>8 falls back to serial, legacy behavior)
 //  - mixed read+edit+read       -> strategy=serial (islands are E2b; E2a must not touch mixed batches)
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -43,7 +44,7 @@ function postStream(port, payload) {
 }
 function killTree(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
+  try { killOwnTree(child); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
 }
 function readLogs(home) {
   return fs.readdirSync(path.join(home, 'logs')).filter(f => /^workbench-.*\.ndjson$/.test(f))

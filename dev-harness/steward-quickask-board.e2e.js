@@ -25,6 +25,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 再起一次 —— 停机重启是为了绕开投影索引的进程内缓存(buildOrLoadPretenderIndex 只在内存副本
 // 缺席时才重扫会话目录),让夹具的确定性不依赖脏页标记的时序。零模型、零回合。
 // ════════════════════════════════════════════════════════════════════════════════════════════
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const MissionState = require('../ruyi-workbench/app/public/js/mission-state.js');
@@ -43,7 +44,7 @@ function postJson(port, p, payload, headers) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 
 (async () => {
   const WB_PORT = await getFreePort();

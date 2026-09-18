@@ -14,6 +14,7 @@
 // Usage: node dev-harness/deepseek-ab-live.js <API_KEY> [MODEL=deepseek-v4-flash]
 // Requires network + a real DeepSeek key (argv, never persisted; temp config wiped after).
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -145,7 +146,7 @@ async function runOneStyle(styleName, tasks, runIdx) {
       console.log(`  [${run.style}] ${task.id}: ${done.wallMs}ms wall, ${done.httpCalls} HTTP calls, in=${done.input} out=${done.output} cached=${done.cached} (${(done.cachedRatio * 100).toFixed(1)}%), ¥${done.cost.toFixed(4)}${done.ok ? '' : ' ERR ' + done.error}`);
     }
   } finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(home, { recursive: true, force: true });
   }

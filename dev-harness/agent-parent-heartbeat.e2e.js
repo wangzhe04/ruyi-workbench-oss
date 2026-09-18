@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // Regression: an in-chat multi-agent tool call keeps its parent turn alive both while a child provider is
 // actively streaming and during a quiet workflow window. Quiet workflow heartbeats must not mask the DAG's
 // own idle watchdog: the wedged node is still aborted and its failed workflow result returns to the parent.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -84,7 +85,7 @@ function streamChat(body) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('chat timeout')); }); req.write(raw); req.end();
   });
 }
-function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} }
+function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} }
 
 (async () => {
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });

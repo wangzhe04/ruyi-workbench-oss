@@ -1,5 +1,6 @@
 // Decisive diagnosis: does a MINIMAL FastMCP serve tools over stdio here, and does the REAL
 // ai-computer-control v1.3 serve its 83 over stdio? Raw MCP JSON-RPC, newline-delimited.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -42,7 +43,7 @@ function probe(label, command, args, cwd, extraEnv) {
         count = tools.length; first = tools.slice(0, 6).map(t => t.name).join(', ');
       } catch (e) { err = (err ? err + '; ' : '') + e.message; }
       finally {
-        try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+        try { killOwnTree(child); } catch { /* ignore */ }
         console.log(`\n[${label}]`);
         console.log('  serverInfo:', JSON.stringify(serverInfo));
         console.log('  TOOL COUNT:', count);

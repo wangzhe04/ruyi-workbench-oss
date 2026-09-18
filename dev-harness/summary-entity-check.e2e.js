@@ -18,6 +18,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       场景2 修补稿结构非法 → 保留原稿,总摘要调用恰好 2 次(不无界重试)
 //       场景3 显式关闭 → 总摘要调用恰好 1 次,原样采用首稿(可回退旧行为)
 // ─────────────────────────────────────────────────────────────────────────────
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -221,7 +222,7 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
       out.ok = true;
     } catch (e) { out.error = e.message; }
     finally {
-      for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+      for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
       fs.rmSync(HOME, { recursive: true, force: true });
     }
     return out;

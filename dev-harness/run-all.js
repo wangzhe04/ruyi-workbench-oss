@@ -2,7 +2,7 @@
 // CI / 本地共用串行/并行 e2e runner(零依赖,Windows-first)。
 //
 // 遍历 dev-harness/*.e2e.js,排除 live 件(真 key/真子进程),串行或并行跑,汇总。
-// 每件超时 taskkill /F /T /PID 杀整进程树(防 server.js 孙进程残留占端口)。
+// 每件超时 killOwnTree 收整棵自己的树(128c:核创建时间,不再用 taskkill /T;防 server.js 孙进程残留占端口)。
 // 退出码:任一失败 -> 1。
 // 第46波: 开跑前先过 unit 快通道(node --test dev-harness/unit/*.test.js,挂即拒跑);
 // 失败件自动重跑一次,二跑通过记 [flaky](汇总可见),仍失败才算红。
@@ -15,6 +15,7 @@
 //
 // 设计依据见 docs/archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md 第34波(CI 基建) + 第38波(V1.8-A 并行化)。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -251,7 +252,7 @@ function listE2e() {
     .sort();
 }
 
-// 跑一件:spawn + 超时 taskkill /T 杀整树(Windows 孙进程兜底)。
+// 跑一件:spawn + 超时 killOwnTree 收整棵自己的树(Windows 孙进程兜底;128c 起不再用 taskkill /T)。
 // 122 波 §2.7:每件一份独立临时家(perTest mkdtemp),不再整轮共用 —— 先跑的件往共用家写
 // .claude.json,后跑的件又把它当"外部已装"的 MCP 导入,是 websearch 在 8 路全量下红的真根。
 // ok 件跑完(close 之后)就地 rmSync 回收;失败件保留目录并把路径打进该件输出,便于取证。
@@ -283,10 +284,10 @@ function runOne(file) {
     child.stderr.on('data', d => (stderr += d));
     const timer = setTimeout(() => {
       timedOut = true;
-      // /T = 杀进程树(含 server.js 孙进程);/F = 强制。Windows-only,非 Windows 退化为 kill。
+      // 收整棵自己的树(含 server.js 孙进程):lib/kill-own-tree 按创建时间认子孙,父号过期撞号的陌生进程不算。
       try {
         if (process.platform === 'win32') {
-          cp.execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'ignore' });
+          killOwnTree(child);
         } else {
           try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
         }
@@ -363,7 +364,7 @@ async function main() {
 
   console.log(`# Ruyi e2e runner`);
   console.log(`# 件数: ${files.length} ran / ${SKIP.size} skipped(live)`);
-  console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,${PARALLEL > 1 ? `并行(${PARALLEL}路)` : '串行(taskkill /T 杀整树)'}`);
+  console.log(`# 超时: ${TIMEOUT_MS / 1000}s/件,${PARALLEL > 1 ? `并行(${PARALLEL}路)` : '串行(killOwnTree 收整树)'}`);
   console.log(`# Node ${process.version}, platform ${process.platform}`);
   // 27 号文 §11.21.7 债④:夹具一律拿临时家,真机家只以 RUYI_REAL_HOME 的形式传下去(守卫的判据源)。
   // 122 波 §2.7:不再是整轮共用一份 —— 每一件各自 mkdtemp 一份独立临时家,跑完(仅 ok 件)即删,

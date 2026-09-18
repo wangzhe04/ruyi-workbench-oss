@@ -1,5 +1,6 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { getFreePort } = require('./free-port.js');
 // E2E for v0.9-S2 (C2 / §7.8): Playbooks. Backend-testable slices only; the empty-state card grid + form
 // modal are verified via the preview self-check (see delivery notes), not headless DOM here.
@@ -99,7 +100,7 @@ function lastUserTextOf(reqBody) {
   const u = [...msgs].reverse().find(m => m && m.role === 'user');
   return (u && typeof u.content === 'string') ? u.content : '';
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function seedConfig(home, extra) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',

@@ -2,6 +2,7 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // 105h / 4.3 第二项: <=4 块顺序 refine。总门无净收益,默认关;任一步失败整条回退现有 map-reduce。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -15,7 +16,7 @@ const { getFreePort } = require('./free-port.js');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (value, label) => value ? console.log('PASS ' + label) : (failures++, console.error('FAIL ' + label));
-function kill(proc) { if (proc && proc.pid) try { cp.execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /* ignore */ } }
 function fakeUp(port, env) {
   const proc = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(port)], {
     env: { ...process.env, FAKE_OPENAI_PORT: String(port), ...env }, windowsHide: true,

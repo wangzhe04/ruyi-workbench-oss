@@ -24,6 +24,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  * 全离线,端口全部用 getFreePort() 动态取(不占用 8700-9199 登记带)。
  * 判定行:`START ERROR SURFACE E2E: ALL PASS`。
  */
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const net = require('net');
@@ -96,7 +97,7 @@ function readRuntime(home) {
 }
 function killTree(child) {
   if (!child || child.exitCode !== null) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); }
+  try { killOwnTree(child); }
   catch { try { child.kill(); } catch { /* already gone */ } }
 }
 

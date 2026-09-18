@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   (4) 项目记忆随 cwd 切换正确换组(两个临时项目各自 projectKey 隔离).
 //   (5) 默认项目+全局轻量检索、零命中回执、会话排除/关闭/恢复默认。
 //   extras: cwd 越界回退;伪造围栏中和;8000 合成三段优先级(用户 > 技能 > 记忆).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 
 const { getFreePort } = require('./free-port.js');
@@ -118,7 +119,7 @@ function readLedgerRows() { try { const dir = path.join(HOME, 'usage'); return f
 
 let fake = null;
 function startFake(extraEnv) { return new Promise(resolve => { fake = cp.spawn(process.execPath, [FAKE, String(FAKE_PORT)], { windowsHide: true, env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_CAPTURE_DIR: CAP_DIR, FAKE_DRAFT_JSON: DRAFT_JSON, ...extraEnv } }); fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim())); fake.stderr.on('data', d => String(d).trim() && console.log('[fake!] ' + String(d).trim())); setTimeout(resolve, 400); }); }
-function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { cp.execFileSync('taskkill', ['/PID', String(fake.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 200); }); }
+function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { try { killOwnTree(fake); } catch { /* ignore */ } } fake = null; setTimeout(resolve, 200); }); }
 
 // save a memory via the API; returns the saved {id,scope,file,...}
 async function saveMem(id, scope, name, description, body, cwd, type = 'convention') {
@@ -465,7 +466,7 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     await stopFake();
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     fs.rmSync(OUTSIDE, { recursive: true, force: true });

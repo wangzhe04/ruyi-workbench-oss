@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // BRIDGED tool `fake__echo`; the workbench's in-process MCP stdio client forwards it to fake-mcp.js
 // (a stdio JSON-RPC MCP child); the result is fed back and the model echoes it. Fully offline.
 //   model -> workbench -> McpStdioClient -> fake-mcp child -> result -> back to model
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -75,7 +76,7 @@ function postStream(port, payload) {
     ok(result && result.ok === true, 'result ok=true');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(400);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nMCP-BRIDGE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

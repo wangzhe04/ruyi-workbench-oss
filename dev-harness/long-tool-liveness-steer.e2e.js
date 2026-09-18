@@ -2,6 +2,7 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: a quiet bridged tool stays visible/alive without model polling, then a provider steer interrupts it,
 // closes the tool-call pair, and reaches the next model iteration without waiting for the original 30s sleep.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -17,7 +18,7 @@ const PID_CAPTURE = path.join(HOME, 'fake-mcp.pid');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (value, label) => { if (value) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
-const kill = child => { if (child && child.pid) try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} };
+const kill = child => { if (child && child.pid) try { killOwnTree(child); } catch {} };
 
 function get(port, pathname, headers = {}) {
   return new Promise(resolve => {

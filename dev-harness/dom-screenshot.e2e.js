@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // Node's zlib and compares a 12x8 perceptual grid. Use --update only when an intentional visual change has
 // been reviewed in both themes.
 
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -205,7 +206,7 @@ function compare(actual, expected) {
     console.log('ERROR ' + (error && error.stack || error)); fail += 1;
   } finally {
     if (server.pid) {
-      try { cp.execFileSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+      try { killOwnTree(server); } catch { /* ignore */ }
     }
     // 125 治抖（40 号文 §8.4 ⓪）：**本件是全仓唯一不收尸的浏览器夹具** —— 117q 那次普查把 10 件漏调
     // stopRuyiTestBrowsers 的补齐了，唯独它因为走 spawnSync（同步、以为「回来了就没了」）被漏掉。

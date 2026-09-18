@@ -12,6 +12,7 @@
 //      update 把剩余标 done -> 路由路径盖 complete 章;重复 update 不重复盖章(finishedAt 稳定)。
 //  (c) 旧会话诚实标注:第72波前回合(turnSummary 无 irreversible 字段)-> legacyCommands 单列,不混入新账。
 //  (s) 静态锁:02 账/结果模型/盖章点,13 stop+update 接线,09 回合内接线,13d 快照字段。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
@@ -24,7 +25,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} } }
+function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch {} } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function requestJson(port, pathname, body, token) {
   return new Promise((resolve, reject) => {

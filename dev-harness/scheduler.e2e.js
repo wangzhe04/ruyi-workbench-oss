@@ -28,6 +28,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // fake 引擎:本件自带一个进程内的 OpenAI 兼容小服务(同 mission-start-race.e2e.js 的做法),
 // 按【用户消息里的暗号】分叉 —— PLAIN 直接回一句、BOOM 回 HTTP 500(造失败)、TOOLCALL 发起一次
 // file_write(edit 档 -> 在 default 权限下 gate 判 ask,正是 J 组要的)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -46,7 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch { /* already gone */ } } }
 function readToken() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } }
 function setClock(ms) { fs.writeFileSync(CLOCK, String(Math.round(ms)), 'utf8'); }
 function firesRows() {

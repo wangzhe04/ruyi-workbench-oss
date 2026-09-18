@@ -21,6 +21,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 载荷一律用 reminder:四个崩溃点在 reminder 分支上全都可达(见 13s schedulerFireOnce),
 // 于是本件不需要任何模型端点 —— 崩溃时序本身就够难量了,不该再叠一个 provider 的不确定性。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 
@@ -37,7 +38,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-function kill(child) { if (child && child.pid) { try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } } }
+function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch { /* already gone */ } } }
 function readRuntime() { try { return JSON.parse(fs.readFileSync(path.join(HOME, 'runtime.json'), 'utf8')); } catch { return null; } }
 function setClock(ms) { fs.writeFileSync(CLOCK, String(Math.round(ms)), 'utf8'); }
 function firesRows() {

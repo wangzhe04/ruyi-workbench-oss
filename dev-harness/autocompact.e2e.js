@@ -36,6 +36,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   f) a follow-up ordinary turn still answers (compaction didn't break the engine)
 //   g) module.exports estimateHistoryTokens direct unit: pure-CJK ≈ len/1.5 (±10%); a tool_calls
 //      assistant msg counts its arguments length
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -222,7 +223,7 @@ function postStream(port, payload) {
     ok(text2.trim().length > 0, 'post-compaction follow-up streamed a reply ("' + text2.slice(0, 30).replace(/\n/g, ' ') + '")');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nAUTOCOMPACT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

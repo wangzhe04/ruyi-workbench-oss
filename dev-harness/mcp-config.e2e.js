@@ -3,6 +3,7 @@
 // `ai-computer-control` when desktopMcp.enabled with an explicit command; and must OMIT it (back-compat:
 // identical to pre-0.7d) when disabled. We drive it via a temp HOME + GET /api/status, and also read
 // the generated config file on disk.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
@@ -43,7 +44,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
     }
   } catch (e) { console.log('ERROR [' + label + '] ' + (e && e.message || e)); out.fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(250);
     fs.rmSync(HOME, { recursive: true, force: true });
   }
@@ -148,7 +149,7 @@ async function runImportFolder(port) {
     ok(r11.status === 200 && r11.json && r11.json.ok === false && r11.json.error?.code === 'api.request_failed' && /上限/.test(r11.json.error?.message || ''), '⑤ 超 10 条 → 结构化上限错误');
   } catch (e) { console.log('ERROR [import] ' + (e && e.message || e)); out.fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep2(250);
     fs.rmSync(HOME, { recursive: true, force: true });
   }
@@ -229,7 +230,7 @@ async function runDropIn(fakePort, wbPort) {
     delete process.env.RUYI_HOME;
   } catch (e) { console.log('ERROR [dropin] ' + (e && e.stack || e)); out.fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
   }

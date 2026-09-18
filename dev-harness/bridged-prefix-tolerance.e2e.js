@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // (B) 实弹(best-effort,需真 ACC python):fake-openai 发【裸名 diagnostics】→ 经桥回真 ACC → 版本 1.8.0,
 //     不再是「Unknown tool」。python/依赖缺失 → SKIP,不算失败。
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const REPO = [path.resolve(__dirname, '..', 'ai-computer-control'), path.resolve(__dirname, '..', 'mcp', 'ai-computer-control')]
@@ -105,7 +106,7 @@ function postStream(port, payload) {
     }
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(400); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nBRIDGED-PREFIX-TOLERANCE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;

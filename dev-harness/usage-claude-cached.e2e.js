@@ -22,6 +22,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ④ 下游 GET /api/usage/summary:totals.cachedInTok 与 byEngine claude 一行都反映非零缓存,
 //      不再对 Claude 会话恒为空(用户可见口径的最终验收点)。
 // Judgement line (exact): USAGE-CLAUDE-CACHED E2E: ALL PASS
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -77,7 +78,7 @@ function postStream(port, payload) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('stream timeout')); }); req.write(data); req.end();
   });
 }
-function killp(c) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
 function readRecs() { try { return fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/).filter(l => l.trim()).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; } }
 const runOf = (r, runId) => r && Array.isArray(r.runs) && r.runs.find(x => x.id === runId);
 const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' || s === 'stopped' || s === 'cancelled';

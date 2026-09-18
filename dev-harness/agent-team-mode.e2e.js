@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // Agent 团队 composer mode: UI one-shot contract + live dual-driver prompt injection.
 // Fully offline: fake OpenAI captures request bodies; fake Claude captures argv.
 'use strict';
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
 const cp = require('child_process');
 const fs = require('fs');
@@ -23,7 +24,7 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
 
 function killTree(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* exited */ }
+  try { killOwnTree(child); } catch { /* exited */ }
 }
 function get(port, pathname, headers = {}) {
   return new Promise(resolve => {

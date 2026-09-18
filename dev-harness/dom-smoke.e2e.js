@@ -17,6 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // v1 不覆盖(留给第50波视觉回归门的 v2): 控制台错误捕获、交互(点开弹层/DAG 编辑器)、截图对比。
 // dump-dom 无交互能力,这是刻意取舍而非遗漏。
 (async () => {
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
@@ -145,7 +146,7 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
     }
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    if (wb && wb.pid) { try { cp.execFileSync('taskkill', ['/PID', String(wb.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } }
+    if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     stopRuyiTestBrowsers(profile);

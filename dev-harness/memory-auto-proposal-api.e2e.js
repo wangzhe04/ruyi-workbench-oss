@@ -1,6 +1,7 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 // R4-S3 real HTTP path: successful provider turn -> quiet model judge -> user decision, with cooldown.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -59,7 +60,7 @@ const { getFreePort } = require('./free-port.js');
   const stop = child => {
     if (!child || !child.pid) return;
     try {
-      if (process.platform === 'win32') cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      if (process.platform === 'win32') killOwnTree(child);
       else child.kill('SIGKILL');
     } catch { /* already exited */ }
   };

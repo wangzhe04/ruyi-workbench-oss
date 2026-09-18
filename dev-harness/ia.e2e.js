@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 'use strict';
 // Workspace information-architecture contract. The right pane is for user-visible files, outputs,
 // changes and progress; model-facing execution tools stay behind the conversation/runtime boundary.
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -45,7 +46,7 @@ function getJson(port, requestPath) {
 }
 function killp(child) {
   if (!child || !child.pid) return;
-  try { cp.execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ }
+  try { killOwnTree(child); } catch { /* ignore */ }
 }
 
 let fail = 0;

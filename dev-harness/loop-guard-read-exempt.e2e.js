@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // A 段(read 豁免): file_read{path: <same>} 重复 6 次 → 第 3 次起 loopWarning,但【不 abort】,6 次全执行,
 //   结果 errorClass !== 'tool_loop'(正常结束)。
 // B 段(轮询豁免): 同一 wait_agents(无 runId)重复 6 次 → 连 loopWarning 都不该出现(轮询原语完全豁免)。
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -83,7 +84,7 @@ function writeConfig(home, fakePort) {
     ok(!(result1 && result1.errorClass === 'tool_loop'), 'A: errorClass 非 tool_loop(read 不 abort, got ' + (result1 && result1.errorClass) + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
   }
 
@@ -117,7 +118,7 @@ function writeConfig(home, fakePort) {
     ok(!toolResults.some(t => t && t.content && t.content.loopAborted === true), 'B: 无 loopAborted(轮询原语豁免)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of procs) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of procs) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nLOOP-GUARD READ-EXEMPT E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

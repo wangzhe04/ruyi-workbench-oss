@@ -3,6 +3,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // E2E (v0.8-S0): session durability. Verifies the atomic write (no *.tmp residue), corrupt-file
 // isolation (.corrupt + 404 + list survives), the top-level configSchema/version, and turnSeq +
 // schemaVersion after two turns. Offline (fake-openai plain-chat path; no tools needed).
+const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = require('path').resolve(__dirname, '..', 'ruyi-workbench');
 const { getFreePort } = require('./free-port.js');
@@ -99,7 +100,7 @@ function postStream(port, payload) {
     ok(!stillBad, 'original corrupt .json was renamed away');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
-    for (const c of [wb, fake]) { if (c && c.pid) { try { cp.execFileSync('taskkill', ['/PID', String(c.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* ignore */ } } }
+    for (const c of [wb, fake]) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
     await sleep(300);
     fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nSESSION-ATOMIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
