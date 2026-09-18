@@ -37,7 +37,7 @@ for (const f of files) {
 ok(offenders.length === 0, `① 测试框架里没有一处 taskkill /T 调用(实得 ${offenders.length}${offenders.length ? ':' + offenders.slice(0, 8).join(' ') : ''})`);
 
 const users = files.filter(f => /require\(['"][./]*(?:lib\/)?kill-own-tree['"]\)|require\(['"]\.\.\/lib\/kill-own-tree['"]\)/.test(fs.readFileSync(f, 'utf8')));
-const KILL_OWNERS = 251;   // codemod 250 件(含 run-all 的超时收尸)＋ kimi-acp-live-probe(手改);unit/kill-own-tree.test.js 走绝对路径不计
+const KILL_OWNERS = 252;   // codemod 250 件(含 run-all 的超时收尸)＋ kimi-acp-live-probe(手改)＋ 128e 新件 mcp-resource-config-mask;unit/kill-own-tree.test.js 走绝对路径不计
 ok(users.length === KILL_OWNERS, `③ 用 killOwnTree 的文件数钉成 ${KILL_OWNERS}(实得 ${users.length});加减件请回来改这个数`);
 const runAll = fs.readFileSync(path.join(HARNESS, 'run-all.js'), 'utf8');
 ok(/killOwnTree\(child\)/.test(runAll) && !/taskkill \/F \/T/.test(runAll.replace(/\/\/.*$/gm, '')),

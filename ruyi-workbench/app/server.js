@@ -43549,8 +43549,13 @@ async function startMcp() {
           // no UNC/SMB egress from an "offline" tool).
           const resolved = path.resolve(p);
           if (resolved.toLowerCase() !== path.resolve(paths.config).toLowerCase()) throw new Error('resource not found');
-          const content = await fsp.readFile(resolved, 'utf8');
-          return sendMcp(msg.id, { contents: [{ uri, mimeType: 'text/plain', text: content }] });
+          // 128e(48 号文 §1,实测坐实):修前这里把 config.json【原样】读出来返回 —— 明文的 provider apiKey、Claude CLI 的
+          // modelsApiKey、外部 MCP 连接器 env 里的令牌,连到工作台 MCP 的模型用读资源的工具就能拿走(GET /api/status 早在
+          // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。
+          // 现在交出去的是与 /api/status 同一份掩码视图(maskProviders,不另写一套),并且是归一化后的整份配置 ——
+          // 128a 之后盘上是稀疏文件,原样读反而给不出「当前生效的配置」。
+          const view = maskProviders(await readConfig());
+          return sendMcp(msg.id, { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(view, null, 2) }] });
         }
         if (msg.id !== undefined) return sendMcp(msg.id, {});
       } catch (err) {

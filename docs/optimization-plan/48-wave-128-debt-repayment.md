@@ -220,3 +220,19 @@ dry 模式喂合成进程表、只打计划，供单测钉「撞号的陌生人�
 **全量**：**356/2、1 flaky**，退出码 1，进程快照一致。两红是 `mission-result` s13 与 `acceptance-provenance` f2 —— 两把静态锁钉着任务核验路由的旧形状：
 s13 放宽到接受 `fresh`；f2 从「落章紧跟着检查（400 字内）」**改钉这条数据链本身**（真跑 → results → byId → 取回 → 落章），反向：把取回改成凭空构造的结果 → f2 红。改后两件 2/2 绿。
 flaky `steward-quick-ask` I3（「会话头 turnSeq === 1，got 0」）**首次出现**，登记跟踪。`classic-window-live-steer` H8 这一轮没红（诊断已在测试里待命）。
+
+### 128e · MCP 资源面交出明文密钥（**实测坐实**，已修）＋ URL 准入按证据结案（2026-09-19，主会话亲做）
+
+**先核实可达性**（计划里写的）：新件 `mcp-resource-config-mask.e2e.js` 起真 `server.js mcp` 子进程（隔离家目录、合成配置、三处埋假密钥：provider apiKey、Claude CLI
+`modelsApiKey`、外部 MCP 连接器 env 里的令牌），走 `initialize → resources/list → resources/read`。**对修前代码跑：三处假密钥全部明文读出**（R2／R3 红）。
+`resources/list` 列出一条「Workbench config」，`resources/read` 把 `config.json` 原样读出返回 —— 连到工作台 MCP 的模型（Claude 引擎会话；以及用户自己 Claude Code 里登记了
+工作台 MCP 的会话 —— 本机当下就是）都能用读资源的工具拿走。同一批值在 `GET /api/status` 上 107-S0／S0b 早就掩了，文件工具也把 `config.json` 列为敏感路径拒读 —— 这是绕过两道门的第三条路。
+**已推送的 2.8.0 发布候选（`83e9f7a`）里就有这个洞**（标签与发布是用户的决定，见里程碑汇报）。
+
+**修法**（`13-http-router.js` 资源读取那一支）：交出去的是与 `/api/status` 同一份掩码视图 `maskProviders(await readConfig())`（不另写一套），
+也顺带解决了 128a 之后「盘上是稀疏文件、原样读给不出当前生效配置」的问题。修后同一件：**0 泄漏**、provider 密钥是 `••••e5f6` 并带 `hasKey`、仍是合法 JSON（6599 字的整份视图）。
+MCP 相关 e2e 子集 7/7 绿。`route-inventory` 给这条 MCP 判定点记上本件的覆盖 —— 这一次是真覆盖（它真的发 `resources/read`）。两把件数锁（`fixture-home` RUYI_HOME spawn 149→150、`process-safety` killOwnTree 251→252）按来路同步。
+
+**URL 准入（Brief 第 8 条前半）按证据结案、不改**：拒绝私网／回环地址会直接打坏合法的本机端点（Ollama `127.0.0.1:11434`、LM Studio、本地 ASR）。风险面要看「谁能写这些地址」：
+`steward-config-tier` 里 `providers`／`searchBackend` 是 **forbidden**（管家碰不到），`modelsApiBase`／`externalMcpServers` 是 **confirm**（必须用户亲手确认）⇒
+所有带 URL 的配置都只能由用户设（直接或亲手批准），不存在不可信主体把服务指向内网的路径。**后半（ASR 每会话 ≤1／队列 3 的并发上限从未实现）挪进 128f。**
