@@ -9,7 +9,11 @@ Ruyi is a local Windows application. The workbench server is a single Node.js pr
 dependencies. Use Ruyi.exe serve --open for packaged deployment or node app/server.js serve --open from source.
 
 Ruyi.exe also supports doctor, mcp-config, install, and mcp. Overlay packages can update an installation
-incrementally; verify the overlay identifier and run doctor after applying one.
+incrementally within the same version; verify the overlay identifier and run doctor after applying one. An
+overlay's `minHostVersion` is the version it was built at (`tools/build-overlay.js`), so precheck refuses any
+older host: a cross-version upgrade such as 2.7.0 → 2.8.0 uses the new full package instead (section 8.3).
+Wave 107's P1 drill confirmed this on real packages: the 2.8.0 overlay reports `version incompatible` against a
+2.7.0 install and writes nothing.
 
 The data root defaults to the legacy .win-claude-workbench directory under the user profile. Set RUYI_HOME to move
 it. It contains configuration, chats, uploads, checkpoints, audit logs, generated MCP configuration, skills,
@@ -275,6 +279,13 @@ switch, off by default still means byte for byte identical to the previous relea
 
 ### 8.3 Upgrading from 2.7.0
 
+- **How to upgrade**: download the 2.8.0 Slim or Full **full package**, **extract it into a new folder**, close
+  2.7.0 and start from the new folder. The data root (`.win-claude-workbench` under the user profile by default,
+  or wherever `RUYI_HOME` points) is not inside the install folder, and the new version migrates it on first
+  start. **The 2.8.0 overlay cannot be applied to 2.7.0** (precheck refuses it by version). Keep the old folder
+  until the new version is working: it is your ready-made way back (take the backups in section 8.4 first).
+  Wave 107's P1 drill ran exactly this: data created by 2.7.0, then 2.8.0 started on it, gives `configSchema` 12
+  with the three compaction switches below turned on and every other key unchanged.
 - **`CONFIG_SCHEMA` goes 11 → 12** (wave 107's T1 cut). Apart from the one migration named below there is no
   migration script: other new keys still take their default on the first config read and are written back.
 - Upgraders therefore **gain four things without being asked**: steward delegation on
@@ -291,11 +302,13 @@ switch, off by default still means byte for byte identical to the previous relea
 
 ### 8.4 Rolling back to 2.7.0: back up first, or fields are lost silently
 
-**Why a backup is mandatory** — both confirmed by reading 2.7.0's own code:
+**Why a backup is mandatory** — both confirmed by reading 2.7.0's own code, and the first one measured against
+v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgraded start, all four gone):
 
 1. 2.7.0's `sanitizeProvider` **rebuilds** `providers[].models[]` into `{id, label}` and **writes `config.json`
    back on the first config read**, so `models[].caps` (the speech and vector capability tags),
-   `providers[].audioBaseUrl`, `providers[].asrProtocol` and `hiddenModels` are gone after one start.
+   `providers[].audioBaseUrl`, `providers[].asrProtocol` and `hiddenModels` are gone after one start, and
+   upgrading back to 2.8.0 does not bring them back. The API key survives.
 2. 2.7.0's steward-memory normalization **does not know** `expiresAt` or `scope`, so the next memory write
    rewrites the store and drops both fields. The entries themselves survive.
 
@@ -308,7 +321,8 @@ switch, off by default still means byte for byte identical to the previous relea
 2. **Back up two things, outside the data root**: `<dataRoot>\config.json` (together with `config.json.prev`) and
    the **whole** `<dataRoot>\steward\` directory (`memory-v1.json`, `decisions-v1.ndjson`, and the rest). Copying
    the entire `<dataRoot>` is safer still.
-3. Install 2.7.0, or reapply the older overlay package.
+3. Go back to the 2.7.0 install folder (the old one you kept when upgrading), or extract the 2.7.0 full package
+   again.
 4. **Coming back to 2.8.0, the order matters**: install 2.8.0 first, **then** restore the backed-up `config.json`
    and `steward\` over it, **then** start. Starting first and restoring after lets the startup normalization pass
    run over them once.
@@ -326,6 +340,10 @@ switch, off by default still means byte for byte identical to the previous relea
   `schedulerEnabledV1` and `newThreadEngine` merely go unread and work again after an upgrade. **The only things
   erased are the two classes above**: the **nested** fields inside `providers[]` (`models[].caps`,
   `audioBaseUrl`, `asrProtocol`, `hiddenModels`, rebuilt by `sanitizeProvider`) and steward memory's `expiresAt` / `scope`.
+  The three compaction switch keys belong to the "left on disk, unread" group too: 2.7.0 does not have them.
+- **Downgrading and then upgrading again reopens any compaction switch you turned off in 2.8.0, once**: 2.7.0
+  writes `configSchema` back as 11, so the one-time `< 12` migration runs again when you return to 2.8.0 (measured
+  in wave 107's P1 drill). To keep one off, write `false` again after upgrading back.
 
 ## Brand and compatibility
 

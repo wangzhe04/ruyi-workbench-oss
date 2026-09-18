@@ -34,7 +34,7 @@ Start-Workbench.cmd                      # 便捷启动脚本（内部走上面�
 
 ### 1.3 overlay 增量包套用
 
-发布升级走**增量覆盖包（overlay）**，不重装整包。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256 + `minHostVersion`）。六个动作（第53波 EC-B 起 `precheck`/`audit` 为安全原语）：
+**同一版本内的补丁**走**增量覆盖包（overlay）**，不重装整包；**跨版本升级（如 2.7.0 → 2.8.0）用新的完整包**，见 §7.4 —— 覆盖包的 `minHostVersion` 就是打包时它自己的版本号（`tools/build-overlay.js`），precheck 会拒绝任何更老的宿主（第 107 波 P1 在真包上实测：2.8.0 的覆盖包对 2.7.0 安装报 `version incompatible`，一个字节不写）。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256 + `minHostVersion`）。六个动作（第53波 EC-B 起 `precheck`/`audit` 为安全原语）：
 
 ```cmd
 Manage-Overlay.cmd apply    "C:\...\Ruyi-offline"
@@ -543,6 +543,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ### 7.4 从 2.7.0 升级
 
+- **怎么升**：下载 2.8.0 的 Slim 或 Full **完整包**，**解压到一个新目录**，关掉 2.7.0 之后从新目录启动。数据目录（默认 `~/.win-claude-workbench`，或 `RUYI_HOME` 指的地方）不在安装目录里，新版首次启动时自动迁移。**2.8.0 的覆盖包套不到 2.7.0 上**（precheck 按版本拒绝，见 §1.3）。旧目录先别删：确认新版正常之前，它就是现成的回退路径（回退前的备份见 §7.5）。第 107 波 P1 在真包上演练过这一条：2.7.0 新建的数据 → 2.8.0 启动后 `configSchema` 12、下面第 4 条那三个开关打开，其余键原样。
 - **`CONFIG_SCHEMA` 由 11 抬到 12**（第 107 波 T1）。除下面点名的那一条之外没有别的配置迁移：其余新键仍是在首次读配置时取默认值并回写。
 - **升级用户会自动获得四件**，都不经确认：
   1. **管家代批默认开**（`stewardExemptDelegationV1`）—— 2.7.0 里配着「智能自动」的线程从此可能被管家代批。不想要就按 §7.2 关掉。
@@ -554,9 +555,9 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ### 7.5 回滚到 2.7.0：**先备份，否则会静默丢字段**
 
-**为什么必须备份**（两条都在 2.7.0 的代码里实读确认过）：
+**为什么必须备份**（两条都在 2.7.0 的代码里实读确认过；第 1 条第 107 波 P1 又对 v2.7.0 实测过：造一条带这四样的 provider，降级启动一次，四样全没）：
 
-1. 2.7.0 的 `sanitizeProvider` 把 `providers[].models[]` **重建**成 `{id, label}`，而且**首次读配置就回写 `config.json`** —— 于是 2.8.0 写下的 `models[].caps`（语音／向量能力标签）、`providers[].audioBaseUrl`、`providers[].asrProtocol`、`hiddenModels` **一次启动就没了**。
+1. 2.7.0 的 `sanitizeProvider` 把 `providers[].models[]` **重建**成 `{id, label}`，而且**首次读配置就回写 `config.json`** —— 于是 2.8.0 写下的 `models[].caps`（语音／向量能力标签）、`providers[].audioBaseUrl`、`providers[].asrProtocol`、`hiddenModels` **一次启动就没了**，再升回 2.8.0 也回不来（API Key 照留）。
 2. 2.7.0 的管家记忆规范化**不认** `expiresAt` 与 `scope`，下一次写记忆就整库回写，两个字段一起丢（条目本身不丢）。
 
 `config.json.prev` **只留最近一代**，兜不住这个。
@@ -565,14 +566,15 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 1. **停服**：关掉桌面壳／`Ctrl+C`／结束 `Ruyi.exe serve` 进程，确认没有在跑的回合与定时任务。
 2. **备份两样，拷到数据目录之外**：`<dataRoot>\config.json`（连同 `config.json.prev`）与 `<dataRoot>\steward\` **整个目录**（`memory-v1.json`、`decisions-v1.ndjson` 等）。想更保险就整个 `<dataRoot>` 拷一份。
-3. 装 2.7.0（或套回旧的 overlay 包）。
+3. 回到 2.7.0 的安装目录（升级时留着的那个旧目录），或重新解压 2.7.0 的完整包。
 4. **要回到 2.8.0 时顺序不能反**：先把 2.8.0 装回去，**再**把备份的 `config.json` 与 `steward\` 拷回覆盖，**然后**才启动。先启动再拷，会被启动期那一轮 normalize 写过一遍。
 5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对、`audioBaseUrl` 与「语音识别协议」要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
 
 **另外两件降级时会发生的事，先知道**：
 
 - **定时任务在 2.7.0 里整块不存在**（调度器是 2.7.0 之后才有的）。`scheduler\` 目录留在盘上不动，升回来任务还在、只是这段时间一次都没触发过。
-- **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。
+- **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。三个压缩开关的键也属于「留在盘上、没人读」这一类（2.7.0 没有这三项）。
+- **降级再升级，会把你在 2.8.0 里关掉的压缩开关重新打开一次**：2.7.0 写盘时把 `configSchema` 改回 11，回到 2.8.0 时那道 `< 12` 的一次性迁移会再跑一遍（第 107 波 P1 实测）。要保持关着，升回来之后再写一次 `false`。
 
 ---
 
