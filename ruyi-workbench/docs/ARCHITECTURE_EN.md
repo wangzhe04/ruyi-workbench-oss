@@ -4,9 +4,13 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: `configSchema` **11** · session `schemaVersion` **1** · the tree is the **2.8.0 candidate**
+> Version baseline: `configSchema` **12** · session `schemaVersion` **1** · the tree is the **2.8.0 candidate**
 > (the version line in `package.json` is bumped by wave 107's R1 cut, so it still reads 2.7.0 on disk until then;
-> `CONFIG_SCHEMA` has not moved since 2.7.0 and 2.8.0 does not bump it) · source modules **53** · native tools
+> `CONFIG_SCHEMA` **went 11 → 12 in wave 107's T1 cut** — the three 126-111b/111d/111e compaction switches now
+> default on, and configs at `schema < 12` get a one-shot migration that turns an explicit `false` on disk into
+> `true`. It is needed because `normalizeConfig` is `{ ...defaultConfig(), ...raw }` and `readConfig` writes the
+> whole merged config back, so flipping a default alone reaches no install that ever wrote `config.json`)
+> · source modules **53** · native tools
 > **97** · ACC **108** (v1.9.1).
 >
 > **Four structural changes since v2.5.0**: (1) the source went from 17 modules to **53**, with the number-13 HTTP

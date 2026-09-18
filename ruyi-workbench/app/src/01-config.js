@@ -117,15 +117,24 @@ function defaultConfig() {
     runtimeEvaporateBudgetBoundaryV1: false,
     // 126-111e(25 号文 §1.2): 历史内重复读取去重 —— 同一份文件内容在受保护的尾部里躺着好几份
     // 全文时,较早那几份换成指针(指向后文那一条,并带 rawRef 可回查原件),最新一次留全文。
-    // 默认关;显式 false / 缺省 = 零改写。
-    runtimeHistoryReadDedupV1: false,
+    // 107-T1(46 号文 §5)起【默认开】:真模型配对 A/B 里 L1 单趟释放 token +70.0%/+40.8%,
+    // B 类非劣 12/12。**缺省不再等价旧行为** —— 只有【显式 false】才回到零改写;而且 schema<12
+    // 的存量配置会被 normalizeConfig 里那段一次性迁移把显式 false 翻成 true(2.8.0 之后再关的不动)。
+    runtimeHistoryReadDedupV1: true,
     // 126-111d(25 号文 §1.2): 摘要 prompt 双语。开关开且 locale 是 en-US 时用英文那份
-    // (判据与 06b 的 getPromptPack 同一条,不另立第二套语言口径)。默认关 = 逐字节仍是中文。
-    runtimeSummaryPromptI18nV1: false,
+    // (判据与 06b 的 getPromptPack 同一条,不另立第二套语言口径)。
+    // 107-T1(46 号文 §5)起【默认开】:关臂 6/6 给英文界面发中文摘要,开臂 6/6 英文。
+    // **缺省不再等价旧行为** —— 只有【显式 false】才逐字节仍是中文;schema<12 的存量配置里
+    // 显式的 false 会被 normalizeConfig 那段一次性迁移翻成 true。locale=auto/zh-CN 逐字节不变。
+    runtimeSummaryPromptI18nV1: true,
     // 126-111b(25 号文 §1.2): L2 尾部按【单元】保留 —— 最新一整个 user 回合放不下时,不再一条不留,
     // 而是按「assistant(tool_calls)＋其全部 tool 回复」这样的完整单元从尾部装;保留段以 assistant
-    // 打头时插一条桥接 user 消息。默认关 = 逐字节等价今天(装不下就 kept=[])。
-    runtimeReseedTailUnitsV1: false,
+    // 打头时插一条桥接 user 消息。
+    // 107-T1(46 号文 §5)起【默认开】:空尾重播种 11 次 → 0 次(门 −80%,实测 −100%);
+    // 代价是 L2 次数 1.83 → 3.50、摘要费用 +60%,已写进 2.8.0 发行说明。
+    // **缺省不再等价旧行为** —— 只有【显式 false】才回到「装不下就 kept=[]」;schema<12 的存量
+    // 配置里显式的 false 会被 normalizeConfig 那段一次性迁移翻成 true。
+    runtimeReseedTailUnitsV1: true,
     // 126-111c(25 号文 §1.2): 重播种后把【最近读过的文件】有界地重附回去。默认关;
     // 显式 false / 缺省 = reseed 结果逐字节不变(零注入)。
     runtimeReseedReattachFilesV1: false,
@@ -134,7 +143,7 @@ function defaultConfig() {
     runtimeObservationRecallV1: true,
     // 105b: session-notes.md 状态外置 —— L2 摘要成功后把【已确认的决定】/【未完成事项】/
     // 【关键文件与上下文】三节确定性切出,整写到 sessions/<id>.session-notes.md 旁车副本。
-    // 摘要保留叙事职责;回注上下文由 105d 的 runtimeSessionNotesInjectV1 单独把门(默认关)。
+    // 摘要保留叙事职责;回注上下文由 105d 的 runtimeSessionNotesInjectV1 单独把门(它自 105d 起默认开)。
     // 105b 真实历史门通过后默认开启，仍可显式关闭。
     runtimeSessionNotesV1: true,
     // 105d-A: session notes 回注 —— 开关开时每回合读一次旁车 notes,有界、非持久地贴到最后一条
@@ -803,6 +812,21 @@ function normalizeConfig(raw) {
   for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  // 107-T1(46 号文 §5): 126-111b/111d/111e 三个开关在 2.8.0 翻成默认开 —— 但【光翻 defaultConfig 没用】。
+  // 上面 :591 是 { ...defaultConfig(), ...raw },raw 永远赢;而 readConfig 只要 changed 为真就把【整份
+  // 合并后的配置】落盘,于是当年那批默认值被原样冻在盘上 —— 所有写过一次 config.json 的安装(= 全部
+  // 存量用户)盘上都实打实写着 false,新默认一个也吃不到。故走 incomingConfigSchema 阶梯做一次性迁移。
+  // 【必须写 = true,不能 delete】:delete 之后本函数这一趟返回的 config 里这三个键是 undefined,
+  // 而判定函数一律是 `=== true` —— 当前这条命的进程里三个开关全是关的(要等下一次读配置才生效)。
+  // 判据在 unit/config-schema-12-migration.test.js 的 [A],它断的是 === true,delete 当场红。
+  // 放在严格布尔循环【之后】:非布尔脏值(比如字符串 "false")先被压成 false,再统一迁移。
+  // 只迁一次 —— 落盘时 configSchema 被盖成 12(见下文 config.configSchema = CONFIG_SCHEMA),用户在
+  // 2.8.0 之后自己关掉的那些,升级不会再动。
+  if (incomingConfigSchema < 12) {
+    for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
+      if (config[key] === false) { config[key] = true; changed = true; }
+    }
   }
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
     const n = Number(config.summarySingleShotMaxTokensV1);

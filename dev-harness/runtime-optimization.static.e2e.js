@@ -226,8 +226,16 @@ ok(/l1ProtectRatio/.test(src) && /l1ProtectMinTokens/.test(src) && /l1ProtectMax
 }
 
 console.log('\n── [F2] 126-111e · 历史内重复读取去重 ──');
-ok(/runtimeHistoryReadDedupV1: false/.test(src), 'F2 开关默认关');
-ok(!/runtimeHistoryReadDedupV1: true/.test(src), 'F2 没有在别处被默认翻开');
+ok(/runtimeHistoryReadDedupV1: true/.test(src), 'F2 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)');
+{
+  // 原来第二条是 `!/: true/`(「没有在别处被默认翻开」)。翻默认之后它**翻不过来** —— 写成 `!/: false/`
+  // 的话,默认点自己就是 `: true`,那条断言退化成一句永真的空话。判据改成钉【出现次数】:
+  // `runtimeHistoryReadDedupV1:` 全仓恰好 1 处(就是 defaultConfig 里那个默认点)。于是
+  // 「默认点被改回 false」由上一条红,「别处又写了一遍默认值」由本条红,两种事故各有各的锁。
+  // 先钉 owner 数 = 防本条静默失效(与 F1/F2 现有的 lines.length >= 2 同一个模具)。
+  const hits = (src.match(/runtimeHistoryReadDedupV1:/g) || []).length;
+  ok(hits === 1, `F2 开关默认点全仓恰好一处（实得 ${hits} 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）`);
+}
 ok(/function historyReadDedupEnabled\(config\)/.test(src), 'F2 判定函数存在(唯一判定口)');
 ok(/function fileReadDedupKey\(raw\)/.test(src) && /createHash\('sha256'\)\.update\(body\)/.test(src),
   'F2 去重键 = 路径 ＋ 文件正文的哈希（不是「路径＋mtime＋size」那种版本推断 → 零误报）');
@@ -242,8 +250,12 @@ ok(/rawRef=\$\{rawRefPrefix\}/.test(src), 'F2 指针带 rawRef —— 换掉的�
 }
 
 console.log('\n── [F3] 126-111d · 摘要 prompt 双语与标题容错 ──');
-ok(/runtimeSummaryPromptI18nV1: false/.test(src), 'F3 开关默认关');
-ok(!/runtimeSummaryPromptI18nV1: true/.test(src), 'F3 没有在别处被默认翻开');
+ok(/runtimeSummaryPromptI18nV1: true/.test(src), 'F3 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)');
+{
+  // 同 F2:翻默认后反向断言改钉【出现次数】,理由见 F2 那一段。
+  const hits = (src.match(/runtimeSummaryPromptI18nV1:/g) || []).length;
+  ok(hits === 1, `F3 开关默认点全仓恰好一处（实得 ${hits} 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）`);
+}
 ok(/function summaryPromptI18nEnabled\(config\)/.test(src), 'F3 判定函数存在(唯一判定口)');
 {
   // F3 语言判据是 06b getPromptPack 的**抄写件**(10 → 06b 是循环边，调不得；见实现处注释)。
@@ -269,8 +281,12 @@ ok(/function summaryPromptWithGuidance\(config\)/.test(src), 'F3 取话口带 co
 }
 
 console.log('\n── [F4] 126-111b · L2 尾部单元边界＋桥接 ──');
-ok(/runtimeReseedTailUnitsV1: false/.test(src), 'F4 开关默认关');
-ok(!/runtimeReseedTailUnitsV1: true/.test(src), 'F4 没有在别处被默认翻开');
+ok(/runtimeReseedTailUnitsV1: true/.test(src), 'F4 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)');
+{
+  // 同 F2:翻默认后反向断言改钉【出现次数】,理由见 F2 那一段。
+  const hits = (src.match(/runtimeReseedTailUnitsV1:/g) || []).length;
+  ok(hits === 1, `F4 开关默认点全仓恰好一处（实得 ${hits} 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）`);
+}
 ok(/function reseedTailUnitsEnabled\(config\)/.test(src), 'F4 判定函数存在(唯一判定口)');
 ok(/function recentTurnsBoundary\(history, maxTailTokens, byUnits\)/.test(src), 'F4 边界函数带 byUnits(已过门的布尔,函数体不读开关)');
 ok(/if \(byUnits === true && boundary === history\.length && history\.length\)/.test(src),

@@ -94,9 +94,16 @@ ok(/typeof raw0\.relay === 'boolean' \? raw0\.relay : DEF_AA\.relay/.test(config
 ok(/typeof raw0\.newThread === 'boolean' \? raw0\.newThread : DEF_AA\.newThread/.test(configSrc),
   'sanitize: stewardAutoActions.newThread 严格布尔回该键默认');
 
-// CONFIG_SCHEMA 未被本波改动(116a 纪律:不 bump)。
-ok(/const CONFIG_SCHEMA = 11;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
-  'CONFIG_SCHEMA 仍为 11(116a 不 bump)');
+// CONFIG_SCHEMA:116a 自己不 bump(纪律未变),但常量全仓共用 —— 107-T1 为 126-111b/d/e 的一次性
+// 迁移把它 11 → 12(46 号文 §5)。本条继续钉【当前值】,好让「谁又动了它」还是红的;116a 真正要守的
+// 「管家那批键没有任何 schema 迁移分支」由下一条钉住。
+ok(/const CONFIG_SCHEMA = 12;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
+  'CONFIG_SCHEMA 当前为 12(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的)');
+{
+  const branches = configSrc.split(/\r?\n/).filter(l => /incomingConfigSchema\s*</.test(l));
+  ok(branches.length >= 1, `扫得到 incomingConfigSchema 迁移分支（实得 ${branches.length} 处；扫不到 = 本条静默失效）`);
+  ok(!branches.some(l => /steward/i.test(l)), `116a 的管家键仍然没有任何 schema 迁移分支${branches.filter(l => /steward/i.test(l)).map(s => s.trim()).join(' ⏐ ')}`);
+}
 
 /* ═══════════════════════ ② manifest.json 落点 ═══════════════════════ */
 

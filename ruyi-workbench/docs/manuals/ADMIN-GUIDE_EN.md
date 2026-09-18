@@ -256,21 +256,35 @@ entity checking, single-shot summaries, estimate buckets, the summary fact table
 tool-result caching, and vector memory recall — **were already on by default in 2.7.0** and were simply missing
 from that entry; the 2.8.0 changelog records them with their readings. All remain switchable off.
 
-### 8.2 Experimental, factory off
+### 8.2 Wave 126's compaction switches: three now on, two still experimental
 
-Wave 126's five compaction switches all ship off. Each was measured against a real model in paired A/B runs on
-2026-09-18, and **no default was flipped in that round**; the readings and the per-switch recommendation (adopt,
-or look again) are in the Chinese guide's section 7.3 and in the 2.8.0 changelog entry. Off by default means byte
-for byte identical to the previous release.
+Each of wave 126's five compaction switches was measured against a real model in paired A/B runs on 2026-09-18.
+On those readings **2.8.0 turns three of them on by default** — `runtimeSummaryPromptI18nV1` (English summaries
+for an `en-US` UI), `runtimeHistoryReadDedupV1` (repeated full reads in the protected tail become pointers) and
+`runtimeReseedTailUnitsV1` (L2 keeps whole units in the tail). The other two,
+`runtimeEvaporateBudgetBoundaryV1` and `runtimeReseedReattachFilesV1`, stay off and are not touched by the
+upgrade. The full readings are in the Chinese guide's section 7.3 and in the 2.8.0 changelog entry.
+
+**The upgrade rewrites your config for those three.** Flipping a factory default alone reaches nobody: in
+`normalizeConfig` the value in `config.json` always wins over the default, and the first config read writes the
+whole merged config back — so every machine that ever ran 2.7.0 has `false` on disk. `CONFIG_SCHEMA` therefore
+goes to **12** with a one-shot migration: in a config at `configSchema < 12` those three keys are turned on
+**even if you had explicitly switched them off**. Anything you switch off *after* 2.8.0 is never touched again
+(the migration only fires below 12). To opt out, write the key back to `false` after upgrading. For every other
+switch, off by default still means byte for byte identical to the previous release.
 
 ### 8.3 Upgrading from 2.7.0
 
-- **`CONFIG_SCHEMA` stays 11; 2.8.0 does not bump it** and there is no migration script. New keys take their
-  default on the first config read and are written back.
-- Upgraders therefore **gain three things without being asked**: steward delegation on
+- **`CONFIG_SCHEMA` goes 11 → 12** (wave 107's T1 cut). Apart from the one migration named below there is no
+  migration script: other new keys still take their default on the first config read and are written back.
+- Upgraders therefore **gain four things without being asked**: steward delegation on
   (`stewardExemptDelegationV1`), so threads on smart auto may now be approved for by the steward; scheduled tasks
-  on (`schedulerEnabledV1`), which polls and writes nothing while there are no tasks; and new threads following
-  the engine last used (`newThreadEngine: 'last'`). Section 8.1 says how to turn each one off.
+  on (`schedulerEnabledV1`), which polls and writes nothing while there are no tasks; new threads following
+  the engine last used (`newThreadEngine: 'last'`); and **three compaction switches turned on once**
+  (`runtimeSummaryPromptI18nV1`, `runtimeHistoryReadDedupV1`, `runtimeReseedTailUnitsV1`) — **including ones you
+  had explicitly switched off**, done by the `configSchema < 12` migration described in section 8.2. An `en-US`
+  UI gets English summaries from now on, and summary cost rises about **60%**. Anything you switch off after
+  2.8.0 is never reopened. Sections 8.1 and 8.2 say how to turn each one off.
 - Voice input is **never** enabled automatically: `asrProviderId` and `asrModel` are both empty from the factory.
 - The scheduler's data files are new (`<dataRoot>/scheduler/tasks-v1.json` and `fires-v1.ndjson`) and touch
   nothing that 2.7.0 wrote.

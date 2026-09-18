@@ -13,14 +13,15 @@ function evaporateBudgetBoundaryEnabled(config) {
 }
 
 // 126-111e: 历史内重复读取去重的生效条件 —— 单开关,不依赖 111a(它去的是【受保护的尾部】里
-// 那几份重复全文,与边界怎么算无关)。**唯一判定口**:挂钩点与 e2e 共用本函数;显式 false /
-// 缺省保证 evaporateHistory 对历史零额外改写。
+// 那几份重复全文,与边界怎么算无关)。**唯一判定口**:挂钩点与 e2e 共用本函数;
+// 107-T1 起默认开 —— 只有【显式 false】才保证 evaporateHistory 对历史零额外改写(缺省不再是)。
 function historyReadDedupEnabled(config) {
   return !!(config && config.runtimeHistoryReadDedupV1 === true);
 }
 
-// 126-111b: L2 尾部按单元保留的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
-// recentTurnsBoundary 与 CompactionPlan.reseed 逐字节等价今天(最新一整回合放不下就一条不留)。
+// 126-111b: L2 尾部按单元保留的生效条件 —— 单开关。**唯一判定口**;107-T1 起默认开 ——
+// 只有【显式 false】才让 recentTurnsBoundary 与 CompactionPlan.reseed 回到老语义
+// (最新一整回合放不下就一条不留);缺省不再是。
 function reseedTailUnitsEnabled(config) {
   return !!(config && config.runtimeReseedTailUnitsV1 === true);
 }
@@ -31,8 +32,9 @@ function reseedReattachFilesEnabled(config) {
   return !!(config && config.runtimeReseedReattachFilesV1 === true);
 }
 
-// 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;显式 false / 缺省保证
-// 摘要 prompt 逐字节仍是今天那份中文。
+// 126-111d: 摘要 prompt 双语的生效条件 —— 单开关。**唯一判定口**;107-T1 起默认开 ——
+// 只有【显式 false】才保证 en-US 界面下摘要 prompt 逐字节仍是中文那份(缺省不再是);
+// locale 为 auto / zh-CN 时开不开都走中文,逐字节不变。
 function summaryPromptI18nEnabled(config) {
   return !!(config && config.runtimeSummaryPromptI18nV1 === true);
 }

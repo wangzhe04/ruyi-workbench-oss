@@ -4,9 +4,10 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ① 两个 caps 取值域的隔离（45 号文 §1.2）：PROVIDER_MODEL_CAPS（05，模型能力标签 asr/embedding）
 //      与 PLAYBOOK_REQUIRES（06，运行环境能力矩阵 network/desktopMcp/vision）同名不同物，
 //      【不许互相引用】，06 里连 'asr' 字面量都不许出现。
-//   ② CONFIG_SCHEMA 故意【不】bump（45 号文 §6.1 对 26 号文的显式改判：纯增量 + normalizeConfig
-//      消毒 ⇒ 读回空即未配置，三条既有迁移分支处理的全是「旧值要改写」，这里没有旧值）。钉在 11，
-//      谁 bump 了先回来读 45 号文。
+//   ② CONFIG_SCHEMA 故意【不】因 114a 而 bump（45 号文 §6.1 对 26 号文的显式改判：纯增量 +
+//      normalizeConfig 消毒 ⇒ 读回空即未配置，既有迁移分支处理的全是「旧值要改写」，这里没有旧值）。
+//      常量本身是全仓共用的：107-T1 为 126-111b/d/e 的一次性迁移把它抬到了 12（46 号文 §5），
+//      本条钉的是【当前值 + ASR 三键零迁移分支】，谁再动它先回来读 45 号文与 46 号文 §5。
 //   ③ 后端落点：models[].caps 走 providerModelCaps 白名单；audioBaseUrl 与 baseUrl 同待遇
 //      （trim + 截 400，不发明 URL 校验）；asrProviderId/asrModel 默认值 + 清洗（provider 没了两个一起清）。
 //   ④ 前端落点：选择器只列 caps 含 asr 的模型；无候选整块不渲染（未配置 = 不可见，设置页 DOM 零漂移）；
@@ -37,8 +38,12 @@ assert.ok(!src06.includes('PROVIDER_MODEL_CAPS'), '06 不得引用模型能力�
 assert.ok(!src06.includes("'asr'") && !src06.includes('"asr"'), "06 不得出现 'asr' 字面量（串域）");
 const mentions = src05.split('\n').filter(l => l.includes('PLAYBOOK_REQUIRES'));
 assert.ok(mentions.length === 1 && /^\s*\/\//.test(mentions[0].trimStart()) || (mentions.length === 1 && mentions[0].trim().startsWith('//')), '05 只允许 114a 隔离注释点名 PLAYBOOK_REQUIRES 一次（不许代码引用）：实得 ' + mentions.length + ' 处');
-// ② schema 不 bump
-assert.match(src00, /const CONFIG_SCHEMA = 11;/, 'CONFIG_SCHEMA 保持 11（114a 显式不 bump，45 号文 §6.1）');
+// ② schema:114a 自己不 bump（45 号文 §6.1），但常量是全仓共用的 —— 107-T1 为了把 126-111b/d/e
+//    三个开关的一次性迁移挂上阶梯，把它抬到了 12（46 号文 §5）。本条继续钉住【当前值】，好让
+//    「谁又动了它」还是红的；判据同时钉住「ASR 三个键没有任何迁移分支」，那才是 114a 真正要守的。
+assert.match(src00, /const CONFIG_SCHEMA = 12;/, 'CONFIG_SCHEMA 当前为 12（114a 自己不 bump；11→12 是 107-T1 为 126-111b/d/e 迁移抬的，46 号文 §5）');
+assert.ok(!/incomingConfigSchema[^\n]*asr/i.test(src01) && !/asr(ProviderId|Model)[^\n]*incomingConfigSchema/i.test(src01),
+  '114a 的 asrProviderId/asrModel 仍然没有任何 schema 迁移分支（纯增量：读回空串即「未配置」）');
 // ③ 后端落点
 assert.match(src05, /function providerModelCaps\(rawCaps\)/, '05: providerModelCaps 白名单清洗函数');
 assert.match(src05, /const caps = providerModelCaps\(m\.caps\);/, '05: models 归一化走白名单');
