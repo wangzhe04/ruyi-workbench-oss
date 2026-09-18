@@ -272,3 +272,208 @@ changed the port, edit the address under Advanced.
 Local models cost nothing, never leave the machine, and work offline, which suits tidying files, rewriting text,
 and translation. They are usually weaker than hosted models on long multi-step work, coding, and long-document
 analysis. Configuring both and switching in the top bar is the least painful setup.
+
+---
+
+## 9. Voice input, scheduled tasks, service entry, and steward delegation
+
+All four arrived in 2.8.0. Each part is written the same way: **how to do it, what you will see, and what to do
+when it does not work.**
+
+### Voice input: speak instead of typing
+
+**Configure it once.** Open **Settings → Models & Services → Model providers → Speech recognition (voice
+input)** and pick a **provider** and a **model**. Only models tagged as speech-capable in that provider's model
+list are offered; when
+there is no candidate at all the block renders no controls — **that is not the feature hiding, it means this
+machine has no speech model to choose**. Once saved, the page confirms that speech recognition is on; choosing
+**Off** turns it back off.
+
+> **The prerequisite, stated plainly.** Ruyi speaks only the OpenAI-shaped `/audio/transcriptions` endpoint, so
+> **voice works only with a provider that offers that endpoint**, whatever that provider's own documentation
+> says. Of the four ASR models tested on the developer's own machine — MiMo, two on Bailian, and Hunyuan —
+> **not one offers it; all four returned 404**. So record one short take right after you configure it. If it
+> fails, you did not configure it wrong: move to a provider that offers that endpoint. Ask your administrator
+> if you are not sure which one does.
+
+**Using it.** Once configured, a microphone appears next to the send button in the composer of **both the
+Workbench lens and the Steward lens**.
+
+- Click once to start; the button counts up (`0:01`). Click again to finish; the take goes off to be
+  transcribed and the button shows a busy state.
+- The transcript is **inserted at the caret** (replacing a selection, if you had one). Focus returns to the
+  composer with the caret after the inserted text. It is **never sent automatically** — read it, edit it, then
+  press send yourself.
+- Press **Esc** while recording to cancel: that take is dropped, nothing is transcribed, and the composer is
+  left untouched.
+- **Three minutes per take.** Recording ends itself at the limit and transcribes what it has.
+- Keyboard-only use works the same: Tab to the microphone, Space or Enter to start, press again to finish. Each
+  step is announced for screen readers (recording, turning speech into text, added to the input box, cancelled,
+  failed).
+
+**What failure looks like.** Every one of these is only a message; **the composer is never changed**.
+
+| Message | What it means and what to do |
+|---|---|
+| Microphone permission was not granted | The browser or the operating system blocked the microphone. Allow this page in the browser's site permissions. |
+| No microphone was found | This machine has no recording device, or another program holds it exclusively. |
+| Speech recognition is not set up yet | No provider and model pair is selected, or that provider was deleted. Choose them again in Settings. |
+| This recording is too long to transcribe | Over the 25 MB transcription limit; you will not normally reach it inside three minutes. |
+| The transcription service did not succeed this time | The provider's end errored or is unreachable — most often the missing `/audio/transcriptions` endpoint described above. |
+| No words were recognized | The transcript came back empty. Try a quieter room, closer to the microphone, and say it again. |
+
+**Two known limits.** First, microphone permission inside the desktop shell (the WebView2 host) **has not been
+verified**: the button is still drawn, and if pressing it lands on "Microphone permission was not granted", open
+Ruyi in a browser instead. Second, the only recording format is webm/opus, and a browser that does not support it
+shows no microphone at all — there is no fallback path.
+
+**Also**: you can **attach a recording as a file**. Ruyi transcribes it best-effort and hands the text to the
+model with the file. A failed transcription never blocks the upload, and the original file stays downloadable.
+
+### Scheduled tasks: handing a job to the clock
+
+**Where.** Settings → **Steward** tab → **Scheduled tasks** → **New**.
+
+**What to fill in:**
+
+- **What is this called** — a one-line title, for example "draft the weekly report".
+- **How often** — just once / every day / every week / every month / advanced (cron). Under "every month", 31
+  means "the last day of every month" and February lands on the 28th or 29th automatically. Under "advanced",
+  cron is five fields (minute hour day month weekday) in this machine's local time.
+- **What happens then** — **Just remind me** (**no model call, no cost**: a reminder appears in the inbox at the
+  appointed time) or **Let Ruyi run one turn** (real work).
+- **Where it runs** — a fresh thread each time, or pinned to one existing thread.
+- **How far it may go on its own** — this task's own permission profile, capped by your global profile and never
+  including full automation. **Ask-every-step approves nothing while you are away**: an unanswered prompt waits
+  for `schedulerAskWaitMinutes` (30 minutes by default) and is then rejected, the run is recorded as **Waiting
+  for you**, and you press **Run now** when you are back. The whole run has its own cap (`timeoutMinutes`, also
+  30 minutes by default) and is recorded as Failed if it runs over — two different clocks with the same default.
+- **Which model tier** (new in 2.8.0) — complex tasks · strong model / simple tasks · fast model / follow the
+  main endpoint. Which endpoint each tier uses is set higher up the same page under "Model for new threads"; a
+  tier left empty follows the main endpoint. **With this, you no longer change the global engine for one
+  scheduled task.**
+
+**What you will see.** Tasks are listed in that block, each row showing the next firing time, **Pause/Resume**,
+**Run now**, **Delete**, and an expandable **Recent runs**.
+
+- **Run now** and **Delete** both **ask first**: Run now is not a dry run — it starts a real turn, may cost
+  money, and may act on the outside world; Delete takes that task's run history with it.
+- Each row under **Recent runs** is labelled with its **firing mode** and its **outcome**: On time / Caught up /
+  Manual, and Succeeded / Failed / Waiting for you / Skipped / **Result unknown — please check**.
+- Pressing **Refresh** refreshes the data and **no longer collapses** the row you had expanded (a defect fixed in
+  2.8.0).
+
+**New in 2.8.0: each task gets its own working folder.** Previously every scheduled task landed in the default
+working folder, so two tasks firing at the same time queued on one folder lock and the waiting one looked as if
+it had never fired. Ruyi now opens a folder per task, named from its title, and adds it to the workspace
+candidates, so simultaneous tasks run side by side. **A task cannot be given a hand-typed working directory** —
+that is a safety line kept on purpose.
+
+**Missed firings and crashes are by design, not accidents:**
+
+- **Missed the time** (the machine slept or was off): the task is re-run **once** inside the grace window (12
+  hours out of the box, changeable when you create the task) and that row is labelled **Caught up**. Past the
+  window it is labelled **Skipped** and you are told. **Once only — it never chases several missed runs.**
+- **The process died mid-turn**: at the next start the run has no terminal state, so it is recorded as **Result
+  unknown — please check**. It is **neither counted as success nor blindly resent** — whether to re-run it is
+  yours to decide.
+- **The time passed and nothing happened**: expand **Recent runs** first and read what that row says (usually
+  "Waiting for you" or "Skipped"). Only if there is genuinely no record at all should you check whether the
+  steward master switch or scheduled tasks have been turned off.
+
+**"Later" on a quiet card is a real scheduled task.** It does not merely dismiss the card: it schedules a one-off
+reminder N minutes out (N is set under Settings → Steward → Scheduled tasks, "Snooze a quiet card for how long
+(minutes)", between 1 and 1440) and puts the card away. The neighbouring "put this card away" is the one that
+simply dismisses it.
+
+### Service entry in the skill library: type a sentence, see what already exists
+
+**How.** Press `/` in the composer (or, in pro mode, open the skill library) and **type a plain sentence into the
+search box**: "tidy up downloads", "compare these PDFs", "summarize this every day". When it matches one of six
+services, a **service row** appears at the **top** of the list. Unrelated words produce nothing, and clearing the
+search box removes the row — it does not sit there taking up space.
+
+The six services are **Research & Compare, Organize, Writing, Coding Tasks, Scheduled Digest, and Watch**.
+
+**Which sentence you will see** — four states, each of which tells its own truth:
+
+| The service row says | What it means | What to do |
+|---|---|---|
+| Service "Organize": 7 templates ready to run | This service has templates **and the capabilities they need are confirmed available** | Open a template card below, fill in the fields, and run it |
+| Service "Coding Tasks": check the network connection first | There are templates, but **one thing is missing**. You get **at most one configuration prompt** here; anything else collapses into "N more", so you are not handed a list of chores at once | Do that one thing, then search again |
+| Service "Watch": no templates yet | This service **genuinely has none** | Do not wait for one — describe the job in the conversation and let Ruyi run it as an ordinary thread |
+| Service "…": status unknown; the capabilities its N templates need have not been checked | **The one that matters most**: the capabilities this service needs **have not been probed**, so Ruyi **does not know** whether it will work | Open the capability badge in the top bar (that can trigger a check) and do not read "unknown" as "available" |
+
+> **Why "unknown" is called out separately.** "Not probed yet" used to be folded into *both* "available" and
+> "unavailable" — two opposite directions. An unknown network state counted as available, so a card that could
+> not actually run said it was ready to run; a desktop-control probe that errored counted as unavailable, so an
+> installed capability was reported missing. From 2.8.0 **unknown says unknown**, the service row counts only
+> genuinely available templates, and when the set is mixed it adds "N more with unknown status".
+
+**Template cards carry the same four states.** An available card says little; one that needs setup says "Needs
+setup"; one missing the network says "Needs the network and you are offline: work from local files for now, or
+reopen this once the connection is back"; one that could not be probed says "Status unknown: the capabilities
+this card needs have not been checked".
+
+**Also**: a template may belong to no service at all (a purely action-shaped one, such as opening an
+application). **Unclassified does not mean unavailable** — it runs perfectly well, it simply never appears in a
+service row.
+
+### The steward can approve some of it for you, and what it will never approve
+
+**What this is for.** Some actions stop and ask you no matter what profile the thread is on — deleting data,
+installing or uninstalling software, `git push`, sending something outbound. From 2.8.0 the steward **may press
+that button for you within the rules**, so a scheduled task does not sit blocked while you are away.
+
+**The conditions for it to approve on your behalf — all ten must hold; one missing and it still waits for you:**
+
+1. The switch is on (it ships on).
+2. The **effective** permission profile of this turn is **smart auto** ("ask every step" and "plan only" do not
+   count; full automation never stops to ask in the first place).
+3. The thread is one the **steward is watching**, or one a **scheduled task opened** — a thread you opened and
+   are watching yourself still asks you.
+4. **Not one** of the matched rules is a floor item (floor items are listed below).
+5. The command text was **scanned in full** and is no longer than **the 300 characters the steward can actually
+   see** — what it receives is a 300-character excerpt of the command, so a command that is too long, a scan that
+   was truncated, or an excerpt that was itself cut off all block delegation: **it may not approve what it
+   cannot see**.
+6. The command contains no **concatenation, encoding, or evaluation** — indirect constructions such as
+   `& ('shut' + 'down')`, which spell a keyword out at run time. The rules cannot tell what such a command really
+   runs, so it always waits for you.
+7. For a **delete-data** match, the deletion target must be a **relative path**. A drive letter (`C:\`), a
+   leading `/`, `~`, `$env:`, or `%VARIABLE%` all send it to you.
+8. The steward **wrote down a reason** (no reason, no approval).
+9. When the thread **read a web page** this turn (or last turn, with no message from you since), anything
+   **outbound** or **push-to-remote** is never delegated — deleting files or installing software still can be,
+   under the same conditions.
+10. **At most 6 times per hour** (the count resets on restart).
+
+**What it will never approve for you** (floor items; any profile, any condition): payments, purchases, and
+transfers; formatting and partitioning; shutdown, restart, and boot-entry changes; registry and firewall changes;
+registering an MCP server; tools whose very name means sending a message, plus `sendmail`; and any command that
+takes `/`, `C:\`, or your home directory as its deletion target.
+
+**What you will see:**
+
+- After the steward approves something for you, that turn carries a **receipt** naming what it approved and why.
+- Settings → **Steward** → **Action log** lists every one: which category of action, the reason, and a redacted
+  excerpt of the command. **The record says it was the steward who approved it, not you.**
+- When the ten conditions are not met you see **the same button as before** — except that the steward can now
+  name which category of rule caught it (deleting data / changing the system / installing or uninstalling /
+  sending outbound / pushing to a remote).
+
+**Where the switch is.** Settings → **Steward** → **What the steward may do on its own** → the entry reading
+"when a thread stops to ask about a permanently exempt action, the steward may approve it for me under its
+rules". **Untick it to go back to "everything waits for your own hand".** **The steward cannot change this
+setting itself** — only you can.
+
+**When something the steward proposes changes a setting, you confirm it.** Buttons the steward offers that would
+change a setting, turn a skill on or off, or grant a thread desktop control now open a confirmation panel first:
+the panel is titled "Apply this change?" and lists each change as `key = value`, and **nothing is sent until you
+press confirm**. Cancelling sends nothing at all. The wording on those buttons and in the panel is derived by the
+workbench from the arguments — the model does not get to name them — and any secret in a value is masked before
+it is shown.
+
+**Nothing was delegated and the job is stuck?** Open that thread and press the button yourself — **the path you
+press by hand was never restricted**. If it waited too long (120 seconds with no answer rejects automatically; it
+never approves on your behalf by timing out), go back and press **Run now** to run it again.

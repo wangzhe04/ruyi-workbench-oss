@@ -1037,3 +1037,53 @@ B1 的剥离是真单点（`decideIntervention` 八个调用点、`updatedInput`
 3. **`searchBackend`／`modelsApiKey` 按相等判、不按子集判**：把它们的 `baseUrl` 清空不是「少一个地址」而是切到官方默认主机，所以留空 = 新地址 = 拒绝。代价是「想改回官方地址」也要重填一次密钥。
 4. **`import-config/scan` 仍原样回显**（沿用 S0b 第 1 条），以及 S0b 那份「发现但没修」里的 4／5 两条仍然成立。
 5. **`/api/provider/test` 的拒绝没有 HTTP 状态码区分**（仍是 200 ＋ `{ok:false, code, errorClass}`），沿用该路由既有形状；按码分支的调用方不受影响，但按状态码分支的调用方看不出区别。本仓今天没有这样的调用方（设置页与向导都读 `result.ok`）。
+
+### D1b · 英文手册同步（2026-09-18）
+
+D1 只改了中文三本，S1 的「发现但没修」第 5 条自己点了名（**英文手册没同步**）。本刀把三本英文文档追平到 D1 ＋ S1 ＋ S2 之后的事实。**零代码改动**（`ruyi-workbench/app/`、`dev-harness/`、`ruyi-workbench/tools/` 一个字节没动），**不提交、不推送**。
+
+**开工前重核的坐标**（HEAD `824e0cf`，全对）：`STEWARD_EXEMPT_EXCERPT_CHARS = 300` 在 `06i:554`、`STEWARD_EXEMPT_DELEGATION_TEXT_MAX = STEWARD_EXEMPT_EXCERPT_CHARS` 在 `06i:601`、十道闸的合成在 `06i:699-725`；`stewardActConfirmSpec` 在 `06i`（config_set 的 confirm 档 / skill_toggle / thread_permission 的 `desktop===true` 三支）、`stewardActConfirmLines` 在 `13o:352`（行形是 `键 = 值`）、`STEWARD_ACT_CONFIRM_LABEL_MAX = 32` 在 `13m:59`；`config.masked_secret_vector_changed` 在 `13:205/511/578`、`maskedSecretConflictMessage` 在 `05:1483`；`permissionTimeoutMs` 出厂 `120000` 在 `01:47`；`graceMinutesDefault: 720`（＝12 小时）与 `timeoutMinutesDefault: 30` 在 `06j:83/89`；`ASR_MAX_BODY_BYTES = 25 MB` 在 `00-boot:35`、`COMPOSER_VOICE_MAX_MS = 3 分钟` 与「webm/opus 是唯一录制格式」在 `public/js/composer-voice.js:34-37`；`CONFIG_SCHEMA = 11` 在 `00-boot:36`；`facts.json` `nativeTools 97`、`accTools 108`；`manifest.json` **53** 模块、依赖图 **53/420/1 SCC**；路由清册 **137 判定点 / ROUTE_AUTH 125**；ACC `server.py VERSION = "1.9.1"`；`TOOL_HANDLERS` 总数 **97 = 63 ＋ 33 steward_* ＋ 1 audio_transcribe**（`steward-tools.static:133` 逐字钉着这个拆法）。
+
+**逐文件改了什么**：
+
+- **`ruyi-workbench/docs/manuals/USER-GUIDE_EN.md`** —— 新增 `## 9. Voice input, scheduled tasks, service entry, and steward delegation`（对应 CN 的第 9 章四节，**排在末尾、1–8 章一个字没动**，理由见下面「锚点约束」）。四节：语音输入（配置路径、麦克风行为、Esc、3 分钟上限、六种失败症状表、两条已知限制、录音附件）、定时任务（表单九项含模型档位、四种结果标签、补跑／跳过／结果未知、每任务独立工作文件夹、安静卡「稍后」）、技能库服务入口（六类服务、四态表、为什么单独讲「未知」、模板卡同一套状态、未分类不等于不可用）、管家替你批。**按 S1 重写的两处**：闸从八条改成**十条**，第 5 条的「1000 字」改成「**管家真看得见的那 300 字**」，新增第 6 条（拼接／编码／求值这类间接构造一律不代批）与第 7 条（删数据类的目标必须是相对路径）。**按 S1 ④ 新增一段**：管家提的「改设置／改技能／开桌面」按钮现在先弹确认面板（标题 `Apply this change?`、逐条列 `键 = 值`、取消零请求），按钮文案由服务端按 args 派生、模型说了不算、值里的密钥先掩码。
+- **`ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md`** —— ① §2「OpenAI-compatible providers」补 **S2 的口径**：改了端点而密钥框里还躺着掩码，那一次保存**整份失败**（409 `config.masked_secret_vector_changed`、零字节落盘、草稿不丢、提示重填），另补语音复用同一条 provider 记录（`audioBaseUrl || baseUrl` ＋ 同一把 key ＋ OpenAI 形 `/audio/transcriptions`）；② §2 新增「Voice transcription」小节（25 MB 双道闸、120 s、`kind:'aux'` 记账、`audio_transcribe` 是 exec 档且结果标 untrusted、两键为空＝麦克风节点都不建）；③ §3 三条：`GET /api/status` 是 `open` 档故必须逐字段掩码、**「判的与跑的」不再是两个目录**（含 `git_*` 仍默认家目录这条例外）、脱敏表补齐与三条仍在的已知边界；④ 新增 **§7「Secret masking and the launch-target gate (2.8.0)」**：掩码形状与还原语义、2.8.0 新进掩码面（`modelsApiKey`／MCP `env`＋远程 `headers` 全值遮＋理由与代价＋`args` 显示脱敏／**URL 里的凭据**）、MCP 侧「启动目标没变才还原」、**providers 族选「拒绝」而不是「清空」**（向量＝`baseUrl` ∪ `audioBaseUrl` ∪ `extraBaseUrls`，**按子集判，收窄不受影响**；`searchBackend`／`modelsApiKey` 按相等判并写明理由；`/api/provider/test` 命中就不发请求）、最后一道落盘闸与远程 `url` 的唯一例外、仍未掩的 `import-config/scan`、运维口径「远程 MCP 凭据放 headers」，以及**八条已知缺口**（ASR 出网无 URL 准入／ASR 无并发上限／`needs_you` 无事件唤醒＋两档轮询读数＋运维口径／`git_*` 家目录／决策日志不回溯清洗／界面没有 MCP env 编辑器／S1 债 ①间接构造只挡代批不挡停问／S1 债 ④确认只在前端）；⑤ 新增 **§8「Defaults, upgrade, and rollback (2.8.0)」**：已交付默认开六项表（含 111 系开关在 2.7.0 已静默带出）、实验档（126 波五个全默认关、本轮一个默认都没翻）、从 2.7.0 升级会**不经确认拿到的三件**、**回滚最小步骤五步**与「会被抹掉的只有 `providers[]` 的嵌套字段与管家记忆的 `expiresAt`／`scope`，顶层键不丢」。
+- **`ruyi-workbench/docs/ARCHITECTURE_EN.md`**（文件存在，已核）—— 版本基线由「v2.5.0 / 原生工具 52」更到 `configSchema 11` ＋ 2.8.0 候选 ＋ **53 模块 / 97 原生工具 / ACC 108(v1.9.1)**，并补「自 v2.5.0 以来的四处结构性变化」与「本文是基线文档」那句；HTTP 一节补**七个新路由族的表**与「`GET /api/status` 是 `open` 档故逐字段掩码 ＋ 改了端点就拒绝」；「Workbench MCP」补 **97 = 63 ＋ 33 ＋ 1** 的拆法与单一事实源是根 `facts.json`，并写明 `audio_transcribe` 是 exec 档；「Modular build」由「17 modules」改成 **53 模块 / 420 边 / 1 SCC** 并补分层清单（00–02／03–04／05／06／07–12／13 族 20 个文件／14-main）；「Data root」补 `steward/` 与 `scheduler/` 两个新目录及其降级代价。
+
+**锚点约束的结论（EN 侧与 CN 侧同样成立，已实测）**：`ruyi-workbench/app/public/locales/en-US.json` 的 `help.anchor.settings`／`help.anchor.power`／`help.anchor.faq`／`help.anchor.localModels` 与 `health.anchor.faq` 的**值就是英文手册的 `##` 标题原文**（`"5. Settings"`／`"6. Skills, memories, usage, and workflows"`／`"7. FAQ"`（两个键同值）／`"8. Local models (Ollama / LM Studio)"`）。三道锁对**英文那一份**逐字比对：`copy-path-guard.static.e2e.js:217`（③b，`zh-CN`／`en-US` 两轮）、`health-i18n.static.e2e.js:154`（D4）、`start-experience.static.e2e.js:97`（②b）。**所以英文用户指南的 `##` 编号与标题原文同样不能重排**，新内容只能排在第 9 章 —— 与 D1 在 CN 侧的处置完全一致。实测复核：改完之后五个锚点键全部 `inHeadings=true`，且与 `docs/i18n/locales/en-US.json` 镜像逐字一致。
+
+**另外两道术语锁的实读结论（都不管手册，但按它们的口径走了）**：`i18n-en-terms.static.e2e.js` 只扫 `ruyi-workbench/app/public/locales/en-US.json` 的**值**（除 10 条允许名单外零 `chat/chats/session/sessions`），`copy-terms.static.e2e.js` 只扫四份 locale 的值与 `index.html` 上真会画出来的字 —— **两者都不扫 `.md` 手册**。但新写的第 9 章与两节管理员内容仍按 CHANGELOG 2.8.0 英文节的措辞走：`thread`／`steward`／`floor items`／`smart auto`／`permanently exempt action`／`Workbench lens`／`Steward lens`／六类服务名与四态名一律取 `en-US.json` 里界面上的**原文**（如 `Action log`、`What the steward may do on its own`、`Result unknown — please check`、`Needs setup`），不另造第二套英文说法。既有 1–8 章里的 `chat` 未动（那是 122 波之前的存量措辞，改它会动标题与锚点，不在本刀）。
+
+**锁读数**（逐件直跑，全绿）：
+
+| 件 | 读数 |
+|---|---|
+| `i18n.static` | `I18N STATIC E2E: ALL PASS` |
+| `i18n-en-terms.static` | `I18N EN TERMS STATIC E2E: ALL PASS` |
+| `copy-terms.static` | `COPY TERMS STATIC E2E: ALL PASS` |
+| `eol-policy.static` | `EOL POLICY STATIC E2E: ALL PASS` |
+| `repo-hygiene` | `REPO-HYGIENE E2E: ALL PASS` |
+| `manuals` | `MANUALS E2E: ALL PASS` |
+| `meta-guard` | `META-GUARD E2E: ALL PASS` |
+| `help-viewer` | `HELP VIEWER E2E: ALL PASS` |
+| `facts.static` | `FACTS STATIC E2E: ALL PASS` |
+| **另加三件**（因为它们才是真正钉英文手册标题的那三道） | `copy-path-guard.static` / `health-i18n.static` / `start-experience.static` 三件 **ALL PASS** |
+| `run-all.js --fast` | **73 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 73 ran（7 skipped 为既有 live probe）** |
+
+**控制字节扫描**（三个改动文件，node 逐字节）：`NUL 0 / CR 0 / 其它 0x00–0x1f 0 / U+FFFD 0`；`sk-[A-Za-z0-9]{20,}` 形态 0；`TODO`／`待补` 0。
+
+**不跑全量**：本刀**零代码改动**（改的只有三个 `.md`），按 D1 同一口径只跑八道文档锁 ＋ 三道锚点锁 ＋ `--fast`，**不跑全量回归**。
+
+**发现但没修（登记，交主会话定）**：
+
+1. **`CHANGELOG.md` 的 2.8.0 一节在 S1 之后变成了错的，中英两侧都是。** 实读：中文第 29 行写「**八道闸全过**……命令原文完整扫过且**不超 1000 字**」，英文第 56 行写「**all eight gates pass**……the command text was scanned in full and is **under 1000 characters**」。S1 的「与派单不同之处」第 9 条只点名并改了三处（`13f:876` 工具描述、用户手册 §9、管理员手册 §7.2），**漏了 CHANGELOG 这两行**，而 `manuals.e2e` 与 `meta-guard` 都不查它。本刀按派单范围只改英文三本手册，**没有动 CHANGELOG**（动它要中英一起动，超出「英文手册同步」的刀口）。**这是发布前必修的一条**：发行说明把一道安全闸的条数与长度阈值说错了。建议在 R1 那一刀里连同版本三角一起改（八→十、1000→300 并补两条新闸），或单开一刀。
+2. **英文手册里没有 `git push` 之类命令原文之外的 S1 ② 债的用户侧说法**：「纯混淆的命令在智能自动下照样不停下来问」这条只写进了管理员手册 §7 的已知缺口，**没有**写进用户手册（用户手册说的是「间接构造一律不代批」，字面正确但不提「它也不会停下来问」）。与 CN 手册同口径（CN 第 9 章也没写），**本刀保持中英一致，没有单方面在英文里加**。要加就两本一起加。
+3. **管家 act 按钮的文案仍是硬编码中文**（`STEWARD_TOOL_LABELS` 在 `13m:158`、`stewardActLabel` 派生的 `改设置:<键>=<值>` 在 `13o:385`），英文界面下按钮上出现的仍是中文。确认面板的标题与引子有英文键（`stewardShell.acts.confirmTitle` / `confirmBody`），`confirmItems` 的 `键 = 值` 是语言中性的。**所以英文手册里没有引用任何一句按钮原文**，只描述行为（"the button names the setting and its new value"），避免写一句英文界面上不会出现的话。这是一条既有 i18n 缺口，登记，不在本刀。
+4. **`settings.steward.group.scheduleHint` 的英文（与中文）仍写着 "Read-only here."**，但这一块现在有「新建」表单与 `Run now`／`Delete`。手册按**实际行为**写（有新建），没有照抄这句已经过时的 hint。登记为一条 locale 文案债。
+
+**没能验证的、以及怎么处理的**：
+
+- **定时任务在「每步都问」下「等 30 分钟之后拒掉」这个说法**：CN 第 9 章这么写，但实读只找到两个常量 —— `permissionTimeoutMs` 出厂 **120 s**（待决无人应答即自动拒绝）与任务级 `timeoutMinutesDefault` **30 分钟**（整个回合的上限，超时记 `failed`）。**没有找到一条「待决等 30 分钟」的路径**。英文手册因此**没有照抄那个数**，改写成「无人应答的待决会被自动拒绝、这一次记 Waiting for you；另外整个回合有 30 分钟的上限、超时记 Failed」—— 两条都对得上实读的常量。CN 那一句是否要跟着改，交主会话定。
+- **真机走查零次**：本刀只做文档，没有起服务人工走查英文界面（语音麦克风、服务条、确认面板的英文渲染都只按 locale 原文与源码写）。`help-viewer.e2e` 证明的是应用内阅读器能按 id ＋ lang 取到英文手册这条通道，**不是**英文正文的人工校对。
+
+**主会话复核补记（D1b 提交前）**：① D1b 报的「CHANGELOG 两处被 S1 改成错话」属实，主会话就地改了中英两处——「八道闸」→「十道闸」，「不超 1000 字」→「不超过给管家看的那段摘录（300 字）」，并补上新增的两道（间接构造不代批、删数据类目标不含绝对路径）。② D1b 存疑的「无人值守遇 ask 等 30 分钟后拒掉」**经主会话实读成立**： 默认 30（，钳 [1,240]），消费点在 ；它与任务自身的运行上限 （ 默认同为 30）是**两口不同的钟、默认值恰好相同**——中文原句不改，英文那句就地补成两口钟分别写明（D1b 因为只找到  与  而漏了前者）。十道锁复跑全绿。
