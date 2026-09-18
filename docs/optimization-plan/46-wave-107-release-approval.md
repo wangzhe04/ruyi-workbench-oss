@@ -1387,3 +1387,65 @@ Claude CLI 自己的 transcript 看不到；preroute 漏滤**会不会真翻动�
    → 归入 ⑧ P1 的降级演练一并验。
 3. 新增 unit 件让 `facts.unitSuites` 52→53，连带 README 三处——这正是第一轮全量那个真红（`facts.static.e2e.js`；
    **日志交错把它标成了 `ui-v4-glass.static.e2e.js`**，单跑才定位到，与记忆 `ruyi-run-all-log-interleaved` 同一个坑）。
+
+### M1 · 管家线程预判过滤过期记忆 ＋ 把「每个读取口都要表态」钉成机械锁（2026-09-18，提交 `eba07a1`）
+
+**缺陷与成因**见本文 §5「J12／J13／J03 退出门取证」那一节——一句话：`stewardPreroute` 直接读库、
+一点过期都不滤，早该过期的 `focus` 一直在给某条线程加 `memoryBonus`；成因是 44 号文 `:192` 那句
+「提示词块走的就是这一口，所以在这一处滤就够了」漏了第二个读取口。
+
+**改了什么**
+
+- `13o-steward-runner-prompt.js:225/:235`：`stewardPreroute` 加 `.filter(e => !memoryIsExpired(e, nowMs))`，
+  **判据复用 06d 的那一条**（静态锁 ⑫ 明文禁止别处自己算），整批共用一个 `nowMs`（一次调用里两条条目不该用两个不同的「现在」）。
+  依赖图因此多一条**后向边** `13o → 06d`，前向边仍 68、SCC 仍 1；`--check` PASS（**53 模块 / 421 边**，原 420）。
+- `44-wave-126-…md:192` 那一句改写成真话（明说提示词块确实走 13l 那一口，**但直接读库的调用方不止它一个**，点名 `stewardPreroute` 并指向本刀与 ⑫b）。**该文其余内容一字未动。**
+- 新锁 ⑫b（`steward-tools.static.e2e.js:567` 起）与新行为组（F）（`steward-preroute.e2e.js`，7 条断言）。
+
+**作用域那一题：选了「不过滤」，主会话核过理由，认可**
+
+子代理自己判的，三条理由主会话逐条验过：
+
+1. **`stewardPreroute(q, configArg)` 根本拿不到 cwd**——主会话实读确认：函数签名没有；
+   索引行 `stewardPrerouteIndexRows`（`13o:198-211`）只有 `sessionId`／`missionId`／`missionTitle`／`title`／`displayTitle`／`summary`／`state`／`updatedAt`，**没有 cwd**。
+   唯一能拿到的是 `defaultWorkspace`，而它出厂是家目录——拿它比，等于把几乎所有项目级记忆静默丢掉。126-M01「管家不在任何项目里」的裁决直接适用。
+2. **预判把记忆文本当「词源」而不是「断言」**——主会话实读 `stewardPrerouteMemoryHit`（`06i:1476-1488`）确认：
+   它是拿**线程标题**去记忆文本里找子串。项目 A 的记忆里提到某个标题，仍然说明用户在意那件事，递到那条线程是对的。
+   **过期不一样**：过了到期日，「用户在意」这件事本身就不再成立——所以那一条必须滤。
+3. **真正更正确的那个变体（「项目级记忆只给同项目的线程加分」）不是过滤，是设计改动**：索引行没有 cwd，
+   而打分住在 06i、够不着 13j 的 `stewardMemoryScopeMatches`（前向边）。本刀不做。
+- **并且把这个「有意不做」钉成断言**（F5）：项目级作用域的记忆**照常**加分。
+  免得下一个人当成漏改又「修」一遍——本仓吃过这种亏。
+
+**锁 ⑫b 的判据形状（值得单记）**
+
+老 ⑫ 只禁「别处自己 `Date.parse(expiresAt)`」，**不要求任何读取口真的去滤**，所以抓不到本缺陷。
+⑫b 改成：扫出 `src/` 里 `stewardReadMemoryStore` 的每一个**调用点**，定位它所在的**顶层函数**，
+要求**那个函数体自己**有一行调 `memoryIsExpired` —— 要么在白名单里**逐条带理由**。
+「调用点所在的那个函数」而不是「这个文件里出现过这个词」：把 `stewardPreroute` 的过滤摘掉、
+同文件别处还留着这个词（注释里也有），这一条照样红。**先钉调用点个数**防静默失效。
+白名单**三条**（不是主会话派单里说的四条——13l 本来就滤，不需要豁免）：面板要显示过期态、导出含过期是有意的、写事务必须看全库。
+
+**主会话亲验（不是转述）**
+
+- 树与提交：HEAD `eba07a1`，`git status` 干净，12 个文件，逐字节扫 NUL **0**。
+- 生成器链：`build --check` 新鲜；依赖图 **PASS（53 modules, 421 edges）**——**+1 边正是新增那条**；`route-inventory --check` **OK（137／125）**。
+- 全量：主会话直读 `last-run.log` 汇总行 = **356 pass / 0 fail / 0 known-fail / 2 flaky / 356 ran / 7 skipped**，exit 0。
+- `steward-tools.static` 与 `steward-preroute.e2e` **主会话自己各跑一遍**：ALL PASS。
+  （F）组造得对：**F2 是正对照**（先证明「记忆加权」这条路真的活着，再看 F3 —— 否则 F3 的绿可能是空话）。
+- **主会话自己做的反向验证**：把 `13o` 的过期过滤换成 `.filter(() => true)`、重建、单跑 →
+  **F3 两条断言都红**（实测 `{"kind":"thread","hits":["sess_aaf…"]}`，正是缺陷形状），**F2／F4／F5 保持绿** ⇒ 红的理由对。
+  还原后 `git status` 干净、`build --check` 新鲜、该件 ALL PASS。
+
+**主会话补的一件：CHANGELOG 漏了**
+
+M1 改的是**用户看得见的行为**（「过期就不再被用上」当时漏了递话预判这一处），但它没进 CHANGELOG。
+主会话在 126 波那条「管家记住的事会过期」下补了中英各一段：点名补的是哪一处漏，
+并写明**作用域有意不在这一步过滤**及其理由（免得用户或下一个开发者误读成又一个漏改）。
+跑过 `i18n-en-terms.static`（ALL PASS）与 `eol-policy.static`（930 个文件行尾全对）确认没破结构。
+
+**偶发数：2（基线是 1）**
+
+`mission-threads.e2e.js` 与 `subagent.e2e.js`，都与本刀无关、单跑各自 ALL PASS。
+**值得记一笔**：A1／T1／M1 三轮的偶发件**各不相同**（`steward-conversation` → `steward-settings` → 这两件），
+这本身就是「负载时序噪声」而不是产品退化的证据——没有任何一件重复出现。三轮都没有真红。
