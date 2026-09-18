@@ -210,7 +210,8 @@ try {
     const noConfirm = await request('POST', '/api/config', { permissionMode: 'auto' }, hdr);
     ok(noConfirm.status === 409 && noConfirm.json && noConfirm.json.error && noConfirm.json.error.code === 'permission.confirm_required',
       `E1 缺 confirm:true -> 409 permission.confirm_required(got ${noConfirm.status} ${noConfirm.json && noConfirm.json.error && noConfirm.json.error.code})`);
-    ok(readConfigFile() && readConfigFile().permissionMode === 'default', 'E2 被挡下时磁盘配置一字不动');
+    // 128a:盘上是稀疏投影 —— 'default' 就是出厂默认,不落盘(srv 在本文件更靠后才 require,这里不能用它归一化)。
+    ok(readConfigFile() && ['default', undefined].includes(readConfigFile().permissionMode), 'E2 被挡下时磁盘配置一字不动(auto 没被写进去;缺键 = 出厂默认 default)');
     ok(noConfirm.json && noConfirm.json.error && noConfirm.json.error.params && noConfirm.json.error.params.permissionMode === 'auto',
       'E3 错误 params 带上被拒的档位(界面据此说人话)');
 

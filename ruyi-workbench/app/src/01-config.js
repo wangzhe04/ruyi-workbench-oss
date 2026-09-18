@@ -1,6 +1,9 @@
 function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
+    // 128a(48 号文 §2):用户(或产品代用户)真正改过的键。盘上只落这些键 ＋ 簿记键 ＋ 本版不认识的键,
+    // 没碰过的设置跟随产品当前默认 —— 否则装过一次的机器上每个默认值都会被冻在盘上(见 normalizeConfig 头注)。
+    configExplicitKeysV1: [],
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
@@ -595,15 +598,79 @@ function sanitizeLastUsedEngineRoute(rawRoute) {
   return null;
 }
 
-// Fold older config files onto the current schema. Returns { config, changed }.
-function normalizeConfig(raw) {
-  const config = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
+// ── 128a(48 号文 §2):配置只落「改过的键」 ─────────────────────────────────────────────────────
+// 修前 normalizeConfig 是 { ...defaultConfig(), ...raw },而任一次写盘都把【整份合并配置】落下去 ⇒ 装过一次的
+// 机器上每个键都写着当年的默认值,此后产品改任何默认值,存量安装一个也吃不到(107-T1 只能靠一次性迁移补三个键;
+// P1 又测出降级再升级会把用户关掉的开关重新打开)。现在:
+//   · 显式键集合 configExplicitKeysV1 ＝ 被改过的键(经 mutateConfig 的写入里值变了的;读盘时盘上出现且不等于
+//     当前默认的 —— 手改 config.json 与旧版本写下的整份配置都走这条);
+//   · 落盘投影 ＝ 簿记键 ＋ 显式键 ＋ 本版不认识的键(更新的版本写下的键,降级时不能被我们抹掉);
+//   · 迁移按显式键判:用户明确设过的键,schema 号被旧版写回去之后也不会再被迁移改掉。
+// 内存视图照旧是整份(defaults ＋ 盘上),消费方零改动。
+const CONFIG_BOOKKEEPING_KEYS = Object.freeze(['configSchema', 'version', 'configExplicitKeysV1']);
+const CONFIG_EXPLICIT_KEY_MAX = 400;
+// claudePath 的「用户给的值」:normalizeConfig 会把 npm shim 解析成真身 exe(下面 P1 那段),而落盘与「是否被改过」
+// 都必须按用户给的原值判 —— 否则真身路径被写进盘,exe 以后消失时就回落不了 shim。Symbol 键:JSON 永不序列化它,
+// 对象展开({ ...current })会带上它。
+const CONFIG_GIVEN_CLAUDE_PATH = Symbol('configGivenClaudePath');
+function configCanonicalJson(value) {
+  if (value === undefined) return 'undefined';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(configCanonicalJson).join(',') + ']';
+  return '{' + Object.keys(value).filter(k => value[k] !== undefined).sort()
+    .map(k => JSON.stringify(k) + ':' + configCanonicalJson(value[k])).join(',') + '}';
+}
+function configValueEquals(a, b) { return configCanonicalJson(a) === configCanonicalJson(b); }
+function configExplicitKeysOf(raw) {
+  const list = raw && typeof raw === 'object' && Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : [];
+  return new Set(list.filter(k => typeof k === 'string' && k && k.length <= 120 && !CONFIG_BOOKKEEPING_KEYS.includes(k)));
+}
+// 「这个键此刻的值」—— 判是否被改过、以及落盘时用。唯一的特例是 claudePath(见 CONFIG_GIVEN_CLAUDE_PATH)。
+function configComparableValue(config, key) {
+  if (key === 'claudePath' && typeof config[CONFIG_GIVEN_CLAUDE_PATH] === 'string') return config[CONFIG_GIVEN_CLAUDE_PATH];
+  return config[key];
+}
+// 落盘投影:唯一的写口(readConfig 的迁移回写、writeConfig)都写它。
+function persistableConfig(config, base) {
+  const explicit = new Set(Array.isArray(config.configExplicitKeysV1) ? config.configExplicitKeysV1 : []);
+  const out = {};
+  for (const key of Object.keys(config)) {
+    if (CONFIG_BOOKKEEPING_KEYS.includes(key)) out[key] = config[key];
+    else if (explicit.has(key) || !Object.prototype.hasOwnProperty.call(base, key)) out[key] = configComparableValue(config, key);
+  }
+  out.configSchema = CONFIG_SCHEMA;
+  out.version = VERSION;
+  return out;
+}
+function finalizeConfigExplicitKeys(config, explicit) {
+  config.configExplicitKeysV1 = [...explicit]
+    .filter(k => Object.prototype.hasOwnProperty.call(config, k) && !CONFIG_BOOKKEEPING_KEYS.includes(k))
+    .sort()
+    .slice(0, CONFIG_EXPLICIT_KEY_MAX);
+}
+
+// Fold older config files onto the current schema. Returns { config, changed, persisted }.
+//   config    —— 整份内存视图(defaults ＋ 盘上),全部消费方读它;
+//   persisted —— 该落盘的投影(128a);changed ＝ 投影与传进来的 raw 不同(＝该写盘)。
+//   opts.inferExplicit(缺省 true):把 raw 里「不等于当前默认」的已知键记成显式 —— 读盘的语义。
+//     writeConfig 传 false:它手上是整份内存视图,显式与否由它按「这次写入里值变了没有」自己判。
+function normalizeConfig(raw, opts = {}) {
+  const base = defaultConfig();
+  const config = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) };
   const incomingConfigSchema = Number(raw && raw.configSchema) || 0;
+  const rawExplicit = configExplicitKeysOf(raw);
   let changed = !raw || raw.configSchema !== CONFIG_SCHEMA;
   // P1(cmd8191 根治): npm shim(claude.cmd)→ 真身 claude.exe 的运行时解析(见 resolveClaudeLauncher)。
   // 收拢在这一个咽喉点 = 全部消费方(runClaudeTurn/子代理/mcp add-json/doctor)一致受益。不置 changed:
   // 解析是纯运行时升级,配置里保留用户原值,exe 消失时下一次解析自动回落 shim。结果 memoize,热路径零探测。
-  config.claudePath = resolveClaudeLauncher(config.claudePath);
+  // 128a:传进来的若是一份已经解析过的内存视图(它带着 CONFIG_GIVEN_CLAUDE_PATH),且 claudePath 没被改过
+  // (仍等于原值的解析结果),原值沿用那份;否则 claudePath 本身就是新的原值。
+  {
+    const carried = raw && typeof raw === 'object' ? raw[CONFIG_GIVEN_CLAUDE_PATH] : undefined;
+    const given = typeof carried === 'string' && config.claudePath === resolveClaudeLauncher(carried) ? carried : config.claudePath;
+    config[CONFIG_GIVEN_CLAUDE_PATH] = given;
+    config.claudePath = resolveClaudeLauncher(given);
+  }
   if (!['claude', 'kimi'].includes(config.agentCliType)) {
     config.agentCliType = 'claude';
     changed = true;
@@ -657,7 +724,8 @@ function normalizeConfig(raw) {
   // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
   // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
   // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
-  if (incomingConfigSchema < 9 && ['legacy', 'print'].includes(config.engineMode)) {
+  // 128a:显式设过 engineMode 的(configExplicitKeysV1 里有它)不迁 —— schema 号可能被旧版写回去过。
+  if (incomingConfigSchema < 9 && !rawExplicit.has('engineMode') && ['legacy', 'print'].includes(config.engineMode)) {
     config.engineMode = 'interactive';
     changed = true;
   } else if (config.engineMode === 'print') {
@@ -823,9 +891,12 @@ function normalizeConfig(raw) {
   // 放在严格布尔循环【之后】:非布尔脏值(比如字符串 "false")先被压成 false,再统一迁移。
   // 只迁一次 —— 落盘时 configSchema 被盖成 12(见下文 config.configSchema = CONFIG_SCHEMA),用户在
   // 2.8.0 之后自己关掉的那些,升级不会再动。
+  // 128a(Brief §4.2 第 24 条,P1 实测):降级到 2.7.0 会把 configSchema 写回 11,回来时这道迁移又跑一遍,
+  // 把用户在新版里显式关掉的开关重新打开。2.7.0 保留不认识的顶层键 ⇒ configExplicitKeysV1 活过降级,schema 号
+  // 活不过 —— 所以按显式键判:在集合里的键是用户明确设过的,不迁。
   if (incomingConfigSchema < 12) {
     for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
-      if (config[key] === false) { config[key] = true; changed = true; }
+      if (config[key] === false && !rawExplicit.has(key)) { config[key] = true; changed = true; }
     }
   }
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
@@ -1342,7 +1413,28 @@ function normalizeConfig(raw) {
     if (JSON.stringify(cp) !== JSON.stringify(config.claudePricing)) { config.claudePricing = cp; changed = true; }
     else config.claudePricing = cp;
   }
-  return { config, changed };
+  // 128a:显式键集合与落盘投影。读盘语义下,raw 里出现、归一化后不等于当前默认的已知键 = 显式
+  // (手改 config.json、旧版本写下的整份配置)。等于默认又不在集合里的键不落盘 —— 而且第一次读就清掉,
+  // 否则下次默认一变,它们会被这条规则误认成「手改」、又冻住。
+  // 旧格式(schema < 当前,含全新安装与降级往返)那一次读要看【全部】键,不只看 raw 里出现过的:上面那些
+  // `incomingConfigSchema < N` 的迁移会给 raw 里【没有】的键造出值(例如 <10 从 defaultWorkspace 给工作区表
+  // 播种),而 schema 一抬到当前,它们再也不会跑 —— 这一次不落盘,造出来的值就永远丢了(128a 第一轮全量逮到:
+  // 工作区表被清空,管家开线程一律 invalid_request)。当前格式的文件只看 raw 里的键(手改)。
+  const explicit = new Set(rawExplicit);
+  if (opts.inferExplicit !== false) {
+    const migrationRead = incomingConfigSchema < CONFIG_SCHEMA;
+    const candidates = migrationRead ? Object.keys(config) : (raw && typeof raw === 'object' ? Object.keys(raw) : []);
+    for (const key of candidates) {
+      if (CONFIG_BOOKKEEPING_KEYS.includes(key) || !Object.prototype.hasOwnProperty.call(base, key)) continue;
+      if (!configValueEquals(configComparableValue(config, key), base[key])) explicit.add(key);
+    }
+  }
+  finalizeConfigExplicitKeys(config, explicit);
+  const persisted = persistableConfig(config, base);
+  // 是否写盘 = 投影与盘上内容是否不同(不再看归一化途中的内部标记):派生值(比如没设工作区时 defaultWorkspace
+  // 取家目录)每次读都重算、但不在投影里,不会造成每读必写。
+  changed = !raw || typeof raw !== 'object' || !configValueEquals(persisted, raw);
+  return { config, changed, persisted };
 }
 
 // 110-2b: 运行时开关判定函数抽至 01c-runtime-flags.js。
@@ -1593,16 +1685,20 @@ async function readConfig() {
       else return degrade('EJSON');
     }
   }
-  const { config, changed } = normalizeConfig(raw);
+  const { config, changed, persisted } = normalizeConfig(raw);
   configDegraded = false;
   lastGoodConfig = config;
   if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
-  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(config, null, 2)).catch(() => {});
+  // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
+  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
   return config;
 }
 
-async function writeConfig(next) {
+// 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
+// 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
+// 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
+async function writeConfig(next, before = null) {
   await ensureDirs();
   if (configDegraded) {
     // 读失败/JSON 损坏期间拿到的「当前配置」是默认值：在它上面合并再落盘 = 把用户配置冲成默认。拒绝。
@@ -1610,8 +1706,22 @@ async function writeConfig(next) {
     err.code = 'config.read_degraded';
     throw err;
   }
-  const { config } = normalizeConfig(next);
-  await writeConfigAtomic(JSON.stringify(config, null, 2));
+  if (!before) {
+    const { config, persisted } = normalizeConfig(next);
+    await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    return config;
+  }
+  const { config } = normalizeConfig(next, { inferExplicit: false });
+  const explicit = new Set([...configExplicitKeysOf(before), ...configExplicitKeysOf(config)]);
+  const base = defaultConfig();
+  for (const key of Object.keys(config)) {
+    if (CONFIG_BOOKKEEPING_KEYS.includes(key)) continue;
+    // next 上被 delete 掉的已知键 = 「恢复默认」:从显式集合里拿掉,回到跟随产品默认。
+    if (Object.prototype.hasOwnProperty.call(base, key) && !Object.prototype.hasOwnProperty.call(next, key)) { explicit.delete(key); continue; }
+    if (!configValueEquals(configComparableValue(config, key), configComparableValue(before, key))) explicit.add(key);
+  }
+  finalizeConfigExplicitKeys(config, explicit);
+  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
   return config;
 }
 
@@ -1635,10 +1745,13 @@ let configMutateChain = Promise.resolve();
 function mutateConfig(mutator) {
   const run = configMutateChain.catch(() => {}).then(async () => {
     const current = await readConfig();
+    // 128a:mutator 可以就地改 current,所以「改之前」必须先深拷一份(Symbol 键 structuredClone 不带,手补)。
+    const before = structuredClone(current);
+    before[CONFIG_GIVEN_CLAUDE_PATH] = current[CONFIG_GIVEN_CLAUDE_PATH];
     const decision = await mutator(current);
     const d = (decision && typeof decision === 'object') ? decision : {};
     if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, config: current, value: d.abort };
-    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current);
+    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current, before);
     return { ok: true, config: next, value: d.value };
   });
   configMutateChain = run.then(() => {}, () => {});

@@ -41,7 +41,8 @@ assert.ok(mentions.length === 1 && /^\s*\/\//.test(mentions[0].trimStart()) || (
 // ② schema:114a 自己不 bump（45 号文 §6.1），但常量是全仓共用的 —— 107-T1 为了把 126-111b/d/e
 //    三个开关的一次性迁移挂上阶梯，把它抬到了 12（46 号文 §5）。本条继续钉住【当前值】，好让
 //    「谁又动了它」还是红的；判据同时钉住「ASR 三个键没有任何迁移分支」，那才是 114a 真正要守的。
-assert.match(src00, /const CONFIG_SCHEMA = 12;/, 'CONFIG_SCHEMA 当前为 12（114a 自己不 bump；11→12 是 107-T1 为 126-111b/d/e 迁移抬的，46 号文 §5）');
+//    128a 又把它抬到 13（稀疏落盘，48 号文 §2；13 本身不挂迁移）。
+assert.match(src00, /const CONFIG_SCHEMA = 13;/, 'CONFIG_SCHEMA 当前为 13（114a 自己不 bump；11→12 是 107-T1 为 126-111b/d/e 迁移抬的，46 号文 §5；12→13 是 128a 稀疏落盘，48 号文 §2）');
 assert.ok(!/incomingConfigSchema[^\n]*asr/i.test(src01) && !/asr(ProviderId|Model)[^\n]*incomingConfigSchema/i.test(src01),
   '114a 的 asrProviderId/asrModel 仍然没有任何 schema 迁移分支（纯增量：读回空串即「未配置」）');
 // ③ 后端落点

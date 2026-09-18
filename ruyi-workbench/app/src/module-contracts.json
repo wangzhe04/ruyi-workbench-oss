@@ -167,6 +167,9 @@
         "CMD_EXE_LINE_LIMIT",
         "CMD_LINE_QUOTE_MARGIN",
         "CMD_LINE_SAFE_BUDGET",
+        "CONFIG_BOOKKEEPING_KEYS",
+        "CONFIG_EXPLICIT_KEY_MAX",
+        "CONFIG_GIVEN_CLAUDE_PATH",
         "DESKTOP_PYTHON_DISK_CACHE_FILE",
         "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
@@ -200,8 +203,12 @@
         "cmdLineBudgetFor",
         "cmdLineBudgetSeam",
         "commandForSelfMcp",
+        "configCanonicalJson",
+        "configComparableValue",
         "configDegraded",
+        "configExplicitKeysOf",
         "configMutateChain",
+        "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
         "decodeClaudeCliText",
@@ -235,6 +242,7 @@
         "effectiveAnthropicEnv",
         "ensureDesktopMcpWarm",
         "externalServerJs",
+        "finalizeConfigExplicitKeys",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
         "generateSessionMcpConfig",
@@ -254,6 +262,7 @@
         "normalizeWorkspacePathString",
         "originOk",
         "permissionModeFrom",
+        "persistableConfig",
         "pickPython",
         "pickPythonAsync",
         "prepareAgentCliSpawn",
@@ -16974,6 +16983,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "normalizeAgentRole",
           "kinds": [
             "read"
@@ -17039,7 +17055,8 @@
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {

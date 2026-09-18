@@ -108,7 +108,9 @@ const stewardCtx = (turn, extra) => ({
   ...(extra || {}),
 });
 const call = (name, args, ctx) => srv.toolCall(name, args, ctx || stewardCtx(0));
-const cfg = () => JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+// 128a(48 号文 §2):盘上是稀疏投影(只落改过的键),拿来当整份配置用之前先归一化 —— 否则 stewardEnabledV1
+// 这类等于默认、不落盘的键读出来是 undefined,收件箱当成管家关着。
+const cfg = () => srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
 const inboxRows = async () => (await srv.StewardHooks.inboxRead({ since: 0, limit: 500 })).items;
 const stewardMessages = () => {
   const f = path.join(HOME, 'sessions', 'steward.messages.ndjson');

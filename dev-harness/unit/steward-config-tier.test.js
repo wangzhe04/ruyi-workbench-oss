@@ -137,6 +137,8 @@ const EXPECTED = {
 
   // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
   configSchema: 'forbidden', version: 'forbidden',
+  // 128a:簿记键 —— 管家若能改它,就能把任意键「去显式化」让它回落默认(绕开用户显式设过的值),所以禁。
+  configExplicitKeysV1: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', extraClaudeArgs: 'forbidden',
   defaultWorkspace: 'forbidden', workspaces: 'forbidden', recentWorkspaces: 'forbidden',
   // 117w-W1 提交②(27 号文 §11.19.2):Ruyi 默认工作区【根】。围栏类键 —— 它决定「管家省略 cwd 时

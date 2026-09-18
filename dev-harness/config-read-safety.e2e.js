@@ -115,7 +115,9 @@ try {
   fs.unlinkSync(CONFIG); try { fs.unlinkSync(PREV); } catch { /* ok */ }
   r = await reqJson('GET', '/api/status');
   await sleep(300);
-  ok(fs.existsSync(CONFIG) && Array.isArray(diskJson().providers) && diskJson().providers.length === 0, 'F1 fresh install (no file, no .prev) writes defaults');
+  // 128a(48 号文 §2):全新安装落的是稀疏文件(簿记键 ＋ 迁移播种的工作区表),等于默认的 providers:[] 不落盘。
+  ok(fs.existsSync(CONFIG) && diskJson().configSchema === 13 && (diskJson().providers === undefined || diskJson().providers.length === 0),
+    'F1 fresh install (no file, no .prev) writes a fresh config (sparse: no providers on disk)');
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));
 } finally {

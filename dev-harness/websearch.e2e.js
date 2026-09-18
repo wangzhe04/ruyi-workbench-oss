@@ -341,7 +341,10 @@ function writeConfig(home, extra) {
     ok(/主动使用 web_search/.test(sys1), '(migrate) D6 proactive-search line renders (web_search offered + online)');
     // On-disk config: the migration was persisted (changed=true → written back as 'builtin').
     const onDiskMig = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
-    ok(onDiskMig.searchBackend.type === 'builtin', '(migrate) on-disk searchBackend.type folded none→builtin + persisted');
+    // 128a(48 号文 §2):折叠成 builtin 之后它等于出厂默认 ⇒ 稀疏投影里不落 searchBackend;真正要落盘的是
+    // searchBackendMigrated 标记位(有了它,用户之后再显式选 'none' 才会被尊重)。
+    ok((onDiskMig.searchBackend === undefined || onDiskMig.searchBackend.type === 'builtin') && onDiskMig.searchBackendMigrated === true,
+      '(migrate) on-disk: searchBackend folded none→builtin (= default, not pinned) + migration marker persisted');
 
     // (f) apiKey mask over the wire — save a searchBackend with a secret, then read it back masked.
     const token = await getToken(WB_PORT);

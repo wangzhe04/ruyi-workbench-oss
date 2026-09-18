@@ -97,8 +97,9 @@ ok(/typeof raw0\.newThread === 'boolean' \? raw0\.newThread : DEF_AA\.newThread/
 // CONFIG_SCHEMA:116a 自己不 bump(纪律未变),但常量全仓共用 —— 107-T1 为 126-111b/d/e 的一次性
 // 迁移把它 11 → 12(46 号文 §5)。本条继续钉【当前值】,好让「谁又动了它」还是红的;116a 真正要守的
 // 「管家那批键没有任何 schema 迁移分支」由下一条钉住。
-ok(/const CONFIG_SCHEMA = 12;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
-  'CONFIG_SCHEMA 当前为 12(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的)');
+// 128a 又把它 12 → 13(稀疏落盘,48 号文 §2;13 本身不挂迁移)。
+ok(/const CONFIG_SCHEMA = 13;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
+  'CONFIG_SCHEMA 当前为 13(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的;12→13 是 128a 稀疏落盘)');
 {
   const branches = configSrc.split(/\r?\n/).filter(l => /incomingConfigSchema\s*</.test(l));
   ok(branches.length >= 1, `扫得到 incomingConfigSchema 迁移分支（实得 ${branches.length} 处；扫不到 = 本条静默失效）`);
@@ -177,8 +178,13 @@ ok(c1.stewardGlobalMaxCostPerDay === 20, "非法 stewardGlobalMaxCostPerDay='lot
 ok(srv.defaultConfig().stewardEnabledV1 === true && srv.defaultConfig().stewardMaxParallelThreads === 5,
   '121-K0:默认配置是「管家开 + 并发上限 5」(仲裁随默认开一起生效)');
 
-const second = srv.normalizeConfig(c1);
-ok(second.changed === false, '同一个已归一 config 再跑一次 normalizeConfig -> changed===false(幂等)');
+// 128a(48 号文 §2):changed 的判据改成「落盘投影与传进来的 raw 是否不同」(= 该不该写盘)。整份内存视图
+// 再跑一次,投影必然与它不同(投影是稀疏的),所以幂等要钉的是【盘上那份】:投影再归一化一遍不再触发写盘,
+// 两次投影逐字相同,且内存视图里 14 个管家键的值不变。
+const second = srv.normalizeConfig(JSON.parse(JSON.stringify(first.persisted)));
+ok(second.changed === false && JSON.stringify(second.persisted) === JSON.stringify(first.persisted)
+  && ['stewardReadBudgetChars', 'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxCostPerDay'].every(k => second.config[k] === c1[k]),
+  '同一份落盘投影再跑一次 normalizeConfig -> changed===false、投影逐字不变(幂等)');
 const c2 = second.config;
 ok(JSON.stringify(c2.stewardAutoActions) === JSON.stringify(c1.stewardAutoActions), 'stewardAutoActions 二次归一内容不变');
 for (const key of ['stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',

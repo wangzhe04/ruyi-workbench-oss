@@ -206,6 +206,9 @@ module.exports = {
   safeUrlForDisplay, // 55a:远程 URL 展示脱敏 - exposed for e2e 直测
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
   normalizeConfig,
+  // 128a:读-改-写整条环 exposed for unit/config-explicit-keys.test.js(真读盘、真写盘,临时 HOME)。
+  readConfig,
+  mutateConfig,
   AGENT_CLI_TYPES,
   selectedAgentCli,
   detectKimiPath,

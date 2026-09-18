@@ -220,7 +220,8 @@ try {
   }
   /* ═════════ (G) 116-4 第四源 sessionTurns ═════════ */
   console.log('── (G) 第四源:线程跑完真的入箱 ──');
-  const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+  // 128a:盘上是稀疏投影,当整份配置用之前先归一化(等于默认的键不落盘,直读会是 undefined)。
+  const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'))).config;
   const inboxRows = async () => (await srv.StewardHooks.inboxRead({ since: 0, limit: 200 })).items;
   // 冷启动一轮:本次装载没有可用游标 -> 三源加第四源都只建基线,历史【不】倒灌进箱子。
   await srv.startStewardInbox(cfg);

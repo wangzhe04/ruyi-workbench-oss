@@ -195,7 +195,11 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
     ok(st.json && st.json.config && st.json.config.outputStyle === 'concise', '(A) outputStyle:concise persisted');
     // And on disk (config.json).
     const disk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
-    ok(disk.uiMode === 'simple' && disk.outputStyle === 'concise', '(A) both persisted to disk config.json');
+    // 128a(48 号文 §2):盘上只落【这次写入里值变了】的键。uiMode:'simple' 就是出厂默认、这一发没改它 ⇒ 不落盘
+    // (以后默认若变,没碰过它的人跟着走);outputStyle 从 detailed 改成 concise ⇒ 落盘并进显式集合。
+    ok(disk.outputStyle === 'concise' && (disk.configExplicitKeysV1 || []).includes('outputStyle')
+      && (disk.uiMode === undefined || disk.uiMode === 'simple'),
+      '(A) changed outputStyle persisted to disk config.json (uiMode unchanged = default, not pinned)');
 
     // ── B) outputStyle prompt injection ──────────────────────────────────────────────────────────────
     // concise is active now → the captured stable-system + volatile-user prompt contains the instruction.
