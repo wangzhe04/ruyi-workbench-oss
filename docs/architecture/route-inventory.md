@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-18T12:53:12.264Z。
+> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-18T14:15:00.676Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -76,7 +76,7 @@
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js:1085 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:1113 | autonomy-grant.e2e.js |
 | POST | `/api/agent-workflow/launch` | exact | body-token | 13-http-router.js:1126 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-quality-workflow.e2e.js 等 28 件 |
-| GET | `/api/usage/summary` | exact | token self | 13-http-router.js:1180 | steward-drawer.e2e.js, steward-drawer.static.e2e.js, steward-model-menu.test.js 等 7 件 |
+| GET | `/api/usage/summary` | exact | token self | 13-http-router.js:1180 | steward-drawer.e2e.js, steward-drawer.static.e2e.js, steward-model-menu.test.js 等 8 件 |
 | GET | `/api/ops/metrics` | exact | token self | 13-http-router.js:1195 | monitor-incremental.e2e.js |
 | GET | `/api/checkpoints` | exact | token self | 13-http-router.js:1204 | artifacts.e2e.js, changes-diff.e2e.js, checkpoint-coverage.e2e.js 等 12 件 |
 | POST | `/api/checkpoints/open-external` | exact | token | 13-http-router.js:1225 | external-code-diff.e2e.js |

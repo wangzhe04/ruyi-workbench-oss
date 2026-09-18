@@ -670,6 +670,33 @@ try {
   await cdp.evaluate('window.__w1Reset(), true');
   await clickSelector('#threadChips [data-chip="model"]');
   await waitForEval(cdp, `(() => document.querySelector('#threadChips .steward-chip-menu [data-model-id="${MODEL_2}"]') ? 1 : null)()`, 200);
+  // 107-F10：【先把指针挪进模型菜单，再量第二个模型的位置、再点】—— 顺序不许倒。
+  // 模型菜单第一次打开时去拉 GET /api/usage/summary?range=all，到货后把 list 整段重画一遍：顶上插进
+  // 「常用」标题与用过的 fake-model（那一行还多出一行用量副行），第二个模型从 y=278 被顶到 y=321；
+  // 指针已经停在菜单里时产品【不】重画（steward-chips.js 用量到货那段的 :hover 守卫，124 走查②）。
+  // 旧写法「量完位置 → 指针从 chip 那儿瞬移过去点」：用量恰好落在「量完」与「指针到位」之间那几毫秒，
+  // 重画就发生在量完之后，点下去的是旧坐标 —— 落在「Fake」分组标题 p.steward-chip-group 上，不是按钮，
+  // 于是一发 PATCH 都没有，F1–F8 连坐红。探针实测（单跑 11 次）：用量在点开 chip 后 134–184 ms 到货；
+  // 夹具量位置在 139–168 ms（clickSelector 点完 chip 睡 120 ms 再轮询 —— 正落在用量到货的分布中间）；
+  // 指针在量完后 3–16 ms 到位。6 次先重画后量（y=321，过）、4 次指针先到守卫拦下（y=278，过）、
+  // 1 次重画夹在中间（量 157／到货 161／重画 162／指针 171 → 点中分组标题 → 红；盘上 engineRoute
+  // 0 ms 与 4.1 s 两读都是 fake-model，是真没发请求，不是写慢了）。未改的 HEAD 单跑 6 次红 2 次，签名一致。
+  // 强制形状对照（CDP Fetch 扣住用量回包，在「量完」与「点下去」之间放行，两臂只差本段这一步）：
+  // 旧写法 3/3 红（点中 p.steward-chip-group）、本写法 3/3 绿（:hover 在、不重画、点中 fake-model-2）。
+  // 保存链本身没断：点中按钮的 10 次全是 PATCH 200 ＋ 盘上 0 ms 即已变。真人的指针是从 chip 一路
+  // 划进菜单再瞄的，所以先进菜单再量 —— 进了菜单之后菜单不再挪，量到的就是点下去的位置。
+  // 「跟随全局」那一行永远排第一、重画前后都在同一处，拿它当落脚点（悬停它不触发任何动作）。
+  const menuAnchor = await cdp.evaluate(`(() => {
+    const n = document.querySelector('#threadChips .steward-chip-menu[data-kind="model"] [data-model-follow="1"]');
+    if (!n) return null;
+    const b = n.getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  })()`);
+  if (menuAnchor) await mouseAt(menuAnchor.x, menuAnchor.y, 'mouseMoved');
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const m = document.querySelector('#threadChips .steward-chip-menu[data-kind="model"]');
+    return m && !m.hidden && m.matches(':hover') ? 1 : null;
+  })()`, 50)), 'F0c 指针先落进模型菜单（此后用量迟到也不再重画 —— 下一步量到的位置就是点下去的位置）');
   await clickSelector(`#threadChips .steward-chip-menu [data-model-id="${MODEL_2}"]`);
   await sleep(600);
 
