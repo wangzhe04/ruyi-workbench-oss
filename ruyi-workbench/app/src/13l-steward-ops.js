@@ -810,6 +810,7 @@ async function stewardImplSkillToggle(args, ctx, config) {
       { reason: 'confirm_required', sessionId, skills: args.skills.map(x => String((x && x.id) || x || '')).slice(0, 8) });
   }
   const result = await setSessionSkillsCore(sessionId, args.skills);
+  if (!result.ok && result.status === 409) return stewardFail('version_conflict', '这条线程在写入期间被撤回过,技能没有改成,请重试');   // 128b
   if (!result.ok) return stewardFail('not_found', String(result.error || 'session not found'));
   stewardAppendDecision({
     tool: 'steward_skill_toggle',

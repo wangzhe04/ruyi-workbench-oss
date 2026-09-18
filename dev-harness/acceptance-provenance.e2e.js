@@ -249,8 +249,16 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
     ok(stampCallers.length === 2 && stampCallers.includes('06e-mission-domain.js') && stampCallers.includes('13-http-router.js'),
       'f2 落章的调用点恰两处:驱动器每轮 + action:check(实 ' + JSON.stringify(stampCallers) + ')');
     for (const name of stampCallers) {
-      ok(/evaluateMissionCheck\([\s\S]{0,400}?recordMissionCheckResult\(/.test(readSrc(name)),
-        'f2 ' + name + ' 的章紧跟着真跑过的那次 evaluateMissionCheck(不是凭空落章)');
+      // 128b:action:check 的落盘改走 mutateSession(撤回插在中间时在新读的副本上重放),章不能再紧挨着检查写 ——
+      // 检查先在读到的那份上真跑,结果按里程碑 id 收进 byId,落盘时从 byId 取回来落章。判据改钉这条数据链本身:
+      // 章的来源只能是那次真跑的结果(真跑 → results → byId → 取回 → 落章),不许凭空落章。驱动器那一处形状不变。
+      const src = readSrc(name);
+      const direct = /evaluateMissionCheck\([\s\S]{0,400}?recordMissionCheckResult\(/.test(src);
+      const viaMap = /const r = await evaluateMissionCheck\(m\.check, cwd\);\s*results\.push\(\{ id: m\.id, checkType: [^\n]*result: r \}\);/.test(src)
+        && /const byId = new Map\(results\.map\(item => \[item\.id, item\.result\]\)\);/.test(src)
+        && /const r = byId\.get\(m\.id\);\s*if \(!r\) continue;\s*recordMissionCheckResult\(m, r\);/.test(src);
+      ok(name === '13-http-router.js' ? viaMap : direct,
+        'f2 ' + name + ' 的章来自真跑过的那次 evaluateMissionCheck(不是凭空落章)');
     }
     // f3:容器验收项的写面 —— 规范器只在 02,HTTP 侧三条路由全是 UI header token,模型工具面零处。
     const acceptanceWriters = srcNames.filter(name => /normalizeMissionAcceptance\(/.test(readSrc(name)));

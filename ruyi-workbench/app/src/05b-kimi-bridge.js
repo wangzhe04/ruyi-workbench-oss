@@ -278,15 +278,28 @@ async function runKimiCompact(sessionId, configOverride, trigger = 'manual', onE
   if (!session) return { ok: false, error: 'session not found' };
   if (config.compactProviderId) return runAgentExternalCompact(session.id, config, trigger);
   if (!session.claudeSessionId) return { ok: false, error: 'Kimi 原生会话尚未建立，暂无可压缩上下文' };
-  const result = await compactKimiNative(config, session.claudeSessionId, '', onEvent);
+  const nativeId = session.claudeSessionId;
+  const result = await compactKimiNative(config, nativeId, '', onEvent);
   if (!result.ok) return result;
-  applyKimiStatusToSession(session, result.status);
-  upsertCompactMarker(session, {
-    kind: 'kimi', label: `Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩`, approx: false, accuracy: '原生会话实测',
-    beforeTokens: result.beforeTokens, afterTokens: result.afterTokens,
-  });
-  session.autoCompactWatermark = result.afterTokens; // 压后实测值作为滞回水位(provider 引擎同款口径)
-  await saveSession(session);
+  // 128b:压缩发生在 Kimi 那边的原生会话里(不管本地撤没撤回,它都已经发生了),这里落的只是本地的记录 ——
+  // 走 mutateSession 重放到新读的副本上,不被闸静默丢掉;新副本若已不再指向同一个原生会话(期间被重置),这条记录就不适用。
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if (fresh.claudeSessionId !== nativeId) return { abort: 'native_session_changed' };
+      applyKimiStatusToSession(fresh, result.status);
+      upsertCompactMarker(fresh, {
+        kind: 'kimi', label: `Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩`, approx: false, accuracy: '原生会话实测',
+        beforeTokens: result.beforeTokens, afterTokens: result.afterTokens,
+      });
+      fresh.autoCompactWatermark = result.afterTokens; // 压后实测值作为滞回水位(provider 引擎同款口径)
+      return undefined;
+    }, { writer: 'kimi_compact' });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
   logEvent({ kind: 'kimi_compact', trigger, sessionId: session.id, nativeSessionId: session.claudeSessionId, beforeTokens: result.beforeTokens, afterTokens: result.afterTokens });
   return result;
 }

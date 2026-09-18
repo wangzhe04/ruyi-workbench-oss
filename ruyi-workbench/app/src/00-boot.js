@@ -122,6 +122,10 @@ const LEGACY_API_ERROR_CODES = new Map([
   ['method not allowed', 'api.method_not_allowed'],
   ['host not allowed', 'api.host_rejected'],
   ['unknown action', 'request.action_unknown'],
+  // 128b:撤回相关的三句裸串给稳定码(否则一律落成 api.request_failed,前端只能把原串 'rewind_superseded' 摆给用户看)。
+  ['rewind_superseded', 'session.rewind_superseded'],
+  ['session.rewound_during_write', 'session.rewound_during_write'],
+  ['session.history_changed_during_compact', 'session.history_changed_during_compact'],
 ]);
 
 // Keep the legacy message as an optional diagnostic while ensuring every HTTP error has a stable,

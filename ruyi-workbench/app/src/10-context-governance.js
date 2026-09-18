@@ -1128,6 +1128,9 @@ function maybeWriteSessionNotes(session, summary, config) {
   try {
     if (!sessionNotesEnabled(config)) return;
     if (!session || !session.id || typeof summary !== 'string' || !summary) return;
+    // 128b(Brief §4.2 第 16 条):会话笔记是旁车文件,不过 saveSession 的撤回闸 —— 撤回之前读出来的那份对象(垂死回合)
+    // 若照写,下一回合会把已撤回的内容当笔记再注入回来。陈旧就不写,记一条。
+    if (sessionObjectIsStale(session)) { logEvent({ kind: 'session_notes_stale_skipped', sessionId: session.id }); return; }
     const nextNotes = extractSessionNotes(summary);
     const meta = { sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq };
     // 105d-B: 增量合并分支 —— read→merge→render→write,仍 fire-and-forget、整体 catch 绝不阻断回合。
@@ -1850,31 +1853,45 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
   const history = compactHistoryFromSession(session);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
+  // 128b:同 runProviderCompact —— 摘要是按「此刻这段对话」算的,落盘带 expectGen;期间撤回过、或对话又长了,都不写。
+  const baseGen = Number(session.rewindGen) || 0;
+  const baseMessages = Array.isArray(session.messages) ? session.messages.length : 0;
   const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, config, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
   if (!sc.ok) return { ok: false, error: sc.error };
   recordCompactUsage(session, resolved.provider, sc);
   const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
   const afterTokens = estimateContentTokens(sc.summary);
   const contextMeta = await agentConversationContextMeta(config, session);
-  session.agentRecoverySummary = sc.summary;
-  session.agentRecoverySource = {
-    providerId: resolved.provider.id,
-    model: resolved.model,
-    trigger,
-    createdAt: nowIso(),
-  };
-  session.claudeSessionId = null;
-  delete session.claudeSessionModel;
-  delete session.claudeSessionCwd;
-  delete session.claudeSessionRouteKey;
-  session.injectedIndexHash = null;
-  const marker = upsertCompactMarker(session, {
-    kind: 'external', label: `${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文`, reseeded: true,
-    beforeTokens, afterTokens, note: '下一轮将基于摘要重建原生 Agent 会话。',
-  });
-  if (marker) marker.usage = { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' };
-  session.autoCompactWatermark = afterTokens; // 与 provider/kimi 路径同款滞回水位
-  await saveSession(session);
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if ((Array.isArray(fresh.messages) ? fresh.messages.length : 0) !== baseMessages) return { abort: 'history_changed' };
+      fresh.agentRecoverySummary = sc.summary;
+      fresh.agentRecoverySource = {
+        providerId: resolved.provider.id,
+        model: resolved.model,
+        trigger,
+        createdAt: nowIso(),
+      };
+      fresh.claudeSessionId = null;
+      delete fresh.claudeSessionModel;
+      delete fresh.claudeSessionCwd;
+      delete fresh.claudeSessionRouteKey;
+      fresh.injectedIndexHash = null;
+      const marker = upsertCompactMarker(fresh, {
+        kind: 'external', label: `${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文`, reseeded: true,
+        beforeTokens, afterTokens, note: '下一轮将基于摘要重建原生 Agent 会话。',
+      });
+      if (marker) marker.usage = { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' };
+      fresh.autoCompactWatermark = afterTokens; // 与 provider/kimi 路径同款滞回水位
+      return undefined;
+    }, { writer: 'agent_external_compact', expectGen: baseGen });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
+  if (!written.ok) return { ok: false, error: 'session.history_changed_during_compact' };
   logEvent({ kind: 'agent_external_compact', sessionId: session.id, trigger, provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens });
   return { ok: true, mode: 'external-summary', provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens, sessionReset: true };
 }
@@ -2178,6 +2195,10 @@ async function runProviderCompact(sessionId) {
   const summaryProvider = compactTarget.provider || provider;
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
+  // 128b:摘要要调数秒的模型。算之前记下撤回代数,落盘带 expectGen —— 期间撤回过就不写(撤回之前的历史算出来的
+  // 摘要绝不写回撤回之后的会话);期间有回合追加过历史(长度变了)也不写,否则那几条会被这份摘要整段盖掉。
+  const baseGen = Number(session.rewindGen) || 0;
+  const baseLength = history.length;
 
   const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model, config });
   if (!sc.ok) {
@@ -2185,23 +2206,38 @@ async function runProviderCompact(sessionId) {
     return { ok: false, error: sc.error };
   }
   const summary = sc.summary;
-  recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
-  maybeWriteSessionNotes(session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用
+  recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
 
   const beforeTokens = estimateHistoryTokens(history);
-  session.providerHistory = [
-    { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary },
-    { role: 'assistant', content: '收到，已基于摘要继续。' },
-  ];
-  const afterTokens = estimateHistoryTokens(session.providerHistory);
-  const marker = upsertCompactMarker(session, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
-  if (marker) marker.usage = {
-    usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
-    contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
-  };
-  session.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
-  session.providerHistoryCursor = session.messages.length;
-  await saveSession(session);
+  let afterTokens = 0;
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if (!Array.isArray(fresh.providerHistory) || fresh.providerHistory.length !== baseLength) return { abort: 'history_changed' };
+      fresh.providerHistory = [
+        { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary },
+        { role: 'assistant', content: '收到，已基于摘要继续。' },
+      ];
+      afterTokens = estimateHistoryTokens(fresh.providerHistory);
+      const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
+      if (marker) marker.usage = {
+        usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
+        contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
+      };
+      fresh.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
+      fresh.providerHistoryCursor = fresh.messages.length;
+      return undefined;
+    }, { writer: 'provider_compact', expectGen: baseGen });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
+  if (!written.ok) {
+    logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, error: 'history_changed', baseLength });
+    return { ok: false, error: 'session.history_changed_during_compact' };
+  }
+  maybeWriteSessionNotes(written.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
   logEvent({ kind: 'provider_compact', sessionId: session.id, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens });
   return { ok: true, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens };
 }
@@ -2249,7 +2285,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     }
 
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
-    const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
+    // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
+    const rawRefPrefix = sessionObjectIsStale(session) ? '' : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
 
     let compacted = false;
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────

@@ -188,3 +188,35 @@ dry 模式喂合成进程表、只打计划，供单测钉「撞号的陌生人�
 - 红的是 `classic-window-live-steer` H8f／H8h（两次都红）—— **128a 登记的未结项第二次在全量里红**（上一次 128a 第二轮）。这一次的形状与 128a 单跑那次相同：
   本页回合收尾、服务端已释放之后按下发送，服务端受理成了插话。**下一步**：把诊断放进测试本身（失败时打会话尾／审计尾带时间戳、保留夹具目录），下一轮全量就在那一跑里取证。
 - flaky `walkthrough-round1` C2（「管家视角：点行里那块空白 → 焦点真的换了」首跑红）—— **126 波那次 C2 之后第二次出现**，按规矩取证（进 128f）。
+
+### 128b · 会话「读-改-写」唯一原语 ＋ 旁车／驱动器过撤回闸 ＋ 撤回相关的码有人话（2026-09-19，主会话亲做；普查由只读代理出表、逐处复核后落刀）
+
+**原语**：`02` 的 `mutateSession(id, mutator, { writer, expectGen })` —— 新读 → mutator（可 `abort`／带 `value`）→ `saveSession(…, { throwIfStale: true })`；
+撞上撤回就重新读、重新应用，最多重放 2 次，仍不行抛 `session.rewound_during_write`；`expectGen`（慢活：算之前记下的撤回代数）与新读到的不一致、
+或读时一致但撤回落在存之前，一律抛、不重放。另出 `sessionObjectIsStale(session)`。
+
+**改走它的十一处**（都是普查表里「会回成功却没落上」的）：技能（`setSessionSkillsCore`，路由回 409 稳定码、管家工具回 `version_conflict`）、线程记忆两支、todo、
+任务账本 check（慢活：先真跑核验、结果按里程碑 id 收起，落盘带 `expectGen` 重放到新副本）／start／update（mutator 可重放，`mission_start` 日志挪到落盘成功之后）、
+任务控制（停回合／停子代理／撤授权／回退这些副作用不可重做 —— 只把「账本该是什么样」整份重放到新副本；撤回不动账本）、三个引擎的手动压缩
+（provider 与外部摘要带 `expectGen` ＋「期间历史长度变了就不写」—— 否则这份摘要会把期间追加的几条整段盖掉；Kimi 原生压缩发生在 Kimi 那边、不管撤没撤回都已经发生，
+本地记录照重放，但新副本若已不指向同一个原生会话就不写）、工作流摘要追加、管家回复盖章、管家拜访归档（归档文件先写、截断带 `expectGen`，没截成就把刚写的归档删掉 ——
+修前是「归档了、会话里也还在」同一段对话存两份）。**变更流水只在保存真落上之后记**（任务路由与任务控制都是）。
+
+**旁车与驱动器**（Brief 第 16、17 条）：会话笔记（`maybeWriteSessionNotes`）与历史快照（`maybeAutoCompact` 里）遇到陈旧对象不写；任务驱动器每起一回合前判陈旧，陈旧就收手记原因。
+**第 17 条原是普查代理提出、标「待证」—— 反向验证坐实**：拿掉那一行，驱动器拿着撤回之前的对象照起了 1 个回合（修后 0 个）。
+**i18n**（第 18 条）：`rewind_superseded` 进 `LEGACY_API_ERROR_CODES` 归一成 `session.rewind_superseded`；工作台 `API_ERROR_I18N` 与管家抽屉 `failNote` 都给三个码配了人话键，四份 locale 各三句。
+修前管家壳把原串 `rewind_superseded` 摆给用户。
+
+**不做**：三个「用户刚切的值在存盘时重新盖一次」的覆盖表不合并（有风险无收益）；**活回合那一侧的丢失更新**（回合收尾存拿着旧对象盖掉并发的读改写）是另一类问题，
+各有既有守卫（覆盖表、任务账本收尾合并、元数据补丁的延后通道），本片不扩大范围。
+
+**锁**：`unit/session-mutate.test.js`（[M1] 基本；[M2] 撤回插在读与存之间 ⇒ 第一次写被闸丢掉、重放一次落上，撤回的截断与这次改动都在；[M3]／[M4] expectGen 两种形状都抛、不写、不重放；
+[M5] abort；[D1] 陈旧对象驱动器零回合；[D2] 对照照常起回合）；`session-save-census.static.e2e.js`（① 各模块 `saveSession(` 普查数与表逐项相等 —— 新加一处就红、红的那句话让人回来判「回合自存」还是「读改写」；
+② 点名十一处真的走 mutateSession（慢活带 expectGen）、没有裸存；③ 原语带 throwIfStale／expectGen；④ 旁车与驱动器的闸；⑤ 稳定码、两壳人话键、四份 locale）。
+**反向**：驱动器那一行删掉 → [D1] 红（照起 1 回合）；mutateSession 存盘去掉 throwIfStale → [M2] 红（只写 1 次、改动丢了）；技能核心塞回一处裸 `saveSession` → 普查 ① 与点名 ② 同时红。均按备份还原、sha256 一致。
+**顺带逮到两处**：`compact-marker-merge` 单测在 vm 沙箱里跑 `maybeAutoCompact`，缺了新引用的 `sessionObjectIsStale` 会被吞成「没压缩」（它头注记着同一个坑）—— 注真函数；
+普查锁第一版把路由路径写成字面串，`route-inventory` 把它当成 6 条路由的覆盖（它只读源码、不打路由）—— 改成按片拼、清单回到 8 条未覆盖。
+
+**全量**：**356/2、1 flaky**，退出码 1，进程快照一致。两红是 `mission-result` s13 与 `acceptance-provenance` f2 —— 两把静态锁钉着任务核验路由的旧形状：
+s13 放宽到接受 `fresh`；f2 从「落章紧跟着检查（400 字内）」**改钉这条数据链本身**（真跑 → results → byId → 取回 → 落章），反向：把取回改成凭空构造的结果 → f2 红。改后两件 2/2 绿。
+flaky `steward-quick-ask` I3（「会话头 turnSeq === 1，got 0」）**首次出现**，登记跟踪。`classic-window-live-steer` H8 这一轮没红（诊断已在测试里待命）。

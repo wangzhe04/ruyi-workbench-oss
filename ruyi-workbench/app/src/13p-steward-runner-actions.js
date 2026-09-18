@@ -605,17 +605,20 @@ async function stewardTriggerStamp(trigger, events) {
 // 把结构化结果落到管家会话最新一条助手消息的 meta 上(§11.3:「结构化结果落在 …助手消息的 meta」)。
 // 只在回合已经收尾后做(单管家并发 1 保证此刻没有在途回合),避免 116c 记过的读改写竞态。
 async function stewardStampReply(reply) {
-  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
-  if (!session) return '';
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i] && messages[i].role === 'assistant') {
-      messages[i].steward = reply;
-      await saveSession(session).catch(() => {});
-      return String(messages[i].content || '');
-    }
-  }
-  return '';
+  // 128b:走 mutateSession(撤回插在读与存之间时在新读的副本上重放盖章,不被闸静默丢掉);失败照旧吞掉(旁路)。
+  try {
+    const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      const messages = Array.isArray(fresh.messages) ? fresh.messages : [];
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i] && messages[i].role === 'assistant') {
+          messages[i].steward = reply;
+          return { value: String(messages[i].content || '') };
+        }
+      }
+      return { abort: '' };
+    }, { writer: 'steward_stamp_reply' });
+    return written.session ? String(written.value || '') : '';
+  } catch { return ''; }
 }
 
 async function stewardLastAssistantContent() {

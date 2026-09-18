@@ -611,6 +611,7 @@
         "SESSION_INDEX_FLUSH_MS",
         "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_META_STALE_REPLAYS",
+        "SESSION_MUTATE_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
@@ -734,6 +735,7 @@
         "missionSignalThrottleAt",
         "missionSplitThreads",
         "missionsDir",
+        "mutateSession",
         "newSessionEngineRoute",
         "normalizeMission",
         "normalizeMissionAcceptance",
@@ -799,9 +801,11 @@
         "sessionMissionId",
         "sessionNotesPath",
         "sessionNotesWriteChains",
+        "sessionObjectIsStale",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides",
         "sessionRewindGenHighWater",
+        "sessionRewoundError",
         "settleIntervention",
         "sortSessionMetas",
         "stewardWatchNoteFrom",
@@ -2965,6 +2969,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "mutateSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
           "kinds": [
             "call"
@@ -4469,6 +4480,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
@@ -5473,13 +5491,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "loadSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -5488,6 +5499,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "missionSignalThrottleAllow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -5509,13 +5527,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "registerIntervention",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "saveSession",
           "kinds": [
             "call"
           ]
@@ -7923,6 +7934,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "mutateSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
@@ -7959,6 +7977,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
           ]
@@ -9665,6 +9690,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "missionControlCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -15084,7 +15116,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "saveSession",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -15430,14 +15462,14 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "saveSession",
+          "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -17533,6 +17565,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "mutateSession",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeSession",
           "kinds": [
             "read"
@@ -17660,6 +17699,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionNotesPath",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
           "kinds": [
             "read"
           ]
@@ -18871,6 +18917,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "saveMemory",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06e-mission-domain.js",
+          "symbol": "runMissionDriver",
           "kinds": [
             "read"
           ]

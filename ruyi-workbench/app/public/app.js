@@ -89,6 +89,10 @@ const API_ERROR_I18N = {
   'question.not_pending': 'error.api.questionNotPending',
   'question.delivery_failed': 'error.api.questionDeliveryFailed',
   'steer.claude_requires_interactive': 'error.api.steerClaudeRequiresInteractive',
+  // 128b:撤回与读改写冲突的三个稳定码(Brief §4.2 第 18 条:修前以原串 'rewind_superseded' 显示)。
+  'session.rewind_superseded': 'error.api.rewindSuperseded',
+  'session.rewound_during_write': 'error.api.rewoundDuringWrite',
+  'session.history_changed_during_compact': 'error.api.historyChangedDuringCompact',
 };
 // 124 真机 bug（用户 2026-09-15）：**api.request_failed 是「没有稳定码」的兜底码，按它翻译等于把
 // 服务端刚说清楚的原因抹掉。** 00-boot 的 normalizeApiErrorPayload 对任何不在 LEGACY_API_ERROR_CODES

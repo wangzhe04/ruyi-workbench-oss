@@ -420,6 +420,7 @@ async function stewardArchiveConversation(config, startedAt) {
   if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
   if (!session) return { archived: 0, file: '', kept: 0 };
+  const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
   const messages = Array.isArray(session.messages) ? session.messages : [];
   if (!messages.length) return { archived: 0, file: '', kept: 0 };
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -445,13 +446,32 @@ async function stewardArchiveConversation(config, startedAt) {
   });
   // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
   // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
-  session.messages = messages.slice(splitAt);
-  session.providerHistory = [];
-  session.providerHistoryCursor = session.messages.length;
-  session.autoCompactWatermark = 0;
-  await saveSession(session).catch(() => {});
+  // 128b:修前是裸 saveSession(...).catch —— 被撤回闸丢掉时,归档文件已经写了、会话里那几条却还在(同一段对话存两份,
+  // 下次拜访再归档一次)。现在截断带 expectGen 走 mutateSession:期间撤回过,或正文头部已不是刚归档的那几条,就不截断,
+  // 并把刚写的归档文件删掉 —— 归档先写、截断后做的次序不变(截断之前归档一定已经在盘上,不会两头都没有)。
+  let kept = messages.length - splitAt;
+  let truncated = false;
+  try {
+    const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      const now = Array.isArray(fresh.messages) ? fresh.messages : [];
+      const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
+      if (!samePrefix) return { abort: 'prefix_changed' };
+      fresh.messages = now.slice(splitAt);
+      fresh.providerHistory = [];
+      fresh.providerHistoryCursor = fresh.messages.length;
+      fresh.autoCompactWatermark = 0;
+      kept = fresh.messages.length;
+      return undefined;
+    }, { writer: 'steward_archive', expectGen: baseGen });
+    truncated = Boolean(written && written.ok);
+  } catch { truncated = false; }
+  if (!truncated) {
+    await fsp.unlink(file).catch(() => {});
+    logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
+    return { archived: 0, file: '', kept: messages.length };
+  }
   await stewardTrimVisits();
-  return { archived: archived.length, file: path.basename(file), kept: session.messages.length };
+  return { archived: archived.length, file: path.basename(file), kept };
 }
 
 // 确定性到访摘要:自上次到访以来的收件箱事件按七类归纳成 ≤5 条人话,再加 123-M2 的【承诺三项】。

@@ -257,6 +257,9 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  mutateSession, // 128b:会话读改写原语 —— exposed for unit/session-mutate.test.js
+  sessionObjectIsStale, // 128b
+  runMissionDriver, // 128b:驱动器撤回后收手 —— exposed for unit/session-mutate.test.js [D1]
   rewindSession, // 107-F7b: exposed for unit(撤回代数闸:撤回之前攥在手里的副本写不回去、之后新读的照常落盘)
   flushSessionIndexSync, // 107-F9a: exposed for unit(退出时的同步刷写要把「在途」那一批也写进去,不许随被放弃的异步写一起丢)
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。

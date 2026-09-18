@@ -234,7 +234,8 @@ function spawnWb() {
     ok(/async function maybeFinalizeMission\(session, how\)/.test(src), 's 02 maybeFinalizeMission 盖章/清章');
     ok(/result: \(p\.result && typeof p\.result === 'object'\) \? p\.result : null,/.test(src), 's 02 normalizeMission 深拷携带 result');
     ok(/const result = await missionControlCommand\(sessionId, 'stop'\)/.test(src) && /mission\.result = await buildMissionResult\(session, \{ status: 'stopped', how: 'stop' \}\)/.test(src), 's 13 stop 复用整单控制核心盖 stopped 章');
-    ok(/await maybeFinalizeMission\(session, 'check'\)/.test(src) && /await maybeFinalizeMission\(session, 'update'\)/.test(src), 's 13 check/update 接线盖章');
+    // 128b:check／update 的落盘改走 mutateSession,盖章落在新读的那份副本(fresh)上 —— 接线本身不变。
+    ok(/await maybeFinalizeMission\((?:session|fresh), 'check'\)/.test(src) && /await maybeFinalizeMission\((?:session|fresh), 'update'\)/.test(src), 's 13 check/update 接线盖章');
     ok(/Object\.defineProperty\(session, '__missionFinalizeHow'/.test(src) && /finalizeMissionAfterTurn\(session, how\)/.test(src), 's 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合交付)');
     // 122-§2.4:这条原本钉的是「05 收尾那一行长什么样」（`session.mission = onDisk.mission`）——
     // 那句已经收编进三引擎共用的 mergeMissionBeforeSave。改钉【哪件事必须成立】（纪律 5）：

@@ -149,11 +149,18 @@ async function setSessionSkillsCore(sessionId, skills) {
     cleaned.push({ id, source: e.source || '' }); // P2-2: 从注册表带上 source 落盘 —— 锁定「启用当时的来源」,解析时据此防调包
     if (cleaned.length >= 8) break; // 上限 8
   }
-  session.skills = cleaned;
-  await saveSession(session);
+  // 128b:落盘走 mutateSession —— 撤回插在 load 与 save 之间时,在新读的副本上重放这一改动,而不是被闸静默丢掉、
+  // 照样回 ok:true(cleaned 只依赖 cwd 与注册表,撤回不改 cwd,重放安全)。
+  let written;
+  try { written = await mutateSession(session.id, fresh => { fresh.skills = cleaned; }, { writer: 'session_skills' }); }
+  catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code, status: 409 };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
   // P2-3: 若该会话正有活动回合(内存另持一份 session 快照),同步把新启用集写进该活动 session,避免回合收尾整体
   // saveSession 覆盖本次变更(与两个 turn 函数收尾前的磁盘合并互为兜底)。
-  { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
+  { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== written.session) reg.session.skills = cleaned; }
   return { ok: true, skills: cleaned };
 }
 
@@ -631,6 +638,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/skills') {
     const body = await readJsonBody(req);
     const result = await setSessionSkillsCore(String(body && body.sessionId || ''), body && body.skills);
+    if (!result.ok && result.status === 409) return send(res, apiFailure(result.error, {}, '这条会话在写入期间被撤回过,这次改动没有落盘,请重试', 409));
     if (!result.ok) return send(res, json({ ok: false, error: result.error }, 404));
     return send(res, json({ ok: true, skills: result.skills }));
   }
@@ -668,6 +676,18 @@ async function handleApi(req, res, pathname) {
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
     const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
     const projKey = projectKeyForCwd(cwd); // P3-3: 权威 projectKey(取自 session.cwd),给 project 条目落盘锁定来源
+    // 128b:三个字段一起走 mutateSession 落盘(撤回插在中间时在新读的副本上重放,不被闸静默丢掉还回 ok)。
+    const writeMemoryFields = async fields => {
+      try {
+        const written = await mutateSession(session.id, fresh => { Object.assign(fresh, fields); }, { writer: 'session_memories' });
+        if (!written.session) { send(res, json({ ok: false, error: 'session not found' }, 404)); return true; }
+      } catch (error) {
+        if (error && error.code === 'session.rewound_during_write') { send(res, apiFailure(error.code, {}, error.message, 409)); return true; }
+        throw error;
+      }
+      { const reg = activeChildren.get(session.id); if (reg && reg.session) Object.assign(reg.session, fields); }
+      return false;   // 没有替调用方回过话:调用方接着回成功
+    };
     if (body && body.useDefault === true) {
       const excluded = [];
       const excludedSeen = new Set();
@@ -680,11 +700,7 @@ async function handleApi(req, res, pathname) {
         excluded.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
         if (excluded.length >= MEMORY_EXCLUSION_MAX) break;
       }
-      session.memories = [];
-      session.memoriesExplicit = false;
-      session.memoryExclusions = excluded;
-      await saveSession(session);
-      { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = []; reg.session.memoriesExplicit = false; reg.session.memoryExclusions = excluded; } }
+      if (await writeMemoryFields({ memories: [], memoriesExplicit: false, memoryExclusions: excluded })) return;
       return send(res, json({ ok: true, memories: [], memoriesExplicit: false, memoryExclusions: excluded }));
     }
     const cleaned = [];
@@ -699,11 +715,8 @@ async function handleApi(req, res, pathname) {
       cleaned.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
       if (cleaned.length >= memoryFixedSelectionMax(config)) break;
     }
-    session.memories = cleaned;
-    session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
-    session.memoryExclusions = [];
-    await saveSession(session);
-    { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = cleaned; reg.session.memoriesExplicit = true; reg.session.memoryExclusions = []; } }
+    // memoriesExplicit:true = 用户显式设置过 → 关闭默认自动启用
+    if (await writeMemoryFields({ memories: cleaned, memoriesExplicit: true, memoryExclusions: [] })) return;
     return send(res, json({ ok: true, memories: cleaned, memoriesExplicit: true, memoryExclusions: [] }));
   }
   // GET /api/memory?cwd= —— 列表(global + 当前项目组 + 其它组供迁移)。返回记忆条目含绝对文件路径 → 属只读内容型
@@ -959,10 +972,14 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const items = normalizeTodoItems(body.items);
-    const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-    session.todos = items;
-    await saveSession(session);
+    // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
+    let written;
+    try { written = await mutateSession(sessionId, fresh => { fresh.todos = items; }, { writer: 'todo' }); }
+    catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return send(res, apiFailure(error.code, {}, error.message, 409));
+      throw error;
+    }
+    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
@@ -975,9 +992,11 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
-    const session = await loadSession(sessionId);
+    let session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
+    // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
+    const rewoundReply = error => send(res, apiFailure(error.code, {}, error.message, 409));
     if (req.method !== 'POST') return send(res, json({ ok: false, error: 'method not allowed' }, 405));
     const action = String(bodyOrQ.action || 'update');
     const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
@@ -988,18 +1007,34 @@ async function handleApi(req, res, pathname) {
     if (action === 'check') {
       // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
       const cwd = normalizeCwd(session.cwd, (await readConfig()).defaultWorkspace);
+      const baseGen = Number(session.rewindGen) || 0;
       const results = [];
       for (const m of ((session.mission && session.mission.milestones) || [])) {
         const r = await evaluateMissionCheck(m.check, cwd);
-        if (r) recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
         results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
-        if (r && r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
-        if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
       }
-      if (session.mission) session.mission.updatedAt = nowIso();
-      const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
-      await maybeFinalizeMission(session, 'check'); // 第72波:全 done 盖 complete 章
-      await saveSession(session);
+      const byId = new Map(results.map(item => [item.id, item.result]));
+      let resultBefore = '';
+      let written;
+      try {
+        written = await mutateSession(sessionId, async fresh => {
+          for (const m of ((fresh.mission && fresh.mission.milestones) || [])) {
+            const r = byId.get(m.id);
+            if (!r) continue;
+            recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
+            if (r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
+            if (!r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
+          }
+          if (fresh.mission) fresh.mission.updatedAt = nowIso();
+          resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+          await maybeFinalizeMission(fresh, 'check'); // 第72波:全 done 盖 complete 章
+        }, { writer: 'mission_check', expectGen: baseGen });
+      } catch (error) {
+        if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+        throw error;
+      }
+      if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      session = written.session;
       if (session.mission) {
         const resultAfter = String(session.mission.result && session.mission.result.status || '');
         const revision = await bumpMissionChangeSeq(sessionId, {
@@ -1017,21 +1052,33 @@ async function handleApi(req, res, pathname) {
     // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
     // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
     const trusted = tokenOk(req);
-    const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
-    if (action === 'start') {
-      const input = { ...(bodyOrQ.mission || bodyOrQ) };
-      if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
-      session.mission = normalizeMission(input, null, trusted);
-      session.mission.startedTurnSeq = Math.max(1, (Number(session.turnSeq) || 0) + 1);
-      session.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
-      logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
-    } else {
-      if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
-      session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ, trusted);
-      if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
-      await maybeFinalizeMission(session, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
+    let resultBefore = '';
+    let written;
+    try {
+      written = await mutateSession(sessionId, async fresh => {
+        resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+        if (action === 'start') {
+          const input = { ...(bodyOrQ.mission || bodyOrQ) };
+          if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
+          fresh.mission = normalizeMission(input, null, trusted);
+          fresh.mission.startedTurnSeq = Math.max(1, (Number(fresh.turnSeq) || 0) + 1);
+          fresh.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
+          return undefined;
+        }
+        if (!fresh.mission) return { abort: 'no_mission' };
+        fresh.mission = applyMissionUpdate(fresh.mission, bodyOrQ.patch || bodyOrQ, trusted);
+        if (bodyOrQ.autoMode != null) fresh.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : fresh.mission.autoMode;
+        await maybeFinalizeMission(fresh, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
+        return undefined;
+      }, { writer: 'mission_' + (action === 'start' ? 'start' : 'update') });
+    } catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+      throw error;
     }
-    await saveSession(session);
+    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.ok && written.value === 'no_mission') return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
+    session = written.session;
+    if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     if (session.mission) {
       const resultAfter = String(session.mission.result && session.mission.result.status || '');
       const revision = await bumpMissionChangeSeq(sessionId, {

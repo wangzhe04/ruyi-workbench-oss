@@ -2322,7 +2322,22 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
     session.mission.stall = { lastDigest: '', sameCount: 0 };
   }
   session.mission.updatedAt = nowIso();
-  await saveSession(session);
+  // 128b(48 号文 §2-b):这一存修前是裸 saveSession —— 撤回落在 load 与 save 之间(中间还有停子代理、盖章这些慢活)时,
+  // 账本改动被闸静默丢掉、下面照样记变更流水、回 ok:true。副作用(停回合、停子代理、撤授权、回退)都已经发生、
+  // 不能重做;要落盘的只是「账本现在该是什么样」—— 撤回不动账本,所以把这份账本整份重放到新读的副本上。
+  try { await saveSession(session, { throwIfStale: true, writer: 'mission_control' }); }
+  catch (error) {
+    if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+    const intended = session.mission;
+    let written;
+    try { written = await mutateSession(sessionId, fresh => { fresh.mission = intended; }, { writer: 'mission_control_replay' }); }
+    catch (replayError) {
+      if (replayError && replayError.code === 'session.rewound_during_write') return missionControlFailure('rewound_during_write', 409, replayError.message);
+      throw replayError;
+    }
+    if (!written.session) return missionControlFailure('not_found', 404, 'session not found');
+    session = written.session;
+  }
   const revision = await bumpMissionChangeSeq(sessionId, {
     type: action === 'stop' ? 'result' : 'progress',
     cursor: { action, ...(rollback ? { targetTurnSeq: controls.rollbackTargetTurnSeq } : {}) },
@@ -3153,6 +3168,55 @@ async function saveSession(session, opts) {
     void recordEngineTranscript(session.claudeSessionId, session.cwd).catch(() => {});
   }
   return session;
+}
+
+// ── 128b(48 号文 §2-b):会话「读-改-写」的唯一原语 ────────────────────────────────────────────────────
+// 被撤回闸丢掉的 saveSession 返回值与成功时一模一样,普查出技能／记忆／todo／任务开始更新核验／任务控制／三个引擎的
+// 手动压缩／管家拜访归档／工作流摘要追加／管家回复盖章都是「load → 改一点 → save」,撤回插在中间时它们的改动被
+// 整份丢掉、接口照样回成功(Brief §4.2 第 15 条)。与 117n-M2 的 mutateConfig 同一个形状:
+//   · mutator(session, { attempt }) 在新读的副本上改(可返回 { abort: X } 不落盘、{ value: X } 随行数据);
+//   · 保存带 throwIfStale —— 撞上撤回就重新读、重新应用(mutator 必须能重放:它描述的是「要做什么改动」,
+//     不是「改完的样子」),有界;连着撞满仍不行抛 session.rewound_during_write,调用方回可读的错误而不是成功;
+//   · opts.expectGen:「先花几秒算、再落盘」的慢活(压缩、任务核验)在算之前记下 rewindGen,这里新读到的代数
+//     变了(期间撤回过)就不写 —— 基于撤回之前的历史算出来的东西绝不写回去,也不重算(那是调用方的事)。
+// 活回合那一侧的丢失更新(回合收尾存拿着旧对象盖掉这里的改动)不归这里管:路由／权限档／桌面工具靠覆盖表、
+// 任务账本靠收尾存的 mergeMissionFromDisk、元数据补丁靠 updateSessionMeta 的延后通道,各有既有守卫。
+const SESSION_MUTATE_STALE_REPLAYS = 2;
+function sessionRewoundError(id, writer) {
+  return Object.assign(new Error('这条会话在写入期间被撤回过,这次改动没有落盘,请重试'), {
+    code: 'session.rewound_during_write', statusCode: 409, sessionId: id, writer,
+  });
+}
+async function mutateSession(id, mutator, opts = {}) {
+  const writer = String((opts && opts.writer) || 'mutate_session');
+  const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
+  for (let attempt = 0; ; attempt++) {
+    const session = await loadSession(id);
+    if (!session) return { ok: false, missing: true, session: null, value: undefined };
+    if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
+      logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
+      throw sessionRewoundError(id, writer);
+    }
+    const decision = await mutator(session, { attempt });
+    const d = (decision && typeof decision === 'object') ? decision : {};
+    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
+    try {
+      await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
+      return { ok: true, session, value: d.value, attempts: attempt + 1 };
+    } catch (error) {
+      if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+      if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
+        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+        throw sessionRewoundError(id, writer);
+      }
+      logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+    }
+  }
+}
+// 一份内存里的会话对象是不是撤回之前读出来的(驱动器、旁车写入用它判「还该不该接着干」)。
+function sessionObjectIsStale(session) {
+  if (!session || !session.id) return false;
+  return (Number(session.rewindGen) || 0) < (sessionRewindGenHighWater.get(session.id) || 0);
 }
 
 // 50-fix(标题卡死):未命名标题判定 —— 后端占位 'New session' 与历史前端本地化占位('新会话'/'New chat')

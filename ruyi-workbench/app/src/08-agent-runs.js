@@ -2073,11 +2073,18 @@ function summarizeAgentWorkflowRun(run, opts = {}) {
 }
 async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
   if (!sessionId || !run) return;
-  const session = await loadSession(sessionId).catch(() => null);
-  if (!session) return;
   const content = summarizeAgentWorkflowRun(run, opts);
-  session.messages.push({ role: 'assistant', content, createdAt: nowIso(), source: 'agent_workflow', runId: run.id });
-  await saveSession(session);
+  // 128b:走 mutateSession —— 撤回插在读与存之间时在新读的副本上重放这条追加,不被闸静默丢掉。
+  const createdAt = nowIso();
+  try {
+    await mutateSession(sessionId, fresh => {
+      if (!Array.isArray(fresh.messages)) fresh.messages = [];
+      fresh.messages.push({ role: 'assistant', content, createdAt, source: 'agent_workflow', runId: run.id });
+    }, { writer: 'agent_workflow_summary' });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') { logEvent({ kind: 'agent_workflow_summary_dropped', sessionId, runId: run.id, reason: error.code }); return; }
+    throw error;
+  }
 }
 function recordAgentNodeProgress(run, node, evt) {
   if (!node || !evt || evt.type === 'raw_line') return;

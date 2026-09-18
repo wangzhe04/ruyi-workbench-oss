@@ -127,6 +127,7 @@ function autoCompactHarness(estimates) {
     // 「没压缩」,于是本文件两条断言红成「该触发却没触发」(实测就是这么红的)。
     evaporateBudgetBoundaryEnabled: srv.evaporateBudgetBoundaryEnabled,
     historyReadDedupEnabled: srv.historyReadDedupEnabled, // 126-111e:同上,注真函数
+    sessionObjectIsStale: srv.sessionObjectIsStale, // 128b:历史快照前判「是不是撤回之前的对象」—— 同上,注真函数(沙箱里缺了它照样红成「没压缩」)
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
     evaporateHistory: history => {
       let n = 0;

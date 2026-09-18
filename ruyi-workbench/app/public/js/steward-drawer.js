@@ -366,9 +366,16 @@ export function createStewardDrawer({
   // 直落（结构化信封会被拍扁成 "[object Object]"）—— 对齐之前这里正是那个弱化版。
   // apiErrorInfo 仍在：api() 抛的 Error 把整个 JSON 信封放在 message 里，先解成信封形状，
   // 随后三处判据读到的字段与看板逐个等价。
+  // 128b(Brief §4.2 第 18 条):撤回相关的稳定码给人话 —— 修前两次撤回交错时,管家壳把原串 'rewind_superseded' 摆给用户。
+  const STEWARD_DRAWER_SESSION_ERROR_KEYS = Object.freeze({
+    'session.rewind_superseded': 'error.api.rewindSuperseded',
+    'session.rewound_during_write': 'error.api.rewoundDuringWrite',
+    'session.history_changed_during_compact': 'error.api.historyChangedDuringCompact',
+  });
   function failNote(error) {
     const info = (error instanceof Error) ? apiErrorInfo(error) : error;
     const code = stewardErrorCode(info);
+    if (STEWARD_DRAWER_SESSION_ERROR_KEYS[code]) { note(t(STEWARD_DRAWER_SESSION_ERROR_KEYS[code])); return; }
     if (code === 'steward.queued') {
       const label = stewardQueuedWaitLabel(info);
       note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));

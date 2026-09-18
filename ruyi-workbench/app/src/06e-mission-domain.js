@@ -45,6 +45,9 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     const m = session.mission;
     if (!m || m.autoMode !== 'until-done') return;
     if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+    // 128b(Brief §4.2 第 17 条):撤回只停得住 activeChildren 里的回合 —— 撤回落在两个回合之间时,驱动器手里这份对象是
+    // 撤回之前读出来的,它接着起的回合、每一次存盘都会被撤回闸静默丢掉,却照样烧 token。陈旧就收手、记一条原因。
+    if (sessionObjectIsStale(session)) { logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'rewound' }); return; }
 
     // ① 机器验收:pass 的 pending/blocked 里程碑标 done(证据落 evidence)。
     let checkedAny = false;

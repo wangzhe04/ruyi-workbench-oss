@@ -122,6 +122,10 @@ const LEGACY_API_ERROR_CODES = new Map([
   ['method not allowed', 'api.method_not_allowed'],
   ['host not allowed', 'api.host_rejected'],
   ['unknown action', 'request.action_unknown'],
+  // 128b:撤回相关的三句裸串给稳定码(否则一律落成 api.request_failed,前端只能把原串 'rewind_superseded' 摆给用户看)。
+  ['rewind_superseded', 'session.rewind_superseded'],
+  ['session.rewound_during_write', 'session.rewound_during_write'],
+  ['session.history_changed_during_compact', 'session.history_changed_during_compact'],
 ]);
 
 // Keep the legacy message as an optional diagnostic while ensuring every HTTP error has a stable,
@@ -6727,7 +6731,22 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
     session.mission.stall = { lastDigest: '', sameCount: 0 };
   }
   session.mission.updatedAt = nowIso();
-  await saveSession(session);
+  // 128b(48 号文 §2-b):这一存修前是裸 saveSession —— 撤回落在 load 与 save 之间(中间还有停子代理、盖章这些慢活)时,
+  // 账本改动被闸静默丢掉、下面照样记变更流水、回 ok:true。副作用(停回合、停子代理、撤授权、回退)都已经发生、
+  // 不能重做;要落盘的只是「账本现在该是什么样」—— 撤回不动账本,所以把这份账本整份重放到新读的副本上。
+  try { await saveSession(session, { throwIfStale: true, writer: 'mission_control' }); }
+  catch (error) {
+    if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+    const intended = session.mission;
+    let written;
+    try { written = await mutateSession(sessionId, fresh => { fresh.mission = intended; }, { writer: 'mission_control_replay' }); }
+    catch (replayError) {
+      if (replayError && replayError.code === 'session.rewound_during_write') return missionControlFailure('rewound_during_write', 409, replayError.message);
+      throw replayError;
+    }
+    if (!written.session) return missionControlFailure('not_found', 404, 'session not found');
+    session = written.session;
+  }
   const revision = await bumpMissionChangeSeq(sessionId, {
     type: action === 'stop' ? 'result' : 'progress',
     cursor: { action, ...(rollback ? { targetTurnSeq: controls.rollbackTargetTurnSeq } : {}) },
@@ -7558,6 +7577,55 @@ async function saveSession(session, opts) {
     void recordEngineTranscript(session.claudeSessionId, session.cwd).catch(() => {});
   }
   return session;
+}
+
+// ── 128b(48 号文 §2-b):会话「读-改-写」的唯一原语 ────────────────────────────────────────────────────
+// 被撤回闸丢掉的 saveSession 返回值与成功时一模一样,普查出技能／记忆／todo／任务开始更新核验／任务控制／三个引擎的
+// 手动压缩／管家拜访归档／工作流摘要追加／管家回复盖章都是「load → 改一点 → save」,撤回插在中间时它们的改动被
+// 整份丢掉、接口照样回成功(Brief §4.2 第 15 条)。与 117n-M2 的 mutateConfig 同一个形状:
+//   · mutator(session, { attempt }) 在新读的副本上改(可返回 { abort: X } 不落盘、{ value: X } 随行数据);
+//   · 保存带 throwIfStale —— 撞上撤回就重新读、重新应用(mutator 必须能重放:它描述的是「要做什么改动」,
+//     不是「改完的样子」),有界;连着撞满仍不行抛 session.rewound_during_write,调用方回可读的错误而不是成功;
+//   · opts.expectGen:「先花几秒算、再落盘」的慢活(压缩、任务核验)在算之前记下 rewindGen,这里新读到的代数
+//     变了(期间撤回过)就不写 —— 基于撤回之前的历史算出来的东西绝不写回去,也不重算(那是调用方的事)。
+// 活回合那一侧的丢失更新(回合收尾存拿着旧对象盖掉这里的改动)不归这里管:路由／权限档／桌面工具靠覆盖表、
+// 任务账本靠收尾存的 mergeMissionFromDisk、元数据补丁靠 updateSessionMeta 的延后通道,各有既有守卫。
+const SESSION_MUTATE_STALE_REPLAYS = 2;
+function sessionRewoundError(id, writer) {
+  return Object.assign(new Error('这条会话在写入期间被撤回过,这次改动没有落盘,请重试'), {
+    code: 'session.rewound_during_write', statusCode: 409, sessionId: id, writer,
+  });
+}
+async function mutateSession(id, mutator, opts = {}) {
+  const writer = String((opts && opts.writer) || 'mutate_session');
+  const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
+  for (let attempt = 0; ; attempt++) {
+    const session = await loadSession(id);
+    if (!session) return { ok: false, missing: true, session: null, value: undefined };
+    if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
+      logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
+      throw sessionRewoundError(id, writer);
+    }
+    const decision = await mutator(session, { attempt });
+    const d = (decision && typeof decision === 'object') ? decision : {};
+    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
+    try {
+      await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
+      return { ok: true, session, value: d.value, attempts: attempt + 1 };
+    } catch (error) {
+      if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+      if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
+        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+        throw sessionRewoundError(id, writer);
+      }
+      logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+    }
+  }
+}
+// 一份内存里的会话对象是不是撤回之前读出来的(驱动器、旁车写入用它判「还该不该接着干」)。
+function sessionObjectIsStale(session) {
+  if (!session || !session.id) return false;
+  return (Number(session.rewindGen) || 0) < (sessionRewindGenHighWater.get(session.id) || 0);
 }
 
 // 50-fix(标题卡死):未命名标题判定 —— 后端占位 'New session' 与历史前端本地化占位('新会话'/'New chat')
@@ -14881,15 +14949,28 @@ async function runKimiCompact(sessionId, configOverride, trigger = 'manual', onE
   if (!session) return { ok: false, error: 'session not found' };
   if (config.compactProviderId) return runAgentExternalCompact(session.id, config, trigger);
   if (!session.claudeSessionId) return { ok: false, error: 'Kimi 原生会话尚未建立，暂无可压缩上下文' };
-  const result = await compactKimiNative(config, session.claudeSessionId, '', onEvent);
+  const nativeId = session.claudeSessionId;
+  const result = await compactKimiNative(config, nativeId, '', onEvent);
   if (!result.ok) return result;
-  applyKimiStatusToSession(session, result.status);
-  upsertCompactMarker(session, {
-    kind: 'kimi', label: `Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩`, approx: false, accuracy: '原生会话实测',
-    beforeTokens: result.beforeTokens, afterTokens: result.afterTokens,
-  });
-  session.autoCompactWatermark = result.afterTokens; // 压后实测值作为滞回水位(provider 引擎同款口径)
-  await saveSession(session);
+  // 128b:压缩发生在 Kimi 那边的原生会话里(不管本地撤没撤回,它都已经发生了),这里落的只是本地的记录 ——
+  // 走 mutateSession 重放到新读的副本上,不被闸静默丢掉;新副本若已不再指向同一个原生会话(期间被重置),这条记录就不适用。
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if (fresh.claudeSessionId !== nativeId) return { abort: 'native_session_changed' };
+      applyKimiStatusToSession(fresh, result.status);
+      upsertCompactMarker(fresh, {
+        kind: 'kimi', label: `Kimi ${trigger === 'auto' ? '自动' : '手动'}压缩`, approx: false, accuracy: '原生会话实测',
+        beforeTokens: result.beforeTokens, afterTokens: result.afterTokens,
+      });
+      fresh.autoCompactWatermark = result.afterTokens; // 压后实测值作为滞回水位(provider 引擎同款口径)
+      return undefined;
+    }, { writer: 'kimi_compact' });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
   logEvent({ kind: 'kimi_compact', trigger, sessionId: session.id, nativeSessionId: session.claudeSessionId, beforeTokens: result.beforeTokens, afterTokens: result.afterTokens });
   return result;
 }
@@ -24256,6 +24337,9 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     const m = session.mission;
     if (!m || m.autoMode !== 'until-done') return;
     if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+    // 128b(Brief §4.2 第 17 条):撤回只停得住 activeChildren 里的回合 —— 撤回落在两个回合之间时,驱动器手里这份对象是
+    // 撤回之前读出来的,它接着起的回合、每一次存盘都会被撤回闸静默丢掉,却照样烧 token。陈旧就收手、记一条原因。
+    if (sessionObjectIsStale(session)) { logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'rewound' }); return; }
 
     // ① 机器验收:pass 的 pending/blocked 里程碑标 done(证据落 evidence)。
     let checkedAny = false;
@@ -29612,11 +29696,18 @@ function summarizeAgentWorkflowRun(run, opts = {}) {
 }
 async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
   if (!sessionId || !run) return;
-  const session = await loadSession(sessionId).catch(() => null);
-  if (!session) return;
   const content = summarizeAgentWorkflowRun(run, opts);
-  session.messages.push({ role: 'assistant', content, createdAt: nowIso(), source: 'agent_workflow', runId: run.id });
-  await saveSession(session);
+  // 128b:走 mutateSession —— 撤回插在读与存之间时在新读的副本上重放这条追加,不被闸静默丢掉。
+  const createdAt = nowIso();
+  try {
+    await mutateSession(sessionId, fresh => {
+      if (!Array.isArray(fresh.messages)) fresh.messages = [];
+      fresh.messages.push({ role: 'assistant', content, createdAt, source: 'agent_workflow', runId: run.id });
+    }, { writer: 'agent_workflow_summary' });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') { logEvent({ kind: 'agent_workflow_summary_dropped', sessionId, runId: run.id, reason: error.code }); return; }
+    throw error;
+  }
 }
 function recordAgentNodeProgress(run, node, evt) {
   if (!node || !evt || evt.type === 'raw_line') return;
@@ -34480,6 +34571,9 @@ function maybeWriteSessionNotes(session, summary, config) {
   try {
     if (!sessionNotesEnabled(config)) return;
     if (!session || !session.id || typeof summary !== 'string' || !summary) return;
+    // 128b(Brief §4.2 第 16 条):会话笔记是旁车文件,不过 saveSession 的撤回闸 —— 撤回之前读出来的那份对象(垂死回合)
+    // 若照写,下一回合会把已撤回的内容当笔记再注入回来。陈旧就不写,记一条。
+    if (sessionObjectIsStale(session)) { logEvent({ kind: 'session_notes_stale_skipped', sessionId: session.id }); return; }
     const nextNotes = extractSessionNotes(summary);
     const meta = { sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq };
     // 105d-B: 增量合并分支 —— read→merge→render→write,仍 fire-and-forget、整体 catch 绝不阻断回合。
@@ -35202,31 +35296,45 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
   const history = compactHistoryFromSession(session);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
+  // 128b:同 runProviderCompact —— 摘要是按「此刻这段对话」算的,落盘带 expectGen;期间撤回过、或对话又长了,都不写。
+  const baseGen = Number(session.rewindGen) || 0;
+  const baseMessages = Array.isArray(session.messages) ? session.messages.length : 0;
   const sc = await providerSummaryCall(resolved.provider, history, { model: resolved.model, config, auxCtx: { sessionId: String(sessionId || ''), trigger: 'agent_external_manual' } });
   if (!sc.ok) return { ok: false, error: sc.error };
   recordCompactUsage(session, resolved.provider, sc);
   const beforeTokens = lastSessionContextTokens(session) || estimateHistoryTokens(history);
   const afterTokens = estimateContentTokens(sc.summary);
   const contextMeta = await agentConversationContextMeta(config, session);
-  session.agentRecoverySummary = sc.summary;
-  session.agentRecoverySource = {
-    providerId: resolved.provider.id,
-    model: resolved.model,
-    trigger,
-    createdAt: nowIso(),
-  };
-  session.claudeSessionId = null;
-  delete session.claudeSessionModel;
-  delete session.claudeSessionCwd;
-  delete session.claudeSessionRouteKey;
-  session.injectedIndexHash = null;
-  const marker = upsertCompactMarker(session, {
-    kind: 'external', label: `${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文`, reseeded: true,
-    beforeTokens, afterTokens, note: '下一轮将基于摘要重建原生 Agent 会话。',
-  });
-  if (marker) marker.usage = { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' };
-  session.autoCompactWatermark = afterTokens; // 与 provider/kimi 路径同款滞回水位
-  await saveSession(session);
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if ((Array.isArray(fresh.messages) ? fresh.messages.length : 0) !== baseMessages) return { abort: 'history_changed' };
+      fresh.agentRecoverySummary = sc.summary;
+      fresh.agentRecoverySource = {
+        providerId: resolved.provider.id,
+        model: resolved.model,
+        trigger,
+        createdAt: nowIso(),
+      };
+      fresh.claudeSessionId = null;
+      delete fresh.claudeSessionModel;
+      delete fresh.claudeSessionCwd;
+      delete fresh.claudeSessionRouteKey;
+      fresh.injectedIndexHash = null;
+      const marker = upsertCompactMarker(fresh, {
+        kind: 'external', label: `${resolved.provider.label || resolved.provider.id} / ${resolved.model} 压缩上下文`, reseeded: true,
+        beforeTokens, afterTokens, note: '下一轮将基于摘要重建原生 Agent 会话。',
+      });
+      if (marker) marker.usage = { usage: {}, contextTokens: afterTokens, ...contextMeta, source: 'external-compact' };
+      fresh.autoCompactWatermark = afterTokens; // 与 provider/kimi 路径同款滞回水位
+      return undefined;
+    }, { writer: 'agent_external_compact', expectGen: baseGen });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
+  if (!written.ok) return { ok: false, error: 'session.history_changed_during_compact' };
   logEvent({ kind: 'agent_external_compact', sessionId: session.id, trigger, provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens });
   return { ok: true, mode: 'external-summary', provider: resolved.provider.id, model: resolved.model, summaryChars: sc.summary.length, beforeTokens, afterTokens, sessionReset: true };
 }
@@ -35530,6 +35638,10 @@ async function runProviderCompact(sessionId) {
   const summaryProvider = compactTarget.provider || provider;
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
+  // 128b:摘要要调数秒的模型。算之前记下撤回代数,落盘带 expectGen —— 期间撤回过就不写(撤回之前的历史算出来的
+  // 摘要绝不写回撤回之后的会话);期间有回合追加过历史(长度变了)也不写,否则那几条会被这份摘要整段盖掉。
+  const baseGen = Number(session.rewindGen) || 0;
+  const baseLength = history.length;
 
   const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model, config });
   if (!sc.ok) {
@@ -35537,23 +35649,38 @@ async function runProviderCompact(sessionId) {
     return { ok: false, error: sc.error };
   }
   const summary = sc.summary;
-  recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账
-  maybeWriteSessionNotes(session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用
+  recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
 
   const beforeTokens = estimateHistoryTokens(history);
-  session.providerHistory = [
-    { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary },
-    { role: 'assistant', content: '收到，已基于摘要继续。' },
-  ];
-  const afterTokens = estimateHistoryTokens(session.providerHistory);
-  const marker = upsertCompactMarker(session, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
-  if (marker) marker.usage = {
-    usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
-    contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
-  };
-  session.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
-  session.providerHistoryCursor = session.messages.length;
-  await saveSession(session);
+  let afterTokens = 0;
+  let written;
+  try {
+    written = await mutateSession(session.id, fresh => {
+      if (!Array.isArray(fresh.providerHistory) || fresh.providerHistory.length !== baseLength) return { abort: 'history_changed' };
+      fresh.providerHistory = [
+        { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary },
+        { role: 'assistant', content: '收到，已基于摘要继续。' },
+      ];
+      afterTokens = estimateHistoryTokens(fresh.providerHistory);
+      const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
+      if (marker) marker.usage = {
+        usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
+        contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
+      };
+      fresh.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
+      fresh.providerHistoryCursor = fresh.messages.length;
+      return undefined;
+    }, { writer: 'provider_compact', expectGen: baseGen });
+  } catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
+  if (!written.ok) {
+    logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, error: 'history_changed', baseLength });
+    return { ok: false, error: 'session.history_changed_during_compact' };
+  }
+  maybeWriteSessionNotes(written.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
   logEvent({ kind: 'provider_compact', sessionId: session.id, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens });
   return { ok: true, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens };
 }
@@ -35601,7 +35728,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     }
 
     // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
-    const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
+    // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
+    const rawRefPrefix = sessionObjectIsStale(session) ? '' : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
 
     let compacted = false;
     // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
@@ -41189,11 +41317,18 @@ async function setSessionSkillsCore(sessionId, skills) {
     cleaned.push({ id, source: e.source || '' }); // P2-2: 从注册表带上 source 落盘 —— 锁定「启用当时的来源」,解析时据此防调包
     if (cleaned.length >= 8) break; // 上限 8
   }
-  session.skills = cleaned;
-  await saveSession(session);
+  // 128b:落盘走 mutateSession —— 撤回插在 load 与 save 之间时,在新读的副本上重放这一改动,而不是被闸静默丢掉、
+  // 照样回 ok:true(cleaned 只依赖 cwd 与注册表,撤回不改 cwd,重放安全)。
+  let written;
+  try { written = await mutateSession(session.id, fresh => { fresh.skills = cleaned; }, { writer: 'session_skills' }); }
+  catch (error) {
+    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code, status: 409 };
+    throw error;
+  }
+  if (!written.session) return { ok: false, error: 'session not found' };
   // P2-3: 若该会话正有活动回合(内存另持一份 session 快照),同步把新启用集写进该活动 session,避免回合收尾整体
   // saveSession 覆盖本次变更(与两个 turn 函数收尾前的磁盘合并互为兜底)。
-  { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) reg.session.skills = cleaned; }
+  { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== written.session) reg.session.skills = cleaned; }
   return { ok: true, skills: cleaned };
 }
 
@@ -41671,6 +41806,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/skills') {
     const body = await readJsonBody(req);
     const result = await setSessionSkillsCore(String(body && body.sessionId || ''), body && body.skills);
+    if (!result.ok && result.status === 409) return send(res, apiFailure(result.error, {}, '这条会话在写入期间被撤回过,这次改动没有落盘,请重试', 409));
     if (!result.ok) return send(res, json({ ok: false, error: result.error }, 404));
     return send(res, json({ ok: true, skills: result.skills }));
   }
@@ -41708,6 +41844,18 @@ async function handleApi(req, res, pathname) {
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
     const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
     const projKey = projectKeyForCwd(cwd); // P3-3: 权威 projectKey(取自 session.cwd),给 project 条目落盘锁定来源
+    // 128b:三个字段一起走 mutateSession 落盘(撤回插在中间时在新读的副本上重放,不被闸静默丢掉还回 ok)。
+    const writeMemoryFields = async fields => {
+      try {
+        const written = await mutateSession(session.id, fresh => { Object.assign(fresh, fields); }, { writer: 'session_memories' });
+        if (!written.session) { send(res, json({ ok: false, error: 'session not found' }, 404)); return true; }
+      } catch (error) {
+        if (error && error.code === 'session.rewound_during_write') { send(res, apiFailure(error.code, {}, error.message, 409)); return true; }
+        throw error;
+      }
+      { const reg = activeChildren.get(session.id); if (reg && reg.session) Object.assign(reg.session, fields); }
+      return false;   // 没有替调用方回过话:调用方接着回成功
+    };
     if (body && body.useDefault === true) {
       const excluded = [];
       const excludedSeen = new Set();
@@ -41720,11 +41868,7 @@ async function handleApi(req, res, pathname) {
         excluded.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
         if (excluded.length >= MEMORY_EXCLUSION_MAX) break;
       }
-      session.memories = [];
-      session.memoriesExplicit = false;
-      session.memoryExclusions = excluded;
-      await saveSession(session);
-      { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = []; reg.session.memoriesExplicit = false; reg.session.memoryExclusions = excluded; } }
+      if (await writeMemoryFields({ memories: [], memoriesExplicit: false, memoryExclusions: excluded })) return;
       return send(res, json({ ok: true, memories: [], memoriesExplicit: false, memoryExclusions: excluded }));
     }
     const cleaned = [];
@@ -41739,11 +41883,8 @@ async function handleApi(req, res, pathname) {
       cleaned.push(scope === 'project' ? { id, scope, projectKey: projKey } : { id, scope });
       if (cleaned.length >= memoryFixedSelectionMax(config)) break;
     }
-    session.memories = cleaned;
-    session.memoriesExplicit = true; // 用户显式设置过 → 关闭默认自动启用
-    session.memoryExclusions = [];
-    await saveSession(session);
-    { const reg = activeChildren.get(session.id); if (reg && reg.session && reg.session !== session) { reg.session.memories = cleaned; reg.session.memoriesExplicit = true; reg.session.memoryExclusions = []; } }
+    // memoriesExplicit:true = 用户显式设置过 → 关闭默认自动启用
+    if (await writeMemoryFields({ memories: cleaned, memoriesExplicit: true, memoryExclusions: [] })) return;
     return send(res, json({ ok: true, memories: cleaned, memoriesExplicit: true, memoryExclusions: [] }));
   }
   // GET /api/memory?cwd= —— 列表(global + 当前项目组 + 其它组供迁移)。返回记忆条目含绝对文件路径 → 属只读内容型
@@ -41999,10 +42140,14 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const items = normalizeTodoItems(body.items);
-    const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
-    session.todos = items;
-    await saveSession(session);
+    // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
+    let written;
+    try { written = await mutateSession(sessionId, fresh => { fresh.todos = items; }, { writer: 'todo' }); }
+    catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return send(res, apiFailure(error.code, {}, error.message, 409));
+      throw error;
+    }
+    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
@@ -42015,9 +42160,11 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
-    const session = await loadSession(sessionId);
+    let session = await loadSession(sessionId);
     if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
     if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
+    // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
+    const rewoundReply = error => send(res, apiFailure(error.code, {}, error.message, 409));
     if (req.method !== 'POST') return send(res, json({ ok: false, error: 'method not allowed' }, 405));
     const action = String(bodyOrQ.action || 'update');
     const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
@@ -42028,18 +42175,34 @@ async function handleApi(req, res, pathname) {
     if (action === 'check') {
       // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
       const cwd = normalizeCwd(session.cwd, (await readConfig()).defaultWorkspace);
+      const baseGen = Number(session.rewindGen) || 0;
       const results = [];
       for (const m of ((session.mission && session.mission.milestones) || [])) {
         const r = await evaluateMissionCheck(m.check, cwd);
-        if (r) recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
         results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
-        if (r && r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
-        if (r && !r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
       }
-      if (session.mission) session.mission.updatedAt = nowIso();
-      const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
-      await maybeFinalizeMission(session, 'check'); // 第72波:全 done 盖 complete 章
-      await saveSession(session);
+      const byId = new Map(results.map(item => [item.id, item.result]));
+      let resultBefore = '';
+      let written;
+      try {
+        written = await mutateSession(sessionId, async fresh => {
+          for (const m of ((fresh.mission && fresh.mission.milestones) || [])) {
+            const r = byId.get(m.id);
+            if (!r) continue;
+            recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
+            if (r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
+            if (!r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
+          }
+          if (fresh.mission) fresh.mission.updatedAt = nowIso();
+          resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+          await maybeFinalizeMission(fresh, 'check'); // 第72波:全 done 盖 complete 章
+        }, { writer: 'mission_check', expectGen: baseGen });
+      } catch (error) {
+        if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+        throw error;
+      }
+      if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      session = written.session;
       if (session.mission) {
         const resultAfter = String(session.mission.result && session.mission.result.status || '');
         const revision = await bumpMissionChangeSeq(sessionId, {
@@ -42057,21 +42220,33 @@ async function handleApi(req, res, pathname) {
     // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
     // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
     const trusted = tokenOk(req);
-    const resultBefore = String(session.mission && session.mission.result && session.mission.result.status || '');
-    if (action === 'start') {
-      const input = { ...(bodyOrQ.mission || bodyOrQ) };
-      if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
-      session.mission = normalizeMission(input, null, trusted);
-      session.mission.startedTurnSeq = Math.max(1, (Number(session.turnSeq) || 0) + 1);
-      session.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
-      logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
-    } else {
-      if (!session.mission) return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
-      session.mission = applyMissionUpdate(session.mission, bodyOrQ.patch || bodyOrQ, trusted);
-      if (bodyOrQ.autoMode != null) session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : session.mission.autoMode;
-      await maybeFinalizeMission(session, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
+    let resultBefore = '';
+    let written;
+    try {
+      written = await mutateSession(sessionId, async fresh => {
+        resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+        if (action === 'start') {
+          const input = { ...(bodyOrQ.mission || bodyOrQ) };
+          if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
+          fresh.mission = normalizeMission(input, null, trusted);
+          fresh.mission.startedTurnSeq = Math.max(1, (Number(fresh.turnSeq) || 0) + 1);
+          fresh.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
+          return undefined;
+        }
+        if (!fresh.mission) return { abort: 'no_mission' };
+        fresh.mission = applyMissionUpdate(fresh.mission, bodyOrQ.patch || bodyOrQ, trusted);
+        if (bodyOrQ.autoMode != null) fresh.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : fresh.mission.autoMode;
+        await maybeFinalizeMission(fresh, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
+        return undefined;
+      }, { writer: 'mission_' + (action === 'start' ? 'start' : 'update') });
+    } catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+      throw error;
     }
-    await saveSession(session);
+    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.ok && written.value === 'no_mission') return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
+    session = written.session;
+    if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
     if (session.mission) {
       const resultAfter = String(session.mission.result && session.mission.result.status || '');
       const revision = await bumpMissionChangeSeq(sessionId, {
@@ -50661,6 +50836,7 @@ async function stewardImplSkillToggle(args, ctx, config) {
       { reason: 'confirm_required', sessionId, skills: args.skills.map(x => String((x && x.id) || x || '')).slice(0, 8) });
   }
   const result = await setSessionSkillsCore(sessionId, args.skills);
+  if (!result.ok && result.status === 409) return stewardFail('version_conflict', '这条线程在写入期间被撤回过,技能没有改成,请重试');   // 128b
   if (!result.ok) return stewardFail('not_found', String(result.error || 'session not found'));
   stewardAppendDecision({
     tool: 'steward_skill_toggle',
@@ -53010,17 +53186,20 @@ async function stewardTriggerStamp(trigger, events) {
 // 把结构化结果落到管家会话最新一条助手消息的 meta 上(§11.3:「结构化结果落在 …助手消息的 meta」)。
 // 只在回合已经收尾后做(单管家并发 1 保证此刻没有在途回合),避免 116c 记过的读改写竞态。
 async function stewardStampReply(reply) {
-  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
-  if (!session) return '';
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i] && messages[i].role === 'assistant') {
-      messages[i].steward = reply;
-      await saveSession(session).catch(() => {});
-      return String(messages[i].content || '');
-    }
-  }
-  return '';
+  // 128b:走 mutateSession(撤回插在读与存之间时在新读的副本上重放盖章,不被闸静默丢掉);失败照旧吞掉(旁路)。
+  try {
+    const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      const messages = Array.isArray(fresh.messages) ? fresh.messages : [];
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i] && messages[i].role === 'assistant') {
+          messages[i].steward = reply;
+          return { value: String(messages[i].content || '') };
+        }
+      }
+      return { abort: '' };
+    }, { writer: 'steward_stamp_reply' });
+    return written.session ? String(written.value || '') : '';
+  } catch { return ''; }
 }
 
 async function stewardLastAssistantContent() {
@@ -53480,6 +53659,7 @@ async function stewardArchiveConversation(config, startedAt) {
   if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
   if (!session) return { archived: 0, file: '', kept: 0 };
+  const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
   const messages = Array.isArray(session.messages) ? session.messages : [];
   if (!messages.length) return { archived: 0, file: '', kept: 0 };
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -53505,13 +53685,32 @@ async function stewardArchiveConversation(config, startedAt) {
   });
   // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
   // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
-  session.messages = messages.slice(splitAt);
-  session.providerHistory = [];
-  session.providerHistoryCursor = session.messages.length;
-  session.autoCompactWatermark = 0;
-  await saveSession(session).catch(() => {});
+  // 128b:修前是裸 saveSession(...).catch —— 被撤回闸丢掉时,归档文件已经写了、会话里那几条却还在(同一段对话存两份,
+  // 下次拜访再归档一次)。现在截断带 expectGen 走 mutateSession:期间撤回过,或正文头部已不是刚归档的那几条,就不截断,
+  // 并把刚写的归档文件删掉 —— 归档先写、截断后做的次序不变(截断之前归档一定已经在盘上,不会两头都没有)。
+  let kept = messages.length - splitAt;
+  let truncated = false;
+  try {
+    const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      const now = Array.isArray(fresh.messages) ? fresh.messages : [];
+      const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
+      if (!samePrefix) return { abort: 'prefix_changed' };
+      fresh.messages = now.slice(splitAt);
+      fresh.providerHistory = [];
+      fresh.providerHistoryCursor = fresh.messages.length;
+      fresh.autoCompactWatermark = 0;
+      kept = fresh.messages.length;
+      return undefined;
+    }, { writer: 'steward_archive', expectGen: baseGen });
+    truncated = Boolean(written && written.ok);
+  } catch { truncated = false; }
+  if (!truncated) {
+    await fsp.unlink(file).catch(() => {});
+    logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
+    return { archived: 0, file: '', kept: messages.length };
+  }
   await stewardTrimVisits();
-  return { archived: archived.length, file: path.basename(file), kept: session.messages.length };
+  return { archived: archived.length, file: path.basename(file), kept };
 }
 
 // 确定性到访摘要:自上次到访以来的收件箱事件按七类归纳成 ≤5 条人话,再加 123-M2 的【承诺三项】。
@@ -56190,6 +56389,9 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  mutateSession, // 128b:会话读改写原语 —— exposed for unit/session-mutate.test.js
+  sessionObjectIsStale, // 128b
+  runMissionDriver, // 128b:驱动器撤回后收手 —— exposed for unit/session-mutate.test.js [D1]
   rewindSession, // 107-F7b: exposed for unit(撤回代数闸:撤回之前攥在手里的副本写不回去、之后新读的照常落盘)
   flushSessionIndexSync, // 107-F9a: exposed for unit(退出时的同步刷写要把「在途」那一批也写进去,不许随被放弃的异步写一起丢)
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
