@@ -100,6 +100,11 @@
 > - **拍板 2 代批默认开**：「开」→ **升级用户也默认开**（不加迁移分支）。主会话原推荐里「以 §9.6 真模型读数为前提」那半句随之取消；§9.6 若读出不合规行为，照实报给用户，不自行改默认。
 > - **拍板 3 111 B 类读数**：「实测就行，也可以多测几次」→ **跑真模型实测，只报不翻**；配对次数不设上限在 3 次，按预算多测（E1 那一刀给出每开关的次数与置信区间）。
 > - 其余五件（1、4、6、7、8）用户未回，**按推荐走**；**拍板 8 (b) 打标签与推送仍等用户明说**（推标签即公开）。
+>
+> **2026-09-18 用户拍板（逐条原话）**：
+> - **拍板 9 语音协议**：「补」→ **2.8.0 里补 `chat-audio` 协议＋浏览器端 webm→WAV**，见 §5 A1。
+> - **111 三开关默认**：「默认打开」→ **111b／111d／111e 三项翻默认开**（E1 已过门的三项；111a 主指标反向、111c 量不出来，**不翻**），见 §5 T1。这是对拍板 3「只报不翻」的后续追加决定，不是推翻——读数先报了，用户看完才翻。
+> - **拍板 10 清理测试 MCP**：「清理吧」→ **清如意／Claude Code／Kimi 三份配置里的 `fake-mcp.js` 残留，清前备份**，见 §5 C1。
 
 1. **默认开的怎么归类**（推荐分两张表：引擎优化按 43 号文 §4 口径；产品功能按 e2e＋走查判已交付，证据只有 fake 的打 ⚠）。代价：Brief 两张表，产品功能没有 A/B 数字。
 2. **代批要不要对升级用户也默认开**（推荐保持默认开——用户明确要这个能力——并在 CHANGELOG 与 Brief 写明「是什么、怎么关」；**以 §9.6 真模型读数为前提**：若真模型下行为不合规或延迟普遍逼近 120 s 超时，改推荐为「新装默认开、升级用户默认关」）。代价：保持开＝2.7.0 的「智能自动」用户不经确认就获得；只对新装开＝要在 `src/` 加一条迁移分支。
@@ -1089,3 +1094,38 @@ D1 只改了中文三本，S1 的「发现但没修」第 5 条自己点了名�
 **主会话复核补记（D1b 提交前）**：① D1b 报的「CHANGELOG 两处被 S1 改成错话」属实，主会话就地改了中英两处——「八道闸」→「十道闸」，「不超 1000 字」→「不超过给管家看的那段摘录（300 字）」，并补上新增的两道（间接构造不代批、删数据类目标不含绝对路径）。② D1b 存疑的「无人值守遇 ask 等 30 分钟后拒掉」**经主会话实读成立**：`config.schedulerAskWaitMinutes` 默认 30（`01-config.js:397`，钳 [1,240]），消费点在 `13s:66-71`；它与任务自身的运行上限 `timeoutMinutes`（`06j:89` 默认同为 30）是**两口不同的钟、默认值恰好相同**——中文原句不改，英文那句就地补成两口钟分别写明（D1b 只找到 `permissionTimeoutMs` 与 `timeoutMinutes`，漏了前者）。十道锁复跑全绿。
 
 **纪律 7 又一个样本（主会话第三次踩同一个坑）**：本节这段第一版又是用 `node -e "…"` 写的，双引号里的反引号被 bash 当命令替换，六处 `file:line` 被吃成空白并随 `d6af638` 入库。**从此定死：任何含反引号的文档段落一律用 Edit/Write 工具写，不经 shell 字符串**；已同步进记忆。
+
+### C1 · 清掉真机配置里的测试夹具 MCP（2026-09-18，拍板 10）
+
+**不动 `src/`、不动仓库**——这一刀改的是用户机器上的三份持久配置，本节只是记录。
+
+**动手前的现场**：三份配置一共 **32 个**测试夹具条目；机器上 **19 个 `fake-mcp.js` 进程**在跑；本会话启动时 8 个 MCP 连不上（`acc`／`dummy-tool`／`existing`／`stdio-bad`／`stdio-break`／`stdio-conc`／`stdio-hang`／`t1`）。
+
+**备份**（清前拷贝，sha256 前 12 位与原件逐条相同）：`C:\Users\87179\Documents\Claude Code\_mcp-config-backup-20260918\`
+
+| 文件 | 字节 | sha256_12 |
+|---|---|---|
+| `win-claude-workbench.config.json` | 38624 | `c76e8a1cedc0` |
+| `claude.json` | 61820 | `46c0f95b30d5` |
+| `kimi-code.mcp.json` | 3311 | `5de1f802c112` |
+
+如意那份的指纹与 [107-E1 读数](107-e1-readings.json) 里 `wcw-config` 的 `c76e8a1cedc0`／38624 B **逐字节相同**——09-17 实测以来没被动过，备份基线干净。
+
+**三份三种手法，都不是硬改文件**：
+
+- **如意**：工作台正在跑（`runtime.json`：pid 10416、`127.0.0.1:8765`、版本 2.7.0、09-16 启动）。硬改 `config.json` 会被它内存里的旧值在下一次保存时覆盖回来（记忆 `ruyi-settings-save-writes-unloaded-state` 同一个模具），所以走 **`POST /api/config`**——`applyConfigPatch` 是 `{ ...current, ...body }` 浅合并、整段在 `mutateConfig` 临界区里（`dist/Ruyi-slim/app/server.js:39457`／`:39478-39479`），**只发 `externalMcpServers` 一个键**。10 → 1：摘 `dummy-tool`／`fake`／`confl-mcp`／`foo-dropin`／`existing`／`stdio-good`／`stdio-bad`／`stdio-break`／`stdio-hang`，留 `acc`。鉴权头 `x-wcw-token`（`:3863`），token 取自 `runtime.json`。
+- **Claude Code**：`.claude.json` 是**当前这个会话正在写的活文件**，自己读-改-写会丢并发更新，所以走官方 CLI `claude mcp remove <id> -s user` 逐个摘，共 14 个（上面 9 个 ＋ `stdio-conc`／`drop-shadow`／`unrelated-tools`／`t1`／`c1`；后者指向上一轮会话的 Temp 草稿目录）。17 → 3。
+- **Kimi**：`POST /api/config` 落定之后回头一看**已经是 3 条**——如意的三路同步把清干净的表镜像了过去（`kimi-mcp-sync.json` 的 `managedIds` 两条 ＋ 外部表 `acc`）。脚本仍照跑一遍确认幂等，回读一致。12 → 3。
+
+**自带尺子（差分断言，只比形状不打印值——文件里有明文密钥）**：
+
+- 如意：**152 个顶层键，只有 `externalMcpServers` 一个键变**；7 个服务商逐条点名核对 id／密钥长度／模型数，全同。
+- Claude Code：**38 个顶层键，只有 `mcpServers` 一个键变**；`projects` 仍是 9 条（历史没被抹）。
+- Kimi：顶层键集合不变，缩进与行尾沿用原文件（记忆 `patch-script-eats-backslashes` ② 的教训：不显式定行尾就会把整份文件翻成 CRLF）。
+
+**三份现状**：如意 `acc`；Claude Code 与 Kimi 都是 `win-claude-workbench`／`ai-computer-control`／`acc`。
+
+**没做的两件，交用户**：
+
+1. **`acc` 没动**。它不是 `fake-mcp.js` 夹具（命令是 `python -X utf8 -m ai_computer_control.server`），所以不在拍板 10 的口径里；但它用的是**裸 `python`**，本会话与 `claude mcp list` 都显示连不上，而同机真正可用的是 `ai-computer-control`（指到嵌入式 python 全路径）。**大概率是一条坏掉的重复条目**，删不删是用户的事，本刀不替他决定。
+2. **19 个 `fake-mcp.js` 残留进程没杀**。仓里的 MCP 相关 e2e **自己也会起 `fake-mcp.js`**，而 A1 那一刀的回归此刻正在跑——按名字一刀切会把它的测试杀成假红（同一个模具：记忆 `ruyi-browser-e2e-leaks-edge`）。等 A1 收工后收尸，或者用户重启一次自然就没了。
