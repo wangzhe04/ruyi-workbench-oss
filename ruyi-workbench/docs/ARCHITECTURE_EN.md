@@ -4,8 +4,8 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: `configSchema` **12** · session `schemaVersion` **1** · the tree is the **2.8.0 candidate**
-> (the version line in `package.json` is bumped by wave 107's R1 cut, so it still reads 2.7.0 on disk until then;
+> Version baseline: `configSchema` **12** · session `schemaVersion` **1** · the tree is **2.8.0**
+> (the version triangle — `package.json`, `VERSION` in `00-boot.js`, `facts.workbenchVersion` — was bumped to 2.8.0 together by wave 107's R1 cut; **not yet tagged, not yet released**;
 > `CONFIG_SCHEMA` **went 11 → 12 in wave 107's T1 cut** — the three 126-111b/111d/111e compaction switches now
 > default on, and configs at `schema < 12` get a one-shot migration that turns an explicit `false` on disk into
 > `true`. It is needed because `normalizeConfig` is `{ ...defaultConfig(), ...raw }` and `readConfig` writes the
