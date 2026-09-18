@@ -828,9 +828,22 @@ try {
   ok(both.sessionTitle.includes(THREAD_C) && both.selected.includes(created.C),
     `K5 工作台仍然选着 C（左栏那一行也还是选中态）—— 管家侧换焦点没有把它清掉`);
   await setLens('steward');
+  // 107-Q1c：切离管家时焦点卡按设计收摊（steward-drawer.js 的 data-shell-mode 观察者 closeDrawer），
+  // 切回来由 steward-board 的 syncNow 重开钉住的那一条 —— 重开先画「读取中…」，等那条会话的详情
+  // 读回来才落闸（117k 的 loading 闸）。修前这里切完立刻拍快照，负载下取数慢一拍就撞上「读取中…」
+  // （44 号文 §5 与 46 号文 Q1c 两次首跑红，签名一字不差；把 A 的会话详情请求拖慢 1.5 s 即两跑两红）。
+  // 所以先等闸落下再判。等的是【闸】，不是「焦点对不对」：闸落后标题写的是哪条就判哪条，
+  // 焦点被改写成 C 照样红（反向验证见 46 号文 Q1c 记录）。
+  const gateStartedAt = Date.now();
+  const gateDown = await waitForEval(cdp, `(() => {
+    const title = document.getElementById('stewardDrawerTitle');
+    const text = title ? title.textContent.trim() : '';
+    return text && text !== ${JSON.stringify(zh['stewardShell.drawer.loading'])} ? 1 : null;
+  })()`);
+  const gateMs = gateDown ? Date.now() - gateStartedAt : Infinity;
   const stillFocus = await snap();
   ok(stillFocus.drawerTitle.includes(THREAD_A) && stillFocus.selected.includes(created.A),
-    `K6 管家侧的焦点仍然是 A（实测焦点卡标题「${stillFocus.drawerTitle}」，左栏选中 ${stillFocus.selected.join('/')}）—— 两个视角各记自己的现场，互不清空（§2.7 第三条）`);
+    `K6 管家侧的焦点仍然是 A（实测焦点卡标题「${stillFocus.drawerTitle}」，左栏选中 ${stillFocus.selected.join('/')}；读取闸 ${Number.isFinite(gateMs) ? gateMs : '∞'} ms 后落下）—— 两个视角各记自己的现场，互不清空（§2.7 第三条）`);
   ok(stillFocus.activeInSteward === true,
     `K7 切换后焦点落在【这个视角里】：先由 applyShellMode 送到视角容器，再由管家侧自己接走（实测 activeElement=${stillFocus.activeId}）`);
 
