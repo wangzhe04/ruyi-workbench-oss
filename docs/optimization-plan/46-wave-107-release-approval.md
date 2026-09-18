@@ -1240,3 +1240,73 @@ Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, li
 6. **没动 URL 准入**。`audioBaseUrl` 与 `baseUrl` 仍然都没有私网／回环拒绝（45 号文 §1.6 的既有记档，管理员手册 §6 已写明），本刀不顺手发明一道。
 7. **25 MB 闸没动**，但上面那条体积读数说明余量变小了；真要收，是独立一刀。
 8. **`asr-endpoint-probe-live.js` 没跟着补 chat 形探针**。它是 live 件（要真 key），本刀不碰 live。
+
+**主会话复核（A1 提交后，逐条自己跑的，不是转述）**：
+
+| 核什么 | 读数 |
+|---|---|
+| 树与提交 | HEAD `1634b85`，`git status` 干净，30 个文件 |
+| `build.js --check` | 产物与 src 一致（新鲜），manifest 行区间自洽 |
+| `dev-harness/module-dependency-graph.js --check` | **PASS（53 modules, 420 edges）**——与基线同数 |
+| `dev-harness/route-inventory.js --check` | **OK（137 判定点 / 125 鉴权行，双向校验无漂移）**——与 §1.2 基线同数 |
+| 全量回归（主会话直接读 `dev-harness/last-run.log` 汇总行，不信转述） | **356 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 356 ran / 7 skipped**；flaky＝`steward-conversation.e2e.js`，与本刀无关 |
+| 裸 NUL 扫描（本次改动的 30 个文件逐字节） | **0** |
+| 反向验证残留 | 代码里 0；`grep -rn REVERSE-CHECK` 唯一一处命中是本文这段交付记录**描述做法**的那句话，不是残留 |
+| 安全面是否在新分支里破掉 | 逐条读过：端点仍只来自配置、错误体仍**先 `redact` 再裁 1000**（顺序没反）、8 KB 回体上限、120 s 超时、三个错误码、`kind:'aux'/note:'asr'` 记账一行——全部留在公共段 |
+
+**三件 A1 自己没核、主会话补核的**：
+
+1. **`chat-audio` 的报文形状有真机背书，不是推断。** A1 在「不确定」里把 `asr_options.language` 与整体形状列为存疑；
+   主会话把它与 45 号文 §9.6.3 实测用的那个适配器（`…\ruyi-live-sim-20260917-205807\scripts\asr-shim.js:32`）逐字比过——
+   `{ model, messages:[{role:'user',content:[{type:'input_audio',input_audio:{data:'data:<mime>;base64,…'}}]}], stream:false, ...(language?{asr_options:{language}}:{}) }`
+   **与产品代码新分支逐字同形**，而那个适配器正是 MiMo 与百炼各 200／字准确率 100% 的那一轮用的。
+   **唯一真没验过的是 `prompt` 那一小块**（`{type:'text'}` 前置部件）：三个消费面今天都传空 → `parts` 退化成只有 `input_audio`，
+   与实测报文逐字相同，所以**今天走不到**。A1 的存疑标记比实际情况保守，这里更正。
+2. **覆盖升级的包带上了改动的前端文件。** 这是本波 ②P0 刚修过的同一类坑（漏装 playbook），A1 没查。
+   主会话核 `tools/build-overlay.js` 的清单：`composer-voice.js`／`provider-settings.js`／`locales/zh-CN.json`／`locales/en-US.json`／`server.js` **五个都在**。
+3. **第一轮回归那次崩溃的根因是既有设计，不是本刀引进来的。** A1 报「新加的那趟转写又落了一条异步账，进程不等它就退出」——
+   主会话核到底：`appendUsageLedger`（`00-boot.js:379`）是**同步入口 ＋ 内部 `usageLedgerChain` 即发即忘**
+   （`:416-425`，注释原话「a ledger failure must never wedge the chain or the turn」），**全仓 12 个调用点没有一个 `await`**。
+   ⇒ A1 的诊断正确，测试侧补等待也与该文件既有的 300 ms flush 等待同一个模具。
+   **但顺带记一条债**：进程紧接着 `process.exit()` 时最后一行账可能丢（长跑的服务端可忽略，CLI／mcp 形态下有窗口）。写进 Brief 未完成项。
+
+### J12／J13／J03 退出门取证（2026-09-18，D2 的前置读数）
+
+43 号文 §2 给 126 波定了 **J12／J13**、给 127 波定了 **J03**（定义原文在 41 号文 `:658`／`:667`／`:668`），
+44／45 号文**都没有报过**（本文 §4 与 §5 D1 两处点名由 D2 补）。这一轮补上：一轮只读调查 ＋ 主会话逐条抽查。
+
+**总结论：三条门都没有落盘读数**；代码侧一条基本齐、两条各缺一半。**另外查出一个真缺陷。**
+
+#### 真缺陷：管家线程预判不过滤过期记忆（主会话实读确认）
+
+- `13o-steward-runner-prompt.js:223` 直接 `stewardReadMemoryStore()`，`:225-226` 只
+  `filter(e => e.state !== 'vetoed' && (e.kind === 'focus' || e.kind === 'habit'))`
+  ——**既不滤 `expiresAt`，也不滤 `scope`**。命中后在打分里加 `memoryBonus`（`06i-steward-core.js:1510`，权重表 `:1402-1412`）。
+  ⇒ 早该过期的 `focus` 会一直给某条线程加分；项目 A 的记忆在项目 B 里照样加分。
+- **成因是一句写错的判词**：44 号文 `:192` 明写「过滤掉过期条目……**提示词块（`13o`）走的就是这一口**，
+  所以『过期就不再被用上』在这一处就够了，不必散到调用方」。**`stewardPreroute` 是它没点到的第二个读取口。**
+- 主会话把全仓 6 个 `stewardReadMemoryStore()` 直接调用方逐个核过，**只有这一处是缺陷**：
+  `13g-steward.js:228`（面板，自带 `now` 逐条判，本就该显示过期态）、`13g:313`（导出，只滤 `state==='active'`，导出含过期合理）、
+  `13j-steward-tool-base.js:398`（写事务，必须看全）、`13l-steward-ops.js:597`（检索，已滤）。
+- **这是「手攒的名单要配机械锁」的第五次**：静态锁 ⑫（`steward-tools.static.e2e.js:547-563`）只禁
+  「别处自己 `Date.parse(expiresAt)`」，不要求**每个读取口都过滤** → 抓不到。
+- **处置：修**，见 §5 M1。
+
+#### 三条门的判定（Brief 用这个口径，**不许写成「已通过」**）
+
+| 门 | 判据 | 今天 | 有件吗 | 读数 |
+|---|---|---|---|---|
+| **J03**「继续那个」 | 焦点定位 or 只问必要区别；不误递话 | **后半齐、前半缺**：`prerouteText`（`06i:1545`）有歧义判定（次高 ≥ 最高 ×0.85 → `unsure`，阈值 `:1402-1412`），但打分入参里**没有「当前焦点」**；`focusThreadFor`（`app/public/js/thread-facts.js:252`）只喂右栏与问候语，从未进路由 | 不误递话**有专门件**（`steward-conversation.e2e.js:594-599` ＋ 两把静态锁）；两个近似任务→unsure **有专门件**（`steward-preroute.e2e.js:224-229`）；**「继续那个」这种纯指代零覆盖** | **无** |
+| **J12** 否决旧偏好 | 后续与压缩回注用新偏好；旧条目不换说法复活 | 否决／排除／取新说法都有（`13l:566-579`／`:601`／`:514-536`）；**「不换说法」只挡词法近似**（`13l:510` 用 `stewardTermJaccard >= 0.8`，`06i:1134`）；**压缩那半边没连线**（主会话实测 `grep -ci memory 10-context-governance.js` ＝ **0**） | 否决＋近似拒写**有专门件**，但两处夹具都是「几乎同一句」，**「换说法」那一档零用例**；压缩那半边**完全没有** | **无** |
+| **J13** 两项目要求相反 | 各自按项目规则；本次显式要求优先 | 工作台库**真隔离**（`06d-memory-domain.js:1508-1541`，换 cwd 失配即跳过注入并通知一次）；管家库是**标出来但不隔离**（`13o-steward-runner-prompt.js:46` 明写「这里**不按作用域过滤**，而是把项目条目标出来」——126-M01 拍的板）；**「本次显式优先」找不到实现**（`06b-prompt-registry.js:103`／`:122`／`:131` 三处口径只写「不得覆盖以上守则」，守则＝系统守则） | 项目隔离**有专门件**（`workbench-memory.e2e.js:159-161`／`:363-364`）；管家库只有邻近覆盖（H 组测服务端与面板，提示词块的标注**零行为断言**）；**J13 场景本身没件** | **无** |
+
+#### 记债不修（照实写进 Brief「未完成项」）
+
+1. 被否决的记忆**换个说法就能写回来**（判据是词面重合度 0.8，不是语义），且测试夹具只覆盖「几乎同一句」。
+2. **「压缩回注使用新偏好」没有连线也没有断言**。结构上碰巧不会带旧（工作台侧记忆走系统提示、每请求重建），但没有判据钉住。
+3. **「本次显式要求优先于存下来的偏好」没有实现**。
+4. 账本即发即忘：进程紧接着退出时最后一行可能丢（见上）。
+
+**未验的（子代理自述，主会话没复核）**：全程只读一件没跑；「继续那个」会落 `kind:'new'` 是按 `06i:1571-1572` 推的；
+Claude CLI 自己的 transcript 看不到；preroute 漏滤**会不会真翻动排序**没有构造夹具证明；
+`13j-steward-tool-base.js:321-323` 一段注释与符号实际位置对不上（疑似搬家漏改）。
