@@ -936,3 +936,104 @@ B1 的剥离是真单点（`decideIntervention` 八个调用点、`updatedInput`
 **全量回归（S1）**：`run-all.js --parallel 4` 退出码 **0**，**356 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 356 ran（7 skipped 为既有 live probe）**，**真回归 0**；`build --check` 新鲜、依赖图 `--check` PASS。唯一 flaky 是 `steward-settings.e2e.js`：首跑那一趟 **没抓到任何 FAIL 行**（runner 自己标注「多半是超时或进程被杀，不是断言红」），并行桶里重跑 **PASS (4600ms)**。回归**之后**又串行直跑两次，两次都 **ALL PASS**。与本刀的交集：本刀没有碰 `steward-settings.js` 一个字节，也没有碰设置页的任何路由；该件在本刀开工时的逐件串行里就已经 ALL PASS 过一次。按 [并行负载下被杀/超时的墙钟件] 登记，不归功于也不归咎于本刀。回归期间没有改 `src/`、没跑别的件（只在 scratchpad 里写本段）；回归前后各调过一次 `stopRuyiTestBrowsers()`。
 
 **债（本刀新增）**：上面 1 与 4 两条（间接构造该不该升级成豁免命中；confirm 档要不要一道服务端侧的二次凭据）。⑦b 原有的 S2 与记债清单不变。
+
+### S2 · providers 启动向量闸与 URL 里的凭据（2026-09-18）
+
+⑦b 的 **M5**（providers 的掩码还原没有启动向量闸）与 **L3**（`/api/status` 明文下发 URL 里的凭据）。**开工前重核的坐标**（HEAD `92b989a`，全对）：`unmaskSecrets` 的 providers 段在 `05:1449-1473`、`unmaskProviders` 在 `:1496-1520`、`maskSecrets` 在 `:1418`、`maskKey`／`KEY_MASK_PREFIX` 在 `:1280-1286`；`safeUrlForDisplay` 在 `04:1730`（**已存在**，但只剥 userinfo）。另核出五件决定修法形状的事实：
+
+- **`extraBaseUrls` 是启动向量的一部分**：`09:1268` 的 `streamWithFailover` 逐个试 `[baseUrl, ...extraBaseUrls]`，**每一个都带同一个 `Authorization`**。只往列表里加一条、首字节前一次失败，真 key 就到了新加的那个地址。`audioBaseUrl` 同理（`05:1642` `provider.audioBaseUrl || provider.baseUrl`，同一份 apiKey）。
+- **`/api/provider/test` 比落盘那条更直接**：`13:550` 的 `unmaskProviders` 还原完 key 之后**当场发一次请求**。改了 baseUrl ＋ 回传掩码 = 主动把真密钥送到新地址，不用等下一回合。
+- **设置页每次保存都整份上传 providers**（`provider-settings.js:727`，密钥框里躺的就是掩码 `••••<末4>`），而 baseUrl 输入框就在旁边（`:910`）。所以「改地址不重填密钥」不是攻击者才会做的事，是**最正常的一次用户操作** —— 这决定了修法不能是静默清空。
+- **管家碰不到 providers**：`stewardConfigTierFor` fail-closed，`providers`／`searchBackend`／`modelsApiKey` 都不在 free／confirm 两张表里（`06i:1179-1248`，`STEWARD_CONFIG_TIER_FORBIDDEN_NOTE` 里另有点名）；`steward_config_get` 连掩码值都不回。管家这条路能命中本刀新闸的只剩「远程 MCP 的 url」一种。
+- **Node 的 `fetch` 拒绝带 userinfo 的 URL**（实测报 `Request cannot be constructed from a URL that includes credentials`），所以 `providers[].baseUrl` 里的 `u:p@` 今天本来就发不出去；`McpHttpClient` 走 `http.request(new URL(...))`，userinfo 与查询串都照常带上。「上游仍用真 URL」这条判据因此钉在远程 MCP 那一侧。
+
+**改了什么**：
+
+- **① 一条 URL 显示规则，全仓唯一**（`04:1738-1775`）
+  - `safeUrlForDisplay` **就地扩写**（不另起一个函数 —— ⑦b 点名的就是复用它）：先剥 userinfo（`u.username = ''` 这一句原样留着，`mcp-ops-closure` S8 的源码锚照常绿），再走新的 `maskUrlQueryCredentials`（`:1743`），把凭据类查询参数的**值**过同一条 `maskKey` → `?api_key=••••cdef`。
+  - **凭据参数按名字挑**（`SENSITIVE_URL_PARAM_RE`，`:1738`）：`api_key／key／access_token／token／secret／password／passwd／auth／authorization／credential／sig／signature／session`（含 `x-` 前缀）。与 MCP 的 env「全遮」相反 —— URL 查询名是一小撮公认的凭据名，整串全遮会把 `?model=`、`?version=` 一起遮掉，而**认得出这是哪个端点**正是保留 scheme/host/path 的理由。
+  - **没有凭据就一个字节都不改**：URL 能解析但没有 userinfo 时**不重建**（`u.toString()` 会给 `http://host` 补尾斜杠）。这是往返的前提 —— 归一化会把「用户没动这个框」变成「用户换了端点」，每一次保存都被拒。
+  - 调用方：`maskSecrets`（`05:1623`）的 `providers[].baseUrl`／`audioBaseUrl`／`extraBaseUrls`／`searchBackend.baseUrl`／`modelsApiBase`、`maskExternalMcpServerForDisplay` 的远程 `url`（`05:1525`）、`safeMcpInventory`（`04:1353`，`mcp_list`）。`/api/mcp/connectors` 本来就在调它。
+- **② 启动向量闸**（`05:1328-1494`）
+  - `providerLaunchUrls`（`:1332`）＝ 这份密钥**实际会被送到**的地址集合（去重、去空、排序）：`baseUrl` ∪ `(audioBaseUrl || baseUrl)` ∪ `extraBaseUrls`。
+  - 判据是 `providerVectorNotWidened`（`:1345`）：**没有新增地址**（新集合 ⊆ 旧集合）才还原，**不是**逐字节相等。危险的只有一种形状 —— 密钥被送到一个它原本去不到的地址；把地址删掉、或把 `audioBaseUrl` 清空让它回落到 `baseUrl`，都是**收窄**，剩下的每一个地址原本就在收这份密钥。（这一条是被 `asr-transcribe` 的 F1 逼出来的，见下面「回归里真红的那一件」。）
+  - `unmaskSecrets`（`:1668`）与 `unmaskProviders`（`:1739`）的 providers 段：**同 id ＋ 向量没被拓宽**才还原 `apiKey` 与掩码过的敏感 `extraHeaders`（它们去的是同一批地址，共用一道闸）；否则按清空处理。`searchBackend` 的向量是 `type + baseUrl`、`modelsApiKey` 的向量是 `modelsApiBase`，这两格**按相等判**：它们的 `baseUrl` 留空不是回落而是**切到官方默认主机**（`tavily`／`bocha` 的官方地址、Anthropic 直连），那是一个新地址。
+  - **URL 的还原按「整串显示形」索引，不按 id**（`collectDisplayUrlRestores` `:1356`）。理由：URL 自己的凭据只会回到它自己那个地址上去 —— 还原一个 URL 的凭据**不可能**把它送到另一个端点（URL 就是端点），这与 apiKey（一份可以贴到任意地址上的独立凭据）相反。所以这张表全局通用，新建与改了 id 的条目也能对回去。两个不同真值遮成同一串 → 记 `null`（歧义不猜），那一串按用户自己填的地址原样落盘，结果是丢掉那条 URL 上的凭据，方向保守。
+  - 顺序很重要：**先把显示形的 URL 对回真值，再比向量**（`restoreProviderDisplayUrls` `:1383`；MCP 侧是 `restoreExternalMcpServerSecrets` 多收一个 `urlRestores`）。否则我们自己遮掉的 `?api_key=` 会让「原样回传」看起来像换了端点，一次保存就把 headers 清空。
+- **③ 写口整份拒绝**（判据 `maskedSecretConflicts` `05:1426`，人话 `maskedSecretConflictMessage` `:1483`）
+  - `POST /api/config`：`13:202` 在 `mutateConfig` 的**临界区里**、`unmaskSecrets` **之前**算冲突并抛出（与还原读的是同一份 `current`，不存在「检查用旧快照、落盘用新快照」那一类竞态）；路由 `13:510` 映射成 **409 ＋ `config.masked_secret_vector_changed`**，`params.conflicts` 是机器可读的 `{scope,id,label,fields,reason}`，**只带条目名与字段名，绝不带值**。
+  - `POST /api/provider/test`：`13:575` 命中就**不发请求**直接回错（沿用本路由既有的 `{ok:false,error,errorClass}` 形状，另带同一个稳定 code）。
+  - `steward_config_set`：`13l:725` 同一道闸（能命中的只有远程 MCP 的 url），给一句人话，而不是掉进 sanitize 那条泛化的 `invalid_request`。
+  - `mcp_configure upsert`：`04:1433` 把 `collectDisplayUrlRestores(config)` 传进去（模型从 `mcp_list`／`steward_config_get` 读到的就是脱敏形，原样回传是常态）；对不回去的活不过 sanitize → 既有那句 400。
+- **④ 最后一道闸（掩码永不落盘）**：`configSecretValueOrCleared`／`configUrlOrCleared`（`05:1613-1618`，与 S0b 的 `mcpSecretValueOrCleared` 同一个模具；密钥类判「整串以掩码前缀开头」，URL 类的掩码藏在串中间所以判 `includes`）。落点：`sanitizeProvider` 的 `extraHeaders`（`:1198`）、`baseUrl`（`:1216`）、`extraBaseUrls`（`:1222`）、`audioBaseUrl`（`:1236`）、`apiKey`（`:1249`）；`normalizeConfig` 的 `modelsApiBase`／`modelsApiKey`（`01:711-712`）与 `searchBackend`（`01:1286-1287`）。`normalizeConfig` 每次读、写配置都过这几处，所以将来新开的写口也逃不掉。**远程 MCP 的 `url` 是唯一例外**：清空等于整条连接器静默消失，所以带掩码的 url 让 `sanitizeExternalMcpServer` **整条返回 null**（`05:1803`），而正常写口都先被 ③ 拒掉，走不到这一行。
+- **⑤ 前端只改一处**：`provider-settings.js:378` 的 `saveConfigPartial` catch 按**稳定码**分支（不匹配中文），把服务端那句人话同时写进设置页的状态行 —— toast 两秒就没了，而用户接下来要做的是回到那条 Provider 重填密钥。**零新增 i18n 键**：服务端已经给了完整人话，前端不另造第二份文案。
+
+**口径决定：providers 这一族选【拒绝】，MCP 那一族保持 S0b 的【清空】**。
+
+- 清空的代价落在用户身上且没有回执 ——「我只是把地址改了一下，怎么下一回合就 401 了」。而改地址不重填密钥是设置页最正常的一次操作（密钥框里躺着的就是掩码）。拒绝是原子的：`mutateConfig` 的 mutator 抛出 = 一个字节都没写，同一次保存里改的别的东西还在草稿里，补上密钥再存一次，什么都没丢。
+- MCP 那一族的回传方多是模型／管家（`mcp_configure`、`steward_config_set`），硬拒只会让模型盲目重试；而且那是已发布并被 `repo-hygiene (f②)`／`config-mutate-mcp-parity T12e` 钉死的契约，本刀不动它。唯一例外是远程 `url`（见 ④）。
+- `unmask*` 里的**清空仍然留着**，作为兜底：将来某个新写口忘了调 ③ 那道闸，最坏结果仍然只是「密钥没了」，而不是「密钥跟着去了新端点」。
+- **UX 代价，照实记**：把密钥送去一个**新地址**（改 `baseUrl`、加 `extraBaseUrls`／`audioBaseUrl`、改 `searchBackend` 的 type/baseUrl、改 `modelsApiBase`）而又不重填对应密钥的那一次保存，现在会**整份失败**（409，设置页状态行常驻那句话），要重填密钥或显式把密钥框清空后再存。换端点本来就该换密钥，所以这一步多半不是白花的；但它确实是本刀新增的一次「保存不成功」。**收窄不受影响**（见 ② 的子集判据）。
+
+**与派单稿不同之处（逐条给理由）**：
+
+1. **`extraBaseUrls` 判定为【算】启动向量**（派单稿让本刀自己定并给理由）。理由是 `09:1268` 那一行：failover 候选逐个带同一个 `Authorization`。
+2. **判据是「集合没被拓宽」而不是「逐字节相等」**（派单稿说的是 unchanged）。相等判会把合法的**收窄**也拒掉，而收窄在安全上是无害的——回归里 `asr-transcribe` 的 F1 当场证明了这一点（详见下面）。
+3. **多收了 `searchBackend.apiKey` 与 `modelsApiKey` 两格**（派单稿只点名 providers）。它们与 providers 是**逐字同形**的模具、就在同一个函数里隔几行，只补 providers 等于当场造一份新的「手攒名单」并留两个已知的洞。`modelsApiKey` 尤其要紧：它是 Claude CLI 子进程的 `ANTHROPIC_AUTH_TOKEN`，而 `modelsApiBase` 在管家分档表里是 **confirm**（用户按一下按钮就能改）。
+4. **拒绝而不是清空**（派单稿说「cleared 或 refused，按你的设计」，并提示若有更好的形状优先取）。理由见「口径决定」。
+5. **URL 的还原按整串显示形索引、不按 id**（派单稿说「same id + same rest-of-vector」）。理由见 ②：URL 的凭据搬不动端点，id 耦合只会制造无谓的拒绝。
+6. **多修了派单稿没点名的回显面**：`searchBackend.baseUrl` 与 `modelsApiBase`（都可能带 `?api_key=`，都经 `/api/status` 这个 **open 档**路由下发）。
+7. **`workbench_self_status` 不需要改**：实读 `12:368-380`，它的 `config` 段只回 `engine／providerId／providerLabel／model／permissionMode／outputStyle／locale`，没有任何 URL 或密钥字段。判据仍然留着（`repo-hygiene (f①)` 对它做全文扫描）。
+8. **`import-config/scan` 仍原样回显**（S0b「发现但没修」第 1 条），本刀不动：要改它得先改 scan → apply 的契约。
+
+**判据读数**（`<头6字>…` 为失败信息口径；假值全部运行时拼出，形如 `sk-S2V…`、`urlKeyS2Fake…`）：
+
+- **M5**（`provider-custom-headers.e2e.js` 直跑 ALL PASS，**55 PASS**；`config-providers-guard.e2e.js` 直跑 ALL PASS，**36 PASS**）
+  - **(1) 地址没变 ＋ 掩码原样回传** → `POST /api/config` 200，`config.json` **逐字节相等**（E2）；纯函数侧 key 与敏感头都还原成真值（S2-a）。
+  - **(2) 地址变了 ＋ 掩码原样回传** → **409**，`error.code = config.masked_secret_vector_changed`，人话里带条目名「Vec」与「重新填」（E3）；`params.conflicts[0].reason = endpoint_changed`、回包**零密钥值**；`config.json` 逐字节不变、真 key 仍挂在**原端点**上（E4）。纯函数侧实得 `apiKey ""`、`extraHeaders.Authorization ""`（S2-b）。
+  - **(3) 换地址同时重填明文 key ＋ 敏感头** → 200，磁盘是新值（E5，实得 `sk-S2R…`）。只重填 key、把敏感头留着掩码 → **仍然拒绝**，`fields` 实得 `["extraHeaders.Authorization"]`（S2-d）。显式 `apiKey:''` → 清空且**不**拒绝（S2-d，「我就是要删掉密钥」这条路留着）。
+  - **(4) `extraHeaders` 同一道闸**：见 (2)(3)。**拓宽**（加一条 `extraBaseUrls`、改 `audioBaseUrl` 指向新地址）算变化并拒绝；**收窄**（删一条 `extraBaseUrls`、清空 `audioBaseUrl` 让它回落 `baseUrl`、把 `baseUrl` 换成集合里本来就有的另一个地址）照常还原（S2-c）。
+  - **(5) 掩码到不了磁盘**：`config.json` 全文无 `••••`（E6）；`normalizeConfig` 收到掩码 → `apiKey ""`／`extraHeaders ""`／`modelsApiBase ""`／`modelsApiKey ""`／`searchBackend.baseUrl ""`／`searchBackend.apiKey ""`（S2-h）。
+  - **上游面**：`/api/provider/test` 把掩码草稿指向**真在监听并记录**的「攻击者端点」→ `ok:false` ＋ 稳定码，攻击者端点收到 **0 个请求**（E7）；同一份草稿指回原端点 → 照常探测，上游收到的 `Authorization` 里**同时**含真 key 与真敏感头（E8；undici 把大小写不同的两个 Authorization 合成一行，所以这一行同时证明了两个掩码都按真值还原了）。`unmaskProviders` 纯函数侧同结论（S2-f）。
+  - `searchBackend`／`modelsApiKey` 两格：向量没变照常还原、变了就清空并报冲突（S2-g）。
+- **L3**（`repo-hygiene.e2e.js` 直跑 ALL PASS，**68 PASS**；`mcp-ops-closure.e2e.js` 直跑 ALL PASS，**104 PASS**）
+  - 夹具远程 MCP 的 url 改成 `http://127.0.0.1:<port>/mcp?api_key=<URL_KEY>`，`URL_KEY` 进 `SECRETS` 表（全文扫描连坐）。`GET /api/status`、`POST /api/config` 回包、`GET /api/mcp/connectors`、`mcp_list`、`workbench_self_status` 全文 **0 处**明文；`url` 实得 `…/mcp?api_key=••••TuVw`，**scheme/host/端口/path 照常可见**（f①）。
+  - **往返**：掩码 url 原样回传 → 磁盘 `externalMcpServers` 逐字节不变（f②）。
+  - **上游仍用真 URL**：`connectors/health` 起的探测，`remotePaths` 每一条都含 `api_key=<真值>`、**无一条含 `••••`**（f③）；同一趟的 `Authorization` 仍是真值。
+  - 纯函数：`safeUrlForDisplay('…?api_key=SECRETVALUE&model=m1')` 实得 `…?api_key=••••ALUE&model=m1`（P10c）；`token/secret/access_token` 同表、`page` 不动（P10d）；**没有凭据参数的查询串逐字节不变**（P10e）；`https://u:p@host/v1` → `https://host/v1`（P10 原样保住）。
+  - provider 侧：带 `?api_key=` 的 `baseUrl` 下发后全文无明文，原样回传**还原成真 URL**；把掩码 URL **改了一半**再交回来 → `reason = masked_url`，整份拒绝（S2-i）。
+
+**回归里真红的那一件（本刀自己的洞，已修并重跑）**：第一版按「逐字节相等」判向量，全量回归里 `asr-transcribe.e2e.js` 真红 3 条（`F1 还原 providers (status 409)`＋两条连带）。根因不是夹具问题：该件先把 `audioBaseUrl` 设成死端口证明「audioBaseUrl 优先」，再把**原来那份（掩码的）providers** 整份还原回去 —— 还原那一下是把 `audioBaseUrl` 删掉、让 ASR 回落到 `baseUrl`，是**收窄**，却被相等判当成「换了端点」整份拒了。修法就是上面 ② 的子集判据（`providerVectorNotWidened`），并把 `S2-c` 的那条断言从「删也拒」改成「删也还原」，另加两条收窄用例。**这是派单稿的 criteria 里没覆盖到的一类形状**：判据只列了「改 baseUrl」，没列「删地址」。
+
+**反向（改源码 → 重建 → 确认红并打出实得 → 文件备份还原 → sha256 逐字节校验）**：
+
+- **㈠ 摘掉 M5 的启动向量闸**（`providerVectorNotWidened` 恒 `true`）→ `config-providers-guard` **7 红**，头一条 `E3 masked echo with a CHANGED baseUrl is refused (status 200, code undefined)`；关键的一条是 `E4 the real key is still attached to the ORIGINAL endpoint ("sk-S2G…" @ http://127.0.0.1:58916)` —— **真 key 跟着改了 baseUrl 的那一条搬到了新端点**（打出来的就是它搬去的那个地址）；还有 `E7 …（evil 1 次，首个 "Bearer…"）` —— 攻击者端点**真的收到了**一次带真密钥的请求。`provider-custom-headers` **2 红**（S2-b，实得 key `"sk-S2V…"`、header `"Bearer…"`）。
+  - **对照组必须在屏上**：第一版把「攻击者端点」写成一个**从不监听**的端口，摘闸后请求连不上，`收到 0 个请求` 照样绿 —— 那条断言当时根本不是判据。改成一个真在监听并记录 `Authorization` 的假服务器之后才有了上面那行读数（[反向验证本身会做错] 那条教训的现场复现，已在该文件里留注释）。
+- **㈡ 摘掉 L3 的 URL 掩码**（`safeUrlForDisplay` 不调 `maskUrlQueryCredentials`；`maskExternalMcpServerForDisplay` 不碰 `url`）→ `repo-hygiene` **6 红**：`(f①) GET /api/status body has 0 plaintext MCP secrets (leaked URL_KEY)`、`remote url credential masked … (got http://127.0.0.1:62301/mcp?api_key=urlKeyS2FakePqRsTuVw)`、`POST /api/config response …(leaked URL_KEY)`、`GET /api/mcp/connectors …(leaked URL_KEY)`、`mcp_list …(leaked URL_KEY)`；`mcp-ops-closure` 2 红（P10c／P10d）。
+- 两次均按文件备份整组还原（`01`／`04`／`05`／`13`／`13l`／`14`／`manifest.json`／`server.js`／`provider-settings.js` 共 9 个），`sha256sum -c` 全 OK：`05` `26849ee5…`、`04` `72dd9c4a…`、`01` `8733f467…`、`13` `bfb5af67…`、`13l` `75c4f113…`、`14` `93618675…`、`server.js` `deb77128…`、`manifest.json` `7308d94b…`、`provider-settings.js` `7e7410b5…`。
+
+**生成器链与门**：
+
+- `module-dependency-graph --write`：53 模块／**420 边**／1 SCC，**零新增边**（逐边集合比对 HEAD：added `[]`、removed `[]`）；顶层符号 2386 → **2402**（`04` ＋3、`05` ＋13，零删除）。六条**既有**边的符号表变了：`01→05` ＋`configSecretValueOrCleared`／`configUrlOrCleared`，`04→05` ＋`collectDisplayUrlRestores`，`05→04` ＋`safeUrlForDisplay`，`13→05` 与 `13l→05` ＋`maskedSecretConflicts`／`maskedSecretConflictMessage`，`14→05` ＋`maskedSecretConflicts`／`providerLaunchVectorKey`。
+- `build.js`：**56170 行**。`architecture-contract-snapshots --write`：已写。
+- `facts-generate.js` **不跑**：零新 e2e 文件，`e2eCount` 仍是 **363**（`dev-harness/*.e2e.js` 实数 363 复核过）。
+- `route-inventory.js`：137 判定点（exact 116／prefix 12／regex 9）、`ROUTE_AUTH` 125 条、未覆盖 8、**告警 0**（本刀零新增路由；409 只是既有 `POST /api/config` 的一个新错误分支）。
+- **计数锁重钉两处**（都带源码注释）：`config-providers-guard` 新增 **E9** —— `maskSecrets` 里的掩码点**恰好 6 处**，每多一处就必须在 `maskedSecretConflicts` 里给它声明一条启动向量，否则又是一个「掩码回传把密钥搬到新端点」的洞（[手攒的名单要配机械锁]）；`asr-config-ui.static` 那条「audioBaseUrl 与 baseUrl 同待遇」的源码锚改成**两行同形**判据（谁单独改了包装就红），而不是只把 audioBaseUrl 那一行的正则跟着改掉。
+- **端口唯一性审计**：第一版假头的末四位写成 `8765`，正落在 `8700-9199` 这条测试端口带上（`lib/port-audit.js`），`--fast` 当场以「跨文件撞车」拒跑。已改成非数字后缀，并在那一行留注释。
+- `build --check` ✓（产物与 src 一致、manifest 行区间自洽）、依赖图 `--check` ✓（53/420）、`route-inventory --check` ✓（137／125，双向无漂移）、`--fast` **73 pass / 0 fail / 73 ran（7 skipped 为既有 live probe）**。
+- 19 个改动文件(含本文那一份 docs 改动之外的全部产物)控制字节扫描：`NUL 0 / CR 0 / 其它 0x00–0x1f 0`；`U+FFFD` 仅 `server.js` **2 处**，与 HEAD 逐字相同。
+
+**全量回归（S2）**：跑了**两轮**（第一轮真红一件，修完必须重跑）。
+
+- **第一轮**：`run-all.js --parallel 4` 退出码 **1**，**355 pass / 1 fail / 0 known-fail / 0 unexpected-pass / 2 flaky / 356 ran（7 skipped 为既有 live probe）**。唯一的 fail 是 `asr-transcribe.e2e.js`（3 条 FAIL：`F1 还原 providers (status 409)` ＋ 两条连带），**真回归、本刀自己的洞**，根因与修法见上面「回归里真红的那一件」。两个 flaky：`interventions-persist.e2e.js`（首跑 `(j) expectedVersion 冲突 -> 409 version_conflict`）、`steward-conversation.e2e.js`（首跑没抓到 FAIL 行，runner 自己标注「多半是超时或进程被杀，不是断言红」）。
+- **第二轮**（改完 `providerVectorNotWidened` ＋ 重跑整条生成器链之后）：退出码 **0**，**356 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 356 ran（7 skipped）**，**真回归 0**。唯一 flaky 仍是 `steward-conversation.e2e.js`（同一个形状：首跑没抓到 FAIL 行）。
+- **flaky 分类**：两件回归后各**串行直跑 2 次**，`steward-conversation` **166/0 ×2**、`interventions-persist` **67/0 ×2**，全绿。**与本刀零交集**（逐个确认过）：两件的夹具都不配 `audioBaseUrl`／`extraBaseUrls`／`extraHeaders`，**全文没有一次 `POST /api/config`**，也不碰 `maskSecrets`／`unmaskSecrets`／`safeUrlForDisplay` 那一族。按「并行负载下被杀／超时的墙钟件」与「409 版本冲突的时序件」登记，不归功于也不归咎于本刀。
+- 两轮之间只改了 `05-claude-engine.js` 的判据函数与 `provider-custom-headers.e2e.js` 的三条断言，并重跑了整条生成器链与四道门；**回归运行期间没有改 `src/`、没跑别的件**（只在 scratchpad 里写本段）。回归前后各调过一次 `stopRuyiTestBrowsers()`，跑完 `msedge.exe` 只剩用户自己的 7 个（`user-data-dir` 不带 `ruyi-`／`wcw-`），无测试残留。
+
+**发现但没修（登记，交主会话定）**：
+
+1. **带 userinfo 的 URL「看得见但改不掉」**。`safeUrlForDisplay` 按派单稿**剥**掉 `u:p@`（不是遮成 `••••@`），于是设置页里显示的是 `https://host/v1`；用户原样回传 → 按显示形对回真值（凭据还在）。想把嵌在地址里的凭据删掉，只能把地址**改成别的串**（那会触发 ③ 的拒绝、重填密钥后落盘为干净地址）或删掉整条 Provider 重建。遮成 `••••@` 本可以让「照着显示的样子存一次」就等于删凭据，但那会改掉 `mcp-ops-closure` P10 钉死的既有显示口径，**不在本刀**。（`?api_key=` 那一类没有这个问题：掩码可见，改一半就被拒。）
+2. **歧义 URL 静默丢凭据**：两个不同真值遮成同一串显示形时 `collectDisplayUrlRestores` 记 `null`（不猜），那一串按用户填的地址原样落盘 —— 结果是**丢掉**那条 URL 上的凭据（不会张冠李戴）。真机上要凑齐这个形状需要两条 provider 用同主机同路径、`api_key` 末四位还相同。保守方向，照实记。
+3. **`searchBackend`／`modelsApiKey` 按相等判、不按子集判**：把它们的 `baseUrl` 清空不是「少一个地址」而是切到官方默认主机，所以留空 = 新地址 = 拒绝。代价是「想改回官方地址」也要重填一次密钥。
+4. **`import-config/scan` 仍原样回显**（沿用 S0b 第 1 条），以及 S0b 那份「发现但没修」里的 4／5 两条仍然成立。
+5. **`/api/provider/test` 的拒绝没有 HTTP 状态码区分**（仍是 200 ＋ `{ok:false, code, errorClass}`），沿用该路由既有形状；按码分支的调用方不受影响，但按状态码分支的调用方看不出区别。本仓今天没有这样的调用方（设置页与向导都读 `result.ok`）。

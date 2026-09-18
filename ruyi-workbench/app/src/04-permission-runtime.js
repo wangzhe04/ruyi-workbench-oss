@@ -1349,7 +1349,8 @@ function safeMcpInventory(config) {
     id: entry.id, label: entry.label || entry.id, command: entry.command, args: mcpArgsForDisplay(entry.args || []),   // 107-S0b:args 显示脱敏(`--token xyz` 一类)
     cwd: entry.cwd || '', envKeys: Object.keys(entry.env || {}),
     // 49c:远程条目无 command,回显 transport+url(headers 键名可见,值永不回显)。
-    ...(entry.transport ? { transport: entry.transport, url: entry.url || '', headerKeys: Object.keys(entry.headers || {}) } : {}),
+    // 107-S2:url 过 safeUrlForDisplay —— `https://u:p@host` 与 `?api_key=…` 此前经 mcp_list 明文回给模型。
+    ...(entry.transport ? { transport: entry.transport, url: safeUrlForDisplay(entry.url || ''), headerKeys: Object.keys(entry.headers || {}) } : {}),
     builtin: entry.id === 'ai-computer-control',
   }));
 }
@@ -1426,7 +1427,10 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
     } else if (op === 'upsert') {
       // 107-S0b:模型可能把读到的掩码(env／headers 的 ••••、args 的脱敏标记)原样回传 —— 与 POST /api/config 同一条
       // 还原规则:同 id 且启动向量(command／cwd／args,远程为 url)没变才取磁盘真值,否则 sanitize 那道闸清空。
-      const clean = sanitizeExternalMcpServer(restoreExternalMcpServerSecrets({ ...(server || {}), id: wantId }, idx >= 0 ? list[idx] : null));
+      // 107-S2:远程 url 的显示脱敏(`?api_key=••••cdef`)也在这里对回真值 —— 模型从 mcp_list／
+      // steward_config_get 读到的就是脱敏形,原样 upsert 回来是常态。对不回去的(改了一半的掩码)
+      // 活不过 sanitize -> 下面那句 400,不会把掩码写进 config.json,也不会把连接器静默改接到别处。
+      const clean = sanitizeExternalMcpServer(restoreExternalMcpServerSecrets({ ...(server || {}), id: wantId }, idx >= 0 ? list[idx] : null, collectDisplayUrlRestores(config)));
       if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
       // 122-§2.6:用户/工具显式 upsert = 接管这条连接器 —— 清掉来源标记,它从此算 Ruyi 自己的、照常同步回
       // Claude Code。显式删掉(不是让 sanitize 缺省丢弃):调用方可能把读出来的整条 server 原样回传。
@@ -1725,11 +1729,49 @@ async function probeMcpConnector(entry, opts = {}) {
   }
 }
 
+// 107-S2(46 号文 §5 ⑦b L3):URL 查询串里的凭据。`?api_key=…`／`?token=…` 这类把密钥写进地址的端点
+// 到处都有(远程 MCP 清单、自建网关),而 GET /api/status 是 open 档 —— 本机任何进程一个 curl 就读到。
+// 口径与 providers[].extraHeaders 那一格相同【按名字挑】,不按值猜:URL 的查询名是一小撮公认的凭据名
+// (api_key／token／secret／password／auth／key／sig／signature／credential／access_token),把整个查询串
+// 都遮了会连 ?model=、?version= 这类识别端点必需的信息一起遮掉,而识别端点正是保留 scheme/host/path
+// 的理由。值走同一条 maskKey(••••<末4>),所以「回传的掩码 = 我们刚下发的那一串」可以逐字节比出来。
+const SENSITIVE_URL_PARAM_RE = /^(?:x-)?(?:api[-_]?key|key|access[-_]?token|token|secret|password|passwd|auth|authorization|credential|sig|signature|session)$/i;
+function isSensitiveUrlParamName(name) { return typeof name === 'string' && SENSITIVE_URL_PARAM_RE.test(name.trim()); }
+// 只在【真有要遮的东西】时才重写这个串:没有凭据参数就原样返回,一个字节都不动 —— 否则
+// `?a=1&b=2` 会被重新拼装,而这个返回值是要被原样回传、再逐字节比对的往返基准(见 05 的
+// restoreDisplayUrl),任何归一化都会把「用户没动过这个框」误判成「用户换了端点」。
+function maskUrlQueryCredentials(urlStr) {
+  const s = String(urlStr || '');
+  const hashAt = s.indexOf('#');
+  const head = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const tail = hashAt >= 0 ? s.slice(hashAt) : '';
+  const queryAt = head.indexOf('?');
+  if (queryAt < 0) return s;
+  const prefix = head.slice(0, queryAt + 1);
+  let changed = false;
+  const pairs = head.slice(queryAt + 1).split('&').map(pair => {
+    const eq = pair.indexOf('=');
+    if (eq <= 0) return pair;
+    const name = pair.slice(0, eq), value = pair.slice(eq + 1);
+    if (!value || !isSensitiveUrlParamName(name)) return pair;
+    changed = true;
+    return name + '=' + maskKey(value);   // 值仍是【原编码形态】的末四位:掩码可逐字节对回去
+  });
+  return changed ? prefix + pairs.join('&') + tail : s;
+}
 // 55a: 远程条目 URL 展示脱敏 -- 剥离 userinfo(http://user:pass@host -> http://host),防凭据经
 // token 保护的路由返回给前端(浏览器扩展/日志/共享机器可截获)。解析失败则原样返回(不阻断展示)。
+// 107-S2:同一条规则再加查询串里的凭据(上面的 maskUrlQueryCredentials),并成为全仓【唯一】的
+// 「URL 给人看之前怎么脱敏」判据 —— maskSecrets(providers 的 baseUrl／audioBaseUrl／extraBaseUrls、
+// searchBackend.baseUrl、modelsApiBase)、maskExternalMcpServerForDisplay(远程 url)、safeMcpInventory
+// (mcp_list)全部调它,不另写第二套。URL 能解析但没有 userinfo 时【不重建】(u.toString() 会给
+// `http://host` 补出尾斜杠,那会让「原样回传」看起来像改了端点)。
 function safeUrlForDisplay(urlStr) {
-  try { const u = new URL(String(urlStr)); u.username = ''; u.password = ''; return u.toString(); }
-  catch { return String(urlStr || ''); }
+  const raw = String(urlStr || '');
+  let stripped = raw;
+  try { const u = new URL(raw); if (u.username || u.password) { u.username = ''; u.password = ''; stripped = u.toString(); } }
+  catch { /* 非法/相对 URL:不重建,只做下面的查询串脱敏(与修前「解析失败原样返回」同一个不阻断口径) */ }
+  return maskUrlQueryCredentials(stripped);
 }
 
 // 合并 desktop/config/drop-in 三源为统一读模型。与 resolveExternalMcpServers 的关键差异:本函数

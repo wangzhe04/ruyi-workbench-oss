@@ -676,6 +676,9 @@ module.exports = {
   maskSecrets,
   unmaskSecrets,
   unmaskProviders,
+  // 107-S2:掩码回传的启动向量闸(providers/searchBackend/modelsApiKey 的密钥会去哪几个地址)- exposed for e2e 直测。
+  maskedSecretConflicts,
+  providerLaunchVectorKey,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
   // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
   validateReplanPatch,

@@ -2,7 +2,7 @@
 
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
-import { api } from './net.js';
+import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
 import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
@@ -370,6 +370,15 @@ async function saveConfigPartial(patch) {
     onEngineConfigChanged();
     return true;
   } catch (e) {
+    // 107-S2（46 号文 §5 ⑦b M5）：服务端拒绝了这一次保存，因为某条 Provider 的地址变了、而密钥框里
+    // 回传的还是掩码。这一族【不能只用 toast】——toast 2 秒就没了，而用户接下来要做的是「回到那条
+    // Provider 重填一次密钥」。所以同一句话再写进设置页的状态行（常驻到下一次保存），并且按稳定码
+    // 分支、不匹配中文。服务端已经给了完整人话，前端不另造第二份文案（也就不新增 i18n 键）。
+    const info = apiErrorInfo(e);
+    if (info.code === 'config.masked_secret_vector_changed') {
+      const bar = $('settingsStatus');
+      if (bar) bar.textContent = info.message;
+    }
     toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err');
     return false;
   }

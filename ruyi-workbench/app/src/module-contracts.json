@@ -491,6 +491,20 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "configSecretValueOrCleared",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "configUrlOrCleared",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "sanitizeExternalMcpServer",
           "kinds": [
             "call"
@@ -1391,6 +1405,7 @@
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
         "REDACT_PATTERNS",
+        "SENSITIVE_URL_PARAM_RE",
         "_dropInCache",
         "_expandMcpVar",
         "_nativeToolNameSet",
@@ -1425,6 +1440,7 @@
         "isClaudeResumeMissingError",
         "isEquivalentDesktopAccServer",
         "isNativeToolName",
+        "isSensitiveUrlParamName",
         "killAllMcpClients",
         "killChildTree",
         "lastAssistantEngine",
@@ -1433,6 +1449,7 @@
         "logStream",
         "logStreamDay",
         "makeAttachmentRecord",
+        "maskUrlQueryCredentials",
         "mcpClientFailures",
         "mcpClientGen",
         "mcpClientPending",
@@ -1650,6 +1667,13 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "collectDisplayUrlRestores",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "maskKey",
           "kinds": [
             "call"
@@ -1772,6 +1796,9 @@
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
+        "collectDisplayUrlRestores",
+        "configSecretValueOrCleared",
+        "configUrlOrCleared",
         "isSensitiveHeaderName",
         "maskExternalMcpServerForDisplay",
         "maskExtraHeaders",
@@ -1779,6 +1806,8 @@
         "maskMcpSecretValues",
         "maskProviders",
         "maskSecrets",
+        "maskedSecretConflictMessage",
+        "maskedSecretConflicts",
         "mcpArgsForDisplay",
         "mcpEntryArgStrings",
         "mcpEntryIdKey",
@@ -1786,15 +1815,22 @@
         "mcpEntryTrimmed",
         "mcpSecretValueOrCleared",
         "providerBaseWithV1",
+        "providerLaunchUrls",
+        "providerLaunchVectorKey",
+        "providerMaskedSecretFields",
+        "providerMaskedUrlFields",
         "providerModelCaps",
         "providerReasoningEffort",
         "providerResponsesBase",
+        "providerVectorNotWidened",
         "resolveAsrProvider",
         "resolveProvider",
+        "restoreDisplayUrl",
         "restoreExternalMcpServerSecrets",
         "restoreExternalMcpServersSecrets",
         "restoreMcpArgs",
         "restoreMcpSecretValues",
+        "restoreProviderDisplayUrls",
         "runClaudeTurn",
         "sanitizeExternalMcpCommon",
         "sanitizeExternalMcpServer",
@@ -1802,7 +1838,8 @@
         "stripUrlUserinfo",
         "transcribeAudioViaProvider",
         "unmaskProviders",
-        "unmaskSecrets"
+        "unmaskSecrets",
+        "urlStillMasked"
       ],
       "requires": [
         {
@@ -2277,6 +2314,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "registerUserQuestion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "safeUrlForDisplay",
           "kinds": [
             "call"
           ]
@@ -9845,6 +9889,20 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflictMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "maskProviders",
           "kinds": [
             "call"
@@ -13341,6 +13399,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readInterventions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflictMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
           "kinds": [
             "call"
           ]
@@ -17902,7 +17974,21 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "maskSecrets",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "providerLaunchVectorKey",
           "kinds": [
             "read"
           ]

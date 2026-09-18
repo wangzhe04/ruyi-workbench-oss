@@ -194,12 +194,27 @@ async function applyConfigPatch(rawBody) {
     // 真密钥写成「••••末四位」。
     // 107-S0b:externalMcpServers 的 env／headers／args 也在 GET /api/status(与 steward_config_get)里掩码下发了 ——
     // 调用方原样回传时同一处按 id＋键名还原;不还原的话残留掩码会被 sanitize 那道闸清空,等于一次保存抹掉连接器密钥。
+    // 107-S2(46 号文 §5 ⑦b M5):启动向量闸。掩码回传只有在「密钥会去的地址一个都没变」时才算
+    // 「用户没动这个框」;地址变了(或压根没有同 id 那一条)就整份拒绝、零写入,并如实告诉用户要重填
+    // 哪几条的密钥 —— 不静默把旧密钥贴到新端点上(那是 M5 的洞),也不静默清空(那是用户看不见的丢失)。
+    // 判据在 05 的 maskedSecretConflicts;它与 unmaskSecrets 读的是【同一份 current】(都在这个临界区里),
+    // 所以不存在「检查用的是旧快照、落盘用的是新快照」那一类竞态。
+    const conflicts = maskedSecretConflicts(body, current);
+    if (conflicts.length) {
+      throw Object.assign(new Error(maskedSecretConflictMessage(conflicts)), {
+        code: 'config.masked_secret_vector_changed', statusCode: 409, conflicts,
+      });
+    }
+    // 107-S2:modelsApiBase 也进这一组 —— 它自己可能带凭据(`?api_key=…`),下发时被 safeUrlForDisplay
+    // 遮过,原样回传要对回真值;不写回的话一次保存就把它写成脱敏形(且 normalizeConfig 那道闸会清空它)。
     if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
-      || (body && typeof body.modelsApiKey === 'string') || (body && Array.isArray(body.externalMcpServers))) {
+      || (body && typeof body.modelsApiKey === 'string') || (body && typeof body.modelsApiBase === 'string')
+      || (body && Array.isArray(body.externalMcpServers))) {
       const restored = unmaskSecrets(body, current);
       if (Array.isArray(body.providers)) merged.providers = restored.providers;
       if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
       if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
+      if (typeof body.modelsApiBase === 'string') merged.modelsApiBase = restored.modelsApiBase;
       if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
     }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
@@ -490,6 +505,12 @@ async function handleApi(req, res, pathname) {
         return send(res, apiFailure('permission.confirm_required', { permissionMode: String(error.permissionMode || '') },
           String(error.message || ''), 409));
       }
+      // 107-S2:掩码回传 + 启动向量变了 -> 409 整份拒绝(零写入)。params 里只带条目名与字段名,绝不带值;
+      // 前端按【码】分支(不按中文),见 provider-settings.js 的 saveConfigPartial。
+      if (error && error.code === 'config.masked_secret_vector_changed') {
+        return send(res, apiFailure('config.masked_secret_vector_changed',
+          { conflicts: Array.isArray(error.conflicts) ? error.conflicts : [] }, String(error.message || ''), 409));
+      }
       throw error;
     }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
@@ -547,6 +568,17 @@ async function handleApi(req, res, pathname) {
     // key from the same-id provider in config before firing the test, else the test would use the mask.
     if (rawProvider && typeof rawProvider === 'object') {
       const cfg = await readConfig();
+      // 107-S2(M5):这条路会拿还原后的 key 真的往 baseUrl 发一次请求 —— 「改了地址 + 回传掩码」在这里
+      // 不是「写错一份配置」而是【当场把真密钥送出去】。所以先过同一道闸,命中就【不发请求】直接回错,
+      // 错误形状沿用本路由既有的 {ok:false,error,errorClass} (前端 errorMessageOf/ERROR_CLASSES 已认它),
+      // 另带一个稳定 code 供按码分支。
+      const conflicts = maskedSecretConflicts({ providers: [rawProvider] }, cfg);
+      if (conflicts.length) {
+        return send(res, json({
+          ok: false, code: 'config.masked_secret_vector_changed', errorClass: 'provider_misconfigured',
+          error: maskedSecretConflictMessage(conflicts), models: [],
+        }));
+      }
       rawProvider = unmaskProviders([rawProvider], cfg.providers)[0];
     }
     const sp = sanitizeProvider(rawProvider);

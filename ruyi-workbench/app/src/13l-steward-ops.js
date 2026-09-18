@@ -719,6 +719,13 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 107-S0b:steward_config_get 下发的 externalMcpServers 是掩码过的,管家原样回传很正常 —— 先按落盘路径
   // (applyConfigPatch → unmaskSecrets)同一条规则还原再探:sanitize 那道闸会清空残留掩码,拿原样 patch 比就会把
   // 「原样回传」误判成「没活过 sanitize」。
+  // 107-S2:与 POST /api/config 同一道启动向量闸。providers／searchBackend／modelsApiKey 在 06i 的分档表里
+  // 是 forbidden(上面 forbidden 那道门已经整份拒了),所以管家这条路能命中的只剩「远程 MCP 的 url 还带着
+  // 脱敏形、又对不回真值」这一种;给它一句人话,免得掉进下面 sanitize 那条泛化的 invalid_request 里。
+  const secretConflicts = maskedSecretConflicts(patch, config);
+  if (secretConflicts.length) {
+    return stewardFail('invalid_request', maskedSecretConflictMessage(secretConflicts), { keys: secretConflicts.map(c => c.id) });
+  }
   const restoredPatch = unmaskSecrets(patch, config);
   const probe = normalizeConfig({ ...config, ...restoredPatch }).config;
   const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(restoredPatch[k]));

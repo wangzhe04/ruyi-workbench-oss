@@ -42,7 +42,10 @@ assert.match(src00, /const CONFIG_SCHEMA = 11;/, 'CONFIG_SCHEMA 保持 11（114a
 // ③ 后端落点
 assert.match(src05, /function providerModelCaps\(rawCaps\)/, '05: providerModelCaps 白名单清洗函数');
 assert.match(src05, /const caps = providerModelCaps\(m\.caps\);/, '05: models 归一化走白名单');
-assert.match(src05, /const audioBaseUrl = str\(raw\.audioBaseUrl, 400\)\.trim\(\);/, '05: audioBaseUrl 与 baseUrl 同待遇（trim + 截 400）');
+// 107-S2：baseUrl 与 audioBaseUrl 一起多了一道「掩码永不落盘」的末闸（configUrlOrCleared）。本条锚点钉的
+// 一直是「两者同待遇」，所以判据改成【两行同形】：谁单独改了包装，这一条就红。
+assert.match(src05, /const audioBaseUrl = configUrlOrCleared\(str\(raw\.audioBaseUrl, 400\)\.trim\(\)\);/, '05: audioBaseUrl 仍是 trim + 截 400（外加 107-S2 的掩码末闸）');
+assert.match(src05, /const mainBase = configUrlOrCleared\(str\(raw\.baseUrl, 400\)\.trim\(\)\);/, '05: audioBaseUrl 与 baseUrl 同待遇（同一个 400 截断 + 同一道 configUrlOrCleared 末闸）');
 assert.match(src01, /asrProviderId: '',/, '01: asrProviderId 默认空（未配置）');
 assert.match(src01, /asrModel: '',/, '01: asrModel 默认空（未配置）');
 assert.match(src01, /for \(const key of \['asrProviderId', 'asrModel'\]\)/, '01: asr 形状清洗块');

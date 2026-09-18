@@ -272,7 +272,9 @@ function walk(dir, acc, skip) {
     const BEARER_VAL = 'fake' + 'Bearer' + 'S0b0123456789ABCDEFxyzw';
     const ARG_TOKEN = 'argTok' + 'S0b' + 'MnOpQrStUv987';
     const DB_PW = 'dbPw' + 'S0b' + '4455';
-    const SECRETS = { GH, BEARER_VAL, ARG_TOKEN, DB_PW };
+    // 107-S2(L3):远程条目的 url 自己也能带凭据(?api_key=…)。S0b 按派单稿把 url 原样下发,⑦b 的 L3 点了它。
+    const URL_KEY = 'urlKey' + 'S2' + 'Fake' + 'PqRsTuVw';
+    const SECRETS = { GH, BEARER_VAL, ARG_TOKEN, DB_PW, URL_KEY };
     const MASK = '••••', REDACTED = '«redacted»';
     const keyHead = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
     const leaks = text => Object.entries(SECRETS).filter(([, v]) => String(text || '').includes(v)).map(([k]) => k);
@@ -286,10 +288,12 @@ function walk(dir, acc, skip) {
     fs.writeFileSync(fakeClaude, '@echo off\r\n>>"' + CLAUDE_LOG + '" echo %*\r\nexit /b 0\r\n', 'utf8');
     // 假远程 MCP(streamable HTTP,只回 JSON):记下每个请求带来的 Authorization。
     const remoteAuth = [];
+    const remotePaths = [];   // 107-S2:真正发出去的请求路径 —— 掩码只能活在显示面,上游必须收到真 ?api_key=
     const remote = http.createServer((req, res) => {
       let b = ''; req.on('data', c => (b += c));
       req.on('end', () => {
         remoteAuth.push(req.headers['authorization'] || null);
+        remotePaths.push(req.url || '');
         let msg = null; try { msg = JSON.parse(b || '{}'); } catch { /* ignore */ }
         if (!msg || !msg.method) { res.writeHead(400); return res.end(); }
         if (msg.id == null) { res.writeHead(202); return res.end(); }
@@ -307,7 +311,9 @@ function walk(dir, acc, skip) {
       cwd: '', enabled: true,
       env: { GITHUB_TOKEN: GH, FAKE_MCP_ENV_CAPTURE: ENV_CAPTURE, FAKE_MCP_ENV_CAPTURE_KEYS: 'GITHUB_TOKEN,DROP_ME', DROP_ME: 'drop-me-value' },
     };
-    const REMOTE = { id: 'hyg-remote', label: 'Hyg remote', type: 'http', url: 'http://127.0.0.1:' + PORT_REMOTE + '/mcp', headers: { Authorization: 'Bearer ' + BEARER_VAL }, enabled: true };
+    const REMOTE_URL = 'http://127.0.0.1:' + PORT_REMOTE + '/mcp?api_key=' + URL_KEY;
+    const REMOTE_URL_SHOWN = 'http://127.0.0.1:' + PORT_REMOTE + '/mcp?api_key=' + MASK + URL_KEY.slice(-4);
+    const REMOTE = { id: 'hyg-remote', label: 'Hyg remote', type: 'http', url: REMOTE_URL, headers: { Authorization: 'Bearer ' + BEARER_VAL }, enabled: true };
     fs.writeFileSync(cfgPath, JSON.stringify({
       configSchema: 11, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, enableMcpDropIn: false,
       desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
@@ -343,8 +349,12 @@ function walk(dir, acc, skip) {
       ok(sRemote && sRemote.headers && sRemote.headers.Authorization === MASK + BEARER_VAL.slice(-4), '(f①) remote headers.Authorization masked (got ' + keyHead(sRemote && sRemote.headers && sRemote.headers.Authorization) + ')');
       ok(sStdio && sStdio.args[0] === FAKE_MCP && sStdio.args[1] === '--token' && sStdio.args[2] === REDACTED && sStdio.args[3] === 'postgres://svc:' + REDACTED + '@127.0.0.1/db',
         '(f①) args redacted for display (--token value, URL userinfo) (got ' + (sStdio && JSON.stringify(sStdio.args.slice(1)).slice(0, 80)) + ')');
-      ok(sStdio && sStdio.command === process.execPath && sStdio.id === 'hyg-stdio' && sStdio.enabled === true && sRemote && sRemote.url === REMOTE.url,
-        '(f①) structural fields (id/command/url/enabled) unmasked');
+      ok(sStdio && sStdio.command === process.execPath && sStdio.id === 'hyg-stdio' && sStdio.enabled === true,
+        '(f①) structural fields (id/command/enabled) unmasked');
+      // 107-S2(L3):url 不再原样下发 —— 只遮查询串里的凭据值,scheme/host/path 与非凭据参数照常可见
+      //(用户/模型仍然认得出这是哪个端点)。
+      ok(sRemote && sRemote.url === REMOTE_URL_SHOWN && sRemote.url.startsWith('http://127.0.0.1:' + PORT_REMOTE + '/mcp'),
+        '(f①) remote url credential masked, scheme/host/path still visible (got ' + (sRemote && sRemote.url) + ')');
 
       // ② 掩码原样回传 → 磁盘逐字节不变,回包零明文。先清掉启动期的同步产物,③ 看到的只属于这一次保存。
       fs.rmSync(CLAUDE_LOG, { force: true }); fs.rmSync(KIMI_FILE, { force: true });
@@ -399,6 +409,9 @@ function walk(dir, acc, skip) {
       const hRemote = await postJson(PORT_F, '/api/mcp/connectors/health', { id: 'hyg-remote', timeoutMs: 15000 }, hdr, 25000);
       ok(hRemote.json && hRemote.json.ok === true && remoteAuth.length > 0 && remoteAuth.every(a => a === 'Bearer ' + BEARER_VAL),
         '(f③) remote MCP requests carried the real Authorization header (' + remoteAuth.length + ' request(s), first ' + keyHead(remoteAuth[0]) + ')');
+      // 107-S2:显示面遮了 url 里的 api_key,真正发出去的请求必须仍然带真值(否则就是「遮到了链路上」)。
+      ok(remotePaths.length > 0 && remotePaths.every(p => p.includes('api_key=' + URL_KEY)) && !remotePaths.some(p => p.includes(MASK)),
+        '(f③) the upstream request path carried the REAL ?api_key= (' + remotePaths.length + ' request(s), first ' + keyHead(remotePaths[0]) + ')');
 
       // ② 改一个 env 为新明文 → 照存(其余掩码值照常还原);删一个键 → 删掉。
       const rotated = JSON.parse(JSON.stringify(echoed));

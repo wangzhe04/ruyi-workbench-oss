@@ -706,6 +706,10 @@ function normalizeConfig(raw) {
   else if (config.modelsApiBase.length > 500) { config.modelsApiBase = config.modelsApiBase.slice(0, 500); changed = true; }
   if (typeof config.modelsApiKey !== 'string') { config.modelsApiKey = ''; changed = true; }
   else if (config.modelsApiKey.length > 500) { config.modelsApiKey = config.modelsApiKey.slice(0, 500); changed = true; }
+  // 107-S2 最后一道闸:走到这里还带着掩码的不是真值(能还原的 unmaskSecrets 已经还原,写口另有
+  // maskedSecretConflicts 整份拒绝)。与 sanitizeProvider 的同名两个 helper 是同一条规则,清空而不是留着。
+  if (configUrlOrCleared(config.modelsApiBase) !== config.modelsApiBase) { config.modelsApiBase = ''; changed = true; }
+  if (configSecretValueOrCleared(config.modelsApiKey) !== config.modelsApiKey) { config.modelsApiKey = ''; changed = true; }
   if (!['auto', 'bearer', 'x-api-key'].includes(config.claudeAuthMode)) { config.claudeAuthMode = 'auto'; changed = true; }
   config.discoverModelsFromProxy = config.discoverModelsFromProxy !== false;
   config.killPortOnStart = config.killPortOnStart !== false;
@@ -1278,8 +1282,9 @@ function normalizeConfig(raw) {
     if (config.searchBackendMigrated !== true) { config.searchBackendMigrated = true; changed = true; }
     const sb = {
       type,
-      baseUrl: typeof raw0.baseUrl === 'string' ? raw0.baseUrl.trim().slice(0, 1000) : '',
-      apiKey: typeof raw0.apiKey === 'string' ? raw0.apiKey.slice(0, 2048) : '',
+      // 107-S2 最后一道闸(同 sanitizeProvider):掩码永不落盘。
+      baseUrl: typeof raw0.baseUrl === 'string' ? configUrlOrCleared(raw0.baseUrl.trim().slice(0, 1000)) : '',
+      apiKey: typeof raw0.apiKey === 'string' ? configSecretValueOrCleared(raw0.apiKey.slice(0, 2048)) : '',
     };
     if (JSON.stringify(sb) !== JSON.stringify(config.searchBackend)) { config.searchBackend = sb; changed = true; }
     else config.searchBackend = sb;

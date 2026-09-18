@@ -140,6 +140,13 @@ function startLegacySseMcp(port, state) {
   // URL 展示脱敏(55a P3 修复):userinfo 剥离
   ok(srv.safeUrlForDisplay('http://user:pass@host/mcp') === 'http://host/mcp', 'P10 URL userinfo 剥离');
   ok(srv.safeUrlForDisplay('http://127.0.0.1:9999/mcp') === 'http://127.0.0.1:9999/mcp', 'P10b 无凭据 URL 原样');
+  // 107-S2(46 号文 §5 ⑦b L3):查询串里的凭据也要遮 —— `?api_key=`／`?token=` 这类端点到处都是,
+  // 而 GET /api/status 是 open 档。值走与 apiKey 同一条 maskKey(••••<末4>),非凭据参数原样。
+  ok(srv.safeUrlForDisplay('http://127.0.0.1:9999/mcp?api_key=SECRETVALUE&model=m1') === 'http://127.0.0.1:9999/mcp?api_key=••••ALUE&model=m1',
+    'P10c URL 查询串里的凭据遮成 ••••<末4>,非凭据参数原样(实得 ' + srv.safeUrlForDisplay('http://127.0.0.1:9999/mcp?api_key=SECRETVALUE&model=m1') + ')');
+  ok(srv.safeUrlForDisplay('http://127.0.0.1:9999/mcp?token=T1&secret=T2&access_token=T3&page=2') === 'http://127.0.0.1:9999/mcp?token=••••T1&secret=••••T2&access_token=••••T3&page=2',
+    'P10d token/secret/access_token 同表,page 这类不动');
+  ok(srv.safeUrlForDisplay('http://127.0.0.1:9999/a?b=1&c=2') === 'http://127.0.0.1:9999/a?b=1&c=2', 'P10e 没有凭据参数的查询串逐字节不变(往返比对的前提)');
 
   // ── U 段: buildMcpConnectorInventory 无探针形状 ──
   console.log('── U 段: inventory 无探针形状 ──');

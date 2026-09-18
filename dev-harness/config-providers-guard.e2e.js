@@ -124,6 +124,104 @@ try {
     'D2b 用户亲手添加 Provider 仍然直接标记已播种（那是用户意图，保存时照常上传）');
   ok(!/state\.providersDraftSeeded = true;\n/.test(ps.slice(0, ps.indexOf('renderProviders();'))),
     'D2c fillSettings 那一处不再无条件标 true（防回改）');
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════════════
+  // ⑤ 107-S2（46 号文 §5 ⑦b M5）：掩码回传的【启动向量闸】走一遍真 HTTP。
+  //    修前：同一次保存里把 baseUrl 换成别人的地址、apiKey 框里仍是 GET /api/status 下发的 ••••，
+  //    服务端按 id 配对就把真 key 贴到了新端点上 —— 主端点每回合都用。
+  //    现在：地址变了就【整份拒绝、零写入】，回包带稳定码 config.masked_secret_vector_changed，
+  //    人话里点名是哪一条要重填密钥（不是静默清空 —— 那是用户看不见的丢失）。
+  //    假密钥运行时拼出（repo-hygiene (b) 的全仓扫描不误报），失败信息只打前 6 个字符。
+  // ═════════════════════════════════════════════════════════════════════════════════════════════════
+  const head6 = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
+  const KEY_E = 'sk-' + 'S2Guard' + 'Fake' + '4321';
+  const HDR_E = 'Bearer ' + 'hdrS2' + 'Guard' + 'WxYz';   // 末四位不用数字：8700-9199 是 run-all 的端口唯一性审计带
+  // 假上游：/v1/models 返回一个模型，并记下每次请求的 Authorization（provider/test 会打到这里）。
+  const seenAuth = [];
+  const upstream = http.createServer((req, res) => {
+    seenAuth.push(req.headers['authorization'] || null);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'guard-model' }] }));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  const UP = 'http://127.0.0.1:' + upstream.address().port;
+  // 「攻击者端点」必须是【真在监听并记录】的 —— 换成一个没人听的端口，反向摘闸时请求会连不上，
+  // 「没收到」就有了第二种解释（对照组不在屏上，那条断言就不再是判据；见 32 号文纪律里那条教训）。
+  const evilAuth = [];
+  const evil = http.createServer((req, res) => {
+    evilAuth.push(req.headers['authorization'] || null);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'evil-model' }] }));
+  });
+  await new Promise(resolve => evil.listen(0, '127.0.0.1', resolve));
+  const EVIL = 'http://127.0.0.1:' + evil.address().port;
+  try {
+    r = await reqJson('POST', '/api/config', { providers: [
+      { id: 'vec', label: 'Vec', type: 'openai-compat', baseUrl: UP, apiKey: KEY_E, model: 'guard-model', models: [{ id: 'guard-model', label: 'guard-model' }], extraHeaders: { Authorization: HDR_E, 'X-Organization': 'org-9' } },
+    ] });
+    ok(r.status === 200 && readDisk().providers[0].apiKey === KEY_E, 'E0 fixture provider with a key + sensitive header is on disk');
+
+    const st = await reqJson('GET', '/api/status');
+    const shown = st.json.config.providers.find(p => p && p.id === 'vec');
+    ok(shown && shown.apiKey.startsWith('••••') && shown.hasKey === true && shown.extraHeaders.Authorization.startsWith('••••') && shown.baseUrl === UP,
+      'E1 GET /api/status masks apiKey + sensitive header, baseUrl（无凭据）逐字节不变');
+    const diskBefore = fs.readFileSync(CONFIG, 'utf8');
+
+    // ① 地址没变 + 掩码原样回传 → 磁盘逐字节不变。
+    r = await reqJson('POST', '/api/config', { providers: [JSON.parse(JSON.stringify(shown))] });
+    ok(r.status === 200 && fs.readFileSync(CONFIG, 'utf8') === diskBefore, 'E2 masked echo with an UNCHANGED baseUrl → disk byte-identical');
+
+    // ② 地址变了 + 掩码原样回传 → 409、零写入、回包点名。
+    const moved = { ...JSON.parse(JSON.stringify(shown)), baseUrl: EVIL };
+    r = await reqJson('POST', '/api/config', { providers: [moved] });
+    const errInfo = r.json && r.json.error && typeof r.json.error === 'object' ? r.json.error : {};
+    ok(r.status === 409 && errInfo.code === 'config.masked_secret_vector_changed', `E3 masked echo with a CHANGED baseUrl is refused (status ${r.status}, code ${errInfo.code})`);
+    ok(typeof errInfo.message === 'string' && errInfo.message.includes('Vec') && errInfo.message.includes('重新填'),
+      'E3 the response says which provider needs its key re-entered（人话里带条目名）');
+    ok(Array.isArray(errInfo.params && errInfo.params.conflicts) && errInfo.params.conflicts[0].reason === 'endpoint_changed'
+      && !r.text.includes(KEY_E) && !r.text.includes(HDR_E), 'E3 the refusal carries a machine-readable conflict list and NO secret value');
+    ok(fs.readFileSync(CONFIG, 'utf8') === diskBefore, 'E4 the refused save wrote nothing at all（连同一次保存里的别的字段一起回滚）');
+    ok(readDisk().providers[0].apiKey === KEY_E && readDisk().providers[0].baseUrl === UP, `E4 the real key is still attached to the ORIGINAL endpoint (${head6(readDisk().providers[0].apiKey)} @ ${readDisk().providers[0].baseUrl})`);
+
+    // ③ 换地址同时重填明文密钥与敏感头 → 照存。
+    const NEW_E = 'sk-' + 'S2Rot' + 'Fake' + '1122', NEWH = 'Bearer ' + 'rotS2' + 'Fake' + '3344';
+    r = await reqJson('POST', '/api/config', { providers: [{ ...moved, apiKey: NEW_E, extraHeaders: { Authorization: NEWH, 'X-Organization': 'org-9' } }] });
+    let d = readDisk().providers[0];
+    ok(r.status === 200 && d.baseUrl === EVIL && d.apiKey === NEW_E && d.extraHeaders.Authorization === NEWH,
+      `E5 a new plaintext key + header with a changed baseUrl is stored (${head6(d.apiKey)})`);
+    // 换回来，后面的 provider/test 要真的打得通。
+    r = await reqJson('POST', '/api/config', { providers: [{ ...moved, baseUrl: UP, apiKey: KEY_E, extraHeaders: { Authorization: HDR_E, 'X-Organization': 'org-9' } }] });
+    ok(r.status === 200 && readDisk().providers[0].baseUrl === UP, 'E5b provider restored to the reachable endpoint');
+
+    // ④ 掩码永远到不了磁盘。
+    ok(!fs.readFileSync(CONFIG, 'utf8').includes('••••'), 'E6 config.json contains no mask anywhere');
+
+    // ⑤ POST /api/provider/test —— 这条路会把还原出来的 key【当场发出去】，所以闸要在发请求之前。
+    const st2 = await reqJson('GET', '/api/status');
+    const shown2 = st2.json.config.providers.find(p => p && p.id === 'vec');
+    seenAuth.length = 0; evilAuth.length = 0;
+    r = await reqJson('POST', '/api/provider/test', { provider: { ...JSON.parse(JSON.stringify(shown2)), baseUrl: EVIL } });
+    ok(r.json && r.json.ok === false && r.json.code === 'config.masked_secret_vector_changed', `E7 provider/test refuses a masked key aimed at a new endpoint (code ${r.json && r.json.code})`);
+    ok(evilAuth.length === 0 && seenAuth.length === 0 && !r.text.includes(KEY_E),
+      `E7 …and the attacker endpoint（真在监听）收到 0 个请求，真 key 一个字节都没出门（evil ${evilAuth.length} 次，首个 ${head6(evilAuth[0])}）`);
+    r = await reqJson('POST', '/api/provider/test', { provider: JSON.parse(JSON.stringify(shown2)) });
+    // undici 把大小写不同的两个 Authorization 合成一行（内置 bearer 在前、extraHeaders 的在后），
+    // 所以这一行同时证明了 apiKey 与敏感头【两个掩码】都按真值还原了。
+    ok(r.json && r.json.ok === true && seenAuth.length === 1 && String(seenAuth[0]).includes(KEY_E) && String(seenAuth[0]).includes(HDR_E),
+      `E8 the same masked draft against the UNCHANGED endpoint still probes with the real key + header (${head6(seenAuth[0])}, len ${String(seenAuth[0] || '').length})`);
+
+    // ⑥ 机械锁：maskSecrets 里每多一处掩码，就必须在 maskedSecretConflicts 里给它声明一条启动向量，
+    //    否则又是一个「掩码回传把密钥搬到新端点」的洞。这里把掩码点的数量钉住 —— 数量一变就红，
+    //    改的人被迫回来读这条注释（手攒的名单必须配锁；本仓已经因为漏登记翻车过几次）。
+    const src = fs.readFileSync(path.join(WB, 'app', 'src', '05-claude-engine.js'), 'utf8');
+    const body = src.slice(src.indexOf('function maskSecrets(config)'), src.indexOf('function unmaskSecrets('));
+    const maskPoints = (body.match(/maskKey\(|maskExtraHeaders\(|maskExternalMcpServerForDisplay\b/g) || []).length;
+    ok(maskPoints === 6, `E9 maskSecrets 的掩码点恰好 6 处（providers.apiKey / providers.extraHeaders / searchBackend.apiKey / modelsApiKey / externalMcpServers ×2 引用）——实得 ${maskPoints}；新增一处就要在 maskedSecretConflicts 里同时声明它的启动向量`);
+    ok(/config\.masked_secret_vector_changed/.test(ps), 'E9 设置页按【稳定码】分支渲染这条拒绝（不匹配中文）');
+  } finally {
+    await new Promise(resolve => upstream.close(resolve));
+    await new Promise(resolve => evil.close(resolve));
+  }
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));
 } finally {

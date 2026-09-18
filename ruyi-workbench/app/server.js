@@ -1698,6 +1698,10 @@ function normalizeConfig(raw) {
   else if (config.modelsApiBase.length > 500) { config.modelsApiBase = config.modelsApiBase.slice(0, 500); changed = true; }
   if (typeof config.modelsApiKey !== 'string') { config.modelsApiKey = ''; changed = true; }
   else if (config.modelsApiKey.length > 500) { config.modelsApiKey = config.modelsApiKey.slice(0, 500); changed = true; }
+  // 107-S2 最后一道闸:走到这里还带着掩码的不是真值(能还原的 unmaskSecrets 已经还原,写口另有
+  // maskedSecretConflicts 整份拒绝)。与 sanitizeProvider 的同名两个 helper 是同一条规则,清空而不是留着。
+  if (configUrlOrCleared(config.modelsApiBase) !== config.modelsApiBase) { config.modelsApiBase = ''; changed = true; }
+  if (configSecretValueOrCleared(config.modelsApiKey) !== config.modelsApiKey) { config.modelsApiKey = ''; changed = true; }
   if (!['auto', 'bearer', 'x-api-key'].includes(config.claudeAuthMode)) { config.claudeAuthMode = 'auto'; changed = true; }
   config.discoverModelsFromProxy = config.discoverModelsFromProxy !== false;
   config.killPortOnStart = config.killPortOnStart !== false;
@@ -2270,8 +2274,9 @@ function normalizeConfig(raw) {
     if (config.searchBackendMigrated !== true) { config.searchBackendMigrated = true; changed = true; }
     const sb = {
       type,
-      baseUrl: typeof raw0.baseUrl === 'string' ? raw0.baseUrl.trim().slice(0, 1000) : '',
-      apiKey: typeof raw0.apiKey === 'string' ? raw0.apiKey.slice(0, 2048) : '',
+      // 107-S2 最后一道闸(同 sanitizeProvider):掩码永不落盘。
+      baseUrl: typeof raw0.baseUrl === 'string' ? configUrlOrCleared(raw0.baseUrl.trim().slice(0, 1000)) : '',
+      apiKey: typeof raw0.apiKey === 'string' ? configSecretValueOrCleared(raw0.apiKey.slice(0, 2048)) : '',
     };
     if (JSON.stringify(sb) !== JSON.stringify(config.searchBackend)) { config.searchBackend = sb; changed = true; }
     else config.searchBackend = sb;
@@ -11012,7 +11017,8 @@ function safeMcpInventory(config) {
     id: entry.id, label: entry.label || entry.id, command: entry.command, args: mcpArgsForDisplay(entry.args || []),   // 107-S0b:args 显示脱敏(`--token xyz` 一类)
     cwd: entry.cwd || '', envKeys: Object.keys(entry.env || {}),
     // 49c:远程条目无 command,回显 transport+url(headers 键名可见,值永不回显)。
-    ...(entry.transport ? { transport: entry.transport, url: entry.url || '', headerKeys: Object.keys(entry.headers || {}) } : {}),
+    // 107-S2:url 过 safeUrlForDisplay —— `https://u:p@host` 与 `?api_key=…` 此前经 mcp_list 明文回给模型。
+    ...(entry.transport ? { transport: entry.transport, url: safeUrlForDisplay(entry.url || ''), headerKeys: Object.keys(entry.headers || {}) } : {}),
     builtin: entry.id === 'ai-computer-control',
   }));
 }
@@ -11089,7 +11095,10 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
     } else if (op === 'upsert') {
       // 107-S0b:模型可能把读到的掩码(env／headers 的 ••••、args 的脱敏标记)原样回传 —— 与 POST /api/config 同一条
       // 还原规则:同 id 且启动向量(command／cwd／args,远程为 url)没变才取磁盘真值,否则 sanitize 那道闸清空。
-      const clean = sanitizeExternalMcpServer(restoreExternalMcpServerSecrets({ ...(server || {}), id: wantId }, idx >= 0 ? list[idx] : null));
+      // 107-S2:远程 url 的显示脱敏(`?api_key=••••cdef`)也在这里对回真值 —— 模型从 mcp_list／
+      // steward_config_get 读到的就是脱敏形,原样 upsert 回来是常态。对不回去的(改了一半的掩码)
+      // 活不过 sanitize -> 下面那句 400,不会把掩码写进 config.json,也不会把连接器静默改接到别处。
+      const clean = sanitizeExternalMcpServer(restoreExternalMcpServerSecrets({ ...(server || {}), id: wantId }, idx >= 0 ? list[idx] : null, collectDisplayUrlRestores(config)));
       if (!clean) return { abort: { ok: false, status: 400, error: 'MCP 配置无效：upsert 至少需要 id 与 command，args 必须是字符串数组。' } };
       // 122-§2.6:用户/工具显式 upsert = 接管这条连接器 —— 清掉来源标记,它从此算 Ruyi 自己的、照常同步回
       // Claude Code。显式删掉(不是让 sanitize 缺省丢弃):调用方可能把读出来的整条 server 原样回传。
@@ -11388,11 +11397,49 @@ async function probeMcpConnector(entry, opts = {}) {
   }
 }
 
+// 107-S2(46 号文 §5 ⑦b L3):URL 查询串里的凭据。`?api_key=…`／`?token=…` 这类把密钥写进地址的端点
+// 到处都有(远程 MCP 清单、自建网关),而 GET /api/status 是 open 档 —— 本机任何进程一个 curl 就读到。
+// 口径与 providers[].extraHeaders 那一格相同【按名字挑】,不按值猜:URL 的查询名是一小撮公认的凭据名
+// (api_key／token／secret／password／auth／key／sig／signature／credential／access_token),把整个查询串
+// 都遮了会连 ?model=、?version= 这类识别端点必需的信息一起遮掉,而识别端点正是保留 scheme/host/path
+// 的理由。值走同一条 maskKey(••••<末4>),所以「回传的掩码 = 我们刚下发的那一串」可以逐字节比出来。
+const SENSITIVE_URL_PARAM_RE = /^(?:x-)?(?:api[-_]?key|key|access[-_]?token|token|secret|password|passwd|auth|authorization|credential|sig|signature|session)$/i;
+function isSensitiveUrlParamName(name) { return typeof name === 'string' && SENSITIVE_URL_PARAM_RE.test(name.trim()); }
+// 只在【真有要遮的东西】时才重写这个串:没有凭据参数就原样返回,一个字节都不动 —— 否则
+// `?a=1&b=2` 会被重新拼装,而这个返回值是要被原样回传、再逐字节比对的往返基准(见 05 的
+// restoreDisplayUrl),任何归一化都会把「用户没动过这个框」误判成「用户换了端点」。
+function maskUrlQueryCredentials(urlStr) {
+  const s = String(urlStr || '');
+  const hashAt = s.indexOf('#');
+  const head = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const tail = hashAt >= 0 ? s.slice(hashAt) : '';
+  const queryAt = head.indexOf('?');
+  if (queryAt < 0) return s;
+  const prefix = head.slice(0, queryAt + 1);
+  let changed = false;
+  const pairs = head.slice(queryAt + 1).split('&').map(pair => {
+    const eq = pair.indexOf('=');
+    if (eq <= 0) return pair;
+    const name = pair.slice(0, eq), value = pair.slice(eq + 1);
+    if (!value || !isSensitiveUrlParamName(name)) return pair;
+    changed = true;
+    return name + '=' + maskKey(value);   // 值仍是【原编码形态】的末四位:掩码可逐字节对回去
+  });
+  return changed ? prefix + pairs.join('&') + tail : s;
+}
 // 55a: 远程条目 URL 展示脱敏 -- 剥离 userinfo(http://user:pass@host -> http://host),防凭据经
 // token 保护的路由返回给前端(浏览器扩展/日志/共享机器可截获)。解析失败则原样返回(不阻断展示)。
+// 107-S2:同一条规则再加查询串里的凭据(上面的 maskUrlQueryCredentials),并成为全仓【唯一】的
+// 「URL 给人看之前怎么脱敏」判据 —— maskSecrets(providers 的 baseUrl／audioBaseUrl／extraBaseUrls、
+// searchBackend.baseUrl、modelsApiBase)、maskExternalMcpServerForDisplay(远程 url)、safeMcpInventory
+// (mcp_list)全部调它,不另写第二套。URL 能解析但没有 userinfo 时【不重建】(u.toString() 会给
+// `http://host` 补出尾斜杠,那会让「原样回传」看起来像改了端点)。
 function safeUrlForDisplay(urlStr) {
-  try { const u = new URL(String(urlStr)); u.username = ''; u.password = ''; return u.toString(); }
-  catch { return String(urlStr || ''); }
+  const raw = String(urlStr || '');
+  let stripped = raw;
+  try { const u = new URL(raw); if (u.username || u.password) { u.username = ''; u.password = ''; stripped = u.toString(); } }
+  catch { /* 非法/相对 URL:不重建,只做下面的查询串脱敏(与修前「解析失败原样返回」同一个不阻断口径) */ }
+  return maskUrlQueryCredentials(stripped);
 }
 
 // 合并 desktop/config/drop-in 三源为统一读模型。与 resolveExternalMcpServers 的关键差异:本函数
@@ -13330,10 +13377,14 @@ function sanitizeProvider(raw) {
   const hiddenModels = Array.isArray(raw.hiddenModels)
     ? [...new Set(raw.hiddenModels.map(v => String(v || '').trim().slice(0, 120)).filter(Boolean))].slice(0, 100)
     : [];
+  // 107-S2 最后一道闸(与 S0b 给 externalMcpServers 加的 mcpSecretValueOrCleared 同一个模具):走到
+  // sanitize 还带着掩码前缀的值不是真值 —— 能还原的上面已经还原了,正常写口更会被 maskedSecretConflicts
+  // 先整份拒绝。剩下的一律清空,保证【掩码永远到不了 config.json】,不管将来谁新开了写 providers 的口子。
+  // normalizeConfig 每次读、写配置都过 sanitizeProvider,所以这一处覆盖全部路径。
   const extraHeaders = {};
   if (raw.extraHeaders && typeof raw.extraHeaders === 'object') {
     for (const [k, v] of Object.entries(raw.extraHeaders)) {
-      if (typeof k === 'string' && typeof v === 'string') extraHeaders[k.slice(0, 80)] = v.slice(0, 2048);
+      if (typeof k === 'string' && typeof v === 'string') extraHeaders[k.slice(0, 80)] = configSecretValueOrCleared(v.slice(0, 2048));
     }
   }
   let temperature = '';
@@ -13351,13 +13402,13 @@ function sanitizeProvider(raw) {
   // be case-significant), drop any entry equal to the (trimmed) main baseUrl (a duplicate of the primary is
   // pointless as a fallback), cap the list to 3. Absent/non-array → [] (行为与现状完全一致). This is an
   // ADDITIVE, optional field: older configs migrate untouched.
-  const mainBase = str(raw.baseUrl, 400).trim();
+  const mainBase = configUrlOrCleared(str(raw.baseUrl, 400).trim());   // 107-S2:仍带掩码的地址不落盘(见 configUrlOrCleared)
   let extraBaseUrls = [];
   if (Array.isArray(raw.extraBaseUrls)) {
     const seen = new Set();
     for (const v of raw.extraBaseUrls) {
       if (typeof v !== 'string') continue;
-      const s = v.trim().slice(0, 400);
+      const s = configUrlOrCleared(v.trim().slice(0, 400));   // 107-S2
       if (!s) continue;
       if (s === mainBase) continue;      // a fallback identical to the primary buys nothing
       if (seen.has(s)) continue;
@@ -13371,7 +13422,7 @@ function sanitizeProvider(raw) {
   // 今天就没有任何 URL 准入校验(内置 ollama/lmstudio 预设本来就是 127.0.0.1 私网),不为这一个字段
   // 凭空发明一道 provider 级 URL 准入(那是独立安全决定,两条出网面要收一起收,已记 107 未完成项)。
   // localCommand 本波【不加】—— 唯一消费方 114d 已后置 128+,持久字段不养闲人(35 号文 §2 退出门)。
-  const audioBaseUrl = str(raw.audioBaseUrl, 400).trim();
+  const audioBaseUrl = configUrlOrCleared(str(raw.audioBaseUrl, 400).trim());   // 107-S2
   // v1.4-OSS 用量看板: optional pricing for provider-engine cost calc. {inputPerM, outputPerM, currency} —
   // per-MILLION-token prices (non-negative) + a short currency code. Kept only when at least one price parses
   // AND a currency is present; otherwise dropped (the ledger then records tokens with cost null). ADDITIVE +
@@ -13384,7 +13435,7 @@ function sanitizeProvider(raw) {
     baseUrl: mainBase,
     extraBaseUrls, // v1.0-S6 (B): failover 备用端点 (≤3, cleansed)
     ...(audioBaseUrl ? { audioBaseUrl } : {}), // 114a: 可选 ASR 端点(空不落字段,存量 config 零漂移)
-    apiKey: str(raw.apiKey, 400),
+    apiKey: configSecretValueOrCleared(str(raw.apiKey, 400)),   // 107-S2 最后一道闸:掩码永不落盘
     model: str(raw.model, 120).trim(),
     models,
     ...(hiddenModels.length ? { hiddenModels } : {}),
@@ -13439,6 +13490,190 @@ function maskExtraHeaders(headers) {
   }
   return out;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+// 107-S2(46 号文 §5 ⑦b 的 M5 与 L3)—— 掩码回传的【启动向量闸】与 URL 里的凭据。
+//
+// M5:修前 providers 段的还原只按 id 配对。于是同一次保存里把 baseUrl 换成别人的地址、apiKey 仍回传
+// 掩码,真 key 就被贴到了新端点上 —— 「看不见密钥也能把它改接到别处」,与 S0b 给 MCP 关上的是同一个
+// 口子,而主端点每回合都用,危害更大。这里把 S0b 的模具搬过来:**启动向量没变才还原**。
+//
+// 一条 provider 的启动向量 = 这份密钥实际会被送到哪几个地址:
+//   · baseUrl —— 每回合的对话请求(Authorization: Bearer <apiKey>);
+//   · audioBaseUrl —— 114a 的 ASR 转写端点,同一份 apiKey(05:1642 `provider.audioBaseUrl || provider.baseUrl`);
+//   · extraBaseUrls —— v1.0-S6 的 failover 备用端点。09:1268 的 streamWithFailover 逐个试
+//     `[baseUrl, ...extraBaseUrls]`,**每一个都带同一个 Authorization**。所以它【算】启动向量:
+//     只往列表里加一条,首字节前一次失败就足以把真 key 送去新加的那个地址。
+// extraHeaders 里那些被掩码的敏感头(可能就是另一份凭据)跟 apiKey 同一道闸 —— 它们和 apiKey 去的是
+// 同一批地址,一道闸管两样,不另立判据。
+//
+// L3:baseUrl／audioBaseUrl／extraBaseUrls／searchBackend.baseUrl／modelsApiBase／远程 MCP 的 url 都可能
+// 把凭据写在地址里(`https://user:pass@host`、`?api_key=…`)。它们此前经 GET /api/status(**open 档**,
+// 本机任何进程一个 curl 就读到)明文下发。显示面一律过 04 的 safeUrlForDisplay(全仓唯一那条规则),
+// 磁盘与真正发出去的请求【永远】用真值。
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+// 一条 provider 的启动向量 = 这份密钥【实际会被送到】的地址集合(去重、去空、排序):
+//   · baseUrl —— 每回合的对话请求;
+//   · audioBaseUrl || baseUrl —— ASR 转写(05 的 `provider.audioBaseUrl || provider.baseUrl`,
+//     所以留空不是「少一个地址」而是【回落到 baseUrl】,那本来就在集合里);
+//   · extraBaseUrls —— streamWithFailover 逐个试的备用端点,每一个都带同一个 Authorization。
+function providerLaunchUrls(provider) {
+  const one = v => String(v == null ? '' : v).trim();
+  const p = (provider && typeof provider === 'object') ? provider : {};
+  const base = one(p.baseUrl);
+  const urls = [base, one(p.audioBaseUrl) || base, ...(Array.isArray(p.extraBaseUrls) ? p.extraBaseUrls : []).map(one)];
+  return [...new Set(urls.filter(Boolean))].sort();
+}
+function providerLaunchVectorKey(provider) { return JSON.stringify(providerLaunchUrls(provider)); }
+// 闸的判据是【没有新增地址】(子集),不是「逐字节相等」。
+// 危险的从来只有一种形状:密钥被送到一个它【原本去不到】的地址。把地址删掉、或者把 audioBaseUrl
+// 清空让它回落到 baseUrl,都是【收窄】—— 剩下的每一个地址原本就在收这份密钥,收窄不可能泄漏。
+// 按「逐字节相等」判会把这类合法操作也拒掉(asr-transcribe 的 F1 就是这个形状:先设一个
+// audioBaseUrl、再把整份 providers 还原回去,还原那一下会被误拒)。
+function providerVectorNotWidened(next, prev) {
+  const before = new Set(providerLaunchUrls(prev));
+  return providerLaunchUrls(next).every(url => before.has(url));
+}
+
+// 「掩码 URL -> 真 URL」的对照表,按【整串显示形】索引而不是按 id。
+// 为什么不按 id:URL 自己的凭据只会回到它自己那个地址上去 —— 还原一个 URL 的凭据【不可能】把它送到
+// 另一个端点(URL 就是端点)。这与 apiKey 相反(那是一份可以被贴到任意地址上的独立凭据),所以这张表
+// 全局通用,新建条目、改了 id 的条目原样回传也能对回去,不会像密钥那样制造「跟着改到新端点」的口子。
+// 两个不同真值遮成同一串时记 null(歧义不猜)——这时回传的那一串按「用户自己填的地址」原样落盘,
+// 结果是那条 URL 上的凭据被丢掉,方向保守(绝不会把 A 的凭据安到 B 的地址上)。
+function collectDisplayUrlRestores(current) {
+  const map = new Map();
+  const add = value => {
+    if (typeof value !== 'string' || !value) return;
+    const shown = safeUrlForDisplay(value);
+    if (shown === value) return;                                   // 没遮过就没有「掩码形」可对
+    if (!map.has(shown)) map.set(shown, value);
+    else if (map.get(shown) !== value) map.set(shown, null);        // 歧义
+  };
+  const cfg = (current && typeof current === 'object') ? current : {};
+  for (const p of (Array.isArray(cfg.providers) ? cfg.providers : [])) {
+    if (!p || typeof p !== 'object') continue;
+    add(p.baseUrl); add(p.audioBaseUrl);
+    for (const extra of (Array.isArray(p.extraBaseUrls) ? p.extraBaseUrls : [])) add(extra);
+  }
+  if (cfg.searchBackend && typeof cfg.searchBackend === 'object') add(cfg.searchBackend.baseUrl);
+  add(cfg.modelsApiBase);
+  for (const m of (Array.isArray(cfg.externalMcpServers) ? cfg.externalMcpServers : [])) { if (m && typeof m === 'object') add(m.url); }
+  return map;
+}
+function restoreDisplayUrl(value, restores) {
+  if (typeof value !== 'string' || !value || !restores) return value;
+  const hit = restores.get(value);
+  return typeof hit === 'string' ? hit : value;
+}
+// 一条 provider 里的全部 URL 字段先各自对回真值,再去比启动向量 —— 否则「用户什么都没动」会因为
+// 我们自己遮过的那一串而被判成「换了端点」,每一次保存都被拒。
+function restoreProviderDisplayUrls(provider, restores) {
+  if (!provider || typeof provider !== 'object') return provider;
+  const out = { ...provider };
+  if (typeof out.baseUrl === 'string') out.baseUrl = restoreDisplayUrl(out.baseUrl, restores);
+  if (typeof out.audioBaseUrl === 'string') out.audioBaseUrl = restoreDisplayUrl(out.audioBaseUrl, restores);
+  if (Array.isArray(out.extraBaseUrls)) out.extraBaseUrls = out.extraBaseUrls.map(v => restoreDisplayUrl(v, restores));
+  return out;
+}
+// 还留着掩码前缀的 URL = 调用方把我们遮过的那一串【改了一部分】再交回来(`?api_key=••••cdef` 里的
+// 主机改了),既对不回真值也绝不能就这么落盘。它与「密钥的启动向量变了」一起走同一条拒绝路径。
+function urlStillMasked(value) { return typeof value === 'string' && value.includes(KEY_MASK_PREFIX); }
+function providerMaskedUrlFields(provider) {
+  const p = (provider && typeof provider === 'object') ? provider : {};
+  const hit = [];
+  if (urlStillMasked(p.baseUrl)) hit.push('baseUrl');
+  if (urlStillMasked(p.audioBaseUrl)) hit.push('audioBaseUrl');
+  if ((Array.isArray(p.extraBaseUrls) ? p.extraBaseUrls : []).some(urlStillMasked)) hit.push('extraBaseUrls');
+  return hit;
+}
+function providerMaskedSecretFields(provider) {
+  const p = (provider && typeof provider === 'object') ? provider : {};
+  const hit = [];
+  if (typeof p.apiKey === 'string' && p.apiKey.startsWith(KEY_MASK_PREFIX)) hit.push('apiKey');
+  if (p.extraHeaders && typeof p.extraHeaders === 'object') {
+    for (const [hk, hv] of Object.entries(p.extraHeaders)) {
+      if (isSensitiveHeaderName(hk) && typeof hv === 'string' && hv.startsWith(KEY_MASK_PREFIX)) { hit.push('extraHeaders.' + hk); }
+    }
+  }
+  return hit;
+}
+// 落盘前的【唯一】判据:这份来件里有没有「我们还不清楚该怎么处理的掩码」。返回空数组 = 可以写。
+// 调用它的三个写口(POST /api/config、POST /api/provider/test、管家 steward_config_set 经 applyConfigPatch)
+// 在非空时【整份拒绝、零写入】,并把受影响的条目告诉用户 —— 见下面「为什么是拒绝不是清空」。
+//
+// 为什么 providers 这一族选【拒绝】而 S0b 给 MCP 选的是【清空】:
+//   · 清空的代价落在用户身上且没有回执 —— 「我只是把地址改了一下,怎么下一回合就 401 了」。改地址不
+//     重填密钥是设置页最正常不过的一次操作(密钥框里躺着的就是掩码),不该以静默丢密钥收场。
+//   · 拒绝是原子的:mutateConfig 的 mutator 抛出 = 一个字节都没写,用户同一次保存里改的别的东西也还在
+//     草稿里,补上密钥再存一次即可,什么都没丢。
+//   · MCP 那一族保持 S0b 的清空口径不动:那边的回传方多是模型／管家(mcp_configure、steward_config_set),
+//     硬拒只会让模型盲目重试;而且那是已经发布并被 repo-hygiene (f②)／config-mutate-mcp-parity T12e
+//     钉死的契约,本刀不动它。**唯一例外是远程条目的 url**:它对不回去时既不能留掩码(会落盘)也不能清空
+//     (清空 = 整条连接器静默消失),只能拒绝。
+function maskedSecretConflicts(incoming, current) {
+  const out = [];
+  if (!incoming || typeof incoming !== 'object') return out;
+  const cfg = (current && typeof current === 'object') ? current : {};
+  const restores = collectDisplayUrlRestores(cfg);
+  if (Array.isArray(incoming.providers)) {
+    const byId = new Map((Array.isArray(cfg.providers) ? cfg.providers : []).map(p => [String((p && p.id) || ''), p]));
+    for (const raw of incoming.providers) {
+      if (!raw || typeof raw !== 'object') continue;
+      const p = restoreProviderDisplayUrls(raw, restores);
+      const id = String(p.id || '');
+      const label = String(p.label || id || '');
+      const maskedUrls = providerMaskedUrlFields(p);
+      if (maskedUrls.length) { out.push({ scope: 'provider', id, label, fields: maskedUrls, reason: 'masked_url' }); continue; }
+      const maskedSecrets = providerMaskedSecretFields(p);
+      if (!maskedSecrets.length) continue;
+      const prev = byId.get(id);
+      if (!prev) { out.push({ scope: 'provider', id, label, fields: maskedSecrets, reason: 'no_match' }); continue; }
+      if (!providerVectorNotWidened(p, prev)) {
+        out.push({ scope: 'provider', id, label, fields: maskedSecrets, reason: 'endpoint_changed' });
+      }
+    }
+  }
+  if (incoming.searchBackend && typeof incoming.searchBackend === 'object') {
+    const sb = incoming.searchBackend;
+    const baseUrl = restoreDisplayUrl(typeof sb.baseUrl === 'string' ? sb.baseUrl : '', restores);
+    const prev = (cfg.searchBackend && typeof cfg.searchBackend === 'object') ? cfg.searchBackend : null;
+    if (urlStillMasked(baseUrl)) out.push({ scope: 'searchBackend', id: 'searchBackend', label: 'searchBackend', fields: ['baseUrl'], reason: 'masked_url' });
+    else if (typeof sb.apiKey === 'string' && sb.apiKey.startsWith(KEY_MASK_PREFIX)) {
+      const prevBase = String((prev && prev.baseUrl) || '').trim();
+      const prevType = String((prev && prev.type) || '');
+      if (!prev) out.push({ scope: 'searchBackend', id: 'searchBackend', label: 'searchBackend', fields: ['apiKey'], reason: 'no_match' });
+      else if (baseUrl.trim() !== prevBase || String(sb.type || '') !== prevType) {
+        out.push({ scope: 'searchBackend', id: 'searchBackend', label: 'searchBackend', fields: ['apiKey'], reason: 'endpoint_changed' });
+      }
+    }
+  }
+  if (typeof incoming.modelsApiBase === 'string' && urlStillMasked(restoreDisplayUrl(incoming.modelsApiBase, restores))) {
+    out.push({ scope: 'claudeEndpoint', id: 'modelsApiBase', label: 'modelsApiBase', fields: ['modelsApiBase'], reason: 'masked_url' });
+  } else if (typeof incoming.modelsApiKey === 'string' && incoming.modelsApiKey.startsWith(KEY_MASK_PREFIX)) {
+    // modelsApiKey 是 Claude CLI 子进程的 ANTHROPIC_AUTH_TOKEN,它的启动向量就是 modelsApiBase。
+    // patch 里没带 modelsApiBase = 那个字段这次不改(合并语义),向量自然没变。
+    const nextBase = Object.prototype.hasOwnProperty.call(incoming, 'modelsApiBase')
+      ? String(restoreDisplayUrl(String(incoming.modelsApiBase == null ? '' : incoming.modelsApiBase), restores)).trim()
+      : String(cfg.modelsApiBase || '').trim();
+    if (nextBase !== String(cfg.modelsApiBase || '').trim()) {
+      out.push({ scope: 'claudeEndpoint', id: 'modelsApiKey', label: 'modelsApiKey', fields: ['modelsApiKey'], reason: 'endpoint_changed' });
+    }
+  }
+  for (const raw of (Array.isArray(incoming.externalMcpServers) ? incoming.externalMcpServers : [])) {
+    if (!raw || typeof raw !== 'object') continue;
+    const url = restoreDisplayUrl(typeof raw.url === 'string' ? raw.url : '', restores);
+    if (urlStillMasked(url)) out.push({ scope: 'mcp', id: String(raw.id || ''), label: String(raw.label || raw.id || ''), fields: ['url'], reason: 'masked_url' });
+  }
+  return out;
+}
+// 拒绝时给用户看的那一句(中文,与 /api/provider/test 那几句人话同口径)。只报条目名与字段名,绝不带值。
+function maskedSecretConflictMessage(conflicts) {
+  const names = (Array.isArray(conflicts) ? conflicts : []).map(c => (c && (c.label || c.id)) || '?');
+  return `这次保存没有写入:${names.join('、')} 的地址变了(或是新条目),而密钥框里回传的还是遮起来的那一串 ——`
+    + '为防止把真密钥贴到新端点上,如意不会把旧密钥跟过去。请重新填一次密钥(或把密钥框清空后再保存),然后重试。';
+}
 // 107-S0b(46 号文 §5 S0 记录「发现但没修」第 1 条):外部 MCP 连接器的密钥面。
 // externalMcpServers[].env(stdio)与远程条目的 headers 里装的常是 GitHub PAT、Authorization、服务密钥;修前
 // maskSecrets 不碰这一键,GET /api/status、POST /api/config 回包、steward_config_get 原样下发。
@@ -13474,6 +13709,9 @@ function maskExternalMcpServerForDisplay(mcpEntry) {
   if (mcpEntry.env && typeof mcpEntry.env === 'object') out.env = maskMcpSecretValues(mcpEntry.env);
   if (mcpEntry.headers && typeof mcpEntry.headers === 'object') out.headers = maskMcpSecretValues(mcpEntry.headers);
   if (Array.isArray(mcpEntry.args)) out.args = mcpArgsForDisplay(mcpEntry.args);
+  // 107-S2(L3;S0b「发现但没修」第 2 条):远程条目的 url 也能带凭据(`https://u:p@host`、`?api_key=…`)。
+  // 走 04 那条唯一的显示规则;没有凭据的地址【一个字节都不变】,所以原样回传仍是「用户没动它」。
+  if (typeof mcpEntry.url === 'string' && mcpEntry.url) out.url = safeUrlForDisplay(mcpEntry.url);
   return out;
 }
 // 保存路径的逆操作。来件里的值仍以掩码前缀开头(env／headers)或仍带脱敏标记(args)= 调用方没动它 → 取磁盘上
@@ -13517,8 +13755,11 @@ function restoreMcpArgs(argList, prevArgList) {
     return hits.length === 1 ? prevRaw[hits[0]] : '';
   });
 }
-function restoreExternalMcpServerSecrets(mcpEntry, prevEntry) {
+function restoreExternalMcpServerSecrets(mcpEntry, prevEntry, urlRestores) {
   if (!mcpEntry || typeof mcpEntry !== 'object') return mcpEntry;
+  // 107-S2:先把显示形的 url 对回真值,再去比启动向量 —— 否则我们自己遮掉的 `?api_key=…` 会让
+  // 「原样回传」看起来像换了端点,一次保存就把 headers 清空。
+  if (typeof mcpEntry.url === 'string' && urlRestores) mcpEntry = { ...mcpEntry, url: restoreDisplayUrl(mcpEntry.url, urlRestores) };
   const remote = mcpEntryIsRemote(mcpEntry);
   const sameTarget = !!prevEntry && typeof prevEntry === 'object' && mcpEntryIsRemote(prevEntry) === remote
     && (remote
@@ -13536,14 +13777,15 @@ function restoreExternalMcpServerSecrets(mcpEntry, prevEntry) {
 function mcpEntryIdKey(mcpEntry) {
   return String((mcpEntry && mcpEntry.id) || '').trim().slice(0, 64);   // 与 sanitizeExternalMcpServer 的 id 归一同口径
 }
-function restoreExternalMcpServersSecrets(incomingList, currentList) {
+function restoreExternalMcpServersSecrets(incomingList, currentList, urlRestores) {
   if (!Array.isArray(incomingList)) return incomingList;
   const byId = new Map();
   for (const prevEntry of (Array.isArray(currentList) ? currentList : [])) {
     if (prevEntry && typeof prevEntry === 'object') byId.set(mcpEntryIdKey(prevEntry), prevEntry);
   }
+  const restores = urlRestores || collectDisplayUrlRestores({ externalMcpServers: currentList });
   return incomingList.map(mcpEntry => ((mcpEntry && typeof mcpEntry === 'object')
-    ? restoreExternalMcpServerSecrets(mcpEntry, byId.get(mcpEntryIdKey(mcpEntry)) || null)
+    ? restoreExternalMcpServerSecrets(mcpEntry, byId.get(mcpEntryIdKey(mcpEntry)) || null, restores)
     : mcpEntry));
 }
 // 最后一道闸(sanitizeExternalMcpServer 每次读、写配置都过):仍是掩码的 env／headers 值、仍带脱敏标记的 arg
@@ -13552,6 +13794,16 @@ function restoreExternalMcpServersSecrets(incomingList, currentList) {
 // 与 drop-in 运行时合并都经 sanitize,所以掩码到不了磁盘、.mcp.json、Claude／Kimi 同步产物和 MCP 子进程的 env。
 function mcpSecretValueOrCleared(value) {
   return value.startsWith(KEY_MASK_PREFIX) ? '' : value;
+}
+// 107-S2:同一道闸的 providers／searchBackend／modelsApi* 版本(sanitizeProvider 与 normalizeConfig 里各自的
+// 消毒点调它)。密钥类【整串以掩码前缀开头】才是掩码;URL 类的掩码藏在串中间(`?api_key=••••cdef`),所以
+// 用 includes。清空是保守方向:宁可端点变成空、让用户在设置页看见「没填」,也不把 `••••` 写进 config.json
+// 再当成真凭据发出去(S0b 反向 ㈡b 见过掩码一路流进子进程 env 的现场)。
+function configSecretValueOrCleared(value) {
+  return (typeof value === 'string' && value.startsWith(KEY_MASK_PREFIX)) ? '' : value;
+}
+function configUrlOrCleared(value) {
+  return (typeof value === 'string' && value.includes(KEY_MASK_PREFIX)) ? '' : value;
 }
 // v0.9-S9: single mask helper covering ALL config secrets that leave the process in an API response:
 // every providers[].apiKey AND searchBackend.apiKey. Returns a shallow-enough copy so mutating the mask
@@ -13564,19 +13816,32 @@ function maskSecrets(config) {
     out.providers = config.providers.map(p => {
       if (!p || typeof p !== 'object') return p;
       const key = typeof p.apiKey === 'string' ? p.apiKey : '';
-      return { ...p, apiKey: maskKey(key), hasKey: key.length > 0, ...(p.extraHeaders ? { extraHeaders: maskExtraHeaders(p.extraHeaders) } : {}) };
+      return {
+        ...p, apiKey: maskKey(key), hasKey: key.length > 0,
+        // 107-S2(L3):三个 URL 字段过 04 的 safeUrlForDisplay。没有凭据的地址逐字节不变(绝大多数配置),
+        // 所以这三行对既有安装是零行为变化;带 `u:p@` 或 `?api_key=` 的才会看到脱敏形。
+        ...(typeof p.baseUrl === 'string' && p.baseUrl ? { baseUrl: safeUrlForDisplay(p.baseUrl) } : {}),
+        ...(typeof p.audioBaseUrl === 'string' && p.audioBaseUrl ? { audioBaseUrl: safeUrlForDisplay(p.audioBaseUrl) } : {}),
+        ...(Array.isArray(p.extraBaseUrls) ? { extraBaseUrls: p.extraBaseUrls.map(v => (typeof v === 'string' ? safeUrlForDisplay(v) : v)) } : {}),
+        ...(p.extraHeaders ? { extraHeaders: maskExtraHeaders(p.extraHeaders) } : {}),
+      };
     });
   }
   if (config.searchBackend && typeof config.searchBackend === 'object') {
     const key = typeof config.searchBackend.apiKey === 'string' ? config.searchBackend.apiKey : '';
-    out.searchBackend = { ...config.searchBackend, apiKey: maskKey(key), hasKey: key.length > 0 };
+    out.searchBackend = {
+      ...config.searchBackend, apiKey: maskKey(key), hasKey: key.length > 0,
+      ...(typeof config.searchBackend.baseUrl === 'string' && config.searchBackend.baseUrl ? { baseUrl: safeUrlForDisplay(config.searchBackend.baseUrl) } : {}),   // 107-S2(L3)
+    };
   }
   // 107-S0(46 号文 §1.5 ②):modelsApiKey 是 Claude CLI 引擎的认证覆盖值(buildClaudeCliEnv 把它交给子进程当
   // ANTHROPIC_AUTH_TOKEN／ANTHROPIC_API_KEY),真机上非空。修前本函数只盖上面两处,GET /api/status 与
   // POST /api/config 的回包把它明文下发。同一条 maskKey 规则;不加 has… 布尔 —— 设置页那个输入框与
   // providers[].apiKey 同一模具(掩码原样播种、原样回传,保存路径的 unmaskSecrets 还原),用不上它。
   if (typeof config.modelsApiKey === 'string') out.modelsApiKey = maskKey(config.modelsApiKey);
+  if (typeof config.modelsApiBase === 'string' && config.modelsApiBase) out.modelsApiBase = safeUrlForDisplay(config.modelsApiBase);   // 107-S2(L3):Claude CLI 第三方端点地址同族
   // 107-S0b:外部 MCP 连接器 —— env／headers 的值全遮、args 显示脱敏(口径见上面 maskExternalMcpServerForDisplay)。
+  // 107-S2:再加远程条目的 url。
   if (Array.isArray(config.externalMcpServers)) out.externalMcpServers = config.externalMcpServers.map(maskExternalMcpServerForDisplay);
   return out;
 }
@@ -13584,23 +13849,36 @@ function maskSecrets(config) {
 // POST /api/config; restore the real key from the same-id provider (or the on-disk searchBackend) before
 // persisting (no match → treat as cleared, i.e. empty). A genuinely new plaintext key (not starting with
 // the mask prefix) passes through untouched. Covers providers[].apiKey AND searchBackend.apiKey.
+// 107-S2:整个还原过程先把【显示形的 URL】对回真值(restores),再按「同 id ＋ 启动向量没变」决定要不要
+// 还原密钥。向量变了(或压根没有同 id 那一条)一律按清空处理 —— 与 S0b 的 MCP 段同口径。
+// 注意分工:这里的清空是【兜底】,正常路径上 applyConfigPatch／provider/test 先用 maskedSecretConflicts
+// 整份拒绝,用户不会走到「密钥被悄悄清掉」这一步;兜底留着是为了将来某个新写口忘了调那道闸时,最坏
+// 结果仍然只是「密钥没了」,而不是「密钥跟着去了新端点」。
 function unmaskSecrets(incoming, current) {
   if (!incoming || typeof incoming !== 'object') return incoming;
   const out = { ...incoming };
   const currentProviders = current && Array.isArray(current.providers) ? current.providers : [];
+  const urlRestores = collectDisplayUrlRestores(current);
   if (Array.isArray(incoming.providers)) {
     const byId = new Map(currentProviders.map(p => [String(p && p.id || ''), p]));
-    out.providers = incoming.providers.map(p => {
-      if (!p || typeof p !== 'object') return p;
+    out.providers = incoming.providers.map(p0 => {
+      if (!p0 || typeof p0 !== 'object') return p0;
+      const p = restoreProviderDisplayUrls(p0, urlRestores);
       const prev = byId.get(String(p.id || ''));
+      // 启动向量闸(M5):同 id、且这次保存【没有把密钥送去任何新地址】(收窄可以,见
+      // providerVectorNotWidened),回传的掩码才算「用户没动这个框」;否则它就是一把
+      // 「看不见密钥也能把它贴到新端点上」的钥匙。
+      const sameVector = !!prev && providerVectorNotWidened(p, prev);
+      const from = sameVector ? prev : null;
       let r = p;
       const key = typeof p.apiKey === 'string' ? p.apiKey : '';
       if (key.startsWith(KEY_MASK_PREFIX)) {
-        r = { ...r, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
+        r = { ...r, apiKey: (from && typeof from.apiKey === 'string') ? from.apiKey : '' };
       }
       // 还原仍为掩码的敏感自定义头(用户没改它,原样回显 -> 取磁盘上的真实值);非掩码值(用户新填/改的)直通。
+      // 它们与 apiKey 去的是同一批地址,所以共用上面那道向量闸。
       if (r.extraHeaders && typeof r.extraHeaders === 'object') {
-        const prevHeaders = (prev && prev.extraHeaders && typeof prev.extraHeaders === 'object') ? prev.extraHeaders : {};
+        const prevHeaders = (from && from.extraHeaders && typeof from.extraHeaders === 'object') ? from.extraHeaders : {};
         const restored = {};
         let changed = false;
         for (const [hk, hv] of Object.entries(r.extraHeaders)) {
@@ -13615,19 +13893,28 @@ function unmaskSecrets(incoming, current) {
     });
   }
   if (incoming.searchBackend && typeof incoming.searchBackend === 'object') {
-    const key = typeof incoming.searchBackend.apiKey === 'string' ? incoming.searchBackend.apiKey : '';
-    if (key.startsWith(KEY_MASK_PREFIX)) {
-      const prev = current && current.searchBackend && typeof current.searchBackend === 'object' ? current.searchBackend : null;
-      out.searchBackend = { ...incoming.searchBackend, apiKey: (prev && typeof prev.apiKey === 'string') ? prev.apiKey : '' };
-    }
+    const sb = { ...incoming.searchBackend };
+    if (typeof sb.baseUrl === 'string') sb.baseUrl = restoreDisplayUrl(sb.baseUrl, urlRestores);
+    const key = typeof sb.apiKey === 'string' ? sb.apiKey : '';
+    const prev = current && current.searchBackend && typeof current.searchBackend === 'object' ? current.searchBackend : null;
+    // 107-S2:searchBackend 的启动向量 = type + baseUrl(web_search 把这个 key 发去的就是那一个地址)。
+    const sameVector = !!prev && String(sb.type || '') === String(prev.type || '')
+      && String(sb.baseUrl || '').trim() === String(prev.baseUrl || '').trim();
+    if (key.startsWith(KEY_MASK_PREFIX)) sb.apiKey = (sameVector && typeof prev.apiKey === 'string') ? prev.apiKey : '';
+    out.searchBackend = sb;
   }
   // 107-S0:modelsApiKey 同口径 —— 仍是掩码(用户没动那个框)就取磁盘上的真值;新填的明文、清成空串都直通。
+  // 107-S2:它的启动向量是 modelsApiBase(buildClaudeCliEnv 把它当 ANTHROPIC_AUTH_TOKEN 交给子进程,
+  // 送去的正是那个 base)。patch 里没带 modelsApiBase = 这次不改它,向量没变。
+  if (typeof incoming.modelsApiBase === 'string') out.modelsApiBase = restoreDisplayUrl(incoming.modelsApiBase, urlRestores);
   if (typeof incoming.modelsApiKey === 'string' && incoming.modelsApiKey.startsWith(KEY_MASK_PREFIX)) {
-    out.modelsApiKey = (current && typeof current.modelsApiKey === 'string') ? current.modelsApiKey : '';
+    const prevBase = String((current && current.modelsApiBase) || '').trim();
+    const nextBase = Object.prototype.hasOwnProperty.call(incoming, 'modelsApiBase') ? String(out.modelsApiBase || '').trim() : prevBase;
+    out.modelsApiKey = (nextBase === prevBase && current && typeof current.modelsApiKey === 'string') ? current.modelsApiKey : '';
   }
   // 107-S0b:externalMcpServers 按 id＋键名还原,且只在启动向量没变时还原(见 restoreExternalMcpServerSecrets)。
   if (Array.isArray(incoming.externalMcpServers)) {
-    out.externalMcpServers = restoreExternalMcpServersSecrets(incoming.externalMcpServers, current && current.externalMcpServers);
+    out.externalMcpServers = restoreExternalMcpServersSecrets(incoming.externalMcpServers, current && current.externalMcpServers, urlRestores);
   }
   return out;
 }
@@ -13635,12 +13922,19 @@ function unmaskSecrets(incoming, current) {
 // now masks searchBackend too (the response-mask path wants ALL secrets covered); unmaskProviders keeps the
 // providers-array signature for the /api/provider/test path that passes just the array.
 function maskProviders(config) { return maskSecrets(config); }
+// 107-S2:与 unmaskSecrets 的 providers 段【同一道启动向量闸】。这条路是 POST /api/provider/test 走的 ——
+// 它会拿还原后的 key 真的发一次请求出去,所以「改了 baseUrl ＋ 回传掩码」在这里的后果是把真 key
+// 主动送到新地址上,比落盘那条更直接。路由层另有 maskedSecretConflicts 先整份拒绝、根本不发请求。
 function unmaskProviders(incoming, currentProviders) {
   if (!Array.isArray(incoming)) return incoming;
-  const byId = new Map((Array.isArray(currentProviders) ? currentProviders : []).map(p => [String(p && p.id || ''), p]));
-  return incoming.map(p => {
-    if (!p || typeof p !== 'object') return p;
-    const prev = byId.get(String(p.id || ''));
+  const list = Array.isArray(currentProviders) ? currentProviders : [];
+  const byId = new Map(list.map(p => [String(p && p.id || ''), p]));
+  const urlRestores = collectDisplayUrlRestores({ providers: list });
+  return incoming.map(p0 => {
+    if (!p0 || typeof p0 !== 'object') return p0;
+    const p = restoreProviderDisplayUrls(p0, urlRestores);
+    const prevEntry = byId.get(String(p.id || ''));
+    const prev = (prevEntry && providerVectorNotWidened(p, prevEntry)) ? prevEntry : null;
     let r = p;
     const key = typeof p.apiKey === 'string' ? p.apiKey : '';
     if (key.startsWith(KEY_MASK_PREFIX)) {
@@ -13692,6 +13986,10 @@ function sanitizeExternalMcpServer(raw) {
   if (typeRaw === 'sse' || typeRaw === 'http' || typeRaw === 'streamable-http') {
     const url = (typeof raw.url === 'string' ? raw.url : '').trim().slice(0, 2000);
     if (!/^https?:\/\//i.test(url)) return null;
+    // 107-S2:还带着掩码的远程地址(`?api_key=••••cdef`)既不能落盘也没法「清空」——url 是远程条目的必备
+    // 字段,清空等于整条连接器静默消失。所以这里【整条丢弃】,而正常写口(POST /api/config、
+    // steward_config_set、mcp_configure)都先经 maskedSecretConflicts 整份拒绝,根本走不到这一行。
+    if (url.includes(KEY_MASK_PREFIX)) return null;
     const headers = {};
     if (raw.headers && typeof raw.headers === 'object') {
       for (const [k, v] of Object.entries(raw.headers)) {
@@ -40468,12 +40766,27 @@ async function applyConfigPatch(rawBody) {
     // 真密钥写成「••••末四位」。
     // 107-S0b:externalMcpServers 的 env／headers／args 也在 GET /api/status(与 steward_config_get)里掩码下发了 ——
     // 调用方原样回传时同一处按 id＋键名还原;不还原的话残留掩码会被 sanitize 那道闸清空,等于一次保存抹掉连接器密钥。
+    // 107-S2(46 号文 §5 ⑦b M5):启动向量闸。掩码回传只有在「密钥会去的地址一个都没变」时才算
+    // 「用户没动这个框」;地址变了(或压根没有同 id 那一条)就整份拒绝、零写入,并如实告诉用户要重填
+    // 哪几条的密钥 —— 不静默把旧密钥贴到新端点上(那是 M5 的洞),也不静默清空(那是用户看不见的丢失)。
+    // 判据在 05 的 maskedSecretConflicts;它与 unmaskSecrets 读的是【同一份 current】(都在这个临界区里),
+    // 所以不存在「检查用的是旧快照、落盘用的是新快照」那一类竞态。
+    const conflicts = maskedSecretConflicts(body, current);
+    if (conflicts.length) {
+      throw Object.assign(new Error(maskedSecretConflictMessage(conflicts)), {
+        code: 'config.masked_secret_vector_changed', statusCode: 409, conflicts,
+      });
+    }
+    // 107-S2:modelsApiBase 也进这一组 —— 它自己可能带凭据(`?api_key=…`),下发时被 safeUrlForDisplay
+    // 遮过,原样回传要对回真值;不写回的话一次保存就把它写成脱敏形(且 normalizeConfig 那道闸会清空它)。
     if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
-      || (body && typeof body.modelsApiKey === 'string') || (body && Array.isArray(body.externalMcpServers))) {
+      || (body && typeof body.modelsApiKey === 'string') || (body && typeof body.modelsApiBase === 'string')
+      || (body && Array.isArray(body.externalMcpServers))) {
       const restored = unmaskSecrets(body, current);
       if (Array.isArray(body.providers)) merged.providers = restored.providers;
       if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
       if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
+      if (typeof body.modelsApiBase === 'string') merged.modelsApiBase = restored.modelsApiBase;
       if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
     }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
@@ -40764,6 +41077,12 @@ async function handleApi(req, res, pathname) {
         return send(res, apiFailure('permission.confirm_required', { permissionMode: String(error.permissionMode || '') },
           String(error.message || ''), 409));
       }
+      // 107-S2:掩码回传 + 启动向量变了 -> 409 整份拒绝(零写入)。params 里只带条目名与字段名,绝不带值;
+      // 前端按【码】分支(不按中文),见 provider-settings.js 的 saveConfigPartial。
+      if (error && error.code === 'config.masked_secret_vector_changed') {
+        return send(res, apiFailure('config.masked_secret_vector_changed',
+          { conflicts: Array.isArray(error.conflicts) ? error.conflicts : [] }, String(error.message || ''), 409));
+      }
       throw error;
     }
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
@@ -40821,6 +41140,17 @@ async function handleApi(req, res, pathname) {
     // key from the same-id provider in config before firing the test, else the test would use the mask.
     if (rawProvider && typeof rawProvider === 'object') {
       const cfg = await readConfig();
+      // 107-S2(M5):这条路会拿还原后的 key 真的往 baseUrl 发一次请求 —— 「改了地址 + 回传掩码」在这里
+      // 不是「写错一份配置」而是【当场把真密钥送出去】。所以先过同一道闸,命中就【不发请求】直接回错,
+      // 错误形状沿用本路由既有的 {ok:false,error,errorClass} (前端 errorMessageOf/ERROR_CLASSES 已认它),
+      // 另带一个稳定 code 供按码分支。
+      const conflicts = maskedSecretConflicts({ providers: [rawProvider] }, cfg);
+      if (conflicts.length) {
+        return send(res, json({
+          ok: false, code: 'config.masked_secret_vector_changed', errorClass: 'provider_misconfigured',
+          error: maskedSecretConflictMessage(conflicts), models: [],
+        }));
+      }
       rawProvider = unmaskProviders([rawProvider], cfg.providers)[0];
     }
     const sp = sanitizeProvider(rawProvider);
@@ -49772,6 +50102,13 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 107-S0b:steward_config_get 下发的 externalMcpServers 是掩码过的,管家原样回传很正常 —— 先按落盘路径
   // (applyConfigPatch → unmaskSecrets)同一条规则还原再探:sanitize 那道闸会清空残留掩码,拿原样 patch 比就会把
   // 「原样回传」误判成「没活过 sanitize」。
+  // 107-S2:与 POST /api/config 同一道启动向量闸。providers／searchBackend／modelsApiKey 在 06i 的分档表里
+  // 是 forbidden(上面 forbidden 那道门已经整份拒了),所以管家这条路能命中的只剩「远程 MCP 的 url 还带着
+  // 脱敏形、又对不回真值」这一种;给它一句人话,免得掉进下面 sanitize 那条泛化的 invalid_request 里。
+  const secretConflicts = maskedSecretConflicts(patch, config);
+  if (secretConflicts.length) {
+    return stewardFail('invalid_request', maskedSecretConflictMessage(secretConflicts), { keys: secretConflicts.map(c => c.id) });
+  }
   const restoredPatch = unmaskSecrets(patch, config);
   const probe = normalizeConfig({ ...config, ...restoredPatch }).config;
   const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(restoredPatch[k]));
@@ -55781,6 +56118,9 @@ module.exports = {
   maskSecrets,
   unmaskSecrets,
   unmaskProviders,
+  // 107-S2:掩码回传的启动向量闸(providers/searchBackend/modelsApiKey 的密钥会去哪几个地址)- exposed for e2e 直测。
+  maskedSecretConflicts,
+  providerLaunchVectorKey,
   invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
   // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
   validateReplanPatch,
