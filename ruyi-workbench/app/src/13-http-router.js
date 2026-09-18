@@ -1667,10 +1667,10 @@ function processCommandLine(pid) {
     });
   });
 }
-function killPid(pid) {
-  return new Promise(resolve => {
-    cp.execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 }, () => resolve());
-  });
+// 128i:占端口的旧工作台连同它自己的子孙一起收 —— 走 04 的 killOwnProcessTree(按创建时间认子孙、动手前核启动时间),
+// 不再用 taskkill /T(父号过期撞号时会带走别人的树)。等它跑完再回:调用方紧接着要重试监听。
+async function killPid(pid) {
+  await killOwnProcessTree(pid);
 }
 function probeHealth(port, host) {
   return new Promise(resolve => {

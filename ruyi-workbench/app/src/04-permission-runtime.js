@@ -251,12 +251,86 @@ const pendingPlans = new Map(); // planId -> { resolve, sessionId, timer }
 // loopback 的 /api/permission/request)拿不到 driverAuto,故用此集判定。runClaudeTurn 的 driverAuto 回合进出维护。纯内存。
 const driverAutoSessions = new Set();
 
+// ── 128i(48 号文 §1):收尸只认自己的子孙 ────────────────────────────────────────────────────────────
+// 修前是 `taskkill /PID <pid> /T /F`:/T 按 ParentProcessId 认子孙,而 Windows 的父号在父进程死后【不更新】、进程号
+// 又复用得很勤 —— 用户机器上常有父进程早已不在的长命进程(explorer.exe、各种托盘程序),我们要杀的进程若恰好
+// 拿到了它们那个过期父号,/T 会不会把它们一起带走,没能取证排除(128c:3 万次 spawn 逼不出撞号)。测试框架里
+// 按父号认子孙的自造收尸器真杀过用户的 Ollama(107 波 F8)。所以不赌 /T:
+//   · 子孙只认【创建时间不早于父进程】的 —— 撞号的陌生人一定比我们要杀的根更老,按构造排除;
+//   · 动手前逐个按启动时间(FILETIME)再核一次,快照到动手之间号若被复用,对不上就不杀;
+//   · conhost.exe 不杀(它随最后一个客户端自己走;先杀它会把同控制台上的孙子连带杀掉);深的先杀,根最先。
+// 整段逻辑写成一段 PowerShell,用 -EncodedCommand 传(不经任何引号转义),分离启动、不等它 —— 与修前 taskkill 一样
+// 是「发出去就算」:服务正在退出时调到这里,收尸也照样跑完(Node 里做异步快照的话,进程一退就没下文了;而
+// libuv 的子进程 job 允许孙辈静默脱离,shell 会话里用户起的命令不会随服务一起死)。
+// dry 模式(__TABLE__ 给一张合成进程表、只打计划不动手)供单测钉「撞号的陌生人不算子孙」这个真机上逼不出来的形状。
+const OWN_TREE_KILL_PS = [
+  "$ErrorActionPreference = 'SilentlyContinue'",
+  '$rootId = [int]__ROOT__',
+  '$dry = __DRY__',
+  "$tableJson = '__TABLE__'",
+  // PowerShell 5.1:@(ConvertFrom-Json '[…]') 得到的是「一个元素、里面装着整个数组」—— 必须显式展开(128i 单测 P1 逮到)。
+  'if ($tableJson) { $all = @((ConvertFrom-Json $tableJson) | ForEach-Object { $_ }) } else {',
+  '  $all = @(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,Name | Where-Object { $_.CreationDate } | ForEach-Object {',
+  '    [pscustomobject]@{ ProcessId = [int]$_.ProcessId; ParentProcessId = [int]$_.ParentProcessId; Created = [int64]$_.CreationDate.ToFileTimeUtc(); Name = [string]$_.Name } })',
+  '}',
+  '$root = $all | Where-Object { [int]$_.ProcessId -eq $rootId } | Select-Object -First 1',
+  "if (-not $root) { 'ROOT-GONE'; exit 0 }",
+  '$tree = New-Object System.Collections.ArrayList',
+  '$seen = @{}; $seen[[int]$root.ProcessId] = $true',
+  '$queue = New-Object System.Collections.Queue; $queue.Enqueue($root)',
+  'while ($queue.Count -gt 0) {',
+  '  $cur = $queue.Dequeue()',
+  '  foreach ($p in $all) {',
+  '    if ($seen.ContainsKey([int]$p.ProcessId)) { continue }',
+  '    if ([int]$p.ParentProcessId -ne [int]$cur.ProcessId) { continue }',
+  '    if ([int64]$p.Created -lt [int64]$cur.Created) { continue }',
+  '    $seen[[int]$p.ProcessId] = $true; [void]$tree.Add($p); $queue.Enqueue($p)',
+  '  }',
+  '}',
+  '$tree.Reverse()',
+  "$targets = @($root) + @($tree | Where-Object { [string]$_.Name -ne 'conhost.exe' })",
+  "if ($dry) { foreach ($t in $targets) { 'PLAN ' + $t.ProcessId }; exit 0 }",
+  'foreach ($t in $targets) {',
+  '  $g = Get-Process -Id ([int]$t.ProcessId)',
+  "  if ($g -and [math]::Abs($g.StartTime.ToFileTimeUtc() - [int64]$t.Created) -lt 10000) { Stop-Process -Id ([int]$t.ProcessId) -Force; 'KILLED ' + $t.ProcessId }",
+  '}',
+].join('\n');
+function ownTreeKillCommand(pid, { dry = false, table = null } = {}) {
+  const tableJson = table ? JSON.stringify(table).replace(/'/g, "''") : '';
+  const script = OWN_TREE_KILL_PS
+    .replace('__ROOT__', String(Math.trunc(Number(pid)) || 0))
+    .replace('__DRY__', dry ? '$true' : '$false')
+    .replace('__TABLE__', () => tableJson);
+  return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')];
+}
+// 等它跑完(拿回 PLAN／KILLED 行):freeStalePort 要等旧实例真没了再重试监听;单测走 dry 模式。
+function killOwnProcessTree(pid, opts = {}) {
+  return new Promise(resolve => {
+    if (!pid) return resolve({ lines: [] });
+    if (process.platform !== 'win32') { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } return resolve({ lines: [] }); }
+    cp.execFile('powershell.exe', ownTreeKillCommand(pid, opts), { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+      resolve({ lines: String(stdout || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean), error: err ? String(err.message || err) : '' });
+    });
+  });
+}
+// 发出去就算(修前的调用形状,14 处调用点零改动):不等它。怎么「发出去」是 128i 取证定的:
+//   · Node 的 detached(DETACHED_PROCESS,没有控制台)起 powershell.exe:退出码 0、**脚本一行都没跑**(实测 3/3);
+//   · 直接 spawn(不 detached)能跑,但它在本进程的 libuv job 里 —— 服务收尸完马上退出时,job 一关它也被杀,
+//     收尸做不完(修前 taskkill 约 80 ms、多半抢得赢;这段 PowerShell 要约 0.5 s);
+//   · 经 `cmd /c start "" /b powershell …`:PowerShell 成了 cmd 的孩子,libuv 的 job 允许孙辈静默脱离 ⇒ 父进程先退也照样
+//     跑完(实测父进程 150 ms 退出、脚本 1.5 s 后照写,2/2)。-EncodedCommand 的参数只含 [A-Za-z0-9+/=],cmd 里没有注入面。
+// cmd 的命令行上限 8191 字符;超了(不会,这里留着防以后脚本变长)就退回直接 spawn。
 function killChildTree(pid) {
   if (!pid) return;
+  if (process.platform !== 'win32') { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } return; }
   try {
-    // Windows: child.kill()/SIGTERM does not reap the grandchildren (MCP servers, shells).
-    // taskkill /T kills the whole tree, /F forces it.
-    cp.spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+    const args = ownTreeKillCommand(pid);
+    const inner = `start "" /b powershell.exe ${args.join(' ')}`;
+    const child = inner.length < 7800
+      ? cp.spawn('cmd.exe', ['/d', '/s', '/c', `"${inner}"`], { windowsHide: true, stdio: 'ignore', windowsVerbatimArguments: true })
+      : cp.spawn('powershell.exe', args, { windowsHide: true, stdio: 'ignore' });
+    child.on('error', () => { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } });
+    child.unref();
   } catch {
     try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
   }

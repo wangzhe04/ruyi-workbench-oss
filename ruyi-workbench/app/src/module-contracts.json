@@ -1420,6 +1420,7 @@
         "McpHttpClient",
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
+        "OWN_TREE_KILL_PS",
         "REDACT_PATTERNS",
         "SENSITIVE_URL_PARAM_RE",
         "_dropInCache",
@@ -1459,6 +1460,7 @@
         "isSensitiveUrlParamName",
         "killAllMcpClients",
         "killChildTree",
+        "killOwnProcessTree",
         "lastAssistantEngine",
         "lastSuccessfulClaudeModel",
         "logEvent",
@@ -1480,6 +1482,7 @@
         "normalizeQuestionContext",
         "normalizeUserQuestions",
         "notifyActiveChildTaps",
+        "ownTreeKillCommand",
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
@@ -9857,6 +9860,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "killOwnProcessTree",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -17895,6 +17905,20 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "killAllMcpClients",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killOwnProcessTree",
           "kinds": [
             "read"
           ]

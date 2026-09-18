@@ -204,6 +204,8 @@ module.exports = {
   probeMcpConnector,
   buildMcpConnectorInventory,
   safeUrlForDisplay, // 55a:远程 URL 展示脱敏 - exposed for e2e 直测
+  killChildTree, // 128i:发出去就算的那一支(14 处调用点的旧形状)—— exposed for unit/kill-own-process-tree.test.js [R2]
+  killOwnProcessTree, // 128i:收尸只认自己的子孙 —— exposed for unit/kill-own-process-tree.test.js(dry 模式钉判据、真进程钉收尸)
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
   normalizeConfig,
   // 128a:读-改-写整条环 exposed for unit/config-explicit-keys.test.js(真读盘、真写盘,临时 HOME)。

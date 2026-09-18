@@ -60,7 +60,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       };
       const timer = setTimeout(() => {
         timedOut = true;
-        // 审计 P2: 超时用 killChildTree(taskkill /T /F)整树杀 —— child.kill('SIGTERM') 在 Windows 上只杀直接子
+        // 审计 P2: 超时用 killChildTree 整树杀(128i 起按创建时间认子孙,不再 taskkill /T) —— child.kill('SIGTERM') 在 Windows 上只杀直接子
         // 进程,claude.cmd→node、shell→子命令等孙进程会遗孤泄漏,且其继承的 stdio 句柄不关 → 'close' 迟迟不触发,
         // promise 悬挂到远超 timeoutMs。killChildTree 内含 SIGKILL 兜底。
         killChildTree(child.pid);

@@ -67,6 +67,33 @@
 
 **不改**：`normalizeConfig` 返回的内存视图照旧是整份（所有消费方零改动）；`GET /api/config` 形状不变。
 
+## §2-b 128b 设计（主会话定，2026-09-19；普查由只读代理出表、主会话逐条复核后落刀）
+
+**普查结论**（54 处真调用）：一次被撤回闸丢掉的 `saveSession` **返回值与成功时一模一样**（`02:3143` 返回 `session`），
+只有传了 `throwIfStale` 的调用方（今天只有 `updateSessionMetaAttempt` 与撤回自己）知道自己没落上。分类：
+- **回合自存**（约 30 处，`runClaudeTurn`／`runOpenAiTurn`／Kimi／`maybeAutoCompact`／steer 排空）：垂死回合的写被丢是**对的**，不动。
+- **请求驱动的读改写（会回「成功」却没落上）**：任务开始／更新／核验（`13:1002`、`13:1034`）与任务控制（`02:2325`）——中间还要跑核验命令、
+  停子代理，窗口最宽之一；**手动压缩三个引擎**（`10:2204`、`10:1877`、`05b:289`）——中间是数秒的摘要模型调用，回 `ok:true` 带 token 读数；
+  技能（`13:153`）、记忆（`13:686/705`）、todo（`13:965`）；管家拜访归档（`13q:452`）。
+- **后台读改写**：工作流摘要追加（`08:2080`）、管家回复盖章（`13p:614`）。
+- **旁车**：会话笔记（`writeSessionNotes`）、任务变更流水（`bumpMissionChangeSeq` 在被丢的保存之后照样记一笔）、历史快照 —— 都不看撤回代数。
+- **驱动器**：任务驱动器在回合之间拿着聊天流那份对象继续跑；撤回只停 `activeChildren` 里的回合 ⇒ 撤回落在两回合之间时，驱动器接着起回合、
+  每一存都被静默丢掉（Brief 第 17 条；普查代理提出，**待主会话实证**）。
+
+**设计**：
+1. **`mutateSession(id, mutator, { writer, expectGen })`**（02，与 117n-M2 的 `mutateConfig` 同一个形状）：`loadSession` → `mutator(session)`
+   （可返回 `{ abort }`）→ `saveSession(session, { throwIfStale: true, writer })`；撞上 `SESSION_STALE_SAVE` 就重新读、重新应用，最多 3 次；
+   仍不行抛 `session.rewound_during_write`（调用方回可读的错误，不回成功）。
+2. **慢活不重做**：压缩与任务核验这种「先花几秒算、再落盘」的，算之前记下 `rewindGen`，落盘走 `mutateSession(…, { expectGen })` ——
+   新读到的代数变了（期间撤回过）就 `abort`，回 `session.rewound_during_write`，**不把基于撤回前历史算出来的摘要写回去**。
+3. 上面点名的请求驱动与后台读改写全部改走 `mutateSession`；**变更流水只在保存真落上之后记**。
+4. **旁车过闸**：`writeSessionNotes` 与历史快照写之前比一次代数，陈旧就跳过并记一条日志。
+5. **驱动器**：每起一个回合之前判「这份对象是不是撤回之前的」（`sessionObjectIsStale`），是就停并记原因。
+6. `rewind_superseded` 进 i18n（四份 locale）。
+7. **锁**：请求驱动的路由里凡调 `saveSession` 的，要么走 `mutateSession`、要么显式 `throwIfStale`（静态扫描 ＋ owner 数钉住）；
+   `mutateSession` 的单测覆盖「撤回插在读与存之间 ⇒ 重做一次后落上」「expectGen 变了 ⇒ 不写、报错」。
+**不做**：三个「用户刚切的值在存盘时重新盖一次」的覆盖表（路由／权限档／桌面工具）今天是好的，合并成一张表只是换写法、有风险无收益 —— 不动。
+
 ## §3 纪律（每片都适用）
 
 - 进程安全：只杀自己 spawn 的 PID（认子孙须核创建时间）；禁按名字杀；开工与收工各拍一次进程快照对照
@@ -136,3 +163,28 @@
   子进程被杀，800 ms 那一发再往死进程的 stdin 写；killOwnTree 同步取进程表占住事件循环，这一写落在退出事件被处理之前，变成没人接的异步 EPIPE，整件崩。改为等 tools/list 自己的回包（id 2）、收尾清定时器、stdin 错误有人接；单跑 3/3。全框架同形（定时器里往子进程 stdin 写）只此一处。
 - flaky `mission-index-scale` (e)「详情冷 P95 ≤ 800 ms」实得 843 ms（**第二次出现**，按规矩取证）：基线 `83e9f7a` 单跑三次 777／495／474 ms、当前树 549／575／534 ms，其余三项读数两边相同；
   `normalizeConfig` 微基准当前树反而更快（79 µs 对 126 µs —— 盘上从 5167 字节变成 756 字节）⇒ 不是 128a 拖慢的；**真问题是这道门余量只有约 3%**（基线自己就跑出过 777）。记进 128f：查冷详情路径慢在哪。
+
+### 128i · 产品侧收尸也只认自己的子孙（2026-09-19，主会话亲做）
+
+**实现**（`04-permission-runtime.js`）：唯一实现是一段 PowerShell（`OWN_TREE_KILL_PS`）：进程表快照 → 从根按父号往下找、**只认创建时间不早于父进程的** →
+根最先、深的先杀、conhost 不杀 → 动手前逐个按启动时间（FILETIME）再核一次。`-EncodedCommand` 传（不经任何引号转义）。两个入口：
+`killChildTree(pid)`（14 处调用点零改动，发出去就算）与 `killOwnProcessTree(pid)`（等它跑完；`13-http-router.js` `freeStalePort` 的 `killPid` 改走它）。
+dry 模式喂合成进程表、只打计划，供单测钉「撞号的陌生人不算子孙」。
+
+**「发出去就算」怎么发，是取证定的**（scratchpad 探针，只写标记文件）：
+- Node 的 `detached`（`DETACHED_PROCESS`，没有控制台）起 `powershell.exe`：**退出码 0、脚本一行都没跑**（3/3）；
+- 直接 spawn：能跑，但在本进程的 libuv job 里 —— 服务收尸完马上退出时 job 一关它也被杀（修前 taskkill 约 80 ms 多半抢得赢，这段约 0.5 s）；
+- 经 `cmd /d /s /c "start "" /b powershell …"`：PowerShell 成了 cmd 的孩子，libuv 的 job 允许孙辈静默脱离 ⇒ **父进程 150 ms 就退出、脚本 1.5 s 后照样跑完**（2/2）。
+  `-EncodedCommand` 的参数只含 `[A-Za-z0-9+/=]`，cmd 里没有注入面；命令行超 7800 字符（不会）退回直接 spawn。
+
+**单测的一处假绿**：PowerShell 5.1 里 `@(ConvertFrom-Json '[…]')` 得到的是「一个元素、里面装着整个数组」—— 第一跑 [P1] 报 `ROOT-GONE`，
+**[P2]「根不在表里」因此是为错的理由绿的**；显式展开后两条都按判据绿。
+
+**锁**：`unit/kill-own-process-tree.test.js`（[P1] dry：撞号陌生人及其孩子、conhost 都不在计划里，根最先、深的先；[P2] dry：根不在 ⇒ ROOT-GONE；
+[R1] `killOwnProcessTree` 真收掉根与 detached 孙子；[R2] `killChildTree` 几秒内根与 detached 孙子都没了）；`process-safety.static` 加 ④（`src/` 53 个模块零
+`taskkill /T` 调用、PowerShell 里的创建时间比较与 conhost／启动时间两行、两个入口的接线）。**反向**：删掉创建时间那一行 → 静态锁 ④ 与 [P1] 同时红；还原 sha256 一致。
+
+**全量**：**356/1、1 flaky**，退出码 1，进程快照前后一致（explorer 1248 等）。
+- 红的是 `classic-window-live-steer` H8f／H8h（两次都红）—— **128a 登记的未结项第二次在全量里红**（上一次 128a 第二轮）。这一次的形状与 128a 单跑那次相同：
+  本页回合收尾、服务端已释放之后按下发送，服务端受理成了插话。**下一步**：把诊断放进测试本身（失败时打会话尾／审计尾带时间戳、保留夹具目录），下一轮全量就在那一跑里取证。
+- flaky `walkthrough-round1` C2（「管家视角：点行里那块空白 → 焦点真的换了」首跑红）—— **126 波那次 C2 之后第二次出现**，按规矩取证（进 128f）。
