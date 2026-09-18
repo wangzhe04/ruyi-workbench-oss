@@ -1760,3 +1760,45 @@ F9 **不许写任何自造负载 runner 或收尸器**，两件都用确定性�
 - **但记一笔真实的小 UX 债**：每次从工作台切回管家，焦点卡标题都会闪一下「读取中…」（一次会话详情的往返；负载下拖长）——抽屉离开视角即收摊、回来整份重取。可改成「重开同一条时先保留上一帧、后台刷新」。记入 Brief 未完成项 23，挂偿债波。
 
 **还没做**：带着本提交的全量。本提交只改测试一件，产品代码与 Q1c 那一轮逐字节相同；**发布候选提交上的最后一轮全量放在打包演练之后一起跑**（打包很吃 CPU，同时跑会干扰回归）。
+
+### P1 · 打包演练（2026-09-18 晚，主会话亲做，不派代理）
+
+**纪律**：所有产物用带版本号的 `-Variant`（`Ruyi-v2.8.0-*`），**没碰 `dist/Ruyi-slim`**（用户正式安装）；所有起服务一律隔离家目录（`USERPROFILE／HOME／APPDATA／LOCALAPPDATA／RUYI_HOME` 全指临时目录）、随机端口、只停自己 `Start-Process -PassThru` 拿到的 PID（再核创建时间晚于演练开始）或命令行带本次临时目录的进程；**没跑 `Start-Workbench.cmd`**（Full 的启动器会 `install.py --ensure` 往真实配置里登记 ACC）。收工核过：用户真实 `config.json` 最后写入 16:37、`.claude.json` 22:37，均早于演练；没有残留进程。
+
+**① 发布干跑**（`release-dryrun.js`，不带 `--pkg`）：ALL PASS —— 版本三角 2.8.0 四处一致、桌面壳编译、overlay 装配 203 个载荷文件 sha256 全量对账 0 差、`minHostVersion` 2.8.0、Slim／Full 文件清单可复验。
+
+**② 真打包**（最终一版出自 `3de6a42`）：`Ruyi-v2.8.0-slim.zip` 73.33 MB、`Ruyi-v2.8.0-full.zip` 770.88 MB（2.7.0 那两份 72.94／770.49 MB，形状一致）；`Ruyi-v2.8.0-SHA256SUMS.txt`：full `4821ff0051f7…`、slim `21a20d777043…`（`sha256sum -c` 过）。
+- **先用 `-SkipExeBuild` 打了一版，比 2.7.0 小了 37 MB** —— 少的是 `Ruyi.exe`（2.7.0 的包里有）。pkg 工具在本地（`@yao-pkg/pkg` 6.21.0），要的 node 底包 v24.18.0 已在 `~/.pkg-cache/v3.6`，**离线可打**，于是改为带 exe 重打，与 2.7.0 同形。旧的 `dist/Ruyi.exe`（2.7.0 的构建中间物，不是用户安装）先备份到 scratchpad。
+- **pkg 输出不可逐字节复现**：同一棵树连打两次，大小都不同（102,992,988 对 102,993,044），差异全在约 85.8 MB 之后的内嵌载荷区、node 底包段逐字节相同 ⇒ Slim 与 Full 里的两个 `Ruyi.exe` 不同是这个原因，**以 zip 的 SHA256SUMS 为准**。
+- **pkg 的告警逮到一处真漂移 → 已修（`3560665`）**：`context-governance-rules.json` 是动态路径、打不进 exe，exe 走 `10-context-governance.js` 里那份「与 JSON 同构」的内置副本 —— 一比，`summary.prompt` 自 `c7d2507`（9/2）起把 `promptGuidance` 用半角标点烤进了正文（JSON 里是全角的独立字段，`includes` 去重对不上 ⇒ 中文提示词里那句出现两遍），`summary.promptEn`（111d，本版恰好翻成默认开）根本不在副本里 ⇒ exe 下英文界面拿到中文提示词。走启动器的主路径读 JSON，不受影响。修法：副本整份同步成与 JSON 深相等 ＋ `unit/context-governance-fallback.test.js`（[A] 源码与产物各恰一段 IIFE；[B][C] 源码／产物副本各与 JSON 深相等；[D] 把产物单独拷进旁边没有 `src/` 的目录 require —— 即 exe 的处境 —— 中文 guidance 恰一次、en-US＋111d 拿到 `promptEn`）。反向：换回修前的 src 与产物 → 3 红（[A] 照绿），还原 sha256 逐字节一致。「头注写着同构、没有锁」是手攒名单那一族的又一例。
+- Full 打包里 ACC 的 17,588 个文件完整性核验、OCR 依赖导入都过（打包脚本自己的闸）；日志里的 `NativeCommandError` 是 comtypes 往 stderr 打的 INFO，被 PowerShell 包装成错误样式，不是失败。
+
+**③ 全新目录冒烟**（两个 zip 用系统 `tar.exe` 解到临时目录）：`slim` 用自带 node、`slim` 用 `Ruyi.exe serve`、`full` 用自带 node，三种都 1.5–2.5 s 起来，`/health` 与 `/api/status` 都报 **2.8.0**、`configSchema` 12、三个压缩开关为 true；两个包里的手册都已是改过的版本。Full 解包后再跑 ACC 自己的 `verify_offline_payload`：**17,588 个文件全过**（80 s），`mcp.server.fastmcp`／`ai_computer_control.server`／`winsdk…ocr` 导入 OK。
+- 顺带：首页的 token 对「像浏览器的请求」会置空（`01-config.js:2902`，UA 含 `Mozilla` 即算）—— PowerShell 默认 UA 就含 `Mozilla`，第一轮冒烟因此没拿到 token；这是有意的安全设计，换 UA 即可。
+
+**④ 升级／降级演练（合成数据，不碰用户真实数据 —— 真实数据里有定时任务与真 key，起服务可能真的触发）**。**有两个「2.7.0」**，必须分开说：
+- **v2.7.0 正式版**＝要补打标签的 `eac1424`（9/13）：**不含** 126 波那三个压缩开关的代码，也不认识 `hiddenModels`；从 git 取出源码、用包里的 node 跑。
+- **用户本机那份「2.7.0」**＝9/16 的构建（`dist/Ruyi-slim`、`Ruyi-slim.zip`，`package.json` 写 2.7.0）：出自更晚的树，**已含 123–126 波代码**（三个开关在、默认关）。
+
+| 演练 | v2.7.0 正式版（eac1424） | 9/16 本机构建 |
+|---|---|---|
+| 全新启动 | schema 11，142 个键，三个开关的键**不存在** | schema 11，152 个键，三个开关**写成 false**（冻结默认值） |
+| 升到 2.8.0 | schema 12，三个开关 true，111a／111c 仍 false | 同左（155 个键） |
+| 降回 2.7.0 | 起得来、无报错；schema 写回 **11**；三个键**原样留在盘上、不读** | 起得来、无报错；schema 写回 11；三个键留着、**2.7.0 按开着跑**（同一套 126 波实现） |
+| 再升 2.8.0 | schema 12；配置与第一次升级**逐字节相同**（幂等） | 同左 |
+| 2.8.0 里显式关掉一个 → 重启 | 保持 false（schema ≥ 12 不迁移） | 同左 |
+| 再降再升 | **被重新打开**（schema 被写回 11，迁移又跑一遍） | 同左 |
+| provider 嵌套字段（caps／audioBaseUrl／asrProtocol／hiddenModels） | **四样全没**，API Key 照留，再升回来也找不回 | caps／audioBaseUrl／asrProtocol 没了，**hiddenModels 与 Key 照留** |
+| `config.json.prev` | —— | 只留一代：再启动任一版本就被轮换掉（再升之后它已是 2.7.0 的内容），兜不住 |
+
+- ⇒ **Brief §3 ③ 的「未实测：三个开关的键被 2.7.0 遇到会怎样（推断无害）」补上了**：对正式版，推断成立（不认识、不读、留在盘上）；对 9/16 本机构建，推断的前提「2.7.0 不认识」不成立，但结果同样无害。
+- **新记一条债**：降级再升级会把用户在 2.8.0 里显式关掉的开关重新打开。根治的形状演练里也看到了：2.7.0 **保留不认识的顶层键**，所以一个独立的迁移标记键能活过降级，而 schema 号活不过。挂偿债波（与「冻结默认值」结构缺陷同一族）。
+- 管家记忆 `expiresAt`／`scope` 在降级时丢失这一条**没演练**（仍是读码结论）。
+
+**⑤ 覆盖包演练**（`build-overlay.js 2.8.0`；它会先整目录删 `dist/overlay`，那里有一份 8/11 的旧产物、实为 **207** 个文件 —— 先挪开、打完拷到临时目录、原样挪回，207 个文件 sha256 清单逐字节相同）：
+- **O1 照原样**：2.8.0 覆盖包对 2.7.0 安装 precheck 报 `version incompatible: package requires host >= 2.8.0, current host is 2.7.0`；apply 同样拒绝，目标目录树哈希前后相同，只多一行拒绝审计 `.overlay-audit.jsonl`。**原因是设计**：`build-overlay.js:15` 把 `minHostVersion` 设成打包时自己的版本号 ⇒ **覆盖包只能给同版本的安装打补丁，从来不能跨版本升级**。而管理员手册 §1.3 与 `APPLY-OVERLAY.md` 都写「发布升级走覆盖包」—— 文档与行为不符（手册已改，见 `3de6a42`；`APPLY-OVERLAY.md` 随覆盖包发，本版不发覆盖包，记债）。
+- **O2 可行性试验**（只在临时副本里把 `minHostVersion` 改成 2.7.0）：precheck 过、apply 过、post-apply 校验 203/203、node 路径起来是 2.8.0（配置迁到 12），回滚 199 个文件后 node 路径回到 2.7.0。**但就算放开版本闸，跨版本覆盖也还有三处不对**：① 载荷里**没有 `package.json`**，套完宿主版本号仍是 2.7.0（下一次 precheck 与更新中心都会读错）；② **`Ruyi.exe` 不在载荷里**，套完用 exe 启动的仍是 **2.7.0**（实测）；③ 回滚**不删**本次新增的文件（4 个：`composer-voice.js`、`scheduled-digest.json` 模板、`tools/dev-serve.cmd`、`tools/fake-claude.js`），于是回滚后的 2.7.0 里多出一个 2.8.0 的定时汇总模板。
+- **O3 同版本补丁路径**（2.8.0 覆盖包套全新解开的 2.8.0 Slim）：precheck 过、apply 过、再 apply 被幂等拒绝（`re-apply needs -Force`）、回滚 201 个文件过。**但预览显示它覆盖 `Start-Workbench.cmd`**：载荷里的是仓里那份通用启动器，而 Full 包的启动器是打包脚本生成的、带 ACC 预检与 `install.py --ensure` —— **往 Full 安装上套任何覆盖包，都会把 ACC 的确保步骤从启动器里拿掉**。另外载荷一直带着 `tools/fake-claude.js`（测试替身）与 `tools/dev-serve.cmd` 两个开发脚手架。
+- 这几处都是**既有设计**（覆盖载荷自 53 波起就这样），不是 2.8.0 的回归；**本版的对策是不发覆盖包、跨版本一律完整包**（手册与更新日志已写明）。要不要把覆盖包修成能跨版本，是一个独立的产品选择，挂偿债波讨论。
+
+**⑥ 仍未做**：带着 `3de6a42` 之后提交的最后一轮全量（打包演练结束后跑）；Full 在真实桌面上双击启动器（会动真实配置，留给用户）。
