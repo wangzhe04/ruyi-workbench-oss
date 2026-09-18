@@ -252,6 +252,7 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  rewindSession, // 107-F7b: exposed for unit(撤回代数闸:撤回之前攥在手里的副本写不回去、之后新读的照常落盘)
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
   getPretenderProjectionIndex,
   warmPretenderProjectionIndex,

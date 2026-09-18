@@ -601,6 +601,7 @@
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
         "SESSION_META_DEFER_TIMEOUT_MS",
+        "SESSION_META_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
@@ -635,6 +636,7 @@
         "captureGitWorkspaceBaseline",
         "captureTreeWorkspaceBaseline",
         "captureWorkspaceTurnBaseline",
+        "claimRewindGeneration",
         "collectBridgedWriteTarget",
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
@@ -787,6 +789,7 @@
         "sessionNotesWriteChains",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides",
+        "sessionRewindGenHighWater",
         "settleIntervention",
         "sortSessionMetas",
         "stewardWatchNoteFrom",
@@ -794,6 +797,7 @@
         "transitionInterventionState",
         "unprefixedBridgedName",
         "updateSessionMeta",
+        "updateSessionMetaAttempt",
         "waitMissionTurnSettled",
         "withJournalWriteLock",
         "withMissionContainerLock",
@@ -17570,6 +17574,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairProviderHistoryToolArgs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "rewindSession",
           "kinds": [
             "read"
           ]

@@ -4447,6 +4447,19 @@ function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
 // via max(in-memory, highWater) WITHOUT re-reading the head (prevents the turn's in-memory session object
 // from clobbering an intervention's changeSeq bump). Seeded by loadSession; reset on crash (re-seeded on load).
 const missionChangeSeqHighWater = new Map();
+// 107-F7b(撤回被陈旧快照盖回):会话的【撤回代数】高水位 —— 与上面 missionChangeSeqHighWater 同一个模具,
+// 被护住的是正文而不是账本计数。症状:用户递话后立刻点「撤回」,撤回回 ok:true,消息却还在。取证(红轮
+// 日志):撤回那一存无条件写 providerHistoryCursor=0,盘上却是 2 —— 撤回那一存被一个【撤回之前就攥在手里】
+// 的会话对象整份盖回了。这类写者不止垂死回合一个(回合 settle 之后才动手的 updateSessionMeta 读改写、
+// 收工补写 threadBrief、手动压缩等等都能恰好把 load 落在撤回之前、把 save 落在撤回之后),69 波那道
+// 「自动停回合 + 等 settle」的闸只管得住垂死回合自己。
+// 机制:会话头上一个单调整数 rewindGen(缺省视为 0);撤回那一存在【入写链的同一拍】把自己那份对象的
+// rewindGen 加一,并抬高本表。saveSession 在写链里、真正落盘之前比对:对象的
+// rewindGen 低于高水位 = 这是撤回之前的快照 = 整次写丢弃(正文与头都不写),落 session_stale_save_dropped。
+// 只在进程内:重启后表为空,所有对象都从盘上新读(loadSession 每次都 JSON.parse 新解析,没有对象缓存),
+// 不会误丢。loadSession 另有一道自愈:读到的代数低于高水位 = 这次读恰好落在「代数已抬、撤回那一存还没
+// 落盘」的窗口里 → 等写链跑完再读一次,所以撤回【之后】才读的人永远拿到撤回之后的状态。
+const sessionRewindGenHighWater = new Map();
 // 第79波:changeSeq 不再只有一个计数器。每次事实推进同时写一条 append-only change record，
 // 让回来摘要可以严格消费 (lastSeenRevision,currentRevision]，并保留可追溯的原始 source cursor。
 // 老任务可能已有 changeSeq、却没有本流水：首条记录的前缀被视为 migration baseline；前端首读
@@ -5484,7 +5497,17 @@ function stewardWatchNoteFrom(p) {
   return raw.trim().slice(0, STEWARD_WATCH_NOTE_MAX);
 }
 
+// 107-F7b:元数据补丁撞上撤回时的重放上限。updateSessionMeta 是读改写 —— 它 load 落在撤回之前、save 落在
+// 撤回之后时,那份副本带着撤回删掉的消息,代数闸会整份丢掉它(否则就是把撤回盖回去,F7b 那条缺陷本身:
+// 13k stewardRecordLaunchOutcome 在回合 settle 那一刻发的正是这一发 —— 负载复现里被闸丢掉的那一存
+// 日志为 writer:'session_meta'、keys:[launchedBy, stewardLastTurn])。丢掉的是正文,补丁本身
+// (改名、权限档、stewardLastTurn、threadBrief……)是真数据,不能跟着丢:在【新读】的副本上重放一次。
+// 有界:连着撞上三次撤回才会放弃,那时把 SESSION_STALE_SAVE 如实抛给调用方(与 save 失败同一条语义)。
+const SESSION_META_STALE_REPLAYS = 2;
 async function updateSessionMeta(id, patch) {
+  return updateSessionMetaAttempt(id, patch, 0);
+}
+async function updateSessionMetaAttempt(id, patch, replayDepth) {
   const session = await loadSession(id);
   if (!session) return null; // missing/corrupt — caller maps to 404
   const p = (patch && typeof patch === 'object') ? patch : {};
@@ -5492,7 +5515,14 @@ async function updateSessionMeta(id, patch) {
   const watchNote = stewardWatchNoteFrom(p);
   // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
   if (!activeChildren.has(id) && !turnSettlers.has(id)) {
-    await saveSession(session);
+    try { await saveSession(session, { throwIfStale: true, writer: 'session_meta' }); }
+    catch (error) {
+      if (!(error && error.code === 'SESSION_STALE_SAVE') || replayDepth >= SESSION_META_STALE_REPLAYS) throw error;
+      // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
+      // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
+      logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: replayDepth + 1 });
+      return updateSessionMetaAttempt(id, patch, replayDepth + 1);
+    }
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
     // 同名事件,只多一个 by:'user' 把两条来路分开(那一条是归并到事项,这一条是用户交接)。
@@ -5512,10 +5542,22 @@ async function updateSessionMeta(id, patch) {
       ]);
       if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
-    const fresh = await loadSession(id).catch(() => null);
+    let fresh = await loadSession(id).catch(() => null);
     if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
     applySessionMetaPatch(fresh, p);
-    await saveSession(fresh).catch(() => {});
+    // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
+    // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
+    // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
+    for (let attempt = 0; ; attempt++) {
+      try { await saveSession(fresh, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+      catch (error) {
+        if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+        logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
+        fresh = await loadSession(id).catch(() => null);
+        if (!fresh) return;
+        applySessionMetaPatch(fresh, p);
+      }
+    }
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -7005,7 +7047,7 @@ async function readSessionHeadResilient(id) {
 // 谁恰好在回合写盘的那一瞬触发一次 loadSession（打开会话、改元数据、投影重建都会），谁就中招。
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
-async function loadSession(id, reloadDepth = 0) {
+async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   let raw;
   try {
     raw = await fsp.readFile(sessionPath(id), 'utf8');
@@ -7103,6 +7145,17 @@ async function loadSession(id, reloadDepth = 0) {
   }
   const { session, changed } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
+  // 107-F7b:读到的撤回代数低于进程内高水位 = 这次读恰好落在「撤回已抬水位、它那一存还没落盘」的窗口里
+  // (saveSession 抬水位与入链是同一拍,所以此刻撤回那一存一定已经在写链里)。拿着这份旧副本出去的人,
+  // 它之后的每一次 save 都会被代数闸丢掉 —— 对撤回【之后】才来读的人,这就是凭空丢数据。所以不交出去:
+  // 等写链跑完再读一次。有界两次(staleRetry);reloadDepth 原样传递、不归零,与上面那道守卫的递归合起来
+  // 仍然有界。两次之后仍低(只剩「头上压根没有这个字段、又不是经撤回写出来的」那类对象,例如 v1bak 回退)
+  // 就照原样返回,由代数闸兜底。
+  if ((Number(session.rewindGen) || 0) < (sessionRewindGenHighWater.get(id) || 0) && staleRetry < 2) {
+    const inFlight = sessionWriteChains.get(id);
+    if (inFlight) await inFlight.catch(() => {});
+    return loadSession(id, reloadDepth, staleRetry + 1);
+  }
   // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
   // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
   applySessionPermissionModeOverride(session);
@@ -7157,10 +7210,37 @@ async function loadSessionV1Backup(id) {
 // 写链上的两个排队者,「链外先 loadSession 再 saveSession」中间还有若干 await,路由的写可以恰好排到两者
 // 之间 —— 实测 0 ms 时点 5 轮里就有 1 轮这样丢账本。链内重读则:排在我前面的写一定已落盘(读得到),
 // 排在我后面的写一定后落盘(它自己就是权威),两个方向都不丢。只有回合引擎的起跑存传这个旗子。
+// 107-F7b:撤回代数闸(见 sessionRewindGenHighWater 头注)。三个旗子:
+//   · opts.rewindBump —— 只有 rewindSession 传:在【入写链的同一拍】(下面 ensureDirs 之后那一整段同步代码)
+//     把本对象的 rewindGen 加一并抬高水位;前提是本对象自己不低于水位(低于 = 它本身就是另一次撤回之前的
+//     旧副本,不抬,按陈旧丢)。与入链同一拍是有意的:任何人一旦看见抬高了的水位,撤回那一存就一定已经
+//     排在写链里,loadSession 的自愈「等写链跑完再读」才有东西可等。
+//     这一存自己落盘失败 → 链内把水位退回原值(否则盘上仍是旧代数,之后新读的每一份都会被当成陈旧而被丢)。
+//   · opts.throwIfStale —— 这次写被闸丢掉时抛 code:'SESSION_STALE_SAVE'(默认静默丢、记日志、照常返回)。
+//     要知道「我的改动没落上」的调用方传它:updateSessionMeta 据此在新读的副本上重放补丁;rewindSession
+//     据此如实回「被更新的撤回顶掉」,不说 ok:true。
+//   · opts.writer —— 只进丢弃日志,事后对账「是谁拿着旧副本来写」。
+// 撤回那一存抬代数(同步;只由 saveSession 在入链那一拍调)。返回 { gen, prevHighWater } 供落盘失败时退水位;
+// 返回 null = 没资格抬:撤回自己手里那份也得是「最新一代」—— 它若是在另一次撤回【之前】读出来的(两次撤回
+// 交错:这一次先读、另一次先落盘),它算出来的截断建在旧正文上,落下去会把另一次撤回删掉的消息带回来。
+// 这时不抬,saveSession 的闸按陈旧把它丢掉,rewindSession 如实回 rewind_superseded。
+function claimRewindGeneration(session) {
+  const id = session.id;
+  const prevHighWater = sessionRewindGenHighWater.get(id) || 0;
+  const objectGen = Number(session.rewindGen) || 0;
+  if (objectGen < prevHighWater) return null;
+  const gen = objectGen + 1;
+  session.rewindGen = gen;
+  sessionRewindGenHighWater.set(id, gen);
+  return { gen, prevHighWater };
+}
 async function saveSession(session, opts) {
   await ensureDirs();
   session.updatedAt = nowIso();
   const id = session.id;
+  // 107-F7b:从这里到 sessionWriteChains.set 是一段同步代码,抬水位与入链因此是原子的。
+  const rewindBump = opts && opts.rewindBump === true ? claimRewindGeneration(session) : null;
+  const saveGen = Number(session.rewindGen) || 0;   // 入链这一拍的代数
   // A model switch may be saved while an old turn still owns an earlier in-memory session object. Preserve
   // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
   const routeOverride = sessionEngineRouteOverrides.get(id);
@@ -7201,7 +7281,7 @@ async function saveSession(session, opts) {
   // 按 saveAgentRun 同款 per-id 写链串行化:链内按提交顺序落盘,窗口归零;链错误吞掉(下一写自愈)。
   // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
   const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
-  const thisWrite = prevWrite.catch(() => {}).then(async () => {
+  const writeSessionToDisk = async () => {
     // 122-§2.4:链内落盘前合并 mission(见本函数头注与 mergeMissionBeforeSave)。只读【头文件】就够 ——
     // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
     if (opts && opts.mergeMissionFromDisk) {
@@ -7258,9 +7338,34 @@ async function saveSession(session, opts) {
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
     await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
     sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
+  };
+  const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // 107-F7b:撤回代数闸。必须在【链内】比:高水位可能在这次写入链之后、执行之前才被抬高(撤回那一存
+    // 排在我后面入链、却抬水位在我执行之前)。对象代数低于高水位 = 撤回之前的快照,整次写丢弃 ——
+    // 正文与头都不写、不动 sessionBodyState(它仍如实描述盘上的正文),下面的索引/投影刷新也一并跳过。
+    const highWater = sessionRewindGenHighWater.get(id) || 0;
+    if (saveGen < highWater) {
+      logEvent({
+        kind: 'session_stale_save_dropped', sessionId: id, staleGen: saveGen, highWater,
+        messageCount: messages.length, writer: String((opts && opts.writer) || ''),
+      });
+      return { dropped: true, staleGen: saveGen, highWater };
+    }
+    try { await writeSessionToDisk(); }
+    catch (werr) {
+      // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
+      // 抬过就不动)。在链内退、先于这条链 reject —— 等这条链的 loadSession 自愈醒来时水位已经对了。
+      if (rewindBump && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
+        if (rewindBump.prevHighWater > 0) sessionRewindGenHighWater.set(id, rewindBump.prevHighWater);
+        else sessionRewindGenHighWater.delete(id);
+      }
+      throw werr;
+    }
+    return null;
   });
   sessionWriteChains.set(id, thisWrite);
-  try { await thisWrite; }
+  let dropped = null;
+  try { dropped = await thisWrite; }
   catch (e) {
     // 正文/头任何一步失败:标 bodiesOk=false(下次 save 全量重写自愈),再把错误抛给调用方(与旧语义一致:
     // save 失败对调用方可见,回合层自会 .catch)。
@@ -7269,6 +7374,15 @@ async function saveSession(session, opts) {
     throw e;
   }
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
+  if (dropped) {
+    // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
+    if (opts && opts.throwIfStale) {
+      throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
+        code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
+      });
+    }
+    return session;
+  }
   // PF2: queue the sidebar metadata index update (cheap sync Map.set; the write is debounced + coalesced). The
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(id, metaSnapshot);
@@ -7944,7 +8058,8 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
 //  - claudeSessionId is nulled — the CLI's --resume context no longer matches the truncated history, so a
 //    stale resume would splice removed context back in.
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
-// turn is live or the target can't be located).
+// turn is live or the target can't be located; 107-F7b: error 'rewind_superseded' when a newer rewind of the
+// same session landed first and this one's truncation was dropped by the rewind-generation gate).
 async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
   // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
@@ -7963,6 +8078,14 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // 在其后落盘;若 rewind 在此窗口截断落盘,会被 dying turn 的收尾 save 整份盖回(消息「回来了」)。
   // turnSettlers 在 driver finally(收尾 save 之后)resolve —— 等它即保证截断写在最后。超时兜底:
   // 回合真楔死(.abort 不生效)时按原状截断,残留风险记日志(此时该回合本就在写坏状态)。
+  // 107-F7b:上面那句「等它即保证截断写在最后」只对【垂死回合自己】成立,真正兜底的现在是撤回代数闸
+  // (sessionRewindGenHighWater 头注;本函数末尾那一存传 rewindBump)。实测挡不住的那条交错(冻结树
+  // steward-conversation.e2e G4,负载下 4/20):管家递话后立刻撤回 —— 前端先 /api/stop,它把 activeChildren
+  // 删了,所以这里 activeChildren.has 为假(日志里没有 rewind_autostop);settler 在,照常等到了(也没有
+  // rewind_settle_timeout)。闸的两个前提都成立,消息却还是回来了:盖回撤回的那一存【不是回合的】。回合
+  // settle 的同一刻还有别的写者起跑(13k stewardRecordLaunchOutcome → updateSessionMeta 是读改写;首回合
+  // 还有 settleThreadBrief 的补写),它们在 settle 之后才 load,load 落在撤回那一存之前、save 落在之后 ——
+  // 等 settle 管不到回合之外的人。代数闸不看是谁写:撤回之前读出来的副本,谁拿着都写不回去。
   if (activeChildren.has(sessionId)) {
     stopSession(sessionId, 'rewind');
     logEvent({ kind: 'rewind_autostop', sessionId, targetTurnSeq: Number(targetTurnSeq) || null });
@@ -8051,7 +8174,19 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // Refresh the derived summary/title tail off the surviving messages (best-effort).
   const lastAssistant = [...session.messages].reverse().find(m => m && m.role === 'assistant');
   session.summary = lastAssistant ? String(lastAssistant.content || '').replace(/\s+/g, ' ').trim().slice(0, 160) : '';
-  await saveSession(session);
+  // 107-F7b:这一存抬撤回代数(见函数开头那段注与 sessionRewindGenHighWater 头注)。之后任何拿着撤回【之前】
+  // 那份对象来写的人都会被 saveSession 的代数闸丢掉。它自己被丢只有两种可能,都是两次撤回交错:① 在它入链
+  // 之后、执行之前又来了一次更新的撤回;② 它截断用的这份副本本身读在另一次已经抬了代数的撤回之前(照它截
+  // 会把那次撤回删掉的消息带回来)。两种都如实回「被顶掉」,不说 ok:true(前端那道诚实门据此不说已撤回)。
+  try {
+    await saveSession(session, { rewindBump: true, throwIfStale: true, writer: 'rewind' });
+  } catch (error) {
+    if (error && error.code === 'SESSION_STALE_SAVE') {
+      logEvent({ kind: 'rewind_superseded', sessionId, targetTurnSeq: target });
+      return { ok: false, error: 'rewind_superseded' };
+    }
+    throw error;
+  }
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },
@@ -55811,6 +55946,7 @@ module.exports = {
   saveSession,
   deleteSession,
   listSessions,
+  rewindSession, // 107-F7b: exposed for unit(撤回代数闸:撤回之前攥在手里的副本写不回去、之后新读的照常落盘)
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
   getPretenderProjectionIndex,
   warmPretenderProjectionIndex,
