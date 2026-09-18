@@ -69,6 +69,8 @@ function fixtureHomeDirPerTest() {
 // 无头 Edge 的 --user-data-dir 是每个 *.browser.e2e.js 各自显式拼在临时家下面传的
 // (grep -rn "user-data-dir" dev-harness/*.browser.e2e.js 核过,一个不例外),不读
 // LOCALAPPDATA/APPDATA,所以这两个变量换掉不影响浏览器件的 profile 落点。
+// 107-F9b:经 run-all 跑时,开浏览器的件另有一个【属于这一件】的临时根 —— 夹具进程的 os.tmpdir() 被
+// lib/browser-profile-scope.js 指到那里(TEMP 环境变量不动),收尸只收这个根。见那个文件的头注。
 // 123 合并复核（主会话，2026-09-13 夜）：假 AppData 【整机一份、跨件共用】，不是每件一份。
 // 第一版把它挂在每件独立的临时家下面，合并后 8 路全量 37 红——桌面 MCP 的 python 探针磁盘缓存
 // （01-config desktopPythonDiskCacheId）的键含 %LOCALAPPDATA% 派生的候选路径，每件一个新目录＝

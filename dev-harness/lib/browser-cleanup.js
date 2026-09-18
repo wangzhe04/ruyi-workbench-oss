@@ -33,4 +33,23 @@ function stopRuyiTestBrowsers(profileDir = '') {
   return Number.isFinite(count) ? count : 0;
 }
 
-module.exports = { stopRuyiTestBrowsers };
+// 107-F9b：只数、不杀。run-all 收工时报一句「本机还剩几个 Ruyi 测试 profile 的浏览器」—— 每件都按自己的
+// 临时根收尸之后，这个数应当是 0；不是 0 就说明有夹具的 profile 没落在自己的根里（或它自己没收尸），
+// 漏出来的会一路攒到下一轮 run-all 开头的全局收尸。判据与上面不传目录时的那条正则逐字相同。
+function countRuyiTestBrowsers() {
+  if (process.platform !== 'win32') return 0;
+  const script = [
+    "$items=@(Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object {",
+    '  if(-not $_.CommandLine){ return $false }',
+    "  return $_.CommandLine -match '--user-data-dir=.*[\\\\/](?:ruyi-|wcw-)'",
+    '})',
+    'Write-Output $items.Count',
+  ].join(';');
+  const result = cp.spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8', windowsHide: true, timeout: 30000,
+  });
+  const count = Number.parseInt(String(result.stdout || '').trim(), 10);
+  return Number.isFinite(count) ? count : -1;
+}
+
+module.exports = { stopRuyiTestBrowsers, countRuyiTestBrowsers };

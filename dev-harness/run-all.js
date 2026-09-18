@@ -237,7 +237,9 @@ const isFast = f => /\.static\.e2e\.js$/.test(f);
 // 任何登记动作。实现住 dev-harness/lib/port-audit.js(第46波46a 抽出真身,unit 测试同源 require,
 // 杜绝"测复制副本"的 E2 漂移坑)。判定口径详见该模块头注。
 const { portAuditFromDir } = require('./lib/port-audit');
-const { stopRuyiTestBrowsers } = require('./lib/browser-cleanup');
+const { stopRuyiTestBrowsers, countRuyiTestBrowsers } = require('./lib/browser-cleanup');
+// 107-F9b:每件开浏览器的测试一个自己的临时根,收尸只收这个根(头注在 lib/browser-profile-scope.js)。
+const { SCOPE_ENV: BROWSER_SCOPE_ENV, SCOPE_FILE: BROWSER_SCOPE_FILE, createScope: createBrowserScope, reapScope: reapBrowserScope } = require('./lib/browser-profile-scope');
 // 27 号文 §11.21.7 债④:夹具 HOME 守卫。夹具拿到的家目录是【临时家】,真机家另走 RUYI_REAL_HOME;
 // 守卫以 --require 装进【每件夹具】,拦住「带了 RUYI_HOME 却没隔离家目录」的子进程(见 lib/fixture-home.js)。
 const { GUARD_FILE: FIXTURE_GUARD, fixtureChildEnv, REAL_HOME, REAL_HOME_SOURCE } = require('./lib/fixture-home');
@@ -259,9 +261,18 @@ function runOne(file) {
     const full = path.join(HARNESS, file);
     const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
     const { env: childEnv, home: childHome } = fixtureChildEnv({ perTest: true });
+    // 107-F9b:开浏览器的件拿一个【属于这一件】的临时根,经环境变量交给夹具、再以 --require 装上
+    // browser-profile-scope(它把夹具进程的 os.tmpdir() 指到这个根,并拦下根外的 --user-data-dir)。
+    // 建不出来就不装、也不收(下一轮 run-all 开头的全局收尸兜底)—— 绝不退回不带范围的收尸。
+    let browserScope = '';
+    if (ownsBrowserProfile) {
+      try { browserScope = createBrowserScope(); } catch { browserScope = ''; }
+      if (browserScope) childEnv[BROWSER_SCOPE_ENV] = browserScope;
+    }
     // --require 走 CLI 实参而不是 NODE_OPTIONS:Node 的 NODE_OPTIONS 分词器吃引号/反斜杠,
     // 本仓检出路径含空格,走 NODE_OPTIONS 必挂;CLI 实参还保证 --require 从夹具 argv 里被剔掉。
-    const child = cp.spawn(process.execPath, ['--require', FIXTURE_GUARD, full], {
+    const scopeArgs = browserScope ? ['--require', BROWSER_SCOPE_FILE] : [];
+    const child = cp.spawn(process.execPath, ['--require', FIXTURE_GUARD, ...scopeArgs, full], {
       cwd: HARNESS,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -283,20 +294,25 @@ function runOne(file) {
     }, timeoutFor(file));
     child.on('close', code => {
       clearTimeout(timer);
-      // Edge utility processes can escape the child tree. Reap only Ruyi Temp-profile browsers before
-      // the next case, otherwise a long serial run eventually exhausts process and handle resources.
-      if (ownsBrowserProfile) stopRuyiTestBrowsers();
+      // Edge utility processes can escape the child tree. Reap them before the next case, otherwise a long
+      // serial run eventually exhausts process and handle resources.
+      // 107-F9b: reap ONLY this case's scope. The unscoped form matched every Ruyi test browser on the
+      // machine, so under --parallel one lane finishing killed the browsers the other lanes were still
+      // driving (their CDP calls then hung to the 120 s timeout — F8's steward-settings B3).
+      if (browserScope) reapBrowserScope(browserScope, stopRuyiTestBrowsers);
       const ok = code === 0 && !timedOut;
       let out = stdout + stderr;
       if (ok) {
         try { fs.rmSync(childHome, { recursive: true, force: true, maxRetries: 3 }); } catch { /* 回收不了不影响结果 */ }
       } else {
         out += `\n[fixture home 保留取证] ${childHome}`;
+        if (browserScope && fs.existsSync(browserScope)) out += `\n[browser scope 保留取证] ${browserScope}`;
       }
       resolve({ file, ok, timedOut, status: code, out, ms: Date.now() - t0 });
     });
     child.on('error', e => {
       clearTimeout(timer);
+      if (browserScope) reapBrowserScope(browserScope, stopRuyiTestBrowsers);
       resolve({ file, ok: false, timedOut: false, status: -1, out: stdout + stderr + '\n[spawn error] ' + e + `\n[fixture home 保留取证] ${childHome}`, ms: Date.now() - t0 });
     });
   });
@@ -323,6 +339,8 @@ function failLines(s) {
 }
 
 async function main() {
+  // 开跑前的全局收尸【保留不带范围】:此刻还没有任何车道在跑,收的是上一轮(或手工单跑)漏下的。
+  // 107-F9b 之后,run-all 里不带范围的收尸只许有这一处 —— unit/browser-profile-scope.test.js 钉着。
   stopRuyiTestBrowsers();
   const argv = process.argv.slice(2);
   // --parallel N: 并行路数(默认1=串行)
@@ -500,6 +518,9 @@ async function main() {
   }
 
   console.log(`\n# 汇总: ${pass} pass / ${fail} fail / ${knownFail} known-fail / ${unexpectedPass} unexpected-pass / ${flakyCount} flaky / ${files.length} ran / ${SKIP.size} skipped`);
+  // 107-F9b:只数、不杀。每件按自己的根收尸之后这里应当是 0;不是 0 = 有夹具漏收(下一轮开头的全局收尸兜底)。
+  const leftoverBrowsers = countRuyiTestBrowsers();
+  console.log(`# 收工残留测试浏览器(ruyi-/wcw- profile): ${leftoverBrowsers < 0 ? '没数出来' : leftoverBrowsers}`);
   if (flakyFiles.length) {
     console.log(`# [flaky] 名单(首跑失败重跑通过,时序可疑,建议后续波治理):`);
     for (const f of flakyFiles) {
@@ -534,6 +555,7 @@ async function main() {
       `# Ruyi e2e last-run log`,
       `# ${pass} pass / ${fail} fail / ${knownFail} known-fail / ${unexpectedPass} unexpected-pass / ${flakyCount} flaky / ${files.length} ran / ${SKIP.size} skipped`,
       `# Node ${process.version}, platform ${process.platform}, parallel=${PARALLEL}`,
+      `# 收工残留测试浏览器(ruyi-/wcw- profile): ${leftoverBrowsers < 0 ? '没数出来' : leftoverBrowsers}`,
       ...results.map(r => `${r.ok ? (r.known ? 'UNEXPECTED_PASS' : (r.flaky ? 'FLAKY_PASS' : 'PASS')) : (r.known ? 'KNOWN_FAIL' : 'FAIL')}\t${r.ms}ms\t${r.file}`),
     ].join('\n') + '\n');
   } catch { /* 只读环境(CI 沙箱)忽略 */ }
