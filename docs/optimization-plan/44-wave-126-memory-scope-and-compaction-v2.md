@@ -189,7 +189,7 @@
 |---|---|
 | 规范化（`13j`） | `stewardNormalizeMemoryEntry` 补 `expiresAt: cleanMemoryDate(raw.expiresAt)`。**老条目没有这个字段 → 读成空串 → 永不过期**，与今天逐字节同义（存量零迁移，与 `mergedFrom` 当年同一个模具） |
 | 写入（`13l`） | `steward_memory_write` 接受可选 `expiresAt`，清洗同上 |
-| 读取（`13l`） | `stewardImplMemorySearch` 过滤掉过期条目（`includeExpired: true` 可显式要）。**提示词块（`13o`）走的就是这一口**，所以「过期就不再被用上」在这一处就够了，不必散到调用方 |
+| 读取（`13l`） | `stewardImplMemorySearch` 过滤掉过期条目（`includeExpired: true` 可显式要）。提示词块（`13o` 的 `stewardMemoryBlock`）经 `StewardHooks.memorySearch` 走的就是这一口 —— **但直接读 `stewardReadMemoryStore` 的调用方不止它一个**：`13o` 的递话预判 `stewardPreroute` 自己读库，本波漏了它（过期的 `focus` 一直在给某条线程加 `memoryBonus`），由 127 波 107-M1 补上过滤，并把机械锁从「别处不许自己解析 `expiresAt`」加强成「**每个读取口都要表态**滤不滤」（静态锁 ⑫b） |
 | 面板（`13g` ＋ 前端 ＋ 四份 locale ＋ CSS） | 面板**照常列出**过期条目，只带一枚中性色「已过期」标，悬停说出到期时刻。**时效是过滤，不是删除**（§6 ② 的拍板：与 116 波「否决条目不换说法复活」同一条理由 —— 删掉的话同一条会被原样重写一遍） |
 | 工具 schema（`13f`） | 描述里写明**只给必然会过期的事实**写到期日，稳定偏好不要写，不确定就留空 |
 

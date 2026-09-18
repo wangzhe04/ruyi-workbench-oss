@@ -51743,8 +51743,31 @@ async function stewardPreroute(q, configArg) {
     stewardPrerouteIndexRows(config).catch(() => []),
     stewardReadMemoryStore().catch(() => ({ entries: [] })),
   ]);
+  const nowMs = Date.now();
   const memory = (memoryStore.entries || [])
     .filter(e => e && e.state !== 'vetoed' && (e.kind === 'focus' || e.kind === 'habit'))
+    // 107-M1:【过期条目不参与预判打分】。本函数是 stewardReadMemoryStore 的第二个读取口 ——
+    // 44 号文 §1.2 当时写的「提示词块(13o)走的就是 13l 那一口,不必散到调用方」漏了它:上面的
+    // stewardMemoryBlock 确实走 StewardHooks.memorySearch(已滤过期),但**本函数直接读库**,
+    // 于是早该过期的 focus 会一直给某条线程 +memoryBonus(06i 的 stewardPrerouteScoreThread)。
+    // 判据仍然只有一处:06d 的 memoryIsExpired —— 静态锁 ⑫ 明文禁止别处自己算
+    // (dev-harness/steward-tools.static.e2e.js),⑫b 另外要求每个读取口都表态。
+    // 同一个 nowMs 喂给整批:一次调用里两条条目不该用两个不同的「现在」。
+    .filter(e => !memoryIsExpired(e, nowMs))
+    // 107-M1【作用域:这里**故意**不按作用域过滤,不是漏改】。三条理由,来「修」它之前请先读:
+    //   ① 管家不在任何一个项目里(126-M01 的拍板,见本文件 stewardMemoryBlock 处那段注释),
+    //      而 preroute 连 cwd 都拿不到 —— 入参只有 q 与 config。要过滤就得凭空指定一个「当前
+    //      项目」,而出厂 defaultWorkspace 就是主目录(见 stewardWorkspaceTableBlock 的头注),
+    //      拿它当当前项目等于把几乎所有项目级记忆静默丢掉。
+    //   ② 预判用记忆的方式与提示词块不同:它只把记忆文本当【词法针的来源】(06i 的
+    //      stewardPrerouteMemoryHit 判的是「线程标题出现在记忆文本里」),不把记忆当成断言。
+    //      项目 A 的记忆里提到某个标题,说明用户在意那件事;把这句话递给那条线程仍然是对的。
+    //      而过期不同:「这两周在赶 A」两周后连「用户在意」都不成立了,所以那一条必须滤。
+    //   ③ 真正更准的做法是「项目级记忆只给【同项目的线程】加分」,但那不是加一道过滤:索引行
+    //      (stewardPrerouteIndexRows)今天不带 cwd,而打分在 06i,06i 够不着 13j 的
+    //      stewardMemoryScopeMatches(前向边;静态锁 ⑬ 的头注记了同一个坑)。那是一刀设计改动,
+    //      不在本刀内。steward-preroute.e2e 的 (F5) 把「项目级记忆照常加分」钉成了行为断言,
+    //      哪天改主意要连它一起改。
     .map(e => ({ kind: e.kind, text: e.text }));
   return prerouteText(q, index, memory, {});
 }

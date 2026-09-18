@@ -255,6 +255,66 @@ try {
   }
   const after = snapshotDir(stewardDir);
   ok(before === after, '(E) 跑完全部 preroute 请求后,<data>/steward 目录的文件集合(路径+字节数)前后一致(零写入)');
+
+  /* ═════════════ (F) 107-M1:过期的 focus 记忆不再影响预判排序 ═════════════ */
+  // 为什么放这一层而不是 dev-harness/unit/steward-preroute.test.js:缺陷在 13o 的 stewardPreroute
+  // (它自己读 stewardReadMemoryStore 后没滤过期),而纯函数 prerouteText 是**别人把 memory 数组喂给
+  // 它**的 —— 单测里那个数组由测试自己构造,无论修没修都照样绿,抓不到这个缺陷。要经过「库 -> 过滤
+  // -> 打分」整条路,就只能在真服务这一层。
+  //
+  // 形状:两条打平的线程(「预算评审甲组/乙组」,(B) 已验证 q=「预算评审」-> unsure)+ 一条指向甲组的
+  // focus 记忆。命中给甲组 +memoryBonus(06i 权重表 2 分),平局被打破 -> kind 变 thread。
+  //   F1 没记忆       -> unsure(基线:前面 (E) 那几次请求没留下脏状态)
+  //   F2 到期日在未来 -> thread/甲组(**正对照**:证明记忆加权这条路真的通,F3 的绿不是「压根没跑到」)
+  //   F3 到期日在过去 -> unsure(**本刀的承重断言**;修前这里是 thread/甲组)
+  //   F4 没有到期日   -> thread/甲组(老条目「永不过期」的语义没被这一刀顺手改掉)
+  //   F5 项目级作用域 -> thread/甲组(**有意的**:预判【不】按作用域过滤,三条理由见 13o
+  //      stewardPreroute 处的注释。哪天改主意要连这条断言一起改,别当成漏改「修」掉)
+  const memFile = path.join(stewardDir, 'memory-v1.json');
+  const writeMemory = patch => {
+    fs.mkdirSync(stewardDir, { recursive: true });
+    const nowIso = new Date().toISOString();
+    fs.writeFileSync(memFile, JSON.stringify({
+      schema: 1, updatedAt: nowIso,
+      entries: patch ? [{
+        id: 'm-preroute-expiry', kind: 'focus', text: '这两周盯着预算评审甲组的进度',
+        confidence: 0.9, sourceSessionId: '', sourceSeq: 0,
+        createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), updatedAt: nowIso,
+        lastUsedAt: '', useCount: 0, state: 'active', mergedFrom: [],
+        ...patch,
+      }] : [],
+    }), 'utf8');
+  };
+  const hitOf = r => (r.json && Array.isArray(r.json.hits) && r.json.hits[0]) || null;
+  const shot = r => JSON.stringify({ kind: r.json && r.json.kind, hits: (r.json && r.json.hits || []).map(h => h.sessionId) });
+
+  writeMemory(null);
+  const f1 = await preroute('预算评审', tok);
+  ok(f1.status === 200 && f1.json.kind === 'unsure', `(F1) 空记忆库:两条打平 -> unsure(实测 ${shot(f1)})`);
+
+  writeMemory({ expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() });
+  const f2 = await preroute('预算评审', tok);
+  ok(f2.status === 200 && f2.json.kind === 'thread' && hitOf(f2) && hitOf(f2).sessionId === sidTieA,
+    `(F2) 正对照:未过期的 focus 记忆把甲组顶上去 -> thread/甲组(实测 ${shot(f2)})`);
+  ok(!!(hitOf(f2) && String(hitOf(f2).reason || '').includes('记忆加权')),
+    `(F2) 正对照的 reason 标注「记忆加权」—— 加的确实是记忆那 2 分(实测 ${hitOf(f2) ? JSON.stringify(hitOf(f2).reason) : 'null'})`);
+
+  writeMemory({ expiresAt: new Date(Date.now() - 86400000).toISOString() });
+  const f3 = await preroute('预算评审', tok);
+  ok(f3.status === 200 && f3.json.kind === 'unsure',
+    `(F3) 承重:同一条记忆【已过期】-> 不再加分,回到 unsure(实测 ${shot(f3)})`);
+  ok(!((f3.json && f3.json.hits) || []).some(h => String(h.reason || '').includes('记忆加权')),
+    '(F3) 承重:过期条目不出现在任何一条候选的 reason 里');
+
+  writeMemory({ expiresAt: '' });
+  const f4 = await preroute('预算评审', tok);
+  ok(f4.status === 200 && f4.json.kind === 'thread' && hitOf(f4) && hitOf(f4).sessionId === sidTieA,
+    `(F4) 没有到期日的老条目仍然永不过期(存量语义没被顺手改掉;实测 ${shot(f4)})`);
+
+  writeMemory({ expiresAt: '', scope: 'project:0123456789abcdef' });
+  const f5 = await preroute('预算评审', tok);
+  ok(f5.status === 200 && f5.json.kind === 'thread' && hitOf(f5) && hitOf(f5).sessionId === sidTieA,
+    `(F5) 项目级作用域的记忆【照常】给预判加分 —— 有意的,不是漏改(见 13o stewardPreroute 的注释;实测 ${shot(f5)})`);
 } catch (e) {
   fail++; console.log('FAIL 未捕获异常: ' + ((e && e.stack) || e));
 } finally {

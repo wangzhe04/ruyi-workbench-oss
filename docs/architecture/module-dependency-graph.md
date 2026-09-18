@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2403 | 2556 | 420 | 68 | 0 | 1 |
+| 53 | 2403 | 2557 | 421 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -60,7 +60,7 @@
 | 42 | `13g-steward.js` | transport | 11 | 57 | 9 |
 | 43 | `13m-steward-runner-base.js` | transport | 40 | 14 | 5 |
 | 44 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 45 | `13o-steward-runner-prompt.js` | transport | 17 | 49 | 12 |
+| 45 | `13o-steward-runner-prompt.js` | transport | 17 | 50 | 13 |
 | 46 | `13p-steward-runner-actions.js` | transport | 28 | 42 | 10 |
 | 47 | `13q-steward-runner-turn.js` | transport | 23 | 60 | 16 |
 | 48 | `13h-steward-runner.js` | transport | 6 | 46 | 12 |
@@ -402,6 +402,7 @@
 | `13o-steward-runner-prompt.js` | `02-session-store.js` | backward | `readMissionContainer`, `sessionDisplayTitle`, `sessionMissionId` |
 | `13o-steward-runner-prompt.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `redact` |
 | `13o-steward-runner-prompt.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
+| `13o-steward-runner-prompt.js` | `06d-memory-domain.js` | backward | `memoryIsExpired` |
 | `13o-steward-runner-prompt.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `STEWARD_WORKSPACE_TABLE_MAX`, `StewardHooks`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardActConfirmSpec`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardTrimSayAtSentence`, `waitReasonFor` |
 | `13o-steward-runner-prompt.js` | `08-agent-runs.js` | backward | `parseStructuredAgentOutput` |
 | `13o-steward-runner-prompt.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |

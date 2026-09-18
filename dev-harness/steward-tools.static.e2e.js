@@ -564,6 +564,75 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     `⑫ 管家族不许自己解析 expiresAt —— 判据只有 06d 的 memoryIsExpired 一处${offenders.length ? '；实得：' + offenders.join(' ⏐ ') : ''}`);
 }
 
+// ── ⑫b 107-M1:每一个 stewardReadMemoryStore 读取口都要【表态】过不过滤过期 ──────────────
+// 为什么必须再加一条:上面的 ⑫ 只禁「别处自己 Date.parse(expiresAt)」,**不要求任何读取口真的去
+// 滤** —— 107-M1 那个缺陷(13o 的 stewardPreroute 直接读库、一点过期都不滤,早该过期的 focus 一直
+// 给某条线程 +memoryBonus)它一条都抓不到。成因是 44 号文 §1.2 的一句写错的判词:「提示词块(13o)
+// 走的就是 13l 那一口,所以在这一处滤就够了,不必散到调用方」—— 漏了第二个读取口。
+//
+// 判据形状(钉行为,不钉「字出现过」):扫出 src/ 里 stewardReadMemoryStore 的每一个【调用点】,定位
+// 它所在的顶层函数,要求**那个函数体自己**有一行代码调 memoryIsExpired —— 要么就在下面的白名单里
+// 逐条带理由。是「调用点所在的那个函数」而不是「这个文件里出现过这个词」:把 stewardPreroute 的
+// 过滤摘掉、同文件别处还留着这个词(注释里也写着),这一条照样红。
+// 先钉个数:扫不到就是本条静默失效(同 runtime-optimization.static 的 F1/F2 那个 lines.length >= 2 模具)。
+{
+  // key = `<文件>:<顶层函数名>`;value = 这个读取口【为什么不滤过期】。加一条就要写一条理由 ——
+  // 光秃秃的名单下一个人读不出「这是拍过板的」还是「这是又漏了一个」。
+  const EXPIRY_FILTER_EXEMPT = {
+    '13g-steward.js:stewardMemoryPanelList':
+      '面板照常列出过期条目,只多打一枚「已过期」标(44 号文 §6 ②:时效是过滤不是删除)。逐条的 expired 由 stewardMemoryPanelRow 现算 —— 在这里滤掉等于用户再也看不见它过期了',
+    '13g-steward.js:stewardMemoryPanelExport':
+      '导出只滤 state !== active。含过期条目是有意的:导出再导入不该静默丢数据,expiresAt 本身也在导出字段集里',
+    '13j-steward-tool-base.js:stewardMutateMemory':
+      '写事务必须看到全库(含过期与已否决)。滤掉的话同义写入会把过期条目当成不存在、再落一条重复的 —— 44 号文 §1.2 记的「合并时那个陷阱」正是这个',
+  };
+  const srcAllFiles = fs.readdirSync(SRC).filter(n => n.endsWith('.js'));
+  const READ_STORE_RE = /\bstewardReadMemoryStore\s*\(/;
+  const isCommentLine = line => /^\s*(\/\/|\*|\/\*)/.test(line);
+  const sites = [];
+  const brokenRuler = [];
+  let occurrences = 0, storeDefs = 0;
+  for (const name of srcAllFiles) {
+    const lines = fs.readFileSync(path.join(SRC, name), 'utf8').split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (!READ_STORE_RE.test(lines[i]) || isCommentLine(lines[i])) continue;
+      occurrences += 1;
+      if (/function\s+stewardReadMemoryStore\s*\(/.test(lines[i])) { storeDefs += 1; continue; }
+      // 所在顶层函数:向上找最近的【第 0 列】function 行,函数体到下一个第 0 列的 `}` 为止。
+      let head = -1;
+      for (let j = i; j >= 0; j--) { if (/^(async\s+)?function\s+\w+\s*\(/.test(lines[j])) { head = j; break; } }
+      const fnName = head >= 0 ? ((lines[head].match(/function\s+(\w+)\s*\(/) || [])[1] || '') : '';
+      let tail = lines.length;
+      for (let j = head + 1; j < lines.length; j++) { if (/^\}/.test(lines[j])) { tail = j; break; } }
+      const body = lines.slice(head + 1, tail);
+      // 自带尺子:取出来的函数体必须真的把这个调用点圈在里面,否则下面「有没有滤」判的是别人的身子。
+      if (head < 0 || !body.some(l => READ_STORE_RE.test(l))) brokenRuler.push(`${name}:${i + 1}`);
+      sites.push({
+        key: `${name}:${fnName}`,
+        at: `${name}:${i + 1}`,
+        filters: body.some(l => !isCommentLine(l) && /\bmemoryIsExpired\s*\(/.test(l)),
+      });
+    }
+  }
+  ok(occurrences === 6, `⑫b stewardReadMemoryStore 在 src/ 出现 6 次 = 定义 1 + 调用点 5(实得 ${occurrences};扫不到 = 本条静默失效)`);
+  ok(storeDefs === 1, `⑫b 库读取只有一处实现(实得 ${storeDefs} 处定义)`);
+  ok(sites.length === 5, `⑫b 调用点 5 个(实得 ${sites.length} 个:${sites.map(s => s.at).join('、')})`);
+  ok(brokenRuler.length === 0, `⑫b 取函数体的尺子本身有效 —— 每个调用点都落在自己那个顶层函数体内${brokenRuler.length ? '；取不到的:' + brokenRuler.join('、') : ''}`);
+  const unfiltered = sites.filter(s => !s.filters && !Object.prototype.hasOwnProperty.call(EXPIRY_FILTER_EXEMPT, s.key));
+  ok(unfiltered.length === 0,
+    `⑫b 每个读取口要么自己滤过期(调 06d 的 memoryIsExpired)、要么在白名单里带理由${unfiltered.length ? '；没表态的:' + unfiltered.map(s => `${s.key}(${s.at})`).join(' ⏐ ') : ''}`);
+  // 白名单不许留僵尸条目:函数改名或读取口搬走后,它会静默罩住一个不存在的地方,下一个真缺陷就滑过去了。
+  const staleExempt = Object.keys(EXPIRY_FILTER_EXEMPT).filter(k => !sites.some(s => s.key === k));
+  ok(staleExempt.length === 0, `⑫b 白名单里零僵尸条目(每条都对得上一个真实调用点)${staleExempt.length ? '；对不上的:' + staleExempt.join('、') : ''}`);
+  const thinReasons = Object.entries(EXPIRY_FILTER_EXEMPT).filter(([, why]) => String(why || '').trim().length < 20);
+  ok(thinReasons.length === 0, `⑫b 白名单逐条带理由,不是一张光秃秃的名单${thinReasons.length ? '；理由过短的:' + thinReasons.map(([k]) => k).join('、') : ''}`);
+  // 这两口必须【自己滤】,不许改成往白名单里一塞就放行 —— 107-M1 修的就是第二个。
+  for (const key of ['13l-steward-ops.js:stewardImplMemorySearch', '13o-steward-runner-prompt.js:stewardPreroute']) {
+    const site = sites.find(s => s.key === key);
+    ok(!!(site && site.filters), `⑫b ${key} 自己滤过期(不许用白名单绕过)${site ? '' : '；连这个调用点都没扫到'}`);
+  }
+}
+
 // ── ⑬ 126-M01:「作用域算不算数」也只许有一个判据口 ─────────────────────────────────
 // 与 ⑫ 同一个模具:归一与匹配都在 13j 的 stewardNormalizeMemoryScope / stewardMemoryScopeMatches,
 // 管家族别处不许自己算项目键(那会造出第二套口径)。判据住 13j 而不是 06i 是被依赖图逼出来的:

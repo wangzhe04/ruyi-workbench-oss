@@ -14713,6 +14713,13 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "buildStewardDigestLine",
           "kinds": [
