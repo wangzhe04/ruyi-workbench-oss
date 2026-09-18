@@ -247,6 +247,7 @@ const providerPort = await getFreePort();
 const debugPort = await getFreePort();
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-live-steer-'));
 const home = path.join(root, 'home');
+let keepRootForEvidence = false;   // 128i:H8 红时保留夹具目录取证(见 H8h 之后那段诊断)
 const profile = path.join(root, 'profile');
 fs.mkdirSync(home);
 fs.writeFileSync(path.join(home, 'probe.txt'), 'probe-ok\n', 'utf8');
@@ -547,6 +548,17 @@ try {
     'H8g 用户消息条数真的涨了（起的是一个新回合，不是往一个已经没了的回合里递话）');
   ok(auditRows().filter(r => r && r.kind === 'intervention' && r.source === 'steer' && r.sessionId === sessionId).length === h8SteerBefore,
     'H8h 这一发【没有】走插话那条路（审计里 intervention/source:steer 一条都没新增）');
+  // 128i 起:H8 跨轮在全量里红过两次(128a 第二轮、128i),单跑与加压探针都逼不出来 —— 诊断放进测试本身,
+  // 下一次红就在那一跑里留下证据:会话尾(谁、是不是插话、多早)、审计尾(种类／来源／时刻),并保留夹具目录。
+  if (!h8After.some(m => m && m.role === 'user' && m.steered !== true && String(m.content || '').includes(H8_TEXT))
+    || auditRows().filter(r => r && r.kind === 'intervention' && r.source === 'steer' && r.sessionId === sessionId).length !== h8SteerBefore) {
+    keepRootForEvidence = true;
+    const tail = sessionMessages(sessionId).slice(-8).map(m => [m.role, m.steered ? 'steered' : '', m.source || '', m.turnSeq || '', String(m.ts || m.at || m.createdAt || '').slice(11, 23), String(m.content || '').slice(0, 24).replace(/\s+/g, ' ')].join('|'));
+    console.log('H8-DIAG session tail ' + JSON.stringify(tail));
+    const audit = auditRows().filter(r => r && (r.sessionId === sessionId || !r.sessionId)).slice(-16)
+      .map(r => [String(r.ts || r.at || '').slice(11, 23), r.kind, r.source || '', r.action || r.event || r.reason || '', r.turnSeq || ''].join('|'));
+    console.log('H8-DIAG audit tail ' + JSON.stringify(audit));
+  }
   const h8Settled = await cdp.evaluate(VIEW);
   ok(Boolean(h8Settled) && h8Settled.relayChannel === '',
     `H8i 自纠正把那份过期信念清掉了（实测「${h8Settled && h8Settled.relayChannel}」）`);
@@ -561,7 +573,8 @@ try {
   if (provider) await new Promise(resolve => provider.close(resolve));
   await sleep(300);
   stopRuyiTestBrowsers(profile);
-  try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ }
+  if (keepRootForEvidence) console.log('H8-DIAG fixture kept for evidence: ' + root);
+  else { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* browser profile lock */ } }
   console.log(`\nCLASSIC WINDOW LIVE STEER E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
   process.exitCode = fail ? 1 : 0;
 }
