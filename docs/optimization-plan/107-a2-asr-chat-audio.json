@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "wave": "107-A2",
+  "startedAt": "2026-09-18T11:25:15.088Z",
+  "spoken": "今天下午三点提醒我检查A股收盘计划",
+  "audio": {
+    "bytes": 155726,
+    "rate": 16000,
+    "channels": 1,
+    "bits": 16
+  },
+  "arms": [
+    {
+      "label": "MiMo",
+      "model": "mimo-v2.5-asr",
+      "protocol": "transcriptions",
+      "host": "api.xiaomimimo.com",
+      "ms": 338,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 404: <html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    },
+    {
+      "label": "MiMo",
+      "model": "mimo-v2.5-asr",
+      "protocol": "chat-audio",
+      "host": "api.xiaomimimo.com",
+      "ms": 871,
+      "status": 200,
+      "code": null,
+      "text": "今天下午三点提醒我检查A股收盘计划。",
+      "estimated": false,
+      "accuracy": 100,
+      "ledgerRows": 1,
+      "ledgerLast": {
+        "kind": "aux",
+        "estimated": false,
+        "inTok": 53
+      }
+    },
+    {
+      "label": "百炼 qwen3-asr-flash",
+      "model": "qwen3-asr-flash-2026-02-10",
+      "protocol": "transcriptions",
+      "host": "ws-jzt3p0a4t04g585c.cn-beijing.maas.aliyuncs.com",
+      "ms": 332,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 404: ",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    },
+    {
+      "label": "百炼 qwen3-asr-flash",
+      "model": "qwen3-asr-flash-2026-02-10",
+      "protocol": "chat-audio",
+      "host": "ws-jzt3p0a4t04g585c.cn-beijing.maas.aliyuncs.com",
+      "ms": 731,
+      "status": 200,
+      "code": null,
+      "text": "今天下午三点提醒我检查A股收盘计划。",
+      "estimated": false,
+      "accuracy": 100,
+      "ledgerRows": 1,
+      "ledgerLast": {
+        "kind": "aux",
+        "estimated": false,
+        "inTok": 124
+      }
+    },
+    {
+      "label": "百炼 fun-asr-flash",
+      "model": "fun-asr-flash-2026-06-15",
+      "protocol": "transcriptions",
+      "host": "ws-jzt3p0a4t04g585c.cn-beijing.maas.aliyuncs.com",
+      "ms": 323,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 404: ",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    },
+    {
+      "label": "百炼 fun-asr-flash",
+      "model": "fun-asr-flash-2026-06-15",
+      "protocol": "chat-audio",
+      "host": "ws-jzt3p0a4t04g585c.cn-beijing.maas.aliyuncs.com",
+      "ms": 406,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 400: {}",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    },
+    {
+      "label": "混元",
+      "model": "hy-asr-3.0-preview",
+      "protocol": "transcriptions",
+      "host": "tokenhub.tencentmaas.com",
+      "ms": 294,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 404: 404 page not found\n",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    },
+    {
+      "label": "混元",
+      "model": "hy-asr-3.0-preview",
+      "protocol": "chat-audio",
+      "host": "tokenhub.tencentmaas.com",
+      "ms": 341,
+      "status": 502,
+      "code": "asr.upstream",
+      "upstream": "ASR 上游返回 402: {\"error\":{\"type\":\"permission_error\",\"code\":\"401007\",\"message\":\"No free trial quota is available for the service and postpaid billing is not enabled, so the service cannot be accessed. Please go to Console \\u003e Online Inference Service to enable postpaid billing. See: https://console.",
+      "text": null,
+      "accuracy": null,
+      "ledgerRows": 0,
+      "ledgerLast": null
+    }
+  ],
+  "notes": [
+    "MiMo / mimo-v2.5-asr: 关臂 502/asr.upstream → 开臂 200，字准确率 100%",
+    "百炼 qwen3-asr-flash / qwen3-asr-flash-2026-02-10: 关臂 502/asr.upstream → 开臂 200，字准确率 100%",
+    "百炼 fun-asr-flash / fun-asr-flash-2026-06-15: 关臂 502/asr.upstream → 开臂 502/asr.upstream",
+    "混元 / hy-asr-3.0-preview: 关臂 502/asr.upstream → 开臂 502/asr.upstream"
+  ],
+  "finishedAt": "2026-09-18T11:25:33.800Z"
+}
