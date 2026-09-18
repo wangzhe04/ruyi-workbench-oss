@@ -16,7 +16,7 @@
 //      syncComposerVoices() 重判；语音识别被关掉时按钮连同播报节点一起拆掉（结构上不存在，不是藏起来）。
 //   ② 交互：点一下开始、再点一下结束（原生 <button>，Space／Enter 天然可达）；录音中 Esc 取消（丢弃、
 //      不转写）；aria-pressed 跟录音态走；满 COMPOSER_VOICE_MAX_MS（3 分钟，主会话定的工程默认）自动结束。
-//   ③ 转写：POST /api/audio/transcribe?filename=voice.webm，原始 Blob 作请求体，走 net.js 的 apiRaw。
+//   ③ 转写：POST /api/audio/transcribe?filename=voice.wav，Blob 作请求体，走 net.js 的 apiRaw。
 //      必须覆盖 apiRaw 默认的 JSON content-type，否则服务端 400 asr.content_type。apiRaw 遇 403
 //      auth.token_invalid 会换 token 重放一次 —— 对 Blob 体是安全的：Blob 可重复读，第二次 fetch 重新取流
 //      （不是一次性的 ReadableStream 体）。
@@ -27,13 +27,22 @@
 //      转写为空：只播报一句本地化人话并把按钮置成错误态；输入框里的字一个不动，不抛。
 //   ⑥ 播报：每枚按钮自带一个 .sr-only 的 aria-live="polite" 节点（录音中／转写中／已填入／已取消／失败）。
 //   ⑦ 隐私：录音数据只在内存里走一趟请求，不落本机存储（26 号文 §4「录音数据不持久化」）。
+//   ⑧ 107-A1（45 号文 §9.6.3 真机实测）：上传前**无条件**把 webm/opus 解码成 16 kHz 单声道 16 bit PCM，
+//      自己拼 WAV 头再发。为什么无条件：前端不该知道这台配的是哪种转写协议（provider.asrProtocol 是
+//      服务端的事），而 Whisper 形端点一样收 wav —— 只有一条路就没有分叉可错。MiMo 实测直接 400 拒收
+//      webm（「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3」），而麦克风
+//      今天只录得出 webm/opus（§1.5：这版 Edge 上 audio/wav 录不了）。解码失败原样发 webm —— 录完了
+//      发不出去，比「协议不对」更坏。
 
 import { apiRaw, apiErrorInfo } from './net.js';
 import { icon } from './icons.js';
 
 export const COMPOSER_VOICE_MIME = 'audio/webm;codecs=opus';   // 唯一录制格式（§1.5 实测）
-export const COMPOSER_VOICE_UPLOAD_TYPE = 'audio/webm';        // 上传时的 Content-Type（服务端只认 audio/*）
-export const COMPOSER_VOICE_FILENAME = 'voice.webm';
+export const COMPOSER_VOICE_UPLOAD_TYPE = 'audio/webm';        // 转码失败时的回退 Content-Type
+export const COMPOSER_VOICE_FILENAME = 'voice.webm';           // 同上：回退时的文件名
+export const COMPOSER_VOICE_WAV_TYPE = 'audio/wav';            // ⑧ 正常路径的上传 Content-Type
+export const COMPOSER_VOICE_WAV_FILENAME = 'voice.wav';
+export const COMPOSER_VOICE_SAMPLE_RATE = 16000;               // ⑧ 16 kHz 单声道：ASR 上游的通用口味
 export const COMPOSER_VOICE_MAX_MS = 3 * 60 * 1000;            // 录满 3 分钟自动结束
 const COMPOSER_VOICE_TICK_MS = 500;                            // 计时显示与「满时自动结束」共用这一拍
 
@@ -63,6 +72,55 @@ export function composerVoiceAvailable(config, env = globalThis) {
   if (!nav || !nav.mediaDevices || typeof nav.mediaDevices.getUserMedia !== 'function') return false;
   const Recorder = env.MediaRecorder;
   return Boolean(Recorder && typeof Recorder.isTypeSupported === 'function' && Recorder.isTypeSupported(COMPOSER_VOICE_MIME));
+}
+
+// ⑧ 16 bit 单声道 WAV 打包：44 字节规范头 + 小端 PCM。浮点样本钳到 [-1,1] 再按有符号 16 位量化
+// （负半轴 ×0x8000、正半轴 ×0x7fff —— 两边各自打满且不溢出）。
+function wavBlobFromPcm(samples, sampleRate) {
+  const bytes = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(bytes);
+  const ascii = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
+  ascii(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); ascii(8, 'WAVE');
+  ascii(12, 'fmt '); view.setUint32(16, 16, true);   // fmt 子块长度（PCM 恒 16）
+  view.setUint16(20, 1, true);                       // 音频格式 1 = 未压缩 PCM
+  view.setUint16(22, 1, true);                       // 声道数 = 1
+  view.setUint32(24, sampleRate, true);              // 采样率
+  view.setUint32(28, sampleRate * 2, true);          // 字节率 = 采样率 × 块对齐
+  view.setUint16(32, 2, true);                       // 块对齐 = 1 声道 × 16 bit
+  view.setUint16(34, 16, true);                      // 位深
+  ascii(36, 'data'); view.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([bytes], { type: COMPOSER_VOICE_WAV_TYPE });
+}
+
+// ⑧ 录音 Blob → 16 kHz 单声道 WAV Blob。解不开（宿主没有 OfflineAudioContext、字节不是能解的音频、
+// 空音轨）一律回 null，调用方原样发原 Blob。3 分钟满录约 5.7 MB（16000 × 2 × 180），仍在服务端 25 MB 闸内。
+export async function encodeVoiceWav(blob, env = globalThis) {
+  const Ctx = env && (env.OfflineAudioContext || env.webkitOfflineAudioContext);
+  if (!Ctx || !blob || typeof blob.arrayBuffer !== 'function') return null;
+  let rendered = null;
+  try {
+    const bytes = await blob.arrayBuffer();
+    // 解码上下文本身就按目标采样率建：Chromium 的 decodeAudioData 会顺手重采样到本上下文的速率，
+    // 真重采样了下面那趟离线渲染就跳过；宿主不这么做时照样由离线渲染补上（两条都落到 16 kHz 单声道）。
+    let decoded = await new Ctx(1, 1, COMPOSER_VOICE_SAMPLE_RATE).decodeAudioData(bytes);
+    if (!decoded || !decoded.length) return null;
+    if (decoded.sampleRate !== COMPOSER_VOICE_SAMPLE_RATE || decoded.numberOfChannels !== 1) {
+      const frames = Math.max(1, Math.round(decoded.duration * COMPOSER_VOICE_SAMPLE_RATE));
+      const offline = new Ctx(1, frames, COMPOSER_VOICE_SAMPLE_RATE);
+      const source = offline.createBufferSource();
+      source.buffer = decoded;                 // 多声道 → 单声道由 destination 的 1 通道自动下混
+      source.connect(offline.destination);
+      source.start();
+      decoded = await offline.startRendering();
+    }
+    rendered = decoded.getChannelData(0);
+  } catch { return null; }
+  if (!rendered || !rendered.length) return null;
+  return wavBlobFromPcm(rendered, COMPOSER_VOICE_SAMPLE_RATE);
 }
 
 export function formatVoiceElapsed(ms) {
@@ -270,12 +328,17 @@ export function createComposerVoice({
     phase = 'transcribing';
     paint();
     announce(t('composer.voice.transcribing'));
+    // ⑧ 上传前转 16 kHz 单声道 WAV；解不开就原样发 webm（回退，见 encodeVoiceWav 头注）。
+    const wav = await encodeVoiceWav(blob);
+    const upload = wav || blob;
+    const uploadType = wav ? COMPOSER_VOICE_WAV_TYPE : COMPOSER_VOICE_UPLOAD_TYPE;
+    const uploadName = wav ? COMPOSER_VOICE_WAV_FILENAME : COMPOSER_VOICE_FILENAME;
     let text = '';
     try {
-      const res = await request('/api/audio/transcribe?filename=' + COMPOSER_VOICE_FILENAME, {
+      const res = await request('/api/audio/transcribe?filename=' + uploadName, {
         method: 'POST',
-        body: blob,
-        headers: { 'content-type': COMPOSER_VOICE_UPLOAD_TYPE },
+        body: upload,
+        headers: { 'content-type': uploadType },
       });
       if (!res.ok) {
         let raw = '';

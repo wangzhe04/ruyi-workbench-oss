@@ -91,7 +91,10 @@ assert.match(voiceJs, /String\(config\.asrProviderId \|\| ''\)\.trim\(\) \|\| !S
 assert.match(voiceJs, /env\.isSecureContext !== true/, 'composer-voice: 显示判据含安全上下文');
 assert.match(voiceJs, /nav\.mediaDevices/, 'composer-voice: 显示判据含 navigator.mediaDevices');
 assert.match(voiceJs, /Recorder\.isTypeSupported\(COMPOSER_VOICE_MIME\)/, 'composer-voice: 显示判据含 isTypeSupported(webm/opus)');
-assert.match(voiceJs, /headers: \{ 'content-type': COMPOSER_VOICE_UPLOAD_TYPE \}/, 'composer-voice: 上传覆盖 apiRaw 默认的 JSON content-type（否则 400 asr.content_type）');
+// 107-A1：上传类型不再是常量，而是「转码成了就 audio/wav、没成就回退 audio/webm」这一对（见 ⑦d）。
+// 钉的仍是同一件事：必须覆盖 apiRaw 默认的 JSON content-type，否则服务端 400 asr.content_type。
+assert.match(voiceJs, /const uploadType = wav \? COMPOSER_VOICE_WAV_TYPE : COMPOSER_VOICE_UPLOAD_TYPE;/, 'composer-voice: 上传 content-type 二选一（wav／回退 webm）');
+assert.match(voiceJs, /headers: \{ 'content-type': uploadType \}/, 'composer-voice: 上传覆盖 apiRaw 默认的 JSON content-type（否则 400 asr.content_type）');
 assert.ok(!/composerVoice|composer-voice/.test(indexHtml), 'index.html 零静态麦克风标记（未配置 DOM 零漂移）');
 const voiceKeys = [...new Set([...voiceJs.matchAll(/'(composer\.voice\.[a-zA-Z.]+)'/g)].map(m => m[1]))];
 const docsZh = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
@@ -103,5 +106,55 @@ for (const [name, dict] of [['app zh-CN', zh], ['app en-US', en], ['docs zh-CN',
 }
 const voiceBad = [...voiceJs].findIndex(ch => { const code = ch.charCodeAt(0); return code < 32 && code !== 9 && code !== 10; });
 assert.equal(voiceBad, -1, 'composer-voice.js 含控制字符／CR @' + voiceBad);
+
+// ⑦ 107-A1（46 号文 §5 A1；45 号文 §9.6.3 真机实测）：语音识别【协议】适配的机械锁。
+//   ⑦a provider 级开关只落合法值、空不落字段（存量 config 零漂移，与 audioBaseUrl 同模具）；
+//   ⑦b 出站真的分叉（chat-audio 打 /chat/completions + input_audio data URI），且 usage 按
+//      prompt_tokens/completion_tokens 映射（chat 回体没有 input_tokens —— 抄错就永远落估算）；
+//   ⑦c 安全性质仍在【同一支】上：目标 URL 只来自配置、错误体先脱敏再裁 1000、120s 超时、8KB 回体；
+//   ⑦d 浏览器端【无条件】转 WAV，且前端不许知道 provider 配的是哪种协议（知道了就会长出第二条分叉）；
+//   ⑦e 设置页有选择器、缺省值 delete 不落字段、双语键齐全。
+// 反向：把 ⑦b 的分叉改成永远走 transcriptions → asr-transcribe.e2e.js H2 红；把 ⑦d 的转码摘掉 →
+//   composer-voice.browser.e2e.js ①c/c2 红（请求体退回 EBML 魔数）。
+assert.match(src05, /const asrProtocol = raw\.asrProtocol === 'chat-audio' \? 'chat-audio' : '';/, '05: asrProtocol 只落合法值（⑦a）');
+assert.match(src05, /\.\.\.\(asrProtocol \? \{ asrProtocol \} : \{\}\), \/\/ 107-A1/, '05: asrProtocol 空不落字段（⑦a 零漂移）');
+assert.match(src05, /const chatAudio = provider\.asrProtocol === 'chat-audio';/, '05: 转写出站按协议分叉（⑦b）');
+assert.match(src05, /target = base \+ '\/chat\/completions';/, "05: chat-audio 打 /chat/completions（⑦b）");
+assert.match(src05, /type: 'input_audio', input_audio: \{ data: 'data:' \+ mime \+ ';base64,'/, '05: chat-audio 用 input_audio data URI（⑦b）');
+assert.match(src05, /const realIn = chatAudio \? pick\('prompt_tokens', 'input_tokens'\)/, '05: chat 回体 usage 映射 prompt_tokens（⑦b）');
+assert.match(src05, /const realOut = chatAudio \? pick\('completion_tokens', 'output_tokens'\)/, '05: chat 回体 usage 映射 completion_tokens（⑦b）');
+{
+  // ⑦c 安全与记账性质【只有一份】：这些行必须落在两条协议都会经过的公共段里，不许某一支独有。
+  const fn = src05.slice(src05.indexOf('async function transcribeAudioViaProvider('));
+  const body = fn.slice(0, fn.indexOf('\n}\n') + 3);
+  assert.ok(body.includes("const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);"), '05: 目标 URL 只来自配置（⑦c）');
+  assert.equal((body.match(/AbortSignal\.timeout\(120000\)/g) || []).length, 1, '05: 120s 超时只有一处（⑦c 两协议共用）');
+  assert.equal((body.match(/if \(upstreamText\.length > 8192\) upstreamText = upstreamText\.slice\(0, 8192\);/g) || []).length, 1, '05: 8KB 回体上限只有一处（⑦c）');
+  assert.equal((body.match(/const snippet = redact\(/g) || []).length, 1, '05: 上游错误体脱敏只有一处（⑦c）');
+  assert.match(body, /redact\(upstreamText\.replace\([^)]*\)\)\.slice\(0, 1000\)/, '05: 顺序仍是【先脱敏再裁 1000】（⑦c，107-S1 的教训）');
+  assert.equal((body.match(/kind: 'aux', note: 'asr'/g) || []).length, 1, "05: 记账 kind:'aux' note:'asr' 只有一处（⑦c）");
+  for (const code of ['asr.upstream_unreachable', 'asr.upstream', 'asr.bad_response']) {
+    assert.ok(body.includes("code: '" + code + "'"), '05: 错误码 ' + code + ' 沿用（⑦c）');
+  }
+}
+// ⑦d 浏览器端无条件转 WAV（不看协议）
+assert.match(voiceJs, /export const COMPOSER_VOICE_SAMPLE_RATE = 16000;/, 'composer-voice: 目标采样率 16 kHz（⑦d）');
+assert.match(voiceJs, /export async function encodeVoiceWav\(blob, env = globalThis\)/, 'composer-voice: WAV 转码函数（⑦d）');
+assert.match(voiceJs, /const wav = await encodeVoiceWav\(blob\);/, 'composer-voice: 上传前无条件转码（⑦d）');
+assert.match(voiceJs, /const upload = wav \|\| blob;/, 'composer-voice: 转码失败原样发 webm（⑦d 回退）');
+{
+  // ⑦d 的要害是【代码】不许读协议（注释里说清楚「为什么无条件转」反而是要留的）。所以判的是
+  // 非注释行：谁哪天写了 if (config.asrProtocol === …) 才红，改注释措辞不会误伤。
+  const codeUse = voiceJs.split('\n').filter(l => l.includes('asrProtocol') && !l.trimStart().startsWith('//'));
+  assert.deepEqual(codeUse, [], 'composer-voice 的代码不许读 provider 协议（⑦d：知道了就会长出第二条分叉）');
+}
+// ⑦e 设置页
+assert.match(providersJs, /ac\.value = p\.asrProtocol === 'chat-audio' \? 'chat-audio' : 'transcriptions';/, '前端: provider 卡片有协议选择器（⑦e）');
+assert.match(providersJs, /if \(ac\.value === 'chat-audio'\) p\.asrProtocol = 'chat-audio'; else delete p\.asrProtocol;/, '前端: 缺省值 delete 不落字段（⑦e）');
+for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
+  for (const k of ['provider.asrProtocol', 'provider.asrProtocol.transcriptions', 'provider.asrProtocol.chatAudio', 'provider.asrProtocol.hint']) {
+    assert.ok(typeof dict[k] === 'string' && dict[k].length > 0, name + ' 缺键 ' + k + '（⑦e）');
+  }
+}
 
 console.log('ASR CONFIG UI STATIC E2E: ALL PASS');

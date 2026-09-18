@@ -1796,6 +1796,7 @@
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
+        "asrChatContentText",
         "collectDisplayUrlRestores",
         "configSecretValueOrCleared",
         "configUrlOrCleared",

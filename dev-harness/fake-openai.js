@@ -430,6 +430,47 @@ const server = http.createServer((req, res) => {
       }
       let parsed = {};
       try { parsed = JSON.parse(body); } catch { /* ignore */ }
+      // 107-A1(46 号文 §5 A1;45 号文 §9.6.3 真机实测协议):chat-audio 形 ASR 桩 —— 消息里带
+      // input_audio 的【非流式】chat 请求,按 MiMo/百炼文档形回 choices[0].message.content 文本 +
+      // usage(prompt_tokens/completion_tokens,不是 transcriptions 桩的 input_/output_tokens)。
+      // 三条夹具分支复刻真上游的脾气:mime 不在白名单里 400(MiMo 原话)、model 含 'chatbadshape'
+      // 回没有 choices 的 200、model/filename 含 'upstream500' 回 500。纯增量:不带 input_audio 的
+      // chat 请求一个字节都不经过这里。
+      {
+        const msg = Array.isArray(parsed.messages) ? parsed.messages.find(m => Array.isArray(m && m.content) && m.content.some(c => c && c.type === 'input_audio')) : null;
+        const part = msg ? msg.content.find(c => c && c.type === 'input_audio') : null;
+        if (part) {
+          const model = String(parsed.model || '');
+          const data = String((part.input_audio && part.input_audio.data) || '');
+          const head = data.match(/^data:([^;,]*);base64,/);
+          const mime = head ? head[1] : '';
+          const byteLen = head ? Buffer.from(data.slice(head[0].length), 'base64').length : 0;
+          const lang = String((parsed.asr_options && parsed.asr_options.language) || '');
+          if (model.includes('upstream500')) {
+            res.writeHead(500, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'fake asr chat exploded', type: 'fake_error', code: 500 } }));
+            return;
+          }
+          if (!['audio/wav', 'audio/mpeg', 'audio/mp3'].includes(mime)) {
+            // MiMo 实测原话(45 号文 §9.6.3):webm 在 chat-audio 形上是 400,不是 404,也不是静默降级。
+            res.writeHead(400, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3. Got: ' + mime, type: 'invalid_request_error', code: 400 } }));
+            return;
+          }
+          if (model.includes('chatbadshape')) {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ id: 'chatcmpl-fake-asr', object: 'chat.completion', choices: [] }));
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            id: 'chatcmpl-fake-asr', object: 'chat.completion', model,
+            choices: [{ index: 0, message: { role: 'assistant', content: '[fake-asr-chat] model=' + model + ' mime=' + mime + ' bytes=' + byteLen + (lang ? ' lang=' + lang : '') }, finish_reason: 'stop' }],
+            usage: { prompt_tokens: 111, completion_tokens: 7, total_tokens: 118 },
+          }));
+          return;
+        }
+      }
       // 第45波 45a:摘要请求落盘(非流式请求 = 摘要内核的调用形状),供预算化/map-reduce 断言。
       if (RECORD_SUMMARY_DIR && parsed.stream === false) {
         summarySeq += 1;

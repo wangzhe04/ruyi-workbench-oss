@@ -32,6 +32,12 @@ const ALLOWED = {
   'settings.providers.hint':
     '"/chat/completions" 是 OpenAI 兼容协议的字面 REST 路径（第三方接口名，不可意译）；' +
     '本键其余散文已把 "chats" 改成 "conversations"，只留这一处字面路径。',
+  'provider.asrProtocol.chatAudio':
+    '107-A1：选项名要说清这条协议打的是哪个端点，"/chat/completions" 是 OpenAI 兼容协议的字面 REST 路径' +
+    '（第三方接口名，不可意译）；与 provider.apiStyle.chat 同类。',
+  'provider.asrProtocol.hint':
+    '同上，说明文字里引用的是同一个字面路径 /chat/completions 与它的风格名 "Chat style"（第三方协议名），' +
+    '不是 Ruyi 的线程概念。',
 };
 
 // 反向验证（已实测，见提交说明）：① 把 session.new 的值改回 "New chat" → 下面第①段红；

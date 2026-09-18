@@ -38,8 +38,13 @@ your draft survives, and the message names the entry and asks you to type the ke
 explicitly. See section 7.
 
 Speech recognition, when configured, reuses the same provider record: `audioBaseUrl` (falling back to `baseUrl`)
-plus the same API key, against the OpenAI-shaped `/audio/transcriptions` endpoint. A provider that does not offer
-that endpoint cannot do voice at all, and Ruyi says so rather than guessing.
+plus the same API key. Which dialect Ruyi speaks to it is a per-provider setting, `providers[].asrProtocol`:
+`transcriptions` (the OpenAI-shaped multipart `/audio/transcriptions`, the default, and the only shape before
+2.8.0) or `chat-audio` (`/chat/completions` with an `input_audio` data URI, which is how MiMo and Bailian
+document ASR). A provider that speaks neither cannot do voice at all, and Ruyi says so rather than guessing.
+Chat style only accepts the formats the upstream declares — MiMo refuses webm with a plain 400 — so microphone
+recordings are converted to 16 kHz mono WAV in the browser before upload, while audio attachments and the
+`audio_transcribe` tool send the user's original file untranscoded.
 
 ### Desktop MCP and honest metering
 
@@ -66,9 +71,12 @@ request and the normal permission confirmation; it cannot replace the built-in A
 ### Voice transcription
 
 `POST /api/audio/transcribe` is the only new outbound surface in 2.8.0: a 25 MB gate (declared Content-Length plus
-a streaming tally), a 120 s timeout, an OpenAI-shaped multipart request to the provider's `/audio/transcriptions`,
-and a usage ledger line of kind `aux` marked `estimated` when the upstream reports no usage. The native tool
-`audio_transcribe` is exec tier because it sends a user file off the machine, and its result is flagged untrusted.
+a streaming tally), a 120 s timeout, a request to the provider in whichever dialect `providers[].asrProtocol`
+selects (OpenAI-shaped multipart to `/audio/transcriptions` by default, or `/chat/completions` with an
+`input_audio` data URI), and a usage ledger line of kind `aux` marked `estimated` when the upstream reports no
+usage (the chat dialect's `prompt_tokens` / `completion_tokens` are mapped, so it normally reports real numbers).
+The native tool `audio_transcribe` is exec tier because it sends a user file off the machine, and its result is
+flagged untrusted.
 Transcription is off until `asrProviderId` and `asrModel` are both set; unset means the composer builds no
 microphone node at all.
 
@@ -240,7 +248,7 @@ today; only the test harness does.
 | `schedulerEnabledV1` | Scheduled tasks | fake-clock e2e only | `false` (with no tasks it already polls nothing) |
 | `newThreadEngine: 'last'` | A new thread follows the engine you last used | API-level e2e only; **changes existing users' default behaviour** | set it to `'global'` |
 | `stewardExemptDelegationV1` | The steward may approve permanently exempt, non-floor actions (ten gates; see user guide section 9) | fake-endpoint e2e plus real-model latency, quoted in section 7 | `false` (the same key as the Settings checkbox; **the steward cannot change it itself**) |
-| `asrProviderId` / `asrModel` (both empty from the factory) | Voice input | **Unconfigured means zero behaviour**, verified: the microphone node is never built. The feature itself was **unusable on the developer's machine**: all four candidate ASR endpoints returned 404 | choose Off for speech recognition, or clear both keys |
+| `asrProviderId` / `asrModel` (both empty from the factory) | Voice input | **Unconfigured means zero behaviour**, verified: the microphone node is never built. The default protocol (OpenAI-shaped `/audio/transcriptions`) returned **404 on all four candidate endpoints**, so set "Speech-to-text protocol" to Chat style per provider (`providers[].asrProtocol='chat-audio'`) — MiMo and Bailian verified working, Hunyuan never verified | choose Off for speech recognition, or clear both keys |
 | Steward memory `expiresAt` / `scope` | Expiry and scope on remembered lines | e2e; purely additive fields | no switch (absent means permanent and everywhere, as in 2.7.0) |
 
 The engine and context switches carried by 2.7.0 — observation reduction and re-read, session notes, summary
@@ -273,7 +281,7 @@ for byte identical to the previous release.
 
 1. 2.7.0's `sanitizeProvider` **rebuilds** `providers[].models[]` into `{id, label}` and **writes `config.json`
    back on the first config read**, so `models[].caps` (the speech and vector capability tags),
-   `providers[].audioBaseUrl` and `hiddenModels` are gone after one start.
+   `providers[].audioBaseUrl`, `providers[].asrProtocol` and `hiddenModels` are gone after one start.
 2. 2.7.0's steward-memory normalization **does not know** `expiresAt` or `scope`, so the next memory write
    rewrites the store and drops both fields. The entries themselves survive.
 
@@ -291,7 +299,7 @@ for byte identical to the previous release.
    and `steward\` over it, **then** start. Starting first and restoring after lets the startup normalization pass
    run over them once.
 5. **If you already downgraded without a backup**: re-tag `models[].caps` for each speech or vector model in
-   Settings, re-pick the speech recognition pair and `audioBaseUrl`, expect models hidden through `hiddenModels`
+   Settings, re-pick the speech recognition pair, `audioBaseUrl` and the speech-to-text protocol, expect models hidden through `hiddenModels`
    to reappear in the model list, and expect steward memory expiry and scope to be back at permanent and
    everywhere.
 
@@ -303,7 +311,7 @@ for byte identical to the previous release.
   disk, keeping unrecognized top-level keys as-is, so `asrProviderId`, `asrModel`, `stewardExemptDelegationV1`,
   `schedulerEnabledV1` and `newThreadEngine` merely go unread and work again after an upgrade. **The only things
   erased are the two classes above**: the **nested** fields inside `providers[]` (`models[].caps`,
-  `audioBaseUrl`, `hiddenModels`, rebuilt by `sanitizeProvider`) and steward memory's `expiresAt` / `scope`.
+  `audioBaseUrl`, `asrProtocol`, `hiddenModels`, rebuilt by `sanitizeProvider`) and steward memory's `expiresAt` / `scope`.
 
 ## Brand and compatibility
 

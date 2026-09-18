@@ -10,6 +10,12 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 反向(45 号文 §4 ②):把 25 MB 闸换成 MAX_BODY_BYTES(晚于总闸)→ 超一字节夹具从 413 变 200,红;
 //   摘掉 estimated 标记 → 记账断言红。判据里第二条反向「audioBaseUrl 绕过 URL 校验 → 私网红」
 //   按 45 号文 §1.6 不适用(baseUrl 今天就没有那套校验,同等对待=无准入,107 记档)。
+// 107-A1(46 号文 §5 A1)追加第三靴 H:provider.asrProtocol='chat-audio' 时出站改成
+//   POST {base}/chat/completions + input_audio data URI(45 号文 §9.6.3 真机实测的 MiMo/百炼协议)。
+//   H1 字段过 sanitizeProvider 存活 / H2 成功且真的打在 chat 支 / H2b-c usage 按
+//   prompt_tokens+completion_tokens 映射(estimated:false,账本记真值) / H3 webm 被上游 400 拒
+//   (浏览器端转 WAV 的理由) / H4 回体解析不出文本 → 与 Whisper 分支同一个 asr.bad_response。
+//   反向:把 05 的协议分叉改成永远走 transcriptions → H2 红(回显来自 chat 支的桩,Whisper 支给不出)。
 // 判定行:`ASR TRANSCRIBE E2E: ALL PASS`。
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
@@ -190,6 +196,52 @@ function readUsageRows() {
     // G1 filename 清洗:穿越形态回落默认名 audio.webm
     r = await reqAsr('?filename=' + encodeURIComponent('../evil.webm'), audio1234, 'audio/webm');
     ok(r.status === 200 && r.json && /filename=audio\.webm/.test(r.json.text || ''), 'G1 ../evil.webm → 回落 audio.webm (' + JSON.stringify((r.json && r.json.text || '').slice(0, 70)) + ')');
+
+    // ═══ 第三靴:107-A1 chat-audio 协议(45 号文 §9.6.3 真机实测:MiMo/百炼的 ASR 就是这套) ═══
+    killp(wb); wb = null; await sleep(300);
+    writeConfig({
+      providers: [{
+        id: 'asr-p', label: 'ASR', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + ASR_PORT,
+        apiKey: ASR_FAKE_KEY, model: 'mimo-asr', models: [{ id: 'mimo-asr', label: 'mimo-asr', caps: ['asr'] }],
+        asrProtocol: 'chat-audio',
+      }],
+      asrProviderId: 'asr-p', asrModel: 'mimo-asr',
+    });
+    wb = spawnWB();
+    ok(await waitForHttp(), 'H0 workbench listening (chat-audio)');
+    TOKEN = await getToken();
+    {
+      const status = await reqRaw('GET', '/api/status');
+      const p0 = status.json && status.json.config && status.json.config.providers && status.json.config.providers[0];
+      ok(!!p0 && p0.asrProtocol === 'chat-audio', 'H1 asrProtocol 过 sanitizeProvider 存活 (' + (p0 && p0.asrProtocol) + ')');
+    }
+    // H2 wav 成功:打的是 /chat/completions(桩只有那一支给得出 [fake-asr-chat]),回显 mime/字节数/语言
+    const wav2048 = Buffer.alloc(2048, 3);
+    r = await reqAsr('?filename=voice.wav&language=zh', wav2048, 'audio/wav');
+    ok(r.status === 200 && r.json && r.json.ok === true && /\[fake-asr-chat\] model=mimo-asr mime=audio\/wav bytes=2048 lang=zh/.test(r.json.text || ''),
+      'H2 chat-audio 成功 → 200,出站是 chat/completions + input_audio data URI (' + JSON.stringify((r.json && r.json.text || '').slice(0, 90)) + ')');
+    // H2b usage 映射:chat 回体是 prompt_tokens/completion_tokens → estimated:false,账本记真值
+    ok(r.json && r.json.estimated === false, 'H2b chat 回体带 usage → estimated:false (' + (r.json && r.json.estimated) + ')');
+    await sleep(400);
+    {
+      const row = readUsageRows().filter(x => x.note === 'asr').pop();
+      ok(!!row && row.inTok === 111 && row.outTok === 7 && row.estimated === false && row.model === 'mimo-asr',
+        'H2c 账本按 prompt_tokens/completion_tokens 记真值 (' + JSON.stringify(row && { inTok: row.inTok, outTok: row.outTok, estimated: row.estimated }) + ')');
+    }
+    // H3 webm 在 chat-audio 上被上游 400 拒(MiMo 实测原话)→ 统一信封 502 + params.status=400。
+    // 这条就是「浏览器端必须转 WAV」的理由,钉在这里,谁把转码摘了先来读它。
+    r = await reqAsr('?filename=voice.webm', wav2048, 'audio/webm');
+    ok(r.status === 502 && r.json && r.json.error && r.json.error.code === 'asr.upstream' && r.json.error.params && r.json.error.params.status === 400
+      && /mime type must be one of/.test(String(r.json.error.message || '')),
+      'H3 webm → 上游 400 → 502 asr.upstream(params.status=400,原话进信封) (status ' + r.status + ' code ' + (r.json && r.json.error && r.json.error.code) + ')');
+    // H4 chat 回体解析不出文本 → asr.bad_response(与 transcriptions 分支同一个码)
+    {
+      const patch = await reqRaw('POST', '/api/config', Buffer.from(JSON.stringify({ asrModel: 'chatbadshape-asr' })), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' });
+      ok(patch.status === 200, 'H4 切 asrModel=chatbadshape-asr (status ' + patch.status + ')');
+      r = await reqAsr('?filename=voice.wav', wav2048, 'audio/wav');
+      ok(r.status === 502 && r.json && r.json.error && r.json.error.code === 'asr.bad_response',
+        'H4 chat 回体没有 choices → 502 asr.bad_response (status ' + r.status + ' code ' + (r.json && r.json.error && r.json.error.code) + ')');
+    }
   } catch (e) {
     fail++; console.log('FAIL exception ' + (e && e.stack || e));
   } finally {

@@ -289,12 +289,15 @@ there is no candidate at all the block renders no controls — **that is not the
 machine has no speech model to choose**. Once saved, the page confirms that speech recognition is on; choosing
 **Off** turns it back off.
 
-> **The prerequisite, stated plainly.** Ruyi speaks only the OpenAI-shaped `/audio/transcriptions` endpoint, so
-> **voice works only with a provider that offers that endpoint**, whatever that provider's own documentation
-> says. Of the four ASR models tested on the developer's own machine — MiMo, two on Bailian, and Hunyuan —
-> **not one offers it; all four returned 404**. So record one short take right after you configure it. If it
-> fails, you did not configure it wrong: move to a provider that offers that endpoint. Ask your administrator
-> if you are not sure which one does.
+> **The prerequisite, stated plainly.** Transcription endpoints come in two dialects. Ruyi speaks both, but
+> **you have to tell it which one this provider speaks**. The default is the OpenAI-shaped
+> `/audio/transcriptions`; of the four ASR models tested on the developer's own machine — MiMo, two on Bailian,
+> and Hunyuan — **not one offers it; all four returned 404**, because they expose ASR through the chat endpoint
+> instead. So **record one short take right after you configure it**. If it fails, you did not configure it
+> wrong — the protocol is most likely set wrong. Ask your administrator to go to Settings → "Models and
+> services" → expand that provider's "Protocol & capabilities" → set "Speech-to-text protocol" to **Chat
+> style**, then try again. MiMo and Bailian work over the chat style on the developer's machine; the Hunyuan
+> one was never verified on either.
 
 **Using it.** Once configured, a microphone appears next to the send button in the composer of **both the
 Workbench lens and the Steward lens**.
@@ -319,7 +322,7 @@ Workbench lens and the Steward lens**.
 | No microphone was found | This machine has no recording device, or another program holds it exclusively. |
 | Speech recognition is not set up yet | No provider and model pair is selected, or that provider was deleted. Choose them again in Settings. |
 | This recording is too long to transcribe | Over the 25 MB transcription limit; you will not normally reach it inside three minutes. |
-| The transcription service did not succeed this time | The provider's end errored or is unreachable — most often the missing `/audio/transcriptions` endpoint described above. |
+| The transcription service did not succeed this time | The provider's end errored or is unreachable — most often **the wrong protocol** as described above (the default `/audio/transcriptions` is missing there and returns 404). |
 | No words were recognized | The transcript came back empty. Try a quieter room, closer to the microphone, and say it again. |
 
 **Two known limits.** First, microphone permission inside the desktop shell (the WebView2 host) **has not been

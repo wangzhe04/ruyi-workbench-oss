@@ -912,7 +912,21 @@ function providerCard(p, idx) {
   serverSearchLbl.appendChild(ssc); serverSearchLbl.appendChild(document.createTextNode(' ' + t('provider.serverWebSearch')));
   const serverSearchHint = el('p', 'field-help muted prov-server-search-hint'); serverSearchHint.textContent = t('provider.serverWebSearch.hint');
   serverSearchLbl.appendChild(serverSearchHint);
-  cap.append(reason, visionLbl, styleLbl, serverSearchLbl);
+  // 107-A1(45 号文 §9.6.3 实测):asrProtocol —— 这家 provider 的【转写协议】。Whisper 形
+  // (POST /audio/transcriptions,缺省)与 chat-audio 形(POST /chat/completions + input_audio data URI,
+  // MiMo/百炼官方文档协议)。实测:四个 ASR 模型走 Whisper 形全 404,按文档协议直调 200 且字准确率 100%。
+  // 与 apiStyle 同模具:缺省值【不写字段】(delete),存量 config 零漂移。
+  const asrLbl = el('label', 'check prov-asr-protocol'); asrLbl.appendChild(document.createTextNode(' ' + t('provider.asrProtocol') + ' '));
+  const ac = el('select'); ac.className = 'prov-asr-protocol-select';
+  for (const [val, key] of [['transcriptions', 'provider.asrProtocol.transcriptions'], ['chat-audio', 'provider.asrProtocol.chatAudio']]) {
+    const o = el('option'); o.value = val; o.textContent = t(key); ac.appendChild(o);
+  }
+  ac.value = p.asrProtocol === 'chat-audio' ? 'chat-audio' : 'transcriptions';
+  ac.onchange = () => { if (ac.value === 'chat-audio') p.asrProtocol = 'chat-audio'; else delete p.asrProtocol; };
+  asrLbl.appendChild(ac);
+  const asrHint = el('p', 'field-help muted prov-asr-protocol-hint'); asrHint.textContent = t('provider.asrProtocol.hint');
+  asrLbl.appendChild(asrHint);
+  cap.append(reason, visionLbl, styleLbl, serverSearchLbl, asrLbl);
   syncServerSearchVisibility();
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));

@@ -8,8 +8,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 判据（§4 ⑦ 逐条）：
 //   ① 工作台输入框：「前缀 后缀」光标放在两词之间 → 真鼠标点麦克风 → 录 ≥1.2 s → 再点停止 →
-//      非空 webm 字节到了服务端（请求体 EBML 魔数 1a45dfa3、Content-Type 被覆盖成 audio/webm、
-//      回显 filename=voice.webm bytes>0 且与请求体字节数相等）→ 回填在【光标处】（前缀＋转写＋后缀）→
+//      非空音频字节到了服务端（107-A1：录的是 webm/opus，上传前无条件转 16 kHz 单声道 16 bit WAV ——
+//      请求体 RIFF/WAVE 魔数、Content-Type 被覆盖成 audio/wav、头里的采样率／声道数／位深都钉住、
+//      回显 filename=voice.wav bytes>0 且与请求体字节数相等）→ 回填在【光标处】（前缀＋转写＋后缀）→
 //      发送计数 0（页面里包一层 window.fetch，数 /api/(chat/stream|steer|steward/(message|act))）。
 //   ② 同一套流程在管家视角的输入框里再走一遍。
 //   ③ 键盘：Tab 走到麦克风 → Space 开始、Space 结束，aria-pressed 跟着翻，aria-live 节点播报过；
@@ -18,6 +19,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ⑤ 双主题（默认深色 ＋ ?theme=light）× 390px：两个视角的麦克风都看得见、点得中，输入框保有可用宽度
 //      （getBoundingClientRect 读数打印出来），录音态变宽之后也一样。
 //   ⑥ 失败：转写上游 5xx／转写为空／麦克风被拒 —— 播报本地化人话、按钮进错误态、输入框不动、零未捕获异常。
+//   ⑧ 107-A1 回退：把 OfflineAudioContext 换成抛异常的桩 → 转码解不开就原样发 webm（EBML 魔数、
+//      Content-Type 回退 audio/webm），转写照样成功回填 —— 录完了发不出去比「协议不对」更坏。
 //   另加一条：录满 3 分钟自动结束（把页面的 performance.now 拨快 181 s，不点第二下，自己转写回填）。
 //
 // 反向（交付记录里有读数）：㈠ 模块回填后顺手点发送 → ① 发送计数红；㈡ 启动参数拿掉一个媒体开关 →
@@ -208,11 +211,22 @@ const INSTALL_PROBES = `(() => {
     if (url.indexOf('/api/audio/transcribe') >= 0) {
       const body = init && init.body;
       const headers = (init && init.headers) || {};
-      const record = { url, contentType: String(headers['content-type'] || ''), size: body && typeof body.size === 'number' ? body.size : -1, magic: '' };
+      const record = { url, contentType: String(headers['content-type'] || ''), size: body && typeof body.size === 'number' ? body.size : -1, magic: '', riff: '', wave: '', rate: 0, channels: 0, bits: 0 };
       probe.asr.push(record);
       if (body && typeof body.slice === 'function') {
-        body.slice(0, 4).arrayBuffer().then(buffer => {
-          record.magic = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        // 107-A1：读满 44 字节的 WAV 头 —— 魔数（RIFF/WAVE）＋ 声道数 ＋ 采样率 ＋ 位深都要能钉。
+        body.slice(0, 44).arrayBuffer().then(buffer => {
+          const bytes = new Uint8Array(buffer);
+          record.magic = Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join('');
+          const ascii = (from, to) => String.fromCharCode(...bytes.slice(from, to));
+          if (bytes.length >= 44) {
+            const view = new DataView(buffer);
+            record.riff = ascii(0, 4);
+            record.wave = ascii(8, 12);
+            record.channels = view.getUint16(22, true);
+            record.rate = view.getUint32(24, true);
+            record.bits = view.getUint16(34, true);
+          }
         }).catch(() => {});
       }
     }
@@ -379,7 +393,7 @@ try {
     await cdp.send('Input.dispatchKeyEvent', { type: k.text ? 'keyDown' : 'rawKeyDown', key: k.key, code: k.code, windowsVirtualKeyCode: k.windowsVirtualKeyCode, ...(k.text ? { text: k.text } : {}) });
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k.key, code: k.code, windowsVirtualKeyCode: k.windowsVirtualKeyCode });
   };
-  const ECHO = /\[fake-asr\] model=whisper-1 filename=voice\.webm bytes=(\d+)/;
+  const ECHO = /\[fake-asr\] model=whisper-1 filename=voice\.wav bytes=(\d+)/;
   // 一趟「点开始 → 录 ms → 点结束 → 等回填」。返回回填后的现场与本趟新增的转写请求。
   const recordByMouse = async (micSel, inputSel, original, caret, ms) => {
     const baseline = await cdp.evaluate(PROBE);
@@ -401,13 +415,17 @@ try {
     ok(Boolean(run.during) && /^\d+:\d{2}$/.test(run.during.text) && run.during.text !== '0:00',
       `${tag}b 录音中可见计时 m:ss 在走（实得「${run.during && run.during.text}」）`);
     const req = run.requests[run.requests.length - 1] || null;
-    ok(run.requests.length === 1 && req && /filename=voice\.webm/.test(req.url) && req.contentType === 'audio/webm' && req.size > 0 && req.magic === '1a45dfa3',
-      `${tag}c 恰好一发转写请求：filename=voice.webm、Content-Type 覆盖成 audio/webm、请求体非空且是真 WebM（实得 ${JSON.stringify(run.requests)}）`);
+    // 107-A1：上传前无条件转 16 kHz 单声道 16 bit WAV（webm/opus 在 chat-audio 形上游是 400）。
+    // 钉死 WAV 魔数与采样率——摘掉转码就退回 EBML 魔数 1a45dfa3 + Content-Type audio/webm，这条当场红。
+    ok(run.requests.length === 1 && req && /filename=voice\.wav/.test(req.url) && req.contentType === 'audio/wav' && req.size > 44 && req.magic === '52494646',
+      `${tag}c 恰好一发转写请求：filename=voice.wav、Content-Type 覆盖成 audio/wav、请求体是真 WAV（RIFF 魔数）（实得 ${JSON.stringify(run.requests)}）`);
+    ok(req && req.riff === 'RIFF' && req.wave === 'WAVE' && req.rate === 16000 && req.channels === 1 && req.bits === 16,
+      `${tag}c2 WAV 头就是 16 kHz／单声道／16 bit（实得 riff=${req && req.riff} wave=${req && req.wave} rate=${req && req.rate} ch=${req && req.channels} bits=${req && req.bits}）`);
     const value = run.filled ? run.filled.value : '';
     const transcript = value.startsWith(before) && value.endsWith(after) ? value.slice(before.length, value.length - after.length) : '';
     const echo = transcript.match(ECHO);
     ok(Boolean(echo) && Number(echo[1]) > 0 && req && Number(echo[1]) === req.size,
-      `${tag}d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.webm bytes=${echo ? echo[1] : '?'}（>0，且与请求体 ${req ? req.size : '?'} 字节相等）`);
+      `${tag}d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.wav bytes=${echo ? echo[1] : '?'}（>0，且与请求体 ${req ? req.size : '?'} 字节相等）`);
     ok(Boolean(run.filled) && value === before + transcript + after && Boolean(echo) && transcript === echo[0],
       `${tag}e 回填在光标处：「${before}」＋转写＋「${after}」（实得 ${JSON.stringify(value)}）`);
     ok(Boolean(run.filled) && run.filled.caret === before.length + transcript.length && run.filled.caretEnd === run.filled.caret && run.filled.active === true && run.filled.pressed === 'false',
@@ -552,6 +570,38 @@ try {
     const exNew = cdpExceptions.slice(exBase);
     ok(exNew.length === 0 && errAfter.length === errBase,
       `E4 三种失败全程零未捕获异常（CDP exceptionThrown 增量 ${JSON.stringify(exNew)}；页面 error/unhandledrejection 增量 ${JSON.stringify(errAfter.slice(errBase))}）`);
+  }
+
+  /* ═════════ ⑧ 107-A1：转码解不开 → 原样发 webm（回退不能把人卡死在「录完了发不出去」） ═════════ */
+  {
+    const patched = await cdp.evaluate(`(() => {
+      window.__realOAC = window.OfflineAudioContext;
+      window.OfflineAudioContext = function () { throw new Error('e2e: decode unavailable'); };
+      window.webkitOfflineAudioContext = window.OfflineAudioContext;
+      return { patched: window.OfflineAudioContext !== window.__realOAC };
+    })()`);
+    ok(Boolean(patched && patched.patched), 'J0 把 OfflineAudioContext 换成抛异常的桩（模拟这段字节解不开）');
+    const fbText = '回退 前后';
+    const fbRun = await recordByMouse('#composerVoiceBtn', '#promptInput', fbText, 3, 1500);
+    const fbReq = fbRun.requests[fbRun.requests.length - 1] || null;
+    ok(fbRun.requests.length === 1 && fbReq && /filename=voice\.webm/.test(fbReq.url) && fbReq.contentType === 'audio/webm' && fbReq.magic === '1a45dfa3',
+      `J1 转码失败 → 原样发 webm（EBML 魔数、Content-Type 回退 audio/webm）（实得 ${JSON.stringify(fbRun.requests)}）`);
+    const fbValue = fbRun.filled ? fbRun.filled.value : '';
+    ok(/\[fake-asr\] model=whisper-1 filename=voice\.webm bytes=\d+/.test(fbValue) && fbValue.startsWith('回退 ') && fbValue.endsWith('前后'),
+      `J2 回退路径照样转写成功并回填在光标处（实得 ${JSON.stringify(fbValue)}）`);
+    const restored = await cdp.evaluate(`(() => { window.OfflineAudioContext = window.__realOAC; window.webkitOfflineAudioContext = window.__realOAC; delete window.__realOAC; return typeof window.OfflineAudioContext === 'function'; })()`);
+    ok(restored === true, 'J3 还原 OfflineAudioContext');
+    // 回填进去的是一长串回显文本，而草稿会跨重载留着 —— 不清掉，后面 ④ 的 390px 胶囊高度断言
+    // 量到的就是「两行输入框」（实测 82px），红得跟麦克风一点关系都没有。清成空串并派发 input 让
+    // 自适应高度与草稿一起回位。
+    const cleared = await cdp.evaluate(`(() => {
+      const box = document.getElementById('promptInput');
+      if (!box) return null;
+      box.value = '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      return { value: box.value };
+    })()`);
+    ok(Boolean(cleared) && cleared.value === '', 'J4 清掉回填草稿（否则后面的窄屏高度断言量的是两行输入框）');
   }
 
   /* ═════════ ② 管家视角输入框 ═════════ */

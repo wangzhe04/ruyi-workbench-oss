@@ -2160,6 +2160,11 @@
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 
+  ,"provider.asrProtocol": "Speech-to-text protocol"
+  ,"provider.asrProtocol.transcriptions": "Whisper style (/audio/transcriptions)"
+  ,"provider.asrProtocol.chatAudio": "Chat style (/chat/completions + input_audio)"
+  ,"provider.asrProtocol.hint": "Which dialect this provider's transcription endpoint speaks. OpenAI/Whisper style is the default; Xiaomi MiMo and Alibaba Bailian expose ASR as a chat endpoint — they have no /audio/transcriptions (it 404s), so pick \"Chat style\". Chat style only accepts the audio formats the provider declares (MiMo takes wav/mp3/mpeg only); microphone recordings are converted to 16 kHz mono WAV before upload, while audio attachments and the audio_transcribe tool send your original file."
+
   ,"ask.countdown": "{{time}} left to answer"
   ,"chat.attachmentView": "View image: {{name}}"
   ,"chat.attachmentViewerAria": "Image preview"

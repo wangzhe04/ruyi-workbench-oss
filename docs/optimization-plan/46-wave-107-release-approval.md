@@ -1133,3 +1133,110 @@ D1 只改了中文三本，S1 的「发现但没修」第 5 条自己点了名�
 
 1. **`acc` 没动**。它不是 `fake-mcp.js` 夹具（命令是 `python -X utf8 -m ai_computer_control.server`），所以不在拍板 10 的口径里；但它用的是**裸 `python`**，本会话与 `claude mcp list` 都显示连不上，而同机真正可用的是 `ai-computer-control`（指到嵌入式 python 全路径）。**大概率是一条坏掉的重复条目**，删不删是用户的事，本刀不替他决定。
 2. **19 个 `fake-mcp.js` 残留进程没杀**。仓里的 MCP 相关 e2e **自己也会起 `fake-mcp.js`**，而 A1 那一刀的回归此刻正在跑——按名字一刀切会把它的测试杀成假红（同一个模具：记忆 `ruyi-browser-e2e-leaks-edge`）。等 A1 收工后收尸，或者用户重启一次自然就没了。
+
+### A1 · 语音协议适配（2026-09-18）
+
+拍板 9「补」：[45 号文 §9.6.3](45-wave-127-service-catalog-and-voice.md) 那一轮真机真 key 实测的结论直接采信，不重跑——**用户已配的四个 ASR 模型走如意今天的 Whisper 形端点全部 404**（MiMo `mimo-v2.5-asr`、百炼 `qwen3-asr-flash-2026-02-10` 与 `fun-asr-flash-2026-06-15`、混元 `hy-asr-3.0-preview`），而 MiMo 与百炼**按各自官方文档的 `chat/completions` ＋ `input_audio` 协议直调都 200、字准确率 100%**；MiMo 另外**明确拒收 webm**（400「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3. Got: audio/webm」），而麦克风今天只录得出 webm/opus。所以这一刀要补的是**协议**与**格式**两件事，不是新功能。
+
+#### 开工前重核的坐标（行号是改后现值）
+
+| 位置 | 是什么 |
+|---|---|
+| `ruyi-workbench/app/src/05-claude-engine.js:1916` | `transcribeAudioViaProvider` —— 全波转写出站的**唯一事实源**（改前 `:1891`） |
+| `05:1243`／`:1256` | `sanitizeProvider` 里新字段的清洗与落盘（模具是紧邻的 `audioBaseUrl`，`:1242`／`:1255`） |
+| `13b-api-domain-routes.js:459` | 消费面①：`POST /api/audio/transcribe` |
+| `13b:425` | 消费面②：音频附件尽力转写 |
+| `12-tool-dispatch.js:1283` | 消费面③：`audio_transcribe` 原生工具 |
+| `public/js/composer-voice.js:332` | 麦克风录完之后发请求那一处 |
+| `public/js/provider-settings.js:857` `providerCard` | provider 编辑区的「协议与能力」折叠组（`details.prov-cap`） |
+
+**重核到的一件事改了做法**：三个消费面**全都只调 `transcribeAudioViaProvider` 这一支**，所以协议分叉落在**生产者**里，三个消费面**一行未动**（派单原话是「消费面有两个，都要跟着对」——对法是让它们不必改）。
+
+#### 改了什么
+
+**① provider 级 `asrProtocol`（`05:1243`／`:1256`）**
+
+取值 `'chat-audio'`；其余（含 `'transcriptions'` 这个缺省名本身、大小写变体、非字符串）**一律不落字段**——照 `audioBaseUrl` 的模具，存量 `config.json` 零漂移，读回空即缺省协议。机械锁在 `failover.e2e.js` (D2)（7 个非法值逐个点名）与 (F)（存量形状零新增字段）。
+
+**② 出站按协议分叉（`05:1916`）**
+
+协议只决定三件事：打哪个路径、请求体长什么样、回体的文本／usage 从哪个字段读。`chat-audio` 分支是 `POST {base}/chat/completions`，body `{model, messages:[{role:'user', content:[{type:'input_audio', input_audio:{data:'data:<mime>;base64,…'}}]}], stream:false, asr_options?:{language}}`。**其余全部留在公共段**，逐条对照派单要求：
+
+- 目标 URL 仍只来自配置（`provider.audioBaseUrl || provider.baseUrl`），请求体里的地址一个字不认；
+- 上游错误体**先 `redact` 再裁 1000 字**（顺序没动，107-S1 的教训），控制字符仍在 redact 之前压掉，回体只读 8 KB；
+- 120 s 超时、`asr.upstream_unreachable`／`asr.upstream`／`asr.bad_response` 三个码沿用；chat 分支解析不出文本走 `asr.bad_response`（`choices[0].message.content` 支持字符串与 parts 数组两种形状）；
+- 记账仍是一行 `kind:'aux', note:'asr'`；**usage 映射按协议走**：`chat-audio` 读 `prompt_tokens`／`completion_tokens`（chat 回体没有 `input_tokens`，抄错就永远落估算），另一套作为退路；读不到才按字节／文本长度估算并标 `estimated:true`。
+
+这几条「只有一份」不是靠自觉，是 `asr-config-ui.static.e2e.js` ⑦c 在**函数体内**数出现次数：`AbortSignal.timeout(120000)`／8 KB 截断／`redact(`／`kind: 'aux', note: 'asr'` 各**恰好 1 次**，谁哪天给 chat 分支抄第二条 fetch 就红。
+
+**③ 浏览器端无条件转 WAV（`composer-voice.js:79`／`:101`／`:332`）**
+
+`encodeVoiceWav()`：`OfflineAudioContext.decodeAudioData` 解码 → 16 kHz 单声道离线渲染 → 手写 44 字节 WAV 头 ＋ 小端 PCM16。**无条件转**，不看 provider 配了什么——前端不该知道协议（知道了就会长出第二条分叉），而 Whisper 形端点一样收 wav。解不开（宿主没有 `OfflineAudioContext`、字节不是能解的音频、空音轨）回 `null`，**原样发 webm**：录完了发不出去比「协议不对」更坏。
+
+实测体积（浏览器件打印的真读数）：1.5 s 一段，webm **16 830 B** → WAV **48 044 B**，约 2.9 倍；3 分钟满录约 **5.76 MB**（16000×2×180＋44），仍在服务端 25 MB 闸内，但余量从「二十几倍」缩到「四倍多」，记在这里。
+
+**④ 设置页选择器（`provider-settings.js:914-928`）**
+
+落在 provider 卡片已有的「协议与能力」折叠组里，与 `apiStyle` 同模具：选回缺省时 `delete p.asrProtocol`（不写 `'transcriptions'`），否则存量配置会被一次保存悄悄写胖。四个键 `provider.asrProtocol{,.transcriptions,.chatAudio,.hint}`，**四份 locale 都补了**（`app/public/locales/*` ＋ `docs/i18n/locales/*` —— `i18n.static.e2e.js:23-24` 要求两处**逐字节相同**，只补 app 那两份会红）。
+
+**⑤ 附件通道不变**：`audio_transcribe` 与音频附件送的仍是用户原文件、**不转码**，只是按协议分叉。`tool-dispatch.e2e.js` B5c 用 data URI 的 `mime=audio/webm` 把这件事钉住了。
+
+**⑥ 夹具**：`fake-openai.js` 的 `/chat/completions` 加了一条**纯增量**分支（只有消息里带 `input_audio` 的非流式请求才进），复刻真上游的三种脾气：mime 不在 wav/mpeg/mp3 白名单里回 400（MiMo 原话）、`model` 含 `chatbadshape` 回没有 `choices` 的 200、含 `upstream500` 回 500。
+
+#### 反向验证（逐条：先问「没被拦住的话屏上会有什么不同」，再看红的理由对不对）
+
+| # | 故意破坏 | 预期的屏上差别 | 实得（红在哪、理由对不对） |
+|---|---|---|---|
+| R1 | `05:1922` 改成 `const chatAudio = false`（协议不分叉） | 出站退回 Whisper 形，回显换成另一个桩的话 | `asr-transcribe` **H2/H2b/H2c/H3/H4 五条红**；H2 实得 `"[fake-asr] model=mimo-asr filename=voice.wav bytes=2048"`——**正是 Whisper 桩的回显**（chat 桩给不出这句话），H3 从 502 变 **200**（webm 被 Whisper 桩照单全收）。`asr-config-ui.static` 同时红在「⑦b 转写出站按协议分叉」。理由对。 |
+| R2 | usage 映射改成只读 `input_tokens`／`output_tokens` | 协议仍对，但账落回估算 | `asr-transcribe` **只有 H2b/H2c 红**（H2 仍绿＝协议没受影响），实得 `{"inTok":2,"outTok":16,"estimated":true}`——`inTok=2` 就是 `ceil(2048/1024)` 的估算值；`tool-dispatch` **B5d 红**。理由对。 |
+| R3 | `composer-voice.js:332` 的转码结果强制为 `null` | 请求体退回 EBML、Content-Type 退回 webm | 浏览器件 **10 条红**，实得 `{"contentType":"audio/webm","magic":"1a45dfa3","rate":1835165047,...}`——魔数与采样率读数就是「没转码」的样子；`asr-config-ui.static` 红在「⑦d 上传前无条件转码」。注意这一态下**回退那一组 J1/J2 仍绿**，正确：破坏把回退变成了唯一路径。理由对。 |
+| R4 | 设置页 `onchange` 改成 `p.asrProtocol = ac.value`（缺省值也写） | 选回缺省会把 `'transcriptions'` 写进 config | `asr-config-ui.static` 红在「⑦e 缺省值 delete 不落字段」。**第一次跑时被 ⑦a 先拦下了**（assert 首错即抛），所以把 R5 先还原、单独再跑一遍才看见 ⑦e 自己那一条——**「红了」不等于「红在你以为的那一条」**，这次是靠拆开跑才确认的。 |
+| R5 | `05:1256` 改成无条件落 `asrProtocol` | 存量 config 平白多出一个键 | `failover.e2e.js` **(D2) 七条 ＋ (F) 一条红**，逐个点名是哪个非法值落了盘。理由对。 |
+| R6 | 把 `redact(x).slice(0,1000)` 换成 `redact(x.slice(0,1000))`（先裁后脱敏） | 长错误体里的密钥会被切成半截、正则咬不到 | `asr-config-ui.static` 红在「⑦c 顺序仍是【先脱敏再裁 1000】」。理由对。 |
+
+六处破坏全部还原（`grep -rn REVERSE-CHECK` 零命中），还原后生成器链整条重跑。
+
+#### 第一轮全量抓出来的一件（断言全绿、整件判红）
+
+第一轮 `run-all --parallel 4`：**355 pass / 1 fail / 1 flaky / 356 ran**，exit 1。红的是 `tool-dispatch.e2e.js`，`exit=3221226505`（`0xC0000409`），**重跑仍失败**——但它的现场是：
+
+```
+PASS B5d chat 回体 usage(prompt_tokens/completion_tokens)映射对 → 不落估算
+TOOL-DISPATCH E2E: ALL PASS
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+```
+
+**每一条断言都绿，判定行也打出来了，进程在 `process.exit()` 的路上被 libuv 硬断**。形状阶梯定因（三态对照，不是「跑几次没复现」）：
+
+| 形状 | 退出码 | 次数 |
+|---|---|---|
+| HEAD 版本（没有我新加的那趟 chat-audio 转写） | **0** | 1/1 |
+| ＋新加的转写，不等账落盘 | **0xC0000409** | 3/3（run-all 首跑＋重跑＋我手动单跑） |
+| ＋转写后 `await sleep(300)` 再 `close`／`exit` | **0** | 3/3 |
+
+因果：B5b 那一趟又落了一条 `appendUsageLedger`（链式异步落盘），不等它就 `process.exit()`，Windows 上的 libuv 在 `src\win\async.c:76` 硬断。**这不是新机制**——同一件里 B5 上面本来就有一处 `sleep(300)`，就是为这个；我加的三条断言跑在那个 sleep **之后**，等于把保护绕过去了。修法是在新加的三条之后补同一个等待。
+
+**为什么单跑时我没看见**：第一次单跑我写的是 `node … | grep -E "B5|FAIL|ALL PASS"`——**管道吞掉了退出码**，屏上是一片 PASS ＋ `ALL PASS`，看起来无懈可击（记忆 `ruyi-session-progress-v50` 的第三个坑，这次是第 N 次）。**判据要看 `echo $?`，不能看屏上有没有 FAIL 字样。**
+
+#### 回归读数
+
+逐件单跑（改完、生成器链跑完之后，**都用 `echo $?` 收退出码，不走管道**）：`asr-config-ui.static`、`asr-transcribe`（新增第三靴 H：8 条）、`tool-dispatch`（新增 B5b/B5c/B5d，修后 3 次连跑 exit 0）、`composer-voice.browser`（①c2 新增 WAV 头四项 ＋ 新增第 ⑧ 组 J0–J4 回退）、`failover`（新增 (D2) 八条 ＋ (F) 一条）、`i18n.static`／`i18n-en-terms.static`／`i18n.e2e` —— **全绿**。
+
+全量：第一轮见上（355/1/1，红因已定因已修）；**第二轮**（只改了那一行 `sleep(300)`，src 一个字未动、产物新鲜度由 runner 自检「产物与 src 一致」）：**356 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 356 ran / 7 skipped，exit 0**（flaky 是 `steward-conversation.e2e.js`，首跑红在 `G4 线程回退到递话前`、重跑通过——与本刀无关，第一轮那一件 flaky 是 `steward-settings.e2e.js`，两轮不同件，属既有时序噪声）。
+
+浏览器件收尸：跑完 `msedge.exe` 里带 `--headless`／测试 profile 的**残留 0 个**（机器上另有 19 个 `msedgewebview2.exe`，是别的应用的，与本刀无关）。
+
+#### 顺手改的文档（不改就是留错话）
+
+`45 号文 §9.6.3` 之后写下的那批「如意只会 OpenAI 形、四个全 404、语音在开发机上不可用」的话，现在**只对一半**。改了六处，口径统一成「两种协议，要你告诉它这一家说哪一种；MiMo 与百炼实测对话形可用，混元两种都没验过」：`CHANGELOG.md`（中英两处）、`USER-GUIDE_{CN,EN}.md`（前提段 ＋ 失败提示表那一行）、`ADMIN-GUIDE_{CN,EN}.md`（默认启用清单那一行、provider 记录那一段、转写路由那一段，以及 §7.5 降级会抹掉的嵌套字段清单——`asrProtocol` 与 `audioBaseUrl` 同类，降级同样会被 `sanitizeProvider` 重建掉）、`ARCHITECTURE_{CN,EN}.md`（路由表那一行 ＋ `audio_transcribe` 那一条）。
+
+#### 没做什么（照实写）
+
+1. **没碰真机真 key**。这一刀全程走夹具；`chat-audio` 协议的真上游验证仍然只有 45 号文 §9.6.3 那一轮（2026-09-17，MiMo ＋ 百炼），**混元那个两种协议都没验过**，文档里也是这么写的。发版前若要再确认一次，用 `dev-harness/asr-endpoint-probe-live.js` 的模具改一条 chat 形的探针，不要改产品码。
+2. **`index.html` 一个字没加**。派单写的是「`provider-settings.js` ＋ `index.html` 里那块 provider 编辑区」，但 provider 卡片是 `providerCard()` **全动态建**的，`index.html` 里只有一个空容器 `#providersList`（`:1559`）；而且 `asr-config-ui.static.e2e.js` ⑤ 有一条明令**「index.html 零静态 asr 标记」**的机械锁。所以选择器只能落在 JS 里——这是锁挡的，不是漏做。
+3. **`prompt` 在 `chat-audio` 分支映射成 `{type:'text'}` 部件，没对真上游验过**。三个消费面今天传的都是空（工具与附件恒空，路由只有手工带 `?prompt=` 才非空），所以实际影响是零；但哪天真有人用，这条映射是我按 OpenAI 多模态形状推的，**不是 45 号文实测过的**。
+4. **附件／工具通道没有转码**，按派单口径保持原样。后果照实说：给一家配了 `chat-audio` 的服务商喂 **webm 附件**，会被上游 400 拒（`asr.upstream`，原话进信封）。`asr-transcribe` H3 与 `tool-dispatch` B5c 钉的就是这个事实，不是 bug 而是已知缺口。
+5. **没给 `chat-audio` 加 `asr_options.language` 以外的任何参数**（Whisper 分支的 `response_format`／`prompt` 原样不动）。`language` 这个字段名取自 45 号文实测报文，没有去翻各家文档看还有什么可调的。
+6. **没动 URL 准入**。`audioBaseUrl` 与 `baseUrl` 仍然都没有私网／回环拒绝（45 号文 §1.6 的既有记档，管理员手册 §6 已写明），本刀不顺手发明一道。
+7. **25 MB 闸没动**，但上面那条体积读数说明余量变小了；真要收，是独立一刀。
+8. **`asr-endpoint-probe-live.js` 没跟着补 chat 形探针**。它是 live 件（要真 key），本刀不碰 live。

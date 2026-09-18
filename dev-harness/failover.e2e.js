@@ -174,6 +174,16 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
     const { config: c2 } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x' }] });
     ok(!('audioBaseUrl' in c2.providers[0]), '(D) 缺省 audioBaseUrl 不落字段(零漂移)');
   }
+  // (D2) 107-A1 asrProtocol:合法值只有 'chat-audio';缺省与非法值一律【不落字段】(与 audioBaseUrl 同模具)。
+  //      非法值不落 = 手编 config 写错也不会被悄悄记成一个新语义,读回空即缺省协议。
+  {
+    const { config } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x', asrProtocol: 'chat-audio' }] });
+    ok(config.providers[0].asrProtocol === 'chat-audio', '(D2) asrProtocol=chat-audio 保留 (' + config.providers[0].asrProtocol + ')');
+    for (const bad of ['transcriptions', 'CHAT-AUDIO', 'whatever', '', 42, null, {}]) {
+      const { config: c } = mod.normalizeConfig({ providers: [{ id: 'p', baseUrl: 'https://x', asrProtocol: bad }] });
+      ok(!('asrProtocol' in c.providers[0]), '(D2) 非法/缺省 asrProtocol 不落字段: ' + JSON.stringify(bad));
+    }
+  }
   // (E) 114a asrProviderId/asrModel:trim + 截 400;provider 在则留,不在则两个一起清成「未配置」
   //     (不静默改指别的端点,与 compactProviderId 同口径);缺省两空 = 未配置 = 麦克风不可见。
   {
@@ -191,6 +201,7 @@ async function waitWB() { let h = null; for (let i = 0; i < 40 && !h; i++) { awa
     const { config } = mod.normalizeConfig({ providers: [legacy] });
     const p = config.providers[0];
     ok(!('audioBaseUrl' in p) && p.models.every(mm => !('caps' in mm)), '(F) 存量形状 114a 零新增字段');
+    ok(!('asrProtocol' in p), '(F) 存量形状 107-A1 也零新增字段(asrProtocol 不凭空出现)');
   }
   // (A) webSearch tavily + bocha parse against local fake search server (baseUrl override → TRUSTED, not SSRF).
   const searchSrv = await startFakeSearch(SEARCH_PORT);

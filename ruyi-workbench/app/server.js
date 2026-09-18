@@ -13423,6 +13423,13 @@ function sanitizeProvider(raw) {
   // 凭空发明一道 provider 级 URL 准入(那是独立安全决定,两条出网面要收一起收,已记 107 未完成项)。
   // localCommand 本波【不加】—— 唯一消费方 114d 已后置 128+,持久字段不养闲人(35 号文 §2 退出门)。
   const audioBaseUrl = configUrlOrCleared(str(raw.audioBaseUrl, 400).trim());   // 107-S2
+  // 107-A1(46 号文 §5 A1,45 号文 §9.6.3 实测):asrProtocol —— 这家 provider 的转写【协议】。
+  //   'transcriptions'(缺省)= 今天的 OpenAI/Whisper 形 multipart POST {base}/audio/transcriptions;
+  //   'chat-audio'        = MiMo/百炼官方文档形 POST {base}/chat/completions + input_audio data URI。
+  // 45 号文 §9.6.3 用真机真 key 实测:用户已配的四个 ASR 模型走 transcriptions 全 404,按各家文档协议
+  // 直调则 200、字准确率 100%。所以这不是偏好开关,是「能不能用」的开关。
+  // 空/非法值【不落字段】(照 audioBaseUrl 的模具):存量 config 零漂移,读回空即缺省协议。
+  const asrProtocol = raw.asrProtocol === 'chat-audio' ? 'chat-audio' : '';
   // v1.4-OSS 用量看板: optional pricing for provider-engine cost calc. {inputPerM, outputPerM, currency} —
   // per-MILLION-token prices (non-negative) + a short currency code. Kept only when at least one price parses
   // AND a currency is present; otherwise dropped (the ledger then records tokens with cost null). ADDITIVE +
@@ -13435,6 +13442,7 @@ function sanitizeProvider(raw) {
     baseUrl: mainBase,
     extraBaseUrls, // v1.0-S6 (B): failover 备用端点 (≤3, cleansed)
     ...(audioBaseUrl ? { audioBaseUrl } : {}), // 114a: 可选 ASR 端点(空不落字段,存量 config 零漂移)
+    ...(asrProtocol ? { asrProtocol } : {}), // 107-A1: 可选 ASR 协议(空不落字段,同上)
     apiKey: configSecretValueOrCleared(str(raw.apiKey, 400)),   // 107-S2 最后一道闸:掩码永不落盘
     model: str(raw.model, 120).trim(),
     models,
@@ -14077,22 +14085,63 @@ function resolveAsrProvider(config) {
   }
   return { provider, asrModel };
 }
+// 107-A1:chat-audio 回体取文本 —— content 可能是字符串,也可能是 OpenAI 多模态形的 parts 数组。
+// 两种都取不出来就回 null(调用方据此走 asr.bad_response)。空串是合法转写结果(与 transcriptions
+// 分支接受 text:'' 同口径),不当失败。
+function asrChatContentText(parsed) {
+  const choice = parsed && Array.isArray(parsed.choices) ? parsed.choices[0] : null;
+  const content = choice && choice.message ? choice.message.content : null;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    const parts = content.map(p => (p && typeof p.text === 'string' ? p.text : '')).filter(Boolean);
+    if (parts.length) return parts.join('');
+  }
+  return null;
+}
+// 107-A1(46 号文 §5 A1;45 号文 §9.6.3 真机实测):两种出站协议共用这一支。协议只决定三件事 ——
+// 打哪个路径、请求体长什么样、回体的文本/usage 从哪个字段读。端点解析、鉴权头、120s 超时、
+// 回体 8KB 上限、错误体【先脱敏再裁 1000】、三个错误码、kind:'aux'/note:'asr' 记账全部只有一份:
+// 抄第二份迟早分叉(一边补了脱敏一边没补)。
 async function transcribeAudioViaProvider(provider, asrModel, { audio, contentType, filename, language, prompt }) {
-  // 出站:multipart(Node 内置 FormData+Blob)到 audioBaseUrl || baseUrl 的 /v1/audio/transcriptions。
+  // 出站目标 URL【只来自配置】(audioBaseUrl || baseUrl),绝不接受请求体里的地址(威胁模型见 13b audio 域头注)。
+  //   transcriptions:multipart(Node 内置 FormData+Blob)→ {base}/audio/transcriptions;
+  //   chat-audio    :application/json + input_audio data URI → {base}/chat/completions。
   const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
   if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
-  const form = new FormData();
-  form.append('model', asrModel);
-  form.append('response_format', 'json');
-  if (language) form.append('language', language);
-  if (prompt) form.append('prompt', prompt);
-  form.append('file', new Blob([audio], { type: contentType }), filename);
+  const chatAudio = provider.asrProtocol === 'chat-audio';
   const headers = { ...(provider.extraHeaders || {}) };
   if (provider.apiKey) headers.authorization = `Bearer ${provider.apiKey}`;
+  let target = '', payload = null;
+  if (chatAudio) {
+    // data URI 的 mime 用调用方给的 contentType【原样】。不替上游猜格式:把 webm 说成 wav 会让上游
+    // 解码出噪声,远不如它自己 400 说清楚 —— MiMo 实测正是 400「input_audio.data mime type must be
+    // one of: audio/wav, audio/mpeg, audio/mp3. Got: audio/webm」。麦克风那条已在浏览器端转 WAV。
+    const mime = /^audio\/[-\w.+]{1,60}$/.test(String(contentType || '')) ? contentType : 'application/octet-stream';
+    const parts = [];
+    if (prompt) parts.push({ type: 'text', text: prompt });
+    parts.push({ type: 'input_audio', input_audio: { data: 'data:' + mime + ';base64,' + audio.toString('base64') } });
+    target = base + '/chat/completions';
+    headers['content-type'] = 'application/json';
+    payload = JSON.stringify({
+      model: asrModel,
+      messages: [{ role: 'user', content: parts }],
+      stream: false,
+      ...(language ? { asr_options: { language } } : {}),
+    });
+  } else {
+    const form = new FormData();
+    form.append('model', asrModel);
+    form.append('response_format', 'json');
+    if (language) form.append('language', language);
+    if (prompt) form.append('prompt', prompt);
+    form.append('file', new Blob([audio], { type: contentType }), filename);
+    target = base + '/audio/transcriptions';
+    payload = form;
+  }
   const t0 = Date.now();
   let upstream = null, upstreamText = '';
   try {
-    upstream = await fetch(base + '/audio/transcriptions', { method: 'POST', headers, body: form, signal: AbortSignal.timeout(120000) });
+    upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
     // 上游回体只读 8 KB(错误回显裁 1000 字符;成功体的 text 字段自有限度——恶意巨体不伺候)。
     upstreamText = await upstream.text();
     if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
@@ -14111,17 +14160,34 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     return { failure: { code: 'asr.upstream', params: { status: upstream.status }, message: 'ASR 上游返回 ' + upstream.status + ': ' + snippet, status: 502 } };
   }
   const parsed = safeJsonParse(upstreamText, null);
-  if (!parsed || typeof parsed.text !== 'string') {
-    return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text 字段', status: 502 } };
+  // 107-A1:解析分叉。transcriptions 读顶层 text;chat-audio 读 choices[0].message.content
+  // (两种形状见 asrChatContentText)。chat 分支解析不出文本 → 同一个 asr.bad_response。
+  let text = '', outLanguage = '';
+  if (chatAudio) {
+    const content = parsed ? asrChatContentText(parsed) : null;
+    if (content === null) {
+      return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 choices[0].message.content', status: 502 } };
+    }
+    text = content;
+  } else {
+    if (!parsed || typeof parsed.text !== 'string') {
+      return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text 字段', status: 502 } };
+    }
+    text = parsed.text;
+    outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
   }
-  const text = parsed.text;
-  const outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
   // 记账(26 号文 §1):kind:'aux', note:'asr'。上游带 usage 用真值;否则按字节/文本长度保守估算并
   // 标 estimated:true(估算只是让这条 aux 在看板里有个量级,不是精确账单 —— appendUsageLedger 会
   // 跳过零 token 行,估算同时保证这条支出不凭空消失)。
-  const u = parsed.usage && typeof parsed.usage === 'object' ? parsed.usage : null;
-  const realIn = u && Number.isFinite(Number(u.input_tokens)) ? Math.round(Number(u.input_tokens)) : 0;
-  const realOut = u && Number.isFinite(Number(u.output_tokens)) ? Math.round(Number(u.output_tokens)) : 0;
+  // 107-A1:chat 回体的 usage 字段名是 prompt_tokens/completion_tokens(不是 transcriptions 的
+  // input_tokens/output_tokens)。各自先读本协议的名字,再退到另一套 —— 上游用哪套都不会白白掉进估算。
+  const u = parsed && parsed.usage && typeof parsed.usage === 'object' ? parsed.usage : null;
+  const pick = (...names) => {
+    for (const n of names) { const v = Number(u && u[n]); if (Number.isFinite(v) && v > 0) return Math.round(v); }
+    return 0;
+  };
+  const realIn = chatAudio ? pick('prompt_tokens', 'input_tokens') : pick('input_tokens', 'prompt_tokens');
+  const realOut = chatAudio ? pick('completion_tokens', 'output_tokens') : pick('output_tokens', 'completion_tokens');
   const hasUsage = (realIn + realOut) > 0;
   const inTok = hasUsage ? realIn : Math.max(1, Math.ceil(audio.length / 1024));
   const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(text.length / 4));

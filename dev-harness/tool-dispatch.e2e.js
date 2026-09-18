@@ -123,19 +123,37 @@ for (const tn of ['codebase_symbol_search', 'dependency_inventory', 'code_review
 // 判据(45号文§4⑤):读本地音频(guardFileToolPath 同闸)→ 114b 同一支出站体 → 返回值标 untrusted:true。
 // 反向闸形状也在此:未配置/非音频扩展名/越界,三条都必须是规整的 ok:false,不抛。
 {
+  // 107-A1:同一个桩认两种协议 —— /audio/transcriptions 回 Whisper 形({text}),/chat/completions 回
+  // 对话形(choices[0].message.content + prompt_tokens/completion_tokens),并把收到的 data URI mime
+  // 回显出来(B5c 靠它证明工具通道送的是用户原文件、没被转码)。
   const asrSrv = require('http').createServer((req, res) => {
     const chunks = [];
     req.on('data', c => chunks.push(c));
     req.on('end', () => {
+      const raw = Buffer.concat(chunks);
+      if (String(req.url || '').includes('/chat/completions')) {
+        let mime = '';
+        try {
+          const body = JSON.parse(raw.toString('utf8'));
+          const part = body.messages[0].content.find(c => c && c.type === 'input_audio');
+          mime = (String(part.input_audio.data).match(/^data:([^;,]*);base64,/) || [])[1] || '';
+        } catch { mime = '(unparsed)'; }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          choices: [{ index: 0, message: { role: 'assistant', content: '[b5-asr-chat] mime=' + mime + ' bytes=' + raw.length } }],
+          usage: { prompt_tokens: 42, completion_tokens: 5 },
+        }));
+        return;
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ text: '[b5-asr] bytes=' + Buffer.concat(chunks).length }));
+      res.end(JSON.stringify({ text: '[b5-asr] bytes=' + raw.length }));
     });
   });
   await new Promise(r => asrSrv.listen(0, '127.0.0.1', r));
   const asrPort = asrSrv.address().port;
   const cfgFile = path.join(UNIT_DATA, 'config.json');
-  const writeAsrCfg = (withAsr) => fs.writeFileSync(cfgFile, JSON.stringify({
-    providers: [{ id: 'p', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + asrPort, apiKey: 'k', model: 'm' }],
+  const writeAsrCfg = (withAsr, asrProtocol) => fs.writeFileSync(cfgFile, JSON.stringify({
+    providers: [{ id: 'p', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + asrPort, apiKey: 'k', model: 'm', ...(asrProtocol ? { asrProtocol } : {}) }],
     activeProvider: 'p', defaultWorkspace: WS,
     ...(withAsr ? { asrProviderId: 'p', asrModel: 'fake-asr-v1' } : {}),
   }));
@@ -158,6 +176,19 @@ for (const tn of ['codebase_symbol_search', 'dependency_inventory', 'code_review
   fs.writeFileSync(path.join(OUTSIDE, 'secret.webm'), 'x');
   const t3 = await S.toolCall('audio_transcribe', { path: path.join(OUTSIDE, 'secret.webm') }, ctxRemote);
   ok(t3 && t3.ok === false && t3.code === 'not-allowed', 'B5 越界 audio_transcribe 被 guard 拒(与 file_read 同闸)');
+  // 107-A1:同一把工具、同一份文件,provider 上挂 asrProtocol:'chat-audio' 后改打 /chat/completions。
+  //   B5b 协议真的分叉了(回执文本来自 chat 分支的桩,Whisper 分支的桩给不出这句话);
+  //   B5c 附件/工具通道【不转码】—— data URI 的 mime 就是用户原文件的 audio/webm;
+  //   B5d chat 回体的 usage(prompt_tokens/completion_tokens)映射对了 → estimated 从 true 变 false。
+  writeAsrCfg(true, 'chat-audio');
+  const t4 = await S.toolCall('audio_transcribe', { path: audioFile }, ctxRemote);
+  ok(t4 && t4.ok === true && String(t4.text || '').includes('[b5-asr-chat]'), 'B5b chat-audio 协议改打 /chat/completions — got ' + JSON.stringify(t4 && t4.text));
+  ok(t4 && String(t4.text || '').includes('mime=audio/webm'), 'B5c 工具/附件通道送用户原文件(data URI mime=audio/webm,不转码)');
+  ok(t4 && t4.estimated === false, 'B5d chat 回体 usage(prompt_tokens/completion_tokens)映射对 → 不落估算');
+  // B5b 那一趟又落了一条 usage 账 —— appendUsageLedger 是链式异步落盘,不等它就 process.exit(),
+  // Windows 上 libuv 会在 `src\win\async.c:76` 的 `!(handle->flags & UV_HANDLE_CLOSING)` 上硬断
+  // (退出码 0xC0000409),断言全绿但整件判红。与 B5 上面那一处 300ms 是同一个理由,不是凑巧。
+  await new Promise(r => setTimeout(r, 300));
   await new Promise(r => asrSrv.close(r));
 }
 

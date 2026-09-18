@@ -520,7 +520,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 | `schedulerEnabledV1` | 定时任务 | ⚠ 假时钟 e2e | `false`（无任务时本来就零轮询） |
 | `newThreadEngine: 'last'` | 新线程跟随**上次用的**引擎 | ⚠ API 级 e2e；**改变了存量用户的默认行为** | 设成 `'global'` |
 | `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（十道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 都远低于 `permissionTimeoutMs` 120 s | `false`（设置页「管家」→「它可以自己做的事」同一个键；**管家自己改不了它**） |
-| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；**功能本身在开发机上不可用**：四个候选 ASR 端点全部 404，见 §7.5 | 语音识别选「不启用」，或把两个键清空 |
+| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；缺省协议（OpenAI 形 `/audio/transcriptions`）在四个候选端点上**全部 404**，需逐服务商把「语音识别协议」改成「对话形」（`providers[].asrProtocol='chat-audio'`）——MiMo 与百炼实测可用，混元未验，见 §7.5 | 语音识别选「不启用」，或把两个键清空 |
 | 记忆条目的到期日与作用域 | 管家记忆 `expiresAt`／`scope` | e2e；纯增量字段 | 无开关（不填＝永久有效、到处有效，与 2.7.0 行为相同） |
 
 ### 7.3 实验（出厂默认关，要开自己写 `true`）
@@ -551,7 +551,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 **为什么必须备份**（两条都在 2.7.0 的代码里实读确认过）：
 
-1. 2.7.0 的 `sanitizeProvider` 把 `providers[].models[]` **重建**成 `{id, label}`，而且**首次读配置就回写 `config.json`** —— 于是 2.8.0 写下的 `models[].caps`（语音／向量能力标签）、`providers[].audioBaseUrl`、`hiddenModels` **一次启动就没了**。
+1. 2.7.0 的 `sanitizeProvider` 把 `providers[].models[]` **重建**成 `{id, label}`，而且**首次读配置就回写 `config.json`** —— 于是 2.8.0 写下的 `models[].caps`（语音／向量能力标签）、`providers[].audioBaseUrl`、`providers[].asrProtocol`、`hiddenModels` **一次启动就没了**。
 2. 2.7.0 的管家记忆规范化**不认** `expiresAt` 与 `scope`，下一次写记忆就整库回写，两个字段一起丢（条目本身不丢）。
 
 `config.json.prev` **只留最近一代**，兜不住这个。
@@ -562,12 +562,12 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 2. **备份两样，拷到数据目录之外**：`<dataRoot>\config.json`（连同 `config.json.prev`）与 `<dataRoot>\steward\` **整个目录**（`memory-v1.json`、`decisions-v1.ndjson` 等）。想更保险就整个 `<dataRoot>` 拷一份。
 3. 装 2.7.0（或套回旧的 overlay 包）。
 4. **要回到 2.8.0 时顺序不能反**：先把 2.8.0 装回去，**再**把备份的 `config.json` 与 `steward\` 拷回覆盖，**然后**才启动。先启动再拷，会被启动期那一轮 normalize 写过一遍。
-5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对与 `audioBaseUrl` 要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
+5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对、`audioBaseUrl` 与「语音识别协议」要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
 
 **另外两件降级时会发生的事，先知道**：
 
 - **定时任务在 2.7.0 里整块不存在**（调度器是 2.7.0 之后才有的）。`scheduler\` 目录留在盘上不动，升回来任务还在、只是这段时间一次都没触发过。
-- **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。
+- **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。
 
 ---
 

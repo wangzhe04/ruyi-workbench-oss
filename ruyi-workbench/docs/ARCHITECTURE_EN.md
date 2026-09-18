@@ -67,7 +67,7 @@ The route families added since v2.6 are not re-listed route by route here; the a
 | `/api/steward/*` (about 20 routes) | **token** | Steward: start/stop, status, inbox, visit digest, relaying messages, the `act` buttons, the arbiter and queue jumping, the memory panel, the decision log |
 | `/api/scheduler/tasks*` | **token** | Scheduled-task CRUD, `/:id/runs`, `/:id/run-now` |
 | `GET /api/events/stream` | **token-browser** | One SSE stream replacing the former 5 s / 15 s polls |
-| `POST /api/audio/transcribe` | **token** | Speech transcription; the only new outbound surface in this release (25 MB gate, 120 s timeout, OpenAI-shaped multipart to `audioBaseUrl \|\| baseUrl`) |
+| `POST /api/audio/transcribe` | **token** | Speech transcription; the only new outbound surface in this release (25 MB gate, 120 s timeout, to `audioBaseUrl \|\| baseUrl` in whichever dialect `providers[].asrProtocol` selects: OpenAI-shaped multipart to `/audio/transcriptions` by default, or `/chat/completions` with an `input_audio` data URI) |
 | `/api/missions`, `/api/missions/:id` | read **token-browser**, write **token** | Read-only projection of mission containers and acceptance items; the four provenance states are computed, not persisted |
 | `POST /api/playbooks/service-match` | **token-browser** | Natural language to one of six services, returning `{service, playbooks, state, guidance, guidanceDropped}` with at most one guidance line |
 | `GET /api/help/doc` | **token** | In-app manual reader (whitelisted doc id and language; the request string never reaches `path.join`) |
