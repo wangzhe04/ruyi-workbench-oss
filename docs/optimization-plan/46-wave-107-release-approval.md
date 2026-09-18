@@ -1448,4 +1448,85 @@ M1 改的是**用户看得见的行为**（「过期就不再被用上」当时�
 
 `mission-threads.e2e.js` 与 `subagent.e2e.js`，都与本刀无关、单跑各自 ALL PASS。
 **值得记一笔**：A1／T1／M1 三轮的偶发件**各不相同**（`steward-conversation` → `steward-settings` → 这两件），
-这本身就是「负载时序噪声」而不是产品退化的证据——没有任何一件重复出现。三轮都没有真红。
+~~这本身就是「负载时序噪声」而不是产品退化的证据——没有任何一件重复出现。三轮都没有真红。~~
+**↑ 这句推断被证伪了（2026-09-18，Q1 之后改正，原文划掉保留）**：`steward-conversation` **恰恰重复出现了**——
+A1 那一轮是偶发（重跑过），Q1 冻结树那一轮**首跑与重跑都红**，F7 取证证明它是**真的产品缺陷**（撤回被陈旧快照盖回，见下方 Q1／F7 节）。
+错在两处：① 我把「三轮的偶发件名单不同」当成了「每一件都只是噪声」，而名单不同**推不出**其中每一件都无害；
+② 我手里其实有反例却没去比对——A1 那轮的偶发件名就写在同一份文里。
+**教训（已入记忆）**：偶发件要**逐件跟踪跨轮是否重现**，出现第二次就按真缺陷的规格取证，不许用「名单在变」一句话打发。
+
+### Q1 · 冻结树最后一轮回归 ＋ G3（2026-09-18，HEAD `29490b9`，**不改产品代码**）
+
+**G1 版本与构建：全绿。** `build --check` 新鲜；依赖图 **53 模块／421 边**；`route-inventory` **137／125**；
+七把静态锁（`facts.static` 24 条、`meta-guard.e2e.js`、`overlay-payload-lock`、`architecture-contract-snapshots`、
+`module-dependency-graph.static`、`route-inventory.static`、`eol-policy.static` 930 个文件）逐件 exit 0。
+**版本三角三处都是 2.8.0**（子代理与主会话各自核过）。
+
+**主会话自己的一处错误，照实记**：Q1 派单里写了 `node dev-harness/facts-generate.js --check`，子代理照跑后发现它写了盘，
+报成「工具链隐患：`--check` 不是只读的」并开了单。主会话查证：`docs/ENGINEERING-SPEC.md:261` 与脚本头部用法注释都**明写**
+该生成器「**没有 `--check`/`--write` 区分**，运行即重算覆写」——**那个 `--check` 是主会话编的，工具本身没毛病**。
+误开的单已撤。真正管「事实表新鲜」的是 `facts.static.e2e.js`（目录重算比对），24 条全绿。
+**残留的小事**：脚本静默忽略未知参数，正是它让一个编出来的参数「看起来生效了」。值不值得加参数守卫另议，不在本波做。
+
+**G2 行为回归：红（exit 1）。** `last-run.log` 汇总（主会话在确认 run-all 进程已退出之后才读）：
+`355 pass / 1 fail / 0 known-fail / 2 flaky / 356 ran / 7 skipped`。
+真红一件：`steward-conversation.e2e.js:727` 的 **G4**（「线程回退到递话前」，读到剩余消息 2 条）。偶发两件：`mission-threads`、`steward-thread-title`（单跑各 ALL PASS）。
+**控制台交错把这三件的名字全标错了**（FAIL 标在 `steward-exempt-delegation`、两个 flaky 标在 `interventions-persist`／`team-pool-mailbox`），只有 `last-run.log` 逐件表可信。
+
+**G3 视觉与无障碍：有件的全绿，缺口照实列。** `dom-screenshot`（7）、`a11y-walkthrough.browser`（25）、
+`composer-voice.browser`（90）、`service-match.browser`（25）、`theme.e2e.js`（两主题 WCAG 对比度：dark 15.58／light 14.23）、
+`uimode-style.e2e.js` 逐件 exit 0。**缺口**：
+- **简易界面模式 `uiMode:'simple'` 零浏览器渲染覆盖**（所有浏览器件写死 `pro`；`uimode-style` 只是静态源码断言＋配置往返）。
+- **管家壳没有任何像素基线**（全仓唯一的像素基线件 `dom-screenshot` 故意关掉管家只拍经典壳）。
+- `a11y-walkthrough`、`service-match` 只覆盖 dark 主题。
+- **人工键盘走查与真读屏（NVDA／Narrator）未做**；全仓**没有** axe-core 一类自动审计。
+
+**泄漏**：本轮零浏览器泄漏（夹具自带收尸）。`msedgewebview2` 里 6 个是**如意桌面壳自己的**、10 个 `chrome.exe` 是**用户自己的 Chrome**——不是测试残留，没动。`fake-mcp.js` 11 个，跑前跑后相同（本轮没新增），按指令只报数。
+
+**Q1 子代理把回归挂在后台就结束了回合**（报「挂了个等待器待命」）。主会话实测 run-all 进程仍在，把它叫回去跑完。
+**同时撞到一个会骗人的现场**：run-all 还在跑时，`last-run.log` 里是**上一轮（M1）的**汇总——连两个偶发件的耗时都逐毫秒相同。
+那份日志若被当成 Q1 的读数，就是一次假交付。已入记忆 `last-run-log-is-previous-run`。
+
+### F7 · 判别那一条真红：**产品缺陷**（2026-09-18，取证只改测试、已还原）
+
+**方法**：G4 读点临时改成「立刻读一次＋每 50 ms 有界轮询 30 s」，记 `firstRead`／`msToZero`／最终值。
+负载＝三件重的管家件连轴转（复刻 `--parallel 4` 的争用形状），L6 另叠 6 个烧核进程（本机 12 核；**16 个会让 Edge attach 不上而假红**）。
+
+**读数（负载下 20 轮，4 轮红）**：绿轮 `firstRead=0, msToZero=5–9 ms`；**红轮 `firstRead=2, msToZero=−1, final=2`，30 秒内一次都不变**。
+**判据是二值的**——「读太早」会给出一条 `msToZero` 的分布，这里没有中间态 ⇒ **不是测试读点早，是撤回没落**。
+
+**主会话从原始红轮日志（`f7-L6-r1.log`）亲自抽出的证据链**：
+
+| 时刻 | 事件 |
+|---|---|
+| 01.917 | `turn_kill reason=stopped` |
+| 01.978 | `turn_start turnSeq=1` —— **回合在被停之后 61 ms 才开始** |
+| 02.014 | `turn_end aborted=true`、`steward_turn_done` |
+| **02.036** | session 存盘：头上 **`providerHistoryCursor: 2`**、正文 2 行、`updatedAt 02.036` |
+| 02.065 | 撤回回复 `200 {"ok":true,"removedTurns":2}` |
+
+`rewindSession`（`02-session-store.js:3658`）在 `:3758` **无条件**写 `providerHistoryCursor = 0` 再 `saveSession`——
+**盘上是 2 就是机械指纹**：撤回那一存被一个持有撤回前内存快照的写者整份盖回。
+69 波的那道闸（`:3661-3685`，等 `turnSettlers`、记 `rewind_autostop`／`rewind_settle_timeout`）**两条日志都没出现**：
+停止请求比回合注册还早到，闸的前提不成立。
+前端只在 `ok !== false` 时写「已撤回」（诚实门本身没错）——是**后端回了一句假话**。
+
+**用户可达性**：代码注释原记「117c 递话后立刻点撤回，约五成命中」——同一条路；10 秒撤回窗就是为了让人立刻点。
+
+**这件事的性质**：用户点撤回 → 看到「✓ 已撤回」→ 话其实发出去了。**产品在说假话**，而 2.8.0 的主题之一正是「说得准、只有回执才算数」。
+**主会话决定先修再发**（带着已知的撒谎缺陷发版才是要用户拍板的事；修它是保守默认）→ 插一刀 **F7b**。
+
+**两个偶发件（`mission-threads`、`steward-thread-title`）**：静态形状同族（各 0 次轮询助手，POST 完立刻直读别的进程刚写的头文件），
+但同一套负载下各跑 4 轮 **8/8 全绿**，**没能证实同模具**。按上面那条教训，**记为跟踪项：再出现一次就按真缺陷取证**。
+
+### F7b · 修法设计（主会话定，实现在跑）
+
+**这仓对这个模具已有一整套家法**，全在 `saveSession`（`02:2870`）里：`sessionEngineRouteOverrides`（`02:17`，注释原话「old turn still owns an earlier in-memory session object」）、
+权限档覆盖（116-2a）、桌面工具覆盖（117z-E2）、`missionChangeSeqHighWater`（`02:159`，75a-2b）——**都是旧回合的陈旧快照在收尾时盖掉新状态，修法都是进程内高水位＋写链里比对**。
+撤回是同一个病，只是这次被盖的是**正文**。照 `missionChangeSeqHighWater` 做一个**撤回代数高水位**：
+头上单调整数 `rewindGen`；`rewindSession` 在存盘前同步加一并抬高水位；`saveSession` **在写链里、落盘之前**比对，
+低于高水位 ⇒ 撤回之前的快照 ⇒ 整次写丢弃并记 `session_stale_save_dropped`。
+
+**安全前提（主会话已核）**：`loadSession`（`02:2718`）每次从盘上 `JSON.parse` 新解析、**没有对象缓存** ⇒ 撤回之后新读的对象都带新代数，
+只有撤回之前攥在手里的旧对象会被挡——正是垂死回合的那份。**反方向（误丢正常存盘＝静默丢数据）是本刀最要紧的审查面**，
+派单要求逐个列出所有可能持有撤回前对象的写者并逐个判定，且确定性件里单列一条「撤回后新读的对象照常落盘」并做反向。
