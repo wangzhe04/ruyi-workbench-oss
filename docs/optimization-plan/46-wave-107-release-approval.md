@@ -1127,7 +1127,7 @@ D1 只改了中文三本，S1 的「发现但没修」第 5 条自己点了名�
 
 **它们当初是怎么进去的（清完之后顺手查出来的因果）**：`autoImportClaudeCodeMcp` **出厂就开**（`01-config.js:99`，真机也是 `true`），如意每次启动都扫 `~/.claude.json` 的 `mcpServers`，把自己没有的条目导进 `externalMcpServers`；用户的 `dismissedMcpIds` 是**空表**，所以没有任何一条被记成「已拒」。→ **只清如意那一份是白清的**：下次启动会从 `.claude.json` 原样再导一遍。三份一起清才收得住；这也解释了为什么同一批夹具在三个宿主里逐字同形。
 
-**顺手补上的那道闸**：`04-permission-runtime.js:1401` 这条注释是源码自己写下的警告——「remove 不记 `dismissedMcpIds` → 模型删掉的连接器下次启动被 `autoImportClaudeCodeMcp` 悄悄加回来」。我刚才那一下 `POST /api/config` **正是这种删法**（只换 `externalMcpServers`，没记 dismissed）。判据在 `01-config.js:1821` `dismissed.has(raw.id)` 一行。于是补发一次，把 14 个夹具 id（如意那 9 个 ＋ 只在 Claude Code 里出现的 `stdio-conc`／`drop-shadow`／`unrelated-tools`／`t1`／`c1`）一次写进 `dismissedMcpIds`（上限 50，此前是空表）。**差分复核：152 个键里恰好两个变**（`dismissedMcpIds`、`externalMcpServers`），服务商与密钥仍逐条未动。另记一个数：自动导入的 `list.length >= 10` 上限（`:1823`）此前**正好顶满**——用户那 10 条里 9 条是夹具，等于把真连接器的位置全占了。
+**顺手补上的那道闸**：`04-permission-runtime.js:1401` 这条注释是源码自己写下的警告——「remove 不记 `dismissedMcpIds` → 模型删掉的连接器下次启动被 `autoImportClaudeCodeMcp` 悄悄加回来」。我刚才那一下 `POST /api/config` **正是这种删法**（只换 `externalMcpServers`，没记 dismissed）。判据在 `01-config.js:1828` `dismissed.has(raw.id)` 一行（名单本身在 `:1821` 装进 Set）。于是补发一次，把 14 个夹具 id（如意那 9 个 ＋ 只在 Claude Code 里出现的 `stdio-conc`／`drop-shadow`／`unrelated-tools`／`t1`／`c1`）一次写进 `dismissedMcpIds`（上限 50，此前是空表）。**差分复核：152 个键里恰好两个变**（`dismissedMcpIds`、`externalMcpServers`），服务商与密钥仍逐条未动。另记一个数：自动导入的 `list.length >= 10` 上限（`:1829`）此前**正好顶满**——用户那 10 条里 9 条是夹具，等于把真连接器的位置全占了。
 
 **没做的两件，交用户**：
 
