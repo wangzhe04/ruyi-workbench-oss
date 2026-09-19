@@ -250,6 +250,30 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
     ok(afterBoot.id === ids.C && afterBoot.title === TITLES.C,
       `T2 开机的「打开上次那条（B）」让路给用户的选择（实测会话 ${afterBoot.id}、标题「${afterBoot.title}」）`);
     await fx.cdp.send('Fetch.disable');
+
+    /* ── P1 128h-J03：管家视角输入「继续那个」，预判请求真的带上右栏那条（焦点），chip 说「像是接着『B』」──
+       输入区那一侧取焦点包在 try/catch 里（取不到当没有焦点）—— 接线错了不会抛，只会静悄悄地不带；
+       静态锁只钉字面，这一段在真页面上看请求本身。 */
+    ok(Boolean(await fx.setLens('steward')), 'P1a 管家视角');
+    await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(ids.B)} } })), true`);
+    const drawerOnB = await fx.waitForEval(`(() => { const n = document.getElementById('stewardDrawerTitle');
+      return n && String(n.textContent || '').includes(${JSON.stringify(TITLES.B)}) ? 1 : null; })()`, 250);
+    ok(Boolean(drawerOnB), 'P1b 右栏（现在这一件）是 B');
+    await fx.evaluate(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      input.value = '继续那个';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    const prerouteUrl = await fx.waitForEval(`(() => {
+      const hit = performance.getEntriesByType('resource').map(e => e.name).filter(n => n.includes('/api/steward/preroute?q=')).pop();
+      return hit && hit.includes(encodeURIComponent('继续那个')) && hit.responseEnd !== 0 ? hit : null;
+    })()`, 150);
+    ok(Boolean(prerouteUrl) && prerouteUrl.includes('focus=' + encodeURIComponent(ids.B)),
+      `P1 预判请求带着右栏那条的 focus（实测 ${String(prerouteUrl || '').replace(/^https?:\/\/[^/]+/, '')}）`);
+    const chipText = await fx.waitForEval(`(() => { const n = document.querySelector('#stewardTarget .steward-target-label');
+      const t = n ? String(n.textContent || '') : ''; return t.includes(${JSON.stringify(TITLES.B)}) ? t : null; })()`, 150);
+    ok(Boolean(chipText), `P1c 输入区 chip 说接着 B（实测「${chipText || ''}」）—— 只是提示，递给谁仍由如意定`);
     ok(fx.exceptions.length === 0, `T9 页面没有未捕获异常（${fx.exceptions.slice(0, 3).join(' | ') || '无'}）`);
   } catch (error) {
     fail += 1;

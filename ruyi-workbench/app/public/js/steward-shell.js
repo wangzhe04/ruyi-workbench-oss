@@ -446,7 +446,10 @@ export function createStewardShellDomain({
     renderMarkdownInto, highlightIn,
     openOnboardingWizard,   // 122-L1b（36 号文 §2.13）：管家问候行下那枚「开始引导」，与工作台空态同一个入口
   });
-  const composer = createStewardComposer({ api, state, t, isStewardMode, conversation });
+  // 128h-J03:焦点＝右栏抽屉此刻那一条。drawer 在下面才建 —— 这里是个闭包,输入时才调(那时早已就位;
+  // 真在建好之前被调到会抛 TDZ,composer 那一侧 try/catch 当「没有焦点」)。
+  const composer = createStewardComposer({ api, state, t, isStewardMode, conversation,
+    focusThreadId: () => (drawer && typeof drawer.currentSessionId === 'function' ? drawer.currentSessionId() : '') });
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
   // 抽屉那一处住在 steward-drawer.js 里，与 avatar 轮询各自独立门控）。
   const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });

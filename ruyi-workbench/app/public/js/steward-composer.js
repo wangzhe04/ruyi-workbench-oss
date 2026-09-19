@@ -62,6 +62,8 @@ export function createStewardComposer({
   t = key => key,
   isStewardMode = () => false,
   conversation = null,
+  // 128h-J03:用户此刻看着的那条线程(右栏「现在这一件」)。预判拿它裁「继续那个」这种纯指代与并列;缺省没有焦点。
+  focusThreadId = () => '',
 } = {}) {
   // 117n-M1：doc/byId/el 从 steward-chips.js import（六个消费方零本地重复定义）。
 
@@ -181,7 +183,10 @@ export function createStewardComposer({
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return;
     const seq = ++prerouteSeq;
     let result = null;
-    try { result = await api(`/api/steward/preroute?q=${encodeURIComponent(query)}`); }
+    let focus = '';
+    try { focus = String(focusThreadId() || ''); } catch { focus = ''; }
+    const focusParam = focus ? `&focus=${encodeURIComponent(focus)}` : '';
+    try { result = await api(`/api/steward/preroute?q=${encodeURIComponent(query)}${focusParam}`); }
     catch { return; }
     if (seq !== prerouteSeq) return;   // 过期响应：慢的那一次回来时新的判定已经在屏幕上了，丢弃
     if (!result || result.ok !== true) return;

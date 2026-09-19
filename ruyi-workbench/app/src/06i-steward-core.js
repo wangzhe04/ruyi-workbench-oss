@@ -1391,16 +1391,23 @@ function threadVisible(head, input) {
 //            { sessionId, missionId, missionTitle, title, summary, state, updatedAt }。
 //   memory:  活跃管家记忆条目 [{ kind, text }](本函数只认 kind ∈ {focus, habit},其余整条忽略——
 //            调用方即便传未过滤的全量记忆也不会误加权,双重保险比信任调用方过滤更省心)。
-//   opts:    { now, minScore, unsureRatio }均可选,不传则用 STEWARD_PREROUTE_DEFAULTS。
+//   opts:    { now, minScore, unsureRatio, focusSessionId }均可选,不传则用 STEWARD_PREROUTE_DEFAULTS。
+//            focusSessionId(128h-J03):用户此刻看着的那条线程(输入区右栏「现在这一件」),只在下面 ②b 与 ⑤b 两处用。
 //
 // 五种 kind 的判定顺序(§8.12 第 1 条「输入即预判」逐条落实):
 //   ① q 去空白后为空 -> 'steward'(默认收件人「如意」本身,不用词法判定)。
 //   ② 命中定时意图(isSchedule)-> 'schedule',优先于线程词法命中(「明天 9 点提醒我交周报」不能
 //      因为「周报」命中一条线程就被当成递话——用户是要建提醒,不是要跟那条线程说话)。
+//   ②b 128h-J03(41 号文 J03「两个近似任务,用户说『继续那个』」):纯指代(「继续」「接着做」「继续那个」「continue」……
+//      句子里除了指代没有任何可打分的词)不走词法 —— 词法对它恒为 0 分,修前落 'new',管家据此可能另开一条。
+//      焦点在索引里 -> 'thread'(那一条,理由「指代：当前焦点」);没有焦点、≥2 条 -> 'unsure'(最近更新的两条,
+//      「只问必要区别」);恰 1 条 -> 'thread'(没有可区别的);0 条 -> 'steward'(没有能接着的,交给如意答)。
 //   ③ 词法打分:见 stewardPrerouteScoreThread;候选按分降序、同分按 sessionId 升序(确定性)取前 3。
 //   ④ 最高分 < minScore(默认 2):isQuestion(q) -> 'question',否则 -> 'new'。
 //   ⑤ 最高分 ≥ minScore 且次高分 ≥ 最高分 × unsureRatio(默认 0.85)-> 'unsure'(hits 给前两名,
 //      §8.12 第 5 条「只在真分不出时才问」)。
+//   ⑤b 128h-J03:⑤ 判成 'unsure' 而并列的两名里有一条就是焦点 -> 'thread'(焦点那一条,理由后缀「当前焦点」)——
+//      「通过当前焦点确定」;焦点不在并列里不越权,照旧 'unsure'。
 //   ⑥ 否则 -> 'thread'(hits 只给第一名)。
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1441,6 +1448,22 @@ function stewardPrerouteIsQuestion(input) {
   if (STEWARD_QUESTION_LEAD_RE.test(s)) return true;
   if (STEWARD_QUESTION_TAIL_RE.test(s)) return true;
   return false;
+}
+
+// 128h-J03:纯指代 ——「继续」「接着做」「继续那个」「那个接着」「continue that」……句子里除了指代词与语气词没有别的。
+// 只认【整句】:「继续那个报告」有可打分的词,走词法(焦点只在并列时当裁判,见 ⑤b)。宁可漏认(落回词法、再落回
+// 'new'／'question',管家照样看得到原话)也不多认 —— 多认会把一句新话当成接着焦点那条的话。
+const STEWARD_DEICTIC_ZH_RE = /^(?:请)?(?:(?:继续|接着)(?:做|干|办|弄|来|推进|跑)?(?:那个|这个|那件|这件|那条|这条|刚才(?:那个|那件|那条|的)?|上一个|上一件|它)?|(?:那个|这个|那件|这件|那条|这条|刚才那个|就那个|还是那个)(?:继续|接着(?:做|干|办|弄|来)?)?)(?:吧|啊|呀|一下)?$/;
+const STEWARD_DEICTIC_EN_RE = /^(?:please\s+)?(?:continue|resume|keep going|carry on|go on)(?:\s+(?:with\s+)?(?:that|this|it|that one|this one))?(?:\s+please)?$/i;
+function stewardPrerouteIsDeictic(input) {
+  const s = String(input || '').normalize('NFKC').trim().replace(/[\s。．.!！~～…]+$/u, '').trim();
+  if (!s || s.length > 24) return false;
+  return STEWARD_DEICTIC_ZH_RE.test(s) || STEWARD_DEICTIC_EN_RE.test(s);
+}
+// 指代命中时的候选行(不经词法打分,理由直说「指代」)。
+function stewardPrerouteDeicticHit(row, reason) {
+  return stewardPrerouteHit({ row, score: 0, titleHits: new Set(), missionHits: new Set(), summaryHits: new Set(),
+    phraseHit: false, memoryHit: false, recent: false, stateWeighted: false, deicticReason: reason });
 }
 
 // 引号/书名号内的整段短语(§8.12 词法打分「短语整段命中额外 +3」)。「」直角引号与四种常见直/弯引号
@@ -1522,6 +1545,7 @@ function stewardPrerouteScoreThread(row, terms, phrases, memoryEntries, now, def
 // reason:一句话说清楚「命中了哪些词、是否记忆加权、是否短语命中」(交付物原句)。尖括号中和同
 // stewardSanitizeText。命中词最多列 6 个,防一条长 q 把 reason 撑爆。
 function stewardPrerouteReason(candidate) {
+  if (candidate.deicticReason) return stewardSanitizeText(candidate.deicticReason);   // 128h-J03
   const parts = [];
   const words = new Set([...candidate.titleHits, ...candidate.missionHits, ...candidate.summaryHits]);
   if (words.size) parts.push('命中词：' + Array.from(words).slice(0, 6).join('、'));
@@ -1529,6 +1553,7 @@ function stewardPrerouteReason(candidate) {
   if (candidate.memoryHit) parts.push('记忆加权');
   if (candidate.recent) parts.push('近期更新');
   if (candidate.stateWeighted) parts.push('它在等你或已停');
+  if (candidate.focusTieBreak) parts.push('当前焦点');   // 128h-J03 ⑤b
   if (!parts.length) parts.push('弱匹配');
   return stewardSanitizeText(parts.join('；'));
 }
@@ -1561,6 +1586,20 @@ function prerouteText(q, index, memory, opts) {
   if (!trimmed) return { kind: 'steward', hits: [] };
   if (stewardPrerouteIsSchedule(trimmed)) return { kind: 'schedule', hits: [] };
 
+  // 128h-J03 ②b:纯指代(见头注)。
+  const focusId = options.focusSessionId == null ? '' : String(options.focusSessionId);
+  const liveRows = (Array.isArray(index) ? index : []).filter(row => row && row.sessionId);
+  if (stewardPrerouteIsDeictic(trimmed)) {
+    const focusRow = focusId ? liveRows.find(row => String(row.sessionId) === focusId) : null;
+    if (focusRow) return { kind: 'thread', hits: [stewardPrerouteDeicticHit(focusRow, '指代：当前焦点')] };
+    if (!liveRows.length) return { kind: 'steward', hits: [] };
+    if (liveRows.length === 1) return { kind: 'thread', hits: [stewardPrerouteDeicticHit(liveRows[0], '指代：唯一在办的线程')] };
+    const byRecent = liveRows.slice().sort((a, b) =>
+      (Date.parse(String(b.updatedAt || '')) || 0) - (Date.parse(String(a.updatedAt || '')) || 0)
+      || String(a.sessionId).localeCompare(String(b.sessionId)));
+    return { kind: 'unsure', hits: byRecent.slice(0, 2).map(row => stewardPrerouteDeicticHit(row, '指代：最近更新，没有焦点可依')) };
+  }
+
   const terms = stewardMemoryTerms(trimmed);
   const phrases = stewardPrerouteExtractPhrases(trimmed);
   const memoryEntries = (Array.isArray(memory) ? memory : [])
@@ -1577,6 +1616,10 @@ function prerouteText(q, index, memory, opts) {
     return { kind: stewardPrerouteIsQuestion(trimmed) ? 'question' : 'new', hits: [] };
   }
   if (top.length >= 2 && top[1].score >= top[0].score * unsureRatio) {
+    // 128h-J03 ⑤b:并列的两名里有一条就是焦点 -> 焦点来裁;焦点不在并列里不越权。
+    const tied = [top[0], top[1]];
+    const byFocus = focusId ? tied.find(c => String(c.row.sessionId) === focusId) : null;
+    if (byFocus) return { kind: 'thread', hits: [stewardPrerouteHit({ ...byFocus, focusTieBreak: true })] };
     return { kind: 'unsure', hits: [stewardPrerouteHit(top[0]), stewardPrerouteHit(top[1])] };
   }
   return { kind: 'thread', hits: [stewardPrerouteHit(top[0])] };
@@ -1667,6 +1710,7 @@ function prerouteText(q, index, memory, opts) {
 //             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
 //              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
-//           preroute(q,config?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
+//           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
+//           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;
 //           零模型、缓存命中不重装配)
 const StewardHooks = {};

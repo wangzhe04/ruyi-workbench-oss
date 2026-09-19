@@ -14,6 +14,7 @@
 //   ⑨ 尖括号中和(hit.title/reason 里的 </> 变成 []/[])
 //   ⑩ 超长 q(500 字硬顶——夹断点之后的内容不参与打分)
 //   ⑪ 116-5b:hit 带 displayTitle(递送候选列表显示它),而打分那一侧仍只吃原话 title
+//   ⑫ 128h-J03:「继续那个」—— 纯指代按焦点定位;没有焦点只问最近的两条;并列时焦点来裁
 //
 // 与既有 dev-harness/unit 件同款约定(见 steward-core.test.js):require server.js 前先把
 // WIN_CLAUDE_WORKBENCH_HOME 覆盖到临时目录;PASS/FAIL 逐条打印,process.exit(fail?1:0)。
@@ -236,6 +237,53 @@ function row(sessionId, over) {
   const r2 = prerouteText('支付网关重构', [noBrief], [], opts);
   ok(r2.hits[0].displayTitle === '支付网关重构',
     '⑪ 没有摘要时 displayTitle 逐字等于 title(壳层那句 displayTitle || title 的回落永远有值)');
+}
+
+/* ═══════════════════════ ⑫ 128h-J03:「继续那个」—— 焦点定位或只问必要区别 ═══════════════════════
+   41 号文 J03:同时存在两个近似任务,用户说「继续那个」→ 通过当前焦点确定,或只问必要区别,不误递话。
+   修前:纯指代词法恒 0 分,落 'new'(管家据此可能另开一条);并列时焦点也不参与。 */
+{
+  const twin = [
+    row('s_a', { title: '季度预算评审（甲组）', updatedAt: RECENT }),
+    row('s_b', { title: '季度预算评审（乙组）', updatedAt: new Date(NOW - 600 * 1000).toISOString() }),
+  ];
+  // 纯指代 + 焦点
+  const f = prerouteText('继续那个', twin, [], { ...opts, focusSessionId: 's_a' });
+  ok(f.kind === 'thread' && f.hits.length === 1 && f.hits[0].sessionId === 's_a' && /当前焦点/.test(f.hits[0].reason),
+    `⑫ 两个近似任务 + 焦点在甲组:「继续那个」-> thread 甲组、理由说「当前焦点」(实测 ${f.kind} ${JSON.stringify(f.hits.map(h => h.sessionId + ':' + h.reason))})`);
+  const f2 = prerouteText('继续那个', twin, [], { ...opts, focusSessionId: 's_b' });
+  ok(f2.kind === 'thread' && f2.hits[0].sessionId === 's_b', '⑫ 焦点换到乙组,同一句话就接乙组(判据是焦点,不是谁更近)');
+  // 纯指代、没有焦点 -> 只问必要区别(最近更新的两条)
+  const u = prerouteText('继续那个', twin, [], opts);
+  ok(u.kind === 'unsure' && u.hits.length === 2 && u.hits[0].sessionId === 's_b' && u.hits[1].sessionId === 's_a',
+    `⑫ 没有焦点:-> unsure,给最近更新的两条(乙组更近排前;实测 ${u.kind} ${JSON.stringify(u.hits.map(h => h.sessionId))})`);
+  // 焦点不在索引里(已完成／已删) = 没有焦点
+  ok(prerouteText('继续那个', twin, [], { ...opts, focusSessionId: 's_gone' }).kind === 'unsure', '⑫ 焦点不在索引里当没给(不凭一个不存在的 id 递话)');
+  // 恰一条 / 零条
+  const one = prerouteText('继续', [twin[0]], [], opts);
+  ok(one.kind === 'thread' && one.hits[0].sessionId === 's_a', '⑫ 只有一条在办:「继续」-> 它(没有可区别的,不问)');
+  ok(prerouteText('接着做', [], [], opts).kind === 'steward', '⑫ 一条都没有:「接着做」-> steward(交给如意答,不落 new)');
+  // 各种说法都认
+  for (const q of ['继续', '继续吧', '接着做', '继续刚才那个', '那个继续', '就那个', '继续。', 'continue', 'Continue that', 'keep going', 'carry on please']) {
+    const r = prerouteText(q, twin, [], { ...opts, focusSessionId: 's_a' });
+    ok(r.kind === 'thread' && r.hits[0].sessionId === 's_a', `⑫ 纯指代「${q}」认得(-> 焦点那条)`);
+  }
+  // 不是纯指代的不认:有可打分的词 / 是问句 / 是定时
+  ok(prerouteText('继续那个报告的第三节', twin, [], { ...opts, focusSessionId: 's_a' }).hits.every(h => !/指代/.test(h.reason)),
+    '⑫ 「继续那个报告的第三节」不是纯指代(有可打分的词),走词法');
+  ok(prerouteText('继续吗', twin, [], { ...opts, focusSessionId: 's_a' }).kind === 'question', '⑫ 「继续吗」是问句(问我要不要继续),不是纯指代 -> question');
+  ok(prerouteText('明天9点继续', twin, [], { ...opts, focusSessionId: 's_a' }).kind === 'schedule', '⑫ 「明天9点继续」是定时,不因为有「继续」就接焦点');
+  // 并列时焦点来裁
+  const tie = prerouteText('季度预算评审', twin, [], opts);
+  ok(tie.kind === 'unsure', '⑫ 对照:「季度预算评审」两组打平 -> unsure(没有焦点时照旧只问)');
+  const tieF = prerouteText('季度预算评审', twin, [], { ...opts, focusSessionId: 's_b' });
+  ok(tieF.kind === 'thread' && tieF.hits[0].sessionId === 's_b' && /当前焦点/.test(tieF.hits[0].reason),
+    `⑫ 打平且焦点是乙组 -> thread 乙组、理由后缀「当前焦点」(实测 ${tieF.kind} ${JSON.stringify(tieF.hits.map(h => h.sessionId + ':' + h.reason))})`);
+  const third = row('s_c', { title: '无关的一条', updatedAt: RECENT });
+  const tieOut = prerouteText('季度预算评审', [...twin, third], [], { ...opts, focusSessionId: 's_c' });
+  ok(tieOut.kind === 'unsure', '⑫ 焦点不在并列的两名里:不越权,照旧 unsure');
+  const clear = prerouteText('甲组', twin, [], { ...opts, focusSessionId: 's_b' });
+  ok(clear.kind === 'thread' && clear.hits[0].sessionId === 's_a', '⑫ 词法分得清(「甲组」)时焦点不插手:照接甲组');
 }
 
 try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort tmpdir cleanup */ }

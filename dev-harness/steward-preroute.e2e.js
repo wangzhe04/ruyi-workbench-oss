@@ -316,6 +316,23 @@ try {
   const f5 = await preroute('预算评审', tok);
   ok(f5.status === 200 && f5.json.kind === 'thread' && hitOf(f5) && hitOf(f5).sessionId === sidTieA,
     `(F5) 项目级作用域的记忆【照常】给预判加分 —— 有意的,不是漏改(见 13o stewardPreroute 的注释;实测 ${shot(f5)})`);
+
+  /* ═════════════ (J) 128h-J03:焦点随请求走(路由 → 13o → 纯函数整条路) ═════════════ */
+  // 纯函数那一层的穷举在 unit/steward-preroute ⑫;这里只钉「focus 参数真的一路走到了打分」与「不合法的 id 当没给」——
+  // 单测里 focusSessionId 是测试自己喂的,路由漏传、13o 漏转,单测照样绿。
+  writeMemory(null);
+  const withFocus = (q, focus) => get('/api/steward/preroute?q=' + encodeURIComponent(q) + (focus == null ? '' : '&focus=' + encodeURIComponent(focus)), tok);
+  const j1 = await withFocus('预算评审', sidTieB);
+  ok(j1.status === 200 && j1.json.kind === 'thread' && hitOf(j1) && hitOf(j1).sessionId === sidTieB && String(hitOf(j1).reason || '').includes('当前焦点'),
+    `(J1) 两条打平 + focus=乙组 -> thread/乙组、理由带「当前焦点」(实测 ${shot(j1)})`);
+  const j2 = await withFocus('继续那个', sidTieA);
+  ok(j2.status === 200 && j2.json.kind === 'thread' && hitOf(j2) && hitOf(j2).sessionId === sidTieA && String(hitOf(j2).reason || '').includes('指代'),
+    `(J2) 「继续那个」+ focus=甲组 -> thread/甲组(实测 ${shot(j2)})`);
+  const j3 = await withFocus('继续那个', null);
+  ok(j3.status === 200 && j3.json.kind === 'unsure' && (j3.json.hits || []).length === 2,
+    `(J3) 「继续那个」没带 focus -> unsure、两条候选(只问必要区别;实测 ${shot(j3)})`);
+  const j4 = await withFocus('继续那个', '../../etc/passwd');
+  ok(j4.status === 200 && j4.json.kind === 'unsure', `(J4) focus 不是合法的会话 id -> 当没给(实测 ${shot(j4)})`);
 } catch (e) {
   fail++; console.log('FAIL 未捕获异常: ' + ((e && e.stack) || e));
 } finally {

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-19T10:25:26.348Z",
+  "generatedAt": "2026-09-19T11:37:57.452Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -4048,7 +4048,7 @@
       "kind": "exact",
       "path": "/api/steward/memory",
       "file": "13g-steward.js",
-      "line": 110,
+      "line": 111,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -4068,7 +4068,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/export",
       "file": "13g-steward.js",
-      "line": 116,
+      "line": 117,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"
@@ -4086,7 +4086,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/edit",
       "file": "13g-steward.js",
-      "line": 121,
+      "line": 122,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -4104,7 +4104,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/veto",
       "file": "13g-steward.js",
-      "line": 127,
+      "line": 128,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -4122,7 +4122,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/restore",
       "file": "13g-steward.js",
-      "line": 134,
+      "line": 135,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -4140,7 +4140,7 @@
       "kind": "exact",
       "path": "/api/steward/memory/clear",
       "file": "13g-steward.js",
-      "line": 141,
+      "line": 142,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "POST"
@@ -4158,7 +4158,7 @@
       "kind": "exact",
       "path": "/api/steward/decisions",
       "file": "13g-steward.js",
-      "line": 151,
+      "line": 152,
       "handler": "handleStewardApiRoutes",
       "methods": [
         "GET"

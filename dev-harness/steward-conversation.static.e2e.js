@@ -139,8 +139,14 @@ ok(/const seq = \+\+prerouteSeq;/.test(composer) && /if \(seq !== prerouteSeq\) 
 ok(/if \(!isStewardMode\(\)\) return;/.test(composer)
   && /if \(!\(state && state\.config && state\.config\.stewardEnabledV1 === true\)\) return;/.test(composer),
   'D4 预判受「管家模式 + 管家开关」双重门控（非管家模式零请求，延续 117b 纪律）');
-ok(/api\(`\/api\/steward\/preroute\?q=\$\{encodeURIComponent\(query\)\}`\)/.test(composer),
-  'D5 预判走既有的 GET /api/steward/preroute（后端零改动）');
+ok(/api\(`\/api\/steward\/preroute\?q=\$\{encodeURIComponent\(query\)\}\$\{focusParam\}`\)/.test(composer),
+  'D5 预判走既有的 GET /api/steward/preroute（128h-J03 起多带一个可缺的 focus）');
+// 128h-J03（41 号文 J03「继续那个」）：focus 取自 focusThreadId()（取不到当没有），壳层接的是右栏抽屉此刻那一条 ——
+// 拿掉任一处，「继续那个」就又落不到焦点上（纯函数与路由那两层由 unit/steward-preroute ⑫ 与 steward-preroute.e2e (J) 钉）。
+ok(/try \{ focus = String\(focusThreadId\(\) \|\| ''\); \} catch \{ focus = ''; \}/.test(composer)
+  && /const focusParam = focus \? `&focus=\$\{encodeURIComponent\(focus\)\}` : '';/.test(composer)
+  && /focusThreadId: \(\) => \(drawer && typeof drawer\.currentSessionId === 'function' \? drawer\.currentSessionId\(\) : ''\)/.test(stewardShell),
+  'D5b 预判随请求带上焦点（右栏抽屉此刻那一条）—— 「继续那个」据此定位');
 // 117l D1（用户第四轮走查②「无论关键词匹配到什么，都要发给管家让它决定」）：预判从「目标」降级
 // 成「提示」。修前 currentTarget() 把 routeHits[0] 当目标返回，submit() 于是直递 —— 用户说
 // 「大A这周走势会怎么样」被「走势」命中美股那条线程，一句新话把它正在等的提问 supersede 掉。

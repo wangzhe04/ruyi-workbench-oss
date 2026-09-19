@@ -216,7 +216,8 @@ async function stewardPrerouteIndexRows(config) {
 
 // StewardHooks.preroute 的实现(§11.3「把 preroute(q) 挂到 StewardHooks,117 与 116f 都可能用」)。
 // config 可选:路由处已经 readConfig() 过,直接传进来省一次重读;其余调用方(117 壳层)不传时自己读一遍。
-async function stewardPreroute(q, configArg) {
+// 128h-J03:extra.focus —— 输入区右栏那条(现在这一件)。只进纯函数的 focusSessionId,不进提示词;不在索引里的 id 在纯函数里自然作废。
+async function stewardPreroute(q, configArg, extra) {
   const config = (configArg && typeof configArg === 'object') ? configArg : await readConfig();
   const [index, memoryStore] = await Promise.all([
     stewardPrerouteIndexRows(config).catch(() => []),
@@ -248,7 +249,8 @@ async function stewardPreroute(q, configArg) {
     //      不在本刀内。steward-preroute.e2e 的 (F5) 把「项目级记忆照常加分」钉成了行为断言,
     //      哪天改主意要连它一起改。
     .map(e => ({ kind: e.kind, text: e.text }));
-  return prerouteText(q, index, memory, {});
+  const focus = safeSessionId(extra && extra.focus) || '';
+  return prerouteText(q, index, memory, { focusSessionId: focus });
 }
 
 function stewardOverviewBlock(rows, pack) {

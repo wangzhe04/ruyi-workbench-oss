@@ -93,9 +93,10 @@ async function handleStewardApiRoutes(req, res, pathname) {
     }
     const query = new URL(req.url, 'http://x').searchParams;
     const q = String(query.get('q') || '').slice(0, STEWARD_PREROUTE_QUERY_MAX);
+    const focus = String(query.get('focus') || '').slice(0, 80);   // 128h-J03:可缺;合法性由钩子那一侧(13o)的 safeSessionId 判,不合法当没给
     const startedAt = Date.now();
     const result = typeof StewardHooks.preroute === 'function'
-      ? await StewardHooks.preroute(q, config)
+      ? await StewardHooks.preroute(q, config, { focus })
       : { kind: 'new', hits: [] }; // 理论上不可能(13h 恒填充);兜底而不是抛异常
     const tookMs = Date.now() - startedAt;
     return send(res, json({ ok: true, kind: result.kind, hits: result.hits, tookMs }));
