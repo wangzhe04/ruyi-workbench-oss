@@ -102,11 +102,16 @@ function stewardMayTightenTo(current, target) {
   return a >= 0 && b >= 0 && b < a;
 }
 
-// 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成方括号(总览最终会经既有
+// 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成全角尖括号(总览最终会经既有
 // UI 渲染管线,提前中和比信任下游转义更省心——先例见 03-bridge-guard.js 的同类中和纪律)。
+// 128f(Brief §4.2 第 7 条后半):修前中和成方括号 —— `2>&1` 变成 `2]&1`、`a < b` 变成 `a [ b`,管家读命令摘录时
+// 意思就变了(代批判风险看的正是那段摘录)。换成全角 ＜＞(U+FF1C／U+FF1E):照样拼不出管家提示词里 ASCII 的
+// <围栏> 标记,人和模型都还读得出是「小于／大于／重定向」。
+const STEWARD_NEUTRAL_LT = '＜';
+const STEWARD_NEUTRAL_GT = '＞';
 function stewardSanitizeText(value) {
   if (value == null) return '';
-  return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, '[').replace(/>/g, ']');
+  return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
 function stewardHasText(value) {
@@ -723,10 +728,10 @@ function stewardExemptDelegationVerdict(delegationFacts) {
 }
 
 // 委托书(§3.5「委派」/§11.1 第 9 项)。中和与 stewardSanitizeText 同源,区别只有一条:保留换行
-// (委托书补充是多行结构化文本,折行会毁掉可读性)。尖括号 -> 方括号,防伪造围栏标记。
+// (委托书补充是多行结构化文本,折行会毁掉可读性)。尖括号 -> 全角尖括号,防伪造围栏标记(128f 起不再是方括号,理由见上)。
 function stewardSanitizeBlock(value) {
   if (value == null) return '';
-  return String(value).replace(/\r\n?/g, '\n').replace(/</g, '[').replace(/>/g, ']');
+  return String(value).replace(/\r\n?/g, '\n').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
 const STEWARD_BRIEF_LIMITS = Object.freeze({ supplementChars: 1200, sectionItems: 12, itemChars: 300 });

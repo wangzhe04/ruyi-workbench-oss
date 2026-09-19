@@ -322,6 +322,9 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   CAP_UNKNOWN_TTL_MS,
+  // 128f-⑥:unit/usage-ledger-exit-flush 用。
+  appendUsageLedger,
+  flushUsageLedgerSync,
   peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)

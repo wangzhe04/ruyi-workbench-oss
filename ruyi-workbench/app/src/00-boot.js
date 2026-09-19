@@ -275,6 +275,18 @@ async function ensureDirs() {
 // per token at all). `costTrusted:false` marks rows whose currency amount is plan-based / not a meaningful
 // spend (see the Claude third-party endpoint path); aggregation keeps those OUT of the real costsByCurrency.
 let usageLedgerChain = Promise.resolve();
+// 128f-⑥:还没轮到的那几行(见 appendUsageLedger)。退出路径上的同步补写只动 state==='queued' 的。
+const usageLedgerPending = [];
+// 退出监听器里只能同步 I/O(async 版永远跑不完 —— 与 02 的 flushSessionIndexSync 同一个理由)。返回补写了几行。
+function flushUsageLedgerSync() {
+  let written = 0;
+  for (const item of usageLedgerPending) {
+    if (!item || item.state !== 'queued') continue;
+    try { fs.mkdirSync(path.dirname(item.file), { recursive: true }); fs.appendFileSync(item.file, item.line, 'utf8'); item.state = 'done'; written += 1; }
+    catch { /* best effort:退出路径上不许抛 */ }
+  }
+  return written;
+}
 
 // Resolve the ledger source + cost-trust for a Claude CLI turn. modelsApiBase EMPTY = Anthropic direct ->
 // source 'claude-cli', CLI total_cost_usd usable as a NOTIONAL USD estimate. NON-EMPTY = a third-party
@@ -420,10 +432,24 @@ function appendUsageLedger(entry) {
     if (entry.note != null && String(entry.note)) rec.note = String(entry.note).slice(0, 40);
     const line = JSON.stringify(rec) + '\n';
     const file = path.join(paths.usage, ts.slice(0, 7) + '.jsonl');
+    // 128f-⑥:排队的这一行先登记进 usageLedgerPending(状态 queued)—— 退出路径(SIGINT／SIGTERM／未捕获异常都走
+    // process.exit)上链还没轮到它,flushUsageLedgerSync 用同步 I/O 把 queued 的补写掉;正在写的那一行(writing)
+    // 不补:它落没落盘不知道,补了可能记两遍(费用翻倍比少一行更糟)。
+    const pending = { file, line, state: 'queued' };
+    usageLedgerPending.push(pending);
     // One global append chain so multi-session concurrent writes never interleave a half-line.
     usageLedgerChain = usageLedgerChain.then(async () => {
-      await fsp.mkdir(paths.usage, { recursive: true });
-      await fsp.appendFile(file, line, 'utf8');
+      try {
+        if (pending.state === 'queued') {
+          pending.state = 'writing';
+          await fsp.mkdir(paths.usage, { recursive: true });
+          await fsp.appendFile(file, line, 'utf8');
+          pending.state = 'done';
+        }
+      } finally {
+        const at = usageLedgerPending.indexOf(pending);
+        if (at >= 0) usageLedgerPending.splice(at, 1);
+      }
       markPretenderIndexDirty(rec.sessionId, 'usage'); // 75c: lazily refresh only this Mission's usage aggregate
       if (rec.kind === 'turn') bumpMissionChangeSeq(rec.sessionId, {
         type: 'budget',

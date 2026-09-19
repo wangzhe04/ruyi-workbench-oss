@@ -128,8 +128,8 @@ for (const [label, thread, ctx] of [
   ok(anon.reason === 'lock' && !anon.label.includes('「'), '⑤ 锁的持有者连 id 都没有时给一句不带引号的兜底人话');
 
   const evil = waitReasonFor({}, { lock: { sessionId: 'sess_y', title: '<img src=x>' } });
-  ok(!evil.label.includes('<') && !evil.label.includes('>') && evil.label.includes('[img src=x]'),
-    '⑤ 标题里的尖括号被中和成方括号(与 stewardSanitizeText 同一口径)');
+  ok(!evil.label.includes('<') && !evil.label.includes('>') && evil.label.includes('＜img src=x＞'),
+    '⑤ 标题里的尖括号被中和成全角尖括号(与 stewardSanitizeText 同一口径;128f 起不再是方括号)');
 
   ok(waitReasonFor({}, { slot: {} }).ahead === 0 && waitReasonFor({}, { slot: {} }).label.includes('下一个就是它'),
     '⑤ ahead 缺失 -> 0,人话改说「下一个就是它」');

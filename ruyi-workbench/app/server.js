@@ -275,6 +275,18 @@ async function ensureDirs() {
 // per token at all). `costTrusted:false` marks rows whose currency amount is plan-based / not a meaningful
 // spend (see the Claude third-party endpoint path); aggregation keeps those OUT of the real costsByCurrency.
 let usageLedgerChain = Promise.resolve();
+// 128f-⑥:还没轮到的那几行(见 appendUsageLedger)。退出路径上的同步补写只动 state==='queued' 的。
+const usageLedgerPending = [];
+// 退出监听器里只能同步 I/O(async 版永远跑不完 —— 与 02 的 flushSessionIndexSync 同一个理由)。返回补写了几行。
+function flushUsageLedgerSync() {
+  let written = 0;
+  for (const item of usageLedgerPending) {
+    if (!item || item.state !== 'queued') continue;
+    try { fs.mkdirSync(path.dirname(item.file), { recursive: true }); fs.appendFileSync(item.file, item.line, 'utf8'); item.state = 'done'; written += 1; }
+    catch { /* best effort:退出路径上不许抛 */ }
+  }
+  return written;
+}
 
 // Resolve the ledger source + cost-trust for a Claude CLI turn. modelsApiBase EMPTY = Anthropic direct ->
 // source 'claude-cli', CLI total_cost_usd usable as a NOTIONAL USD estimate. NON-EMPTY = a third-party
@@ -420,10 +432,24 @@ function appendUsageLedger(entry) {
     if (entry.note != null && String(entry.note)) rec.note = String(entry.note).slice(0, 40);
     const line = JSON.stringify(rec) + '\n';
     const file = path.join(paths.usage, ts.slice(0, 7) + '.jsonl');
+    // 128f-⑥:排队的这一行先登记进 usageLedgerPending(状态 queued)—— 退出路径(SIGINT／SIGTERM／未捕获异常都走
+    // process.exit)上链还没轮到它,flushUsageLedgerSync 用同步 I/O 把 queued 的补写掉;正在写的那一行(writing)
+    // 不补:它落没落盘不知道,补了可能记两遍(费用翻倍比少一行更糟)。
+    const pending = { file, line, state: 'queued' };
+    usageLedgerPending.push(pending);
     // One global append chain so multi-session concurrent writes never interleave a half-line.
     usageLedgerChain = usageLedgerChain.then(async () => {
-      await fsp.mkdir(paths.usage, { recursive: true });
-      await fsp.appendFile(file, line, 'utf8');
+      try {
+        if (pending.state === 'queued') {
+          pending.state = 'writing';
+          await fsp.mkdir(paths.usage, { recursive: true });
+          await fsp.appendFile(file, line, 'utf8');
+          pending.state = 'done';
+        }
+      } finally {
+        const at = usageLedgerPending.indexOf(pending);
+        if (at >= 0) usageLedgerPending.splice(at, 1);
+      }
       markPretenderIndexDirty(rec.sessionId, 'usage'); // 75c: lazily refresh only this Mission's usage aggregate
       if (rec.kind === 'turn') bumpMissionChangeSeq(rec.sessionId, {
         type: 'budget',
@@ -21198,11 +21224,16 @@ function stewardMayTightenTo(current, target) {
   return a >= 0 && b >= 0 && b < a;
 }
 
-// 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成方括号(总览最终会经既有
+// 把任意文本变成总览行安全可放的单行文本:折叠换行为空格、把尖括号中和成全角尖括号(总览最终会经既有
 // UI 渲染管线,提前中和比信任下游转义更省心——先例见 03-bridge-guard.js 的同类中和纪律)。
+// 128f(Brief §4.2 第 7 条后半):修前中和成方括号 —— `2>&1` 变成 `2]&1`、`a < b` 变成 `a [ b`,管家读命令摘录时
+// 意思就变了(代批判风险看的正是那段摘录)。换成全角 ＜＞(U+FF1C／U+FF1E):照样拼不出管家提示词里 ASCII 的
+// <围栏> 标记,人和模型都还读得出是「小于／大于／重定向」。
+const STEWARD_NEUTRAL_LT = '＜';
+const STEWARD_NEUTRAL_GT = '＞';
 function stewardSanitizeText(value) {
   if (value == null) return '';
-  return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, '[').replace(/>/g, ']');
+  return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
 function stewardHasText(value) {
@@ -21819,10 +21850,10 @@ function stewardExemptDelegationVerdict(delegationFacts) {
 }
 
 // 委托书(§3.5「委派」/§11.1 第 9 项)。中和与 stewardSanitizeText 同源,区别只有一条:保留换行
-// (委托书补充是多行结构化文本,折行会毁掉可读性)。尖括号 -> 方括号,防伪造围栏标记。
+// (委托书补充是多行结构化文本,折行会毁掉可读性)。尖括号 -> 全角尖括号,防伪造围栏标记(128f 起不再是方括号,理由见上)。
 function stewardSanitizeBlock(value) {
   if (value == null) return '';
-  return String(value).replace(/\r\n?/g, '\n').replace(/</g, '[').replace(/>/g, ']');
+  return String(value).replace(/\r\n?/g, '\n').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
 const STEWARD_BRIEF_LIMITS = Object.freeze({ supplementChars: 1200, sectionItems: 12, itemChars: 300 });
@@ -43235,7 +43266,8 @@ async function startServerInner(opts) {
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
-  process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } cleanupMcp(); });
+  // 128f-⑥:用量账本还没轮到的那几行也在这里同步补写(Brief §4.2 第 5 条「账本即发即忘」)。
+  process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } try { flushUsageLedgerSync(); } catch { /* ignore */ } cleanupMcp(); });
   process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
   process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
   // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a
@@ -56524,6 +56556,9 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   CAP_UNKNOWN_TTL_MS,
+  // 128f-⑥:unit/usage-ledger-exit-flush 用。
+  appendUsageLedger,
+  flushUsageLedgerSync,
   peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)

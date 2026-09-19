@@ -105,8 +105,14 @@ ok(STEWARD_DIGEST_LIMITS.lastSayChars === 200 && STEWARD_DIGEST_LIMITS.lineChars
 }
 {
   const line = buildStewardDigestLine({ id: 't3', title: '<script>alert(1)</script>' });
-  ok(!line.includes('<') && !line.includes('>'), '尖括号中和为方括号');
-  ok(line.includes('[script]'), '中和后仍保留可读文本([script])');
+  ok(!line.includes('<') && !line.includes('>'), '尖括号被中和(没有 ASCII 尖括号)');
+  ok(line.includes('＜script＞'), '中和后仍保留可读文本(＜script＞;128f 起是全角尖括号,不再是方括号)');
+}
+{
+  // 128f(Brief §4.2 第 7 条后半):修前 `2>&1` 被中和成 `2]&1` —— 管家读命令摘录时意思变了。全角之后仍读得出是重定向。
+  const line = buildStewardDigestLine({ id: 't3b', title: 'cmd 2>&1 | findstr a<b' });
+  ok(line.includes('2＞&1') && line.includes('a＜b') && !line.includes('2]&1') && !/[<>]/.test(line),
+    `中和不改变命令的读法:2>&1 → 2＞&1(修前是 2]&1;实测「${line}」)`);
 }
 {
   const line = buildStewardDigestLine({ id: 't4', action: "第一行\n第二行", lastSay: "话一\n话二" });

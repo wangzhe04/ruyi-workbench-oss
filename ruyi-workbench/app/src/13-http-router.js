@@ -2020,7 +2020,8 @@ async function startServerInner(opts) {
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
-  process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } cleanupMcp(); });
+  // 128f-⑥:用量账本还没轮到的那几行也在这里同步补写(Brief §4.2 第 5 条「账本即发即忘」)。
+  process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } try { flushUsageLedgerSync(); } catch { /* ignore */ } cleanupMcp(); });
   process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
   process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
   // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a

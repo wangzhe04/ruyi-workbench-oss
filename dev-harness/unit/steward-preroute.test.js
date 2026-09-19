@@ -157,7 +157,7 @@ function row(sessionId, over) {
   const r = prerouteText('script alert', idx, [], opts);
   ok(r.kind === 'thread', '⑨ 前置:确实命中了那条恶意标题的线程');
   ok(!r.hits[0].title.includes('<') && !r.hits[0].title.includes('>'), '⑨ hit.title 里的尖括号已被中和');
-  ok(r.hits[0].title.includes('[script]'), '⑨ 尖括号中和成方括号(与 stewardSanitizeText 同一纪律)');
+  ok(r.hits[0].title.includes('＜script＞') && !/[<>]/.test(r.hits[0].title), '⑨ 尖括号中和成全角尖括号(与 stewardSanitizeText 同一纪律;128f 起不再是方括号)');
   ok(!r.hits[0].reason.includes('<') && !r.hits[0].reason.includes('>'), '⑨ reason 里也不含尖括号');
 }
 

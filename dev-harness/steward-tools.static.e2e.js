@@ -317,7 +317,8 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 {
   const composed = srv.buildStewardBrief({ userText: '把 <b>报告</b> 整理一下', goal: '<script>x</script>', acceptance: ['A > B'] });
   ok(composed.text.startsWith('把 <b>报告</b> 整理一下'), '附 委托书:用户原话逐字在最前(含尖括号,不被中和)');
-  ok(composed.supplement.includes('[script]') && !composed.supplement.includes('<script>'), '附 委托书:管家补充里的尖括号被中和');
+  ok(composed.supplement.includes('＜script＞') && !composed.supplement.includes('<script>') && composed.supplement.includes('A ＞ B'),
+    '附 委托书:管家补充里的尖括号被中和(128f 起是全角 ＜＞,不再是方括号 —— 「A > B」仍读得出是大于)');
   ok(composed.text.includes('<steward-brief added-by="steward">') && composed.text.includes('</steward-brief>'), '附 委托书:补充放在管家围栏内并标注 added-by');
   const bare = srv.buildStewardBrief({ userText: '只有原话' });
   ok(bare.text === '只有原话', '附 委托书:无补充时不吐围栏(原话 === 整条消息)');

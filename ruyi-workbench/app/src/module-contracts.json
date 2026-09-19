@@ -40,6 +40,7 @@
         "exePath",
         "exposeBundledPythonRuntime",
         "externalRoot",
+        "flushUsageLedgerSync",
         "fs",
         "fsp",
         "hashArgs",
@@ -61,6 +62,7 @@
         "text",
         "usageDayKey",
         "usageLedgerChain",
+        "usageLedgerPending",
         "usageRangeLowerMs",
         "zlib"
       ],
@@ -3969,6 +3971,8 @@
         "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
+        "STEWARD_NEUTRAL_GT",
+        "STEWARD_NEUTRAL_LT",
         "STEWARD_PERMISSION_LABELS",
         "STEWARD_PERMISSION_MODE",
         "STEWARD_PERMISSION_RANK",
@@ -9213,6 +9217,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "externalRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "flushUsageLedgerSync",
           "kinds": [
             "call"
           ]
@@ -16877,6 +16888,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "appendUsageLedger",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
@@ -16885,6 +16903,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "createNdjsonLineFeeder",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "flushUsageLedgerSync",
           "kinds": [
             "read"
           ]

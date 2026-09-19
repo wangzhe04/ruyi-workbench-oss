@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2432 | 2573 | 422 | 68 | 0 | 1 |
+| 53 | 2436 | 2576 | 422 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 57 | 5 | 4 |
+| 0 | `00-boot.js` | bootstrap | 59 | 5 | 4 |
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 146 | 37 | 8 |
@@ -33,7 +33,7 @@
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 18 | `06i-steward-core.js` | engine | 122 | 0 | 0 |
+| 18 | `06i-steward-core.js` | engine | 124 | 0 | 0 |
 | 19 | `06d-memory-domain.js` | engine | 102 | 34 | 10 |
 | 20 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 21 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -48,7 +48,7 @@
 | 30 | `11-native-tools.js` | tools | 85 | 22 | 5 |
 | 31 | `12-tool-dispatch.js` | tools | 33 | 79 | 14 |
 | 32 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 33 | `13-http-router.js` | transport | 64 | 218 | 24 |
+| 33 | `13-http-router.js` | transport | 64 | 219 | 24 |
 | 34 | `13b-api-domain-routes.js` | transport | 10 | 40 | 7 |
 | 35 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 36 | `13d-core-domain-routes.js` | transport | 43 | 115 | 14 |
@@ -67,7 +67,7 @@
 | 49 | `13r-event-stream.js` | transport | 20 | 14 | 6 |
 | 50 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
 | 51 | `13t-steward-schedule.js` | transport | 19 | 35 | 9 |
-| 52 | `14-main.js` | entrypoint | 1 | 573 | 37 |
+| 52 | `14-main.js` | entrypoint | 1 | 575 | 37 |
 
 ## 模块边
 
@@ -268,7 +268,7 @@
 | `12-tool-dispatch.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `getAgentWorkflows` |
 | `12-tool-dispatch.js` | `10-context-governance.js` | backward | `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `ZIP_MAX_SINGLE_FILE`, `ZIP_MAX_TOTAL`, `globToRegExp`, `httpGetGuarded`, `httpRequest`, `isBinaryReadPath`, `levenshtein`, `readIfExists`, `searchFileContent`, `ssrfCheck`, `walkFiles`, `webFetch`, `webSearch`, `zipCollectEntries` |
-| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `buildUsageSummary`, `cp`, `crypto`, `ensureDirs`, `exePath`, `externalRoot`, `fs`, `fsp`, `http`, `isPkg`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `readline`, `safeJsonParse`, `text`, `zlib` |
+| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `buildUsageSummary`, `cp`, `crypto`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isPkg`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `readline`, `safeJsonParse`, `text`, `zlib` |
 | `13-http-router.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `generateMcpConfig`, `hostAllowed`, `invalidateAgentCliPathCaches`, `mcpConfigFilePath`, `mutateConfig`, `normalizeAgentRole`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `syncMcpServersToKimi`, `tokenOk` |
 | `13-http-router.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `observationRecallEnabled` |
 | `13-http-router.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `applyMissionUpdate`, `bumpMissionChangeSeq`, `configForSessionEngineRoute`, `evaluateMissionCheck`, `flushSessionIndexSync`, `invalidateSessionIndex`, `journalDir`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `maybeFinalizeMission`, `missionControlCommand`, `mutateSession`, `normalizeMission`, `normalizeTodoItems`, `recordMissionCheckResult`, `rememberLastUsedEngineRoute`, `saveSession`, `sessionEngineRouteFromConfig`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
@@ -458,7 +458,7 @@
 | `13t-steward-schedule.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision`, `stewardFail` |
 | `13t-steward-schedule.js` | `13k-steward-threads.js` | backward | `stewardCanonWorkspacePath`, `stewardDeriveThreadCwd`, `stewardUnattendedByModel`, `stewardValidateCwd`, `stewardWorkspaceTableFull` |
 | `13t-steward-schedule.js` | `13s-scheduler.js` | backward | `schedulerClockNow`, `schedulerEmitChanged`, `schedulerEnabled`, `schedulerEnsureTimer`, `schedulerFireOnce`, `schedulerLoad`, `schedulerReadFireRows`, `schedulerRuntime`, `schedulerSaveTasks` |
-| `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA`, `createNdjsonLineFeeder`, `hashArgs`, `neutralizeFenceTag` |
+| `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `SESSION_SCHEMA`, `appendUsageLedger`, `createNdjsonLineFeeder`, `flushUsageLedgerSync`, `hashArgs`, `neutralizeFenceTag` |
 | `14-main.js` | `01-config.js` | backward | `AGENT_CLI_TYPES`, `BUILTIN_AGENT_ROLES`, `DurableJsonStore`, `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `autoImportClaudeCodeMcp`, `batchSafeSpawn`, `buildClaudeCliEnv`, `cmdLineBudgetFor`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectDesktopMcpAsync`, `detectKimiPath`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `generateSessionMcpConfig`, `invalidateAgentCliPathCaches`, `invalidateClaudePathCache`, `mutateConfig`, `normalizeAgentRole`, `normalizeConfig`, `pickPython`, `pickPythonAsync`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `quoteWinArg`, `readConfig`, `readFileTail`, `resolveClaudeLauncher`, `resolvePermissionMode`, `selectedAgentCli`, `spawnCmdLineLength`, `syncMcpServersToKimi` |
 | `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `14-main.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `evaporateBudgetBoundaryEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `historyReadDedupEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
