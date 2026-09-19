@@ -562,3 +562,7 @@ W2 先扣事件流、再扣取行回包，点开关 → #A 扣住；放行事件
 13o 不转交 → (J1)(J2) 红；输入区取焦点抛错（被 try/catch 吞成「没有焦点」）→ P1／P1c 红、D5b 红。
 **反向验证先错了一次**：第一轮直接改构建产物 `server.js`，e2e 的新鲜度守卫（src-reader）当场抛错退出，我的检查只 grep `^FAIL` —— 「没有 FAIL 行」被读成了绿。
 改为改 `src/`＋重建、看判定行与退出码之后三条都红在对的地方。顺带：13g 的注释里写了 13h 符号名，被 `steward-runner.static` ②（前向边）拦下，改了措辞。
+
+**`f57b96b`（128f-⑩＋128h-J03）全量（4 路）**：`369 pass / 1 fail / 0 flaky`，退出码 1。唯一的红是 `route-inventory.static`：J03 之后又给 `thread-switch-race` 加了 P1
+（调 `/api/steward/preroute`），路由清册的「覆盖件」一栏没重生 —— 主会话的漏（生成器链要在**最后一次**改动之后整条重跑，改测试也算）。重生后该件与快通道 76/0 全绿；
+`walkthrough-round1`、`steward-drawer`、`mission-index-scale` 这一轮全部首跑即过。
