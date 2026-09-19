@@ -11,7 +11,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //      (steward-composer.js cycleTarget 头注:Shift+Tab 永远能离开)—— 这一处按设计点名放行,K8 另钉它的契约。
 //   K3 Shift+Tab 是 Tab 的镜像(抽样倒走几站,站名对得上)。
 //   K4 齿轮菜单(role="menu"):Enter 打开 → 焦点进到第一项;↓／↑ 在项间移动,Home／End 到头尾;
-//      Esc 收起并把焦点还给齿轮钮。
+//      Esc 收起并把焦点还给齿轮钮;Tab 在项间照走(walkthrough-round2 D6),走出最后一项才收起(K4g)。
 //   K5 设置弹窗:从齿轮菜单用键盘打开 → 焦点在弹窗里;Tab／Shift+Tab 走很多下都出不去(焦点陷阱);
 //      Esc 关掉后焦点回到一个【看得见】的控件(触发它的菜单项已随菜单收起,不能把焦点还给一个藏起来的节点)。
 //   K6 Ctrl+` 在两个视角之间来回切;K6b 背靠背连按两下(第二下落在第一下的视图过渡中途)要落回原处、不冒未捕获异常 ——
@@ -218,6 +218,24 @@ async function walk(fx, label) {
     const afterEsc = { hidden: await ev(`document.getElementById('appGearMenu').hidden`), focus: await active(), expanded: await ev(`document.getElementById('appGearBtn').getAttribute('aria-expanded')`) };
     ok(afterEsc.hidden && afterEsc.focus === 'appGearBtn' && afterEsc.expanded === 'false',
       `K4f Esc 收起菜单、焦点还给齿轮钮、aria-expanded 回 false(${JSON.stringify(afterEsc)})`);
+    // K4g Tab 在项间照走(walkthrough-round2 D6 更早钉下的契约),走出最后一项菜单才收起。128d 首版「Tab 即收」
+    // 把 D6 弄红过(全量回归查出)—— 这里把两半一起钉住:走的途中菜单开着,走出去之后收起、焦点不在藏起来的项上。
+    await fx.enter();
+    await sleep(150);
+    const tabWalk = [];
+    for (let i = 0; i < menuItems.length; i++) {
+      await fx.tab();
+      tabWalk.push(await ev(`(() => { const a = document.activeElement; return {
+        at: (a && a.id) || '', tag: a ? a.tagName : '', open: document.getElementById('appGearMenu').hidden === false,
+      }; })()`));
+    }
+    const walkIn = tabWalk.slice(0, -1);
+    const out = tabWalk[tabWalk.length - 1] || {};
+    ok(walkIn.every(s => s.open && menuItems.includes(s.at)) && new Set(walkIn.map(s => s.at)).size === menuItems.length - 1,
+      `K4g Tab 在项间走、菜单一直开着(${JSON.stringify(walkIn.map(s => s.at))})`);
+    ok(out.open === false && !menuItems.includes(out.at) && out.tag !== '' && out.tag !== 'BODY',
+      `K4g2 走出最后一项:菜单收起、焦点落到菜单外一个真控件上(${JSON.stringify(out)})`);
+    await ev(`(() => { document.getElementById('appGearBtn').focus(); return true; })()`);
 
     /* ═════════ K5 设置弹窗 ═════════ */
     await fx.enter();                       // 焦点在齿轮钮上:再开菜单,焦点落第一项「设置」

@@ -190,7 +190,14 @@ export function createAppFrame({
         else if (event.key === 'ArrowUp') { event.preventDefault(); focusGearItem(at < 0 ? -1 : at - 1); }
         else if (event.key === 'Home') { event.preventDefault(); focusGearItem(0); }
         else if (event.key === 'End') { event.preventDefault(); focusGearItem(-1); }
-        else if (event.key === 'Tab') setGearOpen(false);
+      });
+      // Tab 在项间照走(walkthrough-round2 D6 更早钉下的「从齿轮钮起连按 Tab 走遍七项」);焦点【走出】菜单才收起
+      // (回到齿轮钮不算走出)。128d 首版按 APG 做成「Tab 即收」,全量回归里 D6 红了 —— 让步给先拍板的那一条。
+      // relatedTarget 为空(窗口失焦、点到不可聚焦处)不动:点空白处由外部点击那条逻辑收。
+      gearMenu.addEventListener('focusout', event => {
+        const to = event.relatedTarget;
+        if (!to || !isGearOpen() || gearMenu.contains(to) || to === gear) return;
+        setGearOpen(false);
       });
       gearMenu.addEventListener('click', event => {
         const item = event.target && event.target.closest ? event.target.closest('[role="menuitem"]') : null;
