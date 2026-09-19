@@ -10,8 +10,12 @@ dependencies. Use Ruyi.exe serve --open for packaged deployment or node app/serv
 
 Ruyi.exe also supports doctor, mcp-config, install, and mcp. Overlay packages can update an installation
 incrementally within the same version; verify the overlay identifier and run doctor after applying one. An
-overlay's `minHostVersion` is the version it was built at (`tools/build-overlay.js`), so precheck refuses any
-older host: a cross-version upgrade such as 2.7.0 → 2.8.0 uses the new full package instead (section 8.3).
+overlay's `minHostVersion` is the version it was built at (`tools/build-overlay.js`), and precheck accepts only
+a host at exactly that version: older, newer, or unknown hosts are refused (as of 2026-09-19; before that only
+older hosts were refused, so a newer host could take an older overlay, a partial downgrade). A cross-version
+upgrade such as 2.7.0 → 2.8.0 uses the new full package instead (section 8.3). The launcher (`Start-Workbench.cmd`,
+`Ruyi.exe`) and the ACC components are not in overlays; they change only with a full package. Rolling an overlay
+back also deletes the files that apply added (recorded as `.overlay-added.json` in the backup).
 Wave 107's P1 drill confirmed this on real packages: the 2.8.0 overlay reports `version incompatible` against a
 2.7.0 install and writes nothing.
 

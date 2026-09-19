@@ -2186,7 +2186,7 @@
   "settings.update.overwritten": "覆盖",
   "settings.update.unchanged": "未变",
   "settings.update.deleted": "移除",
-  "settings.update.compatInfo": "宿主 {{p1}} · 包要求最低 {{p2}}",
+  "settings.update.compatInfo": "宿主 {{p1}} · 本包只补 {{p2}}（覆盖包只打同版本补丁）",
   "settings.update.rollback": "回滚到上一版",
   "settings.update.rollingBack": "回滚中…",
   "settings.update.rolledBack": "已回滚({{p1}} 文件)",

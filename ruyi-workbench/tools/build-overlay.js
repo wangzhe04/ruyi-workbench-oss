@@ -157,7 +157,9 @@ const PAYLOAD_FILES = [
   'app/public/vendor/highlight.min.js',
   'app/public/vendor/github-dark.min.css',
   'app/public/vendor/github.min.css',
-  'Start-Workbench.cmd',
+  // 128g(用户 2026-09-19 拍板「覆盖包只打同版本补丁」):通用启动器 Start-Workbench.cmd 【不再】随覆盖包发 ——
+  // Full 包的启动器是 package-offline.ps1 另写的(多一步 ACC 的 install.py --ensure),覆盖包套上去会把它盖成通用版,
+  // Full 安装从此不再自检 ACC(47 号文 §4.2 第 25 条)。启动器要改就发完整包。
   // The launcher prefers the native shell. Overlay releases must ship both files together so a native
   // hotfix (for example per-monitor DPI recovery) reaches existing offline installations as well.
   'RuyiDesktop.exe',
@@ -223,8 +225,7 @@ const PAYLOAD_FILES = [
   'resources/plugins/win-workbench-offline/offline-toolkit/commands/summarize-changes.md',
   'resources/plugins/win-workbench-offline/offline-toolkit/commands/test-changes.md',
   'resources/plugins/win-workbench-offline/offline-toolkit/commands/workbench-doctor.md',
-  'tools/fake-claude.js',
-  'tools/dev-serve.cmd',
+  // 128g:tools/fake-claude.js(测试替身)与 tools/dev-serve.cmd(开发起服)不再随覆盖包发 —— 它们不属于部署面。
 ];
 // 109a: 可选载荷: 存在才随包发布,缺失不是错误。
 // mermaid.min.js 是上游 MIT 发布物(约 2.8 MB),由维护者手工放入 app/public/vendor/。

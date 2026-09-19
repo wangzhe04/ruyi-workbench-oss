@@ -128,7 +128,9 @@ function zipOverlayPkg(pkgDir, zipPath) {
   const ps1 = fs.readFileSync(PS1_SRC, 'utf8');
   ok(ps1.includes("ValidateSet('apply', 'rollback', 'list', 'verify', 'precheck', 'audit')"), 'S1 PS1 含 precheck+audit action');
   ok(/function Test-PathTraversal/.test(ps1) && ps1.includes("path traversal:"), 'S2 PS1 路径逃逸检测在(含 .. / 盘符 / 绝对路径)');
-  ok(ps1.includes('minHostVersion') && /function Test-VersionCompat/.test(ps1), 'S3 PS1 版本兼容预检在(minHostVersion <= host)');
+  // 128g:覆盖包只打同版本补丁 —— 版本闸从「宿主 >= 包」改成「恰好相等」,两边任一读不到也拒。
+  ok(ps1.includes('minHostVersion') && /function Test-VersionCompat/.test(ps1) && ps1.includes('return ([string]$min).Trim() -eq ([string]$current).Trim()'),
+    'S3 PS1 版本预检在(128g:宿主必须恰好是包的版本)');
   ok(ps1.includes('idempotent_rejected') && ps1.includes('-Force'), 'S4 PS1 幂等拒绝 + -Force 覆盖在');
   ok(ps1.includes('.overlay-audit.jsonl') && ps1.includes('function Write-Audit'), 'S5 PS1 审计日志(append-only jsonl)在');
   ok(ps1.includes('Invoke-PrecheckInternal') && /Do-Apply[\s\S]{0,400}Invoke-PrecheckInternal/.test(ps1), 'S6 apply 内联 precheck(写入前先全检)在');
@@ -271,12 +273,31 @@ function zipOverlayPkg(pkgDir, zipPath) {
   ok(rb4apply.json && rb4apply.json.ok === false && rb4apply.json.rejected === true, 'B4 apply 版本不兼容包 rejected(写入前拒)');
   ok(!fs.existsSync(path.join(DEPLOY_B4, '.overlay-backups')), 'B4 apply 拒绝时未建备份目录(零写入)');
 
+  // B5(128g)新宿主装旧包:修前「宿主 >= 包」放行 = 局部降级。宿主 2.0.2、包 minHost 2.0.1 -> 拒,零写入。
+  const DEPLOY_B5 = path.join(HOME, 'deploy-b5');
+  fs.mkdirSync(path.join(DEPLOY_B5, 'app', 'public'), { recursive: true });
+  fs.writeFileSync(path.join(DEPLOY_B5, 'package.json'), JSON.stringify({ version: '2.0.2' }));
+  const rb5 = runPs1('precheck', VALID_PKG, DEPLOY_B5);
+  ok(rb5.json && rb5.json.ok === false && rb5.json.errors.some(e => /version incompatible/.test(e) && /2\.0\.1/.test(e) && /2\.0\.2/.test(e)),
+    `B5 新宿主(2.0.2)装旧包(2.0.1)-> precheck 拒(128g:修前放行 = 局部降级;实测 ${JSON.stringify(rb5.json && rb5.json.errors)})`);
+  const rb5apply = runPs1('apply', VALID_PKG, DEPLOY_B5);
+  ok(rb5apply.json && rb5apply.json.rejected === true && !fs.existsSync(path.join(DEPLOY_B5, 'app', 'public', 'marker.txt')) && !fs.existsSync(path.join(DEPLOY_B5, '.overlay-backups')),
+    'B5b apply 同样拒、零写入');
+  // B6(128g)宿主读不到版本(没有 package.json):修前「读不到就放行」;无法证明是同版本 -> 拒。
+  const DEPLOY_B6 = path.join(HOME, 'deploy-b6');
+  fs.mkdirSync(path.join(DEPLOY_B6, 'app'), { recursive: true });
+  const rb6 = runPs1('precheck', VALID_PKG, DEPLOY_B6);
+  ok(rb6.json && rb6.json.ok === false && rb6.json.errors.some(e => /version incompatible/.test(e) && /unknown/.test(e)),
+    `B6 宿主读不到版本 -> 拒(实测 ${JSON.stringify(rb6.json && rb6.json.errors)})`);
+
   // ── C 段: API 编排层(HTTP 全路径,externalRoot=DEPLOY) ──
   console.log('── C 段: API 编排层(HTTP precheck/apply/幂等/Force/status/rollback) ──');
   // 先回滚 A 段在 DEPLOY 上的 apply,让 C 段从干净态开始。-Force:跳过端口拒(8765 可能被占用)。
   runPs1('rollback', null, DEPLOY, ['-Force']);
-  // rollback 后 hello.txt 恢复原值;marker.txt(新增)留在原处(overlay 不删新增,无害)
+  // rollback 后 hello.txt 恢复原值;128g 起本次 apply 新增的 marker.txt 也删掉(修前留在原处)
   ok(fs.readFileSync(path.join(DEPLOY, 'app', 'public', 'hello.txt'), 'utf8') === 'ORIGINAL-USER-DATA', 'C0 rollback 恢复用户数据(hello.txt=ORIGINAL)');
+  ok(!fs.existsSync(path.join(DEPLOY, 'app', 'public', 'marker.txt')), 'C0b rollback 删掉本次 apply 新增的文件(marker.txt;128g)');
+  ok(!fs.existsSync(path.join(DEPLOY, '.overlay-added.json')), 'C0c 备份里那份新增清单不会被当成部署文件还原到根目录');
 
   let WP = await getFreePort();
   const spawnWb = () => cp.spawn(process.execPath, [path.join(DEPLOY, 'app', 'server.js'), 'serve', '--port', String(WP)], {
@@ -360,6 +381,10 @@ function zipOverlayPkg(pkgDir, zipPath) {
     ok(rbApi && rbApi.ok === true, 'D1 POST rollback ok=true');
     ok(rbApi && typeof rbApi.restored === 'number' && rbApi.restored >= 1, 'D2 rollback restored>=1 文件');
     ok(fs.readFileSync(path.join(DEPLOY, 'app', 'public', 'hello.txt'), 'utf8') === 'NEW-OVERLAY-DATA', 'D3 rollback 一回退 hello.txt=NEW-OVERLAY-DATA(上一步状态,V2-DATA 已回退)');
+    // 128g:只删【这一次】apply 新增的(VALID2 的 marker2.txt);上一步就有的 marker.txt 属于回退到的那个状态,留着。
+    ok(!fs.existsSync(path.join(DEPLOY, 'app', 'public', 'marker2.txt')), 'D4 rollback 删掉 VALID2 新增的 marker2.txt');
+    ok(fs.existsSync(path.join(DEPLOY, 'app', 'public', 'marker.txt')), 'D5 上一步就有的 marker.txt 留着(只删这一次新增的)');
+    ok(rbApi && rbApi.removed === 1, `D6 rollback 回执带 removed=1(实测 ${rbApi && rbApi.removed})`);
 
   } finally {
     kill(wb);

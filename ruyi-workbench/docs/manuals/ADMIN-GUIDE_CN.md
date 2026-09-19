@@ -34,7 +34,7 @@ Start-Workbench.cmd                      # 便捷启动脚本（内部走上面�
 
 ### 1.3 overlay 增量包套用
 
-**同一版本内的补丁**走**增量覆盖包（overlay）**，不重装整包；**跨版本升级（如 2.7.0 → 2.8.0）用新的完整包**，见 §7.4 —— 覆盖包的 `minHostVersion` 就是打包时它自己的版本号（`tools/build-overlay.js`），precheck 会拒绝任何更老的宿主（第 107 波 P1 在真包上实测：2.8.0 的覆盖包对 2.7.0 安装报 `version incompatible`，一个字节不写）。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256 + `minHostVersion`）。六个动作（第53波 EC-B 起 `precheck`/`audit` 为安全原语）：
+**同一版本内的补丁**走**增量覆盖包（overlay）**，不重装整包；**跨版本升级（如 2.7.0 → 2.8.0）用新的完整包**，见 §7.4 —— 覆盖包的 `minHostVersion` 就是打包时它自己的版本号（`tools/build-overlay.js`），precheck 只接受**恰好是这个版本**的宿主 —— 更老、更新、读不到版本的一律拒（2026-09-19 起；此前只拒更老的，新宿主套旧包等于局部降级）。第 107 波 P1 在真包上实测：2.8.0 的覆盖包对 2.7.0 安装报 `version incompatible`，一个字节不写。启动器（`Start-Workbench.cmd`／`Ruyi.exe`）与 ACC 组件不在覆盖包里，只随完整包更新。包内结构：`Manage-Overlay.cmd`（薄封装）→ `Manage-Overlay.ps1` → `payload\`（落地文件 + `update-manifest.json`，内含每个文件的 sha256 + `minHostVersion`）。六个动作（第53波 EC-B 起 `precheck`/`audit` 为安全原语）：
 
 ```cmd
 Manage-Overlay.cmd apply    "C:\...\Ruyi-offline"
@@ -48,7 +48,7 @@ Manage-Overlay.ps1 -Action precheck -OverlayRoot <解压包> -Target "C:\...\Ruy
 Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 ```
 
-套用流程（`Do-Apply`，第53波 EC-B 加固）：**先内联 precheck 全检**（失败即拒、绝不写入，backup 目录都不建）-> **先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 + 追加 `.overlay-audit.jsonl` 审计条目 -> **post-apply 用 sha256 逐文件校验**，verify 结果决定顶层 `ok`/审计 `result`（`ok`/`verify_failed`，不再硬编码 ok）-> 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时默认**拒绝**回滚，先停进程；`-Force` 跳过端口拒--API 路径自动带，因 API 跑在服务内，文件覆写后 restart 加载恢复的旧文件；新增的文件如 vendor 库会留下，无害）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
+套用流程（`Do-Apply`，第53波 EC-B 加固）：**先内联 precheck 全检**（失败即拒、绝不写入，backup 目录都不建）-> **先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 + 追加 `.overlay-audit.jsonl` 审计条目 -> **post-apply 用 sha256 逐文件校验**，verify 结果决定顶层 `ok`/审计 `result`（`ok`/`verify_failed`，不再硬编码 ok）-> 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时默认**拒绝**回滚，先停进程；`-Force` 跳过端口拒--API 路径自动带，因 API 跑在服务内，文件覆写后 restart 加载恢复的旧文件；本次套用新增的文件会一并删掉 —— 套用时记在备份目录的 `.overlay-added.json` 里；2026-09-19 之前打出的备份没有这份清单，新增文件照旧留下）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
 
 **precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
 

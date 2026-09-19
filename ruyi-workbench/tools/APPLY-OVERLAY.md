@@ -4,7 +4,12 @@
 
 ## 这份覆盖包做什么
 
-把已部署的 如意 Ruyi 工作台升级到新版本:覆盖 `app/server.js`、前端 `app/public/*`、源码 `app/src/*`、`Start-Workbench.cmd` 等变化的文件。包内结构:
+给**同一版本**的 如意 Ruyi 部署打补丁(hotfix):覆盖 `app/server.js`、前端 `app/public/*`、源码 `app/src/*` 等变化的文件。
+
+> **跨版本升级不走覆盖包**(2026-09-19 起的口径):下载新版【完整包】解到新目录 —— 数据目录不在安装目录里,首启自动迁移;回退就回到保留的旧目录。
+> 覆盖包只能套在与它【版本完全相同】的部署上(precheck 拒绝其他任何版本,读不到宿主版本也拒);启动器(`Start-Workbench.cmd`／`Ruyi.exe`)与 ACC 组件不在覆盖包里,只随完整包更新。
+
+包内结构:
 
 ```
 Manage-Overlay.cmd        薄封装(双击/命令行调用)
@@ -12,7 +17,7 @@ Manage-Overlay.ps1        受测核心(precheck/apply/rollback/verify/audit)
 APPLY-OVERLAY.md          本文档
 payload\                  落地文件(相对部署根的路径)
   update-manifest.json    每文件 sha256 + minHostVersion + version
-  app\... Start-Workbench.cmd resources\... ...
+  app\... RuyiDesktop.exe resources\... ...
 ```
 
 ## 两种套用方式
@@ -22,7 +27,7 @@ payload\                  落地文件(相对部署根的路径)
 打开工作台 -> 设置 -> 「更新中心」页签(专家模式可见):
 
 1. **选择 zip** -> 点「选择 zip…」挑本地 overlay 包
-2. **预检** -> 点「预检」,展示变更预览(新增/覆盖/未变/移除)+ 版本兼容(宿主 vs 包要求最低版本)+ 四类预检结果
+2. **预检** -> 点「预检」,展示变更预览(新增/覆盖/未变/移除)+ 版本(宿主必须恰好是包的版本)+ 四类预检结果
 3. **应用** -> 预检通过后「应用更新」可用;同版本已应用会提示「强制重装」复选
 4. **重启** -> 应用成功后提示重启工作台生效
 5. **回滚** -> 「回滚到上一版」恢复最近备份;「刷新」查看当前状态与最近更新记录
@@ -57,7 +62,7 @@ apply 前先内联 precheck 全检,失败即拒、绝不写入(backup 目录都�
 |---|---|---|
 | **路径逃逸** | manifest 条目含 `..`/盘符/绝对路径 | zip-slip 越界写(写到部署目录外) |
 | **完整性** | payload 文件缺失或 sha256 != manifest | 篡改包 / 缺文件包 |
-| **版本兼容** | 包 `minHostVersion` > 宿主 `package.json` version | 不兼容版本(如 2.0.1 宿主装要求 2.1 的包) |
+| **版本** | 宿主 `package.json` version ≠ 包的 `minHostVersion`(读不到也拒) | 跨版本套用:旧宿主装新包会缺它没带的那些改动,新宿主装旧包是局部降级 —— 覆盖包只打同版本补丁 |
 | **幂等** | 同 `version` 已 apply 且无 `-Force` | 重复应用(明确拒绝语义) |
 
 ## apply 流程(`Do-Apply`)
@@ -71,7 +76,7 @@ apply 前先内联 precheck 全检,失败即拒、绝不写入(backup 目录都�
 
 ## rollback(可恢复)
 
-`rollback` 恢复最近一次备份。CLI 默认拒(服务在跑别覆盖,先停进程);`-Force` 跳过(API 路径自动带,因 API 跑在服务内,文件覆写后 restart 加载恢复的旧文件)。新增的文件(如 vendor 库)会留下,无害。
+`rollback` 恢复最近一次备份。CLI 默认拒(服务在跑别覆盖,先停进程);`-Force` 跳过(API 路径自动带,因 API 跑在服务内,文件覆写后 restart 加载恢复的旧文件)。本次 apply【新增】的文件(apply 时记在备份目录的 `.overlay-added.json`)会被删掉,回到套用前的样子(更早版本打出的备份没有这份清单,新增文件照旧留下)。
 
 ## 故障恢复
 
@@ -88,7 +93,7 @@ apply 前先内联 precheck 全检,失败即拒、绝不写入(backup 目录都�
 - 产物新鲜:`build-overlay.js` 内部强制 `build --check`(产物==拼接 src),陈旧产物拒入包
 - sha256 完整:`gen-manifest.js` 逐文件算 sha256 写 manifest,apply 前 precheck 校验
 - 版本号:每包用不同 `version`(幂等预检);`minHostVersion` 自动从 `package.json` 注入
-- 新增文件登记:`app/src/*` 经 `src/manifest.json` 自动纳入;非 src 新文件(如新 `public/js/*`、`resources/*`、`tools/*`)必须手动加到 `build-overlay.js` 的 `PAYLOAD_FILES`,否则 overlay 不覆盖 -> 存量部署停在旧版
+- 新增文件登记:`app/src/*` 经 `src/manifest.json` 自动纳入;非 src 新文件(如新 `public/js/*`、`resources/*`)必须手动加到 `build-overlay.js` 的 `PAYLOAD_FILES`,否则 overlay 不覆盖 -> 存量部署停在旧版;启动器与开发替身(`Start-Workbench.cmd`、`tools/fake-claude.js`、`tools/dev-serve.cmd`)不进载荷
 - PS1 UTF-8 BOM:含中文注释,PS5.1 在中文系统上读 no-BOM 会破坏解析
 
 发布前跑 `node dev-harness/release-dryrun.js --pkg`(含 overlay 包装配 + manifest sha256 对账 + Ruyi.exe 冒烟)。

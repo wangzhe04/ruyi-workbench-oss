@@ -10,7 +10,7 @@
     APPLY-OVERLAY.md
     payload\                   (the files that land in the deployed folder)
       update-manifest.json     (sha256 of every payload file, relative to deployed root + minHostVersion)
-      app\... Start-Workbench.cmd resources\... tools\...
+      app\... RuyiDesktop.exe resources\...   (128g: no launcher, no dev tools - those change only with a full package)
 
   Usage (CLI, backward compatible):
     Manage-Overlay.cmd apply    "C:\path\to\Ruyi-offline"
@@ -31,7 +31,7 @@
   Precheck(写入前拒绝)失败类别:
     - path traversal:manifest 条目含 .. / 盘符 / 绝对路径(防 zip-slip 越界写)
     - checksum:payload 文件缺失或 sha256 != manifest(防篡改/缺文件包)
-    - version:包 minHostVersion > 宿主 package.json version(防不兼容版本)
+    - version:宿主 package.json version 必须【恰好等于】包的 minHostVersion(128g:覆盖包只打同版本补丁;跨版本用完整包)
     - idempotency:同版本已 apply 且无 -Force(防重复应用,明确拒绝语义)
 #>
 param(
@@ -86,24 +86,14 @@ function Get-HostVersion($t) {
   return $null
 }
 
-# 语义版本比较:current >= min -> true。不可解析 -> true(不阻塞,向后兼容)。
+# 128g (user decision 2026-09-19): overlays are SAME-VERSION PATCHES ONLY. The manifest's minHostVersion is
+# the version the overlay was built from (build-overlay.js writes package.json's version); the host must be
+# exactly that version. Before 128g this was "current >= min" and unknown versions passed, so a newer host
+# would silently take an older overlay's files (a partial downgrade), and a host without package.json was
+# never checked. Cross-version upgrades use the full package (see APPLY-OVERLAY.md).
 function Test-VersionCompat($min, $current) {
-  if (-not $min -or -not $current) { return $true }
-  try {
-    # 仅取主.次.修(剥 -pre 后缀),按点分段数值比较。
-    $minCore = ($min -split '-')[0]
-    $curCore = ($current -split '-')[0]
-    $minParts = $minCore.Split('.') | ForEach-Object { [int]$_ }
-    $curParts = $curCore.Split('.') | ForEach-Object { [int]$_ }
-    $len = [Math]::Max($minParts.Count, $curParts.Count)
-    for ($i = 0; $i -lt $len; $i++) {
-      $mn = if ($i -lt $minParts.Count) { $minParts[$i] } else { 0 }
-      $cu = if ($i -lt $curParts.Count) { $curParts[$i] } else { 0 }
-      if ($cu -gt $mn) { return $true }
-      if ($cu -lt $mn) { return $false }
-    }
-    return $true
-  } catch { return $true }
+  if (-not $min -or -not $current) { return $false }
+  return ([string]$min).Trim() -eq ([string]$current).Trim()
 }
 
 # 已应用标记(.overlay-applied.json;rollback 会清)。
@@ -192,11 +182,11 @@ function Get-PrecheckCore($t) {
   }
   if ($missing.Count) { $errors += "missing files: $($missing -join ', ')" }
   if ($mismatched.Count) { $errors += "checksum mismatch: $($mismatched -join ', ')" }
-  # 3) 版本兼容:包 minHostVersion > 宿主 version -> 拒
+  # 3) Version gate (128g): the host must be exactly the version this overlay was built from.
   $hostVersion = Get-HostVersion $t
   $minHost = [string]$m.minHostVersion
-  if ($minHost -and $hostVersion -and -not (Test-VersionCompat $minHost $hostVersion)) {
-    $errors += "version incompatible: package requires host >= $minHost, current host is $hostVersion"
+  if (-not (Test-VersionCompat $minHost $hostVersion)) {
+    $errors += "version incompatible: this overlay only patches host $minHost, current host is $(if ($hostVersion) { $hostVersion } else { 'unknown' }). Overlays are same-version patches; upgrade across versions with the full package."
   }
   # 4) 幂等:同版本已 apply 且无 -Force -> 警告(apply 时升格为拒;precheck 只提示)
   $applied = Get-AppliedMarker $t
@@ -277,15 +267,20 @@ function Do-Apply($t) {
     $backup = Join-Path $t ".overlay-backups\$($m.version)-$ts"
     try {
       New-Item -ItemType Directory -Force -Path $backup | Out-Null
-      # 1) Back up any existing counterpart of each payload file.
+      # 1) Back up any existing counterpart of each payload file; remember the ones this apply ADDS
+      #    (128g: rollback deletes exactly those - before 128g they were left behind).
+      $added = @()
       foreach ($f in $m.files) {
         $dst = Join-Path $t $f.path
         if (Test-Path $dst) {
           $bdst = Join-Path $backup $f.path
           New-Item -ItemType Directory -Force -Path (Split-Path -Parent $bdst) | Out-Null
           Copy-Item -LiteralPath $dst -Destination $bdst -Force
+        } else {
+          $added += [string]$f.path
         }
       }
+      ConvertTo-Json -InputObject @($added) | Set-Content -LiteralPath (Join-Path $backup '.overlay-added.json') -Encoding UTF8
       $curMani = Join-Path $t 'update-manifest.json'
       if (Test-Path $curMani) { Copy-Item $curMani (Join-Path $backup 'update-manifest.json') -Force }
       Info "Backed up existing files -> $backup"
@@ -357,6 +352,7 @@ function Do-Rollback($t) {
         $restored = 0
         Get-ChildItem $latest.FullName -Recurse -File | ForEach-Object {
           $rel = $_.FullName.Substring($latest.FullName.Length).TrimStart('\')
+          if ($rel -eq '.overlay-added.json') { return }   # 128g: bookkeeping, not a deployed file
           $dst = Join-Path $t $rel
           New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
           Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
@@ -364,13 +360,31 @@ function Do-Rollback($t) {
           # 改赋值式(无 pipeline 输出)。
           $restored = $restored + 1
         }
+        # 128g: delete the files this apply ADDED (recorded at apply time). Backups made before 128g have no
+        # list; for those the added files stay, as before. Every listed path passes the same traversal check
+        # as the manifest, so a tampered list cannot reach outside the deployment.
+        $removed = 0
+        $addedList = Join-Path $latest.FullName '.overlay-added.json'
+        if (Test-Path $addedList) {
+          $addedPaths = @()
+          try { $addedPaths = @(Get-Content -Raw -LiteralPath $addedList | ConvertFrom-Json) } catch { $addedPaths = @() }
+          foreach ($ap in $addedPaths) {
+            $apPath = [string]$ap
+            if (-not $apPath -or (Test-PathTraversal $apPath)) { continue }
+            $apDst = Join-Path $t $apPath
+            if (Test-Path -LiteralPath $apDst -PathType Leaf) {
+              Remove-Item -LiteralPath $apDst -Force -ErrorAction SilentlyContinue
+              $removed = $removed + 1
+            }
+          }
+        }
         if (-not (Test-Path (Join-Path $latest.FullName 'update-manifest.json'))) {
           Remove-Item -LiteralPath (Join-Path $t 'update-manifest.json') -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath (Join-Path $t '.overlay-applied.json') -Force -ErrorAction SilentlyContinue
         }
         Write-Audit $t @{ action='rollback'; version=$latest.Name; result='ok'; fileCount=$restored; backup=$latest.FullName; error='' }
-        $rbResult = [ordered]@{ ok = $true; restored = $restored; backup = $latest.Name }
-        if (-not $Json) { Info "Rollback complete ($restored files). (Note: files newly ADDED by the overlay are left in place; that is harmless.)" }
+        $rbResult = [ordered]@{ ok = $true; restored = $restored; removed = $removed; backup = $latest.Name }
+        if (-not $Json) { Info "Rollback complete ($restored files restored, $removed added files removed)." }
       }
     }
   }

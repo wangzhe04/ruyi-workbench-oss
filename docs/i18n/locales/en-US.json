@@ -2186,7 +2186,7 @@
   "settings.update.overwritten": "Overwrite",
   "settings.update.unchanged": "Unchanged",
   "settings.update.deleted": "Removed",
-  "settings.update.compatInfo": "Host {{p1}} · package requires ≥ {{p2}}",
+  "settings.update.compatInfo": "Host {{p1}} · this package only patches {{p2}} (same-version patches only)",
   "settings.update.rollback": "Roll back",
   "settings.update.rollingBack": "Rolling back…",
   "settings.update.rolledBack": "Rolled back ({{p1}} files)",

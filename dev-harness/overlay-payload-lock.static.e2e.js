@@ -52,6 +52,11 @@ for (const m of appJs.matchAll(/from '\.\/((?:js|locales)\/[^']+)'/g)) refs.add(
 for (const m of appJs.matchAll(/fetch\('\/(locales\/[^']+)'/g)) refs.add('app/public/' + m[1]);
 const refsMissing = [...refs].filter(f => !payload.has(f));
 ok(refs.size >= 8, `① 引用面可枚举(${refs.size} 项)`);
+// 128g(用户 2026-09-19 拍板:覆盖包只打同版本补丁):通用启动器会把 Full 的启动器盖成通用版(丢掉 ACC 自检),
+// 两件开发替身不属于部署面 —— 三件都不许回到载荷里。
+for (const banned of ['Start-Workbench.cmd', 'tools/fake-claude.js', 'tools/dev-serve.cmd']) {
+  ok(!literals.includes(banned), `①b 载荷里没有 ${banned}(128g)`);
+}
 ok(refsMissing.length === 0, '① index.html/app.js 引用全在载荷表' + (refsMissing.length ? '(漏: ' + refsMissing.join(', ') + ')' : ''));
 
 // ③ 敏感目录磁盘文件 ⊆ 载荷表(新文件忘登记 = 红)。
