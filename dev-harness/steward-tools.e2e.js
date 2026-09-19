@@ -254,7 +254,7 @@ try {
       const fence = first.content.slice(userText.length);
       ok(fence.includes('<steward-brief added-by="steward">') && fence.includes('</steward-brief>'),
         'D6 管家补充在 <steward-brief added-by="steward"> 围栏内');
-      ok(fence.includes('[one-pager]') && !fence.includes('<one-pager>'), 'D7 围栏内补充的尖括号被中和');
+      ok(fence.includes('＜one-pager＞') && !fence.includes('<one-pager>'), 'D7 围栏内补充的尖括号被中和(128f-⑦ 起是全角 ＜＞,不再是方括号)');
       ok(fence.includes('一页纸内讲清三件事') && fence.includes('不要联网'), 'D8 验收项/约束等段进入补充');
     }
     // 回合真的跑起来了(fake-openai 收到了请求)。

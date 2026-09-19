@@ -396,7 +396,7 @@ try {
     ok(noted && noted.ok === true && Number(noted.queued) >= 1, `G4 目标有在途回合时插话入队成功(got ${noted && JSON.stringify(noted.error || noted.queued)})`);
     ok(noted && noted.undoRef && noted.undoRef.kind === 'note' && /（管家补充）/.test(String(noted.undoRef.text || '')),
       'G5 undoRef kind=note,且带服务端加的「（管家补充）」前缀(撤回按文本匹配)');
-    ok(noted && /\[docs\]/.test(String(noted.undoRef.text || '')) && !/<docs>/.test(String(noted.undoRef.text || '')),
+    ok(noted && /＜docs＞/.test(String(noted.undoRef.text || '')) && !/<docs>/.test(String(noted.undoRef.text || '')),   // 128f-⑦:全角,不再是方括号
       'G6 尖括号被中和(与总览行同一函数)');
     await turn.catch(() => {});
     const body = (() => {
@@ -405,7 +405,7 @@ try {
           .split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
       } catch { return []; }
     })();
-    const steered = body.find(m => m && m.role === 'user' && m.steered === true && /（管家补充）相关文件在 \[docs\] 目录/.test(String(m.content || '')));
+    const steered = body.find(m => m && m.role === 'user' && m.steered === true && /（管家补充）相关文件在 ＜docs＞ 目录/.test(String(m.content || '')));
     ok(!!steered, 'G7 插话被下一步消费:会话正文里出现 steered:true 的「（管家补充）」那一条(与用户手动插话同一通道)');
     const decisions = readDecisions();
     ok(decisions.some(d => d.tool === 'steward_thread_note' && d.targetSessionId === SID_RUN), 'G8 插话补充落决策日志');
