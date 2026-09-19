@@ -27,6 +27,18 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   }
   console.log(`PASS catalogs: ${keys(zh).length} matched keys and placeholder contracts`);
 
+  // 128f-①（用户首启走查连带查出）：interpolate 只认 {{name}}，单花括号 {name} 永远原样上屏 —— 启动故障卡点「重试」
+  // 后状态行写着「已尝试 {n} 次」、智能体角色设置里的旧值写着「已保存：{value}」。四份目录里一条都不许再有。
+  // 唯一放行：说明模板语法本身的那句（playbook 的任务模板就是用 {参数名} 作占位符，是给人看的字面量）。
+  const SINGLE_BRACE = /(^|[^{])\{[A-Za-z_一-鿿][\w.一-鿿-]*\}(?!\})/;
+  const LITERAL_BRACES = new Set(['playbook.create.fieldTemplate']);
+  for (const [label, catalog] of [['public zh-CN', zh], ['public en-US', en], ['docs zh-CN', docsZh], ['docs en-US', docsEn]]) {
+    const bad = Object.keys(catalog).filter(key => !LITERAL_BRACES.has(key) && SINGLE_BRACE.test(String(catalog[key])));
+    assert.deepStrictEqual(bad, [], `${label}: single-brace placeholders never interpolate, use {{name}} (found: ${bad.join(', ')})`);
+  }
+  assert.ok(SINGLE_BRACE.test(zh['playbook.create.fieldTemplate']), 'the literal-brace exemption must still describe a real {…} (else drop it)');
+  console.log('PASS placeholders: no single-brace {name} in any catalog (interpolate only fills {{name}})');
+
   // 117q-B3b（30 号文 §4.4 P0-4）伴随断言：任务五态人话此前抄了四份，其中两套 locale key
   // （previewShell.state.* 与 stewardShell.drawer.state.*）已经判出不同文案结果（quick_ask/done）。
   // 合并后四份 locale 都必须只剩中性的 mission.state.* 一套六个键，旧的两个前缀一个字都不许再

@@ -35,5 +35,18 @@ ok(!/\b(LParam|WParam)\.ToInt32\(\)/.test(source), 'x64 下 IntPtr.ToInt32() 遇
 ok(/unchecked\(\(int\)(\(long\)m\.LParam|m\.LParam\.ToInt64\(\))\)/.test(source), 'LPARAM 改用 unchecked 截取低 32 位解码，不经过会抛异常的 checked ToInt32()');
 ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'desktop', 'build-desktop.ps1'), 'utf8')), '桌面壳按 x64 编译（上面那条锁的前提）');
 
+// 用户首启走查（2026-09-19）：MaybeNavigate 只有真的发出了导航才记 navigated。修前 `navigated = true` 排在
+// `if (!webViewReady) return;` 前面 —— 服务地址先到、WebView2 首启还没好时那一发空转，WebView2 好了再调又被挡住，
+// 窗口永远停在占位转圈页、标题栏却写「已连接」。钉次序：就绪检查 → 记 navigated → Navigate；外加 WebView2 就绪后补调一次。
+{
+  const body = (/private void MaybeNavigate\(\)\s*\{([\s\S]*?)\r?\n        \}/.exec(source) || [])[1] || '';
+  const readyAt = body.indexOf('if (!webViewReady) return;');
+  const setAt = body.lastIndexOf('navigated = true;');
+  const navAt = body.indexOf('webView.Navigate(serverUrl)');
+  ok(body.length > 0 && readyAt >= 0 && setAt > readyAt && navAt > setAt,
+    'MaybeNavigate 先确认 WebView2 就绪、发出导航前一刻才记 navigated（服务先到时不会空转卡在转圈页）');
+  ok(/webViewReady = true;\s*\r?\n\s*MaybeNavigate\(\);/.test(source), 'WebView2 就绪之后补调一次 MaybeNavigate（服务先到的那一路靠它导航）');
+}
+
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

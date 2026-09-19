@@ -904,16 +904,21 @@ namespace RuyiDesktop
             MaybeNavigate();
         }
 
+        /* 用户首启走查（2026-09-19）：修前 navigated 在检查 webViewReady【之前】就置真 —— 服务地址先到、WebView2 还没好
+           （首启要新建 EBWebView 用户目录，常比服务慢）时这一发空转；等 WebView2 好了 OnControllerReady 再调本函数，
+           又被 navigated 挡掉，窗口永远停在占位转圈页，标题栏却写着「已连接」。现在只有真的发出了导航（或交给了默认
+           浏览器）才记 navigated。desktop-shell.static 钉这个次序。 */
         private void MaybeNavigate()
         {
             if (navigated || string.IsNullOrEmpty(serverUrl)) return;
-            navigated = true;
             if (browserFallback)
             {
+                navigated = true;
                 OpenInDefaultBrowser();
                 return;
             }
             if (!webViewReady) return;
+            navigated = true;
             webView.Navigate(serverUrl);
         }
 

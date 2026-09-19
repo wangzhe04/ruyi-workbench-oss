@@ -659,7 +659,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（沿用 117x-M2 的拦截法）：拦 fs.readFileSync 让本文件自己的 readLayerPayload() 去读 HEAD
 // （`ef3bd57`）的 git blob = 07031c43…，与被替换的旧值逐字相同；再按工作区算得下面这个值。
 // 反向验证：改 CSS 之后、重钉之前 frontend-domains D51 与 live-full-text F3 双红（实测）。
-const LEGACY_STYLES_SHA256 = 'f762f373b69b63984bfb6fff6936498c2f205b1f964e6544544eccfcbaa20045';
+// 128f-① 续钉（2.8.0 热修线移植；前值 f762f373…）：零新增、零删除层，只在 `css/components/chat-primitives.css` 故障卡那一族后面加三条 ——
+//   `.boot-failure-host`（启动故障卡挂到外框之上的 fixed 浮层：修前画在 #messages，出厂默认的管家视角里整个看不见；
+//   z-index 58 压过弹窗 50／浮层 55、让 toast 60 照样在上）、`.boot-dismiss, .boot-diag-copy`（两枚新按钮的触控尺寸）、
+//   `.boot-diag-copy`（上边距）。只有启动时某一步失败、JS 建出这些节点时才命中，其余逐像素不变。
+// 算法自证：把 chat-primitives.css 从发布线 HEAD（459313b）检出、按本文件自己的 readLayerPayload() 重算 = f762f373…，与被替换的
+// 旧值逐字相同（先自证再替换）；换回本刀的 CSS 再算得下面这个值。（master 上同一处改动叠在 128d 之后，那边的值是 0b8c083a…）
+const LEGACY_STYLES_SHA256 = '5fcee5779fe63cf17e0f01d24dc4030aed716f0355a3678ce218e64e02981d68';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

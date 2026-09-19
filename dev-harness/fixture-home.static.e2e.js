@@ -104,7 +104,11 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 148 -> 149 的来路就是它。主会话提交 A2 时只跑了文档锁、没跑全量,这把锁到 F9 那轮全量才红——漏同步是主会话的错。
 // 128e(48 号文 §1,2.8.0 热修线移植):新增 dev-harness/mcp-resource-config-mask.e2e.js(一处带 RUYI_HOME 的 spawn ——
 // 起 `server.js mcp` 子进程读资源;该件第一行已 require self-isolate-home),149 -> 150 的来路就是它。
-const RUYI_HOME_SPAWN_SITES = 150;
+// 128f-①(2.8.0 热修线,随新件 boot-failure-kind.browser 移植 128d 的公共夹具):lib/browser-fixture.js 起工作台的那一发带
+// RUYI_HOME —— 它住在 lib/ 里,但它是【夹具】不是 runner 基础设施,所以显式纳入扫描面(见 SCANNED_LIB_FIXTURES),150 -> 151 的来路就是它。
+// 用它的件自己不 spawn 工作台,不计入。
+const RUYI_HOME_SPAWN_SITES = 151;
+const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;
@@ -132,7 +136,7 @@ function scanRuyiHomeSpawnSites() {
   // 本件自己不进判据:探针必须【故意】构造"数据家设了、家目录没隔离"的 env 去打守卫
   // (经 PROBE_SPEC 字符串传下去),它是判据的测试者,不是判据的对象。
   const SELF = path.basename(__filename);
-  for (const file of fs.readdirSync(HARNESS).filter(f => f.endsWith('.js') && f !== SELF).sort()) {
+  for (const file of [...fs.readdirSync(HARNESS).filter(f => f.endsWith('.js') && f !== SELF).sort(), ...SCANNED_LIB_FIXTURES]) {
     const src = fs.readFileSync(path.join(HARNESS, file), 'utf8');
     let m;
     SPAWN_CALL.lastIndex = 0;
@@ -266,6 +270,15 @@ try {
   }
   ok(owners.length >= 15, `开浏览器的夹具扫得到（实得 ${owners.length} 件；扫不到 = 本条静默失效）`);
   ok(missing.length === 0, `每一件都收尸（stopRuyiTestBrowsers）—— 漏的会攒断头 Edge，把后面所有件的冷启动拖慢${missing.length ? '；实得漏了：' + missing.join('、') : ''}`);
+  // 用公共夹具的件,浏览器由 lib/browser-fixture 起、由它的 close() 收(close 里调 stopRuyiTestBrowsers(profile))。
+  // 同一条判据换个落点:夹具自己真的调收尸器;每个用它的件都 await 过某个 .close(。发布线上只有 boot-failure-kind 一件用它。
+  const fixtureSrc = fs.readFileSync(path.join(harnessDir, 'lib', 'browser-fixture.js'), 'utf8');
+  ok(/\bstopRuyiTestBrowsers\s*\(\s*profile\s*\)/.test(fixtureSrc) && /\bkillTree\(fx\.browser\)/.test(fixtureSrc),
+    '公共夹具 lib/browser-fixture 的 close() 收浏览器（killTree ＋ 按本件 profile 收尸）');
+  const fixtureUsers = files.filter(name => /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
+  const unclosed = fixtureUsers.filter(name => !/\bawait\s+\w+\.close\(/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
+  ok(fixtureUsers.length >= 1, `用公共夹具的件扫得到（实得 ${fixtureUsers.length} 件）`);
+  ok(unclosed.length === 0, `每一件用公共夹具的都 await 过 .close()${unclosed.length ? '；实得漏了：' + unclosed.join('、') : ''}`);
 }
 
 // ── 125 治抖（43 号文 §3）：自己算 P95 的夹具必须排进独占桶 ────────────────────────────

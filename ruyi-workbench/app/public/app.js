@@ -37,6 +37,7 @@ import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
 import { createShellModeController } from './js/shell-mode.js'; // 121-K1
 import { createAppFrame } from './js/app-frame.js'; // 121-K4
+import { createBootFailure } from './js/boot-failure.js';
 import { createEventStream } from './js/event-stream.js'; // 121-K2b
 import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：左栏「＋ 新任务」派的那一条
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
@@ -102,6 +103,13 @@ const API_ERROR_I18N = {
 function apiErrText(error) {
   const info = apiErrorInfo(error);
   if (info.code === 'api.request_failed' && info.message) return info.message;
+  // 128f-①（同一个模具，用户首启走查「显示不出具体原因」）：api.internal_error 是服务端 sendError 的兜底码，
+  // 真原因在 message 里（那一刻抛出来的 err.message）。只按码翻译，屏幕上就剩「服务发生内部错误。」——
+  // 现在译文后面带上原话（过长截断；message 只是码本身时不带）。
+  if (info.code === 'api.internal_error' && info.message && info.message !== info.code) {
+    const detail = info.message.length > 300 ? info.message.slice(0, 300) + '…' : info.message;
+    return t('error.api.internalErrorDetail', { detail });
+  }
   const key = API_ERROR_I18N[info.code];
   return key ? t(key, info.params) : rawApiErrText(error);
 }
@@ -1160,65 +1168,13 @@ function downloadRawEvents() {
 }
 
 /* ---------------- v1.5 (§1.3): 首次连接失败故障卡 ---------------- */
-// 占满对话区的显式故障卡:大标题「无法连接本地服务」+ 三条可能原因(端口被占/服务未启动/被安全软件拦截)
-// +「重试连接」(重跑 bootData,不重复 bindEvents)+「查看日志/诊断」(展开原始错误详情,供排查/反馈)。
-// 全中文人话,主卡不暴露英文栈 —— 原始 message 收进折叠的诊断面板(专家才需要)。DOM 全 createElement/
-// textContent(F 安全红线,err 内容不可信)。故障卡可键盘操作:重试是真 <button> 且自动聚焦,诊断按钮
-// 带 aria-expanded/aria-controls。
-function buildBootFailureCard(err) {
-  const wrap = el('div', 'boot-failure');
-  wrap.setAttribute('role', 'alert');
-  wrap.appendChild(el('div', 'boot-failure-icon', '⚠'));
-  wrap.appendChild(el('h2', 'boot-failure-title', t('bootFailure.title')));
-  wrap.appendChild(el('p', 'boot-failure-lead', t('bootFailure.lead')));
-  const ul = el('ul', 'boot-failure-reasons');
-  [
-    [t('connection.reason.portOccupied'), t('connection.reason.portOccupiedDesc')],
-    [t('connection.reason.serverNotStarted'), t('connection.reason.serverNotStartedDesc')],
-    [t('connection.reason.securityBlock'), t('connection.reason.securityBlockDesc')],
-  ].forEach(([t, d]) => {
-    const li = el('li', 'boot-failure-reason');
-    li.appendChild(el('span', 'boot-failure-reason-t', t));
-    li.appendChild(el('span', 'boot-failure-reason-d', d));
-    ul.appendChild(li);
-  });
-  wrap.appendChild(ul);
-  const actions = el('div', 'boot-failure-actions');
-  const retry = el('button', 'primary boot-retry', t('bootFailure.retry'));
-  retry.type = 'button';
-  retry.setAttribute('aria-label', t('bootFailure.retryAria'));
-  retry.onclick = async () => {
-    retry.disabled = true; retry.textContent = t('bootFailure.reconnecting');
-    setStatus(t('bootFailure.reconnectingStatus'));
-    try { await bootData(); } // 成功后 bootData 会重绘 #messages(会话/空状态),故障卡自然被替换
-    catch (e) { renderBootFailure(e); }
-  };
-  actions.appendChild(retry);
-  // 诊断面板:默认折叠;原始错误文本(可能含英文栈)只在这里出现。用 el/textContent 构建,永不 innerHTML。
-  const panel = el('div', 'boot-failure-diag');
-  panel.id = 'bootDiagPanel'; panel.hidden = true;
-  panel.appendChild(el('pre', 'boot-failure-diag-pre', apiErrText(err) || t('common.unknownError')));
-  panel.appendChild(el('p', 'boot-failure-hint', t('bootFailure.diagHint')));
-  const diag = el('button', 'ghost boot-diag', t('bootFailure.diagButton'));
-  diag.type = 'button';
-  diag.setAttribute('aria-controls', 'bootDiagPanel');
-  diag.setAttribute('aria-expanded', 'false');
-  diag.onclick = () => { panel.hidden = !panel.hidden; diag.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true'); };
-  actions.appendChild(diag);
-  wrap.appendChild(actions);
-  wrap.appendChild(panel);
-  return wrap;
-}
-function renderBootFailure(err) {
-  try { setStatus(t('connection.cannotConnect')); } catch { /* ignore */ }
-  try { toast(t("toast.connectFail"), 'err'); } catch { /* ignore */ }
-  const box = $('messages');
-  if (!box) return;
-  box.innerHTML = '';
-  box.appendChild(buildBootFailureCard(err));
-  const retry = box.querySelector('.boot-retry');
-  if (retry) setTimeout(() => { try { retry.focus(); } catch { /* ignore */ } }, 0);
-}
+// 128f-① 用户首启走查改造后整块搬进 js/boot-failure.js（头注在那边）；这里只剩接线。
+const { bootFailureKind, tagBootStep, bootStep, bootStepSync, renderBootFailure } = createBootFailure({
+  apiErrText: error => apiErrText(error),
+  bootData: () => bootData(),
+  // 首跑时配置没读到，界面语言只是按浏览器猜的；重试拉起来之后按用户设的来（只应用、不写回）。
+  afterRecover: () => setLocale(state.config?.locale || 'auto'),
+});
 
 async function boot() {
   await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
@@ -1232,13 +1188,26 @@ async function boot() {
   restoreRightWidth(); initRightResize(); // v3 (§2.7 P2): 恢复右栏三档宽 + 绑定拖拽手柄
   restoreMainView(); // v3 P3a: 恢复中栏主视图(对话/工作台)记忆
   try { const d = localStorage.getItem('wcw.draft'); if (d) { $('promptInput').value = d; autoGrow($('promptInput')); } } catch { /* ignore */ }
-  await bootData();
-  const configuredLocale = state.config?.locale || 'auto';
-  const resolvedLocale = await setLocale(configuredLocale);
-  if (configuredLocale === 'auto') {
-    await saveConfigPartial({ locale: resolvedLocale });
-    fillSettings();
+  try { await bootData(); }
+  catch (err) {
+    // 用户首启走查：连不上（传输层）才整段中止、交给 boot().catch 画卡；服务应答了、只是某一步没走通 —— 卡照画，
+    // boot 照走完（语言、推送连接）。修前一抛就整段中止，推送连接根本没起，界面能用却不再自己更新。
+    if (bootFailureKind(err) === 'unreachable') throw err;
+    renderBootFailure(err);
   }
+  // 语言这一步同理：抛了只画卡（带步骤名），不拦后面的推送连接。
+  // 但【只有真读到了配置】才许把自动判出的语言写回去：修前 bootData 一抛就整段中止、走不到这里；现在会走到，
+  // 而 /api/status 没到时 state.config 还是初值 {}，locale 读成 'auto' —— 写回去就把用户设的 en-US 覆盖掉
+  // （「写回没读到的状态」那个模具，见 provider-settings 头注）。boot-failure-kind.browser B5b 钉。
+  const configLoaded = Boolean(state.status && state.status.config);
+  try {
+    const configuredLocale = state.config?.locale || 'auto';
+    const resolvedLocale = await setLocale(configuredLocale);
+    if (configuredLocale === 'auto' && configLoaded) {
+      await saveConfigPartial({ locale: resolvedLocale });
+      fillSettings();
+    }
+  } catch (err) { renderBootFailure(tagBootStep(err, 'setLocale · POST /api/config')); }
   // 121-K2b（§6.2）：推送连接排在 boot 的【最后】—— 不是为了省事，而是因为连接参数就是在场信号
   // （§4.3），而它得等两件事落定才算真：① 哪个视角 —— config 到达前 bindShellModeControl 会先 fail-closed
   // 到工作台视角（见 34 号文 §13.1 记的那条时序），这一拍报上去就是假的；② 哪条会话 —— bootData
@@ -1249,19 +1218,20 @@ async function boot() {
 // v1.5 (§1.3): boot 的「连本地服务 + 拉数据」段拆出成独立函数,供故障卡「重试连接」在不重跑 bindEvents
 // (会重复绑 addEventListener)的前提下重试。任何一步抛错都冒泡给调用方(boot().catch / 重试处理)渲染故障卡。
 async function bootData() {
-  await refreshStatus();
-  await refreshSessions();
+  // 每一步贴上步骤名（诊断里的「出错的那一步」）；不改次序、不改哪几步 await —— 没 await 的两发照旧不 await。
+  await bootStep('refreshStatus · GET /api/status', () => refreshStatus());
+  await bootStep('refreshSessions · GET /api/sessions', () => refreshSessions());
   loadAgentWorkflows();
   refreshPlaybooks(); // v0.9-S2: load playbook cards for the empty state (best-effort, non-blocking)
   let last = null; try { last = localStorage.getItem('wcw.lastSession'); } catch { /* ignore */ }
   const target = state.sessions.find(s => s.id === last) || state.sessions[0];
-  if (target) await openSession(target.id);
+  if (target) await bootStep('openSession · GET /api/sessions/:id', () => openSession(target.id));
   // v1.0-S3 (A): no session to open (fresh install) → render the empty state now so the first-run 引导
   // variant appears deterministically (isFirstRun() reads the now-loaded sessions + config, not just the
   // best-effort playbook re-render).
-  else renderCurrentSession();
+  else bootStepSync('renderCurrentSession', () => renderCurrentSession());
   // v0.8-S2: PowerShell is the default-active tab, so start the shell-session poll now.
-  updateShellPolling();
+  bootStepSync('updateShellPolling', () => updateShellPolling());
 }
 // v1.5 (§1.3): 首次连接本地服务失败 —— 不再只把英文错误塞进状态行 + toast,而是在对话区渲染显式故障卡
 // (大标题 +「无法连接本地服务」+ 三条可能原因 +「重试连接」+「查看日志/诊断」)。主画像第一次翻车最狠的点。

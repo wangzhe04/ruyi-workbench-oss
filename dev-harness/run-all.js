@@ -259,7 +259,9 @@ function runOne(file) {
   return new Promise(resolve => {
     const t0 = Date.now();
     const full = path.join(HARNESS, file);
-    const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
+    // 128d（2.8.0 热修线随 128f-① 移植）:用公共夹具 lib/browser-fixture 的件,`--user-data-dir=` 写在 lib 里、不在件的源码里 —— 按 require 认。
+    const fileSrc = fs.readFileSync(full, 'utf8');
+    const ownsBrowserProfile = fileSrc.includes('--user-data-dir=') || /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fileSrc);
     const { env: childEnv, home: childHome } = fixtureChildEnv({ perTest: true });
     // 107-F9b:开浏览器的件拿一个【属于这一件】的临时根,经环境变量交给夹具、再以 --require 装上
     // browser-profile-scope(它把夹具进程的 os.tmpdir() 指到这个根,并拦下根外的 --user-data-dir)。

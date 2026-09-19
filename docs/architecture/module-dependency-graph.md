@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2410 | 2559 | 421 | 68 | 0 | 1 |
+| 53 | 2412 | 2560 | 421 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -29,7 +29,7 @@
 | 11 | `05b-kimi-bridge.js` | engine | 119 | 65 | 12 |
 | 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 14 | `06-provider-engine.js` | engine | 119 | 49 | 11 |
+| 14 | `06-provider-engine.js` | engine | 121 | 49 | 11 |
 | 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
@@ -67,7 +67,7 @@
 | 49 | `13r-event-stream.js` | transport | 20 | 14 | 6 |
 | 50 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
 | 51 | `13t-steward-schedule.js` | transport | 19 | 35 | 9 |
-| 52 | `14-main.js` | entrypoint | 1 | 566 | 36 |
+| 52 | `14-main.js` | entrypoint | 1 | 567 | 36 |
 
 ## 模块边
 
@@ -470,7 +470,7 @@
 | `14-main.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `14-main.js` | `05-claude-engine.js` | backward | `applyProviderReasoningEffort`, `maskSecrets`, `maskedSecretConflicts`, `providerLaunchVectorKey`, `providerReasoningEffort`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
 | `14-main.js` | `05b-kimi-bridge.js` | backward | `compactKimiNative`, `consumeKimiAcpApproval`, `isKimiAcpPlanFilePath`, `kimiAcpConcreteEditGuard`, `kimiAcpFreshActualForOperation`, `kimiAcpInferConcreteToolInput`, `kimiAcpModeOptionFromActivated`, `kimiAcpNativeBashWrapperCandidate`, `kimiAcpNativeBashWrapperTexts`, `kimiAcpNativeShellQuote`, `kimiAcpNativeWindowsPathToPosixPath`, `kimiAcpPermissionToolCall`, `kimiAcpSessionRestoreMethods`, `kimiAcpSuccessfulEnterPlanMode`, `kimiAcpToolTier`, `kimiAcpToolUpdateSucceeded`, `kimiAcpUnknownSessionError`, `kimiSessionStatus`, `parseKimiWireAgentEvents`, `parseKimiWireCompaction`, `prepareKimiAcpSpawn`, `readKimiWireRuntime`, `resolveKimiAcpPlanFilePath`, `runKimiCompact`, `stopKimiServer`, `watchKimiWire` |
-| `14-main.js` | `06-provider-engine.js` | backward | `ERROR_CLASSES`, `NETWORK_ANCHORS`, `TOOL_ITERATION_BUDGETS`, `TOOL_REQUIRES`, `appendResponseLanguagePolicy`, `appendTurnPolicies`, `auditSummaryFor`, `buildAgentTeamHint`, `buildBrowserAutomationHint`, `buildClaudeNativeAgentPolicy`, `buildMetricsPayload`, `buildPlaybookIndexSection`, `buildPromptTaskContext`, `buildProviderSystemPrompt`, `buildResponseLanguagePolicy`, `buildRuntimeIdentityFacts`, `buildSoftwareEngineeringPolicy`, `buildStableSystemPrompt`, `buildToolCustomizationHint`, `buildVolatileParts`, `clampAppendWithSkills`, `claudeProjectDirKey`, `claudeProjectsRoot`, `collectAudit`, `collectStorageStats`, `evalPlaybookAvailability`, `fenceSafeSlice`, `getCapabilities`, `invalidateCapabilityCache`, `isLongToolTask`, `loadAllPlaybooks`, `matchServiceEntry`, `maybeRecordStorageTrend`, `maybeWriteThreadBrief`, `networkAnchors`, `normalizeMetricsPath`, `normalizePlaybook`, `normalizeStoragePolicy`, `parsePlaybookDraft`, `parseThreadBrief`, `peekCapabilities`, `probeAny`, `readProjectMemory`, `readStorageTrend`, `recordEngineTranscript`, `recordRequestMetric`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `shrinkFencedSection`, `softwareEngineeringTaskProfile`, `storageSweep`, `toolRequirementsMet` |
+| `14-main.js` | `06-provider-engine.js` | backward | `CAP_UNKNOWN_TTL_MS`, `ERROR_CLASSES`, `NETWORK_ANCHORS`, `TOOL_ITERATION_BUDGETS`, `TOOL_REQUIRES`, `appendResponseLanguagePolicy`, `appendTurnPolicies`, `auditSummaryFor`, `buildAgentTeamHint`, `buildBrowserAutomationHint`, `buildClaudeNativeAgentPolicy`, `buildMetricsPayload`, `buildPlaybookIndexSection`, `buildPromptTaskContext`, `buildProviderSystemPrompt`, `buildResponseLanguagePolicy`, `buildRuntimeIdentityFacts`, `buildSoftwareEngineeringPolicy`, `buildStableSystemPrompt`, `buildToolCustomizationHint`, `buildVolatileParts`, `clampAppendWithSkills`, `claudeProjectDirKey`, `claudeProjectsRoot`, `collectAudit`, `collectStorageStats`, `evalPlaybookAvailability`, `fenceSafeSlice`, `getCapabilities`, `invalidateCapabilityCache`, `isLongToolTask`, `loadAllPlaybooks`, `matchServiceEntry`, `maybeRecordStorageTrend`, `maybeWriteThreadBrief`, `networkAnchors`, `normalizeMetricsPath`, `normalizePlaybook`, `normalizeStoragePolicy`, `parsePlaybookDraft`, `parseThreadBrief`, `peekCapabilities`, `probeAny`, `readProjectMemory`, `readStorageTrend`, `recordEngineTranscript`, `recordRequestMetric`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `shrinkFencedSection`, `softwareEngineeringTaskProfile`, `storageSweep`, `toolRequirementsMet` |
 | `14-main.js` | `06b-prompt-registry.js` | backward | `PROMPT_PACK_VERSION`, `getPromptPack` |
 | `14-main.js` | `06c-agent-loop-hooks.js` | backward | `AgentLoopHooks` |
 | `14-main.js` | `06d-memory-domain.js` | backward | `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `buildCoreMemoryPromptSection`, `buildMemoryCheckPrompt`, `buildMemoryConflictMap`, `buildMemoryPromptSection`, `confirmMemoryRelation`, `deleteMemoryRelation`, `effectiveMemorySelection`, `extractMemoryRelationProposals`, `legacyAccMemoryMigrationComplete`, `listMemoryRelations`, `listWorkbenchMemories`, `loadMemoryRegistry`, `memoryProposalIsDuplicate`, `memoryProposalPrefilter`, `memoryProposalSimilarity`, `memorySearchTerms`, `migrateLegacyAccMemory`, `parseMemoryProposalDecision`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `rankRelevantMemories`, `readWorkbenchMemory`, `resolveCoreMemoryState`, `resolveMemoryPreflight`, `saveMemory` |
