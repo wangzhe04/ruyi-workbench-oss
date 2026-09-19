@@ -1543,6 +1543,17 @@ export function createStewardDrawer({
   }
 
   let loading = false;
+  // 128f-④（Brief §4.2 第 23 条「从工作台切回管家，焦点卡标题闪一下『读取中…』」）：抽屉离开管家视角即收摊，回来
+  // openThread 把手上的一切清空、画「读取中」闸（117k）再整份重取 —— 同一条线程每切一次视角就闪一次，负载下闪得更久。
+  // 117k 的闸防的是「还没读到就说假话」（标题回落成内部 id、「未归事项」「它还没说过话」）；而重开【同一条】时手上有
+  // 它刚刚还是真的那一帧。所以：重开同一条（正开着的这一份，或收摊时记下、5 分钟内的那一份）先把上一帧画出来、
+  // 不落闸，后台照常 refreshOnce 刷新；换到别的线程与头一次打开照旧落闸。活回合尾巴不带进记下的那一帧（它是瞬时的）。
+  const STEWARD_DRAWER_FRAME_KEEP_MS = 5 * 60 * 1000;
+  let lastFrame = null;
+  function captureFrame() {
+    if (!sessionId || !session) return null;
+    return { sessionId, at: Date.now(), session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows };
+  }
   // opts.focus：显式换焦点（用户点了行／页签／「打开」）时才移焦。缺省 'auto' = 只在用户没在打字时移。
   async function openThread(nextId, opts = {}) {
     const id = String(nextId || '');
@@ -1551,12 +1562,22 @@ export function createStewardDrawer({
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
     if (!drawer) return;
+    const sameOpen = sessionId === id && !loading && Boolean(session);
+    const keep = sameOpen ? captureFrame()
+      : (lastFrame && lastFrame.sessionId === id && (Date.now() - lastFrame.at) < STEWARD_DRAWER_FRAME_KEEP_MS ? lastFrame : null);
+    lastFrame = null;
     sessionId = id;
-    loading = true;
-    session = null; resumable = null; snapshot = null; pendingForThread = null;
-    liveTail = null;     // 117l D4：切线程要一起清，否则新线程第一帧还挂着上一条的活回合尾巴
-    displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
-    missionRow = null; missionRows = [];
+    if (keep) {
+      ({ session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows } = keep);
+      if (!sameOpen) liveTail = null;
+      loading = false;
+    } else {
+      loading = true;
+      session = null; resumable = null; snapshot = null; pendingForThread = null;
+      liveTail = null;     // 117l D4：切线程要一起清，否则新线程第一帧还挂着上一条的活回合尾巴
+      displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
+      missionRow = null; missionRows = [];
+    }
     drawer.hidden = false;
     if (shell) shell.dataset.drawer = 'open';
     applyModal();
@@ -1582,6 +1603,9 @@ export function createStewardDrawer({
     if (drawer) { drawer.hidden = true; drawer.removeAttribute('aria-modal'); }
     if (shell) delete shell.dataset.drawer;
     chips.closeMenu();
+    // 128f-④：记下收摊前这一帧，重开同一条时先画它（见 openThread 头注）。离开管家视角时收摊会连来两次（看板的
+    // syncNow 一次、本模块的视角观察者一次），第二次手上已经没有线程了 —— 【不许】拿空值把刚记下的那一帧冲掉。
+    { const frame = captureFrame(); if (frame) lastFrame = frame; }
     sessionId = '';
     stopPolling();
     // 117h：docked 那一份被关掉 = 用户「关掉」了「现在这一件」（Esc 与 × 也算），本机偏好由
