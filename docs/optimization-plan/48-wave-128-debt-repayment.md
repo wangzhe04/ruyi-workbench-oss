@@ -94,6 +94,29 @@
    `mutateSession` 的单测覆盖「撤回插在读与存之间 ⇒ 重做一次后落上」「expectGen 变了 ⇒ 不写、报错」。
 **不做**：三个「用户刚切的值在存盘时重新盖一次」的覆盖表（路由／权限档／桌面工具）今天是好的，合并成一张表只是换写法、有风险无收益 —— 不动。
 
+## §2-c 128f-③ 设计：`/api/status` 不再等桌面组件的 Python 探测（主会话定，2026-09-19 下午）
+
+**读数**（HF2 冒烟与追踪，合成数据、隔离家目录）：Full 包首个 `/api/status` **8.7–8.9 s**（冷）／3.0 s（温），第二个 0.18 s。
+`--require` 预载追踪（同步三件＋`ChildProcess.prototype.spawn`＋fetch／http(s)／dns＋事件循环卡顿）定位：请求期间事件循环几乎不卡，
+慢在**等** —— 状态路由在 `computeHealth`、`generateMcpConfig`、`desktopMcp` 三处 `await ensureDesktopMcpWarm()`，而那趟预热就是
+Full 包内嵌 Python 跑 `from mcp.server.fastmcp import FastMCP`（温 2.6 s，冷更久）。39 号文当初「等」是对的（不等就走同步探针，钉住整个进程），
+但代价是**整个界面**等 Python。进程内缓存肯定结果只活 5 分钟 ⇒ Full 包**不只首启**：隔 5 分钟以上的每一次启动都要付。
+
+**判据**：
+1. 探测在飞（缓存冷）时，`/api/status` **不等、也不走同步探针**：`desktopMcp` 回 `{ enabled, detected:null, resolved:null, probing:true }`；
+   健康项 `desktop-control` 回既有的 `preparing` 态（前端已有人话，不新造状态）；`mcpConfigPath` 回路径本身、不重新生成（启动链在预热完后本来就生成一次）。
+   探测已完成（缓存热）时，输出与改前**逐字段相同**。
+2. 「缓存冷不冷」不另写一套判据：同一个 `detectDesktopMcp()` 在**只读缓存**模式下跑一遍 —— `pickPython` 在该模式下遇到缓存未命中
+   只记一笔、不探；记到了就是「在飞」，并顺手踢一脚预热（幂等，与启动那一趟共用）。
+3. 前端：看到 `probing` 就起一个**有界**的跟进（每 1.5 s 一发 `/api/status`，至多 60 s），拿到非 probing 的那一份后**只**替换
+   `desktopMcp`／`health`／`mcpConfigPath` 三个字段、只重画桌面组件那一行状态与体检面板 —— **不调 `fillSettings`**（不然用户正在设置页里
+   改到一半的东西会被整页回填冲掉，「写回没读到的状态」那个模具的镜像）。
+4. 测试口：`WCW_TEST_DESKTOP_PROBE_DELAY_MS` 只在异步探针里加一段延时，让「在飞」窗口确定性地存在；件里另把子进程的 `TMP/TEMP`
+   指到新目录，绕开跨进程磁盘缓存。
+
+**不在本刀**：`detectClaudePath`／`detectKimiPath` 的同步 `--version` 探针（启动时共 ~1.7 s 卡在 listen 之前）；Python 探针本身改成
+`find_spec` 那种更轻的判法（改判据语义，另议）。
+
 ## §3 纪律（每片都适用）
 
 - 进程安全：只杀自己 spawn 的 PID（认子孙须核创建时间）；禁按名字杀；开工与收工各拍一次进程快照对照
@@ -340,3 +363,30 @@ B6 复制：交给剪贴板的就是原文、剪贴板不给用时整段选中�
 **修**：页签点击与 ←／→ 改派 `steward:focus-thread`（全仓唯一的聚焦通道，看板钉住它、抽屉也听它）；没有 CustomEvent 的宿主退回直接打开。
 **新断言 E1d**：切到 B 后派一次 `visibilitychange` 逼看板刷一拍，抽屉仍在 B —— 修前无负载 2/2 红（标题回到 A），修后 2/2 绿；负载 6×3 修后 18/18 绿（修前 0/18）。
 E1 红时的探针诊断（点的那一下、页签条／标题时间线、前后 3 s 的 /api/ 请求）留在件里。
+
+### 128f-③ `/api/status` 不再等桌面组件的 Python 探测（2026-09-19 下午，主会话亲做；设计见 §2-c）
+
+**读数来路**：HF2 冒烟量到 Full 包首个 `/api/status` 8.9 s。追踪（`--require` 预载：同步三件、`ChildProcess.prototype.spawn`、fetch／http(s)／dns、事件循环卡顿）
+定位到「不卡、在等」：请求期间事件循环几乎不卡，状态路由三处 `await ensureDesktopMcpWarm()`，那一趟是 Full 包内嵌 Python 跑 `from mcp.server.fastmcp import FastMCP`
+（温 2.6 s，冷更久）。**追踪器自己踩过一个坑**：`execFile` 在 `child_process` 模块内调的是局部 `spawn`，只包 `cp.spawn` 看不见它 —— 包 `ChildProcess.prototype.spawn` 才全。
+**另一个要照实写的**：真首启形状的追踪（空家目录）会让服务起真 Claude CLI 跑 `claude mcp add-json`（启动期 MCP 同步）；家目录环境隔离把写入落在临时家里 ——
+事后核过用户真 `~/.claude.json` 修改时刻早于追踪数小时、零处提到追踪路径。
+
+**修**（§2-c 四条判据逐条落）：`desktopMcpDetectionPending()` 用同一个 `detectDesktopMcp()` 在只读缓存模式下判「在飞」（`pickPython` 未命中只记一笔不探），
+在飞就踢一脚预热；状态路由据此不等不探 —— `desktopMcp.probing`、健康项报既有的 `preparing`、`mcpConfigPath` 只回路径；缓存热时输出逐字段不变。
+前端 `followDesktopMcpProbe()` 有界跟进（1.5 s × 至多 40），只换 `desktopMcp`／`health`／`mcpConfigPath` 三个字段、只重画桌面那一行（`renderDesktopMcpStatus`，
+从 `fillSettings` 里单拎出来）与体检面板，不调 `fillSettings`。测试口 `WCW_TEST_DESKTOP_PROBE_DELAY_MS`；浏览器夹具加 `opts.serverEnv`。
+
+**实测**：同一台机器、同一份解包的 Full 包、冷的 Python 缓存（TMP 指到新目录）—— 首个 `/api/status` **3194 ms → 214 ms**（最冷那一次是 8.7 s）。
+
+**新件与反向**：
+- `desktop-probe-status.e2e`（真服务子进程、合成桌面组件根、测试口延时 6 s）：P1 在飞时秒回且 `probing`（0.2 s）、P2 `preparing` 与路径、P3 `/health` 秒回、P4 探完后形状与改前一致。
+  反向（路由照旧等探测）→ P1 实得 **5.4 s**，红。
+- `desktop-probe-follow.browser`：D1 页面在探测在飞时起来、首个状态秒回；D2 那一行写「正在检测…」；D3 用户在另一个设置框里改了一半；D4 探完那一行自己更新；
+  **D5 改了一半的框原封不动**。反向：跟进换成整页 `refreshStatus()` → **D5 红**（框被冲成空串）；不起跟进 → D4 红。
+- **测试口第一版放错了地方，照实记**：延时先放在 `detectDesktopMcpAsync` 开头，于是热缓存的预热也要等 —— 状态路由非在飞路径连等三趟、每次 15 s，把「整页回填」
+  那个反向弄成了 D4 超时红（红的理由是错的）。挪到 `pickPythonAsync` 缓存未命中之后（只在真要探时等，与真机同形），三个反向都按预期的那一条红。
+- 锁跟上：health-i18n 两处源码锚点改按函数头前缀认（签名多了参数）；墙钟窗口 21 → 22 件（两处就地豁免、写明界是延时的一半）；fixture-home 151 → 152；
+  process-safety 253 → 254；README 374／367。快通道 76/0。
+
+**不在本刀**（照旧登记）：启动时 `detectClaudePath`／`detectKimiPath` 同步 `--version`（~1.7 s，卡在 listen 之前）；Python 探针本身换更轻的判法。

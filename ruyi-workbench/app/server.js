@@ -3389,6 +3389,9 @@ const DESKTOP_PYTHON_IMPORT_PROBE = [
   "print('__RUYI_ACC_FULL__' if full else '__RUYI_ACC_CORE__')",
 ].join('\n');
 const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
+// 128f-③:pickPython 的「只读缓存」模式(深度计数,可嵌套)与「这一轮遇到过未命中」位 —— 见 desktopMcpDetectionPending。
+let desktopMcpCacheOnlyDepth = 0;
+let desktopMcpCacheMissed = false;
 // 121 换机器实测(34 号文 §13.8/§13.10):上面这张表只活在【本进程】。这台机器 python / python3 / py -3
 // 三个候选每个要 ~1.7 s 才答得出来(系统 Python 起得慢),而本函数为了优先选 Full 会把候选【全部】探完
 // (前两个 miss、第三个 core),于是每个新进程首启都同步阻塞 ~5 s 在 listen 之前;e2e 每件各起一个服务
@@ -3606,6 +3609,8 @@ function desktopPythonSelectionStore(selectionPlan, selected) {
 function pickPython(repoRoot, desktopEnv, options = {}) {
   const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
   if (selectionPlan.hit) return selectionPlan.value;
+  // 128f-③:「只读缓存」模式(desktopMcpDetectionPending)下缓存未命中只记一笔、不探 —— 调用方据此知道「探测还在飞」。
+  if (desktopMcpCacheOnlyDepth > 0) { desktopMcpCacheMissed = true; return null; }
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
   const picker = desktopPythonPicker();
   for (const raw of selectionPlan.candidates) {
@@ -3620,6 +3625,11 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
 async function pickPythonAsync(repoRoot, desktopEnv, options = {}) {
   const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
   if (selectionPlan.hit) return selectionPlan.value;
+  // TEST HOOK(128f-③):env WCW_TEST_DESKTOP_PROBE_DELAY_MS 只在【真要探】(缓存未命中)时先等一段 —— 「探测在飞」的窗口
+  // 因此确定性地存在,而缓存热时照旧零开销(与真机同形:热缓存的预热是瞬时的)。desktop-probe-status／-follow 两件用它;
+  // 件里另把 TMP 指到新目录绕开跨进程磁盘缓存。不设即零开销。
+  const testDelay = Number(process.env.WCW_TEST_DESKTOP_PROBE_DELAY_MS) || 0;
+  if (testDelay > 0) await new Promise(resolve => setTimeout(resolve, Math.min(testDelay, 60000)));
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPythonAsync;
   const picker = desktopPythonPicker();
   for (const raw of selectionPlan.candidates) {
@@ -3816,6 +3826,21 @@ function ensureDesktopMcpWarm(config) {
     .then(detected => { desktopMcpWarmInFlight = null; return detected; });
   return desktopMcpWarmInFlight;
 }
+// 128f-③(48 号文 §2-c):「桌面组件的 Python 探测此刻还在飞吗」—— 不另写一套判据,就用同一个 detectDesktopMcp()
+// 在【只读缓存】模式下跑一遍:pickPython 遇到缓存未命中只记一笔、不探(见它开头那两行)。记到了 = 在飞(缓存冷),
+// 顺手踢一脚预热(幂等,与启动那一趟共用同一个 Promise)。/api/status 据此不等、也不走同步探针 ——
+// 修前它三处 await 预热,Full 包里那一趟是内嵌 Python 导入 FastMCP,整个界面跟着等 3–9 s(隔 5 分钟以上的每次启动都要付)。
+function desktopMcpDetectionPending(config) {
+  if (!desktopMcpAutodetectWanted(config)) return false;
+  desktopMcpCacheOnlyDepth += 1;
+  desktopMcpCacheMissed = false;
+  try { detectDesktopMcp(); }
+  finally { desktopMcpCacheOnlyDepth -= 1; }
+  const pending = desktopMcpCacheMissed;
+  desktopMcpCacheMissed = false;
+  if (pending) void ensureDesktopMcpWarm(config);
+  return pending;
+}
 
 // Runtime coordinates for loopback callbacks (permission bridge). Set in startServer().
 // v0.8-S2: isMcpChild is set true only in startMcp() — the one-shot MCP subprocess the Claude CLI spawns.
@@ -3845,6 +3870,8 @@ function addExternalMcpServersToMap(mcpServers, config) {
   } catch { /* detection must never break config generation */ }
 }
 
+// 生成的 MCP 配置文件路径(唯一一处拼它)。128f-③:探测在飞时 /api/status 只回这条路径、不重新生成。
+function mcpConfigFilePath() { return path.join(paths.generated, 'workbench.mcp.json'); }
 async function generateMcpConfig(mode) {
   await ensureDirs();
   const cfg = await readConfig().catch(() => null);
@@ -3856,7 +3883,7 @@ async function generateMcpConfig(mode) {
   await ensureDesktopMcpWarm(cfg);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
-  const configPath = path.join(paths.generated, 'workbench.mcp.json');
+  const configPath = mcpConfigFilePath();
   const mcp = {
     mcpServers: {
       // 【存量兼容标识 — 发布后至少保留一个大版本】MCP server id 'win-claude-workbench' 已写进用户的
@@ -39762,13 +39789,15 @@ function desktopControlComponentOnDisk() {
 // (只在 mcp/ai-computer-control/installer/install.py 与两份离线部署文档里出现),为它新造一条
 // 路径常量属于跨组件耦合,超出本刀范围。
 // 返回 { state, count }。state 是稳定小写标识,会作为 detail 的前缀下发给前端映射表与 CLI --human。
-function desktopControlState(config) {
+function desktopControlState(config, { detectionPending = false } = {}) {
   const dm = (config && config.desktopMcp) || {};
   if (dm.enabled === false) return { state: 'disabled', count: 0 };
   const caps = peekCapabilities();
   const desk = caps && caps.desktopMcp;
   const bridged = desk && desk.present === true ? Number(desk.toolCount) || 0 : 0;
   if (bridged > 0) return { state: 'ready', count: bridged };
+  // 128f-③:Python 探测还在飞(缓存冷)时不走下面那条会同步探针的 resolveExternalMcpServers —— 如实说「正在准备中」。
+  if (detectionPending) return { state: 'preparing', count: 0 };
   let entry = null;
   try { entry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null; }
   catch { entry = null; }
@@ -39787,11 +39816,12 @@ const DESKTOP_CONTROL_DETAILS = Object.freeze({
   unreachable: 'unreachable: bridge configured but no tool was bridged',
 });
 
-async function computeHealth(config) {
+async function computeHealth(config, { desktopPending = false } = {}) {
   // 39 号文:下面 desktopControlState → resolveExternalMcpServers → detectDesktopMcp 是【同步】的,
   // 冷缓存时一轮探针把整个进程钉住 ~2.4 s(实测就是这一处最先撞上:/api/status 的 health 字段排在
   // desktopMcp 与 mcpConfigPath 【前面】)。本函数是 async,先等那趟异步预热,缓存热时零开销。
-  await ensureDesktopMcpWarm(config);
+  // 128f-③:调用方已判出「探测在飞」(desktopMcpDetectionPending)时既不等也不探 —— 桌面那一项报 preparing。
+  if (!desktopPending) await ensureDesktopMcpWarm(config);
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
@@ -39822,7 +39852,7 @@ async function computeHealth(config) {
 
   // 118b: 桌面控制(ACC)可用性。沿用既有条目形状 {id, ok, detail};detail 以稳定状态标识开头,
   // 前端 health-i18n.js 与 CLI `doctor --human` 都靠它挑人话文案。
-  const desktop = desktopControlState(config);
+  const desktop = desktopControlState(config, { detectionPending: desktopPending });
   const desktopDetail = DESKTOP_CONTROL_DETAILS[desktop.state] || DESKTOP_CONTROL_DETAILS['not-installed'];
   push('desktop-control', desktop.state === 'ready', desktop.state === 'ready' ? `ready: ${desktop.count} desktop tools bridged` : desktopDetail);
 
@@ -41498,7 +41528,11 @@ async function handleApi(req, res, pathname) {
         if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
       }
     } catch { /* status without a valid session keeps the global new-session default */ }
-    const { health, manifest } = await computeHealth(config);
+    // 128f-③(48 号文 §2-c):桌面组件的 Python 探测还在飞(缓存冷)时,本路由【不等、也不走同步探针】——
+    // 健康项报 preparing、desktopMcp 报 probing、mcpConfigPath 只回路径;前端见 probing 自己有界跟进。
+    // 修前这里三处 await 预热:Full 包首个 /api/status 实测 8.7–8.9 s,整个界面跟着等内嵌 Python 导入 FastMCP。
+    const desktopPending = desktopMcpDetectionPending(config);
+    const { health, manifest } = await computeHealth(config, { desktopPending });
     return send(res, json({
       ok: true,
       app: APP_NAME,
@@ -41534,10 +41568,12 @@ async function handleApi(req, res, pathname) {
       detectedClaudePath: detectClaudePath(),
       detectedKimiPath: detectKimiPath(),
       agentCliDrivers: Object.values(AGENT_CLI_TYPES).map(d => ({ ...d, path: selectedAgentCli({ ...config, agentCliType: d.id }).detected })),
-      mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
+      mcpConfigPath: desktopPending ? mcpConfigFilePath() : await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
       // (null when not found); `resolved` is what would actually be launched (honors explicit overrides).
-      desktopMcp: await (async () => {
+      desktopMcp: desktopPending ? {
+        enabled: !!(config.desktopMcp && config.desktopMcp.enabled), detected: null, resolved: null, probing: true,
+      } : await (async () => {
         // 39 号文:先等那趟异步预热。缓存热时它是个已决 Promise(零开销);冷时若不等,下面两行会
         // 同步 spawnSync 逐个探候选,把整个进程钉住 ~2 s —— e2e 每件的首个 /api/status 正是这一处。
         await ensureDesktopMcpWarm(config);

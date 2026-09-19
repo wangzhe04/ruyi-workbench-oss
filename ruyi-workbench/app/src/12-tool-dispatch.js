@@ -1482,13 +1482,15 @@ function desktopControlComponentOnDisk() {
 // (只在 mcp/ai-computer-control/installer/install.py 与两份离线部署文档里出现),为它新造一条
 // 路径常量属于跨组件耦合,超出本刀范围。
 // 返回 { state, count }。state 是稳定小写标识,会作为 detail 的前缀下发给前端映射表与 CLI --human。
-function desktopControlState(config) {
+function desktopControlState(config, { detectionPending = false } = {}) {
   const dm = (config && config.desktopMcp) || {};
   if (dm.enabled === false) return { state: 'disabled', count: 0 };
   const caps = peekCapabilities();
   const desk = caps && caps.desktopMcp;
   const bridged = desk && desk.present === true ? Number(desk.toolCount) || 0 : 0;
   if (bridged > 0) return { state: 'ready', count: bridged };
+  // 128f-③:Python 探测还在飞(缓存冷)时不走下面那条会同步探针的 resolveExternalMcpServers —— 如实说「正在准备中」。
+  if (detectionPending) return { state: 'preparing', count: 0 };
   let entry = null;
   try { entry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control') || null; }
   catch { entry = null; }
@@ -1507,11 +1509,12 @@ const DESKTOP_CONTROL_DETAILS = Object.freeze({
   unreachable: 'unreachable: bridge configured but no tool was bridged',
 });
 
-async function computeHealth(config) {
+async function computeHealth(config, { desktopPending = false } = {}) {
   // 39 号文:下面 desktopControlState → resolveExternalMcpServers → detectDesktopMcp 是【同步】的,
   // 冷缓存时一轮探针把整个进程钉住 ~2.4 s(实测就是这一处最先撞上:/api/status 的 health 字段排在
   // desktopMcp 与 mcpConfigPath 【前面】)。本函数是 async,先等那趟异步预热,缓存热时零开销。
-  await ensureDesktopMcpWarm(config);
+  // 128f-③:调用方已判出「探测在飞」(desktopMcpDetectionPending)时既不等也不探 —— 桌面那一项报 preparing。
+  if (!desktopPending) await ensureDesktopMcpWarm(config);
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
@@ -1542,7 +1545,7 @@ async function computeHealth(config) {
 
   // 118b: 桌面控制(ACC)可用性。沿用既有条目形状 {id, ok, detail};detail 以稳定状态标识开头,
   // 前端 health-i18n.js 与 CLI `doctor --human` 都靠它挑人话文案。
-  const desktop = desktopControlState(config);
+  const desktop = desktopControlState(config, { detectionPending: desktopPending });
   const desktopDetail = DESKTOP_CONTROL_DETAILS[desktop.state] || DESKTOP_CONTROL_DETAILS['not-installed'];
   push('desktop-control', desktop.state === 'ready', desktop.state === 'ready' ? `ready: ${desktop.count} desktop tools bridged` : desktopDetail);
 

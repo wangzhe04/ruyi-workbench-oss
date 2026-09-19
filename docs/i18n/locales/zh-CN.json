@@ -1988,6 +1988,7 @@
   "mcp.desktopFound": "已发现桌面 MCP: ",
   "mcp.probed": "已探测: ",
   "mcp.notFound": "未发现（请填写命令覆盖，或确认 ai-computer-control 已安装）",
+  "mcp.probing": "正在检测桌面控制组件…（完整版首次启动要几秒，好了会自己更新）",
   "mcp.baseUrl": "Base URL（可选，留空用官方地址）",
   "mcp.external": "外部 MCP",
   "mcp.missingManifest": "该文件夹缺少 ruyi-mcp.json 清单",

@@ -214,7 +214,10 @@
         "decodeClaudeCliText",
         "defaultConfig",
         "desktopMcpAutodetectWanted",
+        "desktopMcpCacheMissed",
+        "desktopMcpCacheOnlyDepth",
         "desktopMcpConsoleScript",
+        "desktopMcpDetectionPending",
         "desktopMcpEntryFor",
         "desktopMcpFromInstalledRoot",
         "desktopMcpFromInstalledRootAsync",
@@ -254,6 +257,7 @@
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "lastGoodConfig",
+        "mcpConfigFilePath",
         "mergeAgentRole",
         "mutateConfig",
         "normalizeAgentRole",
@@ -9390,6 +9394,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "desktopMcpDetectionPending",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "detectClaudePath",
           "kinds": [
             "call"
@@ -9447,6 +9458,13 @@
         {
           "provider": "01-config.js",
           "symbol": "invalidateAgentCliPathCaches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
           ]

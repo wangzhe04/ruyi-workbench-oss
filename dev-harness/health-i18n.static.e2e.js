@@ -42,7 +42,8 @@ const layoutCss = fs.readFileSync(path.join(PUBLIC, 'css', 'layout.css'), 'utf8'
 
 // computeHealth() 段落里 push('<id>', ...) 的 id 清单 —— 事实源是服务端源码,不是这份测试里的手抄表。
 function healthIdsFromServer() {
-  const start = dispatchSrc.indexOf('async function computeHealth(config) {');
+  // 128f-③:签名多了第二个参数({ desktopPending }),按前缀认函数头,不钉参数表。
+  const start = dispatchSrc.indexOf('async function computeHealth(config');
   const end = dispatchSrc.indexOf('\nfunction parseFrontmatter(', start);
   const body = dispatchSrc.slice(start, end > start ? end : undefined);
   return [...new Set([...body.matchAll(/\bpush\('([a-z0-9-]+)'/g)].map(m => m[1]))];
@@ -185,7 +186,7 @@ function healthIdsFromServer() {
     `G1 desktop-control 状态词典前后端一致(${serverTokens.join(', ')})`);
   // 安装器日志只允许出现在注释里(说明「为什么不读它」);一旦落到代码行就是新造了跨组件路径耦合。
   const accLogInCode = dispatchSrc.split('\n').filter(line => line.includes('acc-install-latest') && !line.trim().startsWith('//'));
-  ok(dispatchSrc.includes("push('desktop-control'") && dispatchSrc.includes('function desktopControlState(config)')
+  ok(dispatchSrc.includes("push('desktop-control'") && dispatchSrc.includes('function desktopControlState(config')
     && dispatchSrc.includes('peekCapabilities()') && accLogInCode.length === 0,
     'G2 服务端 desktop-control 只用工作台已有的数据(config + 只读能力缓存 + 桥接解析),不去读安装器日志');
   ok(routerSrc.includes('function doctorHumanLines(') && routerSrc.includes("argv.human === true")

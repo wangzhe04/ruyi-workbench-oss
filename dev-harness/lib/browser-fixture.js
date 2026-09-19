@@ -187,6 +187,7 @@ function killTree(child) {
 //   opts.width/height 窗口尺寸(默认 1280×900)
 //   opts.prepare    浏览器起来之前调一次:async ({ request, token, work, home, appPort }) => {}(建线程、跑回合)
 //   opts.ok         断言函数(夹具自己的前置步骤也记成 PASS/FAIL 行)
+//   opts.serverEnv  叠在工作台子进程环境上的键(128f-③:测试口 WCW_TEST_* 与 TMP 之类;家目录那几个键不许覆盖)
 async function startBrowserFixture(opts = {}) {
   const ok = typeof opts.ok === 'function' ? opts.ok : () => {};
   const prefix = String(opts.prefix || 'ruyi-bfx-');
@@ -244,7 +245,7 @@ async function startBrowserFixture(opts = {}) {
   fx.provider = await startProvider(providerPort, opts.provider);
   fx.server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
     cwd: WB,
-    env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
+    env: { ...process.env, ...(opts.serverEnv || {}), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
     windowsHide: true, stdio: 'ignore',
   });
   const up = await waitForHttp(appPort, 'GET', '/health', result => result.status === 200);

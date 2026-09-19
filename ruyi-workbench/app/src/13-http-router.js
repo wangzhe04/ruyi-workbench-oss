@@ -313,7 +313,11 @@ async function handleApi(req, res, pathname) {
         if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
       }
     } catch { /* status without a valid session keeps the global new-session default */ }
-    const { health, manifest } = await computeHealth(config);
+    // 128f-③(48 号文 §2-c):桌面组件的 Python 探测还在飞(缓存冷)时,本路由【不等、也不走同步探针】——
+    // 健康项报 preparing、desktopMcp 报 probing、mcpConfigPath 只回路径;前端见 probing 自己有界跟进。
+    // 修前这里三处 await 预热:Full 包首个 /api/status 实测 8.7–8.9 s,整个界面跟着等内嵌 Python 导入 FastMCP。
+    const desktopPending = desktopMcpDetectionPending(config);
+    const { health, manifest } = await computeHealth(config, { desktopPending });
     return send(res, json({
       ok: true,
       app: APP_NAME,
@@ -349,10 +353,12 @@ async function handleApi(req, res, pathname) {
       detectedClaudePath: detectClaudePath(),
       detectedKimiPath: detectKimiPath(),
       agentCliDrivers: Object.values(AGENT_CLI_TYPES).map(d => ({ ...d, path: selectedAgentCli({ ...config, agentCliType: d.id }).detected })),
-      mcpConfigPath: await generateMcpConfig(config.mcpCommandMode),
+      mcpConfigPath: desktopPending ? mcpConfigFilePath() : await generateMcpConfig(config.mcpCommandMode),
       // v0.7d: desktop MCP discovery status for the settings UI. `detected` is the autodetect result
       // (null when not found); `resolved` is what would actually be launched (honors explicit overrides).
-      desktopMcp: await (async () => {
+      desktopMcp: desktopPending ? {
+        enabled: !!(config.desktopMcp && config.desktopMcp.enabled), detected: null, resolved: null, probing: true,
+      } : await (async () => {
         // 39 号文:先等那趟异步预热。缓存热时它是个已决 Promise(零开销);冷时若不等,下面两行会
         // 同步 spawnSync 逐个探候选,把整个进程钉住 ~2 s —— e2e 每件的首个 /api/status 正是这一处。
         await ensureDesktopMcpWarm(config);

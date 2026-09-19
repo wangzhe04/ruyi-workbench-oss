@@ -69,6 +69,45 @@ export function createProviderSettingsDomain({
   // 117e: the steward settings tab re-seeds from the same config refresh (its own panels lazy-load).
   fillStewardSettings = () => {},
 } = {}) {
+// 设置 →「集成 / MCP」里桌面组件那一行状态。128f-③ 从 fillSettings 里单拎出来:探测跟进拿到结果后只重画这一行,
+// 不整页回填(fillSettings 会把用户正在改的输入框冲回服务端的值)。
+function renderDesktopMcpStatus() {
+  const dmStat = $('cfgDesktopMcpStatus');
+  if (!dmStat) return;
+  const info = (state.status && state.status.desktopMcp) || null;
+  if (!info || info.enabled === false) dmStat.textContent = t('mcp.notEnabled');
+  else if (info.probing) dmStat.textContent = t('mcp.probing');
+  else if (info.resolved && info.resolved.command) dmStat.textContent = t('mcp.desktopFound') + info.resolved.command + (info.resolved.args && info.resolved.args.length ? ' ' + info.resolved.args.join(' ') : '');
+  else if (info.detected && info.detected.command) dmStat.textContent = t('mcp.probed') + info.detected.command + (info.detected.args && info.detected.args.length ? ' ' + info.detected.args.join(' ') : '');
+  else dmStat.textContent = t('mcp.notFound');
+}
+// 128f-③(48 号文 §2-c):服务端在桌面组件的 Python 探测还在飞时不再让 /api/status 等它,而是回 desktopMcp.probing。
+// 这里起一个【有界】跟进(每 1.5 s 一发,至多 60 s,同一时刻只一条),拿到非 probing 的那一份后【只】替换
+// desktopMcp／health／mcpConfigPath 三个字段、只重画桌面那一行与体检面板 —— 不调 fillSettings、不动别的字段。
+let desktopProbeFollow = null;
+const DESKTOP_PROBE_FOLLOW_MS = 1500;
+const DESKTOP_PROBE_FOLLOW_TRIES = 40;
+function followDesktopMcpProbe() {
+  if (desktopProbeFollow || !(state.status && state.status.desktopMcp && state.status.desktopMcp.probing)) return;
+  desktopProbeFollow = (async () => {
+    try {
+      for (let i = 0; i < DESKTOP_PROBE_FOLLOW_TRIES; i++) {
+        await new Promise(resolve => setTimeout(resolve, DESKTOP_PROBE_FOLLOW_MS));
+        if (!(state.status && state.status.desktopMcp && state.status.desktopMcp.probing)) return; // 别处已刷到结果
+        let fresh = null;
+        try { fresh = await api('/api/status'); } catch { continue; }
+        if (!fresh || !fresh.desktopMcp || fresh.desktopMcp.probing) continue;
+        if (!state.status) return;
+        state.status.desktopMcp = fresh.desktopMcp;
+        state.status.health = fresh.health;
+        state.status.mcpConfigPath = fresh.mcpConfigPath;
+        renderDesktopMcpStatus();
+        renderDoctor();
+        return;
+      }
+    } finally { desktopProbeFollow = null; }
+  })();
+}
 async function refreshStatus() {
   state.status = await api('/api/status');
   state.config = state.status.config || {};
@@ -85,6 +124,7 @@ async function refreshStatus() {
   renderDoctor();
   refreshModels(); // background: enrich the model list from the proxy without blocking status
   fetchCapabilities(false); // v0.8-S6: refresh the capability badge (cached; one-shot on status refresh)
+  followDesktopMcpProbe(); // 128f-③: 桌面组件还在探测时有界跟进,拿到结果只重画那两处
 }
 function normalizeConversationRoute(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -450,14 +490,7 @@ function fillSettings() {
   { const el0 = $('cfgSearchBaseUrl'); if (el0) el0.value = sb.baseUrl || ''; }
   { const el0 = $('cfgSearchApiKey'); if (el0) el0.value = sb.apiKey || ''; }
   updateSearchBackendVisibility();
-  const dmStat = $('cfgDesktopMcpStatus');
-  if (dmStat) {
-    const info = (state.status && state.status.desktopMcp) || null;
-    if (!info || info.enabled === false) dmStat.textContent = t('mcp.notEnabled');
-    else if (info.resolved && info.resolved.command) dmStat.textContent = t('mcp.desktopFound') + info.resolved.command + (info.resolved.args && info.resolved.args.length ? ' ' + info.resolved.args.join(' ') : '');
-    else if (info.detected && info.detected.command) dmStat.textContent = t('mcp.probed') + info.detected.command + (info.detected.args && info.detected.args.length ? ' ' + info.detected.args.join(' ') : '');
-    else dmStat.textContent = t('mcp.notFound');
-  }
+  renderDesktopMcpStatus();
   // Advanced tab: read-only diagnostics.
   const s = state.status || {};
   const dr = $('advDataRoot'); if (dr) dr.textContent = s.dataRoot || '';

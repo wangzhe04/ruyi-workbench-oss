@@ -2387,6 +2387,9 @@ const DESKTOP_PYTHON_IMPORT_PROBE = [
   "print('__RUYI_ACC_FULL__' if full else '__RUYI_ACC_CORE__')",
 ].join('\n');
 const desktopPythonCache = new Map(); // repo/root -> { at, value:{command,args,source}|null }
+// 128f-③:pickPython 的「只读缓存」模式(深度计数,可嵌套)与「这一轮遇到过未命中」位 —— 见 desktopMcpDetectionPending。
+let desktopMcpCacheOnlyDepth = 0;
+let desktopMcpCacheMissed = false;
 // 121 换机器实测(34 号文 §13.8/§13.10):上面这张表只活在【本进程】。这台机器 python / python3 / py -3
 // 三个候选每个要 ~1.7 s 才答得出来(系统 Python 起得慢),而本函数为了优先选 Full 会把候选【全部】探完
 // (前两个 miss、第三个 core),于是每个新进程首启都同步阻塞 ~5 s 在 listen 之前;e2e 每件各起一个服务
@@ -2604,6 +2607,8 @@ function desktopPythonSelectionStore(selectionPlan, selected) {
 function pickPython(repoRoot, desktopEnv, options = {}) {
   const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
   if (selectionPlan.hit) return selectionPlan.value;
+  // 128f-③:「只读缓存」模式(desktopMcpDetectionPending)下缓存未命中只记一笔、不探 —— 调用方据此知道「探测还在飞」。
+  if (desktopMcpCacheOnlyDepth > 0) { desktopMcpCacheMissed = true; return null; }
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPython;
   const picker = desktopPythonPicker();
   for (const raw of selectionPlan.candidates) {
@@ -2618,6 +2623,11 @@ function pickPython(repoRoot, desktopEnv, options = {}) {
 async function pickPythonAsync(repoRoot, desktopEnv, options = {}) {
   const selectionPlan = desktopPythonSelectionPlan(repoRoot, desktopEnv, options);
   if (selectionPlan.hit) return selectionPlan.value;
+  // TEST HOOK(128f-③):env WCW_TEST_DESKTOP_PROBE_DELAY_MS 只在【真要探】(缓存未命中)时先等一段 —— 「探测在飞」的窗口
+  // 因此确定性地存在,而缓存热时照旧零开销(与真机同形:热缓存的预热是瞬时的)。desktop-probe-status／-follow 两件用它;
+  // 件里另把 TMP 指到新目录绕开跨进程磁盘缓存。不设即零开销。
+  const testDelay = Number(process.env.WCW_TEST_DESKTOP_PROBE_DELAY_MS) || 0;
+  if (testDelay > 0) await new Promise(resolve => setTimeout(resolve, Math.min(testDelay, 60000)));
   const probe = typeof options.probe === 'function' ? options.probe : probeDesktopPythonAsync;
   const picker = desktopPythonPicker();
   for (const raw of selectionPlan.candidates) {
@@ -2814,6 +2824,21 @@ function ensureDesktopMcpWarm(config) {
     .then(detected => { desktopMcpWarmInFlight = null; return detected; });
   return desktopMcpWarmInFlight;
 }
+// 128f-③(48 号文 §2-c):「桌面组件的 Python 探测此刻还在飞吗」—— 不另写一套判据,就用同一个 detectDesktopMcp()
+// 在【只读缓存】模式下跑一遍:pickPython 遇到缓存未命中只记一笔、不探(见它开头那两行)。记到了 = 在飞(缓存冷),
+// 顺手踢一脚预热(幂等,与启动那一趟共用同一个 Promise)。/api/status 据此不等、也不走同步探针 ——
+// 修前它三处 await 预热,Full 包里那一趟是内嵌 Python 导入 FastMCP,整个界面跟着等 3–9 s(隔 5 分钟以上的每次启动都要付)。
+function desktopMcpDetectionPending(config) {
+  if (!desktopMcpAutodetectWanted(config)) return false;
+  desktopMcpCacheOnlyDepth += 1;
+  desktopMcpCacheMissed = false;
+  try { detectDesktopMcp(); }
+  finally { desktopMcpCacheOnlyDepth -= 1; }
+  const pending = desktopMcpCacheMissed;
+  desktopMcpCacheMissed = false;
+  if (pending) void ensureDesktopMcpWarm(config);
+  return pending;
+}
 
 // Runtime coordinates for loopback callbacks (permission bridge). Set in startServer().
 // v0.8-S2: isMcpChild is set true only in startMcp() — the one-shot MCP subprocess the Claude CLI spawns.
@@ -2843,6 +2868,8 @@ function addExternalMcpServersToMap(mcpServers, config) {
   } catch { /* detection must never break config generation */ }
 }
 
+// 生成的 MCP 配置文件路径(唯一一处拼它)。128f-③:探测在飞时 /api/status 只回这条路径、不重新生成。
+function mcpConfigFilePath() { return path.join(paths.generated, 'workbench.mcp.json'); }
 async function generateMcpConfig(mode) {
   await ensureDirs();
   const cfg = await readConfig().catch(() => null);
@@ -2854,7 +2881,7 @@ async function generateMcpConfig(mode) {
   await ensureDesktopMcpWarm(cfg);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
-  const configPath = path.join(paths.generated, 'workbench.mcp.json');
+  const configPath = mcpConfigFilePath();
   const mcp = {
     mcpServers: {
       // 【存量兼容标识 — 发布后至少保留一个大版本】MCP server id 'win-claude-workbench' 已写进用户的

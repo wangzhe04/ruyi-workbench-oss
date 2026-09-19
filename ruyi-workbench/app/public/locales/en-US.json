@@ -1988,6 +1988,7 @@
   "mcp.desktopFound": "Desktop MCP found: ",
   "mcp.probed": "Probed: ",
   "mcp.notFound": "Not found (fill in command override or confirm ai-computer-control is installed)",
+  "mcp.probing": "Detecting the desktop control component… (takes a few seconds on the Full build’s first start; this updates by itself)",
   "mcp.baseUrl": "Base URL (optional, leave empty for official)",
   "mcp.external": "External MCP",
   "mcp.missingManifest": "This folder is missing ruyi-mcp.json manifest",
