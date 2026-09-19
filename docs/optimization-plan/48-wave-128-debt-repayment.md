@@ -390,3 +390,10 @@ E1 红时的探针诊断（点的那一下、页签条／标题时间线、前�
   process-safety 253 → 254；README 374／367。快通道 76/0。
 
 **不在本刀**（照旧登记）：启动时 `detectClaudePath`／`detectKimiPath` 同步 `--version`（~1.7 s，卡在 listen 之前）；Python 探针本身换更轻的判法。
+
+**128f-③ 全量回归追记（`193d28a`，4 路）**：`366 pass / 1 fail / 1 flaky`。
+- 真红 `boot-listen-budget`「desktopMcp 字段形状不变」：它钉的正是本刀有意改掉的旧口径（「首个 /api/status 付一次探针」）—— 探测在飞时
+  那一发现在秒回并多一个 `probing` 键。改成认两种形状（探完原样三键；在飞时三键＋`probing:true` 且 `detected`／`resolved` 为 null），头注 ② 同步改写。单跑绿。
+- flaky：`classic-window-live-steer` **H8 第四次**，仍红在 H8b。上一刀装的 setter 探针**这次的证据还是丢了**：run-all 对 flaky 只留首跑的 `FAIL` 行，
+  重跑通过后首跑的夹具目录也跟着删 —— 探针打出的 `H8-DIAG` 行不在 `FAIL` 开头，一行没留下。修：`failLines` 同时收 `<名>-DIAG` 开头的诊断行
+  （每行截 2000 字、合计至多 20 行），H8／E1 这类「红时就地留证据」的件下一次在全量里红，证据会出现在汇总的 `[首跑]` 里。

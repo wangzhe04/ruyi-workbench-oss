@@ -14,7 +14,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 对 PATH 里的 .cmd 直接 ENOENT(把 PATH 设成只有垫片目录,spawnSync 立刻 ENOENT,连 CVE-2024-27980 的
 // EINVAL 都到不了)。也就是说垫片永远不会被 spawn,更不会慢 2 s。所以本件不造假探针,直接量真机:
 //   ① 墙钟判据:spawn → /health 200 ≤ 2.5 s（本机真探针 ~2 s，修前必然超）；
-//   ② /api/status 仍在 15 s 内返回且 desktopMcp 字段形状不变（首个请求付一次探针，是号文接受的）；
+//   ② /api/status 在 15 s 内返回；desktopMcp 探完是原样三键、在飞时多一个 probing（128f-③ 起首个请求不再付探针，见 48 号文 §2-c）；
 //   ③ 形状锁:三处 fire-and-forget 与 generateMcpConfig 预热都排在 listenWithFallback 之【后】、
 //      在延迟 setImmediate 段里，且 detectDesktopMcp 仍是同步签名（39 号文的拍板：签名保留，
 //      预热改走异步孪生 ensureDesktopMcpWarm()，形状锁跟着钉住「三处 fire-and-forget 排在它的 .then 里」）；
@@ -103,9 +103,12 @@ function getJson(pathname, token, timeoutMs) {
     ok(status && status.status === 200 && status.json && status.json.ok !== false, `/api/status 在 ${STATUS_BUDGET_MS} ms 内返回（实得 ${statusMs} ms）`);
     const dm = status && status.json ? status.json.desktopMcp : undefined;
     const dmKeys = dm && typeof dm === 'object' ? Object.keys(dm).sort().join(',') : String(dm);
-    ok(dmKeys === 'detected,enabled,resolved', `/api/status 的 desktopMcp 字段形状不变（${dmKeys}）`);
+    // 128f-③（48 号文 §2-c）改了本条的口径：探测在飞时 /api/status 不再「首个请求付一次探针」，而是秒回并多带 probing:true
+    // （detected／resolved 为 null，前端有界跟进）；探完之后形状与改前逐键相同。所以这里认两种形状，且 probing 形必须是在飞的样子。
+    const probingShape = dmKeys === 'detected,enabled,probing,resolved' && dm.probing === true && dm.detected === null && dm.resolved === null;
+    ok(dmKeys === 'detected,enabled,resolved' || probingShape, `/api/status 的 desktopMcp 字段形状：探完是原样三键、在飞是三键＋probing（${dmKeys}）`);
     ok(typeof (status && status.json && status.json.mcpConfigPath) === 'string' && status.json.mcpConfigPath.length > 0,
-      '/api/status 仍现算 mcpConfigPath（同步路径未改，首个请求付一次探针是接受的）');
+      '/api/status 仍带 mcpConfigPath（探完现算；在飞时只回路径、不重新生成）');
 
     // ── 形状锁:与机器无关的那一半 ──
     const src = readServerSource();

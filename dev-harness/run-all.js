@@ -342,8 +342,14 @@ function tailLines(s, n) {
   return String(s || '').split(/\r?\n/).filter(Boolean).slice(-n).join('\n');
 }
 // 一次运行的输出里所有 FAIL 行(封顶 12 条;再多也是同一个根因的连坐)。失败件与 flaky 件共用它。
+// 128f:同时收首跑里的 `<名>-DIAG` 诊断行(H8／E1 那种「红时就地留证据」的件)。flaky 的首跑现场在重跑通过之后
+// 就被清掉了(夹具目录跟着删),只剩这几行能说明它抖在哪 —— 修前 H8 第四次红时探针打出的证据就这么丢了。
+// 每行截 2000 字,FAIL 与 DIAG 合计至多 20 行。
 function failLines(s) {
-  return String(s || '').split(/\r?\n/).filter(line => /^\s*FAIL\b/.test(line)).slice(0, 12);
+  return String(s || '').split(/\r?\n/)
+    .filter(line => /^\s*FAIL\b/.test(line) || /^\s*[A-Z0-9]+-DIAG\b/.test(line))
+    .map(line => (line.length > 2000 ? line.slice(0, 2000) + '…' : line))
+    .slice(0, 20);
 }
 
 async function main() {
