@@ -207,7 +207,7 @@ namespace RuyiDesktop
         [PreserveSig] int remove_FrameNavigationCompleted(EventRegistrationToken token);
         [PreserveSig] int add_ScriptDialogOpening(IntPtr handler, out EventRegistrationToken token);
         [PreserveSig] int remove_ScriptDialogOpening(EventRegistrationToken token);
-        [PreserveSig] int add_PermissionRequested(IntPtr handler, out EventRegistrationToken token);
+        [PreserveSig] int add_PermissionRequested(ICoreWebView2PermissionRequestedEventHandler handler, out EventRegistrationToken token);
         [PreserveSig] int remove_PermissionRequested(EventRegistrationToken token);
         [PreserveSig] int add_ProcessFailed(IntPtr handler, out EventRegistrationToken token);
         [PreserveSig] int remove_ProcessFailed(EventRegistrationToken token);
@@ -274,6 +274,25 @@ namespace RuyiDesktop
         [PreserveSig] int get_Source([MarshalAs(UnmanagedType.LPWStr)] out string source);
         [PreserveSig] int get_WebMessageAsJson([MarshalAs(UnmanagedType.LPWStr)] out string webMessageAsJson);
         [PreserveSig] int TryGetWebMessageAsString([MarshalAs(UnmanagedType.LPWStr)] out string webMessageAsString);
+    }
+
+    // 114e(26 号文;用户 2026-09-19 拍板提前):麦克风权限。COREWEBVIEW2_PERMISSION_KIND_MICROPHONE = 1;
+    // COREWEBVIEW2_PERMISSION_STATE_DEFAULT = 0 / ALLOW = 1 / DENY = 2。
+    [ComImport, Guid("15e1c6a3-c72a-4df3-91d7-d097fbec6bfd"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface ICoreWebView2PermissionRequestedEventHandler
+    {
+        [PreserveSig] int Invoke(ICoreWebView2 sender, ICoreWebView2PermissionRequestedEventArgs args);
+    }
+
+    [ComImport, Guid("973ae2ef-ff18-4894-8fb2-3c758f046810"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface ICoreWebView2PermissionRequestedEventArgs
+    {
+        [PreserveSig] int get_Uri([MarshalAs(UnmanagedType.LPWStr)] out string uri);
+        [PreserveSig] int get_PermissionKind(out int kind);
+        [PreserveSig] int get_IsUserInitiated(out int isUserInitiated);
+        [PreserveSig] int get_State(out int state);
+        [PreserveSig] int put_State(int state);
+        [PreserveSig] int GetDeferral(out IntPtr deferral);
     }
 
     [ComImport, Guid("d4c185fe-c81c-4989-97af-2d3fa7ab5651"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -654,6 +673,7 @@ namespace RuyiDesktop
         private EnvHandler envHandler;
         private CtrlHandler ctrlHandler;
         private NewWinHandler newWinHandler;
+        private PermHandler permHandler;   // 114e:麦克风权限(只放行本机工作台自己的源)
         private AddScriptHandler addScriptHandler;
         private MsgHandler msgHandler;
 
@@ -759,6 +779,12 @@ namespace RuyiDesktop
             EventRegistrationToken token;
             newWinHandler = new NewWinHandler(this);
             core.add_NewWindowRequested(newWinHandler, out token);
+
+            // 114e:输入框麦克风(127 波 114c-①)在浏览器里能用、在这个窗口里不能 —— 修前 PermissionRequested 没有处理器,
+            // 麦克风请求落到 WebView2 的缺省处理上,录音按钮停在「请求中」或直接被拒。这里只放行一件事:
+            // 【麦克风】且请求源【恰好是】本服务的地址(协议＋主机＋端口逐项相同)。其余一切权限、其余一切源保持缺省。
+            permHandler = new PermHandler(this);
+            core.add_PermissionRequested(permHandler, out token);
 
             // 主题桥：每个文档创建前注入监听脚本，页面上报 light/dark → 宿主标题栏/背景/图标同步。
             addScriptHandler = new AddScriptHandler();
@@ -891,6 +917,18 @@ namespace RuyiDesktop
             trayIcon.BalloonTipText = string.IsNullOrWhiteSpace(body) ? "任务正在等待你的处理。" : body;
             trayIcon.BalloonTipIcon = ToolTipIcon.Info;
             trayIcon.ShowBalloonTip(10000);
+        }
+
+        /* ---------- 114e:麦克风只放行本机工作台自己的源 ---------- */
+
+        internal bool IsOwnWorkbenchOrigin(string uri)
+        {
+            if (string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(uri)) return false;
+            Uri own, asked;
+            if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out own) || !Uri.TryCreate(uri, UriKind.Absolute, out asked)) return false;
+            return string.Equals(own.Scheme, asked.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(own.Host, asked.Host, StringComparison.OrdinalIgnoreCase)
+                && own.Port == asked.Port;
         }
 
         /* ---------- 服务地址就绪 → 导航 ---------- */
@@ -1416,6 +1454,30 @@ namespace RuyiDesktop
                     try { owner.BeginInvoke((Action)delegate { owner.OpenExternalUri(uri); }); }
                     catch { /* shell is already closing */ }
                 }
+                return 0;
+            }
+        }
+
+        // 114e:权限请求。只有「麦克风 ＋ 本机工作台自己的源」置 Allow;其余一律不碰(缺省处理)。决定写进 Trace
+        // (DebugView 看得到;桌面壳没有自己的日志文件,26 号文「记录到桌面壳日志」在这里的落点就是它)。
+        private sealed class PermHandler : ICoreWebView2PermissionRequestedEventHandler
+        {
+            private const int PermissionKindMicrophone = 1;
+            private const int PermissionStateAllow = 1;
+            private readonly ShellForm owner;
+            public PermHandler(ShellForm owner) { this.owner = owner; }
+
+            public int Invoke(ICoreWebView2 sender, ICoreWebView2PermissionRequestedEventArgs args)
+            {
+                if (args == null) return 0;
+                int kind;
+                if (args.get_PermissionKind(out kind) < 0 || kind != PermissionKindMicrophone) return 0;
+                string uri;
+                if (args.get_Uri(out uri) < 0) uri = null;
+                bool own = owner.IsOwnWorkbenchOrigin(uri);
+                if (own) args.put_State(PermissionStateAllow);
+                try { System.Diagnostics.Trace.WriteLine("[Ruyi] microphone permission " + (own ? "allowed" : "left to default") + " for " + (uri ?? "(no uri)")); }
+                catch { /* tracing is best-effort */ }
                 return 0;
             }
         }

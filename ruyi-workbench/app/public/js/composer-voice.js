@@ -64,14 +64,27 @@ function micErrorKey(error) {
   return 'composer.voice.error.mic';
 }
 
-// 显示判据（①）。env 默认是页面全局；纯函数，便于静态件直接调用。
-export function composerVoiceAvailable(config, env = globalThis) {
-  if (!config || !String(config.asrProviderId || '').trim() || !String(config.asrModel || '').trim()) return false;
+// 128f-⑭（用户 2026-09-19：「前端并没有语音输入和语音转文字的入口」；拍板 A「未配置也显示，点它去设置里开启」）：
+// 修前 ① 把两件事并成一个判据 ——「这台环境录不录得了」与「语音识别配没配」—— 没配就结构上不存在；而设置页那一栏
+// 又只在某个模型被标成「可语音识别」时才出现，界面上【没有任何地方】能标它（只能手改 config.json）。于是一台正常
+// 装好的机器上，语音入口一个都看不见。现在拆开：录不了（非安全上下文／没有 mediaDevices／录不了 webm/opus）照旧
+// 不出按钮 —— 点了也录不了；录得了但没配置，出一枚【待开启】的灰按钮（data-state="setup"），点它派
+// COMPOSER_VOICE_SETUP_EVENT，组合根打开设置页、定位到「语音识别」那一栏（那一栏现在无候选也渲染，并带「添加」口）。
+export const COMPOSER_VOICE_SETUP_EVENT = 'ruyi:open-voice-settings';
+export function composerVoiceConfigured(config) {
+  return Boolean(config && String(config.asrProviderId || '').trim() && String(config.asrModel || '').trim());
+}
+export function composerVoiceCapable(env = globalThis) {
   if (!env || env.isSecureContext !== true) return false;
   const nav = env.navigator;
   if (!nav || !nav.mediaDevices || typeof nav.mediaDevices.getUserMedia !== 'function') return false;
   const Recorder = env.MediaRecorder;
   return Boolean(Recorder && typeof Recorder.isTypeSupported === 'function' && Recorder.isTypeSupported(COMPOSER_VOICE_MIME));
+}
+// 显示判据（①）：配好了、且录得了 —— 这时才是一枚能录的麦克风（idle 起步）。env 默认是页面全局；纯函数，便于静态件直接调用。
+export function composerVoiceAvailable(config, env = globalThis) {
+  if (!config || !String(config.asrProviderId || '').trim() || !String(config.asrModel || '').trim()) return false;
+  return composerVoiceCapable(env);
 }
 
 // ⑧ 16 bit 单声道 WAV 打包：44 字节规范头 + 小端 PCM。浮点样本钳到 [-1,1] 再按有符号 16 位量化
@@ -153,11 +166,13 @@ export function createComposerVoice({
   input = () => null,    // 输入框取件函数（节点可能晚于本工厂才建）
   anchor = () => null,   // 麦克风插在它前面（发送键）
   request = apiRaw,
+  // 128f-⑭：待开启那一枚被点时做什么。缺省派 COMPOSER_VOICE_SETUP_EVENT（组合根接：打开设置、定位到语音识别）。
+  openSetup = () => { try { globalThis.document.dispatchEvent(new CustomEvent(COMPOSER_VOICE_SETUP_EVENT)); } catch { /* 没有 document 的宿主 */ } },
 } = {}) {
   let button = null;
   let label = null;
   let live = null;
-  let phase = 'idle';        // idle | starting | recording | transcribing | error
+  let phase = 'idle';        // idle | starting | recording | transcribing | error | setup（128f-⑭：录得了、但语音识别还没配）
   let errorKey = '';
   let attempt = 0;           // 每次开始／取消 +1：拿到麦克风时发现不是这一次了，就把轨道放掉
   let recorder = null;
@@ -174,6 +189,16 @@ export function createComposerVoice({
 
   function paint() {
     if (!button) return;
+    if (phase === 'setup') {
+      // 待开启：灰字形、不是录音开关（aria-pressed 恒 false），提示说清「还没开启、点这里去设置」。
+      button.dataset.state = 'setup';
+      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-disabled', 'false');
+      button.setAttribute('aria-label', t('composer.voice.label'));
+      button.title = t('composer.voice.setupHint');
+      if (label) label.textContent = '';
+      return;
+    }
     button.dataset.state = phase;
     button.setAttribute('aria-pressed', String(phase === 'starting' || phase === 'recording'));
     button.setAttribute('aria-disabled', String(phase === 'transcribing'));
@@ -376,6 +401,7 @@ export function createComposerVoice({
   }
 
   function onClick() {
+    if (phase === 'setup') { openSetup(); return; }   // 128f-⑭：去设置里把语音识别开起来
     if (phase === 'transcribing') return;
     if (phase === 'recording') { stop(); return; }
     if (phase === 'starting') { cancel(); return; }   // 授权框迟迟不回（桌面壳）时，再点一下就是不录了
@@ -418,8 +444,15 @@ export function createComposerVoice({
     const box = input();
     const before = anchor();
     const host = before && before.parentNode;
-    if (!box || !host || !composerVoiceAvailable(state && state.config)) { teardown(); return false; }
+    if (!box || !host || !composerVoiceCapable()) { teardown(); return false; }   // 128f-⑭：录不了才不出按钮
     if (!button) build();
+    if (!composerVoiceConfigured(state && state.config)) {
+      if (phase === 'recording' || phase === 'starting') cancel();   // 语音识别刚被关掉：在录的那一段丢弃
+      phase = 'setup';
+      errorKey = '';
+    } else if (phase === 'setup') {
+      phase = 'idle';   // 刚配好：从待开启变成能录
+    }
     if (button.parentNode !== host || button.nextSibling !== before) host.insertBefore(button, before);
     if (live.parentNode !== host) host.appendChild(live);
     paint();

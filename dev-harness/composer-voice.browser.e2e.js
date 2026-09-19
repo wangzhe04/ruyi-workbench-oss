@@ -15,7 +15,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ② 同一套流程在管家视角的输入框里再走一遍。
 //   ③ 键盘：Tab 走到麦克风 → Space 开始、Space 结束，aria-pressed 跟着翻，aria-live 节点播报过；
 //      录音中 Esc 取消 → 零转写请求、输入框一个字不变。
-//   ④ 未配置：设置页选择器切到「不启用」→ 两个输入框里的麦克风节点当场被拆；重载后仍一个都没有。
+//   ④ 未配置（128f-⑭ 用户 2026-09-19 拍板 A 改判；修前是「节点当场被拆、重载后一个都没有」）：设置页选择器切到「不启用」→
+//      两枚麦克风当场变成待开启（data-state="setup"，播报节点仍在）；重载后仍是两枚待开启；390px 下胶囊照样折两行、输入框够宽。
+//      「点待开启那一枚去设置里开启」的整条路径在 voice-setup.browser.e2e 里。
 //   ⑤ 双主题（默认深色 ＋ ?theme=light）× 390px：两个视角的麦克风都看得见、点得中，输入框保有可用宽度
 //      （getBoundingClientRect 读数打印出来），录音态变宽之后也一样。
 //   ⑥ 失败：转写上游 5xx／转写为空／麦克风被拒 —— 播报本地化人话、按钮进错误态、输入框不动、零未捕获异常。
@@ -659,23 +661,25 @@ try {
     `G6 两套主题的麦克风字形色确实不同（dark ${themeColors.dark} ／ light ${themeColors.light}）—— 走的是主题 token，不是写死的色`);
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
-  /* ═════════ ④ 未配置：节点结构上不存在 ═════════ */
+  /* ═════════ ④ 未配置：待开启的灰钮（128f-⑭ 改判）═════════ */
   await sleep(300);
   const unset = await cdp.evaluate(SET_ASR(''));
   ok(Boolean(unset && unset.ok), `H0 设置页选择器切到「不启用」（实得 ${JSON.stringify(unset)}）`);
-  const gone = await waitForEval(cdp, `(() => document.querySelectorAll('.composer-voice').length === 0 ? 1 : null)()`, 200);
+  const SETUP_BOTH = `(() => { const all = [...document.querySelectorAll('.composer-voice')]; return all.length === 2 && all.every(b => b.dataset.state === 'setup') ? 1 : null; })()`;
+  const gone = await waitForEval(cdp, SETUP_BOTH, 200);
   const goneNodes = await cdp.evaluate(VOICE_NODES);
-  ok(Boolean(gone) && goneNodes.buttons === 0 && !goneNodes.wbStatus && !goneNodes.stStatus && goneNodes.sendBtn && goneNodes.stewardSend,
-    `H1 ASR 关掉 → 两个输入框里的麦克风与播报节点当场被拆（发送键都在）（实得 ${JSON.stringify(goneNodes)}）`);
+  ok(Boolean(gone) && goneNodes.buttons === 2 && goneNodes.wbStatus && goneNodes.stStatus && goneNodes.sendBtn && goneNodes.stewardSend,
+    `H1 ASR 关掉 → 两枚麦克风当场变成待开启（data-state="setup"），播报节点与发送键都在（实得 ${JSON.stringify(goneNodes)}）`);
   await cdp.send('Page.navigate', { url: appUrl });
   await sleep(300);
   ok(Boolean(await waitForEval(cdp, READY, 600)), 'H2 重载后就绪');
   await sleep(1500);   // config 到达后的 syncComposerVoices 早就跑过了；再给一拍余量
   const coldNodes = await cdp.evaluate(VOICE_NODES);
-  ok(coldNodes.buttons === 0 && !coldNodes.wbStatus && !coldNodes.stStatus && coldNodes.promptInput && coldNodes.stewardInput
+  const coldSetup = await waitForEval(cdp, SETUP_BOTH, 200);
+  ok(Boolean(coldSetup) && coldNodes.buttons === 2 && coldNodes.wbStatus && coldNodes.stStatus && coldNodes.promptInput && coldNodes.stewardInput
     && coldNodes.asr[0] === '' && coldNodes.asr[1] === '',
-    `H3 未配置冷启动：两个输入框都在，麦克风节点一个都没有（实得 ${JSON.stringify(coldNodes)}）`);
-  // 390px 两行折叠只挂在「胶囊里真有麦克风」上（:has）：未配置时工作台胶囊仍是原来那一行 50px。
+    `H3 未配置冷启动：两个输入框都在，各有一枚待开启的麦克风（实得 ${JSON.stringify(coldNodes)}）`);
+  // 390px 两行折叠挂在「胶囊里有麦克风」上（:has）—— 128f-⑭ 起未配置时也有那一枚待开启的，所以同样折两行，输入框要够宽。
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: NARROW_W, height: NARROW_H, deviceScaleFactor: 1, mobile: false });
   await sleep(600);
   ok(Boolean(await setLens('classic')), 'H4a 未配置 × 390px 工作台视角');
@@ -685,8 +689,8 @@ try {
     const input = document.getElementById('promptInput').getBoundingClientRect();
     return { rowH: Math.round(box.height), rowW: Math.round(box.width), inputW: Math.round(input.width), wrap: getComputedStyle(document.querySelector('.composer-box')).flexWrap };
   })()`);
-  ok(Boolean(coldRow) && coldRow.rowH === 50 && coldRow.wrap === 'nowrap',
-    `H4 未配置时 390px 工作台胶囊不折行、仍是一行 50px（实得 ${JSON.stringify(coldRow)}）—— 两行折叠只因麦克风而生`);
+  ok(Boolean(coldRow) && coldRow.wrap === 'wrap' && coldRow.inputW >= USABLE_INPUT_MIN_PX,
+    `H4 未配置时 390px 工作台胶囊里有待开启的麦克风 → 折两行，输入框 ≥ ${USABLE_INPUT_MIN_PX}px（实得 ${JSON.stringify(coldRow)}）`);
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
   const voiceExceptions = cdpExceptions.filter(e => /composer-voice/.test(e.text + ' ' + e.url));

@@ -48,5 +48,26 @@ ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbe
   ok(/webViewReady = true;\s*\r?\n\s*MaybeNavigate\(\);/.test(source), 'WebView2 就绪之后补调一次 MaybeNavigate（服务先到的那一路靠它导航）');
 }
 
+// 114e（26 号文；用户 2026-09-19 拍板提前）：桌面窗口里输入框麦克风能用 —— 挂 PermissionRequested，【只】放行
+// 「麦克风 ＋ 本服务自己的源」。桌面壳跑不了 e2e（26 号文原定：静态锁 ＋ 人工走查），这里把处理器的形状逐项钉住：
+// 真接口（不是 IntPtr 空挂）、注册了、只认 kind == 1、源判定逐项比协议／主机／端口、Allow 只出现在源判定通过的那一支。
+{
+  const handler = (/private sealed class PermHandler : ICoreWebView2PermissionRequestedEventHandler\s*\{([\s\S]*?)\r?\n        \}\r?\n/.exec(source) || [])[1] || '';
+  const origin = (/internal bool IsOwnWorkbenchOrigin\(string uri\)\s*\{([\s\S]*?)\r?\n        \}/.exec(source) || [])[1] || '';
+  ok(/int add_PermissionRequested\(ICoreWebView2PermissionRequestedEventHandler handler, out EventRegistrationToken token\);/.test(source)
+    && /Guid\("15e1c6a3-c72a-4df3-91d7-d097fbec6bfd"\)[\s\S]{0,200}interface ICoreWebView2PermissionRequestedEventHandler/.test(source)
+    && /Guid\("973ae2ef-ff18-4894-8fb2-3c758f046810"\)[\s\S]{0,200}interface ICoreWebView2PermissionRequestedEventArgs/.test(source),
+    '114e 权限事件用真接口声明（IID 在本机 WebView2 运行时与官方 .NET 程序集里核过），不是 IntPtr 空挂');
+  ok(/permHandler = new PermHandler\(this\);\s*\r?\n\s*core\.add_PermissionRequested\(permHandler, out token\);/.test(source), '114e 处理器注册到 CoreWebView2 上');
+  ok(/private const int PermissionKindMicrophone = 1;/.test(handler) && /kind != PermissionKindMicrophone\) return 0;/.test(handler),
+    '114e 只处理麦克风（kind == 1），其余权限一律不碰、走缺省');
+  ok(/string\.Equals\(own\.Scheme, asked\.Scheme/.test(origin) && /string\.Equals\(own\.Host, asked\.Host/.test(origin) && /own\.Port == asked\.Port/.test(origin)
+    && /if \(string\.IsNullOrEmpty\(serverUrl\) \|\| string\.IsNullOrEmpty\(uri\)\) return false;/.test(origin),
+    '114e 源判定逐项比协议、主机、端口（与服务真实监听地址相同才算本机工作台）；地址还没到就一律不放行');
+  const allows = (handler.match(/put_State\(/g) || []).length;
+  ok(allows === 1 && /bool own = owner\.IsOwnWorkbenchOrigin\(uri\);\s*\r?\n\s*if \(own\) args\.put_State\(PermissionStateAllow\);/.test(handler),
+    `114e Allow 只出现在「源判定通过」那一支（处理器里 put_State 恰好 ${allows} 处）`);
+}
+
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

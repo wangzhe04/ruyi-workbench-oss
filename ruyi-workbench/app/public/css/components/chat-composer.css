@@ -68,7 +68,7 @@
   border-radius: var(--r-pill); font-size: var(--fs-sm);
 }
 /* 127-⑦（45 号文 §2-quinquies「114c-① 麦克风」）：发送键前那枚麦克风，两个视角共用这一组规则。
-   节点只在语音识别配好时才由 js/composer-voice.js 建（零静态标记），所以没配置时这组规则一条都命中不到。
+   节点由 js/composer-voice.js 建（零静态标记）；128f-⑭ 起没配语音识别时也建一枚「待开启」的灰钮（录不了的环境才不建）。
    形状跟着所在的那一行走：工作台是 34px 的工具圆钮（与 .composer-actions > .file-label 同档），管家输入行
    是 36px（与 .steward-plus/.steward-send 同档）。录音时字形变成危险色并呼吸、右侧多出 m:ss 计时；
    转写中是主色 +「…」；失败是危险色 + 一个短词（完整原因在 title 与播报里）。≤560px 的工具折叠【不】收它
@@ -88,6 +88,9 @@
 .composer-voice[data-state="recording"] .ic { animation: breathe 1.4s ease-in-out infinite; }
 .composer-voice[data-state="transcribing"] { color: var(--accent); cursor: progress; }
 .composer-voice[data-state="error"] { color: var(--danger-fg); }
+/* 128f-⑭：待开启（语音识别还没配）—— 灰一档，悬停恢复常色；点它去设置里开启（不是录音开关）。 */
+.composer-voice[data-state="setup"] { opacity: .55; }
+.composer-voice[data-state="setup"]:hover, .composer-voice[data-state="setup"]:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .composer-voice { transition: none; }
   .composer-voice[data-state="recording"] .ic { animation: none; }

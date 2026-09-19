@@ -562,20 +562,81 @@ function asrCapableOptions() {
   }
   return out;
 }
+// 128f-⑭（用户 2026-09-19 拍板 A）：修前「无候选整块不渲染」，而界面上又没有任何地方能把一个模型标成「可语音识别」——
+// 一台正常装好的机器上这一栏永远不出现，输入框的麦克风也就永远不出现（只能手改 config.json）。现在这一栏始终渲染：
+// 有候选时照旧是选择器；无候选时说一句怎么办；两种情况下面都有一行「添加语音识别模型」（选服务商、填模型名、添加并启用）。
+// 输入框里那枚待开启的灰麦克风被点时，组合根经 focusAsrSettings() 把人带到这里。
+function asrProviderChoices() {
+  return ((state.config && state.config.providers) || []).filter(p => p && p.id && p.id !== 'claude-cli');
+}
+// 把 modelId 标成可语音识别：该服务商的模型清单里已有它就给它加上 asr 能力，没有就追加一条；同时把它选成语音识别模型。
+async function addAsrModel(providerId, modelId) {
+  const providersNext = ((state.config && state.config.providers) || []).map(p => {
+    if (!p || p.id !== providerId) return p;
+    const models = Array.isArray(p.models) ? p.models.slice() : [];
+    const at = models.findIndex(m => (m && typeof m === 'object' ? String(m.id || '') : String(m || '')) === modelId);
+    if (at < 0) models.push({ id: modelId, label: modelId, caps: ['asr'] });
+    else if (models[at] && typeof models[at] === 'object') {
+      const caps = Array.isArray(models[at].caps) ? models[at].caps : [];
+      models[at] = { ...models[at], caps: caps.includes('asr') ? caps : [...caps, 'asr'] };
+    } else models[at] = { id: modelId, label: modelId, caps: ['asr'] };
+    return { ...p, models };
+  });
+  return saveConfigPartial({ providers: providersNext, asrProviderId: providerId, asrModel: modelId });
+}
+function buildAsrAddRow() {
+  const wrap = el('div', 'asr-add');
+  wrap.appendChild(el('p', 'field-help', t('settings.asr.addTitle')));
+  const providers = asrProviderChoices();
+  if (!providers.length) { wrap.appendChild(el('p', 'field-help muted', t('settings.asr.noProvider'))); return wrap; }
+  const providerSelect = el('select', 'asr-add-provider');
+  providerSelect.setAttribute('aria-label', t('settings.asr.addProvider'));
+  for (const p of providers) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; providerSelect.appendChild(o); }
+  const modelInput = el('input', 'asr-add-model');
+  modelInput.type = 'text';
+  modelInput.placeholder = t('settings.asr.addPlaceholder');
+  modelInput.setAttribute('aria-label', t('settings.asr.addModel'));
+  const add = el('button', 'asr-add-btn', t('settings.asr.addButton'));
+  add.type = 'button';
+  add.onclick = async () => {
+    const providerId = String(providerSelect.value || '');
+    const modelId = String(modelInput.value || '').trim();
+    if (!providerId || !modelId) { toast(t('settings.asr.addNeedFields'), 'err'); modelInput.focus(); return; }
+    add.disabled = true;
+    const saved = await addAsrModel(providerId, modelId);
+    add.disabled = false;
+    if (!saved) return;   // saveConfigPartial 自己已经把原因说了
+    toast(t('settings.asr.added', { model: modelId }), 'ok');
+    renderAsrSettings();
+  };
+  const row = el('div', 'asr-add-row');
+  row.append(providerSelect, modelInput, add);
+  wrap.appendChild(row);
+  return wrap;
+}
+function focusAsrSettings() {
+  renderAsrSettings();
+  if (!asrSettingsBlock) return false;
+  try { asrSettingsBlock.scrollIntoView({ block: 'center' }); } catch { /* 老宿主没有 scrollIntoView 选项 */ }
+  const target = asrSettingsBlock.querySelector('.asr-select') || asrSettingsBlock.querySelector('.asr-add-model');
+  if (target) { try { target.focus(); } catch { /* 节点不可聚焦 */ } }
+  return true;
+}
 function renderAsrSettings() {
   const host = $('stab-providers');
   if (!host) return;
   const options = asrCapableOptions();
-  if (!options.length) {
-    if (asrSettingsBlock) { asrSettingsBlock.remove(); asrSettingsBlock = null; }
-    return;
-  }
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
   asrSettingsBlock.textContent = '';
   const sep = el('hr', 'settings-sep');
   const block = el('div', 'field-block');
   const label = el('label', '', t('settings.asr.title'));
-  const select = el('select');
+  if (!options.length) {
+    block.append(label, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
+    asrSettingsBlock.append(sep, block);
+    return;
+  }
+  const select = el('select', 'asr-select');
   const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
   select.appendChild(opt(t('settings.asr.disabled'), ''));
   for (const o of options) select.appendChild(opt(`${o.providerLabel} / ${o.modelLabel}`, o.providerId + ASR_VALUE_SEP + o.modelId));
@@ -594,7 +655,7 @@ function renderAsrSettings() {
       toast(t(asrProviderId ? 'settings.asr.toastSet' : 'settings.asr.toastReset'), 'ok');
     }
   };
-  block.append(label, select, hint);
+  block.append(label, select, hint, buildAsrAddRow());
   asrSettingsBlock.append(sep, block);
 }
 // v1.0-S3 (B1): 按搜索服务类型联动显隐相关字段。searxng/custom → 显 Base URL；bing/brave → 显 API 密钥；
@@ -1483,5 +1544,6 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
     saveSettings,
     updateEngineDependentUI,
     updateSearchBackendVisibility,
+    focusAsrSettings,   // 128f-⑭：输入框里那枚待开启的麦克风被点时，组合根把人带到语音识别那一栏
   });
 }

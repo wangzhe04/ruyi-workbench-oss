@@ -10,11 +10,11 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      本条钉的是【当前值 + ASR 三键零迁移分支】，谁再动它先回来读 45 号文与 46 号文 §5。
 //   ③ 后端落点：models[].caps 走 providerModelCaps 白名单；audioBaseUrl 与 baseUrl 同待遇
 //      （trim + 截 400，不发明 URL 校验）；asrProviderId/asrModel 默认值 + 清洗（provider 没了两个一起清）。
-//   ④ 前端落点：选择器只列 caps 含 asr 的模型；无候选整块不渲染（未配置 = 不可见，设置页 DOM 零漂移）；
+//   ④ 前端落点：选择器只列 caps 含 asr 的模型；无候选也渲染（128f-⑭ 改判，修前是「整块不渲染」）并带「添加并启用」口；
 //      选中即存 saveConfigPartial 部分补丁；分隔符 fromCharCode 构造（32 号文 §16-bis：源码零控制字符）。
 //   ⑤ 双语键齐全；index.html 零静态 asr 标记；provider-settings.js 零控制字符。
 // 反向：摘掉 PROVIDER_MODEL_CAPS 白名单（改成裸通过）→ failover.e2e.js 的 (C) 断言当场红并打出实得数组；
-//       把「无候选不渲染」摘掉 → ④ 的 if (!options.length) 锚红。
+//       128f-⑭ 之后：把无候选那一支的「添加口」拿掉 → ④ 的那一条锚红（修前这里写的是「把无候选不渲染摘掉」，那条边界已被用户改判）。
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -59,7 +59,12 @@ assert.match(src01, /if \(config\.asrProviderId && !config\.providers\.some\(p =
 // ④ 前端落点
 assert.match(providersJs, /function renderAsrSettings\(\)/, '前端: renderAsrSettings 存在');
 assert.match(providersJs, /caps\.includes\('asr'\)/, '前端: 只列 caps 含 asr 的模型');
-assert.match(providersJs, /if \(!options\.length\) \{/, '前端: 无候选整块不渲染（未配置 = 不可见）');
+// 128f-⑭（用户 2026-09-19 拍板 A）改判：修前「无候选整块不渲染（未配置 = 不可见）」，而界面上没有任何地方能把模型标成可语音识别
+// —— 这一栏与输入框麦克风在正常安装里永远不出现。现在无候选也渲染：一句怎么办 ＋「添加语音识别模型」（添加并启用）。
+assert.match(providersJs, /if \(!options\.length\) \{\n    block\.append\(label, el\('p', 'field-help muted', t\('settings\.asr\.none'\)\), buildAsrAddRow\(\)\);/,
+  '前端: 无候选也渲染这一栏（一句怎么办 ＋ 添加口），不再整块不渲染');
+assert.match(providersJs, /return saveConfigPartial\(\{ providers: providersNext, asrProviderId: providerId, asrModel: modelId \}\);/,
+  '前端: 添加并启用 = 给那个模型加 asr 能力（没有就追加一条）＋ 选成语音识别模型，一次部分补丁');
 assert.match(providersJs, /saveConfigPartial\(\{ asrProviderId, asrModel \}\)/, '前端: 选中即存部分补丁');
 assert.match(providersJs, /const ASR_VALUE_SEP = String\.fromCharCode\(31\);/, '前端: 分隔符 fromCharCode 构造（零控制字符）');
 assert.match(providersJs, /try \{ renderAsrSettings\(\); \}/, '前端: fillSettings 接线（带 117j 同款旁路保护）');

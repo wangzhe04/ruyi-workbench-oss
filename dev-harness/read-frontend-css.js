@@ -676,7 +676,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   （用户 2026-09-19「删除线程没有及时的界面反馈」）。只在删除请求在飞的那一瞬命中，其余逐像素不变。
 // 算法自证：把 steward-board.css 从 HEAD 检出、按本文件自己的 readLayerPayload() 重算 = 0b8c083a…，与被替换的旧值逐字相同
 // （先自证再替换）；换回本刀的 CSS 再算得下面这个值。反向：改 CSS 之后、重钉之前 D51 与 F3 双红（本刀快通道实测）。
-const LEGACY_STYLES_SHA256 = 'fa9636912b94576d71834a14cd9d0290bfa2a8175f897ce40aca83dade06d287';
+// 128f-⑭ 续钉（前值 fa963691…）：零新增、零删除层，只在 `css/components/chat-composer.css` 麦克风那一族后面加两条 ——
+//   `.composer-voice[data-state="setup"] { opacity: .55; }` 与它的悬停／键盘焦点恢复常色（语音识别没配时那一枚「待开启」的灰钮；
+//   用户 2026-09-19 拍板 A），外加那一族头注的一句事实更正。只在语音识别没配时命中，配好之后逐像素不变。
+// 算法自证：把 chat-composer.css 从 HEAD 检出重算 = fa963691…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = '1c7827a78a8f8b70968a3a3e1dade6288c614cf45247e53b9f2533c7ad965b3d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

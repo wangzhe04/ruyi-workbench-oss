@@ -43,7 +43,7 @@ import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：�
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
 import { bindRailPocket } from './js/rail-pocket.js'; // 121-K7：左栏栏底的口袋（§2.3 末段）
-import { createComposerVoice, syncComposerVoices } from './js/composer-voice.js'; // 127-⑦：输入框麦克风（语音识别配好才建节点，45 号文 §2-quinquies）
+import { createComposerVoice, syncComposerVoices, COMPOSER_VOICE_SETUP_EVENT } from './js/composer-voice.js'; // 127-⑦ 输入框麦克风；128f-⑭ 没配语音识别时是待开启的灰钮
 // 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
 // (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
 // One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
@@ -229,6 +229,7 @@ const {
   saveSettings,
   updateEngineDependentUI,
   updateSearchBackendVisibility,
+  focusAsrSettings,
 } = createProviderSettingsDomain({
   apiErrText,
   onEngineConfigChanged: () => { renderThreadHead(); syncComposerVoices(); },   // 121-K5：全局配置变了 -> 线程头那组 chip 重画；127-⑦：两枚麦克风按 ASR 配置重判建／拆
@@ -1080,6 +1081,8 @@ function bindEvents() {
   });
   $('sendBtn').onclick = () => sendPrompt();
   createComposerVoice({ state, t, id: 'composerVoiceBtn', input: () => $('promptInput'), anchor: () => $('sendBtn') }); // 127-⑦：只回填不发送
+  // 128f-⑭：两个视角的待开启麦克风都派这一帧。定位排在 openModal 自己那一拍「聚焦第一个可交互件」（setTimeout 0）之后，否则被它抢走。
+  document.addEventListener(COMPOSER_VOICE_SETUP_EVENT, () => { openModal('settingsModal'); switchSettingsTab('providers', true); setTimeout(() => { focusAsrSettings(); }, 0); });
   $('agentTeamBtn').onclick = toggleAgentTeamTurn;
   bindSkillsMemory(); // EC-D：技能按钮与搜索键盘交互由技能/记忆领域自持
   // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。
