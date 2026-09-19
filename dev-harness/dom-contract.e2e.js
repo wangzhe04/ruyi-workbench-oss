@@ -43,6 +43,8 @@ const DYNAMIC_ID_ALLOW = new Set([
                        // 与 compactIndicator 同一模式(插在 .composer 内),故不进静态 index.html
   'mm-theme-label',    // 122-L1b: navigation-controls.js:setGearItemLabel 补在 #themeToggle 里(applyTheme 的 iconTextBtn 会清空按钮内容,所以不写死在 index.html)
   'mm-uimode-label',   // 122-L1b: 同上,补在 #uiModeToggle 里
+  'bootFailureHost',   // 128f-①: js/boot-failure.js:renderBootFailure 只在启动真失败时才 el('div','boot-failure-host') 后 box.id='bootFailureHost',
+                       // 挂成 body 的直接孩子(外框之上的浮层,两个视角都看得见);平时不存在,故不进静态 index.html
   'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)
 ]);
 const referencedIds = new Set();

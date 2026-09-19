@@ -499,6 +499,24 @@ try {
   //    activeChildren 里确实有这条会话，所以它回的就是 steer。这里直接把那个形状放好，
   //    不去依赖「究竟是哪一个 UI 动作触发了那一发 GET」—— 被测的不变式是**回合结束时这份快照
   //    必须作废**，而不是它从哪个入口写进来的。
+  // 128f（48 号文 H8）：H8 第三次在全量里红，这回红在 H8b —— 种下去的 steer 马上读回来是空的，说明种和读之间
+  // 页面自己又写了一次 sessionRelay（迟到的 GET？回合末作废？）。原诊断只在 H8f/H8h 红时触发，这次什么都没留。
+  // 先给 state.sessionRelay 装一枚 setter 探针（只记录、照原样存），H8b 红时把每一次写入的时刻、当时是否在流、
+  // 调用栈前三帧打出来并保留夹具目录。
+  await cdp.evaluate(`(() => {
+    const s = window.state;
+    if (!s || window.__relayProbe) return true;
+    let v = s.sessionRelay;
+    window.__relayProbe = [];
+    Object.defineProperty(s, 'sessionRelay', { configurable: true, enumerable: true,
+      get() { return v; },
+      set(n) {
+        window.__relayProbe.push({ t: Math.round(performance.now()), ch: (n && n.channel) || '', streaming: Boolean(s.streaming),
+          stack: String(new Error().stack || '').split('\\n').slice(2, 5).map(x => x.trim()).join(' < ') });
+        v = n;
+      } });
+    return true;
+  })()`);
   await cdp.evaluate(`(() => {
     window.state.sessionRelay = { sessionId: ${JSON.stringify(sessionId)}, channel: 'steer', wait: null };
     return true;
@@ -506,6 +524,11 @@ try {
   const h8Snap = await cdp.evaluate(VIEW);
   ok(Boolean(h8Snap) && h8Snap.relayChannel === 'steer' && h8Snap.relaySession === sessionId,
     `H8b 前置：回合期间这条会话的快照是 steer（实测 ${h8Snap && h8Snap.relayChannel}/${h8Snap && h8Snap.relaySession}）`);
+  if (!(h8Snap && h8Snap.relayChannel === 'steer' && h8Snap.relaySession === sessionId)) {
+    keepRootForEvidence = true;
+    console.log('H8-DIAG relay writes ' + JSON.stringify(await cdp.evaluate('(window.__relayProbe || []).slice(-10)')));
+    console.log('H8-DIAG at H8b streaming=' + JSON.stringify(await cdp.evaluate('Boolean(window.state && window.state.streaming)')));
+  }
   // ③ 等回合自己跑完
   const h8Idle = await waitForEval(cdp, `(() => (window.state && !window.state.streaming) ? ${VIEW} : null)()`, 1200);
   ok(Boolean(h8Idle), 'H8c 回合自己跑到收尾');
