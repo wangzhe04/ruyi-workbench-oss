@@ -228,6 +228,18 @@ RUYI_EVENTS.subscribe((name, payload) => {
     eventStreamPublish('steward.say', { turnSeq: Math.max(0, Number(data.turnSeq) || 0), trigger: String(data.trigger || '') });
     return;
   }
+  // 128f-⑪(用户拍板 A「立刻通知你」):管家看过一条权限请求、没替你批,回合结束时它还挂着 —— 留给你了。
+  // 只带 id、一句摘要(13i 归一化时就不含入参正文)与截止时刻;§6.1 红线:命令原文不进这条线。
+  if (name === 'steward.deferred') {
+    if (eventStreamIsStewardSession(data.sessionId)) return;
+    eventStreamPublish('steward.deferred', {
+      sessionId: String(data.sessionId || ''),
+      interventionId: String(data.interventionId || ''),
+      ask: String(data.ask || '').slice(0, EVENT_STREAM_SUMMARY_MAX),
+      deadlineAt: String(data.deadlineAt || ''),
+    });
+    return;
+  }
   // 123-M1(37 号文 §3.2「事件」):定时任务变了 —— 建/改/删/四段触发各派一帧。
   // 本文件【只转发】:三个字段全是枚举与 id,标题、载荷正文、结果原文一个字都不进这条线(§6.1 红线①);
   // 前端(M2)据此刷口袋计数、「接下来」两行与设置块,零轮询 —— 正文仍走 GET /api/scheduler/tasks。

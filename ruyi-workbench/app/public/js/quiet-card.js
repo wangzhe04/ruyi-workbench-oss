@@ -301,15 +301,46 @@ export function createQuietCard({
     upsert(frame);
   }
 
+  // 128f-⑪（Brief §4.2 第 7 条前半；用户 2026-09-19 拍板 A「立刻通知你，请求挂 600 秒等你处理」）：
+  // 管家看过一条权限请求、没替你批，回合结束时它还挂着 —— 留给你了（服务端 13q 的 steward.deferred 帧）。
+  //   · 工作台里、且没坐在那条线程上：起一张 needs_you 安静卡（同一套合并、静默时段与系统通知 —— upsert 里那一处）；
+  //   · 管家视角里：管家那句「留给你」已经在对话流里，不出卡；只在页面不在前台时发一条系统通知 ——
+  //     人不在屏幕前时这是唯一叫得到他的办法，否则「还等你 10 分钟」就白等。
+  // 一句话把「还等多久」放在最前面：needs_you 的卡头与系统通知只印前 22 字（quietCardHeadline）。
+  function deferredAsk(frame) {
+    const ask = String((frame && frame.ask) || '');
+    const deadline = Date.parse(String((frame && frame.deadlineAt) || ''));
+    if (!Number.isFinite(deadline)) return t('quietCard.deferredNoDeadline', { ask });
+    const minutes = Math.max(1, Math.round((deadline - now()) / 60000));
+    return t('quietCard.deferred', { ask, minutes });
+  }
+  function onDeferred(frame) {
+    const sessionId = String((frame && frame.sessionId) || '');
+    if (!sessionId) return;
+    if (isQuietTime(new Date(now()), notifySettingsOf())) return;
+    const ask = deferredAsk(frame);
+    if (shellModeOf() === 'classic') {
+      if (sessionId === currentSessionId()) return;          // 他就坐在这条线程上：请求是当面弹着的
+      upsert({ kind: 'needs_you', sessionId, quiet: true, ask, interventionId: String((frame && frame.interventionId) || '') });
+      return;
+    }
+    const d = doc();
+    const away = !d || d.hidden === true || (typeof d.hasFocus === 'function' && !d.hasFocus());
+    if (!away) return;
+    maybeNotify({ key: `deferred|${String((frame && frame.interventionId) || sessionId)}`, sessionId, kind: 'needs_you', frame: { ask } });
+  }
+
   function bind(eventStream) {
     if (!eventStream || typeof eventStream.on !== 'function') return false;
     eventStream.on('inbox.appended', onFrame);
+    eventStream.on('steward.deferred', onDeferred);   // 128f-⑪
     return true;
   }
 
   return Object.freeze({
     bind,
     onFrame,
+    onDeferred,   // 128f-⑪
     // 供真夹具直接断言（不必去解析 DOM 文案）：当前有几张卡、某张卡的原始帧是什么。
     cardCount: () => cards.size,
     cardFor: sessionId => {

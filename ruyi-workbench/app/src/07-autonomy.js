@@ -863,6 +863,8 @@ function schedulerAskWaitOverrideMs(schedAskSessionId) {
   const ms = Number(schedulerAskWaitSessions.get(String(schedAskSessionId || '')));
   return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
+// 128f-⑪:「等多久」的唯一判据在 04 的 permissionWaitMs;定时任务这一格在这里填上(04 拼在前面,够不着本文件)。
+PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 
 // Ask the UI to approve a native tool call — reuses the pendingPermissions + /api/permission/decision bridge.
 // v0.8-S4b: the permission_request event now also carries `tier` (read|edit|exec) and `revertible` (bool)
@@ -892,12 +894,15 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
-    const entry = { resolve: settle, sessionId, timer: null };
+    // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
     const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
+    // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
+    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
+        entry.deadlineAt = Date.now() + Math.max(60000, Number(pause.ttlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
         entry.timer = setTimeout(() => {
           const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
           runAutomaticInterventionDecision({

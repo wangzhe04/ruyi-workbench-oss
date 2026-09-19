@@ -1017,7 +1017,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     let decision = acceptEditsAuto
       ? { behavior: 'allow', scope: 'once', kimiAutoEdit: true }
       : await requestNativePermission(
-        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
       );
     // A native agent that omits allow_once cannot be safely auto-approved: selecting allow_always would
     // widen the scope beyond Ruyi's acceptEdits policy. Fall back to the ordinary UI permission request.
@@ -1026,7 +1026,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     if (autoEditFallback) {
       acceptEditsAuto = false;
       decision = await requestNativePermission(
-        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
       );
     }
     if (!decision || decision.behavior !== 'allow') {
@@ -1397,7 +1397,7 @@ async function ensureKimiAcpOperationPermission(context, kind, input) {
   if (visibleInput && typeof visibleInput === 'object') delete visibleInput.__kimiAcpNativeBashWrapper;
   const decision = await requestNativePermission(
     context.session.id, kind === 'terminal' ? 'Bash' : 'Write', visibleInput,
-    context.onEvent, context.config.permissionTimeoutMs, kind === 'terminal' ? 'exec' : 'edit'
+    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit'   // 128f-⑪
   );
   if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
   if (decision.scope === 'session') {
@@ -2221,7 +2221,7 @@ async function runKimiAcpTurnPrepared(context) {
   const env = {
     ...process.env,
     WIN_CLAUDE_WORKBENCH_HOME: paths.data,
-    WCW_PERMISSION_TIMEOUT_MS: String(config.permissionTimeoutMs || 120000),
+    WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),
     WCW_HOST: RUNTIME.host,
@@ -2500,6 +2500,7 @@ async function runKimiAcpTurnPrepared(context) {
     const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
     watchdog = setInterval(() => {
       if (reg.exited || reg.pausePending || Date.now() - reg.lastEventAt <= idleLimitMs) return;
+      if (hasPendingPermissionForSession(session.id)) return;   // 128f-⑪:权限挂着豁免(见 04 的 hasPendingPermissionForSession)
       reg.state = 'watchdog-timeout';
       reg.abort();
     }, Math.min(5000, Math.max(500, Math.floor(idleLimitMs / 4))));

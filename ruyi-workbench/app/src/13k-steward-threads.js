@@ -696,6 +696,21 @@ function stewardSeatedByUser(sessionId) {
     return Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === sid);
   } catch { return false; }
 }
+// 128f-⑪(用户拍板 A):管家盯着的线程,权限请求等 600 s —— 04 的 permissionWaitMs 迟绑定的 steward 一格填在这里
+// (本文件是第一个同时够得着 06i 的 stewardWatchedThread 与本文件 stewardSeatedByUser 的地方)。三个条件同时成立才算:
+// 管家开着;线程由管家盯着(与收件箱、代批闸 3 同一个判据);用户此刻没坐在它前面(坐着 = 当面弹的,照旧 120 s,
+// 管家也不插手 —— 见上面的 stewardSeatedByUser)。WCW_TEST_STEWARD_PERMISSION_WAIT_MS 是测试口(e2e 不等 10 分钟)。
+const STEWARD_MEDIATED_PERMISSION_WAIT_MS = 600000;
+function stewardMediatedPermissionWaitMs(sessionId, config, head) {
+  if (!config || config.stewardEnabledV1 !== true) return 0;
+  const sid = String(sessionId || '');
+  if (!sid || sid === STEWARD_SESSION_ID || !head || String(head.id || '') !== sid) return 0;
+  if (!stewardWatchedThread(head, sid, sessionMissionId(head) || sid)) return 0;
+  if (stewardSeatedByUser(sid)) return 0;
+  const test = Number(process.env.WCW_TEST_STEWARD_PERMISSION_WAIT_MS);
+  return Number.isFinite(test) && test > 0 ? test : STEWARD_MEDIATED_PERMISSION_WAIT_MS;
+}
+PermissionWaitHooks.steward = stewardMediatedPermissionWaitMs;
 // 结构化拒绝:错误码 'seated_by_user',人话直说「你正在这条线程里,我不插手」。
 // 与 propose_required 那一族一样带 `reason`,行动流水事后能分清「管家没做」的两种原因。
 function stewardSeatedFail(sessionId) {

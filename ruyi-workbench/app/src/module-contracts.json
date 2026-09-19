@@ -1443,6 +1443,7 @@
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
         "OWN_TREE_KILL_PS",
+        "PermissionWaitHooks",
         "REDACT_PATTERNS",
         "SENSITIVE_URL_PARAM_RE",
         "_dropInCache",
@@ -1472,6 +1473,7 @@
         "formatQuestionGuidance",
         "getBridgedClient",
         "getMcpClient",
+        "hasPendingPermissionForSession",
         "hasPendingQuestionForSession",
         "installActiveChildEventFanout",
         "invalidateMcpDropInCache",
@@ -1512,6 +1514,7 @@
         "pendingPermissions",
         "pendingPlans",
         "pendingQuestions",
+        "permissionWaitMs",
         "probeMcpConnector",
         "redact",
         "registerUserQuestion",
@@ -2285,6 +2288,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "hasPendingPermissionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
           "kinds": [
             "call"
@@ -2342,6 +2352,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "parseAgentCliEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
           "kinds": [
             "call"
           ]
@@ -3108,6 +3125,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "hasPendingPermissionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
           "kinds": [
             "call"
@@ -3116,6 +3140,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
           "kinds": [
             "call"
           ]
@@ -5175,6 +5206,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "PermissionWaitHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -6500,6 +6538,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "hasPendingPermissionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
           "kinds": [
             "call"
@@ -6522,6 +6567,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
           "kinds": [
             "call"
           ]
@@ -11630,6 +11682,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -12704,6 +12763,7 @@
       "file": "13k-steward-threads.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_MEDIATED_PERMISSION_WAIT_MS",
         "STEWARD_WORKSPACE_DERIVE_NOTE",
         "STEWARD_WORKSPACE_DERIVE_TRIES",
         "STEWARD_WORKSPACE_SLUG_MAX",
@@ -12727,6 +12787,7 @@
         "stewardImplThreadStatus",
         "stewardImplThreadsSearch",
         "stewardLaunchTurn",
+        "stewardMediatedPermissionWaitMs",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRelayAutoAllowed",
@@ -12924,6 +12985,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "PermissionWaitHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -12981,6 +13049,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_QUICK_QUESTION_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
           ]
@@ -15432,6 +15507,7 @@
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
+        "stewardDeferredNotified",
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardLastAssistantCreatedAt",
@@ -15679,6 +15755,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardReadSessionHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardMediatedPermissionWaitMs",
           "kinds": [
             "call"
           ]
@@ -16932,6 +17015,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "flushUsageLedgerSync",
           "kinds": [
             "read"
@@ -18018,6 +18108,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "clearPendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "collectBridgedTools",
           "kinds": [
             "read"
@@ -18026,6 +18123,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "configureMcpFromTool",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "hasPendingPermissionForSession",
           "kinds": [
             "read"
           ]
@@ -18103,6 +18207,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "parseMcpConfigFile",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
           "kinds": [
             "read"
           ]
@@ -19803,6 +19914,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "requestNativePermission",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "responsesHistoryWithCompleteToolPairs",
           "kinds": [
             "read"
@@ -19811,6 +19929,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "saveProjectAgentRoles",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "schedulerAskWaitSessions",
           "kinds": [
             "read"
           ]
@@ -20785,6 +20910,13 @@
         {
           "provider": "13i-steward-inbox.js",
           "symbol": "stopStewardInbox",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardMediatedPermissionWaitMs",
           "kinds": [
             "read"
           ]

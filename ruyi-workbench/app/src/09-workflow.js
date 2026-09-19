@@ -1636,6 +1636,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
+    if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -2785,7 +2786,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
                 onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session).catch(() => {}); },
               } : null;
-              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, config.permissionTimeoutMs, tier, pauseOpts);
+              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };

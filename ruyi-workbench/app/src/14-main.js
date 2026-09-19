@@ -327,6 +327,14 @@ module.exports = {
   flushSessionIndex,
   invalidateSessionIndex,
   setSessionIndexRebuildScanHookForTest,
+  // 128f-⑪:unit/permission-wait 用。
+  permissionWaitMs,
+  stewardMediatedPermissionWaitMs,
+  hasPendingPermissionForSession,
+  requestNativePermission,
+  clearPendingPermissions,
+  schedulerAskWaitSessions,
+  EventStreamHooks,
   // 128f-⑥:unit/usage-ledger-exit-flush 用。
   appendUsageLedger,
   flushUsageLedgerSync,

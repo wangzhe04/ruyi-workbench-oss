@@ -109,7 +109,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 用它的四件(simple-mode／keyboard-walkthrough／a11y-lint／steward-shell-pixels)自己不 spawn 工作台,不计入。
 // 128f-③:新增 dev-harness/desktop-probe-status.e2e.js(一处带 RUYI_HOME 的 spawn —— 起 serve 子进程;该件第一行已 require
 // self-isolate-home),151 -> 152 的来路就是它。desktop-probe-follow.browser 用公共夹具、自己不 spawn,不计入。
-const RUYI_HOME_SPAWN_SITES = 152;
+// 128f-⑪:新增 dev-harness/steward-deferred-permission.e2e.js(一处带 RUYI_HOME 的 spawn —— 起 serve 子进程;该件第一行已
+// require self-isolate-home),152 -> 153 的来路就是它。thread-switch-race.browser(128f-⑨)用公共夹具、自己不 spawn,不计入。
+const RUYI_HOME_SPAWN_SITES = 153;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
@@ -338,7 +340,7 @@ try {
   // thread-arbiter ④ 改判次序后仍是「时间戳差 < TURN_MS」的形状（与 ① 同形），所以仍计入、就地豁免。
   // 其中 11 件（15 处）就地豁免，10 件（27 处）所在文件在独占桶。
   // 128f-③ +1 件：desktop-probe-status（P1 /api/status、P3 /health 两处就地豁免 —— 界取测试口延时的一半，反向实得 ≥ 5.4 s）→ 22。
-  const WALLCLOCK_OWNER_FILES = 22;
+  const WALLCLOCK_OWNER_FILES = 23;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];

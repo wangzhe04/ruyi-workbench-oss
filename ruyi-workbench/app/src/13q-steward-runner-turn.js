@@ -29,6 +29,8 @@
 //   · 用户回合到达时,在途的【收件箱】回合被就地取消(停回合 + 该批事件重排到队列尾),用户永远优先;
 //   · 收件箱回合到达时若有任何在途回合,事件回排队列、本次不跑(去抖定时器会再来一次);
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
+// 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
+const stewardDeferredNotified = new Set();
 async function runStewardTurn(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -315,6 +317,32 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 121-K2a(§6.1 第 3 条):管家刚说完一句并落了盘。**正文不进事件**(§6.1 红线;避免双写)——
   // 前端收到这一帧再去拉一次消息面,拉到的与落盘的是同一份。
   RUYI_EVENTS.emit('steward.say', { turnSeq: reply.turnSeq, trigger: String(trigger || '') });
+  // 128f-⑪(Brief §4.2 第 7 条前半;用户拍板 A「立刻通知你,请求挂 600 秒等你处理」):这一回合看过的权限请求,
+  // 回合结束时还挂着 = 管家没替你批、留给你了。真模型实测管家常常【不调】steward_decide、只说一句「留在那儿等你过目」
+  // (45 号文 §9.6.5 (b)),所以判据是「还挂着」,不是「调了拒」。每条请求只报一次;窗口已经过了的不报。
+  if (trigger === 'inbox') {
+    for (const evt of events) {
+      const payload = (evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {};
+      if (!evt || evt.kind !== 'needs_you' || payload.interventionType !== 'permission') continue;
+      const interventionId = String(payload.interventionId || '');
+      const pending = interventionId ? pendingPermissions.get(interventionId) : null;
+      if (!pending || stewardDeferredNotified.has(interventionId)) continue;
+      if (Number(pending.deadlineAt) && Number(pending.deadlineAt) <= Date.now()) continue;
+      // 只报管家【经手】的线程(与 600 s 窗口同一个判据,13k):没交给管家盯的线程,管家本来就不替你按,
+      // 那条请求的通知是收件箱 needs_you 自己那一路;用户此刻就坐在那条线程上,也不报(请求是当面弹着的)。
+      const sid = String(evt.sessionId || '');
+      const head = await stewardReadSessionHead(sid).catch(() => null);
+      if (!stewardMediatedPermissionWaitMs(sid, config, head)) continue;
+      stewardDeferredNotified.add(interventionId);
+      if (stewardDeferredNotified.size > 512) stewardDeferredNotified.delete(stewardDeferredNotified.values().next().value);
+      RUYI_EVENTS.emit('steward.deferred', {
+        sessionId: String(evt.sessionId || ''),
+        interventionId,
+        ask: String(payload.summary || payload.ask || ''),
+        deadlineAt: Number(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
+      });
+    }
+  }
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {

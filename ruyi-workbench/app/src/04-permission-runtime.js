@@ -238,7 +238,32 @@ function installActiveChildEventFanout(reg) {
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
-const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer }
+const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
+
+// 128f-⑪(Brief §4.2 第 7 条前半;用户 2026-09-19 拍板 A「立刻通知你,请求挂 600 秒等你处理」):
+// 一条权限请求【等多久】的唯一判据。修前四处各算各的 —— provider 回合(09)与 Kimi 桥(05b)经 07 的
+// requestNativePermission 认定时任务那张表,Claude CLI 桥(13d)与两种 CLI 子进程的超时环境变量(05/05b)
+// 只认 config.permissionTimeoutMs(定时线程上的 CLI 引擎于是 120 s 就被子进程那一侧放弃,服务端却还在等 30 分钟)。
+// 现在四处都问这一个函数;两格【迟绑定】(本文件拼在 07 与 13x 之前,直引它们的符号是前向边):
+//   · scheduler —— 07 的 schedulerAskWaitOverrideMs(定时任务派出去的回合,默认 30 分钟);
+//   · steward   —— 13k:管家开着、这条线程由管家盯着、用户此刻没坐在它前面 → 600 s。管家要么代批
+//                  (真模型实测 37 s),要么说「留给你」并立刻通知(13q 的 steward.deferred);留给用户的
+//                  那一件要真的等得到人,120 s 就过期的话「留给你」是一句空话(45 号文 §9.6.5 (b):120.015 s 超时拒)。
+// **只改「等多久」,不改「等到了怎么判」**:到时照旧是拒(fail-closed),与定时任务那张表同一条子集律。
+const PermissionWaitHooks = {};
+function permissionWaitMs(sessionId, config, sessionHead) {
+  const base = Math.max(5000, Number(config && config.permissionTimeoutMs) || 120000);
+  const sid = String(sessionId || '');
+  try {
+    const scheduled = typeof PermissionWaitHooks.scheduler === 'function' ? Number(PermissionWaitHooks.scheduler(sid)) : 0;
+    if (Number.isFinite(scheduled) && scheduled > 0) return scheduled;
+  } catch { /* 迟绑定缺席或抛错:当没有这一格 */ }
+  try {
+    const mediated = typeof PermissionWaitHooks.steward === 'function' ? Number(PermissionWaitHooks.steward(sid, config, sessionHead)) : 0;
+    if (Number.isFinite(mediated) && mediated > 0) return Math.max(base, mediated);
+  } catch { /* 同上 */ }
+  return base;
+}
 // Questions are a real turn boundary, not a fire-and-forget notification. Both the Provider tool loop and
 // the Claude MCP bridge wait on this registry; /api/chat/answer settles exactly one matching entry.
 const pendingQuestions = new Map(); // questionId -> { sessionId, questions, timer, deliver }
@@ -606,6 +631,15 @@ function clearPendingQuestions(sessionId, message) {
 // stdin user envelope —— 提问挂起期间注入插话,CLI 可能把插话误收为答案(串扰)。/api/steer 据此拒绝。
 function hasPendingQuestionForSession(sessionId) {
   for (const [, q] of pendingQuestions) if (q.sessionId === sessionId) return true;
+  return false;
+}
+// 128f-⑪:权限请求挂着时同样豁免回合的 idle 看门狗(三处:09 provider、05 Claude CLI、05b Kimi)。修前权限窗口 120 s
+// 恒短于看门狗(默认 600 s),豁不豁免无所谓;定时线程的 30 分钟窗口早就被看门狗在 10 分钟处截断过(回合被当成「空闲」
+// 杀掉,而不是按拒绝收尾让模型接着说),管家盯着的线程 600 s 窗口则与看门狗同长、谁先到算谁。权限自己的计时器到点
+// 一定按拒绝落定,所以豁免不会让回合永远挂着。
+function hasPendingPermissionForSession(sessionId) {
+  const sid = String(sessionId || '');
+  for (const [, p] of pendingPermissions) if (p && p.sessionId === sid) return true;
   return false;
 }
 

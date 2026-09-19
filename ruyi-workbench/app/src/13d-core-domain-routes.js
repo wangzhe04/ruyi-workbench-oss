@@ -1789,14 +1789,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
     const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
     const decision = await new Promise(resolve => {
-      const entry = { resolve, sessionId, timer: null };
-      const baseMs = Number(config.permissionTimeoutMs || 120000);
+      // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
+      const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
+      const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
       if (cliPause) {
         entry.timer = setTimeout(() => {
           if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
           try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
           loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
           try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
+          entry.deadlineAt = Date.now() + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
           entry.timer = setTimeout(() => {
             const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
             runAutomaticInterventionDecision({

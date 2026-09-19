@@ -2863,6 +2863,8 @@
   ,"quietCard.snooze.text": "来自你 {{minutes}} 分钟前按的「稍后」：{{ask}}"
   ,"quietCard.snooze.failed": "没能排上「稍后」，这张卡先留着"
   ,"quietCard.fallbackTitle": "一条线程"
+  ,"quietCard.deferred": "如意留给你了，还等 {{minutes}} 分钟：{{ask}}"
+  ,"quietCard.deferredNoDeadline": "如意留给你了：{{ask}}"
   ,"composer.voice.label": "语音输入"
   ,"composer.voice.hint": "语音输入：点一下开始说，再点一下结束；Esc 取消。说完只填进输入框，不会自动发送"
   ,"composer.voice.stop": "结束录音（Esc 取消）"

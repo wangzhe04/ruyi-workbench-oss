@@ -2863,6 +2863,8 @@
   ,"quietCard.snooze.text": "From the \"Later\" you tapped {{minutes}} minutes ago: {{ask}}"
   ,"quietCard.snooze.failed": "Could not schedule \"Later\" — keeping this card"
   ,"quietCard.fallbackTitle": "A thread"
+  ,"quietCard.deferred": "Left for you, {{minutes}} min left: {{ask}}"
+  ,"quietCard.deferredNoDeadline": "Left for you: {{ask}}"
   ,"composer.voice.label": "Voice input"
   ,"composer.voice.hint": "Voice input: click to start talking, click again to finish; Esc cancels. The text only fills the input box and is never sent automatically"
   ,"composer.voice.stop": "Finish recording (Esc cancels)"

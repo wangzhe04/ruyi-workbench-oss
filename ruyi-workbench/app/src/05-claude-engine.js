@@ -448,7 +448,7 @@ async function runClaudeTurn({
   if (agentCliType === 'claude' && config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
-  env.WCW_PERMISSION_TIMEOUT_MS = String(config.permissionTimeoutMs || 120000);
+  env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
   env.WCW_SESSION_ID = session.id;
   env.WCW_PORT = String(RUNTIME.port);
   env.WCW_HOST = RUNTIME.host;
@@ -505,6 +505,7 @@ async function runClaudeTurn({
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处杀子会吞掉用户正在写的回答
+    if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       try { reg.child.stdin.end(); } catch { /* ignore */ }

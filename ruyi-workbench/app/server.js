@@ -10390,7 +10390,32 @@ function installActiveChildEventFanout(reg) {
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
-const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer }
+const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
+
+// 128f-⑪(Brief §4.2 第 7 条前半;用户 2026-09-19 拍板 A「立刻通知你,请求挂 600 秒等你处理」):
+// 一条权限请求【等多久】的唯一判据。修前四处各算各的 —— provider 回合(09)与 Kimi 桥(05b)经 07 的
+// requestNativePermission 认定时任务那张表,Claude CLI 桥(13d)与两种 CLI 子进程的超时环境变量(05/05b)
+// 只认 config.permissionTimeoutMs(定时线程上的 CLI 引擎于是 120 s 就被子进程那一侧放弃,服务端却还在等 30 分钟)。
+// 现在四处都问这一个函数;两格【迟绑定】(本文件拼在 07 与 13x 之前,直引它们的符号是前向边):
+//   · scheduler —— 07 的 schedulerAskWaitOverrideMs(定时任务派出去的回合,默认 30 分钟);
+//   · steward   —— 13k:管家开着、这条线程由管家盯着、用户此刻没坐在它前面 → 600 s。管家要么代批
+//                  (真模型实测 37 s),要么说「留给你」并立刻通知(13q 的 steward.deferred);留给用户的
+//                  那一件要真的等得到人,120 s 就过期的话「留给你」是一句空话(45 号文 §9.6.5 (b):120.015 s 超时拒)。
+// **只改「等多久」,不改「等到了怎么判」**:到时照旧是拒(fail-closed),与定时任务那张表同一条子集律。
+const PermissionWaitHooks = {};
+function permissionWaitMs(sessionId, config, sessionHead) {
+  const base = Math.max(5000, Number(config && config.permissionTimeoutMs) || 120000);
+  const sid = String(sessionId || '');
+  try {
+    const scheduled = typeof PermissionWaitHooks.scheduler === 'function' ? Number(PermissionWaitHooks.scheduler(sid)) : 0;
+    if (Number.isFinite(scheduled) && scheduled > 0) return scheduled;
+  } catch { /* 迟绑定缺席或抛错:当没有这一格 */ }
+  try {
+    const mediated = typeof PermissionWaitHooks.steward === 'function' ? Number(PermissionWaitHooks.steward(sid, config, sessionHead)) : 0;
+    if (Number.isFinite(mediated) && mediated > 0) return Math.max(base, mediated);
+  } catch { /* 同上 */ }
+  return base;
+}
 // Questions are a real turn boundary, not a fire-and-forget notification. Both the Provider tool loop and
 // the Claude MCP bridge wait on this registry; /api/chat/answer settles exactly one matching entry.
 const pendingQuestions = new Map(); // questionId -> { sessionId, questions, timer, deliver }
@@ -10758,6 +10783,15 @@ function clearPendingQuestions(sessionId, message) {
 // stdin user envelope —— 提问挂起期间注入插话,CLI 可能把插话误收为答案(串扰)。/api/steer 据此拒绝。
 function hasPendingQuestionForSession(sessionId) {
   for (const [, q] of pendingQuestions) if (q.sessionId === sessionId) return true;
+  return false;
+}
+// 128f-⑪:权限请求挂着时同样豁免回合的 idle 看门狗(三处:09 provider、05 Claude CLI、05b Kimi)。修前权限窗口 120 s
+// 恒短于看门狗(默认 600 s),豁不豁免无所谓;定时线程的 30 分钟窗口早就被看门狗在 10 分钟处截断过(回合被当成「空闲」
+// 杀掉,而不是按拒绝收尾让模型接着说),管家盯着的线程 600 s 窗口则与看门狗同长、谁先到算谁。权限自己的计时器到点
+// 一定按拒绝落定,所以豁免不会让回合永远挂着。
+function hasPendingPermissionForSession(sessionId) {
+  const sid = String(sessionId || '');
+  for (const [, p] of pendingPermissions) if (p && p.sessionId === sid) return true;
   return false;
 }
 
@@ -13195,7 +13229,7 @@ async function runClaudeTurn({
   if (agentCliType === 'claude' && config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
-  env.WCW_PERMISSION_TIMEOUT_MS = String(config.permissionTimeoutMs || 120000);
+  env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
   env.WCW_SESSION_ID = session.id;
   env.WCW_PORT = String(RUNTIME.port);
   env.WCW_HOST = RUNTIME.host;
@@ -13252,6 +13286,7 @@ async function runClaudeTurn({
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀子进程,决定窗口被截断
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处杀子会吞掉用户正在写的回答
+    if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       try { reg.child.stdin.end(); } catch { /* ignore */ }
@@ -15777,7 +15812,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     let decision = acceptEditsAuto
       ? { behavior: 'allow', scope: 'once', kimiAutoEdit: true }
       : await requestNativePermission(
-        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
       );
     // A native agent that omits allow_once cannot be safely auto-approved: selecting allow_always would
     // widen the scope beyond Ruyi's acceptEdits policy. Fall back to the ordinary UI permission request.
@@ -15786,7 +15821,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     if (autoEditFallback) {
       acceptEditsAuto = false;
       decision = await requestNativePermission(
-        context.session.id, title, input, context.onEvent, context.config.permissionTimeoutMs, tier
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
       );
     }
     if (!decision || decision.behavior !== 'allow') {
@@ -16157,7 +16192,7 @@ async function ensureKimiAcpOperationPermission(context, kind, input) {
   if (visibleInput && typeof visibleInput === 'object') delete visibleInput.__kimiAcpNativeBashWrapper;
   const decision = await requestNativePermission(
     context.session.id, kind === 'terminal' ? 'Bash' : 'Write', visibleInput,
-    context.onEvent, context.config.permissionTimeoutMs, kind === 'terminal' ? 'exec' : 'edit'
+    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit'   // 128f-⑪
   );
   if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
   if (decision.scope === 'session') {
@@ -16981,7 +17016,7 @@ async function runKimiAcpTurnPrepared(context) {
   const env = {
     ...process.env,
     WIN_CLAUDE_WORKBENCH_HOME: paths.data,
-    WCW_PERMISSION_TIMEOUT_MS: String(config.permissionTimeoutMs || 120000),
+    WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),
     WCW_HOST: RUNTIME.host,
@@ -17260,6 +17295,7 @@ async function runKimiAcpTurnPrepared(context) {
     const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
     watchdog = setInterval(() => {
       if (reg.exited || reg.pausePending || Date.now() - reg.lastEventAt <= idleLimitMs) return;
+      if (hasPendingPermissionForSession(session.id)) return;   // 128f-⑪:权限挂着豁免(见 04 的 hasPendingPermissionForSession)
       reg.state = 'watchdog-timeout';
       reg.abort();
     }, Math.min(5000, Math.max(500, Math.floor(idleLimitMs / 4))));
@@ -26560,6 +26596,8 @@ function schedulerAskWaitOverrideMs(schedAskSessionId) {
   const ms = Number(schedulerAskWaitSessions.get(String(schedAskSessionId || '')));
   return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
+// 128f-⑪:「等多久」的唯一判据在 04 的 permissionWaitMs;定时任务这一格在这里填上(04 拼在前面,够不着本文件)。
+PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 
 // Ask the UI to approve a native tool call — reuses the pendingPermissions + /api/permission/decision bridge.
 // v0.8-S4b: the permission_request event now also carries `tier` (read|edit|exec) and `revertible` (bool)
@@ -26589,12 +26627,15 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       try { onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
       resolve(decision);
     };
-    const entry = { resolve: settle, sessionId, timer: null };
+    // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
     const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
+    // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
+    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
         try { onEvent({ type: 'permission_paused', requestId, toolName, tier: tier || 'exec', ttlMs: pause.ttlMs }); } catch { /* stream gone */ }
+        entry.deadlineAt = Date.now() + Math.max(60000, Number(pause.ttlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
         entry.timer = setTimeout(() => {
           const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
           runAutomaticInterventionDecision({
@@ -32007,6 +32048,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const watchdog = setInterval(() => {
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
+    if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -33156,7 +33198,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
                 onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session).catch(() => {}); },
               } : null;
-              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, config.permissionTimeoutMs, tier, pauseOpts);
+              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
@@ -46344,14 +46386,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
     const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
     const decision = await new Promise(resolve => {
-      const entry = { resolve, sessionId, timer: null };
-      const baseMs = Number(config.permissionTimeoutMs || 120000);
+      // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
+      const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
+      const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
       if (cliPause) {
         entry.timer = setTimeout(() => {
           if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
           try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
           loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
           try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
+          entry.deadlineAt = Date.now() + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
           entry.timer = setTimeout(() => {
             const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
             runAutomaticInterventionDecision({
@@ -49713,6 +49757,21 @@ function stewardSeatedByUser(sessionId) {
     return Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === sid);
   } catch { return false; }
 }
+// 128f-⑪(用户拍板 A):管家盯着的线程,权限请求等 600 s —— 04 的 permissionWaitMs 迟绑定的 steward 一格填在这里
+// (本文件是第一个同时够得着 06i 的 stewardWatchedThread 与本文件 stewardSeatedByUser 的地方)。三个条件同时成立才算:
+// 管家开着;线程由管家盯着(与收件箱、代批闸 3 同一个判据);用户此刻没坐在它前面(坐着 = 当面弹的,照旧 120 s,
+// 管家也不插手 —— 见上面的 stewardSeatedByUser)。WCW_TEST_STEWARD_PERMISSION_WAIT_MS 是测试口(e2e 不等 10 分钟)。
+const STEWARD_MEDIATED_PERMISSION_WAIT_MS = 600000;
+function stewardMediatedPermissionWaitMs(sessionId, config, head) {
+  if (!config || config.stewardEnabledV1 !== true) return 0;
+  const sid = String(sessionId || '');
+  if (!sid || sid === STEWARD_SESSION_ID || !head || String(head.id || '') !== sid) return 0;
+  if (!stewardWatchedThread(head, sid, sessionMissionId(head) || sid)) return 0;
+  if (stewardSeatedByUser(sid)) return 0;
+  const test = Number(process.env.WCW_TEST_STEWARD_PERMISSION_WAIT_MS);
+  return Number.isFinite(test) && test > 0 ? test : STEWARD_MEDIATED_PERMISSION_WAIT_MS;
+}
+PermissionWaitHooks.steward = stewardMediatedPermissionWaitMs;
 // 结构化拒绝:错误码 'seated_by_user',人话直说「你正在这条线程里,我不插手」。
 // 与 propose_required 那一族一样带 `reason`,行动流水事后能分清「管家没做」的两种原因。
 function stewardSeatedFail(sessionId) {
@@ -53453,6 +53512,8 @@ async function stewardNormalizeRouteHint(raw) {
 //   · 用户回合到达时,在途的【收件箱】回合被就地取消(停回合 + 该批事件重排到队列尾),用户永远优先;
 //   · 收件箱回合到达时若有任何在途回合,事件回排队列、本次不跑(去抖定时器会再来一次);
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
+// 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
+const stewardDeferredNotified = new Set();
 async function runStewardTurn(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -53739,6 +53800,32 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 121-K2a(§6.1 第 3 条):管家刚说完一句并落了盘。**正文不进事件**(§6.1 红线;避免双写)——
   // 前端收到这一帧再去拉一次消息面,拉到的与落盘的是同一份。
   RUYI_EVENTS.emit('steward.say', { turnSeq: reply.turnSeq, trigger: String(trigger || '') });
+  // 128f-⑪(Brief §4.2 第 7 条前半;用户拍板 A「立刻通知你,请求挂 600 秒等你处理」):这一回合看过的权限请求,
+  // 回合结束时还挂着 = 管家没替你批、留给你了。真模型实测管家常常【不调】steward_decide、只说一句「留在那儿等你过目」
+  // (45 号文 §9.6.5 (b)),所以判据是「还挂着」,不是「调了拒」。每条请求只报一次;窗口已经过了的不报。
+  if (trigger === 'inbox') {
+    for (const evt of events) {
+      const payload = (evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {};
+      if (!evt || evt.kind !== 'needs_you' || payload.interventionType !== 'permission') continue;
+      const interventionId = String(payload.interventionId || '');
+      const pending = interventionId ? pendingPermissions.get(interventionId) : null;
+      if (!pending || stewardDeferredNotified.has(interventionId)) continue;
+      if (Number(pending.deadlineAt) && Number(pending.deadlineAt) <= Date.now()) continue;
+      // 只报管家【经手】的线程(与 600 s 窗口同一个判据,13k):没交给管家盯的线程,管家本来就不替你按,
+      // 那条请求的通知是收件箱 needs_you 自己那一路;用户此刻就坐在那条线程上,也不报(请求是当面弹着的)。
+      const sid = String(evt.sessionId || '');
+      const head = await stewardReadSessionHead(sid).catch(() => null);
+      if (!stewardMediatedPermissionWaitMs(sid, config, head)) continue;
+      stewardDeferredNotified.add(interventionId);
+      if (stewardDeferredNotified.size > 512) stewardDeferredNotified.delete(stewardDeferredNotified.values().next().value);
+      RUYI_EVENTS.emit('steward.deferred', {
+        sessionId: String(evt.sessionId || ''),
+        interventionId,
+        ask: String(payload.summary || payload.ask || ''),
+        deadlineAt: Number(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
+      });
+    }
+  }
 
   // 无进展熔断的计数:只看收件箱回合(用户回合永远清零 —— 用户说话就是进展)。
   if (trigger === 'inbox') {
@@ -54917,6 +55004,18 @@ RUYI_EVENTS.subscribe((name, payload) => {
   }
   if (name === 'steward.say') {
     eventStreamPublish('steward.say', { turnSeq: Math.max(0, Number(data.turnSeq) || 0), trigger: String(data.trigger || '') });
+    return;
+  }
+  // 128f-⑪(用户拍板 A「立刻通知你」):管家看过一条权限请求、没替你批,回合结束时它还挂着 —— 留给你了。
+  // 只带 id、一句摘要(13i 归一化时就不含入参正文)与截止时刻;§6.1 红线:命令原文不进这条线。
+  if (name === 'steward.deferred') {
+    if (eventStreamIsStewardSession(data.sessionId)) return;
+    eventStreamPublish('steward.deferred', {
+      sessionId: String(data.sessionId || ''),
+      interventionId: String(data.interventionId || ''),
+      ask: String(data.ask || '').slice(0, EVENT_STREAM_SUMMARY_MAX),
+      deadlineAt: String(data.deadlineAt || ''),
+    });
     return;
   }
   // 123-M1(37 号文 §3.2「事件」):定时任务变了 —— 建/改/删/四段触发各派一帧。
@@ -56644,6 +56743,14 @@ module.exports = {
   flushSessionIndex,
   invalidateSessionIndex,
   setSessionIndexRebuildScanHookForTest,
+  // 128f-⑪:unit/permission-wait 用。
+  permissionWaitMs,
+  stewardMediatedPermissionWaitMs,
+  hasPendingPermissionForSession,
+  requestNativePermission,
+  clearPendingPermissions,
+  schedulerAskWaitSessions,
+  EventStreamHooks,
   // 128f-⑥:unit/usage-ledger-exit-flush 用。
   appendUsageLedger,
   flushUsageLedgerSync,
