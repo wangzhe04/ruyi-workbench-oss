@@ -483,6 +483,18 @@ try {
   ok(Boolean(h8Off) && h8Off.status === 200,
     `H8pre 管家已关（把「收工后管家接着动手」这个变量从判据里消掉；实测 ${h8Off && h8Off.status}）`);
   const H8_TEXT = '本页自己跑完之后再问一句 YY8';
+  // 128f（H8 第五次在全量里红，这回 setter 探针＋run-all 的 DIAG 行把证据带了回来，见 48 号文）：红在 H8b 的真因是【测试】的
+  // 前置没立住 —— 负载下走到这里时，这条线程上【上一段】的回合（多半是 H8pre 关管家之前管家刚起的那一个）还活着，
+  // ① 那一下「发送」于是被路由成插话；H8a 看到的 streaming 是上一个回合的；插话落地时上一个回合已经收尾 →
+  // steer.no_live_turn → 产品按 124 的自纠正作废信念、改按普通回合重发（chat-stream-runtime.js steerPrompt）——
+  // 作废那一下恰好清掉了 ② 刚种下的快照（探针：同一毫秒里先是种下 steer、再被 steerPrompt 清空）。产品没错，前置错了。
+  // 修：起 ① 之前等线程真的空着（服务端没有在途回合、本页不在流），并把本页那份「可以插话」的信念归零 ——
+  // ① 要起的是一个【新】回合；「信念过期时发送也要发得出去」那条保证由下面 ④⑤ 用种进去的快照专门钉。
+  const h8Idle0 = await waitForHttp(appPort, 'GET', `/api/sessions/${encodeURIComponent(sessionId)}`,
+    result => result.json && result.json.ok === true && !result.json.relay, token, 300);
+  const h8PageIdle0 = await waitForEval(cdp, `(() => (window.state && !window.state.streaming) ? 1 : null)()`, 600);
+  ok(Boolean(h8Idle0) && Boolean(h8PageIdle0), 'H8pre2 起 ① 之前线程真的空着（服务端没有在途回合、本页不在流）');
+  await cdp.evaluate(`(() => { if (window.state) window.state.sessionRelay = null; return true; })()`);
   const h8UsersBefore = sessionMessages(sessionId).filter(m => m && m.role === 'user' && m.steered !== true).length;
   // ① 从 composer 自己起一个回合（这一发让本页进 activeTurns / state.streaming）
   await cdp.evaluate(`(() => {
@@ -494,6 +506,12 @@ try {
   })()`);
   const h8Streaming = await waitForEval(cdp, `(() => (window.state && window.state.streaming) ? ${VIEW} : null)()`);
   ok(Boolean(h8Streaming), 'H8a 本页自己起的回合跑起来了（state.streaming）');
+  let h8RunUser = false;
+  for (let i = 0; i < 100 && !h8RunUser; i++) {
+    h8RunUser = sessionMessages(sessionId).some(m => m && m.role === 'user' && m.steered !== true && String(m.content || '').includes('YY8-run'));
+    if (!h8RunUser) await sleep(100);
+  }
+  ok(h8RunUser, 'H8a2 ① 起的是一个【新】回合：盘上多了一条普通用户消息「YY8-run」（不是插话）');
   // ② 回合期间那份 relay 快照。真来路是【回合期间的任意一发 GET /api/sessions/:id】——
   //    捕获点只有 captureLiveTurn 一处（openSession 与 refreshLiveTurn 都汇到它），此刻服务端
   //    activeChildren 里确实有这条会话，所以它回的就是 steer。这里直接把那个形状放好，
