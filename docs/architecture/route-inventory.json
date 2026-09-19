@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-19T08:00:33.242Z",
+  "generatedAt": "2026-09-19T08:06:22.230Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1856,6 +1856,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\model-menu-no-shift.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\unit\\steward-model-menu.test.js",
@@ -2785,6 +2786,7 @@
         "dev-harness\\mission-start-race.e2e.js",
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\model-menu-no-shift.browser.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
@@ -2985,6 +2987,7 @@
         "dev-harness\\mission-start-race.e2e.js",
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\missions-readmodel.e2e.js",
+        "dev-harness\\model-menu-no-shift.browser.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",

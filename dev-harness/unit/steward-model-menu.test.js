@@ -35,6 +35,7 @@ function makeNode(document, tag) {
     parentNode: null,
     dataset: {},
     attrs: {},
+    listeners: {},
     hidden: false,
     disabled: false,
     text: '',
@@ -49,7 +50,9 @@ function makeNode(document, tag) {
     },
     setAttribute(name, value) { node.attrs[String(name)] = String(value); },
     getAttribute(name) { return Object.prototype.hasOwnProperty.call(node.attrs, String(name)) ? node.attrs[String(name)] : null; },
-    addEventListener() {},
+    // 128f-⑤:模型 chip 在「有意图」(pointerenter／pointerdown／focusin)时预取用量 —— 假 DOM 记下监听,dispatch 能触发它们。
+    addEventListener(type, handler) { (node.listeners[type] = node.listeners[type] || []).push(handler); },
+    dispatch(type) { for (const handler of node.listeners[type] || []) handler({ type }); },
     contains(other) { return other === node || node.children.some(child => child.contains(other)); },
     focus() { document.activeElement = node; },
     click() { if (typeof node.onclick === 'function') node.onclick(); },
@@ -187,6 +190,10 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
   chips.mount(host);
   chips.setSession({ id: 's1', engineRoute: { engine: 'openai', providerId: 'p1', model: sessionModel } });
   const chipButton = walk(host, node => node.dataset && node.dataset.chip === 'model')[0];
+  // 128f-⑤:开着的菜单不再因用量晚到而重画 —— 照真人的路径先「指针进来」(预取用量),让那一发回来,再点开。
+  chipButton.dispatch('pointerenter');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
   chipButton.click();
   await new Promise(resolve => setTimeout(resolve, 0));
   await new Promise(resolve => setTimeout(resolve, 0));

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-19T08:00:33.242Z。
+> 判定点 137(精确 116 / 前缀 12 / 正则 9),ROUTE_AUTH 125 条,生成于 2026-09-19T08:06:22.230Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -76,7 +76,7 @@
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js:1138 | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js:1166 | autonomy-grant.e2e.js |
 | POST | `/api/agent-workflow/launch` | exact | body-token | 13-http-router.js:1179 | agent-deadlock-watchdog.e2e.js, agent-node-wrapup.e2e.js, agent-quality-workflow.e2e.js 等 28 件 |
-| GET | `/api/usage/summary` | exact | token self | 13-http-router.js:1233 | steward-drawer.e2e.js, steward-drawer.static.e2e.js, steward-model-menu.test.js 等 8 件 |
+| GET | `/api/usage/summary` | exact | token self | 13-http-router.js:1233 | model-menu-no-shift.browser.e2e.js, steward-drawer.e2e.js, steward-drawer.static.e2e.js 等 9 件 |
 | GET | `/api/ops/metrics` | exact | token self | 13-http-router.js:1248 | monitor-incremental.e2e.js |
 | GET | `/api/checkpoints` | exact | token self | 13-http-router.js:1257 | artifacts.e2e.js, changes-diff.e2e.js, checkpoint-coverage.e2e.js 等 12 件 |
 | POST | `/api/checkpoints/open-external` | exact | token | 13-http-router.js:1278 | external-code-diff.e2e.js |
@@ -171,9 +171,9 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 166 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 167 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 166 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 167 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
 | DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | agent-roles.e2e.js, artifacts.e2e.js, audit-w23.e2e.js 等 83 件 |
 

@@ -886,24 +886,12 @@ export function createQuickSwitchChips({
       try { modelMenuExtras.appendTail(menu, { route, close: () => closeMenu(), redraw: () => { if (redrawModelMenu) redrawModelMenu(); } }); }
       catch { /* 尾巴画不出来不该把整张菜单拖垮 */ }
     }
-    // 用量是后到的（第一次开菜单才去拉）：到了就把 list 重画一遍。菜单已经关掉时 list 已被摘走
-    // （closeMenu 清空菜单），parentNode 为空 —— 那就什么都不做，不去动一张不在屏幕上的菜单。
-    // 124（用户走查②「高亮和行没对上」的第二处来源，与上面那条去重同一个观感毛病）：还有一类
-    // 【不许】重画 —— 指针正停在菜单里、或焦点落在菜单某一行上的时候。「常用」那几行是在用量到货这一
-    // 刻才插进列表顶部的，整段会往下挪，而浏览器要到下一次 mousemove 才重算 :hover —— 屏幕上被点亮的
-    // 还是原来那一行，读起来正是「高亮整体偏了一行」。这一拍没刷出来的「常用」不丢：usageRowsMemo 已经
-    // 到货，下一次打开菜单就正常画出来（与本文件顶部那条「chip 不轮询、数据由宿主喂进来」的纪律一致）。
-    if (!usageRowsMemo) loadUsageRows(api).then(() => {
-      if (!list.parentNode) return;
-      const active = doc() ? doc().activeElement : null;
-      if (typeof menu.matches === 'function' && menu.matches(':hover')) return;
-      // 只有焦点【落在某一行选项上】时才不重画 —— 那时整段下挪会把 :hover/键盘高亮错位成「偏一行」。
-      // 焦点在搜索框里不算：菜单一打开就把焦点交给搜索框（117x-M2），把它也当成「落在菜单里」，
-      // 用量到货这一拍就永远不重画 —— 候选 > 8 的那张菜单第一次打开永远看不到「常用」段。
-      const inSearchBox = Boolean(active && active.dataset && typeof active.dataset.chipSearch === 'string');
-      if (active && !inSearchBox && menu.contains(active)) return;
-      draw();
-    }).catch(() => {});
+    // 用量晚到【一律不重画】这张已经开着的菜单（128f-⑤，Brief §4.2 第 21 条）。「常用」那几行插在列表顶部，
+    // 到货时重画就是整段下挪约 43 px。124 起曾经只在「指针悬停在菜单里／焦点落在某一行上」时不重画（修的是
+    // 「高亮整体偏了一行」）—— 那条保护只挡得住鼠标，触屏／笔与键盘用户没有悬停，下挪就落在他们手指／光标底下。
+    // 晚到的「常用」不丢：缓存已经到货，下一次打开就画出来；而有意图的那一刻（指针进来／按下／焦点落上，见
+    // buildChip）就已经在拉了，所以绝大多数第一次打开手上已经有它 —— 只有「一下点开」的那一次会晚一次。
+    if (!usageRowsMemo) loadUsageRows(api).catch(() => {});
   }
 
   const BUILDERS = { permission: buildPermissionMenu, model: buildModelMenu, engine: buildEngineMenu };
@@ -1001,6 +989,14 @@ export function createQuickSwitchChips({
     const value = el('span', 'steward-chip-value');
     button.append(el('span', 'steward-chip-key', t(labelKey)), value);
     button.onclick = () => toggleMenu(kind);
+    // 128f-⑤（Brief §4.2 第 21 条「模型菜单首开会挪位」）：「常用」要的用量事实在【有意图】的那一刻就去拉 ——
+    // 指针进来、按下、焦点落上 —— 不等菜单打开。修前开了才拉，约 140 ms 后到货、整段下挪约 43 px；指针悬停
+    // 那条保护（见 buildModelMenu）挡得住鼠标，挡不住没有悬停的触屏／笔与键盘用户。仍是一次页面生命周期一趟
+    // （loadUsageRows 模块级缓存），不轮询、不起计时器。
+    if (kind === 'model') {
+      const prefetch = () => { if (!usageRowsMemo) loadUsageRows(api).catch(() => {}); };
+      for (const type of ['pointerenter', 'pointerdown', 'focusin']) button.addEventListener(type, prefetch);
+    }
     const menu = el('div', 'steward-chip-menu');
     menu.setAttribute('role', 'menu');
     menu.dataset.kind = kind;

@@ -811,9 +811,13 @@ try {
       && String(result.json.session.engineRoute.providerId || '') === BULK_PROVIDER_ID, token)),
     'M1b 切过去之后 GET /api/sessions/A 的 engineRoute.providerId 就是它');
 
+  // 128f-⑤：用量改在【有意图】的那一刻去拉（指针进来／按下／焦点落上），开着的菜单不再因用量晚到而重画 ——
+  // 所以这里照真人的路径：指针先进到 chip 上（pointerenter），等那一发 /api/usage/summary 回来，再点开。
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').dispatchEvent(new PointerEvent('pointerenter')), true`);
+  ok(Boolean(await waitForEval(cdp, `performance.getEntriesByType('resource').some(e => e.name.includes('/api/usage/summary') && e.responseEnd > 0) ? 1 : null`)),
+    'M1c 指针进到模型 chip 上就去拉用量（开菜单之前那一发已经回来了）');
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="model"]').click(), true`);
-  // 用量是【后到】的（第一次开模型菜单才去拉一次，到了再重画一遍 list），所以等到「常用」那一段
-  // 真出现为止，而不是拿第一拍的快照去数。
+  // 等到「常用」那一段出现为止（用量已经在手，第一拍就该有它；留着等待只是防渲染那一拍）。
   const bulkMenu = await waitForEval(cdp, `(() => {
     const snapshot = ${MODEL_MENU};
     if (!snapshot) return null;
