@@ -1809,3 +1809,21 @@ F9 **不许写任何自造负载 runner 或收尸器**，两件都用确定性�
 控制台全程存档；进程快照跑前（23:55:18）与跑后一致：Chrome 主进程 15692、webview2 6、node 1（MCP 19936）、ollama 0、测试 Edge 0、8765 无监听。
 `7ed7f91` 相对打包所用的 `3de6a42` 只多一个文档提交（`docs/optimization-plan/` 两份），包内容不受影响、不用重打。
 **至此 Brief §5 第 1 条完成；剩 R2（打 `v2.8.0`、补打 `v2.7.0` 指 `eac1424`、推送、发布）是用户动作。**
+
+### HF · 2.8.0 热修线：发布前堵掉 MCP 资源面的明文密钥（2026-09-19，分支 `release/2.8.0`，主会话亲做）
+
+**起因**：偿债波 128e（48 号文）在 master 上实测坐实——工作台 MCP 的 `resources/read` 把 `config.json` **原样**交出去（明文 provider apiKey、Claude CLI `modelsApiKey`、外部 MCP 连接器 `env` 令牌），连到工作台 MCP 的模型用读资源的工具就能拿走；状态路由的掩码（S0／S0b）与文件工具的敏感路径拒读都被绕过。**已推送的发布候选 `83e9f7a` 里就有这个洞**，且自 v1.4.0（`3499d9e`）起就在。用户 2026-09-19 选 A：「就选A吧，继续」——从发布候选切热修线、只移植这一处、全量回归、重打两个包，标签打在热修线上。
+
+**做法**：`release/2.8.0` 从 `83e9f7a` 切出，**只移植 128e 一处**（`53e1402`）：`resources/read` 改交 `maskProviders(await readConfig())`，与状态路由同一份掩码。移植差异照实写：测试夹具 `configSchema` 写 12（本线没有 128a 的 13）；测试收尾用 `child.kill()` 只杀自己那一个 PID（本线没有 128c 的 kill-own-tree，也不用 `taskkill /T`）；测试注释不写路由字面量（路由清册会把测试文件里出现的路由串算成覆盖）。计数：fixture-home 149 → 150，e2e 363／356 → 364／357。CHANGELOG 2.8.0 节中英各加一条「第四处泄密面」，含轮换密钥建议。
+
+**判据与读数**：
+- **修前红**：新件 `mcp-resource-config-mask.e2e.js` 对 `83e9f7a` 原样代码跑，**三把假密钥全部读出**（`泄漏:provider,cliModel,mcpEnv`），掩码判据实得明文；修后 5/5 绿，读出来是 `••••e5f6` 且带 `hasKey`。
+- 掩码范围核过：`maskSecrets` 盖 providers（apiKey／extraHeaders／三个 URL）、searchBackend、`modelsApiKey`／`modelsApiBase`、外部 MCP 的 env／headers／args／url——与状态路由逐字同一份，不另写。
+- 快通道 73/0。**全量**（`53e1402`，主会话亲跑，11:10:55 → 11:32:57）：**`357 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 357 ran / 7 skipped`，退出码 0**；收工残留测试浏览器 0；进程快照前后一致（Chrome 主进程 15692、webview2 6、node 1（MCP 19936）、ollama 0、测试 Edge 0、explorer 1248、8765 无监听）。偿债波里跨轮重现过的 `classic-window-live-steer` H8、`walkthrough-round1` C2、`mission-index-scale` (e) 这一轮都首跑即过（不因此结案，仍按 128f 取证）。
+- **包**（出自 `53e1402`，工作树干净才开打；与 P1 同一套 `package-offline.ps1`，带 `Ruyi.exe`）：`Ruyi-v2.8.0-slim.zip` 73.33 MB、`Ruyi-v2.8.0-full.zip` 770.88 MB（与 P1 那一版同大小）；`Ruyi-v2.8.0-SHA256SUMS.txt`：full `501c63ac0ddd…`、slim `162e23c92582…`。两个 stage 里的 `Ruyi.exe` 都是这次新打的（pkg 离线）。Full 那段日志里的 `NativeCommandError` 仍是 comtypes 往 stderr 打的 INFO（P1 记过）。
+- **全新目录冒烟**（系统 `tar.exe` 解到临时目录；合成数据、隔离家目录、随机端口、只停自己 spawn 的进程，跑前跑后 node 进程表一致）：slim 自带 node／slim `Ruyi.exe serve`／full 自带 node 三种都约 2 s 起来，`/health` 报 2.8.0、`configSchema` 12；**MCP 资源面对包里的 server.js（node 入口）与 `Ruyi.exe mcp`（exe 入口）各读一次：0 泄漏、掩码形**；包里的 server.js 逐字是修后那一行。
+  - 第一遍冒烟有一条红：「full·自带 node：configSchema 12（实 空）」——是**冒烟脚本自己**给 `/api/status` 设了 3 s 超时，而 **Full 冷启动第一次 `/api/status` 要 5.4 s**（slim 0.28 s；冷缓存能力探测，桌面 python 探针那一段）。超时放到 15 s 重跑：全绿。前端 boot 不给这一发设超时，不会因此报错，但 Full 首屏会慢几秒（Brief §4.2 第 6 条那一族，记进 128f）。
+
+**没做／照实说**：没重跑发布干跑（`release-dryrun.js`）——本线相对 `83e9f7a` 只改一个源码文件、一件测试与文档，版本三角与载荷清单不受影响；干跑会整目录重写 `dist/overlay`（P1 记过），不值得为它再挪一次。Full 在真实桌面双击仍留给用户。旧的两个 zip（含漏洞）改名保留在 `dist/`（`Ruyi-v2.8.0-{slim,full}-rc83e9f7a.zip` 与对应的 SHA256SUMS），用户确认新包无误后可删。
+
+**打标签的位置变了**：`v2.8.0` 应打在 `release/2.8.0` 上本节所在的提交，**不是** `7ed7f91`／`83e9f7a`。master 上 128e 已有同样的修法（`121e5c4`），两条线不需要合并代码；推送时可以把 `release/2.8.0` 以「保留 master 内容」的方式并回 master，让标签能从 master 追溯——这一步与推送一起，等用户说。
