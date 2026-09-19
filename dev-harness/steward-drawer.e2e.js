@@ -668,8 +668,16 @@ try {
   // 一直在跑】（节拍由 pollTick 判：连接正常 30 s、断开回到今天那两档）。所以数得出来的
   // TICK_MS ms 表多了一张 —— 被钉的那件事一个字没变：每个模块仍然只有一张表、切离管家视角一张不剩
   // （G1/H1 那一条）。反向验证：把 isBoardOpen() && 加回 steward-board.js 的 syncPolling → 本条真红。
-  ok(openedA.intervals.filter(ms => ms === TICK_MS).length === 3,
-    `B15 抽屉、avatar、看板各一张表（121-K2b 之前看板那张要等点开才起；实测 ${JSON.stringify(openedA.intervals)}）`);
+  // 128f（b0f4b63 之后负载 6×1 里 1/6 绿；拿掉 b0f4b63 看板的三处改动任一处都只回到 3–5/6，不是哪一处坏了）：看板那张表在
+  // enterSteward 的【首趟 refreshBoard 落地之后】才起（steward-board.js enterSteward：await refreshBoard(); syncPolling();），
+  // 而 openedA 是「抽屉把 A 填满」那一刻 —— 两件事之间没有先后保证，b0f4b63 让首趟取行多等一发（在场回执那一发、
+  // 被取代的等最后一发）就把这个没钉住的先后翻了过来。本条要钉的是「每个模块一张表、看板那张在管家视角里常驻」，
+  // 不是「看板比抽屉先起表」：等它起（有上限），数目仍然必须【恰好】3 —— 起不来、多起一张都照样红。
+  const intervalsNow = await waitForEval(cdp, `(() => { const l = window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [];
+    return l.filter(ms => ms === ${TICK_MS}).length >= 3 ? l : null; })()`, 125)
+    || await cdp.evaluate('window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : []');
+  ok(intervalsNow.filter(ms => ms === TICK_MS).length === 3,
+    `B15 抽屉、avatar、看板各一张表（121-K2b 之前看板那张要等点开才起；A 填满那一刻 ${JSON.stringify(openedA.intervals)}，等表起齐 ${JSON.stringify(intervalsNow)}）`);
 
   // ── ⑤ 权限 chip 切「改文件不问」 ────────────────────────────────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);

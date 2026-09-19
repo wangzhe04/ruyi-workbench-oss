@@ -1040,12 +1040,15 @@ export function createStewardBoard({
   // ── ② 左栏正文：五组 ＋ 计数 ＋ 搜索过滤（§2.3）──────────────────────────────────
   // 行序【原样取服务端】：13d 的 D1 已经按「状态优先、其次 updatedAt」排好，左栏、右栏小行与
   // 抽屉页签消费的是同一份序 —— 这里只把任务分进五组、组内按最后动静新的在前，不重排线程。
+  // 128f：左栏上一次按哪一条画的选中（null＝还没画过）。syncNow 拿它与焦点对账，见那里的注释。
+  let railRenderedSelected = null;
   function renderRail() {
     renderStatusLine();
     renderArbiterFacts();
     syncRailPlus();
     const host = clear(byId('railList'));
     if (!host) return 0;
+    railRenderedSelected = railSelectedId();
     const filter = railFilter();
     const groups = groupRows().filter(group => group.rows.some(row => railRowMatches(row, filter)));
     const railCount = byId('railCount');
@@ -1365,6 +1368,12 @@ export function createStewardBoard({
     const now = byId('stewardSide');
     if (!now || !drawer) return false;
     const focusId = currentFocusId();
+    // 128f（b0f4b63 全量 walkthrough-round1 C2 查出，两次都红）：管家视角左栏的选中（.is-sel）＝焦点，而左栏只在【行变了】
+    // 才重画 —— 点一行（focusThread）、进管家视角，焦点都换了、右栏跟着换了，左栏的高亮却停在上一次画的那一条（或一条都没有）。
+    // 修前这件事靠「进管家视角后第一发取行恰好是 200」蒙着：在场一变 ETag 就变、那一发重画了左栏；在场回执那一发先把
+    // 这个变化取走之后，后面都是 304，洞就露出来了。本函数是焦点落地的唯一一处，所以在这里对账：焦点与左栏上次画的选中
+    // 不一样就重画左栏（工作台视角那一侧 openRow 本来就会重画）。
+    if (isStewardMode() && railRenderedSelected !== null && focusId !== railRenderedSelected) renderRail();
     const show = isStewardMode() && wideEnough() && Boolean(focusId);
     now.hidden = !show;
     if (!show) {
