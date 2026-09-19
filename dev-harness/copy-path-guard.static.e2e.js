@@ -148,13 +148,14 @@ const ALLOWED_CLIPBOARD = Object.freeze({
   'mermaid-runtime.js': '复制图源:复制的是图的源码',
   'provider-settings.js': '118g 后是「复制 JSON(排错用)」次要动作:复制的是模板内容,主动作已改为一键应用',
   'help-menu.js': '118d 日志面板「复制全部」:复制的是日志正文,供用户发问题报告',
+  'boot-failure.js': '128f-① 启动故障卡「复制诊断」:复制的是诊断原文(哪一步、状态码、服务端原话、栈),供用户发给开发者;不是让用户照着去找的路径',
 });
 const clipboardFiles = fs.readdirSync(jsDir)
   .filter(n => n.endsWith('.js'))
   .filter(n => /(navigator\s*&&\s*globalThis\.navigator\.clipboard|navigator\??\.clipboard|clipboard\.writeText)/.test(read(jsDir, n)));
 const clipboardUnexpected = clipboardFiles.filter(n => !ALLOWED_CLIPBOARD[n]);
 ok(clipboardUnexpected.length === 0,
-  `② 剪贴板写入只在白名单四处(${clipboardFiles.join(', ')})` + (clipboardUnexpected.length ? ' -- 未登记: ' + clipboardUnexpected.join(', ') : ''));
+  `② 剪贴板写入只在白名单 ${Object.keys(ALLOWED_CLIPBOARD).length} 处(${clipboardFiles.join(', ')})` + (clipboardUnexpected.length ? ' -- 未登记: ' + clipboardUnexpected.join(', ') : ''));
 ok(!/clipboard/i.test(wizardSrc) && !/clipboard/i.test(viewerSrc),
   '② 向导与手册阅读器仍然零剪贴板(118a-fix 的红线不回潮)');
 

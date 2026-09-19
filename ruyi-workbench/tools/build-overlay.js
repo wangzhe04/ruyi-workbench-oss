@@ -86,6 +86,9 @@ const PAYLOAD_FILES = [
   // 121-K4:应用外框的框架件(顶栏视角分段钮/齿轮菜单、左栏密度与 Ctrl+K、右栏抽屉开合)。
   // 缺文件同 shell-mode.js:app.js 的 import 整条挂掉,两个视角都起不来。
   'app/public/js/app-frame.js',
+  // 128f-①:启动故障卡(用户首启走查改造后从 app.js 搬出)。缺文件同 shell-mode.js:app.js 的 import 整条挂掉,
+  // 连「启动失败」这张卡本身都画不出来。
+  'app/public/js/boot-failure.js',
   // 121-K1:线程/任务的事实折算纯函数(看板、抽屉与新开任务的验收里程碑共用)。
   'app/public/js/thread-facts.js',
   // 121-K1:「需要你」本地提醒的纯策略层 + 设置块绑定(交办台退役后改名搬家)。

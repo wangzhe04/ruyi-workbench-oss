@@ -3389,7 +3389,9 @@
       "provides": [
         "AUDIT_SUMMARY_MAP",
         "CAP_CACHE_MS",
+        "CAP_PROBE_STALL_SLACK_MS",
         "CAP_PROBE_TIMEOUT_MS",
+        "CAP_UNKNOWN_TTL_MS",
         "ENGINE_TRANSCRIPT_ID_RE",
         "ERROR_CLASSES",
         "NETWORK_ANCHORS",
@@ -18427,6 +18429,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildVolatileParts",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "CAP_UNKNOWN_TTL_MS",
           "kinds": [
             "read"
           ]

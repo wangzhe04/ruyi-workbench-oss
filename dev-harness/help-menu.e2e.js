@@ -168,6 +168,33 @@ async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.
     const logPost = await request('POST', '/api/logs/tail', {});
     ok(logPost.status !== 200, '⑤ POST 同路径不被本路由服务(status=' + logPost.status + ')');
 
+    /* ⑤b 漏到顶层的异常要进日志(128f-①:用户首启走查「查看日志诊断似乎显示不出具体原因」——修前只回 500、日志一个字没有) */
+    const CANARY = 'sk-canary-' + Date.now();
+    const bad = await new Promise(resolve => {
+      const raw = CANARY + ' is not json at all'; // 以非 { 开头:V8 的消息形如 Unexpected token 's', "sk-canary-…" is not valid JSON —— 会引原文
+      const r = http.request({ hostname: '127.0.0.1', port: PORT, path: '/api/sessions?probe=canary-query', method: 'POST', timeout: 20000,
+        headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), 'x-wcw-token': TOKEN } }, res => {
+        let body = '';
+        res.on('data', c => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode, body }));
+      });
+      r.on('error', e => resolve({ status: 0, body: String((e && e.message) || e) }));
+      r.end(raw);
+    });
+    ok(bad.status === 500, `⑤b 写坏的请求体漏到顶层 → 500(实 ${bad.status}:${bad.body.slice(0, 120)})`);
+    let hit = null;
+    for (let i = 0; i < 30 && !hit; i++) {
+      const tail = await request('GET', '/api/logs/tail?lines=50');
+      hit = ((tail.json && tail.json.lines) || []).map(l => { try { return JSON.parse(l); } catch { return null; } })
+        .find(rec => rec && rec.kind === 'http_unhandled' && rec.path === '/api/sessions') || null;
+      if (!hit) await sleep(100);
+    }
+    ok(Boolean(hit) && hit.method === 'POST' && hit.status === 500 && hit.name === 'SyntaxError' && Array.isArray(hit.stack) && hit.stack.length > 0,
+      `⑤b「看日志」里有一条 http_unhandled:方法／路径(不带查询串)／状态／错误名／栈(${JSON.stringify(hit).slice(0, 220)})`);
+    const tailAll = (await request('GET', '/api/logs/tail?lines=400')).raw;
+    ok(!tailAll.includes('sk-canary-') && !tailAll.includes('canary-query'),
+      '⑤b 请求体原文与查询串都不进日志(金丝雀不在 —— JSON.parse 的消息会引请求体原文,那里面可能有密钥)');
+
     /* ⑥ 日志文件不存在 -> 200 降级 logs.none */
     // 用改名而不是删除:服务端的写流还开着,Windows 上 delete-pending 的文件仍留在目录列表里,
     // 改名才能真正让「目录里没有 workbench-YYYY-MM-DD.ndjson」这件事成立(等价于精简部署的首启状态)。

@@ -18400,19 +18400,32 @@ let _capCache = null; // { at, value }
 let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
+// 用户首启走查（2026-09-19）＋ Brief §4.2 第 6 条「启动探针偶发把机器判成离线并缓存 60 s（机制未证）」—— 机制已证：
+// 探测进行中事件循环若被一段同步活占住（启动期 detectDesktopMcp → pickPython 的 spawnSync，Full 包冷缓存要好几秒），
+// 循环回来时【计时器阶段先于 I/O 阶段】，中止计时器先到期，早已到达的响应还没读就被判超时 —— 在线的机器被判离线，
+// 并缓存 60 s：这 60 s 里能力矩阵写「离线」、要联网的工具被滤掉、提示词告诉模型「当前离线」。
+// 判别实验（本地秒回的对端 ＋ 探测中同步忙等 800 ms、超时 300 ms）：修前 5/5 判离线；对照（不阻塞 5/5 在线、
+// 对端不回话 5/5 离线）照常。修法：中止比约定晚到一个余量以上 ⇒ 这一发量不准 ⇒ 记 null（未知）而不是 false；
+// 未知只缓存 CAP_UNKNOWN_TTL_MS，下一次调用就重新探。unit/capability-probe-stall 钉这几条。
+const CAP_PROBE_STALL_SLACK_MS = 250;
+const CAP_UNKNOWN_TTL_MS = 5000;
 
 // HEAD a URL with a hard timeout. Returns true/false/null(unknown — no URL to probe).
 async function probeNetwork(url, timeoutMs) {
   const target = String(url || '').trim();
   if (!target || typeof fetch !== 'function') return null;
+  const budget = timeoutMs || CAP_PROBE_TIMEOUT_MS;
+  const startedAt = Date.now();
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs || CAP_PROBE_TIMEOUT_MS) : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, budget) : null;
   try {
     // HEAD is cheapest; a reachable endpoint returns *some* HTTP status (even 401/404) → online. Only a
     // transport-level failure (DNS/refused/timeout) means offline. We therefore treat ANY response as online.
     await fetch(target, { method: 'HEAD', signal: ctrl ? ctrl.signal : undefined });
     return true;
   } catch {
+    // 失败来得比约定晚一个余量以上 ⇒ 事件循环在这期间被占住过（见 CAP_PROBE_STALL_SLACK_MS 头注）⇒ 量不准，记未知。
+    if (Date.now() - startedAt > budget + CAP_PROBE_STALL_SLACK_MS) return null;
     return false; // network/DNS/timeout → offline
   } finally { if (timer) clearTimeout(timer); }
 }
@@ -18449,15 +18462,18 @@ function probeAny(urls, timeoutMs) {
   const targets = (Array.isArray(urls) ? urls : []).map(u => String(u || '').trim()).filter(Boolean);
   if (!targets.length || typeof fetch !== 'function') return Promise.resolve(null);
   return new Promise(resolve => {
-    let pending = targets.length, settled = false;
+    let pending = targets.length, settled = false, unknown = false;
+    // 任一 true 即 true;没有 true 时,只要有一发是「量不准」(null)就整体记未知,全是真失败才记离线。
+    const finish = () => { if (--pending === 0 && !settled) { settled = true; resolve(unknown ? null : false); } };
     for (const t of targets) {
       // Each probe swallows its own rejection (probeNetwork already returns false, never throws) so no probe
       // can surface as an unhandled rejection even after we've resolved.
       Promise.resolve(probeNetwork(t, timeoutMs)).then(hit => {
         if (settled) return;
         if (hit === true) { settled = true; resolve(true); return; }
-        if (--pending === 0) { settled = true; resolve(false); }
-      }, () => { if (!settled && --pending === 0) { settled = true; resolve(false); } });
+        if (hit === null) unknown = true;
+        finish();
+      }, () => { if (!settled) finish(); });
     }
   });
 }
@@ -18515,7 +18531,7 @@ async function probeDesktopMcp(config) {
 async function getCapabilities(config, force) {
   config = config || await readConfig();
   const now = Date.now();
-  if (!force && _capCache && (now - _capCache.at) < CAP_CACHE_MS) return _capCache.value;
+  if (!force && _capCache && (now - _capCache.at) < (_capCache.ttl || CAP_CACHE_MS)) return _capCache.value;
   // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
   // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
   if (!force && _capInflight) return _capInflight;
@@ -18540,7 +18556,8 @@ async function getCapabilities(config, force) {
     desktopMcp: desktop,
     engine,
   };
-  _capCache = { at: now, value };
+  // 有目标可探、却量出「未知」（探测撞上了同步阻塞）⇒ 只缓存几秒，下一次调用重新探；其余照旧 60 s。
+  _capCache = { at: now, value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
   })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
   return _capInflight;
@@ -43100,6 +43117,18 @@ async function startServerInner(opts) {
       if (u.pathname.startsWith('/api/')) return await handleApi(req, res, u.pathname);
       return send(res, await serveStatic(u.pathname, req));
     } catch (err) {
+      // 128f-①(用户首启走查第二句「查看日志诊断似乎显示不出具体原因」):漏到这里的异常修前只回一个 500,日志里
+      // 一个字没有 ——「在如意里看日志」看不到它。现在记一条 http_unhandled:方法、路径(不带查询串)、状态、错误名、
+      // 消息(截断)、栈前 6 帧。SyntaxError 只留引号前那半句:Node 的 JSON.parse 会把请求体原文引进消息里,
+      // 那里面可能有密钥(比如一发写坏了的配置保存)。help-menu.e2e ⑤b 钉。
+      try {
+        const name = String((err && err.name) || 'Error');
+        let message = String((err && err.message) || err || '');
+        if (name === 'SyntaxError') message = message.split(/["']/)[0].replace(/[\s,]+$/, '') + ' (content not logged)';
+        logEvent({ kind: 'http_unhandled', method: req.method, path: String(req.url || '').split('?')[0].slice(0, 200),
+          status: (err && err.statusCode) || 500, name, message: message.slice(0, 500),
+          stack: String((err && err.stack) || '').split('\n').slice(1, 7).map(s => s.trim()) });
+      } catch { /* 日志是旁路,不许挡住回包 */ }
       return sendError(res, err);
     }
   });
@@ -56458,6 +56487,7 @@ module.exports = {
   // v0.8-S6: capability matrix + layered prompt + error枚举 (exposed for e2e + UI).
   getCapabilities,
   invalidateCapabilityCache,
+  CAP_UNKNOWN_TTL_MS,
   peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)

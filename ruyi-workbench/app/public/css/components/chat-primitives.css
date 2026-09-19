@@ -122,6 +122,12 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
   padding: var(--sp-3); white-space: pre-wrap; word-break: break-all; max-height: 30vh; overflow: auto;
   margin: 0 0 var(--sp-2); }
 .boot-failure-hint { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; margin: 0; }
+/* 128f-①(用户首启走查):故障卡挂在外框之上的浮层里 —— 修前画在 #messages(工作台视角的对话区),出厂默认的管家视角
+   里整个看不见。层级:压过弹窗(50)与浮层(55),让 toast(60)照样浮在最上面。服务是通的那一种多「先继续用」,诊断多「复制」。 */
+.boot-failure-host { position: fixed; inset: 0; z-index: 58; overflow: auto; padding: var(--sp-5);
+  background: color-mix(in srgb, var(--bg) 84%, transparent); }
+.boot-dismiss, .boot-diag-copy { min-height: var(--tap-min); padding: var(--sp-2) var(--sp-4); }
+.boot-diag-copy { margin-top: var(--sp-2); }
 
 /* v1.5 (§3.3): 如意云纹极淡水印 —— 空状态(空会话/首跑引导)与故障卡顶部。mask 取云头 alpha 形状,
    --brand-qh 上色(随主题走,不硬编码),opacity 0.04(≤0.05 红线)。不进正文、不干扰阅读:内容层 z-index

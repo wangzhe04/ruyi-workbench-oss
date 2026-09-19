@@ -321,6 +321,7 @@ module.exports = {
   // v0.8-S6: capability matrix + layered prompt + error枚举 (exposed for e2e + UI).
   getCapabilities,
   invalidateCapabilityCache,
+  CAP_UNKNOWN_TTL_MS,
   peekCapabilities, // 108b-fix2:非阻塞能力缓存读取(不触发探测)
   buildProviderSystemPrompt,
   PROMPT_PACK_VERSION, // 52d: 提示词包版本(语义化版本检查)

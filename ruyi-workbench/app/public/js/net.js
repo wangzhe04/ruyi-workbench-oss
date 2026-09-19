@@ -75,7 +75,14 @@ export async function apiRaw(path, options = {}) {
 // 重复一份 authHeaders/403 判定逻辑。
 export async function api(path, options = {}) {
   const res = await apiRaw(path, options);
-  if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // 128f-①:抛出的错误带上状态码与路径(message 仍是响应正文,apiErrorInfo 的解析不变)——
+    // 启动故障卡的诊断要能说「哪一发、回了几」(修前只剩一句正文)。
+    const err = new Error((await res.text()) || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.path = path;
+    throw err;
+  }
   return res.json();
 }
 

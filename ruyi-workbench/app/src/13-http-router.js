@@ -1932,6 +1932,18 @@ async function startServerInner(opts) {
       if (u.pathname.startsWith('/api/')) return await handleApi(req, res, u.pathname);
       return send(res, await serveStatic(u.pathname, req));
     } catch (err) {
+      // 128f-①(用户首启走查第二句「查看日志诊断似乎显示不出具体原因」):漏到这里的异常修前只回一个 500,日志里
+      // 一个字没有 ——「在如意里看日志」看不到它。现在记一条 http_unhandled:方法、路径(不带查询串)、状态、错误名、
+      // 消息(截断)、栈前 6 帧。SyntaxError 只留引号前那半句:Node 的 JSON.parse 会把请求体原文引进消息里,
+      // 那里面可能有密钥(比如一发写坏了的配置保存)。help-menu.e2e ⑤b 钉。
+      try {
+        const name = String((err && err.name) || 'Error');
+        let message = String((err && err.message) || err || '');
+        if (name === 'SyntaxError') message = message.split(/["']/)[0].replace(/[\s,]+$/, '') + ' (content not logged)';
+        logEvent({ kind: 'http_unhandled', method: req.method, path: String(req.url || '').split('?')[0].slice(0, 200),
+          status: (err && err.statusCode) || 500, name, message: message.slice(0, 500),
+          stack: String((err && err.stack) || '').split('\n').slice(1, 7).map(s => s.trim()) });
+      } catch { /* 日志是旁路,不许挡住回包 */ }
       return sendError(res, err);
     }
   });
