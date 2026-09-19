@@ -65,6 +65,8 @@ export function createChatRenderPrimitives(deps = {}) {
     openFilePreview = () => {},
     refreshPlaybooks,
     refreshSessions,
+    // 128f-⑫（审计 D）：回溯之后右栏打开着的页签（变更）重读。组合根注入；缺省空实现。
+    refreshToolPane = () => {},
     renderCurrentSession,
     // 109a: mermaid 图表运行时由组合根注入(js/mermaid-runtime.js)。这里保持依赖注入而不是顶部 import,
     // 是因为若干单元测试用 vm 直接跑本文件的函数体,顶部 ESM import 会让它们编译失败。
@@ -1036,6 +1038,7 @@ export function createChatRenderPrimitives(deps = {}) {
         // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
         if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null; renderCurrentSession(); renderResumeBanner(); }
         await refreshSessions();
+        try { refreshToolPane(); } catch { /* 128f-⑫：回溯连文件一起退的话，「变更」页签要当场跟上 */ }
         if (r.lastUserText != null) { $('promptInput').value = r.lastUserText; autoGrow($('promptInput')); $('promptInput').focus(); }
         const reverted = (r.filesReverted || []).length;
         const failed = (r.filesFailed || []).length;

@@ -80,14 +80,30 @@ function stewardPresenceSnapshot() {
 // ────────────────────────────────────────────────────────────────────────────
 // thread.state:会话头变过 / 回合起跑 / 回合收尾之后现算一次五态。
 // 每会话串行 + 合并:同一条线程在一次派生还没跑完时又变了,只补跑一次(不排队 N 次)。
+//
+// 128f-⑫(用户 2026-09-19「删除线程等操作没有及时的界面反馈,要点别处才刷新」):两种来路。
+//   · 显式那一路(RUYI_EVENTS 'thread.state':回合起跑/收尾、改名/置顶、待决结算、班组控制)照旧【每次都发】;
+//   · 隐式那一路(RUYI_EVENTS 'thread.touched':02 saveSession 每次落会话头都派一发)只在【这一行看得见的
+//     那几样】变了才发 —— 回合里 saveSession 一轮好几次,每次都推的话每个客户端每次都要重拉一遍行,正是
+//     K2b 明确拒绝的那件事(见 thread.live 的节流头注)。「看得见的那几样」= 推送载荷里除 updatedAt 之外的
+//     全部 ＋ 显示名 ＋ 自动推进／结论／验收 a/b。【不含】turnSeq:回合起跑之后它才加一,放进来就是在跑那一段
+//     平白多推一帧(event-stream.e2e H3 第一轮实测);回退改 turnSeq 的那一处(02 rewindSession)自己显式派。
+//   为什么要有隐式那一路:行的来源有几十个写口(停自动推进、回退、管家接手、预算熔断……),逐个补
+//   RUYI_EVENTS.emit 就是又一张手攒的名单;会话头是它们全都要经过的那一处(02 saveSession)。
 // ────────────────────────────────────────────────────────────────────────────
 const eventStreamStateBusy = new Set();
-const eventStreamStateAgain = new Set();
-async function eventStreamEmitThreadState(sessionId) {
+const eventStreamStateAgain = new Map();        // sessionId -> 补跑那一趟是不是显式的(显式 OR 隐式 = 显式)
+const eventStreamLastRowSig = new Map();        // sessionId -> 上一次发出去的那一行签名(隐式那一路据此去重)
+const EVENT_STREAM_ROW_SIG_MAX = 2048;          // 签名表容量上限(长跑进程里只增不减的防线;满了整表清空,代价是多推一次)
+async function eventStreamEmitThreadState(sessionId, opts = {}) {
   const sid = safeSessionId(sessionId);
   if (!sid) return;
   if (eventStreamIsStewardSession(sid)) return;
-  if (eventStreamStateBusy.has(sid)) { eventStreamStateAgain.add(sid); return; }
+  const onlyIfChanged = Boolean(opts && opts.onlyIfChanged);
+  if (eventStreamStateBusy.has(sid)) {
+    eventStreamStateAgain.set(sid, (eventStreamStateAgain.get(sid) === false ? false : true) && onlyIfChanged);
+    return;
+  }
   eventStreamStateBusy.add(sid);
   try {
     const head = await readMissionSessionHead(sid).catch(() => null);
@@ -113,7 +129,7 @@ async function eventStreamEmitThreadState(sessionId) {
     // 用的是 06i 同一对函数(threadOriginOf / stewardWatchedThread),同一个会话头喂进去,
     // 推送与索引不可能各说各话。missionId 与 watched 判据吃的是同一个值(下面这行现算的那个)。
     const missionId = String(sessionMissionId(head) || sid);
-    eventStreamPublish('thread.state', {
+    const frame = {
       sessionId: sid,
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
@@ -121,10 +137,28 @@ async function eventStreamEmitThreadState(sessionId) {
       wait,
       origin: threadOriginOf(head),
       watched: stewardWatchedThread(head, sid, missionId),
+    };
+    const { updatedAt: _ignored, ...visible } = frame;
+    const mission = head.mission && typeof head.mission === 'object' ? head.mission : null;
+    const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
+    const sig = JSON.stringify({
+      ...visible,
+      title: sessionDisplayTitle(head),
+      autoMode: mission ? String(mission.autoMode || '') : '',
+      result: mission && mission.result ? String(mission.result.status || '') : '',
+      acceptance: [milestones.filter(m => m && m.status === 'done').length, milestones.length],   // 行尾「验收 a/b」
     });
+    if (onlyIfChanged && eventStreamLastRowSig.get(sid) === sig) return;
+    if (eventStreamLastRowSig.size >= EVENT_STREAM_ROW_SIG_MAX && !eventStreamLastRowSig.has(sid)) eventStreamLastRowSig.clear();
+    eventStreamLastRowSig.set(sid, sig);
+    eventStreamPublish('thread.state', frame);
   } finally {
     eventStreamStateBusy.delete(sid);
-    if (eventStreamStateAgain.delete(sid)) void eventStreamEmitThreadState(sid);
+    if (eventStreamStateAgain.has(sid)) {
+      const again = eventStreamStateAgain.get(sid);
+      eventStreamStateAgain.delete(sid);
+      void eventStreamEmitThreadState(sid, { onlyIfChanged: again });
+    }
   }
 }
 
@@ -169,7 +203,24 @@ function eventStreamOnActiveChildEvent(reg, evt) {
 // ────────────────────────────────────────────────────────────────────────────
 RUYI_EVENTS.subscribe((name, payload) => {
   const data = (payload && typeof payload === 'object') ? payload : {};
-  if (name === 'thread.state') { void eventStreamEmitThreadState(data.sessionId); return; }
+  // 128f-⑫:现算那一趟挪到【发事件的那一串同步代码跑完之后】(setImmediate)。修前是当场开读会话头 —— 发事件的人
+  // 紧接着若把事件循环占住(同步起子进程之类),那一发读只走完「打开文件」,读与关要等循环回来,句柄就一直开着;
+  // Windows 上这期间别的进程把新头 rename 过来会一直 EPERM(session-rewind-gen E 第一轮实测:父进程撤回之后
+  // spawnSync 子进程,子进程存盘 8 次重试全撞上)。推迟一拍的代价是这一帧晚一个 tick。
+  if (name === 'thread.state') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid); }); return; }
+  // 128f-⑫:会话头落盘(02 saveSession)—— 只在这一行看得见的东西变了才推(见 eventStreamEmitThreadState 头注)。
+  if (name === 'thread.touched') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid, { onlyIfChanged: true }); }); return; }
+  // 128f-⑫:线程删掉了。修前删除一帧都不派(02 deleteSession),而且就算派了 thread.state,这边读不出会话头也会
+  // 丢掉它(上面「会话已删/读不出来」那一支)—— 于是左栏那一行要等下一拍轮询(管家视角 15 s)或用户点别处才消失。
+  // 这一帧只带 id:「哪一条没了」就是它的全部事实。
+  if (name === 'thread.removed') {
+    if (eventStreamIsStewardSession(data.sessionId)) return;
+    const sid = safeSessionId(data.sessionId);
+    if (!sid) return;
+    eventStreamLastRowSig.delete(sid);
+    eventStreamPublish('thread.removed', { sessionId: sid });
+    return;
+  }
   if (name === 'thread.done') {
     if (eventStreamIsStewardSession(data.sessionId)) return;
     eventStreamPublish('thread.done', {

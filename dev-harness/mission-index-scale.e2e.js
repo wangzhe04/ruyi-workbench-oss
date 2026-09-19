@@ -118,7 +118,18 @@ fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursiv
 //     **确定性地复现**出来(修前 A2 want 10 实得 2、B3 want 40 实得 1),修完那一件才转绿。
 //     本件因此不再需要把管家关掉 —— 它现在跑的是真实默认配置。
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, includeWorkbenchMcp: false }), 'utf8');
-const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1' }, windowsHide: true });
+// 128f 取证(本件 (e)/(f) 冷路径门已红三次,机制未证):服务子进程预载 lib/trace-blocking.js —— 记下事件循环停顿 >200 ms 与
+// 同步起子进程 >50 ms(带栈)。门红的时候把它们打出来,下一次红就能分清「事件循环被占住」还是「盘上慢」。不影响判据。
+const BLOCKING_TRACE = path.join(HOME, 'blocking-trace.ndjson');
+const wbSpawnedAt = Date.now();
+const wb = cp.spawn(process.execPath, ['--require', path.join(__dirname, 'lib', 'trace-blocking.js'), 'app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, HOME, USERPROFILE: HOME, RUYI_TEST_HOOKS: '1', TRACE_BLOCKING_OUT: BLOCKING_TRACE }, windowsHide: true });
+const dumpBlockingTrace = (label, fromMs, toMs) => {
+  let rows = [];
+  try { rows = fs.readFileSync(BLOCKING_TRACE, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)); } catch { rows = []; }
+  const inWindow = rows.filter(row => row.t >= fromMs - 500 && row.t <= toMs + 500);
+  console.log(`TRACE ${label}: 窗口 ${fromMs}–${toMs} ms(自服务进程起算)里 ${inWindow.length} 条阻塞记录(全程 ${rows.length} 条)`);
+  for (const row of inWindow) console.log('TRACE   ' + JSON.stringify({ t: row.t, kind: row.kind, ms: row.ms, cmd: row.cmd, stack: (row.stack || []).slice(0, 4) }));
+};
 let stderr = ''; wb.stderr.on('data', d => stderr += String(d));
 
 try {
@@ -160,18 +171,24 @@ try {
   // Cold detail rebuild (usage aggregate must come from index, not a per-request 100k scan).
   const detailCold = [];
   let detail = null;
+  const detailFrom = Date.now() - wbSpawnedAt;
   for (let i = 0; i < 3; i++) { invalidateIndex(); detail = await request('/api/missions/' + sessionId(2), token, { port: WB_PORT }); detailCold.push(detail.ms); }
+  const detailTo = Date.now() - wbSpawnedAt;
   ok(detail?.status === 200 && detail.body?.snapshot?.usage?.turns >= 333, '(e) 详情 usage 聚合覆盖10万账本');
-  ok(percentile95(detailCold) <= 800, `(e) 详情冷P95≤800ms(实 ${Math.round(percentile95(detailCold))}ms)`);
+  ok(percentile95(detailCold) <= 800, `(e) 详情冷P95≤800ms(实 ${Math.round(percentile95(detailCold))}ms;三发 ${detailCold.map(Math.round).join('/')})`);
+  if (percentile95(detailCold) > 800) dumpBlockingTrace('(e) 超门', detailFrom, detailTo);
   const detailEtag = detail.headers.etag;
   const detail304 = await request('/api/missions/' + sessionId(2), token, { port: WB_PORT, headers: { 'if-none-match': detailEtag } });
   ok(!!detailEtag && detail304.status === 304, '(e) 详情 ETag -> 304');
 
   const inboxCold = [];
   let inbox = null;
+  const inboxFrom = Date.now() - wbSpawnedAt;
   for (let i = 0; i < 3; i++) { invalidateIndex(); inbox = await request('/api/interventions?limit=50', token, { port: WB_PORT }); inboxCold.push(inbox.ms); }
+  const inboxTo = Date.now() - wbSpawnedAt;
   ok(inbox?.status === 200 && inbox.body?.counts?.total === 29900 && inbox.body?.pending?.length === 50, '(f) 全局收件箱29,900 pending分页');
-  ok(percentile95(inboxCold) <= 1200, `(f) 收件箱冷P95≤1200ms(实 ${Math.round(percentile95(inboxCold))}ms)`);
+  ok(percentile95(inboxCold) <= 1200, `(f) 收件箱冷P95≤1200ms(实 ${Math.round(percentile95(inboxCold))}ms;三发 ${inboxCold.map(Math.round).join('/')})`);
+  if (percentile95(inboxCold) > 1200) dumpBlockingTrace('(f) 超门', inboxFrom, inboxTo);
   const inboxHot = [];
   for (let i = 0; i < 12; i++) inboxHot.push((await request('/api/interventions?limit=50', token, { port: WB_PORT })).ms);
   ok(percentile95(inboxHot) <= 250, `(f) 收件箱热P95≤250ms(实 ${Math.round(percentile95(inboxHot))}ms)`);

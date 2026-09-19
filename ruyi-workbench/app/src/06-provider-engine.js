@@ -258,10 +258,11 @@ async function getCapabilities(config, force) {
   const value = {
     network: { online, checkedAt: nowIso() },
     provider: provider ? { id: provider.id, vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
-    binaries: { git: existsExecutable('git'), rg: hasRg() },
+    // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
+    binaries: { git: await existsExecutableAsync('git'), rg: hasRg() },
     // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
     // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
-    gitCli: probeGitCli(),
+    gitCli: await probeGitCliAsync(),
     desktopMcp: desktop,
     engine,
   };
@@ -514,7 +515,10 @@ function collectChildProcessInfo() {
 async function sampleProcessRss(pids) {
   if (process.platform !== 'win32' || !pids.length) return {};
   try {
-    const out = cp.execFileSync('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+    // 128f-⑬:execFileSync → 异步 execFile(tasklist 本机数百毫秒;同步那一发期间整个服务不答话)。
+    const out = await new Promise((resolve, reject) => {
+      cp.execFile('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8', timeout: 5000, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+    });
     const want = new Set(pids.map(String));
     const rss = {};
     for (const line of String(out).split('\n')) {

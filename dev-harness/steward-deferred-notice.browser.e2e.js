@@ -37,7 +37,16 @@ const ok = (condition, label) => {
         t,
         state: { currentSession: { id: 'sess_seated' } },
         shellModeOf: () => window.__qc.mode,
-        notifySettingsOf: () => (window.__qc.quiet ? { enabled: true, quietStart: '00:00', quietEnd: '23:59' } : { enabled: true }),
+        // 静默时段按【此刻】现算(2026-09-19 22:56 那一轮全量实测:修前「不静默」写成 { enabled: true },没写起止就落到
+        // notify-policy 的缺省 22:00–08:00 —— 晚上十点以后跑,Q1／Q4／Q6 全红;「静默」写死 00:00–23:59,23:59 那一分钟不静默)。
+        //   不静默:起止相同 = 永不静默(isQuietTime 的 start === end 分支);静默:此刻前后各一小时(跨零点由 isQuietTime 自己处理)。
+        notifySettingsOf: () => {
+          if (!window.__qc.quiet) return { enabled: true, quietStart: '00:00', quietEnd: '00:00' };
+          const clock = minutes => { const m = ((minutes % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+          const d = new Date();
+          const here = d.getHours() * 60 + d.getMinutes();
+          return { enabled: true, quietStart: clock(here - 60), quietEnd: clock(here + 60) };
+        },
         notificationApi: FakeNotification,
         missionRowOf: () => ({ title: '那条线程' }),
       });

@@ -1200,7 +1200,7 @@ async function handleApi(req, res, pathname) {
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
     const claudeCli = config.claudePath || detectClaudePath();
-    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && existsExecutable(claudeCli)); // test seam, see runClaudeTurn
+    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && await existsExecutableAsync(claudeCli)); // test seam, see runClaudeTurn; 128f-⑬ 异步
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {

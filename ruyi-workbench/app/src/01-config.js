@@ -1836,7 +1836,7 @@ async function syncAgentRolesToClaude(cwd, config) {
 // when running `claude` directly. Uses `claude mcp add-json` (idempotent).
 async function syncMcpServersToClaude(config) {
   try {
-    if (!config.claudePath || !existsExecutable(config.claudePath)) return;
+    if (!config.claudePath || !(await existsExecutableAsync(config.claudePath))) return;   // 128f-⑬:不钉事件循环
     var servers = resolveExternalMcpServers(config);
     // v2.7.1 (boot fix): claude mcp add-json 每次最多 10s,10 个串行可达 100s,await 会拖死 boot。
     // 加总预算(15s):超预算的余量丢弃 -- add-json 幂等,下次 boot 自动补齐。boot 调用点已改 fire-and-forget,
@@ -2057,36 +2057,65 @@ function spawnCmdLineLength(command, args) {
 // 不留死配置。结果按启动器字符串 memoize(与 detectClaudePath 同 TTL),normalizeConfig 热路径零探测。
 const CLAUDE_NPM_EXE_REL = path.join('node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
 let _launcherResolveCache = new Map(); // launcher 字符串 → { at, value }
+// 定位 shim 同目录下的真身 claude.exe(纯文件系统,不起进程):含目录分隔符的按路径 resolve;裸名字(claude.cmd)
+// 沿 PATH 逐目录找。找不到返回空串。
+function claudeShimExeFor(p) {
+  let shim = '';
+  if (/[\\/]/.test(p) || path.isAbsolute(p)) {
+    shim = path.resolve(p);
+  } else {
+    for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+      if (!dir) continue;
+      const cand = path.join(dir, p);
+      if (fs.existsSync(cand)) { shim = cand; break; }
+    }
+  }
+  if (!shim || !fs.existsSync(shim)) return '';
+  const exe = path.join(path.dirname(shim), CLAUDE_NPM_EXE_REL);
+  return fs.existsSync(exe) ? exe : '';
+}
+function rememberClaudeLauncher(p, value) {
+  if (_launcherResolveCache.size > 32) _launcherResolveCache = new Map(); // 防无界(实际路径集合极小)
+  _launcherResolveCache.set(p, { at: Date.now(), value });
+}
 function resolveClaudeLauncher(launcher) {
   const p = String(launcher || '').trim();
   if (!p || process.platform !== 'win32' || !isBatchLauncher(p)) return launcher;
-  const now = Date.now();
   const hit = _launcherResolveCache.get(p);
-  if (hit && (now - hit.at) < CLAUDEPATH_CACHE_MS) return hit.value;
+  if (hit) {
+    // 128f-⑬:过期【不再当场重探】—— normalizeConfig 在每一次 readConfig 里都走到这里,当场 spawnSync 就是把整个
+    // 服务钉住一发「claude.exe --version」。先答上一次的结果,后台重探,探完换上(见 detectClaudePath 头注)。
+    if ((Date.now() - hit.at) >= CLAUDEPATH_CACHE_MS) refreshInBackground('launcher:' + p, () => resolveClaudeLauncherAsync(launcher, { force: true }));
+    return hit.value;
+  }
   let value = launcher; // 默认:原样返回(解析不出 = 保持现状)
   try {
-    // 定位 shim 实体:含目录分隔符的按路径 resolve;裸名字(claude.cmd)沿 PATH 逐目录找。
-    let shim = '';
-    if (/[\\/]/.test(p) || path.isAbsolute(p)) {
-      shim = path.resolve(p);
-    } else {
-      for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
-        if (!dir) continue;
-        const cand = path.join(dir, p);
-        if (fs.existsSync(cand)) { shim = cand; break; }
-      }
-    }
-    if (shim && fs.existsSync(shim)) {
-      const exe = path.join(path.dirname(shim), CLAUDE_NPM_EXE_REL);
-      if (fs.existsSync(exe)) {
-        // 真身探测:--version 能跑通才接管(防半截 npm 安装留下坏 exe);失败保持 shim 回退。
-        const ok = cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
-        if (!ok.error && ok.status !== null) value = exe;
-      }
+    const exe = claudeShimExeFor(p);
+    if (exe) {
+      // 真身探测:--version 能跑通才接管(防半截 npm 安装留下坏 exe);失败保持 shim 回退。
+      const ok = cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
+      if (!ok.error && ok.status !== null) value = exe;
     }
   } catch { /* 解析失败 = 保持原启动器 */ }
-  if (_launcherResolveCache.size > 32) _launcherResolveCache = new Map(); // 防无界(实际路径集合极小)
-  _launcherResolveCache.set(p, { at: now, value });
+  rememberClaudeLauncher(p, value);
+  return value;
+}
+// 同一件事的异步版(后台重探用):判据逐字相同,只是「--version」那一发不占事件循环。
+async function resolveClaudeLauncherAsync(launcher, { force = false } = {}) {
+  const p = String(launcher || '').trim();
+  if (!p || process.platform !== 'win32' || !isBatchLauncher(p)) return launcher;
+  const hit = _launcherResolveCache.get(p);
+  if (hit && !force && (Date.now() - hit.at) < CLAUDEPATH_CACHE_MS) return hit.value;
+  const generation = _cliProbeGeneration;
+  let value = launcher;
+  try {
+    const exe = claudeShimExeFor(p);
+    if (exe) {
+      const ok = await spawnProbeAsync(exe, ['--version']);
+      if (!ok.error && ok.status !== null) value = exe;
+    }
+  } catch { /* 同上 */ }
+  if (generation === _cliProbeGeneration) rememberClaudeLauncher(p, value);
   return value;
 }
 
@@ -2118,28 +2147,68 @@ function claudeInstallCandidates() {
 // long-lived server re-detect a claude installed after boot without ever re-probing on the hot path.
 // (baseline S7: ~27ms/call on this machine where claude.cmd resolves; the worst case — a hung claude.cmd —
 // would otherwise cost up to ~4s PER readConfig; memoization bounds it to once per TTL window.)
+//
+// 128f-⑬(mission-index-scale (e)/(f) 取证时 CPU 剖面挖出来的;用户 2026-09-19「删除线程没有及时的界面反馈」那一刻
+// 真机上也撞见了它 —— DELETE 与同时在飞的四发请求一起卡了 1.9 s):上面那句「once per TTL window」就是毛病所在。
+// 过期之后的第一次 readConfig 仍然【同步】探一整轮(claude 与 kimi 两支,每个候选一次 node 冷启动,最多 4 s),
+// 这期间事件循环被整个占住 —— 于是【大约每分钟一次】,赶上的那个请求以及同时在飞的所有请求、推送、计时器一起等。
+// 修法:只有进程里还没有任何结果时同步探(启动那一次;设置里改了 CLI 路径之后那一次 —— 两处都要当场的答案);
+// 过期之后先答旧值,后台异步重探(spawnProbeAsync,判据与同步那支逐字相同),探完换上。后台重探每一支同时只有一发,
+// 探的途中又被「作废」(invalidate)了的那一发,结果不许回写(_cliProbeGeneration)。
+// 测试口 WCW_TEST_CLI_PROBE_TTL_MS 把记忆期缩短(cli-probe-stall.e2e);产品里恒为 60 s。
 let _claudePathProbe = null; // { at:number, value:string }
-const CLAUDEPATH_CACHE_MS = 60000;
-function detectClaudePathUncached() {
-  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean);
-  // First try PATH-resolvable names (fast, common case).
-  for (const c of onPath) {
+const CLAUDEPATH_CACHE_MS = (() => {
+  const raw = Number(process.env.WCW_TEST_CLI_PROBE_TTL_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60000;
+})();
+let _cliProbeGeneration = 0;   // 每次作废 +1;后台重探回来时代数变了就丢掉结果
+const _cliProbeRefreshing = new Set();   // 正在后台重探的键(同一个键同时只有一发)
+function refreshInBackground(key, probe) {
+  if (_cliProbeRefreshing.has(key)) return false;
+  _cliProbeRefreshing.add(key);
+  Promise.resolve().then(probe).catch(() => {}).finally(() => { _cliProbeRefreshing.delete(key); });
+  return true;
+}
+// 异步版的「跑一发 <cmd> --version 看退出码」:与各处 spawnSync 同一组参数(stdio 全忽略、隐藏窗口、超时即杀
+// 直接子进程),回同形 { error, status } —— 超时被杀时 status 为 null,与 spawnSync 超时同判。
+function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = result => { if (!settled) { settled = true; resolve(result); } };
+    let child = null;
     try {
-      const s = batchSafeSpawn(c, ['--version']);
+      child = cp.spawn(command, args, { stdio: 'ignore', windowsHide: true, timeout, ...spawnOpts });
+    } catch (error) { done({ error, status: null }); return; }
+    child.once('error', error => done({ error, status: null }));
+    child.once('close', code => done({ error: null, status: code }));
+  });
+}
+function claudeProbeCandidates() {
+  // 先 PATH 上的裸名(快、常见),再常见安装位置(必须真的存在才探)。
+  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean).map(command => ({ command, mustExist: false }));
+  return [...onPath, ...claudeInstallCandidates().map(command => ({ command, mustExist: true }))];
+}
+function detectClaudePathUncached() {
+  for (const { command, mustExist } of claudeProbeCandidates()) {
+    try {
+      if (mustExist && !fs.existsSync(command)) continue;
+      const s = batchSafeSpawn(command, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(c);
+      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(command);
     } catch {
       // keep scanning
     }
   }
-  // Then scan common install locations (bounded, best-effort).
-  for (const full of claudeInstallCandidates()) {
+  return '';
+}
+async function detectClaudePathUncachedAsync() {
+  for (const { command, mustExist } of claudeProbeCandidates()) {
     try {
-      if (!fs.existsSync(full)) continue;
-      const s = batchSafeSpawn(full, ['--version']);
-      const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(full);
+      if (mustExist && !fs.existsSync(command)) continue;
+      const s = batchSafeSpawn(command, ['--version']);
+      const ok = await spawnProbeAsync(s.command, s.args, s.opts);
+      if (!ok.error && ok.status !== null) return await resolveClaudeLauncherAsync(command);
     } catch {
       // keep scanning
     }
@@ -2147,15 +2216,23 @@ function detectClaudePathUncached() {
   return '';
 }
 function detectClaudePath() {
-  const now = Date.now();
-  if (_claudePathProbe && (now - _claudePathProbe.at) < CLAUDEPATH_CACHE_MS) return _claudePathProbe.value;
+  if (_claudePathProbe) {
+    if ((Date.now() - _claudePathProbe.at) >= CLAUDEPATH_CACHE_MS) {
+      refreshInBackground('claude', async () => {
+        const generation = _cliProbeGeneration;
+        const value = await detectClaudePathUncachedAsync();
+        if (generation === _cliProbeGeneration) _claudePathProbe = { at: Date.now(), value };
+      });
+    }
+    return _claudePathProbe.value;
+  }
   const value = detectClaudePathUncached();
-  _claudePathProbe = { at: now, value };
+  _claudePathProbe = { at: Date.now(), value };
   return value;
 }
 // v1.0-S7: let a settings save / explicit "re-detect CLI" action force a fresh probe (e.g. the user just
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
-function invalidateClaudePathCache() { _claudePathProbe = null; }
+function invalidateClaudePathCache() { _claudePathProbe = null; _cliProbeGeneration += 1; }
 
 // v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
 // session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
@@ -2166,15 +2243,26 @@ const AGENT_CLI_TYPES = Object.freeze({
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
+function agentCliProbeSpawn(command) {
+  const isScript = /\.cjs$/i.test(command);
+  const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
+  const nodeExe = kimiEntry ? bundledNodeExe() : '';
+  return isScript ? { command: process.execPath, args: [command, '--version'], opts: {} }
+    : (kimiEntry && nodeExe ? { command: nodeExe, args: [kimiEntry, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']));
+}
 function probeAgentCliLauncher(command) {
   if (!command) return false;
   try {
-    const isScript = /\.cjs$/i.test(command);
-    const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
-    const nodeExe = kimiEntry ? bundledNodeExe() : '';
-    const s = isScript ? { command: process.execPath, args: [command, '--version'], opts: {} }
-      : (kimiEntry && nodeExe ? { command: nodeExe, args: [kimiEntry, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']));
+    const s = agentCliProbeSpawn(command);
     const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+    return !ok.error && ok.status === 0;
+  } catch { return false; }
+}
+async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面逐字相同
+  if (!command) return false;
+  try {
+    const s = agentCliProbeSpawn(command);
+    const ok = await spawnProbeAsync(s.command, s.args, s.opts);
     return !ok.error && ok.status === 0;
   } catch { return false; }
 }
@@ -2190,17 +2278,33 @@ function agentCliInstallCandidates(type) {
   ].filter(Boolean);
   return [];
 }
+function agentCliProbeable(candidate) {
+  // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
+  return !((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate));
+}
 function detectAgentCliPath(type) {
-  const now = Date.now();
   const cached = _agentCliPathProbe.get(type);
-  if (cached && now - cached.at < CLAUDEPATH_CACHE_MS) return cached.value;
+  if (cached) {
+    // 128f-⑬:过期先答旧值、后台重探(同 detectClaudePath 头注)。
+    if (Date.now() - cached.at >= CLAUDEPATH_CACHE_MS) {
+      refreshInBackground('agent:' + type, async () => {
+        const generation = _cliProbeGeneration;
+        let fresh = '';
+        for (const candidate of agentCliInstallCandidates(type)) {
+          if (!agentCliProbeable(candidate)) continue;
+          if (await probeAgentCliLauncherAsync(candidate)) { fresh = candidate; break; }
+        }
+        if (generation === _cliProbeGeneration) _agentCliPathProbe.set(type, { at: Date.now(), value: fresh });
+      });
+    }
+    return cached.value;
+  }
   let value = '';
   for (const candidate of agentCliInstallCandidates(type)) {
-    // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
-    if ((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate)) continue;
+    if (!agentCliProbeable(candidate)) continue;
     if (probeAgentCliLauncher(candidate)) { value = candidate; break; }
   }
-  _agentCliPathProbe.set(type, { at: now, value });
+  _agentCliPathProbe.set(type, { at: Date.now(), value });
   return value;
 }
 function detectKimiPath() { return detectAgentCliPath('kimi'); }
@@ -2246,7 +2350,30 @@ function prepareAgentCliSpawn(type, command, args) {
   }
   return batchSafeSpawn(command, argv);
 }
-function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); }
+// 128f-⑬:健康检查那一项「选中的 CLI 起不起得来」。修前 computeHealth 每一次都【同步】跑一遍「<cli> --version」、不记忆 ——
+// 而 /api/status 每换一次线程就调一次(session-experience openSession),于是换线程这个动作每次都把整个服务钉住一次
+// CLI 冷启动。改成异步、按启动器记 60 s(与路径探测同一个记忆期、同一个作废口)。
+const _agentCliLauncherOk = new Map();   // command -> { at, value }
+async function probeAgentCliLauncherRemembered(command) {
+  const generation = _cliProbeGeneration;
+  const value = await probeAgentCliLauncherAsync(command);
+  if (generation === _cliProbeGeneration) {
+    if (_agentCliLauncherOk.size > 32) _agentCliLauncherOk.clear();
+    _agentCliLauncherOk.set(command, { at: Date.now(), value });
+  }
+  return value;
+}
+async function agentCliLauncherOk(command) {
+  if (!command) return false;
+  const hit = _agentCliLauncherOk.get(command);
+  if (hit) {
+    // 过期同样先答上一次的结果、后台重探(与路径探测同一条纪律):/api/status 自己也不该每分钟慢一次 CLI 冷启动。
+    if (Date.now() - hit.at >= CLAUDEPATH_CACHE_MS) refreshInBackground('launcher-ok:' + command, () => probeAgentCliLauncherRemembered(command));
+    return hit.value;
+  }
+  return probeAgentCliLauncherRemembered(command);
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8

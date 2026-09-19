@@ -232,6 +232,7 @@ const {
 } = createProviderSettingsDomain({
   apiErrText,
   onEngineConfigChanged: () => { renderThreadHead(); syncComposerVoices(); },   // 121-K5：全局配置变了 -> 线程头那组 chip 重画；127-⑦：两枚麦克风按 ASR 配置重判建／拆
+  refreshMcpOps: probe => refreshMcpOps(probe),   // 128f-⑫（审计 D）
   updateAgentTeamButton: () => updateAgentTeamButton(),
   applyTheme: theme => applyTheme(theme),
   applyUiMode: mode => applyUiMode(mode),
@@ -306,6 +307,7 @@ const {
   openFilePreview: fullPath => { openToolPane(); switchTab('files'); return renderFilePreviewInto($('filePreview'), fullPath); },
   refreshPlaybooks: (...args) => refreshPlaybooks(...args),
   refreshSessions: (...args) => refreshSessions(...args),
+  refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D）：回溯之后右栏页签重读
   renderCurrentSession: (...args) => renderCurrentSession(...args),
   // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级)。
   renderMermaidBlocks: (...args) => renderMermaidBlocks(...args),
@@ -902,6 +904,7 @@ const {
   playbookDisplayUnavailableReason,
   playbookInputLabel,
   playbookStatusText,
+  refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D／E）：撤销之后、切回工作台重读之后右栏页签跟上
 });
 
 // 121-K1（34 号文 §8.2）：视角模式控制器。applyShellMode 是全仓写 data-shell-mode 的唯一常规入口，

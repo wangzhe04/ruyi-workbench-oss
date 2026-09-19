@@ -209,6 +209,7 @@ const AGENT_RUN_PERSIST_DEGRADED_AFTER = 3;
 const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
+const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
   // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
   // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
@@ -229,6 +230,15 @@ async function saveAgentRun(run) {
     try {
       await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
+      // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
+      // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
+      // 那些不换状态的存一帧都不派。暂停是「先回 pausing、跑循环下一拍才真停」,所以派在这里而不是控制路由上。
+      const savedStatus = String(run.status || '');
+      if (agentRunLastSavedStatus.get(run.id) !== savedStatus) {
+        if (agentRunLastSavedStatus.size >= 1024 && !agentRunLastSavedStatus.has(run.id)) agentRunLastSavedStatus.clear();
+        agentRunLastSavedStatus.set(run.id, savedStatus);
+        RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId });
+      }
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
     } catch (e) {

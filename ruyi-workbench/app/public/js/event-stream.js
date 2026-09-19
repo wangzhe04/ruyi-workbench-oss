@@ -37,8 +37,9 @@ export const EVENT_STREAM_CONNECTION_EVENT = 'connection';
 // 「这一行本身变了」的五个事件（§6.1 事件表）。名字收在这里而不是各消费者里各写一遍：它们是
 // 与 13r 的显式登记表对拍的【线上契约】，而且散在四个文件里写五个字面量会把看板那几把
 // 「五态字面量计数」的锁（B5／M6／N3）撞红 —— 事件名里那个 needs_you 不是五态，别混进那本账。
+// 128f-⑫：第六个 thread.removed（线程删掉了；修前删除一帧都不派，管家视角的左栏要等 15 s 那一拍轮询）。
 export const EVENT_STREAM_ROW_EVENTS = Object.freeze([
-  'thread.state', 'thread.needs_you', 'thread.done', 'thread.created', 'thread.adopted',
+  'thread.state', 'thread.needs_you', 'thread.done', 'thread.created', 'thread.adopted', 'thread.removed',
 ]);
 // 活回合的中途动作（每会话 ≥500 ms 一条，§6.1 节流列）。就地改，不触发任何请求。
 export const EVENT_STREAM_LIVE_EVENT = 'thread.live';
@@ -334,12 +335,17 @@ export function createEventStream({
     return true;
   }
 
+  // 128f-⑫：页内广播 —— 同一页里一处做完了动作、别的面该跟着刷时用（例：设置里清空管家记忆 → 口袋角标）。
+  // 不经服务端、不进断线补发、不推 Last-Event-ID；订阅者与服务端来的同名帧走同一个 emit。
+  function publishLocal(name, payload) { return emit(name, payload); }
+
   return Object.freeze({
     start,
     stop,
     sync,
     on,
     off,
+    publishLocal,
     isConnected: () => connected === true,
     // 只读实况（给 e2e 与诊断用；不挂全局、不给写口）。
     stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs, lastSeenSeq, replayed, replayWindow }),

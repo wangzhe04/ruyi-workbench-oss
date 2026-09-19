@@ -671,7 +671,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `.boot-diag-copy`（上边距）。只有启动时某一步失败、JS 建出这些节点时才命中，其余逐像素不变。
 // 算法自证：把 chat-primitives.css 从 HEAD 检出、按本文件自己的 readLayerPayload() 重算 = 8f57fe64…，与被替换的旧值
 // 逐字相同（先自证再替换）；换回本刀的 CSS 再算得下面这个值。反向：改 CSS 之后、重钉之前 D51 与 F3 双红（实测）。
-const LEGACY_STYLES_SHA256 = '0b8c083ad4da9c6a5dbd3ed0e07939691b8ec3918929fd5964a4e16e71f6c247';
+// 128f-⑫ 续钉（前值 0b8c083a…）：零新增、零删除层，只在 `css/views/steward-board.css` 的 .is-sel 后面加一条
+//   `.steward-board-thread.is-removing { opacity: .45; pointer-events: none; }` —— 删除请求在飞时那一行变灰、不接点击
+//   （用户 2026-09-19「删除线程没有及时的界面反馈」）。只在删除请求在飞的那一瞬命中，其余逐像素不变。
+// 算法自证：把 steward-board.css 从 HEAD 检出、按本文件自己的 readLayerPayload() 重算 = 0b8c083a…，与被替换的旧值逐字相同
+// （先自证再替换）；换回本刀的 CSS 再算得下面这个值。反向：改 CSS 之后、重钉之前 D51 与 F3 双红（本刀快通道实测）。
+const LEGACY_STYLES_SHA256 = 'fa9636912b94576d71834a14cd9d0290bfa2a8175f897ce40aca83dade06d287';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

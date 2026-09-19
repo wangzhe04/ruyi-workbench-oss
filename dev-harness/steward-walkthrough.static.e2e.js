@@ -253,11 +253,12 @@ const ok = (condition, label) => {
     ok(JSON.stringify(streamImports) === JSON.stringify(['./net.js'])
       && !/\bfetch\(/.test(streamCode) && !/authHeaders\(/.test(streamCode) && !/x-wcw-token/.test(streamCode)
       && !/globalThis\.[A-Za-z_$][\w$]*\s*=/.test(streamCode) && !/\.innerHTML\s*=/.test(streamCode)
-      && streamMod.EVENT_STREAM_ROW_EVENTS.length === 5
+      && streamMod.EVENT_STREAM_ROW_EVENTS.length === 6   // 128f-⑫ 5 → 6:thread.removed(删除修前一帧都不派)
       && streamMod.EVENT_STREAM_ROW_EVENTS.includes('thread.adopted')
+      && streamMod.EVENT_STREAM_ROW_EVENTS.includes('thread.removed')
       && streamMod.EVENT_STREAM_LIVE_EVENT === 'thread.live'
       && streamMod.EVENT_STREAM_RETRY_MAX_MS === 30000,
-      `E10 新叶子只 import net.js 的 apiRaw（零裸 fetch、零 token 自拼、零全局写入、零 innerHTML）；线上事件名登记表 5+1 条、退避封顶 30 s（实测 imports=${JSON.stringify(streamImports)}）`);
+      `E10 新叶子只 import net.js 的 apiRaw（零裸 fetch、零 token 自拼、零全局写入、零 innerHTML）；线上事件名登记表 6+1 条、退避封顶 30 s（实测 imports=${JSON.stringify(streamImports)}）`);
     ok(/Math\.max\(STEWARD_DRAWER_POLL_MS_MIN, raw\)/.test(drawer)
       && /Math\.max\(STEWARD_BOARD_POLL_MS_MIN, raw\)/.test(board)
       && /Math\.max\(STEWARD_POLL_MS_MIN, raw\)/.test(shell),

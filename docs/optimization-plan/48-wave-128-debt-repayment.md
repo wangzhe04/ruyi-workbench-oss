@@ -615,3 +615,62 @@ e2e 跑在上一次的产物上照样全绿。改成 `void …;` 并核对产物
 **读数**：`overlay-update-core` 新增 B5（新宿主 2.0.2 套 2.0.1 → 拒、零写入）、B6（读不到宿主版本 → 拒）、C0b／C0c（回滚删新增、清单不外泄）、D4–D6（只删**这一次**新增的：
 VALID2 的 marker2.txt 删、上一步就有的 marker.txt 留、回执 removed=1）、S3 改钉「恰好相等」；`overlay-payload-lock` ①b 三件不许回到载荷。PS 5.1 解析 0 错、BOM 与 CRLF 保持。
 **反向**（逐条还原、sha 一致）：版本闸回到 ≥ → S3／B5／B5b 红；读不到放行 → B6 红；回滚不删 → C0b／D4／D6 红；清单被当部署文件还原 → C0c 红；启动器回到载荷 → ①b 红。
+**全量**（`aee8a47`，2026-09-19 21:06–21:33，`--parallel 4`）：**372 pass / 0 fail / 0 flaky**，残留测试浏览器 0。
+
+### 128f-⑫ 动作之后界面立刻跟上（用户 2026-09-19：「删除线程等操作没有及时的界面反馈，需要点别的地方才会刷新消失」；「查一下有没有别的功能也有这样的问题，统一在这一波次里修了」；主会话亲做）
+
+**取证**（真浏览器，`scratchpad/probe-rail-feedback2`）：管家视角里点「删除」，6 s 内那一行一直在 —— 删除之后页面**一发 `/api/missions` 都没重拉**；工作台视角 46 ms 消失。
+病根两层：① `steward-board.js` `syncRail` 写着 `if (!isStewardMode()) void pushRefreshRows()`，理由是「管家视角有兜底计时器」—— 那一拍默认 15 s；② 服务端 `deleteSession` 一帧推送都不派（就算派 `thread.state`，13r 读不出会话头也会丢）。
+同一次取证里还撞见第三层：那一发 `DELETE` 本身 1858 ms，同时在飞的四发请求一起卡住 —— 事件循环被同步 CLI 探测钉住（见 128f-⑬）。
+
+**同类普查**：只读代理按「动作写成功了、可显示它的那一面读的是另一份没刷新的缓存」扫了 `public/js` 全部写请求（约 70 处），主会话逐条复核后归成六类（审计表存 `scratchpad/stale-ui-audit.md`）：
+A 左栏行不重拉（删除／批量清理；答完待决「等你」要等回合收工；停自动推进；班组控制；回退）；B 焦点栏自持切片（左栏行上的暂停／继续／停止／优先／全部暂停动的是焦点那一条时）；
+C 权限／模型 chip 各面各拿一份会话副本（一面改了、另几面要等换线程）；D 右栏页签与设置列表（变更页签在撤销／回溯之后、行动流水表在撤销之后、记忆视图在应用提议之后、MCP 运维表在一键应用之后、口袋「记忆·新」在清空之后）；
+E 管家视角里动了当前线程，切回工作台中栏仍是旧的；F 左栏头上的仲裁数（并发上限、排队 N）在设置里改完、焦点栏里停掉一条之后要等 30 s。
+
+**修法**（服务端只在三处原语补发，不按路由逐个手攒名单）：
+1. **服务端推送**：待决的每一次结算都经过 `appendIntervention`（02）→ 非 pending 记录落盘后派 `thread.state`；`deleteSession` 派新事件 `thread.removed`（13r 只带 id 转发，客户端 `EVENT_STREAM_ROW_EVENTS` 第六个）；
+   会话头每次落盘（`saveSession`）派内部事件 `thread.touched` → 13r 现算这一行，**只在看得见的那几样变了才推**（五态、等你数、来源、盯没盯、显示名、自动推进、结论、验收 a/b；签名去重，不含 `turnSeq`）；
+   班组 `saveAgentRun` 在 run 状态真的换了（跑／停／等池／收尾）时派；回退（`rewindSession`）改的是对话本身、签名判不出来，显式派。13r 的现算挪到 `setImmediate`（见下「一处测试写法的连带」）。
+2. **左栏**：`syncRail` 两个视角都补拉；删除有三拍反馈 —— 点下去那一行立刻变灰、`aria-busy`（`state.sessionRemoval.pending`）；服务端删完立刻不画（`.done`，不等 `/api/missions`，取回来的行里真没了才清）；删不掉恢复原样并提示「删除失败：原因」（修前是没人接的 rejection）。批量清理同样立刻不画。
+3. **焦点栏**（B）：`refreshDrawerIfFocused` —— 行上的动作动的正是焦点那一条时补一发整份重读。
+4. **chip**（C）：写口只有 `steward-chips.js` 那两个，同步也只在那里做 —— 改成功之后同一条线程上的其它实例就地换上新会话并通知各自的宿主；改全局默认、或线程头重画（设置页／引导向导存完配置）时所有实例按新配置重画。
+5. **右栏与设置列表**（D）：撤销、回溯之后 `refreshToolPane()`；行动流水撤销成功后 `loadDecisions()`；应用记忆维护提议后 `refreshMemoryViews()`；一键应用后 `refreshMcpOps(false)`；清空管家记忆后页内广播 `steward.memory.changed`，口袋订了它
+   （`event-stream.js` 新增 `publishLocal` = 同一个 `emit`，不经服务端、不进补发环）。
+6. **中栏跨视角**（E）：工作台不在屏上时收到当前线程的推送记一笔，切回工作台那一刻整份重读一次（`reloadCurrentSessionAfterAway`）。
+7. **仲裁数**（F）：设置里改并发上限、焦点栏停掉一条之后页内广播 `steward.arbiter.changed`，左栏只重读仲裁面这一发。
+
+**读数**：新件 `action-feedback.browser.e2e.js`（真浏览器，夹具兜底轮询 120 s，所以「几秒内跟上」都不是轮询给的）：R1 在飞变灰（CDP 扣住 DELETE）/放行 46 ms 消失；R1d 取行全扣住时照样消失（只靠 done）；R1e 事件流扣住时管家视角改名当场上屏（只靠 syncRail 补拉）；
+R2 注入 500 → 恢复原样＋「删除失败」；R3 测试直接调 API 删 → 43 ms 消失（只靠 `thread.removed`）；R4 工作台视角；R5 管家视角清理历史；R6 线程头 ↔ 左栏行 chip 双向；R7 人在管家视角时当前线程跑完一回合，切回工作台中栏是新的；
+R8 焦点那一条上点「优先」焦点栏当场重读（数的是事项切片那一发，轮询拍不读它 —— 第一版数会话 GET，反向时被轮询拍冒充成绿）；RA 设置里改并发上限左栏头上当场跟上。
+`event-stream.e2e` 加 H1（答完之后、收工之前就有一帧 `thread.state` 等你 0）、H2（删除 → `thread.removed` ≤1 s）、H3（只走 `saveSession` 的三步：标一个里程碑 done 推一帧；原样再存不推；只改待办存两次不推 —— 第一版 H3 看「在跑那一段」，反向实测那一段没走到 saveSession，去掉去重照样绿，换掉了）。
+新件 `action-feedback.static.e2e.js` 钉 D 类五处与 F 的焦点栏那一处（夹具太重没配真浏览器件的那几处：只证明「成功分支所在的函数里调了那一个重读、排在写请求之后」，证明不了屏上真的变了 —— 比行为件弱，如实记在这里）。
+**反向**（23 条，逐条单独拿掉一处 → 指定标签真红 → 还原 sha 一致）：pending 标记→R1c；失败提示→R2b；`thread.removed`→R3；done 过滤→R1d；syncRail 管家视角补拉→R1e；chip 同步→R6；离开期间记一笔→R7；焦点栏补读→R8；
+结算推送＋落盘碰一下→H1；只拿掉落盘碰一下→H3a；去重→H3b／H3c；仲裁广播订阅→RA；D1–D6、F2 各删那一行→各自红。
+**锁重钉**（都是有意新增，理由写在锁旁）：`EVENT_STREAM_ROW_EVENTS` 5→6（steward-walkthrough E10）；口袋订阅加页内那一类（rail-pocket A3）；焦点栏强刷 2→3 条路（steward-board L3）；中栏取会话 2→3 处（live-full-text E4）；
+经典样式载荷锁 `0b8c083a…`→`fa963691…`（只加 `.is-removing` 一条；先用 HEAD 的 steward-board.css 重算得旧值自证）。
+**一处测试写法的连带**：`unit/session-rewind-gen` E 在撤回之后用 `spawnSync` 起子进程，子进程存盘 8 次重试全 EPERM —— 本进程里的推送层在撤回之后要读一次会话头，`spawnSync` 冻住事件循环时那一发读只走完「打开文件」，句柄一直开着。
+父进程先空等 500 ms 子进程即绿（坐实）。测试改成异步起子进程等它退出（断言一条没改）；13r 的现算同时挪到 `setImmediate`，不在发事件的那一串同步代码里当场开文件。
+
+**全量（工作区，2026-09-19 22:28–22:55，`--parallel 4`）**：`373 pass / 2 fail / 2 flaky`。四件逐条取证、都有着落：
+- 红 `readfiletail-torntail` (c2)：结算推送那一行写在了 `appendIntervention` 的写入块里，而这件把那一块**原样抠出来单独执行**（只传它那几样参数），块里多出的 `record`／`RUYI_EVENTS` 就抛。
+  推送挪到写链落定之后那一个既有的 `next.then` 里，写入块一字不动；反向 [h] 重跑照样咬住 H1。
+- 红 `steward-deferred-notice.browser` Q1／Q1b／Q4／Q4c／Q6：**128f-⑪ 我自己写的测试依赖时刻**。「不静默」写成 `{ enabled: true }`，没写起止就落到 notify-policy 的缺省 22:00–08:00；
+  这一轮 22:5x 跑到它，五条全红（aee8a47 那一轮 21:xx 跑，是绿的）。「静默」写死 `00:00–23:59`，23:59 那一分钟也不静默。现在都按此刻现算：不静默用起止相同，静默用此刻前后各一小时。
+- flaky `action-feedback.browser` R6d（本刀新件）：负载下 12 跑红 4 次以上。现场（R6-DIAG）：点左栏行上的权限 chip 之后，补读会话那一趟里左栏被推送重画了 2–4 次，被点的按钮整行换掉（300 ms 后已不在文档里），
+  菜单要么开在拆掉的节点上、要么开了又被拆。**这是产品缺陷**，用户侧就是「左栏行上的菜单点开就自己没了」，本刀加了推送之后会更常见。
+  修：行内有交互活着（chip 正在补读、或者弹层挂在左栏里的锚点上）时左栏先不重画、记一笔，chip 菜单一收（新回调 `onMenuIdle`）就补画。
+  新断言 R6f：菜单开着时测试直接调 API 删掉另一条（推送要重画左栏）→ 菜单还在；Esc 收起 → 被删的那一行当场消失。反向（拿掉暂缓那一行）→ R6f-b 红。修后负载 4 路 × 3 轮 12/12 绿。
+- flaky `event-stream-replay.browser`（独占阶段）：首跑 B1「安静卡出现了」红，D0／D1／D2b／E2a 跟着连锁红，重跑过。**该件第一次出现**（历史全量与 48 号文都没有记录）。
+  负载 3 路 × 2 轮 6/6 绿、无负载连跑 3/3 绿，未复现。按规矩先如实记下形状：再出现一次就按真缺陷取证。
+
+### 128f-⑬ 同步探测不再把整个服务钉住（mission-index-scale (e)/(f) 取证时 CPU 剖面挖出；用户那次删除卡 1.9 s 就是它；Brief §4.2 第 6 条「冷缓存能力探测钉住事件循环」同族；主会话亲做）
+
+**取证**：`scratchpad/probe-cold-detail.js` ＋ `--cpu-prof`：`readConfig → normalizeConfig → defaultConfig → detectKimiPath／detectClaudePath → spawnSync` 一次 1.2 s（本机）。两者按 60 s 记忆，**过期之后第一次读配置当场同步探一整轮**（每个候选一次 node 冷启动，最多 4 s）——
+大约每分钟一次，赶上的那个请求以及同时在飞的所有请求、推送、计时器一起等。顺着查出同一形状的另外几处：**健康检查每一次 `/api/status` 都同步探一遍选中的 CLI、不记忆**（前端每换一次线程就调一次 `/api/status?sessionId=`）；
+`resolveClaudeLauncher` 过期同步重探 `claude.exe --version`；能力矩阵过期重算时两发同步 `git --version`；班组启动、子代理入口、`syncMcpServersToClaude` 的 `existsExecutable`；资源采样的 `tasklist`；覆盖包解压（`Expand-Archive` 同步，最长 120 s）。
+**修法**：只有「进程里还没有任何结果」时同步探（启动那一次；设置里改了 CLI 路径作废之后那一次 —— 两处都要当场的答案）；**过期之后先答旧值、后台异步重探**（`spawnProbeAsync`，与同步那支同参数同判据），同一个键同时只有一发，作废之后回来的结果不许回写（`_cliProbeGeneration`）。
+健康检查那一项改异步并记 60 s（同一作废口）；其余几处在异步上下文里的一律改成异步版（`existsExecutableAsync`、`probeGitCliAsync`、异步 `execFile`）。同步版只留给启动期与 CLI 子命令。测试口 `WCW_TEST_CLI_PROBE_TTL_MS`。
+**读数**：新件 `cli-probe-stall.e2e.js`（两支合成「慢 CLI」各睡 1.5 s；PATH／APPDATA／LOCALAPPDATA／ProgramFiles 指临时目录，真机 CLI 一个都探不到；记忆期缩到 1 s）：C1 首探照旧；C2 过期之后那一发 `/api/status` 35 ms（反向 1630 ms）；C2b 同一时段 `/health` 最慢 2 ms（反向 1555 ms）；
+C3 过期期间答旧值不是空串；C4 kimi 改成探测不通过 → 后台那一轮把 `detectedKimiPath` 换成空串。`claude-exe-resolve` 照绿。
+**反向**：健康检查回到同步不记忆 → C2／C2b 红；`detectAgentCliPath` 过期回到同步重探 → C2b 红。

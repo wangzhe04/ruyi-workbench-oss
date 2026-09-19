@@ -153,8 +153,12 @@ ok(/liveTurnTail = res && res\.liveTail && typeof res\.liveTail === 'object' \? 
   'E2 只读信封上那个键,没有第二个数据源');
 ok(/api\('\/api\/stop', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId: id \}\) \}\)/.test(experience),
   'E3 「停止」走既有 /api/stop,不新开面');
-ok(count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`\)/g) === 2,
-  `E4 只有 openSession 与那一拍两处会去取会话(实测 ${count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`\)/g)} 处)`);
+// 128f-⑫ 重钉 2 → 3：第三处是 reloadCurrentSessionAfterAway —— 管家视角里动过当前这条线程（推送来了、中栏不在屏上），
+// 切回工作台那一刻整份重读一次（审计 E：修前要换一次会话才看得见）。它只在「离开期间来过这条线程的推送」时走一次，
+// 不是第二条轮询；反向：去掉那一笔标记（pushLiveTurn 里 currentChangedWhileAway = true）→ action-feedback R7 红。
+ok(count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`\)/g) === 3
+  && /async function reloadCurrentSessionAfterAway\(\)/.test(experienceCode),
+  `E4 只有 openSession、那一拍、切回工作台重读这三处会去取会话(实测 ${count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`\)/g)} 处)`);
 
 /* ─── F 样式层 ─────────────────────────────────────────────────────────────── */
 for (const sel of ['.live-turn-title', '.live-turn-body', '.live-turn-tool', '.live-turn-stop']) {

@@ -63,8 +63,10 @@ const ok = (condition, label) => {
   // 123-M2（37 号文 §3.6）：第三类帧 schedule.changed —— 建一条定时任务既不写收件箱也不改线程
   // 状态，口袋上那个计数修前要等下一次打开左栏才对得上。它仍然【不是第二条通道】：与另外两类
   // 走同一条事件流、同一处订阅、同一个串行合并的 refresh()，零计时器那条纪律一个字没动。
-  ok(/for \(const name of \['inbox\.appended', 'thread\.state', 'schedule\.changed'\]\)/.test(code),
-    'A3 推送只订 inbox.appended／thread.state／schedule.changed 三类帧（同一条流、同一处订阅）');
+  // 128f-⑫：第四类 steward.memory.changed 是【页内】广播（event-stream 的 publishLocal；设置里清空管家记忆之后发）——
+  // 仍是同一条流、同一处订阅、同一个串行合并的 refresh()，零计时器。
+  ok(/for \(const name of \['inbox\.appended', 'thread\.state', 'schedule\.changed', 'steward\.memory\.changed'\]\)/.test(code),
+    'A3 推送只订 inbox.appended／thread.state／schedule.changed 三类帧 ＋ 页内的 steward.memory.changed（同一条流、同一处订阅）');
 
   /* ─── B 零 innerHTML ─────────────────────────────────────────────────────────── */
   ok(!/innerHTML|insertAdjacentHTML|document\.write/.test(code),

@@ -2870,7 +2870,7 @@ async function syncAgentRolesToClaude(cwd, config) {
 // when running `claude` directly. Uses `claude mcp add-json` (idempotent).
 async function syncMcpServersToClaude(config) {
   try {
-    if (!config.claudePath || !existsExecutable(config.claudePath)) return;
+    if (!config.claudePath || !(await existsExecutableAsync(config.claudePath))) return;   // 128f-⑬:不钉事件循环
     var servers = resolveExternalMcpServers(config);
     // v2.7.1 (boot fix): claude mcp add-json 每次最多 10s,10 个串行可达 100s,await 会拖死 boot。
     // 加总预算(15s):超预算的余量丢弃 -- add-json 幂等,下次 boot 自动补齐。boot 调用点已改 fire-and-forget,
@@ -3091,36 +3091,65 @@ function spawnCmdLineLength(command, args) {
 // 不留死配置。结果按启动器字符串 memoize(与 detectClaudePath 同 TTL),normalizeConfig 热路径零探测。
 const CLAUDE_NPM_EXE_REL = path.join('node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
 let _launcherResolveCache = new Map(); // launcher 字符串 → { at, value }
+// 定位 shim 同目录下的真身 claude.exe(纯文件系统,不起进程):含目录分隔符的按路径 resolve;裸名字(claude.cmd)
+// 沿 PATH 逐目录找。找不到返回空串。
+function claudeShimExeFor(p) {
+  let shim = '';
+  if (/[\\/]/.test(p) || path.isAbsolute(p)) {
+    shim = path.resolve(p);
+  } else {
+    for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+      if (!dir) continue;
+      const cand = path.join(dir, p);
+      if (fs.existsSync(cand)) { shim = cand; break; }
+    }
+  }
+  if (!shim || !fs.existsSync(shim)) return '';
+  const exe = path.join(path.dirname(shim), CLAUDE_NPM_EXE_REL);
+  return fs.existsSync(exe) ? exe : '';
+}
+function rememberClaudeLauncher(p, value) {
+  if (_launcherResolveCache.size > 32) _launcherResolveCache = new Map(); // 防无界(实际路径集合极小)
+  _launcherResolveCache.set(p, { at: Date.now(), value });
+}
 function resolveClaudeLauncher(launcher) {
   const p = String(launcher || '').trim();
   if (!p || process.platform !== 'win32' || !isBatchLauncher(p)) return launcher;
-  const now = Date.now();
   const hit = _launcherResolveCache.get(p);
-  if (hit && (now - hit.at) < CLAUDEPATH_CACHE_MS) return hit.value;
+  if (hit) {
+    // 128f-⑬:过期【不再当场重探】—— normalizeConfig 在每一次 readConfig 里都走到这里,当场 spawnSync 就是把整个
+    // 服务钉住一发「claude.exe --version」。先答上一次的结果,后台重探,探完换上(见 detectClaudePath 头注)。
+    if ((Date.now() - hit.at) >= CLAUDEPATH_CACHE_MS) refreshInBackground('launcher:' + p, () => resolveClaudeLauncherAsync(launcher, { force: true }));
+    return hit.value;
+  }
   let value = launcher; // 默认:原样返回(解析不出 = 保持现状)
   try {
-    // 定位 shim 实体:含目录分隔符的按路径 resolve;裸名字(claude.cmd)沿 PATH 逐目录找。
-    let shim = '';
-    if (/[\\/]/.test(p) || path.isAbsolute(p)) {
-      shim = path.resolve(p);
-    } else {
-      for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
-        if (!dir) continue;
-        const cand = path.join(dir, p);
-        if (fs.existsSync(cand)) { shim = cand; break; }
-      }
-    }
-    if (shim && fs.existsSync(shim)) {
-      const exe = path.join(path.dirname(shim), CLAUDE_NPM_EXE_REL);
-      if (fs.existsSync(exe)) {
-        // 真身探测:--version 能跑通才接管(防半截 npm 安装留下坏 exe);失败保持 shim 回退。
-        const ok = cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
-        if (!ok.error && ok.status !== null) value = exe;
-      }
+    const exe = claudeShimExeFor(p);
+    if (exe) {
+      // 真身探测:--version 能跑通才接管(防半截 npm 安装留下坏 exe);失败保持 shim 回退。
+      const ok = cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
+      if (!ok.error && ok.status !== null) value = exe;
     }
   } catch { /* 解析失败 = 保持原启动器 */ }
-  if (_launcherResolveCache.size > 32) _launcherResolveCache = new Map(); // 防无界(实际路径集合极小)
-  _launcherResolveCache.set(p, { at: now, value });
+  rememberClaudeLauncher(p, value);
+  return value;
+}
+// 同一件事的异步版(后台重探用):判据逐字相同,只是「--version」那一发不占事件循环。
+async function resolveClaudeLauncherAsync(launcher, { force = false } = {}) {
+  const p = String(launcher || '').trim();
+  if (!p || process.platform !== 'win32' || !isBatchLauncher(p)) return launcher;
+  const hit = _launcherResolveCache.get(p);
+  if (hit && !force && (Date.now() - hit.at) < CLAUDEPATH_CACHE_MS) return hit.value;
+  const generation = _cliProbeGeneration;
+  let value = launcher;
+  try {
+    const exe = claudeShimExeFor(p);
+    if (exe) {
+      const ok = await spawnProbeAsync(exe, ['--version']);
+      if (!ok.error && ok.status !== null) value = exe;
+    }
+  } catch { /* 同上 */ }
+  if (generation === _cliProbeGeneration) rememberClaudeLauncher(p, value);
   return value;
 }
 
@@ -3152,28 +3181,68 @@ function claudeInstallCandidates() {
 // long-lived server re-detect a claude installed after boot without ever re-probing on the hot path.
 // (baseline S7: ~27ms/call on this machine where claude.cmd resolves; the worst case — a hung claude.cmd —
 // would otherwise cost up to ~4s PER readConfig; memoization bounds it to once per TTL window.)
+//
+// 128f-⑬(mission-index-scale (e)/(f) 取证时 CPU 剖面挖出来的;用户 2026-09-19「删除线程没有及时的界面反馈」那一刻
+// 真机上也撞见了它 —— DELETE 与同时在飞的四发请求一起卡了 1.9 s):上面那句「once per TTL window」就是毛病所在。
+// 过期之后的第一次 readConfig 仍然【同步】探一整轮(claude 与 kimi 两支,每个候选一次 node 冷启动,最多 4 s),
+// 这期间事件循环被整个占住 —— 于是【大约每分钟一次】,赶上的那个请求以及同时在飞的所有请求、推送、计时器一起等。
+// 修法:只有进程里还没有任何结果时同步探(启动那一次;设置里改了 CLI 路径之后那一次 —— 两处都要当场的答案);
+// 过期之后先答旧值,后台异步重探(spawnProbeAsync,判据与同步那支逐字相同),探完换上。后台重探每一支同时只有一发,
+// 探的途中又被「作废」(invalidate)了的那一发,结果不许回写(_cliProbeGeneration)。
+// 测试口 WCW_TEST_CLI_PROBE_TTL_MS 把记忆期缩短(cli-probe-stall.e2e);产品里恒为 60 s。
 let _claudePathProbe = null; // { at:number, value:string }
-const CLAUDEPATH_CACHE_MS = 60000;
-function detectClaudePathUncached() {
-  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean);
-  // First try PATH-resolvable names (fast, common case).
-  for (const c of onPath) {
+const CLAUDEPATH_CACHE_MS = (() => {
+  const raw = Number(process.env.WCW_TEST_CLI_PROBE_TTL_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60000;
+})();
+let _cliProbeGeneration = 0;   // 每次作废 +1;后台重探回来时代数变了就丢掉结果
+const _cliProbeRefreshing = new Set();   // 正在后台重探的键(同一个键同时只有一发)
+function refreshInBackground(key, probe) {
+  if (_cliProbeRefreshing.has(key)) return false;
+  _cliProbeRefreshing.add(key);
+  Promise.resolve().then(probe).catch(() => {}).finally(() => { _cliProbeRefreshing.delete(key); });
+  return true;
+}
+// 异步版的「跑一发 <cmd> --version 看退出码」:与各处 spawnSync 同一组参数(stdio 全忽略、隐藏窗口、超时即杀
+// 直接子进程),回同形 { error, status } —— 超时被杀时 status 为 null,与 spawnSync 超时同判。
+function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = result => { if (!settled) { settled = true; resolve(result); } };
+    let child = null;
     try {
-      const s = batchSafeSpawn(c, ['--version']);
+      child = cp.spawn(command, args, { stdio: 'ignore', windowsHide: true, timeout, ...spawnOpts });
+    } catch (error) { done({ error, status: null }); return; }
+    child.once('error', error => done({ error, status: null }));
+    child.once('close', code => done({ error: null, status: code }));
+  });
+}
+function claudeProbeCandidates() {
+  // 先 PATH 上的裸名(快、常见),再常见安装位置(必须真的存在才探)。
+  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean).map(command => ({ command, mustExist: false }));
+  return [...onPath, ...claudeInstallCandidates().map(command => ({ command, mustExist: true }))];
+}
+function detectClaudePathUncached() {
+  for (const { command, mustExist } of claudeProbeCandidates()) {
+    try {
+      if (mustExist && !fs.existsSync(command)) continue;
+      const s = batchSafeSpawn(command, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(c);
+      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(command);
     } catch {
       // keep scanning
     }
   }
-  // Then scan common install locations (bounded, best-effort).
-  for (const full of claudeInstallCandidates()) {
+  return '';
+}
+async function detectClaudePathUncachedAsync() {
+  for (const { command, mustExist } of claudeProbeCandidates()) {
     try {
-      if (!fs.existsSync(full)) continue;
-      const s = batchSafeSpawn(full, ['--version']);
-      const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(full);
+      if (mustExist && !fs.existsSync(command)) continue;
+      const s = batchSafeSpawn(command, ['--version']);
+      const ok = await spawnProbeAsync(s.command, s.args, s.opts);
+      if (!ok.error && ok.status !== null) return await resolveClaudeLauncherAsync(command);
     } catch {
       // keep scanning
     }
@@ -3181,15 +3250,23 @@ function detectClaudePathUncached() {
   return '';
 }
 function detectClaudePath() {
-  const now = Date.now();
-  if (_claudePathProbe && (now - _claudePathProbe.at) < CLAUDEPATH_CACHE_MS) return _claudePathProbe.value;
+  if (_claudePathProbe) {
+    if ((Date.now() - _claudePathProbe.at) >= CLAUDEPATH_CACHE_MS) {
+      refreshInBackground('claude', async () => {
+        const generation = _cliProbeGeneration;
+        const value = await detectClaudePathUncachedAsync();
+        if (generation === _cliProbeGeneration) _claudePathProbe = { at: Date.now(), value };
+      });
+    }
+    return _claudePathProbe.value;
+  }
   const value = detectClaudePathUncached();
-  _claudePathProbe = { at: now, value };
+  _claudePathProbe = { at: Date.now(), value };
   return value;
 }
 // v1.0-S7: let a settings save / explicit "re-detect CLI" action force a fresh probe (e.g. the user just
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
-function invalidateClaudePathCache() { _claudePathProbe = null; }
+function invalidateClaudePathCache() { _claudePathProbe = null; _cliProbeGeneration += 1; }
 
 // v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
 // session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
@@ -3200,15 +3277,26 @@ const AGENT_CLI_TYPES = Object.freeze({
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
+function agentCliProbeSpawn(command) {
+  const isScript = /\.cjs$/i.test(command);
+  const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
+  const nodeExe = kimiEntry ? bundledNodeExe() : '';
+  return isScript ? { command: process.execPath, args: [command, '--version'], opts: {} }
+    : (kimiEntry && nodeExe ? { command: nodeExe, args: [kimiEntry, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']));
+}
 function probeAgentCliLauncher(command) {
   if (!command) return false;
   try {
-    const isScript = /\.cjs$/i.test(command);
-    const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
-    const nodeExe = kimiEntry ? bundledNodeExe() : '';
-    const s = isScript ? { command: process.execPath, args: [command, '--version'], opts: {} }
-      : (kimiEntry && nodeExe ? { command: nodeExe, args: [kimiEntry, '--version'], opts: {} } : batchSafeSpawn(command, ['--version']));
+    const s = agentCliProbeSpawn(command);
     const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+    return !ok.error && ok.status === 0;
+  } catch { return false; }
+}
+async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面逐字相同
+  if (!command) return false;
+  try {
+    const s = agentCliProbeSpawn(command);
+    const ok = await spawnProbeAsync(s.command, s.args, s.opts);
     return !ok.error && ok.status === 0;
   } catch { return false; }
 }
@@ -3224,17 +3312,33 @@ function agentCliInstallCandidates(type) {
   ].filter(Boolean);
   return [];
 }
+function agentCliProbeable(candidate) {
+  // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
+  return !((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate));
+}
 function detectAgentCliPath(type) {
-  const now = Date.now();
   const cached = _agentCliPathProbe.get(type);
-  if (cached && now - cached.at < CLAUDEPATH_CACHE_MS) return cached.value;
+  if (cached) {
+    // 128f-⑬:过期先答旧值、后台重探(同 detectClaudePath 头注)。
+    if (Date.now() - cached.at >= CLAUDEPATH_CACHE_MS) {
+      refreshInBackground('agent:' + type, async () => {
+        const generation = _cliProbeGeneration;
+        let fresh = '';
+        for (const candidate of agentCliInstallCandidates(type)) {
+          if (!agentCliProbeable(candidate)) continue;
+          if (await probeAgentCliLauncherAsync(candidate)) { fresh = candidate; break; }
+        }
+        if (generation === _cliProbeGeneration) _agentCliPathProbe.set(type, { at: Date.now(), value: fresh });
+      });
+    }
+    return cached.value;
+  }
   let value = '';
   for (const candidate of agentCliInstallCandidates(type)) {
-    // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
-    if ((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate)) continue;
+    if (!agentCliProbeable(candidate)) continue;
     if (probeAgentCliLauncher(candidate)) { value = candidate; break; }
   }
-  _agentCliPathProbe.set(type, { at: now, value });
+  _agentCliPathProbe.set(type, { at: Date.now(), value });
   return value;
 }
 function detectKimiPath() { return detectAgentCliPath('kimi'); }
@@ -3280,7 +3384,30 @@ function prepareAgentCliSpawn(type, command, args) {
   }
   return batchSafeSpawn(command, argv);
 }
-function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); }
+// 128f-⑬:健康检查那一项「选中的 CLI 起不起得来」。修前 computeHealth 每一次都【同步】跑一遍「<cli> --version」、不记忆 ——
+// 而 /api/status 每换一次线程就调一次(session-experience openSession),于是换线程这个动作每次都把整个服务钉住一次
+// CLI 冷启动。改成异步、按启动器记 60 s(与路径探测同一个记忆期、同一个作废口)。
+const _agentCliLauncherOk = new Map();   // command -> { at, value }
+async function probeAgentCliLauncherRemembered(command) {
+  const generation = _cliProbeGeneration;
+  const value = await probeAgentCliLauncherAsync(command);
+  if (generation === _cliProbeGeneration) {
+    if (_agentCliLauncherOk.size > 32) _agentCliLauncherOk.clear();
+    _agentCliLauncherOk.set(command, { at: Date.now(), value });
+  }
+  return value;
+}
+async function agentCliLauncherOk(command) {
+  if (!command) return false;
+  const hit = _agentCliLauncherOk.get(command);
+  if (hit) {
+    // 过期同样先答上一次的结果、后台重探(与路径探测同一条纪律):/api/status 自己也不该每分钟慢一次 CLI 冷启动。
+    if (Date.now() - hit.at >= CLAUDEPATH_CACHE_MS) refreshInBackground('launcher-ok:' + command, () => probeAgentCliLauncherRemembered(command));
+    return hit.value;
+  }
+  return probeAgentCliLauncherRemembered(command);
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
@@ -4876,6 +5003,11 @@ function appendIntervention(sessionId, record) {
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
   next.then(() => {
+    // 128f-⑫:待决的每一次结算(允许/拒绝/回答/批准/驳回/超时/回合收尾取消)都从 appendIntervention 过。修前只有
+    // 「产生」那一刻有推送(registerIntervention 的 thread.needs_you),结算那一刻没有 —— 用户在中栏点了「允许」,
+    // 左栏那枚「等你」要等回合收尾才消失。写链落定之后派,订阅者现算的待决计数才是结算之后的。放在写入块【外面】:
+    // 那一块被 readfiletail-torntail (c2) 原样抠出来单独执行,块里只许有它传进去的那几样。
+    if (record && record.status !== 'pending') RUYI_EVENTS.emit('thread.state', { sessionId: sid });
     if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid);
     const count = (interventionAppendCounts.get(sid) || 0) + 1;
     interventionAppendCounts.set(sid, count);
@@ -5882,6 +6014,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   }
   scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
   markPretenderIndexDirty(id, 'source'); // 75c: remove from disposable Mission/Intervention projection index
+  // 128f-⑫(用户 2026-09-19「删除线程没有及时的界面反馈」):删完告诉所有在看的人「这一条没了」。
+  // 修前一帧都不派,管家视角的左栏要等 15 s 那一拍轮询或用户点别处(13r 的 thread.removed 头注)。
+  RUYI_EVENTS.emit('thread.removed', { sessionId: id });
   return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
 }
 
@@ -7659,6 +7794,9 @@ async function saveSession(session, opts) {
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(id, metaSnapshot);
   markPretenderIndexDirty(id, 'source'); // 75c: session head/body facts changed; rebuild this Mission slice lazily
+  // 128f-⑫:会话头每落一次盘就「碰」一下推送层;那边只在这一行看得见的东西变了才真推(13r thread.touched 头注)。
+  // 停自动推进、回退、管家接手、预算熔断……这些写口不必各自再记得派一发。
+  RUYI_EVENTS.emit('thread.touched', { sessionId: id });
   // v1.9 P-B: 引擎转录白名单账本(仅记录本工作台 spawn 过的 claudeSessionId;GC 只清「账本内 + 无活会话
   // 引用 + 超保留期」三者同时成立的转录,绝不碰用户自己 Claude Code 的转录)。fire-and-forget,账本写失败
   // 不影响会话保存(大不了 GC 永远不碰这条转录 —— 保守方向)。
@@ -8517,6 +8655,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
       turnsWithoutCheckpoint: turnsWithoutCheckpoint.length,   // 116-3 P1-4
     },
   });
+  // 128f-⑫:回退改的是对话本身(「它刚说」换成更早那一句),五态与等你数往往不变,13r 的「只在看得见的变了才推」
+  // 那一路判不出来 —— 这里显式派一发,焦点栏与中栏据此重读。
+  RUYI_EVENTS.emit('thread.state', { sessionId });
   return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed, turnsWithoutCheckpoint };
 }
 
@@ -10001,12 +10142,28 @@ function existsExecutable(command) {
   const result = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 6000, ...s.opts });
   return !result.error;
 }
+// 128f-⑬:同一个判据的异步版。服务在跑的时候(请求路径、回合入口、能力矩阵刷新)一律用它 —— 同步那一发会把整个
+// 服务钉住一次 CLI 冷启动(node 起一个进程,几百毫秒到秒级),期间所有请求与推送一起等。同步版只留给启动期与 CLI 子命令。
+async function existsExecutableAsync(command) {
+  if (!command) return false;
+  const s = batchSafeSpawn(command, ['--version']);
+  const result = await spawnProbeAsync(s.command, s.args, s.opts, 6000);
+  return !result.error;
+}
 
 // v1.0-S4: `gitCli` capability — is `git` installed & runnable? Probes `git --version` (execFile, 3s), result
 // cached ~60s (its own cache, so getCapabilities' 60s matrix cache and this stay in step without coupling).
 // Feeds the capability matrix's `gitCli` boolean → TOOL_REQUIRES filters the four git tools when git is absent.
 let _gitCliProbe = null; // { at, value }
 const GITCLI_CACHE_MS = 60000;
+async function probeGitCliAsync() {   // 128f-⑬:能力矩阵过期重算时用(同一张 60 s 记忆表,判据逐字相同)
+  const now = Date.now();
+  if (_gitCliProbe && (now - _gitCliProbe.at) < GITCLI_CACHE_MS) return _gitCliProbe.value;
+  const result = await spawnProbeAsync('git', ['--version'], {}, 3000);
+  const value = !result.error && result.status === 0;
+  _gitCliProbe = { at: Date.now(), value };
+  return value;
+}
 function probeGitCli() {
   const now = Date.now();
   if (_gitCliProbe && (now - _gitCliProbe.at) < GITCLI_CACHE_MS) return _gitCliProbe.value;
@@ -18674,10 +18831,11 @@ async function getCapabilities(config, force) {
   const value = {
     network: { online, checkedAt: nowIso() },
     provider: provider ? { id: provider.id, vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
-    binaries: { git: existsExecutable('git'), rg: hasRg() },
+    // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
+    binaries: { git: await existsExecutableAsync('git'), rg: hasRg() },
     // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
     // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
-    gitCli: probeGitCli(),
+    gitCli: await probeGitCliAsync(),
     desktopMcp: desktop,
     engine,
   };
@@ -18930,7 +19088,10 @@ function collectChildProcessInfo() {
 async function sampleProcessRss(pids) {
   if (process.platform !== 'win32' || !pids.length) return {};
   try {
-    const out = cp.execFileSync('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+    // 128f-⑬:execFileSync → 异步 execFile(tasklist 本机数百毫秒;同步那一发期间整个服务不答话)。
+    const out = await new Promise((resolve, reject) => {
+      cp.execFile('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8', timeout: 5000, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+    });
     const want = new Set(pids.map(String));
     const rss = {};
     for (const line of String(out).split('\n')) {
@@ -27542,7 +27703,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
-  if (!fakeClaude && (!claude || !existsExecutable(claude))) {
+  if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
     return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
@@ -28028,6 +28189,7 @@ const AGENT_RUN_PERSIST_DEGRADED_AFTER = 3;
 const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
+const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
   // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
   // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
@@ -28048,6 +28210,15 @@ async function saveAgentRun(run) {
     try {
       await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
+      // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
+      // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
+      // 那些不换状态的存一帧都不派。暂停是「先回 pausing、跑循环下一拍才真停」,所以派在这里而不是控制路由上。
+      const savedStatus = String(run.status || '');
+      if (agentRunLastSavedStatus.get(run.id) !== savedStatus) {
+        if (agentRunLastSavedStatus.size >= 1024 && !agentRunLastSavedStatus.has(run.id)) agentRunLastSavedStatus.clear();
+        agentRunLastSavedStatus.set(run.id, savedStatus);
+        RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId });
+      }
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
     } catch (e) {
@@ -39979,7 +40150,8 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
   const selectedCli = selectedAgentCli(config);
-  const selectedCliOk = Boolean(selectedCli.path && probeAgentCliLauncher(selectedCli.path));
+  // 128f-⑬:修前每一次 /api/status 都同步探一遍选中的 CLI(不记忆),换线程就钉一次事件循环;见 01 agentCliLauncherOk。
+  const selectedCliOk = Boolean(selectedCli.path && await agentCliLauncherOk(selectedCli.path));
   const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || '(not found — open Settings)'}`;
   push('agent-cli', selectedCliOk, selectedCliDetail);
   // Backward-compatible health id consumed by older overlays/diagnostics.
@@ -42568,7 +42740,7 @@ async function handleApi(req, res, pathname) {
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
     const claudeCli = config.claudePath || detectClaudePath();
-    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && existsExecutable(claudeCli)); // test seam, see runClaudeTurn
+    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && await existsExecutableAsync(claudeCli)); // test seam, see runClaudeTurn; 128f-⑬ 异步
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
@@ -44433,7 +44605,11 @@ async function extractOverlayZip(zipPath, destDir) {
     // 单引号转义(PS 单引号字符串内 '' 表示一个 ');-Force 覆盖。
     const qs = s => String(s).replace(/'/g, "''");
     const ps = "try { Expand-Archive -LiteralPath '" + qs(zipPath) + "' -DestinationPath '" + qs(destDir) + "' -Force -ErrorAction Stop; 'OK' } catch { 'ERR:' + $_.Exception.Message }";
-    const out = cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
+    // 128f-⑬:execFileSync → 异步 execFile。修前解压一个覆盖包(最长 120 s)期间整个服务不答话 —— 更新中心自己的进度、
+    // 其它面的请求与推送全部排队(同文件下方 runOverlayPs1 早就因为同一个理由改成了异步,见对抗审查 F4)。
+    const out = await new Promise((resolve, reject) => {
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+    });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
     return { ok: true };
@@ -46709,6 +46885,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });
+    RUYI_EVENTS.emit('thread.state', { sessionId });   // 128f-⑫:行上的「最后一次班组」换了一条(或没了)
     return send(res, json({ ok: true }));
   }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {
@@ -54858,14 +55035,30 @@ function stewardPresenceSnapshot() {
 // ────────────────────────────────────────────────────────────────────────────
 // thread.state:会话头变过 / 回合起跑 / 回合收尾之后现算一次五态。
 // 每会话串行 + 合并:同一条线程在一次派生还没跑完时又变了,只补跑一次(不排队 N 次)。
+//
+// 128f-⑫(用户 2026-09-19「删除线程等操作没有及时的界面反馈,要点别处才刷新」):两种来路。
+//   · 显式那一路(RUYI_EVENTS 'thread.state':回合起跑/收尾、改名/置顶、待决结算、班组控制)照旧【每次都发】;
+//   · 隐式那一路(RUYI_EVENTS 'thread.touched':02 saveSession 每次落会话头都派一发)只在【这一行看得见的
+//     那几样】变了才发 —— 回合里 saveSession 一轮好几次,每次都推的话每个客户端每次都要重拉一遍行,正是
+//     K2b 明确拒绝的那件事(见 thread.live 的节流头注)。「看得见的那几样」= 推送载荷里除 updatedAt 之外的
+//     全部 ＋ 显示名 ＋ 自动推进／结论／验收 a/b。【不含】turnSeq:回合起跑之后它才加一,放进来就是在跑那一段
+//     平白多推一帧(event-stream.e2e H3 第一轮实测);回退改 turnSeq 的那一处(02 rewindSession)自己显式派。
+//   为什么要有隐式那一路:行的来源有几十个写口(停自动推进、回退、管家接手、预算熔断……),逐个补
+//   RUYI_EVENTS.emit 就是又一张手攒的名单;会话头是它们全都要经过的那一处(02 saveSession)。
 // ────────────────────────────────────────────────────────────────────────────
 const eventStreamStateBusy = new Set();
-const eventStreamStateAgain = new Set();
-async function eventStreamEmitThreadState(sessionId) {
+const eventStreamStateAgain = new Map();        // sessionId -> 补跑那一趟是不是显式的(显式 OR 隐式 = 显式)
+const eventStreamLastRowSig = new Map();        // sessionId -> 上一次发出去的那一行签名(隐式那一路据此去重)
+const EVENT_STREAM_ROW_SIG_MAX = 2048;          // 签名表容量上限(长跑进程里只增不减的防线;满了整表清空,代价是多推一次)
+async function eventStreamEmitThreadState(sessionId, opts = {}) {
   const sid = safeSessionId(sessionId);
   if (!sid) return;
   if (eventStreamIsStewardSession(sid)) return;
-  if (eventStreamStateBusy.has(sid)) { eventStreamStateAgain.add(sid); return; }
+  const onlyIfChanged = Boolean(opts && opts.onlyIfChanged);
+  if (eventStreamStateBusy.has(sid)) {
+    eventStreamStateAgain.set(sid, (eventStreamStateAgain.get(sid) === false ? false : true) && onlyIfChanged);
+    return;
+  }
   eventStreamStateBusy.add(sid);
   try {
     const head = await readMissionSessionHead(sid).catch(() => null);
@@ -54891,7 +55084,7 @@ async function eventStreamEmitThreadState(sessionId) {
     // 用的是 06i 同一对函数(threadOriginOf / stewardWatchedThread),同一个会话头喂进去,
     // 推送与索引不可能各说各话。missionId 与 watched 判据吃的是同一个值(下面这行现算的那个)。
     const missionId = String(sessionMissionId(head) || sid);
-    eventStreamPublish('thread.state', {
+    const frame = {
       sessionId: sid,
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
@@ -54899,10 +55092,28 @@ async function eventStreamEmitThreadState(sessionId) {
       wait,
       origin: threadOriginOf(head),
       watched: stewardWatchedThread(head, sid, missionId),
+    };
+    const { updatedAt: _ignored, ...visible } = frame;
+    const mission = head.mission && typeof head.mission === 'object' ? head.mission : null;
+    const milestones = mission && Array.isArray(mission.milestones) ? mission.milestones : [];
+    const sig = JSON.stringify({
+      ...visible,
+      title: sessionDisplayTitle(head),
+      autoMode: mission ? String(mission.autoMode || '') : '',
+      result: mission && mission.result ? String(mission.result.status || '') : '',
+      acceptance: [milestones.filter(m => m && m.status === 'done').length, milestones.length],   // 行尾「验收 a/b」
     });
+    if (onlyIfChanged && eventStreamLastRowSig.get(sid) === sig) return;
+    if (eventStreamLastRowSig.size >= EVENT_STREAM_ROW_SIG_MAX && !eventStreamLastRowSig.has(sid)) eventStreamLastRowSig.clear();
+    eventStreamLastRowSig.set(sid, sig);
+    eventStreamPublish('thread.state', frame);
   } finally {
     eventStreamStateBusy.delete(sid);
-    if (eventStreamStateAgain.delete(sid)) void eventStreamEmitThreadState(sid);
+    if (eventStreamStateAgain.has(sid)) {
+      const again = eventStreamStateAgain.get(sid);
+      eventStreamStateAgain.delete(sid);
+      void eventStreamEmitThreadState(sid, { onlyIfChanged: again });
+    }
   }
 }
 
@@ -54947,7 +55158,24 @@ function eventStreamOnActiveChildEvent(reg, evt) {
 // ────────────────────────────────────────────────────────────────────────────
 RUYI_EVENTS.subscribe((name, payload) => {
   const data = (payload && typeof payload === 'object') ? payload : {};
-  if (name === 'thread.state') { void eventStreamEmitThreadState(data.sessionId); return; }
+  // 128f-⑫:现算那一趟挪到【发事件的那一串同步代码跑完之后】(setImmediate)。修前是当场开读会话头 —— 发事件的人
+  // 紧接着若把事件循环占住(同步起子进程之类),那一发读只走完「打开文件」,读与关要等循环回来,句柄就一直开着;
+  // Windows 上这期间别的进程把新头 rename 过来会一直 EPERM(session-rewind-gen E 第一轮实测:父进程撤回之后
+  // spawnSync 子进程,子进程存盘 8 次重试全撞上)。推迟一拍的代价是这一帧晚一个 tick。
+  if (name === 'thread.state') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid); }); return; }
+  // 128f-⑫:会话头落盘(02 saveSession)—— 只在这一行看得见的东西变了才推(见 eventStreamEmitThreadState 头注)。
+  if (name === 'thread.touched') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid, { onlyIfChanged: true }); }); return; }
+  // 128f-⑫:线程删掉了。修前删除一帧都不派(02 deleteSession),而且就算派了 thread.state,这边读不出会话头也会
+  // 丢掉它(上面「会话已删/读不出来」那一支)—— 于是左栏那一行要等下一拍轮询(管家视角 15 s)或用户点别处才消失。
+  // 这一帧只带 id:「哪一条没了」就是它的全部事实。
+  if (name === 'thread.removed') {
+    if (eventStreamIsStewardSession(data.sessionId)) return;
+    const sid = safeSessionId(data.sessionId);
+    if (!sid) return;
+    eventStreamLastRowSig.delete(sid);
+    eventStreamPublish('thread.removed', { sessionId: sid });
+    return;
+  }
   if (name === 'thread.done') {
     if (eventStreamIsStewardSession(data.sessionId)) return;
     eventStreamPublish('thread.done', {

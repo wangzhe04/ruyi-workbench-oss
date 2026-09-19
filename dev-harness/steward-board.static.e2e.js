@@ -726,9 +726,13 @@ ok(!/async function syncNow/.test(boardCode)
 // 门开得很窄，三条【同时】成立才补：① 从无到有那一次（!row.liveTail）；② 这条线程正是焦点；
 // ③ 抽屉真导出 refreshOnce。所以仍然不是「每条 live 跟一发请求」（那正是 K2b 拒绝的形状）：
 // 一个回合最多补一发。反向验证：把 firstTick 去掉（每条 live 都补）→ 本条立刻真红。
+// 128f-⑫ 重钉（2 → 3 处 drawer.refreshOnce()）：第三条路是 refreshDrawerIfFocused —— 左栏行上的动作（暂停／继续／停止／
+// 优先／停掉占用者／全部暂停）动的【正是焦点那一条】时补一发（审计 B：修前焦点栏还拿着动作之前的切片）。门同样窄：
+// 只在用户按下这几枚按钮之后、且焦点就是被动的那一条时；refreshBoard 的每一拍、closeNow、leaveSteward 仍然不强刷。
 ok(count(boardCode, /syncNow\(\{ focusRequest: true \}\)/g) === 1
   && /if \(!syncNow\(\{ focusRequest: true \}\) &&/.test(boardCode)
-  && count(boardCode, /drawer\.refreshOnce\(\)/g) === 2
+  && count(boardCode, /drawer\.refreshOnce\(\)/g) === 3
+  && /function refreshDrawerIfFocused\(\.\.\.sessionIds\)/.test(boardCode)
   && /const firstTick = !row\.liveTail;/.test(boardCode)
   && /if \(firstTick && drawer && typeof drawer\.refreshOnce === 'function' && currentFocusId\(\) === sid\)/.test(boardCode),
   'L3 强刷只有两条路：【焦点请求】（focusThread 那一处 focusRequest:true）与【这一回合的第一个字】（applyLivePush 里 firstTick ＋ 焦点相符那一次）—— refreshBoard 的每一拍、closeNow、leaveSteward、断点变化那几处 syncNow() 不强刷，thread.live 也不是每条都补');

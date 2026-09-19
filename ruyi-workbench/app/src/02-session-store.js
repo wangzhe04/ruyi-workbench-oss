@@ -408,6 +408,11 @@ function appendIntervention(sessionId, record) {
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
   next.then(() => {
+    // 128f-⑫:待决的每一次结算(允许/拒绝/回答/批准/驳回/超时/回合收尾取消)都从 appendIntervention 过。修前只有
+    // 「产生」那一刻有推送(registerIntervention 的 thread.needs_you),结算那一刻没有 —— 用户在中栏点了「允许」,
+    // 左栏那枚「等你」要等回合收尾才消失。写链落定之后派,订阅者现算的待决计数才是结算之后的。放在写入块【外面】:
+    // 那一块被 readfiletail-torntail (c2) 原样抠出来单独执行,块里只许有它传进去的那几样。
+    if (record && record.status !== 'pending') RUYI_EVENTS.emit('thread.state', { sessionId: sid });
     if (interventionWriteChains.get(sid) === next) interventionWriteChains.delete(sid);
     const count = (interventionAppendCounts.get(sid) || 0) + 1;
     interventionAppendCounts.set(sid, count);
@@ -1414,6 +1419,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   }
   scheduleSessionIndexUpdate(id, SESSION_TOMBSTONE); // PF2: queue removal from the metadata index (debounced; see saveSession)
   markPretenderIndexDirty(id, 'source'); // 75c: remove from disposable Mission/Intervention projection index
+  // 128f-⑫(用户 2026-09-19「删除线程没有及时的界面反馈」):删完告诉所有在看的人「这一条没了」。
+  // 修前一帧都不派,管家视角的左栏要等 15 s 那一拍轮询或用户点别处(13r 的 thread.removed 头注)。
+  RUYI_EVENTS.emit('thread.removed', { sessionId: id });
   return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
 }
 
@@ -3191,6 +3199,9 @@ async function saveSession(session, opts) {
   // index is only a cache and listSessions falls back to a full file scan whenever its id-set drifts from disk.
   scheduleSessionIndexUpdate(id, metaSnapshot);
   markPretenderIndexDirty(id, 'source'); // 75c: session head/body facts changed; rebuild this Mission slice lazily
+  // 128f-⑫:会话头每落一次盘就「碰」一下推送层;那边只在这一行看得见的东西变了才真推(13r thread.touched 头注)。
+  // 停自动推进、回退、管家接手、预算熔断……这些写口不必各自再记得派一发。
+  RUYI_EVENTS.emit('thread.touched', { sessionId: id });
   // v1.9 P-B: 引擎转录白名单账本(仅记录本工作台 spawn 过的 claudeSessionId;GC 只清「账本内 + 无活会话
   // 引用 + 超保留期」三者同时成立的转录,绝不碰用户自己 Claude Code 的转录)。fire-and-forget,账本写失败
   // 不影响会话保存(大不了 GC 永远不碰这条转录 —— 保守方向)。
@@ -4049,6 +4060,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
       turnsWithoutCheckpoint: turnsWithoutCheckpoint.length,   // 116-3 P1-4
     },
   });
+  // 128f-⑫:回退改的是对话本身(「它刚说」换成更早那一句),五态与等你数往往不变,13r 的「只在看得见的变了才推」
+  // 那一路判不出来 —— 这里显式派一发,焦点栏与中栏据此重读。
+  RUYI_EVENTS.emit('thread.state', { sessionId });
   return { ok: true, removedTurns, lastUserText, filesReverted, filesFailed, turnsWithoutCheckpoint };
 }
 

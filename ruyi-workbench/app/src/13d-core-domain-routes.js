@@ -2112,6 +2112,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });
+    RUYI_EVENTS.emit('thread.state', { sessionId });   // 128f-⑫:行上的「最后一次班组」换了一条(或没了)
     return send(res, json({ ok: true }));
   }
   if (req.method === 'GET' && pathname.startsWith('/api/agent-runs/')) {

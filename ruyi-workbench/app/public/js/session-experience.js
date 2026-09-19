@@ -72,6 +72,8 @@ export function createSessionExperienceDomain({
   // 121-K7（§8.4）：向导完成页要落在管家视角。组合根注入 js/shell-mode.js 那一个 applyShellMode
   // （唯一写者不变，本域只转手）；缺席时回落成「不切」，向导照常走完。
   applyShellMode = () => 'classic',
+  // 128f-⑫（审计 D／E）：右栏打开着的页签（变更、文件、审计…）重读一遍。组合根注入 navigation-controls 那一份。
+  refreshToolPane = () => {},
 } = {}) {
 // 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
 // 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
@@ -223,6 +225,7 @@ async function openSession(id, opts = {}) {
   const prevId = state.currentSession?.id;
   const switchedSession = prevId !== id;
   state.currentSession = res.session;
+  currentChangedWhileAway = false;   // 128f-⑫：刚整份读过，「离开期间动过」那一笔作废
   state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
   captureLiveTurn(id, res); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
   state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
@@ -650,6 +653,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
       return;
     }
     if (btn) { btn.textContent = t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
+    try { refreshToolPane(); } catch { /* 128f-⑫：右栏「变更」页签开着的话，刚撤掉的那几处要当场消失 */ }
     const n = (r.reverted || []).length;
     toast(t('changes.reverted', { label: `${label}${n ? ` (${t('changes.fileCount', { count: n })})` : ''}` }), 'ok');
   } catch (e) {
@@ -736,11 +740,34 @@ async function patchSession(id, patch) {
   await refreshSessions();
   renderCurrentSession();
 }
+// 128f-⑫（用户 2026-09-19「删除线程没有及时的界面反馈，要点别处才刷新消失」）：删除要有三拍反馈 ——
+// 点下去这一行立刻变灰（请求在飞）；服务端删完立刻不画（不等 /api/missions）；删不掉就恢复原样并说清原因。
+// 修前三拍都没有：请求在飞时行一动不动；删完左栏按旧行重画（管家视角还不补拉）；失败是一个没人接的 rejection。
+// 状态记在 state.sessionRemoval（左栏那一份渲染 steward-board.js 读它，见 removalOf 头注）。
+function sessionRemoval() {
+  if (!state.sessionRemoval || !(state.sessionRemoval.pending instanceof Set) || !(state.sessionRemoval.done instanceof Set)) {
+    state.sessionRemoval = { pending: new Set(), done: new Set() };
+  }
+  return state.sessionRemoval;
+}
 async function removeSession(id) {
-  await api(`/api/sessions/${encodeURIComponent(id)}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'DELETE' } });
+  const removal = sessionRemoval();
+  removal.pending.add(id);
+  renderSessions();
+  try {
+    await api(`/api/sessions/${encodeURIComponent(id)}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'DELETE' } });
+  } catch (e) {
+    removal.pending.delete(id);
+    renderSessions();
+    toast(t('session.delete.failed', { reason: apiErrText(e) }), 'err');
+    return false;
+  }
+  removal.pending.delete(id);
+  removal.done.add(id);
   if (state.currentSession?.id === id) state.currentSession = null;
   await refreshSessions();
   renderCurrentSession();
+  return true;
 }
 
 function openBulkCleanupModal() {
@@ -777,6 +804,8 @@ function openBulkCleanupModal() {
       });
       if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
       modal.close();
+      const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
+      for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
       await refreshSessions();
       toast(t('session.bulkCleanup.success', { count: r.deletedCount || 0 }), 'ok');
     } catch (e) {
@@ -881,13 +910,17 @@ function syncLivePolling() {
 //   · 只在工作台视角里拉（管家视角这张卡根本不在屏幕上，与 liveTurnPollable 第三条同源）。
 // 合并用「在飞 + 还要再来一趟」两个位，不加计时器（live-full-text.static C1/C2 钉着本模块
 // 恰好一处 setInterval／clearInterval，而那一对是 syncLivePolling 的）。
+// 128f-⑫（审计 E）：管家视角里动了当前这条线程（整单回退、撤回、行动流水「撤销」、递话之后它跑完……），推送来了，
+// 可中栏那条对话与右栏页签在管家视角下不在屏上，本函数照旧不拉（见上面第二条）。修前切回工作台，看到的仍是切走之前
+// 那一份，要换一次会话才重读。现在记一笔「离开期间它动过」，切回工作台那一刻重读一次（reloadCurrentSessionAfterAway）。
+let currentChangedWhileAway = false;
 async function pushLiveTurn(sessionId) {
   const id = String(state.currentSession?.id || '');
   if (!id || String(sessionId || '') !== id) return false;
-  if (activeTurns.has(id) || state.streaming) return false;
   const doc = globalThis.document || null;
   const mode = (doc && doc.documentElement && doc.documentElement.getAttribute('data-shell-mode')) || 'classic';
-  if (mode !== 'classic') return false;
+  if (mode !== 'classic') { currentChangedWhileAway = true; return false; }
+  if (activeTurns.has(id) || state.streaming) return false;
   if (liveTurnPushBusy) { liveTurnPushAgain = true; return false; }
   liveTurnPushBusy = true;
   try { await refreshLiveTurn(); } finally { liveTurnPushBusy = false; }
@@ -904,6 +937,31 @@ function bindLiveEventStream() {
   for (const name of [EVENT_STREAM_LIVE_EVENT, ...EVENT_STREAM_ROW_EVENTS]) {
     eventStream.on(name, data => { void pushLiveTurn(data && data.sessionId); });
   }
+  const docEl = globalThis.document && globalThis.document.documentElement;
+  if (docEl && typeof globalThis.MutationObserver === 'function') {
+    new globalThis.MutationObserver(() => {
+      if (docEl.getAttribute('data-shell-mode') !== 'classic' || !currentChangedWhileAway) return;
+      currentChangedWhileAway = false;
+      void reloadCurrentSessionAfterAway();
+    }).observe(docEl, { attributes: true, attributeFilter: ['data-shell-mode'] });
+  }
+  return true;
+}
+// 切回工作台时重读当前会话（只在离开期间真的来过它的推送时才走到这里）。自己的流在跑就不动：那一张正在实时画。
+async function reloadCurrentSessionAfterAway() {
+  const id = String(state.currentSession?.id || '');
+  if (!id || activeTurns.has(id) || state.streaming) return false;
+  let res = null;
+  try { res = await api(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
+  if (!res || !res.ok || state.currentSession?.id !== id || activeTurns.has(id) || state.streaming) return false;
+  state.currentSession = res.session;
+  state.resumable = res.resumable || null;
+  captureLiveTurn(id, res);
+  liveTurnCardEls = null;
+  renderCurrentSession();
+  renderResumeBanner();
+  syncLivePolling();
+  try { refreshToolPane(); } catch { /* 页签重读失败不该把中栏打回去 */ }
   return true;
 }
 bindLiveEventStream();

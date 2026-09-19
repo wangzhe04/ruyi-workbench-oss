@@ -339,6 +339,7 @@ try {
   ok(Boolean(inbox && inbox.data && inbox.data.kind), `B-g1 inbox.appended(kind=${inbox && inbox.data && inbox.data.kind})`);
 
   /* ═════════ b 收工 -> thread.done(连接【不断】,延迟才测得准)═════════ */
+  const framesBeforeAnswer = stream.frames.length;   // 128f-⑫ H1 用:答完之后、收工之前那一段
   const answered = await request(appPort, 'POST', '/api/chat/answer', {
     sessionId, questionId: needs.data.interventionId,
     answers: [{ question: '用哪个框架?', answer: ['Vue'] }], content: '用哪个框架?: Vue',
@@ -349,6 +350,11 @@ try {
   ok(Boolean(doneFrame && String(doneFrame.data.summary || '').includes('收工')),
     `B-b2 thread.done 当场带 summary(实得 ${JSON.stringify(doneFrame && doneFrame.data.summary)})`);
   ok(Boolean(doneFrame && latencyMs(doneFrame) <= 1000), `B-b3 thread.done 延迟 ${doneFrame ? latencyMs(doneFrame) : '∞'} ms ≤ 1000`);
+  // 128f-⑫ H1(用户 2026-09-19「操作之后没有及时的界面反馈」):待决一结算就推一帧 thread.state,「等你」当场归零。
+  // 修前结算那一刻一帧都不派 —— 左栏那枚「等你」要等这一回合收工(下面那条 thread.done)才消失。
+  const settleFrame = stream.frames.slice(framesBeforeAnswer).find(f => f.event === 'thread.state' && f.data && f.data.sessionId === sessionId
+    && Number(f.data.wait) === 0 && Number(f.id) < Number(doneFrame && doneFrame.id));
+  ok(Boolean(settleFrame), `H1 答完之后、收工之前就有一帧 thread.state(等你 0;实得 ${JSON.stringify(settleFrame && settleFrame.data)})`);
   const settled = await waitForFrame(stream, f => f.event === 'thread.state' && f.data && f.data.sessionId === sessionId && f.data.state !== 'running' && f.data.state !== 'needs_you', 30000);
   ok(Boolean(settled), `B-b4 收工后五态跟着变(实得 ${settled && settled.data.state})`);
   ok(Boolean(settled && latencyMs(settled) <= 1000), `B-b5 收工后的 thread.state 延迟 ${settled ? latencyMs(settled) : '∞'} ms ≤ 1000`);
@@ -413,6 +419,44 @@ try {
   const iEngine = fanout.indexOf('engineSubscriber(evt)');
   const iTaps = fanout.indexOf('notifyActiveChildTaps(reg, evt)');
   ok(iEngine > 0 && iTaps > iEngine, `G2 04 的扇出里引擎订阅者排在旁路【之前】(engineSubscriber@${iEngine} < taps@${iTaps})`);
+
+  /* ═════════ H3 会话头落盘:看得见的变了才推(128f-⑫)═════════ */
+  // 会话头每落一次盘(02 saveSession)都会「碰」一下推送层,可只有这一行看得见的东西变了才真推 —— 回合里 saveSession
+  // 一轮好几次,每次都推就是每个客户端每次都重拉一遍行。三步都只走 saveSession(没有任何显式派发):
+  //   H3a 正面对照:把一个里程碑标 done(行尾「验收 a/b」变了)→ 推一帧;
+  //   H3b 同样的更新原样再存一次 → 不推;H3c 只改待办(左栏行上看不见)存两次 → 不推。
+  // (第一版 H3 看的是「在跑那一段」,反向实测那一段根本没走到 saveSession,去掉去重照样绿,所以换成这三步。)
+  const plain = await request(appPort, 'POST', '/api/sessions', { title: 'H3 去重', cwd: home }, token);
+  const plainId = plain && plain.json && plain.json.session && plain.json.session.id;
+  const started = await request(appPort, 'POST', '/api/mission', { sessionId: plainId, action: 'start', goal: '去重对照', milestones: [{ id: 'm1', desc: '一' }, { id: 'm2', desc: '二' }] }, token);
+  ok(Boolean(plainId) && Boolean(started && started.status === 200), `H3-0 建出一条带两个里程碑的线程(${started && started.status})`);
+  await sleep(800);
+  const countState = () => reconnected.frames.filter(f => f.event === 'thread.state' && f.data && f.data.sessionId === plainId).length;
+  const base = countState();
+  const done1 = await request(appPort, 'POST', '/api/mission', { sessionId: plainId, action: 'update', patch: { milestones: [{ id: 'm1', status: 'done' }] } }, token);
+  const pushed = await waitForFrame(reconnected, f => f.event === 'thread.state' && f.data && f.data.sessionId === plainId && reconnected.frames.indexOf(f) >= 0 && countState() > base, 5000);
+  ok(Boolean(done1 && done1.status === 200) && Boolean(pushed), `H3a 标一个里程碑 done(验收 0/2 → 1/2)→ 推一帧(之前 ${base} 帧,之后 ${countState()} 帧)`);
+  await sleep(800);
+  const afterA = countState();
+  await request(appPort, 'POST', '/api/mission', { sessionId: plainId, action: 'update', patch: { milestones: [{ id: 'm1', status: 'done' }] } }, token);
+  await sleep(1200);
+  ok(countState() === afterA, `H3b 同样的更新原样再存一次 → 不推(${afterA} → ${countState()} 帧)`);
+  const rtoken = token;
+  await request(appPort, 'POST', '/api/todo', { token: rtoken, sessionId: plainId, items: [{ content: '一', status: 'pending' }] }, token);
+  await request(appPort, 'POST', '/api/todo', { token: rtoken, sessionId: plainId, items: [{ content: '一', status: 'completed' }] }, token);
+  await sleep(1200);
+  ok(countState() === afterA, `H3c 只改待办(左栏行上看不见)存两次 → 不推(${afterA} → ${countState()} 帧)`);
+
+  /* ═════════ H2 删除 -> thread.removed(128f-⑫)═════════ */
+  // 修前删除一帧都不派;就算派 thread.state,13r 读不出会话头也会丢掉 —— 管家视角的左栏要等 15 s 那一拍轮询。
+  const doomed = await request(appPort, 'POST', '/api/sessions', { title: '要删的那条', cwd: home }, token);
+  const doomedId = doomed && doomed.json && doomed.json.session && doomed.json.session.id;
+  const removedPromise = waitForFrame(reconnected, f => f.event === 'thread.removed' && f.data && f.data.sessionId === doomedId, 10000);
+  const deleted = await request(appPort, 'DELETE', '/api/sessions/' + encodeURIComponent(String(doomedId || '')), null, token);
+  const removedFrame = await removedPromise;
+  ok(Boolean(doomedId) && Boolean(deleted && deleted.status === 200) && Boolean(removedFrame),
+    `H2 删掉一条线程 -> thread.removed(实得 ${JSON.stringify(removedFrame && removedFrame.data)})`);
+  ok(Boolean(removedFrame && latencyMs(removedFrame) <= 1000), `H2b thread.removed 延迟 ${removedFrame ? latencyMs(removedFrame) : '∞'} ms ≤ 1000`);
 
   /* ═════════ 心跳存在性(不等 25 s,只钉「连接还活着且没乱写」)═════════ */
   ok(reconnected.comments.every(c => c.text.startsWith(':')), 'F1 心跳行是 SSE 注释形态(`: ping`),不污染事件解析');

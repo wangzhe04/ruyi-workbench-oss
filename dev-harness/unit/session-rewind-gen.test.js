@@ -230,9 +230,19 @@ describe('撤回代数闸(107-F7b)', () => {
     const r = await srv.rewindSession(id, 1, false);
     assert.ok(r && r.ok);
     assert.equal(disk(id).head.rewindGen, 1);
-    const child = cp.spawnSync(process.execPath, [__filename], {
-      encoding: 'utf8', timeout: 60000, windowsHide: true,
-      env: { ...process.env, RUYI_F7B_CHILD: id, RUYI_HOME: root, WIN_CLAUDE_WORKBENCH_HOME: root },
+    // 128f-⑫:子进程用【异步】起、等它退出,不用 spawnSync。本进程里的服务在撤回之后还有后台读(推送层现算那一行
+    // 要读会话头);spawnSync 把事件循环冻住时,那一发读只走完「打开文件」,读与关要等循环回来 —— 句柄就一直开着,
+    // 子进程往同一个会话头 rename 在 Windows 上 8 次重试全是 EPERM(本件第一轮实测)。断言一条没改。
+    const child = await new Promise(resolve => {
+      const proc = cp.spawn(process.execPath, [__filename], {
+        windowsHide: true, timeout: 60000,
+        env: { ...process.env, RUYI_F7B_CHILD: id, RUYI_HOME: root, WIN_CLAUDE_WORKBENCH_HOME: root },
+      });
+      let stdout = '', stderr = '';
+      proc.stdout.on('data', d => { stdout += d; });
+      proc.stderr.on('data', d => { stderr += d; });
+      proc.on('close', status => resolve({ status, stdout, stderr }));
+      proc.on('error', error => resolve({ status: null, stdout, stderr: stderr + String(error && error.message || error) }));
     });
     const line = String(child.stdout || '').split('\n').find(l => l.startsWith('F7B-CHILD '));
     assert.ok(line, `子进程要交回读数(exit=${child.status} stdout=${String(child.stdout || '').slice(-400)} stderr=${String(child.stderr || '').slice(-400)})`);

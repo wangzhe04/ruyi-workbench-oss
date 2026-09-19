@@ -864,6 +864,7 @@
   "session.bulkCleanup.title": "Bulk history cleanup",
   "session.delete": "Delete",
   "session.delete.confirm": "Delete this thread?",
+  "session.delete.failed": "Could not delete the thread: {{reason}}",
   "session.earlier": "Earlier",
   "session.empty": "No threads yet. Select New thread to begin.",
   "session.messageCount.one": "{{count}} message",

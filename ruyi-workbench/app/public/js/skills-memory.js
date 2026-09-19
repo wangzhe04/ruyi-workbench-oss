@@ -1069,6 +1069,7 @@ async function suggestMemoryFromTurn(sessionId, host) {
       if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
       toast(t('memory.proposal.applied'), 'ok');
       removeCard();
+      await refreshMemoryViews();   // 128f-⑫（审计 D）：修前工具箱／记忆弹窗开着的话还是应用之前那一份
     } catch (error) {
       toast(t('memory.proposal.applyFailed', { err: apiErrText(error) }), 'err');
       if (card.isConnected) review.disabled = false;

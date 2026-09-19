@@ -1519,7 +1519,8 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
   const selectedCli = selectedAgentCli(config);
-  const selectedCliOk = Boolean(selectedCli.path && probeAgentCliLauncher(selectedCli.path));
+  // 128f-⑬:修前每一次 /api/status 都同步探一遍选中的 CLI(不记忆),换线程就钉一次事件循环;见 01 agentCliLauncherOk。
+  const selectedCliOk = Boolean(selectedCli.path && await agentCliLauncherOk(selectedCli.path));
   const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || '(not found — open Settings)'}`;
   push('agent-cli', selectedCliOk, selectedCliDetail);
   // Backward-compatible health id consumed by older overlays/diagnostics.

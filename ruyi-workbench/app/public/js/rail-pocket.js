@@ -295,7 +295,8 @@ export function createRailPocket({
     // 计数【零轮询】地跟着变：修前只有「打开时刷一次 ＋ 收件箱有新东西时顺手刷」，而建一条定时
     // 任务既不写收件箱也不改线程状态，那个数要等下一次打开左栏才对得上。**仍然零计时器**。
     if (eventStream && typeof eventStream.on === 'function') {
-      for (const name of ['inbox.appended', 'thread.state', 'schedule.changed']) {
+      // 128f-⑫：第四类 steward.memory.changed 是【页内】广播（设置里清空管家记忆之后，steward-settings 发）。
+      for (const name of ['inbox.appended', 'thread.state', 'schedule.changed', 'steward.memory.changed']) {
         try { eventStream.on(name, () => { void refresh(); }); } catch { /* 推送是旁路 */ }
       }
     }

@@ -1,6 +1,6 @@
 'use strict';
 
-import { createQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute } from './steward-chips.js';
+import { createQuickSwitchChips, rerenderAllQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute } from './steward-chips.js';
 // 色号登记（同一条线程在对话流／左栏／焦点栏／线程头恒是同一个号）与五态判据都问【全仓那一份】要，
 // 本文件一个字都不自己判：hue 在 steward-conversation.js，五态在 steward-drawer.js（33 号文 §4 收的那一处）。
 import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel } from './steward-conversation.js';
@@ -391,6 +391,9 @@ export function createThreadHead({
     // （chip 那一行同款判据，共用 boundChipId 这一个「换没换会话」的事实，不另记第二个游标）。
     renderCommission(session, id !== boundChipId);
     if (id !== boundChipId) { boundChipId = id; chips.setSession(session); }
+    // 128f-⑫（审计 C）：没换会话时修前 chip 一笔都不重画 —— 可 chip 上「跟随全局」那一档显示的是全局默认，设置页存完、
+    // 引导向导存完（组合根 onEngineConfigChanged → 本函数）它就该换字。所有实例一起按当前配置重画（纯文本，零请求）。
+    else rerenderAllQuickSwitchChips();
     return id;
   }
 

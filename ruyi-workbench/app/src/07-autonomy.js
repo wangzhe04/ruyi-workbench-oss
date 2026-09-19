@@ -1809,7 +1809,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
-  if (!fakeClaude && (!claude || !existsExecutable(claude))) {
+  if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
     return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;

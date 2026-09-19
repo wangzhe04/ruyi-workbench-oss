@@ -864,6 +864,7 @@
   "session.bulkCleanup.title": "批量清理历史",
   "session.delete": "删除",
   "session.delete.confirm": "删除该线程？",
+  "session.delete.failed": "删除失败：{{reason}}",
   "session.earlier": "更早",
   "session.empty": "暂无线程，点击“新线程”开始",
   "session.messageCount.one": "{{count}} 条",

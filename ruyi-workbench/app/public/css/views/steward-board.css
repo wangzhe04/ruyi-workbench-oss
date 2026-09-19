@@ -383,6 +383,8 @@
    两视角各问自己的状态（管家＝焦点线程，工作台＝当前会话），判据在 steward-board.js 的
    railSelectedId 一处；本层只上色。 */
 .steward-board-thread.is-sel { background: var(--accent-soft); }
+/* 128f-⑫：删除请求在飞 —— 这一行变灰、不接点击（删完立刻不画；删不掉恢复原样，见 session-experience.js removeSession）。 */
+.steward-board-thread.is-removing { opacity: .45; pointer-events: none; }
 .steward-board-thread-head {
   display: flex;
   /* 117l-B2 ②：390px 下这一行放不开时让它换行 —— 不换的话名字（唯一可收缩的那一项）会被

@@ -459,6 +459,17 @@ const STEWARD_MODEL_ROW_CLASSES = Object.freeze({
   hint: 'steward-chip-option-hint',
 });
 
+// 128f-⑫（用户 2026-09-19「操作之后没有及时的界面反馈」；审计 C 类）：同一条线程的 chip 在屏上可以同时有好几份
+// （线程头、焦点栏、左栏那一行），各自拿着一份会话副本。修前一份改完只有它自己和它的宿主知道，其余几份要等换线程
+// 才重喂 —— 在左栏行上把权限改成「全自动」，线程头还写着原来那一档。写口只有本工厂里那两个（patchSession／
+// setAsNewDefault），所以同步也只在这里做：改成功之后，同一条线程上的其它实例就地换上新会话并通知各自的宿主；
+// 改的是全局默认时，所有实例按新配置重画。登记表只增不减的上界 = 屏上画过 chip 的线程数（左栏每行一份）。
+const LIVE_CHIPS = new Set();
+export function rerenderAllQuickSwitchChips() {
+  for (const peer of LIVE_CHIPS) { try { peer.rerender(); } catch { /* 一份画不出来不该拖住其余 */ } }
+  return LIVE_CHIPS.size;
+}
+
 export function createQuickSwitchChips({
   api = async () => null,
   t = key => key,
@@ -484,6 +495,9 @@ export function createQuickSwitchChips({
   // 121 走查1-⑤：回执写到哪儿由宿主说了算（见下面 note()）。不传就是原来那条路
   // （写 #stewardDrawerNote，管家两处宿主用的就是它）。
   noteSink = null,
+  // 128f-⑫ 续：菜单「不再开着、也不在开的路上」时通知宿主一次 —— 关掉之后（任何关闭路径），或者补读完发现宿主已经换了
+  // 会话、不开了。左栏（steward-board）靠它把「菜单开着时暂缓的那一次重画」补上（见那边 railInteractionLive 头注）。
+  onMenuIdle = () => {},
 } = {}) {
   let sessionId = '';
   let session = null;
@@ -527,6 +541,7 @@ export function createQuickSwitchChips({
       if (owner) owner.button.setAttribute('aria-expanded', 'false');
     }
     if (releaseEscape) { releaseEscape(); releaseEscape = null; }
+    try { onMenuIdle(); } catch { /* 宿主补画失败不该把菜单的收尾打回去 */ }
   }
 
   // 121 走查1-⑤（用户 2026-09-13 走查第 5 条「在线程头切换引擎和模型似乎不直接生效」的一半）：
@@ -557,6 +572,7 @@ export function createQuickSwitchChips({
       render();
       note(t('stewardShell.chips.changed'));
       try { onChanged(session); } catch { /* 宿主刷新失败不该把 chip 打回旧值 */ }
+      for (const other of LIVE_CHIPS) if (other !== peer && other.sessionIdOf() === sessionId) other.adopt(session);
       return session;
     } catch (error) {
       note(t('stewardShell.chips.changeFailed', { error: String((error && error.message) || error) }));
@@ -585,6 +601,7 @@ export function createQuickSwitchChips({
       }
       if (state) state.config = response.config;
       render();
+      rerenderAllQuickSwitchChips();   // 128f-⑫：「跟随全局」的那些实例显示的是全局默认 —— 它刚变了
       note(t('stewardShell.chips.defaultSaved'));
       return response.config;
     } catch (error) {
@@ -908,7 +925,7 @@ export function createQuickSwitchChips({
       const id = sessionId;
       hydrated.add(id);
       const full = await Promise.resolve(hydrate(id)).catch(() => null);
-      if (id !== sessionId) return;                 // 期间宿主换了会话，这一趟作废
+      if (id !== sessionId) { try { onMenuIdle(); } catch { /* 同上 */ } return; }   // 期间宿主换了会话，这一趟作废
       if (full && typeof full === 'object') { session = full; render(); }
     }
     // 32 号文 §4（M1-b）：开合走 js/popover.js 那颗两壳共用的原语。anchor 是那枚 chip（点它一次开、
@@ -1046,6 +1063,20 @@ export function createQuickSwitchChips({
     render();
     return session;
   }
+
+  // 128f-⑫：登记进 LIVE_CHIPS（见模块头那段）。adopt 只收同一条线程的新会话，并像自己改完那样通知宿主。
+  const peer = {
+    sessionIdOf: () => sessionId,
+    adopt: next => {
+      if (!next || String(next.id || '') !== sessionId) return false;
+      session = next;
+      render();
+      try { onChanged(next); } catch { /* 宿主刷新失败不该把 chip 打回旧值 */ }
+      return true;
+    },
+    rerender: () => render(),
+  };
+  LIVE_CHIPS.add(peer);
 
   return Object.freeze({
     mount,

@@ -43,6 +43,8 @@ export function createProviderSettingsDomain({
   // 121-K5：顶栏那枚 #modelChip 退役，这条注入随之改名 —— 要刷的是线程头那一组 chip（会话级），
   // 刷的理由一字未变：全局配置刚变，「跟随全局」的显示值要跟上。
   onEngineConfigChanged = () => {},
+  // 128f-⑫（审计 D）：缺清单弹窗「一键应用」之后「MCP 运维」那张表重读（settings-operations 那一份）。
+  refreshMcpOps = async () => {},
   updateAgentTeamButton = () => {},
   applyTheme = () => {},
   applyUiMode = () => {},
@@ -1313,6 +1315,7 @@ function showMcpTemplateModal(reason, template, folder) {
         toast(t('mcp.apply.done', { id }), 'ok');
         m.close();
         await refreshStatus(); // 重拉 config -> fillSettings 重新渲染集成 / MCP 列表
+        try { await refreshMcpOps(false); } catch { /* 128f-⑫（审计 D）：「MCP 运维」那张表读的是自己那份缓存，不跟 config 走 */ }
       } else {
         // skipped[0].reason 才是「为什么没写进去」的那句(例如「外部 MCP 数量已达上限(10)」);
         // r.error 在这条路径上只是笼统的「没有可导入的条目」,优先级更低。

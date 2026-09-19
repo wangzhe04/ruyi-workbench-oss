@@ -549,6 +549,9 @@ export function createStewardSettingsDomain({
     if (!await call('/api/steward/memory/clear', { method: 'POST', body: JSON.stringify({ confirm: 'clear' }) })) return null;
     toggleClearConfirm(false);
     note(t('settings.steward.memory.clearDone'));
+    // 128f-⑫（审计 D）：口袋只在点开、收件箱来新东西、线程换状态、定时任务变动时刷 —— 清空记忆这四样都不是，
+    // 角标就一直挂着旧数。页内广播一帧（不经服务端），口袋订了它。
+    if (settingsEventStream && typeof settingsEventStream.publishLocal === 'function') settingsEventStream.publishLocal('steward.memory.changed', {});
     return loadMemory();
   }
 
@@ -612,6 +615,8 @@ export function createStewardSettingsDomain({
     if (!response) return null;
     // 回退没成真就不说「已撤销」（§8.1 原则 2 诚实优先）。
     note(response.ok === true ? t('settings.steward.decisions.undone') : t('settings.steward.decisions.undoFailed'), response.ok === true ? '' : 'err');
+    // 128f-⑫（审计 D）：修前表不重读 —— 那一行仍挂着「撤销」、仍是撤销之前的样子，要关了设置再打开才对。
+    if (response.ok === true) await loadDecisions();
     return response;
   }
 
@@ -785,6 +790,7 @@ export function createStewardSettingsDomain({
     unknown: 'scheduler.outcome.unknown',
   });
   let scheduleLoaded = false;
+  let settingsEventStream = null;   // 128f-⑫：setEventStream 记下来，清空记忆之后页内广播用
   let scheduleRows = [];        // 最近一次读到的【全量】任务行
   let scheduleOpenRuns = '';    // 当前展开的是哪一条（同时只展开一条，省一发请求也省一屏噪音）
   let openThreadHandler = null; // 迟绑定：点 sessionId 在【如意内】打开那条线程（不给路径）
@@ -1181,7 +1187,12 @@ export function createStewardSettingsDomain({
     onChange('cfgStewardVisitIdle', event => saveConfig({ stewardVisitIdleMinutes: num(event.target, 60) }));
     onChange('cfgStewardMaxTurnsPerHour', event => saveConfig({ stewardMaxTurnsPerHour: num(event.target, 12) }));
     onChange('cfgStewardMaxCostPerDay', event => saveConfig({ stewardMaxCostPerDay: num(event.target, 1) }));
-    onChange('cfgStewardMaxParallelThreads', event => saveConfig({ stewardMaxParallelThreads: num(event.target, 5) }));
+    // 128f-⑫（审计 F）：存成功之后页内广播一帧 —— 左栏头上那个「同时最多 N 条」读的是仲裁面，不是这份配置。
+    onChange('cfgStewardMaxParallelThreads', async event => {
+      const saved = await saveConfig({ stewardMaxParallelThreads: num(event.target, 5) });
+      if (saved && settingsEventStream && typeof settingsEventStream.publishLocal === 'function') settingsEventStream.publishLocal('steward.arbiter.changed', {});
+      return saved;
+    });
     onChange('cfgStewardGlobalMaxTurnsPerHour', event => saveConfig({ stewardGlobalMaxTurnsPerHour: num(event.target, 120) }));
     onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 20) }));
     onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || 'visit') }));
@@ -1286,6 +1297,7 @@ export function createStewardSettingsDomain({
     // 没打开过这一块（scheduleLoaded 假）就不刷：不为一个没人看的列表发请求。
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return false;
+      settingsEventStream = stream;   // 128f-⑫：清空记忆之后页内广播用
       try { stream.on('schedule.changed', () => { if (scheduleLoaded) void loadSchedule(); }); }
       catch { return false; }   // 推送是旁路：订不上也不能影响这一页能用
       return true;

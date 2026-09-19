@@ -25,7 +25,11 @@ async function extractOverlayZip(zipPath, destDir) {
     // 单引号转义(PS 单引号字符串内 '' 表示一个 ');-Force 覆盖。
     const qs = s => String(s).replace(/'/g, "''");
     const ps = "try { Expand-Archive -LiteralPath '" + qs(zipPath) + "' -DestinationPath '" + qs(destDir) + "' -Force -ErrorAction Stop; 'OK' } catch { 'ERR:' + $_.Exception.Message }";
-    const out = cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
+    // 128f-⑬:execFileSync → 异步 execFile。修前解压一个覆盖包(最长 120 s)期间整个服务不答话 —— 更新中心自己的进度、
+    // 其它面的请求与推送全部排队(同文件下方 runOverlayPs1 早就因为同一个理由改成了异步,见对抗审查 F4)。
+    const out = await new Promise((resolve, reject) => {
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+    });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
     return { ok: true };

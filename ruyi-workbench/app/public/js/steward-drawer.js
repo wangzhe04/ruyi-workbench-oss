@@ -1357,6 +1357,9 @@ export function createStewardDrawer({
     const stopped = await stewardThreadStop({ api, sessionId });
     if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return; }
     await refreshOnce();
+    // 128f-⑫（审计 F）：停掉的若是一条还在排队的，左栏头上的「排队 N」要当场少一 —— 那个数读仲裁面，而排队中的回合
+    // 被停一帧线程推送都没有（它根本没起跑）。页内广播给左栏（steward-board 订了它，只重读仲裁面这一发）。
+    if (drawerEventStream && typeof drawerEventStream.publishLocal === 'function') drawerEventStream.publishLocal('steward.arbiter.changed', {});
   }
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────
@@ -1421,6 +1424,7 @@ export function createStewardDrawer({
   //      （§6.1 红线：这条线不承载正文与明细），它们的权威源仍然是 /api/sessions/:id 与事项切片。
   // 合并不用计时器（本模块零 setTimeout，C2 钉着）：在飞时只记一个「还要再来一趟」的位。
   let streamConnected = false;
+  let drawerEventStream = null;   // 128f-⑫：setEventStream 记下来（stopThread 之后页内广播）
   let pushBusy = false;
   let pushAgain = false;
   async function pushRefreshSlice() {
@@ -1453,6 +1457,7 @@ export function createStewardDrawer({
   }
   function setEventStream(stream) {
     if (!stream || typeof stream.on !== 'function') return false;
+    drawerEventStream = stream;   // 128f-⑫：停掉一条之后页内广播用（见 stopThread）
     streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
     stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
     // thread.live 【只】就地改，不顺手重问切片：它每 500 ms 一条（§6.1 节流列），每条都跟一发

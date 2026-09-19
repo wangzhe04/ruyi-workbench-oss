@@ -44,7 +44,7 @@ import { confirmDanger } from './confirm-panel.js';
 // 121 走查1-②：行尾那枚「⋯」点开的是【同一份】动作表，开合走两壳共用的浮层原语（layer 模式：
 // 不新建 .popover、不外挂 body，节点与挂载点都是行上现成的那两个）—— Esc／点外／同一时刻只允许
 // 一张菜单／焦点归还锚点全部现成，不在本模块写第二套开合。chip 菜单走的也是它（steward-chips.js）。
-import { popover, closePopover } from './popover.js';
+import { popover, closePopover, popoverAnchor } from './popover.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍）。名字不在本文件
 // 里各写一遍 —— 事件名 `thread.needs_you` 里那个词不是五态，不该进 B5／M6／N3 那本「五态字面量」账。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -299,6 +299,11 @@ export function createStewardBoard({
       if (seq !== missionsLoadSeq) return missionsLoadLatest;
       missionsEtag = response.headers.get('etag') || '';
       rows = Array.isArray(payload && payload.missions) ? payload.missions : [];
+      const removal = removalOf();
+      if (removal && removal.done.size) {
+        const present = new Set(rows.map(row => String((row && row.sessionId) || '')));
+        for (const id of [...removal.done]) if (!present.has(id)) removal.done.delete(id);
+      }
       // 121-K6b（34 号文 §5「色号按任务」）：本模块是全仓唯一那个 /api/missions 取数者，所以
       // 「这条线程属于哪个任务、任务叫什么、这个任务有几条线程」这三件事只有它第一手知道。
       // 登记一次，四面（对话流卡头／焦点卡／左栏行／看板密度行）问同一张表拿同一个号，也拿到
@@ -670,9 +675,20 @@ export function createStewardBoard({
   // ── ② 左栏正文：按任务归组（§2.3「单位是任务」）─────────────────────────────────
   // 归组键仍是 missionId（普通会话回落它自己的 sessionId）；聚合态【只读】行上的 aggregateState
   // （06i 的 aggregateMissionState 一处算出），本模块不写第二套聚合判据。
+  // 128f-⑫（用户 2026-09-19「删除线程没有及时的界面反馈，要点别处才刷新消失」）：删除的即时反馈。
+  // 删除的唯一动手处是 session-experience.js（removeSession／批量清理），它在 state.sessionRemoval 里记两件事：
+  //   pending —— 请求在飞：这一行变灰、不接点击（renderThreadRow）；
+  //   done    —— 服务端已经删了：这一行立刻不画，不等下一发 /api/missions 回来（冷的时候那一发要几百毫秒）。
+  // done 里的 id 在【取回来的行里真的没有它了】时才清（loadMissionsOnce），所以它只是一段过渡，不是第二份行。
+  function removalOf() {
+    const removal = state && state.sessionRemoval;
+    return removal && removal.pending instanceof Set && removal.done instanceof Set ? removal : null;
+  }
   function groupRows() {
     const groups = new Map();
+    const removal = removalOf();
     for (const row of rows) {
+      if (removal && removal.done.has(String(row.sessionId || ''))) continue;
       const missionId = String(row.missionId || row.sessionId || '');
       if (!groups.has(missionId)) {
         groups.set(missionId, {
@@ -703,6 +719,24 @@ export function createStewardBoard({
   // 33 号文 §4：acceptanceText 的正身已住 steward-drawer.js（判据一处），本模块调用点把自己那套键
   // （ACCEPTANCE_KEYS）与 t 一起递进去 —— 措辞仍是原来那两条键，一个字没变。
 
+  // 128f-⑫ 续（action-feedback R6d 在负载下复现，用户侧就是「左栏行上的菜单点开就自己没了」）：左栏每次重画都把整行
+  // DOM 换掉（chip 的 mount 会清空重建按钮与就地菜单），而推送让重画很频繁。点下行上的 chip 之后：先补读一次会话
+  // （hydrate，在飞时左栏被重画 → 被点的按钮已经不在文档里，菜单开在拆掉的节点上）；菜单开着时再被重画 → 开着的菜单
+  // 跟着整行没了。所以：行内有交互「活着」时（有 chip 正在补读、或者弹层正挂在左栏里的某个锚点上）重画先记一笔不画，
+  // 菜单一收（chip 的 onMenuIdle）就补画一次。行上别的弹层（改名）收起之后由它自己那次动作的 syncRail 画。
+  let railChipHydrating = 0;
+  let railRenderDeferred = false;
+  function railInteractionLive() {
+    if (railChipHydrating > 0) return true;
+    const anchor = popoverAnchor();
+    const host = byId('railList');
+    return Boolean(anchor && host && typeof host.contains === 'function' && host.contains(anchor));
+  }
+  function flushDeferredRailRender() {
+    if (!railRenderDeferred || railInteractionLive()) return false;
+    renderRail();
+    return true;
+  }
   function chipsFor(sessionId) {
     let control = chipsBySession.get(sessionId);
     if (!control) {
@@ -712,14 +746,17 @@ export function createStewardBoard({
         // 卡片行没有 permissionMode/engineRoute（GET /api/missions 返回的是任务卡，不是会话元数据）。
         // 打开菜单前按需补一次真会话，补到的那一份进缓存，下一次渲染就喂它。
         hydrate: async id => {
+          railChipHydrating += 1;   // 128f-⑫ 续：补读在飞 = 菜单在开的路上，左栏先别重画
           try {
             const response = await api(`/api/sessions/${encodeURIComponent(id)}`);
             const session = (response && response.session) || null;
             if (session) sessionCache.set(id, session);
             return session;
           } catch { return null; }
+          finally { railChipHydrating = Math.max(0, railChipHydrating - 1); }
         },
         onChanged: session => { if (session && session.id) sessionCache.set(String(session.id), session); },
+        onMenuIdle: () => { flushDeferredRailRender(); },
       });
       chipsBySession.set(sessionId, control);
     }
@@ -817,6 +854,8 @@ export function createStewardBoard({
     const item = paintThreadCard(el('li', 'steward-board-thread'), String(options.hueKey || sessionId));
     item.dataset.sessionId = sessionId;
     if (options.selected && String(options.selected) === sessionId) item.classList.add('is-sel');
+    const removal = removalOf();
+    if (removal && removal.pending.has(sessionId)) { item.classList.add('is-removing'); item.setAttribute('aria-busy', 'true'); }
     const threadState = threadStateOf(row);
     // 五态原样写在卡上。修前它挂在那颗点上（paintDot 的 node.dataset.state），B2 之后点归线程色、
     // 态归药丸，而药丸在「它在问你」那种行上是让位的（见下）—— 不写在卡上，这一行现在处于什么态
@@ -1046,6 +1085,9 @@ export function createStewardBoard({
     renderStatusLine();
     renderArbiterFacts();
     syncRailPlus();
+    // 128f-⑫ 续：行内菜单开着（或在开的路上）时先不重画这一栏，记一笔；菜单一收就补（见 railInteractionLive 头注）。
+    if (railInteractionLive()) { railRenderDeferred = true; return 0; }
+    railRenderDeferred = false;
     const host = clear(byId('railList'));
     if (!host) return 0;
     railRenderedSelected = railSelectedId();
@@ -1098,11 +1140,21 @@ export function createStewardBoard({
   }
 
   // ── 行动作（全部经 steward-drawer.js 导出的那一段原语，不复制）─────────────────
+  // 128f-⑫（审计 B）：行上的动作动的若是焦点那一条，右栏那一份抽屉要跟着重读 —— syncNow 只在「换焦点」时才让它
+  // 重读（focusRequest），焦点没换的话它还拿着动作之前的切片：班组段仍写「在跑」、排队仍是第几、被挡的那一句还在。
+  function refreshDrawerIfFocused(...sessionIds) {
+    if (!drawer || typeof drawer.refreshOnce !== 'function' || typeof drawer.currentSessionId !== 'function') return false;
+    const focus = String(drawer.currentSessionId() || '');
+    if (!focus || !sessionIds.map(String).includes(focus)) return false;
+    drawer.refreshOnce().catch(() => { /* 一次补读没成不该把左栏打回去，推送与下一拍还会再来 */ });
+    return true;
+  }
   async function runAction(sessionId, runId, action) {
     const result = await stewardThreadRunAction({ api, sessionId, runId, action });
     if (!result || result.ok !== true) { failNote(result && result.error); return false; }
     note(t(action === 'pause' ? 'stewardShell.board.paused' : 'stewardShell.board.resumed'));
     await refreshBoard();
+    refreshDrawerIfFocused(sessionId);
     return true;
   }
 
@@ -1111,6 +1163,7 @@ export function createStewardBoard({
     if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return false; }
     note(t('stewardShell.board.stopped'));
     await refreshBoard();
+    refreshDrawerIfFocused(sessionId);
     return true;
   }
 
@@ -1125,6 +1178,7 @@ export function createStewardBoard({
     if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return false; }
     note(t('stewardShell.board.stopBlockerDone', { title }));
     await refreshBoard();
+    refreshDrawerIfFocused(blockedBy, currentFocusId());   // 被挡的那一条（通常就是焦点）写着「被谁挡着」
     return true;
   }
 
@@ -1136,6 +1190,7 @@ export function createStewardBoard({
       note(t(result.prioritized === true ? 'stewardShell.board.prioritized' : 'stewardShell.board.notQueued'));
     } catch (error) { failNote(error); return false; }
     await refreshBoard();
+    refreshDrawerIfFocused(sessionId);
     return true;
   }
 
@@ -1151,6 +1206,7 @@ export function createStewardBoard({
     }
     note(t('stewardShell.board.pauseAllDone', { done, turns: turnsOnly.length }));
     await refreshBoard();
+    refreshDrawerIfFocused(...pausable.map(row => String(row.sessionId)));
     return done;
   }
 
@@ -1399,9 +1455,12 @@ export function createStewardBoard({
   // 组合根这一侧（工作台开／建／改名／删会话）重画左栏的口：先按手上的行画出来（立刻有反馈），
   // 在工作台视角再补一发 ETag 化的 /api/missions —— 那一侧没有兜底计时器（syncPolling 只在管家
   // 视角起表），用户的这一次动作就是行最该被复核的时刻。304 时 loadMissions 直接返回、不重画。
+  // 128f-⑫：修前这里是 `if (!isStewardMode())` —— 理由是「管家视角有兜底计时器」。可那一拍是 15 s（配置默认），
+  // 于是在管家视角里删掉一条线程，行要等十几秒、或者用户随手点了别处（换焦点那一刷）才消失（用户 2026-09-19 原话）。
+  // 用户动作之后复核一次行，两个视角都要。304 时照旧不重画。
   function syncRail() {
     renderRail();
-    if (!isStewardMode()) void pushRefreshRows();
+    void pushRefreshRows();
     return true;
   }
 
@@ -1538,6 +1597,10 @@ export function createStewardBoard({
     if (!stream || typeof stream.on !== 'function') return false;
     streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
     stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    // 128f-⑫（审计 F）：仲裁面那几个数（并发上限、在跑／排队）只在整份 refreshBoard 时重读 —— 推送那一路故意不跟
+    // （见 pushRefreshRows 头注：推送不换第二发请求）。可「设置里改了并发上限」「焦点栏里停掉一条」这两个用户动作之后，
+    // 左栏头上的数要等兜底那一拍（推送连着时 30 s）才对。这两处做完各发一帧【页内】广播，这里只重读仲裁面这一发。
+    stream.on('steward.arbiter.changed', () => { void loadArbiter().then(() => { renderArbiterFacts(); }); });
     stream.on(EVENT_STREAM_LIVE_EVENT, data => { applyLivePush(data); });
     // 五类「行本身变了」的事件同一条落点。`thread.adopted{by:'user'}`（K3：用户刚按下「交给管家盯」）
     // 也在这里 —— 那一行的 watched 要立刻翻真，不能等兜底那一拍。
