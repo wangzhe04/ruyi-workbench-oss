@@ -510,7 +510,13 @@ async function buildUsageSummary(range) {
   for (const p of CLAUDE_ENDPOINT_PRESETS) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
   // session id -> title from the lightweight metadata index (no full-session scan).
   const titles = new Map();
-  try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
+  // 128f-⑧(Brief §4.2 第 22 条后半):修前直读盘上索引 —— 索引写是去抖 ~200 ms 的,刚改名的会话在这一窗里还是旧标题。
+  // 与 listSessions 同一个叠法:盘上 → 在飞 → 排队(新的在后,墓碑删掉)。
+  try {
+    const idx = await readSessionIndex();
+    const merged = overlayUnflushedSessionIndex(new Map((Array.isArray(idx) ? idx : []).filter(e => e && e.id).map(e => [String(e.id), e])));
+    for (const [id, e] of merged) titles.set(String(id), (e && e.title) || '');
+  } catch { /* index optional */ }
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
   const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };

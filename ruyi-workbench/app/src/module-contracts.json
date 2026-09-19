@@ -83,6 +83,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "overlayUnflushedSessionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readSessionIndex",
           "kinds": [
             "call"
@@ -797,8 +804,12 @@
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
+        "sessionIndexLatestWrite",
         "sessionIndexPath",
+        "sessionIndexRebuildScanHook",
+        "sessionIndexRebuildsActive",
         "sessionIndexRetireSeq",
+        "sessionIndexWriteSeq",
         "sessionKind",
         "sessionLineHash",
         "sessionMeta",
@@ -812,6 +823,7 @@
         "sessionPermissionModeOverrides",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
+        "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
         "sortSessionMetas",
         "stewardWatchNoteFrom",
@@ -16895,6 +16907,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "buildUsageSummary",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
@@ -17470,6 +17489,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "flushSessionIndex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "flushSessionIndexSync",
           "kinds": [
             "read"
@@ -17485,6 +17511,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "invalidateSessionIndex",
           "kinds": [
             "read"
           ]
@@ -17751,6 +17784,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "setSessionIndexRebuildScanHookForTest",
           "kinds": [
             "read"
           ]

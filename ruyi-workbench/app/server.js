@@ -510,7 +510,13 @@ async function buildUsageSummary(range) {
   for (const p of CLAUDE_ENDPOINT_PRESETS) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
   // session id -> title from the lightweight metadata index (no full-session scan).
   const titles = new Map();
-  try { const idx = await readSessionIndex(); if (Array.isArray(idx)) for (const e of idx) if (e && e.id) titles.set(String(e.id), e.title || ''); } catch { /* index optional */ }
+  // 128f-⑧(Brief §4.2 第 22 条后半):修前直读盘上索引 —— 索引写是去抖 ~200 ms 的,刚改名的会话在这一窗里还是旧标题。
+  // 与 listSessions 同一个叠法:盘上 → 在飞 → 排队(新的在后,墓碑删掉)。
+  try {
+    const idx = await readSessionIndex();
+    const merged = overlayUnflushedSessionIndex(new Map((Array.isArray(idx) ? idx : []).filter(e => e && e.id).map(e => [String(e.id), e])));
+    for (const [id, e] of merged) titles.set(String(id), (e && e.title) || '');
+  } catch { /* index optional */ }
 
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
   const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
@@ -5425,8 +5431,21 @@ let inflightSessionIndex = new Map();
 // in between means the file it read may predate the write whose entries just left the table (see listSessions).
 let sessionIndexRetireSeq = 0;
 let sessionIndexFlushTimer = null;
+// 128f-⑧(Brief §4.2 第 22 条前半「扫盘重建路径有一处既有竞态」):扫盘重建是一条条读会话文件、最后整份写回索引 ——
+// 扫到 X 之后 X 又被存了一次,而那次存的索引刷新先落了地(或者索引此刻不在、那次刷新直接把批次丢了),重建写回的
+// 就是 X 的旧值;之后 id 集合与磁盘对得上,快路径一直信它,直到 X 再被存一次。修:每一次排进索引的写记一个全局序号
+// 与最新值(每个 id 只留最新一条);重建在开扫前记下序号,写回时(同一把索引锁里)把开扫之后的写一条条叠上去。
+// 只在有重建在扫的时候记(没人扫就没人要叠),最后一个重建收尾时清空 —— 否则这张表会随会话总数只增不减。
+let sessionIndexWriteSeq = 0;
+let sessionIndexRebuildsActive = 0;
+const sessionIndexLatestWrite = new Map();   // id -> { seq, val }(val 与 pendingSessionIndex 同形:meta 或 SESSION_TOMBSTONE)
+// 测试口(unit/session-index-rebuild-race 用):扫盘重建每读完一个会话文件调一次,可以在那一刻插一次保存、确定性地造出竞态。
+let sessionIndexRebuildScanHook = null;
+function setSessionIndexRebuildScanHookForTest(fn) { sessionIndexRebuildScanHook = typeof fn === 'function' ? fn : null; return sessionIndexLatestWrite.size; }
 function scheduleSessionIndexUpdate(id, valueOrTombstone) {
   pendingSessionIndex.set(String(id), valueOrTombstone);
+  sessionIndexWriteSeq += 1;
+  if (sessionIndexRebuildsActive > 0) sessionIndexLatestWrite.set(String(id), { seq: sessionIndexWriteSeq, val: valueOrTombstone });
   if (sessionIndexFlushTimer) return; // a flush is already pending; this entry rides along with it
   sessionIndexFlushTimer = setTimeout(() => { sessionIndexFlushTimer = null; void flushSessionIndex(); }, SESSION_INDEX_FLUSH_MS);
   if (sessionIndexFlushTimer.unref) sessionIndexFlushTimer.unref(); // a cache flush must never keep the process alive
@@ -5531,18 +5550,35 @@ async function listSessions() {
     }
   }
   // Index missing / corrupt / drifted from disk → authoritative scan of the real files, then rebuild the index.
+  const scanSeq = sessionIndexWriteSeq;   // 128f-⑧:开扫之后排进来的写,写回时要叠上去(见 sessionIndexWriteSeq 头注)
+  sessionIndexRebuildsActive += 1;
   const sessions = [];
-  for (const file of files) {
-    try {
-      const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
-      const item = JSON.parse(raw);
-      sessions.push(sessionMeta(item));
-    } catch {
-      // Ignore corrupt session files.
+  let rebuilt = sessions;
+  try {
+    for (const file of files) {
+      try {
+        const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
+        const item = JSON.parse(raw);
+        sessions.push(sessionMeta(item));
+        if (sessionIndexRebuildScanHook) await sessionIndexRebuildScanHook(String(item && item.id || ''));
+      } catch {
+        // Ignore corrupt session files.
+      }
     }
+    await withSessionIndexLock(() => {
+      const byId = new Map(sessions.map(meta => [String(meta && meta.id), meta]));
+      for (const [id, write] of sessionIndexLatestWrite) {
+        if (!write || write.seq <= scanSeq) continue;
+        if (write.val === SESSION_TOMBSTONE) byId.delete(id); else byId.set(id, write.val);
+      }
+      rebuilt = [...byId.values()];
+      return writeSessionIndex(rebuilt);
+    }).catch(() => {}); // best-effort rebuild
+  } finally {
+    sessionIndexRebuildsActive -= 1;
+    if (sessionIndexRebuildsActive === 0) sessionIndexLatestWrite.clear();
   }
-  await withSessionIndexLock(() => writeSessionIndex(sessions)).catch(() => {}); // best-effort rebuild
-  return sortSessionMetas(sessions.filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
+  return sortSessionMetas(rebuilt.map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
@@ -56556,6 +56592,11 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   CAP_UNKNOWN_TTL_MS,
+  // 128f-⑧:unit/session-index-rebuild-race 用。
+  buildUsageSummary,
+  flushSessionIndex,
+  invalidateSessionIndex,
+  setSessionIndexRebuildScanHookForTest,
   // 128f-⑥:unit/usage-ledger-exit-flush 用。
   appendUsageLedger,
   flushUsageLedgerSync,

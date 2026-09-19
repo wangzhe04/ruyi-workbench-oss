@@ -322,6 +322,11 @@ module.exports = {
   getCapabilities,
   invalidateCapabilityCache,
   CAP_UNKNOWN_TTL_MS,
+  // 128f-⑧:unit/session-index-rebuild-race 用。
+  buildUsageSummary,
+  flushSessionIndex,
+  invalidateSessionIndex,
+  setSessionIndexRebuildScanHookForTest,
   // 128f-⑥:unit/usage-ledger-exit-flush 用。
   appendUsageLedger,
   flushUsageLedgerSync,
