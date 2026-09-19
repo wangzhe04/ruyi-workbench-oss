@@ -102,7 +102,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 107-A2(46 号文 §5 A2):新增 dev-harness/asr-chat-audio-probe-live.js(一处带 RUYI_HOME 的 spawn —— boot() 那一发
 // 起临时工作台;该件第一行已 require self-isolate-home,家目录一并隔离;SAPI 合成那一发走 execFileSync 不带 env,不计入),
 // 148 -> 149 的来路就是它。主会话提交 A2 时只跑了文档锁、没跑全量,这把锁到 F9 那轮全量才红——漏同步是主会话的错。
-const RUYI_HOME_SPAWN_SITES = 149;
+// 128e(48 号文 §1,2.8.0 热修线移植):新增 dev-harness/mcp-resource-config-mask.e2e.js(一处带 RUYI_HOME 的 spawn ——
+// 起 `server.js mcp` 子进程读资源;该件第一行已 require self-isolate-home),149 -> 150 的来路就是它。
+const RUYI_HOME_SPAWN_SITES = 150;
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;
