@@ -206,7 +206,15 @@ try {
       // 117o-A7:等到【两份东西都齐】才取样 —— 文本尾巴有工具行,且叙事账本里那一段工具已经收尾。
       const seg = s.json && s.json.liveTurn && Array.isArray(s.json.liveTurn.segments) ? s.json.liveTurn.segments : [];
       const toolDone = seg.some(x => x && x.type === 'tool' && x.status === 'done');
-      if (lt && String(lt.full || '') && Array.isArray(lt.tools) && lt.tools.length && toolDone) { env = s; midFlightA = sessionMessages(sidA); break; }
+      // 128f 取证修正（ede0e1d 全量首现、负载 6×3 复现 4–6/18；A7a-DIAG 现场：取样那一刻盘上历史只有 ["user"]、叙事账本
+      // 只到 ["text","tool:done"]）：修前「工具收尾」一出现就取样，而 E2/A7a 要的是再往后一步的东西 —— 工具之后那一段
+      // 文字、以及回合中途存盘落下的工具结果。这两样与「工具收尾」之间本来就隔着回合起跑时那次能力探测；128f-⑬ 把探测里
+      // 两发 git 从同步改异步之后，服务不再被它钉住，这一段空当就变得可观测（只把那两发改回同步 → 18/18 绿，坐实）。
+      // 所以等到【工具之后那一段文字也到了】再取样：假模型在「第二段」之后停 2.5 s 才收尾，活回合的窗口足够。
+      // 这不是放宽：产品若不在回合中途落工具结果，A7a 照样红；段序不对，E2 照样红。
+      const toolAt = seg.findIndex(x => x && x.type === 'tool' && x.status === 'done');
+      const textAfterTool = toolAt >= 0 && seg.slice(toolAt + 1).some(x => x && x.type === 'text' && /第二段/.test(String(x.text || '')));
+      if (lt && String(lt.full || '') && Array.isArray(lt.tools) && lt.tools.length && toolDone && textAfterTool) { env = s; midFlightA = sessionMessages(sidA); break; }
       await sleep(60);
     }
     const tail = env && env.json && env.json.liveTail;
@@ -231,6 +239,19 @@ try {
     // 就有的既有载荷,本波一个字没动),否则下面两条就是空断言。
     ok(rawEnvelope.includes(ARG_MARKER) && rawEnvelope.includes(RESULT_MARKER),
       'A7a 前提:工具参数与工具结果确实在这一回合里流过(会话自己的 providerHistory 里有)');
+    if (!(rawEnvelope.includes(ARG_MARKER) && rawEnvelope.includes(RESULT_MARKER))) {
+      // 现场(A7a-DIAG):取样那一刻信封里的会话历史长什么样、叙事账本各段是什么状态。
+      const sj = env && env.json && env.json.session;
+      const ph = sj && Array.isArray(sj.providerHistory) ? sj.providerHistory : [];
+      const segs = env && env.json && env.json.liveTurn && Array.isArray(env.json.liveTurn.segments) ? env.json.liveTurn.segments : [];
+      console.log('A7a-DIAG ' + JSON.stringify({
+        hasArg: rawEnvelope.includes(ARG_MARKER), hasResult: rawEnvelope.includes(RESULT_MARKER),
+        providerHistory: ph.map(m => (m && m.role) + (m && m.tool_calls ? '+calls' : '')),
+        messages: sj && Array.isArray(sj.messages) ? sj.messages.length : null,
+        segments: segs.map(x => x && (x.type + ':' + (x.status || ''))),
+        updatedAt: sj && sj.updatedAt,
+      }));
+    }
     ok(!rawTail.includes(ARG_MARKER),
       `A7 liveTail 不含任何工具【参数】(${ARG_MARKER} 在 liveTail 里出现 ${rawTail.split(ARG_MARKER).length - 1} 次)`);
     ok(!rawTail.includes(RESULT_MARKER),
