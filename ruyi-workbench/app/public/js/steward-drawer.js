@@ -515,6 +515,19 @@ export function createStewardDrawer({
   }
 
   // ── ③ 线程页签 ──────────────────────────────────────────────────────────────
+  // 128f（48 号文；steward-drawer E1 跨两条线两次首跑红的真因）：页签换线程走全仓唯一的聚焦通道
+  // steward:focus-thread —— 看板听它、把这一条钉成焦点（pinnedId），抽屉自己也听它（见 bindStewardDrawer）。
+  // 修前这里直接 openThread：抽屉换了、看板不知道，宽屏下看板每一拍（轮询／每一条行推送／窗口切回来的
+  // visibilitychange）的 syncNow 见「抽屉开的不是焦点线程」就 openThread(焦点)，把用户拽回原来那条
+  // （E1d 钉：切走再切回窗口之后仍在 B）。没有 document／CustomEvent 的宿主退回直接打开。
+  function switchToThread(id) {
+    const document_ = doc();
+    if (document_ && typeof document_.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+      try { document_.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: id } })); return; }
+      catch { /* 落到直接打开 */ }
+    }
+    openThread(id);
+  }
   function renderTabs() {
     const host = clear(byId('stewardDrawerTabs'));
     if (!host) return;
@@ -530,7 +543,7 @@ export function createStewardDrawer({
       // 116-5b:页签/标题/接力清单三处都读服务端算好的 displayTitle(缺席时逐字回落原话)。
       tab.append(dot, el('span', 'steward-drawer-tab-title', String(row.displayTitle || row.title || row.sessionId)));
       if (row.title && row.displayTitle && row.title !== row.displayTitle) tab.title = String(row.title);
-      tab.onclick = () => { if (!selected) openThread(String(row.sessionId)); };
+      tab.onclick = () => { if (!selected) switchToThread(String(row.sessionId)); };
       // 117j copy-P3-4：正经 tablist 的键盘规矩 —— ←/→ 在页签间走，Home/End 跳首尾，环绕。
       // 页签本身已经是 role="tab"（A7 锁），此前却只能用 Tab 一个一个跳过去。
       tab.onkeydown = event => {
@@ -547,7 +560,7 @@ export function createStewardDrawer({
         const target = tabs[next];
         try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ }
         const sid = target.dataset.sessionId;
-        if (sid && sid !== sessionId) openThread(String(sid));
+        if (sid && sid !== sessionId) switchToThread(String(sid));
       };
       host.appendChild(tab);
     }

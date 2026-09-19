@@ -949,16 +949,56 @@ try {
     'M9b 选完之后菜单收起来了');
 
   // ─── ⑦-1 点兄弟页签换线程（同事项内切换） ────────────────────────
-  await cdp.evaluate(`document.querySelector('#stewardDrawerTabs [data-session-id="${idB}"]').click(), true`);
+  // 128f（48 号文）：E1 在全量里两次首跑红（128d 的 master、HF2 的发布线；两条线都有，与 128d 无关），红了就连锁到 E3…。
+  // 单看「标题 16 s 没变成 B」分不出是「点的时候 B 的页签不在（点空了）」还是「切过去又被切回 A」。
+  // 点之前装两枚探针（标题／页签条的每一次变化、steward:focus-thread 事件），点的那一下回报找没找到页签；E1 红时全打出来。
+  await cdp.evaluate(`(() => {
+    window.__e1log = [];
+    const snap = why => window.__e1log.push({ t: Math.round(performance.now()), why,
+      title: (document.getElementById('stewardDrawerTitle') || {}).textContent || '',
+      tabs: [...document.querySelectorAll('#stewardDrawerTabs [role="tab"]')].map(n => (n.dataset.sessionId || '').slice(-6) + (n.getAttribute('aria-selected') === 'true' ? '*' : '')).join(',') });
+    const mo = new MutationObserver(() => snap('dom'));
+    for (const id of ['stewardDrawerTitle', 'stewardDrawerTabs']) { const n = document.getElementById(id); if (n) mo.observe(n, { childList: true, subtree: true, characterData: true, attributes: true }); }
+    document.addEventListener('steward:focus-thread', e => snap('focus-thread:' + String((e.detail && e.detail.sessionId) || '').slice(-6)), true);
+    snap('armed');
+    return true;
+  })()`);
+  const e1Click = await cdp.evaluate(`(() => {
+    const tab = document.querySelector('#stewardDrawerTabs [data-session-id="${idB}"]');
+    const at = { t: Math.round(performance.now()), found: Boolean(tab), tabs: [...document.querySelectorAll('#stewardDrawerTabs [role="tab"]')].map(n => (n.dataset.sessionId || '').slice(-6)).join(',') };
+    if (tab) tab.click();
+    return at;
+  })()`);
   const onB = await waitForEval(cdp, `(() => {
     const snapshot = ${DRAWER};
     return snapshot.title === ${JSON.stringify(THREAD_B)} ? snapshot : null;
   })()`);
   ok(Boolean(onB), 'E1 点兄弟页签切到线程 B（抽屉换线程，不重开）');
+  if (!onB) {
+    console.log(`E1-DIAG click ${JSON.stringify(e1Click)} (B=${String(idB).slice(-6)} A=${String(idA).slice(-6)})`);
+    console.log('E1-DIAG log ' + JSON.stringify(await cdp.evaluate('(window.__e1log || []).slice(-24)')));
+    console.log('E1-DIAG api ' + JSON.stringify(await cdp.evaluate(`performance.getEntriesByType('resource')
+      .filter(e => e.name.includes('/api/') && e.startTime > ${Number((e1Click && e1Click.t) || 0) - 3000})
+      .slice(0, 30).map(e => [Math.round(e.startTime), Math.round(e.duration), e.responseStatus || 0, e.name.replace(/^https?:\\/\\/[^/]+/, '').slice(0, 60)].join(' '))`)));
+  }
   ok(onB && onB.tabSelected.filter(value => value === 'true').length === 1,
     'E1b 同一时刻只有一个页签是 aria-selected="true"');
   ok(onB && onB.lastSay === zh['stewardShell.drawer.lastSayEmpty'],
     `E1c B 没说过话 → 「它刚说」如实留空（实测「${onB && onB.lastSay}」）`);
+  // E1d（128f，E1 跨两线两次首跑红的真因）：宽屏下抽屉是右栏常驻那一份，看板每一拍（轮询、每一条行推送、
+  // 窗口切回来的 visibilitychange）都跑 syncNow —— 抽屉此刻开的不是看板的焦点线程就 openThread(焦点)。
+  // 修前页签点击只换了抽屉、没告诉看板，于是【下一拍】就把用户拽回 A（负载下 18/18 复现：点中 B、
+  // 175 ms 后被切回 A，无 focus-thread 事件）。这里用最像真人的那一拍 —— 切走再切回窗口 —— 逼出一次看板刷新。
+  const missionsBefore = await cdp.evaluate(`performance.getEntriesByType('resource').filter(e => e.name.includes('/api/missions?')).length`);
+  await cdp.evaluate(`document.dispatchEvent(new Event('visibilitychange')), true`);
+  const boardRefreshed = await waitForEval(cdp, `(() => {
+    const done = performance.getEntriesByType('resource').filter(e => e.name.includes('/api/missions?') && e.responseEnd > 0);
+    return done.length > ${Number(missionsBefore) || 0} ? done.length : null;
+  })()`);
+  await sleep(600);   // 刷新回来之后 syncNow 与可能的 openThread 都是同一拍里的事；再留一口气让抽屉的读取落定
+  const stillB = await cdp.evaluate(DRAWER);
+  ok(Boolean(boardRefreshed) && stillB && stillB.title === THREAD_B,
+    `E1d 看板刷一拍（窗口切回来）之后抽屉仍在 B，没被拽回焦点线程（看板刷新 ${Boolean(boardRefreshed)}，实测标题「${stillB && stillB.title}」）`);
 
   // ─── ⑦-2 开线程 C（自成事项、挂着 question 待决） ────────────────
   await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: '${idC}' } })), true`);
