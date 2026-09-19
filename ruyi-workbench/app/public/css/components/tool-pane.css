@@ -16,6 +16,9 @@
 .tool-tabs button { min-width: 0; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 4px; font-size: var(--fs-sm); background: transparent; border-color: transparent; border-radius: var(--r-sm); color: var(--muted); white-space: nowrap; }
 .tool-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 78%, transparent); }
 .tool-tabs button.active { background: var(--panel); border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); color: var(--accent); font-weight: 650; box-shadow: var(--elev-1); }
+/* 128d(keyboard-walkthrough K1 查出):上一行的 box-shadow 比 base.css 那条 :where(button…):focus-visible 焦点环优先级高,
+   于是「当前页签」拿到键盘焦点时与没焦点时一模一样(深色主题实测零差别)。焦点环叠在它自己的投影上,两样都保留。 */
+.tool-tabs button.active:focus-visible { box-shadow: var(--elev-1), var(--ring); }
 .tool-tab-mark { width: 15px; color: currentColor; font-size: var(--fs-xs); opacity: .82; text-align: center; }
 /* 121-K7：精简模式收起「用量」「记录」两枚（ui-modes.css），剩五枚 —— 两列会排成三行，
    与上面同一条口径改三列（ceil(5/3) = 两行）。字号比专家档大 1px，392px 下三列每格 ~113px，

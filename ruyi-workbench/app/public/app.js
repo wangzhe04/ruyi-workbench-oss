@@ -955,6 +955,7 @@ setRailRenderer(() => stewardShellDomain.board.syncRail());
 // 否则管家→工作台的主路径上标题共享元素永远挂不上名（用户 2026-09-14 走查）。
 const appFrame = createAppFrame({
   applyShellMode,
+  intendedMode: () => (shellModeController.intendedShellMode ? shellModeController.intendedShellMode() : ''),
   sharedThreadId: () => {
     const focus = stewardShellGuard ? String(stewardShellGuard.board.focusThreadId() || '') : '';
     if (!focus) return '';

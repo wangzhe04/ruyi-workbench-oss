@@ -659,7 +659,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（沿用 117x-M2 的拦截法）：拦 fs.readFileSync 让本文件自己的 readLayerPayload() 去读 HEAD
 // （`ef3bd57`）的 git blob = 07031c43…，与被替换的旧值逐字相同；再按工作区算得下面这个值。
 // 反向验证：改 CSS 之后、重钉之前 frontend-domains D51 与 live-full-text F3 双红（实测）。
-const LEGACY_STYLES_SHA256 = 'f762f373b69b63984bfb6fff6936498c2f205b1f964e6544544eccfcbaa20045';
+// 128d 续钉（前值 f762f373…）：零新增、零删除层，只在 `css/components/tool-pane.css` 加一条
+//   `.tool-tabs button.active:focus-visible { box-shadow: var(--elev-1), var(--ring); }` —— 「当前页签」自带的投影
+//   比 base.css 那条 :where(button…):focus-visible 焦点环优先级高，键盘焦点落在它上面时与没焦点一模一样
+//   （keyboard-walkthrough K1 在深色主题查出）。只在键盘焦点落在当前页签上时命中，其余逐像素不变。
+// 算法自证：把 tool-pane.css 从 HEAD 检出、按本文件自己的 readLayerPayload() 重算 = f762f373…，与被替换的旧值逐字相同
+// （先自证再替换）；换回本刀的 CSS 再算得下面这个值。反向：改 CSS 之后、重钉之前 D51 与 F3 双红（实测，本刀快通道）。
+const LEGACY_STYLES_SHA256 = '8f57fe64d413a25fdbb06c62270b6e5926f6eeada6cd47ee1639351f5b1f66cf';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

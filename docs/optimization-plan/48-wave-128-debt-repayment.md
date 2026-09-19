@@ -236,3 +236,33 @@ MCP 相关 e2e 子集 7/7 绿。`route-inventory` 给这条 MCP 判定点记上�
 **URL 准入（Brief 第 8 条前半）按证据结案、不改**：拒绝私网／回环地址会直接打坏合法的本机端点（Ollama `127.0.0.1:11434`、LM Studio、本地 ASR）。风险面要看「谁能写这些地址」：
 `steward-config-tier` 里 `providers`／`searchBackend` 是 **forbidden**（管家碰不到），`modelsApiBase`／`externalMcpServers` 是 **confirm**（必须用户亲手确认）⇒
 所有带 URL 的配置都只能由用户设（直接或亲手批准），不存在不可信主体把服务指向内网的路径。**后半（ASR 每会话 ≤1／队列 3 的并发上限从未实现）挪进 128f。**
+
+### 2.8.0 热修线（插在 128e 与 128d 之间，2026-09-19；用户选 A）
+
+128e 查出的 MCP 资源面明文密钥**在已推送的发布候选 `83e9f7a` 里就有**（自 v1.4.0 起）。用户选 A：`release/2.8.0` 从 `83e9f7a` 切出、只移植这一处
+（`53e1402`，修前三把假密钥全漏、修后 0 漏），全量 `357/0/0 flaky` 退出码 0，两个包重打（full `501c63ac0ddd…`／slim `162e23c92582…`）并在全新目录冒烟
+（三种入口、MCP 资源面在 node 与 exe 两个入口下都 0 泄漏），记录提交 `459313b` —— **`v2.8.0` 标签打在它上面**。细节在 46 号文 HF 一节。
+master 上同样的修法早在 `121e5c4`，两条线不合代码；master 的 CHANGELOG 2.8.0 节待补那条「第四处泄密面」（与 3.0 节一起补）。
+
+### 128d · G3 缺口的可自动化那一半：简易档渲染、键盘走查、小审计器、管家壳像素基线（2026-09-19，主会话亲做）
+
+**先立公共夹具** `dev-harness/lib/browser-fixture.js`：假 provider、隔离家目录的工作台、无头 Edge、CDP 客户端（看门狗＋readyState 闸＋事件订阅）、只杀自己的树。
+**在它之前每件真浏览器测试各自复制一份 CDP 客户端（27 份）**，128c 修「socket 关了静默挂死」就得改 27 处；四件新件一律用它。run-all 按「require 了它」认出
+开浏览器的件（原先只认源码里的 `--user-data-dir=` 字面量，写在 lib 里就认不出、不给 profile 范围）；新件里两件进独占桶（键盘、像素）。
+锁跟上：process-safety owner 数 27 → 28／252 → 253；fixture-home 把这一个 lib 纳入 RUYI_HOME 扫描面（150 → 151）并钉「夹具 close() 收浏览器、用它的件都 await 过 close()」。
+像素尺子抽成 `lib/png-grid.js`（dom-screenshot 改用它，阈值逐字不变、单跑照绿）；`unit/png-grid.test.js` 手搓五种行过滤器的 PNG 钉解码逐字节正确
+（反向：Paeth 支改成 Up → 两条解码用例红，还原 sha256 一致）。
+
+| 件 | 量什么 | 修前读数 | 修了什么 |
+|---|---|---|---|
+| `simple-mode.browser` | **出厂默认档**（配置不写 uiMode）：属性与 15 px 字号；两视角 × 1440／640 不溢出；右栏藏「用量／记录」；设置只剩白名单六枚、逐枚点得开、藏着的点不到；真回合（输入框 Enter 发送、假 provider 要一次 file_read）工具卡显示人话动词（对照：切专家档反过来）；齿轮切换落盘；全程零未捕获异常 | **2 红**：① `file_read` 的卡在动词槽里原样写着 `file_read` —— 动词表是给**授权弹窗**写的、只收会弹窗的改／执行类，**出厂默认档里最常见的读类工具全是英文标识**；② Esc 一下关不掉设置弹窗 | ① 补齐全部原生工具（36 条动词 ＋ `workbench_memory_`／`steward_` 两条前缀，中英两份 ＋ `docs/i18n` 真源同步）＋ 新锁 `tool-verb-coverage.static`（产物 `TOOL_HANDLERS` 97 个逐个有人话、每个键两份 locale 都有；反向：换回旧表 → 75 个没有）；② 见下一行齿轮菜单 |
+| `keyboard-walkthrough.browser` | 两视角 × 深浅两主题从跳转链接起 Tab 一圈：每站焦点看得见（轮廓／阴影／祖先 :focus-within）、在视口里、能绕回（无陷阱）；Shift+Tab 镜像；齿轮菜单 ↓↑ Home End Esc；设置弹窗焦点陷阱与关后焦点去处；Ctrl+` 与背靠背快切；焦点卡 Enter／Esc；管家输入框 Tab 契约 | **首跑 13 红**，产品问题 5 处：**齿轮菜单自称 role="menu" 却只认鼠标**（打开后焦点留在齿轮钮、方向键无反应）；**按下「设置」菜单不收** —— 它那条 Esc（document 上、stopPropagation）先收看不见的菜单，弹窗要按第二下（简易档 S4f 同一根）；**当前页签拿焦点时与没焦点一模一样**（`.tool-tabs button.active` 的投影压过全局焦点环，深色实测零差别）；**弹窗关后焦点掉到 body**（触发它的菜单项随菜单藏起来了）；**快切视角两处**（被跳过的过渡 `ready` 没人接 → 页面冒 `AbortError`；「切到另一边」读还没落地的旧属性 → 背靠背两下停在管家）。另 2 处是测试自己设计错（K7 没按「宽屏焦点卡是常驻栏」的既有设计判、K8 没先造出候选），已按既有设计改判 | 齿轮菜单补 WAI-ARIA 菜单按钮最小一组（键盘打开焦点进第一项、↓↑ 循环、Home／End、Esc 还焦点给齿轮钮、Tab 离开即收、按下一项即收 —— 带子浮层的两项除外）＋ `aria-controls`；`closeModal` 触发者不可见时把焦点还给「拥有这张菜单的按钮」；`.tool-tabs button.active:focus-visible` 焦点环叠在投影上（经典样式载荷锁按规程自证后重钉 f762f373… → 8f57fe64…）；`shell-mode.js` 接住被跳过过渡的 `ready`／`updateCallbackDone`，并给出「最后一次意图」`intendedShellMode()`，`app-frame.js` 的切换按它算 |
+| `a11y-lint.browser` | 浏览器自己算的无障碍树（CDP `Accessibility.getFullAXTree`，读屏拿到的就是它）里可操作节点都有名字；重复 id；断 id 引用；非法 role；tabindex>0；嵌套可操作；aria-hidden 里可聚焦。专家档与简易档 × 管家／工作台／设置弹窗 | **0 条违规**（第 50 波 a11y P0 那批做得扎实）。首跑全绿的审计器可能是瞎的，所以**每一跑先往页面上种七条已知违规、逐条必须认出来**（尺子自检），再拔掉审真页面 | —（不下载 axe-core；这台小审计器的规则各对应 axe 的一条同名规则的核心判据） |
+| `steward-shell-pixels.browser` | 管家壳深浅两张的格子基线（24×15，冻结动画、藏相对时间、等画面静止：连拍两张签名逐字相同才算） | —（新基线；两张 PNG 随基线入库供审阅） | 噪声实测：加「等画面静止」前 6 张图 1 张变 2 格（拍到轮询重画半途），加后连跑 3 次 6 张逐格 0 差。**反向**（改 CSS → 跑 → 还原核 sha256）：左栏 268→220 px 变 7／6 格、焦点卡换底色变 86／105 格、**一枚按钮换色**变 4／5 格 —— 上限定 3 格，三种都红。一格 60×60 px，比一枚按钮还小的改动仍可能漏（那是 DOM 断言的活） |
+
+**产品修复的反向**（换回 HEAD 原文件 → 跑 → 按备份还原核 sha256，全部逐字一致）：旧 app-frame.js → K4／K5a 红、简易档 S4f 红；旧 tool-pane.css → K1 classic·dark 红；
+旧 navigation-controls.js → K5（焦点掉 body）红；旧 shell-mode.js → K6b 两跑两红（`AbortError` 冒出、落点 steward）。
+
+**真读屏（NVDA／讲述人）仍留给人**：这四件量的是键盘本身与浏览器算出来的名字，读屏软件怎么念、念得顺不顺，机器量不了。
+
+**顺带一个读数（进 128f）**：热修线冒烟量到 **Full 包冷启动第一次 `/api/status` 要 5.4 s**（slim 0.28 s），冷缓存能力探测里桌面 python 探针那一段。

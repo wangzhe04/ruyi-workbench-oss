@@ -745,11 +745,21 @@ function openModal(id) {
   const panel = bd.querySelector('.modal, .palette');
   setTimeout(() => { focusFirstInteractive(panel)?.focus?.(); }, 0);
 }
+// 128d(keyboard-walkthrough K5):触发者可能已经看不见了 —— 齿轮菜单里的「设置」按下去菜单就收起,那一项跟着藏起来,
+// 往藏起来的节点上 focus() 是空操作,焦点于是掉到 body,键盘用户得从页首重新 Tab。退一步还给「拥有这张菜单的按钮」
+// (aria-controls 指向菜单的那一枚,就是齿轮钮)。
+function modalReturnTarget(trigger) {
+  if (!trigger || typeof trigger.focus !== 'function') return null;
+  if (trigger.isConnected && trigger.offsetParent !== null) return trigger;
+  const menu = trigger.closest ? trigger.closest('[role="menu"]') : null;
+  const owner = menu && menu.id ? document.querySelector(`[aria-controls="${menu.id}"]`) : null;
+  return owner && owner.offsetParent !== null ? owner : null;
+}
 function closeModal(id) {
   const bd = $(id);
   bd.classList.add('hidden');
-  const t = _modalTriggers.get(bd); _modalTriggers.delete(bd);
-  if (t && typeof t.focus === 'function') { try { t.focus(); } catch { /* ignore */ } }
+  const t = modalReturnTarget(_modalTriggers.get(bd)); _modalTriggers.delete(bd);
+  if (t) { try { t.focus(); } catch { /* ignore */ } }
 }
 function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop')].some(m => !m.classList.contains('hidden')); }
 // v1.5 (§1.2): 简易模式可见的设置页签白名单 —— 只留「基础/服务商/联网搜索」。其余(Claude CLI/Agent 角色/

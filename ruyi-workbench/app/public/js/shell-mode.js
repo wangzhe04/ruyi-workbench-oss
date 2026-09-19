@@ -119,6 +119,12 @@ export function createShellModeController({
     if (transition && transition.finished && typeof transition.finished.then === 'function') {
       transition.finished.then(settle, settle);
     } else settle();
+    // 128d(keyboard-walkthrough K6/K9 查出):上一次过渡还没走完又切一次(Ctrl+` 连按、连点分段钮),上一次就被跳过 ——
+    // 它的 ready 按规范以 AbortError 拒绝;修前只接了 finished,ready 没人接,于是每次快切都冒一条
+    // 「Uncaught (in promise) AbortError: Transition was skipped」。跳过是预期内的(最后一次意图赢),这里接住、不做事。
+    for (const pending of [transition && transition.ready, transition && transition.updateCallbackDone]) {
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    }
     return true;
   }
 
@@ -142,6 +148,10 @@ export function createShellModeController({
   // 之后它就是空操作。**不加「用户切过」旗子** —— 已证与 storedMode() 判据冗余；
   // syncStewardShellAvailability 的条件一个字不动（那条判据本身没错，错的是两次写回调的次序）。
   let intentSeq = 0;
+  // 128d（keyboard-walkthrough K6b 查出）：在飞的意图。过渡进行中属性还是旧值 —— 这时来问「现在是哪个视角」
+  // 的人（Ctrl+` 的「切到另一边」）读属性就会读到旧值：背靠背两下 Ctrl+` 两次都算成「工作台→管家」，
+  // 最后停在管家，而不是回到原处。写回调落地（属性已是新值）就清空，之后照旧以属性为准。
+  let pendingIntent = '';
 
   function applyShellMode(value, { persist = true, focus = true, focusAnchors = SHELL_FOCUS_ANCHORS } = {}) {
     const mode = normalizeShellMode(value);
@@ -149,9 +159,11 @@ export function createShellModeController({
     // 那一趟自己会领新序号）：这一支没有写回调，故意【不】领号，免得白白作废一次在飞的意图。
     if (mode === 'steward' && !canEnterSteward()) return recoverStewardShell({ persist }) || 'classic';
     const seq = ++intentSeq;
+    pendingIntent = mode;
     const write = () => {
       // 被更新的意图取代 → 空操作（属性、控件、落焦一个都不做）。
       if (seq !== intentSeq) return;
+      pendingIntent = '';
       try { documentRef.documentElement.setAttribute('data-shell-mode', mode); } catch { /* pre-DOM failure */ }
       syncModeControl(mode);
       // 落焦【必须】排在写完属性之后：要落焦的那个容器是刚刚才变成可见的那一个。
@@ -234,5 +246,8 @@ export function createShellModeController({
     syncModeControl,
     // 组合根的 sharedThreadId 判据在拍旧帧那一拍问它：非「在工作台打开」的切换里恒为空串。
     pendingOpenThreadId: () => pendingOpenThreadId,
+    // 「最后一次意图」：过渡在飞时是它要去的那一边，否则就是属性上的实况。只给「切到另一边」这类要算下一步的人用；
+    // 画面此刻长什么样（钮的高亮、落焦）仍然只读属性。
+    intendedShellMode: () => pendingIntent || currentShellMode(),
   });
 }

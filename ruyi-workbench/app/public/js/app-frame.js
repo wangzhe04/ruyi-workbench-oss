@@ -36,6 +36,9 @@ export function createAppFrame({
   documentRef = globalThis.document,
   // 组合根注入：两个视角此刻指的是【同一条线程】时返回它的 id，否则空串（见 markSharedThread）。
   sharedThreadId = () => '',
+  // 128d（K6b）：「最后一次意图」—— 过渡在飞时属性还是旧值，切到另一边要按意图算（shell-mode.js intendedShellMode）。
+  // 不注入就退回读属性（与改前逐字相同）。
+  intendedMode = null,
 } = {}) {
   const doc = () => documentRef || null;
   const byId = id => { try { return doc()?.getElementById(id) || null; } catch { return null; } };
@@ -43,6 +46,7 @@ export function createAppFrame({
   const currentMode = () => {
     try { return doc().documentElement.getAttribute('data-shell-mode') || ''; } catch { return ''; }
   };
+  const nextFromMode = () => { try { return (typeof intendedMode === 'function' && intendedMode()) || currentMode(); } catch { return currentMode(); } };
 
   // ── 视角分段钮 ──────────────────────────────────────────────────────────────
   // 钮的样子【只读】 data-shell-mode（属性是唯一状态源）：切换成功没成功由 applyShellMode 说，
@@ -81,7 +85,7 @@ export function createAppFrame({
   }
 
   function toggleLens() {
-    return setLens(currentMode() === 'steward' ? LENS_FORWARD : LENS_BACK);
+    return setLens(nextFromMode() === 'steward' ? LENS_FORWARD : LENS_BACK);
   }
 
   // ── 齿轮菜单 ────────────────────────────────────────────────────────────────
@@ -96,6 +100,22 @@ export function createAppFrame({
   function isGearOpen() {
     const menu = byId('appGearMenu');
     return Boolean(menu) && menu.hidden === false;
+  }
+  // 128d(48 号文 §1,keyboard-walkthrough K4／simple-mode S4f 查出):它自称 role="menu"(读屏据此进「菜单模式」、
+  // 等方向键),修前却只认鼠标 —— 键盘打开后焦点留在齿轮钮上、方向键无反应;而且按下「设置」之后菜单还开在
+  // 弹窗后面,于是下面那条 Esc(document 上、stopPropagation)先把这张看不见的菜单收了,弹窗要按第二下 Esc 才关。
+  // 补的是 WAI-ARIA 菜单按钮模式的最小一组:键盘打开 → 焦点进第一项;↓/↑ 循环、Home/End 到头尾;Esc 收起并把
+  // 焦点还给齿轮钮;Tab 离开即收起;按下一项即收起(带子浮层的两项除外 —— 它们的浮层以自己为锚点)。
+  function gearItems() {
+    const menu = byId('appGearMenu');
+    if (!menu) return [];
+    return [...menu.querySelectorAll('[role="menuitem"]')].filter(node => !node.disabled && !node.hidden && node.offsetParent !== null);
+  }
+  function focusGearItem(index) {
+    const items = gearItems();
+    if (!items.length) return false;
+    items[((index % items.length) + items.length) % items.length].focus();
+    return true;
   }
 
   // ── 右栏抽屉（≤1180）与左栏看板密度 ─────────────────────────────────────────
@@ -152,7 +172,31 @@ export function createAppFrame({
       }
     }
     const gear = byId('appGearBtn');
-    if (gear) gear.onclick = () => setGearOpen(!isGearOpen());
+    if (gear) {
+      // click 的 detail 为 0 ＝ 由 Enter／空格触发(键盘);鼠标点开不挪焦点,与改前一致。
+      gear.onclick = event => { const open = setGearOpen(!isGearOpen()); if (open && event && event.detail === 0) focusGearItem(0); };
+      gear.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        event.preventDefault();
+        setGearOpen(true);
+        focusGearItem(event.key === 'ArrowDown' ? 0 : -1);
+      });
+    }
+    const gearMenu = byId('appGearMenu');
+    if (gearMenu) {
+      gearMenu.addEventListener('keydown', event => {
+        const at = gearItems().indexOf(document_.activeElement);
+        if (event.key === 'ArrowDown') { event.preventDefault(); focusGearItem(at + 1); }
+        else if (event.key === 'ArrowUp') { event.preventDefault(); focusGearItem(at < 0 ? -1 : at - 1); }
+        else if (event.key === 'Home') { event.preventDefault(); focusGearItem(0); }
+        else if (event.key === 'End') { event.preventDefault(); focusGearItem(-1); }
+        else if (event.key === 'Tab') setGearOpen(false);
+      });
+      gearMenu.addEventListener('click', event => {
+        const item = event.target && event.target.closest ? event.target.closest('[role="menuitem"]') : null;
+        if (item && !item.hasAttribute('aria-haspopup')) setGearOpen(false);
+      });
+    }
     const side = byId('appSideToggleBtn');
     if (side) side.onclick = () => setSideOpen(!isSideOpen());
     const board = byId('railBoardBtn');
@@ -182,7 +226,13 @@ export function createAppFrame({
         if (input) { event.preventDefault(); input.focus(); input.select?.(); }
         return;
       }
-      if (event.key === 'Escape' && isGearOpen()) { event.stopPropagation(); setGearOpen(false); }
+      if (event.key === 'Escape' && isGearOpen()) {
+        event.stopPropagation();
+        const menu = byId('appGearMenu');
+        const inside = Boolean(menu) && menu.contains(document_.activeElement);
+        setGearOpen(false);
+        if (inside) byId('appGearBtn')?.focus();   // 焦点在菜单里时收起,不能让它跟着藏起来的项一起掉到 body 上
+      }
     });
 
     // 视角由别处切走时（设置里的「启动默认视角」、fail-closed 回退、「在工作台打开」）钮跟着对一次，

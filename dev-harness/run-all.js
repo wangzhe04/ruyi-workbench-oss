@@ -148,6 +148,11 @@ const PARALLEL_EXCLUSIVE = new Set([
   'steward-board.e2e.js',
   'scheduler-ready-queue.e2e.js',
   'autonomy-durability.e2e.js',
+  // 128d（48 号文 §1）：两件新的真浏览器件与 a11y-walkthrough 同一条理由 ——
+  //   · keyboard-walkthrough：连按上百下 Tab 逐站读焦点样式，外加菜单／弹窗／焦点卡的开合时序，键盘事件的落地吃调度；
+  //   · steward-shell-pixels：截图比像素，字体与异步取数「落定」靠等，与别的 Edge 抢 CPU 时可能拍到半途的一帧。
+  'keyboard-walkthrough.browser.e2e.js',
+  'steward-shell-pixels.browser.e2e.js',
 ]);
 
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
@@ -260,7 +265,9 @@ function runOne(file) {
   return new Promise(resolve => {
     const t0 = Date.now();
     const full = path.join(HARNESS, file);
-    const ownsBrowserProfile = fs.readFileSync(full, 'utf8').includes('--user-data-dir=');
+    // 128d:用公共夹具 lib/browser-fixture 的件,`--user-data-dir=` 写在 lib 里、不在件的源码里 —— 按 require 认。
+    const fileSrc = fs.readFileSync(full, 'utf8');
+    const ownsBrowserProfile = fileSrc.includes('--user-data-dir=') || /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fileSrc);
     const { env: childEnv, home: childHome } = fixtureChildEnv({ perTest: true });
     // 107-F9b:开浏览器的件拿一个【属于这一件】的临时根,经环境变量交给夹具、再以 --require 装上
     // browser-profile-scope(它把夹具进程的 os.tmpdir() 指到这个根,并拦下根外的 --user-data-dir)。

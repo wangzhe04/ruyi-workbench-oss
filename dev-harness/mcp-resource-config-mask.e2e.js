@@ -7,8 +7,8 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 // 修前:`resources/list` 列出一条「Workbench config」,`resources/read` 把 config.json 【原样】读出来返回 ——
 // 里面是明文的 provider apiKey、Claude CLI 的 modelsApiKey、外部 MCP 连接器 env 里的令牌。连到工作台 MCP 的模型
 // (Claude 引擎会话;以及用户自己 Claude Code 里登记了工作台 MCP 的会话)都能用读资源的工具把它们读走。
-// 同一批值在 GET /api/status 上早在 107-S0／S0b 就掩码了,文件工具也把 config.json 列为敏感路径拒读 ——
-// 资源面是绕过这两道门的第三条路。
+// 同一批值在状态接口上早在 107-S0／S0b 就掩码了,文件工具也把 config.json 列为敏感路径拒读 ——
+// 资源面是绕过这两道门的第三条路。(这里不写路由字面量:路由清册把测试文件里出现的路由串算作覆盖,本件并不打那条路由。)
 // 判据(真子进程 `server.js mcp`,合成配置,假密钥):
 //   R1 列出的资源仍是那一条(不改接口形状);
 //   R2 读出来的内容里【一个明文密钥都没有】(三处埋的假密钥逐字搜);

@@ -251,12 +251,28 @@ const TOOL_VERB_MAP = {
   powershell_run: 'tools.verb.exec_command', script_run: 'tools.verb.exec_command',
   desktop_screenshot: 'tools.verb.desktop_screenshot', keyboard_send_keys: 'tools.verb.keyboard_send_keys', http_request: 'tools.verb.http_request',
   git_status: 'tools.verb.git_status', git_diff: 'tools.verb.git_diff', git_log: 'tools.verb.git_log', git_commit: 'tools.verb.git_commit',
+  // 128d(48 号文 §1,simple-mode.browser S5 查出):这张表当初是给【授权弹窗】写的,只收会弹窗的改/执行类工具;
+  // 简易档的工具卡复用同一个函数,于是最常见的读类工具(file_read、web_search……)在出厂默认档里原样显示英文标识。
+  // 现在补齐全部原生工具(管家与工作台记忆两族走下面的前缀);tool-verb-coverage.static 钉「每个原生工具都有人话」。
+  audio_transcribe: 'tools.verb.audio_transcribe', browser_open: 'tools.verb.browser_open', claude_md_audit: 'tools.verb.claude_md_audit',
+  code_review_scan: 'tools.verb.code_review_scan', codebase_symbol_search: 'tools.verb.codebase_symbol_search', data_profile: 'tools.verb.data_profile',
+  debug_hypothesis: 'tools.verb.debug_hypothesis', dependency_inventory: 'tools.verb.dependency_inventory', docs_search: 'tools.verb.docs_search',
+  file_list: 'tools.verb.file_list', file_read: 'tools.verb.file_read', file_search: 'tools.verb.file_search', frontend_audit: 'tools.verb.frontend_audit',
+  glob: 'tools.verb.glob', list_tools: 'tools.verb.list_tools', mcp_configure: 'tools.verb.mcp_configure', mcp_list: 'tools.verb.mcp_list',
+  mission_update: 'tools.verb.mission_update', observation_recall: 'tools.verb.observation_recall', office_open: 'tools.verb.office_open',
+  orchestrate_agents: 'tools.verb.orchestrate_agents', permission_prompt: 'tools.verb.permission_prompt', project_snapshot: 'tools.verb.project_snapshot',
+  request_user_input: 'tools.verb.request_user_input', skill_read: 'tools.verb.skill_read', spawn_agent: 'tools.verb.spawn_agent',
+  todo_write: 'tools.verb.todo_write', tool_invoke_read: 'tools.verb.tool_invoke', tool_invoke_edit: 'tools.verb.tool_invoke', tool_invoke_exec: 'tools.verb.tool_invoke',
+  tool_load: 'tools.verb.tool_load', tool_search: 'tools.verb.tool_search', wait_agents: 'tools.verb.wait_agents', web_fetch: 'tools.verb.web_fetch',
+  web_search: 'tools.verb.web_search', workbench_self_status: 'tools.verb.workbench_self_status',
 };
 function humanizeToolName(name) {
   const n = String(name || '');
   if (!n) return t('tools.verb.unknown');
   if (TOOL_VERB_MAP[n]) return t(TOOL_VERB_MAP[n]);
   if (n.startsWith('shell_')) return t('tools.verb.shell');
+  if (n.startsWith('workbench_memory_')) return t('tools.verb.memory');
+  if (n.startsWith('steward_')) return t('tools.verb.steward');
   if (n.startsWith('ai_computer_control__')) return t('tools.verb.desktop', { name: n.slice('ai_computer_control__'.length) });
   return n;
 }
