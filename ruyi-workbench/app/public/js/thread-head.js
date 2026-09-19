@@ -193,28 +193,33 @@ export function createThreadHead({
     };
   }
 
+  // 128f（workbench-thread-head E4c 负载复现，E4C-DIAG：第二下点击零 PATCH、开关弹回「没盯」）：修前「忙」一直占到
+  // 写完之后那一发【读】（重取行）也回来 —— 负载下那一发要几秒，这几秒里再点一下被静默吞掉，原生复选框自己翻了面、
+  // 随后那次 render 又把它翻回去，用户看到的是「点了没反应」。「忙」只挡并发的【写】：PATCH 一回来就放开；
+  // 被挡下或写失败的那一下立刻按行重画，开关不许停在一个没发生的状态上。
   async function setWatch(next) {
     const id = currentId();
-    if (!id || watchBusy) return null;
+    if (!id || watchBusy) { render(); return null; }
     const turningOn = next === true;
     const draft = turningOn ? takeComposerDraftNote() : { note: '', clear: () => {} };
     watchBusy = true;
+    let response = null;
     try {
-      const response = await api(`/api/sessions/${encodeURIComponent(id)}`, {
+      response = await api(`/api/sessions/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ stewardWatch: turningOn, ...(turningOn && draft.note ? { stewardWatchNote: draft.note } : {}) }),
       });
-      if (!response || response.ok !== true) return null;
-      if (turningOn && draft.note) draft.clear();
-      if (state && state.currentSession && String(state.currentSession.id) === id) {
-        state.currentSession = response.session || state.currentSession;
-      }
-      // 开关翻面要在同一拍看得见：管家条画的是【索引行】上的 watched，所以写完让左栏重取一发。
-      try { await refreshRows(); } catch { /* 取不到就等下一拍推送（thread.state）来刷 */ }
-      render();
-      return response.session || null;
-    } catch { return null; }
+    } catch { response = null; }
     finally { watchBusy = false; }
+    if (!response || response.ok !== true) { render(); return null; }
+    if (turningOn && draft.note) draft.clear();
+    if (state && state.currentSession && String(state.currentSession.id) === id) {
+      state.currentSession = response.session || state.currentSession;
+    }
+    // 开关翻面要在同一拍看得见：管家条画的是【索引行】上的 watched，所以写完让左栏重取一发。
+    try { await refreshRows(); } catch { /* 取不到就等下一拍推送（thread.state）来刷 */ }
+    render();
+    return response.session || null;
   }
 
   function renderStewardBand(row) {

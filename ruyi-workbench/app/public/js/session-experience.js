@@ -203,8 +203,23 @@ async function refreshSessions() {
   state.sessions = res.sessions || [];
   renderSessions();
 }
-async function openSession(id) {
+// 128f（c3a3585 全量里 workbench-thread-head 的偶发，负载复现取证）：打开会话【后发先至】。开机那一发 openSession(B)
+// 在负载下还没回来，用户已经点了 C；C 先回来、页面画成 C，B 晚到又把 state.currentSession 与标题写回 B ——
+// 线程头、chip 从此绑在 B 上，用户以为在改 C 的模型，PATCH 落在 B。修：每一次「换到哪条会话」取一个序号，
+// 回来时已经不是最新那一次就整个丢掉（最新的那一次说了算）。newSession 也取号：它一出手，在飞的打开都作废。
+// 「最新的说了算」对开机那一发不成立：bootData 的「打开上次那条」要等 /api/status 与 /api/sessions 都回来才发，
+// 而左栏行早就点得了 —— 用户先点了 C、它后发，按序号它反倒赢（负载复现 6×2 里 A11 两次红就是这个）。
+// 它是缺省，不是选择：opts.restore 为真时，只要此前已经有过一次真的选择（非 restore 的打开／新建）就整个让路；
+// 没有的话照常取号，之后用户再点一条仍然盖过它。
+let sessionOpenSeq = 0;
+let sessionChoices = 0;
+async function openSession(id, opts = {}) {
+  const restore = Boolean(opts && opts.restore === true);
+  if (restore && sessionChoices > 0) return;
+  if (!restore) sessionChoices += 1;
+  const seq = ++sessionOpenSeq;
   const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
+  if (seq !== sessionOpenSeq) return;   // 已经有更新的一次「换会话」了，这一发晚到的回包不许再写回去
   const prevId = state.currentSession?.id;
   const switchedSession = prevId !== id;
   state.currentSession = res.session;
@@ -699,6 +714,7 @@ function sessionDisplayTitle(s) {
 }
 async function newSession(options = {}) {
   const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
+  ++sessionOpenSeq; sessionChoices += 1;   // 128f：新建也是一次「换会话」，在飞的 openSession 回来时不许把它盖掉（见 openSession 头注）
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
   // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
   // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。

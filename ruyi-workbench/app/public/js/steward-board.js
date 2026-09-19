@@ -272,17 +272,32 @@ export function createStewardBoard({
   }
 
   // ── 取数 ────────────────────────────────────────────────────────────────────────
-  async function loadMissions() {
+  // 128f：取行也会【后发先至】—— 开关写完的那一发、在场回执那一发、推送那一发、兜底那一拍可能同时在飞，
+  // 先发的晚到会把后发的新行与 ETag 盖回旧的。后发的那一发看到的服务端状态不会更旧（同一个 If-None-Match
+  // 出发，它若 304 说明数据没变；若 200 则至少一样新），所以【只认最后发出的那一发】是安全的。
+  // 被取代的那一发【等最后那一发落地再回】，不是立刻回 false：调用方紧接着就 render（setWatch 就是），立刻回的话
+  // 画的是两发都还没落地时的旧行 —— thread-switch-race W2 构造出来过：开关刚点成「别盯了」，下一帧又被勾回去。
+  let missionsLoadSeq = 0;
+  let missionsLoadLatest = null;
+  function loadMissions() {
+    const seq = ++missionsLoadSeq;
+    const run = loadMissionsOnce(seq);
+    missionsLoadLatest = run;
+    return run;
+  }
+  async function loadMissionsOnce(seq) {
     try {
       // 117q-B3a(P1-6):裸 fetch 换 apiRaw——304/etag 判断逻辑一个字不动，唯一变化是拿到 403 +
       // auth.token_invalid(后台进程重启后旧 token 失效)时会像其余 45+ 处 api() 调用点一样自愈：
       // 换新 token 重放一次，而不是直接放弃、空转到用户手动刷新页面。
       const headers = missionsEtag ? { 'if-none-match': missionsEtag } : {};
       const response = await apiRaw('/api/missions?limit=200', { headers });
+      if (seq !== missionsLoadSeq) return missionsLoadLatest;   // 128f：已经有更晚发出的一发 —— 这一份不许写回，等它落地
       if (response.status === 304) return false;          // 没变：不重画，chip 菜单也就不会被打断
       if (!response.ok) return false;
-      missionsEtag = response.headers.get('etag') || '';
       const payload = await response.json();
+      if (seq !== missionsLoadSeq) return missionsLoadLatest;
+      missionsEtag = response.headers.get('etag') || '';
       rows = Array.isArray(payload && payload.missions) ? payload.missions : [];
       // 121-K6b（34 号文 §5「色号按任务」）：本模块是全仓唯一那个 /api/missions 取数者，所以
       // 「这条线程属于哪个任务、任务叫什么、这个任务有几条线程」这三件事只有它第一手知道。
@@ -1421,6 +1436,9 @@ export function createStewardBoard({
     lastRefreshAt = Date.now();   // 与刷新按钮同一条节拍纪律：刚拉过就别让下一拍紧跟着再拉一次
     const changed = await loadMissions();
     if (changed) renderRail();
+    // 128f：推送那一路（pushRefreshRows）只走到这里，修前行变了只重画左栏、不告诉宿主 —— 工作台线程头
+    // （管家条三句话、面包屑、五态）读的也是这批行，于是它停在上一份上。与 refreshBoard 同一个出口。
+    if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
     return rows.length;
   }
 
@@ -1517,6 +1535,12 @@ export function createStewardBoard({
     for (const name of EVENT_STREAM_ROW_EVENTS) {
       stream.on(name, () => { void pushRefreshRows(); });
     }
+    // 128f（workbench-thread-head E3 的偶发，负载复现取证：服务端那一行 seatedBy 早是 'user'，界面还说「如意盯着这条」）：
+    // 行上的 seatedBy 是服务端按【在场】现算的，而在场只在事件流连上那一刻登记（换会话/换视角就是重连，去抖 300 ms）。
+    // 在那之前取回来的行（比如刚打开这条线程就按了「交给管家盯」）说的是「没人坐着」，而工作台视角没有兜底节拍、
+    // 在场变了服务端也不推 —— 那一句就一直错下去。presence.ack 是服务端「我已经记下你坐在哪」的回执：
+    // 收到就补一发 ETag 化的行（在场进了 ETag，没变就是 304）。只管本页自己的在场；别的窗口换座不在此列。
+    stream.on('presence.ack', () => { void pushRefreshRows(); });
     return true;
   }
 

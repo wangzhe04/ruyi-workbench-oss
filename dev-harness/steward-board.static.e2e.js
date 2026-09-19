@@ -368,8 +368,19 @@ ok(/const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunnin
 ok(/stream\.on\(EVENT_STREAM_LIVE_EVENT, data => \{ applyLivePush\(data\); \}\);/.test(board)
   && /for \(const name of EVENT_STREAM_ROW_EVENTS\) \{/.test(board)
   && /if \(pushBusy\) \{ pushAgain = true; return false; \}/.test(board)
-  && count(boardCode, /pushRefreshRows\(\)/g) === 4,
-  'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）。121-K4 多出的第四处是 syncRail：工作台视角没有兜底计时器，用户动作（开／建／改名／删）就是行最该被复核的时刻 —— 它走的是同一条串行合并的路，不是第二条');
+  && count(boardCode, /pushRefreshRows\(\)/g) === 5,
+  'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）。121-K4 多出的第四处是 syncRail：工作台视角没有兜底计时器，用户动作（开／建／改名／删）就是行最该被复核的时刻 —— 它走的是同一条串行合并的路，不是第二条。128f 的第五处是 presence.ack（见 F3d）');
+// 128f（thread-switch-race.browser 的 S1；c3a3585 全量 workbench-thread-head E3 的偶发）：行上的 seatedBy 是服务端按在场现算的，
+// 在场只在事件流连上那一刻登记；工作台视角没有兜底节拍、在场变了服务端也不推 —— 收到「我已经记下你坐在哪」的回执就补一发行，
+// 且推送那一路行变了要告诉宿主（线程头读的也是这批行）。两处任一拿掉，S1 就红（反向验证实测）。
+ok(/stream\.on\('presence\.ack', \(\) => \{ void pushRefreshRows\(\); \}\);/.test(boardCode)
+  && /async function refreshRows\(\) \{[\s\S]{0,700}?if \(changed\) renderRail\(\);[\s\S]{0,500}?if \(changed\) \{ try \{ onRowsChanged\(rows\.length\); \}/.test(boardCode),
+  'F3d 在场回执（presence.ack）补一发行；refreshRows 行变了照样告诉宿主（onRowsChanged）—— 工作台线程头的管家条跟得上在场');
+// 128f（thread-switch-race W1e／W2）：取行只认最后发出的那一发；被取代的那一发【等它落地再回】（立刻回 false 的话，
+// 调用方紧接着的 render 画的是旧行 —— W2 构造出来过：开关刚点成「别盯了」，下一帧又被勾回去）。
+ok(count(boardCode, /if \(seq !== missionsLoadSeq\) return missionsLoadLatest;/g) === 2
+  && /function loadMissions\(\) \{\s*const seq = \+\+missionsLoadSeq;\s*const run = loadMissionsOnce\(seq\);\s*missionsLoadLatest = run;\s*return run;\s*\}/.test(boardCode),
+  'F3e 取行只认最后发出的那一发（回包与解析之后各判一次），被取代的那一发等最后那一发落地再回');
 // 121-K4-3 重钉（前值钉的是那句一行写完的观察者回调）。改动有二，各自都是事实：
 //   ① 回调里先【同步】renderRail() 再走各视角自己那套异步 —— 左栏有三样东西是按视角变的
 //      （「＋」的两义、选中态、点击语义），而切到管家那一路第一件事是 await refreshBoard()，

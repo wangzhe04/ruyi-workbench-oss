@@ -373,13 +373,15 @@ try {
   await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
       const native = window.fetch.bind(window);
-      window.__k5 = { posts: [] };
-      window.__k5Reset = () => { window.__k5.posts.length = 0; return true; };
+      window.__k5 = { posts: [], bodies: [] };
+      window.__k5Reset = () => { window.__k5.posts.length = 0; window.__k5.bodies.length = 0; return true; };
       window.fetch = (input, init) => {
         try {
           const url = String(typeof input === 'string' ? input : (input && input.url) || '');
           const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
           if (method !== 'GET') window.__k5.posts.push(method + ' ' + url.replace(/^https?:\\/\\/[^/]+/, '').split('?')[0]);
+          // 128f：写请求的 body 另记一份（只给红时的 DIAG 用；posts 的形状 C2／C5 在钉，不动它）。
+          if (method === 'PATCH' && init && typeof init.body === 'string') window.__k5.bodies.push(init.body.slice(0, 200));
         } catch { /* 记账失败不该影响请求本身 */ }
         return native(input, init);
       };
@@ -512,6 +514,19 @@ try {
   })()`);
   ok(Boolean(seated),
     `E3 盯着 ＋ 你正坐在这条线程上 → 「${zh['threadHead.steward.watchingSeated']}」（§4.5：你坐着时它不动手）`);
+  if (!seated) {
+    // 128f（c3a3585 全量里首次偶发，重跑过）：红时就地留证。服务端那一行的 seatedBy 是每次请求现算的在场事实 ——
+    // 此刻它是 'user' ⇒ 服务端早知道、是界面那一行没重取；是 null ⇒ 在场信号根本没登记上 C（事件流重连那一环）。
+    const nowRow = await request(appPort, 'GET', '/api/missions?limit=200', null, token).catch(() => null);
+    const rowC = nowRow && nowRow.json && (nowRow.json.missions || []).find(item => item.sessionId === created.C);
+    console.log('E3-DIAG server row C ' + JSON.stringify(rowC ? { watched: rowC.watched, seatedBy: rowC.seatedBy } : null));
+    console.log('E3-DIAG page ' + JSON.stringify(await cdp.evaluate(`(() => ({
+      head: ${HEAD},
+      lens: document.documentElement.getAttribute('data-shell-mode'),
+      current: window.state && window.state.currentSession && window.state.currentSession.id,
+      streams: performance.getEntriesByType('resource').map(e => e.name).filter(n => n.includes('/api/events')).slice(-4).map(n => n.replace(/^https?:\\/\\/[^/]+/, '')),
+    }))()`)));
+  }
   // 第三态：切到管家视角 —— 在场信号随之变成 lens=steward（事件流重连即在场信号的唯一写口），
   // 索引行上的 seatedBy 掉回 null。点一下左栏那一行让行重取一发（焦点事件那一刷，
   // steward-board.static K2 钉着它真的存在），不必等 30 s 的兜底节拍。
@@ -533,7 +548,17 @@ try {
     }, token);
   };
   ok(Boolean(await toggleWatch(false)), 'E4b 「别盯了」写回 false（开关是双向的，用户随时能收回来）');
-  ok(Boolean(await toggleWatch(true)), 'E4c 再交给它盯一次（这一发重取带回来的行上 seatedBy 是空的）');
+  await cdp.evaluate('window.__k5Reset(), true');
+  const e4c = await toggleWatch(true);
+  ok(Boolean(e4c), 'E4c 再交给它盯一次（这一发重取带回来的行上 seatedBy 是空的）');
+  if (!e4c) {
+    // 128f（负载复现里 E4c／E4 成对红）：红时就地留证 —— 这一下点击有没有真发出 PATCH、开关此刻是什么态。
+    console.log('E4C-DIAG ' + JSON.stringify(await cdp.evaluate(`(() => {
+      const box = document.getElementById('threadStewardWatch');
+      const head = ${HEAD};
+      return { posts: head.posts, bodies: window.__k5 ? window.__k5.bodies.slice() : [], checked: box && box.checked, disabled: box && box.disabled, band: head.bandText };
+    })()`)));
+  }
   const notSeated = await waitForEval(cdp, `(() => {
     const node = document.getElementById('threadStewardText');
     return node && node.textContent === ${JSON.stringify(zh['threadHead.steward.watching'])} ? { text: node.textContent } : null;

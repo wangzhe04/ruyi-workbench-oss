@@ -1230,7 +1230,8 @@ async function bootData() {
   refreshPlaybooks(); // v0.9-S2: load playbook cards for the empty state (best-effort, non-blocking)
   let last = null; try { last = localStorage.getItem('wcw.lastSession'); } catch { /* ignore */ }
   const target = state.sessions.find(s => s.id === last) || state.sessions[0];
-  if (target) await bootStep('openSession · GET /api/sessions/:id', () => openSession(target.id));
+  // 128f：restore —— 这是缺省不是选择；用户在它发出之前已经点过一条，它就让路（见 session-experience.js openSession 头注）。
+  if (target) await bootStep('openSession · GET /api/sessions/:id', () => openSession(target.id, { restore: true }));
   // v1.0-S3 (A): no session to open (fresh install) → render the empty state now so the first-run 引导
   // variant appears deterministically (isFirstRun() reads the now-loaded sessions + config, not just the
   // best-effort playbook re-render).

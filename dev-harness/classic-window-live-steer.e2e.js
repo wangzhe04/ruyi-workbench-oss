@@ -103,6 +103,12 @@ function killTree(child) {
 //   其余 → 一句话就收,并把最后一条 user 原样回读(插话有没有真进模型,看这句就知道)。
 let providerAborted = 0;
 let providerCalls = 0;
+// 128f（H8 第六次，48 号文）：带 HOLD8 的那一发由【测试】放行 —— H8 ② 要在 ① 的回合【还活着】时种快照，
+// 而 ① 原来是秒回的，负载下 ① 恰好在 H8a2 与 ② 之间收尾，回合末作废（chat-stream-runtime.js 那一句）清掉的
+// 正是 ② 刚种下的快照。改成闸门之后「② 时回合还活着」是构造出来的，不是赌出来的。
+let hold8Released = false;
+let hold8Release = null;
+const HOLD8_MAX_MS = 60000;   // 测试忘了放行也不会把服务挂死
 async function startProvider(port) {
   const server = http.createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -141,6 +147,18 @@ async function startProvider(port) {
       sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
       sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
       return done();
+    }
+    // 只挡回合的第一发（最后一条就是那条 user）；历史里的 tool 消息不作数（这条会话早先跑过 SLOW 那一回合）。
+    const lastIsUser = messages.length > 0 && messages[messages.length - 1] && messages[messages.length - 1].role === 'user';
+    if (lastIsUser && /HOLD8/.test(lastUser) && !hold8Released) {
+      sse({ choices: [{ index: 0, delta: { role: 'assistant', content: '我先想一想' }, finish_reason: null }] });
+      await new Promise(resolve => {
+        hold8Release = resolve;
+        const timer = setTimeout(resolve, HOLD8_MAX_MS);
+        if (timer.unref) timer.unref();
+      });
+      hold8Release = null;
+      if (aborted) return;
     }
     sse({ choices: [{ index: 0, delta: { role: 'assistant', content: '回答完毕:' + String(lastUser).slice(0, 60) }, finish_reason: null }] });
     sse({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
@@ -499,7 +517,7 @@ try {
   // ① 从 composer 自己起一个回合（这一发让本页进 activeTurns / state.streaming）
   await cdp.evaluate(`(() => {
     const ta = document.getElementById('promptInput');
-    ta.value = '慢慢想一会儿 YY8-run';
+    ta.value = '慢慢想一会儿 YY8-run HOLD8';
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('sendBtn').click();
     return true;
@@ -535,10 +553,11 @@ try {
       } });
     return true;
   })()`);
-  await cdp.evaluate(`(() => {
+  const h8SeedStreaming = await cdp.evaluate(`(() => {
     window.state.sessionRelay = { sessionId: ${JSON.stringify(sessionId)}, channel: 'steer', wait: null };
-    return true;
+    return Boolean(window.state.streaming);
   })()`);
+  ok(h8SeedStreaming === true, 'H8b0 种 ② 的那一刻 ① 的回合还在流（HOLD8 闸门还没放行）');
   const h8Snap = await cdp.evaluate(VIEW);
   ok(Boolean(h8Snap) && h8Snap.relayChannel === 'steer' && h8Snap.relaySession === sessionId,
     `H8b 前置：回合期间这条会话的快照是 steer（实测 ${h8Snap && h8Snap.relayChannel}/${h8Snap && h8Snap.relaySession}）`);
@@ -547,8 +566,10 @@ try {
     console.log('H8-DIAG relay writes ' + JSON.stringify(await cdp.evaluate('(window.__relayProbe || []).slice(-10)')));
     console.log('H8-DIAG at H8b streaming=' + JSON.stringify(await cdp.evaluate('Boolean(window.state && window.state.streaming)')));
   }
-  // ③ 等回合自己跑完
-  const h8Idle = await waitForEval(cdp, `(() => (window.state && !window.state.streaming) ? ${VIEW} : null)()`, 1200);
+  // ③ 放行 ① 那一发，等回合自己跑完
+  hold8Released = true;
+  if (hold8Release) hold8Release();
+  const h8Idle =await waitForEval(cdp, `(() => (window.state && !window.state.streaming) ? ${VIEW} : null)()`, 1200);
   ok(Boolean(h8Idle), 'H8c 回合自己跑到收尾');
   // ③b **等服务端真的释放了这条会话**（relay 键消失）。这一步不能省：回合末那一小段里服务端
   //    可能还握着 activeChildren，此刻发出去的插话会被【真的受理】—— 判据不许和它赛跑。
@@ -611,6 +632,8 @@ try {
   if (cdp) cdp.close();
   killTree(browser);
   killTree(server);
+  hold8Released = true;
+  if (hold8Release) hold8Release();   // 中途红了没走到放行那一步时，别让 provider.close 等一个挂着的响应
   if (provider) await new Promise(resolve => provider.close(resolve));
   await sleep(300);
   stopRuyiTestBrowsers(profile);
