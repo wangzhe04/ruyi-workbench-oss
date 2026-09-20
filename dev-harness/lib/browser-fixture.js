@@ -152,15 +152,36 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
   return null;
 }
 
-async function waitForTarget(debugPort, appUrl) {
+// 129j:等浏览器把调试目标挂出来。**失败时必须说得出为什么** ——
+// 修前它只回 null,调用方打一句「CDP target unavailable」就抛,于是全量里这一类红
+// (129b 的 action-feedback.browser、129i 的 boot-failure-kind.browser,签名一字不差)
+// **永远查不下去**:浏览器是死了?端口没起来?起来了但页面没开出来?三种修法完全不同,而日志一个字都没有。
+// 与 129 波给 run-all 补的「它是怎么死的」同一条治法:把现场留下来,不靠猜。
+// 返回 { target } 或 { target: null, why } —— why 是一行可读诊断,调用方原样打出去。
+async function waitForTarget(debugPort, appUrl, child) {
+  let lastHttp = 'never-responded';   // /json/list 到底回没回过
+  let seen = [];                      // 最后一次看到的目标清单(类型 + url 前 60 字)
   for (let i = 0; i < 300; i++) {
     const result = await request(debugPort, 'GET', '/json/list');
-    const targets = result && Array.isArray(result.json) ? result.json : [];
-    const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
-    if (target && target.webSocketDebuggerUrl) return target;
+    if (result) {
+      lastHttp = `status=${result.status === undefined ? '?' : result.status}`;
+      const targets = Array.isArray(result.json) ? result.json : [];
+      seen = targets.slice(0, 6).map(t => `${t && t.type}:${String((t && t.url) || '').slice(0, 60)}`);
+      const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
+      if (target && target.webSocketDebuggerUrl) return { target };
+    }
+    // 进程已经退了就不必再等满 15 秒 —— 那不是慢,是死了,等下去只是把红推迟。
+    if (child && child.exitCode !== null) {
+      return { target: null, why: `浏览器进程已退出(exitCode=${child.exitCode}, signal=${child.signalCode || '无'}) —— 不是慢,是没起来;等了 ${i * 50} ms,/json/list ${lastHttp}` };
+    }
     await sleep(50);
   }
-  return null;
+  const alive = child ? (child.exitCode === null ? '进程还活着(= 慢,不是死)' : `进程已退(exitCode=${child.exitCode})`) : '没拿到进程句柄';
+  return {
+    target: null,
+    why: `等满 15000 ms 仍没有指向 ${appUrl} 的 page 目标;${alive};/json/list ${lastHttp};`
+      + `最后看到的目标: ${seen.length ? seen.join(' | ') : '(一个都没有)'}`,
+  };
 }
 
 // 首屏就绪:config 到了、外框在、视角分段钮已绑上。
@@ -268,9 +289,13 @@ async function startBrowserFixture(opts = {}) {
     '--force-device-scale-factor=1', `--window-size=${width},${height}`,
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });
-  const target = await waitForTarget(debugPort, appUrl);
+  // 129j:失败时把 why 打出来再抛 —— 「CDP target unavailable」这七个字什么都没说,
+  // 而这一类红在并行全量里反复出现(129b/129i 各一次,签名一字不差)。
+  const found = await waitForTarget(debugPort, appUrl, fx.browser);
+  const target = found.target;
+  if (!target) console.log(`FIXTURE-DIAG ${found.why}`);   // 前缀要能被 run-all 的 failLines 收走(/^[A-Z0-9]+-DIAG/)
   ok(Boolean(target), 'F0d 浏览器 target 可连');
-  if (!target) throw new Error('CDP target unavailable');
+  if (!target) throw new Error('CDP target unavailable: ' + found.why);
   fx.cdp = new CdpClient(target.webSocketDebuggerUrl);
   await fx.cdp.connect();
   // 页面上的未捕获异常与 console.error 一律记下来 —— 「渲染出来了」不等于「没在后台炸」。
