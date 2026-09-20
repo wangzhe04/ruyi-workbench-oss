@@ -19,6 +19,8 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 const cp = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { pruneStaleFixtureDirs } = require('./lib/temp-janitor'); // 129i:夹具残留的扫地工(判据与纪律都在那个文件里)
 
 const HARNESS = __dirname;
 const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 ~15s,留 8x 余量
@@ -370,6 +372,19 @@ async function main() {
   // 开跑前的全局收尸【保留不带范围】:此刻还没有任何车道在跑,收的是上一轮(或手工单跑)漏下的。
   // 107-F9b 之后,run-all 里不带范围的收尸只许有这一处 —— unit/browser-profile-scope.test.js 钉着。
   stopRuyiTestBrowsers();
+  // 129i(49 号文;用户 2026-09-20 拍板「排进」):进程收完了,再把【陈年的夹具目录】扫一遍。
+  // 病灶是取证目录只进不出:失败件的现场有意保留(对的)、各件自己的临时目录只在成功时删,
+  // 于是这台机器攒到了 19730 个 —— 目录一多,Edge 冷启动与 mkdtemp 都被拖慢,并行全量里
+  // 就冒出一批「超时但没有断言红」的假偶发。判据与纪律全在 lib/temp-janitor.js(绝不碰 6 小时内的,
+  // worktree 前缀排除),这里只负责在【一个车道都还没起来】的此刻调一次,并把读数打出来 ——
+  // 静默的清理和静默的 flaky 一样,是明天的红。
+  {
+    const stats = pruneStaleFixtureDirs({ root: os.tmpdir() });
+    if (stats.deleted || stats.failed) {
+      console.log(`# 夹具残留清理: 扫 ${stats.scanned} 个,清掉 ${stats.deleted} 个陈年的,`
+        + `留下 ${stats.keptFresh} 个新的与 ${stats.keptExcluded} 个非夹具,删不掉 ${stats.failed} 个`);
+    }
+  }
   const argv = process.argv.slice(2);
   // --parallel N: 并行路数(默认1=串行)
   const parallelIdx = argv.indexOf('--parallel');
