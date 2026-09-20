@@ -36,6 +36,8 @@ const STEWARD_TOOLS = [
   'steward_runs_status', 'steward_inbox_read', 'steward_usage', 'steward_health', 'steward_audit_tail',
   'steward_missions',
   'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_permission',
+  // 129e:改已有线程的工作目录(只在工作区表之内;auto 档自动、其余档提议)。40 -> 41。
+  'steward_thread_workspace',
   'steward_thread_note', 'steward_thread_prioritize',
   'steward_decide', 'steward_run_action',
   // 117m-A4(§11.10 用户第六轮走查第 ③ 条):线程级停止。26 -> 27。
@@ -60,6 +62,7 @@ const EXPECTED_TIER = {
   steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
   steward_missions: 'read', // 116g: 事项级只读视图,零副作用
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  steward_thread_workspace: 'edit',
   steward_thread_permission: 'edit', // 116-2a: 线程权限只降不升,归线程族 edit
   steward_thread_note: 'edit',       // 116-2b: 给在跑的线程补一句上下文,归线程族 edit
   steward_thread_prioritize: 'edit', // 116h: 插队只动仲裁器队列顺序,不改文件不动世界,归线程族 edit
@@ -92,6 +95,7 @@ const HOOK_KEY = {
   steward_web_search: 'webSearchTool', steward_web_fetch: 'webFetchTool',
   steward_file_read: 'fileReadTool', steward_thread_artifact_read: 'artifactRead',
   steward_thread_new: 'threadNew', steward_thread_continue: 'threadContinue', steward_thread_rename: 'threadRename',
+  steward_thread_workspace: 'threadWorkspace',
   steward_thread_permission: 'threadPermission', steward_thread_note: 'threadNote',
   steward_thread_prioritize: 'threadPrioritize',
   steward_decide: 'decide', steward_run_action: 'runAction', steward_thread_stop: 'threadStop',
@@ -134,16 +138,16 @@ const packNames = Object.keys(srv.NATIVE_TOOL_PACKS).filter(n => n.startsWith('s
 const schemaNames = [...new Set((src13f.match(/name: '(steward_[a-z_]+)'/g) || []).map(m => m.slice(7, -1)))].sort();
 const expected = [...STEWARD_TOOLS].sort();
 
-ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 40 个 steward_*(got ${schemaNames.length})`);
-ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 40 个 steward_*(got ${regNames.length})`);
-ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 40 个 steward_*(got ${tierNames.length})`);
-ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 40 个 steward_*(got ${packNames.length})`);
+ok(JSON.stringify(schemaNames) === JSON.stringify(expected), `① 13f schema 恰好登记 41 个 steward_*(got ${schemaNames.length})`);
+ok(JSON.stringify(regNames) === JSON.stringify(expected), `① 12 TOOL_HANDLERS 恰好登记 41 个 steward_*(got ${regNames.length})`);
+ok(JSON.stringify(tierNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_TIER 恰好登记 41 个 steward_*(got ${tierNames.length})`);
+ok(JSON.stringify(packNames) === JSON.stringify(expected), `① 07 NATIVE_TOOL_PACKS 恰好登记 41 个 steward_*(got ${packNames.length})`);
 // 117m-A4 重钉 89 -> 90。理由:本波【真的新增了一个工具】(steward_thread_stop),数字变化就是被测事实
 // 本身,不是把闸门放宽 —— 这条断言的语义是「注册表里一个不多一个不少」,重钉后它仍是等号。
 // 按「断言只加不改」的纪律,重钉的同时补两条【更强】的伴随断言(下面 ①b/①c):新增的这一个必须
 // 恰好是决策族里【唯一】的线程级停止原语,且必须真的登记进了 13h 的 STEWARD_ACTION_HOOKS ——
 // 只钉总数会让「加错了一个工具」也照样过。
-ok(Object.keys(srv.TOOL_HANDLERS).length === 104, `① 注册表总数 104(63 + 40 steward_* + 1 audio_transcribe;123-M2 增六件定时任务 90→96,127-114c③ 增 audio_transcribe 96→97,129b 增三张只读清单 97→100,129d 增眼睛四件 100→104;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
+ok(Object.keys(srv.TOOL_HANDLERS).length === 105, `① 注册表总数 105(63 + 41 steward_* + 1 audio_transcribe;123-M2 增六件定时任务 90→96,127-114c③ 增 audio_transcribe 96→97,129b 增三张只读清单 97→100,129d 增眼睛四件 100→104,129e 增 steward_thread_workspace 104→105;got ${Object.keys(srv.TOOL_HANDLERS).length})`);
 const stopPrimitives = expected.filter(n => /_stop$/.test(n));
 ok(JSON.stringify(stopPrimitives) === JSON.stringify(['steward_thread_stop']),
   `①b 决策族里恰好【一个】线程级停止原语(多一个 = 两条停机路径,少一个 = 管家又只能拿 run_action 凑;got ${JSON.stringify(stopPrimitives)})`);
@@ -244,7 +248,7 @@ const filled = Object.keys(srv.StewardHooks);
 const missingFill = contractKeys.filter(k => typeof srv.StewardHooks[k] !== 'function');
 ok(contractKeys.length >= 30, `③ 06i 契约注释列出 ≥30 个预留键(116h 增 threadPrioritize 与 5 个仲裁键;got ${contractKeys.length})`);
 ok(missingFill.length === 0, '③ 13g 填充键集 ⊇ 06i 契约注释列出的键' + (missingFill.length ? ' → 未填充: ' + missingFill.join(',') : ''));
-ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 40 个工具的实现键全部落在 StewardHooks 上');
+ok(STEWARD_TOOLS.every(n => typeof srv.StewardHooks[HOOK_KEY[n]] === 'function'), '③ 41 个工具的实现键全部落在 StewardHooks 上');
 ok(filled.length >= 30, `③ StewardHooks 至少 30 个实现键(4 个 116b 基础设施 + 26 个工具 + 116f/116-pre/116h 的运行器与仲裁键 + 116-2e 的三个基础设施键;got ${filled.length})`);
 ok(/Object\.assign\(StewardHooks, \{/.test(src13g), '③ 13g 经 Object.assign(StewardHooks, {...}) 单向填充(06i 从不引用 13g)');
 
@@ -275,7 +279,7 @@ const offeredSteward = srv.buildOpenAiTools(cfg, null, { stewardSession: true })
 ok(offeredPlain.length === 0, `⑤ 回环:普通会话 buildOpenAiTools 零 steward_*(got ${offeredPlain.length})`);
 // 117m-A4 重钉 26 -> 27(理由同 ① 的重钉:本波真的多了一个工具)。同时把这条从【只数个数】
 // 换成【逐名对账】—— 那是更强的断言:个数对但少一个多一个的错法从此也会红。
-ok(offeredSteward.length === 40, `⑤ 回环:管家会话 buildOpenAiTools 拿到 40 个 steward_*(got ${offeredSteward.length})`);
+ok(offeredSteward.length === 41, `⑤ 回环:管家会话 buildOpenAiTools 拿到 41 个 steward_*(got ${offeredSteward.length})`);
 ok(JSON.stringify([...offeredSteward].sort()) === JSON.stringify(expected),
   `⑤b 回环:offer 出去的那一份与四张登记表【逐名】相同(缺: ${expected.filter(n => !offeredSteward.includes(n)).join(',') || '无'};多: ${offeredSteward.filter(n => !expected.includes(n)).join(',') || '无'})`);
 ok(/steward\.forbidden/.test(src13g) && /steward\.disabled/.test(src13g), '⑤ 13g 门控壳含 steward.forbidden / steward.disabled 两个稳定信封');

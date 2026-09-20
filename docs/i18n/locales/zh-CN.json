@@ -2726,6 +2726,7 @@
   ,"settings.steward.tool.threadNew": "新开线程"
   ,"settings.steward.tool.threadContinue": "接着办"
   ,"settings.steward.tool.threadRename": "改标题"
+  ,"settings.steward.tool.threadWorkspace": "换工作目录"
   ,"settings.steward.tool.threadPrioritize": "插到最前"
   ,"settings.steward.tool.threadNote": "插了一句话"
   ,"settings.steward.tool.threadPermission": "改了线程权限"

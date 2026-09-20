@@ -2726,6 +2726,7 @@
   ,"settings.steward.tool.threadNew": "Opened a thread"
   ,"settings.steward.tool.threadContinue": "Carried on"
   ,"settings.steward.tool.threadRename": "Renamed it"
+  ,"settings.steward.tool.threadWorkspace": "Moved its folder"
   ,"settings.steward.tool.threadPrioritize": "Moved it to the front"
   ,"settings.steward.tool.threadNote": "Added a note"
   ,"settings.steward.tool.threadPermission": "Changed thread permissions"

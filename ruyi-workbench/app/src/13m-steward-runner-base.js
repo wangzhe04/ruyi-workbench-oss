@@ -131,6 +131,9 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_new: 'threadNew',
   steward_thread_continue: 'threadContinue',
   steward_thread_rename: 'threadRename',
+  // 129e:它在非 auto 档一定回 propose_required -> 被降级成一枚按钮 -> 用户按下走这张表找实现。
+  // 不进表 = 「管家提了『换个目录』,按下去报 not_allowed」(静态锁 ①e 正是为这个坑立的)。
+  steward_thread_workspace: 'threadWorkspace',
   steward_thread_prioritize: 'threadPrioritize',   // 116h:§8.10 看板每行的「提升优先级」按钮
   steward_decide: 'decide',
   steward_run_action: 'runAction',
@@ -169,6 +172,7 @@ const STEWARD_DECIDE_LABELS = Object.freeze({ allow: '允许', deny: '拒绝', a
 const STEWARD_RUN_ACTION_LABELS = Object.freeze({ pause: '暂停', resume: '继续', stop: '停止', retry_node: '重试', steer_node: '插话' });
 const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_new: '新开线程', steward_thread_continue: '接着办', steward_thread_rename: '改标题',
+  steward_thread_workspace: '换工作目录',
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4

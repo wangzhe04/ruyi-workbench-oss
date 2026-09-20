@@ -455,6 +455,9 @@ module.exports = {
   stewardExemptDelegationVerdict,
   // 129c 污染规则(31 号文红线 4)的两个判定面 —— exposed for e2e:「读过外界内容之后写动作
   // 降级成提议」只有把这两个直调起来才测得出【判据本身】,否则只能经一次真模型回合间接看结果。
+  // 129e — exposed for e2e:「活回合期间不许换工作目录」这条忙锁,只有把在跑的那一格摆出来才测得到
+  // (起一个真回合再去改,测的就成了回合调度的时序,不是这条闸本身)。
+  activeChildren,
   stewardSelfServeAllows,
   stewardTurnTaintedBy,
   stewardTurnTaint,

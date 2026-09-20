@@ -26219,6 +26219,8 @@ const NATIVE_TOOL_TIER = {
   steward_web_search: 'read', steward_web_fetch: 'read', steward_file_read: 'read',
   steward_thread_artifact_read: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  // 129e: 改工作目录归线程族 edit(它改的是线程元数据,不执行任何东西)。
+  steward_thread_workspace: 'edit',
   // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
   // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
   steward_thread_permission: 'edit',
@@ -26354,6 +26356,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_web_search: 'steward', steward_web_fetch: 'steward', steward_file_read: 'steward',
   steward_thread_artifact_read: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
+  steward_thread_workspace: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
   steward_thread_stop: 'steward',                                            // 117m-A4
@@ -39134,6 +39137,7 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_new: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadNew(args, ctx) },
   steward_thread_continue: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadContinue(args, ctx) },
   steward_thread_rename: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRename(args, ctx) },
+  steward_thread_workspace: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadWorkspace(args, ctx) },
   steward_thread_permission: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPermission(args, ctx) },
   steward_thread_note: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadNote(args, ctx) },
   steward_thread_prioritize: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadPrioritize(args, ctx) },
@@ -41376,6 +41380,17 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', description: '要停的线程 id(不能是管家自己的会话)。' },
         reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
+      },
+    },
+  },
+  {
+    name: 'steward_thread_workspace',
+    description: '改一条【已有】线程在哪个目录里干活。何时用:发现线程开在错的地方(问股票的线程落在代码仓库里),或用户说「这条挪到我那个资料文件夹去」。何时别用:① 目录**必须是工作区表里的一个**,表外一律拒(outside_workspace)——你改不了那张表,要加目录让用户去设置里加;② 线程正在跑一个回合时拒(steward.busy),等它跑完;③ 开新线程时直接在 steward_thread_new 里给 cwd,不用先开再改。权限:只有「智能自动」档的线程我能直接改,其余档一律回 propose_required 变成一枚按钮交给用户 —— 不要重试。**旧目录上的检查点不会迁移也不会删除**,返回里会提醒这一句。返回 {ok,sessionId,cwd,previousCwd,undoRef,note}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'cwd'],
+      properties: {
+        sessionId: { type: 'string', description: '要改的线程 id。' },
+        cwd: { type: 'string', description: '新的工作目录,必须是工作区表里的路径(表就在你这一回合的上下文里)。' },
       },
     },
   },
@@ -50289,6 +50304,66 @@ async function stewardImplThreadRename(args, ctx, config) {
   return { ok: true, sessionId, title, undoRef };
 }
 
+// 12a2) steward_thread_workspace —— 改一条【已有】线程在哪个目录里干活(129e;49 号文 §4)。
+//
+// 31 号文 §2.3 放① 只做了「开线程时选工作区」;真机上另一半更常撞见:**线程已经开在错的目录里了**
+// (那份走查里四条线程含两条股票问题全落在代码仓库)。今天用户能在顶栏改(updateSessionMeta 的
+// patch.cwd 就是那条路),管家不能 —— 它连提都提不出来。
+//
+// **围栏红线不破**:只收【工作区表】里的路径,表外一律拒;recentWorkspaces 不算(打开过 ≠ 授权过)。
+// 管家写不了 workspaces 本身(forbidden 档),所以它只能在用户已经登记过的目录之间挪。
+//
+// 三条行为(用户 2026-09-20 拍板 ＋ 主会话定的两条):
+//   ① **auto 档自动、其余档提议** —— 与「选工作区是开线程的参数、三档都可」对齐,但改【已有】线程
+//      比开新线程重(脚下的地换了,后面每一回合都按新目录算),所以往紧里收一格;
+//   ② 活回合期间一律拒 —— 不在回合中途换脚下的地。这与 thread_rename 同一条忙锁,但理由更硬:
+//      rename 怕的是读改写竞态,这里还多一层「这一回合的工具正拿着旧 cwd 在跑」;
+//   ③ 旧目录上的检查点**不迁移、不删除**,返回里明说 —— 悄悄搬走比不搬更难解释。
+async function stewardImplThreadWorkspace(args, ctx, config) {
+  const sessionId = safeSessionId(args && args.sessionId);
+  if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  const want = String((args && args.cwd) || '').trim();
+  if (!want) return stewardFail('invalid_request', 'cwd is required');
+  const head = await stewardReadSessionHead(sessionId);
+  if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
+  if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no working folder to change');
+  // 围栏:只认已登记工作区(判据单点在 06i,与 steward_file_read 同一个函数)。
+  const root = stewardWorkspaceRootFor(want, config);
+  if (!root) {
+    return stewardFail('outside_workspace', 'cwd must be one of the registered workspaces; pick a path from the workspace table', { cwd: stewardSanitizeText(want).slice(0, 200) });
+  }
+  if (activeChildren.has(sessionId)) {
+    return stewardFail('steward.busy', `thread ${sessionId} has a turn in flight; change its working folder after the turn settles`, { sessionId });
+  }
+  const currentMode = stewardThreadPermissionMode(head, config);
+  if (currentMode !== 'auto') {
+    return stewardFail('propose_required', `目标线程的权限档是「${stewardPermissionLabel(currentMode)}」,换工作目录这件事要用户亲手按;把它作为提议交给用户,不要重试`, {
+      reason: 'target_permission', sessionId, permissionMode: currentMode, cwd: stewardSanitizeText(want).slice(0, 200),
+    });
+  }
+  const previousCwd = String(head.cwd || '');
+  if (stewardSamePath(previousCwd, want)) {
+    return stewardFail('not_changed', '这条线程已经在这个目录里了,不用改', { sessionId, cwd: stewardSanitizeText(previousCwd).slice(0, 200) });
+  }
+  // 复用顶栏那条既有写路径(updateSessionMeta 的 patch.cwd),不另开第二条。
+  const session = await updateSessionMeta(sessionId, { cwd: want });
+  if (!session) return stewardFail('not_found', `thread ${sessionId} not found`);
+  const undoRef = { kind: 'cwd', sessionId, previousCwd };
+  stewardAppendDecision({
+    tool: 'steward_thread_workspace',
+    args: { cwd: want, previousCwd },
+    targetSessionId: sessionId,
+    permissionMode: currentMode,
+    mayAct: 'auto',
+    undoRef,
+    basis: {},
+  });
+  return {
+    ok: true, sessionId, cwd: String(session.cwd || want), previousCwd, undoRef,
+    note: '之前那些检查点仍然指向旧目录(没有迁移,也没有删除)。',
+  };
+}
+
 // 12b) steward_thread_permission —— 线程权限【只降不升】(116-2a)。
 // 这是永久豁免清单第 2 条(「管家不得自我扩权:放宽任一线程的 permissionMode」)的机器实现:
 // 目标档必须严格比【当前生效档】更紧(STEWARD_PERMISSION_RANK 的单调性判定),否则一律
@@ -52123,6 +52198,8 @@ Object.assign(StewardHooks, {
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
+  // 129e:改一条已有线程的工作目录(只在工作区表之内;auto 档自动、其余档提议)。
+  threadWorkspace: stewardToolHandler('steward_thread_workspace', stewardImplThreadWorkspace),
   threadPermission: stewardToolHandler('steward_thread_permission', stewardImplThreadPermission), // 116-2a
   threadNote: stewardToolHandler('steward_thread_note', stewardImplThreadNote), // 116-2b
   decide: stewardToolHandler('steward_decide', stewardImplDecide),
@@ -52275,6 +52352,9 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_thread_new: 'threadNew',
   steward_thread_continue: 'threadContinue',
   steward_thread_rename: 'threadRename',
+  // 129e:它在非 auto 档一定回 propose_required -> 被降级成一枚按钮 -> 用户按下走这张表找实现。
+  // 不进表 = 「管家提了『换个目录』,按下去报 not_allowed」(静态锁 ①e 正是为这个坑立的)。
+  steward_thread_workspace: 'threadWorkspace',
   steward_thread_prioritize: 'threadPrioritize',   // 116h:§8.10 看板每行的「提升优先级」按钮
   steward_decide: 'decide',
   steward_run_action: 'runAction',
@@ -52313,6 +52393,7 @@ const STEWARD_DECIDE_LABELS = Object.freeze({ allow: '允许', deny: '拒绝', a
 const STEWARD_RUN_ACTION_LABELS = Object.freeze({ pause: '暂停', resume: '继续', stop: '停止', retry_node: '重试', steer_node: '插话' });
 const STEWARD_TOOL_LABELS = Object.freeze({
   steward_thread_new: '新开线程', steward_thread_continue: '接着办', steward_thread_rename: '改标题',
+  steward_thread_workspace: '换工作目录',
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4
@@ -57665,6 +57746,9 @@ module.exports = {
   stewardExemptDelegationVerdict,
   // 129c 污染规则(31 号文红线 4)的两个判定面 —— exposed for e2e:「读过外界内容之后写动作
   // 降级成提议」只有把这两个直调起来才测得出【判据本身】,否则只能经一次真模型回合间接看结果。
+  // 129e — exposed for e2e:「活回合期间不许换工作目录」这条忙锁,只有把在跑的那一格摆出来才测得到
+  // (起一个真回合再去改,测的就成了回合调度的时序,不是这条闸本身)。
+  activeChildren,
   stewardSelfServeAllows,
   stewardTurnTaintedBy,
   stewardTurnTaint,

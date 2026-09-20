@@ -912,6 +912,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_thread_workspace',
+    description: '改一条【已有】线程在哪个目录里干活。何时用:发现线程开在错的地方(问股票的线程落在代码仓库里),或用户说「这条挪到我那个资料文件夹去」。何时别用:① 目录**必须是工作区表里的一个**,表外一律拒(outside_workspace)——你改不了那张表,要加目录让用户去设置里加;② 线程正在跑一个回合时拒(steward.busy),等它跑完;③ 开新线程时直接在 steward_thread_new 里给 cwd,不用先开再改。权限:只有「智能自动」档的线程我能直接改,其余档一律回 propose_required 变成一枚按钮交给用户 —— 不要重试。**旧目录上的检查点不会迁移也不会删除**,返回里会提醒这一句。返回 {ok,sessionId,cwd,previousCwd,undoRef,note}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['sessionId', 'cwd'],
+      properties: {
+        sessionId: { type: 'string', description: '要改的线程 id。' },
+        cwd: { type: 'string', description: '新的工作目录,必须是工作区表里的路径(表就在你这一回合的上下文里)。' },
+      },
+    },
+  },
+  {
     name: 'steward_memory_write',
     description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
     inputSchema: {

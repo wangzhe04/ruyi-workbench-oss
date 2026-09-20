@@ -12843,6 +12843,7 @@
         "stewardImplThreadRead",
         "stewardImplThreadRename",
         "stewardImplThreadStatus",
+        "stewardImplThreadWorkspace",
         "stewardImplThreadsSearch",
         "stewardLaunchTurn",
         "stewardMediatedPermissionWaitMs",
@@ -13204,6 +13205,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardSamePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeBlock",
           "kinds": [
             "call"
@@ -13247,6 +13255,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWorkspaceRootFor",
           "kinds": [
             "call"
           ]
@@ -14537,6 +14552,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardImplThreadStatus",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardImplThreadWorkspace",
           "kinds": [
             "read"
           ]
@@ -18335,6 +18357,13 @@
         {
           "provider": "04-desktop-shell.js",
           "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
           "kinds": [
             "read"
           ]

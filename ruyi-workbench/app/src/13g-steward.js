@@ -357,6 +357,8 @@ Object.assign(StewardHooks, {
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
+  // 129e:改一条已有线程的工作目录(只在工作区表之内;auto 档自动、其余档提议)。
+  threadWorkspace: stewardToolHandler('steward_thread_workspace', stewardImplThreadWorkspace),
   threadPermission: stewardToolHandler('steward_thread_permission', stewardImplThreadPermission), // 116-2a
   threadNote: stewardToolHandler('steward_thread_note', stewardImplThreadNote), // 116-2b
   decide: stewardToolHandler('steward_decide', stewardImplDecide),

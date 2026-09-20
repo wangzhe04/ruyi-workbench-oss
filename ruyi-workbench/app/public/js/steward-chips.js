@@ -178,6 +178,9 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
   steward_thread_new: 'settings.steward.tool.threadNew',
   steward_thread_continue: 'settings.steward.tool.threadContinue',
   steward_thread_rename: 'settings.steward.tool.threadRename',
+  // 129e：改线程工作目录。它在非 auto 档恒回 propose_required -> 降级成按钮，同 thread_permission
+  // 那一条的模具；漏登记这里 = steward-settings.static H5 红，且「行动流水」把内部 id 原样显给用户。
+  steward_thread_workspace: 'settings.steward.tool.threadWorkspace',
   steward_thread_prioritize: 'settings.steward.tool.threadPrioritize',
   steward_memory_write: 'settings.steward.tool.memoryWrite',
   steward_memory_veto: 'settings.steward.tool.memoryVeto',

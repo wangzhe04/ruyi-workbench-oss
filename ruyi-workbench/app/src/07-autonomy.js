@@ -244,6 +244,8 @@ const NATIVE_TOOL_TIER = {
   steward_web_search: 'read', steward_web_fetch: 'read', steward_file_read: 'read',
   steward_thread_artifact_read: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
+  // 129e: 改工作目录归线程族 edit(它改的是线程元数据,不执行任何东西)。
+  steward_thread_workspace: 'edit',
   // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
   // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
   steward_thread_permission: 'edit',
@@ -379,6 +381,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_web_search: 'steward', steward_web_fetch: 'steward', steward_file_read: 'steward',
   steward_thread_artifact_read: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
+  steward_thread_workspace: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
   steward_thread_stop: 'steward',                                            // 117m-A4
