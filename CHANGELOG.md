@@ -16,6 +16,19 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+#### 语音输入：边说边出字，接错了会告诉你错在哪（2026-09-20／21）
+
+- **边说边出字**：说话时每停顿一下，刚说的那一句就先转成文字填进输入框，麦克风继续录。每一秒音频仍只转写一次，费用与从前整段转写相同；不到 2 秒的短录音行为不变；仍然**不会自动发送**。
+- **收不到字不再是一句「未成功」**：失败原因直接弹出来。服务商不认当前接口类型、密钥被拒，各有一句说清「去哪改」的话；转写失败与成功现在都会留本地日志（只有元数据）。
+- **添加语音识别模型更不容易配错**：添加时一并选接口类型（阿里百炼、小米 MiMo 自动预选对话型）；名字带 realtime 的流式型号当场拦下。
+- 修掉「保存了语音模型、再点保存它就消失」：模型上的「可语音识别」标记此前有四条会被悄悄抹掉的路径，其中一条是服务商模型清单满 100 条时新加的那一条被直接截掉。
+
+#### 扩展组件开箱即用（ruyi-toolbox，2026-09-21）
+
+- 装在这台电脑上的 [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) 组件会在如意启动时被**自动发现并接入**：本地服务（例如本地语音识别）自动拉起、自动配成对应的端点；MCP 工具自动加入连接器列表。第一次接入会提示一句；专家界面「MCP 运维」页签底部能看到接了什么、逐个停用，或整体关掉自动发现。
+- **不替你做主**：只有在你还没配过语音识别时才会自动选中本地组件，而且每个组件只自动选一次——你后来关掉或换走，它不会再选回来。
+- 命令只来自磁盘上的登记文件（`~/.ruyi-toolbox/components/`），如意没有任何经网络接口写它的途径；不经 shell 执行；每次拉起都记审计日志；如意退出时一并回收自己拉起的进程。
+
 #### 管家能自己看一眼外面了 —— 但看过之后就不再自己动手（第 129 波）
 
 - **眼睛四件**：管家现在可以自己**搜网页**、**抓一个网页**、**读你已登记工作区里的文件**、**读某条线程自己列出来的交付文件**。修前「AMD 现在多少钱」这种问题也要另开一条线程、等一个回合；现在它自己就能答。围栏是硬的：文件只认**你已登记的工作区**（打开过 ≠ 授权过）；线程交付只认那条线程**自己列在交付清单里**的路径，不是「它工作目录里的任何文件」。
@@ -71,6 +84,19 @@ This file records user-facing release highlights; it does not replace the comple
 - **桌面窗口里的麦克风放行**：在如意的桌面壳里也能用语音输入了。
 
 ### English
+
+#### Voice input: text appears as you talk, and failures say what is wrong (2026-09-20/21)
+
+- **Text appears as you talk**: each time you pause, the sentence you just said is transcribed into the input box while the microphone keeps recording. Every second of audio is still transcribed exactly once, so the cost matches the old whole-recording behaviour; recordings under 2 seconds behave as before; nothing is **ever sent automatically**.
+- **No more bare "Failed"**: the reason is shown. A provider that rejects the current interface type, or a rejected API key, each get a message that says where to fix it; transcription failures and successes now leave a local log line (metadata only).
+- **Harder to misconfigure**: adding a speech model now asks for the interface type (pre-selected for Alibaba Bailian and Xiaomi MiMo), and streaming-only "realtime" models are refused on the spot.
+- Fixed "the speech model disappears after saving twice": the speech-capable mark on a model could be silently dropped along four paths, one of which truncated the newly added model whenever the provider's model list was already at its 100-entry cap.
+
+#### Add-ons work out of the box (ruyi-toolbox, 2026-09-21)
+
+- [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) components installed on this computer are **discovered and connected automatically** at startup: local services (such as local speech recognition) are started and wired up as the matching endpoint; MCP tools join the connector list. The first connection shows a notice; in the expert UI, the bottom of the "MCP operations" tab lists what is connected and lets you turn components off individually or disable discovery altogether.
+- **Your choices win**: a local component is auto-selected for speech recognition only if you have not configured one, and only once per component — if you later switch away or turn it off, it is never re-selected.
+- Commands come only from registration files on disk (`~/.ruyi-toolbox/components/`); no network API can write them; nothing runs through a shell; every launch is audited; processes Ruyi started are reclaimed when it exits.
 
 #### The steward can now look outside for itself — and stops acting on its own once it has (wave 129)
 

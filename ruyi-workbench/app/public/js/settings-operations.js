@@ -188,7 +188,7 @@ export function createSettingsOperationsDomain({
   }
 
   /* ---------------- MCP 运维页签 ---------------- */
-  const MCP_SOURCE_KEYS = { desktop: 'settings.mcp.source.desktop', config: 'settings.mcp.source.config', 'drop-in': 'settings.mcp.source.dropIn' };
+  const MCP_SOURCE_KEYS = { desktop: 'settings.mcp.source.desktop', config: 'settings.mcp.source.config', 'drop-in': 'settings.mcp.source.dropIn', toolbox: 'settings.mcp.source.toolbox' };
   const MCP_HEALTH_KEYS = { ok: 'settings.mcp.health.ok', degraded: 'settings.mcp.health.degraded', failed: 'settings.mcp.health.failed', disabled: 'settings.mcp.health.disabled' };
   const MCP_CAT_KEYS = { auth: 'settings.mcp.cat.auth', startup: 'settings.mcp.cat.startup', network: 'settings.mcp.cat.network', timeout: 'settings.mcp.cat.timeout', security: 'settings.mcp.cat.security', tool_registration: 'settings.mcp.cat.toolRegistration', protocol: 'settings.mcp.cat.protocol', unknown: 'settings.mcp.cat.unknown' };
 

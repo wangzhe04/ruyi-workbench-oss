@@ -1470,10 +1470,15 @@
         "PermissionWaitHooks",
         "REDACT_PATTERNS",
         "SENSITIVE_URL_PARAM_RE",
+        "TOOLBOX_COMPONENT_MAX",
+        "TOOLBOX_PROVIDES_TYPES",
+        "ToolboxHooks",
         "_dropInCache",
         "_expandMcpVar",
         "_nativeToolNameSet",
         "_parseTomlMcpServers",
+        "_toolboxCache",
+        "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
@@ -1493,6 +1498,7 @@
         "decodeClaudeTaskXmlText",
         "deltaOf",
         "driverAutoSessions",
+        "enabledToolboxComponents",
         "extendUserQuestion",
         "formatQuestionGuidance",
         "getBridgedClient",
@@ -1502,6 +1508,7 @@
         "installActiveChildEventFanout",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
+        "invalidateToolboxCache",
         "isClaudeResumeMissingError",
         "isEquivalentDesktopAccServer",
         "isNativeToolName",
@@ -1551,10 +1558,13 @@
         "sameClaudeResumeCwd",
         "sanitizeFsSegmentName",
         "sanitizeServerId",
+        "sanitizeToolboxComponent",
         "scanMcpDropIns",
         "scanMcpSources",
+        "scanToolboxComponents",
         "stopSession",
         "subscribeActiveChildEvents",
+        "toolboxComponentsDir",
         "turnSettlers"
       ],
       "requires": [
@@ -1626,6 +1636,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -1846,6 +1863,126 @@
           "symbol": "killChildTree",
           "kinds": [
             "call",
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "04f-toolbox-services.js",
+      "layer": "foundation",
+      "provides": [
+        "TOOLBOX_HEALTH_DEADLINE_MS",
+        "TOOLBOX_HEALTH_POLL_MS",
+        "TOOLBOX_PROBE_TIMEOUT_MS",
+        "TOOLBOX_STDERR_TAIL",
+        "ensureToolboxServiceForProvider",
+        "reconcileToolbox",
+        "startToolboxService",
+        "stopAllToolboxServicesSync",
+        "stopToolboxService",
+        "syncToolboxProviders",
+        "toolboxDesiredProviders",
+        "toolboxEntry",
+        "toolboxFreePort",
+        "toolboxKillTree",
+        "toolboxListenOnce",
+        "toolboxPortFree",
+        "toolboxProbe",
+        "toolboxProviderId",
+        "toolboxReconcileChain",
+        "toolboxServices",
+        "toolboxStatusView"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "enabledToolboxComponents",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "invalidateToolboxCache",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "scanToolboxComponents",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
             "read"
           ]
         }
@@ -2420,6 +2557,13 @@
           "symbol": "stopSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10084,6 +10228,13 @@
           "symbol": "stopSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
           ]
         },
         {

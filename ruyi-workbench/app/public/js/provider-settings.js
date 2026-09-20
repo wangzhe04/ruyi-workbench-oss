@@ -127,6 +127,30 @@ async function refreshStatus() {
   refreshModels(); // background: enrich the model list from the proxy without blocking status
   fetchCapabilities(false); // v0.8-S6: refresh the capability badge (cached; one-shot on status refresh)
   followDesktopMcpProbe(); // 128f-③: 桌面组件还在探测时有界跟进,拿到结果只重画那两处
+  try { announceNewToolboxComponents(); } catch (error) { console.warn('[toolbox] announce failed', error); }
+  followToolboxStartup(); // toolbox 组件还在起时有界跟进:起好之后语音识别会被自动配上,页面得知道
+}
+// 开箱即用的最后一步在页面这头:桌面壳一见服务就绪就加载页面,而 toolbox 组件(本地语音识别之类)这时多半还在起 ——
+// 服务端要等它健康了才把它配成语音识别端点。不跟进的话,用户看到的是一枚「待开启」的灰麦克风,要刷新页面才变亮。
+// 与 followDesktopMcpProbe 同模具:有界(每 1.5 s 一发、至多 30 s、同一时刻只一条),等到没有组件处在 starting／idle 就
+// 整份 refreshStatus 一次(config 变了,麦克风、设置页、提示都靠那一趟);自己不改任何状态。
+let toolboxFollow = null;
+const toolboxSettling = status => ((status && status.toolbox && status.toolbox.components) || []).some(c => c.enabled !== false && (c.state === 'starting' || c.state === 'idle'));
+function followToolboxStartup() {
+  if (toolboxFollow || !toolboxSettling(state.status)) return;
+  toolboxFollow = (async () => {
+    try {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        let fresh = null;
+        try { fresh = await api('/api/status'); } catch { continue; }
+        if (toolboxSettling(fresh)) continue;
+        toolboxFollow = null;
+        await refreshStatus();
+        return;
+      }
+    } finally { toolboxFollow = null; }
+  })();
 }
 function normalizeConversationRoute(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -517,6 +541,8 @@ function fillSettings() {
   // 与 117j 管家旁路同款保护:这里抛错不该带走后面的草稿播种与 renderProviders()。
   try { renderAsrSettings(); }
   catch (error) { console.warn('[asr] renderAsrSettings failed', error); }
+  try { renderToolboxSettings(); }   // ruyi-toolbox 扩展组件一栏(没登记任何组件时整块不渲染)
+  catch (error) { console.warn('[toolbox] renderToolboxSettings failed', error); }
   // 117j classic-2（经典壳回归审查 P1）：这两条是【管家壳的】旁路，谁抛错都不该把它后面的
   // 草稿播种与 renderProviders() 一起带走 —— 那两样是经典壳设置页的正事。各自包一层，只 warn。
   try { syncStewardShellAvailability(); } // 117a: 壳模式第三项（管家）随 stewardEnabledV1 置灰/放开
@@ -706,6 +732,69 @@ function renderAsrSettings() {
   };
   block.append(label, select, hint, buildAsrAddRow());
   asrSettingsBlock.append(sep, block);
+}
+// ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
+// 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、
+// 能整体关掉自动发现(「自动,但不是悄悄」);② 第一次见到某个组件时给一句看得见的提示。与语音识别那一栏同模具:
+// index.html 零静态标记,节点全由本函数动态建;一个组件都没登记时整块不渲染(没装 toolbox 的人设置页逐字节不变)。
+// 命令行不在这里出现 —— /api/status 的视图本来就不带,能改的只有「接不接」。
+let toolboxSettingsBlock = null;
+const TOOLBOX_STATE_KEYS = { running: 'settings.toolbox.state.running', starting: 'settings.toolbox.state.starting', failed: 'settings.toolbox.state.failed', exited: 'settings.toolbox.state.failed', stopped: 'settings.toolbox.state.stopped', idle: 'settings.toolbox.state.starting', disabled: 'settings.toolbox.state.disabled', registered: 'settings.toolbox.state.registered' };
+async function saveToolboxPatch(patch) {
+  const current = (state.config && state.config.toolbox) || {};
+  const next = { autoDiscover: current.autoDiscover !== false, disabled: Array.isArray(current.disabled) ? current.disabled.slice() : [], seen: Array.isArray(current.seen) ? current.seen.slice() : [], ...patch };
+  if (!await saveConfigPartial({ toolbox: next })) return false;
+  // 服务端收到带 toolbox 的补丁后才开始对账(起／停进程),状态要过一会儿才变:隔一拍重取一次。
+  setTimeout(() => { void refreshStatus().catch(() => {}); }, 2500);
+  return true;
+}
+function renderToolboxSettings() {
+  const host = $('stab-mcp');
+  const view = (state.status && state.status.toolbox) || null;
+  const components = (view && Array.isArray(view.components)) ? view.components : [];
+  if (!host || !components.length) { if (toolboxSettingsBlock) { toolboxSettingsBlock.remove(); toolboxSettingsBlock = null; } return; }
+  if (!toolboxSettingsBlock) { toolboxSettingsBlock = el('div', 'toolbox-settings'); host.appendChild(toolboxSettingsBlock); }
+  toolboxSettingsBlock.textContent = '';
+  const block = el('div', 'field-block');
+  block.append(el('label', '', t('settings.toolbox.title')), el('p', 'field-help muted', t('settings.toolbox.hint')));
+  const master = el('label', 'check toolbox-master');
+  const masterBox = el('input'); masterBox.type = 'checkbox'; masterBox.checked = view.autoDiscover !== false;
+  masterBox.onchange = async () => { masterBox.disabled = true; const okSaved = await saveToolboxPatch({ autoDiscover: masterBox.checked }); masterBox.disabled = false; if (!okSaved) masterBox.checked = !masterBox.checked; };
+  master.append(masterBox, document.createTextNode(' ' + t('settings.toolbox.autoDiscover')));
+  block.appendChild(master);
+  const list = el('div', 'toolbox-list');
+  for (const c of components) {
+    const row = el('div', 'toolbox-row'); row.dataset.state = String(c.state || '');
+    const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = c.enabled !== false; toggle.disabled = view.autoDiscover === false;
+    toggle.setAttribute('aria-label', t('settings.toolbox.enable', { name: c.name || c.id }));
+    toggle.onchange = async () => {
+      const disabled = new Set(((state.config && state.config.toolbox && state.config.toolbox.disabled) || []));
+      if (toggle.checked) disabled.delete(c.id); else disabled.add(c.id);
+      toggle.disabled = true;
+      const okSaved = await saveToolboxPatch({ disabled: [...disabled] });
+      toggle.disabled = false;
+      if (!okSaved) toggle.checked = !toggle.checked;
+    };
+    const kind = (c.provides || []).includes('mcp') ? t('settings.toolbox.kind.mcp') : ((c.provides || []).includes('asr') ? t('settings.toolbox.kind.asr') : t('settings.toolbox.kind.service'));
+    const name = el('span', 'toolbox-name', (c.name || c.id) + (c.version ? ' · ' + c.version : ''));
+    const meta = el('span', 'toolbox-meta muted', kind + ' · ' + t(TOOLBOX_STATE_KEYS[c.state] || 'settings.toolbox.state.starting'));
+    row.append(toggle, name, meta);
+    if (c.error) row.appendChild(el('p', 'field-help toolbox-error', t('settings.toolbox.failedDetail', { reason: c.error }) + (c.stderrTail ? '\n' + c.stderrTail : '')));
+    list.appendChild(row);
+  }
+  block.appendChild(list);
+  toolboxSettingsBlock.append(el('hr', 'settings-sep'), block);
+}
+// 第一次见到某个已经接好的组件 → 说一句。记在 localStorage(每个浏览器说一次就够,不值得为它开一条服务端路由)。
+function announceNewToolboxComponents() {
+  const components = (state.status && state.status.toolbox && state.status.toolbox.components) || [];
+  let told = [];
+  try { told = JSON.parse(localStorage.getItem('wcw.toolbox.announced') || '[]'); } catch { told = []; }
+  if (!Array.isArray(told)) told = [];
+  const fresh = components.filter(c => c.enabled !== false && (c.state === 'running' || c.state === 'registered') && !told.includes(c.id));
+  if (!fresh.length) return;
+  for (const c of fresh) toast(t('settings.toolbox.discovered', { name: c.name || c.id }), 'ok');
+  try { localStorage.setItem('wcw.toolbox.announced', JSON.stringify([...told, ...fresh.map(c => c.id)].slice(-50))); } catch { /* 隐私模式：下次再说一遍也无妨 */ }
 }
 // v1.0-S3 (B1): 按搜索服务类型联动显隐相关字段。searxng/custom → 显 Base URL；bing/brave → 显 API 密钥；
 // none → 都藏。不改任何值，只切 .hidden。

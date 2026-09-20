@@ -272,6 +272,13 @@ function defaultConfig() {
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
     enableMcpDropIn: true,
+    // ruyi-toolbox 组件自动发现(用户 2026-09-21:「开箱即用」)。登记文件住 ~/.ruyi-toolbox/components/(04 scanToolboxComponents)。
+    //   autoDiscover —— 总开关,缺省开;关掉 = 一个登记的组件都不拉起、不接入。
+    //   disabled     —— 逐个停用的组件 id(停用是如意一侧的事,不删登记文件;卸载才删)。
+    //   seen         —— 已经接入过的组件 id。只用来保证「自动选成语音识别端点」对每个组件【只发生一次】:
+    //                   用户后来手动关掉或换走,下次启动绝不再替他选回来。
+    // 这三项都【不含命令】:命令只来自磁盘上的登记文件,API 改得了的只有「接不接」。
+    toolbox: { autoDiscover: true, disabled: [], seen: [] },
     // v0.8-S0: per-tool permission-tier overrides for BRIDGED (external/desktop MCP) tools, keyed by the
     // UNPREFIXED tool name. Merges over BRIDGED_TOOL_TIERS defaults. Values: 'read' | 'edit' | 'exec'.
     bridgedToolTiers: {},
@@ -973,6 +980,14 @@ function normalizeConfig(raw, opts = {}) {
     const ttl = Number(config.toolCatalogCacheTtlMs);
     const clamped = Number.isFinite(ttl) ? Math.min(600000, Math.max(5000, Math.round(ttl))) : 60000;
     if (clamped !== config.toolCatalogCacheTtlMs) { config.toolCatalogCacheTtlMs = clamped; changed = true; }
+  }
+  // toolbox:形状清洗。id 只认登记约定里的那个字符集,各自去重、封顶 50。
+  {
+    const raw0 = (config.toolbox && typeof config.toolbox === 'object' && !Array.isArray(config.toolbox)) ? config.toolbox : {};
+    const ids = v => [...new Set((Array.isArray(v) ? v : []).map(x => String(x || '')).filter(x => /^[a-z0-9][a-z0-9-]{0,39}$/.test(x)))].slice(0, 50);
+    const tb = { autoDiscover: raw0.autoDiscover !== false, disabled: ids(raw0.disabled), seen: ids(raw0.seen) };
+    if (JSON.stringify(tb) !== JSON.stringify(config.toolbox)) { config.toolbox = tb; changed = true; }
+    else config.toolbox = tb;
   }
   // v1.1-W2 (T2): enableMcpDropIn — boolean, default true unless explicitly false (mirror bridge switch).
   { const b = config.enableMcpDropIn !== false; if (b !== config.enableMcpDropIn) { config.enableMcpDropIn = b; changed = true; } }
@@ -1865,6 +1880,10 @@ async function syncMcpServersToClaude(config) {
     for (var s of servers) {
       if (!s.id || !s.command) continue;
       if (fromClaudeCode.has(String(s.id))) { skippedIds.push(String(s.id)); continue; }
+      // ruyi-toolbox 登记的 MCP 组件只在如意运行时存在(04:绝不写回 config),也不写进 Claude CLI 的用户级配置 ——
+      // 写过去,下次启动就会被下面的自动导入当成「Claude Code 里的连接器」导回来、固化进 externalMcpServers,
+      // 于是删掉登记文件／关掉总开关都撤不走它(toolbox-discovery.e2e F3 实测抓到的闭环)。
+      if (s._toolbox) continue;
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
       var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
@@ -1975,6 +1994,7 @@ async function autoImportClaudeCodeMcp(config) {
         if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
         if (raw.conflict) continue; // 已在 config -> 不覆盖
         if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
+        if (String(raw.id || '').startsWith('toolbox-')) continue; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
         if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
         if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
         // 122-§2.6:打来源标记。这一条是「从 Claude Code 导进来的」,syncMcpServersToClaude 据此跳过它 ——

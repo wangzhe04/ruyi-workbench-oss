@@ -349,6 +349,7 @@ async function handleApi(req, res, pathname) {
       })(),
       models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
+      toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
       detectedKimiPath: detectKimiPath(),
@@ -530,6 +531,9 @@ async function handleApi(req, res, pathname) {
       }
       throw error;
     }
+    // 设置页停用／启用了某个 toolbox 组件(或动了总开关)→ 对账一次:该停的停、该起的起、自动生成的服务商条目跟上。
+    // 只在这次补丁确实带了 toolbox 键时才做 —— 平常的保存不该顺手去探一圈端口。不 await:保存的回包不等进程起来。
+    if (body && typeof body === 'object' && Object.prototype.hasOwnProperty.call(body, 'toolbox') && typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
   if (req.method === 'GET' && pathname === '/api/agent-roles') {
@@ -2006,6 +2010,8 @@ async function startServerInner(opts) {
     // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
     // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
     // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
+    // ruyi-toolbox:登记过的服务类组件在这里拉起并接成能力端点(04f)。void —— 绝不挡启动,失败只记日志与状态。
+    if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     void ensureDesktopMcpWarm(config).then(() => {
       void syncMcpServersToClaude(config).catch(() => {});
       if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
@@ -2020,7 +2026,7 @@ async function startServerInner(opts) {
   // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.

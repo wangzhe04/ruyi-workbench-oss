@@ -1306,6 +1306,13 @@ function defaultConfig() {
     // <dataRoot>/mcp/*/ruyi-mcp.json and runtime-merge them (never written to config; delete the folder to
     // uninstall). Default on. Off => only config.externalMcpServers + desktopMcp are used.
     enableMcpDropIn: true,
+    // ruyi-toolbox 组件自动发现(用户 2026-09-21:「开箱即用」)。登记文件住 ~/.ruyi-toolbox/components/(04 scanToolboxComponents)。
+    //   autoDiscover —— 总开关,缺省开;关掉 = 一个登记的组件都不拉起、不接入。
+    //   disabled     —— 逐个停用的组件 id(停用是如意一侧的事,不删登记文件;卸载才删)。
+    //   seen         —— 已经接入过的组件 id。只用来保证「自动选成语音识别端点」对每个组件【只发生一次】:
+    //                   用户后来手动关掉或换走,下次启动绝不再替他选回来。
+    // 这三项都【不含命令】:命令只来自磁盘上的登记文件,API 改得了的只有「接不接」。
+    toolbox: { autoDiscover: true, disabled: [], seen: [] },
     // v0.8-S0: per-tool permission-tier overrides for BRIDGED (external/desktop MCP) tools, keyed by the
     // UNPREFIXED tool name. Merges over BRIDGED_TOOL_TIERS defaults. Values: 'read' | 'edit' | 'exec'.
     bridgedToolTiers: {},
@@ -2007,6 +2014,14 @@ function normalizeConfig(raw, opts = {}) {
     const ttl = Number(config.toolCatalogCacheTtlMs);
     const clamped = Number.isFinite(ttl) ? Math.min(600000, Math.max(5000, Math.round(ttl))) : 60000;
     if (clamped !== config.toolCatalogCacheTtlMs) { config.toolCatalogCacheTtlMs = clamped; changed = true; }
+  }
+  // toolbox:形状清洗。id 只认登记约定里的那个字符集,各自去重、封顶 50。
+  {
+    const raw0 = (config.toolbox && typeof config.toolbox === 'object' && !Array.isArray(config.toolbox)) ? config.toolbox : {};
+    const ids = v => [...new Set((Array.isArray(v) ? v : []).map(x => String(x || '')).filter(x => /^[a-z0-9][a-z0-9-]{0,39}$/.test(x)))].slice(0, 50);
+    const tb = { autoDiscover: raw0.autoDiscover !== false, disabled: ids(raw0.disabled), seen: ids(raw0.seen) };
+    if (JSON.stringify(tb) !== JSON.stringify(config.toolbox)) { config.toolbox = tb; changed = true; }
+    else config.toolbox = tb;
   }
   // v1.1-W2 (T2): enableMcpDropIn — boolean, default true unless explicitly false (mirror bridge switch).
   { const b = config.enableMcpDropIn !== false; if (b !== config.enableMcpDropIn) { config.enableMcpDropIn = b; changed = true; } }
@@ -2899,6 +2914,10 @@ async function syncMcpServersToClaude(config) {
     for (var s of servers) {
       if (!s.id || !s.command) continue;
       if (fromClaudeCode.has(String(s.id))) { skippedIds.push(String(s.id)); continue; }
+      // ruyi-toolbox 登记的 MCP 组件只在如意运行时存在(04:绝不写回 config),也不写进 Claude CLI 的用户级配置 ——
+      // 写过去,下次启动就会被下面的自动导入当成「Claude Code 里的连接器」导回来、固化进 externalMcpServers,
+      // 于是删掉登记文件／关掉总开关都撤不走它(toolbox-discovery.e2e F3 实测抓到的闭环)。
+      if (s._toolbox) continue;
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
       var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
@@ -3009,6 +3028,7 @@ async function autoImportClaudeCodeMcp(config) {
         if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
         if (raw.conflict) continue; // 已在 config -> 不覆盖
         if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
+        if (String(raw.id || '').startsWith('toolbox-')) continue; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
         if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
         if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
         // 122-§2.6:打来源标记。这一条是「从 Claude Code 导进来的」,syncMcpServersToClaude 据此跳过它 ——
@@ -11571,6 +11591,120 @@ function scanMcpDropIns() {
 // 测试可用:强制下次扫描重读盘(e2e 造完清单后调用)。
 function invalidateMcpDropInCache() { _dropInCache = { at: 0, list: null }; }
 
+// ── ruyi-toolbox 组件登记(用户 2026-09-21:「toolbox 下的都自动识别接入 —— 是 MCP 就自动配上,服务就自动拉起并配置好」)──
+// 两个仓库之间【唯一】的对接面是 ruyi-toolbox 仓的 docs/00-component-registry.md:组件装好后在
+// ~/.ruyi-toolbox/components/<id>.json 放一份登记,本函数只读那个目录,绝不读任何组件的代码目录。
+// 与上面 drop-in 的关系:drop-in 的清单住在【如意自己的】目录里(仓里/dataRoot),这一条住在用户主目录下的
+// toolbox 目录里,而且多一种 kind:'service'(常驻本机的小 HTTP 服务,由 04f 拉起并接成能力端点)。
+// 威胁模型(26 号文 §4「localCommand 只能来自配置文件,不接受 API 写入」的延续):命令【只来自磁盘上的登记文件】,
+// 如意没有任何 HTTP 途径写它;登记目录与 config.json 同一信任域(能写这里的人本来就能改 externalMcpServers 里的命令)。
+// 校验从严、坏文件一律当「没装」并审计一条,绝不抛、绝不打断启动:绝对路径且存在、不经 shell、不展开变量、不拼接参数。
+// 同步 I/O + 2s 缓存(与 drop-in 同理:resolveExternalMcpServers 在请求期频繁调)。上限 20 个组件、单文件 32 KB。
+const TOOLBOX_COMPONENT_MAX = 20;
+const TOOLBOX_PROVIDES_TYPES = new Set(['asr']);   // 现在认识的能力;不认识的 type 跳过(向前兼容:组件可以先登记、如意后支持)
+let _toolboxCache = { at: 0, list: null };
+const _toolboxSkipLogged = new Set();
+function toolboxComponentsDir() {
+  const override = String(process.env.RUYI_TOOLBOX_HOME || '').trim();
+  return path.join(override || path.join(os.homedir(), '.ruyi-toolbox'), 'components');
+}
+function sanitizeToolboxComponent(raw, fileId) {
+  if (!raw || typeof raw !== 'object' || raw.schema !== 1) return { error: 'schema' };
+  const id = String(raw.id || '');
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(id) || id !== fileId) return { error: 'id' };
+  const kind = raw.kind === 'service' || raw.kind === 'mcp' ? raw.kind : '';
+  if (!kind) return { error: 'kind' };
+  const run = raw.run && typeof raw.run === 'object' ? raw.run : null;
+  const command = run && typeof run.command === 'string' ? run.command.trim() : '';
+  const cwd = run && typeof run.cwd === 'string' ? run.cwd.trim() : '';
+  if (!command || command.length > 1000 || !path.isAbsolute(command)) return { error: 'run.command' };
+  if (!cwd || cwd.length > 1000 || !path.isAbsolute(cwd)) return { error: 'run.cwd' };
+  try { if (!fs.statSync(command).isFile()) return { error: 'run.command' }; } catch { return { error: 'run.command-missing' }; }
+  try { if (!fs.statSync(cwd).isDirectory()) return { error: 'run.cwd' }; } catch { return { error: 'run.cwd-missing' }; }
+  const rawArgs = Array.isArray(run.args) ? run.args : [];
+  if (rawArgs.length > 32 || rawArgs.some(a => typeof a !== 'string' || a.length > 1000)) return { error: 'run.args' };
+  const env = {};
+  const rawEnv = run.env && typeof run.env === 'object' && !Array.isArray(run.env) ? run.env : {};
+  if (Object.keys(rawEnv).length > 32) return { error: 'run.env' };
+  for (const [k, v] of Object.entries(rawEnv)) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,119}$/.test(k) || typeof v !== 'string' || v.length > 2048) return { error: 'run.env' };
+    env[k] = v;
+  }
+  const out = {
+    id, kind,
+    name: (typeof raw.name === 'string' ? raw.name : '').trim().slice(0, 80) || id,
+    version: (typeof raw.version === 'string' ? raw.version : '').trim().slice(0, 40),
+    run: { command, args: rawArgs.slice(), cwd, env },
+  };
+  if (kind === 'mcp') {
+    const transport = raw.mcp && typeof raw.mcp === 'object' ? String(raw.mcp.transport || 'stdio') : 'stdio';
+    if (transport !== 'stdio') return { error: 'mcp.transport' };
+    return { component: out };
+  }
+  const svc = raw.service && typeof raw.service === 'object' ? raw.service : null;
+  const port = svc ? Number(svc.port) : NaN;
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) return { error: 'service.port' };
+  const portEnv = svc && typeof svc.portEnv === 'string' ? svc.portEnv : '';
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,119}$/.test(portEnv)) return { error: 'service.portEnv' };
+  const health = svc && typeof svc.health === 'string' ? svc.health : '';
+  if (!/^\/[A-Za-z0-9._~\/-]{0,199}$/.test(health)) return { error: 'service.health' };
+  const componentTag = svc && typeof svc.component === 'string' ? svc.component.trim() : '';
+  if (!componentTag || componentTag.length > 80) return { error: 'service.component' };
+  const provides = [];
+  for (const p of (Array.isArray(raw.provides) ? raw.provides.slice(0, 8) : [])) {
+    if (!p || typeof p !== 'object' || !TOOLBOX_PROVIDES_TYPES.has(p.type)) continue;
+    const basePath = typeof p.basePath === 'string' && /^\/[A-Za-z0-9._~\/-]{0,99}$/.test(p.basePath) ? p.basePath : '';
+    const model = typeof p.model === 'string' ? p.model.trim().slice(0, 120) : '';
+    if (!model) continue;
+    provides.push({ type: p.type, basePath, model, protocol: p.protocol === 'chat-audio' ? 'chat-audio' : 'transcriptions' });
+  }
+  out.service = { port, portEnv, health, component: componentTag };
+  out.provides = provides;
+  return { component: out };
+}
+function scanToolboxComponents() {
+  const now = Date.now();
+  if (_toolboxCache.list && (now - _toolboxCache.at) < MCP_DROPIN_CACHE_MS) return _toolboxCache.list;
+  const out = [];
+  const dir = toolboxComponentsDir();
+  let files = [];
+  try { files = fs.readdirSync(dir, { withFileTypes: true }); } catch { files = []; }   // 目录不存在 = 没装 toolbox,常态
+  for (const ent of files) {
+    if (out.length >= TOOLBOX_COMPONENT_MAX) break;
+    if (!ent.isFile() || !ent.name.endsWith('.json')) continue;
+    const file = path.join(dir, ent.name);
+    let raw = null;
+    try {
+      const st = fs.statSync(file);
+      if (st.size > 32 * 1024) throw new Error('too large');
+      raw = safeJsonParse(fs.readFileSync(file, 'utf8').replace(/^﻿/, ''), null);
+    } catch { raw = null; }
+    const verdict = sanitizeToolboxComponent(raw, ent.name.slice(0, -5));
+    if (!verdict.component) {
+      // 扫描是 2s 缓存、请求期频繁调:同一份坏文件只审计一次,不每两秒刷一行日志。
+      const key = ent.name + ':' + (verdict.error || 'unreadable');
+      if (!_toolboxSkipLogged.has(key)) { _toolboxSkipLogged.add(key); logEvent({ kind: 'toolbox_component_skip', file: ent.name, reason: verdict.error || 'unreadable' }); }
+      continue;
+    }
+    out.push(verdict.component);
+  }
+  _toolboxCache = { at: now, list: out };
+  return out;
+}
+function invalidateToolboxCache() { _toolboxCache = { at: 0, list: null }; }
+// 服务类组件的管理器住 04f(拼接顺序在本文件之后)。它的四个消费点(13 的启动／收尾／保存配置／状态视图、05 的转写)
+// 一律经这张表调,从不直接引用 04f 的符号 —— 于是 04f 是【零入边】的叶子,进不了那个唯一的大强连通分量,
+// 它到 00／01／04 的出边也就不是环边(与 StewardHooks／SchedulerHooks、13t 同一个模具,103b 的债务上限一个字不用加)。
+// 表是空的也安全:每个消费点都先判 typeof === 'function'(require() 进来的单测、裁剪构建都不会炸)。
+const ToolboxHooks = {};
+// 这台配置下哪些登记的组件是【启用】的:总开关关掉 = 一个都不接;逐个停用记在 toolbox.disabled。
+function enabledToolboxComponents(config) {
+  const tb = (config && config.toolbox) || {};
+  if (tb.autoDiscover === false) return [];
+  const disabled = new Set(Array.isArray(tb.disabled) ? tb.disabled : []);
+  return scanToolboxComponents().filter(c => !disabled.has(c.id));
+}
+
 // Merge the desktop MCP (detected/explicit) + user externalMcpServers (enabled) into one list of
 // {id,label,command,args,cwd,env}. desktopMcp always uses id 'ai-computer-control'.
 // v1.1-W2 (T2): also merges drop-in connectors scanned from <repo>/mcp/*/ and <dataRoot>/mcp/*/ (runtime
@@ -11670,6 +11804,16 @@ function resolveExternalMcpServers(config) {
         env: d.env || {}, ...mcpRuntimeCommon(d),
       });
     }
+  }
+  // ruyi-toolbox 登记的 MCP 组件排在最后:内部 id 一律 `toolbox-<id>`(前缀保留给自动发现),显式配置／drop-in 撞 id 时让路。
+  // 生命周期、工具清单、权限分级全走现有 MCP 机制 —— 这里只是又一个条目来源,与 drop-in 一样【绝不写回 config】。
+  for (const c of enabledToolboxComponents(config)) {
+    if (c.kind !== 'mcp') continue;
+    const id = 'toolbox-' + c.id;
+    if (out.some(o => o.id === id)) { logEvent({ kind: 'toolbox_component_skip', file: c.id + '.json', reason: 'mcp-id-conflict' }); continue; }
+    const cleaned = sanitizeExternalMcpServer({ id, label: c.name, command: c.run.command, args: c.run.args, cwd: c.run.cwd, env: c.run.env });
+    if (!cleaned) continue;
+    out.push({ id: cleaned.id, label: cleaned.label, command: cleaned.command, args: cleaned.args, cwd: cleaned.cwd || undefined, env: cleaned.env, _toolbox: c.id });
   }
   return out;
 }
@@ -12281,6 +12425,13 @@ async function buildMcpConnectorInventory(config, opts = {}) {
       if (transport !== 'stdio' && !d.url) continue;
       addItem({ id: d.id, label: d.label, source: 'drop-in', builtIn: true, transport, command: d.command, url: d.url, args: d.args || [], cwd: d.cwd || '', env: d.env || {}, enabled: true });
     }
+  }
+  // 4. ruyi-toolbox 登记的 MCP 组件(~/.ruyi-toolbox/components/,运行时合并、不写回 config;与 resolveExternalMcpServers 一致)
+  for (const c of enabledToolboxComponents(config)) {
+    if (c.kind !== 'mcp') continue;
+    const id = 'toolbox-' + c.id;
+    if (out.some(o => o.id === id)) continue;
+    addItem({ id, label: c.name, source: 'toolbox', builtIn: true, transport: 'stdio', command: c.run.command, args: c.run.args, cwd: c.run.cwd, env: c.run.env, enabled: true });
   }
   if (doProbe) {
     for (const item of out) {
@@ -12948,6 +13099,264 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
 })(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn);
+
+// ── 04f · ruyi-toolbox 服务类组件:拉起、探活、接成能力端点、回收 ─────────────────────────────────────────
+// 用户 2026-09-21:「如意启动时自动探测本机上是否有这个 asr shim,有的话自动拉起并自动配置好,开箱即用」,
+// 随后扩成「toolbox 下的都是这样」。对接面只有 ruyi-toolbox 仓的 docs/00-component-registry.md;登记文件的读取与
+// 校验住 04(scanToolboxComponents),MCP 类组件也在 04 并进外部 MCP 清单 —— 本模块只管 kind:'service'。
+// 这是 26 号文 114d 后半(「本地 HTTP 助手进程」管理器)的落地,形状比当时写的更一般:不再是 provider 上的
+// localCommand 字段,而是一份住在用户主目录下的登记文件 —— 命令【只来自磁盘】,没有任何 HTTP 途径写它。
+//
+// 纪律:
+//   ① 绝不阻塞启动。startServer 里 void 调用;探活用 fetch(异步),拉起用 spawn(异步),一发 spawnSync 都没有
+//      (128f-⑬ 的教训:同步探测会把整个服务钉住)。只有进程退出那一刻的收尾用同步 taskkill —— 那时已经没有请求要服务了。
+//   ② 已经有人起好了就不起第二个:端口上站着的 /health 回 component 对得上 → 直接用(owned:false,退出时也不杀它)。
+//   ③ 端口被【别人】占了 → 另挑空闲端口经 portEnv 告诉组件。component 对不上的端口绝不配成端点。
+//   ④ 不经 shell、不拼接参数、不展开变量;windowsHide;stdin 忽略;stderr 只留尾巴给设置页看,不进日志正文。
+//   ⑤ 自动选成语音识别端点【每个组件只发生一次】(config.toolbox.seen),且只在用户还没配过语音识别时;
+//      用户后来关掉或换走,绝不再替他选回来。已经配了别的 → 只列为候选。
+//   ⑥ 自动生成的服务商 id 一律 `toolbox-<id>`,这个前缀归自动发现所有:组件被停用／卸载,条目跟着撤。
+//      组件只是【这次没起来】不撤条目 —— 否则一次偶发失败就会把用户的语音识别选择永久清掉(⑤ 不会再选回来)。
+//   ⑦ 每次拉起／接管／失败／停止都记审计日志(组件 id、pid、端口、结果),不是悄悄的。
+const TOOLBOX_HEALTH_DEADLINE_MS = 20000;   // 约定 §2.2 第 4 条:健康轮询 ≤ 20 秒
+const TOOLBOX_HEALTH_POLL_MS = 400;
+const TOOLBOX_PROBE_TIMEOUT_MS = 1500;
+const TOOLBOX_STDERR_TAIL = 2000;
+const toolboxServices = new Map();          // id → { component, state, port, owned, child, pid, error, stderrTail, starting, stopping, startedAt }
+
+function toolboxProviderId(componentId) { return 'toolbox-' + componentId; }
+
+// 'ours' = 端口上站着的就是这个组件;'other' = 有人占着但不是它;'down' = 端口空着。
+async function toolboxProbe(port, healthPath, componentTag) {
+  try {
+    const res = await fetch('http://127.0.0.1:' + port + healthPath, { signal: AbortSignal.timeout(TOOLBOX_PROBE_TIMEOUT_MS) });
+    const text = (await res.text()).slice(0, 4096);
+    const body = safeJsonParse(text, null);
+    if (res.ok && body && typeof body === 'object' && body.component === componentTag) return 'ours';
+    return 'other';
+  } catch {
+    return (await toolboxPortFree(port)) ? 'down' : 'other';
+  }
+}
+function toolboxListenOnce(port) {
+  return new Promise(resolve => {
+    const probe = http.createServer();
+    probe.once('error', () => resolve(0));
+    probe.listen(port, '127.0.0.1', () => { const got = probe.address().port; probe.close(() => resolve(got)); });
+  });
+}
+async function toolboxPortFree(port) { return (await toolboxListenOnce(port)) === port; }
+async function toolboxFreePort() { return toolboxListenOnce(0); }
+
+// 整棵树:Windows 上 venv 的 python.exe 是个启动器,真正的解释器是它的子进程 —— 只 kill 启动器会留下孤儿(还占着显存)。
+function toolboxKillTree(child, sync) {
+  if (!child || !child.pid || child.exitCode !== null || child.signalCode) return;
+  if (process.platform === 'win32') {
+    const args = ['/PID', String(child.pid), '/T', '/F'];
+    try {
+      if (sync) cp.spawnSync('taskkill', args, { windowsHide: true, stdio: 'ignore', timeout: 5000 });
+      else cp.spawn('taskkill', args, { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
+    } catch { /* taskkill 不在也别抛:下面再补一刀 */ }
+  }
+  try { child.kill(); } catch { /* 已经没了 */ }
+}
+
+function toolboxEntry(component) {
+  let entry = toolboxServices.get(component.id);
+  if (!entry) {
+    entry = { component, state: 'idle', port: component.service.port, owned: false, child: null, pid: 0, error: '', stderrTail: '', starting: null, stopping: false, startedAt: 0 };
+    toolboxServices.set(component.id, entry);
+  }
+  entry.component = component;
+  return entry;
+}
+
+// 起一个服务(幂等、并发互斥:同一个组件同时只有一趟在起 —— 55 波「getMcpClient 必须并发互斥防孤儿」同一条教训)。
+function startToolboxService(component) {
+  const entry = toolboxEntry(component);
+  if (entry.starting) return entry.starting;
+  entry.starting = (async () => {
+    const svc = component.service;
+    const t0 = Date.now();
+    // 还活着就不动:自己起的看子进程,接管来的再探一次。
+    if (entry.state === 'running') {
+      if (entry.owned ? (entry.child && entry.child.exitCode === null) : (await toolboxProbe(entry.port, svc.health, svc.component)) === 'ours') return entry;
+    }
+    entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
+    const first = await toolboxProbe(svc.port, svc.health, svc.component);
+    if (first === 'ours') {
+      Object.assign(entry, { state: 'running', port: svc.port, owned: false, child: null, pid: 0, startedAt: Date.now() });
+      logEvent({ kind: 'toolbox_service', action: 'adopt', id: component.id, port: svc.port });
+      return entry;
+    }
+    const port = first === 'down' ? svc.port : await toolboxFreePort();
+    if (!port) { Object.assign(entry, { state: 'failed', error: 'no-free-port' }); logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'no-free-port' }); return entry; }
+    let child = null;
+    try {
+      child = cp.spawn(component.run.command, component.run.args, {
+        cwd: component.run.cwd, shell: false, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
+        env: { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...component.run.env, [svc.portEnv]: String(port), RUYI_TOOLBOX_PARENT_PID: String(process.pid) },
+      });
+    } catch (err) {
+      Object.assign(entry, { state: 'failed', error: 'spawn: ' + String(err && err.message || err).slice(0, 200) });
+      logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'spawn' });
+      return entry;
+    }
+    Object.assign(entry, { state: 'starting', port, owned: true, child, pid: child.pid || 0 });
+    let spawnError = '';
+    child.on('error', err => { spawnError = String(err && err.message || err).slice(0, 200); });
+    if (child.stderr) {
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', chunk => { entry.stderrTail = (entry.stderrTail + chunk).slice(-TOOLBOX_STDERR_TAIL); });
+    }
+    child.on('exit', (code, signal) => {
+      if (entry.child !== child) return;
+      const was = entry.state;
+      entry.state = entry.stopping ? 'stopped' : (was === 'starting' ? 'failed' : 'exited');
+      if (!entry.stopping) entry.error = 'exit ' + (code === null ? String(signal || '') : code);
+      logEvent({ kind: 'toolbox_service', action: entry.stopping ? 'stop' : 'exit', id: component.id, pid: entry.pid, code, signal: signal || '' });
+    });
+    logEvent({ kind: 'toolbox_service', action: 'spawn', id: component.id, pid: entry.pid, port, command: path.basename(component.run.command) });
+    const deadline = t0 + TOOLBOX_HEALTH_DEADLINE_MS;
+    while (Date.now() < deadline) {
+      if (spawnError || child.exitCode !== null || child.signalCode) break;
+      if (entry.stopping) return entry;
+      if ((await toolboxProbe(port, svc.health, svc.component)) === 'ours') {
+        Object.assign(entry, { state: 'running', startedAt: Date.now() });
+        logEvent({ kind: 'toolbox_service', action: 'ready', id: component.id, pid: entry.pid, port, ms: Date.now() - t0 });
+        return entry;
+      }
+      await new Promise(r => setTimeout(r, TOOLBOX_HEALTH_POLL_MS));
+    }
+    // 没起来:不重试到天荒地老。杀掉、记一笔、把 stderr 的尾巴留给设置页。
+    entry.stopping = true;
+    toolboxKillTree(child, false);
+    Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
+    logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });
+    return entry;
+  })().finally(() => { entry.starting = null; });
+  return entry.starting;
+}
+
+function stopToolboxService(id, sync) {
+  const entry = toolboxServices.get(id);
+  if (!entry) return;
+  entry.stopping = true;
+  if (entry.owned && entry.child) toolboxKillTree(entry.child, sync === true);   // 接管来的(用户自己起的)不杀
+  if (entry.state !== 'failed') entry.state = 'stopped';
+}
+// 进程退出那一刻(13 cleanupMcp):同步杀干净自己拉起的。如意被强杀时走不到这里 —— 那种情况靠组件自己的父进程看门狗。
+function stopAllToolboxServicesSync() {
+  for (const id of toolboxServices.keys()) { try { stopToolboxService(id, true); } catch { /* 收尾绝不抛 */ } }
+}
+
+// 把启用的服务类组件的 provides 落成配置。只在真有变化时才写盘(mutateConfig 的 abort 支)。
+function toolboxDesiredProviders(config) {
+  const out = [];
+  for (const c of enabledToolboxComponents(config)) {
+    if (c.kind !== 'service') continue;
+    const asr = c.provides.find(p => p.type === 'asr');
+    if (!asr) continue;
+    const entry = toolboxServices.get(c.id);
+    const port = entry && entry.port ? entry.port : c.service.port;
+    out.push({
+      componentId: c.id,
+      provider: {
+        id: toolboxProviderId(c.id), label: c.name, baseUrl: 'http://127.0.0.1:' + port + asr.basePath, apiKey: '', model: asr.model,
+        models: [{ id: asr.model, label: asr.model, caps: ['asr'] }], ...(asr.protocol === 'chat-audio' ? { asrProtocol: 'chat-audio' } : {}),
+      },
+    });
+  }
+  return out;
+}
+async function syncToolboxProviders() {
+  return mutateConfig(current => {
+    const desired = toolboxDesiredProviders(current);
+    const wanted = new Map(desired.map(d => [d.provider.id, d.provider]));
+    let changed = false;
+    const providers = [];
+    for (const p of (Array.isArray(current.providers) ? current.providers : [])) {
+      if (!p || !String(p.id || '').startsWith('toolbox-')) { providers.push(p); continue; }
+      const want = wanted.get(p.id);
+      if (!want) { changed = true; continue; }   // 组件被停用／卸载 → 条目跟着撤(01 的归一化会把指向它的语音识别选择一并清空)
+      wanted.delete(p.id);
+      const hasAsr = (Array.isArray(p.models) ? p.models : []).some(m => m && m.id === want.model && Array.isArray(m.caps) && m.caps.includes('asr'));
+      if (p.baseUrl !== want.baseUrl || p.label !== want.label || !hasAsr || (p.asrProtocol || '') !== (want.asrProtocol || '')) {
+        const next = { ...p, label: want.label, baseUrl: want.baseUrl, model: want.model, models: want.models };
+        if (want.asrProtocol) next.asrProtocol = want.asrProtocol; else delete next.asrProtocol;
+        providers.push(next); changed = true;
+      } else providers.push(p);
+    }
+    for (const want of wanted.values()) { providers.push(want); changed = true; }
+    const tb = current.toolbox || { autoDiscover: true, disabled: [], seen: [] };
+    const seen = new Set(Array.isArray(tb.seen) ? tb.seen : []);
+    let asrProviderId = String(current.asrProviderId || ''), asrModel = String(current.asrModel || '');
+    for (const d of desired) {
+      if (seen.has(d.componentId)) continue;
+      seen.add(d.componentId); changed = true;
+      if (!asrProviderId && !asrModel) {
+        asrProviderId = d.provider.id; asrModel = d.provider.model;
+        logEvent({ kind: 'toolbox_service', action: 'asr-auto-select', id: d.componentId, model: asrModel });
+      }
+    }
+    if (!changed) return { abort: 'unchanged' };
+    return { next: { ...current, providers, asrProviderId, asrModel, toolbox: { ...tb, seen: [...seen] } } };
+  });
+}
+
+// 对账:该起的起、该停的停、配置跟上。启动时调一次,全局配置保存之后再调一次(设置页里停用／启用某个组件)。
+let toolboxReconcileChain = Promise.resolve();
+function reconcileToolbox() {
+  const run = toolboxReconcileChain.then(async () => {
+    const config = await readConfig();
+    invalidateToolboxCache();
+    const enabled = enabledToolboxComponents(config).filter(c => c.kind === 'service');
+    const keep = new Set(enabled.map(c => c.id));
+    for (const [id, entry] of toolboxServices) {
+      if (!keep.has(id) && entry.state !== 'stopped') stopToolboxService(id, false);
+    }
+    await Promise.all(enabled.map(c => startToolboxService(c).catch(() => null)));
+    await syncToolboxProviders().catch(err => { logEvent({ kind: 'toolbox_service', action: 'config-sync-failed', error: String(err && err.message || err).slice(0, 200) }); });
+  });
+  toolboxReconcileChain = run.catch(() => {});
+  return run;
+}
+
+// 转写之前:语音识别指着的是 toolbox 组件、而它这会儿没在跑(崩了／上次没起来)→ 就地再起一次,而不是让用户去重启如意。
+async function ensureToolboxServiceForProvider(providerId) {
+  const id = String(providerId || '');
+  if (!id.startsWith('toolbox-')) return;
+  const config = await readConfig();
+  const component = enabledToolboxComponents(config).find(c => c.kind === 'service' && toolboxProviderId(c.id) === id);
+  if (!component) return;
+  const before = toolboxServices.get(component.id);
+  const portBefore = before ? before.port : component.service.port;
+  const entry = await startToolboxService(component).catch(() => null);
+  if (entry && entry.state === 'running' && entry.port !== portBefore) await syncToolboxProviders().catch(() => {});
+}
+
+// /api/status 用的只读视图:设置页据此画「扩展组件」一栏。命令只给文件名(不给全路径、不给参数、不给 env)。
+function toolboxStatusView(config) {
+  const tb = (config && config.toolbox) || {};
+  const disabled = new Set(Array.isArray(tb.disabled) ? tb.disabled : []);
+  const components = scanToolboxComponents().map(c => {
+    const entry = toolboxServices.get(c.id);
+    const off = tb.autoDiscover === false || disabled.has(c.id);
+    return {
+      id: c.id, kind: c.kind, name: c.name, version: c.version, enabled: !off,
+      provides: c.kind === 'service' ? c.provides.map(p => p.type) : ['mcp'],
+      state: off ? 'disabled' : (c.kind === 'mcp' ? 'registered' : (entry ? entry.state : 'idle')),
+      ...(c.kind === 'service' ? { port: entry ? entry.port : c.service.port, owned: Boolean(entry && entry.owned) } : {}),
+      ...(entry && entry.error ? { error: entry.error, stderrTail: redact(entry.stderrTail).slice(-600) } : {}),
+    };
+  });
+  return { autoDiscover: tb.autoDiscover !== false, components };
+}
+// 消费点经 04 的 ToolboxHooks 调进来(见那里的头注:本模块零入边)。
+ToolboxHooks.reconcile = reconcileToolbox;
+ToolboxHooks.stopAllSync = stopAllToolboxServicesSync;
+ToolboxHooks.ensureForProvider = ensureToolboxServiceForProvider;
+ToolboxHooks.statusView = toolboxStatusView;
 
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
@@ -14878,6 +15287,13 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   // 出站目标 URL【只来自配置】(audioBaseUrl || baseUrl),绝不接受请求体里的地址(威胁模型见 13b audio 域头注)。
   //   transcriptions:multipart(Node 内置 FormData+Blob)→ {base}/audio/transcriptions;
   //   chat-audio    :application/json + input_audio data URI → {base}/chat/completions。
+  // 语音识别指着的是 ruyi-toolbox 的本地组件、而它这会儿没在跑(崩了／上次没起来)→ 就地再起一次(04f)。
+  // 非 toolbox 的服务商这一行立即返回;起来之后端口若变了,配置已被改写,所以重取一次 provider。
+  if (String(provider.id || '').startsWith('toolbox-')) {
+    if (typeof ToolboxHooks.ensureForProvider === 'function') await ToolboxHooks.ensureForProvider(provider.id);
+    const fresh = resolveProvider(await readConfig(), provider.id);
+    if (fresh) provider = fresh;
+  }
   const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
   if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
   const chatAudio = provider.asrProtocol === 'chat-audio';
@@ -42229,6 +42645,7 @@ async function handleApi(req, res, pathname) {
       })(),
       models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
+      toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
       detectedClaudePath: detectClaudePath(),
       detectedKimiPath: detectKimiPath(),
@@ -42410,6 +42827,9 @@ async function handleApi(req, res, pathname) {
       }
       throw error;
     }
+    // 设置页停用／启用了某个 toolbox 组件(或动了总开关)→ 对账一次:该停的停、该起的起、自动生成的服务商条目跟上。
+    // 只在这次补丁确实带了 toolbox 键时才做 —— 平常的保存不该顺手去探一圈端口。不 await:保存的回包不等进程起来。
+    if (body && typeof body === 'object' && Object.prototype.hasOwnProperty.call(body, 'toolbox') && typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     return send(res, json({ ok: true, config: maskProviders(next) })); // F2: masked response
   }
   if (req.method === 'GET' && pathname === '/api/agent-roles') {
@@ -43886,6 +44306,8 @@ async function startServerInner(opts) {
     // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
     // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
     // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
+    // ruyi-toolbox:登记过的服务类组件在这里拉起并接成能力端点(04f)。void —— 绝不挡启动,失败只记日志与状态。
+    if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     void ensureDesktopMcpWarm(config).then(() => {
       void syncMcpServersToClaude(config).catch(() => {});
       if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
@@ -43900,7 +44322,7 @@ async function startServerInner(opts) {
   // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } };
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.

@@ -430,6 +430,14 @@
 .asr-add-row select { width: auto; flex: 0 1 auto; max-width: 100%; }
 .asr-add-row .asr-add-model { width: auto; flex: 1 1 180px; min-width: 0; }
 .asr-add-row .asr-add-btn { flex: none; }
+/* 设置页「扩展组件（ruyi-toolbox）」一栏：每个组件一行（开关｜名字｜类型与状态），失败原因在下一行、保留换行。 */
+.toolbox-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.toolbox-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; }
+.toolbox-row input[type="checkbox"] { width: auto; flex: none; }
+.toolbox-row .toolbox-name { color: var(--ink); }
+.toolbox-row .toolbox-meta { margin-left: auto; font-size: var(--fs-sm); }
+.toolbox-row[data-state="failed"] .toolbox-meta, .toolbox-row[data-state="exited"] .toolbox-meta { color: var(--danger, var(--ink-2)); }
+.toolbox-row .toolbox-error { flex-basis: 100%; margin: 0; white-space: pre-wrap; word-break: break-word; }
 /* v1.0.2 (G5b): provider 上下文窗口「当前生效」小字 */
 .prov-ctx-hint { font-size: var(--fs-xs); margin-top: 4px; line-height: 1.5; }
 .prov-status { font-size: var(--fs-sm); }

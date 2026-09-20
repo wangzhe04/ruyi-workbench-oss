@@ -686,7 +686,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ② 设置页「添加语音识别模型」一行（.asr-add-row）：多了一枚「接口类型」选择器，四个控件一行排、窄了自动折行。
 //   ③「协议」与「服务端搜索」两条说明补 white-space: normal：修前继承了所在行的 nowrap，长说明把卡片撑出横向滚动条。
 // 算法自证：把 chat-shell.css 从 HEAD 检出重算 = 1c7827a7…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'a8d33ab688eee9f7a34fdf84be5386a79d801c59eac4aec88ff9b60fa62fa219';
+// 2026-09-21 续钉（前值 a8d33ab6…）：零新增、零删除层，只在 `css/views/chat-shell.css` 的 .asr-add-row 后面加一族 .toolbox-*
+//   —— 设置页「扩展组件（ruyi-toolbox）」一栏（每个组件一行：开关｜名字｜类型与状态，失败原因独占下一行）。
+//   一个组件都没登记时这一栏整块不渲染，所以没装 toolbox 的人逐像素不变。
+// 算法自证：把 chat-shell.css 从 HEAD 检出重算 = a8d33ab6…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'c103c66e8a230e7822a140f8a72bd516781e9699d81d23de8d0feae982b3e0e0';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

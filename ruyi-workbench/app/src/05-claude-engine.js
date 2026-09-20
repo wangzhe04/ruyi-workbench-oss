@@ -1927,6 +1927,13 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   // 出站目标 URL【只来自配置】(audioBaseUrl || baseUrl),绝不接受请求体里的地址(威胁模型见 13b audio 域头注)。
   //   transcriptions:multipart(Node 内置 FormData+Blob)→ {base}/audio/transcriptions;
   //   chat-audio    :application/json + input_audio data URI → {base}/chat/completions。
+  // 语音识别指着的是 ruyi-toolbox 的本地组件、而它这会儿没在跑(崩了／上次没起来)→ 就地再起一次(04f)。
+  // 非 toolbox 的服务商这一行立即返回;起来之后端口若变了,配置已被改写,所以重取一次 provider。
+  if (String(provider.id || '').startsWith('toolbox-')) {
+    if (typeof ToolboxHooks.ensureForProvider === 'function') await ToolboxHooks.ensureForProvider(provider.id);
+    const fresh = resolveProvider(await readConfig(), provider.id);
+    if (fresh) provider = fresh;
+  }
   const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
   if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
   const chatAudio = provider.asrProtocol === 'chat-audio';
