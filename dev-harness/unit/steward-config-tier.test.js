@@ -161,6 +161,9 @@ const EXPECTED = {
   discoverModelsFromProxy: 'forbidden', modelsApiKey: 'forbidden',
   claudeAuthMode: 'forbidden', providers: 'forbidden',
   openaiMaxToolIterations: 'forbidden', desktopMcp: 'forbidden',
+  // 2026-09-21 toolbox 自动发现:它决定「本机登记的程序要不要被如意执行」(总开关／逐个停用)。不含命令,但翻开它 = 放行执行,
+  // 与 desktopMcp 同族 —— 由用户在设置页亲手改;不进 confirm(那一档管家提个按钮、用户随手一按就翻了)。
+  toolbox: 'forbidden',
   autoImportClaudeCodeMcp: 'forbidden', dismissedMcpIds: 'forbidden',
   bridgeExternalToolsToProvider: 'forbidden', toolLoadingMode: 'forbidden', toolCatalogCacheTtlMs: 'forbidden',
   runtimeOptimizationShadowV1: 'forbidden', runtimeToolRetrievalV1: 'forbidden',

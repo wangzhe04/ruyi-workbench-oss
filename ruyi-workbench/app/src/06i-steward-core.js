@@ -1343,6 +1343,9 @@ const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
   // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权;它也【不】塞进 stewardAutoActions(那一格
   // 是 confirm 档)。判据仍是 fail-closed 的「不在 free/confirm 两张表里」,这里只是点名留账。
   'stewardExemptDelegationV1',
+  // 2026-09-21:toolbox 自动发现的开关(autoDiscover／disabled／seen)。不含命令,但翻开它 = 放行本机登记程序的执行,
+  // 与 desktopMcp 同族:用户在设置页亲手改,管家改不了、也不能劝用户一键翻开。
+  'toolbox',
 ]);
 
 const STEWARD_CONFIG_TIERS = Object.freeze({
