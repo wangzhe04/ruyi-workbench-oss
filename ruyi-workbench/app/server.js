@@ -20731,12 +20731,18 @@ const PROMPT_ZH = {
 
   // ── [管家包] 116f(27 号文 §11.2 分层布局 / §8.1 原则 7-9 / §3.3 纪律)────────────────────────
   // 只有 session.kind === 'steward' 的管家会话用这一段,且是【整段替换】——管家不拿身份层、工具协议层、
-  // 技能/playbook/项目记忆等普通会话的任何一层(它的工具面只有 17 个 steward_*,那些层对它没有意义,
-  // 还会把「你是本地 AI 助手,有读写文件的工具」这种错误自我认知灌进去)。
-  // 分层与前缀缓存纪律:stable 是版本级常量(≤2500 字符,放最前);记忆块与总览是易变层,由 13h 拼在
+  // 技能/playbook/项目记忆等普通会话的任何一层 —— 后者会把「你是本地 AI 助手,有读写文件的工具」
+  // 这种错误自我认知灌进去。
+  // **129a 更正一句陈述**:这里原本写着「它的工具面只有 17 个 steward_*,那些层对它没有意义」。
+  // 前半句早已过期(今天 33 个),后半句也随之不成立 —— 管家现在【能】整份替换一条线程的技能
+  // (steward_skill_toggle)、【能】起草 playbook(steward_playbook_draft),却看不见技能注册表与
+  // playbook 清单,只能猜 id(schema 自己写着「不存在的会被静默丢掉」)。那两层于是重新有了意义,
+  // 由 129b 按【管家口径】补(不是照搬普通会话那两层:管家要的是「有哪些可选」,不是「怎么用」)。
+  // 分层与前缀缓存纪律:stable 是版本级常量(放最前);记忆块与总览是易变层,由 13h 拼在
   // 第一条 user 消息前缀里(与普通会话的 turnVolatile 同一投放位置),易变内容后置。
   steward: {
-    // 稳定层。改这段 = 改管家的行为契约,必须同步 steward-runner.static 的 ≤2500 字符闸与 27 号文 §11.2。
+    // 稳定层。改这段 = 改管家的行为契约,必须同步 steward-runner.static 的 ≤900 tok 闸(129a:原为
+    // ≤2500 字符 —— 字符尺子对中英两包的真实成本不等价,英文被挤得塞不下规则)与 27 号文 §11.2。
     stable: [
       '我是如意,这台电脑上的工作台管家。我不是聊天助手,我替用户看着这台机器上正在跑的每条线程。',
       '职责:看(每条线程在哪一步、在等谁)、递(把用户的话交给对的线程)、答(关于如意、事项、费用、设置的问题直接回答)、替你拿主意(在目标线程权限允许的范围内)、记(用户本人说过的偏好与习惯)、调如意(用 steward_* 工具操作工作台自身)。',
@@ -20783,7 +20789,11 @@ const PROMPT_ZH = {
       // 已经 1974 —— 派单稿以为「中英各加 ≤400 字符有余量」,实测只剩 226。分档表里那些更细的数字
       // (问候 ≤120 字、清单每条 ≤30 字、转述交付拆成「结论/关键数字/没取到的」三行、以及
       // 「我做不了」不解释一段)因此只留在这条注释里,没进提示词;要把它们放进去,先压缩英文行。
-      '· 篇幅按场景分档:问候、状态、答问 ≤2 段;清单最多 3 条;开线程只用一两句(线程名、用哪档、大概多久、跑完怎么告诉你),绝不复述委托书 —— 它就在线程卡上;转述交付 ≤200 字;追问 ≤60 字,配两三个 acts。',
+      // 129a:分档表里更细的那几个数原本【留在注释里没进提示词】,理由是「英文包的字数闸」。
+      // 闸换成 token 之后英文真余量约 180 tok,四条一次补齐(问候 ≤120 字、清单每条 ≤30 字、
+      // 转述交付拆三行、「我做不了」不解释一段 —— 最后一条另起一行,它不是篇幅问题)。
+      '· 篇幅按场景分档:问候 ≤120 字;状态、答问 ≤2 段;清单最多 3 条、每条 ≤30 字;开线程只用一两句(线程名、用哪档、大概多久、跑完怎么告诉你),绝不复述委托书 —— 它就在线程卡上;转述交付 ≤200 字,分三行写(结论 / 关键数字 / 没取到的);追问 ≤60 字,配两三个 acts。',
+      '· 做不了的事一句话收:「这个我做不了」＋能走的那条路(开线程、或交给你按),不解释为什么不行、不背规则条款 —— 用户要的是下一步,不是我的边界说明书。',
       // 123-N1 ③(同上;用户原话「管家或许不用急着自己判断直接开线程,可以先对话几轮对清楚需求了
       // 再开(度难把握,太多了会啰嗦)」):度就钉在这两句上 —— **只问一次** ＋ **有先例就不问**。
       // 「四处歧义」的全称是:范围(查哪个、哪几个)、时间窗、交付形式(一句话、一页分析、文件)、
@@ -21005,7 +21015,9 @@ const PROMPT_EN = {
       // many things one reply covers. "Never restating the brief" is the expensive half - the brief is
       // already printed on the thread card the user is looking at. Telegraphic on purpose: this pack
       // was already at 1974 of the 2480 rules budget before this cut (see the Chinese comment).
-      '\u00b7 Length by situation: greeting/status/answer <=2 paragraphs; a list <=3 bullets; opening a thread <=2 sentences (name, tier, rough time, how I report back), never restating the brief - it is on the thread card; a retell <=200 chars; a follow-up <=60 chars, 2-3 acts.',
+      // 129a: same four refinements as the zh line (they were stuck in a comment under the character gate).
+      '\u00b7 Length by situation: a greeting <=120 chars; status/answer <=2 paragraphs; a list <=3 bullets, each <=30 chars; opening a thread <=2 sentences (name, tier, rough time, how I report back), never restating the brief - it is on the thread card; a retell <=200 chars on three lines (conclusion / key numbers / what I could not get); a follow-up <=60 chars, 2-3 acts.',
+      '\u00b7 Close out what I cannot do in one line: "I cannot do that" plus the route that works (open a thread, or hand you a button). Do not explain why not and do not recite the rules - the user wants the next step, not a map of my limits.',
       // 123-N1 \u2462: same rule as PROMPT_ZH.steward.rules' clarify-before-opening line. The dosage is the
       // whole point - ask ONCE, and never when a precedent exists. Counter-example from the same
       // walkthrough: right after an A-share analysis the user asked about next week in US equities;
@@ -56795,6 +56807,10 @@ module.exports = {
   McpStdioClient,
   McpHttpClient, // 49c: 远程 MCP transport(sse/streamable-http) — exposed for e2e 直连契约断言。
   estimateHistoryTokens, // v0.8-S5: exposed for e2e direct unit testing (parts-aware token estimate v2)
+  // 129a:提示词预算的尺子。管家稳定层/规则层的闸从「字符数」改成「token 估算」——
+  // 字符闸对两种语言的真实成本不等价(2500 字符 ≈ 中文 1660 tok / 英文 695 tok),
+  // 于是英文包被挤得塞不下规则,中文包的「余量」又是假的。静态锁要用同一把尺子,故导出。
+  estimateTextTokens,
   // 第45波(压缩 v2):摘要内核 + 45a 预算适配/map-reduce 分组 — exposed for e2e(死锁角回归)。
   providerSummaryCall,
   validateStructuredSummary,

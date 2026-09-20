@@ -188,8 +188,25 @@ const srv = require(path.join(APP, 'server.js'));
   const en = srv.getPromptPack('en-US').steward;
   ok(zh && en && typeof zh.stable === 'string' && typeof en.stable === 'string', '③ 06b 新增 steward 段且中英双包齐全');
   ok(JSON.stringify(Object.keys(zh)) === JSON.stringify(Object.keys(en)), '③ 中英两包键集逐条对齐(与 PROMPT_ZH/PROMPT_EN 其余段同纪律)');
-  ok(zh.stable.length <= 2500, `③ 中文稳定层 ≤2500 字符(§11.2 稳定层预算;got ${zh.stable.length})`);
-  ok(en.stable.length <= 2500, `③ 英文稳定层 ≤2500 字符(got ${en.stable.length})`);
+  // ── 129a:预算的尺子从【字符】换成【token 估算】────────────────────────────────────
+  // 为什么换:原闸是两包共用的 ≤2500 **字符**。实测(2026-09-20,判据就是产品自己的
+  // estimateTextTokens = ascii/3.6 + cjk/1.5):
+  //     中文 stable 1149 字符 = 596 tok   |   英文 stable 2455 字符 = 682 tok
+  //     中文 rules  968 字符 = 507 tok    |   英文 rules  2444 字符 = 679 tok
+  // 2500 字符对纯中文 ≈1660 tok、对英文 ≈695 tok ——【同一把尺子给英文的真实预算只有中文的 42%】。
+  // 后果不是抽象的:06b 的注释里明写着四条已经想清楚的规则(问候 ≤120 字、清单每条 ≤30 字、
+  // 转述交付拆三行、「我做不了」不解释一段)**因为英文包的字数闸而留在注释里没进提示词**;
+  // 而「中文还剩一半空间」是假余量 —— 按 token 算两包本来就差不多(596/682)。
+  // 新值 900/860 tok **比原意更紧**,不是放水:2500 字符对中文本来就等于 ≈1660 tok。
+  // 关系不变(27 号文):rules 不许比 stable 贵 —— 它每回合拼在第一条 user 消息前缀里,不吃前缀缓存。
+  const tok = srv.estimateTextTokens;
+  const STABLE_BUDGET_TOKENS = 900;
+  ok(typeof tok === 'function', '③ 129a 尺子在(estimateTextTokens 已导出;拿不到 = 下面几条在比空气)');
+  ok(Math.round(tok('测试')) > 0 && Math.round(tok('abcdefghij')) > 0, '③ 129a 尺子自检:中英文都量得出非零 token');
+  ok(Math.round(tok(zh.stable)) <= STABLE_BUDGET_TOKENS,
+    `③ 中文稳定层 ≤${STABLE_BUDGET_TOKENS} tok(§11.2 稳定层预算;got ${Math.round(tok(zh.stable))} tok / ${zh.stable.length} 字符)`);
+  ok(Math.round(tok(en.stable)) <= STABLE_BUDGET_TOKENS,
+    `③ 英文稳定层 ≤${STABLE_BUDGET_TOKENS} tok(got ${Math.round(tok(en.stable))} tok / ${en.stable.length} 字符)`);
   for (const [label, pack] of [['中文', zh], ['英文', en]]) {
     ok(/say/.test(pack.stable) && /acts/.test(pack.stable) && /actions/.test(pack.stable) && /why/.test(pack.stable),
       `③ ${label}稳定层写明四字段输出契约`);
@@ -272,12 +289,26 @@ const srv = require(path.join(APP, 'server.js'));
   //   · **英文包现在 2444/2480,是满的**:下一条英文规则塞不进来。再要加规则,修法【不是】再抬这个
   //     数字(2500 是死顶:rules 不许比 stable 贵),而是先压缩英文行 —— 英文各行普遍是对应中文行的
   //     2.5~4 倍(如「把话说完整」那条 en 362 / zh 122),压缩空间在那里,或者退役一条。
-  const RULES_BUDGET = 2480;
-  ok(RULES_BUDGET < 2500, '③ 117y-S2 rules 闸严于 stable 闸(不缓存的那一层不许比缓存层更贵)');
-  ok(typeof zh.rules === 'string' && zh.rules.length <= RULES_BUDGET,
-    `③ 117y-S2 中文 rules ≤${RULES_BUDGET} 字符(got ${zh.rules && zh.rules.length})`);
-  ok(typeof en.rules === 'string' && en.rules.length <= RULES_BUDGET,
-    `③ 117y-S2 英文 rules ≤${RULES_BUDGET} 字符(got ${en.rules && en.rules.length})`);
+  //   · **129a:尺子换成 token 之后,上面这段「英文满了、只能压缩或退役」不再成立** —— 它描述的是
+  //     字符闸下的处境。英文 rules 679 tok / 860,真余量约 180 tok(≈650 英文字符);本刀就用这份
+  //     余量把上面那四条卡在注释里的规则放了进去。再要加规则仍先看这个数,别再抬它。
+  const RULES_BUDGET_TOKENS = 860;
+  ok(RULES_BUDGET_TOKENS < STABLE_BUDGET_TOKENS, '③ 117y-S2 rules 闸严于 stable 闸(不缓存的那一层不许比缓存层更贵)');
+  ok(typeof zh.rules === 'string' && Math.round(tok(zh.rules)) <= RULES_BUDGET_TOKENS,
+    `③ 117y-S2 中文 rules ≤${RULES_BUDGET_TOKENS} tok(got ${Math.round(tok(zh.rules))} tok / ${zh.rules && zh.rules.length} 字符)`);
+  ok(typeof en.rules === 'string' && Math.round(tok(en.rules)) <= RULES_BUDGET_TOKENS,
+    `③ 117y-S2 英文 rules ≤${RULES_BUDGET_TOKENS} tok(got ${Math.round(tok(en.rules))} tok / ${en.rules && en.rules.length} 字符)`);
+  // 129a 反向保护:两包的 token 差不许再拉开太大。**这是一条粗带,不是精度判据** —— 真正管住绝对
+  // 开销的是上面两个 per-pack 闸,条数对齐管住「只给一包加规则」;这一条只抓【某一包整体长胖一截
+  // 或被砍秃一截】。实测今天差 19.6%(zh 1168 / en 1453),反向验证量过:要把它顶红得往中文包灌
+  // 约 1067 tok(≈1600 汉字),所以别指望它抓小改动。带宽 35% 是按「英文天然比中文贵两成、
+  // 再留一条大规则的余地」定的。
+  {
+    const a = Math.round(tok(zh.stable) + tok(zh.rules));
+    const b = Math.round(tok(en.stable) + tok(en.rules));
+    ok(Math.abs(a - b) / Math.max(a, b) <= 0.35,
+      `③ 129a 中英两包的真实开销不许拉开超过 35%(zh ${a} tok / en ${b} tok)`);
+  }
   ok(zh.rules.split('\n').length === en.rules.split('\n').length,
     `③ 117y-S2 中英 rules 条数逐条对齐(zh ${zh.rules.split('\n').length} / en ${en.rules.split('\n').length})`);
   // 第 7 条本身:钉语义要素不钉字面量(容许润色),中英各一条。
@@ -302,6 +333,20 @@ const srv = require(path.join(APP, 'server.js'));
     '③ 123-N1 ② 中文 rules 有「篇幅按场景分档」这一条,且写明【不复述委托书】(它在线程卡上)');
   ok(/never restating the brief/i.test(tierRuleEn) && /thread card/i.test(tierRuleEn) && /follow-up/i.test(tierRuleEn),
     '③ 123-N1 ② 英文包同步一条同义规则(never restating the brief + it is on the thread card)');
+  // ── 129a:字符闸换成 token 闸之后补进来的那四条(修前因为「英文包的字数闸」留在注释里)──────
+  // 前三条是分档表里更细的数,挂在上面那条 tierRule 上;第四条另起一行(它不是篇幅问题,是
+  // 「做不了的时候别背规则条款」)。钉语义要素不钉字面量,中英各一条。
+  // 没有这两条断言的话,把四条规则原样删回注释里不会有任何人红 —— 129a 就白做了。
+  ok(/120/.test(tierRuleZh) && /30/.test(tierRuleZh) && /三行/.test(tierRuleZh),
+    '③ 129a 中文分档那条含更细的三个数(问候 120 / 清单每条 30 / 转述交付分三行)');
+  ok(/120/.test(tierRuleEn) && /30/.test(tierRuleEn) && /three lines/i.test(tierRuleEn),
+    '③ 129a 英文分档那条同步三个数(120 / 30 / three lines)');
+  const cantRuleZh = zh.rules.split('\n').find(l => /做不了/.test(l)) || '';
+  const cantRuleEn = en.rules.split('\n').find(l => /cannot do/i.test(l)) || '';
+  ok(/一句话收|一句话/.test(cantRuleZh) && /不解释/.test(cantRuleZh) && /下一步/.test(cantRuleZh),
+    '③ 129a 中文 rules 有「做不了的事一句话收、不解释为什么不行」这一条');
+  ok(/one line/i.test(cantRuleEn) && /not explain/i.test(cantRuleEn) && /next step/i.test(cantRuleEn),
+    '③ 129a 英文包同步一条同义规则(one line + do not explain + the next step)');
   const askRuleZh = zh.rules.split('\n').find(l => /开线程前/.test(l)) || '';
   const askRuleEn = en.rules.split('\n').find(l => /before opening a thread/i.test(l)) || '';
   ok(/先例/.test(askRuleZh) && /只问一次/.test(askRuleZh) && /这一轮不开线程/.test(askRuleZh),

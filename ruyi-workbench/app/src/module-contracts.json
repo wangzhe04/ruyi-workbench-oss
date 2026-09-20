@@ -20310,6 +20310,13 @@
         },
         {
           "provider": "09d-token-estimation.js",
+          "symbol": "estimateTextTokens",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "fmtTokensServer",
           "kinds": [
             "read"
