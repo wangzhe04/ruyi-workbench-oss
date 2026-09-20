@@ -77,6 +77,9 @@ const EXPECTED = {
   // 见 06i 该处的原注释:不给兜底正则开例外口子,代价是管家改不了自己的上下文预算(用户仍能改)。
   stewardContextBudgetTokens: 'forbidden',
   stewardReadBudgetChars: 'free',
+  // 129f:管家一小时最多主动叫你几次。free —— 改错了代价是「吵一点/安静一点」,
+  // 用户一眼看得见、一键改回;不影响钱、不影响权限、不影响它能动世界的范围。
+  stewardNotifyPerHour: 'free',
   stewardVisitIdleMinutes: 'free', stewardConversationRetention: 'free',
   stewardMaxParallelThreads: 'free', stewardGlobalMaxTurnsPerHour: 'free', stewardGlobalMaxCostPerDay: 'free',
 

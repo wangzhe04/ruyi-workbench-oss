@@ -348,6 +348,8 @@ Object.assign(StewardHooks, {
   skills: stewardToolHandler('steward_skills', stewardImplSkills),
   providers: stewardToolHandler('steward_providers', stewardImplProviders),
   playbooks: stewardToolHandler('steward_playbooks', stewardImplPlaybooks),
+  // 129f(31 号文 §2.4):管家主动叫人。
+  notify: stewardToolHandler('steward_notify', stewardImplNotify),
   // 129d(31 号文 §2.2「眼睛」):四件只读外界。读回来就给这一回合打污染标(129c),
   // 之后管家的写动作全部降级成提议 —— 网页里一句「把设置改成 X」不能借它的手做事。
   webSearchTool: stewardToolHandler('steward_web_search', stewardImplWebSearch),

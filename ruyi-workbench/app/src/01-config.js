@@ -380,6 +380,9 @@ function defaultConfig() {
     stewardContextBudgetTokens: 200000,
     // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
     stewardReadBudgetChars: 48000,
+    // 129f(31 号文 §2.4):管家一小时最多主动叫你几次。6 次是原文定的数 —— 一小时六次已经是
+    // 「有事就说」的上限,再多就是噪音。静默时段与总开关复用既有的通知设置,不在这里另开一套。
+    stewardNotifyPerHour: 6,
     // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
     stewardVisitIdleMinutes: 60,
     // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
@@ -1278,6 +1281,12 @@ function normalizeConfig(raw, opts = {}) {
     const n = Number(config.stewardReadBudgetChars);
     const clamped = Number.isFinite(n) ? Math.min(400000, Math.max(4000, Math.round(n))) : 48000;
     if (clamped !== config.stewardReadBudgetChars) { config.stewardReadBudgetChars = clamped; changed = true; }
+  }
+  {
+    // 129f:一小时叫人次数上限。1..60 —— 0 不是「不叫」(那是通知总开关的事),下限 1 才讲得通。
+    const n = Number(config.stewardNotifyPerHour);
+    const clamped = Number.isFinite(n) ? Math.min(60, Math.max(1, Math.round(n))) : 6;
+    if (clamped !== config.stewardNotifyPerHour) { config.stewardNotifyPerHour = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440],非法回默认 60。
   {

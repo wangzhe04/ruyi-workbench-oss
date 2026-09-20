@@ -477,6 +477,16 @@ function stewardTurnTaintedBy(ctx) {
   return set ? [...set] : [];
 }
 
+// 129f:管家主动叫人的滚动一小时窗口。与代批那个窗口同一个模具(只在内存、进程重启重新开始数),
+// 但**各记各的**:代批与叫人是两件事,合在一个计数里会互相饿死 —— 叫了六次人就不能代批了,说不通。
+const stewardNotifyTimes = [];
+function stewardNotifiesInWindow(nowMs) {
+  const now = Number(nowMs) || Date.now();
+  while (stewardNotifyTimes.length && now - stewardNotifyTimes[0] >= STEWARD_NOTIFY_WINDOW_MS) stewardNotifyTimes.shift();
+  return stewardNotifyTimes.length;
+}
+function stewardNotifyRecord(nowMs) { stewardNotifyTimes.push(Number(nowMs) || Date.now()); }
+
 // 127 波 2-quater B2(45 号文 §2-quater.2 闸 10):代批的滚动一小时窗口。上限数字住 06i
 // (STEWARD_EXEMPT_DELEGATIONS_PER_HOUR),窗口住这里 —— 13l 的 steward_decide 要读它,而 13m 的
 // stewardRunnerRuntime 对 13l 是前向边。只在内存:进程重启 = 重新开始数,与 13m 自理动作账

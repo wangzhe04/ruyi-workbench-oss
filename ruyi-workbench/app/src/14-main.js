@@ -338,6 +338,9 @@ module.exports = {
   requestNativePermission,
   clearPendingPermissions,
   schedulerAskWaitSessions,
+  // 129f — exposed for e2e:事件总线。「该不该叫」这道门只能在总线上验 —— 经 SSE 验的话
+  // 测的就成了事件流那一层的转发与前端订阅,不是这道门本身(那一层另有 event-stream 的件在钉)。
+  RUYI_EVENTS,
   EventStreamHooks,
   // 128f-⑥:unit/usage-ledger-exit-flush 用。
   appendUsageLedger,

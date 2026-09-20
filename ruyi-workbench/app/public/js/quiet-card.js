@@ -330,10 +330,33 @@ export function createQuietCard({
     maybeNotify({ key: `deferred|${String((frame && frame.interventionId) || sessionId)}`, sessionId, kind: 'needs_you', frame: { ask } });
   }
 
+  // 129f(31 号文 §2.4「叫得到你」):管家自己要说的一句话。与 onDeferred 同一条路、同一套判据 ——
+  // 静默时段不出;经典壳里、没坐在那条线程上就起一张安静卡;管家视角里只在页面不在前台时发系统通知
+  // (对话流里那句话已经在了,人在看就别再弹一次)。服务端已经管过「该不该叫」(三类事 + 一小时上限),
+  // 这里只判「此刻该不该打扰」—— 两边各管一头,不互相复制。
+  function onStewardNotify(frame) {
+    const text = String((frame && frame.text) || '').trim();
+    if (!text) return;
+    const kind = String((frame && frame.kind) || 'needs_you');
+    if (!QUIET_CARD_KINDS.includes(kind)) return;
+    if (isQuietTime(new Date(now()), notifySettingsOf())) return;
+    const sessionId = String((frame && frame.sessionId) || '');
+    if (shellModeOf() === 'classic') {
+      if (sessionId && sessionId === currentSessionId()) return;   // 他就坐在这条线程上
+      upsert({ kind, sessionId, quiet: true, ask: text });
+      return;
+    }
+    const d = doc();
+    const away = !d || d.hidden === true || (typeof d.hasFocus === 'function' && !d.hasFocus());
+    if (!away) return;
+    maybeNotify({ key: `steward-notify|${sessionId}|${text.slice(0, 40)}`, sessionId, kind, frame: { ask: text } });
+  }
+
   function bind(eventStream) {
     if (!eventStream || typeof eventStream.on !== 'function') return false;
     eventStream.on('inbox.appended', onFrame);
     eventStream.on('steward.deferred', onDeferred);   // 128f-⑪
+    eventStream.on('steward.notify', onStewardNotify);   // 129f
     return true;
   }
 

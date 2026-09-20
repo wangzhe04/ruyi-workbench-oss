@@ -1148,6 +1148,12 @@ const STEWARD_CATALOG_DESC_CHARS = 120;
 // 单次取回的字符上限。与深读的单次上限同量级 —— 「管家一次能吞多少」不该因为来源是网页
 // 还是线程而有两个数。总量另受 stewardReadBudgetChars 管(那是一趟到访的总预算)。
 const STEWARD_EYES_CHARS = 12000;
+// ── 129f「嘴」(31 号文 §2.4「叫得到你」):管家主动叫人 ──────────────────────────────────────
+// 只在这三类事上叫(原文口径):等你拿主意 / 出错了 / 收工了。**不许扩到别的类** —— 能叫人的
+// 理由一多,通知就变成噪音,用户第一件事就是把它整个关掉,那时真要紧的那条也叫不到他。
+const STEWARD_NOTIFY_KINDS = Object.freeze(['needs_you', 'failed', 'done']);
+const STEWARD_NOTIFY_TEXT_CHARS = 120;          // 一条通知的正文上限(系统通知本来也印不下更多)
+const STEWARD_NOTIFY_WINDOW_MS = 60 * 60 * 1000; // 熔断窗口:滚动一小时
 // 路径同一性:Windows 不分大小写、分隔符两种写法都有。判据单点在这里,四处消费不许各写一遍。
 function stewardSamePath(a, b) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
@@ -1228,6 +1234,8 @@ const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   // 两个都属于「管家扩自己的权」,一律 confirm。
   'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour', 'stewardMaxCostPerDay',
   'stewardReadBudgetChars', 'stewardVisitIdleMinutes',
+  // 129f:一小时最多主动叫你几次。归 free —— 改错了代价是「吵一点/安静一点」,用户一眼看得见、一键改回。
+  'stewardNotifyPerHour',
   'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour',
   'stewardGlobalMaxCostPerDay',
   // 【不在这里】的还有 `stewardContextBudgetTokens`:它按设计本该是 free(管家自己的上下文预算),

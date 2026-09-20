@@ -281,6 +281,17 @@ RUYI_EVENTS.subscribe((name, payload) => {
   }
   // 128f-⑪(用户拍板 A「立刻通知你」):管家看过一条权限请求、没替你批,回合结束时它还挂着 —— 留给你了。
   // 只带 id、一句摘要(13i 归一化时就不含入参正文)与截止时刻;§6.1 红线:命令原文不进这条线。
+  // 129f(31 号文 §2.4):管家主动叫人。与 steward.deferred 同一条路 —— 服务端只负责「该不该叫」,
+  // 「此刻在不在前台、是不是静默时段」由前端那一处判(quiet-card 里本来就有,不在这儿再写第二份)。
+  if (name === 'steward.notify') {
+    const sid = String((data && data.sessionId) || '');
+    eventStreamPublish('steward.notify', {
+      sessionId: sid,
+      kind: String((data && data.kind) || ''),
+      text: String((data && data.text) || ''),
+    });
+    return;
+  }
   if (name === 'steward.deferred') {
     if (eventStreamIsStewardSession(data.sessionId)) return;
     eventStreamPublish('steward.deferred', {

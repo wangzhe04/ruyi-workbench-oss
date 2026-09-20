@@ -243,6 +243,8 @@ const NATIVE_TOOL_TIER = {
   // 不是靠把它们归成 edit(归成 edit 只会让读本身变难,挡不住读完之后的那个写)。
   steward_web_search: 'read', steward_web_fetch: 'read', steward_file_read: 'read',
   steward_thread_artifact_read: 'read',
+  // 129f: 叫人归 read —— 它不改世界,只是把一句话送到屏幕上(三档都可用)。
+  steward_notify: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
   // 129e: 改工作目录归线程族 edit(它改的是线程元数据,不执行任何东西)。
   steward_thread_workspace: 'edit',
@@ -380,6 +382,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_skills: 'steward', steward_providers: 'steward', steward_playbooks: 'steward',
   steward_web_search: 'steward', steward_web_fetch: 'steward', steward_file_read: 'steward',
   steward_thread_artifact_read: 'steward',
+  steward_notify: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_workspace: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',

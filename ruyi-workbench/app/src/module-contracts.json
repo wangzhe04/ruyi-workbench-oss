@@ -4047,6 +4047,9 @@
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_NEUTRAL_GT",
         "STEWARD_NEUTRAL_LT",
+        "STEWARD_NOTIFY_KINDS",
+        "STEWARD_NOTIFY_TEXT_CHARS",
+        "STEWARD_NOTIFY_WINDOW_MS",
         "STEWARD_PERMISSION_LABELS",
         "STEWARD_PERMISSION_MODE",
         "STEWARD_PERMISSION_RANK",
@@ -12652,6 +12655,9 @@
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
         "stewardNormalizeMemoryScope",
+        "stewardNotifiesInWindow",
+        "stewardNotifyRecord",
+        "stewardNotifyTimes",
         "stewardQuickClosed",
         "stewardQuickThread",
         "stewardRawKind",
@@ -12797,6 +12803,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_NOTIFY_WINDOW_MS",
           "kinds": [
             "read"
           ]
@@ -13564,6 +13577,7 @@
         "stewardImplMemoryVeto",
         "stewardImplMemoryWrite",
         "stewardImplMissions",
+        "stewardImplNotify",
         "stewardImplPlaybookDraft",
         "stewardImplPlaybooks",
         "stewardImplProviders",
@@ -13608,6 +13622,13 @@
           "symbol": "readUsageRows",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -13774,6 +13795,20 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_NOTIFY_KINDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_NOTIFY_TEXT_CHARS",
           "kinds": [
             "read"
           ]
@@ -14152,6 +14187,20 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardNormalizeMemoryScope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardNotifiesInWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardNotifyRecord",
           "kinds": [
             "call"
           ]
@@ -14644,6 +14693,13 @@
         {
           "provider": "13l-steward-ops.js",
           "symbol": "stewardImplMissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplNotify",
           "kinds": [
             "read"
           ]
@@ -17306,6 +17362,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
           ]
