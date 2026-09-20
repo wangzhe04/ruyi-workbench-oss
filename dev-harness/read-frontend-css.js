@@ -680,7 +680,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `.composer-voice[data-state="setup"] { opacity: .55; }` 与它的悬停／键盘焦点恢复常色（语音识别没配时那一枚「待开启」的灰钮；
 //   用户 2026-09-19 拍板 A），外加那一族头注的一句事实更正。只在语音识别没配时命中，配好之后逐像素不变。
 // 算法自证：把 chat-composer.css 从 HEAD 检出重算 = fa963691…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '1c7827a78a8f8b70968a3a3e1dade6288c614cf45247e53b9f2533c7ad965b3d';
+// 2026-09-20 续钉（前值 1c7827a7…）：零新增、零删除层，只在 `css/views/chat-shell.css` 服务商卡片「协议」那一族后面加两组 ——
+//   ①「语音转文字接口」一行（.prov-asr-protocol 及其选择器／说明）：修前这一行没有任何样式，落在 .check 的不换行 flex 里，
+//     长说明把标签挤成一字一行的竖排（用户截图）；现在与「协议」一行同模具，说明独占下一行并正常折行。
+//   ② 设置页「添加语音识别模型」一行（.asr-add-row）：多了一枚「接口类型」选择器，四个控件一行排、窄了自动折行。
+//   ③「协议」与「服务端搜索」两条说明补 white-space: normal：修前继承了所在行的 nowrap，长说明把卡片撑出横向滚动条。
+// 算法自证：把 chat-shell.css 从 HEAD 检出重算 = 1c7827a7…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'a8d33ab688eee9f7a34fdf84be5386a79d801c59eac4aec88ff9b60fa62fa219';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

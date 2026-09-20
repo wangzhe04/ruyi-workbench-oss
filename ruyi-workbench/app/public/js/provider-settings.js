@@ -301,7 +301,9 @@ async function refreshModels(announce) {
         // Fold the live list into the ROUTED provider's models so the chip popover reflects it.
         // 修前 r.provider 是【全局 activeProvider】那一个，折回的也就是全局那一份；线程头把这条线程切到
         // 别的 provider 之后，菜单读的是自己那条路由的 providers[].models —— 两边永不见面。
-        state.config.providers = (state.config.providers || []).map(p => (p.id === r.provider ? { ...p, models: fresh } : p));
+        // 2026-09-20：折回时按 id 把原来那条的 caps（能力标记，如 ['asr']）带上 —— 刷新回来的清单是「名字清单」，
+        // 不是能力的事实源；修前一折回，语音识别选择器的候选就从内存里消失，随后的整份保存再把盘上的也抹掉。
+        state.config.providers = (state.config.providers || []).map(p => (p.id === r.provider ? { ...p, models: keepModelCaps(fresh, p.models) } : p));
       } else if (state.status) {
         state.status.models = fresh; // Claude/Kimi 引擎：status.models 就是 chip 那一组的候选来源
       }
@@ -401,6 +403,15 @@ function openPermPopover() {
   if (!chip) return false;
   chip.click();
   return true;
+}
+// 用一份新的模型清单换掉旧的时候，按 id 把旧条目上的能力标记（caps）带过去。新清单自己带了 caps 的以新的为准。
+function keepModelCaps(next, previous) {
+  const caps = new Map();
+  for (const m of (Array.isArray(previous) ? previous : [])) {
+    if (m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.length) caps.set(String(m.id || ''), m.caps);
+  }
+  if (!caps.size) return next;
+  return (Array.isArray(next) ? next : []).map(m => (m && typeof m === 'object' && !Array.isArray(m.caps) && caps.has(String(m.id || '')) ? { ...m, caps: caps.get(String(m.id || '')).slice() } : m));
 }
 async function saveConfigPartial(patch) {
   try {
@@ -570,8 +581,16 @@ function asrProviderChoices() {
   return ((state.config && state.config.providers) || []).filter(p => p && p.id && p.id !== 'claude-cli');
 }
 // 把 modelId 标成可语音识别：该服务商的模型清单里已有它就给它加上 asr 能力，没有就追加一条；同时把它选成语音识别模型。
-async function addAsrModel(providerId, modelId) {
-  const providersNext = ((state.config && state.config.providers) || []).map(p => {
+// 2026-09-20（用户实报两件）：
+//   ①「保存了语音模型后，再点保存会消失」—— 修前这里只经部分补丁写了 config，没碰设置弹窗里那份 providersDraft；
+//      弹窗开着时 fillSettings 不重播草稿（A8 守卫，防丢用户没存的编辑），于是底部「保存」把【旧草稿】整份盖回去，
+//      刚加的 caps:['asr'] 被抹掉，选择器回落「无候选」，而 asrProviderId／asrModel 还留着。现在同一处改动
+//      【并进】草稿（不是重播 —— 用户在别的卡片上没存的编辑原样保留），两份从此一致。
+//   ②「点了语音输入收不到字」—— 百炼／MiMo 这类服务商没有 /audio/transcriptions，缺省接口类型打过去就是 404；
+//      而接口类型藏在服务商卡片的「协议与能力」折叠里，添加语音模型的人根本不知道有这回事。现在添加这一行
+//      自带「接口类型」，按服务商地址预选，和模型一起写进去。
+function withAsrModel(providers, providerId, modelId, protocol) {
+  return (Array.isArray(providers) ? providers : []).map(p => {
     if (!p || p.id !== providerId) return p;
     const models = Array.isArray(p.models) ? p.models.slice() : [];
     const at = models.findIndex(m => (m && typeof m === 'object' ? String(m.id || '') : String(m || '')) === modelId);
@@ -580,9 +599,27 @@ async function addAsrModel(providerId, modelId) {
       const caps = Array.isArray(models[at].caps) ? models[at].caps : [];
       models[at] = { ...models[at], caps: caps.includes('asr') ? caps : [...caps, 'asr'] };
     } else models[at] = { id: modelId, label: modelId, caps: ['asr'] };
-    return { ...p, models };
+    const next = { ...p, models };
+    // 与服务商卡片里那枚选择器同模具：缺省值不写字段（存量 config 零漂移）。protocol 不传＝不动它。
+    if (protocol === 'chat-audio') next.asrProtocol = 'chat-audio';
+    else if (protocol === 'transcriptions') delete next.asrProtocol;
+    return next;
   });
-  return saveConfigPartial({ providers: providersNext, asrProviderId: providerId, asrModel: modelId });
+}
+// 接口类型的预选：这家已经选过对话式就照旧；没选过的按地址认 —— 百炼与 MiMo 实测只有对话式（Whisper 形 404）。
+function asrProtocolGuess(p) {
+  if (p && p.asrProtocol === 'chat-audio') return 'chat-audio';
+  const base = String((p && (p.audioBaseUrl || p.baseUrl)) || '').toLowerCase();
+  return /dashscope\.aliyuncs\.com|xiaomimimo\.com/.test(base) ? 'chat-audio' : 'transcriptions';
+}
+async function addAsrModel(providerId, modelId, protocol) {
+  const providersNext = withAsrModel(state.config && state.config.providers, providerId, modelId, protocol);
+  const saved = await saveConfigPartial({ providers: providersNext, asrProviderId: providerId, asrModel: modelId });
+  if (saved && state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) {
+    state.providersDraft = withAsrModel(state.providersDraft, providerId, modelId, protocol);
+    renderProviders();   // 卡片里的接口类型与模型清单跟着变（编辑值住在草稿对象上，重画不丢）
+  }
+  return saved;
 }
 function buildAsrAddRow() {
   const wrap = el('div', 'asr-add');
@@ -596,21 +633,33 @@ function buildAsrAddRow() {
   modelInput.type = 'text';
   modelInput.placeholder = t('settings.asr.addPlaceholder');
   modelInput.setAttribute('aria-label', t('settings.asr.addModel'));
+  // 接口类型：跟着所选服务商预选；用户亲手改过之后换服务商才重新预选。
+  const protocolSelect = el('select', 'asr-add-protocol');
+  protocolSelect.setAttribute('aria-label', t('settings.asr.addProtocol'));
+  for (const [val, key] of [['transcriptions', 'provider.asrProtocol.transcriptions'], ['chat-audio', 'provider.asrProtocol.chatAudio']]) {
+    const o = el('option'); o.value = val; o.textContent = t(key); protocolSelect.appendChild(o);
+  }
+  const syncProtocol = () => { protocolSelect.value = asrProtocolGuess(providers.find(p => p.id === providerSelect.value)); };
+  providerSelect.onchange = syncProtocol;
+  syncProtocol();
   const add = el('button', 'asr-add-btn', t('settings.asr.addButton'));
   add.type = 'button';
   add.onclick = async () => {
     const providerId = String(providerSelect.value || '');
     const modelId = String(modelInput.value || '').trim();
     if (!providerId || !modelId) { toast(t('settings.asr.addNeedFields'), 'err'); modelInput.focus(); return; }
+    // 名字里带 realtime 的是【实时流式】型号（走 WebSocket），语音输入是「录完一段再转」，用它上游只会报错。
+    // 用户 2026-09-20 手填的正是 qwen3-asr-flash-realtime —— 当场拦下并说清楚，好过存进去之后一句「未成功」。
+    if (/realtime/i.test(modelId)) { toast(t('settings.asr.addRealtime'), 'err'); modelInput.focus(); return; }
     add.disabled = true;
-    const saved = await addAsrModel(providerId, modelId);
+    const saved = await addAsrModel(providerId, modelId, protocolSelect.value);
     add.disabled = false;
     if (!saved) return;   // saveConfigPartial 自己已经把原因说了
     toast(t('settings.asr.added', { model: modelId }), 'ok');
     renderAsrSettings();
   };
   const row = el('div', 'asr-add-row');
-  row.append(providerSelect, modelInput, add);
+  row.append(providerSelect, modelInput, protocolSelect, add);
   wrap.appendChild(row);
   return wrap;
 }
@@ -1061,7 +1110,7 @@ function providerCard(p, idx) {
       seen.add(id);
       models.push({ id, label: id });
     }
-    p.models = models;
+    p.models = keepModelCaps(models, p.models);   // 2026-09-20：改这份名字清单不该顺手把「可语音识别」的标记抹掉
     // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
     // 就是 providers[].hiddenModels，而菜单里没有反方向的「恢复」按钮 —— 这条是唯一的回头路。
     if (Array.isArray(p.hiddenModels) && p.hiddenModels.length) {

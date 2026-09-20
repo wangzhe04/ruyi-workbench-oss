@@ -14131,8 +14131,17 @@ function sanitizeProvider(raw) {
       // 与 hiddenModels/pricing 同款「可加不加」:空就不落字段,存量 config.json 逐字节零漂移。
       const caps = providerModelCaps(m.caps);
       return { id: String(m.id || '').trim(), label: String(m.label || m.id || '').trim(), ...(caps.length ? { caps } : {}) };
-    }).filter(m => m && m.id).slice(0, 100)
+    }).filter(m => m && m.id)
     : [];
+  // 2026-09-20（用户真机）：清单上限 100。修前是「前 100 条」—— 百炼一刷新就是满 100 条，设置页「添加语音识别模型」
+  // 追加在末尾的那一条（带 caps:['asr']）当场被截掉：选择器永远没有候选，用户看到的就是「保存了又消失」。
+  // 超限时先留带能力标记的条目（它们是用户亲手标的，不是发现来的名字），再按原顺序补满；没超限顺序一字不动。
+  if (models.length > 100) {
+    const marked = models.filter(m => m.caps);
+    const rest = models.filter(m => !m.caps).slice(0, Math.max(0, 100 - marked.length));
+    const keep = new Set([...marked.slice(0, 100), ...rest]);
+    models.splice(0, models.length, ...models.filter(m => keep.has(m)));
+  }
   // 模型候选「已移除」名单（provider 级）：线程头模型菜单行尾那枚「×」删一行 = 在这里记下那个 id。
   // GET /api/models 把「saved 清单 ∪ live 发现」合并成候选时一律跳过名单里的项 —— 否则 ↻ 刷新会把
   // 刚删掉的那一行原样还回来，删除就成了只活一次画面的装饰。
@@ -14872,6 +14881,17 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
   if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
   const chatAudio = provider.asrProtocol === 'chat-audio';
+  // 2026-09-20(用户实报「点了语音输入收不到字」):修前转写失败【不落任何日志】,本地运行记录里查不到痕迹,
+  // 只能靠重放请求才知道上游回了 404。这里只记元数据(04 logEvent 的纪律:不记原始内容)——
+  // 失败码、上游状态、走的哪种协议、哪家哪个模型、音频字节数、耗时;上游错误体只留脱敏后的前 200 字。
+  // protocol 同时进失败信封的 params:前端据此把「404 + Whisper 形」说成「接口类型选错了」,而不是一句「稍后再试」。
+  const protocol = chatAudio ? 'chat-audio' : 'transcriptions';
+  const failed = (failure, detail) => {
+    failure.params = { ...(failure.params || {}), protocol };
+    logEvent({ kind: 'asr_transcribe_failed', code: failure.code, upstreamStatus: failure.params.status || 0, protocol, provider: provider.id, model: asrModel, bytes: audio ? audio.length : 0, durationMs: Date.now() - t0, ...(detail ? { detail: String(detail).slice(0, 200) } : {}) });
+    return { failure };
+  };
+  const t0 = Date.now();
   const headers = { ...(provider.extraHeaders || {}) };
   if (provider.apiKey) headers.authorization = `Bearer ${provider.apiKey}`;
   let target = '', payload = null;
@@ -14901,7 +14921,6 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     target = base + '/audio/transcriptions';
     payload = form;
   }
-  const t0 = Date.now();
   let upstream = null, upstreamText = '';
   try {
     upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
@@ -14910,7 +14929,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
   } catch (err) {
     const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
-    return { failure: { code: 'asr.upstream_unreachable', params: {}, message: isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), status: 502 } };
+    return failed({ code: 'asr.upstream_unreachable', params: {}, message: isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), status: 502 }, isTimeout ? 'timeout' : redact(String(err && err.message || err)));
   }
   const durationMs = Date.now() - t0;
   if (!upstream.ok) {
@@ -14920,7 +14939,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     // redact 住在 04,05→04 是既有边(本文件多处在用),零新增依赖;顺序与 S0 的教训一致:
     // 先裁 1000 字会把密钥切成半截,正则一条都咬不到。控制字符仍在 redact 之前压掉(不改既有形状)。
     const snippet = redact(upstreamText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]+/g, ' ')).slice(0, 1000);
-    return { failure: { code: 'asr.upstream', params: { status: upstream.status }, message: 'ASR 上游返回 ' + upstream.status + ': ' + snippet, status: 502 } };
+    return failed({ code: 'asr.upstream', params: { status: upstream.status }, message: 'ASR 上游返回 ' + upstream.status + ': ' + snippet, status: 502 }, snippet);
   }
   const parsed = safeJsonParse(upstreamText, null);
   // 107-A1:解析分叉。transcriptions 读顶层 text;chat-audio 读 choices[0].message.content
@@ -14929,12 +14948,12 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   if (chatAudio) {
     const content = parsed ? asrChatContentText(parsed) : null;
     if (content === null) {
-      return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 choices[0].message.content', status: 502 } };
+      return failed({ code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 choices[0].message.content', status: 502 });
     }
     text = content;
   } else {
     if (!parsed || typeof parsed.text !== 'string') {
-      return { failure: { code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text 字段', status: 502 } };
+      return failed({ code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text 字段', status: 502 });
     }
     text = parsed.text;
     outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
@@ -14960,6 +14979,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null,
     estimated: !hasUsage, kind: 'aux', note: 'asr',
   });
+  logEvent({ kind: 'asr_transcribe_ok', protocol, provider: provider.id, model: asrModel, bytes: audio.length, textLen: text.length, durationMs });
   return { ok: true, text, outLanguage, durationMs, providerId: provider.id, model: asrModel, estimated: !hasUsage };
 }
 
@@ -42350,14 +42370,18 @@ async function handleApi(req, res, pathname) {
       // live 发现两条来源都过同一个 add，所以 ↻ 刷新不会把刚删掉的模型还回来。
       const hidden = new Set((Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
         .map(v => String(v || '').trim()).filter(Boolean));
-      const add = (id, label, contextLength) => {
+      // 2026-09-20（用户实报「保存了语音模型后，再点保存会消失」的真根因）：修前这里只留 id／label／contextLength，
+      // models[].caps（['asr'] 这类能力标记）在合并时被丢掉；前端又把这份清单折回 state.config.providers[].models
+      // （provider-settings.js 的刷新折回），于是内存里的配置从此没有语音标记 —— 选择器回落「无候选」，
+      // 而下一次整份保存（草稿由这份内存配置播种）把盘上的标记也一起抹掉。配置里那一条带的 caps 原样带出去。
+      const add = (id, label, contextLength, caps) => {
         const k = String(id || ''); if (!k || hidden.has(k)) return;
         const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
           : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
-        if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }
+        if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; if (Array.isArray(caps) && caps.length) o.caps = caps.slice(); seen.set(k, o); }
         else if (cl && !seen.get(k).contextLength) seen.get(k).contextLength = cl;
       };
-      for (const m of (provider.models || [])) add(m.id, m.label, m.contextLength);
+      for (const m of (provider.models || [])) add(m.id, m.label, m.contextLength, m.caps);
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }

@@ -490,14 +490,18 @@ async function handleApi(req, res, pathname) {
       // live 发现两条来源都过同一个 add，所以 ↻ 刷新不会把刚删掉的模型还回来。
       const hidden = new Set((Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
         .map(v => String(v || '').trim()).filter(Boolean));
-      const add = (id, label, contextLength) => {
+      // 2026-09-20（用户实报「保存了语音模型后，再点保存会消失」的真根因）：修前这里只留 id／label／contextLength，
+      // models[].caps（['asr'] 这类能力标记）在合并时被丢掉；前端又把这份清单折回 state.config.providers[].models
+      // （provider-settings.js 的刷新折回），于是内存里的配置从此没有语音标记 —— 选择器回落「无候选」，
+      // 而下一次整份保存（草稿由这份内存配置播种）把盘上的标记也一起抹掉。配置里那一条带的 caps 原样带出去。
+      const add = (id, label, contextLength, caps) => {
         const k = String(id || ''); if (!k || hidden.has(k)) return;
         const cl = (Number.isFinite(contextLength) && contextLength > 0) ? Math.round(contextLength)
           : (cachedContextLength(provider.id, k) || contextWindowFromTable(k));
-        if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; seen.set(k, o); }
+        if (!seen.has(k)) { const o = { id: k, label: label || k }; if (cl) o.contextLength = cl; if (Array.isArray(caps) && caps.length) o.caps = caps.slice(); seen.set(k, o); }
         else if (cl && !seen.get(k).contextLength) seen.get(k).contextLength = cl;
       };
-      for (const m of (provider.models || [])) add(m.id, m.label, m.contextLength);
+      for (const m of (provider.models || [])) add(m.id, m.label, m.contextLength, m.caps);
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }

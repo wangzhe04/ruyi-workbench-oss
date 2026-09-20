@@ -33,9 +33,16 @@
 //      webm（「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3」），而麦克风
 //      今天只录得出 webm/opus（§1.5：这版 Edge 上 audio/wav 录不了）。解码失败原样发 webm —— 录完了
 //      发不出去，比「协议不对」更坏。
+//   ⑨ 边说边出字（用户 2026-09-20：「希望在语音输入的同时，文字自动浮现在打字框上」，拍板方案一「按停顿切段」）：
+//      录音中侦听响度，说过话之后停顿满 COMPOSER_VOICE_PAUSE_MS 就把这一段切下来先送去转写，字按顺序落进输入框，
+//      麦克风继续录。每一秒音频仍然只转写一次 —— 费用与整段转写相同（不是「每隔几秒把整段重发」那种越录越贵的做法）。
+//      不到 COMPOSER_VOICE_SEGMENT_MIN_MS 的短录音不切，行为与从前逐字节相同；宿主没有 AudioContext 时同样不切。
+//      走的仍是 ③ 那一条转写接口，对服务商零新增要求；②「永不自动发送」、⑦「不落盘」不变。
+//      Esc 取消＝还没转出来的都不要；已经落进输入框的字不往回收。转写这条路不通时当场停录并说清原因。
 
 import { apiRaw, apiErrorInfo } from './net.js';
 import { icon } from './icons.js';
+import { toast } from './util.js';
 
 export const COMPOSER_VOICE_MIME = 'audio/webm;codecs=opus';   // 唯一录制格式（§1.5 实测）
 export const COMPOSER_VOICE_UPLOAD_TYPE = 'audio/webm';        // 转码失败时的回退 Content-Type
@@ -45,6 +52,12 @@ export const COMPOSER_VOICE_WAV_FILENAME = 'voice.wav';
 export const COMPOSER_VOICE_SAMPLE_RATE = 16000;               // ⑧ 16 kHz 单声道：ASR 上游的通用口味
 export const COMPOSER_VOICE_MAX_MS = 3 * 60 * 1000;            // 录满 3 分钟自动结束
 const COMPOSER_VOICE_TICK_MS = 500;                            // 计时显示与「满时自动结束」共用这一拍
+// ⑨ 边说边出字（按停顿切段）。四个数都是工程默认：
+export const COMPOSER_VOICE_PAUSE_MS = 700;                    // 停这么久算「一句说完」
+export const COMPOSER_VOICE_SEGMENT_MIN_MS = 2000;             // 一段至少这么长才切（太碎的段转写不准，也多出网）
+export const COMPOSER_VOICE_SEGMENT_MAX_MS = 30000;            // 一口气说这么久还没停顿就硬切一刀
+const COMPOSER_VOICE_VAD_TICK_MS = 100;                        // 响度多久看一次
+const COMPOSER_VOICE_VAD_MIN_RMS = 0.012;                      // 判「在说话」的响度下限（另有随底噪浮动的门限，取大的）
 
 // 转写失败码 → 人话键。表外的码（含网络层异常）一律落到 error.failed，不把服务端原文搬上屏。
 const TRANSCRIBE_ERROR_KEYS = Object.freeze({
@@ -55,6 +68,17 @@ const TRANSCRIBE_ERROR_KEYS = Object.freeze({
   'asr.upstream_unreachable': 'composer.voice.error.upstream',
   'asr.bad_response': 'composer.voice.error.upstream',
 });
+
+// 2026-09-20（用户实报「点了语音输入收不到字，怀疑没录上音」）：真因是服务商的接口类型选错了 —— 上游 404。
+// 修前这类失败只落在按钮的悬停提示与读屏播报里，看得见的只有「未成功」三个字，人自然会去怀疑麦克风。
+// 两件事：① 失败原因用 toast 直接说出来（fail 里）；② 上游 404/405 单独成一句 —— 「稍后再试」对它是句假话，
+// 再试一万次也是 404，该做的是去设置里换接口类型。模型名不对（上游 400/500）说不准是哪一种，仍走通用那句。
+function transcribeErrorKey(info) {
+  const status = Number(info && info.params && info.params.status) || 0;
+  if (info && info.code === 'asr.upstream' && (status === 404 || status === 405)) return 'composer.voice.error.protocol';
+  if (info && info.code === 'asr.upstream' && (status === 401 || status === 403)) return 'composer.voice.error.auth';   // 密钥不对／没开通：同样不是「稍后再试」能好的
+  return TRANSCRIBE_ERROR_KEYS[info && info.code] || 'composer.voice.error.failed';
+}
 
 // getUserMedia 的拒绝原因 → 人话键。
 function micErrorKey(error) {
@@ -166,6 +190,7 @@ export function createComposerVoice({
   input = () => null,    // 输入框取件函数（节点可能晚于本工厂才建）
   anchor = () => null,   // 麦克风插在它前面（发送键）
   request = apiRaw,
+  notify = toast,        // 失败时那句看得见的人话（测试与无 DOM 宿主可换成空函数）
   // 128f-⑭：待开启那一枚被点时做什么。缺省派 COMPOSER_VOICE_SETUP_EVENT（组合根接：打开设置、定位到语音识别）。
   openSetup = () => { try { globalThis.document.dispatchEvent(new CustomEvent(COMPOSER_VOICE_SETUP_EVENT)); } catch { /* 没有 document 的宿主 */ } },
 } = {}) {
@@ -177,8 +202,10 @@ export function createComposerVoice({
   let attempt = 0;           // 每次开始／取消 +1：拿到麦克风时发现不是这一次了，就把轨道放掉
   let recorder = null;
   let stream = null;
-  let chunks = [];
-  let discard = false;
+  let segment = null;        // 正在录的这一段（⑨：一次录音按停顿切成若干段）
+  let current = null;        // 这一次录音的 session（各段排队转写、按序落字）
+  let vad = null;            // 停顿侦听（AudioContext + AnalyserNode）；宿主没有就为 null＝不切段
+  let vadTimer = 0;
   let startedAt = 0;
   let ticker = 0;
   let escapeBound = false;
@@ -240,13 +267,77 @@ export function createComposerVoice({
       try { track.stop(); } catch { /* 轨道已经停了 */ }
     }
   }
-  function cleanupRecording() {
+
+  // ⑨ 停顿侦听：一个 AnalyserNode 看这一拍的响度（RMS）。门限跟着环境底噪走（安静时慢慢学底噪，门限取
+  // 「底噪 × 3」与一个固定下限里大的那个），风扇声大的屋子不会永远判成「在说话」。只读响度，不碰录音数据。
+  function startVad(media) {
+    const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      const context = new Ctx();
+      if (context.state === 'suspended' && typeof context.resume === 'function') { void context.resume().catch(() => {}); }
+      const source = context.createMediaStreamSource(media);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      return { context, source, analyser, samples: new Float32Array(analyser.fftSize), floor: 0.004, quietSince: 0 };
+    } catch { return null; }
+  }
+  function stopVad() {
+    if (vadTimer) { clearInterval(vadTimer); vadTimer = 0; }
+    if (!vad) return;
+    try { vad.source.disconnect(); } catch { /* 已经断开 */ }
+    try { void vad.context.close().catch(() => {}); } catch { /* 已经关了 */ }
+    vad = null;
+  }
+  function vadTick() {
+    if (phase !== 'recording' || !vad || !segment) return;
+    let loud = false;
+    try {
+      vad.analyser.getFloatTimeDomainData(vad.samples);
+      let sum = 0;
+      for (let i = 0; i < vad.samples.length; i++) sum += vad.samples[i] * vad.samples[i];
+      const rms = Math.sqrt(sum / vad.samples.length);
+      const gate = Math.max(COMPOSER_VOICE_VAD_MIN_RMS, vad.floor * 3);
+      loud = rms > gate;
+      if (!loud) vad.floor = vad.floor * 0.95 + rms * 0.05;
+    } catch { return; }
+    const at = now();
+    if (loud) { segment.spoke = true; vad.quietSince = 0; return; }
+    if (!vad.quietSince) vad.quietSince = at;
+    const age = at - segment.startedAt;
+    const paused = segment.spoke && age >= COMPOSER_VOICE_SEGMENT_MIN_MS && at - vad.quietSince >= COMPOSER_VOICE_PAUSE_MS;
+    // 一口气说太久也切一刀（宁可切在词中间，也不让屏上半分钟没有字）。
+    if (paused || age >= COMPOSER_VOICE_SEGMENT_MAX_MS) rotateSegment();
+  }
+
+  // 一段 = 一个 MediaRecorder（webm 的中间块不能单独解码，想要「可独立转写的一段」只能让录音器停一次）。
+  // 同一条麦克风流上先起新的、再停旧的：两只录音器短暂重叠，切口不丢声；切口又落在停顿里，重叠的那一点是静音。
+  function startSegment(session) {
+    const seg = { session, chunks: [], spoke: false, startedAt: now(), final: false };
+    const next = new globalThis.MediaRecorder(stream, { mimeType: COMPOSER_VOICE_MIME });
+    next.addEventListener('dataavailable', event => { if (event.data && event.data.size > 0) seg.chunks.push(event.data); });
+    next.addEventListener('stop', () => { segmentDone(seg); });
+    next.start();
+    recorder = next;
+    segment = seg;
+  }
+  function rotateSegment() {
+    const old = recorder;
+    const session = segment && segment.session;
+    if (!old || !session) return;
+    try { startSegment(session); } catch { return; }   // 起不了新的一段就不切：整段录到底，和从前一样
+    if (vad) vad.quietSince = 0;
+    try { old.stop(); } catch { /* 旧录音器已经停了 */ }
+  }
+
+  function endCapture() {
     clearTicker();
+    stopVad();
     releaseTracks(stream);
     stream = null;
     recorder = null;
-    chunks = [];
-    discard = false;
+    segment = null;
   }
 
   function fail(key) {
@@ -256,6 +347,7 @@ export function createComposerVoice({
     phase = 'error';
     paint();
     announce(t(key));
+    try { notify(t(key), 'err'); } catch { /* 没有 toast 托盘的宿主：悬停提示与播报仍在 */ }
   }
 
   async function start() {
@@ -273,26 +365,25 @@ export function createComposerVoice({
       return;
     }
     if (mine !== attempt || phase !== 'starting') { releaseTracks(media); return; }
-    let next = null;
+    // 一次录音 = 一个 session：各段按先后排队转写（queue 是一条 Promise 链，保证字按说的顺序落进输入框）。
+    const session = { id: mine, discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
     try {
-      next = new globalThis.MediaRecorder(media, { mimeType: COMPOSER_VOICE_MIME });
-      next.addEventListener('dataavailable', event => { if (event.data && event.data.size > 0) chunks.push(event.data); });
-      next.addEventListener('stop', () => { void finish(); });
       stream = media;
-      recorder = next;
-      chunks = [];
-      discard = false;
-      next.start();
+      startSegment(session);
     } catch {
       releaseTracks(media);
       stream = null;
       recorder = null;
+      segment = null;
       fail('composer.voice.error.mic');
       return;
     }
+    current = session;
     startedAt = now();
     phase = 'recording';
     ticker = setInterval(tick, COMPOSER_VOICE_TICK_MS);
+    vad = startVad(media);   // 宿主没有 AudioContext 就没有停顿侦听：整段录完再转，和从前一样
+    if (vad) vadTimer = setInterval(vadTick, COMPOSER_VOICE_VAD_TICK_MS);
     paint();
     announce(t('composer.voice.recording'));
   }
@@ -318,10 +409,12 @@ export function createComposerVoice({
     bindEscape(false);
     phase = 'transcribing';
     paint();
+    if (segment) segment.final = true;
     try { recorder.stop(); }
-    catch { cleanupRecording(); fail('composer.voice.error.mic'); }
+    catch { endCapture(); fail('composer.voice.error.mic'); }
   }
 
+  // 取消 = 还没转出来的都不要了（在录的这一段、排队等转写的那几段）；已经落进输入框的字不往回收。
   function cancel() {
     attempt += 1;
     bindEscape(false);
@@ -333,26 +426,44 @@ export function createComposerVoice({
     }
     if (phase !== 'recording') return;
     clearTicker();
-    discard = true;
+    if (current) current.discard = true;
     phase = 'idle';
     paint();
     announce(t('composer.voice.cancelled'));
+    if (segment) segment.final = true;
     try { recorder.stop(); }
-    catch { cleanupRecording(); }
+    catch { endCapture(); }
   }
 
-  // MediaRecorder 的 stop 事件之后：块已经全部冲出来了。
-  async function finish() {
-    const parts = chunks;
-    const dropped = discard;
-    cleanupRecording();
-    bindEscape(false);   // 轨道自己断掉（设备被拔）也会走到这里，不能把 Esc 监听留在身后
-    if (dropped) return;
-    const blob = new Blob(parts, { type: COMPOSER_VOICE_MIME });
-    if (!blob.size) { fail('composer.voice.error.empty'); return; }
-    phase = 'transcribing';
-    paint();
-    announce(t('composer.voice.transcribing'));
+  // MediaRecorder 的 stop 事件之后：这一段的块已经全部冲出来了。
+  function segmentDone(seg) {
+    const session = seg.session;
+    // 最后一段：用户点了结束／取消，或轨道自己断了（设备被拔 —— 没人标 final，但它就是正在录的那一段）。
+    const last = seg.final || seg === segment;
+    const silent = Boolean(vad) && !seg.spoke;   // 有停顿侦听、而这一段从头到尾没出过声
+    if (last) {
+      endCapture();
+      bindEscape(false);   // 轨道自己断掉也会走到这里，不能把 Esc 监听留在身后
+      if (!session.discard && phase === 'recording') { phase = 'transcribing'; paint(); }
+    }
+    if (!session.discard && !session.failedKey) {
+      const blob = new Blob(seg.chunks, { type: COMPOSER_VOICE_MIME });
+      // 静音段不出网：中间被「说太久」硬切出来的静音段直接丢；收尾那一段静音（说完了、过一会儿才点结束）在前面
+      // 已经送过字时也丢。整次录音唯一的一段永远照发 —— 有没有字由转写服务说了算，和从前一样。
+      const skip = silent && (!last || session.sent > 0);
+      if (blob.size && !skip) {
+        session.sent += 1;
+        session.queue = session.queue.then(() => transcribeSegment(session, blob));
+      } else if (!blob.size && last && session.sent === 0) {
+        session.failedKey = 'composer.voice.error.empty';
+      }
+    }
+    if (last) session.queue = session.queue.then(() => finishSession(session));
+  }
+
+  async function transcribeSegment(session, blob) {
+    if (session.discard || session.failedKey) return;
+    if (session === current && phase === 'transcribing') announce(t('composer.voice.transcribing'));
     // ⑧ 上传前转 16 kHz 单声道 WAV；解不开就原样发 webm（回退，见 encodeVoiceWav 头注）。
     const wav = await encodeVoiceWav(blob);
     const upload = wav || blob;
@@ -369,19 +480,44 @@ export function createComposerVoice({
         let raw = '';
         try { raw = await res.text(); } catch { raw = ''; }
         const info = apiErrorInfo(new Error(raw));
-        fail(TRANSCRIBE_ERROR_KEYS[info.code] || 'composer.voice.error.failed');
+        segmentFailed(session, transcribeErrorKey(info));
         return;
       }
       const body = await res.json();
       text = String((body && body.text) || '').trim();
     } catch {
-      fail('composer.voice.error.failed');
+      segmentFailed(session, 'composer.voice.error.failed');
       return;
     }
-    if (!text) { fail('composer.voice.error.empty'); return; }
+    if (session.discard || !text) return;   // 这一段没听出字（咳嗽、环境声）不算失败；整次一个字都没有才算（finishSession）
     const box = input();
-    if (!box) { phase = 'idle'; paint(); return; }
-    insertAtCursor(box, text);
+    if (!box) return;
+    insertSegment(session, box, text);
+    session.inserted += 1;
+  }
+
+  // 转写这条路不通（接口类型不对、密钥被拒、服务商挂了）就别让人对着麦克风白说：当场停录、说清原因。
+  // 已经落进输入框的字留着。
+  function segmentFailed(session, key) {
+    if (session.failedKey) return;
+    session.failedKey = key;
+    if (session !== current) return;
+    if (phase === 'recording') {
+      attempt += 1;
+      clearTicker();
+      session.discard = true;
+      if (segment) segment.final = true;
+      try { recorder.stop(); } catch { endCapture(); }
+    }
+    fail(key);
+  }
+
+  function finishSession(session) {
+    if (session !== current) return;
+    current = null;
+    if (session.failedKey) { if (phase !== 'error') fail(session.failedKey); return; }
+    if (session.discard) return;
+    if (!session.inserted) { fail('composer.voice.error.empty'); return; }
     phase = 'idle';
     paint();
     announce(t('composer.voice.inserted'));
@@ -389,15 +525,20 @@ export function createComposerVoice({
 
   // ④ 照 file-browser.js mentionFile：selectionStart/End 拼接 → setSelectionRange → focus；
   // 自适应高度与草稿保存由派发的 input 事件交给输入框自己的监听器。
-  function insertAtCursor(box, text) {
+  // ⑨ 第二段起接在上一段后面：输入框自上次落字之后没被人动过（值逐字相同）就续在那个位置；动过了就尊重
+  // 用户现在的光标。两段之间要不要空格只看交界两侧是不是都是拉丁字母／数字（中文之间不加）。
+  function insertSegment(session, box, text) {
     const value = String(box.value || '');
-    const start = box.selectionStart ?? value.length;
-    const end = box.selectionEnd ?? value.length;
-    box.value = value.slice(0, start) + text + value.slice(end);
-    const position = start + text.length;
+    const follow = session.anchor && session.anchor.box === box && session.anchor.value === value;
+    const start = follow ? session.anchor.position : (box.selectionStart ?? value.length);
+    const end = follow ? session.anchor.position : (box.selectionEnd ?? value.length);
+    const glue = follow && /[A-Za-z0-9]$/.test(value.slice(0, start)) && /^[A-Za-z0-9]/.test(text) ? ' ' : '';
+    box.value = value.slice(0, start) + glue + text + value.slice(end);
+    const position = start + glue.length + text.length;
     try { box.setSelectionRange(position, position); } catch { /* 不支持选区的宿主 */ }
     box.focus();
     box.dispatchEvent(new Event('input', { bubbles: true }));
+    session.anchor = { box, position, value: String(box.value || '') };
   }
 
   function onClick() {

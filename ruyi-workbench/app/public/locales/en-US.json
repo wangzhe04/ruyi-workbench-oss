@@ -922,17 +922,19 @@
   "settings.anthropicEndpoint.hint": "The endpoint, key, and model configured here are injected into the Claude CLI child process to drive real conversations; no manual setx is needed. You can switch models from the top bar.",
   "settings.anthropicEndpoint.title": "Third-party Anthropic-compatible endpoint (Coding Plan)",
   "settings.asr.disabled": "Off",
-  "settings.asr.hintSet": "The composer will show a microphone button: speech is transcribed into the input box and is never sent automatically.",
-  "settings.asr.hintUnset": "Choose the provider and model for speech-to-text. Only models marked for speech recognition are listed (add one below); until one is chosen the microphone in the input box is greyed out and clicking it brings you back here.",
+  "settings.asr.hintSet": "The composer will show a microphone button: text appears as you talk (each time you pause, the sentence you just said fills the input box) and is never sent automatically.",
+  "settings.asr.hintUnset": "Choose the model that turns what you say into text. If it is not listed, add it below. Until one is chosen the microphone in the input box is greyed out, and clicking it brings you back here.",
   "settings.asr.title": "Speech recognition (voice input)",
   "composer.voice.setupHint": "Voice input is off: click to choose a speech recognition model in Settings",
-  "settings.asr.none": "No speech recognition model yet. Pick a provider below and enter a transcription model it supports (for example whisper-1); once added, the microphone in the input box works.",
+  "settings.asr.none": "No model for turning speech into text yet. Pick a provider below, enter a model name and press \"Add and enable\"; the microphone in the input box then works. For Alibaba Bailian try qwen3-asr-flash, for OpenAI try whisper-1.",
   "settings.asr.addTitle": "Add a speech recognition model",
   "settings.asr.addProvider": "Provider",
-  "settings.asr.addModel": "Transcription model name",
-  "settings.asr.addPlaceholder": "e.g. whisper-1",
+  "settings.asr.addModel": "Model name",
+  "settings.asr.addProtocol": "Interface type",
+  "settings.asr.addPlaceholder": "e.g. qwen3-asr-flash, whisper-1",
   "settings.asr.addButton": "Add and enable",
   "settings.asr.addNeedFields": "Choose a provider, then enter a model name",
+  "settings.asr.addRealtime": "Models with \"realtime\" in the name are live-streaming models and do not work for voice input. Enter a non-realtime model, for example qwen3-asr-flash.",
   "settings.asr.added": "Speech recognition enabled: {{model}}",
   "settings.asr.noProvider": "Add a provider above first, then come back here to add a speech recognition model.",
   "settings.asr.toastReset": "Speech recognition off",
@@ -2233,10 +2235,10 @@
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 
-  ,"provider.asrProtocol": "Speech-to-text protocol"
-  ,"provider.asrProtocol.transcriptions": "Whisper style (/audio/transcriptions)"
-  ,"provider.asrProtocol.chatAudio": "Chat style (/chat/completions + input_audio)"
-  ,"provider.asrProtocol.hint": "Which dialect this provider's transcription endpoint speaks. OpenAI/Whisper style is the default; Xiaomi MiMo and Alibaba Bailian expose ASR as a chat endpoint — they have no /audio/transcriptions (it 404s), so pick \"Chat style\". Chat style only accepts the audio formats the provider declares (MiMo takes wav/mp3/mpeg only); microphone recordings are converted to 16 kHz mono WAV before upload, while audio attachments and the audio_transcribe tool send your original file."
+  ,"provider.asrProtocol": "Speech-to-text interface"
+  ,"provider.asrProtocol.transcriptions": "Standard (OpenAI, Whisper and similar)"
+  ,"provider.asrProtocol.chatAudio": "Chat-based (Alibaba Bailian, Xiaomi MiMo and similar)"
+  ,"provider.asrProtocol.hint": "Only matters if you use this provider for voice input. Pick Chat-based for Alibaba Bailian and Xiaomi MiMo, Standard for the rest; if voice input says the interface type is wrong, switch to the other one."
 
   ,"ask.countdown": "{{time}} left to answer"
   ,"chat.attachmentView": "View image: {{name}}"
@@ -2880,7 +2882,7 @@
   ,"quietCard.deferred": "Left for you, {{minutes}} min left: {{ask}}"
   ,"quietCard.deferredNoDeadline": "Left for you: {{ask}}"
   ,"composer.voice.label": "Voice input"
-  ,"composer.voice.hint": "Voice input: click to start talking, click again to finish; Esc cancels. The text only fills the input box and is never sent automatically"
+  ,"composer.voice.hint": "Voice input: click to start talking, click again to finish; Esc cancels. Each time you pause, the sentence you just said fills the input box; nothing is sent automatically"
   ,"composer.voice.stop": "Finish recording (Esc cancels)"
   ,"composer.voice.recording": "Recording. Press again to finish, Esc to cancel"
   ,"composer.voice.transcribing": "Turning speech into text…"
@@ -2893,7 +2895,9 @@
   ,"composer.voice.error.mic": "The microphone could not be started. The input box is unchanged"
   ,"composer.voice.error.notConfigured": "Speech recognition is not set up yet. The input box is unchanged"
   ,"composer.voice.error.tooLarge": "This recording is too long to transcribe. The input box is unchanged"
-  ,"composer.voice.error.upstream": "The transcription service did not succeed this time. Try again later; the input box is unchanged"
+  ,"composer.voice.error.upstream": "The speech-to-text service returned an error, most likely a wrong model name or a provider outage; the input box is unchanged"
+  ,"composer.voice.error.protocol": "This provider does not accept the current speech interface type. Go to Settings → Providers → Speech recognition, add the model again and choose the other interface type; the input box is unchanged"
+  ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Providers; the input box is unchanged"
   ,"composer.voice.error.failed": "Transcription did not succeed. Try again later; the input box is unchanged"
   ,"composer.voice.error.empty": "No words were recognized. The input box is unchanged"
 }

@@ -419,7 +419,17 @@
 .prov-cap[open] > summary { margin-bottom: 6px; }
 .prov-cap .prov-style, .prov-cap .prov-server-search { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; margin-right: 10px; color: var(--muted); flex-wrap: wrap; }
 .prov-cap .prov-style-select { max-width: 180px; }
-.prov-cap .prov-style-hint, .prov-cap .prov-server-search-hint { flex-basis: 100%; margin: 2px 0 4px; }
+.prov-cap .prov-style-hint, .prov-cap .prov-server-search-hint { flex-basis: 100%; margin: 2px 0 4px; white-space: normal; }
+/* 2026-09-20（用户截图）：「语音转文字接口」这一行修前没有任何样式 —— 落在 .check 的不换行 flex 里，长说明把标签挤成
+   一字一行的竖排。与上面「协议」那一行同模具：标签＋选择器一行，说明独占下一行并正常折行。 */
+.prov-cap .prov-asr-protocol { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--muted); margin-top: 4px; cursor: default; }
+.prov-cap .prov-asr-protocol-select { width: auto; max-width: 260px; }
+.prov-cap .prov-asr-protocol-hint { flex-basis: 100%; margin: 2px 0 4px; white-space: normal; }
+/* 设置页「添加语音识别模型」一行：服务商｜模型名｜接口类型｜添加并启用，窄了自动折行。 */
+.asr-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.asr-add-row select { width: auto; flex: 0 1 auto; max-width: 100%; }
+.asr-add-row .asr-add-model { width: auto; flex: 1 1 180px; min-width: 0; }
+.asr-add-row .asr-add-btn { flex: none; }
 /* v1.0.2 (G5b): provider 上下文窗口「当前生效」小字 */
 .prov-ctx-hint { font-size: var(--fs-xs); margin-top: 4px; line-height: 1.5; }
 .prov-status { font-size: var(--fs-sm); }

@@ -81,6 +81,17 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     ok(Boolean(await waitMic('composerVoiceBtn', 'idle')), `V4a 工作台那一枚当场变成能录(实测 ${JSON.stringify(await mic('composerVoiceBtn'))})`);
     const select = await fx.waitForEval(`(() => { const s = document.querySelector('#stab-providers .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100);
     ok(Boolean(select), '设置页那一栏变成选择器、选中了刚添加的模型'.replace(/^/, 'V4b '));
+    // V4d（用户 2026-09-20 实报「保存了语音模型后，再点保存会消失」）：添加之后设置弹窗还开着，再点底部「保存」。
+    // 修前底部保存把【没并进这次添加的旧草稿】整份盖回去，caps:['asr'] 被抹掉、选择器回落成无候选。
+    await fx.evaluate(`(() => { document.getElementById('saveConfigBtn').click(); return true; })()`);
+    await sleep(1500);
+    const disk2 = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+    const kept = (((disk2.providers || []).find(p => p && p.id === 'fake') || {}).models || []).find(m => m && typeof m === 'object' && m.id === 'fake-asr');
+    ok(Boolean(kept) && Array.isArray(kept.caps) && kept.caps.includes('asr') && disk2.asrModel === 'fake-asr',
+      `V4d 添加后再点底部「保存」,那条语音模型还在(实测 ${JSON.stringify(kept)} asrModel=${disk2.asrModel})`);
+    await fx.evaluate(`(() => { document.dispatchEvent(new CustomEvent('ruyi:open-voice-settings')); return true; })()`);
+    ok(Boolean(await fx.waitForEval(`(() => { const s = document.querySelector('#stab-providers .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100)),
+      'V4e 再打开设置,选择器里仍选中它');
     await fx.escape();
     ok(Boolean(await fx.setLens('steward')) && Boolean(await waitMic('stewardComposerVoice', 'idle')), 'V4c 管家那一枚也当场变成能录');
 

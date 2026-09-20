@@ -922,17 +922,19 @@
   "settings.anthropicEndpoint.hint": "在此配置的端点、密钥和模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话，无需手动 setx。模型可在顶栏“模型”中热切换。",
   "settings.anthropicEndpoint.title": "第三方 Anthropic 兼容端点（Coding Plan）",
   "settings.asr.disabled": "不启用",
-  "settings.asr.hintSet": "输入框将显示麦克风按钮：说完自动转成文字填入输入框，不会自动发送。",
-  "settings.asr.hintUnset": "选择用于语音转文字的服务商与模型。只列出标记为可语音识别的模型（在下面添加）；未选择时输入框里的麦克风是灰色的，点它会回到这里。",
+  "settings.asr.hintSet": "输入框会显示麦克风按钮：边说边出字（每停顿一下，刚说的那句就填进输入框），不会自动发送。",
+  "settings.asr.hintUnset": "选一个模型，用它把你说的话转成文字。列表里没有就在下面添加。没选的时候输入框的麦克风是灰的，点它会回到这里。",
   "settings.asr.title": "语音识别（语音输入）",
   "composer.voice.setupHint": "语音输入还没开启：点这里去设置里选一个语音识别模型",
-  "settings.asr.none": "还没有可语音识别的模型。在下面选一个服务商、填它支持的语音转写模型名（例如 whisper-1），添加后输入框的麦克风就能用了。",
+  "settings.asr.none": "还没有能把语音转成文字的模型。在下面选服务商、填模型名，点「添加并启用」，输入框的麦克风就能用了。阿里百炼可以填 qwen3-asr-flash，OpenAI 可以填 whisper-1。",
   "settings.asr.addTitle": "添加语音识别模型",
   "settings.asr.addProvider": "服务商",
-  "settings.asr.addModel": "语音转写模型名",
-  "settings.asr.addPlaceholder": "例如 whisper-1",
+  "settings.asr.addModel": "模型名",
+  "settings.asr.addProtocol": "接口类型",
+  "settings.asr.addPlaceholder": "例如 qwen3-asr-flash、whisper-1",
   "settings.asr.addButton": "添加并启用",
   "settings.asr.addNeedFields": "先选服务商，再填模型名",
+  "settings.asr.addRealtime": "名字带 realtime 的是实时流式型号，语音输入用不了。请填不带 realtime 的型号，例如 qwen3-asr-flash。",
   "settings.asr.added": "已添加并启用语音识别：{{model}}",
   "settings.asr.noProvider": "先在上面添加一个服务商，再回到这里添加语音识别模型。",
   "settings.asr.toastReset": "语音识别已关闭",
@@ -2233,10 +2235,10 @@
   ,"provider.serverWebSearch": "服务端搜索 (仅 DeepSeek Responses)"
   ,"provider.serverWebSearch.hint": "开启后 web_search 由 DeepSeek 服务端执行(免一轮往返);关闭或端点不支持时回退内置本地搜索(builtin/searxng/bing…)。仅 apiStyle=responses 时可用。"
 
-  ,"provider.asrProtocol": "语音识别协议"
-  ,"provider.asrProtocol.transcriptions": "Whisper 形 (/audio/transcriptions)"
-  ,"provider.asrProtocol.chatAudio": "对话形 (/chat/completions + input_audio)"
-  ,"provider.asrProtocol.hint": "这家服务商的转写端点说哪种话。OpenAI/Whisper 形是缺省;小米 MiMo、阿里百炼等把 ASR 做成对话接口 —— 它们没有 /audio/transcriptions(会 404),要选「对话形」。对话形只接受服务商声明支持的音频格式(MiMo 只收 wav/mp3/mpeg);工作台的麦克风录音已统一转成 16 kHz 单声道 WAV,音频附件与 audio_transcribe 工具用的是你给的原文件。"
+  ,"provider.asrProtocol": "语音转文字接口"
+  ,"provider.asrProtocol.transcriptions": "通用型（OpenAI、Whisper 这类）"
+  ,"provider.asrProtocol.chatAudio": "对话型（阿里百炼、小米 MiMo 这类）"
+  ,"provider.asrProtocol.hint": "只有用这家服务商做语音输入时才需要管。阿里百炼、小米 MiMo 选对话型，其余先用通用型；语音输入提示「接口类型不对」时换另一种。"
 
   ,"ask.countdown": "剩余作答时间 {{time}}"
   ,"chat.attachmentView": "查看图片：{{name}}"
@@ -2880,7 +2882,7 @@
   ,"quietCard.deferred": "如意留给你了，还等 {{minutes}} 分钟：{{ask}}"
   ,"quietCard.deferredNoDeadline": "如意留给你了：{{ask}}"
   ,"composer.voice.label": "语音输入"
-  ,"composer.voice.hint": "语音输入：点一下开始说，再点一下结束；Esc 取消。说完只填进输入框，不会自动发送"
+  ,"composer.voice.hint": "语音输入：点一下开始说，再点一下结束；Esc 取消。每停顿一下，刚说的那句就填进输入框，不会自动发送"
   ,"composer.voice.stop": "结束录音（Esc 取消）"
   ,"composer.voice.recording": "正在录音，再按一次结束，Esc 取消"
   ,"composer.voice.transcribing": "正在转成文字…"
@@ -2893,7 +2895,9 @@
   ,"composer.voice.error.mic": "麦克风没能打开，输入框没有改动"
   ,"composer.voice.error.notConfigured": "语音识别还没配置好，输入框没有改动"
   ,"composer.voice.error.tooLarge": "这段录音太长，超过了转写上限，输入框没有改动"
-  ,"composer.voice.error.upstream": "转写服务这次没有成功，稍后再试；输入框没有改动"
+  ,"composer.voice.error.upstream": "语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动"
+  ,"composer.voice.error.protocol": "这家服务商不认现在的语音接口类型。到「设置 → 服务商 → 语音识别」重新添加一次，换另一种接口类型；输入框没有改动"
+  ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 服务商」检查这家的 API 密钥；输入框没有改动"
   ,"composer.voice.error.failed": "转写没有成功，稍后再试；输入框没有改动"
   ,"composer.voice.error.empty": "没有听出文字，输入框没有改动"
 }

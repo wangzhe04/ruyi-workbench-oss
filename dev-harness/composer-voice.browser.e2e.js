@@ -578,6 +578,81 @@ try {
       `E4 三种失败全程零未捕获异常（CDP exceptionThrown 增量 ${JSON.stringify(exNew)}；页面 error/unhandledrejection 增量 ${JSON.stringify(errAfter.slice(errBase))}）`);
   }
 
+  /* ═════════ ⑨ 边说边出字：按停顿切段（用户 2026-09-20 拍板方案一） ═════════ */
+  // 假麦克风的蜂鸣节奏不归我们管，所以响度用桩：把 AnalyserNode 的取样换成「window.__voiceLoud 为真就给一段
+  // 满幅、为假就给静音」。录音本身仍是真 MediaRecorder 录真（假）麦克风 —— 桩只决定「现在算不算在说话」。
+  // 剧本：说 2.4s → 停 1.5s（此时应当已经切出第一段、字已落进输入框、而麦克风还在录）→ 再说 1.2s → 点结束。
+  {
+    const segText = '头|尾';
+    await cdp.evaluate(`(() => {
+      window.__realGetFloat = AnalyserNode.prototype.getFloatTimeDomainData;
+      AnalyserNode.prototype.getFloatTimeDomainData = function (array) { array.fill(window.__voiceLoud ? 0.5 : 0); };
+      window.__voiceLoud = true;
+      return true;
+    })()`);
+    const base = await cdp.evaluate(PROBE);
+    await cdp.evaluate(PREP('#promptInput', segText, 2));
+    await clickCenter('#composerVoiceBtn');
+    const rec = await waitForEval(cdp, WAIT_STATE('#composerVoiceBtn', 'recording'));
+    await sleep(2400);
+    await cdp.evaluate(`(() => { window.__voiceLoud = false; return true; })()`);
+    const firstLanded = await waitForEval(cdp, `(() => {
+      const box = document.getElementById('promptInput'); const b = document.getElementById('composerVoiceBtn');
+      return box && b && box.value !== ${JSON.stringify(segText)} && b.dataset.state === 'recording' ? { value: box.value, state: b.dataset.state, pressed: b.getAttribute('aria-pressed') } : null;
+    })()`, 300);
+    const midProbe = await cdp.evaluate(PROBE);
+    const midRequests = midProbe.asr.slice(base.asr.length);
+    ok(Boolean(rec) && Boolean(firstLanded) && firstLanded.state === 'recording' && firstLanded.pressed === 'true' && midRequests.length === 1,
+      `S1 停顿之后第一段的字已经落进输入框，而麦克风【还在录】（实得 ${JSON.stringify(firstLanded)}，此刻转写请求 ${midRequests.length} 发）`);
+    const firstValue = firstLanded ? firstLanded.value : '';
+    const firstEcho = firstValue.startsWith('头|'.slice(0, 2)) && firstValue.endsWith('尾') ? firstValue.slice(2, firstValue.length - 1) : '';
+    ok(ECHO.test(firstEcho), `S2 第一段落在光标处（「头|」与「尾」之间）（实得 ${JSON.stringify(firstValue)}）`);
+    await cdp.evaluate(`(() => { window.__voiceLoud = true; return true; })()`);
+    await sleep(1200);
+    await clickCenter('#composerVoiceBtn');
+    const done = await waitForEval(cdp, `(() => {
+      const box = document.getElementById('promptInput'); const b = document.getElementById('composerVoiceBtn');
+      return box && b && b.dataset.state === 'idle' && box.value !== ${JSON.stringify(firstValue)} ? { value: box.value, caret: box.selectionStart, pressed: b.getAttribute('aria-pressed') } : null;
+    })()`, 600);
+    await sleep(1200);
+    const endProbe = await cdp.evaluate(PROBE);
+    const segRequests = endProbe.asr.slice(base.asr.length);
+    ok(segRequests.length === 2 && segRequests.every(r => r.contentType === 'audio/wav' && r.magic === '52494646' && r.size > 44),
+      `S3 整次录音恰好两发转写请求（两段各一发、都是真 WAV）—— 每一秒音频只转一次，不是越录越贵的整段重发（实得 ${JSON.stringify(segRequests.map(r => r.size))}）`);
+    const finalValue = done ? done.value : '';
+    const echoes = finalValue.match(/\[fake-asr\] model=whisper-1 filename=voice\.wav bytes=\d+/g) || [];
+    ok(Boolean(done) && echoes.length === 2 && finalValue === '头|' + echoes[0] + echoes[1] + '尾'
+      && segRequests.length === 2 && echoes[0].endsWith('bytes=' + segRequests[0].size) && echoes[1].endsWith('bytes=' + segRequests[1].size),
+      `S4 第二段接在第一段后面、顺序就是说话的顺序、原来的字一个没动（实得 ${JSON.stringify(finalValue)}）`);
+    ok(Boolean(done) && done.caret === finalValue.length - 1 && done.pressed === 'false',
+      `S5 光标落在最后一段之后、按钮回到可录（实得 caret=${done && done.caret} 期望 ${finalValue.length - 1}）`);
+    ok(endProbe.sends.length === base.sends.length, `S6 切段落字全程不自动发送（发送计数增量 ${endProbe.sends.length - base.sends.length}）`);
+
+    // S7 收尾静音不出网：说 2.4s → 停（切出第一段）→ 一直安静 → 点结束。最后那一段没出过声，不该再多一发请求。
+    const base2 = await cdp.evaluate(PROBE);
+    await cdp.evaluate(`(() => { window.__voiceLoud = true; return true; })()`);
+    await cdp.evaluate(PREP('#promptInput', '', 0));
+    await clickCenter('#composerVoiceBtn');
+    await waitForEval(cdp, WAIT_STATE('#composerVoiceBtn', 'recording'));
+    await sleep(2400);
+    await cdp.evaluate(`(() => { window.__voiceLoud = false; return true; })()`);
+    await waitForEval(cdp, `(() => { const box = document.getElementById('promptInput'); return box && box.value ? 1 : null; })()`, 300);
+    await sleep(1000);
+    await clickCenter('#composerVoiceBtn');
+    const idle2 = await waitForEval(cdp, WAIT_STATE('#composerVoiceBtn', 'idle'), 600);
+    await sleep(1200);
+    const end2 = await cdp.evaluate(PROBE);
+    ok(Boolean(idle2) && end2.asr.length - base2.asr.length === 1,
+      `S7 说完之后安静着点结束：收尾那段静音不再出一次网（本趟转写请求 ${end2.asr.length - base2.asr.length} 发，按钮 ${idle2 && idle2.state}）`);
+
+    const restoredVad = await cdp.evaluate(`(() => {
+      AnalyserNode.prototype.getFloatTimeDomainData = window.__realGetFloat; delete window.__realGetFloat; delete window.__voiceLoud;
+      const box = document.getElementById('promptInput'); box.value = ''; box.dispatchEvent(new Event('input', { bubbles: true }));
+      return typeof AnalyserNode.prototype.getFloatTimeDomainData === 'function' && box.value === '';
+    })()`);
+    ok(restoredVad === true, 'S8 还原响度取样、清掉回填草稿');
+  }
+
   /* ═════════ ⑧ 107-A1：转码解不开 → 原样发 webm（回退不能把人卡死在「录完了发不出去」） ═════════ */
   {
     const patched = await cdp.evaluate(`(() => {
