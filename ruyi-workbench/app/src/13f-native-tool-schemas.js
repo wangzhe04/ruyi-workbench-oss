@@ -956,6 +956,32 @@ const MCP_TOOLS = [
     },
   },
   // ── 116-2e:设置族两个 + 内容管理三个(§3.5「如意设置」/「内容管理」行、§11.1 第 2 项速查线程)──
+  // ── 129b(49 号文 §3):三张「有哪些可选」的只读清单。补的是同一个形状 —— 管家能改的东西
+  // 它原本看不见清单,只能猜 id。三件都只读如意自己的状态,不含任何外部内容。
+  {
+    name: 'steward_skills',
+    description: '列出这台机器上装着哪些技能(给 steward_skill_toggle 用的那份 id)。何时用:用户说「这条线程给我开上写文档的技能」而你不确定它的 id;或用户问「有哪些技能」。何时别用:① 这不是技能的说明书,只有 id、名字和一句描述 —— 要它怎么用,让线程自己去读;② 管家会话自己没有技能面。项目技能跟着线程的工作目录走,所以问「某条线程能开哪些」时带上 sessionId。返回 {ok,sessionId,total,skills:[{id,name,description,source,available,unavailableReason}]}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        sessionId: { type: 'string', description: '可选。按这条线程的工作目录取(项目技能只在它自己的目录里有);省略则按默认工作区。' },
+        q: { type: 'string', description: '可选。关键词筛选(匹配 id/名字/描述)。' },
+      },
+    },
+  },
+  {
+    name: 'steward_providers',
+    description: '列出配好的模型端点与它们的模型(掩码:**不给密钥、也不给地址**,只给 id、名字、类型、模型清单和「配没配密钥」)。何时用:要改 activeProvider／model／compactModel／asrModel 这类键之前,先看看有哪些可选 —— 这些键你改得了(须用户确认),但端点清单本身在禁止族里读不到,不看这张表你只能猜 id。或用户问「现在用的什么模型/我都配了哪些端点」。何时别用:要密钥、要 baseUrl —— 那两样任何情况下都不会给你。返回 {ok,active:{provider,model},total,providers:[{id,label,type,hasKey,models:[{id,label,caps}]}]}。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  },
+  {
+    name: 'steward_playbooks',
+    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用。何时用:用户问「有哪些预置流程/你都能自动做什么」,或你想建议一条现成流程而不是从零开一条线程。何时别用:**Playbook 只能由用户在技能库面板点击运行,你没有执行它的工具** —— 建议它,不要声称自己跑了或能跑。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps}]}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { q: { type: 'string', description: '可选。关键词筛选(匹配 id/标题/描述)。' } },
+    },
+  },
   {
     name: 'steward_config_get',
     description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,omitted 里的键是 forbidden。',

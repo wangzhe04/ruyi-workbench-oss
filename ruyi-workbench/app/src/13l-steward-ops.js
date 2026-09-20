@@ -685,6 +685,113 @@ async function stewardImplMissions(args, ctx, config) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// 129b「能写不能读」的三张清单(tier read)—— 49 号文 §3。
+//
+// 病灶是同一个形状:**管家能改的东西,它看不见有哪些可选**。
+//   · steward_skill_toggle 能整份替换一条线程的技能,却没有工具能列出技能注册表 ——
+//     它自己的 schema 写着「不存在的 id 会被静默丢掉」,于是模型只能猜;
+//   · activeProvider / model / compactProviderId / compactModel / asrProviderId / asrModel /
+//     subagentPreferred* 八个键都是 confirm 档可改,而 providers 在 forbidden 档读不到
+//     (清单和 apiKey 装在同一个对象里),于是它能提「换成 X 模型」这枚按钮却不知道有哪些模型;
+//   · steward_playbook_draft 能起草 playbook,用户问「有哪些预置流程」它答不上来。
+//
+// 三张清单读的都是【如意自己的状态】,不含任何外部内容,所以不碰 31 号文红线 4(污染规则),
+// 安全面为零 —— 这也是它们与「眼睛」那四件(129d)的分界线。
+//
+// **投影一律用显式白名单,不是「删掉敏感字段」**:后者的失败方向是「以后谁给 provider 加一个
+// 新字段,它就默认泄漏出去」。这里只挑名字写出来的那几个字段,新字段默认不出现(fail-closed,
+// 与管家记忆导出字段白名单那把锁同一个模具)。key 与 baseUrl 一个字都不给:前者是密钥本身,
+// 后者是围栏信息(31 号文红线 2),而管家要的只是「有哪些可选」。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 24) steward_skills —— 技能注册表的只读清单(给 steward_skill_toggle 用的那份 id)。
+async function stewardImplSkills(args, ctx, config) {
+  // 项目技能来自 <cwd>/.ruyi/skills,所以「有哪些技能」是【跟着线程的工作目录】变的。
+  // 给了 sessionId 就按那条线程的 cwd 取(问的本来就是「这条线程能开哪些」),否则按默认工作区。
+  const sid = args && args.sessionId ? safeSessionId(args.sessionId) : '';
+  let cwd = String((config && config.defaultWorkspace) || '');
+  if (sid) {
+    const head = await stewardReadSessionHead(sid);
+    if (!head || !head.id) return stewardFail('not_found', `thread ${stewardSanitizeText(sid)} not found`);
+    if (head.cwd) cwd = String(head.cwd);
+  }
+  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+  const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
+  const rows = (Array.isArray(registry) ? registry : [])
+    .filter(e => e && e.kind === 'skill')
+    .filter(e => !q || `${e.id} ${e.name} ${e.description}`.toLowerCase().includes(q))
+    .slice(0, STEWARD_CATALOG_ROWS)
+    .map(e => ({
+      id: stewardSanitizeText(String(e.id || '')),
+      name: stewardSanitizeText(String(e.name || '')).slice(0, 60),
+      description: stewardSanitizeText(String(e.description || '')).slice(0, STEWARD_CATALOG_DESC_CHARS),
+      source: stewardSanitizeText(String(e.source || '')),
+      // 能不能用是既有结论(requires + 能力矩阵),原样转述;**目录绝对路径不出现**。
+      available: e.available !== false,
+      unavailableReason: e.available === false ? stewardSanitizeText(String(e.unavailableReason || '')).slice(0, 120) : '',
+    }));
+  return { ok: true, sessionId: sid, total: rows.length, skills: rows };
+}
+
+// 25) steward_providers —— 端点与模型的只读目录(掩码:不给 key、不给 baseUrl)。
+async function stewardImplProviders(args, ctx, config) {
+  const list = Array.isArray(config && config.providers) ? config.providers : [];
+  const providers = list.slice(0, STEWARD_CATALOG_ROWS).map(p => {
+    const models = Array.isArray(p && p.models) ? p.models : [];
+    const hidden = new Set((Array.isArray(p && p.hiddenModels) ? p.hiddenModels : []).map(x => String(x || '')));
+    return {
+      id: stewardSanitizeText(String((p && p.id) || '')),
+      label: stewardSanitizeText(String((p && p.label) || '')).slice(0, 60),
+      type: stewardSanitizeText(String((p && p.type) || '')),
+      // 有没有配好 key 是管家该知道的(「这个端点还没配」是它能说的一句有用的话),
+      // 但**只给布尔**:掩码串同样会暴露长度与前缀形状。
+      hasKey: Boolean(p && typeof p.apiKey === 'string' && p.apiKey),
+      models: models
+        .filter(m => m && !hidden.has(String(m.id || '')))
+        .slice(0, STEWARD_CATALOG_ROWS)
+        .map(m => ({
+          id: stewardSanitizeText(String((m && m.id) || '')),
+          label: stewardSanitizeText(String((m && m.label) || '')).slice(0, 60),
+          // caps 是【模型能力标签】(asr / embedding,白名单在 05),与 getCapabilities 那张
+          // 【运行环境能力矩阵】(network/desktopMcp/vision)是两个正交取值域、只是同名。
+          // 这里原样转述已经清洗过的那一份,不做任何解释 —— 两处白名单不许互相引用(有锁)。
+          caps: Array.isArray(m && m.caps) ? m.caps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 8) : [],
+        })),
+    };
+  });
+  // 「现在用的是哪个」本来就能从 steward_config_get 读到,这里一并给出省一次往返;
+  // 它们是 confirm 档的值,不是 forbidden。
+  return {
+    ok: true,
+    active: {
+      provider: stewardSanitizeText(String((config && config.activeProvider) || '')),
+      model: stewardSanitizeText(String((config && config.model) || '')),
+    },
+    total: providers.length,
+    providers,
+  };
+}
+
+// 26) steward_playbooks —— 预置流程的只读清单(用户问「有哪些流程」时答得上来)。
+async function stewardImplPlaybooks(args, ctx, config) {
+  const list = await listPlaybooksWithAvailability(config).catch(() => []);
+  const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
+  const rows = (Array.isArray(list) ? list : [])
+    // 字段名是 desc 不是 description(normalizePlaybook 的口径)—— 第一版写错,冒烟时整列全空捞出来的。
+    .filter(pb => pb && (!q || `${pb.id} ${pb.title} ${pb.desc}`.toLowerCase().includes(q)))
+    .slice(0, STEWARD_CATALOG_ROWS)
+    .map(pb => ({
+      id: stewardSanitizeText(String((pb && pb.id) || '')),
+      title: stewardSanitizeText(String((pb && pb.title) || '')).slice(0, 60),
+      description: stewardSanitizeText(String((pb && pb.desc) || '')).slice(0, STEWARD_CATALOG_DESC_CHARS),
+      service: stewardSanitizeText(String((pb && pb.service) || '')),
+      available: !(pb && pb.available === false),
+      missingCaps: Array.isArray(pb && pb.missingCaps) ? pb.missingCaps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 6) : [],
+    }));
+  return { ok: true, total: rows.length, playbooks: rows };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 设置族(tier exec)—— §3.5「如意设置」行的三级分级。判据唯一来源是 06i 的 stewardConfigTierFor。
 // ════════════════════════════════════════════════════════════════════════════
 

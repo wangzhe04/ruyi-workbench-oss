@@ -1137,6 +1137,12 @@ function stewardTrimSayAtSentence(value, ceiling) {
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
+// 129b:三张只读清单(技能 / 端点与模型 / playbook)的行数与描述预算。一个数管三处 —— 它们是
+// 同一类东西(「有哪些可选」的目录),没有理由各有各的上限。40 行按今天的真实规模定:技能四源
+// 合起来几十条、端点个位数、playbook 十几条,够列全;真超了模型可以带 q 再问一次。
+// 落在 06i 而不是 13m:13m 排在 13l【之后】,13l 的实现引用它会造前向边(§11.3 不得新增)。
+const STEWARD_CATALOG_ROWS = 40;
+const STEWARD_CATALOG_DESC_CHARS = 120;
 // 分词:拉丁按词切,中日韩按 2-gram 切(与 07-autonomy 的 tokenizeToolSearchText 同一思路,但这里必须
 // 自足 —— 06i 不引用任何外部符号)。
 function stewardMemoryTerms(value) {

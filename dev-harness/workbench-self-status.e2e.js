@@ -4,7 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 覆盖:
 //   (a) 身份字段与 108a buildRuntimeIdentityFacts 同源:version 与 package.json 一致、instanceId 与
 //       /api/status 的 overlayId 一致、dataDir 与临时 HOME 一致、address 以 http://127.0.0.1: 开头。
-//   (b) counts.nativeTools === 97(注册表工具数;第 116 波 116c 起 63→80,新增 17 个 steward_* 管家工具;123-M2 增六件定时任务 90→96;
+//   (b) counts.nativeTools === 100(注册表工具数;129b 增三张只读清单 97→100;第 116 波 116c 起 63→80,新增 17 个 steward_* 管家工具;123-M2 增六件定时任务 90→96;
 //       117m-A4 增第 27 个管家工具 steward_thread_stop,89→90 —— 重钉理由见 steward-tools.static ① 的注释;
 //       116-2a 再 +1 = 81,新增 steward_thread_permission;116-2b 再 +1 = 82,新增 steward_thread_note;
 //       116g 再 +1 = 83,新增 steward_missions;116h 再 +1 = 84,新增 steward_thread_prioritize;
@@ -103,7 +103,7 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
       ok(r && r.health.every(x => typeof x.id === 'string' && typeof x.ok === 'boolean'), 'health[] 每项含 id/ok');
 
       // 123-M2 重钉 90 -> 96(六件定时任务 steward_schedule_*);127-114c③ 重钉 96 -> 97(audio_transcribe)。
-      ok(r && r.counts && r.counts.nativeTools === 97, `counts.nativeTools === 97(got ${r && r.counts && r.counts.nativeTools})`);
+      ok(r && r.counts && r.counts.nativeTools === 100, `counts.nativeTools === 100(got ${r && r.counts && r.counts.nativeTools})`);
       // 117m-A4 伴随断言(比只钉一个数更强):自述里的工具数必须与 facts.json 现算的那一份【同源】,
       // 免得下次有人只改一处数字就把锁哄过去。
       ok(r && r.counts && r.counts.nativeTools === require(path.join(ROOT, 'facts.json')).nativeTools,
@@ -147,7 +147,7 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
       ok(!('counts' in rh) && !('config' in rh), `section:'health' 不含 counts/config`);
 
       const rc = await selfStatus(WB_PORT, token, sid, { section: 'counts' });
-      ok(rc && rc.counts && rc.counts.nativeTools === 97, `section:'counts' 含 counts.nativeTools=97`);
+      ok(rc && rc.counts && rc.counts.nativeTools === 100, `section:'counts' 含 counts.nativeTools=100`);
       ok(!('health' in rc) && !('config' in rc), `section:'counts' 不含 health/config`);
 
       const rcfg = await selfStatus(WB_PORT, token, sid, { section: 'config' });

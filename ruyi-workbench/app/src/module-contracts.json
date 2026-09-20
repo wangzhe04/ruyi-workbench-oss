@@ -4009,6 +4009,8 @@
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
         "STEWARD_BRIEF_TRUNCATED",
+        "STEWARD_CATALOG_DESC_CHARS",
+        "STEWARD_CATALOG_ROWS",
         "STEWARD_CONFIG_SECRET_PATTERN",
         "STEWARD_CONFIG_TIERS",
         "STEWARD_CONFIG_TIER_CONFIRM",
@@ -13537,10 +13539,13 @@
         "stewardImplMemoryWrite",
         "stewardImplMissions",
         "stewardImplPlaybookDraft",
+        "stewardImplPlaybooks",
+        "stewardImplProviders",
         "stewardImplRunAction",
         "stewardImplRunsStatus",
         "stewardImplSelfStatus",
         "stewardImplSkillToggle",
+        "stewardImplSkills",
         "stewardImplUsage",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
@@ -13675,6 +13680,13 @@
           ]
         },
         {
+          "provider": "06-provider-engine.js",
+          "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06d-memory-domain.js",
           "symbol": "cleanMemoryDate",
           "kinds": [
@@ -13693,6 +13705,20 @@
           "symbol": "memoryProposalLooksSensitive",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_CATALOG_DESC_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_CATALOG_ROWS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14511,6 +14537,20 @@
         },
         {
           "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplPlaybooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplProviders",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
           "symbol": "stewardImplRunAction",
           "kinds": [
             "read"
@@ -14526,6 +14566,13 @@
         {
           "provider": "13l-steward-ops.js",
           "symbol": "stewardImplSelfStatus",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplSkills",
           "kinds": [
             "read"
           ]

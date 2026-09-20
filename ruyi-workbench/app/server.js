@@ -22533,6 +22533,12 @@ function stewardTrimSayAtSentence(value, ceiling) {
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 
 const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
+// 129b:三张只读清单(技能 / 端点与模型 / playbook)的行数与描述预算。一个数管三处 —— 它们是
+// 同一类东西(「有哪些可选」的目录),没有理由各有各的上限。40 行按今天的真实规模定:技能四源
+// 合起来几十条、端点个位数、playbook 十几条,够列全;真超了模型可以带 q 再问一次。
+// 落在 06i 而不是 13m:13m 排在 13l【之后】,13l 的实现引用它会造前向边(§11.3 不得新增)。
+const STEWARD_CATALOG_ROWS = 40;
+const STEWARD_CATALOG_DESC_CHARS = 120;
 // 分词:拉丁按词切,中日韩按 2-gram 切(与 07-autonomy 的 tokenizeToolSearchText 同一思路,但这里必须
 // 自足 —— 06i 不引用任何外部符号)。
 function stewardMemoryTerms(value) {
@@ -26171,6 +26177,9 @@ const NATIVE_TOOL_TIER = {
   steward_usage: 'read', steward_health: 'read', steward_audit_tail: 'read',
   // 116g: 事项级只读视图归观察族 read —— 它只读事项文件与既有投影,零副作用。
   steward_missions: 'read',
+  // 129b: 三张「有哪些可选」的只读清单同归 read —— 只读如意自己的注册表/配置/模板目录,
+  // 零副作用、零外部内容(与 129d 的「眼睛」那四件分界线就在这一句上)。
+  steward_skills: 'read', steward_providers: 'read', steward_playbooks: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
   // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
   // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
@@ -26303,6 +26312,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_read: 'steward', steward_runs_status: 'steward', steward_inbox_read: 'steward',
   steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
   steward_missions: 'steward',
+  steward_skills: 'steward', steward_providers: 'steward', steward_playbooks: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',
@@ -39066,6 +39076,10 @@ const STEWARD_TOOL_HANDLERS = {
   steward_thread_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStatus(args, ctx) },
   steward_thread_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadRead(args, ctx) },
   steward_missions: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.missions(args, ctx) },
+  // 129b:三张只读清单。paths: null 与同族一致(它们不碰文件系统路径参数)。
+  steward_skills: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skills(args, ctx) },
+  steward_providers: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.providers(args, ctx) },
+  steward_playbooks: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbooks(args, ctx) },
   steward_runs_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runsStatus(args, ctx) },
   steward_inbox_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.inboxReadTool(args, ctx) },
   steward_usage: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.usage(args, ctx) },
@@ -41364,6 +41378,32 @@ const MCP_TOOLS = [
     },
   },
   // ── 116-2e:设置族两个 + 内容管理三个(§3.5「如意设置」/「内容管理」行、§11.1 第 2 项速查线程)──
+  // ── 129b(49 号文 §3):三张「有哪些可选」的只读清单。补的是同一个形状 —— 管家能改的东西
+  // 它原本看不见清单,只能猜 id。三件都只读如意自己的状态,不含任何外部内容。
+  {
+    name: 'steward_skills',
+    description: '列出这台机器上装着哪些技能(给 steward_skill_toggle 用的那份 id)。何时用:用户说「这条线程给我开上写文档的技能」而你不确定它的 id;或用户问「有哪些技能」。何时别用:① 这不是技能的说明书,只有 id、名字和一句描述 —— 要它怎么用,让线程自己去读;② 管家会话自己没有技能面。项目技能跟着线程的工作目录走,所以问「某条线程能开哪些」时带上 sessionId。返回 {ok,sessionId,total,skills:[{id,name,description,source,available,unavailableReason}]}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        sessionId: { type: 'string', description: '可选。按这条线程的工作目录取(项目技能只在它自己的目录里有);省略则按默认工作区。' },
+        q: { type: 'string', description: '可选。关键词筛选(匹配 id/名字/描述)。' },
+      },
+    },
+  },
+  {
+    name: 'steward_providers',
+    description: '列出配好的模型端点与它们的模型(掩码:**不给密钥、也不给地址**,只给 id、名字、类型、模型清单和「配没配密钥」)。何时用:要改 activeProvider／model／compactModel／asrModel 这类键之前,先看看有哪些可选 —— 这些键你改得了(须用户确认),但端点清单本身在禁止族里读不到,不看这张表你只能猜 id。或用户问「现在用的什么模型/我都配了哪些端点」。何时别用:要密钥、要 baseUrl —— 那两样任何情况下都不会给你。返回 {ok,active:{provider,model},total,providers:[{id,label,type,hasKey,models:[{id,label,caps}]}]}。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  },
+  {
+    name: 'steward_playbooks',
+    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用。何时用:用户问「有哪些预置流程/你都能自动做什么」,或你想建议一条现成流程而不是从零开一条线程。何时别用:**Playbook 只能由用户在技能库面板点击运行,你没有执行它的工具** —— 建议它,不要声称自己跑了或能跑。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps}]}。',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { q: { type: 'string', description: '可选。关键词筛选(匹配 id/标题/描述)。' } },
+    },
+  },
   {
     name: 'steward_config_get',
     description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,omitted 里的键是 forbidden。',
@@ -51175,6 +51215,113 @@ async function stewardImplMissions(args, ctx, config) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// 129b「能写不能读」的三张清单(tier read)—— 49 号文 §3。
+//
+// 病灶是同一个形状:**管家能改的东西,它看不见有哪些可选**。
+//   · steward_skill_toggle 能整份替换一条线程的技能,却没有工具能列出技能注册表 ——
+//     它自己的 schema 写着「不存在的 id 会被静默丢掉」,于是模型只能猜;
+//   · activeProvider / model / compactProviderId / compactModel / asrProviderId / asrModel /
+//     subagentPreferred* 八个键都是 confirm 档可改,而 providers 在 forbidden 档读不到
+//     (清单和 apiKey 装在同一个对象里),于是它能提「换成 X 模型」这枚按钮却不知道有哪些模型;
+//   · steward_playbook_draft 能起草 playbook,用户问「有哪些预置流程」它答不上来。
+//
+// 三张清单读的都是【如意自己的状态】,不含任何外部内容,所以不碰 31 号文红线 4(污染规则),
+// 安全面为零 —— 这也是它们与「眼睛」那四件(129d)的分界线。
+//
+// **投影一律用显式白名单,不是「删掉敏感字段」**:后者的失败方向是「以后谁给 provider 加一个
+// 新字段,它就默认泄漏出去」。这里只挑名字写出来的那几个字段,新字段默认不出现(fail-closed,
+// 与管家记忆导出字段白名单那把锁同一个模具)。key 与 baseUrl 一个字都不给:前者是密钥本身,
+// 后者是围栏信息(31 号文红线 2),而管家要的只是「有哪些可选」。
+// ════════════════════════════════════════════════════════════════════════════
+
+// 24) steward_skills —— 技能注册表的只读清单(给 steward_skill_toggle 用的那份 id)。
+async function stewardImplSkills(args, ctx, config) {
+  // 项目技能来自 <cwd>/.ruyi/skills,所以「有哪些技能」是【跟着线程的工作目录】变的。
+  // 给了 sessionId 就按那条线程的 cwd 取(问的本来就是「这条线程能开哪些」),否则按默认工作区。
+  const sid = args && args.sessionId ? safeSessionId(args.sessionId) : '';
+  let cwd = String((config && config.defaultWorkspace) || '');
+  if (sid) {
+    const head = await stewardReadSessionHead(sid);
+    if (!head || !head.id) return stewardFail('not_found', `thread ${stewardSanitizeText(sid)} not found`);
+    if (head.cwd) cwd = String(head.cwd);
+  }
+  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+  const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
+  const rows = (Array.isArray(registry) ? registry : [])
+    .filter(e => e && e.kind === 'skill')
+    .filter(e => !q || `${e.id} ${e.name} ${e.description}`.toLowerCase().includes(q))
+    .slice(0, STEWARD_CATALOG_ROWS)
+    .map(e => ({
+      id: stewardSanitizeText(String(e.id || '')),
+      name: stewardSanitizeText(String(e.name || '')).slice(0, 60),
+      description: stewardSanitizeText(String(e.description || '')).slice(0, STEWARD_CATALOG_DESC_CHARS),
+      source: stewardSanitizeText(String(e.source || '')),
+      // 能不能用是既有结论(requires + 能力矩阵),原样转述;**目录绝对路径不出现**。
+      available: e.available !== false,
+      unavailableReason: e.available === false ? stewardSanitizeText(String(e.unavailableReason || '')).slice(0, 120) : '',
+    }));
+  return { ok: true, sessionId: sid, total: rows.length, skills: rows };
+}
+
+// 25) steward_providers —— 端点与模型的只读目录(掩码:不给 key、不给 baseUrl)。
+async function stewardImplProviders(args, ctx, config) {
+  const list = Array.isArray(config && config.providers) ? config.providers : [];
+  const providers = list.slice(0, STEWARD_CATALOG_ROWS).map(p => {
+    const models = Array.isArray(p && p.models) ? p.models : [];
+    const hidden = new Set((Array.isArray(p && p.hiddenModels) ? p.hiddenModels : []).map(x => String(x || '')));
+    return {
+      id: stewardSanitizeText(String((p && p.id) || '')),
+      label: stewardSanitizeText(String((p && p.label) || '')).slice(0, 60),
+      type: stewardSanitizeText(String((p && p.type) || '')),
+      // 有没有配好 key 是管家该知道的(「这个端点还没配」是它能说的一句有用的话),
+      // 但**只给布尔**:掩码串同样会暴露长度与前缀形状。
+      hasKey: Boolean(p && typeof p.apiKey === 'string' && p.apiKey),
+      models: models
+        .filter(m => m && !hidden.has(String(m.id || '')))
+        .slice(0, STEWARD_CATALOG_ROWS)
+        .map(m => ({
+          id: stewardSanitizeText(String((m && m.id) || '')),
+          label: stewardSanitizeText(String((m && m.label) || '')).slice(0, 60),
+          // caps 是【模型能力标签】(asr / embedding,白名单在 05),与 getCapabilities 那张
+          // 【运行环境能力矩阵】(network/desktopMcp/vision)是两个正交取值域、只是同名。
+          // 这里原样转述已经清洗过的那一份,不做任何解释 —— 两处白名单不许互相引用(有锁)。
+          caps: Array.isArray(m && m.caps) ? m.caps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 8) : [],
+        })),
+    };
+  });
+  // 「现在用的是哪个」本来就能从 steward_config_get 读到,这里一并给出省一次往返;
+  // 它们是 confirm 档的值,不是 forbidden。
+  return {
+    ok: true,
+    active: {
+      provider: stewardSanitizeText(String((config && config.activeProvider) || '')),
+      model: stewardSanitizeText(String((config && config.model) || '')),
+    },
+    total: providers.length,
+    providers,
+  };
+}
+
+// 26) steward_playbooks —— 预置流程的只读清单(用户问「有哪些流程」时答得上来)。
+async function stewardImplPlaybooks(args, ctx, config) {
+  const list = await listPlaybooksWithAvailability(config).catch(() => []);
+  const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
+  const rows = (Array.isArray(list) ? list : [])
+    // 字段名是 desc 不是 description(normalizePlaybook 的口径)—— 第一版写错,冒烟时整列全空捞出来的。
+    .filter(pb => pb && (!q || `${pb.id} ${pb.title} ${pb.desc}`.toLowerCase().includes(q)))
+    .slice(0, STEWARD_CATALOG_ROWS)
+    .map(pb => ({
+      id: stewardSanitizeText(String((pb && pb.id) || '')),
+      title: stewardSanitizeText(String((pb && pb.title) || '')).slice(0, 60),
+      description: stewardSanitizeText(String((pb && pb.desc) || '')).slice(0, STEWARD_CATALOG_DESC_CHARS),
+      service: stewardSanitizeText(String((pb && pb.service) || '')),
+      available: !(pb && pb.available === false),
+      missingCaps: Array.isArray(pb && pb.missingCaps) ? pb.missingCaps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 6) : [],
+    }));
+  return { ok: true, total: rows.length, playbooks: rows };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 设置族(tier exec)—— §3.5「如意设置」行的三级分级。判据唯一来源是 06i 的 stewardConfigTierFor。
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -51693,6 +51840,11 @@ Object.assign(StewardHooks, {
   health: stewardToolHandler('steward_health', stewardImplHealth),
   auditTail: stewardToolHandler('steward_audit_tail', stewardImplAuditTail),
   missions: stewardToolHandler('steward_missions', stewardImplMissions), // 116g
+  // 129b(49 号文 §3):三张「有哪些可选」的只读清单。它们补的是同一个形状的缺口 ——
+  // 管家能改的东西(线程技能 / 端点与模型 / playbook)它原本都看不见清单,只能猜 id。
+  skills: stewardToolHandler('steward_skills', stewardImplSkills),
+  providers: stewardToolHandler('steward_providers', stewardImplProviders),
+  playbooks: stewardToolHandler('steward_playbooks', stewardImplPlaybooks),
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),

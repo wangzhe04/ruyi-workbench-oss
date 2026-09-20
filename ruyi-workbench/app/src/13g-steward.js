@@ -343,6 +343,11 @@ Object.assign(StewardHooks, {
   health: stewardToolHandler('steward_health', stewardImplHealth),
   auditTail: stewardToolHandler('steward_audit_tail', stewardImplAuditTail),
   missions: stewardToolHandler('steward_missions', stewardImplMissions), // 116g
+  // 129b(49 号文 §3):三张「有哪些可选」的只读清单。它们补的是同一个形状的缺口 ——
+  // 管家能改的东西(线程技能 / 端点与模型 / playbook)它原本都看不见清单,只能猜 id。
+  skills: stewardToolHandler('steward_skills', stewardImplSkills),
+  providers: stewardToolHandler('steward_providers', stewardImplProviders),
+  playbooks: stewardToolHandler('steward_playbooks', stewardImplPlaybooks),
   threadNew: stewardToolHandler('steward_thread_new', stewardImplThreadNew),
   threadContinue: stewardToolHandler('steward_thread_continue', stewardImplThreadContinue),
   threadRename: stewardToolHandler('steward_thread_rename', stewardImplThreadRename),
