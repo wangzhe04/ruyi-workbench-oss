@@ -121,9 +121,16 @@ export function shouldShowOnboarding(config, sessions) {
 // Data-driven step list. Always the same six steps in the same order (the wizard may fast-forward through
 // one at runtime, e.g. the provider step when the user already has a CLI, but the definition never shrinks
 // so 117 can render the identical checklist). `done` is derived from config only, never from live UI state.
+// 只做语音的服务商不算「对话引擎」（判据的事实源在 util.js 的 isSpeechOnlyProvider）。本模块零 import 是锁死的纪律
+// （壳无关、可在 Node 里经 data: URL 直接加载），所以这里放一份【逐字相同】的副本 —— asr-config-ui.static 钉住两份函数体一字不差，
+// 改一处不改另一处当场红。
+function isSpeechOnlyProvider(provider) {
+  const models = provider && Array.isArray(provider.models) ? provider.models : [];
+  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'));
+}
 export function onboardingStepsFor(config) {
   const c = asObject(config);
-  const providers = asArray(c.providers);
+  const providers = asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p));   // 自动接入的本地语音识别不是对话引擎:不能让它把「配置引擎」这一步标成已完成
   const engineReady = providers.length > 0 || Boolean(c.claudePath) || Boolean(c.kimiPath);
   const workspaceReady = asArray(c.recentWorkspaces).length > 0 || Boolean(c.defaultWorkspace);
   const doneFlag = {

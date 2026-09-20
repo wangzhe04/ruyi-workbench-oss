@@ -32,6 +32,7 @@ import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
 // 住在 js/popover.js。本模块只从它取那套【开合】，并把 3.0 自己的 .steward-chip-menu 经 opts.layer 交给
 // 它 —— 容器、类名、data-kind、role、[hidden] 与「就地在 .steward-chip-wrap 里」一个字不改。
 import { popover, closePopover } from './popover.js';
+import { chatProviders } from './util.js';   // 纯函数:只做语音的服务商不进引擎菜单
 // 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」的判据数据）的
 // 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
 // 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
@@ -673,7 +674,7 @@ export function createQuickSwitchChips({
       { key: 'agent:claude', label: AGENT_CLI_LABELS.claude, route: { engine: 'agent', agentCliType: 'claude', model: '' } },
       { key: 'agent:kimi', label: AGENT_CLI_LABELS.kimi, route: { engine: 'agent', agentCliType: 'kimi', model: '' } },
     ];
-    for (const provider of (config().providers || [])) {
+    for (const provider of chatProviders(config())) {
       if (!provider || !provider.id) continue;
       options.push({
         key: 'openai:' + provider.id,

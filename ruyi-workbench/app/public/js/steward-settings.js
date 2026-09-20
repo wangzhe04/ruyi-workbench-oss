@@ -29,6 +29,7 @@ import { stewardErrorText } from './steward-conversation.js';
 // permissionIconName 是【纯派生】（档位名 → 盾内字形名），不是第二份四档表 —— 四档的唯一判据
 // 仍然是 steward-chips.js 的 STEWARD_PERMISSION_MODES，本文件一个档位名字面量都没有。
 import { icon, permissionIconName } from './icons.js';
+import { chatProviders } from './util.js';
 // 121-K7（§7.2 表首行／§13.5 登记③）：「多久之后」那句人话只有 js/rail-pocket.js 那一份
 // （口袋、焦点栏「接下来」与本页这张表说同一句话，不各写一个 Intl.RelativeTimeFormat）。
 // 123-M2：本页改成可建可改之后，列表要的是【全量】任务行（describeKey / state / policy），
@@ -725,7 +726,7 @@ export function createStewardSettingsDomain({
   // 只是不再各自拼一份，本函数【只有一处定义】）。
   function fillProviderOptions(select, savedId) {
     if (!select) return;
-    const providers = Array.isArray(config().providers) ? config().providers : [];
+    const providers = chatProviders(config());
     const saved = String(savedId || '');
     clear(select);
     const follow = el('option', '', t('settings.steward.providerFollow'));

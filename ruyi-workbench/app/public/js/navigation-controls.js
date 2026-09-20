@@ -3,7 +3,7 @@
 // EC-D：命令面板、模型/能力弹层、模态、页签与工具栏布局领域。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, fmtTokens, toast } from './util.js';
+import { $, el, fmtTokens, toast, chatProviders } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
 // 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
@@ -131,7 +131,7 @@ function paletteActions() {
     const isCur = curPid === '' && (m.id || '') === (curModel || '');
     acts.push({ label: t('palette.engine', { engine: cliGroupLabel, model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
-  for (const p of (state.config.providers || [])) {
+  for (const p of chatProviders(state.config)) {   // 只做语音的服务商不进对话候选(state.js)
     for (const m of (p.models || [])) {
       if (!m.id) continue;
       const isCur = curPid === p.id && (m.id || '') === (curModel || '');
@@ -491,7 +491,7 @@ function openContextPopover() {
     compactSelect.appendChild(new Option(defaultName, ''));
     const selectedProvider = String(state.config?.compactProviderId || '');
     const selectedModel = String(state.config?.compactModel || '');
-    for (const provider of (state.config?.providers || [])) {
+    for (const provider of chatProviders(state.config)) {   // 压缩要的是对话模型:只做语音的服务商不列
       if (!provider || provider.enabled === false || !provider.id) continue;
       const models = Array.isArray(provider.models) ? provider.models.slice() : [];
       if (provider.model && !models.some(m => String((m && m.id) || m) === provider.model)) models.unshift({ id: provider.model, label: provider.model });

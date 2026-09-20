@@ -175,6 +175,28 @@ assert.match(voiceJs, /export async function encodeVoiceWav\(blob, env = globalT
 assert.match(voiceJs, /const wav = await encodeVoiceWav\(blob\);/, 'composer-voice: 上传前无条件转码（⑦d）');
 assert.ok(voiceJs.includes("if (info && info.code === 'asr.upstream' && (status === 404 || status === 405)) return 'composer.voice.error.protocol';"),
   'composer-voice: 上游 404/405 说成「接口类型不对」，不是「稍后再试」（再试一万次也是 404）');
+// 只做语音的服务商不进【对话】候选（用户 2026-09-21 拍板；起因是 ruyi-toolbox 的本地语音识别被自动接成一个服务商）。
+// 判据只有一份事实源 util.js 的 isSpeechOnlyProvider；onboarding-wizard.js 锁死零 import，放的是【逐字相同】的副本。
+{
+  const js = name => fs.readFileSync(path.join(APP, 'public', 'js', name), 'utf8');
+  const fnBody = src => { const m = src.match(/function isSpeechOnlyProvider\(provider\) \{\n[\s\S]*?\n\}\n/); return m ? m[0] : ''; };
+  const stateJs = js('util.js'), wizardJs = js('onboarding-wizard.js');
+  assert.ok(fnBody(stateJs) && fnBody(stateJs) === fnBody(wizardJs), 'isSpeechOnlyProvider: util.js 与 onboarding-wizard.js 两份函数体一字不差（改一处必须改另一处）');
+  assert.ok(fnBody(stateJs).includes("models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'))"),
+    'isSpeechOnlyProvider: 判据＝模型清单非空且每个模型都带语音识别标记（混用的服务商不受影响）');
+  assert.ok(wizardJs.includes('asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p))'), '新手向导:「已有对话引擎」不把只做语音的服务商算进去');
+  for (const [file, needle, label] of [
+    ['navigation-controls.js', 'for (const p of chatProviders(state.config)) {', '命令面板的引擎／模型候选'],
+    ['navigation-controls.js', 'for (const provider of chatProviders(state.config)) {', '压缩模型选择器'],
+    ['steward-chips.js', 'for (const provider of chatProviders(config())) {', '线程头引擎菜单'],
+    ['agent-roles.js', 'const providers = chatProviders(state.config);', '子代理首选端点'],
+    ['steward-settings.js', 'const providers = chatProviders(config());', '管家端点选择'],
+    ['session-experience.js', 'const providers = chatProviders(state.config);', '起始页「已有对话引擎」判断'],
+    ['steward-conversation.js', 'const providers = chatProviders(state && state.config);', '管家「取第一个端点」兜底'],
+  ]) assert.ok(js(file).includes(needle), '只做语音的服务商不进对话候选: ' + label + '（' + file + '）');
+  // 反向:语音识别自己的选择器不许被这条过滤掉 —— 它列的正是这些模型。
+  assert.ok(!/asrCapableOptions[\s\S]{0,400}chatProviders/.test(providersJs), '语音识别选择器仍按 caps 含 asr 列候选,不经 chatProviders');
+}
 // ⑨ 边说边出字（用户 2026-09-20 拍板方案一「按停顿切段」）。锁的是【费用形状】与【退路】：每段一只录音器、先起新的再停旧的
 // （切口不丢声）；一次录音的各段走同一条 Promise 链按序落字；不够 SEGMENT_MIN 不切（短录音与从前逐字节相同）；
 // 宿主没有 AudioContext 就不切。行为本身由 composer-voice.browser 的 S1–S8 在真浏览器里钉。

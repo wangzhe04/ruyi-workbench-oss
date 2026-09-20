@@ -85,3 +85,18 @@ export function setStatusDetail(detail) {
 
 // composer 文本域自适应高度(≤260px)。
 export function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px'; }
+
+// 只做语音的服务商不进【对话】候选（用户 2026-09-21 拍板）。ruyi-toolbox 的本地语音识别组件会被自动接成一个服务商
+// （toolbox-<id>），它只有转写接口、没有对话接口：出现在引擎菜单／命令面板／压缩模型／子代理与管家的端点选择里，
+// 选中只会换来一个 404；更糟的是新手向导与「取第一个服务商」的兜底会把它当成「已经有对话引擎了」。
+// 判据不看 id 前缀（用户自己加一个只放 whisper 的服务商同理）：模型清单非空、且【每一个】模型都带语音识别标记。
+// 混用的服务商（百炼那种既有对话模型又标了一个语音模型）不受影响；语音识别自己的选择器另有一套判据，也不受影响。
+// 纯函数。住在 util.js 而不是 state.js:管家那几个模块会被静态件在 Node 里直接 import,而 state.js 顶层要 window。
+export function isSpeechOnlyProvider(provider) {
+  const models = provider && Array.isArray(provider.models) ? provider.models : [];
+  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'));
+}
+export function chatProviders(config) {
+  const providers = config && Array.isArray(config.providers) ? config.providers : [];
+  return providers.filter(p => p && !isSpeechOnlyProvider(p));
+}

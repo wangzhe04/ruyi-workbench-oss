@@ -3,7 +3,7 @@
 // EC-D：会话侧栏、任务/授权状态、历史渲染、空态与 Playbook 领域。
 import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { api } from './net.js';
-import { $, el, autoGrow, fileBasename, toast } from './util.js';
+import { $, el, autoGrow, fileBasename, toast, chatProviders } from './util.js';
 import { icon } from './icons.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
@@ -1343,7 +1343,7 @@ function engineReadiness() {
     ? !!(state.config?.kimiPath || state.status?.detectedKimiPath)
     : !!(state.config?.claudePath || state.status?.detectedClaudePath);
   const cliLabel = cliType === 'kimi' ? 'Kimi Code' : 'Claude Code';
-  const providers = (state.config && state.config.providers) || [];
+  const providers = chatProviders(state.config);   // 「已经有对话引擎了吗」:自动接入的本地语音识别不算
   const providerReady = providers.length > 0;
   if (isProviderMode()) {
     const p = activeProviderObj();

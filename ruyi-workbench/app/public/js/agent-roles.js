@@ -3,7 +3,7 @@
 // EC-D 第61波：Agent 角色设置领域（库加载、草稿编辑、保存与子代理偏好选择）。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, toast } from './util.js';
+import { $, el, toast, chatProviders } from './util.js';
 import { t } from './i18n.js';
 
 export function createAgentRolesDomain({
@@ -124,7 +124,7 @@ function populateSubagentPreferenceSelects(providerValue, modelValue) {
   const providerSel = $('cfgSubagentPreferredProvider');
   const modelSel = $('cfgSubagentPreferredModel');
   if (!providerSel || !modelSel) return;
-  const providers = Array.isArray(state.config?.providers) ? state.config.providers : [];
+  const providers = chatProviders(state.config);   // 子代理要的是对话端点:只做语音的服务商不列
   const preferredProvider = String(providerValue || '').trim();
   providerSel.textContent = '';
   const follow = el('option', '', t('settings.advanced.subagentPreferredProvider.followPrimary'));

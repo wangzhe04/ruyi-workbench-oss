@@ -19,7 +19,7 @@ import { popover, closePopover, popoverAnchor } from './popover.js';
 import { icon } from './icons.js';
 // 33 号文 §4：stewardShortTitle 与 STEWARD_TITLE_MAX 搬去 util.js（无状态格式化叶子）—— 两个壳
 // 共用同一份截短口径，且 2.0 侧不必为了一个纯字符串函数 import 本模块（1481 行）。函数体逐字未改。
-import { stewardShortTitle } from './util.js';
+import { stewardShortTitle, chatProviders } from './util.js';   // chatProviders:兜底取端点时不把只做语音的服务商当对话端点
 // 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
 // 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
 import { dispatchAcceptanceMilestones, focusThreadFor } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
@@ -959,7 +959,7 @@ export function createStewardConversation({
     return (info && info.code === 'steward.unsupported_engine') ? info : null;
   }
   function firstOpenAiProvider() {
-    const providers = (state && state.config && Array.isArray(state.config.providers)) ? state.config.providers : [];
+    const providers = chatProviders(state && state.config);   // 兜底取第一个【对话】端点:只做语音的服务商不算
     return providers.find(p => p && p.id && (!p.type || String(p.type).startsWith('openai'))) || null;
   }
   // 117j UX-F2：引擎问题不写死一句话。后端对这两种情形早就各给了各自的人话（13h stewardResolveRoute：
