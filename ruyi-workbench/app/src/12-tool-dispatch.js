@@ -398,6 +398,12 @@ const STEWARD_TOOL_HANDLERS = {
   steward_skills: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skills(args, ctx) },
   steward_providers: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.providers(args, ctx) },
   steward_playbooks: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbooks(args, ctx) },
+  // 129d:眼睛四件。paths: null —— 路径围栏在实现里按【工作区表】判(管家不在任何项目里,
+  // 线程那套 cwd 围栏对它没有意义);敏感路径与二进制仍走 file_read 自己那道既有守卫。
+  steward_web_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.webSearchTool(args, ctx) },
+  steward_web_fetch: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.webFetchTool(args, ctx) },
+  steward_file_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.fileReadTool(args, ctx) },
+  steward_thread_artifact_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.artifactRead(args, ctx) },
   steward_runs_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.runsStatus(args, ctx) },
   steward_inbox_read: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.inboxReadTool(args, ctx) },
   steward_usage: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.usage(args, ctx) },

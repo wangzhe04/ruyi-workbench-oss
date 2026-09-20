@@ -550,7 +550,7 @@ try {
     const stewardOffered = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).sort();
     // 123-M2 重钉 27 -> 33(六件定时任务 steward_schedule_*;理由同上:本波真的多了六个工具,
     // 这条断言的语义仍是等号)。
-    ok(stewardOffered.length === 36, `K1b 面 1 管家会话拿到全部 36 个(129b:33→36)(got ${stewardOffered.length})`);
+    ok(stewardOffered.length === 40, `K1b 面 1 管家会话拿到全部 40 个(129b:33→36;129d:36→40)(got ${stewardOffered.length})`);
     const stewardRegistered = Object.keys(srv.TOOL_HANDLERS).filter(n => n.startsWith('steward_')).sort();
     ok(JSON.stringify(stewardOffered) === JSON.stringify(stewardRegistered),
       `K1c offer 出去的那一份与 12 的注册表【逐名】相同(缺: ${stewardRegistered.filter(n => !stewardOffered.includes(n)).join(',') || '无'};多: ${stewardOffered.filter(n => !stewardRegistered.includes(n)).join(',') || '无'})`);

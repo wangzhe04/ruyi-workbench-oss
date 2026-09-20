@@ -4039,6 +4039,7 @@
         "STEWARD_EXEMPT_RISK_NOTE_CHARS",
         "STEWARD_EXEMPT_TAINT_CATEGORIES",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
+        "STEWARD_EYES_CHARS",
         "STEWARD_ID_OPAQUE_RE",
         "STEWARD_ID_SESSION_RE",
         "STEWARD_LAST_SAY_CHARS",
@@ -4116,6 +4117,7 @@
         "stewardPrerouteMemoryHit",
         "stewardPrerouteReason",
         "stewardPrerouteScoreThread",
+        "stewardSamePath",
         "stewardSanitizeBlock",
         "stewardSanitizeText",
         "stewardStateLabel",
@@ -4124,6 +4126,7 @@
         "stewardTaintToolCall",
         "stewardTaintToolName",
         "stewardTermJaccard",
+        "stewardThreadArtifactFiles",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
         "stewardThreadStateRank",
@@ -4131,6 +4134,7 @@
         "stewardTrimSayAtSentence",
         "stewardTurnTaint",
         "stewardWatchedThread",
+        "stewardWorkspaceRootFor",
         "threadOriginOf",
         "threadVisible",
         "waitReasonFor"
@@ -12623,6 +12627,7 @@
         "STEWARD_TITLE_MAX",
         "_stewardReadBudget",
         "_stewardTurnQuota",
+        "_stewardTurnTaint",
         "stewardAppendDecision",
         "stewardBasisOf",
         "stewardClampInt",
@@ -12637,6 +12642,7 @@
         "stewardExemptDelegationsInWindow",
         "stewardFail",
         "stewardLastAssistantText",
+        "stewardMarkTurnTainted",
         "stewardMaskDecisionArgs",
         "stewardMemoryChain",
         "stewardMemoryPath",
@@ -12653,11 +12659,13 @@
         "stewardReadDecisionsText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
+        "stewardTaintKeyOf",
         "stewardThreadPermissionMode",
         "stewardTurnAssistantText",
         "stewardTurnFiles",
         "stewardTurnKeyOf",
-        "stewardTurnQuotaTake"
+        "stewardTurnQuotaTake",
+        "stewardTurnTaintedBy"
       ],
       "requires": [
         {
@@ -13528,10 +13536,13 @@
         "STEWARD_RUN_TIGHTENING",
         "stewardAddUsageRow",
         "stewardEmptyUsageBucket",
+        "stewardExternalBlock",
+        "stewardEyesTake",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
         "stewardImplDecide",
+        "stewardImplFileRead",
         "stewardImplHealth",
         "stewardImplInboxRead",
         "stewardImplMemorySearch",
@@ -13546,7 +13557,10 @@
         "stewardImplSelfStatus",
         "stewardImplSkillToggle",
         "stewardImplSkills",
+        "stewardImplThreadArtifactRead",
         "stewardImplUsage",
+        "stewardImplWebFetch",
+        "stewardImplWebSearch",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -13730,6 +13744,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_EYES_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_MEMORY_KINDS",
           "kinds": [
             "read"
@@ -13814,6 +13835,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardSamePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
@@ -13849,7 +13877,21 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadArtifactFiles",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWorkspaceRootFor",
           "kinds": [
             "call"
           ]
@@ -13885,6 +13927,20 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "listAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "webFetch",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "webSearch",
           "kinds": [
             "call"
           ]
@@ -13989,6 +14045,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_READ_CALLS_PER_TURN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_RUNS_MAX",
           "kinds": [
             "read"
@@ -14045,6 +14108,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMarkTurnTainted",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardMemoryScopeMatches",
           "kinds": [
             "call"
@@ -14080,6 +14150,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadBucket",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardReadMemoryStore",
           "kinds": [
             "call"
@@ -14101,7 +14178,21 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnKeyOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnTaintedBy",
           "kinds": [
             "call"
           ]
@@ -14487,6 +14578,13 @@
         },
         {
           "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplFileRead",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
           "symbol": "stewardImplHealth",
           "kinds": [
             "read"
@@ -14586,7 +14684,28 @@
         },
         {
           "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplThreadArtifactRead",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
           "symbol": "stewardImplUsage",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplWebFetch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardImplWebSearch",
           "kinds": [
             "read"
           ]
@@ -15470,6 +15589,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnTaintedBy",
           "kinds": [
             "call"
           ]
@@ -21043,6 +21169,13 @@
           ]
         },
         {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnTaintedBy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardMediatedPermissionWaitMs",
           "kinds": [
@@ -21157,6 +21290,13 @@
         {
           "provider": "13p-steward-runner-actions.js",
           "symbol": "stewardInboxMessage",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardSelfServeAllows",
           "kinds": [
             "read"
           ]

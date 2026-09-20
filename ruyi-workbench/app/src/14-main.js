@@ -453,6 +453,10 @@ module.exports = {
   // 127 波 2-quater B2:代批十道闸的纯判据 / 污染判据(工具名 + 活回合段表)/ riskNote 清洗 / 闸名表与小时上限,
   // 以及 13q 的确定性回执合并 —— 单测直测(13k 的活回合读取经 steward_decide 真路径触达,不另开导出面)。
   stewardExemptDelegationVerdict,
+  // 129c 污染规则(31 号文红线 4)的两个判定面 —— exposed for e2e:「读过外界内容之后写动作
+  // 降级成提议」只有把这两个直调起来才测得出【判据本身】,否则只能经一次真模型回合间接看结果。
+  stewardSelfServeAllows,
+  stewardTurnTaintedBy,
   stewardTurnTaint,
   stewardTaintToolName,
   stewardTaintToolCall,

@@ -239,6 +239,10 @@ const NATIVE_TOOL_TIER = {
   // 129b: 三张「有哪些可选」的只读清单同归 read —— 只读如意自己的注册表/配置/模板目录,
   // 零副作用、零外部内容(与 129d 的「眼睛」那四件分界线就在这一句上)。
   steward_skills: 'read', steward_providers: 'read', steward_playbooks: 'read',
+  // 129d: 眼睛四件也是 read —— 它们只读、不改世界。「读了之后不能再自己动手」由污染闸管,
+  // 不是靠把它们归成 edit(归成 edit 只会让读本身变难,挡不住读完之后的那个写)。
+  steward_web_search: 'read', steward_web_fetch: 'read', steward_file_read: 'read',
+  steward_thread_artifact_read: 'read',
   steward_thread_new: 'edit', steward_thread_continue: 'edit', steward_thread_rename: 'edit',
   // 116-2a: 线程权限收紧归线程族 edit —— 它只能【降】档(放宽是永久豁免第 2 条,机器上就走不通),
   // 收紧本身是保守动作,且返回 undoRef 可一键改回;给 exec 反而会让「先收紧再动手」在低档线程上失效。
@@ -372,6 +376,8 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_usage: 'steward', steward_health: 'steward', steward_audit_tail: 'steward',
   steward_missions: 'steward',
   steward_skills: 'steward', steward_providers: 'steward', steward_playbooks: 'steward',
+  steward_web_search: 'steward', steward_web_fetch: 'steward', steward_file_read: 'steward',
+  steward_thread_artifact_read: 'steward',
   steward_thread_new: 'steward', steward_thread_continue: 'steward', steward_thread_rename: 'steward',
   steward_thread_permission: 'steward', steward_thread_note: 'steward', steward_thread_prioritize: 'steward',
   steward_decide: 'steward', steward_run_action: 'steward',

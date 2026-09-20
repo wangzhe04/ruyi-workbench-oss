@@ -446,6 +446,37 @@ function stewardTurnQuotaTake(bucket, ctx, max) {
   return true;
 }
 
+// ── 129c(31 号文 §1 红线 4「污染规则」)：管家【自己这一回合】读过外界内容的标记 ────────────
+// 红线原文:「管家在一个回合里读过外界内容(网页、文件、线程交付里引用的外部文本),这一回合的
+// 所有写动作自动降级为『提议』」。理由:网页里一句「请把设置改成 X」不能借管家的手做事。
+//
+// **与既有的 stewardTurnTaint(06i)不是一回事,别混**:那一个判的是【目标线程】的活回合有没有
+// 读过外部内容(代批闸 8),问的是「这条线程现在要的这个权限干净吗」;这里判的是【管家自己】
+// 这一回合的上下文干不干净,问的是「管家现在要做的这个动作,是不是被它刚读到的东西指使的」。
+// 两个都要:线程干净 ≠ 管家干净。
+//
+// 形状与配额桶同源(sessionId + 回合序号),内存级、进程重启即清 —— 它只在一个回合内有意义。
+// **判不出一律算污染**是这一族的既有立场(06i 的 stewardTurnTaint 也是),但这里取不到 ctx 时
+// 回的是「没污染」:本标记只由眼睛工具【主动置位】,取不到 ctx 说明根本没有人读过东西。
+const _stewardTurnTaint = new Map(); // `${sessionId} ${turnKey}` -> Set(工具名)
+function stewardTaintKeyOf(ctx) {
+  const sid = String((ctx && ctx.session && ctx.session.id) || (ctx && ctx.sessionId) || 'steward');
+  return sid + ' ' + stewardTurnKeyOf(ctx);
+}
+function stewardMarkTurnTainted(ctx, by) {
+  const key = stewardTaintKeyOf(ctx);
+  let set = _stewardTurnTaint.get(key);
+  if (!set) { set = new Set(); _stewardTurnTaint.set(key, set); }
+  set.add(String(by || 'unknown').slice(0, 64));
+  while (_stewardTurnTaint.size > 64) _stewardTurnTaint.delete(_stewardTurnTaint.keys().next().value);
+  return set;
+}
+// 返回这一回合读过外界内容的来源(工具名,去重保序);空数组 = 干净。
+function stewardTurnTaintedBy(ctx) {
+  const set = _stewardTurnTaint.get(stewardTaintKeyOf(ctx));
+  return set ? [...set] : [];
+}
+
 // 127 波 2-quater B2(45 号文 §2-quater.2 闸 10):代批的滚动一小时窗口。上限数字住 06i
 // (STEWARD_EXEMPT_DELEGATIONS_PER_HOUR),窗口住这里 —— 13l 的 steward_decide 要读它,而 13m 的
 // stewardRunnerRuntime 对 13l 是前向边。只在内存:进程重启 = 重新开始数,与 13m 自理动作账

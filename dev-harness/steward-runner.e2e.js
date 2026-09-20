@@ -229,8 +229,8 @@ try {
     // 117m-A4 重钉:26 → 27(新增 steward_thread_stop)。伴随一条更强的:请求体里【真的】有那个工具名 ——
     // 只钉个数的话,「加了一个别的工具、漏了 thread_stop」也会绿。
     // 123-M2 重钉:27 -> 33(六件定时任务 steward_schedule_*)。
-    // 129b 重钉:33 -> 36(三张只读清单 steward_skills / steward_providers / steward_playbooks)。
-    ok(stewardBody && stewardBody.tools.length === 36, `B7b 管家回合拿到全部 36 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
+    // 129b 重钉:33 -> 36(三张只读清单);129d 重钉:36 -> 40(眼睛四件)。
+    ok(stewardBody && stewardBody.tools.length === 40, `B7b 管家回合拿到全部 40 个 steward_*(按需装载对管家强制 full;got ${stewardBody && stewardBody.tools.length})`);
     ok(stewardBody && stewardBody.tools.some(t => String(t.function && t.function.name) === 'steward_thread_stop'),
       'B7c 117m-A4:管家回合的请求体里有 steward_thread_stop(线程级停止原语真的到了模型手里)');
     const sys = stewardBody ? String((stewardBody.messages.find(m => m.role === 'system') || {}).content || '') : '';

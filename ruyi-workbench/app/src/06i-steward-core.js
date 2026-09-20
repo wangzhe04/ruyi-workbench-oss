@@ -1143,6 +1143,40 @@ const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, d
 // 落在 06i 而不是 13m:13m 排在 13l【之后】,13l 的实现引用它会造前向边(§11.3 不得新增)。
 const STEWARD_CATALOG_ROWS = 40;
 const STEWARD_CATALOG_DESC_CHARS = 120;
+
+// ── 129d「眼睛」四件的纯判据(31 号文 §2.2)──────────────────────────────────────────────
+// 单次取回的字符上限。与深读的单次上限同量级 —— 「管家一次能吞多少」不该因为来源是网页
+// 还是线程而有两个数。总量另受 stewardReadBudgetChars 管(那是一趟到访的总预算)。
+const STEWARD_EYES_CHARS = 12000;
+// 路径同一性:Windows 不分大小写、分隔符两种写法都有。判据单点在这里,四处消费不许各写一遍。
+function stewardSamePath(a, b) {
+  const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  const x = norm(a), y = norm(b);
+  return Boolean(x) && x === y;
+}
+// 这个路径落在哪个【已登记工作区】里?返回那个根;不在任何一个里返回空串(fail-closed)。
+// 判据只认 config.workspaces —— **recentWorkspaces 不算**(打开过 ≠ 授权过,31 号文红线 2 的原话)。
+function stewardWorkspaceRootFor(rawPath, config) {
+  const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  const target = norm(rawPath);
+  if (!target) return '';
+  const rows = Array.isArray(config && config.workspaces) ? config.workspaces : [];
+  for (const row of rows) {
+    const root = String((row && row.path) || '');
+    const key = norm(root);
+    // 「在这个根里」= 恰好是它,或以它加一个分隔符开头。少了那个分隔符,`C:/work` 会把
+    // `C:/work-secrets` 也算进来 —— 这是路径前缀判据的经典错法。
+    if (key && (target === key || target.startsWith(key + '/'))) return root;
+  }
+  return '';
+}
+// 一条线程【自己在交付里列出来的】文件清单(02 的 mission.result.artifacts,封顶 50 条)。
+// 不是「它 cwd 里的任何文件」—— 那等于把线程的工作目录整个开给管家看。
+function stewardThreadArtifactFiles(head) {
+  const rows = (head && head.mission && head.mission.result && Array.isArray(head.mission.result.artifacts))
+    ? head.mission.result.artifacts : [];
+  return rows.map(a => String((a && a.path) || '')).filter(Boolean).slice(0, 50);
+}
 // 分词:拉丁按词切,中日韩按 2-gram 切(与 07-autonomy 的 tokenizeToolSearchText 同一思路,但这里必须
 // 自足 —— 06i 不引用任何外部符号)。
 function stewardMemoryTerms(value) {
