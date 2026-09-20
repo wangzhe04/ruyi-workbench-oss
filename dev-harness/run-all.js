@@ -335,7 +335,21 @@ async function runWithRetry(file) {
   const second = await runOne(file);
   // 125:首跑那次的 FAIL 行【留住】。修前 flaky 件的首跑输出整份丢掉,于是汇总只说得出「这件抖」,
   // 说不出「抖在哪一条」—— 本轮全量 4 件 flaky、零诊断,40 号文 §8.4 ⓪ 想治的正是这个。
-  if (second.ok) return { r: { ...second, ms: first.ms + second.ms, firstFail: failLines(first.out) }, flaky: true };
+  // 129(本波取证时补):首跑【没有任何 FAIL 行】的那一类 flaky —— 超时、被杀、启动就炸 —— 修前
+  // 现场整份丢掉,汇总只说得出「多半是超时或进程被杀」,于是这一类永远查不下去(kimi-agent-cli
+  // 跨两轮重现,两次都卡在这里)。125 那一刀还的是「断言红在哪一条」,这一刀还的是「它是怎么死的」:
+  // 带上首跑的超时标/退出码,以及在没有 FAIL 行时的末 12 行原文。
+  if (second.ok) {
+    return {
+      r: {
+        ...second, ms: first.ms + second.ms,
+        firstFail: failLines(first.out),
+        firstTimedOut: first.timedOut, firstStatus: first.status,
+        firstTail: failLines(first.out).length ? [] : tailLines(first.out, 12).split(String.fromCharCode(10)).filter(Boolean),
+      },
+      flaky: true,
+    };
+  }
   return { r: { ...second, out: `[retry] 首跑 tail:\n${tailLines(first.out, 8)}\n[retry] 重跑 tail:\n${second.out}`, ms: first.ms + second.ms }, flaky: false };
 }
 function tailLines(s, n) {
@@ -438,7 +452,7 @@ async function main() {
       const tag = isFast(f) ? '[fast]' : '[main]';
       process.stdout.write(`(${String(i + 1).padStart(3)}/${files.length}) ${tag} ${f} ... `);
       const { r, flaky } = await runWithRetry(f);
-      results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, ms: r.ms, firstFail: r.firstFail });
+      results.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, ms: r.ms, firstFail: r.firstFail, firstTimedOut: r.firstTimedOut, firstStatus: r.firstStatus, firstTail: r.firstTail });
       const known = KNOWN_FAILURE[f];
       if (r.ok) {
         pass++;
@@ -476,7 +490,7 @@ async function main() {
         const { r, flaky } = await runWithRetry(f);
         // Preserve the captured output in parallel mode too. Without it the final failure heading could name
         // the right file but print an empty/misleading tail, making a load flake needlessly hard to diagnose.
-        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail });
+        bucketResults.push({ file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail, firstTimedOut: r.firstTimedOut, firstStatus: r.firstStatus, firstTail: r.firstTail });
         const known = KNOWN_FAILURE[f];
         if (r.ok) {
           if (flaky) console.log(`${prefix} PASS [flaky: 重跑通过] (${r.ms}ms)`);
@@ -512,7 +526,7 @@ async function main() {
     for (const f of exclusiveFiles) {
       process.stdout.write(`[exclusive] ([performance]) ${f} ... `);
       const { r, flaky } = await runWithRetry(f);
-      const row = { file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail };
+      const row = { file: f, ok: r.ok, known: !!KNOWN_FAILURE[f], flaky, timedOut: r.timedOut, status: r.status, out: r.out, ms: r.ms, firstFail: r.firstFail, firstTimedOut: r.firstTimedOut, firstStatus: r.firstStatus, firstTail: r.firstTail };
       results.push(row);
       const known = KNOWN_FAILURE[f];
       if (r.ok) {
@@ -543,7 +557,13 @@ async function main() {
       const row = results.find(x => x && x.file === f) || null;
       const lines = (row && Array.isArray(row.firstFail)) ? row.firstFail : [];
       if (lines.length) for (const line of lines) console.log('#     [首跑] ' + line.trim());
-      else console.log('#     [首跑] (没抓到 FAIL 行:多半是超时或进程被杀,不是断言红)');
+      else {
+        // 没有 FAIL 行 = 它不是断言红,是【死了】。把怎么死的与临死前说的话打出来 ——
+        // 修前这里只有一句「多半是超时」的猜测,而猜测查不下去。
+        const how = row && row.firstTimedOut ? 'TIMEOUT(撞了本件的超时墙)' : ('exit=' + (row ? row.firstStatus : '?'));
+        console.log('#     [首跑] 没有断言红 —— 它是怎么死的: ' + how);
+        for (const line of ((row && row.firstTail) || [])) console.log('#     [首跑·末尾] ' + line.trim().slice(0, 300));
+      }
     }
   }
   if (failed.length) {
