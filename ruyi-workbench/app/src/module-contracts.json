@@ -4055,6 +4055,8 @@
         "STEWARD_PERMISSION_MODE",
         "STEWARD_PERMISSION_RANK",
         "STEWARD_PHRASE_RE",
+        "STEWARD_PLAYBOOK_CLOSE",
+        "STEWARD_PLAYBOOK_OPEN",
         "STEWARD_PREROUTE_DEFAULTS",
         "STEWARD_PREROUTE_QUERY_MAX",
         "STEWARD_QUESTION_LEAD_RE",
@@ -4088,6 +4090,7 @@
         "stewardActConfirmSpec",
         "stewardAsksYou",
         "stewardAsksYouForThread",
+        "stewardAssemblePlaybookPrompt",
         "stewardClipSay",
         "stewardConfigTierFor",
         "stewardExemptAbsoluteDeleteTarget",
@@ -4110,6 +4113,7 @@
         "stewardPendingTotal",
         "stewardPermissionLabel",
         "stewardPermissionRank",
+        "stewardPlaybookMissingInputs",
         "stewardPrerouteContainsPhrase",
         "stewardPrerouteDeicticHit",
         "stewardPrerouteExtractPhrases",
@@ -13083,6 +13087,13 @@
           ]
         },
         {
+          "provider": "06-provider-engine.js",
+          "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06d-memory-domain.js",
           "symbol": "memoryIsExpired",
           "kinds": [
@@ -13168,6 +13179,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardClipSay",
           "kinds": [
             "call"
@@ -13232,6 +13250,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPlaybookMissingInputs",
           "kinds": [
             "call"
           ]
@@ -19805,6 +19830,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardClipSay",
           "kinds": [
             "read"
@@ -19911,6 +19943,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPlaybookMissingInputs",
           "kinds": [
             "read"
           ]

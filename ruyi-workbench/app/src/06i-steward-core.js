@@ -738,6 +738,41 @@ const STEWARD_BRIEF_LIMITS = Object.freeze({ supplementChars: 1200, sectionItems
 const STEWARD_BRIEF_OPEN = '<steward-brief added-by="steward">';
 const STEWARD_BRIEF_CLOSE = '</steward-brief>';
 const STEWARD_BRIEF_TRUNCATED = '\n[管家补充已截断:超过 ' + STEWARD_BRIEF_LIMITS.supplementChars + ' 字]';
+// ── 129h playbook 正文(31 号文 §2.7 放①)──────────────────────────────────────────────────
+// 它【不能】走「管家补充」那条路:supplement 的预算是 1200 字,而 promptTemplate 上限 20000 字
+// (06 的 normalizePlaybook 就钳在那里)—— 塞进去会被静默截断,线程拿到半条指令还照办,
+// 那是最坏的一种错。所以单独成块、单独预算,而且【不裁剪】:与前端「开始」按钮把组装结果原样
+// 发出去逐字同一口径(session-experience.js 的 assemblePlaybookPrompt + sendPrompt)。
+// 围栏也另起一对:这段正文是**用户自己写的(或内置的)模板**,不是管家的补充 ——
+// 用 added-by="steward" 那个壳去套它,是把作者说成管家,线程会按不同的信任度读它。
+const STEWARD_PLAYBOOK_OPEN = '<playbook id="{id}" title="{title}">';
+const STEWARD_PLAYBOOK_CLOSE = '</playbook>';
+
+// 占位替换。**与前端 assemblePlaybookPrompt 逐字同义**:只替换 playbook 自己声明过的 key,
+// 模板里冒出来的野 {foo} 原样留着(它不是参数,是正文)。两处各有一份实现(服务端产物是单文件
+// 拼接,拉不进浏览器模块),由 unit/steward-playbook-run.test.js 用同一组样例把两边钉在一起 ——
+// 与 06i 抄 mission-state.js 那份五态判据同一个模具。
+function stewardAssemblePlaybookPrompt(pb, values) {
+  let out = String((pb && pb.promptTemplate) || '');
+  const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
+  for (const inp of ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])) {
+    const key = String((inp && inp.key) || '');
+    if (!key) continue;
+    const val = v[key] == null ? '' : String(v[key]);
+    out = out.split('{' + key + '}').join(val);
+  }
+  return out;
+}
+
+// 哪些声明过的参数【没给值】。返回的是参数本身(key/label/type),不是一句话 —— 管家要拿它去问用户。
+// 为什么比前端严:前端那个弹窗前面坐着用户,他把某一格留空是**他的选择**;管家填空是猜。
+// 猜出来的 {folder} 是空串,模板照跑,线程在错的地方动手 —— 宁可退回来问一句。
+function stewardPlaybookMissingInputs(pb, values) {
+  const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
+  return ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])
+    .filter(inp => inp && inp.key && !String(v[inp.key] == null ? '' : v[inp.key]).trim())
+    .map(inp => ({ key: String(inp.key), label: String(inp.label || inp.key), type: String(inp.type || 'text') }));
+}
 
 // 组装交给线程的首条消息。铁律(§3.5):
 //   ① 用户原话【逐字】放最前 —— 不改写、不裁剪、不中和(它是用户自己的话,进的是普通会话的正常管线);
@@ -780,7 +815,18 @@ function buildStewardBrief(brief) {
   const composedText = supplement
     ? (userText + '\n\n' + STEWARD_BRIEF_OPEN + '\n' + supplement + '\n' + STEWARD_BRIEF_CLOSE)
     : userText;
-  return { text: composedText, userText, supplement, truncated, memoryIds };
+  // 129h:playbook 正文挂在【最后】,自成一块、不裁剪(理由见 STEWARD_PLAYBOOK_OPEN 的头注)。
+  // 位置在管家补充之后:先是用户原话,再是管家为这一单补的上下文,最后才是「照这个流程办」——
+  // 顺序即优先级,与 §3.5 那条铁律(原话永远在最前)一致。
+  // playbookText 由调用方(13k)组装好再传进来:装配要读 playbook 库与可用性,那是 06 的事,
+  // 06i 只做纯拼接,不去碰 I/O。
+  const playbookText = b.playbookText == null ? '' : String(b.playbookText);
+  const withPlaybook = playbookText
+    ? composedText + '\n\n'
+      + STEWARD_PLAYBOOK_OPEN.replace('{id}', stewardSanitizeText(b.playbookId || '')).replace('{title}', stewardSanitizeText(b.playbookTitle || ''))
+      + '\n' + playbookText + '\n' + STEWARD_PLAYBOOK_CLOSE
+    : composedText;
+  return { text: withPlaybook, userText, supplement, truncated, memoryIds, playbookText };
 }
 
 // ── 线程五态(§3.3/§11.2)。来源:ruyi-workbench/app/public/js/mission-state.js 的 deriveMissionState /

@@ -803,7 +803,15 @@ const MCP_TOOLS = [
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },
             preferences: { type: 'array', items: { type: 'string' }, description: '用户偏好(格式/语言/风格)。' },
             constraints: { type: 'array', items: { type: 'string' }, description: '约束与红线。' },
-            playbookId: { type: 'string', description: '可选。建议线程参考的 playbook id。' },
+            playbookId: { type: 'string', description: '可选。只是【建议线程参考】的 playbook id(写成一行字带给它);要真的按那个流程办,用下面的 playbook 字段。' },
+            playbook: {
+              type: 'object', additionalProperties: false, required: ['id'],
+              description: '可选。**按这个 playbook 办**:工作台会把它的正文(填好参数之后的)原样附在委托书最后,线程照着做。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或者你在 steward_playbooks 里找到一个正对得上的。何时别用:① 别猜 id,先 steward_playbooks 看一眼;② 参数不齐【不要自己编】——会回 {ok:false,reason:"playbook_inputs_missing",missing:[{key,label,type}]},把缺的那几项去问用户;③ 那个 playbook 现在跑不了(缺联网/桌面等能力)会回 reason:"playbook_unavailable",把原因说给用户听,不要重试。',
+              properties: {
+                id: { type: 'string', description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
+                inputs: { type: 'object', description: '参数取值,形如 {"folder":"D:/报表","month":"9月"}。它声明过的每一项都要给,且不能是空串。', additionalProperties: { type: 'string' } },
+              },
+            },
             memoryIds: { type: 'array', items: { type: 'string' }, description: '本次补充引用到的管家记忆条目 id(用于事后解释「因为你上次说…」)。' },
           },
         },
@@ -995,7 +1003,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_playbooks',
-    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用。何时用:用户问「有哪些预置流程/你都能自动做什么」,或你想建议一条现成流程而不是从零开一条线程。何时别用:**Playbook 只能由用户在技能库面板点击运行,你没有执行它的工具** —— 建议它,不要声称自己跑了或能跑。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps}]}。',
+    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用、它要哪几个参数。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或问「有哪些预置流程」,或你想用一条现成流程而不是从零写一份委托书。**要真的跑它**:把 id 与参数放进 steward_thread_new 的 brief.playbook —— 工作台会把填好参数的正文原样附在委托书最后。参数一项都不能空,也不要自己编:inputs 里有哪几项就去问用户哪几项。何时别用:① 不可用(available:false)的不要开,把 missingCaps 说给用户听;② 别猜 id。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps,inputs:[{key,label,type}]}]}。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: { q: { type: 'string', description: '可选。关键词筛选(匹配 id/标题/描述)。' } },

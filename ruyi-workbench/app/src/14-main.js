@@ -483,6 +483,10 @@ module.exports = {
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,
+  // 129h:两个纯函数 —— 占位组装与「哪些参数没给值」。导出只为单测直测
+  // (unit/steward-playbook-run.test.js 拿前端那份 assemblePlaybookPrompt 与它逐例对照)。
+  stewardAssemblePlaybookPrompt,
+  stewardPlaybookMissingInputs,
   STEWARD_BRIEF_LIMITS,
   STEWARD_THREAD_STATES,
   deriveStewardThreadState,

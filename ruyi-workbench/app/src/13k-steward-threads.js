@@ -596,7 +596,49 @@ async function stewardImplThreadNew(args, ctx, config) {
       });
     }
   }
-  const composed = buildStewardBrief(brief);
+  // ── 129h 跑 playbook(31 号文 §2.7 放①)────────────────────────────────────────────────
+  // **有意不新加工具**。「跑一个 playbook」这件事拆开看就是:按模板组装一段话 → 开一条线程去办。
+  // 后半截已经在这个函数里了,而且带着全套闸(工作区表、权限档、分档、事项、undoRef、决策账本)。
+  // 另起一个 steward_playbook_run 要么把这些重抄一遍,要么转头调这里 —— 两头都不如直接长在这。
+  // (§2.7 的原话也是「同一条执行路径,不另写」。)
+  const pbAsk = (brief.playbook && typeof brief.playbook === 'object' && !Array.isArray(brief.playbook)) ? brief.playbook : null;
+  let pbResolved = null;
+  if (pbAsk) {
+    const wantId = String(pbAsk.id || '').trim();
+    if (!wantId) return stewardFail('invalid_request', 'brief.playbook.id is required');
+    // 可用性直接读既有结论(06 的 listPlaybooksWithAvailability,与技能库面板同一份),不另写判据。
+    const list = await listPlaybooksWithAvailability(config).catch(() => []);
+    const pb = list.find(one => one && one.id === wantId) || null;
+    if (!pb) {
+      return stewardFail('not_found', `没有叫 "${stewardSanitizeText(wantId)}" 的 playbook —— 先用 steward_playbooks 看一眼有哪些,别猜 id`, {
+        reason: 'playbook_not_found',
+      });
+    }
+    // 不可用就别开:缺的是能力(联网/桌面/命令…),开出来的线程第一步就卡住,而用户要等到那时才知道。
+    if (pb.available === false) {
+      return stewardFail('invalid_request',
+        // 字段名是 unavailableReason,**不是** reason(06 的 evalPlaybookAvailability 口径)——
+        // 写错的话这里永远吐兜底那句「所需能力没就绪」,用户看不到真原因,而断言还是绿的:
+        // 与 129b 那次「字段名写成 description 而非 desc,整列全空」同一个模具。
+        `playbook「${stewardSanitizeText(pb.title)}」现在跑不了:${stewardSanitizeText(String(pb.unavailableReason || '所需能力没就绪'))} —— 把这句告诉用户,别开线程`, {
+          reason: 'playbook_unavailable', playbookId: pb.id,
+          missingCaps: (Array.isArray(pb.missingCaps) ? pb.missingCaps : []).map(c => stewardSanitizeText(String(c || ''))).slice(0, 6),
+        });
+    }
+    // 参数必须齐。比前端严,理由见 06i stewardPlaybookMissingInputs 的头注:
+    // 弹窗前面坐着用户,留空是他的选择;管家填空是猜,猜出来的空串会让模板在错的地方动手。
+    const missing = stewardPlaybookMissingInputs(pb, pbAsk.inputs);
+    if (missing.length) {
+      return stewardFail('invalid_request',
+        `这个 playbook 还缺 ${missing.length} 个参数没填:${missing.map(m => m.label).join('、')} —— 去问用户要,别自己编`, {
+          reason: 'playbook_inputs_missing', playbookId: pb.id, missing,
+        });
+    }
+    pbResolved = { id: pb.id, title: pb.title, text: stewardAssemblePlaybookPrompt(pb, pbAsk.inputs) };
+  }
+  const composed = buildStewardBrief(pbResolved
+    ? { ...brief, playbookId: pbResolved.id, playbookTitle: pbResolved.title, playbookText: pbResolved.text }
+    : brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
   // 117w-W1 ①:cwd 三态校验(见文件头的 stewardValidateCwd)。表外一律拒,不静默回落。
@@ -646,7 +688,10 @@ async function stewardImplThreadNew(args, ctx, config) {
     supplement: composed.supplement,
     truncated: composed.truncated,
     memoryIds: composed.memoryIds,
-    playbookId: String(brief.playbookId || ''),
+    // 129h:真跑了 playbook 时,这一格记【跑的那一个】。修前它只记 brief.playbookId ——
+    // 那个字段的老语义是「建议线程参考的 id」(一行文字,没人加载它);现在两种来源都落到同一格,
+    // 界面与事后对账不必分辨是「参考过」还是「跑过」的 id —— 真跑过的那一次另有决策账本作证。
+    playbookId: pbResolved ? pbResolved.id : String(brief.playbookId || ''),
   };
   // 117l D7:按任务复杂度选档(缺省 strong)—— 写在 saveSession 之前,跟着同一次落盘走,零额外写。
   const tiered = StewardHooks.applyThreadTier(session, args.tier, config);
@@ -669,14 +714,24 @@ async function stewardImplThreadNew(args, ctx, config) {
   const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_thread_new',
-    args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier },
+    args: {
+      title: session.title, missionId: session.missionId, briefChars: composed.text.length,
+      supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier,
+      // 129h:跑过 playbook 的那一次,行动流水要看得出来是【哪一个】、正文有多长 ——
+      // 「管家自己起了一条线程」与「管家按你存下的那个流程起了一条线程」是两件事。
+      ...(pbResolved ? { playbookId: pbResolved.id, playbookChars: pbResolved.text.length } : {}),
+    },
     targetSessionId: session.id,
     permissionMode: stewardThreadPermissionMode(session, config),
     mayAct: 'auto',
     undoRef,
-    basis: { memoryIds: composed.memoryIds },
+    basis: { memoryIds: composed.memoryIds, ...(pbResolved ? { playbookId: pbResolved.id } : {}) },
   });
-  return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef };
+  return {
+    ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title,
+    briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef,
+    ...(pbResolved ? { playbook: { id: pbResolved.id, title: pbResolved.title, chars: pbResolved.text.length } } : {}),
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

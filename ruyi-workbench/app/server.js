@@ -22158,6 +22158,41 @@ const STEWARD_BRIEF_LIMITS = Object.freeze({ supplementChars: 1200, sectionItems
 const STEWARD_BRIEF_OPEN = '<steward-brief added-by="steward">';
 const STEWARD_BRIEF_CLOSE = '</steward-brief>';
 const STEWARD_BRIEF_TRUNCATED = '\n[管家补充已截断:超过 ' + STEWARD_BRIEF_LIMITS.supplementChars + ' 字]';
+// ── 129h playbook 正文(31 号文 §2.7 放①)──────────────────────────────────────────────────
+// 它【不能】走「管家补充」那条路:supplement 的预算是 1200 字,而 promptTemplate 上限 20000 字
+// (06 的 normalizePlaybook 就钳在那里)—— 塞进去会被静默截断,线程拿到半条指令还照办,
+// 那是最坏的一种错。所以单独成块、单独预算,而且【不裁剪】:与前端「开始」按钮把组装结果原样
+// 发出去逐字同一口径(session-experience.js 的 assemblePlaybookPrompt + sendPrompt)。
+// 围栏也另起一对:这段正文是**用户自己写的(或内置的)模板**,不是管家的补充 ——
+// 用 added-by="steward" 那个壳去套它,是把作者说成管家,线程会按不同的信任度读它。
+const STEWARD_PLAYBOOK_OPEN = '<playbook id="{id}" title="{title}">';
+const STEWARD_PLAYBOOK_CLOSE = '</playbook>';
+
+// 占位替换。**与前端 assemblePlaybookPrompt 逐字同义**:只替换 playbook 自己声明过的 key,
+// 模板里冒出来的野 {foo} 原样留着(它不是参数,是正文)。两处各有一份实现(服务端产物是单文件
+// 拼接,拉不进浏览器模块),由 unit/steward-playbook-run.test.js 用同一组样例把两边钉在一起 ——
+// 与 06i 抄 mission-state.js 那份五态判据同一个模具。
+function stewardAssemblePlaybookPrompt(pb, values) {
+  let out = String((pb && pb.promptTemplate) || '');
+  const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
+  for (const inp of ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])) {
+    const key = String((inp && inp.key) || '');
+    if (!key) continue;
+    const val = v[key] == null ? '' : String(v[key]);
+    out = out.split('{' + key + '}').join(val);
+  }
+  return out;
+}
+
+// 哪些声明过的参数【没给值】。返回的是参数本身(key/label/type),不是一句话 —— 管家要拿它去问用户。
+// 为什么比前端严:前端那个弹窗前面坐着用户,他把某一格留空是**他的选择**;管家填空是猜。
+// 猜出来的 {folder} 是空串,模板照跑,线程在错的地方动手 —— 宁可退回来问一句。
+function stewardPlaybookMissingInputs(pb, values) {
+  const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
+  return ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])
+    .filter(inp => inp && inp.key && !String(v[inp.key] == null ? '' : v[inp.key]).trim())
+    .map(inp => ({ key: String(inp.key), label: String(inp.label || inp.key), type: String(inp.type || 'text') }));
+}
 
 // 组装交给线程的首条消息。铁律(§3.5):
 //   ① 用户原话【逐字】放最前 —— 不改写、不裁剪、不中和(它是用户自己的话,进的是普通会话的正常管线);
@@ -22200,7 +22235,18 @@ function buildStewardBrief(brief) {
   const composedText = supplement
     ? (userText + '\n\n' + STEWARD_BRIEF_OPEN + '\n' + supplement + '\n' + STEWARD_BRIEF_CLOSE)
     : userText;
-  return { text: composedText, userText, supplement, truncated, memoryIds };
+  // 129h:playbook 正文挂在【最后】,自成一块、不裁剪(理由见 STEWARD_PLAYBOOK_OPEN 的头注)。
+  // 位置在管家补充之后:先是用户原话,再是管家为这一单补的上下文,最后才是「照这个流程办」——
+  // 顺序即优先级,与 §3.5 那条铁律(原话永远在最前)一致。
+  // playbookText 由调用方(13k)组装好再传进来:装配要读 playbook 库与可用性,那是 06 的事,
+  // 06i 只做纯拼接,不去碰 I/O。
+  const playbookText = b.playbookText == null ? '' : String(b.playbookText);
+  const withPlaybook = playbookText
+    ? composedText + '\n\n'
+      + STEWARD_PLAYBOOK_OPEN.replace('{id}', stewardSanitizeText(b.playbookId || '')).replace('{title}', stewardSanitizeText(b.playbookTitle || ''))
+      + '\n' + playbookText + '\n' + STEWARD_PLAYBOOK_CLOSE
+    : composedText;
+  return { text: withPlaybook, userText, supplement, truncated, memoryIds, playbookText };
 }
 
 // ── 线程五态(§3.3/§11.2)。来源:ruyi-workbench/app/public/js/mission-state.js 的 deriveMissionState /
@@ -41331,7 +41377,15 @@ const MCP_TOOLS = [
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },
             preferences: { type: 'array', items: { type: 'string' }, description: '用户偏好(格式/语言/风格)。' },
             constraints: { type: 'array', items: { type: 'string' }, description: '约束与红线。' },
-            playbookId: { type: 'string', description: '可选。建议线程参考的 playbook id。' },
+            playbookId: { type: 'string', description: '可选。只是【建议线程参考】的 playbook id(写成一行字带给它);要真的按那个流程办,用下面的 playbook 字段。' },
+            playbook: {
+              type: 'object', additionalProperties: false, required: ['id'],
+              description: '可选。**按这个 playbook 办**:工作台会把它的正文(填好参数之后的)原样附在委托书最后,线程照着做。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或者你在 steward_playbooks 里找到一个正对得上的。何时别用:① 别猜 id,先 steward_playbooks 看一眼;② 参数不齐【不要自己编】——会回 {ok:false,reason:"playbook_inputs_missing",missing:[{key,label,type}]},把缺的那几项去问用户;③ 那个 playbook 现在跑不了(缺联网/桌面等能力)会回 reason:"playbook_unavailable",把原因说给用户听,不要重试。',
+              properties: {
+                id: { type: 'string', description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
+                inputs: { type: 'object', description: '参数取值,形如 {"folder":"D:/报表","month":"9月"}。它声明过的每一项都要给,且不能是空串。', additionalProperties: { type: 'string' } },
+              },
+            },
             memoryIds: { type: 'array', items: { type: 'string' }, description: '本次补充引用到的管家记忆条目 id(用于事后解释「因为你上次说…」)。' },
           },
         },
@@ -41523,7 +41577,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_playbooks',
-    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用。何时用:用户问「有哪些预置流程/你都能自动做什么」,或你想建议一条现成流程而不是从零开一条线程。何时别用:**Playbook 只能由用户在技能库面板点击运行,你没有执行它的工具** —— 建议它,不要声称自己跑了或能跑。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps}]}。',
+    description: '列出已装的 Playbook(预置操作流程):id、标题、一句描述、属于哪类服务、现在能不能用、它要哪几个参数。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或问「有哪些预置流程」,或你想用一条现成流程而不是从零写一份委托书。**要真的跑它**:把 id 与参数放进 steward_thread_new 的 brief.playbook —— 工作台会把填好参数的正文原样附在委托书最后。参数一项都不能空,也不要自己编:inputs 里有哪几项就去问用户哪几项。何时别用:① 不可用(available:false)的不要开,把 missingCaps 说给用户听;② 别猜 id。返回 {ok,total,playbooks:[{id,title,description,service,available,missingCaps,inputs:[{key,label,type}]}]}。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: { q: { type: 'string', description: '可选。关键词筛选(匹配 id/标题/描述)。' } },
@@ -50145,7 +50199,49 @@ async function stewardImplThreadNew(args, ctx, config) {
       });
     }
   }
-  const composed = buildStewardBrief(brief);
+  // ── 129h 跑 playbook(31 号文 §2.7 放①)────────────────────────────────────────────────
+  // **有意不新加工具**。「跑一个 playbook」这件事拆开看就是:按模板组装一段话 → 开一条线程去办。
+  // 后半截已经在这个函数里了,而且带着全套闸(工作区表、权限档、分档、事项、undoRef、决策账本)。
+  // 另起一个 steward_playbook_run 要么把这些重抄一遍,要么转头调这里 —— 两头都不如直接长在这。
+  // (§2.7 的原话也是「同一条执行路径,不另写」。)
+  const pbAsk = (brief.playbook && typeof brief.playbook === 'object' && !Array.isArray(brief.playbook)) ? brief.playbook : null;
+  let pbResolved = null;
+  if (pbAsk) {
+    const wantId = String(pbAsk.id || '').trim();
+    if (!wantId) return stewardFail('invalid_request', 'brief.playbook.id is required');
+    // 可用性直接读既有结论(06 的 listPlaybooksWithAvailability,与技能库面板同一份),不另写判据。
+    const list = await listPlaybooksWithAvailability(config).catch(() => []);
+    const pb = list.find(one => one && one.id === wantId) || null;
+    if (!pb) {
+      return stewardFail('not_found', `没有叫 "${stewardSanitizeText(wantId)}" 的 playbook —— 先用 steward_playbooks 看一眼有哪些,别猜 id`, {
+        reason: 'playbook_not_found',
+      });
+    }
+    // 不可用就别开:缺的是能力(联网/桌面/命令…),开出来的线程第一步就卡住,而用户要等到那时才知道。
+    if (pb.available === false) {
+      return stewardFail('invalid_request',
+        // 字段名是 unavailableReason,**不是** reason(06 的 evalPlaybookAvailability 口径)——
+        // 写错的话这里永远吐兜底那句「所需能力没就绪」,用户看不到真原因,而断言还是绿的:
+        // 与 129b 那次「字段名写成 description 而非 desc,整列全空」同一个模具。
+        `playbook「${stewardSanitizeText(pb.title)}」现在跑不了:${stewardSanitizeText(String(pb.unavailableReason || '所需能力没就绪'))} —— 把这句告诉用户,别开线程`, {
+          reason: 'playbook_unavailable', playbookId: pb.id,
+          missingCaps: (Array.isArray(pb.missingCaps) ? pb.missingCaps : []).map(c => stewardSanitizeText(String(c || ''))).slice(0, 6),
+        });
+    }
+    // 参数必须齐。比前端严,理由见 06i stewardPlaybookMissingInputs 的头注:
+    // 弹窗前面坐着用户,留空是他的选择;管家填空是猜,猜出来的空串会让模板在错的地方动手。
+    const missing = stewardPlaybookMissingInputs(pb, pbAsk.inputs);
+    if (missing.length) {
+      return stewardFail('invalid_request',
+        `这个 playbook 还缺 ${missing.length} 个参数没填:${missing.map(m => m.label).join('、')} —— 去问用户要,别自己编`, {
+          reason: 'playbook_inputs_missing', playbookId: pb.id, missing,
+        });
+    }
+    pbResolved = { id: pb.id, title: pb.title, text: stewardAssemblePlaybookPrompt(pb, pbAsk.inputs) };
+  }
+  const composed = buildStewardBrief(pbResolved
+    ? { ...brief, playbookId: pbResolved.id, playbookTitle: pbResolved.title, playbookText: pbResolved.text }
+    : brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
   // 117w-W1 ①:cwd 三态校验(见文件头的 stewardValidateCwd)。表外一律拒,不静默回落。
@@ -50195,7 +50291,10 @@ async function stewardImplThreadNew(args, ctx, config) {
     supplement: composed.supplement,
     truncated: composed.truncated,
     memoryIds: composed.memoryIds,
-    playbookId: String(brief.playbookId || ''),
+    // 129h:真跑了 playbook 时,这一格记【跑的那一个】。修前它只记 brief.playbookId ——
+    // 那个字段的老语义是「建议线程参考的 id」(一行文字,没人加载它);现在两种来源都落到同一格,
+    // 界面与事后对账不必分辨是「参考过」还是「跑过」的 id —— 真跑过的那一次另有决策账本作证。
+    playbookId: pbResolved ? pbResolved.id : String(brief.playbookId || ''),
   };
   // 117l D7:按任务复杂度选档(缺省 strong)—— 写在 saveSession 之前,跟着同一次落盘走,零额外写。
   const tiered = StewardHooks.applyThreadTier(session, args.tier, config);
@@ -50218,14 +50317,24 @@ async function stewardImplThreadNew(args, ctx, config) {
   const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_thread_new',
-    args: { title: session.title, missionId: session.missionId, briefChars: composed.text.length, supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier },
+    args: {
+      title: session.title, missionId: session.missionId, briefChars: composed.text.length,
+      supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier,
+      // 129h:跑过 playbook 的那一次,行动流水要看得出来是【哪一个】、正文有多长 ——
+      // 「管家自己起了一条线程」与「管家按你存下的那个流程起了一条线程」是两件事。
+      ...(pbResolved ? { playbookId: pbResolved.id, playbookChars: pbResolved.text.length } : {}),
+    },
     targetSessionId: session.id,
     permissionMode: stewardThreadPermissionMode(session, config),
     mayAct: 'auto',
     undoRef,
-    basis: { memoryIds: composed.memoryIds },
+    basis: { memoryIds: composed.memoryIds, ...(pbResolved ? { playbookId: pbResolved.id } : {}) },
   });
-  return { ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title, briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef };
+  return {
+    ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title,
+    briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef,
+    ...(pbResolved ? { playbook: { id: pbResolved.id, title: pbResolved.title, chars: pbResolved.text.length } } : {}),
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -51750,6 +51859,15 @@ async function stewardImplPlaybooks(args, ctx, config) {
       service: stewardSanitizeText(String((pb && pb.service) || '')),
       available: !(pb && pb.available === false),
       missingCaps: Array.isArray(pb && pb.missingCaps) ? pb.missingCaps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 6) : [],
+      // 129h:要跑它就得先知道它问哪几个参数 —— 没有这一列,管家只能空手去调 thread_new,
+      // 然后吃一个 playbook_inputs_missing 才知道缺什么(白跑一轮,还得再问一次用户)。
+      // 仍然是【显式字段白名单】(129b 那条纪律):只出 key/label/type 三样作者自己写的界面元数据,
+      // promptTemplate 一个字都不出 —— 模板正文不该占管家的上下文,它由服务端在开线程时直接附上。
+      inputs: (Array.isArray(pb && pb.inputs) ? pb.inputs : []).slice(0, 12).map(inp => ({
+        key: stewardSanitizeText(String((inp && inp.key) || '')),
+        label: stewardSanitizeText(String((inp && inp.label) || '')).slice(0, 60),
+        type: stewardSanitizeText(String((inp && inp.type) || 'text')),
+      })),
     }));
   return { ok: true, total: rows.length, playbooks: rows };
 }
@@ -58136,6 +58254,10 @@ module.exports = {
   isStewardToolName,
   stewardSanitizeBlock,
   buildStewardBrief,
+  // 129h:两个纯函数 —— 占位组装与「哪些参数没给值」。导出只为单测直测
+  // (unit/steward-playbook-run.test.js 拿前端那份 assemblePlaybookPrompt 与它逐例对照)。
+  stewardAssemblePlaybookPrompt,
+  stewardPlaybookMissingInputs,
   STEWARD_BRIEF_LIMITS,
   STEWARD_THREAD_STATES,
   deriveStewardThreadState,

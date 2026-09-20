@@ -800,6 +800,15 @@ async function stewardImplPlaybooks(args, ctx, config) {
       service: stewardSanitizeText(String((pb && pb.service) || '')),
       available: !(pb && pb.available === false),
       missingCaps: Array.isArray(pb && pb.missingCaps) ? pb.missingCaps.map(c => stewardSanitizeText(String(c || ''))).slice(0, 6) : [],
+      // 129h:要跑它就得先知道它问哪几个参数 —— 没有这一列,管家只能空手去调 thread_new,
+      // 然后吃一个 playbook_inputs_missing 才知道缺什么(白跑一轮,还得再问一次用户)。
+      // 仍然是【显式字段白名单】(129b 那条纪律):只出 key/label/type 三样作者自己写的界面元数据,
+      // promptTemplate 一个字都不出 —— 模板正文不该占管家的上下文,它由服务端在开线程时直接附上。
+      inputs: (Array.isArray(pb && pb.inputs) ? pb.inputs : []).slice(0, 12).map(inp => ({
+        key: stewardSanitizeText(String((inp && inp.key) || '')),
+        label: stewardSanitizeText(String((inp && inp.label) || '')).slice(0, 60),
+        type: stewardSanitizeText(String((inp && inp.type) || 'text')),
+      })),
     }));
   return { ok: true, total: rows.length, playbooks: rows };
 }
