@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 53 | 2471 | 2604 | 424 | 68 | 0 | 1 |
+| 53 | 2476 | 2606 | 424 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -30,7 +30,7 @@
 | 12 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 13 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
 | 14 | `06-provider-engine.js` | engine | 121 | 49 | 11 |
-| 15 | `06b-prompt-registry.js` | engine | 4 | 1 | 1 |
+| 15 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 16 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 17 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
 | 18 | `06i-steward-core.js` | engine | 128 | 0 | 0 |
@@ -58,9 +58,9 @@
 | 40 | `13k-steward-threads.js` | transport | 36 | 95 | 11 |
 | 41 | `13l-steward-ops.js` | transport | 26 | 82 | 16 |
 | 42 | `13g-steward.js` | transport | 11 | 57 | 9 |
-| 43 | `13m-steward-runner-base.js` | transport | 40 | 14 | 5 |
+| 43 | `13m-steward-runner-base.js` | transport | 42 | 14 | 5 |
 | 44 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 45 | `13o-steward-runner-prompt.js` | transport | 17 | 50 | 13 |
+| 45 | `13o-steward-runner-prompt.js` | transport | 18 | 52 | 13 |
 | 46 | `13p-steward-runner-actions.js` | transport | 28 | 42 | 10 |
 | 47 | `13q-steward-runner-turn.js` | transport | 24 | 61 | 17 |
 | 48 | `13h-steward-runner.js` | transport | 6 | 46 | 12 |
@@ -408,7 +408,7 @@
 | `13o-steward-runner-prompt.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
 | `13o-steward-runner-prompt.js` | `13j-steward-tool-base.js` | backward | `stewardMemoryScopeLabel`, `stewardQuickThread`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode` |
 | `13o-steward-runner-prompt.js` | `13k-steward-threads.js` | backward | `stewardSeatedByUser` |
-| `13o-steward-runner-prompt.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTIONS_MAX`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_CONFIRM_LABEL_MAX`, `STEWARD_ACT_CONFIRM_VALUE_CHARS`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_DECIDE_LABELS`, `STEWARD_MEMORY_BLOCK_CHARS`, `STEWARD_RUN_ACTION_LABELS`, `STEWARD_SAY_CEILING`, `STEWARD_TOOL_LABELS`, `STEWARD_WHY_MAX`, `stewardRunnerRuntime` |
+| `13o-steward-runner-prompt.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTIONS_MAX`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_CONFIRM_LABEL_MAX`, `STEWARD_ACT_CONFIRM_VALUE_CHARS`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_DECIDE_LABELS`, `STEWARD_MEMORY_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_MAX`, `STEWARD_RUN_ACTION_LABELS`, `STEWARD_SAY_CEILING`, `STEWARD_TOOL_LABELS`, `STEWARD_WHY_MAX`, `stewardRunnerRuntime` |
 | `13o-steward-runner-prompt.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13p-steward-runner-actions.js` | `00-boot.js` | backward | `readUsageRows`, `text`, `usageDayKey` |
 | `13p-steward-runner-actions.js` | `01-config.js` | backward | `safeSessionId` |

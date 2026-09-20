@@ -913,7 +913,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_write',
-    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。',
+    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
@@ -922,6 +922,7 @@ const MCP_TOOLS = [
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
+        supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
           description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。会被服务端核对角色。',
@@ -935,7 +936,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_veto',
-    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。返回 {ok,id,undoRef}。',
+    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '记忆条目 id。' } },

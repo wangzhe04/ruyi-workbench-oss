@@ -229,7 +229,7 @@ try {
     ok(!/api[_ -]?key\s*[:=]/i.test(dumped) && !/NOT-A-REAL-CREDENTIAL/.test(dumped), 'C7d(E2)export 里零密钥形状字符串');
     const fields = new Set();
     for (const e of r.body.entries) for (const k of Object.keys(e)) fields.add(k);
-    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom', 'expiresAt', 'scope']); // 126-M02/M01 新增(这把锁两次都按设计拦住了:加字段必须回来登记)
+    const allowed = new Set(['id', 'kind', 'text', 'confidence', 'sourceSessionId', 'sourceSeq', 'createdAt', 'updatedAt', 'lastUsedAt', 'useCount', 'state', 'mergedFrom', 'expiresAt', 'scope', 'revivedFrom']); // 126-M02/M01 + 128h-J12 新增(这把锁三次都按设计拦住了:加字段必须回来登记。revivedFrom 进导出的理由与 expiresAt 同:它是条目自己的事实,导出再导入不该静默丢)
     const extra = [...fields].filter(f => !allowed.has(f));
     ok(extra.length === 0, 'C7e export 只含条目本身的字段' + (extra.length ? ' → 多出: ' + extra.join(',') : ''));
   }

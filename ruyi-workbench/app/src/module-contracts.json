@@ -3932,6 +3932,8 @@
       "file": "06b-prompt-registry.js",
       "layer": "engine",
       "provides": [
+        "MEMORY_PRECEDENCE_EN",
+        "MEMORY_PRECEDENCE_ZH",
         "PROMPT_EN",
         "PROMPT_PACK_VERSION",
         "PROMPT_ZH",
@@ -14562,6 +14564,8 @@
         "STEWARD_INBOX_EVENT_CHARS",
         "STEWARD_INBOX_MESSAGE_CHARS",
         "STEWARD_MEMORY_BLOCK_CHARS",
+        "STEWARD_MEMORY_VETOED_BLOCK_CHARS",
+        "STEWARD_MEMORY_VETOED_MAX",
         "STEWARD_NO_PROGRESS_MAX",
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
@@ -14850,6 +14854,7 @@
         "stewardActLabel",
         "stewardContextBudget",
         "stewardMemoryBlock",
+        "stewardMemoryVetoedBlock",
         "stewardNormalizeAct",
         "stewardNormalizeActs",
         "stewardOverviewBlock",
@@ -15165,6 +15170,20 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_MEMORY_BLOCK_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_MEMORY_VETOED_BLOCK_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_MEMORY_VETOED_MAX",
           "kinds": [
             "read"
           ]

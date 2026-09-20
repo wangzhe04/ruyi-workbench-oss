@@ -75,7 +75,12 @@ function postStream(port, payload) {
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true });
+  // 128h-J12(41 号文 J12「压缩回注使用新偏好」;47 号文 §4.2 B 第 2 条「没有连线也没有断言」):
+  // 把假端点收到的每个请求体落盘,压缩之后去那份【真请求体】里核摘要纪律 —— 光断言
+  // summaryPromptWithGuidance() 的返回值只证明「常量里有这句话」,不证明它上了线。
+  const CAPTURE = path.join(HOME, 'capture');
+  fs.mkdirSync(CAPTURE, { recursive: true });
+  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true, env: { ...process.env, FAKE_CAPTURE_DIR: CAPTURE } });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
@@ -98,6 +103,22 @@ function postStream(port, payload) {
     const cr = await postJson(WB_PORT, '/api/provider/compact', { sessionId: sid });
     ok(cr && cr.ok === true, 'compact returns {ok:true} (err=' + (cr && cr.error) + ')');
     ok(cr && typeof cr.beforeTokens === 'number' && typeof cr.afterTokens === 'number', 'compact returns before/after token estimates (' + (cr && cr.beforeTokens) + '→' + (cr && cr.afterTokens) + ')');
+
+    // 128h-J12:摘要那一发【真请求体】里必须带「被推翻的偏好不进【已确认的决定】」这条纪律。
+    // 判据钉在「非流式的那一发」上:压缩内核走 stream:false,与聊天回合分得开。
+    {
+      const bodies = fs.readdirSync(CAPTURE).filter(f => f.endsWith('.json')).sort()
+        .map(f => { try { return JSON.parse(fs.readFileSync(path.join(CAPTURE, f), 'utf8')); } catch { return null; } })
+        .filter(Boolean);
+      const summaryCalls = bodies.filter(b => b && b.stream === false
+        && JSON.stringify(b.messages || []).includes('压缩为结构化摘要'));
+      ok(summaryCalls.length >= 1, `128h-J12 捕到了那一发摘要请求(非流式;got ${summaryCalls.length}/${bodies.length})`);
+      const text = JSON.stringify(summaryCalls[0] || {});
+      ok(/偏好与决定只保留【最后一次】那个版本/.test(text),
+        '128h-J12 摘要请求体里带「偏好只保留最后一次那个版本」(压缩回注不会把被推翻的旧偏好当成现行约束)');
+      ok(/不得写进【已确认的决定】/.test(text),
+        '128h-J12 并明确点名【已确认的决定】那一节 —— 回注时被当成现行偏好读的正是它');
+    }
 
     // Assert post-compact session shape.
     const after = await getJson(WB_PORT, '/api/sessions/' + encodeURIComponent(sid));

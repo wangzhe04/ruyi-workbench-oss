@@ -505,13 +505,42 @@ async function stewardImplMemoryWrite(args, ctx, config) {
     ? stewardMemoryScopeOf(await stewardSourceCwd(sourceRef))
     : '';
   const terms = stewardMemoryTerms(text);
+  // 128h-J12:用户这次真改主意了的那条通道。模型必须**指名道姓**说出它要盖掉的那条否决条目的 id
+  // (id 只出现在提示词的否决清单里),而不是靠换个说法把闸绕过去。
+  const supersedes = String((args && args.supersedesVetoed) || '');
   return stewardMutateMemory(async store => {
+    // 128h-J12:复活【按 id 认,不按相似度认】。这一条是写件时当场测出来的:用户改主意时说的那句话
+    // 通常与当初否决的那条**说法不一样**(「算了还是记着吧,报告一律用中文」vs「用户偏好报告用中文书写」,
+    // 实测重合度远在 0.8 以下)。要是只在词面闸命中时才认这个参数,那条否决条目会一直留在否决清单里,
+    // 同时又多出一条生效的新条目 —— 提示词自相矛盾,正是本刀要消掉的那种场面。
+    const revive = supersedes ? (store.entries.find(e => e.id === supersedes && e.state === 'vetoed') || null) : null;
+    if (supersedes && !revive) {
+      // 点名了一条不存在/不是被否决状态的条目:fail-closed。静默当成一次普通写入的话,模型以为
+      // 「我已经把旧的盖掉了」,而旧的还在否决清单里 —— 又是一次「说 ok 其实没落上」。
+      return { persist: false, result: stewardFail('not_found', `supersedesVetoed "${stewardSanitizeText(supersedes)}" is not a vetoed memory entry; check the vetoed list in your prompt for the right id`, { id: supersedes }) };
+    }
     // 被否决过的同义内容拒绝写回(§4 第 ⑤ 条:vetoed 之后同义不再自动写回)。
     const vetoed = store.entries.find(e => e.state === 'vetoed' && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
-    if (vetoed) {
-      return { persist: false, result: stewardFail('vetoed_duplicate', `a synonymous memory was vetoed by the user (${vetoed.id}); do not write it back`, { id: vetoed.id }) };
+    // 128h-J12:修前这道闸是**死闸** —— 否决过就永远写不回来,用户后来改主意(「算了还是记着吧」)
+    // 只能自己去面板点恢复,而管家什么都不会说,用户看到的是「它没记」。现在给一条窄通道:
+    //   ① 必须显式点名那条否决条目的 id(拿错 id 照样拒);
+    //   ② sourceRef 仍必须是【用户本人这一回合说的话】(上面那道 source_not_user 没有放松);
+    //   ③ 不新增条目 —— 走与合并同一条路:保留旧 id、state 回 active、text 取新(与面板的「恢复」同义),
+    //      于是否决清单里不会一边留着「用户否决过 X」一边又有一条生效的 X。
+    // 「不再【自动】写回」这条拍板没有被推翻:显式点名不是自动。
+    // 复活的是甲、这一句却又踩中了被否决的乙 -> 照拦(点名甲不等于连乙一起赦免)。
+    if (vetoed && (!revive || revive.id !== vetoed.id)) {
+      return { persist: false, result: stewardFail('vetoed_duplicate', `a synonymous memory was vetoed by the user (${vetoed.id}); do not write it back, not even reworded. If the user explicitly asked for it again in this turn, call again with supersedesVetoed:"${vetoed.id}"`, { id: vetoed.id }) };
     }
-    const existing = store.entries.find(e => e.state === 'active' && e.kind === kind && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
+    const existing = revive || store.entries.find(e => e.state === 'active' && e.kind === kind && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
+    // 128h-J12:复活会让生效条数 +1,所以它和「新写一条」一样要过容量闸(合并不加条数,不过)。
+    // 漏这一条的话,库满之后复活就成了绕过上限的后门。
+    // 今天这一支够不到:读库本身把总条数截在 maxEntries(13j),200 条生效 + 至少 1 条被否决 = 201 条,
+    // 读上来就已经被截掉了。留着是因为它守的是【两个上限的关系】—— 哪天谁把读的那道上限抬了,
+    // 或者让读库跳过 vetoed,后门就当场开了,而那时不会有人想起这里。
+    if (revive && store.entries.filter(e => e.state === 'active').length >= STEWARD_MEMORY_LIMITS.maxEntries) {
+      return { persist: false, result: stewardFail('capacity_exceeded', `steward memory is full (${STEWARD_MEMORY_LIMITS.maxEntries} active entries); veto something before writing more`) };
+    }
     const at = nowIso();
     if (existing) {
       // 116-2e(§4 ⑥):合并【不新增条目】—— 保留旧 id(引用它的决策日志与提示词行不失效),
@@ -531,9 +560,14 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       if (scope) existing.scope = scope; // 126-M01:只有显式说了 project 才改;没说就不动(作用域不会"到期",不该被悄悄改)
       if (expiresAt) existing.expiresAt = expiresAt;
       else if (memoryIsExpired(existing)) existing.expiresAt = '';
-      const undoRef = { kind: 'memory', id: existing.id, prev: null };
-      stewardAppendDecision({ tool: 'steward_memory_write', args: { kind, chars: text.length, merged: true }, targetSessionId: String(sourceRef.sessionId || ''), permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [existing.id] } });
-      return { persist: true, result: { ok: true, id: existing.id, merged: true, undoRef } };
+      // 128h-J12:复活那一支 —— state 回 active、kind 取这一次的(用户重新说了一遍,按这次的类别归),
+      // 并把「它曾经被否决过、是谁让它回来的」留在条目上(面板与决策日志都看得见,不是一次静默的翻盘)。
+      const revived = existing.state === 'vetoed';
+      if (revived) { existing.state = 'active'; existing.kind = kind; existing.revivedFrom = 'vetoed'; }
+      // undo 的落点与面板「恢复」同源:撤销这一次复活 = 把它放回 vetoed。普通合并没有状态变化,仍是 null。
+      const undoRef = { kind: 'memory', id: existing.id, prev: revived ? 'vetoed' : null };
+      stewardAppendDecision({ tool: 'steward_memory_write', args: { kind, chars: text.length, merged: true, ...(revived ? { supersedesVetoed: existing.id } : {}) }, targetSessionId: String(sourceRef.sessionId || ''), permissionMode: '', mayAct: 'auto', undoRef, basis: { memoryIds: [existing.id] } });
+      return { persist: true, result: { ok: true, id: existing.id, merged: true, ...(revived ? { revived: true } : {}), undoRef } };
     }
     const activeCount = store.entries.filter(e => e.state === 'active').length;
     if (activeCount >= STEWARD_MEMORY_LIMITS.maxEntries) {

@@ -369,6 +369,10 @@ function stewardNormalizeMemoryEntry(raw) {
     // 126-M01:作用域。空串 = 全局;非法值一律回落全局(绝不静默当成某个项目)。判据与归一都在 06i,
     // 本文件不自己解析 —— 与 expiresAt 同一条纪律。老条目没有这个字段 -> 读成空串 = 全局,存量零迁移。
     scope: stewardNormalizeMemoryScope(raw.scope),
+    // 128h-J12:这条曾被用户否决、又经用户在某个回合里明说而复活(steward_memory_write 带
+    // supersedesVetoed)。只留一个标记,面板与决策日志据此能说清「它回来过」。空串 = 没发生过,
+    // 老条目读成空串 —— 存量零迁移,与 mergedFrom / expiresAt 同一个模具。
+    revivedFrom: raw.revivedFrom === 'vetoed' ? 'vetoed' : '',
     // 116-2e(§4 ⑥ 去重合并):被并进本条的来源 ref,最多 5 个(先进先出)。老条目没有这个字段,
     // 读成空数组 —— 存量零迁移。
     mergedFrom: Array.isArray(raw.mergedFrom)

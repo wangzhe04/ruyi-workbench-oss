@@ -38,6 +38,11 @@ const STEWARD_INBOX_EVENT_CHARS = 400;        // 每条事件 ≤400 字
 const STEWARD_INBOX_DELIVERABLE_CHARS = 4000; // 单条交付正文在收件箱消息里的上限
 const STEWARD_INBOX_MESSAGE_CHARS = 12000;    // 一条收件箱消息的总预算(标题行永不丢,正文从最旧的丢起)
 const STEWARD_MEMORY_BLOCK_CHARS = 3000;      // 记忆块 ≤3000 字符
+// 128h-J12:被否决条目在提示词里自带一份【独立】预算,排在生效清单之后。不与上面那 3000 字共用:
+// 那是「按这些办」的清单,这是「别再写回去」的清单,后者挤掉前者就本末倒置了。8 条够用 ——
+// 否决是个罕见动作,真到了几十条,模型要的是最近否的那几条,不是全表。
+const STEWARD_MEMORY_VETOED_BLOCK_CHARS = 600; // 否决清单 ≤600 字符
+const STEWARD_MEMORY_VETOED_MAX = 8;           // 否决清单最多 8 条(按 updatedAt 取最近的)
 // 117y-S1(27 号文 §11.18.2):原来这里只有一个 say 上限常量(600),它同时扮演两个角色 ——
 // 06b 输出契约里写给模型看的「≤600 字」,和 13o 解析时那把裸 slice。用户第十一轮拍板:
 // 「得保证话能说全,不要硬截…通过提示词去约束说的话长度」。于是两个角色拆开:
