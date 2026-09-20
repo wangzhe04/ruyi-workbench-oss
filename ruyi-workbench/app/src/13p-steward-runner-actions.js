@@ -59,6 +59,15 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
   if (trigger === 'user') return { allowed: true };
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
+    // 129g:目标此刻挂着一道给用户的提问时,这不是「递话」,是【代答】—— 归 answer 那一格管,
+    // 不该被 relay 那一格挡下。两条调用面(actions 数组 与 模型在工具循环里直接调)必须问同一格,
+    // 否则会出现「勾了代答,有时候行有时候不行」这种查不明白的场面:13k 那边已经按通道分了,
+    // 这里不分的话 actions 这条路就要 relay 与 answer 两格同时勾才走得通。
+    // 探测只用来【选问哪一格】,真正的代答门(污染/档位/依据)在 13q 的 answer 支里,通道定下来之后。
+    const probe = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(args && args.sessionId) : null;
+    if (probe && probe.channel === 'answer') {
+      return auto.answer === true ? { allowed: true } : { allowed: false, reason: '「替我回答线程的提问」没有勾选,只能提议' };
+    }
     // 递话(接力)默认关:只提议。
     return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「任务内自动交接」没有勾选,只能提议' };
   }
@@ -181,6 +190,22 @@ function stewardDowngradeActions(executed, acts) {
     if (confirmSpec) {
       act.label = stewardActLabel(row.tool, row.args);
       act.confirmItems = stewardActConfirmLines(confirmSpec);
+    }
+    // 129g:代答被判「没有依据」之后降级成的这一枚,按下去之前必须把【那句话本身】摆出来。
+    // 不摆的话这一刀等于白做:按钮上只有「接着办」三个字(thread_continue 的通用标签),用户一点,
+    // 管家自己编的那句答案就以【他的名义】答进了那道题 —— 代答换条路照走,只是多了一次盲按
+    // (按钮走 POST /api/steward/act,那里给 trigger:'user',代答闸第 ① 道当场放行)。
+    // 用的是 confirm 族那套【既有】机制:服务端给纯文本 confirmItems -> 前端 POST 之前先弹面板。
+    // 判据是 result.channel === 'answer'(代答闸自己打的标),不是按工具名 —— 普通递话(线程空闲、
+    // 在跑、排队)不该平白多一次确认,它本来就不是替用户说话。
+    if (row.tool === 'steward_thread_continue' && result.channel === 'answer') {
+      const asked = String(result.question || '');
+      act.confirmItems = [
+        asked ? `它问你:${asked}` : '这条线程正在等你回答',
+        // 裁剪用 06i 那个 200 字的数,**不是** 13m 的 40 字:第二行是用户要拍板的那句答案本身,
+        // 截在 40 字等于让他批一段自己没看全的话 —— 那正是这一刀要治的毛病(见 06i 的头注)。
+        `我要替你答:${stewardSanitizeText(String((row.args && row.args.message) || '')).slice(0, STEWARD_ANSWER_BASIS.shownChars)}`,
+      ];
     }
     const sid = row.args && (row.args.sessionId || row.args.missionId) ? safeSessionId(row.args.sessionId || row.args.missionId) : '';
     if (sid) act.sessionId = sid;

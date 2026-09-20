@@ -4004,6 +4004,7 @@
       "file": "06i-steward-core.js",
       "layer": "engine",
       "provides": [
+        "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
@@ -12838,6 +12839,10 @@
         "STEWARD_WORKSPACE_DERIVE_NOTE",
         "STEWARD_WORKSPACE_DERIVE_TRIES",
         "STEWARD_WORKSPACE_SLUG_MAX",
+        "stewardAnswerBasisOf",
+        "stewardAnswerGate",
+        "stewardAnswerQuestionText",
+        "stewardBriefTextOf",
         "stewardCanonWorkspacePath",
         "stewardClaimDerivedWorkspace",
         "stewardDeriveThreadCwd",
@@ -12863,6 +12868,7 @@
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRelayAutoAllowed",
+        "stewardResolveAnswerBasis",
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardToolCallLine",
@@ -13077,6 +13083,13 @@
           ]
         },
         {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "buildStewardBrief",
           "kinds": [
@@ -13088,6 +13101,13 @@
           "symbol": "deriveStewardThreadState",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_ANSWER_BASIS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -13512,6 +13532,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadMemoryStore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardReadSessionHead",
           "kinds": [
             "call"
@@ -13548,6 +13575,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnTaintedBy",
           "kinds": [
             "call"
           ]
@@ -14319,7 +14353,8 @@
         "stewardMemoryPanelRow",
         "stewardPanelFailure",
         "stewardPanelGate",
-        "stewardToolHandler"
+        "stewardToolHandler",
+        "stewardWithTurnTrigger"
       ],
       "requires": [
         {
@@ -15392,6 +15427,13 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTION_HOOKS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_ACTIONS_MAX",
           "kinds": [
             "read"
@@ -15571,6 +15613,13 @@
           "symbol": "getPromptPack",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_ANSWER_BASIS",
+          "kinds": [
+            "read"
           ]
         },
         {

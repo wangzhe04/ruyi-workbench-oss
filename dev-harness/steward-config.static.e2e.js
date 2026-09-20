@@ -51,8 +51,10 @@ ok(/stewardMaxTurnsPerHour:\s*30,/.test(configSrc), '默认值: stewardMaxTurnsP
 ok(/if \(clamped !== config\.stewardMaxTurnsPerHour\) \{ config\.stewardMaxTurnsPerHour = clamped; changed = true; \}/.test(configSrc),
   'sanitize: 合法的存量值原样保留(只有 clamp 后不同才回写 —— 抬高默认值不会动老用户已有的上限)');
 ok(/stewardMaxCostPerDay:\s*1,/.test(configSrc), '默认值: stewardMaxCostPerDay=1');
-ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*false,\s*newThread:\s*true\s*\},/.test(configSrc),
-  "默认值: stewardAutoActions={retry:true,resume:null,relay:false,newThread:true}");
+// 129g 加了第五格 answer(代答),**默认关** —— 它独立于 relay:勾「事项内自动交接」不该顺带
+// 把「替我回答线程的提问」也给出去(一格两权,用户按的时候看不见第二个)。
+ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*false,\s*newThread:\s*true,\s*answer:\s*false\s*\},/.test(configSrc),
+  "默认值: stewardAutoActions={retry:true,resume:null,relay:false,newThread:true,answer:false}");
 ok(/stewardContextBudgetTokens:\s*200000,/.test(configSrc), '默认值: stewardContextBudgetTokens=200000');
 ok(/stewardReadBudgetChars:\s*48000,/.test(configSrc), '默认值: stewardReadBudgetChars=48000');
 ok(/stewardVisitIdleMinutes:\s*60,/.test(configSrc), '默认值: stewardVisitIdleMinutes=60');
@@ -93,6 +95,30 @@ ok(/typeof raw0\.relay === 'boolean' \? raw0\.relay : DEF_AA\.relay/.test(config
   'sanitize: stewardAutoActions.relay 严格布尔回该键默认');
 ok(/typeof raw0\.newThread === 'boolean' \? raw0\.newThread : DEF_AA\.newThread/.test(configSrc),
   'sanitize: stewardAutoActions.newThread 严格布尔回该键默认');
+ok(/typeof raw0\.answer === 'boolean' \? raw0\.answer : DEF_AA\.answer/.test(configSrc),
+  'sanitize: stewardAutoActions.answer 严格布尔回该键默认');
+
+// ── 129g 机械锁:自理清单的每一格都必须出现在设置界面的 autoPatch() 名单里 ─────────────────
+// 漏一格不是「界面少一个勾选框」那么轻:steward-settings.js 的 autoPatch() **整份覆写**
+// stewardAutoActions,名单里没有的键会被 01-config 补成默认值 —— 用户明明开着的那一格,
+// 随手勾一下旁边任何一个框就被【静默重置】,而界面上什么都看不出来。
+// 判据从后端 DEF_AA 推,不抄第二份名单:名单是手维护的,手维护的名单一定会漏(本仓已四次)。
+{
+  const m = configSrc.match(/const DEF_AA = \{([^}]*)\}/);
+  ok(Boolean(m), '129g-lock0 扫得到 DEF_AA(扫不到 = 本条静默失效)');
+  const keys = m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : [];
+  ok(keys.length === 5, `129g-lock1 自理清单当前 5 格(实得 ${keys.length}: ${keys.join('/')})`);
+  const settingsSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js', 'steward-settings.js'), 'utf8');
+  const patchAt = settingsSrc.indexOf('const autoPatch = ()');
+  const patch = patchAt < 0 ? '' : settingsSrc.slice(patchAt, patchAt + 1400);
+  ok(patch.length > 100 && /newThread:/.test(patch),
+    '129g-lock2 扫得到 autoPatch() 的整个函数体(扫不全 = 本条静默失效,会把没截到的那几格误报成「漏了」)');
+  // 判据里【一个反斜杠都不写】:这条断言的第一版写成 new RegExp('\\b' + k + ':'),经补丁脚本落盘时
+  // 反斜杠被吃掉,JS 里变成一个真的退格符,于是五格全部「找不到」—— 一条本该看住别人的锁自己先坏了。
+  const missing = keys.filter(k => !new RegExp('(^|[^A-Za-z0-9_])' + k + ':').test(patch));
+  ok(missing.length === 0,
+    `129g-lock3 每一格都在 autoPatch() 里(漏的那格会被界面静默重置;缺: ${JSON.stringify(missing)})`);
+}
 
 // CONFIG_SCHEMA:116a 自己不 bump(纪律未变),但常量全仓共用 —— 107-T1 为 126-111b/d/e 的一次性
 // 迁移把它 11 → 12(46 号文 §5)。本条继续钉【当前值】,好让「谁又动了它」还是红的;116a 真正要守的

@@ -1089,6 +1089,8 @@ export function createStewardSettingsDomain({
       const retry = byId('cfgStewardAutoRetry'); if (retry) retry.checked = auto.retry !== false;
       const relay = byId('cfgStewardAutoRelay'); if (relay) relay.checked = auto.relay === true;
       const newThread = byId('cfgStewardAutoNewThread'); if (newThread) newThread.checked = auto.newThread !== false;
+      // 129g：代答默认【关】，所以判的是 === true（与 relay 同向，与 retry/newThread 反向）。
+      const answer = byId('cfgStewardAutoAnswer'); if (answer) answer.checked = auto.answer === true;
       const resume = byId('cfgStewardAutoResume');
       if (resume) resume.value = RESUME_TO_SELECT[String(auto.resume)] || '';
       renderProviderSelect();
@@ -1158,9 +1160,13 @@ export function createStewardSettingsDomain({
         resume: Object.prototype.hasOwnProperty.call(SELECT_TO_RESUME, raw) ? SELECT_TO_RESUME[raw] : null,
         relay: byId('cfgStewardAutoRelay') ? byId('cfgStewardAutoRelay').checked === true : false,
         newThread: byId('cfgStewardAutoNewThread') ? byId('cfgStewardAutoNewThread').checked === true : true,
+        answer: byId('cfgStewardAutoAnswer') ? byId('cfgStewardAutoAnswer').checked === true : false,
       };
     };
-    for (const id of ['cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread']) {
+    // 这张名单漏一个键 = 那个键被【静默重置】：autoPatch() 整份覆写 stewardAutoActions，
+    // 用户随手勾一下别的框就把漏掉的那一格打回默认，而界面上什么都看不出来。
+    // 机械锁在 dev-harness/steward-config.static.e2e.js：后端 DEF_AA 的每个键都必须在这里出现。
+    for (const id of ['cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread', 'cfgStewardAutoAnswer']) {
       onChange(id, () => saveConfig({ stewardAutoActions: autoPatch() }));
     }
 

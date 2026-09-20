@@ -2549,6 +2549,8 @@
   ,"settings.steward.auto.relayHint": "Within one task, the previous thread's conclusion is handed to the next one; off means it only suggests."
   ,"settings.steward.auto.newThread": "Open a new thread when needed"
   ,"settings.steward.auto.newThreadHint": "When a scheduled task fires or a hand-off needs a fresh thread, the steward opens one instead of waiting for you."
+  ,"settings.steward.auto.answer": "Answer a thread's question for you while you are away"
+  ,"settings.steward.auto.answerHint": "Only when the answer has a source: either an entry in the steward's memory or your own wording in the brief, each one checked on the server. No source, a turn that read the web, or a thread that is not on full autonomy — it still comes to you. Every answer-on-behalf is written to the action log and can be undone."
   ,"settings.steward.auto.exemptDelegation": "When a thread stops to ask about a permanently exempt action, the steward may approve it for me under its rules"
   ,"settings.steward.auto.exemptDelegationHint": "Only for threads in smart auto that the steward watches or that a scheduled task opened. Payments, shutting down or formatting, registry changes and sending mail always wait for you; after a thread reads web content it will not push or send out for you; at most 6 an hour, each with a stated reason, a receipt and a line in the action log. The steward cannot change this setting itself."
   ,"settings.steward.group.budget": "Model and budget"

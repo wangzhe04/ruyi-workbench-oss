@@ -464,6 +464,22 @@ function stewardNormalizeAct(raw) {
     ? kindRaw
     : (tool ? 'tool' : 'dismiss');
   if (kind === 'tool' && !isStewardToolName(tool)) return null;  // 只认 steward_*(动世界的工具永远进不来)
+  // 129k(用户 2026-09-20 报「管家给的按钮按下去说这个工具不能被按钮触发」):**不画按不动的按钮**。
+  // 修前这里只问「是不是 steward_ 开头」,不问「它能不能作为 act 执行」。而按钮按下去走
+  // POST /api/steward/act -> stewardRunAct,那里按 STEWARD_ACTION_HOOKS 查实现,查不到就
+  // `not_allowed: xxx 不能作为 act 执行` —— 于是模型随手把一个【只读】工具(threads_search、
+  // schedule_list、三张清单…)提成按钮,用户按下去只看到一句内部话。acts 这一路此前【不经】那张表
+  // 过滤,13m 的表头注释早就写明了这个后果("不进表就是同一种「按了报错」"),只是一直没人在
+  // 产出侧堵上。堵在这里 = 一处治本:不论模型怎么写、也不论以后谁新增工具,按不动的按钮画不出来。
+  //
+  // 为什么是【丢掉】而不是放开执行:只读工具当按钮本来就没有归宿 —— act 的回执是一行「做完了」,
+  // 没有地方显示一份清单;用户要的那个答案,模型应当在这一回合里直接调工具拿到、写进话里。
+  // 与本文件既有的那条纪律同源(13p 的永久豁免支:「宁可少一个按钮,也不画一个按下去必被拒的」)。
+  // 记一条审计:这件事修前在界面上是静默失败,现在至少数得出来模型多久犯一次。
+  if (kind === 'tool' && !STEWARD_ACTION_HOOKS[tool]) {
+    logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
+    return null;
+  }
   // 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的按钮不许由模型命名**。修前这一行 label 优先用
   // `raw.label` —— 模型写「好,我知道了」,args 里是 steward_config_set{externalMcpServers:[…]},
   // 用户按下去就是用户「亲手按了」(13q 据此置那一位),而 args 一个字都没被校验过。

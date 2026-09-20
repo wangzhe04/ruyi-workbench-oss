@@ -1154,6 +1154,22 @@ const STEWARD_EYES_CHARS = 12000;
 const STEWARD_NOTIFY_KINDS = Object.freeze(['needs_you', 'failed', 'done']);
 const STEWARD_NOTIFY_TEXT_CHARS = 120;          // 一条通知的正文上限(系统通知本来也印不下更多)
 const STEWARD_NOTIFY_WINDOW_MS = 60 * 60 * 1000; // 熔断窗口:滚动一小时
+// ── 129g 代答的依据(31 号文 §2.5「答案在记忆或委托书里有依据时才代答」)────────────────────
+// 为什么有这一族常量:代答是管家唯一一个【替用户说话】的动作 —— 递话时那句话是用户的原话,
+// 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention)。所以依据必须是
+// **机械可核**的,不能是模型自己说「我有依据」。两种依据各有各的核法:
+//   · 记忆:给条目 id,服务端回库里查 —— 必须真的存在、仍是 active、没过期。伪造的 id 当场穿帮。
+//   · 委托书:给**原文片段**,服务端按 indexOf 逐字核对 —— 不做相似度。J12 那一轮已经用实测
+//     证伪过「中段相似度能分辨改述与反话」(改述 0.176 < 反话 0.556),这里不再走回同一条路。
+// 引号片段的下限 8 个字符:短于这个的片段(「是」「均价」)在任何一份委托书里都能碰巧命中,
+// 那样的「依据」等于没有依据。上限 200 只是别让它把决策账本撑爆。
+// shownChars:代答被驳回、降级成按钮时,确认面板那两行(「它问你:…」「我要替你答:…」)的裁剪长度。
+// **有意比 13m 的 STEWARD_ACT_CONFIRM_VALUE_CHARS(40)宽得多**:那个数是给配置项的值用的
+// (键=值,40 字够看);而这里第二行就是用户要拍板的【那句答案本身】,截在 40 字等于让他批一段
+// 自己没看全的话 —— 那正是这一刀要治的毛病。
+// 住在 06i 而不是 13m(确认面板那族常量的老家)是因为**依赖方向**:13k 要用它,而 13m 排在 13k
+// 之后 —— 直引就是一条新的前向边(实测当场把 68 顶成 69)。06i 对两边都是后向边。
+const STEWARD_ANSWER_BASIS = Object.freeze({ quoteMin: 8, quoteChars: 200, maxMemoryIds: 4, shownChars: 200 });
 // 路径同一性:Windows 不分大小写、分隔符两种写法都有。判据单点在这里,四处消费不许各写一遍。
 function stewardSamePath(a, b) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
@@ -1757,6 +1773,10 @@ function prerouteText(q, index, memory, opts) {
 //           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
 //             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
 //              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
+//           currentTurnTrigger() -> 'user' | 'inbox' | ''(同步只读,零文件读)
+//             (129g:此刻正在跑的那个管家回合是谁触发的。消费者是 13g 的 stewardToolHandler ——
+//              09-workflow 造的工具循环 ctx 里【没有】trigger,不补的话所有按 trigger 分档的闸
+//              在「模型直接调工具」这条调用面上整个失灵。13g -> 13h 是前向边,故走这里)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;

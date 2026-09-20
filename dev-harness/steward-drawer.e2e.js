@@ -1117,9 +1117,17 @@ try {
   ok(Boolean(clearedD), 'E5b 自由回答（不是候选里的任何一条）也能把待决答掉');
   ok(auditRows().filter(row => row && row.kind === 'turn_kill' && row.sessionId === idD).length === killsBeforeD,
     'E5c 自由回答同样【不】 supersede 那个回合（零新增 turn_kill）');
-  const answeredD = await request(appPort, 'GET', `/api/sessions/${idD}`, null, token);
-  const dMessages = (answeredD && answeredD.json && answeredD.json.session && answeredD.json.session.messages) || [];
-  ok(dMessages.some(message => JSON.stringify(message || {}).indexOf('都不用，就用原生的写') >= 0),
+  // 129g 治 flaky（129 波全量第 1 次红、122 波记过一次 —— 按「跨轮重现就是缺陷」的规矩修，不当噪声）：
+  // 这一条修前是【读后写竞态】。E5b 等到的是「待决消失」，而那句话落进会话是【之后】另一次异步写
+  // （答案投递 → 回合被唤醒 → 用户消息落盘）；并行 4 路下机器一慢，这一读就赶在落盘之前，
+  // 断言红在「没找到那句话」上 —— 看着像丢数据，其实只是问早了。E5b 自己用的就是 waitForHttp，
+  // 这一条漏了。改成同款有界等待：**上限仍在**（等不到照样红），变的只是「问早了」不再算红。
+  // 「有没有被折成选项 id」这个真判据一个字没动；「有没有 supersede」由 E5c 另行看着。
+  const answeredD = await waitForHttp(appPort, 'GET', `/api/sessions/${idD}`, result => {
+    const rows = (result.json && result.json.session && result.json.session.messages) || [];
+    return rows.some(message => JSON.stringify(message || {}).indexOf('都不用，就用原生的写') >= 0);
+  }, token);
+  ok(Boolean(answeredD),
     'E5d 用户写的那句话逐字进了会话（otherText，不是被折成某个选项 id）');
 
   // ── 117v-V2（用户第十轮走查②「里面还参杂了一些线程推进的原文，也不要有」）：收工态的

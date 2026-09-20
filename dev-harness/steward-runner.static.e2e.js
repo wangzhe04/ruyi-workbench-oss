@@ -155,7 +155,12 @@ const src01b = read('01b-route-auth.js');
   // 而 13d -> 13h 是前向边,只能经 06i 的延迟绑定命名空间取(与 arbiterWait 同款)。
   // 上一版那条「它不上命名空间,挂上去就是死代码」的理由随第一个外部消费者出现而失效 ——
   // 下面的 unused 判据仍然逐键看着「每个键都真的有人用」,纪律没有被放宽。
-  ok(hookKeys.length === 19, `② 13h 填充 19 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1 + 121-K5 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  // 129g 重钉 19 -> 20:currentTurnTrigger。它与 relayChannel 同款 —— 不是「够不着才落在 13h」的
+  // 新实现,而是一个本来就在 13h 的既有事实(当前回合是谁触发的,读 stewardRunnerRuntime.inflight.kind)
+  // 现在多了一个 13h 外的消费者:13g 的 stewardToolHandler 要按它给工具循环的 ctx 补上 trigger。
+  // 不补的话 09-workflow 造的 ctx 里没有这个字段,所有按 trigger 分档的闸在【模型直接调工具】
+  // 这条面上整个失灵(129g 的头注记了全程)。13g -> 13h 是前向边,只能经 06i 迟绑定取。
+  ok(hookKeys.length === 20, `② 13h 填充 20 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1 + 121-K5 1 + 129g 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
   ok(hookKeys.includes('threadStop') && /async function stewardImplThreadStop/.test(src13h) && !/async function stewardImplThreadStop/.test(src13g),
     '② 117m-A4 companion:新增的键是 threadStop,且它的实现真的在 13h、不在 13g(13g 的 2000 行闸就是这么守住的)');
   ok(hookKeys.includes('relayDeliver') && hookKeys.includes('applyThreadTier'),

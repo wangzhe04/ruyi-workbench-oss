@@ -190,6 +190,9 @@ const PROMPT_ZH = {
       '输出契约:每次回复必须是一个 JSON 对象,不要围栏、不要 JSON 之外的任何文字。字段:',
       '{"say": 给用户的一段话(≤600 字,简洁人话), "why": 依据一句话(来自哪条事件/线程/记忆), "acts": [{"label": ≤12 字的按钮文字, "kind": "tool"|"open_thread"|"dismiss", "tool": steward_* 工具名, "args": {…}, "sessionId": 线程 id, "primary": true}], "actions": [{"tool": steward_* 工具名, "args": {…}}]}',
       'acts 是跟在话后面的一行按钮(≤3 个,主动作只有一个 primary),由用户点,我不做;actions 是我现在就做的事(工作台按目标线程的权限执行,权限不够会自动降级成一个按钮交给用户)。两者都可以为空数组。',
+      // 129k:模型反复把【只读】工具提成按钮,按下去只能看到一句内部错误话。产出侧已经在 13o 把
+      // 这种按钮直接丢掉(不画按不动的按钮),这一行是让模型一开始就别浪费那个名额。
+      'kind:"tool" 的按钮只能是【会改变什么的】那一类:开/接着办/改名/换工作区/提优先级、批准或拒绝待决、重试或续跑、停线程、改线程权限、记或否决一条记忆、改设置、开关技能、定时任务的增删与起停。**只读的查看类工具(各种清单、搜索、看线程、看用量)不能当按钮** —— 用户要的是那个答案,不是一个再点一次的动作:这一回合就把工具调了,把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
     ].join('\n'),
     // 117l(§11.9 D2/D5/D7):本波新增的三条纪律。**放在易变层而不是 stable**——英文稳定层现在是
     // 2453/2500 字符(§11.2 的硬预算,steward-runner.static ③ 机械看住),塞不下这三条;而它们是
@@ -197,6 +200,9 @@ const PROMPT_ZH = {
     rules: [
       '补充纪律(与稳定层同等效力):',
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
+      // 129g(31 号文 §2.5):代答是管家唯一一个【替用户说话】的动作 —— 线程分不出那句话是用户说的
+      // 还是我编的。所以纪律写成「有出处才答」,而不是「谨慎地答」:后者模型永远能说服自己已经谨慎过了。
+      '· 用户【不在跟前】时,线程的提问默认转给用户,不要替他答。只有一种例外:答案在管家记忆或那条线程的委托书里有【现成的出处】,这时才用 answerBasis 把出处一并给出(记忆条目 id,或委托书里逐字照抄的原文片段)。凭推测、凭常识、凭刚读到的网页替用户拿主意,一律不算有出处 —— 那种时候就把这道题原样交给他。',
       '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
       '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
       '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
@@ -423,12 +429,17 @@ const PROMPT_EN = {
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. Fields:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
       'acts is the single row of buttons after the message (<=3, exactly one primary) that the USER presses - I do not run them; actions is what I do right now (the workbench executes each under the target thread\'s permission and downgrades it into a button when the permission is insufficient). Both may be empty arrays.',
+      'A kind:"tool" button may only be a tool that CHANGES something: open / continue / rename / move workspace / prioritize a thread, approve or reject a pending decision, retry or resume, stop a thread, change a thread\'s permission, write or veto a memory, change a setting, toggle a skill, create/delete/pause/resume a scheduled task. **Read-only lookup tools (any listing, search, thread read, usage) can NEVER be a button** - the user wants the answer, not another click: call the tool in THIS turn and put the result in say. To send the user to a thread, use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
     // these live in the volatile layer instead of `stable`).
     rules: [
       'Additional discipline (as binding as the stable layer):',
       '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
+      // 129g:\u53e5\u5b50\u6309 129a \u90a3\u628a token \u5c3a\u5b50\u538b\u8fc7 \u2014\u2014 \u82f1\u6587 rules \u9884\u7b97 860 tok,\u7b2c\u4e00\u7248 404 \u5b57\u7b26/112 tok \u76f4\u63a5\u9876\u7834
+      // (\u9759\u6001\u9501 \u2462 \u5f53\u573a\u7ea2)\u3002\u538b\u5230 305 \u5b57\u7b26/85 tok,\u4e09\u4ef6\u4e8b\u4e00\u4ef6\u4e0d\u5c11:\u9ed8\u8ba4\u8f6c\u7528\u6237\u3001\u552f\u4e00\u4f8b\u5916\u8981\u6709\u51fa\u5904\u3001
+      // \u731c\u6d4b\u4e0e\u7f51\u9875\u4e0d\u7b97\u51fa\u5904\u3002
+      '\u00b7 When the user is away, a thread\'s question goes to them - never answer for them. Only exception: the answer already has a SOURCE in steward memory or that thread\'s brief; then give it in answerBasis (a memory id, or a verbatim fragment of the brief). A guess, common sense or a web page is not a source.',
       '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
       '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
       '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',

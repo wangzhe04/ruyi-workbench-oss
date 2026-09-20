@@ -173,6 +173,21 @@ function stewardCtxIsSteward(ctx) {
   return !!(session && typeof session === 'object' && session.kind === 'steward');
 }
 
+// 129g:把「这一回合是谁触发的」补进 ctx。见 13h 的 currentTurnTrigger 头注 —— 09-workflow 造的
+// 工具循环 ctx 里没有 trigger,于是所有按 trigger 分档的闸(自理清单、目标线程权限、125-P0 停机
+// 尊重、代答依据)在【模型直接调工具】这条面上全部失灵。补在这一处而不是 09:
+//   · 42 个管家工具都经过本壳,一处补齐,不必在 09 里给管家开特例;
+//   · 09 在 13 之前,取不到 stewardRunnerRuntime(前向边);经 StewardHooks 迟绑定零新增边。
+// 已经带了 trigger 的调用面(13p 自理层、/api/steward/act、/api/steward/relay)**原样保留** ——
+// 它们给的是更准的那一个(「用户亲手按了这枚按钮」),不许被回合级的值盖掉。
+function stewardWithTurnTrigger(ctx) {
+  const base = (ctx && typeof ctx === 'object') ? ctx : {};
+  if (base.trigger) return base;
+  const kind = typeof StewardHooks.currentTurnTrigger === 'function' ? StewardHooks.currentTurnTrigger() : '';
+  // 取不到就保持既有的空串语义(进程内直调、夹具直调):这一口只补真的知道的那一部分。
+  return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
+}
+
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
@@ -191,7 +206,7 @@ function stewardToolHandler(toolName, impl) {
       const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
       const clean = {};
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
-      return await impl(clean, ctx || {}, config);
+      return await impl(clean, stewardWithTurnTrigger(ctx), config);
     } catch (error) {
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });

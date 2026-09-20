@@ -375,7 +375,7 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
-    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true },
+    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true, answer: false },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
     // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
@@ -1254,17 +1254,21 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
     if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread 严格布尔(非布尔值
-  // 回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);未知键丢弃;
-  // 整体非对象回全部默认。
+  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread/answer 严格布尔
+  // (非布尔值回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);
+  // 未知键丢弃;整体非对象回全部默认。
+  // 129g(31 号文 §2.5):answer =「线程停下来问用户话时,管家替他答」。**默认关**,而且是独立一格 ——
+  // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
+  // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true };
+    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true, answer: false };
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
       resume: (raw0.resume === true || raw0.resume === false || raw0.resume === null) ? raw0.resume : DEF_AA.resume,
       relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
       newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
+      answer: typeof raw0.answer === 'boolean' ? raw0.answer : DEF_AA.answer,
     } : { ...DEF_AA };
     if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
     else config.stewardAutoActions = aa;

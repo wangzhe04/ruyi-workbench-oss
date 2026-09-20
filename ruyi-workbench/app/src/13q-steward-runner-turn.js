@@ -766,6 +766,17 @@ async function stewardRelayDeliver(input) {
   const decided = stewardRelayChannelFor(sid);
 
   if (decided.channel === 'answer') {
+    // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
+    // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里
+    // 都是「用户答了」)。所以闸咬在【通道】上,不咬在工具上:不论从 steward_thread_continue 还是
+    // 从 POST /api/steward/relay 进来,只要落到这一支就要过同一道门。
+    // 判据与执行不分家:门在这里、在通道已经定下来【之后】、在 decideIntervention 之前,于是
+    // 「先探一次通道、再去投递」中间那个状态翻转的窗口(线程刚好这一刻才挂出提问)也盖得住。
+    // guard 由调用方注入(13k 拿得到 config / 目标线程头 / 管家记忆库,13h 拿不到);没注入 = 既有行为。
+    if (typeof o.answerGuard === 'function') {
+      const refused = await o.answerGuard(decided);
+      if (refused) return refused;
+    }
     // 用户这句话【就是】那道提问的答案。走与 /api/chat/answer 逐字相同的核心(13d 的 decideIntervention
     // 命令核心 + 04 的 normalizeQuestionAnswer),于是 CAS 行、审计、回合唤醒三样一个不少。
     const normalizedAnswer = normalizeQuestionAnswer({ content: message, answers: [] }, decided.questions);

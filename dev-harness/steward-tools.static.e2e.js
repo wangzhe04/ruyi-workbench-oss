@@ -223,6 +223,25 @@ ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
   ok(noLabel.length === 0, `①f3 五个都有人话标签(按钮上不吐内部 id;got ${JSON.stringify(noLabel)})`);
 }
 
+/* ①g 129k(用户 2026-09-20 真机:「管家把自己的工具包装成按钮,点了说这个工具不能被按钮触发」)
+   —— 从【产出侧】堵死同一个坑。
+   ①c/①d/①e/①f 守的都是「该进表的有没有进表」,方向是把表补全;可表永远补不全:只读工具
+   **本来就不该进表**(表头纪律),而模型照样能把它们写进 acts —— acts 这一路此前不经这张表过滤,
+   于是按钮照画,按下去 13q 的 stewardRunAct 一句 `not_allowed: xxx 不能作为 act 执行`。
+   本条钉住另一个方向的不变量:**归一化时就把按不动的按钮丢掉**,于是不论模型怎么写、也不论
+   以后谁新增工具,用户都看不到一枚按下去必报错的按钮。
+   判据钉【行为所在的那个函数】,不是「这个字出现过」:必须在 stewardNormalizeAct 的函数体里。 */
+{
+  const src13o = read('13o-steward-runner-prompt.js');
+  const at = src13o.search(/function stewardNormalizeAct\(/);
+  const body = at < 0 ? '' : src13o.slice(at, at + 2600);
+  ok(at >= 0, '①g0 找得到 stewardNormalizeAct(找不到 = 本条静默失效)');
+  ok(/STEWARD_ACTION_HOOKS\[tool\]/.test(body),
+    '①g acts 归一化时按 STEWARD_ACTION_HOOKS 过滤(不在表里的工具不许变成按钮 —— 否则「按下去报错」)');
+  ok(/steward_act_undeliverable/.test(body),
+    '①g2 丢掉时记一条审计(这件事修前在界面上是静默失败,至少要数得出来)');
+}
+
 /* ═════════════ ② handler 纪律:paths:null + guardNote + 只调 StewardHooks ═════════════ */
 
 let badPaths = [], badNote = [], badBody = [], badHook = [];
@@ -635,9 +654,11 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
       });
     }
   }
-  ok(occurrences === 6, `⑫b stewardReadMemoryStore 在 src/ 出现 6 次 = 定义 1 + 调用点 5(实得 ${occurrences};扫不到 = 本条静默失效)`);
+  ok(occurrences === 7, `⑫b stewardReadMemoryStore 在 src/ 出现 7 次 = 定义 1 + 调用点 6(实得 ${occurrences};扫不到 = 本条静默失效)`);
   ok(storeDefs === 1, `⑫b 库读取只有一处实现(实得 ${storeDefs} 处定义)`);
-  ok(sites.length === 5, `⑫b 调用点 5 个(实得 ${sites.length} 个:${sites.map(s => s.at).join('、')})`);
+  // 129g 把第 6 个读取口加在 13k 的 stewardResolveAnswerBasis(代答的依据核实:给的记忆 id 必须
+  // 真在库里、仍 active、且没过期)。它【自己滤】,所以不进白名单。
+  ok(sites.length === 6, `⑫b 调用点 6 个(实得 ${sites.length} 个:${sites.map(s => s.at).join('、')})`);
   ok(brokenRuler.length === 0, `⑫b 取函数体的尺子本身有效 —— 每个调用点都落在自己那个顶层函数体内${brokenRuler.length ? '；取不到的:' + brokenRuler.join('、') : ''}`);
   const unfiltered = sites.filter(s => !s.filters && !Object.prototype.hasOwnProperty.call(EXPIRY_FILTER_EXEMPT, s.key));
   ok(unfiltered.length === 0,

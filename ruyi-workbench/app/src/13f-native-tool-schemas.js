@@ -812,12 +812,20 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选五条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合);② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它已经排在队里、还没轮到它开跑(等锁/等预算/等并发位)→ 这句话【递不进去】,返回 {ok:false,error:"steward.queued",wait:{reason,label}};此时【不要重试】,把 wait.label 说给用户听,等它开跑之后再递一次;④ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);⑤ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
+    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选五条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合)。用户就在跟前时这是他的原话,直递即可;**用户不在跟前时这叫代答**,要过三道门:「替我回答线程的提问」勾了、目标线程是全自动档、而且 answerBasis 给得出经得起核实的出处(记忆条目 id 或委托书原文片段)——三样缺一就回 {ok:false,error:"propose_required",reason:"self_serve_off"|"target_permission"|"no_basis"},此时【不要换个说法重试】,把这道题交给用户;② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它已经排在队里、还没轮到它开跑(等锁/等预算/等并发位)→ 这句话【递不进去】,返回 {ok:false,error:"steward.queued",wait:{reason,label}};此时【不要重试】,把 wait.label 说给用户听,等它开跑之后再递一次;④ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);⑤ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
         sessionId: { type: 'string', description: '目标线程 id(不能是管家自己的会话)。' },
         message: { type: 'string', description: '要递过去的话,原话直递。' },
+        answerBasis: {
+          type: 'object', additionalProperties: false,
+          description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',
+          properties: {
+            memoryIds: { type: 'array', items: { type: 'string' }, description: '管家记忆条目 id(steward_memory_search 的 entries[].id)。必须真实存在、没被否决、没过期;编造的 id 会被当场驳回。' },
+            briefQuote: { type: 'string', description: '目标线程委托书里的【原文片段】,逐字照抄(至少 8 个字)。服务端按原文比对,改述、概括、翻译都不算。' },
+          },
+        },
       },
     },
   },

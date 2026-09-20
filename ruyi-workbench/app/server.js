@@ -1409,7 +1409,7 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
-    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true },
+    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true, answer: false },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
     // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
@@ -2288,17 +2288,21 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
     if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread 严格布尔(非布尔值
-  // 回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);未知键丢弃;
-  // 整体非对象回全部默认。
+  // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread/answer 严格布尔
+  // (非布尔值回该键自身默认);resume 三态 true/false/null(null=跟随 autonomyAutoResume,非三态值回 null);
+  // 未知键丢弃;整体非对象回全部默认。
+  // 129g(31 号文 §2.5):answer =「线程停下来问用户话时,管家替他答」。**默认关**,而且是独立一格 ——
+  // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
+  // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true };
+    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true, answer: false };
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
       resume: (raw0.resume === true || raw0.resume === false || raw0.resume === null) ? raw0.resume : DEF_AA.resume,
       relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
       newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
+      answer: typeof raw0.answer === 'boolean' ? raw0.answer : DEF_AA.answer,
     } : { ...DEF_AA };
     if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
     else config.stewardAutoActions = aa;
@@ -20766,6 +20770,9 @@ const PROMPT_ZH = {
       '输出契约:每次回复必须是一个 JSON 对象,不要围栏、不要 JSON 之外的任何文字。字段:',
       '{"say": 给用户的一段话(≤600 字,简洁人话), "why": 依据一句话(来自哪条事件/线程/记忆), "acts": [{"label": ≤12 字的按钮文字, "kind": "tool"|"open_thread"|"dismiss", "tool": steward_* 工具名, "args": {…}, "sessionId": 线程 id, "primary": true}], "actions": [{"tool": steward_* 工具名, "args": {…}}]}',
       'acts 是跟在话后面的一行按钮(≤3 个,主动作只有一个 primary),由用户点,我不做;actions 是我现在就做的事(工作台按目标线程的权限执行,权限不够会自动降级成一个按钮交给用户)。两者都可以为空数组。',
+      // 129k:模型反复把【只读】工具提成按钮,按下去只能看到一句内部错误话。产出侧已经在 13o 把
+      // 这种按钮直接丢掉(不画按不动的按钮),这一行是让模型一开始就别浪费那个名额。
+      'kind:"tool" 的按钮只能是【会改变什么的】那一类:开/接着办/改名/换工作区/提优先级、批准或拒绝待决、重试或续跑、停线程、改线程权限、记或否决一条记忆、改设置、开关技能、定时任务的增删与起停。**只读的查看类工具(各种清单、搜索、看线程、看用量)不能当按钮** —— 用户要的是那个答案,不是一个再点一次的动作:这一回合就把工具调了,把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
     ].join('\n'),
     // 117l(§11.9 D2/D5/D7):本波新增的三条纪律。**放在易变层而不是 stable**——英文稳定层现在是
     // 2453/2500 字符(§11.2 的硬预算,steward-runner.static ③ 机械看住),塞不下这三条;而它们是
@@ -20773,6 +20780,9 @@ const PROMPT_ZH = {
     rules: [
       '补充纪律(与稳定层同等效力):',
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
+      // 129g(31 号文 §2.5):代答是管家唯一一个【替用户说话】的动作 —— 线程分不出那句话是用户说的
+      // 还是我编的。所以纪律写成「有出处才答」,而不是「谨慎地答」:后者模型永远能说服自己已经谨慎过了。
+      '· 用户【不在跟前】时,线程的提问默认转给用户,不要替他答。只有一种例外:答案在管家记忆或那条线程的委托书里有【现成的出处】,这时才用 answerBasis 把出处一并给出(记忆条目 id,或委托书里逐字照抄的原文片段)。凭推测、凭常识、凭刚读到的网页替用户拿主意,一律不算有出处 —— 那种时候就把这道题原样交给他。',
       '· 在 say 与 why 里提到线程一律写「标题」,绝不写 sess_ / question_ / run_ 这类内部 id —— 用户看不懂它们,写了等于没说。',
       '· 开线程时按任务复杂度选 tier:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。速查线程恒 fast。',
       '· 要停一条线程用 steward_thread_stop(只要 sessionId);steward_run_action 只对【班组】有效,拿不到 runId 就别用它。',
@@ -20999,12 +21009,17 @@ const PROMPT_EN = {
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. Fields:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
       'acts is the single row of buttons after the message (<=3, exactly one primary) that the USER presses - I do not run them; actions is what I do right now (the workbench executes each under the target thread\'s permission and downgrades it into a button when the permission is insufficient). Both may be empty arrays.',
+      'A kind:"tool" button may only be a tool that CHANGES something: open / continue / rename / move workspace / prioritize a thread, approve or reject a pending decision, retry or resume, stop a thread, change a thread\'s permission, write or veto a memory, change a setting, toggle a skill, create/delete/pause/resume a scheduled task. **Read-only lookup tools (any listing, search, thread read, usage) can NEVER be a button** - the user wants the answer, not another click: call the tool in THIS turn and put the result in say. To send the user to a thread, use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
     // these live in the volatile layer instead of `stable`).
     rules: [
       'Additional discipline (as binding as the stable layer):',
       '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
+      // 129g:\u53e5\u5b50\u6309 129a \u90a3\u628a token \u5c3a\u5b50\u538b\u8fc7 \u2014\u2014 \u82f1\u6587 rules \u9884\u7b97 860 tok,\u7b2c\u4e00\u7248 404 \u5b57\u7b26/112 tok \u76f4\u63a5\u9876\u7834
+      // (\u9759\u6001\u9501 \u2462 \u5f53\u573a\u7ea2)\u3002\u538b\u5230 305 \u5b57\u7b26/85 tok,\u4e09\u4ef6\u4e8b\u4e00\u4ef6\u4e0d\u5c11:\u9ed8\u8ba4\u8f6c\u7528\u6237\u3001\u552f\u4e00\u4f8b\u5916\u8981\u6709\u51fa\u5904\u3001
+      // \u731c\u6d4b\u4e0e\u7f51\u9875\u4e0d\u7b97\u51fa\u5904\u3002
+      '\u00b7 When the user is away, a thread\'s question goes to them - never answer for them. Only exception: the answer already has a SOURCE in steward memory or that thread\'s brief; then give it in answerBasis (a memory id, or a verbatim fragment of the brief). A guess, common sense or a web page is not a source.',
       '\u00b7 In say and why, always name a thread by its title. Never write sess_ / question_ / run_ style internal ids: the user cannot read them.',
       '\u00b7 Pick the tier by task complexity when opening a thread: strong for multi-step reasoning, code, long writing, cross-file edits; fast for a lookup, a one-line change, a simple question. Quick-ask threads are always fast.',
       '\u00b7 To stop a thread use steward_thread_stop (sessionId is all it needs); steward_run_action only works on an AGENT RUN, so never reach for it without a runId.',
@@ -22559,6 +22574,22 @@ const STEWARD_EYES_CHARS = 12000;
 const STEWARD_NOTIFY_KINDS = Object.freeze(['needs_you', 'failed', 'done']);
 const STEWARD_NOTIFY_TEXT_CHARS = 120;          // 一条通知的正文上限(系统通知本来也印不下更多)
 const STEWARD_NOTIFY_WINDOW_MS = 60 * 60 * 1000; // 熔断窗口:滚动一小时
+// ── 129g 代答的依据(31 号文 §2.5「答案在记忆或委托书里有依据时才代答」)────────────────────
+// 为什么有这一族常量:代答是管家唯一一个【替用户说话】的动作 —— 递话时那句话是用户的原话,
+// 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention)。所以依据必须是
+// **机械可核**的,不能是模型自己说「我有依据」。两种依据各有各的核法:
+//   · 记忆:给条目 id,服务端回库里查 —— 必须真的存在、仍是 active、没过期。伪造的 id 当场穿帮。
+//   · 委托书:给**原文片段**,服务端按 indexOf 逐字核对 —— 不做相似度。J12 那一轮已经用实测
+//     证伪过「中段相似度能分辨改述与反话」(改述 0.176 < 反话 0.556),这里不再走回同一条路。
+// 引号片段的下限 8 个字符:短于这个的片段(「是」「均价」)在任何一份委托书里都能碰巧命中,
+// 那样的「依据」等于没有依据。上限 200 只是别让它把决策账本撑爆。
+// shownChars:代答被驳回、降级成按钮时,确认面板那两行(「它问你:…」「我要替你答:…」)的裁剪长度。
+// **有意比 13m 的 STEWARD_ACT_CONFIRM_VALUE_CHARS(40)宽得多**:那个数是给配置项的值用的
+// (键=值,40 字够看);而这里第二行就是用户要拍板的【那句答案本身】,截在 40 字等于让他批一段
+// 自己没看全的话 —— 那正是这一刀要治的毛病。
+// 住在 06i 而不是 13m(确认面板那族常量的老家)是因为**依赖方向**:13k 要用它,而 13m 排在 13k
+// 之后 —— 直引就是一条新的前向边(实测当场把 68 顶成 69)。06i 对两边都是后向边。
+const STEWARD_ANSWER_BASIS = Object.freeze({ quoteMin: 8, quoteChars: 200, maxMemoryIds: 4, shownChars: 200 });
 // 路径同一性:Windows 不分大小写、分隔符两种写法都有。判据单点在这里,四处消费不许各写一遍。
 function stewardSamePath(a, b) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
@@ -23162,6 +23193,10 @@ function prerouteText(q, index, memory, opts) {
 //           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
 //             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
 //              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
+//           currentTurnTrigger() -> 'user' | 'inbox' | ''(同步只读,零文件读)
+//             (129g:此刻正在跑的那个管家回合是谁触发的。消费者是 13g 的 stewardToolHandler ——
+//              09-workflow 造的工具循环 ctx 里【没有】trigger,不补的话所有按 trigger 分档的闸
+//              在「模型直接调工具」这条调用面上整个失灵。13g -> 13h 是前向边,故走这里)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;
@@ -41305,12 +41340,20 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_continue',
-    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选五条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合);② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它已经排在队里、还没轮到它开跑(等锁/等预算/等并发位)→ 这句话【递不进去】,返回 {ok:false,error:"steward.queued",wait:{reason,label}};此时【不要重试】,把 wait.label 说给用户听,等它开跑之后再递一次;④ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);⑤ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
+    description: '把一句话递给一条已有线程。message 是【原话直递】——不改写、不加你的注解;有补充要说,先递原话再另行插话。工作台按目标线程【当前状态】自动选五条通道之一,你不用也不能指定:① 它正在等用户回答(待决 question)→ 这句话就是那道题的答案,直接答进去(channel:"answer",回执带 questionId;【不会】打断它的回合)。用户就在跟前时这是他的原话,直递即可;**用户不在跟前时这叫代答**,要过三道门:「替我回答线程的提问」勾了、目标线程是全自动档、而且 answerBasis 给得出经得起核实的出处(记忆条目 id 或委托书原文片段)——三样缺一就回 {ok:false,error:"propose_required",reason:"self_serve_off"|"target_permission"|"no_basis"},此时【不要换个说法重试】,把这道题交给用户;② 它正在等你批准一个动作(待决 permission)→ 【不代答】,返回 {ok:false,error:"propose_required",reason:"pending_permission"},把它作为提议交给用户去批;③ 它已经排在队里、还没轮到它开跑(等锁/等预算/等并发位)→ 这句话【递不进去】,返回 {ok:false,error:"steward.queued",wait:{reason,label}};此时【不要重试】,把 wait.label 说给用户听,等它开跑之后再递一次;④ 它在跑 → 以插话追到它下一步(channel:"steer",不开新回合、不打断它);⑤ 它空闲 → 起一个新回合(channel:"turn")。何时用:用户的话明确属于某条已有线程(接着上次的事继续说),或者那条线程刚问了用户一句而用户回了话。何时别用:新的一件事用 steward_thread_new;管家自己的会话不能作为目标。只剩一种情况会回 {ok:false,error:"steward.busy"}:目标【线程】正忙且当前这一步不能插话 —— 不要轮询重试,如实告诉用户是那条线程忙(不是你忙)。返回 {ok,channel,sessionId,undoRef,…};undoRef.turnSeq 是递话【前】的 seq(检查点锚),undoRef.rewindTargetTurnSeq = turnSeq + 1 是【被递那一回合】的 seq —— 回退要传的是后者(rewindSession 按它定位那一回合的首条用户消息)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
         sessionId: { type: 'string', description: '目标线程 id(不能是管家自己的会话)。' },
         message: { type: 'string', description: '要递过去的话,原话直递。' },
+        answerBasis: {
+          type: 'object', additionalProperties: false,
+          description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',
+          properties: {
+            memoryIds: { type: 'array', items: { type: 'string' }, description: '管家记忆条目 id(steward_memory_search 的 entries[].id)。必须真实存在、没被否决、没过期;编造的 id 会被当场驳回。' },
+            briefQuote: { type: 'string', description: '目标线程委托书里的【原文片段】,逐字照抄(至少 8 个字)。服务端按原文比对,改述、概括、翻译都不算。' },
+          },
+        },
       },
     },
   },
@@ -50225,6 +50268,128 @@ function stewardSeatedFail(sessionId) {
     { sessionId: String(sessionId || ''), reason: 'seated_by_user' });
 }
 
+// ── 129g 代答要有依据(31 号文 §2.5)──────────────────────────────────────────────────────
+// 修前的洞:线程挂着一道给用户的提问时,管家把 message 递过去就【直接答进那道题】—— 而且不检查
+// 这句话是谁说的。用户在跟前时那是他的原话(本来就该这样);无人值守回合里那就是管家自己编的一句,
+// 线程却分不出来(两条路同一个 decideIntervention,落到线程眼里都是「用户答了」)。
+// 于是本刀的口径:**替用户说话之前,先说清这句话的出处,而且出处要服务端核得动。**
+//
+// 两种出处各有各的核法,都不做相似度 —— J12 那一轮已经用实测证伪过「中段相似度分得清改述与反话」
+// (改述 0.176 < 反话 0.556,顺序是反的),这里不再走回同一条路:
+//   · 记忆:给条目 id → 回库里查,必须真在、仍 active、没过期。编一个 id 当场穿帮。
+//   · 委托书:给**原文片段** → indexOf 逐字核对。片段有下限,否则「是」「均价」这种碎片到处都能命中。
+function stewardAnswerBasisOf(args) {
+  const raw = (args && typeof args.answerBasis === 'object' && args.answerBasis && !Array.isArray(args.answerBasis)) ? args.answerBasis : null;
+  if (!raw) return { memoryIds: [], briefQuote: '' };
+  const ids = Array.isArray(raw.memoryIds) ? raw.memoryIds : (raw.memoryIds ? [raw.memoryIds] : []);
+  return {
+    memoryIds: ids.map(v => String(v == null ? '' : v).trim()).filter(Boolean).slice(0, STEWARD_ANSWER_BASIS.maxMemoryIds),
+    briefQuote: String(raw.briefQuote == null ? '' : raw.briefQuote).trim().slice(0, STEWARD_ANSWER_BASIS.quoteChars),
+  };
+}
+
+// 委托书的可引正文 = 用户原话 ＋ 管家补充(两段都是【开线程那一刻就定下】的文本,事后不会变)。
+// 不是管家开的线程没有 brief —— 那就引不了委托书,只能靠记忆,或者照旧转用户。
+function stewardBriefTextOf(head) {
+  const b = (head && head.brief && typeof head.brief === 'object') ? head.brief : null;
+  if (!b) return '';
+  return [String(b.userText || ''), String(b.supplement || '')].filter(Boolean).join('\n');
+}
+
+// 回 { ok, resolved:{memoryIds,briefRef}, misses:[人话] }。ok 的判据是**至少有一条真的落实了**,
+// 不是「模型填了字段」:填了四个不存在的 id 与一个字都没填,是同一件事。
+async function stewardResolveAnswerBasis(wanted, head) {
+  const resolved = { memoryIds: [], briefRef: '' };
+  const misses = [];
+  if (wanted.memoryIds.length) {
+    const store = await stewardReadMemoryStore().catch(() => ({ entries: [] }));
+    const nowMs = Date.now();
+    const byId = new Map((Array.isArray(store.entries) ? store.entries : [])
+      .map(e => [String((e && e.id) || ''), e]));
+    for (const id of wanted.memoryIds) {
+      const entry = byId.get(id);
+      if (!entry) { misses.push(`记忆 ${id} 不在库里`); continue; }
+      // 被否决的条目不能当依据 —— 用户否掉它就是在说「别再按这条办」。过期同理(126-M02:
+      // 时效是过滤不是删除,条目还在库里,但它不该再替用户拿主意)。
+      if (entry.state !== 'active') { misses.push(`记忆 ${id} 已经被你否决过`); continue; }
+      if (memoryIsExpired(entry, nowMs)) { misses.push(`记忆 ${id} 已过期`); continue; }
+      resolved.memoryIds.push(id);
+    }
+  }
+  if (wanted.briefQuote) {
+    const brief = stewardBriefTextOf(head);
+    if (!brief) misses.push('这条线程没有委托书,引不了它的原文');
+    else if (wanted.briefQuote.length < STEWARD_ANSWER_BASIS.quoteMin) misses.push(`引的片段太短(至少 ${STEWARD_ANSWER_BASIS.quoteMin} 个字)`);
+    else if (!brief.includes(wanted.briefQuote)) misses.push('引的片段在委托书里逐字找不到');
+    else resolved.briefRef = wanted.briefQuote;
+  }
+  return { ok: resolved.memoryIds.length > 0 || Boolean(resolved.briefRef), resolved, misses };
+}
+
+// 那道题的人话。13q 传进来的 decided 里带着 04 归一化过的 questions;取第一道就够 ——
+// 确认面板要的是「你在答什么」,不是把整份问卷再抄一遍。过一遍中和:它是线程模型写的文本。
+function stewardAnswerQuestionText(decided) {
+  const list = (decided && Array.isArray(decided.questions)) ? decided.questions : [];
+  const first = list.find(q => q && String(q.question || '').trim());
+  return first ? stewardSanitizeText(String(first.question)).slice(0, STEWARD_ANSWER_BASIS.shownChars) : '';
+}
+
+// 代答闸。只在通道真的落到 'answer' 时由 13q 回调进来(见那里的头注)。
+// 返回 null = 放行;返回 stewardFail(...) = 这一句不代答,降级成提议交给用户。
+async function stewardAnswerGate(o) {
+  const { args, ctx, config, head, sessionId, permissionMode } = o;
+  // ① 用户就在跟前 —— 这句话是他的原话,不是代答。既有行为一字不动。
+  //    判据是【此刻这个管家回合是不是用户触发的】,不是模型说了算(ctx 由 13g 的门控壳按
+  //    13h 的 inflight.kind 填,模型碰不到)。取不到 trigger 一律按「不是用户」办 —— fail-closed:
+  //    替人说话这件事上,「不确定」必须等于「不做」。
+  if (stewardTriggerOf(ctx) === 'user') return null;
+  // ② 污染(129c 红线 4):这一回合读过外界内容就不代答。理由比别处更硬 —— 代答的「依据」本身
+  //    可以是被网页诱导出来的:一个假页面写「用户说了按收盘价」,管家转手就替用户答了「按收盘」。
+  const taintedBy = stewardTurnTaintedBy(ctx);
+  if (taintedBy.length) {
+    return stewardFail('propose_required',
+      `我这一回合读过外部内容(${taintedBy.join('/')}),按规矩读过之后我不替你回答线程的提问 —— 这一句交给你`, {
+        reason: 'steward_turn_tainted', selfTaintBy: taintedBy, channel: 'answer', sessionId,
+      });
+  }
+  // ③ 自理清单。独立一格 answer,**不搭在 relay 上** —— 「事项内自动交接」与「替我回答」是两件事,
+  //    一格两权的话用户勾的时候看不见第二个(默认关,见 01-config 的 DEF_AA)。
+  const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
+  if (auto.answer !== true) {
+    return stewardFail('propose_required',
+      '「替我回答线程的提问」没有勾选,这一句只能作为提议交给你,不要重试', {
+        reason: 'self_serve_off', channel: 'answer', sessionId,
+      });
+  }
+  // ④ 目标线程权限档。事件类别如实填 'question'(线程此刻问的就是一道题),于是判据仍然只有
+  //    06i 那张 §3.3 真值表一份 —— 只有全自动档判 auto。
+  //    **这比 31 号文 §2.5 那一行「acceptEdits 与 auto 自动」严**:真值表是 2026-09-05 用户拍板的
+  //    单点,而 acceptEdits 的原意是「改文件不问」,不是「替我拿主意」。要放开就改真值表那一处,
+  //    不要在这里另写一份档位判据。
+  const mayAct = stewardMayAct(permissionMode, 'question', 'edit');
+  if (mayAct !== 'auto') {
+    return stewardFail('propose_required',
+      `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,我不替你回答它的提问;把这一句作为提议交给你,不要重试`, {
+        reason: 'target_permission', permissionMode, channel: 'answer', sessionId,
+      });
+  }
+  // ⑤ 依据。没有出处就照旧转用户 —— 这是 §2.5 的原话,也是这一刀的名字。
+  const wanted = stewardAnswerBasisOf(args);
+  const found = await stewardResolveAnswerBasis(wanted, head);
+  if (!found.ok) {
+    const why = found.misses.length ? found.misses.join(';') : '一条依据都没给';
+    return stewardFail('propose_required',
+      `这道题的答案我没有出处(${why}),不替你答 —— 要我代答,先在 answerBasis 里给出记忆条目 id 或委托书原文片段;给不出就把这道题交给你`, {
+        reason: 'no_basis', channel: 'answer', sessionId, misses: found.misses,
+        // 129g:把【那道题本身】带回去。降级成按钮之后 13p 要拿它拼确认清单 —— 见那里的头注:
+        // 不带的话按钮上只有「接着办」三个字,用户看不见自己在答什么。
+        question: stewardAnswerQuestionText(o.decided),
+      });
+  }
+  o.used = found.resolved;   // 放行:把【核实过的】依据回给调用方记账(不记模型填了什么,记核住了什么)
+  return null;
+}
+
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -50258,7 +50423,14 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // stewardImplDecide / stewardImplRunAction 同一写法:先算 mayAct,不是 'auto' 就 propose_required。
   const permissionMode = stewardThreadPermissionMode(head, config);
   let mayAct = 'auto';
-  if (stewardUnattendedByModel(ctx)) {
+  // 129g:先探一眼目标此刻在哪条通道上 —— **只为决定该问哪一格开关**,不作为放行依据。
+  // 代答那一支归 answer 格管(见 stewardAnswerGate),不该被 relay 那一格挡下:用户勾「事项内自动
+  // 交接」是要让上一条线程的结论流到下一条,与「替我回答」是两件事。
+  // 探测与投递之间线程状态可能翻转,所以真正的门在 13q 的 answer 支里、在通道定下来之后 ——
+  // 这里探错了顶多是多问一格开关,盖不住的那一半由那道门兜住。
+  const answerProbe = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(sessionId) : null;
+  const probablyAnswer = Boolean(answerProbe && answerProbe.channel === 'answer');
+  if (!probablyAnswer && stewardUnattendedByModel(ctx)) {
     if (!stewardRelayAutoAllowed(config)) {
       return stewardFail('propose_required', '「任务内自动交接」没有勾选,无人值守时的递话只能作为提议交给用户,不要重试', {
         reason: 'self_serve_off', sessionId, permissionMode,
@@ -50278,10 +50450,14 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
   const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
   const basis = stewardBasisOf(args);
+  // 129g:代答闸的回调。只在通道真的落到 'answer' 时被 13q 叫到;gate.used 是【核实过】的依据,
+  // 放行后原样进决策账本 —— 账本记的是「服务端核住了什么」,不是「模型说它有什么」。
+  const gate = { args, ctx, config, head, sessionId, permissionMode, used: null };
   // title 用【显示名】(116-5b 单点),不拿 id 冒充标题;turn 通道的启动仍是 13g 自己的
   // stewardLaunchTurn(同一个 requestMeta、同一本决策日志)—— 13h 只决定「走哪条」。
   const delivered = await StewardHooks.relayDeliver({
     sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
+    answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
     launch: () => {
       stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
       return { undoRef };
@@ -50299,7 +50475,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
     // 「这个动作到底是不是该提议而没提议」。
     mayAct,
     undoRef: (delivered && delivered.undoRef) || undoRef,
-    basis,
+    // 129g:代答那一支把核实过的出处并进 basis —— 行动流水里「管家替我答了那道题」必须能点开
+    // 看见凭什么。没走代答(用户原话直递 / 别的通道)时 gate.used 为 null,basis 一字不变。
+    basis: gate.used ? { ...basis, ...(gate.used.memoryIds.length ? { memoryIds: gate.used.memoryIds } : {}), ...(gate.used.briefRef ? { briefRef: gate.used.briefRef } : {}), answeredFor: 'user' } : basis,
   });
   return { ok: true, sessionId, undoRef, ...(delivered && typeof delivered === 'object' ? delivered : {}) };
 }
@@ -52108,6 +52286,21 @@ function stewardCtxIsSteward(ctx) {
   return !!(session && typeof session === 'object' && session.kind === 'steward');
 }
 
+// 129g:把「这一回合是谁触发的」补进 ctx。见 13h 的 currentTurnTrigger 头注 —— 09-workflow 造的
+// 工具循环 ctx 里没有 trigger,于是所有按 trigger 分档的闸(自理清单、目标线程权限、125-P0 停机
+// 尊重、代答依据)在【模型直接调工具】这条面上全部失灵。补在这一处而不是 09:
+//   · 42 个管家工具都经过本壳,一处补齐,不必在 09 里给管家开特例;
+//   · 09 在 13 之前,取不到 stewardRunnerRuntime(前向边);经 StewardHooks 迟绑定零新增边。
+// 已经带了 trigger 的调用面(13p 自理层、/api/steward/act、/api/steward/relay)**原样保留** ——
+// 它们给的是更准的那一个(「用户亲手按了这枚按钮」),不许被回合级的值盖掉。
+function stewardWithTurnTrigger(ctx) {
+  const base = (ctx && typeof ctx === 'object') ? ctx : {};
+  if (base.trigger) return base;
+  const kind = typeof StewardHooks.currentTurnTrigger === 'function' ? StewardHooks.currentTurnTrigger() : '';
+  // 取不到就保持既有的空串语义(进程内直调、夹具直调):这一口只补真的知道的那一部分。
+  return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
+}
+
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
@@ -52126,7 +52319,7 @@ function stewardToolHandler(toolName, impl) {
       const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
       const clean = {};
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
-      return await impl(clean, ctx || {}, config);
+      return await impl(clean, stewardWithTurnTrigger(ctx), config);
     } catch (error) {
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
@@ -53643,6 +53836,22 @@ function stewardNormalizeAct(raw) {
     ? kindRaw
     : (tool ? 'tool' : 'dismiss');
   if (kind === 'tool' && !isStewardToolName(tool)) return null;  // 只认 steward_*(动世界的工具永远进不来)
+  // 129k(用户 2026-09-20 报「管家给的按钮按下去说这个工具不能被按钮触发」):**不画按不动的按钮**。
+  // 修前这里只问「是不是 steward_ 开头」,不问「它能不能作为 act 执行」。而按钮按下去走
+  // POST /api/steward/act -> stewardRunAct,那里按 STEWARD_ACTION_HOOKS 查实现,查不到就
+  // `not_allowed: xxx 不能作为 act 执行` —— 于是模型随手把一个【只读】工具(threads_search、
+  // schedule_list、三张清单…)提成按钮,用户按下去只看到一句内部话。acts 这一路此前【不经】那张表
+  // 过滤,13m 的表头注释早就写明了这个后果("不进表就是同一种「按了报错」"),只是一直没人在
+  // 产出侧堵上。堵在这里 = 一处治本:不论模型怎么写、也不论以后谁新增工具,按不动的按钮画不出来。
+  //
+  // 为什么是【丢掉】而不是放开执行:只读工具当按钮本来就没有归宿 —— act 的回执是一行「做完了」,
+  // 没有地方显示一份清单;用户要的那个答案,模型应当在这一回合里直接调工具拿到、写进话里。
+  // 与本文件既有的那条纪律同源(13p 的永久豁免支:「宁可少一个按钮,也不画一个按下去必被拒的」)。
+  // 记一条审计:这件事修前在界面上是静默失败,现在至少数得出来模型多久犯一次。
+  if (kind === 'tool' && !STEWARD_ACTION_HOOKS[tool]) {
+    logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
+    return null;
+  }
   // 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的按钮不许由模型命名**。修前这一行 label 优先用
   // `raw.label` —— 模型写「好,我知道了」,args 里是 steward_config_set{externalMcpServers:[…]},
   // 用户按下去就是用户「亲手按了」(13q 据此置那一位),而 args 一个字都没被校验过。
@@ -53793,6 +54002,15 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
   if (trigger === 'user') return { allowed: true };
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
+    // 129g:目标此刻挂着一道给用户的提问时,这不是「递话」,是【代答】—— 归 answer 那一格管,
+    // 不该被 relay 那一格挡下。两条调用面(actions 数组 与 模型在工具循环里直接调)必须问同一格,
+    // 否则会出现「勾了代答,有时候行有时候不行」这种查不明白的场面:13k 那边已经按通道分了,
+    // 这里不分的话 actions 这条路就要 relay 与 answer 两格同时勾才走得通。
+    // 探测只用来【选问哪一格】,真正的代答门(污染/档位/依据)在 13q 的 answer 支里,通道定下来之后。
+    const probe = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(args && args.sessionId) : null;
+    if (probe && probe.channel === 'answer') {
+      return auto.answer === true ? { allowed: true } : { allowed: false, reason: '「替我回答线程的提问」没有勾选,只能提议' };
+    }
     // 递话(接力)默认关:只提议。
     return auto.relay === true ? { allowed: true } : { allowed: false, reason: '「任务内自动交接」没有勾选,只能提议' };
   }
@@ -53915,6 +54133,22 @@ function stewardDowngradeActions(executed, acts) {
     if (confirmSpec) {
       act.label = stewardActLabel(row.tool, row.args);
       act.confirmItems = stewardActConfirmLines(confirmSpec);
+    }
+    // 129g:代答被判「没有依据」之后降级成的这一枚,按下去之前必须把【那句话本身】摆出来。
+    // 不摆的话这一刀等于白做:按钮上只有「接着办」三个字(thread_continue 的通用标签),用户一点,
+    // 管家自己编的那句答案就以【他的名义】答进了那道题 —— 代答换条路照走,只是多了一次盲按
+    // (按钮走 POST /api/steward/act,那里给 trigger:'user',代答闸第 ① 道当场放行)。
+    // 用的是 confirm 族那套【既有】机制:服务端给纯文本 confirmItems -> 前端 POST 之前先弹面板。
+    // 判据是 result.channel === 'answer'(代答闸自己打的标),不是按工具名 —— 普通递话(线程空闲、
+    // 在跑、排队)不该平白多一次确认,它本来就不是替用户说话。
+    if (row.tool === 'steward_thread_continue' && result.channel === 'answer') {
+      const asked = String(result.question || '');
+      act.confirmItems = [
+        asked ? `它问你:${asked}` : '这条线程正在等你回答',
+        // 裁剪用 06i 那个 200 字的数,**不是** 13m 的 40 字:第二行是用户要拍板的那句答案本身,
+        // 截在 40 字等于让他批一段自己没看全的话 —— 那正是这一刀要治的毛病(见 06i 的头注)。
+        `我要替你答:${stewardSanitizeText(String((row.args && row.args.message) || '')).slice(0, STEWARD_ANSWER_BASIS.shownChars)}`,
+      ];
     }
     const sid = row.args && (row.args.sessionId || row.args.missionId) ? safeSessionId(row.args.sessionId || row.args.missionId) : '';
     if (sid) act.sessionId = sid;
@@ -55169,6 +55403,17 @@ async function stewardRelayDeliver(input) {
   const decided = stewardRelayChannelFor(sid);
 
   if (decided.channel === 'answer') {
+    // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
+    // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里
+    // 都是「用户答了」)。所以闸咬在【通道】上,不咬在工具上:不论从 steward_thread_continue 还是
+    // 从 POST /api/steward/relay 进来,只要落到这一支就要过同一道门。
+    // 判据与执行不分家:门在这里、在通道已经定下来【之后】、在 decideIntervention 之前,于是
+    // 「先探一次通道、再去投递」中间那个状态翻转的窗口(线程刚好这一刻才挂出提问)也盖得住。
+    // guard 由调用方注入(13k 拿得到 config / 目标线程头 / 管家记忆库,13h 拿不到);没注入 = 既有行为。
+    if (typeof o.answerGuard === 'function') {
+      const refused = await o.answerGuard(decided);
+      if (refused) return refused;
+    }
     // 用户这句话【就是】那道提问的答案。走与 /api/chat/answer 逐字相同的核心(13d 的 decideIntervention
     // 命令核心 + 04 的 normalizeQuestionAnswer),于是 CAS 行、审计、回合唤醒三样一个不少。
     const normalizedAnswer = normalizeQuestionAnswer({ content: message, answers: [] }, decided.questions);
@@ -55692,6 +55937,16 @@ Object.assign(StewardHooks, {
   // 理由随第一个外部消费者出现而失效 —— 纪律没变,变的是事实。
   relayChannel: stewardRelayChannelFor,
   relayDeliver: stewardRelayDeliver,
+  // 129g:此刻【正在跑的那个管家回合】是谁触发的('user' | 'inbox' | '')。
+  // 为什么要有这一口:管家工具有两条调用面 —— ① 模型在回合的工具循环里直接调(09-workflow 造的
+  // ctx 是 {sessionId,turnSeq,session,config,workingDir,signal},**没有 trigger**);② 13p 的自理层
+  // 与 /api/steward/act 显式带 trigger。于是 stewardTriggerOf(ctx) 在【第一条面上恒为空串】,
+  // 而 stewardUnattendedByModel 恒为 false —— 无人值守回合里模型直接调 steward_thread_continue,
+  // 自理清单闸与目标线程权限闸**一道都不过**,拿到的是「用户就在跟前」的直递待遇。
+  // (既有 e2e 全部手工往 ctx 里塞 trigger,所以这个缺口一直没被照到。)
+  // 补法放在 13g 的 stewardToolHandler 一处(42 个工具的唯一咽喉),它经本口取真值;
+  // inflight 在回合本体开跑【前】同步认领、收尾时清空,所以工具循环期间它就是当前回合的那一个。
+  currentTurnTrigger: () => (stewardRunnerRuntime.inflight ? String(stewardRunnerRuntime.inflight.kind || '') : ''),
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,
 });

@@ -423,6 +423,16 @@ Object.assign(StewardHooks, {
   // 理由随第一个外部消费者出现而失效 —— 纪律没变,变的是事实。
   relayChannel: stewardRelayChannelFor,
   relayDeliver: stewardRelayDeliver,
+  // 129g:此刻【正在跑的那个管家回合】是谁触发的('user' | 'inbox' | '')。
+  // 为什么要有这一口:管家工具有两条调用面 —— ① 模型在回合的工具循环里直接调(09-workflow 造的
+  // ctx 是 {sessionId,turnSeq,session,config,workingDir,signal},**没有 trigger**);② 13p 的自理层
+  // 与 /api/steward/act 显式带 trigger。于是 stewardTriggerOf(ctx) 在【第一条面上恒为空串】,
+  // 而 stewardUnattendedByModel 恒为 false —— 无人值守回合里模型直接调 steward_thread_continue,
+  // 自理清单闸与目标线程权限闸**一道都不过**,拿到的是「用户就在跟前」的直递待遇。
+  // (既有 e2e 全部手工往 ctx 里塞 trigger,所以这个缺口一直没被照到。)
+  // 补法放在 13g 的 stewardToolHandler 一处(42 个工具的唯一咽喉),它经本口取真值;
+  // inflight 在回合本体开跑【前】同步认领、收尾时清空,所以工具循环期间它就是当前回合的那一个。
+  currentTurnTrigger: () => (stewardRunnerRuntime.inflight ? String(stewardRunnerRuntime.inflight.kind || '') : ''),
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,
 });
