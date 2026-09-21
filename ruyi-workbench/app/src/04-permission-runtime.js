@@ -1314,9 +1314,21 @@ function sanitizeToolboxComponent(raw, fileId) {
     const basePath = typeof p.basePath === 'string' && /^\/[A-Za-z0-9._~\/-]{0,99}$/.test(p.basePath) ? p.basePath : '';
     const model = typeof p.model === 'string' ? p.model.trim().slice(0, 120) : '';
     if (!model) continue;
-    provides.push({ type: p.type, basePath, model, protocol: p.protocol === 'chat-audio' ? 'chat-audio' : 'transcriptions' });
+    // 133(约定 §2.2 可选字段):同一端点上可选的多份模型 [{id,label}];缺省那份必须在清单里,不在就补到最前。
+    const models = [];
+    const seen = new Set();
+    for (const m of (Array.isArray(p.models) ? p.models.slice(0, 8) : [])) {
+      const id = m && typeof m === 'object' && typeof m.id === 'string' ? m.id.trim().slice(0, 120) : '';
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      models.push({ id, label: (typeof m.label === 'string' ? m.label.trim().slice(0, 80) : '') || id });
+    }
+    if (models.length && !seen.has(model)) models.unshift({ id: model, label: model });
+    provides.push({ type: p.type, basePath, model, protocol: p.protocol === 'chat-audio' ? 'chat-audio' : 'transcriptions', ...(models.length ? { models } : {}) });
   }
-  out.service = { port, portEnv, health, component: componentTag };
+  // 133:可选的「立刻卸载」路径 —— 用户把语音识别切走时如意 POST 它,组件就地释放显存。形状同 health。
+  const unload = svc && typeof svc.unload === 'string' && /^\/[A-Za-z0-9._~\/-]{0,199}$/.test(svc.unload) ? svc.unload : '';
+  out.service = { port, portEnv, health, component: componentTag, ...(unload ? { unload } : {}) };
   out.provides = provides;
   return { component: out };
 }

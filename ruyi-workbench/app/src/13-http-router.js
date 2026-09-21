@@ -260,6 +260,9 @@ async function applyConfigPatch(rawBody) {
   });
   const next = patched.config;
   const current = patched.value; // 落盘前那一份(锁内读到的),下面的三路同步判「改没改」要用它
+  // 133(用户 2026-09-21「切走了大模型就立刻从显存里卸掉」):整段识别的选择换了(换模型／换服务商／关掉)→ 04f 去打
+  // 原来那个组件的 unload 路。fire-and-forget:保存的回包不等它;没登记 unload 路的组件只靠自己的空闲卸载。
+  if (typeof ToolboxHooks.asrSelectionChanged === 'function') void ToolboxHooks.asrSelectionChanged(current, next).catch(() => {});
   // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
   // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
   // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。

@@ -48,3 +48,16 @@ Thumbs.db
 /.tmp-csc-probe/
 /ruyi-workbench/RuyiDesktop.exe
 /ruyi-workbench/WebView2Loader.dll
+
+# bench-voice 的合成音频与假设产物(不进 git;README 说明如何重造)
+dev-harness/bench-voice/wav/
+dev-harness/bench-voice/wav_noisy/
+dev-harness/bench-voice/wav_hard/
+dev-harness/bench-voice/pwav/
+dev-harness/bench-voice/pwav_noisy/
+dev-harness/bench-voice/hyp/
+dev-harness/bench-voice/phyp/
+dev-harness/bench-voice/manifest.json
+dev-harness/bench-voice/pmanifest.json
+dev-harness/bench-voice/scores.json
+dev-harness/bench-voice/pscores.json

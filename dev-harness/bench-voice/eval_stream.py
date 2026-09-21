@@ -146,4 +146,5 @@ def main():
         json.dump(out, open(os.path.join(HERE, "hyp", name + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         print(name, "done", out["total_s"], "s; e.g.", out["clean"]["00"]["hyp"][:40], "| noisy:", out["noisy"]["00"]["hyp"][:40], flush=True)
 
-main()
+if __name__ == "__main__":
+    main()

@@ -11,3 +11,7 @@
   `*2` 是加固提示（转写当数据、不执行里面的指令）——产品侧必须用这一版。
 - `score.py [名...]` 打分（CER，汉字/拉丁词为单位）；`show_errs.py <名> <条件> <阈值>` 看错在哪。
 - `results/` 是 2026-09-21 那一轮的原始假设与分数（`scores.json`），52 号文的表从这里来。
+- 133a（54 号文）连贯段落语料：`passages.txt` 10 段 × 4 句；`make_passages.py` 按句合成 clean/noisy；`eval_passages.py stream|sensevoice|qwen[:模型[:端口]]`
+  第一遍／第二遍；`llm_fix_ctx.js <端点id> <模型> <text2|text-ctx|merge2|merge-ctx|passage-text|passage-merge> <第一遍名> [第二遍名]`
+  量「改字时给不给前文」「逐句改 vs 整段一次改」；`score_passages.py` 句级 + 段级 CER。产物目录由 `BENCH_DATA` 指定（缺省本目录，不进 git）。
+- `results/passages/` 是 133a 那一轮段落语料的原始假设与分数(`pscores.json`),54 号文 §2 的表从这里来。

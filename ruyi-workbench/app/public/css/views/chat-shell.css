@@ -435,6 +435,15 @@
 .prov-cap .prov-asr-protocol { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--muted); margin-top: 4px; cursor: default; }
 .prov-cap .prov-asr-protocol-select { width: auto; max-width: 260px; }
 .prov-cap .prov-asr-protocol-hint { flex-basis: 100%; margin: 2px 0 4px; white-space: normal; }
+/* 133c：语音输入档位（关闭｜轻度｜标准｜重度｜自定义）—— 一排开关钮，选中的实心；装不了的那档灰掉、鼠标悬上说原因。
+   逐项指定收进 .asr-advanced 折叠区，与服务商卡片里 .prov-adv 同款外观。 */
+.asr-preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.asr-preset-btn { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); font-size: var(--fs-sm); cursor: pointer; }
+.asr-preset-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.asr-preset-btn:disabled { opacity: .45; cursor: not-allowed; }
+.asr-advanced { font-size: var(--fs-sm); margin-top: 6px; }
+.asr-advanced > summary { cursor: pointer; color: var(--muted); padding: 2px 0; }
+.asr-advanced[open] > summary { margin-bottom: 6px; }
 /* 设置页「添加语音识别模型」一行：服务商｜模型名｜接口类型｜添加并启用，窄了自动折行。 */
 .asr-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .asr-add-row select { width: auto; flex: 0 1 auto; max-width: 100%; }

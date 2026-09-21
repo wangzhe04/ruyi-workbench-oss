@@ -53,6 +53,7 @@ export const COMPOSER_VOICE_SAMPLE_RATE = 16000;               // ⑧ 16 kHz 单
 export const COMPOSER_VOICE_MAX_MS = 3 * 60 * 1000;            // 录满 3 分钟自动结束
 const COMPOSER_VOICE_TICK_MS = 500;                            // 计时显示与「满时自动结束」共用这一拍
 // ⑨ 边说边出字（按停顿切段）。四个数都是工程默认：
+export const COMPOSER_VOICE_CONTEXT_CHARS = 600;               // 133a：句尾改错带的前文最多这么多字（服务端同一上限）
 export const COMPOSER_VOICE_PAUSE_MS = 700;                    // 停这么久算「一句说完」
 export const COMPOSER_VOICE_SEGMENT_MIN_MS = 2000;             // 一段至少这么长才切（太碎的段转写不准，也多出网）
 export const COMPOSER_VOICE_SEGMENT_MAX_MS = 30000;            // 一口气说这么久还没停顿就硬切一刀
@@ -619,9 +620,13 @@ export function createComposerVoice({
       const all = concatFloat(s.all, s.allLen);
       try { audio = await blobToBase64(wavBlobFromPcm(all.subarray(a, b), COMPOSER_VOICE_SAMPLE_RATE)); } catch { audio = null; }
     }
+    // 133a：这句前面已经落在输入框里的字当上下文一起送去（同音字、术语、指代靠它判；评测里纯文字改错的错误数减半）。
+    // 取的是发请求这一刻输入框里这一段之前的全部文字（含用户自己打的），服务端只用尾巴。
+    const boxNow = input();
+    const context = boxNow ? String(boxNow.value || '').slice(0, Math.max(0, item.start)).slice(-COMPOSER_VOICE_CONTEXT_CHARS) : '';
     let text = '';
     try {
-      const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE }), headers: { 'content-type': 'application/json' } });
+      const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE, context }), headers: { 'content-type': 'application/json' } });
       if (!res.ok) return;   // 第二遍失败就留着第一遍的字：不弹错（第一遍已经把话记下来了）
       const body = await res.json();
       text = String((body && body.text) || '').trim();

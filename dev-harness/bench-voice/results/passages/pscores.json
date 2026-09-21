@@ -1,0 +1,542 @@
+[
+ {
+  "name": "llm-deepseek-merge-ctx-stream-qwen",
+  "clean": 0.72,
+  "clean_passage": 0.72,
+  "clean_errs": 4,
+  "clean_ms": 646,
+  "clean_worst": [
+   [
+    1,
+    "p08-2",
+    "改错的时候，把前面几句一起给他当上下文。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ],
+  "noisy": 0.54,
+  "noisy_passage": 0.54,
+  "noisy_errs": 3,
+  "noisy_ms": 653,
+  "noisy_worst": [
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成 zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ],
+   [
+    1,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致T一直不清。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-passage-merge-stream-qwen",
+  "clean": 0.72,
+  "clean_passage": 0.72,
+  "clean_errs": 4,
+  "clean_ms": 796,
+  "clean_worst": [
+   [
+    1,
+    "p08-2",
+    "改错的时候，把前面几句一起给他当上下文。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ],
+  "noisy": 0.54,
+  "noisy_passage": 0.54,
+  "noisy_errs": 3,
+  "noisy_ms": 758,
+  "noisy_worst": [
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成 zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ],
+   [
+    1,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致 T 一直不清。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-merge2-stream-qwen",
+  "clean": 0.72,
+  "clean_passage": 0.72,
+  "clean_errs": 4,
+  "clean_ms": 621,
+  "clean_worst": [
+   [
+    1,
+    "p08-2",
+    "改错的时候，把前面几句一起给他当上下文。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ],
+  "noisy": 0.72,
+  "noisy_passage": 0.72,
+  "noisy_errs": 4,
+  "noisy_ms": 703,
+  "noisy_worst": [
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成 zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p03-3",
+    "你把 compose 文件里的 EMV 那一段贴给我。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ]
+ },
+ {
+  "name": "qwen",
+  "clean": 0.72,
+  "clean_passage": 0.72,
+  "clean_errs": 4,
+  "clean_ms": 642.9,
+  "clean_worst": [
+   [
+    1,
+    "p08-2",
+    "改错的时候，把前面几句一起给他当上下文。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ],
+  "noisy": 0.72,
+  "noisy_passage": 0.72,
+  "noisy_errs": 4,
+  "noisy_ms": 647.5,
+  "noisy_worst": [
+   [
+    1,
+    "p05-1",
+    "拆完每个文件，压成 zip，放到归档目录。"
+   ],
+   [
+    1,
+    "p03-3",
+    "你把 compose 文件里的 EMV 那一段贴给我。"
+   ],
+   [
+    1,
+    "p01-0",
+    "这个需求的分支叫 feature logging。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-passage-merge-stream-sensevoice",
+  "clean": 1.44,
+  "clean_passage": 1.44,
+  "clean_errs": 8,
+  "clean_ms": 755,
+  "clean_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    1,
+    "p09-1",
+    "一开头，第二位是3到9。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件压成zip，放到归档目录。"
+   ]
+  ],
+  "noisy": 1.44,
+  "noisy_passage": 1.44,
+  "noisy_errs": 8,
+  "noisy_ms": 648,
+  "noisy_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    1,
+    "p09-1",
+    "一开头，第二位是3到9。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件压成zip，放到归档目录。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-merge-ctx-stream-sensevoice",
+  "clean": 1.8,
+  "clean_passage": 1.8,
+  "clean_errs": 10,
+  "clean_ms": 586,
+  "clean_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    2,
+    "p00-0",
+    "我们这个服务的缓存曾用的是Vds。"
+   ],
+   [
+    1,
+    "p09-1",
+    "1开头，第二位是3到9。"
+   ]
+  ],
+  "noisy": 1.62,
+  "noisy_passage": 1.62,
+  "noisy_errs": 9,
+  "noisy_ms": 593,
+  "noisy_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    1,
+    "p09-1",
+    "1开头，第二位是3到9。"
+   ],
+   [
+    1,
+    "p05-1",
+    "拆完每个文件压成Zip，放到归档目录。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-merge2-stream-sensevoice",
+  "clean": 1.98,
+  "clean_passage": 1.98,
+  "clean_errs": 11,
+  "clean_ms": 645,
+  "clean_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    2,
+    "p00-0",
+    "我们这个服务的缓存曾用的是Vds。"
+   ],
+   [
+    1,
+    "p09-1",
+    "一一开头，第二位是3到9。"
+   ]
+  ],
+  "noisy": 1.8,
+  "noisy_passage": 1.8,
+  "noisy_errs": 10,
+  "noisy_ms": 636,
+  "noisy_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    2,
+    "p01-2",
+    "你把它Vb到ma上，再跑一遍单元测试。"
+   ],
+   [
+    1,
+    "p09-1",
+    "一一开头，第二位是3到9。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-text-ctx-stream",
+  "clean": 2.34,
+  "clean_passage": 2.34,
+  "clean_errs": 13,
+  "clean_ms": 646,
+  "clean_worst": [
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致 TTL 不清。"
+   ],
+   [
+    2,
+    "p07-2",
+    "版本号是 2.8.0。"
+   ],
+   [
+    2,
+    "p05-1",
+    "拆完每个文件压缩放到归档目录。"
+   ]
+  ],
+  "noisy": 1.8,
+  "noisy_passage": 1.8,
+  "noisy_errs": 10,
+  "noisy_ms": 693,
+  "noisy_worst": [
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致 TTL 不清。"
+   ],
+   [
+    2,
+    "p07-2",
+    "版本号是 2.8.0。"
+   ],
+   [
+    2,
+    "p05-1",
+    "拆完每个文件压缩放到归档目录。"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-passage-text-stream",
+  "clean": 2.7,
+  "clean_passage": 2.7,
+  "clean_errs": 15,
+  "clean_ms": 837,
+  "clean_worst": [
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对导致 TTL 不清"
+   ],
+   [
+    2,
+    "p07-2",
+    "版本号是 2.8.0"
+   ],
+   [
+    2,
+    "p06-3",
+    "你先出个原型给设计看一下"
+   ]
+  ],
+  "noisy": 1.8,
+  "noisy_passage": 1.8,
+  "noisy_errs": 10,
+  "noisy_ms": 734,
+  "noisy_worst": [
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对导致 TTL 不清"
+   ],
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0"
+   ],
+   [
+    2,
+    "p05-1",
+    "拆完每个文件压缩放到归档目录"
+   ]
+  ]
+ },
+ {
+  "name": "llm-deepseek-text2-stream",
+  "clean": 4.14,
+  "clean_passage": 4.14,
+  "clean_errs": 23,
+  "clean_ms": 676,
+  "clean_worst": [
+   [
+    5,
+    "p07-2",
+    "Harbor 是 2.8.0。"
+   ],
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致 TTL 不清。"
+   ],
+   [
+    2,
+    "p05-1",
+    "拆完每个文件压缩放到归档目录。"
+   ]
+  ],
+  "noisy": 3.24,
+  "noisy_passage": 3.24,
+  "noisy_errs": 18,
+  "noisy_ms": 708,
+  "noisy_worst": [
+   [
+    5,
+    "p07-2",
+    "Harbor 是 2.8.0。"
+   ],
+   [
+    3,
+    "p00-2",
+    "我怀疑是过期时间没设对，导致 TTL 不清。"
+   ],
+   [
+    2,
+    "p03-2",
+    "所以是环境变量没有传进容器。"
+   ]
+  ]
+ },
+ {
+  "name": "sensevoice",
+  "clean": 3.42,
+  "clean_passage": 3.42,
+  "clean_errs": 19,
+  "clean_ms": 243.8,
+  "clean_worst": [
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ],
+   [
+    2,
+    "p05-0",
+    "用pyython写了脚本，把这批日志按天拆开。"
+   ],
+   [
+    2,
+    "p00-3",
+    "你先把readds的漫日志拉出来看一眼。"
+   ]
+  ],
+  "noisy": 4.14,
+  "noisy_passage": 4.14,
+  "noisy_errs": 23,
+  "noisy_ms": 243.9,
+  "noisy_worst": [
+   [
+    3,
+    "p05-0",
+    "用拍葬写了脚本，把这批日志按天拆开。"
+   ],
+   [
+    3,
+    "p03-0",
+    "这个半只在刀cker容器里能复现。"
+   ],
+   [
+    2,
+    "p07-2",
+    "版本号是2.8.0。"
+   ]
+  ]
+ },
+ {
+  "name": "stream",
+  "clean": 9.01,
+  "clean_passage": 9.01,
+  "clean_errs": 50,
+  "clean_ms": 22.0,
+  "clean_worst": [
+   [
+    5,
+    "p05-0",
+    "YOUNG PYTHONY的脚本把这批日志按天拆开 开"
+   ],
+   [
+    5,
+    "p00-3",
+    "你先把瑞迪斯的卖日志拉出来看一眼 眼"
+   ],
+   [
+    4,
+    "p03-0",
+    "这个办只在刀客容器里能浮现"
+   ]
+  ],
+  "noisy": 7.75,
+  "noisy_passage": 7.75,
+  "noisy_errs": 43,
+  "noisy_ms": 22.5,
+  "noisy_worst": [
+   [
+    4,
+    "p03-0",
+    "这个败只在刀客容器里能浮现"
+   ],
+   [
+    4,
+    "p00-2",
+    "我怀疑是过期时间没射队导致 T一直不轻"
+   ],
+   [
+    3,
+    "p07-1",
+    "放在共享目录的瑞莉斯文件夹里"
+   ]
+  ]
+ }
+]

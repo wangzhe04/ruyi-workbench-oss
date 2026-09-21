@@ -58,4 +58,5 @@ def main():
         print(f"{r['name']:34} {r.get('clean', '-'):>9} {r.get('noisy', '-'):>9} {r.get('hard', '-'):>9} {r.get('clean_ms', '-'):>9} {r.get('load_s', ''):>7}")
     json.dump(rows, open(os.path.join(HERE, "scores.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
-main()
+if __name__ == "__main__":
+    main()

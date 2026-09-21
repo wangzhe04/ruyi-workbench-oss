@@ -36,8 +36,11 @@ const FAKE_SERVICE = `
 const http = require('http'), fs = require('fs'), path = require('path');
 const port = Number(process.env.FAKE_ASR_PORT || 0);
 fs.writeFileSync(path.join(__dirname, 'env-' + process.pid + '.json'), JSON.stringify({ port, parent: process.env.RUYI_TOOLBOX_PARENT_PID || '', extra: process.env.FAKE_EXTRA || '', argv: process.argv.slice(2) }));
+let unloads = 0;
 http.createServer((req, res) => {
-  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: true, component: 'fake-asr-component', version: '0.0.1', pid: process.pid })); }
+  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: true, component: 'fake-asr-component', version: '0.0.1', pid: process.pid, unloads })); }
+  // 133:登记的 service.unload 路 —— 如意在用户把整段识别切走时打它;计数经 /health 回给断言看
+  if (req.method === 'POST' && req.url === '/v1/unload') { unloads += 1; res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: true, unloaded: true })); }
   if (req.method === 'POST' && req.url === '/v1/audio/transcriptions') {
     let n = 0; req.on('data', c => { n += c.length; }); req.on('end', () => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ text: '[fake-toolbox-asr] pid=' + process.pid + ' bytes>0=' + (n > 0) })); });
     return;
@@ -78,8 +81,9 @@ function register(id, patch) {
   const base = {
     schema: 1, id, kind: 'service', name: '假语音识别组件', version: '0.0.1',
     run: { command: process.execPath, args: [path.join(FAKE_DIR, 'service.js'), '--flag'], cwd: FAKE_DIR, env: { FAKE_EXTRA: 'from-manifest' } },
-    service: { port: 0, portEnv: 'FAKE_ASR_PORT', health: '/health', component: 'fake-asr-component' },
-    provides: [{ type: 'asr', basePath: '/v1', model: 'fake-local-asr', protocol: 'transcriptions' }, { type: 'time-travel', basePath: '/v9', model: 'x' }],
+    service: { port: 0, portEnv: 'FAKE_ASR_PORT', health: '/health', component: 'fake-asr-component', unload: '/v1/unload' },
+    // 133:多尺寸清单(约定 §2.2 可选字段)—— 缺省那份 + 一份「大的」,各带设置页要显示的 label
+    provides: [{ type: 'asr', basePath: '/v1', model: 'fake-local-asr', protocol: 'transcriptions', models: [{ id: 'fake-local-asr', label: '小的（约 2 GB 显存）' }, { id: 'fake-local-asr-big', label: '大的（约 5 GB 显存）' }] }, { type: 'time-travel', basePath: '/v9', model: 'x' }],
     registeredAt: new Date().toISOString(),
   };
   const merged = { ...base, ...patch, run: { ...base.run, ...((patch && patch.run) || {}) }, service: { ...base.service, ...((patch && patch.service) || {}) } };
@@ -179,6 +183,28 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
       `B2 用户没配过语音识别 → 自动选中它,并记进 seen(实得 asr=${cfg1.asrProviderId}/${cfg1.asrModel} seen=${JSON.stringify(cfg1.toolbox && cfg1.toolbox.seen)})`);
     const t1 = await transcribe();
     ok(t1.status === 200 && /^\[fake-toolbox-asr\] pid=\d+ bytes>0=true$/.test((t1.json && t1.json.text) || ''), `B3 转写真的打到了组件上(实得 ${t1.status} ${t1.text.slice(0, 160)})`);
+
+    /* ── M 133:多尺寸清单 + 切走即卸载 ── */
+    const modelsM = (prov1 && prov1.models) || [];
+    ok(modelsM.length === 2 && modelsM[0].id === 'fake-local-asr' && modelsM[0].label === '小的（约 2 GB 显存）' && modelsM[1].id === 'fake-local-asr-big' && modelsM[1].label === '大的（约 5 GB 显存）' && modelsM.every(m => (m.caps || []).join() === 'asr'),
+      `M1 登记的 provides.models 落成服务商条目里两份带 label 的模型(实得 ${JSON.stringify(modelsM)})`);
+    const cmpM = component(await status(), 'fake-asr');
+    ok(Boolean(cmpM) && cmpM.state === 'running', 'M1b 组件仍在跑');
+    const u0 = ((await health(P1)) || {}).unloads;
+    const sw1 = await saveConfig({ asrModel: 'fake-local-asr-big' });
+    const u1 = await waitFor(async () => { const h = await health(P1); return h && h.unloads === 1 ? h.unloads : null; }, 8000);
+    ok(sw1.status === 200 && u0 === 0 && u1 === 1, `M2 同一组件换到另一份模型 → 立刻打了它的 unload 路一次(实得 ${u0} → ${u1})`);
+    const sw2 = await saveConfig({ asrFixMode: 'llm' });
+    await sleep(600);
+    ok(sw2.status === 200 && ((await health(P1)) || {}).unloads === 1, 'M3 只改别的键(改字方式)→ 不打 unload');
+    const sw3 = await saveConfig({ asrProviderId: 'cloud-nope', asrModel: 'whisper-1' });
+    const u3 = await waitFor(async () => { const h = await health(P1); return h && h.unloads === 2 ? h.unloads : null; }, 8000);
+    ok(sw3.status === 200 && u3 === 2, `M4 换到别的服务商 → 再打一次(实得 ${u3})`);
+    await saveConfig({ asrProviderId: 'toolbox-fake-asr', asrModel: 'fake-local-asr', asrFixMode: 'auto' });
+    await sleep(600);
+    ok(((await health(P1)) || {}).unloads === 2, 'M5 换【回来】不打(原来选的不是它)');
+    const cfgM = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(cfgM.asrProviderId === 'toolbox-fake-asr' && cfgM.asrModel === 'fake-local-asr', 'M6 选择已复位,后面的段照旧');
 
     /* ── K 整份保存不带 toolbox 服务商(用户真机 2026-09-21:设置页草稿是页面加载时的快照,组件晚一两秒才把条目写进配置;
           一次「保存」把它撤掉,语音识别选择随即被清空 —— 日志 config_providers_shrunk lost:['toolbox-asr-shim']) ── */

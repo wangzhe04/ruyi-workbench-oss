@@ -712,6 +712,8 @@ function buildAsrAddRow() {
 function focusAsrSettings() {
   renderAsrSettings();
   if (!asrSettingsBlock) return false;
+  const adv = asrSettingsBlock.querySelector('.asr-advanced');   // 133c：从灰麦克风跳过来是要逐项配，先把高级区打开
+  if (adv) adv.open = true;
   try { asrSettingsBlock.scrollIntoView({ block: 'center' }); } catch { /* 老宿主没有 scrollIntoView 选项 */ }
   const target = asrSettingsBlock.querySelector('.asr-select') || asrSettingsBlock.querySelector('.asr-add-model');
   if (target) { try { target.focus(); } catch { /* 节点不可聚焦 */ } }
@@ -829,21 +831,107 @@ function buildAsrFixBlock() {
   block.append(row1, row2, hint);
   return block;
 }
+// 133c（54 号文 §4；用户 2026-09-21「分几个轻度/重度的语音识别选项…这套设置选项确实有点复杂了」）：
+// 语音输入先选【档位】，逐项指定收进折叠的「高级」区。档位【不是新配置键】—— 由现有三对键推算（选档位＝一次写这几对键），
+// 所以老配置、管家改键、手工改 config.json 都不会与它打架；对不上任何一档就显示「自定义」。
+//   关闭  = 实时识别与整段识别都不选
+//   轻度  = 流式（zipformer，CPU）+ SenseVoice 重听（CPU）+ 大模型合成 —— 不占显存
+//   标准  = 流式 + Qwen3-ASR 0.6B 重听（约 2 GB 显存）+ 大模型合成
+//   重度  = 流式 + Qwen3-ASR 1.7B 重听（约 5 GB 显存，最准）+ 大模型合成
+// 三档都只认 toolbox 组件登记的模型（云端 ASR 走「自定义」）；改字用的大模型不在档位里（缺省跟随主端点，高级区可改）。
+const ASR_PRESETS = ['light', 'standard', 'heavy'];
+const ASR_PRESET_ASR_MATCH = {
+  light: [/sensevoice/i],
+  standard: [/^qwen3-asr-0\.6b$/i, /^qwen3-asr-auto$/i],   // 老登记只有 auto（今天 auto 就是 0.6B）
+  heavy: [/^qwen3-asr-1\.7b$/i],
+};
+function asrPresetTargets() {
+  const isTb = o => String(o.providerId || '').startsWith('toolbox-');
+  const stream = asrStreamCapableOptions().find(isTb) || null;
+  const asr = asrCapableOptions().filter(isTb);
+  const pick = res => { for (const re of res) { const hit = asr.find(o => re.test(o.modelId)); if (hit) return hit; } return null; };
+  const out = {};
+  for (const p of ASR_PRESETS) out[p] = { stream, asr: pick(ASR_PRESET_ASR_MATCH[p]) };
+  return out;
+}
+function asrPresetAvailable(target) { return Boolean(target && target.stream && target.asr); }
+function asrPresetPatch(target) {
+  return { asrStreamProviderId: target.stream.providerId, asrStreamModel: target.stream.modelId, asrProviderId: target.asr.providerId, asrModel: target.asr.modelId, asrFixMode: 'auto' };
+}
+function asrCurrentPreset(cfg, targets) {
+  const c = cfg || {};
+  const sp = String(c.asrStreamProviderId || ''), sm = String(c.asrStreamModel || ''), ap = String(c.asrProviderId || ''), am = String(c.asrModel || '');
+  if (!(sp && sm) && !(ap && am)) return 'off';
+  for (const p of ASR_PRESETS) {
+    const tg = targets[p];
+    if (!asrPresetAvailable(tg)) continue;
+    if (sp === tg.stream.providerId && sm === tg.stream.modelId && ap === tg.asr.providerId && am === tg.asr.modelId && String(c.asrFixMode || 'auto') === 'auto') return p;
+  }
+  return 'custom';
+}
+function asrPresetHintText(preset, targets) {
+  const cfg = state.config || {};
+  const p = asrFixLlmProvider('');
+  const llmName = p ? ((p.label || p.id) + (String(cfg.asrFixModel || '').trim() ? ' / ' + String(cfg.asrFixModel).trim() : '')) : '';
+  const llm = llmName ? t('settings.asrPreset.llmYes', { llm: llmName }) : t('settings.asrPreset.llmNo');
+  if (preset === 'off') return t('settings.asrPreset.hint.off');
+  if (preset === 'custom') return t('settings.asrPreset.hint.custom', { detail: asrFixHintText(String(cfg.asrFixMode || 'auto'), cfg.asrFixProviderId) });
+  return t('settings.asrPreset.hint.' + preset, { llm });
+}
+function buildAsrPresetBlock(advanced) {
+  const block = el('div', 'field-block asr-preset-block');
+  block.appendChild(el('label', '', t('settings.asrPreset.title')));
+  const targets = asrPresetTargets();
+  const current = asrCurrentPreset(state.config, targets);
+  const row = el('div', 'asr-preset-row');
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', t('settings.asrPreset.title'));
+  const hint = el('p', 'field-help muted asr-preset-hint', asrPresetHintText(current, targets));
+  const buttons = [];
+  const paint = active => { for (const b of buttons) b.setAttribute('aria-pressed', b.dataset.preset === active ? 'true' : 'false'); hint.textContent = asrPresetHintText(active, targets); };
+  const save = async (patch, active) => {
+    for (const b of buttons) b.disabled = true;
+    const saved = await saveConfigPartial(patch);
+    for (const b of buttons) b.disabled = !asrPresetAvailable(targets[b.dataset.preset]) && ASR_PRESETS.includes(b.dataset.preset);
+    if (saved) { paint(active); toast(t('settings.asrPreset.toast'), 'ok'); renderAsrSettings(); }
+  };
+  for (const p of ['off', ...ASR_PRESETS, 'custom']) {
+    const b = el('button', 'asr-preset-btn', t('settings.asrPreset.' + p));
+    b.type = 'button'; b.dataset.preset = p;
+    b.setAttribute('aria-pressed', p === current ? 'true' : 'false');
+    if (ASR_PRESETS.includes(p) && !asrPresetAvailable(targets[p])) { b.disabled = true; b.title = t('settings.asrPreset.need.' + p); }
+    b.onclick = () => {
+      if (p === 'custom') { advanced.open = true; paint('custom'); const first = advanced.querySelector('select'); if (first) { try { first.focus(); } catch { /* 不可聚焦 */ } } return; }
+      if (p === 'off') { void save({ asrStreamProviderId: '', asrStreamModel: '', asrProviderId: '', asrModel: '' }, 'off'); return; }
+      void save(asrPresetPatch(targets[p]), p);
+    };
+    buttons.push(b); row.appendChild(b);
+  }
+  block.append(row, hint);
+  return block;
+}
 function renderAsrSettings() {
   const host = $('stab-providers');
   if (!host) return;
   const options = asrCapableOptions();
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
+  const wasOpen = Boolean(asrSettingsBlock.querySelector('.asr-advanced[open]'));
   asrSettingsBlock.textContent = '';
   const sep = el('hr', 'settings-sep');
   const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后
   const fixBlock = buildAsrFixBlock();         // 131b：句尾改错最后（说完一句之后怎么改）
+  // 133c：三栏收进折叠的「高级」区；档位对不上任何一档（自定义）时默认展开，否则记住用户刚才开没开
+  const advanced = el('details', 'asr-advanced');
+  advanced.appendChild(el('summary', '', t('settings.asrPreset.advanced')));
+  const presetBlock = buildAsrPresetBlock(advanced);
+  advanced.open = wasOpen || asrCurrentPreset(state.config, asrPresetTargets()) === 'custom';
   const block = el('div', 'field-block');
   const label = el('label', '', t('settings.asr.title'));
   const roleHint = el('p', 'field-help muted', t('settings.asr.roleHint'));
   if (!options.length) {
     block.append(label, roleHint, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
-    asrSettingsBlock.append(sep, streamBlock, block, fixBlock);
+    advanced.append(streamBlock, block, fixBlock);
+    asrSettingsBlock.append(sep, presetBlock, advanced);
     return;
   }
   const select = el('select', 'asr-select');
@@ -866,7 +954,8 @@ function renderAsrSettings() {
     }
   };
   block.append(label, roleHint, select, hint, buildAsrAddRow());
-  asrSettingsBlock.append(sep, streamBlock, block, fixBlock);
+  advanced.append(streamBlock, block, fixBlock);
+  asrSettingsBlock.append(sep, presetBlock, advanced);
 }
 // ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
 // 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、

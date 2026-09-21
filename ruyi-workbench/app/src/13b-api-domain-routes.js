@@ -428,6 +428,8 @@ async function handleAudioCorrect(req, res) {
   let body;
   try { body = await readJsonBody(req); } catch { return send(res, apiFailure('asr.fix_bad_request', {}, '请求体不是合法 JSON', 400)); }
   const text = String((body && body.text) || '').trim().slice(0, AUDIO_FIX_MAX_TEXT);
+  // 133a:这句前面已经落到输入框里的字(只给大模型当参考,重听那一路用不上);服务端只取尾巴,前端多给也不多花
+  const context = String((body && body.context) || '').slice(-AUDIO_FIX_MAX_TEXT);
   const audioB64 = body && typeof body.audio === 'string' ? body.audio : '';
   if (!text && !audioB64) return send(res, apiFailure('asr.fix_bad_request', {}, 'text 与 audio 至少给一个', 400));
   if (audioB64.length > AUDIO_FIX_MAX_AUDIO_B64) {
@@ -457,7 +459,7 @@ async function handleAudioCorrect(req, res) {
   }
   let llmText = null, llmErr = '';
   if (canLlm && (text || audioText)) {
-    const r = await providerFixCompletion(llmRes.provider, llmRes.model, asrFixMessages(text, audioText));
+    const r = await providerFixCompletion(llmRes.provider, llmRes.model, asrFixMessages(text, audioText, context));
     if (!r.ok) llmErr = String(r.error || 'failed').slice(0, 200);
     else {
       llmText = asrFixSanity((audioText && audioText.length > text.length) ? audioText : text, r.content) || null;
@@ -481,7 +483,7 @@ async function handleAudioCorrect(req, res) {
   const final = llmText || audioText || '';
   logEvent({
     kind: 'asr_fix', mode, audio: canAudio ? (audioText != null ? 'ok' : (audioErr || 'skip')) : 'off',
-    llm: canLlm ? (llmText ? 'ok' : (llmErr || 'skip')) : 'off', inLen: text.length, outLen: final.length, durationMs: Date.now() - t0,
+    llm: canLlm ? (llmText ? 'ok' : (llmErr || 'skip')) : 'off', inLen: text.length, ctxLen: context.length, outLen: final.length, durationMs: Date.now() - t0,
   });
   if (!final) return send(res, apiFailure('asr.fix_failed', { audio: audioErr, llm: llmErr }, '两条路都没改出结果', 502));
   return send(res, json({ ok: true, text: final, used: { audio: audioText != null, llm: Boolean(llmText) }, durationMs: Date.now() - t0 }));

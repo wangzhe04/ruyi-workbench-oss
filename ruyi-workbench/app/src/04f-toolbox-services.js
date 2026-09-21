@@ -162,9 +162,11 @@ function toolboxDesiredProviders(config) {
     const port = entry && entry.port ? entry.port : c.service.port;
     const base = 'http://127.0.0.1:' + port + ((asr || stream).basePath || '');
     const models = [];
-    if (asr) models.push({ id: asr.model, label: asr.model, caps: ['asr'] });
-    if (stream && !(asr && asr.model === stream.model)) models.push({ id: stream.model, label: stream.model, caps: ['asr-stream'] });
-    else if (stream) models[0].caps.push('asr-stream');
+    // 133:组件可以列多份模型(asr-shim 的 auto / 0.6B / 1.7B),每份带设置页要显示的 label;没列就只有 provides.model 那一份。
+    if (asr) for (const m of (Array.isArray(asr.models) && asr.models.length ? asr.models : [{ id: asr.model, label: asr.model }])) models.push({ id: m.id, label: m.label || m.id, caps: ['asr'] });
+    const streamHit = stream ? models.find(m => m.id === stream.model) : null;
+    if (stream && !streamHit) models.push({ id: stream.model, label: stream.model, caps: ['asr-stream'] });
+    else if (streamHit) streamHit.caps.push('asr-stream');
     out.push({
       componentId: c.id,
       asrModel: asr ? asr.model : '',
@@ -267,6 +269,40 @@ async function ensureToolboxServiceForProvider(providerId) {
   if (entry && entry.state === 'running' && entry.port !== portBefore) await syncToolboxProviders().catch(() => {});
 }
 
+// 133(用户 2026-09-21「如果语音识别切换剔掉了大模型,那么立马把模型从显存里卸载」):整段识别的选择从某个 toolbox 组件
+// 换走(换成别的服务商／换成它的另一份模型／关掉)→ 立刻 POST 它登记的 service.unload。只打【原来选的】那个组件;
+// 换成同一组件的另一份模型也打(下一发请求会加载新的那份,旧的这会儿就该让出显存)。没登记 unload 路的组件不打。
+// 出站只到 127.0.0.1:<它的端口>;5 秒超时;结果记审计日志,失败不抛(fire-and-forget,保存的回包不等它)。
+function toolboxUnloadTargets(prev, next) {
+  const out = [];
+  const pid = String((prev && prev.asrProviderId) || ''), pm = String((prev && prev.asrModel) || '');
+  if (!pid.startsWith('toolbox-') || !pm) return out;
+  const nid = String((next && next.asrProviderId) || ''), nm = String((next && next.asrModel) || '');
+  if (nid === pid && nm === pm) return out;
+  out.push({ providerId: pid, from: pm, to: nid === pid ? nm : (nid ? nid + '/' + nm : '') });
+  return out;
+}
+async function toolboxUnloadForProvider(providerId, why) {
+  const id = String(providerId || '').replace(/^toolbox-/, '');
+  const entry = toolboxServices.get(id);
+  const unloadPath = entry && entry.component && entry.component.service ? String(entry.component.service.unload || '') : '';
+  if (!entry || !unloadPath || entry.state !== 'running') return { skipped: !entry ? 'unknown' : (!unloadPath ? 'no-unload-path' : entry.state) };
+  const url = 'http://127.0.0.1:' + entry.port + unloadPath;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'content-length': '0' }, signal: AbortSignal.timeout(5000) });
+    const body = safeJsonParse((await res.text()).slice(0, 2048), null);
+    const unloaded = Boolean(body && body.unloaded);
+    logEvent({ kind: 'toolbox_service', action: 'unload', id, port: entry.port, status: res.status, unloaded, ...why });
+    return { ok: res.ok, unloaded };
+  } catch (err) {
+    logEvent({ kind: 'toolbox_service', action: 'unload-failed', id, port: entry.port, error: String(err && err.message || err).slice(0, 200), ...why });
+    return { ok: false, error: String(err && err.message || err).slice(0, 200) };
+  }
+}
+async function onAsrSelectionChanged(prev, next) {
+  for (const t of toolboxUnloadTargets(prev, next)) await toolboxUnloadForProvider(t.providerId, { from: t.from, to: t.to });
+}
+
 // /api/status 用的只读视图:设置页据此画「扩展组件」一栏。命令只给文件名(不给全路径、不给参数、不给 env)。
 function toolboxStatusView(config) {
   const tb = (config && config.toolbox) || {};
@@ -289,3 +325,4 @@ ToolboxHooks.reconcile = reconcileToolbox;
 ToolboxHooks.stopAllSync = stopAllToolboxServicesSync;
 ToolboxHooks.ensureForProvider = ensureToolboxServiceForProvider;
 ToolboxHooks.statusView = toolboxStatusView;
+ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;

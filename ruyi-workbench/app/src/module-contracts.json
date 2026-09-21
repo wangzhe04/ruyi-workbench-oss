@@ -1877,6 +1877,7 @@
         "TOOLBOX_PROBE_TIMEOUT_MS",
         "TOOLBOX_STDERR_TAIL",
         "ensureToolboxServiceForProvider",
+        "onAsrSelectionChanged",
         "reconcileToolbox",
         "startToolboxService",
         "stopAllToolboxServicesSync",
@@ -1892,7 +1893,9 @@
         "toolboxProviderId",
         "toolboxReconcileChain",
         "toolboxServices",
-        "toolboxStatusView"
+        "toolboxStatusView",
+        "toolboxUnloadForProvider",
+        "toolboxUnloadTargets"
       ],
       "requires": [
         {
@@ -1992,6 +1995,8 @@
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
+        "ASR_FIX_CONTEXT",
+        "ASR_FIX_CONTEXT_MAX",
         "ASR_FIX_HARDEN",
         "ASR_FIX_MODES",
         "ASR_FIX_SYSTEM_MERGE",
@@ -2006,6 +2011,7 @@
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
         "asrChatContentText",
+        "asrFixContextTail",
         "asrFixMessages",
         "asrFixModeOf",
         "asrFixSanity",

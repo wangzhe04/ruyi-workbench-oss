@@ -105,6 +105,13 @@ This file records user-facing release highlights; it does not replace the comple
 - 语音输入的**入口现在看得见、开得起来**了（此前功能在、但输入框里找不到麦克风）。
 - **桌面窗口里的麦克风放行**：在如意的桌面壳里也能用语音输入了。
 
+#### 语音输入分档；句尾改错带前文；本地模型体量可选、切走即卸载（第 133 波，2026-09-21）
+
+- **设置页语音区改成一排档位**：关闭｜轻度｜标准｜重度｜自定义，一行说明当前档会怎么走。轻度＝边说边出字（CPU）＋ SenseVoice 重听（CPU）＋大模型合成，不占显存；标准＝重听换成本地 Qwen3-ASR 0.6B（约 2 GB 显存）；重度＝1.7B（约 5 GB，最准）。装不了的档灰掉、悬停说要装什么。原来的三栏收进折叠的「逐项指定（高级）」，一个键都没变。
+- **句尾改错带上前文**：大模型改字时把输入框里这一句之前的文字一起给它当参考（同音字、术语、分支名靠它判）。连贯段落评测里纯文字改错的错误数从 23 降到 13，SenseVoice 重听路 11 → 10；「等说完整段再统一改」测过，不比逐句带前文好，且会重写已经上屏的字，没采用。
+- **本地 Qwen3-ASR 每份体量单独可选**：asr-shim 登记时把装好的 0.6B／1.7B 都列出来，设置里逐份选；`auto` 现在优先最省显存的 0.6B。**切走就立刻卸载**：把整段识别换成别的模型／服务商或关掉，如意当场让原来那个组件释放显存，不再等 10 分钟空闲。
+- 装了 asr-shim 的机器要重跑一次 `download-model.ps1`（或 `python -m ruyi_asr_shim register --model auto --models-root <models 目录>`）重新登记，清单才会带上各份体量。
+
 ### English
 
 #### Voice input: text appears as you talk, and failures say what is wrong (2026-09-20/21)
@@ -195,6 +202,13 @@ The steward sometimes offered a button for a tool it cannot actually press, and 
 
 - The voice input **entry point is now visible and actually works** (the feature existed but no microphone appeared in the composer).
 - **The microphone is allowed inside the desktop window.**
+
+#### Voice input levels; sentence correction with context; selectable local model size, unload on switch (wave 133, 2026-09-21)
+
+- **The voice settings are now one row of levels**: Off | Light | Standard | Heavy | Custom, with one line explaining what the current level does. Light = text as you speak (CPU) + SenseVoice re-listen (CPU) + LLM merge, no GPU memory; Standard = re-listen with local Qwen3-ASR 0.6B (about 2 GB); Heavy = 1.7B (about 5 GB, most accurate). Levels that cannot run are greyed out with the reason on hover. The three former blocks live on unchanged under a folded "Pick each part yourself (advanced)".
+- **Sentence correction now sees what came before**: the LLM fix gets the text already in the input box ahead of the current sentence as reference (homophones, terms and branch names are decided by it). On a coherent-passage benchmark, text-only fixing dropped from 23 to 13 errors and the SenseVoice re-listen path from 11 to 10; "rewrite the whole passage once you stop" was measured, was not better than per-sentence-with-context, and would rewrite text already on screen, so it was not adopted.
+- **Each local Qwen3-ASR size is selectable**: asr-shim now registers every installed size (0.6B / 1.7B) and `auto` prefers the memory-light 0.6B. **Unload on switch**: choosing another model or provider for full-clip recognition, or turning it off, makes Ruyi tell the previous add-on to free its GPU memory immediately instead of waiting for the 10-minute idle timer.
+- Machines with asr-shim installed need one re-run of `download-model.ps1` (or `python -m ruyi_asr_shim register --model auto --models-root <models dir>`) so the registration lists the sizes.
 
 ## 如意 Ruyi Escapade 2.8.0 · v2.8.0 · 发布日待填 · 会守时、说得准、听得懂
 

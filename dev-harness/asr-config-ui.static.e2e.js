@@ -119,7 +119,8 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
     '前端: 第二遍回来相同／已取消 → 不替换；那一句被碰过 → 一个字不动（replaceStreamRegion 判）');
   assert.ok(voiceJs.includes("if (!composerVoiceCorrectConfigured(cfg)) return;   // 没配第二遍 = 不校正"), '前端: 131b 起按「句尾改错」配置判要不要跑第二遍');
   // 131b:第二遍改经 /api/audio/correct(服务端按 asrFixMode 编排),要重听时才带音频;三个纯函数真跑。
-  assert.ok(voiceJs.includes("const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE })"), '前端: 第二遍走 /api/audio/correct(文字 + 可选音频)');
+  assert.ok(voiceJs.includes("const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE, context })"), '前端: 第二遍走 /api/audio/correct(文字 + 可选音频 + 133a 前文)');
+  assert.ok(voiceJs.includes("const context = boxNow ? String(boxNow.value || '').slice(0, Math.max(0, item.start)).slice(-COMPOSER_VOICE_CONTEXT_CHARS) : '';"), '前端: 133a 前文 = 输入框里这一句之前的文字(取尾巴),没有输入框就空');
   assert.ok(voiceJs.includes('if (composerVoiceCorrectWantsAudio(cfg)) {'), '前端: 只在要重听时才编 WAV 带音频');
   const correctConfigured = pick('composerVoiceCorrectConfigured'), wantsAudio = pick('composerVoiceCorrectWantsAudio'), llmAvail = pick('composerVoiceFixLlmAvailable');
   const voiceConfigured = pick('composerVoiceConfigured');
@@ -135,14 +136,35 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   assert.equal(wantsAudio({ asrFixMode: 'llm', asrProviderId: 'a', asrModel: 'm' }), false, '前端: llm 模式不带音频');
   assert.equal(wantsAudio({ asrFixMode: 'auto', asrProviderId: 'a', asrModel: 'm' }), true, '前端: auto + 配了整段识别 → 带音频');
   assert.match(providersJs, /function buildAsrFixBlock\(\)/, '前端: 131b 句尾改错独立成一栏');
-  assert.ok(providersJs.includes("asrSettingsBlock.append(sep, streamBlock, block, fixBlock);"), '前端: 三栏顺序 实时识别 → 整段识别 → 句尾改错(两条分支都追加)');
-  assert.ok((providersJs.match(/asrSettingsBlock\.append\(sep, streamBlock, block, fixBlock\);/g) || []).length === 2, '前端: 无候选与有候选两条分支都画句尾改错栏');
+  // 133c:三栏收进折叠的「高级」区(顺序不变),上面是档位一栏;无候选与有候选两条分支都这样画。
+  assert.ok((providersJs.match(/advanced\.append\(streamBlock, block, fixBlock\);/g) || []).length === 2, '前端: 三栏顺序 实时识别 → 整段识别 → 句尾改错,收进高级区(两条分支都追加)');
+  assert.ok((providersJs.match(/asrSettingsBlock\.append\(sep, presetBlock, advanced\);/g) || []).length === 2, '前端: 档位栏在前、高级区在后(两条分支)');
+  assert.match(providersJs, /const ASR_PRESETS = \['light', 'standard', 'heavy'\];/, '前端: 133c 三档');
+  assert.ok(!/asrPreset(Id)?:/.test(providersJs) && !/asrPreset\b/.test(fs.readFileSync(path.join(APP, 'src', '01-config.js'), 'utf8')), '前端: 档位不是配置键 —— 由现有三对键推算(不与既有键冲突)');
+  {
+    // 档位推算与写键:纯函数真跑。
+    const targets = { light: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-stream', modelId: 'sensevoice-small' } }, standard: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-shim', modelId: 'qwen3-asr-0.6b' } }, heavy: { stream: null, asr: null } };
+    const pickProviders = name => { const m = providersJs.match(new RegExp('\\nfunction ' + name + '\\([^)]*\\) \\{[\\s\\S]*?\\n\\}')); assert.ok(m, '前端: ' + name + ' 存在'); return new Function('return ' + m[0].trim())(); };
+    const cur = pickProviders('asrCurrentPreset'), patch = pickProviders('asrPresetPatch'), avail = pickProviders('asrPresetAvailable');
+    Object.assign(globalThis, { ASR_PRESETS: ['light', 'standard', 'heavy'], asrPresetAvailable: avail });
+    assert.equal(cur({}, targets), 'off', '前端: 两对键都空 → 关闭');
+    assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-stream', asrModel: 'sensevoice-small' }, targets), 'light', '前端: 流式 + SenseVoice + fixMode 缺省 → 轻度');
+    assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'auto' }, targets), 'standard', '前端: 流式 + 0.6B → 标准');
+    assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'llm' }, targets), 'custom', '前端: 改字方式不是 auto → 自定义');
+    assert.equal(cur({ asrProviderId: 'cloud', asrModel: 'whisper-1' }, targets), 'custom', '前端: 云端 ASR → 自定义');
+    assert.deepEqual(patch(targets.standard), { asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'auto' }, '前端: 选档位 = 一次写三对键(改字端点那一对不动)');
+    assert.equal(avail(targets.heavy), false, '前端: 没装 1.7B → 重度不可用');
+  }
+  assert.ok(providersJs.includes("if (adv) adv.open = true;") && providersJs.includes("querySelector('.asr-advanced')"), '前端: 从灰麦克风跳过来先把高级区打开(否则聚焦不到里面的输入框)');
   assert.ok(providersJs.includes("void save({ asrFixMode: modeSel.value });") && providersJs.includes("void save({ asrFixProviderId: provSel.value, asrFixModel: '' });") && providersJs.includes("void save({ asrFixModel: modelSel.value });"), '前端: 三个选择器各自选中即存部分补丁,不碰上面两栏的键');
   assert.ok(voiceJs.includes("catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 流式开不了 → 说一句、回落按停顿切段');
   for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
     for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback',
       'settings.asrFix.title', 'settings.asrFix.mode.auto', 'settings.asrFix.mode.audio', 'settings.asrFix.mode.llm', 'settings.asrFix.mode.off', 'settings.asrFix.providerLabel', 'settings.asrFix.followMain', 'settings.asrFix.noMain', 'settings.asrFix.defaultModel',
-      'settings.asrFix.hint.both', 'settings.asrFix.hint.audio', 'settings.asrFix.hint.llm', 'settings.asrFix.hint.none', 'settings.asrFix.hint.off', 'settings.asrFix.toast']) {
+      'settings.asrFix.hint.both', 'settings.asrFix.hint.audio', 'settings.asrFix.hint.llm', 'settings.asrFix.hint.none', 'settings.asrFix.hint.off', 'settings.asrFix.toast',
+      'settings.asrPreset.title', 'settings.asrPreset.off', 'settings.asrPreset.light', 'settings.asrPreset.standard', 'settings.asrPreset.heavy', 'settings.asrPreset.custom', 'settings.asrPreset.advanced', 'settings.asrPreset.toast',
+      'settings.asrPreset.llmYes', 'settings.asrPreset.llmNo', 'settings.asrPreset.hint.off', 'settings.asrPreset.hint.light', 'settings.asrPreset.hint.standard', 'settings.asrPreset.hint.heavy', 'settings.asrPreset.hint.custom',
+      'settings.asrPreset.need.light', 'settings.asrPreset.need.standard', 'settings.asrPreset.need.heavy']) {
       assert.ok(typeof dict[k] === 'string' && dict[k].length > 0, name + ' 缺键 ' + k);
     }
   }

@@ -31,6 +31,17 @@ ok(typeof asrFixMessages === 'function' && typeof asrFixSanity === 'function' &&
   const m2 = asrFixMessages('句一', '句一。');
   ok(m2[1].content === '<transcript>A：句一\nB：句一。</transcript>' && m2[0].content.includes('以 B 为主') && m2[0].content.includes('A、B 两段'), 'U2 合成模式:A/B 两版都在标签里,以 B 为主,加固句指向两段');
   ok(asrFixMessages('  x  ', null)[1].content === '<transcript>x</transcript>', 'U2b 两头空白剥掉、audioText 为 null 走文字模式');
+  // 133a:前文当上下文 —— 段落语料上纯文字改错错误数 23 → 13(54 号文 §2)。前文放 <context> 标签、system 里说清只参考不输出;
+  // 没前文时提示词与 131b 逐字相同(老路径零漂移);前文只取尾巴 600 字、压掉换行。
+  const m3 = asrFixMessages('把它瑞贝斯到 main 上', '', '这个需求的分支叫 feature login\n我在上面改了登录接口');
+  ok(m3[1].content === '<context>这个需求的分支叫 feature login 我在上面改了登录接口</context>\n<transcript>把它瑞贝斯到 main 上</transcript>', 'U2c 前文进 <context>、换行压成空格、当前句仍在 <transcript>');
+  ok(m3[0].content.includes('<context> 标签里是这段话前面几句') && m3[0].content.includes('【不要输出它们】'), 'U2d system 里说清前文只参考、不输出、不并进当前句');
+  const m4 = asrFixMessages('句一', '句一。', '前文');
+  ok(m4[1].content === '<context>前文</context>\n<transcript>A：句一\nB：句一。</transcript>' && m4[0].content.includes('<context>'), 'U2e 合成模式也带前文');
+  ok(JSON.stringify(asrFixMessages('x', '')) === JSON.stringify(asrFixMessages('x', '', '   ')) && !asrFixMessages('x', '')[0].content.includes('<context>'), 'U2f 没前文(或全空白)→ 与 131b 提示词逐字相同、不出现 <context>');
+  const long = '甲'.repeat(700) + '尾';
+  const m5 = asrFixMessages('x', '', long);
+  ok(m5[1].content.startsWith('<context>' + '甲'.repeat(599) + '尾</context>'), 'U2g 前文只取最后 600 字');
 }
 // ② 出参合理性
 {
