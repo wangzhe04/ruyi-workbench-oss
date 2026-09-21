@@ -267,6 +267,20 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     const cfgC2 = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrProviderId === 'toolbox-fake-asr' ? c : null; }, 10000);
     ok(Boolean(cfgC2) && (cfgC2.providers || []).some(p => p.id === 'toolbox-fake-asr') && cfgC2.asrModel === 'fake-local-asr',
       `C2 条目在盘上丢了(seen 里却有它)→ 重启补回条目、且重新自动选中(实得 asr=${JSON.stringify(cfgC2 && cfgC2.asrProviderId)})`);
+    // C3(131,2026-09-21 真机):组件把【自己的】模型名改了(asr-shim 登记成 auto 后 provides.model 变成 qwen3-asr-auto),用户选的仍是这家
+    // → 模型名跟着走(服务商 id 没变,不是「用户换走」);否则设置页那一格显示「不启用」而转写还在打旧名字。
+    killp(wb); await sleep(1200);
+    register('fake-asr', { service: { port: P1 }, provides: [{ type: 'asr', basePath: '/v1', model: 'fake-local-asr-v2', protocol: 'transcriptions' }, { type: 'time-travel', basePath: '/v9', model: 'x' }] });
+    wb = await bootWB();
+    await waitFor(async () => { const c = component(await status(), 'fake-asr'); return c && c.state === 'running' ? c : null; });
+    const cfgC3 = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrModel === 'fake-local-asr-v2' ? c : null; }, 10000);
+    ok(Boolean(cfgC3) && cfgC3.asrProviderId === 'toolbox-fake-asr' && (cfgC3.providers.find(p => p.id === 'toolbox-fake-asr').models || []).some(m => m.id === 'fake-local-asr-v2'),
+      `C3 组件改了自己的模型名 → 选的还是这家,模型名跟着变(实得 ${JSON.stringify(cfgC3 && [cfgC3.asrProviderId, cfgC3.asrModel])})`);
+    killp(wb); await sleep(1200);
+    register('fake-asr', { service: { port: P1 } });   // 改回原名,后面各段按原判据走
+    wb = await bootWB();
+    await waitFor(async () => { const c = component(await status(), 'fake-asr'); return c && c.state === 'running' ? c : null; });
+    await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrModel === 'fake-local-asr' ? c : null; }, 10000);
     await saveConfig({ asrProviderId: '', asrModel: '' });   // F 段从「用户没配」出发
     const cfg2b = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
     cfg2.toolbox = cfg2b.toolbox;

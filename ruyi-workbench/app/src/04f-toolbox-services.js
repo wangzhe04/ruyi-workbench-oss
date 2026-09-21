@@ -217,6 +217,20 @@ async function syncToolboxProviders() {
         logEvent({ kind: 'toolbox_service', action: 'asr-stream-auto-select', id: d.componentId, model: asrStreamModel });
       }
     }
+    // 131(2026-09-21 真机):组件把【自己的】模型名改了(asr-shim 登记成 auto 后 provides.model 从 qwen3-asr-0.6b 变成 qwen3-asr-auto),
+    // 用户选的仍是这个服务商 → 模型名跟着走。这不是「用户换走」(服务商 id 没变),不跟的话设置页那一格会显示成「不启用」、
+    // 而实际转写还在打旧名字。只在「选的是这家、而它现在的清单里没有那个名字」时才动。
+    for (const d of desired) {
+      const has = (id, cap) => (d.provider.models || []).some(m => m && m.id === id && Array.isArray(m.caps) && m.caps.includes(cap));
+      if (asrProviderId === d.provider.id && d.asrModel && asrModel && !has(asrModel, 'asr')) {
+        logEvent({ kind: 'toolbox_service', action: 'asr-model-follow', id: d.componentId, from: asrModel, to: d.asrModel });
+        asrModel = d.asrModel; changed = true;
+      }
+      if (asrStreamProviderId === d.provider.id && d.streamModel && asrStreamModel && !has(asrStreamModel, 'asr-stream')) {
+        logEvent({ kind: 'toolbox_service', action: 'asr-stream-model-follow', id: d.componentId, from: asrStreamModel, to: d.streamModel });
+        asrStreamModel = d.streamModel; changed = true;
+      }
+    }
     if (!changed) return { abort: 'unchanged' };
     return { next: { ...current, providers, asrProviderId, asrModel, asrStreamProviderId, asrStreamModel, toolbox: { ...tb, seen: [...seen] } } };
   });
