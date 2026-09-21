@@ -435,7 +435,16 @@ function keepModelCaps(next, previous) {
     if (m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.length) caps.set(String(m.id || ''), m.caps);
   }
   if (!caps.size) return next;
-  return (Array.isArray(next) ? next : []).map(m => (m && typeof m === 'object' && !Array.isArray(m.caps) && caps.has(String(m.id || '')) ? { ...m, caps: caps.get(String(m.id || '')).slice() } : m));
+  const out = (Array.isArray(next) ? next : []).map(m => (m && typeof m === 'object' && !Array.isArray(m.caps) && caps.has(String(m.id || '')) ? { ...m, caps: caps.get(String(m.id || '')).slice() } : m));
+  // 2026-09-21（用户真机）：刷新回来的是服务商的「名字清单」，用户亲手标成可语音识别的模型未必在里面（手填的
+  // qwen3-asr-flash、百炼清单里没有的名字）。修前一折回它就从内存里没了 → 选择器回落「无候选」→ 再添加、再折回，
+  // 永远配不上。带标记的条目是用户标的、不是发现来的，不在新清单里就补回末尾（盘上那份本来就还有它）。
+  // 手动清单那条路（用户逐行删）在调用处自己按打出来的行再筛一遍，删除语义不受这里影响。
+  const have = new Set(out.map(m => String((m && typeof m === 'object' ? m.id : m) || '')));
+  for (const m of (Array.isArray(previous) ? previous : [])) {
+    if (m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.length && !have.has(String(m.id || ''))) out.push(m);
+  }
+  return out;
 }
 async function saveConfigPartial(patch) {
   try {
@@ -574,6 +583,16 @@ function fillSettings() {
     // saveSettings 会省略该键（服务端保留现值），下一次 fillSettings 也还会补播。
     state.providersDraftSeeded = Array.isArray(c.providers);
     renderProviders();
+  } else if (Array.isArray(c.providers) && Array.isArray(state.providersDraft)) {
+    // 2026-09-21：`toolbox-` 服务商归自动发现所有，用户在卡片上改不了它 —— 弹窗开着时也照 config 同步这几条
+    // （补上刚接入的、撤掉已停用的），别的卡片上没存的编辑原样保留（编辑值住在草稿对象上）。修前草稿是页面加载时的
+    // 快照，组件晚一两秒才接好的那条永远不在设置页里出现；服务端另有一道闸保证整份保存撤不掉它（13 applyConfigPatch）。
+    const isToolbox = p => Boolean(p && String(p.id || '').startsWith('toolbox-'));
+    const owned = c.providers.filter(isToolbox);
+    if (JSON.stringify(state.providersDraft.filter(isToolbox)) !== JSON.stringify(owned)) {
+      state.providersDraft = [...state.providersDraft.filter(p => !isToolbox(p)), ...JSON.parse(JSON.stringify(owned))];
+      renderProviders();
+    }
   }
 }
 // 114a(45 号文 §2 ①/§7): 设置页「语音识别」选择器 —— 服务商页签内,provider+模型一对,选中即存
@@ -1200,6 +1219,7 @@ function providerCard(p, idx) {
       models.push({ id, label: id });
     }
     p.models = keepModelCaps(models, p.models);   // 2026-09-20：改这份名字清单不该顺手把「可语音识别」的标记抹掉
+    p.models = p.models.filter(m => seen.has(String((m && m.id) || '')));   // 但用户亲手删掉的那一行就是删了（keepModelCaps 会把带标记的补回来，这条路不要）
     // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
     // 就是 providers[].hiddenModels，而菜单里没有反方向的「恢复」按钮 —— 这条是唯一的回头路。
     if (Array.isArray(p.hiddenModels) && p.hiddenModels.length) {

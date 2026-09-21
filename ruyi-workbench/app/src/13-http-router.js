@@ -224,6 +224,18 @@ async function applyConfigPatch(rawBody) {
       if (typeof body.modelsApiBase === 'string') merged.modelsApiBase = restored.modelsApiBase;
       if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
     }
+    // 2026-09-21(用户真机,日志 config_providers_shrunk lost:['toolbox-asr-shim']):`toolbox-` 前缀的服务商归自动发现所有 ——
+    // 04f syncToolboxProviders 增删它们,走 mutateConfig 不经这里。设置页整份保存上传的是一份【草稿快照】:页面加载时播种,
+    // 而 toolbox 组件要晚一两秒才起好、才把自己的条目写进配置;快照里没有它,一次保存就把它撤掉,normalizeConfig 随即把
+    // 指着它的语音识别选择清空 —— 用户看到的是「本地语音识别突然没了、设置里也不见、再配也配不上」。所以来件里的
+    // toolbox- 条目一律以【现值】为准:改不了、造不出、也撤不掉(现值有、来件没有的补回末尾,位置照 04f)。
+    // 停用／卸载才是撤走它的正途,那条路(04f)不经过本函数。只在来件真带了 providers 时做,别的保存一字不动。
+    if (Array.isArray(body.providers) && Array.isArray(merged.providers)) {
+      const isToolbox = p => Boolean(p && typeof p === 'object' && String(p.id || '').startsWith('toolbox-'));
+      const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);
+      const foreign = merged.providers.filter(p => !isToolbox(p));
+      if (owned.length || foreign.length !== merged.providers.length) merged.providers = [...foreign, ...owned];
+    }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
       merged.knownModels = [...(merged.knownModels || []), body.model];

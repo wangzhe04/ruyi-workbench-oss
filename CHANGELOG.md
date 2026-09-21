@@ -28,6 +28,7 @@ This file records user-facing release highlights; it does not replace the comple
 - 装在这台电脑上的 [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) 组件会在如意启动时被**自动发现并接入**：本地服务（例如本地语音识别）自动拉起、自动配成对应的端点；MCP 工具自动加入连接器列表。第一次接入会提示一句；专家界面「MCP 运维」页签底部能看到接了什么、逐个停用，或整体关掉自动发现。
 - **不替你做主**：只有在你还没配过语音识别时才会自动选中本地组件，而且每个组件只自动选一次——你后来关掉或换走，它不会再选回来。
 - 命令只来自磁盘上的登记文件（`~/.ruyi-toolbox/components/`），如意没有任何经网络接口写它的途径；不经 shell 执行；每次拉起都记审计日志；如意退出时一并回收自己拉起的进程。
+- 修掉（2026-09-21 真机）「本地语音识别接好之后，在设置里再加一个云端语音模型、点保存，本地那条就没了，语音识别也配不上了」：设置页整份保存带的是页面加载时的服务商快照，组件晚一两秒才接入的那条不在里面，一次保存就把它撤掉。现在自动接入的服务商归如意所有——设置页改不了、也撤不掉它，停用组件才撤；同时刷新模型清单时不再把你手填的语音模型从候选里挤掉。
 
 #### 管家能自己看一眼外面了 —— 但看过之后就不再自己动手（第 129 波）
 
@@ -97,6 +98,7 @@ This file records user-facing release highlights; it does not replace the comple
 - [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) components installed on this computer are **discovered and connected automatically** at startup: local services (such as local speech recognition) are started and wired up as the matching endpoint; MCP tools join the connector list. The first connection shows a notice; in the expert UI, the bottom of the "MCP operations" tab lists what is connected and lets you turn components off individually or disable discovery altogether.
 - **Your choices win**: a local component is auto-selected for speech recognition only if you have not configured one, and only once per component — if you later switch away or turn it off, it is never re-selected.
 - Commands come only from registration files on disk (`~/.ruyi-toolbox/components/`); no network API can write them; nothing runs through a shell; every launch is audited; processes Ruyi started are reclaimed when it exits.
+- Fixed (2026-09-21, real machine): after local speech recognition was connected, adding a cloud speech model in Settings and pressing Save removed the local entry and left speech recognition unconfigured. The settings page saves a snapshot of the provider list taken at page load, and the component connects a second or two later, so one save dropped it. Auto-connected providers are now owned by Ruyi — Settings cannot edit or remove them; disabling the component is the only way out — and refreshing a provider's model list no longer pushes a hand-added speech model out of the candidates.
 
 #### The steward can now look outside for itself — and stops acting on its own once it has (wave 129)
 

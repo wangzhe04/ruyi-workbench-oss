@@ -152,6 +152,22 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     const t1 = await transcribe();
     ok(t1.status === 200 && /^\[fake-toolbox-asr\] pid=\d+ bytes>0=true$/.test((t1.json && t1.json.text) || ''), `B3 转写真的打到了组件上(实得 ${t1.status} ${t1.text.slice(0, 160)})`);
 
+    /* ── K 整份保存不带 toolbox 服务商(用户真机 2026-09-21:设置页草稿是页面加载时的快照,组件晚一两秒才把条目写进配置;
+          一次「保存」把它撤掉,语音识别选择随即被清空 —— 日志 config_providers_shrunk lost:['toolbox-asr-shim']) ── */
+    const stK = await status();
+    const foreignK = (stK.config.providers || []).filter(p => !String(p.id || '').startsWith('toolbox-'));
+    const cloudK = { id: 'cloud-x', label: 'Cloud X', type: 'openai-compat', baseUrl: 'https://cloud.invalid/v1', apiKey: 'sk-cloud', model: 'm', models: [{ id: 'm', label: 'm' }] };
+    const forgedK = { id: 'toolbox-forged', label: 'forged', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: '', model: 'x', models: [{ id: 'x', label: 'x', caps: ['asr'] }] };
+    const saveK = await saveConfig({ providers: [...foreignK, cloudK, forgedK] });
+    const cfgK = (saveK.json && saveK.json.config) || {};
+    const idsK = (cfgK.providers || []).map(p => p.id);
+    ok(saveK.status === 200 && idsK.includes('toolbox-fake-asr') && idsK.includes('cloud-x') && !idsK.includes('toolbox-forged') && cfgK.asrProviderId === 'toolbox-fake-asr' && cfgK.asrModel === 'fake-local-asr',
+      `K1 整份保存的 providers 不带 toolbox 服务商 → 服务端把它保住(那个前缀归自动发现所有:改不了、撤不掉)、语音识别选择不被清空;来件伪造的 toolbox- 条目不落盘(实得 ${JSON.stringify(idsK)} asr=${cfgK.asrProviderId}/${cfgK.asrModel})`);
+    const cfgKDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const tK = await transcribe();
+    ok((cfgKDisk.providers || []).some(p => p.id === 'toolbox-fake-asr') && !fs.readdirSync(HOME).some(f => f.startsWith('config.json.bak-providers-')) && tK.status === 200 && /fake-toolbox-asr/.test(tK.text),
+      `K2 盘上也还在、没触发「缩水」备份、保存之后转写照样打到组件上(实得 ${tK.status},备份文件 ${fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-')).length} 个)`);
+
     /* ── G 坏登记 / H MCP ── */
     const st1 = await status();
     const ids = ((st1.toolbox && st1.toolbox.components) || []).map(c => c.id).sort();

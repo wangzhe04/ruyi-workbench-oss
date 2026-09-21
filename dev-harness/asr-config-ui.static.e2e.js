@@ -82,6 +82,23 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
     '05: 模型清单超限时先留带能力标记的条目（不是前 100 条）');
   assert.ok(providersJs.includes('models: keepModelCaps(fresh, p.models)'), '前端: 刷新清单折回 state.config 时保留 caps');
   assert.ok(providersJs.includes('p.models = keepModelCaps(models, p.models);'), '前端: 手动模型清单改动时保留 caps');
+  // 2026-09-21（用户真机，第五条）：折回的是「名字清单」，手填的语音模型（百炼清单里没有的名字）不在里面 —— 修前 keepModelCaps
+  // 只给 next 里有的条目补 caps，不在 next 里的带标记条目就地蒸发 → 候选没了 → 再添加、再折回，永远配不上。行为锁（真跑那个函数）：
+  const fnSrc = providersJs.match(/function keepModelCaps\(next, previous\) \{[\s\S]*?\n\}/);
+  assert.ok(fnSrc, '前端: keepModelCaps 存在');
+  const keepModelCaps = new Function('return ' + fnSrc[0])();
+  const fresh = Array.from({ length: 100 }, (_, i) => ({ id: 'm' + i, label: 'm' + i }));
+  const kept = keepModelCaps(fresh, [...fresh.slice(0, 99), { id: 'qwen3-asr-flash', label: 'qwen3-asr-flash', caps: ['asr'] }]);
+  assert.ok(kept.length === 101 && kept[100].id === 'qwen3-asr-flash' && kept[100].caps.includes('asr'), '前端: 折回名字清单时，不在清单里的带标记模型补回末尾');
+  assert.ok(keepModelCaps(fresh, fresh).length === 100, '前端: 没有带标记的条目时原样返回');
+  // 手动清单那条路是用户逐行删：删掉的带标记行不许被补回来（调用处按打出来的行再筛一遍）。
+  assert.ok(providersJs.includes("p.models = p.models.filter(m => seen.has(String((m && m.id) || '')));"), '前端: 手动清单删掉的行就是删了（不被 keepModelCaps 补回）');
+  // 同日第六条（日志 config_providers_shrunk lost:['toolbox-asr-shim']）：设置页整份保存带的是页面加载时的草稿快照，晚一两秒才自动
+  // 接入的 toolbox- 服务商不在里面，一次保存就把它撤掉、语音识别选择随即被清空。锁两头：服务端以现值为准（改不了、造不出、撤不掉），
+  // 前端弹窗开着时也把这几条照 config 同步进草稿。行为在 toolbox-discovery.e2e K1/K2 真跑。
+  assert.ok(src13.includes('const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);') && src13.includes('merged.providers = [...foreign, ...owned];'),
+    '13: applyConfigPatch 里 toolbox- 服务商以现值为准（自动发现所有的前缀）');
+  assert.ok(providersJs.includes("} else if (Array.isArray(c.providers) && Array.isArray(state.providersDraft)) {"), '前端: fillSettings 弹窗开着时同步 toolbox- 服务商进草稿');
 }
 assert.ok(providersJs.includes('const saved = await addAsrModel(providerId, modelId, protocolSelect.value);'), '前端: 添加行把接口类型一起写进去');
 assert.ok(providersJs.includes('/dashscope\\.aliyuncs\\.com|xiaomimimo\\.com/.test(base)'), '前端: 百炼／MiMo 预选对话型（实测 Whisper 形 404）');
