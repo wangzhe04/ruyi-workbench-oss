@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 54 | 2568 | 2684 | 431 | 68 | 0 | 1 |
+| 54 | 2570 | 2685 | 431 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -34,7 +34,7 @@
 | 16 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 17 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 18 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 19 | `06i-steward-core.js` | engine | 142 | 0 | 0 |
+| 19 | `06i-steward-core.js` | engine | 144 | 0 | 0 |
 | 20 | `06d-memory-domain.js` | engine | 102 | 34 | 10 |
 | 21 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 22 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -57,7 +57,7 @@
 | 39 | `13i-steward-inbox.js` | transport | 68 | 24 | 7 |
 | 40 | `13j-steward-tool-base.js` | transport | 76 | 22 | 6 |
 | 41 | `13k-steward-threads.js` | transport | 42 | 104 | 13 |
-| 42 | `13l-steward-ops.js` | transport | 36 | 101 | 17 |
+| 42 | `13l-steward-ops.js` | transport | 36 | 102 | 17 |
 | 43 | `13g-steward.js` | transport | 12 | 66 | 9 |
 | 44 | `13m-steward-runner-base.js` | transport | 42 | 14 | 5 |
 | 45 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
@@ -382,7 +382,7 @@
 | `13l-steward-ops.js` | `05-claude-engine.js` | backward | `maskProviders`, `maskedSecretConflictMessage`, `maskedSecretConflicts`, `unmaskSecrets` |
 | `13l-steward-ops.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession`, `listPlaybooksWithAvailability` |
 | `13l-steward-ops.js` | `06d-memory-domain.js` | backward | `cleanMemoryDate`, `memoryIsExpired`, `memoryProposalLooksSensitive` |
-| `13l-steward-ops.js` | `06i-steward-core.js` | backward | `STEWARD_CATALOG_DESC_CHARS`, `STEWARD_CATALOG_ROWS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_EYES_CHARS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_NOTIFY_KINDS`, `STEWARD_NOTIFY_TEXT_CHARS`, `STEWARD_SESSION_ID`, `stewardConfigTierFor`, `stewardExemptDelegationVerdict`, `stewardExemptHits`, `stewardExemptReason`, `stewardExemptRiskNote`, `stewardExemptScanInput`, `stewardMayAct`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSamePath`, `stewardSanitizeText`, `stewardStateLabel`, `stewardStoppedRefusal`, `stewardStoppedTarget`, `stewardTermJaccard`, `stewardThreadArtifactFiles`, `stewardWatchedThread`, `stewardWorkspaceRootFor`, `threadOriginOf` |
+| `13l-steward-ops.js` | `06i-steward-core.js` | backward | `STEWARD_CATALOG_DESC_CHARS`, `STEWARD_CATALOG_ROWS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_EYES_CHARS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_NOTIFY_KINDS`, `STEWARD_NOTIFY_TEXT_CHARS`, `STEWARD_SESSION_ID`, `stewardConfigHelpFor`, `stewardConfigTierFor`, `stewardExemptDelegationVerdict`, `stewardExemptHits`, `stewardExemptReason`, `stewardExemptRiskNote`, `stewardExemptScanInput`, `stewardMayAct`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardSamePath`, `stewardSanitizeText`, `stewardStateLabel`, `stewardStoppedRefusal`, `stewardStoppedTarget`, `stewardTermJaccard`, `stewardThreadArtifactFiles`, `stewardWatchedThread`, `stewardWorkspaceRootFor`, `threadOriginOf` |
 | `13l-steward-ops.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunFile` |
 | `13l-steward-ops.js` | `08-agent-runs.js` | backward | `classifyRunResumeTier`, `listAgentRuns` |
 | `13l-steward-ops.js` | `11-native-tools.js` | backward | `webFetch`, `webSearch` |

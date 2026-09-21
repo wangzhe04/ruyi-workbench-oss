@@ -407,36 +407,57 @@ try {
   fs.writeFileSync(shots.opened, Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
   ok(fs.statSync(shots.opened).size > 8000, `B4-shot 展开态实拍已存（${shots.opened}）`);
   ok(opened.bodyHidden === false && opened.expanded === 'true' && opened.open === '1', 'B4a 点一下就展开');
-  ok(opened.supplementHidden === false && opened.supplement === supplementOnDisk,
-    `B4b 管家补充逐字等于服务端落盘的那一份（${opened.supplement.length} 字 / 期望 ${supplementOnDisk.length}）`);
+  // 132a：有分字段时 <pre> 那一格 hidden（列表顶上），但它的内容仍必须逐字等于落盘的 supplement（老线程回落路径读的就是它）。
+  ok(opened.supplement === supplementOnDisk,
+    `B4b 管家补充逐字等于服务端落盘的那一份（${opened.supplement.length} 字 / 期望 ${supplementOnDisk.length}${opened.supplement === supplementOnDisk ? '' : '；屏上=' + JSON.stringify(opened.supplement) + ' 盘上=' + JSON.stringify(supplementOnDisk)}）`);
+  ok(opened.supplementHidden === true, 'B4b2 有分字段列表时 <pre> 回落那一格藏起来（不把同一段话印两遍）');
   ok(opened.supplement.includes('验收项') && opened.supplement.includes('约束'),
     'B4c 「验收怎么算」原样在屏上（零二次解析的可观测面）');
   ok(opened.runnerHidden === false && opened.runner.includes('如意管家'),
     `B4d 「谁在跑」说得出来（「${opened.runner}」）`);
+  // 132a：带展开后是分字段列表（13k 落盘的 brief.fields），不再是一坨 <pre>；<pre> 只给没有 fields 的老线程回落。
+  const structured = await cdp.evaluate(`(() => {
+    const sections = document.getElementById('threadCommissionSections');
+    const pre = document.getElementById('threadCommissionSupplementField');
+    const lists = sections ? Array.from(sections.querySelectorAll('.tc-section')).map(s => ({ label: (s.querySelector('.tc-field-label') || {}).textContent || '', items: Array.from(s.querySelectorAll('li')).map(li => li.textContent) })) : null;
+    return { sectionsHidden: sections ? sections.hidden : null, preHidden: pre ? pre.hidden : null, lists, count: (document.getElementById('threadCommissionCount') || {}).textContent || '' };
+  })()`);
+  ok(Boolean(structured) && structured.sectionsHidden === false && structured.preHidden === true
+    && structured.lists.some(s => s.label === '验收项' && s.items.length >= 2) && structured.lists.some(s => s.label === '约束'),
+    `B4e 展开后验收项／约束是列表（分字段，不是一坨文本；实得 ${JSON.stringify(structured && structured.lists)}）`);
+  ok(Boolean(structured) && /验收 \d+ 项/.test(structured.count), `B4f 折叠行上有「验收 N 项」计数（实得「${structured && structured.count}」）`);
 
-  /* ═════════ B9 124 走查 B：原件默认折成一行 ═════════
-     用户 2026-09-15 三选一选了 B。病灶在 B4-shot 那张实拍里一眼可见：委托书带展开之后，
-     它印的那两段与紧挨着的第一条用户消息是同一段话。现在第一条默认折起，点「看原件」才展开。 */
-  const folded = await cdp.evaluate(`(() => {
+  /* ═════════ B9 132a：第一条消息 = 用户原话 + 折叠的管家补充；围栏不上屏 ═════════
+     修前（124 走查 B）整行折成一句虚线，点「看原件」展开成带 <steward-brief> 围栏的原始 XML、且折不回去（用户 2026-09-21 实报）。 */
+  const FIRST = `(() => {
     const row = document.querySelector('#messages [data-message-key]');
     if (!row) return null;
     const bubble = row.querySelector('.bubble');
+    const fence = bubble && bubble.querySelector('details.brief-fence');
+    const bubbleText = bubble ? Array.from(bubble.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join('') : '';
     return {
-      hasClass: row.classList.contains('is-original-folded'),
-      hint: row.dataset.foldedHint || '',
-      bubbleShown: bubble ? getComputedStyle(bubble).display !== 'none' : null,
-      // 折的是显示不是数据：这条消息的正文在 state 里一个字都没少。
+      commissioned: row.classList.contains('is-commissioned'),
+      bubbleText,
+      hasFence: Boolean(fence), fenceOpen: fence ? fence.open : null,
+      fenceBody: fence ? (fence.querySelector('.brief-fence-body') || {}).textContent || '' : '',
+      // 合上的 <details> 里子元素的计算样式仍是 block（内容槽不渲染而已）—— 量有没有盒子，不量 display。
+      bodyShown: fence ? (() => { const el = fence.querySelector('.brief-fence-body'); return typeof el.checkVisibility === 'function' ? el.checkVisibility() : el.getClientRects().length > 0; })() : null,
+      screenHasTag: (bubble ? bubble.textContent : '').includes('<steward-brief'),
       storedChars: ((window.state.currentSession.messages || [])[0] || {}).content.length,
+      buttonLabel: (document.getElementById('threadCommissionOriginal') || {}).textContent || '',
+      pressed: (document.getElementById('threadCommissionOriginal') || {}).getAttribute('aria-pressed'),
     };
-  })()`);
-  ok(Boolean(folded) && folded.hasClass === true && folded.bubbleShown === false,
-    `B9a 第一条消息默认折起来了（气泡不显示；实得 ${JSON.stringify(folded)}）`);
-  ok(Boolean(folded) && folded.hint.length > 0,
-    `B9b 折起来那一行有话说，不是一片空白（实得「${folded && folded.hint}」）`);
-  ok(Boolean(folded) && folded.storedChars > USER_TEXT.length,
-    `B9c **折的是显示、不是数据**：state 里那条消息仍是整段原件（${folded && folded.storedChars} 字 > 原话 ${USER_TEXT.length} 字）`);
+  })()`;
+  const first = await cdp.evaluate(FIRST);
+  ok(Boolean(first) && first.commissioned === true && first.bubbleText === USER_TEXT,
+    `B9a 第一条气泡正文【只有】用户原话（实得 ${JSON.stringify(first && first.bubbleText)}）`);
+  ok(Boolean(first) && first.hasFence === true && first.fenceOpen === false && first.bodyShown === false && first.screenHasTag === false,
+    `B9b 管家补充收在折叠块里、默认合上、围栏标签不上屏（实得 ${JSON.stringify(first && { hasFence: first.hasFence, fenceOpen: first.fenceOpen, bodyShown: first.bodyShown, screenHasTag: first.screenHasTag })}）`);
+  ok(Boolean(first) && first.storedChars > USER_TEXT.length && first.fenceBody === supplementOnDisk,
+    `B9c **改的是显示、不是数据**：state 里那条消息仍是整段原件（${first && first.storedChars} 字），折叠块里是逐字的补充`);
+  ok(Boolean(first) && first.pressed === 'false' && first.buttonLabel.includes('看原件'), `B9c2 按钮初始是「看原件」（实得「${first && first.buttonLabel}」）`);
 
-  /* ═════════ B5 看原件 ═════════ */
+  /* ═════════ B5 看原件 = 开关 ═════════ */
   ok(opened.originalHidden === false, 'B5a 「看原件」按钮在场（落点注入链通了）');
   await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);
   const revealed = await waitForEval(cdp, `(() => {
@@ -445,19 +466,19 @@ try {
     return { text: row.textContent || '' };
   })()`);
   ok(Boolean(revealed), 'B5b 第一条消息拿到 .is-revealed（真的跳过去了）');
-  ok(Boolean(revealed) && revealed.text.includes(USER_TEXT),
-    'B5c 原件里有用户原话逐字');
-  ok(Boolean(revealed) && revealed.text.includes('<steward-brief added-by="steward">'),
-    'B5d 原件里有管家补充那道围栏 —— 它才是真正递给线程的那一整段（委托书带印的是拆开的两段）');
-  // B9d：点完「看原件」，那一行真的展开了。**必须量计算样式**——textContent 不认 CSS，
-  // 上面 B5c/B5d 在折叠态下也会绿，拿它们证不了「展开了」。
-  const unfolded = await cdp.evaluate(`(() => {
-    const row = document.querySelector('#messages [data-message-key]');
-    const bubble = row && row.querySelector('.bubble');
-    return row ? { hasClass: row.classList.contains('is-original-folded'), bubbleShown: bubble ? getComputedStyle(bubble).display !== 'none' : null } : null;
-  })()`);
-  ok(Boolean(unfolded) && unfolded.hasClass === false && unfolded.bubbleShown === true,
-    `B9d 点完「看原件」那一行真的展开了（气泡显示；实得 ${JSON.stringify(unfolded)}）`);
+  ok(Boolean(revealed) && revealed.text.includes(USER_TEXT), 'B5c 原件里有用户原话逐字');
+  const afterOpen = await cdp.evaluate(FIRST);
+  ok(Boolean(afterOpen) && afterOpen.fenceOpen === true && afterOpen.bodyShown === true && afterOpen.fenceBody.includes('验收项') && afterOpen.screenHasTag === false,
+    `B5d 点完「看原件」折叠块打开、逐字的管家补充在屏上、围栏标签仍不上屏（实得 ${JSON.stringify(afterOpen && { fenceOpen: afterOpen.fenceOpen, bodyShown: afterOpen.bodyShown })}）`);
+  ok(Boolean(afterOpen) && afterOpen.pressed === 'true' && afterOpen.buttonLabel.includes('收起原件'), `B5e 按钮变成「收起原件」（实得「${afterOpen && afterOpen.buttonLabel}」）`);
+  // 132a 的核心：**收得回去**。
+  await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);
+  const afterClose = await cdp.evaluate(FIRST);
+  ok(Boolean(afterClose) && afterClose.fenceOpen === false && afterClose.bodyShown === false && afterClose.pressed === 'false' && afterClose.buttonLabel.includes('看原件'),
+    `B5f 再点一下收回去：折叠块合上、按钮变回「看原件」（实得 ${JSON.stringify(afterClose && { fenceOpen: afterClose.fenceOpen, bodyShown: afterClose.bodyShown, pressed: afterClose.pressed, label: afterClose.buttonLabel })}）`);
+  await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);   // 再开着，给 B9e 验「换线程记忆」
+  const reopened = await cdp.evaluate(FIRST);
+  ok(Boolean(reopened) && reopened.fenceOpen === true, 'B5g 第三下又开了（开关来回都灵）');
 
   /* ═════════ B6 没有委托书的线程整条带不出现 ═════════ */
   // 换线程【留在工作台视角】点左栏行 —— 同一次点击在管家视角下是「打开抽屉」
@@ -475,9 +496,10 @@ try {
   // 再给他折回去就是跟他对着干。这条同时也钉住「不是全局布尔」——它是按 sessionId 记的。
   const refolded = await cdp.evaluate(`(() => {
     const row = document.querySelector('#messages [data-message-key]');
-    return row ? row.classList.contains('is-original-folded') : null;
+    const fence = row && row.querySelector('details.brief-fence');
+    return fence ? !fence.open : null;
   })()`);
-  ok(refolded === false, `B9e 换走再换回来，这条线程上已请出来的原件仍然开着（实得 folded=${refolded}）`);
+  ok(refolded === false, `B9e 换走再换回来，这条线程上已展开的管家补充仍然开着（实得 folded=${refolded}）`);
   ok(back.hidden === false && back.bodyHidden === true && back.expanded === 'false' && back.sessionId === idS,
     `B7 换线程回来时委托书收回折叠态（实得 hidden=${back.hidden} bodyHidden=${back.bodyHidden} expanded=${back.expanded}，当前线程 ${back.sessionId}）`);
   /* ═════════ B8 长会话：委托书带还在，「看原件」仍然到得了第一条 ═════════
@@ -513,6 +535,9 @@ try {
   const bandLong = await cdp.evaluate(BAND);
   ok(bandLong.hidden === false && bandLong.goal === USER_TEXT,
     'B8d 委托书带不受消息窗影响 —— 它读的是会话头上的 brief，不是那条被窗口丢掉的消息');
+  // 132a：按钮是开关,而这条线程上 B5g 把它留在「开」态(按线程记忆)。先按一下合上,再按一下才是「打开并到达第一条」那条路。
+  const pressedNow = await cdp.evaluate(`(document.getElementById('threadCommissionOriginal') || {}).getAttribute('aria-pressed')`);
+  if (pressedNow === 'true') await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);
   await cdp.evaluate(`document.getElementById('threadCommissionOriginal').click(), true`);
   const reachedLong = await waitForEval(cdp, `(() => {
     const row = document.querySelector('#messages .message.is-revealed');

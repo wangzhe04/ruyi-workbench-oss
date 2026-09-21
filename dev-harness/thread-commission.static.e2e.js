@@ -155,7 +155,10 @@ const css = readPub('css/views/chat-shell.css');
     'threadCommission.label', 'threadCommission.original', 'threadCommission.goal',
     'threadCommission.supplement', 'threadCommission.startedAt', 'threadCommission.bySteward',
     'threadCommission.runner', 'threadCommission.runnerModel', 'threadCommission.runnerModelOnly',
-    'threadCommission.originalFolded',   // 124 走查 B：第一条消息折起来时那一行提示
+    // 132a：「收起原件」、气泡里折叠块的 summary（有计数／无计数两种）、带里四段的标题、折叠行的「验收 N 项」。
+    'threadCommission.originalHide', 'threadCommission.fenceSummary', 'threadCommission.fenceSummaryPlain',
+    'threadCommission.acceptance', 'threadCommission.context', 'threadCommission.preferences', 'threadCommission.constraints',
+    'threadCommission.count',
   ];
   const LOCALES = [
     path.join(PUBLIC, 'locales', 'zh-CN.json'), path.join(PUBLIC, 'locales', 'en-US.json'),
@@ -183,30 +186,34 @@ const css = readPub('css/views/chat-shell.css');
     `⑧c 界面用到的键与锁上这 ${KEYS.length} 条逐条对齐（实得 ${used.length} 条：${used.join('、')}）`);
 }
 
-/* ── ⑧b 124 走查 B：折的是显示，不是数据 ─────────────────────────────────────
-   用户 2026-09-15 三选一选了 B：有委托书带时第一条用户消息折成一行，点「看原件」才展开。
-   这一组钉三件「坏了也不会红」的事：
-     · 折叠判据只认 `session.brief.userText`（用户自己开的线程没有委托书，一个字都不该被折）；
-     · 折叠状态按【线程】记（存 sessionId，不是布尔）—— 换线程自然失效，换回来重新折起；
-     · **不许去动 session.messages**：折的是显示层，回退／检查点／复制读的仍是同一条消息。 */
+/* ── ⑧b 132a（53 号文 §1）：第一条消息 = 用户原话 + 折叠的管家补充；改的是显示，不是数据 ─────────
+   修前（124 走查 B）整行折成一句虚线、「看原件」展开成围栏 XML 且折不回去。现在：
+     · 判据只认 `session.brief.userText` ＋ 正文以它开头、含围栏（用户自己开的线程没有委托书，一个字不动）；
+     · 开合状态按【线程】记（sessionId 表，不是布尔）；「看原件」是开关，先记状态再重画；
+     · **不许去动 session.messages**：气泡正文换成原话是显示层的事，回退／检查点／复制读的仍是整段原件；
+     · 围栏字符串只在 JS 里作判据用，样式层零文案。 */
 {
-  const foldFn = experience.slice(experience.indexOf('function shouldFoldOriginal('));
-  ok(foldFn.length > 80, '⑧b0 shouldFoldOriginal( 在文件里找得到（切片非空，本组不是空洞断言）');
-  ok(foldFn.includes('threadCommissionOriginalText(session)') && foldFn.includes('!originalUnfoldedIn.has('),
-    '⑧b 折叠判据＝有委托书 ＆ 这条线程还没被展开过（按 sessionId 表记，不是单个游标）');
-  const unfoldMark = "originalUnfoldedIn.add(String((session && session.id) || ''));";
-  ok(experience.includes(unfoldMark)
-    && experience.indexOf(unfoldMark)
-       < experience.indexOf('if (windowStartFor(msgs) > 0) {', experience.indexOf('function revealOriginalMessage(')),
-    '⑧b2 展开先记状态【再】重画（反过来的话 renderCurrentSession 会照旧把它折回去）');
-  ok(experience.includes("row.classList.toggle('is-original-folded', foldOriginal);"),
-    '⑧b3 用 toggle 不是 add（行按 renderSignature 复用，上一拍展开过的那一份会原样再进来）');
-  const renderBlock = experience.slice(experience.indexOf('const foldOriginal ='), experience.indexOf('fragment.appendChild(row);', experience.indexOf('const foldOriginal =')));
-  ok(renderBlock.length > 80 && !renderBlock.includes('.messages') && !renderBlock.includes('splice'),
-    '⑧b4 折叠那一段一个字都没动 session.messages（折的是显示，不是数据）');
-  ok(css.includes('#messages .message.is-original-folded .bubble { display: none; }')
-    && css.includes('content: attr(data-folded-hint);'),
-    '⑧b5 样式层只取 attr()（i18n 留在 JS 一侧，CSS 里零中文文案）');
+  const decorate = experience.slice(experience.indexOf('function decorateCommissionedFirstMessage('), experience.indexOf('function revealOriginalMessage('));
+  ok(decorate.length > 200, '⑧b0 decorateCommissionedFirstMessage( 在文件里找得到（切片非空，本组不是空洞断言）');
+  const gate = experience.slice(experience.indexOf('function commissionedFirstMessage('), experience.indexOf('function decorateCommissionedFirstMessage('));
+  ok(gate.includes('threadCommissionOriginalText(session)') && gate.includes('content.startsWith(userText)') && gate.includes('content.includes(COMMISSION_FENCE_OPEN)'),
+    '⑧b 判据＝有委托书 ＆ 正文以原话开头 ＆ 含围栏（三者缺一不改画）');
+  ok(decorate.includes("bubble.textContent = info.userText;") && decorate.includes("fence.className = 'brief-fence';") && decorate.includes("pre.textContent = info.supplement;"),
+    '⑧b1 气泡正文只印原话，补充逐字放进 details 的 <pre>（不拼围栏标签）');
+  ok(!decorate.includes('.messages') && !decorate.includes('splice') && !decorate.includes('message.content ='),
+    '⑧b4 改画那一段一个字都没动 session.messages（改的是显示，不是数据）');
+  const reveal = experience.slice(experience.indexOf('function revealOriginalMessage('), experience.indexOf('function revealOriginalMessage(') + 2000);
+  ok(reveal.includes('if (originalOpenIn.has(id)) {') && reveal.includes('originalOpenIn.delete(id);') && reveal.includes('originalOpenIn.add(id);')
+    && reveal.indexOf('originalOpenIn.add(id);') < reveal.indexOf('if (windowStartFor(msgs) > 0) {'),
+    '⑧b2 「看原件」是开关：开着就合上、合着就先记状态【再】重画（反过来的话 renderCurrentSession 会照旧把它合回去）');
+  ok(/export function originalRevealedFor|function originalRevealedFor\(sessionId\)/.test(experience) && /\n    originalRevealedFor,/.test(experience),
+    '⑧b3 只读句柄 originalRevealedFor 在冻结导出里（线程头据此写「看原件」／「收起原件」）');
+  ok(!css.includes('is-original-folded') && css.includes('#messages .message .bubble .brief-fence') && !/content: attr\(data-folded-hint\)/.test(css),
+    '⑧b5 整行折叠那一族样式已撤，折叠块样式在场，CSS 里零文案');
+  ok(head.includes("t(open ? 'threadCommission.originalHide' : 'threadCommission.original')") && head.includes("original.setAttribute('aria-pressed'"),
+    '⑧b6 线程头按开合状态写按钮文字与 aria-pressed');
+  ok(head.includes('THREAD_COMMISSION_SECTIONS') && head.includes("supplementField.hidden = Boolean(sectionRows.length) || !brief.supplement.trim();"),
+    '⑧b7 带展开后按 brief.fields 画分段列表，有列表时 <pre> 回落隐藏（老线程才用它）');
 }
 
 /* ── ⑨ 「看原件」的落点：注入链完整，且它是 expandMessageWindowFully 的调用方 ── */
@@ -218,6 +225,8 @@ const css = readPub('css/views/chat-shell.css');
   ok(/revealOriginalMessage,/.test(app), '⑨c 组合根把它递进管家域');
   ok(/revealOriginalMessage = null,/.test(shell) && /revealOriginal: typeof revealOriginalMessage === 'function'/.test(shell),
     '⑨d 管家壳只转交（拿不到就递 null，线程头据此把按钮整枚藏掉，不画点了没反应的）');
+  ok(/originalRevealedFor = null,/.test(shell) && /originalOpen: typeof originalRevealedFor === 'function'/.test(shell) && /originalRevealedFor,/.test(app),
+    '⑨f 132a：开合状态的只读句柄同一条链递进来（组合根 → 管家壳 → 线程头）');
   ok(/revealOriginal = null,/.test(head) && /typeof revealOriginal !== 'function'/.test(head),
     '⑨e 线程头拿不到落点时按钮 hidden');
 }

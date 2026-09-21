@@ -68,147 +68,69 @@ ok(!STEWARD_CONFIG_TIERS.free.some(k => new RegExp(STEWARD_CONFIG_TIERS.secretPa
 // free      = 改错了用户一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
 // confirm   = 花钱 / 换执行主体 / 改「谁能不问就做什么」的边界,须用户亲手按下按钮;
 // forbidden = 任何权限都不经管家(密钥、数据根与围栏、命令与桌面放行、提示词注入、授权书面)。
+// 132b(53 号文 §2):三张表逐键重判 —— free 31 / confirm 93 / forbidden 39(默认表 163 键)。判据只有三条:
+//   free      改错了一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
+//   confirm   会花钱、换执行主体、改「谁能不问就做什么」的边界,或影响用户多久看得见一件事 —— 用户按一下按钮;
+//   forbidden 密钥、数据根与围栏、命令／桌面／工具放行、提示词注入面、自我扩权开关、簿记与用户行为记录。
+// 117l D7 / 121-K3 / 123-M1 / 123-N2 原本【明确】留在 forbidden 的 stewardThreadModels / threadIndexRecent / scheduler* /
+// quietCardSnoozeMinutes / newThreadEngine 按用户 2026-09-21 拍板改成 confirm:管家仍不能自己动,只能递按钮。
+// 含 Tokens 的三个键(stewardContextBudgetTokens / summarySingleShotMaxTokensV1 / budgetGuardTurnTokensV1)撞密钥兜底正则 → forbidden,不开例外。
 const EXPECTED = {
-  // ── free ────────────────────────────────────────────────────────────────
-  locale: 'free', outputStyle: 'free', theme: 'free', uiMode: 'free',
-  stewardProviderId: 'free', stewardModel: 'free', stewardPollMs: 'free',
-  stewardMaxTurnsPerHour: 'free', stewardMaxCostPerDay: 'free',
-  // stewardContextBudgetTokens 按设计本该 free,但键名含 "Tokens" 被密钥兜底正则命中 -> forbidden。
-  // 见 06i 该处的原注释:不给兜底正则开例外口子,代价是管家改不了自己的上下文预算(用户仍能改)。
-  stewardContextBudgetTokens: 'forbidden',
-  stewardReadBudgetChars: 'free',
-  // 129f:管家一小时最多主动叫你几次。free —— 改错了代价是「吵一点/安静一点」,
-  // 用户一眼看得见、一键改回;不影响钱、不影响权限、不影响它能动世界的范围。
-  stewardNotifyPerHour: 'free',
-  stewardVisitIdleMinutes: 'free', stewardConversationRetention: 'free',
+  // ── free (31) 改错了一眼看得见、一键改回;不花钱、不改权限、不扩大能动世界的范围 ─────────────────────────────
+  theme: 'free', locale: 'free', includePartialMessages: 'free', killOnDisconnect: 'free',
+  killPortOnStart: 'free', permissionTimeoutMs: 'free', questionTimeoutMs: 'free', autonomyPauseOnTimeout: 'free',
+  autonomyPauseTtlMs: 'free', monitorIncremental: 'free', storagePolicy: 'free', turnIdleTimeoutMs: 'free',
+  dismissedMcpIds: 'free', toolCatalogCacheTtlMs: 'free', runtimeFailureTelemetryV1: 'free', sessionSearchIndexV1: 'free',
+  enableToolRequiresProbe: 'free', uiMode: 'free', outputStyle: 'free', stewardProviderId: 'free',
+  stewardModel: 'free', stewardPollMs: 'free', stewardMaxTurnsPerHour: 'free', stewardMaxCostPerDay: 'free',
+  stewardReadBudgetChars: 'free', stewardNotifyPerHour: 'free', stewardVisitIdleMinutes: 'free', stewardConversationRetention: 'free',
   stewardMaxParallelThreads: 'free', stewardGlobalMaxTurnsPerHour: 'free', stewardGlobalMaxCostPerDay: 'free',
-
-  // ── confirm ─────────────────────────────────────────────────────────────
-  agentCliType: 'confirm', engineMode: 'confirm', activeProvider: 'confirm', model: 'confirm',
-  compactProviderId: 'confirm', compactModel: 'confirm', modelsApiBase: 'confirm',
-  subagentPreferredProvider: 'confirm', subagentPreferredModel: 'confirm',
-  externalMcpServers: 'confirm', enableMcpDropIn: 'confirm', includeWorkbenchMcp: 'confirm',
-  browserAutomation: 'confirm',
-  permissionMode: 'confirm', stewardEnabledV1: 'confirm', stewardAutoActions: 'confirm',
-  // 116-5a:开着就在每一条新线程上花一次钱,且记的是 aux 不进 stewardMaxCostPerDay ——
-  // 管家自己把它打开 = 给自己开一条不受管家日预算约束的花钱通道,故 confirm 而不是 free。
-  stewardThreadBriefV1: 'confirm',
-  // 114a(45 号文 §2 ①):语音识别端点选择 —— 决定【用户的声音】送去哪个端点转写(改道语音数据 +
-  // 每次转写都花钱,记 aux),与 compactProviderId/compactModel 同族同档:confirm,用户亲手按一下
-  // 才算数;不放 forbidden —— 经确认后让管家把语音配上是正当诉求。
-  asrProviderId: 'confirm', asrModel: 'confirm',
-  asrStreamProviderId: 'confirm', asrStreamModel: 'confirm',   // 130:实时识别那一对,同族同档
-  asrFixMode: 'confirm', asrFixProviderId: 'confirm', asrFixModel: 'confirm',   // 131b:句尾改错方式与大模型端点,同族同档
-
-  // ── forbidden(117l D7 新键,只加不改)────────────────────────────────────
-  // stewardThreadModels = 管家新开线程默认用哪个端点/哪个模型。**故意不进 free 也不进 confirm**:
-  // 让模型能改「下一条线程用哪个模型」等于让它自己换自己的执行主体(而且是绕过 activeProvider 那
-  // 一条 confirm 门的第二条路)。这一档只能由用户在设置页里改(POST /api/config 那条路仍然通)。
-  // 与 §11.9 D7 的拍板一字对应:「模型不能经 steward_config_set 改这两个键」。
-  stewardThreadModels: 'forbidden',
-  // 121-K3(34 号文 §4.1/§4.2):任务索引「最近 N 条」窗口。**故意留在 forbidden**(= 不登记,
-  // 由 stewardConfigTierFor 的 fail-closed 兜底):它决定管家自己在总览里【看得见几条线程】,
-  // 让模型能改它 = 让它自己调大自己的注意力面 —— 那是一个会连锁影响每一次到访成本的旋钮,
-  // 而用户在设置页改它随时一眼看得见、一键改回。与 stewardThreadModels 同一条理由。
-  threadIndexRecent: 'forbidden',
-  // 123-M1(37 号文 §3.2/§3.4):定时任务调度器的两个键。**都故意留在 forbidden**
-  // (= 不登记,由 fail-closed 兜底,与 threadIndexRecent 同一条理由):
-  //   · schedulerEnabledV1 —— 它是「管家有没有一个能守时的身体」这件事本身的总开关;
-  //     让模型能关掉它 = 让它把用户已经答应下来的每一条承诺一起静默作废。
-  //   · schedulerAskWaitMinutes —— 它是无人值守遇 ask 时【等多久再拒】的窗口。窗口本身不放行
-  //     (到时永远是拒),但让模型能把它拉到 240 分钟,等于让它自己决定「用户还有多久会看见这件事」。
-  // 两个键用户都能在设置页里改;管家要改就得说服用户去点。M2 若要把其中之一放进 free/confirm,
-  // 得在 06i 的 STEWARD_CONFIG_TIERS 里显式登记,并回来改这张表 —— 那就是一次显式的权限扩张。
-  schedulerEnabledV1: 'forbidden',
-  schedulerAskWaitMinutes: 'forbidden',
-  // 123-N2:新线程的默认引擎从哪儿来('last' 跟上次用的 / 'global' 跟全局设置),以及配套的
-  // 「上次用的是哪一条路由」。两个都**故意留在 forbidden**,理由与 stewardThreadModels 逐字同一条:
-  //   · newThreadEngine 决定【下一条线程开出来跑在谁身上】,让模型能改它 = 让它自己换自己的
-  //     执行主体,而且是绕过 activeProvider / agentCliType 那两条 confirm 门的第三条路;
-  //   · lastUsedEngineRoute 不是设置,是【用户行为的记录】(02 rememberLastUsedEngineRoute 写)。
-  //     记录只该由用户自己的动作改写 —— 能经工具改它,等于让管家伪造一条「用户上次选的是我」。
-  // 两条都仍走 POST /api/config,用户在设置页里随时改得动、一眼看得见。
-  newThreadEngine: 'forbidden',
-  lastUsedEngineRoute: 'forbidden',
-  // 123-M2(37 号文 §3.5):安静卡「稍后」推迟多少分钟。**也故意留在 forbidden**(fail-closed 兜底)——
-  // 它决定「一件已经打扰过用户的事,多久之后再打扰他一次」。让模型能把它拉到 1440,等于让管家
-  // 自己决定用户还有多久会再看见这件事(与 schedulerAskWaitMinutes 同一条理由)。用户在设置页
-  // 与那枚按钮上都一眼看得见,要改自己改。
-  quietCardSnoozeMinutes: 'forbidden',
-  // 127 波 2-quater B2(45 号文 §2-quater.3 拍板 2「默认开,设置可关,管家自己改不了」):管家代批开关。
-  // **必须 forbidden,不能 confirm**:confirm 档管家可以提一枚按钮、用户随手一按就翻了 —— 那等于管家能
-  // 劝用户替它扩权。06i 的 STEWARD_CONFIG_TIER_FORBIDDEN_NOTE 点名留了账;判据仍是 fail-closed。
-  stewardExemptDelegationV1: 'forbidden',
-
-  // ── forbidden(fail-closed:以下每一个都【不】在两张表里,逐条写明是为了留一份可读的账)──
-  configSchema: 'forbidden', version: 'forbidden',
-  // 128a:簿记键 —— 管家若能改它,就能把任意键「去显式化」让它回落默认(绕开用户显式设过的值),所以禁。
-  configExplicitKeysV1: 'forbidden',
-  claudePath: 'forbidden', kimiPath: 'forbidden', extraClaudeArgs: 'forbidden',
-  defaultWorkspace: 'forbidden', workspaces: 'forbidden', recentWorkspaces: 'forbidden',
-  // 117w-W1 提交②(27 号文 §11.19.2):Ruyi 默认工作区【根】。围栏类键 —— 它决定「管家省略 cwd 时
-  // 线程被派生到哪」,能改它就等于能把新线程指到任意目录去。没有额外登记,靠 fail-closed 落 forbidden;
-  // 下面另有一条【显式】断言把这个事实钉死(新增键忘了判断时,那条也会红)。
-  stewardWorkspaceRoot: 'forbidden',
-  additionalDirectories: 'forbidden', allowOutsideWorkspace: 'forbidden',
-  autoResumeClaudeSessions: 'forbidden', contextWindowOverrides: 'forbidden', maxTurns: 'forbidden',
-  allowCommandTools: 'forbidden', allowDesktopTools: 'forbidden',
-  includePartialMessages: 'forbidden', thinkingBudget: 'forbidden', claudeThinkingEffort: 'forbidden',
-  betaInterleavedThinking: 'forbidden', mcpCommandMode: 'forbidden',
-  killOnDisconnect: 'forbidden', killPortOnStart: 'forbidden',
-  permissionBridge: 'forbidden', permissionTimeoutMs: 'forbidden', questionTimeoutMs: 'forbidden',
-  autonomyPauseOnTimeout: 'forbidden', autonomyPauseTtlMs: 'forbidden', monitorIncremental: 'forbidden',
-  autonomyAutoResume: 'forbidden', agentAutoModelTiering: 'forbidden', storagePolicy: 'forbidden',
-  turnIdleTimeoutMs: 'forbidden', knownModels: 'forbidden', extraModels: 'forbidden',
-  discoverModelsFromProxy: 'forbidden', modelsApiKey: 'forbidden',
-  claudeAuthMode: 'forbidden', providers: 'forbidden',
-  openaiMaxToolIterations: 'forbidden', desktopMcp: 'forbidden',
-  // 2026-09-21 toolbox 自动发现:它决定「本机登记的程序要不要被如意执行」(总开关／逐个停用)。不含命令,但翻开它 = 放行执行,
-  // 与 desktopMcp 同族 —— 由用户在设置页亲手改;不进 confirm(那一档管家提个按钮、用户随手一按就翻了)。
-  toolbox: 'forbidden',
-  autoImportClaudeCodeMcp: 'forbidden', dismissedMcpIds: 'forbidden',
-  bridgeExternalToolsToProvider: 'forbidden', toolLoadingMode: 'forbidden', toolCatalogCacheTtlMs: 'forbidden',
-  runtimeOptimizationShadowV1: 'forbidden', runtimeToolRetrievalV1: 'forbidden',
-  runtimeObservationReducerV1: 'forbidden', runtimeObservationRecallV1: 'forbidden',
-  // 126-111a:L1 蒸发边界改 token 预算。与同族每一个 runtime*V1 一样 forbidden —— 它改的是
-  // 「模型看得见哪些观测」,属于引擎行为,管家不该有权在对话里把它拨开。
-  runtimeEvaporateBudgetBoundaryV1: 'forbidden',
-  // 126-111e:历史内重复读取去重。同族同档 —— 它改的也是「模型看得见什么」。
-  runtimeHistoryReadDedupV1: 'forbidden',
-  // 126-111d:摘要 prompt 双语。同族同档。
-  runtimeSummaryPromptI18nV1: 'forbidden',
-  // 126-111b:L2 尾部单元边界＋桥接。同族同档。
-  runtimeReseedTailUnitsV1: 'forbidden',
-  // 126-111c:重播种后重附最近读过的文件。同族同档。
-  runtimeReseedReattachFilesV1: 'forbidden',
-  runtimeSessionNotesV1: 'forbidden', runtimeSessionNotesInjectV1: 'forbidden',
-  runtimeSessionNotesMergeV1: 'forbidden', runtimeSummaryEntityCheckV1: 'forbidden',
-  runtimeEstimateBucketsV1: 'forbidden', runtimeSummarySingleShotV1: 'forbidden',
-  summarySingleShotMaxTokensV1: 'forbidden', summarySingleShotMaxOverridesV1: 'forbidden',
-  runtimeSummaryFactTableV1: 'forbidden', summaryFactTableMaxSamplesV1: 'forbidden',
-  runtimeSummaryRefineV1: 'forbidden', runtimeBudgetGuardV1: 'forbidden',
-  budgetGuardTurnTokensV1: 'forbidden', budgetGuardWarnRatioV1: 'forbidden',
-  runtimeToolTimeBudgetShadowV1: 'forbidden', runtimeToolTimeBudgetV1: 'forbidden',
-  toolTimeBudgetWarnMsV1: 'forbidden', toolTimeBudgetHardMsV1: 'forbidden',
-  toolByteBudgetShadowBytesV1: 'forbidden', runtimeVolatileTailLayoutV1: 'forbidden',
-  runtimeAppendOnlyToolSchemasV1: 'forbidden', runtimeExecResultCacheV1: 'forbidden',
-  execResultCacheMaxEntriesV1: 'forbidden', runtimeFailureTelemetryV1: 'forbidden',
-  runtimeMemoryVectorRecallV1: 'forbidden', coreMemoryMaxItemsV1: 'forbidden',
-  coreMemoryCharBudgetV1: 'forbidden', memoryRelevanceMaxV1: 'forbidden',
-  memoryFixedSelectionMaxV1: 'forbidden', memoryIndexCharCapV1: 'forbidden',
-  sessionSearchIndexV1: 'forbidden', toolEconomicsShadowV1: 'forbidden',
-  boundedReadSchedulerV1: 'forbidden', boundedReadConcurrencyV1: 'forbidden',
-  metaToolHintsV1: 'forbidden', actionArgumentModelViewV1: 'forbidden',
-  bridgedToolTiers: 'forbidden', shellSessionMax: 'forbidden', toolAllowRules: 'forbidden',
-  autoCompactThreshold: 'forbidden', capabilityProbeUrl: 'forbidden', enableToolRequiresProbe: 'forbidden',
-  residentSkills: 'forbidden', onboarding: 'forbidden',
-  subagentMaxConcurrent: 'forbidden', subagentMaxPerTurn: 'forbidden',
-  agentWorkflowMaxNodes: 'forbidden', agentNodeWrapUpMs: 'forbidden',
-  agentTaskPoolPolicy: 'forbidden', agentTaskPoolAutoCap: 'forbidden', agentRoleOverrides: 'forbidden',
-  searchBackend: 'forbidden', appendSystemPrompt: 'forbidden',
-  usageBudget: 'forbidden', claudePricing: 'forbidden',
-  subagentBudgetMigrated: 'forbidden', searchBackendMigrated: 'forbidden',
+  // ── confirm (93) 花钱／换执行主体／改「谁能不问就做什么」的边界／决定用户多久看见 —— 用户按一下按钮 ─────────────────────────────
+  agentCliType: 'confirm', newThreadEngine: 'confirm', permissionMode: 'confirm', includeWorkbenchMcp: 'confirm',
+  autoResumeClaudeSessions: 'confirm', model: 'confirm', compactProviderId: 'confirm', compactModel: 'confirm',
+  contextWindowOverrides: 'confirm', maxTurns: 'confirm', thinkingBudget: 'confirm', claudeThinkingEffort: 'confirm',
+  betaInterleavedThinking: 'confirm', engineMode: 'confirm', agentAutoModelTiering: 'confirm', knownModels: 'confirm',
+  extraModels: 'confirm', discoverModelsFromProxy: 'confirm', modelsApiBase: 'confirm', activeProvider: 'confirm',
+  asrProviderId: 'confirm', asrModel: 'confirm', asrStreamProviderId: 'confirm', asrStreamModel: 'confirm',
+  asrFixMode: 'confirm', asrFixProviderId: 'confirm', asrFixModel: 'confirm', openaiMaxToolIterations: 'confirm',
+  browserAutomation: 'confirm', externalMcpServers: 'confirm', toolLoadingMode: 'confirm', runtimeOptimizationShadowV1: 'confirm',
+  runtimeToolRetrievalV1: 'confirm', runtimeObservationReducerV1: 'confirm', runtimeEvaporateBudgetBoundaryV1: 'confirm', runtimeHistoryReadDedupV1: 'confirm',
+  runtimeSummaryPromptI18nV1: 'confirm', runtimeReseedTailUnitsV1: 'confirm', runtimeReseedReattachFilesV1: 'confirm', runtimeObservationRecallV1: 'confirm',
+  runtimeSessionNotesV1: 'confirm', runtimeSessionNotesInjectV1: 'confirm', runtimeSessionNotesMergeV1: 'confirm', runtimeSummaryEntityCheckV1: 'confirm',
+  runtimeEstimateBucketsV1: 'confirm', runtimeSummarySingleShotV1: 'confirm', summarySingleShotMaxOverridesV1: 'confirm', runtimeSummaryFactTableV1: 'confirm',
+  summaryFactTableMaxSamplesV1: 'confirm', runtimeSummaryRefineV1: 'confirm', runtimeBudgetGuardV1: 'confirm', budgetGuardWarnRatioV1: 'confirm',
+  runtimeToolTimeBudgetShadowV1: 'confirm', runtimeToolTimeBudgetV1: 'confirm', toolTimeBudgetWarnMsV1: 'confirm', toolTimeBudgetHardMsV1: 'confirm',
+  toolByteBudgetShadowBytesV1: 'confirm', runtimeVolatileTailLayoutV1: 'confirm', runtimeAppendOnlyToolSchemasV1: 'confirm', runtimeExecResultCacheV1: 'confirm',
+  execResultCacheMaxEntriesV1: 'confirm', runtimeMemoryVectorRecallV1: 'confirm', coreMemoryMaxItemsV1: 'confirm', coreMemoryCharBudgetV1: 'confirm',
+  memoryRelevanceMaxV1: 'confirm', memoryFixedSelectionMaxV1: 'confirm', memoryIndexCharCapV1: 'confirm', toolEconomicsShadowV1: 'confirm',
+  boundedReadSchedulerV1: 'confirm', boundedReadConcurrencyV1: 'confirm', metaToolHintsV1: 'confirm', actionArgumentModelViewV1: 'confirm',
+  enableMcpDropIn: 'confirm', shellSessionMax: 'confirm', autoCompactThreshold: 'confirm', subagentMaxConcurrent: 'confirm',
+  subagentMaxPerTurn: 'confirm', subagentPreferredProvider: 'confirm', subagentPreferredModel: 'confirm', stewardEnabledV1: 'confirm',
+  stewardThreadBriefV1: 'confirm', stewardThreadModels: 'confirm', threadIndexRecent: 'confirm', stewardAutoActions: 'confirm',
+  quietCardSnoozeMinutes: 'confirm', schedulerEnabledV1: 'confirm', schedulerAskWaitMinutes: 'confirm', agentWorkflowMaxNodes: 'confirm',
+  agentNodeWrapUpMs: 'confirm', agentTaskPoolPolicy: 'confirm', agentTaskPoolAutoCap: 'confirm', usageBudget: 'confirm',
+  claudePricing: 'confirm',
+  // ── forbidden (39) 密钥、数据根与围栏、放行面、注入面、自我扩权、簿记与行为记录;含 Tokens 的三个键撞密钥正则 ─────────────────────────────
+  configSchema: 'forbidden', configExplicitKeysV1: 'forbidden', version: 'forbidden', lastUsedEngineRoute: 'forbidden',
+  claudePath: 'forbidden', kimiPath: 'forbidden', defaultWorkspace: 'forbidden', extraClaudeArgs: 'forbidden',
+  allowCommandTools: 'forbidden', allowDesktopTools: 'forbidden', mcpCommandMode: 'forbidden', permissionBridge: 'forbidden',
+  autonomyAutoResume: 'forbidden', modelsApiKey: 'forbidden', claudeAuthMode: 'forbidden', providers: 'forbidden',
+  desktopMcp: 'forbidden', autoImportClaudeCodeMcp: 'forbidden', bridgeExternalToolsToProvider: 'forbidden', summarySingleShotMaxTokensV1: 'forbidden',
+  budgetGuardTurnTokensV1: 'forbidden', toolbox: 'forbidden', bridgedToolTiers: 'forbidden', toolAllowRules: 'forbidden',
+  capabilityProbeUrl: 'forbidden', residentSkills: 'forbidden', recentWorkspaces: 'forbidden', onboarding: 'forbidden',
+  workspaces: 'forbidden', allowOutsideWorkspace: 'forbidden', stewardExemptDelegationV1: 'forbidden', stewardWorkspaceRoot: 'forbidden',
+  stewardContextBudgetTokens: 'forbidden', agentRoleOverrides: 'forbidden', searchBackend: 'forbidden', appendSystemPrompt: 'forbidden',
+  additionalDirectories: 'forbidden', subagentBudgetMigrated: 'forbidden', searchBackendMigrated: 'forbidden',
 };
+
+/* ═══════════ ⑤ 132b:free ∪ confirm 的每个键都有中英两句 help(模型改之前得知道它是什么) ═══════════ */
+{
+  const help = STEWARD_CONFIG_TIERS.help || {};
+  const missing = [...STEWARD_CONFIG_TIERS.free, ...STEWARD_CONFIG_TIERS.confirm].filter(k => !Array.isArray(help[k]) || help[k].length !== 2 || !help[k][0] || !help[k][1]);
+  ok(missing.length === 0, '⑤ free/confirm 每个键都有 [zh, en] 两句 help' + (missing.length ? ' → 缺 ' + missing.join(',') : ''));
+  const stray = Object.keys(help).filter(k => !STEWARD_CONFIG_TIERS.free.includes(k) && !STEWARD_CONFIG_TIERS.confirm.includes(k));
+  ok(stray.length === 0, '⑤b help 里没有不在两张表里的键(forbidden 键连一句话都不给)' + (stray.length ? ' → ' + stray.join(',') : ''));
+}
 
 const defaults = normalizeConfig({}).config;
 const defaultKeys = Object.keys(defaults);
@@ -242,8 +164,17 @@ ok(defaultKeys.length >= 100, `② 默认表抽到 ${defaultKeys.length} 个键(
   for (const key of defaultKeys) counts[stewardConfigTierFor(key)] += 1;
   ok(counts.free + counts.confirm + counts.forbidden === defaultKeys.length,
     `② 三级分档覆盖全部默认键(free ${counts.free} / confirm ${counts.confirm} / forbidden ${counts.forbidden})`);
-  ok(counts.forbidden > counts.free + counts.confirm,
-    '② forbidden 是绝大多数 —— 白名单语义的直接体现(可写的是少数、经过挑选的那几个)');
+  // 132b(53 号文 §2):白名单语义没变(判据仍是 fail-closed 的「不在两张表里」),但可写的不再是少数 ——
+  // 用户拍板「尽量改更多」。钉住的是【结构】:forbidden 仍必须非空且盖住六类里点名的那些键(下面 ⑤ 逐个点名)。
+  ok(counts.forbidden >= 30 && counts.free + counts.confirm >= 100,
+    `② 132b 起可写是多数(free+confirm=${counts.free + counts.confirm})、forbidden 仍是一张实打实的表(${counts.forbidden})`);
+  for (const key of ['providers', 'modelsApiKey', 'searchBackend', 'claudeAuthMode', 'defaultWorkspace', 'workspaces', 'stewardWorkspaceRoot',
+    'allowOutsideWorkspace', 'additionalDirectories', 'claudePath', 'extraClaudeArgs', 'appendSystemPrompt', 'agentRoleOverrides', 'residentSkills',
+    'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers', 'mcpCommandMode', 'permissionBridge',
+    'autonomyAutoResume', 'bridgeExternalToolsToProvider', 'toolbox', 'autoImportClaudeCodeMcp', 'capabilityProbeUrl', 'stewardExemptDelegationV1',
+    'configSchema', 'configExplicitKeysV1', 'lastUsedEngineRoute']) {
+    ok(stewardConfigTierFor(key) === 'forbidden', `② 点名 forbidden:${key}`);
+  }
 }
 
 /* ═══════════ ① 两张表逐条自洽 ═══════════ */

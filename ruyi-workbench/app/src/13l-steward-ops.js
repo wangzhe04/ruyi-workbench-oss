@@ -1010,15 +1010,21 @@ async function stewardImplConfigGet(args, ctx, config) {
     : Object.keys(masked);
   const values = {};
   const tiers = {};
+  const help = {};
   const omitted = [];
+  // 132b(53 号文 §2.4):每个可读键随值回一句人话(单位、范围、改了会怎样)—— 放开一百多个运行参数之后,
+  // 模型得知道 turnIdleTimeoutMs 是「回合多久没动静算卡住」才改得对。语言跟界面语言走。
+  const lang = String(config.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh';
   for (const key of requested) {
     const tier = stewardConfigTierFor(key);
     if (tier === 'forbidden') { omitted.push(key); continue; }
     if (!Object.prototype.hasOwnProperty.call(masked, key)) { omitted.push(key); continue; }
     values[key] = masked[key];
     tiers[key] = tier;
+    const line = stewardConfigHelpFor(key, lang);
+    if (line) help[key] = line;
   }
-  return { ok: true, values, tiers, omitted };
+  return { ok: true, values, tiers, help, omitted };
 }
 
 // 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户

@@ -4166,6 +4166,7 @@
         "STEWARD_BRIEF_TRUNCATED",
         "STEWARD_CATALOG_DESC_CHARS",
         "STEWARD_CATALOG_ROWS",
+        "STEWARD_CONFIG_HELP",
         "STEWARD_CONFIG_SECRET_PATTERN",
         "STEWARD_CONFIG_TIERS",
         "STEWARD_CONFIG_TIER_CONFIRM",
@@ -4246,6 +4247,7 @@
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
         "stewardClipSay",
+        "stewardConfigHelpFor",
         "stewardConfigTierFor",
         "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptCatastrophicDelete",
@@ -14128,6 +14130,13 @@
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardConfigHelpFor",
+          "kinds": [
+            "call"
           ]
         },
         {

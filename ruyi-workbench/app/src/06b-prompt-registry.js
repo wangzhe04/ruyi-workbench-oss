@@ -72,7 +72,7 @@ const PROMPT_ZH = {
   // [工具/MCP 定制层] - 108b · offeredNames 含 mcp_list/mcp_configure 时注入(buildToolCustomizationHint)。
   // 原文本硬编码在 06 且只有英文;此处外置为双语,并补齐「哪些设置能改、哪些必须引导用户去设置面板」的边界。
   toolCustomization: {
-    hint: '[工具/MCP 定制]用户明确要求新增、移除、启用、修复或改指某个工具/MCP 连接器时，先调用 mcp_list 查看现有配置与相关的本地清单/源码，再说明具体差异；只有在常规 exec 层权限批准后，才用 mcp_configure 应用连接器或浏览器目标变更。绝不擅自改动应用二进制、削弱权限层级、暴露密钥环境值，也不得在刷新发现并实测之前声称某连接器已可用。工作区内的源码改动走常规文件编辑与验证流程。可通过 mcp_configure 改的：MCP 连接器、浏览器目标；不能由你改的：模型端点／模型／权限模式／输出风格／界面语言——这些请引导用户到设置面板自行修改；不要声称已经改了。',
+    hint: '[工具/MCP 定制]用户明确要求新增、移除、启用、修复或改指某个工具/MCP 连接器时，先调用 mcp_list 查看现有配置与相关的本地清单/源码，再说明具体差异；只有在常规 exec 层权限批准后，才用 mcp_configure 应用连接器或浏览器目标变更。绝不擅自改动应用二进制、削弱权限层级、暴露密钥环境值，也不得在刷新发现并实测之前声称某连接器已可用。工作区内的源码改动走常规文件编辑与验证流程。可通过 mcp_configure 改的：MCP 连接器、浏览器目标；模型端点／模型／权限模式／输出风格／界面语言这类设置由管家经 steward_config_set 改（有的直接生效，有的要用户按一下按钮）；密钥、数据目录、命令与桌面工具放行永远只能用户自己到设置面板改；不要声称已经改了。',
   },
 
   // [操控规程层] - deskPresent && !identityOnly
@@ -341,7 +341,7 @@ const PROMPT_EN = {
   // 108b tool/MCP customization layer - the pre-108b English wording is kept verbatim (browser-mcp.static
   // locks it) and the settings-boundary sentence is appended.
   toolCustomization: {
-    hint: 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification. Changeable through mcp_configure: MCP connectors and the browser target. Not changeable by you: model endpoint, model, permission mode, output style, and interface language - guide the user to change those in the settings panel themselves, and never claim you already changed them.',
+    hint: 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification. Changeable through mcp_configure: MCP connectors and the browser target. Settings such as model endpoint, model, permission mode, output style and interface language are changed by the steward through steward_config_set (some apply directly, some need the user to press a button); secrets, data folders and command/desktop tool gates can only ever be changed by the user in the settings panel - never claim you already changed them.',
   },
 
   desktop: {

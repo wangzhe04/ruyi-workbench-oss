@@ -21303,7 +21303,7 @@ const PROMPT_ZH = {
   // [工具/MCP 定制层] - 108b · offeredNames 含 mcp_list/mcp_configure 时注入(buildToolCustomizationHint)。
   // 原文本硬编码在 06 且只有英文;此处外置为双语,并补齐「哪些设置能改、哪些必须引导用户去设置面板」的边界。
   toolCustomization: {
-    hint: '[工具/MCP 定制]用户明确要求新增、移除、启用、修复或改指某个工具/MCP 连接器时，先调用 mcp_list 查看现有配置与相关的本地清单/源码，再说明具体差异；只有在常规 exec 层权限批准后，才用 mcp_configure 应用连接器或浏览器目标变更。绝不擅自改动应用二进制、削弱权限层级、暴露密钥环境值，也不得在刷新发现并实测之前声称某连接器已可用。工作区内的源码改动走常规文件编辑与验证流程。可通过 mcp_configure 改的：MCP 连接器、浏览器目标；不能由你改的：模型端点／模型／权限模式／输出风格／界面语言——这些请引导用户到设置面板自行修改；不要声称已经改了。',
+    hint: '[工具/MCP 定制]用户明确要求新增、移除、启用、修复或改指某个工具/MCP 连接器时，先调用 mcp_list 查看现有配置与相关的本地清单/源码，再说明具体差异；只有在常规 exec 层权限批准后，才用 mcp_configure 应用连接器或浏览器目标变更。绝不擅自改动应用二进制、削弱权限层级、暴露密钥环境值，也不得在刷新发现并实测之前声称某连接器已可用。工作区内的源码改动走常规文件编辑与验证流程。可通过 mcp_configure 改的：MCP 连接器、浏览器目标；模型端点／模型／权限模式／输出风格／界面语言这类设置由管家经 steward_config_set 改（有的直接生效，有的要用户按一下按钮）；密钥、数据目录、命令与桌面工具放行永远只能用户自己到设置面板改；不要声称已经改了。',
   },
 
   // [操控规程层] - deskPresent && !identityOnly
@@ -21572,7 +21572,7 @@ const PROMPT_EN = {
   // 108b tool/MCP customization layer - the pre-108b English wording is kept verbatim (browser-mcp.static
   // locks it) and the settings-boundary sentence is appended.
   toolCustomization: {
-    hint: 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification. Changeable through mcp_configure: MCP connectors and the browser target. Not changeable by you: model endpoint, model, permission mode, output style, and interface language - guide the user to change those in the settings panel themselves, and never claim you already changed them.',
+    hint: 'Tool/MCP customization: when the user explicitly asks to add, remove, enable, repair, or retarget a tool/MCP connector, first call mcp_list, inspect the existing configuration and relevant local manifest/source, then explain the concrete diff. Apply connector or browser-target changes with mcp_configure only after the normal exec-tier permission approval. Never silently self-modify application binaries, weaken permission tiers, expose secret env values, or claim a connector is usable before refreshing/discovering and testing it. Source-code changes inside the user\'s workspace use the normal file-edit workflow and verification. Changeable through mcp_configure: MCP connectors and the browser target. Settings such as model endpoint, model, permission mode, output style and interface language are changed by the steward through steward_config_set (some apply directly, some need the user to press a button); secrets, data folders and command/desktop tool gates can only ever be changed by the user in the settings panel - never claim you already changed them.',
   },
 
   desktop: {
@@ -22897,7 +22897,16 @@ function buildStewardBrief(brief) {
       + STEWARD_PLAYBOOK_OPEN.replace('{id}', stewardSanitizeText(b.playbookId || '')).replace('{title}', stewardSanitizeText(b.playbookTitle || ''))
       + '\n' + playbookText + '\n' + STEWARD_PLAYBOOK_CLOSE
     : composedText;
-  return { text: withPlaybook, userText, supplement, truncated, memoryIds, playbookText };
+  // 132a(53 号文 §1.2):裁剪后的【分字段】版本一并回出,13k 存进 session.brief.fields —— 界面按字段画列表,
+  // 不必去拆 supplement 那段人话(124-P2「零二次解析」的纪律照旧;结构从源头来)。与 lines 用同一把裁剪尺。
+  const fields = {
+    goal: clipItem(b.goal),
+    acceptance: (Array.isArray(b.acceptance) ? b.acceptance : []).map(clipItem).filter(Boolean).slice(0, STEWARD_BRIEF_LIMITS.sectionItems),
+    context: (Array.isArray(b.context) ? b.context : []).map(clipItem).filter(Boolean).slice(0, STEWARD_BRIEF_LIMITS.sectionItems),
+    preferences: (Array.isArray(b.preferences) ? b.preferences : []).map(clipItem).filter(Boolean).slice(0, STEWARD_BRIEF_LIMITS.sectionItems),
+    constraints: (Array.isArray(b.constraints) ? b.constraints : []).map(clipItem).filter(Boolean).slice(0, STEWARD_BRIEF_LIMITS.sectionItems),
+  };
+  return { text: withPlaybook, userText, supplement, truncated, memoryIds, playbookText, fields };
 }
 
 // ── 线程五态(§3.3/§11.2)。来源:ruyi-workbench/app/public/js/mission-state.js 的 deriveMissionState /
@@ -23360,25 +23369,28 @@ function stewardTermJaccard(a, b) {
 const STEWARD_CONFIG_SECRET_PATTERN = /apiKey|token|secret|password/i;
 
 // free:改错了代价 = 用户看一眼就发现、一键改回;不影响钱、不影响权限、不影响能动世界的范围。
+// 132b(53 号文 §2;用户 2026-09-21「希望能尽量改如意更多的选项」):从「新增键默认最保守、只登记 40 个」改成
+// 逐键判过的三张表 —— free 31 / confirm 88 / forbidden 44。判据只有三条(§2.2):
+//   free      改错了一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
+//   confirm   会花钱、换执行主体、改「谁能不问就做什么」的边界,或影响用户多久看得见一件事 —— 用户按一下按钮;
+//   forbidden 密钥、数据根与围栏、命令／桌面／工具放行、提示词注入面、自我扩权开关、簿记与用户行为记录。
+// 兜底正则(apiKey|token|secret|password)仍在最前判:含 Tokens 的三个键(stewardContextBudgetTokens /
+// summarySingleShotMaxTokensV1 / budgetGuardTurnTokensV1)因此不进表 —— 不给正则开例外,代价是它们只能在设置页改。
 const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   'locale', 'outputStyle', 'theme', 'uiMode',
-  // 管家自身设置(§3.5「管家自身设置除默认权限与自理清单外」)。stewardEnabledV1 与
-  // stewardAutoActions 【不在这里】—— 前者是管家的总开关、后者是「管家可以自己做的事」清单,
-  // 两个都属于「管家扩自己的权」,一律 confirm。
+  // 管家自身设置(§3.5「管家自身设置除默认权限与自理清单外」)。stewardEnabledV1 与 stewardAutoActions 不在这里:
+  // 前者是总开关、后者是「管家可以自己做的事」清单,两个都属于「管家扩自己的权」,一律 confirm。
   'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour', 'stewardMaxCostPerDay',
-  'stewardReadBudgetChars', 'stewardVisitIdleMinutes',
-  // 129f:一小时最多主动叫你几次。归 free —— 改错了代价是「吵一点/安静一点」,用户一眼看得见、一键改回。
-  'stewardNotifyPerHour',
-  'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour',
-  'stewardGlobalMaxCostPerDay',
-  // 【不在这里】的还有 `stewardContextBudgetTokens`:它按设计本该是 free(管家自己的上下文预算),
-  // 但键名含 "Tokens",被上面的密钥兜底正则命中 -> forbidden。不为它开正则的例外口子:一个「除了
-  // 这一个键」的例外,就是下一次真有密钥键从例外里溜出去的入口。代价是管家改不了自己的上下文预算
-  // (用户在设置页照常能改),这个代价比削弱兜底小得多。单测 unit/steward-config-tier.test.js 把
-  // 这条判定钉成期望值,不是漏判。
+  'stewardReadBudgetChars', 'stewardVisitIdleMinutes', 'stewardNotifyPerHour',
+  'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour', 'stewardGlobalMaxCostPerDay',
+  // 132b:等待时长 —— 变短只会更早拒／更早算卡住,变长只是多等,不放行任何东西(用户实报「线程提问的等待时长」改不了)。
+  'permissionTimeoutMs', 'questionTimeoutMs', 'turnIdleTimeoutMs', 'autonomyPauseOnTimeout', 'autonomyPauseTtlMs',
+  // 132b:显示粒度、启停整洁度、本地开销 —— 都是「看一眼就发现、一键改回」那一类。
+  'dismissedMcpIds', 'monitorIncremental', 'includePartialMessages', 'storagePolicy', 'killOnDisconnect', 'killPortOnStart',
+  'toolCatalogCacheTtlMs', 'enableToolRequiresProbe', 'sessionSearchIndexV1', 'runtimeFailureTelemetryV1',
 ]);
 
-// confirm:改动会花钱、换执行主体、或改变「谁能不问就做什么」的边界 —— 用户亲手按一下才算数。
+// confirm:改动会花钱、换执行主体、改变「谁能不问就做什么」的边界,或决定用户多久看得见一件事 —— 用户亲手按一下才算数。
 const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 主端点与模型选择
   'agentCliType', 'engineMode', 'activeProvider', 'model', 'compactProviderId', 'compactModel', 'modelsApiBase',
@@ -23388,44 +23400,193 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'externalMcpServers', 'enableMcpDropIn', 'includeWorkbenchMcp', 'browserAutomation',
   // 新线程默认权限、管家总开关与自理清单
   'permissionMode', 'stewardEnabledV1', 'stewardAutoActions',
-  // 116-5a:线程自动摘要开关。放 confirm 而不是 free —— 它开着就会在【每一条新线程】上花一次钱,
-  // 而且按 §11.8.7 那条口径记的是 aux(note:'thread-brief'),**不进 stewardMaxCostPerDay**。
-  // 也就是说管家把它打开等于给自己开了一条不受管家日预算约束的花钱通道,正落在本档「改动会花钱」
-  // 那条判据上。它与同族的 stewardProviderId/stewardModel(free)不同:那两个只是换管家自己用哪个
-  // 端点,花的还是管家自己那份预算。
+  // 116-5a:线程自动摘要开关 —— 开着就在每一条新线程上花一次钱,且记 aux 不进 stewardMaxCostPerDay。
   'stewardThreadBriefV1',
-  // 114a(45 号文 §2 ①):语音识别(ASR)端点选择。它决定【用户的声音】被送去哪个端点转写 —— 改它
-  // 等于把语音数据改道送去另一个端点,且每次转写都花钱(aux 记账),正落在本档「改动会花钱、改变
-  // 数据去向」那条判据上,故 confirm 而非 free;不进 forbidden —— 经用户亲手按一下确认后,让管家
-  // 帮忙把语音识别配好是正当诉求(与 compactProviderId/compactModel 同族:都是「内容路由到哪个
-  // 模型端点」)。
-  'asrProviderId', 'asrModel',
-  'asrStreamProviderId', 'asrStreamModel',   // 130:实时识别端点选择,与上一对同族同档(confirm)
-  'asrFixMode', 'asrFixProviderId', 'asrFixModel',   // 131b:句尾改错方式与大模型端点 —— 转写文字送去哪个模型、每句花钱,同族同档
+  // 114a／130／131b:语音识别的三对键 —— 用户的声音／转写文字送去哪个端点、每句花钱。
+  'asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel', 'asrFixMode', 'asrFixProviderId', 'asrFixModel',
+  // 132b:引擎与上下文旋钮 —— 改的是「模型看得见什么、压缩怎么做、一回合多长」,直接影响花费与质量。
+  'runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeObservationRecallV1',
+  'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1',
+  'runtimeReseedReattachFilesV1', 'runtimeSessionNotesV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1',
+  'runtimeSummaryEntityCheckV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'summarySingleShotMaxOverridesV1',
+  'runtimeSummaryFactTableV1', 'summaryFactTableMaxSamplesV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'budgetGuardWarnRatioV1',
+  'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'toolTimeBudgetWarnMsV1', 'toolTimeBudgetHardMsV1', 'toolByteBudgetShadowBytesV1',
+  'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'execResultCacheMaxEntriesV1',
+  'runtimeMemoryVectorRecallV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
+  'toolEconomicsShadowV1', 'boundedReadSchedulerV1', 'boundedReadConcurrencyV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'toolLoadingMode',
+  'autoCompactThreshold', 'contextWindowOverrides', 'thinkingBudget', 'claudeThinkingEffort', 'betaInterleavedThinking', 'maxTurns', 'openaiMaxToolIterations',
+  // 132b:并发与班组 —— 同时跑几个就是同时花几份钱。
+  'subagentMaxConcurrent', 'subagentMaxPerTurn', 'agentWorkflowMaxNodes', 'agentNodeWrapUpMs', 'agentTaskPoolPolicy', 'agentTaskPoolAutoCap',
+  'agentAutoModelTiering', 'shellSessionMax',
+  // 132b:模型清单(改了它,下一条线程可能跑在另一个模型上)。
+  'knownModels', 'extraModels', 'discoverModelsFromProxy',
+  // 132b:调度器与安静卡 —— 123 波原本留在 forbidden(「让模型决定用户多久看见」);按用户新拍板改成 confirm:
+  // 管家仍不能自己动,只能递按钮。schedulerEnabledV1 同理(它关掉 = 用户答应过的定时承诺一起停)。
+  'schedulerEnabledV1', 'schedulerAskWaitMinutes', 'quietCardSnoozeMinutes',
+  // 132b:管家自己的注意力面与执行主体 —— 117l D7／121-K3／123-N2 原本 forbidden;同上,改 confirm(用户按钮)。
+  'threadIndexRecent', 'stewardThreadModels', 'newThreadEngine',
+  // 132b:钱与账。
+  'usageBudget', 'claudePricing',
+  'autoResumeClaudeSessions',
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把
-// §3.5 逐字点名的那几类在源码里留一份可读的账,免得日后有人以为漏判了。
+// 那几类在源码里留一份可读的账,免得日后有人以为漏判了。
 const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
-  'providers', 'searchBackend', 'modelsApiKey', 'claudeAuthMode',      // 密钥/token 值(另有正则兜底)
-  'defaultWorkspace', 'workspaces', 'recentWorkspaces', 'additionalDirectories', 'allowOutsideWorkspace',
-  'claudePath', 'kimiPath', 'extraClaudeArgs', 'appendSystemPrompt',   // 数据根/围栏/命令行与提示词注入
+  'providers', 'searchBackend', 'modelsApiKey', 'claudeAuthMode',      // 密钥/token 值与认证(另有正则兜底)
+  'defaultWorkspace', 'workspaces', 'recentWorkspaces', 'additionalDirectories', 'allowOutsideWorkspace', 'stewardWorkspaceRoot',
+  'claudePath', 'kimiPath', 'extraClaudeArgs', 'appendSystemPrompt', 'agentRoleOverrides', 'residentSkills',   // 命令行与提示词注入面
   'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers',
-  'mcpCommandMode', 'permissionBridge', 'autonomyAutoResume', 'agentRoleOverrides', 'usageBudget',
+  'mcpCommandMode', 'permissionBridge', 'autonomyAutoResume', 'bridgeExternalToolsToProvider', 'toolbox', 'autoImportClaudeCodeMcp',
+  'capabilityProbeUrl',                                                  // 出网探针地址(SSRF 面)
   // 127 波 2-quater B2(拍板 2「默认开,设置可关,管家自己改不了」):代批开关。**不是 confirm** —— confirm 档
-  // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权;它也【不】塞进 stewardAutoActions(那一格
-  // 是 confirm 档)。判据仍是 fail-closed 的「不在 free/confirm 两张表里」,这里只是点名留账。
+  // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权。
   'stewardExemptDelegationV1',
-  // 2026-09-21:toolbox 自动发现的开关(autoDiscover／disabled／seen)。不含命令,但翻开它 = 放行本机登记程序的执行,
-  // 与 desktopMcp 同族:用户在设置页亲手改,管家改不了、也不能劝用户一键翻开。
-  'toolbox',
+  // 簿记与用户行为记录:能改它们 = 能伪造「用户上次选的是我」/ 把任意键去显式化。
+  'configSchema', 'version', 'configExplicitKeysV1', 'onboarding', 'lastUsedEngineRoute', 'subagentBudgetMigrated', 'searchBackendMigrated',
 ]);
+
+// 132b(53 号文 §2.4):每个 free／confirm 键一句人话 [zh, en] —— 单位、范围、改了会怎样。steward_config_get 随值回 help。
+// 判据由 unit/steward-config-tier ⑤ 看着:两张表里的每一个键都必须有中英两句,一条不漏。
+// 写成 [键, zh, en] 三元组而不是 {键: …}:runtime-optimization.static 用「<键名>:」全仓计数钉每个开关的默认点恰好一处,对象字面量会撞上。
+const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
+  ['locale', '界面语言:auto / zh-CN / en-US', 'UI language: auto / zh-CN / en-US'],
+  ['outputStyle', '回答风格:detailed(详细)/ concise(简洁)', 'Answer style: detailed / concise'],
+  ['theme', '界面主题:dark / light / system', 'UI theme: dark / light / system'],
+  ['uiMode', '界面模式:simple(简洁)/ pro(专家,露出高级设置)', 'UI mode: simple / pro (shows advanced settings)'],
+  ['stewardProviderId', '管家自己用哪个端点;空 = 跟随对话主端点', 'Endpoint the steward itself uses; empty = follow the main endpoint'],
+  ['stewardModel', '管家自己用哪个模型;空 = 该端点缺省', 'Model the steward itself uses; empty = the endpoint default'],
+  ['stewardPollMs', '管家多久看一眼收件箱,毫秒(5000–600000)', 'How often the steward checks its inbox, ms (5000–600000)'],
+  ['stewardMaxTurnsPerHour', '管家每小时最多跑几个回合(1–200)', 'Max steward turns per hour (1–200)'],
+  ['stewardMaxCostPerDay', '管家每天最多花多少钱(按端点货币)', 'Max steward spend per day (in the endpoint currency)'],
+  ['stewardReadBudgetChars', '管家一次深读线程最多读多少字', 'Max characters the steward reads per thread deep-read'],
+  ['stewardVisitIdleMinutes', '用户离开多少分钟后算「不在」', 'Minutes of user inactivity before counted as away'],
+  ['stewardNotifyPerHour', '管家一小时最多主动叫你几次', 'Max proactive notifications per hour'],
+  ['stewardConversationRetention', '管家对话保留:visit(本次)/ 24h / forever', 'Steward conversation retention: visit / 24h / forever'],
+  ['stewardMaxParallelThreads', '管家同时最多盯几条线程', 'Max threads the steward runs in parallel'],
+  ['stewardGlobalMaxTurnsPerHour', '全部线程每小时合计最多跑几个回合', 'Global cap on thread turns per hour'],
+  ['stewardGlobalMaxCostPerDay', '全部线程每天合计最多花多少钱', 'Global cap on daily spend across threads'],
+  ['permissionTimeoutMs', '线程等你批权限等多久,毫秒;到时按拒绝处理', 'How long a thread waits for a permission answer, ms; denied on timeout'],
+  ['questionTimeoutMs', '线程等你回答提问等多久,毫秒', 'How long a thread waits for an answer to its question, ms'],
+  ['turnIdleTimeoutMs', '一回合多久没动静算卡住,毫秒', 'Idle time before a turn counts as stalled, ms'],
+  ['autonomyPauseOnTimeout', '等超时后是否把线程暂停(而不是直接失败)', 'Pause the thread on timeout instead of failing it'],
+  ['autonomyPauseTtlMs', '暂停多久后自动作废,毫秒', 'How long a paused thread stays resumable, ms'],
+  ['dismissedMcpIds', '已忽略的 MCP 推荐清单(不再提示这些)', 'MCP suggestions the user dismissed (not shown again)'],
+  ['monitorIncremental', '监视面板增量刷新(关了就整页重画)', 'Incremental refresh of the monitor panel'],
+  ['includePartialMessages', '流式时显示部分消息(关了只显示整段)', 'Show partial messages while streaming'],
+  ['storagePolicy', '本地数据保留策略:日志保留天数等', 'Local data retention policy (log keep days, etc.)'],
+  ['killOnDisconnect', '浏览器断开时结束正在跑的引擎进程', 'Kill the running engine process when the browser disconnects'],
+  ['killPortOnStart', '启动时清掉占着端口的旧进程', 'Kill a stale process holding the port on start'],
+  ['toolCatalogCacheTtlMs', '工具目录缓存多久,毫秒', 'Tool catalog cache lifetime, ms'],
+  ['enableToolRequiresProbe', '启用工具前先探测依赖是否齐', 'Probe dependencies before enabling a tool'],
+  ['sessionSearchIndexV1', '本地会话搜索索引开关', 'Local session search index'],
+  ['runtimeFailureTelemetryV1', '本地失败遥测(只记本机,不出网)', 'Local failure telemetry (never leaves the machine)'],
+  ['agentCliType', 'CLI 引擎:claude / kimi', 'CLI engine: claude / kimi'],
+  ['engineMode', '引擎模式:interactive / headless', 'Engine mode: interactive / headless'],
+  ['activeProvider', '对话主端点:空或 claude-cli = CLI,否则 providers[].id', 'Main endpoint: empty or claude-cli = the CLI, else a providers[].id'],
+  ['model', '对话主模型名;空 = 端点缺省', 'Main model; empty = endpoint default'],
+  ['compactProviderId', '上下文压缩用哪个端点;空 = 跟随主端点', 'Endpoint used for context compaction; empty = main'],
+  ['compactModel', '上下文压缩用哪个模型', 'Model used for context compaction'],
+  ['modelsApiBase', '模型清单 API 地址(可留空)', 'Model list API base (may be empty)'],
+  ['subagentPreferredProvider', '子代理优先用哪个端点', 'Preferred endpoint for sub-agents'],
+  ['subagentPreferredModel', '子代理优先用哪个模型', 'Preferred model for sub-agents'],
+  ['externalMcpServers', '外部 MCP 连接器清单(密钥已掩码)', 'External MCP connectors (secrets masked)'],
+  ['enableMcpDropIn', '允许工作区内的 MCP 配置文件自动生效', 'Allow drop-in MCP config files in the workspace'],
+  ['includeWorkbenchMcp', '把如意自带的工具作为 MCP 提供给引擎', 'Expose the built-in workbench tools to the engine as MCP'],
+  ['browserAutomation', '浏览器自动化目标:system / 指定可执行文件 / CDP 地址', 'Browser automation target: system / executable / CDP URL'],
+  ['permissionMode', '新线程默认权限:default / acceptEdits / plan / bypass / auto', 'Default permission for new threads: default / acceptEdits / plan / bypass / auto'],
+  ['stewardEnabledV1', '管家总开关', 'Steward master switch'],
+  ['stewardAutoActions', '管家可以自己做的事:重试／续跑／递话／开线程／代答', 'Things the steward may do on its own: retry / resume / relay / newThread / answer'],
+  ['stewardThreadBriefV1', '自动给每条新线程起名与一句概括(每条花一次钱)', 'Auto-name each new thread with a one-line gist (costs one call each)'],
+  ['asrProviderId', '整段语音识别用哪个端点', 'Endpoint for full-clip speech recognition'],
+  ['asrModel', '整段语音识别用哪个模型', 'Model for full-clip speech recognition'],
+  ['asrStreamProviderId', '实时识别(边说边出字)用哪个端点', 'Endpoint for live (streaming) recognition'],
+  ['asrStreamModel', '实时识别用哪个模型', 'Model for live recognition'],
+  ['asrFixMode', '句尾改错方式:auto / audio(只重听)/ llm(只改字)/ off', 'Sentence correction: auto / audio / llm / off'],
+  ['asrFixProviderId', '改字用哪个大模型端点;空 = 跟随主端点', 'LLM endpoint for text fixing; empty = main'],
+  ['asrFixModel', '改字用哪个模型;空 = 端点缺省', 'Model for text fixing; empty = endpoint default'],
+  ['runtimeOptimizationShadowV1', '运行时优化的影子模式(只观察不生效)', 'Shadow mode for runtime optimizations (observe only)'],
+  ['runtimeToolRetrievalV1', '按需检索工具定义(减少提示词体积)', 'Retrieve tool definitions on demand (smaller prompt)'],
+  ['runtimeObservationReducerV1', '压缩工具观测结果', 'Reduce tool observation payloads'],
+  ['runtimeObservationRecallV1', '允许模型回看被压缩的观测', 'Let the model recall reduced observations'],
+  ['runtimeEvaporateBudgetBoundaryV1', '按 token 预算蒸发早期历史', 'Evaporate early history by token budget'],
+  ['runtimeHistoryReadDedupV1', '历史里重复读取的文件只留最新一份', 'Deduplicate repeated file reads in history'],
+  ['runtimeSummaryPromptI18nV1', '摘要提示词跟随界面语言', 'Summary prompt follows the UI language'],
+  ['runtimeReseedTailUnitsV1', '压缩后按整回合保留尾部', 'Keep whole trailing turns after compaction'],
+  ['runtimeReseedReattachFilesV1', '压缩后重附最近读过的文件', 'Re-attach recently read files after compaction'],
+  ['runtimeSessionNotesV1', '会话笔记(session-notes.md)开关', 'Session notes (session-notes.md)'],
+  ['runtimeSessionNotesInjectV1', '把会话笔记注入提示词', 'Inject session notes into the prompt'],
+  ['runtimeSessionNotesMergeV1', '压缩时合并会话笔记', 'Merge session notes during compaction'],
+  ['runtimeSummaryEntityCheckV1', '摘要后校验实体没丢', 'Verify entities survive summarization'],
+  ['runtimeEstimateBucketsV1', 'token 估算分桶', 'Bucketed token estimation'],
+  ['runtimeSummarySingleShotV1', '一次性摘要(不分段)', 'Single-shot summarization'],
+  ['summarySingleShotMaxOverridesV1', '按模型覆盖一次性摘要的上限', 'Per-model overrides for single-shot summary cap'],
+  ['runtimeSummaryFactTableV1', '摘要附事实表', 'Attach a fact table to summaries'],
+  ['summaryFactTableMaxSamplesV1', '事实表最多多少条', 'Max rows in the fact table'],
+  ['runtimeSummaryRefineV1', '摘要二次精炼(多花一次调用)', 'Refine summaries with a second call'],
+  ['runtimeBudgetGuardV1', '回合 token 预算守卫', 'Per-turn token budget guard'],
+  ['budgetGuardWarnRatioV1', '预算用到多少比例就提醒(0–1)', 'Warn ratio of the budget (0–1)'],
+  ['runtimeToolTimeBudgetShadowV1', '工具耗时预算的影子模式', 'Shadow mode for tool time budgets'],
+  ['runtimeToolTimeBudgetV1', '工具耗时预算开关', 'Tool time budget'],
+  ['toolTimeBudgetWarnMsV1', '工具耗时提醒阈值,毫秒(0 = 关)', 'Tool time warn threshold, ms (0 = off)'],
+  ['toolTimeBudgetHardMsV1', '工具耗时硬上限,毫秒(0 = 关)', 'Tool time hard cap, ms (0 = off)'],
+  ['toolByteBudgetShadowBytesV1', '工具输出字节预算(影子),0 = 关', 'Tool output byte budget (shadow), 0 = off'],
+  ['runtimeVolatileTailLayoutV1', '易变尾部布局(缓存友好)', 'Volatile-tail prompt layout (cache friendly)'],
+  ['runtimeAppendOnlyToolSchemasV1', '工具定义只追加不重排', 'Append-only tool schema ordering'],
+  ['runtimeExecResultCacheV1', '命令结果缓存', 'Cache exec results'],
+  ['execResultCacheMaxEntriesV1', '命令结果缓存最多多少条', 'Max exec cache entries'],
+  ['runtimeMemoryVectorRecallV1', '记忆向量召回', 'Vector recall for memory'],
+  ['coreMemoryMaxItemsV1', '核心记忆最多多少条', 'Max core memory items'],
+  ['coreMemoryCharBudgetV1', '核心记忆总字数预算', 'Core memory character budget'],
+  ['memoryRelevanceMaxV1', '每轮按相关性带几条记忆', 'Memories recalled by relevance per turn'],
+  ['memoryFixedSelectionMaxV1', '固定带几条记忆', 'Fixed memories per turn'],
+  ['memoryIndexCharCapV1', '记忆索引字数上限', 'Memory index character cap'],
+  ['toolEconomicsShadowV1', '工具经济学统计(影子)', 'Tool economics statistics (shadow)'],
+  ['boundedReadSchedulerV1', '受限读取调度器', 'Bounded read scheduler'],
+  ['boundedReadConcurrencyV1', '受限读取并发数', 'Bounded read concurrency'],
+  ['metaToolHintsV1', '元工具提示', 'Meta tool hints'],
+  ['actionArgumentModelViewV1', '动作参数的模型视图', 'Model view of action arguments'],
+  ['toolLoadingMode', '工具装载:auto / full / minimal', 'Tool loading: auto / full / minimal'],
+  ['autoCompactThreshold', '上下文用到多少比例自动压缩(0–1)', 'Auto-compact when context reaches this ratio (0–1)'],
+  ['contextWindowOverrides', '按模型覆盖上下文窗口大小', 'Per-model context window overrides'],
+  ['thinkingBudget', '思考预算(CLI 引擎)', 'Thinking budget (CLI engine)'],
+  ['claudeThinkingEffort', 'Claude 思考强度', 'Claude thinking effort'],
+  ['betaInterleavedThinking', '交错思考(beta)', 'Interleaved thinking (beta)'],
+  ['maxTurns', '一次任务最多多少回合;空 = 不限', 'Max turns per task; empty = unlimited'],
+  ['openaiMaxToolIterations', 'OpenAI 兼容引擎一回合最多调几次工具(1–200)', 'Max tool iterations per turn on OpenAI-compatible engines (1–200)'],
+  ['subagentMaxConcurrent', '子代理同时最多几个', 'Max concurrent sub-agents'],
+  ['subagentMaxPerTurn', '一回合最多派几个子代理', 'Max sub-agents per turn'],
+  ['agentWorkflowMaxNodes', '工作流最多多少个节点', 'Max workflow nodes'],
+  ['agentNodeWrapUpMs', '节点收尾宽限,毫秒', 'Node wrap-up grace, ms'],
+  ['agentTaskPoolPolicy', '任务池策略:manual / auto', 'Task pool policy: manual / auto'],
+  ['agentTaskPoolAutoCap', '自动任务池上限', 'Auto task pool cap'],
+  ['agentAutoModelTiering', '按节点自动分档模型', 'Automatic model tiering per node'],
+  ['shellSessionMax', '最多同时开几个 shell 会话', 'Max concurrent shell sessions'],
+  ['knownModels', '已知模型清单', 'Known model list'],
+  ['extraModels', '手动补充的模型', 'Manually added models'],
+  ['discoverModelsFromProxy', '从端点自动发现模型清单', 'Discover models from the endpoint'],
+  ['schedulerEnabledV1', '定时任务调度器总开关(关了所有定时承诺一起停)', 'Scheduler master switch (off stops every scheduled promise)'],
+  ['schedulerAskWaitMinutes', '无人值守遇到提问等多少分钟再拒', 'Minutes an unattended run waits on a question before refusing'],
+  ['quietCardSnoozeMinutes', '安静卡「稍后」推迟多少分钟', 'Quiet-card snooze minutes'],
+  ['threadIndexRecent', '管家总览里看最近多少条线程', 'How many recent threads the steward overview shows'],
+  ['stewardThreadModels', '管家新开线程按档用的端点/模型(strong/fast)', 'Endpoint/model per tier for steward-opened threads (strong/fast)'],
+  ['newThreadEngine', '新线程引擎来源:last(跟上次)/ global(跟全局)', 'New-thread engine: last / global'],
+  ['usageBudget', '用量预算与提醒阈值', 'Usage budget and warning thresholds'],
+  ['claudePricing', 'Claude 计价表(只影响费用显示)', 'Claude price table (affects cost display only)'],
+  ['autoResumeClaudeSessions', '自动续接 Claude CLI 会话', 'Auto-resume Claude CLI sessions'],
+].map(([k, zh, en]) => [k, Object.freeze([zh, en])])));
+function stewardConfigHelpFor(key, lang) {
+  const row = STEWARD_CONFIG_HELP[typeof key === 'string' ? key.trim() : ''];
+  if (!row) return '';
+  return String(lang || '').toLowerCase().startsWith('en') ? row[1] : row[0];
+}
 
 const STEWARD_CONFIG_TIERS = Object.freeze({
   free: STEWARD_CONFIG_TIER_FREE,
   confirm: STEWARD_CONFIG_TIER_CONFIRM,
   forbiddenNote: STEWARD_CONFIG_TIER_FORBIDDEN_NOTE,
   secretPattern: STEWARD_CONFIG_SECRET_PATTERN.source,
+  help: STEWARD_CONFIG_HELP,
 });
 
 // 纯函数、零副作用:键名 -> 'free' | 'confirm' | 'forbidden'。非字符串/空串一律 forbidden。
@@ -42300,7 +42461,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_get',
-    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,omitted 里的键是 forbidden。',
+    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -42310,7 +42471,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_set',
-    description: '改如意的设置。三级分级:free 级(语言 locale、输出风格 outputStyle、主题 theme、专家界面 uiMode、管家自己的轮询与预算参数)直接生效;confirm 级(主端点与模型、subagentPreferred*、MCP 连接器与浏览器目标、新线程默认权限 permissionMode、管家总开关 stewardEnabledV1、自理清单 stewardAutoActions)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、授权书相关)整份拒绝 steward.forbidden,一个键都不写。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
+    description: '改如意的设置。绝大多数运行参数都能改(一百多个键),三级分级由 steward_config_get 的 tiers 逐键给出:free 级(界面语言/主题/风格、管家自己的节流与预算、各种等待时长、显示与启停整洁度)直接生效;confirm 级(主端点与模型、子代理与语音端点、MCP 连接器与浏览器目标、新线程默认权限、管家总开关与自理清单、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记)整份拒绝 steward.forbidden,一个键都不写。改之前先 steward_config_get 看当前值与 help(每个键一句「是什么、单位、范围」)。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['patch'],
       properties: {
@@ -51168,6 +51329,8 @@ async function stewardImplThreadNew(args, ctx, config) {
     createdAt: nowIso(),
     userText: composed.userText,
     supplement: composed.supplement,
+    // 132a:分字段版本(goal/acceptance/context/preferences/constraints,已裁剪),委托书带按它画列表;老线程没有它就回落 supplement。
+    fields: composed.fields,
     truncated: composed.truncated,
     memoryIds: composed.memoryIds,
     // 129h:真跑了 playbook 时,这一格记【跑的那一个】。修前它只记 brief.playbookId ——
@@ -52948,15 +53111,21 @@ async function stewardImplConfigGet(args, ctx, config) {
     : Object.keys(masked);
   const values = {};
   const tiers = {};
+  const help = {};
   const omitted = [];
+  // 132b(53 号文 §2.4):每个可读键随值回一句人话(单位、范围、改了会怎样)—— 放开一百多个运行参数之后,
+  // 模型得知道 turnIdleTimeoutMs 是「回合多久没动静算卡住」才改得对。语言跟界面语言走。
+  const lang = String(config.locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh';
   for (const key of requested) {
     const tier = stewardConfigTierFor(key);
     if (tier === 'forbidden') { omitted.push(key); continue; }
     if (!Object.prototype.hasOwnProperty.call(masked, key)) { omitted.push(key); continue; }
     values[key] = masked[key];
     tiers[key] = tier;
+    const line = stewardConfigHelpFor(key, lang);
+    if (line) help[key] = line;
   }
-  return { ok: true, values, tiers, omitted };
+  return { ok: true, values, tiers, help, omitted };
 }
 
 // 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户

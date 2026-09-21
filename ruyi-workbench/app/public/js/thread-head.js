@@ -75,10 +75,19 @@ export function threadCommissionOf(session) {
   return {
     userText,
     supplement: String((brief && brief.supplement) || ''),
+    // 132a：13k 落盘的分字段版本（goal/acceptance/context/preferences/constraints）；老线程没有 → null，带回落到 supplement 原样。
+    fields: (brief && brief.fields && typeof brief.fields === 'object') ? brief.fields : null,
     createdAt: String((brief && brief.createdAt) || ''),
     by: String((brief && brief.by) || ''),
   };
 }
+// 132a：带里画哪几段、各叫什么。顺序即阅读顺序：验收怎么算 → 参考什么 → 偏好 → 约束。
+export const THREAD_COMMISSION_SECTIONS = Object.freeze([
+  ['acceptance', 'threadCommission.acceptance'],
+  ['context', 'threadCommission.context'],
+  ['preferences', 'threadCommission.preferences'],
+  ['constraints', 'threadCommission.constraints'],
+]);
 
 // 折叠态那一行的摘录：原话折成一行再按字符（不是 UTF-16 码元 —— 别把一个 emoji 劈成两半）截断。
 // 判据与 02 的 sessionFirstUserExcerpt 同形，但**不是**同一件事：那边是「这条线程叫什么」，
@@ -112,6 +121,8 @@ export function createThreadHead({
   // （长会话默认只画尾窗，第一条消息可能根本不在 DOM 里，要先走它那条「指定回落」把窗口全展开），
   // 所以这里只转交。不传就是空操作 —— 拿不到落点时按钮不出现，而不是画一枚点了没反应的。
   revealOriginal = null,
+  // 132a：这条线程上管家补充现在开着没 —— 按钮的字「看原件」／「收起原件」按它写。拿不到就恒写「看原件」。
+  originalOpen = null,
 } = {}) {
   // 121 走查1-⑤：PATCH 回来的那一份是这条线程【最新】的会话头，而组合根手里那份还是打开线程
   // 时取的 —— 修前谁也没把它对上，于是「切了没生效」：后端与 chip 都是新的，中栏与状态行是旧的
@@ -348,10 +359,32 @@ export function createThreadHead({
     }
     const goal = byId('threadCommissionGoal');
     if (goal) goal.textContent = brief.userText;                 // 用户原话【逐字】，零改写
+    // 132a：有分字段（13k 落盘的 brief.fields）就按字段画列表；老线程没有它就回落到 <pre> 原样（零二次解析，两条路都不拆人话）。
+    const sections = byId('threadCommissionSections');
+    const fields = brief.fields;
+    const sectionRows = fields ? THREAD_COMMISSION_SECTIONS.map(([key, labelKey]) => [labelKey, Array.isArray(fields[key]) ? fields[key].map(x => String(x || '')).filter(Boolean) : []]).filter(([, rows]) => rows.length) : [];
+    if (sections) {
+      clear(sections);
+      for (const [labelKey, rows] of sectionRows) {
+        const field = doc().createElement('div'); field.className = 'tc-field tc-section';
+        const label = doc().createElement('span'); label.className = 'tc-field-label'; label.textContent = t(labelKey);
+        const list = doc().createElement('ul'); list.className = 'tc-list';
+        for (const text of rows) { const li = doc().createElement('li'); li.textContent = text; list.appendChild(li); }
+        field.append(label, list);
+        sections.appendChild(field);
+      }
+      sections.hidden = !sectionRows.length;
+    }
     const supplementField = byId('threadCommissionSupplementField');
     const supplement = byId('threadCommissionSupplement');
     if (supplement) supplement.textContent = brief.supplement;   // 管家补充【原样】，零二次解析
-    if (supplementField) supplementField.hidden = !brief.supplement.trim();
+    if (supplementField) supplementField.hidden = Boolean(sectionRows.length) || !brief.supplement.trim();
+    const count = byId('threadCommissionCount');
+    if (count) {
+      const n = fields && Array.isArray(fields.acceptance) ? fields.acceptance.length : 0;
+      count.textContent = n ? t('threadCommission.count', { count: n }) : '';
+      count.hidden = !n;
+    }
     const runner = byId('threadCommissionRunner');
     if (runner) {
       const text = commissionRunnerText(session, brief);
@@ -361,9 +394,18 @@ export function createThreadHead({
     const original = byId('threadCommissionOriginal');
     if (original) {
       original.hidden = typeof revealOriginal !== 'function';
+      const syncOriginal = () => {
+        const open = typeof originalOpen === 'function' && originalOpen(session ? session.id : '') === true;
+        original.textContent = t(open ? 'threadCommission.originalHide' : 'threadCommission.original');
+        original.setAttribute('aria-pressed', open ? 'true' : 'false');
+      };
+      syncOriginal();
       if (!original.dataset.bound) {
         original.dataset.bound = '1';
-        original.onclick = () => { try { revealOriginal(); } catch { /* 跳不过去不该把这一带打回不可用 */ } };
+        original.onclick = () => { try { revealOriginal(); } catch { /* 跳不过去不该把这一带打回不可用 */ } syncOriginal(); };
+        // 用户直接点气泡里那个折叠块的 summary 时，按钮的字也要跟着变（session-experience 派 ruyi:original-toggled）。
+        const messages = byId('messages');
+        if (messages) messages.addEventListener('ruyi:original-toggled', syncOriginal);
       }
     }
     const toggle = byId('threadCommissionToggle');

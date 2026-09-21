@@ -102,6 +102,8 @@ export function createStewardShellDomain({
   // 长会话默认只画尾窗，第一条可能根本不在 DOM 里，得先走它那条「指定回落」把窗口全展开。
   // 与 modelMenuExtras／onSessionMetaChanged 同一条纪律：管家域不认识那些面，只做转交。
   revealOriginalMessage = null,
+  // 132a：这条线程上管家补充开着没（同一处实现的只读句柄），线程头据此给按钮写「看原件」／「收起原件」。
+  originalRevealedFor = null,
   // 117e：设置写口与「打开设置的某个页签」。前者是 provider-settings 既有的那一个（POST /api/config
   // 的唯一封装），后者让头像菜单三项与盾牌的二次确认能直达「管家」页签。
   saveConfigPartial = async () => false,
@@ -473,6 +475,7 @@ export function createStewardShellDomain({
     modelMenuExtras,
     onSessionMetaChanged,
     revealOriginal: typeof revealOriginalMessage === 'function' ? revealOriginalMessage : null,
+    originalOpen: typeof originalRevealedFor === 'function' ? originalRevealedFor : null,
     missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
     refreshRows: () => (boardHandle ? boardHandle.refreshBoard() : Promise.resolve(0)),
     presenceState: () => presenceApi.current(),

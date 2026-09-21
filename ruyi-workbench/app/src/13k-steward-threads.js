@@ -686,6 +686,8 @@ async function stewardImplThreadNew(args, ctx, config) {
     createdAt: nowIso(),
     userText: composed.userText,
     supplement: composed.supplement,
+    // 132a:分字段版本(goal/acceptance/context/preferences/constraints,已裁剪),委托书带按它画列表;老线程没有它就回落 supplement。
+    fields: composed.fields,
     truncated: composed.truncated,
     memoryIds: composed.memoryIds,
     // 129h:真跑了 playbook 时,这一格记【跑的那一个】。修前它只记 brief.playbookId ——

@@ -23,6 +23,12 @@ This file records user-facing release highlights; it does not replace the comple
 - **添加语音识别模型更不容易配错**：添加时一并选接口类型（阿里百炼、小米 MiMo 自动预选对话型）；名字带 realtime 的流式型号当场拦下。
 - 修掉「保存了语音模型、再点保存它就消失」：模型上的「可语音识别」标记此前有四条会被悄悄抹掉的路径，其中一条是服务商模型清单满 100 条时新加的那一条被直接截掉。
 
+#### 委托书界面重做；管家能改的设置从 40 个放到 124 个（第 132 波，2026-09-21）
+
+- **委托书看得懂了**：管家开的线程，头部那条「委托书」展开后不再是一坨文本，而是目标、验收项、相关文件、偏好、约束五段列表；折叠行上直接写「验收 N 项」。
+- **第一条消息不再露出传输格式**：它的正文只印你的原话，管家补充收进气泡里一个可折叠的「管家补充的交办要点」，`<steward-brief>` 那种围栏标签不再上屏；「看原件」变成开关——点一下展开并定位，再点一下收回去，按钮跟着变「收起原件」。
+- **管家能改的设置多了三倍**：此前只有 40 个键能经管家改，其余 123 个一律「改不了」。现在 124 个键可改：31 个直接生效（界面、管家自己的节流与预算、各种等待时长、显示与启停整洁度），93 个由管家递一枚按钮、你按一下生效（端点与模型、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算……）。仍然绝不经管家的 39 个：密钥、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记。管家读设置时每个键都附一句「是什么、单位、范围」，改起来不用猜。
+
 #### 句尾改错升级：大模型改字、不要显卡的重听、自动挑更大的本地模型（第 131 波，2026-09-21）
 
 - **句尾改错独立成一栏**：设置 → 模型服务商 现在是三栏——「实时识别（边说边出字）」「整段识别（附件转写 · 句尾重听）」「句尾改错（每句说完自动校正）」。前两栏只回答「用哪个模型」，第三栏回答「说完一句之后怎么改」：**自动**（能重听就重听，有大模型再把两版合成一句，评测里最准）／只重听音频／只让大模型看文字改错／关闭；改字用的大模型缺省跟随对话主模型，也可单独指定。
@@ -107,6 +113,12 @@ This file records user-facing release highlights; it does not replace the comple
 - **No more bare "Failed"**: the reason is shown. A provider that rejects the current interface type, or a rejected API key, each get a message that says where to fix it; transcription failures and successes now leave a local log line (metadata only).
 - **Harder to misconfigure**: adding a speech model now asks for the interface type (pre-selected for Alibaba Bailian and Xiaomi MiMo), and streaming-only "realtime" models are refused on the spot.
 - Fixed "the speech model disappears after saving twice": the speech-capable mark on a model could be silently dropped along four paths, one of which truncated the newly added model whenever the provider's model list was already at its 100-entry cap.
+
+#### Brief panel redesigned; steward-changeable settings go from 40 to 124 (wave 132, 2026-09-21)
+
+- **The brief is readable now**: on steward-opened threads the "Brief" band expands into five lists (goal, acceptance, files and context, preferences, constraints) instead of a wall of text; the collapsed row shows "N acceptance items".
+- **The first message no longer leaks the transport format**: its bubble shows only your own words, with "what the steward added" folded inside it; the `<steward-brief>` fence tags are gone from the screen. "See original" is now a toggle — one click expands and scrolls, another click folds it back, and the button reads "Hide original" while open.
+- **Three times as many settings the steward can change**: previously 40 keys, with the other 123 flatly refused. Now 124 keys are changeable: 31 apply directly (UI, the steward's own throttles and budgets, wait timeouts, display and shutdown hygiene) and 93 arrive as a button the steward hands you and you press (endpoints and models, engine and context knobs, concurrency caps, model lists, scheduler and quiet-card timing, the steward's own attention span, usage budget…). Still never through the steward, 39 keys: secrets, data folders and workspace fences, command and desktop tool gates, prompt injection surfaces, the delegation switch, bookkeeping. Every readable key now comes with a one-line "what it is, unit, range" so the steward changes it knowingly.
 
 #### Sentence correction upgraded: LLM text fixing, GPU-free re-listen, auto-pick the larger local model (wave 131, 2026-09-21)
 

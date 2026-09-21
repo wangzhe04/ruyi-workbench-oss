@@ -1070,7 +1070,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_get',
-    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,omitted 里的键是 forbidden。',
+    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -1080,7 +1080,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_set',
-    description: '改如意的设置。三级分级:free 级(语言 locale、输出风格 outputStyle、主题 theme、专家界面 uiMode、管家自己的轮询与预算参数)直接生效;confirm 级(主端点与模型、subagentPreferred*、MCP 连接器与浏览器目标、新线程默认权限 permissionMode、管家总开关 stewardEnabledV1、自理清单 stewardAutoActions)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、授权书相关)整份拒绝 steward.forbidden,一个键都不写。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
+    description: '改如意的设置。绝大多数运行参数都能改(一百多个键),三级分级由 steward_config_get 的 tiers 逐键给出:free 级(界面语言/主题/风格、管家自己的节流与预算、各种等待时长、显示与启停整洁度)直接生效;confirm 级(主端点与模型、子代理与语音端点、MCP 连接器与浏览器目标、新线程默认权限、管家总开关与自理清单、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记)整份拒绝 steward.forbidden,一个键都不写。改之前先 steward_config_get 看当前值与 help(每个键一句「是什么、单位、范围」)。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['patch'],
       properties: {

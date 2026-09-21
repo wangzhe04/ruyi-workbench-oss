@@ -1193,13 +1193,9 @@ function renderCurrentSession() {
     const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
     if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
-    // 124 走查 B：委托书线程的【第一条】消息折成一行（见 revealOriginalMessage 的头注）。
-    // 用 toggle 而不是 add：行是按 renderSignature 复用的，上一拍展开过的那一份会原样再进来。
-    // 提示文案挂在行上，样式层 ::after 用 attr() 取 —— 折叠是【显示】层的事，消息本身一个字没动。
-    const foldOriginal = i === 0 && m.role === 'user' && shouldFoldOriginal(session);
-    row.classList.toggle('is-original-folded', foldOriginal);
-    if (foldOriginal) row.dataset.foldedHint = t('threadCommission.originalFolded');
-    else if (row.dataset.foldedHint) delete row.dataset.foldedHint;
+    // 132a（53 号文 §1.2）：委托书线程的【第一条】消息 —— 气泡正文只印用户原话，管家补充收进一个折叠块（见 decorateCommissionedFirstMessage）。
+    // 行是按 renderSignature 复用的，所以这一步必须幂等；改的是显示层，消息本身一个字没动。
+    decorateCommissionedFirstMessage(row, m, i, session);
     fragment.appendChild(row);
   }
   const optimisticPersisted = activeTurnUserIsPersisted(msgs, liveForSession);
@@ -1298,28 +1294,77 @@ function threadCommissionOriginalText(session) {
   const brief = (session && session.brief && typeof session.brief === 'object') ? session.brief : null;
   return String((brief && brief.userText) || '').trim();
 }
-// 用户在哪几条线程上把原件请出来过。表、不是单个游标（理由见上面 ②）。
-const originalUnfoldedIn = new Set();
-// 第一条消息该不该折：有委托书、且用户这一趟还没把它展开过。
-function shouldFoldOriginal(session) {
-  return Boolean(threadCommissionOriginalText(session)) && !originalUnfoldedIn.has(String((session && session.id) || ''));
+// 132a（53 号文 §1；用户 2026-09-21「点了看原件后收不回去，重新设计一下」）：
+// 修前第一条消息整行折成一句虚线提示、点「看原件」后展开成带 `<steward-brief …>` 围栏的原始 XML、且再也折不回去。
+// 现在：气泡正文只印【用户原话】（它本来就是用户说的话），管家补充收进气泡里一个 <details>，围栏标签不上屏；
+// 「看原件」= 开／合这个折叠块的开关（开时滚过去闪一下，按钮变「收起原件」）。开合按线程记在内存，刷新回默认合上。
+// 三条纪律不变：① 只认 session.brief（用户自己开的线程没有委托书，一个字不动）；② 幂等（行按 renderSignature 复用）；
+// ③ 改的是显示不是数据 —— session.messages[0].content 仍是整段原件，回退／检查点／复制读的都是它。
+const COMMISSION_FENCE_OPEN = '<steward-brief added-by="steward">';
+const originalOpenIn = new Set();   // 哪几条线程上用户把管家补充展开着（sessionId 表，不是单个游标）
+function originalRevealedFor(sessionId) { return originalOpenIn.has(String(sessionId || '')); }
+function commissionedFirstMessage(message, index, session) {
+  if (index !== 0 || !message || message.role !== 'user') return null;
+  const userText = threadCommissionOriginalText(session);
+  const content = String(message.content || '');
+  if (!userText || !content.startsWith(userText) || !content.includes(COMMISSION_FENCE_OPEN)) return null;
+  const brief = session.brief;
+  const fields = (brief && brief.fields && typeof brief.fields === 'object') ? brief.fields : null;
+  const count = fields ? ['acceptance', 'context', 'preferences', 'constraints'].reduce((n, k) => n + (Array.isArray(fields[k]) ? fields[k].length : 0), 0) : 0;
+  return { userText, supplement: String(brief.supplement || ''), count };
+}
+function decorateCommissionedFirstMessage(row, message, index, session) {
+  const info = commissionedFirstMessage(message, index, session);
+  const bubble = row && row.querySelector('.bubble');
+  if (!info || !bubble) return false;
+  const open = originalOpenIn.has(String((session && session.id) || ''));
+  let fence = bubble.querySelector('details.brief-fence');
+  if (!fence) {
+    bubble.textContent = info.userText;
+    fence = document.createElement('details');
+    fence.className = 'brief-fence';
+    const summary = document.createElement('summary');
+    summary.textContent = info.count ? t('threadCommission.fenceSummary', { count: info.count }) : t('threadCommission.fenceSummaryPlain');
+    const pre = document.createElement('pre');
+    pre.className = 'brief-fence-body';
+    pre.textContent = info.supplement;
+    fence.append(summary, pre);
+    // 用户直接点 summary 也算「开／合」：状态照样按线程记，线程头那枚按钮的字跟着变。
+    fence.addEventListener('toggle', () => {
+      const id = String((state.currentSession && state.currentSession.id) || '');
+      if (fence.open) originalOpenIn.add(id); else originalOpenIn.delete(id);
+      row.dispatchEvent(new CustomEvent('ruyi:original-toggled', { bubbles: true, detail: { open: fence.open } }));
+    });
+    bubble.appendChild(fence);
+    row.classList.add('is-commissioned');
+  }
+  if (fence.open !== open) fence.open = open;
+  return true;
 }
 
+// 「看原件」的开关：合着 → 打开、滚到第一条、闪一下；开着 → 合上。回新的开合状态（true = 开）。
 function revealOriginalMessage() {
   const box = $('messages');
   const session = state.currentSession;
   const msgs = (session && Array.isArray(session.messages)) ? session.messages : [];
   if (!box || !msgs.length) return false;
-  // 先记「这条线程的原件已被展开」，再重画 —— 反过来的话 renderCurrentSession 会照旧把它折回去。
-  originalUnfoldedIn.add(String((session && session.id) || ''));
+  const id = String((session && session.id) || '');
+  if (originalOpenIn.has(id)) {
+    originalOpenIn.delete(id);
+    const row0 = box.querySelector('[data-message-key]');
+    const fence0 = row0 && row0.querySelector('details.brief-fence');
+    if (fence0) fence0.open = false;
+    return false;
+  }
+  // 先记状态、再重画 —— 反过来的话 renderCurrentSession 会照旧把它合回去。
+  originalOpenIn.add(id);
   if (windowStartFor(msgs) > 0) {
-    if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return false; }
+    if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); originalOpenIn.delete(id); return false; }
     expandMessageWindowFully();
   }
   const row = box.querySelector('[data-message-key]');
   if (!row) return false;
-  row.classList.remove('is-original-folded');   // 窗口没重画那一支：就地展开
-  if (row.dataset.foldedHint) delete row.dataset.foldedHint;
+  decorateCommissionedFirstMessage(row, msgs[0], 0, session);   // 窗口没重画那一支：就地打开
   try { row.scrollIntoView({ block: 'start' }); } catch { /* 无 scrollIntoView 的宿主：高亮照旧 */ }
   row.classList.remove('is-revealed');        // 连点两下也要能再闪一次（动画要重新起跑）
   void row.offsetWidth;                        // 强制重排，否则同一帧内摘了又加等于没动
@@ -1641,7 +1686,8 @@ function buildEmptyCTA() {
     renderResumeBanner,
     renderSessions,
     renderStepBar,
-    revealOriginalMessage, // 124-P2：委托书「看原件」的落点（组合根递给线程头，本文件不 import 管家侧模块）
+    revealOriginalMessage, // 124-P2：委托书「看原件」的落点（组合根递给线程头，本文件不 import 管家侧模块）；132a 起是开关，回新状态
+    originalRevealedFor,   // 132a：这条线程上管家补充现在开着没（线程头据此给按钮写「看原件」／「收起原件」）
     // 121-K4：左栏是两视角共用的那一份 DOM。组合根在管家域构造好之后把「重画左栏」的口递进来
     // （迟绑定：session-experience 比 steward-shell 先构造），本文件因此不 import 任何管家侧模块。
     bindRailSessionActions, // 121-K4：左栏行上三枚会话级动作的委托（组合根绑一次）

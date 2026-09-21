@@ -334,14 +334,18 @@
               <span id="threadCommissionLabel" class="tc-label" data-i18n="threadCommission.label">委托书</span>
               <span id="threadCommissionGist" class="tc-gist"></span>
             </button>
+            <span id="threadCommissionCount" class="tc-count" hidden></span>
             <span id="threadCommissionWhen" class="tc-when"></span>
-            <button id="threadCommissionOriginal" class="tc-original" type="button" data-i18n="threadCommission.original">看原件</button>
+            <button id="threadCommissionOriginal" class="tc-original" type="button" aria-pressed="false" data-i18n="threadCommission.original">看原件</button>
           </div>
           <div id="threadCommissionBody" class="tc-body" hidden>
             <div class="tc-field">
               <span class="tc-field-label" data-i18n="threadCommission.goal">目标（你的原话）</span>
               <p id="threadCommissionGoal" class="tc-goal"></p>
             </div>
+            <!-- 132a：分字段列表（验收项／相关文件与上下文／偏好／约束），由 thread-head.js 按 session.brief.fields 动态建；
+                 空字段不画。老线程没有 fields 时回落到下面那段 <pre>（原样、零二次解析）。 -->
+            <div id="threadCommissionSections" class="tc-sections" hidden></div>
             <div id="threadCommissionSupplementField" class="tc-field" hidden>
               <span class="tc-field-label" data-i18n="threadCommission.supplement">管家补充的交办要点</span>
               <pre id="threadCommissionSupplement" class="tc-supplement"></pre>
