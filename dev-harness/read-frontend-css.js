@@ -691,7 +691,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   一个组件都没登记时这一栏整块不渲染，所以没装 toolbox 的人逐像素不变。
 // 算法自证：把 chat-shell.css 从 HEAD 检出重算 = a8d33ab6…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
 // 132a(53 号文 §1):委托书带分段列表与气泡里折叠块的样式 —— 有意新增,重钉。
-const LEGACY_STYLES_SHA256 = 'b82c6821de7b52d2db3226f294187731d499a3e4ebd1ca675be4a4c393b62a52';
+// 134 重钉（前值 b82c6821…）：零新增、零删除层，只在 `css/components/chat-composer.css` 首部加一族 .steer-delivery-mode
+//   —— 插话送法选择器（排队/立即打断）的下拉样式，主题令牌全走 var()。
+// 算法自证：把 chat-composer.css 从 HEAD 检出重算 = b82c6821…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+// 133f 重钉（前值 c0d67eec…）：零新增、零删除层，只在 `css/components/chat-composer.css` 的 .composer-voice 一族里加两段 ——
+//   加载中态（[data-state="warming"]：主色 + 转圈 + 计时，转圈复用 compact-spin 关键帧）与它的减弱动效分支。主题令牌全走 var()/color-mix。
+// 算法自证：在内存里把这两段抠掉（不碰磁盘）再算 = c0d67eec…，与上一行已钉的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = '7c2b107b96e69d3c4929f4c314ef65bb288bd5711bf598864695c70517320e37';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

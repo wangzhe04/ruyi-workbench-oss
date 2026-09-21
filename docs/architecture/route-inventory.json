@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-21T09:14:18.341Z",
+  "generatedAt": "2026-09-21T13:42:07.760Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,10 +17,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 128,
-    "decisionPoints": 141,
+    "routeAuthEntries": 129,
+    "decisionPoints": 142,
     "byKind": {
-      "exact": 118,
+      "exact": 119,
       "prefix": 14,
       "regex": 9
     },
@@ -339,6 +339,12 @@
     {
       "m": "POST",
       "p": "/api/audio/correct",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/audio/warmup",
       "auth": "token",
       "prefix": false
     },
@@ -850,6 +856,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
+        "dev-harness\\asr-warmup.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
@@ -859,6 +866,7 @@
         "dev-harness\\claude-models-cache.e2e.js",
         "dev-harness\\cli-probe-stall.e2e.js",
         "dev-harness\\composer-voice-stream.browser.e2e.js",
+        "dev-harness\\composer-voice-warmup.browser.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\config-read-safety.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -1104,10 +1112,12 @@
       "coveredBy": [
         "dev-harness\\agent-team-mode.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
+        "dev-harness\\asr-warmup.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-models-cache.e2e.js",
         "dev-harness\\composer-voice-stream.browser.e2e.js",
+        "dev-harness\\composer-voice-warmup.browser.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\config-read-safety.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -2343,6 +2353,7 @@
       "coveredBy": [
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\autonomy-shell-sandbox.e2e.js",
+        "dev-harness\\background-completion.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\codebase-symbol-search.e2e.js",
         "dev-harness\\file-guard.e2e.js",
@@ -2596,7 +2607,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 331,
+      "line": 332,
       "handler": "handleSteerApiRoute",
       "methods": [
         "POST"
@@ -2621,7 +2632,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 340,
+      "line": 341,
       "handler": "handleSteerApiRoute",
       "methods": [
         "DELETE"
@@ -2646,7 +2657,7 @@
       "kind": "exact",
       "path": "/api/audio/transcribe",
       "file": "13b-api-domain-routes.js",
-      "line": 399,
+      "line": 400,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2657,7 +2668,9 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\asr-transcribe.e2e.js",
+        "dev-harness\\asr-warmup.e2e.js",
         "dev-harness\\composer-voice-stream.browser.e2e.js",
+        "dev-harness\\composer-voice-warmup.browser.e2e.js",
         "dev-harness\\composer-voice.browser.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js"
       ]
@@ -2666,7 +2679,7 @@
       "kind": "exact",
       "path": "/api/audio/stream/sessions",
       "file": "13b-api-domain-routes.js",
-      "line": 403,
+      "line": 404,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2677,6 +2690,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\composer-voice-stream.browser.e2e.js",
+        "dev-harness\\composer-voice-warmup.browser.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js"
       ]
     },
@@ -2684,7 +2698,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 406,
+      "line": 407,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2701,7 +2715,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 409,
+      "line": 410,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "DELETE"
@@ -2718,7 +2732,7 @@
       "kind": "exact",
       "path": "/api/audio/correct",
       "file": "13b-api-domain-routes.js",
-      "line": 413,
+      "line": 414,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2730,6 +2744,24 @@
       "coveredBy": [
         "dev-harness\\asr-config-ui.static.e2e.js",
         "dev-harness\\composer-voice-stream.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/audio/warmup",
+      "file": "13b-api-domain-routes.js",
+      "line": 418,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\asr-warmup.e2e.js",
+        "dev-harness\\composer-voice-warmup.browser.e2e.js"
       ]
     },
     {
@@ -2849,6 +2881,7 @@
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-grant.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\background-completion.e2e.js",
         "dev-harness\\batch-output-discipline.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
@@ -3054,6 +3087,7 @@
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-grant.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
+        "dev-harness\\background-completion.e2e.js",
         "dev-harness\\batch-output-discipline.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
@@ -3236,6 +3270,7 @@
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autocompact.e2e.js",
+        "dev-harness\\background-completion.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
@@ -4467,7 +4502,7 @@
       "kind": "exact",
       "path": "/api/events/stream",
       "file": "13r-event-stream.js",
-      "line": 331,
+      "line": 336,
       "handler": "handleEventStreamApiRoutes",
       "methods": [
         "GET"
@@ -4478,6 +4513,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\action-feedback.browser.e2e.js",
+        "dev-harness\\background-completion.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-pageshow.browser.e2e.js",

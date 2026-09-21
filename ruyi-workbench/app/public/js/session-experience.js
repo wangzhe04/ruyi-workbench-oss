@@ -929,6 +929,33 @@ async function pushLiveTurn(sessionId) {
 }
 function bindLiveEventStream() {
   if (!eventStream || typeof eventStream.on !== 'function') return false;
+  eventStream.on('background.completed', data => {
+    if (!data || !data.sessionId) return;
+    toast(t('chat.background.' + data.status), data.status === 'succeeded' ? 'ok' : 'err');
+    // Fetch only on completion push, never a polling timer. Do not replace a streaming message tree.
+    void (async () => {
+      const id = data.sessionId;
+      if (state.currentSession?.id !== id) return;
+      const response = await api(`/api/sessions/${encodeURIComponent(id)}`);
+      if (!response?.ok || state.currentSession?.id !== id) return;
+      const fresh = (response.session.messages || []).filter(m => m.backgroundJobId);
+      // D2 (live-full-text): the client message array is the on-disk plane; a session view without it
+      // gets the receipts through the next openSession merge instead of a local reassignment here.
+      const current = Array.isArray(state.currentSession.messages) ? state.currentSession.messages : null;
+      if (!current) return;
+      const known = new Set(current.map(m => m.backgroundJobId).filter(Boolean));
+      for (const message of fresh) {
+        if (known.has(message.backgroundJobId)) continue;
+        current.push(message); known.add(message.backgroundJobId);
+        if (activeTurns.has(id) || state.streaming) {
+          const key = messageDomKey(message, current.length - 1, id);
+          const row = renderStaticMessage(message, key, messageRenderSignature(message, getLocale()));
+          if (row) $('messages')?.appendChild(row);
+        }
+      }
+      if (!activeTurns.has(id) && !state.streaming) renderCurrentSession();
+    })().catch(() => { /* durable receipt is restored when the session is opened again */ });
+  });
   liveStreamConnected = typeof eventStream.isConnected === 'function' ? eventStream.isConnected() === true : false;
   eventStream.on('connection', payload => {
     liveStreamConnected = Boolean(payload && payload.connected);

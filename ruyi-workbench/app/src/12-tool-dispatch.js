@@ -1082,7 +1082,7 @@ const SHELL_TOOL_HANDLERS = {
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
       // 107-S0(45 号文 §9.6 发现 3):shell 起在闸判过的那个目录(显式 cwd → 回合工作目录 → 会话 cwd → defaultWorkspace
       // → 家目录),不再缺省落家目录。
-      return shellStart({ ...args, cwd: g.cwd }, cfg);
+      return shellStart({ ...args, cwd: g.cwd }, cfg, ctx);
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();

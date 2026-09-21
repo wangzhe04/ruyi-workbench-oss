@@ -1522,11 +1522,16 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
 //   • emit a `steered` event (§7.3) so a live UI can render/dedup it;
 //   • saveSession so a crash mid-turn doesn't lose the injected instruction.
 // Returns the number of items injected (0 when the queue was empty).
+function hasInterruptingSteer(reg) {
+  // Legacy internal callers can still enqueue strings. API additions use explicit delivery modes.
+  return !!(reg && Array.isArray(reg.steerQueue) && reg.steerQueue.some(item => typeof item === 'string' || item.mode === 'interrupt'));
+}
+
 async function drainSteerQueue(reg, session, onEvent) {
   if (!reg || !Array.isArray(reg.steerQueue) || reg.steerQueue.length === 0) return 0;
   const items = reg.steerQueue.splice(0, reg.steerQueue.length);
   for (const text of items) {
-    const t = String(text || '');
+    const t = String((typeof text === 'string' ? text : text.text) || '');
     session.providerHistory.push({ role: 'user', content: '[用户插话] ' + t });
     session.messages.push({ role: 'user', content: t, turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
     try { onEvent({ type: 'steered', text: t }); } catch { /* stream gone */ }

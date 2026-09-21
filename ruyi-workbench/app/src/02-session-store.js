@@ -2992,6 +2992,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     // never lower that in-memory high-water mark to the (briefly older) head-file value.
     missionChangeSeqHighWater.set(sid, Math.max(missionChangeSeqHighWater.get(sid) || 0, Number(session.mission.changeSeq) || 0));
   }
+  if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
   return session;
 }
 
@@ -3048,6 +3049,7 @@ function claimRewindGeneration(session) {
 }
 async function saveSession(session, opts) {
   await ensureDirs();
+  if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
   session.updatedAt = nowIso();
   const id = session.id;
   // 107-F7b:从这里到 sessionWriteChains.set 是一段同步代码,抬水位与入链因此是原子的。

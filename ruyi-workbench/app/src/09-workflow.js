@@ -1837,7 +1837,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }, toolHeartbeatMs);
     if (heartbeat && heartbeat.unref) heartbeat.unref();
     // A steer can land after the provider emitted tool_calls but before execution reaches this item.
-    if (interruptible && reg.steerQueue && reg.steerQueue.length) interrupt();
+    if (interruptible && hasInterruptingSteer(reg)) interrupt();
     try {
       const result = await runner(toolAbort && toolAbort.signal);
       // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
@@ -2114,6 +2114,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to build carries the user's mid-turn instruction. Pairing-safe here: the
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
       await drainSteerQueue(reg, session, onEvent);
+      if (EventStreamHooks.drainBackgroundJobs) EventStreamHooks.drainBackgroundJobs(session);
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
@@ -2516,6 +2517,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 : { ok: false, error: (node && node.error) || (workflow && workflow.error) || '子代理失败', result: node && node.result || undefined, iters: node && node.attempts, toolCalls: [], runId: spawnRunId, nodeId: item.agentKey };
               const completed = { ...result, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' };
               subagentResults.set(item.agentKey, completed);
+              if (item.background && EventStreamHooks.notifyBackgroundAgent) {
+                try { EventStreamHooks.notifyBackgroundAgent(session.id, spawnRunId, item.agentKey, completed); } catch { /* notification must not change the task result */ }
+              }
               return completed;
             });
             spawnDispatches.set(item.stc.id, { promise, background: item.background, runId: spawnRunId, nodeId: item.agentKey, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' });
@@ -2958,7 +2962,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // 各补一条 refusal role:'tool' -- 保证 assistant.tool_calls(N ids) -> 连续 N 条 role:'tool' 不劈块
           // (strict provider 对未配对 tool_call_id 报 400 永久卡死会话)。中断后 steerAborted=true break,图片
           // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
-          if (!steerAborted && reg.steerQueue && reg.steerQueue.length > 0) {
+          if (!steerAborted && hasInterruptingSteer(reg)) {
             const answeredIds = new Set(toolCalls.map(t => t && t.id));
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;

@@ -13,6 +13,8 @@ left 裸奔 — every paragraph inherits a fully-specified style. write_excel ge
 """
 
 import os
+import re
+import math
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools.filesystem import _non_ascii_report
@@ -252,6 +254,7 @@ def _apply_word_styles(doc, tokens):
     pf = normal.paragraph_format
     pf.line_spacing = 1.4
     pf.space_after = Pt(6)
+    pf.widow_control = True
 
     # Title (level-0 heading via add_heading(..,0)).
     try:
@@ -268,6 +271,8 @@ def _apply_word_styles(doc, tokens):
             st = styles[lvl]
             _set_style_font(st, title_font, sz, color_hex=heading_color, bold=True)
             hpf = st.paragraph_format
+            hpf.keep_with_next = True
+            hpf.keep_together = True
             # H1 前段距加大 so sections breathe; H2/H3 modest.
             hpf.space_before = Pt(18 if lvl == "Heading 1" else 12)
             hpf.space_after = Pt(4)
@@ -555,6 +560,11 @@ def _add_content_table(doc, headers, rows, tokens):
     n_cols = len(headers)
     tbl = doc.add_table(rows=1 + len(rows), cols=n_cols)
     tbl.style = "Table Grid"  # gives us a real grid to recolour
+    # Repeat the header after a page break and keep each data row together.
+    from docx.oxml import OxmlElement
+    tbl.rows[0]._tr.get_or_add_trPr().append(OxmlElement('w:tblHeader'))
+    for row in tbl.rows:
+        row._tr.get_or_add_trPr().append(OxmlElement('w:cantSplit'))
 
     # recolour all borders to the token hairline
     tblPr = tbl._tbl.tblPr
@@ -732,8 +742,8 @@ def write_document(
                 _add_heading_rule(p, rule_color, side=rule_side)
             elif stripped.startswith("- "):
                 doc.add_paragraph(stripped[2:], style="List Bullet")
-            elif stripped.startswith("1. ") or stripped.startswith("2. ") or stripped.startswith("3. "):
-                doc.add_paragraph(stripped[3:], style="List Number")
+            elif re.match(r"^\d+\.\s+", stripped):
+                doc.add_paragraph(re.sub(r"^\d+\.\s+", "", stripped), style="List Number")
             else:
                 doc.add_paragraph(stripped)
 
@@ -747,7 +757,8 @@ def write_document(
         # v1.5.1: echo output_path (== path) so the workbench 产物收割 (ARTIFACT_OUTPUT_PATH_KEYS)
         # picks this file up directly. 老字段 path 保留(字段只增,不破坏现有契约)。
         return {"success": True, "path": os.path.abspath(path),
-                "output_path": os.path.abspath(path), "style": resolved_style}
+                "output_path": os.path.abspath(path), "style": resolved_style,
+                "visual_review_required": True}
     except Exception as e:
         return {"error": str(e)}
 
@@ -775,9 +786,17 @@ def _numeric_value(value):
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return value
     if isinstance(value, str):
-        s = value.strip().replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
+        raw = value.strip()
+        # Identifiers and high precision integers must survive an Excel round trip unchanged.
+        if re.fullmatch(r"[+-]?0\d+", raw) or re.fullmatch(r"[+-]?\d{16,}", raw):
+            return value
+        s = raw.replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
         try:
             f = float(s)
+            if not math.isfinite(f):
+                return value
+            if raw.endswith('%'):
+                return f / 100
             return int(f) if f == int(f) else f
         except ValueError:
             return value
@@ -858,6 +877,13 @@ def write_excel(
         wb = Workbook()
         ws = wb.active
         ws.title = sheet_name
+        ws.sheet_view.showGridLines = False
+        if headers:
+            ws.freeze_panes = 'A2'
+            ws.print_title_rows = '1:1'
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
 
         base_font = Font(name=body_font_name, size=11, color=text_argb)
         header_font = Font(name=body_font_name, size=11, bold=True, color=text_argb)
@@ -885,6 +911,10 @@ def write_excel(
             for col_idx, value in enumerate(row_data, 1):
                 c = ws.cell(row=row_idx, column=col_idx, value=_numeric_value(value))
                 c.font = base_font
+                if isinstance(value, str) and value.strip().endswith('%') and isinstance(c.value, (int, float)):
+                    c.number_format = '0.0%'
+                elif isinstance(c.value, str) and re.fullmatch(r"[+-]?\d+", c.value):
+                    c.number_format = '@'
 
         # per-column number formats (heuristic) + content-fit widths (CJK-aware).
         for col in range(1, n_cols + 1):
@@ -897,7 +927,7 @@ def write_excel(
                 longest = sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(headers[col - 1]))
             for r in range(start_row, start_row + len(data)):
                 cell = ws.cell(row=r, column=col)
-                if fmt is not None and _looks_numeric(cell.value):
+                if fmt is not None and isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool) and cell.number_format == 'General':
                     # percentage: values like '12%' were coerced to 12 (not 0.12); if the source was
                     # a fraction string we keep it. We store the raw number and format; for '12%' text
                     # coerced to 12, format 0.0% would show 1200% — so guard: only apply % when the
@@ -925,11 +955,14 @@ def write_excel(
                     longest = max(longest, disp)
             ws.column_dimensions[get_column_letter(col)].width = min(max(longest + 2, 8), 50)
 
+        if headers and n_cols:
+            ws.auto_filter.ref = f'A1:{get_column_letter(n_cols)}{max(1, len(data) + 1)}'
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         wb.save(path)
         # v1.5.1: 补 output_path(== path), 见 write_document。
         return {"success": True, "path": os.path.abspath(path),
-                "output_path": os.path.abspath(path), "rows": len(data), "style": resolved_style}
+                "output_path": os.path.abspath(path), "rows": len(data), "style": resolved_style,
+                "formula_status": "not_calculated", "visual_review_required": True}
     except Exception as e:
         return {"error": str(e)}
 

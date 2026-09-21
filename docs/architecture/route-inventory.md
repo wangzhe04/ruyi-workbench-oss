@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 141(精确 118 / 前缀 14 / 正则 9),ROUTE_AUTH 128 条,生成于 2026-09-21T09:14:18.341Z。
+> 判定点 142(精确 119 / 前缀 14 / 正则 9),ROUTE_AUTH 129 条,生成于 2026-09-21T13:42:07.760Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -29,7 +29,7 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/bootstrap` | exact | open | 13-http-router.js:315 | context-compact-v2.e2e.js, dom-smoke.e2e.js, external-code-diff.e2e.js 等 12 件 |
-| GET | `/api/status` | exact | open | 13-http-router.js:321 | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, audit-w23.e2e.js 等 52 件 |
+| GET | `/api/status` | exact | open | 13-http-router.js:321 | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 54 件 |
 | GET | `/api/capabilities` | exact | open | 13-http-router.js:408 | capabilities.e2e.js, playbooks.e2e.js, service-match.browser.e2e.js |
 | GET | `/api/playbooks` | exact | token-browser | 13-http-router.js:417 | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 5 件 |
 | POST | `/api/playbooks/service-match` | exact | token-browser | 13-http-router.js:424 | playbooks.e2e.js |
@@ -40,7 +40,7 @@
 | POST | `/api/pick-folder` | exact | token | 13-http-router.js:468 | workspace-resolve.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js:472 | overlay-update-gui.static.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js:476 | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 5 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js:530 | agent-team-mode.e2e.js, asr-transcribe.e2e.js, boot-failure-kind.browser.e2e.js 等 41 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js:530 | agent-team-mode.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 43 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js:554 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js:567 | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 4 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js:582 | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 4 件 |
@@ -92,14 +92,14 @@
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1633 | steward-conversation.static.e2e.js, vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1644 | vision-loop.e2e.js |
 | POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1664 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 138 件 |
-| POST | `/api/tools/` | prefix | token | 13-http-router.js:1682 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, checkpoint.e2e.js 等 14 件 |
+| POST | `/api/tools/` | prefix | token | 13-http-router.js:1682 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 15 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:1957 | — |
 
 ## event-stream(1)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:331 | action-feedback.browser.e2e.js, boot-failure-kind.browser.e2e.js, event-stream-client.browser.e2e.js 等 12 件 |
+| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js:336 | action-feedback.browser.e2e.js, background-completion.e2e.js, boot-failure-kind.browser.e2e.js 等 13 件 |
 
 ## intervention(11)
 
@@ -129,15 +129,16 @@
 | POST | `/api/mcp/connectors/toggle` | exact | token | 13b-api-domain-routes.js:140 | config-mutate-mcp-parity.e2e.js, mcp-ops-closure.e2e.js, mcp-ops-gui.static.e2e.js 等 4 件 |
 | DELETE | `/api/mcp/connectors` | exact | token | 13b-api-domain-routes.js:153 | config-mutate-mcp-parity.e2e.js, mcp-ops-closure.e2e.js, mcp-ops-gui.static.e2e.js 等 5 件 |
 
-## mcp/checkpoint-storage/steer(5)
+## mcp/checkpoint-storage/steer(6)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/audio/transcribe` | exact | token | 13b-api-domain-routes.js:399 | asr-transcribe.e2e.js, composer-voice-stream.browser.e2e.js, composer-voice.browser.e2e.js 等 4 件 |
-| POST | `/api/audio/stream/sessions` | exact | token | 13b-api-domain-routes.js:403 | composer-voice-stream.browser.e2e.js, toolbox-discovery.e2e.js |
-| POST | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:406 | toolbox-discovery.e2e.js |
-| DELETE | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:409 | toolbox-discovery.e2e.js |
-| POST | `/api/audio/correct` | exact | token | 13b-api-domain-routes.js:413 | asr-config-ui.static.e2e.js, composer-voice-stream.browser.e2e.js |
+| POST | `/api/audio/transcribe` | exact | token | 13b-api-domain-routes.js:400 | asr-transcribe.e2e.js, asr-warmup.e2e.js, composer-voice-stream.browser.e2e.js 等 6 件 |
+| POST | `/api/audio/stream/sessions` | exact | token | 13b-api-domain-routes.js:404 | composer-voice-stream.browser.e2e.js, composer-voice-warmup.browser.e2e.js, toolbox-discovery.e2e.js |
+| POST | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:407 | toolbox-discovery.e2e.js |
+| DELETE | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:410 | toolbox-discovery.e2e.js |
+| POST | `/api/audio/correct` | exact | token | 13b-api-domain-routes.js:414 | asr-config-ui.static.e2e.js, composer-voice-stream.browser.e2e.js |
+| POST | `/api/audio/warmup` | exact | token | 13b-api-domain-routes.js:418 | asr-warmup.e2e.js, composer-voice-warmup.browser.e2e.js |
 
 ## mission(7)
 
@@ -175,18 +176,18 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 171 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 172 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 171 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 172 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
-| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | action-feedback.browser.e2e.js, agent-roles.e2e.js, artifacts.e2e.js 等 87 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:245 | action-feedback.browser.e2e.js, agent-roles.e2e.js, artifacts.e2e.js 等 88 件 |
 
 ## steer(2)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/steer` | exact | token | 13b-api-domain-routes.js:331 | agent-steer-node.e2e.js, classic-window-live-steer.e2e.js, kimi-agent-cli.e2e.js 等 9 件 |
-| DELETE | `/api/steer` | exact | token | 13b-api-domain-routes.js:340 | agent-steer-node.e2e.js, classic-window-live-steer.e2e.js, kimi-agent-cli.e2e.js 等 9 件 |
+| POST | `/api/steer` | exact | token | 13b-api-domain-routes.js:332 | agent-steer-node.e2e.js, classic-window-live-steer.e2e.js, kimi-agent-cli.e2e.js 等 9 件 |
+| DELETE | `/api/steer` | exact | token | 13b-api-domain-routes.js:341 | agent-steer-node.e2e.js, classic-window-live-steer.e2e.js, kimi-agent-cli.e2e.js 等 9 件 |
 
 ## steward(18)
 

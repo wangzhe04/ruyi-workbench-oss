@@ -193,9 +193,12 @@ def main() -> int:
                             slides=[{"type": "content", "title": "太多条",
                                      "bullets": ["条目" + str(i) for i in range(15)]}])
     check(isinstance(tr, dict) and tr.get("success") is True, "15-bullet content still generates (no crash)")
+    # 134 波:旧的「>10 条截断 + 内容过多注记」改为无损自动分页 —— 一条不丢,跨页续排。
     tprs = Presentation(trunc_path)
     ttext = "\n".join(sh.text_frame.text for sl in tprs.slides for sh in sl.shapes if sh.has_text_frame)
-    check("内容过多" in ttext, ">10 bullets truncated with 「…（内容过多，建议拆页）」 note")
+    check(tr.get("paginated") is True and tr.get("slides", 0) >= 2, ">10 bullets auto-paginate across >=2 slides")
+    check(all("条目" + str(i) in ttext for i in range(15)), ">10 bullets keep every item (lossless, no truncation)")
+    check("内容过多" not in ttext, "old truncation note is gone")
 
     # ---------------------------------------------------------------- three-style coverage
     print("\n== all three styles render the cover + stats + closing without error ==")

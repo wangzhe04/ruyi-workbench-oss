@@ -46,6 +46,7 @@ const DYNAMIC_ID_ALLOW = new Set([
   'bootFailureHost',   // 128f-①: js/boot-failure.js:renderBootFailure 只在启动真失败时才 el('div','boot-failure-host') 后 box.id='bootFailureHost',
                        // 挂成 body 的直接孩子(外框之上的浮层,两个视角都看得见);平时不存在,故不进静态 index.html
   'wbSteerInput',      // app.js:renderSteerBar 里 el('input',...) 后 input.id='wbSteerInput' 动态建;keepSteer/focus 守护(既有遗漏,第27波回归补登)
+  'steerDeliveryMode', // chat-stream-runtime.js:syncSendButton 里 el('select','steer-delivery-mode') 后 delivery.id='steerDeliveryMode' 动态建,插在发送按钮前(与 turnActivityBar 同模式)
 ]);
 const referencedIds = new Set();
 // $('id') / $("id")

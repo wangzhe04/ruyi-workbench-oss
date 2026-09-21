@@ -94,8 +94,8 @@ def write_pptx(
       * {'type': 'content', 'title': str, 'bullets': [str | {'text': str, 'level': int}]}
             — a bulleted content slide. Bullets may be plain strings or {text, level} for indent
               levels (0 = top). Font size and layout adapt to the bullet count: ≤3 large / 4–5 medium
-              (both vertically centred), 6–10 auto-split into two columns, >10 truncated to 10 with a
-              「…(内容过多，建议拆页)」 note.
+              (both vertically centred), 6–10 auto-split into two columns. Longer lists automatically
+              continue onto additional slides without discarding content.
       * {'type': 'stats',   'title': str, 'items': [{'label': str, 'value': str, 'note': str?}]}
             — number-highlight cards (2–6 items): even cards (2–3 per row) with a big bold primary
               value, a label above and an optional grey note below. Empty / >6 items -> error.
@@ -217,6 +217,23 @@ def write_pptx(
                 if g:
                     return g
 
+        # Keep source content intact; paginate instead of silently dropping bullets or squeezing
+        # a tall table through the footer. Repeat headers and identify continuation pages.
+        source_slides = len(slides)
+        paginated = []
+        for spec in slides:
+            stype = str(spec.get('type', '')).lower()
+            key, capacity = ('bullets', 5) if stype == 'content' else ('rows', 11)
+            values = spec.get(key)
+            threshold = 10 if stype == 'content' else 11
+            if stype in ('content', 'table') and isinstance(values, list) and len(values) > threshold:
+                chunks = [values[i:i + capacity] for i in range(0, len(values), capacity)]
+                for i, chunk in enumerate(chunks, 1):
+                    paginated.append({**spec, key: chunk, 'title': f"{spec.get('title', '')} ({i}/{len(chunks)})"})
+            else:
+                paginated.append(spec)
+        slides = paginated
+
         prs = Presentation()
         prs.slide_width = SLIDE_W
         prs.slide_height = SLIDE_H
@@ -281,12 +298,6 @@ def write_pptx(
                         level = 0
                     norm.append((btext, max(0, min(level, 4))))
 
-                # >10: 保留前 9 条真实内容 + 追加一条拆页提示作为第 10 条(共 10 条,不丢真实内容;
-                # 原实现 norm[:10] 后 norm[-1]=hint 会把第 10 条内容覆盖掉 —— b3-P2 修正)。
-                if len(norm) > 10:
-                    norm = norm[:9]
-                    norm.append(("…（内容过多，建议拆页）", 0))
-
                 n = len(norm)
                 # Body area with wider left/right margins (0.8in) and clear of the title bar.
                 # v1.7: 把关人 实测 content 重心略低 —— raise the body area top ~0.35in (1.75→1.4) so the
@@ -344,7 +355,7 @@ def write_pptx(
                     return {"error": "第 " + str(page_no) + " 页 table 的 rows 必须是二维数组(list of lists)"}
                 n_cols = len(headers)
                 n_rows = len(rows) + 1  # + header
-                if n_rows > 16:
+                if n_rows > 12:
                     return {"error": "第 " + str(page_no) + " 页 table 行数过多(" + str(n_rows) + ")—— 大表会溢出画布,请拆成多页或精简行数"}
                 tbl_shape = slide.shapes.add_table(
                     n_rows, n_cols, Inches(0.9), Inches(1.8), Inches(11.5), Inches(0.4 * n_rows))
@@ -395,6 +406,8 @@ def write_pptx(
                         sp = pic._element
                         sp.getparent().remove(sp)
                         pic = slide.shapes.add_picture(img, left, top, height=Inches(4.8))
+                    pic.left = int((SLIDE_W - pic.width) / 2)
+                    pic.top = Inches(1.8) + int((Inches(4.8) - pic.height) / 2)
                 except Exception as e:  # noqa: BLE001
                     return {"error": f"第 {page_no} 页插入图片失败：{e}"}
                 if caption:
@@ -418,6 +431,9 @@ def write_pptx(
             "path": os.path.abspath(path),
             "output_path": os.path.abspath(path),
             "slides": len(slides),
+            "source_slides": source_slides,
+            "paginated": len(slides) > source_slides,
+            "visual_review_required": True,
             "style": resolved_style,
         }
     except Exception as e:  # noqa: BLE001

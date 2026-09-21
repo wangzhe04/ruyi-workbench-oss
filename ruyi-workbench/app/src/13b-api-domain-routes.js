@@ -271,6 +271,8 @@ async function steerSessionCore(input) {
   const text = String(o.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim(); // 与 steer_node 上限对齐 + 前缀中和
   if (!sessionId) return { kind: 'failure', code: 'session.id_invalid', detail: {}, message: 'invalid sessionId', status: 400 };
   if (!text) return { kind: 'failure', code: 'request.field_required', detail: { field: 'text' }, message: 'text is required', status: 400 };
+  const mode = o.mode == null ? 'queue' : o.mode;
+  if (!['queue', 'interrupt'].includes(mode)) return { kind: 'failure', code: 'request.invalid', detail: {}, message: 'mode must be queue or interrupt', status: 400 };
   const reg = activeChildren.get(sessionId);
   if (!reg) return steerRefusal('noLiveTurn');
   if (reg.kind === 'kimi-acp') {
@@ -313,12 +315,11 @@ async function steerSessionCore(input) {
   if (reg.kind !== 'openai') return steerRefusal('engineUnsupported');
   if (!Array.isArray(reg.steerQueue)) reg.steerQueue = [];
   if (reg.steerQueue.length >= STEER_QUEUE_MAX) return steerRefusal('queueFull');
-  reg.steerQueue.push(text);
-  // Wake an interruptible long-running tool immediately. This is event-driven (no model polling and no
-  // extra tokens); the provider loop preserves tool-call pairing, then drains the queued steer next.
-  try { if (typeof reg.interruptToolWait === 'function') reg.interruptToolWait(); } catch { /* best-effort */ }
+  reg.steerQueue.push({ text, mode });
+  // Ordinary additions preserve in-flight work. Only an explicit interrupt cancels a runner.
+  try { if (mode === 'interrupt' && typeof reg.interruptToolWait === 'function') reg.interruptToolWait(); } catch { /* best-effort */ }
   logEvent({ kind: 'intervention', source: 'steer', sessionId }); // 29c
-  return { kind: 'json', body: { ok: true, queued: reg.steerQueue.length } };
+  return { kind: 'json', body: { ok: true, queued: reg.steerQueue.length, mode } };
 }
 
 // ── steer 域:/api/steer ────────────────────────────────────────────────────────────────────
@@ -331,7 +332,7 @@ async function handleSteerApiRoute(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/steer') {
     const body = await readJsonBody(req);
     // 116-2b:判定与副作用全在 steerSessionCore(见上);这里只剩 body 解析与两种应答形态的翻译。
-    const outcome = await steerSessionCore({ sessionId: body.sessionId, text: body.text });
+    const outcome = await steerSessionCore({ sessionId: body.sessionId, text: body.text, mode: body.mode });
     if (outcome.kind === 'failure') return send(res, apiFailure(outcome.code, outcome.detail, outcome.message, outcome.status));
     return send(res, json(outcome.body));
   }
@@ -349,7 +350,7 @@ async function handleSteerApiRoute(req, res, pathname) {
     // Claude 引擎走即时注入,不可撤回
     if (reg.kind === 'claude') return send(res, json({ ok: false, error: 'Claude 引擎的插话已即时注入,无法撤回' }));
     if (!Array.isArray(reg.steerQueue) || !reg.steerQueue.length) return send(res, json({ ok: false, error: '队列为空' }));
-    const idx = reg.steerQueue.indexOf(text);
+    const idx = reg.steerQueue.findIndex(item => (typeof item === 'string' ? item : item.text) === text);
     if (idx < 0) return send(res, json({ ok: false, error: '未找到该插话内容' }));
     reg.steerQueue.splice(idx, 1);
     return send(res, json({ ok: true, remaining: reg.steerQueue.length }));
@@ -413,7 +414,66 @@ async function handleAudioApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/audio/correct') {
     return await handleAudioCorrect(req, res);
   }
+  // 133f:开录之前的预热闸 —— 本地识别模型装着没有;没装就现在装,装好才回。
+  if (req.method === 'POST' && pathname === '/api/audio/warmup') {
+    return await handleAudioWarmup(req, res);
+  }
   return false;
+}
+// ── 133f(用户 2026-09-21「标准/重度第一次又卡又不准」):预热 —— 语音识别的本地模型装好了没,没好就现在装 ─────────────
+// 成因(日志实证,2026-09-21 asr_transcribe_ok):toolbox 的 asr-shim 空转时不 import torch(约定 §2.2「空转要轻」),第一发转写才加载 ——
+// 新进程上首句 12–33 s(隔离实验:import+探设备 7–8 s、载权重 3–4 s、首次推理 2–2.5 s),同一时刻排队的几句全等它,期间屏上只有
+// 第一遍小模型的字;轻度档(asr-stream 里常驻的 SenseVoice)没有这一段。前端在开录之前先 POST 这里:
+//   · 组件的 /health 说这份模型已装着 → 秒回 {warm:true};
+//   · 否则用 1 秒静音走【和真请求同一条】出站路径把它装好、内核热一遍(实验:预热后第一句真话就是稳态 ≈ 0.7 s,静音足够),等它返回才说好了。
+// 只对 toolbox- 服务商有意义(云端没有「装」这回事 → skipped:'remote' 秒回)。同一份模型的并发预热合并成一发(用户取消再点、两个输入框
+// 同时点都不会装两遍)。预热不是用户的一次转写:不记账(transcribeAudioViaProvider 的 warmup 开关),记 asr_warmup 审计(只有元数据)。
+const AUDIO_WARMUP_SILENCE_MS = 1000;
+const audioWarmups = new Map();   // 'providerId|model' → Promise<{ok,warm}|{failure}>:同一份模型同一时刻只装一次
+function silentWav16k(ms) {
+  const samples = Math.round(16000 * ms / 1000);
+  const wav = Buffer.alloc(44 + samples * 2);   // 全零 = 静音
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + samples * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(16000, 24);
+  wav.writeUInt32LE(32000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
+  return wav;
+}
+// 组件报「已装着」且装的正是要用的这份:loaded 为真,并且 要的模型名 = 已装那份的真名(auto 挑中的)／组件缺省名／它内置的离线识别模型名。
+// 拿不准(没有 loaded 字段、名字对不上)一律当没装 —— 多打一发静音的代价是几百毫秒,判错成「已装」的代价是用户又等半分钟。
+function audioWarmupLoaded(body, model) {
+  if (!body || body.loaded !== true) return false;
+  const want = String(model || '').trim().toLowerCase();
+  if (!want) return false;
+  const names = [body.resolvedModel, body.model, body.offline && body.offline.model].map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+  return names.includes(want);
+}
+async function runAudioWarmup(provider, asrModel) {
+  const t0 = Date.now();
+  await ToolboxHooks.ensureForProvider(provider.id);   // 组件这会儿没在跑(崩了／上次没起来)→ 就地再起,与转写同一条路
+  const health = typeof ToolboxHooks.healthForProvider === 'function' ? await ToolboxHooks.healthForProvider(provider.id) : { running: false, body: null };
+  if (audioWarmupLoaded(health.body, asrModel)) {
+    logEvent({ kind: 'asr_warmup', provider: provider.id, model: asrModel, warm: true, durationMs: Date.now() - t0 });
+    return { ok: true, warm: true };
+  }
+  const r = await transcribeAudioViaProvider(provider, asrModel, { audio: silentWav16k(AUDIO_WARMUP_SILENCE_MS), contentType: 'audio/wav', filename: 'warmup.wav', language: '', prompt: '', warmup: true });
+  logEvent({ kind: 'asr_warmup', provider: provider.id, model: asrModel, warm: false, ok: !r.failure, ...(r.failure ? { code: r.failure.code } : {}), durationMs: Date.now() - t0 });
+  return r.failure ? { failure: r.failure } : { ok: true, warm: false };
+}
+async function handleAudioWarmup(req, res) {
+  try { await readAudioBody(req, 4096); } catch { /* 请求体没用(前端发 {}),读不读得完都不影响 */ }
+  const t0 = Date.now();
+  const resolved = resolveAsrProvider(await readConfig());
+  if (resolved.failure) { const f = resolved.failure; return send(res, apiFailure(f.code, f.params, f.message, f.status)); }
+  const { provider, asrModel } = resolved;
+  if (!String(provider.id || '').startsWith('toolbox-')) return send(res, json({ ok: true, ready: true, skipped: 'remote', durationMs: 0 }));
+  const key = provider.id + '|' + asrModel;
+  let job = audioWarmups.get(key);
+  if (!job) { job = runAudioWarmup(provider, asrModel).finally(() => { audioWarmups.delete(key); }); audioWarmups.set(key, job); }
+  let r;
+  try { r = await job; }
+  catch (err) { return send(res, apiFailure('asr.warmup_failed', {}, '预热失败: ' + String(err && err.message || err).slice(0, 200), 502)); }
+  if (r.failure) { const f = r.failure; return send(res, apiFailure(f.code, f.params, f.message, f.status)); }
+  return send(res, json({ ok: true, ready: true, warm: r.warm, durationMs: Date.now() - t0 }));
 }
 // ── 131b(52 号文 §3/§5;用户 2026-09-21 拍板 2):句尾改错的编排 ────────────────────────────────────────────
 // 输入 JSON {text: 第一遍文字, audio?: base64 WAV(这一句), contentType?};按 asrFixMode 决定走哪几条路:

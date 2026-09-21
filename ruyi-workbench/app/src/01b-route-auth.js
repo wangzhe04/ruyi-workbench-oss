@@ -81,6 +81,8 @@ const ROUTE_AUTH = [
   { m: 'DELETE', p: '/api/audio/stream/sessions/', auth: 'token', prefix: true },
   // 131b(52 号文 §5):句尾改错 —— 一句的第一遍文字(＋音频)送去重听／大模型改字。同一条出网面,同档 token 级。
   { m: 'POST', p: '/api/audio/correct', auth: 'token' },
+  // 133f:开录之前的预热闸(本地识别模型装着没有／现在装)。会让本机组件加载模型、占显存,与转写同档 token 级。
+  { m: 'POST', p: '/api/audio/warmup', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)

@@ -303,6 +303,22 @@ async function onAsrSelectionChanged(prev, next) {
   for (const t of toolboxUnloadTargets(prev, next)) await toolboxUnloadForProvider(t.providerId, { from: t.from, to: t.to });
 }
 
+// 133f(用户 2026-09-21「标准/重度第一次又卡又不准」):语音识别开录之前问一声「这个组件的模型这会儿装着没有」。
+// 只读它登记的 service.health(与探活同款:只到 127.0.0.1:<端口>、1.5 秒超时、体只取前 4 KB)。回 { running, body }:
+// running=false 表示组件没在跑(调用方先 ensureForProvider);body 是 /health 的 JSON,拿不到／不是对象就是 null。
+// asr-shim 的 /health 带 loaded／resolvedModel,且【不触发加载】;别的组件没这些字段也没关系,调用方按「拿不准」走真转写。
+async function toolboxHealthForProvider(providerId) {
+  const id = String(providerId || '').replace(/^toolbox-/, '');
+  const entry = toolboxServices.get(id);
+  const svc = entry && entry.component && entry.component.service;
+  if (!entry || entry.state !== 'running' || !svc) return { running: false, body: null };
+  try {
+    const res = await fetch('http://127.0.0.1:' + entry.port + svc.health, { signal: AbortSignal.timeout(TOOLBOX_PROBE_TIMEOUT_MS) });
+    const body = safeJsonParse((await res.text()).slice(0, 4096), null);
+    return { running: true, body: res.ok && body && typeof body === 'object' && !Array.isArray(body) ? body : null };
+  } catch { return { running: true, body: null }; }
+}
+
 // /api/status 用的只读视图:设置页据此画「扩展组件」一栏。命令只给文件名(不给全路径、不给参数、不给 env)。
 function toolboxStatusView(config) {
   const tb = (config && config.toolbox) || {};
@@ -326,3 +342,4 @@ ToolboxHooks.stopAllSync = stopAllToolboxServicesSync;
 ToolboxHooks.ensureForProvider = ensureToolboxServiceForProvider;
 ToolboxHooks.statusView = toolboxStatusView;
 ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;
+ToolboxHooks.healthForProvider = toolboxHealthForProvider;

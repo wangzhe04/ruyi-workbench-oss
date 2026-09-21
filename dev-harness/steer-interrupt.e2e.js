@@ -90,7 +90,7 @@ function checkToolBlockContiguity(ph) {
     const ev = await streamChatLive(WB_PORT, { sessionId: sid, message: '并行读三个文件', cwd: HOME }, evt => {
       if (evt.type === 'meta' && !steerResp) {
         steerResp = { pending: true };
-        setTimeout(() => { postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT }, { 'x-wcw-token': token }).then(r => { steerResp = r; }).catch(() => {}); }, 250);
+        setTimeout(() => { postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT, mode: 'interrupt' }, { 'x-wcw-token': token }).then(r => { steerResp = r; }).catch(() => {}); }, 250);
       }
     });
     for (let i = 0; i < 20 && !(steerResp && steerResp.body); i += 1) await sleep(50);

@@ -1,4 +1,6 @@
 /* Composer, attachments, resume/compact indicators, team controls, and steer queue. */
+.steer-delivery-mode { max-width: min(260px, 42vw); min-height: 32px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--ink); font: inherit; padding: 4px 6px; }
+.steer-delivery-mode[hidden] { display: none; }
 /* ============================ composer ============================ */
 .composer { flex: 0 0 auto; position: relative; background: var(--glass-bg-1);
   -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2); /* 第50波:框架族玻璃二档 */
@@ -88,12 +90,22 @@
 .composer-voice[data-state="recording"] .ic { animation: breathe 1.4s ease-in-out infinite; }
 .composer-voice[data-state="transcribing"] { color: var(--accent); cursor: progress; }
 .composer-voice[data-state="error"] { color: var(--danger-fg); }
+/* 133f：加载中 —— 等本地识别模型装进显存，装好才开录（composer-voice.js 头注 ⑩）。主色 + 转圈 + 计时；光标是 progress
+   （再点一下是取消，所以不是 not-allowed）。转圈与压缩指示器那颗（.compact-spinner）同款几何、同一组关键帧；减弱动效时
+   转圈不动，信号由字承担（§2.10.1「图标不作唯一信号」）。 */
+.composer-voice[data-state="warming"] { color: var(--accent); cursor: progress; }
+.composer-voice[data-state="warming"] .composer-voice-text::before {
+  content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; box-sizing: border-box;
+  border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent);
+  animation: compact-spin 0.8s linear infinite;
+}
 /* 128f-⑭：待开启（语音识别还没配）—— 灰一档，悬停恢复常色；点它去设置里开启（不是录音开关）。 */
 .composer-voice[data-state="setup"] { opacity: .55; }
 .composer-voice[data-state="setup"]:hover, .composer-voice[data-state="setup"]:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .composer-voice { transition: none; }
   .composer-voice[data-state="recording"] .ic { animation: none; }
+  .composer-voice[data-state="warming"] .composer-voice-text::before { animation: none; }
 }
 /* 127-⑦ 390px 实测：≤560px 的工作台胶囊里一行要塞「＋／Agent 团队／麦克风／发送」四件，输入框只剩 16px，
    录音态（麦克风多出 m:ss）直接被挤到 0。没有麦克风时原排布是 54px —— 本来就窄，这枚第五件是压垮它的那一下。

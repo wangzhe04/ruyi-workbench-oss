@@ -383,6 +383,21 @@ export function createChatStreamRuntime(deps = {}) {
     const live = streaming || sessionAcceptsSteer(state.currentSession?.id || '');
     const steer = live && hasText && steerCapability.ok;
     const blockedSteer = live && hasText && !steerCapability.ok;
+    let delivery = $('steerDeliveryMode');
+    if (!delivery) {
+      delivery = el('select', 'steer-delivery-mode');
+      delivery.id = 'steerDeliveryMode';
+      delivery.setAttribute('aria-label', t('chat.steerDelivery'));
+      for (const mode of ['queue', 'interrupt']) {
+        const option = document.createElement('option');
+        option.value = mode; option.textContent = t('chat.steerDelivery.' + mode);
+        delivery.appendChild(option);
+      }
+      btn.before(delivery);
+    }
+    const engine = activeTurns.get(state.currentSession?.id)?.engine;
+    delivery.hidden = !steer || engine !== 'openai';
+    if (!steer) delivery.value = 'queue';
     btn.classList.toggle('danger', streaming && !steer && !blockedSteer);
     btn.classList.toggle('primary', !streaming || steer);
     if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
@@ -831,7 +846,9 @@ export function createChatStreamRuntime(deps = {}) {
     if (!state.currentSession?.id) return;
     if (!activeTurnSteerCapability().ok) { showClaudeSteerSetup(); return; }
     try {
-      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
+      const delivery = $('steerDeliveryMode');
+      const mode = delivery && !delivery.hidden ? delivery.value : 'queue';
+      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text, mode }) });
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
       // **服务端才是权威。** 它说这条线程此刻没有在途回合，就说明我们手上那份「可以插话」的信念
       // 已经过期（它唯一的来源是一次 GET 带回的 relay 快照）。这时把用户的话卡在框里、只弹一句

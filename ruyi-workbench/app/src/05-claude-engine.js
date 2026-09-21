@@ -2089,7 +2089,9 @@ function asrChatContentText(parsed) {
 // 打哪个路径、请求体长什么样、回体的文本/usage 从哪个字段读。端点解析、鉴权头、120s 超时、
 // 回体 8KB 上限、错误体【先脱敏再裁 1000】、三个错误码、kind:'aux'/note:'asr' 记账全部只有一份:
 // 抄第二份迟早分叉(一边补了脱敏一边没补)。
-async function transcribeAudioViaProvider(provider, asrModel, { audio, contentType, filename, language, prompt }) {
+// 133f:warmup=true 是 /api/audio/warmup 装模型用的静音探针 —— 走的就是这一条出站路径(所以「预热好了」＝「真请求不会再等加载」),
+// 但它不是用户的一次转写:成功时不记账、不记 asr_transcribe_ok(调用方自己记 asr_warmup);失败照记,并标 warmup。
+async function transcribeAudioViaProvider(provider, asrModel, { audio, contentType, filename, language, prompt, warmup }) {
   // 出站目标 URL【只来自配置】(audioBaseUrl || baseUrl),绝不接受请求体里的地址(威胁模型见 13b audio 域头注)。
   //   transcriptions:multipart(Node 内置 FormData+Blob)→ {base}/audio/transcriptions;
   //   chat-audio    :application/json + input_audio data URI → {base}/chat/completions。
@@ -2110,7 +2112,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   const protocol = chatAudio ? 'chat-audio' : 'transcriptions';
   const failed = (failure, detail) => {
     failure.params = { ...(failure.params || {}), protocol };
-    logEvent({ kind: 'asr_transcribe_failed', code: failure.code, upstreamStatus: failure.params.status || 0, protocol, provider: provider.id, model: asrModel, bytes: audio ? audio.length : 0, durationMs: Date.now() - t0, ...(detail ? { detail: String(detail).slice(0, 200) } : {}) });
+    logEvent({ kind: 'asr_transcribe_failed', code: failure.code, upstreamStatus: failure.params.status || 0, protocol, provider: provider.id, model: asrModel, bytes: audio ? audio.length : 0, durationMs: Date.now() - t0, ...(warmup ? { warmup: true } : {}), ...(detail ? { detail: String(detail).slice(0, 200) } : {}) });
     return { failure };
   };
   const t0 = Date.now();
@@ -2180,6 +2182,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     text = parsed.text;
     outLanguage = typeof parsed.language === 'string' && parsed.language.trim() ? parsed.language.trim().slice(0, 40) : '';
   }
+  if (warmup) return { ok: true, text, outLanguage, durationMs, providerId: provider.id, model: asrModel, estimated: true };
   // 记账(26 号文 §1):kind:'aux', note:'asr'。上游带 usage 用真值;否则按字节/文本长度保守估算并
   // 标 estimated:true(估算只是让这条 aux 在看板里有个量级,不是精确账单 —— appendUsageLedger 会
   // 跳过零 token 行,估算同时保证这条支出不凭空消失)。

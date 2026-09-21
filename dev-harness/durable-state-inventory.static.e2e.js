@@ -18,7 +18,9 @@ try {
   const source = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '10-context-governance.js'), 'utf8');
   ok(/DurableJsonStore\.create/.test(source) && !/const tmp = file \+ '\.tmp'/.test(source), 'context calibration no longer carries a private tmp/quarantine/write chain');
   const server = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'server.js'), 'utf8');
-  ok((server.match(/\+ '\.tmp'/g) || []).length === 4, 'no undeclared fixed-tmp JSON writer remains');
+  // 5 处固定 tmp 写点与 autonomy-durability 的白名单同源:④ 处既有豁免 + 134 后台任务台账
+  // background-jobs/<sessionId>.json(child close 同步事件内串行写,已在 durable-state-inventory.js 登记)。
+  ok((server.match(/\+ '\.tmp'/g) || []).length === 5, 'no undeclared fixed-tmp JSON writer remains');
 } catch (error) { console.error(error.stack || error); failures++; }
 
 if (failures) process.exitCode = 1;

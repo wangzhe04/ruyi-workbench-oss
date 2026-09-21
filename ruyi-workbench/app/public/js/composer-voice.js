@@ -39,6 +39,13 @@
 //      不到 COMPOSER_VOICE_SEGMENT_MIN_MS 的短录音不切，行为与从前逐字节相同；宿主没有 AudioContext 时同样不切。
 //      走的仍是 ③ 那一条转写接口，对服务商零新增要求；②「永不自动发送」、⑦「不落盘」不变。
 //      Esc 取消＝还没转出来的都不要；已经落进输入框的字不往回收。转写这条路不通时当场停录并说清原因。
+//   ⑩ 开录前的预热闸（用户 2026-09-21：「标准/重度第一次的语音识别又卡又不准……加个简单的动效，等加载完成后才让用户语音输入」）：
+//      标准／重度档的第二遍是 toolbox 的 asr-shim（Qwen3-ASR）。它空转时不装载模型、第一发请求才加载 —— 日志实证新进程上
+//      首句 12–33 s，期间屏上只有第一遍小模型的字、机器还在往显存里灌（又卡又不准）；轻度档常驻的 SenseVoice 没有这一段。
+//      所以点麦克风后先 POST /api/audio/warmup：模型装着就秒回、直接开录（一个字不多说）；没装就进「加载中」态
+//      （转圈＋计时＋一句人话，再点／Esc 取消），装好才去拿麦克风。只在会用到本地识别组件时才问（composerVoiceNeedsWarmup）。
+//      预热失败不拦：流式路第一遍（asr-stream）不依赖它，照录并说一句；没有第一遍的（按停顿切段）录了也转不出字，当场说清原因。
+//      等了一阵才装好、而页面已不在前台（切走了标签／窗口）就不替他开麦克风：回到空闲，下一次点击就是热的。
 
 import { apiRaw, apiErrorInfo } from './net.js';
 import { icon } from './icons.js';
@@ -124,6 +131,16 @@ export function composerVoiceCorrectConfigured(config) {
 }
 export function composerVoiceCorrectWantsAudio(config) {
   return Boolean(config) && String(config.asrFixMode || 'auto') !== 'llm' && composerVoiceConfigured(config);
+}
+// 133f（头注 ⑩）：开录之前要不要先问「本地识别模型装好没」。只有会用到本地识别组件（toolbox- 服务商）才要：云端没有「装载」这回事；
+// 流式路里整段识别模型只在句尾「重听」时才用（第一遍是 asr-stream，启动时就常驻）；没有第一遍的（按停顿切段），整段识别就是第一遍。
+// 判据只看配置，纯函数（静态件直接调）；装没装、要不要等由服务端的 /api/audio/warmup 说了算。
+export const COMPOSER_VOICE_WARMUP_PATH = '/api/audio/warmup';
+export const COMPOSER_VOICE_WARMUP_SHOW_MS = 400;   // 请求超过这么久才亮出「加载中」—— 装着的时候一发往返几十毫秒，不该闪一下
+export function composerVoiceNeedsWarmup(config) {
+  if (!composerVoiceConfigured(config)) return false;
+  if (!String(config.asrProviderId || '').startsWith('toolbox-')) return false;
+  return !composerVoiceStreamConfigured(config) || (composerVoiceCorrectConfigured(config) && composerVoiceCorrectWantsAudio(config));
 }
 // 流式路的文字拼接（纯函数，静态件直接调）：句与句之间只在两侧都是拉丁字母／数字时加空格（中文之间不加）。
 export function streamJoin(parts) {
@@ -270,8 +287,10 @@ export function createComposerVoice({
   let button = null;
   let label = null;
   let live = null;
-  let phase = 'idle';        // idle | starting | recording | transcribing | error | setup（128f-⑭：录得了、但语音识别还没配）
+  let phase = 'idle';        // idle | starting | warming | recording | transcribing | error | setup（128f-⑭：录得了、但语音识别还没配）；warming = 133f 等本地识别模型装载
   let errorKey = '';
+  let warmCtl = null;        // 133f：在飞的预热请求的取消柄（cancel 掐它；模型在服务端照装，下一次点击就是热的）
+  let warmStartedAt = 0;     // 133f：加载中态开始的时刻（按钮上的计时）
   let attempt = 0;           // 每次开始／取消 +1：拿到麦克风时发现不是这一次了，就把轨道放掉
   let recorder = null;
   let stream = null;
@@ -301,16 +320,18 @@ export function createComposerVoice({
       return;
     }
     button.dataset.state = phase;
-    button.setAttribute('aria-pressed', String(phase === 'starting' || phase === 'recording'));
+    button.setAttribute('aria-pressed', String(phase === 'starting' || phase === 'warming' || phase === 'recording'));
     button.setAttribute('aria-disabled', String(phase === 'transcribing'));
     // 可访问名恒定（切换按钮的名字不随按下态变，按下与否由 aria-pressed 说）；提示与可见文字随阶段变。
     button.setAttribute('aria-label', t('composer.voice.label'));
     if (phase === 'error' && errorKey) button.title = t(errorKey);
+    else if (phase === 'warming') button.title = t('composer.voice.warming.title');
     else if (phase === 'recording' || phase === 'starting') button.title = t('composer.voice.stop');
     else if (phase === 'transcribing') button.title = t('composer.voice.transcribing');
     else button.title = t(composerVoiceStreamConfigured(state && state.config) ? 'composer.voice.hintStream' : 'composer.voice.hint');
     if (!label) return;
     if (phase === 'recording') label.textContent = formatVoiceElapsed(now() - startedAt);
+    else if (phase === 'warming') label.textContent = t('composer.voice.warming.label', { time: formatVoiceElapsed(now() - warmStartedAt) });
     else if (phase === 'transcribing') label.textContent = '…';
     else if (phase === 'error') label.textContent = t('composer.voice.errorShort');
     else label.textContent = '';
@@ -324,7 +345,7 @@ export function createComposerVoice({
 
   function onEscape(event) {
     if (event.key !== 'Escape' || event.isComposing) return;
-    if (phase !== 'recording' && phase !== 'starting') return;
+    if (phase !== 'recording' && phase !== 'starting' && phase !== 'warming') return;
     // 录音中的 Esc 只做「取消录音」这一件事：不再往下传给工作台的全局 Esc（关抽屉／停回合）或管家的 Esc 栈。
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -424,12 +445,85 @@ export function createComposerVoice({
     try { notify(t(key), 'err'); } catch { /* 没有 toast 托盘的宿主：悬停提示与播报仍在 */ }
   }
 
+  // 133f（头注 ⑩）：开录之前的预热闸。回 true = 可以去拿麦克风；false = 该收手（已取消／已当场 fail／装好了但人不在前台）。
+  // 装好之前不碰麦克风 —— 装载要十几秒，这段时间不该亮着系统的「正在录音」指示，也不该录进用户还没开口的沉默。
+  async function warmUp(mine) {
+    const cfg = () => (state && state.config) || {};
+    const pick = () => String(cfg().asrProviderId || '') + '|' + String(cfg().asrModel || '');
+    let shown = false;
+    let failedKey = '';
+    const showTimer = setTimeout(() => {
+      if (mine !== attempt || phase !== 'starting') return;
+      shown = true;
+      phase = 'warming';
+      warmStartedAt = now();
+      ticker = setInterval(tick, COMPOSER_VOICE_TICK_MS);   // 计时走格；与录音共用同一根 ticker（两个阶段不会同时存在）
+      paint();
+      announce(t('composer.voice.warming.announce'));
+      try { notify(t('composer.voice.warming.toast'), ''); } catch { /* 无托盘宿主：按钮上的字与播报仍在 */ }
+    }, COMPOSER_VOICE_WARMUP_SHOW_MS);
+    try {
+      // 等的过程中用户在设置里换了识别档位（标准↔重度）→ 装好的是旧的那份，再问一次（最多三轮，不无限追）。
+      for (let round = 0; round < 3; round++) {
+        const asked = pick();
+        const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+        warmCtl = ctl;
+        try {
+          const res = await request(COMPOSER_VOICE_WARMUP_PATH, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' }, ...(ctl ? { signal: ctl.signal } : {}) });
+          if (mine !== attempt) return false;
+          if (!res.ok) {
+            let raw = '';
+            try { raw = await res.text(); } catch { raw = ''; }
+            failedKey = transcribeErrorKey(apiErrorInfo(new Error(raw)));
+            break;
+          }
+        } catch {
+          if (mine !== attempt) return false;   // 取消：cancel() 已经收拾好了
+          failedKey = 'composer.voice.error.failed';
+          break;
+        }
+        if (pick() === asked) break;
+      }
+    } finally {
+      clearTimeout(showTimer);
+      warmCtl = null;
+    }
+    if (mine !== attempt) return false;
+    // 装好了（或失败了）：按钮马上回到「等麦克风」的样子，别停在「加载模型 0:02」上 —— 接下来可能是一个迟迟不回的授权框。
+    if (shown) { clearTicker(); phase = 'starting'; paint(); }
+    if (failedKey) {
+      // 预热没成：流式路第一遍（asr-stream）不依赖它，照录、说一句「这次没有更准的校正」；没有第一遍的，录了也转不出字 → 当场说清原因。
+      if (composerVoiceStreamConfigured(state && state.config)) {
+        try { notify(t('composer.voice.warming.failed'), ''); } catch { /* 无托盘宿主 */ }
+        return true;
+      }
+      fail(failedKey);
+      return false;
+    }
+    if (!shown) return true;   // 装着的（常态）：一句话不说，直接去开录
+    // 等了一阵才装好：告诉他。人已不在前台（切走了标签／窗口）就不替他开麦克风，回到空闲 —— 下一次点击就是热的。
+    const doc = globalThis.document;
+    const here = !doc || (doc.visibilityState !== 'hidden' && (typeof doc.hasFocus !== 'function' || doc.hasFocus()));
+    if (!here) {
+      bindEscape(false);
+      phase = 'idle';
+      paint();
+      announce(t('composer.voice.warming.readyIdle'));
+      try { notify(t('composer.voice.warming.readyIdle'), 'ok'); } catch { /* 无托盘宿主 */ }
+      return false;
+    }
+    announce(t('composer.voice.warming.ready'));
+    try { notify(t('composer.voice.warming.ready'), 'ok'); } catch { /* 无托盘宿主 */ }
+    return true;
+  }
+
   async function start() {
     const mine = ++attempt;
     errorKey = '';
     phase = 'starting';
     bindEscape(true);
     paint();
+    if (composerVoiceNeedsWarmup(state && state.config) && !(await warmUp(mine))) return;
     let media = null;
     try {
       media = await globalThis.navigator.mediaDevices.getUserMedia({ audio: true });
@@ -682,6 +776,12 @@ export function createComposerVoice({
   }
 
   function tick() {
+    if (phase === 'warming') {
+      // 加载中按钮被拆掉／所在视角被收起：不等了（模型在服务端照装，下一次点击就是热的）。否则装好时会替一个看不见的输入框开麦克风。
+      if (!button || !button.isConnected || (typeof button.checkVisibility === 'function' && !button.checkVisibility())) { cancel(); return; }
+      paint();   // 计时走一格
+      return;
+    }
     if (phase !== 'recording') return;
     if (now() - startedAt >= COMPOSER_VOICE_MAX_MS) {
       announce(t('composer.voice.limitReached', { minutes: Math.round(COMPOSER_VOICE_MAX_MS / 60000) }));
@@ -719,7 +819,10 @@ export function createComposerVoice({
   function cancel() {
     attempt += 1;
     bindEscape(false);
-    if (phase === 'starting') {
+    if (phase === 'starting' || phase === 'warming') {
+      // 133f：加载中取消＝不等了。掐掉在飞的预热请求、收计时（模型在服务端照装，下一次点击就是热的）。
+      if (warmCtl) { try { warmCtl.abort(); } catch { /* 已经结束 */ } warmCtl = null; }
+      clearTicker();
       phase = 'idle';
       paint();
       announce(t('composer.voice.cancelled'));
@@ -850,7 +953,7 @@ export function createComposerVoice({
     if (phase === 'setup') { openSetup(); return; }   // 128f-⑭：去设置里把语音识别开起来
     if (phase === 'transcribing') return;
     if (phase === 'recording') { stop(); return; }
-    if (phase === 'starting') { cancel(); return; }   // 授权框迟迟不回（桌面壳）时，再点一下就是不录了
+    if (phase === 'starting' || phase === 'warming') { cancel(); return; }   // 授权框迟迟不回（桌面壳）／模型还在装时，再点一下就是不录了
     void start();
   }
 
@@ -876,7 +979,7 @@ export function createComposerVoice({
 
   function teardown() {
     if (!button) return;
-    if (phase === 'recording' || phase === 'starting') cancel();
+    if (phase === 'recording' || phase === 'starting' || phase === 'warming') cancel();
     if (sx) { streamCancel(sx); }
     bindEscape(false);
     button.remove();
@@ -894,7 +997,7 @@ export function createComposerVoice({
     if (!box || !host || !composerVoiceCapable()) { teardown(); return false; }   // 128f-⑭：录不了才不出按钮
     if (!button) build();
     if (!composerVoiceConfigured(state && state.config)) {
-      if (phase === 'recording' || phase === 'starting') cancel();   // 语音识别刚被关掉：在录的那一段丢弃
+      if (phase === 'recording' || phase === 'starting' || phase === 'warming') cancel();   // 语音识别刚被关掉：在录的那一段丢弃／还在装的不等了
       phase = 'setup';
       errorKey = '';
     } else if (phase === 'setup') {

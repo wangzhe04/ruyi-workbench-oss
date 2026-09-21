@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 52,
+  "count": 53,
   "lifecycleCounts": {
-    "dedicated-exemption": 16,
+    "dedicated-exemption": 17,
     "external-exemption": 9,
     "regenerable-exemption": 7,
     "shared-lifecycle": 20
@@ -569,6 +569,20 @@
       "recovery": "refetch or offline miss",
       "lifecycle": "regenerable-exemption",
       "exemptionReason": "derived cache; shared atomic write"
+    },
+    {
+      "id": "background-job-ledger",
+      "pattern": "<data>/sessions/background-jobs/<sessionId>.json",
+      "owner": "11-native-tools.js",
+      "anchor": "backgroundJobFile",
+      "schema": "array of job receipts / implicit v1 (id/shellId/name/sessionId/status/exitCode/output/truncated/completedAt)",
+      "writePrimitive": "unique fixed tmp name per file + renameSync INSIDE the child-close synchronous event (single-threaded event loop serializes read-modify-write; async atomicWriteJson would interleave concurrent closes and lose updates)",
+      "corruption": "unreadable ledger yields an empty list: a lost receipt means a missing notification, never a wrong one",
+      "capacity": "last 100 receipts per session (read side slices, write side trims)",
+      "cache": "seen job ids per session (backgroundJobSeen) so a reconnect never re-pushes a receipt",
+      "recovery": "the receipts are the record itself: a lost row only loses that one notification; running background jobs die with the server and are never replayed",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "fixed-tmp JSON writer exempted beside the autonomy-durability whitelist (same 5-site lock)"
     },
     {
       "id": "proxy-models-cache",

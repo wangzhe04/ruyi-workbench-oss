@@ -883,6 +883,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -1886,6 +1893,7 @@
         "toolboxDesiredProviders",
         "toolboxEntry",
         "toolboxFreePort",
+        "toolboxHealthForProvider",
         "toolboxKillTree",
         "toolboxListenOnce",
         "toolboxPortFree",
@@ -5057,6 +5065,7 @@
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
         "gitExec",
+        "hasInterruptingSteer",
         "legacyToolCatalogSearch",
         "listCompactTools",
         "looksLikePlan",
@@ -6351,6 +6360,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -7192,6 +7208,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "hasInterruptingSteer",
           "kinds": [
             "call"
           ]
@@ -8514,6 +8537,8 @@
         "ZIP_MAX_SINGLE_FILE",
         "ZIP_MAX_TOTAL",
         "_rgProbe",
+        "backgroundJobFile",
+        "backgroundJobText",
         "browserHeaders",
         "builtinSearch",
         "classifyFetchError",
@@ -8521,6 +8546,7 @@
         "codeReviewScan",
         "codebaseSymbolSearch",
         "columnProfile",
+        "completeBackgroundJob",
         "crc32",
         "dataProfile",
         "debugHypStats",
@@ -8557,6 +8583,7 @@
         "parseBingHtml",
         "parseCsv",
         "probeRg",
+        "readBackgroundJobs",
         "readIfExists",
         "readWebCache",
         "resolveGitCwd",
@@ -8611,6 +8638,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -8647,6 +8681,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
           ]
@@ -8694,6 +8735,20 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "ensureDataRootReal",
           "kinds": [
@@ -8716,7 +8771,21 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
           "kinds": [
             "call"
           ]
@@ -10983,21 +11052,27 @@
         "AUDIO_STREAM_IDLE_MS",
         "AUDIO_STREAM_MAX_SESSIONS",
         "AUDIO_STREAM_UPSTREAM_TIMEOUT_MS",
+        "AUDIO_WARMUP_SILENCE_MS",
         "STEER_REFUSAL",
         "audioStreamFailure",
         "audioStreamReap",
         "audioStreamSessions",
         "audioStreamUpstream",
+        "audioWarmupLoaded",
+        "audioWarmups",
         "handleAudioApiRoutes",
         "handleAudioCorrect",
         "handleAudioStreamOpen",
         "handleAudioStreamSession",
         "handleAudioTranscribe",
+        "handleAudioWarmup",
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
         "maybeTranscribeAudioAttachment",
         "readAudioBody",
+        "runAudioWarmup",
+        "silentWav16k",
         "steerRefusal",
         "steerSessionCore"
       ],

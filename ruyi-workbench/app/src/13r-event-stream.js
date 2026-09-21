@@ -203,6 +203,11 @@ function eventStreamOnActiveChildEvent(reg, evt) {
 // ────────────────────────────────────────────────────────────────────────────
 RUYI_EVENTS.subscribe((name, payload) => {
   const data = (payload && typeof payload === 'object') ? payload : {};
+  if (name === 'background.completed') {
+    const sessionId = safeSessionId(data.sessionId);
+    if (sessionId) eventStreamPublish(name, { sessionId, jobId: String(data.jobId || ''), status: String(data.status || ''), persisted: data.persisted === true });
+    return;
+  }
   // 128f-⑫:现算那一趟挪到【发事件的那一串同步代码跑完之后】(setImmediate)。修前是当场开读会话头 —— 发事件的人
   // 紧接着若把事件循环占住(同步起子进程之类),那一发读只走完「打开文件」,读与关要等循环回来,句柄就一直开着;
   // Windows 上这期间别的进程把新头 rename 过来会一直 EPERM(session-rewind-gen E 第一轮实测:父进程撤回之后

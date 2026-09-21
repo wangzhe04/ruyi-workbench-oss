@@ -1,26 +1,65 @@
 ---
 name: Office 自动化
-description: 离线处理 Word/Excel/PPT/CSV/PDF 与 COM 自动化
+description: 生成与美化可编辑 PPT、Excel、Word；选择版式、复用模板、检查公式和渲染成品
 ---
 
-# Office Automation
+# Office 成品制作
 
-Use this skill for offline Windows Office work: Word, Excel, PowerPoint, CSV, PDF handoff, and COM automation.
+用于制作演示文稿、报告、工作簿。交付物是可继续编辑的文件，而非聊天中的大纲。
+下列指导为如意独立编写，不要求联网或安装第三方 skill。
 
-Recommended approach:
+## 选择工具
 
-1. Inspect files with `file_list` and `file_read` first.
-2. Use `office_open` to open a document for visual/manual review.
-3. Use `script_run` with PowerShell for COM automation when Office is installed.
-4. Use Python scripts for CSV, JSON, text reports, and non-Office formats.
-5. Write generated outputs into the project workspace or `%USERPROFILE%\.win-claude-workbench\generated`.
+先通过工具目录与 diagnostics 确认实际能力；不要猜测 MCP 前缀或把 Office 二进制交给 file_read。
 
-PowerShell COM examples:
+| 需求 | 默认路径 | 超出默认能力时 |
+| --- | --- | --- |
+| 常规演示文稿 | ACC write_pptx | python-pptx/PptxGenJS：原生可编辑图表、母版、自定义图文 |
+| 常规表格 | write_excel → excel_beautify → excel_chart | openpyxl 修改现有文件；XlsxWriter/ExcelJS 新建多表模型 |
+| 报告/方案 | write_document | python-docx/docx 精细排版；docxtpl 填充用户 Word 模板 |
+| PDF | write_pdf；有 Office/LibreOffice 时导出最终 Office 文件 | 单独重排的 PDF 不能充当 Office 文件的真实预览 |
 
-```powershell
-$excel = New-Object -ComObject Excel.Application
-$excel.Visible = $true
-$wb = $excel.Workbooks.Open("C:\path\book.xlsx")
-```
+扩展库是可选能力，不是默认已安装。通过 script_run 探测 import/require；缺依赖时选已具备的路线。
+复杂需求可以使用脚本，但先写到新文件；脚本输出不承诺工具检查点可撤销。
+优先保留用户模板中的母版、字体和页眉页脚。大批量导出可在 provider 引擎用 shell_start(command=...) 后台运行，完成通知会主动送达会话。
+COM 自动化只关闭自己创建的文档和应用实例，finally 释放对象，不结束用户已有 Office 进程。
 
-Always close or save Office COM objects deliberately when running unattended scripts.
+## 从内容到版式
+
+从用户要求提取读者、用途、数据口径、输出路径和已有品牌规范；只有关键输入缺失才提问。
+无模板时选择 business/minimal/vibrant 中一个风格并贯穿全文；颜色和字号承担含义，不为装饰堆叠卡片。
+中文字体需明确设置 East Asian 字体；导出机器缺字体时检查实际回退效果。
+
+### PowerPoint
+
+- 先写每页的结论标题和支持证据，再选图表或版式。通常每页 3–5 个短要点，详细说明放备注/附录。
+- 关键数字用 stats；趋势/比较优先图表；明细用 table；流程或对比可用自定义图形/分栏，避免整套都是项目符号。
+- write_pptx 支持 title/content/stats/table/image/closing。超过 10 条的 content 和超过 11 条数据的 table 自动续页，仍应主动精简每页文字。
+- 表格每页重复表头；图表标单位、时间范围和来源。用户需要编辑图表时使用原生图表，不交付扁平截图冒充可编辑图表。
+- 不通过无限缩小字号容纳内容；标题约 28–40 pt，正文约 18–24 pt，空间不足时拆页。
+- 图片保持比例，统一边距与基线；封面、内容、数据、结尾应有适合内容的视觉层次。
+
+### Excel
+
+- 多表分析区分说明/来源、原始数据、计算、摘要；不要为了好看合并数据区域单元格。
+- 数值、百分比、日期、编号有明确类型。编号、前导零和超过 15 位的标识符作为文本；12% 应存成 0.12。
+- 可变计算保留公式与引用，输入区和公式区用说明/样式区分；保留原始数据与口径说明。
+- 冻结表头、筛选、适度列宽、单位、数字格式和打印重复表头。图表回答一个问题，避免无意义 3D 和过多系列。
+- openpyxl/XlsxWriter/ExcelJS 写入公式不等于执行公式。若有 Excel/LibreOffice，在副本上重算保存，再读回缓存值；没有计算引擎时标明“公式未重算”。不得把空缓存或默认 0 当成计算结果。
+- 抽样独立复算汇总，检查错误单元格、百分比尺度、编号、空值及筛选范围。
+
+### Word
+
+- 用真正的 Title/Heading 1–3、编号列表、表格和 PAGE 域；不要用连续空格伪造对齐。
+- write_document 的表格语法为 `TABLE: 列名 | 列名`，后续 `| 值 | 值` 为行，空行结束；普通 Markdown 管道表应先转换。
+- 长报告启用 page_numbers；需要封面时传 cover。标题与下段保持同页，表格跨页重复表头，避免孤行。
+- 列表中的 `4.`、`10.` 等也应是编号段落；不让编号文本混入正文。
+- 有指定纸张、页边距、页眉页脚、交叉引用或图片环绕要求时，走能够表达这些设置的扩展库/模板。
+
+## 验证与交付
+
+1. 重新打开产物：核对页/表数量、关键文字和数据、公式、图片数量、中文字体声明。
+2. 有渲染能力时，将实际产物导出 PDF 或逐页图片并查看；PPT 查看每页，Word 检查分页和跨页表格，Excel 检查使用区与打印页。
+3. 修复重叠、截断、过密、字号过小、缺单位、中文缺字和空白页，再导出复查。结构检查不能替代视觉检查。
+4. 无渲染器时保留可编辑源文件，明确“已结构核验，未视觉核验”；不得声称逐页验收通过。
+5. 交付链接、简短说明和实际验证范围；若有预览同时交付。

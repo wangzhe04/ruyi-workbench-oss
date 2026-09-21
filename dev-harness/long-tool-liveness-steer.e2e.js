@@ -91,7 +91,7 @@ function pidAlive(pid) {
     const events = await stream(workbenchPort, { sessionId: sid, message: 'run the long tool and react to my steer', cwd: HOME }, event => {
       if (event.type === 'tool_use' && event.name === 'fake__slow_task' && !steerScheduled) {
         steerScheduled = true;
-        setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: sid, text: 'stop waiting and continue now' }, headers).then(value => { steerResponse = value; }); }, 750);
+        setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: sid, text: 'stop waiting and continue now', mode: 'interrupt' }, headers).then(value => { steerResponse = value; }); }, 750);
       }
     });
     const elapsedMs = Date.now() - startedAt;
@@ -127,7 +127,7 @@ function pidAlive(pid) {
     const nativeEvents = await stream(workbenchPort, { sessionId: nativeSid, message: 'run the long PowerShell command', cwd: HOME }, event => {
       if (event.type === 'tool_use' && event.name === 'powershell_run' && !nativeSteerScheduled) {
         nativeSteerScheduled = true;
-        setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: nativeSid, text: 'interrupt the command and continue' }, headers).then(value => { nativeSteer = value; }); }, 750);
+        setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: nativeSid, text: 'interrupt the command and continue', mode: 'interrupt' }, headers).then(value => { nativeSteer = value; }); }, 750);
       }
     });
     for (let i = 0; i < 30 && !nativeSteer; i++) await sleep(50);
@@ -137,6 +137,31 @@ function pidAlive(pid) {
     ok(nativeElapsedMs < 10000, `native command is interrupted promptly (${nativeElapsedMs}ms, not 30s)`);
     ok(nativeEvents.some(event => event.type === 'tool_result' && event.content && event.content.steerInterrupted === true && event.content.interrupted === true), 'native tool_result confirms process interruption');
     ok(nativeEvents.some(event => event.type === 'steered' && event.text === 'interrupt the command and continue'), 'native-tool steer reaches the next model iteration');
+    // Ordinary additions must preserve both native commands and MCP calls until they complete.
+    for (const toolSpec of [
+      { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output PRESERVED_WORK', timeoutMs: 15000 } },
+      { name: 'fake__slow_task', args: { ms: 2200 } },
+    ]) {
+      kill(fakeProvider); await sleep(250);
+      fakeProvider = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], {
+        windowsHide: true, env: { ...process.env, FAKE_OPENAI_PORT: String(providerPort), FAKE_TOOL_NAME: toolSpec.name, FAKE_TOOL_ARGS: JSON.stringify(toolSpec.args) },
+      });
+      for (let i = 0; i < 40 && !(await get(providerPort, '/v1/models')); i++) await sleep(100);
+      const queuedSession = await post(workbenchPort, '/api/sessions', { title: 'preserve long work', cwd: HOME }, headers);
+      const queuedSid = queuedSession.body.session.id;
+      let sent = false, addition = null;
+      const queuedEvents = await stream(workbenchPort, { sessionId: queuedSid, message: 'run tool', cwd: HOME }, event => {
+        if (event.type !== 'tool_use' || event.name !== toolSpec.name || sent) return;
+        sent = true;
+        addition = post(workbenchPort, '/api/steer', { sessionId: queuedSid, text: '完成后请附上简短摘要' }, headers);
+      });
+      const response = addition && await addition;
+      ok(response?.body?.mode === 'queue', toolSpec.name + ': default addition is queued');
+      const reply = queuedEvents.find(event => event.type === 'tool_result');
+      ok(reply && !reply.isError && !reply.content?.steerInterrupted, toolSpec.name + ': ordinary addition preserves successful tool completion');
+      if (toolSpec.name === 'powershell_run') ok(reply?.content?.stdout?.includes('PRESERVED_WORK'), 'native work is actually completed, not merely left orphaned');
+      ok(queuedEvents.some(event => event.type === 'steered' && event.text === '完成后请附上简短摘要'), 'addition reaches the model after tool completion');
+    }
   } catch (error) { failures++; console.error(error && error.stack || error); }
   finally { kill(wb); kill(fakeProvider); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   console.log('\nLONG TOOL LIVENESS/STEER E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));

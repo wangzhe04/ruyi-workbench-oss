@@ -159,7 +159,14 @@
   "chat.steerClearAll": "清空队列",
   "chat.steerEnable": "启用插话",
   "chat.steerEnableHint": "当前 Claude 回合使用 legacy 模式；点击打开设置，切换 interactive 后从下一回合生效",
-  "chat.steerHint": "插话：不打断当前回合，内容将在下一步或即时注入",
+  "chat.steerHint": "补充要求默认等待当前工具完成；原生引擎可选择立即中断",
+  "chat.steerDelivery": "插话方式",
+  "chat.background.succeeded": "后台任务已完成，结果已送达所属线程",
+  "chat.background.failed": "后台任务失败，详情已送达所属线程",
+  "chat.background.timed_out": "后台任务超时，详情已送达所属线程",
+  "chat.background.cancelled": "后台任务已取消",
+  "chat.steerDelivery.queue": "补充要求（保留当前工作）",
+  "chat.steerDelivery.interrupt": "立即调整（中断当前工具）",
   "chat.steerInjectedBadge": "✓ 已注入",
   "chat.steerInjectedTitle": "已注入",
   "chat.steerQueueEmpty": "队列已空",
@@ -974,8 +981,8 @@
   "settings.asrPreset.llmNo": "（对话主模型不是 OpenAI 兼容端点，没有大模型合成这一步；要的话在下面「逐项指定」里选一个）",
   "settings.asrPreset.hint.off": "麦克风关着。选一档就能对着输入框说话：边说边出字，每句说完静默校正一遍。",
   "settings.asrPreset.hint.light": "边说边出字（本地流式，CPU）；每句说完用 SenseVoice（CPU）重听{{llm}}。不占显存，和游戏、UE 一起跑也没事。",
-  "settings.asrPreset.hint.standard": "边说边出字；每句说完用 Qwen3-ASR 0.6B（显卡，约 2 GB 显存）重听{{llm}}。比轻度准一些。",
-  "settings.asrPreset.hint.heavy": "边说边出字；每句说完用 Qwen3-ASR 1.7B（显卡，约 5 GB 显存）重听{{llm}}。最准，但显存吃得多；切到别的档会立刻把它从显存里卸掉。",
+  "settings.asrPreset.hint.standard": "边说边出字；每句说完用 Qwen3-ASR 0.6B（显卡，约 2 GB 显存）重听{{llm}}。比轻度准一些。首次使用要先把模型装进显存（十几秒到半分钟），装好前麦克风会显示「加载模型」。",
+  "settings.asrPreset.hint.heavy": "边说边出字；每句说完用 Qwen3-ASR 1.7B（显卡，约 5 GB 显存）重听{{llm}}。最准，但显存吃得多；切到别的档会立刻把它从显存里卸掉。首次使用要先把模型装进显存（十几秒到半分钟），装好前麦克风会显示「加载模型」。",
   "settings.asrPreset.hint.custom": "逐项指定。{{detail}}",
   "settings.asrPreset.need.light": "要先装 ruyi-toolbox 的 asr-stream 组件（含 SenseVoice）",
   "settings.asrPreset.need.standard": "要先装 ruyi-toolbox 的 asr-shim 组件（本地 Qwen3-ASR，0.6B）",
@@ -2977,4 +2984,11 @@
   ,"composer.voice.hintStream": "语音输入：点一下开始说，文字边说边出；每句说完自动校正错字；再点一下结束，Esc 取消。不会自动发送"
   ,"composer.voice.streaming": "正在听，说话就会出字；再按一次结束，Esc 取消"
   ,"composer.voice.error.streamFallback": "实时识别没起来，这次按停顿切段转写"
+  ,"composer.voice.warming.label": "加载模型 {{time}}"
+  ,"composer.voice.warming.title": "正在把本地语音识别模型装进显存，装好会自动开始录音；再点一下或按 Esc 取消"
+  ,"composer.voice.warming.announce": "正在加载语音识别模型，请稍等，加载好会自动开始录音"
+  ,"composer.voice.warming.toast": "正在加载语音识别模型（第一次要十几秒到半分钟），好了会自动开始录音，先别说话"
+  ,"composer.voice.warming.ready": "语音识别已就绪，请说话"
+  ,"composer.voice.warming.readyIdle": "语音识别已就绪，点一下麦克风开始说话"
+  ,"composer.voice.warming.failed": "更准的本地识别模型没能加载好，这次先用实时识别，说完的字可能不会被校正"
 }

@@ -125,12 +125,14 @@ const MCP_TOOLS = [
   // these return a guiding error — use powershell_run for one-shot commands there.
   {
     name: 'shell_start',
-    description: 'Start a persistent PowerShell session (keeps cwd/vars/background processes across calls). Provider engine only. Returns {shellId}. Then drive it with shell_send / shell_poll.',
+    description: 'Provider engine only: start PowerShell and return a shellId immediately. For slow independent work, supply command to run a finite background job; continue other work and use shell_poll to collect output/exitCode, shell_kill to cancel. Background jobs survive ordinary interjections and turn completion, but not server shutdown. Without command, starts an interactive session for shell_send.',
     inputSchema: {
       type: 'object',
       properties: {
         cwd: { type: 'string', description: 'working directory (defaults to the current working folder of this conversation)' },
         name: { type: 'string', description: 'human-readable label' },
+        command: { type: 'string', description: 'Optional finite PowerShell command to run in the background; shell_poll.running becomes false on completion. Do not send input to this mode.' },
+        timeoutMs: { type: 'number', description: 'Background command deadline (default 30 minutes, maximum 24 hours). Polling does not extend it.' },
         shellId: { type: 'string', description: 'optional deterministic id ([a-zA-Z0-9_-]{1,32}); auto-generated if omitted' },
       },
     },
@@ -150,7 +152,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'shell_poll',
-    description: 'Read new output from a shell session since an absolute byte cursor. Returns {output, cursor, running, exitCode?, truncated?}. Pass the returned cursor back next time to tail incrementally.',
+    description: 'Read new output from a shell or background command. Returns {output, cursor, running, exitCode?, timedOut, mode, truncated?}. Background completion requires running:false; check exitCode and timedOut. Interactive running only means the shell process is alive. Pass the returned cursor back unchanged (UTF-16 offset, not bytes).',
     inputSchema: {
       type: 'object',
       properties: {

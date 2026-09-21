@@ -116,7 +116,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 2026-09-21(toolbox 自动发现):新增 dev-harness/toolbox-discovery.e2e.js(一处带 RUYI_HOME 的 spawn —— 起 serve 子进程;该件第一行已
 // require self-isolate-home,登记目录另经 RUYI_TOOLBOX_HOME 指到临时目录,不碰真机 ~/.ruyi-toolbox),154 -> 155 的来路就是它。
 // 130(51 号文):composer-voice-stream.browser.e2e 走公共夹具 lib/browser-fixture(工作台由夹具 spawn),自己不 spawn,不计入。
-const RUYI_HOME_SPAWN_SITES = 155;
+// 134:新增 dev-harness/background-completion.e2e.js(一处带 RUYI_HOME 的 spawn,起 serve 子进程;第一行已 require self-isolate-home),155 -> 156 的来路就是它。
+// 133f:新增 dev-harness/asr-warmup.e2e.js(一处带 RUYI_HOME 的 spawn,起 serve 子进程;第一行已 require self-isolate-home,登记目录另经
+// RUYI_TOOLBOX_HOME 指到临时目录),156 -> 157 的来路就是它。composer-voice-warmup.browser 走公共夹具、自己不 spawn,不计入。
+const RUYI_HOME_SPAWN_SITES = 157;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
@@ -346,7 +349,9 @@ try {
   // 其中 11 件（15 处）就地豁免，10 件（27 处）所在文件在独占桶。
   // 128f-③ +1 件：desktop-probe-status（P1 /api/status、P3 /health 两处就地豁免 —— 界取测试口延时的一半，反向实得 ≥ 5.4 s）→ 22。
   // 128f-⑬ +1 件：cli-probe-stall（C2 /api/status、C2b /health 两处就地豁免 —— 判的就是「没被同步探测钉住」，钉住时 ≥ 3 s）→ 24。
-  const WALLCLOCK_OWNER_FILES = 24;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // 133f +2 件：asr-warmup（C2 一处就地豁免 —— 热路径 13–15 ms 对界 800 ms）、composer-voice-warmup.browser（B1b／B11／C2／I3 四处就地豁免 ——
+  // 界都取「一次完整加载」量级，失败形态是没走闸、多等一整个加载）→ 26。
+  const WALLCLOCK_OWNER_FILES = 26;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];
