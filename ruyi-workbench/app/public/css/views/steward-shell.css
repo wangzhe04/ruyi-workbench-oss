@@ -178,7 +178,8 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 32px;
-  max-height: 120px;
+  max-height: 220px;          /* 133e：随内容长高到约八行（autoGrow 按 scrollHeight 写 height，这里是上限），再多就内部滚动 */
+  overflow-y: auto;
   resize: none;
   font: inherit;
   font-size: var(--fs-base);   /* 121-K8（§2.10.2）：正文 15，与工作台那枚 #promptInput 同一档；必须排在 font:inherit 之后 */

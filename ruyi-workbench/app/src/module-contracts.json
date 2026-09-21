@@ -16632,7 +16632,8 @@
         "stewardAppendUserStop",
         "stewardImplThreadPrioritize",
         "stewardImplThreadStop",
-        "stewardRunnerState"
+        "stewardRunnerState",
+        "stewardSanitizeAttachments"
       ],
       "requires": [
         {

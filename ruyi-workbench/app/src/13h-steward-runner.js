@@ -291,6 +291,9 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req).catch(() => ({}));
     const message = String((body && body.message) || '');
     if (!message.trim()) return send(res, apiFailure('invalid_request', {}, 'message is required', 400));
+    // 133e:随这句话来的附件(/api/upload 的记录)。只收记录形状里那几个字段、≤12 条;交给回合的方式与 /api/chat/stream 同一条
+    // (runSessionTurn 的 attachments —— 上传目录内的文件由那边按 id 核对,这里不信 path 字段能指到哪里)。
+    const attachments = stewardSanitizeAttachments(body && body.attachments);
     // SSE 壳:与 /api/chat/stream 同款 NDJSON + 50ms delta 合批(那边的壳是 streamChat,这里是它的
     // 同形副本 —— 管家回合不经 /api/chat/stream,但前端拿到的事件流形状必须一样)。
     let deltaBuffer = []; let flushTimer = null;
@@ -327,7 +330,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     try { res.flushHeaders(); } catch { /* ignore */ }
     try {
       // 117l D1:routeHint 随请求进来,但它只是【提示】—— 服务端只信 sessionId(见 stewardNormalizeRouteHint)。
-      const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, onEvent: writeEvent });
+      const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeEvent });
       // 流的最后一帧 = 这次请求的响应载荷(见文件头「steward_reply 的投放口径」)。失败态也发这一帧:
       // 响应头早已发出,不能再改回 4xx 信封,故把稳定信封的 error/message 放进同一帧里,前端一处分支即可。
       const reply = (result && typeof result === 'object') ? result : {};
@@ -436,3 +439,19 @@ Object.assign(StewardHooks, {
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,
 });
+
+// 133e:/api/steward/message 带来的附件记录 —— 与 04 makeAttachmentRecord 同形(id/name/path/size/kind),只收这几个字段、≤12 条。
+function stewardSanitizeAttachments(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const a of raw.slice(0, 12)) {
+    if (!a || typeof a !== 'object') continue;
+    const id = String(a.id || '').slice(0, 80), name = String(a.name || '').slice(0, 260);
+    if (!id || !name) continue;
+    const rec = { id, name, path: String(a.path || '').slice(0, 1200), size: Math.max(0, Number(a.size) || 0) };
+    if (a.kind === 'audio') rec.kind = 'audio';
+    if (typeof a.textPreview === 'string') rec.textPreview = a.textPreview.slice(0, 4000);
+    out.push(rec);
+  }
+  return out;
+}

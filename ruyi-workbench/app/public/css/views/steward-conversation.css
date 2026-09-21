@@ -414,7 +414,7 @@
 .steward-target-option:hover { background: var(--panel-3); }
 .steward-target-option:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 输入框右侧的两枚圆键：「+」（附件归后续波，本波仍是禁用占位）与发送键。语音输入是 127-⑦ 的独立麦克风键，
+/* 输入框右侧的两枚圆键：「+」（133e 起是真按钮：添加文件／另起一件的小浮层）与发送键。语音输入是 127-⑦ 的独立麦克风键，
    样式住 css/components/chat-composer.css 的 .composer-voice（两个视角共用一组）。 */
 .steward-plus,
 .steward-send {
@@ -434,8 +434,13 @@
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
-  cursor: not-allowed;
+  cursor: pointer;
 }
+.steward-plus:hover { color: var(--ink); background: var(--panel-2); }
+.steward-plus:disabled { cursor: not-allowed; opacity: .5; }
+/* 133e：附件托盘（pill 样式复用 chat-composer.css 的 .attachment-tray/.attachment-pill）与用户气泡下那一行「附件：…」 */
+.steward-attach-tray:empty { display: none; }
+.steward-attach-line { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); }
 .steward-send {
   color: var(--accent-ink);
   background: var(--accent);

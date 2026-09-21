@@ -197,6 +197,8 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
       return await runSessionTurn({
         sessionId: session.id,
         message,
+        // 133e:用户在管家输入框里附的文件(只有 trigger:'user' 才可能有;收件箱回合没有)
+        attachments: (trigger === 'user' && Array.isArray(opts.attachments)) ? opts.attachments : [],
         cwd: session.cwd,
         source: 'steward',
         engineRoute: ensured.route,

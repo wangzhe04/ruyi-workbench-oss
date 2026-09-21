@@ -157,14 +157,14 @@ ok(/function hintedThread\(\) \{/.test(composer)
   && /label\.textContent = t\('stewardShell\.compose\.targetSteward\.hint', \{ title: hint\.title \}\);/.test(composer),
   'D6b 预判命中只用来显示 chip 上那句「像是接着『X』」（hintedThread 一处判定）');
 ok(/if \(target\) await conversation\.handOff\(/.test(composer)
-  && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
-  'D6c companion：**手选的目标仍然直递**（那是用户明示），其余一律经管家并带上 routeHint');
+  && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\), \.\.\.\(files\.length \? \{ attachments: files \} : \{\}\) \}\);/.test(composer),
+  'D6c companion：**手选的目标仍然直递**（那是用户明示），其余一律经管家并带上 routeHint（133e：托盘里的附件作为独立键一起走，用户那句话仍逐字不动）');
 ok(/hits: routeHits\.slice\(0, 3\)\.map\(hit => \(\{ sessionId: String\(\(hit && hit\.sessionId\) \|\| ''\), reason: String\(\(hit && hit\.reason\) \|\| ''\) \}\)\)/.test(composer)
   && !/displayTitle/.test(composer.slice(composer.indexOf('function routeHintPayload'), composer.indexOf('function renderChip'))),
   'D6d routeHint 只带 sessionId 与命中理由，≤3 条 —— 标题一个字都不进请求（服务端自己重查）');
 ok(/const hint = \(opts && opts\.routeHint && typeof opts\.routeHint === 'object'\) \? opts\.routeHint : null;/.test(conversation)
-  && /body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\) \}\)/.test(conversation),
-  'D7 routeHint 与用户那句话分开走请求体（用户消息逐字不动）；没有 hint 时这个键整个不出现');
+  && /body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\), \.\.\.\(atts \? \{ attachments: atts \} : \{\}\) \}\)/.test(conversation),
+  'D7 routeHint 与附件都与用户那句话分开走请求体（用户消息逐字不动）；没有 hint／附件时那个键整个不出现');
 ok(!/sending/.test(composerCode),
   'D8 输入区不再有「上一句没发完就不许再发」的闸（走查⑥：第二句此前被无声丢弃）');
 
@@ -299,7 +299,8 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 // 121-K6b 补一条 `/api/mission`（34 号文 §13.3 ①）：管家开出一条新线程之后，前端把验收里程碑
 // 账本立起来（GET 一次看账本空不空，空才 POST {action:'start'}）。它同样是**既有**路由 ——
 // 13-http-router.js:889 那一条，交办台退役前的派单输入框走的就是它；本刀零后端。
-const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop'];
+// 133e 补一条 `/api/upload`：管家输入框「＋ → 添加文件」与工作台 uploadFiles 走同一条既有路由（13-http-router.js 的 POST /api/upload），零后端新面。
+const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop', '/api/upload'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')

@@ -148,3 +148,16 @@
 ### 7.3 判据
 
 unit `steward-config-tier` ⑦：回落顺序四层各一例、toolbox-／只做语音的跳过、上次用的是 CLI 路由不算、空配置不抛；机械锁钉 13q／13h／13t 三处接线。
+
+## §8 追加（133e，用户 2026-09-21 傍晚两条）
+
+> 「现在管家层这个加号点不了，修一下，最好复用线台类似的东西，或者针对管家层微调；然后现在管家层文字输多了，还是只有一行，最好也能优化一下让用户能看见更多的字」
+
+- **「＋」不再是禁用占位**：与工作台 `#composerMoreBtn` 同款小浮层（同一个 popover 原语、同一套 `.composer-more-pop/.cm-item` 样式），两项：
+  **添加文件**（与工作台 `uploadFiles` 同一条路：dataURL → `POST /api/upload` → 记录进输入行上方的附件托盘，pill 样式复用 `.attachment-pill`）、
+  **另起一件**（就是抽屉「＋ 线程」那条 `markNewInMission('')`，chip 变「→ 如意 · 另起一件」）。技能库／压缩不进来（CLI 概念／管家自有节流）。
+- **附件随消息进管家回合**：`/api/steward/message` 体多一个独立键 `attachments`（用户那句话仍逐字不动），13h 只收记录形状里那几个字段、≤12 条，
+  13q 交给 `runSessionTurn` 的 `attachments` —— 与工作台 `/api/chat/stream` 同一条管线；直递线程（handOff）那条路不带附件。用户气泡下列一行「附件：…」。
+- **输入框随内容长高**：复用 util.js 的 `autoGrow`（与 `#promptInput` 同一个），上限 220px（约八行）后内部滚动；发完收回一行。
+- 锁：steward-conversation.static D6c/D7、walkthrough H3b/I1/I1b 改钉新的请求体形状；J1/Q7c 路由白名单加既有的 `/api/upload`；
+  N5c/L3/D9/I4 那几行代码原样未动（附件行由 `appendAttachLine` 另起一函数、第二条 import 行、`composerApi` 迟引用）。

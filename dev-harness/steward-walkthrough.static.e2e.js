@@ -510,8 +510,8 @@ const ok = (condition, label) => {
       && !/routeHits\[0\]/.test(composer.slice(composer.indexOf('function currentTarget'), composer.indexOf('function hintedThread'))),
       'H3 预判只进 hint、不进目标：currentTarget() 只回 picked');
     ok(/if \(target\) await conversation\.handOff\(/.test(composer)
-      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
-      'H3b companion：**picked 仍直递**（手选是用户明示，§8.12 第 4 条没有被 D1 推翻）');
+      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\), \.\.\.\(files\.length \? \{ attachments: files \} : \{\}\) \}\);/.test(composer),
+      'H3b companion：**picked 仍直递**（手选是用户明示，§8.12 第 4 条没有被 D1 推翻；133e 附件是独立键）');
     ok(/function hintedThread\(\) \{[\s\S]{0,400}return \{ sessionId: String\(routeHits\[0\]\.sessionId\), title: String\(routeHits\[0\]\.displayTitle \|\| routeHits\[0\]\.title/.test(composer),
       'H3c 117k 那条纪律原样保留：chip 上的提示也用生成名，不用整句原话');
 
@@ -563,10 +563,10 @@ const ok = (condition, label) => {
   // I1 ② 每句话都到管家；I2 ⑥ 连发不再被吞；I3 ① 线程的提问要有问答框；I4 ①⑥ 递话单口不再猜通道。
   {
     ok(/function currentTarget\(\) \{\s*return picked;/.test(composer)
-      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\) \}\);/.test(composer),
+      && /else await conversation\.sendToSteward\(text, \{ routeHint: routeHintPayload\(\), \.\.\.\(files\.length \? \{ attachments: files \} : \{\}\) \}\);/.test(composer),
       'I1 ② 预判只当提示：没手选就发给管家并带 routeHint（修前 routeHits[0] 直接被当成目标直递）');
-    ok(/body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\) \}\)/.test(conversation),
-      'I1b routeHint 与用户那句话分开走（用户消息逐字不动的纪律）');
+    ok(/body: JSON\.stringify\(\{ message, \.\.\.\(hint \? \{ routeHint: hint \} : \{\}\), \.\.\.\(atts \? \{ attachments: atts \} : \{\}\) \}\)/.test(conversation),
+      'I1b routeHint 与附件都与用户那句话分开走（用户消息逐字不动的纪律）');
 
     ok(convMod.STEWARD_SEND_QUEUE_MAX === 5
       && /if \(sendQueue\.length >= STEWARD_SEND_QUEUE_MAX\)/.test(conversation)

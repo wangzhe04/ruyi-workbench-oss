@@ -28,6 +28,7 @@ import { icon } from './icons.js';
 // 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
 // 33 号文 §4：那份实现的落点从 steward-conversation.js 搬到 util.js（无状态格式化叶子），函数体逐字未改。
 import { stewardShortTitle } from './util.js';
+import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容长高（与工作台 #promptInput 同一个 autoGrow）；附件 pill 的体积
 // 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
 import { createComposerVoice } from './composer-voice.js';
@@ -320,15 +321,19 @@ export function createStewardComposer({
     const text = String(input.value || '').trim();
     if (!text) return;
     const target = currentTarget();
+    const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
+    renderTray();
     input.value = '';
+    input.style.height = '';                                   // 133e：发完收回一行高
     input.placeholder = t('stewardShell.compose.placeholder');
     cancelPreroute();
     closePicker();
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
+      // 133e：直递给线程那条路（handOff）不带附件 —— 递话走的是 relay，不是回合体；附件只在「对管家说」这条路上。
       if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits });
-      else await conversation.sendToSteward(text, { routeHint: routeHintPayload() });
+      else await conversation.sendToSteward(text, { routeHint: routeHintPayload(), ...(files.length ? { attachments: files } : {}) });
     } finally {
       // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。
       picked = null;
@@ -340,7 +345,43 @@ export function createStewardComposer({
     }
   }
 
-  // ── 装配：chip / picker / 「+」占位，全部 createElement，零 innerHTML ─────────
+  // ── 133e 附件托盘：与工作台 uploadFiles 同一条路（dataURL → /api/upload），记录形状同 04 makeAttachmentRecord ──
+  const attachments = [];
+  const STEWARD_ATTACH_MAX_BYTES = 90 * 1048576;
+  const STEWARD_ATTACH_MAX = 12;
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
+  }
+  function renderTray() {
+    const tray = byId('stewardAttachTray');
+    if (!tray) return;
+    tray.textContent = '';
+    attachments.forEach((f, i) => {
+      const pill = el('span', 'attachment-pill');
+      pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
+      const x = el('button', 'attach-x'); x.type = 'button'; x.appendChild(icon('close', 12));
+      x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
+      x.onclick = () => { attachments.splice(i, 1); renderTray(); };
+      pill.appendChild(x);
+      tray.appendChild(pill);
+    });
+  }
+  function note(text) { const n = byId('stewardComposerNote'); if (n) n.textContent = String(text || ''); }
+  async function addFiles(files) {
+    for (const file of files) {
+      if (attachments.length >= STEWARD_ATTACH_MAX) { note(t('stewardShell.compose.attachMax', { n: STEWARD_ATTACH_MAX })); break; }
+      if (file.size > STEWARD_ATTACH_MAX_BYTES) { note(t('toast.fileTooLarge', { p1: file.name })); continue; }
+      try {
+        const data = await fileToDataUrl(file);
+        const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+        if (res && res.file) { attachments.push(res.file); note(''); }
+      } catch (e) { note(t('toast.uploadFail', { p1: String((e && e.message) || e) })); }
+    }
+    renderTray();
+    const input = byId('stewardComposerInput'); if (input) input.focus();
+  }
+
+  // ── 装配：chip / picker / 「+」浮层 / 附件托盘，全部 createElement，零 innerHTML ─────────
   function buildComposer() {
     const composer = byId('stewardComposer');
     const input = byId('stewardComposerInput');
@@ -380,13 +421,38 @@ export function createStewardComposer({
     picker.setAttribute('aria-label', t('stewardShell.compose.pick'));
     picker.hidden = true;
 
+    // 133e（用户 2026-09-21「管家层这个加号点不了，修一下，最好复用线台类似的东西」）：「＋」不再是占位 ——
+    // 与工作台 #composerMoreBtn 同款的小浮层（同一个 popover 原语、同一套 .composer-more-pop/.cm-item 样式），两项：
+    //   · 添加文件：与工作台同一条路（本地读成 dataURL → POST /api/upload → 记录进附件托盘），发送时随这句话一起给
+    //     /api/steward/message，服务端把它们原样交给管家回合（runSessionTurn 的 attachments，与工作台回合同一条管线）；
+    //   · 另起一件：把 chip 摆成「→ 如意 · 另起一件」（就是抽屉「＋ 线程」那条路 markNewInMission('')）。
+    // 技能库／压缩不进来：前者是 CLI 概念（管家线程只走 OpenAI 端点），后者管家会话自己有节流。
     const plus = el('button', 'steward-plus');
     plus.type = 'button';
     plus.id = 'stewardComposerPlus';
-    plus.disabled = true;                                     // 附件归后续波，本波只占位（语音由 127-⑦ 那枚独立麦克风键接手）
     plus.title = t('stewardShell.compose.plus');
     plus.setAttribute('aria-label', t('stewardShell.compose.plus'));
+    plus.setAttribute('aria-haspopup', 'menu');
     paintGlyph(plus, 'plus');
+    const fileInput = doc().createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.id = 'stewardComposerFile';
+    fileInput.hidden = true;
+    fileInput.addEventListener('change', () => { const files = [...(fileInput.files || [])]; fileInput.value = ''; void addFiles(files); });
+    plus.addEventListener('click', () => {
+      popover(plus, close => {
+        const wrap = el('div', 'composer-more-pop');
+        const attach = el('button', 'cm-item'); attach.type = 'button';
+        attach.append(icon('paperclip', 16), doc().createTextNode(t('composer.attachFile')));
+        attach.onclick = () => { close(); fileInput.click(); };
+        const fresh = el('button', 'cm-item'); fresh.type = 'button';
+        fresh.append(icon('plus', 16), doc().createTextNode(t('rail.newTask')));
+        fresh.onclick = () => { close(); composerApi.markNewInMission(''); };   // 点击时 composerApi 早已建好（下面 return 的那份）
+        wrap.append(attach, fresh);
+        return wrap;
+      }, { placement: 'top-start' });
+    });
 
     // 117i：圆形发送键（原型 .send）。Enter 一直是主路径，这枚键只是把同一个 submit() 摆到
     // 手指够得着的地方 —— 触屏与「不知道按什么」的第一次都需要一个看得见的出口。
@@ -407,6 +473,11 @@ export function createStewardComposer({
     composer.insertBefore(inputRow, input);
     composer.insertBefore(chip, inputRow);
     composer.insertBefore(picker, inputRow);
+    // 133e：附件托盘独占一行、在输入行上面（与工作台 #attachmentTray 同一套 pill 样式）；没附件时 :empty 收掉高度。
+    const tray = el('div', 'attachment-tray steward-attach-tray');
+    tray.id = 'stewardAttachTray';
+    composer.insertBefore(tray, inputRow);
+    composer.appendChild(fileInput);
     inputRow.appendChild(input);
     inputRow.appendChild(plus);
     inputRow.appendChild(send);
@@ -415,6 +486,7 @@ export function createStewardComposer({
     input.disabled = false;
     input.placeholder = t('stewardShell.compose.placeholder');
     input.addEventListener('input', () => {
+      autoGrow(input);                                        // 133e：多打几行就长高（上限在 CSS max-height），不再只见一行
       if (picked) return;                                     // 手选期间不再被预判改写
       const value = String(input.value || '');
       if (value.endsWith('@')) openPicker();
@@ -442,6 +514,7 @@ export function createStewardComposer({
     cancelPreroute();
     prerouteSeq += 1;
     voice.cancel();   // 127-⑦：离开管家壳时还在录的那一段直接丢弃（不转写、不回填）
+    attachments.length = 0; renderTray();   // 133e：离开管家壳，托盘里没发出去的附件丢掉（已上传的文件留在 uploads 目录，与工作台同）
     closePicker();
     picked = null;
     routeKind = 'steward';
@@ -455,7 +528,7 @@ export function createStewardComposer({
     return buildComposer();
   }
 
-  return Object.freeze({
+  const composerApi = Object.freeze({
     bindStewardComposer,
     resetComposer,
     submit,
@@ -478,4 +551,5 @@ export function createStewardComposer({
     },
     routeState: () => ({ kind: routeKind, hits: routeHits.slice(), picked: picked ? { ...picked } : null }),
   });
+  return composerApi;
 }

@@ -739,6 +739,14 @@ export function createStewardConversation({
     row.appendChild(el('p', 'steward-say', String(text || '')));
     return row;
   }
+  // 133e：这句话带的附件，名字列一行（真内容在管家回合里，与工作台的附件 pill 同一口径：只说带了什么）。
+  // 单独一个函数、气泡正文那一行一字不动（用户原话仍是 textContent）。
+  function appendAttachLine(row, attachments) {
+    if (!row) return row;
+    const names = (Array.isArray(attachments) ? attachments : []).map(a => String((a && a.name) || '')).filter(Boolean);
+    if (names.length) row.appendChild(el('p', 'steward-attach-line', t('stewardShell.chat.attached', { names: names.join('、') })));
+    return row;
+  }
 
   // 「※」= 依据／影响范围／来源的浮层。默认收起；aria-expanded 跟着开合走，浮层本身是
   // role="dialog"（§8.4「依据收进句尾 ※」＋ §8.8 键盘可达）。
@@ -1362,6 +1370,7 @@ export function createStewardConversation({
       const row = appendUser(message);
       markQueued(row, true);
       sendQueue.push({ message, opts: opts || {}, row });
+      appendAttachLine(row, opts && opts.attachments);
       return null;
     }
     return runSend(message, opts, null);
@@ -1369,7 +1378,7 @@ export function createStewardConversation({
 
   async function runSend(message, opts, queuedRow) {
     composerNote('');
-    if (!queuedRow) appendUser(message);
+    if (!queuedRow) appendAttachLine(appendUser(message), opts && opts.attachments);
     streaming = true;
     setPresence({ streaming: true, phase: 'thinking' });
     const row = appendTyping();
@@ -1399,8 +1408,10 @@ export function createStewardConversation({
       // 117l D1：routeHint 是【提示】，与用户那句话分开走（用户消息逐字不动的纪律，见 §11.9 D1
       // 与 06b 的 routeHintBlock —— 服务端只信 sessionId，标题它自己重查）。没有 hint 时不带这个键。
       const hint = (opts && opts.routeHint && typeof opts.routeHint === 'object') ? opts.routeHint : null;
+      // 133e：附件（/api/upload 的记录）随这句话一起走，服务端交给管家回合（与工作台 /api/chat/stream 的 attachments 同一条管线）。
+      const atts = (opts && Array.isArray(opts.attachments) && opts.attachments.length) ? opts.attachments : null;
       const res = await fetch('/api/steward/message', {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}) }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}), ...(atts ? { attachments: atts } : {}) }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       const takeLine = line => {

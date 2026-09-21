@@ -691,7 +691,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   一个组件都没登记时这一栏整块不渲染，所以没装 toolbox 的人逐像素不变。
 // 算法自证：把 chat-shell.css 从 HEAD 检出重算 = a8d33ab6…，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
 // 132a(53 号文 §1):委托书带分段列表与气泡里折叠块的样式 —— 有意新增,重钉。
-const LEGACY_STYLES_SHA256 = '272923bf079d249c4f4cd414dbd3b27b5c7087bde3d63008bcc4a81e87793dd3';
+const LEGACY_STYLES_SHA256 = 'b82c6821de7b52d2db3226f294187731d499a3e4ebd1ca675be4a4c393b62a52';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

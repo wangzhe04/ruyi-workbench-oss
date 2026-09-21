@@ -113,6 +113,7 @@ This file records user-facing release highlights; it does not replace the comple
 - 装了 asr-shim 的机器要重跑一次 `download-model.ps1`（或 `python -m ruyi_asr_shim register --model auto --models-root <models 目录>`）重新登记，清单才会带上各份体量。
 - **基础设置里能改对话主模型了**：新增「对话主模型」一组（主端点 + 主模型，选中即存）。此前顶栏那枚模型按钮退役后，全局默认只能靠改配置文件。
 - **管家开的线程只走 OpenAI 兼容端点**：强／快档没配时按「管家自己的端点 → 全局主端点 → 上次用的 → 第一个能对话的端点」挑，不再落到 Claude CLI／Kimi CLI 上；定时任务开的线程同样。两个 CLI 仍可在工作台里自己用。
+- **管家输入框的「＋」能用了**：弹出「添加文件／另起一件」；文件与工作台走同一条上传路，随这句话一起交给管家。输入框也会随内容长高（约八行封顶），不再只见一行。
 
 ### English
 
@@ -213,6 +214,7 @@ The steward sometimes offered a button for a tool it cannot actually press, and 
 - Machines with asr-shim installed need one re-run of `download-model.ps1` (or `python -m ruyi_asr_shim register --model auto --models-root <models dir>`) so the registration lists the sizes.
 - **The main model can be changed in Basic settings**: a new "Main model" group (main endpoint + model, saved on change). Since the top-bar model button was retired, the global default could only be changed by editing the config file.
 - **Steward-opened threads only use OpenAI-compatible endpoints**: when the strong/fast tier is not set, the thread picks "the steward's own endpoint → the global main endpoint → last used → the first endpoint that can chat" and never lands on Claude CLI or Kimi CLI; scheduled-task threads likewise. Both CLIs remain available for your own use in the workbench.
+- **The steward composer's "+" works now**: it opens "Add file / Start something new"; files take the same upload path as the workbench and travel with the message to the steward. The box also grows with its content (up to about eight lines) instead of staying one line tall.
 
 ## 如意 Ruyi Escapade 2.8.0 · v2.8.0 · 发布日待填 · 会守时、说得准、听得懂
 
