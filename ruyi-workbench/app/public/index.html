@@ -981,6 +981,19 @@
           <!-- ===== 基础 ===== -->
           <div class="settings-tab active" id="stab-basic">
             <!-- 123-S2：基础页 10 个 field-block 归成 4 个可折叠分组（默认全展开），控件 id 与 data-i18n 一个没动。 -->
+            <!-- 133d（用户 2026-09-21「默认的对话主模型似乎没法在设置里改」）：顶栏模型 chip 在 121-K5 退役后，全局主端点／主模型再没有任何界面能改。 -->
+            <!-- 这一组就是那两个键（activeProvider ＋ 该端点的缺省 model／CLI 的 config.model）；选中即存，不进底部「保存」那份整体补丁。选项由 provider-settings.js 按 config 现填。 -->
+            <details class="settings-fold" id="settingsFoldEngine" open>
+            <summary><span data-i18n="settings.fold.engine">对话主模型</span></summary>
+            <div class="field-block">
+              <label for="cfgMainProvider" data-i18n="settings.mainEngine.provider">主端点与主模型</label>
+              <div class="asr-add-row">
+                <select id="cfgMainProvider"></select>
+                <select id="cfgMainModel" aria-labelledby="cfgMainProvider"></select>
+              </div>
+              <p id="mainEngineHint" class="field-help muted"></p>
+            </div>
+            </details>
             <details class="settings-fold" id="settingsFoldWorkspace" open>
             <summary><span data-i18n="settings.fold.workspace">工作区</span></summary>
             <div class="field-block">

@@ -111,6 +111,8 @@ This file records user-facing release highlights; it does not replace the comple
 - **句尾改错带上前文**：大模型改字时把输入框里这一句之前的文字一起给它当参考（同音字、术语、分支名靠它判）。连贯段落评测里纯文字改错的错误数从 23 降到 13，SenseVoice 重听路 11 → 10；「等说完整段再统一改」测过，不比逐句带前文好，且会重写已经上屏的字，没采用。
 - **本地 Qwen3-ASR 每份体量单独可选**：asr-shim 登记时把装好的 0.6B／1.7B 都列出来，设置里逐份选；`auto` 现在优先最省显存的 0.6B。**切走就立刻卸载**：把整段识别换成别的模型／服务商或关掉，如意当场让原来那个组件释放显存，不再等 10 分钟空闲。
 - 装了 asr-shim 的机器要重跑一次 `download-model.ps1`（或 `python -m ruyi_asr_shim register --model auto --models-root <models 目录>`）重新登记，清单才会带上各份体量。
+- **基础设置里能改对话主模型了**：新增「对话主模型」一组（主端点 + 主模型，选中即存）。此前顶栏那枚模型按钮退役后，全局默认只能靠改配置文件。
+- **管家开的线程只走 OpenAI 兼容端点**：强／快档没配时按「管家自己的端点 → 全局主端点 → 上次用的 → 第一个能对话的端点」挑，不再落到 Claude CLI／Kimi CLI 上；定时任务开的线程同样。两个 CLI 仍可在工作台里自己用。
 
 ### English
 
@@ -209,6 +211,8 @@ The steward sometimes offered a button for a tool it cannot actually press, and 
 - **Sentence correction now sees what came before**: the LLM fix gets the text already in the input box ahead of the current sentence as reference (homophones, terms and branch names are decided by it). On a coherent-passage benchmark, text-only fixing dropped from 23 to 13 errors and the SenseVoice re-listen path from 11 to 10; "rewrite the whole passage once you stop" was measured, was not better than per-sentence-with-context, and would rewrite text already on screen, so it was not adopted.
 - **Each local Qwen3-ASR size is selectable**: asr-shim now registers every installed size (0.6B / 1.7B) and `auto` prefers the memory-light 0.6B. **Unload on switch**: choosing another model or provider for full-clip recognition, or turning it off, makes Ruyi tell the previous add-on to free its GPU memory immediately instead of waiting for the 10-minute idle timer.
 - Machines with asr-shim installed need one re-run of `download-model.ps1` (or `python -m ruyi_asr_shim register --model auto --models-root <models dir>`) so the registration lists the sizes.
+- **The main model can be changed in Basic settings**: a new "Main model" group (main endpoint + model, saved on change). Since the top-bar model button was retired, the global default could only be changed by editing the config file.
+- **Steward-opened threads only use OpenAI-compatible endpoints**: when the strong/fast tier is not set, the thread picks "the steward's own endpoint → the global main endpoint → last used → the first endpoint that can chat" and never lands on Claude CLI or Kimi CLI; scheduled-task threads likewise. Both CLIs remain available for your own use in the workbench.
 
 ## 如意 Ruyi Escapade 2.8.0 · v2.8.0 · 发布日待填 · 会守时、说得准、听得懂
 

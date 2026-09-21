@@ -269,8 +269,8 @@ assert.ok(voiceJs.includes("if (info && info.code === 'asr.upstream' && (status 
   const fnBody = src => { const m = src.match(/function isSpeechOnlyProvider\(provider\) \{\n[\s\S]*?\n\}\n/); return m ? m[0] : ''; };
   const stateJs = js('util.js'), wizardJs = js('onboarding-wizard.js');
   assert.ok(fnBody(stateJs) && fnBody(stateJs) === fnBody(wizardJs), 'isSpeechOnlyProvider: util.js 与 onboarding-wizard.js 两份函数体一字不差（改一处必须改另一处）');
-  assert.ok(fnBody(stateJs).includes("models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'))"),
-    'isSpeechOnlyProvider: 判据＝模型清单非空且每个模型都带语音识别标记（混用的服务商不受影响）');
+  assert.ok(fnBody(stateJs).includes("models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && (m.caps.includes('asr') || m.caps.includes('asr-stream')))"),
+    'isSpeechOnlyProvider: 判据＝模型清单非空且每个模型都带语音识别标记（asr 或 asr-stream；133d 真机：只提供流式的 asr-stream 组件曾被列进对话端点候选；混用的服务商不受影响）');
   assert.ok(wizardJs.includes('asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p))'), '新手向导:「已有对话引擎」不把只做语音的服务商算进去');
   for (const [file, needle, label] of [
     ['navigation-controls.js', 'for (const p of chatProviders(state.config)) {', '命令面板的引擎／模型候选'],

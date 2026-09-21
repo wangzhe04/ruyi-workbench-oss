@@ -4252,6 +4252,7 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardChatCapableProvider",
         "stewardClipSay",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
@@ -4271,6 +4272,7 @@
         "stewardMayAct",
         "stewardMayTightenTo",
         "stewardMemoryTerms",
+        "stewardOpenAiFallback",
         "stewardPendingOneLine",
         "stewardPendingTotal",
         "stewardPermissionLabel",
@@ -16166,6 +16168,7 @@
         "stewardDeferredNotified",
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
+        "stewardEnsureOpenAiRoute",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
@@ -16314,6 +16317,13 @@
           "symbol": "StewardHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardOpenAiFallback",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -17574,6 +17584,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardWorkspaceTableFull",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardEnsureOpenAiRoute",
           "kinds": [
             "call"
           ]
@@ -20223,6 +20240,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMemoryTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardOpenAiFallback",
           "kinds": [
             "read"
           ]

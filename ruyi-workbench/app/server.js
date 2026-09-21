@@ -23204,6 +23204,38 @@ function stewardThreadEngineRoute(tier, config) {
   if (!provider) return { tier: key, providerId, model: '', found: false, fallback: true };
   return { tier: key, providerId, model: String(slot.model || '').trim() || String(provider.model || ''), found: true, fallback: false };
 }
+// ②b 133d(用户 2026-09-21:「管家新开的线程,默认只能走如意的 OpenAI 兼容端点,走 Claude CLI 和 Kimi CLI 似乎会有问题;
+// 这两个第三方 CLI 只作为能在工作台使用的兼容存在」):那一档没配(或端点已删)时,管家线程【不】回落到 createSession 的
+// 全局缺省 —— 全局可能是 Agent CLI —— 而是按固定顺序挑一个 OpenAI 兼容端点:
+//   ① 管家自己在用的端点(stewardProviderId)> ② 全局主端点(activeProvider,是 OpenAI 端点时)>
+//   ③ 用户上次用的(lastUsedEngineRoute,是 OpenAI 路由且端点还在)> ④ 端点清单里第一个能对话的。
+// 「能对话」= 不是 claude-cli、不是 toolbox- 自动接入的、且不是只做语音的(models 全带 asr 标记)。一个都没有 → null,
+// 调用方留全局缺省并记审计(不拒绝开线程:没端点不该把事儿卡死,但要留痕)。纯函数、不构造 engineRoute(同上一函数的理由)。
+function stewardChatCapableProvider(p) {
+  if (!p || typeof p !== 'object') return false;
+  const id = String(p.id || '');
+  if (!id || id === 'claude-cli' || id.startsWith('toolbox-')) return false;
+  const models = Array.isArray(p.models) ? p.models : [];
+  const speechOnly = models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && (m.caps.includes('asr') || m.caps.includes('asr-stream')));
+  return !speechOnly;
+}
+function stewardOpenAiFallback(config) {
+  const cfg = (config && typeof config === 'object') ? config : {};
+  const providers = Array.isArray(cfg.providers) ? cfg.providers : [];
+  const byId = id => providers.find(p => p && p.id === id && stewardChatCapableProvider(p)) || null;
+  const pick = (p, model, source) => ({ providerId: String(p.id), model: String(model || '').trim() || String(p.model || ''), source });
+  // 局部名带 fb 前缀:103b 的依赖扫描按标识符认模块间引用,裸的 main/last/first 会被当成读了 14-main 的顶层符号。
+  const fbOwn = byId(String(cfg.stewardProviderId || '').trim());
+  if (fbOwn) return pick(fbOwn, cfg.stewardModel, 'steward');
+  const fbGlobal = byId(String(cfg.activeProvider || '').trim());
+  if (fbGlobal) return pick(fbGlobal, '', 'global');
+  const fbRoute = (cfg.lastUsedEngineRoute && typeof cfg.lastUsedEngineRoute === 'object') ? cfg.lastUsedEngineRoute : null;
+  const fbLast = fbRoute && fbRoute.engine === 'openai' ? byId(String(fbRoute.providerId || '').trim()) : null;
+  if (fbLast) return pick(fbLast, fbRoute.model, 'last');
+  const fbFirst = providers.find(stewardChatCapableProvider) || null;
+  if (fbFirst) return pick(fbFirst, '', 'first');
+  return null;
+}
 
 // ③ 「它在问你」(§11.9 D4)。三态,判定顺序固定:
 //   正式待决 question > 活回合(在跑就不算在问你)> 软问句(最后一条助手消息以问号收尾)。
@@ -56561,15 +56593,35 @@ async function stewardVisit(opts) {
 //     (不报错、不拒绝开线程是故意的 —— 模型配错不该把事儿卡死)。
 function stewardApplyThreadTier(session, tier, config) {
   const decided = stewardThreadEngineRoute(tier, config);
-  const route = decided.found
+  let route = decided.found
     ? normalizeSessionEngineRoute({ engine: 'openai', providerId: decided.providerId, model: decided.model })
     : null;
   if (route) session.engineRoute = route;
-  else if (decided.fallback) logEvent({ kind: 'steward_thread_model_fallback', tier: decided.tier, providerId: decided.providerId, sessionId: session.id });
+  else {
+    if (decided.fallback) logEvent({ kind: 'steward_thread_model_fallback', tier: decided.tier, providerId: decided.providerId, sessionId: session.id });
+    // 133d:那一档没配 → 不留给全局缺省(可能是 Agent CLI),按 06i 的顺序挑一个 OpenAI 兼容端点。
+    route = stewardEnsureOpenAiRoute(session, config, decided.tier);
+  }
   return {
     tier: decided.tier,
     engine: route ? { providerId: route.providerId, model: route.model } : { providerId: '', model: '' },
   };
+}
+// 133d(用户 2026-09-21 拍板:管家开的线程只走 OpenAI 兼容端点,两个 CLI 只留给工作台里人用):会话头上已经是
+// OpenAI 路由就一字不动;否则按 06i stewardOpenAiFallback 的顺序挑一个写上并记审计;一个端点都没有 → 留全局缺省、记审计。
+// 三个开线程的口(13k 线程/快问经 applyThreadTier、13t 定时任务直接调)都经这里,不许各自再判一遍。
+function stewardEnsureOpenAiRoute(session, config, tier) {
+  const current = normalizeSessionEngineRoute(session && session.engineRoute);
+  if (current && current.engine === 'openai') return current;
+  const fb = stewardOpenAiFallback(config);
+  const route = fb ? normalizeSessionEngineRoute({ engine: 'openai', providerId: fb.providerId, model: fb.model }) : null;
+  if (route) {
+    session.engineRoute = route;
+    logEvent({ kind: 'steward_thread_engine_openai_only', sessionId: session.id, tier: String(tier || ''), source: fb.source, providerId: route.providerId, model: route.model });
+    return route;
+  }
+  logEvent({ kind: 'steward_thread_no_openai_provider', sessionId: session.id, tier: String(tier || ''), globalRoute: current ? current.engine : '' });
+  return null;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -58837,6 +58889,10 @@ async function schedulerPrepareThread(schedRow) {
       const applied = StewardHooks.applyThreadTier(session, wantedTier, config);
       outcome.tier = String((applied && applied.tier) || '');
     } catch { /* 套不上 = 跟随全局;不连累下面的文件夹,也不反噬触发 */ }
+  } else {
+    // 133d:没指定档位也不许落到 Agent CLI 上 —— 管家开的线程一律 OpenAI 兼容端点。13t 拼在 13q 之后,直接调(反向边),
+    // 不进 StewardHooks(那张表的消费面锁在 09/10/12/13/13d/13g 族,不含本文件)。
+    try { stewardEnsureOpenAiRoute(session, config, ''); } catch { /* 同上 */ }
   }
 
   // ── S-b ──
@@ -59304,6 +59360,7 @@ module.exports = {
   //   函数(只吃入参、无 IO),exposed for 单测(unit/steward-humanize.test.js)与 e2e 直测。
   stewardHumanizeIds,
   stewardThreadEngineRoute,
+  stewardOpenAiFallback,   // 133d:管家线程只走 OpenAI 兼容端点的回落顺序(纯函数,unit/steward-config-tier.test.js 直测)
   stewardAsksYou,
   // 第117波117q-B5(30号文§3 总表 P2-8): 中和伪造围栏标签 —— 纯函数(只吃入参、无 IO),六个调用点(06d/06e/06/09)
   //   的单一事实源。exposed for 单测(unit/neutralize-fence-tag.test.js)。

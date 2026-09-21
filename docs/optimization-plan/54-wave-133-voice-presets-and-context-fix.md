@@ -118,3 +118,33 @@
 | 133a | 评测（passages 语料 + 三个脚本）；`/api/audio/correct` 收 `context`；05 提示词；前端送前文 | §2；unit；static |
 | 133b | shim 清单／换加载／unload；约定 §2.2；04 认字段；04f 落模型 + 切走即卸载；13 钩子 | shim 单测；toolbox M 组 |
 | 133c | 档位一栏 + 高级折叠区；locale；CSS | static；browser 老锁 |
+
+## §7 追加（133d，用户 2026-09-21 下午两条）
+
+> 「默认的对话主模型似乎没法在设置里改，我觉得要在基础设置里也能改；管家新开的线程，默认只能走如意的 OpenAI 兼容端点，
+> 走 Claude CLI 和 Kimi CLI 似乎会有问题；这两个第三方 CLI 只作为能在工作台使用的兼容存在。」
+
+### 7.1 基础页「对话主模型」
+
+顶栏 `#modelChip` 在 121-K5 退役后，全局 `activeProvider` ＋ 主模型（`providers[].model`／CLI 的 `config.model`）**再没有任何界面能改**
+——线程头 chip 写的是会话级路由（`PATCH /api/sessions/:id`），不动全局。基础页最上面新增折叠组「对话主模型」：两枚选择器
+（端点：Agent CLI（兼容用）／每个能对话的服务商；模型：该服务商的 models 或 CLI 的 /api/status models），**选中即存**
+（`activeProvider` + 那一条 `providers[].model`，或 `model`），不进底部「保存」那份整体补丁；弹窗开着时 providersDraft 同步。
+说明行按 `newThreadEngine` 写清它是谁的缺省，并明说「管家开的线程只走 OpenAI 兼容端点」。
+
+### 7.2 管家线程只走 OpenAI 兼容端点
+
+修前：`stewardApplyThreadTier` 在那一档（强／快）没配时**不写** `session.engineRoute`，线程沿用 createSession 的缺省 ——
+`newThreadEngine=last` 时是用户上次用的、否则是全局，两者都可能是 Agent CLI。定时任务没指定档位时连 applyThreadTier 都不进。
+
+修后（06i `stewardOpenAiFallback`，纯函数）：档位没配或端点已删 → 按固定顺序挑一个 OpenAI 兼容端点：
+① 管家自己的端点（`stewardProviderId`）② 全局主端点（是 OpenAI 端点时）③ 用户上次用的（OpenAI 路由且端点还在）④ 清单里第一个能对话的
+（不是 claude-cli、不是 toolbox-、不是只做语音的）。13q `stewardEnsureOpenAiRoute` 单点执行：已是 OpenAI 路由一字不动；挑到就写
+`session.engineRoute` 并记 `steward_thread_engine_openai_only`；一个都没有 → 留全局并记 `steward_thread_no_openai_provider`
+（不拒绝开线程）。三个开线程的口（13k 线程／快问经 applyThreadTier、13t 定时任务经 `StewardHooks.ensureOpenAiRoute`）都走它。
+
+用户自己开的线程、线程头上手动切到 CLI 的线程不受影响 —— 两个 CLI 仍是工作台里的一等引擎，只是不再给管家用。
+
+### 7.3 判据
+
+unit `steward-config-tier` ⑦：回落顺序四层各一例、toolbox-／只做语音的跳过、上次用的是 CLI 路由不算、空配置不抛；机械锁钉 13q／13h／13t 三处接线。

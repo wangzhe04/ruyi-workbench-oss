@@ -3,7 +3,7 @@
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
 import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
-import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast } from './util.js';
+import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
 import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS } from './health-i18n.js';
@@ -248,6 +248,70 @@ function lastUsedEngineText() {
   const label = engineVisual(meta).label;
   return t('settings.newThreadEngine.lastIs', { p1: meta.model ? `${label} · ${meta.model}` : label });
 }
+// 133d（用户 2026-09-21「默认的对话主模型似乎没法在设置里改」）：基础页「对话主模型」—— 全局主端点（activeProvider）
+// 与主模型。顶栏 #modelChip 退役（121-K5）后这两个键再没有界面能改；线程头 chip 写的是会话级路由，不动它们。
+// 两枚选择器【选中即存】（与语音那几栏同模具），不进底部「保存」那份整体补丁：
+//   · 端点 = Agent CLI（值 ''，兼容用）或某个能对话的服务商（只做语音的、toolbox- 自动接入的不列）；
+//   · 模型 = 该服务商 models 里的一条（写进 providers[].model），CLI 时是 /api/status 的 models（写 config.model）。
+// 弹窗开着时 providersDraft 里那条的 model 也同步，否则底部「保存」会把旧草稿盖回去（addAsrModel 同一条教训）。
+function mainEngineCliLabel() {
+  const type = state.config && state.config.agentCliType === 'kimi' ? 'kimi' : 'claude';
+  return t('settings.mainEngine.cli', { name: AGENT_CLI_LABELS[type] });
+}
+function fillMainEngineSelects() {
+  const provSel = $('cfgMainProvider'), modelSel = $('cfgMainModel'), hint = $('mainEngineHint');
+  if (!provSel || !modelSel) return;
+  const c = state.config || {};
+  const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
+  const cur = String(c.activeProvider || '');
+  const pid = cur && cur !== 'claude-cli' ? cur : '';
+  provSel.textContent = '';
+  provSel.appendChild(opt(mainEngineCliLabel(), ''));
+  for (const p of chatProviders(c)) provSel.appendChild(opt(String(p.label || p.id), String(p.id)));
+  provSel.value = pid;
+  if (provSel.value !== pid) provSel.value = '';
+  const fillModels = () => {
+    modelSel.textContent = '';
+    const chosen = String(provSel.value || '');
+    if (chosen) {
+      const p = (c.providers || []).find(x => x && x.id === chosen) || null;
+      const def = p ? String(p.model || '') : '';
+      const ids = [];
+      for (const m of (p && Array.isArray(p.models)) ? p.models : []) { const id = m && typeof m === 'object' ? String(m.id || '') : String(m || ''); if (id && !ids.includes(id)) ids.push(id); }
+      if (def && !ids.includes(def)) ids.unshift(def);
+      for (const id of ids) { const m = ((p && p.models) || []).find(x => x && typeof x === 'object' && x.id === id); modelSel.appendChild(opt(String((m && m.label) || id), id)); }
+      modelSel.value = def;
+      if (modelSel.value !== def && ids.length) modelSel.value = ids[0];
+    } else {
+      modelSel.appendChild(opt(t('settings.mainEngine.defaultModel'), ''));
+      for (const m of (state.status && Array.isArray(state.status.models)) ? state.status.models : []) { if (m && m.id) modelSel.appendChild(opt(String(m.label || m.id), String(m.id))); }
+      modelSel.value = String(c.model || '');
+      if (modelSel.value !== String(c.model || '')) modelSel.value = '';
+    }
+  };
+  fillModels();
+  const paintHint = () => { if (hint) hint.textContent = t(c.newThreadEngine === 'global' ? 'settings.mainEngine.hintGlobal' : 'settings.mainEngine.hintLast'); };
+  paintHint();
+  if (provSel.dataset.mainEngineWired) return;
+  provSel.dataset.mainEngineWired = '1';
+  provSel.onchange = () => { fillModels(); void setGlobalEngineDefault(provSel.value, modelSel.value); };
+  modelSel.onchange = () => { void setGlobalEngineDefault(provSel.value, modelSel.value); };
+}
+async function setGlobalEngineDefault(providerId, modelId) {
+  const pid = String(providerId || ''), model = String(modelId || '');
+  const patch = { activeProvider: pid };
+  const withModel = list => (Array.isArray(list) ? list : []).map(p => (p && p.id === pid ? { ...p, model } : p));
+  if (pid) patch.providers = withModel(state.config.providers); else patch.model = model;
+  const provSel = $('cfgMainProvider'), modelSel = $('cfgMainModel');
+  if (provSel) provSel.disabled = true; if (modelSel) modelSel.disabled = true;
+  const saved = await saveConfigPartial(patch);
+  if (provSel) provSel.disabled = false; if (modelSel) modelSel.disabled = false;
+  if (!saved) { fillMainEngineSelects(); return false; }
+  if (pid && state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) state.providersDraft = withModel(state.providersDraft);
+  updateEngineDependentUI();
+  toast(t('settings.mainEngine.toast'), 'ok');
+  return true;
+}
 // Human-readable name of the current engine: the provider's label (fallback id) or selected Agent CLI.
 function engineLabel() {
   const route = currentConversationRoute();
@@ -486,6 +550,7 @@ function fillSettings() {
   // 123-N2:新线程默认引擎(last/global)＋「上次用的」现在是什么。
   { const el0 = $('cfgNewThreadEngine'); if (el0) el0.value = c.newThreadEngine === 'global' ? 'global' : 'last'; }
   { const el0 = $('newThreadEngineHint'); if (el0) el0.textContent = lastUsedEngineText(); }
+  try { fillMainEngineSelects(); } catch (err) { console.warn('main engine selects', err); }   // 133d：基础页「对话主模型」
   updateAgentCliSettingsVisibility();
   $('cfgPartial').checked = !!c.includePartialMessages;
   $('cfgBeta').checked = !!c.betaInterleavedThinking;

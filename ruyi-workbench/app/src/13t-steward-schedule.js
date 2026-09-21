@@ -382,6 +382,10 @@ async function schedulerPrepareThread(schedRow) {
       const applied = StewardHooks.applyThreadTier(session, wantedTier, config);
       outcome.tier = String((applied && applied.tier) || '');
     } catch { /* 套不上 = 跟随全局;不连累下面的文件夹,也不反噬触发 */ }
+  } else {
+    // 133d:没指定档位也不许落到 Agent CLI 上 —— 管家开的线程一律 OpenAI 兼容端点。13t 拼在 13q 之后,直接调(反向边),
+    // 不进 StewardHooks(那张表的消费面锁在 09/10/12/13/13d/13g 族,不含本文件)。
+    try { stewardEnsureOpenAiRoute(session, config, ''); } catch { /* 同上 */ }
   }
 
   // ── S-b ──

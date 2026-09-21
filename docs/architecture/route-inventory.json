@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-21T08:10:56.679Z",
+  "generatedAt": "2026-09-21T08:40:30.636Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -883,6 +883,7 @@
         "dev-harness\\simple-mode.browser.e2e.js",
         "dev-harness\\start-error-surface.e2e.js",
         "dev-harness\\steward-contract-guard.e2e.js",
+        "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-signals.e2e.js",

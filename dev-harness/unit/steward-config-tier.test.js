@@ -292,6 +292,38 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace']) {
     '⑥ 没有 patch / 空 patch 时标签回落到既有总称「改设置」');
 }
 
+// ⑦ 133d(用户 2026-09-21 拍板:管家开的线程只走 OpenAI 兼容端点,两个 CLI 只作工作台里的兼容):回落顺序的纯函数直测。
+{
+  const { stewardOpenAiFallback } = srv;
+  ok(typeof stewardOpenAiFallback === 'function', '⑦ stewardOpenAiFallback 已导出');
+  const providers = [
+    { id: 'toolbox-asr-shim', label: 'shim', baseUrl: 'http://127.0.0.1:1', model: 'qwen3-asr-auto', models: [{ id: 'qwen3-asr-auto', caps: ['asr'] }] },
+    { id: 'voice-only', label: 'V', baseUrl: 'http://127.0.0.1:2', model: 'whisper-1', models: [{ id: 'whisper-1', caps: ['asr'] }] },
+    { id: 'ds', label: 'DS', baseUrl: 'http://127.0.0.1:3', model: 'ds-flash', models: [{ id: 'ds-flash' }, { id: 'ds-pro' }] },
+    { id: 'mimo', label: 'MiMo', baseUrl: 'http://127.0.0.1:4', model: 'mimo-1', models: [{ id: 'mimo-1' }, { id: 'mimo-asr', caps: ['asr'] }] },
+  ];
+  const r1 = stewardOpenAiFallback({ providers, activeProvider: '', agentCliType: 'kimi' });
+  ok(r1 && r1.providerId === 'ds' && r1.model === 'ds-flash' && r1.source === 'first', `⑦ 全局是 CLI、别的都没配 → 第一个能对话的端点(跳过 toolbox- 与只做语音的)(实得 ${JSON.stringify(r1)})`);
+  const r2 = stewardOpenAiFallback({ providers, activeProvider: 'claude-cli', stewardProviderId: 'mimo', stewardModel: '' });
+  ok(r2 && r2.providerId === 'mimo' && r2.model === 'mimo-1' && r2.source === 'steward', `⑦ 管家自己的端点优先,模型空则用该端点缺省(实得 ${JSON.stringify(r2)})`);
+  const r3 = stewardOpenAiFallback({ providers, activeProvider: 'ds', stewardProviderId: 'gone' });
+  ok(r3 && r3.providerId === 'ds' && r3.source === 'global', `⑦ 管家端点已删 → 全局主端点(是 OpenAI 时)(实得 ${JSON.stringify(r3)})`);
+  const r4 = stewardOpenAiFallback({ providers, activeProvider: '', lastUsedEngineRoute: { engine: 'openai', providerId: 'mimo', model: 'mimo-1' } });
+  ok(r4 && r4.providerId === 'mimo' && r4.source === 'last', `⑦ 全局是 CLI → 用户上次用的 OpenAI 路由(实得 ${JSON.stringify(r4)})`);
+  const r5 = stewardOpenAiFallback({ providers, activeProvider: '', lastUsedEngineRoute: { engine: 'agent', agentCliType: 'claude', model: '' } });
+  ok(r5 && r5.providerId === 'ds' && r5.source === 'first', '⑦ 上次用的是 CLI 路由 → 不算,继续往下挑');
+  ok(stewardOpenAiFallback({ providers: providers.slice(0, 2), activeProvider: '' }) === null, '⑦ 只有 toolbox-／只做语音的端点 → null(调用方留全局并记审计)');
+  ok(stewardOpenAiFallback({ providers, activeProvider: 'voice-only' }).providerId === 'ds', '⑦ 全局主端点只做语音 → 不算');
+  ok(stewardOpenAiFallback({}) === null && stewardOpenAiFallback(null) === null, '⑦ 空配置不抛');
+  // 机械锁:三个开线程的口都经 13q 的 ensureOpenAiRoute,13t 没指定档位也兜。
+  const fs2 = require('fs');
+  const src13q = fs2.readFileSync(path.join(app, 'src', '13q-steward-runner-turn.js'), 'utf8');
+  const src13t = fs2.readFileSync(path.join(app, 'src', '13t-steward-schedule.js'), 'utf8');
+  ok(src13q.includes("route = stewardEnsureOpenAiRoute(session, config, decided.tier);") && src13q.includes("if (current && current.engine === 'openai') return current;"),
+    '⑦ 13q:档位没配 → ensureOpenAiRoute;已是 OpenAI 路由一字不动');
+  ok(src13t.includes("stewardEnsureOpenAiRoute(session, config, '')") && !src13t.includes('StewardHooks.ensureOpenAiRoute'), '⑦ 13t 没指定档位也经同一个函数(直接调,不进 StewardHooks 表)');
+}
+
 console.log('');
 if (fail) { console.log(`STEWARD CONFIG TIER UNIT: ${fail} FAILURE(S)`); process.exit(1); }
 console.log('STEWARD CONFIG TIER UNIT: ALL PASS');

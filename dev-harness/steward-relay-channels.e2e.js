@@ -436,10 +436,13 @@ try {
     ok(auditRows().some(r => r && r.kind === 'steward_thread_model_fallback' && r.providerId === 'ghost-ep'),
       'G6 回落记了审计 steward_thread_model_fallback');
 
-    // steward_config_set 不能改这两个键。
-    const forbidden = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_config_set', args: { patch: { stewardThreadModels: { strong: { providerId: 'fake', model: 'fake-model' }, fast: { providerId: '', model: '' } } } } } }, hdr);
-    const fres = forbidden.json && forbidden.json.result;
-    ok(!!(fres && fres.ok === false), `G8 steward_config_set 白名单不含 stewardThreadModels(got ${fres && (fres.error || 'ok')})`);
+    // 132b(53 号文,用户 2026-09-21 拍板):stewardThreadModels 从 forbidden 改成 confirm —— 管家递按钮、用户按下才生效。
+    // /api/steward/act 就是「用户按了」那条路,所以这里【能改】;改的是用户在 config 里看得到的两档端点,改完复位。
+    const pressed = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_config_set', args: { patch: { stewardThreadModels: { strong: { providerId: 'fake', model: 'fake-model' }, fast: { providerId: '', model: '' } } } } } }, hdr);
+    const fres = pressed.json && pressed.json.result;
+    const cfgAfter = (await request('GET', '/api/status', null, hdr)).json.config;
+    ok(!!(fres && fres.ok !== false) && cfgAfter.stewardThreadModels && cfgAfter.stewardThreadModels.strong && cfgAfter.stewardThreadModels.strong.providerId === 'fake',
+      `G8 stewardThreadModels 是 confirm 档:用户按下管家递的按钮(/api/steward/act)后落盘(got ${fres && (fres.error || 'ok')} strong=${JSON.stringify(cfgAfter.stewardThreadModels && cfgAfter.stewardThreadModels.strong)})`);
     await request('POST', '/api/config', { stewardThreadModels: { strong: { providerId: '', model: '' }, fast: { providerId: '', model: '' } } }, hdr);
   }
 

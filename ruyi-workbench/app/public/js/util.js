@@ -92,9 +92,11 @@ export function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.
 // 判据不看 id 前缀（用户自己加一个只放 whisper 的服务商同理）：模型清单非空、且【每一个】模型都带语音识别标记。
 // 混用的服务商（百炼那种既有对话模型又标了一个语音模型）不受影响；语音识别自己的选择器另有一套判据，也不受影响。
 // 纯函数。住在 util.js 而不是 state.js:管家那几个模块会被静态件在 Node 里直接 import,而 state.js 顶层要 window。
+// 133d(真机实拍):asr-stream 组件的流式模型标记是 asr-stream(不是 asr),修前它不算「只做语音」,于是「本地实时语音识别」
+// 被列进对话端点候选(基础页主端点、命令面板、压缩器)。两种语音标记都算;服务端 06i stewardChatCapableProvider 同口径。
 export function isSpeechOnlyProvider(provider) {
   const models = provider && Array.isArray(provider.models) ? provider.models : [];
-  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'));
+  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && (m.caps.includes('asr') || m.caps.includes('asr-stream')));
 }
 export function chatProviders(config) {
   const providers = config && Array.isArray(config.providers) ? config.providers : [];

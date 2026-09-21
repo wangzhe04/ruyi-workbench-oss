@@ -126,7 +126,7 @@ export function shouldShowOnboarding(config, sessions) {
 // 改一处不改另一处当场红。
 function isSpeechOnlyProvider(provider) {
   const models = provider && Array.isArray(provider.models) ? provider.models : [];
-  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && m.caps.includes('asr'));
+  return models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && (m.caps.includes('asr') || m.caps.includes('asr-stream')));
 }
 export function onboardingStepsFor(config) {
   const c = asObject(config);

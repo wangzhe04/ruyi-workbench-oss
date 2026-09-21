@@ -691,15 +691,35 @@ async function stewardVisit(opts) {
 //     (不报错、不拒绝开线程是故意的 —— 模型配错不该把事儿卡死)。
 function stewardApplyThreadTier(session, tier, config) {
   const decided = stewardThreadEngineRoute(tier, config);
-  const route = decided.found
+  let route = decided.found
     ? normalizeSessionEngineRoute({ engine: 'openai', providerId: decided.providerId, model: decided.model })
     : null;
   if (route) session.engineRoute = route;
-  else if (decided.fallback) logEvent({ kind: 'steward_thread_model_fallback', tier: decided.tier, providerId: decided.providerId, sessionId: session.id });
+  else {
+    if (decided.fallback) logEvent({ kind: 'steward_thread_model_fallback', tier: decided.tier, providerId: decided.providerId, sessionId: session.id });
+    // 133d:那一档没配 → 不留给全局缺省(可能是 Agent CLI),按 06i 的顺序挑一个 OpenAI 兼容端点。
+    route = stewardEnsureOpenAiRoute(session, config, decided.tier);
+  }
   return {
     tier: decided.tier,
     engine: route ? { providerId: route.providerId, model: route.model } : { providerId: '', model: '' },
   };
+}
+// 133d(用户 2026-09-21 拍板:管家开的线程只走 OpenAI 兼容端点,两个 CLI 只留给工作台里人用):会话头上已经是
+// OpenAI 路由就一字不动;否则按 06i stewardOpenAiFallback 的顺序挑一个写上并记审计;一个端点都没有 → 留全局缺省、记审计。
+// 三个开线程的口(13k 线程/快问经 applyThreadTier、13t 定时任务直接调)都经这里,不许各自再判一遍。
+function stewardEnsureOpenAiRoute(session, config, tier) {
+  const current = normalizeSessionEngineRoute(session && session.engineRoute);
+  if (current && current.engine === 'openai') return current;
+  const fb = stewardOpenAiFallback(config);
+  const route = fb ? normalizeSessionEngineRoute({ engine: 'openai', providerId: fb.providerId, model: fb.model }) : null;
+  if (route) {
+    session.engineRoute = route;
+    logEvent({ kind: 'steward_thread_engine_openai_only', sessionId: session.id, tier: String(tier || ''), source: fb.source, providerId: route.providerId, model: route.model });
+    return route;
+  }
+  logEvent({ kind: 'steward_thread_no_openai_provider', sessionId: session.id, tier: String(tier || ''), globalRoute: current ? current.engine : '' });
+  return null;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

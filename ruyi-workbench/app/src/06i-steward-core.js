@@ -1071,6 +1071,38 @@ function stewardThreadEngineRoute(tier, config) {
   if (!provider) return { tier: key, providerId, model: '', found: false, fallback: true };
   return { tier: key, providerId, model: String(slot.model || '').trim() || String(provider.model || ''), found: true, fallback: false };
 }
+// ②b 133d(用户 2026-09-21:「管家新开的线程,默认只能走如意的 OpenAI 兼容端点,走 Claude CLI 和 Kimi CLI 似乎会有问题;
+// 这两个第三方 CLI 只作为能在工作台使用的兼容存在」):那一档没配(或端点已删)时,管家线程【不】回落到 createSession 的
+// 全局缺省 —— 全局可能是 Agent CLI —— 而是按固定顺序挑一个 OpenAI 兼容端点:
+//   ① 管家自己在用的端点(stewardProviderId)> ② 全局主端点(activeProvider,是 OpenAI 端点时)>
+//   ③ 用户上次用的(lastUsedEngineRoute,是 OpenAI 路由且端点还在)> ④ 端点清单里第一个能对话的。
+// 「能对话」= 不是 claude-cli、不是 toolbox- 自动接入的、且不是只做语音的(models 全带 asr 标记)。一个都没有 → null,
+// 调用方留全局缺省并记审计(不拒绝开线程:没端点不该把事儿卡死,但要留痕)。纯函数、不构造 engineRoute(同上一函数的理由)。
+function stewardChatCapableProvider(p) {
+  if (!p || typeof p !== 'object') return false;
+  const id = String(p.id || '');
+  if (!id || id === 'claude-cli' || id.startsWith('toolbox-')) return false;
+  const models = Array.isArray(p.models) ? p.models : [];
+  const speechOnly = models.length > 0 && models.every(m => m && typeof m === 'object' && Array.isArray(m.caps) && (m.caps.includes('asr') || m.caps.includes('asr-stream')));
+  return !speechOnly;
+}
+function stewardOpenAiFallback(config) {
+  const cfg = (config && typeof config === 'object') ? config : {};
+  const providers = Array.isArray(cfg.providers) ? cfg.providers : [];
+  const byId = id => providers.find(p => p && p.id === id && stewardChatCapableProvider(p)) || null;
+  const pick = (p, model, source) => ({ providerId: String(p.id), model: String(model || '').trim() || String(p.model || ''), source });
+  // 局部名带 fb 前缀:103b 的依赖扫描按标识符认模块间引用,裸的 main/last/first 会被当成读了 14-main 的顶层符号。
+  const fbOwn = byId(String(cfg.stewardProviderId || '').trim());
+  if (fbOwn) return pick(fbOwn, cfg.stewardModel, 'steward');
+  const fbGlobal = byId(String(cfg.activeProvider || '').trim());
+  if (fbGlobal) return pick(fbGlobal, '', 'global');
+  const fbRoute = (cfg.lastUsedEngineRoute && typeof cfg.lastUsedEngineRoute === 'object') ? cfg.lastUsedEngineRoute : null;
+  const fbLast = fbRoute && fbRoute.engine === 'openai' ? byId(String(fbRoute.providerId || '').trim()) : null;
+  if (fbLast) return pick(fbLast, fbRoute.model, 'last');
+  const fbFirst = providers.find(stewardChatCapableProvider) || null;
+  if (fbFirst) return pick(fbFirst, '', 'first');
+  return null;
+}
 
 // ③ 「它在问你」(§11.9 D4)。三态,判定顺序固定:
 //   正式待决 question > 活回合(在跑就不算在问你)> 软问句(最后一条助手消息以问号收尾)。
