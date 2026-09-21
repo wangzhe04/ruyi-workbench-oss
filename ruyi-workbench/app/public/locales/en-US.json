@@ -939,6 +939,15 @@
   "settings.asr.noProvider": "Add a provider above first, then come back here to add a speech recognition model.",
   "settings.asr.toastReset": "Speech recognition off",
   "settings.asr.toastSet": "Speech recognition on",
+  "settings.asr.roleHint": "With live recognition selected above, this model silently corrects each finished sentence; without it, speech is transcribed segment by segment at each pause.",
+  "settings.asrStream.title": "Live recognition (text as you speak)",
+  "settings.asrStream.disabled": "Off (transcribe at each pause)",
+  "settings.asrStream.hintSet": "Text appears in the input box as you speak; each finished sentence is silently re-checked by the speech recognition model chosen below (skipped if none).",
+  "settings.asrStream.hintUnset": "Pick a streaming model and the microphone shows text as you speak. The local asr-stream add-on appears here automatically once installed.",
+  "settings.asrStream.none": "No streaming model yet. Install the ruyi-toolbox asr-stream add-on (local, CPU only) and it appears here and turns on automatically.",
+  "settings.asrStream.toastSet": "Live recognition on",
+  "settings.asrStream.toastReset": "Live recognition off; the microphone falls back to pause-based transcription",
+  "settings.toolbox.kind.asrStream": "Local live speech recognition",
   "settings.apiKey": "API key",
   "settings.apiKeyPlaceholder": "Leave blank to keep the saved key unchanged",
   "settings.applyPreset": "Apply preset",
@@ -2916,4 +2925,7 @@
   ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Providers; the input box is unchanged"
   ,"composer.voice.error.failed": "Transcription did not succeed. Try again later; the input box is unchanged"
   ,"composer.voice.error.empty": "No words were recognized. The input box is unchanged"
+  ,"composer.voice.hintStream": "Voice input: click to start, text appears as you speak, each finished sentence is corrected automatically; click again to finish, Esc to cancel. Nothing is sent automatically"
+  ,"composer.voice.streaming": "Listening — text appears as you speak; press again to finish, Esc to cancel"
+  ,"composer.voice.error.streamFallback": "Live recognition is unavailable; this recording uses pause-based transcription"
 }

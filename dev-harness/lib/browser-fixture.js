@@ -287,6 +287,9 @@ async function startBrowserFixture(opts = {}) {
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
     '--force-device-scale-factor=1', `--window-size=${width},${height}`,
+    // 130:件自己要的额外开关(麦克风件要 --use-fake-device-for-media-stream ＋ --use-fake-ui-for-media-stream);
+    // 放这里而不是各自复制一份 CdpClient —— 那正是本夹具存在的理由。
+    ...(Array.isArray(opts.browserArgs) ? opts.browserArgs.map(String) : []),
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });
   // 129j:失败时把 why 打出来再抛 —— 「CDP target unavailable」这七个字什么都没说,

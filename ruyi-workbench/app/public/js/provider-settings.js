@@ -623,7 +623,8 @@ function asrCapableOptions() {
 // 有候选时照旧是选择器；无候选时说一句怎么办；两种情况下面都有一行「添加语音识别模型」（选服务商、填模型名、添加并启用）。
 // 输入框里那枚待开启的灰麦克风被点时，组合根经 focusAsrSettings() 把人带到这里。
 function asrProviderChoices() {
-  return ((state.config && state.config.providers) || []).filter(p => p && p.id && p.id !== 'claude-cli');
+  // toolbox- 服务商归自动发现所有（模型清单由组件登记决定，设置页改不了），不进「添加语音识别模型」的候选。
+  return ((state.config && state.config.providers) || []).filter(p => p && p.id && p.id !== 'claude-cli' && !String(p.id).startsWith('toolbox-'));
 }
 // 把 modelId 标成可语音识别：该服务商的模型清单里已有它就给它加上 asr 能力，没有就追加一条；同时把它选成语音识别模型。
 // 2026-09-20（用户实报两件）：
@@ -716,6 +717,47 @@ function focusAsrSettings() {
   if (target) { try { target.focus(); } catch { /* 节点不可聚焦 */ } }
   return true;
 }
+// 130（51 号文 §2.3）：实时识别（流式）候选 —— 只列 caps 含 asr-stream 的模型；今天只有 toolbox 的 asr-stream 组件会产生它。
+function asrStreamCapableOptions() {
+  const out = [];
+  for (const p of (state.config && state.config.providers) || []) {
+    if (!p || !p.id) continue;
+    for (const m of (Array.isArray(p.models) ? p.models : [])) {
+      if (!m || typeof m !== 'object' || !(Array.isArray(m.caps) && m.caps.includes('asr-stream'))) continue;
+      const id = String(m.id || '').trim(); if (!id) continue;
+      out.push({ providerId: p.id, providerLabel: p.label || p.id, modelId: id, modelLabel: String(m.label || id) });
+    }
+  }
+  return out;
+}
+// 「实时识别」那一栏：与下面「语音识别」同模具（选中即存部分补丁）；无候选时只说一句怎么装（没有添加口 —— 流式端点只能由组件登记）。
+function buildAsrStreamBlock() {
+  const block = el('div', 'field-block asr-stream-block');
+  const label = el('label', '', t('settings.asrStream.title'));
+  const options = asrStreamCapableOptions();
+  if (!options.length) { block.append(label, el('p', 'field-help muted', t('settings.asrStream.none'))); return block; }
+  const select = el('select', 'asr-stream-select');
+  const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
+  select.appendChild(opt(t('settings.asrStream.disabled'), ''));
+  for (const o of options) select.appendChild(opt(`${o.providerLabel} / ${o.modelLabel}`, o.providerId + ASR_VALUE_SEP + o.modelId));
+  const curP = String(state.config && state.config.asrStreamProviderId || ''), curM = String(state.config && state.config.asrStreamModel || '');
+  const curValue = (curP && curM) ? curP + ASR_VALUE_SEP + curM : '';
+  select.value = curValue;
+  if (select.value !== curValue) select.value = '';
+  const hint = el('p', 'field-help muted', select.value ? t('settings.asrStream.hintSet') : t('settings.asrStream.hintUnset'));
+  select.onchange = async () => {
+    const [asrStreamProviderId = '', asrStreamModel = ''] = select.value.split(ASR_VALUE_SEP);
+    select.disabled = true;
+    const saved = await saveConfigPartial({ asrStreamProviderId, asrStreamModel });
+    select.disabled = false;
+    if (saved) {
+      hint.textContent = select.value ? t('settings.asrStream.hintSet') : t('settings.asrStream.hintUnset');
+      toast(t(asrStreamProviderId ? 'settings.asrStream.toastSet' : 'settings.asrStream.toastReset'), 'ok');
+    }
+  };
+  block.append(label, select, hint);
+  return block;
+}
 function renderAsrSettings() {
   const host = $('stab-providers');
   if (!host) return;
@@ -723,11 +765,13 @@ function renderAsrSettings() {
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
   asrSettingsBlock.textContent = '';
   const sep = el('hr', 'settings-sep');
+  const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后
   const block = el('div', 'field-block');
   const label = el('label', '', t('settings.asr.title'));
+  const roleHint = el('p', 'field-help muted', t('settings.asr.roleHint'));
   if (!options.length) {
-    block.append(label, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
-    asrSettingsBlock.append(sep, block);
+    block.append(label, roleHint, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
+    asrSettingsBlock.append(sep, streamBlock, block);
     return;
   }
   const select = el('select', 'asr-select');
@@ -749,8 +793,8 @@ function renderAsrSettings() {
       toast(t(asrProviderId ? 'settings.asr.toastSet' : 'settings.asr.toastReset'), 'ok');
     }
   };
-  block.append(label, select, hint, buildAsrAddRow());
-  asrSettingsBlock.append(sep, block);
+  block.append(label, roleHint, select, hint, buildAsrAddRow());
+  asrSettingsBlock.append(sep, streamBlock, block);
 }
 // ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
 // 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、
@@ -794,7 +838,9 @@ function renderToolboxSettings() {
       toggle.disabled = false;
       if (!okSaved) toggle.checked = !toggle.checked;
     };
-    const kind = (c.provides || []).includes('mcp') ? t('settings.toolbox.kind.mcp') : ((c.provides || []).includes('asr') ? t('settings.toolbox.kind.asr') : t('settings.toolbox.kind.service'));
+    const provides = c.provides || [];
+    const kind = provides.includes('mcp') ? t('settings.toolbox.kind.mcp')
+      : (provides.includes('asr') ? t('settings.toolbox.kind.asr') : (provides.includes('asr-stream') ? t('settings.toolbox.kind.asrStream') : t('settings.toolbox.kind.service')));
     const name = el('span', 'toolbox-name', (c.name || c.id) + (c.version ? ' · ' + c.version : ''));
     const meta = el('span', 'toolbox-meta muted', kind + ' · ' + t(TOOLBOX_STATE_KEYS[c.state] || 'settings.toolbox.state.starting'));
     row.append(toggle, name, meta);

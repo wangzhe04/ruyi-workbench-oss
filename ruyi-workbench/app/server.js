@@ -720,6 +720,9 @@ const ROUTE_AUTH = [
   // 127-114b(26 号文 §3): ASR 语音转写 —— 全波唯一出网面(用户音频字节出网到所配 ASR 端点),
   // 写面且内容敏感,一律 token 级(不给 token-browser,与 /api/steward/* 同一档)。
   { m: 'POST', p: '/api/audio/transcribe', auth: 'token' },
+  // 130(51 号文 §2.3):实时识别的代理路由(开会话／喂音频／收尾／关会话)—— 同一条出网面的流式形,同档 token 级。
+  { m: 'POST', p: '/api/audio/stream/sessions', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/audio/stream/sessions/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)
@@ -1120,6 +1123,10 @@ function defaultConfig() {
     // 不 bump(45 号文 §6.1 对 26 号文的显式改判:无旧值要改写,读回空串即「未配置」)。
     asrProviderId: '',
     asrModel: '',
+    // 130(51 号文):实时识别(流式小模型,边说边出字)。与上面那对同口径:两个都非空才算「已配置」;
+    // 上面那对从此兼任「第二遍校正」—— 两遍都可选,各自独立。
+    asrStreamProviderId: '',
+    asrStreamModel: '',
     openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
@@ -1853,13 +1860,19 @@ function normalizeConfig(raw, opts = {}) {
   // 114a(45 号文 §7): asrProviderId/asrModel —— 与 compactProviderId 同口径(下方 :914-925 那段):
   // 字符串形状消毒(trim + 截 400);指向的 provider 没了就清成「未配置」(两个都空 = 麦克风不可见),
   // 不静默改指别的端点。单有 asrModel 没有 asrProviderId 时保留原值(惰性,不构成「已配置」)。
-  for (const key of ['asrProviderId', 'asrModel']) {
+  for (const key of ['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel']) {
     const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
     if (clean !== config[key]) { config[key] = clean; changed = true; }
   }
   if (config.asrProviderId && !config.providers.some(p => p && p.id === config.asrProviderId)) {
     config.asrProviderId = '';
     config.asrModel = '';
+    changed = true;
+  }
+  // 130:实时识别那一对同一条清洗 —— 指着的服务商没了就清成「未配置」(麦克风退回按停顿切段那条路)。
+  if (config.asrStreamProviderId && !config.providers.some(p => p && p.id === config.asrStreamProviderId)) {
+    config.asrStreamProviderId = '';
+    config.asrStreamModel = '';
     changed = true;
   }
   {
@@ -11601,7 +11614,7 @@ function invalidateMcpDropInCache() { _dropInCache = { at: 0, list: null }; }
 // 校验从严、坏文件一律当「没装」并审计一条,绝不抛、绝不打断启动:绝对路径且存在、不经 shell、不展开变量、不拼接参数。
 // 同步 I/O + 2s 缓存(与 drop-in 同理:resolveExternalMcpServers 在请求期频繁调)。上限 20 个组件、单文件 32 KB。
 const TOOLBOX_COMPONENT_MAX = 20;
-const TOOLBOX_PROVIDES_TYPES = new Set(['asr']);   // 现在认识的能力;不认识的 type 跳过(向前兼容:组件可以先登记、如意后支持)
+const TOOLBOX_PROVIDES_TYPES = new Set(['asr', 'asr-stream']);   // 现在认识的能力;不认识的 type 跳过(向前兼容:组件可以先登记、如意后支持)。asr-stream:130(51 号文)
 let _toolboxCache = { at: 0, list: null };
 const _toolboxSkipLogged = new Set();
 function toolboxComponentsDir() {
@@ -13251,19 +13264,29 @@ function stopAllToolboxServicesSync() {
 }
 
 // 把启用的服务类组件的 provides 落成配置。只在真有变化时才写盘(mutateConfig 的 abort 支)。
+// 130(51 号文 §2.3):一个组件可以同时提供 asr(整段)与 asr-stream(流式),落成同一条服务商、两个带不同标记的模型;
+// 两种能力各自有一对配置键(asrProviderId/asrModel 与 asrStreamProviderId/asrStreamModel),自动选中各算各的。
 function toolboxDesiredProviders(config) {
   const out = [];
   for (const c of enabledToolboxComponents(config)) {
     if (c.kind !== 'service') continue;
-    const asr = c.provides.find(p => p.type === 'asr');
-    if (!asr) continue;
+    const asr = c.provides.find(p => p.type === 'asr') || null;
+    const stream = c.provides.find(p => p.type === 'asr-stream') || null;
+    if (!asr && !stream) continue;
     const entry = toolboxServices.get(c.id);
     const port = entry && entry.port ? entry.port : c.service.port;
+    const base = 'http://127.0.0.1:' + port + ((asr || stream).basePath || '');
+    const models = [];
+    if (asr) models.push({ id: asr.model, label: asr.model, caps: ['asr'] });
+    if (stream && !(asr && asr.model === stream.model)) models.push({ id: stream.model, label: stream.model, caps: ['asr-stream'] });
+    else if (stream) models[0].caps.push('asr-stream');
     out.push({
       componentId: c.id,
+      asrModel: asr ? asr.model : '',
+      streamModel: stream ? stream.model : '',
       provider: {
-        id: toolboxProviderId(c.id), label: c.name, baseUrl: 'http://127.0.0.1:' + port + asr.basePath, apiKey: '', model: asr.model,
-        models: [{ id: asr.model, label: asr.model, caps: ['asr'] }], ...(asr.protocol === 'chat-audio' ? { asrProtocol: 'chat-audio' } : {}),
+        id: toolboxProviderId(c.id), label: c.name, baseUrl: base, apiKey: '', model: (asr || stream).model, models,
+        ...(asr && asr.protocol === 'chat-audio' ? { asrProtocol: 'chat-audio' } : {}),
       },
     });
   }
@@ -13280,27 +13303,37 @@ async function syncToolboxProviders() {
       const want = wanted.get(p.id);
       if (!want) { changed = true; continue; }   // 组件被停用／卸载 → 条目跟着撤(01 的归一化会把指向它的语音识别选择一并清空)
       wanted.delete(p.id);
-      const hasAsr = (Array.isArray(p.models) ? p.models : []).some(m => m && m.id === want.model && Array.isArray(m.caps) && m.caps.includes('asr'));
-      if (p.baseUrl !== want.baseUrl || p.label !== want.label || !hasAsr || (p.asrProtocol || '') !== (want.asrProtocol || '')) {
+      const sameModels = JSON.stringify(Array.isArray(p.models) ? p.models : []) === JSON.stringify(want.models);
+      if (p.baseUrl !== want.baseUrl || p.label !== want.label || !sameModels || (p.asrProtocol || '') !== (want.asrProtocol || '')) {
         const next = { ...p, label: want.label, baseUrl: want.baseUrl, model: want.model, models: want.models };
         if (want.asrProtocol) next.asrProtocol = want.asrProtocol; else delete next.asrProtocol;
         providers.push(next); changed = true;
       } else providers.push(p);
     }
+    // 这一趟【补回】的条目:配置里本来没有它。两种来路 —— 组件刚被重新启用(04f 自己在停用时撤的),或条目被别的
+    // 什么弄丢了(2026-09-21 真机:设置页整份保存把它撤掉,13 现已挡住这条路)。两种都不是「用户换走／关掉了语音识别」
+    // (那种情况条目还在、只是选择为空,C1 那条),所以下面的自动选中对它们再做一次 —— 否则用户停用再启用之后
+    // 语音输入就没了,得自己去设置里再选一次。
+    const readded = new Set([...wanted.keys()]);
     for (const want of wanted.values()) { providers.push(want); changed = true; }
     const tb = current.toolbox || { autoDiscover: true, disabled: [], seen: [] };
     const seen = new Set(Array.isArray(tb.seen) ? tb.seen : []);
     let asrProviderId = String(current.asrProviderId || ''), asrModel = String(current.asrModel || '');
+    let asrStreamProviderId = String(current.asrStreamProviderId || ''), asrStreamModel = String(current.asrStreamModel || '');
     for (const d of desired) {
-      if (seen.has(d.componentId)) continue;
-      seen.add(d.componentId); changed = true;
-      if (!asrProviderId && !asrModel) {
-        asrProviderId = d.provider.id; asrModel = d.provider.model;
+      if (seen.has(d.componentId) && !readded.has(d.provider.id)) continue;
+      if (!seen.has(d.componentId)) { seen.add(d.componentId); changed = true; }
+      if (d.asrModel && !asrProviderId && !asrModel) {
+        asrProviderId = d.provider.id; asrModel = d.asrModel;
         logEvent({ kind: 'toolbox_service', action: 'asr-auto-select', id: d.componentId, model: asrModel });
+      }
+      if (d.streamModel && !asrStreamProviderId && !asrStreamModel) {
+        asrStreamProviderId = d.provider.id; asrStreamModel = d.streamModel;
+        logEvent({ kind: 'toolbox_service', action: 'asr-stream-auto-select', id: d.componentId, model: asrStreamModel });
       }
     }
     if (!changed) return { abort: 'unchanged' };
-    return { next: { ...current, providers, asrProviderId, asrModel, toolbox: { ...tb, seen: [...seen] } } };
+    return { next: { ...current, providers, asrProviderId, asrModel, asrStreamProviderId, asrStreamModel, toolbox: { ...tb, seen: [...seen] } } };
   });
 }
 
@@ -14508,7 +14541,7 @@ function providerReasoningEffort(provider) {
 // 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
 // 取值域】,仅仅同名 caps。两处白名单【不许互相引用】,asr-config-ui.static.e2e.js 钉死这条隔离。
 // 清洗口径:非字符串/空白/白名单外一律静默丢弃,去重,保序;空结果由调用方「可加不加」不落字段。
-const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding']);
+const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding', 'asr-stream']);   // 130:asr-stream = 流式识别(有会话的 HTTP,只给麦克风用)
 function providerModelCaps(rawCaps) {
   if (!Array.isArray(rawCaps)) return [];
   const out = [];
@@ -15265,6 +15298,24 @@ function resolveAsrProvider(config) {
     return { failure: { code: 'asr.provider_missing', params: { providerId: asrProviderId }, message: '语音识别所选服务商不存在', status: 409 } };
   }
   return { provider, asrModel };
+}
+// 130(51 号文 §2.3):实时识别端点 —— 与 resolveAsrProvider 同口径,只是键不同、且模型必须带 asr-stream 标记
+// (流式接口与整段接口不是一回事,选错了打过去只会 404)。未配置 = 409 asr.stream_not_configured;前端据此不走流式。
+function resolveAsrStreamProvider(config) {
+  const providerId = String(config.asrStreamProviderId || '').trim();
+  const model = String(config.asrStreamModel || '').trim();
+  if (!providerId || !model) {
+    return { failure: { code: 'asr.stream_not_configured', params: {}, message: '实时识别未配置(asrStreamProviderId/asrStreamModel 为空)', status: 409 } };
+  }
+  const provider = resolveProvider(config, providerId);
+  if (!provider) {
+    return { failure: { code: 'asr.provider_missing', params: { providerId }, message: '实时识别所选服务商不存在', status: 409 } };
+  }
+  const marked = (Array.isArray(provider.models) ? provider.models : []).some(m => m && m.id === model && Array.isArray(m.caps) && m.caps.includes('asr-stream'));
+  if (!marked) {
+    return { failure: { code: 'asr.stream_not_configured', params: { providerId, model }, message: '所选模型不是流式识别端点', status: 409 } };
+  }
+  return { provider, model };
 }
 // 107-A1:chat-audio 回体取文本 —— content 可能是字符串,也可能是 OpenAI 多模态形的 parts 数组。
 // 两种都取不出来就回 null(调用方据此走 asr.bad_response)。空串是合法转写结果(与 transcriptions
@@ -23185,6 +23236,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 帮忙把语音识别配好是正当诉求(与 compactProviderId/compactModel 同族:都是「内容路由到哪个
   // 模型端点」)。
   'asrProviderId', 'asrModel',
+  'asrStreamProviderId', 'asrStreamModel',   // 130:实时识别端点选择,与上一对同族同档(confirm)
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把
@@ -45260,14 +45312,15 @@ async function handleSteerApiRoute(req, res, pathname) {
 // baseUrl 今天没有任何 URL 准入校验,本刀不凭空发明一道(独立安全决定,两条出网面要收一起收,107 记档)。
 // 25 MB 专用闸的读法:Content-Length 预检 + 流式累计双道,任一超 ASR_MAX_BODY_BYTES 即 413,
 // 不经 readBody(那条是 128 MB 总闸)——「早于总闸」是可观测行为,不是注释(见 00-boot 该常量注释)。
-async function readAudioBody(req) {
+async function readAudioBody(req, limit = ASR_MAX_BODY_BYTES) {
   // 吞掉「提前结束响应」之后 req 上可能再发的 error/aborted(25MB 处判 413 时客户端往往还在续传,
   // 服务端随即拆除这条连接)。挂上空接即可,读取语义不变。
   // 实测备注(127-114b e2e):413 之后新连接会有【瞬态】接受停顿(几百毫秒级,内核清理在途字节),
   // 服务本身不死 —— 客户端侧的正确姿势是等它回来(e2e 里有专门一条断言钉住「服务撑得住」)。
+  // 130:limit 可传(流式音频块的闸是 1 MB,不是整段的 25 MB);缺省值与从前逐字节相同。
   req.on('error', () => {});
   const declared = Number(req.headers['content-length'] || 0);
-  if (declared > ASR_MAX_BODY_BYTES) {
+  if (declared > limit) {
     const err = new Error('audio body too large'); err.statusCode = 413; err.code = 'asr.too_large';
     throw err;
   }
@@ -45275,7 +45328,7 @@ async function readAudioBody(req) {
   let total = 0;
   for await (const chunk of req) {
     total += chunk.length;
-    if (total > ASR_MAX_BODY_BYTES) {
+    if (total > limit) {
       const err = new Error('audio body too large'); err.statusCode = 413; err.code = 'asr.too_large';
       throw err;
     }
@@ -45289,7 +45342,132 @@ async function handleAudioApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/audio/transcribe') {
     return await handleAudioTranscribe(req, res);
   }
+  // 130(51 号文 §2.3):实时识别的代理路由。开会话是裸路径;喂音频／收尾／关会话带会话 id,走前缀判定点。
+  if (req.method === 'POST' && pathname === '/api/audio/stream/sessions') {
+    return await handleAudioStreamOpen(req, res);
+  }
+  if (req.method === 'POST' && pathname.startsWith('/api/audio/stream/sessions/')) {
+    return await handleAudioStreamSession(req, res, pathname);
+  }
+  if (req.method === 'DELETE' && pathname.startsWith('/api/audio/stream/sessions/')) {
+    return await handleAudioStreamSession(req, res, pathname);
+  }
   return false;
+}
+// ── 130(51 号文 §2):实时识别代理 —— 浏览器每 250 ms 一块 PCM 打到这里,这里转给配置里那条 asr-stream 服务商 ─────
+// 威胁模型与 /api/audio/transcribe 同:上游地址【只来自配置】(providers[].baseUrl),绝不收请求体里的 URL;
+// 浏览器只拿到一个本进程发的会话 id,上游会话 id 不出本进程;单块 ≤ 1 MB;每进程 ≤ 4 个活会话;60 s 没音频服务端回收
+// (浏览器页被关掉不会来 finish)。上游错误体先过 04 redact 再裁 500 字。不记账:本地组件不花钱(云端流式暂不支持)。
+const AUDIO_STREAM_MAX_SESSIONS = 4;
+const AUDIO_STREAM_IDLE_MS = 60000;
+const AUDIO_STREAM_CHUNK_MAX_BYTES = 1024 * 1024;
+const AUDIO_STREAM_UPSTREAM_TIMEOUT_MS = 15000;
+const audioStreamSessions = new Map();   // 本进程会话 id → { upstream, upstreamId, providerId, at }
+function audioStreamReap() {
+  const now = Date.now();
+  for (const [id, s] of audioStreamSessions) {
+    if (now - s.at > AUDIO_STREAM_IDLE_MS) {
+      audioStreamSessions.delete(id);
+      logEvent({ kind: 'asr_stream', action: 'reap', provider: s.providerId });
+      void audioStreamUpstream(s, 'DELETE', '/' + s.upstreamId).catch(() => {});
+    }
+  }
+}
+async function audioStreamUpstream(s, method, suffix, body, contentType) {
+  const headers = body ? { 'content-type': contentType || 'application/json' } : {};
+  const res = await fetch(s.upstream + '/stream/sessions' + suffix, { method, headers, body, signal: AbortSignal.timeout(AUDIO_STREAM_UPSTREAM_TIMEOUT_MS) });
+  const text = await res.text();
+  return { status: res.status, body: safeJsonParse(text, null), text };
+}
+function audioStreamFailure(up) {
+  const message = redact(String((up && up.body && up.body.error && up.body.error.message) || (up && up.text) || '')).slice(0, 500);
+  return apiFailure('asr.stream_upstream', { status: up ? up.status : 0 }, message || '实时识别服务报错', 502);
+}
+async function handleAudioStreamOpen(req, res) {
+  const config = await readConfig();
+  let resolved = resolveAsrStreamProvider(config);
+  if (resolved.failure) { const f = resolved.failure; return send(res, apiFailure(f.code, f.params, f.message, f.status)); }
+  // 指着 toolbox 组件而它这会儿没在跑 → 就地再起(与 transcribeAudioViaProvider 同一条路);端口若变了配置已改写,重取一次。
+  if (String(resolved.provider.id || '').startsWith('toolbox-') && typeof ToolboxHooks.ensureForProvider === 'function') {
+    await ToolboxHooks.ensureForProvider(resolved.provider.id);
+    resolved = resolveAsrStreamProvider(await readConfig());
+    if (resolved.failure) { const f = resolved.failure; return send(res, apiFailure(f.code, f.params, f.message, f.status)); }
+  }
+  let raw;
+  try { raw = await readAudioBody(req, 64 * 1024); }
+  catch (err) { if (err && err.statusCode === 413) return send(res, apiFailure('asr.stream_bad_request', {}, '请求体过大', 413)); throw err; }
+  const parsed = raw.length ? safeJsonParse(raw.toString('utf8'), null) : {};
+  if (raw.length && (!parsed || typeof parsed !== 'object')) return send(res, apiFailure('asr.stream_bad_request', {}, '请求体不是合法 JSON', 400));
+  const hotwords = Array.isArray(parsed.hotwords) ? parsed.hotwords.filter(w => typeof w === 'string').map(w => w.trim().slice(0, 40)).filter(Boolean).slice(0, 200) : [];
+  audioStreamReap();
+  if (audioStreamSessions.size >= AUDIO_STREAM_MAX_SESSIONS) return send(res, apiFailure('asr.stream_busy', { max: AUDIO_STREAM_MAX_SESSIONS }, '实时识别会话太多,稍后再试', 429));
+  const upstream = String(resolved.provider.baseUrl || '').replace(/\/+$/, '');
+  const s = { upstream, upstreamId: '', providerId: resolved.provider.id, at: Date.now() };
+  let up;
+  try { up = await audioStreamUpstream(s, 'POST', '', JSON.stringify({ hotwords }), 'application/json'); }
+  catch (err) {
+    logEvent({ kind: 'asr_stream', action: 'open-failed', provider: s.providerId, error: String(err && err.message || err).slice(0, 200) });
+    return send(res, apiFailure('asr.stream_unreachable', { providerId: s.providerId }, '连不上实时识别服务', 502));
+  }
+  if (up.status !== 200 || !up.body || !/^[0-9a-f]{32}$/.test(String(up.body.id || ''))) return send(res, audioStreamFailure(up));
+  s.upstreamId = String(up.body.id);
+  const id = crypto.randomBytes(16).toString('hex');
+  audioStreamSessions.set(id, s);
+  logEvent({ kind: 'asr_stream', action: 'open', provider: s.providerId, hotwords: hotwords.length, active: audioStreamSessions.size });
+  return send(res, json({ ok: true, id, sampleRate: Number(up.body.sampleRate) || 16000 }));
+}
+async function handleAudioStreamSession(req, res, pathname) {
+  // 只从上面的 POST／DELETE 前缀判定点进来;这里手工拆段(不用 pathname.match —— 路由清册扫描器会把它当成一条独立的正则路由)。
+  const parts = pathname.slice('/api/audio/stream/sessions/'.length).split('/');
+  const id = parts[0] || '';
+  const action = parts.length === 2 ? parts[1] : '';
+  if (!/^[0-9a-f]{32}$/.test(id) || parts.length > 2 || (action && action !== 'audio' && action !== 'finish')) return send(res, apiFailure('asr.stream_bad_request', {}, '没有这条路径', 404));
+  const s = audioStreamSessions.get(id);
+  if (!s) return send(res, apiFailure('asr.stream_session_missing', { id }, '没有这个实时识别会话(可能已超时)', 404));
+  if (req.method === 'DELETE') {
+    if (action) return send(res, apiFailure('asr.stream_bad_request', {}, '没有这条路径', 404));
+    audioStreamSessions.delete(id);
+    try { await audioStreamUpstream(s, 'DELETE', '/' + s.upstreamId); } catch { /* 上游没了也算关了 */ }
+    logEvent({ kind: 'asr_stream', action: 'delete', provider: s.providerId });
+    return send(res, json({ ok: true }));
+  }
+  if (action === 'audio') {
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (contentType !== 'audio/l16' && contentType !== 'application/octet-stream') {
+      return send(res, apiFailure('asr.stream_bad_request', { contentType }, 'Content-Type 须是 audio/L16; rate=16000', 400));
+    }
+    let pcm;
+    try { pcm = await readAudioBody(req, AUDIO_STREAM_CHUNK_MAX_BYTES); }
+    catch (err) { if (err && err.statusCode === 413) return send(res, apiFailure('asr.stream_chunk_too_large', { maxBytes: AUDIO_STREAM_CHUNK_MAX_BYTES }, '音频块超过 1 MB', 413)); throw err; }
+    if (pcm.length % 2) return send(res, apiFailure('asr.stream_bad_request', {}, 'PCM16 字节数必须是偶数', 400));
+    s.at = Date.now();
+    let up;
+    try { up = await audioStreamUpstream(s, 'POST', '/' + s.upstreamId + '/audio', pcm, 'audio/L16; rate=16000'); }
+    catch (err) {
+      audioStreamSessions.delete(id);
+      logEvent({ kind: 'asr_stream', action: 'audio-failed', provider: s.providerId, error: String(err && err.message || err).slice(0, 200) });
+      return send(res, apiFailure('asr.stream_unreachable', { providerId: s.providerId }, '连不上实时识别服务', 502));
+    }
+    if (up.status === 404) { audioStreamSessions.delete(id); return send(res, apiFailure('asr.stream_session_missing', { id }, '实时识别会话已失效', 404)); }
+    if (up.status !== 200 || !up.body || typeof up.body !== 'object') return send(res, audioStreamFailure(up));
+    const finals = Array.isArray(up.body.finals) ? up.body.finals.filter(f => f && typeof f === 'object').map(f => ({ text: String(f.text || '').slice(0, 4000), startMs: Number(f.startMs) || 0, endMs: Number(f.endMs) || 0 })) : [];
+    return send(res, json({ ok: true, partial: String(up.body.partial || '').slice(0, 4000), finals }));
+  }
+  if (action === 'finish') {
+    audioStreamSessions.delete(id);
+    let up;
+    try { up = await audioStreamUpstream(s, 'POST', '/' + s.upstreamId + '/finish', '', 'application/octet-stream'); }
+    catch (err) {
+      logEvent({ kind: 'asr_stream', action: 'finish-failed', provider: s.providerId, error: String(err && err.message || err).slice(0, 200) });
+      return send(res, apiFailure('asr.stream_unreachable', { providerId: s.providerId }, '连不上实时识别服务', 502));
+    }
+    if (up.status === 404) return send(res, apiFailure('asr.stream_session_missing', { id }, '实时识别会话已失效', 404));
+    if (up.status !== 200 || !up.body || typeof up.body !== 'object') return send(res, audioStreamFailure(up));
+    const finals = Array.isArray(up.body.finals) ? up.body.finals.filter(f => f && typeof f === 'object').map(f => ({ text: String(f.text || '').slice(0, 4000), startMs: Number(f.startMs) || 0, endMs: Number(f.endMs) || 0 })) : [];
+    logEvent({ kind: 'asr_stream', action: 'finish', provider: s.providerId, finals: finals.length });
+    return send(res, json({ ok: true, finals }));
+  }
+  return send(res, apiFailure('asr.stream_bad_request', {}, '没有这条路径', 404));
 }
 // 127-114c⑤:resolveAsrProvider 与 transcribeAudioViaProvider 已迁往 05-claude-engine.js ——
 // ⑤ 的 audio_transcribe 原生工具派发在 12,12→13b 会是一条新增前向边;12/13b 到 05 都有既有边,

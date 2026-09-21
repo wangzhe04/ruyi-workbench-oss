@@ -1259,7 +1259,7 @@ function invalidateMcpDropInCache() { _dropInCache = { at: 0, list: null }; }
 // 校验从严、坏文件一律当「没装」并审计一条,绝不抛、绝不打断启动:绝对路径且存在、不经 shell、不展开变量、不拼接参数。
 // 同步 I/O + 2s 缓存(与 drop-in 同理:resolveExternalMcpServers 在请求期频繁调)。上限 20 个组件、单文件 32 KB。
 const TOOLBOX_COMPONENT_MAX = 20;
-const TOOLBOX_PROVIDES_TYPES = new Set(['asr']);   // 现在认识的能力;不认识的 type 跳过(向前兼容:组件可以先登记、如意后支持)
+const TOOLBOX_PROVIDES_TYPES = new Set(['asr', 'asr-stream']);   // 现在认识的能力;不认识的 type 跳过(向前兼容:组件可以先登记、如意后支持)。asr-stream:130(51 号文)
 let _toolboxCache = { at: 0, list: null };
 const _toolboxSkipLogged = new Set();
 function toolboxComponentsDir() {

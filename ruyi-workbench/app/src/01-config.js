@@ -86,6 +86,10 @@ function defaultConfig() {
     // 不 bump(45 号文 §6.1 对 26 号文的显式改判:无旧值要改写,读回空串即「未配置」)。
     asrProviderId: '',
     asrModel: '',
+    // 130(51 号文):实时识别(流式小模型,边说边出字)。与上面那对同口径:两个都非空才算「已配置」;
+    // 上面那对从此兼任「第二遍校正」—— 两遍都可选,各自独立。
+    asrStreamProviderId: '',
+    asrStreamModel: '',
     openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
@@ -819,13 +823,19 @@ function normalizeConfig(raw, opts = {}) {
   // 114a(45 号文 §7): asrProviderId/asrModel —— 与 compactProviderId 同口径(下方 :914-925 那段):
   // 字符串形状消毒(trim + 截 400);指向的 provider 没了就清成「未配置」(两个都空 = 麦克风不可见),
   // 不静默改指别的端点。单有 asrModel 没有 asrProviderId 时保留原值(惰性,不构成「已配置」)。
-  for (const key of ['asrProviderId', 'asrModel']) {
+  for (const key of ['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel']) {
     const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
     if (clean !== config[key]) { config[key] = clean; changed = true; }
   }
   if (config.asrProviderId && !config.providers.some(p => p && p.id === config.asrProviderId)) {
     config.asrProviderId = '';
     config.asrModel = '';
+    changed = true;
+  }
+  // 130:实时识别那一对同一条清洗 —— 指着的服务商没了就清成「未配置」(麦克风退回按停顿切段那条路)。
+  if (config.asrStreamProviderId && !config.providers.some(p => p && p.id === config.asrStreamProviderId)) {
+    config.asrStreamProviderId = '';
+    config.asrStreamModel = '';
     changed = true;
   }
   {

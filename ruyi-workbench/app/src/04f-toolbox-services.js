@@ -149,19 +149,29 @@ function stopAllToolboxServicesSync() {
 }
 
 // 把启用的服务类组件的 provides 落成配置。只在真有变化时才写盘(mutateConfig 的 abort 支)。
+// 130(51 号文 §2.3):一个组件可以同时提供 asr(整段)与 asr-stream(流式),落成同一条服务商、两个带不同标记的模型;
+// 两种能力各自有一对配置键(asrProviderId/asrModel 与 asrStreamProviderId/asrStreamModel),自动选中各算各的。
 function toolboxDesiredProviders(config) {
   const out = [];
   for (const c of enabledToolboxComponents(config)) {
     if (c.kind !== 'service') continue;
-    const asr = c.provides.find(p => p.type === 'asr');
-    if (!asr) continue;
+    const asr = c.provides.find(p => p.type === 'asr') || null;
+    const stream = c.provides.find(p => p.type === 'asr-stream') || null;
+    if (!asr && !stream) continue;
     const entry = toolboxServices.get(c.id);
     const port = entry && entry.port ? entry.port : c.service.port;
+    const base = 'http://127.0.0.1:' + port + ((asr || stream).basePath || '');
+    const models = [];
+    if (asr) models.push({ id: asr.model, label: asr.model, caps: ['asr'] });
+    if (stream && !(asr && asr.model === stream.model)) models.push({ id: stream.model, label: stream.model, caps: ['asr-stream'] });
+    else if (stream) models[0].caps.push('asr-stream');
     out.push({
       componentId: c.id,
+      asrModel: asr ? asr.model : '',
+      streamModel: stream ? stream.model : '',
       provider: {
-        id: toolboxProviderId(c.id), label: c.name, baseUrl: 'http://127.0.0.1:' + port + asr.basePath, apiKey: '', model: asr.model,
-        models: [{ id: asr.model, label: asr.model, caps: ['asr'] }], ...(asr.protocol === 'chat-audio' ? { asrProtocol: 'chat-audio' } : {}),
+        id: toolboxProviderId(c.id), label: c.name, baseUrl: base, apiKey: '', model: (asr || stream).model, models,
+        ...(asr && asr.protocol === 'chat-audio' ? { asrProtocol: 'chat-audio' } : {}),
       },
     });
   }
@@ -178,27 +188,37 @@ async function syncToolboxProviders() {
       const want = wanted.get(p.id);
       if (!want) { changed = true; continue; }   // 组件被停用／卸载 → 条目跟着撤(01 的归一化会把指向它的语音识别选择一并清空)
       wanted.delete(p.id);
-      const hasAsr = (Array.isArray(p.models) ? p.models : []).some(m => m && m.id === want.model && Array.isArray(m.caps) && m.caps.includes('asr'));
-      if (p.baseUrl !== want.baseUrl || p.label !== want.label || !hasAsr || (p.asrProtocol || '') !== (want.asrProtocol || '')) {
+      const sameModels = JSON.stringify(Array.isArray(p.models) ? p.models : []) === JSON.stringify(want.models);
+      if (p.baseUrl !== want.baseUrl || p.label !== want.label || !sameModels || (p.asrProtocol || '') !== (want.asrProtocol || '')) {
         const next = { ...p, label: want.label, baseUrl: want.baseUrl, model: want.model, models: want.models };
         if (want.asrProtocol) next.asrProtocol = want.asrProtocol; else delete next.asrProtocol;
         providers.push(next); changed = true;
       } else providers.push(p);
     }
+    // 这一趟【补回】的条目:配置里本来没有它。两种来路 —— 组件刚被重新启用(04f 自己在停用时撤的),或条目被别的
+    // 什么弄丢了(2026-09-21 真机:设置页整份保存把它撤掉,13 现已挡住这条路)。两种都不是「用户换走／关掉了语音识别」
+    // (那种情况条目还在、只是选择为空,C1 那条),所以下面的自动选中对它们再做一次 —— 否则用户停用再启用之后
+    // 语音输入就没了,得自己去设置里再选一次。
+    const readded = new Set([...wanted.keys()]);
     for (const want of wanted.values()) { providers.push(want); changed = true; }
     const tb = current.toolbox || { autoDiscover: true, disabled: [], seen: [] };
     const seen = new Set(Array.isArray(tb.seen) ? tb.seen : []);
     let asrProviderId = String(current.asrProviderId || ''), asrModel = String(current.asrModel || '');
+    let asrStreamProviderId = String(current.asrStreamProviderId || ''), asrStreamModel = String(current.asrStreamModel || '');
     for (const d of desired) {
-      if (seen.has(d.componentId)) continue;
-      seen.add(d.componentId); changed = true;
-      if (!asrProviderId && !asrModel) {
-        asrProviderId = d.provider.id; asrModel = d.provider.model;
+      if (seen.has(d.componentId) && !readded.has(d.provider.id)) continue;
+      if (!seen.has(d.componentId)) { seen.add(d.componentId); changed = true; }
+      if (d.asrModel && !asrProviderId && !asrModel) {
+        asrProviderId = d.provider.id; asrModel = d.asrModel;
         logEvent({ kind: 'toolbox_service', action: 'asr-auto-select', id: d.componentId, model: asrModel });
+      }
+      if (d.streamModel && !asrStreamProviderId && !asrStreamModel) {
+        asrStreamProviderId = d.provider.id; asrStreamModel = d.streamModel;
+        logEvent({ kind: 'toolbox_service', action: 'asr-stream-auto-select', id: d.componentId, model: asrStreamModel });
       }
     }
     if (!changed) return { abort: 'unchanged' };
-    return { next: { ...current, providers, asrProviderId, asrModel, toolbox: { ...tb, seen: [...seen] } } };
+    return { next: { ...current, providers, asrProviderId, asrModel, asrStreamProviderId, asrStreamModel, toolbox: { ...tb, seen: [...seen] } } };
   });
 }
 

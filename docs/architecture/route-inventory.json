@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-21T02:55:54.284Z",
+  "generatedAt": "2026-09-21T03:58:24.911Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,11 +17,11 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 125,
-    "decisionPoints": 137,
+    "routeAuthEntries": 127,
+    "decisionPoints": 140,
     "byKind": {
-      "exact": 116,
-      "prefix": 12,
+      "exact": 117,
+      "prefix": 14,
       "regex": 9
     },
     "authLevels": [
@@ -323,6 +323,18 @@
       "p": "/api/audio/transcribe",
       "auth": "token",
       "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/audio/stream/sessions",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/audio/stream/sessions/",
+      "auth": "token",
+      "prefix": true
     },
     {
       "m": "POST",
@@ -1087,6 +1099,7 @@
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-models-cache.e2e.js",
+        "dev-harness\\composer-voice-stream.browser.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\config-read-safety.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -2625,7 +2638,7 @@
       "kind": "exact",
       "path": "/api/audio/transcribe",
       "file": "13b-api-domain-routes.js",
-      "line": 398,
+      "line": 399,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2636,7 +2649,60 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\asr-transcribe.e2e.js",
+        "dev-harness\\composer-voice-stream.browser.e2e.js",
         "dev-harness\\composer-voice.browser.e2e.js",
+        "dev-harness\\toolbox-discovery.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/audio/stream/sessions",
+      "file": "13b-api-domain-routes.js",
+      "line": 403,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\composer-voice-stream.browser.e2e.js",
+        "dev-harness\\toolbox-discovery.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/audio/stream/sessions/",
+      "file": "13b-api-domain-routes.js",
+      "line": 406,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\toolbox-discovery.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/audio/stream/sessions/",
+      "file": "13b-api-domain-routes.js",
+      "line": 409,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
         "dev-harness\\toolbox-discovery.e2e.js"
       ]
     },

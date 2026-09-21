@@ -1329,6 +1329,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 帮忙把语音识别配好是正当诉求(与 compactProviderId/compactModel 同族:都是「内容路由到哪个
   // 模型端点」)。
   'asrProviderId', 'asrModel',
+  'asrStreamProviderId', 'asrStreamModel',   // 130:实时识别端点选择,与上一对同族同档(confirm)
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把

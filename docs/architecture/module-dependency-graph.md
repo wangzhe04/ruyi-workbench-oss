@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 54 | 2545 | 2670 | 431 | 68 | 0 | 1 |
+| 54 | 2556 | 2674 | 431 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -26,7 +26,7 @@
 | 8 | `04-permission-runtime.js` | foundation | 119 | 34 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 10 | `04f-toolbox-services.js` | foundation | 21 | 13 | 3 |
-| 11 | `05-claude-engine.js` | engine | 54 | 108 | 15 |
+| 11 | `05-claude-engine.js` | engine | 55 | 108 | 15 |
 | 12 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
 | 13 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 14 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
@@ -50,7 +50,7 @@
 | 32 | `12-tool-dispatch.js` | tools | 33 | 79 | 14 |
 | 33 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 34 | `13-http-router.js` | transport | 64 | 221 | 24 |
-| 35 | `13b-api-domain-routes.js` | transport | 10 | 40 | 7 |
+| 35 | `13b-api-domain-routes.js` | transport | 20 | 44 | 7 |
 | 36 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 37 | `13d-core-domain-routes.js` | transport | 43 | 117 | 14 |
 | 38 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
@@ -296,11 +296,11 @@
 | `13-http-router.js` | `13e-pretender-index.js` | forward | `warmPretenderProjectionIndex` |
 | `13-http-router.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
 | `13-http-router.js` | `13s-scheduler.js` | forward | `handleSchedulerApiRoutes`, `startScheduler`, `stopScheduler` |
-| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `URL`, `apiFailure`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `rewindSession`, `saveSession` |
-| `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `activeChildren`, `buildMcpConnectorInventory`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `resolveExternalMcpServers`, `scanMcpSources` |
-| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `maskExternalMcpServerForDisplay`, `resolveAsrProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
+| `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveExternalMcpServers`, `scanMcpSources` |
+| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `maskExternalMcpServerForDisplay`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
 | `13b-api-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns` |
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `json`, `path` |

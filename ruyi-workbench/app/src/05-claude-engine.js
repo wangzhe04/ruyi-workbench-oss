@@ -1148,7 +1148,7 @@ function providerReasoningEffort(provider) {
 // 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
 // 取值域】,仅仅同名 caps。两处白名单【不许互相引用】,asr-config-ui.static.e2e.js 钉死这条隔离。
 // 清洗口径:非字符串/空白/白名单外一律静默丢弃,去重,保序;空结果由调用方「可加不加」不落字段。
-const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding']);
+const PROVIDER_MODEL_CAPS = new Set(['asr', 'embedding', 'asr-stream']);   // 130:asr-stream = 流式识别(有会话的 HTTP,只给麦克风用)
 function providerModelCaps(rawCaps) {
   if (!Array.isArray(rawCaps)) return [];
   const out = [];
@@ -1905,6 +1905,24 @@ function resolveAsrProvider(config) {
     return { failure: { code: 'asr.provider_missing', params: { providerId: asrProviderId }, message: '语音识别所选服务商不存在', status: 409 } };
   }
   return { provider, asrModel };
+}
+// 130(51 号文 §2.3):实时识别端点 —— 与 resolveAsrProvider 同口径,只是键不同、且模型必须带 asr-stream 标记
+// (流式接口与整段接口不是一回事,选错了打过去只会 404)。未配置 = 409 asr.stream_not_configured;前端据此不走流式。
+function resolveAsrStreamProvider(config) {
+  const providerId = String(config.asrStreamProviderId || '').trim();
+  const model = String(config.asrStreamModel || '').trim();
+  if (!providerId || !model) {
+    return { failure: { code: 'asr.stream_not_configured', params: {}, message: '实时识别未配置(asrStreamProviderId/asrStreamModel 为空)', status: 409 } };
+  }
+  const provider = resolveProvider(config, providerId);
+  if (!provider) {
+    return { failure: { code: 'asr.provider_missing', params: { providerId }, message: '实时识别所选服务商不存在', status: 409 } };
+  }
+  const marked = (Array.isArray(provider.models) ? provider.models : []).some(m => m && m.id === model && Array.isArray(m.caps) && m.caps.includes('asr-stream'));
+  if (!marked) {
+    return { failure: { code: 'asr.stream_not_configured', params: { providerId, model }, message: '所选模型不是流式识别端点', status: 409 } };
+  }
+  return { provider, model };
 }
 // 107-A1:chat-audio 回体取文本 —— content 可能是字符串,也可能是 OpenAI 多模态形的 parts 数组。
 // 两种都取不出来就回 null(调用方据此走 asr.bad_response)。空串是合法转写结果(与 transcriptions

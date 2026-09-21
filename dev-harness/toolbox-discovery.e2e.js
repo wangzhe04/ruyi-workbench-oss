@@ -45,6 +45,28 @@ http.createServer((req, res) => {
   res.writeHead(404); res.end('{}');
 }).listen(port, '127.0.0.1');
 `;
+// 130(51 号文):假的【流式】组件 —— 照 docs/02-asr-stream-plan.md §2 的会话 API:开会话／喂块回 partial+finals／finish／DELETE。
+// 判据可预测:partial = 累计收到的字节数;每收到 3 块就收口一句 final「句N」;finish 把剩下的收成最后一句。
+const FAKE_STREAM = `
+const http = require('http'), crypto = require('crypto');
+const port = Number(process.env.FAKE_STREAM_PORT || 0);
+const sessions = new Map();
+http.createServer((req, res) => {
+  const j = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
+  if (req.url === '/health') return j(200, { ok: true, component: 'fake-stream-component', version: '0.0.1', loaded: true, sessions: sessions.size });
+  const m = req.url.match(/^\\/v1\\/stream\\/sessions(?:\\/([0-9a-f]{32})(?:\\/(audio|finish))?)?$/);
+  if (!m) return j(404, { error: { message: 'no', type: 'not_found' } });
+  let chunks = []; req.on('data', c => chunks.push(c)); req.on('end', () => {
+    const body = Buffer.concat(chunks);
+    if (req.method === 'POST' && !m[1]) { const id = crypto.randomBytes(16).toString('hex'); let hot = []; try { hot = JSON.parse(body.toString() || '{}').hotwords || []; } catch {} sessions.set(id, { bytes: 0, chunks: 0, finals: 0, hot }); return j(200, { id, sampleRate: 16000 }); }
+    const s = sessions.get(m[1]); if (!s) return j(404, { error: { message: 'unknown', type: 'unknown_session' } });
+    if (req.method === 'DELETE') { sessions.delete(m[1]); res.writeHead(204); return res.end(); }
+    if (m[2] === 'audio') { s.bytes += body.length; s.chunks += 1; const finals = []; if (s.chunks % 3 === 0) { s.finals += 1; finals.push({ text: '句' + s.finals + (s.hot.length ? '[' + s.hot.join(',') + ']' : ''), startMs: s.lastEnd || 0, endMs: Math.round(s.bytes / 32) }); s.lastEnd = Math.round(s.bytes / 32); } return j(200, { partial: 'p' + s.bytes, finals }); }
+    if (m[2] === 'finish') { sessions.delete(m[1]); return j(200, { finals: [{ text: '尾句', startMs: s.lastEnd || 0, endMs: Math.round(s.bytes / 32) }] }); }
+    j(404, { error: { message: 'no', type: 'not_found' } });
+  });
+}).listen(port, '127.0.0.1');
+`;
 // 「别人」:占着端口、/health 也回 200,但 component 对不上。
 const startStranger = port => new Promise(resolve => {
   const s = http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, component: 'somebody-else' })); });
@@ -119,10 +141,14 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     fs.mkdirSync(FAKE_DIR, { recursive: true });
     fs.writeFileSync(path.join(FAKE_DIR, 'service.js'), FAKE_SERVICE);
     fs.writeFileSync(path.join(FAKE_DIR, 'mcp-stub.js'), 'setTimeout(() => {}, 3000);');   // 不说 MCP 话的占位:断言的是「进了清单」
+    fs.writeFileSync(path.join(FAKE_DIR, 'stream.js'), FAKE_STREAM);
     WB_PORT = await getFreePort();
     const P1 = await getFreePort();
+    const P2 = await getFreePort();
     writeConfig();
     register('fake-asr', { service: { port: P1 } });
+    // 130:流式组件(provides asr-stream)。与 fake-asr 并存:两对配置键各自自动选中。
+    register('fake-stream', { name: '假流式识别组件', run: { args: [path.join(FAKE_DIR, 'stream.js')] }, service: { port: P2, portEnv: 'FAKE_STREAM_PORT', component: 'fake-stream-component' }, provides: [{ type: 'asr-stream', basePath: '/v1', model: 'fake-stream-model' }] });
     // G 的四份坏登记(从头就在盘上:坏文件不许打断启动,也不许被执行)
     register('bad-relative', { run: { command: 'node' } });
     register('bad-idmismatch', { __file: 'other-name.json' });
@@ -168,11 +194,43 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     ok((cfgKDisk.providers || []).some(p => p.id === 'toolbox-fake-asr') && !fs.readdirSync(HOME).some(f => f.startsWith('config.json.bak-providers-')) && tK.status === 200 && /fake-toolbox-asr/.test(tK.text),
       `K2 盘上也还在、没触发「缩水」备份、保存之后转写照样打到组件上(实得 ${tK.status},备份文件 ${fs.readdirSync(HOME).filter(f => f.startsWith('config.json.bak-providers-')).length} 个)`);
 
+    /* ── L 130 流式组件:发现、自动配置、代理路由 ── */
+    const upS = await waitFor(async () => { const c = component(await status(), 'fake-stream'); return c && c.state === 'running' ? c : null; });
+    const cfgL = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrStreamProviderId ? c : null; }, 10000);
+    const provL = cfgL && (cfgL.providers || []).find(p => p.id === 'toolbox-fake-stream');
+    ok(Boolean(upS) && upS.provides.join() === 'asr-stream' && Boolean(provL) && provL.baseUrl === `http://127.0.0.1:${P2}/v1` && (provL.models || []).some(m => m.id === 'fake-stream-model' && (m.caps || []).includes('asr-stream'))
+      && cfgL.asrStreamProviderId === 'toolbox-fake-stream' && cfgL.asrStreamModel === 'fake-stream-model' && cfgL.asrProviderId === 'toolbox-fake-asr',
+      `L1 流式组件被发现并自动配成实时识别端点(模型带 asr-stream 标记),整段识别那一对不受影响(实得 stream=${cfgL && cfgL.asrStreamProviderId}/${cfgL && cfgL.asrStreamModel} asr=${cfgL && cfgL.asrProviderId})`);
+    const openL = await reqRaw('POST', '/api/audio/stream/sessions', Buffer.from(JSON.stringify({ hotwords: ['如意', 'x'.repeat(80)] })), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' });
+    const sidL = openL.json && openL.json.id;
+    ok(openL.status === 200 && /^[0-9a-f]{32}$/.test(String(sidL)) && openL.json.sampleRate === 16000, `L2 开流式会话:拿到本进程发的 32 位 id(实得 ${openL.status} ${openL.text.slice(0, 120)})`);
+    const pcm = Buffer.alloc(8000);   // 250 ms 的 16 kHz PCM16
+    const a1 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    const a2 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'application/octet-stream' });
+    const a3 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    ok(a1.status === 200 && a1.json.partial === 'p8000' && a1.json.finals.length === 0 && a2.status === 200 && a3.status === 200 && a3.json.finals.length === 1 && a3.json.finals[0].text === '句1[如意,' + 'x'.repeat(40) + ']' && a3.json.finals[0].endMs === 750,
+      `L3 喂块:partial 与 finals 原样转回,热词经代理传到组件并被截到 40 字(实得 ${a1.status}/${a2.status}/${a3.status} ${a3.text.slice(0, 160)})`);
+    const bad1 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, Buffer.alloc(3), { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    const bad2 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'audio/wav' });
+    const bad3 = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, Buffer.alloc(1024 * 1024 + 2), { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    const bad4 = await reqRaw('POST', `/api/audio/stream/sessions/${'0'.repeat(32)}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    const codeOf = r => String((r.json && r.json.error && r.json.error.code) || '');
+    ok(bad1.status === 400 && bad2.status === 400 && bad3.status === 413 && bad4.status === 404 && codeOf(bad3) === 'asr.stream_chunk_too_large' && codeOf(bad4) === 'asr.stream_session_missing',
+      `L4 奇数字节 400 / 错 Content-Type 400 / 超 1 MB 413 / 没这个会话 404(实得 ${bad1.status}/${bad2.status}/${bad3.status}/${bad4.status} codes=${codeOf(bad3)}/${codeOf(bad4)})`);
+    const finL = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/finish`, Buffer.alloc(0), { 'x-wcw-token': TOKEN, 'content-type': 'application/octet-stream' });
+    const afterL = await reqRaw('POST', `/api/audio/stream/sessions/${sidL}/audio`, pcm, { 'x-wcw-token': TOKEN, 'content-type': 'audio/L16; rate=16000' });
+    ok(finL.status === 200 && finL.json.finals.length === 1 && finL.json.finals[0].text === '尾句' && afterL.status === 404, `L5 finish 收尾句、会话随即失效(实得 ${finL.status} ${finL.text.slice(0, 100)} → ${afterL.status})`);
+    const openD = await reqRaw('POST', '/api/audio/stream/sessions', Buffer.alloc(0), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' });
+    const delD = await reqRaw('DELETE', `/api/audio/stream/sessions/${openD.json.id}`, null, { 'x-wcw-token': TOKEN });
+    const delAgain = await reqRaw('DELETE', `/api/audio/stream/sessions/${openD.json.id}`, null, { 'x-wcw-token': TOKEN });
+    const noTok = await reqRaw('POST', '/api/audio/stream/sessions', Buffer.alloc(0), { 'content-type': 'application/json' });
+    ok(openD.status === 200 && delD.status === 200 && delAgain.status === 404 && (noTok.status === 401 || noTok.status === 403), `L6 DELETE 关会话(再删 404);不带 token 进不来(实得 ${delD.status}/${delAgain.status}/${noTok.status})`);
+
     /* ── G 坏登记 / H MCP ── */
     const st1 = await status();
     const ids = ((st1.toolbox && st1.toolbox.components) || []).map(c => c.id).sort();
-    ok(JSON.stringify(ids) === JSON.stringify(['fake-asr', 'fake-mcp']), `G1 四份坏登记(相对路径／id 与文件名不符／不认识的 schema／命令不存在)一律当没装(实得组件 ${JSON.stringify(ids)})`);
-    ok(envFiles().length === 1, `G2 坏登记一个都没被执行(组件进程只起过 ${envFiles().length} 个)`);
+    ok(JSON.stringify(ids) === JSON.stringify(['fake-asr', 'fake-mcp', 'fake-stream']), `G1 四份坏登记(相对路径／id 与文件名不符／不认识的 schema／命令不存在)一律当没装(实得组件 ${JSON.stringify(ids)})`);
+    ok(envFiles().length === 1, `G2 坏登记一个都没被执行(组件进程只起过 ${envFiles().length} 个;流式假组件不写 env 文件)`);
     const mcpIds = (st1.mcpServers || st1.externalMcp || []).map(s => s.id);
     const mcpView = component(st1, 'fake-mcp');
     ok(Boolean(mcpView) && mcpView.kind === 'mcp' && mcpView.state === 'registered', `H1 MCP 类组件出现在组件清单里(实得 ${JSON.stringify(mcpView)})`);
@@ -198,6 +256,17 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     const cfg2 = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
     ok(cfg2.asrProviderId === '' && cfg2.asrModel === '' && (cfg2.providers || []).some(p => p.id === 'toolbox-fake-asr'),
       `C1 用户关掉语音识别后重启:组件照常拉起、仍是候选,但【不再自动选回来】(实得 asr=${JSON.stringify(cfg2.asrProviderId)})`);
+    // C2 条目在盘上被弄丢(模拟 2026-09-21 真机那种「整份保存撤掉它」的老版本,或用户手改 config.json)→ 重启补回 + 重新自动选中。
+    killp(wb); await sleep(1200);
+    { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); c.providers = c.providers.filter(p => p.id !== 'toolbox-fake-asr'); fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify(c, null, 2)); }
+    wb = await bootWB();
+    await waitFor(async () => { const c = component(await status(), 'fake-asr'); return c && c.state === 'running' ? c : null; });
+    const cfgC2 = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrProviderId === 'toolbox-fake-asr' ? c : null; }, 10000);
+    ok(Boolean(cfgC2) && (cfgC2.providers || []).some(p => p.id === 'toolbox-fake-asr') && cfgC2.asrModel === 'fake-local-asr',
+      `C2 条目在盘上丢了(seen 里却有它)→ 重启补回条目、且重新自动选中(实得 asr=${JSON.stringify(cfgC2 && cfgC2.asrProviderId)})`);
+    await saveConfig({ asrProviderId: '', asrModel: '' });   // F 段从「用户没配」出发
+    const cfg2b = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    cfg2.toolbox = cfg2b.toolbox;
 
     /* ── F 停用 / 总开关 ── */
     await saveConfig({ toolbox: { autoDiscover: true, disabled: ['fake-asr'], seen: cfg2.toolbox.seen } });
@@ -208,6 +277,11 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     await saveConfig({ toolbox: { autoDiscover: true, disabled: [], seen: cfg2.toolbox.seen } });
     const back = await waitFor(async () => { const c = component(await status(), 'fake-asr'); return c && c.state === 'running' ? c : null; });
     ok(Boolean(back) && Boolean(await health(P1)), 'F2 再启用:不用重启如意,组件又被拉起来');
+    // 2026-09-21 用户真机:条目被【补回】(再启用／被别的什么弄丢)而用户又没配别的语音识别 → 重新自动选中;
+    // 修前 seen 一次性,停用再启用之后语音输入就没了,得自己去设置里再选一次。C1(条目还在、用户亲手关掉)仍然不选回。
+    const cfgF2 = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrProviderId === 'toolbox-fake-asr' ? c : null; }, 10000);
+    ok(Boolean(cfgF2) && cfgF2.asrModel === 'fake-local-asr', `F2b 再启用后条目补回 → 用户没配别的语音识别就重新自动选中(实得 asr=${JSON.stringify(cfgF2 && cfgF2.asrProviderId)})`);
+    await saveConfig({ asrProviderId: '', asrModel: '' });   // 下面 F3 之后的 D/E 段从全新配置开始,这里只是把选择清回去
     await saveConfig({ toolbox: { autoDiscover: false, disabled: [], seen: cfg2.toolbox.seen } });
     const allOff = await waitFor(async () => (!(await health(P1)) ? 1 : null), 10000);
     const stOff = await status();

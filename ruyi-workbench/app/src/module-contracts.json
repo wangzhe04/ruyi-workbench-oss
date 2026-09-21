@@ -2030,6 +2030,7 @@
         "providerResponsesBase",
         "providerVectorNotWidened",
         "resolveAsrProvider",
+        "resolveAsrStreamProvider",
         "resolveProvider",
         "restoreDisplayUrl",
         "restoreExternalMcpServerSecrets",
@@ -10957,8 +10958,18 @@
       "file": "13b-api-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "AUDIO_STREAM_CHUNK_MAX_BYTES",
+        "AUDIO_STREAM_IDLE_MS",
+        "AUDIO_STREAM_MAX_SESSIONS",
+        "AUDIO_STREAM_UPSTREAM_TIMEOUT_MS",
         "STEER_REFUSAL",
+        "audioStreamFailure",
+        "audioStreamReap",
+        "audioStreamSessions",
+        "audioStreamUpstream",
         "handleAudioApiRoutes",
+        "handleAudioStreamOpen",
+        "handleAudioStreamSession",
         "handleAudioTranscribe",
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
@@ -10979,6 +10990,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "ASR_MAX_BODY_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
           "kinds": [
             "read"
           ]
@@ -11181,6 +11199,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveExternalMcpServers",
           "kinds": [
             "call"
@@ -11194,6 +11219,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "maskExternalMcpServerForDisplay",
           "kinds": [
@@ -11203,6 +11235,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "resolveAsrProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveAsrStreamProvider",
           "kinds": [
             "call"
           ]

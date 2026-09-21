@@ -98,6 +98,52 @@ export const COMPOSER_VOICE_SETUP_EVENT = 'ruyi:open-voice-settings';
 export function composerVoiceConfigured(config) {
   return Boolean(config && String(config.asrProviderId || '').trim() && String(config.asrModel || '').trim());
 }
+// 130（51 号文 §2.3；用户拍板：校正默认静默替换、第一版只做麦克风）：流式路。配了实时识别就走它 ——
+// AudioContext 取 PCM、重采样到 16 kHz、每 250 ms 一块 POST 到 /api/audio/stream/…；回包的 partial 作临时文字落在
+// 输入框，final 一句定稿；定稿的每一句再把它的音频送 /api/audio/transcribe（第二遍：Qwen3-ASR／云端，配了才做），
+// 回来的文本不同、且输入框里这一段还没被人碰过 → 静默换掉。没配实时识别／组件没起来 → 原样走上面的按停顿切段。
+export const COMPOSER_VOICE_STREAM_CHUNK_MS = 250;        // 多久送一块（手机体验同量级；再小只会多打 HTTP）
+export const COMPOSER_VOICE_CORRECT_MIN_MS = 300;         // 太短的一句不值得跑第二遍
+export function composerVoiceStreamConfigured(config) {
+  return Boolean(config && String(config.asrStreamProviderId || '').trim() && String(config.asrStreamModel || '').trim());
+}
+// 流式路的文字拼接（纯函数，静态件直接调）：句与句之间只在两侧都是拉丁字母／数字时加空格（中文之间不加）。
+export function streamJoin(parts) {
+  let out = '';
+  for (const p of parts) {
+    const s = String(p || '');
+    if (!s) continue;
+    out += (out && /[A-Za-z0-9]$/.test(out) && /^[A-Za-z0-9]/.test(s) ? ' ' : '') + s;
+  }
+  return out;
+}
+// 把输入框里本次录音写下的那一段（region）整体换成新文本。那一段已被用户碰过（值不再逐字相同）就回 null —— 调用方从此停手，
+// 这正是「静默替换只动没碰过的字」的判据。
+export function replaceStreamRegion(value, region, rendered, next) {
+  const v = String(value || '');
+  if (!region || v.slice(region.start, region.end) !== String(rendered || '')) return null;
+  const text = String(next || '');
+  return { value: v.slice(0, region.start) + text + v.slice(region.end), region: { start: region.start, end: region.start + text.length } };
+}
+// 线性插值重采样到 16 kHz（语音识别的口味；每块独立算，块边界的那一点点不连续对识别无感）。
+export function resampleTo16k(input, rate) {
+  if (!input || !input.length) return new Float32Array(0);
+  if (rate === COMPOSER_VOICE_SAMPLE_RATE) return Float32Array.from(input);
+  const ratio = rate / COMPOSER_VOICE_SAMPLE_RATE;
+  const n = Math.floor(input.length / ratio);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const pos = i * ratio, i0 = Math.floor(pos), i1 = Math.min(input.length - 1, i0 + 1), f = pos - i0;
+    out[i] = input[i0] * (1 - f) + input[i1] * f;
+  }
+  return out;
+}
+function concatFloat(chunks, total) {
+  const out = new Float32Array(total);
+  let at = 0;
+  for (const c of chunks) { out.set(c, at); at += c.length; }
+  return out;
+}
 export function composerVoiceCapable(env = globalThis) {
   if (!env || env.isSecureContext !== true) return false;
   const nav = env.navigator;
@@ -206,6 +252,7 @@ export function createComposerVoice({
   let current = null;        // 这一次录音的 session（各段排队转写、按序落字）
   let vad = null;            // 停顿侦听（AudioContext + AnalyserNode）；宿主没有就为 null＝不切段
   let vadTimer = 0;
+  let sx = null;             // 130：流式会话（非 null = 这次录音走流式路，不用 MediaRecorder 切段）
   let startedAt = 0;
   let ticker = 0;
   let escapeBound = false;
@@ -234,7 +281,7 @@ export function createComposerVoice({
     if (phase === 'error' && errorKey) button.title = t(errorKey);
     else if (phase === 'recording' || phase === 'starting') button.title = t('composer.voice.stop');
     else if (phase === 'transcribing') button.title = t('composer.voice.transcribing');
-    else button.title = t('composer.voice.hint');
+    else button.title = t(composerVoiceStreamConfigured(state && state.config) ? 'composer.voice.hintStream' : 'composer.voice.hint');
     if (!label) return;
     if (phase === 'recording') label.textContent = formatVoiceElapsed(now() - startedAt);
     else if (phase === 'transcribing') label.textContent = '…';
@@ -367,25 +414,235 @@ export function createComposerVoice({
     if (mine !== attempt || phase !== 'starting') { releaseTracks(media); return; }
     // 一次录音 = 一个 session：各段按先后排队转写（queue 是一条 Promise 链，保证字按说的顺序落进输入框）。
     const session = { id: mine, discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
-    try {
+    // 130：配了实时识别就先试流式路；开会话失败（组件没起来／服务端 409）→ 说一句、原样走按停顿切段。
+    if (composerVoiceStreamConfigured(state && state.config) && streamCapable()) {
+      try { await startStreaming(media, session); }
+      catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); } catch { /* 无托盘宿主 */ } }
+      if (mine !== attempt || phase !== 'starting') { if (sx) streamTeardown(sx, true); sx = null; releaseTracks(media); return; }
+    }
+    if (sx) {
       stream = media;
-      startSegment(session);
-    } catch {
-      releaseTracks(media);
-      stream = null;
-      recorder = null;
-      segment = null;
-      fail('composer.voice.error.mic');
-      return;
+    } else {
+      try {
+        stream = media;
+        startSegment(session);
+      } catch {
+        releaseTracks(media);
+        stream = null;
+        recorder = null;
+        segment = null;
+        fail('composer.voice.error.mic');
+        return;
+      }
     }
     current = session;
     startedAt = now();
     phase = 'recording';
     ticker = setInterval(tick, COMPOSER_VOICE_TICK_MS);
-    vad = startVad(media);   // 宿主没有 AudioContext 就没有停顿侦听：整段录完再转，和从前一样
-    if (vad) vadTimer = setInterval(vadTick, COMPOSER_VOICE_VAD_TICK_MS);
+    if (!sx) {
+      vad = startVad(media);   // 宿主没有 AudioContext 就没有停顿侦听：整段录完再转，和从前一样
+      if (vad) vadTimer = setInterval(vadTick, COMPOSER_VOICE_VAD_TICK_MS);
+    }
     paint();
-    announce(t('composer.voice.recording'));
+    announce(t(sx ? 'composer.voice.streaming' : 'composer.voice.recording'));
+  }
+
+  // ── 130 流式路 ──────────────────────────────────────────────────────────
+  function streamCapable() { return Boolean(globalThis.AudioContext || globalThis.webkitAudioContext); }
+  async function startStreaming(media, session) {
+    const opened = await request('/api/audio/stream/sessions', { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
+    if (!opened.ok) throw new Error('stream open failed');
+    const body = await opened.json();
+    if (!body || !body.id) throw new Error('stream open failed');
+    const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+    const context = new Ctx();
+    if (context.state === 'suspended' && typeof context.resume === 'function') { void context.resume().catch(() => {}); }
+    const source = context.createMediaStreamSource(media);
+    // ScriptProcessor 而不是 AudioWorklet：后者要单独一个模块文件走 addModule，桌面壳的静态路由与 CSP 都得再开口；
+    // 这里只读输入、不写输出（输出恒静音），接到 destination 只是为了让 onaudioprocess 在所有宿主上都跑。
+    const processor = context.createScriptProcessor(4096, 1, 1);
+    const s = {
+      id: String(body.id), session, context, source, processor, rate: Number(context.sampleRate) || 48000,
+      acc: [], accLen: 0, all: [], allLen: 0, queue: Promise.resolve(), timer: 0, closed: false, dead: false,
+      sentences: [], pend: null, corrections: 0, focused: false,
+    };
+    processor.onaudioprocess = event => {
+      if (s.closed) return;
+      const down = resampleTo16k(event.inputBuffer.getChannelData(0), s.rate);
+      if (!down.length) return;
+      s.acc.push(down); s.accLen += down.length;
+      s.all.push(down); s.allLen += down.length;
+    };
+    source.connect(processor);
+    processor.connect(context.destination);
+    s.timer = setInterval(() => { void streamFlush(s); }, COMPOSER_VOICE_STREAM_CHUNK_MS);
+    sx = s;
+    return s;
+  }
+  // 把攒下的样本送出去（排队：一块一块按序，回包按序落字）。
+  function streamFlush(s) {
+    if (s.dead || !s.accLen) return s.queue;
+    const samples = concatFloat(s.acc, s.accLen);
+    s.acc = []; s.accLen = 0;
+    s.queue = s.queue.then(() => streamSend(s, samples)).catch(() => {});
+    return s.queue;
+  }
+  async function streamSend(s, samples) {
+    if (s.dead || s.session.discard) return;
+    const pcm = new Int16Array(samples.length);
+    for (let i = 0; i < samples.length; i++) { const v = Math.max(-1, Math.min(1, samples[i])); pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
+    let res;
+    try {
+      res = await request('/api/audio/stream/sessions/' + s.id + '/audio', { method: 'POST', body: pcm.buffer, headers: { 'content-type': 'audio/L16; rate=16000' } });
+    } catch { streamDead(s, 'composer.voice.error.failed'); return; }
+    if (!res.ok) {
+      let raw = '';
+      try { raw = await res.text(); } catch { raw = ''; }
+      streamDead(s, transcribeErrorKey(apiErrorInfo(new Error(raw))));
+      return;
+    }
+    let body = null;
+    try { body = await res.json(); } catch { body = null; }
+    if (body) streamApply(s, body);
+  }
+  // 流式路中途断了（组件崩了、服务端 5xx）：当场停录、说清原因；已经落进输入框的字留着。
+  function streamDead(s, key) {
+    if (s.dead) return;
+    s.dead = true;
+    segmentFailed(s.session, key);
+  }
+  // 落字模型：每一句各占输入框里的一段 [start,end)（sentences[i]），临时文字自己一段（pend）。改哪一段先核那一段是不是
+  // 还逐字等于自己写的；不是就不碰它（用户改过了），别的段照旧 —— 「静默替换只动没碰过的字」就是这个判据
+  // （纯函数 replaceStreamRegion）。段与段之间的空格只在拉丁字母／数字两侧加，归前一段之外（换文本时不动它）。
+  function streamIntact(box, region) { return Boolean(region) && String(box.value || '').slice(region.start, region.end) === region.text; }
+  // 从 from 起的所有段整体挪 delta（except 自己不挪）。
+  function streamShift(s, from, delta, except) {
+    if (!delta) return;
+    for (const it of s.sentences) { if (it !== except && it.start >= from) { it.start += delta; it.end += delta; } }
+    if (s.pend && s.pend !== except && s.pend.start >= from) { s.pend.start += delta; s.pend.end += delta; }
+  }
+  function streamInsertAt(s, box, at, text) {
+    const value = String(box.value || '');
+    const glue = /[A-Za-z0-9]$/.test(value.slice(0, at)) && /^[A-Za-z0-9]/.test(text) ? ' ' : '';
+    box.value = value.slice(0, at) + glue + text + value.slice(at);
+    const region = { text, start: at + glue.length, end: at + glue.length + text.length };
+    streamShift(s, at, glue.length + text.length, region);
+    return region;
+  }
+  function streamReplace(s, box, region, text) {
+    const r = replaceStreamRegion(box.value, region, region.text, text);
+    if (!r) return false;
+    const oldEnd = region.end;
+    box.value = r.value;
+    region.text = text; region.end = region.start + text.length;
+    streamShift(s, oldEnd, text.length - (oldEnd - region.start), region);
+    return true;
+  }
+  // 新文字落在哪：临时段还在就换它；否则接在最后一句之后（那一句没被碰过）；再否则用户现在的光标。
+  function streamAnchor(s, box) {
+    const last = s.sentences.length ? s.sentences[s.sentences.length - 1] : null;
+    if (last && streamIntact(box, last)) return last.end;
+    const value = String(box.value || '');
+    return box.selectionStart ?? value.length;
+  }
+  function streamCaret(s, box) {
+    if (!s.focused) { try { box.focus(); } catch { /* 不可聚焦 */ } s.focused = true; }
+    // 光标跟到刚写的那段末尾；只在用户没把焦点挪去别处时才动（每 250 ms 抢一次焦点会打断他在别处打字）。
+    if (!globalThis.document || globalThis.document.activeElement !== box) return;
+    const tail = s.pend || (s.sentences.length ? s.sentences[s.sentences.length - 1] : null);
+    if (tail) { try { box.setSelectionRange(tail.end, tail.end); } catch { /* 不支持选区 */ } }
+  }
+  function streamApply(s, body) {
+    const fresh = [];
+    for (const f of (Array.isArray(body.finals) ? body.finals : [])) {
+      const text = String((f && f.text) || '').trim();
+      if (!text) continue;
+      fresh.push({ text, startMs: Math.max(0, Number(f.startMs) || 0), endMs: Math.max(0, Number(f.endMs) || 0), start: 0, end: 0 });
+    }
+    const box = input();
+    if (!box) { for (const f of fresh) { s.sentences.push(f); s.session.inserted += 1; } return; }
+    for (const f of fresh) {
+      // 定稿：临时段还在就把它换成定稿（那正是这一句的临时文字）；不在就当新一段接上。
+      if (s.pend && streamReplace(s, box, s.pend, f.text)) { f.start = s.pend.start; f.end = s.pend.end; }
+      else { const r = streamInsertAt(s, box, streamAnchor(s, box), f.text); f.start = r.start; f.end = r.end; }
+      s.pend = null;
+      s.sentences.push(f);
+      s.session.inserted += 1;
+    }
+    const partial = String(body.partial || '').trim();
+    if (partial) {
+      if (s.pend) { if (!streamReplace(s, box, s.pend, partial)) s.pend = null; }   // 临时段被用户碰过 → 不再显示临时文字，到下一句定稿再接
+      else s.pend = streamInsertAt(s, box, streamAnchor(s, box), partial);
+    } else if (s.pend) {
+      streamReplace(s, box, s.pend, '');   // 组件把这一段清了（静音收口、没有字）：临时文字撤掉
+      s.pend = null;
+    }
+    streamCaret(s, box);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    for (const f of fresh) void streamCorrect(s, f);
+  }
+  // 第二遍：这一句的音频送整段识别（Qwen3-ASR／云端）；回来不同、那一段还没被碰过 → 静默换掉（拍板 ①）。
+  async function streamCorrect(s, item) {
+    if (!composerVoiceConfigured(state && state.config)) return;   // 没配第二遍 = 不校正
+    const a = Math.min(s.allLen, item.startMs * 16), b = Math.min(s.allLen, item.endMs * 16);
+    if (b - a < COMPOSER_VOICE_CORRECT_MIN_MS * 16) return;
+    const all = concatFloat(s.all, s.allLen);
+    const wav = wavBlobFromPcm(all.subarray(a, b), COMPOSER_VOICE_SAMPLE_RATE);
+    let text = '';
+    try {
+      const res = await request('/api/audio/transcribe?filename=' + COMPOSER_VOICE_WAV_FILENAME, { method: 'POST', body: wav, headers: { 'content-type': COMPOSER_VOICE_WAV_TYPE } });
+      if (!res.ok) return;   // 第二遍失败就留着第一遍的字：不弹错（第一遍已经把话记下来了）
+      const body = await res.json();
+      text = String((body && body.text) || '').trim();
+    } catch { return; }
+    if (!text || text === item.text || s.session.discard) return;
+    const box = input();
+    if (!box || !streamReplace(s, box, item, text)) return;   // 那一句被用户碰过 → 一个字不动
+    s.corrections += 1;
+    streamCaret(s, box);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // 停：closed 之后 onaudioprocess 不再攒；把最后一块送出去、finish 收尾句、再交给 finishSession 收工。
+  function streamTeardown(s, discard) {
+    s.closed = true;
+    if (s.timer) { clearInterval(s.timer); s.timer = 0; }
+    try { s.processor.disconnect(); } catch { /* 已断 */ }
+    try { s.source.disconnect(); } catch { /* 已断 */ }
+    try { void s.context.close().catch(() => {}); } catch { /* 已关 */ }
+    if (discard) {
+      s.dead = true;
+      void request('/api/audio/stream/sessions/' + s.id, { method: 'DELETE' }).catch(() => {});
+    }
+  }
+  async function streamStop(s) {
+    streamTeardown(s, false);
+    endCapture();
+    bindEscape(false);
+    await streamFlush(s);
+    s.queue = s.queue.then(async () => {
+      if (s.dead || s.session.discard) return;
+      let res;
+      try { res = await request('/api/audio/stream/sessions/' + s.id + '/finish', { method: 'POST', body: '', headers: { 'content-type': 'application/octet-stream' } }); }
+      catch { return; }
+      if (!res.ok) return;
+      let body = null;
+      try { body = await res.json(); } catch { body = null; }
+      if (body) streamApply(s, { partial: '', finals: body.finals });
+    }).catch(() => {});
+    await s.queue;
+    if (sx === s) sx = null;
+    finishSession(s.session);
+  }
+  function streamCancel(s) {
+    streamTeardown(s, true);
+    s.session.discard = true;
+    endCapture();
+    const box = input();
+    if (box && s.pend) {   // 撤掉临时文字（没被碰过才撤）；定稿的字留着
+      if (streamReplace(s, box, s.pend, '')) box.dispatchEvent(new Event('input', { bubbles: true }));
+      s.pend = null;
+    }
+    if (sx === s) sx = null;
   }
 
   function tick() {
@@ -404,7 +661,15 @@ export function createComposerVoice({
   }
 
   function stop() {
-    if (phase !== 'recording' || !recorder) return;
+    if (phase !== 'recording') return;
+    if (sx) {   // 130：流式路的结束 —— 送完最后一块、收尾句、等第二遍
+      clearTicker();
+      phase = 'transcribing';
+      paint();
+      void streamStop(sx);
+      return;
+    }
+    if (!recorder) return;
     clearTicker();
     bindEscape(false);
     phase = 'transcribing';
@@ -430,6 +695,7 @@ export function createComposerVoice({
     phase = 'idle';
     paint();
     announce(t('composer.voice.cancelled'));
+    if (sx) { streamCancel(sx); current = null; return; }   // 130：流式路的取消
     if (segment) segment.final = true;
     try { recorder.stop(); }
     catch { endCapture(); }
@@ -506,8 +772,11 @@ export function createComposerVoice({
       attempt += 1;
       clearTicker();
       session.discard = true;
-      if (segment) segment.final = true;
-      try { recorder.stop(); } catch { endCapture(); }
+      if (sx) { streamCancel(sx); current = null; }   // 130：流式路中途断了
+      else {
+        if (segment) segment.final = true;
+        try { recorder.stop(); } catch { endCapture(); }
+      }
     }
     fail(key);
   }
@@ -572,6 +841,7 @@ export function createComposerVoice({
   function teardown() {
     if (!button) return;
     if (phase === 'recording' || phase === 'starting') cancel();
+    if (sx) { streamCancel(sx); }
     bindEscape(false);
     button.remove();
     if (live) live.remove();

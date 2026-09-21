@@ -30,9 +30,10 @@ const zh = JSON.parse(fs.readFileSync(path.join(APP, 'public', 'locales', 'zh-CN
 const en = JSON.parse(fs.readFileSync(path.join(APP, 'public', 'locales', 'en-US.json'), 'utf8'));
 
 // ① 域隔离（取值域不相交 + 互不引用；05 那行隔离注释是 45 号文 §1.2 点名要留的，允许它点名一次）
-assert.match(src05, /const PROVIDER_MODEL_CAPS = new Set\(\['asr', 'embedding'\]\)/, '05: PROVIDER_MODEL_CAPS 白名单（asr/embedding）');
+// 130（51 号文）：白名单加 asr-stream（流式识别端点，只给麦克风用）；两个取值域仍不相交。
+assert.match(src05, /const PROVIDER_MODEL_CAPS = new Set\(\['asr', 'embedding', 'asr-stream'\]\)/, '05: PROVIDER_MODEL_CAPS 白名单（asr/embedding/asr-stream）');
 assert.match(src06, /const PLAYBOOK_REQUIRES = \['network', 'desktopMcp', 'vision'\]/, '06: PLAYBOOK_REQUIRES 取值域原样');
-const capsModelDomain = ['asr', 'embedding'], capsRuntimeDomain = ['network', 'desktopMcp', 'vision'];
+const capsModelDomain = ['asr', 'embedding', 'asr-stream'], capsRuntimeDomain = ['network', 'desktopMcp', 'vision'];
 assert.ok(!capsModelDomain.some(v => capsRuntimeDomain.includes(v)), '两个 caps 取值域必须不相交');
 assert.ok(!src06.includes('PROVIDER_MODEL_CAPS'), '06 不得引用模型能力标签域（PROVIDER_MODEL_CAPS）');
 assert.ok(!src06.includes("'asr'") && !src06.includes('"asr"'), "06 不得出现 'asr' 字面量（串域）");
@@ -54,15 +55,17 @@ assert.match(src05, /const audioBaseUrl = configUrlOrCleared\(str\(raw\.audioBas
 assert.match(src05, /const mainBase = configUrlOrCleared\(str\(raw\.baseUrl, 400\)\.trim\(\)\);/, '05: audioBaseUrl 与 baseUrl 同待遇（同一个 400 截断 + 同一道 configUrlOrCleared 末闸）');
 assert.match(src01, /asrProviderId: '',/, '01: asrProviderId 默认空（未配置）');
 assert.match(src01, /asrModel: '',/, '01: asrModel 默认空（未配置）');
-assert.match(src01, /for \(const key of \['asrProviderId', 'asrModel'\]\)/, '01: asr 形状清洗块');
+assert.match(src01, /for \(const key of \['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel'\]\)/, '01: asr 形状清洗块（130 起连实时识别那一对一起洗）');
+assert.match(src01, /if \(config\.asrStreamProviderId && !config\.providers\.some\(p => p && p\.id === config\.asrStreamProviderId\)\)/, '01: 实时识别指着的 provider 没了 → 两个一起清空');
 assert.match(src01, /if \(config\.asrProviderId && !config\.providers\.some\(p => p && p\.id === config\.asrProviderId\)\)/, '01: provider 没了 → asr 两个一起清空');
 // ④ 前端落点
 assert.match(providersJs, /function renderAsrSettings\(\)/, '前端: renderAsrSettings 存在');
 assert.match(providersJs, /caps\.includes\('asr'\)/, '前端: 只列 caps 含 asr 的模型');
 // 128f-⑭（用户 2026-09-19 拍板 A）改判：修前「无候选整块不渲染（未配置 = 不可见）」，而界面上没有任何地方能把模型标成可语音识别
 // —— 这一栏与输入框麦克风在正常安装里永远不出现。现在无候选也渲染：一句怎么办 ＋「添加语音识别模型」（添加并启用）。
-assert.match(providersJs, /if \(!options\.length\) \{\n    block\.append\(label, el\('p', 'field-help muted', t\('settings\.asr\.none'\)\), buildAsrAddRow\(\)\);/,
-  '前端: 无候选也渲染这一栏（一句怎么办 ＋ 添加口），不再整块不渲染');
+assert.match(providersJs, /if \(!options\.length\) \{\n    block\.append\(label, roleHint, el\('p', 'field-help muted', t\('settings\.asr\.none'\)\), buildAsrAddRow\(\)\);/,
+  '前端: 无候选也渲染这一栏（一句怎么办 ＋ 添加口），不再整块不渲染（130 起多一行「这一栏管校正」的说明）');
+assert.match(providersJs, /const streamBlock = buildAsrStreamBlock\(\);/, '前端: 130 实时识别那一栏在同一处渲染（先出字的在前）');
 assert.match(providersJs, /const saved = await saveConfigPartial\(\{ providers: providersNext, asrProviderId: providerId, asrModel: modelId \}\);/,
   '前端: 添加并启用 = 给那个模型加 asr 能力（没有就追加一条）＋ 选成语音识别模型，一次部分补丁');
 // 2026-09-20（用户实报「保存了语音模型后，再点保存会消失」）：添加只写了 config、没并进弹窗里的 providersDraft，
@@ -99,6 +102,26 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   assert.ok(src13.includes('const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);') && src13.includes('merged.providers = [...foreign, ...owned];'),
     '13: applyConfigPatch 里 toolbox- 服务商以现值为准（自动发现所有的前缀）');
   assert.ok(providersJs.includes("} else if (Array.isArray(c.providers) && Array.isArray(state.providersDraft)) {"), '前端: fillSettings 弹窗开着时同步 toolbox- 服务商进草稿');
+}
+// 130（51 号文；用户拍板：校正默认静默替换、只做麦克风）：流式路的两个纯函数真跑。
+{
+  const voiceJs = fs.readFileSync(path.join(APP, 'public', 'js', 'composer-voice.js'), 'utf8');
+  const pick = name => { const m = voiceJs.match(new RegExp('export function ' + name + '\\([^)]*\\) \\{[\\s\\S]*?\\n\\}')); assert.ok(m, '前端: ' + name + ' 存在'); return new Function('return ' + m[0].replace(/^export /, ''))(); };
+  const streamJoin = pick('streamJoin'), replaceStreamRegion = pick('replaceStreamRegion');
+  assert.equal(streamJoin(['你好', '今天开会', 'pull request', 'now', '再见']), '你好今天开会pull request now再见', '前端: 句间只在拉丁字母／数字两侧加空格');
+  assert.equal(streamJoin(['', 'a', '', 'b']), 'a b', '前端: 空句跳过');
+  const r1 = replaceStreamRegion('前缀你好世界后缀', { start: 2, end: 6 }, '你好世界', '你好，世界。');
+  assert.deepEqual(r1, { value: '前缀你好，世界。后缀', region: { start: 2, end: 8 } }, '前端: 那一段没被碰过 → 整段换成校正后的文本，区间跟着变');
+  assert.equal(replaceStreamRegion('前缀你好世X后缀', { start: 2, end: 6 }, '你好世界', '你好，世界。'), null, '前端: 那一段被用户改过一个字 → 不动（静默替换只动没碰过的字）');
+  assert.ok(voiceJs.includes("if (!text || text === item.text || s.session.discard) return;") && voiceJs.includes("if (!box || !streamReplace(s, box, item, text)) return;   // 那一句被用户碰过 → 一个字不动"),
+    '前端: 第二遍回来相同／已取消 → 不替换；那一句被碰过 → 一个字不动（replaceStreamRegion 判）');
+  assert.ok(voiceJs.includes("if (!composerVoiceConfigured(state && state.config)) return;   // 没配第二遍 = 不校正"), '前端: 没配整段识别就不跑第二遍');
+  assert.ok(voiceJs.includes("catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 流式开不了 → 说一句、回落按停顿切段');
+  for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
+    for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback']) {
+      assert.ok(typeof dict[k] === 'string' && dict[k].length > 0, name + ' 缺键 ' + k);
+    }
+  }
 }
 assert.ok(providersJs.includes('const saved = await addAsrModel(providerId, modelId, protocolSelect.value);'), '前端: 添加行把接口类型一起写进去');
 assert.ok(providersJs.includes('/dashscope\\.aliyuncs\\.com|xiaomimimo\\.com/.test(base)'), '前端: 百炼／MiMo 预选对话型（实测 Whisper 形 404）');

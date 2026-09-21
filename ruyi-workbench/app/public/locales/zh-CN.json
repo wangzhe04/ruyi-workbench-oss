@@ -939,6 +939,15 @@
   "settings.asr.noProvider": "先在上面添加一个服务商，再回到这里添加语音识别模型。",
   "settings.asr.toastReset": "语音识别已关闭",
   "settings.asr.toastSet": "语音识别已开启",
+  "settings.asr.roleHint": "选了上面的实时识别时，这里的模型负责在每句说完后校正错字；没选实时识别时，就按停顿切段、整段转写。",
+  "settings.asrStream.title": "实时识别（边说边出字）",
+  "settings.asrStream.disabled": "不启用（按停顿切段）",
+  "settings.asrStream.hintSet": "说话时文字实时出现在输入框；每说完一句，再用下面「语音识别」里选的模型静默校正一次（没选就不校正）。",
+  "settings.asrStream.hintUnset": "选一个流式识别模型，麦克风就变成边说边出字。本地组件 asr-stream 装好后会自动出现在这里。",
+  "settings.asrStream.none": "还没有流式识别模型。装 ruyi-toolbox 的 asr-stream 组件（本地、CPU 即可）后会自动出现在这里并自动启用。",
+  "settings.asrStream.toastSet": "实时识别已开启",
+  "settings.asrStream.toastReset": "实时识别已关闭，麦克风退回按停顿切段",
+  "settings.toolbox.kind.asrStream": "本地实时语音识别",
   "settings.apiKey": "API 密钥",
   "settings.apiKeyPlaceholder": "留空=不改动已保存的密钥",
   "settings.applyPreset": "应用预设",
@@ -2916,4 +2925,7 @@
   ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 服务商」检查这家的 API 密钥；输入框没有改动"
   ,"composer.voice.error.failed": "转写没有成功，稍后再试；输入框没有改动"
   ,"composer.voice.error.empty": "没有听出文字，输入框没有改动"
+  ,"composer.voice.hintStream": "语音输入：点一下开始说，文字边说边出；每句说完自动校正错字；再点一下结束，Esc 取消。不会自动发送"
+  ,"composer.voice.streaming": "正在听，说话就会出字；再按一次结束，Esc 取消"
+  ,"composer.voice.error.streamFallback": "实时识别没起来，这次按停顿切段转写"
 }

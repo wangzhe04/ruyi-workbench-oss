@@ -23,6 +23,13 @@ This file records user-facing release highlights; it does not replace the comple
 - **添加语音识别模型更不容易配错**：添加时一并选接口类型（阿里百炼、小米 MiMo 自动预选对话型）；名字带 realtime 的流式型号当场拦下。
 - 修掉「保存了语音模型、再点保存它就消失」：模型上的「可语音识别」标记此前有四条会被悄悄抹掉的路径，其中一条是服务商模型清单满 100 条时新加的那一条被直接截掉。
 
+#### 语音输入两遍走：边说边出字，句尾静默改错（第 130 波，2026-09-21）
+
+- **边说边出字**：装上 [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) 的 `asr-stream` 组件（sherpa-onnx 流式小模型，CPU 即可、常驻、几十 MB 内存），如意会自动发现并接成「实时识别」端点；输入框的麦克风从此**说的同时字就在出**（每 250 ms 一块送本机，落后语音约 0.3 秒），说完一句在句尾自动定稿。
+- **句尾静默改错**：每定稿一句，如意再把这一句的音频送给「语音识别」里选的模型（本地 Qwen3-ASR 或云端）识别一遍，结果不同就**悄悄换掉**——只换你没碰过的那一句，你已经手改的字一律不动。这就是手机上「先出字、过一小会儿自动改错」的做法：小模型管手感、大模型管准确。两遍各自可选：没装流式组件就是从前的按停顿切段；没配第二遍就只出字不改错。
+- 设置 → 模型服务商 里「语音识别」一栏拆成两项：「实时识别（边说边出字）」与「语音识别（整段识别 · 校正）」。流式组件起不来时麦克风当场退回按停顿切段，并说一句。第一版只做麦克风这一路：音频附件与 `audio_transcribe` 工具仍整段识别。
+- 修掉「组件停用再启用后语音输入没了」：条目被补回（再启用、或被弄丢）而你没配别的语音识别时重新自动选中；只有条目还在、你亲手换走／关掉的才不动。
+
 #### 扩展组件开箱即用（ruyi-toolbox，2026-09-21）
 
 - 装在这台电脑上的 [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) 组件会在如意启动时被**自动发现并接入**：本地服务（例如本地语音识别）自动拉起、自动配成对应的端点；MCP 工具自动加入连接器列表。第一次接入会提示一句；专家界面「MCP 运维」页签底部能看到接了什么、逐个停用，或整体关掉自动发现。
@@ -92,6 +99,13 @@ This file records user-facing release highlights; it does not replace the comple
 - **No more bare "Failed"**: the reason is shown. A provider that rejects the current interface type, or a rejected API key, each get a message that says where to fix it; transcription failures and successes now leave a local log line (metadata only).
 - **Harder to misconfigure**: adding a speech model now asks for the interface type (pre-selected for Alibaba Bailian and Xiaomi MiMo), and streaming-only "realtime" models are refused on the spot.
 - Fixed "the speech model disappears after saving twice": the speech-capable mark on a model could be silently dropped along four paths, one of which truncated the newly added model whenever the provider's model list was already at its 100-entry cap.
+
+#### Two-pass voice input: text as you speak, silent correction at sentence end (wave 130, 2026-09-21)
+
+- **Text as you speak**: with the [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) `asr-stream` add-on installed (a small streaming sherpa-onnx model; CPU only, resident, tens of MB), Ruyi discovers it and wires it up as the "live recognition" endpoint. The microphone now shows words **while you talk** (250 ms chunks to the local component, about 0.3 s behind your voice) and finalizes each sentence at its end.
+- **Silent correction at sentence end**: each finalized sentence's audio is sent once more to the model chosen under "speech recognition" (local Qwen3-ASR or a cloud provider); if the result differs it is **swapped in quietly** — only for a sentence you have not touched; anything you edited by hand is left alone. This is how phones do it: the small model handles the feel, the large model handles accuracy. Both passes are optional: without the streaming add-on the microphone behaves as before (transcribe at each pause); without a second-pass model, text appears but is not corrected.
+- Settings → Providers now has two rows: "Live recognition (text as you speak)" and "Speech recognition (whole-segment · correction)". If the streaming component is down, the microphone falls back to pause-based transcription for that recording and says so. First version covers the microphone only: audio attachments and the `audio_transcribe` tool still use whole-segment recognition.
+- Fixed "voice input disappears after disabling and re-enabling the component": when the provider entry is restored (re-enabled, or lost) and you have no other speech recognition configured, it is auto-selected again; only when the entry is still there and you switched away or turned it off yourself is your choice left alone.
 
 #### Add-ons work out of the box (ruyi-toolbox, 2026-09-21)
 

@@ -115,6 +115,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // self-isolate-home),153 -> 154 的来路就是它。action-feedback.browser(128f-⑫)用公共夹具、自己不 spawn,不计入。
 // 2026-09-21(toolbox 自动发现):新增 dev-harness/toolbox-discovery.e2e.js(一处带 RUYI_HOME 的 spawn —— 起 serve 子进程;该件第一行已
 // require self-isolate-home,登记目录另经 RUYI_TOOLBOX_HOME 指到临时目录,不碰真机 ~/.ruyi-toolbox),154 -> 155 的来路就是它。
+// 130(51 号文):composer-voice-stream.browser.e2e 走公共夹具 lib/browser-fixture(工作台由夹具 spawn),自己不 spawn,不计入。
 const RUYI_HOME_SPAWN_SITES = 155;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
