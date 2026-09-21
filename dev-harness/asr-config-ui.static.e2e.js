@@ -143,13 +143,14 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   assert.ok(!/asrPreset(Id)?:/.test(providersJs) && !/asrPreset\b/.test(fs.readFileSync(path.join(APP, 'src', '01-config.js'), 'utf8')), '前端: 档位不是配置键 —— 由现有三对键推算(不与既有键冲突)');
   {
     // 档位推算与写键:纯函数真跑。
-    const targets = { light: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-stream', modelId: 'sensevoice-small' } }, standard: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-shim', modelId: 'qwen3-asr-0.6b' } }, heavy: { stream: null, asr: null } };
+    const targets = { light: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-stream', modelId: 'sensevoice-small' } }, standard: { stream: { providerId: 'toolbox-asr-stream', modelId: 'zipformer' }, asr: { providerId: 'toolbox-asr-shim', modelId: 'qwen3-asr-0.6b' }, asrAny: [{ providerId: 'toolbox-asr-shim', modelId: 'qwen3-asr-0.6b' }, { providerId: 'toolbox-asr-shim', modelId: 'qwen3-asr-auto' }] }, heavy: { stream: null, asr: null } };
     const pickProviders = name => { const m = providersJs.match(new RegExp('\\nfunction ' + name + '\\([^)]*\\) \\{[\\s\\S]*?\\n\\}')); assert.ok(m, '前端: ' + name + ' 存在'); return new Function('return ' + m[0].trim())(); };
     const cur = pickProviders('asrCurrentPreset'), patch = pickProviders('asrPresetPatch'), avail = pickProviders('asrPresetAvailable');
     Object.assign(globalThis, { ASR_PRESETS: ['light', 'standard', 'heavy'], asrPresetAvailable: avail });
     assert.equal(cur({}, targets), 'off', '前端: 两对键都空 → 关闭');
     assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-stream', asrModel: 'sensevoice-small' }, targets), 'light', '前端: 流式 + SenseVoice + fixMode 缺省 → 轻度');
     assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'auto' }, targets), 'standard', '前端: 流式 + 0.6B → 标准');
+    assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-auto' }, targets), 'standard', '前端: 升级后自动选中的 qwen3-asr-auto 也算标准档(2026-09-21 实拍:修前显示成「自定义」)');
     assert.equal(cur({ asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'llm' }, targets), 'custom', '前端: 改字方式不是 auto → 自定义');
     assert.equal(cur({ asrProviderId: 'cloud', asrModel: 'whisper-1' }, targets), 'custom', '前端: 云端 ASR → 自定义');
     assert.deepEqual(patch(targets.standard), { asrStreamProviderId: 'toolbox-asr-stream', asrStreamModel: 'zipformer', asrProviderId: 'toolbox-asr-shim', asrModel: 'qwen3-asr-0.6b', asrFixMode: 'auto' }, '前端: 选档位 = 一次写三对键(改字端点那一对不动)');

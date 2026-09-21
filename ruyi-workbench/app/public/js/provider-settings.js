@@ -851,7 +851,9 @@ function asrPresetTargets() {
   const asr = asrCapableOptions().filter(isTb);
   const pick = res => { for (const re of res) { const hit = asr.find(o => re.test(o.modelId)); if (hit) return hit; } return null; };
   const out = {};
-  for (const p of ASR_PRESETS) out[p] = { stream, asr: pick(ASR_PRESET_ASR_MATCH[p]) };
+  // asr = 选这一档时写进去的那份(表里靠前的优先:标准档写显式 0.6B);asrAny = 判「现在是哪一档」时都算数的几份
+  // (升级后自动选中的是 qwen3-asr-auto,今天 auto 就是 0.6B,不该显示成「自定义」—— 2026-09-21 实拍)。
+  for (const p of ASR_PRESETS) out[p] = { stream, asr: pick(ASR_PRESET_ASR_MATCH[p]), asrAny: asr.filter(o => ASR_PRESET_ASR_MATCH[p].some(re => re.test(o.modelId))) };
   return out;
 }
 function asrPresetAvailable(target) { return Boolean(target && target.stream && target.asr); }
@@ -865,7 +867,8 @@ function asrCurrentPreset(cfg, targets) {
   for (const p of ASR_PRESETS) {
     const tg = targets[p];
     if (!asrPresetAvailable(tg)) continue;
-    if (sp === tg.stream.providerId && sm === tg.stream.modelId && ap === tg.asr.providerId && am === tg.asr.modelId && String(c.asrFixMode || 'auto') === 'auto') return p;
+    const asrHit = (Array.isArray(tg.asrAny) && tg.asrAny.length ? tg.asrAny : [tg.asr]).some(o => o && ap === o.providerId && am === o.modelId);
+    if (sp === tg.stream.providerId && sm === tg.stream.modelId && asrHit && String(c.asrFixMode || 'auto') === 'auto') return p;
   }
   return 'custom';
 }
