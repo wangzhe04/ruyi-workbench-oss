@@ -107,6 +107,23 @@ export const COMPOSER_VOICE_CORRECT_MIN_MS = 300;         // 太短的一句不�
 export function composerVoiceStreamConfigured(config) {
   return Boolean(config && String(config.asrStreamProviderId || '').trim() && String(config.asrStreamModel || '').trim());
 }
+// 131b（52 号文 §5；用户拍板 2）：句尾改错有两条路 —— 重听音频（整段识别模型）与大模型改字（跟随对话主端点或单独指定）。
+// 这两个纯函数只回答「要不要发第二遍」「要不要带音频」；发去 /api/audio/correct 之后怎么走由服务端按 asrFixMode 编排。
+export function composerVoiceFixLlmAvailable(config) {
+  const id = String((config && (config.asrFixProviderId || config.activeProvider)) || '').trim();
+  return Boolean(id && id !== 'claude-cli' && !id.startsWith('toolbox-'));
+}
+export function composerVoiceCorrectConfigured(config) {
+  if (!config) return false;
+  const mode = String(config.asrFixMode || 'auto');
+  if (mode === 'off') return false;
+  if (mode === 'audio') return composerVoiceConfigured(config);
+  if (mode === 'llm') return composerVoiceFixLlmAvailable(config);
+  return composerVoiceConfigured(config) || composerVoiceFixLlmAvailable(config);
+}
+export function composerVoiceCorrectWantsAudio(config) {
+  return Boolean(config) && String(config.asrFixMode || 'auto') !== 'llm' && composerVoiceConfigured(config);
+}
 // 流式路的文字拼接（纯函数，静态件直接调）：句与句之间只在两侧都是拉丁字母／数字时加空格（中文之间不加）。
 export function streamJoin(parts) {
   let out = '';
@@ -159,6 +176,15 @@ export function composerVoiceAvailable(config, env = globalThis) {
 
 // ⑧ 16 bit 单声道 WAV 打包：44 字节规范头 + 小端 PCM。浮点样本钳到 [-1,1] 再按有符号 16 位量化
 // （负半轴 ×0x8000、正半轴 ×0x7fff —— 两边各自打满且不溢出）。
+// 131b：一句的 WAV 以 base64 放进 /api/audio/correct 的 JSON 体（与第一遍文字同一个请求）。FileReader 走 data URL，剥掉前缀。
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.onload = () => { const s = String(reader.result || ''); const at = s.indexOf(','); resolve(at >= 0 ? s.slice(at + 1) : s); };
+    reader.readAsDataURL(blob);
+  });
+}
 function wavBlobFromPcm(samples, sampleRate) {
   const bytes = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(bytes);
@@ -581,16 +607,21 @@ export function createComposerVoice({
     box.dispatchEvent(new Event('input', { bubbles: true }));
     for (const f of fresh) void streamCorrect(s, f);
   }
-  // 第二遍：这一句的音频送整段识别（Qwen3-ASR／云端）；回来不同、那一段还没被碰过 → 静默换掉（拍板 ①）。
+  // 第二遍（131b 起经 /api/audio/correct，服务端按 asrFixMode 决定重听／大模型改字／合成）：这一句的第一遍文字（＋音频，要重听时才带）
+  // 送过去；回来不同、那一段还没被碰过 → 静默换掉（拍板 ①）。
   async function streamCorrect(s, item) {
-    if (!composerVoiceConfigured(state && state.config)) return;   // 没配第二遍 = 不校正
+    const cfg = state && state.config;
+    if (!composerVoiceCorrectConfigured(cfg)) return;   // 没配第二遍 = 不校正
     const a = Math.min(s.allLen, item.startMs * 16), b = Math.min(s.allLen, item.endMs * 16);
     if (b - a < COMPOSER_VOICE_CORRECT_MIN_MS * 16) return;
-    const all = concatFloat(s.all, s.allLen);
-    const wav = wavBlobFromPcm(all.subarray(a, b), COMPOSER_VOICE_SAMPLE_RATE);
+    let audio = null;
+    if (composerVoiceCorrectWantsAudio(cfg)) {
+      const all = concatFloat(s.all, s.allLen);
+      try { audio = await blobToBase64(wavBlobFromPcm(all.subarray(a, b), COMPOSER_VOICE_SAMPLE_RATE)); } catch { audio = null; }
+    }
     let text = '';
     try {
-      const res = await request('/api/audio/transcribe?filename=' + COMPOSER_VOICE_WAV_FILENAME, { method: 'POST', body: wav, headers: { 'content-type': COMPOSER_VOICE_WAV_TYPE } });
+      const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE }), headers: { 'content-type': 'application/json' } });
       if (!res.ok) return;   // 第二遍失败就留着第一遍的字：不弹错（第一遍已经把话记下来了）
       const body = await res.json();
       text = String((body && body.text) || '').trim();

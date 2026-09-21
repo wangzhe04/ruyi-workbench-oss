@@ -1,6 +1,7 @@
 # 52 · 第 131 波 —— 语音输入准确率：第一遍换不换模型、第二遍要不要让大模型改字
 
-> 状态：**评测已做完（2026-09-21），方案待拍板、未开工**。出方案与评测：Fable（主会话）。
+> 状态：**评测已做完；用户 2026-09-21 拍板四条（1 做／2 做且加进设置、重新设计选项、不与现有冲突／3 行／4 可以，多份本地模型默认用更大的）；
+> 131a／131b／131c／自动选模型同日出门**（toolbox 2cde90e；主仓见本文 §5 表）。131d 真机走查待用户。出方案、评测与执行：Fable（主会话）。
 >
 > 用户原话（2026-09-21）：「流式传输的识别准确率有办法再提高一下吗；以及是否流式传输后，调 llm 直接改文字是否会更好一点呢？可以都试试」
 > 「qwen 3 asr 1.7b 也可以试试，内网的机子是 3060，有 12g 显存，应该也能和 ue 共存跑」。
@@ -36,7 +37,7 @@
 | 同上 beam4 | 3.46 | 3.17 | 5.05 | 34.9 | 4.6 | |
 | zipformer multi-zh-hans 2023-12 | 4.91 | 5.77 | 9.09 | 21.3 | 3.6 | |
 | zipformer wenetspeech 2023-06 | 3.46 | 4.47 | 6.93 | 19.0 | 2.9 | |
-| zipformer zh **xlarge** int8 2025-06-30（726 MB） | 未测 | | | | | 下载太慢（GitHub 直连），写本文时还在下；纯中文，结论不会变 |
+| zipformer zh **xlarge** int8 2025-06-30（726 MB） | 未测 | | | | | GitHub 直连下载两次失败，放弃；纯中文，结论不会变（同家族的 154 MB 版已经不如现状） |
 | SenseVoice int8（**非流式**，整句一次） | 0.72 | 0.87 | 2.74 | 245/句 | — | 不是流式；见 §4 |
 
 结论：**不换第一遍模型**。纯中文模型在这份「夹英文术语」的题面上反而差；Paraformer 中文更准但丢尾字是可见缺陷；
@@ -80,16 +81,23 @@ SenseVoice-small int8（sherpa-onnx，230 MB，CPU）整句识别：clean 0.72 /
 所以：给 `asr-stream` 组件加一个 `/v1/audio/transcriptions` 端点（同一进程再载一个离线识别器），登记里同时 `provides` `asr-stream` 与 `asr`
 ——slim 包用户没有显卡也能有「句尾自动改错」。再叠一层大模型合成，就是 2.31。
 
-## §5 建议的切片（待拍板）
+## §5 切片（已拍板，已出门）
 
-| 片 | 内容 | 判据 |
-|---|---|---|
-| 131a | asr-stream 缺省 modified_beam_search(4)，热词口子照旧 | 组件单元测试；评测 hard 6.78→5.92 |
-| 131b | 第二遍新增「大模型改字」：配置键 `asrFixProviderId/asrFixModel`（缺省跟对话主模型），模式 音频 / 文字 / 合成（缺省：两者都配就合成，只配一边就用那一边）；请求显式关思考；加固提示；正文为空→回落到音频结果；**只在麦克风这一路** | 单元锁：注入句原样保留、空正文回落；browser e2e 假大模型 |
-| 131c | asr-stream 组件加 SenseVoice 离线端点，登记同时提供 `asr` | 组件测试；隔离实例两键都自动配上 |
-| 131d | 真机走查（含 3060 机上 Qwen3-ASR-1.7B） | 用户 |
+| 片 | 内容 | 落地 | 判据 |
+|---|---|---|---|
+| 131a | asr-stream 缺省 modified_beam_search(4)，`RUYI_ASR_STREAM_DECODING` 可回 greedy | toolbox `engine.normalize_decoding` | 组件测试 40；真机 health 报 `decoding` |
+| 131b | 「句尾改错」独立成设置第三栏：`asrFixMode`（auto／audio／llm／off，缺省 auto）＋ `asrFixProviderId/asrFixModel`（缺省跟随对话主端点）；新路由 `POST /api/audio/correct`（文字＋可选音频 → 重听／大模型改字／合成，服务端编排）；请求显式关思考、端点不认就去掉重打；加固提示（转写放 `<transcript>`、明说是数据）；出参合理性（空／多行／长度失控 → 不用）；回落链 大模型 → 重听 → 第一遍；记账 aux/asr-fix；管家档 confirm；**只在麦克风这一路** | 主仓 01／01b／05／06i／13b／composer-voice／provider-settings／i18n | 单元 `unit/asr-fix-prompt.test`；静态锁 asr-config-ui；browser e2e G1–G6（假大模型三种回法：改字／空正文回落／答题被拦） |
+| 131c | asr-stream 内置 SenseVoice 离线端点 `/v1/audio/transcriptions`（只认 WAV）＋ `/v1/models`；登记同时 provides `asr`；download-model.ps1 缺省一并下载 | toolbox `engine.SenseVoiceBackend` | 组件测试；toolbox-discovery e2e L1 双 provides；真机一句 244 ms |
+| 自动选模型 | asr-shim `RUYI_ASR_MODEL=auto` ＋ `RUYI_ASR_MODELS_ROOT`：第一发请求时按空闲显存挑最大能装下的；`/health.resolvedModel` | toolbox `autopick.py` | 组件测试 133；真机 7650 GRE 挑中 1.7B（空闲 8019 MB ≥ 4800） |
+| 131d | 真机走查（本机 ＋ 3060 机上 1.7B 与 UE 共存） | — | 用户 |
 
 不做：换第一遍模型；Paraformer；纯中文模型；热词默认开（没用）。
+
+### 5.1 「重新设计选项方式，不与现有冲突」是怎么落的
+
+原来的两栏各回答一个「用哪个模型」，键（`asrProviderId/asrModel`、`asrStreamProviderId/asrStreamModel`）一个不动；「整段识别」栏改名说明它兼任附件转写、语音工具与句尾重听。
+新加的第三栏只回答「说完一句之后怎么改」，三个新键与旧键零交集；缺省 `auto` 下老用户的行为与 130 一样（只配了整段识别就重听），
+多了大模型才多一步合成。提示行按当前配置算出「现在会怎么走」，不用猜。
 
 ## §6 Qwen3-ASR 1.7B（用户提的 3060 机器）
 

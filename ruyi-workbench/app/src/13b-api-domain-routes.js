@@ -409,7 +409,82 @@ async function handleAudioApiRoutes(req, res, pathname) {
   if (req.method === 'DELETE' && pathname.startsWith('/api/audio/stream/sessions/')) {
     return await handleAudioStreamSession(req, res, pathname);
   }
+  // 131b(52 号文 §5):句尾改错 —— 一句的第一遍文字(＋音频)→ 重听／大模型改字／两者合成。
+  if (req.method === 'POST' && pathname === '/api/audio/correct') {
+    return await handleAudioCorrect(req, res);
+  }
   return false;
+}
+// ── 131b(52 号文 §3/§5;用户 2026-09-21 拍板 2):句尾改错的编排 ────────────────────────────────────────────
+// 输入 JSON {text: 第一遍文字, audio?: base64 WAV(这一句), contentType?};按 asrFixMode 决定走哪几条路:
+//   auto  = 配了整段识别且带音频 → 重听;配了大模型 → 改字(有重听结果就给它两版合成);
+//   audio = 只重听;llm = 只改字;off = 409。
+// 结果优先级:大模型改出来的(过了合理性)> 重听的 > 空(两条路都没成 → 502,前端保留第一遍)。
+// 上游地址只来自配置;音频只在内存;日志只记元数据(模式、两条路各自成没成、字数、耗时),不记文本。记账:大模型一发 aux/asr-fix。
+const AUDIO_FIX_MAX_TEXT = 4000;
+const AUDIO_FIX_MAX_AUDIO_B64 = 2 * 1024 * 1024;   // 一句 ≤ 20 s 的 16 kHz WAV 约 640 KB,base64 后约 860 KB
+async function handleAudioCorrect(req, res) {
+  const t0 = Date.now();
+  let body;
+  try { body = await readJsonBody(req); } catch { return send(res, apiFailure('asr.fix_bad_request', {}, '请求体不是合法 JSON', 400)); }
+  const text = String((body && body.text) || '').trim().slice(0, AUDIO_FIX_MAX_TEXT);
+  const audioB64 = body && typeof body.audio === 'string' ? body.audio : '';
+  if (!text && !audioB64) return send(res, apiFailure('asr.fix_bad_request', {}, 'text 与 audio 至少给一个', 400));
+  if (audioB64.length > AUDIO_FIX_MAX_AUDIO_B64) {
+    return send(res, apiFailure('asr.fix_audio_too_large', { maxBytes: AUDIO_FIX_MAX_AUDIO_B64 }, '一句的音频超过上限', 413));
+  }
+  const config = await readConfig();
+  const mode = asrFixModeOf(config);
+  if (mode === 'off') return send(res, apiFailure('asr.fix_disabled', { mode }, '句尾改错已关闭', 409));
+  const audioRes = (mode !== 'llm' && audioB64) ? resolveAsrProvider(config) : null;
+  const llmRes = mode !== 'audio' ? resolveAsrFixProvider(config) : null;
+  const canAudio = Boolean(audioRes && !audioRes.failure);
+  const canLlm = Boolean(llmRes && !llmRes.failure);
+  if (!canAudio && !canLlm) {
+    return send(res, apiFailure('asr.fix_not_configured', { mode }, '句尾改错没有可用的端点(整段识别与大模型都没配)', 409));
+  }
+  let audioText = null, audioErr = '';
+  if (canAudio) {
+    let audio = null;
+    try { audio = Buffer.from(audioB64, 'base64'); } catch { audio = null; }
+    if (audio && audio.length) {
+      const ct = String((body && body.contentType) || 'audio/wav').split(';')[0].trim().toLowerCase();
+      const r = await transcribeAudioViaProvider(audioRes.provider, audioRes.asrModel, {
+        audio, contentType: ct.startsWith('audio/') ? ct : 'audio/wav', filename: 'voice.wav', language: '', prompt: '',
+      });
+      if (r.failure) audioErr = String(r.failure.code || 'failed'); else audioText = String(r.text || '').trim();
+    } else audioErr = 'asr.fix_bad_audio';
+  }
+  let llmText = null, llmErr = '';
+  if (canLlm && (text || audioText)) {
+    const r = await providerFixCompletion(llmRes.provider, llmRes.model, asrFixMessages(text, audioText));
+    if (!r.ok) llmErr = String(r.error || 'failed').slice(0, 200);
+    else {
+      llmText = asrFixSanity((audioText && audioText.length > text.length) ? audioText : text, r.content) || null;
+      if (!llmText) llmErr = 'sanity';
+    }
+    // 记账(aux/asr-fix):与 /api/audio/transcribe 同口径 —— 有 usage 记真数,没有就估算并标 estimated。正文为空那一发也花了钱,照记。
+    if (r.usage || r.ok) {
+      const u = r.usage && typeof r.usage === 'object' ? r.usage : null;
+      const num = n => { const v = Number(u && u[n]); return Number.isFinite(v) && v > 0 ? Math.round(v) : 0; };
+      const realIn = num('prompt_tokens') || num('input_tokens'), realOut = num('completion_tokens') || num('output_tokens');
+      const hasUsage = (realIn + realOut) > 0;
+      const inTok = hasUsage ? realIn : Math.max(1, Math.ceil((text.length + (audioText || '').length + 320) / 2));
+      const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(String((r.ok && r.content) || '').length / 2));
+      const { cost, currency } = computeProviderCost(llmRes.provider, inTok, outTok, 0, llmRes.model);
+      appendUsageLedger({
+        sessionId: '', engine: 'openai', provider: llmRes.provider.id, model: llmRes.model,
+        inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null, estimated: !hasUsage, kind: 'aux', note: 'asr-fix',
+      });
+    }
+  }
+  const final = llmText || audioText || '';
+  logEvent({
+    kind: 'asr_fix', mode, audio: canAudio ? (audioText != null ? 'ok' : (audioErr || 'skip')) : 'off',
+    llm: canLlm ? (llmText ? 'ok' : (llmErr || 'skip')) : 'off', inLen: text.length, outLen: final.length, durationMs: Date.now() - t0,
+  });
+  if (!final) return send(res, apiFailure('asr.fix_failed', { audio: audioErr, llm: llmErr }, '两条路都没改出结果', 502));
+  return send(res, json({ ok: true, text: final, used: { audio: audioText != null, llm: Boolean(llmText) }, durationMs: Date.now() - t0 }));
 }
 // ── 130(51 号文 §2):实时识别代理 —— 浏览器每 250 ms 一块 PCM 打到这里,这里转给配置里那条 asr-stream 服务商 ─────
 // 威胁模型与 /api/audio/transcribe 同:上游地址【只来自配置】(providers[].baseUrl),绝不收请求体里的 URL;

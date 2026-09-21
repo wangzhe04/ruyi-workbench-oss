@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 54 | 2556 | 2674 | 431 | 68 | 0 | 1 |
+| 54 | 2568 | 2684 | 431 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -26,7 +26,7 @@
 | 8 | `04-permission-runtime.js` | foundation | 119 | 34 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 10 | `04f-toolbox-services.js` | foundation | 21 | 13 | 3 |
-| 11 | `05-claude-engine.js` | engine | 55 | 108 | 15 |
+| 11 | `05-claude-engine.js` | engine | 64 | 108 | 15 |
 | 12 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
 | 13 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 14 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
@@ -50,7 +50,7 @@
 | 32 | `12-tool-dispatch.js` | tools | 33 | 79 | 14 |
 | 33 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 34 | `13-http-router.js` | transport | 64 | 221 | 24 |
-| 35 | `13b-api-domain-routes.js` | transport | 20 | 44 | 7 |
+| 35 | `13b-api-domain-routes.js` | transport | 23 | 51 | 7 |
 | 36 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 37 | `13d-core-domain-routes.js` | transport | 43 | 117 | 14 |
 | 38 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
@@ -68,7 +68,7 @@
 | 50 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
 | 51 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
 | 52 | `13t-steward-schedule.js` | transport | 19 | 35 | 9 |
-| 53 | `14-main.js` | entrypoint | 1 | 593 | 39 |
+| 53 | `14-main.js` | entrypoint | 1 | 596 | 39 |
 
 ## 模块边
 
@@ -296,11 +296,11 @@
 | `13-http-router.js` | `13e-pretender-index.js` | forward | `warmPretenderProjectionIndex` |
 | `13-http-router.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
 | `13-http-router.js` | `13s-scheduler.js` | forward | `handleSchedulerApiRoutes`, `startScheduler`, `stopScheduler` |
-| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `URL`, `apiFailure`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `rewindSession`, `saveSession` |
 | `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveExternalMcpServers`, `scanMcpSources` |
-| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `maskExternalMcpServerForDisplay`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
+| `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `asrFixMessages`, `asrFixModeOf`, `asrFixSanity`, `maskExternalMcpServerForDisplay`, `providerFixCompletion`, `resolveAsrFixProvider`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
 | `13b-api-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns` |
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `json`, `path` |
@@ -476,7 +476,7 @@
 | `14-main.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `14-main.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `McpHttpClient`, `McpStdioClient`, `activeChildren`, `buildMcpConnectorInventory`, `classifyMcpError`, `clearPendingPermissions`, `collectBridgedTools`, `configureMcpFromTool`, `hasPendingPermissionForSession`, `invalidateMcpDropInCache`, `killAllMcpClients`, `killChildTree`, `killOwnProcessTree`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `parseClaudeTaskNotification`, `parseMcpConfigFile`, `permissionWaitMs`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory`, `safeUrlForDisplay`, `scanMcpDropIns`, `scanMcpSources` |
 | `14-main.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
-| `14-main.js` | `05-claude-engine.js` | backward | `applyProviderReasoningEffort`, `maskSecrets`, `maskedSecretConflicts`, `providerLaunchVectorKey`, `providerReasoningEffort`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
+| `14-main.js` | `05-claude-engine.js` | backward | `applyProviderReasoningEffort`, `asrFixMessages`, `asrFixSanity`, `maskSecrets`, `maskedSecretConflicts`, `providerLaunchVectorKey`, `providerReasoningEffort`, `resolveAsrFixProvider`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
 | `14-main.js` | `05b-kimi-bridge.js` | backward | `compactKimiNative`, `consumeKimiAcpApproval`, `isKimiAcpPlanFilePath`, `kimiAcpConcreteEditGuard`, `kimiAcpFreshActualForOperation`, `kimiAcpInferConcreteToolInput`, `kimiAcpModeOptionFromActivated`, `kimiAcpNativeBashWrapperCandidate`, `kimiAcpNativeBashWrapperTexts`, `kimiAcpNativeShellQuote`, `kimiAcpNativeWindowsPathToPosixPath`, `kimiAcpPermissionToolCall`, `kimiAcpSessionRestoreMethods`, `kimiAcpSuccessfulEnterPlanMode`, `kimiAcpToolTier`, `kimiAcpToolUpdateSucceeded`, `kimiAcpUnknownSessionError`, `kimiSessionStatus`, `parseKimiWireAgentEvents`, `parseKimiWireCompaction`, `prepareKimiAcpSpawn`, `readKimiWireRuntime`, `resolveKimiAcpPlanFilePath`, `runKimiCompact`, `stopKimiServer`, `watchKimiWire` |
 | `14-main.js` | `06-provider-engine.js` | backward | `CAP_UNKNOWN_TTL_MS`, `ERROR_CLASSES`, `NETWORK_ANCHORS`, `TOOL_ITERATION_BUDGETS`, `TOOL_REQUIRES`, `appendResponseLanguagePolicy`, `appendTurnPolicies`, `auditSummaryFor`, `buildAgentTeamHint`, `buildBrowserAutomationHint`, `buildClaudeNativeAgentPolicy`, `buildMetricsPayload`, `buildPlaybookIndexSection`, `buildPromptTaskContext`, `buildProviderSystemPrompt`, `buildResponseLanguagePolicy`, `buildRuntimeIdentityFacts`, `buildSoftwareEngineeringPolicy`, `buildStableSystemPrompt`, `buildToolCustomizationHint`, `buildVolatileParts`, `clampAppendWithSkills`, `claudeProjectDirKey`, `claudeProjectsRoot`, `collectAudit`, `collectStorageStats`, `evalPlaybookAvailability`, `fenceSafeSlice`, `getCapabilities`, `invalidateCapabilityCache`, `isLongToolTask`, `loadAllPlaybooks`, `matchServiceEntry`, `maybeRecordStorageTrend`, `maybeWriteThreadBrief`, `networkAnchors`, `normalizeMetricsPath`, `normalizePlaybook`, `normalizeStoragePolicy`, `parsePlaybookDraft`, `parseThreadBrief`, `peekCapabilities`, `probeAny`, `readProjectMemory`, `readStorageTrend`, `recordEngineTranscript`, `recordRequestMetric`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `shrinkFencedSection`, `softwareEngineeringTaskProfile`, `storageSweep`, `toolRequirementsMet` |
 | `14-main.js` | `06b-prompt-registry.js` | backward | `PROMPT_PACK_VERSION`, `getPromptPack` |

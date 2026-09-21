@@ -1330,6 +1330,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   // 模型端点」)。
   'asrProviderId', 'asrModel',
   'asrStreamProviderId', 'asrStreamModel',   // 130:实时识别端点选择,与上一对同族同档(confirm)
+  'asrFixMode', 'asrFixProviderId', 'asrFixModel',   // 131b:句尾改错方式与大模型端点 —— 转写文字送去哪个模型、每句花钱,同族同档
 ]);
 
 // forbidden 的【说明性】清册:不是判据(判据是 fail-closed 的「不在上面两张表里」),而是把

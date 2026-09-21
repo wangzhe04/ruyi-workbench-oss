@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-21T03:58:24.911Z",
+  "generatedAt": "2026-09-21T06:56:10.753Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,10 +17,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 127,
-    "decisionPoints": 140,
+    "routeAuthEntries": 128,
+    "decisionPoints": 141,
     "byKind": {
-      "exact": 117,
+      "exact": 118,
       "prefix": 14,
       "regex": 9
     },
@@ -335,6 +335,12 @@
       "p": "/api/audio/stream/sessions/",
       "auth": "token",
       "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/audio/correct",
+      "auth": "token",
+      "prefix": false
     },
     {
       "m": "POST",
@@ -852,6 +858,7 @@
         "dev-harness\\claude-exe-resolve.e2e.js",
         "dev-harness\\claude-models-cache.e2e.js",
         "dev-harness\\cli-probe-stall.e2e.js",
+        "dev-harness\\composer-voice-stream.browser.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\config-read-safety.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -2704,6 +2711,24 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\toolbox-discovery.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/audio/correct",
+      "file": "13b-api-domain-routes.js",
+      "line": 413,
+      "handler": "handleAudioApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\asr-config-ui.static.e2e.js",
+        "dev-harness\\composer-voice-stream.browser.e2e.js"
       ]
     },
     {

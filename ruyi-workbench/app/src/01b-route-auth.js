@@ -79,6 +79,8 @@ const ROUTE_AUTH = [
   // 130(51 号文 §2.3):实时识别的代理路由(开会话／喂音频／收尾／关会话)—— 同一条出网面的流式形,同档 token 级。
   { m: 'POST', p: '/api/audio/stream/sessions', auth: 'token', prefix: true },
   { m: 'DELETE', p: '/api/audio/stream/sessions/', auth: 'token', prefix: true },
+  // 131b(52 号文 §5):句尾改错 —— 一句的第一遍文字(＋音频)送去重听／大模型改字。同一条出网面,同档 token 级。
+  { m: 'POST', p: '/api/audio/correct', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)

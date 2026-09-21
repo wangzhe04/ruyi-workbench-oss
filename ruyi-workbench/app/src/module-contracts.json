@@ -1992,6 +1992,10 @@
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
+        "ASR_FIX_HARDEN",
+        "ASR_FIX_MODES",
+        "ASR_FIX_SYSTEM_MERGE",
+        "ASR_FIX_SYSTEM_TEXT",
         "CLAUDE_ENDPOINT_PRESETS",
         "KEY_MASK_PREFIX",
         "MCP_ARG_REDACTED_MARK",
@@ -2002,6 +2006,9 @@
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
         "asrChatContentText",
+        "asrFixMessages",
+        "asrFixModeOf",
+        "asrFixSanity",
         "collectDisplayUrlRestores",
         "configSecretValueOrCleared",
         "configUrlOrCleared",
@@ -2021,6 +2028,7 @@
         "mcpEntryTrimmed",
         "mcpSecretValueOrCleared",
         "providerBaseWithV1",
+        "providerFixCompletion",
         "providerLaunchUrls",
         "providerLaunchVectorKey",
         "providerMaskedSecretFields",
@@ -2029,6 +2037,7 @@
         "providerReasoningEffort",
         "providerResponsesBase",
         "providerVectorNotWidened",
+        "resolveAsrFixProvider",
         "resolveAsrProvider",
         "resolveAsrStreamProvider",
         "resolveProvider",
@@ -10958,6 +10967,8 @@
       "file": "13b-api-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "AUDIO_FIX_MAX_AUDIO_B64",
+        "AUDIO_FIX_MAX_TEXT",
         "AUDIO_STREAM_CHUNK_MAX_BYTES",
         "AUDIO_STREAM_IDLE_MS",
         "AUDIO_STREAM_MAX_SESSIONS",
@@ -10968,6 +10979,7 @@
         "audioStreamSessions",
         "audioStreamUpstream",
         "handleAudioApiRoutes",
+        "handleAudioCorrect",
         "handleAudioStreamOpen",
         "handleAudioStreamSession",
         "handleAudioTranscribe",
@@ -10989,9 +11001,23 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "appendUsageLedger",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ASR_MAX_BODY_BYTES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "computeProviderCost",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11227,7 +11253,42 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "asrFixMessages",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "asrFixModeOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "asrFixSanity",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "maskExternalMcpServerForDisplay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "providerFixCompletion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveAsrFixProvider",
           "kinds": [
             "call"
           ]
@@ -18893,6 +18954,20 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "asrFixMessages",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "asrFixSanity",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "maskedSecretConflicts",
           "kinds": [
             "read"
@@ -18915,6 +18990,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "providerReasoningEffort",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveAsrFixProvider",
           "kinds": [
             "read"
           ]

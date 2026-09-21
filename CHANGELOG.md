@@ -23,6 +23,14 @@ This file records user-facing release highlights; it does not replace the comple
 - **添加语音识别模型更不容易配错**：添加时一并选接口类型（阿里百炼、小米 MiMo 自动预选对话型）；名字带 realtime 的流式型号当场拦下。
 - 修掉「保存了语音模型、再点保存它就消失」：模型上的「可语音识别」标记此前有四条会被悄悄抹掉的路径，其中一条是服务商模型清单满 100 条时新加的那一条被直接截掉。
 
+#### 句尾改错升级：大模型改字、不要显卡的重听、自动挑更大的本地模型（第 131 波，2026-09-21）
+
+- **句尾改错独立成一栏**：设置 → 模型服务商 现在是三栏——「实时识别（边说边出字）」「整段识别（附件转写 · 句尾重听）」「句尾改错（每句说完自动校正）」。前两栏只回答「用哪个模型」，第三栏回答「说完一句之后怎么改」：**自动**（能重听就重听，有大模型再把两版合成一句，评测里最准）／只重听音频／只让大模型看文字改错／关闭；改字用的大模型缺省跟随对话主模型，也可单独指定。
+- **大模型改字不要显卡**：只把这一句的文字交给大模型（约半秒一句），准确率与本地 Qwen3-ASR 重听同量级（40 句评测：难档错字 1.4–2.0% vs 1.7%）。改字时会关闭模型思考（flash 系模型缺省思考会把预算吃光、正文为空——那种情况自动回落到重听结果），并把转写当**数据**处理：像「帮我把这段话翻译成英文」这种话只会被纠错、不会被执行。
+- **不要显卡的重听**：`asr-stream` 组件现在自带 SenseVoice 离线整句识别（CPU，一句约 0.25 秒），装组件时缺省一并下载，设置里的「整段识别」候选自动多一个本地选项——没有显卡的机器也能有句尾改错。
+- **有多份本地模型时默认用更大的**：`asr-shim` 登记成 `auto` 后，第一次识别时按空闲显存挑最大能装下的（Qwen3-ASR 1.7B 约需 4.8 GB；不够就 0.6B；没显卡挑最小）。1.7B 在评测里难档错字 0.43%，与云端识别持平。
+- 流式小模型缺省改用 beam search（嘈杂条件下少 13% 错字，耗时不变）。评测结论与量具见 52 号文与 `dev-harness/bench-voice/`：换第一遍模型不值——纯中文模型对夹英文术语的话反而差。
+
 #### 语音输入两遍走：边说边出字，句尾静默改错（第 130 波，2026-09-21）
 
 - **边说边出字**：装上 [ruyi-toolbox](https://github.com/wangzhe04/ruyi-toolbox) 的 `asr-stream` 组件（sherpa-onnx 流式小模型，CPU 即可、常驻、几十 MB 内存），如意会自动发现并接成「实时识别」端点；输入框的麦克风从此**说的同时字就在出**（每 250 ms 一块送本机，落后语音约 0.3 秒），说完一句在句尾自动定稿。
@@ -99,6 +107,14 @@ This file records user-facing release highlights; it does not replace the comple
 - **No more bare "Failed"**: the reason is shown. A provider that rejects the current interface type, or a rejected API key, each get a message that says where to fix it; transcription failures and successes now leave a local log line (metadata only).
 - **Harder to misconfigure**: adding a speech model now asks for the interface type (pre-selected for Alibaba Bailian and Xiaomi MiMo), and streaming-only "realtime" models are refused on the spot.
 - Fixed "the speech model disappears after saving twice": the speech-capable mark on a model could be silently dropped along four paths, one of which truncated the newly added model whenever the provider's model list was already at its 100-entry cap.
+
+#### Sentence correction upgraded: LLM text fixing, GPU-free re-listen, auto-pick the larger local model (wave 131, 2026-09-21)
+
+- **Sentence correction is its own row**: Settings → Providers now has three rows — "Live recognition (text as you speak)", "Full-clip recognition (attachments · sentence re-listen)" and "Sentence correction (auto-fix each finished sentence)". The first two only answer "which model"; the third answers "what happens after a sentence ends": **Automatic** (re-listen when possible, then let an LLM merge the two versions — the most accurate in our benchmark) / re-listen only / LLM text fix only / off. The fixing LLM follows the main chat model by default and can be set separately.
+- **LLM text fixing needs no GPU**: only the sentence's text goes to the LLM (about half a second), and accuracy is on par with a local Qwen3-ASR re-listen (40-sentence benchmark: 1.4–2.0% vs 1.7% errors on the hard set). Model thinking is disabled (flash-class models think by default, burn the budget and return nothing — that case falls back to the re-listen result), and the transcript is treated as **data**: "translate this into English" gets corrected, never executed.
+- **GPU-free re-listen**: the `asr-stream` add-on now bundles SenseVoice offline recognition (CPU, about 0.25 s per sentence), downloaded by default with the add-on; the "full-clip recognition" list gains a local option automatically — sentence correction on machines without a GPU.
+- **Prefer the larger local model when there are several**: registered as `auto`, `asr-shim` picks the largest model that fits the free VRAM on first use (Qwen3-ASR 1.7B needs about 4.8 GB; otherwise 0.6B; smallest without a GPU). 1.7B scored 0.43% errors on the hard set, level with cloud recognition.
+- The streaming model defaults to beam search (13% fewer errors in noise, same latency). Benchmark and tooling in plan 52 and `dev-harness/bench-voice/`: swapping the first-pass model is not worth it — Chinese-only models do worse on speech that mixes in English terms.
 
 #### Two-pass voice input: text as you speak, silent correction at sentence end (wave 130, 2026-09-21)
 

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 140(精确 117 / 前缀 14 / 正则 9),ROUTE_AUTH 127 条,生成于 2026-09-21T03:58:24.911Z。
+> 判定点 141(精确 118 / 前缀 14 / 正则 9),ROUTE_AUTH 128 条,生成于 2026-09-21T06:56:10.753Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -29,7 +29,7 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/bootstrap` | exact | open | 13-http-router.js:312 | context-compact-v2.e2e.js, dom-smoke.e2e.js, external-code-diff.e2e.js 等 12 件 |
-| GET | `/api/status` | exact | open | 13-http-router.js:318 | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, audit-w23.e2e.js 等 50 件 |
+| GET | `/api/status` | exact | open | 13-http-router.js:318 | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, audit-w23.e2e.js 等 51 件 |
 | GET | `/api/capabilities` | exact | open | 13-http-router.js:405 | capabilities.e2e.js, playbooks.e2e.js, service-match.browser.e2e.js |
 | GET | `/api/playbooks` | exact | token-browser | 13-http-router.js:414 | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 5 件 |
 | POST | `/api/playbooks/service-match` | exact | token-browser | 13-http-router.js:421 | playbooks.e2e.js |
@@ -129,7 +129,7 @@
 | POST | `/api/mcp/connectors/toggle` | exact | token | 13b-api-domain-routes.js:140 | config-mutate-mcp-parity.e2e.js, mcp-ops-closure.e2e.js, mcp-ops-gui.static.e2e.js 等 4 件 |
 | DELETE | `/api/mcp/connectors` | exact | token | 13b-api-domain-routes.js:153 | config-mutate-mcp-parity.e2e.js, mcp-ops-closure.e2e.js, mcp-ops-gui.static.e2e.js 等 5 件 |
 
-## mcp/checkpoint-storage/steer(4)
+## mcp/checkpoint-storage/steer(5)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
@@ -137,6 +137,7 @@
 | POST | `/api/audio/stream/sessions` | exact | token | 13b-api-domain-routes.js:403 | composer-voice-stream.browser.e2e.js, toolbox-discovery.e2e.js |
 | POST | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:406 | toolbox-discovery.e2e.js |
 | DELETE | `/api/audio/stream/sessions/` | prefix | token | 13b-api-domain-routes.js:409 | toolbox-discovery.e2e.js |
+| POST | `/api/audio/correct` | exact | token | 13b-api-domain-routes.js:413 | asr-config-ui.static.e2e.js, composer-voice-stream.browser.e2e.js |
 
 ## mission(7)
 

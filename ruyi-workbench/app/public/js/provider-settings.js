@@ -758,6 +758,77 @@ function buildAsrStreamBlock() {
   block.append(label, select, hint);
   return block;
 }
+// 131b（52 号文 §5；用户 2026-09-21 拍板 2「加进设置里可以配置，但要重新设计选项方式，也不要和现有的冲突」）：
+// 「句尾改错」独立成第三栏。上面两栏各回答一个「用哪个模型」（实时出字／整段识别），它们的键一个不动；这一栏回答
+// 「说完一句之后怎么改错」—— 方式四选一（自动／只重听／只让大模型改字／关）＋ 改字用哪个大模型（缺省跟随对话主端点）。
+// 不新增模型标记、不给 toolbox- 服务商加能力；选中即存部分补丁，与前两栏同模具。提示行按当前配置算出「现在会怎么走」。
+const ASR_FIX_MODES = ['auto', 'audio', 'llm', 'off'];
+function asrFixLlmProvider(providerId) {
+  const id = String(providerId || (state.config && state.config.activeProvider) || '');
+  return asrProviderChoices().find(p => p.id === id) || null;   // 非 CLI、非 toolbox- 的才算「能改字」
+}
+function asrFixHintText(mode, providerId) {
+  if (mode === 'off') return t('settings.asrFix.hint.off');
+  const cfg = state.config || {};
+  const audioOk = Boolean(String(cfg.asrProviderId || '').trim() && String(cfg.asrModel || '').trim());
+  const audio = audioOk ? String(cfg.asrModel) : '';
+  const p = asrFixLlmProvider(providerId);
+  const llm = p ? ((p.label || p.id) + (String(cfg.asrFixModel || '').trim() ? ' / ' + String(cfg.asrFixModel).trim() : '')) : '';
+  const useAudio = mode !== 'llm' && audioOk, useLlm = mode !== 'audio' && Boolean(p);
+  if (useAudio && useLlm) return t('settings.asrFix.hint.both', { audio, llm });
+  if (useAudio) return t('settings.asrFix.hint.audio', { audio });
+  if (useLlm) return t('settings.asrFix.hint.llm', { llm });
+  return t('settings.asrFix.hint.none');
+}
+function buildAsrFixBlock() {
+  const block = el('div', 'field-block asr-fix-block');
+  block.appendChild(el('label', '', t('settings.asrFix.title')));
+  const cfg = state.config || {};
+  const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
+  const modeSel = el('select', 'asr-fix-mode');
+  modeSel.setAttribute('aria-label', t('settings.asrFix.title'));
+  for (const m of ASR_FIX_MODES) modeSel.appendChild(opt(t('settings.asrFix.mode.' + m), m));
+  modeSel.value = ASR_FIX_MODES.includes(cfg.asrFixMode) ? cfg.asrFixMode : 'auto';
+  const choices = asrProviderChoices();
+  const main = asrFixLlmProvider('');
+  const provSel = el('select', 'asr-fix-provider');
+  provSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
+  provSel.appendChild(opt(t('settings.asrFix.followMain', { name: main ? (main.label || main.id) : t('settings.asrFix.noMain') }), ''));
+  for (const p of choices) provSel.appendChild(opt(p.label || p.id, p.id));
+  provSel.value = String(cfg.asrFixProviderId || '');
+  if (provSel.value !== String(cfg.asrFixProviderId || '')) provSel.value = '';
+  const modelSel = el('select', 'asr-fix-model');
+  modelSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
+  const fillModels = () => {
+    modelSel.textContent = '';
+    const p = choices.find(x => x.id === provSel.value) || main;
+    const def = p && p.model ? String(p.model) : '';
+    modelSel.appendChild(opt(t('settings.asrFix.defaultModel', { name: def ? '（' + def + '）' : '' }), ''));
+    for (const m of (p && Array.isArray(p.models)) ? p.models : []) {
+      const id = m && typeof m === 'object' ? String(m.id || '') : String(m || '');
+      if (id) modelSel.appendChild(opt(String((m && typeof m === 'object' && m.label) || id), id));
+    }
+    const want = String(cfg.asrFixModel || '');
+    modelSel.value = want;
+    if (modelSel.value !== want) modelSel.value = '';
+  };
+  fillModels();
+  const hint = el('p', 'field-help muted', asrFixHintText(modeSel.value, provSel.value));
+  const save = async patch => {
+    modeSel.disabled = provSel.disabled = modelSel.disabled = true;
+    const saved = await saveConfigPartial(patch);
+    modeSel.disabled = provSel.disabled = modelSel.disabled = false;
+    if (saved) { hint.textContent = asrFixHintText(modeSel.value, provSel.value); toast(t('settings.asrFix.toast'), 'ok'); }
+    return saved;
+  };
+  modeSel.onchange = () => { void save({ asrFixMode: modeSel.value }); };
+  provSel.onchange = () => { cfg.asrFixModel = ''; fillModels(); void save({ asrFixProviderId: provSel.value, asrFixModel: '' }); };
+  modelSel.onchange = () => { void save({ asrFixModel: modelSel.value }); };
+  const row1 = el('div', 'asr-add-row'); row1.append(modeSel);
+  const row2 = el('div', 'asr-add-row'); row2.append(el('span', 'field-help', t('settings.asrFix.providerLabel')), provSel, modelSel);
+  block.append(row1, row2, hint);
+  return block;
+}
 function renderAsrSettings() {
   const host = $('stab-providers');
   if (!host) return;
@@ -766,12 +837,13 @@ function renderAsrSettings() {
   asrSettingsBlock.textContent = '';
   const sep = el('hr', 'settings-sep');
   const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后
+  const fixBlock = buildAsrFixBlock();         // 131b：句尾改错最后（说完一句之后怎么改）
   const block = el('div', 'field-block');
   const label = el('label', '', t('settings.asr.title'));
   const roleHint = el('p', 'field-help muted', t('settings.asr.roleHint'));
   if (!options.length) {
     block.append(label, roleHint, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
-    asrSettingsBlock.append(sep, streamBlock, block);
+    asrSettingsBlock.append(sep, streamBlock, block, fixBlock);
     return;
   }
   const select = el('select', 'asr-select');
@@ -794,7 +866,7 @@ function renderAsrSettings() {
     }
   };
   block.append(label, roleHint, select, hint, buildAsrAddRow());
-  asrSettingsBlock.append(sep, streamBlock, block);
+  asrSettingsBlock.append(sep, streamBlock, block, fixBlock);
 }
 // ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
 // 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、

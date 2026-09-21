@@ -98,6 +98,7 @@ const EXPECTED = {
   // 才算数;不放 forbidden —— 经确认后让管家把语音配上是正当诉求。
   asrProviderId: 'confirm', asrModel: 'confirm',
   asrStreamProviderId: 'confirm', asrStreamModel: 'confirm',   // 130:实时识别那一对,同族同档
+  asrFixMode: 'confirm', asrFixProviderId: 'confirm', asrFixModel: 'confirm',   // 131b:句尾改错方式与大模型端点,同族同档
 
   // ── forbidden(117l D7 新键,只加不改)────────────────────────────────────
   // stewardThreadModels = 管家新开线程默认用哪个端点/哪个模型。**故意不进 free 也不进 confirm**:

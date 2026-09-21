@@ -148,7 +148,9 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     writeConfig();
     register('fake-asr', { service: { port: P1 } });
     // 130:流式组件(provides asr-stream)。与 fake-asr 并存:两对配置键各自自动选中。
-    register('fake-stream', { name: '假流式识别组件', run: { args: [path.join(FAKE_DIR, 'stream.js')] }, service: { port: P2, portEnv: 'FAKE_STREAM_PORT', component: 'fake-stream-component' }, provides: [{ type: 'asr-stream', basePath: '/v1', model: 'fake-stream-model' }] });
+    // 131c:同一个组件同时提供 asr-stream 与 asr(真组件 asr-stream 配了 SenseVoice 就是这个形状)→ 一个服务商、两个带不同标记的模型;
+    // 整段识别那对键已被 fake-asr 先占,这里的 asr 只列为候选、不改用户选择。
+    register('fake-stream', { name: '假流式识别组件', run: { args: [path.join(FAKE_DIR, 'stream.js')] }, service: { port: P2, portEnv: 'FAKE_STREAM_PORT', component: 'fake-stream-component' }, provides: [{ type: 'asr-stream', basePath: '/v1', model: 'fake-stream-model' }, { type: 'asr', basePath: '/v1', model: 'fake-stream-offline', protocol: 'transcriptions' }] });
     // G 的四份坏登记(从头就在盘上:坏文件不许打断启动,也不许被执行)
     register('bad-relative', { run: { command: 'node' } });
     register('bad-idmismatch', { __file: 'other-name.json' });
@@ -198,7 +200,8 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     const upS = await waitFor(async () => { const c = component(await status(), 'fake-stream'); return c && c.state === 'running' ? c : null; });
     const cfgL = await waitFor(async () => { const c = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')); return c.asrStreamProviderId ? c : null; }, 10000);
     const provL = cfgL && (cfgL.providers || []).find(p => p.id === 'toolbox-fake-stream');
-    ok(Boolean(upS) && upS.provides.join() === 'asr-stream' && Boolean(provL) && provL.baseUrl === `http://127.0.0.1:${P2}/v1` && (provL.models || []).some(m => m.id === 'fake-stream-model' && (m.caps || []).includes('asr-stream'))
+    ok(Boolean(upS) && upS.provides.join() === 'asr-stream,asr' && Boolean(provL) && provL.baseUrl === `http://127.0.0.1:${P2}/v1` && (provL.models || []).some(m => m.id === 'fake-stream-model' && (m.caps || []).includes('asr-stream'))
+      && (provL.models || []).some(m => m.id === 'fake-stream-offline' && (m.caps || []).join() === 'asr')
       && cfgL.asrStreamProviderId === 'toolbox-fake-stream' && cfgL.asrStreamModel === 'fake-stream-model' && cfgL.asrProviderId === 'toolbox-fake-asr',
       `L1 流式组件被发现并自动配成实时识别端点(模型带 asr-stream 标记),整段识别那一对不受影响(实得 stream=${cfgL && cfgL.asrStreamProviderId}/${cfgL && cfgL.asrStreamModel} asr=${cfgL && cfgL.asrProviderId})`);
     const openL = await reqRaw('POST', '/api/audio/stream/sessions', Buffer.from(JSON.stringify({ hotwords: ['如意', 'x'.repeat(80)] })), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' });

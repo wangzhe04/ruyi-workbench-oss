@@ -90,6 +90,12 @@ function defaultConfig() {
     // 上面那对从此兼任「第二遍校正」—— 两遍都可选,各自独立。
     asrStreamProviderId: '',
     asrStreamModel: '',
+    // 131b(52 号文 §5;用户 2026-09-21 拍板「加进设置里可以配置,重新设计选项方式」):句尾改错的方式与「大模型改字」用哪个端点。
+    //   asrFixMode:'auto'(有整段识别就重听、再有大模型就合成 —— 评测里两者合成最好)| 'audio'(只重听)| 'llm'(只让大模型改字)| 'off'
+    //   asrFixProviderId:'' = 跟随对话主端点(activeProvider;只认 OpenAI 兼容端点,claude-cli 不算);asrFixModel:'' = 该端点的缺省模型。
+    asrFixMode: 'auto',
+    asrFixProviderId: '',
+    asrFixModel: '',
     openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
@@ -823,9 +829,16 @@ function normalizeConfig(raw, opts = {}) {
   // 114a(45 号文 §7): asrProviderId/asrModel —— 与 compactProviderId 同口径(下方 :914-925 那段):
   // 字符串形状消毒(trim + 截 400);指向的 provider 没了就清成「未配置」(两个都空 = 麦克风不可见),
   // 不静默改指别的端点。单有 asrModel 没有 asrProviderId 时保留原值(惰性,不构成「已配置」)。
-  for (const key of ['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel']) {
+  for (const key of ['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel', 'asrFixProviderId', 'asrFixModel']) {
     const clean = typeof config[key] === 'string' ? config[key].trim().slice(0, 400) : '';
     if (clean !== config[key]) { config[key] = clean; changed = true; }
+  }
+  // 131b:句尾改错方式只认四个值;别的一律回 'auto'(缺省)。指着的大模型端点没了就清成「跟随主端点」。
+  if (!['auto', 'audio', 'llm', 'off'].includes(config.asrFixMode)) { config.asrFixMode = 'auto'; changed = true; }
+  if (config.asrFixProviderId && !config.providers.some(p => p && p.id === config.asrFixProviderId)) {
+    config.asrFixProviderId = '';
+    config.asrFixModel = '';
+    changed = true;
   }
   if (config.asrProviderId && !config.providers.some(p => p && p.id === config.asrProviderId)) {
     config.asrProviderId = '';

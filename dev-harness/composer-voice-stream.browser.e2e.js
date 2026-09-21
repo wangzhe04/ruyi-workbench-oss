@@ -69,11 +69,27 @@ http.createServer((req, res) => {
     fx = await startBrowserFixture({
       ok, prefix: 'ruyi-voice-stream-', width: 1280, height: 900,
       browserArgs: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
+      // 131b:夹具自带的假对话 provider 当「大模型改字」的端点(G 段)。按请求里的 model 名分三种回法:
+      //   fix-echo   → 'LLM:' + 转写(合成模式取 B 那一版,模仿「以 B 为主」);单行,长度与输入同量级(过合理性)
+      //   fix-empty  → 空正文(flash 系模型思考吃光预算的形状)→ 服务端当失败,回落到重听结果
+      //   fix-answer → 多行答题(把内容当指令)→ 合理性拦下,回落
+      provider: ctx => {
+        const model = String(ctx.body && ctx.body.model || '');
+        const user = ctx.messages.filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
+        const m = user.match(/<transcript>([\s\S]*?)<\/transcript>/);
+        const inner = m ? m[1] : user;
+        if (model === 'fix-empty') { ctx.stop(); return; }
+        if (model === 'fix-answer') { ctx.text('好的，这是翻译：\nHello world'); ctx.stop(); return; }
+        const b = inner.includes('\nB：') ? inner.split('\nB：')[1] : inner;
+        ctx.text('LLM:' + b.trim()); ctx.stop();
+      },
       config: {
         configSchema: 13, uiMode: 'pro', desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
         providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${asrPort}`, apiKey: 'k', model: 'fake-model',
           models: [{ id: 'fake-model', label: 'Fake' }, { id: 'whisper-1', label: 'whisper-1', caps: ['asr'] }, { id: 'no-stream-here', label: 'no-stream-here', caps: ['asr-stream'] }] }],
         asrProviderId: 'fake', asrModel: 'whisper-1',
+        // 131b:B–E 段验的是「重听」那条路,先钉成 audio(缺省 auto 会把 fake-openai 的对话桩当大模型拉进来合成);大模型改字在 G 段单验。
+        asrFixMode: 'audio',
       },
       serverEnv: { RUYI_TOOLBOX_HOME: toolboxHome },
       // 开页之前等自动配置落盘:否则首屏 config 里还没有 asrStream*,麦克风走老路。
@@ -96,12 +112,14 @@ http.createServer((req, res) => {
     ok(Boolean(ready) && ready.stream[0] === 'toolbox-fake-stream', `A3 首屏就绪,页面里的 config 带着 asrStream*(实得 ${JSON.stringify(ready && ready.stream)})`);
     await fx.evaluate(`(() => {
       if (window.__voiceProbe) return true;
-      const probe = window.__voiceProbe = { sends: [], asr: [], stream: [], announcements: [], errors: [], toasts: [] };
+      const probe = window.__voiceProbe = { sends: [], asr: [], stream: [], announcements: [], errors: [], toasts: [], correct: 0 };
       const original = window.fetch;
       window.fetch = function (input, init) {
         const url = String(typeof input === 'string' ? input : (input && input.url) || '');
         if (/\\/api\\/(chat\\/stream|steer|steward\\/(message|act))/.test(url)) probe.sends.push(url);
         if (url.indexOf('/api/audio/transcribe') >= 0) probe.asr.push({ url, size: init && init.body && typeof init.body.size === 'number' ? init.body.size : -1 });
+        // 131b:第二遍改经 /api/audio/correct;带没带音频看 JSON 体里 audio 是不是 null。asr 计数从此按「带音频的第二遍」算(与修前语义一致)。
+        if (url.indexOf('/api/audio/correct') >= 0) { probe.correct += 1; try { const b = JSON.parse(String(init && init.body || '{}')); if (b && typeof b.audio === 'string' && b.audio) probe.asr.push({ url, size: b.audio.length }); } catch { /* 非 JSON */ } }
         if (url.indexOf('/api/audio/stream/') >= 0) probe.stream.push({ url: url.replace(/[0-9a-f]{32}/, '<id>'), method: (init && init.method) || 'GET', bytes: init && init.body && init.body.byteLength ? init.body.byteLength : 0 });
         return original.apply(this, arguments);
       };
@@ -113,7 +131,7 @@ http.createServer((req, res) => {
       new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
       return true;
     })()`);
-    const PROBE = `(() => { const p = window.__voiceProbe; return { sends: p.sends.slice(), asr: p.asr.slice(), stream: p.stream.slice(), announcements: p.announcements.slice(), errors: p.errors.slice(), toasts: p.toasts.slice() }; })()`;
+    const PROBE = `(() => { const p = window.__voiceProbe; return { sends: p.sends.slice(), asr: p.asr.slice(), stream: p.stream.slice(), announcements: p.announcements.slice(), errors: p.errors.slice(), toasts: p.toasts.slice(), correct: p.correct }; })()`;
     const PREP = (text, caret) => `(() => { const box = document.getElementById('promptInput'); box.focus(); box.value = ${JSON.stringify(text)}; box.dispatchEvent(new Event('input', { bubbles: true })); box.setSelectionRange(${caret}, ${caret}); return box.value; })()`;
     const BOX = `(() => { const b = document.getElementById('composerVoiceBtn'); const box = document.getElementById('promptInput'); return { value: box.value, state: b.dataset.state, title: b.title }; })()`;
     const WAIT_VALUE = re => `(() => { const box = document.getElementById('promptInput'); return ${re}.test(box.value) ? box.value : null; })()`;
@@ -185,6 +203,56 @@ http.createServer((req, res) => {
     const hAfter = await waitForHttp(streamPort, 'GET', '/health', r => r.json && r.json.deleted > hBefore.json.deleted, null, 50);
     ok(/^\[fake-asr\]/.test(dValue) && !/p\d+/.test(dValue), `D1 Esc:临时文字撤掉、已定稿的字留着(实得 ${JSON.stringify(dValue)})`);
     ok(Boolean(hAfter), `D2 服务端会话被 DELETE 掉(组件 deleted 计数 ${hBefore.json.deleted} → ${hAfter && hAfter.json.deleted})`);
+
+    /* ═════════ G 大模型改字(131b,52 号文 §5;用户拍板 2) ═════════ */
+    // 假大模型 = 夹具自带的对话 provider(fx.providerPort);加一条服务商 'fix' 指向它,三个模型名对应三种回法(见 provider 脚本)。
+    const cfgNow = (await fx.request('GET', '/api/status')).json.config;
+    const addFix = await fx.request('POST', '/api/config', { providers: [...(cfgNow.providers || []), { id: 'fix', label: 'Fix', type: 'openai-compat', baseUrl: `http://127.0.0.1:${fx.providerPort}`, apiKey: 'k', model: 'fix-echo', models: [{ id: 'fix-echo' }, { id: 'fix-empty' }, { id: 'fix-answer' }] }] });
+    ok(Boolean(addFix) && addFix.status === 200, `G0 加一条假大模型服务商 fix(实得 ${addFix && addFix.status})`);
+    const setFix = async (patch) => {
+      const r = await fx.request('POST', '/api/config', patch);
+      await fx.evaluate(`(() => { window.state.config = Object.assign({}, window.state.config, ${JSON.stringify(patch)}); return true; })()`);
+      return r && r.status === 200;
+    };
+    const recordOnce = async (settle = 1800) => {
+      await fx.evaluate(PREP('', 0));
+      const before = await fx.evaluate(PROBE);
+      await clickMic();
+      await fx.waitForEval(WAIT_STATE('recording'));
+      await fx.waitForEval(WAIT_VALUE('/^(LLM:|\\[fake-asr\\]|句\\d)[^\\n]*p\\d+$/'), 300);   // 第一句定稿(被换或没被换)、临时文字接在后面
+      await sleep(400);
+      await clickMic();
+      await fx.waitForEval(WAIT_STATE('idle'), 400);
+      await sleep(settle);
+      const after = await fx.evaluate(PROBE);
+      return { value: await fx.evaluate(VALUE), asr: after.asr.length - before.asr.length, sends: after.sends.length - before.sends.length };
+    };
+    // G1 只让大模型改字:句子被换成 LLM:句N;不带音频 → /api/audio/transcribe 一次都不发(第二遍走的是 /api/audio/correct)
+    ok(await setFix({ asrFixMode: 'llm', asrFixProviderId: 'fix', asrFixModel: 'fix-echo' }), 'G1a 配成 llm / fix / fix-echo');
+    const g1 = await recordOnce();
+    ok(/LLM:句\d/.test(g1.value) && !/\[fake-asr\]/.test(g1.value) && !/p\d+/.test(g1.value) && g1.asr === 0 && g1.sends === 0,
+      `G1 只改字:每句被换成 LLM:句N、没重听、没临时文字残留、不自动发送(实得 ${JSON.stringify(g1)})`);
+    // G2 自动:重听 + 合成 → 大模型拿到 A(句N)与 B([fake-asr] …),以 B 为主 → LLM:[fake-asr] …
+    ok(await setFix({ asrFixMode: 'auto' }), 'G2a 配成 auto');
+    const g2 = await recordOnce();
+    ok(/LLM:\[fake-asr\] model=whisper-1/.test(g2.value) && !/句\d/.test(g2.value),
+      `G2 自动 = 重听 + 合成:句子被换成 LLM:[fake-asr] …(大模型拿到了重听那一版)(实得 ${JSON.stringify(g2.value)})`);
+    // G3 大模型回空正文(思考吃光预算的形状)→ 回落到重听结果:[fake-asr] … 而不是 LLM:
+    ok(await setFix({ asrFixModel: 'fix-empty' }), 'G3a 改字模型换成 fix-empty');
+    const g3 = await recordOnce();
+    ok(/\[fake-asr\] model=whisper-1/.test(g3.value) && !/LLM:/.test(g3.value) && !/句\d/.test(g3.value),
+      `G3 大模型回空正文 → 回落到重听结果(实得 ${JSON.stringify(g3.value)})`);
+    // G4 大模型把内容当指令答题(多行)→ 合理性拦下;llm 模式没有重听可回落 → 保留第一遍的字(句N),一个字不动
+    ok(await setFix({ asrFixMode: 'llm', asrFixModel: 'fix-answer' }), 'G4a 配成 llm / fix-answer');
+    const g4 = await recordOnce();
+    ok(/句\d/.test(g4.value) && !/Hello|翻译|LLM:/.test(g4.value), `G4 答题形输出被拦下、保留第一遍(实得 ${JSON.stringify(g4.value)})`);
+    // G5 关闭 → 不发第二遍:保留 句N,/api/audio/correct 不打
+    ok(await setFix({ asrFixMode: 'off' }), 'G5a 配成 off');
+    const p5 = await fx.evaluate(PROBE);
+    const g5 = await recordOnce(800);
+    const p5b = await fx.evaluate(PROBE);
+    ok(/句\d/.test(g5.value) && !/LLM:|\[fake-asr\]/.test(g5.value) && p5b.correct === p5.correct, `G5 关闭 → 句子保留第一遍、不发第二遍(实得 ${JSON.stringify(g5.value)} correct=${p5b.correct - p5.correct})`);
+    ok(await setFix({ asrFixMode: 'audio', asrFixProviderId: '', asrFixModel: '' }), 'G6 回到 audio(E 段验回落时第二遍仍走重听)');
 
     /* ═════════ E 回落 ═════════ */
     const sw = await fx.request('POST', '/api/config', { asrStreamProviderId: 'fake', asrStreamModel: 'no-stream-here' });

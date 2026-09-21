@@ -32,6 +32,10 @@ if (require.main === module) {
 }
 
 module.exports = {
+  // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
+  asrFixMessages,
+  asrFixSanity,
+  resolveAsrFixProvider,
   McpStdioClient,
   McpHttpClient, // 49c: 远程 MCP transport(sse/streamable-http) — exposed for e2e 直连契约断言。
   estimateHistoryTokens, // v0.8-S5: exposed for e2e direct unit testing (parts-aware token estimate v2)

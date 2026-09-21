@@ -55,7 +55,9 @@ assert.match(src05, /const audioBaseUrl = configUrlOrCleared\(str\(raw\.audioBas
 assert.match(src05, /const mainBase = configUrlOrCleared\(str\(raw\.baseUrl, 400\)\.trim\(\)\);/, '05: audioBaseUrl 与 baseUrl 同待遇（同一个 400 截断 + 同一道 configUrlOrCleared 末闸）');
 assert.match(src01, /asrProviderId: '',/, '01: asrProviderId 默认空（未配置）');
 assert.match(src01, /asrModel: '',/, '01: asrModel 默认空（未配置）');
-assert.match(src01, /for \(const key of \['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel'\]\)/, '01: asr 形状清洗块（130 起连实时识别那一对一起洗）');
+assert.match(src01, /for \(const key of \['asrProviderId', 'asrModel', 'asrStreamProviderId', 'asrStreamModel', 'asrFixProviderId', 'asrFixModel'\]\)/, '01: asr 形状清洗块（130 起连实时识别那一对、131b 起连改字端点那一对一起洗）');
+assert.match(src01, /if \(!\['auto', 'audio', 'llm', 'off'\]\.includes\(config\.asrFixMode\)\) \{ config\.asrFixMode = 'auto'; changed = true; \}/, '01: 131b 句尾改错方式只认四个值，别的回 auto');
+assert.match(src01, /if \(config\.asrFixProviderId && !config\.providers\.some\(p => p && p\.id === config\.asrFixProviderId\)\)/, '01: 改字端点没了 → 清成跟随主端点');
 assert.match(src01, /if \(config\.asrStreamProviderId && !config\.providers\.some\(p => p && p\.id === config\.asrStreamProviderId\)\)/, '01: 实时识别指着的 provider 没了 → 两个一起清空');
 assert.match(src01, /if \(config\.asrProviderId && !config\.providers\.some\(p => p && p\.id === config\.asrProviderId\)\)/, '01: provider 没了 → asr 两个一起清空');
 // ④ 前端落点
@@ -115,10 +117,32 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   assert.equal(replaceStreamRegion('前缀你好世X后缀', { start: 2, end: 6 }, '你好世界', '你好，世界。'), null, '前端: 那一段被用户改过一个字 → 不动（静默替换只动没碰过的字）');
   assert.ok(voiceJs.includes("if (!text || text === item.text || s.session.discard) return;") && voiceJs.includes("if (!box || !streamReplace(s, box, item, text)) return;   // 那一句被用户碰过 → 一个字不动"),
     '前端: 第二遍回来相同／已取消 → 不替换；那一句被碰过 → 一个字不动（replaceStreamRegion 判）');
-  assert.ok(voiceJs.includes("if (!composerVoiceConfigured(state && state.config)) return;   // 没配第二遍 = 不校正"), '前端: 没配整段识别就不跑第二遍');
+  assert.ok(voiceJs.includes("if (!composerVoiceCorrectConfigured(cfg)) return;   // 没配第二遍 = 不校正"), '前端: 131b 起按「句尾改错」配置判要不要跑第二遍');
+  // 131b:第二遍改经 /api/audio/correct(服务端按 asrFixMode 编排),要重听时才带音频;三个纯函数真跑。
+  assert.ok(voiceJs.includes("const res = await request('/api/audio/correct', { method: 'POST', body: JSON.stringify({ text: item.text, audio, contentType: COMPOSER_VOICE_WAV_TYPE })"), '前端: 第二遍走 /api/audio/correct(文字 + 可选音频)');
+  assert.ok(voiceJs.includes('if (composerVoiceCorrectWantsAudio(cfg)) {'), '前端: 只在要重听时才编 WAV 带音频');
+  const correctConfigured = pick('composerVoiceCorrectConfigured'), wantsAudio = pick('composerVoiceCorrectWantsAudio'), llmAvail = pick('composerVoiceFixLlmAvailable');
+  const voiceConfigured = pick('composerVoiceConfigured');
+  // pick() 把函数各自独立取出来,它们之间的调用要靠同名全局:挂到 globalThis 上再跑。
+  Object.assign(globalThis, { composerVoiceConfigured: voiceConfigured, composerVoiceFixLlmAvailable: llmAvail });
+  assert.equal(correctConfigured({ asrFixMode: 'off', asrProviderId: 'a', asrModel: 'm', activeProvider: 'ds' }), false, '前端: off → 不跑第二遍');
+  assert.equal(correctConfigured({ asrFixMode: 'audio', asrProviderId: 'a', asrModel: 'm', activeProvider: 'claude-cli' }), true, '前端: audio → 看整段识别配没配');
+  assert.equal(correctConfigured({ asrFixMode: 'audio', activeProvider: 'ds' }), false, '前端: audio 但没配整段识别 → 不跑');
+  assert.equal(correctConfigured({ asrFixMode: 'llm', activeProvider: 'ds' }), true, '前端: llm → 主端点是 OpenAI 兼容就跑');
+  assert.equal(correctConfigured({ asrFixMode: 'llm', activeProvider: 'claude-cli' }), false, '前端: llm 但主端点是 CLI → 不跑');
+  assert.equal(correctConfigured({ asrFixMode: 'llm', activeProvider: 'claude-cli', asrFixProviderId: 'ds' }), true, '前端: llm + 显式端点 → 跑');
+  assert.equal(correctConfigured({ asrFixMode: 'auto', activeProvider: 'toolbox-asr-shim' }), false, '前端: auto 两条路都没有 → 不跑');
+  assert.equal(wantsAudio({ asrFixMode: 'llm', asrProviderId: 'a', asrModel: 'm' }), false, '前端: llm 模式不带音频');
+  assert.equal(wantsAudio({ asrFixMode: 'auto', asrProviderId: 'a', asrModel: 'm' }), true, '前端: auto + 配了整段识别 → 带音频');
+  assert.match(providersJs, /function buildAsrFixBlock\(\)/, '前端: 131b 句尾改错独立成一栏');
+  assert.ok(providersJs.includes("asrSettingsBlock.append(sep, streamBlock, block, fixBlock);"), '前端: 三栏顺序 实时识别 → 整段识别 → 句尾改错(两条分支都追加)');
+  assert.ok((providersJs.match(/asrSettingsBlock\.append\(sep, streamBlock, block, fixBlock\);/g) || []).length === 2, '前端: 无候选与有候选两条分支都画句尾改错栏');
+  assert.ok(providersJs.includes("void save({ asrFixMode: modeSel.value });") && providersJs.includes("void save({ asrFixProviderId: provSel.value, asrFixModel: '' });") && providersJs.includes("void save({ asrFixModel: modelSel.value });"), '前端: 三个选择器各自选中即存部分补丁,不碰上面两栏的键');
   assert.ok(voiceJs.includes("catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 流式开不了 → 说一句、回落按停顿切段');
   for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
-    for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback']) {
+    for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback',
+      'settings.asrFix.title', 'settings.asrFix.mode.auto', 'settings.asrFix.mode.audio', 'settings.asrFix.mode.llm', 'settings.asrFix.mode.off', 'settings.asrFix.providerLabel', 'settings.asrFix.followMain', 'settings.asrFix.noMain', 'settings.asrFix.defaultModel',
+      'settings.asrFix.hint.both', 'settings.asrFix.hint.audio', 'settings.asrFix.hint.llm', 'settings.asrFix.hint.none', 'settings.asrFix.hint.off', 'settings.asrFix.toast']) {
       assert.ok(typeof dict[k] === 'string' && dict[k].length > 0, name + ' 缺键 ' + k);
     }
   }
