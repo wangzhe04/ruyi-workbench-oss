@@ -109,7 +109,7 @@ function initializeOnce(lib, theme, fontFamily) {
   const signature = `${theme}|${fontFamily}`;
   if (initSignature === signature) return;
   try {
-    lib.initialize({ startOnLoad: false, securityLevel: 'strict', theme, fontFamily });
+    lib.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme, fontFamily });
     initSignature = signature;
   } catch { /* 初始化失败按未初始化处理,render 会随之失败并降级 */ }
 }
@@ -176,7 +176,12 @@ function triggerDownload(doc, blobUrl, filename) {
 
 function svgMarkupOf(view) {
   const svg = view && typeof view.querySelector === 'function' ? view.querySelector('svg') : null;
-  if (!svg) return { svg: null, markup: '' };
+  if (!svg) {
+    // 视图里掏不出 <svg> 元素时(宿主 DOM 不解析 innerHTML 的场景),只要视图内容确实是
+    // mermaid 写进去的那段 SVG 标记,就原样用 —— 灯箱与导出不该因此静默失能。
+    const inner = view && typeof view.innerHTML === 'string' ? view.innerHTML : '';
+    return { svg: null, markup: inner.includes('<svg') ? inner : '' };
+  }
   let markup = '';
   try { markup = new globalThis.XMLSerializer().serializeToString(svg); }
   catch { markup = svg.outerHTML || ''; }
@@ -199,6 +204,17 @@ function svgPixelSize(svg) {
   return { width: Math.max(1, width || 960), height: Math.max(1, height || 540) };
 }
 
+// SVG 的自然尺寸:灯箱里 stage 带着 transform,getBoundingClientRect 量到的是【缩放后】的
+// 像素,拿它做「适应窗口」的底数会把 fit 越算越小(真机 B4b 擒获:fit 完 scale 从 5.09 掉到 0.8)。
+// 自然尺寸优先 viewBox(mermaid 输出恒有),没有才退回 svgPixelSize 的量法。
+function svgNaturalSize(svg) {
+  try {
+    const vb = svg && svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return { width: vb.width, height: vb.height };
+  } catch { /* 退回下面的量法 */ }
+  return svgPixelSize(svg);
+}
+
 function exportSvg(doc, view, notify) {
   const { markup } = svgMarkupOf(view);
   if (!markup) { notify.fail(); return; }
@@ -211,17 +227,20 @@ function exportSvg(doc, view, notify) {
   if (url) setTimeout(() => { try { globalThis.URL.revokeObjectURL(url); } catch { /* noop */ } }, 4000);
 }
 
-// PNG:SVG -> blob: URL -> <img> -> canvas -> toBlob -> <a download>。全程本页本源,
-// CSP img-src 已含 blob:;同源 blob 的 SVG 不污染 canvas。
+// PNG uses a self-contained data URL: Chromium taints canvas when an SVG
+// containing Mermaid's foreignObject labels is loaded through a blob URL.
 function exportPng(doc, view, notify) {
   const { svg, markup } = svgMarkupOf(view);
   if (!svg || !markup) { notify.fail(); return; }
   let sourceUrl = '';
   try {
-    const blob = new globalThis.Blob([markup], { type: 'image/svg+xml;charset=utf-8' });
-    sourceUrl = globalThis.URL.createObjectURL(blob);
-    const { width, height } = svgPixelSize(svg);
-    const scale = 2;
+    const { width, height } = svgNaturalSize(svg);
+    const copy = svg.cloneNode(true);
+    copy.setAttribute('width', String(width));
+    copy.setAttribute('height', String(height));
+    copy.style.maxWidth = 'none';
+    sourceUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new globalThis.XMLSerializer().serializeToString(copy));
+    const scale = Math.min(2, 8192 / Math.max(width, height), Math.sqrt(16777216 / (width * height)));
     const image = new globalThis.Image();
     const cleanup = () => { try { globalThis.URL.revokeObjectURL(sourceUrl); } catch { /* noop */ } };
     image.onload = () => {
@@ -251,6 +270,147 @@ function exportPng(doc, view, notify) {
   }
 }
 
+// ── 放大查看(用户 2026-09-22 反馈:大图在消息栏里缩成一团,看不全)──────────────
+// 全屏灯箱:把同一份已消毒 SVG 克隆进独立覆盖层,滚轮缩放(以指针为锚)/拖拽平移/
+// 「适应窗口」一键复位,Esc、点遮罩或「关闭」退出。只操作本模块自建 DOM —— 不开窗、
+// 不触网、不新增脚本,CSP 与 sanitize 边界不变;SVG 来源仍是 securityLevel:'strict'
+// 跑过的那段 markup。
+const VIEWER_MIN_SCALE = 0.1;
+const VIEWER_MAX_SCALE = 8;
+const VIEWER_ZOOM_STEP = 1.25;
+
+function closeMermaidViewer(doc) {
+  const open = doc && doc.__ruyiMermaidViewer;
+  if (open && typeof open.remove === 'function') open.remove();
+  if (doc) doc.__ruyiMermaidViewer = null;
+}
+
+function openMermaidViewer(doc, markup, t) {
+  if (!markup) return;
+  const host = doc.body || doc.documentElement;
+  if (!host || typeof host.appendChild !== 'function') return;
+  closeMermaidViewer(doc);
+
+  const overlay = doc.createElement('div');
+  overlay.className = 'mermaid-lightbox';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', t('mermaid.diagramAria'));
+  overlay.tabIndex = -1;
+
+  const stage = doc.createElement('div');
+  stage.className = 'mermaid-lightbox-stage';
+  // 与 .mermaid-view 同源的一段:strict 消毒之后、受控写入,不再过第二道解析器。
+  stage.innerHTML = markup;
+  const diagram = stage.querySelector('svg');
+  if (diagram) {
+    const size = svgNaturalSize(diagram);
+    diagram.style.maxWidth = 'none';
+    diagram.setAttribute('width', String(size.width));
+    diagram.setAttribute('height', String(size.height));
+  }
+  overlay.appendChild(stage);
+
+  const state = { scale: 1, x: 0, y: 0 };
+  const apply = () => {
+    stage.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+  };
+  const overlaySize = () => ({
+    width: overlay.clientWidth || (globalThis.innerWidth || 960),
+    height: overlay.clientHeight || (globalThis.innerHeight || 540),
+  });
+  const fit = () => {
+    const { width: svgW, height: svgH } = svgNaturalSize(stage.querySelector('svg'));
+    const { width, height } = overlaySize();
+    const pad = 48;
+    state.scale = Math.min(VIEWER_MAX_SCALE, Math.max(VIEWER_MIN_SCALE,
+      Math.min((width - pad) / svgW, (height - pad) / svgH)));
+    state.x = (width - svgW * state.scale) / 2;
+    state.y = (height - svgH * state.scale) / 2;
+    apply();
+  };
+  const zoomAt = (cx, cy, next) => {
+    const scale = Math.min(VIEWER_MAX_SCALE, Math.max(VIEWER_MIN_SCALE, next));
+    state.x = cx - (cx - state.x) * (scale / state.scale);
+    state.y = cy - (cy - state.y) * (scale / state.scale);
+    state.scale = scale;
+    apply();
+  };
+  const zoomAtCenter = next => {
+    const { width, height } = overlaySize();
+    zoomAt(width / 2, height / 2, next);
+  };
+
+  const controls = doc.createElement('div');
+  controls.className = 'mermaid-lightbox-controls';
+  const control = (label, onClick) => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'mermaid-lightbox-btn';
+    button.textContent = label;
+    button.onclick = onClick;
+    controls.appendChild(button);
+    return button;
+  };
+  control(t('mermaid.viewerIn'), () => zoomAtCenter(state.scale * VIEWER_ZOOM_STEP));
+  control(t('mermaid.viewerOut'), () => zoomAtCenter(state.scale / VIEWER_ZOOM_STEP));
+  control(t('mermaid.viewerFit'), fit);
+  const closeBtn = control(t('mermaid.viewerClose'), () => closeMermaidViewer(doc));
+  overlay.appendChild(controls);
+
+  const inside = (node, ancestor) => {
+    let current = node;
+    while (current) {
+      if (current === ancestor) return true;
+      current = current.parentElement || current.parentNode;
+    }
+    return false;
+  };
+  // 拖拽平移:在图或遮罩空白处按下都生效,控制条上的按下不算。
+  overlay.addEventListener('pointerdown', event => {
+    const target = event && event.target;
+    if (inside(target, controls)) return;
+    if (target !== overlay && !inside(target, stage)) return;
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const origin = { px: event.clientX || 0, py: event.clientY || 0, x: state.x, y: state.y };
+    const move = e => {
+      state.x = origin.x + (e.clientX || 0) - origin.px;
+      state.y = origin.y + (e.clientY || 0) - origin.py;
+      apply();
+    };
+    const up = () => {
+      overlay.removeEventListener('pointermove', move);
+      overlay.removeEventListener('pointerup', up);
+      overlay.removeEventListener('pointercancel', up);
+    };
+    overlay.addEventListener('pointermove', move);
+    overlay.addEventListener('pointerup', up);
+    overlay.addEventListener('pointercancel', up);
+  });
+  // 滚轮缩放,以指针位置为锚(不缩放页面本身)。
+  overlay.addEventListener('wheel', event => {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const rect = typeof overlay.getBoundingClientRect === 'function' ? overlay.getBoundingClientRect() : { left: 0, top: 0 };
+    const cx = (event.clientX || 0) - (rect.left || 0);
+    const cy = (event.clientY || 0) - (rect.top || 0);
+    zoomAt(cx, cy, state.scale * (event.deltaY < 0 ? VIEWER_ZOOM_STEP : 1 / VIEWER_ZOOM_STEP));
+  }, { passive: false });
+  overlay.addEventListener('keydown', event => {
+    if (event && event.key === 'Escape') closeMermaidViewer(doc);
+  });
+  // 点遮罩空白处退出;点在图或控制条上不退出。
+  overlay.onclick = event => { if (event && event.target === overlay) closeMermaidViewer(doc); };
+
+  host.appendChild(overlay);
+  doc.__ruyiMermaidViewer = overlay;
+  fit();
+  try {
+    if (typeof overlay.focus === 'function') overlay.focus();
+    else if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
+  } catch { /* 测试桩无 focus 不致命 */ }
+  return overlay;
+}
+
 function buildToolbar(doc, ctx) {
   const bar = doc.createElement('div');
   bar.className = 'mermaid-tools';
@@ -273,9 +433,14 @@ function buildToolbar(doc, ctx) {
       );
     } catch { notify.fail(); }
   });
+  const openViewer = () => openMermaidViewer(doc, svgMarkupOf(view).markup, t);
+  const zoomBtn = makeButton(doc, t('mermaid.viewerOpen'), openViewer);
+  // 整图本身也可点开灯箱(光标由 CSS 给 zoom-in);工具条按钮走同一入口,行为只有一份。
+  view.onclick = openViewer;
+  view.setAttribute('title', t('mermaid.viewerHint'));
   const svgBtn = makeButton(doc, t('mermaid.exportSvg'), () => exportSvg(doc, view, notify));
   const pngBtn = makeButton(doc, t('mermaid.exportPng'), () => exportPng(doc, view, notify));
-  for (const node of [toggle, copy, svgBtn, pngBtn]) bar.appendChild(node);
+  for (const node of [toggle, copy, zoomBtn, svgBtn, pngBtn]) bar.appendChild(node);
   return bar;
 }
 
@@ -334,10 +499,19 @@ export async function renderMermaidBlocks(container, opts = {}) {
   for (const item of pending) {
     renderSeq += 1;
     let svgMarkup = '';
+    // Mermaid measures in the live DOM. Keep its temporary SVGs in a private,
+    // offscreen host and always remove that host, including on parser failures.
+    const renderHost = doc.createElement('div');
+    renderHost.className = 'mermaid-render-host';
+    renderHost.setAttribute('aria-hidden', 'true');
+    renderHost.style.position = 'fixed';
+    renderHost.style.left = '-100000px';
+    (doc.body || doc.documentElement).appendChild(renderHost);
     try {
-      const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source);
+      const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source, renderHost);
       svgMarkup = result && typeof result === 'object' ? String(result.svg || '') : String(result || '');
     } catch { svgMarkup = ''; }
+    finally { renderHost.remove(); }
     if (!svgMarkup) {
       degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'));
       continue;

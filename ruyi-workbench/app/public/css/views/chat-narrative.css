@@ -56,8 +56,20 @@
 .mermaid-block > pre { margin: 0; }
 .mermaid-block > pre.mermaid-source-hidden { display: none; }
 .mermaid-view { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--panel-2); overflow-x: auto; text-align: center; }
+  background: var(--panel-2); overflow-x: auto; text-align: center; cursor: zoom-in; }
 .mermaid-view svg { max-width: 100%; height: auto; }
 .mermaid-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .mermaid-tools .mermaid-btn { position: static; opacity: 1; min-height: 0; padding: 3px 8px; font-size: var(--fs-xs); }
 .mermaid-hint { margin-top: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; }
+/* 2026-09-22 用户反馈「大图缩在消息栏里看不全」:点图或工具条「放大」开全屏灯箱,
+   滚轮缩放(指针为锚)/拖拽平移/适应窗口,Esc、点遮罩或「关闭」退出。配色全走 token,亮暗自适应。 */
+.mermaid-lightbox { position: fixed; inset: 0; z-index: 1000; overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(2px); cursor: grab; }
+.mermaid-lightbox:active { cursor: grabbing; }
+.mermaid-lightbox-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mermaid-lightbox-stage svg { display: block; max-width: none; }
+.mermaid-lightbox-controls { position: absolute; top: 14px; right: 16px; z-index: 1001;
+  display: flex; gap: 6px; cursor: default; }
+.mermaid-lightbox-btn { padding: 5px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel); color: var(--text); font-size: var(--fs-sm); cursor: pointer; }
+.mermaid-lightbox-btn:hover { background: var(--panel-2); border-color: var(--line-2); }

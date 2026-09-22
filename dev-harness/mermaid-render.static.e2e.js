@@ -85,7 +85,9 @@ for (const selector of ['.mermaid-block', '.mermaid-view', '.mermaid-tools', '.m
 const zh = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'locales', 'zh-CN.json'), 'utf8'));
 const en = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'locales', 'en-US.json'), 'utf8'));
 for (const key of ['mermaid.fallbackHint', 'mermaid.renderFailed', 'mermaid.toggleSource',
-  'mermaid.exportSvg', 'mermaid.exportPng', 'mermaid.exportFailed', 'mermaid.diagramAria']) {
+  'mermaid.exportSvg', 'mermaid.exportPng', 'mermaid.exportFailed', 'mermaid.diagramAria',
+  'mermaid.viewerOpen', 'mermaid.viewerHint', 'mermaid.viewerIn',
+  'mermaid.viewerOut', 'mermaid.viewerFit', 'mermaid.viewerClose']) {
   ok(typeof zh[key] === 'string' && typeof en[key] === 'string', `C9 双语目录含 ${key}`);
 }
 
@@ -210,6 +212,12 @@ const COPY = {
   'mermaid.exportPng': zh['mermaid.exportPng'],
   'mermaid.exportFailed': zh['mermaid.exportFailed'],
   'mermaid.diagramAria': zh['mermaid.diagramAria'],
+  'mermaid.viewerOpen': zh['mermaid.viewerOpen'],
+  'mermaid.viewerHint': zh['mermaid.viewerHint'],
+  'mermaid.viewerIn': zh['mermaid.viewerIn'],
+  'mermaid.viewerOut': zh['mermaid.viewerOut'],
+  'mermaid.viewerFit': zh['mermaid.viewerFit'],
+  'mermaid.viewerClose': zh['mermaid.viewerClose'],
   'common.copy': zh['common.copy'],
   'toast.copyCode': zh['toast.copyCode'],
 };
@@ -270,10 +278,10 @@ function buildContainer(doc, source = SOURCE) {
   const bars = wrapperB.querySelectorAll('.mermaid-tools');
   ok(bars.length === 1, 'D14 工具条唯一');
   const buttons = bars[0].children;
-  ok(buttons.length === 4, `D15 工具条四个按钮(实际 ${buttons.length})`);
+  ok(buttons.length === 5, `D15 工具条五个按钮(实际 ${buttons.length})`);
   ok(buttons.map(node => node.textContent).join('|')
-    === [zh['mermaid.toggleSource'], zh['common.copy'], zh['mermaid.exportSvg'], zh['mermaid.exportPng']].join('|'),
-    'D16 按钮依次为 源码 / 复制 / 导出 SVG / 导出 PNG');
+    === [zh['mermaid.toggleSource'], zh['common.copy'], zh['mermaid.viewerOpen'], zh['mermaid.exportSvg'], zh['mermaid.exportPng']].join('|'),
+    'D16 按钮依次为 源码 / 复制 / 放大 / 导出 SVG / 导出 PNG');
   ok(buttons.every(node => node.classList.contains('copy-code') && node.classList.contains('mermaid-btn')),
     'D17 按钮复用既有 .copy-code 样式类');
   ok(wrapperB.dataset.mermaidState === 'ok' && wrapperB.dataset.mermaidHash === mod.mermaidSourceHash(SOURCE),
@@ -287,6 +295,33 @@ function buildContainer(doc, source = SOURCE) {
   ok(b.pre.hidden === false && b.code.textContent === SOURCE, 'D19b 「源码」按钮切回原始代码块');
   buttons[0].onclick();
   ok(b.pre.hidden === true, 'D19c 再按一次重新收起源码');
+
+  // (b2) 放大查看(2026-09-22 用户反馈:大图在消息栏里看不全):灯箱开/关/单实例。
+  ok(!docB.body.querySelector('.mermaid-lightbox'), 'D25a 未点放大前无灯箱');
+  buttons[2].onclick();
+  const lightbox = docB.body.querySelector('.mermaid-lightbox');
+  ok(lightbox && lightbox.getAttribute('role') === 'dialog', 'D25b 「放大」按钮开出全屏灯箱(role=dialog)');
+  const stage = lightbox.querySelector('.mermaid-lightbox-stage');
+  ok(stage && stage.innerHTML.includes('data-stub="1"'), 'D25c 灯箱里是【同一份】已渲染 SVG');
+  ok(/scale\(/.test(stage.style.transform || ''), 'D25d 开箱即按「适应窗口」落位(transform 含 scale)');
+  const lightboxButtons = lightbox.querySelectorAll('.mermaid-lightbox-btn');
+  ok(lightboxButtons.length === 4
+    && lightboxButtons.map(node => node.textContent).join('|')
+      === [zh['mermaid.viewerIn'], zh['mermaid.viewerOut'], zh['mermaid.viewerFit'], zh['mermaid.viewerClose']].join('|'),
+    'D25e 灯箱控制条:放大 / 缩小 / 适应窗口 / 关闭');
+  // 单实例:开着的时候再点一次「放大」= 重开,不是叠第二个。
+  buttons[2].onclick();
+  ok(docB.body.querySelectorAll('.mermaid-lightbox').length === 1, 'D25f 灯箱单实例(重开不叠)');
+  // 「关闭」按钮退出。
+  docB.body.querySelector('.mermaid-lightbox').querySelectorAll('.mermaid-lightbox-btn')[3].onclick();
+  ok(!docB.body.querySelector('.mermaid-lightbox'), 'D25g 「关闭」按钮退出灯箱');
+  // 点图本身与 Esc 是同一入口的另外两只手。
+  views[0].onclick();
+  ok(docB.body.querySelector('.mermaid-lightbox'), 'D26a 点图本身也能开出灯箱');
+  const escHandlers = docB.body.querySelector('.mermaid-lightbox').listeners.keydown || [];
+  ok(escHandlers.length === 1, 'D26b 灯箱挂了 Esc 监听');
+  escHandlers[0]({ key: 'Escape' });
+  ok(!docB.body.querySelector('.mermaid-lightbox'), 'D26c Esc 退出灯箱');
 
   // (c) 同源码重复调用命中缓存,mermaid.render 不重跑。
   const renderedAgain = await mod.renderMermaidBlocks(b.container, { t, ensure: async () => stub });

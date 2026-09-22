@@ -203,85 +203,15 @@
 .thread-head .th-conn[data-tone="ok"]::before { background: var(--ok); }
 .thread-head .th-conn[data-tone="warn"]::before { background: var(--warn, var(--danger)); }
 
-/* ── 124-P2 委托书带（40 号文 §2 ②）───────────────────────────────────────────
-   线程头【下面第一条】系统消息。默认折叠成一行：一枚 ▸、「委托书」、原话摘录、多久以前、
-   「看原件」。折叠是本带的常态而非偷懒 —— 它排在 #missionBar／#autonomyBar／#stepBar 之前，
-   若默认展开，每打开一条管家线程都要先翻过一屏交办书才看得见正文。
-   没有委托书的线程整条 [hidden]（用户自己开的线程本来就没有，画一条空的等于满栏灰字）。 */
-.thread-commission {
-  width: min(1320px, 94%); margin: 8px auto 0;
-  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2);
-}
-.thread-commission[hidden] { display: none; }
-.thread-commission .tc-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 10px; }
-/* 折叠钮吃掉整行剩余宽度：可点区域就是那一整行，不是那枚 6px 的三角。 */
-.thread-commission .tc-toggle {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 6px;
-  border: 0; background: none; padding: 0; text-align: start; cursor: pointer; color: inherit; font: inherit;
-}
-.thread-commission .tc-caret { flex: none; color: var(--muted); font-size: var(--fs-xs); transition: transform 120ms ease; }
-.thread-commission[data-open="1"] .tc-caret { transform: rotate(90deg); }
-.thread-commission .tc-label { flex: none; color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; }
-/* 摘录是这一行里唯一可截的东西：标签、时间、按钮都短且不可省。 */
-.thread-commission .tc-gist {
-  flex: 1 1 auto; min-width: 0; color: var(--muted); font-size: var(--fs-xs);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.thread-commission .tc-when { flex: none; color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
-.thread-commission .tc-when[hidden] { display: none; }
-.thread-commission .tc-original {
-  flex: none; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel);
-  color: var(--ink-2); font-size: var(--fs-xs); padding: 2px 9px; cursor: pointer; white-space: nowrap;
-}
-.thread-commission .tc-original:hover { border-color: var(--line-2); background: var(--panel-3); }
-.thread-commission .tc-original[hidden] { display: none; }
-.thread-commission .tc-body { border-top: 1px solid var(--line); padding: 8px 10px 10px; display: grid; gap: 8px; }
-.thread-commission .tc-body[hidden] { display: none; }
-.thread-commission .tc-field { display: grid; gap: 3px; min-width: 0; }
-.thread-commission .tc-field[hidden] { display: none; }
-.thread-commission .tc-field-label { color: var(--muted); font-size: var(--fs-xs); }
-/* 原话与管家补充都可能很长：本带不是正文，给它一个上限并让它自己滚，不许把 composer 顶下屏。 */
-.thread-commission .tc-goal { margin: 0; color: var(--ink); font-size: var(--fs-sm); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow-y: auto; }
-.thread-commission .tc-supplement {
-  margin: 0; color: var(--ink-2); font-size: var(--fs-xs); font-family: inherit;
-  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14em; overflow-y: auto;
-}
-.thread-commission .tc-runner { margin: 0; color: var(--muted); font-size: var(--fs-xs); }
-.thread-commission .tc-runner[hidden] { display: none; }
-
-/* 132a（53 号文 §1.2）：带展开后的分字段列表 —— 每段一个小标题 + 无序列表；整块限高自滚，不把 composer 顶下屏。 */
-.thread-commission .tc-body { max-height: 40vh; overflow-y: auto; }
-.thread-commission .tc-sections { display: grid; gap: 8px; }
-.thread-commission .tc-sections[hidden] { display: none; }
-.thread-commission .tc-list { margin: 0; padding-left: 18px; color: var(--ink); font-size: var(--fs-sm); display: grid; gap: 2px; }
-.thread-commission .tc-list li { overflow-wrap: anywhere; }
-.thread-commission .tc-count {
-  flex: none; color: var(--muted); font-size: var(--fs-xs); white-space: nowrap;
-  border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 7px;
-}
-.thread-commission .tc-count[hidden] { display: none; }
-.thread-commission .tc-original[aria-pressed="true"] { background: var(--panel-3); border-color: var(--line-2); }
-
 /* 132a：委托书线程的第一条消息 —— 气泡正文只印用户原话，管家补充收进气泡里的折叠块；围栏标签不上屏。
-   折叠块用原生 <details>：开合状态由 session-experience.js 按线程记，「看原件」按钮与 summary 都能开合。 */
+   折叠块用原生 <details>：开合状态由 session-experience.js 按线程记，点 summary 即开合。
+   （2026-09-22：线程头下那条委托书横幅已退役，这个折叠块是委托内容现在的唯一界面形态。） */
 #messages .message .bubble .brief-fence { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 6px; }
 #messages .message .bubble .brief-fence > summary { cursor: pointer; color: var(--muted); font-size: var(--fs-xs); user-select: none; }
 #messages .message .bubble .brief-fence[open] > summary { color: var(--ink-2); }
 #messages .message .bubble .brief-fence-body {
   margin: 6px 0 0; color: var(--ink-2); font-size: var(--fs-xs); font-family: inherit;
   white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow-y: auto;
-}
-
-/* 「看原件」落地时那一下闪烁（session-experience.js 的 revealOriginalMessage 加 .is-revealed，
-   animationend 自己摘 —— 零计时器）。只描边不改底色：底色一变，用户会以为那条消息被选中了。 */
-@keyframes ruyi-reveal-flash {
-  from { box-shadow: 0 0 0 2px var(--accent); }
-  to { box-shadow: 0 0 0 2px transparent; }
-}
-#messages .message.is-revealed { border-radius: var(--radius-sm); animation: ruyi-reveal-flash 1200ms ease-out 1; }
-@media (prefers-reduced-motion: reduce) {
-  .thread-commission .tc-caret { transition: none; }
-  #messages .message.is-revealed { animation-duration: 1ms; }
 }
 /* 模型菜单尾部那两枚动作（刷新模型列表／管理服务商…，121-K5 §3.1）：与菜单里的选项同一条行骨架，
    只把文字压成次级墨色 —— 它们不是「选一个模型」，是「去别处做点别的」。 */

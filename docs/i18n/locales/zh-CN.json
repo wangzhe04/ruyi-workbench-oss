@@ -2173,6 +2173,12 @@
   "mermaid.fallbackHint": "图表库未就绪，已按源码显示（把 vendor/mermaid.min.js 放好后重开页面即可渲染）。",
   "mermaid.renderFailed": "图表渲染失败，已按源码显示。",
   "mermaid.toggleSource": "源码",
+  "mermaid.viewerClose": "关闭",
+  "mermaid.viewerFit": "适应窗口",
+  "mermaid.viewerHint": "点击放大查看",
+  "mermaid.viewerIn": "＋ 放大",
+  "mermaid.viewerOpen": "放大",
+  "mermaid.viewerOut": "－ 缩小",
   "ctx.currentModel": "当前模型：{{model}}",
   "connection.reason.portOccupied": "端口被占用",
   "connection.reason.serverNotStarted": "服务未启动",
@@ -2927,23 +2933,8 @@
   ,"rail.pocket.new": "新"
   ,"rail.pocket.newHint": "24 小时内有新写入"
   ,"status.connected": "已连上本地服务"
-  ,"threadCommission.label": "委托书"
-  ,"threadCommission.original": "看原件"
-  ,"threadCommission.goal": "目标（你的原话）"
-  ,"threadCommission.supplement": "管家补充的交办要点"
-  ,"threadCommission.startedAt": "{{when}}交办"
-  ,"threadCommission.bySteward": "如意管家"
-  ,"threadCommission.runner": "由{{by}}交办"
-  ,"threadCommission.runnerModel": "由{{by}}交办 · 执行模型 {{model}}"
-  ,"threadCommission.originalHide": "收起原件"
   ,"threadCommission.fenceSummary": "管家补充的交办要点（{{count}} 项）—— 这就是递给线程的原件"
   ,"threadCommission.fenceSummaryPlain": "管家补充的交办要点 —— 这就是递给线程的原件"
-  ,"threadCommission.acceptance": "验收项"
-  ,"threadCommission.context": "相关文件与上下文"
-  ,"threadCommission.preferences": "偏好"
-  ,"threadCommission.constraints": "约束"
-  ,"threadCommission.count": "验收 {{count}} 项"
-  ,"threadCommission.runnerModelOnly": "执行模型 {{model}}"
   ,"threadHead.chips": "线程配置"
   ,"threadHead.watch": "交给管家盯"
   ,"threadHead.steward.seeing": "如意看得见、不插手"

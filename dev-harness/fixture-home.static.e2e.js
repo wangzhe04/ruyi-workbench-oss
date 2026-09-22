@@ -119,7 +119,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 134:新增 dev-harness/background-completion.e2e.js(一处带 RUYI_HOME 的 spawn,起 serve 子进程;第一行已 require self-isolate-home),155 -> 156 的来路就是它。
 // 133f:新增 dev-harness/asr-warmup.e2e.js(一处带 RUYI_HOME 的 spawn,起 serve 子进程;第一行已 require self-isolate-home,登记目录另经
 // RUYI_TOOLBOX_HOME 指到临时目录),156 -> 157 的来路就是它。composer-voice-warmup.browser 走公共夹具、自己不 spawn,不计入。
-const RUYI_HOME_SPAWN_SITES = 157;
+// 2026-09-22:新增 dev-harness/mermaid-viewer.browser.e2e.js(一处带 RUYI_HOME 的 spawn —— 那一发起服务;
+// 无头 Edge 与进程内的 fake provider 都不带 RUYI_HOME,不计入),157 -> 158 的来路就是它。
+// 同刀的 mermaid-render.static / 改写后的 thread-commission.static 是纯读文件的静态件,零 spawn。
+const RUYI_HOME_SPAWN_SITES = 158;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 

@@ -319,41 +319,6 @@
           <span class="wb-mv-spacer"></span>
         </div>
 
-        <!-- 124-P2（40 号文 §2 ②「我当初交办的是什么？」）：委托书 —— 线程头下【第一条】系统消息。
-             它是管家 steward_thread_new 那一刻落盘的 session.brief（13k:631），不是重新算出来的：
-             目标＝用户原话逐字（brief.userText）、管家补充＝经中和的结构化多段（brief.supplement，
-             里面就有「验收项」那几行）、起始时间＝brief.createdAt、执行者＝这条线程的引擎路由。
-             位置即判据（§5 P2 反向「把委托书插到第二条 → 红」）：它必须排在 #missionBar／#autonomyBar／
-             #stepBar／#messages 【全部之前】—— 交办书要先于任何进度与正文被读到。
-             渲染住 js/thread-head.js（那个模块【不发任何取数请求】，本带同样零请求：brief 就在
-             state.currentSession 上）。没有 brief 的线程（用户自己开的）整条带不出现。 -->
-        <section id="threadCommission" class="thread-commission" hidden aria-labelledby="threadCommissionLabel">
-          <div class="tc-head">
-            <button id="threadCommissionToggle" class="tc-toggle" type="button" aria-expanded="false" aria-controls="threadCommissionBody">
-              <span class="tc-caret" aria-hidden="true">▸</span>
-              <span id="threadCommissionLabel" class="tc-label" data-i18n="threadCommission.label">委托书</span>
-              <span id="threadCommissionGist" class="tc-gist"></span>
-            </button>
-            <span id="threadCommissionCount" class="tc-count" hidden></span>
-            <span id="threadCommissionWhen" class="tc-when"></span>
-            <button id="threadCommissionOriginal" class="tc-original" type="button" aria-pressed="false" data-i18n="threadCommission.original">看原件</button>
-          </div>
-          <div id="threadCommissionBody" class="tc-body" hidden>
-            <div class="tc-field">
-              <span class="tc-field-label" data-i18n="threadCommission.goal">目标（你的原话）</span>
-              <p id="threadCommissionGoal" class="tc-goal"></p>
-            </div>
-            <!-- 132a：分字段列表（验收项／相关文件与上下文／偏好／约束），由 thread-head.js 按 session.brief.fields 动态建；
-                 空字段不画。老线程没有 fields 时回落到下面那段 <pre>（原样、零二次解析）。 -->
-            <div id="threadCommissionSections" class="tc-sections" hidden></div>
-            <div id="threadCommissionSupplementField" class="tc-field" hidden>
-              <span class="tc-field-label" data-i18n="threadCommission.supplement">管家补充的交办要点</span>
-              <pre id="threadCommissionSupplement" class="tc-supplement"></pre>
-            </div>
-            <p id="threadCommissionRunner" class="tc-runner"></p>
-          </div>
-        </section>
-
         <!-- 第26波b: 任务账本进度条。仅当会话有活动 Mission 时显示;里程碑进度 + autoMode 状态。 -->
         <div id="missionBar" class="mission-bar hidden" role="status" aria-live="polite">
           <div class="mission-bar-head">

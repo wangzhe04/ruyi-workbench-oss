@@ -16,6 +16,13 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+#### Mermaid 图表：回复里直接渲染，还能点开全屏看；委托书横幅退役（2026-09-22）
+
+- **回复里的 ```mermaid 代码块现在真画成图**：图表库（mermaid 11）已随包内置，流程图、时序图等在对话里直接渲染，不再只显示源码；亮暗主题自动跟随，工具条自带源码切换、复制、导出 SVG、导出 PNG。
+- **大图看得全了**：点图或工具条上的「放大」打开全屏灯箱——滚轮缩放（以指针为中心）、拖拽平移、「适应窗口」一键复位，Esc、点空白处或「关闭」退出。
+- **委托书横幅退役**：管家开的线程，头部那条「委托书」横幅整条移除——委托内容本来就留在历史第一条消息里：气泡正文是你的原话，管家补充收在气泡内一个可折叠的「管家补充的交办要点」里，展开状态按线程记住。
+- 附带：文件内容搜索内置了 ripgrep，大项目里搜索明显更快（没有它时自动回退原扫描器，行为不变）。
+
 #### 语音输入：边说边出字，接错了会告诉你错在哪（2026-09-20／21）
 
 - **边说边出字**：说话时每停顿一下，刚说的那一句就先转成文字填进输入框，麦克风继续录。每一秒音频仍只转写一次，费用与从前整段转写相同；不到 2 秒的短录音行为不变；仍然**不会自动发送**。
@@ -117,6 +124,13 @@ This file records user-facing release highlights; it does not replace the comple
 - **标准／重度第一次说话不再又卡又不准**：本地识别模型（Qwen3-ASR）空闲时不占显存，第一次用要现装，实测 12–30 秒；这段时间里说的话只有第一遍小模型的字，校正全排在装载后面，机器还会跟着抖一阵。现在点麦克风会先确认模型装好没：装着就直接录；没装就在麦克风上显示转圈和「加载模型 0:07」，装好后才开始录音（再点一下或按 Esc 取消；装好时你不在这个窗口，就不替你打开麦克风）。轻度档的模型本来就常驻，没有这一段等待。
 
 ### English
+
+#### Mermaid diagrams: rendered inline, with a fullscreen viewer; brief band retired (2026-09-22)
+
+- **```mermaid blocks now render as real diagrams**: the diagram library (mermaid 11) ships with the app, so flowcharts, sequence diagrams and friends render inline in replies instead of showing source; they follow the light/dark theme, with a toolbar for source toggle, copy, and SVG/PNG export.
+- **Big diagrams are readable now**: click the diagram or the "Enlarge" button to open a fullscreen viewer — wheel zoom (anchored at the pointer), drag to pan, "Fit to window" to reset, and Esc, backdrop click or "Close" to exit.
+- **Brief band retired**: the "Brief" band under the header of steward-opened threads is gone — the delegation already lives in the first history message: the bubble shows your own words, with "what the steward added" folded inside it, and the open state is remembered per thread.
+- Also: file-content search now ships ripgrep, so searching large projects is noticeably faster (without it, the previous scanner takes over silently — behaviour unchanged).
 
 #### Voice input: text appears as you talk, and failures say what is wrong (2026-09-20/21)
 

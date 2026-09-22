@@ -2173,6 +2173,12 @@
   "mermaid.fallbackHint": "Diagram library unavailable; showing the source instead (add vendor/mermaid.min.js and reload to render it).",
   "mermaid.renderFailed": "Diagram rendering failed; showing the source instead.",
   "mermaid.toggleSource": "Source",
+  "mermaid.viewerClose": "Close",
+  "mermaid.viewerFit": "Fit to window",
+  "mermaid.viewerHint": "Click to enlarge",
+  "mermaid.viewerIn": "+ Zoom in",
+  "mermaid.viewerOpen": "Enlarge",
+  "mermaid.viewerOut": "− Zoom out",
   "ctx.currentModel": "Current model: {{model}}",
   "connection.reason.portOccupied": "Port occupied",
   "connection.reason.serverNotStarted": "Service not started",
@@ -2927,23 +2933,8 @@
   ,"rail.pocket.new": "New"
   ,"rail.pocket.newHint": "Something new in the last 24 hours"
   ,"status.connected": "Connected to the local service"
-  ,"threadCommission.label": "Brief"
-  ,"threadCommission.original": "See original"
-  ,"threadCommission.goal": "Goal (your own words)"
-  ,"threadCommission.supplement": "What the steward added"
-  ,"threadCommission.startedAt": "handed over {{when}}"
-  ,"threadCommission.bySteward": "the Ruyi steward"
-  ,"threadCommission.runner": "handed over by {{by}}"
-  ,"threadCommission.runnerModel": "handed over by {{by}} · running on {{model}}"
-  ,"threadCommission.originalHide": "Hide original"
   ,"threadCommission.fenceSummary": "What the steward added ({{count}} items) — exactly what the thread received"
   ,"threadCommission.fenceSummaryPlain": "What the steward added — exactly what the thread received"
-  ,"threadCommission.acceptance": "Acceptance"
-  ,"threadCommission.context": "Files and context"
-  ,"threadCommission.preferences": "Preferences"
-  ,"threadCommission.constraints": "Constraints"
-  ,"threadCommission.count": "{{count}} acceptance items"
-  ,"threadCommission.runnerModelOnly": "running on {{model}}"
   ,"threadHead.chips": "Thread settings"
   ,"threadHead.watch": "Let the steward watch"
   ,"threadHead.steward.seeing": "Ruyi can see this one but will not step in"

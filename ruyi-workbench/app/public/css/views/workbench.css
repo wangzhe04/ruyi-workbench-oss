@@ -7,10 +7,6 @@
    ============================================================ */
 
 /* — 主视图状态机:data-main-view=canvas 隐藏对话三件套、显示工作台;chat 反之(零 DOM 重建)。 — */
-/* 124-P2:委托书带(#threadCommission)跟着对话一起收 —— 它那枚「看原件」跳的落点就是
-   #messages,而 #messages 在这一档是 display:none。留着带、藏着落点 = 一枚点了没反应的按钮。
-   规则写在【这一处】而不是 chat-shell.css:主视图状态机只该有一份,给它开第二处必然漂移。 */
-.chat-pane[data-main-view="canvas"] > #threadCommission,
 .chat-pane[data-main-view="canvas"] > #stepBar,
 .chat-pane[data-main-view="canvas"] > #messages,
 .chat-pane[data-main-view="canvas"] > #jumpLatest,

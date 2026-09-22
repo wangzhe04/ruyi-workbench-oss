@@ -1,9 +1,9 @@
 'use strict';
 
-import { createQuickSwitchChips, rerenderAllQuickSwitchChips, doc, byId, el, clear, resolveEngineRoute } from './steward-chips.js';
+import { createQuickSwitchChips, rerenderAllQuickSwitchChips, doc, byId, clear } from './steward-chips.js';
 // 色号登记（同一条线程在对话流／左栏／焦点栏／线程头恒是同一个号）与五态判据都问【全仓那一份】要，
 // 本文件一个字都不自己判：hue 在 steward-conversation.js，五态在 steward-drawer.js（33 号文 §4 收的那一处）。
-import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel } from './steward-conversation.js';
+import { stewardThreadHueFor, stewardThreadStateKey } from './steward-conversation.js';
 import { stewardThreadStateOf } from './steward-drawer.js';
 import { icon } from './icons.js';
 // 121 走查1-⑤：工作台里「改好了」这句回执的落点。管家两处宿主写 #stewardDrawerNote（那块面
@@ -48,57 +48,6 @@ export function stewardBandKey(watched, seatedByUser) {
   return seatedByUser ? 'threadHead.steward.watchingSeated' : 'threadHead.steward.watching';
 }
 
-// ── 124-P2 委托书（40 号文 §2 ②）────────────────────────────────────────────────
-// **先说一处仓里已有的同名陷阱**：会话头上有【两个】叫 brief 的东西，它们不是一回事 ——
-//   · `session.brief`      ＝ 委托书（13k steward_thread_new 落的，本节要画的就是它）；
-//   · `session.threadBrief`＝ 116-5b 的线程自动摘要 `{title, gist}`（「自动给每条线程起名字」，
-//     设置键 settings.steward.threadBrief，静态锁 dev-harness/thread-brief.static.e2e.js）。
-// 02 的 sessionBriefOf() 两个都认（先 threadBrief 后 brief），所以名字上再多一处含糊都是债。
-// 本带因此在界面侧一律叫 **commission**（#threadCommission / .thread-commission /
-// threadCommission.* / thread-commission.static.e2e.js），只有读那个字段时才写 `session.brief`。
-//
-// 事实源【只有一处】：`session.brief` —— 管家 steward_thread_new 那一刻落盘的那份
-// （13k:631 `session.brief = {schema, by:'steward', createdAt, userText, supplement, truncated, …}`，
-// 经 GET /api/sessions/:id 原样随会话头下发，13d 那一行 `json({ok:true, session, …})`）。
-// 三条纪律：
-//   ① **零请求**（本模块的头注红线）：brief 就在 state.currentSession 上，不为它多发一发；
-//   ② **零二次解析**：`supplement` 是 06i buildStewardBrief 拼好的多段人话（「目标：」「验收项：」…），
-//      界面【原样印】。在前端拿正则把它拆回字段，就是第二份解析器 —— 本仓已经在「线程/会话」那条
-//      正则上记过这笔账（steward-conversation.js 的 STEWARD_INBOX_* 头注）；那边是【读历史】不得不认，
-//      这边没有任何不得不：拼它的人就在仓里，改了措辞两边一起改才是对的做法，而不是让界面去猜。
-//   ③ **没有 brief 的线程整条带不出现**（用户自己在工作台开的线程本来就没有委托书，画一条空的
-//      「暂无委托书」＝ 满栏等重灰字，§2.3「只在有话可说时出现」）。
-export function threadCommissionOf(session) {
-  const brief = (session && session.brief && typeof session.brief === 'object') ? session.brief : null;
-  const userText = String((brief && brief.userText) || '').trim();
-  if (!userText) return null;
-  return {
-    userText,
-    supplement: String((brief && brief.supplement) || ''),
-    // 132a：13k 落盘的分字段版本（goal/acceptance/context/preferences/constraints）；老线程没有 → null，带回落到 supplement 原样。
-    fields: (brief && brief.fields && typeof brief.fields === 'object') ? brief.fields : null,
-    createdAt: String((brief && brief.createdAt) || ''),
-    by: String((brief && brief.by) || ''),
-  };
-}
-// 132a：带里画哪几段、各叫什么。顺序即阅读顺序：验收怎么算 → 参考什么 → 偏好 → 约束。
-export const THREAD_COMMISSION_SECTIONS = Object.freeze([
-  ['acceptance', 'threadCommission.acceptance'],
-  ['context', 'threadCommission.context'],
-  ['preferences', 'threadCommission.preferences'],
-  ['constraints', 'threadCommission.constraints'],
-]);
-
-// 折叠态那一行的摘录：原话折成一行再按字符（不是 UTF-16 码元 —— 别把一个 emoji 劈成两半）截断。
-// 判据与 02 的 sessionFirstUserExcerpt 同形，但**不是**同一件事：那边是「这条线程叫什么」，
-// 这边是「委托书第一眼说什么」，两者的长度与回落各归各家，所以不去借那一份。
-export const THREAD_COMMISSION_GIST_CHARS = 42;
-export function threadCommissionGist(userText, max = THREAD_COMMISSION_GIST_CHARS) {
-  const line = String(userText == null ? '' : userText).replace(/\s+/g, ' ').trim();
-  const chars = [...line];
-  return chars.length > max ? chars.slice(0, max).join('') + '…' : line;
-}
-
 export function createThreadHead({
   api = async () => null,
   t = key => key,
@@ -117,12 +66,6 @@ export function createThreadHead({
   // #statusLine 的 title、上下文电量、composer 的引擎相关按钮）。它们的重画口都在组合根，
   // 所以这里只发一声，具体刷什么由组合根说（app.js 注入）。不传就是空操作。
   onSessionMetaChanged = () => {},
-  // 124-P2（§2 ②「原件可跳」）：委托书那枚「看原件」的落点。实现住 session-experience.js
-  // （长会话默认只画尾窗，第一条消息可能根本不在 DOM 里，要先走它那条「指定回落」把窗口全展开），
-  // 所以这里只转交。不传就是空操作 —— 拿不到落点时按钮不出现，而不是画一枚点了没反应的。
-  revealOriginal = null,
-  // 132a：这条线程上管家补充现在开着没 —— 按钮的字「看原件」／「收起原件」按它写。拿不到就恒写「看原件」。
-  originalOpen = null,
 } = {}) {
   // 121 走查1-⑤：PATCH 回来的那一份是这条线程【最新】的会话头，而组合根手里那份还是打开线程
   // 时取的 —— 修前谁也没把它对上，于是「切了没生效」：后端与 chip 都是新的，中栏与状态行是旧的
@@ -310,118 +253,6 @@ export function createThreadHead({
     return id;
   }
 
-  // ── 委托书带（§2 ②）：线程头【下面第一条】系统消息 ────────────────────────────
-  // iso → 人话走 stewardAgoLabel（全仓那一个出口，与抽屉卡头、124-P1 的验收徽标同一句话）；
-  // 算不出来就整格不说，不吐一串 ISO 给人读。
-  function commissionWhenLabel(iso) {
-    const at = String(iso || '');
-    if (!at) return '';
-    const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
-    return stewardAgoLabel(at, page);
-  }
-
-  // 「谁在跑」：只在这条线程【真有自己的】 engineRoute 时才印模型 —— 那正是管家按档位派模型时
-  // stewardApplyThreadTier 写下的那一笔（13q）。跟随全局时不印（§11.15.2 病 3：印默认值＝没印，
-  // 墨量却与正文争重心），只说「如意管家交办」。生效路由查 steward-chips 那一份 resolveEngineRoute
-  // —— 全仓唯一那条「会话级 ＞ 全局回落」，这里不再判第二遍。
-  function commissionRunnerText(session, brief) {
-    const by = brief.by === 'steward' ? t('threadCommission.bySteward') : '';
-    const pinned = session && session.engineRoute && typeof session.engineRoute === 'object';
-    const model = pinned ? String(resolveEngineRoute(session, (state && state.config) || null).model || '') : '';
-    if (by && model) return t('threadCommission.runnerModel', { by, model });
-    if (by) return t('threadCommission.runner', { by });
-    return model ? t('threadCommission.runnerModelOnly', { model }) : '';
-  }
-
-  function collapseCommission() {
-    const body = byId('threadCommissionBody');
-    const toggle = byId('threadCommissionToggle');
-    const band = byId('threadCommission');
-    if (body) body.hidden = true;
-    if (toggle) toggle.setAttribute('aria-expanded', 'false');
-    if (band) band.dataset.open = '0';
-  }
-
-  function renderCommission(session, switched) {
-    const band = byId('threadCommission');
-    if (!band) return '';
-    if (switched) collapseCommission();
-    const brief = threadCommissionOf(session);
-    band.hidden = !brief;
-    if (!brief) return '';
-    const gist = byId('threadCommissionGist');
-    if (gist) gist.textContent = threadCommissionGist(brief.userText);
-    const when = byId('threadCommissionWhen');
-    if (when) {
-      const label = commissionWhenLabel(brief.createdAt);
-      when.textContent = label ? t('threadCommission.startedAt', { when: label }) : '';
-      when.hidden = !label;
-    }
-    const goal = byId('threadCommissionGoal');
-    if (goal) goal.textContent = brief.userText;                 // 用户原话【逐字】，零改写
-    // 132a：有分字段（13k 落盘的 brief.fields）就按字段画列表；老线程没有它就回落到 <pre> 原样（零二次解析，两条路都不拆人话）。
-    const sections = byId('threadCommissionSections');
-    const fields = brief.fields;
-    const sectionRows = fields ? THREAD_COMMISSION_SECTIONS.map(([key, labelKey]) => [labelKey, Array.isArray(fields[key]) ? fields[key].map(x => String(x || '')).filter(Boolean) : []]).filter(([, rows]) => rows.length) : [];
-    if (sections) {
-      clear(sections);
-      for (const [labelKey, rows] of sectionRows) {
-        const field = doc().createElement('div'); field.className = 'tc-field tc-section';
-        const label = doc().createElement('span'); label.className = 'tc-field-label'; label.textContent = t(labelKey);
-        const list = doc().createElement('ul'); list.className = 'tc-list';
-        for (const text of rows) { const li = doc().createElement('li'); li.textContent = text; list.appendChild(li); }
-        field.append(label, list);
-        sections.appendChild(field);
-      }
-      sections.hidden = !sectionRows.length;
-    }
-    const supplementField = byId('threadCommissionSupplementField');
-    const supplement = byId('threadCommissionSupplement');
-    if (supplement) supplement.textContent = brief.supplement;   // 管家补充【原样】，零二次解析
-    if (supplementField) supplementField.hidden = Boolean(sectionRows.length) || !brief.supplement.trim();
-    const count = byId('threadCommissionCount');
-    if (count) {
-      const n = fields && Array.isArray(fields.acceptance) ? fields.acceptance.length : 0;
-      count.textContent = n ? t('threadCommission.count', { count: n }) : '';
-      count.hidden = !n;
-    }
-    const runner = byId('threadCommissionRunner');
-    if (runner) {
-      const text = commissionRunnerText(session, brief);
-      runner.textContent = text;
-      runner.hidden = !text;
-    }
-    const original = byId('threadCommissionOriginal');
-    if (original) {
-      original.hidden = typeof revealOriginal !== 'function';
-      const syncOriginal = () => {
-        const open = typeof originalOpen === 'function' && originalOpen(session ? session.id : '') === true;
-        original.textContent = t(open ? 'threadCommission.originalHide' : 'threadCommission.original');
-        original.setAttribute('aria-pressed', open ? 'true' : 'false');
-      };
-      syncOriginal();
-      if (!original.dataset.bound) {
-        original.dataset.bound = '1';
-        original.onclick = () => { try { revealOriginal(); } catch { /* 跳不过去不该把这一带打回不可用 */ } syncOriginal(); };
-        // 用户直接点气泡里那个折叠块的 summary 时，按钮的字也要跟着变（session-experience 派 ruyi:original-toggled）。
-        const messages = byId('messages');
-        if (messages) messages.addEventListener('ruyi:original-toggled', syncOriginal);
-      }
-    }
-    const toggle = byId('threadCommissionToggle');
-    const body = byId('threadCommissionBody');
-    if (toggle && body && !toggle.dataset.bound) {
-      toggle.dataset.bound = '1';
-      toggle.onclick = () => {
-        const open = body.hidden;
-        body.hidden = !open;
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        band.dataset.open = open ? '1' : '0';
-      };
-    }
-    return brief.userText;
-  }
-
   function render() {
     if (!doc()) return '';
     const session = currentSession();
@@ -429,9 +260,6 @@ export function createThreadHead({
     const row = rowOf(id);
     renderIdentity(row);
     renderStewardBand(row);
-    // 换了线程就把委托书收回折叠态：展开与否是【这一条】线程的读法，不该跟着人跑到下一条上去
-    // （chip 那一行同款判据，共用 boundChipId 这一个「换没换会话」的事实，不另记第二个游标）。
-    renderCommission(session, id !== boundChipId);
     if (id !== boundChipId) { boundChipId = id; chips.setSession(session); }
     // 128f-⑫（审计 C）：没换会话时修前 chip 一笔都不重画 —— 可 chip 上「跟随全局」那一档显示的是全局默认，设置页存完、
     // 引导向导存完（组合根 onEngineConfigChanged → 本函数）它就该换字。所有实例一起按当前配置重画（纯文本，零请求）。
@@ -462,7 +290,5 @@ export function createThreadHead({
       const row = rowOf(currentId());
       return stewardBandKey(Boolean(row && row.watched === true), Boolean(row && String(row.seatedBy || '') === 'user'));
     },
-    // 124-P2 只读句柄：这条线程有没有委托书、原话是哪一句（真夹具按它断言，不去猜版面文案）。
-    brief: () => threadCommissionOf(currentSession()),
   });
 }

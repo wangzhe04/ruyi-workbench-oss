@@ -697,7 +697,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 133f 重钉（前值 c0d67eec…）：零新增、零删除层，只在 `css/components/chat-composer.css` 的 .composer-voice 一族里加两段 ——
 //   加载中态（[data-state="warming"]：主色 + 转圈 + 计时，转圈复用 compact-spin 关键帧）与它的减弱动效分支。主题令牌全走 var()/color-mix。
 // 算法自证：在内存里把这两段抠掉（不碰磁盘）再算 = c0d67eec…，与上一行已钉的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '1fe033a31e1e0e5f14ed17dac628beb7490f72a1a532dbcdf0d7b9a86d24f614';
+// 2026-09-22 重钉（前值 1fe033a3…）：两处有意改动 —— ① chat-narrative.css 新增 .mermaid-lightbox 一族
+//   （mermaid 大图全屏灯箱：滚轮缩放/拖拽平移/适应窗口，.mermaid-view 加 cursor:zoom-in）；
+//   ② 委托书横幅退役：chat-shell.css 删 .thread-commission 全族与 ruyi-reveal-flash/is-revealed（保留
+//   .brief-fence 折叠块样式），workbench.css 主视图状态机摘掉 #threadCommission 选择器。主题令牌全走 var()/color-mix。
+// 算法自证：把 chat-narrative/chat-shell/workbench 三份 CSS 从 HEAD 检出重算 = 1fe033a3…，与被替换的旧值逐字相同；
+//   换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'cd3a9d41f5d05b616522c9be784ca2d0f35846c1443924c4fec1aad252bd0d20';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
