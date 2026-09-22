@@ -1,4 +1,5 @@
 'use strict';
+import { providerModels, agentModels } from './model-catalog.js';
 
 // 第117波 117d：快切 chip（权限／模型／引擎）。
 //
@@ -715,11 +716,11 @@ export function createQuickSwitchChips({
       // 折回之前那份 config 里的陈旧清单（可能仍留着已删的 id）不该在菜单上闪一下。
       const hidden = new Set((provider && Array.isArray(provider.hiddenModels) ? provider.hiddenModels : [])
         .map(v => String(v || '').trim()).filter(Boolean));
-      return (provider && Array.isArray(provider.models) ? provider.models : [])
+      return providerModels(provider)
         .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || ''), group, groupLabel }))
         .filter(model => model.id && !hidden.has(model.id));
     }
-    const models = (state && state.status && Array.isArray(state.status.models)) ? state.status.models : [];
+    const models = agentModels(route.agentCliType, state?.status?.models || []);
     const group = 'agent:' + route.agentCliType;
     const groupLabel = AGENT_CLI_LABELS[route.agentCliType] || AGENT_CLI_LABELS.claude;
     return models
@@ -904,7 +905,7 @@ export function createQuickSwitchChips({
     //    就整段不出现 —— 抽屉与左栏看板密度的那两份菜单一个字没变。ctx 里多带一个 redraw：
     //    刷新换的是【候选来源】，重画在原菜单上进行，不关菜单（用户走查①）。
     if (modelMenuExtras && typeof modelMenuExtras.appendTail === 'function') {
-      try { modelMenuExtras.appendTail(menu, { route, close: () => closeMenu(), redraw: () => { if (redrawModelMenu) redrawModelMenu(); } }); }
+      try { modelMenuExtras.appendTail(menu, { route, sessionId: session?.id, close: () => closeMenu(), redraw: () => { if (redrawModelMenu) redrawModelMenu(); } }); }
       catch { /* 尾巴画不出来不该把整张菜单拖垮 */ }
     }
     // 用量晚到【一律不重画】这张已经开着的菜单（128f-⑤，Brief §4.2 第 21 条）。「常用」那几行插在列表顶部，

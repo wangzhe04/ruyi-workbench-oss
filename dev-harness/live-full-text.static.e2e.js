@@ -124,7 +124,7 @@ ok(!/messages\.push\(/.test(experienceCode) && !/currentSession\.messages\s*=/.t
   const start = experienceCode.indexOf('function buildLiveTurnCard()');
   const body = start >= 0 ? experienceCode.slice(start, experienceCode.indexOf('\n}', start) + 2) : '';
   ok(start >= 0 && !/innerHTML/.test(body), 'D3 气泡全 el()/textContent 建节点,零 innerHTML');
-  ok(/el\('article', 'message assistant live-turn'\)/.test(body), 'D4 复用既有 .message.assistant 骨架,不另造一套壳');
+  ok(/messageShell\('assistant'/.test(body), 'D4 复用既有 .message.assistant 骨架,不另造一套壳');
 }
 {
   // 117m-A6：定位用的字面从 paintLiveTurnCard() 放宽成 paintLiveTurnCard( —— 函数多了一个 opts
@@ -151,7 +151,7 @@ ok(/captureLiveTurn\(id, res\);/.test(experience),
   'E1 活文本跟着 openSession 那一发既有 GET /api/sessions/:id 回来');
 ok(/liveTurnTail = res && res\.liveTail && typeof res\.liveTail === 'object' \? res\.liveTail : null;/.test(experience),
   'E2 只读信封上那个键,没有第二个数据源');
-ok(/api\('\/api\/stop', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId: id \}\) \}\)/.test(experience),
+ok(/api\('\/api\/stop', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId: sid \}\) \}\)/.test(read(path.join(PUBLIC, 'js', 'chat-stream-runtime.js'))),
   'E3 「停止」走既有 /api/stop,不新开面');
 // 128f-⑫ 重钉 2 → 3：第三处是 reloadCurrentSessionAfterAway —— 管家视角里动过当前这条线程（推送来了、中栏不在屏上），
 // 切回工作台那一刻整份重读一次（审计 E：修前要换一次会话才看得见）。它只在「离开期间来过这条线程的推送」时走一次，
@@ -163,7 +163,7 @@ ok(count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`
   `E4 只有 openSession、那一拍、切回工作台重读、后台完成回执这四处会去取会话(实测 ${count(experienceCode, /api\(`\/api\/sessions\/\$\{encodeURIComponent\(id\)\}`\)/g)} 处)`);
 
 /* ─── F 样式层 ─────────────────────────────────────────────────────────────── */
-for (const sel of ['.live-turn-title', '.live-turn-body', '.live-turn-tool', '.live-turn-stop']) {
+for (const sel of ['.live-turn-body', '.live-turn-tool']) {
   ok(chatLive.includes(sel), `F1 ${sel} 落在【已注册的】所有权层 css/states/chat-live.css`);
 }
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(chatLive.slice(chatLive.indexOf('117m-A5'))),

@@ -1186,7 +1186,7 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgStewardModel" data-i18n="settings.steward.model">管家用的模型</label>
-                  <input id="cfgStewardModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                  <select id="cfgStewardModel"></select>
                 </div>
               </div>
               <div class="field-grid">
@@ -1249,7 +1249,7 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgStewardStrongModel" data-i18n="settings.steward.threadModels.strongModel">复杂任务 · 强模型</label>
-                  <input id="cfgStewardStrongModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                  <select id="cfgStewardStrongModel"></select>
                 </div>
               </div>
               <div class="field-grid">
@@ -1259,7 +1259,7 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgStewardFastModel" data-i18n="settings.steward.threadModels.fastModel">简单任务 · 快速模型</label>
-                  <input id="cfgStewardFastModel" type="text" placeholder="留空 = 跟随主端点" data-i18n-attr="placeholder:settings.steward.modelPlaceholder" />
+                  <select id="cfgStewardFastModel"></select>
                 </div>
               </div>
               <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>

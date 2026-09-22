@@ -44,6 +44,8 @@ export function createSessionExperienceDomain({
   openPermPopover = () => {},
   sendPrompt = async () => {},
   syncStreamingUi = () => {},
+  updateSendBtn = () => {},
+  messageShell,
   buildModal = () => null,
   renderContextMeter = () => {},
   isProviderMode = () => false,
@@ -843,9 +845,7 @@ function refreshKimiContextForSession(session) {
 // 文案说明：本切片的文件白名单不含 locales 那四份目录（另有切片在改），所以这三句先按经典壳既有
 // 惯例（renderStepBar 的「已完成 j/N」同款）写死中文，可复用的既有键（停止/已停止）仍走 t()。
 const LIVE_TURN_POLL_MS = 3000;
-// 117m-A3：这四句走 i18n。A5 落地时按经典壳 renderStepBar「已完成 j/N」的旧惯例写死了中文，
-// 但这张气泡是本波新面（en-US 用户会在一屏英文里撞到一段中文），新面不应该再欠这笔账。
-const liveTurnTitle = () => t('chat.liveTurn.title');
+// Localized fallbacks for engines without a narrative snapshot.
 const liveTurnEmpty = () => t('chat.liveTurn.empty');
 const liveTurnUsing = () => t('chat.liveTurn.using');
 let liveTurnTail = null;      // 最近一次 GET 带回来的 liveTail（服务端没下发就是 null）
@@ -872,8 +872,9 @@ function captureLiveTurn(sessionId, res) {
   // 117s-G：与 liveTail/liveTurn 同一发 GET 回来的 relay —— 「这条线程此刻该走哪条递话通道」。
   // 服务端空闲时整个键都不下发，这里就归 null（= 走正常回合那条路）。
   state.sessionRelay = res && res.relay && typeof res.relay === 'object'
-    ? { sessionId: String(sessionId || ''), channel: String(res.relay.channel || ''), wait: res.relay.wait || null }
-    : null;
+    ? { sessionId: String(sessionId || ''), live: liveTurnLive, channel: String(res.relay.channel || ''), wait: res.relay.wait || null }
+    : liveTurnLive ? { sessionId: String(sessionId || ''), live: true, channel: '' } : null;
+  updateSendBtn();
 }
 // 该不该画这张气泡。四条都为真才画 —— 任一为否，renderCurrentSession 就当它不存在。
 function liveTurnVisible() {
@@ -1014,15 +1015,9 @@ async function refreshLiveTurn() {
   syncLivePolling();
 }
 function buildLiveTurnCard() {
-  const row = el('article', 'message assistant live-turn');
+  const { row, main } = messageShell('assistant', undefined, currentEngineMeta());
+  row.classList.add('live-turn');
   row.dataset.live = '1';
-  row.setAttribute('aria-label', liveTurnTitle());
-  const avatar = el('div', 'avatar live-turn-avatar', '◐');
-  avatar.setAttribute('aria-hidden', 'true');
-  const main = el('div', 'msg-main');
-  const head = el('div', 'msg-head live-turn-head');
-  const iter = el('span', 'live-turn-iter');
-  head.append(el('span', 'live-turn-title', liveTurnTitle()), iter);
   // 117o-A7：截断提示。服务端砍的是【头部】（用户要看的是它现在在说什么），所以这句话在最上面。
   const cut = el('div', 'live-turn-truncated');
   // 117o-A7：2.0 那套真实渲染落在这里。内容由 renderStaticMessage()（画落盘助手消息的同一个入口）
@@ -1032,14 +1027,8 @@ function buildLiveTurnCard() {
   // 没有（刚起、只挂着一个待决）时，仍然要有话给用户看，不能退回一片空白。
   const body = el('div', 'live-turn-body');
   const tool = el('div', 'live-turn-tool');
-  const stop = el('button', 'live-turn-stop', t('common.stop'));
-  stop.type = 'button';
-  stop.onclick = () => stopLiveTurn(stop);
-  const foot = el('div', 'live-turn-actions');
-  foot.appendChild(stop);
-  main.append(head, cut, narrative, body, tool, foot);
-  row.append(avatar, main);
-  liveTurnCardEls = { row, cut, narrative, body, tool, iter, stop, narrativeSig: '' };
+  main.append(cut, narrative, body, tool);
+  liveTurnCardEls = { row, cut, narrative, body, tool, narrativeSig: '' };
   // 117m-A6（审查报回 P2）：这一刻 row 还没被 append 进文档，isConnected 恒为 false。
   // 不带 mounted 地调会被那道守卫直接退回去，于是首帧正文区一片空白（连空态文案都没有），
   // 要等 3 秒后下一拍才自愈。首次填内容明确告诉它「现在还没挂上去」。
@@ -1056,7 +1045,7 @@ function paintLiveTurnCard(opts) {
   // 117r-D4：这张卡的正文不再有自己的 max-height（那条内滚动条正是用户看到的「窗中窗」），于是
   // 每 3 秒一拍的重绘会真的改变整页高度 —— 用户滚上去看历史时会被顶得乱跳。用 renderCurrentSession()
   // 那对现成的原语兜住：换之前记下阅读位置，换完还回去（在底部就继续贴底跟随，不在底部就原地不动）。
-  // 括号开在这一层而不是 paintLiveTurnNarrative 里：本函数还会改 cut/body/tool/iter 四处文本，
+  // 括号开在这一层而不是 paintLiveTurnNarrative 里：本函数还会改 cut/body/tool 三处文本，
   // 其中 body 的 max-height 也在本刀里撤掉了（没有账本时它就是全部正文），narrative 那一层管不到。
   // 气泡还没挂进文档时（buildLiveTurnCard 的首帧）不做：那一刻外层 renderCurrentSession 自己正拿着锚点。
   const box = els.row.isConnected ? $('messages') : null;
@@ -1080,9 +1069,7 @@ function paintLiveTurnCard(opts) {
   const last = tools.length ? tools[tools.length - 1] : null;
   const name = String((last && last.name) || '');
   els.tool.textContent = name ? `${liveTurnUsing()}${name}${last.status === 'running' ? '' : ' ✓'}` : '';
-  els.tool.hidden = !name;
-  const n = Math.max(0, Number(tail && tail.iterations) || 0);
-  els.iter.textContent = n ? t('chat.liveTurn.iter', { n }) : '';
+  els.tool.hidden = narrated || !name;
   // 这张气泡没有 data-message-key，keyed 那条路找不到自己的锚点，会落到「在底部就贴底 / 不在底部
   // 就按数值 scrollTop 复位」两条兜底 —— 本场景（内容只在页尾长出来）够用。
   if (box) restoreScrollAnchor(box, scroll);
@@ -1147,25 +1134,6 @@ function restoreOpenDetails(host, open) {
   for (const node of host.querySelectorAll('details')) {
     if (open.has(openDetailsKey(node, seen))) node.open = true;
   }
-}
-async function stopLiveTurn(btn) {
-  const id = state.currentSession?.id || '';
-  if (!id) return;
-  if (btn) btn.disabled = true;
-  try {
-    const r = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id }) });
-    if (!r || r.ok === false) {
-      toast(t('mission.stop.failed', { reason: (r && r.error) || t('common.unknownError') }), 'err');
-      if (btn) btn.disabled = false;
-      return;
-    }
-    toast(t('toast.turnStopped'), 'ok');
-  } catch (e) {
-    toast(t('mission.stop.failed', { reason: apiErrText(e) }), 'err');
-    if (btn) btn.disabled = false;
-    return;
-  }
-  await refreshLiveTurn(); // 立刻按新事实收尾，不等下一拍
 }
 function renderCurrentSession() {
   const session = state.currentSession;

@@ -30,7 +30,6 @@ namespace RuyiDesktop
     {
         public const int WM_GETMINMAXINFO = 0x0024;
         public const int WM_NCHITTEST = 0x0084;
-        public const int WM_NCLBUTTONDOWN = 0x00A1;
         public const int WM_MOUSEWHEEL = 0x020A;
         public const int WM_MOUSEHWHEEL = 0x020E;
         public const int WM_DISPLAYCHANGE = 0x007E;
@@ -103,7 +102,6 @@ namespace RuyiDesktop
             public UIntPtr PeakJobMemoryUsed;
         }
 
-        [DllImport("user32.dll")] public static extern bool ReleaseCapture();
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
         [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hWnd);
@@ -505,7 +503,6 @@ namespace RuyiDesktop
         public readonly CaptionButton MinButton = new CaptionButton(CaptionKind.Min);
         public readonly CaptionButton MaxButton = new CaptionButton(CaptionKind.Max);
         public readonly CaptionButton CloseButton = new CaptionButton(CaptionKind.Close);
-        public Action OnToggleMaximize; // 标题栏空白区双击
 
         private string statusText = "服务启动中…";
         private bool statusOk;
@@ -547,22 +544,15 @@ namespace RuyiDesktop
             MinButton.Location = new Point(w - 138, 0);
         }
 
-        // 空白区按下 = 系统级标题栏拖动（三键是子控件，不走这里）。
-        protected override void OnMouseDown(MouseEventArgs e)
+        // Let the parent handle caption hit-testing, including native double-click and drag.
+        protected override void WndProc(ref Message m)
         {
-            base.OnMouseDown(e);
-            if (e.Button != MouseButtons.Left) return;
-            Form f = FindForm();
-            if (f == null) return;
-            Native.ReleaseCapture();
-            Native.SendMessage(f.Handle, Native.WM_NCLBUTTONDOWN, (IntPtr)Native.HTCAPTION, IntPtr.Zero);
-        }
-
-        protected override void OnMouseDoubleClick(MouseEventArgs e)
-        {
-            base.OnMouseDoubleClick(e);
-            var act = OnToggleMaximize;
-            if (act != null) act();
+            if (m.Msg == Native.WM_NCHITTEST)
+            {
+                m.Result = (IntPtr)(-1); // HTTRANSPARENT; caption buttons keep their own hit tests.
+                return;
+            }
+            base.WndProc(ref m);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -699,7 +689,6 @@ namespace RuyiDesktop
 
             // 原生标题栏：右侧三键，空白区可拖动/双击最大化；状态点反映服务状态。
             titlePanel = new TitlePanel();
-            titlePanel.OnToggleMaximize = delegate { ToggleMaximize(); };
             titlePanel.MinButton.Click += delegate { WindowState = FormWindowState.Minimized; };
             titlePanel.MaxButton.Click += delegate { ToggleMaximize(); };
             titlePanel.CloseButton.Click += delegate { Close(); };
@@ -711,6 +700,17 @@ namespace RuyiDesktop
             ApplyTheme(false); // 默认暗色；页面就绪后经主题桥上报，随 app 日夜切换
 
             bootTimer = new System.Threading.Timer(OnBootTimeout, null, 30000, System.Threading.Timeout.Infinite);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                // Keep native taskbar minimize/restore, resizing and system commands.
+                cp.Style |= 0x00020000 | 0x00010000 | 0x00080000 | 0x00040000;
+                return cp;
+            }
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -1299,6 +1299,12 @@ namespace RuyiDesktop
         // HTTRANSPARENT 而非 HTCLIENT，依赖其结果会让边带判定永远走不到。
         protected override void WndProc(ref Message m)
         {
+            // Retain the custom title bar while exposing a normal resizable window to Windows.
+            if (m.Msg == 0x0083) // WM_NCCALCSIZE
+            {
+                m.Result = IntPtr.Zero;
+                return;
+            }
             if (m.Msg == Native.WM_DPICHANGED)
             {
                 // 不调 base.WndProc：PerMonitorV2 下 base 会触发 OnDpiChanged -> RecreateHandle，
@@ -1379,6 +1385,16 @@ namespace RuyiDesktop
                 }
                 base.WndProc(ref m);
                 return;
+            }
+            if (m.Msg == Native.WM_NCHITTEST)
+            {
+                int captionLp = unchecked((int)(long)m.LParam);
+                Point captionPoint = PointToClient(new Point((short)(captionLp & 0xFFFF), (short)((captionLp >> 16) & 0xFFFF)));
+                if (titlePanel != null && titlePanel.Bounds.Contains(captionPoint) && captionPoint.X < titlePanel.Left + titlePanel.MinButton.Left)
+                {
+                    m.Result = (IntPtr)Native.HTCAPTION;
+                    return;
+                }
             }
             if (m.Msg == Native.WM_NCHITTEST && WindowState != FormWindowState.Maximized)
             {

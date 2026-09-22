@@ -603,12 +603,12 @@ try {
   ok(beforeRows.length === 0, `G0 停之前决策日志里没有 user_stop（实测 ${beforeRows.length} 行）`);
   ok(Boolean(await openInWorkbench(created.B)), 'G1 工作台换到 B（它的回合一直在飞，而且是【别处】起的那种）');
   const stopped = await waitForEval(cdp, `(() => {
-    const button = document.querySelector('.live-turn-stop');
-    if (!button) return null;
+    const button = document.querySelector('#sendBtn');
+    if (!button || button.textContent.trim() !== '停止') return null;
     button.click();
     return 1;
   })()`);
-  ok(Boolean(stopped), 'G1b 「它正在跑」卡上那枚停止键在（117m-A5：别处起的回合，用户手按的停止就是这一枚）');
+  ok(Boolean(stopped), 'G1b 后台回合通过原生输入框停止');
   const afterStop = await waitForHttp(appPort, 'GET', '/api/steward/decisions?limit=200', result => {
     const rows = ((result.json && result.json.rows) || []).filter(row => row && row.tool === 'user_stop');
     return rows.length === 1 && rows[0].targetSessionId === created.B;

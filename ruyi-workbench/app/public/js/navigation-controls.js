@@ -1,4 +1,5 @@
 'use strict';
+import { providerModels, bindModelSelect } from './model-catalog.js';
 
 // EC-D：命令面板、模型/能力弹层、模态、页签与工具栏布局领域。
 import { state } from './state.js';
@@ -132,7 +133,7 @@ function paletteActions() {
     acts.push({ label: t('palette.engine', { engine: cliGroupLabel, model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
   for (const p of chatProviders(state.config)) {   // 只做语音的服务商不进对话候选(state.js)
-    for (const m of (p.models || [])) {
+    for (const m of providerModels(p)) {
       if (!m.id) continue;
       const isCur = curPid === p.id && (m.id || '') === (curModel || '');
       acts.push({ label: t('palette.engine', { engine: p.label || p.id, model: m.label || m.id }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel(p.id, m.id) });
@@ -429,7 +430,7 @@ const modelMenuExtras = Object.freeze({
     menu.appendChild(chipMenuAction('modelMenu.refreshModels', 'refreshModels', async event => {
       const button = event && event.currentTarget ? event.currentTarget : null;
       if (button) button.disabled = true;
-      try { await refreshModels(true); } finally { if (button) button.disabled = false; }
+      try { await refreshModels(true, ctx); } finally { if (button) button.disabled = false; }
       redraw();
     }));
     menu.appendChild(chipMenuAction('modelMenu.manageProviders', 'manageProviders',
@@ -488,27 +489,20 @@ function openContextPopover() {
     const compactSelect = el('select', 'ctx-compact-model');
     const defaultName = isProviderMode() ? t('ctx.compact.defaultProvider')
       : (currentEngineMeta().agentCliType === 'kimi' ? t('ctx.compact.defaultKimi') : t('ctx.compact.defaultClaude'));
-    compactSelect.appendChild(new Option(defaultName, ''));
     const selectedProvider = String(state.config?.compactProviderId || '');
     const selectedModel = String(state.config?.compactModel || '');
-    for (const provider of chatProviders(state.config)) {   // 压缩要的是对话模型:只做语音的服务商不列
-      if (!provider || provider.enabled === false || !provider.id) continue;
-      const models = Array.isArray(provider.models) ? provider.models.slice() : [];
-      if (provider.model && !models.some(m => String((m && m.id) || m) === provider.model)) models.unshift({ id: provider.model, label: provider.model });
-      for (const row of models) {
-        const id = String((row && row.id) || row || '').trim(); if (!id) continue;
-        const label = String((row && row.label) || id);
-        const value = `${provider.id}\u001f${id}`;
-        compactSelect.appendChild(new Option(`${provider.label || provider.id} / ${label}`, value));
-      }
-    }
-    compactSelect.value = selectedProvider && selectedModel ? `${selectedProvider}\u001f${selectedModel}` : '';
+    bindModelSelect(compactSelect, {
+      models: () => chatProviders(state.config).filter(p => p.enabled !== false).flatMap(provider =>
+        providerModels(provider).map(model => ({ id: provider.id + String.fromCharCode(31) + model.id, label: (provider.label || provider.id) + ' / ' + model.label }))),
+      value: selectedProvider && selectedModel ? selectedProvider + String.fromCharCode(31) + selectedModel : '',
+      emptyLabel: defaultName, labelOnly: true,
+    });
     const compactModelHint = el('span', 'ctx-pop-hint muted');
     const renderCompactHint = () => {
       const [providerId = '', selectedId = ''] = compactSelect.value.split('\u001f');
       const model = selectedId.toLowerCase();
       const provider = (state.config?.providers || []).find(item => item && item.id === providerId);
-      const modelRow = provider && (provider.models || []).find(item => String((item && item.id) || item || '') === selectedId);
+      const modelRow = provider && providerModels(provider).find(item => String((item && item.id) || item || '') === selectedId);
       const compactWindow = Number(modelRow && modelRow.contextLength) || Number(provider && provider.contextWindow) || 0;
       const windowNote = compactWindow > 0 ? t('ctx.compact.windowNote', { window: ctxLenBadge(compactWindow) }) : '';
       compactModelHint.textContent = !compactSelect.value

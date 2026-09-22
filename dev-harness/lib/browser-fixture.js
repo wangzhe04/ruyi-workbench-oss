@@ -161,6 +161,12 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
 async function waitForTarget(debugPort, appUrl, child) {
   let lastHttp = 'never-responded';   // /json/list 到底回没回过
   let seen = [];                      // 最后一次看到的目标清单(类型 + url 前 60 字)
+  let exitedAt = -1;                  // 第一次看见启动器进程退出的轮次(-1 = 还没退)
+  // Windows 上 msedge.exe/chrome.exe 的【启动器】进程会立刻退出(exitCode=0),真正的浏览器是它另起的
+  // 一个脱离子进程,稍后才把远程调试端口绑上。所以「启动器退了」不等于「没起来」—— 退后再宽限一段,
+  // 让 /json/list 有机会回话;只有宽限期内始终 never-responded 才算真死。(清理走 stopRuyiTestBrowsers
+  // 按 user-data-dir 杀,不依赖这个已退的启动器句柄。)
+  const EXIT_GRACE = 40;              // 退出后再等 40 × 50 ms = 2 s
   for (let i = 0; i < 300; i++) {
     const result = await request(debugPort, 'GET', '/json/list');
     if (result) {
@@ -170,9 +176,13 @@ async function waitForTarget(debugPort, appUrl, child) {
       const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
       if (target && target.webSocketDebuggerUrl) return { target };
     }
-    // 进程已经退了就不必再等满 15 秒 —— 那不是慢,是死了,等下去只是把红推迟。
     if (child && child.exitCode !== null) {
-      return { target: null, why: `浏览器进程已退出(exitCode=${child.exitCode}, signal=${child.signalCode || '无'}) —— 不是慢,是没起来;等了 ${i * 50} ms,/json/list ${lastHttp}` };
+      if (exitedAt < 0) exitedAt = i;
+      // 启动器退了但 /json/list 一度回过话 —— 说明真浏览器在起,继续等目标出现,别误判成死。
+      const gaveEnoughGrace = i - exitedAt >= EXIT_GRACE;
+      if (gaveEnoughGrace && lastHttp === 'never-responded') {
+        return { target: null, why: `浏览器进程已退出(exitCode=${child.exitCode}, signal=${child.signalCode || '无'}) —— 不是慢,是没起来;等了 ${i * 50} ms,/json/list ${lastHttp}` };
+      }
     }
     await sleep(50);
   }

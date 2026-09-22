@@ -1,4 +1,5 @@
 'use strict';
+import { bindModelSelect, providerModels, agentModels } from './model-catalog.js';
 
 // EC-D 第61波：Agent 角色设置领域（库加载、草稿编辑、保存与子代理偏好选择）。
 import { state } from './state.js';
@@ -37,6 +38,15 @@ function captureAgentRoleDraft() {
   return agentRoleDraft;
 }
 function roleInput(field, value, type = 'text') { const input = document.createElement('input'); input.type = type; input.value = value == null ? '' : value; input.dataset.roleField = field; return input; }
+function roleModelSelect(field, value) {
+  const select = document.createElement('select'); select.dataset.roleField = field;
+  bindModelSelect(select, {
+    models: () => field === 'claudeModel' ? agentModels('claude', state.status?.models || [])
+      : providerModels(chatProviders(state.config).find(p => p.id === (state.config.subagentPreferredProvider || state.config.activeProvider)) || chatProviders(state.config)[0]),
+    value, emptyValue: field === 'claudeModel' ? 'inherit' : '', emptyLabel: () => t('role.permInherit'),
+  });
+  return select;
+}
 function roleField(label, control) { const wrap = el('label', 'agent-role-field'); wrap.append(el('span', '', label), control); return wrap; }
 function roleSelect(field, value, choices) { const s = document.createElement('select'); s.dataset.roleField = field; for (const [v, label] of choices) { const o = el('option', '', label); o.value = v; if (v === value) o.selected = true; s.appendChild(o); } return s; }
 function renderAgentRoleEditors() {
@@ -54,8 +64,8 @@ function renderAgentRoleEditors() {
       roleField(t('role.toolTier'), roleSelect('toolTier', role.toolTier || 'read', [['read',t('role.toolTierRead')],['edit',t('role.toolTierEdit')],['exec',t('role.toolTierExec')]])),
       roleField(t('role.permissions'), roleSelect('permissionMode', role.permissionMode || 'inherit', [['inherit',t('role.permInherit')],['default',t('role.permConfirm')],['acceptEdits',t('role.permAutoEdit')],['dontAsk',t('role.permDeny')],['plan',t('role.permReadOnly')],['auto',t('role.permSmart')],['bypass',t('role.permSkip')]])),
       roleField(t('role.isolation'), roleSelect('isolation', role.isolation || 'none', [['none',t('role.noIsolation')],['worktree','Git worktree']])),
-      roleField(t('role.openaiModel'), roleInput('openaiModel', role.models?.openai || '')),
-      roleField(t('role.claudeModel'), roleInput('claudeModel', role.models?.claude || 'inherit')),
+      roleField(t('role.openaiModel'), roleModelSelect('openaiModel', role.models?.openai || '')),
+      roleField(t('role.claudeModel'), roleModelSelect('claudeModel', role.models?.claude || 'inherit')),
       roleField(t('role.openaiIter'), roleInput('openaiBudget', role.budgets?.openai || 100, 'number')),
       roleField(t('role.claudeRounds'), roleInput('claudeBudget', role.budgets?.claude || 100, 'number')),
       roleField(t('role.openaiTools'), roleInput('openaiTools', (role.openaiTools || []).join(', '))),
@@ -99,25 +109,6 @@ function addAgentRole() {
   agentRoleDraft.push({ id, label: t('role.customRoles'), description: '', prompt: '', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, isolation: 'none' }); renderAgentRoleEditors();
 }
 
-function subagentProviderModels(provider) {
-  if (!provider) return [];
-  const seen = new Set();
-  const out = [];
-  const add = (id, label) => {
-    const value = String(id || '').trim();
-    if (!value || seen.has(value)) return;
-    seen.add(value);
-    out.push({ id: value, label: String(label || value) });
-  };
-  add(provider.subagentModel);
-  add(provider.model);
-  for (const model of (Array.isArray(provider.models) ? provider.models : [])) {
-    if (typeof model === 'string') add(model);
-    else if (model) add(model.id, model.label);
-  }
-  return out;
-}
-
 // 子代理端点/模型使用受控下拉：避免用户手抄 Provider/model id，也避免从 Kimi 切到 Ark 后
 // 把上一端点的模型误送给新端点。空值仍保留既有“跟随主端点/自动分级”语义。
 function populateSubagentPreferenceSelects(providerValue, modelValue) {
@@ -143,26 +134,14 @@ function populateSubagentPreferenceSelects(providerValue, modelValue) {
   }
   providerSel.value = preferredProvider;
 
-  const effectiveProviderId = preferredProvider || state.config?.activeProvider || '';
-  const provider = providers.find(item => item && item.id === effectiveProviderId) || providers[0] || null;
-  const models = subagentProviderModels(provider);
-  const preferredModel = String(modelValue || '').trim();
-  modelSel.textContent = '';
-  const automatic = el('option', '', t('settings.advanced.subagentPreferredModel.automatic'));
-  automatic.value = '';
-  modelSel.appendChild(automatic);
-  for (const model of models) {
-    const option = el('option', '', model.label === model.id ? model.id : `${model.label} · ${model.id}`);
-    option.value = model.id;
-    modelSel.appendChild(option);
-  }
-  if (preferredModel && !models.some(model => model.id === preferredModel)) {
-    const stale = el('option', '', t('settings.advanced.savedValue', { value: preferredModel }));
-    stale.value = preferredModel;
-    modelSel.appendChild(stale);
-  }
-  modelSel.value = preferredModel;
-  modelSel.disabled = !provider;
+  bindModelSelect(modelSel, {
+    provider: () => {
+      const list = chatProviders(state.config);
+      const id = providerSel.value || state.config?.activeProvider || '';
+      return list.find(p => p.id === id) || (!providerSel.value ? list[0] : null);
+    },
+    value: modelValue || '', emptyLabel: () => t('settings.advanced.subagentPreferredModel.automatic'),
+  });
 }
 
   function bindAgentRoles() {

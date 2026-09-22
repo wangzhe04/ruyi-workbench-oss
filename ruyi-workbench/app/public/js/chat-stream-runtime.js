@@ -380,7 +380,8 @@ export function createChatStreamRuntime(deps = {}) {
     const steerCapability = activeTurnSteerCapability();
     // 117s-G:按钮与发送门读【同一个】判据 —— 「它正在跑(这一回合是在别处起的)」那张卡在屏上时,
     // 按钮就该写「插话」,而不是写「发送」骗用户去杀掉那个回合。
-    const live = streaming || sessionAcceptsSteer(state.currentSession?.id || '');
+    const sid = state.currentSession?.id || '';
+    const live = streaming || sessionAcceptsSteer(sid) || (state.sessionRelay?.sessionId === sid && state.sessionRelay.live === true);
     const steer = live && hasText && steerCapability.ok;
     const blockedSteer = live && hasText && !steerCapability.ok;
     let delivery = $('steerDeliveryMode');
@@ -395,16 +396,15 @@ export function createChatStreamRuntime(deps = {}) {
       }
       btn.before(delivery);
     }
-    const engine = activeTurns.get(state.currentSession?.id)?.engine;
+    const engine = activeTurns.get(state.currentSession?.id)?.engine || (isProviderMode() ? 'openai' : 'claude');
     delivery.hidden = !steer || engine !== 'openai';
     if (!steer) delivery.value = 'queue';
-    btn.classList.toggle('danger', streaming && !steer && !blockedSteer);
-    btn.classList.toggle('primary', !streaming || steer);
+    btn.classList.toggle('danger', live && !steer && !blockedSteer);
+    btn.classList.toggle('primary', !live || steer);
     if (steer) { iconTextBtn(btn, 'send', t('chat.steer')); btn.onclick = () => sendPrompt(); btn.title = t('chat.steerHint'); }
     else if (blockedSteer) { iconTextBtn(btn, 'settings', t('chat.steerEnable')); btn.onclick = showClaudeSteerSetup; btn.title = t('chat.steerEnableHint'); }
-    // 只有【本页自己的流】在跑时,空输入才是「停止」:别处起的回合有它自己那张卡上的停止键(117m-A5),
-    // composer 不去抢那个语义,保持「发送」(空输入的 sendPrompt 本来就原地返回)。
-    else if (streaming) { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
+    // Every live turn uses the same stop action, regardless of its initiator.
+    else if (live) { iconTextBtn(btn, 'stop', t('common.stop')); btn.onclick = stopTurn; btn.title = ''; }
     else { iconTextBtn(btn, 'send', t('chat.send')); btn.onclick = () => sendPrompt(); btn.title = ''; }
   }
   function activeTurnSteerCapability() {

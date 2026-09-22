@@ -394,6 +394,9 @@ try {
   ok(Boolean(inClassic && inClassic.relayChannel === 'steer' && inClassic.relaySession === sessionId),
     `H2c 前端把服务端那条判定收下了(实测 ${inClassic && inClassic.relayChannel}/${inClassic && inClassic.relaySession})`);
 
+  ok(await cdp.evaluate("document.getElementById('sendBtn').textContent.trim() === '停止'"), 'H2d 后台回合空输入时显示停止');
+  ok(await cdp.evaluate("!document.querySelector('.live-turn-stop, .live-turn-title')"), 'H2e 没有重复的后台回合状态与停止入口');
+
   /* ═════════ H3 打字之后按钮写「插话」═════════ */
   await cdp.evaluate(`(() => {
     const ta = document.getElementById('promptInput');

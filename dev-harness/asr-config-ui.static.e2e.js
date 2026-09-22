@@ -85,7 +85,7 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   // 第四条（用户真机的直接原因）：清单上限 100，百炼一刷新就满；追加在末尾的语音模型被「前 100 条」当场截掉。
   assert.ok(src05.includes('const marked = models.filter(m => m.caps);') && src05.includes('if (models.length > 100) {'),
     '05: 模型清单超限时先留带能力标记的条目（不是前 100 条）');
-  assert.ok(providersJs.includes('models: keepModelCaps(fresh, p.models)'), '前端: 刷新清单折回 state.config 时保留 caps');
+  assert.ok(providersJs.includes('publishProviderModels(provider, fresh, state.providersDraft || [])'), '前端: 刷新清单折回 state.config 时保留 caps');
   assert.ok(providersJs.includes('p.models = keepModelCaps(models, p.models);'), '前端: 手动模型清单改动时保留 caps');
   // 2026-09-21（用户真机，第五条）：折回的是「名字清单」，手填的语音模型（百炼清单里没有的名字）不在里面 —— 修前 keepModelCaps
   // 只给 next 里有的条目补 caps，不在 next 里的带标记条目就地蒸发 → 候选没了 → 再添加、再折回，永远配不上。行为锁（真跑那个函数）：
@@ -274,7 +274,7 @@ assert.ok(voiceJs.includes("if (info && info.code === 'asr.upstream' && (status 
   assert.ok(wizardJs.includes('asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p))'), '新手向导:「已有对话引擎」不把只做语音的服务商算进去');
   for (const [file, needle, label] of [
     ['navigation-controls.js', 'for (const p of chatProviders(state.config)) {', '命令面板的引擎／模型候选'],
-    ['navigation-controls.js', 'for (const provider of chatProviders(state.config)) {', '压缩模型选择器'],
+    ['navigation-controls.js', 'models: () => chatProviders(state.config).filter', '压缩模型选择器'],
     ['steward-chips.js', 'for (const provider of chatProviders(config())) {', '线程头引擎菜单'],
     ['agent-roles.js', 'const providers = chatProviders(state.config);', '子代理首选端点'],
     ['steward-settings.js', 'const providers = chatProviders(config());', '管家端点选择'],

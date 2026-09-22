@@ -440,7 +440,7 @@ async function scenario({ tag, usage = USAGE, models = MODELS, sessionModel = 'g
     const from = navSrc.indexOf("chipMenuAction('modelMenu.refreshModels'");
     const to = navSrc.indexOf("chipMenuAction('modelMenu.manageProviders'");
     const refreshBlock = from >= 0 && to > from ? navSrc.slice(from, to) : '';
-    ok(refreshBlock.length > 0 && /await refreshModels\(true\)/.test(refreshBlock) && !/\bclose\(\)/.test(refreshBlock),
+    ok(refreshBlock.length > 0 && /await refreshModels\(true\b/.test(refreshBlock) && !/\bclose\(\)/.test(refreshBlock),
       `⑦b「刷新模型列表」不再 close()，改为刷完重画（宿主那一半；实测片段 ${JSON.stringify(refreshBlock.slice(0, 40))}…）`);
     ok(/deletableIds: route =>/.test(navSrc) && /providerModelIdSet\(route\.providerId\)/.test(navSrc),
       '⑦b provider 那一组的可删判据按 route 走（修前 isProviderMode() 一律 null，列表里删不掉任何一行）');

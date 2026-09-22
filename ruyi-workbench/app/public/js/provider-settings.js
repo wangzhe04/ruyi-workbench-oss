@@ -2,6 +2,8 @@
 
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
+import { bindModelSelect, providerModels, agentModels, publishProviderModels, publishAgentModels, refreshModelSelects } from './model-catalog.js';
+
 import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
 import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders } from './util.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
@@ -113,6 +115,7 @@ function followDesktopMcpProbe() {
 async function refreshStatus() {
   state.status = await api('/api/status');
   state.config = state.status.config || {};
+  for (const provider of state.config.providers || []) provider.models = providerModels(provider);
   applyTheme(state.config.theme || 'dark');
   applyUiMode(state.config.uiMode || 'pro'); // v0.9-S1 (C1)
   renderWorkspacePicker(); // v0.9-S3 (C3): reflect the default/session workspace once config is loaded
@@ -271,29 +274,18 @@ function fillMainEngineSelects() {
   provSel.value = pid;
   if (provSel.value !== pid) provSel.value = '';
   const fillModels = () => {
-    modelSel.textContent = '';
     const chosen = String(provSel.value || '');
-    if (chosen) {
-      const p = (c.providers || []).find(x => x && x.id === chosen) || null;
-      const def = p ? String(p.model || '') : '';
-      const ids = [];
-      for (const m of (p && Array.isArray(p.models)) ? p.models : []) { const id = m && typeof m === 'object' ? String(m.id || '') : String(m || ''); if (id && !ids.includes(id)) ids.push(id); }
-      if (def && !ids.includes(def)) ids.unshift(def);
-      for (const id of ids) { const m = ((p && p.models) || []).find(x => x && typeof x === 'object' && x.id === id); modelSel.appendChild(opt(String((m && m.label) || id), id)); }
-      modelSel.value = def;
-      if (modelSel.value !== def && ids.length) modelSel.value = ids[0];
-    } else {
-      modelSel.appendChild(opt(t('settings.mainEngine.defaultModel'), ''));
-      for (const m of (state.status && Array.isArray(state.status.models)) ? state.status.models : []) { if (m && m.id) modelSel.appendChild(opt(String(m.label || m.id), String(m.id))); }
-      modelSel.value = String(c.model || '');
-      if (modelSel.value !== String(c.model || '')) modelSel.value = '';
-    }
+    const provider = () => (state.config.providers || []).find(p => p.id === chosen);
+    bindModelSelect(modelSel, {
+      provider,
+      ...(chosen ? {} : { models: () => agentModels(state.config.agentCliType || 'claude', state.status?.models || []) }),
+      value: chosen ? provider()?.model || '' : state.config.model || '',
+      emptyLabel: () => t('settings.mainEngine.defaultModel'),
+    });
   };
   fillModels();
   const paintHint = () => { if (hint) hint.textContent = t(c.newThreadEngine === 'global' ? 'settings.mainEngine.hintGlobal' : 'settings.mainEngine.hintLast'); };
   paintHint();
-  if (provSel.dataset.mainEngineWired) return;
-  provSel.dataset.mainEngineWired = '1';
   provSel.onchange = () => { fillModels(); void setGlobalEngineDefault(provSel.value, modelSel.value); };
   modelSel.onchange = () => { void setGlobalEngineDefault(provSel.value, modelSel.value); };
 }
@@ -307,7 +299,10 @@ async function setGlobalEngineDefault(providerId, modelId) {
   const saved = await saveConfigPartial(patch);
   if (provSel) provSel.disabled = false; if (modelSel) modelSel.disabled = false;
   if (!saved) { fillMainEngineSelects(); return false; }
-  if (pid && state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) state.providersDraft = withModel(state.providersDraft);
+  if (pid && state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) {
+    const draft = state.providersDraft.find(p => p.id === pid);
+    if (draft) draft.model = model;
+  }
   updateEngineDependentUI();
   toast(t('settings.mainEngine.toast'), 'ok');
   return true;
@@ -371,11 +366,13 @@ function updateEngineDependentUI() {
 // Enrich the model list from GET /api/models (proxy ∪ offline for Claude; provider models ∪ live for a
 // provider). Best-effort. For a provider it also folds the fresh models into that provider's config
 // entry so the chip popover shows them. `announce` shows a toast (used by the popover's ↻ action).
-async function refreshModels(announce) {
+async function refreshModels(announce, context = {}) {
   // 124（用户 2026-09-14 走查①的前端那一半，与 GET /api/models 的服务端改动成对）：刷新要打在
   // 【正在看的这条会话】的引擎路由上 —— 服务端现在认 ?sessionId=（与 GET /api/status 同一个判据），
-  // 不带会话时才退回「新任务默认值」那条全局路由。中途换了会话则这一趟作废：别把 A 的列表写进 B 的槽位。
-  const routeSessionId = String(state.currentSession?.id || '');
+  // 不带会话时才退回全局路由。切换会话后仍更新原服务商目录，只有当前会话的状态栏刷新需要作废。
+  const routeSessionId = String(context.sessionId || state.currentSession?.id || '');
+  const requestedProvider = context.route?.engine === 'openai' ? (state.config.providers || []).find(p => p.id === context.route.providerId) : activeProviderObj();
+  const requestedEndpoint = requestedProvider ? { ...requestedProvider } : null;
   const routeQuery = routeSessionId ? `?sessionId=${encodeURIComponent(routeSessionId)}` : '';
   try {
     const r = await api('/api/models' + routeQuery);
@@ -383,7 +380,6 @@ async function refreshModels(announce) {
     // ok:false 只说明【探测那一步】没成（典型：Kimi Code CLI 没检测到），载荷里的 models 仍是这个端点
     // 自己的离线兜底清单 —— 有货就照样折回列表，只有「既没成也没货」才算刷新失败。
     if (r && r.ok === false && !fresh.length) throw new Error(r.error || t('modelMenu.refreshUnchanged'));
-    if (routeSessionId && state.currentSession?.id !== routeSessionId) return;
     if (fresh.length) {
       if (r.engine === 'openai' && r.provider) {
         // Fold the live list into the ROUTED provider's models so the chip popover reflects it.
@@ -391,9 +387,11 @@ async function refreshModels(announce) {
         // 别的 provider 之后，菜单读的是自己那条路由的 providers[].models —— 两边永不见面。
         // 2026-09-20：折回时按 id 把原来那条的 caps（能力标记，如 ['asr']）带上 —— 刷新回来的清单是「名字清单」，
         // 不是能力的事实源；修前一折回，语音识别选择器的候选就从内存里消失，随后的整份保存再把盘上的也抹掉。
-        state.config.providers = (state.config.providers || []).map(p => (p.id === r.provider ? { ...p, models: keepModelCaps(fresh, p.models) } : p));
+        const provider = (state.config.providers || []).find(p => p.id === r.provider);
+        if (provider && requestedEndpoint?.id === provider.id && requestedEndpoint.baseUrl === provider.baseUrl && requestedEndpoint.apiKey === provider.apiKey) publishProviderModels(provider, fresh, state.providersDraft || []);
       } else if (state.status) {
-        state.status.models = fresh; // Claude/Kimi 引擎：status.models 就是 chip 那一组的候选来源
+        publishAgentModels(r.agentCliType || 'claude', fresh);
+        if (!routeSessionId || state.currentSession?.id === routeSessionId) state.status.models = fresh;
       }
       onEngineConfigChanged();
       if (announce) toast(r.proxyCount ? tCount('modelMenu.refreshSuccessProxy', r.proxyCount) : t('modelMenu.refreshSuccessBuiltin'), 'ok');
@@ -514,6 +512,8 @@ async function saveConfigPartial(patch) {
   try {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
     state.config = res.config;
+    for (const provider of state.config.providers || []) provider.models = providerModels(provider);
+    refreshModelSelects();
     // 117j B2（权限口径同步）：谁写全局配置都在这一处刷一次读面，不必给每个调用方各补一遍
     // （那正是当初漏掉三处的原因）。121-K5：要刷的那一面从退役的 #permChip 换成线程头那一组
     // chip —— 权限档与引擎路由的「跟随全局」显示值都是从 state.config 读出来的。
@@ -673,7 +673,7 @@ function asrCapableOptions() {
   const out = [];
   for (const p of (state.config && state.config.providers) || []) {
     if (!p || !p.id) continue;
-    for (const m of (Array.isArray(p.models) ? p.models : [])) {
+    for (const m of providerModels(p)) {
       if (!m || typeof m !== 'object') continue;
       const caps = Array.isArray(m.caps) ? m.caps : [];
       if (!caps.includes('asr')) continue;
@@ -740,9 +740,9 @@ function buildAsrAddRow() {
   const providerSelect = el('select', 'asr-add-provider');
   providerSelect.setAttribute('aria-label', t('settings.asr.addProvider'));
   for (const p of providers) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; providerSelect.appendChild(o); }
-  const modelInput = el('input', 'asr-add-model');
-  modelInput.type = 'text';
-  modelInput.placeholder = t('settings.asr.addPlaceholder');
+  const modelInput = el('select', 'asr-add-model');
+  const fillAsrModels = () => bindModelSelect(modelInput, { provider: () => (state.config.providers || []).find(p => p.id === providerSelect.value), value: '', emptyLabel: () => t('settings.asr.addModel') });
+  fillAsrModels();
   modelInput.setAttribute('aria-label', t('settings.asr.addModel'));
   // 接口类型：跟着所选服务商预选；用户亲手改过之后换服务商才重新预选。
   const protocolSelect = el('select', 'asr-add-protocol');
@@ -751,7 +751,7 @@ function buildAsrAddRow() {
     const o = el('option'); o.value = val; o.textContent = t(key); protocolSelect.appendChild(o);
   }
   const syncProtocol = () => { protocolSelect.value = asrProtocolGuess(providers.find(p => p.id === providerSelect.value)); };
-  providerSelect.onchange = syncProtocol;
+  providerSelect.onchange = () => { syncProtocol(); fillAsrModels(); };
   syncProtocol();
   const add = el('button', 'asr-add-btn', t('settings.asr.addButton'));
   add.type = 'button';
@@ -789,7 +789,7 @@ function asrStreamCapableOptions() {
   const out = [];
   for (const p of (state.config && state.config.providers) || []) {
     if (!p || !p.id) continue;
-    for (const m of (Array.isArray(p.models) ? p.models : [])) {
+    for (const m of providerModels(p)) {
       if (!m || typeof m !== 'object' || !(Array.isArray(m.caps) && m.caps.includes('asr-stream'))) continue;
       const id = String(m.id || '').trim(); if (!id) continue;
       out.push({ providerId: p.id, providerLabel: p.label || p.id, modelId: id, modelLabel: String(m.label || id) });
@@ -805,12 +805,12 @@ function buildAsrStreamBlock() {
   if (!options.length) { block.append(label, el('p', 'field-help muted', t('settings.asrStream.none'))); return block; }
   const select = el('select', 'asr-stream-select');
   const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
-  select.appendChild(opt(t('settings.asrStream.disabled'), ''));
-  for (const o of options) select.appendChild(opt(`${o.providerLabel} / ${o.modelLabel}`, o.providerId + ASR_VALUE_SEP + o.modelId));
   const curP = String(state.config && state.config.asrStreamProviderId || ''), curM = String(state.config && state.config.asrStreamModel || '');
   const curValue = (curP && curM) ? curP + ASR_VALUE_SEP + curM : '';
-  select.value = curValue;
-  if (select.value !== curValue) select.value = '';
+  bindModelSelect(select, {
+    models: () => asrStreamCapableOptions().map(o => ({ id: o.providerId + ASR_VALUE_SEP + o.modelId, label: o.providerLabel + ' / ' + o.modelLabel })),
+    value: curValue, labelOnly: true, emptyLabel: () => t('settings.asrStream.disabled'),
+  });
   const hint = el('p', 'field-help muted', select.value ? t('settings.asrStream.hintSet') : t('settings.asrStream.hintUnset'));
   select.onchange = async () => {
     const [asrStreamProviderId = '', asrStreamModel = ''] = select.value.split(ASR_VALUE_SEP);
@@ -866,19 +866,10 @@ function buildAsrFixBlock() {
   if (provSel.value !== String(cfg.asrFixProviderId || '')) provSel.value = '';
   const modelSel = el('select', 'asr-fix-model');
   modelSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
-  const fillModels = () => {
-    modelSel.textContent = '';
-    const p = choices.find(x => x.id === provSel.value) || main;
-    const def = p && p.model ? String(p.model) : '';
-    modelSel.appendChild(opt(t('settings.asrFix.defaultModel', { name: def ? '（' + def + '）' : '' }), ''));
-    for (const m of (p && Array.isArray(p.models)) ? p.models : []) {
-      const id = m && typeof m === 'object' ? String(m.id || '') : String(m || '');
-      if (id) modelSel.appendChild(opt(String((m && typeof m === 'object' && m.label) || id), id));
-    }
-    const want = String(cfg.asrFixModel || '');
-    modelSel.value = want;
-    if (modelSel.value !== want) modelSel.value = '';
-  };
+  const fillModels = () => bindModelSelect(modelSel, {
+    provider: () => asrFixLlmProvider(provSel.value),
+    value: cfg.asrFixModel || '', emptyLabel: () => t('settings.mainEngine.defaultModel'),
+  });
   fillModels();
   const hint = el('p', 'field-help muted', asrFixHintText(modeSel.value, provSel.value));
   const save = async patch => {
@@ -1004,12 +995,12 @@ function renderAsrSettings() {
   }
   const select = el('select', 'asr-select');
   const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
-  select.appendChild(opt(t('settings.asr.disabled'), ''));
-  for (const o of options) select.appendChild(opt(`${o.providerLabel} / ${o.modelLabel}`, o.providerId + ASR_VALUE_SEP + o.modelId));
   const curP = String(state.config && state.config.asrProviderId || ''), curM = String(state.config && state.config.asrModel || '');
   const curValue = (curP && curM) ? curP + ASR_VALUE_SEP + curM : '';
-  select.value = curValue;
-  if (select.value !== curValue) select.value = ''; // 候选里已没有当初那一对 → 如实回落「不启用」
+  bindModelSelect(select, {
+    models: () => asrCapableOptions().map(o => ({ id: o.providerId + ASR_VALUE_SEP + o.modelId, label: o.providerLabel + ' / ' + o.modelLabel })),
+    value: curValue, emptyLabel: () => t('settings.asr.disabled'),
+  });
   const hint = el('p', 'field-help muted', select.value ? t('settings.asr.hintSet') : t('settings.asr.hintUnset'));
   select.onchange = async () => {
     const [asrProviderId = '', asrModel = ''] = select.value.split(ASR_VALUE_SEP);
@@ -1387,7 +1378,7 @@ function providerCard(p, idx) {
   const head = el('div', 'prov-head');
   const labelIn = el('input', 'prov-label'); labelIn.value = p.label || ''; labelIn.placeholder = t('provider.displayNamePlaceholder'); labelIn.oninput = () => { p.label = labelIn.value; };
   const idTag = el('span', 'prov-id', p.id);
-  const modChip = el('span', 'prov-modct', tCount('provider.modelCount', (p.models || []).length));
+  const modChip = el('span', 'prov-modct', tCount('provider.modelCount', providerModels(p).length));
   const testBtn = el('button', 'file-label', t('provider.testConnection')); testBtn.type = 'button'; testBtn.onclick = () => testProvider(idx, testBtn);
   const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
   // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
@@ -1475,15 +1466,19 @@ function providerCard(p, idx) {
   keyWrap.append(ki, eye); kb.append(keyWrap);
   if (keyOptional) kb.append(el('p', 'field-help muted prov-key-optional', t('provider.apiKeyOptionalHint')));
   const mb = el('div', 'field-block'); mb.append(el('label', '', t('provider.model')));
-  const mi = el('input'); mi.type = 'text'; mi.value = p.model || ''; mi.placeholder = 'deepseek-chat'; mi.setAttribute('list', `provModels_${idx}`); mi.oninput = () => { p.model = mi.value.trim(); };
-  const dl = el('datalist'); dl.id = `provModels_${idx}`; for (const m of (p.models || [])) { const o = el('option'); o.value = m.id; o.textContent = m.label || m.id; dl.appendChild(o); }
-  mb.append(mi, dl); grid.append(kb, mb);
+  const mi = el('select');
+  bindModelSelect(mi, { provider: () => p, value: p.model || '', emptyLabel: () => t('settings.mainEngine.defaultModel'), onRefresh: () => {
+    modChip.textContent = tCount('provider.modelCount', providerModels(p).length);
+    if (document.activeElement !== modelListI) modelListI.value = providerModels(p).map(m => m.id).join('\n');
+  } });
+  mi.onchange = () => { p.model = mi.value; };
+  mb.append(mi); grid.append(kb, mb);
 
   // A provider can be used even when its /models endpoint is unavailable or incomplete. Keep a manual list
-  // of model IDs alongside the single active-model input; the same list also supplies its datalist suggestions.
+  // of model IDs alongside the shared model selector. Custom IDs can be registered here.
   const modelListB = el('div', 'field-block'); modelListB.append(el('label', '', t('provider.manualModels')));
   const modelListI = el('textarea'); modelListI.rows = 3; modelListI.placeholder = t('provider.manualModelsPlaceholder');
-  modelListI.value = Array.isArray(p.models) ? p.models.map(m => String((m && m.id) || '').trim()).filter(Boolean).join('\n') : '';
+  modelListI.value = providerModels(p).map(m => m.id).join('\n');
   modelListI.oninput = () => {
     const seen = new Set();
     const models = [];
@@ -1493,6 +1488,8 @@ function providerCard(p, idx) {
       seen.add(id);
       models.push({ id, label: id });
     }
+    const removed = providerModels(p).map(m => m.id).filter(id => !seen.has(id));
+    p.hiddenModels = [...new Set([...(p.hiddenModels || []), ...removed])];
     p.models = keepModelCaps(models, p.models);   // 2026-09-20：改这份名字清单不该顺手把「可语音识别」的标记抹掉
     p.models = p.models.filter(m => seen.has(String((m && m.id) || '')));   // 但用户亲手删掉的那一行就是删了（keepModelCaps 会把带标记的补回来，这条路不要）
     // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
@@ -1502,6 +1499,8 @@ function providerCard(p, idx) {
       if (!p.hiddenModels.length) delete p.hiddenModels;
     }
     if (!p.model && models.length) p.model = models[0].id;
+    refreshModelSelects();
+    mi.value = p.model || '';
   };
   modelListB.append(modelListI, el('p', 'field-help muted', t('provider.manualModelsHint')));
 
@@ -1569,7 +1568,8 @@ function providerCard(p, idx) {
   };
   const appendModelPriceRow = (value = {}) => {
     const row = el('div', 'prov-model-price-row');
-    const modelInput = el('input'); modelInput.type = 'text'; modelInput.placeholder = t('provider.pricing.modelPlaceholder'); modelInput.value = value.model || ''; modelInput.setAttribute('list', `provModels_${idx}`); modelInput.dataset.modelPriceModel = 'true';
+    const modelInput = el('select'); modelInput.dataset.modelPriceModel = 'true';
+    bindModelSelect(modelInput, { provider: () => p, value: value.model || '', emptyLabel: () => t('provider.pricing.modelPlaceholder') });
     const rowInput = el('input'); rowInput.type = 'number'; rowInput.min = '0'; rowInput.step = '0.01'; rowInput.placeholder = t('provider.pricing.inputShort'); rowInput.value = value.inputPerM === 0 || value.inputPerM ? String(value.inputPerM) : ''; rowInput.dataset.modelPriceInput = 'true';
     const rowCached = el('input'); rowCached.type = 'number'; rowCached.min = '0'; rowCached.step = '0.01'; rowCached.placeholder = t('provider.pricing.cachedShort'); rowCached.value = value.cachedInputPerM === 0 || value.cachedInputPerM ? String(value.cachedInputPerM) : ''; rowCached.dataset.modelPriceCached = 'true';
     const rowOutput = el('input'); rowOutput.type = 'number'; rowOutput.min = '0'; rowOutput.step = '0.01'; rowOutput.placeholder = t('provider.pricing.outputShort'); rowOutput.value = value.outputPerM === 0 || value.outputPerM ? String(value.outputPerM) : ''; rowOutput.dataset.modelPriceOutput = 'true';
@@ -1667,18 +1667,15 @@ function paintProviderTestFailure(status, provider, payload) {
 async function testProvider(idx, btn) {
   const p = state.providersDraft[idx]; if (!p) return;
   const status = $(`provStatus_${idx}`);
+  const requested = { ...p };
   if (btn) { btn.disabled = true; btn.textContent = t('provider.testing'); }
   try {
-    const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: p }) });
+    const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: requested }) });
+    if (p.baseUrl !== requested.baseUrl || p.apiKey !== requested.apiKey) return;
     if (r && r.ok) {
       if (Array.isArray(r.models) && r.models.length) {
-        const existing = new Set((Array.isArray(p.models) ? p.models : []).map(m => String((m && m.id) || '').trim()).filter(Boolean));
-        p.models = [...(Array.isArray(p.models) ? p.models : []), ...r.models.filter(m => {
-          const id = String((m && m.id) || '').trim();
-          if (!id || existing.has(id)) return false;
-          existing.add(id);
-          return true;
-        })];
+        publishProviderModels(p, r.models, [...(state.config.providers || []), ...(state.providersDraft || [])]);
+        onEngineConfigChanged();
       }
       if (status) { status.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); status.classList.remove('bad'); status.classList.add('good'); }
       renderProviders();

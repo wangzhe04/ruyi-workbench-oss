@@ -5714,7 +5714,9 @@ function flushSessionIndexSync() {
 async function listSessions() {
   await ensureDirs();
   const all = await fsp.readdir(paths.sessions).catch(() => []);
-  const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE);
+  // Search metadata lives beside session heads. It is not a session and must not enter either
+  // the disk id-set or the rebuilt sidebar index (otherwise boot tries to open an undefined id).
+  const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE && f !== '_search-index-v1.json');
   const diskIds = new Set(files.map(f => f.slice(0, -5))); // strip '.json'
   // PF2 fix + 107-F9a: overlay everything not yet durable onto the disk index BEFORE trusting it. The index write
   // is debounced ~200ms, so without the overlay a read would serve a stale title / messageCount / pin / missionId
@@ -5754,6 +5756,9 @@ async function listSessions() {
       try {
         const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
         const item = JSON.parse(raw);
+        // A valid JSON cache or a damaged/misnamed head is not a session. Keep its file untouched,
+        // but never publish an entry whose id cannot be opened at this filename.
+        if (!item || !safeSessionId(item.id) || item.id !== file.slice(0, -5)) continue;
         sessions.push(sessionMeta(item));
         if (sessionIndexRebuildScanHook) await sessionIndexRebuildScanHook(String(item && item.id || ''));
       } catch {

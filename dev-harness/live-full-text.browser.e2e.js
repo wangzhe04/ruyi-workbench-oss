@@ -229,11 +229,11 @@ const SNAP = `(() => {
     currentId: session ? String(session.id || '') : '',
     hasCard: Boolean(row),
     cardRole: row ? row.className : '',
-    title: text(row, '.live-turn-title'),
+    title: text(row, '.msg-head .eng-badge'),
     body: text(row, '.live-turn-body'),
     tool: text(row, '.live-turn-tool'),
     iter: text(row, '.live-turn-iter'),
-    hasStop: Boolean(row && row.querySelector('.live-turn-stop')),
+    hasStop: text(document, '#sendBtn') === '停止',
     liveRows: box ? box.querySelectorAll('[data-live="1"]').length : -1,
     realAssistantRows: box ? box.querySelectorAll('.message.assistant:not(.live-turn)').length : -1,
     realAssistantText: box ? [...box.querySelectorAll('.message.assistant:not(.live-turn)')].map(n => n.textContent).join(' ') : '',
@@ -389,10 +389,10 @@ try {
   ok(Boolean(live), `B1 屏幕上出现了「它正在跑」那张气泡(修前这里是一片空白)`);
   if (!live) throw new Error('live card never appeared');
   ok(live.currentId === sid, `B1b 打开的就是这条线程(${live.currentId})`);
-  ok(live.title.includes('它正在跑'), `B2 气泡标题说清了这一回合是在别处起的(实测「${live.title}」)`);
+  ok(Boolean(live.title), `B2 在途消息复用原生引擎标题(实测「${live.title}」)`);
   ok(live.body.includes(FIRST) || live.body.includes(SECOND),
     `B3 正文是这一回合真流出来的话(实测「${live.body.slice(0, 60)}」)`);
-  ok(live.hasStop, 'B4 气泡上有「停止」');
+  ok(live.hasStop, 'B4 输入框复用原生「停止」');
   ok(live.liveRows === 1, `B5 屏幕上只有一张临时气泡(实测 ${live.liveRows} 张)`);
   // 本切片的数据面红线:气泡不是消息。
   ok(!live.msgRoles.includes('assistant'),
@@ -405,7 +405,7 @@ try {
   })()`);
   ok(Boolean(withTool && withTool.tool.includes('file_read')),
     `B7 「正在用」写着工具名(实测「${withTool && withTool.tool}」)`);
-  ok(Boolean(withTool && withTool.iter.includes('1')), `B8 轮次写着第 1 轮(实测「${withTool && withTool.iter}」)`);
+  ok(Boolean(withTool && !withTool.iter), 'B8 不再附加独立轮次状态行');
 
   /* ═════════ 117o-A7:屏幕上必须是 2.0 那套真实渲染,不是一坨纯文本 ═════════ */
   // 这几条才是用户第七轮那两张截图的对照点。修前这张气泡里只有一个 .live-turn-body 纯文本块,

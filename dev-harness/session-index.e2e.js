@@ -65,7 +65,7 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
 function readIndexFile() { try { const a = JSON.parse(fs.readFileSync(IDX, 'utf8')); return Array.isArray(a) ? a : null; } catch { return null; } }
 function truthFromFiles() {
   const out = [];
-  for (const f of fs.readdirSync(SESSDIR).filter(f => f.endsWith('.json') && f !== 'index.json')) {
+  for (const f of fs.readdirSync(SESSDIR).filter(f => f.endsWith('.json') && f !== 'index.json' && f !== '_search-index-v1.json')) {
     // v1.9 存储 v2:头带 messageCount 计数(权威);legacy 单文件回退 messages.length。
     try { const s = JSON.parse(fs.readFileSync(path.join(SESSDIR, f), 'utf8')); out.push({ id: s.id, title: s.title, messageCount: Number.isInteger(s.messageCount) ? s.messageCount : (s.messages || []).length, updatedAt: s.updatedAt }); } catch { /* skip */ }
   }
@@ -113,6 +113,22 @@ const byId = arr => new Map((arr || []).map(e => [String(e.id), e]));
     const idxMap = byId(idx1), truthMap = byId(truthFromFiles());
     ok([...truthMap.keys()].every(id => idxMap.has(id)) && idxMap.size === truthMap.size, '① index id-set == real session files');
     ok([...truthMap.entries()].every(([id, t]) => idxMap.get(id) && idxMap.get(id).title === t.title), '① index titles match the real files');
+
+    // Search writes a JSON cache beside session heads. A previous scan indexed it as a
+    // nameless session, causing boot to request /api/sessions/undefined.
+    const searchCache = path.join(SESSDIR, '_search-index-v1.json');
+    fs.writeFileSync(searchCache, JSON.stringify({ version: 1, entries: {} }));
+    fs.writeFileSync(IDX, JSON.stringify([...idx1, { kind: 'quick_ask' }]));
+    const lAux = await getJson(WB_PORT, '/api/sessions', hdr);
+    ok(lAux.status === 200 && lAux.json.sessions.length === 3 && lAux.json.sessions.every(s => s.id && s.id !== 'undefined'),
+      '① search cache and stale index never appear as a session');
+    ok(readIndexFile().length === 3 && readIndexFile().every(s => s.id),
+      '① stale index rebuilt without the search cache');
+    fs.rmSync(IDX, { force: true });
+    const lAuxScan = await getJson(WB_PORT, '/api/sessions', hdr);
+    ok(lAuxScan.status === 200 && lAuxScan.json.sessions.length === 3 && readIndexFile().length === 3,
+      '① fresh scan also excludes the search cache');
+    fs.rmSync(searchCache, { force: true });
 
     // ── ② running a turn keeps messageCount in the index current ────────────────────────────────────────
     await postStream(WB_PORT, { sessionId: ids[0], message: '你好', cwd: HOME });

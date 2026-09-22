@@ -1,4 +1,5 @@
 'use strict';
+import { bindModelSelect } from './model-catalog.js';
 
 import { toast } from './util.js';
 import {
@@ -746,6 +747,16 @@ export function createStewardSettingsDomain({
     select.value = saved;
   }
 
+  function fillStewardModel(modelId, providerId, value) {
+    bindModelSelect(byId(modelId), {
+      provider: () => {
+        const c = config(), id = byId(providerId)?.value || c.activeProvider;
+        return chatProviders(c).find(p => p.id === id) || null;
+      },
+      value: value || '', emptyLabel: () => t('settings.steward.modelPlaceholder'),
+    });
+  }
+
   function renderProviderSelect() {
     const threadModels = (config().stewardThreadModels && typeof config().stewardThreadModels === 'object') ? config().stewardThreadModels : {};
     const strong = (threadModels.strong && typeof threadModels.strong === 'object') ? threadModels.strong : {};
@@ -1095,14 +1106,12 @@ export function createStewardSettingsDomain({
       const resume = byId('cfgStewardAutoResume');
       if (resume) resume.value = RESUME_TO_SELECT[String(auto.resume)] || '';
       renderProviderSelect();
-      const model = byId('cfgStewardModel'); if (model) model.value = String(c.stewardModel || '');
+      fillStewardModel('cfgStewardModel', 'cfgStewardProviderId', c.stewardModel);
       // 117l-A3：强/快两档各自的模型名文本框（providerId 由上面 renderProviderSelect 里的
       // fillProviderOptions 播种，这里只补 model 字段）。
       const threadModels = (c.stewardThreadModels && typeof c.stewardThreadModels === 'object') ? c.stewardThreadModels : {};
-      const strongModel = byId('cfgStewardStrongModel');
-      if (strongModel) strongModel.value = String((threadModels.strong && threadModels.strong.model) || '');
-      const fastModel = byId('cfgStewardFastModel');
-      if (fastModel) fastModel.value = String((threadModels.fast && threadModels.fast.model) || '');
+      fillStewardModel('cfgStewardStrongModel', 'cfgStewardStrongProviderId', threadModels.strong?.model);
+      fillStewardModel('cfgStewardFastModel', 'cfgStewardFastProviderId', threadModels.fast?.model);
       const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 15000) / 1000));
       const visitIdle = byId('cfgStewardVisitIdle'); if (visitIdle) visitIdle.value = String(Number(c.stewardVisitIdleMinutes || 60));
       const turns = byId('cfgStewardMaxTurnsPerHour'); if (turns) turns.value = String(Number(c.stewardMaxTurnsPerHour || 12));
@@ -1175,7 +1184,7 @@ export function createStewardSettingsDomain({
     // 127 波 2-quater B2：走用户自己的 POST /api/config（与上面同一条 saveConfig），不经管家 —— 这个键在 06i 是
     // forbidden 档，steward_config_set 碰不到它。
     onChange('cfgStewardExemptDelegation', event => saveConfig({ stewardExemptDelegationV1: event.target.checked === true }));
-    onChange('cfgStewardProviderId', event => saveConfig({ stewardProviderId: String(event.target.value || '') }));
+    onChange('cfgStewardProviderId', event => { fillStewardModel('cfgStewardModel', 'cfgStewardProviderId', ''); saveConfig({ stewardProviderId: String(event.target.value || ''), stewardModel: '' }); });
     onChange('cfgStewardModel', event => saveConfig({ stewardModel: String(event.target.value || '').trim() }));
     // 117l-A3：强/快两档各自的服务商与模型。四个控件都在「当前 config 里的 stewardThreadModels」
     // 基础上合并那一格再整对象上传——不是只传半个（POST /api/config 是整键覆盖写，传半个会把另一
@@ -1185,9 +1194,19 @@ export function createStewardSettingsDomain({
       const currentTier = (current[tier] && typeof current[tier] === 'object') ? current[tier] : {};
       return { ...current, [tier]: { ...currentTier, [field]: value } };
     };
-    onChange('cfgStewardStrongProviderId', event => saveConfig({ stewardThreadModels: threadModelPatch('strong', 'providerId', String(event.target.value || '')) }));
+    onChange('cfgStewardStrongProviderId', event => {
+      fillStewardModel('cfgStewardStrongModel', 'cfgStewardStrongProviderId', '');
+      const patch = threadModelPatch('strong', 'providerId', String(event.target.value || ''));
+      patch.strong.model = '';
+      saveConfig({ stewardThreadModels: patch });
+    });
     onChange('cfgStewardStrongModel', event => saveConfig({ stewardThreadModels: threadModelPatch('strong', 'model', String(event.target.value || '').trim()) }));
-    onChange('cfgStewardFastProviderId', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'providerId', String(event.target.value || '')) }));
+    onChange('cfgStewardFastProviderId', event => {
+      fillStewardModel('cfgStewardFastModel', 'cfgStewardFastProviderId', '');
+      const patch = threadModelPatch('fast', 'providerId', String(event.target.value || ''));
+      patch.fast.model = '';
+      saveConfig({ stewardThreadModels: patch });
+    });
     onChange('cfgStewardFastModel', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'model', String(event.target.value || '').trim()) }));
     // 秒进毫秒出：界面按秒（下限 5），落盘按毫秒（后端 clamp [5000,120000]）。
     onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 15)) * 1000 }));

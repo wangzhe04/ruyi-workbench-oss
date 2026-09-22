@@ -697,7 +697,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 133f 重钉（前值 c0d67eec…）：零新增、零删除层，只在 `css/components/chat-composer.css` 的 .composer-voice 一族里加两段 ——
 //   加载中态（[data-state="warming"]：主色 + 转圈 + 计时，转圈复用 compact-spin 关键帧）与它的减弱动效分支。主题令牌全走 var()/color-mix。
 // 算法自证：在内存里把这两段抠掉（不碰磁盘）再算 = c0d67eec…，与上一行已钉的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '7c2b107b96e69d3c4929f4c314ef65bb288bd5711bf598864695c70517320e37';
+const LEGACY_STYLES_SHA256 = '1fe033a31e1e0e5f14ed17dac628beb7490f72a1a532dbcdf0d7b9a86d24f614';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
