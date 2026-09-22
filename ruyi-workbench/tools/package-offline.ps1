@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$OutputDir = "dist",
   [switch]$SkipExeBuild,
   [switch]$IncludeAcc,
@@ -272,6 +272,18 @@ foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
 }
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
+
+# 可选 vendor 载荷(app/ 整树拷贝已带上,这里显式核对并出声):
+#   app/public/vendor/mermaid.min.js —— 聊天内 mermaid 图渲染(前端懒加载,缺失降级为代码块)
+#   app/vendor-bin/rg.exe            —— file_search 的 ripgrep 快路径(缺失回退 JS 扫描器)
+# 两者都是「缺失不阻塞、优雅降级」的设计,所以只告警不 fail。
+foreach ($optionalVendor in @("app\public\vendor\mermaid.min.js", "app\vendor-bin\rg.exe")) {
+  if (Test-Path -LiteralPath (Join-Path $stage $optionalVendor) -PathType Leaf) {
+    Write-Host "Optional vendor payload included: $optionalVendor"
+  } else {
+    Write-Warning "Optional vendor payload missing from Full package: $optionalVendor (feature degrades gracefully)"
+  }
+}
 Copy-Item (Join-Path $root "resources") (Join-Path $stage "resources") -Recurse
 Copy-Item (Join-Path $root "config") (Join-Path $stage "config") -Recurse
 Copy-Item (Join-Path $root "docs") (Join-Path $stage "docs") -Recurse

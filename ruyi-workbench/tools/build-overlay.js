@@ -58,6 +58,9 @@ const PAYLOAD_FILES = [
   'app/public/js/agent-roles.js',
   'app/public/js/skills-memory.js',
   'app/public/js/provider-settings.js',
+  // 134 波:模型目录统一件(agent-roles/navigation-controls/provider-settings/steward-chips/steward-settings
+  // 五处静态 import)—— 漏登记即离线包白屏(43e 同款),overlay-payload-lock ③ 当场擒获。
+  'app/public/js/model-catalog.js',
   'app/public/js/agent-workflows.js',
   // 32 号文 §4：2.0 顶栏模型弹层与 3.0 管家壳的模型菜单行【共用】的构造件 —— 两壳都在 import，
   // 漏登记即离线包白屏（43e 同款事故）。
@@ -231,8 +234,11 @@ const PAYLOAD_FILES = [
 // mermaid.min.js 是上游 MIT 发布物(约 2.8 MB),由维护者手工放入 app/public/vendor/。
 // 前端对它做懒加载并在缺失时降级为普通代码块,所以「没放」是正式支持的形态,
 // 不能像 PAYLOAD_FILES 那样缺文件就让打包失败。
+// rg.exe 同理(ripgrep 上游 MIT 发布物):11-native-tools.js probeRg 优先探测
+// appRoot()/vendor-bin/rg.exe,缺失时 file_search 静默回退 JS 扫描器。
 const OPTIONAL_PAYLOAD_FILES = [
   'app/public/vendor/mermaid.min.js',
+  'app/vendor-bin/rg.exe',
 ];
 // Files that live at the overlay-package root (the applicator + docs).
 const OVERLAY_FILES = ['tools/Manage-Overlay.cmd', 'tools/Manage-Overlay.ps1', 'tools/APPLY-OVERLAY.md'];
