@@ -50,8 +50,10 @@ function assemblePlaybookPrompt(pb, values) {
 
 function ctxWindowGuess(model) {
   const m = String(model || '').toLowerCase();
+  if (/k3-256k/.test(m)) return 262144;
+  if (/kimi-k3|(^|[\/-])k3$/.test(m)) return 1048576;
   if (/haiku/.test(m)) return 200000;
-  if (/opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
+  if (/opus-5|opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
   if (/deepseek-v4/.test(m)) return 1000000;
   if (/deepseek/.test(m)) return 131072;
   if (/mimo-v2\.5-pro(?:$|[^a-z0-9])/.test(m) || /(?:^|\/)mimo-v2\.5$/.test(m)) return 1000000;
@@ -79,6 +81,18 @@ function ctxWindowGuess(model) {
   if (/minimax-m3/.test(m)) return 1000000;
   if (/minimax-m2\.7|minimax-m2\.5/.test(m)) return 196608;
   if (/gemma4|minicpm5|whiskyakm/.test(m)) return 131072;
+  if (/gemini/.test(m)) return 1048576;
+  if (/grok/.test(m)) return 500000;
+  if (/llama-4-scout/.test(m)) return 10000000;
+  if (/llama/.test(m)) return 131072;
+  if (/mistral/.test(m)) return 131072;
+  if (/doubao/.test(m)) return 131072;
+  if (/hunyuan/.test(m)) return 1000000;
+  if (/ernie/.test(m)) return 131072;
+  if (/step-5/.test(m)) return 1000000;
+  if (/step/.test(m)) return 131072;
+  if (/yi-large|yi-medium/.test(m)) return 32000;
+  if (/gpt-6/.test(m)) return 1050000;
   if (/gpt-5\.6/.test(m)) return 1050000;
   if (/gpt-5\.5/.test(m)) return 1050000;
   if (/gpt-5\.4-pro/.test(m)) return 1050000;
@@ -93,7 +107,7 @@ function ctxWindowGuess(model) {
   if (/gpt-4o|gpt-4\.1/.test(m)) return 128000;
   if (/o3|o4/.test(m)) return 200000;
   if (/claude/.test(m)) return 200000;
-  return 65536;
+  return 1000000;
 }
 
 // ── Tests ──
@@ -218,7 +232,7 @@ describe('ctxWindowGuess', () => {
   });
   it('returns current model-specific windows for MiMo/Qwen/GLM/MiniMax/Ollama', () => {
     assert.equal(ctxWindowGuess('mimo-v2.5'), 1000000);
-    assert.equal(ctxWindowGuess('mimo-v2.5-asr'), 65536);
+    assert.equal(ctxWindowGuess('mimo-v2.5-asr'), 1000000); // 不匹配 mimo-v2.5 精确档,落到 1M 兜底
     assert.equal(ctxWindowGuess('qwen3.8-flash'), 1000000);
     assert.equal(ctxWindowGuess('qwen3.6-max-preview'), 262144);
     assert.equal(ctxWindowGuess('qwen3.5-27b'), 32768);
@@ -260,14 +274,14 @@ describe('ctxWindowGuess', () => {
   it('returns 200000 for o4', () => {
     assert.equal(ctxWindowGuess('o4-mini'), 200000);
   });
-  it('returns 65536 for unknown model', () => {
-    assert.equal(ctxWindowGuess('some-random-model'), 65536);
+  it('returns 1000000 for unknown model', () => {
+    assert.equal(ctxWindowGuess('some-random-model'), 1000000);
   });
-  it('returns 65536 for empty string', () => {
-    assert.equal(ctxWindowGuess(''), 65536);
+  it('returns 1000000 for empty string', () => {
+    assert.equal(ctxWindowGuess(''), 1000000);
   });
-  it('returns 65536 for null', () => {
-    assert.equal(ctxWindowGuess(null), 65536);
+  it('returns 1000000 for null', () => {
+    assert.equal(ctxWindowGuess(null), 1000000);
   });
   it('case-insensitive matching', () => {
     assert.equal(ctxWindowGuess('DeepSeek-V4'), 1000000);

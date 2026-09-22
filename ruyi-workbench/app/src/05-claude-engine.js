@@ -1213,7 +1213,7 @@ function sanitizeProvider(raw) {
     temperature = Math.min(2, Math.max(0, Number(raw.temperature)));
   }
   // v0.8-S5: contextWindow (model window size in tokens). Clamp 8000..2000000; '' when unset so the
-  // runtime falls back to CONTEXT_WINDOW_FALLBACK (65536). A garbage value must never disable compaction.
+  // runtime falls back to CONTEXT_WINDOW_FALLBACK (1000000). A garbage value must never disable compaction.
   let contextWindow = '';
   if (raw.contextWindow !== '' && raw.contextWindow != null && Number.isFinite(Number(raw.contextWindow))) {
     contextWindow = Math.round(Math.min(2000000, Math.max(8000, Number(raw.contextWindow))));

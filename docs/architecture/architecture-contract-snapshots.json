@@ -144,6 +144,19 @@
         "tokens": 131072
       },
       {
+        "match": "k3-256k",
+        "tokens": 262144
+      },
+      {
+        "match": "kimi-k3",
+        "tokens": 1048576
+      },
+      {
+        "exact": true,
+        "match": "k3",
+        "tokens": 1048576
+      },
+      {
         "match": "kimi",
         "tokens": 262144
       },
@@ -174,6 +187,58 @@
       {
         "match": "whiskyakm",
         "tokens": 131072
+      },
+      {
+        "match": "gemini",
+        "tokens": 1048576
+      },
+      {
+        "match": "grok",
+        "tokens": 500000
+      },
+      {
+        "match": "llama-4-scout",
+        "tokens": 10000000
+      },
+      {
+        "match": "llama",
+        "tokens": 131072
+      },
+      {
+        "match": "mistral",
+        "tokens": 131072
+      },
+      {
+        "match": "doubao",
+        "tokens": 131072
+      },
+      {
+        "match": "hunyuan",
+        "tokens": 1000000
+      },
+      {
+        "match": "ernie",
+        "tokens": 131072
+      },
+      {
+        "match": "step-5",
+        "tokens": 1000000
+      },
+      {
+        "match": "step",
+        "tokens": 131072
+      },
+      {
+        "match": "yi-large",
+        "tokens": 32000
+      },
+      {
+        "match": "yi-medium",
+        "tokens": 32000
+      },
+      {
+        "match": "gpt-6",
+        "tokens": 1050000
       },
       {
         "match": "gpt-5.6",
@@ -240,6 +305,34 @@
       },
       {
         "match": "o4",
+        "tokens": 200000
+      },
+      {
+        "match": "opus-5",
+        "tokens": 1000000
+      },
+      {
+        "match": "opus-4",
+        "tokens": 1000000
+      },
+      {
+        "match": "sonnet-5",
+        "tokens": 1000000
+      },
+      {
+        "match": "sonnet-4",
+        "tokens": 1000000
+      },
+      {
+        "match": "fable",
+        "tokens": 1000000
+      },
+      {
+        "match": "mythos",
+        "tokens": 1000000
+      },
+      {
+        "match": "haiku",
         "tokens": 200000
       },
       {
@@ -324,7 +417,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "cb5fa567b6f184ba2a29c2394bbc8c699fb909ecfdb61a8e268c90952b201be3"
+    "rulesSha256": "cf1370a8d4d65a29986c95e38b8a6115997da63d0731f5e87de6f23fb86c3766"
   },
   "permission": {
     "modes": [

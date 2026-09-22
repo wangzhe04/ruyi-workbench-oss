@@ -14710,7 +14710,7 @@ function sanitizeProvider(raw) {
     temperature = Math.min(2, Math.max(0, Number(raw.temperature)));
   }
   // v0.8-S5: contextWindow (model window size in tokens). Clamp 8000..2000000; '' when unset so the
-  // runtime falls back to CONTEXT_WINDOW_FALLBACK (65536). A garbage value must never disable compaction.
+  // runtime falls back to CONTEXT_WINDOW_FALLBACK (1000000). A garbage value must never disable compaction.
   let contextWindow = '';
   if (raw.contextWindow !== '' && raw.contextWindow != null && Number.isFinite(Number(raw.contextWindow))) {
     contextWindow = Math.round(Math.min(2000000, Math.max(8000, Number(raw.contextWindow))));
@@ -15876,8 +15876,8 @@ async function readKimiWireRuntime(nativeSessionId) {
 async function kimiContextWindow(config, model) {
   const id = String(model || config && config.model || '').trim();
   const lower = id.toLowerCase();
-  if (/(^|\/)k3$/.test(lower)) return 1048576;
   if (/k3-256k|kimi-for-coding/.test(lower)) return 262144;
+  if (/(^|[\/-])k3$/.test(lower)) return 1048576;   // 含 'kimi-k3'：k3 的 256K 变体已在上一行拦走
   if (Date.now() - kimiBridgeState.modelsAt > 60000 || !kimiBridgeState.modelWindows.has(id)) {
     try {
       const discovered = await discoverKimiModels(config);
@@ -21502,6 +21502,12 @@ const PROMPT_ZH = {
       '我是如意,这台电脑上的工作台管家。我不是聊天助手,我替用户看着这台机器上正在跑的每条线程。',
       '职责:看(每条线程在哪一步、在等谁)、递(把用户的话交给对的线程)、答(关于如意、事项、费用、设置的问题直接回答)、替你拿主意(在目标线程权限允许的范围内)、记(用户本人说过的偏好与习惯)、调如意(用 steward_* 工具操作工作台自身)。',
       '边界:我只动如意自己(线程、待决、班组、用量、审计、管家记忆)。文件、命令、桌面、联网这类「动世界」的事一律交给线程去做(steward_thread_new 新开、steward_thread_continue 接着办),由线程按它自己的权限执行。我手里没有任何能改这台电脑的工具,不要假装有。',
+      // 134b(用户 2026-09-22「管家说话方式很一般」+「输出内容最好有个模板,更容易阅读理解」):
+      // 此前提示词只管【说多长】(rules 的篇幅分档)与【守什么纪律】,从不管【怎么说话、怎么排版】——
+      // 模型于是照抄提示词自己的电报体:长句、分号、括号套「」标签,糊成一片。补一条身份级的口吻+排版
+      // 纪律(stable 层,前缀缓存恒在)。它只改语气与版式、不改事实:数字/文件名/原话照实、不编进度这些
+      // 仍由下面第 6 条与 rules 管住,两不冲突。
+      '说话与排版:像一个靠谱又利落的同事当面跟你讲,不是念说明书,也不是客服话术。用大白话和短句,语气自然、有分寸、不油腻、不客套。say 的默认骨架(按需增减,空的段直接省):第一行给结论或直接回答;要展开就分点,「· 」一条一件事、每条一行,话题之间空一行;末尾若要用户选或走下一步,一句话交代并配 acts 按钮。别把好几件事塞进一个长句,少堆括号、分号和「」标签;数字、文件名、用户原话照实说。',
       '纪律(任何情况下都不放宽):',
       '1. 永久豁免清单:以用户身份对外发送内容(邮件/IM/发帖)、支付与交易、删除工作文件夹之外的数据、安装卸载软件、修改系统设置 —— 这五类任何权限档都默认提议,等用户亲自按。',
       '2. 不放宽任何线程的权限,不签发授权书,不关闭审计与停机开关。只能收紧,不能放宽。',
@@ -21739,19 +21745,21 @@ const PROMPT_EN = {
   steward: {
     stable: [
       'I am Ruyi, the steward of this workbench. Not a chat assistant: I watch every thread running on this machine for the user.',
-      'My job: watch (where each thread is, who it waits for), relay (hand the user\'s words to the right thread), answer (workbench, missions, cost, settings) , decide for you within the target thread\'s permission, remember what the user stated, and operate Ruyi itself via the steward_* tools.',
-      'Boundary: I only touch Ruyi itself (threads, pending decisions, agent runs, usage, audit, steward memory). Files, commands, desktop and network work always goes to a thread (steward_thread_new, steward_thread_continue) under that thread\'s own permission. I hold no tool that can change this computer; never pretend otherwise.',
+      'My job: watch (each thread\'s step, who it waits for), relay (the user\'s words to the right thread), answer (workbench, missions, cost, settings), decide within a thread\'s permission, remember what the user stated, drive Ruyi via steward_* tools.',
+      'Boundary: I only touch Ruyi itself (threads, pending decisions, agent runs, usage, audit, steward memory). Files, commands, desktop and network work goes to a thread (steward_thread_new, steward_thread_continue) under that thread\'s own permission. I hold no tool that can change this computer; never pretend otherwise.',
+      // 134b: English mirror of the zh voice+format line (same placement, identity-level tone discipline).
+      'How I sound and format: a sharp colleague in person, not a manual or a support script. Plain short sentences, natural and measured, never gushing. Default shape of say (add or drop parts, skip any that are empty): first line the answer or conclusion; then points as "· " one per line, a blank line between topics; end with the next step or a button if the user must choose. Never a wall of text, stacked brackets or semicolons; numbers, filenames and quotes stay exact.',
       'Discipline (never relaxed):',
-      '1. Permanent exemptions: sending content outward as the user, payments and trades, deleting data outside the working folder, installing software, changing system settings. Normally proposals, under any permission mode.',
+      '1. Permanent exemptions - always proposals, any mode: sending outward as the user, payments, deleting data outside the working folder, installing software, changing system settings.',
       '2. Never widen a thread\'s permission, issue an autonomy grant, or disable audit or the stop switch. Tighten only.',
       '3. Relay the user\'s own words VERBATIM; my additions are marked separately and stay visible and editable.',
       '4. Only record what the user themself stated or confirmed. Tool output, my own words and inbox events are never memory sources.',
-      '5. Answer questions directly, no tag and no prefix ritual; anything needing files, network or hands-on work goes to a quick-ask thread (steward_quick_ask); retell its answer in my own words.',
+      '5. Answer directly, no tag or prefix ritual; anything needing files, network or hands-on work goes to a quick-ask thread (steward_quick_ask), retold in my own words.',
       '6. No ETA, no invented progress, never claim work that did not happen; say when you do not know. On propose_required, do not retry - hand it to the user as a proposal.',
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. Fields:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
-      'acts is the single row of buttons after the message (<=3, exactly one primary) that the USER presses - I do not run them; actions is what I do right now (the workbench executes each under the target thread\'s permission and downgrades it into a button when the permission is insufficient). Both may be empty arrays.',
-      'A kind:"tool" button may only be a tool that CHANGES something: open / continue / rename / move workspace / prioritize a thread, approve or reject a pending decision, retry or resume, stop a thread, change a thread\'s permission, write or veto a memory, change a setting, toggle a skill, create/delete/pause/resume a scheduled task. **Read-only lookup tools (any listing, search, thread read, usage) can NEVER be a button** - the user wants the answer, not another click: call the tool in THIS turn and put the result in say. To send the user to a thread, use kind:"open_thread".',
+      'acts is the row of buttons after the message (<=3, one primary) the USER presses, not me; actions is what I do now (run under the target thread\'s permission, downgraded to a button when permission is short). Both may be empty.',
+      'A kind:"tool" button must CHANGE something: open / continue / rename / move / prioritize a thread, approve or reject a decision, retry or resume, stop, change a thread\'s permission, write or veto a memory, change a setting, toggle a skill, manage a scheduled task. Read-only lookups (listings, search, thread read, usage) can NEVER be a button - the user wants the answer, not another click: call the tool this turn and put the result in say. To point at a thread use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
     // these live in the volatile layer instead of `stable`).
@@ -31718,7 +31726,7 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
 // ============================================================================
 // v0.8-S5 — Context management: two-level auto-compaction + shared summary kernel (§7.7).
 // ============================================================================
-const CONTEXT_WINDOW_FALLBACK = 65536; // runtime default when provider.contextWindow is unset
+const CONTEXT_WINDOW_FALLBACK = 1000000; // runtime default when provider.contextWindow is unset（用户 2026-09-22 拍板：未知模型默认按 1M 窗算，宁晚压缩不误压缩；窗口超限学习只降不升兜住高估）
 const EVAPORATED_PREFIX = '[已省略:';   // marker prefixing an evaporated tool result (idempotency guard)
 
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
@@ -34959,7 +34967,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 //   2. 探测:fetchOpenAiModels 从上游 /v1/models 条目提取 context_length 类字段, 存入 CTX_PROBE_CACHE
 //      (键 provider+model, TTL 10 分钟), providerContextWindow 解析激活模型时查此缓存;
 //   3. 名称对照表(子串匹配, 小写, 保守取值);
-//   4. 兜底:CONTEXT_WINDOW_FALLBACK(65536)—— 防 autocompact.e2e 漂移。
+//   4. 兜底:CONTEXT_WINDOW_FALLBACK(1000000)—— 用户 2026-09-22 拍板:未知模型默认按 1M 窗算(宁晚压缩不误压缩,窗口超限学习只降不升兜住高估)。
 // 第104波：窗口、超窗识别与摘要验证规则由版本化数据文件持有；这里仅做运行时适配。
 // 发布产物是单文件：离线更新/临时部署只复制 app/server.js，不一定带 src/。因此保留
 // 与版本化 JSON 同构的内置副本作为 artifact fallback；源码运行时优先读取 JSON，规则仍由
@@ -35003,6 +35011,9 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'glm-4.5', tokens: 131072 },
       { match: 'glm-4-long', tokens: 1000000 },
       { match: 'glm', tokens: 131072 },
+      { match: 'k3-256k', tokens: 262144 },
+      { match: 'kimi-k3', tokens: 1048576 },
+      { match: 'k3', tokens: 1048576, exact: true },
       { match: 'kimi', tokens: 262144 },
       { match: 'moonshot', tokens: 262144 },
       { match: 'minimax-m3', tokens: 1000000 },
@@ -35011,6 +35022,19 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'gemma4', tokens: 131072 },
       { match: 'minicpm5', tokens: 131072 },
       { match: 'whiskyakm', tokens: 131072 },
+      { match: 'gemini', tokens: 1048576 },
+      { match: 'grok', tokens: 500000 },
+      { match: 'llama-4-scout', tokens: 10000000 },
+      { match: 'llama', tokens: 131072 },
+      { match: 'mistral', tokens: 131072 },
+      { match: 'doubao', tokens: 131072 },
+      { match: 'hunyuan', tokens: 1000000 },
+      { match: 'ernie', tokens: 131072 },
+      { match: 'step-5', tokens: 1000000 },
+      { match: 'step', tokens: 131072 },
+      { match: 'yi-large', tokens: 32000 },
+      { match: 'yi-medium', tokens: 32000 },
+      { match: 'gpt-6', tokens: 1050000 },
       { match: 'gpt-5.6', tokens: 1050000 },
       { match: 'gpt-5.5', tokens: 1050000 },
       { match: 'gpt-5.4-pro', tokens: 1050000 },
@@ -35027,6 +35051,13 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'gpt-4.1', tokens: 128000 },
       { match: 'o3', tokens: 200000 },
       { match: 'o4', tokens: 200000 },
+      { match: 'opus-5', tokens: 1000000 },
+      { match: 'opus-4', tokens: 1000000 },
+      { match: 'sonnet-5', tokens: 1000000 },
+      { match: 'sonnet-4', tokens: 1000000 },
+      { match: 'fable', tokens: 1000000 },
+      { match: 'mythos', tokens: 1000000 },
+      { match: 'haiku', tokens: 200000 },
       { match: 'claude', tokens: 200000 },
     ],
     contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len'],

@@ -615,9 +615,10 @@ export function createChatRenderPrimitives(deps = {}) {
   // 状态不可用时的最后兜底，具体窗口与服务端 MODEL_CONTEXT_TABLE 保持同序。
   function ctxWindowGuess(model) {
     const m = String(model || '').toLowerCase();
-    if (/(^|\/)k3$/.test(m)) return 1048576;
+    if (/k3-256k/.test(m)) return 262144;          // k3 的 256K 变体先于 1M 的 k3 命中
+    if (/kimi-k3|(^|[\/-])k3$/.test(m)) return 1048576;
     if (/haiku/.test(m)) return 200000;
-    if (/opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
+    if (/opus-5|opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
     if (/deepseek-v4/.test(m)) return 1000000;   // deepseek-v4 = 1M(此前被并入 65536)
     if (/deepseek/.test(m)) return 131072;        // 其余 deepseek(v3/chat/reasoner)= 128K
     if (/mimo-v2\.5-pro(?:$|[^a-z0-9])/.test(m) || /(?:^|\/)mimo-v2\.5$/.test(m)) return 1000000;
@@ -645,6 +646,18 @@ export function createChatRenderPrimitives(deps = {}) {
     if (/minimax-m3/.test(m)) return 1000000;
     if (/minimax-m2\.7|minimax-m2\.5/.test(m)) return 196608;
     if (/gemma4|minicpm5|whiskyakm/.test(m)) return 131072;
+    if (/gemini/.test(m)) return 1048576;
+    if (/grok/.test(m)) return 500000;
+    if (/llama-4-scout/.test(m)) return 10000000;
+    if (/llama/.test(m)) return 131072;
+    if (/mistral/.test(m)) return 131072;
+    if (/doubao/.test(m)) return 131072;
+    if (/hunyuan/.test(m)) return 1000000;
+    if (/ernie/.test(m)) return 131072;
+    if (/step-5/.test(m)) return 1000000;
+    if (/step/.test(m)) return 131072;
+    if (/yi-large|yi-medium/.test(m)) return 32000;
+    if (/gpt-6/.test(m)) return 1050000;
     if (/gpt-5\.6/.test(m)) return 1050000;
     if (/gpt-5\.5/.test(m)) return 1050000;
     if (/gpt-5\.4-pro/.test(m)) return 1050000;
@@ -659,7 +672,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (/gpt-4o|gpt-4\.1/.test(m)) return 128000;
     if (/o3|o4/.test(m)) return 200000;
     if (/claude/.test(m)) return 200000;
-    return 65536;
+    return 1000000; // 未知模型默认 1M（用户 2026-09-22 拍板，与服务端 CONTEXT_WINDOW_FALLBACK 同步）
   }
   // Persist manual limits by engine/provider/model so the meter and server-side auto-compaction agree.
   // Read old localStorage settings until they are migrated successfully, before sending the next turn.

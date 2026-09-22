@@ -125,5 +125,5 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
 // ============================================================================
 // v0.8-S5 — Context management: two-level auto-compaction + shared summary kernel (§7.7).
 // ============================================================================
-const CONTEXT_WINDOW_FALLBACK = 65536; // runtime default when provider.contextWindow is unset
+const CONTEXT_WINDOW_FALLBACK = 1000000; // runtime default when provider.contextWindow is unset（用户 2026-09-22 拍板：未知模型默认按 1M 窗算，宁晚压缩不误压缩；窗口超限学习只降不升兜住高估）
 const EVAPORATED_PREFIX = '[已省略:';   // marker prefixing an evaporated tool result (idempotency guard)

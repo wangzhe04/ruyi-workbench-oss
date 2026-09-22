@@ -4,17 +4,17 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 const { getFreePort } = require('./free-port.js');
 // E2E for v1.0.2-S2「上下文窗口三级自适应」. 零依赖、离线、node 直跑。
 // 解析链(优先级从高到低):manual(provider.contextWindow) > probe(/v1/models context_length, 缓存 10min)
-//   > table(模型名子串对照) > fallback(65536)。
+//   > table(模型名子串对照) > fallback(1000000)。
 //
 // 两半:
 //  (a) 直接单元(require server.js, 无需起服务):
 //      · contextWindowFromTable 命中当前模型家族与快照(DeepSeek/Qwen/MiMo/GLM/MiniMax/Ollama/OpenAI GPT-5.x);
 //      · extractContextLength 从 /v1/models 条目取 context_length 类字段的第一个正数;
-//      · resolveContextWindow 四级优先级:①手动覆盖探测;③无探测无手动命中名称表;④全无→65536。
+//      · resolveContextWindow 四级优先级:①手动覆盖探测;③无探测无手动命中名称表;④全无→1000000。
 //  (b) 动态(起 fake-openai + workbench):
 //      · FAKE_MODELS_CONTEXT_LEN=200000 → GET /api/models 每个模型带 contextLength=200000(探测生效);
 //      · 探测后 GET /api/status 的 contextWindowResolved.source==='probe' 且 value===200000;
-//      · 关掉 FAKE_MODELS_CONTEXT_LEN(默认)时 provider model 'fake-model' 无名称表命中 → source==='fallback' value 65536。
+//      · 关掉 FAKE_MODELS_CONTEXT_LEN(默认)时 provider model 'fake-model' 无名称表命中 → source==='fallback' value 1000000。
 //  判定行:`CONTEXT-WINDOW E2E: ALL PASS`。Port 9142(fake)+9143(wb)。
 'use strict';
 const cp = require('child_process');
@@ -74,6 +74,25 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
   ok(srv.contextWindowFromTable('gpt-4o-mini') === 128000 && srv.contextWindowFromTable('gpt-4.1') === 128000, '(unit) table: gpt-4o/gpt-4.1 → 128000');
   ok(srv.contextWindowFromTable('o3-mini') === 200000 && srv.contextWindowFromTable('o4') === 200000, '(unit) table: o3/o4 → 200000');
   ok(srv.contextWindowFromTable('claude-3-5-sonnet') === 200000, '(unit) table: claude → 200000');
+  // 2026-09-22 全面更新新增家族(顺序敏感:k3-256k 先于 kimi-k3/k3;llama-4-scout 先于 llama;step-5 先于 step;具名 Anthropic 档先于 claude)。
+  ok(srv.contextWindowFromTable('kimi-k3') === 1048576 && srv.contextWindowFromTable('k3') === 1048576
+    && srv.contextWindowFromTable('moonshot/k3') === 1048576 && srv.contextWindowFromTable('k3-256k') === 262144
+    && srv.contextWindowFromTable('kimi-for-coding') === 262144, '(unit) table: Kimi k3 1M, k3-256k/kimi-for-coding 256K');
+  ok(srv.contextWindowFromTable('gpt-6') === 1050000 && srv.contextWindowFromTable('gpt-6-mini') === 1050000, '(unit) table: GPT-6 → 1050000');
+  ok(srv.contextWindowFromTable('gemini-2.5-pro') === 1048576 && srv.contextWindowFromTable('grok-4.6') === 500000
+    && srv.contextWindowFromTable('grok-3') === 500000, '(unit) table: Gemini 1M, Grok 500K');
+  ok(srv.contextWindowFromTable('llama-4-scout') === 10000000 && srv.contextWindowFromTable('llama-3.1-8b') === 131072,
+    '(unit) table: llama-4-scout 10M, 其余 llama 131072');
+  ok(srv.contextWindowFromTable('mistral-large') === 131072 && srv.contextWindowFromTable('doubao-pro') === 131072
+    && srv.contextWindowFromTable('ernie-4.5') === 131072, '(unit) table: mistral/doubao/ernie → 131072');
+  ok(srv.contextWindowFromTable('hunyuan-large') === 1000000, '(unit) table: hunyuan → 1000000');
+  ok(srv.contextWindowFromTable('step-5') === 1000000 && srv.contextWindowFromTable('step-3') === 131072,
+    '(unit) table: step-5 1M, 其余 step 131072');
+  ok(srv.contextWindowFromTable('yi-large') === 32000 && srv.contextWindowFromTable('yi-medium') === 32000,
+    '(unit) table: yi-large/yi-medium → 32000');
+  ok(srv.contextWindowFromTable('claude-opus-5') === 1000000 && srv.contextWindowFromTable('claude-sonnet-5') === 1000000
+    && srv.contextWindowFromTable('claude-fable-5') === 1000000 && srv.contextWindowFromTable('claude-haiku-4') === 200000,
+    '(unit) table: Anthropic opus/sonnet/fable 1M, haiku 200K(具名档先于 claude 家族兜底)');
   ok(srv.contextWindowFromTable('totally-unknown-model') === undefined, '(unit) table: 无命中 → undefined');
 
   ok(srv.extractContextLength({ context_length: 128000 }) === 128000, '(unit) extract: context_length');
@@ -88,9 +107,9 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
   // ③ 无探测无手动 → 命中名称表。
   const rTable = srv.resolveContextWindow({ id: 'p2', model: 'deepseek-chat', contextWindow: '', models: [] });
   ok(rTable.value === 131072 && rTable.source === 'table', '(unit) resolve: 无手动无探测 → 命中名称表(source table)');
-  // ④ 全无 → 65536 fallback。
+  // ④ 全无 → 1000000 fallback。
   const rFb = srv.resolveContextWindow({ id: 'p3', model: 'some-obscure-model', contextWindow: '', models: [] });
-  ok(rFb.value === srv.CONTEXT_WINDOW_FALLBACK && rFb.value === 65536 && rFb.source === 'fallback', '(unit) resolve: 全无 → 65536 (source fallback)');
+  ok(rFb.value === srv.CONTEXT_WINDOW_FALLBACK && rFb.value === 1000000 && rFb.source === 'fallback', '(unit) resolve: 全无 → 1000000 (source fallback)');
 
   // ② 探测生效 + 手动覆盖探测:先用 fetchOpenAiModels 填探测缓存, 再断言 resolve 命中 probe;然后加 contextWindow 手动覆盖。
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_MODELS_CONTEXT_LEN: '200000' }, windowsHide: true });

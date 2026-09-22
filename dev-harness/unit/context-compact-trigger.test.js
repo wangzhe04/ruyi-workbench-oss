@@ -186,7 +186,7 @@ function frontend(config = configFor(), legacy = {}) {
       if (api.fail) throw new Error('save failed');
       return { ok: true, config: JSON.parse(options.body) };
     }
-    return { contextWindowResolved: { value: 65536, source: 'fallback', engine: 'agent', agentCliType: 'claude', model: state.config.model } };
+    return { contextWindowResolved: { value: 1000000, source: 'fallback', engine: 'agent', agentCliType: 'claude', model: state.config.model } };
   };
   const ui = load('chat-render-primitives.js', 'createChatRenderPrimitives')({
     state, api, currentModelId: () => state.config.model, isProviderMode: () => !!state.config.activeProvider,
@@ -213,7 +213,7 @@ test('legacy global override migrates once; Auto zero prevents it reappearing', 
   await f.ui.setCtxWindowManual(0);
   f.storage.set('wcw.ctxWindow', '1000000');
   assert.equal(f.ui.ctxWindowManual(), 0);
-  assert.equal(f.ui.ctxWindow(), 65536, 'unknown main model matches server fallback');
+  assert.equal(f.ui.ctxWindow(), 1000000, 'unknown main model matches server fallback');
 });
 
 test('manual save captures its route and serializes rapid edits without losing other overrides', async () => {
@@ -242,14 +242,14 @@ test('failed migration leaves legacy value intact and can be retried', async () 
 
 test('Auto ignores obsolete manual/external usage and rejects status from another route', () => {
   const f = frontend(configFor(0));
-  f.state.status.contextWindowResolved = { engine: 'agent', agentCliType: 'claude', model: f.state.config.model, value: 1000000, source: 'table' };
+  f.state.status.contextWindowResolved = { engine: 'agent', agentCliType: 'claude', model: f.state.config.model, value: 777000, source: 'table' };
   f.state.shownUsage = { contextEngine: 'agent', contextAgentCliType: 'claude', contextModel: f.state.config.model, contextWindow: 131072, source: 'external-compact' };
-  assert.equal(f.ui.ctxWindow(), 1000000);
+  assert.equal(f.ui.ctxWindow(), 777000);
   f.state.shownUsage.source = 'native';
   f.state.shownUsage.contextWindowSource = 'manual';
-  assert.equal(f.ui.ctxWindow(), 1000000);
+  assert.equal(f.ui.ctxWindow(), 777000);
   f.state.status.contextWindowResolved.agentCliType = 'kimi';
-  assert.notEqual(f.ui.ctxWindow(), 1000000);
+  assert.notEqual(f.ui.ctxWindow(), 777000);
 });
 
 test('send waits for limit persistence; on failure it preserves the draft and attachments', async () => {

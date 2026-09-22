@@ -144,6 +144,19 @@
       "tokens": 131072
     },
     {
+      "match": "k3-256k",
+      "tokens": 262144
+    },
+    {
+      "match": "kimi-k3",
+      "tokens": 1048576
+    },
+    {
+      "match": "k3",
+      "tokens": 1048576,
+      "exact": true
+    },
+    {
       "match": "kimi",
       "tokens": 262144
     },
@@ -174,6 +187,58 @@
     {
       "match": "whiskyakm",
       "tokens": 131072
+    },
+    {
+      "match": "gemini",
+      "tokens": 1048576
+    },
+    {
+      "match": "grok",
+      "tokens": 500000
+    },
+    {
+      "match": "llama-4-scout",
+      "tokens": 10000000
+    },
+    {
+      "match": "llama",
+      "tokens": 131072
+    },
+    {
+      "match": "mistral",
+      "tokens": 131072
+    },
+    {
+      "match": "doubao",
+      "tokens": 131072
+    },
+    {
+      "match": "hunyuan",
+      "tokens": 1000000
+    },
+    {
+      "match": "ernie",
+      "tokens": 131072
+    },
+    {
+      "match": "step-5",
+      "tokens": 1000000
+    },
+    {
+      "match": "step",
+      "tokens": 131072
+    },
+    {
+      "match": "yi-large",
+      "tokens": 32000
+    },
+    {
+      "match": "yi-medium",
+      "tokens": 32000
+    },
+    {
+      "match": "gpt-6",
+      "tokens": 1050000
     },
     {
       "match": "gpt-5.6",
@@ -240,6 +305,34 @@
     },
     {
       "match": "o4",
+      "tokens": 200000
+    },
+    {
+      "match": "opus-5",
+      "tokens": 1000000
+    },
+    {
+      "match": "opus-4",
+      "tokens": 1000000
+    },
+    {
+      "match": "sonnet-5",
+      "tokens": 1000000
+    },
+    {
+      "match": "sonnet-4",
+      "tokens": 1000000
+    },
+    {
+      "match": "fable",
+      "tokens": 1000000
+    },
+    {
+      "match": "mythos",
+      "tokens": 1000000
+    },
+    {
+      "match": "haiku",
       "tokens": 200000
     },
     {

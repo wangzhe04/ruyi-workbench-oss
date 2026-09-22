@@ -4,7 +4,7 @@
 //   2. 探测:fetchOpenAiModels 从上游 /v1/models 条目提取 context_length 类字段, 存入 CTX_PROBE_CACHE
 //      (键 provider+model, TTL 10 分钟), providerContextWindow 解析激活模型时查此缓存;
 //   3. 名称对照表(子串匹配, 小写, 保守取值);
-//   4. 兜底:CONTEXT_WINDOW_FALLBACK(65536)—— 防 autocompact.e2e 漂移。
+//   4. 兜底:CONTEXT_WINDOW_FALLBACK(1000000)—— 用户 2026-09-22 拍板:未知模型默认按 1M 窗算(宁晚压缩不误压缩,窗口超限学习只降不升兜住高估)。
 // 第104波：窗口、超窗识别与摘要验证规则由版本化数据文件持有；这里仅做运行时适配。
 // 发布产物是单文件：离线更新/临时部署只复制 app/server.js，不一定带 src/。因此保留
 // 与版本化 JSON 同构的内置副本作为 artifact fallback；源码运行时优先读取 JSON，规则仍由
@@ -48,6 +48,9 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'glm-4.5', tokens: 131072 },
       { match: 'glm-4-long', tokens: 1000000 },
       { match: 'glm', tokens: 131072 },
+      { match: 'k3-256k', tokens: 262144 },
+      { match: 'kimi-k3', tokens: 1048576 },
+      { match: 'k3', tokens: 1048576, exact: true },
       { match: 'kimi', tokens: 262144 },
       { match: 'moonshot', tokens: 262144 },
       { match: 'minimax-m3', tokens: 1000000 },
@@ -56,6 +59,19 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'gemma4', tokens: 131072 },
       { match: 'minicpm5', tokens: 131072 },
       { match: 'whiskyakm', tokens: 131072 },
+      { match: 'gemini', tokens: 1048576 },
+      { match: 'grok', tokens: 500000 },
+      { match: 'llama-4-scout', tokens: 10000000 },
+      { match: 'llama', tokens: 131072 },
+      { match: 'mistral', tokens: 131072 },
+      { match: 'doubao', tokens: 131072 },
+      { match: 'hunyuan', tokens: 1000000 },
+      { match: 'ernie', tokens: 131072 },
+      { match: 'step-5', tokens: 1000000 },
+      { match: 'step', tokens: 131072 },
+      { match: 'yi-large', tokens: 32000 },
+      { match: 'yi-medium', tokens: 32000 },
+      { match: 'gpt-6', tokens: 1050000 },
       { match: 'gpt-5.6', tokens: 1050000 },
       { match: 'gpt-5.5', tokens: 1050000 },
       { match: 'gpt-5.4-pro', tokens: 1050000 },
@@ -72,6 +88,13 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'gpt-4.1', tokens: 128000 },
       { match: 'o3', tokens: 200000 },
       { match: 'o4', tokens: 200000 },
+      { match: 'opus-5', tokens: 1000000 },
+      { match: 'opus-4', tokens: 1000000 },
+      { match: 'sonnet-5', tokens: 1000000 },
+      { match: 'sonnet-4', tokens: 1000000 },
+      { match: 'fable', tokens: 1000000 },
+      { match: 'mythos', tokens: 1000000 },
+      { match: 'haiku', tokens: 200000 },
       { match: 'claude', tokens: 200000 },
     ],
     contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len'],

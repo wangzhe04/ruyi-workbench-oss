@@ -169,8 +169,8 @@ async function readKimiWireRuntime(nativeSessionId) {
 async function kimiContextWindow(config, model) {
   const id = String(model || config && config.model || '').trim();
   const lower = id.toLowerCase();
-  if (/(^|\/)k3$/.test(lower)) return 1048576;
   if (/k3-256k|kimi-for-coding/.test(lower)) return 262144;
+  if (/(^|[\/-])k3$/.test(lower)) return 1048576;   // 含 'kimi-k3'：k3 的 256K 变体已在上一行拦走
   if (Date.now() - kimiBridgeState.modelsAt > 60000 || !kimiBridgeState.modelWindows.has(id)) {
     try {
       const discovered = await discoverKimiModels(config);
